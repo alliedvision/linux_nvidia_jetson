@@ -1,0 +1,39 @@
+From fbbc4c84a4973ad276579975f9017229348f1f62 Mon Sep 17 00:00:00 2001
+From: Timo Alho <talho@nvidia.com>
+Date: Thu, 15 Feb 2018 12:28:18 +0200
+Subject: [PATCH 355/356] kernel/printk: Don't try to print from IRQ/NMI
+ (again)
+
+Similar to patch "kernel/printk: Don't try to print from IRQ/NMI
+region", make changes to downstream added code as well:
+
+On -RT we try to acquire sleeping locks which might lead to warnings
+from lockdep or a warn_on() from spin_try_lock() (which is a rtmutex on
+RT).
+We don't print in general from a IRQ off region so we should not try
+this via console_unblank() / bust_spinlocks() as well.
+
+Signed-off-by: Timo Alho <talho@nvidia.com>
+---
+ kernel/printk/printk.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index bb66850..2b0053b 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -1694,6 +1694,11 @@ static void call_console_drivers(int level,
+ 	if (!console_drivers)
+ 		return;
+ 
++	if (IS_ENABLED(CONFIG_PREEMPT_RT_BASE)) {
++		if (in_irq() || in_nmi())
++			return;
++	}
++
+ 	migrate_disable();
+ 	for_each_console(con) {
+ 		if (exclusive_console && con != exclusive_console)
+-- 
+2.1.4
+

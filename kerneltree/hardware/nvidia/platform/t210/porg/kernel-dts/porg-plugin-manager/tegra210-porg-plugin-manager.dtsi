@@ -1,0 +1,159 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+/ {
+	plugin-manager {
+		fragement@0 {
+			ids = ">=3448-0000-100";
+			override@0 {
+				target = <&ina3221x>;
+				_overlay_ {
+					channel@0 {
+						ti,rail-name = "POM_5V_IN";
+					};
+					channel@1 {
+						ti,rail-name = "POM_5V_GPU";
+					};
+				};
+			};
+
+		};
+
+		fragment@1 {
+			ids = ">=3448-0000-101";
+			override@0 {
+				target = <&max77620_sd0>;
+				_overlay_ {
+					regulator-min-microvolt = <600000>;
+				};
+			};
+		};
+
+		fragment@2 {
+			ids = "<3448-0000-200";
+			override@0 {
+				target = <&tegra_i2s1>;
+				_overlay_ {
+					regulator-supplies = "vdd-1v8-audio-hv", "vdd-1v8-audio-hv-bias";
+					vdd-1v8-audio-hv-supply = <&max77620_sd3>;
+					vdd-1v8-audio-hv-bias-supply = <&max77620_sd3>;
+					fsync-width = <15>;
+					status = "okay";
+				};
+			};
+
+			override@1 {
+				target = <&tegra_i2s4>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+
+			override@2 {
+				target = <&sound_card>;
+				_overlay_ {
+					nvidia,dai-link-1 {
+						cpu-dai = <&tegra_i2s1>;
+						cpu-dai-name = "I2S1";
+					};
+				};
+			};
+		};
+
+		fragment@3 {
+			ids = ">=3448-0002-100";
+			override@0 {
+				target = <&sdhci3>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+
+			override@1 {
+				target = <&sdhci0>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+
+		fragment@4 {
+			ids = "3449-0000-000";
+			override@0 {
+				target = <&suspend_gpio>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+
+			override@1 {
+				target = <&p3449_vdd_usb_hub_en>;
+				_overlay_ {
+					gpio = <&gpio TEGRA_GPIO(A, 6) 0>;
+					enable-active-low;
+					gpio-open-drain;
+				};
+			};
+		};
+
+		fragment@5 {
+			ids = "3449-0000-100", "3449-0000-200";
+			override@0 {
+				target = <&suspend_gpio>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+
+			override@1 {
+				target = <&p3449_vdd_usb_hub_en>;
+				_overlay_ {
+					gpio = <&gpio TEGRA_GPIO(A, 6) 0>;
+					enable-active-high;
+				};
+			};
+		};
+
+		fragement@6 {
+                        odm-data = "enable-tegra-wdt";
+                        override@0 {
+                                target = <&tegra_wdt>;
+                                _overlay_ {
+                                        status = "okay";
+                                };
+                        };
+                };
+
+                fragement@7 {
+                        odm-data = "enable-pmic-wdt";
+                        override@0 {
+                                target = <&spmic_wdt>;
+                                _overlay_ {
+                                        status = "okay";
+                                };
+                        };
+                };
+
+                fragement@8 {
+                        odm-data = "enable-pmic-wdt",
+                                "enable-tegra-wdt";
+                        override@0 {
+                                target = <&soft_wdt>;
+                                _overlay_ {
+                                        status = "disabled";
+                                };
+                        };
+                };
+	};
+};

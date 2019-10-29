@@ -1,0 +1,29 @@
+From 79548998f1a2c00b66dfb3189509d66ccb54f7da Mon Sep 17 00:00:00 2001
+From: Allen Martin <amartin@nvidia.com>
+Date: Wed, 11 Oct 2017 14:37:26 -0700
+Subject: [PATCH 353/356] blk-mq: change wait to swait
+
+Change wait_event_timeout() to swait_event_timeout() because of type
+change of mq_freeze_wq in PREEMPT_RT patch series.
+
+Signed-off-by: Allen Martin <amartin@nvidia.com>
+---
+ block/blk-mq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/block/blk-mq.c b/block/blk-mq.c
+index 42c232a..6ec9c77 100644
+--- a/block/blk-mq.c
++++ b/block/blk-mq.c
+@@ -76,7 +76,7 @@ EXPORT_SYMBOL_GPL(blk_mq_freeze_queue_wait);
+ int blk_mq_freeze_queue_wait_timeout(struct request_queue *q,
+ 				     unsigned long timeout)
+ {
+-	return wait_event_timeout(q->mq_freeze_wq,
++	return swait_event_timeout(q->mq_freeze_wq,
+ 					percpu_ref_is_zero(&q->q_usage_counter),
+ 					timeout);
+ }
+-- 
+2.1.4
+

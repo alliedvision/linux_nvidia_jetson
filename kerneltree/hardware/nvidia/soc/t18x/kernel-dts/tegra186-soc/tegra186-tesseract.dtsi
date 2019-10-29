@@ -1,0 +1,121 @@
+/*
+ * tegra186-tesseract.dtsi: Tesseract RTCPU DTSI file.
+ *
+ * Copyright (c) 2017 NVIDIA Corporation.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ *
+ */
+
+/ {
+	tesseract@b000000 {
+		/* RTCPU node for tesseract firmware */
+		compatible = "nvidia,tegra186-sce-ivc";
+		status = "disabled";
+
+		nvidia,cpu-name = "tesseract";
+
+		reg =	<0 0xb000000 0 0x1000>,	  /* SCE EVP (SCE_ATCM_EVP) */
+			<0 0xb1f0000 0 0x40000>,  /* SCE PM */
+			<0 0xb230000 0 0x10000>,  /* APS_FRSC (SCE_CFG) */
+			<0 0xb040000 0 0x10000>,
+			<0 0xb050000 0 0x10000>;
+		reg-names = "sce-evp", "sce-pm", "sce-cfg",
+				"ast-cpu", "ast-dma";
+
+		iommus = <&smmu TEGRA_SID_RCE>;
+
+		clocks =
+			<&tegra_car TEGRA186_CLK_SCE_APB>,
+			<&tegra_car TEGRA186_CLK_SCE_CPU_NIC>,
+			<&tegra_car TEGRA186_CLK_SCE_NIC>;
+		clock-names = "sce-apb", "sce-cpu-nic", "sce-nic";
+		resets =
+			<&tegra_car TEGRA186_RESET_TSCTNSCE>,
+			<&tegra_car TEGRA186_RESET_SCE_PM>,
+			<&tegra_car TEGRA186_RESET_SCE_DBGRESETN>,
+			<&tegra_car TEGRA186_RESET_SCE_PRESETDBGN>,
+			<&tegra_car TEGRA186_RESET_SCE_ACTMON>,
+			<&tegra_car TEGRA186_RESET_SCE_DMA>,
+			<&tegra_car TEGRA186_RESET_SCE_TKE>,
+			<&tegra_car TEGRA186_RESET_SCE_GTE>,
+			<&tegra_car TEGRA186_RESET_SCE_CFG>,
+			<&tegra_car TEGRA186_RESET_SCE_NRESET>,
+			<&tegra_car TEGRA186_RESET_SCE_NSYSPORESET>;
+
+		reset-names =
+			"tsctnsce",
+			"sce-pm",
+			"sce-dbgresetn",
+			"sce-presetdbgn",
+			"sce-actmon",
+			"sce-dma",
+			"sce-tke",
+			"sce-gte",
+			"sce-cfg",
+			"sce-nreset",
+			"sce-nsysporeset";
+
+		nvidia,trace = <&tegra_tesseract_rtcpu_trace 4 0x70100000 0x100000>;
+		nvidia,ivc-channels = <&tegra_tesseract_ivc 2 0x90000000 0x10000>;
+
+		hsp {
+			compatible = "nvidia,tegra186-hsp-mailbox";
+			nvidia,hsp-shared-mailbox =
+				<&sce_hsp 1 &sce_hsp 6>;
+			nvidia,hsp-shared-mailbox-names =
+				"ivc-pair", "cmd-pair";
+		};
+	};
+
+	tegra_tesseract_ivc: tesseract-sce-ivc-bus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dbg@1 {
+			compatible = "nvidia,tegra-ivc-cdev";
+			nvidia,devname = "tesseract-debug";
+			nvidia,service = "debug";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <512>;
+		};
+		dbg@2 {
+			compatible = "nvidia,tegra186-camera-ivc-protocol-debug";
+			nvidia,debugfs = "tesseract";
+			nvidia,service = "debug";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <512>;
+		};
+		syncpt_disp@0 {
+			compatible = "nvidia,tegra-ivc-syncpt-disp";
+			nvidia,devname = "syncpt_display";
+			nvidia,service = "syncpt_display";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <8>;
+			nvidia,frame-size = <64>;
+		};
+	};
+
+	tegra_tesseract_rtcpu_trace: tegra-tesseract-rtcpu-trace {
+		nvidia,enable-early;
+		nvidia,enable-printk;
+		nvidia,interval-ms = <50>;
+		nvidia,log-prefix = "[SCE]";
+	};
+};

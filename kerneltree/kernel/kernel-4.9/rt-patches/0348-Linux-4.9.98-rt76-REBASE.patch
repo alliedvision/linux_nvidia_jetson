@@ -1,0 +1,19 @@
+From 0a27e89b8882930c71d73ddc6e7dcbeae79a1551 Mon Sep 17 00:00:00 2001
+From: Julia Cartwright <julia@ni.com>
+Date: Mon, 26 Feb 2018 10:43:05 -0600
+Subject: [PATCH 348/356] Linux 4.9.98-rt76 REBASE
+
+---
+ localversion-rt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/localversion-rt b/localversion-rt
+index 9a218ca..c1f2720 100644
+--- a/localversion-rt
++++ b/localversion-rt
+@@ -1 +1 @@
+--rt23
++-rt76
+-- 
+2.1.4
+

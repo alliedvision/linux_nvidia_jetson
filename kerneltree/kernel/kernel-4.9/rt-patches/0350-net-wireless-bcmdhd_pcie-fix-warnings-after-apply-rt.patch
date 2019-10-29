@@ -1,0 +1,43 @@
+From 7b4dd3a212a8e62ab9037f8220352f40b3f00495 Mon Sep 17 00:00:00 2001
+From: Manikanta <mmaddireddy@nvidia.com>
+Date: Tue, 27 Jun 2017 01:16:30 +0530
+Subject: [PATCH 350/356] net: wireless: bcmdhd_pcie: fix warnings after apply
+ rt-patches
+
+Issue: Member type in struct completion is changed from
+waitqueue_head_t to swait_queue_head in RT patches.
+
+Fix: Use appropriate swait function call
+
+bug 200320017
+
+Signed-off-by: Manikanta <mmaddireddy@nvidia.com>
+---
+ drivers/net/wireless/bcmdhd_pcie/dhd_pno.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/bcmdhd_pcie/dhd_pno.c b/drivers/net/wireless/bcmdhd_pcie/dhd_pno.c
+index e93b859..c176280 100644
+--- a/drivers/net/wireless/bcmdhd_pcie/dhd_pno.c
++++ b/drivers/net/wireless/bcmdhd_pcie/dhd_pno.c
+@@ -3044,7 +3044,7 @@ _dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
+ 	}
+ 	mutex_unlock(&_pno_state->pno_mutex);
+ exit_no_unlock:
+-	if (waitqueue_active(&_pno_state->get_batch_done.wait))
++	if (swait_active(&_pno_state->get_batch_done.wait))
+ 		complete(&_pno_state->get_batch_done);
+ 	return err;
+ }
+@@ -3800,7 +3800,7 @@ dhd_pno_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
+ 	{
+ 		struct dhd_pno_batch_params *params_batch;
+ 		params_batch = &_pno_state->pno_params_arr[INDEX_OF_BATCH_PARAMS].params_batch;
+-		if (!waitqueue_active(&_pno_state->get_batch_done.wait)) {
++		if (!swait_active(&_pno_state->get_batch_done.wait)) {
+ 			DHD_PNO(("%s : WLC_E_PFN_BEST_BATCHING\n", __FUNCTION__));
+ 			params_batch->get_batch.buf = NULL;
+ 			params_batch->get_batch.bufsize = 0;
+-- 
+2.1.4
+
