@@ -24,7 +24,7 @@ Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for Jetson TX2
  **Method A:**
  
   Download the precompiled kernel including driver and installation instructions:   
-  https://www.alliedvision.com/en/products/software/embedded-software-and-drivers.html
+  https://www.alliedvision.com/en/products/software/embedded-software-and-drivers/beta_driver
 
  **Method B:**  
   1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson
