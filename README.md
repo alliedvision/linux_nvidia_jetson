@@ -93,4 +93,4 @@ Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for Jetson TX2
  
  ## Additional information
  https://github.com/alliedvision/documentation/blob/master/NVIDIA.md
- https://github.com/alliedvision/documentation/blob/master/NVIDIA.md
+
