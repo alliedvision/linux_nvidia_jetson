@@ -1,6 +1,9 @@
 # NVIDIA Jetson TX2 driver
 Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for Jetson TX2 with L4T 32.1 (contained in Jetpack 4.2, https://developer.nvidia.com/jetpack-4_2)
 
+:new: Jetson Nano users: We have added a branch with a beta driver version:   
+https://github.com/alliedvision/linux_nvidia_jetson/tree/nano-beta-release
+
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
 
 * Scenario 1: Jetson TX2 without any L4T installation
@@ -92,5 +95,6 @@ Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for Jetson TX2
  - Proceed as described in Scenario 2, Method B.
  
  ## Additional information
+ :open_book:
  https://github.com/alliedvision/documentation/blob/master/NVIDIA.md
 
