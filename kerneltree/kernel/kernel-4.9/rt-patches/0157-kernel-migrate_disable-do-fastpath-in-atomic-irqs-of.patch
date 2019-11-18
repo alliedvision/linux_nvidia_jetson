@@ -1,0 +1,39 @@
+From 1b46aba483d2b59f046f4ca5fd799e726ae65592 Mon Sep 17 00:00:00 2001
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 9 Feb 2016 18:18:01 +0100
+Subject: [PATCH 157/352] kernel: migrate_disable() do fastpath in atomic &
+ irqs-off
+
+With interrupts off it makes no sense to do the long path since we can't
+leave the CPU anyway. Also we might end up in a recursion with lockdep.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/sched/core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 8bd1d35..fffe6d0 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3390,7 +3390,7 @@ void migrate_disable(void)
+ {
+ 	struct task_struct *p = current;
+ 
+-	if (in_atomic()) {
++	if (in_atomic() || irqs_disabled()) {
+ #ifdef CONFIG_SCHED_DEBUG
+ 		p->migrate_disable_atomic++;
+ #endif
+@@ -3417,7 +3417,7 @@ void migrate_enable(void)
+ {
+ 	struct task_struct *p = current;
+ 
+-	if (in_atomic()) {
++	if (in_atomic() || irqs_disabled()) {
+ #ifdef CONFIG_SCHED_DEBUG
+ 		p->migrate_disable_atomic--;
+ #endif
+-- 
+2.7.4
+

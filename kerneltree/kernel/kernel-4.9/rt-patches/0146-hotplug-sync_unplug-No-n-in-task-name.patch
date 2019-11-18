@@ -1,0 +1,30 @@
+From e14afff278142a98b106d79a5d6465e5854c756f Mon Sep 17 00:00:00 2001
+From: Yong Zhang <yong.zhang0@gmail.com>
+Date: Sun, 16 Oct 2011 18:56:43 +0800
+Subject: [PATCH 146/352] hotplug: sync_unplug: No "\n" in task name
+
+Otherwise the output will look a little odd.
+
+Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
+Link: http://lkml.kernel.org/r/1318762607-2261-2-git-send-email-yong.zhang0@gmail.com
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ kernel/cpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index b09a1ba..de4d685 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -325,7 +325,7 @@ static int cpu_unplug_begin(unsigned int cpu)
+ 	struct task_struct *tsk;
+ 
+ 	init_completion(&hp->synced);
+-	tsk = kthread_create(sync_unplug_thread, hp, "sync_unplug/%d\n", cpu);
++	tsk = kthread_create(sync_unplug_thread, hp, "sync_unplug/%d", cpu);
+ 	if (IS_ERR(tsk))
+ 		return (PTR_ERR(tsk));
+ 	kthread_bind(tsk, cpu);
+-- 
+2.7.4
+

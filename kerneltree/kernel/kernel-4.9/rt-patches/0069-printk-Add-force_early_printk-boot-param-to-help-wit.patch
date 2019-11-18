@@ -1,0 +1,39 @@
+From 70ba4529b6eb2b34efa5eca4f5d1ab2433610a55 Mon Sep 17 00:00:00 2001
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Fri, 2 Sep 2011 14:41:29 +0200
+Subject: [PATCH 069/352] printk: Add "force_early_printk" boot param to help
+ with debugging
+
+Gives me an option to screw printk and actually see what the machine
+says.
+
+Change-Id: I5fb26ec86be9f4ff814aa893e73020d88d141fde
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Link: http://lkml.kernel.org/r/1314967289.1301.11.camel@twins
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Link: http://lkml.kernel.org/n/tip-ykb97nsfmobq44xketrxs977@git.kernel.org
+---
+ kernel/printk/printk_safe.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/kernel/printk/printk_safe.c b/kernel/printk/printk_safe.c
+index 3c50299..03029bf 100644
+--- a/kernel/printk/printk_safe.c
++++ b/kernel/printk/printk_safe.c
+@@ -380,6 +380,13 @@ asmlinkage void early_printk(const char *fmt, ...)
+  */
+ static bool __read_mostly printk_killswitch;
+ 
++static int __init force_early_printk_setup(char *str)
++{
++	printk_killswitch = true;
++	return 0;
++}
++early_param("force_early_printk", force_early_printk_setup);
++
+ void printk_kill(void)
+ {
+ 	printk_killswitch = true;
+-- 
+2.7.4
+

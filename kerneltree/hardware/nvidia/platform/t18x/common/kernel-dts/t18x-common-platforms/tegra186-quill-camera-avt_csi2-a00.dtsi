@@ -1,0 +1,62 @@
+/*
+ * Copyright (C) 2012 - 2019 Allied Vision Technologies.  All Rights Reserved.
+ *
+ * This program is free software; you may redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+
+ * THE SOFTWARE IS PRELIMINARY AND STILL IN TESTING AND VERIFICATION PHASE AND IS PROVIDED ON AN “AS IS” AND “AS AVAILABLE” BASIS AND IS BELIEVED TO CONTAIN DEFECTS.
+ * A PRIMARY PURPOSE OF THIS EARLY ACCESS IS TO OBTAIN FEEDBACK ON PERFORMANCE AND THE IDENTIFICATION OF DEFECT SOFTWARE, HARDWARE AND DOCUMENTATION.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+#include <t18x-common-modules/tegra186-camera-avt_csi2-a00.dtsi>
+#include "dt-bindings/clock/tegra186-clock.h"
+
+#define CAM0_RST_L     TEGRA_MAIN_GPIO(R, 5)
+#define CAMERA_I2C_MUX_BUS(x) (0x1E + x)
+
+/* camera control gpio definitions */
+/ {
+	i2c@3180000 {
+		avt_csi2_a@3c {
+			clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>,
+			       <&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+		};
+	};
+};
+
+
+/* camera control gpio definitions */
+/ {
+	i2c@3160000 {
+		avt_csi2_b@3c {
+			clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>,
+			       <&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+		};
+	};
+};
+
+
+/* camera control gpio definitions */
+/ {
+	i2c@c240000 {
+		avt_csi2_c@3c {
+			clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH2>,
+					 <&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+			clock-names = "extperiph2", "pllp_grtba";
+			mclk = "extperiph2";
+		};
+	};
+};
