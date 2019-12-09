@@ -20,7 +20,7 @@ SOFTWARE.
 
 ---
 
-# NVidia Jetson Allied Vision Alvium CSI-2 driver
+# NVidia Jetson Allied Vision CSI-2 driver
 
 ## Overview
 
@@ -60,13 +60,15 @@ e.g. $ ./build.sh work_dir nano all all
 
 The deploy script will install the CSI-2 driver to the target board.
 
+The number of steps to take is depending on the target board:
+* Nano: Follow step 1) to install the driver.
+* TX2: Follow steps 1) and 2) to install the driver.
+* Xavier: Follow steps 1), 2), and 3) to install the driver.
+
 Run the script with the following syntax.
 (WORK_DIR should be the same as used for the build and setup script):
 
 $ ./deploy.sh <WORK_DIR> <TARGET_BOARD> <COMMAND> 
-
-Two steps are necessary to install the driver to the target board.
-For the Jetson Nano the first step is sufficient.
 
 1) Replace the kernel image and modules (and device tree) of an existing system 
     * Please make sure you have installed L4T 32.2.1
@@ -78,3 +80,7 @@ For the Jetson Nano the first step is sufficient.
     * Please make sure to connect the target board to the host and to set it to recovery mode prior to using this script.
     * Flash the device tree blob to the target board with the following command
     * $ ./deploy.sh work_dir <TARGET_BOARD> flash-dtb
+3) Flash the kernel image to the target board
+    * Please make sure to connect the target board to the host and to set it to recovery mode prior to using this script.
+    * Flash the kernel image to the target board with the following command
+    * $ ./deploy.sh work_dir <TARGET_BOARD> flash-kernel

@@ -9,7 +9,7 @@
 #  Description: script for installing CSI-2 driver to NVIDIA Jetson boards.
 #
 #------------------------------------------------------------------------------
-#  
+#
 #  This program is free software; you may redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; version 2 of the License.
@@ -86,6 +86,7 @@ usage()
 	log info "<cmd>.........command to executed"
 	log info "                       flash-all"
 	log info "                       flash-dtb"
+	log info "                       flash-kernel"
 	log info "                       tarball"
 	log info "                       sd-image <path-to-sd-card-image>"
 	log info "<option>......possible options:"
@@ -237,6 +238,29 @@ flashDtb()
 }
 
 #==============================================================================
+# function for flashing to jetson board
+#==============================================================================
+flashKernel()
+{
+	# go to to Linux4Tegra path
+	# note: flash.sh script is not running properly 
+	# without being in same path
+	cd $PATH_TARGET_L4T
+
+	# execute NVIDIA flash script
+	if time eval "sudo ./flash.sh -k kernel $FLASH_BOARD_CONFIG $FLASH_TARGET_PARTITION"
+	then
+		log debug "Dtb has been flashed to ${3}"
+		SUCCESS_FLAG=$TRUE
+	else
+		log debug "Could not flash files to ${3}"
+		SUCCESS_FLAG=$FALSE
+	fi
+
+	cd $PATH_CURRENT
+}
+
+#==============================================================================
 # Create encrypted dtb for the Nano
 #==============================================================================
 createEncryptedDtb ()
@@ -324,7 +348,7 @@ then
 		then
 			log error "Could not find L4T rootfs! Please run setup script with param --rootfs first"
 		else
-			log info "Linux4Tegra will be flashed to TX2 board"
+			log info "Linux4Tegra will be flashed to target board"
 			
 			FLASH_TARGET_PARTITION="mmcblk0p1"
 			flashL4T
@@ -338,10 +362,23 @@ then
 		fi
 	elif check_parameter $3 "flash-dtb"
 	then
-		log info "Device tree blob will be flashed to TX2 board"
+		log info "Device tree blob will be flashed to target board"
 
 		FLASH_TARGET_PARTITION="mmcblk0p1"
 		flashDtb
+
+		if proceed
+		then
+			log success
+		else
+			log failed
+		fi
+	elif check_parameter $3 "flash-kernel"
+	then
+		log info "Kernel image will be flashed to target board"
+
+		FLASH_TARGET_PARTITION="mmcblk0p1"
+		flashKernel
 
 		if proceed
 		then
@@ -419,7 +456,13 @@ then
 
 		if check_parameter $5 "--compress"
 		then
-			pigz "${SD_CARD}"
+			if hash pigz 2>/dev/null; then
+				pigz "${SD_CARD}"
+			else
+				tar -zcf "${SD_CARD}.tar.gz" "${SD_CARD}"
+				rm "${SD_CARD}"
+			fi
+			
 		fi
 
 		log info "SD card image created: \"${SD_CARD}\""
