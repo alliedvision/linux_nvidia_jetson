@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/hrt.c
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -339,6 +339,36 @@ put_sched_sample(struct task_struct *task, int is_sched_in)
 	quadd_put_sample_this_cpu(&record, vec, vec_idx);
 }
 
+static void put_comm_sample(struct task_struct *task, bool exec)
+{
+	char name[TASK_COMM_LEN];
+	struct quadd_iovec vec;
+	struct quadd_record_data record;
+	struct quadd_comm_data *s = &record.comm;
+
+	s->time = quadd_get_time();
+	s->flags = 0;
+
+	s->pid = (u32)task_pid_nr(task);
+	s->tgid = (u32)task_tgid_nr(task);
+
+	memset(name, 0, sizeof(name));
+	get_task_comm(name, task);
+	name[sizeof(name) - 1] = '\0';
+
+	record.record_type = QUADD_RECORD_TYPE_COMM;
+
+	if (exec)
+		s->flags |= QUADD_COMM_FLAG_EXEC;
+
+	vec.base = name;
+	vec.len = ALIGN(strlen(name) + 1, sizeof(u64));
+
+	s->length = (u16)vec.len;
+
+	quadd_put_sample(&record, &vec, 1);
+}
+
 static int get_sample_data(struct quadd_sample_data *s,
 			   struct pt_regs *regs,
 			   struct task_struct *task)
@@ -629,48 +659,69 @@ static void init_hrtimer(struct quadd_cpu_context *cpu_ctx)
 	cpu_ctx->hrtimer.function = hrtimer_handler;
 }
 
-static inline int
-is_profile_process(struct task_struct *task, int is_trace)
+static inline bool
+__is_profile_process(struct task_struct *task, bool is_trace, bool is_sample)
 {
 	pid_t root_pid = hrt.root_pid;
 	struct quadd_ctx *ctx = hrt.quadd_ctx;
 
 	if (root_pid > 0 && task_tgid_nr(task) == root_pid)
-		return 1;
+		return true;
 
 	if ((is_trace && quadd_mode_is_trace_tree(ctx)) ||
-	    (!is_trace && quadd_mode_is_sample_tree(ctx)))
+	    (is_sample && quadd_mode_is_sample_tree(ctx)))
 		return pid_list_search(task_tgid_nr(task));
 
-	return 0;
+	return false;
 }
 
-static inline int
+static inline bool
 validate_task(struct task_struct *task)
 {
 	return task && !is_idle_task(task);
 }
 
-static inline int
+static inline bool
 is_sample_process(struct task_struct *task)
 {
 	struct quadd_ctx *ctx = hrt.quadd_ctx;
 
 	if (!validate_task(task) || !quadd_mode_is_sampling(ctx))
-		return 0;
+		return false;
 
-	return (quadd_mode_is_sample_all(ctx) || is_profile_process(task, 0));
+	if (quadd_mode_is_sample_all(ctx))
+		return true;
+
+	return __is_profile_process(task, false, true);
 }
 
-static inline int
+static inline bool
 is_trace_process(struct task_struct *task)
 {
 	struct quadd_ctx *ctx = hrt.quadd_ctx;
 
 	if (!validate_task(task) || !quadd_mode_is_tracing(ctx))
-		return 0;
+		return false;
 
-	return (quadd_mode_is_trace_all(ctx) || is_profile_process(task, 1));
+	if (quadd_mode_is_trace_all(ctx))
+		return true;
+
+	return __is_profile_process(task, true, false);
+}
+
+static inline bool
+is_profile_process(struct task_struct *task)
+{
+	struct quadd_ctx *ctx = hrt.quadd_ctx;
+
+	if (!validate_task(task) ||
+	    (!quadd_mode_is_tracing(ctx) && !quadd_mode_is_sampling(ctx)))
+		return false;
+
+	if (quadd_mode_is_process_all(ctx))
+		return true;
+
+	return __is_profile_process(task, true, true);
 }
 
 static void
@@ -790,23 +841,23 @@ void __quadd_event_mmap(struct vm_area_struct *vma)
 	quadd_process_mmap(vma, current);
 }
 
-int quadd_is_inherited(struct task_struct *task)
+bool quadd_is_inherited(struct task_struct *task)
 {
 	struct task_struct *p;
 
 	if (unlikely(hrt.root_pid == 0))
-		return 0;
+		return false;
 
 	for (p = task; p != &init_task;) {
 		if (task_pid_nr(p) == hrt.root_pid)
-			return 1;
+			return true;
 
 		rcu_read_lock();
 		p = rcu_dereference(p->real_parent);
 		rcu_read_unlock();
 	}
 
-	return 0;
+	return false;
 }
 
 void __quadd_event_fork(struct task_struct *task)
@@ -839,6 +890,17 @@ void __quadd_event_exit(struct task_struct *task)
 	read_unlock(&tasklist_lock);
 }
 
+void __quadd_event_comm(struct task_struct *task, bool exec)
+{
+	if (likely(!atomic_read(&hrt.active)))
+		return;
+
+	if (!is_profile_process(task))
+		return;
+
+	put_comm_sample(task, exec);
+}
+
 static void reset_cpu_ctx(void)
 {
 	int cpu_id;
@@ -854,6 +916,51 @@ static void reset_cpu_ctx(void)
 
 		t_data->pid = -1;
 		t_data->tgid = -1;
+	}
+}
+
+static void get_initial_samples(struct quadd_ctx *ctx)
+{
+	struct task_struct *p, *t;
+
+	if (quadd_mode_is_sampling(ctx))
+		quadd_get_mmaps(ctx);
+
+	if (quadd_mode_is_process_all(ctx)) {
+		bool is_tree = quadd_mode_is_process_tree(ctx);
+
+		read_lock(&tasklist_lock);
+		for_each_process(p) {
+			for_each_thread(p, t)
+				put_comm_sample(t, false);
+
+			if (is_tree && quadd_is_inherited(p))
+				pid_list_add(task_pid_nr(p));
+		}
+		read_unlock(&tasklist_lock);
+	} else if (quadd_mode_is_process_tree(ctx)) {
+		read_lock(&tasklist_lock);
+		for_each_process(p) {
+			if (quadd_is_inherited(p)) {
+				pid_list_add(task_pid_nr(p));
+				for_each_thread(p, t)
+					put_comm_sample(t, false);
+			}
+		}
+		read_unlock(&tasklist_lock);
+	} else {
+		pid_t root_pid = hrt.root_pid;
+
+		if (root_pid > 0) {
+			read_lock(&tasklist_lock);
+			p = get_pid_task(find_vpid(root_pid), PIDTYPE_PID);
+			if (p) {
+				for_each_thread(p, t)
+					put_comm_sample(t, false);
+				put_task_struct(p);
+			}
+			read_unlock(&tasklist_lock);
+		}
 	}
 }
 
@@ -920,23 +1027,11 @@ int quadd_hrt_start(void)
 	 */
 	smp_wmb();
 
-	if (quadd_mode_is_sampling(ctx)) {
-		if (extra & QUADD_PARAM_EXTRA_GET_MMAP)
-			quadd_get_mmaps(ctx);
+	get_initial_samples(ctx);
 
+	if (quadd_mode_is_sampling(ctx)) {
 		if (ctx->pl310)
 			ctx->pl310->start();
-	}
-
-	if (quadd_mode_is_process_tree(ctx)) {
-		struct task_struct *p;
-
-		read_lock(&tasklist_lock);
-		for_each_process(p) {
-			if (quadd_is_inherited(p))
-				pid_list_add(task_pid_nr(p));
-		}
-		read_unlock(&tasklist_lock);
 	}
 
 	quadd_ma_start(&hrt);

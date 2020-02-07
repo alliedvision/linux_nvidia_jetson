@@ -7,7 +7,7 @@
  * Copyright (C) 2015 Google, Inc.
  * Author: Tomasz Figa <tfiga@chromium.org>
  *
- * Copyright (C) 2010-2018 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2010-2019 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2116,7 +2116,6 @@ static int tegra_i2c_probe(struct platform_device *pdev)
 		goto disable_clk;
 	}
 	i2c_dev->cont_id = i2c_dev->adapter.nr & PACKET_HEADER0_CONT_ID_MASK;
-	pm_runtime_enable(&i2c_dev->adapter.dev);
 	tegra_i2c_gpio_init(i2c_dev);
 
 	return 0;

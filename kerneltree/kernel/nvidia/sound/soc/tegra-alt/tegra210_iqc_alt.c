@@ -78,24 +78,6 @@ static int tegra210_iqc_runtime_resume(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int tegra210_iqc_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_iqc_runtime_suspend(dev);
-}
-
-static int tegra210_iqc_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_iqc_runtime_resume(dev);
-}
-#endif
-
 static int tegra210_iqc_set_audio_cif(struct tegra210_iqc *iqc,
 				struct snd_pcm_hw_params *params,
 				unsigned int reg)
@@ -456,7 +438,8 @@ static int tegra210_iqc_platform_remove(struct platform_device *pdev)
 static const struct dev_pm_ops tegra210_iqc_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra210_iqc_runtime_suspend,
 			   tegra210_iqc_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra210_iqc_suspend, tegra210_iqc_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra210_iqc_driver = {

@@ -15,38 +15,34 @@
 / {
 	plugin-manager {
 		fragment-pcie-c1-rp {
-			ids = ">=2822-0000-200";
+			ids = "<2822-0000-200";
 			override@0 {
 				target = <&{/pcie@14100000}>;
 				_overlay_ {
-					nvidia,max-speed = <2>;
+					nvidia,max-speed = <1>;
 				};
 			};
 		};
 
-		fragment-pcie-p2822-B00 {
-			ids = ">=2822-0000-400";
+		fragment-pcie-older-than-p2822-B00 {
+			ids = "<2822-0000-400";
 			override@0 {
 				target = <&{/pcie@14100000}>;
 				_overlay_ {
-					nvidia,disable-aspm-states = <0xc>;
+					nvidia,disable-aspm-states = <0xf>;
 				};
 			};
 			override@1 {
 				target = <&{/pcie@141a0000}>;
 				_overlay_ {
-					nvidia,plat-gpios =
-						<&tegra_main_gpio TEGRA194_MAIN_GPIO(Z, 2) GPIO_ACTIVE_HIGH    /* 3V3 */
-						 &tegra_main_gpio TEGRA194_MAIN_GPIO(A, 1) GPIO_ACTIVE_LOW     /* 12V */
-					       /*&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 4) GPIO_ACTIVE_HIGH */ /* I2C */
-						>;
+					delete-target-property = "nvidia,plat-gpios";
 				};
 			};
 			override@2 {
 				target = <&{/gpio@2200000}>;
 				_overlay_ {
 					pcie-reg-enable {
-						status = "okay";
+						status = "disabled";
 					};
 				};
 			};

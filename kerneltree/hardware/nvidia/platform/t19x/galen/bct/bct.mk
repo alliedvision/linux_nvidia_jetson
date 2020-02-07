@@ -5,6 +5,7 @@ PRODUCT_COPY_FILES += \
     $(BCT_FILES_PATH)/pmic/tegra194-mb1-bct-pmic-p2888-0001-a02-p2822-0000.cfg:tegra194-mb1-bct-pmic-p2888-0001-a02-p2822-0000.cfg \
     $(BCT_FILES_PATH)/pmic/tegra194-mb1-bct-pmic-p2888-0001-a03-p2822-0000.cfg:tegra194-mb1-bct-pmic-p2888-0001-a03-p2822-0000.cfg \
     $(BCT_FILES_PATH)/pmic/tegra194-mb1-bct-pmic-p2888-0001-a04-p2822-0000.cfg:tegra194-mb1-bct-pmic-p2888-0001-a04-p2822-0000.cfg \
+    $(BCT_FILES_PATH)/pmic/tegra194-mb1-bct-pmic-p2888-0001-a04-E-0-p2822-0000.cfg:tegra194-mb1-bct-pmic-p2888-0001-a04-E-0-p2822-0000.cfg \
     $(BCT_FILES_PATH)/gpioint/tegra194-mb1-bct-gpioint-p2888-0000-p2822-0000.cfg:tegra194-mb1-bct-gpioint-p2888-0000-p2822-0000.cfg \
     $(BCT_FILES_PATH)/reset/tegra194-mb1-bct-reset-p2888-0000-p2822-0000.cfg:tegra194-mb1-bct-reset-p2888-0000-p2822-0000.cfg \
     $(BCT_FILES_PATH)/pinmux/tegra19x-mb1-pinmux-p2888-0000-p2822-0000.cfg:tegra19x-mb1-pinmux-p2888-0000-p2822-0000.cfg \
@@ -19,3 +20,5 @@ PRODUCT_COPY_FILES += \
     $(BCT_FILES_PATH)/sdram/tegra194-mb1-bct-memcfg-4gb-p2888.cfg:tegra194-mb1-bct-memcfg-4gb-p2888.cfg \
     $(BCT_FILES_PATH)/sdram/tegra194-mb1-bct-memcfg-derated-p2888.cfg:tegra194-mb1-bct-memcfg-derated-p2888.cfg \
     $(BCT_FILES_PATH)/sdram/tegra194-mb1-bct-memcfg-p2888.cfg:tegra194-mb1-bct-memcfg-p2888.cfg
+    $(BCT_FILES_PATH)/sdram/tegra194-mb1-bct-memcfg-p2888-0006.cfg:tegra194-mb1-bct-memcfg-p2888-0006.cfg
+    $(BCT_FILES_PATH)/sdram/tegra194-mb1-bct-memcfg-derated-p2888-0006.cfg:tegra194-mb1-bct-memcfg-derated-p2888-0006.cfg \

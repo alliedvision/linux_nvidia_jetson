@@ -12,6 +12,10 @@ config DEVFREQ_GOV_POD_SCALING
           from device profile to determine if the frequency should
           be altered.
 
+config DEVFREQ_GOV_POD_SCALING_HISTORY_BUFFER_SIZE_MAX
+        int
+        default 100
+
 config DEVFREQ_GOV_WMARK_SIMPLE
         tristate "Simple Watermark"
         help

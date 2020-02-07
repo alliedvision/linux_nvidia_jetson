@@ -798,6 +798,39 @@ void gk20a_pmu_init_perfmon_counter(struct gk20a *g)
 			pwr_pmu_idle_ctrl_value_always_f() |
 			pwr_pmu_idle_ctrl_filter_disabled_f());
 	gk20a_writel(g, pwr_pmu_idle_ctrl_r(2), data);
+
+	/*
+	 * use counters 4 and 0 for perfmon to log busy cycles and total cycles
+	 * counter #0 overflow sets pmu idle intr status bit
+	 */
+	gk20a_writel(g, pwr_pmu_idle_intr_r(),
+		     pwr_pmu_idle_intr_en_f(0));
+
+	gk20a_writel(g, pwr_pmu_idle_threshold_r(0),
+		     pwr_pmu_idle_threshold_value_f(0x7FFFFFFF));
+
+	data = gk20a_readl(g, pwr_pmu_idle_ctrl_r(0));
+	data = set_field(data, pwr_pmu_idle_ctrl_value_m() |
+			pwr_pmu_idle_ctrl_filter_m(),
+			pwr_pmu_idle_ctrl_value_always_f() |
+			pwr_pmu_idle_ctrl_filter_disabled_f());
+	gk20a_writel(g, pwr_pmu_idle_ctrl_r(0), data);
+
+	gk20a_writel(g, pwr_pmu_idle_mask_r(4),
+		pwr_pmu_idle_mask_gr_enabled_f() |
+		pwr_pmu_idle_mask_ce_2_enabled_f());
+
+	data = gk20a_readl(g, pwr_pmu_idle_ctrl_r(4));
+	data = set_field(data, pwr_pmu_idle_ctrl_value_m() |
+			pwr_pmu_idle_ctrl_filter_m(),
+			pwr_pmu_idle_ctrl_value_busy_f() |
+			pwr_pmu_idle_ctrl_filter_disabled_f());
+	gk20a_writel(g, pwr_pmu_idle_ctrl_r(4), data);
+
+	gk20a_writel(g, pwr_pmu_idle_count_r(0), pwr_pmu_idle_count_reset_f(1));
+	gk20a_writel(g, pwr_pmu_idle_count_r(4), pwr_pmu_idle_count_reset_f(1));
+	gk20a_writel(g, pwr_pmu_idle_intr_status_r(),
+		     pwr_pmu_idle_intr_status_intr_f(1));
 }
 
 u32 gk20a_pmu_read_idle_counter(struct gk20a *g, u32 counter_id)
@@ -810,6 +843,18 @@ void gk20a_pmu_reset_idle_counter(struct gk20a *g, u32 counter_id)
 {
 	gk20a_writel(g, pwr_pmu_idle_count_r(counter_id),
 		pwr_pmu_idle_count_reset_f(1));
+}
+
+u32 gk20a_pmu_read_idle_intr_status(struct gk20a *g)
+{
+	return pwr_pmu_idle_intr_status_intr_v(
+		gk20a_readl(g, pwr_pmu_idle_intr_status_r()));
+}
+
+void gk20a_pmu_clear_idle_intr_status(struct gk20a *g)
+{
+	gk20a_writel(g, pwr_pmu_idle_intr_status_r(),
+		     pwr_pmu_idle_intr_status_intr_f(1));
 }
 
 void gk20a_pmu_elpg_statistics(struct gk20a *g, u32 pg_engine_id,

@@ -3,7 +3,7 @@
  *
  * Multiple GPIO state based based on extcon class driver.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *
@@ -79,6 +79,7 @@ struct gpio_extcon_info {
 	bool wakeup_source;
 	int last_cstate;
 	unsigned int wakeup_cables;
+	bool sysfs_controlled;
 };
 
 static void gpio_extcon_scan_work(struct work_struct *work)
@@ -90,11 +91,22 @@ static void gpio_extcon_scan_work(struct work_struct *work)
 	int gstate = 0;
 	int i;
 
-	/* skip update as it's already done in state_store through sysfs */
+	/* Skip update as it's already done in state_store through sysfs */
 	if (gpex->last_cstate != gpex->edev->state) {
+		if ((gpex->last_cstate == EXTCON_NONE) &&
+				(gpex->edev->state == EXTCON_USB_HOST))
+			gpex->sysfs_controlled = true;
+		if ((gpex->last_cstate == EXTCON_USB_HOST) &&
+				(gpex->edev->state == EXTCON_NONE))
+			gpex->sysfs_controlled = false;
+
 		gpex->last_cstate = gpex->edev->state;
 		return;
 	}
+
+	/* Skip if userspace asked to switch to host mode */
+	if (gpex->sysfs_controlled)
+		return;
 
 	for (i = 0; i < gpex->pdata->n_gpio; ++i) {
 		state = gpio_get_value_cansleep(gpex->pdata->gpios[i].gpio);

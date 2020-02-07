@@ -18,13 +18,16 @@
 
 #include "tegra_vnet_dma.h"
 
+#define ENABLE_DMA 1
+#define DMA_RD_DATA_CH 0
+
 /* Network link timeout 5 sec */
 #define LINK_TIMEOUT 5000
 
 #define RING_COUNT 256
 
 /* Allocate 100% extra desc to handle the drift between empty & full buffer */
-#define DMA_DESC_COUNT (RING_COUNT * 2)
+#define DMA_DESC_COUNT (2 * RING_COUNT)
 
 enum irq_type {
 	/* No IRQ available in this slot */
@@ -170,10 +173,18 @@ enum os_link_state {
 	OS_LINK_STATE_DOWN,
 };
 
+#if ENABLE_DMA
+struct dma_desc_cnt {
+        u32 rd_cnt;
+        u32 wr_cnt;
+};
+#endif
+
 struct tvnet_priv {
 	struct net_device *ndev;
 	struct pci_dev *pdev;
 	void __iomem *mmio_base;
+	void __iomem *msix_tbl;
 	void __iomem *dma_base;
 	struct bar_md *bar_md;
 	struct ep_ring_buf ep_mem;
@@ -185,6 +196,9 @@ struct tvnet_priv {
 	/* To protect ep2h empty list */
 	spinlock_t ep2h_empty_lock;
 	struct tvnet_dma_desc *dma_desc;
+#if ENABLE_DMA
+	struct dma_desc_cnt desc_cnt;
+#endif
 	enum dir_link_state tx_link_state;
 	enum dir_link_state rx_link_state;
 	enum os_link_state os_link_state;
@@ -421,6 +435,26 @@ static inline u32 tvnet_ivc_get_rd_cnt(struct ep_own_cnt *ep_cnt,
 		return -EINVAL;
 	}
 }
+
+#if ENABLE_DMA
+/* Program MSI settings in EP DMA for interrupts from EP DMA */
+static void tvnet_write_dma_msix_settings(struct tvnet_priv *tvnet)
+{
+	u32 val;
+	u16 val16;
+
+	val = readl(tvnet->msix_tbl + PCI_MSIX_ENTRY_LOWER_ADDR);
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_DONE_IMWR_LOW_OFF);
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_ABORT_IMWR_LOW_OFF);
+
+	val = readl(tvnet->msix_tbl + PCI_MSIX_ENTRY_UPPER_ADDR);
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_DONE_IMWR_HIGH_OFF);
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_ABORT_IMWR_HIGH_OFF);
+
+	val16 = readw(tvnet->msix_tbl + PCI_MSIX_ENTRY_DATA);
+	dma_common_wr16(tvnet->dma_base, val16, DMA_READ_IMWR_DATA_OFF_BASE);
+}
+#endif
 
 static void tvnet_raise_ep_ctrl_irq(struct tvnet_priv *tvnet)
 {
@@ -738,6 +772,13 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 	struct skb_shared_info *info = skb_shinfo(skb);
 	struct data_msg *h2ep_empty_msg = ep_mem->h2ep_empty_msgs;
 	struct device *d = &tvnet->pdev->dev;
+#if ENABLE_DMA
+	struct tvnet_dma_desc *dma_desc = tvnet->dma_desc;
+	struct dma_desc_cnt *desc_cnt = &tvnet->desc_cnt;
+	u32 desc_widx, desc_ridx, val;
+	u32 ctrl_d;
+	unsigned long timeout;
+#endif
 	dma_addr_t src_iova;
 	dma_addr_t dst_iova;
 	u32 rd_idx;
@@ -764,9 +805,17 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 		return NETDEV_TX_BUSY;
 	}
 
+#if ENABLE_DMA
+	/* Check if dma desc available */
+	if ((desc_cnt->wr_cnt - desc_cnt->rd_cnt) >= DMA_DESC_COUNT) {
+		pr_debug("%s: dma descriptors are not available\n", __func__);
+		netif_stop_queue(ndev);
+		return NETDEV_TX_BUSY;
+	}
+#endif
+
 	len = skb_headlen(skb);
 
-	/* To avoid unaligned dword access, alloc temp buf to hold skb->data */
 	src_iova = dma_map_single(d, skb->data, len, DMA_TO_DEVICE);
 	if (dma_mapping_error(d, src_iova)) {
 		pr_err("%s: dma_map_single failed\n", __func__);
@@ -786,12 +835,70 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 	/* Raise an interrupt to let EP populate H2EP_EMPTY_BUF ring */
 	tvnet_raise_ep_ctrl_irq(tvnet);
 
+#if ENABLE_DMA
+	/* Trigger DMA write from src_iova to dst_iova */
+	desc_widx = desc_cnt->wr_cnt % DMA_DESC_COUNT;
+	dma_desc[desc_widx].size = len;
+	dma_desc[desc_widx].sar_low = lower_32_bits(src_iova);
+	dma_desc[desc_widx].sar_high = upper_32_bits(src_iova);
+	dma_desc[desc_widx].dar_low = lower_32_bits(dst_iova);
+	dma_desc[desc_widx].dar_high = upper_32_bits(dst_iova);
+	/* CB bit should be set at the end */
+	smp_mb();
+	/* RIE is not required for polling mode */
+	ctrl_d = DMA_CH_CONTROL1_OFF_RDCH_RIE;
+	ctrl_d |= DMA_CH_CONTROL1_OFF_RDCH_LIE;
+	ctrl_d |= DMA_CH_CONTROL1_OFF_RDCH_CB;
+	dma_desc[desc_widx].ctrl_reg.ctrl_d = ctrl_d;
+	/*
+	 * Read after write to avoid EP DMA reading LLE before CB is written to
+	 * EP's system memory.
+	 */
+	ctrl_d = dma_desc[desc_widx].ctrl_reg.ctrl_d;
+
+	/* DMA write should not go out of order wrt CB bit set */
+	smp_mb();
+
+	timeout = jiffies + msecs_to_jiffies(1000);
+	dma_common_wr8(tvnet->dma_base, DMA_RD_DATA_CH, DMA_READ_DOORBELL_OFF);
+	desc_cnt->wr_cnt++;
+
+	while (true) {
+		val = dma_common_rd(tvnet->dma_base, DMA_READ_INT_STATUS_OFF);
+		if (val == BIT(DMA_RD_DATA_CH)) {
+			dma_common_wr(tvnet->dma_base, val,
+				      DMA_READ_INT_CLEAR_OFF);
+			break;
+		}
+		if (time_after(jiffies, timeout)) {
+			pr_err("dma took more time, reset dma engine\n");
+			dma_common_wr(tvnet->dma_base,
+				      DMA_READ_ENGINE_EN_OFF_DISABLE,
+				      DMA_READ_ENGINE_EN_OFF);
+			mdelay(1);
+			dma_common_wr(tvnet->dma_base,
+				      DMA_READ_ENGINE_EN_OFF_ENABLE,
+				      DMA_READ_ENGINE_EN_OFF);
+			desc_cnt->wr_cnt--;
+			dma_unmap_single(d, src_iova, len, DMA_TO_DEVICE);
+			return NETDEV_TX_BUSY;
+		}
+	}
+
+	desc_ridx = tvnet->desc_cnt.rd_cnt % DMA_DESC_COUNT;
+	/* Clear DMA cycle bit and increment rd_cnt */
+	dma_desc[desc_ridx].ctrl_reg.ctrl_e.cb = 0;
+	smp_mb();
+
+	tvnet->desc_cnt.rd_cnt++;
+#else
 	/* Copy skb->data to endpoint dst address, use CPU virt addr */
 	memcpy(dst_virt, skb->data, len);
 	/* BAR0 mmio address is wc mem, add mb to make sure that complete
 	 * skb->data is written before updating counters.
 	 */
 	smp_mb();
+#endif
 
 	/* Push dst to H2EP full ring */
 	wr_idx = tvnet_ivc_get_wr_cnt(ep_cnt, host_cnt, H2EP_FULL_BUF) %
@@ -988,12 +1095,32 @@ static int tvnet_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
 		goto free_netdev;
 	}
 
+	/*
+	 * In CPU memory write case, skb->data buffer is copied to dst in BAR.
+	 * Unaligned dword skb->data pointer comes in start_xmit, so use
+	 * write combine mapping for BAR.
+	 */
+#if ENABLE_DMA
+	tvnet->mmio_base = devm_ioremap(&pdev->dev,
+					pci_resource_start(pdev, 0),
+					pci_resource_len(pdev, 0));
+#else
 	tvnet->mmio_base = devm_ioremap_wc(&pdev->dev,
 					   pci_resource_start(pdev, 0),
 					   pci_resource_len(pdev, 0));
+#endif
 	if (!tvnet->mmio_base) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "BAR0 ioremap() failed\n");
+		goto pci_disable;
+	}
+
+	/* MSI-X vector table is saved in BAR2 */
+	tvnet->msix_tbl = devm_ioremap(&pdev->dev, pci_resource_start(pdev, 2),
+				       pci_resource_len(pdev, 2));
+	if (!tvnet->msix_tbl) {
+		ret = -ENOMEM;
+		dev_err(&pdev->dev, "BAR2 ioremap() failed\n");
 		goto pci_disable;
 	}
 
@@ -1001,7 +1128,7 @@ static int tvnet_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
 				       pci_resource_len(pdev, 4));
 	if (!tvnet->dma_base) {
 		ret = -ENOMEM;
-		dev_err(&pdev->dev, "BAR2 ioremap() failed\n");
+		dev_err(&pdev->dev, "BAR4 ioremap() failed\n");
 		goto pci_disable;
 	}
 
@@ -1037,6 +1164,10 @@ static int tvnet_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
 		dev_err(&pdev->dev, "request_irq() fail: %d\n", ret);
 		goto disable_msi;
 	}
+
+#if ENABLE_DMA
+	tvnet_write_dma_msix_settings(tvnet);
+#endif
 
 	INIT_WORK(&tvnet->ctrl_msg_work, process_ctrl_msg);
 	INIT_WORK(&tvnet->ep2h_msg_work, process_ep2h_msg);

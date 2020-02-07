@@ -106,7 +106,7 @@
 
 			trips {
 				trip_critical {
-					temperature = <101000>;
+					temperature = <100500>;
 					type = "critical";
 					hysteresis = <0>;
 					writable;
@@ -137,7 +137,7 @@
 
 			trips {
 				trip_critical {
-					temperature = <101000>;
+					temperature = <100500>;
 					type = "critical";
 					hysteresis = <0>;
 					writable;
@@ -172,7 +172,7 @@
 			};
 			trips {
 				trip_critical {
-					temperature = <101000>;
+					temperature = <100500>;
 					type = "critical";
 					hysteresis = <0>;
 					writable;

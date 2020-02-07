@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra Video Input Device Driver VI5 formats
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bhanu Murthy V <bmurthyv@nvidia.com>
  *
@@ -144,6 +144,12 @@ static const struct tegra_video_format vi5_video_formats[] = {
 	/* YUV422 */
 	TEGRA_VIDEO_FORMAT(YUV422, 16, UYVY8_1X16, 2, 1, T_U8_Y8__V8_Y8,
 				YUV422_8, UYVY, "YUV 4:2:2"),
+	TEGRA_VIDEO_FORMAT(YUV422, 16, VYUY8_1X16, 2, 1, T_V8_Y8__U8_Y8,
+				YUV422_8, VYUY, "YUV 4:2:2"),
+	TEGRA_VIDEO_FORMAT(YUV422, 16, YUYV8_1X16, 2, 1, T_Y8_U8__Y8_V8,
+				YUV422_8, YUYV, "YUV 4:2:2"),
+	TEGRA_VIDEO_FORMAT(YUV422, 16, YVYU8_1X16, 2, 1, T_Y8_V8__Y8_U8,
+				YUV422_8, YVYU, "YUV 4:2:2"),
 	TEGRA_VIDEO_FORMAT(YUV422, 16, UYVY8_1X16, 1, 1, T_Y8__V8U8_N422,
 				YUV422_8, NV16, "NV16"),
 	TEGRA_VIDEO_FORMAT(YUV422, 16, UYVY8_2X8, 2, 1, T_U8_Y8__V8_Y8,

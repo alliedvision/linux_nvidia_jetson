@@ -1,7 +1,7 @@
 /*
  * pwm_fan.c fan driver that is controlled by pwm
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Anshul Jain <anshulj@nvidia.com>
  *
@@ -45,6 +45,8 @@
 #include <linux/sched.h>
 #include <linux/version.h>
 
+#include "thermal_core.h"
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 #include <linux/sched/clock.h>
 #endif
@@ -53,58 +55,6 @@
 
 /* Based off of max device tree node name length */
 #define MAX_PROFILE_NAME_LENGTH	31
-
-struct fan_dev_data {
-	int next_state;
-	int active_steps;
-	int *fan_rpm;
-	int *fan_pwm;
-	int *fan_rru;
-	int *fan_rrd;
-	int *fan_state_cap_lookup;
-	int num_profiles;
-	int current_profile;
-	const char **fan_profile_names;
-	int **fan_profile_pwms;
-	int *fan_profile_caps;
-	struct workqueue_struct *workqueue;
-	int fan_temp_control_flag;
-	struct pwm_device *pwm_dev;
-	bool pwm_legacy_api;
-	int fan_cap_pwm;
-	int fan_cur_pwm;
-	int next_target_pwm;
-	struct thermal_cooling_device *cdev;
-	struct delayed_work fan_ramp_work;
-	int step_time;
-	int precision_multiplier;
-	struct mutex fan_state_lock;
-	int pwm_period;
-	int fan_pwm_max;
-	struct device *dev;
-	int tach_gpio;
-	int tach_irq;
-	atomic_t tach_enabled;
-	int fan_state_cap;
-	int pwm_gpio;
-	int pwm_id;
-	enum pwm_polarity fan_pwm_polarity;
-	int suspend_state;
-	const char *name;
-	struct regulator *fan_reg;
-	bool is_fan_reg_enabled;
-	struct dentry *debugfs_root;
-	/* for tach feedback */
-	atomic64_t rpm_measured;
-	struct delayed_work fan_tach_work;
-	struct workqueue_struct *tach_workqueue;
-	int tach_period;
-	spinlock_t irq_lock;
-	int irq_count;
-	u64 first_irq;
-	u64 last_irq;
-	u64 old_irq;
-};
 
 static void fan_update_target_pwm(struct fan_dev_data *fan_data, int val)
 {
@@ -390,7 +340,7 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 						unsigned long cur_state)
 {
 	struct fan_dev_data *fan_data = cdev->devdata;
-	int target_pwm;
+	int target_pwm = 0;
 
 	if (!fan_data)
 		return -EINVAL;
@@ -402,6 +352,16 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 	}
 
+	if (fan_data->continuous_gov) {
+		/*"continuous_therm_gov" used, "cur_state" indicate target pwm value*/
+		target_pwm = min(fan_data->fan_cap_pwm, (int)cur_state);
+		fan_data->next_target_pwm = target_pwm;
+		fan_update_target_pwm(fan_data, target_pwm);
+
+		mutex_unlock(&fan_data->fan_state_lock);
+		return 0;
+	}
+
 	if (cur_state >= fan_data->active_steps) {
 		mutex_unlock(&fan_data->fan_state_lock);
 		return -EINVAL;
@@ -409,14 +369,28 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 
 	fan_data->next_state = cur_state;
 
-	if (fan_data->next_state <= 0)
+	if (fan_data->next_state <= 0) {
 		target_pwm = 0;
-	else
+		if (fan_data->kickstart_en
+			&& delayed_work_pending(&fan_data->fan_hyst_work)) {
+			cancel_delayed_work(&fan_data->fan_hyst_work);
+			fan_data->fan_kickstart = false;
+		}
+	} else if (!fan_data->fan_cur_pwm && fan_data->kickstart_en) {
+		if (fan_data->fan_kickstart) {
+			mutex_unlock(&fan_data->fan_state_lock);
+			return 0;
+		}
+		fan_data->fan_kickstart = true;
+		target_pwm = fan_data->fan_startup_pwm;
+		queue_delayed_work(fan_data->workqueue, &fan_data->fan_hyst_work,
+					msecs_to_jiffies(fan_data->fan_startup_time +
+						fan_data->step_time));
+	} else
 		target_pwm = fan_data->fan_pwm[cur_state];
 
 	target_pwm = min(fan_data->fan_cap_pwm, target_pwm);
 	fan_update_target_pwm(fan_data, target_pwm);
-
 	mutex_unlock(&fan_data->fan_state_lock);
 	return 0;
 }
@@ -477,7 +451,7 @@ static void set_pwm_duty_cycle(int pwm, struct fan_dev_data *fan_data)
 				duty = fan_data->fan_pwm_max - pwm;
 			else
 				duty = pwm;
-			duty *= fan_data->precision_multiplier;
+			duty = duty * fan_data->precision_multiplier / MULTIQP;
 		}
 
 		pwm_config(fan_data->pwm_dev,
@@ -492,6 +466,9 @@ static int get_next_higher_pwm(int pwm, struct fan_dev_data *fan_data)
 {
 	int i;
 
+	if (fan_data->continuous_gov)
+		return fan_data->next_target_pwm;
+
 	for (i = 0; i < fan_data->active_steps; i++)
 		if (pwm < fan_data->fan_pwm[i])
 			return fan_data->fan_pwm[i];
@@ -502,6 +479,9 @@ static int get_next_higher_pwm(int pwm, struct fan_dev_data *fan_data)
 static int get_next_lower_pwm(int pwm, struct fan_dev_data *fan_data)
 {
 	int i;
+
+	if (fan_data->continuous_gov)
+		return fan_data->next_target_pwm;
 
 	for (i = fan_data->active_steps - 1; i >= 0; i--)
 		if (pwm > fan_data->fan_pwm[i])
@@ -570,6 +550,24 @@ static void fan_ramping_work_func(struct work_struct *work)
 		queue_delayed_work(fan_data->workqueue,
 				&(fan_data->fan_ramp_work),
 				msecs_to_jiffies(fan_data->step_time));
+	mutex_unlock(&fan_data->fan_state_lock);
+}
+
+static void fan_hyst_work_func(struct work_struct *work)
+{
+	int target_pwm;
+	struct delayed_work *dwork = container_of(work, struct delayed_work,
+									work);
+	struct fan_dev_data *fan_data = container_of(dwork, struct
+						fan_dev_data, fan_hyst_work);
+
+	mutex_lock(&fan_data->fan_state_lock);
+	if (fan_data->fan_kickstart) {
+		fan_data->fan_kickstart = false;
+		target_pwm = fan_data->fan_pwm[fan_data->next_state];
+		target_pwm = min(fan_data->fan_cap_pwm, target_pwm);
+		fan_update_target_pwm(fan_data, target_pwm);
+	}
 	mutex_unlock(&fan_data->fan_state_lock);
 }
 
@@ -749,6 +747,103 @@ static ssize_t fan_pwm_state_map_store(struct device *dev,
 	return count;
 }
 
+static ssize_t kickstart_params_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
+	int bytes_written = 0;
+
+	if (!fan_data)
+		return -EINVAL;
+	mutex_lock(&fan_data->fan_state_lock);
+	bytes_written += sprintf(buf, "pwm:%d, time:%dms\n",
+		fan_data->fan_startup_pwm, fan_data->fan_startup_time);
+	mutex_unlock(&fan_data->fan_state_lock);
+
+	return bytes_written;
+}
+
+static ssize_t kickstart_params_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
+	int ret, fan_startup_pwm, fan_startup_time;
+
+	ret = sscanf(buf, "%d %d", &fan_startup_pwm, &fan_startup_time);
+
+	if ((ret < 2) || (!fan_data) || (fan_startup_pwm < 0)
+		|| (fan_startup_time < 0))
+		return -EINVAL;
+
+	dev_dbg(dev, "fan_startup_pwm=%d, fan_startup_time=%d\n",
+			fan_startup_pwm, fan_startup_time);
+
+	mutex_lock(&fan_data->fan_state_lock);
+	fan_data->fan_startup_pwm = min(fan_startup_pwm, fan_data->fan_cap_pwm);
+	fan_data->fan_startup_time = fan_startup_time;
+	if (fan_data->fan_startup_pwm && fan_data->fan_startup_time)
+		fan_data->kickstart_en = true;
+	else
+		fan_data->kickstart_en = false;
+	mutex_unlock(&fan_data->fan_state_lock);
+
+	return count;
+}
+
+static ssize_t fan_kickstart_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
+	int bytes_written = 0;
+
+	if (!fan_data)
+		return -EINVAL;
+	mutex_lock(&fan_data->fan_state_lock);
+		bytes_written += sprintf(buf + bytes_written,
+					"%d\n", fan_data->fan_kickstart);
+	mutex_unlock(&fan_data->fan_state_lock);
+
+	return bytes_written;
+}
+
+static void kickstart_fan(struct fan_dev_data *fan_data)
+{
+	int target_pwm;
+
+	if (!fan_data->fan_kickstart)
+		return;
+
+	target_pwm = min(fan_data->fan_cap_pwm, fan_data->fan_startup_pwm);
+	fan_update_target_pwm(fan_data, target_pwm);
+
+	queue_delayed_work(fan_data->workqueue, &fan_data->fan_hyst_work,
+			msecs_to_jiffies(fan_data->fan_startup_time));
+}
+
+static ssize_t fan_kickstart_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
+	int ret, fan_kickstart = 0;
+
+	ret = sscanf(buf, "%d", &fan_kickstart);
+
+	if ((ret <= 0) || (!fan_data) || (fan_kickstart < 0)
+		|| (fan_data->fan_startup_pwm <= 0)
+		|| (fan_data->fan_startup_time <= 0))
+		return -EINVAL;
+
+	dev_dbg(dev, "fan_kickstart=%d", fan_kickstart);
+
+	mutex_lock(&fan_data->fan_state_lock);
+	fan_data->fan_kickstart = !!fan_kickstart;
+	if (fan_kickstart)
+		kickstart_fan(fan_data);
+	mutex_unlock(&fan_data->fan_state_lock);
+
+	return count;
+}
+
 static DEVICE_ATTR(pwm_cap, S_IWUSR | S_IRUGO,
 			fan_pwm_cap_show,
 			fan_pwm_cap_store);
@@ -782,6 +877,12 @@ static DEVICE_ATTR(pwm_rpm_table, S_IRUGO,
 static DEVICE_ATTR(fan_profile, S_IWUSR | S_IRUGO,
 			fan_profile_show,
 			fan_profile_store);
+static DEVICE_ATTR(kickstart_params, S_IWUSR | S_IRUGO,
+			kickstart_params_show,
+			kickstart_params_store);
+static DEVICE_ATTR(fan_kickstart, S_IWUSR | S_IRUGO,
+			fan_kickstart_show,
+			fan_kickstart_store);
 
 static struct attribute *pwm_fan_attributes[] = {
 	&dev_attr_fan_profile.attr,
@@ -795,6 +896,8 @@ static struct attribute *pwm_fan_attributes[] = {
 	&dev_attr_temp_control.attr,
 	&dev_attr_step_time.attr,
 	&dev_attr_pwm_rpm_table.attr,
+	&dev_attr_kickstart_params.attr,
+	&dev_attr_fan_kickstart.attr,
 	NULL
 };
 
@@ -865,6 +968,8 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	u32 value;
 	int pwm_fan_gpio;
 	int tach_gpio;
+	int fan_startup_time = 0;
+	int fan_startup_pwm = 0;
 
 	if (!pdev)
 		return -EINVAL;
@@ -1097,8 +1202,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 		goto workqueue_alloc_fail;
 	}
 
-	INIT_DELAYED_WORK(&(fan_data->fan_ramp_work), fan_ramping_work_func);
-
 	/* Use profile cap if profiles are in use*/
 	if (fan_data->num_profiles > 0) {
 		fan_data->fan_state_cap =
@@ -1107,9 +1210,33 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	fan_data->fan_cap_pwm = fan_data->fan_pwm[fan_data->fan_state_cap];
 
 	fan_data->precision_multiplier =
-			fan_data->pwm_period / fan_data->fan_pwm_max;
+			(fan_data->pwm_period * MULTIQP) / fan_data->fan_pwm_max;
 	dev_info(&pdev->dev, "cap state:%d, cap pwm:%d\n",
 			fan_data->fan_state_cap, fan_data->fan_cap_pwm);
+
+	if (of_find_property(node, "fan_startup_pwm", NULL)
+		|| of_find_property(node, "fan_startup_pwm", NULL)) {
+		of_err = of_property_read_u32(node, "fan_startup_pwm", &fan_startup_pwm);
+		fan_data->fan_startup_pwm = min(fan_startup_pwm, fan_data->fan_cap_pwm);
+
+		of_err |=  of_property_read_u32(node, "fan_startup_time", &fan_startup_time);
+		fan_data->fan_startup_time = (int)fan_startup_time;
+
+		if (of_err || !fan_data->fan_startup_pwm || !fan_data->fan_startup_time) {
+			fan_data->kickstart_en = false;
+			dev_err(&pdev->dev, "fan_startup init fail, fail to enable kick start feature\n");
+			err = -ENOMEM;
+			goto workqueue_alloc_fail;
+		} else {
+			fan_data->kickstart_en = true;
+		}
+	}
+	fan_data->fan_kickstart = false;
+
+	fan_data->continuous_gov = of_property_read_bool(node, "continuous_gov_boot_on");
+
+	INIT_DELAYED_WORK(&(fan_data->fan_ramp_work), fan_ramping_work_func);
+	INIT_DELAYED_WORK(&(fan_data->fan_hyst_work), fan_hyst_work_func);
 
 	fan_data->cdev =
 		thermal_cooling_device_register("pwm-fan",
@@ -1269,6 +1396,10 @@ static int pwm_fan_remove(struct platform_device *pdev)
 	destroy_workqueue(fan_data->tach_workqueue);
 	disable_irq(fan_data->tach_irq);
 	gpio_free(fan_data->tach_gpio);
+	if (fan_data->kickstart_en) {
+		cancel_delayed_work_sync(&fan_data->fan_hyst_work);
+		fan_data->fan_kickstart = false;
+	}
 	cancel_delayed_work(&fan_data->fan_ramp_work);
 	destroy_workqueue(fan_data->workqueue);
 	pwm_config(fan_data->pwm_dev, 0, fan_data->pwm_period);
@@ -1288,6 +1419,10 @@ static int pwm_fan_suspend(struct platform_device *pdev, pm_message_t state)
 	int err;
 
 	mutex_lock(&fan_data->fan_state_lock);
+	if (fan_data->kickstart_en) {
+		cancel_delayed_work(&fan_data->fan_hyst_work);
+		fan_data->fan_kickstart = false;
+	}
 	cancel_delayed_work(&fan_data->fan_ramp_work);
 
 	set_pwm_duty_cycle(0, fan_data);
@@ -1319,24 +1454,11 @@ static int pwm_fan_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int pwm_fan_resume(struct platform_device *pdev)
 {
-	int err;
 	struct fan_dev_data *fan_data = platform_get_drvdata(pdev);
 
 	mutex_lock(&fan_data->fan_state_lock);
 
-	err = regulator_enable(fan_data->fan_reg);
-	if (err < 0) {
-		dev_err(fan_data->dev,
-				"failed to enable vdd-fan, control is off\n");
-		mutex_unlock(&fan_data->fan_state_lock);
-		return err;
-	}
-
-	dev_dbg(fan_data->dev, "Enabled vdd-fan\n");
-	fan_data->is_fan_reg_enabled = true;
-
 	gpio_free(fan_data->pwm_gpio);
-	pwm_enable(fan_data->pwm_dev);
 
 	queue_delayed_work(fan_data->workqueue,
 			&fan_data->fan_ramp_work,

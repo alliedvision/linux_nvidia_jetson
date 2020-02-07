@@ -30,6 +30,23 @@
 #define	NVIDIA_P2P_PINNED 0x1
 #define	NVIDIA_P2P_MAPPED 0x2
 
+#define NVIDIA_P2P_MAJOR_VERSION_MASK   0xffff0000
+#define NVIDIA_P2P_MINOR_VERSION_MASK   0x0000ffff
+
+#define NVIDIA_P2P_MAJOR_VERSION(v) \
+	(((v) & NVIDIA_P2P_MAJOR_VERSION_MASK) >> 16)
+
+#define NVIDIA_P2P_MINOR_VERSION(v) \
+	(((v) & NVIDIA_P2P_MINOR_VERSION_MASK))
+
+#define NVIDIA_P2P_MAJOR_VERSION_MATCHES(p, v) \
+	(NVIDIA_P2P_MAJOR_VERSION((p)->version) == NVIDIA_P2P_MAJOR_VERSION(v))
+
+#define NVIDIA_P2P_VERSION_COMPATIBLE(p, v)    \
+	(NVIDIA_P2P_MAJOR_VERSION_MATCHES(p, v) && \
+	(NVIDIA_P2P_MINOR_VERSION((p)->version) >= \
+	(NVIDIA_P2P_MINOR_VERSION(v))))
+
 enum nvidia_p2p_page_size_type {
 	NVIDIA_P2P_PAGE_SIZE_4KB = 0,
 	NVIDIA_P2P_PAGE_SIZE_64KB,
@@ -37,7 +54,8 @@ enum nvidia_p2p_page_size_type {
 	NVIDIA_P2P_PAGE_SIZE_COUNT
 };
 
-struct nvidia_p2p_page_table {
+typedef struct nvidia_p2p_page_table {
+	u32 version;
 	u32 page_size;
 	u64 size;
 	u32 entries;
@@ -51,9 +69,10 @@ struct nvidia_p2p_page_table {
 	struct mutex lock;
 	void (*free_callback)(void *data);
 	void *data;
-};
+} nvidia_p2p_page_table_t;
 
-struct nvidia_p2p_dma_mapping {
+typedef struct nvidia_p2p_dma_mapping {
+	u32 version;
 	dma_addr_t *hw_address;
 	u32 *hw_len;
 	u32 entries;
@@ -62,7 +81,12 @@ struct nvidia_p2p_dma_mapping {
 	struct device *dev;
 	struct nvidia_p2p_page_table *page_table;
 	enum dma_data_direction direction;
-};
+} nvidia_p2p_dma_mapping_t;
+
+#define NVIDIA_P2P_PAGE_TABLE_VERSION   0x00010000
+
+#define NVIDIA_P2P_PAGE_TABLE_VERSION_COMPATIBLE(p) \
+	NVIDIA_P2P_VERSION_COMPATIBLE(p, NVIDIA_P2P_PAGE_TABLE_VERSION)
 
 /*
  * @brief
@@ -123,6 +147,11 @@ int nvidia_p2p_put_pages(struct nvidia_p2p_page_table *page_table);
  *    Negative number if any other error
  */
 int nvidia_p2p_free_page_table(struct nvidia_p2p_page_table *page_table);
+
+#define NVIDIA_P2P_DMA_MAPPING_VERSION   0x00010000
+
+#define NVIDIA_P2P_DMA_MAPPING_VERSION_COMPATIBLE(p) \
+	NVIDIA_P2P_VERSION_COMPATIBLE(p, NVIDIA_P2P_DMA_MAPPING_VERSION)
 
 /*
  * @brief

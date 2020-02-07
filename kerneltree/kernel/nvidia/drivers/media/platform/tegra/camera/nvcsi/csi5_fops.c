@@ -1,7 +1,7 @@
 /*
  * Tegra CSI5 device common APIs
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frankc@nvidia.com>
  *
@@ -131,9 +131,9 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	struct tegra_csi_device *csi = chan->csi;
 
 	struct camera_common_data *s_data = chan->s_data;
-	const struct sensor_mode_properties *mode = NULL;
 
-	unsigned int cil_settletime = 0;
+	unsigned int cil_settletime = read_settle_time_from_dt(chan);
+	unsigned int discontinuous_clk = read_discontinuous_clk_from_dt(chan);
 
 	struct CAPTURE_CONTROL_MSG msg;
 	struct nvcsi_brick_config brick_config;
@@ -143,36 +143,6 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	dev_dbg(csi->dev, "%s: stream_id=%u, csi_port=%u\n",
 		__func__, stream_id, csi_port);
 
-	/* Attempt to find the cil_settingtime from the device tree */
-	if (s_data) {
-		int idx = s_data->mode_prop_idx;
-
-		dev_dbg(csi->dev, "cil_settingtime is pulled from device");
-		if (idx < s_data->sensor_props.num_modes) {
-			mode = &s_data->sensor_props.sensor_modes[idx];
-			cil_settletime = mode->signal_properties.cil_settletime;
-		} else {
-			dev_dbg(csi->dev, "mode not listed in DT, use default");
-			cil_settletime = 0;
-		}
-	} else if (chan->of_node) {
-		int err = 0;
-		const char *str;
-
-		dev_dbg(csi->dev,
-			"cil_settletime is pulled from device of_node");
-		err = of_property_read_string(chan->of_node, "cil_settletime",
-			&str);
-		if (!err) {
-			err = kstrtou32(str, 10, &cil_settletime);
-			if (err) {
-				dev_dbg(csi->dev,
-					"no cil_settletime in of_node");
-				cil_settletime = 0;
-			}
-		}
-	}
-
 	/* Brick config */
 	memset(&brick_config, 0, sizeof(brick_config));
 	brick_config.phy_mode = (!is_cphy) ?
@@ -181,7 +151,11 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	/* CIL config */
 	memset(&cil_config, 0, sizeof(cil_config));
 	cil_config.num_lanes = csi_lanes;
-	cil_config.lp_bypass_mode = is_cphy ? 0 : 1;
+	if (is_cphy)
+		cil_config.lp_bypass_mode = 0;
+	else
+		cil_config.lp_bypass_mode = !discontinuous_clk;
+
 	cil_config.t_clk_settle = is_cphy ? 1 : 33;
 	cil_config.t_hs_settle = cil_settletime;
 	cil_config.cil_clock_rate = NVCSI_CIL_CLOCK_RATE; /* hard-coding */

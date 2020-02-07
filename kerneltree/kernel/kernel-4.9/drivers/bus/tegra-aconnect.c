@@ -124,29 +124,11 @@ static int tegra_aconnect_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int tegra_aconnect_pm_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-	return tegra_aconnect_runtime_suspend(dev);
-}
-
-static int tegra_aconnect_pm_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra_aconnect_runtime_resume(dev);
-}
-#endif
-
-
 static const struct dev_pm_ops tegra_aconnect_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra_aconnect_runtime_suspend,
 			tegra_aconnect_runtime_resume, NULL)
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(tegra_aconnect_pm_suspend,
-			tegra_aconnect_pm_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				      pm_runtime_force_resume)
 
 };
 

@@ -501,7 +501,6 @@ static int vgpu_gr_tsg_bind_gr_ctx(struct tsg_gk20a *tsg)
 int vgpu_gr_alloc_obj_ctx(struct channel_gk20a  *c, u32 class_num, u32 flags)
 {
 	struct gk20a *g = c->g;
-	struct fifo_gk20a *f = &g->fifo;
 	struct nvgpu_gr_ctx *gr_ctx = NULL;
 	struct tsg_gk20a *tsg = NULL;
 	int err = 0;
@@ -522,10 +521,11 @@ int vgpu_gr_alloc_obj_ctx(struct channel_gk20a  *c, u32 class_num, u32 flags)
 	}
 	c->obj_class = class_num;
 
-	if (!gk20a_is_channel_marked_as_tsg(c))
+	tsg = tsg_gk20a_from_ch(c);
+	if (tsg == NULL) {
 		return -EINVAL;
+	}
 
-	tsg = &f->tsg[c->tsgid];
 	gr_ctx = &tsg->gr_ctx;
 
 	if (!nvgpu_mem_is_valid(&gr_ctx->mem)) {

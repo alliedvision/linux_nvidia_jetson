@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,11 +27,6 @@
 #include <nvgpu/channel.h>
 #include <nvgpu/tsg.h>
 #include <nvgpu/gk20a.h>
-
-bool gk20a_is_channel_marked_as_tsg(struct channel_gk20a *ch)
-{
-	return !(ch->tsgid == NVGPU_INVALID_TSG_ID);
-}
 
 int gk20a_enable_tsg(struct tsg_gk20a *tsg)
 {
@@ -116,7 +111,7 @@ int gk20a_tsg_bind_channel(struct tsg_gk20a *tsg,
 	nvgpu_log_fn(g, " ");
 
 	/* check if channel is already bound to some TSG */
-	if (gk20a_is_channel_marked_as_tsg(ch)) {
+	if (tsg_gk20a_from_ch(ch) != NULL) {
 		return -EINVAL;
 	}
 
@@ -125,7 +120,6 @@ int gk20a_tsg_bind_channel(struct tsg_gk20a *tsg,
 		return -EINVAL;
 	}
 
-	ch->tsgid = tsg->tsgid;
 
 	/* all the channel part of TSG should need to be same runlist_id */
 	if (tsg->runlist_id == FIFO_INVAL_TSG_ID) {
@@ -139,6 +133,9 @@ int gk20a_tsg_bind_channel(struct tsg_gk20a *tsg,
 
 	nvgpu_rwsem_down_write(&tsg->ch_list_lock);
 	nvgpu_list_add_tail(&ch->ch_entry, &tsg->ch_list);
+	ch->tsgid = tsg->tsgid;
+	/* channel is serviceable after it is bound to tsg */
+	ch->ch_timedout = false;
 	nvgpu_rwsem_up_write(&tsg->ch_list_lock);
 
 	nvgpu_ref_get(&tsg->refcount);
@@ -172,14 +169,13 @@ int gk20a_tsg_unbind_channel(struct channel_gk20a *ch)
 
 		nvgpu_rwsem_down_write(&tsg->ch_list_lock);
 		nvgpu_list_del(&ch->ch_entry);
+		ch->tsgid = NVGPU_INVALID_TSG_ID;
 		nvgpu_rwsem_up_write(&tsg->ch_list_lock);
 	}
+	nvgpu_log(g, gpu_dbg_fn, "UNBIND tsg:%d channel:%d",
+					tsg->tsgid, ch->chid);
 
 	nvgpu_ref_put(&tsg->refcount, gk20a_tsg_release);
-	ch->tsgid = NVGPU_INVALID_TSG_ID;
-
-	nvgpu_log(g, gpu_dbg_fn, "UNBIND tsg:%d channel:%d\n",
-					tsg->tsgid, ch->chid);
 
 	return 0;
 }
@@ -395,13 +391,17 @@ void gk20a_tsg_release(struct nvgpu_ref *ref)
 struct tsg_gk20a *tsg_gk20a_from_ch(struct channel_gk20a *ch)
 {
 	struct tsg_gk20a *tsg = NULL;
+	u32 tsgid = ch->tsgid;
 
-	if (gk20a_is_channel_marked_as_tsg(ch)) {
+	if (tsgid != NVGPU_INVALID_TSG_ID) {
 		struct gk20a *g = ch->g;
 		struct fifo_gk20a *f = &g->fifo;
-		tsg = &f->tsg[ch->tsgid];
-	}
 
+		tsg = &f->tsg[tsgid];
+	} else {
+		nvgpu_log(ch->g, gpu_dbg_fn, "tsgid is invalid for chid: %d",
+			ch->chid);
+	}
 	return tsg;
 }
 

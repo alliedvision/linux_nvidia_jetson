@@ -1,7 +1,7 @@
-From 4616ac7e6bc71c7efc745568182ac9e59229498a Mon Sep 17 00:00:00 2001
+From 6fa86bd2a3b8bb06e15223a58a72418b4e6ddd23 Mon Sep 17 00:00:00 2001
 From: Dan Murphy <dmurphy@ti.com>
 Date: Fri, 24 Feb 2017 08:41:49 -0600
-Subject: [PATCH 003/353] lockdep: Fix compilation error for !CONFIG_MODULES
+Subject: [PATCH 003/352] lockdep: Fix compilation error for !CONFIG_MODULES
  and !CONFIG_SMP
 
 When CONFIG_MODULES is not set then it fails to compile in lockdep:

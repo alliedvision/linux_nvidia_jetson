@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 - 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011 - 2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -96,9 +96,6 @@ struct clk_gk20a {
 #if defined(CONFIG_COMMON_CLK)
 	struct clk *tegra_clk;
 	struct clk_hw hw;
-
-	/* scaling rate */
-	unsigned long cached_rate;
 #endif
 	struct pll gpc_pll;
 	struct pll gpc_pll_last;

@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra CSI Device Header
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -136,6 +136,7 @@ static inline struct tegra_csi_device *to_csi(struct v4l2_subdev *subdev)
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan);
 u32 read_settle_time_from_dt(struct tegra_csi_channel *chan);
+u32 read_discontinuous_clk_from_dt(struct tegra_csi_channel *chan);
 u64 read_pixel_clk_from_dt(struct tegra_csi_channel *chan);
 void set_csi_portinfo(struct tegra_csi_device *csi,
 	unsigned int port, unsigned int numlanes);

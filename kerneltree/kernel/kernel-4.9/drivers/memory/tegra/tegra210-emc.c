@@ -192,6 +192,7 @@ static int dram_temp_override;
 static unsigned long mr4_freq_threshold;
 static atomic_t mr4_temp_poll;
 static atomic_t mr4_force_poll;
+static atomic_t mr4_thresh_poll;
 
 static void emc_mr4_poll(unsigned long nothing);
 static struct timer_list emc_timer_mr4 =
@@ -396,7 +397,8 @@ static void emc_mr4_poll(unsigned long nothing)
 
 reset:
 	if (atomic_read(&mr4_temp_poll) == 0 &&
-	    atomic_read(&mr4_force_poll) == 0)
+	    atomic_read(&mr4_force_poll) == 0 &&
+	    atomic_read(&mr4_thresh_poll) == 0)
 		return;
 
 	if (mod_timer(&emc_timer_mr4,
@@ -420,6 +422,17 @@ static void tegra_emc_mr4_temp_trigger(int do_poll)
 	}
 }
 
+static void tegra_emc_mr4_thresh_trigger(int do_poll)
+{
+	if (do_poll) {
+		atomic_set(&mr4_thresh_poll, 1);
+		mod_timer(&emc_timer_mr4,
+			  jiffies + msecs_to_jiffies(timer_period_mr4));
+	} else {
+		atomic_set(&mr4_thresh_poll, 0);
+	}
+}
+
 /*
  * If the freq is higher than some threshold then poll. Only happens if a
  * threshold is actually defined.
@@ -427,9 +440,9 @@ static void tegra_emc_mr4_temp_trigger(int do_poll)
 static void tegra_emc_mr4_freq_check(unsigned long freq)
 {
 	if (mr4_freq_threshold && freq >= mr4_freq_threshold)
-		tegra_emc_mr4_temp_trigger(1);
+		tegra_emc_mr4_thresh_trigger(1);
 	else
-		tegra_emc_mr4_temp_trigger(0);
+		tegra_emc_mr4_thresh_trigger(0);
 }
 
 void tegra210_emc_mr4_set_freq_thresh(unsigned long thresh)

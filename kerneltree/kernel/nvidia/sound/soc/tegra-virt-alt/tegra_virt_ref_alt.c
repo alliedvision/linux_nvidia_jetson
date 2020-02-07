@@ -31,6 +31,7 @@
 #include "tegra_asoc_machine_virt_alt.h"
 #include "tegra_asoc_util_virt_alt.h"
 #include "tegra_asoc_xbar_virt_alt.h"
+#include "tegra_virt_alt_ivc.h"
 
 
 static struct tegra_audio_metadata_cntx meta = {
@@ -282,6 +283,8 @@ undo_register_codec:
 	snd_soc_unregister_codec(&pdev->dev);
 undo_register_component:
 	tegra210_virt_admaif_unregister_component(pdev);
+
+	nvaudio_ivc_free_ctxt(&pdev->dev);
 
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -43,6 +43,13 @@
 
 #define GET_TARGET_FREQ_DONTSCALE	1
 
+#ifdef CONFIG_DEVFREQ_GOV_POD_SCALING_HISTORY_BUFFER_SIZE_MAX
+#define MAX_HISTORY_BUF_SIZE		\
+	CONFIG_DEVFREQ_GOV_POD_SCALING_HISTORY_BUFFER_SIZE_MAX
+#else
+#define MAX_HISTORY_BUF_SIZE	0
+#endif
+
 static void podgov_enable(struct devfreq *df, int enable);
 static void podgov_set_user_ctl(struct devfreq *df, int enable);
 
@@ -67,7 +74,16 @@ struct podgov_info_rec {
 	unsigned int		p_user;
 	unsigned int		p_freq_request;
 
-	long			idle;
+	unsigned long		cycles_norm;
+	unsigned long		cycles_avg;
+
+	unsigned long		*cycles_history_buf;
+	int			p_history_buf_size;
+	int			history_next;
+	int			history_count;
+	unsigned long		recent_high;
+
+	unsigned long		rt_load;
 
 	int			adjustment_type;
 	unsigned long		adjustment_frequency;
@@ -78,7 +94,6 @@ struct podgov_info_rec {
 	unsigned long		*freqlist;
 	int			freq_count;
 
-	unsigned int		idle_avg;
 	int			freq_avg;
 
 	struct kobj_attribute	enable_3d_scaling_attr;
@@ -275,12 +290,13 @@ static void podgov_set_freq_request(struct devfreq *df, int freq_request)
 
 static unsigned long scaling_state_check(struct devfreq *df, ktime_t time)
 {
-	struct podgov_info_rec *podgov = df->data;
-	unsigned long dt;
-	long max_boost, load, damp, freq, boost, res;
+	struct podgov_info_rec *pg = df->data;
+	struct devfreq_dev_status *ds = &df->last_status;
+	unsigned long dt, busyness, rt_load = pg->rt_load;
+	long max_boost, damp, freq, boost, res;
 
-	dt = (unsigned long) ktime_us_delta(time, podgov->last_scale);
-	if (dt < podgov->p_block_window || df->previous_freq == 0)
+	dt = (unsigned long) ktime_us_delta(time, pg->last_scale);
+	if (dt < pg->p_block_window || df->previous_freq == 0)
 		return 0;
 
 	/* convert to mhz to avoid overflow */
@@ -288,20 +304,26 @@ static unsigned long scaling_state_check(struct devfreq *df, ktime_t time)
 	max_boost = (df->max_freq/3) / 1000000;
 
 	/* calculate and trace load */
-	load = 1000 - podgov->idle_avg;
-	trace_podgov_busy(df->dev.parent, load);
-	damp = podgov->p_damp;
+	busyness = 1000ULL * pg->cycles_avg / ds->current_frequency;
 
-	if ((1000 - podgov->idle) > podgov->p_load_max) {
+	/* consider recent high load if required */
+	if (pg->p_history_buf_size && pg->history_count)
+		busyness = 1000ULL * pg->recent_high / ds->current_frequency;
+
+	trace_podgov_load(df->dev.parent, rt_load);
+	trace_podgov_busy(df->dev.parent, busyness);
+
+	damp = pg->p_damp;
+
+	if (rt_load > pg->p_load_max) {
 		/* if too busy, scale up max/3, do not damp */
 		boost = max_boost;
 		damp = 10;
-
 	} else {
-		/* boost = bias * freq * (load - target)/target */
-		boost = (load - podgov->p_load_target);
-		boost *= (podgov->p_bias * freq);
-		boost /= (100 * podgov->p_load_target);
+		/* boost = bias * freq * (busyness - target)/target */
+		boost = busyness - pg->p_load_target;
+		boost *= (pg->p_bias * freq);
+		boost /= (100 * pg->p_load_target);
 
 		/* clamp to max boost */
 		boost = (boost < max_boost) ? boost : max_boost;
@@ -311,11 +333,11 @@ static unsigned long scaling_state_check(struct devfreq *df, ktime_t time)
 	res = freq + boost;
 
 	/* Maintain average request */
-	podgov->freq_avg = (podgov->freq_avg * podgov->p_smooth) + res;
-	podgov->freq_avg /= (podgov->p_smooth+1);
+	pg->freq_avg = (pg->freq_avg * pg->p_smooth) + res;
+	pg->freq_avg /= (pg->p_smooth+1);
 
 	/* Applying damping to frequencies */
-	res = ((damp * res) + ((10 - damp)*podgov->freq_avg)) / 10;
+	res = ((damp * res) + ((10 - damp)*pg->freq_avg)) / 10;
 
 	/* Convert to hz, limit, and apply */
 	res = res * 1000000;
@@ -366,6 +388,10 @@ static void nvhost_scale_emc_debug_init(struct devfreq *df)
 	podgov->debugdir = debugfs_create_dir(dirname, NULL);
 	if (!podgov->debugdir) {
 		pr_err("podgov: can\'t create debugfs directory\n");
+		f = debugfs_lookup(dirname, NULL);
+		if (f)
+			pr_err("%s debugfs already created\n", dirname);
+		panic("nvhost_scale_emc_debug_init");
 		return;
 	}
 
@@ -523,13 +549,18 @@ static ssize_t freq_request_store(struct kobject *kobj,
 static int nvhost_pod_estimate_freq(struct devfreq *df,
 				    unsigned long *freq)
 {
-	struct podgov_info_rec *podgov = df->data;
-	struct devfreq_dev_status *dev_stat;
-	int err;
+	struct podgov_info_rec *pg = df->data;
+	struct devfreq_dev_status *ds;
+	int err, i;
+	int buf_size = pg->p_history_buf_size;
+	int buf_next = pg->history_next;
+	int buf_count = pg->history_count;
+	unsigned long *cycles_buffer = pg->cycles_history_buf;
 	ktime_t now;
+	unsigned long long norm_load;
 
 	/* Ensure maximal clock when scaling is disabled */
-	if (!podgov->enable) {
+	if (!pg->enable) {
 		*freq = df->max_freq;
 		if (*freq == df->previous_freq)
 			return GET_TARGET_FREQ_DONTSCALE;
@@ -537,8 +568,8 @@ static int nvhost_pod_estimate_freq(struct devfreq *df,
 			return 0;
 	}
 
-	if (podgov->p_user) {
-		*freq = podgov->p_freq_request;
+	if (pg->p_user) {
+		*freq = pg->p_freq_request;
 		return 0;
 	}
 
@@ -546,10 +577,10 @@ static int nvhost_pod_estimate_freq(struct devfreq *df,
 	if (err)
 		return err;
 
-	dev_stat = &df->last_status;
+	ds = &df->last_status;
 
-	if (dev_stat->total_time == 0) {
-		*freq = dev_stat->current_frequency;
+	if (ds->total_time == 0) {
+		*freq = ds->current_frequency;
 		return 0;
 	}
 
@@ -558,41 +589,57 @@ static int nvhost_pod_estimate_freq(struct devfreq *df,
 	/* Local adjustments (i.e. requests from kernel threads) are
 	 * handled here */
 
-	if (podgov->adjustment_type == ADJUSTMENT_LOCAL) {
+	if (pg->adjustment_type == ADJUSTMENT_LOCAL) {
 
-		podgov->adjustment_type = ADJUSTMENT_DEVICE_REQ;
+		pg->adjustment_type = ADJUSTMENT_DEVICE_REQ;
 
 		/* Do not do unnecessary scaling */
-		scaling_limit(df, &podgov->adjustment_frequency);
+		scaling_limit(df, &pg->adjustment_frequency);
 
 		trace_podgov_estimate_freq(df->dev.parent,
 					   df->previous_freq,
-					   podgov->adjustment_frequency);
+					   pg->adjustment_frequency);
 
-		*freq = podgov->adjustment_frequency;
+		*freq = pg->adjustment_frequency;
 		return 0;
 	}
 
-	*freq = dev_stat->current_frequency;
-
 	/* Sustain local variables */
-	podgov->idle = 1000 * (dev_stat->total_time - dev_stat->busy_time);
-	podgov->idle = podgov->idle / dev_stat->total_time;
-	podgov->idle_avg = (podgov->p_smooth * podgov->idle_avg) +
-		podgov->idle;
-	podgov->idle_avg = podgov->idle_avg / (podgov->p_smooth + 1);
+	norm_load = (u64)ds->current_frequency * ds->busy_time / ds->total_time;
+	pg->cycles_norm = norm_load;
+	pg->cycles_avg = ((u64)pg->cycles_avg * pg->p_smooth + norm_load) /
+		(pg->p_smooth + 1);
+	pg->rt_load = 1000ULL * ds->busy_time / ds->total_time;
+
+	/* Update history of normalized cycle counts and recent highest count */
+	if (buf_size) {
+		if (buf_count == buf_size) {
+			pg->recent_high = 0;
+			i = (buf_next + 1) % buf_size;
+			for (; i != buf_next; i = (i + 1) % buf_size) {
+				if (cycles_buffer[i] > pg->recent_high)
+					pg->recent_high = cycles_buffer[i];
+			}
+		}
+		cycles_buffer[buf_next] = norm_load;
+		pg->history_next = (buf_next + 1) % buf_size;
+		if (buf_count < buf_size)
+			pg->history_count += 1;
+		if (norm_load > pg->recent_high)
+			pg->recent_high = norm_load;
+	}
 
 	*freq = scaling_state_check(df, now);
 
 	if (!(*freq)) {
-		*freq = dev_stat->current_frequency;
+		*freq = ds->current_frequency;
 		return 0;
 	}
 
-	if (freqlist_up(podgov, *freq, 0) == dev_stat->current_frequency)
+	if ((*freq = freqlist_up(pg, *freq, 0)) == ds->current_frequency)
 		return 0;
 
-	podgov->last_scale = now;
+	pg->last_scale = now;
 
 	trace_podgov_estimate_freq(df->dev.parent, df->previous_freq, *freq);
 
@@ -617,6 +664,19 @@ static int nvhost_pod_init(struct devfreq *df)
 	podgov = kzalloc(sizeof(struct podgov_info_rec), GFP_KERNEL);
 	if (!podgov)
 		goto err_alloc_podgov;
+
+	podgov->cycles_history_buf =
+		kzalloc(sizeof(unsigned long) * MAX_HISTORY_BUF_SIZE,
+			GFP_KERNEL);
+	if (!podgov->cycles_history_buf)
+		goto err_alloc_history_buffer;
+
+	podgov->p_history_buf_size =
+		MAX_HISTORY_BUF_SIZE < 100 ? MAX_HISTORY_BUF_SIZE : 100;
+	podgov->history_count = 0;
+	podgov->history_next = 0;
+	podgov->recent_high = 0;
+
 	df->data = (void *)podgov;
 
 	/* Set scaling parameter defaults */
@@ -676,7 +736,6 @@ static int nvhost_pod_init(struct devfreq *df)
 	df->max_freq = podgov->freqlist[podgov->freq_count - 1];
 	podgov->p_freq_request = df->max_freq;
 
-	podgov->idle_avg = 0;
 	podgov->freq_avg = 0;
 
 	nvhost_scale_emc_debug_init(df);
@@ -695,6 +754,8 @@ err_create_request_sysfs_entry:
 			  &podgov->enable_3d_scaling_attr.attr);
 err_create_enable_sysfs_entry:
 	dev_err(&d->dev, "failed to create sysfs attributes");
+	kfree(podgov->cycles_history_buf);
+err_alloc_history_buffer:
 	kfree(podgov);
 err_alloc_podgov:
 	return -ENOMEM;
@@ -719,7 +780,7 @@ static void nvhost_pod_exit(struct devfreq *df)
 			  &podgov->enable_3d_scaling_attr.attr);
 
 	nvhost_scale_emc_debug_deinit(df);
-
+	kfree(podgov->cycles_history_buf);
 	kfree(podgov);
 }
 

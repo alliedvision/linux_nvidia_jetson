@@ -1038,6 +1038,7 @@ static int tegra_pcie_dw_rd_other_conf(struct pcie_port *pp,
 #ifdef CONFIG_PCIE_TEGRA_DW_DMA_TEST
 static int dma_write(struct tegra_pcie_dw *pcie, struct dma_tx *tx)
 {
+	struct dw_pcie *pci = &pcie->pci;
 	struct device *dev = pcie->dev;
 	u32 val = 0, bit = 0;
 	int ret = 0;
@@ -1164,6 +1165,7 @@ exit:
 
 static int dma_read(struct tegra_pcie_dw *pcie, struct dma_tx *tx)
 {
+	struct dw_pcie *pci = &pcie->pci;
 	struct device *dev = pcie->dev;
 	u32 val = 0, bit = 0;
 	int ret = 0;
@@ -2499,22 +2501,26 @@ static void tegra_pcie_enable_legacy_interrupts(struct pcie_port *pp)
 #endif
 }
 
-static void tegra_pcie_enable_msi_interrupts(struct pcie_port *pp)
+static int tegra_pcie_enable_msi_interrupts(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct tegra_pcie_dw *pcie = dw_pcie_to_tegra_pcie(pci);
 	u32 val;
+	int ret;
 
-	dw_pcie_msi_init(pp);
+	ret = dw_pcie_msi_init(pp);
+	if (ret)
+		return ret;
 
 	/* enable MSI interrupt generation */
 	val = readl(pcie->appl_base + APPL_INTR_EN_L0_0);
 	val |= APPL_INTR_EN_L0_0_SYS_MSI_INTR_EN;
 	val |= APPL_INTR_EN_L0_0_MSI_RCV_INT_EN;
 	writel(val, pcie->appl_base + APPL_INTR_EN_L0_0);
+	return 0;
 }
 
-static void tegra_pcie_enable_interrupts(struct pcie_port *pp)
+static int tegra_pcie_enable_interrupts(struct pcie_port *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct tegra_pcie_dw *pcie = dw_pcie_to_tegra_pcie(pci);
@@ -2539,7 +2545,9 @@ static void tegra_pcie_enable_interrupts(struct pcie_port *pp)
 	tegra_pcie_enable_system_interrupts(pp);
 	tegra_pcie_enable_legacy_interrupts(pp);
 	if (IS_ENABLED(CONFIG_PCI_MSI))
-		tegra_pcie_enable_msi_interrupts(pp);
+		return tegra_pcie_enable_msi_interrupts(pp);
+	else
+		return 0;
 }
 
 static void disable_aspm_l0s(struct tegra_pcie_dw *pcie)
@@ -2892,9 +2900,13 @@ static int tegra_pcie_dw_host_init(struct pcie_port *pp)
 	}
 	dev_info(pci->dev, "link is up\n");
 
-	tegra_pcie_enable_interrupts(pp);
+	return tegra_pcie_enable_interrupts(pp);
+}
 
-	return 0;
+static void tegra_pcie_dw_host_deinit(struct pcie_port *pp)
+{
+	if (IS_ENABLED(CONFIG_PCI_MSI))
+		dw_pcie_msi_deinit(pp);
 }
 
 static int tegra_pcie_dw_link_up(struct dw_pcie *pci)
@@ -3034,6 +3046,7 @@ static struct dw_pcie_host_ops tegra_pcie_dw_host_ops = {
 	.rd_other_conf = tegra_pcie_dw_rd_other_conf,
 	.wr_other_conf = tegra_pcie_dw_wr_other_conf,
 	.host_init = tegra_pcie_dw_host_init,
+	.host_deinit = tegra_pcie_dw_host_deinit,
 	.scan_bus = tegra_pcie_dw_scan_bus,
 };
 
@@ -3913,16 +3926,18 @@ static void tegra_pcie_ep_init(struct dw_pcie_ep *ep)
 		goto fail_thread;
 	}
 
-	gpiod = gpio_to_desc(pcie->pex_rst_gpio);
-	if (!gpiod) {
-		dev_err(pcie->dev, "Unable to get gpio desc\n");
-		ret = -EINVAL;
-		goto fail_thread;
-	}
-	ret = gpiod_set_debounce(gpiod, PERST_DEBOUNCE_TIME);
-	if (ret < 0) {
-		dev_err(pcie->dev, "Unable to set gpio debounce time\n");
-		goto fail_thread;
+	if (pcie->cid == CTRL_5) {
+		gpiod = gpio_to_desc(pcie->pex_rst_gpio);
+		if (!gpiod) {
+			dev_err(pcie->dev, "Unable to get gpio desc\n");
+			ret = -EINVAL;
+			goto fail_thread;
+		}
+		ret = gpiod_set_debounce(gpiod, PERST_DEBOUNCE_TIME);
+		if (ret < 0) {
+			dev_err(pcie->dev, "Unable to set gpio debounce time\n");
+			goto fail_thread;
+		}
 	}
 
 	irq = gpio_to_irq(pcie->pex_rst_gpio);

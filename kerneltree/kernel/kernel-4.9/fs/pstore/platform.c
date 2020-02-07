@@ -44,7 +44,6 @@
 #include <linux/hardirq.h>
 #include <linux/jiffies.h>
 #include <linux/workqueue.h>
-#include <soc/tegra/pmc.h>
 
 #include "internal.h"
 
@@ -770,14 +769,6 @@ void pstore_get_records(int quiet)
 	ssize_t			ecc_notice_size = 0;
 
 	if (!psi)
-		return;
-
-	/* If current boot type is Power-on-reset, we can return from here
-	 * This is applicable for backward compatibility.
-	 * Power cycle remains active for DRAM hence the old data in
-	 * persistent location is still available.
-	 */
-	if (tegra_pmc_get_system_reset_reason() == TEGRA_POWER_ON_RESET)
 		return;
 
 	mutex_lock(&psi->read_mutex);

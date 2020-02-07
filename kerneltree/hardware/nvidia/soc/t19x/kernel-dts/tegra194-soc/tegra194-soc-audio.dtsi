@@ -144,9 +144,7 @@
 			compatible = "nvidia,tegra194-adma";
 			interrupt-parent = <&tegra_agic>;
 			reg = <0x0 0x02930000 0x0 0x50000>,	/* ADMA Reg */
-			      <0x0 0x02996000 0x0 0x2000>,	/* ADAST */
 			      <0x0 0x029f0000 0x0 0x10>;	/* HSP SS */
-			nvidia,adast =  <0x0 0x2 0x0 0x00008008 0x0 0x40000000 0x0 0x20000000 0x0 0x40000000>;
 			clocks = <&bpmp_clks TEGRA194_CLK_AHUB>;
 			clock-names = "d_audio";
 			interrupts =  <GIC_SPI INT_ADMA_EOT0 IRQ_TYPE_LEVEL_HIGH ROUTE_TO_HOST_INTF0>,
@@ -253,7 +251,7 @@
 			};
 
 			tegra_i2s1: i2s@2901000 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901000 0x0 0x100>;
 				nvidia,ahub-i2s-id = <0>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S1>,
@@ -268,7 +266,7 @@
 			};
 
 			tegra_i2s2: i2s@2901100 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901100 0x0 0x100>;
 				nvidia,ahub-i2s-id = <1>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S2>,
@@ -283,7 +281,7 @@
 			};
 
 			tegra_i2s3: i2s@2901200 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901200 0x0 0x100>;
 				nvidia,ahub-i2s-id = <2>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S3>,
@@ -298,7 +296,7 @@
 			};
 
 			tegra_i2s4: i2s@2901300 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901300 0x0 0x100>;
 				nvidia,ahub-i2s-id = <3>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S4>,
@@ -313,7 +311,7 @@
 			};
 
 			tegra_i2s5: i2s@2901400 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901400 0x0 0x100>;
 				nvidia,ahub-i2s-id = <4>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S5>,
@@ -328,7 +326,7 @@
 			};
 
 			tegra_i2s6: i2s@2901500 {
-				compatible = "nvidia,tegra186-i2s";
+				compatible = "nvidia,tegra210-i2s";
 				reg = <0x0 0x2901500 0x0 0x100>;
 				nvidia,ahub-i2s-id = <5>;
 				clocks = <&bpmp_clks TEGRA194_CLK_I2S6>,
@@ -617,7 +615,6 @@
 		hda,card-name = "tegra-hda-galen-t194";
 		iommus = <&smmu TEGRA_SID_HDA>;
 		reg = <0x0 0x3510000 0x0 0x10000>;
-		nvidia,max-codec-slot = <8>;
 
 		/* WAR: GCAP reg presently shows 2 SDO lines */
 		nvidia,num-sdo-stripe = <4>;

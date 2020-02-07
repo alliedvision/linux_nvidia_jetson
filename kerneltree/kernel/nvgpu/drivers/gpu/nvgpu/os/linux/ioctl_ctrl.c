@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -574,11 +574,13 @@ static int nvgpu_gpu_ioctl_l2_fb_ops(struct gk20a *g,
 	    (!args->l2_flush && args->l2_invalidate))
 		return -EINVAL;
 
+	nvgpu_mutex_acquire(&g->power_lock);
 	if (args->l2_flush)
 		g->ops.mm.l2_flush(g, args->l2_invalidate ? true : false);
 
 	if (args->fb_flush)
 		g->ops.mm.fb_flush(g);
+	nvgpu_mutex_release(&g->power_lock);
 
 	return err;
 }

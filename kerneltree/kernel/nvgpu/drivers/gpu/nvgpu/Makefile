@@ -51,8 +51,10 @@ nvgpu-y += common/bus/bus_gk20a.o \
 	common/mc/mc_gp10b.o  \
 	common/mc/mc_gv11b.o  \
 	common/mc/mc_gv100.o \
-	common/sync/channel_sync.o
-
+	common/sync/channel_sync.o \
+	common/power_features/power_features.o \
+	common/power_features/cg/cg.o \
+	common/power_features/pg/pg.o
 # Linux specific parts of nvgpu.
 nvgpu-y += \
 	os/linux/os_ops.o \
@@ -254,6 +256,7 @@ nvgpu-y += \
 	gm20b/pmu_gm20b.o \
 	gm20b/mm_gm20b.o \
 	gm20b/regops_gm20b.o \
+	gm20b/fecs_trace_gm20b.o \
 	boardobj/boardobj.o \
 	boardobj/boardobjgrp.o \
 	boardobj/boardobjgrpmask.o \
@@ -300,7 +303,6 @@ nvgpu-y += \
 	gp10b/pmu_gp10b.o \
 	gp10b/hal_gp10b.o \
 	gp10b/regops_gp10b.o \
-	gp10b/fecs_trace_gp10b.o \
 	gp10b/gp10b.o \
 	gp10b/ecc_gp10b.o \
 	gp106/hal_gp106.o \
@@ -328,6 +330,7 @@ nvgpu-y += \
 	gv11b/subctx_gv11b.o \
 	gv11b/regops_gv11b.o \
 	gv11b/ecc_gv11b.o \
+	gv11b/tpc_gv11b.o \
 	gv100/mm_gv100.o \
 	gv100/gr_ctx_gv100.o \
 	gv100/bios_gv100.o \

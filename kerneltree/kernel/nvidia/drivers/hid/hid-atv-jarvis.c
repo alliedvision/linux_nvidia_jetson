@@ -1665,13 +1665,15 @@ static int atvr_jarvis_break_events(struct hid_device *hdev,
 		/*
 		 * data[1] & data[2] will be set whenever a button is pressed
 		 * and will be all zero when no button is pressed
-		 * Also, data[1] == 0 && data[2] == 0x80 indicates we are
+		 * For Pepper, data[1] == 0 && data[2] == 0x80 indicates we are
 		 * sending a repeat of previous HID event. We should ignore
-		 * this case.
+		 * this case. For Friday, we don't need to ignore this case as
+		 * there is no repeat bit.
 		 */
 		if (data[1] == 0 && data[2] == 0)
 			cancel_delayed_work_sync(&shdr_dev->hid_miss_war_work);
-		else if (data[1] != 0 || data[2] != 0x80) {
+		else if (hdev->product == USB_DEVICE_ID_NVIDIA_FRIDAY ||
+			 (data[1] != 0 || data[2] != 0x80)) {
 			cancel_delayed_work_sync(&shdr_dev->hid_miss_war_work);
 			schedule_delayed_work(&shdr_dev->hid_miss_war_work,
 					      msecs_to_jiffies(timeout));

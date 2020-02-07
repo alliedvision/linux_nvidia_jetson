@@ -9,6 +9,8 @@
  * GNU General Public License for more details.
  *
  * Copyright (C) 2015 ARM Limited
+ *
+ * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  */
 
 #define pr_fmt(fmt) "psci: " fmt
@@ -577,6 +579,7 @@ static void __init psci_0_2_set_functions(void)
 
 	arm_pm_restart = psci_sys_reset;
 
+	pm_power_off = psci_sys_poweroff;
 	set_system_pmic_post_power_off_handler(psci_sys_poweroff);
 }
 

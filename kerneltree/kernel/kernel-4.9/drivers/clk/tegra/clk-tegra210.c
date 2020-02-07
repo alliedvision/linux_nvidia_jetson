@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -174,7 +174,7 @@
 
 #define PLLD2_SDM_EN_MASK BIT(31)
 #define PLLD2_SDM_RESET_MASK BIT(27)
-#define PLLD2_SSC_EN_MASK BIT(30)
+#define PLLD2_SSC_EN_MASK 0
 
 #define PLLDP_SS_CFG	0x598
 #define PLLDP_SDM_EN_MASK BIT(31)
@@ -3778,6 +3778,7 @@ static struct tegra_clk_init_table init_table[] __initdata = {
 	{ TEGRA210_CLK_I2S3_SYNC, TEGRA210_CLK_CLK_MAX, 24576000, 0 },
 	{ TEGRA210_CLK_I2S4_SYNC, TEGRA210_CLK_CLK_MAX, 24576000, 0 },
 	{ TEGRA210_CLK_VIMCLK_SYNC, TEGRA210_CLK_CLK_MAX, 24576000, 0 },
+	{ TEGRA210_CLK_ENTROPY, TEGRA210_CLK_CLK_M, 0, 1},
 	/* This MUST be the last entry. */
 	{ TEGRA210_CLK_CLK_MAX, TEGRA210_CLK_CLK_MAX, 0, 0 },
 };

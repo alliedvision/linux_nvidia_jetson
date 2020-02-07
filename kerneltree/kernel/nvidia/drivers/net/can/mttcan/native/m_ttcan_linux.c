@@ -1,7 +1,5 @@
 /*
- * "drivers/staging/mttcan/m_ttcan_linux.c"
- *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * References are taken from "Bosch C_CAN controller" at
  * "drivers/net/can/c_can/c_can.c"
@@ -50,8 +48,14 @@ static __init int mttcan_hw_init(struct mttcan_priv *priv)
 		return err;
 
 	/* Accept unmatched in Rx FIFO0 and reject all remote frame */
-	gfc_reg = (GFC_ANFS_RXFIFO_0 | GFC_ANFE_RXFIFO_0 | GFC_RRFS_REJECT |
-	     GFC_RRFE_REJECT);
+	gfc_reg |= (GFC_ANFS_RXFIFO_0 << MTT_GFC_ANFS_SHIFT) &
+		   MTT_GFC_ANFS_MASK;
+	gfc_reg |= (GFC_ANFE_RXFIFO_0 << MTT_GFC_ANFE_SHIFT) &
+		   MTT_GFC_ANFE_MASK;
+	gfc_reg |= (GFC_RRFS_REJECT << MTT_GFC_RRFS_SHIFT) &
+		   MTT_GFC_RRFS_MASK;
+	gfc_reg |= (GFC_RRFE_REJECT << MTT_GFC_RRFE_SHIFT) &
+		   MTT_GFC_RRFE_MASK;
 
 	priv->gfc_reg = gfc_reg;
 	err = ttcan_set_gfc(ttcan, gfc_reg);

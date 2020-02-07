@@ -1,7 +1,7 @@
-From af887e5789fe67c5f8cdaae64f651d15bb08fad7 Mon Sep 17 00:00:00 2001
+From e77964be056f1c123bf725e4068e9d6611b1b1bb Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 13 Jul 2016 18:22:23 +0200
-Subject: [PATCH 001/353] timer: make the base lock raw
+Subject: [PATCH 001/352] timer: make the base lock raw
 
 The part where the base lock is held got more predictable / shorter after the
 timer rework. One reason is the lack of re-cascading.

@@ -1,7 +1,7 @@
-From 044528c717f440252f2d4c8e4e505d8acef2596a Mon Sep 17 00:00:00 2001
+From 31a49dc48c7d93fa6160e9efba44948944aeb732 Mon Sep 17 00:00:00 2001
 From: Yong Zhang <yong.zhang0@gmail.com>
 Date: Thu, 28 Jul 2011 11:16:00 +0800
-Subject: [PATCH 147/353] hotplug: Reread hotplug_pcp on pin_current_cpu()
+Subject: [PATCH 147/352] hotplug: Reread hotplug_pcp on pin_current_cpu()
  retry
 
 When retry happens, it's likely that the task has been migrated to

@@ -60,17 +60,18 @@ struct tegra_asoc_audio_clock_info {
 	int set_mclk;
 	int lock_count;
 	int set_baseclock;
-	int set_clk_out_rate;
 	int num_clk;
-	unsigned int clk_out_rate;
-	unsigned int mclk_scale;
+	struct clk *clk_mclk_parent;
+	u32 set_clk_out_rate;
+	u32 mclk_rate;
+	u32 mclk_scale;
 	u32 clk_rates[MAX_NUM_RATES];
 };
 
 int tegra_alt_asoc_utils_set_rate(struct tegra_asoc_audio_clock_info *data,
 				int srate,
 				int mclk,
-				int clk_out_rate);
+				u32 clk_out_rate);
 void tegra_alt_asoc_utils_lock_clk_rate(
 				struct tegra_asoc_audio_clock_info *data,
 				int lock);

@@ -1,7 +1,7 @@
-From a20b038387e36404105907b3775b887e7275c594 Mon Sep 17 00:00:00 2001
+From 10695571722449aa72f0ff6a1bc0a24c32e39b5e Mon Sep 17 00:00:00 2001
 From: Oleg Nesterov <oleg@redhat.com>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 090/353] signal/x86: Delay calling signals in atomic
+Subject: [PATCH 090/352] signal/x86: Delay calling signals in atomic
 
 On x86_64 we must disable preemption before we enable interrupts
 for stack faults, int3 and debugging, because the current task is using
@@ -93,7 +93,7 @@ index 8fd4216..54cadad 100644
  	unsigned long sas_ss_sp;
  	size_t sas_ss_size;
 diff --git a/kernel/signal.c b/kernel/signal.c
-index f6ac037..e47ffc5 100644
+index 3e46462..08b92d4 100644
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
 @@ -1226,8 +1226,8 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,

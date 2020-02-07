@@ -850,7 +850,7 @@
 		};
 	};
 
-	pcie-controller@1003000 {
+	pcie@1003000 {
 		prod-settings {
 			#prod-cells = <3>;
 			mask-one-style;

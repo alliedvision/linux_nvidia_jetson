@@ -77,15 +77,5 @@
 				TEGRA_GPIO(X, 3)
 				>;
 		};
-
-		suspend_gpio: system-suspend-gpio {
-				status = "okay";
-				gpio-hog;
-				output-low;
-				gpio-suspend;
-				gpios = <
-					TEGRA_GPIO(A, 6) 0
-				>;
-		};
 	};
 };

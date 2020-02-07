@@ -251,7 +251,7 @@ int is_ras_ready(void)
 }
 EXPORT_SYMBOL(is_ras_ready);
 
-void print_error_record(struct error_record *record, u64 status)
+void print_error_record(struct error_record *record, u64 status, int errselr)
 {
 	struct ras_error *errors;
 	u64 misc0, misc1, addr;
@@ -261,7 +261,7 @@ void print_error_record(struct error_record *record, u64 status)
 	u64 err_status = 0;
 
 	pr_crit("**************************************\n");
-	pr_crit("RAS Error in %s:\n", record->name);
+	pr_crit("RAS Error in %s, ERRSELR_EL1=%d:\n", record->name, errselr);
 	pr_crit("\tStatus = 0x%llx\n", status);
 
 	/* Find the name of IERR */

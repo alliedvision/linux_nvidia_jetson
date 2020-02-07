@@ -1,7 +1,7 @@
 /*
  * tegra186-soc-base.dtsi: SoC Base DTSI file.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1935,9 +1935,7 @@
 			compatible = "nvidia,tegra186-adma";
 			interrupt-parent = <&tegra_agic>;
 			reg = <0x0 0x02930000 0x0 0x50000>,	/* ADMA Reg */
-			      <0x0 0x02996000 0x0 0x2000>,	/* ADAST */
 			      <0x0 0x029f0000 0x0 0x10>;	/* HSP SS */
-			nvidia,adast =  <0x0 0x2 0x0 0x00008008 0x0 0x40000000 0x0 0x20000000 0x0 0x40000000>;
 			clocks = <&tegra_car TEGRA186_CLK_AHUB>;
 			clock-names = "d_audio";
 			interrupts =  <GIC_SPI INT_ADMA_EOT0 IRQ_TYPE_LEVEL_HIGH ROUTE_TO_HOST_INTF0>,
@@ -1966,9 +1964,7 @@
 		      <0x0 0x02950000 0x0 0x10000>,	/* PAGE2 */
 		      <0x0 0x02960000 0x0 0x10000>,	/* PAGE3 */
 		      <0x0 0x02970000 0x0 0x10000>,	/* PAGE4 */
-		      <0x0 0x02996000 0x0 0x2000>,	/* ADAST */
 		      <0x0 0x029f0000 0x0 0x10>;	/* HSP SS */
-		nvidia,adast = <0x0 0x2 0x0 0x00008008 0x0 0x40000000 0x0 0x20000000 0x0 0x40000000>;
 		clocks = <&tegra_car TEGRA186_CLK_AHUB>,
 			<&tegra_car TEGRA186_CLK_APB2APE>,
 			<&tegra_car TEGRA186_CLK_APE>;
@@ -2088,7 +2084,7 @@
 		};
 
 		tegra_i2s1: i2s@2901000 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901000 0x0 0x100>;
 			nvidia,ahub-i2s-id = <0>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S1>,
@@ -2106,7 +2102,7 @@
 		};
 
 		tegra_i2s2: i2s@2901100 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901100 0x0 0x100>;
 			nvidia,ahub-i2s-id = <1>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S2>,
@@ -2124,7 +2120,7 @@
 		};
 
 		tegra_i2s3: i2s@2901200 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901200 0x0 0x100>;
 			nvidia,ahub-i2s-id = <2>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S3>,
@@ -2142,7 +2138,7 @@
 		};
 
 		tegra_i2s4: i2s@2901300 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901300 0x0 0x100>;
 			nvidia,ahub-i2s-id = <3>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S4>,
@@ -2160,7 +2156,7 @@
 		};
 
 		tegra_i2s5: i2s@2901400 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901400 0x0 0x100>;
 			nvidia,ahub-i2s-id = <4>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S5>,
@@ -2178,7 +2174,7 @@
 		};
 
 		tegra_i2s6: i2s@2901500 {
-			compatible = "nvidia,tegra186-i2s";
+			compatible = "nvidia,tegra210-i2s";
 			reg = <0x0 0x2901500 0x0 0x100>;
 			nvidia,ahub-i2s-id = <5>;
 			clocks = <&tegra_car TEGRA186_CLK_I2S6>,
@@ -2423,7 +2419,6 @@
 		compatible = "nvidia,tegra30-hda";
 		iommus = <&smmu TEGRA_SID_HDA>;
 		reg = <0x0 0x3510000 0x0 0x10000>;
-		nvidia,max-codec-slot = <8>;
 		clocks = <&tegra_car TEGRA186_CLK_PLLP_OUT0>,
 			 <&tegra_car TEGRA186_CLK_MAUD>,
 			 <&tegra_car TEGRA186_CLK_HDA>,
@@ -2659,6 +2654,9 @@
 		clock-names = "can","can_host","pllaon";
 		resets = <&tegra_car TEGRA186_RESET_CAN1>;
 		reset-names = "can";
+		mram-params = <0 16 16 32 0 0 16 16 16>;
+		tx-config = <0 16 0 64>;
+		rx-config = <64 64 64>;
 		status = "disabled";
 	};
 
@@ -2676,6 +2674,9 @@
 		clock-names = "can","can_host","pllaon";
 		resets = <&tegra_car TEGRA186_RESET_CAN2>;
 		reset-names = "can";
+		mram-params = <0 16 16 32 0 0 16 16 16>;
+		tx-config = <0 16 0 64>;
+		rx-config = <64 64 64>;
 		status = "disabled";
 	};
 

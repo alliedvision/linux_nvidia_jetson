@@ -17,7 +17,7 @@
 #ifndef __QUADD_VERSION_H
 #define __QUADD_VERSION_H
 
-#define QUADD_MODULE_VERSION		"1.132"
+#define QUADD_MODULE_VERSION		"1.134"
 #define QUADD_MODULE_BRANCH		"Dev"
 
 #endif	/* __QUADD_VERSION_H */

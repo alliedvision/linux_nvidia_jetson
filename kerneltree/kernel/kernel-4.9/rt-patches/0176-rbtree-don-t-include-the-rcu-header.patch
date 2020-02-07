@@ -1,7 +1,7 @@
-From 86a362b463b590a1559582c08b93871c2112a170 Mon Sep 17 00:00:00 2001
+From 82ff03d9608c9c648dec1b23dd65df83b1698f44 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 23 Jun 2017 16:22:02 +0200
-Subject: [PATCH 176/353] rbtree: don't include the rcu header
+Subject: [PATCH 176/352] rbtree: don't include the rcu header
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

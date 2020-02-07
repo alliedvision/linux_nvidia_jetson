@@ -149,7 +149,7 @@ enum gk20a_cbc_op {
 
 #define nvgpu_get_litter_value(g, v) (g)->ops.get_litter_value((g), v)
 
-#define MAX_TPC_PG_CONFIGS      3
+#define MAX_TPC_PG_CONFIGS      9
 
 enum nvgpu_unit;
 
@@ -718,6 +718,8 @@ struct gpu_ops {
 		void (*teardown_ch_tsg)(struct gk20a *g, u32 act_eng_bitmask,
 			u32 id, unsigned int id_type, unsigned int rc_type,
 			 struct mmu_fault_info *mmfault);
+		void (*teardown_mask_intr)(struct gk20a *g);
+		void (*teardown_unmask_intr)(struct gk20a *g);
 		bool (*handle_sched_error)(struct gk20a *g);
 		bool (*handle_ctxsw_timeout)(struct gk20a *g, u32 fifo_intr);
 		unsigned int (*handle_pbdma_intr_0)(struct gk20a *g,
@@ -1050,6 +1052,8 @@ struct gpu_ops {
 		void (*pmu_init_perfmon_counter)(struct gk20a *g);
 		void (*pmu_pg_idle_counter_config)(struct gk20a *g, u32 pg_engine_id);
 		u32  (*pmu_read_idle_counter)(struct gk20a *g, u32 counter_id);
+		u32  (*pmu_read_idle_intr_status)(struct gk20a *g);
+		void (*pmu_clear_idle_intr_status)(struct gk20a *g);
 		void (*pmu_reset_idle_counter)(struct gk20a *g, u32 counter_id);
 		void (*pmu_dump_elpg_stats)(struct nvgpu_pmu *pmu);
 		void (*pmu_dump_falcon_stats)(struct nvgpu_pmu *pmu);
@@ -1344,6 +1348,9 @@ struct gpu_ops {
 	struct {
 		void (*acr_sw_init)(struct gk20a *g, struct nvgpu_acr *acr);
 	} acr;
+	struct {
+		int (*tpc_powergate)(struct gk20a *g, u32 fuse_status);
+	} tpc;
 	void (*semaphore_wakeup)(struct gk20a *g, bool post_events);
 };
 
@@ -1486,6 +1493,7 @@ struct gk20a {
 	u32 max_timeslice_us;
 	bool runlist_interleave;
 
+	struct nvgpu_mutex cg_pg_lock;
 	bool slcg_enabled;
 	bool blcg_enabled;
 	bool elcg_enabled;
@@ -1610,6 +1618,7 @@ struct gk20a {
 	u32 tpc_fs_mask_user;
 
 	u32 tpc_pg_mask;
+	u32 tpc_count;
 	bool can_tpc_powergate;
 
 	u32 valid_tpc_mask[MAX_TPC_PG_CONFIGS];

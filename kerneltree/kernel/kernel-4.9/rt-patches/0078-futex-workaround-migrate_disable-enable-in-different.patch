@@ -1,7 +1,7 @@
-From ca6a7fdaa7ef8e459a3910dc11b40b6c5f31abb4 Mon Sep 17 00:00:00 2001
+From a8349a2cd1e0545800c8fe0899a78914a41ce582 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 8 Mar 2017 14:23:35 +0100
-Subject: [PATCH 078/353] futex: workaround migrate_disable/enable in different
+Subject: [PATCH 078/352] futex: workaround migrate_disable/enable in different
  context
 
 migrate_disable()/migrate_enable() takes a different path in atomic() vs
@@ -16,10 +16,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 20 insertions(+)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index f9addec..c5d0d70 100644
+index 239d5ea..7431ff3 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -2712,9 +2712,18 @@ static int futex_lock_pi(u32 __user *uaddr, unsigned int flags,
+@@ -2720,9 +2720,18 @@ static int futex_lock_pi(u32 __user *uaddr, unsigned int flags,
  	 * lock handoff sequence.
  	 */
  	raw_spin_lock_irq(&q.pi_state->pi_mutex.wait_lock);
@@ -38,7 +38,7 @@ index f9addec..c5d0d70 100644
  
  	if (ret) {
  		if (ret == 1)
-@@ -2858,10 +2867,21 @@ static int futex_unlock_pi(u32 __user *uaddr, unsigned int flags)
+@@ -2866,10 +2875,21 @@ static int futex_unlock_pi(u32 __user *uaddr, unsigned int flags)
  		 * observed.
  		 */
  		raw_spin_lock_irq(&pi_state->pi_mutex.wait_lock);

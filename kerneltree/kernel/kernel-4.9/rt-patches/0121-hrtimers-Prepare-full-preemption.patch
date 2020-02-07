@@ -1,7 +1,7 @@
-From 20ab0f4c0a100bbf82128b5bd29b9d0414674284 Mon Sep 17 00:00:00 2001
+From 723b31033a5d814d811e488c8e70190a428871de Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:34 -0500
-Subject: [PATCH 121/353] hrtimers: Prepare full preemption
+Subject: [PATCH 121/352] hrtimers: Prepare full preemption
 
 Make cancellation of a running callback in softirq context safe
 against preemption.
@@ -130,10 +130,10 @@ index 1d5c720..184de67 100644
  		}
  		expires = timeval_to_ktime(value->it_value);
 diff --git a/kernel/time/posix-timers.c b/kernel/time/posix-timers.c
-index 53ba15a..6084618 100644
+index 06ef7e4..558e420 100644
 --- a/kernel/time/posix-timers.c
 +++ b/kernel/time/posix-timers.c
-@@ -833,6 +833,20 @@ SYSCALL_DEFINE1(timer_getoverrun, timer_t, timer_id)
+@@ -842,6 +842,20 @@ SYSCALL_DEFINE1(timer_getoverrun, timer_t, timer_id)
  	return overrun;
  }
  
@@ -154,7 +154,7 @@ index 53ba15a..6084618 100644
  /* Set a POSIX.1b interval timer. */
  /* timr->it_lock is taken. */
  static int
-@@ -910,6 +924,7 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
+@@ -919,6 +933,7 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
  	if (!timr)
  		return -EINVAL;
  
@@ -162,7 +162,7 @@ index 53ba15a..6084618 100644
  	kc = clockid_to_kclock(timr->it_clock);
  	if (WARN_ON_ONCE(!kc || !kc->timer_set))
  		error = -EINVAL;
-@@ -918,9 +933,12 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
+@@ -927,9 +942,12 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
  
  	unlock_timer(timr, flag);
  	if (error == TIMER_RETRY) {
@@ -175,7 +175,7 @@ index 53ba15a..6084618 100644
  
  	if (old_setting && !error &&
  	    copy_to_user(old_setting, &old_spec, sizeof (old_spec)))
-@@ -958,10 +976,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
+@@ -967,10 +985,15 @@ SYSCALL_DEFINE1(timer_delete, timer_t, timer_id)
  	if (!timer)
  		return -EINVAL;
  
@@ -191,7 +191,7 @@ index 53ba15a..6084618 100644
  
  	spin_lock(&current->sighand->siglock);
  	list_del(&timer->list);
-@@ -987,8 +1010,18 @@ static void itimer_delete(struct k_itimer *timer)
+@@ -996,8 +1019,18 @@ static void itimer_delete(struct k_itimer *timer)
  retry_delete:
  	spin_lock_irqsave(&timer->it_lock, flags);
  

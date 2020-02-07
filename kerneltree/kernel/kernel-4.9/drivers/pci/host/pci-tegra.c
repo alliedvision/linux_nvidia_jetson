@@ -204,6 +204,7 @@
 #define RP_VEND_XP_PRBS_EN					(1 << 1)
 
 #define RP_LINK_CONTROL_STATUS					0x00000090
+#define RP_LINK_CONTROL_STATUS_BW_MGMT_STATUS	0x40000000
 #define RP_LINK_CONTROL_STATUS_DL_LINK_ACTIVE	0x20000000
 #define RP_LINK_CONTROL_STATUS_LINKSTAT_MASK	0x3fff0000
 #define RP_LINK_CONTROL_STATUS_NEG_LINK_WIDTH	(0x3F << 20)
@@ -374,7 +375,7 @@
 
 #define INT_PCI_MSI_NR			(32 * 8)
 
-#define LINK_RETRAIN_TIMEOUT HZ
+#define LINK_RETRAIN_TIMEOUT 100000
 
 #define PCIE_LANES_X4_X1		0x14
 
@@ -414,8 +415,9 @@ struct tegra_msi {
 	struct msi_controller chip;
 	DECLARE_BITMAP(used, INT_PCI_MSI_NR);
 	struct irq_domain *domain;
-	unsigned long pages;
 	struct mutex lock;
+	void *virt;
+	u64 phys;
 	int irq;
 };
 
@@ -488,6 +490,7 @@ struct tegra_pcie {
 
 static int tegra_pcie_enable_msi(struct tegra_pcie *pcie, bool no_init);
 static void tegra_pcie_check_ports(struct tegra_pcie *pcie);
+static void tegra_pcie_link_speed(struct tegra_pcie *pcie);
 static int tegra_pcie_power_off(struct tegra_pcie *pcie);
 
 #define MAX_PWR_GPIOS 5
@@ -523,7 +526,6 @@ struct tegra_pcie_bus {
 /* used to avoid successive hotplug disconnect or connect */
 static bool hotplug_event;
 /* pcie mselect, xclk and emc rate */
-static bool is_gen2_speed;
 static u16 bdf;
 static u16 config_offset;
 static u32 config_val;
@@ -2534,6 +2536,8 @@ static void tegra_pcie_check_ports(struct tegra_pcie *pcie)
 		dev_info(pcie->dev, "link %u down, ignoring\n", port->index);
 		tegra_pcie_port_disable(port);
 	}
+	/* configure all links to gen2 speed by default */
+	tegra_pcie_link_speed(pcie);
 	if (pcie->soc_data->mbist_war)
 		mbist_war(pcie, false);
 }
@@ -2708,123 +2712,72 @@ static int tegra_pcie_scale_voltage(struct tegra_pcie *pcie)
 	return err;
 }
 
-static void tegra_pcie_change_link_speed(struct tegra_pcie *pcie,
-				struct pci_dev *pdev, bool isGen2)
+static void tegra_pcie_change_link_speed(struct tegra_pcie *pcie)
 {
-	u16 val, link_sts_up_spd, link_sts_dn_spd;
-	u16 link_cap_up_spd, link_cap_dn_spd;
-	u32 rp = 0;
-	unsigned long start_jiffies;
-	struct tegra_pcie_port *port = NULL;
-	struct pci_dev *up_dev, *dn_dev;
+	struct device *dev = pcie->dev;
+	struct tegra_pcie_port *port, *tmp;
+	ktime_t deadline;
+	u32 value;
 
-	PR_FUNC_LINE;
-	/* skip if current device is not PCI express capable */
-	/* or is either a root port or downstream port */
-	if (!pci_is_pcie(pdev))
-		goto skip;
-	if ((pci_pcie_type(pdev) == PCI_EXP_TYPE_DOWNSTREAM) ||
-		(pci_pcie_type(pdev) == PCI_EXP_TYPE_ROOT_PORT))
-		goto skip;
+	list_for_each_entry_safe(port, tmp, &pcie->ports, list) {
+		/*
+		 * "Supported Link Speeds Vector" in "Link Capabilities 2"
+		 * is not supported by Tegra. tegra_pcie_change_link_speed()
+		 * is called only for Tegra chips which support Gen2.
+		 * So there no harm if supported link speed is not verified.
+		 */
+		value = readl(port->base + RP_LINK_CONTROL_STATUS_2);
+		value &= ~PCI_EXP_LNKSTA_CLS;
+		value |= PCI_EXP_LNKSTA_CLS_5_0GB;
+		writel(value, port->base + RP_LINK_CONTROL_STATUS_2);
 
-	/* initialize upstream/endpoint and downstream/root port device ptr */
-	up_dev = pdev;
-	dn_dev = pdev->bus->self;
+		/*
+		 * Poll until link comes back from recovery to avoid race
+		 * condition.
+		 */
+		deadline = ktime_add_us(ktime_get(), LINK_RETRAIN_TIMEOUT);
 
-	rp = PCI_SLOT(dn_dev->devfn);
-	list_for_each_entry(port, &pcie->ports, list)
-		if (rp == port->index + 1)
-			break;
-	if (!port->ep_status)
-		goto skip;
+		while (ktime_before(ktime_get(), deadline)) {
+			value = readl(port->base + RP_LINK_CONTROL_STATUS);
+			if ((value & PCI_EXP_LNKSTA_LT) == 0)
+				break;
 
-	/* read link status register to find current speed */
-	pcie_capability_read_word(up_dev, PCI_EXP_LNKSTA, &link_sts_up_spd);
-	link_sts_up_spd &= PCI_EXP_LNKSTA_CLS;
-	pcie_capability_read_word(dn_dev, PCI_EXP_LNKSTA, &link_sts_dn_spd);
-	link_sts_dn_spd &= PCI_EXP_LNKSTA_CLS;
-	/* read link capability register to find max speed supported */
-	pcie_capability_read_word(up_dev, PCI_EXP_LNKCAP, &link_cap_up_spd);
-	link_cap_up_spd &= PCI_EXP_LNKCAP_SLS;
-	pcie_capability_read_word(dn_dev, PCI_EXP_LNKCAP, &link_cap_dn_spd);
-	link_cap_dn_spd &= PCI_EXP_LNKCAP_SLS;
-	/* skip if both devices across the link are already trained to gen2 */
-	if (isGen2) {
-		if (((link_cap_up_spd >= PCI_EXP_LNKSTA_CLS_5_0GB) &&
-			(link_cap_dn_spd >= PCI_EXP_LNKSTA_CLS_5_0GB)) &&
-			((link_sts_up_spd != PCI_EXP_LNKSTA_CLS_5_0GB) ||
-			 (link_sts_dn_spd != PCI_EXP_LNKSTA_CLS_5_0GB)))
-			goto change;
-		else
-			goto skip;
-	} else {
-		/* gen1 should be supported by default by all pcie cards */
-		if ((link_sts_up_spd != PCI_EXP_LNKSTA_CLS_2_5GB) ||
-			 (link_sts_dn_spd != PCI_EXP_LNKSTA_CLS_2_5GB))
-			goto change;
-		else
-			goto skip;
+			usleep_range(2000, 3000);
+		}
+		if (value & PCI_EXP_LNKSTA_LT)
+			dev_warn(dev, "PCIe port %u link is in recovery\n",
+				 port->index);
+
+		/* Clear BW Management Status */
+		value = readl(port->base + RP_LINK_CONTROL_STATUS);
+		value |= RP_LINK_CONTROL_STATUS_BW_MGMT_STATUS;
+		writel(value, port->base + RP_LINK_CONTROL_STATUS);
+
+		/* Retrain the link */
+		value = readl(port->base + RP_LINK_CONTROL_STATUS);
+		value |= PCI_EXP_LNKCTL_RL;
+		writel(value, port->base + RP_LINK_CONTROL_STATUS);
+
+		deadline = ktime_add_us(ktime_get(), LINK_RETRAIN_TIMEOUT);
+
+		while (ktime_before(ktime_get(), deadline)) {
+			value = readl(port->base + RP_LINK_CONTROL_STATUS);
+			if (value & RP_LINK_CONTROL_STATUS_BW_MGMT_STATUS)
+				break;
+
+			usleep_range(2000, 3000);
+		}
+		if (value & PCI_EXP_LNKSTA_LT)
+			dev_err(dev, "failed to retrain link of port %u\n",
+				port->index);
 	}
-
-change:
-	/* Set Link Speed */
-	pcie_capability_read_word(dn_dev, PCI_EXP_LNKCTL2, &val);
-	val &= ~PCI_EXP_LNKSTA_CLS;
-	if (isGen2) {
-		dev_info(pcie->dev, "speed change : Gen-1 -> Gen-2\n");
-		val |= PCI_EXP_LNKSTA_CLS_5_0GB;
-	} else {
-		dev_info(pcie->dev, "speed change : Gen-2 -> Gen-1\n");
-		val |= PCI_EXP_LNKSTA_CLS_2_5GB;
-	}
-	pcie_capability_write_word(dn_dev, PCI_EXP_LNKCTL2, val);
-
-	/* LTSSM might be in recovery or configuration, so wait for current
-	 * link training to end. Break out after waiting for timeout */
-	start_jiffies = jiffies;
-	for (;;) {
-		pcie_capability_read_word(dn_dev, PCI_EXP_LNKSTA, &val);
-		if (!(val & PCI_EXP_LNKSTA_LT))
-			break;
-		if (time_after(jiffies, start_jiffies + LINK_RETRAIN_TIMEOUT))
-			break;
-		usleep_range(1000, 1100);
-	}
-	if (val & PCI_EXP_LNKSTA_LT)
-		dev_err(pcie->dev, "Link training failed before speed change\n");
-
-	/* Retrain the link */
-	pcie_capability_read_word(dn_dev, PCI_EXP_LNKCTL, &val);
-	val |= PCI_EXP_LNKCTL_RL;
-	pcie_capability_write_word(dn_dev, PCI_EXP_LNKCTL, val);
-
-	/* Wait for link training end. Break out after waiting for timeout */
-	start_jiffies = jiffies;
-	for (;;) {
-		pcie_capability_read_word(dn_dev, PCI_EXP_LNKSTA, &val);
-		if (!(val & PCI_EXP_LNKSTA_LT))
-			break;
-		if (time_after(jiffies, start_jiffies + LINK_RETRAIN_TIMEOUT))
-			break;
-		usleep_range(1000, 1100);
-	}
-	if (val & PCI_EXP_LNKSTA_LT)
-		dev_err(pcie->dev, "Link Re-training failed after speed change\n");
-
-skip:
-	return;
 }
 
-static void tegra_pcie_link_speed(struct tegra_pcie *pcie, bool isGen2)
+static void tegra_pcie_link_speed(struct tegra_pcie *pcie)
 {
-	struct pci_dev *pdev = NULL;
-
 	PR_FUNC_LINE;
-	/* Voltage scaling should happen before any device transition */
-	/* to Gen2 or after all devices has transitioned to Gen1 */
-	for_each_pci_dev(pdev)
-		tegra_pcie_change_link_speed(pcie, pdev, isGen2);
 
+	tegra_pcie_change_link_speed(pcie);
 	tegra_pcie_scale_voltage(pcie);
 
 	return;
@@ -2835,8 +2788,6 @@ static void tegra_pcie_enable_features(struct tegra_pcie *pcie)
 	struct tegra_pcie_port *port;
 
 	PR_FUNC_LINE;
-	/* configure all links to gen2 speed by default */
-	tegra_pcie_link_speed(pcie, true);
 	list_for_each_entry(port, &pcie->ports, list) {
 		if (port->status)
 			tegra_pcie_apply_sw_war(port, true);
@@ -3038,9 +2989,9 @@ static int tegra_msi_setup_irq(struct msi_controller *chip, struct pci_dev *pdev
 
 	irq_set_msi_desc(irq, desc);
 
-	msg.address_lo = virt_to_phys((void *)msi->pages) & 0xFFFFFFFF;
+	msg.address_lo = lower_32_bits(msi->phys);
 #ifdef CONFIG_ARM64
-	msg.address_hi = virt_to_phys((void *)msi->pages) >> 32;
+	msg.address_hi = upper_32_bits(msi->phys);
 #else
 	msg.address_hi = 0;
 #endif
@@ -3085,13 +3036,12 @@ static int tegra_pcie_enable_msi(struct tegra_pcie *pcie, bool no_init)
 {
 	struct platform_device *pdev = to_platform_device(pcie->dev);
 	struct tegra_msi *msi = &pcie->msi;
-	unsigned long base;
 	int err;
 	u32 reg;
 
 	PR_FUNC_LINE;
 
-	if (!msi->pages) {
+	if (!msi->virt) {
 		if (no_init)
 			return true;
 
@@ -3111,7 +3061,7 @@ static int tegra_pcie_enable_msi(struct tegra_pcie *pcie, bool no_init)
 		err = platform_get_irq_byname(pdev, "msi");
 		if (err < 0) {
 			dev_err(&pdev->dev, "failed to get IRQ: %d\n", err);
-			goto err;
+			goto free_irq_domain;
 		}
 
 		msi->irq = err;
@@ -3119,16 +3069,28 @@ static int tegra_pcie_enable_msi(struct tegra_pcie *pcie, bool no_init)
 				  tegra_msi_irq_chip.name, pcie);
 		if (err < 0) {
 			dev_err(&pdev->dev, "failed to request IRQ: %d\n", err);
-			goto err;
+			goto free_irq_domain;
 		}
 
 		/* setup AFI/FPCI range */
-		msi->pages = __get_free_pages(GFP_DMA, 0);
-	}
-	base = virt_to_phys((void *)msi->pages);
+		err = dma_set_coherent_mask(pcie->dev, DMA_BIT_MASK(32));
+		if (err < 0) {
+			dev_err(&pdev->dev, "dma_set_coherent_mask() failed: %d\n",
+				err);
+			goto free_irq;
+		}
 
-	afi_writel(pcie, base >> 8, AFI_MSI_FPCI_BAR_ST);
-	afi_writel(pcie, base, AFI_MSI_AXI_BAR_ST);
+		msi->virt = dma_alloc_coherent(pcie->dev, PAGE_SIZE,
+					       &msi->phys, GFP_KERNEL);
+		if (!msi->virt) {
+			dev_err(&pdev->dev, "%s: failed to alloc dma mem\n", __func__);
+			err = -ENOMEM;
+			goto free_irq;
+		}
+	}
+
+	afi_writel(pcie, msi->phys >> 8, AFI_MSI_FPCI_BAR_ST);
+	afi_writel(pcie, msi->phys, AFI_MSI_AXI_BAR_ST);
 	/* this register is in 4K increments */
 	afi_writel(pcie, 1, AFI_MSI_BAR_SZ);
 
@@ -3149,7 +3111,9 @@ static int tegra_pcie_enable_msi(struct tegra_pcie *pcie, bool no_init)
 
 	return 0;
 
-err:
+free_irq:
+	free_irq(msi->irq, pcie);
+free_irq_domain:
 	irq_domain_remove(msi->domain);
 	return err;
 }
@@ -3180,7 +3144,7 @@ static int tegra_pcie_disable_msi(struct tegra_pcie *pcie)
 	afi_writel(pcie, 0, AFI_MSI_EN_VEC6_0);
 	afi_writel(pcie, 0, AFI_MSI_EN_VEC7_0);
 
-	free_pages(msi->pages, 0);
+	dma_free_coherent(pcie->dev, PAGE_SIZE, msi->virt, msi->phys);
 
 	if (msi->irq > 0)
 		free_irq(msi->irq, pcie);
@@ -3651,9 +3615,8 @@ static int apply_link_speed(struct seq_file *s, void *data)
 {
 	struct tegra_pcie *pcie = (struct tegra_pcie *)(s->private);
 
-	seq_printf(s, "Changing link speed to %s... ",
-		(is_gen2_speed) ? "Gen2" : "Gen1");
-	tegra_pcie_link_speed(pcie, is_gen2_speed);
+	seq_puts(s, "Changing link speed to Gen2\n");
+	tegra_pcie_link_speed(pcie);
 	seq_printf(s, "Done\n");
 	return 0;
 }
@@ -4577,11 +4540,6 @@ static int tegra_pcie_debugfs_init(struct tegra_pcie *pcie)
 	d = create_tegra_pcie_debufs_file("list_devices",
 					&list_devices_fops, pcie->debugfs,
 					(void *)pcie);
-	if (!d)
-		goto remove;
-
-	d = debugfs_create_bool("is_gen2_speed(WO)", S_IWUSR, pcie->debugfs,
-					&is_gen2_speed);
 	if (!d)
 		goto remove;
 

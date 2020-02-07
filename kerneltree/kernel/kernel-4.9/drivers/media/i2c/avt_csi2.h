@@ -47,6 +47,7 @@ struct avt_csi2_priv {
 	bool cross_update;
 	bool write_handshake_available;
 	bool stride_align_enabled;
+	bool crop_align_enabled;
 
 	uint32_t csi_clk_freq;
 	int numlanes;
@@ -409,8 +410,9 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 
 #define AVT_TEGRA_CID_BASE		(V4L2_CTRL_CLASS_USER | 0x900)
 
-#define AVT_TEGRA_DISABLE_TIMEOUT	(AVT_TEGRA_CID_BASE + 200)
-#define AVT_TEGRA_TIMEOUT		(AVT_TEGRA_CID_BASE + 201)
-#define AVT_TEGRA_DISABLE_ALIGN		(AVT_TEGRA_CID_BASE + 202)
+#define AVT_TEGRA_TIMEOUT		(AVT_TEGRA_CID_BASE + 200)
+#define AVT_TEGRA_TIMEOUT_VALUE		(AVT_TEGRA_CID_BASE + 201)
+#define AVT_TEGRA_STRIDE_ALIGN		(AVT_TEGRA_CID_BASE + 202)
+#define AVT_TEGRA_CROP_ALIGN		(AVT_TEGRA_CID_BASE + 203)
 
 #endif

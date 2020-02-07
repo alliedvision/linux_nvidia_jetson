@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1487,7 +1487,7 @@ static void eqos_set_rx_mode(struct net_device *dev)
 
 	DBGPR_FILTER("-->eqos_set_rx_mode\n");
 
-	spin_lock(&pdata->lock);
+	spin_lock_bh(&pdata->lock);
 
 	if (dev->flags & IFF_PROMISC) {
 		DBGPR_FILTER
@@ -1544,7 +1544,7 @@ static void eqos_set_rx_mode(struct net_device *dev)
 	hw_if->config_mac_pkt_filter_reg(pr_mode, huc_mode,
 					 hmc_mode, pm_mode, hpf_mode);
 
-	spin_unlock(&pdata->lock);
+	spin_unlock_bh(&pdata->lock);
 
 	pr_debug("<--eqos_set_rx_mode\n");
 }
@@ -3699,7 +3699,6 @@ static int eqos_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		return -EINVAL;
 	}
 
-	spin_lock(&pdata->lock);
 	switch (cmd) {
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
@@ -3708,22 +3707,27 @@ static int eqos_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	case EQOS_PRV_IOCTL:
+		spin_lock_bh(&pdata->lock);
 		ret = eqos_handle_prv_ioctl(pdata, ifr);
+		spin_unlock_bh(&pdata->lock);
 		break;
 
 	case EQOS_PRV_TS_IOCTL:
+		spin_lock_bh(&pdata->lock);
 		ret = eqos_handle_prv_ts_ioctl(pdata, ifr);
+		spin_unlock_bh(&pdata->lock);
 		break;
 
 	case SIOCSHWTSTAMP:
+		spin_lock_bh(&pdata->lock);
 		ret = eqos_handle_hwtstamp_ioctl(pdata, ifr);
+		spin_unlock_bh(&pdata->lock);
 		break;
 
 	default:
 		ret = -EOPNOTSUPP;
 		pr_debug("Unsupported IOCTL %d is called\n", cmd);
 	}
-	spin_unlock(&pdata->lock);
 
 	pr_debug("<--eqos_ioctl\n");
 

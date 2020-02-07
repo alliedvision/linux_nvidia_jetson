@@ -34,9 +34,7 @@
 #include <linux/pinctrl/pinconf-tegra.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_device.h>
-#include <linux/delay.h>
 #include <linux/debugfs.h>
-#include <linux/tegra-powergate.h>
 #include <soc/tegra/chip-id.h>
 #include <linux/pm_domain.h>
 
@@ -220,29 +218,12 @@ static int tegra210_i2s_tx_stop(struct snd_soc_dapm_widget *w,
 static int tegra210_i2s_runtime_suspend(struct device *dev)
 {
 	struct tegra210_i2s *i2s = dev_get_drvdata(dev);
-	int ret;
 
+	regcache_cache_only(i2s->regmap, true);
 	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
-		if (!IS_ERR(i2s->pin_idle_state)) {
-			ret = pinctrl_select_state(
-				i2s->pinctrl, i2s->pin_idle_state);
-			if (ret < 0)
-				dev_err(dev, "setting dap pinctrl idle state failed\n");
-		}
-
-		if (i2s->num_supplies > 0) {
-			ret = regulator_bulk_disable(i2s->num_supplies,
-								i2s->supplies);
-			if (ret < 0)
-				dev_err(dev, "failed to disable i2s io regulator\n");
-		}
-
-		regcache_cache_only(i2s->regmap, true);
 		regcache_mark_dirty(i2s->regmap);
-
 		clk_disable_unprepare(i2s->clk_i2s);
-	} else
-		regcache_cache_only(i2s->regmap, true);
+	}
 
 	return 0;
 }
@@ -253,27 +234,6 @@ static int tegra210_i2s_runtime_resume(struct device *dev)
 	int ret;
 
 	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
-		if (i2s->prod_name) {
-			ret = tegra_pinctrl_config_prod(dev, i2s->prod_name);
-			if (ret < 0)
-				dev_warn(dev, "Failed to set %s setting\n",
-						i2s->prod_name);
-		}
-
-		if (!IS_ERR(i2s->pin_default_state)) {
-			ret = pinctrl_select_state(i2s->pinctrl,
-						i2s->pin_default_state);
-			if (ret < 0)
-				dev_err(dev, "setting dap pinctrl default state failed\n");
-		}
-
-		if (i2s->num_supplies > 0) {
-			ret = regulator_bulk_enable(i2s->num_supplies,
-								i2s->supplies);
-			if (ret < 0)
-				dev_err(dev, "failed to enable i2s io regulator\n");
-		}
-
 		ret = clk_prepare_enable(i2s->clk_i2s);
 		if (ret) {
 			dev_err(dev, "clk_enable failed: %d\n", ret);
@@ -281,31 +241,12 @@ static int tegra210_i2s_runtime_resume(struct device *dev)
 		}
 	}
 
-
 	regcache_cache_only(i2s->regmap, false);
 	if (!i2s->is_shutdown)
 		regcache_sync(i2s->regmap);
 
 	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int tegra210_i2s_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_i2s_runtime_suspend(dev);
-}
-
-static int tegra210_i2s_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_i2s_runtime_resume(dev);
-}
-#endif
 
 static void tegra210_i2s_set_data_offset(struct tegra210_i2s *i2s,
 					 unsigned int data_offset)
@@ -410,7 +351,6 @@ static int tegra210_i2s_set_fmt(struct snd_soc_dai *dai,
 		return -EINVAL;
 	}
 
-	pm_runtime_get_sync(dai->dev);
 	regmap_update_bits(i2s->regmap, TEGRA210_I2S_CTRL, mask, val);
 	/* FIXME: global enabling */
 	regmap_update_bits(i2s->regmap, TEGRA210_I2S_ENABLE,
@@ -418,7 +358,6 @@ static int tegra210_i2s_set_fmt(struct snd_soc_dai *dai,
 	regmap_update_bits(i2s->regmap, TEGRA210_I2S_CTRL,
 		TEGRA210_I2S_CTRL_FSYNC_WIDTH_MASK,
 		i2s->fsync_width << TEGRA210_I2S_CTRL_FSYNC_WIDTH_SHIFT);
-	pm_runtime_put(dai->dev);
 
 	i2s->format = fmt & SND_SOC_DAIFMT_FORMAT_MASK;
 
@@ -536,6 +475,72 @@ static const struct soc_enum tegra210_i2s_format_enum =
 		ARRAY_SIZE(tegra210_i2s_format_text),
 		tegra210_i2s_format_text);
 
+static int tegra210_i2s_startup(struct snd_pcm_substream *substream,
+				 struct snd_soc_dai *dai)
+{
+	struct device *dev = dai->dev;
+	struct tegra210_i2s *i2s = dev_get_drvdata(dev);
+	int ret;
+
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga()) &&
+							!i2s->loopback) {
+		if (i2s->prod_name != NULL) {
+			ret = tegra_pinctrl_config_prod(dev, i2s->prod_name);
+			if (ret < 0) {
+				dev_warn(dev, "Failed to set %s setting\n",
+						i2s->prod_name);
+			}
+		}
+
+		if (!IS_ERR_OR_NULL(i2s->pin_default_state)) {
+			ret = pinctrl_select_state(i2s->pinctrl,
+						i2s->pin_default_state);
+			if (ret < 0) {
+				dev_err(dev,
+				"setting i2s pinctrl default state failed\n");
+				return -EINVAL;
+			}
+		}
+
+		if (i2s->num_supplies > 0) {
+			ret = regulator_bulk_enable(i2s->num_supplies,
+								i2s->supplies);
+			if (ret < 0)
+				dev_err(dev, "failed to enable i2s io regulator\n");
+		}
+	}
+
+	return 0;
+}
+
+static void tegra210_i2s_shutdown(struct snd_pcm_substream *substream,
+				 struct snd_soc_dai *dai)
+{
+	struct device *dev = dai->dev;
+	struct tegra210_i2s *i2s = dev_get_drvdata(dev);
+	int ret;
+
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+		if (!IS_ERR_OR_NULL(i2s->pin_idle_state)) {
+			ret = pinctrl_select_state(
+				i2s->pinctrl, i2s->pin_idle_state);
+			if (ret < 0) {
+				dev_err(dev,
+				"setting dap pinctrl idle state failed\n");
+			}
+		}
+
+		if (i2s->num_supplies > 0) {
+			ret = regulator_bulk_disable(i2s->num_supplies,
+								i2s->supplies);
+			if (ret < 0) {
+				dev_err(dev,
+				"failed to disable i2s io regulator\n");
+			}
+		}
+	}
+}
+
 static int tegra210_i2s_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *params,
 				 struct snd_soc_dai *dai)
@@ -611,8 +616,8 @@ static int tegra210_i2s_hw_params(struct snd_pcm_substream *substream,
 	frame_format = val & TEGRA210_I2S_CTRL_FRAME_FORMAT_MASK;
 
 	if (frame_format == TEGRA210_I2S_CTRL_FRAME_FORMAT_FSYNC_MODE) {
-		i2s->soc_data->set_slot_ctrl(i2s->regmap, channels, tx_mask,
-					     rx_mask);
+		tegra210_i2s_set_slot_ctrl(i2s->regmap, channels, tx_mask,
+					   rx_mask);
 		cif_conf.audio_channels = channels;
 		cif_conf.client_channels = channels;
 	} else {
@@ -690,7 +695,7 @@ static int tegra210_i2s_hw_params(struct snd_pcm_substream *substream,
 		reg = TEGRA210_I2S_AXBAR_TX_CIF_CTRL;
 	}
 
-	i2s->soc_data->set_audio_cif(i2s->regmap, reg, &cif_conf);
+	tegra210_xbar_set_cif(i2s->regmap, reg, &cif_conf);
 
 	if (i2s->format == SND_SOC_DAIFMT_RIGHT_J)
 		tegra210_i2s_set_rjm_offset(i2s, sample_size);
@@ -712,40 +717,13 @@ static int tegra210_i2s_codec_probe(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int _tegra210_i2s_slcg_notifier(struct notifier_block *nb,
-	unsigned long unused0, void *unused1)
-{
-	struct tegra210_i2s *i2s = container_of(nb, struct tegra210_i2s,
-								slgc_notifier);
-	unsigned int mask, val, i2s_ctrl;
-
-	/* Save the I2S CTRL before implement MBIST WAR */
-	regmap_read(i2s->regmap, TEGRA210_I2S_CTRL, &i2s_ctrl);
-
-	mask = TEGRA210_I2S_CTRL_MASTER_EN_MASK;
-	val = TEGRA210_I2S_CTRL_MASTER_EN;
-	/* Set I2S controller in master mode */
-	regmap_update_bits(i2s->regmap, TEGRA210_I2S_CTRL, mask, val);
-	/* Disable slcg, wait a while and re-enable it */
-	regmap_write(i2s->regmap, TEGRA210_I2S_CG, 0);
-	regmap_read(i2s->regmap, TEGRA210_I2S_CG, &val);
-
-	udelay(1);
-
-	regmap_write(i2s->regmap, TEGRA210_I2S_CG, 1);
-
-	/* Restore the I2S CTRL */
-	regmap_write(i2s->regmap, TEGRA210_I2S_CTRL, i2s_ctrl);
-
-	return NOTIFY_OK;
-}
-
-
 static struct snd_soc_dai_ops tegra210_i2s_dai_ops = {
 	.set_fmt	= tegra210_i2s_set_fmt,
 	.hw_params	= tegra210_i2s_hw_params,
 	.set_bclk_ratio	= tegra210_i2s_set_dai_bclk_ratio,
 	.set_tdm_slot	= tegra210_i2s_set_tdm_slot,
+	.startup	= tegra210_i2s_startup,
+	.shutdown	= tegra210_i2s_shutdown,
 };
 
 static struct snd_soc_dai_driver tegra210_i2s_dais[] = {
@@ -818,11 +796,9 @@ static int tegra210_i2s_loopback_put(struct snd_kcontrol *kcontrol,
 
 	i2s->loopback = ucontrol->value.integer.value[0];
 
-	pm_runtime_get_sync(codec->dev);
 	regmap_update_bits(i2s->regmap, TEGRA210_I2S_CTRL,
 		TEGRA210_I2S_CTRL_LPBK_MASK,
 		i2s->loopback << TEGRA210_I2S_CTRL_LPBK_SHIFT);
-	pm_runtime_put(codec->dev);
 
 	return 0;
 }
@@ -846,12 +822,10 @@ static int tegra210_i2s_fsync_width_put(struct snd_kcontrol *kcontrol,
 
 	i2s->fsync_width = ucontrol->value.integer.value[0];
 
-	pm_runtime_get_sync(codec->dev);
 	regmap_update_bits(i2s->regmap, TEGRA210_I2S_CTRL,
 			   TEGRA210_I2S_CTRL_FSYNC_WIDTH_MASK,
 			   i2s->fsync_width <<
 			   TEGRA210_I2S_CTRL_FSYNC_WIDTH_SHIFT);
-	pm_runtime_put(codec->dev);
 
 	return 0;
 }
@@ -1055,21 +1029,8 @@ static const struct regmap_config tegra210_i2s_regmap_config = {
 	.cache_type = REGCACHE_FLAT,
 };
 
-static const struct tegra210_i2s_soc_data soc_data_tegra210 = {
-	.set_audio_cif = tegra210_xbar_set_cif,
-	.set_slot_ctrl = tegra210_i2s_set_slot_ctrl,
-	.is_soc_t210 = true,
-};
-
-static const struct tegra210_i2s_soc_data soc_data_tegra186 = {
-	.set_audio_cif = tegra210_xbar_set_cif,
-	.set_slot_ctrl = tegra210_i2s_set_slot_ctrl,
-	.is_soc_t210 = false,
-};
-
 static const struct of_device_id tegra210_i2s_of_match[] = {
-	{ .compatible = "nvidia,tegra210-i2s", .data = &soc_data_tegra210 },
-	{ .compatible = "nvidia,tegra186-i2s", .data = &soc_data_tegra186 },
+	{ .compatible = "nvidia,tegra210-i2s" },
 	{},
 };
 
@@ -1077,14 +1038,12 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	struct device_node *np = pdev->dev.of_node;
-	struct tegra210_i2s_soc_data *soc_data;
 	struct tegra210_i2s *i2s;
 	struct resource *mem, *memregion;
 	struct property *prop;
 	void __iomem *regs;
 	int ret = 0, count = 0, num_supplies;
 	const char *supply;
-	int partition_id = 0;
 
 	match = of_match_device(tegra210_i2s_of_match, &pdev->dev);
 	if (!match) {
@@ -1092,7 +1051,6 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err;
 	}
-	soc_data = (struct tegra210_i2s_soc_data *)match->data;
 
 	i2s = devm_kzalloc(&pdev->dev, sizeof(struct tegra210_i2s), GFP_KERNEL);
 	if (!i2s) {
@@ -1101,7 +1059,6 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	i2s->soc_data = soc_data;
 	i2s->tx_mask = i2s->rx_mask = 0xFFFF;
 	i2s->bclk_ratio = 2;
 	i2s->enable_cya = false;
@@ -1168,11 +1125,6 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 		ret = PTR_ERR(i2s->regmap);
 		goto err;
 	}
-
-	i2s->slgc_notifier.notifier_call = _tegra210_i2s_slcg_notifier;
-
-	if (i2s->soc_data->is_soc_t210)
-		slcg_register_notifier(partition_id, &i2s->slgc_notifier);
 
 	regcache_cache_only(i2s->regmap, true);
 
@@ -1250,11 +1202,6 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 			goto err_dap;
 		}
 
-		ret = pinctrl_select_state(i2s->pinctrl, i2s->pin_idle_state);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "setting state failed\n");
-			goto err_dap;
-		}
 	}
 err_dap:
 	pm_runtime_enable(&pdev->dev);
@@ -1304,7 +1251,8 @@ static int tegra210_i2s_platform_remove(struct platform_device *pdev)
 static const struct dev_pm_ops tegra210_i2s_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra210_i2s_runtime_suspend,
 			   tegra210_i2s_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra210_i2s_suspend, tegra210_i2s_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra210_i2s_driver = {

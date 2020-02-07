@@ -405,6 +405,7 @@ struct tegra_vi_fops {
 	long (*vi_default_ioctl)(struct file *file, void *fh,
 			bool use_prio, unsigned int cmd, void *arg);
 	int (*vi_mfi_work)(struct tegra_mc_vi *vi, int port);
+	void (*vi_stride_align)(unsigned int *bpl);
 };
 
 struct tegra_csi_fops {

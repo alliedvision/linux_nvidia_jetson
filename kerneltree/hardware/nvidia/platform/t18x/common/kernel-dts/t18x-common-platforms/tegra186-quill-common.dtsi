@@ -813,43 +813,36 @@
 #endif
 	ahub {
 		dmic@2904000 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&dmic1_dap_active_state>;
 			pinctrl-1 = <>;
 		};
 		dmic@2904100 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&dmic2_dap_active_state>;
 			pinctrl-1 = <>;
 		};
 		dmic@2904200 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&dmic3_dap_active_state>;
 			pinctrl-1 = <&dmic3_dap_inactive_state>;
 		};
 		dmic@2904300 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&dmic4_dap_active_state>;
 			pinctrl-1 = <>;
 		};
 		i2s@2901000 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&i2s1_dap_active_state>;
 			pinctrl-1 = <>;
 		};
 		i2s@2901100 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&i2s2_dap_active_state>;
 			pinctrl-1 = <>;
 		};
 		i2s@2901200 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&i2s3_dap_active_state>;
 			pinctrl-1 = <>;
@@ -935,10 +928,6 @@
 			cpu-dai-name = "I2S1";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
@@ -954,10 +943,6 @@
 			cpu-dai-name = "I2S2";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <1>;
 			srate = <48000>;
@@ -973,10 +958,6 @@
 			cpu-dai-name = "I2S3";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <1>;
 			srate = <48000>;
@@ -992,10 +973,6 @@
 			cpu-dai-name = "I2S4";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <1>;
 			srate = <48000>;
@@ -1011,10 +988,6 @@
 			cpu-dai-name = "I2S5";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <1>;
 			srate = <48000>;
@@ -1032,10 +1005,7 @@
 			tx-mask = <0xFF>;
 			rx-mask = <0xFF>;
 			format = "dsp_a";
-			bitclock-slave;
-			frame-slave;
 			bitclock-inversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <4>;
 			srate = <8000>;

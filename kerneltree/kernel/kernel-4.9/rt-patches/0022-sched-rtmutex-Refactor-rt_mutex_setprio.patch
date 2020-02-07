@@ -1,7 +1,7 @@
-From a2f2df66f8e57e5751625d12d02ca3da2f9946c8 Mon Sep 17 00:00:00 2001
+From 2955fdff50353f5dee95583f19533640f83598a7 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Thu, 23 Mar 2017 15:56:11 +0100
-Subject: [PATCH 022/353] sched/rtmutex: Refactor rt_mutex_setprio()
+Subject: [PATCH 022/352] sched/rtmutex: Refactor rt_mutex_setprio()
 
 Upstream commit acd58620e415aee4a43a808d7d2fd87259ee0001
 

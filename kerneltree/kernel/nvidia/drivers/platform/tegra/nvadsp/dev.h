@@ -3,7 +3,7 @@
  *
  * A header file for Host driver for ADSP and APE
  *
- * Copyright (C) 2014-2017, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2019, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -243,7 +243,7 @@ int adsp_cpustat_exit(struct platform_device *pdev);
 #endif
 
 #if defined(CONFIG_TEGRA_ADSP_FILEIO)
-int adspff_init(void);
+int adspff_init(struct platform_device *pdev);
 void adspff_exit(void);
 #endif
 

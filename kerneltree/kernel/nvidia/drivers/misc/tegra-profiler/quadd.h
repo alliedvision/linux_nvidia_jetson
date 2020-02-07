@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/quadd.h
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,6 +17,7 @@
 #ifndef __QUADD_H
 #define __QUADD_H
 
+#include <linux/types.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 
@@ -96,39 +97,44 @@ struct quadd_ctx {
 	raw_spinlock_t mmaps_lock;
 };
 
-static inline int quadd_mode_is_sampling(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_sampling(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_sampling;
+	return ctx->mode_is_sampling != 0;
 }
 
-static inline int quadd_mode_is_tracing(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_tracing(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_tracing;
+	return ctx->mode_is_tracing != 0;
 }
 
-static inline int quadd_mode_is_sample_all(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_sample_all(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_sample_all;
+	return ctx->mode_is_sample_all != 0;
 }
 
-static inline int quadd_mode_is_trace_all(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_trace_all(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_trace_all;
+	return ctx->mode_is_trace_all != 0;
 }
 
-static inline int quadd_mode_is_sample_tree(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_sample_tree(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_sample_tree;
+	return ctx->mode_is_sample_tree != 0;
 }
 
-static inline int quadd_mode_is_trace_tree(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_trace_tree(struct quadd_ctx *ctx)
 {
-	return ctx->mode_is_trace_tree;
+	return ctx->mode_is_trace_tree != 0;
 }
 
-static inline int quadd_mode_is_process_tree(struct quadd_ctx *ctx)
+static inline bool quadd_mode_is_process_tree(struct quadd_ctx *ctx)
 {
-	return (ctx->mode_is_sample_tree || ctx->mode_is_trace_tree);
+	return (ctx->mode_is_sample_tree != 0 || ctx->mode_is_trace_tree != 0);
+}
+
+static inline bool quadd_mode_is_process_all(struct quadd_ctx *ctx)
+{
+	return (ctx->mode_is_sample_all != 0 || ctx->mode_is_trace_all != 0);
 }
 
 void quadd_get_state(struct quadd_module_state *state);

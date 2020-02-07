@@ -1,7 +1,7 @@
 /*
  * NVIDIA tegra i2c slave driver
  *
- * Copyright (C) 2017 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2017-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Shardar Shariff Md <smohammed@nvidia.com>
  *
@@ -148,18 +148,22 @@ static void tegra_i2cslv_handle_rx(struct tegra_i2cslv_dev *i2cslv_dev,
 		const unsigned long i2c_slv_src)
 {
 	u8 value;
+	struct i2c_slave_data data;
+
+	data.buf = &value;
+	data.size = sizeof(value);
 
 	if (i2c_slv_src & I2C_SL_STATUS_END_TRANS) {
 		/* clear the interrupts to release the SCL line */
 		tegra_i2cslv_writel(i2cslv_dev, I2C_SL_STATUS_END_TRANS |
 				    I2C_SL_STATUS_SL_IRQ, I2C_SL_STATUS);
-		i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_STOP, &value);
+		i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_STOP, &data);
 		return;
 	}
 
 	value = (unsigned char)tegra_i2cslv_readl(i2cslv_dev, I2C_SL_RCVD);
 	/* Send the received data to client driver */
-	i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_WRITE_RECEIVED, &value);
+	i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_WRITE_RECEIVED, &data);
 	/* clear the interrupt to release the SCL line */
 	tegra_i2cslv_writel(i2cslv_dev, I2C_SL_STATUS_SL_IRQ, I2C_SL_STATUS);
 }
@@ -172,18 +176,22 @@ static void tegra_i2cslv_handle_tx(struct tegra_i2cslv_dev *i2cslv_dev,
 		const unsigned long i2c_slv_src)
 {
 	u8 value;
+	struct i2c_slave_data data;
+
+	data.buf = &value;
+	data.size = sizeof(value);
 
 	if (i2c_slv_src & I2C_SL_STATUS_END_TRANS) {
 		/* clear the interrupt to release the SCL line */
 		tegra_i2cslv_writel(i2cslv_dev, I2C_SL_STATUS_END_TRANS |
 				    I2C_SL_STATUS_SL_IRQ, I2C_SL_STATUS);
-		i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_STOP, &value);
+		i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_STOP, &data);
 		return;
 	}
 	/* clear the interrupt to release the SCL line */
 	tegra_i2cslv_writel(i2cslv_dev, I2C_SL_STATUS_SL_IRQ, I2C_SL_STATUS);
 	/* Get the data byte from client driver*/
-	i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_READ_REQUESTED, &value);
+	i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_READ_REQUESTED, &data);
 	tegra_i2cslv_writel(i2cslv_dev, value, I2C_SL_RCVD);
 }
 
@@ -235,6 +243,10 @@ static irqreturn_t tegra_i2cslv_isr(int irq, void *dev_id)
 	u32 i2c_slv_sts;
 	u8 value;
 	unsigned long flags;
+	struct i2c_slave_data data;
+
+	data.buf = &value;
+	data.size = sizeof(value);
 
 	raw_spin_lock_irqsave(&i2cslv_dev->xfer_lock, flags);
 	i2c_int_src = tegra_i2cslv_readl(i2cslv_dev,
@@ -248,7 +260,7 @@ static irqreturn_t tegra_i2cslv_isr(int irq, void *dev_id)
 		/* End of transfer of previous transaction, just clear it */
 		if (i2c_slv_int_src & I2C_SL_STATUS_END_TRANS) {
 			i2c_slave_event(i2cslv_dev->slave, I2C_SLAVE_STOP,
-					&value);
+					&data);
 			tegra_i2cslv_writel(i2cslv_dev, I2C_SL_STATUS_END_TRANS,
 					    I2C_SL_STATUS);
 		}
@@ -258,12 +270,12 @@ static irqreturn_t tegra_i2cslv_isr(int irq, void *dev_id)
 		/* if RNW, master issued read. */
 		if (i2c_slv_sts & I2C_SL_STATUS_RNW) {
 			i2c_slave_event(i2cslv_dev->slave,
-					I2C_SLAVE_READ_REQUESTED, &value);
+					I2C_SLAVE_READ_REQUESTED, &data);
 			tegra_i2cslv_writel(i2cslv_dev, value,
 					    I2C_SL_RCVD);
 		} else {
 			i2c_slave_event(i2cslv_dev->slave,
-					I2C_SLAVE_WRITE_REQUESTED, &value);
+					I2C_SLAVE_WRITE_REQUESTED, &data);
 		}
 		goto done;
 	}

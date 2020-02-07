@@ -45,7 +45,7 @@
 
 #include "mipical/mipi_cal.h"
 
-#include "linux/nvhost_nvcsi_ioctl.h"
+#include <uapi/linux/nvhost_nvcsi_ioctl.h>
 #include "nvcsi/nvcsi.h"
 #include "nvcsi/deskew.h"
 
@@ -826,7 +826,7 @@ int tegra_channel_write_blobs(struct tegra_channel *chan)
 
 	s_data = to_camera_common_data(sd->dev);
 	if (!s_data)
-		return -EINVAL;
+		return 0;
 
 	if (!is_tvcf_supported(s_data->version))
 		return 0;
@@ -1864,6 +1864,7 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 
 	tegra_channel_fmt_align(chan, vfmt,
 				&pix->width, &pix->height, &pix->bytesperline);
+
 	pix->sizeimage = get_aligned_buffer_size(chan,
 			pix->bytesperline, pix->height);
 	if (chan->fmtinfo->fourcc == V4L2_PIX_FMT_NV16)
@@ -1926,7 +1927,6 @@ tegra_channel_set_format(struct file *file, void *fh,
 	struct v4l2_fh *vfh = file->private_data;
 	struct tegra_channel *chan = to_tegra_channel(vfh->vdev);
 	int ret = 0;
-
 	/* get the suppod format by try_fmt */
 	ret = __tegra_channel_try_format(chan, &format->fmt.pix);
 	if (ret)
@@ -2275,11 +2275,17 @@ static int tegra_channel_vidioc_s_crop(struct file *file, void *fh,
 	struct v4l2_fh *vfh = file->private_data;
 	struct tegra_channel *chan = to_tegra_channel(vfh->vdev);
 	struct v4l2_subdev *sd = chan->subdev_on_csi;
+	struct v4l2_format format;
+	int retval;
 
 	if (!v4l2_subdev_has_op(sd, video, s_crop))
 		return -ENOTTY;
 
-	return v4l2_subdev_call(sd, video, s_crop, a);
+	retval = v4l2_subdev_call(sd, video, s_crop, a);
+
+	(void) tegra_channel_get_format(file, fh, &format);
+
+	return retval;
 }
 
 
@@ -2318,6 +2324,8 @@ static int tegra_channel_vidioc_s_selection(struct file *file, void *fh,
 	struct tegra_channel *chan = to_tegra_channel(vfh->vdev);
 	struct v4l2_subdev *sd = chan->subdev_on_csi;
 	struct v4l2_subdev_selection ss;
+	struct v4l2_format format;
+	int retval;
 
 	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -2329,7 +2337,11 @@ static int tegra_channel_vidioc_s_selection(struct file *file, void *fh,
 	ss.flags = s->flags;
 	memcpy(&ss.r, &s->r, sizeof(struct v4l2_rect));
 
-	return v4l2_subdev_call(sd, pad, set_selection, NULL, &ss);
+	retval = v4l2_subdev_call(sd, pad, set_selection, NULL, &ss);
+
+	(void) tegra_channel_get_format(file, fh, &format);
+
+	return retval;
 }
 
 static int tegra_channel_vidioc_g_parm(struct file *file, void *fh,

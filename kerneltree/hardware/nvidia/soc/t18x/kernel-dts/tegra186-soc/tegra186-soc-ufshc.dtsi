@@ -1,7 +1,7 @@
 /*
  * tegra186-soc-ufshc.dtsi: Tegra186 soc dtsi file for UFS host controller
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@
 		nvidia,enable-x2-config;
 		nvidia,enable-rx-calib;
 		nvidia,enable-hs-mode;
+		nvidia,enable-wlu-scsi-device-add;
 		nvidia,mask-fast-auto-mode;
 		nvidia,enable-hibern8-war;
 		nvidia,max-hs-gear = <3>;

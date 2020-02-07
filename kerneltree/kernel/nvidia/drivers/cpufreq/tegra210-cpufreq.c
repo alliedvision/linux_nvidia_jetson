@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -347,6 +347,33 @@ static unsigned int get_cpu_freq(unsigned int cpu)
 	return rate;
 }
 
+static ssize_t table_src_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", get_cpu_emc_limit_table_source());
+}
+
+static ssize_t table_src_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val;
+	int ret =0;
+
+	if (kstrtouint(buf, 0, &val))
+		return -EINVAL;
+
+	ret = set_cpu_emc_limit_table_source(val);
+	if(ret)
+		return ret;
+
+	return count;
+}
+
+static struct kobj_attribute table_src_attr =
+	__ATTR(table_src, 0644, table_src_show, table_src_store);
+
+static struct kobject *tegra_cpu_emc_table_src_kobj;
+
 static int percpu_cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct cpufreq_frequency_table *ftbl = tfreq_priv->tfrqtbl.freq_table;
@@ -380,6 +407,24 @@ static int percpu_cpufreq_init(struct cpufreq_policy *policy)
 	TEGRA_CPUFREQ_TRANSITION_LATENCY;
 
 	cpumask_copy(policy->cpus, cpu_possible_mask);
+
+	tegra_cpu_emc_table_src_kobj =
+		kobject_create_and_add("tegra_cpu_emc",
+			kernel_kobj);
+
+	if (!tegra_cpu_emc_table_src_kobj) {
+		pr_err("%s: Couldn't create kobj\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_file(tegra_cpu_emc_table_src_kobj,
+		&table_src_attr.attr);
+
+	if (ret) {
+		pr_err("%s, Couldn't create sysfs files\n", __func__);
+		return ret;
+	}
+
 	return 0;
 }
 

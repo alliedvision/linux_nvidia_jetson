@@ -30,7 +30,7 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson TX2"
-REQ_KERNEL="L4T R32.1"
+REQ_KERNEL="4.9.140"
 DEST="/boot"
 
 echo -e ${RED}"Allied Vision"${NC}" MIPI CSI-2 camera driver for "${GREEN}${REQ_MACHINE}${NC}" (kernel "${REQ_KERNEL}")"
@@ -50,6 +50,12 @@ inst() {
 	sudo cp -r *.dtb $DEST
 	sudo cp -r *.dtb $DEST/dtb
 	sudo tar zxvf modules.tar.gz -C /
+
+	# On Nano, write signed dtb to partition
+	if [[ $(cat /proc/device-tree/model) == *"Nano"* ]];then
+		sudo dd if=$(realpath *encrypt) of=/dev/disk/by-partlabel/DTB
+		sync
+	fi
 }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,7 +26,7 @@
 #include <linux/of_gpio.h>
 #include <asm/arch_timer.h>
 #include <linux/platform/tegra/ptp-notifier.h>
-#include <linux/nvpps_ioctl.h>
+#include <uapi/linux/nvpps_ioctl.h>
 
 
 //#define NVPPS_MAP_EQOS_REGS
@@ -157,7 +157,6 @@ static inline u64 get_systime(struct nvpps_device_data *pdev_data, u64 *tsc)
 /*
  * Report the PPS event
  */
-__attribute__((optimize("align-functions=64")))
 static void nvpps_get_ts(struct nvpps_device_data *pdev_data, bool in_isr)
 {
 	u64		tsc;
@@ -240,7 +239,6 @@ static void nvpps_get_ts(struct nvpps_device_data *pdev_data, bool in_isr)
 }
 
 
-__attribute__((optimize("align-functions=64")))
 static irqreturn_t nvpps_gpio_isr(int irq, void *data)
 {
 	struct nvpps_device_data	*pdev_data = (struct nvpps_device_data *)data;
@@ -252,7 +250,6 @@ static irqreturn_t nvpps_gpio_isr(int irq, void *data)
 }
 
 
-__attribute__((optimize("align-functions=64")))
 static void nvpps_timer_callback(unsigned long data)
 {
 	struct nvpps_device_data	*pdev_data = (struct nvpps_device_data *)data;

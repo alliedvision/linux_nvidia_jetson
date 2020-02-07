@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -745,6 +745,14 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	struct trusty_ctx *tctx;
 
 	dev_info(&pdev->dev, "initializing\n");
+
+#ifdef MODULE
+	ret = request_module("trusty-ipc");
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to load trusty-ipc driver\n");
+		return ret;
+	}
+#endif
 
 	tctx = kzalloc(sizeof(*tctx), GFP_KERNEL);
 	if (!tctx) {

@@ -43,6 +43,8 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/unit.h>
+#include <nvgpu/power_features/cg.h>
+#include <nvgpu/power_features/power_features.h>
 
 #include "gk20a/fifo_gk20a.h"
 
@@ -982,6 +984,33 @@ static void gv11b_fifo_locked_abort_runlist_active_tsgs(struct gk20a *g,
 	}
 }
 
+void gv11b_fifo_teardown_mask_intr(struct gk20a *g)
+{
+	u32 val;
+
+	/*
+	 * ctxsw timeout error prevents recovery, and ctxsw error will retrigger
+	 * every 100ms. Disable ctxsw timeout error to allow recovery.
+	 */
+	val = gk20a_readl(g, fifo_intr_en_0_r());
+	val &= ~ fifo_intr_0_ctxsw_timeout_pending_f();
+	gk20a_writel(g, fifo_intr_en_0_r(), val);
+	gk20a_writel(g, fifo_intr_ctxsw_timeout_r(),
+			gk20a_readl(g, fifo_intr_ctxsw_timeout_r()));
+
+}
+
+void gv11b_fifo_teardown_unmask_intr(struct gk20a *g)
+{
+	u32 val;
+
+	/* enable ctxsw timeout interrupt */
+	val = gk20a_readl(g, fifo_intr_en_0_r());
+	val |= fifo_intr_0_ctxsw_timeout_pending_f();
+	gk20a_writel(g, fifo_intr_en_0_r(), val);
+}
+
+
 void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 			u32 id, unsigned int id_type, unsigned int rc_type,
 			 struct mmu_fault_info *mmfault)
@@ -995,11 +1024,18 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 	u32 num_runlists = 0;
 	unsigned long runlist_served_pbdmas;
 
+	bool deferred_reset_pending = false;
+
+	nvgpu_log_info(g, "acquire engines_reset_mutex");
+	nvgpu_mutex_acquire(&g->fifo.engines_reset_mutex);
+
 	nvgpu_log_fn(g, "acquire runlist_lock for all runlists");
 	for (rlid = 0; rlid < g->fifo.max_runlists; rlid++) {
 		nvgpu_mutex_acquire(&f->runlist_info[rlid].
 			runlist_lock);
 	}
+
+	g->ops.fifo.teardown_mask_intr(g);
 
 	/* get runlist id and tsg */
 	if (id_type == ID_TYPE_TSG) {
@@ -1063,28 +1099,12 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 	/* Disable runlist scheduler */
 	gk20a_fifo_set_runlist_state(g, runlists_mask, RUNLIST_DISABLED);
 
-	g->fifo.deferred_reset_pending = false;
-
 	/* Disable power management */
-	if (g->support_pmu && g->elpg_enabled) {
-		if (nvgpu_pmu_disable_elpg(g)) {
-			nvgpu_err(g, "failed to set disable elpg");
+	if (g->support_pmu) {
+		if (nvgpu_cg_pg_disable(g) != 0) {
+			nvgpu_warn(g, "fail to disable power mgmt");
 		}
 	}
-	if (g->ops.clock_gating.slcg_gr_load_gating_prod) {
-		g->ops.clock_gating.slcg_gr_load_gating_prod(g,
-				false);
-	}
-	if (g->ops.clock_gating.slcg_perf_load_gating_prod) {
-		g->ops.clock_gating.slcg_perf_load_gating_prod(g,
-				false);
-	}
-	if (g->ops.clock_gating.slcg_ltc_load_gating_prod) {
-		g->ops.clock_gating.slcg_ltc_load_gating_prod(g,
-				false);
-	}
-
-	gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_RUN);
 
 	if (rc_type == RC_TYPE_MMU_FAULT) {
 		gk20a_debug_dump(g);
@@ -1126,6 +1146,10 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 		}
 	}
 
+	nvgpu_mutex_acquire(&f->deferred_reset_mutex);
+	g->fifo.deferred_reset_pending = false;
+	nvgpu_mutex_release(&f->deferred_reset_mutex);
+
 	/* check if engine reset should be deferred */
 	for (rlid = 0; rlid < g->fifo.max_runlists; rlid++) {
 
@@ -1142,28 +1166,21 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 					 gk20a_fifo_should_defer_engine_reset(g,
 					engine_id, client_type, false)) {
 
-				g->fifo.deferred_fault_engines |=
+					g->fifo.deferred_fault_engines |=
 							 BIT(engine_id);
 
-				/* handled during channel free */
-				g->fifo.deferred_reset_pending = true;
-				nvgpu_log(g, gpu_dbg_intr | gpu_dbg_gpu_dbg,
-				   "sm debugger attached,"
-				   " deferring channel recovery to channel free");
+					/* handled during channel free */
+					nvgpu_mutex_acquire(&f->deferred_reset_mutex);
+					g->fifo.deferred_reset_pending = true;
+					nvgpu_mutex_release(&f->deferred_reset_mutex);
+
+					deferred_reset_pending = true;
+
+					nvgpu_log(g, gpu_dbg_intr | gpu_dbg_gpu_dbg,
+					   "sm debugger attached,"
+					   " deferring channel recovery to channel free");
 				} else {
-					/*
-					 * if lock is already taken, a reset is
-					 * taking place so no need to repeat
-					 */
-					if (nvgpu_mutex_tryacquire(
-						&g->fifo.gr_reset_mutex)) {
-
-						gk20a_fifo_reset_engine(g,
-								 engine_id);
-
-						nvgpu_mutex_release(
-						 &g->fifo.gr_reset_mutex);
-					}
+					gk20a_fifo_reset_engine(g, engine_id);
 				}
 			}
 		}
@@ -1174,13 +1191,13 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 		gk20a_ctxsw_trace_tsg_reset(g, tsg);
 #endif
 	if (tsg) {
-		if (g->fifo.deferred_reset_pending) {
+		if (deferred_reset_pending) {
 			gk20a_disable_tsg(tsg);
 		} else {
 			if (rc_type == RC_TYPE_MMU_FAULT) {
 				gk20a_fifo_set_ctx_mmu_error_tsg(g, tsg);
 			}
-
+			(void)gk20a_fifo_error_tsg(g, tsg);
 			gk20a_fifo_abort_tsg(g, tsg, false);
 		}
 	} else {
@@ -1191,9 +1208,13 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 	gk20a_fifo_set_runlist_state(g, runlists_mask, RUNLIST_ENABLED);
 
 	/* It is safe to enable ELPG again. */
-	if (g->support_pmu && g->elpg_enabled) {
-		nvgpu_pmu_enable_elpg(g);
+	if (g->support_pmu) {
+		if (nvgpu_cg_pg_enable(g) != 0) {
+			nvgpu_warn(g, "fail to enable power mgmt");
+		}
 	}
+
+	g->ops.fifo.teardown_unmask_intr(g);
 
 	/* release runlist_lock */
 	if (runlist_id != FIFO_INVAL_RUNLIST_ID) {
@@ -1207,6 +1228,9 @@ void gv11b_fifo_teardown_ch_tsg(struct gk20a *g, u32 act_eng_bitmask,
 				runlist_lock);
 		}
 	}
+
+	nvgpu_log_info(g, "release engines_reset_mutex");
+	nvgpu_mutex_release(&g->fifo.engines_reset_mutex);
 }
 
 void gv11b_fifo_init_pbdma_intr_descs(struct fifo_gk20a *f)
@@ -1281,18 +1305,11 @@ int gv11b_init_fifo_reset_enable_hw(struct gk20a *g)
 	/* enable pmc pfifo */
 	g->ops.mc.reset(g, g->ops.mc.reset_mask(g, NVGPU_UNIT_FIFO));
 
-	if (g->ops.clock_gating.slcg_ce2_load_gating_prod) {
-		g->ops.clock_gating.slcg_ce2_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_fifo_load_gating_prod) {
-		g->ops.clock_gating.slcg_fifo_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.blcg_fifo_load_gating_prod) {
-		g->ops.clock_gating.blcg_fifo_load_gating_prod(g,
-				g->blcg_enabled);
-	}
+	nvgpu_cg_slcg_ce2_load_enable(g);
+
+	nvgpu_cg_slcg_fifo_load_enable(g);
+
+	nvgpu_cg_blcg_fifo_load_enable(g);
 
 	timeout = gk20a_readl(g, fifo_fb_timeout_r());
 	nvgpu_log_info(g, "fifo_fb_timeout reg val = 0x%08x", timeout);

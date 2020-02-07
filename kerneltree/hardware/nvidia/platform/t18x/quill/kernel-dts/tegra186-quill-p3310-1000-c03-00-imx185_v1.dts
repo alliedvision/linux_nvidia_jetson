@@ -89,7 +89,7 @@
 			gyroscope_delay_us_min = <1250>;
 			vdd-supply = <&spmic_sd3>;
 			vdd_IO-supply = <&spmic_sd3>;
-			status = "okay";
+			status = "disabled";
 		};
 	};
 

@@ -1,7 +1,7 @@
-From 58492544a7b4f0985d5545fb752c4b426d3e47b2 Mon Sep 17 00:00:00 2001
+From a81cf2d87b3ddeb320b99456401da1864f0f5574 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 17:57:03 +0200
-Subject: [PATCH 036/353] fs/dcache: init in_lookup_hashtable
+Subject: [PATCH 036/352] fs/dcache: init in_lookup_hashtable
 
 in_lookup_hashtable was introduced in commit 94bdd655caba ("parallel
 lookups machinery, part 3") and never initialized but since it is in

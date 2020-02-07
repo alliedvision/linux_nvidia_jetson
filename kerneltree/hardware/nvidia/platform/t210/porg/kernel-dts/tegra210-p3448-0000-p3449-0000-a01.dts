@@ -23,7 +23,7 @@
 #include "porg-platforms/tegra210-porg-gpio-p3448-0000-a01.dtsi"
 
 / {
-	model = "jetson-nano";
+	model = "NVIDIA Jetson Nano Developer Kit";
 	compatible = "nvidia,jetson-nano", "nvidia,tegra210";
 	nvidia,dtsfilename = __FILE__;
 };

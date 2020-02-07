@@ -293,25 +293,31 @@ static int fast_enable_open(struct inode *inode, struct file *file)
 static ssize_t fast_enable_write(struct file *fp, const char __user *ubuf,
 				 size_t count, loff_t *pos)
 {
-	struct cpuidle_device *dev = __this_cpu_read(cpuidle_devices);
-	struct cpuidle_driver *drv = cpuidle_get_cpu_driver(dev);
-
-	if (!drv) {
-		pr_err("%s: Failed to get cpuidle driver\n", __func__);
-		return -ENOTSUPP;
-	}
+	int cpu;
+	struct cpuidle_device *dev;
+	struct cpuidle_driver *drv;
 
 	if (kstrtouint_from_user(ubuf, count, 0, &state_enable) < 0)
 		return -EINVAL;
 
-	if (state_enable <= drv->safe_state_index ||
-	    state_enable >= drv->state_count)
-		return -EINVAL;
+	for_each_present_cpu(cpu) {
+		dev = per_cpu(cpuidle_devices, cpu);
+		drv = cpuidle_get_cpu_driver(dev);
 
-	if (drv->states[state_enable].disabled)
-		drv->states[state_enable].disabled = false;
-	else
-		drv->states[state_enable].disabled = true;
+		if (!drv) {
+			pr_err("%s: Failed to get cpuidle driver on cpu:%d\n", __func__, cpu);
+			return -ENOTSUPP;
+		}
+
+		if (state_enable <= drv->safe_state_index ||
+				state_enable >= drv->state_count)
+			return -EINVAL;
+
+		if (drv->states[state_enable].disabled)
+			drv->states[state_enable].disabled = false;
+		else
+			drv->states[state_enable].disabled = true;
+	}
 
 	return count;
 }

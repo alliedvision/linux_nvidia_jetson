@@ -1,7 +1,7 @@
-From 739b947230baf14b1c22059e990966a910c59618 Mon Sep 17 00:00:00 2001
+From d835cb4af7f6dd0251d44490dbd581625aa634d7 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 118/353] panic: skip get_random_bytes for RT_FULL in
+Subject: [PATCH 118/352] panic: skip get_random_bytes for RT_FULL in
  init_oops_id
 
 Disable on -RT. If this is invoked from irq-context we will have problems
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 2 insertions(+)
 
 diff --git a/kernel/panic.c b/kernel/panic.c
-index dbec387..b67a480 100644
+index 5174b70..1258ea5b 100644
 --- a/kernel/panic.c
 +++ b/kernel/panic.c
 @@ -482,9 +482,11 @@ static u64 oops_id;

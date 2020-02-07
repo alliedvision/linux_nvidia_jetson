@@ -65,6 +65,7 @@ struct ecx_in_cables {
 	struct extcon_dev *ec_dev;
 	struct notifier_block nb;
 	struct extcon_specific_cable_nb ec_cable_nb;
+	int cable;
 };
 
 struct extcon_cable_xlate {
@@ -88,7 +89,10 @@ static int ecx_extcon_notifier(struct notifier_block *self,
 			       unsigned long event, void *ptr);
 static int ecx_init_input_cables(struct extcon_cable_xlate *ecx)
 {
+	struct device_node *np = ecx->dev->of_node;
+	struct of_phandle_args npspec;
 	struct ecx_in_cables *in_cables;
+	int cindex;
 	int i;
 	int ret;
 
@@ -106,6 +110,13 @@ static int ecx_init_input_cables(struct extcon_cable_xlate *ecx)
 					ecx->pdata->in_cable_names[i], ret);
 			return ret;
 		};
+
+		ret = of_parse_phandle_with_args(np, "extcon-cables",
+						"#extcon-cells", i, &npspec);
+		if (ret < 0)
+			return ret;
+		cindex = npspec.args_count ? npspec.args[0] : 0;
+		in_cables->cable = in_cables->ec_dev->supported_cable[cindex];
 	}
 
 	for (i = 0; i < ecx->pdata->n_in_cable; i++) {
@@ -137,7 +148,7 @@ static int ecx_attach_cable(struct extcon_cable_xlate *ecx)
 		in_cables = &ecx->in_cables[i];
 
 		ret = extcon_get_cable_state_(in_cables->ec_dev,
-					      in_cables->ec_dev->supported_cable[i]);
+					      in_cables->cable);
 		if (ret >= 1)
 			all_states |= BIT(i);
 	}
@@ -181,11 +192,14 @@ static int ecx_attach_cable(struct extcon_cable_xlate *ecx)
 		return -EINVAL;
 	}
 	if (ecx->last_cable_out_state != new_state) {
-		i = ffs(new_state) - 1;
-		extcon_set_state(ecx->edev, ecx->pdata->out_cable_names[i],
-				 new_state);
+		for (i = 0; i < ecx->pdata->n_out_cable; i++) {
+			extcon_set_state_sync(ecx->edev,
+					      ecx->pdata->out_cable_names[i],
+					      !!(new_state & BIT(i)));
+		}
 		dev_info(ecx->dev, "New cable state 0x%04x\n", new_state);
 		if (new_state) {
+			i = ffs(new_state) - 1;
 			dev_info(ecx->dev, "Cable%d %s is attach\n",
 				 i, ecx->pdata->in_cable_names[i]);
 		} else {

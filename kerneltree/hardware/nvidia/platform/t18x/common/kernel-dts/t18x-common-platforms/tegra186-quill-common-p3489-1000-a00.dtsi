@@ -106,7 +106,7 @@
 	};
 
 	nvdumper {
-		status = "okay";
+		status = "disabled";
 	};
         pinmux@2430000 {
                 pinctrl-names = "default";

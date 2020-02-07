@@ -9377,10 +9377,6 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 			wl_link_up(cfg);
 			act = true;
 			if (!wl_get_drv_status(cfg, DISCONNECTING, ndev)) {
-					if (event == WLC_E_LINK &&
-							wl_get_drv_status(cfg, CONNECTED, ndev)) {
-						wl_bss_roaming_done(cfg, ndev, e, data);
-					}
 					DHD_NV_INFO(("wl_bss_connect_done succeeded with " MACDBG "\n",
 						MAC2STRDBG((const u8 *)(&e->addr))));
 					wl_bss_connect_done(cfg, ndev, e, data, true);

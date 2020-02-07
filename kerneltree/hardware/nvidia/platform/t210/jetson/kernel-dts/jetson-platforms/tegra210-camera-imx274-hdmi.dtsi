@@ -232,7 +232,9 @@
 
 				active_w = "3840";
 				active_h = "2160";
-				pixel_t = "bayer_rggb";
+				mode_type = "bayer";
+				pixel_phase = "rggb";
+				csi_pixel_bit_depth = "10";
 				readout_orientation = "90";
 				line_length = "4208";
 				inherent_gain = "1";

@@ -1,7 +1,7 @@
-From 42ffa68331363c988431c3426abe4b3376d0671b Mon Sep 17 00:00:00 2001
+From dcd742b729bca5cd70110158e49e2bc912f563f1 Mon Sep 17 00:00:00 2001
 From: Carsten Emde <C.Emde@osadl.org>
 Date: Tue, 19 Jul 2011 14:03:41 +0100
-Subject: [PATCH 064/353] tracing: Add latency histograms
+Subject: [PATCH 064/352] tracing: Add latency histograms
 
 This patch provides a recording mechanism to store data of potential
 sources of system latencies. The recordings separately determine the
@@ -1757,7 +1757,7 @@ index 0000000..66a69eb
 +
 +device_initcall(latency_hist_init);
 diff --git a/kernel/trace/trace_irqsoff.c b/kernel/trace/trace_irqsoff.c
-index c180fe5..3a03bf08 100644
+index c180fe5..3a03bf0 100644
 --- a/kernel/trace/trace_irqsoff.c
 +++ b/kernel/trace/trace_irqsoff.c
 @@ -13,6 +13,7 @@

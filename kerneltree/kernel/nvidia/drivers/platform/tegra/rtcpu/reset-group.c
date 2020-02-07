@@ -117,15 +117,16 @@ static void camrtc_reset_group_error(
 
 void camrtc_reset_group_assert(const struct camrtc_reset_group *grp)
 {
-	int index, err;
+	int index, index0, err;
 
 	if (IS_ERR_OR_NULL(grp))
 		return;
 
-	for (index = 0; index < grp->nresets; index++) {
-		err = reset_control_assert(grp->resets[index]);
+	for (index = 1; index <= grp->nresets; index++) {
+		index0 = grp->nresets - index;
+		err = reset_control_assert(grp->resets[index0]);
 		if (err < 0)
-			camrtc_reset_group_error(grp, "assert", index, err);
+			camrtc_reset_group_error(grp, "assert", index0, err);
 	}
 }
 EXPORT_SYMBOL_GPL(camrtc_reset_group_assert);

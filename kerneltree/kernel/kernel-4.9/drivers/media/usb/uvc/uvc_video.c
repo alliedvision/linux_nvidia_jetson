@@ -3,7 +3,7 @@
  *
  *      Copyright (C) 2005-2010
  *          Laurent Pinchart (laurent.pinchart@ideasonboard.com)
- *      Copyright (C) 2016-2017, NVIDIA Corporation.  All rights reserved.
+ *      Copyright (C) 2016-2019, NVIDIA Corporation.  All rights reserved.
  *
  *      This program is free software; you can redistribute it and/or modify
  *      it under the terms of the GNU General Public License as published by
@@ -1630,6 +1630,14 @@ static int uvc_init_video_bulk(struct uvc_streaming *stream,
 	 */
 	stream->urb_max_packets = DIV_ROUND_UP(size, psize);
 	stream->urb_num = stream->ctrl.dwMaxVideoFrameSize / size + 1;
+
+	if (stream->urb_num < UVC_URBS) {
+		stream->urb_max_packets =
+			DIV_ROUND_UP(stream->ctrl.dwMaxVideoFrameSize,
+				psize) / UVC_URBS + 1;
+		stream->urb_num = UVC_URBS;
+	}
+
 	npackets = uvc_alloc_urb_buffers(stream, size, psize, gfp_flags);
 	if (npackets == 0)
 		return -ENOMEM;

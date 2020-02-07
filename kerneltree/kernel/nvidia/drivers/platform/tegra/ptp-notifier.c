@@ -1,7 +1,7 @@
 /*
  * drivers/platform/tegra/ptp-notifier.c
  *
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,6 +17,7 @@
  */
 
 #include <linux/notifier.h>
+#include <linux/module.h>
 
 static u64 (*get_systime)(void *);
 static void *param;
@@ -88,3 +89,5 @@ int get_ptp_hwtime(u64 *ns)
 	return ret;
 }
 EXPORT_SYMBOL(get_ptp_hwtime);
+
+MODULE_LICENSE("GPL");

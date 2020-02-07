@@ -1612,6 +1612,8 @@ struct rtl8168_private {
         struct proc_dir_entry *proc_dir;
 #endif
         PPGDEV	pgdev;
+
+	bool first_link_up;
 };
 
 enum eetype {

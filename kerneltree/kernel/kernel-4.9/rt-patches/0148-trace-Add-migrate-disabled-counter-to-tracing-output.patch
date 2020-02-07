@@ -1,7 +1,7 @@
-From 6dbe0e0f3af80ba35fe46d85c66b663bba62ae0c Mon Sep 17 00:00:00 2001
+From 601c69eefe4adac65549944d724cbd62ddc3a67b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 17 Jul 2011 21:56:42 +0200
-Subject: [PATCH 148/353] trace: Add migrate-disabled counter to tracing output
+Subject: [PATCH 148/352] trace: Add migrate-disabled counter to tracing output
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
@@ -25,7 +25,7 @@ index ba57266..4f8bb9c 100644
  
  #define TRACE_EVENT_TYPE_MAX						\
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index 2138eac..3dddc21 100644
+index 1d3f2d7..2db6534 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
 @@ -1936,6 +1936,8 @@ tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags,

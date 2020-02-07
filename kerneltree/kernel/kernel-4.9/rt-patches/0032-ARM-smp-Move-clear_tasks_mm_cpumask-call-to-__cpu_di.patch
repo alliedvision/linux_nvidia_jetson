@@ -1,7 +1,7 @@
-From d7d8131a33e50183d9af690c803b4d2308071f04 Mon Sep 17 00:00:00 2001
+From 0ef8d27e5c5b28a338d953f170a234ce392f390d Mon Sep 17 00:00:00 2001
 From: Grygorii Strashko <grygorii.strashko@ti.com>
 Date: Fri, 11 Sep 2015 21:21:23 +0300
-Subject: [PATCH 032/353] ARM: smp: Move clear_tasks_mm_cpumask() call to
+Subject: [PATCH 032/352] ARM: smp: Move clear_tasks_mm_cpumask() call to
  __cpu_die()
 
 When running with the RT-kernel (4.1.5-rt5) on TI OMAP dra7-evm and trying
@@ -66,10 +66,10 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
-index 7dd14e8..4cd7e3d 100644
+index d2ce37d..23bcc84 100644
 --- a/arch/arm/kernel/smp.c
 +++ b/arch/arm/kernel/smp.c
-@@ -234,8 +234,6 @@ int __cpu_disable(void)
+@@ -235,8 +235,6 @@ int __cpu_disable(void)
  	flush_cache_louis();
  	local_flush_tlb_all();
  
@@ -78,7 +78,7 @@ index 7dd14e8..4cd7e3d 100644
  	return 0;
  }
  
-@@ -251,6 +249,9 @@ void __cpu_die(unsigned int cpu)
+@@ -252,6 +250,9 @@ void __cpu_die(unsigned int cpu)
  		pr_err("CPU%u: cpu didn't die\n", cpu);
  		return;
  	}

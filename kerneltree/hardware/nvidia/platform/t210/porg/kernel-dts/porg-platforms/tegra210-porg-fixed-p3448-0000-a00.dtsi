@@ -65,6 +65,7 @@
 			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio TEGRA_GPIO(Z, 3) 0>;
 			enable-active-high;
+			regulator-boot-on;
 			vin-supply = <&p3448_vdd_3v3_sys>;
 		};
 
@@ -91,7 +92,7 @@
 		p3449_vdd_1v8: regulator@6 {
 			compatible = "regulator-fixed";
 			reg = <6>;
-			regulator-name = "vdd-1v8";
+			regulator-name = "vdd-1v8-sys";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			vin-supply = <&p3448_vdd_3v3_sys>;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -426,6 +426,13 @@ int ttcan_mesg_ram_config(struct ttcan_controller *ttcan,
 		pr_err("%s: Incorrect tx-config in dt.\n", __func__);
 		return -EINVAL;
 	}
+
+	if ((tx_conf[0] != 0) && (tx_conf[1] != 0)) {
+		pr_err("%s: Incorrect tx-config in dt.\n", __func__);
+		pr_err("Using both Tx buf and Fifo not allowed (Errata 21)\n");
+		return -EINVAL;
+	}
+
 	ttcan->tx_config.ded_buff_num = tx_conf[TX_CONF_TXB];
 	ttcan->tx_config.fifo_q_num = tx_conf[TX_CONF_TXQ];
 	ttcan->tx_config.flags = tx_conf[TX_CONF_QMODE];

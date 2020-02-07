@@ -1712,16 +1712,18 @@ static int tegra_pcie_dw_ep_probe(struct platform_device *pdev)
 		dev_err(pcie->dev, "pex_rst_gpio direction input failed\n");
 		goto fail_thread;
 	}
-	gpiod = gpio_to_desc(pcie->pex_rst_gpio);
-	if (!gpiod) {
-		dev_err(pcie->dev, "Unable to get gpio desc\n");
-		ret = -EINVAL;
-		goto fail_thread;
-	}
-	ret = gpiod_set_debounce(gpiod, PERST_DEBOUNCE_TIME);
-	if (ret < 0) {
-		dev_err(pcie->dev, "Unable to set gpio debounce time\n");
-		goto fail_thread;
+	if (pcie->cid == CTRL_5) {
+		gpiod = gpio_to_desc(pcie->pex_rst_gpio);
+		if (!gpiod) {
+			dev_err(pcie->dev, "Unable to get gpio desc\n");
+			ret = -EINVAL;
+			goto fail_thread;
+		}
+		ret = gpiod_set_debounce(gpiod, PERST_DEBOUNCE_TIME);
+		if (ret < 0) {
+			dev_err(pcie->dev, "Unable to set gpio debounce time\n");
+			goto fail_thread;
+		}
 	}
 	irq = gpio_to_irq(pcie->pex_rst_gpio);
 	if (irq < 0) {

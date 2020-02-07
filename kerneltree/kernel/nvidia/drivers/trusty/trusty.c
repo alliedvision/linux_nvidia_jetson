@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google, Inc.
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,6 +26,7 @@
 #include <linux/trusty/sm_err.h>
 #include <linux/trusty/trusty.h>
 #include <soc/tegra/virt/syscalls.h>
+#include <linux/tegra-firmwares.h>
 #include "trusty-workitem.h"
 
 struct trusty_state;
@@ -639,6 +640,7 @@ static int trusty_probe(struct platform_device *pdev)
 		goto err_add_children;
 	}
 
+	devm_tegrafw_register_string(&pdev->dev, "trusty", s->version_str);
 	return 0;
 
 err_add_children:

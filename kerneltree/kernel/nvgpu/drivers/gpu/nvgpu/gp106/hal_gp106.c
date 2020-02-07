@@ -54,7 +54,6 @@
 #include "gk20a/gr_gk20a.h"
 
 #include "gp10b/gr_gp10b.h"
-#include "gp10b/fecs_trace_gp10b.h"
 #include "gp10b/mm_gp10b.h"
 #include "gp10b/ce_gp10b.h"
 #include "gp10b/regops_gp10b.h"
@@ -71,6 +70,7 @@
 #include "gm20b/pmu_gm20b.h"
 #include "gm20b/acr_gm20b.h"
 #include "gm20b/gr_gm20b.h"
+#include "gm20b/fecs_trace_gm20b.h"
 
 #include "gp106/acr_gp106.h"
 #include "gp106/sec2_gp106.h"
@@ -570,7 +570,7 @@ static const struct gpu_ops gp106_ops = {
 		.disable = gk20a_fecs_trace_disable,
 		.is_enabled = gk20a_fecs_trace_is_enabled,
 		.reset = gk20a_fecs_trace_reset,
-		.flush = gp10b_fecs_trace_flush,
+		.flush = gm20b_fecs_trace_flush,
 		.poll = gk20a_fecs_trace_poll,
 		.bind_channel = gk20a_fecs_trace_bind_channel,
 		.unbind_channel = gk20a_fecs_trace_unbind_channel,
@@ -631,6 +631,8 @@ static const struct gpu_ops gp106_ops = {
 		.pmu_pg_idle_counter_config = gk20a_pmu_pg_idle_counter_config,
 		.pmu_read_idle_counter = gk20a_pmu_read_idle_counter,
 		.pmu_reset_idle_counter = gk20a_pmu_reset_idle_counter,
+		.pmu_read_idle_intr_status = gk20a_pmu_read_idle_intr_status,
+		.pmu_clear_idle_intr_status = gk20a_pmu_clear_idle_intr_status,
 		.pmu_dump_elpg_stats = gk20a_pmu_dump_elpg_stats,
 		.pmu_dump_falcon_stats = gk20a_pmu_dump_falcon_stats,
 		.pmu_enable_irq = gk20a_pmu_enable_irq,
@@ -813,6 +815,9 @@ static const struct gpu_ops gp106_ops = {
 	.acr = {
 		.acr_sw_init = nvgpu_gp106_acr_sw_init,
 	},
+	.tpc = {
+		.tpc_powergate = NULL,
+	},
 	.get_litter_value = gp106_get_litter_value,
 	.chip_init_gpu_characteristics = gp106_init_gpu_characteristics,
 };
@@ -868,6 +873,7 @@ int gp106_init_hal(struct gk20a *g)
 	gops->falcon = gp106_ops.falcon;
 	gops->priv_ring = gp106_ops.priv_ring;
 	gops->fuse = gp106_ops.fuse;
+	gops->tpc = gp106_ops.tpc;
 	gops->acr = gp106_ops.acr;
 
 	/* Lone functions */

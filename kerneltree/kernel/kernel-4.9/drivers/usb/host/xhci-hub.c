@@ -2,7 +2,7 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Sarah Sharp
  * Some code borrowed from the Linux EHCI driver.
@@ -793,6 +793,7 @@ static u32 xhci_get_port_status(struct usb_hcd *hcd,
 				set_bit(wIndex, &bus_state->resuming_ports);
 				bus_state->resume_done[wIndex] = timeout;
 				mod_timer(&hcd->rh_timer, timeout);
+				usb_hcd_start_port_resume(&hcd->self, wIndex);
 			}
 		/* Has resume been signalled for USB_RESUME_TIME yet? */
 		} else if (time_after_eq(jiffies,
@@ -835,6 +836,7 @@ static u32 xhci_get_port_status(struct usb_hcd *hcd,
 				clear_bit(wIndex, &bus_state->rexit_ports);
 			}
 
+			usb_hcd_end_port_resume(&hcd->self, wIndex);
 			bus_state->port_c_suspend |= 1 << wIndex;
 			bus_state->suspended_ports &= ~(1 << wIndex);
 		} else {
@@ -857,6 +859,7 @@ static u32 xhci_get_port_status(struct usb_hcd *hcd,
 	    (raw_port_status & PORT_PLS_MASK) != XDEV_RESUME) {
 		bus_state->resume_done[wIndex] = 0;
 		clear_bit(wIndex, &bus_state->resuming_ports);
+		usb_hcd_end_port_resume(&hcd->self, wIndex);
 	}
 
 
@@ -1251,6 +1254,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 					goto error;
 
 				set_bit(wIndex, &bus_state->resuming_ports);
+				usb_hcd_start_port_resume(&hcd->self, wIndex);
 				xhci_set_link_state(xhci, port_array, wIndex,
 							XDEV_RESUME);
 				spin_unlock_irqrestore(&xhci->lock, flags);
@@ -1259,6 +1263,7 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 				xhci_set_link_state(xhci, port_array, wIndex,
 							XDEV_U0);
 				clear_bit(wIndex, &bus_state->resuming_ports);
+				usb_hcd_end_port_resume(&hcd->self, wIndex);
 			}
 			bus_state->port_c_suspend |= 1 << wIndex;
 
@@ -1309,6 +1314,7 @@ error:
 	spin_unlock_irqrestore(&xhci->lock, flags);
 	return retval;
 }
+EXPORT_SYMBOL_GPL(xhci_hub_control);
 
 /*
  * Returns 0 if the status hasn't changed, or the number of bytes in buf.

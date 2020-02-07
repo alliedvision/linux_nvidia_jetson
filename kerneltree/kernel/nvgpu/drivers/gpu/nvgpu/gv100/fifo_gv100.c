@@ -1,7 +1,7 @@
 /*
  * GV100 fifo
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -55,3 +55,21 @@ void gv100_apply_ctxsw_timeout_intr(struct gk20a *g)
 	gk20a_writel(g, fifo_eng_timeout_r(), timeout);
 }
 
+void gv100_fifo_teardown_mask_intr(struct gk20a *g)
+{
+	u32 val;
+
+	val = gk20a_readl(g, fifo_intr_en_0_r());
+	val &= ~(fifo_intr_en_0_sched_error_m());
+	gk20a_writel(g, fifo_intr_en_0_r(), val);
+	gk20a_writel(g, fifo_intr_0_r(), fifo_intr_0_sched_error_reset_f());
+}
+
+void gv100_fifo_teardown_unmask_intr(struct gk20a *g)
+{
+	u32 val;
+
+	val = gk20a_readl(g, fifo_intr_en_0_r());
+	val |= fifo_intr_en_0_sched_error_f(1);
+	gk20a_writel(g, fifo_intr_en_0_r(), val);
+}

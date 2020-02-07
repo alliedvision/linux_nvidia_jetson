@@ -1,7 +1,7 @@
 /*
  * SPI driver for NVIDIA's Tegra114 SPI Controller.
  *
- * Copyright (c) 2013-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1390,7 +1390,7 @@ static int tegra_spi_transfer_one_message(struct spi_master *master,
 	struct spi_transfer *xfer;
 	struct spi_device *spi = msg->spi;
 	struct tegra_spi_client_ctl_state *cstate = spi->controller_state;
-	int ret;
+	int ret, timeleft;
 	int gval = 1;
 	bool skip = false;
 	u32 cmd1 = 0;
@@ -1424,14 +1424,13 @@ static int tegra_spi_transfer_one_message(struct spi_master *master,
 
 		is_first_msg = false;
 		if (tspi->polling_mode)
-			ret = tegra_spi_status_poll(tspi);
+			timeleft = tegra_spi_status_poll(tspi);
 		else
-			ret = wait_for_completion_timeout(
+			timeleft = wait_for_completion_timeout(
 					&tspi->xfer_completion,
 					SPI_DMA_TIMEOUT);
-		if (WARN_ON(ret == 0)) {
-			dev_err(tspi->dev,
-				"spi transfer timeout, err %d\n", ret);
+		if (timeleft == 0) {
+			dev_err(tspi->dev, "spi transfer timeout");
 			if (tspi->is_curr_dma_xfer &&
 			    (tspi->cur_direction & DATA_DIR_TX))
 				dmaengine_terminate_all(tspi->tx_dma_chan);

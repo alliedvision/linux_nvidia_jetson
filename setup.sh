@@ -30,10 +30,10 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.1"
-DEDICATED_BOARD="TX2"
-#SOURCE_SYNC_TEGRA_VERSION="tegra-l4t-r28.2.1"
-HOST_PLATFORM=""
+DEDICATED_VERSION="R32.2.1"
+DEDICATED_BOARD="TX2/XAVIER"
+DEDICATED_BOARD_NANO="NANO"
+COMPLETE_INSTALL=false
 #==============================================================================
 # path settings
 #==============================================================================
@@ -44,29 +44,45 @@ PATH_DOWNLOADS_DRIVER_PACKAGE="${PATH_DOWNLOADS}/driverPackage"
 PATH_DOWNLOADS_ROOTFS="${PATH_DOWNLOADS}/rootfs"
 PATH_DOWNLOADS_PUBLICSOURCES="${PATH_DOWNLOADS}/public_sources"
 PATH_DOWNLOADS_GCC="${PATH_DOWNLOADS}/gcc"
+PATH_DOWNLOADS_DTB="${PATH_DOWNLOADS}/dtb"
+PATH_DOWNLOADS_KERNEL="${PATH_DOWNLOADS}/kernel"
 #------------------------------------------------------------------------------
 PATH_TARGET_ROOT="${PATH_CURRENT}/${1}"
 PATH_TARGET_L4T="${PATH_TARGET_ROOT}/Linux_for_Tegra"
 PATH_TARGET_ROOTFS="${PATH_TARGET_L4T}/rootfs"
+PATH_TARGET_DTB="${PATH_TARGET_L4T}/kernel/dtb"
+PATH_TARGET_KERNEL="${PATH_TARGET_L4T}/kernel"
 #------------------------------------------------------------------------------
 PATH_TARGET_GCC="${PATH_TARGET_ROOT}/gcc"
-PATH_TARGET_GCC_64="${PATH_TARGET_GCC}/gcc-6.4.1-aarch64"
+PATH_TARGET_GCC_64="${PATH_TARGET_GCC}/gcc-7.3.1-aarch64"
 #------------------------------------------------------------------------------
 PATH_SOURCES="${PATH_TARGET_L4T}/sources"
 #==============================================================================
 # file settings
 #==============================================================================
-FILE_DRIVER_PACKAGE="JAX-TX2-Jetson_Linux_R32.1.0_aarch64.tbz2"
-FILE_ROOTFS="JAX-TX2-Tegra_Linux_Sample-Root-Filesystem_R32.1.0_aarch64.tbz2"
-FILE_PUBLICSOURCES="JAX-TX2-public_sources.tbz2"
-FILE_GCC_64="gcc-linaro-6.4.1-2017.08-x86_64_aarch64-linux-gnu.tar.xz"
+FILE_DRIVER_PACKAGE=""
+FILE_DRIVER_PACKAGE_TX2="Jetson_Linux_R32.2.1_aarch64.tbz2"
+FILE_DRIVER_PACKAGE_NANO="Tegra210_Linux_R32.2.1_aarch64.tbz2"
+FILE_ROOTFS=""
+FILE_ROOTFS_TX2="Tegra_Linux_Sample-Root-Filesystem_R32.2.1_aarch64.tbz2"
+FILE_ROOTFS_NANO="nano_Tegra_Linux_Sample-Root-Filesystem_R32.2.1_aarch64.tbz2"
+FILE_PUBLICSOURCES=""
+FILE_PUBLICSOURCES_TX2="public_sources.tbz2"
+FILE_PUBLICSOURCES_NANO="nano_public_sources.tbz2"
+FILE_GCC_64="gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu.tar.xz"
 #==============================================================================
 # download urls
 #==============================================================================
-DOWNLOAD_URL_DRIVER_PACKAGE="https://developer.nvidia.com/embedded/dlc/l4t-jetson-driver-package-32-1-JAX-TX2"
-DOWNLOAD_URL_ROOTFS="https://developer.nvidia.com/embedded/dlc/l4t-sample-root-filesystem-32-1-JAX-TX2"
-DOWNLOAD_URL_PUBLICSOURCES="https://developer.nvidia.com/embedded/dlc/l4t-sources-32-1-JAX-TX2"
-DOWNLOAD_URL_GCC="https://developer.nvidia.com/embedded/dlc/kernel-gcc-6-4-tool-chain"
+DOWNLOAD_URL_DRIVER_PACKAGE=""
+DOWNLOAD_URL_DRIVER_PACKAGE_TX2="https://developer.nvidia.com/embedded/dlc/Jetson_Linux_R32.2.1"
+DOWNLOAD_URL_DRIVER_PACKAGE_NANO="https://developer.nvidia.com/embedded/dlc/r32-2-1_Release_v1.0/Nano-TX1/Tegra210_Linux_R32.2.1_aarch64.tbz2"
+DOWNLOAD_URL_ROOTFS=""
+DOWNLOAD_URL_ROOTFS_TX2="https://developer.nvidia.com/embedded/dlc/r32-2-1_Release_v1.0/TX2-AGX/Tegra_Linux_Sample-Root-Filesystem_R32.2.1_aarch64.tbz2"
+DOWNLOAD_URL_ROOTFS_NANO="https://developer.nvidia.com/embedded/dlc/r32-2-1_Release_v1.0/Nano-TX1/Tegra_Linux_Sample-Root-Filesystem_R32.2.1_aarch64.tbz2"
+DOWNLOAD_URL_PUBLICSOURCES=""
+DOWNLOAD_URL_PUBLICSOURCES_TX2="https://developer.nvidia.com/embedded/dlc/r32-2-1_Release_v1.0/TX2-AGX/sources/public_sources.tbz2"
+DOWNLOAD_URL_PUBLICSOURCES_NANO="https://developer.nvidia.com/embedded/dlc/r32-2-1_Release_v1.0/Nano-TX1/sources/public_sources.tbz2"
+DOWNLOAD_URL_GCC="https://developer.nvidia.com/embedded/dlc/l4t-gcc-7-3-1-toolchain-64-bit"
 #==============================================================================
 # include helper scripts
 #==============================================================================
@@ -79,8 +95,12 @@ source "${PATH_DOWNLOADS}/common/directory.sh"
 #==============================================================================
 usage()
 {
-	log info "Usage: ${SCRIPT_NAME} <L4T>"
-	log info "<L4T>......location for Linux4Tegra setup"
+	log info "Usage: ${SCRIPT_NAME} <L4T> <TARGET_BOARD> --<options>"
+	log info "<L4T>.............location for Linux4Tegra setup"
+	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier"
+	log info "<option>......possible options:"
+	log info "                       --complete...download everything needed for a complete flash"
+	log info "                       		   ...(rootfs + uboot)"
 	log_raw "\n"
 }
 #==============================================================================
@@ -119,23 +139,26 @@ createDirectories()
 	fi
 
 	# create GCC directory
-	if create_directory $PATH_TARGET_GCC
+	if [ ! -d "$PATH_DOWNLOADS_DTB" ]
 	then
-		log debug "Created GCC directory: ${PATH_TARGET_GCC}"
-		SUCCESS_FLAG=$TRUE
-	else
-		log debug "Could not create GCC directory"
-	    SUCCESS_FLAG=$FALSE
-	fi
+		if create_directory $PATH_TARGET_GCC
+		then
+			log debug "Created GCC directory: ${PATH_TARGET_GCC}"
+			SUCCESS_FLAG=$TRUE
+		else
+			log debug "Could not create GCC directory"
+			SUCCESS_FLAG=$FALSE
+		fi
 
-	# create GCC 64bit directory
-	if create_directory $PATH_TARGET_GCC_64
-	then
-		log debug "Created GCC 64bit directory: ${PATH_TARGET_GCC_64}"
-		SUCCESS_FLAG=$TRUE
-	else
-		log debug "Could not create GCC 64bit directory"
-	    SUCCESS_FLAG=$FALSE
+		# create GCC 64bit directory
+		if create_directory $PATH_TARGET_GCC_64
+		then
+			log debug "Created GCC 64bit directory: ${PATH_TARGET_GCC_64}"
+			SUCCESS_FLAG=$TRUE
+		else
+			log debug "Could not create GCC 64bit directory"
+			SUCCESS_FLAG=$FALSE
+		fi
 	fi
 }
 #==============================================================================
@@ -146,13 +169,45 @@ log debug "dedicated for L4T: ${DEDICATED_VERSION} and Jetson ${DEDICATED_BOARD}
 
 # parameter check
 #------------------------------------------------------------------------------
-if ! parameter_exist $1
+if ! parameter_exist $1 || ! parameter_exist $2
 then
-	log error "Missing parameter! Please provide L4T setup folder name"
+	log error "Missing parameter! Please provide L4T setup folder name and target board"
 	SUCCESS_FLAG=$FALSE
 	usage
 	exit 1
 fi
+
+if proceed
+then
+	if check_parameter $2 "tx2" || check_parameter $2 "xavier"
+	then
+		FILE_ROOTFS="$FILE_ROOTFS_TX2"
+		DOWNLOAD_URL_ROOTFS="$DOWNLOAD_URL_ROOTFS_TX2"
+		FILE_DRIVER_PACKAGE="$FILE_DRIVER_PACKAGE_TX2"
+		DOWNLOAD_URL_DRIVER_PACKAGE="$DOWNLOAD_URL_DRIVER_PACKAGE_TX2"
+		FILE_PUBLICSOURCES="$FILE_PUBLICSOURCES_TX2"
+		DOWNLOAD_URL_PUBLICSOURCES="$DOWNLOAD_URL_PUBLICSOURCES_TX2"
+	elif check_parameter $2 "nano" 
+	then
+		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
+		FILE_ROOTFS="$FILE_ROOTFS_NANO"
+		DOWNLOAD_URL_ROOTFS="$DOWNLOAD_URL_ROOTFS_NANO"
+		FILE_DRIVER_PACKAGE="$FILE_DRIVER_PACKAGE_NANO"
+		DOWNLOAD_URL_DRIVER_PACKAGE="$DOWNLOAD_URL_DRIVER_PACKAGE_NANO"
+		FILE_PUBLICSOURCES="$FILE_PUBLICSOURCES_NANO"
+		DOWNLOAD_URL_PUBLICSOURCES="$DOWNLOAD_URL_PUBLICSOURCES_NANO"
+	else
+		log error "Invalid parameter for <TARGET_BOARD>!"
+		SUCCESS_FLAG=$FALSE
+		usage
+	fi
+fi
+
+if proceed && check_parameter $3 "--complete"
+then
+	COMPLETE_INSTALL=true
+fi
+
 
 # check if help was called
 #------------------------------------------------------------------------------
@@ -175,7 +230,7 @@ then
 		fi
 	fi
 
-	if proceed && [ ! -f "$PATH_DOWNLOADS_ROOTFS/$FILE_ROOTFS" ]
+	if proceed && [ "$COMPLETE_INSTALL" = true ] && [ ! -f "$PATH_DOWNLOADS_ROOTFS/$FILE_ROOTFS" ]
 	then
 		if ! wget "$DOWNLOAD_URL_ROOTFS" -O "$PATH_DOWNLOADS_ROOTFS/$FILE_ROOTFS"
 		then
@@ -184,7 +239,7 @@ then
 		fi
 	fi
 
-	if proceed && [ ! -f "$PATH_DOWNLOADS_PUBLICSOURCES/$FILE_PUBLICSOURCES" ]
+	if proceed && [ "$COMPLETE_INSTALL" = true ] && [ ! -f "$PATH_DOWNLOADS_PUBLICSOURCES/$FILE_PUBLICSOURCES" ]
 	then
 		if ! wget "$DOWNLOAD_URL_PUBLICSOURCES" -O "$PATH_DOWNLOADS_PUBLICSOURCES/$FILE_PUBLICSOURCES"
 		then
@@ -193,7 +248,7 @@ then
 		fi
 	fi
 
-	if proceed && [ ! -f "$PATH_DOWNLOADS_GCC/$FILE_GCC_64" ] 
+	if proceed && [ ! -f "$PATH_DOWNLOADS_GCC/$FILE_GCC_64" ] && [ ! -d "$PATH_DOWNLOADS_DTB" ]
 	then
 		if ! wget "$DOWNLOAD_URL_GCC" -O "$PATH_DOWNLOADS_GCC/$FILE_GCC_64"
 		then
@@ -207,7 +262,7 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-	log info "install prerequisites (lbzip2)"
+	log info "install prerequisites lbzip2/python"
 
 	sudo apt update
 	if ! sudo apt install lbzip2 device-tree-compiler build-essential python -y
@@ -256,7 +311,7 @@ fi
 
 # extract public sources (u-boot)
 #------------------------------------------------------------------------------
-if proceed
+if proceed && [ "$COMPLETE_INSTALL" = true ]
 then
 	log info "Extract public sources ${DEDICATED_VERSION} and ${DEDICATED_BOARD}"
 	log debug "path: ${PATH_TARGET_ROOT}"
@@ -299,7 +354,7 @@ fi
 
 # extract Linux4Tegra root file system
 #------------------------------------------------------------------------------
-if proceed
+if proceed && [ "$COMPLETE_INSTALL" = true ] 
 then
 	log info "Extract Linux4Tegra root file system for ${DEDICATED_VERSION} and ${DEDICATED_BOARD}"
 	log debug "path: ${PATH_TARGET_ROOTFS}"
@@ -317,7 +372,7 @@ fi
 
 # apply L4T binaries to rootfs
 #------------------------------------------------------------------------------
-if proceed
+if proceed && [ "$COMPLETE_INSTALL" = true ] 
 then
 	log info "Apply Linux4Tegra binaries to rootfs"
 
@@ -333,28 +388,10 @@ then
 	cd $PATH_CURRENT
 fi
 
-# setup cross compiler gcc 32bit
-#------------------------------------------------------------------------------
-#if proceed
-#then
-	# setup gcc
-	#log info "Setup 32bit GCC for u-boot"
-	#log debug "path: ${PATH_TARGET_GCC_32},"
 
-	# extract gcc 32bit
-	#if tar xvf $PATH_DOWNLOADS_GCC/$FILE_GCC_32 --strip-components=1 -C $PATH_TARGET_GCC_32
-	#then
-	#	log debug "Extracted gcc binaries of ${FILE_GCC_32}"
-	#	SUCCESS_FLAG=$TRUE
-	#else
-	#	log debug "Could not extract gcc binaries of ${FILE_GCC_32}"
-	#	SUCCESS_FLAG=$FALSE
-	#fi
-#fi
-
-# setup cross compiler gcc 32bit
+# setup cross compiler gcc 64bit
 #------------------------------------------------------------------------------
-if proceed
+if proceed && [ ! -d "$PATH_DOWNLOADS_DTB" ]
 then
 	# setup gcc
 	log info "Setup 64bit GCC for kernel"
@@ -370,6 +407,33 @@ then
 		SUCCESS_FLAG=$FALSE
 	fi
 fi
+
+# copy dtb in case of binaries deployment
+#------------------------------------------------------------------------------
+if proceed && [ -d "$PATH_DOWNLOADS_DTB" ]
+then
+    # copy dtb to l4t folder
+    if sudo cp ${PATH_DOWNLOADS_DTB}/*.dtb "${PATH_TARGET_DTB}"
+    then
+        log success
+    else
+        log failed
+    fi
+fi
+
+# copy dtb in case of binaries deployment
+#------------------------------------------------------------------------------
+if proceed && [ -d "$PATH_DOWNLOADS_KERNEL" ]
+then
+    # copy dtb to l4t folder
+    if sudo cp ${PATH_DOWNLOADS_KERNEL}/*Image "${PATH_TARGET_KERNEL}"
+    then
+        log success
+    else
+        log failed
+    fi
+fi
+
 
 log info "Script execution"
 if proceed

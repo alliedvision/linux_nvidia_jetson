@@ -16,6 +16,9 @@ config TEGRA_COMBINED_UART
 	  This allows all the clients to send output and receive input through a
 	  single UART controller.
 
+	  Combined-uart uses 'ctrl /' as break-signal for SysRq, for example:
+	  'ctrl / + h' for sysrq-help.
+
 config TEGRA_HV_COMM
 	tristate "Tegra Hypervisor Communication"
 	depends on TEGRA_HV_MANAGER

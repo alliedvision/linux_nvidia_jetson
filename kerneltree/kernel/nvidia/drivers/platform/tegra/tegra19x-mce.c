@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -267,29 +267,39 @@ int tegra19x_mce_edbgreq_set(void *data, u64 val) { return -ENOTSUPP; }
 #define NVG_STAT_MAX_ENTRIES	10
 #define MCE_STAT_ID_SHIFT	16UL
 
+#define UNITGROUP_IGNORED	0
+#define UNITGROUP_CORE		1
+#define UNITGROUP_CLUSTER	2
+#define UNITGROUP_CLUSTERGROUP	3
+
 #define CSTAT_ENTRY(stat) NVG_STAT_QUERY_##stat
 
 struct cstats_info {
 	char	*name; /* name of the cstats */
 	int	id;   /* NVG id */
-	int	units;/* No of cores/clusters/cluster groups */
+	int	units;/* No of cores; No of clusters; No of cluster groups */
+	int	unit_group; /* 0:Ignored; 1:core; 2:cluster; 3:cluster group */
 };
 
 static struct cstats_info cstats_table[] = {
-	{ "SC7_ENTRIES", CSTAT_ENTRY(SC7_ENTRIES), 1},
-	{ "SC7_RESIDENCY_SUM", CSTAT_ENTRY(SC7_RESIDENCY_SUM), 1},
-	{ "CG7_ENTRIES", CSTAT_ENTRY(CG7_ENTRIES), 2},
-	{ "CG7_RESIDENCY_SUM", CSTAT_ENTRY(CG7_RESIDENCY_SUM), 2},
-	{ "CC6_ENTRIES", CSTAT_ENTRY(CC6_ENTRIES), 4},
-	{ "CC6_RESIDENCY_SUM", CSTAT_ENTRY(CC6_RESIDENCY_SUM), 4},
-	{ "C7_ENTRIES", CSTAT_ENTRY(C7_ENTRIES), 8},
-	{ "C7_RESIDENCY_SUM", CSTAT_ENTRY(C7_RESIDENCY_SUM), 8},
-	{ "C6_ENTRIES", CSTAT_ENTRY(C6_ENTRIES), 8},
-	{ "C6_RESIDENCY_SUM", CSTAT_ENTRY(C6_RESIDENCY_SUM), 8},
+	{ "SC7_ENTRIES", CSTAT_ENTRY(SC7_ENTRIES), 1, UNITGROUP_IGNORED},
+	{ "SC7_RESIDENCY_SUM",
+		CSTAT_ENTRY(SC7_RESIDENCY_SUM), 1, UNITGROUP_IGNORED},
+	{ "CG7_ENTRIES", CSTAT_ENTRY(CG7_ENTRIES), 2, UNITGROUP_CLUSTERGROUP},
+	{ "CG7_RESIDENCY_SUM",
+		CSTAT_ENTRY(CG7_RESIDENCY_SUM), 2, UNITGROUP_CLUSTERGROUP},
+	{ "CC6_ENTRIES", CSTAT_ENTRY(CC6_ENTRIES), 4, UNITGROUP_CLUSTER},
+	{ "CC6_RESIDENCY_SUM",
+		CSTAT_ENTRY(CC6_RESIDENCY_SUM), 4, UNITGROUP_CLUSTER},
+	{ "C7_ENTRIES", CSTAT_ENTRY(C7_ENTRIES), 8, UNITGROUP_CORE},
+	{ "C7_RESIDENCY_SUM", CSTAT_ENTRY(C7_RESIDENCY_SUM), 8, UNITGROUP_CORE},
+	{ "C6_ENTRIES", CSTAT_ENTRY(C6_ENTRIES), 8, UNITGROUP_CORE},
+	{ "C6_RESIDENCY_SUM", CSTAT_ENTRY(C6_RESIDENCY_SUM), 8, UNITGROUP_CORE},
 };
 
 int tegra19x_mce_dbg_cstats_show(struct seq_file *s, void *data)
 {
+	int nr_cpus = num_present_cpus();
 	int st, unit;
 	u64 val;
 	u32 mce_index;
@@ -297,6 +307,26 @@ int tegra19x_mce_dbg_cstats_show(struct seq_file *s, void *data)
 	seq_printf(s, "%-25s%-15s%-10s\n", "name", "unit-id", "count/time");
 	seq_puts(s, "---------------------------------------------------\n");
 	for (st = 0; st < NVG_STAT_MAX_ENTRIES; st++) {
+		switch (cstats_table[st].unit_group) {
+		case UNITGROUP_IGNORED:
+			cstats_table[st].units = 1;
+			break;
+		case UNITGROUP_CLUSTERGROUP:
+			cstats_table[st].units = 2;
+			break;
+		case UNITGROUP_CLUSTER:
+			/* Divide by 2 to get num of clusters
+			 * as t19x has 2 cores per cluster
+			 */
+			cstats_table[st].units = nr_cpus / 2;
+			break;
+		case UNITGROUP_CORE:
+			cstats_table[st].units = nr_cpus;
+			break;
+		default:
+			return -EINVAL;
+		}
+
 		for (unit = 0; unit < cstats_table[st].units; unit++) {
 			mce_index = ((u32)cstats_table[st].id <<
 					MCE_STAT_ID_SHIFT) + (u32)unit;

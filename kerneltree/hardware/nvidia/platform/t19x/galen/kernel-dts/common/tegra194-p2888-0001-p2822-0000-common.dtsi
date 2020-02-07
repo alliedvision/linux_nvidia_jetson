@@ -1,7 +1,7 @@
 /*
  * Common include DTS file for CVM:P2888-0001 and CVB:P2822-0000 variants.
  *
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,8 +21,6 @@
 #include "tegra194-power-tree-p2888-0001-p2822-1000.dtsi"
 #include <t19x-common-platforms/tegra194-comms.dtsi>
 #include "tegra194-thermal-p2888.dtsi"
-#include "tegra194-plugin-manager-p2888-0000.dtsi"
-#include "tegra194-plugin-manager-p2822-0000.dtsi"
 #include "tegra194-super-module-e2614-p2888-0000.dtsi"
 
 / {
@@ -30,7 +28,7 @@
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 	nvidia,fastboot-usb-vid = <0x0955>;
 	nvidia,fastboot-usb-pid = <0xee1e>;
-	model = "jetson-xavier";
+	model = "Jetson-AGX";
 
 	compatible = "nvidia,jetson-xavier", "nvidia,tegra194";
 
@@ -93,7 +91,7 @@
 			gyroscope_matrix        = [01 00 00 00 01 00 00 00 01];
 			accelerometer_delay_us_min = <1250>;
 			gyroscope_delay_us_min = <1250>;
-			status = "okay";
+			status = "disabled";
 		};
 		ucsi_ccg: ucsi_ccg@8 {
 			status = "okay";
@@ -274,6 +272,10 @@
 		status = "okay";
 	};
 
+	pwm@3280000 {
+		status = "okay";
+	};
+
 	pwm@32c0000 {
 		status = "okay";
 	};
@@ -290,7 +292,7 @@
 			reg = <0x69>;
 			accelerometer_matrix    = [01 00 00 00 01 00 00 00 01];
 			gyroscope_matrix        = [01 00 00 00 01 00 00 00 01];
-			status = "okay";
+			status = "disabled";
 		};
 	};
 
@@ -314,7 +316,14 @@
 	};
 
 	ufshci@2450000 {
+		status = "disabled";
 		nvidia,enable-hs-mode;
+		nvidia,cd-gpios = <&tegra_aon_gpio TEGRA194_AON_GPIO(EE, 0) GPIO_ACTIVE_HIGH>;
+		nvidia,cd-wakeup-capable;
+	};
+	pfsd {
+		pwm_polarity= <PWM_POLARITY_NORMAL>;
+		suspend_state = <0>;
 	};
 };
 

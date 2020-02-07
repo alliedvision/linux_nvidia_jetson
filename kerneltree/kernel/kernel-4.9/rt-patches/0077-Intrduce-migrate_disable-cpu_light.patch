@@ -1,7 +1,7 @@
-From a52cddd9c80524b92e366aae4bef87fa6068f441 Mon Sep 17 00:00:00 2001
+From d9f4864d27a2ed2eec10f0cca8b824c6308d2299 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 17 Jun 2011 15:42:38 +0200
-Subject: [PATCH 077/353] Intrduce migrate_disable() + cpu_light()
+Subject: [PATCH 077/352] Intrduce migrate_disable() + cpu_light()
 
 Introduce migrate_disable(). The task can't be pushed to another CPU but can
 be preempted.

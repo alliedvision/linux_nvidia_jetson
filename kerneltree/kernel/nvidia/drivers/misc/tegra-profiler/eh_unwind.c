@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/eh_unwind.c
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -519,15 +519,15 @@ remove_overlapped_regions(struct regions_data *rd, struct ex_region_info *ri)
 			array[idx_from].vm_start, array[idx_from].vm_end,
 			array[idx_to - 1].vm_start, array[idx_to - 1].vm_end);
 
-		if (nr_copied > 0)
-			memmove(array + idx_from, array + idx_to,
-				nr_copied * sizeof(*array));
-
 		for (i = idx_from; i < idx_to; i++) {
 			ri_del = &array[i];
 			mmap_ex_entry_del(ri_del->mmap, rd->pid,
 					  ri_del->vm_start);
 		}
+
+		if (nr_copied > 0)
+			memmove(array + idx_from, array + idx_to,
+				nr_copied * sizeof(*array));
 
 		rd->nr_entries -= nr_removed;
 	}

@@ -1720,9 +1720,19 @@ static int tegra210_adsp_pcm_open(struct snd_pcm_substream *substream)
 
 	/* Ensure period size is multiple of 4 */
 	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
-		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 0x4);
+		SNDRV_PCM_HW_PARAM_PERIOD_SIZE, 0x4);
 	if (ret) {
-		dev_err(adsp->dev, "failed to set constraint %d\n", ret);
+		dev_err(adsp->dev,
+			"failed to set period_size constraint %d\n", ret);
+		return ret;
+	}
+
+	/* Ensure buffer size is multiple of 4 */
+	ret = snd_pcm_hw_constraint_step(substream->runtime, 0,
+		SNDRV_PCM_HW_PARAM_BUFFER_SIZE, 0x4);
+	if (ret) {
+		dev_err(adsp->dev,
+			"failed to set buffer_size constraint %d\n", ret);
 		return ret;
 	}
 	substream->runtime->private_data = prtd;
@@ -2639,12 +2649,9 @@ static int tegra210_adsp_fe_widget_event(struct snd_soc_dapm_widget *w,
 
 		runtime = prtd->substream->runtime;
 		runtime->status->state = SNDRV_PCM_STATE_DISCONNECTED;
-		if (!(prtd->substream->f_flags & O_NONBLOCK)) {
-			if (IS_MMAP_ACCESS(runtime->access))
-				wake_up(&runtime->sleep);
-			else
-				wake_up(&runtime->tsleep);
-		}
+
+		wake_up(&runtime->sleep);
+		wake_up(&runtime->tsleep);
 
 		spin_unlock_irqrestore(&apm->lock, flags);
 
@@ -4741,26 +4748,15 @@ static void tegra210_adsp_audio_platform_shutdown(
 {
 	struct tegra210_adsp *adsp = dev_get_drvdata(&pdev->dev);
 
+	tegra210_adsp_deinit(adsp);
 	adsp->is_shutdown = true;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int tegra_adsp_pm_suspend(struct device *dev)
-{
-	return pm_runtime_force_suspend(dev);
-}
-
-static int tegra_adsp_pm_resume(struct device *dev)
-{
-	return pm_runtime_force_resume(dev);
-}
-#endif
 
 static const struct dev_pm_ops tegra210_adsp_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra210_adsp_runtime_suspend,
 			   tegra210_adsp_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra_adsp_pm_suspend,
-			tegra_adsp_pm_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 
 };
 

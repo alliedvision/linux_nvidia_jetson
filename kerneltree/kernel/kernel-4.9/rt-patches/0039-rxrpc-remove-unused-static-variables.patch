@@ -1,7 +1,7 @@
-From 92714255195fd964eaa6d230b9edab0f6079a856 Mon Sep 17 00:00:00 2001
+From 8c561563eadc2288dc571c468ec324be9ca24f69 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 21 Oct 2016 10:54:50 +0200
-Subject: [PATCH 039/353] rxrpc: remove unused static variables
+Subject: [PATCH 039/352] rxrpc: remove unused static variables
 
 The rxrpc_security_methods and rxrpc_security_sem user has been removed
 in 648af7fca159 ("rxrpc: Absorb the rxkad security module"). This was

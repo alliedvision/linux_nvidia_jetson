@@ -1106,11 +1106,8 @@ static int erase_sector(struct qspi *flash, u32 offset,
 			"error: %s: WE failed: Status: x%x ", __func__, err);
 		return err;
 	}
-	copy_cmd_default(&flash->cmd_table,
-				&flash->cmd_info_table[ERASE_SECT]);
 
-	/* Set up command buffer. */
-	cmd_addr_buf[0] = erase_opcode = flash->cmd_table.qcmd.op_code;
+	cmd_addr_buf[0] = erase_opcode;
 	if (flash->cmd_table.qaddr.len == 3) {
 		cmd_addr_buf[1] = (offset >> 16) & 0xFF;
 		cmd_addr_buf[2] = (offset >> 8) & 0xFF;
@@ -1198,6 +1195,11 @@ static int qspi_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 		/* "sector"-at-a-time erase */
 	} else {
+		copy_cmd_default(&flash->cmd_table,
+				 &flash->cmd_info_table[ERASE_SECT]);
+
+		/* Set up command buffer. */
+		flash->erase_opcode = flash->cmd_table.qcmd.op_code;
 		while (len) {
 			if (erase_sector(flash, addr,
 				flash->erase_opcode, mtd->erasesize)) {

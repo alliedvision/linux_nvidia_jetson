@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,13 +16,16 @@
 
 #include "m_ttcan.h"
 
+static int mttcan_check_fec_validity(struct mttcan_priv *priv,
+				     unsigned int fec);
+
 static ssize_t show_std_fltr(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
-	ssize_t ret, total = 0;
-	int i = 0;
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
 	int cur_filter_size = priv->ttcan->fltr_config.std_fltr_size;
+	ssize_t ret, total = 0;
+	int i = 0;
 
 	ret = sprintf(buf, "%s\n", "Standard Filters");
 	total += ret;
@@ -38,10 +41,10 @@ static ssize_t show_std_fltr(struct device *dev,
 static ssize_t show_xtd_fltr(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
-	ssize_t ret, total = 0;
-	int i = 0;
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
 	int cur_filter_size = priv->ttcan->fltr_config.xtd_fltr_size;
+	ssize_t ret, total = 0;
+	int i = 0;
 
 	ret = sprintf(buf, "%s\n", "Extended Filters");
 	total += ret;
@@ -58,6 +61,7 @@ static ssize_t show_gfc_fltr(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "Global filter",
 			ttcan_get_gfc(priv->ttcan));
 }
@@ -66,13 +70,13 @@ static ssize_t store_gfc_fltr(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
+	struct net_device *ndev = to_net_dev(dev);
+	struct mttcan_priv *priv = netdev_priv(ndev);
+	struct ttcan_controller *ttcan = priv->ttcan;
 	unsigned int anfs, anfe;
 	unsigned int rrfs, rrfe;
 	u32 gfc;
 	int ret;
-
-	struct net_device *ndev = to_net_dev(dev);
-	struct mttcan_priv *priv = netdev_priv(ndev);
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "GFC cannot be configured as device is running\n");
@@ -87,11 +91,25 @@ static ssize_t store_gfc_fltr(struct device *dev,
 		return -EINVAL;
 	}
 
+	if (((anfs == GFC_ANFS_RXFIFO_0) || (anfe == GFC_ANFE_RXFIFO_0))
+	    && (ttcan->mram_cfg[MRAM_RXF0].num == 0U)) {
+		dev_err(priv->device, "RX FIFO 0 is not used currently.");
+		dev_err(priv->device, " Change it via DT\n");
+		return -EINVAL;
+	}
+
+	if (((anfs == GFC_ANFS_RXFIFO_1) || (anfe == GFC_ANFE_RXFIFO_1))
+	    && (ttcan->mram_cfg[MRAM_RXF1].num == 0U)) {
+		dev_err(priv->device, "RX FIFO 1 is not used currently.");
+		dev_err(priv->device, " Change it via DT\n");
+		return -EINVAL;
+	}
+
 	gfc = 0;
 	gfc = (anfs << MTT_GFC_ANFS_SHIFT) & MTT_GFC_ANFS_MASK;
 	gfc |= (anfe << MTT_GFC_ANFE_SHIFT) & MTT_GFC_ANFE_MASK;
 	gfc |= (rrfs << MTT_GFC_RRFS_SHIFT) & MTT_GFC_RRFS_MASK;
-	gfc |= (rrfe << MTT_GFC_RRFE_SHIFT) & MTT_GFC_RRFE_SHIFT;
+	gfc |= (rrfe << MTT_GFC_RRFE_SHIFT) & MTT_GFC_RRFE_MASK;
 
 	priv->gfc_reg = gfc;
 	ttcan_set_gfc(priv->ttcan, gfc);
@@ -103,6 +121,7 @@ static ssize_t show_xidam(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "XIDAM",
 			ttcan_get_xidam(priv->ttcan));
 }
@@ -111,10 +130,9 @@ static ssize_t store_xidam(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int xidam;
-
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	unsigned int xidam;
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "XIDAM is protected, device is running\n");
@@ -133,17 +151,50 @@ static ssize_t store_xidam(struct device *dev,
 	return count;
 }
 
+static int mttcan_check_fec_validity(struct mttcan_priv *priv,
+				     unsigned int fec)
+{
+	struct ttcan_controller *ttcan = priv->ttcan;
+
+	if (fec > FEC_RXBUF) {
+		dev_err(priv->device, "sfec/efec should be in range 0-7\n");
+		return -EINVAL;
+	}
+
+	if (((fec == FEC_RXFIFO_0) || (fec == FEC_RXFIFO_0_PRIO)) &&
+	    (ttcan->mram_cfg[MRAM_RXF0].num == 0U)) {
+		dev_err(priv->device, "RX FIFO 0 is not used currently.");
+		dev_err(priv->device, " Change it via DT\n");
+		return -EINVAL;
+	}
+
+	if (((fec == FEC_RXFIFO_1) || (fec == FEC_RXFIFO_1_PRIO)) &&
+	    (ttcan->mram_cfg[MRAM_RXF1].num == 0U)) {
+		dev_err(priv->device, "RX FIFO 1 is not used currently.");
+		dev_err(priv->device, " Change it via DT\n");
+		return -EINVAL;
+	}
+
+	if ((fec == FEC_RXBUF) && (ttcan->mram_cfg[MRAM_RXB].num == 0U)) {
+		dev_err(priv->device, "RX Buffer is not used currently.");
+		dev_err(priv->device, " Change it via DT\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static ssize_t store_std_fltr(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
+	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+	struct net_device *ndev = to_net_dev(dev);
 	unsigned int sft, sfec;
 	unsigned int sfid1, sfid2;
 	int idx = -1, cur_filter_size;
+	int items;
 	int ret;
-
-	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
-	struct net_device *ndev = to_net_dev(dev);
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "device is running\n");
@@ -159,16 +210,24 @@ static ssize_t store_std_fltr(struct device *dev,
 		pr_err("usage:sft=0..3 sfec=0..7 sfid1=ID1h sfid2=ID2h idx=i\n");
 		return -EINVAL;
 	}
+	items = ret;
 
 	cur_filter_size = priv->ttcan->fltr_config.std_fltr_size;
 
-	if ((idx > cur_filter_size) || (idx == -1))
+	if ((idx > cur_filter_size) || (idx == -1)) {
 		if (cur_filter_size >= priv->ttcan->mram_cfg[MRAM_SIDF].num) {
 			dev_err(dev, "Max Invalid std filter Index\n");
 			return -ENOSPC;
 		}
+	}
 
-	if (ret == 5) {
+	ret = mttcan_check_fec_validity(priv, sfec);
+	if (ret < 0) {
+		dev_err(dev, "Invalid sfec value\n");
+		return -EINVAL;
+	}
+
+	if (items == 5) {
 		if (idx > cur_filter_size) {
 			dev_err(dev, "Invalid std filter Index\n");
 			return -EINVAL;
@@ -189,13 +248,13 @@ static ssize_t store_xtd_fltr(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
+	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+	struct net_device *ndev = to_net_dev(dev);
 	unsigned int eft, efec;
 	unsigned int efid1, efid2;
 	int idx = -1, cur_filter_size;
+	int items;
 	int ret;
-
-	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
-	struct net_device *ndev = to_net_dev(dev);
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "device is running\n");
@@ -207,22 +266,30 @@ static ssize_t store_xtd_fltr(struct device *dev,
 			&efec, &efid1, &efid2, &idx);
 	if (ret < 4) {
 		/* Not passing index is allowed */
-		dev_err(dev, "Invalid std filter\n");
+		dev_err(dev, "Invalid xtd filter\n");
 		pr_err("usage:eft=0..3 efec=0..7 efid1=ID1h efid2=ID2h idx=i\n");
 		return -EINVAL;
 	}
+	items = ret;
 
 	cur_filter_size = priv->ttcan->fltr_config.xtd_fltr_size;
 
-	if ((idx > cur_filter_size) || (idx == -1))
+	if ((idx > cur_filter_size) || (idx == -1)) {
 		if (cur_filter_size >= priv->ttcan->mram_cfg[MRAM_XIDF].num) {
-			dev_err(dev, "Max Invalid std filter Index\n");
+			dev_err(dev, "Max Invalid xtd filter Index\n");
 			return -ENOSPC;
 		}
+	}
 
-	if (ret == 5) {
+	ret = mttcan_check_fec_validity(priv, efec);
+	if (ret < 0) {
+		dev_err(dev, "Invalid efec value\n");
+		return -EINVAL;
+	}
+
+	if (items == 5) {
 		if (idx > cur_filter_size) {
-			dev_err(dev, "Invalid std filter Index\n");
+			dev_err(dev, "Invalid xtd filter Index\n");
 			return -EINVAL;
 		}
 		ttcan_set_xtd_id_filter(priv->ttcan, priv->xtd_shadow,
@@ -241,6 +308,7 @@ static ssize_t show_tx_cancel(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "TXBCF",
 			ttcan_read_tx_cancelled_reg(priv->ttcan));
 }
@@ -249,10 +317,9 @@ static ssize_t store_tx_cancel(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int txcbr;
-
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	unsigned int txcbr;
 
 	/* usage: txbcr=bit_mask for buffer */
 	if (sscanf(buf, "txbcr=%X", &txcbr) != 1) {
@@ -270,6 +337,7 @@ static ssize_t show_ttrmc(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "TTRMC",
 			ttcan_get_ttrmc(priv->ttcan));
 }
@@ -278,9 +346,9 @@ static ssize_t store_ttrmc(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int rmps, xtd, rid;
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	unsigned int rmps, xtd, rid;
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "TTRMC is protected, device is running\n");
@@ -302,6 +370,7 @@ static ssize_t show_ttocf(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "TTOCF",
 			ttcan_get_ttocf(priv->ttcan));
 }
@@ -310,9 +379,9 @@ static ssize_t store_ttocf(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int evtp, ecc, egtf, awl, eecs, irto, ldsdl, tm, gen, om;
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	unsigned int evtp, ecc, egtf, awl, eecs, irto, ldsdl, tm, gen, om;
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "TTCOF is protected, device is running\n");
@@ -339,6 +408,7 @@ static ssize_t show_ttmlm(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "TTMLM",
 			ttcan_get_ttmlm(priv->ttcan));
 }
@@ -347,9 +417,9 @@ static ssize_t store_ttmlm(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int entt, txew, css, ccm;
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	unsigned int entt, txew, css, ccm;
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "TTMLM is protected, device is running\n");
@@ -372,6 +442,7 @@ static ssize_t show_tttmc(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
 	return sprintf(buf, "%s\n0x%x\n", "TTTMC",
 			ttcan_get_tttmc(priv->ttcan));
 }
@@ -380,9 +451,9 @@ static ssize_t store_tttmc(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	u32 tme, tttmc;
 	struct net_device *ndev = to_net_dev(dev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	u32 tme, tttmc;
 
 	if (ndev->flags & IFF_UP) {
 		dev_err(dev, "TTTMC is protected, device is running\n");
@@ -412,7 +483,9 @@ static ssize_t show_cccr_txbar(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
-	int init = ttcan_get_cccr(priv->ttcan) & 0x1;
+	unsigned int init = 0;
+
+	init = ttcan_get_cccr(priv->ttcan) & 0x1;
 	return sprintf(buf, "CCCR.INIT %s\n", init ? "set" : "reset");
 }
 
@@ -457,8 +530,8 @@ static ssize_t store_txbar(struct device *dev,
 	struct device_attribute *devattr,
 	const char *buf, size_t count)
 {
-	unsigned int txbar = 0;
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+	unsigned int txbar = 0;
 
 	/* usage: txbar=1...32*/
 	if ((sscanf(buf, "txbar=%u", &txbar) != 1) || (txbar > 32)) {
@@ -476,10 +549,10 @@ static ssize_t store_txbar(struct device *dev,
 static ssize_t show_trigger_mem(struct device *dev,
 	struct device_attribute *devattr, char *buf)
 {
-	ssize_t ret, total = 0;
-	int i = 0;
 	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
 	int cur = priv->ttcan->tt_mem_elements;
+	ssize_t ret, total = 0;
+	int i = 0;
 
 	ret = sprintf(buf, "%s\n", "Trigger Memory Elements");
 	total += ret;

@@ -9,7 +9,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
@@ -37,7 +36,7 @@
 #include <asm/barrier.h>
 
 #include "soc/tegra/camrtc-capture.h"
-#include "linux/nvhost_nvcsi_ioctl.h"
+#include <uapi/linux/nvhost_nvcsi_ioctl.h>
 #include "nvcsi/nvcsi.h"
 #include "nvcsi/deskew.h"
 
@@ -129,6 +128,33 @@ u32 read_settle_time_from_dt(struct tegra_csi_channel *chan)
 	}
 
 	return cil_settletime;
+}
+
+u32 read_discontinuous_clk_from_dt(struct tegra_csi_channel *chan)
+{
+	struct camera_common_data *s_data = chan->s_data;
+	struct sensor_mode_properties *mode = read_mode_from_dt(s_data);
+	struct device *dev = chan->csi->dev;
+	unsigned int discontinuous_clk = 1;
+
+	if (mode) {
+		discontinuous_clk = mode->signal_properties.discontinuous_clk;
+		dev_dbg(dev, "discontinuous_clk = %u reading from props\n", discontinuous_clk);
+	} else if (chan->of_node) {
+		int err = 0;
+		const char *str;
+
+		err = of_property_read_string(chan->of_node, "discontinuous_clk",
+			&str);
+		if (!err)
+			discontinuous_clk = !strncmp(str, "yes", sizeof("yes"));
+		else
+			dev_dbg(dev,
+				"no discontinuous_clk in of_node");
+		dev_dbg(dev, "discontinuous_clk = %u from of_node\n", discontinuous_clk);
+	}
+
+	return discontinuous_clk;
 }
 
 u32 read_phy_mode_from_dt(struct tegra_csi_channel *chan)

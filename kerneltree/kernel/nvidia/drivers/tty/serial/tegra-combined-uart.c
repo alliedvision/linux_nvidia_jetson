@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,6 +33,11 @@
 #define NUM_BYTES_FIELD_BIT	24
 #define FLUSH_BIT		26
 #define INTR_TRIGGER_BIT	31
+
+/*
+ * Combined-uart uses 'ctrl /' i.e 0x1f as break-signal for SysRq
+ */
+#define MAGIC_SYSRQ_CHAR	0x1f
 
 static u8 __iomem *top0_mbox01_base;
 static u8 __iomem *spe_mbox_reg;
@@ -135,6 +140,18 @@ static void tegra_combined_uart_handle_rx_msg(uint32_t mbox_val)
 	bytes = (mbox_val >> NUM_BYTES_FIELD_BIT) & 0x3;
 	for (i = 0; i < bytes; i++) {
 		ch = (mbox_val >> i * 8) & 0xFF;
+		if (unlikely(ch == MAGIC_SYSRQ_CHAR)) {
+			tegra_combined_uart_port.sysrq = jiffies + HZ*5;
+			return;
+		} else if (unlikely(tegra_combined_uart_port.sysrq)) {
+			if (ch && time_before(jiffies,
+					tegra_combined_uart_port.sysrq)) {
+				handle_sysrq(ch);
+				tegra_combined_uart_port.sysrq = 0;
+				return;
+			}
+		}
+
 		tty_insert_flip_char(port, ch, TTY_NORMAL);
 	}
 	tty_flip_buffer_push(port);

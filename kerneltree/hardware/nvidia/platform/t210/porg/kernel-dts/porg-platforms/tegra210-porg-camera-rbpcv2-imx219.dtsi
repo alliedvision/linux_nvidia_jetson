@@ -23,7 +23,7 @@
     host1x {
 		i2c@546c0000 {
 			rbpcv2_imx219_a@10 {
-				status = "okay";
+				status = "disabled";
 				reset-gpios = <&gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			};
 		};

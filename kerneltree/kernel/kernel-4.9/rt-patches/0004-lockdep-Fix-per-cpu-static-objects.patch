@@ -1,7 +1,7 @@
-From 4c9b71d4093a333615400c6413f9425fcd2ac844 Mon Sep 17 00:00:00 2001
+From 831c9da8f671eb70902ac7447a6a4a6f41995c93 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Mon, 20 Mar 2017 12:26:55 +0100
-Subject: [PATCH 004/353] lockdep: Fix per-cpu static objects
+Subject: [PATCH 004/352] lockdep: Fix per-cpu static objects
 
 Since commit 383776fa7527 ("locking/lockdep: Handle statically initialized
 PER_CPU locks properly") we try to collapse per-cpu locks into a single

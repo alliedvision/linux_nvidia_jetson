@@ -451,7 +451,7 @@
 	};
 #endif
 
-	pcie-controller@1003000 {
+	pcie@1003000 {
 		status = "disabled";
 	};
 

@@ -1,7 +1,7 @@
 /*
- * IVC based librabry for AUDIO server
+ * IVC based library for AUDIO server
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -180,6 +180,7 @@ struct nvaudio_ivc_ctxt *nvaudio_ivc_alloc_ctxt(struct device *dev)
 		dev_err(dev, "unable to allocate mem for ivc context\n");
 		return NULL;
 	}
+
 	saved_ivc_ctxt = ictxt;
 	ictxt->dev = dev;
 	ictxt->timeout = 250; /* Not used in polling */
@@ -195,23 +196,19 @@ struct nvaudio_ivc_ctxt *nvaudio_ivc_alloc_ctxt(struct device *dev)
 
 	return ictxt;
 fail:
-	nvaudio_ivc_free_ctxt(dev, ictxt);
+	nvaudio_ivc_free_ctxt(dev);
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(nvaudio_ivc_alloc_ctxt);
 
 /* hook to domain destroy */
-void nvaudio_ivc_free_ctxt(struct device *dev,
-				struct nvaudio_ivc_ctxt *ictxt)
+void nvaudio_ivc_free_ctxt(struct device *dev)
 {
-	nvaudio_ivc_deinit(ictxt);
-
-	if (!ictxt) {
-		dev_err(dev, "trying to free null ivc context\n");
-		return;
+	if (saved_ivc_ctxt) {
+		nvaudio_ivc_deinit(saved_ivc_ctxt);
+		devm_kfree(dev, saved_ivc_ctxt);
+		saved_ivc_ctxt = NULL;
 	}
-
-	devm_kfree(dev, ictxt);
 }
 EXPORT_SYMBOL_GPL(nvaudio_ivc_free_ctxt);
 

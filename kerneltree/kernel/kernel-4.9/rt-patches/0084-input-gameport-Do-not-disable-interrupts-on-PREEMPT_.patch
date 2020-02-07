@@ -1,7 +1,7 @@
-From c31e8cdc87202e389568de2fb9b88c9b6b9ffc97 Mon Sep 17 00:00:00 2001
+From 4752019dde39da2276f02c4416b378c7867b3639 Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:30:16 -0500
-Subject: [PATCH 084/353] input: gameport: Do not disable interrupts on
+Subject: [PATCH 084/352] input: gameport: Do not disable interrupts on
  PREEMPT_RT
 
 Use the _nort() primitives.

@@ -172,5 +172,6 @@
 
 	pcie@141a0000 {
 		/delete-property/ nvidia,enable-power-down;
+		/delete-property/ nvidia,plat-gpios;
 	};
 };

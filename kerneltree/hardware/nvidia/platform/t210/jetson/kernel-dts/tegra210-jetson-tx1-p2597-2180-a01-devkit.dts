@@ -1,7 +1,7 @@
 /*
  * arch/arm64/boot/dts/tegra210-jetson-tx1-p2597-2180-a01-devkit.dts
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #include "tegra210-jetson-cv-base-p2597-2180-a00.dts"
 
 / {
-	model = "jetson_tx1";
+	model = "Jetson-TX1";
 	compatible = "nvidia,jetson-cv", "nvidia,tegra210";
 	nvidia,dtsfilename = __FILE__;
 
@@ -77,12 +77,16 @@
 	};
 
 	watchdog@60005100 {
-		status = "disabled";
+		status = "okay";
 	};
 	reserved-memory {
 		vpr-carveout {
 			     status = "disabled";
 		     };
+	};
+
+	nvdumper {
+		status = "disabled";
 	};
 };
 

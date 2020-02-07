@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,8 +11,9 @@
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/highmem.h>
-
+#include <asm/io.h>
 #include <soc/tegra/common.h>
+#include <soc/tegra/pmc.h>
 #include <linux/memblock.h>
 
 /* Before T18x architecture */
@@ -581,3 +582,71 @@ static int __init display_tegra_dts_info(void)
 	return 0;
 }
 early_initcall(display_tegra_dts_info);
+
+static void tegra_get_bl_reset_status(void)
+{
+	struct device_node *reset_info;
+	u32 prop_val;
+	int err;
+
+	reset_info = of_find_node_by_path("/chosen/reset");
+	if (reset_info) {
+		err = of_property_read_u32(reset_info, "pmc_reset_status",
+				&prop_val);
+		if (err < 0)
+			goto out;
+		else
+			pr_info("BL: PMC reset status reg: 0x%x\n",
+					prop_val);
+
+		err = of_property_read_u32(reset_info, "pmic_reset_status",
+				&prop_val);
+		if (err < 0)
+			goto out;
+		else
+			pr_info("BL: PMIC poweroff Event Recorder: 0x%x\n",
+					prop_val);
+	}
+out:
+	return;
+}
+
+static int __init tegra_get_last_reset_reason(void)
+{
+#define RESET_STR(REASON) "last reset is due to "#REASON""
+	char *reset_reason[] = {
+		RESET_STR(power on reset),
+		RESET_STR(tegra watchdog timeout),
+		RESET_STR(sensor),
+		RESET_STR(software reset),
+		RESET_STR(deep sleep reset),
+		RESET_STR(pmic watchdog timeout),
+	};
+	/* read PMC_SCRATCH203, if last reset due to pmic watchdog, stored by
+	 * nvtboot
+	 */
+	u32 val = 0;
+
+	if (!soc_is_tegra210_n_before())
+		return 0;
+
+	val = tegra_pmc_readl(PMC_SCRATCH203);
+	if (val & 0x2)
+		/* reset-reason due to pmic watchdog, set val to index of array
+		 * reset_reason so that it points to "pmic watchdog timeout"
+		 */
+		val = 5;
+	else
+		val = tegra_pmc_readl(PMC_RST_STATUS) & 0x7;
+
+	if (val >= ARRAY_SIZE(reset_reason))
+		pr_info("last reset value is invalid 0x%x\n", val);
+	else {
+		pr_info("%s\n", reset_reason[val]);
+		pr_info("KERNEL: PMC reset status reg: 0x%x\n", val);
+	}
+
+	tegra_get_bl_reset_status();
+	return 0;
+}
+late_initcall(tegra_get_last_reset_reason);

@@ -21,6 +21,8 @@
 #include <nvgpu/kmem.h>
 #include <nvgpu/nvhost.h>
 #include <nvgpu/ptimer.h>
+#include <nvgpu/power_features/cg.h>
+#include <nvgpu/power_features/pg.h>
 
 #include "os_linux.h"
 #include "sysfs.h"
@@ -49,16 +51,14 @@ static ssize_t elcg_enable_store(struct device *dev,
 		return err;
 
 	if (val) {
-		g->elcg_enabled = true;
-		gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_AUTO);
+		nvgpu_cg_elcg_set_elcg_enabled(g, true);
 	} else {
-		g->elcg_enabled = false;
-		gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_RUN);
+		nvgpu_cg_elcg_set_elcg_enabled(g, false);
 	}
 
 	gk20a_idle(g);
 
-	nvgpu_info(g, "ELCG is %s.", g->elcg_enabled ? "enabled" :
+	nvgpu_info(g, "ELCG is %s.", val ? "enabled" :
 			"disabled");
 
 	return count;
@@ -84,45 +84,19 @@ static ssize_t blcg_enable_store(struct device *dev,
 	if (kstrtoul(buf, 10, &val) < 0)
 		return -EINVAL;
 
-	if (val)
-		g->blcg_enabled = true;
-	else
-		g->blcg_enabled = false;
-
 	err = gk20a_busy(g);
 	if (err)
 		return err;
 
-	if (g->ops.clock_gating.blcg_bus_load_gating_prod)
-		g->ops.clock_gating.blcg_bus_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_ce_load_gating_prod)
-		g->ops.clock_gating.blcg_ce_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_ctxsw_firmware_load_gating_prod)
-		g->ops.clock_gating.blcg_ctxsw_firmware_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_fb_load_gating_prod)
-		g->ops.clock_gating.blcg_fb_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_fifo_load_gating_prod)
-		g->ops.clock_gating.blcg_fifo_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_gr_load_gating_prod)
-		g->ops.clock_gating.blcg_gr_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_ltc_load_gating_prod)
-		g->ops.clock_gating.blcg_ltc_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_pmu_load_gating_prod)
-		g->ops.clock_gating.blcg_pmu_load_gating_prod(g,
-				g->blcg_enabled);
-	if (g->ops.clock_gating.blcg_xbar_load_gating_prod)
-		g->ops.clock_gating.blcg_xbar_load_gating_prod(g,
-				g->blcg_enabled);
+	if (val) {
+		nvgpu_cg_blcg_set_blcg_enabled(g, true);
+	} else {
+		nvgpu_cg_blcg_set_blcg_enabled(g, false);
+	}
+
 	gk20a_idle(g);
 
-	nvgpu_info(g, "BLCG is %s.", g->blcg_enabled ? "enabled" :
+	nvgpu_info(g, "BLCG is %s.", val ? "enabled" :
 			"disabled");
 
 	return count;
@@ -149,59 +123,25 @@ static ssize_t slcg_enable_store(struct device *dev,
 	if (kstrtoul(buf, 10, &val) < 0)
 		return -EINVAL;
 
-	if (val)
-		g->slcg_enabled = true;
-	else
-		g->slcg_enabled = false;
+	err = gk20a_busy(g);
+	if (err) {
+		return err;
+	}
+
+	if (val) {
+		nvgpu_cg_slcg_set_slcg_enabled(g, true);
+	} else {
+		nvgpu_cg_slcg_set_slcg_enabled(g, false);
+	}
 
 	/*
 	 * TODO: slcg_therm_load_gating is not enabled anywhere during
 	 * init. Therefore, it would be incongruous to add it here. Once
 	 * it is added to init, we should add it here too.
 	 */
-	err = gk20a_busy(g);
-	if (err)
-		return err;
-
-	if (g->ops.clock_gating.slcg_bus_load_gating_prod)
-		g->ops.clock_gating.slcg_bus_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_ce2_load_gating_prod)
-		g->ops.clock_gating.slcg_ce2_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_chiplet_load_gating_prod)
-		g->ops.clock_gating.slcg_chiplet_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_ctxsw_firmware_load_gating_prod)
-		g->ops.clock_gating.slcg_ctxsw_firmware_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_fb_load_gating_prod)
-		g->ops.clock_gating.slcg_fb_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_fifo_load_gating_prod)
-		g->ops.clock_gating.slcg_fifo_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_gr_load_gating_prod)
-		g->ops.clock_gating.slcg_gr_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_ltc_load_gating_prod)
-		g->ops.clock_gating.slcg_ltc_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_perf_load_gating_prod)
-		g->ops.clock_gating.slcg_perf_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_priring_load_gating_prod)
-		g->ops.clock_gating.slcg_priring_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_pmu_load_gating_prod)
-		g->ops.clock_gating.slcg_pmu_load_gating_prod(g,
-				g->slcg_enabled);
-	if (g->ops.clock_gating.slcg_xbar_load_gating_prod)
-		g->ops.clock_gating.slcg_xbar_load_gating_prod(g,
-				g->slcg_enabled);
 	gk20a_idle(g);
 
-	nvgpu_info(g, "SLCG is %s.", g->slcg_enabled ? "enabled" :
+	nvgpu_info(g, "SLCG is %s.", val ? "enabled" :
 			"disabled");
 
 	return count;
@@ -474,7 +414,7 @@ static ssize_t elpg_enable_store(struct device *dev,
 		return -EINVAL;
 
 	if (!g->power_on) {
-		g->elpg_enabled = val ? true : false;
+		return -EINVAL;
 	} else {
 		err = gk20a_busy(g);
 		if (err)
@@ -483,25 +423,14 @@ static ssize_t elpg_enable_store(struct device *dev,
 		 * Since elpg is refcounted, we should not unnecessarily call
 		 * enable/disable if it is already so.
 		 */
-		if (val && !g->elpg_enabled) {
-			g->elpg_enabled = true;
-			nvgpu_pmu_pg_global_enable(g, true);
-
-		} else if (!val && g->elpg_enabled) {
-			if (g->ops.pmu.pmu_pg_engines_feature_list &&
-				g->ops.pmu.pmu_pg_engines_feature_list(g,
-				PMU_PG_ELPG_ENGINE_ID_GRAPHICS) !=
-				NVGPU_PMU_GR_FEATURE_MASK_POWER_GATING) {
-				nvgpu_pmu_pg_global_enable(g, false);
-				g->elpg_enabled = false;
-			} else {
-				g->elpg_enabled = false;
-				nvgpu_pmu_pg_global_enable(g, false);
-			}
+		if (val != 0) {
+			nvgpu_pg_elpg_set_elpg_enabled(g, true);
+		} else {
+			nvgpu_pg_elpg_set_elpg_enabled(g, false);
 		}
 		gk20a_idle(g);
 	}
-	nvgpu_info(g, "ELPG is %s.", g->elpg_enabled ? "enabled" :
+	nvgpu_info(g, "ELPG is %s.", val ? "enabled" :
 			"disabled");
 
 	return count;
@@ -512,7 +441,8 @@ static ssize_t elpg_enable_read(struct device *dev,
 {
 	struct gk20a *g = get_gk20a(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", g->elpg_enabled ? 1 : 0);
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			nvgpu_pg_elpg_is_enabled(g) ? 1 : 0);
 }
 
 static DEVICE_ATTR(elpg_enable, ROOTRW, elpg_enable_read, elpg_enable_store);
@@ -610,8 +540,9 @@ static ssize_t mscg_enable_store(struct device *dev,
 				/* make status visible */
 				smp_mb();
 				g->mscg_enabled = false;
-				if (g->elpg_enabled)
-					nvgpu_pmu_pg_global_enable(g, true);
+				if (nvgpu_pg_elpg_is_enabled(g)) {
+					nvgpu_pg_elpg_enable(g);
+				}
 			}
 			g->mscg_enabled = false;
 		}
@@ -857,24 +788,26 @@ static ssize_t force_idle_read(struct device *dev,
 static DEVICE_ATTR(force_idle, ROOTRW, force_idle_read, force_idle_store);
 #endif
 
-static ssize_t tpc_pg_mask_read(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct gk20a *g = get_gk20a(dev);
-
-	return snprintf(buf, PAGE_SIZE, "%d\n", g->tpc_pg_mask);
-}
-
 static bool is_tpc_mask_valid(struct gk20a *g, u32 tpc_mask)
 {
 	u32 i;
 	bool valid = false;
 
 	for (i = 0; i < MAX_TPC_PG_CONFIGS; i++) {
-		if (tpc_mask == g->valid_tpc_mask[i])
+		if (tpc_mask == g->valid_tpc_mask[i]) {
 			valid = true;
+			break;
+		}
 	}
 	return valid;
+}
+
+static ssize_t tpc_pg_mask_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct gk20a *g = get_gk20a(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", g->tpc_pg_mask);
 }
 
 static ssize_t tpc_pg_mask_store(struct device *dev,
@@ -885,11 +818,6 @@ static ssize_t tpc_pg_mask_store(struct device *dev,
 	unsigned long val = 0;
 
 	nvgpu_mutex_acquire(&g->tpc_pg_lock);
-
-	if (!g->can_tpc_powergate) {
-		nvgpu_info(g, "TPC-PG not enabled for the platform");
-		goto exit;
-	}
 
 	if (kstrtoul(buf, 10, &val) < 0) {
 		nvgpu_err(g, "invalid value");
@@ -908,6 +836,9 @@ static ssize_t tpc_pg_mask_store(struct device *dev,
 		return -ENODEV;
 	}
 
+	/* checking that the value from userspace is within
+	 * the  possible valid TPC configurations.
+	 */
 	if (is_tpc_mask_valid(g, (u32)val)) {
 		g->tpc_pg_mask = val;
 	} else {

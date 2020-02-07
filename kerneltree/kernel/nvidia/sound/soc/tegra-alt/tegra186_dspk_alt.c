@@ -1,7 +1,7 @@
 /*
  * tegra186_dspk_alt.c - Tegra186 DSPK driver
  *
- * Copyright (c) 2015-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -94,21 +94,12 @@ static int tegra186_dspk_put_control(struct snd_kcontrol *kcontrol,
 static int tegra186_dspk_runtime_suspend(struct device *dev)
 {
 	struct tegra186_dspk *dspk = dev_get_drvdata(dev);
-	int ret;
 
 	regcache_cache_only(dspk->regmap, true);
 	regcache_mark_dirty(dspk->regmap);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
-		if (!IS_ERR(dspk->pin_idle_state) && dspk->is_pinctrl) {
-			ret = pinctrl_select_state(
-				dspk->pinctrl, dspk->pin_idle_state);
-			if (ret < 0)
-				dev_err(dev,
-				"setting dap pinctrl idle state failed\n");
-		}
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga()))
 		clk_disable_unprepare(dspk->clk_dspk);
-	}
 
 	return 0;
 }
@@ -118,22 +109,7 @@ static int tegra186_dspk_runtime_resume(struct device *dev)
 	struct tegra186_dspk *dspk = dev_get_drvdata(dev);
 	int ret;
 
-	if (dspk->prod_name) {
-		ret = tegra_pinctrl_config_prod(dev, dspk->prod_name);
-		if (ret < 0)
-			dev_warn(dev, "Failed to set %s setting\n",
-					dspk->prod_name);
-	}
-
 	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
-		if (!IS_ERR(dspk->pin_active_state) && dspk->is_pinctrl) {
-			ret = pinctrl_select_state(dspk->pinctrl,
-						dspk->pin_active_state);
-			if (ret < 0)
-				dev_err(dev,
-				"setting dap pinctrl active state failed\n");
-		}
-
 		ret = clk_prepare_enable(dspk->clk_dspk);
 		if (ret) {
 			dev_err(dev, "clk_enable failed: %d\n", ret);
@@ -147,24 +123,6 @@ static int tegra186_dspk_runtime_resume(struct device *dev)
 		regcache_sync(dspk->regmap);
 	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int tegra186_dspk_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra186_dspk_runtime_suspend(dev);
-}
-
-static int tegra186_dspk_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra186_dspk_runtime_resume(dev);
-}
-#endif
 
 static int tegra186_dspk_set_audio_cif(struct tegra186_dspk *dspk,
 		struct snd_pcm_hw_params *params,
@@ -212,6 +170,54 @@ static int tegra186_dspk_set_dai_bclk_ratio(struct snd_soc_dai *dai,
 		unsigned int ratio)
 {
 	return 0;
+}
+
+static int tegra186_dspk_startup(struct snd_pcm_substream *substream,
+					struct snd_soc_dai *dai)
+{
+	struct device *dev = dai->dev;
+	struct tegra186_dspk *dspk = snd_soc_dai_get_drvdata(dai);
+	int ret;
+
+	if (dspk->prod_name != NULL) {
+		ret = tegra_pinctrl_config_prod(dev, dspk->prod_name);
+		if (ret < 0)
+			dev_warn(dev, "Failed to set %s setting\n",
+					dspk->prod_name);
+	}
+
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+		if (!IS_ERR_OR_NULL(dspk->pin_active_state)) {
+			ret = pinctrl_select_state(dspk->pinctrl,
+						dspk->pin_active_state);
+			if (ret < 0) {
+				dev_err(dev,
+				"setting dspk pinctrl active state failed\n");
+				return -EINVAL;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static void tegra186_dspk_shutdown(struct snd_pcm_substream *substream,
+					struct snd_soc_dai *dai)
+{
+	struct device *dev = dai->dev;
+	struct tegra186_dspk *dspk = snd_soc_dai_get_drvdata(dai);
+	int ret;
+
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+		if (!IS_ERR_OR_NULL(dspk->pin_idle_state)) {
+			ret = pinctrl_select_state(
+				dspk->pinctrl, dspk->pin_idle_state);
+			if (ret < 0) {
+				dev_err(dev,
+				"setting dap pinctrl idle state failed\n");
+			}
+		}
+	}
 }
 
 static int tegra186_dspk_hw_params(struct snd_pcm_substream *substream,
@@ -273,6 +279,8 @@ static int tegra186_dspk_codec_probe(struct snd_soc_codec *codec)
 static struct snd_soc_dai_ops tegra186_dspk_dai_ops = {
 	.hw_params	= tegra186_dspk_hw_params,
 	.set_bclk_ratio	= tegra186_dspk_set_dai_bclk_ratio,
+	.startup	= tegra186_dspk_startup,
+	.shutdown	= tegra186_dspk_shutdown,
 };
 
 static struct snd_soc_dai_driver tegra186_dspk_dais[] = {
@@ -572,36 +580,24 @@ static int tegra186_dspk_platform_probe(struct platform_device *pdev)
 					dspk->prod_name);
 	}
 
-	if (of_property_read_u32(np, "nvidia,is-pinctrl",
-				&dspk->is_pinctrl) < 0)
-		dspk->is_pinctrl = 0;
+	dspk->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(dspk->pinctrl)) {
+		dev_warn(&pdev->dev, "Missing pinctrl device\n");
+		goto err_dap;
+	}
 
-	if (dspk->is_pinctrl) {
-		dspk->pinctrl = devm_pinctrl_get(&pdev->dev);
-		if (IS_ERR(dspk->pinctrl)) {
-			dev_warn(&pdev->dev, "Missing pinctrl device\n");
-			goto err_dap;
-		}
+	dspk->pin_active_state = pinctrl_lookup_state(dspk->pinctrl,
+								"dap_active");
+	if (IS_ERR(dspk->pin_active_state)) {
+		dev_dbg(&pdev->dev, "Missing dap-active state\n");
+		goto err_dap;
+	}
 
-		dspk->pin_active_state = pinctrl_lookup_state(dspk->pinctrl,
-									"dap_active");
-		if (IS_ERR(dspk->pin_active_state)) {
-			dev_dbg(&pdev->dev, "Missing dap-active state\n");
-			goto err_dap;
-		}
-
-		dspk->pin_idle_state = pinctrl_lookup_state(dspk->pinctrl,
-								"dap_inactive");
-		if (IS_ERR(dspk->pin_idle_state)) {
-			dev_dbg(&pdev->dev, "Missing dap-inactive state\n");
-			goto err_dap;
-		}
-
-		ret = pinctrl_select_state(dspk->pinctrl, dspk->pin_idle_state);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "setting state failed\n");
-			goto err_dap;
-		}
+	dspk->pin_idle_state = pinctrl_lookup_state(dspk->pinctrl,
+							"dap_inactive");
+	if (IS_ERR(dspk->pin_idle_state)) {
+		dev_dbg(&pdev->dev, "Missing dap-inactive state\n");
+		goto err_dap;
 	}
 
 err_dap:
@@ -642,8 +638,8 @@ static int tegra186_dspk_platform_remove(struct platform_device *pdev)
 static const struct dev_pm_ops tegra186_dspk_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra186_dspk_runtime_suspend,
 				tegra186_dspk_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra186_dspk_suspend,
-				     tegra186_dspk_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra186_dspk_driver = {

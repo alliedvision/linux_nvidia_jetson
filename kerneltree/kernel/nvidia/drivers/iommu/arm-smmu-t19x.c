@@ -15,7 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
- * Copyright (c) 2015-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -2513,7 +2513,8 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 
 	/* Mark all SMRn as invalid and all S2CRn as bypass */
 	for (i = 0; i < smmu->num_mapping_groups; ++i) {
-		writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
+		if (smmu->features & ARM_SMMU_FEAT_STREAM_MATCH)
+			writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
 		writel_relaxed(S2CR_TYPE_BYPASS,
 			gr0_base + ARM_SMMU_GR0_S2CR(i));
 	}

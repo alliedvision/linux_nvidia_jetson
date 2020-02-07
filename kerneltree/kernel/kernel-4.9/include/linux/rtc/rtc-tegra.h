@@ -1,7 +1,7 @@
 /*
  * include/linux/tegra-timer.h
  *
- * Copyright (c) 2016 NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2016-2019 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,12 +21,12 @@
 #define RTC_SHADOW_SECONDS	0x0c
 #define RTC_MILLISECONDS	0x10
 
-#ifdef CONFIG_RTC_DRV_TEGRA
+#if IS_ENABLED(CONFIG_RTC_DRV_TEGRA)
 void tegra_rtc_set_trigger(unsigned long cycles);
 u64 tegra_rtc_read_ms(void);
 #else
-void tegra_rtc_set_trigger(unsigned long cycles) { return; };
-u64 tegra_rtc_read_ms(void) { return 0; };
+static inline void tegra_rtc_set_trigger(unsigned long cycles) { return; };
+static inline u64 tegra_rtc_read_ms(void) { return 0; };
 #endif
 
 #endif /* _RTC_TEGRA_H_ */

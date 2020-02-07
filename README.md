@@ -1,100 +1,66 @@
-# NVIDIA Jetson TX2 driver
-Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for Jetson TX2 with L4T 32.1 (contained in Jetpack 4.2, https://developer.nvidia.com/jetpack-4_2)
+# NVidia Jetson Allied Vision CSI-2 driver
 
-:new: Jetson Nano users: We have added a branch with a beta driver version:   
-https://github.com/alliedvision/linux_nvidia_jetson/tree/nano-beta-release
+## Overview
 
-***Before starting the installation, make sure to create a backup of your Jetson system.***
+The scripts in this project will build and install Allied Vision CSI-2 driver to the NVidia Jetson boards.
 
-* Scenario 1: Jetson TX2 without any L4T installation
-* Scenario 2: Jetson TX2 with L4T 32.1 (contained in Jetpack 4.2, https://developer.nvidia.com/jetpack-4_2)
-* Scenario 3: Jetson TX2 with a different version than L4T 32.1 (not tested)
+Platforms: Nano, TX2, Xavier
+L4T Version: 32.2.1
 
+####################################################################################
 
+## Setup
 
-## Scenario 1: Jetson TX2 without any L4T installation
- 
-1. Install L4T 32.1 as per NVIDIA's instructions https://developer.nvidia.com/jetpack-4_2.   
-    Recommendation: Use NVIDIA SDK Manager to install L4T 32.1 and useful tools such as CUDA.   
-    https://docs.nvidia.com/sdk-manager/
- 
-2. To continue, see Scenario 2.
+The setup script will prepare the directory structure, extract the file archives, etc.
+
+Run the script with the following syntax:
+
+$ ./setup.sh <WORK_DIR> <TARGET_BOARD>
+e.g. $ ./setup.sh work_dir nano
 
 
+####################################################################################
 
-## Scenario 2: Jetson TX2 with L4T 32.1
+## Build and install
 
- **Method A:**
- 
-  Download the precompiled kernel including driver and installation instructions:   
-  https://www.alliedvision.com/en/products/software/embedded-software-and-drivers/
+If you have downloaded the precompiled binaries, skip this step and proceed with the Deploy section.
 
- **Method B:**  
-  1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson
-     to the host PC.   
-     On the host PC:
-    
-  2. Run setup.sh, which prepares the directory structure, extracts the file archive, etc.:   
-     `$ ./setup.sh <WORK_DIR>  // For example, $ ./setup.sh work_dir`
+The build script will build the kernel, modules, device tree files, bootloader.
 
-  3. Run build.sh, which builds the kernel, modules, device tree files, and the bootloader:   
-     `// Use the same WORK_DIR for all scripts`   
-     `// Example: $ ./build.sh work_dir all all`   
-     `$ ./build.sh <WORK_DIR> <BUILD_OPTIONS> <COMPONENTS> <OPTIONS>` 
+Run the script with the following syntax:
+(WORK_DIR should be the same as used for the setup script)
 
-  4. Connect the host PC to the recovery (USB Micro-B) port of Jetson TX2. 
-
-  5. Set Jetson TX2 to Force USB Recovery Mode as per NVIDIA's instructions.
-
-  6. Recommendation for most use cases:   
-      a) Run deploy.sh with parameter flash-dtb to install the kernel including the camera driver   
-         `$ ./deploy.sh <WORK_DIR> flash-dtb  // Use the same WORK_DIR for all scripts`    
-      b) Run deploy.sh again with parameter tarball to create a tarball with the kernel binaries.   
-         `$ ./deploy.sh <WORK_DIR> tarball  // Use the same WORK_DIR for all scripts`
-
-     Optionally, to get a lean operating system, but with some possible restrictions:   
-     ***WARNING: This will delete all existing data and settings on Jetson TX2. Using NVIDIA SDK Manager will be restricted. Some libraries or tools such as CUDA cannot be installed via SDK Manager after applying this version of the script.***   
-     Run deploy.sh with parameter flash-all   
-      `$ ./deploy.sh <WORK_DIR> flash-all // Use the same WORK_DIR for all scripts`   
-     Run deploy.sh again with parameter tarball to create a tarball with the kernel binaries.   
-      `$ ./deploy.sh <WORK_DIR> tarball  // Use the same WORK_DIR for all scripts`
-      
-  7. Copy the tarball to Jetson TX2 (for example, on an SD card)
-  8. On Jetson TX2, unpack the tarball and run the included install.sh    
-  9. Reboot Jetson TX2.
-     
+$ ./build.sh <WORK_DIR> <TARGET_BOARD> <BUILD_OPTIONS> <COMPONENTS> <OPTIONS> 
+e.g. $ ./build.sh work_dir nano all all
 
 
-## Scenario 3: Jetson TX2 with a different version than L4T 32.1 (not tested)
- Most likely, this driver version and the scripts are compatible with L4T versions based on 
- the same kernel version as L4T 32.1 (kernel version 4.9).
+####################################################################################
 
- If you want to try the driver with a non-tested L4T version, we recommend:
+## Deploy
 
- - Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson
+The deploy script will install the CSI-2 driver to the target board.
 
- - Check the scripts. Change them as required.
-   setup.sh tries to download the following resources:
-   - driverPackage
-     URL:         https://developer.nvidia.com/embedded/dlc/l4t-jetson-driver-package-32-1-JAX-TX2
-     Filename:    JAX-TX2-Jetson_Linux_R32.1.0_aarch64.tbz2
-     Destination: resources/driverPackage
-   - rootfs
-     URL:         https://developer.nvidia.com/embedded/dlc/l4t-sample-root-filesystem-32-1-JAX-TX2
-     Filename:    JAX-TX2-Tegra_Linux_Sample-Root-Filesystem_R32.1.0_aarch64.tbz2
-     Destination: resources/rootfs
-   - Linaro gcc toolchain
-     URL:         https://developer.nvidia.com/embedded/dlc/kernel-gcc-6-4-tool-chain
-     Filename:    gcc-linaro-6.4.1-2017.08-x86_64_aarch64-linux-gnu.tar.xz
-     Destination: resources/gcc
-   - L4T sources containing the U-Boot sources
-     URL:         https://developer.nvidia.com/embedded/dlc/l4t-sources-32-1-JAX-TX2
-     Filename:    JAX-TX2-public_sources.tbz2
-     Destination: resources/public_sources
+The number of steps to take is depending on the target board:
+* Nano: Follow step 1) to install the driver.
+* TX2: Follow steps 1) and 2) to install the driver.
+* Xavier: Follow steps 1), 2), and 3) to install the driver.
 
- - Proceed as described in Scenario 2, Method B.
- 
- ## Additional information
- :open_book:
- https://github.com/alliedvision/documentation/blob/master/NVIDIA.md
+Run the script with the following syntax.
+(WORK_DIR should be the same as used for the build and setup script):
 
+$ ./deploy.sh <WORK_DIR> <TARGET_BOARD> <COMMAND> 
+
+1) Replace the kernel image and modules (and device tree) of an existing system 
+    * Please make sure you have installed L4T 32.2.1
+    * If you have build the kernel from sources, create a tarball with the kernel image and modules. If you have downloaded the precompiled binaries, the tarball is already prepared and this step can be skipped.
+        * $ ./deploy.sh work_dir <TARGET_BOARD> tarball # run on host
+    * Copy the tarball to the target board, extract it and run the install script on the target board 
+        * $ ./install.sh # run on target
+2) Flash the device tree to the target board
+    * Please make sure to connect the target board to the host and to set it to recovery mode prior to using this script.
+    * Flash the device tree blob to the target board with the following command
+    * $ ./deploy.sh work_dir <TARGET_BOARD> flash-dtb # run on host
+3) Flash the kernel image to the target board
+    * Please make sure to connect the target board to the host and to set it to recovery mode prior to using this script.
+    * Flash the kernel image to the target board with the following command
+    * $ ./deploy.sh work_dir <TARGET_BOARD> flash-kernel # run on host

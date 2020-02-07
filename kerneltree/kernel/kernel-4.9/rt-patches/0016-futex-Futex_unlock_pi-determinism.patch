@@ -1,7 +1,7 @@
-From 6707a06b7c56ecffbabc38d7e83c19cb7eafcdbe Mon Sep 17 00:00:00 2001
+From b3416a06e63024e21f5a371ce0b86a7c5fa2f752 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed, 22 Mar 2017 11:35:59 +0100
-Subject: [PATCH 016/353] futex: Futex_unlock_pi() determinism
+Subject: [PATCH 016/352] futex: Futex_unlock_pi() determinism
 
 Upstream commit bebe5b514345f09be2c15e414d076b02ecb9cce8
 
@@ -35,7 +35,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 11 insertions(+), 13 deletions(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 60f86cc..928708a 100644
+index 60221e5..80aa878 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -1397,15 +1397,10 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_pi_state *pi_
@@ -56,7 +56,7 @@ index 60f86cc..928708a 100644
  		 *
  		 * When this happens, give up our locks and try again, giving
  		 * the futex_lock_pi() instance time to complete, either by
-@@ -2835,15 +2830,18 @@ static int futex_unlock_pi(u32 __user *uaddr, unsigned int flags)
+@@ -2843,15 +2838,18 @@ static int futex_unlock_pi(u32 __user *uaddr, unsigned int flags)
  		if (pi_state->owner != current)
  			goto out_unlock;
  

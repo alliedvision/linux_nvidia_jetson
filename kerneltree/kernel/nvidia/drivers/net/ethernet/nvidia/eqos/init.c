@@ -1009,16 +1009,11 @@ int eqos_probe(struct platform_device *pdev)
 		 * capable GPIO input. DMIC4_CLK is the GPIO input port.
 		 */
 		phyirq = eqos_get_phyirq_from_gpio(pdata);
-		if (phyirq < 0) {
-			dev_info(&pdev->dev, "no PHY interrupt found\n");
+		if (phyirq < 0)
 			phyirq = PHY_POLL;
-		}
 
 		/* setup PHY reset gpio */
-		ret = eqos_get_phyreset_from_gpio(pdata);
-		if (ret < 0)
-			dev_info(&pdev->dev, "no PHY reset gpio found\n");
-
+		eqos_get_phyreset_from_gpio(pdata);
 		if (gpio_is_valid(pdata->phy_reset_gpio)) {
 			/* reset Broadcom PHY needs minimum of 2us delay */
 			gpio_set_value(pdata->phy_reset_gpio, 0);
@@ -1320,7 +1315,8 @@ int eqos_probe(struct platform_device *pdev)
 	eqos_clock_disable(pdata);
 
 	/* put Ethernet PHY in reset for power save */
-	if (gpio_is_valid(pdata->phy_reset_gpio))
+	if (gpio_is_valid(pdata->phy_reset_gpio) &&
+	    (pdata->mac_ver > EQOS_MAC_CORE_4_10))
 		gpio_set_value(pdata->phy_reset_gpio, 0);
 
 	return 0;

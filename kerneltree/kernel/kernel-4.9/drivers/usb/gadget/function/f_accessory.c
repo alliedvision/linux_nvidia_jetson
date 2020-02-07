@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2011 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
- * Copyright (C) 2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2017-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -790,6 +790,18 @@ static long acc_ioctl(struct file *fp, unsigned code, unsigned long value)
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long acc_compat_ioctl(struct file *fp, unsigned int code,
+		unsigned long value)
+{
+	int ret;
+
+	ret = acc_ioctl(fp, code, (unsigned long) compat_ptr(value));
+
+	return ret;
+}
+#endif
+
 static int acc_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "acc_open\n");
@@ -819,6 +831,9 @@ static const struct file_operations acc_fops = {
 	.read = acc_read,
 	.write = acc_write,
 	.unlocked_ioctl = acc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = acc_compat_ioctl,
+#endif
 	.open = acc_open,
 	.release = acc_release,
 };

@@ -1,7 +1,7 @@
-From fbf542c52cc77e81800192d30d83e7c930628cb3 Mon Sep 17 00:00:00 2001
+From 69d3814d5695a30a039c0d3cdf3d2564acca339f Mon Sep 17 00:00:00 2001
 From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
 Date: Thu, 17 Mar 2016 21:09:43 +0100
-Subject: [PATCH 057/353] clockevents/drivers/timer-atmel-pit: fix double
+Subject: [PATCH 057/352] clockevents/drivers/timer-atmel-pit: fix double
  free_irq
 
 clockevents_exchange_device() changes the state from detached to shutdown

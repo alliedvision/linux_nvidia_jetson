@@ -214,7 +214,7 @@ __get_process_vmas(struct task_struct *task,
 		process_mmap(vma, task, buf, buf_size);
 }
 
-static void get_all_processes(int is_root_pid)
+static void get_all_processes(bool is_root_pid)
 {
 	char *buf;
 	struct task_struct *p;
@@ -255,7 +255,6 @@ __continue:
 
 void quadd_get_mmaps(struct quadd_ctx *ctx)
 {
-	struct pid *pid;
 	struct task_struct *task;
 	struct quadd_parameters *param = &ctx->param;
 
@@ -263,22 +262,21 @@ void quadd_get_mmaps(struct quadd_ctx *ctx)
 		return;
 
 	if (quadd_mode_is_sample_all(ctx)) {
-		get_all_processes(0);
+		get_all_processes(false);
 		return;
 	}
 
-	pid = find_vpid(param->pids[0]);
+	rcu_read_lock();
+	task = get_pid_task(find_vpid(param->pids[0]), PIDTYPE_PID);
+	rcu_read_unlock();
+	if (task) {
+		if (quadd_mode_is_sample_tree(ctx))
+			get_all_processes(true);
+		else
+			get_process_vmas(task);
 
-	task = get_pid_task(pid, PIDTYPE_PID);
-	if (!task)
-		return;
-
-	if (quadd_mode_is_sample_tree(ctx))
-		get_all_processes(1);
-	else
-		get_process_vmas(task);
-
-	put_task_struct(task);
+		put_task_struct(task);
+	}
 }
 
 void quadd_get_task_mmaps(struct quadd_ctx *ctx, struct task_struct *task)

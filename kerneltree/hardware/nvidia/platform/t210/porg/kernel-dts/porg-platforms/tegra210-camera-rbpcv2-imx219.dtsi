@@ -20,12 +20,12 @@
 
 / {
 	host1x {
-		vi {
+		vi_base: vi {
 			num-channels = <1>;
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				port@0 {
+				vi_port0: port@0 {
 					reg = <0>;
 					rbpcv2_imx219_vi_in0: endpoint {
 						port-index = <0>;
@@ -36,16 +36,16 @@
 			};
 		};
 
-		nvcsi {
+		csi_base: nvcsi {
 			num-channels = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			channel@0 {
+			csi_chan0: channel@0 {
 				reg = <0>;
 				ports {
 					#address-cells = <1>;
 					#size-cells = <0>;
-					port@0 {
+					csi_chan0_port0: port@0 {
 						reg = <0>;
 						rbpcv2_imx219_csi_in0: endpoint@0 {
 							port-index = <0>;
@@ -53,7 +53,7 @@
 							remote-endpoint = <&rbpcv2_imx219_out0>;
 						};
 					};
-					port@1 {
+					csi_chan0_port1: port@1 {
 						reg = <1>;
 						rbpcv2_imx219_csi_out0: endpoint@1 {
 							remote-endpoint = <&rbpcv2_imx219_vi_in0>;
@@ -64,7 +64,7 @@
 		};
 
 		i2c@546c0000 {
-			rbpcv2_imx219_a@10 {
+			imx219_single_cam0: rbpcv2_imx219_a@10 {
 				compatible = "nvidia,imx219";
 				/* I2C device address */
 				reg = <0x10>;
@@ -161,7 +161,7 @@
 				* Sensor embedded metadata height in units of rows.
 				* If sensor does not support embedded metadata value should be 0.
 				*/
-				mode0 { /* IMX219_MODE_3280x2464_21FPS */
+				mode0 { /* IMX219_MODE_3264x2464_21FPS */
 					mclk_khz = "24000";
 					num_lanes = "2";
 					tegra_sinterface = "serial_a";
@@ -170,7 +170,7 @@
 					dpcm_enable = "false";
 					cil_settletime = "0";
 
-					active_w = "3280";
+					active_w = "3264";
 					active_h = "2464";
 					pixel_t = "bayer_rggb";
 					readout_orientation = "90";
@@ -199,7 +199,7 @@
 
 					embedded_metadata_height = "2";
 				};
-				mode1 { /* IMX219_MODE_3280x1848_28FPS */
+				mode1 { /* IMX219_MODE_3264x1848_28FPS */
 					mclk_khz = "24000";
 					num_lanes = "2";
 					tegra_sinterface = "serial_a";
@@ -208,7 +208,7 @@
 					dpcm_enable = "false";
 					cil_settletime = "0";
 
-					active_w = "3280";
+					active_w = "3264";
 					active_h = "1848";
 					pixel_t = "bayer_rggb";
 					readout_orientation = "90";
@@ -379,7 +379,7 @@
 };
 
 / {
-	tegra-camera-platform {
+	tcp: tegra-camera-platform {
 		compatible = "nvidia, tegra-camera-platform";
 
 		/**
@@ -427,16 +427,16 @@
 		 * in the module's specsheet from the vendor.
 		 */
 		modules {
-			module0 {
+			cam_module0: module0 {
 				badge = "porg_front_RBPCV2";
-				position = "rear";
+				position = "front";
 				orientation = "1";
-				drivernode0 {
+				cam_module0_drivernode0: drivernode0 {
 					pcl_id = "v4l2_sensor";
 					devname = "imx219 6-0010";
 					proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/rbpcv2_imx219_a@10";
 				};
-				drivernode1 {
+				cam_module0_drivernode1: drivernode1 {
 					pcl_id = "v4l2_lens";
 					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
 				};

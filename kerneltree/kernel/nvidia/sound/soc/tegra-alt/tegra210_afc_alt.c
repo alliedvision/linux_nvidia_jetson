@@ -1,7 +1,7 @@
 /*
  * tegra210_afc_alt.c - Tegra210 AFC driver
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -87,24 +87,6 @@ static int tegra210_afc_runtime_resume(struct device *dev)
 
 	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int tegra210_afc_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_afc_runtime_suspend(dev);
-}
-
-static int tegra210_afc_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra210_afc_runtime_resume(dev);
-}
-#endif
 
 static int tegra210_afc_controls_get(struct snd_kcontrol *kctl,
 	struct snd_ctl_elem_value *uctl)
@@ -659,7 +641,8 @@ static int tegra210_afc_platform_remove(struct platform_device *pdev)
 static const struct dev_pm_ops tegra210_afc_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra210_afc_runtime_suspend,
 			   tegra210_afc_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra210_afc_suspend, tegra210_afc_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra210_afc_driver = {

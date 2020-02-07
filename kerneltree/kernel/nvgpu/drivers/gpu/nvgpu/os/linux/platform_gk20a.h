@@ -1,7 +1,7 @@
 /*
  * GK20A Platform (SoC) Interface
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -196,6 +196,9 @@ struct gk20a_platform {
 	/* Pre callback is called before frequency change */
 	void (*prescale)(struct device *dev);
 
+	/* Set TPC_PG_MASK during probe */
+	void (*set_tpc_pg_mask)(struct device *dev, u32 tpc_pg_mask);
+
 	/* Devfreq governor name. If scaling is enabled, we request
 	 * this governor to be used in scaling */
 	const char *devfreq_governor;
@@ -270,9 +273,6 @@ struct gk20a_platform {
 
 	/* stream id to use */
 	u32 ltc_streamid;
-
-	/* scaling rate */
-	unsigned long cached_rate;
 
 	/* synchronized access to platform->clk_get_freqs */
 	struct nvgpu_mutex clk_get_freq_lock;

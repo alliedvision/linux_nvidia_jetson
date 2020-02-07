@@ -32,7 +32,6 @@
 
 struct channel_gk20a;
 
-bool gk20a_is_channel_marked_as_tsg(struct channel_gk20a *ch);
 struct tsg_gk20a *gk20a_tsg_open(struct gk20a *g, pid_t pid);
 void gk20a_tsg_release(struct nvgpu_ref *ref);
 

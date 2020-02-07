@@ -1,7 +1,7 @@
-From c97f50a45115e276c831487a46a59c00432aa43d Mon Sep 17 00:00:00 2001
+From 49289fa785180dba432a7aa48cc7b0fd2de2c267 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 25 Jun 2011 09:21:04 +0200
-Subject: [PATCH 133/353] sched: Add saved_state for tasks blocked on sleeping
+Subject: [PATCH 133/352] sched: Add saved_state for tasks blocked on sleeping
  locks
 
 Spinlocks are state preserving in !RT. RT changes the state when a
@@ -88,10 +88,10 @@ index 4860a2e..6390d48 100644
  {
  	return try_to_wake_up(p, state, 0);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index d5a027b..a9f6b93 100644
+index a2e94a0..0c6e005 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -1221,6 +1221,7 @@ static inline void finish_lock_switch(struct rq *rq, struct task_struct *prev)
+@@ -1223,6 +1223,7 @@ static inline void finish_lock_switch(struct rq *rq, struct task_struct *prev)
  #define WF_SYNC		0x01		/* waker goes to sleep after wakeup */
  #define WF_FORK		0x02		/* child wakeup after fork */
  #define WF_MIGRATED	0x4		/* internal use, task got migrated */

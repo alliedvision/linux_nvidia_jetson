@@ -138,25 +138,6 @@ static int gic_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int gic_pm_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return gic_runtime_resume(dev);
-}
-
-static int gic_pm_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return gic_runtime_suspend(dev);
-}
-#endif
-
-
 static int gic_get_clocks(struct device *dev, struct gic_chip_pm *gic_chip_pm)
 {
 	const struct gic_clk_data *data = gic_chip_pm->data;
@@ -249,8 +230,8 @@ irq_dispose:
 static const struct dev_pm_ops gic_pm_ops = {
 	SET_RUNTIME_PM_OPS(gic_runtime_suspend,
 			   gic_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(gic_pm_suspend,
-				     gic_pm_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static const char * const gic400_clocks[] = {

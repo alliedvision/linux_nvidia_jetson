@@ -28,10 +28,14 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.1"
-DEDICATED_BOARD="TX2"
+DEDICATED_VERSION="R32.2.1"
+DEDICATED_BOARD=""
+DEDICATED_BOARD_TX2="TX2,XAVIER"
+DEDICATED_BOARD_NANO="NANO"
 DEFAULT_CONFIG_SELECTED="tegra_avcamera_defconfig"
-DEFAULT_CONFIG_UBOOT="p2771-0000-500_defconfig"
+DEFAULT_CONFIG_UBOOT=""
+DEFAULT_CONFIG_UBOOT_TX2="p2771-0000-500_defconfig"
+DEFAULT_CONFIG_UBOOT_NANO="p3450-porg_defconfig"
 #==============================================================================
 # path settings
 #==============================================================================
@@ -43,12 +47,14 @@ PATH_TARGET_ROOT="${PATH_CURRENT}/${1}"
 PATH_TARGET_L4T="${PATH_TARGET_ROOT}/Linux_for_Tegra"
 PATH_TARGET_ROOTFS="${PATH_TARGET_L4T}/rootfs"
 PATH_TARGET_KERNEL="${PATH_TARGET_L4T}/kernel"
-PATH_TARGET_UBOOT="${PATH_TARGET_L4T}/bootloader/t186ref/p2771-0000/500"
+PATH_TARGET_UBOOT=""
+PATH_TARGET_UBOOT_TX2="${PATH_TARGET_L4T}/bootloader/t186ref/p2771-0000/500"
+PATH_TARGET_UBOOT_NANO="${PATH_TARGET_L4T}/bootloader/t210ref/p3450-porg"
 
 #------------------------------------------------------------------------------
 PATH_TARGET_GCC="${PATH_TARGET_ROOT}/gcc"
 PATH_TARGET_GCC_32="${PATH_TARGET_GCC}"
-PATH_TARGET_GCC_64="${PATH_TARGET_GCC}/gcc-6.4.1-aarch64"
+PATH_TARGET_GCC_64="${PATH_TARGET_GCC}/gcc-7.3.1-aarch64"
 #------------------------------------------------------------------------------
 #PATH_SOURCES="${PATH_TARGET_L4T}/sources"
 PATH_SOURCES_KERNEL="${PATH_CURRENT}/kerneltree/kernel/kernel-4.9"
@@ -65,8 +71,9 @@ source "${PATH_DOWNLOADS}/common/directory.sh"
 #==============================================================================
 usage()
 {
-	log info "Usage: ${SCRIPT_NAME} <L4T> <cmd> <component> --<option>"
+	log info "Usage: ${SCRIPT_NAME} <L4T> <TARGET_BOARD> <cmd> <component> --<option>"
 	log info "<L4T>.........location of Linux4Tegra setup"
+	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier"
 	log info "<cmd>.........command to executed"
 	log info "                       all"
 	log info "                       build"
@@ -77,13 +84,11 @@ usage()
 	log info "                       kernel"
 	log info "                       modules"
 	log info "                       dtbs"
-	log info "                       u-boot"
 	log info "<option>......possible options:"
 	log info "                       --no-clean...e.g. to do a re-build and copy for the kernel only."
 	log info "                                    >>${0} someFolder all kernel --no-clean"
-	log info "                       --no-uboot...e.g. the bootloader is already present and will not change."
-	log info "                                    thus it is not requied to be re-builded and copied."
-	log info "                                    >>${0} someFolder all all --no-uboot"
+	log info "                       --uboot......e.g. build and copy the bootloader u-boot"
+	log info "                                    >>${0} someFolder all all --uboot"
 	log_raw "\n"
 }
 #==============================================================================
@@ -364,7 +369,7 @@ log debug "dedicated for L4T: ${DEDICATED_VERSION} and Jetson ${DEDICATED_BOARD}
 
 # parameter check
 #------------------------------------------------------------------------------
-if ! parameter_exist $1 || ! parameter_exist $2 || ! parameter_exist $3
+if ! parameter_exist $1 || ! parameter_exist $2 || ! parameter_exist $3 || ! parameter_exist $4
 then
 	log error "Missing parameter!"
 	SUCCESS_FLAG=$FALSE
@@ -389,11 +394,35 @@ then
 	exit 1
 fi
 
+
+# check target board param
+#------------------------------------------------------------------------------
+if proceed
+then
+	if check_parameter $2 "tx2" || check_parameter $2 "xavier"
+	then
+		DEDICATED_BOARD="$DEDICATED_BOARD_TX2"
+		DEFAULT_CONFIG_UBOOT="$DEFAULT_CONFIG_UBOOT_TX2"
+		PATH_TARGET_UBOOT="$PATH_TARGET_UBOOT_TX2"
+	elif check_parameter $2 "nano" 
+	then
+		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
+		DEFAULT_CONFIG_UBOOT="$DEFAULT_CONFIG_UBOOT_NANO"
+		PATH_TARGET_UBOOT="$PATH_TARGET_UBOOT_NANO"
+	else
+		log error "Invalid parameter for <TARGET_BOARD>!"
+		SUCCESS_FLAG=$FALSE
+		usage
+		exit 1
+	fi
+fi
+
+
 # parameter check all options for <cmd>
 #------------------------------------------------------------------------------
 if proceed
 then
-	if ! ( check_parameter $2 "all" || check_parameter $2 "build" || check_parameter $2 "clean" || check_parameter $2 "copy" )
+	if ! ( check_parameter $3 "all" || check_parameter $3 "build" || check_parameter $3 "clean" || check_parameter $3 "copy" )
 	then
 		log error "Invalid parameter for <cmd>!"
 		SUCCESS_FLAG=$FALSE
@@ -406,7 +435,7 @@ fi
 if proceed
 then
 	# check clean option
-	if ! ( check_parameter $3 "all" || check_parameter $3 "kernel" || check_parameter $3 "modules" || check_parameter $3 "dtbs" || check_parameter $3 "u-boot" )
+	if ! ( check_parameter $4 "all" || check_parameter $4 "kernel" || check_parameter $4 "modules" || check_parameter $4 "dtbs" || check_parameter $4 "u-boot" )
 	then
 		log error "Invalid parameter for <component>!"
 		SUCCESS_FLAG=$FALSE
@@ -434,12 +463,12 @@ fi
 
 # clean sources
 #------------------------------------------------------------------------------
-if proceed && ! check_parameter $4 "--no-clean"
+if proceed && ! check_parameter $5 "--no-clean"
 then
-	if check_parameter $2 "clean" || check_parameter $2 "all"
+	if check_parameter $3 "clean" || check_parameter $3 "all"
 	then
 		# clean kernel sources
-		if check_parameter $3 "kernel" || check_parameter $3 "all"
+		if check_parameter $4 "kernel" || check_parameter $4 "all"
 		then
 			log info "Clean kernel sources"
 			cleanKernelSources
@@ -451,10 +480,10 @@ then
 			fi
 		fi
 
-		if ! check_parameter $4 "--no-uboot"
+		if check_parameter $5 "--uboot"
 		then
 			# clean u-boot sources
-			if check_parameter $3 "u-boot" || check_parameter $3 "all"
+			if check_parameter $4 "all"
 			then
 				log info "Clean u-boot sources"
 				cleanUbootSources
@@ -475,10 +504,10 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-	if check_parameter $2 "build" || check_parameter $2 "all"
+	if check_parameter $3 "build" || check_parameter $3 "all"
 	then
 		# configure and build kernel
-		if check_parameter $3 "kernel" || check_parameter $3 "all"
+		if check_parameter $4 "kernel" || check_parameter $4 "all"
 		then
 			log info "Configure kernel"
 			configureKernel
@@ -503,7 +532,7 @@ then
 		fi
 
 		# build modules
-		if check_parameter $3 "modules" || check_parameter $3 "all"
+		if check_parameter $4 "modules" || check_parameter $4 "all"
 		then
 			log info "Build kernel modules"
 			buildModules
@@ -516,7 +545,7 @@ then
 		fi
 
 		# build device trees
-		if check_parameter $3 "dtbs" || check_parameter $3 "all"
+		if check_parameter $4 "dtbs" || check_parameter $4 "all"
 		then
 			log info "Build kernel modules"
 			buildDeviceTree
@@ -529,9 +558,9 @@ then
 		fi
 
 		# build u-boot
-		if ! check_parameter $4 "--no-uboot"
+		if check_parameter $5 "--uboot"
 		then
-			if check_parameter $3 "u-boot" || check_parameter $3 "all"
+			if check_parameter $4 "all"
 			then
 				log info "Configure u-boot bootloader"
 				configureBootloader
@@ -562,10 +591,10 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-	if check_parameter $2 "all" || check_parameter $2 "build"
+	if check_parameter $3 "all" || check_parameter $3 "build"
 	then
 		# copy kernel image(s)
-		if check_parameter $3 "kernel" || check_parameter $3 "all"
+		if check_parameter $4 "kernel" || check_parameter $4 "all"
 		then	
 			log info "Copy kernel image(s)"
 			copyKernelImage
@@ -579,7 +608,7 @@ then
 		fi
 
 		# copy kernel modules
-		if check_parameter $3 "modules" || check_parameter $3 "all"
+		if check_parameter $4 "modules" || check_parameter $4 "all"
 		then	
 			log info "Copy kernel modules"
 			copyModules
@@ -592,7 +621,7 @@ then
 		fi
 
 		# copy device trees
-		if check_parameter $3 "dtbs" || check_parameter $3 "all"
+		if check_parameter $4 "dtbs" || check_parameter $4 "all"
 		then	
 			log info "Copy device tree files"
 			copyDeviceTree
@@ -605,9 +634,9 @@ then
 		fi
 
 		# copy bootloader
-		if ! check_parameter $4 "--no-uboot"
+		if check_parameter $5 "--uboot"
 		then
-			if check_parameter $3 "u-boot" || check_parameter $3 "all"
+			if check_parameter $4 "all"
 			then
 				log info "Copy u-boot bootloader"
 				copyBootloader

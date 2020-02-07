@@ -27,11 +27,13 @@
 #define TEGRA210_ADMAIF_CHANNEL_COUNT		10
 #define TEGRA186_ADMAIF_CHANNEL_COUNT		20
 
-#define TEGRA210_ADMAIF_XBAR_TX_ENABLE		0x300
-#define TEGRA210_ADMAIF_GLOBAL_ENABLE		0x700
+#define TEGRA210_ADMAIF_XBAR_RX_BASE		0x0
+#define TEGRA210_ADMAIF_XBAR_TX_BASE		0x300
+#define TEGRA210_ADMAIF_GLOBAL_BASE		0x700
 
-#define TEGRA186_ADMAIF_XBAR_TX_ENABLE		0x500
-#define TEGRA186_ADMAIF_GLOBAL_ENABLE		0xd00
+#define TEGRA186_ADMAIF_XBAR_RX_BASE		0x0
+#define TEGRA186_ADMAIF_XBAR_TX_BASE		0x500
+#define TEGRA186_ADMAIF_GLOBAL_BASE		0xd00
 
 #define TEGRA_ADMAIF_XBAR_RX_ENABLE		0x0
 #define TEGRA_ADMAIF_XBAR_RX_SOFT_RESET		0x4
@@ -43,17 +45,22 @@
 #define TEGRA_ADMAIF_CHAN_ACIF_RX_CTRL		0x20
 #define TEGRA_ADMAIF_XBAR_RX_FIFO_CTRL		0x28
 #define TEGRA_ADMAIF_XBAR_RX_FIFO_READ		0x2c
-#define TEGRA_ADMAIF_GLOBAL_CG_0		(0x8)
+#define TEGRA_ADMAIF_GLOBAL_ENABLE		0x0
+#define TEGRA_ADMAIF_GLOBAL_CG_0		0x8
+#define TEGRA_ADMAIF_GLOBAL_STATUS		0x10
+#define TEGRA_ADMAIF_GLOBAL_RX_ENABLE_STATUS	0x20
+#define TEGRA_ADMAIF_GLOBAL_TX_ENABLE_STATUS	0x24
 
-#define TEGRA_ADMAIF_XBAR_TX_SOFT_RESET		(0x4)
-#define TEGRA_ADMAIF_XBAR_TX_STATUS		(0xc)
-#define TEGRA_ADMAIF_XBAR_TX_INT_STATUS		(0x10)
-#define TEGRA_ADMAIF_XBAR_TX_INT_MASK		(0x14)
-#define TEGRA_ADMAIF_XBAR_TX_INT_SET		(0x18)
-#define TEGRA_ADMAIF_XBAR_TX_INT_CLEAR		(0x1c)
-#define TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL		(0x20)
-#define TEGRA_ADMAIF_XBAR_TX_FIFO_CTRL		(0x28)
-#define TEGRA_ADMAIF_XBAR_TX_FIFO_WRITE		(0x2c)
+#define TEGRA_ADMAIF_XBAR_TX_ENABLE		0x0
+#define TEGRA_ADMAIF_XBAR_TX_SOFT_RESET		0x4
+#define TEGRA_ADMAIF_XBAR_TX_STATUS		0xc
+#define TEGRA_ADMAIF_XBAR_TX_INT_STATUS		0x10
+#define TEGRA_ADMAIF_XBAR_TX_INT_MASK		0x14
+#define TEGRA_ADMAIF_XBAR_TX_INT_SET		0x18
+#define TEGRA_ADMAIF_XBAR_TX_INT_CLEAR		0x1c
+#define TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL		0x20
+#define TEGRA_ADMAIF_XBAR_TX_FIFO_CTRL		0x28
+#define TEGRA_ADMAIF_XBAR_TX_FIFO_WRITE		0x2c
 
 #define TEGRA_ADMAIF_CHAN_ACIF_CTRL_PACK8_EN_SHIFT		31
 #define TEGRA_ADMAIF_CHAN_ACIF_CTRL_PACK8_EN_MASK		\
@@ -149,14 +156,8 @@ enum {
 };
 
 
-struct admaif_reg_offsets {
-	unsigned int global_enable;
-	unsigned int tx_enable;
-};
-
 struct tegra_admaif_soc_data {
 	unsigned int num_ch;
-	struct admaif_reg_offsets reg_offsets;
 	struct snd_soc_dai_driver *codec_dais;
 	struct snd_soc_codec_driver *admaif_codec;
 	const struct regmap_config *regmap_conf;
@@ -164,6 +165,9 @@ struct tegra_admaif_soc_data {
 			unsigned int reg,
 			struct tegra210_xbar_cif_conf *cif_conf);
 	bool is_isomgr_client;
+	unsigned int global_base;
+	unsigned int tx_base;
+	unsigned int rx_base;
 };
 
 struct tegra_admaif {

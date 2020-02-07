@@ -1,7 +1,7 @@
-From 5424d77511d189b6354c96da487d608b7058ecd0 Mon Sep 17 00:00:00 2001
+From 0802f5b0a3e6666b483701c5beb1b75b3cdfaf7d Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed, 7 Jun 2017 10:12:45 +0200
-Subject: [PATCH 135/353] sched: Remove TASK_ALL
+Subject: [PATCH 135/352] sched: Remove TASK_ALL
 
 It's unused:
 

@@ -1,7 +1,7 @@
 /*
  * drivers/watchdog/tegra_hv_wdt.c
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,12 +117,30 @@ static int tegra_hv_wdt_notified(struct tegra_hv_wdt *hv)
 static int tegra_hv_wdt_loop(void *arg)
 {
 	struct tegra_hv_wdt *hv = (struct tegra_hv_wdt *)arg;
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 
 	mutex_lock(&hv->lock);
 	tegra_hv_ivc_channel_reset(hv->ivc);
 	mutex_unlock(&hv->lock);
 
-	wait_event(hv->notify, tegra_hv_wdt_notified(hv) == 0);
+	/* Wait "infinitely" for the ivc channel to become ready.
+	 *
+	 * This "wait" was observed to always return immediately,
+	 * as the "WDT server" on the other-end is already running by the time
+	 * this code is executed on the Linux guest OS during boot.
+	 */
+	add_wait_queue(&hv->notify, &wait);
+	while (tegra_hv_wdt_notified(hv) !=  0) {
+		if (!wait_woken(&wait,
+				TASK_INTERRUPTIBLE,
+				MAX_SCHEDULE_TIMEOUT)) {
+			dev_warn(&hv->pdev->dev,
+				 "Timed-out waiting for ivc channel. "
+				 "Retrying...\n");
+		}
+	}
+	remove_wait_queue(&hv->notify, &wait);
+
 	dev_info(&hv->pdev->dev, "ivc channel ready\n");
 
 	/*

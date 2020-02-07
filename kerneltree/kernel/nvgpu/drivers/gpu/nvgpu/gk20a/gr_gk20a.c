@@ -43,6 +43,8 @@
 #include <nvgpu/utils.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/unit.h>
+#include <nvgpu/power_features/pg.h>
+#include <nvgpu/power_features/cg.h>
 
 #include "gk20a.h"
 #include "gr_gk20a.h"
@@ -91,8 +93,6 @@ static void gr_gk20a_free_channel_patch_ctx(struct gk20a *g,
 /* golden ctx image */
 static int gr_gk20a_init_golden_ctx_image(struct gk20a *g,
 					  struct channel_gk20a *c);
-/*elcg init */
-static void gr_gk20a_enable_elcg(struct gk20a *g);
 
 int gr_gk20a_get_ctx_id(struct gk20a *g,
 		struct channel_gk20a *c,
@@ -628,7 +628,14 @@ static int gr_gk20a_ctrl_ctxsw(struct gk20a *g, u32 fecs_method, u32 *ret)
 		      .cond.fail = GR_IS_UCODE_OP_EQUAL }, true);
 }
 
-/* Stop processing (stall) context switches at FECS. */
+/**
+ * Stop processing (stall) context switches at FECS:-
+ * If fecs is sent stop_ctxsw method, elpg entry/exit cannot happen
+ * and may timeout. It could manifest as different error signatures
+ * depending on when stop_ctxsw fecs method gets sent with respect
+ * to pmu elpg sequence. It could come as pmu halt or abort or
+ * maybe ext error too.
+*/
 int gr_gk20a_disable_ctxsw(struct gk20a *g)
 {
 	int err = 0;
@@ -638,8 +645,24 @@ int gr_gk20a_disable_ctxsw(struct gk20a *g)
 	nvgpu_mutex_acquire(&g->ctxsw_disable_lock);
 	g->ctxsw_disable_count++;
 	if (g->ctxsw_disable_count == 1) {
-		err = gr_gk20a_ctrl_ctxsw(g,
+		err = nvgpu_pg_elpg_disable(g);
+		if (err != 0) {
+			nvgpu_err(g, "failed to disable elpg. not safe to "
+					"stop_ctxsw");
+			/* stop ctxsw command is not sent */
+			g->ctxsw_disable_count--;
+		} else {
+			err = gr_gk20a_ctrl_ctxsw(g,
 				gr_fecs_method_push_adr_stop_ctxsw_v(), NULL);
+			if (err != 0) {
+				nvgpu_err(g, "failed to stop fecs ctxsw");
+				/* stop ctxsw failed */
+				g->ctxsw_disable_count--;
+			}
+		}
+	} else {
+		nvgpu_log_info(g, "ctxsw disabled, ctxsw_disable_count: %d",
+			g->ctxsw_disable_count);
 	}
 	nvgpu_mutex_release(&g->ctxsw_disable_lock);
 
@@ -654,12 +677,28 @@ int gr_gk20a_enable_ctxsw(struct gk20a *g)
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, " ");
 
 	nvgpu_mutex_acquire(&g->ctxsw_disable_lock);
+
+	if (g->ctxsw_disable_count == 0) {
+		goto ctxsw_already_enabled;
+	}
 	g->ctxsw_disable_count--;
 	WARN_ON(g->ctxsw_disable_count < 0);
 	if (g->ctxsw_disable_count == 0) {
 		err = gr_gk20a_ctrl_ctxsw(g,
 				gr_fecs_method_push_adr_start_ctxsw_v(), NULL);
+		if (err != 0) {
+			nvgpu_err(g, "failed to start fecs ctxsw");
+		} else {
+			if (nvgpu_pg_elpg_enable(g) != 0) {
+				nvgpu_err(g, "failed to enable elpg "
+					"after start_ctxsw");
+			}
+		}
+	} else {
+		nvgpu_log_info(g, "ctxsw_disable_count: %d is not 0 yet",
+			g->ctxsw_disable_count);
 	}
+ctxsw_already_enabled:
 	nvgpu_mutex_release(&g->ctxsw_disable_lock);
 
 	return err;
@@ -4227,33 +4266,6 @@ int gk20a_gr_zbc_set_table(struct gk20a *g, struct gr_gk20a *gr,
 		gr_gk20a_add_zbc(g, gr, zbc_val));
 }
 
-void gr_gk20a_init_cg_mode(struct gk20a *g, u32 cgmode, u32 mode_config)
-{
-	u32 engine_idx;
-	u32 active_engine_id = 0;
-	struct fifo_engine_info_gk20a *engine_info = NULL;
-	struct fifo_gk20a *f = &g->fifo;
-
-	for (engine_idx = 0; engine_idx < f->num_engines; ++engine_idx) {
-		active_engine_id = f->active_engines_list[engine_idx];
-		engine_info = &f->engine_info[active_engine_id];
-
-		/* gr_engine supports both BLCG and ELCG */
-		if ((cgmode == BLCG_MODE) &&
-			(engine_info->engine_enum == ENGINE_GR_GK20A)) {
-				g->ops.therm.init_blcg_mode(g, mode_config, active_engine_id);
-				break;
-		} else if (cgmode == ELCG_MODE) {
-			g->ops.therm.init_elcg_mode(g, mode_config,
-						active_engine_id);
-		} else {
-			nvgpu_err(g, "invalid cg mode %d, config %d for "
-							"act_eng_id %d",
-					cgmode, mode_config, active_engine_id);
-		}
-	}
-}
-
 void gr_gk20a_program_zcull_mapping(struct gk20a *g, u32 zcull_num_entries,
 						u32 *zcull_map_tiles)
 {
@@ -4655,60 +4667,6 @@ out:
 	return err;
 }
 
-static void gr_gk20a_load_gating_prod(struct gk20a *g)
-{
-	nvgpu_log_fn(g, " ");
-
-	/* slcg prod values */
-	if (g->ops.clock_gating.slcg_bus_load_gating_prod) {
-		g->ops.clock_gating.slcg_bus_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_chiplet_load_gating_prod) {
-		g->ops.clock_gating.slcg_chiplet_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_gr_load_gating_prod) {
-		g->ops.clock_gating.slcg_gr_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_ctxsw_firmware_load_gating_prod) {
-		g->ops.clock_gating.slcg_ctxsw_firmware_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_perf_load_gating_prod) {
-		g->ops.clock_gating.slcg_perf_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.slcg_xbar_load_gating_prod) {
-		g->ops.clock_gating.slcg_xbar_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-
-	/* blcg prod values */
-	if (g->ops.clock_gating.blcg_bus_load_gating_prod) {
-		g->ops.clock_gating.blcg_bus_load_gating_prod(g,
-				g->blcg_enabled);
-	}
-	if (g->ops.clock_gating.blcg_gr_load_gating_prod) {
-		g->ops.clock_gating.blcg_gr_load_gating_prod(g,
-				g->blcg_enabled);
-	}
-	if (g->ops.clock_gating.blcg_ctxsw_firmware_load_gating_prod) {
-		g->ops.clock_gating.blcg_ctxsw_firmware_load_gating_prod(g,
-				g->blcg_enabled);
-	}
-	if (g->ops.clock_gating.blcg_xbar_load_gating_prod) {
-		g->ops.clock_gating.blcg_xbar_load_gating_prod(g,
-				g->blcg_enabled);
-	}
-	if (g->ops.clock_gating.pg_gr_load_gating_prod) {
-		g->ops.clock_gating.pg_gr_load_gating_prod(g, true);
-	}
-
-	nvgpu_log_fn(g, "done");
-}
-
 static int gk20a_init_gr_prepare(struct gk20a *g)
 {
 	u32 err = 0;
@@ -4718,10 +4676,10 @@ static int gk20a_init_gr_prepare(struct gk20a *g)
 			g->ops.mc.reset_mask(g, NVGPU_UNIT_BLG) |
 			g->ops.mc.reset_mask(g, NVGPU_UNIT_PERFMON));
 
-	gr_gk20a_load_gating_prod(g);
+	nvgpu_cg_init_gr_load_gating_prod(g);
 
 	/* Disable elcg until it gets enabled later in the init*/
-	gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_RUN);
+	nvgpu_cg_elcg_disable_no_wait(g);
 
 	/* enable fifo access */
 	gk20a_writel(g, gr_gpfifo_ctl_r(),
@@ -5005,6 +4963,8 @@ int gk20a_init_gr_support(struct gk20a *g)
 
 	nvgpu_log_fn(g, " ");
 
+	g->gr.initialized = false;
+
 	/* this is required before gr_gk20a_init_ctx_state */
 	err = nvgpu_mutex_init(&g->gr.fecs_mutex);
 	if (err != 0) {
@@ -5041,7 +5001,7 @@ int gk20a_init_gr_support(struct gk20a *g)
 		}
 	}
 
-	gr_gk20a_enable_elcg(g);
+	nvgpu_cg_elcg_enable_no_wait(g);
 	/* GR is inialized, signal possible waiters */
 	g->gr.initialized = true;
 	nvgpu_cond_signal(&g->gr.init_wq);
@@ -5128,19 +5088,12 @@ int gk20a_enable_gr_hw(struct gk20a *g)
 	return 0;
 }
 
-static void gr_gk20a_enable_elcg(struct gk20a *g)
-{
-	if (g->elcg_enabled) {
-		gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_AUTO);
-	} else {
-		gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_RUN);
-	}
-}
-
 int gk20a_gr_reset(struct gk20a *g)
 {
 	int err;
 	u32 size;
+
+	g->gr.initialized = false;
 
 	nvgpu_mutex_acquire(&g->gr.fecs_mutex);
 
@@ -5193,8 +5146,12 @@ int gk20a_gr_reset(struct gk20a *g)
 		return err;
 	}
 
-	gr_gk20a_load_gating_prod(g);
-	gr_gk20a_enable_elcg(g);
+	nvgpu_cg_init_gr_load_gating_prod(g);
+	nvgpu_cg_elcg_enable_no_wait(g);
+
+	/* GR is inialized, signal possible waiters */
+	g->gr.initialized = true;
+	nvgpu_cond_signal(&g->gr.init_wq);
 
 	return err;
 }
@@ -8077,6 +8034,7 @@ bool gk20a_is_channel_ctx_resident(struct channel_gk20a *ch)
 	struct gk20a *g = ch->g;
 	struct channel_gk20a *curr_ch;
 	bool ret = false;
+	struct tsg_gk20a *tsg;
 
 	curr_gr_ctx  = gk20a_readl(g, gr_fecs_current_ctx_r());
 
@@ -8108,7 +8066,8 @@ bool gk20a_is_channel_ctx_resident(struct channel_gk20a *ch)
 		ret = true;
 	}
 
-	if (gk20a_is_channel_marked_as_tsg(ch) && (ch->tsgid == curr_gr_tsgid)) {
+	tsg = tsg_gk20a_from_ch(ch);
+	if ((tsg != NULL) && (tsg->tsgid == curr_gr_tsgid)) {
 		ret = true;
 	}
 

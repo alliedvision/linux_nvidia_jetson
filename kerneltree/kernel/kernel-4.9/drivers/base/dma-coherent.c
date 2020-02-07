@@ -805,9 +805,11 @@ retry_alloc:
 	if (dma_alloc_from_coherent_dev_at(
 		&h->dev, len, dma_handle, ret, attrs,
 		(h->curr_base - h->cma_base) >> PAGE_SHIFT)) {
-		dev_dbg(&h->dev, "allocated addr %pa len 0x%zx\n",
-			dma_handle, len);
-		h->curr_used += len;
+		if (*dma_handle != DMA_ERROR_CODE) {
+			dev_dbg(&h->dev, "allocated addr %pa len 0x%zx\n",
+				dma_handle, len);
+			h->curr_used += len;
+		}
 		goto out;
 	}
 
@@ -852,7 +854,7 @@ static int dma_release_from_coherent_heap_dev(struct device *dev, size_t len,
 	/* err = 0 on failure, !0 on successful release */
 	if (err && h->task)
 		mod_timer(&h->shrink_timer, jiffies + h->shrink_interval);
-	if (!err)
+	if (err)
 		h->curr_used -= len;
 	mutex_unlock(&h->resize_lock);
 

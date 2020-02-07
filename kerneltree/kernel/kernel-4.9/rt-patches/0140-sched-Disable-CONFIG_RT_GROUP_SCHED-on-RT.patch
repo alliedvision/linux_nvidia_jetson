@@ -1,7 +1,7 @@
-From d7d2c27b603dcec020587c0d3f73c74f62c46162 Mon Sep 17 00:00:00 2001
+From 7ba656fec39019502867a9c1819ccb740eb1411e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 18 Jul 2011 17:03:52 +0200
-Subject: [PATCH 140/353] sched: Disable CONFIG_RT_GROUP_SCHED on RT
+Subject: [PATCH 140/352] sched: Disable CONFIG_RT_GROUP_SCHED on RT
 
 Carsten reported problems when running:
 
@@ -18,10 +18,10 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 8e57c98..03d4a05 100644
+index 37b9cd3..d7b52e9 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -1136,6 +1136,7 @@ config CFS_BANDWIDTH
+@@ -1138,6 +1138,7 @@ config CFS_BANDWIDTH
  config RT_GROUP_SCHED
  	bool "Group scheduling for SCHED_RR/FIFO"
  	depends on CGROUP_SCHED

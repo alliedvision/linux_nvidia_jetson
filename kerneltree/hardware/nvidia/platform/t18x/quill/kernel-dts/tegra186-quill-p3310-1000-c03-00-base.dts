@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-p3310-c03-00-base.dts Quill C03 Board
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@
 			gyroscope_delay_us_min = <1250>;
 			vdd-supply = <&spmic_sd3>;
 			vdd_IO-supply = <&spmic_sd3>;
-			status = "okay";
+			status = "disabled";
 		};
 	};
 
@@ -97,18 +97,12 @@
 		status = "okay";
 		gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 0) GPIO_ACTIVE_HIGH>;
 		gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 1) GPIO_ACTIVE_HIGH>;
-		mram-params = <0 16 16 8 8 8 16 16 16>;
-		tx-config = <8 8 0 64>;
-		rx-config = <64 64 64>;
 	};
 
 	mttcan@c320000 {
 		status = "okay";
 		gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 6) GPIO_ACTIVE_HIGH>;
 		gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 7) GPIO_ACTIVE_HIGH>;
-		mram-params = <0 16 16 8 8 8 16 16 16>;
-		tx-config = <8 8 0 64>;
-		rx-config = <64 64 64>;
 	};
 
 	ahci-sata@3507000 {

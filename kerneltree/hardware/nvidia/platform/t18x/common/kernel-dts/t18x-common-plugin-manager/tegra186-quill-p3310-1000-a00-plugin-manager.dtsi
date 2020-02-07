@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-p3310-1000-a00-plugin-manager.dtsi: P3310 plugin manager
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,9 +86,6 @@
 				target = <&xusb_padctl>;
 				_overlay_ {
 					ports {
-						usb2-2 {
-							status = "okay";
-						};
 						usb3-0 {
 							status = "okay";
 						};
@@ -214,8 +211,9 @@
 				_overlay_ {
 					phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
 						<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+						<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
 						<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-0}>;
-					phy-names = "usb2-0", "usb2-1", "usb3-0";
+					phy-names = "usb2-0", "usb2-1", "usb2-2", "usb3-0";
 				};
 #else
 				_overlay_ {
@@ -263,8 +261,9 @@
 #if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 				_overlay_ {
 					phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
-						<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>;
-					phy-names = "usb2-0", "usb2-1";
+						<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+						<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>;
+					phy-names = "usb2-0", "usb2-1", "usb2-2";
 				};
 #else
 				_overlay_ {
@@ -276,12 +275,23 @@
 #endif
 			};
 			override@1 {
+#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
+				target = <&xusb_padctl>;
+				_overlay_ {
+					ports {
+						usb3-0 {
+							status = "disabled";
+						};
+					};
+				};
+#else
 				target = <&tegra_xusb_padctl_pinmux_default>;
 				_overlay_ {
 					usb3-std-A-port2 {
 						status = "disabled";
 					};
 				};
+#endif
 			};
 
 			override@2 {

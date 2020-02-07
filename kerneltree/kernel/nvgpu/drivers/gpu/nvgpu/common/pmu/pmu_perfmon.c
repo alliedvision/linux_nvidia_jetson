@@ -236,6 +236,48 @@ int nvgpu_pmu_load_update(struct gk20a *g)
 	return 0;
 }
 
+int nvgpu_pmu_busy_cycles_norm(struct gk20a *g, u32 *norm)
+{
+	u64 busy_cycles, total_cycles;
+	u32 intr_status;
+
+	gk20a_busy_noresume(g);
+	if (!g->power_on) {
+		*norm = 0;
+		goto exit;
+	}
+
+	if (g->ops.pmu.pmu_read_idle_counter == NULL ||
+	    g->ops.pmu.pmu_reset_idle_counter == NULL ||
+	    g->ops.pmu.pmu_read_idle_intr_status == NULL ||
+	    g->ops.pmu.pmu_clear_idle_intr_status == NULL) {
+		*norm = PMU_BUSY_CYCLES_NORM_MAX;
+		goto exit;
+	}
+
+	busy_cycles = g->ops.pmu.pmu_read_idle_counter(g, 4);
+	total_cycles = g->ops.pmu.pmu_read_idle_counter(g, 0);
+	intr_status = g->ops.pmu.pmu_read_idle_intr_status(g);
+
+	g->ops.pmu.pmu_reset_idle_counter(g, 4);
+	g->ops.pmu.pmu_reset_idle_counter(g, 0);
+
+	if (intr_status != 0UL) {
+		*norm = PMU_BUSY_CYCLES_NORM_MAX;
+		g->ops.pmu.pmu_clear_idle_intr_status(g);
+	} else if (total_cycles == 0ULL || busy_cycles > total_cycles) {
+		*norm = PMU_BUSY_CYCLES_NORM_MAX;
+	} else {
+		*norm = (u32)(busy_cycles * PMU_BUSY_CYCLES_NORM_MAX
+			      / total_cycles);
+	}
+
+exit:
+	gk20a_idle_nosuspend(g);
+
+	return 0;
+}
+
 void nvgpu_pmu_get_load_counters(struct gk20a *g, u32 *busy_cycles,
 				 u32 *total_cycles)
 {

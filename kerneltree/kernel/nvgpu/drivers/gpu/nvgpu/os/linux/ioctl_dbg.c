@@ -1667,6 +1667,7 @@ static int nvgpu_profiler_reserve_acquire(struct dbg_session_gk20a *dbg_s,
 	struct gk20a *g = dbg_s->g;
 	struct dbg_profiler_object_data *prof_obj, *my_prof_obj;
 	int err = 0;
+	struct tsg_gk20a *tsg;
 
 	nvgpu_log_fn(g, "%s profiler_handle = %x", g->name, profiler_handle);
 
@@ -1709,11 +1710,11 @@ static int nvgpu_profiler_reserve_acquire(struct dbg_session_gk20a *dbg_s,
 		nvgpu_err(g,
 			"per-ctxt reserve: global reservation in effect");
 		err = -EBUSY;
-	} else if (gk20a_is_channel_marked_as_tsg(my_prof_obj->ch)) {
+	} else if ((tsg = tsg_gk20a_from_ch(my_prof_obj->ch)) != NULL) {
 		/* TSG: check that another channel in the TSG
 		 * doesn't already have the reservation
 		 */
-		u32 my_tsgid = my_prof_obj->ch->tsgid;
+		u32 my_tsgid = tsg->tsgid;
 
 		nvgpu_list_for_each_entry(prof_obj, &g->profiler_objects,
 				dbg_profiler_object_data, prof_obj_entry) {

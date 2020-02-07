@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2015-2019 NVIDIA Corporation.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -160,14 +160,21 @@ static int deserialize_i2c(char *buf, size_t bufsize,
 	size_t totallen = 0;
 	size_t pos = 0;
 	int i;
+	bool need_ack = false;
 	for (i = 0; i < num; i++) {
 		if (msgs[i].flags & I2C_M_RD) {
+			need_ack = true;
 			if (safe_size_add(&totallen, totallen, msgs[i].len))
 				return -EINVAL;
 		}
 	}
+
+	if (!need_ack)
+		return 0;
+
 	if (totallen != bufsize)
 		return -EINVAL;
+
 	for (i = 0; i < num; i++) {
 		if (msgs[i].flags & I2C_M_RD) {
 			BUG_ON(pos + msgs[i].len > bufsize);

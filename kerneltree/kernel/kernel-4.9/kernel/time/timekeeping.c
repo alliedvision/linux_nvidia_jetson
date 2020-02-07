@@ -320,6 +320,17 @@ static void tk_setup_internals(struct timekeeper *tk, struct clocksource *clock)
 		tk->tkr_mono.xtime_nsec = ((tk->tkr_mono.cycle_last) * clock->mult);
 		tk_normalize_xtime(tk);
 	}
+
+	/* update clocksource offset_ns
+	 *
+	 * NOTE: if CONFIG_SCHED_POR_TIME is enabled, this will be
+	 * broken. But we don't expect CONFIG_SCHED_POR_TIME to be
+	 * enabled for this use case
+	 */
+	tmp = mul_u64_u32_shr(tk->tkr_raw.cycle_last,
+			clock->mult, clock->shift);
+	clock->offset_ns = tmp - tk->raw_sec * NSEC_PER_SEC -
+				(tk->tkr_raw.xtime_nsec >> clock->shift);
 }
 
 /* Timekeeper helper functions. */

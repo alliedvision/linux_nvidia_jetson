@@ -304,7 +304,7 @@ static void eqos_adjust_link(struct net_device *dev)
 	DBGPR_MDIO("-->eqos_adjust_link. address %d link %d\n",
 		   phydev->mdio.addr, phydev->link);
 
-	spin_lock(&pdata->lock);
+	spin_lock_bh(&pdata->lock);
 
 	if (phydev->link) {
 		/* Now we make sure that we can be in full duplex mode.
@@ -383,7 +383,7 @@ static void eqos_adjust_link(struct net_device *dev)
 	if (new_state)
 		phy_print_status(phydev);
 
-	spin_unlock(&pdata->lock);
+	spin_unlock_bh(&pdata->lock);
 
 	/* At this stage, it could be need to setup the EEE or adjust some
 	 * MAC related HW registers.

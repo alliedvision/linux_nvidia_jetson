@@ -144,6 +144,9 @@ enum {
 #define APCTRL_POWER_BREAKEVEN_DEFAULT_US                       (2000)
 #define APCTRL_CYCLES_PER_SAMPLE_MAX_DEFAULT                    (200)
 
+/* pmu load const defines */
+#define PMU_BUSY_CYCLES_NORM_MAX		(1000U)
+
 /* RPC */
 #define PMU_RPC_EXECUTE(_stat, _pmu, _unit, _func, _prpc, _size)\
 	do {                                                 \
@@ -449,6 +452,7 @@ int nvgpu_pmu_handle_perfmon_event(struct nvgpu_pmu *pmu,
 int nvgpu_pmu_init_perfmon_rpc(struct nvgpu_pmu *pmu);
 int nvgpu_pmu_load_norm(struct gk20a *g, u32 *load);
 int nvgpu_pmu_load_update(struct gk20a *g);
+int nvgpu_pmu_busy_cycles_norm(struct gk20a *g, u32 *norm);
 void nvgpu_pmu_reset_load_counters(struct gk20a *g);
 void nvgpu_pmu_get_load_counters(struct gk20a *g, u32 *busy_cycles,
 		u32 *total_cycles);

@@ -2,7 +2,7 @@
  *
  * Implementation of primary ALSA driver code base for NVIDIA Tegra HDA.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -109,8 +109,6 @@ struct hda_tegra {
 	int partition_id;
 	void __iomem *regs;
 	struct work_struct probe_work;
-	bool init_done;
-	int num_codecs;
 	struct kobject *kobj;
 	struct hda_pcm_devices *hda_pcm_dev;
 };
@@ -338,9 +336,11 @@ static int hda_tegra_runtime_suspend(struct device *dev)
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip = card->private_data;
 	struct hda_tegra *hda = container_of(chip, struct hda_tegra, chip);
+	struct hdac_bus *bus = azx_bus(chip);
 
-	if (hda->init_done) {
+	if (chip && chip->running) {
 		azx_stop_chip(chip);
+		synchronize_irq(bus->irq);
 		azx_enter_link_reset(chip);
 	}
 
@@ -358,7 +358,7 @@ static int hda_tegra_runtime_resume(struct device *dev)
 	if (rc != 0)
 		return rc;
 
-	if (hda->init_done) {
+	if (chip && chip->running) {
 		hda_tegra_init(hda);
 		azx_init_chip(chip, 1);
 	}
@@ -616,8 +616,6 @@ static int hda_tegra_probe(struct platform_device *pdev)
 	hda->dev = &pdev->dev;
 	chip = &hda->chip;
 
-	hda->init_done = false;
-
 	hda->partition_id = tegra_pd_get_powergate_id(tegra_disb_pd);
 	if (hda->partition_id < 0) {
 		dev_err(&pdev->dev, "Failed to get hda power domain id\n");
@@ -645,7 +643,6 @@ static int hda_tegra_probe(struct platform_device *pdev)
 	pm_runtime_enable(hda->dev);
 	if (!azx_has_pm_runtime(chip))
 		pm_runtime_forbid(hda->dev);
-	pm_runtime_get_sync(hda->dev);
 
 	schedule_work(&hda->probe_work);
 
@@ -780,13 +777,10 @@ static void hda_tegra_probe_work(struct work_struct *work)
 	struct hdac_bus *bus = azx_bus(chip);
 	int err;
 
+	pm_runtime_get_sync(hda->dev);
 	err = hda_tegra_first_init(chip, pdev);
 	if (err < 0)
 		goto out_free;
-
-	if (of_property_read_u32(np, "nvidia,max-codec-slot",
-			&hda->num_codecs) < 0)
-		hda->num_codecs = HDA_MAX_CODECS;
 
 	bus->avoid_compact_sdo_bw = of_property_read_bool(np,
 		"nvidia,avoid-compact-sdo-bw");
@@ -803,7 +797,7 @@ static void hda_tegra_probe_work(struct work_struct *work)
 		hda_tegra_writel(gsc_id, hda->regs + HDA_GSC_REG);
 
 	/* create codec instances */
-	err = azx_probe_codecs(chip, hda->num_codecs);
+	err = azx_probe_codecs(chip, HDA_MAX_CODECS);
 	if (err < 0)
 		goto out_free;
 
@@ -818,10 +812,6 @@ static void hda_tegra_probe_work(struct work_struct *work)
 	chip->running = 1;
 	snd_hda_set_power_save(&chip->bus, power_save * 1000);
 
-	hda->init_done = true;
-
-	pm_runtime_put(hda->dev);
-
 	/* export pcm device mapping to userspace - needed for android */
 	err = hda_tegra_create_sysfs(hda);
 	if (err < 0) {
@@ -831,6 +821,7 @@ static void hda_tegra_probe_work(struct work_struct *work)
 		hda_tegra_remove_sysfs(&pdev->dev);
 	}
 out_free:
+	pm_runtime_put(hda->dev);
 	return; /* no error return from async probe */
 }
 
@@ -852,7 +843,14 @@ static int hda_tegra_remove(struct platform_device *pdev)
 
 static void hda_tegra_shutdown(struct platform_device *pdev)
 {
-	return;
+	struct snd_card *card = dev_get_drvdata(&pdev->dev);
+	struct azx *chip;
+
+	if (!card)
+		return;
+	chip = card->private_data;
+	if (chip && chip->running)
+		azx_stop_chip(chip);
 }
 
 static struct platform_driver tegra_platform_hda = {

@@ -2324,7 +2324,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		/* Wait for Buffer Read Ready interrupt */
 		wait_event_timeout(host->buf_ready_int,
 					(host->tuning_done == 1),
-					msecs_to_jiffies(100));
+					msecs_to_jiffies(800));
 		spin_lock_irqsave(&host->lock, flags);
 
 		if (!host->tuning_done) {

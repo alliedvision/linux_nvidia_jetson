@@ -1,7 +1,7 @@
 /*
  * tegra210_xbar_alt.c - Tegra210 XBAR driver
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1175,18 +1175,18 @@ static struct of_dev_auxdata tegra210_xbar_auxdata[] = {
 static struct of_dev_auxdata tegra186_xbar_auxdata[] = {
 	OF_DEV_AUXDATA("nvidia,tegra186-admaif", T186_ADMAIF_BASE_ADDR,
 		"tegra186-admaif", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S1_BASE_ADDR,
-		"tegra186-i2s.0", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S2_BASE_ADDR,
-		"tegra186-i2s.1", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S3_BASE_ADDR,
-		"tegra186-i2s.2", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S4_BASE_ADDR,
-		"tegra186-i2s.3", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S5_BASE_ADDR,
-		"tegra186-i2s.4", NULL),
-	OF_DEV_AUXDATA("nvidia,tegra186-i2s", T186_I2S6_BASE_ADDR,
-		"tegra186-i2s.5", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S1_BASE_ADDR,
+		"tegra210-i2s.0", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S2_BASE_ADDR,
+		"tegra210-i2s.1", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S3_BASE_ADDR,
+		"tegra210-i2s.2", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S4_BASE_ADDR,
+		"tegra210-i2s.3", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S5_BASE_ADDR,
+		"tegra210-i2s.4", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra210-i2s", T186_I2S6_BASE_ADDR,
+		"tegra210-i2s.5", NULL),
 	OF_DEV_AUXDATA("nvidia,tegra210-adx", T186_ADX1_BASE_ADDR,
 		"tegra210-adx.0", NULL),
 	OF_DEV_AUXDATA("nvidia,tegra210-adx", T186_ADX2_BASE_ADDR,
@@ -1415,7 +1415,8 @@ err:
 static const struct dev_pm_ops tegra_xbar_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra_xbar_runtime_suspend,
 			   tegra_xbar_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra_xbar_suspend, tegra_xbar_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra_xbar_driver = {

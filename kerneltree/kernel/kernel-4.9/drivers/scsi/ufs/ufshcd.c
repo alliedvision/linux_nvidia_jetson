@@ -3176,9 +3176,16 @@ static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 	}
 
 	/* poll for max. 1000 iterations for fDeviceInit flag to clear */
-	for (i = 0; i < 1000 && !err && flag_res; i++) {
+	for (i = 0; i < 1000 && !err; i++) {
 		err = ufshcd_query_flag_retry(hba, UPIU_QUERY_OPCODE_READ_FLAG,
 			QUERY_FLAG_IDN_FDEVICEINIT, &flag_res);
+		/*
+		 * if there were NO error
+		 * AND f_DEVICEINIT is cleared
+		 * ....then we are ok, no need to sleep
+		 */
+		if (!err && flag_res == 0)
+			break;
 		usleep_range(3000, 5000);
 	}
 

@@ -1,7 +1,7 @@
 /*
  * Maxim MAX77620 Regulator driver
  *
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Mallikarjun Kasoju <mkasoju@nvidia.com>
  *	Laxman Dewangan <ldewangan@nvidia.com>
@@ -98,6 +98,11 @@ struct max77620_regulator {
 	(fps_src == MAX77620_FPS_SRC_0 ? "FPS_SRC_0" :	\
 	fps_src == MAX77620_FPS_SRC_1 ? "FPS_SRC_1" :	\
 	fps_src == MAX77620_FPS_SRC_2 ? "FPS_SRC_2" : "FPS_SRC_NONE")
+
+static unsigned int max77620_map_mode(unsigned int mode)
+{
+	return mode;
+}
 
 static int max77620_regulator_get_fps_src(struct max77620_regulator *pmic,
 					  int id)
@@ -703,6 +708,7 @@ static struct regulator_ops max77620_regulator_ops = {
 			.active_discharge_mask = MAX77620_SD_CFG1_ADE_MASK, \
 			.active_discharge_reg = MAX77620_REG_##_id##_CFG, \
 			.type = REGULATOR_VOLTAGE,			\
+			.of_map_mode = max77620_map_mode,		\
 		},							\
 	}
 

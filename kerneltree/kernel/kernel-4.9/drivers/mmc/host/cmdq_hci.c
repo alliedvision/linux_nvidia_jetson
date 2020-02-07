@@ -269,11 +269,11 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 	cq_host->desc_base = dma_zalloc_coherent(mmc_dev(cq_host->mmc),
 						 cq_host->desc_size,
 						 &cq_host->desc_dma_base,
-						 GFP_KERNEL);
+						 GFP_ATOMIC);
 	cq_host->trans_desc_base = dma_zalloc_coherent(mmc_dev(cq_host->mmc),
 					      cq_host->data_size,
 					      &cq_host->trans_desc_dma_base,
-					      GFP_KERNEL);
+					      GFP_ATOMIC);
 
 	if (!cq_host->desc_base || !cq_host->trans_desc_base)
 		return -ENOMEM;
@@ -638,8 +638,9 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 	unsigned long tag = 0, comp_status;
 	unsigned long cqic;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	unsigned long flags;
 
-	spin_lock(&cq_host->cmdq_lock);
+	spin_lock_irqsave(&cq_host->cmdq_lock, flags);
 
 	status = cmdq_reg_readl(cq_host, CQIS);
 	cmdq_reg_writel(cq_host, status, CQIS);
@@ -682,7 +683,7 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 		/* task is cleared, wakeup waiting thread */
 		;
 	}
-	spin_unlock(&cq_host->cmdq_lock);
+	spin_unlock_irqrestore(&cq_host->cmdq_lock, flags);
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL(cmdq_irq);

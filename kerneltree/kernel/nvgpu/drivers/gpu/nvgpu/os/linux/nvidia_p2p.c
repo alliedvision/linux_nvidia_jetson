@@ -91,6 +91,7 @@ int nvidia_p2p_get_pages(u64 vaddr, u64 size,
 		goto free_pages;
 	}
 
+	(*page_table)->version = NVIDIA_P2P_PAGE_TABLE_VERSION;
 	(*page_table)->pages = pages;
 	(*page_table)->entries = user_pages;
 	(*page_table)->page_size = NVIDIA_P2P_PAGE_SIZE_4KB;
@@ -207,6 +208,8 @@ int nvidia_p2p_dma_map_pages(struct device *dev,
 	if (ret) {
 		goto free_sgt;
 	}
+
+	(*dma_mapping)->version = NVIDIA_P2P_DMA_MAPPING_VERSION;
 	(*dma_mapping)->sgt = sgt;
 	(*dma_mapping)->dev = dev;
 	(*dma_mapping)->direction = direction;

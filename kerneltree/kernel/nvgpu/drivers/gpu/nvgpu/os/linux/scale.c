@@ -211,18 +211,18 @@ static int gk20a_scale_target(struct device *dev, unsigned long *freq,
 }
 
 /*
- * update_load_estimate_gpmu(profile)
+ * update_load_estimate_busy_cycles(dev)
  *
- * Update load estimate using gpmu. The gpmu value is normalised
+ * Update load estimate using pmu idle counters. Result is normalised
  * based on the time it was asked last time.
  */
 
-static void update_load_estimate_gpmu(struct device *dev)
+static void update_load_estimate_busy_cycles(struct device *dev)
 {
 	struct gk20a *g = get_gk20a(dev);
 	struct gk20a_scale_profile *profile = g->scale_profile;
 	unsigned long dt;
-	u32 busy_time;
+	u32 busy_cycles_norm;
 	ktime_t t;
 
 	t = ktime_get();
@@ -230,8 +230,9 @@ static void update_load_estimate_gpmu(struct device *dev)
 
 	profile->dev_stat.total_time = dt;
 	profile->last_event_time = t;
-	nvgpu_pmu_load_norm(g, &busy_time);
-	profile->dev_stat.busy_time = (busy_time * dt) / 1000;
+	nvgpu_pmu_busy_cycles_norm(g, &busy_cycles_norm);
+	profile->dev_stat.busy_time =
+		(busy_cycles_norm * dt) / PMU_BUSY_CYCLES_NORM_MAX;
 }
 
 /*
@@ -284,9 +285,6 @@ static int gk20a_scale_get_dev_status(struct device *dev,
 	struct gk20a_scale_profile *profile = g->scale_profile;
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 
-	/* update the software shadow */
-	nvgpu_pmu_load_update(g);
-
 	/* inform edp about new constraint */
 	if (platform->prescale)
 		platform->prescale(dev);
@@ -296,7 +294,7 @@ static int gk20a_scale_get_dev_status(struct device *dev,
 				g->ops.clk.get_rate(g, CTRL_CLK_DOMAIN_GPCCLK);
 
 	/* Update load estimate */
-	update_load_estimate_gpmu(dev);
+	update_load_estimate_busy_cycles(dev);
 
 	/* Copy the contents of the current device status */
 	*stat = profile->dev_stat;
@@ -368,11 +366,11 @@ void gk20a_scale_init(struct device *dev)
 		profile->devfreq_profile.get_cur_freq = get_cur_freq;
 		profile->devfreq_profile.polling_ms = 25;
 
-		devfreq = devfreq_add_device(dev,
+		devfreq = devm_devfreq_add_device(dev,
 					&profile->devfreq_profile,
 					platform->devfreq_governor, NULL);
 
-		if (IS_ERR(devfreq))
+		if (IS_ERR_OR_NULL(devfreq))
 			devfreq = NULL;
 
 		l->devfreq = devfreq;
@@ -401,8 +399,6 @@ void gk20a_scale_exit(struct device *dev)
 {
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	struct gk20a *g = platform->g;
-	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
-	int err;
 
 #ifdef CONFIG_GK20A_PM_QOS
 	if (platform->qos_notify) {
@@ -412,11 +408,6 @@ void gk20a_scale_exit(struct device *dev)
 				&g->scale_profile->qos_notify_block);
 	}
 #endif
-
-	if (platform->devfreq_governor) {
-		err = devfreq_remove_device(l->devfreq);
-		l->devfreq = NULL;
-	}
 
 	nvgpu_kfree(g, g->scale_profile);
 	g->scale_profile = NULL;

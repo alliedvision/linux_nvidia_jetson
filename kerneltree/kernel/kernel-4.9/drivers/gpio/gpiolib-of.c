@@ -397,6 +397,19 @@ int of_gpiochip_suspend(struct gpio_chip *chip)
 			if (IS_ERR(desc))
 				continue;
 
+			if (of_property_read_bool(np, "suspend-input")) {
+				dflags &= ~(GPIOD_OUT_HIGH | GPIOD_OUT_LOW);
+				dflags |= GPIOD_IN;
+			}
+			else if (of_property_read_bool(np, "suspend-output-low")) {
+				dflags &= ~(GPIOD_IN | GPIOD_OUT_HIGH);
+				dflags |= GPIOD_OUT_LOW;
+			}
+			else if (of_property_read_bool(np, "suspend-output-high")) {
+				dflags &= ~(GPIOD_IN | GPIOD_OUT_LOW);
+				dflags |= GPIOD_OUT_HIGH;
+			}
+
 			if (chip->suspend_configure) {
 				ret = chip->suspend_configure(chip,
 						gpio_chip_hwgpio(desc),

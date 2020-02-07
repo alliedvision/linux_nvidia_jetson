@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,6 +18,11 @@
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/platform/tegra/cpu_emc.h>
 
+#define CPU_EMC_TABLE_SRC_DT		1
+#define CPU_EMC_TABLE_SRC_DEFAULT	0
+
+static int cpu_emc_table_src;
+
 struct cpu_emc {
 	struct tegra_bwmgr_client *bwmgr;
 	unsigned long max_rate;
@@ -27,25 +32,62 @@ struct cpu_emc {
 
 static struct cpu_emc cpemc;
 
+static unsigned long default_emc_cpu_limit(unsigned long cpu_rate,
+					   unsigned long emc_max_rate)
+{
+	if (cpu_rate >= 1300000)
+		return emc_max_rate;	/* cpu >= 1.3GHz, emc max */
+	else if (cpu_rate >= 975000)
+		return 400000000;	/* cpu >= 975 MHz, emc 400 MHz */
+	else if (cpu_rate >= 725000)
+		return	200000000;	/* cpu >= 725 MHz, emc 200 MHz */
+	else if (cpu_rate >= 500000)
+		return	100000000;	/* cpu >= 500 MHz, emc 100 MHz */
+	else if (cpu_rate >= 275000)
+		return	50000000;	/* cpu >= 275 MHz, emc 50 MHz */
+	else
+		return 0;		/* emc min */
+}
+
 void set_cpu_to_emc_freq(u32 cpu_freq)
 {
 	unsigned long emc_freq = 0;
 	int i;
 
-	for (i = 0; i < cpemc.cpu_emc_table_size; i += 2) {
-		if (cpu_freq < cpemc.cpu_emc_table[i])
-			break;
-	}
+	if(cpu_emc_table_src == CPU_EMC_TABLE_SRC_DEFAULT)
+		emc_freq = default_emc_cpu_limit(cpu_freq, cpemc.max_rate);
+	else{
+		for (i = 0; i < cpemc.cpu_emc_table_size; i += 2) {
+			if (cpu_freq < cpemc.cpu_emc_table[i])
+				break;
+		}
 
-	if (i)
-		emc_freq = min(cpemc.max_rate,
-					cpemc.cpu_emc_table[i-1] * 1000UL);
+		if (i)
+			emc_freq = min(cpemc.max_rate,
+						cpemc.cpu_emc_table[i-1] * 1000UL);
+	}
 
 	tegra_bwmgr_set_emc(cpemc.bwmgr, emc_freq,
 		TEGRA_BWMGR_SET_EMC_FLOOR);
 
 	pr_debug("cpu freq(kHz):%u emc_freq(KHz) %lu\n", cpu_freq,
 		emc_freq / 1000);
+}
+
+int set_cpu_emc_limit_table_source(int table_src)
+{
+	if (table_src != CPU_EMC_TABLE_SRC_DT &&
+		table_src != CPU_EMC_TABLE_SRC_DEFAULT)
+			return -1;
+
+	cpu_emc_table_src = table_src;
+
+	return 0;
+}
+
+int get_cpu_emc_limit_table_source(void)
+{
+	return cpu_emc_table_src;
 }
 
 static int register_with_emc_bwmgr(void)
@@ -126,6 +168,7 @@ static int cpu_emc_tbl_from_dt(void)
 	}
 
 	cpemc.max_rate = tegra_bwmgr_get_max_emc_rate();
+	set_cpu_emc_limit_table_source(CPU_EMC_TABLE_SRC_DT);
 
 	return 0;
 err_out:

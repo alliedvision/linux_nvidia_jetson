@@ -66,6 +66,8 @@ static int avt_init_mode(struct v4l2_subdev *sd);
 
 static int avt_init_frame_param(struct avt_csi2_priv *priv);
 
+static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm);
+
 static void swapbytes(void *_object, size_t _size)
 {
 	switch (_size) {
@@ -1093,8 +1095,8 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 	sd = priv->subdev;
 
 	switch (ctrl->id) {
-	case AVT_TEGRA_DISABLE_TIMEOUT:
-		if (ctrl->val == 1)
+	case AVT_TEGRA_TIMEOUT:
+		if (ctrl->val == 0)
 			set_channel_timeout(sd, AVT_TEGRA_TIMEOUT_DISABLED);
 		else {
 			for (i = 0; i < ARRAY_SIZE(priv->ctrls); ++i) {
@@ -1106,10 +1108,10 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 			}
 		}
 		break;
-	case AVT_TEGRA_TIMEOUT:
+	case AVT_TEGRA_TIMEOUT_VALUE:
 		for (i = 0; i < ARRAY_SIZE(priv->ctrls); ++i) {
 			/* First check if the timouet is not disabled */
-			if (priv->ctrls[i]->id == AVT_TEGRA_DISABLE_TIMEOUT) {
+			if (priv->ctrls[i]->id == AVT_TEGRA_TIMEOUT) {
 				if (priv->ctrls[i]->val)
 					return 0;
 				else
@@ -1120,11 +1122,17 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 		/* If it is not disabled, set it in HW */
 		set_channel_timeout(sd, ctrl->val);
 		return 0;
-	case AVT_TEGRA_DISABLE_ALIGN:
-		if (ctrl->val == 1)
+	case AVT_TEGRA_STRIDE_ALIGN:
+		if (ctrl->val == 0)
 			priv->stride_align_enabled = false;
 		else
 			priv->stride_align_enabled = true;
+		break;
+	case AVT_TEGRA_CROP_ALIGN:
+		if (ctrl->val == 0)
+			priv->crop_align_enabled = false;
+		else
+			priv->crop_align_enabled = true;
 		break;
 	}
 
@@ -1138,17 +1146,17 @@ static const struct v4l2_ctrl_ops avt_tegra_ctrl_ops = {
 static const struct v4l2_ctrl_config avt_tegra_ctrl[] = {
 	{
 		.ops = &avt_tegra_ctrl_ops,
-		.id = AVT_TEGRA_DISABLE_TIMEOUT,
-		.name = "Disable frame timeout",
+		.id = AVT_TEGRA_TIMEOUT,
+		.name = "Frame timeout enabled",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.def = 0,
+		.def = 1,
 		.min = 0,
 		.max = 1,
 		.step = 1,
 	},
 	{
 		.ops = &avt_tegra_ctrl_ops,
-		.id = AVT_TEGRA_TIMEOUT,
+		.id = AVT_TEGRA_TIMEOUT_VALUE,
 		.name = "Frame timeout",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.min = 100,
@@ -1158,8 +1166,18 @@ static const struct v4l2_ctrl_config avt_tegra_ctrl[] = {
 	},
 	{
 		.ops = &avt_tegra_ctrl_ops,
-		.id = AVT_TEGRA_DISABLE_ALIGN,
-		.name = "Disable stride alignment",
+		.id = AVT_TEGRA_STRIDE_ALIGN,
+		.name = "Stride alignment enabled",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.def = 1,
+		.min = 0,
+		.max = 1,
+		.step = 1,
+	},
+	{
+		.ops = &avt_tegra_ctrl_ops,
+		.id = AVT_TEGRA_CROP_ALIGN,
+		.name = "Crop alignment enabled",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
 		.def = 0,
 		.min = 0,
@@ -1424,14 +1442,16 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
 	struct v4l2_subdev_selection sel;
+	struct v4l2_streamparm parm = { 0 };
 	int ret;
+	u64 max_framerate;
 
 	// changing the resolution is not allowed with VIDIOC_S_FMT
 	if (priv->mode == AVT_BCRM_MODE &&
 		(format->format.width != priv->frmp.r.width ||
 		 format->format.height != priv->frmp.r.height))
 	{
-		avt_dbg(sd, "Changing the resolution is not allowed with VIDIOC_S_FMT!\n");
+		avt_err(sd, "Changing the resolution is not allowed with VIDIOC_S_FMT!\n");
 		return -EINVAL;
 	}
 
@@ -1460,6 +1480,18 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	 * set_param succeded
 	 */
 	priv->mbus_fmt_code = format->format.code;
+
+	ret = avt_reg_read(client,
+			priv->cci_reg.bcrm_addr +
+			ACQUISITION_FRAME_RATE_MAX_64R,
+			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+			(char *) &max_framerate);
+	if (ret >= 0) {
+		memcpy(&parm.parm.capture, &priv->streamcap, sizeof(struct v4l2_captureparm));
+		parm.parm.capture.timeperframe.numerator = FRAQ_NUM;
+		parm.parm.capture.timeperframe.denominator = (max_framerate * FRAQ_NUM) / UHZ_TO_HZ;
+		avt_s_parm(sd, &parm);
+	}
 
 	return 0;
 }
@@ -1926,9 +1958,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 			return ret;
 		}
 
-		qctrl->maximum = (__s32) value64;
-		if (qctrl->maximum != 0)
-			do_div(qctrl->maximum, 100000UL);
+		/* convert unit [ns] to [100*us] */
+		value64 = value64 / 100000UL;
+		
+		/* clamp to s32 max */
+		qctrl->maximum = clamp(value64, (u64)0, (u64)S32_MAX);
 
 		qctrl->minimum = 1;
 		qctrl->default_value = 1;
@@ -2535,6 +2569,12 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 	case V4L2_CID_RED_BALANCE:
 		avt_dbg(sd, "case V4L2_CID_RED_BALANCE\n");
 
+		if (!feature_inquiry_reg.feature_inq.white_balance_avail) {
+			avt_info(sd, "control 'Red balance' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
 		/* reading the Red balance value */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr + RED_BALANCE_RATIO_64RW,
@@ -2613,6 +2653,12 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 	case V4L2_CID_BLUE_BALANCE:
 		avt_dbg(sd, "case V4L2_CID_BLUE_BALANCE\n");
+
+		if (!feature_inquiry_reg.feature_inq.white_balance_avail) {
+			avt_info(sd, "control 'Blue balance' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
 
 		/* reading the Blue balance value */
 		ret = avt_reg_read(client,
@@ -3499,12 +3545,40 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
+	int align_width = 0;
 
 	// update width, height, offset x/y restrictions from camera
 	avt_init_frame_param(priv);
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
+
+		if (priv->crop_align_enabled) {
+			/*
+			 * Align with VI capabilities
+			 *
+			 * For each format line length has to be aligned to specific
+			 * value
+			 */
+			switch (priv->mbus_fmt_code) {
+			case MEDIA_BUS_FMT_RGB888_1X24:
+			case MEDIA_BUS_FMT_BGR888_1X24:
+				align_width = 16;
+				break;
+			case MEDIA_BUS_FMT_VYUY8_2X8:
+			case MEDIA_BUS_FMT_RGB565_1X16:
+				align_width = 32;
+				break;
+			case MEDIA_BUS_FMT_SRGGB8_1X8:
+			default:
+				align_width = 64;
+				break;
+			}
+
+			sel->r.width = roundup(sel->r.width, align_width);
+			if (sel->r.width > priv->frmp.maxw)
+				sel->r.width -= align_width;
+		}
 
 		/* Tegra doesn't seem to accept offsets that are not divisible
 		 * by 8.
@@ -3703,6 +3777,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 	/* Translate timeperframe to frequency
 	 * by inverting the fraction
 	 */
+	avt_dbg(sd, "[mjsob] %ul/%ul\n", tpf->denominator, tpf->numerator);
 	value64 = (tpf->denominator / tpf->numerator) * UHZ_TO_HZ;
 	value64 = convert_s_ctrl(value64, min, max, step);
 	if (value64 <= 0) {
@@ -4910,6 +4985,7 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->stream_on = false;
 	priv->cross_update = false;
 	priv->stride_align_enabled = true;
+	priv->crop_align_enabled = true;
 
 	ret = avt_init_mode(priv->subdev);
 	if (ret < 0)

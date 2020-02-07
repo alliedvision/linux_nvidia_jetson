@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1227,6 +1227,54 @@ static void init_qspi_dvfs(int soc_speedo_id, int core_process_id,
 		init_dvfs_one(qspi_dvfs, core_nominal_mv_index);
 }
 
+static const struct of_device_id emcb01_dvb_dvfs_match[] = {
+	{ .compatible = "nvidia,t210b01-emc-dvb-dvfs"},
+	{}
+};
+
+static int update_emc_override_dvb_dvfs(struct tegra_dvfs_data *dvfs_data)
+{
+	struct device_node *node;
+	struct dvb_dvfs *dvbd;
+	const u32 freq_cnt = 6, arr_sz = freq_cnt*4;
+	u32 val[arr_sz];
+	int i, j, k, err;
+
+	node = of_find_matching_node(NULL, emcb01_dvb_dvfs_match);
+	dvbd = NULL;
+
+	if (!node || !dvfs_data)
+		return 0;
+
+	err = of_property_read_u32_array(node,
+			"nvidia,freq-x-bin-min-volt", val,
+			arr_sz);
+
+	if (err || !dvfs_data->emc_dvb_table)
+		return 0;
+
+	for (i = 0; i < dvfs_data->emc_dvb_table_size; i++) {
+		if (dvfs_data->emc_dvb_table[i].speedo_id == -1) {
+			dvbd = &dvfs_data->emc_dvb_table[i];
+			break;
+		}
+	}
+
+	if (!dvbd)
+		return 0;
+
+	for (i = 0; i < MAX_DVFS_FREQS; i++) {
+		for (k = 0; k < freq_cnt; ++k)
+			if (dvbd->dvb_table[i].freq == val[k*4])
+				for (j = 1; j < 4; ++j)
+					dvbd->dvb_table[i].mvolts[j-1] =
+						val[k*4+j];
+	}
+
+	return 0;
+}
+
+
 /*
  * SPI DVFS tables are different in master and in slave mode. Use master tables
  * by default. Check if slave mode is specified for enabled SPI devices in DT,
@@ -2299,6 +2347,8 @@ int tegra210_init_dvfs(struct device *dev)
 
 int tegra210b01_init_dvfs(struct device *dev)
 {
+	update_emc_override_dvb_dvfs(&tegra210b01_dvfs_data);
+
 	if (tegra_sku_info.soc_speedo_id == 2)
 		init_dvfs_data(&tegra210b01slt_dvfs_data);
 	else

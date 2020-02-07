@@ -14,9 +14,7 @@
  * You should have received a copy of the GNU General Public License along
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
-#include <t210-common-platforms/tegra210-ers-pmic-e2174-1101-a00.dtsi>
-#include <t210-common-platforms/tegra210-ers-power-dvfs-e2174-1101-a00.dtsi>
+#include "tegra210-porg-pmic-p3448-0000-a00.dtsi"
 #include "tegra210-porg-fixed-p3448-0000-a00.dtsi"
 
 / {
@@ -25,47 +23,6 @@
 			maxim,power-shutdown-gpio-states = <1 0>;
 			low-battery-monitor {
 				maxim,low-battery-shutdown-enable;
-			};
-
-			max77620_default: pinmux@0 {
-				pin_gpio1 {
-					pins = "gpio1";
-					function = "gpio";
-					/delete-property/ drive-push-pull;
-					drive-open-drain = <1>;
-					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
-					maxim,active-fps-power-up-slot = <0>;
-					maxim,active-fps-power-down-slot = <7>;
-				};
-
-				pin_gpio2 {
-					maxim,active-fps-source = <MAX77620_FPS_SRC_0>;
-					maxim,active-fps-power-up-slot = <0>;
-					maxim,active-fps-power-down-slot = <7>;
-				};
-
-				pin_gpio3 {
-					maxim,active-fps-source = <MAX77620_FPS_SRC_0>;
-					maxim,active-fps-power-up-slot = <4>;
-					maxim,active-fps-power-down-slot = <3>;
-				};
-			};
-
-			spmic_wdt: watchdog {
-				status = "disabled";
-			};
-
-			spmic-default-output-high {
-				gpio-hog;
-				output-high;
-				gpios = <1 0>;
-				line-name = "spmic-default-output-high";
-			};
-
-			fps {
-				fps1 {
-					maxim,shutdown-fps-time-period-us = <1280>;
-				};
 			};
 
 			regulators {
@@ -198,16 +155,17 @@
 					status = "disabled";
 				};
 
-				max77620_ldo6: ldo6 { /* ldo6 not used in t210 porg */
-					regulator-name = "vdd-ldo6";
+				max77620_ldo6: ldo6 {
+					regulator-name = "vddio-sdmmc3-ap";
 					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
 					maxim,active-fps-power-up-slot = <0>;
 					maxim,active-fps-power-down-slot = <7>;
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <3300000>;
 					regulator-enable-ramp-delay = <36>;
 					regulator-disable-ramp-delay = <674>;
 					regulator-ramp-delay = <100000>;
 					regulator-ramp-delay-scale = <200>;
-					status = "disabled";
 				};
 
 				max77620_ldo7: ldo7 {
@@ -325,7 +283,7 @@
 				vbus-supply = <&p3449_vdd_usb_vbus>;
 			};
 			usb2-1 {
-				vbus-supply = <&p3449_vdd_usb_hub_en>;
+				vbus-supply = <&battery_reg>;
 			};
 			usb2-2 {
 				vbus-supply = <&p3449_vdd_usb_vbus2>;
@@ -359,11 +317,6 @@
 		l0_hvddio_sata-supply = <&max77620_sd3>;
 		l0_dvddio_sata-supply = <&max77620_ldo8>;
 		dvdd_sata_pll-supply = <&max77620_ldo8>;
-	};
-
-	bluedroid_pm {
-		avdd-supply = <&battery_reg>;
-		dvdd-supply = <&max77620_sd3>;
 	};
 
 	pwm-fan {
@@ -427,6 +380,40 @@
 								0x41 0xF8>;
 				};
 			};
+		};
+	};
+
+	dvfs_rails {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpu_scaling_cdev: vdd-gpu-scaling-cdev@7 {
+			status = "okay";
+			reg = <7>;
+			cooling-min-state = <0>;
+			cooling-max-state = <5>;
+			#cooling-cells = <2>;
+			compatible = "nvidia,tegra210-rail-scaling-cdev";
+			cdev-type = "gpu_scaling";
+			nvidia,constraint;
+			nvidia,trips = <&gpu_scaling0 950 &gpu_scaling1 0
+					&gpu_scaling2 0 &gpu_scaling3 0
+					&gpu_scaling4 0 &gpu_scaling5 0>;
+		};
+
+		gpu_vmax_cdev: vdd-gpu-vmax-cdev@9 {
+			status = "okay";
+			reg = <9>;
+			cooling-min-state = <0>;
+			cooling-max-state = <1>;
+			#cooling-cells = <2>;
+			compatible = "nvidia,tegra210-rail-vmax-cdev";
+			cdev-type = "GPU-cap";
+			nvidia,constraint-ucm2;
+			nvidia,trips = <&gpu_vmax1 1132 1090>;
+			clocks = <&tegra_car TEGRA210_CLK_CAP_VGPU_GBUS>;
+			clock-names = "cap-clk";
 		};
 	};
 };

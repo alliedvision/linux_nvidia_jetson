@@ -82,21 +82,53 @@ irqreturn_t dw_handle_msi_irq(struct pcie_port *pp)
 }
 EXPORT_SYMBOL(dw_handle_msi_irq);
 
-void dw_pcie_msi_init(struct pcie_port *pp)
+int dw_pcie_msi_init(struct pcie_port *pp)
 {
-	u64 msi_target;
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+	int err;
 
-	if (!pp->msi_data)
-		pp->msi_data = __get_free_pages(GFP_DMA, 0);
-	msi_target = virt_to_phys((void *)pp->msi_data);
+	if (!pp->msi_virt_addr) {
+		/* Though the PCIe controller can address >32-bit address space,
+		 * to facilitate endpoints that support only 32-bit MSI target
+		 * address, the mask is set to 32-bit to make sure that MSI
+		 * target address is always a 32-bit address
+		 */
+		err = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+		if (err < 0) {
+			dev_err(dev, "failed to set DMA coherent mask: %d\n",
+				err);
+			return err;
+		}
 
+		pp->msi_virt_addr = dma_alloc_coherent(dev, PAGE_SIZE,
+						       &pp->msi_target_addr,
+						       GFP_KERNEL);
+		if (!pp->msi_virt_addr) {
+			dev_err(dev,
+				"failed to allocate DMA memory for MSI\n");
+			err = -ENOMEM;
+			return err;
+		}
+	}
 	/* program the msi_data */
 	dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_LO, 4,
-			    (u32)(msi_target & 0xffffffff));
+			    (u32)(pp->msi_target_addr & 0xffffffff));
 	dw_pcie_wr_own_conf(pp, PCIE_MSI_ADDR_HI, 4,
-			    (u32)(msi_target >> 32 & 0xffffffff));
+			    (u32)(pp->msi_target_addr >> 32 & 0xffffffff));
+	return 0;
 }
 EXPORT_SYMBOL(dw_pcie_msi_init);
+
+void dw_pcie_msi_deinit(struct pcie_port *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct device *dev = pci->dev;
+
+	dma_free_coherent(dev, PAGE_SIZE, pp->msi_virt_addr,
+			  pp->msi_target_addr);
+}
+EXPORT_SYMBOL(dw_pcie_msi_deinit);
 
 static void dw_pcie_msi_clear_irq(struct pcie_port *pp, int irq)
 {
@@ -196,7 +228,7 @@ static void dw_msi_setup_msg(struct pcie_port *pp, unsigned int irq, u32 pos)
 	if (pp->ops->get_msi_addr)
 		msi_target = pp->ops->get_msi_addr(pp);
 	else
-		msi_target = virt_to_phys((void *)pp->msi_data);
+		msi_target = (u64)pp->msi_target_addr;
 
 	msg.address_lo = (u32)(msi_target & 0xffffffff);
 	msg.address_hi = (u32)(msi_target >> 32 & 0xffffffff);

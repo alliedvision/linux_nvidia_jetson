@@ -66,6 +66,7 @@
 #include "gm20b/mm_gm20b.h"
 #include "gm20b/pmu_gm20b.h"
 #include "gm20b/acr_gm20b.h"
+#include "gm20b/fecs_trace_gm20b.h"
 
 #include "gp106/clk_arb_gp106.h"
 #include "gp106/pmu_gp106.h"
@@ -77,7 +78,6 @@
 #include "gp10b/gr_gp10b.h"
 #include "gp10b/ce_gp10b.h"
 #include "gp10b/fifo_gp10b.h"
-#include "gp10b/fecs_trace_gp10b.h"
 #include "gp10b/mm_gp10b.h"
 #include "gp10b/pmu_gp10b.h"
 
@@ -639,6 +639,8 @@ static const struct gpu_ops gv100_ops = {
 		.init_pbdma_intr_descs = gv11b_fifo_init_pbdma_intr_descs,
 		.reset_enable_hw = gk20a_init_fifo_reset_enable_hw,
 		.teardown_ch_tsg = gv11b_fifo_teardown_ch_tsg,
+		.teardown_mask_intr = gv100_fifo_teardown_mask_intr,
+		.teardown_unmask_intr = gv100_fifo_teardown_unmask_intr,
 		.handle_sched_error = gk20a_fifo_handle_sched_error,
 		.handle_pbdma_intr_0 = gv11b_fifo_handle_pbdma_intr_0,
 		.handle_pbdma_intr_1 = gv11b_fifo_handle_pbdma_intr_1,
@@ -756,6 +758,8 @@ static const struct gpu_ops gv100_ops = {
 		.pmu_pg_idle_counter_config = gk20a_pmu_pg_idle_counter_config,
 		.pmu_read_idle_counter = gk20a_pmu_read_idle_counter,
 		.pmu_reset_idle_counter = gk20a_pmu_reset_idle_counter,
+		.pmu_read_idle_intr_status = gk20a_pmu_read_idle_intr_status,
+		.pmu_clear_idle_intr_status = gk20a_pmu_clear_idle_intr_status,
 		.pmu_dump_elpg_stats = gk20a_pmu_dump_elpg_stats,
 		.pmu_dump_falcon_stats = gk20a_pmu_dump_falcon_stats,
 		.pmu_enable_irq = gk20a_pmu_enable_irq,
@@ -967,6 +971,9 @@ static const struct gpu_ops gv100_ops = {
 	.acr = {
 		.acr_sw_init = nvgpu_gp106_acr_sw_init,
 	},
+	.tpc = {
+		.tpc_powergate = NULL,
+	},
 	.chip_init_gpu_characteristics = gv100_init_gpu_characteristics,
 	.get_litter_value = gv100_get_litter_value,
 };
@@ -1004,6 +1011,7 @@ int gv100_init_hal(struct gk20a *g)
 	gops->falcon = gv100_ops.falcon;
 	gops->priv_ring = gv100_ops.priv_ring;
 	gops->fuse = gv100_ops.fuse;
+	gops->tpc = gv100_ops.tpc;
 	gops->nvlink = gv100_ops.nvlink;
 	gops->top = gv100_ops.top;
 	gops->acr = gv100_ops.acr;

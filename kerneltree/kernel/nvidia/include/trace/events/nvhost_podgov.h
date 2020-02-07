@@ -1,7 +1,7 @@
 /*
  * Nvhost event logging to ftrace.
  *
- * Copyright (c) 2013-2014, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -173,6 +173,24 @@ TRACE_EVENT(podgov_idle,
 	),
 
 	TP_printk("name=%s, idleness=%lu", dev_name(__entry->dev), __entry->idleness)
+);
+
+TRACE_EVENT(podgov_load,
+	TP_PROTO(struct device *dev, unsigned long load),
+
+	TP_ARGS(dev, load),
+
+	TP_STRUCT__entry(
+		__field(struct device *, dev)
+		__field(unsigned long, load)
+	),
+
+	TP_fast_assign(
+		__entry->dev = dev;
+		__entry->load = load;
+	),
+
+	TP_printk("name=%s, load=%lu", dev_name(__entry->dev), __entry->load)
 );
 
 TRACE_EVENT(podgov_print_target,

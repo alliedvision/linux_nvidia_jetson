@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # The script applies/reverts PREEMPT RT patches in the kernel source.
 # - executed in "scripts"
@@ -11,7 +11,8 @@
 any_failure=0
 apply_rt_patches()
 {
-	if [ -f ../arch/arm64/configs/.tmp.tegra_gnu_linux_defconfig ]; then
+	count=$(ls ../arch/arm64/configs/.tmp.tegra*defconfig 2>/dev/null| wc -l)
+	if [ $count -gt 0 ]; then
 		echo "The PREEMPT RT patches are already applied to the kernel!"
 	else
 		file_list=`find ../rt-patches -name \*.patch -type f | sort`
@@ -19,19 +20,33 @@ apply_rt_patches()
 			# set flag in case of failure and continue
 			patch -s -d .. -p1 < $p || any_failure=1
 		done
-		#make temporary copy of the defconfig file
+
+		#make temporary copy of the Automotive defconfig file
 		cp ../arch/arm64/configs/tegra_gnu_linux_defconfig\
 			../arch/arm64/configs/.tmp.tegra_gnu_linux_defconfig
 		./config --file ../arch/arm64/configs/tegra_gnu_linux_defconfig\
-			--enable PREEMPT_RT_FULL  --disable CPU_IDLE_TEGRA18X\
+			--enable PREEMPT_RT_FULL\
+			--disable CPU_IDLE_TEGRA18X\
+			--disable CPU_IDLE_TEGRA19X\
 			--disable CPU_FREQ_GOV_INTERACTIVE || any_failure=1
-		echo "The PREEMPT RT patches have been successfully applied!"
+		echo "PREEMPT RT patches successfully applied for Auto!"
+
+		#make temporary copy of the L4T's defconfig file
+		cp ../arch/arm64/configs/tegra_defconfig\
+			../arch/arm64/configs/.tmp.tegra_defconfig
+		 ./config --file ../arch/arm64/configs/tegra_defconfig\
+			--enable PREEMPT_RT_FULL\
+			--disable CPU_IDLE_TEGRA18X\
+			--disable CPU_IDLE_TEGRA19X\
+			--disable CPU_FREQ_GOV_INTERACTIVE || any_failure=1
+		echo "PREEMPT RT patches successfully applied for L4T!"
 	fi
 }
 
 revert_rt_patches()
 {
-	if [ -f ../arch/arm64/configs/.tmp.tegra_gnu_linux_defconfig ]; then
+	count=$(ls ../arch/arm64/configs/.tmp.tegra*defconfig 2>/dev/null| wc -l)
+	if [ $count -gt 0 ]; then
 		file_list=`find ../rt-patches -name \*.patch -type f | sort -r`
 		for p in $file_list; do
 			# set flag in case of failure and continue
@@ -41,6 +56,9 @@ revert_rt_patches()
 		cp ../arch/arm64/configs/.tmp.tegra_gnu_linux_defconfig\
 			../arch/arm64/configs/tegra_gnu_linux_defconfig
 		rm -rf ../arch/arm64/configs/.tmp.tegra_gnu_linux_defconfig
+		cp ../arch/arm64/configs/.tmp.tegra_defconfig\
+			../arch/arm64/configs/tegra_defconfig
+		rm -rf ../arch/arm64/configs/.tmp.tegra_defconfig
 		echo "The PREEMPT RT patches have been successfully reverted!"
 	else
 		echo "The PREEMPT RT patches are not applied to the kernel!"

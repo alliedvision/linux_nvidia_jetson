@@ -18,7 +18,7 @@
  *
  */
 / {
-	pcie-controller@1003000 {
+	pcie@1003000 {
 		/delete-property/ iommus;
 		/delete-property/ iommu-map;
 		/delete-property/ iommu-map-mask;
@@ -53,6 +53,10 @@
 			nvidia,num-lanes = <1>;
 			nvidia,plat-gpios = <&gpio TEGRA_GPIO(X, 3) GPIO_ACTIVE_HIGH>;
 			status = "okay";
+
+			ethernet@0,0 {
+				reg = <0x000000 0 0 0 0>;
+			};
 		};
 	};
 };

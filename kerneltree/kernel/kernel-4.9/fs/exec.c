@@ -57,6 +57,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#include <linux/tegra_profiler.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1249,6 +1250,7 @@ void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);
 	perf_event_comm(tsk, exec);
+	quadd_event_comm(tsk, exec);
 }
 
 int flush_old_exec(struct linux_binprm * bprm)

@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics channel
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -308,6 +308,7 @@ static void gk20a_free_channel(struct channel_gk20a *ch, bool force)
 	struct dbg_session_data *session_data, *tmp_s;
 	struct dbg_session_channel_data *ch_data, *tmp;
 	int err;
+	bool deferred_reset_pending;
 
 	nvgpu_log_fn(g, " ");
 
@@ -326,7 +327,12 @@ static void gk20a_free_channel(struct channel_gk20a *ch, bool force)
 	 */
 	if (!nvgpu_is_enabled(g, NVGPU_DRIVER_IS_DYING)) {
 		/* abort channel and remove from runlist */
-		if (gk20a_is_channel_marked_as_tsg(ch)) {
+		if (tsg_gk20a_from_ch(ch) != NULL) {
+			/* Between tsg is not null and unbind_channel call,
+			 * ioctl cannot be called anymore because user doesn't
+			 * have an open channel fd anymore to use for the unbind
+			 * ioctl.
+			 */
 			err = gk20a_tsg_unbind_channel(ch);
 			if (err) {
 				nvgpu_err(g,
@@ -376,17 +382,17 @@ static void gk20a_free_channel(struct channel_gk20a *ch, bool force)
 
 	/* if engine reset was deferred, perform it now */
 	nvgpu_mutex_acquire(&f->deferred_reset_mutex);
-	if (g->fifo.deferred_reset_pending) {
-		nvgpu_log(g, gpu_dbg_intr | gpu_dbg_gpu_dbg, "engine reset was"
-			   " deferred, running now");
-		/* if lock is already taken, a reset is taking place
-		so no need to repeat */
-		if (nvgpu_mutex_tryacquire(&g->fifo.gr_reset_mutex)) {
-			gk20a_fifo_deferred_reset(g, ch);
-			nvgpu_mutex_release(&g->fifo.gr_reset_mutex);
-		}
-	}
+	deferred_reset_pending = g->fifo.deferred_reset_pending;
 	nvgpu_mutex_release(&f->deferred_reset_mutex);
+
+	if (deferred_reset_pending) {
+		nvgpu_log(g, gpu_dbg_intr | gpu_dbg_gpu_dbg, "engine reset was"
+				" deferred, running now");
+		nvgpu_mutex_acquire(&g->fifo.engines_reset_mutex);
+		gk20a_fifo_deferred_reset(g, ch);
+		nvgpu_mutex_release(&g->fifo.engines_reset_mutex);
+	}
+
 
 	if (!gk20a_channel_as_bound(ch)) {
 		goto unbind;
@@ -716,7 +722,8 @@ struct channel_gk20a *gk20a_open_new_channel(struct gk20a *g,
 	/* set gr host default timeout */
 	ch->timeout_ms_max = gk20a_get_gr_idle_timeout(g);
 	ch->timeout_debug_dump = true;
-	ch->ch_timedout = false;
+	/* ch is unserviceable until it is bound to tsg */
+	ch->ch_timedout = true;
 
 	/* init kernel watchdog timeout */
 	ch->timeout.enabled = true;
@@ -2264,7 +2271,7 @@ int gk20a_init_channel_support(struct gk20a *g, u32 chid)
 	if (err) {
 		goto fail_6;
 	}
-
+	nvgpu_init_list_node(&c->ch_entry);
 	nvgpu_list_add(&c->free_chs, &g->fifo.free_chs);
 
 	return 0;
@@ -2403,10 +2410,9 @@ void gk20a_channel_semaphore_wakeup(struct gk20a *g, bool post_events)
 				nvgpu_cond_broadcast_interruptible(
 						&c->semaphore_wq);
 				if (post_events) {
-					if (gk20a_is_channel_marked_as_tsg(c)) {
-						struct tsg_gk20a *tsg =
-							&g->fifo.tsg[c->tsgid];
-
+					struct tsg_gk20a *tsg =
+							tsg_gk20a_from_ch(c);
+					if (tsg != NULL) {
 						g->ops.fifo.post_event_id(tsg,
 						    NVGPU_EVENT_ID_BLOCKING_SYNC);
 					}

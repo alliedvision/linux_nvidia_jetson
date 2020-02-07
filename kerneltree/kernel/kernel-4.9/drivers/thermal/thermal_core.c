@@ -4,7 +4,7 @@
  *  Copyright (C) 2008 Intel Corp
  *  Copyright (C) 2008 Zhang Rui <rui.zhang@intel.com>
  *  Copyright (C) 2008 Sujith Thomas <sujith.thomas@intel.com>
- *  Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ *  Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  *  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -2387,6 +2387,10 @@ static inline void genetlink_exit(void) {}
 static int __init thermal_register_governors(void)
 {
 	int result;
+
+	result = thermal_gov_continuous_register();
+	if (result)
+		return result;
 
 	result = thermal_gov_step_wise_register();
 	if (result)

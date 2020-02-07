@@ -464,6 +464,9 @@ static int tegra_dma_pause(struct tegra_dma_channel *tdc)
 {
 	int timeout = TEGRA_GPCDMA_BURST_COMPLETION_TIMEOUT;
 
+	if (!tdc->tdma->chip_data->hw_support_pause)
+		return -ENOTSUPP;
+
 	tdc_write(tdc, TEGRA_GPCDMA_CHAN_CSRE, TEGRA_GPCDMA_CHAN_CSRE_PAUSE);
 
 	/* Wait until busy bit is de-asserted */
@@ -889,13 +892,10 @@ static int tegra_dma_terminate_all(struct dma_chan *dc)
 	if (!tdc->busy)
 		goto skip_dma_stop;
 
-	if (tdc->tdma->chip_data->hw_support_pause) {
-		err = tegra_dma_pause(tdc);
-		if (err) {
-			raw_spin_unlock_irqrestore(&tdc->lock, flags);
-			return err;
-		}
-	} else {
+	err = tegra_dma_pause(tdc);
+
+	/* if hw does not support pause or pausing failed */
+	if (err < 0) {
 		/* Before Reading DMA status to figure out number
 		 * of bytes transferred by DMA channel:
 		 * Change the client associated with the DMA channel

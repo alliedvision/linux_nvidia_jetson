@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/camera/tegra_camera_common.h
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -13,22 +13,14 @@
  * GNU General Public License for more details.
  *
  */
+
 #ifndef _TEGRA_CAMERA_PLATFORM_H_
 #define _TEGRA_CAMERA_PLATFORM_H_
 
-#include <linux/ioctl.h>
-
-#define TEGRA_CAMERA_IOCTL_SET_BW _IOW('o', 1, struct bw_info)
-#define TEGRA_CAMERA_IOCTL_GET_BW _IOR('o', 2, u64)
-#define TEGRA_CAMERA_IOCTL_GET_CURR_REQ_ISO_BW _IOR('o', 3, u64)
+#include <uapi/media/tegra_camera_platform.h>
 
 /* avoid overflows */
 #define DEFAULT_PG_CLK_RATE (UINT_MAX - 1)
-
-struct bw_info {
-	u8 is_iso;
-	u64 bw;
-};
 
 /**
  * enum tegra_camera_hw_type - camera hw engines

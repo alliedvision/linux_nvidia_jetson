@@ -1,7 +1,7 @@
-From bdae2ffc53665269eb51cbdd39d01ea4ac5b7ee2 Mon Sep 17 00:00:00 2001
+From 5bffdee37e3a15d8718c8577f760f886a60b2a8c Mon Sep 17 00:00:00 2001
 From: Tiejun Chen <tiejun.chen@windriver.com>
 Date: Wed, 18 Dec 2013 17:51:49 +0800
-Subject: [PATCH 189/353] rcutree/rcu_bh_qs: Disable irq while calling
+Subject: [PATCH 189/352] rcutree/rcu_bh_qs: Disable irq while calling
  rcu_preempt_qs()
 
 Any callers to the function rcu_preempt_qs() must disable irqs in

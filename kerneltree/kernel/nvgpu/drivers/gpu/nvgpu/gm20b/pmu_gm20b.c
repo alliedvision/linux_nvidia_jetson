@@ -106,7 +106,7 @@ int gm20b_pmu_setup_elpg(struct gk20a *g)
 
 	nvgpu_log_fn(g, " ");
 
-	if (g->elpg_enabled) {
+	if (g->can_elpg && g->elpg_enabled) {
 		reg_writes = ((sizeof(_pginitseq_gm20b) /
 				sizeof((_pginitseq_gm20b)[0])));
 		/* Initialize registers with production values*/

@@ -1,7 +1,7 @@
 /*
  * eqos_ape_ioctl.c -- EQOS APE Clock Synchronization driver IO control
  *
- * Copyright (c) 2015-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,8 +23,11 @@
 #include <linux/pm_runtime.h>
 #include <linux/tegra_pm_domains.h>
 #include <linux/clk/tegra.h>
-
-#include "eqos_ape_ioctl.h"
+#include <linux/uaccess.h>
+#include <linux/cdev.h>
+#include <linux/of.h>
+#include <uapi/misc/eqos_ape_ioctl.h>
+#include "eqos_ape_global.h"
 
 #define ONE_MILLION		(1000000)
 #define ONE_BILLION		(1000000000)

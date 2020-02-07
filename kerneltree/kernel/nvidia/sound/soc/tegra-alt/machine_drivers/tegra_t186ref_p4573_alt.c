@@ -124,7 +124,7 @@ static int tegra186_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	clk_out_rate = machine->audio_clock.clk_out_rate;
+	clk_out_rate = machine->audio_clock.set_clk_out_rate;
 
 	dev_dbg(card->dev,
 		"pll_a_out0 = %d Hz, aud_mclk = %d Hz, codec rate = %d Hz\n",

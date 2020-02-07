@@ -442,6 +442,32 @@ static int set_delay(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(freq_compute_fops, get_delay, set_delay,
 	"%llu\n");
 
+static int show_cpu_emc_map(struct seq_file *s, void *data)
+{
+	int i;
+	seq_printf(s, "(cpufreq, emcfreq)\n");
+
+	for (i = 0; i < cpu_emc_map_num; i++) {
+		seq_printf(s, "%u %d\n", cpu_emc_map_ptr[i].cpufreq,
+					cpu_emc_map_ptr[i].emcfreq);
+	}
+
+	return 0;
+}
+
+static int cpu_emc_map_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, show_cpu_emc_map,
+			inode->i_private);
+}
+
+static const struct file_operations cpu_emc_map_fops = {
+	.open = cpu_emc_map_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int freq_get(void *data, u64 *val)
 {
 	uint64_t cpu = (uint64_t)data;
@@ -685,6 +711,12 @@ static int __init tegra_cpufreq_debug_init(void)
 				 tegra_cpufreq_debugfs_root,
 					NULL,
 					&freq_compute_fops))
+		goto err_out;
+
+	if (!debugfs_create_file("cpu_emc_map", RO_MODE,
+				tegra_cpufreq_debugfs_root,
+					NULL,
+					&cpu_emc_map_fops))
 		goto err_out;
 
 	if (cc3_debug_init())

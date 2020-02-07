@@ -1,7 +1,7 @@
 /*
  * saf775x_ioctl.c -- SAF775X Soc Audio driver IO control
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,11 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <linux/cdev.h>
+#include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/uaccess.h>
+#include <uapi/misc/compat_saf775x_ioctl.h>
 #include "saf775x_ioctl.h"
-#include "compat_saf775x_ioctl.h"
 
 #define MAX_LEN 24
 #define CHECK_MAX_AND_ADJUST(__val_len__)\

@@ -84,7 +84,7 @@ void ras_write_error_statustrigger(u64 status);
 void ras_write_pfg_control(u64 pfg_ctl);
 void ras_write_pfg_cdn(u64 pfg_cdn);
 void ras_write_errselr(u64 errx);
-void print_error_record(struct error_record *record, u64 status);
+void print_error_record(struct error_record *record, u64 status, int errselr);
 int register_fhi_callback(struct ras_fhi_callback *callback, void *cookie);
 void unregister_fhi_callback(struct ras_fhi_callback *callback);
 

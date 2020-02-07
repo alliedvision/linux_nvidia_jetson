@@ -1,7 +1,7 @@
 /*
  * arch/arm64/boot/dts/tegra210-jetson-cv-base-p2597-2180-a00.dts
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -173,7 +173,6 @@
 		};
 
 		dmic@702d4200 {
-			nvidia,is-pinctrl = <1>;
 			pinctrl-names = "dap_active", "dap_inactive";
 			pinctrl-0 = <&dmic3_dap_active_state>;
 			pinctrl-1 = <>;
@@ -204,7 +203,7 @@
 		};
 	};
 
-	pcie-controller@1003000 {
+	pcie@1003000 {
 		nvidia,wake-gpio = <&gpio TEGRA_GPIO(A, 2) 0>;
 		avdd-pll-uerefe-supply = <&max77620_ldo7>;
 		hvddio-pex-supply = <&max77620_sd3>;
@@ -274,6 +273,7 @@
 			nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
 			nvidia,dc-or-node = "/host1x/dsi";
 			nvidia,dc-connector = <&dsi>;
+			win-mask = <0x7>; /* Assign only wins A/B/C */
 		};
 
 		/* tegradc.1 */
@@ -286,6 +286,7 @@
 			nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
 			nvidia,dc-or-node = "/host1x/sor1";
 			nvidia,dc-connector = <&sor1>;
+			win-mask = <0x7>; /* Assign only wins A/B/C */
 		};
 
 		dsi {
@@ -372,7 +373,7 @@
 		assigned-clock-rates = <368640000>, <36864000>,
 			<36864000>, <12288000>;
 
-		nvidia,num-codec-link = <6>;
+		nvidia,num-codec-link = <8>;
 
 		nvidia,audio-routing =
 			"x Headphone",		"x OUT",
@@ -385,7 +386,9 @@
 			"s IN",			"s Mic",
 			"w Headphone",		"w OUT",
 			"w IN",			"w Mic",
-			"z IN",			"z Mic";
+			"z IN",			"z Mic",
+			"m IN",			"m Mic",
+			"n IN",			"n Mic";
 
 		nvidia,xbar = <&tegra_axbar>;
 
@@ -398,10 +401,6 @@
 			cpu-dai-name = "I2S1";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
@@ -416,10 +415,7 @@
 			cpu-dai-name = "I2S2";
 			codec-dai-name = "dit-hifi";
 			format = "dsp_a";
-			bitclock-slave;
-			frame-slave;
 			bitclock-inversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <4>;
 			srate = <8000>;
@@ -447,10 +443,6 @@
 			cpu-dai-name = "I2S3";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
@@ -465,10 +457,6 @@
 			cpu-dai-name = "I2S4";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
@@ -483,15 +471,35 @@
 			cpu-dai-name = "I2S5";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
 			num-channel = <2>;
 			name-prefix = "w";
+		};
+		nvidia,dai-link-7 {
+			link-name = "spdif-dit-6";
+			cpu-dai = <&tegra_dmic1>;
+			codec-dai = <&spdif_dit6>;
+			cpu-dai-name = "DMIC1";
+			codec-dai-name = "dit-hifi";
+			format = "i2s";
+			bit-format = "s16_le";
+			srate = <48000>;
+			num-channel = <2>;
+			name-prefix = "m";
+		};
+		nvidia,dai-link-8 {
+			link-name = "spdif-dit-7";
+			cpu-dai = <&tegra_dmic2>;
+			codec-dai = <&spdif_dit7>;
+			cpu-dai-name = "DMIC2";
+			codec-dai-name = "dit-hifi";
+			format = "i2s";
+			bit-format = "s16_le";
+			srate = <48000>;
+			num-channel = <2>;
+			name-prefix = "n";
 		};
 	};
 

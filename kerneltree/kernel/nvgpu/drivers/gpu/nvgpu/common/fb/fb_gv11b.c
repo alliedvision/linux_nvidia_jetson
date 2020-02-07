@@ -839,6 +839,7 @@ static void gv11b_fb_handle_mmu_fault_common(struct gk20a *g,
 	int err = 0;
 	u32 id = FIFO_INVAL_TSG_ID;
 	unsigned int rc_type = RC_TYPE_NO_RC;
+	struct tsg_gk20a *tsg = NULL;
 
 	if (!mmfault->valid) {
 		return;
@@ -912,14 +913,17 @@ static void gv11b_fb_handle_mmu_fault_common(struct gk20a *g,
 				mmfault->refch->mmu_nack_handled = true;
 			}
 
-			rc_type = RC_TYPE_MMU_FAULT;
-			if (gk20a_is_channel_marked_as_tsg(mmfault->refch)) {
+			tsg = tsg_gk20a_from_ch(mmfault->refch);
+			if (tsg != NULL) {
 				id = mmfault->refch->tsgid;
-				if (id != FIFO_INVAL_TSG_ID) {
-					id_type = ID_TYPE_TSG;
-				}
+				id_type = ID_TYPE_TSG;
+				rc_type = RC_TYPE_MMU_FAULT;
 			} else {
-				nvgpu_err(g, "bare channels not supported");
+				nvgpu_err(g, "chid: %d is referenceable but "
+						"not bound to tsg",
+						mmfault->refch->chid);
+				id_type = ID_TYPE_CHANNEL;
+				rc_type = RC_TYPE_NO_RC;
 			}
 		}
 

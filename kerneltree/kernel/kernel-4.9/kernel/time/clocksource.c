@@ -980,6 +980,25 @@ sysfs_show_available_clocksources(struct device *dev,
 	return count;
 }
 
+/**
+ * sysfs_show_offset_ns - sysfs interface for reading start count
+ * @dev:	unused
+ * @attr:	unused
+ * @buf:	char buffer to be filled with start count
+ *
+ * Provides the start count of clock source
+ */
+static ssize_t
+sysfs_show_offset_ns(struct device *dev,
+		       struct device_attribute *attr,
+		       char *buf)
+{
+	ssize_t count = 0;
+
+	count = sprintf(buf, "%llu\n", curr_clocksource->offset_ns);
+	return count;
+}
+
 /*
  * Sysfs setup bits:
  */
@@ -990,6 +1009,9 @@ static DEVICE_ATTR(unbind_clocksource, 0200, NULL, sysfs_unbind_clocksource);
 
 static DEVICE_ATTR(available_clocksource, 0444,
 		   sysfs_show_available_clocksources, NULL);
+
+static DEVICE_ATTR(offset_ns, 0444,
+		   sysfs_show_offset_ns, NULL);
 
 static struct bus_type clocksource_subsys = {
 	.name = "clocksource",
@@ -1018,6 +1040,10 @@ static int __init init_clocksource_sysfs(void)
 		error = device_create_file(
 				&device_clocksource,
 				&dev_attr_available_clocksource);
+	if (!error)
+		error = device_create_file(
+				&device_clocksource,
+				&dev_attr_offset_ns);
 	return error;
 }
 

@@ -1,7 +1,7 @@
 /*
  * Tegra Video Input 2 device common APIs
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -1125,6 +1125,11 @@ static void vi2_power_off(struct tegra_channel *chan)
 	nvhost_module_remove_client(vi->ndev, &chan->video);
 }
 
+static void vi2_stride_align(unsigned int *bpl)
+{
+	*bpl = ((*bpl + (TEGRA_SURFACE_ALIGNMENT) - 1) &
+			~((TEGRA_SURFACE_ALIGNMENT) - 1));
+}
 struct tegra_vi_fops vi2_fops = {
 	.vi_power_on = vi2_power_on,
 	.vi_power_off = vi2_power_off,
@@ -1134,4 +1139,5 @@ struct tegra_vi_fops vi2_fops = {
 	.vi_add_ctrls = vi2_add_ctrls,
 	.vi_init_video_formats = vi2_init_video_formats,
 	.vi_mfi_work = vi2_mfi_work,
+	.vi_stride_align = vi2_stride_align,
 };

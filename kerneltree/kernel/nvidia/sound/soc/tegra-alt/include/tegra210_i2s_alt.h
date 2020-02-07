@@ -1,7 +1,7 @@
 /*
  * tegra210_i2s_alt.h - Definitions for Tegra210 I2S driver
  *
- * Copyright (c) 2014-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -191,17 +191,6 @@
 
 #define TEGRA210_I2S_RX_FIFO_DEPTH			64
 
-struct tegra210_i2s_soc_data {
-	void (*set_audio_cif)(struct regmap *map,
-			unsigned int reg,
-			struct tegra210_xbar_cif_conf *conf);
-	void (*set_slot_ctrl)(struct regmap *map,
-				unsigned int total_slots,
-				unsigned int tx_slot_mask,
-				unsigned int rx_slot_mask);
-	bool is_soc_t210;
-};
-
 enum tegra210_i2s_path {
 	I2S_RX_PATH,
 	I2S_TX_PATH,
@@ -209,7 +198,6 @@ enum tegra210_i2s_path {
 };
 
 struct tegra210_i2s {
-	const struct tegra210_i2s_soc_data *soc_data;
 	struct clk *clk_i2s;
 	struct clk *clk_i2s_sync;
 	struct clk *clk_audio_sync;
@@ -220,7 +208,6 @@ struct tegra210_i2s {
 	struct pinctrl_state *pin_idle_state;
 	const char *prod_name;
 	struct regulator_bulk_data *supplies;
-	struct notifier_block slgc_notifier;
 	int num_supplies;
 	int bclk_ratio;
 	int format_in;
@@ -232,7 +219,7 @@ struct tegra210_i2s {
 	unsigned int fsync_width;
 	unsigned int tx_mask;
 	unsigned int rx_mask;
-	unsigned int loopback;
+	bool loopback;
 	unsigned int format;
 	bool enable_cya;
 	unsigned int rx_fifo_th; /* should be programmed interms of frames */

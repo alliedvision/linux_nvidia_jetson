@@ -2775,6 +2775,10 @@ static ssize_t downgrade_usb3_store(struct device *dev,
 	tegra->downgrade_enabled = downgrade_enabled;
 	mutex_unlock(&tegra->lock);
 
+	if (!tegra->fw_loaded) {
+		return n;
+	}
+
 	/* Restore power */
 	if ((old_downgrade_enabled == 0xffffffff) &&
 	    (downgrade_enabled == 1)) {
@@ -2964,6 +2968,7 @@ static void tegra_xusb_probe_finish(const struct firmware *fw, void *context)
 			dev_err(dev, "failed to request padctl IRQ: %d\n", ret);
 			goto remove_mbox_irq;
 		}
+		downgrade_usb3(dev, tegra->downgrade_enabled);
 		tegra->fw_loaded = true;
 	} else {
 		/* In Virtualization, the PAD interrupt is owned by xhci_server
@@ -3003,13 +3008,6 @@ static void tegra_xusb_probe_finish(const struct firmware *fw, void *context)
 		TFW_NORMAL, fw_version_show, NULL)))
 		dev_warn(dev, "cannot register firmware reader");
 
-	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_downgrade_usb3.attr);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to create tegra sysfs file downgrade_usb3\n");
-		goto err_create_sysfs;
-	}
-
 	/* Enable EU3S bit of USBCMD */
 	val = readl(&xhci->op_regs->command);
 	val |= CMD_PM_INDEX;
@@ -3022,7 +3020,6 @@ static void tegra_xusb_probe_finish(const struct firmware *fw, void *context)
 	return;
 
 	/* Free up as much as we can and wait to be unbound. */
-err_create_sysfs:
 remove_padctl_irq:
 	if (!tegra->soc->is_xhci_vf) {
 		devm_free_irq(dev, tegra->padctl_irq, tegra);
@@ -3042,6 +3039,7 @@ remove_usb2:
 put_usb2:
 	usb_put_hcd(tegra->hcd);
 	tegra->hcd = NULL;
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_downgrade_usb3.attr);
 }
 
 static void tegra_xhci_init_otg_cap(struct tegra_xusb *tegra, int vbus_id,
@@ -3628,6 +3626,13 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 			goto powergate_partitions;
 	}
 
+	err = sysfs_create_file(&pdev->dev.kobj, &dev_attr_downgrade_usb3.attr);
+	if (err) {
+		dev_err(&pdev->dev,
+			"failed to create tegra sysfs file downgrade_usb3\n");
+		goto unregister_extcon;
+	}
+
 	if (tegra->soc->is_xhci_vf) {
 		tegra_xusb_probe_finish(NULL, tegra);
 	} else {
@@ -3641,7 +3646,7 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 		if (err < 0) {
 			dev_err(&pdev->dev, "can't request firmware(%d)\n",
 				err);
-			goto unregister_extcon;
+			goto err_create_sysfs;
 		}
 	}
 
@@ -3655,7 +3660,7 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 	err = sysfs_create_group(&pdev->dev.kobj, &tegra_xhci_attr_group);
 	if (err) {
 		dev_err(&pdev->dev, "cannot create sysfs group: %d\n", err);
-		goto unregister_extcon;
+		goto err_create_sysfs;
 	}
 
 	/* TODO: look up dtb */
@@ -3663,6 +3668,8 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 
 	return 0;
 
+err_create_sysfs:
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_downgrade_usb3.attr);
 unregister_extcon:
 	if (tegra_platform_is_silicon() && tegra->otg_port_num) {
 		cancel_work_sync(&tegra->id_extcons_work);
@@ -3718,7 +3725,8 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 	if (tegra->soc->handle_oc)
 		cancel_work_sync(&tegra->oc_work);
 
-	cancel_work_sync(&tegra->ivc_work);
+	if (tegra->soc->is_xhci_vf)
+		cancel_work_sync(&tegra->ivc_work);
 
 	if (tegra->cpu_boost_enabled)
 		tegra_xusb_boost_cpu_deinit(tegra);
@@ -3975,7 +3983,7 @@ static void tegra_xhci_disable_phy_wake(struct tegra_xusb *tegra)
 		for (j = 0; j < tegra->soc->num_typed_phys[i]; j++) {
 			phy = tegra->typed_phys[i][j];
 
-			if (!phy || !is_host_mode_phy(tegra, i, j))
+			if (!phy)
 				continue;
 
 			if (tegra_xusb_padctl_remote_wake_detected(
@@ -4000,7 +4008,7 @@ static void tegra_xhci_disable_phy_sleepwalk(struct tegra_xusb *tegra)
 		for (j = 0; j < tegra->soc->num_typed_phys[i]; j++) {
 			phy = tegra->typed_phys[i][j];
 
-			if (!phy || !is_host_mode_phy(tegra, i, j))
+			if (!phy)
 				continue;
 
 			tegra_xusb_padctl_disable_phy_sleepwalk(padctl, phy);
@@ -4352,7 +4360,9 @@ static int tegra_xusb_suspend(struct device *dev)
 	if (tegra->soc->handle_oc)
 		flush_work(&tegra->oc_work);
 
-	flush_work(&tegra->ivc_work);
+	if (tegra->soc->is_xhci_vf)
+		flush_work(&tegra->ivc_work);
+
 	mutex_lock(&tegra->lock);
 
 	if (pm_runtime_suspended(dev)) {
@@ -5178,6 +5188,8 @@ static int tegra_xhci_hub_control(struct usb_hcd *hcd, u16 type_req,
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	struct xhci_bus_state *bus_state = &xhci->bus_state[hcd_index(hcd)];
 	int port = (index & 0xff) - 1;
+	u32 status;
+	unsigned long timeout;
 	int ret;
 
 	if (bus_state->resuming_ports && hcd->speed == HCD_USB2) {
@@ -5210,6 +5222,21 @@ static int tegra_xhci_hub_control(struct usb_hcd *hcd, u16 type_req,
 	}
 
 	ret = xhci_hub_control(hcd, type_req, value, index, buf, length);
+
+	if ((value == USB_PORT_FEAT_POWER) && !ret) {
+		timeout = jiffies + HZ;
+		do {
+			xhci_hub_control(hcd, GetPortStatus, 0, index,
+				(char *) &status, sizeof(status));
+			if ((type_req == ClearPortFeature) &&
+				!(status & USB_PORT_STAT_POWER))
+				break;
+			else if ((type_req == SetPortFeature) &&
+				(status & USB_PORT_STAT_POWER))
+				break;
+			msleep(200);
+		} while (time_is_after_jiffies(timeout));
+	}
 
 	if ((hcd->speed == HCD_USB2) && (ret == 0)) {
 		if ((type_req == SetPortFeature) &&

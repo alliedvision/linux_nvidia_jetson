@@ -1,7 +1,7 @@
-From f61e8dfff54785f9925f7762e61d2710584aa478 Mon Sep 17 00:00:00 2001
+From ce7b5fc20ef77ca1015478f6a38f672a15586886 Mon Sep 17 00:00:00 2001
 From: Grygorii Strashko <Grygorii.Strashko@linaro.org>
 Date: Tue, 21 Jul 2015 19:43:56 +0300
-Subject: [PATCH 169/353] pid.h: include atomic.h
+Subject: [PATCH 169/352] pid.h: include atomic.h
 
 This patch fixes build error:
   CC      kernel/pid_namespace.o

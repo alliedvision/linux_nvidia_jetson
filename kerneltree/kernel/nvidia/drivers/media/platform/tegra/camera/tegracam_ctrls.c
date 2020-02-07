@@ -440,6 +440,9 @@ int tegracam_init_ctrl_ranges_by_mode(
 	struct tegracam_device *tc_dev = handler->tc_dev;
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct sensor_control_properties *ctrlprops = NULL;
+	s64 min_short_exp_time = 0;
+	s64 max_short_exp_time = 0;
+	s64 default_short_exp_time = 0;
 	int i;
 
 	if (modeidx >= s_data->sensor_props.num_modes)
@@ -468,12 +471,38 @@ int tegracam_init_ctrl_ranges_by_mode(
 				ctrlprops->default_framerate);
 			break;
 		case TEGRA_CAMERA_CID_EXPOSURE:
-		case TEGRA_CAMERA_CID_EXPOSURE_SHORT:
 			err = v4l2_ctrl_modify_range(ctrl,
 				ctrlprops->min_exp_time.val,
 				ctrlprops->max_exp_time.val,
 				ctrlprops->step_exp_time.val,
 				ctrlprops->default_exp_time.val);
+			break;
+		case TEGRA_CAMERA_CID_EXPOSURE_SHORT:
+			/*
+			 * min_hdr_ratio should be equal to max_hdr_ratio.
+			 * This will ensure consistent short exposure
+			 * limit calculations.
+			 */
+			min_short_exp_time =
+				ctrlprops->min_exp_time.val /
+				ctrlprops->min_hdr_ratio;
+			max_short_exp_time =
+				ctrlprops->max_exp_time.val /
+				ctrlprops->min_hdr_ratio;
+			default_short_exp_time =
+				ctrlprops->default_exp_time.val /
+				ctrlprops->min_hdr_ratio;
+			err = v4l2_ctrl_modify_range(ctrl,
+				min_short_exp_time,
+				max_short_exp_time,
+				ctrlprops->step_exp_time.val,
+				default_short_exp_time);
+			dev_dbg(s_data->dev,
+				"%s:short_exp_limits[%lld,%lld], default_short_exp_time=%lld\n",
+				__func__,
+				min_short_exp_time,
+				max_short_exp_time,
+				default_short_exp_time);
 			break;
 		default:
 			/* Not required to modify these control ranges */

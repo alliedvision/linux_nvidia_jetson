@@ -1,7 +1,7 @@
 /*
  * drivers/rtc/rtc-tegra.c
  *
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -494,6 +494,7 @@ err_out:
 	return -ENOMEM;
 }
 
+#ifndef MODULE
 /*
  * tegra_read_persistent_clock -  Return time from a persistent clock.
  *
@@ -510,7 +511,7 @@ static void tegra_rtc_read_persistent_clock(struct timespec *ts)
 			readl(tegra_rtc_dev->rtc_base + RTC_MILLISECONDS);
 	ts->tv_sec = readl(tegra_rtc_dev->rtc_base + RTC_SHADOW_SECONDS);
 }
-
+#endif
 static struct tegra_rtc_chip_data t18x_rtc_cdata = {
 	.has_clock = false,
 	.follow_tsc = false,
@@ -655,7 +656,9 @@ static int __init tegra_rtc_probe(struct platform_device *pdev)
 		pr_err("%s: Can't init debugfs", __func__);
 		BUG();
 	}
+#ifndef MODULE
 	register_persistent_clock(NULL, tegra_rtc_read_persistent_clock);
+#endif
 
 	dev_notice(&pdev->dev, "Tegra internal Real Time Clock\n");
 

@@ -1,7 +1,7 @@
-From 76e7cc0d402a63487c9efb878bf18e46674368ab Mon Sep 17 00:00:00 2001
+From 46d4a81c47a61f626b2bc543ca1fa7c48ae9c2cf Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 10 Apr 2017 18:03:36 +0200
-Subject: [PATCH 026/353] futex: Avoid freeing an active timer
+Subject: [PATCH 026/352] futex: Avoid freeing an active timer
 
 Upstream commit 97181f9bd57405b879403763284537e27d46963d
 
@@ -38,10 +38,10 @@ Signed-off-by: Ingo Molnar <mingo@kernel.org>
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 04772e6..1a18fab 100644
+index c4ff5027..d523b98 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -2777,8 +2777,10 @@ static int futex_lock_pi(u32 __user *uaddr, unsigned int flags,
+@@ -2785,8 +2785,10 @@ static int futex_lock_pi(u32 __user *uaddr, unsigned int flags,
  out_put_key:
  	put_futex_key(&q.key);
  out:

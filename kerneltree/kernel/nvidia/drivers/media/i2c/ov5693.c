@@ -84,9 +84,6 @@ static struct regmap_config ov5693_regmap_config = {
 	.val_bits = 8,
 };
 
-static void ov5693_update_ctrl_range(struct camera_common_data *s_data,
-					s32 frame_length);
-
 static inline void ov5693_get_frame_length_regs(ov5693_reg *regs,
 				u32 frame_length)
 {
@@ -473,42 +470,6 @@ fail:
 	return err;
 }
 
-static void ov5693_update_ctrl_range(struct camera_common_data *s_data,
-					s32 frame_length)
-{
-	struct device *dev = s_data->dev;
-	struct v4l2_ctrl *ctrl = NULL;
-	int ctrl_ids[2] = {TEGRA_CAMERA_CID_EXPOSURE,
-			TEGRA_CAMERA_CID_EXPOSURE_SHORT};
-	s32 max, min, def;
-	int i, j;
-
-	for (i = 0; i < ARRAY_SIZE(ctrl_ids); i++) {
-		for (j = 0; j < s_data->numctrls; j++) {
-			if (s_data->ctrls[j]->id == ctrl_ids[i]) {
-				ctrl = s_data->ctrls[j];
-				break;
-			}
-		}
-
-		if (j == s_data->numctrls) {
-			dev_err(dev, "could not find ctrl %x\n", ctrl_ids[i]);
-			continue;
-		}
-
-		max = frame_length - OV5693_MAX_COARSE_DIFF;
-		/* clamp the value in case above is negative */
-		max = clamp_val(max, OV5693_MIN_EXPOSURE_COARSE,
-			OV5693_MAX_EXPOSURE_COARSE);
-		min = OV5693_MIN_EXPOSURE_COARSE;
-		def = clamp_val(OV5693_DEFAULT_EXPOSURE_COARSE, min, max);
-		if (__v4l2_ctrl_modify_range(ctrl, min, max, 1, def))
-			dev_err(dev, "ctrl %x: range update failed\n",
-				ctrl_ids[i]);
-	}
-
-}
-
 static int ov5693_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
@@ -540,7 +501,6 @@ static int ov5693_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
 
 	priv->frame_length = frame_length;
 
-	ov5693_update_ctrl_range(s_data, val);
 	return 0;
 
 fail:
@@ -553,6 +513,7 @@ static int ov5693_set_exposure(struct tegracam_device *tc_dev, s64 val)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct device *dev = tc_dev->dev;
 	struct ov5693 *priv = tc_dev->priv;
+	const s32 max_coarse_time = priv->frame_length - OV5693_MAX_COARSE_DIFF;
 	const struct sensor_mode_properties *mode =
 		&s_data->sensor_props.sensor_modes[s_data->mode_prop_idx];
 	ov5693_reg reg_list[3];
@@ -566,6 +527,10 @@ static int ov5693_set_exposure(struct tegracam_device *tc_dev, s64 val)
 	coarse_time = (u32)(((mode->signal_properties.pixel_clock.val*val)
 			/mode->image_properties.line_length)/
 			mode->control_properties.exposure_factor);
+	if (coarse_time < OV5693_MIN_EXPOSURE_COARSE)
+		coarse_time = OV5693_MIN_EXPOSURE_COARSE;
+	else if (coarse_time > max_coarse_time)
+		coarse_time = max_coarse_time;
 	ov5693_get_coarse_time_regs(reg_list, coarse_time);
 	dev_dbg(dev, "%s: val: %d\n", __func__, coarse_time);
 
@@ -964,8 +929,6 @@ static int ov5693_stop_streaming(struct tegracam_device *tc_dev)
 	struct device *dev = s_data->dev;
 	u32 frame_time;
 	int err;
-
-	ov5693_update_ctrl_range(s_data, OV5693_MAX_FRAME_LENGTH);
 
 	mutex_lock(&priv->streaming_lock);
 	err = ov5693_write_table(priv,

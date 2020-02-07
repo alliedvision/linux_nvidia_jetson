@@ -1,20 +1,22 @@
-From 1c5d2ae2475636d3e1f8205fff5e63037e165bf1 Mon Sep 17 00:00:00 2001
+From dd723f7d7b00a82f9a4e46da7fa412414103fe29 Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 22 Jul 2011 17:58:40 +0200
-Subject: [PATCH 068/353] printk: Add a printk kill switch
+Subject: [PATCH 068/352] printk: Add a printk kill switch
 
 Add a prinkt-kill-switch. This is used from (NMI) watchdog to ensure that
 it does not dead-lock with the early printk code.
 
+Change-Id: Ia418a0ccca4f61786b03e045a7867f235d512e22
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/printk.h |  2 ++
- kernel/printk/printk.c | 79 +++++++++++++++++++++++++++++++++++++-------------
- kernel/watchdog_hld.c  |  9 ++++++
- 3 files changed, 70 insertions(+), 20 deletions(-)
+ include/linux/printk.h      |  2 ++
+ kernel/printk/printk.c      | 20 ---------------
+ kernel/printk/printk_safe.c | 60 +++++++++++++++++++++++++++++++++++++++++++++
+ kernel/watchdog_hld.c       |  9 +++++++
+ 4 files changed, 71 insertions(+), 20 deletions(-)
 
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 6519474..334e278 100644
+index 45993a72..c666419 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -127,9 +127,11 @@ struct va_format {
@@ -30,12 +32,51 @@ index 6519474..334e278 100644
  
  #ifdef CONFIG_PRINTK_NMI
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 4691546..e4a74bd 100644
+index 4063140..1477488 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -356,6 +356,58 @@ __packed __aligned(4)
-  */
- DEFINE_RAW_SPINLOCK(logbuf_lock);
+@@ -2032,26 +2032,6 @@ static bool suppress_message_printing(int level) { return false; }
+ 
+ #endif /* CONFIG_PRINTK */
+ 
+-#ifdef CONFIG_EARLY_PRINTK
+-struct console *early_console;
+-
+-asmlinkage __visible void early_printk(const char *fmt, ...)
+-{
+-	va_list ap;
+-	char buf[512];
+-	int n;
+-
+-	if (!early_console)
+-		return;
+-
+-	va_start(ap, fmt);
+-	n = vscnprintf(buf, sizeof(buf), fmt, ap);
+-	va_end(ap);
+-
+-	early_console->write(early_console, buf, n);
+-}
+-#endif
+-
+ static int __add_preferred_console(char *name, int idx, char *options,
+ 				   char *brl_options)
+ {
+diff --git a/kernel/printk/printk_safe.c b/kernel/printk/printk_safe.c
+index 033e50a..3c50299 100644
+--- a/kernel/printk/printk_safe.c
++++ b/kernel/printk/printk_safe.c
+@@ -22,6 +22,7 @@
+ #include <linux/cpumask.h>
+ #include <linux/irq_work.h>
+ #include <linux/printk.h>
++#include <linux/console.h>
+ 
+ #include "internal.h"
+ 
+@@ -349,8 +350,67 @@ void __printk_safe_exit(void)
+ 	this_cpu_dec(printk_context);
+ }
  
 +#ifdef CONFIG_EARLY_PRINTK
 +struct console *early_console;
@@ -89,13 +130,8 @@ index 4691546..e4a74bd 100644
 +}
 +#endif
 +
- #ifdef CONFIG_PRINTK
- DECLARE_WAIT_QUEUE_HEAD(log_wait);
- /* the next printk record to read by syslog(READ) or /proc/kmsg */
-@@ -1819,6 +1871,13 @@ asmlinkage int vprintk_emit(int facility, int level,
- 	/* cpu currently holding logbuf_lock in this function */
- 	static unsigned int logbuf_cpu = UINT_MAX;
- 
+ __printf(1, 0) int vprintk_func(const char *fmt, va_list args)
+ {
 +	/*
 +	 * Fall back to early_printk if a debugging subsystem has
 +	 * killed printk output
@@ -103,36 +139,9 @@ index 4691546..e4a74bd 100644
 +	if (unlikely(forced_early_printk(fmt, args)))
 +		return 1;
 +
- 	if (level == LOGLEVEL_SCHED) {
- 		level = LOGLEVEL_DEFAULT;
- 		in_sched = true;
-@@ -2059,26 +2118,6 @@ DEFINE_PER_CPU(printk_func_t, printk_func);
+ 	if (this_cpu_read(printk_context) & PRINTK_NMI_CONTEXT_MASK)
+ 		return vprintk_nmi(fmt, args);
  
- #endif /* CONFIG_PRINTK */
- 
--#ifdef CONFIG_EARLY_PRINTK
--struct console *early_console;
--
--asmlinkage __visible void early_printk(const char *fmt, ...)
--{
--	va_list ap;
--	char buf[512];
--	int n;
--
--	if (!early_console)
--		return;
--
--	va_start(ap, fmt);
--	n = vscnprintf(buf, sizeof(buf), fmt, ap);
--	va_end(ap);
--
--	early_console->write(early_console, buf, n);
--}
--#endif
--
- static int __add_preferred_console(char *name, int idx, char *options,
- 				   char *brl_options)
- {
 diff --git a/kernel/watchdog_hld.c b/kernel/watchdog_hld.c
 index e5709b8..b3bdf40 100644
 --- a/kernel/watchdog_hld.c

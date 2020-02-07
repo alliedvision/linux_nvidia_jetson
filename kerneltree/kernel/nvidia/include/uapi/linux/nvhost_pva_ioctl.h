@@ -1,7 +1,7 @@
 /*
  * Tegra PVA Driver ioctls
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -232,10 +232,10 @@ struct pva_ioctl_submit_task {
 	__u64 input_surfaces;
 	struct pva_task_parameter input_scalars;
 	__u64 primary_payload;
-	u8 reserved0[8];
+	__u8 reserved0[8];
 	__u64 output_surfaces;
 	struct pva_task_parameter output_scalars;
-	u8 reserved1[16];
+	__u8 reserved1[16];
 	__u64 input_task_status;
 	__u64 output_task_status;
 };

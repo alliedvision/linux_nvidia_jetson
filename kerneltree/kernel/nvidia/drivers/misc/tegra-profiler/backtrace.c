@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/backtrace.c
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,10 +29,10 @@
 #include "hrt.h"
 #include "tegra.h"
 
-static inline int
+static inline bool
 is_table_unwinding(struct quadd_callchain *cc)
 {
-	return cc->um.ut || cc->um.dwarf;
+	return cc->um.ut != 0 || cc->um.dwarf != 0;
 }
 
 unsigned long
@@ -112,12 +112,23 @@ quadd_callchain_store(struct quadd_callchain *cc,
 	return 1;
 }
 
-static int
+static bool
 is_ex_entry_exist(struct quadd_event_context *event_ctx,
-		  unsigned long addr)
+		  struct quadd_callchain *cc, unsigned long addr)
 {
-	return quadd_is_ex_entry_exist_dwarf(event_ctx, addr) ||
-	       quadd_is_ex_entry_exist_arm32_ehabi(event_ctx, addr);
+	struct quadd_unw_methods *um = &cc->um;
+
+	if (um->dwarf) {
+		if (quadd_is_ex_entry_exist_dwarf(event_ctx, addr))
+			return true;
+	}
+
+	if (um->ut) {
+		if (quadd_is_ex_entry_exist_arm32_ehabi(event_ctx, addr))
+			return true;
+	}
+
+	return false;
 }
 
 static unsigned long __user *
@@ -184,7 +195,7 @@ user_backtrace(struct quadd_event_context *event_ctx,
 		return NULL;
 
 	if (is_table_unwinding(cc) &&
-	    is_ex_entry_exist(event_ctx, value_lr))
+	    is_ex_entry_exist(event_ctx, cc, value_lr))
 		return NULL;
 
 	return fp_prev;
@@ -373,7 +384,7 @@ user_backtrace_compat(struct quadd_event_context *event_ctx,
 		return NULL;
 
 	if (is_table_unwinding(cc) &&
-	    is_ex_entry_exist(event_ctx, value_lr))
+	    is_ex_entry_exist(event_ctx, cc, value_lr))
 		return NULL;
 
 	return fp_prev;

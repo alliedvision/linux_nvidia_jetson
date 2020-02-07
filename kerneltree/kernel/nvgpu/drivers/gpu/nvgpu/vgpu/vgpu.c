@@ -240,7 +240,9 @@ void vgpu_remove_support_common(struct gk20a *g)
 	msg.event = TEGRA_VGPU_EVENT_ABORT;
 	err = vgpu_ivc_send(vgpu_ivc_get_peer_self(), TEGRA_VGPU_QUEUE_INTR,
 				&msg, sizeof(msg));
-	WARN_ON(err);
+	if (err)
+		nvgpu_log_info(g, "vgpu_ivc_send_returned %d\n", err);
+
 	nvgpu_thread_stop(&priv->intr_handler);
 
 	nvgpu_clk_arb_cleanup_arbiter(g);

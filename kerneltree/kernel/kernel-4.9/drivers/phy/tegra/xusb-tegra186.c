@@ -574,6 +574,7 @@ static void tegra186_enable_vbus_oc(struct phy *phy)
 	struct tegra_xusb_usb2_port *port;
 	int pin;
 	u32 reg;
+	int i;
 
 	lane = phy_get_drvdata(phy);
 	padctl = lane->pad->padctl;
@@ -628,38 +629,37 @@ static void tegra186_enable_vbus_oc(struct phy *phy)
 
 	/* WAR: enable UTMIPLL power down, not needed for current clk
 	 * framework
+	 * Sometimes it takes up to 250 ms for OC status to be cleared
 	 */
-
-	/* Enable VBUS */
-	reg = padctl_readl(padctl, XUSB_PADCTL_VBUS_OC_MAP);
-	reg |= VBUS_ENABLE(pin);
-	padctl_writel(padctl, reg, XUSB_PADCTL_VBUS_OC_MAP);
-
-	/* vbus has been supplied to device. A finite time (>10ms) for OC
-	 * detection pin to be pulled-up
-	 */
-	msleep(20);
-
-	/* check and clear if there is any stray OC */
-	reg = padctl_readl(padctl, XUSB_PADCTL_OC_DET);
-	if (reg & OC_DETECTED_VBUS_PAD(pin)) {
-		/* clear stray OC */
-		dev_dbg(padctl->dev,
-			"clear stray OC on port %d pin %d, OC_DET=%#x\n",
-			index, pin, reg);
-
-		reg = padctl_readl(padctl, XUSB_PADCTL_VBUS_OC_MAP);
-		reg &= ~VBUS_ENABLE(pin);
-
-		reg = padctl_readl(padctl, XUSB_PADCTL_OC_DET);
-		reg &= ~OC_DETECTED_VBUS_PAD_MASK;
-		reg |= OC_DETECTED_VBUS_PAD(pin);
-		padctl_writel(padctl, reg, XUSB_PADCTL_OC_DET);
-
-		/* Enable VBUS back after clearing stray OC */
+	for (i = 0; i < 20; i++) {
+		/* Enable VBUS */
 		reg = padctl_readl(padctl, XUSB_PADCTL_VBUS_OC_MAP);
 		reg |= VBUS_ENABLE(pin);
 		padctl_writel(padctl, reg, XUSB_PADCTL_VBUS_OC_MAP);
+
+		/* vbus has been supplied to device. A finite time (>10ms) for
+		 * OC detection pin to be pulled-up
+		 */
+		msleep(20);
+
+		/* check and clear if there is any stray OC */
+		reg = padctl_readl(padctl, XUSB_PADCTL_OC_DET);
+		if (reg & OC_DETECTED_VBUS_PAD(pin)) {
+			/* clear stray OC */
+			dev_dbg(padctl->dev,
+				"clear OC on port %d pin %d, OC_DET=%#x\n",
+				index, pin, reg);
+
+			reg = padctl_readl(padctl, XUSB_PADCTL_VBUS_OC_MAP);
+			reg &= ~VBUS_ENABLE(pin);
+			padctl_writel(padctl, reg, XUSB_PADCTL_VBUS_OC_MAP);
+
+			reg = padctl_readl(padctl, XUSB_PADCTL_OC_DET);
+			reg &= ~OC_DETECTED_VBUS_PAD_MASK;
+			reg |= OC_DETECTED_VBUS_PAD(pin);
+			padctl_writel(padctl, reg, XUSB_PADCTL_OC_DET);
+		} else
+			break;
 	}
 
 	/* change the OC_MAP source and enable OC interrupt */

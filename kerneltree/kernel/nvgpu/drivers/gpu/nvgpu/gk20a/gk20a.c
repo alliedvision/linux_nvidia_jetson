@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -125,6 +125,8 @@ int gk20a_finalize_poweron(struct gk20a *g)
 #if defined(CONFIG_TEGRA_GK20A_NVHOST)
 	u32 nr_pages;
 #endif
+
+	u32 fuse_status;
 
 	nvgpu_log_fn(g, " ");
 
@@ -264,14 +266,20 @@ int gk20a_finalize_poweron(struct gk20a *g)
 	g->ops.mc.intr_enable(g);
 
 	/*
-	 *  Overwrite can_tpc_powergate to false if the chip is ES fused and
-	 *  already optimized with some TPCs already floorswept
-	 *  via fuse. We will not support TPC-PG in those cases.
+	 *  Power gate the chip as per the TPC PG mask
+	 *  and the fuse_status register.
+	 *  If TPC PG mask is invalid halt the GPU poweron.
 	 */
+	g->can_tpc_powergate = false;
+	fuse_status = g->ops.fuse.fuse_status_opt_tpc_gpc(g, 0);
 
-	if (g->ops.fuse.fuse_status_opt_tpc_gpc(g, 0) != 0x0) {
-		g->can_tpc_powergate = false;
-		g->tpc_pg_mask = 0x0;
+	if (g->ops.tpc.tpc_powergate) {
+		err = g->ops.tpc.tpc_powergate(g, fuse_status);
+	}
+
+	if (err) {
+		nvgpu_err(g, "failed to power ON GPU");
+		goto done;
 	}
 
 	nvgpu_mutex_acquire(&g->tpc_pg_lock);

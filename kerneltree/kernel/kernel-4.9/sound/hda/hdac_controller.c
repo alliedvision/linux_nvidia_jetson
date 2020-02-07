@@ -512,7 +512,6 @@ void snd_hdac_bus_stop_chip(struct hdac_bus *bus)
 	/* disable interrupts */
 	azx_int_disable(bus);
 	azx_int_clear(bus);
-	synchronize_irq(bus->irq);
 
 	/* disable CORB/RIRB */
 	snd_hdac_bus_stop_cmd_io(bus);

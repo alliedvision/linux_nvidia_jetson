@@ -1108,6 +1108,10 @@ void usb_stor_disconnect(struct usb_interface *intf)
 {
 	struct us_data *us = usb_get_intfdata(intf);
 
+	/* Device has been removed */
+	if (!us)
+		return;
+
 	quiesce_and_remove_host(us);
 	release_everything(us);
 }

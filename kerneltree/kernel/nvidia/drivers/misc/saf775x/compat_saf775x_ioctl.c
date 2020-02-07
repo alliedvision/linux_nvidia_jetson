@@ -1,7 +1,7 @@
 /*
  * compat_saf775x_ioctl.c -- SAF775X Soc Audio driver IO control
  *
- * Copyright (c) 2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,7 +18,9 @@
 
 
 #include "saf775x_ioctl.h"
-#include "compat_saf775x_ioctl.h"
+#include <uapi/misc/compat_saf775x_ioctl.h>
+#include <linux/uaccess.h>
+#include <linux/compat.h>
 
 static int compat_get_saf775x_cmd(
 			struct compat_saf775x_cmd __user *data32,

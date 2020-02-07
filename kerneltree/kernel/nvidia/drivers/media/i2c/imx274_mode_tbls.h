@@ -1,7 +1,7 @@
 /*
  * imx274.c - imx274 sensor driver
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION, All Rights Reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION, All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,11 +21,12 @@
 
 #include <media/camera_common.h>
 
-
 #define IMX274_TABLE_WAIT_MS 0
 #define IMX274_TABLE_END 1
 #define IMX274_WAIT_MS 1
 #define IMX274_WAIT_MS_START	15
+
+#define ENABLE_EXTRA_MODES 0
 
 #define imx274_reg struct reg_8
 
@@ -703,6 +704,8 @@ static const struct camera_common_frmfmt imx274_frmfmt[] = {
 	{{1920, 1080}, imx274_60_fr, 1, 0, IMX274_MODE_1920X1080},
 	{{3856, 4448}, imx274_30_fr, 1, 1, IMX274_MODE_3840X2160_DOL_30FPS},
 	{{1936, 2264}, imx274_60_fr, 1, 1, IMX274_MODE_1920X1080_DOL_60FPS},
+#if ENABLE_EXTRA_MODES
 	{{1288, 546}, imx274_240_fr, 1, 0, IMX274_MODE_1288X546},
+#endif
 };
 #endif  /* __IMX274_I2C_TABLES__ */

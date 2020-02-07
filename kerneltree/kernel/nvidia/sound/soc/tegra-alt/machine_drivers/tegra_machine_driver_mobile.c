@@ -32,6 +32,7 @@
 #include <sound/soc.h>
 #include <dt-bindings/sound/tas2552.h>
 #include "rt5659.h"
+#include "sgtl5000.h"
 #include "tegra_asoc_utils_alt.h"
 #include "tegra_asoc_machine_alt.h"
 #include "tegra210_xbar_alt.h"
@@ -95,7 +96,6 @@ struct tegra_machine_soc_data {
 static int tegra_machine_driver_remove(struct platform_device *);
 static int tegra_machine_driver_probe(struct platform_device *);
 static void dai_link_setup(struct platform_device *);
-static void ignore_suspend(struct snd_soc_card *);
 static int tegra_machine_sfc_init(struct snd_soc_pcm_runtime *);
 static int tegra_machine_rt565x_init(struct snd_soc_pcm_runtime *);
 
@@ -523,10 +523,11 @@ static int tegra_machine_dai_init(struct snd_soc_pcm_runtime *runtime,
 	}
 
 	if (machine->soc_data->is_clk_rate_via_dt)
-		clk_out_rate = machine->audio_clock.clk_out_rate;
+		clk_out_rate = machine->audio_clock.set_clk_out_rate;
 
 	pr_debug("pll_a_out0 = %d Hz, aud_mclk = %d Hz, codec rate = %d Hz\n",
-		machine->audio_clock.set_mclk, clk_out_rate, clk_rate);
+		machine->audio_clock.set_mclk,
+		machine->audio_clock.set_clk_out_rate, clk_rate);
 
 	/* TODO: should we pass here clk_rate ? */
 	err = tegra_machine_set_params(card, machine, rate, channels, formats);
@@ -638,6 +639,16 @@ static int tegra_machine_dai_init(struct snd_soc_pcm_runtime *runtime,
 				return err;
 			}
 		}
+	}
+
+	rtd = snd_soc_get_pcm_runtime(card, "fe-pi-audio-z-v2");
+	if (rtd) {
+		dai_params =
+		(struct snd_soc_pcm_stream *)rtd->dai_link->params;
+
+		dai_params->rate_min = clk_rate;
+		dai_params->channels_min = channels;
+		dai_params->formats = formats;
 	}
 
 	return 0;
@@ -782,6 +793,21 @@ static int tegra_machine_compr_set_params(struct snd_compr_stream *cstream)
 }
 #endif
 
+static int tegra_machine_fepi_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct device *dev = rtd->card->dev;
+	int err;
+
+	err = snd_soc_dai_set_sysclk(rtd->codec_dai, SGTL5000_SYSCLK, 12288000,
+				     SND_SOC_CLOCK_IN);
+	if (err) {
+		dev_err(dev, "failed to set sgtl5000 sysclk!\n");
+		return err;
+	}
+
+	return 0;
+}
+
 static int tegra_machine_rt565x_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
@@ -885,13 +911,18 @@ static void dai_link_setup(struct platform_device *pdev)
 						tegra_machine_rt565x_init;
 				}
 			} else if (strstr(tegra_machine_codec_links[i].name,
-				"dspk-playback-r"))
+				"dspk-playback-r")) {
 				tegra_machine_codec_links[i].init =
 					tegra_machine_dspk_init;
-			else if (strstr(tegra_machine_codec_links[i].name,
-				"dspk-playback-l"))
+			} else if (strstr(tegra_machine_codec_links[i].name,
+				"dspk-playback-l")) {
 				tegra_machine_codec_links[i].init =
 					tegra_machine_dspk_init;
+			} else if (strstr(tegra_machine_codec_links[i].name,
+				"fe-pi-audio-z-v2")) {
+				tegra_machine_codec_links[i].init =
+					tegra_machine_fepi_init;
+			}
 		}
 	}
 
@@ -975,24 +1006,6 @@ static const struct of_device_id tegra_machine_of_match[] = {
 	{},
 };
 
-static void __maybe_unused ignore_suspend(struct snd_soc_card *card)
-{
-	struct snd_soc_pcm_runtime *rtd;
-#if KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE
-	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
-	int idx;
-	int num_of_dai_links = machine->soc_data->num_xbar_dai_links +
-		machine->num_codec_links;
-
-	for (idx = 0; idx < num_of_dai_links; idx++) {
-		rtd = &card->rtd[idx];
-#else
-	list_for_each_entry(rtd, &card->rtd_list, list) {
-#endif
-		rtd->dai_link->ignore_suspend = true;
-	}
-}
-
 static int tegra_machine_driver_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1053,6 +1066,16 @@ static int tegra_machine_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	if (of_property_read_u32(np, "nvidia,mclk-rate",
+				&machine->audio_clock.mclk_rate) < 0)
+		dev_dbg(&pdev->dev, "Missing property nvidia,mclk-rate\n");
+
+	if (of_property_read_u32(np, "mclk-fs",
+			&machine->audio_clock.mclk_scale) < 0) {
+		machine->audio_clock.mclk_scale = 256;
+		dev_dbg(&pdev->dev, "Missing property mclk-fs\n");
+	}
+
 	if (machine->soc_data->is_clk_rate_via_dt) {
 		if (of_property_read_u32(np, "nvidia,num-clk",
 				   &machine->audio_clock.num_clk) < 0) {
@@ -1088,10 +1111,6 @@ static int tegra_machine_driver_probe(struct platform_device *pdev)
 			ret);
 		goto err_alloc_dai_link;
 	}
-
-#ifdef CONFIG_ANDROID
-	ignore_suspend(card);
-#endif
 
 	tegra_machine_add_i2s_codec_controls(card,
 					machine->soc_data->num_xbar_dai_links +

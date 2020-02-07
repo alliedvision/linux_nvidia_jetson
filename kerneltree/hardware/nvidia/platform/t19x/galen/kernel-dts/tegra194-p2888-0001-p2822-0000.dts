@@ -13,5 +13,3 @@
  * more details.
  */
 #include "common/tegra194-p2888-0001-p2822-0000-common.dtsi"
-#include "common/tegra194-p2822-camera-modules.dtsi"
-#include "t19x-common-modules/tegra194-camera-plugin-manager.dtsi"

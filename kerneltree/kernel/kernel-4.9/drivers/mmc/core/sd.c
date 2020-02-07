@@ -1037,8 +1037,16 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	/* Initialization sequence for UHS-I cards */
 	if (rocr & SD_ROCR_S18A) {
 		err = mmc_sd_init_uhs_card(card);
-		if (err)
+		if (err) {
+			/*
+			 * Disable UHS modes if init fails.
+			 * Sd card enumerates in HS mode in the next init.
+			 */
+			card->host->caps &= ~(MMC_CAP_UHS_SDR12 |
+				MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_SDR50 |
+				MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_DDR50);
 			goto free_card;
+		}
 	} else {
 		/*
 		 * Attempt to change to high-speed (if supported)

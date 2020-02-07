@@ -1,7 +1,7 @@
-From b50b7d1353085866adcf11ce0fcff545de6a4198 Mon Sep 17 00:00:00 2001
+From 7f27d668c5d09c8baabe8c4a9d0e2093982250db Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 1 Apr 2017 12:51:01 +0200
-Subject: [PATCH 182/353] rtmutex: Provide locked slowpath
+Subject: [PATCH 182/352] rtmutex: Provide locked slowpath
 
 The new rt rwsem implementation needs rtmutex::wait_lock to protect struct
 rw_semaphore. Dropping the lock and reaquiring it for locking the rtmutex

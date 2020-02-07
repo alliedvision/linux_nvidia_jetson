@@ -1,7 +1,7 @@
 /*
  * GP10B Tegra Platform Interface
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -95,8 +95,6 @@ int gp10b_tegra_get_clocks(struct device *dev)
 		} else {
 			clk_set_rate(c, rate);
 			platform->clk[i] = c;
-			if (i == 0)
-				platform->cached_rate = rate;
 		}
 	}
 	platform->num_clks = i;

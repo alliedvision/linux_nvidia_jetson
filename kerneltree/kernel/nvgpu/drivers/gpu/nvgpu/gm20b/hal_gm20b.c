@@ -29,6 +29,7 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/tsg.h>
+#include <nvgpu/ctxsw_trace.h>
 
 #include "common/clock_gating/gm20b_gating_reglist.h"
 #include "common/bus/bus_gm20b.h"
@@ -51,6 +52,8 @@
 #include "gk20a/regops_gk20a.h"
 #include "gk20a/pmu_gk20a.h"
 #include "gk20a/gr_gk20a.h"
+#include "gk20a/fecs_trace_gk20a.h"
+#include "gm20b/fecs_trace_gm20b.h"
 
 #include "gr_gm20b.h"
 #include "fifo_gm20b.h"
@@ -448,6 +451,8 @@ static const struct gpu_ops gm20b_ops = {
 		.init_pbdma_intr_descs = gm20b_fifo_init_pbdma_intr_descs,
 		.reset_enable_hw = gk20a_init_fifo_reset_enable_hw,
 		.teardown_ch_tsg = gk20a_fifo_teardown_ch_tsg,
+		.teardown_mask_intr = gk20a_fifo_teardown_mask_intr,
+		.teardown_unmask_intr = gk20a_fifo_teardown_unmask_intr,
 		.handle_sched_error = gk20a_fifo_handle_sched_error,
 		.handle_pbdma_intr_0 = gk20a_fifo_handle_pbdma_intr_0,
 		.handle_pbdma_intr_1 = gk20a_fifo_handle_pbdma_intr_1,
@@ -482,6 +487,24 @@ static const struct gpu_ops gm20b_ops = {
 		.get_netlist_name = gr_gm20b_get_netlist_name,
 		.is_fw_defined = gr_gm20b_is_firmware_defined,
 	},
+#ifdef CONFIG_GK20A_CTXSW_TRACE
+	.fecs_trace = {
+		.alloc_user_buffer = gk20a_ctxsw_dev_ring_alloc,
+		.free_user_buffer = gk20a_ctxsw_dev_ring_free,
+		.mmap_user_buffer = gk20a_ctxsw_dev_mmap_buffer,
+		.init = gk20a_fecs_trace_init,
+		.deinit = gk20a_fecs_trace_deinit,
+		.enable = gk20a_fecs_trace_enable,
+		.disable = gk20a_fecs_trace_disable,
+		.is_enabled = gk20a_fecs_trace_is_enabled,
+		.reset = gk20a_fecs_trace_reset,
+		.flush = gm20b_fecs_trace_flush,
+		.poll = gk20a_fecs_trace_poll,
+		.bind_channel = gk20a_fecs_trace_bind_channel,
+		.unbind_channel = gk20a_fecs_trace_unbind_channel,
+		.max_entries = gk20a_gr_max_entries,
+	},
+#endif /* CONFIG_GK20A_CTXSW_TRACE */
 	.mm = {
 		.support_sparse = gm20b_mm_support_sparse,
 		.gmmu_map = gk20a_locked_gmmu_map,
@@ -530,6 +553,8 @@ static const struct gpu_ops gm20b_ops = {
 		.pmu_pg_idle_counter_config = gk20a_pmu_pg_idle_counter_config,
 		.pmu_read_idle_counter = gk20a_pmu_read_idle_counter,
 		.pmu_reset_idle_counter = gk20a_pmu_reset_idle_counter,
+		.pmu_read_idle_intr_status = gk20a_pmu_read_idle_intr_status,
+		.pmu_clear_idle_intr_status = gk20a_pmu_clear_idle_intr_status,
 		.pmu_dump_elpg_stats = gk20a_pmu_dump_elpg_stats,
 		.pmu_dump_falcon_stats = gk20a_pmu_dump_falcon_stats,
 		.pmu_enable_irq = gk20a_pmu_enable_irq,
@@ -662,6 +687,9 @@ static const struct gpu_ops gm20b_ops = {
 	.acr = {
 		.acr_sw_init = nvgpu_gm20b_acr_sw_init,
 	},
+	.tpc = {
+		.tpc_powergate = NULL,
+	},
 	.chip_init_gpu_characteristics = gk20a_init_gpu_characteristics,
 	.get_litter_value = gm20b_get_litter_value,
 };
@@ -708,6 +736,8 @@ int gm20b_init_hal(struct gk20a *g)
 	gops->priv_ring = gm20b_ops.priv_ring;
 
 	gops->fuse = gm20b_ops.fuse;
+
+	gops->tpc = gm20b_ops.tpc;
 
 	gops->acr = gm20b_ops.acr;
 

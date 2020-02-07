@@ -1,7 +1,7 @@
 /*
  * Linux clock support
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -38,13 +38,9 @@ static unsigned long nvgpu_linux_clk_get_rate(struct gk20a *g, u32 api_domain)
 	switch (api_domain) {
 	case CTRL_CLK_DOMAIN_GPCCLK:
 		if (g->clk.tegra_clk)
-			ret = g->clk.cached_rate ?
-				g->clk.cached_rate :
-				clk_get_rate(g->clk.tegra_clk);
+			ret = clk_get_rate(g->clk.tegra_clk);
 		else
-			ret = platform->cached_rate ?
-				platform->cached_rate :
-				clk_get_rate(platform->clk[0]);
+			ret = clk_get_rate(platform->clk[0]);
 		break;
 	case CTRL_CLK_DOMAIN_PWRCLK:
 		ret = clk_get_rate(platform->clk[1]);
@@ -66,15 +62,10 @@ static int nvgpu_linux_clk_set_rate(struct gk20a *g,
 
 	switch (api_domain) {
 	case CTRL_CLK_DOMAIN_GPCCLK:
-		if (g->clk.tegra_clk) {
+		if (g->clk.tegra_clk)
 			ret = clk_set_rate(g->clk.tegra_clk, rate);
-			if (!ret)
-				g->clk.cached_rate = rate;
-		} else {
+		else
 			ret = clk_set_rate(platform->clk[0], rate);
-			if (!ret)
-				platform->cached_rate = rate;
-		}
 		break;
 	case CTRL_CLK_DOMAIN_PWRCLK:
 		ret = clk_set_rate(platform->clk[1], rate);

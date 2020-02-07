@@ -1,7 +1,7 @@
 /*
  * USB hub driver.
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
  * (C) Copyright 1999 Linus Torvalds
  * (C) Copyright 1999 Johannes Erdfelt
  * (C) Copyright 1999 Gregory P. Smith
@@ -125,6 +125,7 @@ struct usb_hub *usb_hub_to_struct_hub(struct usb_device *hdev)
 		return NULL;
 	return usb_get_intfdata(hdev->actconfig->interface[0]);
 }
+EXPORT_SYMBOL(usb_hub_to_struct_hub);
 
 int usb_device_supports_lpm(struct usb_device *udev)
 {

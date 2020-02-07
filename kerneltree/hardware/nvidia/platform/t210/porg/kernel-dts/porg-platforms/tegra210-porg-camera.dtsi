@@ -48,7 +48,7 @@
 		* isp_bw_margin_pct = <>;
 		* Isp bandwidth margin in percentage
 		*/
-		num_csi_lanes = <2>;
+		num_csi_lanes = <4>;
 		max_lane_speed = <2500000>;
 		min_bits_per_pixel = <10>;
 		vi_peak_byte_per_pixel = <2>;

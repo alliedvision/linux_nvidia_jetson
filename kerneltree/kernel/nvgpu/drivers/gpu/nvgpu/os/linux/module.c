@@ -32,6 +32,7 @@
 #include <uapi/linux/nvgpu.h>
 #include <dt-bindings/soc/gm20b-fuse.h>
 #include <dt-bindings/soc/gp10b-fuse.h>
+#include <dt-bindings/soc/gv11b-fuse.h>
 
 #include <soc/tegra/fuse.h>
 
@@ -1165,6 +1166,7 @@ static inline void set_gk20a(struct platform_device *pdev, struct gk20a *gk20a)
 static int nvgpu_read_fuse_overrides(struct gk20a *g)
 {
 	struct device_node *np = nvgpu_get_node(g);
+	struct gk20a_platform *platform = dev_get_drvdata(dev_from_gk20a(g));
 	u32 *fuses;
 	int count, i;
 
@@ -1190,6 +1192,11 @@ static int nvgpu_read_fuse_overrides(struct gk20a *g)
 			break;
 		case GP10B_FUSE_OPT_ECC_EN:
 			g->gr.fecs_feature_override_ecc_val = value;
+			break;
+		case GV11B_FUSE_OPT_TPC_DISABLE:
+			if (platform->set_tpc_pg_mask != NULL)
+				platform->set_tpc_pg_mask(dev_from_gk20a(g),
+								value);
 			break;
 		default:
 			nvgpu_err(g, "ignore unknown fuse override %08x", fuse);

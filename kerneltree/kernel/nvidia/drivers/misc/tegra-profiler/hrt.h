@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/hrt.h
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,6 +19,7 @@
 
 #ifdef __KERNEL__
 
+#include <linux/types.h>
 #include <linux/hrtimer.h>
 #include <linux/limits.h>
 
@@ -113,7 +114,7 @@ quadd_put_sample(struct quadd_record_data *data,
 
 void quadd_hrt_get_state(struct quadd_module_state *state);
 u64 quadd_get_time(void);
-int quadd_is_inherited(struct task_struct *task);
+bool quadd_is_inherited(struct task_struct *task);
 
 #endif	/* __KERNEL__ */
 

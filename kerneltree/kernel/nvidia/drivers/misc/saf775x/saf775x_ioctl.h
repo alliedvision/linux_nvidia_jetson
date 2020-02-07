@@ -1,7 +1,7 @@
  /*
  * saf775x_ioctl.h  --  SAF775X Soc Audio driver IO control
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,54 +19,19 @@
 #ifndef __SAF775X_IOCTL_H__
 #define __SAF775X_IOCTL_H__
 
-#include <linux/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/device.h>
+#include <uapi/misc/saf775x_ioctl.h>
 
 #define BYTEPOS_IN_WORD(i)  (BITS_PER_BYTE * i)
 #define CHAR_BIT_MASK(i)    (0xFF << BYTEPOS_IN_WORD(i))
 
 #define SPI 0
 #define I2C 1
-
-
-struct saf775x_cmd {
-	unsigned int reg;
-	unsigned int reg_len;
-	unsigned long val;
-	unsigned int val_len;
-};
-
-struct saf775x_control_param {
-	char name[20];
-	unsigned int *reg;
-	unsigned int num_reg;
-	int val;
-};
-
-struct saf775x_control_info {
-	char name[20];
-	int min;
-	int max;
-	int step;
-	int val;
-};
-enum {
-	SAF775X_CONTROL_SET_IOCTL = _IOW(0xF4, 0x01, struct saf775x_cmd),
-	SAF775x_CODEC_RESET_IOCTL = _IO(0xF4, 0x02),
-	SAF775X_CONTROL_GET_IOCTL = _IOR(0xF4, 0x03, struct saf775x_cmd),
-	SAF775X_CONTROL_GET_MIXER = _IOR(0xF4, 0x04,
-					struct saf775x_control_info),
-	SAF775X_CONTROL_SET_MIXER = _IOW(0xF4, 0x05,
-					struct saf775x_control_param),
-	SAF775X_CONTROL_SETIF = _IOW(0xF4, 0x6, unsigned int),
-	SAF775X_CONTROL_GETIF = _IO(0xF4, 0x7),
-	SAF775X_CONTROL_KEYCODE = _IOW(0xF4, 0x8, struct saf775x_cmd),
-};
 
 struct saf775x_ioctl_ops {
 	int (*codec_write)(void *codec,

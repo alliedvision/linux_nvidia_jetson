@@ -1,7 +1,7 @@
 /*
 * tegra_adspff.h - Shared ADSPFF interface between Tegra ADSP File
 *			System driver and ADSP side user space code.
-* Copyright (c) 2016-2018 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2016-2019 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -28,6 +28,7 @@ extern "C" {
 #define ADSPFF_WRITE_DATA_SIZE		512
 #define ADSPFF_READ_DATA_SIZE		1024
 #define ADSPFF_SHARED_BUFFER_SIZE	(128 * 1024)
+#define ADSPFF_MAX_FILENAME_SIZE	(250)
 
 /**
  * adspff_mbx_cmd:  commands exchanged using mailbox.
@@ -55,8 +56,8 @@ enum adspff_mbx_cmd {
 
 /* supported message payloads */
 struct fopen_msg_t {
-	uint8_t fname[250];
-	uint8_t modes[2];
+	uint8_t fname[ADSPFF_MAX_FILENAME_SIZE];
+	uint8_t modes[3];
 };
 
 struct fwrite_msg_t {

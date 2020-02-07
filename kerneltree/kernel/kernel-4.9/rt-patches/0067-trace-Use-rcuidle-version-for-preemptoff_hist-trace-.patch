@@ -1,7 +1,7 @@
-From faaef9e31aaa58416dabd03aa8a558cec78c414f Mon Sep 17 00:00:00 2001
+From 87eb1bfeae0c09d221cfe8d70d91582cc7c5489f Mon Sep 17 00:00:00 2001
 From: Yang Shi <yang.shi@windriver.com>
 Date: Tue, 23 Feb 2016 13:23:23 -0800
-Subject: [PATCH 067/353] trace: Use rcuidle version for preemptoff_hist trace
+Subject: [PATCH 067/352] trace: Use rcuidle version for preemptoff_hist trace
  point
 
 When running -rt kernel with both PREEMPT_OFF_HIST and LOCKDEP enabled,
@@ -52,7 +52,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/kernel/trace/trace_irqsoff.c b/kernel/trace/trace_irqsoff.c
-index 3a03bf08..609a4fb 100644
+index 3a03bf0..609a4fb 100644
 --- a/kernel/trace/trace_irqsoff.c
 +++ b/kernel/trace/trace_irqsoff.c
 @@ -429,13 +429,13 @@ void start_critical_timings(void)

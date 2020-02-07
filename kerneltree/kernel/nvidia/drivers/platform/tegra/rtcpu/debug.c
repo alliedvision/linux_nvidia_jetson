@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1219,7 +1219,7 @@ static struct device *camrtc_get_linked_device(
 	of_node_put(np);
 
 	if (pdev == NULL) {
-		dev_WARN(dev, "%s[%u] node has no device\n", name, index);
+		dev_info(dev, "%s[%u] node has no device\n", name, index);
 		return NULL;
 	}
 
@@ -1302,7 +1302,6 @@ static int camrtc_debug_probe(struct tegra_ivc_channel *ch)
 
 	if (camrtc_debug_populate(ch))
 		return -ENOMEM;
-
 	return 0;
 }
 

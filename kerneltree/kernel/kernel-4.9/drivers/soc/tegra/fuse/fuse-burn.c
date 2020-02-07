@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,6 +54,7 @@
 #define TEGRA_FUSE_PRIV2INTFC_SKIP_RECORDS	0x2
 #define TEGRA_FUSE_DISABLE_REG_PROG		0x2c
 #define TEGRA_FUSE_WRITE_ACCESS_SW		0x30
+#define TEGRA_FUSE_OPT_TPC_DISABLE		0x20c
 
 #define TEGRA_FUSE_ENABLE_PRGM_OFFSET		0
 #define TEGRA_FUSE_ENABLE_PRGM_REDUND_OFFSET	1
@@ -62,6 +63,9 @@
 #define TEGRA_FUSE_ODM_PRODUCTION_MODE		0xa0
 #define H2_START_MACRO_BIT_INDEX		2167
 #define H2_END_MACRO_BIT_INDEX			3326
+
+#define FPERM_R					0440
+#define FPERM_RW				0660
 
 struct fuse_burn_data {
 	char *name;
@@ -528,6 +532,23 @@ static ssize_t tegra_fuse_calc_h2_code(struct device *dev,
 	return strlen(buf);
 }
 
+static ssize_t tegra_fuse_read_opt_tpc_disable(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	u32 reg = 0;
+	int retval;
+
+	retval = tegra_fuse_readl(TEGRA_FUSE_OPT_TPC_DISABLE, &reg);
+
+	if (unlikely(retval)) {
+		dev_err(dev, "sysfs read failed\n");
+		return -EINVAL;
+	}
+
+	sprintf(buf, "0x%x\n", reg);
+	return strlen(buf);
+}
+
 #define FUSE_BURN_DATA(fname, m_off, sbit, size, c_off, is_red, is_be)	\
 	{								\
 		.name = #fname,						\
@@ -543,13 +564,13 @@ static ssize_t tegra_fuse_calc_h2_code(struct device *dev,
 		.attr.attr.name = #fname,				\
 		.attr.attr.mode = 0660,					\
 	}
-#define FUSE_SYSFS_DATA(fname, show_func, store_func)		\
-	{							\
-		.name = #fname,					\
-		.attr.show = show_func,				\
-		.attr.store = store_func,			\
-		.attr.attr.name = #fname,			\
-		.attr.attr.mode = 0660,				\
+#define FUSE_SYSFS_DATA(fname, show_func, store_func, _mode)		\
+	{								\
+		.name = #fname,						\
+		.attr.show = show_func,					\
+		.attr.store = store_func,				\
+		.attr.attr.name = #fname,				\
+		.attr.attr.mode = _mode,				\
 	}
 
 static struct tegra_fuse_hw_feature tegra210_fuse_chip_data = {
@@ -605,7 +626,8 @@ static struct tegra_fuse_hw_feature tegra186_fuse_chip_data = {
 		FUSE_BURN_DATA(kek2, 0x61, 22, 128, 0x2e0, false, true),
 		FUSE_BURN_DATA(odm_info, 0x50, 31, 16, 0x19c, false, false),
 		FUSE_BURN_DATA(odm_h2, 0x67, 31, 14, 0x33c, false, false),
-		FUSE_SYSFS_DATA(calc_h2, tegra_fuse_calc_h2_code, NULL),
+		FUSE_SYSFS_DATA(calc_h2, tegra_fuse_calc_h2_code, NULL,
+				FPERM_RW),
 		{},
 	},
 };
@@ -665,6 +687,8 @@ static struct tegra_fuse_hw_feature tegra194_fuse_chip_data = {
 		FUSE_BURN_DATA(debug_authentication, 0, 20, 5, 0x1e4, true, false),
 		FUSE_BURN_DATA(odm_info, 0x67, 5, 16, 0x19c, false, false),
 		FUSE_BURN_DATA(pdi, 0x40, 17, 64, 0x300, false, false),
+		FUSE_SYSFS_DATA(opt_tpc_disable,
+				tegra_fuse_read_opt_tpc_disable, NULL, FPERM_R),
 		{},
 	},
 };

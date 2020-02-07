@@ -86,7 +86,7 @@
 				 TEGRA194_MAIN_GPIO(A, 1) GPIO_ACTIVE_LOW>;
 			label = "pcie-3v3-reg", "pcie-12v-reg";
 			output-high;
-			status = "disabled";
+			status = "okay";
 		};
 	};
 
@@ -108,10 +108,10 @@
 		status = "okay";
 
 		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
-		nvidia,disable-aspm-states = <0xf>;
+		nvidia,disable-aspm-states = <0xc>;
 		nvidia,enable-power-down;
 
-		nvidia,max-speed = <1>;
+		nvidia,max-speed = <2>;
 
 		phys = <&p2u_0>;
 		phy-names = "pcie-p2u-0";
@@ -136,6 +136,12 @@
 		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
+
+		nvidia,plat-gpios =
+			<&tegra_main_gpio TEGRA194_MAIN_GPIO(Z, 2) GPIO_ACTIVE_HIGH    /* 3V3 */
+			 &tegra_main_gpio TEGRA194_MAIN_GPIO(A, 1) GPIO_ACTIVE_LOW     /* 12V */
+		       /*&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 4) GPIO_ACTIVE_HIGH */ /* I2C */
+			>;
 
 		phys = <&p2u_12>,
 		       <&p2u_13>,

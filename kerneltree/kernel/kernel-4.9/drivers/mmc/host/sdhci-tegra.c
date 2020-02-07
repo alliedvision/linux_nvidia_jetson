@@ -242,6 +242,7 @@ struct sdhci_tegra {
 	bool disable_clk_gate;
 	bool is_rail_enabled;
 	bool vqmmc_always_on;
+	bool vmmc_always_on;
 	bool slcg_status;
 	bool en_periodic_calib;
 	unsigned int min_tap_delay;
@@ -454,11 +455,31 @@ static void tegra_sdhci_card_event(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_tegra *tegra_host = sdhci_pltfm_priv(pltfm_host);
+	int err = 0;
 
 	tegra_host->tuning_status = TUNING_STATUS_RETUNE;
 	host->is_calib_done = false;
-	if (!host->mmc->rem_card_present)
+	if (!host->mmc->rem_card_present) {
 		tegra_host->set_1v8_calib_offsets = false;
+		if (!IS_ERR_OR_NULL(host->mmc->supply.vmmc) &&
+			regulator_is_enabled(host->mmc->supply.vmmc) &&
+			!tegra_host->vmmc_always_on) {
+				regulator_disable(host->mmc->supply.vmmc);
+				pr_info("%s: Disabling vmmc regulator\n", mmc_hostname(host->mmc));
+		}
+	} else {
+		if (!IS_ERR_OR_NULL(host->mmc->supply.vmmc) &&
+			!regulator_is_enabled(host->mmc->supply.vmmc) &&
+			!tegra_host->vmmc_always_on) {
+				err = regulator_enable(host->mmc->supply.vmmc);
+				pr_info("%s: Enabling vmmc regulator\n", mmc_hostname(host->mmc));
+				if (err) {
+					pr_warn("%s: Failed to enable vmmc regulator: %d\n",
+						mmc_hostname(host->mmc), err);
+					host->mmc->supply.vmmc = ERR_PTR(-EINVAL);
+				}
+		}
+	}
 }
 
 static unsigned int tegra_sdhci_get_ro(struct sdhci_host *host)
@@ -1974,6 +1995,7 @@ static const struct sdhci_tegra_soc_data soc_data_tegra210 = {
 		    NVQUIRK_ENABLE_DDR50 |
 		    NVQUIRK_ENABLE_SDR104 |
 		    NVQUIRK_UPDATE_PIN_CNTRL_REG |
+		    NVQUIRK_HAS_PADCALIB |
 		    SDHCI_MISC_CTRL_ENABLE_SDR50,
 };
 
@@ -2116,7 +2138,8 @@ static int sdhci_tegra_parse_dt(struct platform_device *pdev)
 
 	tegra_host->vqmmc_always_on = of_property_read_bool(np,
 		"nvidia,vqmmc-always-on");
-
+	tegra_host->vmmc_always_on = of_property_read_bool(np,
+		"nvidia,vmmc-always-on");
 	tegra_host->en_periodic_calib = of_property_read_bool(np,
 			"nvidia,en-periodic-calib");
 

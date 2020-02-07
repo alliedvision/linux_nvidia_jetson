@@ -1,7 +1,7 @@
 /*
  * tegra210_xbar_utils_alt.c - Tegra XBAR driver utils
  *
- * Copyright (c) 2017-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -292,26 +292,6 @@ int tegra_xbar_runtime_resume(struct device *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_xbar_runtime_resume);
-
-#ifdef CONFIG_PM_SLEEP
-int tegra_xbar_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra_xbar_runtime_suspend(dev);
-}
-EXPORT_SYMBOL_GPL(tegra_xbar_suspend);
-
-int tegra_xbar_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra_xbar_runtime_resume(dev);
-}
-EXPORT_SYMBOL_GPL(tegra_xbar_resume);
-#endif
 
 void tegra_xbar_shutdown(struct platform_device *pdev)
 {

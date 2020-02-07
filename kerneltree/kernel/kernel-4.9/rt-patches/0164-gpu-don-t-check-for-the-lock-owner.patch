@@ -1,7 +1,7 @@
-From 32a91ce0aab720a01cf686c535466491fe2c3bb6 Mon Sep 17 00:00:00 2001
+From f8283c2d158caa602bfe875945f88aca01400720 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 164/353] gpu: don't check for the lock owner.
+Subject: [PATCH 164/352] gpu: don't check for the lock owner.
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---

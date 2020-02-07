@@ -11,13 +11,30 @@
  * more details.
  */
 
+#include <dt-bindings/thermal/tegra210-trips.h>
 / {
 	thermal-zones {
 		CPU-therm {
 			thermal-zone-params {
 				governor-name = "step_wise";
+				max_err_temp = <9000>;
+				max_err_gain = <1000>;
+				gain_p = <1000>;
+				gain_d = <0>;
+				up_compensation = <20>;
+				down_compensation = <20>;
 			};
 			trips {
+				dfll_cap_trip0: dfll-cap-trip0 {
+					temperature = <TEGRA210_DFLL_THERMAL_CAP_0>; /* millicelsius */
+					hysteresis = <1000>; /* millicelsius */
+					type = "active";
+				};
+				dfll_cap_trip1: dfll-cap-trip1 {
+					temperature = <TEGRA210_DFLL_THERMAL_CAP_1>; /* millicelsius */
+					hysteresis = <1000>; /* millicelsius */
+					type = "active";
+				};
 				cpu_critical {
 					temperature = <102000>;
 					hysteresis = <0>;
@@ -50,6 +67,14 @@
 					cooling-device = <&{/bthrot_cdev/cpu_balanced}
 						THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
+				dfll-cap-map0 {
+					trip = <&dfll_cap_trip0>;
+					cooling-device = <&dfll_cap 1 1>;
+				};
+				dfll-cap-map1 {
+					trip = <&dfll_cap_trip1>;
+					cooling-device = <&dfll_cap 2 2>;
+				};
 			};
 		};
 		/delete-node/ LCPU-therm;
@@ -58,6 +83,12 @@
 		GPU-therm {
 			thermal-zone-params {
 				governor-name = "step_wise";
+				max_err_temp = <9000>;
+				max_err_gain = <1000>;
+				gain_p = <1000>;
+				gain_d = <0>;
+				up_compensation = <20>;
+				down_compensation = <20>;
 			};
 			trips {
 				gpu_critical {

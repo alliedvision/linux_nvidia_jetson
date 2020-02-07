@@ -60,7 +60,6 @@
 #include "gk20a/gr_gk20a.h"
 
 #include "gp10b/gr_gp10b.h"
-#include "gp10b/fecs_trace_gp10b.h"
 #include "gp10b/mm_gp10b.h"
 #include "gp10b/ce_gp10b.h"
 #include "gp10b/pmu_gp10b.h"
@@ -76,6 +75,7 @@
 #include "gm20b/pmu_gm20b.h"
 #include "gm20b/clk_gm20b.h"
 #include "gm20b/mm_gm20b.h"
+#include "gm20b/fecs_trace_gm20b.h"
 
 #include "gp10b.h"
 #include "hal_gp10b.h"
@@ -488,6 +488,8 @@ static const struct gpu_ops gp10b_ops = {
 		.init_pbdma_intr_descs = gp10b_fifo_init_pbdma_intr_descs,
 		.reset_enable_hw = gk20a_init_fifo_reset_enable_hw,
 		.teardown_ch_tsg = gk20a_fifo_teardown_ch_tsg,
+		.teardown_mask_intr = gk20a_fifo_teardown_mask_intr,
+		.teardown_unmask_intr = gk20a_fifo_teardown_unmask_intr,
 		.handle_sched_error = gk20a_fifo_handle_sched_error,
 		.handle_pbdma_intr_0 = gk20a_fifo_handle_pbdma_intr_0,
 		.handle_pbdma_intr_1 = gk20a_fifo_handle_pbdma_intr_1,
@@ -535,7 +537,7 @@ static const struct gpu_ops gp10b_ops = {
 		.disable = gk20a_fecs_trace_disable,
 		.is_enabled = gk20a_fecs_trace_is_enabled,
 		.reset = gk20a_fecs_trace_reset,
-		.flush = gp10b_fecs_trace_flush,
+		.flush = gm20b_fecs_trace_flush,
 		.poll = gk20a_fecs_trace_poll,
 		.bind_channel = gk20a_fecs_trace_bind_channel,
 		.unbind_channel = gk20a_fecs_trace_unbind_channel,
@@ -595,6 +597,8 @@ static const struct gpu_ops gp10b_ops = {
 		.pmu_pg_idle_counter_config = gk20a_pmu_pg_idle_counter_config,
 		.pmu_read_idle_counter = gk20a_pmu_read_idle_counter,
 		.pmu_reset_idle_counter = gk20a_pmu_reset_idle_counter,
+		.pmu_read_idle_intr_status = gk20a_pmu_read_idle_intr_status,
+		.pmu_clear_idle_intr_status = gk20a_pmu_clear_idle_intr_status,
 		.pmu_dump_elpg_stats = gk20a_pmu_dump_elpg_stats,
 		.pmu_dump_falcon_stats = gk20a_pmu_dump_falcon_stats,
 		.pmu_enable_irq = gk20a_pmu_enable_irq,

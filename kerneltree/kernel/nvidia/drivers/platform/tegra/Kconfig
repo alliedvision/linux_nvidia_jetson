@@ -235,4 +235,20 @@ config NV_TEGRA_IVC
 	  Enable the Tegra IVC library, which implements a lockless, shared-
 	  memory queue.
 
+config TEGRA_CPU_TOPOLOGY_DEBUGFS
+	bool "Tegra CPU topology in debugfs"
+	depends on ARCH_TEGRA_18x_SOC
+	default n
+	help
+	  When enabled, make symbolic links to cpux (sysfs nodes) inside directories
+	  in debugfs, build as per cpu type available for classifiying the cpus.
+
+config TEGRA_CPU_TOPOLOGY_SYSFS
+	tristate "Tegra CPU topology in sysfs"
+	depends on ARCH_TEGRA_18x_SOC
+	default m
+	help
+	  When enabled, make symbolic links to cpux (sysfs nodes) inside directories
+	  in sysfs, build as per cpu type available for classifiying the cpus.
+
 source "drivers/platform/tegra/nvadsp/Kconfig"

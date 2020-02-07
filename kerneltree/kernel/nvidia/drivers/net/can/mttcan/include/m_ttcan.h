@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -92,18 +92,23 @@
 #define NUM_CAN_CONTROLLERS 2
 
 /* Global Filter Confugration */
-#define MTTCAN_GFC_ANFS_SHIFT	0x04
-#define GFC_ANFS_RXFIFO_0	0x00
-#define GFC_ANFS_RXFIFO_1	(0x01 << MTTCAN_GFC_ANFS_SHIFT)
-#define GFC_ANFS_REJECT		(0x03 << MTTCAN_GFC_ANFS_SHIFT)
+#define GFC_ANFS_RXFIFO_0	0U
+#define GFC_ANFS_RXFIFO_1	1U
+#define GFC_ANFS_REJECT		3U
 
-#define MTTCAN_GFC_ANFE_SHIFT	0x02
-#define GFC_ANFE_RXFIFO_0	0x00
-#define GFC_ANFE_RXFIFO_1	(0x01 << MTTCAN_GFC_ANFE_SHIFT)
-#define GFC_ANFE_REJECT		(0x03 << MTTCAN_GFC_ANFE_SHIFT)
+#define GFC_ANFE_RXFIFO_0	0U
+#define GFC_ANFE_RXFIFO_1	1U
+#define GFC_ANFE_REJECT		3U
 
-#define GFC_RRFS_REJECT		0x2
-#define GFC_RRFE_REJECT		0x1
+#define GFC_RRFS_REJECT		1U
+#define GFC_RRFE_REJECT		1U
+
+/* Filter Element Configuration */
+#define FEC_RXFIFO_0            1U
+#define FEC_RXFIFO_1            2U
+#define FEC_RXFIFO_0_PRIO       5U
+#define FEC_RXFIFO_1_PRIO       6U
+#define FEC_RXBUF               7U
 
 /* Last Error Code */
 enum ttcan_lec_type {

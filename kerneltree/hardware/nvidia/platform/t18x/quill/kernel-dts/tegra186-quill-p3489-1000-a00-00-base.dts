@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-p3489-a00-00-base.dts Quill A00 Board
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -314,18 +314,12 @@
                 status = "okay";
                 gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 0) GPIO_ACTIVE_HIGH>;
                 gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 1) GPIO_ACTIVE_HIGH>;
-                mram-params = <0 16 16 8 8 8 16 16 16>;
-                tx-config = <8 8 0 64>;
-                rx-config = <64 64 64>;
         };
 
         mttcan@c320000 {
                 status = "okay";
                 gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 6) GPIO_ACTIVE_HIGH>;
                 gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 7) GPIO_ACTIVE_HIGH>;
-                mram-params = <0 16 16 8 8 8 16 16 16>;
-                tx-config = <8 8 0 64>;
-                rx-config = <64 64 64>;
         };
 
         mc {
@@ -436,6 +430,10 @@
 			ti,rail-name = "VDD_SYS_DDR";
 			ti,shunt-resistor-mohm = <10>;
 		 };
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
 	};
 };
 

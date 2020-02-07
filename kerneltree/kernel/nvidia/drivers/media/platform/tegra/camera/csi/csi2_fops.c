@@ -1,7 +1,7 @@
 /*
  * Tegra CSI2 device common APIs
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -256,48 +256,17 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	struct tegra_csi_port *port = &chan->ports[port_idx];
 	struct tegra_csi_device *csi = chan->csi;
-	struct camera_common_data *s_data = chan->s_data;
-	const struct sensor_mode_properties *mode = NULL;
 	int csi_port, csi_lanes;
 	/* Clocks for the CSI interface */
 	const unsigned int cil_clk_mhz = TEGRA_CSICIL_CLK_MHZ;
 	const unsigned int csi_clk_mhz = csi->clk_freq / 1000000;
 	/* Calculated clock settling times for cil and csi clocks */
-	unsigned int cil_settletime = 0;
 	unsigned int csi_settletime;
+	unsigned int cil_settletime = read_settle_time_from_dt(chan);
+	unsigned int discontinuous_clk = read_discontinuous_clk_from_dt(chan);
 
 	csi_port = !chan->pg_mode ? port->csi_port : port->stream_id;
 	csi_lanes = port->lanes;
-
-	/* Attempt to find the cil_settingtime from the device tree */
-	if (s_data) {
-		int idx = s_data->mode_prop_idx;
-
-		dev_dbg(csi->dev, "cil_settingtime is pulled from device");
-		if (idx < s_data->sensor_props.num_modes &&
-				s_data->sensor_props.sensor_modes != NULL) {
-			mode = &s_data->sensor_props.sensor_modes[idx];
-			cil_settletime = mode->signal_properties.cil_settletime;
-		} else {
-			dev_dbg(csi->dev, "mode not listed in DT, use default");
-			cil_settletime = 0;
-		}
-	} else if (chan->of_node) {
-		int err = 0;
-		const char *str;
-
-		dev_dbg(csi->dev,
-			"cil_settletime is pulled from device of_node");
-		err = of_property_read_string(chan->of_node, "cil_settletime",
-			&str);
-		if (!err) {
-			err = kstrtou32(str, 10, &cil_settletime);
-			if (err)
-				dev_dbg(csi->dev,
-					"no cil_settletime in of_node");
-				cil_settletime = 0;
-		}
-	}
 
 	/* calculate MIPI settling time if no settletime is set*/
 	if (!cil_settletime) {
@@ -325,7 +294,7 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	cil_write(port, TEGRA_CSI_CIL_PAD_CONFIG0, 0x0);
 	cil_write(port, TEGRA_CSI_CIL_PHY_CONTROL,
 			csi_settletime << CLK_SETTLE_SHIFT |
-			BYPASS_LP_SEQ |
+			!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
 			cil_settletime << THS_SETTLE_SHIFT);
 
 	/*
@@ -349,11 +318,11 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 				csi_port >> 1);
 		cil_write(port, TEGRA_CSI_CIL_PHY_CONTROL,
 				csi_settletime << CLK_SETTLE_SHIFT |
-				BYPASS_LP_SEQ |
+				!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
 				cil_settletime << THS_SETTLE_SHIFT);
 		csi_write(chan, cilb_offset + TEGRA_CSI_CIL_PHY_CONTROL,
 				csi_settletime << CLK_SETTLE_SHIFT |
-				BYPASS_LP_SEQ |
+				!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
 				cil_settletime << THS_SETTLE_SHIFT,
 				csi_port >> 1);
 		csi_write(chan, TEGRA_CSI_PHY_CIL_COMMAND,

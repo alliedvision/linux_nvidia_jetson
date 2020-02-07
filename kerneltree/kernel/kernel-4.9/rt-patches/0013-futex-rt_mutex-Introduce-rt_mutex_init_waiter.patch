@@ -1,7 +1,7 @@
-From 546e5f80473553aaf5ee7ea092c2d1a6da0d4f80 Mon Sep 17 00:00:00 2001
+From 4388d2973590b5d0414980309356e2451c5d4c2d Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed, 22 Mar 2017 11:35:56 +0100
-Subject: [PATCH 013/353] futex,rt_mutex: Introduce rt_mutex_init_waiter()
+Subject: [PATCH 013/352] futex,rt_mutex: Introduce rt_mutex_init_waiter()
 
 Upstream commit 50809358dd7199aa7ce232f6877dd09ec30ef374
 
@@ -27,10 +27,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index ffb5f7e..2ddc553 100644
+index 802a2a0..600f7c3 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -2997,10 +2997,7 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, unsigned int flags,
+@@ -3005,10 +3005,7 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, unsigned int flags,
  	 * The waiter is allocated on our stack, manipulated by the requeue
  	 * code while we sleep on uaddr.
  	 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 - 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017 - 2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -2563,12 +2563,14 @@ static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 			/* program iATU for Non-prefetchable MEM mapping */
 			outbound_atu(pp, PCIE_ATU_REGION_INDEX3,
 				     PCIE_ATU_TYPE_MEM, win->res->start,
-				     win->res->start, resource_size(win->res));
+				     win->res->start - win->offset,
+				     resource_size(win->res));
 		} else if (win->res->flags & IORESOURCE_MEM) {
 			/* program iATU for Non-prefetchable MEM mapping */
 			outbound_atu(pp, PCIE_ATU_REGION_INDEX2,
 				     PCIE_ATU_TYPE_MEM, win->res->start,
-				     win->res->start, resource_size(win->res));
+				     win->res->start - win->offset,
+				     resource_size(win->res));
 		}
 	}
 
@@ -2952,7 +2954,8 @@ static int tegra_pcie_dw_probe(struct platform_device *pdev)
 			kfree(name);
 			if (IS_ERR(phy[i])) {
 				ret = PTR_ERR(phy[i]);
-				dev_err(pcie->dev, "phy_get error: %d\n", ret);
+				if (ret != -EPROBE_DEFER)
+					dev_err(pcie->dev, "phy_get error: %d\n", ret);
 				return ret;
 			}
 		}

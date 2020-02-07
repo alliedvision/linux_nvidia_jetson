@@ -1,7 +1,7 @@
-From b979bba4f6b081c129a75fc1a1b3749329c7a336 Mon Sep 17 00:00:00 2001
+From c227fa9c4c21f73c30e5240cc55cfc0a0840e971 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 31 Jan 2012 13:01:27 +0100
-Subject: [PATCH 158/353] genirq: Allow disabling of softirq processing in irq
+Subject: [PATCH 158/352] genirq: Allow disabling of softirq processing in irq
  thread context
 
 The processing of softirqs in irq thread context is a performance gain
@@ -68,12 +68,12 @@ index 39e3254..8ebac94 100644
  #define IRQ_NO_BALANCING_MASK	(IRQ_PER_CPU | IRQ_NO_BALANCING)
  
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index f977653..c4f3e6c 100644
+index a841ad3..18c90de 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -881,7 +881,15 @@ irq_forced_thread_fn(struct irq_desc *desc, struct irqaction *action)
- 	local_bh_disable();
- 	ret = action->thread_fn(action->irq, action->dev_id);
+@@ -884,7 +884,15 @@ irq_forced_thread_fn(struct irq_desc *desc, struct irqaction *action)
+ 		atomic_inc(&desc->threads_handled);
+ 
  	irq_finalize_oneshot(desc, action);
 -	local_bh_enable();
 +	/*
@@ -88,7 +88,7 @@ index f977653..c4f3e6c 100644
  	return ret;
  }
  
-@@ -1347,6 +1355,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
+@@ -1351,6 +1359,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
  			irqd_set(&desc->irq_data, IRQD_NO_BALANCING);
  		}
  

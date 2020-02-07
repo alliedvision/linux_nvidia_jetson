@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *	Mikko Perttunen <mperttunen@nvidia.com>
@@ -342,7 +342,9 @@ static int tegra_bpmp_thermal_probe(struct platform_device *pdev)
 
 		if (IS_ERR(tzd)) {
 			err = PTR_ERR(tzd);
-			dev_notice(tegra->dev, "zone %d not supported\n", i);
+			if (err != -ENODEV)
+				dev_notice(tegra->dev,
+				"zone %d not supported, err %d\n", i, err);
 			tzd = NULL;
 		}
 

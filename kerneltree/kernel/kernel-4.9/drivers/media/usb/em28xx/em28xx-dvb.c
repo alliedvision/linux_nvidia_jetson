@@ -1726,6 +1726,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
 			si2168_config.i2c_adapter = &adapter;
 			si2168_config.fe = &dvb->fe[0];
 			si2168_config.ts_mode = SI2168_TS_PARALLEL;
+			si2168_config.spectral_inversion = true;
 			memset(&info, 0, sizeof(struct i2c_board_info));
 			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
 			info.addr = 0x64;
@@ -1910,6 +1911,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
 			si2168_config.i2c_adapter = &adapter;
 			si2168_config.fe = &dvb->fe[0];
 			si2168_config.ts_mode = SI2168_TS_SERIAL;
+			si2168_config.spectral_inversion = true;
 			memset(&info, 0, sizeof(struct i2c_board_info));
 			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
 			if (dev->ts == PRIMARY_TS)
@@ -2123,6 +2125,8 @@ static int em28xx_dvb_fini(struct em28xx *dev)
 		}
 	}
 
+	em28xx_unregister_dvb(dvb);
+
 	/* remove I2C SEC */
 	client = dvb->i2c_client_sec;
 	if (client) {
@@ -2144,7 +2148,6 @@ static int em28xx_dvb_fini(struct em28xx *dev)
 		i2c_unregister_device(client);
 	}
 
-	em28xx_unregister_dvb(dvb);
 	kfree(dvb);
 	dev->dvb = NULL;
 	kref_put(&dev->ref, em28xx_free_device);

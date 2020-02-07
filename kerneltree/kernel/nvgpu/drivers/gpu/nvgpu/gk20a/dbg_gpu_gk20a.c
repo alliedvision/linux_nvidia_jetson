@@ -1,7 +1,7 @@
 /*
  * Tegra GK20A GPU Debugger/Profiler Driver
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 #include <nvgpu/utils.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/unit.h>
+#include <nvgpu/power_features/power_features.h>
 
 #include "gk20a.h"
 #include "gr_gk20a.h"
@@ -234,60 +235,28 @@ int dbg_set_powergate(struct dbg_session_gk20a *dbg_s, bool disable_powergate)
 			return err;
 		}
 
-		/*do elpg disable before clock gating */
-		nvgpu_pmu_pg_global_enable(g, false);
+		err = nvgpu_cg_pg_disable(g);
 
-		if (g->ops.clock_gating.slcg_gr_load_gating_prod) {
-			g->ops.clock_gating.slcg_gr_load_gating_prod(g,
-				false);
+		if (err == 0) {
+			dbg_s->is_pg_disabled = true;
+			nvgpu_log(g, gpu_dbg_gpu_dbg | gpu_dbg_fn,
+					"pg disabled");
 		}
-		if (g->ops.clock_gating.slcg_perf_load_gating_prod) {
-			g->ops.clock_gating.slcg_perf_load_gating_prod(g,
-				false);
-		}
-		if (g->ops.clock_gating.slcg_ltc_load_gating_prod) {
-			g->ops.clock_gating.slcg_ltc_load_gating_prod(g,
-				false);
-		}
-
-		gr_gk20a_init_cg_mode(g, BLCG_MODE, BLCG_RUN);
-		gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_RUN);
-
-		dbg_s->is_pg_disabled = true;
 	} else {
 		/* restore (can) powergate, clk state */
 		/* release pending exceptions to fault/be handled as usual */
 		/*TBD: ordering of these? */
 
-		if (g->elcg_enabled) {
-			gr_gk20a_init_cg_mode(g, ELCG_MODE, ELCG_AUTO);
-		}
+		err = nvgpu_cg_pg_enable(g);
 
-		if (g->blcg_enabled) {
-			gr_gk20a_init_cg_mode(g, BLCG_MODE, BLCG_AUTO);
-		}
-
-		if (g->slcg_enabled) {
-			if (g->ops.clock_gating.slcg_ltc_load_gating_prod) {
-				g->ops.clock_gating.slcg_ltc_load_gating_prod(g,
-					g->slcg_enabled);
-			}
-			if (g->ops.clock_gating.slcg_perf_load_gating_prod) {
-				g->ops.clock_gating.slcg_perf_load_gating_prod(g,
-					g->slcg_enabled);
-			}
-			if (g->ops.clock_gating.slcg_gr_load_gating_prod) {
-				g->ops.clock_gating.slcg_gr_load_gating_prod(g,
-					g->slcg_enabled);
-			}
-		}
-		nvgpu_pmu_pg_global_enable(g, true);
-
-		nvgpu_log(g, gpu_dbg_gpu_dbg | gpu_dbg_fn,
-					"module idle");
+		nvgpu_log(g, gpu_dbg_gpu_dbg | gpu_dbg_fn, "module idle");
 		gk20a_idle(g);
 
-		dbg_s->is_pg_disabled = false;
+		if (err == 0) {
+			dbg_s->is_pg_disabled = false;
+			nvgpu_log(g, gpu_dbg_gpu_dbg | gpu_dbg_fn,
+					"pg enabled");
+		}
 	}
 
 	nvgpu_log(g, gpu_dbg_fn|gpu_dbg_gpu_dbg, "%s powergate mode = %s done",

@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-p3310-a00-00-base.dts Quill A00 Board
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -119,8 +119,9 @@
 		status = "okay";
 		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
 			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
 			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-1}>;
-		phy-names = "usb2-0", "usb2-1", "usb3-1";
+		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb3-1";
 	};
 #else
 	xhci@3530000 {
@@ -193,6 +194,14 @@
 				mode = "host";
 				vbus-supply = <&vdd_usb1_5v>;
 				nvidia,oc-pin = <1>;
+			};
+			usb2-2 {
+				status = "okay";
+				mode = "host";
+				vbus-supply = <&vdd_usb2_5v>;
+			};
+			usb3-0 {
+				nvidia,usb2-companion = <2>;
 			};
 			usb3-1 {
 				nvidia,usb2-companion = <1>;
@@ -317,6 +326,10 @@
 		nvdisplay@15220000 {
 			status = "disabled";
 		};
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
 	};
 };
 

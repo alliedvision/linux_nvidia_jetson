@@ -105,12 +105,7 @@
 #define MSI_MESSAGE_ADDR_L32		0x54
 #define MSI_MESSAGE_ADDR_U32		0x58
 
-/*
- * Maximum number of MSI IRQs can be 256 per controller. But keep
- * it 32 as of now. Probably we will never need more than 32. If needed,
- * then increment it in multiple of 32.
- */
-#define MAX_MSI_IRQS			32
+#define MAX_MSI_IRQS			256
 #define MAX_MSI_CTRLS			(MAX_MSI_IRQS / 32)
 
 struct pcie_port;
@@ -173,7 +168,8 @@ struct pcie_port {
 	struct pci_bus		*bus;
 	int			msi_irq;
 	struct irq_domain	*irq_domain;
-	unsigned long		msi_data;
+	void			*msi_virt_addr;
+	dma_addr_t		msi_target_addr;
 	DECLARE_BITMAP(msi_irq_in_use, MAX_MSI_IRQS);
 	raw_spinlock_t		lock;
 };
@@ -346,7 +342,8 @@ static inline void dw_pcie_dbi_ro_wr_dis(struct dw_pcie *pci)
 
 #ifdef CONFIG_PCIE_DW_HOST
 irqreturn_t dw_handle_msi_irq(struct pcie_port *pp);
-void dw_pcie_msi_init(struct pcie_port *pp);
+int dw_pcie_msi_init(struct pcie_port *pp);
+void dw_pcie_msi_deinit(struct pcie_port *pp);
 void dw_pcie_setup_rc(struct pcie_port *pp);
 int dw_pcie_host_init(struct pcie_port *pp);
 void dw_pcie_host_deinit(struct pcie_port *pp);
@@ -356,7 +353,12 @@ static inline irqreturn_t dw_handle_msi_irq(struct pcie_port *pp)
 	return IRQ_NONE;
 }
 
-static inline void dw_pcie_msi_init(struct pcie_port *pp)
+static inline int dw_pcie_msi_init(struct pcie_port *pp)
+{
+	return 0;
+}
+
+static inline void dw_pcie_msi_deinit(struct pcie_port *pp)
 {
 }
 

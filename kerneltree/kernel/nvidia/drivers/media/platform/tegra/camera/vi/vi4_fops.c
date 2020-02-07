@@ -18,7 +18,7 @@
 #include <media/mc_common.h>
 #include <media/vi4_registers.h>
 #include <video/vi4.h>
-#include "linux/nvhost_ioctl.h"
+#include <uapi/linux/nvhost_ioctl.h>
 #include "nvhost_acm.h"
 #include "vi4_formats.h"
 #include "vi/vi_notify.h"

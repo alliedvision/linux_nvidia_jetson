@@ -1,7 +1,7 @@
-From 066c460541c3918ede8414032b536c188e4dccc2 Mon Sep 17 00:00:00 2001
+From e46f8d12311b7469cb32534d1b55f46fa9b5e1d4 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 25 Oct 2012 10:32:35 +0100
-Subject: [PATCH 108/353] mm: Enable SLUB for RT
+Subject: [PATCH 108/352] mm: Enable SLUB for RT
 
 Make SLUB RT aware by converting locks to raw and using free lists to
 move the freeing out of the lock held region.

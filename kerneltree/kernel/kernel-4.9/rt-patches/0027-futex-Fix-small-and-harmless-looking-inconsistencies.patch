@@ -1,7 +1,7 @@
-From f37dbaca2acdd339e61b7c7b7e33d5452656281d Mon Sep 17 00:00:00 2001
+From 31f8ed6091a0dbe53d34e36f55c43c907291d08a Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 7 Apr 2017 09:04:07 +0200
-Subject: [PATCH 027/353] futex: Fix small (and harmless looking)
+Subject: [PATCH 027/352] futex: Fix small (and harmless looking)
  inconsistencies
 
 Upstream commit 94ffac5d847cfd790bb37b7cef1cad803743985e
@@ -23,7 +23,7 @@ Signed-off-by: Ingo Molnar <mingo@kernel.org>
  1 file changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 1a18fab..4c6e487 100644
+index d523b98..8f5a876 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -1024,7 +1024,8 @@ static int attach_to_pi_state(u32 __user *uaddr, u32 uval,

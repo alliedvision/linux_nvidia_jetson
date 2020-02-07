@@ -214,6 +214,14 @@ static int extract_pixel_format(
 		*format = V4L2_PIX_FMT_XBGGR10P;
 	else if (strncmp(pixel_t, "bayer_xrggb10p", size) == 0)
 		*format = V4L2_PIX_FMT_XRGGB10P;
+	else if (strncmp(pixel_t, "yuv_yuyv16", size) == 0)
+		*format = V4L2_PIX_FMT_YUYV;
+	else if (strncmp(pixel_t, "yuv_yvyu16", size) == 0)
+		*format = V4L2_PIX_FMT_YVYU;
+	else if (strncmp(pixel_t, "yuv_uyvy16", size) == 0)
+		*format = V4L2_PIX_FMT_UYVY;
+	else if (strncmp(pixel_t, "yuv_vyuy16", size) == 0)
+		*format = V4L2_PIX_FMT_VYUY;
 	else {
 		pr_err("%s: Need to extend format%s\n", __func__, pixel_t);
 		return -EINVAL;
@@ -424,13 +432,13 @@ static int sensor_common_parse_control_props(
 	/* ignore err for this prop */
 	err = read_property_u32(node, "min_hdr_ratio", &value);
 	if (err)
-		control->min_hdr_ratio = 0;
+		control->min_hdr_ratio = 1;
 	else
 		control->min_hdr_ratio = value;
 
 	err = read_property_u32(node, "max_hdr_ratio", &value);
 	if (err)
-		control->max_hdr_ratio = 0;
+		control->max_hdr_ratio = 1;
 	else
 		control->max_hdr_ratio = value;
 
@@ -590,6 +598,17 @@ static int sensor_common_init_i2c_device_config(
 		/* move to i2c bus node */
 		parent = of_get_parent(node);
 		of_node_put(node);
+	} else {
+		/* move to next parent to check
+		 * if it is a gpio based i2c mux
+		 */
+		node = of_get_parent(parent);
+		of_node_put(parent);
+
+		if (of_device_is_compatible(node, "i2c-mux-gpio")) {
+			/* move to i2c bus node */
+			parent = of_parse_phandle(node, "i2c-parent", 0);
+		}
 	}
 
 	/* read parent which is i2c bus */

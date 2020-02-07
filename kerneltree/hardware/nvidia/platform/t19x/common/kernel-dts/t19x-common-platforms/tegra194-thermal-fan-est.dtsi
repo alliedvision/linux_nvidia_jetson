@@ -37,12 +37,24 @@
 	thermal-fan-est {
 		compatible = "thermal-fan-est";
 		name = "thermal-fan-est";
+		status = "okay";
 		num_resources = <0>;
 		shared_data = <&thermal_fan_est_shared_data>;
 		trip_length = <10>;
-		active_trip_temps = <0 50000 63000 72000 81000
-				140000 150000 160000 170000 180000>;
-		active_hysteresis = <0 18000 8000 8000 8000
-				0 0 0 0 0>;
+		profiles {
+			default = "quiet";
+			quiet {
+				active_trip_temps = <0 50000 63000 72000 81000
+						140000 150000 160000 170000 180000>;
+				active_hysteresis = <0 18000 8000 8000 8000
+						0 0 0 0 0>;
+			};
+			cool {
+				active_trip_temps = <0 35000 53000 62000 73000
+						140000 150000 160000 170000 180000>;
+				active_hysteresis = <0 9000 8000 8000 9000
+						0 0 0 0 0>;
+			};
+		};
 	};
 };

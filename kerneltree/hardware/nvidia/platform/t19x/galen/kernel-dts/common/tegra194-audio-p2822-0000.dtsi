@@ -39,7 +39,7 @@
 
 			realtek,jd-src = <RT5659_JD_NULL>;
 			realtek,dmic1-data-pin = <RT5659_DMIC1_NULL>;
-			realtek,dmic2-data-pin = <RT5659_DMIC2_DATA_IN2P>;
+			realtek,dmic2-data-pin = <RT5659_DMIC2_NULL>;
 
 			gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(S, 5) 0>;
 
@@ -78,6 +78,7 @@
 			"x Headphone Jack",     "x HPO L Playback",
 			"x Headphone Jack",     "x HPO R Playback",
 			"x IN1P",               "x Mic Jack",
+			"x IN2P",               "x Mic Jack",
 			"x Int Spk",            "x SPO Playback",
 			"x DMIC L1",            "x Int Mic",
 			"x DMIC L2",            "x Int Mic",

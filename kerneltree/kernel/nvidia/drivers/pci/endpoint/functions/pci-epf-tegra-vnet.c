@@ -28,6 +28,10 @@
 
 #define BAR0_SIZE SZ_4M
 
+#define ENABLE_DMA 1
+#define DMA_WR_DATA_CH 0
+#define DMA_RD_DATA_CH 0
+
 /* DMA base offset starts at 0x20000 from ATU_DMA base */
 #define DMA_OFFSET 0x20000
 
@@ -195,6 +199,13 @@ struct h2ep_empty_list {
 	struct list_head list;
 };
 
+#if ENABLE_DMA
+struct dma_desc_cnt {
+	u32 rd_cnt;
+	u32 wr_cnt;
+};
+#endif
+
 enum dir_link_state {
 	DIR_LINK_STATE_DOWN,
 	DIR_LINK_STATE_UP,
@@ -234,6 +245,9 @@ struct pci_epf_tvnet {
 	struct work_struct h2ep_msg_work;
 	struct work_struct alloc_buf_work;
 	struct list_head h2ep_empty_list;
+#if ENABLE_DMA
+	struct dma_desc_cnt desc_cnt;
+#endif
 	/* To protect h2ep empty list */
 	spinlock_t h2ep_empty_lock;
 	dma_addr_t rx_buf_iova;
@@ -580,7 +594,7 @@ static void tvnet_alloc_empty_buffers(struct pci_epf_tvnet *tvnet)
 		}
 
 		ret = iommu_map(domain, iova, page_to_phys(page), PAGE_SIZE,
-				IOMMU_READ | IOMMU_WRITE);
+				IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
 		if (ret < 0) {
 			dev_err(tvnet->fdev, "%s: iommu_map(RAM) failed: %d\n",
 				__func__, ret);
@@ -820,6 +834,13 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 	struct pci_epf *epf = tvnet->epf;
 	struct pci_epc *epc = epf->epc;
 	struct device *cdev = epc->dev.parent;
+#if ENABLE_DMA
+	struct dma_desc_cnt *desc_cnt = &tvnet->desc_cnt;
+	struct tvnet_dma_desc *ep_dma_virt =
+				(struct tvnet_dma_desc *)tvnet->ep_dma_virt;
+	u32 desc_widx, desc_ridx, val, ctrl_d;
+	unsigned long timeout;
+#endif
 	dma_addr_t src_iova;
 	u32 rd_idx, wr_idx;
 	u64 dst_masked, dst_off, dst_iova;
@@ -843,6 +864,15 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 		netif_stop_queue(ndev);
 		return NETDEV_TX_BUSY;
 	}
+
+#if ENABLE_DMA
+	/* Check if dma desc available */
+	if ((desc_cnt->wr_cnt - desc_cnt->rd_cnt) >= DMA_DESC_COUNT) {
+		dev_dbg(fdev, "%s: dma descs are not available\n", __func__);
+		netif_stop_queue(ndev);
+		return NETDEV_TX_BUSY;
+	}
+#endif
 
 	len = skb_headlen(skb);
 
@@ -883,6 +913,57 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 	/* Raise an interrupt to let host populate EP2H_EMPTY_BUF ring */
 	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
 
+#if ENABLE_DMA
+	/* Trigger DMA write from src_iova to dst_iova */
+	desc_widx = desc_cnt->wr_cnt % DMA_DESC_COUNT;
+	ep_dma_virt[desc_widx].size = len;
+	ep_dma_virt[desc_widx].sar_low = lower_32_bits(src_iova);
+	ep_dma_virt[desc_widx].sar_high = upper_32_bits(src_iova);
+	ep_dma_virt[desc_widx].dar_low = lower_32_bits(dst_iova);
+	ep_dma_virt[desc_widx].dar_high = upper_32_bits(dst_iova);
+	/* CB bit should be set at the end */
+	smp_mb();
+	ctrl_d = DMA_CH_CONTROL1_OFF_WRCH_LIE;
+	ctrl_d |= DMA_CH_CONTROL1_OFF_WRCH_CB;
+	ep_dma_virt[desc_widx].ctrl_reg.ctrl_d = ctrl_d;
+
+	/* DMA write should not go out of order wrt CB bit set */
+	smp_mb();
+
+	timeout = jiffies + msecs_to_jiffies(1000);
+	dma_common_wr8(tvnet->dma_base, DMA_WR_DATA_CH, DMA_WRITE_DOORBELL_OFF);
+	desc_cnt->wr_cnt++;
+
+	while (true) {
+		val = dma_common_rd(tvnet->dma_base, DMA_WRITE_INT_STATUS_OFF);
+		if (val == BIT(DMA_WR_DATA_CH)) {
+			dma_common_wr(tvnet->dma_base, val,
+				      DMA_WRITE_INT_CLEAR_OFF);
+			break;
+		}
+		if (time_after(jiffies, timeout)) {
+			dev_err(fdev, "dma took more time, reset dma engine\n");
+			dma_common_wr(tvnet->dma_base,
+				      DMA_WRITE_ENGINE_EN_OFF_DISABLE,
+				      DMA_WRITE_ENGINE_EN_OFF);
+			mdelay(1);
+			dma_common_wr(tvnet->dma_base,
+				      DMA_WRITE_ENGINE_EN_OFF_ENABLE,
+				      DMA_WRITE_ENGINE_EN_OFF);
+			desc_cnt->wr_cnt--;
+			pci_epc_unmap_addr(epc, tvnet->tx_dst_pci_addr);
+			dma_unmap_single(cdev, src_iova, len, DMA_TO_DEVICE);
+			return NETDEV_TX_BUSY;
+		}
+	}
+
+	desc_ridx = tvnet->desc_cnt.rd_cnt % DMA_DESC_COUNT;
+	/* Clear DMA cycle bit and increment rd_cnt */
+	ep_dma_virt[desc_ridx].ctrl_reg.ctrl_e.cb = 0;
+	smp_mb();
+
+	tvnet->desc_cnt.rd_cnt++;
+#else
 	/* Copy skb->data to host dst address, use CPU virt addr */
 	memcpy((void *)(tvnet->tx_dst_va + dst_off), skb->data, len);
 	/*
@@ -890,6 +971,7 @@ static netdev_tx_t tvnet_start_xmit(struct sk_buff *skb,
 	 * written to dst before adding it to full buffer
 	 */
 	smp_mb();
+#endif
 
 	/* Push dst to EP2H full ring */
 	wr_idx = tvnet_ivc_get_wr_cnt(ep_cnt, host_cnt, EP2H_FULL_BUF) %
@@ -1003,6 +1085,72 @@ static void alloc_h2ep_rx_buf(struct work_struct *work)
 	if (tvnet->os_link_state == OS_LINK_STATE_UP)
 		tvnet_alloc_empty_buffers(tvnet);
 }
+
+#if ENABLE_DMA
+static void tvnet_setup_ep_dma(struct pci_epf_tvnet *tvnet)
+{
+	dma_addr_t iova = tvnet->bar0_amap[HOST_DMA].iova;
+	u32 val;
+
+	/* Enable linked list mode and set CCS for write channel-0 */
+	val = dma_channel_rd(tvnet->dma_base, DMA_WR_DATA_CH,
+			     DMA_CH_CONTROL1_OFF_WRCH);
+	val |= DMA_CH_CONTROL1_OFF_WRCH_LLE;
+	val |= DMA_CH_CONTROL1_OFF_WRCH_CCS;
+	dma_channel_wr(tvnet->dma_base, DMA_WR_DATA_CH, val,
+		       DMA_CH_CONTROL1_OFF_WRCH);
+
+	/* Unmask write channel-0 done irq to enable LIE */
+	val = dma_common_rd(tvnet->dma_base, DMA_WRITE_INT_MASK_OFF);
+	val &= ~0x1;
+	dma_common_wr(tvnet->dma_base, val, DMA_WRITE_INT_MASK_OFF);
+
+	/* Enable write channel-0 local abort irq */
+	val = dma_common_rd(tvnet->dma_base, DMA_WRITE_LINKED_LIST_ERR_EN_OFF);
+	val |= (0x1 << 16);
+	dma_common_wr(tvnet->dma_base, val, DMA_WRITE_LINKED_LIST_ERR_EN_OFF);
+
+	/* Program DMA write linked list base address to DMA LLP register */
+	dma_channel_wr(tvnet->dma_base, DMA_WR_DATA_CH,
+		       lower_32_bits(tvnet->ep_dma_iova),
+		       DMA_LLP_LOW_OFF_WRCH);
+	dma_channel_wr(tvnet->dma_base, DMA_WR_DATA_CH,
+		       upper_32_bits(tvnet->ep_dma_iova),
+		       DMA_LLP_HIGH_OFF_WRCH);
+
+	/* Enable DMA write engine */
+        dma_common_wr(tvnet->dma_base, DMA_WRITE_ENGINE_EN_OFF_ENABLE,
+                        DMA_WRITE_ENGINE_EN_OFF);
+
+	/* Enable linked list mode and set CCS for read channel-0 */
+	val = dma_channel_rd(tvnet->dma_base, DMA_RD_DATA_CH,
+			     DMA_CH_CONTROL1_OFF_RDCH);
+	val |= DMA_CH_CONTROL1_OFF_RDCH_LLE;
+	val |= DMA_CH_CONTROL1_OFF_RDCH_CCS;
+	dma_channel_wr(tvnet->dma_base, DMA_RD_DATA_CH, val,
+		       DMA_CH_CONTROL1_OFF_RDCH);
+
+	/* Mask read channel-0 done irq to enable RIE */
+	val = dma_common_rd(tvnet->dma_base, DMA_READ_INT_MASK_OFF);
+	val |= 0x1;
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_INT_MASK_OFF);
+
+	val = dma_common_rd(tvnet->dma_base, DMA_READ_LINKED_LIST_ERR_EN_OFF);
+	/* Enable read channel-0 remote abort irq */
+	val |= 0x1;
+	dma_common_wr(tvnet->dma_base, val, DMA_READ_LINKED_LIST_ERR_EN_OFF);
+
+	/* Program DMA read linked list base address to DMA LLP register */
+	dma_channel_wr(tvnet->dma_base, DMA_RD_DATA_CH,
+		       lower_32_bits(iova), DMA_LLP_LOW_OFF_RDCH);
+	dma_channel_wr(tvnet->dma_base, DMA_RD_DATA_CH,
+		       upper_32_bits(iova), DMA_LLP_HIGH_OFF_RDCH);
+
+	/* Enable DMA read engine */
+        dma_common_wr(tvnet->dma_base, DMA_READ_ENGINE_EN_OFF_ENABLE,
+                        DMA_READ_ENGINE_EN_OFF);
+}
+#endif
 
 static void ctrl_irqsp_reprime_work(struct work_struct *work)
 {
@@ -1441,7 +1589,7 @@ static int pci_epf_tvnet_bind(struct pci_epf *epf)
 	dma_desc = (struct tvnet_dma_desc *)amap->virt;
 	dma_desc[DMA_DESC_COUNT].sar_low = (amap->iova & 0xffffffff);
 	dma_desc[DMA_DESC_COUNT].sar_high = ((amap->iova >> 32) & 0xffffffff);
-	dma_desc[DMA_DESC_COUNT].ctrl_reg.llp = 1;
+	dma_desc[DMA_DESC_COUNT].ctrl_reg.ctrl_e.llp = 1;
 
 	/* Update BAR metadata region with offsets */
 	/* EP owned memory */
@@ -1548,6 +1696,12 @@ static int pci_epf_tvnet_bind(struct pci_epf *epf)
 		goto fail_unreg_netdev;
 	}
 
+	ret = pci_epc_set_msi(epc, epf->msi_interrupts);
+	if (ret) {
+		dev_err(fdev, "pci_epc_set_msi() failed: %d\n", ret);
+		goto fail_clear_bar;
+	}
+
 	/* Allocate local memory for DMA write link list elements */
 	size = ((DMA_DESC_COUNT + 1) * sizeof(struct tvnet_dma_desc));
 	tvnet->ep_dma_virt = dma_alloc_coherent(cdev, size,
@@ -1565,7 +1719,7 @@ static int pci_epf_tvnet_bind(struct pci_epf *epf)
 	dma_desc[DMA_DESC_COUNT].sar_low = (tvnet->ep_dma_iova & 0xffffffff);
 	dma_desc[DMA_DESC_COUNT].sar_high = ((tvnet->ep_dma_iova >> 32) &
 					     0xffffffff);
-	dma_desc[DMA_DESC_COUNT].ctrl_reg.llp = 1;
+	dma_desc[DMA_DESC_COUNT].ctrl_reg.ctrl_e.llp = 1;
 
 	nvhost_interrupt_syncpt_prime(tvnet->ctrl_irqsp->is);
 	nvhost_interrupt_syncpt_prime(tvnet->data_irqsp->is);
@@ -1628,6 +1782,9 @@ static void pci_epf_tvnet_linkup(struct pci_epf *epf)
 {
 	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
 
+#if ENABLE_DMA
+	tvnet_setup_ep_dma(tvnet);
+#endif
 	tvnet->pcie_link_status = true;
 }
 

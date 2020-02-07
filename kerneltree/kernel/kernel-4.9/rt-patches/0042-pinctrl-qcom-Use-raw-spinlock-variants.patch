@@ -1,7 +1,7 @@
-From 25fec4bf2a1832e3fde482b1514b8ed5b6b98476 Mon Sep 17 00:00:00 2001
+From 323804dc4594e8a50af3581b78ade7db4964d733 Mon Sep 17 00:00:00 2001
 From: Julia Cartwright <julia@ni.com>
 Date: Fri, 20 Jan 2017 10:13:47 -0600
-Subject: [PATCH 042/353] pinctrl: qcom: Use raw spinlock variants
+Subject: [PATCH 042/352] pinctrl: qcom: Use raw spinlock variants
 
 The MSM pinctrl driver currently implements an irq_chip for handling
 GPIO interrupts; due to how irq_chip handling is done, it's necessary

@@ -21,7 +21,7 @@
 #include <media/capture_vi_channel.h>
 #include <media/capture.h>
 #include <soc/tegra/camrtc-capture.h>
-#include "linux/nvhost_ioctl.h"
+#include <uapi/linux/nvhost_ioctl.h>
 #include "nvhost_acm.h"
 #include "vi5_formats.h"
 #include "vi5_fops.h"

@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Client Module
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2019, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,7 +40,7 @@
 #include <linux/string.h>
 
 #include <linux/nvhost.h>
-#include <linux/nvhost_ioctl.h>
+#include <uapi/linux/nvhost_ioctl.h>
 #include <linux/nospec.h>
 
 #ifdef CONFIG_EVENTLIB
@@ -2005,49 +2005,59 @@ void nvhost_eventlib_log_submit(struct platform_device *pdev,
 			timestamp);
 }
 
-void nvhost_eventlib_log_fence(struct platform_device *pdev,
-			       u32 kind, /* NVDEV_FENCE_KIND_xxx */
-			       struct nvdev_fence *fence,
-			       u64 timestamp)
+void nvhost_eventlib_log_fences(struct platform_device *pdev,
+				u32 task_syncpt_id,
+				u32 task_syncpt_thresh,
+				struct nvdev_fence *fences,
+				u8 num_fences,
+				enum nvdev_fence_kind kind,
+				u64 timestamp)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvhost_task_fence task_fence;
+	u8 i;
 
 	if (!pdata->eventlib_id)
 		return;
 
-	memset(&task_fence, 0, sizeof(task_fence));
+	for (i = 0; i < num_fences; i++) {
+		struct nvhost_task_fence task_fence;
 
-	/*
-	 * Write pre/postfence event
-	 */
-	task_fence.class_id = pdata->class;
-	task_fence.kind = kind;
-	task_fence.type = fence->type;
+		memset(&task_fence, 0, sizeof(task_fence));
 
-	switch (fence->type) {
-	case NVDEV_FENCE_TYPE_SYNCPT:
-		task_fence.syncpoint_index = fence->syncpoint_index;
-		task_fence.syncpoint_value = fence->syncpoint_value;
-		break;
-	case NVDEV_FENCE_TYPE_SYNC_FD:
-		task_fence.sync_fd = fence->sync_fd;
-		break;
-	case NVDEV_FENCE_TYPE_SEMAPHORE:
-	case NVDEV_FENCE_TYPE_SEMAPHORE_TS:
-		task_fence.semaphore_handle = fence->semaphore_handle;
-		task_fence.semaphore_offset = fence->semaphore_offset;
-		task_fence.semaphore_value = fence->semaphore_value;
-		break;
-	default:
-		break;
+		/* Basic fence fields common for all types */
+		task_fence.class_id = pdata->class;
+		task_fence.kind = (u32) kind;
+		task_fence.fence_type = fences[i].type;
+		task_fence.task_syncpt_id = task_syncpt_id;
+		task_fence.task_syncpt_thresh = task_syncpt_thresh;
+
+		switch (fences[i].type) {
+		case NVDEV_FENCE_TYPE_SYNCPT:
+			task_fence.syncpt_id = fences[i].syncpoint_index;
+			task_fence.syncpt_thresh = fences[i].syncpoint_value;
+			break;
+		case NVDEV_FENCE_TYPE_SYNC_FD:
+			task_fence.sync_fd = fences[i].sync_fd;
+			break;
+		case NVDEV_FENCE_TYPE_SEMAPHORE:
+		case NVDEV_FENCE_TYPE_SEMAPHORE_TS:
+			task_fence.semaphore_handle =
+				fences[i].semaphore_handle;
+			task_fence.semaphore_offset =
+				fences[i].semaphore_offset;
+			task_fence.semaphore_value =
+				fences[i].semaphore_value;
+			break;
+		default:
+			nvhost_warn(&pdev->dev, "unknown fence type %d",
+				    fences[i].type);
+			break;
+		}
+
+		keventlib_write(pdata->eventlib_id, &task_fence,
+				sizeof(task_fence), NVHOST_TASK_FENCE,
+				timestamp);
 	}
-
-	keventlib_write(pdata->eventlib_id,
-			&task_fence,
-			sizeof(task_fence),
-			NVHOST_TASK_FENCE,
-			timestamp);
 }
 
 #else
@@ -2066,14 +2076,17 @@ void nvhost_eventlib_log_submit(struct platform_device *pdev,
 {
 }
 
-void nvhost_eventlib_log_fence(struct platform_device *pdev,
-			       u32 kind, /* NVDEV_FENCE_KIND_xxx */
-			       struct nvdev_fence *fence,
-			       u64 timestamp)
+void nvhost_eventlib_log_fences(struct platform_device *pdev,
+				u32 task_syncpt_id,
+				u32 task_syncpt_thresh,
+				struct nvdev_fence *fences,
+				u8 num_fences,
+				enum nvdev_fence_kind kind,
+				u64 timestamp)
 {
 }
 
 #endif
 EXPORT_SYMBOL(nvhost_eventlib_log_submit);
 EXPORT_SYMBOL(nvhost_eventlib_log_task);
-EXPORT_SYMBOL(nvhost_eventlib_log_fence);
+EXPORT_SYMBOL(nvhost_eventlib_log_fences);

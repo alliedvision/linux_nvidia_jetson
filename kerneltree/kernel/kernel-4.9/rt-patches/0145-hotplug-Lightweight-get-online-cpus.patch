@@ -1,7 +1,7 @@
-From 24fbcb257183d2797d2020b97f89b858d397b546 Mon Sep 17 00:00:00 2001
+From 315bba17a4c1c779ce1214c9eeec1f78b5ebc6df Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 15 Jun 2011 12:36:06 +0200
-Subject: [PATCH 145/353] hotplug: Lightweight get online cpus
+Subject: [PATCH 145/352] hotplug: Lightweight get online cpus
 
 get_online_cpus() is a heavy weight function which involves a global
 mutex. migrate_disable() wants a simpler construct which prevents only

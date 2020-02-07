@@ -276,73 +276,61 @@
 	aconnect@2a41000 {
 		ahub {
 			dmic@2904000 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dmic1_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			dmic@2904100 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dmic2_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			dmic@2904200 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dmic3_dap_active_state>;
 				pinctrl-1 = <&dmic3_dap_inactive_state>;
 			};
 			dmic_2904300: dmic@2904300 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dmic4_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			dspk_2905000: dspk@2905000 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dspk0_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			dspk_2905100: dspk@2905100 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&dspk1_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s@2901000 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s1_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s@2901100 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s2_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s@2901200 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s3_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s@2901300 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s4_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s_2901400: i2s@2901400 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s5_dap_active_state>;
 				pinctrl-1 = <>;
 			};
 			i2s@2901500 {
-				nvidia,is-pinctrl = <1>;
 				pinctrl-names = "dap_active", "dap_inactive";
 				pinctrl-0 = <&i2s6_dap_active_state>;
 				pinctrl-1 = <>;

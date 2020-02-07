@@ -319,8 +319,8 @@ struct mrq_query_fw_tag_response {
  * @def MRQ_MODULE_LOAD
  * @brief Dynamically load a BPMP code module
  *
- * * Platforms: T210, T214, T186
- * @cond (bpmp_t210 || bpmp_t214 || bpmp_t186)
+ * * Platforms: T210, T210B01, T186
+ * @cond (bpmp_t210 || bpmp_t210b01 || bpmp_t186)
  * * Initiators: CCPLEX
  * * Targets: BPMP
  * * Request Payload: @ref mrq_module_load_request
@@ -371,8 +371,8 @@ struct mrq_module_load_response {
  * @def MRQ_MODULE_UNLOAD
  * @brief Unload a previously loaded code module
  *
- * * Platforms: T210, T214, T186
- * @cond (bpmp_t210 || bpmp_t214 || bpmp_t186)
+ * * Platforms: T210, T210B01, T186
+ * @cond (bpmp_t210 || bpmp_t210b01 || bpmp_t186)
  * * Initiators: CCPLEX
  * * Targets: BPMP
  * * Request Payload: @ref mrq_module_unload_request
@@ -509,8 +509,8 @@ struct mrq_threaded_ping_response {
  * @def MRQ_MODULE_MAIL
  * @brief Send a message to a loadable module
  *
- * * Platforms: T210, T214, T186
- * @cond (bpmp_t210 || bpmp_t214 || bpmp_t186)
+ * * Platforms: T210, T210B01, T186
+ * @cond (bpmp_t210 || bpmp_t210b01 || bpmp_t186)
  * * Initiators: Any
  * * Targets: BPMP
  * * Request Payload: @ref mrq_module_mail_request

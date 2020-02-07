@@ -1,7 +1,7 @@
-From fea01b4e311acfcd9c2a07d478ed7b81be71f84e Mon Sep 17 00:00:00 2001
+From 69fc6555d9bc9338450384d30f57f3d81e7055f9 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 4 Feb 2016 14:08:06 +0100
-Subject: [PATCH 063/353] latencyhist: disable jump-labels
+Subject: [PATCH 063/352] latencyhist: disable jump-labels
 
 Atleast on X86 we die a recursive death
 
@@ -51,7 +51,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/Kconfig b/arch/Kconfig
-index 2fa953f..391ecd54 100644
+index 2fa953f..391ecd5 100644
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
 @@ -55,6 +55,7 @@ config KPROBES

@@ -55,7 +55,7 @@
 			};
 			channel@2 {
 				reg = <0x2>;
-				ti,rail-name = "VDD_SYS_SRAM";
+				ti,rail-name = "VDD_SYS_DDR";
 				ti,shunt-resistor-mohm = <10>;
 			};
 		};

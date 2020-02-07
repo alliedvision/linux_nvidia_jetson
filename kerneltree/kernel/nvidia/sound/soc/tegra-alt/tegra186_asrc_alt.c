@@ -226,24 +226,6 @@ static int tegra186_asrc_runtime_resume(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int tegra186_asrc_suspend(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra186_asrc_runtime_suspend(dev);
-}
-
-static int tegra186_asrc_resume(struct device *dev)
-{
-	if (pm_runtime_status_suspended(dev))
-		return 0;
-
-	return tegra186_asrc_runtime_resume(dev);
-}
-#endif
-
 static int tegra186_asrc_set_audio_cif(struct tegra186_asrc *asrc,
 				struct snd_pcm_hw_params *params,
 				unsigned int reg)
@@ -1253,8 +1235,8 @@ static int tegra186_asrc_platform_remove(struct platform_device *pdev)
 static const struct dev_pm_ops tegra186_asrc_pm_ops = {
 	SET_RUNTIME_PM_OPS(tegra186_asrc_runtime_suspend,
 			   tegra186_asrc_runtime_resume, NULL)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(tegra186_asrc_suspend,
-				     tegra186_asrc_resume)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+				     pm_runtime_force_resume)
 };
 
 static struct platform_driver tegra186_asrc_driver = {

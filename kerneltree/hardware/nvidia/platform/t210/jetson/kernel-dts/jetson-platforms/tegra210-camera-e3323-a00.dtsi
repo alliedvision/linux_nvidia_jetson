@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -209,7 +209,9 @@
 
 					active_w = "5632";
 					active_h = "3168";
-					pixel_t = "bayer_bggr";
+					mode_type = "bayer";
+					pixel_phase = "bggr";
+					csi_pixel_bit_depth = "10";
 					readout_orientation = "270";
 					line_length = "5922";
 					inherent_gain = "1";
@@ -224,6 +226,7 @@
 					max_framerate = "30";
 					min_exp_time = "19.74";
 					max_exp_time = "323094";
+					embedded_metadata_height = "0";
 				};
 				ports {
 					#address-cells = <1>;
@@ -301,7 +304,9 @@
 
 				active_w = "5632";
 				active_h = "3168";
-				pixel_t = "bayer_bggr";
+				mode_type = "bayer";
+				pixel_phase = "bggr";
+				csi_pixel_bit_depth = "10";
 				readout_orientation = "270";
 				line_length = "5922";
 				inherent_gain = "1";
@@ -316,6 +321,7 @@
 				max_framerate = "30";
 				min_exp_time = "19.74";
 				max_exp_time = "323094";
+				embedded_metadata_height = "0";
 			};
 			ports {
 				#address-cells = <1>;

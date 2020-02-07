@@ -11,6 +11,12 @@
 
 #include <linux/platform_device.h>
 
+#define PMC_RST_STATUS		0x1b4
+#define PMC_SCRATCH0		0x50
+#define PMC_SCRATCH1		0x54
+#define PMC_SCRATCH4		0x60
+#define PMC_SCRATCH203		0x84c
+
 struct board_info {
 	u16 board_id;
 	u16 sku;

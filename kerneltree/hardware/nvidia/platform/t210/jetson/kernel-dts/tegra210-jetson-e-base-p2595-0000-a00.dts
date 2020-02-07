@@ -265,7 +265,7 @@
 		};
 	};
 
-	pcie-controller@1003000 {
+	pcie@1003000 {
 		nvidia,wake-gpio = <&gpio TEGRA_GPIO(A, 2) 0>;
 		avdd-pll-uerefe-supply = <&max77620_ldo7>;
 		hvddio-pex-supply = <&max77620_sd3>;
@@ -426,10 +426,6 @@
 			cpu-dai-name = "I2S1";
 			codec-dai-name = "rt5640-aif1";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;
@@ -443,10 +439,7 @@
 			cpu-dai-name = "I2S2";
 			codec-dai-name = "dit-hifi";
 			format = "dsp_a";
-			bitclock-slave;
-			frame-slave;
 			bitclock-inversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <4>;
 			srate = <8000>;
@@ -460,10 +453,6 @@
 			cpu-dai-name = "I2S3";
 			codec-dai-name = "dit-hifi";
 			format = "i2s";
-			bitclock-slave;
-			frame-slave;
-			bitclock-noninversion;
-			frame-noninversion;
 			bit-format = "s16_le";
 			bclk_ratio = <0>;
 			srate = <48000>;

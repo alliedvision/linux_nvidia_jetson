@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -39,8 +39,7 @@ void nvaudio_ivc_rx(struct tegra_hv_ivc_cookie *ivck);
 
 struct nvaudio_ivc_ctxt *nvaudio_ivc_alloc_ctxt(struct device *dev);
 
-void nvaudio_ivc_free_ctxt(struct device *dev,
-					struct nvaudio_ivc_ctxt *ictxt);
+void nvaudio_ivc_free_ctxt(struct device *dev);
 
 int nvaudio_ivc_send(struct nvaudio_ivc_ctxt *ictxt,
 				struct nvaudio_ivc_msg *msg,

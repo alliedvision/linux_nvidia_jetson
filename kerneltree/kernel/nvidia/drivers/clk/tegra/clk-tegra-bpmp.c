@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -97,7 +97,6 @@ int __init tegra_bpmp_of_clk_init(void)
 	/* see if we have EMC proxy in DT */
 	dn = of_find_compatible_node(NULL, NULL, "nvidia,tegra-bpmp-emc-clk");
 	if (dn == NULL) {
-		pr_info("%s: EMC proxy not found.\n", __func__);
 		goto out;
 	}
 	emc_clk = of_clk_get(dn, 0);

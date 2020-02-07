@@ -1,7 +1,7 @@
-From e3b161670c85eaf88f7e4d00b3a79f929a2fe9c5 Mon Sep 17 00:00:00 2001
+From a336e4ecf6829700975543f48eb3fffd4a443c92 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Wed, 22 Mar 2017 11:35:52 +0100
-Subject: [PATCH 009/353] futex: Change locking rules
+Subject: [PATCH 009/352] futex: Change locking rules
 
 Upstream commit 734009e96d1983ad739e5b656e03430b3660c913
 
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 132 insertions(+), 33 deletions(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index e0736ed..78c7d74 100644
+index cba509f..e7e5936 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -972,6 +972,39 @@ void exit_pi_state_list(struct task_struct *curr)
@@ -255,7 +255,7 @@ index e0736ed..78c7d74 100644
  	if (ret) {
  		raw_spin_unlock_irq(&pi_state->pi_mutex.wait_lock);
  		return ret;
-@@ -1864,7 +1948,7 @@ static int futex_requeue(u32 __user *uaddr1, unsigned int flags,
+@@ -1872,7 +1956,7 @@ static int futex_requeue(u32 __user *uaddr1, unsigned int flags,
  			 * If that call succeeds then we have pi_state and an
  			 * initial refcount on it.
  			 */
@@ -264,7 +264,7 @@ index e0736ed..78c7d74 100644
  		}
  
  		switch (ret) {
-@@ -2163,10 +2247,13 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
+@@ -2171,10 +2255,13 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
  {
  	u32 newtid = task_pid_vnr(newowner) | FUTEX_WAITERS;
  	struct futex_pi_state *pi_state = q->pi_state;
@@ -279,7 +279,7 @@ index e0736ed..78c7d74 100644
  	/* Owner died? */
  	if (!pi_state->owner)
  		newtid |= FUTEX_OWNER_DIED;
-@@ -2182,11 +2269,10 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
+@@ -2190,11 +2277,10 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
  	 * because we can fault here. Imagine swapped out pages or a fork
  	 * that marked all the anonymous memory readonly for cow.
  	 *
@@ -295,7 +295,7 @@ index e0736ed..78c7d74 100644
  	 */
  retry:
  	if (get_futex_value_locked(&uval, uaddr))
-@@ -2207,47 +2293,60 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
+@@ -2215,47 +2301,60 @@ static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
  	 * itself.
  	 */
  	if (pi_state->owner != NULL) {

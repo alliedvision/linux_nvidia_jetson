@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/main.c
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -267,6 +267,11 @@ set_parameters(struct quadd_parameters *p)
 	ctx.mode_is_trace_tree =
 		extra & QUADD_PARAM_EXTRA_TRACE_TREE ? 1 : 0;
 
+	if (ctx.mode_is_sample_all)
+		ctx.mode_is_sample_tree = 0;
+	if (ctx.mode_is_trace_all)
+		ctx.mode_is_trace_tree = 0;
+
 	pr_info("flags: s/t/sa/ta/st/tt: %u/%u/%u/%u/%u/%u\n",
 		ctx.mode_is_sampling,
 		ctx.mode_is_tracing,
@@ -295,10 +300,12 @@ set_parameters(struct quadd_parameters *p)
 		}
 
 		/* Currently only first process */
-		if (p->nr_pids != 1)
+		if (p->nr_pids != 1 || p->pids[0] == 0)
 			return -EINVAL;
 
+		rcu_read_lock();
 		task = get_pid_task(find_vpid(p->pids[0]), PIDTYPE_PID);
+		rcu_read_unlock();
 		if (!task) {
 			pr_err("error: process not found: %u\n", p->pids[0]);
 			return -ESRCH;

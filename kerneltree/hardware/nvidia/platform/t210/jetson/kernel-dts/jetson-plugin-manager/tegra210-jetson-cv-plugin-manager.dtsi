@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,7 +88,9 @@
 						"s IN",			"s Mic",
 						"w Headphone",		"w OUT",
 						"w IN",			"w Mic",
-						"z IN",			"z Mic";
+						"z IN",			"z Mic",
+						"m IN",			"m Mic",
+						"n IN",			"n Mic";
 					nvidia,dai-link-1 {
 						codec-dai-name = "rt5659-aif1";
 					};
@@ -251,6 +253,48 @@
 				target = <&soft_wdt>;
 				_overlay_ {
 					status = "disabled";
+				};
+			};
+		};
+
+		fragment@8 {
+			/* E3320 DSI connector */
+			ids = "3320-1000-*", "3320-1100-000";
+			overrides@1 {
+				target = <&{/host1x}>;
+				_overlay_ {
+					dc@54200000 {
+						/* dc.0 */
+						status = "okay";
+						nvidia,dc-or-node = "/host1x/dsi";
+						nvidia,dc-connector = <&dsi>;
+					};
+					dsi {
+						status = "okay";
+						nvidia,active-panel = <&panel_a_wuxga_8_0>;
+						panel-a-wuxga-8-0 {
+							status = "okay";
+						};
+					};
+				};
+			};
+
+			overrides@2 {
+				target = <&{/i2c@7000c400}>;
+				_overlay_ {
+					lp8557-backlight-a-wuxga-8-0@2c {
+						status = "okay";
+					};
+				};
+			};
+
+			overrides@3 {
+				target = <&{/backlight}>;
+				_overlay_ {
+					status = "okay";
+					panel-a-wuxga-8-0-bl {
+						status = "okay";
+					};
 				};
 			};
 		};

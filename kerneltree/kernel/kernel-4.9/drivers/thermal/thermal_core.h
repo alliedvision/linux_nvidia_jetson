@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2012  Intel Corp
  *  Author: Durgadoss R <durgadoss.r@intel.com>
+ *  Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *  This program is free software; you can redistribute it and/or modify
@@ -57,6 +58,14 @@ struct thermal_instance {
 int thermal_register_governor(struct thermal_governor *);
 void thermal_unregister_governor(struct thermal_governor *);
 struct thermal_governor *thermal_find_governor(const char *name);
+
+#ifdef CONFIG_THERMAL_GOV_CONTINUOUS
+int thermal_gov_continuous_register(void);
+void thermal_gov_continuous_unregister(void);
+#else
+static inline int thermal_gov_continuous_register(void) { return 0; }
+static inline void thermal_gov_continuous_unregister(void) {}
+#endif
 
 #ifdef CONFIG_THERMAL_GOV_STEP_WISE
 int thermal_gov_step_wise_register(void);

@@ -1,7 +1,7 @@
 /*
  * tegra210_adsp_alt.h - Tegra210 ADSP header
  *
- * Copyright (c) 2014-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -243,3 +243,5 @@ enum tegra210_adsp_virt_regs {
 	(access == SNDRV_PCM_ACCESS_MMAP_NONINTERLEAVED) || \
 	(access == SNDRV_PCM_ACCESS_MMAP_COMPLEX)
 #endif
+
+#define ADSP_BACKEND_TO_ADMAIF(be_reg) (be_reg - ADSP_ADMAIF_START)

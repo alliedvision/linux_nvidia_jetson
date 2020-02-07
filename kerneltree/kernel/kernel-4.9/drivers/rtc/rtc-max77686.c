@@ -1022,6 +1022,8 @@ static int max77686_rtc_suspend(struct device *dev)
 	if (device_may_wakeup(dev))
 		return enable_irq_wake(info->virq);
 
+	regcache_sync(info->rtc_regmap);
+
 	return 0;
 }
 

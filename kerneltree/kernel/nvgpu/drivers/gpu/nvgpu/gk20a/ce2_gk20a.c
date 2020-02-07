@@ -30,6 +30,7 @@
 #include <nvgpu/io.h>
 #include <nvgpu/utils.h>
 #include <nvgpu/channel.h>
+#include <nvgpu/power_features/cg.h>
 
 #include "gk20a.h"
 #include "gk20a/fence_gk20a.h"
@@ -339,14 +340,9 @@ int gk20a_init_ce_support(struct gk20a *g)
 
 	g->ops.mc.reset(g, ce_reset_mask);
 
-	if (g->ops.clock_gating.slcg_ce2_load_gating_prod) {
-		g->ops.clock_gating.slcg_ce2_load_gating_prod(g,
-				g->slcg_enabled);
-	}
-	if (g->ops.clock_gating.blcg_ce_load_gating_prod) {
-		g->ops.clock_gating.blcg_ce_load_gating_prod(g,
-				g->blcg_enabled);
-	}
+	nvgpu_cg_slcg_ce2_load_enable(g);
+
+	nvgpu_cg_blcg_ce_load_enable(g);
 
 	if (ce_app->initialised) {
 		/* assume this happen during poweron/poweroff GPU sequence */

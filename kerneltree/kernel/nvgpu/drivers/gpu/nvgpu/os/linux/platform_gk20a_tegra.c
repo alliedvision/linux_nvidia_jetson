@@ -1,7 +1,7 @@
 /*
  * GK20A Tegra Platform Interface
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -497,8 +497,6 @@ static int gk20a_tegra_get_clocks(struct device *dev)
 		rate = clk_round_rate(c, rate);
 		clk_set_rate(c, rate);
 		platform->clk[i] = c;
-		if (i == 0)
-			platform->cached_rate = rate;
 	}
 	platform->num_clks = i;
 

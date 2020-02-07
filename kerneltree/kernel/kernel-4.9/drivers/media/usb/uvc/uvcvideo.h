@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -150,7 +150,7 @@
 /* Maximum number of packets per URB. */
 #define UVC_MAX_PACKETS		32
 /* Maximum status buffer size in bytes of interrupt URB. */
-#define UVC_MAX_STATUS_SIZE	16
+#define UVC_MAX_STATUS_SIZE	1024
 
 #define UVC_CTRL_CONTROL_TIMEOUT	500
 #define UVC_CTRL_STREAMING_TIMEOUT	5000

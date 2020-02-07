@@ -1,7 +1,7 @@
-From f0f834019604679a58fa176f7da2658a31db1f9c Mon Sep 17 00:00:00 2001
+From d284d73d5ea020beb7d2fdda91265390f7885cdf Mon Sep 17 00:00:00 2001
 From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 Date: Sun, 25 Oct 2015 18:06:05 -0400
-Subject: [PATCH 065/353] latency_hist: Update sched_wakeup probe
+Subject: [PATCH 065/352] latency_hist: Update sched_wakeup probe
 
 "sched: Introduce the 'trace_sched_waking' tracepoint" introduces a
 prototype change for the sched_wakeup probe: the "success" argument is

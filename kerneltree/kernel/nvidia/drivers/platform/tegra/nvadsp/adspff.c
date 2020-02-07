@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,20 +18,34 @@
 #include <asm/uaccess.h>
 
 #include <linux/slab.h>
-#include <linux/workqueue.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
+#include <linux/sched/rt.h>
+#include <linux/semaphore.h>
+#include <linux/debugfs.h>
+#include <linux/platform_device.h>
+#include <linux/list.h>
 
 #include <linux/tegra_nvadsp.h>
 
 #include "adspff.h"
+#include "dev.h"
+
+
+#define ADSPFF_MAX_OPEN_FILES	(32)
 
 struct file_struct {
 	struct file *fp;
+	uint8_t file_name[ADSPFF_MAX_FILENAME_SIZE];
+	unsigned int flags;
 	unsigned long long wr_offset;
 	unsigned long long rd_offset;
+	struct list_head list;
 };
 
-
+static struct list_head file_list;
 static spinlock_t adspff_lock;
+static int open_count;
 
 /******************************************************************************
 * Kernel file functions
@@ -121,7 +135,7 @@ static struct nvadsp_mbox rx_mbox;
  * w+ - open for reading and writing (overwrite file)			*
  * a+ - open for reading and writing (append if file exists)	*/
 
-void set_flags(union adspff_message_t *m, int *flags)
+void set_flags(union adspff_message_t *m, unsigned int *flags)
 {
 	if (0 == strcmp(m->msg.payload.fopen_msg.modes, "r+"))
 		*flags = O_RDWR;
@@ -145,16 +159,66 @@ void set_flags(union adspff_message_t *m, int *flags)
 		*flags = O_CREAT | O_RDWR;
 }
 
-void adspff_fopen(struct work_struct *work)
+/*
+ *	checks if file is already opened
+ *	if yes, then returns the struct file_struct for the file
+ *	if no, then allocates a file_struct and adds to the list
+ *	and returns the pointer to the newly allocated file_struct
+ *	if ADSPFF_MAX_OPEN_FILES already open, returns NULL
+ */
+static struct file_struct *check_file_opened(const char *path)
+{
+	struct file_struct *file = NULL;
+	struct list_head *pos;
+
+	/* assuming files opened by ADSP will
+	 * never be actually closed in kernel
+	 */
+	list_for_each(pos, &file_list) {
+		file = list_entry(pos, struct file_struct, list);
+		if (!file->fp)
+			break;
+		if (!strncmp(path, file->file_name,
+					ADSPFF_MAX_FILENAME_SIZE)) {
+			break;
+		}
+		file = NULL;
+	}
+
+	if (file != NULL)
+		return file;
+
+	if (open_count == ADSPFF_MAX_OPEN_FILES) {
+		pr_err("adspff: %d files already opened\n",
+			ADSPFF_MAX_OPEN_FILES);
+		file = NULL;
+	} else {
+		file = kzalloc(sizeof(*file), GFP_KERNEL);
+		open_count++;
+		list_add_tail(&file->list, &file_list);
+	}
+	return file;
+}
+
+void adspff_fopen(void)
 {
 	union adspff_message_t *message;
 	union adspff_message_t *msg_recv;
-	int flags = 0, ret = 0;
+	unsigned int flags = 0;
+	int ret = 0;
+	struct file_struct *file;
 
-	struct file_struct *file = kzalloc(sizeof(struct file_struct), GFP_KERNEL);
 
 	message = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!message)
+		return;
+
+
 	msg_recv = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!msg_recv) {
+		kfree(message);
+		return;
+	}
 
 	message->msgq_msg.size = MSGQ_MSG_SIZE(struct fopen_msg_t);
 
@@ -168,17 +232,26 @@ void adspff_fopen(struct work_struct *work)
 		return;
 	}
 
-	set_flags(message, &flags);
+	file = check_file_opened(message->msg.payload.fopen_msg.fname);
+	if (file && !file->fp) {
+		/* open a new file */
+		set_flags(message, &flags);
+		pr_info("adspff: opening file %s\n",
+			message->msg.payload.fopen_msg.fname);
 
-	file->fp = file_open(
-		(const char *)message->msg.payload.fopen_msg.fname,
-		flags, S_IRWXU|S_IRWXG|S_IRWXO);
+		file->fp = file_open(
+			(const char *)message->msg.payload.fopen_msg.fname,
+			flags, S_IRWXU | S_IRWXG | S_IRWXO);
 
-	file->wr_offset = 0;
-	file->rd_offset = 0;
+		file->wr_offset = 0;
+		file->rd_offset = 0;
+		memcpy(file->file_name,
+				message->msg.payload.fopen_msg.fname,
+				ADSPFF_MAX_FILENAME_SIZE);
+		file->flags = flags;
+	}
 
-	if (!(file->fp)) {
-		kfree(file);
+	if (file && !file->fp) {
 		file = NULL;
 		pr_err("File not found - %s\n",
 			(const char *) message->msg.payload.fopen_msg.fname);
@@ -191,6 +264,12 @@ void adspff_fopen(struct work_struct *work)
 			(msgq_message_t *)msg_recv);
 	if (ret < 0) {
 		pr_err("fopen Enqueue failed %d.", ret);
+
+		if (file) {
+			file_close(file->fp);
+			file->fp = NULL;
+		}
+
 		kfree(message);
 		kfree(msg_recv);
 		return;
@@ -202,13 +281,25 @@ void adspff_fopen(struct work_struct *work)
 	kfree(msg_recv);
 }
 
-void adspff_fclose(struct work_struct *work)
+static inline unsigned int is_read_file(struct file_struct *file)
+{
+	return ((!file->flags) || (file->flags & O_RDWR));
+}
+
+static inline unsigned int is_write_file(struct file_struct *file)
+{
+	return file->flags & (O_WRONLY | O_RDWR);
+}
+
+void adspff_fclose(void)
 {
 	union adspff_message_t *message;
 	struct file_struct *file = NULL;
 	int32_t ret = 0;
 
 	message = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!message)
+		return;
 
 	message->msgq_msg.size = MSGQ_MSG_SIZE(struct fclose_msg_t);
 
@@ -220,16 +311,20 @@ void adspff_fclose(struct work_struct *work)
 		kfree(message);
 		return;
 	}
+
 	file = (struct file_struct *)message->msg.payload.fclose_msg.file;
 	if (file) {
-		file_close(file->fp);
-		kfree(file);
-		file = NULL;
+		if ((file->flags & O_APPEND) == 0) {
+			if (is_read_file(file))
+				file->rd_offset = 0;
+			if (is_write_file(file))
+				file->wr_offset = 0;
+		}
 	}
 	kfree(message);
 }
 
-void adspff_fsize(struct work_struct *work)
+void adspff_fsize(void)
 {
 	union adspff_message_t *msg_recv;
 	union adspff_message_t message;
@@ -269,7 +364,7 @@ void adspff_fsize(struct work_struct *work)
 	kfree(msg_recv);
 }
 
-void adspff_fwrite(struct work_struct *work)
+void adspff_fwrite(void)
 {
 	union adspff_message_t message;
 	union adspff_message_t *msg_recv;
@@ -280,6 +375,9 @@ void adspff_fwrite(struct work_struct *work)
 	uint32_t bytes_written = 0;
 
 	msg_recv = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!msg_recv)
+		return;
+
 	msg_recv->msgq_msg.size = MSGQ_MSG_SIZE(struct ack_msg_t);
 
 	message.msgq_msg.size = MSGQ_MSG_SIZE(struct fwrite_msg_t);
@@ -314,7 +412,7 @@ void adspff_fwrite(struct work_struct *work)
 			(msgq_message_t *)msg_recv);
 
 	if (ret < 0) {
-		pr_err("fread Enqueue failed %d.", ret);
+		pr_err("adspff: fwrite Enqueue failed %d.", ret);
 		kfree(msg_recv);
 		return;
 	}
@@ -323,7 +421,7 @@ void adspff_fwrite(struct work_struct *work)
 	kfree(msg_recv);
 }
 
-void adspff_fread(struct work_struct *work)
+void adspff_fread(void)
 {
 	union adspff_message_t *message;
 	union adspff_message_t *msg_recv;
@@ -343,7 +441,14 @@ void adspff_fread(struct work_struct *work)
 		can_wrap = 0;
 	}
 	message = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!message)
+		return;
+
 	msg_recv = kzalloc(sizeof(union adspff_message_t), GFP_KERNEL);
+	if (!msg_recv) {
+		kfree(message);
+		return;
+	}
 
 	msg_recv->msgq_msg.size = MSGQ_MSG_SIZE(struct ack_msg_t);
 	message->msgq_msg.size = MSGQ_MSG_SIZE(struct fread_msg_t);
@@ -405,12 +510,63 @@ send_ack:
 	kfree(msg_recv);
 }
 
-static struct workqueue_struct *adspff_wq;
-DECLARE_WORK(fopen_work, adspff_fopen);
-DECLARE_WORK(fwrite_work, adspff_fwrite);
-DECLARE_WORK(fread_work, adspff_fread);
-DECLARE_WORK(fclose_work, adspff_fclose);
-DECLARE_WORK(fsize_work, adspff_fsize);
+
+static const struct sched_param param = {
+	.sched_priority = 1,
+};
+static struct task_struct *adspff_kthread;
+static struct semaphore adspff_kthread_sema;
+static struct list_head adspff_kthread_msgq_head;
+
+struct adspff_kthread_msg {
+	uint32_t msg_id;
+	struct list_head list;
+};
+
+
+static int adspff_kthread_fn(void *data)
+{
+	int ret = 0;
+	struct adspff_kthread_msg *kmsg;
+	unsigned long flags;
+
+	while (1) {
+		if (kthread_should_stop())
+			do_exit(ret);
+		if (down_interruptible(&adspff_kthread_sema))
+			return -ERESTARTSYS;
+		if (!list_empty(&adspff_kthread_msgq_head)) {
+			kmsg = list_first_entry(&adspff_kthread_msgq_head,
+					struct adspff_kthread_msg, list);
+			switch (kmsg->msg_id) {
+			case adspff_cmd_fopen:
+				adspff_fopen();
+				break;
+			case adspff_cmd_fclose:
+				adspff_fclose();
+				break;
+			case adspff_cmd_fwrite:
+				adspff_fwrite();
+				break;
+			case adspff_cmd_fread:
+				adspff_fread();
+				break;
+			case adspff_cmd_fsize:
+				adspff_fsize();
+				break;
+			default:
+				pr_warn("adspff: kthread unsupported msg %d\n",
+					kmsg->msg_id);
+			}
+			spin_lock_irqsave(&adspff_lock, flags);
+			list_del(&kmsg->list);
+			spin_unlock_irqrestore(&adspff_lock, flags);
+			kfree(kmsg);
+		}
+	}
+
+	do_exit(ret);
+}
 
 /******************************************************************************
 * ADSP mailbox message handler
@@ -420,42 +576,69 @@ DECLARE_WORK(fsize_work, adspff_fsize);
 static int adspff_msg_handler(uint32_t msg, void *data)
 {
 	unsigned long flags;
+	struct adspff_kthread_msg *kmsg;
 
 	spin_lock_irqsave(&adspff_lock, flags);
-	switch (msg) {
-	case adspff_cmd_fopen: {
-		queue_work(adspff_wq, &fopen_work);
+	kmsg = kzalloc(sizeof(*kmsg), GFP_ATOMIC);
+	if (!kmsg) {
+		spin_unlock_irqrestore(&adspff_lock, flags);
+		return -ENOMEM;
 	}
-	break;
-	case adspff_cmd_fclose: {
-		queue_work(adspff_wq, &fclose_work);
-	}
-	break;
-	case adspff_cmd_fwrite: {
-		queue_work(adspff_wq, &fwrite_work);
-	}
-	break;
-	case adspff_cmd_fread: {
-		queue_work(adspff_wq, &fread_work);
-	}
-	break;
-	case adspff_cmd_fsize: {
-		queue_work(adspff_wq, &fsize_work);
-	}
-	break;
-	default:
-	pr_err("Unsupported mbox msg %d.\n", msg);
-	}
+
+	kmsg->msg_id = msg;
+	list_add_tail(&kmsg->list, &adspff_kthread_msgq_head);
+	up(&adspff_kthread_sema);
 	spin_unlock_irqrestore(&adspff_lock, flags);
 
 	return 0;
 }
 
-int adspff_init(void)
+static int adspff_set(void *data, u64 val)
+{
+	struct file_struct *file;
+	struct list_head *pos, *n;
+
+	if (val != 1)
+		return 0;
+	list_for_each_safe(pos, n, &file_list) {
+		file = list_entry(pos, struct file_struct, list);
+		list_del(pos);
+		if (file->fp)
+			file_close(file->fp);
+		kfree(file);
+	}
+
+	open_count = 0;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(adspff_fops, NULL, adspff_set, "%llu\n");
+
+static int adspff_debugfs_init(struct nvadsp_drv_data *drv)
+{
+	int ret = -ENOMEM;
+	struct dentry *d, *dir;
+
+	if (!drv->adsp_debugfs_root)
+		return ret;
+	dir = debugfs_create_dir("adspff", drv->adsp_debugfs_root);
+	if (!dir)
+		return ret;
+
+	d = debugfs_create_file(
+			"close_files", S_IWUGO, dir, NULL, &adspff_fops);
+	if (!d)
+		return ret;
+
+	return 0;
+}
+
+int adspff_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	nvadsp_app_handle_t handle;
 	nvadsp_app_info_t *app_info;
+	struct nvadsp_drv_data *drv = platform_get_drvdata(pdev);
 
 	handle = nvadsp_app_load("adspff", "adspff.elf");
 	if (!handle)
@@ -477,17 +660,28 @@ int adspff_init(void)
 		return -1;
 	}
 
-	if (adspff_wq == NULL)
-		adspff_wq = create_singlethread_workqueue("adspff_wq");
-
 	spin_lock_init(&adspff_lock);
 
-	return 0;
+	ret = adspff_debugfs_init(drv);
+	if (ret)
+		pr_warn("adspff: failed to create debugfs entry\n");
+
+	INIT_LIST_HEAD(&adspff_kthread_msgq_head);
+	INIT_LIST_HEAD(&file_list);
+	sema_init(&adspff_kthread_sema, 0);
+
+	adspff_kthread = kthread_create(adspff_kthread_fn,
+		NULL, "adspp_kthread");
+	sched_setscheduler(adspff_kthread, SCHED_FIFO, &param);
+	get_task_struct(adspff_kthread);
+	wake_up_process(adspff_kthread);
+
+	return ret;
 }
 
 void adspff_exit(void)
 {
 	nvadsp_mbox_close(&rx_mbox);
-	flush_workqueue(adspff_wq);
-	destroy_workqueue(adspff_wq);
+	kthread_stop(adspff_kthread);
+	put_task_struct(adspff_kthread);
 }

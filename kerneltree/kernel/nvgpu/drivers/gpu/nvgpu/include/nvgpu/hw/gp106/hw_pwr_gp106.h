@@ -724,6 +724,54 @@ static inline u32 pwr_pmu_idle_ctrl_filter_disabled_f(void)
 {
 	return 0x0U;
 }
+static inline u32 pwr_pmu_idle_threshold_r(u32 i)
+{
+	return 0x0010a8a0U + i*4U;
+}
+static inline u32 pwr_pmu_idle_threshold_value_f(u32 v)
+{
+	return (v & 0x7fffffffU) << 0U;
+}
+static inline u32 pwr_pmu_idle_intr_r(void)
+{
+	return 0x0010a9e8U;
+}
+static inline u32 pwr_pmu_idle_intr_en_f(u32 v)
+{
+	return (v & 0x1U) << 0U;
+}
+static inline u32 pwr_pmu_idle_intr_en_disabled_v(void)
+{
+	return 0x00000000U;
+}
+static inline u32 pwr_pmu_idle_intr_en_enabled_v(void)
+{
+	return 0x00000001U;
+}
+static inline u32 pwr_pmu_idle_intr_status_r(void)
+{
+	return 0x0010a9ecU;
+}
+static inline u32 pwr_pmu_idle_intr_status_intr_f(u32 v)
+{
+	return (v & 0x1U) << 0U;
+}
+static inline u32 pwr_pmu_idle_intr_status_intr_m(void)
+{
+	return U32(0x1U) << 0U;
+}
+static inline u32 pwr_pmu_idle_intr_status_intr_v(u32 r)
+{
+	return (r >> 0U) & 0x1U;
+}
+static inline u32 pwr_pmu_idle_intr_status_intr_pending_v(void)
+{
+	return 0x00000001U;
+}
+static inline u32 pwr_pmu_idle_intr_status_intr_clear_v(void)
+{
+	return 0x00000001U;
+}
 static inline u32 pwr_pmu_idle_mask_supp_r(u32 i)
 {
 	return 0x0010a9f0U + i*8U;

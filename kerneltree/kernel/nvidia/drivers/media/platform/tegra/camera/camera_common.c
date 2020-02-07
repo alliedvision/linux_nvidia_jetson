@@ -71,6 +71,46 @@ static const struct camera_common_colorfmt camera_common_color_fmts[] = {
 		V4L2_COLORSPACE_SRGB,
 		V4L2_PIX_FMT_SRGGB8,
 	},
+	{
+		MEDIA_BUS_FMT_YUYV8_1X16,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_YUYV,
+	},
+	{
+		MEDIA_BUS_FMT_YVYU8_1X16,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_YVYU,
+	},
+	{
+		MEDIA_BUS_FMT_UYVY8_1X16,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_UYVY,
+	},
+	{
+		MEDIA_BUS_FMT_VYUY8_1X16,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_VYUY,
+	},
+	{
+		MEDIA_BUS_FMT_YUYV8_2X8,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_YUYV,
+	},
+	{
+		MEDIA_BUS_FMT_YVYU8_2X8,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_YVYU,
+	},
+	{
+		MEDIA_BUS_FMT_UYVY8_2X8,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_UYVY,
+	},
+	{
+		MEDIA_BUS_FMT_VYUY8_2X8,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_VYUY,
+	},
 	/*
 	 * The below two formats are not supported by VI4,
 	 * keep them at the last to ensure they get discarded
