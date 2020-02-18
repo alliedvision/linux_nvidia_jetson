@@ -2,7 +2,7 @@
 
 Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for NVIDIA Jetson with JetPack 4.2.2 (L4T 32.2.1)     
 https://developer.nvidia.com/jetpack-422-archive   
-![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/Alvium-csi.png)
+![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
 
 ## Overview
 
