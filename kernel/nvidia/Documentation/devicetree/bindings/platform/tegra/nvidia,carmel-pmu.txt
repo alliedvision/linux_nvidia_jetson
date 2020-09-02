@@ -1,0 +1,21 @@
+NVIDIA Carmel Uncore PMU
+========================
+
+This driver supports hardware perfmon event counting for the 4 L2 clusters
+and for the L3. The supported events are standard ARM L2/L3 event numbering,
+but shifted and masked with a unit number for the sake of granular unit
+tracking. The event format is EEU, where 'EE' is the standard ARM event number
+and U is the unit (0-3 for the L2s, 4 for the L3).
+
+Required properties:
+	- compatible : "nvidia,carmel-pmu"
+	- interrupts : single hardware-specified interrupt
+	- interrupt-affinity : this driver must be pinned to Carmel core 0 (cpu@0)
+		in order to correctly field PMU interrupts from the L2/L3 units.
+
+Example:
+	carmel-pmu {
+		compatible = "nvidia,carmel-pmu";
+		interrupts = <0 365 0x4>;
+		interrupt-affinity = <&{/cpus/cpu@0}>;
+	};

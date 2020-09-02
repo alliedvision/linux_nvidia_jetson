@@ -1,0 +1,323 @@
+NVIDIA Tegra Power Management Controller (PMC)
+
+The PMC block interacts with an external Power Management Unit. The PMC
+mostly controls the entry and exit of the system from different sleep
+modes. It provides following functionalies/configurations:
+- Power-gating controllers for SoC and CPU power-islands.
+- Low power modes of I/O pads.
+- IO pad voltage configurations based on IO rail voltage.
+    For NVIDIA SoCs, starting with Tegra124 and beyond, IO pads support
+    multi-level voltages and can operate at a nominal IO voltage of
+    either 1.8V or 3.3V. NVIDIA Tegra210 and beyond needs to configure
+    its IO pad voltage based on IO rail voltage by SW explicitly. Tegra124
+    has HW detection mechanism for IO rail voltage.
+
+Required properties:
+- name : Should be pmc
+- compatible : For Tegra20, must contain "nvidia,tegra20-pmc".  For Tegra30,
+  must contain "nvidia,tegra30-pmc".  For Tegra114, must contain
+  "nvidia,tegra114-pmc".  For Tegra124, must contain "nvidia,tegra124-pmc".
+  Otherwise, must contain "nvidia,<chip>-pmc", plus at least one of the
+  above, where <chip> is tegra132.
+- reg : Offset and length of the register set for the device
+- clocks : Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details.
+- clock-names : Must include the following entries:
+  "pclk" (The Tegra clock of that name),
+  "clk32k_in" (The 32KHz clock input to Tegra).
+
+Optional properties:
+- nvidia,invert-interrupt : If present, inverts the PMU interrupt signal.
+  The PMU is an external Power Management Unit, whose interrupt output
+  signal is fed into the PMC. This signal is optionally inverted, and then
+  fed into the ARM GIC. The PMC is not involved in the detection or
+  handling of this interrupt signal, merely its inversion.
+- nvidia,suspend-mode : The suspend mode that the platform should use.
+  Valid values are 0, 1 and 2:
+  0 (LP0): CPU + Core voltage off and DRAM in self-refresh
+  1 (LP1): CPU voltage off and DRAM in self-refresh
+  2 (LP2): CPU voltage off
+- nvidia,core-power-req-active-high : Boolean, core power request active-high
+- nvidia,core-pwr-req-active-high : Same as nvidia,core-power-req-active-high.
+- nvidia,sys-clock-req-active-high : Boolean, system clock request active-high
+- nvidia,combined-power-req : Boolean, combined power request for CPU & Core
+- nvidia,cpu-pwr-good-en : Boolean, CPU power good signal (from PMIC to PMC)
+			   is enabled.
+
+Required properties when nvidia,suspend-mode is specified:
+- nvidia,cpu-pwr-good-time : CPU power good time in uS.
+- nvidia,cpu-pwr-off-time : CPU power off time in uS.
+- nvidia,core-pwr-good-time : <Oscillator-stable-time Power-stable-time>
+			      Core power good time in uS.
+- nvidia,core-pwr-off-time : Core power off time in uS.
+
+Required properties when nvidia,suspend-mode=<0>:
+- nvidia,lp0-vec : <start length> Starting address and length of LP0 vector
+  The LP0 vector contains the warm boot code that is executed by AVP when
+  resuming from the LP0 state. The AVP (Audio-Video Processor) is an ARM7
+  processor and always being the first boot processor when chip is power on
+  or resume from deep sleep mode. When the system is resumed from the deep
+  sleep mode, the warm boot code will restore some PLLs, clocks and then
+  bring up CPU0 for resuming the system.
+
+
+Hardware-triggered thermal reset:
+On Tegra30, Tegra114 and Tegra124, if the 'i2c-thermtrip' subnode exists,
+hardware-triggered thermal reset will be enabled.
+
+Required properties for hardware-triggered thermal reset (inside 'i2c-thermtrip'):
+- nvidia,i2c-controller-id : ID of I2C controller to send poweroff command to. Valid values are
+                             described in section 9.2.148 "APBDEV_PMC_SCRATCH53_0" of the
+                             Tegra K1 Technical Reference Manual.
+- nvidia,bus-addr : Bus address of the PMU on the I2C bus
+- nvidia,reg-addr : I2C register address to write poweroff command to
+- nvidia,reg-data : Poweroff command to write to PMU
+
+Optional properties for hardware-triggered thermal reset (inside 'i2c-thermtrip'):
+- nvidia,pinmux-id : Pinmux used by the hardware when issuing poweroff command.
+                     Defaults to 0. Valid values are described in section 12.5.2
+                     "Pinmux Support" of the Tegra4 Technical Reference Manual.
+
+Example:
+
+/ SoC dts including file
+pmc@7000f400 {
+	compatible = "nvidia,tegra20-pmc";
+	reg = <0x7000e400 0x400>;
+	clocks = <&tegra_car 110>, <&clk32k_in>;
+	clock-names = "pclk", "clk32k_in";
+	nvidia,invert-interrupt;
+	nvidia,suspend-mode = <1>;
+	nvidia,cpu-pwr-good-time = <2000>;
+	nvidia,cpu-pwr-off-time = <100>;
+	nvidia,core-pwr-good-time = <3845 3845>;
+	nvidia,core-pwr-off-time = <458>;
+	nvidia,core-power-req-active-high;
+	nvidia,sys-clock-req-active-high;
+	nvidia,lp0-vec = <0xbdffd000 0x2000>;
+};
+
+/ Tegra board dts file
+{
+	...
+	pmc@7000f400 {
+		i2c-thermtrip {
+			nvidia,i2c-controller-id = <4>;
+			nvidia,bus-addr = <0x40>;
+			nvidia,reg-addr = <0x36>;
+			nvidia,reg-data = <0x2>;
+		};
+	};
+	...
+	clocks {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clk32k_in: clock {
+			compatible = "fixed-clock";
+			reg=<0>;
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+		};
+	};
+	...
+};
+
+== I/O pad Low power and voltage configuration node ==
+  NVIDIA Tegra124 supports the HW based IO rail voltage detection and when it
+  detect any change in IO voltage, it configures the PMC IO pad for desired
+  voltage. Hence, it is not required to provide any information from Device
+  Tree for the IO pad configurations.
+
+  NVIDIA Tegra210 and beyond does not have HW based IO rail detection and
+  hence SW need to explicitly configure PMC IO pad voltage based on IO rail
+  voltage.
+
+  The DT bindings for configuring the low power state and voltage configuration
+  of IO pads follow the same design as pinctrl DT bindings. Please refer
+    <../../pinctrl/pinctrl-bindings.txt> for details of the common pinctrl
+  bindings used by client devices, including the meaning of the phrase
+  "pin configuration node".
+
+  The DT property of the IO pads must be under the node of Tegra PMC node.
+
+  Tegra's IO pads configuration nodes act as a container for an arbitrary
+  number of subnodes. Each of these subnodes represents some desired
+  configuration for an IO pads, or a list of IO pads. This configuration
+  can include the low power enable/disable control.
+
+  The name of each subnode is not important; all subnodes should be enumerated
+  and processed purely based on their content. Each subnode only affects those
+  parameters that are explicitly listed. Unspecified is represented as an absent
+  property,
+
+  The IO pad voltage configuration are required if:
+  - there is IO rail power supply connected to IO pad and default
+    configuration of IO pads voltage is not matching with the IO rail i.e.
+    bootloader has not done the required initialization for IO pad voltage.
+  - dynamic switching of IO rail voltage is required like SD3.0 and hence
+  configuration in IO pads voltage.
+
+Required subnode-properties:
+==========================
+  - pins : An array of strings. Each string contains the name of an IO pads. Valid
+         values for these names are listed below.
+
+Optional subnode-properties:
+==========================
+  Following properties are supported from generic pin configuration explained
+  in <../../pinctrl/pinctrl-bindings.txt>.
+  - low-power-enable:  enable low power mode.
+  - low-power-disable: disable low power mode.
+  - nvidia,power-source-voltage: Integer, tells the power source voltage levels.
+	There is two possible values for this property defines in the
+	<include/dt-binding/pinctrl/pinctrl-tegra-io-pad.h>
+		TEGRA_IO_PAD_VOLTAGE_1800000UV for 1.8V
+		TEGRA_IO_PAD_VOLTAGE_3300000UV for 3.3V
+	This property is supported for Tegra210 and beyond. Also some IO pads
+	support the multi-voltage level in their pins.
+
+Valid values for pin for Tegra124 are:
+        audio, bb, cam, comp, csia, csib, csie, dsi, dsib, dsic, dsid, hdmi,
+        hsic, hv, lvds, mipi-bias, nand, pex-bias, pex-clk1, pex-clk2,
+        pex-ctrl, sdmmc1, sdmmc3, sdmmc4, sys-ddc, uart, usb0, usb1, usb2,
+        usb-bias
+
+Valid values for pin for Tegra210 are:
+        audio, audio-hv, cam, csia, csib, csic, csid, csie, csif,
+        dbg, debug-nonao, dmic, dp, dsi, dsib, dsic, dsid, emmc, emmc2,
+        gpio, hdmi, hsic, lvds, mipi-bias, pex-bias, pex-clk1, pex-clk2,
+        pex-ctrl, sdmmc1, sdmmc3, spi, spi-hv, uart, usb-bias, usb0,
+        usb1, usb2, usb3.
+
+The IO pads which support multi-level voltage for Tegra210 are:
+	audio, audio-hv, cam, dbg, dmic, gpio, pex-ctrl, sdmmc1,
+	sdmmc3, spi, spi-hv, uart.
+
+Valid values for pin for Tegra186 are:
+	audio-hv, audio, ao-hv, cam, csia, csib, csic, csid, csie, csif,
+	conn, dsi, dbg, dsib, dsic, dsid, dmic-hv, edp, hdmi-dp0, hdmi-dp1,
+	mipi-bias, pex-ctrl, pex-clk-bias, pex-clk1, pex-clk2, pex-clk3,
+	sdmmc1-hv, sdmmc2-hv, sdmmc3-hv, sdmmc4, spi, usb0, usb1, usb2, usb-bias,
+	uart, hsic, ufs,
+
+The IO pads which support multi-level voltage for Tegra186 are:
+	audio-hv, ao-hv, dbg, dmic-hv, sdmmc1-hv, sdmmc2-hv, sdmmc3-hv.
+
+
+Example:
+        pmc@7000e400 {
+                pinctrl-names = "default";
+                pinctrl-0 = <&io_pad_default>;
+                io_pad_default: common {
+                        audio-hv {
+                                pins = "audio-hv";
+                                low-power-disable;
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_3300000UV>;
+                        };
+
+                        gpio {
+                                pins = "gpio";
+                                low-power-disable;
+                        };
+
+                        audio {
+                                pins = "audio";
+                                low-power-enable;
+                        };
+                };
+        };
+
+From client for dynamic control:
+
+#include <dt-bindings/pinctrl/pinctrl-tegra-io-pad.h>
+
+	pmc@c360000 {
+		sdmmc1_e_33V_enable: sdmmc1_e_33V_enable {
+			sdmmc1 {
+				pins = "sdmmc1-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_3300000UV>;
+			};
+		};
+
+		sdmmc1_e_33V_disable: sdmmc1_e_33V_disable {
+			sdmmc1 {
+				pins = "sdmmc1-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_1800000UV>;
+			};
+		};
+	};
+
+
+	sdhci@3440000 {
+		pinctrl-names = "sdmmc_e_33V_enable", "sdmmc_e_33V_disable";
+		pinctrl-0 = <&sdmmc1_e_33V_enable>;
+		pinctrl-1 = <&sdmmc1_e_33V_disable>;
+	};
+
+
+
+Wake up events
+
+The PMC is the only device that can wake up the system from deep sleep
+mode (i.e. LP0). There are some wake up events in the PMC wake mask
+register that can be used to trigger PMC to wake up the system. The PMC
+wake mask register defines which devices or siganls can be the source to
+trigger the PMC waking up. If the devices support waking up the system
+from deep sleep mode, then it needs to describe a property for PMC wake
+up events. This property defines the usage.
+
+Required properties when nvidia,suspend-mode=<0>:
+ - nvidia,pmc-wakeup : <pmc_phandle event_type event_offset trigger_type>
+		      pmc_phandle: the phandle of PMC device tree node
+		      event_type: 0 = PMC_WAKE_TYPE_GPIO
+				  1 = PMC_WAKE_TYPE_EVENT
+		      event_offset: the offset of PMC wake mask register
+		      trigger_type: set 0 when event_type is PMC_WAKE_TYPE_GPIO
+				    if event_type is PMC_WAKE_TYPE_EVENT
+				    0 = PMC_TRIGGER_TYPE_NONE
+				    1 = PMC_TRIGGER_TYPE_RISING
+				    2 = PMC_TRIGGER_TYPE_FALLING
+				    4 = PMC_TRIGGER_TYPE_HIGH
+				    8 = PMC_TRIGGER_TYPE_LOW
+		      The assignments of event_type and trigger_type can be
+		      found in header file <dt-bindings/soc/tegra-pmc.h>.
+ - #nvidia,wake-cells : should be 3
+
+Example:
+
+/ SoC dts including file
+pmc: pmc {
+	compatible = "nvidia,tegra114-pmc";
+	reg = <0x7000e400 0x400>;
+	clocks = <&tegra_car 261>, <&clk32k_in>;
+	clock-names = "pclk", "clk32k_in";
+};
+
+/ Tegra board dts file
+{
+	...
+	pmc {
+		...
+		nvidia,suspend-mode = <0>;
+		#nvidia,wake-cells = <3>;
+		...
+	};
+	...
+	pmic {
+		...
+		nvidia,pmc-wakeup = <&pmc
+				PMC_WAKE_TYPE_EVENT 18 PMC_TRIGGER_TYPE_LOW>;
+		...
+	};
+	...
+	gpio-keys {
+		power {
+			...
+			nvidia,pmc-wakeup = <&pmc
+				PMC_WAKE_TYPE_GPIO 16 PMC_TRIGGER_TYPE_NONE>;
+			...
+		};
+	};
+};

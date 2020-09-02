@@ -1,0 +1,61 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "tegra194-spmic-p3668.dtsi"
+#include "tegra194-fixed-regulator-p3668.dtsi"
+#include "dt-bindings/gpio/tegra194-gpio.h"
+
+/ {
+	sdhci@3460000 {
+		vmmc-supply = <&p3668_spmic_ldo3>;
+		vqmmc-supply = <&p3668_spmic_sd2>;
+	};
+
+	/* P3668-0001 SKU1 doesn't support SD-card */
+	sdhci@3400000 {
+		vmmc-supply = <&p3668_vdd_sdmmc1_sw>;
+	};
+
+	ether_qos@2490000 {
+		vddio_sys_enet_bias-supply = <&battery_reg>;
+		vddio_enet-supply = <&battery_reg>;
+		phy_vdd_1v8-supply = <&p3668_spmic_sd2>;	/*sd2_vdd_1v8ls */
+		phy_ovdd_rgmii-supply = <&p3668_spmic_sd2>;
+		phy_pllvdd-supply = <&battery_reg>;
+	};
+
+	xusb_padctl@3520000 {
+		pex_dvdd-supply = <&p3668_spmic_sd0>;
+		pex_hvdd-supply = <&p3668_spmic_sd1>;
+		pex_pll_hvdd-supply = <&p3668_spmic_sd1>;
+		vclamp_usb-supply = <&p3668_spmic_sd3>;
+		avdd_usb-supply = <&p3668_spmic_ldo5>;
+		avdd_pll_nvhs_eutmip-supply = <&p3668_spmic_sd1>;
+		ports {
+			usb2-0 {
+				vbus-supply = <&battery_reg>;
+			};
+			usb2-1 {
+				vbus-supply = <&battery_reg>;
+			};
+			usb2-2 {
+				vbus-supply = <&battery_reg>;
+			};
+		};
+	};
+
+	xudc@3550000 {
+		avdd-usb-supply = <&p3668_spmic_ldo5>;
+	};
+};

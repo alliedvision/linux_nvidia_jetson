@@ -1,0 +1,157 @@
+/*
+ * tegra186-quill-p3310-1000-c03-00-dsi-hdmi-hdmi.dts: DTS file for Quill
+ * to enable display on all three heads with dual HDMI: DSI, HDMI and HDMI.
+ *
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#include "tegra186-quill-p3310-1000-c03-00-base.dts"
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	host1x {
+		nvdisplay@15200000 {
+			status = "okay";
+			win-mask = <0x7>;
+			nvidia,fb-win = <0x0>;
+			nvidia,dc-or-node = "/host1x/dsi";
+		};
+		nvdisplay@15210000 {
+			status = "okay";
+			win-mask = <0x18>;
+			nvidia,fb-win = <0x3>;
+			nvidia,dc-or-node = "/host1x/sor1";
+		};
+		nvdisplay@15220000 {
+			status = "okay";
+			win-mask = <0x20>;
+			nvidia,fb-win = <0x5>;
+			nvidia,dc-or-node = "/host1x/sor";
+			/delete-property/ vdd-dp-pwr-supply;
+			/delete-property/ avdd-dp-pll-supply;
+			/delete-property/ vdd-edp-sec-mode-supply;
+			/delete-property/ vdd-dp-pad-supply;
+			/delete-property/ vdd_hdmi_5v0-supply;
+			avdd_hdmi-supply = <&spmic_ldo7>;
+			avdd_hdmi_pll-supply = <&spmic_sd2>;
+			vdd_hdmi_5v0-supply = <&vdd_hdmi>;
+		};
+
+		dsi {
+			status = "okay";
+			nvidia,active-panel = <&panel_s_wuxga_8_0>;
+			panel-s-wuxga-8-0 {
+				bootloader-status = "disabled";
+				status = "okay";
+			};
+		};
+
+		sor {
+			status = "okay";
+			nvidia,active-panel = <&sor0_hdmi_display>;
+			dp-display {
+				bootloader-status = "disabled";
+				status = "disabled";
+			};
+			hdmi-display {
+				status = "okay";
+			};
+		};
+
+		sor1 {
+			status = "okay";
+			nvidia,active-panel = <&sor1_hdmi_display>;
+			dp-display {
+				bootloader-status = "disabled";
+				status = "disabled";
+			};
+			hdmi-display {
+				status = "okay";
+			};
+		};
+
+		dpaux@155c0000 {
+			status = "okay";
+		};
+	};
+
+	i2c@3160000 {
+		e3320_tca_gpio: tca9539@75 {
+			compatible = "ti,tca9539";
+			status = "okay";
+			reg = <0x75>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			vcc-supply = <&battery_reg>;
+			5v0_hdmi_en {
+				gpio-hog;
+				gpios = <14 0>;
+				output-high;
+				label = "hdmi_en";
+			};
+		};
+
+		gpio_i2c_0_21: gpio@21 {
+			compatible = "ti,tca6408";
+			status = "okay";
+			reg = <0x21>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			vcc-supply = <&battery_reg>;
+			vpp-vmm-rails {
+				gpio-hog;
+				gpios = <2 0 3 0>;
+				output-high;
+				label = "vmm-en-rail", "vmm-en-rail";
+			};
+		};
+
+		tps65132@3e {
+			reg = <0x3e>;
+			compatible = "ti,tps65132";
+			status = "okay";
+			outp {
+				ti,enable-gpio = <&gpio_i2c_0_77 4 0>;
+				/* WAR: remove the constrains due to bug 200479061 */
+				/delete-property/ regulator-min-microvolt;
+				/delete-property/ regulator-max-microvolt;
+			};
+
+			outn {
+				delete-target-property = "ti,disable-active-discharge";
+				ti,enable-gpio = <&gpio_i2c_0_21 2 0>;
+				ti,active-discharge-gpio = <&gpio_i2c_0_21 3 0>;
+				ti,active-discharge-time = <2000>; /* in us */
+				/* WAR: remove the constrains due to bug 200479061 */
+				/delete-property/ regulator-min-microvolt;
+				/delete-property/ regulator-max-microvolt;
+			};
+		};
+
+		lp8557-backlight-s-wuxga-8-0@2c {
+			status = "okay";
+		};
+	};
+
+	fixed-regulators {
+		regulator@10 {
+			gpio = <&gpio_i2c_0_21 0 0>;
+		};
+	};
+
+	plugin-manager {
+		/delete-node/ fragment-e3320-dp;
+	};
+};

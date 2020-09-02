@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+/ {
+	plugin-manager {
+		fragement-pmic-wdt-en {
+			odm-data = "enable-pmic-wdt";
+			override@0 {
+				target = <&p3668_spmic_wdt>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+		};
+
+		fragement-tegra-wdt-en {
+			odm-data = "enable-denver-wdt";
+			override@0 {
+				target = <&tegra_wdt>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+		};
+
+		fragement-tegra-wdt-dis {
+			odm-data = "disable-denver-wdt";
+			override@0 {
+				target = <&tegra_pmc>;
+				_overlay_ {
+					nvidia,enable-halt-in-fiq;
+				};
+			};
+		};
+
+		fragement-tegra-sdhci-sd-dis {
+			ids = ">=3668-0001-000";
+			override@0 {
+				target = <&sdhci_sd>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+
+		fragement-tegra-sdhci-emmc-dis {
+			ids = ">=3668-0000-000";
+			override@0 {
+				target = <&sdhci_emmc>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+
+		fragement-tegra-pcie-c5-num-lanes {
+			ids = ">=3449-0000-000";
+			override@0 {
+				target = <&{/pcie@141a0000}>;
+				_overlay_ {
+					num-lanes = <1>;
+					status = "okay";
+				};
+			};
+			override@1 {
+				target = <&{/pcie_ep@141a0000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+
+		fragement-tegra-pcie-c4-dis {
+			ids = ">=3449-0000-000";
+			override@0 {
+				target = <&{/pcie@14160000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+	};
+};
