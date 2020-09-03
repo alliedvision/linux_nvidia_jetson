@@ -96,6 +96,19 @@ The scripts require Git on the host PC.
   9. Xavier users: Set Xavier to Force USB Recovery Mode and run deploy.sh again with parameter flash-kernel to flash the kernel image to the board.   
          `$ ./deploy.sh <WORK_DIR> <TARGET_BOARD> flash-kernel # Use the same WORK_DIR for all scripts`
 
+
+ ## Known Limitations of the Beta
+
+ This beta versions has some known limitations, including the following:
+
+ * Missing or untested ioctls:
+   * `VIDIOC_STREAMSTAT`: Field `packet_crc_error` missing.
+   * `VIDIOC_RESET_STREAMSTAT`: incomplete.
+   * `VIDIOC_DQBUF`: Custom flags `V4L2_BUF_FLAG_UNUSED`, `V4L2_BUF_FLAG_INVALID`, `V4L2_BUF_FLAG_INVALIDINCOMPLETE` not implemented.
+ * Infrastructure:
+   * SD card generation not working.
+   * Other boards besides Xavier NX not implemented.
+
  
  ## Additional information
  :open_book:
