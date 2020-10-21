@@ -1,11 +1,10 @@
 /*
- * Copyright (C) 2012 - 2020 Allied Vision Technologies.  All Rights Reserved.
+ * Allied Vision CSI2 Camera
  *
  * This program is free software; you may redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
- * THE SOFTWARE IS PRELIMINARY AND STILL IN TESTING AND VERIFICATION PHASE AND IS PROVIDED ON AN “AS IS” AND “AS AVAILABLE” BASIS AND IS BELIEVED TO CONTAIN DEFECTS.
- * A PRIMARY PURPOSE OF THIS EARLY ACCESS IS TO OBTAIN FEEDBACK ON PERFORMANCE AND THE IDENTIFICATION OF DEFECT SOFTWARE, HARDWARE AND DOCUMENTATION.
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -14,6 +13,7 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
+ *
  */
 
 #include <linux/kernel.h>
@@ -30,7 +30,7 @@
 #include <media/mc_common.h>
 
 #include "avt_csi2.h"
-#include <media/v4l2-avt-ioctl.h>
+#include <uapi/linux/libcsi_ioctl.h>
 
 static int debug;
 MODULE_PARM_DESC(debug, "debug");
@@ -1057,6 +1057,26 @@ static int avt_ctrl_send(struct i2c_client *client,
 	}
 }
 
+static void set_channel_avt_cam_mode(struct v4l2_subdev *sd, bool cam_mode)
+{
+	struct tegra_channel *tch;
+	struct media_pad *pad_csi, *pad_vi;
+	struct v4l2_subdev *sd_csi, *sd_vi;
+	struct video_device *vdev_vi;
+
+	if (!sd->entity.pads)
+		return;
+
+	pad_csi = media_entity_remote_pad(&sd->entity.pads[0]);
+	sd_csi = media_entity_to_v4l2_subdev(pad_csi->entity);
+	pad_vi = media_entity_remote_pad(&sd_csi->entity.pads[1]);
+	sd_vi = media_entity_to_v4l2_subdev(pad_vi->entity);
+	vdev_vi = media_entity_to_video_device(pad_vi->entity);
+	tch = video_get_drvdata(vdev_vi);
+
+	tch->avt_cam_mode = cam_mode;
+}
+
 static void set_channel_trigger_mode(struct v4l2_subdev *sd, bool trigger_mode)
 {
 	struct tegra_channel *tch;
@@ -1148,9 +1168,11 @@ static void set_channel_stride_align_for_format(struct v4l2_subdev *sd, uint32_t
 	case MEDIA_BUS_FMT_RGB888_1X24:
 	case MEDIA_BUS_FMT_BGR888_1X24:
 		set_channel_stride_align(sd, 16);
+		break;
 	case MEDIA_BUS_FMT_VYUY8_2X8:
 	case MEDIA_BUS_FMT_RGB565_1X16:
 		set_channel_stride_align(sd, 32);
+		break;
 	case MEDIA_BUS_FMT_CUSTOM:
 		set_channel_stride_align(sd, 64);
 		break;
@@ -1362,6 +1384,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			if(i2c_reg->register_address == GENCP_CHANGEMODE_8W)
 			{
 				priv->mode = i2c_reg_buf[0] == 0 ? AVT_BCRM_MODE : AVT_GENCP_MODE;
+				set_channel_avt_cam_mode(sd, priv->mode);
 			}
 		}
 
@@ -1393,7 +1416,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		info->id.driver_id = TEGRA_DRIVER_ID_DEFAULT;
 
 		info->driver_version = (DRV_VER_MAJOR << 16) + (DRV_VER_MINOR << 8) + DRV_VER_PATCH;
-		info->driver_interface_version = (MAJOR_DRV_IF << 16) + (MINOR_DRV_IF << 8) + PATCH_DRV_IF;
+		info->driver_interface_version = (LIBCSI_DRV_SPEC_VERSION_MAJOR << 16) + (LIBCSI_DRV_SPEC_VERSION_MINOR << 8) + LIBCSI_DRV_SPEC_VERSION_PATCH;
 		info->driver_caps = AVT_DRVCAP_MMAP | AVT_DRVCAP_USRPTR;
 		info->usrptr_alignment = dma_get_cache_alignment();
 
@@ -1593,6 +1616,10 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
         return -EPERM;
       }
     }
+
+	/* Check if stream is already on */
+	if (!priv->stream_on)
+		return -EAGAIN;
 
     /* Generate Trigger */
     ret = avt_reg_write(client,
@@ -1926,7 +1953,8 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	// changing the resolution is not allowed with VIDIOC_S_FMT
 	if (priv->mode == AVT_BCRM_MODE &&
 		(format->format.width != priv->frmp.r.width ||
-		 format->format.height != priv->frmp.r.height))
+		 format->format.height != priv->frmp.r.height) &&
+		!priv->crop_align_enabled)
 	{
 		avt_err(sd, "Changing the resolution is not allowed with VIDIOC_S_FMT!\n");
 		return -EINVAL;
@@ -1947,22 +1975,21 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	sel.target = V4L2_SEL_TGT_CROP;
 	sel.r = priv->frmp.r;
 
-	avt_set_selection(sd, NULL, &sel);
-
+	/* Save format to private data only if
+	 * set_param succeded
+	 */
 	ret = avt_set_param(client, V4L2_AV_CSI2_PIXELFORMAT_W,
 		format->format.code);
 	if(ret < 0)
 		return ret;
 
+	priv->mbus_fmt_code = format->format.code;
+	avt_set_selection(sd, NULL, &sel);
+
 	if (priv->stride_align_enabled)
 		set_channel_stride_align_for_format(sd, format->format.code);
 	else
 		set_channel_stride_align(sd, 1);
-
-	/* Save format to private data only if
-	 * set_param succeded
-	 */
-	priv->mbus_fmt_code = format->format.code;
 
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
@@ -1976,6 +2003,7 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 		avt_s_parm(sd, &parm);
 	}
 
+	format->format.width = priv->frmp.r.width;
 	return 0;
 }
 
@@ -1987,12 +2015,12 @@ static uint16_t avt_mbus_formats[] = {
 	MEDIA_BUS_FMT_SGRBG8_1X8,
 	MEDIA_BUS_FMT_SRGGB8_1X8,
         
-        /* RAW10 */
-        MEDIA_BUS_FMT_Y10_1X10,
-        MEDIA_BUS_FMT_SBGGR10_1X10,
-        MEDIA_BUS_FMT_SGBRG10_1X10,
-        MEDIA_BUS_FMT_SGRBG10_1X10,
-        MEDIA_BUS_FMT_SRGGB10_1X10, 
+	/* RAW10 */
+	MEDIA_BUS_FMT_Y10_1X10,
+	MEDIA_BUS_FMT_SBGGR10_1X10,
+	MEDIA_BUS_FMT_SGBRG10_1X10,
+	MEDIA_BUS_FMT_SGRBG10_1X10,
+	MEDIA_BUS_FMT_SRGGB10_1X10, 
 
 	/* RAW12 */
 	MEDIA_BUS_FMT_Y12_1X12,
@@ -5530,6 +5558,7 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->cross_update = false;
 	priv->stride_align_enabled = true;
 	priv->crop_align_enabled = true;
+	priv->crop_align_enabled = false;
 
 	ret = avt_init_mode(priv->subdev);
 	if (ret < 0)

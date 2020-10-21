@@ -142,7 +142,7 @@ static int vi2_add_ctrls(struct tegra_channel *chan)
 static int vi2_channel_setup_queue(struct tegra_channel *chan,
 	unsigned int *nbuffers)
 {
-	if (chan->trigger_mode && (*nbuffers < QUEUED_BUFFERS - 1)) {
+	if (*nbuffers < QUEUED_BUFFERS - 1) {
 		return tegra_channel_alloc_buffer_queue(chan, *nbuffers + 1);
 	}
 
@@ -234,7 +234,6 @@ static void tegra_channel_ec_init(struct tegra_channel *chan)
 	 * Time limit allow CSI to capture good frames and drop error frames
 	 * TODO: Get frame rate from sub-device and adopt timeout
 	 */
-	chan->timeout = msecs_to_jiffies(4000);
 
 	/*
 	 * Sync point FIFO full blocks host interface

@@ -185,122 +185,6 @@
 					non-removable;
 				};
 			};
-			/* IMX219 single sensor module */
-			override@2 {
-				target = <&imx219_single_cam0>;
-				_overlay_ {
-					status = "okay";
-				};
-			};
-			override@3 {
-				target = <&cam_module0>;
-				_overlay_ {
-					status = "okay";
-					badge = "porg_front_RBPCV2";
-					position = "front";
-					orientation = "1";
-				};
-			};
-			override@4 {
-				target = <&cam_module0_drivernode0>;
-				_overlay_ {
-					status = "okay";
-					pcl_id = "v4l2_sensor";
-					devname = "imx219 6-0010";
-					proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/rbpcv2_imx219_a@10";
-				};
-			};
-			override@5 {
-				target = <&cam_module0_drivernode1>;
-				_overlay_ {
-					status = "okay";
-					pcl_id = "v4l2_lens";
-					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
-				};
-			};
-			/* Enable VI ports */
-			override@6 {
-				target = <&vi_base>;
-				_overlay_ {
-					num-channels=<1>;
-				};
-			};
-			override@7 {
-				target = <&vi_port0>;
-				_overlay_ {
-					status = "okay";
-				};
-			};
-			override@8 {
-				target = <&rbpcv2_imx219_vi_in0>;
-				_overlay_ {
-					status = "okay";
-					port-index = <0>;
-					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_csi_out0>;
-				};
-			};
-			/* Enable CSI ports */
-			override@9 {
-				target = <&csi_base>;
-				_overlay_ {
-					num-channels=<1>;
-				};
-			};
-			override@10 {
-				target = <&csi_chan0>;
-				_overlay_ {
-					status = "okay";
-				};
-			};
-			override@11 {
-				target = <&csi_chan0_port0>;
-				_overlay_ {
-					status = "okay";
-				};
-			};
-			override@12 {
-				target = <&rbpcv2_imx219_csi_in0>;
-				_overlay_ {
-					status = "okay";
-					port-index = <0>;
-					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_out0>;
-				};
-			};
-			override@13 {
-				target = <&csi_chan0_port1>;
-				_overlay_ {
-					status = "okay";
-				};
-			};
-			override@14 {
-				target = <&rbpcv2_imx219_csi_out0>;
-				_overlay_ {
-					status = "okay";
-					remote-endpoint = <&rbpcv2_imx219_vi_in0>;
-				};
-			};
-			/* tegra-camera-platform settings */
-			override@15 {
-				target = <&tcp>;
-				_overlay_ {
-					num_csi_lanes = <2>;
-					max_lane_speed = <1500000>;
-					min_bits_per_pixel = <10>;
-					vi_peak_byte_per_pixel = <2>;
-					vi_bw_margin_pct = <25>;
-					max_pixel_rate = <240000>;
-					isp_peak_byte_per_pixel = <5>;
-					isp_bw_margin_pct = <25>;
-				};
-			};
-			override@16 {
-				target = <&cam_module1>;
-				_overlay_ {
-					status = "disabled";
-				};
-			};
 		};
 
 		fragement@10 {
@@ -344,7 +228,7 @@
 			};
 			/* IMX219 dual sensor module */
 			override@4 {
-				target = <&imx219_cam0>;
+				target = <&avt_cam0>;
 				_overlay_ {
 					status = "okay";
 				};
@@ -367,16 +251,16 @@
 					proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@0/rbpcv2_imx219_a@10";
 				};
 			};
-			override@7 {
-				target = <&cam_module0_drivernode1>;
-				_overlay_ {
-					status = "okay";
-					pcl_id = "v4l2_lens";
-					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
-				};
-			};
+//			override@7 {
+//				target = <&cam_module0_drivernode1>;
+//				_overlay_ {
+//					status = "okay";
+//					pcl_id = "v4l2_lens";
+//					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
+//				};
+//			};
 			override@8 {
-				target = <&imx219_cam1>;
+				target = <&avt_cam1>;
 				_overlay_ {
 					status = "okay";
 				};
@@ -399,14 +283,14 @@
 					proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@1/rbpcv2_imx219_e@10";
 				};
 			};
-			override@11 {
-				target = <&cam_module1_drivernode1>;
-				_overlay_ {
-					status = "okay";
-					pcl_id = "v4l2_lens";
-					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
-				};
-			};
+//			override@11 {
+//				target = <&cam_module1_drivernode1>;
+//				_overlay_ {
+//					status = "okay";
+//					pcl_id = "v4l2_lens";
+//					proc-device-tree = "/proc/device-tree/lens_imx219@RBPCV2/";
+//				};
+//			};
 			/* Enable VI ports */
 			override@12 {
 				target = <&vi_base>;
@@ -427,21 +311,21 @@
 				};
 			};
 			override@15 {
-				target = <&rbpcv2_imx219_vi_in0>;
+				target = <&avt_csi2_vi_in0>;
 				_overlay_ {
 					status = "okay";
 					port-index = <0>;
 					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_csi_out0>;
+					remote-endpoint = <&avt_csi2_csi_out0>;
 				};
 			};
 			override@16 {
-				target = <&rbpcv2_imx219_vi_in1>;
+				target = <&avt_csi2_vi_in1>;
 				_overlay_ {
 					status = "okay";
 					port-index = <4>;
 					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_csi_out1>;
+					remote-endpoint = <&avt_csi2_csi_out1>;
 				};
 			};
 			/* Enable CSI ports */
@@ -464,12 +348,12 @@
 				};
 			};
 			override@20 {
-				target = <&rbpcv2_imx219_csi_in0>;
+				target = <&avt_csi2_csi_in0>;
 				_overlay_ {
 					status = "okay";
 					port-index = <0>;
 					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_dual_out0>;
+					remote-endpoint = <&avt_csi2_dual_out0>;
 				};
 			};
 			override@21 {
@@ -479,7 +363,7 @@
 				};
 			};
 			override@22 {
-				target = <&rbpcv2_imx219_csi_out0>;
+				target = <&avt_csi2_csi_out0>;
 				_overlay_ {
 					status = "okay";
 				};
@@ -497,12 +381,12 @@
 				};
 			};
 			override@25 {
-				target = <&rbpcv2_imx219_csi_in1>;
+				target = <&avt_csi2_csi_in1>;
 				_overlay_ {
 					status = "okay";
 					port-index = <4>;
 					bus-width = <2>;
-					remote-endpoint = <&rbpcv2_imx219_out1>;
+					remote-endpoint = <&avt_csi2_out1>;
 				};
 			};
 			override@26 {
@@ -512,7 +396,7 @@
 				};
 			};
 			override@27 {
-				target = <&rbpcv2_imx219_csi_out1>;
+				target = <&avt_csi2_csi_out1>;
 				_overlay_ {
 					status = "okay";
 				};

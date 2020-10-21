@@ -9,7 +9,7 @@
 # 
 #  File:        deploy.sh
 #
-#  Description: script for flashing built L4T to NVIDIA Jetson TX2 board.
+#  Description: script for installing CSI-2 driver to NVIDIA Jetson boards.
 #
 #------------------------------------------------------------------------------
 #
@@ -61,15 +61,16 @@ FNAME="AlliedVision_NVidia_${DEDICATED_BOARD}_L4T_${DEDICATED_VERSION}_"
 KR=`cat ${PATH_CURRENT}/../kernel/kernel-4.9/include/config/kernel.release`
 FILE_DEVICE_TREE_BLOB_XAVIER="${PATH_TARGET_KERNEL}/dtb/tegra194-p2888-0001-p2822-0000.dtb"
 FILE_DEVICE_TREE_BLOB_TX2="${PATH_TARGET_KERNEL}/dtb/tegra186-quill-p3310-1000-c03-00-base.dtb"
-FILE_DEVICE_TREE_BLOB_NANO1="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-a02.dtb"
-FILE_DEVICE_TREE_BLOB_NANO2="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-a00.dtb"
+FILE_DEVICE_TREE_BLOB_NANO_DEVKIT="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-a02.dtb"
+FILE_DEVICE_TREE_BLOB_NANO_PRODUCTION="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb"
+FILE_NANO_DEVKIT_SIGNED_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra210-p3448-0000-p3449-0000-a02.dtb.encrypt"
+FILE_NANO_PRODUCTION_SIGNED_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra210-p3448-0000-p3449-0000-b00.dtb.encrypt"
 FILE_DEVICE_TREE_BLOB_NX="${PATH_TARGET_KERNEL}/dtb/tegra194-p3668-all-p3509-0000.dtb"
 FILE_KERNEL_IMAGE="${PATH_TARGET_KERNEL}/Image"
 FILE_INSTALL_SCRIPT="${PATH_CURRENT}/resources/deploy/install.sh"
 RELATIVE_PATH_KERNEL_MODULES="lib/modules/${KR}"
 FILE_DEPLOY_MODULES="modules.tar.gz"
 PATH_TARGET_DEPLOY_TMP_FOLDER="${PATH_TARGET_DEPLOY}/${FNAME}${KR}"
-PATH_SIGNED_NANO_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra210-p3448-0000-p3449-0000-a02.dtb.encrypt"
 PATH_SIGNED_NX_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra194-p3668-all-p3509-0000_sigheader.dtb.encrypt"
 #==============================================================================
 # include helper scripts
@@ -89,6 +90,7 @@ usage()
 	log info "<cmd>.........command to executed"
 	log info "                       flash-all"
 	log info "                       flash-dtb"
+	log info "                       flash-kernel"
 	log info "                       tarball"
 	log info "                       sd-image <path-to-sd-card-image>"
 	log info "<option>......possible options:"
@@ -116,16 +118,11 @@ createDeployTarball()
 {
 	rm -rf "$PATH_TARGET_DEPLOY"
 	mkdir -p "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+	
 	cp "$FILE_INSTALL_SCRIPT" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-
-	if [ "$DEDICATED_BOARD" != "$DEDICATED_BOARD_XAVIER" ]; then
-		cp "$FILE_KERNEL_IMAGE" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-	fi
-
-	if [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_TX2" ]
-	then
-		cp "$FILE_DEVICE_TREE_BLOB_TX2" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-	elif [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_XAVIER" ]
+	cp "$FILE_KERNEL_IMAGE" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+	
+	if [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_XAVIER" ]
 	then
 		(
 			cd "${PATH_TARGET_L4T}"
@@ -171,6 +168,8 @@ createDeployTarball()
 		cp "${PATH_TARGET_L4T}/bootloader/boot_sigheader.img.encrypt" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 		cp "${PATH_TARGET_L4T}/bootloader/tegra194-p2888-0001-p2822-0000_sigheader.dtb.encrypt" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 		sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson AGX Xavier"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
+    cp "$FILE_DEVICE_TREE_BLOB_XAVIER" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+
 	elif [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_NX" ]
 	then
 		createEncryptedDtb "${PATH_SIGNED_NX_DTB}" -b jetson-xavier-nx-devkit
@@ -179,17 +178,26 @@ createDeployTarball()
 		cp "${PATH_SIGNED_NX_DTB}" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 		cp "$FILE_DEVICE_TREE_BLOB_NX" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 
-	else
-		createEncryptedDtb "${PATH_SIGNED_NANO_DTB}" -b jetson-nano -r 200
+  elif [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_TX2" ]
+  then
+	  cp "$FILE_DEVICE_TREE_BLOB_TX2" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 
-		cp "${PATH_SIGNED_NANO_DTB}" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-		cp "$FILE_DEVICE_TREE_BLOB_NANO1" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-		cp "$FILE_DEVICE_TREE_BLOB_NANO2" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+	else
+		createEncryptedDtb "${FILE_NANO_DEVKIT_SIGNED_DTB}" -b jetson-nano -r 200
+		cp "$FILE_NANO_DEVKIT_SIGNED_DTB" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+
+
+		createEncryptedDtb "${FILE_NANO_PRODUCTION_SIGNED_DTB}" -b jetson-nano -r 300
+		cp "$FILE_NANO_PRODUCTION_SIGNED_DTB" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+    cp "$FILE_DEVICE_TREE_BLOB_NANO_DEVKIT" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+    cp "$FILE_DEVICE_TREE_BLOB_NANO_PRODUCTION" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 	fi
+
+
 	
 	if ! (cd "${PATH_TARGET_L4T}/rootfs"; tar -zcvf "${PATH_TARGET_DEPLOY_TMP_FOLDER}/${FILE_DEPLOY_MODULES}" "${RELATIVE_PATH_KERNEL_MODULES}")
 	then
-		log error "Could not find modules folder!"
+		log error "Could not find modules folder! ${PATH_TARGET_DEPLOY_TMP_FOLDER}/${FILE_DEPLOY_MODULES} ${RELATIVE_PATH_KERNEL_MODULES}"
 		SUCCESS_FLAG=$FALSE
 	else		
 		if (cd "$PATH_TARGET_DEPLOY" && tar -zcvf "${FNAME}${KR}".tar.gz $(basename "${PATH_TARGET_DEPLOY_TMP_FOLDER}"))
@@ -294,6 +302,29 @@ flashDtb()
 }
 
 #==============================================================================
+# function for flashing to jetson board
+#==============================================================================
+flashKernel()
+{
+	# go to to Linux4Tegra path
+	# note: flash.sh script is not running properly 
+	# without being in same path
+	cd $PATH_TARGET_L4T
+
+	# execute NVIDIA flash script
+	if time eval "sudo ./flash.sh -k kernel $FLASH_BOARD_CONFIG $FLASH_TARGET_PARTITION"
+	then
+		log debug "Kernel image has been flashed to ${3}"
+		SUCCESS_FLAG=$TRUE
+	else
+		log debug "Could not flash files to ${3}"
+		SUCCESS_FLAG=$FALSE
+	fi
+
+	cd $PATH_CURRENT
+}
+
+#==============================================================================
 # Create encrypted dtb for the Nano
 #==============================================================================
 createEncryptedDtb ()
@@ -387,7 +418,7 @@ then
 		then
 			log error "Could not find L4T rootfs! Please run setup script with param --rootfs first"
 		else
-			log info "Linux4Tegra will be flashed to TX2 board"
+			log info "Linux4Tegra will be flashed to target board"
 			
 			FLASH_TARGET_PARTITION="mmcblk0p1"
 			flashL4T
@@ -401,10 +432,23 @@ then
 		fi
 	elif check_parameter $3 "flash-dtb"
 	then
-		log info "Device tree blob will be flashed to TX2 board"
+		log info "Device tree blob will be flashed to target board"
 
 		FLASH_TARGET_PARTITION="mmcblk0p1"
 		flashDtb
+
+		if proceed
+		then
+			log success
+		else
+			log failed
+		fi
+	elif check_parameter $3 "flash-kernel"
+	then
+		log info "Kernel image will be flashed to target board"
+
+		FLASH_TARGET_PARTITION="mmcblk0p1"
+		flashKernel
 
 		if proceed
 		then
@@ -430,6 +474,8 @@ then
 			log error "SD card image creation only supported for the Nano and NX! Aborting."
 			exit 1
 		fi
+    echo "sd card generation broken at the moment"
+    exit 1
 
 		if ! parameter_exist $4
 		then
@@ -446,11 +492,11 @@ then
 
 		mkdir "${PATH_TARGET_DEPLOY}"
 
-		log info "Copying kernel image..."
+		log info "Copying SD card image..."
 		SD_CARD="${PATH_TARGET_DEPLOY}/${FNAME}${KR}.img"
 		if ! rsync -ah --info=progress2 "${4}" "${SD_CARD}"
 		then
-			log error "Error copying the image. Aborting."
+			log error "Error copying SD card image. Aborting."
 			exit 1
 		fi
 
@@ -466,16 +512,9 @@ then
 		sudo cp "${FILE_KERNEL_IMAGE}" "${ROOTFS_MNT}/boot/Image"
 		sudo rm -rf "${ROOTFS_MNT}/lib/modules/*"
 		sudo cp -r "${PATH_TARGET_L4T}/rootfs/${RELATIVE_PATH_KERNEL_MODULES}" "${ROOTFS_MNT}/lib/modules"
-
-		case "$MODEL" in
-		nano)
-			createEncryptedDtb "${PATH_SIGNED_NANO_DTB}" -b jetson-nano -r 200
-			;;
-		nx)
-			createEncryptedDtb "${PATH_SIGNED_NX_DTB}" -b jetson-xavier-nx-devkit
-			;;
-		esac
-			
+				
+		createEncryptedDtb "${FILE_NANO_DEVKIT_SIGNED_DTB}" -b jetson-nano -r 200
+		createEncryptedDtb "${FILE_NANO_PRODUCTION_SIGNED_DTB}" -b jetson-xavier-nx-devkit
 		
 		if ! proceed 
 		then
@@ -486,9 +525,12 @@ then
 		fi
 
 		# copy encrypted dtb to sd card partition
+    # TODO fix
+		sudo dd if="${FILE_NANO_DEVKIT_SIGNED_DTB}" of="${LOOP_DEVICE}p${DTB_PARTITION}"
 
 		case "$MODEL" in
 		nano)
+      # TODO 
 			sudo dd if="${PATH_SIGNED_NANO_DTB}" of="${LOOP_DEVICE}p10"
 			;;
 		nx)
@@ -497,12 +539,17 @@ then
 			;;
 		esac
 			
-
 		unmount
 
 		if check_parameter $5 "--compress"
 		then
-			pigz "${SD_CARD}"
+			if hash pigz 2>/dev/null; then
+				pigz "${SD_CARD}"
+			else
+				tar -zcf "${SD_CARD}.tar.gz" "${SD_CARD}"
+				rm "${SD_CARD}"
+			fi
+			
 		fi
 
 		log info "SD card image created: \"${SD_CARD}\""

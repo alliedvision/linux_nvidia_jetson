@@ -28,7 +28,6 @@
 #include "porg-platforms/tegra210-pinmux-drive-sdmmc-common.dtsi"
 #include "porg-platforms/tegra210-porg-pwm-fan.dtsi"
 #include "porg-platforms/tegra210-porg-camera.dtsi"
-#include "porg-platforms/tegra210-porg-camera-avt-a00.dtsi"
 #include <t210-common-platforms/tegra210-ers-hdmi-e2190-1100-a00.dtsi>
 #include <t210-common-platforms/tegra210-dp.dtsi>
 #include "porg-platforms/tegra210-porg-thermal.dtsi"

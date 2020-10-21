@@ -220,6 +220,8 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
+	mkdir -p "$PATH_DOWNLOADS_DRIVER_PACKAGE"
+
 	if [ ! -f "$PATH_DOWNLOADS_DRIVER_PACKAGE/$FILE_DRIVER_PACKAGE" ]
 	then
 		if ! wget "$DOWNLOAD_URL_DRIVER_PACKAGE" -O "$PATH_DOWNLOADS_DRIVER_PACKAGE/$FILE_DRIVER_PACKAGE"

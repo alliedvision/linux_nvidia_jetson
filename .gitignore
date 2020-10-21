@@ -119,3 +119,7 @@ all.config
 
 kernel/kernel-4.9/arch/arm64/boot/dts/_ddot_/
 *.dtbo
+
+avt_build/binaries
+avt_build/resources/driverPackage/*
+kernel/kernel-4.9/drivers/video/tegra/host

@@ -138,7 +138,7 @@ static int vi4_add_ctrls(struct tegra_channel *chan)
 static int vi4_channel_setup_queue(struct tegra_channel *chan,
 	unsigned int *nbuffers)
 {
-	if (chan->trigger_mode && (*nbuffers < QUEUED_BUFFERS - 1)) {
+	if (!chan->avt_cam_mode && (*nbuffers < QUEUED_BUFFERS - 1)) {
 		return tegra_channel_alloc_buffer_queue(chan, *nbuffers + 1);
 	}
 	return tegra_channel_alloc_buffer_queue(chan, QUEUED_BUFFERS);
@@ -584,11 +584,6 @@ static int tegra_channel_capture_frame_single_thread(
 				chan->interlace_bplfactor = NUM_FIELDS_SINGLE;
 			}
 		}
-	}
-	if (!chan->bfirst_fstart) {
-		err = tegra_channel_set_stream(chan, true);
-		if (err < 0)
-			return err;
 
 		for (i = 0; i < chan->valid_ports; i++)
 			tegra_channel_surface_setup(chan, buf, i);
@@ -1133,7 +1128,6 @@ static int vi4_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	}
 
 	chan->sequence = 0;
-	chan->timeout = msecs_to_jiffies(CAPTURE_TIMEOUT_MS);
 	if (!chan->low_latency)
 		tegra_channel_init_ring_buffer(chan);
 

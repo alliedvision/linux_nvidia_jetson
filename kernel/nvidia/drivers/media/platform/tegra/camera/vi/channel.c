@@ -30,7 +30,6 @@
 #include <media/v4l2-dev.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ioctl.h>
-#include <media/v4l2-avt-ioctl.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/tegra-v4l2-camera.h>
@@ -39,6 +38,8 @@
 #include <media/tegra_camera_platform.h>
 #include <media/v4l2-dv-timings.h>
 #include <media/vi.h>
+
+#include <uapi/linux/libcsi_ioctl.h>
 
 #include <linux/clk/tegra.h>
 #define CREATE_TRACE_POINTS
@@ -1911,15 +1912,6 @@ tegra_channel_get_format(struct file *file, void *fh,
 	return 0;
 }
 
-static void tegra_channel_s_bypass_vi_dt_match(struct v4l2_subdev *sd, bool bypass)
-{
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
-
-	if (mc)
-		mc->bypass = bypass;
-}
-
-
 static int
 __tegra_channel_try_format(struct tegra_channel *chan,
 			struct v4l2_pix_format *pix)
@@ -1939,12 +1931,6 @@ __tegra_channel_try_format(struct tegra_channel *chan,
 	fmt.which = V4L2_SUBDEV_FORMAT_TRY;
 	fmt.pad = 0;
 	v4l2_fill_mbus_format(&fmt.format, pix, vfmt->code);
-
-	if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM) {
-		tegra_channel_s_bypass_vi_dt_match(sd, true);
-	} else {
-		tegra_channel_s_bypass_vi_dt_match(sd, false);
-	}
 
 	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &fmt);
 	if (ret == -ENOIOCTLCMD)
@@ -1974,6 +1960,14 @@ tegra_channel_try_format(struct file *file, void *fh,
 	return  __tegra_channel_try_format(chan, &format->fmt.pix);
 }
 
+static void tegra_channel_s_bypass_vi_dt_match(struct v4l2_subdev *sd, bool bypass)
+{
+	struct tegra_mc_vi *mc = tegra_get_mc_vi();
+
+	if (mc)
+		mc->bypass = bypass;
+}
+
 static int
 __tegra_channel_set_format(struct tegra_channel *chan,
 			struct v4l2_pix_format *pix)
@@ -1988,6 +1982,12 @@ __tegra_channel_set_format(struct tegra_channel *chan,
 	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 	fmt.pad = 0;
 	v4l2_fill_mbus_format(&fmt.format, pix, vfmt->code);
+
+	if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM) {
+		tegra_channel_s_bypass_vi_dt_match(sd, true);
+	} else {
+		tegra_channel_s_bypass_vi_dt_match(sd, false);
+	}
 
 	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &fmt);
 	if (ret == -ENOIOCTLCMD)
@@ -2182,7 +2182,7 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		break;
 	}
 
-	case VIDIOC_G_STATISTIC_CAPABILITIES: {
+	case VIDIOC_G_STATISTICS_CAPABILITIES: {
 		struct v4l2_statistics_capabilities *statistics_capabilities = arg;
 		statistics_capabilities->statistics_capability = V4L2_STATISTICS_CAPABILITY_FrameCount |
 				V4L2_STATISTICS_CAPABILITY_FramesIncomplete |
@@ -2777,6 +2777,7 @@ int tegra_channel_init(struct tegra_channel *chan)
 
 	chan->trigger_mode = false;
 	chan->pending_trigger = false;
+	chan->avt_cam_mode = 0;
 
 #if defined(CONFIG_VIDEOBUF2_DMA_CONTIG)
 	/* get the buffers queue... */

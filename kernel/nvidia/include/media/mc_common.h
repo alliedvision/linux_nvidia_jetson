@@ -28,12 +28,12 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-dev.h>
-#include <media/v4l2-avt-ioctl.h>
 #include <media/videobuf2-core.h>
 #include <media/tegra_camera_core.h>
 #include <media/csi.h>
 #include <linux/workqueue.h>
 #include <linux/semaphore.h>
+#include <uapi/linux/libcsi_ioctl.h>
 
 #define MAX_FORMAT_NUM	64
 #define	MAX_SUBDEVICES	4
@@ -267,11 +267,12 @@ struct tegra_channel {
 	struct v4l2_stats_t stream_stats;
 	uint64_t qbuf_count;
 	uint64_t dqbuf_count;
+	bool incomplete_flag;
 
 	bool trigger_mode;
 	bool pending_trigger;
-
-	bool incomplete_flag;
+	uint64_t start_frame_jiffies;
+	unsigned int avt_cam_mode;
 };
 
 #define to_tegra_channel(vdev) \
