@@ -34,7 +34,11 @@ Platforms: Nano, TX2, AGX Xavier, Xavier NX
 JetPack 4.4 (L4T 32.4.2)  
 The scripts require Git on the host PC.
 
-***Before starting the installation, make sure to create a backup of your Jetson system.***
+:warning: Before starting the installation, make sure to create a backup of your Jetson system.  
+
+:warning: As of JetPack 4.4, users can update L4T directly on the board with `apt-upgrade`. Doing this may install newer L4T kernel and device tree files, which overwrite the driver for Allied Vision cameras.
+If you use `apt-upgrade` nevertheless, please prevent overwriting the driver with `sudo apt-mark hold nvidia-l4t-kernel nvidia-l4t-kernel-dtbs`.  
+Note that both reinstalling the driver or putting the update on hold may cause unavailable features or bugfixes from NVIDIA.
 
 ## Prerequisites: Install JetPack 4.4 to Jetson Nano, TX2, AGX Xavier or Xavier NX
  
