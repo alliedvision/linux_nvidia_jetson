@@ -1,0 +1,48 @@
+/*
+ * tegra194-super-module-e2614.dtsi DTSI file.
+ *
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <t19x-common-modules/tegra194-super-module-e2614.dtsi>
+
+/ {
+	plugin-manager {
+		fragment-e2614-common@0 {
+			overrides@10 {
+				target = <&tegra_sound>;
+				_overlay_ {
+					nvidia,audio-routing =
+						"x Headphone",          "x HPO L Playback",
+						"x Headphone",          "x HPO R Playback",
+						"x IN1P",               "x Mic",
+						"y Headphone",          "y OUT",
+						"y IN",                 "y Mic",
+						"z Headphone",          "z OUT",
+						"z IN",                 "z Mic",
+						"m Headphone",          "m OUT",
+						"m IN",                 "m Mic",
+						"n Headphone",          "n OUT",
+						"n IN",                 "n Mic",
+						"o Headphone",          "o OUT",
+						"o IN",                 "o Mic",
+						"a IN",                 "a Mic",
+						"b IN",                 "b Mic",
+						"c IN",                 "c Mic",
+						"d IN",                 "d Mic",
+						"d1 Headphone",         "d1 OUT",
+						"d2 Headphone",         "d2 OUT";
+				};
+			};
+		};
+	};
+};

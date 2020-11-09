@@ -1,0 +1,192 @@
+/*
+ * tegra186-quill-p3310-c03-00-base.dts Quill C03 Board
+ *
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "tegra186-quill-p3310-1000-a00-00-base.dts"
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+	nvidia,fastboot-usb-vid = <0x0955>;
+	nvidia,fastboot-usb-pid = <0xee16>;
+
+	pinmux@2430000 {
+		common {
+			gpio_edp2_pp5 {
+				status = "okay";
+			};
+
+			gpio_edp3_pp6 {
+				status = "okay";
+			};
+		};
+	};
+
+	gpio@2200000 {
+		sdmmc-wake-support-input {
+			status = "okay";
+		};
+
+		sdmmc-wake-support-output {
+			status = "okay";
+		};
+	};
+
+	fixed-regulators {
+		regulator@1 {
+			gpio = <&tegra_main_gpio TEGRA_MAIN_GPIO(P, 6) 0>;
+                };
+	};
+
+	sdhci@3400000 {
+		cd-gpios = <&tegra_main_gpio TEGRA_MAIN_GPIO(P, 5) 0>;
+		nvidia,cd-wakeup-capable;
+	};
+
+	hdr40_i2c0: i2c@3160000 {
+		ina3221x@40 {
+			channel@0 {
+				ti,shunt-resistor-mohm = <10>;
+			};
+			channel@1 {
+				ti,shunt-resistor-mohm = <10>;
+			};
+		};
+		ina3221x@41 {
+			channel@0 {
+				ti,shunt-resistor-mohm = <20>;
+			};
+			channel@1 {
+				ti,shunt-resistor-mohm = <10>;
+			};
+			channel@2 {
+				ti,rail-name = "VDD_SYS_DDR";
+				ti,shunt-resistor-mohm = <10>;
+			};
+		};
+	};
+
+	hdr40_i2c1: i2c@c240000 {
+		bmi160@69 {
+			compatible = "bmi,bmi160";
+			reg = <0x69>;
+			interrupt-parent = <&tegra_aon_gpio>;
+			interrupts = <TEGRA_AON_GPIO(AA, 2) 0x01>;
+			accelerometer_matrix    = [01 00 00 00 01 00 00 00 01];
+			gyroscope_matrix        = [01 00 00 00 01 00 00 00 01];
+			accelerometer_delay_us_min = <1250>;
+			gyroscope_delay_us_min = <1250>;
+			vdd-supply = <&spmic_sd3>;
+			vdd_IO-supply = <&spmic_sd3>;
+			status = "disabled";
+		};
+	};
+
+	mttcan@c310000 {
+		status = "okay";
+		gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 0) GPIO_ACTIVE_HIGH>;
+		gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 1) GPIO_ACTIVE_HIGH>;
+	};
+
+	mttcan@c320000 {
+		status = "okay";
+		gpio_can_stb = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 6) GPIO_ACTIVE_HIGH>;
+		gpio_can_en = <&tegra_aon_gpio TEGRA_AON_GPIO(AA, 7) GPIO_ACTIVE_HIGH>;
+	};
+
+	ahci-sata@3507000 {
+		gpios = <&spmic 7 0>;
+	};
+
+	pcie-controller@10003000 {
+		pci@1,0 {
+			nvidia,num-lanes = <4>;
+			nvidia,disable-clock-request;
+		};
+		pci@2,0 {
+			nvidia,num-lanes = <0>;
+		};
+		pci@3,0 {
+			nvidia,num-lanes = <1>;
+		};
+	};
+
+        xhci@3530000 {
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-0}>;
+		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb3-0";
+		nvidia,boost_cpu_freq = <1200>;
+	};
+
+	xusb_padctl@3520000 {
+		ports {
+			usb3-1 {
+				status = "disabled";
+			};
+			usb3-0 {
+				nvidia,usb2-companion = <1>;
+				status = "okay";
+			};
+		};
+	};
+
+       bluedroid_pm {
+		bluedroid_pm,reset-gpio = <&tegra_main_gpio TEGRA_MAIN_GPIO(H, 5) 0>;
+        };
+
+	bpmp_i2c {
+		spmic@3c {
+			pinmux@0 {
+				pin_gpio2 {
+					status = "disabled";
+				};
+				pin_gpio3 {
+					status = "disabled";
+				};
+				pin_gpio7 {
+					drive-push-pull = <1>;
+				};
+			};
+
+			regulators {
+				ldo0 {
+					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
+				};
+
+				ldo6 {
+					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
+					regulator-boot-on;
+					regulator-always-on;
+				};
+
+				ldo7 {
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+				};
+
+				ldo8 {
+					regulator-name = "dvdd-pex";
+					regulator-min-microvolt = <1000000>;
+					regulator-max-microvolt = <1000000>;
+				};
+			};
+		};
+	};
+
+	sound {
+		hdr40_snd_link_i2s: nvidia,dai-link-1 { };
+	};
+};
