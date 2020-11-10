@@ -220,7 +220,11 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-	mkdir -p "$PATH_DOWNLOADS_DRIVER_PACKAGE"
+  mkdir -p "$PATH_DOWNLOADS_DRIVER_PACKAGE"
+  mkdir -p "$PATH_DOWNLOADS_ROOTFS"
+  mkdir -p "$PATH_DOWNLOADS_PUBLICSOURCES"
+  mkdir -p "$PATH_DOWNLOADS_GCC"
+
 
 	if [ ! -f "$PATH_DOWNLOADS_DRIVER_PACKAGE/$FILE_DRIVER_PACKAGE" ]
 	then
