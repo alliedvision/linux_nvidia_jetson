@@ -14,7 +14,7 @@
  *	2 of the License, or (at your option) any later version.
  */
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -228,7 +228,7 @@ static void bcm54xx_adjust_rxrefclk(struct phy_device *phydev)
 void bcm_phy_ultra_low_power(struct phy_device *phydev)
 {
 	unsigned int reg = 0;
-	
+
 	reg |= MII_BCM54XX_SHD_IDDQ | MII_BCM54XX_IDDQ_LP |
 		MII_BCM54XX_EXT_CTL_WR_ENABLE;
 
@@ -808,8 +808,8 @@ static struct phy_driver broadcom_drivers[] = {
 	.low_power_mode = bcm54xx_low_power_mode,
 	.ack_interrupt  = bcm_phy_ack_intr,
 	.config_intr    = bcm_phy_config_intr,
-	.resume		= genphy_resume,
-	.suspend	= genphy_suspend,
+	.resume		= bcm89610_resume,
+	.suspend	= bcm89610_suspend,
 } };
 
 module_phy_driver(broadcom_drivers);

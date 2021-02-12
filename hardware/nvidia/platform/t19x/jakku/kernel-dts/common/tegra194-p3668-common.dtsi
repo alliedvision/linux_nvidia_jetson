@@ -25,6 +25,7 @@
 #include "tegra194-thermal-p3668.dtsi"
 #include "tegra194-p3668-pcie-plugin-manager.dtsi"
 #include "tegra194-plugin-manager-p3668.dtsi"
+#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
 
 / {
 	nvidia,fastboot-usb-vid = <0x0955>;
@@ -132,7 +133,7 @@
 			};
 			usb2-2 {
 				mode = "host";
-				vbus-supply = <&p3509_vdd_usb2_5v>;
+				vbus-supply = <&battery_reg>;
 				status = "okay";
 			};
 			usb3-2 {
@@ -296,6 +297,20 @@
 			label = "pex_refclk_sel_high";
 			status = "disabled";
 		};
+		w-disable1 {
+			gpio-hog;
+			output-high;
+			gpios = <TEGRA194_AON_GPIO(CC, 2) GPIO_ACTIVE_LOW>;
+			label = "w-disable1";
+			status = "okay";
+		};
+		w-disable2 {
+			gpio-hog;
+			output-high;
+			gpios = <TEGRA194_AON_GPIO(CC, 0) GPIO_ACTIVE_LOW>;
+			label = "w-disable2";
+			status = "okay";
+		};
 	};
 
 	pcie@14160000 {
@@ -319,7 +334,7 @@
 		vddio-pex-ctl-supply = <&p3668_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
-		nvidia,max-speed = <3>;
+		nvidia,max-speed = <4>;
 
 		phys = <&p2u_12>,
 		       <&p2u_13>,
@@ -476,6 +491,15 @@
 				nvidia,x4-is-ddr=<0>;
 				nvidia,ctrl-bus-clk-ratio = <1>;
 			};
+		};
+	};
+	clocks-init {
+		compatible = "nvidia,clocks-config";
+		status = "okay";
+		disable {
+			clocks = <&aon_clks TEGRA194_CLK_PLLAON>,
+				<&bpmp_clks TEGRA194_CLK_CAN1>,
+				<&bpmp_clks TEGRA194_CLK_CAN2>;
 		};
 	};
 };

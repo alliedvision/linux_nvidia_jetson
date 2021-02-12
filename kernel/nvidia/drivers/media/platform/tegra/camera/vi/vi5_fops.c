@@ -1,7 +1,7 @@
 /*
  * Tegra Video Input 5 device common APIs
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frank@nvidia.com>
  *
@@ -705,14 +705,16 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 	ret = media_entity_pipeline_start(&chan->video->entity, pipe);
 	if (ret < 0)
-		goto error_pipeline_start;
+		goto err_pipeline_start;
 #endif
 
 	/* Skip in bypass mode */
 	if (!chan->bypass) {
 		chan->tegra_vi_channel = vi_channel_open_ex(chan->id, false);
-		if (IS_ERR(chan->tegra_vi_channel))
-			return PTR_ERR(chan);
+		if (IS_ERR(chan->tegra_vi_channel)) {
+			ret = PTR_ERR(chan);
+			goto err_open_ex;
+		}
 
 		spin_lock_irqsave(&chan->capture_state_lock, flags);
 		chan->capture_state = CAPTURE_IDLE;
@@ -773,7 +775,7 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 					dev_err(&chan->video->dev,
 							"Can't allocate memory"
 							"for embedded data\n");
-					goto error;
+					goto err_setup;
 				}
 				chan->vi->emb_buf_size = emb_buf_size;
 			}
@@ -781,34 +783,48 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 
 		ret = tegra_channel_capture_setup(chan);
 		if (ret < 0)
-			goto error;
+			goto err_setup;
 
 		chan->sequence = 0;
 		tegra_channel_init_ring_buffer(chan);
 
 		ret = vi5_channel_start_kthreads(chan);
 		if (ret != 0)
-			goto error;
+			goto err_start_kthreads;
 	}
 
 	/* csi stream/sensor devices should be streamon post vi channel setup */
 	ret = tegra_channel_set_stream(chan, true);
 	if (ret < 0)
-		goto error;
+		goto err_set_stream;
 
 	ret = tegra_channel_write_blobs(chan);
 	if (ret < 0)
-		goto error_stream;
+		goto err_write_blobs;
 
 	return 0;
 
-error_stream:
+err_write_blobs:
 	tegra_channel_set_stream(chan, false);
-error:
-	vi5_channel_stop_kthreads(chan);
+
+err_set_stream:
+	if (!chan->bypass)
+		vi5_channel_stop_kthreads(chan);
+
+err_start_kthreads:
+	if (!chan->bypass)
+		vi_capture_release(chan->tegra_vi_channel,
+			CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
+
+err_setup:
+	if (!chan->bypass)
+		vi_channel_close_ex(chan->id, chan->tegra_vi_channel);
+
+err_open_ex:
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 	media_entity_pipeline_stop(&chan->video->entity);
-error_pipeline_start:
+
+err_pipeline_start:
 #endif
 	vq->start_streaming_called = 0;
 	tegra_channel_queued_buf_done(chan, VB2_BUF_STATE_QUEUED, false);

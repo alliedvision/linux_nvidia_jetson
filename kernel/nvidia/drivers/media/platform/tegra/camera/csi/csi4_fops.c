@@ -363,28 +363,40 @@ static void csi4_stream_check_status(struct tegra_csi_channel *chan,
 	dev_dbg(csi->dev, "%s\n", __func__);
 	if (!chan->pg_mode) {
 		status = csi4_stream_read(chan, port_idx, ERROR_STATUS2VI_VC0);
-		if (status)
+		if (status) {
 			dev_err(csi->dev,
 				"%s (%d) ERROR_STATUS2VI_VC0 = 0x%08x\n",
 				__func__, port_idx, status);
+			if (status & PD_CRC_ERR_VC0)
+				chan->packet_crc_error++;
+		}
 
 		status = csi4_stream_read(chan, port_idx, ERROR_STATUS2VI_VC1);
-		if (status)
+		if (status) {
 			dev_err(csi->dev,
 				"%s (%d) ERROR_STATUS2VI_VC1 = 0x%08x\n",
 				__func__, port_idx, status);
+			if (status & PD_CRC_ERR_VC0)
+				chan->packet_crc_error++;
+		}
 
 		status = csi4_stream_read(chan, port_idx, ERROR_STATUS2VI_VC2);
-		if (status)
+		if (status) {
 			dev_err(csi->dev,
 				"%s (%d) ERROR_STATUS2VI_VC2 = 0x%08x\n",
 				__func__, port_idx, status);
+			if (status & PD_CRC_ERR_VC0)
+				chan->packet_crc_error++;
+		}
 
 		status = csi4_stream_read(chan, port_idx, ERROR_STATUS2VI_VC3);
-		if (status)
+		if (status) {
 			dev_err(csi->dev,
 				"%s (%d) ERROR_STATUS2VI_VC2 = 0x%08x\n",
 				__func__, port_idx, status);
+			if (status & PD_CRC_ERR_VC0)
+				chan->packet_crc_error++;
+		}
 	}
 
 	status = csi4_stream_read(chan, port_idx, INTR_STATUS);
@@ -700,6 +712,7 @@ struct tegra_csi_fops csi4_fops = {
 	.csi_stop_streaming = csi4_stop_streaming,
 	.csi_override_format = csi4_override_format,
 	.csi_error_recover = csi4_error_recover,
+	.csi_check_status = csi4_stream_check_status,
 	.mipical = csi4_mipi_cal,
 	.hw_init = csi4_hw_init,
 };

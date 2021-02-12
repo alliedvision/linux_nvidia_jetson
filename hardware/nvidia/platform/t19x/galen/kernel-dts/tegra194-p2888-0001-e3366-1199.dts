@@ -20,6 +20,7 @@
 #include <t19x-common-platforms/tegra194-thermal.dtsi>
 #include "common/tegra194-audio-p2822-0000.dtsi"
 #include "common/tegra194-plugin-manager-e3366-1199.dtsi"
+#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
 
 / {
 	nvidia,dtsfilename = __FILE__;
@@ -173,5 +174,15 @@
 	pcie@141a0000 {
 		/delete-property/ nvidia,enable-power-down;
 		/delete-property/ nvidia,plat-gpios;
+	};
+
+	clocks-init {
+		compatible = "nvidia,clocks-config";
+		status = "okay";
+		disable {
+			clocks = <&aon_clks TEGRA194_CLK_PLLAON>,
+				<&bpmp_clks TEGRA194_CLK_CAN1>,
+				<&bpmp_clks TEGRA194_CLK_CAN2>;
+		};
 	};
 };

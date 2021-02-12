@@ -1210,10 +1210,9 @@ static int eqos_close(struct net_device *dev)
 	if (pdata->phydev) {
 		phy_stop(pdata->phydev);
 		phy_disconnect(pdata->phydev);
-
-		if (gpio_is_valid(pdata->phy_reset_gpio))
+		if (gpio_is_valid(pdata->phy_reset_gpio) &&
+				 (pdata->mac_ver > EQOS_MAC_CORE_4_10))
 			gpio_set_value(pdata->phy_reset_gpio, 0);
-
 		pdata->phydev = NULL;
 	}
 

@@ -30,7 +30,7 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.4.2"
+DEDICATED_VERSION="R32.4.4"
 DEDICATED_BOARD="TX2/XAVIER"
 DEDICATED_BOARD_NANO="NANO"
 COMPLETE_INSTALL=false
@@ -220,11 +220,7 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-  mkdir -p "$PATH_DOWNLOADS_DRIVER_PACKAGE"
-  mkdir -p "$PATH_DOWNLOADS_ROOTFS"
-  mkdir -p "$PATH_DOWNLOADS_PUBLICSOURCES"
-  mkdir -p "$PATH_DOWNLOADS_GCC"
-
+	mkdir -p "$PATH_DOWNLOADS_DRIVER_PACKAGE"
 
 	if [ ! -f "$PATH_DOWNLOADS_DRIVER_PACKAGE/$FILE_DRIVER_PACKAGE" ]
 	then

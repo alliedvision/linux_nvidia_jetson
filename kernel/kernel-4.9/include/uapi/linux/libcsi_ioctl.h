@@ -23,9 +23,6 @@ version:     1.7.10
 ////////////////////////////////////////////////////////////////////////////////
 // DEFINES
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef __AVT_CSI2_IOCTL_H
-#define __AVT_CSI2_IOCTL_H
-
 #ifndef LIBCSI_IOCTL_H
 #define LIBCSI_IOCTL_H
 
@@ -45,27 +42,6 @@ version:     1.7.10
 /* Driver capabilities flags. See v4l2_csi_driver_info */
 #define AVT_DRVCAP_USRPTR                   0x00000001  
 #define AVT_DRVCAP_MMAP                     0x00000002
-
-/* D-PHY 1.2 clock frequency range (up to 2.5 Gbps per lane, DDR) */
-#define CSI_HOST_CLK_MIN_FREQ	40000000
-#define CSI_HOST_CLK_MAX_FREQ	1250000000
-
-/* IPU restrictions */
-#define FRAMESIZE_MIN_W 32
-#define FRAMESIZE_MIN_H 16
-#define FRAMESIZE_MAX_W 4096
-#define FRAMESIZE_MAX_H 4096
-#define FRAMESIZE_INC_W 16
-#define FRAMESIZE_INC_H 1
-
-/* Support only 0x31 datatype */
-# define DATA_IDENTIFIER_INQ_1 0x0002000000000000ull
-# define DATA_IDENTIFIER_INQ_2 0x0
-# define DATA_IDENTIFIER_INQ_3 0x0
-# define DATA_IDENTIFIER_INQ_4 0x0
-
-#define MIN_ANNOUNCED_FRAMES 3
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // ENUMS
@@ -370,5 +346,4 @@ struct v4l2_trigger_rate
 #define VIDIOC_TRIGGER_SOFTWARE             _IO('V', BASE_VIDIOC_PRIVATE + 26)
 
 
-#endif  /* __AVT_CSI2_IOCTL_H */
 #endif /* LIBCSI_IOCTL_H */

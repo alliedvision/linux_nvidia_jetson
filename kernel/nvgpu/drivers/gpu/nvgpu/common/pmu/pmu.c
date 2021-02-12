@@ -529,8 +529,6 @@ static int nvgpu_pg_init_task(void *arg)
 
 			gk20a_gr_wait_initialized(g);
 
-			nvgpu_cg_blcg_enable_no_wait(g);
-
 			nvgpu_cg_elcg_enable_no_wait(g);
 
 			return 0;

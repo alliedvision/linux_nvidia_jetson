@@ -35,8 +35,6 @@ void nvgpu_cg_elcg_disable(struct gk20a *g);
 void nvgpu_cg_elcg_enable_no_wait(struct gk20a *g);
 void nvgpu_cg_elcg_disable_no_wait(struct gk20a *g);
 void nvgpu_cg_elcg_set_elcg_enabled(struct gk20a *g, bool enable);
-void nvgpu_cg_blcg_disable_no_wait(struct gk20a *g);
-void nvgpu_cg_blcg_enable_no_wait(struct gk20a *g);
 
 void nvgpu_cg_blcg_mode_enable(struct gk20a *g);
 void nvgpu_cg_blcg_mode_disable(struct gk20a *g);

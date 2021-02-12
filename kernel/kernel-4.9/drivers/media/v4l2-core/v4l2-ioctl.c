@@ -1257,6 +1257,26 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_PIX_FMT_CIT_YYVYUY:	descr = "GSPCA CIT YYVYUY"; break;
 	case V4L2_PIX_FMT_KONICA420:	descr = "GSPCA KONICA420"; break;
 	case V4L2_PIX_FMT_CUSTOM:	descr = "0x31 MIPI DATATYPE"; break;
+	case V4L2_PIX_FMT_TX2_Y10:	descr = "10-bit/16-bit Greyscale"; break;
+	case V4L2_PIX_FMT_TX2_Y12:	descr = "12-bit/16-bit Greyscale"; break;
+	case V4L2_PIX_FMT_TX2_SBGGR10:	descr = "10-bit/16-bit Bayer BGBG/GRGR"; break;
+	case V4L2_PIX_FMT_TX2_SGBRG10:	descr = "10-bit/16-bit Bayer GBGB/RGRG"; break;
+	case V4L2_PIX_FMT_TX2_SGRBG10:	descr = "10-bit/16-bit Bayer GRGR/BGBG"; break;
+	case V4L2_PIX_FMT_TX2_SRGGB10:	descr = "10-bit/16-bit Bayer RGRG/GBGB"; break;
+	case V4L2_PIX_FMT_TX2_SBGGR12:	descr = "12-bit/16-bit Bayer BGBG/GRGR"; break;
+	case V4L2_PIX_FMT_TX2_SGBRG12:	descr = "12-bit/16-bit Bayer GBGB/RGRG"; break;
+	case V4L2_PIX_FMT_TX2_SGRBG12:	descr = "12-bit/16-bit Bayer GRGR/BGBG"; break;
+	case V4L2_PIX_FMT_TX2_SRGGB12:	descr = "12-bit/16-bit Bayer RGRG/GBGB"; break;
+	case V4L2_PIX_FMT_XAVIER_Y10:	descr = "10-bit/16-bit Greyscale"; break;
+	case V4L2_PIX_FMT_XAVIER_Y12:	descr = "12-bit/16-bit Greyscale"; break;
+	case V4L2_PIX_FMT_XAVIER_SBGGR10:	descr = "10-bit/16-bit Bayer BGBG/GRGR"; break;
+	case V4L2_PIX_FMT_XAVIER_SGBRG10:	descr = "10-bit/16-bit Bayer GBGB/RGRG"; break;
+	case V4L2_PIX_FMT_XAVIER_SGRBG10:	descr = "10-bit/16-bit Bayer GRGR/BGBG"; break;
+	case V4L2_PIX_FMT_XAVIER_SRGGB10:	descr = "10-bit/16-bit Bayer RGRG/GBGB"; break;
+	case V4L2_PIX_FMT_XAVIER_SBGGR12:	descr = "12-bit/16-bit Bayer BGBG/GRGR"; break;
+	case V4L2_PIX_FMT_XAVIER_SGBRG12:	descr = "12-bit/16-bit Bayer GBGB/RGRG"; break;
+	case V4L2_PIX_FMT_XAVIER_SGRBG12:	descr = "12-bit/16-bit Bayer GRGR/BGBG"; break;
+	case V4L2_PIX_FMT_XAVIER_SRGGB12:	descr = "12-bit/16-bit Bayer RGRG/GBGB"; break;
 	case V4L2_SDR_FMT_CU8:		descr = "Complex U8"; break;
 	case V4L2_SDR_FMT_CU16LE:	descr = "Complex U16LE"; break;
 	case V4L2_SDR_FMT_CS8:		descr = "Complex S8"; break;
@@ -1266,6 +1286,20 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_TCH_FMT_DELTA_TD08:	descr = "8-bit signed deltas"; break;
 	case V4L2_TCH_FMT_TU16:		descr = "16-bit unsigned touch data"; break;
 	case V4L2_TCH_FMT_TU08:		descr = "8-bit unsigned touch data"; break;
+	case V4L2_PIX_FMT_RW16:
+		descr = "16-bit Raw data"; break;
+	case V4L2_PIX_FMT_INZI:
+		descr = "32-bit IR:Depth 10:16"; break;
+	case V4L2_PIX_FMT_W10:
+		descr = "10-bit packed 8888[2222]"; break;
+	case V4L2_PIX_FMT_CONFIDENCE_MAP:
+		descr = "4-bit per pixel packed"; break;
+	case V4L2_PIX_FMT_FG:
+		descr = "Frame Grabber (FG  )"; break;
+	case V4L2_PIX_FMT_INZC:
+		descr = "Planar Depth/Confidence (INZC)"; break;
+	case V4L2_PIX_FMT_PAIR:
+		descr = "Relative IR (PAIR)"; break;
 
 	default:
 		/* Compressed formats */

@@ -5,6 +5,7 @@ dtbo-y :=
 makefile-path := platform/t19x/galen/kernel-dts
 
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000.dtb
+dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-antmicro-adapter.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-imx274-hdmi.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-imx185_v1.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-maxn.dtb

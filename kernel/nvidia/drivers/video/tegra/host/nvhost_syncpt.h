@@ -73,7 +73,7 @@ int nvhost_syncpt_init(struct platform_device *, struct nvhost_syncpt *);
 void nvhost_syncpt_deinit(struct nvhost_syncpt *);
 
 #define syncpt_to_dev(sp) container_of(sp, struct nvhost_master, syncpt)
-#define SYNCPT_CHECK_PERIOD (6 * HZ)
+#define SYNCPT_CHECK_PERIOD (20 * HZ)
 #define SYNCPT_POLL_PERIOD 1 /* msecs */
 #define MAX_STUCK_CHECK_COUNT 15
 

@@ -361,7 +361,7 @@
 			};
 			host1x_client_as: host1x_client {
 				iova-start = <0x0 0x5a500000>;
-				iova-size = <0x1 0x00000000>;
+				iova-size = <0x1F 0xFFFFF000>;
 				alignment = <0xFFFFF>;
 				num-pf-page = <0>;
 				gap-page = <1>;

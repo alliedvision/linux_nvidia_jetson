@@ -641,8 +641,52 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_Y8I      v4l2_fourcc('Y', '8', 'I', ' ') /* Greyscale 8-bit L/R interleaved */
 #define V4L2_PIX_FMT_Y12I     v4l2_fourcc('Y', '1', '2', 'I') /* Greyscale 12-bit L/R interleaved */
 #define V4L2_PIX_FMT_Z16      v4l2_fourcc('Z', '1', '6', ' ') /* Depth data 16-bit */
+/* Greyscale 16-bit */
+#define V4L2_PIX_FMT_Y16      v4l2_fourcc('Y', '1', '6', ' ')
+/* Raw data 16-bit */
+#define V4L2_PIX_FMT_RW16     v4l2_fourcc('R', 'W', '1', '6')
+/* 24 Depth/IR 16:8 */
+#define V4L2_PIX_FMT_INZI     v4l2_fourcc('I', 'N', 'Z', 'I')
+/* 16 Depth */
+#define V4L2_PIX_FMT_INVR     v4l2_fourcc('I', 'N', 'V', 'R')
+/* 24 Depth/IR 16:8 */
+#define V4L2_PIX_FMT_INRI     v4l2_fourcc('I', 'N', 'R', 'I')
+/* 8 IR alternating on off illumination */
+#define V4L2_PIX_FMT_RELI     v4l2_fourcc('R', 'E', 'L', 'I')
+/* Packed raw data 10-bit */
+#define V4L2_PIX_FMT_W10      v4l2_fourcc('W', '1', '0', ' ')
+/* Two pixels in one byte */
+#define V4L2_PIX_FMT_CONFIDENCE_MAP  v4l2_fourcc('C', ' ', ' ', ' ')
+/* Frame Grabber */
+#define V4L2_PIX_FMT_FG	v4l2_fourcc('F', 'G', ' ', ' ')
+/* Planar Depth/Confidence */
+#define V4L2_PIX_FMT_INZC	v4l2_fourcc('I', 'N', 'Z', 'C')
+/* Relative IR */
+#define V4L2_PIX_FMT_PAIR	v4l2_fourcc('P', 'A', 'I', 'R')
 
 #define V4L2_PIX_FMT_CUSTOM    v4l2_fourcc('T', 'P', '3', '1') /* 0x31 mipi datatype  */
+/* TX2 */
+#define V4L2_PIX_FMT_TX2_Y10     v4l2_fourcc('J', '2', 'Y', '0') /* 10  Greyscale     */
+#define V4L2_PIX_FMT_TX2_Y12     v4l2_fourcc('J', '2', 'Y', '2') /* 12  Greyscale     */
+#define V4L2_PIX_FMT_TX2_SBGGR10 v4l2_fourcc('J', '2', 'B', '0') /* 10  BGBG.. GRGR.. */
+#define V4L2_PIX_FMT_TX2_SGBRG10 v4l2_fourcc('J', '2', 'G', '0') /* 10  GBGB.. RGRG.. */
+#define V4L2_PIX_FMT_TX2_SGRBG10 v4l2_fourcc('J', '2', 'A', '0') /* 10  GRGR.. BGBG.. */
+#define V4L2_PIX_FMT_TX2_SRGGB10 v4l2_fourcc('J', '2', 'R', '0') /* 10  RGRG.. GBGB.. */
+#define V4L2_PIX_FMT_TX2_SBGGR12 v4l2_fourcc('J', '2', 'B', '2') /* 12  BGBG.. GRGR.. */
+#define V4L2_PIX_FMT_TX2_SGBRG12 v4l2_fourcc('J', '2', 'G', '2') /* 12  GBGB.. RGRG.. */
+#define V4L2_PIX_FMT_TX2_SGRBG12 v4l2_fourcc('J', '2', 'A', '2') /* 12  GRGR.. BGBG.. */
+#define V4L2_PIX_FMT_TX2_SRGGB12 v4l2_fourcc('J', '2', 'R', '2') /* 12  RGRG.. GBGB.. */
+/* Xavier */
+#define V4L2_PIX_FMT_XAVIER_Y10     v4l2_fourcc('J', 'X', 'Y', '0') /* 10  Greyscale     */
+#define V4L2_PIX_FMT_XAVIER_Y12     v4l2_fourcc('J', 'X', 'Y', '2') /* 12  Greyscale     */
+#define V4L2_PIX_FMT_XAVIER_SBGGR10 v4l2_fourcc('J', 'X', 'B', '0') /* 10  BGBG.. GRGR.. */
+#define V4L2_PIX_FMT_XAVIER_SGBRG10 v4l2_fourcc('J', 'X', 'G', '0') /* 10  GBGB.. RGRG.. */
+#define V4L2_PIX_FMT_XAVIER_SGRBG10 v4l2_fourcc('J', 'X', 'A', '0') /* 10  GRGR.. BGBG.. */
+#define V4L2_PIX_FMT_XAVIER_SRGGB10 v4l2_fourcc('J', 'X', 'R', '0') /* 10  RGRG.. GBGB.. */
+#define V4L2_PIX_FMT_XAVIER_SBGGR12 v4l2_fourcc('J', 'X', 'B', '2') /* 12  BGBG.. GRGR.. */
+#define V4L2_PIX_FMT_XAVIER_SGBRG12 v4l2_fourcc('J', 'X', 'G', '2') /* 12  GBGB.. RGRG.. */
+#define V4L2_PIX_FMT_XAVIER_SGRBG12 v4l2_fourcc('J', 'X', 'A', '2') /* 12  GRGR.. BGBG.. */
+#define V4L2_PIX_FMT_XAVIER_SRGGB12 v4l2_fourcc('J', 'X', 'R', '2') /* 12  RGRG.. GBGB.. */
 
 /* SDR formats - used only for Software Defined Radio devices */
 #define V4L2_SDR_FMT_CU8          v4l2_fourcc('C', 'U', '0', '8') /* IQ u8 */

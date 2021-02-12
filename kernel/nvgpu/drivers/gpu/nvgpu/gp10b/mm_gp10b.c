@@ -280,7 +280,7 @@ static void update_gmmu_pte_locked(struct vm_gk20a *vm,
 		"vm=%s "
 		"PTE: i=%-4u size=%-2u | "
 		"GPU %#-12llx  phys %#-12llx "
-		"pgsz: %3dkb perm=%-2s kind=%#02x APT=%-6s %c%c%c%c%c%c "
+		"pgsz: %3dkb perm=%-2s kind=%#02x APT=%-6s %c%c%c%c%c "
 		"ctag=0x%08x "
 		"[0x%08x, 0x%08x]",
 		vm->name,
@@ -293,7 +293,6 @@ static void update_gmmu_pte_locked(struct vm_gk20a *vm,
 		attrs->cacheable ? 'C' : '-',
 		attrs->sparse    ? 'S' : '-',
 		attrs->priv      ? 'P' : '-',
-		attrs->coherent  ? 'I' : '-',
 		attrs->valid     ? 'V' : '-',
 		attrs->platform_atomic ? 'A' : '-',
 		(u32)attrs->ctag / g->ops.fb.compression_page_size(g),

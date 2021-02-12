@@ -71,8 +71,8 @@ static int nvdla_queue_task_pool_alloc(struct platform_device *pdev,
 
 	/* Allocate the kernel memory needed for the task */
 	if (queue->task_kmem_size) {
-		task_pool->kmem_addr = kcalloc(num_tasks,
-					queue->task_kmem_size, GFP_KERNEL);
+		size_t kmem_pool_size = num_tasks * queue->task_kmem_size;
+		task_pool->kmem_addr = vzalloc(kmem_pool_size);
 		if (!task_pool->kmem_addr) {
 			nvhost_err(&pdev->dev,
 				   "failed to allocate task_pool->kmem_addr");
@@ -115,7 +115,7 @@ static void nvdla_queue_task_free_pool(struct platform_device *pdev,
 			task_pool->va, task_pool->dma_addr,
 			0);
 
-	kfree(task_pool->kmem_addr);
+	vfree(task_pool->kmem_addr);
 	task_pool->max_task_cnt = 0;
 	task_pool->alloc_table = 0;
 }

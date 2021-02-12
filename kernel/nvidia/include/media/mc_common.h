@@ -48,7 +48,7 @@
 #define TEGRA_MEM_FORMAT 0
 #define TEGRA_ISP_FORMAT 1
 
-#define CAPTURE_TIMEOUT_MS	4000
+#define CAPTURE_TIMEOUT_MS	12000
 
 enum channel_capture_state {
 	CAPTURE_IDLE = 0,
@@ -437,6 +437,8 @@ struct tegra_csi_fops {
 	void (*csi_stop_streaming)(struct tegra_csi_channel *chan,
 		int port_idx);
 	void (*csi_override_format)(struct tegra_csi_channel *chan,
+		int port_idx);
+	void (*csi_check_status)(struct tegra_csi_channel *chan,
 		int port_idx);
 	int (*csi_error_recover)(struct tegra_csi_channel *chan, int port_idx);
 	int (*mipical)(struct tegra_csi_channel *chan);

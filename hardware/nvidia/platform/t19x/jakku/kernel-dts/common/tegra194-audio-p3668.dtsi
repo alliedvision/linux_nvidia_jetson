@@ -29,6 +29,7 @@
 	};
 
 	hda@3510000 {
+		hda,card-name = "tegra-hda-xnx";
 		status = "okay";
 	};
 

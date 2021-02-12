@@ -777,6 +777,7 @@ static bool unmap_kernel_at_el0(const struct arm64_cpu_capabilities *entry,
 	switch (read_cpuid_id() & MIDR_CPU_MODEL_MASK) {
 	case MIDR_CAVIUM_THUNDERX2:
 	case MIDR_BRCM_VULCAN:
+	case MIDR_NVIDIA_CARMEL:
 		return false;
 	}
 

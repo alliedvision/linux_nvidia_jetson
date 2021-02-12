@@ -28,7 +28,7 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.4.2"
+DEDICATED_VERSION="R32.4.4"
 DEDICATED_BOARD=""
 DEDICATED_BOARD_TX2="TX2,XAVIER"
 DEDICATED_BOARD_NANO="NANO"

@@ -19,6 +19,7 @@
 #include <linux/file.h>
 #include <linux/anon_inodes.h>
 #include <linux/fs.h>
+#include <linux/pm_runtime.h>
 #include <uapi/linux/nvgpu.h>
 
 #include <nvgpu/bitops.h>
@@ -596,11 +597,36 @@ static int gk20a_ctrl_get_fbp_l2_masks(
 static int nvgpu_gpu_ioctl_l2_fb_ops(struct gk20a *g,
 		struct nvgpu_gpu_l2_fb_args *args)
 {
-	int err = 0;
+	int ret;
+	bool always_poweron;
 
 	if ((!args->l2_flush && !args->fb_flush) ||
 	    (!args->l2_flush && args->l2_invalidate))
 		return -EINVAL;
+
+	/* Handle this case for joint rails or DGPU */
+	always_poweron = (!nvgpu_is_enabled(g, NVGPU_CAN_RAILGATE) ||
+				!pm_runtime_enabled(dev_from_gk20a(g)));
+
+	/* In case of not always power_on, exit if g->power_on is false */
+	if (!always_poweron && !gk20a_check_poweron(g)) {
+		return 0;
+	}
+
+	/* There is a small window between a call to gk20a_idle() has occured
+	 * and railgate being actually triggered(setting g->power_on = false),
+	 * when l2_flush can race with railgate. Its better to take a busy_lock
+	 * to prevent the gk20a_idle() from proceeding. There is a very small
+	 * chance that gk20a_idle() might begin before gk20a_busy(). Having
+	 * a locked access to g->power_on further reduces the probability of
+	 * gk20a_idle() being triggered before gk20a_busy()
+	 */
+	ret = gk20a_busy(g);
+
+	if (ret != 0) {
+		nvgpu_err(g, "failed to take power ref");
+		return ret;
+	}
 
 	if (args->l2_flush)
 		g->ops.mm.l2_flush(g, args->l2_invalidate ? true : false);
@@ -608,7 +634,9 @@ static int nvgpu_gpu_ioctl_l2_fb_ops(struct gk20a *g,
 	if (args->fb_flush)
 		g->ops.mm.fb_flush(g);
 
-	return err;
+	gk20a_idle(g);
+
+	return 0;
 }
 
 static int nvgpu_gpu_ioctl_set_mmu_debug_mode(

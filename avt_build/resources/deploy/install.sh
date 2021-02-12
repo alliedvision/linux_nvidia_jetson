@@ -44,15 +44,64 @@ usage() {
   exit 0
 }
 
+function install_dtb_extlinux() {
+  ELC=/boot/extlinux/extlinux.conf
+  echo "Updating extlinux configuration in $ELC."
+  if sed -n '/^LABEL primary$/,/^$/p' $ELC | grep -Eq '^\s+FDT\s+/boot'; then
+    echo "Device tree already configured in $ELC, removing old entry."
+    sudo sed -i '/^\s\+FDT\s\+\/boot/d' $ELC
+  fi
+
+  sudo sed -i '/^\s\+INITRD\s\+/a \ \ \ \ \ \ FDT /boot/dtb/'$1 $ELC
+}
+
+function valid_nano_model() {
+  case "$NANO_CARRIER" in
+  b00)
+    true
+    return
+    ;;
+  a02)
+    true
+    return
+    ;;
+  *)
+    if [ ! -z "$NANO_CARRIER" ]; then
+      echo "Invalid Nano carrier board selection"
+    fi
+    ;;
+  esac
+  false
+}
+
 inst() {
   MODEL="$(tr -d '\000' < /proc/device-tree/model)"
 
 
   # On Nano, write signed dtb to partition
-  if [[ "$MODEL" == *"Nano"* ]]; then
+  if [[ "$MODEL" == *"Nano 2GB"* ]]; then
+    echo "Deploying JETSON NANO 2GB DTB"
+    install_dtb_extlinux tegra210-p3448-0003-p3542-0000.dtb
+
+  elif [[ "$MODEL" == *"Nano"* ]]; then
     echo "Deploying JETSON NANO DTB"
-    NANO_DTB=$(tr -d '\000' < /proc/device-tree/nvidia,dtsfilename | grep -Eo 'tegra210.*\.dts' | sed -e 's:\.dts:.dtb:')
-    sudo dd if="$NANO_DTB.encrypt" of=/dev/disk/by-partlabel/DTB >/dev/null 2>&1
+    while ! valid_nano_model; do
+      echo "Which Jetson Nano Module and Carrier Board revision?"
+      echo "  [1] NVIDIA P3448/3449-A02 (Single CSI port)"
+      echo "  [2] NVIDIA P3448/3449-B00 (Two CSI ports)"
+      echo -n "Selection? "
+      read carrier_select
+      case "$carrier_select" in
+      1)
+        NANO_CARRIER=a02
+        ;;
+      2)
+        NANO_CARRIER=b00
+        ;;
+      esac
+    done
+    NANO_DTB=tegra210-p3448-0000-p3449-0000-$NANO_CARRIER.dtb
+    sudo dd if="$NANO_DTB.encrypt" of=/dev/disk/by-partlabel/DTB status=none
     sync
 
   # On Xavier, write signed kernel+dtb+initrd to partition
@@ -74,13 +123,7 @@ inst() {
     echo "Deploying JETSON TX2 DTB"
 
     sudo nvbootctrl set-active-boot-slot 0
-  
-    if sed -n '/^LABEL primary$/,/^$/p' /boot/extlinux/extlinux.conf | grep -Eq '^\s+FDT\s+/boot'; then
-      echo "Device tree already configured in /boot/extlinux/extlinux.conf, skipping."
-    else
-      echo "Updating extlinux configuration in /boot/extlinux/extlinux.conf."
-      sudo sed -i '/^\s\+INITRD\s\+/a \ \ \ \ \ \ FDT /boot/dtb/tegra186-quill-p3310-1000-c03-00-base.dtb' /boot/extlinux/extlinux.conf
-    fi
+    install_dtb_extlinux tegra186-quill-p3310-1000-c03-00-base.dtb
 
   fi
 

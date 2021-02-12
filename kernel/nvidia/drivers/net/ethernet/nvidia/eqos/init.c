@@ -1511,10 +1511,11 @@ static int eqos_suspend_noirq(struct device *dev)
 			enable_irq_wake(pdata->phydev->irq);
 		} else {
 			phy_stop(pdata->phydev);
-			if (gpio_is_valid(pdata->phy_reset_gpio)) {
+			if ((gpio_is_valid(pdata->phy_reset_gpio) &&
+			    (pdata->mac_ver > EQOS_MAC_CORE_4_10))) {
 				gpio_set_value(pdata->phy_reset_gpio, 0);
 				usleep_range(pdata->phy_reset_duration,
-					pdata->phy_reset_duration + 1);
+					     pdata->phy_reset_duration + 1);
 			}
 		}
 	}
@@ -1574,9 +1575,10 @@ static int eqos_resume_noirq(struct device *dev)
 		}
 		eqos_start_dev(pdata);
 	} else {
-		if (gpio_is_valid(pdata->phy_reset_gpio) &&
-		    !gpio_get_value(pdata->phy_reset_gpio)) {
-			/* deassert phy reset */
+		if (gpio_is_valid(pdata->phy_reset_gpio)) {
+			/* reset Broadcom PHY needs minimum of 2us delay */
+			gpio_set_value(pdata->phy_reset_gpio, 0);
+			usleep_range(10, 11);
 			gpio_set_value(pdata->phy_reset_gpio, 1);
 			msleep(pdata->phy_reset_post_delay);
 		}

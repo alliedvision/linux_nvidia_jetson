@@ -27,7 +27,7 @@
 #==============================================================================
 # script settings
 #==============================================================================
-DEDICATED_VERSION="32.4.2"
+DEDICATED_VERSION="32.4.4"
 DEDICATED_BOARD=""
 DEDICATED_BOARD_TX2="TX2"
 DEDICATED_BOARD_NX="NX"
@@ -60,19 +60,18 @@ INSTALL_MOD_PATH="~/test/modulesOut"
 #==============================================================================
 # deploy information
 #==============================================================================
-FNAME="AlliedVision_NVidia_${DEDICATED_BOARD}_L4T_${DEDICATED_VERSION}_"
 KR=`cat ${PATH_CURRENT}/../kernel/kernel-4.9/include/config/kernel.release`
 FILE_DEVICE_TREE_BLOB_XAVIER="${PATH_TARGET_KERNEL}/dtb/tegra194-p2888-0001-p2822-0000.dtb"
 FILE_DEVICE_TREE_BLOB_TX2="${PATH_TARGET_KERNEL}/dtb/tegra186-quill-p3310-1000-c03-00-base.dtb"
 FILE_DEVICE_TREE_BLOB_NANO_DEVKIT="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-a02.dtb"
 FILE_DEVICE_TREE_BLOB_NANO_PRODUCTION="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0000-p3449-0000-b00.dtb"
+FILE_DEVICE_TREE_BLOB_NANO_2GB="${PATH_TARGET_KERNEL}/dtb/tegra210-p3448-0003-p3542-0000.dtb"
 FILE_NANO_DEVKIT_SIGNED_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra210-p3448-0000-p3449-0000-a02.dtb.encrypt"
 FILE_NANO_PRODUCTION_SIGNED_DTB="${PATH_TARGET_L4T}/bootloader/signed/tegra210-p3448-0000-p3449-0000-b00.dtb.encrypt"
 FILE_KERNEL_IMAGE="${PATH_TARGET_KERNEL}/Image"
 FILE_INSTALL_SCRIPT="${PATH_CURRENT}/resources/deploy/install.sh"
 RELATIVE_PATH_KERNEL_MODULES="lib/modules/${KR}"
 FILE_DEPLOY_MODULES="modules.tar.gz"
-PATH_TARGET_DEPLOY_TMP_FOLDER="${PATH_TARGET_DEPLOY}/${FNAME}${KR}"
 FILE_DEVICE_TREE_BLOB_NX="${PATH_TARGET_KERNEL}/dtb/tegra194-p3668-all-p3509-0000.dtb"
 PATH_SIGNED_NX_DTB="${PATH_TARGET_L4T}/bootloader/tegra194-p3668-all-p3509-0000_sigheader.dtb.encrypt"
 #==============================================================================
@@ -152,10 +151,13 @@ createDeployTarball()
 		sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson TX2"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
 
 	else
-    signImageNano
-      
+    signImageNano 300
 		cp "$FILE_NANO_PRODUCTION_SIGNED_DTB" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+    signImageNano 200
+		cp "$FILE_NANO_DEVKIT_SIGNED_DTB" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+    cp "$FILE_DEVICE_TREE_BLOB_NANO_DEVKIT" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
     cp "$FILE_DEVICE_TREE_BLOB_NANO_PRODUCTION" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
+    cp "$FILE_DEVICE_TREE_BLOB_NANO_2GB" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 		sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson Nano"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
 	fi
 
@@ -310,10 +312,11 @@ signImage ()
 
 signImageNano() {
   # Workaround for root fs size calculation in jetson-disk-image-creator.sh
+  model=$1
   mkdir -p ${PATH_TARGET_L4T}/rootfs/boot
   dd if=/dev/zero bs=1M count=200 of=${PATH_TARGET_L4T}/rootfs/boot/initrd
 
-  if ! ( cd "${PATH_TARGET_L4T}/tools" && sudo ./jetson-disk-image-creator.sh -o tmp.img -b jetson-nano -r 300 )
+  if ! ( cd "${PATH_TARGET_L4T}/tools" && sudo ./jetson-disk-image-creator.sh -o tmp.img -b jetson-nano -r $model )
   then
     log error "Failed to generate signed DTB for Nano"
     SUCCESS_FLAG=$FALSE
@@ -356,6 +359,7 @@ fi
 
 if proceed
 then
+  BOARD_SUB=""
 	if check_parameter $2 "tx2"
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_TX2"
@@ -364,10 +368,20 @@ then
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_XAVIER"
 		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_XAVIER"
-	elif check_parameter $2 "nano" 
+	elif check_parameter $2 "nano"
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
 		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_NANO"
+	elif check_parameter $2 "nano-a02"
+	then
+		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
+		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_NANO"
+    BOARD_SUB="-a02"
+	elif check_parameter $2 "nano2gb"
+	then
+		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
+		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_NANO"
+    BOARD_SUB="2gb"
 	elif check_parameter $2 nx
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NX"
@@ -378,6 +392,9 @@ then
 		usage
 	fi
 fi
+
+FNAME="AlliedVision_NVidia_$(echo ${DEDICATED_BOARD} | tr [A-Z] [a-z])${BOARD_SUB}_L4T_${DEDICATED_VERSION}_"
+PATH_TARGET_DEPLOY_TMP_FOLDER="${PATH_TARGET_DEPLOY}/${FNAME}${KR}"
 
 #------------------------------------------------------------------------------
 if proceed
@@ -440,7 +457,7 @@ then
 	elif check_parameter $3 "sd-image"
 	then
 		MODEL=$2
-		if ! check_parameter "$MODEL" "nano" && ! check_parameter "$MODEL" nx
+		if ! check_parameter "$MODEL" "nano" && ! check_parameter "$MODEL" nx && ! check_parameter "$MODEL" nano2gb && ! check_parameter "$MODEL" "nano-a02"
 		then
 			log error "SD card image creation only supported for the Nano and NX! Aborting."
 			exit 1
@@ -455,7 +472,7 @@ then
 		
 		if [ ! -f "${4}" ]
 		then
-			log error "Invalid path to SD card image: \"${SD_CARD}\". Aborting."
+			log error "Invalid path to SD card image: \"${4}\". Aborting."
 			exit 1
 		fi
 
@@ -493,8 +510,17 @@ then
 		# copy encrypted dtb and kernel to sd card partition
 		case "$MODEL" in
 		nano)
-      signImageNano
+      signImageNano 300
 			sudo dd if="${FILE_NANO_PRODUCTION_SIGNED_DTB}" of="${LOOP_DEVICE}p10"
+			;;
+    nano-a02)
+			sudo dd if="${FILE_NANO_DEVKIT_SIGNED_DTB}" of="${LOOP_DEVICE}p10"
+      ;;
+		nano2gb)
+      signImageNano 200
+
+			sudo cp "${FILE_DEVICE_TREE_BLOB_NANO_2GB}" "${ROOTFS_MNT}/boot/dtb"
+			sudo sed -i '/^\s\+INITRD\s\+/a \ \ \ \ \ \ FDT /boot/dtb/'$(basename ${FILE_DEVICE_TREE_BLOB_NANO_2GB}) "${ROOTFS_MNT}/boot/extlinux/extlinux.conf"
 			;;
 		nx)
       signImage "${FILE_DEVICE_TREE_BLOB_NX}"

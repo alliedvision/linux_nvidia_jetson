@@ -86,4 +86,9 @@
                 compatible = "nvidia,tegra186_aon_shub";
                 mboxes = <&aon 5>;
         };
+	aon_clks: aonclk {
+		compatible = "nvidia,tegra-aon-clks";
+		#clock-cells = <1>;
+		status = "okay";
+	};
 };

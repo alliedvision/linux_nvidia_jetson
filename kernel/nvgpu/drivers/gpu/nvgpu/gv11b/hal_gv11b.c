@@ -452,6 +452,7 @@ static const struct gpu_ops gv11b_ops = {
 		.get_offset_in_gpccs_segment =
 			gr_gk20a_get_offset_in_gpccs_segment,
 		.set_debug_mode = gm20b_gr_set_debug_mode,
+		.set_fecs_watchdog_timeout = gr_gv11b_set_fecs_watchdog_timeout,
 	},
 	.fb = {
 		.init_hw = gv11b_fb_init_hw,
@@ -720,7 +721,7 @@ static const struct gpu_ops gv11b_ops = {
 		.pmu_mutex_release = gk20a_pmu_mutex_release,
 		.pmu_is_interrupted = gk20a_pmu_is_interrupted,
 		.pmu_isr = gk20a_pmu_isr,
-		.pmu_init_perfmon_counter = gk20a_pmu_init_perfmon_counter,
+		.pmu_init_perfmon_counter = gv11b_pmu_init_perfmon_counter,
 		.pmu_pg_idle_counter_config = gk20a_pmu_pg_idle_counter_config,
 		.pmu_read_idle_counter = gk20a_pmu_read_idle_counter,
 		.pmu_reset_idle_counter = gk20a_pmu_reset_idle_counter,

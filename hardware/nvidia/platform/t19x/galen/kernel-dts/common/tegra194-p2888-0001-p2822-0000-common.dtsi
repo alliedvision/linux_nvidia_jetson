@@ -22,6 +22,7 @@
 #include <t19x-common-platforms/tegra194-comms.dtsi>
 #include "tegra194-thermal-p2888.dtsi"
 #include "tegra194-super-module-e2614-p2888-0000.dtsi"
+#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
 
 / {
 	nvidia,dtsfilename = __FILE__;
@@ -349,6 +350,15 @@
 	pfsd {
 		pwm_polarity= <PWM_POLARITY_NORMAL>;
 		suspend_state = <0>;
+	};
+	clocks-init {
+		compatible = "nvidia,clocks-config";
+		status = "okay";
+		disable {
+			clocks = <&aon_clks TEGRA194_CLK_PLLAON>,
+				<&bpmp_clks TEGRA194_CLK_CAN1>,
+				<&bpmp_clks TEGRA194_CLK_CAN2>;
+		};
 	};
 };
 

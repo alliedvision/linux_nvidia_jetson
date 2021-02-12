@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2017 Realtek Corporation.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -192,6 +193,11 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
 	{USB_DEVICE(0x056E, 0x400E) , .driver_info = RTL8821}, /* ELECOM -  ELECOM */
 	{USB_DEVICE(0x056E, 0x400F) , .driver_info = RTL8821}, /* ELECOM -  ELECOM */
 	{USB_DEVICE(0x20f4, 0x804b), .driver_info = RTL8821}, /* TRENDnet  */
+	{USB_DEVICE(0x2357, 0x0120), .driver_info = RTL8821}, /* TP-Link - Archer T2U Plus */
+	{USB_DEVICE(0x2357, 0x011E), .driver_info = RTL8821}, /* TP-Link - Archer T2U Nano */
+	{USB_DEVICE(0x2019, 0xAB32), .driver_info = RTL8821}, /* Planex - GW-450S */
+	{USB_DEVICE(0x7392, 0xA812), .driver_info = RTL8821}, /* Edimax - EW-7811UTC */
+	{USB_DEVICE(0x2056, 0x1400), .driver_info = RTL8821}, /* D-Link - DWA-171 */
 #endif
 
 #ifdef CONFIG_RTL8192E

@@ -30,6 +30,7 @@
 #include "porg-platforms/tegra210-porg-camera.dtsi"
 #include <t210-common-platforms/tegra210-ers-hdmi-e2190-1100-a00.dtsi>
 #include <t210-common-platforms/tegra210-dp.dtsi>
+#include <t210-common-platforms/tegra210-thermal-userspace-alert.dtsi>
 #include "porg-platforms/tegra210-porg-thermal.dtsi"
 #include "porg-platforms/tegra210-porg-thermal-fan-est.dtsi"
 #include "porg-platforms/tegra210-porg-keys-p3448-0000-a00.dtsi"
@@ -56,7 +57,7 @@
 		stdout-path = "/serial@70006000";
 		nvidia,tegra-always-on-personality;
 		no-tnid-sn;
-		bootargs = "kmemleak=on earlycon=uart8250,mmio32,0x70006000";
+		bootargs = "earlycon=uart8250,mmio32,0x70006000";
 	};
 
 	cpus {
@@ -893,6 +894,57 @@
 	gpu_edp {
 		status = "okay";
 		nvidia,edp_limit = <0x4e20>;
+	};
+
+	cpu_alert: cpu-throttle-alert {
+		status = "okay";
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		status = "okay";
+	};
+
+	hot_surface_alert: hot-surface-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "hot-surface-alert";
+		status = "okay";
+		#cooling-cells = <2>;
+	};
+
+	thermal-zones {
+		GPU-therm {
+			trips {
+				gpu_hot_surface_trip: gpu-hot-surface-trip {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				gpu-hot-surface-map0 {
+					trip = <&gpu_hot_surface_trip>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		PLL-therm {
+			trips {
+				pll_hot_surface_trip: pll-hot-surface-trip {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				pll-hot-surface-map0 {
+					trip = <&pll_hot_surface_trip>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
 	};
 };
 

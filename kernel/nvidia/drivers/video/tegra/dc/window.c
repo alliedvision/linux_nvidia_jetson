@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -41,7 +41,10 @@ static bool tegra_dc_windows_are_clean(struct tegra_dc_win *windows[],
 	int i;
 
 	for (i = 0; i < n; i++) {
-		if (windows[i]->dirty) {
+		struct tegra_dc *dc = windows[i]->dc;
+		struct tegra_dc_win *win =
+			tegra_dc_get_window(dc, windows[i]->idx);
+		if (win->dirty) {
 			return false;
 		}
 	}

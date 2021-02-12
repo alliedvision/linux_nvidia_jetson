@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -107,10 +107,7 @@ struct device_node *nvgpu_get_node(struct gk20a *g)
 
 void gk20a_busy_noresume(struct gk20a *g)
 {
-	int ret = pm_runtime_get_if_in_use(dev_from_gk20a(g));
-
-	if (ret <= 0)
-		pm_runtime_get_noresume(dev_from_gk20a(g));
+	pm_runtime_get_noresume(dev_from_gk20a(g));
 }
 
 /*
@@ -260,6 +257,17 @@ int nvgpu_finalize_poweron_linux(struct nvgpu_os_linux *l)
 	l->init_done = true;
 
 	return 0;
+}
+
+bool gk20a_check_poweron(struct gk20a *g)
+{
+	bool ret;
+
+	nvgpu_mutex_acquire(&g->power_lock);
+	ret = g->power_on;
+	nvgpu_mutex_release(&g->power_lock);
+
+	return ret;
 }
 
 int gk20a_pm_finalize_poweron(struct device *dev)
@@ -1050,11 +1058,13 @@ static int gk20a_pm_suspend(struct device *dev)
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	struct gk20a *g = get_gk20a(dev);
 	int ret = 0;
-	int idle_usage_count = 0;
+	int usage_count;
+	struct nvgpu_timeout timeout;
 
 	if (!g->power_on) {
 		if (platform->suspend)
 			ret = platform->suspend(dev);
+
 		if (ret)
 			return ret;
 
@@ -1064,20 +1074,43 @@ static int gk20a_pm_suspend(struct device *dev)
 		return ret;
 	}
 
-	if (nvgpu_atomic_read(&g->usage_count) > idle_usage_count)
-		return -EBUSY;
+	nvgpu_timeout_init(g, &timeout, GK20A_WAIT_FOR_IDLE_MS,
+			   NVGPU_TIMER_CPU_TIMER);
+	/*
+	 * Hold back deterministic submits and changes to deterministic
+	 * channels - this must be outside the power busy locks.
+	 */
+	gk20a_channel_deterministic_idle(g);
+
+	/* check and wait until GPU is idle (with a timeout) */
+	do {
+		nvgpu_usleep_range(1000, 1100);
+		usage_count = nvgpu_atomic_read(&g->usage_count);
+	} while (usage_count != 0 && !nvgpu_timeout_expired(&timeout));
+
+	if (usage_count != 0) {
+		nvgpu_err(g, "failed to idle - usage_count %d", usage_count);
+		ret = -EINVAL;
+		goto fail_idle;
+	}
 
 	ret = gk20a_pm_runtime_suspend(dev);
 	if (ret)
-		return ret;
+		goto fail_idle;
 
 	if (platform->suspend)
 		ret = platform->suspend(dev);
 	if (ret)
-		return ret;
+		goto fail_suspend;
 
 	g->suspended = true;
 
+	return 0;
+
+fail_suspend:
+	gk20a_pm_runtime_resume(dev);
+fail_idle:
+	gk20a_channel_deterministic_unidle(g);
 	return ret;
 }
 
@@ -1109,6 +1142,8 @@ static int gk20a_pm_resume(struct device *dev)
 		return ret;
 
 	g->suspended = false;
+
+	gk20a_channel_deterministic_unidle(g);
 
 	return ret;
 }

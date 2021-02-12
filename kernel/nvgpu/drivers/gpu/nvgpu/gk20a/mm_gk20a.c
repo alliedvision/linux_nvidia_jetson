@@ -274,7 +274,7 @@ static void update_gmmu_pte_locked(struct vm_gk20a *vm,
 	pte_dbg(g, attrs,
 		"PTE: i=%-4u size=%-2u offs=%-4u | "
 		"GPU %#-12llx  phys %#-12llx "
-		"pgsz: %3dkb perm=%-2s kind=%#02x APT=%-6s %c%c%c%c%c "
+		"pgsz: %3dkb perm=%-2s kind=%#02x APT=%-6s %c%c%c%c "
 		"ctag=0x%08x "
 		"[0x%08x, 0x%08x]",
 		pd_idx, l->entry_size, pd_offset,
@@ -286,7 +286,6 @@ static void update_gmmu_pte_locked(struct vm_gk20a *vm,
 		attrs->cacheable ? 'C' : '-',
 		attrs->sparse    ? 'S' : '-',
 		attrs->priv      ? 'P' : '-',
-		attrs->coherent  ? 'I' : '-',
 		attrs->valid     ? 'V' : '-',
 		(u32)attrs->ctag >> ctag_shift,
 		pte_w[1], pte_w[0]);

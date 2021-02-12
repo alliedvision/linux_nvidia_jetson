@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2017 Realtek Corporation.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -179,6 +180,7 @@ static struct usb_device_id rtw_usb_id_tbl[] = {
 	{USB_DEVICE(0x07B8, 0x8812), .driver_info = RTL8812}, /* Abocom - Abocom */
 	{USB_DEVICE(0x2001, 0x3315), .driver_info = RTL8812}, /* D-Link - Cameo */
 	{USB_DEVICE(0x2001, 0x3316), .driver_info = RTL8812}, /* D-Link - Cameo */
+	{USB_DEVICE(0x0411, 0x025D), .driver_info = RTL8812}, /* Buffalo - WI-U3-866D */
 #endif
 
 #ifdef CONFIG_RTL8821A

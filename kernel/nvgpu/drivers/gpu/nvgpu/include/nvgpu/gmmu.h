@@ -170,7 +170,6 @@ struct nvgpu_gmmu_attrs {
 	enum gk20a_mem_rw_flag	 rw_flag;
 	bool			 sparse;
 	bool			 priv;
-	bool			 coherent;
 	bool			 valid;
 	enum nvgpu_aperture	 aperture;
 	bool			 debug;

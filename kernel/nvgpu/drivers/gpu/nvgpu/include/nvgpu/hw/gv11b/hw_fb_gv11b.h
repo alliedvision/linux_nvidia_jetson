@@ -62,7 +62,7 @@ static inline u32 fb_fbhub_num_active_ltcs_r(void)
 }
 static inline u32 fb_fbhub_num_active_ltcs_hub_sys_atomic_mode_m(void)
 {
-	return U32(0x1U) << 25U;
+	return 0x1U << 25U;
 }
 static inline u32 fb_fbhub_num_active_ltcs_hub_sys_atomic_mode_use_rmw_f(void)
 {
@@ -70,7 +70,7 @@ static inline u32 fb_fbhub_num_active_ltcs_hub_sys_atomic_mode_use_rmw_f(void)
 }
 static inline u32 fb_fbhub_num_active_ltcs_hub_sys_ncoh_atomic_mode_m(void)
 {
-	return U32(0x1U) << 26U;
+	return 0x1U << 26U;
 }
 static inline u32 fb_fbhub_num_active_ltcs_hub_sys_ncoh_atomic_mode_use_read_f(void)
 {
@@ -94,7 +94,7 @@ static inline u32 fb_mmu_ctrl_pri_fifo_space_v(u32 r)
 }
 static inline u32 fb_mmu_ctrl_atomic_capability_mode_m(void)
 {
-	return U32(0x3U) << 24U;
+	return 0x3U << 24U;
 }
 static inline u32 fb_mmu_ctrl_atomic_capability_mode_l2_f(void)
 {
@@ -106,7 +106,7 @@ static inline u32 fb_mmu_ctrl_atomic_capability_mode_rmw_f(void)
 }
 static inline u32 fb_mmu_ctrl_atomic_capability_sys_ncoh_mode_m(void)
 {
-	return U32(0x1U) << 27U;
+	return 0x1U << 27U;
 }
 static inline u32 fb_mmu_ctrl_atomic_capability_sys_ncoh_mode_l2_f(void)
 {
@@ -118,7 +118,7 @@ static inline u32 fb_hshub_num_active_ltcs_r(void)
 }
 static inline u32 fb_hshub_num_active_ltcs_hub_sys_atomic_mode_m(void)
 {
-	return U32(0x1U) << 25U;
+	return 0x1U << 25U;
 }
 static inline u32 fb_hshub_num_active_ltcs_hub_sys_atomic_mode_use_read_f(void)
 {

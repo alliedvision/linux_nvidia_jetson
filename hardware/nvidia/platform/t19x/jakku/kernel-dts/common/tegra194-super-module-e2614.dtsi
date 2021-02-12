@@ -16,6 +16,22 @@
 #include <t19x-common-modules/tegra194-super-module-e2614.dtsi>
 
 / {
+	i2c@31e0000 {
+		i2cmux@70 {
+			i2c@3 {
+				rt5659.12-001a@1a {
+					/* gpio for jack detection */
+					gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 0) 0>;
+				};
+			};
+		};
+
+		rt5659.1-001a@1a {
+			/* gpio for jack detection */
+			gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 0) 0>;
+		};
+	};
+
 	plugin-manager {
 		fragment-e2614-common@0 {
 			overrides@10 {

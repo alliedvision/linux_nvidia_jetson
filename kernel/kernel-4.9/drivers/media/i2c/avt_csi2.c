@@ -31,10 +31,17 @@
 
 #include "avt_csi2.h"
 #include <uapi/linux/libcsi_ioctl.h>
+#include <media/avt_csi2_soc.h>
 
 static int debug;
 MODULE_PARM_DESC(debug, "debug");
 module_param(debug, int, 0600);/* S_IRUGO */
+
+/* For overriding alignment value. 0=Use internal value.*/
+static int v4l2_width_align = 0;
+MODULE_PARM_DESC(v4l2_width_align, "v4l2_width_align");
+module_param(v4l2_width_align, int, 0600);/* S_IRUGO */
+
 
 #define AVT_DBG_LVL 3
 
@@ -44,6 +51,9 @@ module_param(debug, int, 0600);/* S_IRUGO */
 
 #define avt_err(dev, fmt, args...) \
 		v4l2_err(dev, "%s:%d: " fmt "", __func__, __LINE__, ##args) \
+
+#define avt_warn(dev, fmt, args...) \
+		v4l2_warn(dev, "%s:%d: " fmt "", __func__, __LINE__, ##args) \
 
 #define avt_info(dev, fmt, args...) \
 		v4l2_info(dev, "%s:%d: " fmt "", __func__, __LINE__, ##args) \
@@ -64,14 +74,21 @@ static int avt_reg_read(struct i2c_client *client, __u32 reg,
 
 static int avt_init_mode(struct v4l2_subdev *sd);
 
-static int avt_init_frame_param(struct avt_csi2_priv *priv);
+static int avt_init_frame_param(struct v4l2_subdev *sd);
 
 static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm);
-static int avt_align_width(struct avt_csi2_priv *priv, int size);
-static int avt_get_align_width(struct avt_csi2_priv *priv);
+static int avt_align_width(struct v4l2_subdev *sd, int width);
+static int avt_get_align_width(struct v4l2_subdev *sd);
 static bool common_range(uint32_t nMin1, uint32_t nMax1, uint32_t nInc1,
 				uint32_t nMin2, uint32_t nMax2, uint32_t nInc2,
 				uint32_t *rMin, uint32_t *rMax, uint32_t *rInc);
+
+static void bcrm_dump(struct i2c_client *client);
+static void dump_bcrm_reg_8(struct i2c_client *client, u16 nOffset, const char *pRegName);
+static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char *pRegName);
+static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char *pRegName);
+static int soft_reset(struct i2c_client *client);
+static void dump_frame_param(struct v4l2_subdev *sd);
 
 static void swapbytes(void *_object, size_t _size)
 {
@@ -88,8 +105,7 @@ static void swapbytes(void *_object, size_t _size)
 	}
 }
 
-static uint32_t i2c_read(struct i2c_client *client, uint32_t reg,
-			uint32_t size, uint32_t count, char *buf)
+static uint32_t i2c_read(struct i2c_client *client, uint32_t reg, uint32_t size, uint32_t count, char *buf)
 {
 	struct i2c_msg msg[2];
 	u8 msgbuf[size];
@@ -123,6 +139,36 @@ static uint32_t i2c_read(struct i2c_client *client, uint32_t reg,
 	return ret;
 }
 
+static int i2c_write(struct i2c_client *client, uint32_t reg, uint32_t reg_size, uint32_t buf_size, char *buf)
+{
+	int j = 0, i = 0;
+	char *i2c_w_buf;
+	int ret = 0;
+
+	/* count exceeds writing IO_LIMIT characters */
+	if (buf_size > IO_LIMIT) {
+		dev_err(&client->dev, "limit excedded! i2c_reg->count > IO_LIMIT\n");
+		buf_size = IO_LIMIT;
+	}
+
+	i2c_w_buf = kzalloc(buf_size + reg_size, GFP_KERNEL);
+	if (!i2c_w_buf)
+		return -ENOMEM;
+
+	/* Fill the address in buffer upto size of address want to write */
+	for (i = reg_size - 1, j = 0; i >= 0; i--, j++)
+		i2c_w_buf[i] = ((reg >> (8 * j)) & 0xFF);
+
+	/* Append the data value in the same buffer */
+	memcpy(i2c_w_buf + reg_size, buf, buf_size);
+
+	ret = i2c_master_send(client, i2c_w_buf, buf_size + reg_size);
+	
+        kfree(i2c_w_buf);
+
+	return ret;
+}
+
 static bool bcrm_get_write_handshake_availibility(struct i2c_client *client)
 {
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
@@ -133,7 +179,7 @@ static bool bcrm_get_write_handshake_availibility(struct i2c_client *client)
 	/* Reading the device firmware version from camera */
 	status = avt_reg_read(client,
 					priv->cci_reg.bcrm_addr +
-					WRITE_HANDSHAKE_REG_8RW,
+					BCRM_WRITE_HANDSHAKE_8RW,
 				 	AV_CAM_REG_SIZE,
 					AV_CAM_DATA_SIZE_8,
 					(char *) &value);
@@ -155,9 +201,10 @@ static bool bcrm_get_write_handshake_availibility(struct i2c_client *client)
    the handshake register to make sure to continue not too early with the next write access.
  *
  * @param timeout_ms : Timeout value in ms
+ * @param reg : Register previously written to (used just for debug msg)
  * @return uint64_t : Duration in ms
  */
-static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_t timeout_ms)
+static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_t timeout_ms, u16 reg)
 {
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
 	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
@@ -181,7 +228,7 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 			/* Read handshake register */
 			status = avt_reg_read(client,
 					        priv->cci_reg.bcrm_addr +
-					        WRITE_HANDSHAKE_REG_8RW,
+					        BCRM_WRITE_HANDSHAKE_8RW,
 					        AV_CAM_REG_SIZE,
 					        AV_CAM_DATA_SIZE_8,
 				                (char *)&handshake_val);
@@ -194,8 +241,8 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 					do
 					{
 						/* Handshake set by camera. We should to reset it */
-						buffer[0] = (priv->cci_reg.bcrm_addr + WRITE_HANDSHAKE_REG_8RW) >> 8;
-						buffer[1] = (priv->cci_reg.bcrm_addr + WRITE_HANDSHAKE_REG_8RW) & 0xff;
+						buffer[0] = (priv->cci_reg.bcrm_addr + BCRM_WRITE_HANDSHAKE_8RW) >> 8;
+						buffer[1] = (priv->cci_reg.bcrm_addr + BCRM_WRITE_HANDSHAKE_8RW) & 0xff;
 						buffer[2] = (handshake_val & 0xFE); /* Reset LSB (handshake bit)*/
 						status = i2c_master_send(client, buffer, sizeof(buffer));
 						if (status >= 0)
@@ -208,7 +255,7 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 								/* We need to wait again until the bit is reset */
 								status = avt_reg_read(client,
 											priv->cci_reg.bcrm_addr +
-											WRITE_HANDSHAKE_REG_8RW,
+											BCRM_WRITE_HANDSHAKE_8RW,
 											AV_CAM_REG_SIZE,
 											AV_CAM_DATA_SIZE_8,
 											(char *)&handshake_val);
@@ -253,7 +300,7 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 
 		if (!handshake_valid)
 		{
-			dev_warn(&client->dev, " Write handshake timeout!");
+			dev_err(&client->dev, " Write handshake timeout! (Register 0x%02X)", reg);
 		}
 	}
 	else
@@ -312,8 +359,8 @@ static int avt_reg_write(struct i2c_client *client, u16 reg, u8 val)
 		dev_err(&client->dev, "%s, i2c write failed reg=%x,val=%x error=%d\n",
 			__func__, reg, val, ret);
 
-	duration = wait_for_bcrm_write_handshake(client,
-				BCRM_WAIT_HANDSHAKE_TIMEOUT);
+	duration = wait_for_bcrm_write_handshake(client, BCRM_WAIT_HANDSHAKE_TIMEOUT, reg);
+
 	dev_dbg(&client->dev, "i2c write success reg=0x%x, duration=%lldms, ret=%d\n", reg, duration, ret);
 
 	return ret;
@@ -390,8 +437,7 @@ static int ioctl_gencam_i2cwrite_reg(struct i2c_client *client, uint32_t reg,
 	/* Wait for write handshake register only for BCM registers */
 	if ((reg >= priv->cci_reg.bcrm_addr) && (reg <= priv->cci_reg.bcrm_addr + _BCRM_LAST_ADDR))
 	{
-		duration = wait_for_bcrm_write_handshake(client,
-					BCRM_WAIT_HANDSHAKE_TIMEOUT);
+		duration = wait_for_bcrm_write_handshake(client, BCRM_WAIT_HANDSHAKE_TIMEOUT, reg);
 		dev_dbg(&client->dev, "i2c write success reg=0x%x, duration=%lldms, ret=%d\n", reg, duration, ret);
 	}
 
@@ -451,7 +497,7 @@ static int set_bayer_format(struct i2c_client *client, __u8 value)
 	char *i2c_reg_buf;
 
 	CLEAR(i2c_reg);
-	i2c_reg = priv->cci_reg.bcrm_addr + IMG_BAYER_PATTERN_8RW;
+	i2c_reg = priv->cci_reg.bcrm_addr + BCRM_IMG_BAYER_PATTERN_8RW;
 	i2c_reg_size = AV_CAM_REG_SIZE;
 	i2c_reg_count = AV_CAM_DATA_SIZE_8;
 	i2c_reg_buf = (char *) &value;
@@ -478,7 +524,8 @@ static bool avt_check_fmt_available(struct i2c_client *client, u32 media_bus_fmt
 	union bcrm_avail_mipi_reg feature_inquiry_reg;
 	union bcrm_bayer_inquiry_reg bayer_inquiry_reg;
 	int ret;
-dev_info(&client->dev,"%s: media_bus_fmt: 0x%x\n", __FUNCTION__, media_bus_fmt);
+
+    dev_dbg(&client->dev,"%s: media_bus_fmt: 0x%x\n", __FUNCTION__, media_bus_fmt);
 
 	if (media_bus_fmt ==  MEDIA_BUS_FMT_CUSTOM)
 		return true;
@@ -488,7 +535,7 @@ dev_info(&client->dev,"%s: media_bus_fmt: 0x%x\n", __FUNCTION__, media_bus_fmt);
 	 */
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
-			IMG_AVAILABLE_MIPI_DATA_FORMATS_64R,
+			BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &avail_mipi);
 
@@ -497,14 +544,13 @@ dev_info(&client->dev,"%s: media_bus_fmt: 0x%x\n", __FUNCTION__, media_bus_fmt);
 		return false;
 	}
 
-
-dev_info(&client->dev,"%s: Camera available MIPI data formats: 0x%llx\n", __FUNCTION__, avail_mipi);
-        if (avail_mipi == 0)
-        {       
-                /* Fallback app running? -> Fake pixelformat */
-                dev_warn(&client->dev, "avail_mipi=0. Fallback app running?");
-                avail_mipi = 0x80;      // RGB888 
-        }
+    dev_dbg(&client->dev,"%s: Camera available MIPI data formats: 0x%llx\n", __FUNCTION__, avail_mipi);
+    if (avail_mipi == 0)
+    {       
+            /* Fallback app running? -> Fake pixelformat */
+            dev_warn(&client->dev, "avail_mipi=0. Fallback app running?");
+            avail_mipi = 0x80;      // RGB888 
+    }
 
 	feature_inquiry_reg.value = avail_mipi;
 
@@ -513,10 +559,11 @@ dev_info(&client->dev,"%s: Camera available MIPI data formats: 0x%llx\n", __FUNC
 	 */
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
-			IMG_BAYER_PATTERN_INQUIRY_8R,
+			BCRM_IMG_BAYER_PATTERN_INQUIRY_8R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 			(char *) &bayer_val);
-dev_info(&client->dev,"%s: Camera bayer pattern inq: 0x%x\n", __FUNCTION__, bayer_val);
+
+    dev_dbg(&client->dev,"%s: Camera bayer pattern inq: 0x%x\n", __FUNCTION__, bayer_val);
 	if (ret < 0) {
 		dev_err(&client->dev, "i2c read failed (%d)\n", ret);
 		return false;
@@ -619,7 +666,7 @@ static int avt_ctrl_send(struct i2c_client *client,
 		 */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr +
-				IMG_AVAILABLE_MIPI_DATA_FORMATS_64R,
+				BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &avail_mipi);
 
@@ -639,7 +686,7 @@ static int avt_ctrl_send(struct i2c_client *client,
 		 */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr +
-				IMG_BAYER_PATTERN_INQUIRY_8R,
+				BCRM_IMG_BAYER_PATTERN_INQUIRY_8R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &bayer_val);
 
@@ -654,52 +701,52 @@ static int avt_ctrl_send(struct i2c_client *client,
 
 	switch (vc->id) {
 	case V4L2_AV_CSI2_STREAMON_W:
-		reg = ACQUISITION_START_8RW;
+		reg = BCRM_ACQUISITION_START_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_STREAMOFF_W:
-		reg = ACQUISITION_STOP_8RW;
+		reg = BCRM_ACQUISITION_STOP_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_ABORT_W:
-		reg = ACQUISITION_ABORT_8RW;
+		reg = BCRM_ACQUISITION_ABORT_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_WIDTH_W:
-		reg = IMG_WIDTH_32RW;
+		reg = BCRM_IMG_WIDTH_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_HEIGHT_W:
-		reg = IMG_HEIGHT_32RW;
+		reg = BCRM_IMG_HEIGHT_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_OFFSET_X_W:
-		reg = IMG_OFFSET_X_32RW;
+		reg = BCRM_IMG_OFFSET_X_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_OFFSET_Y_W:
-		reg = IMG_OFFSET_Y_32RW;
+		reg = BCRM_IMG_OFFSET_Y_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_HFLIP_W:
-		reg = IMG_REVERSE_X_8RW;
+		reg = BCRM_IMG_REVERSE_X_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_VFLIP_W:
-		reg = IMG_REVERSE_Y_8RW;
+		reg = BCRM_IMG_REVERSE_Y_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 0;
 		break;
 	case V4L2_AV_CSI2_PIXELFORMAT_W:
-		reg = IMG_MIPI_DATA_FORMAT_32RW;
+		reg = BCRM_IMG_MIPI_DATA_FORMAT_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 0;
 
@@ -798,138 +845,138 @@ static int avt_ctrl_send(struct i2c_client *client,
 		}
 		break;
 	case V4L2_AV_CSI2_WIDTH_R:
-		reg = IMG_WIDTH_32RW;
+		reg = BCRM_IMG_WIDTH_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_WIDTH_MINVAL_R:
-		reg = IMG_WIDTH_MIN_32R;
+		reg = BCRM_IMG_WIDTH_MIN_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_WIDTH_MAXVAL_R:
-		reg = IMG_WIDTH_MAX_32R;
+		reg = BCRM_IMG_WIDTH_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_WIDTH_INCVAL_R:
-		reg = IMG_WIDTH_INCREMENT_32R;
+		reg = BCRM_IMG_WIDTH_INC_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_HEIGHT_R:
-		reg = IMG_HEIGHT_32RW;
+		reg = BCRM_IMG_HEIGHT_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_HEIGHT_MINVAL_R:
-		reg = IMG_HEIGHT_MIN_32R;
+		reg = BCRM_IMG_HEIGHT_MIN_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_HEIGHT_MAXVAL_R:
-		reg = IMG_HEIGHT_MAX_32R;
+		reg = BCRM_IMG_HEIGHT_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_HEIGHT_INCVAL_R:
-		reg = IMG_HEIGHT_INCREMENT_32R;
+		reg = BCRM_IMG_HEIGHT_INC_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_X_R:
-		reg = IMG_OFFSET_X_32RW;
+		reg = BCRM_IMG_OFFSET_X_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_X_MIN_R:
-		reg = IMG_OFFSET_X_MIN_32R;
+		reg = BCRM_IMG_OFFSET_X_MIN_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_X_MAX_R:
-		reg = IMG_OFFSET_X_MAX_32R;
+		reg = BCRM_IMG_OFFSET_X_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_X_INC_R:
-		reg = IMG_OFFSET_X_INCREMENT_32R;
+		reg = BCRM_IMG_OFFSET_X_INC_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_Y_R:
-		reg = IMG_OFFSET_Y_32RW;
+		reg = BCRM_IMG_OFFSET_Y_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_Y_MIN_R:
-		reg = IMG_OFFSET_Y_MIN_32R;
+		reg = BCRM_IMG_OFFSET_Y_MIN_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_Y_MAX_R:
-		reg = IMG_OFFSET_Y_MAX_32R;
+		reg = BCRM_IMG_OFFSET_Y_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_OFFSET_Y_INC_R:
-		reg = IMG_OFFSET_Y_INCREMENT_32R;
+		reg = BCRM_IMG_OFFSET_Y_INC_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_SENSOR_WIDTH_R:
-		reg = SENSOR_WIDTH_32R;
+		reg = BCRM_SENSOR_WIDTH_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_SENSOR_HEIGHT_R:
-		reg = SENSOR_HEIGHT_32R;
+		reg = BCRM_SENSOR_HEIGHT_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_MAX_WIDTH_R:
-		reg = WIDTH_MAX_32R;
+		reg = BCRM_WIDTH_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_MAX_HEIGHT_R:
-		reg = HEIGHT_MAX_32R;
+		reg = BCRM_HEIGHT_MAX_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_PIXELFORMAT_R:
-		reg = IMG_MIPI_DATA_FORMAT_32RW;
+		reg = BCRM_IMG_MIPI_DATA_FORMAT_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_PALYLOADSIZE_R:
-		reg = BUFFER_SIZE_32R;
+		reg = BCRM_BUFFER_SIZE_32R;
 		length = AV_CAM_DATA_SIZE_32;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_ACQ_STATUS_R:
-		reg = ACQUISITION_STATUS_8R;
+		reg = BCRM_ACQUISITION_STATUS_8R;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_HFLIP_R:
-		reg = IMG_REVERSE_X_8RW;
+		reg = BCRM_IMG_REVERSE_X_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_VFLIP_R:
-		reg = IMG_REVERSE_Y_8RW;
+		reg = BCRM_IMG_REVERSE_Y_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_CURRENTMODE_R:
-		reg = GENCP_CURRENTMODE_8R;
+		reg = CCI_CURRENT_MODE_8R;
 		length = AV_CAM_DATA_SIZE_8;
 		gencp_mode_local = 1;
 		r_wn = 1;
 		break;
 	case V4L2_AV_CSI2_CHANGEMODE_W:
-		reg = GENCP_CHANGEMODE_8W;
+		reg = CCI_CHANGE_MODE_8W;
 		length = AV_CAM_DATA_SIZE_8;
 		gencp_mode_local = 1;
 		if (vc->value0 == MIPI_DT_CUSTOM)
@@ -1208,7 +1255,7 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 			set_channel_timeout(sd, AVT_TEGRA_TIMEOUT_DISABLED);
 		else {
 			for (i = 0; i < ARRAY_SIZE(priv->ctrls); ++i) {
-				if (priv->ctrls[i]->id == AVT_TEGRA_TIMEOUT) {
+				if (priv->ctrls[i]->id == AVT_TEGRA_TIMEOUT_VALUE) {
 					timeout = priv->ctrls[i]->val;
 					set_channel_timeout(sd, timeout);
 					return 0;
@@ -1220,7 +1267,7 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 		for (i = 0; i < ARRAY_SIZE(priv->ctrls); ++i) {
 			/* First check if the timouet is not disabled */
 			if (priv->ctrls[i]->id == AVT_TEGRA_TIMEOUT) {
-				if (priv->ctrls[i]->val)
+				if (priv->ctrls[i]->val == 0)
 					return 0;
 				else
 					break;
@@ -1229,7 +1276,7 @@ static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 
 		/* If it is not disabled, set it in HW */
 		set_channel_timeout(sd, ctrl->val);
-		return 0;
+		break;
 	case AVT_TEGRA_STRIDE_ALIGN:
 		if (ctrl->val == 0)
 			priv->stride_align_enabled = false;
@@ -1287,7 +1334,7 @@ static const struct v4l2_ctrl_config avt_tegra_ctrl[] = {
 		.id = AVT_TEGRA_CROP_ALIGN,
 		.name = "Crop alignment enabled",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.def = 0,
+		.def = 1,
 		.min = 0,
 		.max = 1,
 		.step = 1,
@@ -1381,7 +1428,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		/* Check if mode (BCRM or GenCP) is changed */
 		else
 		{
-			if(i2c_reg->register_address == GENCP_CHANGEMODE_8W)
+			if(i2c_reg->register_address == CCI_CHANGE_MODE_8W)
 			{
 				priv->mode = i2c_reg_buf[0] == 0 ? AVT_BCRM_MODE : AVT_GENCP_MODE;
 				set_channel_avt_cam_mode(sd, priv->mode);
@@ -1441,11 +1488,11 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		priv->s_data->numlanes = config->lane_count;
 
 		ret = avt_reg_read(priv->client,
-				priv->cci_reg.bcrm_addr + SUPPORTED_CSI2_LANE_COUNTS_8R,
+				priv->cci_reg.bcrm_addr + BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &avt_supported_lane_counts);
 		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1456,7 +1503,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			break;
 		}
 		ret = avt_reg_write(priv->client,
-				priv->cci_reg.bcrm_addr + CSI2_LANE_COUNT_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
 				priv->s_data->numlanes);
 		if (ret < 0){
 			avt_err(sd, "i2c write failed (%d)\n", ret);
@@ -1468,23 +1515,23 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		/* Set CSI clock frequency */
 
 		ret = avt_reg_read(priv->client,
-				priv->cci_reg.bcrm_addr + CSI2_CLOCK_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &avt_min_clk);
 	
 		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_CSI2_LANE_COUNT_8RW: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
 	
 		ret = avt_reg_read(priv->client,
-				priv->cci_reg.bcrm_addr + CSI2_CLOCK_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &avt_max_clk);
 	
 		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_CSI2_CLOCK_MAX_32R: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1500,26 +1547,26 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		CLEAR(i2c_reg_address);
 		clk = config->csi_clock;
 		swapbytes(&clk, AV_CAM_DATA_SIZE_32);
-		i2c_reg_address = priv->cci_reg.bcrm_addr + CSI2_CLOCK_32RW;
+		i2c_reg_address = priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW;
 		i2c_reg_size = AV_CAM_REG_SIZE;
 		i2c_reg_count = AV_CAM_DATA_SIZE_32;
 		i2c_reg_buf = (char *) &clk;
 		ret = ioctl_gencam_i2cwrite_reg(priv->client, i2c_reg_address, i2c_reg_size,
 						i2c_reg_count, i2c_reg_buf);
 		if (ret < 0) {
-			avt_err(sd, "i2c write failed (%d)\n", ret);
+			avt_err(sd, "BCRM_CSI2_CLOCK_32RW: i2c write failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
 
 		/* Read back CSI clock frequency */
 		ret = avt_reg_read(priv->client,
-				priv->cci_reg.bcrm_addr + CSI2_CLOCK_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &priv->csi_clk_freq);
 
 		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_CSI2_CLOCK_32RW: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1604,7 +1651,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
       /* Sanity check */
       ret = avt_reg_read(client,
         priv->cci_reg.bcrm_addr +
-        FRAME_START_TRIGGER_SOURCE_8RW,
+        BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
         AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
         (char *) &trigger_source);
 
@@ -1623,7 +1670,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
     /* Generate Trigger */
     ret = avt_reg_write(client,
-        priv->cci_reg.bcrm_addr + TRIGGER_SOFTWARE_8W, 1);
+        priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_SOFTWARE_8W, 1);
     
 
 		if (ret < 0) {
@@ -1638,7 +1685,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 		/* Setting '0' to the Frame Start Trigger mode */
 		ret = avt_reg_write(client,
-				priv->cci_reg.bcrm_addr + FRAME_START_TRIGGER_MODE_8RW, 0);
+				priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_MODE_8RW, 0);
 		if (ret < 0) {
 			return ret;
     }
@@ -1651,7 +1698,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 		/* Setting '1' to the Frame Start Trigger mode */
 		ret = avt_reg_write(client,
-				priv->cci_reg.bcrm_addr + FRAME_START_TRIGGER_MODE_8RW, 1);
+				priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_MODE_8RW, 1);
 		//pr_err("trigger mode enabled; ret: %d\n", ret);
 		if (ret < 0) {
 			return ret;
@@ -1667,7 +1714,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
       /* Setting Frame Start Trigger Activation */
       ret = avt_reg_write(client,
-          priv->cci_reg.bcrm_addr + FRAME_START_TRIGGER_ACTIVATION_8RW, trigger_activation);
+          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW, trigger_activation);
 
       if (ret < 0) {
         return ret;
@@ -1681,7 +1728,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
     {
       u8 trigger_activation;
       ret = avt_reg_read(client,
-          priv->cci_reg.bcrm_addr + FRAME_START_TRIGGER_ACTIVATION_8RW,
+          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW,
           AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
           &trigger_activation);
 
@@ -1702,7 +1749,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
       
       ret = avt_reg_read(client,
         priv->cci_reg.bcrm_addr +
-        FRAME_START_TRIGGER_SOURCE_8RW,
+        BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
         AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
         (char *) &trigger_source_reg);
 
@@ -1719,6 +1766,12 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
         break;
       case 1:
         *trigger_source = V4L2_TRIGGER_SOURCE_LINE1;
+        break;
+      case 2:
+        *trigger_source = V4L2_TRIGGER_SOURCE_LINE2;
+        break;
+      case 3:
+        *trigger_source = V4L2_TRIGGER_SOURCE_LINE3;
         break;
       default:
         avt_err(sd, "Unknown trigger mode (%d) returned from camera. Driver outdated?", trigger_source_reg);
@@ -1746,6 +1799,12 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
       case V4L2_TRIGGER_SOURCE_LINE1:
         trigger_source_reg = 1;
         break;
+      case V4L2_TRIGGER_SOURCE_LINE2:
+        trigger_source_reg = 2;
+        break;
+      case V4L2_TRIGGER_SOURCE_LINE3:
+        trigger_source_reg = 3;
+        break;
       default:
         avt_err(sd, "invalid trigger source (%d)", trigger_source);
         return -1;
@@ -1757,7 +1816,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
        */
       ret = avt_reg_read(client,
         priv->cci_reg.bcrm_addr +
-        FRAME_START_TRIGGER_SOURCE_8RW,
+        BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
         AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
         (char *) &cur_trigger_source);
 
@@ -1771,7 +1830,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
       }
 
       ret = avt_reg_write(client,
-          priv->cci_reg.bcrm_addr + FRAME_START_TRIGGER_SOURCE_8RW, trigger_source_reg);
+          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_SOURCE_8RW, trigger_source_reg);
 
       if (ret < 0) {
         return ret;
@@ -1848,7 +1907,7 @@ static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 		ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
-			FRAME_START_TRIGGER_MODE_8RW,
+			BCRM_FRAME_START_TRIGGER_MODE_8RW,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 			(char *) &trigger_mode);
 		if (ret < 0)
@@ -1993,7 +2052,7 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
-			ACQUISITION_FRAME_RATE_MAX_64R,
+			BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &max_framerate);
 	if (ret >= 0) {
@@ -2147,7 +2206,7 @@ static int avt_csi2_enum_frameintervals(struct v4l2_subdev *sd,
 
 	ret = avt_reg_read(client,
                        priv->cci_reg.bcrm_addr +
-                       ACQUISITION_FRAME_RATE_64RW,
+                       BCRM_ACQUISITION_FRAME_RATE_64RW,
                        AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
                        (char *) &framerate);
 	if (ret < 0) {
@@ -2299,11 +2358,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 	/* reading the Feature inquiry register */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + FEATURE_INQUIRY_REG_64R,
+			priv->cci_reg.bcrm_addr + BCRM_FEATURE_INQUIRY_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &value_feature);
 	if (ret < 0) {
-		avt_err(sd, "i2c read failed (%d)\n", ret);
+		avt_err(sd, "BCRM_FEATURE_INQUIRY_64R: i2c read failed (%d)\n", ret);
 		return ret;
 	}
 
@@ -2323,11 +2382,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the current Black Level value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLACK_LEVEL_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_BLACK_LEVEL_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "BLACK_LEVEL_32RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLACK_LEVEL_32RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2336,11 +2395,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Black Level */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLACK_LEVEL_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_BLACK_LEVEL_MIN_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "BLACK_LEVEL_MIN_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLACK_LEVEL_MIN_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2349,11 +2408,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Black Level */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLACK_LEVEL_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_BLACK_LEVEL_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "BLACK_LEVEL_MAX_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLACK_LEVEL_MAX_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2362,11 +2421,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Black Level step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLACK_LEVEL_INCREMENT_32R,
+				priv->cci_reg.bcrm_addr + BCRM_BLACK_LEVEL_INC_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "BLACK_LEVEL_INCREMENT_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLACK_LEVEL_INC_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2393,11 +2452,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Exposure time */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_TIME_64RW,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_64RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_TIME_64RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_TIME_64RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2406,11 +2465,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Exposure time */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_TIME_MIN_64R,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MIN_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_TIME_MIN_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MIN_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2419,11 +2478,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Exposure time */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_TIME_MAX_64R,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2432,11 +2491,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Exposure time step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_TIME_INCREMENT_64R,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_TIME_INCREMENT_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2471,11 +2530,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Exposure time */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_TIME_MAX_64R,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2512,11 +2571,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the current exposure auto value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + EXPOSURE_AUTO_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_AUTO_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "EXPOSURE_AUTO_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_EXPOSURE_AUTO_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2548,11 +2607,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Gain value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAIN_64RW,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_64RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAIN_64RW: i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_GAIN_64RW: i2c read failed (%d)\n", ret);
 			return ret;
 		}
 
@@ -2560,11 +2619,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Gain value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAIN_MINIMUM_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MIN_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAIN_MINIMUM_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAIN_MIN_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2573,11 +2632,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Gain value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAIN_MAXIMUM_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAIN_MAXIMUM_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAIN_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2586,11 +2645,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Gain step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAIN_INCREMENT_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAIN_INCREMENT_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2631,12 +2690,12 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Auto Gain value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAIN_AUTO_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_AUTO_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 
 		if (ret < 0) {
-			avt_err(sd, "GAIN_AUTO_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAIN_AUTO_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2667,11 +2726,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Reverse X value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + IMG_REVERSE_X_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_IMG_REVERSE_X_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "IMG_REVERSE_X_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_IMG_REVERSE_X_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2695,11 +2754,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Reverse Y value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + IMG_REVERSE_Y_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_IMG_REVERSE_Y_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "IMG_REVERSE_Y_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_IMG_REVERSE_Y_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2724,11 +2783,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Gamma value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAMMA_64RW,
+				priv->cci_reg.bcrm_addr + BCRM_GAMMA_64RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAMMA_64RW: i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_GAMMA_64RW: i2c read failed (%d)\n", ret);
 			return ret;
 		}
 
@@ -2736,11 +2795,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Gamma */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAMMA_GAIN_MINIMUM_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAMMA_MIN_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAMMA_GAIN_MINIMUM_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAMMA_MIN_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2749,11 +2808,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Gamma */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAMMA_GAIN_MAXIMUM_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAMMA_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAMMA_GAIN_MAXIMUM_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAMMA_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2762,11 +2821,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Gamma step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + GAMMA_GAIN_INCREMENT_64R,
+				priv->cci_reg.bcrm_addr + BCRM_GAMMA_INC_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "GAMMA_GAIN_INCREMENT_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_GAMMA_INC_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2807,11 +2866,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Contrast value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + CONTRAST_VALUE_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_CONTRAST_VALUE_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "CONTRAST_VALUE_32RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_CONTRAST_VALUE_32RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2820,11 +2879,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Contrast */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + CONTRAST_VALUE_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_CONTRAST_VALUE_MIN_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "CONTRAST_VALUE_MIN_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_CONTRAST_VALUE_MIN_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2833,11 +2892,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Contrast */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + CONTRAST_VALUE_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_CONTRAST_VALUE_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "CONTRAST_VALUE_MAX_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_CONTRAST_VALUE_MAX_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2847,11 +2906,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 		/* reading the Contrast step increment */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr +
-				CONTRAST_VALUE_INCREMENT_32R,
+				BCRM_CONTRAST_VALUE_INC_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "CONTRAST_VALUE_INCREMENT_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_CONTRAST_VALUE_INC_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2885,11 +2944,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the White balance auto value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + WHITE_BALANCE_AUTO_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_WHITE_BALANCE_AUTO_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "WHITE_BALANCE_AUTO_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_WHITE_BALANCE_AUTO_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2920,11 +2979,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the White balance auto reg */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + WHITE_BALANCE_AUTO_8RW,
+				priv->cci_reg.bcrm_addr + BCRM_WHITE_BALANCE_AUTO_8RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "WHITE_BALANCE_AUTO_8RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_WHITE_BALANCE_AUTO_8RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2949,11 +3008,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Saturation value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SATURATION_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_SATURATION_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SATURATION_32RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SATURATION_32RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2962,11 +3021,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Saturation */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SATURATION_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SATURATION_MIN_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SATURATION_MIN_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SATURATION_MIN_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2975,11 +3034,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Saturation */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SATURATION_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SATURATION_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SATURATION_MAX_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SATURATION_MAX_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -2988,11 +3047,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Saturation step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SATURATION_INCREMENT_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SATURATION_INC_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SATURATION_INCREMENT_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SATURATION_INC_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3025,11 +3084,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Hue value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + HUE_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_HUE_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "HUE_32RW: i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_HUE_32RW: i2c read failed (%d)\n", ret);
 			return ret;
 		}
 
@@ -3037,11 +3096,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum HUE */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + HUE_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_HUE_MIN_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "HUE_MIN_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_HUE_MIN_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3050,11 +3109,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum HUE */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + HUE_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_HUE_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "HUE_MAX_32R: i2c read failed (%d)\n", ret);
+			avt_err(sd, "BCRM_HUE_MAX_32R: i2c read failed (%d)\n", ret);
 			return ret;
 		}
 
@@ -3062,11 +3121,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the HUE step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + HUE_INCREMENT_32R,
+				priv->cci_reg.bcrm_addr + BCRM_HUE_INC_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "HUE_INCREMENT_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_HUE_INC_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3099,11 +3158,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Red balance value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + RED_BALANCE_RATIO_64RW,
+				priv->cci_reg.bcrm_addr + BCRM_RED_BALANCE_RATIO_64RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "RED_BALANCE_RATIO_64RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_RED_BALANCE_RATIO_64RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3112,11 +3171,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Red balance */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + RED_BALANCE_RATIO_MIN_64R,
+				priv->cci_reg.bcrm_addr + BCRM_RED_BALANCE_RATIO_MIN_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "RED_BALANCE_RATIO_MIN_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_RED_BALANCE_RATIO_MIN_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3125,11 +3184,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Red balance */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + RED_BALANCE_RATIO_MAX_64R,
+				priv->cci_reg.bcrm_addr + BCRM_RED_BALANCE_RATIO_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "RED_BALANCE_RATIO_MAX_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_RED_BALANCE_RATIO_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3139,11 +3198,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 		/* reading the Red balance step increment */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr +
-				RED_BALANCE_RATIO_INCREMENT_64R,
+				BCRM_RED_BALANCE_RATIO_INC_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "RED_BALANCE_RATIO_INCREMENT_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_RED_BALANCE_RATIO_INC_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3184,11 +3243,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Blue balance value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLUE_BALANCE_RATIO_64RW,
+				priv->cci_reg.bcrm_addr + BCRM_BLUE_BALANCE_RATIO_64RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "BLUE_BALANCE_RATIO_64RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLUE_BALANCE_RATIO_64RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3197,11 +3256,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum Blue balance */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLUE_BALANCE_RATIO_MIN_64R,
+				priv->cci_reg.bcrm_addr + BCRM_BLUE_BALANCE_RATIO_MIN_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "BLUE_BALANCE_RATIO_MIN_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLUE_BALANCE_RATIO_MIN_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3210,11 +3269,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum Blue balance */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BLUE_BALANCE_RATIO_MAX_64R,
+				priv->cci_reg.bcrm_addr + BCRM_BLUE_BALANCE_RATIO_MAX_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "BLUE_BALANCE_RATIO_MAX_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLUE_BALANCE_RATIO_MAX_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3224,11 +3283,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 		/* reading the Blue balance step increment */
 		ret = avt_reg_read(client,
 				priv->cci_reg.bcrm_addr +
-				BLUE_BALANCE_RATIO_INCREMENT_64R,
+				BCRM_BLUE_BALANCE_RATIO_INC_64R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 				(char *) &value64);
 		if (ret < 0) {
-			avt_err(sd, "BLUE_BALANCE_RATIO_INCREMENT_64R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_BLUE_BALANCE_RATIO_INC_64R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3269,11 +3328,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Sharpness value */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SHARPNESS_32RW,
+				priv->cci_reg.bcrm_addr + BCRM_SHARPNESS_32RW,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SHARPNESS_32RW: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SHARPNESS_32RW: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3282,11 +3341,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Minimum sharpness */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SHARPNESS_MIN_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SHARPNESS_MIN_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SHARPNESS_MIN_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SHARPNESS_MIN_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3295,11 +3354,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the Maximum sharpness */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SHARPNESS_MAX_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SHARPNESS_MAX_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SHARPNESS_MAX_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SHARPNESS_MAX_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3308,11 +3367,11 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 
 		/* reading the sharpness step increment */
 		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + SHARPNESS_INCREMENT_32R,
+				priv->cci_reg.bcrm_addr + BCRM_SHARPNESS_INC_32R,
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 				(char *) &value);
 		if (ret < 0) {
-			avt_err(sd, "SHARPNESS_INCREMENT_32R: i2c read failed (%d)\n",
+			avt_err(sd, "BCRM_SHARPNESS_INC_32R: i2c read failed (%d)\n",
 					ret);
 			return ret;
 		}
@@ -3436,69 +3495,69 @@ static int avt_ioctl_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *vc)
 /* BLACK LEVEL is deprecated and thus we use Brightness */
 	case V4L2_CID_BRIGHTNESS:
 		avt_dbg(sd, "V4L2_CID_BRIGHTNESS\n");
-		reg = BLACK_LEVEL_32RW;
+		reg = BCRM_BLACK_LEVEL_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 	case V4L2_CID_GAMMA:
 		avt_dbg(sd, "V4L2_CID_GAMMA\n");
-		reg = GAMMA_64RW;
+		reg = BCRM_GAIN_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 		break;
 	case V4L2_CID_CONTRAST:
 		avt_dbg(sd, "V4L2_CID_CONTRAST\n");
-		reg = CONTRAST_VALUE_32RW;
+		reg = BCRM_CONTRAST_VALUE_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 	case V4L2_CID_DO_WHITE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_DO_WHITE_BALANCE\n");
-		reg = WHITE_BALANCE_AUTO_8RW;
+		reg = BCRM_WHITE_BALANCE_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		break;
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_AUTO_WHITE_BALANCE\n");
-		reg = WHITE_BALANCE_AUTO_8RW;
+		reg = BCRM_WHITE_BALANCE_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		break;
 	case V4L2_CID_SATURATION:
 		avt_dbg(sd, "V4L2_CID_SATURATION\n");
-		reg = SATURATION_32RW;
+		reg = BCRM_SATURATION_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 	case V4L2_CID_HUE:
 		avt_dbg(sd, "V4L2_CID_HUE\n");
-		reg = HUE_32RW;
+		reg = BCRM_HUE_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 	case V4L2_CID_RED_BALANCE:
 		avt_dbg(sd, "V4L2_CID_RED_BALANCE\n");
-		reg = RED_BALANCE_RATIO_64RW;
+		reg = BCRM_RED_BALANCE_RATIO_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 		break;
 	case V4L2_CID_BLUE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_BLUE_BALANCE\n");
-		reg = BLUE_BALANCE_RATIO_64RW;
+		reg = BCRM_BLUE_BALANCE_RATIO_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 		break;
 	case V4L2_CID_EXPOSURE:
-		reg = EXPOSURE_TIME_64RW;
+		reg = BCRM_EXPOSURE_TIME_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 		break;
 
 	case V4L2_CID_GAIN:
 		avt_dbg(sd, "V4L2_CID_GAIN\n");
-		reg = GAIN_64RW;
+		reg = BCRM_GAIN_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 		break;
 
 	case V4L2_CID_AUTOGAIN:
 		avt_dbg(sd, "V4L2_CID_AUTOGAIN\n");
-		reg = GAIN_AUTO_8RW;
+		reg = BCRM_GAIN_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		break;
 
 	case V4L2_CID_SHARPNESS:
 		avt_dbg(sd, "V4L2_CID_SHARPNESS\n");
-		reg = SHARPNESS_32RW;
+		reg = BCRM_SHARPNESS_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 
@@ -3590,7 +3649,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 	case V4L2_CID_DO_WHITE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_DO_WHITE_BALANCE vc->value %u\n",
 				vc->value);
-		reg = WHITE_BALANCE_AUTO_8RW;
+		reg = BCRM_WHITE_BALANCE_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 		vc->value = 1; /* Set 'once' in White Balance Auto Register. */
 		break;
@@ -3598,7 +3657,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 /* BLACK LEVEL is deprecated and thus we use Brightness */
 	case V4L2_CID_BRIGHTNESS:
 		avt_dbg(sd, "V4L2_CID_BRIGHTNESS vc->value %u\n", vc->value);
-		reg = BLACK_LEVEL_32RW;
+		reg = BCRM_BLACK_LEVEL_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 
 		qctrl.id = V4L2_CID_BRIGHTNESS;/* V4L2_CID_BLACK_LEVEL; */
@@ -3615,7 +3674,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_CONTRAST:
 		avt_dbg(sd, "V4L2_CID_CONTRAST vc->value %u\n", vc->value);
-		reg = CONTRAST_VALUE_32RW;
+		reg = BCRM_CONTRAST_VALUE_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 
 		qctrl.id = V4L2_CID_CONTRAST;
@@ -3631,7 +3690,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_SATURATION:
 		avt_dbg(sd, "V4L2_CID_SATURATION vc->value %u\n", vc->value);
-		reg = SATURATION_32RW;
+		reg = BCRM_SATURATION_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 
 		qctrl.id = V4L2_CID_SATURATION;
@@ -3647,7 +3706,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_HUE:
 		avt_dbg(sd, "V4L2_CID_HUE vc->value %u\n", vc->value);
-		reg = HUE_32RW;
+		reg = BCRM_HUE_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 
 		qctrl.id = V4L2_CID_HUE;
@@ -3664,7 +3723,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_RED_BALANCE:
 		avt_dbg(sd, "V4L2_CID_RED_BALANCE vc->value %u\n", vc->value);
-		reg = RED_BALANCE_RATIO_64RW;
+		reg = BCRM_RED_BALANCE_RATIO_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_RED_BALANCE;
@@ -3680,7 +3739,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_BLUE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_BLUE_BALANCE vc->value %u\n", vc->value);
-		reg = BLUE_BALANCE_RATIO_64RW;
+		reg = BCRM_BLUE_BALANCE_RATIO_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_BLUE_BALANCE;
@@ -3698,7 +3757,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		avt_dbg(sd, "V4L2_CID_AUTO_WHITE_BALANCE vc->value %u\n",
 				vc->value);
-		reg = WHITE_BALANCE_AUTO_8RW;
+		reg = BCRM_WHITE_BALANCE_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 
 		/* BCRM Auto White balance changes	*/
@@ -3710,7 +3769,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_GAMMA:
 		avt_dbg(sd, "V4L2_CID_GAMMA vc->value %u\n", vc->value);
-		reg = GAMMA_64RW;
+		reg = BCRM_GAMMA_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_GAMMA;
@@ -3738,7 +3797,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 				priv->cci_reg.bcrm_addr, vc->value);
 
 		ret = ioctl_bcrm_i2cwrite_reg(client,
-				vc, EXPOSURE_AUTO_8RW + priv->cci_reg.bcrm_addr,
+				vc, BCRM_EXPOSURE_AUTO_8RW + priv->cci_reg.bcrm_addr,
 				AV_CAM_DATA_SIZE_8);
 
 		if (ret < 0) {
@@ -3748,7 +3807,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 		/* ii) Setting value in Exposure reg. */
 		vc->value = value_bkp;/* restore the actual value */
-		reg = EXPOSURE_TIME_64RW;
+		reg = BCRM_EXPOSURE_TIME_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_EXPOSURE;
@@ -3787,7 +3846,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 				priv->cci_reg.bcrm_addr, vc->value);
 
 		ret = ioctl_bcrm_i2cwrite_reg(client,
-				vc, EXPOSURE_AUTO_8RW + priv->cci_reg.bcrm_addr,
+				vc, BCRM_EXPOSURE_AUTO_8RW + priv->cci_reg.bcrm_addr,
 				AV_CAM_DATA_SIZE_8);
 
 		if (ret < 0) {
@@ -3797,7 +3856,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 		/* ii) Setting value in Exposure reg. */
 		vc->value = value_bkp;/* restore the actual value */
-		reg = EXPOSURE_TIME_64RW;
+		reg = BCRM_EXPOSURE_TIME_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_EXPOSURE;
@@ -3828,7 +3887,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_EXPOSURE_AUTO:
 		avt_dbg(sd, "V4L2_CID_EXPOSURE_AUTO vc->value %u\n", vc->value);
-		reg = EXPOSURE_AUTO_8RW;
+		reg = BCRM_EXPOSURE_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 
 		/* BCRM Auto Gain changes */
@@ -3842,7 +3901,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_AUTOGAIN:
 		avt_dbg(sd, "V4L2_CID_AUTOGAIN vc->value %u\n", vc->value);
-		reg = GAIN_AUTO_8RW;
+		reg = BCRM_GAIN_AUTO_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 
 		/* BCRM Auto Gain changes */
@@ -3854,7 +3913,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 		break;
 	case V4L2_CID_GAIN:
 		avt_dbg(sd, "V4L2_CID_GAIN, vc->value %u\n", vc->value);
-		reg = GAIN_64RW;
+		reg = BCRM_GAIN_64RW;
 		length = AV_CAM_DATA_SIZE_64;
 
 		qctrl.id = V4L2_CID_GAIN;
@@ -3872,7 +3931,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_HFLIP:
 		avt_dbg(sd, "V4L2_CID_HFLIP, vc->value %u\n", vc->value);
-		reg = IMG_REVERSE_X_8RW;
+		reg = BCRM_IMG_REVERSE_X_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 
 		qctrl.id = V4L2_CID_HFLIP;
@@ -3889,7 +3948,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_VFLIP:
 		avt_dbg(sd, "V4L2_CID_VFLIP, vc->value %u\n", vc->value);
-		reg = IMG_REVERSE_Y_8RW;
+		reg = BCRM_IMG_REVERSE_Y_8RW;
 		length = AV_CAM_DATA_SIZE_8;
 
 		qctrl.id = V4L2_CID_VFLIP;
@@ -3906,7 +3965,7 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 	case V4L2_CID_SHARPNESS:
 		avt_dbg(sd, "V4L2_CID_SHARPNESS, vc->value %u\n", vc->value);
-		reg = SHARPNESS_32RW;
+		reg = BCRM_SHARPNESS_32RW;
 		length = AV_CAM_DATA_SIZE_32;
 
 		qctrl.id = V4L2_CID_SHARPNESS;
@@ -3996,7 +4055,6 @@ static int read_max_resolution(struct v4l2_subdev *sd, uint32_t *max_width, uint
 static int avt_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *cc)
 {
 	uint32_t max_width = 0, max_height = 0;
-	struct avt_csi2_priv *priv = avt_get_priv(sd);
 
 	if (cc->pixelaspect.numerator != 1 ||
 			cc->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
@@ -4015,9 +4073,8 @@ static int avt_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *cc)
 	cc->bounds.height = cc->defrect.height = max_height;
 
 	// align defrect if alignment is enabled
-	cc->defrect.width = avt_align_width(priv, cc->defrect.width);
-	printk("AVT: Default crop rect width %d\n", cc->defrect.width);
-
+	cc->defrect.width = avt_align_width(sd, cc->defrect.width);
+    avt_info(sd, "Default crop rect width %d\n", cc->defrect.width);
 
 	return 0;
 }
@@ -4033,8 +4090,8 @@ static int avt_get_selection(struct v4l2_subdev *sd,
 	{
 		return -EINVAL;
 	}
-
-	switch (sel->target) {
+    
+ 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
 		sel->r = priv->frmp.r;
 		break;
@@ -4067,8 +4124,11 @@ static int avt_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *crop)
 	return 0;
 }
 
-static int avt_get_align_width(struct avt_csi2_priv *priv)
+static int avt_get_align_width(struct v4l2_subdev *sd)
 {
+    struct avt_csi2_priv *priv = avt_get_priv(sd);
+    int width_align = 0;
+
 	if (priv->crop_align_enabled) {
 		/*
 		* Align with VI capabilities
@@ -4079,36 +4139,58 @@ static int avt_get_align_width(struct avt_csi2_priv *priv)
 		switch (priv->mbus_fmt_code) {
 		case MEDIA_BUS_FMT_RGB888_1X24:
 		case MEDIA_BUS_FMT_BGR888_1X24:
-			return 16;
+			width_align = 16;
+            break;
 
 		case MEDIA_BUS_FMT_VYUY8_2X8:
 		case MEDIA_BUS_FMT_RGB565_1X16:
-			return 32;
+			width_align = 32;
+            break;
 
 		case MEDIA_BUS_FMT_SRGGB8_1X8:
+        case MEDIA_BUS_FMT_SGBRG8_1X8:
+        case MEDIA_BUS_FMT_SGRBG8_1X8:
+        case MEDIA_BUS_FMT_SBGGR8_1X8:
+            width_align = 16;
+            break;
+
 		default:
-			return 64;
+			width_align = 64;
+            break;
 		}
 	}
 
-	return 0;
+    /* Use kernel param override? */
+    if (v4l2_width_align != 0)
+    {
+        width_align = v4l2_width_align;
+        avt_warn(sd, "v4l2_width_align override: %d\n", width_align);
+    }
+
+	return width_align;
 }
 
-
-static int avt_align_width(struct avt_csi2_priv *priv, int size)
+static int avt_align_width(struct v4l2_subdev *sd, int width)
 {
+    struct avt_csi2_priv *priv = avt_get_priv(sd);
+    avt_dbg(sd, "input width: %d\n", width);
 	if (priv->crop_align_enabled) {
-		int const align_width = avt_get_align_width(priv);
+		int const align_size = avt_get_align_width(sd);
+        avt_dbg(sd, "align_size: %d\n", align_size);
 
-		size = roundup(size, align_width);
-		if (size > priv->frmp.maxw) {
-			size -= align_width;
+		width = roundup(width, align_size);
+		if (width > priv->frmp.maxw) {
+			width -= align_size;
 		}
-  }
-
-	return size;
+        avt_dbg(sd, "output width: %d\n", width);
+    }
+    else
+    {
+        avt_dbg(sd, "crop_align_enabled DISABLED\n");
+    }
+    
+	return width;
 }
-
 
 static int avt_set_selection(struct v4l2_subdev *sd,
 		struct v4l2_subdev_pad_config *cfg,
@@ -4118,24 +4200,14 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
 
 	// update width, height, offset x/y restrictions from camera
-	avt_init_frame_param(priv);
+	avt_init_frame_param(sd);
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
 
 		if (priv->crop_align_enabled) {
-			sel->r.width = avt_align_width(priv, sel->r.width);
+			sel->r.width = avt_align_width(sd, sel->r.width);
 		}
-
-		/* Tegra doesn't seem to accept offsets that are not divisible
-		 * by 8.
-		 */
-		roundup(priv->frmp.swoff, 8);
-		roundup(priv->frmp.shoff, 8);
-
-		/* Tegra doesn't allow image resolutions smaller than 64x32 */
-		priv->frmp.minw = max_t(uint32_t, priv->frmp.minw, 64);
-		priv->frmp.minh = max_t(uint32_t, priv->frmp.minh, 32);
 
 /*
 *       As per the crop concept document, the following steps should be followed before setting crop to the sensor.
@@ -4157,7 +4229,7 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 			avt_set_param(client, V4L2_AV_CSI2_WIDTH_W, sel->r.width);
 
 			// update width, height, offset x/y restrictions from camera
-			avt_init_frame_param(priv);
+			avt_init_frame_param(sd);
 
 			// write offset x
 			sel->r.left = clamp(roundup(sel->r.left, priv->frmp.swoff), priv->frmp.minwoff, priv->frmp.maxwoff);
@@ -4170,7 +4242,7 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 			avt_set_param(client, V4L2_AV_CSI2_OFFSET_X_W, sel->r.left);
 
 			// update width, height, offset x/y restrictions from camera
-			avt_init_frame_param(priv);
+			avt_init_frame_param(sd);
 
 			// write width
 			sel->r.width = clamp(roundup(sel->r.width, priv->frmp.sw), priv->frmp.minw, priv->frmp.maxw);
@@ -4178,13 +4250,12 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 		}
 
 		if (sel->r.height <= priv->frmp.r.height) { /* case iii) New height is lesser or equal than current */
-
 			// write height
 			sel->r.height = clamp(roundup(sel->r.height, priv->frmp.sh), priv->frmp.minh, priv->frmp.maxh);
 			avt_set_param(client, V4L2_AV_CSI2_HEIGHT_W, sel->r.height);
 
 			// update width, height, offset x/y restrictions from camera
-			avt_init_frame_param(priv);
+			avt_init_frame_param(sd);
 
 			// write offset y
 			sel->r.top = clamp(roundup(sel->r.top, priv->frmp.shoff), priv->frmp.minhoff, priv->frmp.maxhoff);
@@ -4197,7 +4268,7 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 			avt_set_param(client, V4L2_AV_CSI2_OFFSET_Y_W, sel->r.top);
 
 			// update width, height, offset x/y restrictions from camera
-			avt_init_frame_param(priv);
+			avt_init_frame_param(sd);
 
 			// write height
 			sel->r.height = clamp(roundup(sel->r.height, priv->frmp.sh), priv->frmp.minh, priv->frmp.maxh);
@@ -4205,7 +4276,7 @@ static int avt_set_selection(struct v4l2_subdev *sd,
 		}
 
 		// update width, height, offset x/y restrictions from camera
-		avt_init_frame_param(priv);
+		avt_init_frame_param(sd);
 
 		break;
 	default:
@@ -4242,7 +4313,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* reading the Feature inquiry register */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + FEATURE_INQUIRY_REG_64R,
+			priv->cci_reg.bcrm_addr + BCRM_FEATURE_INQUIRY_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &value64);
 	if (ret < 0) {
@@ -4263,7 +4334,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* reading the Minimum Frame Rate Level */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + ACQUISITION_FRAME_RATE_MIN_64R,
+			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MIN_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &value64);
 	if (ret < 0) {
@@ -4276,7 +4347,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* reading the Maximum Frame Rate Level */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + ACQUISITION_FRAME_RATE_MAX_64R,
+			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &value64);
 	if (ret < 0) {
@@ -4289,7 +4360,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* reading the Frame Rate Level step increment */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + ACQUISITION_FRAME_RATE_INCREMENT_64R,
+			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_INC_64R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &value64);
 	if (ret < 0) {
@@ -4335,7 +4406,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* Enable manual frame rate */
 	vc.value = 1;
-	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + FRAME_RATE_ENABLE_8RW, AV_CAM_DATA_SIZE_8);
+	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, AV_CAM_DATA_SIZE_8);
 	if (ret < 0) {
 		avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
 				ret);
@@ -4344,7 +4415,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 
 	/* Save new frame rate to camera register */
 	vc.value = value64;
-	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + ACQUISITION_FRAME_RATE_64RW, AV_CAM_DATA_SIZE_64);
+	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_64RW, AV_CAM_DATA_SIZE_64);
 	if (ret < 0) {
 		avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
 				ret);
@@ -4393,7 +4464,7 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	// set BCRM mode if required
 	ret = avt_reg_read(priv->client,
-			        GENCP_CURRENTMODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+			        CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				&bcm_mode);
 	if (ret < 0) {
 		avt_err(sd, "Failed to get BCM mode: i2c read failed (%d)\n", ret);
@@ -4405,7 +4476,7 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
                 // GenCP mode -> Switch back to BCRM
 		CLEAR(i2c_reg);
                 bcm_mode = OPERATION_MODE_BCRM;
-		i2c_reg = GENCP_CHANGEMODE_8W;
+		i2c_reg = CCI_CHANGE_MODE_8W;
 		i2c_reg_size = AV_CAM_REG_SIZE;
 		i2c_reg_count = AV_CAM_DATA_SIZE_8;
 		i2c_reg_buf = (char *)&bcm_mode;
@@ -4425,7 +4496,7 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
                 {
                         usleep_range(poll_delay_ms*1000, (poll_delay_ms*1000)+1);
                 	ret = avt_reg_read(priv->client,
-			                        GENCP_CURRENTMODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+			                        CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				                &bcm_mode);
                 } while ((ret >=0 ) && (bcm_mode != OPERATION_MODE_BCRM) && time_before(jiffies, timeout_jiffies));
 
@@ -4516,7 +4587,7 @@ static int read_cci_registers(struct i2c_client *client)
 	crc_byte_count =
 		(uint32_t)((char *)&priv->cci_reg.checksum - (char *)&priv->cci_reg);
 
-	dev_dbg(&client->dev, "crc_byte_count = %d, i2c_reg.count = %d\n",
+	dev_info(&client->dev, "crc_byte_count = %d, i2c_reg.count = %d\n",
 			crc_byte_count, i2c_reg_count);
 
 	/* read CCI registers */
@@ -4524,35 +4595,35 @@ static int read_cci_registers(struct i2c_client *client)
 			i2c_reg_count, i2c_reg_buf);
 
 	if (ret < 0) {
-		dev_err(&client->dev, "i2c read failed (%d)\n", ret);
+		dev_err(&client->dev, "Camera not responding. Error=%d\n", ret);
 		return ret;
 	}
 
-/* CRC calculation */
+        /* CRC calculation */
 	crc = crc32(U32_MAX, &priv->cci_reg, crc_byte_count);
 
-/* Swap bytes if neccessary */
+        /* Swap bytes if neccessary */
 	cpu_to_be32s(&priv->cci_reg.layout_version);
 	cpu_to_be64s(&priv->cci_reg.device_capabilities);
 	cpu_to_be16s(&priv->cci_reg.gcprm_address);
 	cpu_to_be16s(&priv->cci_reg.bcrm_addr);
 	cpu_to_be32s(&priv->cci_reg.checksum);
 
-/* Check the checksum of received with calculated. */
+        /* Check the checksum of received with calculated. */
 	if (crc != priv->cci_reg.checksum) {
 		dev_err(&client->dev,
-			"wrong CCI CRC value! calculated = 0x%x, received = 0x%x\n",
+			"wrong CCI CRC value! calculated = 0x%08x, received = 0x%08x\n",
 			crc, priv->cci_reg.checksum);
 		return -EINVAL;
 	}
 
-	dev_info(&client->dev, "cci layout version: %x\n",
+	dev_info(&client->dev, "cci layout version: 0x%08x\n",
 			priv->cci_reg.layout_version);
-	dev_info(&client->dev, "cci device capabilities: %llx\n",
+	dev_info(&client->dev, "cci device capabilities: 0x%016llx\n",
 			priv->cci_reg.device_capabilities);
 	dev_info(&client->dev, "cci device guid: %s\n",
 			priv->cci_reg.device_guid);
-	dev_info(&client->dev, "cci gcprm_address: 0x%x\n",
+	dev_info(&client->dev, "cci gcprm_address: 0x%04x\n",
 			priv->cci_reg.gcprm_address);
 
 	return 0;
@@ -4601,19 +4672,19 @@ static int read_gencp_registers(struct i2c_client *client)
 
 	if (crc != priv->gencp_reg.checksum) {
 		dev_warn(&client->dev,
-			"wrong GENCP CRC value! calculated = 0x%x, received = 0x%x\n",
+			"wrong GENCP CRC value! calculated = 0x%08x, received = 0x%08x\n",
 			crc, priv->gencp_reg.checksum);
 	}
 
-	dev_info(&client->dev, "gcprm layout version: %x\n",
+	dev_info(&client->dev, "gcprm layout version: 0x%08x\n",
 		priv->gencp_reg.gcprm_layout_version);
-	dev_info(&client->dev, "gcprm out buf addr: %x\n",
+	dev_info(&client->dev, "gcprm out buf addr: 0x%04x\n",
 		priv->gencp_reg.gencp_out_buffer_address);
-	dev_info(&client->dev, "gcprm out buf size: %x\n",
+	dev_info(&client->dev, "gcprm out buf size: 0x%04x\n",
 		priv->gencp_reg.gencp_out_buffer_size);
-	dev_info(&client->dev, "gcprm in buf addr: %x\n",
+	dev_info(&client->dev, "gcprm in buf addr: 0x%04x\n",
 		priv->gencp_reg.gencp_in_buffer_address);
-	dev_info(&client->dev, "gcprm in buf size: %x\n",
+	dev_info(&client->dev, "gcprm in buf size: 0x%04x\n",
 		priv->gencp_reg.gencp_in_buffer_size);
 
 	return 0;
@@ -4654,6 +4725,7 @@ static int cci_version_check(struct i2c_client *client)
 	return 0;
 }
 
+
 static int bcrm_version_check(struct i2c_client *client)
 {
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
@@ -4663,7 +4735,7 @@ static int bcrm_version_check(struct i2c_client *client)
 
 	/* reading the BCRM version */
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + BCRM_VERSION_REG_32R,
+			priv->cci_reg.bcrm_addr + BCRM_VERSION_32R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 			(char *) &value);
 
@@ -4672,12 +4744,12 @@ static int bcrm_version_check(struct i2c_client *client)
 		return ret;
 	}
 
-	dev_info(&client->dev, "bcrm version (driver): 0x%x (maj: 0x%x min: 0x%x)\n",
+	dev_info(&client->dev, "bcrm version (driver): 0x%08x (%d.%d)\n",
 						BCRM_DEVICE_VERSION,
 						BCRM_MAJOR_VERSION,
 						BCRM_MINOR_VERSION);
 
-	dev_info(&client->dev, "bcrm version (camera): 0x%x (maj: 0x%x min: 0x%x)\n",
+	dev_info(&client->dev, "bcrm version (camera): 0x%08x (%d.%d)\n",
 						value,
 						(value & 0xffff0000) >> 16,
 						(value & 0x0000ffff));
@@ -4692,17 +4764,307 @@ static int gcprm_version_check(struct i2c_client *client)
 	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
 	u32 value = priv->gencp_reg.gcprm_layout_version;
 
-	dev_info(&client->dev, "gcprm version (driver): 0x%x (maj: 0x%x min: 0x%x)\n",
+	dev_info(&client->dev, "gcprm layout version (driver): 0x%08x (%d.%d)\n",
 						GCPRM_DEVICE_VERSION,
 						GCPRM_MAJOR_VERSION,
 						GCPRM_MINOR_VERSION);
 
-	dev_info(&client->dev, "gcprm version (camera): 0x%x (maj: 0x%x min: 0x%x)\n",
+	dev_info(&client->dev, "gcprm layout version (camera): 0x%08x (%d.%d)\n",
 						value,
 						(value & 0xffff0000) >> 16,
 						(value & 0x0000ffff));
 
 	return (value & 0xffff0000) >> 16 == GCPRM_MAJOR_VERSION ? 1 : 0;
+}
+
+
+
+static void bcrm_dump(struct i2c_client *client)
+{
+        return; /* DISABLED. DEBUG ONLY */
+
+	/* Dump all BCRM registers (client, except write only ones) */
+
+	dump_bcrm_reg_32(client, BCRM_VERSION_32R, 				"BCRM_VERSION_32R");
+	dump_bcrm_reg_64(client, BCRM_FEATURE_INQUIRY_64R, 			"BCRM_FEATURE_INQUIRY_64R");
+	dump_bcrm_reg_64(client, BCRM_DEVICE_FIRMWARE_VERSION_64R, 		"BCRM_DEVICE_FIRMWARE_VERSION_64R");
+	dump_bcrm_reg_8(client, BCRM_WRITE_HANDSHAKE_8RW, 			"BCRM_WRITE_HANDSHAKE_8RW");
+
+	/* Streaming Control Registers */
+	dump_bcrm_reg_8(client, BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R, 		"BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R");
+	dump_bcrm_reg_8(client, BCRM_CSI2_LANE_COUNT_8RW, 			"BCRM_CSI2_LANE_COUNT_8RW");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MIN_32R, 			"BCRM_CSI2_CLOCK_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MAX_32R, 			"BCRM_CSI2_CLOCK_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_32RW, 				"BCRM_CSI2_CLOCK_32RW");
+	dump_bcrm_reg_32(client, BCRM_BUFFER_SIZE_32R, 				"BCRM_BUFFER_SIZE_32R");
+	dump_bcrm_reg_32(client, BCRM_PHY_RESET_8RW, 			        "BCRM_PHY_RESET_8RW");
+
+	/* Acquisition Control Registers */
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_START_8RW, 			"BCRM_ACQUISITION_START_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STOP_8RW, 			"BCRM_ACQUISITION_STOP_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_ABORT_8RW, 			"BCRM_ACQUISITION_ABORT_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STATUS_8R,			"BCRM_ACQUISITION_STATUS_8R");
+	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_64RW, 		"BCRM_ACQUISITION_FRAME_RATE_64RW");
+	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_MIN_64R, 		"BCRM_ACQUISITION_FRAME_RATE_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_MAX_64R, 		"BCRM_ACQUISITION_FRAME_RATE_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_INC_64R, 		"BCRM_ACQUISITION_FRAME_RATE_INC_64R");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, 	"BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW");
+
+	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_MODE_8RW, 		"BCRM_FRAME_START_TRIGGER_MODE_8RW");
+	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_SOURCE_8RW,		"BCRM_FRAME_START_TRIGGER_SOURCE_8RW");
+	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW,	"BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW");
+	
+	/* Image Format Control Registers */
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_32RW, 				"BCRM_IMG_WIDTH_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MIN_32R, 			"BCRM_IMG_WIDTH_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MAX_32R, 			"BCRM_IMG_WIDTH_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_INC_32R, 			"BCRM_IMG_WIDTH_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_32RW,				"BCRM_IMG_HEIGHT_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MIN_32R,			"BCRM_IMG_HEIGHT_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MAX_32R,			"BCRM_IMG_HEIGHT_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_INC_32R, 			"BCRM_IMG_HEIGHT_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_32RW, 			"BCRM_IMG_OFFSET_X_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_MIN_32R, 			"BCRM_IMG_OFFSET_X_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_MAX_32R, 			"BCRM_IMG_OFFSET_X_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_INC_32R, 			"BCRM_IMG_OFFSET_X_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_32RW, 			"BCRM_IMG_OFFSET_Y_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_MIN_32R, 			"BCRM_IMG_OFFSET_Y_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_MAX_32R, 			"BCRM_IMG_OFFSET_Y_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_INC_32R, 			"BCRM_IMG_OFFSET_Y_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_IMG_MIPI_DATA_FORMAT_32RW, 		"BCRM_IMG_MIPI_DATA_FORMAT_32RW");
+	dump_bcrm_reg_64(client, BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R, 	"BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R");
+
+	dump_bcrm_reg_8(client, BCRM_IMG_BAYER_PATTERN_INQUIRY_8R, 		"BCRM_IMG_BAYER_PATTERN_INQUIRY_8R");
+	dump_bcrm_reg_8(client, BCRM_IMG_BAYER_PATTERN_8RW, 			"BCRM_IMG_BAYER_PATTERN_8RW");
+
+	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_X_8RW, 			"BCRM_IMG_REVERSE_X_8RW");
+	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_Y_8RW, 			"BCRM_IMG_REVERSE_Y_8RW");
+
+	dump_bcrm_reg_32(client, BCRM_SENSOR_WIDTH_32R, 			"BCRM_SENSOR_WIDTH_32R");
+	dump_bcrm_reg_32(client, BCRM_SENSOR_HEIGHT_32R, 			"BCRM_SENSOR_HEIGHT_32R");
+
+	dump_bcrm_reg_32(client, BCRM_WIDTH_MAX_32R, 				"BCRM_WIDTH_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_HEIGHT_MAX_32R, 				"BCRM_HEIGHT_MAX_32R");
+
+	/* Brightness Control Registers */
+	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_64RW, 			"BCRM_EXPOSURE_TIME_64RW");
+	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_MIN_64R, 			"BCRM_EXPOSURE_TIME_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_MAX_64R, 			"BCRM_EXPOSURE_TIME_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_INC_64R, 			"BCRM_EXPOSURE_TIME_INC_64R");
+	dump_bcrm_reg_8(client, BCRM_EXPOSURE_AUTO_8RW, 			"BCRM_EXPOSURE_AUTO_8RW");
+
+	dump_bcrm_reg_8(client, BCRM_INTENSITY_AUTO_PRECEDENCE_8RW, 		"BCRM_INTENSITY_AUTO_PRECEDENCE_8RW");
+	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_MIN_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_MAX_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_INC_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_32RW, 			"BCRM_BLACK_LEVEL_32RW");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MIN_32R, 			"BCRM_BLACK_LEVEL_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MAX_32R, 			"BCRM_BLACK_LEVEL_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_INC_32R, 			"BCRM_BLACK_LEVEL_INC_32R");
+
+	dump_bcrm_reg_64(client, BCRM_GAIN_64RW, 				"BCRM_GAIN_64RW");
+	dump_bcrm_reg_64(client, BCRM_GAIN_MIN_64R,			 	"BCRM_GAIN_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_GAIN_MAX_64R, 				"BCRM_GAIN_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_GAIN_INC_64R, 				"BCRM_GAIN_INC_64R");
+	dump_bcrm_reg_8(client, BCRM_GAIN_AUTO_8RW, 				"BCRM_GAIN_AUTO_8RW");
+
+	dump_bcrm_reg_64(client, BCRM_GAMMA_64RW, 				"BCRM_GAMMA_64RW");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_MIN_64R, 				"BCRM_GAMMA_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_MAX_64R, 				"BCRM_GAMMA_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_INC_64R, 				"BCRM_GAMMA_INC_64R");
+
+	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_32RW, 			"BCRM_CONTRAST_VALUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_MIN_32R, 			"BCRM_CONTRAST_VALUE_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_MAX_32R, 			"BCRM_CONTRAST_VALUE_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_INC_32R, 			"BCRM_CONTRAST_VALUE_INC_32R");
+
+	/* Color Management Registers */
+	dump_bcrm_reg_32(client, BCRM_SATURATION_32RW,				"BCRM_SATURATION_32RW");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_MIN_32R,			"BCRM_SATURATION_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_MAX_32R, 			"BCRM_SATURATION_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_INC_32R, 			"BCRM_SATURATION_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_HUE_32RW,				 	"BCRM_HUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_HUE_MIN_32R, 				"BCRM_HUE_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_HUE_MAX_32R,				"BCRM_HUE_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_HUE_INC_32R, 				"BCRM_HUE_INC_32R");
+
+	dump_bcrm_reg_64(client, BCRM_ALL_BALANCE_RATIO_64RW,			"BCRM_ALL_BALANCE_RATIO_64RW");
+	dump_bcrm_reg_64(client, BCRM_ALL_BALANCE_RATIO_MIN_64R, 		"BCRM_ALL_BALANCE_RATIO_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_ALL_BALANCE_RATIO_MAX_64R, 		"BCRM_ALL_BALANCE_RATIO_MAX_64R");
+
+	dump_bcrm_reg_64(client, BCRM_RED_BALANCE_RATIO_64RW, 			"BCRM_RED_BALANCE_RATIO_64RW");
+	dump_bcrm_reg_64(client, BCRM_RED_BALANCE_RATIO_MIN_64R, 		"BCRM_RED_BALANCE_RATIO_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_RED_BALANCE_RATIO_MAX_64R, 		"BCRM_RED_BALANCE_RATIO_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_RED_BALANCE_RATIO_INC_64R, 		"BCRM_RED_BALANCE_RATIO_INC_64R");
+
+	dump_bcrm_reg_64(client, BCRM_GREEN_BALANCE_RATIO_64RW,			"BCRM_GREEN_BALANCE_RATIO_64RW");
+	dump_bcrm_reg_64(client, BCRM_GREEN_BALANCE_RATIO_MIN_64R,		"BCRM_GREEN_BALANCE_RATIO_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_GREEN_BALANCE_RATIO_MAX_64R, 		"BCRM_GREEN_BALANCE_RATIO_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_GREEN_BALANCE_RATIO_INC_64R,		"BCRM_GREEN_BALANCE_RATIO_INC_64R");
+
+	dump_bcrm_reg_64(client, BCRM_BLUE_BALANCE_RATIO_64RW, 			"BCRM_BLUE_BALANCE_RATIO_64RW");
+	dump_bcrm_reg_64(client, BCRM_BLUE_BALANCE_RATIO_MIN_64R, 		"BCRM_BLUE_BALANCE_RATIO_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_BLUE_BALANCE_RATIO_MAX_64R, 		"BCRM_BLUE_BALANCE_RATIO_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_BLUE_BALANCE_RATIO_INC_64R, 		"BCRM_BLUE_BALANCE_RATIO_INC_64R");
+
+	dump_bcrm_reg_8(client, BCRM_WHITE_BALANCE_AUTO_8RW, 			"BCRM_WHITE_BALANCE_AUTO_8RW");
+
+	/* Other Registers */
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_32RW, 				"BCRM_SHARPNESS_32RW");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MIN_32R, 			"BCRM_SHARPNESS_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MAX_32R, 			"BCRM_SHARPNESS_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_INC_32R, 			"BCRM_SHARPNESS_INC_32R");
+
+	dump_bcrm_reg_32(client, BCRM_DEVICE_TEMPERATURE_32R, 			"BCRM_DEVICE_TEMPERATURE_32R");
+}
+
+static void dump_bcrm_reg_8(struct i2c_client *client, u16 nOffset, const char *pRegName)
+{
+        struct avt_csi2_priv *priv;
+	int status = 0;
+	u8 data = 0;
+
+	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
+	if (!priv)
+		return;
+
+	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
+			AV_CAM_DATA_SIZE_8, (char *)&data);
+
+	if (status >= 0)
+                dev_info(&client->dev, "%s: %u (0x%x)", pRegName, data, data);
+	else
+		dev_err(&client->dev, "%s: ERROR", pRegName);
+}
+
+static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char *pRegName)
+{
+        struct avt_csi2_priv *priv;
+	int status = 0;
+	u32 data = 0;
+
+	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
+	if (!priv)
+		return;
+
+	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
+			  AV_CAM_DATA_SIZE_32, (char *)&data);
+
+	swapbytes(&data, sizeof(data));
+	if (status >= 0)
+                dev_info(&client->dev, "%s: %u (0x%08x)", pRegName, data, data);
+	else
+		dev_err(&client->dev, "%s: ERROR", pRegName);
+}
+
+static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char *pRegName)
+{
+        struct avt_csi2_priv *priv;
+	int status = 0;
+	u64 data = 0;
+   
+	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
+	if (!priv)
+		return;
+
+	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
+			  AV_CAM_DATA_SIZE_64, (char *)&data);
+
+ 	swapbytes(&data, sizeof(data));
+	if (status >= 0)
+                dev_info(&client->dev, "%s: %llu (0x%016llx)", pRegName, data, data);
+	else
+		dev_err(&client->dev, "%s: ERROR", pRegName);               
+}
+
+/* Check if the device is answering to an I2C read request */
+static bool device_present(struct i2c_client *client)
+{
+        int status = 0;
+        u64 data = 0;
+
+        status = i2c_read(client, CCI_DEVICE_CAP_64R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,  (char *)&data);         
+
+        return ((status < 0) || (data == 0)) ? false : true;
+}
+
+static int soft_reset(struct i2c_client *client)
+{
+        int status = 0;
+        uint8_t reset_val = 1;
+        static const uint8_t default_heartbeat_val = 0x80;
+        uint8_t heartbeat_val = default_heartbeat_val;
+        uint64_t duration_ms = 0;
+        static const uint8_t heartbeat_low_limit = 0;
+        static const uint32_t delay_ms = 400;
+        static const uint32_t max_time_ms = 10000;
+        static const uint32_t add_wait_time_ms = 1500;
+        uint64_t start_jiffies = get_jiffies_64();
+        bool device_available = false;
+        bool heartbeat_available = false;
+
+        /* Check, if heartbeat register is available (write default value and read it back)*/
+        status = i2c_write(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val);
+        heartbeat_available = (i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val) < 0) ? false : true;
+        /* If camera does not support heartbeat it delivers always 0 */
+        heartbeat_available = ((heartbeat_val != 0) && (status != 0)) ? true : false;
+        dev_info(&client->dev, "Heartbeat %ssupported", (heartbeat_available) ? "" : "not ");
+
+        /* Execute soft reset */
+        status = i2c_write(client, CCI_SOFT_RESET_8W, AV_CAM_REG_SIZE, sizeof(reset_val), (char*)&reset_val);
+        
+	if (status >= 0)
+        {
+                dev_info(&client->dev, "Soft reset executed. Initializing camera...");
+        }
+	else
+        {
+		dev_err(&client->dev, "Soft reset ERROR");   
+                return -EIO; 
+        }
+
+        /* Poll camera register to check if camera is back again */
+        do
+        {
+                usleep_range(delay_ms*1000, (delay_ms*1000)+1);
+                device_available = device_present(client);
+                duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
+        } while((duration_ms < max_time_ms) && !device_available);
+
+        if (!heartbeat_available)
+        {
+                /* Camera might need a few more seconds to be fully booted */
+                usleep_range(add_wait_time_ms*1000, (add_wait_time_ms*1000)+1);
+        }
+        else
+        {
+                /* Heartbeat is supported. Poll heartbeat register until value is lower than the default value again */
+                do
+                {
+                        usleep_range(delay_ms*1000, (delay_ms*1000)+1);
+                        status = i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, (char*)&heartbeat_val);
+                        //dev_info(&client->dev, "Heartbeat val=0x%02X", heartbeat_val);
+                        duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
+                        if ((heartbeat_val > heartbeat_low_limit) && (heartbeat_val < default_heartbeat_val) && (status >= 0))
+                        {
+                                /* Heartbeat active -> Camera alive */
+                                dev_info(&client->dev, "Heartbeat active!");
+                                break;
+                        }
+                } while (duration_ms < max_time_ms);
+        }
+
+        dev_info(&client->dev, "Camera boot time: %llums", duration_ms);
+        if (!device_available)
+                dev_err(&client->dev, "Camera not reconnected");   
+
+        return 0;
 }
 
 static ssize_t cci_register_layout_version_show(struct device *dev,
@@ -4953,8 +5315,32 @@ static bool common_range(uint32_t nMin1, uint32_t nMax1, uint32_t nInc1,
 	return bResult;
 }
 
-static int avt_init_frame_param(struct avt_csi2_priv *priv)
+static void dump_frame_param(struct v4l2_subdev *sd)
 {
+    struct avt_csi2_priv *priv = avt_get_priv(sd);
+    avt_dbg(sd, "\n");
+    avt_dbg(sd, "priv->frmp.minh=%d\n", priv->frmp.minh);
+    avt_dbg(sd, "priv->frmp.maxh=%d\n", priv->frmp.maxh);
+    avt_dbg(sd, "priv->frmp.sh=%d\n", priv->frmp.sh);
+    avt_dbg(sd, "priv->frmp.minw=%d\n", priv->frmp.minw);
+    avt_dbg(sd, "priv->frmp.maxw=%d\n", priv->frmp.maxw);
+    avt_dbg(sd, "priv->frmp.sw=%d\n", priv->frmp.sw);
+    avt_dbg(sd, "priv->frmp.minhoff=%d\n", priv->frmp.minhoff);
+    avt_dbg(sd, "priv->frmp.maxhoff=%d\n", priv->frmp.maxhoff);
+    avt_dbg(sd, "priv->frmp.shoff=%d\n", priv->frmp.shoff);
+    avt_dbg(sd, "priv->frmp.minwoff=%d\n", priv->frmp.minwoff);
+    avt_dbg(sd, "priv->frmp.maxwoff=%d\n", priv->frmp.maxwoff);
+    avt_dbg(sd, "priv->frmp.swoff=%d\n", priv->frmp.swoff);
+    avt_dbg(sd, "priv->frmp.r.width=%d\n", priv->frmp.r.width);
+    avt_dbg(sd, "priv->frmp.r.height=%d\n", priv->frmp.r.height);
+    avt_dbg(sd, "priv->frmp.r.left=%d\n", priv->frmp.r.left);
+    avt_dbg(sd, "priv->frmp.r.top=%d\n", priv->frmp.r.top);
+}
+
+static int avt_init_frame_param(struct v4l2_subdev *sd)
+{
+    struct avt_csi2_priv *priv = avt_get_priv(sd);
+    dump_frame_param(sd);
 	if (avt_get_param(priv->client, V4L2_AV_CSI2_HEIGHT_MINVAL_R,
 				&priv->frmp.minh))
 		return -EINVAL;
@@ -5019,6 +5405,27 @@ static int avt_init_frame_param(struct avt_csi2_priv *priv)
 				&priv->frmp.r.top))
 		return -EINVAL;
 
+    /* We might need to correct some values */
+    /* Tegra doesn't seem to accept offsets that are not divisible by 8. */
+    roundup(priv->frmp.swoff, OFFSET_INC_W);
+    roundup(priv->frmp.shoff, OFFSET_INC_H);
+    /* Tegra doesn't allow image resolutions smaller than 64x32 */
+    priv->frmp.minw = max_t(uint32_t, priv->frmp.minw, FRAMESIZE_MIN_W);
+    priv->frmp.minh = max_t(uint32_t, priv->frmp.minh, FRAMESIZE_MIN_H);
+   
+    priv->frmp.maxw = min_t(uint32_t, priv->frmp.maxw, FRAMESIZE_MAX_W);
+    priv->frmp.maxh = min_t(uint32_t, priv->frmp.maxh, FRAMESIZE_MAX_H);
+  
+   //max_height = rounddown(max_height, FRAMESIZE_INC_H);
+
+    /* Take care of image width alignment*/
+    if (priv->crop_align_enabled) {
+        priv->frmp.maxwoff = avt_align_width(sd, priv->frmp.maxwoff);
+
+        priv->frmp.maxw = avt_align_width(sd, priv->frmp.maxw);
+    }
+
+    dump_frame_param(sd);
 	return 0;
 }
 
@@ -5034,7 +5441,7 @@ static int avt_read_fmt_from_device(struct v4l2_subdev *sd, uint32_t *fmt)
 	int ret = 0;
 
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + IMG_BAYER_PATTERN_8RW,
+			priv->cci_reg.bcrm_addr + BCRM_IMG_BAYER_PATTERN_8RW,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 			(char *) &bayer_pattern);
 
@@ -5042,10 +5449,10 @@ static int avt_read_fmt_from_device(struct v4l2_subdev *sd, uint32_t *fmt)
 		dev_err(&client->dev, "i2c read failed (%d)\n", ret);
 		return ret;
 	}
-printk("%s: Camera bayer_pattern=0x%X\n", __FUNCTION__, bayer_pattern);
+    dev_dbg(&client->dev, "Camera bayer_pattern=0x%X", bayer_pattern);
 
 	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + IMG_MIPI_DATA_FORMAT_32RW,
+			priv->cci_reg.bcrm_addr + BCRM_IMG_MIPI_DATA_FORMAT_32RW,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 			(char *) &avt_img_fmt);
 
@@ -5054,8 +5461,7 @@ printk("%s: Camera bayer_pattern=0x%X\n", __FUNCTION__, bayer_pattern);
 		return ret;
 	}
 
-        printk("%s avt_img_fmt=0x%x\n", __FUNCTION__, avt_img_fmt);
-dev_err(&client->dev, "%s 0x%x\n", __FUNCTION__, avt_img_fmt);
+    dev_dbg(&client->dev, "BCRM_IMG_MIPI_DATA_FORMAT_32RW=0x%08X\n", avt_img_fmt);
 
 	switch (avt_img_fmt) {
 		case	MIPI_DT_RGB888:
@@ -5197,13 +5603,15 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 
 	/* Check if requested number of lanes is supported */
 	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + SUPPORTED_CSI2_LANE_COUNTS_8R,
+			priv->cci_reg.bcrm_addr + BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 			(char *) &avt_supported_lane_counts);
 	if (ret < 0) {
 		avt_err(sd, "i2c read failed (%d)\n", ret);
 		return ret;
 	}
+
+        avt_info(sd, "Camera supported lane counts value: 0x%x\n", avt_supported_lane_counts);
 
 	if(!(test_bit(priv->s_data->numlanes - 1, (const long *)(&avt_supported_lane_counts)))) {
 		avt_err(sd, "requested number of lanes (%u) not supported by this camera!\n",
@@ -5213,7 +5621,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 
 	/* Set number of lanes */
 	ret = avt_reg_write(priv->client,
-			priv->cci_reg.bcrm_addr + CSI2_LANE_COUNT_8RW,
+			priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
 			priv->s_data->numlanes);
 	if (ret < 0) {
 		avt_err(sd, "i2c write failed (%d)\n", ret);
@@ -5221,7 +5629,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 	}
 
 	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + CSI2_CLOCK_MIN_32R,
+			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MIN_32R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 			(char *) &avt_min_clk);
 
@@ -5231,7 +5639,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 	}
 
 	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + CSI2_CLOCK_MAX_32R,
+			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MAX_32R,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 			(char *) &avt_max_clk);
 
@@ -5275,7 +5683,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 	CLEAR(i2c_reg);
 	clk = priv->csi_clk_freq;
 	swapbytes(&clk, AV_CAM_DATA_SIZE_32);
-	i2c_reg = priv->cci_reg.bcrm_addr + CSI2_CLOCK_32RW;
+	i2c_reg = priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW;
 	i2c_reg_size = AV_CAM_REG_SIZE;
 	i2c_reg_count = AV_CAM_DATA_SIZE_32;
 	i2c_reg_buf = (char *) &clk;
@@ -5283,7 +5691,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 					i2c_reg_count, i2c_reg_buf);
 
 	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + CSI2_CLOCK_32RW,
+			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
 			(char *) &avt_max_clk);
 
@@ -5298,7 +5706,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 	if (ret < 0)
 		return ret;
 
-	ret = avt_init_frame_param(priv);
+	ret = avt_init_frame_param(sd);
 	if (ret < 0)
 		return ret;
 
@@ -5310,7 +5718,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 
 	// set BCRM mode
 	CLEAR(i2c_reg);
-	i2c_reg = GENCP_CHANGEMODE_8W;
+	i2c_reg = CCI_CHANGE_MODE_8W;
 	i2c_reg_size = AV_CAM_REG_SIZE;
 	i2c_reg_count = AV_CAM_DATA_SIZE_8;
 	i2c_reg_buf = (char *) &bcm_mode;
@@ -5391,7 +5799,27 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->streamcap.timeperframe.denominator = DEFAULT_FPS;
 	priv->streamcap.timeperframe.numerator = 1;
 
+        if (!device_present(client))
+        {
+                dev_err(dev, "No camera detected");
+                return -ENXIO;
+        }
+        else
+        {
+                dev_info(dev, "Camera detected!");
+        }
+             
+        /* Execute softreset to ensure camera is not in GenCP mode anymore */
+        ret = soft_reset(client);
+        if (ret < 0)
+        {
+                return ret;
+        }
+
 	ret = read_cci_registers(client);
+
+        /* DEBUG: Dump all BCRM registers */
+        bcrm_dump(client);
 
 	/* Set subdev name */
 	snprintf(priv->subdev->name, sizeof(priv->subdev->name), "%s %s %d-%x",
@@ -5403,19 +5831,19 @@ static int avt_csi2_probe(struct i2c_client *client,
 	if (ret < 0) {
 		dev_err(dev, "%s: read_cci_registers failed: %d\n",
 				__func__, ret);
-		return ret;
+		return -EIO;
 	}
 
 	ret = cci_version_check(client);
 	if (ret < 0) {
 		dev_err(&client->dev, "cci version mismatch!\n");
-		return ret;
+		return -EINVAL;
 	}
 
 	ret = bcrm_version_check(client);
 	if (ret < 0) {
 		dev_err(&client->dev, "bcrm version mismatch!\n");
-		return ret;
+		return -EINVAL;
 	}
 
 	dev_dbg(&client->dev, "correct bcrm version\n");
@@ -5427,7 +5855,7 @@ static int avt_csi2_probe(struct i2c_client *client,
 
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr +
-			ACQUISITION_FRAME_RATE_64RW,
+			BCRM_ACQUISITION_FRAME_RATE_64RW,
 			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
 			(char *) &framerate);
 	if (ret < 0) {
@@ -5558,7 +5986,7 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->cross_update = false;
 	priv->stride_align_enabled = true;
 	priv->crop_align_enabled = true;
-	priv->crop_align_enabled = false;
+//KHO	priv->crop_align_enabled = false;
 
 	ret = avt_init_mode(priv->subdev);
 	if (ret < 0)

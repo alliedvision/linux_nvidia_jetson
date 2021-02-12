@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra Video Input Device
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -40,6 +40,7 @@
 #include <media/vi.h>
 
 #include <uapi/linux/libcsi_ioctl.h>
+#include <media/avt_csi2_soc.h>
 
 #include <linux/clk/tegra.h>
 #define CREATE_TRACE_POINTS
@@ -486,8 +487,15 @@ void free_ring_buffers(struct tegra_channel *chan, int frames)
 	while (frames > 0) {
 		vbuf = chan->buffers[chan->free_index];
 
+		/* Skip updating the buffer sequence with channel sequence
+		 * for interlaced captures and this instead will be updated
+		 * with frame id received from CSI with capture complete
+		 */
+		if (!chan->is_interlaced)
+			vbuf->sequence = chan->sequence++;
+		else
+			chan->sequence++;
 		/* release one frame */
-		vbuf->sequence = chan->sequence++;
 		vbuf->field = V4L2_FIELD_NONE;
 		vb2_set_plane_payload(&vbuf->vb2_buf,
 			0, chan->format.sizeimage);
@@ -567,6 +575,8 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 					struct timespec *ts, int state)
 
 {
+	uint64_t curr_frame_jiffies;
+
 	if (!chan->bfirst_fstart)
 		chan->bfirst_fstart = true;
 	else
@@ -588,6 +598,9 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 		vb->vb2_buf.timestamp = timespec_to_ns(ts);
 #endif
 		chan->stream_stats.frames_count++;
+		curr_frame_jiffies = get_jiffies_64();
+		chan->stream_stats.current_frame_interval = jiffies_to_usecs(curr_frame_jiffies - chan->start_frame_jiffies);
+		chan->start_frame_jiffies = curr_frame_jiffies;
 	}
 
 	/* release buffer N at N+2 frame start event */
@@ -2028,7 +2041,15 @@ tegra_channel_set_format(struct file *file, void *fh,
 	if (vb2_is_busy(&chan->queue))
 		return -EBUSY;
 
-	return __tegra_channel_set_format(chan, &format->fmt.pix);
+	ret = __tegra_channel_set_format(chan, &format->fmt.pix);
+	if (ret)
+		return ret;
+
+	if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM)
+		chan->format.width = chan->format.width / 2;
+	ret = __tegra_channel_set_format(chan, &chan->format);
+
+	return ret;
 }
 
 static int tegra_channel_subscribe_event(struct v4l2_fh *fh,
@@ -2138,6 +2159,7 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 	case VIDIOC_STREAMSTAT: {
 		struct v4l2_stats_t *stream_stats = arg;
 		chan->stream_stats.frames_underrun = chan->qbuf_count - chan->dqbuf_count;
+		chan->stream_stats.current_frame_count = 1;
 		*stream_stats = chan->stream_stats;
 		return 0;
 		break;
@@ -2151,15 +2173,7 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		break;
 
 	case VIDIOC_STREAMON_EX: {
-		struct v4l2_pix_format fmt = chan->format;
 		int ret = 0;
-
-		if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM)
-			fmt.width = fmt.width / 2;
-
-		ret = __tegra_channel_set_format(chan, &fmt);
-		if (ret < 0)
-			return ret;
 
 		ret = vb2_core_streamon_ex(&chan->queue, chan->queue.type);
 		if (ret < 0)
@@ -2172,11 +2186,15 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 	case VIDIOC_STREAMOFF_EX: {
 		struct v4l2_streamoff_ex *streamoff = arg;
 		int ret = 0;
+		unsigned long curr_timeout = chan->timeout;
 
-		chan->timeout = streamoff->timeout;
+		chan->timeout = msecs_to_jiffies(streamoff->timeout);
 
 		ret = vb2_core_streamoff_ex(&chan->queue, chan->queue.type, streamoff->timeout);
 		sysfs_notify(&vdev->dev.kobj, NULL, "streamoff");
+
+		/* Get back to the default timeout value */
+		chan->timeout = curr_timeout;
 
 		return 0;
 		break;
@@ -2234,11 +2252,11 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 
 	case VIDIOC_G_IPU_RESTRICTIONS: {
 		struct v4l2_ipu_restrictions *ipu_restrictions = arg;
-
+        
 		ipu_restrictions->ipu_x.is_valid = 1;
 		ipu_restrictions->ipu_x.min   = FRAMESIZE_MIN_W;
 		ipu_restrictions->ipu_x.max   = FRAMESIZE_MAX_W;
-		ipu_restrictions->ipu_x.inc   = chan->stride_align;
+		ipu_restrictions->ipu_x.inc   = FRAMESIZE_INC_W;
 		ipu_restrictions->ipu_y.is_valid = 1;
 		ipu_restrictions->ipu_y.min   = FRAMESIZE_MIN_H;
 		ipu_restrictions->ipu_y.max   = FRAMESIZE_MAX_H;
@@ -2564,6 +2582,7 @@ static int tegra_channel_open(struct file *fp)
 	// dummy call to call tegra_channel_update_format
 	tegra_channel_get_format(fp, chan->fh, &format);
 
+
 	mutex_unlock(&chan->video_lock);
 	return 0;
 
@@ -2814,7 +2833,7 @@ int tegra_channel_init(struct tegra_channel *chan)
 	}
 
 	chan->incomplete_flag = false;
-	chan->timeout = msecs_to_jiffies(4000);
+	chan->timeout = msecs_to_jiffies(CAPTURE_TIMEOUT_MS);
 
 	chan->init_done = true;
 

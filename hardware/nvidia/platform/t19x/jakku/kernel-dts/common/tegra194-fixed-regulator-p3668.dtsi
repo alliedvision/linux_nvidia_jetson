@@ -43,15 +43,5 @@
 			regulator-max-microvolt = <1800000>;
 			enable-active-high;
 		};
-
-		p3509_vdd_usb2_5v: regulator@114 {
-			compatible = "regulator-fixed";
-			reg = <114>;
-			regulator-name = "vdd-usb2-5v";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			gpio = <&tegra_aon_gpio TEGRA194_AON_GPIO(CC, 2) GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
 	};
 };

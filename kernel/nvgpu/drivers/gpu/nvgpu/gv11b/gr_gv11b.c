@@ -5071,3 +5071,17 @@ fail:
 	nvgpu_mutex_release(&g->dbg_sessions_lock);
 	return err;
 }
+
+int gr_gv11b_set_fecs_watchdog_timeout(struct gk20a *g)
+{
+	return gr_gk20a_submit_fecs_method_op_locked(g,
+	      (struct fecs_method_op_gk20a) {
+		      .method.addr = gr_fecs_method_push_adr_set_watchdog_timeout_f(),
+		      .method.data = 0x7fffffff,
+		      .mailbox = { .id   = 0,
+				   .data = ~0, .clr = ~0, .ret = NULL,
+				   .ok = gr_fecs_ctxsw_mailbox_value_pass_v(),
+				   .fail = 0, },
+		      .cond.ok = GR_IS_UCODE_OP_EQUAL,
+		      .cond.fail = GR_IS_UCODE_OP_SKIP}, false);
+}

@@ -2,7 +2,8 @@
 #define __AVT_CSI2_H__
 
 #include <media/camera_common.h>
-#include "avt_csi2_regs.h"
+#include "alvium_regs.h"
+#include "alvium_helper.h"
 
 #define AVT_MAX_CTRLS 50
 
@@ -120,9 +121,9 @@ struct avt_ctrl {
 #define STR(x) STR_HELPER(x)
 
 /* Driver release version */
-#define	DRV_VER_MAJOR			0
-#define	DRV_VER_MINOR			6
-#define	DRV_VER_PATCH			1
+#define	DRV_VER_MAJOR			2
+#define	DRV_VER_MINOR			0
+#define	DRV_VER_PATCH			0
 #define	DRV_VER_BUILD			0
 #define DRIVER_VERSION			STR(DRV_VER_MAJOR) "." STR(DRV_VER_MINOR) "." STR(DRV_VER_PATCH) "." STR(DRV_VER_BUILD)
 
@@ -230,10 +231,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_BRIGHTNESS,
 		.attr			= AV_ATTR_BRIGHTNESS,
-		.min_offset		= BLACK_LEVEL_MIN_32R,
-		.max_offset		= BLACK_LEVEL_MAX_32R,
-		.reg_offset		= BLACK_LEVEL_32RW,
-		.step_offset		= BLACK_LEVEL_INCREMENT_32R,
+		.min_offset		= BCRM_BLACK_LEVEL_MIN_32R,
+		.max_offset		= BCRM_BLACK_LEVEL_MAX_32R,
+		.reg_offset		= BCRM_BLACK_LEVEL_32RW,
+		.step_offset		= BCRM_BLACK_LEVEL_INC_32R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_32,
 		.type			= V4L2_CTRL_TYPE_INTEGER,
@@ -242,10 +243,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_CONTRAST,
 		.attr			= AV_ATTR_CONTRAST,
-		.min_offset		= CONTRAST_VALUE_MIN_32R,
-		.max_offset		= CONTRAST_VALUE_MAX_32R,
-		.reg_offset		= CONTRAST_VALUE_32RW,
-		.step_offset		= CONTRAST_VALUE_INCREMENT_32R,
+		.min_offset		= BCRM_CONTRAST_VALUE_MIN_32R,
+		.max_offset		= BCRM_CONTRAST_VALUE_MAX_32R,
+		.reg_offset		= BCRM_CONTRAST_VALUE_32RW,
+		.step_offset		= BCRM_CONTRAST_VALUE_INC_32R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_32,
 		.type			= V4L2_CTRL_TYPE_INTEGER,
@@ -254,10 +255,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_SATURATION,
 		.attr			= AV_ATTR_SATURATION,
-		.min_offset		= SATURATION_MIN_32R,
-		.max_offset		= SATURATION_MAX_32R,
-		.reg_offset		= SATURATION_32RW,
-		.step_offset		= SATURATION_INCREMENT_32R,
+		.min_offset		= BCRM_SATURATION_MIN_32R,
+		.max_offset		= BCRM_SATURATION_MAX_32R,
+		.reg_offset		= BCRM_SATURATION_32RW,
+		.step_offset		= BCRM_SATURATION_INC_32R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_32,
 		.type			= V4L2_CTRL_TYPE_INTEGER,
@@ -266,10 +267,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_HUE,
 		.attr			= AV_ATTR_HUE,
-		.min_offset		= HUE_MIN_32R,
-		.max_offset		= HUE_MAX_32R,
-		.reg_offset		= HUE_32RW,
-		.step_offset		= HUE_INCREMENT_32R,
+		.min_offset		= BCRM_HUE_MIN_32R,
+		.max_offset		= BCRM_HUE_MAX_32R,
+		.reg_offset		= BCRM_HUE_32RW,
+		.step_offset		= BCRM_HUE_INC_32R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_32,
 		.type			= V4L2_CTRL_TYPE_INTEGER,
@@ -278,7 +279,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_AUTO_WHITE_BALANCE,
 		.attr			= AV_ATTR_WHITEBALANCE_AUTO,
-		.reg_offset		= WHITE_BALANCE_AUTO_8RW,
+		.reg_offset		= BCRM_WHITE_BALANCE_AUTO_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_BOOLEAN,
@@ -287,7 +288,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_DO_WHITE_BALANCE,
 		.attr			= AV_ATTR_WHITEBALANCE,
-		.reg_offset		= WHITE_BALANCE_AUTO_8RW,
+		.reg_offset		= BCRM_WHITE_BALANCE_AUTO_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_BUTTON,
@@ -296,10 +297,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_RED_BALANCE,
 		.attr			= AV_ATTR_RED_BALANCE,
-		.min_offset		= RED_BALANCE_RATIO_MIN_64R,
-		.max_offset		= RED_BALANCE_RATIO_MAX_64R,
-		.reg_offset		= RED_BALANCE_RATIO_64RW,
-		.step_offset		= RED_BALANCE_RATIO_INCREMENT_64R,
+		.min_offset		= BCRM_RED_BALANCE_RATIO_MIN_64R,
+		.max_offset		= BCRM_RED_BALANCE_RATIO_MAX_64R,
+		.reg_offset		= BCRM_RED_BALANCE_RATIO_64RW,
+		.step_offset		= BCRM_RED_BALANCE_RATIO_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -308,10 +309,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_BLUE_BALANCE,
 		.attr			= AV_ATTR_BLUE_BALANCE,
-		.min_offset		= BLUE_BALANCE_RATIO_MIN_64R,
-		.max_offset		= BLUE_BALANCE_RATIO_MAX_64R,
-		.reg_offset		= BLUE_BALANCE_RATIO_64RW,
-		.step_offset		= BLUE_BALANCE_RATIO_INCREMENT_64R,
+		.min_offset		= BCRM_BLUE_BALANCE_RATIO_MIN_64R,
+		.max_offset		= BCRM_BLUE_BALANCE_RATIO_MAX_64R,
+		.reg_offset		= BCRM_BLUE_BALANCE_RATIO_64RW,
+		.step_offset		= BCRM_BLUE_BALANCE_RATIO_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -320,10 +321,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_GAMMA,
 		.attr			= AV_ATTR_GAMMA,
-		.min_offset		= GAMMA_GAIN_MINIMUM_64R,
-		.max_offset		= GAMMA_GAIN_MAXIMUM_64R,
-		.reg_offset		= GAMMA_64RW,
-		.step_offset		= GAMMA_GAIN_INCREMENT_64R,
+		.min_offset		= BCRM_GAMMA_MIN_64R,
+		.max_offset		= BCRM_GAMMA_MAX_64R,
+		.reg_offset		= BCRM_GAMMA_64RW,
+		.step_offset		= BCRM_GAMMA_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -332,10 +333,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_EXPOSURE,
 		.attr			= AV_ATTR_EXPOSURE,
-		.min_offset		= EXPOSURE_TIME_MIN_64R,
-		.max_offset		= EXPOSURE_TIME_MAX_64R,
-		.reg_offset		= EXPOSURE_TIME_64RW,
-		.step_offset		= EXPOSURE_TIME_INCREMENT_64R,
+		.min_offset		= BCRM_EXPOSURE_TIME_MIN_64R,
+		.max_offset		= BCRM_EXPOSURE_TIME_MAX_64R,
+		.reg_offset		= BCRM_EXPOSURE_TIME_64RW,
+		.step_offset		= BCRM_EXPOSURE_TIME_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -344,7 +345,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_AUTOGAIN,
 		.attr			= AV_ATTR_AUTOGAIN,
-		.reg_offset		= GAIN_AUTO_8RW,
+		.reg_offset		= BCRM_GAIN_AUTO_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_BOOLEAN,
@@ -353,10 +354,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_GAIN,
 		.attr			= AV_ATTR_GAIN,
-		.min_offset		= GAIN_MINIMUM_64R,
-		.max_offset		= GAIN_MAXIMUM_64R,
-		.reg_offset		= GAIN_64RW,
-		.step_offset		= GAIN_INCREMENT_64R,
+		.min_offset		= BCRM_GAIN_MIN_64R,
+		.max_offset		= BCRM_GAIN_MAX_64R,
+		.reg_offset		= BCRM_GAIN_64RW,
+		.step_offset		= BCRM_GAIN_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -365,7 +366,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_HFLIP,
 		.attr			= AV_ATTR_REVERSE_X,
-		.reg_offset		= IMG_REVERSE_X_8RW,
+		.reg_offset		= BCRM_IMG_REVERSE_X_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_BOOLEAN,
@@ -374,7 +375,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_VFLIP,
 		.attr			= AV_ATTR_REVERSE_Y,
-		.reg_offset		= IMG_REVERSE_Y_8RW,
+		.reg_offset		= BCRM_IMG_REVERSE_Y_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_BOOLEAN,
@@ -383,10 +384,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_SHARPNESS,
 		.attr			= AV_ATTR_SHARPNESS,
-		.min_offset		= SHARPNESS_MIN_32R,
-		.max_offset		= SHARPNESS_MAX_32R,
-		.reg_offset		= SHARPNESS_32RW,
-		.step_offset		= SHARPNESS_INCREMENT_32R,
+		.min_offset		= BCRM_SHARPNESS_MIN_32R,
+		.max_offset		= BCRM_SHARPNESS_MAX_32R,
+		.reg_offset		= BCRM_SHARPNESS_32RW,
+		.step_offset		= BCRM_SHARPNESS_INC_32R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_32,
 		.type			= V4L2_CTRL_TYPE_INTEGER,
@@ -395,7 +396,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_EXPOSURE_AUTO,
 		.attr			= AV_ATTR_EXPOSURE_AUTO,
-		.reg_offset		= EXPOSURE_AUTO_8RW,
+		.reg_offset		= BCRM_EXPOSURE_AUTO_8RW,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_8,
 		.type			= V4L2_CTRL_TYPE_MENU,
@@ -404,10 +405,10 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
 		.id			= V4L2_CID_EXPOSURE_ABSOLUTE,
 		.attr			= AV_ATTR_EXPOSURE_ABS,
-		.min_offset		= EXPOSURE_TIME_MIN_64R,
-		.max_offset		= EXPOSURE_TIME_MAX_64R,
-		.reg_offset		= EXPOSURE_TIME_64RW,
-		.step_offset		= EXPOSURE_TIME_INCREMENT_64R,
+		.min_offset		= BCRM_EXPOSURE_TIME_MIN_64R,
+		.max_offset		= BCRM_EXPOSURE_TIME_MAX_64R,
+		.reg_offset		= BCRM_EXPOSURE_TIME_64RW,
+		.step_offset		= BCRM_EXPOSURE_TIME_INC_64R,
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
@@ -415,7 +416,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	},
 };
 
-#define AVT_TEGRA_TIMEOUT_DEFAULT	4000
+#define AVT_TEGRA_TIMEOUT_DEFAULT	CAPTURE_TIMEOUT_MS
 #define AVT_TEGRA_TIMEOUT_DISABLED	-1
 
 #define AVT_TEGRA_CID_BASE		(V4L2_CTRL_CLASS_USER | 0x900)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -58,6 +58,8 @@ static struct cpu_emc_mapping *cpu_emc_map_ptr;
 static uint8_t tegra_hypervisor_mode;
 
 static int cpufreq_single_policy;
+
+static enum cpuhp_state hp_online;
 
 enum cluster {
 	CLUSTER0,
@@ -828,6 +830,21 @@ static void __init pm_qos_register_notifier(void)
 		&cpu_freq_nb);
 }
 
+static int tegra194_cpufreq_offline(unsigned int cpu)
+{
+	struct cpufreq_frequency_table *ftbl;
+	uint32_t tgt_freq;
+
+	ftbl = get_freqtable(cpu);
+
+	tgt_freq = ftbl[0].frequency;
+	if (tgt_freq != CPUFREQ_ENTRY_INVALID
+			&& tgt_freq != CPUFREQ_TABLE_END)
+		tegra_update_cpu_speed(tgt_freq, cpu);
+
+	return 0;
+}
+
 static void free_resources(void)
 {
 	enum cluster cl;
@@ -1106,6 +1123,17 @@ static int __init tegra194_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_res;
 
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+						"tegra194_cpufreq:online",
+						NULL,
+						tegra194_cpufreq_offline);
+	if (ret < 0) {
+		pr_err("tegra19x-cpufreq: failed to register cpuhp state\n");
+		goto err_free_res;
+	}
+	hp_online = ret;
+	ret = 0;
+
 	pm_qos_register_notifier();
 
 	cpufreq_register_notifier(&tegra_boundaries_cpufreq_nb,
@@ -1127,6 +1155,7 @@ static int __exit tegra194_cpufreq_remove(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	tegra_cpufreq_debug_exit();
 #endif
+	cpuhp_remove_state_nocalls(hp_online);
 	cpufreq_unregister_driver(&tegra_cpufreq_driver);
 	free_allocated_res_exit();
 	return 0;
