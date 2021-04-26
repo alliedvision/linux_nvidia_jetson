@@ -59,5 +59,5 @@ Note that both reinstalling the driver or putting the update on hold may cause u
 
  ## Additional information
  :open_book:
- https://github.com/alliedvision/documentation/blob/master/NVIDIA.md
+ https://github.com/alliedvision/documentation/blob/master/NVIDIA.rst
 
