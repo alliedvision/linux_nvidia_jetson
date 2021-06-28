@@ -42,6 +42,7 @@
 #include "os_linux.h"
 #include "platform_gk20a.h"
 #include "ioctl_dbg.h"
+#include "ioctl_channel.h"
 #include "dmabuf_vidmem.h"
 
 struct dbg_session_gk20a_linux {
@@ -314,6 +315,7 @@ static int nvgpu_dbg_gpu_ioctl_read_single_sm_error_state(
 	if (args->sm_error_state_record_size > 0) {
 		size_t write_size = sizeof(*sm_error_state);
 
+		nvgpu_speculation_barrier();
 		if (write_size > args->sm_error_state_record_size)
 			write_size = args->sm_error_state_record_size;
 
@@ -361,6 +363,7 @@ static int nvgpu_dbg_timeout_enable(struct dbg_session_gk20a *dbg_s,
 	nvgpu_log(g, gpu_dbg_gpu_dbg, "Timeouts mode requested : %d",
 			timeout_mode);
 
+	nvgpu_speculation_barrier();
 	switch (timeout_mode) {
 	case NVGPU_DBG_GPU_IOCTL_TIMEOUT_ENABLE:
 		if (dbg_s->is_timeout_disabled == true)
@@ -917,6 +920,7 @@ static int nvgpu_ioctl_channel_reg_ops(struct dbg_session_gk20a *dbg_s,
 			ops_offset += num_ops;
 		}
 
+		nvgpu_speculation_barrier();
 		nvgpu_kfree(g, linux_fragment);
 
 		/* enable powergate, if previously disabled */
@@ -1007,6 +1011,7 @@ static int nvgpu_dbg_gpu_ioctl_smpc_ctxsw_mode(struct dbg_session_gk20a *dbg_s,
 
 static u32 nvgpu_hwpm_ctxsw_mode_to_common_mode(u32 mode)
 {
+	nvgpu_speculation_barrier();
 	switch (mode){
 	case NVGPU_DBG_GPU_HWPM_CTXSW_MODE_NO_CTXSW:
 		return NVGPU_DBG_HWPM_CTXSW_MODE_NO_CTXSW;
@@ -1153,6 +1158,7 @@ static int nvgpu_dbg_gpu_ioctl_suspend_resume_sm(
 		goto clean_up;
 	}
 
+	nvgpu_speculation_barrier();
 	switch (action) {
 	case NVGPU_DBG_GPU_SUSPEND_ALL_SMS:
 		gr_gk20a_suspend_context(ch);
@@ -1366,6 +1372,7 @@ static int gk20a_dbg_gpu_events_ctrl(struct dbg_session_gk20a *dbg_s,
 		return -EINVAL;
 	}
 
+	nvgpu_speculation_barrier();
 	switch (args->cmd) {
 	case NVGPU_DBG_GPU_EVENTS_CTRL_CMD_ENABLE:
 		gk20a_dbg_gpu_events_enable(dbg_s);
@@ -1536,6 +1543,7 @@ nvgpu_dbg_gpu_ioctl_suspend_resume_contexts(struct dbg_session_gk20a *dbg_s,
 	if (err)
 		return err;
 
+	nvgpu_speculation_barrier();
 	switch (args->action) {
 	case NVGPU_DBG_GPU_SUSPEND_ALL_CONTEXTS:
 		err = g->ops.gr.suspend_contexts(g, dbg_s,
@@ -1627,6 +1635,7 @@ static int nvgpu_dbg_gpu_ioctl_access_fb_memory(struct dbg_session_gk20a *dbg_s,
 		size -= access_size;
 		offset += access_size;
 	}
+	nvgpu_speculation_barrier();
 
 fail_idle:
 	gk20a_idle(g);
@@ -1899,6 +1908,7 @@ static int nvgpu_dbg_gpu_set_sm_exception_type_mask(
 	struct gk20a *g = dbg_s->g;
 	u32 sm_exception_mask_type = NVGPU_SM_EXCEPTION_TYPE_MASK_NONE;
 
+	nvgpu_speculation_barrier();
 	switch (args->exception_type_mask) {
 	case NVGPU_DBG_GPU_IOCTL_SET_SM_EXCEPTION_TYPE_MASK_FATAL:
 		sm_exception_mask_type = NVGPU_SM_EXCEPTION_TYPE_MASK_FATAL;
@@ -1925,6 +1935,87 @@ static int nvgpu_dbg_gpu_set_sm_exception_type_mask(
 
 	return err;
 }
+
+#if defined(CONFIG_GK20A_CYCLE_STATS)
+static int nvgpu_dbg_gpu_cycle_stats(struct dbg_session_gk20a *dbg_s,
+			struct nvgpu_dbg_gpu_cycle_stats_args *args)
+{
+	struct channel_gk20a *ch = NULL;
+	int err;
+
+	ch = nvgpu_dbg_gpu_get_session_channel(dbg_s);
+	if (ch == NULL) {
+		return -EINVAL;
+	}
+
+	err = gk20a_busy(ch->g);
+	if (err != 0) {
+		return err;
+	}
+
+	err = gk20a_channel_cycle_stats(ch, args->dmabuf_fd);
+
+	gk20a_idle(ch->g);
+	return err;
+}
+
+static int nvgpu_dbg_gpu_cycle_stats_snapshot(struct dbg_session_gk20a *dbg_s,
+		struct nvgpu_dbg_gpu_cycle_stats_snapshot_args *args)
+{
+	struct channel_gk20a *ch = NULL;
+	int err;
+
+	if (!args->dmabuf_fd) {
+		return -EINVAL;
+	}
+
+	nvgpu_speculation_barrier();
+
+	ch = nvgpu_dbg_gpu_get_session_channel(dbg_s);
+	if (ch == NULL) {
+		return -EINVAL;
+	}
+
+	/* is it allowed to handle calls for current GPU? */
+	if (!nvgpu_is_enabled(ch->g, NVGPU_SUPPORT_CYCLE_STATS_SNAPSHOT)) {
+		return -ENOSYS;
+	}
+
+	err = gk20a_busy(ch->g);
+	if (err != 0) {
+		return err;
+	}
+
+	/* handle the command (most frequent cases first) */
+	switch (args->cmd) {
+	case NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_FLUSH:
+		err = gk20a_flush_cycle_stats_snapshot(ch);
+		args->extra = 0;
+		break;
+
+	case NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_ATTACH:
+		err = gk20a_attach_cycle_stats_snapshot(ch,
+						args->dmabuf_fd,
+						args->extra,
+						&args->extra);
+		break;
+
+	case NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_DETACH:
+		err = gk20a_channel_free_cycle_stats_snapshot(ch);
+		args->extra = 0;
+		break;
+
+	default:
+		pr_err("cyclestats: unknown command %u\n", args->cmd);
+		err = -EINVAL;
+		break;
+	}
+
+	gk20a_idle(ch->g);
+	return err;
+}
+
+#endif
 
 int gk20a_dbg_gpu_dev_open(struct inode *inode, struct file *filp)
 {
@@ -1970,6 +2061,7 @@ long gk20a_dbg_gpu_dev_ioctl(struct file *filp, unsigned int cmd,
 	/* protect from threaded user space calls */
 	nvgpu_mutex_acquire(&dbg_s->ioctl_lock);
 
+	nvgpu_speculation_barrier();
 	switch (cmd) {
 	case NVGPU_DBG_GPU_IOCTL_BIND_CHANNEL:
 		err = dbg_bind_channel_gk20a(dbg_s,
@@ -2085,6 +2177,18 @@ long gk20a_dbg_gpu_dev_ioctl(struct file *filp, unsigned int cmd,
 		err = nvgpu_dbg_gpu_ioctl_set_mmu_debug_mode(dbg_s,
 		   (struct nvgpu_dbg_gpu_set_ctx_mmu_debug_mode_args *)buf);
 		break;
+
+#ifdef CONFIG_GK20A_CYCLE_STATS
+	case NVGPU_DBG_GPU_IOCTL_CYCLE_STATS:
+		err = nvgpu_dbg_gpu_cycle_stats(dbg_s,
+				(struct nvgpu_dbg_gpu_cycle_stats_args *)buf);
+		break;
+
+	case NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT:
+		err = nvgpu_dbg_gpu_cycle_stats_snapshot(dbg_s,
+				(struct nvgpu_dbg_gpu_cycle_stats_snapshot_args *)buf);
+		break;
+#endif
 
 	default:
 		nvgpu_err(g,

@@ -1,7 +1,7 @@
 /*
  * tegra194-super-module-e2614-p3509.dtsi DTSI file.
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-20, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,30 @@
 	i2c@31e0000 {
 		i2cmux@70 {
 			vcc-supply = <&p3509_vdd_3v3_cvb>;
+		};
+	};
+
+	plugin-manager {
+		fragment-e2614-common@0 {
+			overrides@11 {
+				_overlay_ {
+					link-name = "rt565x-playback";
+				};
+			};
+		};
+		fragment-e2614-a00@1 {
+			overrides@1 {
+				_overlay_ {
+					link-name = "rt565x-playback";
+				};
+			};
+		};
+		fragment-e2614-b00@2 {
+			overrides@1 {
+				_overlay_ {
+					link-name = "rt565x-playback";
+				};
+			};
 		};
 	};
 };

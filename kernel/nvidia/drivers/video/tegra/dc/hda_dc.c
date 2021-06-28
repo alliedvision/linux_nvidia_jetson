@@ -1,7 +1,7 @@
 /*
  * hda_dc.c: tegra dc hda dc driver.
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  * Author: Rahul Mittal <rmittal@nvidia.com>
  *
@@ -639,7 +639,7 @@ void tegra_hda_disable(void *hda_handle)
 void tegra_hda_init(struct tegra_dc *dc, void *data)
 {
 	int i, size;
-	struct tegra_dc_hda_data *hda;
+	struct tegra_dc_hda_data *hda = NULL;
 
 	mutex_lock(&global_hda_lock);
 	if (!hda_inst) {
@@ -707,6 +707,7 @@ void tegra_hda_init(struct tegra_dc *dc, void *data)
 				hda_inst) {
 				mutex_lock(&hda_inst[sor_num].hda_inst_lock);
 				hda->dev_id = tegra_hda_get_dev_id(hda->sor);
+				hda->sor->dev_id = hda->dev_id;
 				hda_inst[sor_num].hda = hda;
 				hda_inst[sor_num].hda_state = HDA_INITIALIZED;
 				mutex_unlock(&hda_inst[sor_num].hda_inst_lock);
@@ -716,6 +717,12 @@ void tegra_hda_init(struct tegra_dc *dc, void *data)
 	}
 	return;
 err:
+	if (hda) {
+		if (hda->audio_switch_name)
+			/* this should not happen, but left for future */
+			kfree(hda->audio_switch_name);
+		kfree(hda);
+	}
 	dev_err(&dc->ndev->dev,
 		"Failed to allocate hda handle memory");
 }

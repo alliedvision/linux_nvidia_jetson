@@ -79,7 +79,7 @@ static void tvnet_host_raise_ep_ctrl_irq(struct tvnet_priv *tvnet)
 		/* BAR0 mmio address is wc mem, add mb to make sure
 		 * multiple interrupt writes are not combined.
 		 */
-		smp_mb();
+		mb();
 	} else {
 		pr_err("%s: invalid irq type: %d\n", __func__, irq->irq_type);
 	}
@@ -95,7 +95,7 @@ static void tvnet_host_raise_ep_data_irq(struct tvnet_priv *tvnet)
 		/* BAR0 mmio address is wc mem, add mb to make sure
 		 * multiple interrupt writes are not combined.
 		 */
-		smp_mb();
+		mb();
 	} else {
 		pr_err("%s: invalid irq type: %d\n", __func__, irq->irq_type);
 	}
@@ -138,7 +138,7 @@ static int tvnet_host_write_ctrl_msg(struct tvnet_priv *tvnet,
 	/* BAR0 mmio address is wc mem, add mb to make sure ctrl msg is written
 	 * before updating counters.
 	 */
-	smp_mb();
+	mb();
 	tvnet_ivc_advance_wr(&tvnet->h2ep_ctrl);
 	tvnet_host_raise_ep_ctrl_irq(tvnet);
 
@@ -192,7 +192,7 @@ static void tvnet_host_alloc_empty_buffers(struct tvnet_priv *tvnet)
 		/* BAR0 mmio address is wc mem, add mb to make sure that empty
 		 * buffers are updated before updating counters.
 		 */
-		smp_mb();
+		mb();
 		tvnet_ivc_advance_wr(&tvnet->ep2h_empty);
 
 		tvnet_host_raise_ep_ctrl_irq(tvnet);
@@ -472,7 +472,7 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	dma_desc[desc_widx].dar_low = lower_32_bits(dst_iova);
 	dma_desc[desc_widx].dar_high = upper_32_bits(dst_iova);
 	/* CB bit should be set at the end */
-	smp_mb();
+	mb();
 	/* RIE is not required for polling mode */
 	ctrl_d = DMA_CH_CONTROL1_OFF_RDCH_RIE;
 	ctrl_d |= DMA_CH_CONTROL1_OFF_RDCH_LIE;
@@ -485,10 +485,11 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	ctrl_d = dma_desc[desc_widx].ctrl_reg.ctrl_d;
 
 	/* DMA write should not go out of order wrt CB bit set */
-	smp_mb();
+	mb();
 
 	timeout = jiffies + msecs_to_jiffies(1000);
-	dma_common_wr8(tvnet->dma_base, DMA_RD_DATA_CH, DMA_READ_DOORBELL_OFF);
+	dma_common_wr(tvnet->dma_base, DMA_RD_DATA_CH, DMA_READ_DOORBELL_OFF);
+
 	desc_cnt->wr_cnt++;
 
 	while (true) {
@@ -516,7 +517,7 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	desc_ridx = tvnet->desc_cnt.rd_cnt % DMA_DESC_COUNT;
 	/* Clear DMA cycle bit and increment rd_cnt */
 	dma_desc[desc_ridx].ctrl_reg.ctrl_e.cb = 0;
-	smp_mb();
+	mb();
 
 	tvnet->desc_cnt.rd_cnt++;
 #else
@@ -525,7 +526,7 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	/* BAR0 mmio address is wc mem, add mb to make sure that complete
 	 * skb->data is written before updating counters.
 	 */
-	smp_mb();
+	mb();
 #endif
 
 	/* Push dst to H2EP full ring */
@@ -537,7 +538,7 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	/* BAR0 mmio address is wc mem, add mb to make sure that full
 	 * buffer is written before updating counters.
 	 */
-	smp_mb();
+	mb();
 	tvnet_ivc_advance_wr(&tvnet->h2ep_full);
 	tvnet_host_raise_ep_data_irq(tvnet);
 
@@ -810,7 +811,8 @@ static int tvnet_host_probe(struct pci_dev *pdev,
 	mutex_init(&tvnet->link_state_lock);
 	init_waitqueue_head(&tvnet->link_state_wq);
 
-	ret = pci_alloc_irq_vectors(pdev, 2, 2, PCI_IRQ_MSIX);
+	ret = pci_alloc_irq_vectors(pdev, 2, 2, PCI_IRQ_MSIX |
+				    PCI_IRQ_AFFINITY);
 	if (ret <= 0) {
 		dev_err(&pdev->dev, "pci_alloc_irq_vectors() fail: %d\n", ret);
 		ret = -EIO;

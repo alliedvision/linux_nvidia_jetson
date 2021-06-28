@@ -140,7 +140,7 @@ static int vi4_add_ctrls(struct tegra_channel *chan)
 static int vi4_channel_setup_queue(struct tegra_channel *chan,
 	unsigned int *nbuffers)
 {
-	if (!chan->avt_cam_mode && (*nbuffers < QUEUED_BUFFERS - 1)) {
+	if (*nbuffers < QUEUED_BUFFERS - 1) {
 		return tegra_channel_alloc_buffer_queue(chan, *nbuffers + 1);
 	}
 	return tegra_channel_alloc_buffer_queue(chan, QUEUED_BUFFERS);
@@ -228,6 +228,8 @@ static bool vi_notify_wait(struct tegra_channel *chan,
 			nvhost_syncpt_cpu_incr_ext(chan->vi->ndev, chan->syncpt[i][SOF_SYNCPT_IDX]);
 			chan->pending_trigger = false;
 		}
+		nvhost_syncpt_remember_stream_id_ext(chan->vi->ndev,
+				chan->syncpt[i][SOF_SYNCPT_IDX]);
 		err = nvhost_syncpt_wait_timeout_ext(chan->vi->ndev,
 				chan->syncpt[i][SOF_SYNCPT_IDX], thresh[i],
 				chan->timeout, NULL, NULL);
@@ -1209,6 +1211,11 @@ static int vi4_channel_stop_streaming(struct vb2_queue *vq)
 	cancel_work_sync(&chan->status_work);
 	cancel_work_sync(&chan->error_work);
 
+	if (chan->avt_cam_mode) {
+		for (i = 0; i < chan->valid_ports; i++)
+			nvhost_syncpt_stop_waiting_ext(chan->vi->ndev, chan->syncpt[i][SOF_SYNCPT_IDX]);
+	}
+
 	if (!chan->bypass) {
 		tegra_channel_stop_kthreads(chan);
 		/* wait for last frame memory write ack */
@@ -1230,6 +1237,11 @@ static int vi4_channel_stop_streaming(struct vb2_queue *vq)
 	}
 
 	tegra_channel_set_stream(chan, false);
+
+	if (chan->avt_cam_mode) {
+		for (i = 0; i < chan->valid_ports; i++)
+			nvhost_syncpt_restart_waiting_ext(chan->vi->ndev, chan->syncpt[i][SOF_SYNCPT_IDX]);
+	}
 
 	err = tegra_channel_write_blobs(chan);
 	if (err < 0)

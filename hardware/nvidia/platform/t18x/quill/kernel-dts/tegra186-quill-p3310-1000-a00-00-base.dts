@@ -346,6 +346,10 @@
 	tegra_udrm: tegra_udrm {
 		compatible = "nvidia,tegra-udrm";
 	};
+
+	soctherm-oc-event {
+		status = "okay";
+	};
 };
 
 #if LINUX_VERSION >= 414

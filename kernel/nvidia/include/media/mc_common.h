@@ -33,6 +33,7 @@
 #include <media/csi.h>
 #include <linux/workqueue.h>
 #include <linux/semaphore.h>
+#include <linux/rwsem.h>
 #include <uapi/linux/libcsi_ioctl.h>
 
 #define MAX_FORMAT_NUM	64
@@ -264,6 +265,9 @@ struct tegra_channel {
 	enum interlaced_type interlace_type;
 	int interlace_bplfactor;
 
+	atomic_t syncpt_depth;
+	struct rw_semaphore reset_lock;
+
 	struct v4l2_stats_t stream_stats;
 	uint64_t qbuf_count;
 	uint64_t dqbuf_count;
@@ -273,6 +277,7 @@ struct tegra_channel {
 	bool pending_trigger;
 	uint64_t start_frame_jiffies;
 	unsigned int avt_cam_mode;
+	int created_bufs;
 };
 
 #define to_tegra_channel(vdev) \

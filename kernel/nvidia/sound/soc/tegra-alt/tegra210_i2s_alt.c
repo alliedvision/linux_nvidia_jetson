@@ -1,7 +1,7 @@
 /*
  * tegra210_i2s.c - Tegra210 I2S driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -178,7 +178,7 @@ static int tegra210_i2s_rx_stop(struct snd_soc_dapm_widget *w,
 	/* HW needs sw reset to make sure previous transaction be clean */
 	ret = tegra210_i2s_sw_reset(i2s, SNDRV_PCM_STREAM_CAPTURE, 0xffff);
 	if (ret) {
-		dev_err(dev, "Failed at I2S%d_RX sw reset\n", dev->id);
+		dev_err(dev, "Failed at %s sw reset\n", w->name);
 		return ret;
 	}
 	return 0;
@@ -201,7 +201,7 @@ static int tegra210_i2s_tx_stop(struct snd_soc_dapm_widget *w,
 	/* HW needs sw reset to make sure previous transaction be clean */
 	ret = tegra210_i2s_sw_reset(i2s, SNDRV_PCM_STREAM_PLAYBACK, 0xffff);
 	if (ret) {
-		dev_err(dev, "Failed at I2S%d_TX sw reset\n", dev->id);
+		dev_err(dev, "Failed at %s sw reset\n", w->name);
 		return ret;
 	}
 	return 0;
@@ -552,7 +552,17 @@ static int tegra210_i2s_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		val = TEGRA210_I2S_CTRL_BIT_SIZE_24;
-		sample_size = 24;
+
+		/*
+		 * I2S bit clock is derived from PLLA_OUT0 and size of
+		 * 24 bits results in fractional value and the clock
+		 * is not accurate with this. To have integer clock
+		 * division below is used. It means there are additional
+		 * bit clocks (8 cycles) which are ignored. Codec picks
+		 * up data for other channel when LRCK signal toggles.
+		 */
+		sample_size = 32;
+
 		cif_conf.audio_bits = TEGRA210_AUDIOCIF_BITS_24;
 		cif_conf.client_bits = TEGRA210_AUDIOCIF_BITS_24;
 		break;

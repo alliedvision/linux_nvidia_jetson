@@ -21,6 +21,30 @@ Properties details:
   - state_cap		: Capping state value out of available active_steps
   - active_pwm_max	: Max pwm value (256)
   - pwm_gpio		: GPIO pin used for pwm
+  - use_tach_feedback   : Enable the tachometer feedback logic. If a pwm set
+			  request is raised, two worker threads are scheduled.
+			  One for setting the pwm value and one for correcting
+			  the pwm based on desired rpm for the pwm requested.
+			  The tachometer readings are validated for 16 consecutive times
+			  before the feedbacklogic bails out successfully.
+			  If the rpm validation fails, the second worker thread
+			  keeps updating the pwm using the rru/rrd values.
+  - rpm_ramp_time_ms	: The rpm validation worker thread waits for the given
+			  value(milliseconds) after scheduling the pwm  set
+			  worker thread.
+  - rpm_diff_tolerance  : How much rpm diff is to be tolerated by the rpm
+			  validation logic.
+  - rpm_valid_retry_count : In case the fan rpm is in limit, how many times
+			    should the validation logic test for regression.
+  - rpm_valid_retry_delay : How much delay to be used during the validation
+			    retries after the rpm is brought to threshold values
+  - rpm_invalid_retry_delay : In case the rpm expected and tachometer reading
+			      values mismatch, how much delay should be used for
+			      next validation.
+  - use_tmargin		: If Tmargin algorithm is being used in therm_fan_est
+    			  driver. This node needs to be enabled for the pwm fan
+			  driver to work properly.
+  - is_always_on	: Enable if the fan is always on.
 
 Example:
 

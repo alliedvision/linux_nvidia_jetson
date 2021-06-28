@@ -771,6 +771,9 @@ void nvhost_syncpt_cpu_incr_ext(struct platform_device *dev, u32 id);
 int nvhost_syncpt_read_ext_check(struct platform_device *dev, u32 id, u32 *val);
 int nvhost_syncpt_wait_timeout_ext(struct platform_device *dev, u32 id, u32 thresh,
 	u32 timeout, u32 *value, struct timespec *ts);
+int nvhost_syncpt_stop_waiting_ext(struct platform_device *dev, u32 id);
+int nvhost_syncpt_restart_waiting_ext(struct platform_device *dev, u32 id);
+int nvhost_syncpt_remember_stream_id_ext(struct platform_device *dev, u32 id);
 int nvhost_syncpt_create_fence_single_ext(struct platform_device *dev,
 	u32 id, u32 thresh, const char *name, int *fence_fd);
 int nvhost_syncpt_is_expired_ext(struct platform_device *dev,

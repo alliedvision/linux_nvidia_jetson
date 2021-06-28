@@ -1,0 +1,16 @@
+#include <dt-bindings/gpio/tegra186-gpio.h>
+#include <dt-bindings/input/input.h>
+
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+		gpio-keys,name = "gpio-keys";
+
+		power_key {
+			label = "power-key";
+			gpios = <&tegra_aon_gpio TEGRA_AON_GPIO(FF, 0) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			gpio-key,wakeup;
+		};
+	};
+};

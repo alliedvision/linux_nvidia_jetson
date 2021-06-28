@@ -1,6 +1,6 @@
 #!/bin/bash
 #==============================================================================
-# Copyright (C) 2019 Allied Vision Technologies.  All Rights Reserved.
+# Copyright (C) 2021 Allied Vision Technologies.  All Rights Reserved.
 #
 # Redistribution of this file, in original or modified form, without
 # prior written consent of Allied Vision Technologies is prohibited.
@@ -30,7 +30,7 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson"
-REQ_KERNEL="4.9.140"
+REQ_KERNEL="4.9.201"
 DEST="/boot"
 
 echo -e ${RED}"Allied Vision"${NC}" MIPI CSI-2 camera driver for "${GREEN}${REQ_MACHINE}${NC}" (kernel "${REQ_KERNEL}")"
@@ -77,62 +77,16 @@ function valid_nano_model() {
 inst() {
   MODEL="$(tr -d '\000' < /proc/device-tree/model)"
 
+  if [[ "$MODEL" == *"Nano"* ]]; then
+    sudo l4t_payload_updater_t210 bl_update_payload >nv_update_engine.log
 
-  # On Nano, write signed dtb to partition
-  if [[ "$MODEL" == *"Nano 2GB"* ]]; then
-    echo "Deploying JETSON NANO 2GB DTB"
-    install_dtb_extlinux tegra210-p3448-0003-p3542-0000.dtb
-
-  elif [[ "$MODEL" == *"Nano"* ]]; then
-    echo "Deploying JETSON NANO DTB"
-    while ! valid_nano_model; do
-      echo "Which Jetson Nano Module and Carrier Board revision?"
-      echo "  [1] NVIDIA P3448/3449-A02 (Single CSI port)"
-      echo "  [2] NVIDIA P3448/3449-B00 (Two CSI ports)"
-      echo -n "Selection? "
-      read carrier_select
-      case "$carrier_select" in
-      1)
-        NANO_CARRIER=a02
-        ;;
-      2)
-        NANO_CARRIER=b00
-        ;;
-      esac
-    done
-    NANO_DTB=tegra210-p3448-0000-p3449-0000-$NANO_CARRIER.dtb
-    sudo dd if="$NANO_DTB.encrypt" of=/dev/disk/by-partlabel/DTB status=none
-    sync
-
-  # On Xavier, write signed kernel+dtb+initrd to partition
-  elif [[ "$MODEL" == *"AGX"* ]]; then
-    echo "Deploying AGX XAVIER DTB"
-    sudo nvbootctrl set-active-boot-slot 0
-    sudo dd if=boot_sigheader.img.encrypt of=/dev/disk/by-partlabel/kernel >/dev/null 2>&1
-    sudo dd if=tegra194-p2888-0001-p2822-0000_sigheader.dtb.encrypt of=/dev/disk/by-partlabel/kernel-dtb >/dev/null 2>&1
-
-    sync
-
-  elif [[ "$MODEL" == *"Xavier NX Developer Kit"* ]]; then
-    echo "Deploying XAVIER NX DTB"
-    sudo nvbootctrl set-active-boot-slot 0
-    sudo dd if=boot_sigheader.img.encrypt of=/dev/disk/by-partlabel/kernel >/dev/null 2>&1
-    sudo dd if=tegra194-p3668-all-p3509-0000_sigheader.dtb.encrypt of=/dev/disk/by-partlabel/kernel-dtb >/dev/null 2>&1
-
-  elif [[ "$MODEL" == "quill" ]]; then
-    echo "Deploying JETSON TX2 DTB"
-
-    sudo nvbootctrl set-active-boot-slot 0
-    install_dtb_extlinux tegra186-quill-p3310-1000-c03-00-base.dtb
-
+  else
+    sudo nv_update_engine -e 2>&1 >nv_update_engine.log
+    sudo nv_update_engine -i --payload bl_update_payload --no-reboot 2>&1 >>nv_update_engine.log
   fi
 
   # All boards: copy Image + DTBs in rootfs
   sudo cp -r Image* $DEST
-  sudo cp -r *.dtb $DEST
-  if [ -d $DEST/dtb ]; then
-    sudo cp -r *.dtb $DEST/dtb
-  fi
   
   # All boards: Install modules in rootfs
   echo "Unpacking modules to /$(tar tzf modules.tar.gz | head -n 1)"

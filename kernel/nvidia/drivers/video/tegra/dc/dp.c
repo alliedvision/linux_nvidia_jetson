@@ -1,7 +1,7 @@
 /*
  * dp.c: tegra dp driver.
  *
- * Copyright (c) 2011-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2150,15 +2150,17 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 	}
 
 #ifdef CONFIG_DPHDCP
-	dp->dphdcp = tegra_dphdcp_create(dp, dc->ndev->id,
-		dc->out->ddc_bus);
-	if (IS_ERR_OR_NULL(dp->dphdcp)) {
-		err = PTR_ERR(dp->dphdcp);
-		dev_err(&dc->ndev->dev,
-			"dp hdcp creation failed with err %d\n", err);
-	} else {
-		/* create a /d entry to change the max retries */
-		tegra_dphdcp_debugfs_init(dp->dphdcp);
+	if (dp->sor->hdcp_support) {
+		dp->dphdcp = tegra_dphdcp_create(dp, dc->ndev->id,
+				dc->out->ddc_bus);
+		if (IS_ERR_OR_NULL(dp->dphdcp)) {
+			err = PTR_ERR(dp->dphdcp);
+			dev_err(&dc->ndev->dev,
+				"dp hdcp creation failed with err %d\n", err);
+		} else {
+			/* create a /d entry to change the max retries */
+			tegra_dphdcp_debugfs_init(dp->dphdcp);
+		}
 	}
 #endif
 
@@ -2944,7 +2946,7 @@ static void tegra_dc_dp_enable(struct tegra_dc *dc)
 		tegra_dc_sor_attach(dp->sor);
 	}
 #ifdef CONFIG_DPHDCP
-	if (tegra_dc_is_ext_panel(dc) &&
+	if (tegra_dc_is_ext_panel(dc) && dp->dphdcp &&
 		dc->out->type != TEGRA_DC_OUT_FAKE_DP) {
 		tegra_dphdcp_set_plug(dp->dphdcp, true);
 	}
@@ -2998,7 +3000,8 @@ static void tegra_dc_dp_destroy(struct tegra_dc *dc)
 		tegra_hda_destroy(dp->hda_handle);
 #endif
 
-	tegra_dphdcp_destroy(dp->dphdcp);
+	if (dp->dphdcp)
+		tegra_dphdcp_destroy(dp->dphdcp);
 
 	tegra_dp_dpaux_disable(dp);
 	if (dp->dpaux)
@@ -3046,7 +3049,7 @@ static void tegra_dc_dp_disable(struct tegra_dc *dc)
 	tegra_dc_io_start(dc);
 
 #ifdef CONFIG_DPHDCP
-	if (tegra_dc_is_ext_panel(dc) &&
+	if (tegra_dc_is_ext_panel(dc) && dp->dphdcp &&
 		dc->out->type != TEGRA_DC_OUT_FAKE_DP)
 		tegra_dphdcp_set_plug(dp->dphdcp, false);
 #endif

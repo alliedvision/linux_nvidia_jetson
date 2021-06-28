@@ -447,6 +447,7 @@ long gk20a_sched_dev_ioctl(struct file *filp, unsigned int cmd,
 			return -EFAULT;
 	}
 
+	nvgpu_speculation_barrier();
 	switch (cmd) {
 	case NVGPU_SCHED_IOCTL_GET_TSGS:
 		err = gk20a_sched_dev_ioctl_get_tsgs(g,

@@ -361,6 +361,7 @@ static int gk20a_tsg_event_id_ctrl(struct gk20a *g, struct tsg_gk20a *tsg,
 	if (args->event_id >= NVGPU_IOCTL_CHANNEL_EVENT_ID_MAX)
 		return -EINVAL;
 
+	nvgpu_speculation_barrier();
 	switch (args->cmd) {
 	case NVGPU_IOCTL_CHANNEL_EVENT_ID_CMD_ENABLE:
 		err = gk20a_tsg_event_id_enable(tsg, args->event_id, &fd);
@@ -572,6 +573,7 @@ static int gk20a_tsg_ioctl_read_single_sm_error_state(struct gk20a *g,
 	if (args->record_size > 0) {
 		size_t write_size = sizeof(*sm_error_state);
 
+		nvgpu_speculation_barrier();
 		if (write_size > args->record_size)
 			write_size = args->record_size;
 

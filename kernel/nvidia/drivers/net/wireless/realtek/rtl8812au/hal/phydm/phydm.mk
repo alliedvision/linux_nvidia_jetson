@@ -1,4 +1,4 @@
-EXTRA_CFLAGS += -I$(srctree)/../nvidia/drivers/net/wireless/realtek/rtl8812au/hal/phydm
+EXTRA_CFLAGS += -I$(srctree.nvidia)/drivers/net/wireless/realtek/rtl8812au/hal/phydm
 
 _PHYDM_FILES := hal/phydm/phydm_debug.o	\
 								hal/phydm/phydm_antdiv.o\

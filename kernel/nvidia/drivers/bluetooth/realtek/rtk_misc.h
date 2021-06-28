@@ -45,7 +45,8 @@
 #endif
 
 #if 1
-#define RTKBT_ERR(fmt, arg...) printk(KERN_ERR "rtk_btusb: " fmt "\n" , ## arg)
+#define RTKBT_ERR(fmt, arg...) \
+			printk(KERN_DEBUG "rtk_btusb: " fmt "\n", ## arg)
 #else
 #define RTKBT_ERR(fmt, arg...)
 #endif

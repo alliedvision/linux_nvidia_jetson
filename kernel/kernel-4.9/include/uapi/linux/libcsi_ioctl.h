@@ -138,8 +138,8 @@ struct v4l2_i2c
     __u32       register_address;       // Register
     __u32       timeout;                // Timeout value
     const char* ptr_buffer;             // I/O buffer
-    __u32       register_size;          // Register size
-    __u32       num_bytes;              // Bytes to read
+    __u32       register_size;          // Register address size (should be 2 for AVT Alvium 1500 and 1800)
+    __u32       num_bytes;              // Bytes to read or write
 };
 
 struct v4l2_dma_mem

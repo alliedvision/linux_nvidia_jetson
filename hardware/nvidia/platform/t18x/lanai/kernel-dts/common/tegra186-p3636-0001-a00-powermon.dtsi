@@ -1,0 +1,49 @@
+/*
+ * tegra186-p3636-0001-a00-powermon.dtsi : Tegra186 power monitor
+ *				dtsi file on Lanai P3636
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	i2c@3180000 {
+		ina3221x_40: ina3221x@40 {
+			compatible = "ti,ina3221x";
+			reg = <0x40>;
+			ti,trigger-config = <0x7003>;
+			ti,continuous-config = <0x7c07>;
+			ti,enable-forced-continuous;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			channel@0 {
+				reg = <0x0>;
+				ti,rail-name = "VDD_IN";
+				ti,shunt-resistor-mohm = <5>;
+				ti,current-warning-limit-ma = <3000>;
+				ti,current-critical-limit-ma = <3600>;
+			};
+			channel@1 {
+				reg = <0x1>;
+				ti,rail-name = "VDD_CPU_GPU";
+				ti,shunt-resistor-mohm = <5>;
+			};
+			channel@2 {
+				reg = <0x2>;
+				ti,rail-name = "VDD_SOC";
+				ti,shunt-resistor-mohm = <5>;
+			};
+		};
+
+		/* TBD: Need to add GPIO, touch and lcd rail*/
+	};
+};

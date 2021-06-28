@@ -533,6 +533,8 @@ static const struct gpu_ops gv11b_ops = {
 			gv11b_slcg_xbar_load_gating_prod,
 		.slcg_hshub_load_gating_prod =
 			gv11b_slcg_hshub_load_gating_prod,
+		.slcg_acb_load_gating_prod =
+			gv11b_slcg_acb_load_gating_prod,
 		.blcg_bus_load_gating_prod =
 			gv11b_blcg_bus_load_gating_prod,
 		.blcg_ce_load_gating_prod =

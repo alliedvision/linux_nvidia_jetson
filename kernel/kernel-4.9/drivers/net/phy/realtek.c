@@ -35,6 +35,7 @@
 #define RTL8211F_LED_PAGE	0xd04
 
 #define RTL8211F_PHYCR1_REG	0x18
+#define RTL8211F_PHYCR2_REG	0x19
 #define RTL8211F_ALDPS_ENABLED	0x4
 #define RTL8211F_ALDPS_PLL_OFF	0x2
 #define RTL8211F_LED0_LINK_1000	0x8
@@ -211,6 +212,14 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	ret = phy_write(phydev, RTL8211F_PHYCR1_REG,
 			reg | RTL8211F_ALDPS_ENABLED |
 			RTL8211F_ALDPS_PLL_OFF);
+	if (ret)
+		return ret;
+
+	reg = phy_read(phydev, RTL8211F_PHYCR2_REG);
+	if (reg < 0)
+		return reg;
+
+	ret = phy_write(phydev, RTL8211F_PHYCR2_REG, reg & ~BIT(0));
 	if (ret)
 		return ret;
 

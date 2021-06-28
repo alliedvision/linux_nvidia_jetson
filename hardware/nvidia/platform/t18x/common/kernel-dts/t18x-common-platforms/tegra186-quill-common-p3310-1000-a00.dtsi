@@ -17,6 +17,7 @@
 #include "tegra186-quill-p3310-1000-a00-powermon.dtsi"
 #include "tegra186-quill-thermal.dtsi"
 #include "tegra186-quill-tskin-feature.dtsi"
+#include "tegra186-thermal-userspace-alert.dtsi"
 
 #define EXTCON_NONE		0
 #define EXTCON_USB             1
@@ -126,6 +127,18 @@
 
 	nvdumper {
 		status = "disabled";
+	};
+
+	bcpu_alert: bcpu-throttle-alert {
+		status = "okay";
+	};
+
+	mcpu_alert: mcpu-throttle-alert {
+		status = "okay";
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		status = "okay";
 	};
 };
 

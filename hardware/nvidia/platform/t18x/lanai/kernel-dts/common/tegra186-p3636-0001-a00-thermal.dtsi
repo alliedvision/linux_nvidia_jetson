@@ -1,0 +1,130 @@
+/*
+ * tegra186-p3636-0001-a00-thermal.dtsi : Lanai thermal dtsi
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/tegra186-gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "t18x-common-platforms/tegra186-balanced-throttle-te770d-ucm2.dtsi"
+
+/* THERMAL gpio definitions */
+#define TEMP_ALERT		TEGRA_AON_GPIO(V, 0)
+
+/ {
+
+	thermal-zones {
+		status = "okay";
+
+		BCPU-therm {
+			status = "okay";
+			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_critical {
+					temperature = <100500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				trip_bthrot {
+					temperature = <95500>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&{/thermal-zones/BCPU-therm/trips/trip_bthrot}>;
+					cdev-type = "cpu-balanced";
+					cooling-device = <&{/bthrot_cdev/cpu_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		MCPU-therm {
+			status = "okay";
+			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_critical {
+					temperature = <100500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				trip_bthrot {
+					temperature = <95500>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&{/thermal-zones/MCPU-therm/trips/trip_bthrot}>;
+					cdev-type = "cpu-balanced";
+					cooling-device = <&{/bthrot_cdev/cpu_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		PLL-therm {
+			status = "okay";
+		};
+
+		GPU-therm {
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_AO>;
+			status = "okay";
+			polling-delay-passive = <250>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+			trips {
+				trip_critical {
+					temperature = <100500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				trip_bthrot {
+					temperature = <95500>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&{/thermal-zones/GPU-therm/trips/trip_bthrot}>;
+					cdev-type = "gpu-balanced";
+					cooling-device = <&{/bthrot_cdev/gpu_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+	};
+};

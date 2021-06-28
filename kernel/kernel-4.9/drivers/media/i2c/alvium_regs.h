@@ -24,11 +24,12 @@ version:     1.7.11
 #ifndef ALVIUM_REGS_H
 #define ALVIUM_REGS_H
 
-// Version of the BCRM spec
+// Version of the GenCP over CSI spec
 #define GENCP_OVER_CCI_SPEC_VERSION_MAJOR           1
 #define GENCP_OVER_CCI_SPEC_VERSION_MINOR           1
 #define GENCP_OVER_CCI_SPEC_VERSION_PATCH           26
 
+// Version of the BCRM spec
 #define BCRM_SPEC_VERSION_MAJOR                     1
 #define BCRM_SPEC_VERSION_MINOR                     1
 #define BCRM_SPEC_VERSION_PATCH                     9
@@ -38,14 +39,14 @@ version:     1.7.11
 #define CCI_DEVICE_CAP_64R                          0x0008
 #define CCI_GCPRM_16R                               0x0010
 #define CCI_BCRM_16R                                0x0014
-#define CCI_DEVICE_GUID_64R                         0x0018
-#define CCI_MANUF_NAME_64R                          0x0058
-#define CCI_MODEL_NAME_64R                          0x0098
-#define CCI_FAMILY_NAME_64R                         0x00D8
-#define CCI_DEVICE_VERSION_64R                      0x0118
-#define CCI_MANUF_INFO_64R                          0x0158
-#define CCI_SERIAL_NUM_64R                          0x0198
-#define CCI_USER_DEF_NAME_64R                       0x01D8
+#define CCI_DEVICE_GUID_512R                        0x0018
+#define CCI_MANUF_NAME_512R                         0x0058
+#define CCI_MODEL_NAME_512R                         0x0098
+#define CCI_FAMILY_NAME_512R                        0x00D8
+#define CCI_DEVICE_VERSION_512R                     0x0118
+#define CCI_MANUF_INFO_512R                         0x0158
+#define CCI_SERIAL_NUM_512R                         0x0198
+#define CCI_USER_DEF_NAME_512R                      0x01D8
 #define CCI_CHECKSUM_32R                            0x0218
 #define CCI_CHANGE_MODE_8W                          0x021C
 #define CCI_CURRENT_MODE_8R                         0x021D
@@ -140,7 +141,7 @@ version:     1.7.11
 #define BCRM_FRAME_START_TRIGGER_DELAY_32RW         0x00C4
 #define BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW          0x00C8
 #define BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW      0x00CC
-#define BCRM_EXPOSURE_ACTIVE_INVERT_8RW             0x00D0
+#define BCRM_LINE_CONFIGURATION_32RW                0x00D0
 #define BCRM_IMG_WIDTH_32RW                         0x0100
 #define BCRM_IMG_WIDTH_MIN_32R                      0x0104
 #define BCRM_IMG_WIDTH_MAX_32R                      0x0108

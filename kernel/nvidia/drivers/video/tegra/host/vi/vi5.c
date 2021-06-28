@@ -178,11 +178,11 @@ int vi5_priv_early_probe(struct platform_device *pdev)
 		dev_warn(dev, "using default number of vi channels, %d\n",
 			info->num_channels);
 	} else {
-		if (!(num_channels > info->num_channels)) {
+		if (num_channels < info->num_channels) {
 			info->num_channels = num_channels;
 		} else {
 			dev_WARN(dev,
-				"num of channels are out of range");
+				"num of channels are out of range, use default num");
 		}
 	}
 	dev_dbg(dev, "num vi channels : %d\n", info->num_channels);

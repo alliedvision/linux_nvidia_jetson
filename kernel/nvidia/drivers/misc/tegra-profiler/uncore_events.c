@@ -58,6 +58,11 @@ static inline bool is_source_active(struct source_info *si)
 	return si->active != 0;
 }
 
+static inline bool is_uncore_active(void)
+{
+	return (ctx.carmel_pmu && is_source_active(ctx.carmel_info));
+}
+
 static void
 put_sample(const struct quadd_event_data *events, int nr_events, u64 ts)
 {
@@ -193,6 +198,9 @@ int quadd_uncore_start(void)
 	struct quadd_parameters *p = &ctx.quadd_ctx->param;
 
 	if (atomic_read(&ctx.state) == QUADD_UNCORE_STATE_ACTIVE)
+		return 0;
+
+	if (!is_uncore_active())
 		return 0;
 
 	freq = p->reserved[QUADD_PARAM_IDX_UNCORE_FREQ];

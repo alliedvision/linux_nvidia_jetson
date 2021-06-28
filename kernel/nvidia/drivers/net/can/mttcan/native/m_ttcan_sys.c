@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -634,6 +634,37 @@ static ssize_t store_trigger_mem(struct device *dev,
 	return count;
 }
 
+static ssize_t show_tdc_offset(struct device *dev,
+			       struct device_attribute *devattr, char *buf)
+{
+	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+
+	return sprintf(buf, "tdc_offset=0x%x, DBTP.tdc=%d\n",
+		priv->ttcan->tdc_offset, priv->ttcan->tdc);
+}
+
+static ssize_t store_tdc_offset(struct device *dev,
+				struct device_attribute *devattr,
+				const char *buf, size_t count)
+{
+	struct mttcan_priv *priv = netdev_priv(to_net_dev(dev));
+	unsigned int tdc_offset = 0;
+
+	if ((sscanf(buf, "%X", &tdc_offset) != 1)) {
+		dev_err(dev, "wrong tdc_offset\n");
+		return -EINVAL;
+	}
+
+	if (tdc_offset != 0)
+		priv->ttcan->tdc = 1;
+	else
+		priv->ttcan->tdc = 0;
+
+	priv->ttcan->tdc_offset = tdc_offset;
+
+	return count;
+}
+
 static DEVICE_ATTR(std_filter, S_IRUGO | S_IWUSR, show_std_fltr,
 	store_std_fltr);
 static DEVICE_ATTR(xtd_filter, S_IRUGO | S_IWUSR, show_xtd_fltr,
@@ -652,6 +683,8 @@ static DEVICE_ATTR(cccr_init_txbar, S_IRUGO | S_IWUSR, show_cccr_txbar,
 	store_cccr_txbar);
 static DEVICE_ATTR(trigger_mem, S_IRUGO | S_IWUSR, show_trigger_mem,
 		store_trigger_mem);
+static DEVICE_ATTR(tdc_offset, S_IRUGO | S_IWUSR, show_tdc_offset,
+		store_tdc_offset);
 
 static struct attribute *mttcan_attr[] = {
 	&dev_attr_std_filter.attr,
@@ -666,6 +699,7 @@ static struct attribute *mttcan_attr[] = {
 	&dev_attr_txbar.attr,
 	&dev_attr_cccr_init_txbar.attr,
 	&dev_attr_trigger_mem.attr,
+	&dev_attr_tdc_offset.attr,
 	NULL
 };
 

@@ -2,9 +2,11 @@
 /*
  * Definitions for Jetson tegra186-quill-p3310-1000-c03-00-base board.
  *
- * Copyright (c) 2019 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020 NVIDIA CORPORATION. All rights reserved.
  *
  */
+
+#include <dt-bindings/gpio/tegra186-gpio.h>
 
 #define JETSON_COMPATIBLE	"nvidia,p2597-0000+p3310-1000"
 
@@ -37,3 +39,24 @@
 #define HDR40_PIN37	"gpio_pq4_pi4"
 #define HDR40_PIN38	"dap1_din_pj2"
 #define HDR40_PIN40	"dap1_dout_pj1"
+
+/* SoC GPIO definitions for 40-pin header */
+#define HDR40_PIN7_GPIO		TEGRA_MAIN_GPIO(J, 4)
+#define HDR40_PIN11_GPIO	TEGRA_MAIN_GPIO(T, 2)
+#define HDR40_PIN12_GPIO	TEGRA_MAIN_GPIO(J, 0)
+#define HDR40_PIN13_GPIO	TEGRA_MAIN_GPIO(J, 5)
+#define HDR40_PIN16_GPIO	TEGRA_AON_GPIO(AA, 0)
+#define HDR40_PIN18_GPIO	TEGRA_MAIN_GPIO(Y, 1)
+#define HDR40_PIN19_GPIO	TEGRA_MAIN_GPIO(N, 5)
+#define HDR40_PIN21_GPIO	TEGRA_MAIN_GPIO(N, 4)
+#define HDR40_PIN23_GPIO	TEGRA_MAIN_GPIO(N, 3)
+#define HDR40_PIN24_GPIO	TEGRA_MAIN_GPIO(N, 6)
+#define HDR40_PIN29_GPIO	TEGRA_MAIN_GPIO(J, 6)
+#define HDR40_PIN31_GPIO	TEGRA_AON_GPIO(AA, 2)
+#define HDR40_PIN32_GPIO	TEGRA_AON_GPIO(AA, 1)
+#define HDR40_PIN33_GPIO	TEGRA_MAIN_GPIO(I, 5)
+#define HDR40_PIN35_GPIO	TEGRA_MAIN_GPIO(J, 3)
+#define HDR40_PIN36_GPIO	TEGRA_MAIN_GPIO(T, 3)
+#define HDR40_PIN37_GPIO	TEGRA_MAIN_GPIO(I, 4)
+#define HDR40_PIN38_GPIO	TEGRA_MAIN_GPIO(J, 2)
+#define HDR40_PIN40_GPIO	TEGRA_MAIN_GPIO(J, 1)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -243,6 +243,131 @@
 				target = <&max9295_ser1>;
 				_overlay_ {
 					status = "okay";
+				};
+			};
+		};
+    /* single e2832 module */
+		fragment-e2832@0 {
+			ids = "2832-*";
+			override@0 {
+				target = <&e2832_cam0>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@1 {
+				target = <&cam_module0>;
+				_overlay_ {
+					status = "okay";
+					badge = "e2832_ltx6911";
+					position = "bottom";
+					orientation = "0";
+				};
+			};
+			override@2 {
+				target = <&cam_module0_drivernode0>;
+				_overlay_ {
+					status = "okay";
+					pcl_id = "v4l2_sensor";
+					devname = "e2832 2-002b";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/e2832@2b";
+				};
+			};
+
+			/* Enable VI ports */
+			override@4 {
+				target = <&vi_base>;
+				_overlay_ {
+					num-channels=<1>;
+				};
+			};
+			override@5 {
+				target = <&vi_port0>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@6 {
+				target = <&e2832_vi_in0>;
+				_overlay_ {
+					status = "okay";
+					port-index = <0>;
+					bus-width = <4>;
+					remote-endpoint = <&e2832_csi_out0>;
+				};
+			};
+			/* Enable CSI ports */
+			override@7 {
+				target = <&csi_base>;
+				_overlay_ {
+					num-channels=<1>;
+				};
+			};
+			override@8 {
+				target = <&csi_chan0>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@9 {
+				target = <&csi_chan0_port0>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@10 {
+				target = <&e2832_csi_in0>;
+				_overlay_ {
+					status = "okay";
+					port-index = <0>;
+					bus-width = <4>;
+					remote-endpoint = <&e2832_out0>;
+				};
+			};
+			override@11 {
+				target = <&csi_chan0_port1>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@12 {
+				target = <&e2832_csi_out0>;
+				_overlay_ {
+					status = "okay";
+					remote-endpoint = <&e2832_vi_in0>;
+				};
+			};
+			/* tegra-camera-platform settings */
+			override@13 {
+				target = <&tcp>;
+				_overlay_ {
+					num_csi_lanes = <4>;
+					max_lane_speed = <1500000>;
+					min_bits_per_pixel = <10>;
+					vi_peak_byte_per_pixel = <2>;
+					vi_bw_margin_pct = <25>;
+					isp_peak_byte_per_pixel = <5>;
+					isp_bw_margin_pct = <25>;
+				};
+			};
+
+			/* GPIO */
+			override@15 {
+				target = <&{/gpio@2200000}>;
+				_overlay_ {
+					camera-control-input {
+						status = "disabled";
+					};
+					camera-control-output-low {
+						status = "disabled";
+					};
+					camera-control-output-high {
+						gpio-hog;
+						gpios = <CAM0_RST_L 0>;
+						label = "cam0-rst";
+						output-high;
+						status = "okay";
+					};
 				};
 			};
 		};

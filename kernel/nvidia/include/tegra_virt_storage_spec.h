@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -210,7 +210,19 @@ struct combo_info_t {
 	int32_t  result;
 };
 
-#define VBLK_SG_IO_ID 0x1001
+/* SCSI bio layer needs to handle SCSI and UFS IOCTL separately
+ * This flag will be ORed with IO_IOCTL to find out difference
+ * between SCSI and UFS IOCTL
+ */
+#define SCSI_IOCTL_FLAG	0x10000000
+#define UFS_IOCTL_FLAG	0x20000000
+/* Mask for SCSI and UFS ioctl flags, 4 MSB (bits) reserved for it Two LSB
+ * bits are used for SCSI and UFS, 2 MSB bits reserved for future use.
+ */
+#define SCSI_UFS_IOCTL_FLAG_MASK 0xF0000000
+
+#define VBLK_SG_IO_ID	(0x1001 | SCSI_IOCTL_FLAG)
+#define VBLK_UFS_IO_ID	(0x1002 | UFS_IOCTL_FLAG)
 
 #define VBLK_SG_MAX_CMD_LEN 16
 
@@ -233,6 +245,33 @@ struct vblk_sg_io_hdr
     uint32_t sbp_arg_offset;    /* [i], [*o] offset to sense_buffer memory */
     uint32_t status;            /* [o] scsi status */
     uint8_t sb_len_wr;          /* [o] byte count actually written to sbp */
+    uint32_t dxfer_buf_len;     /* [i] Length of data transfer buffer */
+};
+
+struct vblk_ufs_ioc_query_req {
+	/* Query opcode to specify the type of Query operation */
+	uint8_t opcode;
+	/* idn to provide more info on specific operation. */
+	uint8_t idn;
+	/* index - optional in some cases */
+	uint8_t index;
+	/* index - optional in some cases */
+	uint8_t selector;
+	/* buf_size - buffer size in bytes pointed by buffer. */
+	uint16_t buf_size;
+	/*
+	 * user buffer pointer for query data.
+	 * Note:
+	 * For Read/Write Attribute this should be of 4 bytes
+	 * For Read Flag this should be of 1 byte
+	 * For Descriptor Read/Write size depends on the type of the descriptor
+	 */
+	uint8_t *buffer;
+	/* delay after query command completion */
+	uint32_t delay;
+	/* error status for the query operation */
+	int32_t error_status;
+
 };
 
 #pragma pack(pop)

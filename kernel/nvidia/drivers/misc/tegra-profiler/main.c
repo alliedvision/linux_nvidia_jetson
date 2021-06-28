@@ -274,7 +274,7 @@ set_parameters(struct quadd_parameters *p)
 	uid_t task_uid, current_uid;
 	struct task_struct *task = NULL;
 	u64 *low_addr_p;
-	u32 extra;
+	u32 extra, uncore_freq;
 #ifdef CONFIG_ARCH_TEGRA_19x_SOC
 	int nr;
 #endif
@@ -322,6 +322,17 @@ set_parameters(struct quadd_parameters *p)
 		return -EACCES;
 	}
 
+	if ((ctx.mode_is_trace_all && !ctx.mode_is_tracing) ||
+	    (ctx.mode_is_sample_all && !ctx.mode_is_sampling))
+		return -EINVAL;
+
+	if (ctx.mode_is_sampling && !validate_freq(p->freq))
+		return -EINVAL;
+
+	uncore_freq = p->reserved[QUADD_PARAM_IDX_UNCORE_FREQ];
+	if (uncore_freq != 0 && !validate_freq(uncore_freq))
+		return -EINVAL;
+
 	p->package_name[sizeof(p->package_name) - 1] = '\0';
 	ctx.param = *p;
 
@@ -330,11 +341,6 @@ set_parameters(struct quadd_parameters *p)
 
 	if ((ctx.mode_is_tracing && !ctx.mode_is_trace_all) ||
 	    (ctx.mode_is_sampling && !ctx.mode_is_sample_all)) {
-		if (ctx.mode_is_sampling && !validate_freq(p->freq)) {
-			pr_err("error: incorrect frequency: %u\n", p->freq);
-			return -EINVAL;
-		}
-
 		/* Currently only first process */
 		if (p->nr_pids != 1 || p->pids[0] == 0)
 			return -EINVAL;
@@ -379,16 +385,13 @@ set_parameters(struct quadd_parameters *p)
 	}
 
 	if (ctx.carmel_pmu && is_carmel_events(p->events, nr)) {
-		u32 freq = p->reserved[QUADD_PARAM_IDX_UNCORE_FREQ];
-
 		if (!capable(CAP_SYS_ADMIN)) {
 			pr_err("error: Carmel PMU: allowed only for root\n");
 			err = -EACCES;
 			goto out_put_task;
 		}
 
-		if (!validate_freq(freq)) {
-			pr_err("error: incorrect uncore freq: %u\n", freq);
+		if (uncore_freq == 0) {
 			err = -EINVAL;
 			goto out_put_task;
 		}
@@ -698,16 +701,19 @@ int quadd_late_init(void)
 		goto out_err_pmu;
 	}
 
-	pmu_info = &ctx.carmel_pmu_info;
-	events = pmu_info->supp_events;
+	if (ctx.carmel_pmu) {
+		pmu_info = &ctx.carmel_pmu_info;
+		events = pmu_info->supp_events;
 
-	nr_events = ctx.carmel_pmu->supported_events(0, events,
-						     QUADD_MAX_COUNTERS,
-						     &raw_event_mask);
+		nr_events =
+			ctx.carmel_pmu->supported_events(0, events,
+							 QUADD_MAX_COUNTERS,
+							 &raw_event_mask);
 
-	pmu_info->is_present = 1;
-	pmu_info->nr_supp_events = nr_events;
-	pmu_info->raw_event_mask = raw_event_mask;
+		pmu_info->is_present = 1;
+		pmu_info->nr_supp_events = nr_events;
+		pmu_info->raw_event_mask = raw_event_mask;
+	}
 #endif
 
 	ctx.hrt = quadd_hrt_init(&ctx);

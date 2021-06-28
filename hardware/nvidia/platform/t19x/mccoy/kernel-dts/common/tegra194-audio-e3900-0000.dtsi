@@ -1,0 +1,117 @@
+/*
+ * tegra194-audio-e3900-0000.dtsi: Audio DT file.
+ *
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <audio/tegra-platforms-audio-dai-links.dtsi>
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/audio/tegra194-audio.h>
+#include <dt-bindings/sound/rt5659.h>
+#include <audio/tegra-platforms-audio-dmic3-5-switch.dtsi>
+
+/ {
+
+	aconnect@2a41000 {
+		status = "okay";
+
+		agic-controller@2a41000 {
+			status = "okay";
+		};
+
+		adsp@2993000 {
+			status = "okay";
+		};
+	};
+
+	i2c@c250000 {
+		rt5658: rt5659.7-001a@1a {
+			compatible = "realtek,rt5658";
+			reg = <0x1a>;
+
+			realtek,jd-src = <RT5659_JD_NULL>;
+			realtek,dmic1-data-pin = <RT5659_DMIC1_NULL>;
+			realtek,dmic2-data-pin = <RT5659_DMIC2_NULL>;
+
+			gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(S, 5) 0>;
+
+			status = "okay";
+		};
+	};
+
+	hda@3510000 {
+		status = "okay";
+	};
+
+	tegra_sound: sound {
+		status = "okay";
+		compatible = "nvidia,tegra-audio-t186ref-mobile-rt565x";
+		nvidia,model = "tegra-snd-t19x-mobile-rt565x";
+		clocks = <&bpmp_clks TEGRA194_CLK_PLLA>,
+			 <&bpmp_clks TEGRA194_CLK_PLLA_OUT0>,
+			 <&bpmp_clks TEGRA194_CLK_AUD_MCLK>;
+		clock-names = "pll_a", "pll_a_out0", "extern1";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_PLLA_OUT0>,
+				  <&bpmp_clks TEGRA194_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLA>,
+					 <&bpmp_clks TEGRA194_CLK_PLLA_OUT0>;
+
+		nvidia,audio-routing =
+			"x Headphone Jack",     "x HPO L Playback",
+			"x Headphone Jack",     "x HPO R Playback",
+			"x IN1P",               "x Mic Jack",
+			"x IN2P",               "x Mic Jack",
+			"x Int Spk",            "x SPO Playback",
+			"x DMIC L1",            "x Int Mic",
+			"x DMIC L2",            "x Int Mic",
+			"x DMIC R1",            "x Int Mic",
+			"x DMIC R2",            "x Int Mic",
+			"y Headphone",          "y OUT",
+			"y IN",                 "y Mic",
+			"z Headphone",          "z OUT",
+			"z IN",                 "z Mic",
+			"m Headphone",          "m OUT",
+			"m IN",                 "m Mic",
+			"n Headphone",          "n OUT",
+			"n IN",                 "n Mic",
+			"o Headphone",          "o OUT",
+			"o IN",                 "o Mic",
+			"a IN",                 "a Mic",
+			"b IN",                 "b Mic",
+			"c IN",                 "c Mic",
+			"d IN",                 "d Mic",
+			"d1 Headphone",         "d1 OUT",
+			"d2 Headphone",         "d2 OUT";
+
+		mclk-fs = <256>;
+
+		/*
+		 * Default config for all I2S dai links are
+		 * format = "i2s", bitclock-slave, frame-slave,
+		 * bitclock-noninversion, frame-noninversion,
+		 * Any change from default needs override on
+		 * platform specific files.
+		 */
+
+		/* Override with Codec entries */
+		nvidia,dai-link-1 {
+			link-name = "rt565x-playback";
+			codec-dai = <&rt5658>;
+			codec-dai-name = "rt5659-aif1";
+		};
+
+		hdr40_snd_link_i2s: nvidia,dai-link-2 { };
+
+		/* I2S link on CSI Connector */
+		csi_conn_i2s: nvidia,dai-link-4 { };
+	};
+};

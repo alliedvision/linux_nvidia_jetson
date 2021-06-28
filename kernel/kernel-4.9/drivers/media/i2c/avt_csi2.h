@@ -64,6 +64,8 @@ struct avt_csi2_priv {
 
 	struct task_struct *trig_thread;
 	struct v4l2_trigger_rate *trigger_rate;
+
+	int acquisition_active_invert;
 };
 
 struct avt_ctrl {
@@ -206,10 +208,17 @@ enum convert_type {
 #define AV_ATTR_WHITEBALANCE		{"White Balance",	9}
 #define AV_ATTR_SHARPNESS		{"Sharpnesss",	       10}
 #define AV_ATTR_EXPOSURE_AUTO		{"Exposure Auto",      11}
+#define AV_ATTR_EXPOSURE_AUTO_MIN	{"Exposure Auto Min",      11}
+#define AV_ATTR_EXPOSURE_AUTO_MAX	{"Exposure Auto Max",      11}
 #define AV_ATTR_AUTOGAIN		{"Auto Gain",          12}
+#define AV_ATTR_AUTOGAIN_MIN		{"Auto Gain Min",          12}
+#define AV_ATTR_AUTOGAIN_MAX		{"Auto Gain Max",          12}
 #define AV_ATTR_EXPOSURE		{"Exposure",	       13}
 #define AV_ATTR_EXPOSURE_ABS		{"Exposure Absolute",  13}
 #define AV_ATTR_WHITEBALANCE_AUTO	{"Auto White Balance", 14}
+#define AV_ATTR_EXPOSURE_ACTIVE_LINE_MODE	{"Exposure Active Line Mode", 18}
+#define AV_ATTR_EXPOSURE_ACTIVE_LINE_SELECTOR	{"Exposure Active Line Selector", 18}
+#define AV_ATTR_EXPOSURE_ACTIVE_INVERT		{"Exposure Active Invert", 18}
 
 struct avt_ctrl_mapping {
 	u8	reg_size;
@@ -226,6 +235,14 @@ struct avt_ctrl_mapping {
 		u8	feature_avail;
 	} attr;
 };
+
+#define V4L2_CID_EXPOSURE_AUTO_MIN			(V4L2_CID_CAMERA_CLASS_BASE+40)
+#define V4L2_CID_EXPOSURE_AUTO_MAX			(V4L2_CID_CAMERA_CLASS_BASE+41)
+#define V4L2_CID_AUTOGAIN_MIN				(V4L2_CID_CAMERA_CLASS_BASE+42)
+#define V4L2_CID_AUTOGAIN_MAX				(V4L2_CID_CAMERA_CLASS_BASE+43)
+#define V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE		(V4L2_CID_CAMERA_CLASS_BASE+44)
+#define V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR	(V4L2_CID_CAMERA_CLASS_BASE+45)
+#define V4L2_CID_EXPOSURE_ACTIVE_INVERT			(V4L2_CID_CAMERA_CLASS_BASE+46)
 
 const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 	{
@@ -412,6 +429,68 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
 		.reg_size		= AV_CAM_REG_SIZE,
 		.data_size		= AV_CAM_DATA_SIZE_64,
 		.type			= V4L2_CTRL_TYPE_INTEGER64,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_EXPOSURE_AUTO_MIN,
+		.attr			= AV_ATTR_EXPOSURE_AUTO_MIN,
+		.reg_offset		= BCRM_EXPOSURE_AUTO_MIN_64RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_64,
+		.type			= V4L2_CTRL_TYPE_INTEGER64,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_EXPOSURE_AUTO_MAX,
+		.attr			= AV_ATTR_EXPOSURE_AUTO_MAX,
+		.reg_offset		= BCRM_EXPOSURE_AUTO_MAX_64RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_64,
+		.type			= V4L2_CTRL_TYPE_INTEGER64,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_AUTOGAIN_MIN,
+		.attr			= AV_ATTR_AUTOGAIN_MIN,
+		.reg_offset		= BCRM_GAIN_AUTO_MIN_64RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_64,
+		.type			= V4L2_CTRL_TYPE_INTEGER64,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_AUTOGAIN_MAX,
+		.attr			= AV_ATTR_AUTOGAIN_MAX,
+		.reg_offset		= BCRM_GAIN_AUTO_MAX_64RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_64,
+		.type			= V4L2_CTRL_TYPE_INTEGER64,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE,
+		.attr			= AV_ATTR_EXPOSURE_ACTIVE_LINE_MODE,
+		.reg_offset		= BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_8,
+		.type			= V4L2_CTRL_TYPE_BOOLEAN,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR,
+		.attr			= AV_ATTR_EXPOSURE_ACTIVE_LINE_SELECTOR,
+		.reg_offset		= BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_8,
+		.type			= V4L2_CTRL_TYPE_INTEGER,
+		.flags			= 0,
+	},
+	{
+		.id			= V4L2_CID_EXPOSURE_ACTIVE_INVERT,
+		.attr			= AV_ATTR_EXPOSURE_ACTIVE_INVERT,
+		.reg_size		= AV_CAM_REG_SIZE,
+		.data_size		= AV_CAM_DATA_SIZE_8,
+		.type			= V4L2_CTRL_TYPE_BOOLEAN,
 		.flags			= 0,
 	},
 };

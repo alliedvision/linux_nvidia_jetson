@@ -20,7 +20,7 @@ ifeq ($(GCC_VER_49),1)
 EXTRA_CFLAGS += -Wno-date-time	# Fix compile error && warning on gcc 4.9 and later
 endif
 
-SOURCETREE = $(srctree)/../nvidia/drivers/net/wireless/realtek/rtl8822ce
+SOURCETREE = $(srctree.nvidia)/drivers/net/wireless/realtek/rtl8822ce
 EXTRA_CFLAGS += -I$(SOURCETREE)/include
 
 EXTRA_LDFLAGS += --strip-debug
@@ -71,7 +71,7 @@ CONFIG_SIGNAL_SCALE_MAPPING = n
 CONFIG_80211W = y
 CONFIG_REDUCE_TX_CPU_LOADING = n
 CONFIG_BR_EXT = y
-CONFIG_TDLS = n
+CONFIG_TDLS = y
 CONFIG_WIFI_MONITOR = n
 CONFIG_MCC_MODE = n
 CONFIG_APPEND_VENDOR_IE_ENABLE = n

@@ -1,0 +1,174 @@
+/*
+ * tegra186-p3636-0001-odm-data-plugin-manager.dtsi: Tegra186 ODM data
+ * P3636 plugin manager
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	plugin-manager {
+		fragement@0 {
+			odm-data = "enable-denver-wdt";
+			override@0 {
+				target = <&tegra_wdt>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+		};
+
+		fragement@1 {
+			odm-data = "disable-denver-wdt";
+			override@0 {
+				target = <&tegra_pmc>;
+				_overlay_ {
+					nvidia,enable-halt-in-fiq;
+				};
+			};
+		};
+
+		fragement@2 {
+			odm-data = "enable-pmic-wdt";
+			override@0 {
+				target = <&spmic_wdt>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+		};
+
+		fragement@3 {
+			odm-data = "enable-pmic-wdt",
+				   "enable-denver-wdt";
+			override@0 {
+				target = <&soft_wdt>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+		};
+
+		fragement@4 {
+			odm-data = "mods-build";
+			override@0 {
+				target = <&xusb_mbox>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+			override@1 {
+				target = <&tegra_xusb_padctl>;
+				_overlay_ {
+					delete-target-property = "mboxes";
+				};
+			};
+
+			override@2 {
+				target = <&sdmmc3>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+
+			override@3 {
+				target = <&sdmmc1>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+
+			override@4 {
+				target = <&sdmmc4>;
+				_overlay_ {
+					delete-target-property = "nvidia,enable-hwcq";
+				};
+			};
+
+			override@5 {
+				target = <&{/host1x}>;
+				_overlay_ {
+                        		nvdisplay@15200000 {
+                        			status = "okay";
+                        			bootloader-status = "disabled";
+                        			nvidia,dc-or-node = "/host1x/sor1";
+                        			nvidia,dc-connector = <&sor1>;
+                        			nvidia,fb-win = <0>;
+                        			win-mask = <0x7>;
+                        		};
+                        		nvdisplay@15210000 {
+                        			status = "okay";
+                        			bootloader-status = "disabled";
+                        			nvidia,dc-or-node = "/host1x/sor";
+                        			nvidia,dc-connector = <&sor0>;
+                        			nvidia,fb-win = <3>;
+                        			win-mask = <0x38>;
+                        		};
+                        		nvdisplay@15220000 {
+                        			status = "disabled";
+                        		};
+                        		dsi {
+                        			status = "disabled";
+                        		};
+                        		sor {
+                        			status = "okay";
+                        			nvidia,active-panel = <&sor0_dp_display>;
+                        			dp-display {
+                        				status = "okay";
+                        			};
+                        			hdmi-display {
+                        				status = "disabled";
+                        			};
+                        		};
+                        		sor1 {
+                        			status = "okay";
+                        			nvidia,active-panel = <&sor1_hdmi_display>;
+                        			dp-display {
+                        				status = "disabled";
+                        			};
+                        			hdmi-display {
+                        				status = "okay";
+                        			};
+                        		};
+                        		dpaux@155c0000 {
+                        			status = "okay";
+                        		};
+                        		dpaux@15040000 {
+                        			status = "okay";
+                        		};
+				};
+			};
+		};
+
+		fragement@5 {
+			odm-data = "enable-high-speed-uart";
+			override@0 {
+				target = <&uarta>;
+				_overlay_ {
+					compatible = "nvidia,tegra186-hsuart";
+					early-print-console-channel;
+					resets = <&tegra_car TEGRA186_RESET_UARTA>;
+					reset-names = "serial";
+				};
+			};
+		};
+
+		fragement@6 {
+			odm-data = "enable-sdmmc-hwcq";
+			override@0 {
+				target = <&sdmmc4>;
+				_overlay_ {
+					nvidia,enable-hwcq;
+				};
+			};
+		};
+	};
+};

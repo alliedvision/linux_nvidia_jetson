@@ -2,10 +2,10 @@
  * Linux cfg80211 driver
  *
  * Copyright (C) 1999-2015, Broadcom Corporation
- * Copyright (C) 2019 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2019-2020, NVIDIA Corporation. All rights reserved.
  *
  * Portions contributed by Nvidia
- * Copyright (C) 2015-2020 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2020, NVIDIA Corporation. All rights reserved.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -3170,8 +3170,7 @@ wl_cfg80211_ibss_vsie_delete(struct net_device *dev)
 		}
 
 		/* change the command from "add" to "del" */
-		strncpy(cfg->ibss_vsie->cmd, "del", VNDR_IE_CMD_LEN - 1);
-		cfg->ibss_vsie->cmd[VNDR_IE_CMD_LEN - 1] = '\0';
+		strlcpy(cfg->ibss_vsie->cmd, "del", VNDR_IE_CMD_LEN);
 
 		ret = wldev_iovar_setbuf(dev, "ie",
 			cfg->ibss_vsie, cfg->ibss_vsie_len,

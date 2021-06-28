@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 #include <linux/nospec.h>
+#include <linux/nvhost.h>
 
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
@@ -54,6 +55,7 @@
 
 #define TPG_CSI_GROUP_ID	10
 #define HDMI_IN_RATE 550000000
+
 
 static s64 queue_init_ts;
 
@@ -525,12 +527,14 @@ void free_ring_buffers(struct tegra_channel *chan, int frames)
 				"%s: capture init latency is %lld ms\n",
 				__func__, (frame_arrived_ts - queue_init_ts));
 		}
-		/* Workaround to enable single buffer use */
+		/* Enable single buffer use */
 		if (chan->capture_queue_depth == 2)
-			chan->free_index++;
+			vb2_buffer_done(&vbuf->vb2_buf,
+				chan->buffer_state[chan->free_index]);
+		else
+			vb2_buffer_done(&vbuf->vb2_buf,
+				chan->buffer_state[chan->free_index++]);
 
-		vb2_buffer_done(&vbuf->vb2_buf,
-			chan->buffer_state[chan->free_index++]);
 
 		if (chan->free_index >= chan->capture_queue_depth)
 			chan->free_index = 0;
@@ -549,7 +553,7 @@ static void add_buffer_to_ring(struct tegra_channel *chan,
 	spin_lock(&chan->buffer_lock);
 	chan->buffer_state[chan->save_index] = VB2_BUF_STATE_REQUEUEING;
 	chan->buffers[chan->save_index++] = vb;
-	if (chan->save_index >= chan->capture_queue_depth)
+	if ((chan->save_index >= chan->capture_queue_depth) || (chan->capture_queue_depth <= 2))
 		chan->save_index = 0;
 	chan->num_buffers++;
 	spin_unlock(&chan->buffer_lock);
@@ -577,7 +581,7 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 {
 	uint64_t curr_frame_jiffies;
 
-	if (!chan->bfirst_fstart)
+	if (!chan->bfirst_fstart && (chan->capture_queue_depth > 3))
 		chan->bfirst_fstart = true;
 	else
 		update_state_to_buffer(chan, state);
@@ -586,8 +590,13 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 	if (chan->capture_state != CAPTURE_GOOD) {
 		free_ring_buffers(chan, chan->num_buffers);
 		tegra_channel_init_ring_buffer(chan);
-		chan->stream_stats.frames_incomplete++;
-		chan->incomplete_flag = true;
+		/* Mark frame as incomplete only after stopping stream */
+		if (!atomic_read(&chan->is_streaming)) {
+			chan->stream_stats.frames_incomplete++;
+			chan->incomplete_flag = true;
+		/* Frames counted as underrun doesn't have any flag, because they are consider as dropped */
+		} else
+			chan->stream_stats.frames_underrun++;
 		return;
 	} else {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
@@ -698,6 +707,9 @@ tegra_channel_queue_setup(struct vb2_queue *vq,
 
 	sizes[0] = chan->format.sizeimage;
 	alloc_devs[0] = chan->vi->dev;
+
+	if (chan->avt_cam_mode)
+		*nbuffers = chan->created_bufs + 1;
 
 	if (vi->fops && vi->fops->vi_setup_queue)
 		return vi->fops->vi_setup_queue(chan, nbuffers);
@@ -1597,7 +1609,7 @@ static void tegra_channel_free_sensor_properties(
 	if (sensor_sd == NULL)
 		return;
 
-	s_data = container_of(sensor_sd, struct camera_common_data, subdev);
+	s_data = to_camera_common_data(sensor_sd->dev);
 	if (s_data == NULL)
 		return;
 
@@ -1647,18 +1659,16 @@ static int tegra_channel_connect_sensor(
 		csi_chan_of_node =
 			of_graph_get_remote_port_parent(ep_node);
 
-		list_for_each_entry(csi_chan, &csi_device->csi_chans, list)
-			if (csi_chan->of_node == csi_chan_of_node)
+		list_for_each_entry(csi_chan, &csi_device->csi_chans, list) {
+			if (csi_chan->of_node == csi_chan_of_node) {
+				csi_chan->s_data =
+					to_camera_common_data(chan->subdev_on_csi->dev);
+				csi_chan->sensor_sd = chan->subdev_on_csi;
 				break;
+			}
+		}
 
 		of_node_put(csi_chan_of_node);
-
-		if (!csi_chan)
-			continue;
-
-		csi_chan->s_data =
-			to_camera_common_data(chan->subdev_on_csi->dev);
-		csi_chan->sensor_sd = chan->subdev_on_csi;
 
 	}
 
@@ -1747,20 +1757,30 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 			struct tegra_channel *chan)
 {
 	u64 pixelclock = 0;
+	struct camera_common_data *s_data =
+			to_camera_common_data(chan->subdev_on_csi->dev);
 
-	if (chan->pg_mode)
-		cdev->sensor_type = SENSORTYPE_VIRTUAL;
-	else if (v4l2_subdev_has_op(chan->subdev_on_csi,
-				video, g_dv_timings)) {
-		cdev->sensor_type = SENSORTYPE_OTHER;
-		pixelclock = tegra_channel_get_max_source_rate();
-	} else {
+	if (s_data != NULL) {
+		/* camera sensors */
 		cdev->sensor_type = tegra_channel_get_sensor_type(chan);
 		pixelclock = tegra_channel_get_max_pixelclock(chan);
 		/* Multiply by CPHY symbols to pixels factor. */
 		if (cdev->sensor_type == SENSORTYPE_CPHY)
 			pixelclock *= 16/7;
 		cdev->lane_num = tegra_channel_get_num_lanes(chan);
+	} else {
+		if (chan->pg_mode) {
+			/* TPG mode */
+			cdev->sensor_type = SENSORTYPE_VIRTUAL;
+		} else if (v4l2_subdev_has_op(chan->subdev_on_csi,
+						video, g_dv_timings)) {
+			/* HDMI-IN */
+			cdev->sensor_type = SENSORTYPE_OTHER;
+			pixelclock = tegra_channel_get_max_source_rate();
+		} else {
+			/* Focusers, no pixel clk and ISO BW, just bail out */
+			return;
+		}
 	}
 
 	cdev->pixel_rate = pixelclock;
@@ -2129,7 +2149,9 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		int count = 1;
 		int plane_size[1] = { 0 };
 
-		ret = vb2_core_create_bufs(&chan->queue, mem->memory, &count, 1, plane_size, true, mem->index);
+		ret = vb2_core_create_single_buf(&chan->queue, mem->memory, &count, 1, plane_size, true, mem->index);
+		chan->created_bufs++;
+
 		if (ret < 0)
 			return ret;
 		return 0;
@@ -2143,11 +2165,25 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		ret = vb2_buffer_free(&chan->queue, mem->index);
 		if (ret < 0)
         	return ret;
+		chan->created_bufs = 0;
 		return 0;
 		break;
 	}
 
 	case VIDIOC_FLUSH_FRAMES: {
+		int i;
+		for (i = 0; i < q->num_buffers; ++i)
+			switch (q->bufs[i]->state) {
+			case VB2_BUF_STATE_PREPARED:
+			case VB2_BUF_STATE_QUEUED:
+			case VB2_BUF_STATE_ACTIVE:
+				/* The flags should be copied to the corresponding v4l2 buffer
+				 * in __fill_v4l2_buffer */
+				to_vb2_v4l2_buffer(q->bufs[i])->flags |= V4L2_BUF_FLAG_UNUSED;
+				break;
+			default:
+				break;
+			}
 		update_flush_state(chan, FLUSH_IN_PROGRESS);
 		vb2_core_queue_cancel(q);
 		update_flush_state(chan, FLUSH_DONE);
@@ -2158,7 +2194,6 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 
 	case VIDIOC_STREAMSTAT: {
 		struct v4l2_stats_t *stream_stats = arg;
-		chan->stream_stats.frames_underrun = chan->qbuf_count - chan->dqbuf_count;
 		chan->stream_stats.current_frame_count = 1;
 		*stream_stats = chan->stream_stats;
 		return 0;
@@ -2195,6 +2230,9 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 
 		/* Get back to the default timeout value */
 		chan->timeout = curr_timeout;
+        /* Reset current values in order to reset the displayed current frame reate after stop*/
+        chan->stream_stats.current_frame_count = 0;
+        chan->stream_stats.current_frame_interval = 0;
 
 		return 0;
 		break;
@@ -2445,18 +2483,23 @@ int tegra_channel_ioctl_qbuf(struct file *file, void *priv, struct v4l2_buffer *
 int tegra_channel_ioctl_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct tegra_channel *chan = video_drvdata(file);
+	struct video_device *vdev = video_devdata(file);
 	int ret = 0;
 
 	ret = vb2_ioctl_dqbuf(file, priv, p);
 
-	if (ret < 0) {
-		p->flags |= V4L2_BUF_FLAG_INVALIDINCOMPLETE;
-		return ret;
+	/* The buffer error flag can be set even if ret == 0 */
+	if (vdev->queue->buffer_error) {
+		p->flags |= V4L2_BUF_FLAG_INVALID;
 	}
 
 	if (chan->incomplete_flag) {
 		p->flags |= V4L2_BUF_FLAG_INCOMPLETE;
 		chan->incomplete_flag = false;
+	}
+
+	if (ret < 0) {
+		return ret;
 	}
 
 	p->flags |= V4L2_BUF_FLAG_VALID;
@@ -2741,8 +2784,8 @@ int tegra_channel_init_video(struct tegra_channel *chan)
 	return ret;
 
 ctrl_init_error:
-	video_device_release(chan->video);
 	media_entity_cleanup(&chan->video->entity);
+	video_device_release(chan->video);
 	v4l2_ctrl_handler_free(&chan->ctrl_handler);
 	return ret;
 }
@@ -2777,6 +2820,7 @@ int tegra_channel_init(struct tegra_channel *chan)
 	init_waitqueue_head(&chan->dequeue_wait);
 	spin_lock_init(&chan->dequeue_lock);
 	mutex_init(&chan->stop_kthread_lock);
+	init_rwsem(&chan->reset_lock);
 	atomic_set(&chan->is_streaming, DISABLE);
 	spin_lock_init(&chan->capture_state_lock);
 	spin_lock_init(&chan->buffer_lock);
@@ -2834,6 +2878,7 @@ int tegra_channel_init(struct tegra_channel *chan)
 
 	chan->incomplete_flag = false;
 	chan->timeout = msecs_to_jiffies(CAPTURE_TIMEOUT_MS);
+	chan->created_bufs = 0;
 
 	chan->init_done = true;
 

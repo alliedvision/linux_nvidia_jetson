@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdisp.c
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -4538,6 +4538,11 @@ void tegra_nvdisp_activate_general_channel(struct tegra_dc *dc)
 	tegra_dc_readl(dc, nvdisp_cmd_state_ctrl_r()); /* flush */
 }
 
+static struct tegra_dc_sor_info t18x_sor_info[] = {
+	{ .hdcp_supported = true },   /* SOR0 */
+	{ .hdcp_supported = true },   /* SOR1 */
+};
+
 void tegra_dc_populate_t18x_hw_data(struct tegra_dc_hw_data *hw_data)
 {
 	if (!hw_data)
@@ -4546,6 +4551,7 @@ void tegra_dc_populate_t18x_hw_data(struct tegra_dc_hw_data *hw_data)
 	hw_data->nheads = 3;
 	hw_data->nwins = 6;
 	hw_data->nsors = 2;
+	hw_data->sor_info = t18x_sor_info;
 	hw_data->pd_table = &t18x_disp_pd_table;
 	hw_data->valid = true;
 	hw_data->version = TEGRA_DC_HW_T18x;

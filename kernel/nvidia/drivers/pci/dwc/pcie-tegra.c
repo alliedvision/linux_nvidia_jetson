@@ -2687,7 +2687,7 @@ static int tegra_pcie_dw_host_init(struct pcie_port *pp)
 	}
 
 	dw_pcie_read(pci->dbi_base + PCI_IO_BASE, 4, &tmp);
-	tmp &= ~(IO_BASE_IO_DECODE | IO_BASE_IO_DECODE);
+	tmp &= ~(IO_BASE_IO_DECODE | IO_BASE_IO_DECODE_BIT8);
 	dw_pcie_write(pci->dbi_base + PCI_IO_BASE, 4, tmp);
 
 	dw_pcie_read(pci->dbi_base + CFG_PREF_MEM_LIMIT_BASE, 4, &tmp);
@@ -2950,9 +2950,9 @@ static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 	struct tegra_pcie_dw *pcie = dw_pcie_to_tegra_pcie(pci);
 	struct resource_entry *win;
 	struct pci_dev *pdev = NULL, *ppdev = NULL;
-	u32 width = 0, speed = 0, data = 0, pos = 0;
+	u32 speed = 0, data = 0, pos = 0;
 	struct pci_bus *child;
-	unsigned long freq;
+	unsigned long freq, width = 0;
 
 	if (!tegra_pcie_dw_link_up(pci))
 		return;
@@ -2960,8 +2960,7 @@ static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 	/* Make EMC FLOOR freq request based on link width and speed */
 	data = readl(pci->dbi_base + CFG_LINK_STATUS_CONTROL);
 	width = ((data >> 16) & PCI_EXP_LNKSTA_NLW) >> 4;
-	width = find_first_bit((const unsigned long *)&width,
-			       sizeof(width));
+	width = find_first_bit(&width, sizeof(width));
 	speed = ((data >> 16) & PCI_EXP_LNKSTA_CLS);
 	freq = pcie->dvfs_tbl[width][speed - 1];
 	dev_dbg(pcie->dev, "EMC Freq requested = %lu\n", freq);
@@ -3762,14 +3761,13 @@ static void pex_ep_event_hot_rst_done(struct tegra_pcie_dw *pcie)
 static void pex_ep_event_bme_change(struct tegra_pcie_dw *pcie)
 {
 	struct dw_pcie *pci = &pcie->pci;
-	u32 val = 0, width = 0, speed = 0;
-	unsigned long freq;
+	u32 val = 0, speed = 0;
+	unsigned long freq, width = 0;
 
 	/* Make EMC FLOOR freq request based on link width and speed */
 	val = readl(pci->dbi_base + CFG_LINK_STATUS_CONTROL);
 	width = ((val >> 16) & PCI_EXP_LNKSTA_NLW) >> 4;
-	width = find_first_bit((const unsigned long *)&width,
-			       sizeof(width));
+	width = find_first_bit(&width, sizeof(width));
 	speed = ((val >> 16) & PCI_EXP_LNKSTA_CLS);
 	freq = pcie->dvfs_tbl[width][speed - 1];
 	dev_dbg(pcie->dev, "EMC Freq requested = %lu\n", freq);

@@ -146,8 +146,7 @@ static irqreturn_t async_err_handler(int irq, void *context)
 			handler = fn_peer;
 
 		if (handler) {
-			if (handler(err_data) == true)
-				enter_bad_mode = true;
+			enter_bad_mode = handler(err_data);
 		}
 
 		local_rd_idx = next_rd_idx;
@@ -187,8 +186,7 @@ static int sync_err_handler(struct pt_regs *regs, int reason,
 	const unsigned int vcpu_id = hyp_read_vcpu_id();
 
 	/* Check sync error */
-	if (check_sync_err(vcpu_id, ctrl, &send_sync_err_ack) == true)
-		enter_bad_mode = true;
+	enter_bad_mode = check_sync_err(vcpu_id, ctrl, &send_sync_err_ack);
 
 	/* Send ack for error to HV. */
 	if (send_sync_err_ack) {
@@ -199,6 +197,12 @@ static int sync_err_handler(struct pt_regs *regs, int reason,
 			/* Unexpected */
 			enter_bad_mode = true;
 		}
+	}
+
+	/* bad_mode() will call die(). Force the latter to panic. */
+	if (enter_bad_mode) {
+		panic_on_oops = 1;
+		wmb();
 	}
 
 	/* Caller expects 0 to enter bad mode */
@@ -212,13 +216,13 @@ void tegra_hv_get_config(struct tegra_hv_config *cfg)
 }
 EXPORT_SYMBOL(tegra_hv_get_config);
 
-static int virq_handler_init(const struct platform_device *pdev)
+static int virq_handler_init(struct platform_device *pdev)
 {
 	int ret;
 	struct irq_data *peer_err_irq_data;
 	int lin_peer_err_irq_id;
 	struct tegra_hv_err_ctrl *ctrl = platform_get_drvdata(pdev);
-	struct device dev = pdev->dev;
+	struct device *dev = &pdev->dev;
 
 	dev_info(ctrl->dev, "Error notification HV IRQ id: %d\n",
 		ctrl->hv_peer_err_irq_id);
@@ -242,13 +246,13 @@ static int virq_handler_init(const struct platform_device *pdev)
 
 	tegra_hv_virq_intr_prop.value = tegra_hv_virq_intr_info;
 
-	if (of_add_property(dev.of_node, &tegra_hv_virq_intr_prop)) {
+	if (of_add_property(dev->of_node, &tegra_hv_virq_intr_prop)) {
 		dev_err(ctrl->dev, "%s: failed to add interrupts property\n",
 			__func__);
 		return -EACCES;
 	}
 
-	lin_peer_err_irq_id = of_irq_get(dev.of_node, 0);
+	lin_peer_err_irq_id = of_irq_get(dev->of_node, 0);
 	if (lin_peer_err_irq_id < 0) {
 		dev_err(ctrl->dev, "%s: Unable to get Linux irq for id %d\n",
 			__func__, ctrl->hv_peer_err_irq_id);
@@ -262,12 +266,12 @@ static int virq_handler_init(const struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(&dev, lin_peer_err_irq_id, async_err_handler,
-			IRQ_NOTHREAD, dev_name(&dev), ctrl);
+	ret = devm_request_irq(dev, lin_peer_err_irq_id, async_err_handler,
+			IRQ_NOTHREAD, dev_name(dev), ctrl);
 	if (ret < 0) {
 		dev_err(ctrl->dev,
 			"%s: failed to register IRQ %d, Err %d, %s\n",
-			__func__, lin_peer_err_irq_id, ret, pdev->name);
+			__func__, lin_peer_err_irq_id, ret, dev_name(dev));
 		return ret;
 	}
 	dev_info(ctrl->dev, "Registered Linux IRQ %d for peer notification\n",
@@ -314,7 +318,10 @@ static int shared_mem_map(struct platform_device *pdev)
 		 * of this code, but PCT hasn't enabled error injection.
 		 * A warning should suffice.
 		 */
-		dev_warn(ctrl->dev, "%s: invalid shared memory parameters\n",
+		dev_warn(ctrl->dev, "%s: invalid shared memory parameters.\n",
+			__func__);
+		dev_warn(ctrl->dev,
+			"%s: make sure error injection is enabled in PCT\n",
 			__func__);
 		return -ENOMEM;
 	}

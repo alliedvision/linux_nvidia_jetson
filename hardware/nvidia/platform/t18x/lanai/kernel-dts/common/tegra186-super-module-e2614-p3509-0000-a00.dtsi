@@ -1,0 +1,90 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra186-super-module-e2614-p3509-0000-a00.dtsi: E2600 DTSI file.
+ */
+
+#include <t18x-common-modules/tegra186-super-module-e2614-p2597-1000-a00.dtsi>
+
+/ {
+	i2c@c240000 {
+		i2cmux@70 {
+			i2c@3 {
+				rt5659.12-001a@1a {
+					/* gpio for jack detection */
+					gpios = <&tegra_aon_gpio TEGRA_AON_GPIO(V , 1) GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+
+		rt5659.1-001a@1a {
+			/* gpio for jack detection */
+			gpios = <&tegra_aon_gpio TEGRA_AON_GPIO(V , 1) GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	plugin-manager {
+		fragment-e2614-common@0 {
+			ids = "2614-0000-*";
+			/*TODO Avoid this override in future by modifying common base file*/
+			overrides@10 {
+				target = <&tegra_sound>;
+				_overlay_ {
+					nvidia,num-codec-link = <12>;
+					nvidia,audio-routing =
+						"x Headphone Jack",	"x HPO L Playback",
+						"x Headphone Jack",	"x HPO R Playback",
+						"x IN1P",		"x Mic Jack",
+						"x Int Spk",		"x SPO Playback",
+						"x DMIC L1",		"x Int Mic",
+						"x DMIC L2",		"x Int Mic",
+						"x DMIC R1",		"x Int Mic",
+						"x DMIC R2",		"x Int Mic",
+						"y Headphone",          "y OUT",
+						"y IN",                 "y Mic",
+						"z Headphone",          "z OUT",
+						"z IN",                 "z Mic",
+						"m Headphone",          "m OUT",
+						"m IN",                 "m Mic",
+						"n Headphone",          "n OUT",
+						"n IN",                 "n Mic",
+						"o Headphone",          "o OUT",
+						"o IN",                 "o Mic",
+						"a IN",                 "a Mic",
+						"b IN",                 "b Mic",
+						"c IN",                 "c Mic",
+						"d IN",                 "d Mic",
+						"d1 Headphone",         "d1 OUT",
+						"d2 Headphone",         "d2 OUT";
+				};
+			};
+
+			/delete-node/ overrides@1;
+			/delete-node/ overrides@2;
+			/delete-node/ overrides@3;
+			/delete-node/ overrides@4;
+			/delete-node/ overrides@5;
+			/delete-node/ overrides@6;
+			/delete-node/ overrides@12;
+			/delete-node/ overrides@13;
+			/delete-node/ overrides@14;
+			/delete-node/ overrides@15;
+			/delete-node/ overrides@16;
+			/delete-node/ overrides@17;
+		};
+	};
+};

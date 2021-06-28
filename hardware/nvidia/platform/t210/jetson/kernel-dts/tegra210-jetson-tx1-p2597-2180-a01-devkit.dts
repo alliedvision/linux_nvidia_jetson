@@ -76,10 +76,6 @@
 		};
 	};
 
-	watchdog@60005100 {
-		status = "okay";
-	};
-
 	nvdumper {
 		status = "disabled";
 	};

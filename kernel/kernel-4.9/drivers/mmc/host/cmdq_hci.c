@@ -662,7 +662,9 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 	if (status & CQIS_HAC) {
 		/* halt is completed, wakeup waiting thread */
 		complete(&cq_host->halt_comp);
-	} else if (status & CQIS_TCC) {
+	}
+
+	if (status & CQIS_TCC) {
 		/* read QCTCN and complete the request */
 		comp_status = cqtcn & ~cqtdbr;
 		if (!comp_status)
@@ -674,12 +676,16 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 			/* complete DCMD on tag 31 */
 		}
 		cmdq_reg_writel(cq_host, comp_status, CQTCN);
-	} else if (status & CQIS_RED) {
+	}
+
+	if (status & CQIS_RED) {
 		/* task response has an error */
 		pr_err("%s: RED error %d !!!\n", mmc_hostname(mmc), status);
 		cmdq_dumpregs(cq_host);
 		BUG_ON(1);
-	} else if (status & CQIS_TCL) {
+	}
+
+	if (status & CQIS_TCL) {
 		/* task is cleared, wakeup waiting thread */
 		;
 	}

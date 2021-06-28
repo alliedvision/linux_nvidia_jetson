@@ -1,7 +1,7 @@
 /*
  * NVIDIA Media controller graph management
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -376,14 +376,14 @@ static int tegra_vi_graph_notify_complete(struct v4l2_async_notifier *notifier)
 	/* Allocate video_device */
 	ret = tegra_channel_init_video(chan);
 	if (ret < 0) {
-		dev_err(&chan->video->dev, "failed to allocate video device %s\n",
+		dev_err(chan->vi->dev, "failed to allocate video device %s\n",
 			chan->video->name);
 		return ret;
 	}
 
 	ret = video_register_device(chan->video, VFL_TYPE_GRABBER, -1);
 	if (ret < 0) {
-		dev_err(&chan->video->dev, "failed to register %s\n",
+		dev_err(chan->vi->dev, "failed to register %s\n",
 			chan->video->name);
 		goto register_device_error;
 	}
@@ -562,18 +562,18 @@ int tegra_vi_get_port_info(struct tegra_channel *chan,
 
 			/* Consider max simultaneous sensor streams to be 16 */
 			if (value > 16) {
-				dev_err(&chan->video->dev, "vc id >16!\n");
+				dev_err(chan->vi->dev, "vc id >16!\n");
 				return -EINVAL;
 			}
 
 			/* Get CSI port */
 			ret = of_property_read_u32(ep, "port-index", &value);
 			if (ret < 0)
-				dev_err(&chan->video->dev, "port index error\n");
+				dev_err(chan->vi->dev, "port index error\n");
 			chan->port[0] = value;
 
 			if (value > NVCSI_PORT_H) {
-				dev_err(&chan->video->dev, "port index >%d!\n",
+				dev_err(chan->vi->dev, "port index >%d!\n",
 					NVCSI_PORT_H);
 				return -EINVAL;
 			}
@@ -581,11 +581,11 @@ int tegra_vi_get_port_info(struct tegra_channel *chan,
 			/* Get number of data lanes for the endpoint */
 			ret = of_property_read_u32(ep, "bus-width", &value);
 			if (ret < 0)
-				dev_err(&chan->video->dev, "num lanes error\n");
+				dev_err(chan->vi->dev, "num lanes error\n");
 			chan->numlanes = value;
 
 			if (value > 12) {
-				dev_err(&chan->video->dev, "num lanes >12!\n");
+				dev_err(chan->vi->dev, "num lanes >12!\n");
 				return -EINVAL;
 			}
 			/*

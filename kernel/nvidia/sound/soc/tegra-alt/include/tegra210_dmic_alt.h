@@ -1,7 +1,7 @@
 /*
  * tegra210_dmic_alt.h - Definitions for Tegra210 DMIC driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -100,6 +100,9 @@ struct tegra210_dmic {
 	unsigned int osr_val; /* osr value */
 	int lrsel;
 	int format_out;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pin_active_state;
+	struct pinctrl_state *pin_idle_state;
 };
 
 #endif

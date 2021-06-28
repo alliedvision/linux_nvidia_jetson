@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_util_virt_alt.c - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -459,6 +459,30 @@ EXPORT_SYMBOL(tegra_virt_t210sfc_set_out_freq);
 int tegra_virt_t210mvc_get_curve_type(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct nvaudio_ivc_ctxt *hivc_client =
+		nvaudio_ivc_alloc_ctxt(card->dev);
+	int err;
+	struct nvaudio_ivc_msg msg;
+
+	memset(&msg, 0, sizeof(struct nvaudio_ivc_msg));
+	msg.cmd = NVAUDIO_MVC_GET_CURVETYPE;
+	msg.params.mvc_info.id = reg;
+
+	err = nvaudio_ivc_send_receive(hivc_client,
+			&msg,
+			sizeof(struct nvaudio_ivc_msg));
+
+	if (err < 0) {
+		pr_err("%s: error on ivc_send_receive\n", __func__);
+		return err;
+	}
+
+	ucontrol->value.integer.value[0] = msg.params.mvc_info.curve_type;
+
 	return 0;
 }
 EXPORT_SYMBOL(tegra_virt_t210mvc_get_curve_type);
@@ -494,6 +518,30 @@ EXPORT_SYMBOL(tegra_virt_t210mvc_set_curve_type);
 int tegra_virt_t210mvc_get_tar_vol(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct nvaudio_ivc_ctxt *hivc_client =
+			nvaudio_ivc_alloc_ctxt(card->dev);
+	int err;
+	struct nvaudio_ivc_msg msg;
+
+	memset(&msg, 0, sizeof(struct nvaudio_ivc_msg));
+	msg.cmd = NVAUDIO_MVC_GET_TAR_VOL;
+	msg.params.mvc_info.id = reg;
+
+	err = nvaudio_ivc_send_receive(hivc_client,
+			&msg,
+			sizeof(struct nvaudio_ivc_msg));
+
+	if (err < 0) {
+		pr_err("%s: error on ivc_send_receive\n", __func__);
+		return err;
+	}
+
+	ucontrol->value.integer.value[0] = msg.params.mvc_info.tar_vol;
+
 	return 0;
 }
 EXPORT_SYMBOL(tegra_virt_t210mvc_get_tar_vol);
@@ -530,6 +578,31 @@ EXPORT_SYMBOL(tegra_virt_t210mvc_set_tar_vol);
 int tegra_virt_t210mvc_get_mute(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int reg = mc->reg;
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct nvaudio_ivc_ctxt *hivc_client =
+		nvaudio_ivc_alloc_ctxt(card->dev);
+	int err;
+	struct nvaudio_ivc_msg msg;
+
+	memset(&msg, 0, sizeof(struct nvaudio_ivc_msg));
+	msg.cmd = NVAUDIO_MVC_GET_MUTE;
+	msg.params.mvc_info.id = reg;
+
+	err = nvaudio_ivc_send_receive(hivc_client,
+			&msg,
+			sizeof(struct nvaudio_ivc_msg));
+
+	if (err < 0) {
+		pr_err("%s: error on ivc_send_receive\n", __func__);
+		return err;
+	}
+
+	ucontrol->value.integer.value[0] = msg.params.mvc_info.mute;
+
 	return 0;
 }
 EXPORT_SYMBOL(tegra_virt_t210mvc_get_mute);

@@ -197,6 +197,7 @@ static void tegra210_admaif_stop_capture(struct snd_soc_dai *dai)
 static int tegra210_admaif_trigger(struct snd_pcm_substream *substream, int cmd,
 				 struct snd_soc_dai *dai)
 {
+	pr_info("Pcm trigger for admaif %d : cmd_id %d \n", dai->id +1 , cmd);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:

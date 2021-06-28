@@ -226,12 +226,6 @@ static inline u32 tdma_global_read(struct tegra_adma *tdma, u32 reg)
 	return readl(tdma->base_addr + global_reg_offset + reg);
 }
 
-static inline void tdma_global_ch_write(struct tegra_adma *tdma, u32 reg,
-					u32 val)
-{
-	writel(val, tdma->base_addr + tdma->ch_base_offset + reg);
-}
-
 static inline void tdma_ch_write(struct tegra_adma_chan *tdc, u32 reg, u32 val)
 {
 	writel(val, tdc->chan_addr + reg);
@@ -281,9 +275,20 @@ static int tegra_adma_init(struct tegra_adma *tdma)
 	unsigned int global_reg_offset = tdma->chip_data->global_reg_offset;
 	unsigned int reg_soft_reset;
 
-
-	/* Clear any interrupts */
-	tdma_global_ch_write(tdma, chip_data->global_int_clear, 0x1);
+	/*
+	 * Clear any interrupts:
+	 *
+	 * On Tegra186 and later, ADMA channels are virtualized and aliased
+	 * into 4 64K pages. A separate page carries global and configuration
+	 * registers for ADMA. Few registers are reshuffled as part of it and
+	 * moved to page specific space. Thus offset of these registers are
+	 * relative to the channel base offset and it needs to be taken into
+	 * account while updating. It works for Tegra210 as well as channel
+	 * base offset is 0.
+	 */
+	tdma_global_write(tdma,
+		tdma->ch_base_offset + chip_data->global_int_clear,
+		0x1);
 
 	if (tdma->is_virt == false) {
 		/* Assert soft reset */
@@ -445,6 +450,8 @@ static void tegra_adma_stop(struct tegra_adma_chan *tdc)
 		dev_err(tdc2dev(tdc), "unable to stop DMA channel\n");
 		return;
 	}
+
+	tegra_adma_irq_clear(tdc);
 
 	kfree(tdc->desc);
 	tdc->desc = NULL;

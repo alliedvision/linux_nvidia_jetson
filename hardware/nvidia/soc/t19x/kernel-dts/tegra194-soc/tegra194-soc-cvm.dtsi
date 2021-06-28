@@ -2,7 +2,7 @@
  * tegra194-soc-cvm.dtsi: CVM based platform common SoC specific DTSI file
  *			  with required node enabled.
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -221,6 +221,10 @@
 	};
 
 	rtc@c2a0000 {
+		status = "okay";
+	};
+
+	gpio-keys {
 		status = "okay";
 	};
 

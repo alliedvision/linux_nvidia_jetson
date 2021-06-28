@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Unit clock scaling
  *
- * Copyright (c) 2010-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -679,7 +679,11 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 	int buf_size;
 	unsigned long period;
 
-	memset(buffer, 0, sizeof(buffer));
+	if (count >= sizeof(buffer))
+		nvhost_warn(NULL, "%s: value too big!" \
+			"only first %ld characters will be written",
+			__func__, sizeof(buffer) - 1);
+
 	buf_size = min(count, (sizeof(buffer)-1));
 
 	if (copy_from_user(buffer, user_buf, buf_size)) {
@@ -687,11 +691,7 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 			   user_buf);
 		return -EFAULT;
 	}
-
-	if (strlen(buffer) > buf_size) {
-		nvhost_err(NULL, "buffer too large (>%d)", buf_size);
-		return -EFAULT;
-	}
+	buffer[buf_size] = '\0';
 
 	if (kstrtoul(buffer, 10, &period)) {
 		nvhost_err(NULL, "failed to convert %s to ul", buffer);
@@ -700,7 +700,7 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 
 	actmon_op().set_sample_period_norm(actmon, period);
 
-	return count;
+	return buf_size;
 }
 
 static const struct file_operations actmon_sample_period_norm_fops = {

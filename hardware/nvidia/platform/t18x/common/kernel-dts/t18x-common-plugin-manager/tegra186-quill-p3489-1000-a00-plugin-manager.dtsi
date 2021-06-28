@@ -64,7 +64,19 @@
 			override@0 {
 				target = <&{/host1x}>;
 				_overlay_ {
+					nvdisplay@15200000 {
+						nvidia,fb-win = <0>;
+						win-mask = <0x3>;
+						status = "okay";
+					};
+					nvdisplay@15210000 {
+						nvidia,fb-win = <2>;
+						win-mask = <0xC>;
+						status = "okay";
+					};
 					nvdisplay@15220000 {
+						nvidia,fb-win = <4>;
+						win-mask = <0x30>;
 						status = "okay";
 					};
 					sor {

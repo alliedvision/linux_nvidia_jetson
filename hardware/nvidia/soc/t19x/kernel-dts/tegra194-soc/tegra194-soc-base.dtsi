@@ -49,6 +49,7 @@
 #include "tegra194-soc/tegra194-cpus.dtsi"
 #include "tegra194-soc-thermal.dtsi"
 #include "dt-bindings/soc/tegra-io-pads.h"
+#include "dt-bindings/input/input.h"
 
 / {
 	compatible = "nvidia,tegra186";
@@ -141,7 +142,10 @@
 		reg = <0x0 0x14000000 0x0 0x20000>, /* CV0_REG0_BASE */
 		      <0x0 0x14020000 0x0 0x10000>, /* CV0_SRAM_BASE */
 		      <0x0 0x0b240000 0x0 0x10000>; /* HSM_BASE */
-		clocks = <&bpmp_clks TEGRA194_CLK_CVNAS>;
+		clocks = <&bpmp_clks TEGRA194_CLK_CVNAS>,
+		         <&bpmp_clks TEGRA194_CLK_NAFLL_CVNAS>,
+		         <&bpmp_clks TEGRA194_CLK_CLK_M>;
+		clock-names = "cvnas", "nafll_cvnas", "clk_m";
 		resets = <&bpmp_resets TEGRA194_RESET_CVNAS>,
 			 <&bpmp_resets TEGRA194_RESET_CVNAS_FCM>;
 		reset-names = "rst", "rst_fcm";
@@ -2043,6 +2047,19 @@
 		status = "disabled";
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+		gpio-keys,name = "gpio-keys";
+		status = "disabled";
+
+		sw_wake {
+			label = "sw-wake";
+			interrupt-parent = <&tegra_pm_irq>;
+			interrupts = <0 179 IRQ_TYPE_LEVEL_HIGH>;
+			linux,code = <KEY_POWER>;
+			wakeup-source;
+		};
+	};
 
 #if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 

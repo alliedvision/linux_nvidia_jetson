@@ -1,0 +1,64 @@
+/*
+ * tegra186-p3509-0000-a00-fixed-regulator.dtsi: P3509 regulator dtsi
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	fixed-regulators {
+		hdr40_vdd_3v3: vdd_3v3: p3509_vdd_3v3_cvb: regulator@101 {
+			compatible = "regulator-fixed";
+			reg = <101>;
+			regulator-name = "vdd-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		p3509_vdd_1v8_cvb: regulator@102 {
+			compatible = "regulator-fixed";
+			reg = <102>;
+			regulator-name = "vdd-1v8-cvb";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		p3509_vdd_fan: regulator@111 {
+			compatible = "regulator-fixed";
+			reg = <111>;
+			regulator-name = "vdd-fan";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+
+		/* SOC_PWR_REQ->MOD_SLEEP->VDD_3V3_HDMI->VDD_5V0_HDMI_CN */
+		p3509_vdd_hdmi_5v0: regulator@112 {
+			compatible = "regulator-fixed";
+			reg = <112>;
+			regulator-name = "vdd-hdmi-5v0";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			enable-active-high;
+		};
+
+		/* this regulator used for camera, AVDD_CSI_1V2 is directly
+		 * coming from MAX20024, not required gpio */
+		p3509_vdd_sys_en: regulator@113 {
+			compatible = "regulator-fixed";
+			reg = <113>;
+			regulator-name = "vdd_sys_en";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			enable-active-high;
+		};
+	};
+};

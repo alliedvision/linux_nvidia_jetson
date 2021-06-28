@@ -749,6 +749,7 @@ static struct tegra_fuse_hw_feature tegra194_fuse_chip_data = {
 		FUSE_BURN_DATA(reserved_odm9, 0x18, 26, 32, 0x424, true, false),
 		FUSE_BURN_DATA(reserved_odm10, 0x1a, 26, 32, 0x428, true, false),
 		FUSE_BURN_DATA(reserved_odm11, 0x1c, 26, 32, 0x42c, true, false),
+		FUSE_BURN_DATA(reserved_sw, 0x65, 25, 24, 0xc0, false, false),
 		FUSE_BURN_DATA(odm_lock, 0, 6, 4, 0x8, true, false),
 		FUSE_BURN_DATA(arm_jtag_disable, 0x0, 12, 1, 0xb8, true, false),
 		FUSE_BURN_DATA(odm_production_mode, 0, 11, 1, 0xa0, true, false),

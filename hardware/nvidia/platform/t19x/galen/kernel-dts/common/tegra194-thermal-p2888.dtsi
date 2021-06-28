@@ -12,11 +12,29 @@
  */
 
 #include <t19x-common-platforms/tegra194-thermal.dtsi>
+#include <t19x-common-platforms/tegra194-thermal-userspace-alert.dtsi>
+#include "tegra194-spmic-p2888-0001.dtsi"
 / {
 	bpmp_i2c {
 		tegra_tmp451: temp-sensor@4c {
-			vdd-supply = <&p2822_vdd_1v8_slt>;
+			vdd-supply = <&p2888_spmic_sd2>;
 		};
+	};
+
+	soctherm-oc-event {
+		status = "okay";
+	};
+
+	cpu_alert: cpu-throttle-alert {
+		status = "okay";
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		status = "okay";
+	};
+
+	aux_alert: aux-throttle-alert {
+		status = "okay";
 	};
 };
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #==============================================================================
-#  Copyright (C) 2012 - 2019 Allied Vision Technologies.  All Rights Reserved.
+#  Copyright (C) 2012 - 2021 Allied Vision Technologies.  All Rights Reserved.
 #
 #  Redistribution of this file, in original or modified form, without
 #  prior written consent of Allied Vision Technologies is prohibited.
@@ -28,7 +28,7 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.4.4"
+DEDICATED_VERSION="R32.5.1"
 DEDICATED_BOARD=""
 DEDICATED_BOARD_TX2="TX2,XAVIER"
 DEDICATED_BOARD_NANO="NANO"

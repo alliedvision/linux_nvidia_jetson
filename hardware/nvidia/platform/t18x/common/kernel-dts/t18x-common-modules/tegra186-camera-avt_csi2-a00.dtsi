@@ -179,7 +179,9 @@
 
 				active_w = "5488";
 				active_h = "4112";
-				pixel_t = "bayer_bggr";
+				mode_type = "bayer";
+				pixel_phase = "bggr";
+				csi_pixel_bit_depth = "10";
 				readout_orientation = "0";
 				line_length = "5488";
 				inherent_gain = "1";
@@ -240,7 +242,9 @@
 
 				active_w = "5488";
 				active_h = "4112";
-				pixel_t = "bayer_bggr";
+				mode_type = "bayer";
+				pixel_phase = "bggr";
+				csi_pixel_bit_depth = "10";
 				readout_orientation = "0";
 				line_length = "5488";
 				inherent_gain = "1";
@@ -301,7 +305,9 @@
 
 				active_w = "5488";
 				active_h = "4112";
-				pixel_t = "bayer_bggr";
+				mode_type = "bayer";
+				pixel_phase = "bggr";
+				csi_pixel_bit_depth = "10";
 				readout_orientation = "0";
 				line_length = "5488";
 				inherent_gain = "1";

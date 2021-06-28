@@ -54,4 +54,12 @@
 			status = "disabled";
 		};
 	};
+
+	soctherm-oc-event {
+		compatible = "nvidia,tegra186-oc-event";
+		interrupts = <0 TEGRA186_IRQ_BPMP_HSP_SHARED_1 0x4>;
+		reg = <0x0 0x0d280000 0x0 0xa40>,
+				<0x0 0x0d170000 0x0 0x4>;
+		status = "disabled";
+	};
 };

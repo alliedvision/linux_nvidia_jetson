@@ -321,11 +321,6 @@ int gk20a_ctxsw_dev_open(struct inode *inode, struct file *filp)
 
 	nvgpu_log(g, gpu_dbg_fn|gpu_dbg_ctxsw, "g=%p", g);
 
-	if (!capable(CAP_SYS_ADMIN)) {
-		err = -EPERM;
-		goto free_ref;
-	}
-
 	err = gk20a_busy(g);
 	if (err)
 		goto free_ref;

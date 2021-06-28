@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA Corporation. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -70,6 +70,9 @@ void gv11b_slcg_xbar_load_gating_prod(struct gk20a *g,
 	bool prod);
 
 void gv11b_slcg_hshub_load_gating_prod(struct gk20a *g,
+	bool prod);
+
+void gv11b_slcg_acb_load_gating_prod(struct gk20a *g,
 	bool prod);
 
 void gv11b_blcg_bus_load_gating_prod(struct gk20a *g,

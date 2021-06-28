@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -185,8 +185,8 @@ static void tegra_udrm_preclose(struct drm_device *drm, struct drm_file *file)
 	idr_destroy(&fpriv->idr);
 
 	if (fpriv->efd_ctx_drop_master) {
-		eventfd_ctx_put(fpriv->efd_ctx_drop_master);
 		eventfd_signal(fpriv->efd_ctx_drop_master, 1);
+		eventfd_ctx_put(fpriv->efd_ctx_drop_master);
 		fpriv->efd_ctx_drop_master = NULL;
 	}
 

@@ -646,8 +646,7 @@ MODULE_DEVICE_TABLE(of, hda_tegra_match);
 
 static int hda_tegra_probe(struct platform_device *pdev)
 {
-	unsigned int driver_flags = AZX_DCAPS_CORBRP_SELF_CLEAR |
-					AZX_DCAPS_4K_BDLE_BOUNDARY;
+	unsigned int driver_flags = AZX_DCAPS_CORBRP_SELF_CLEAR;
 	struct snd_card *card;
 	struct azx *chip;
 	struct hda_tegra *hda;

@@ -1,7 +1,7 @@
 /*
  * arch/arm64/boot/dts/tegra210-jetson-cv-base-p2597-2180-a00.dts
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@
 #include <tegra210-soc/tegra210-edp.dtsi>
 #include <t210-common-platforms/tegra210-sysedp.dtsi>
 #include <t210-common-platforms/tegra210-thermal-nct72-p2530.dtsi>
+#include <t210-common-platforms/tegra210-thermal-userspace-alert.dtsi>
 #include <tegra210-soc/tegra210-thermal-Tboard-Tdiode.dtsi>
 #include "jetson-platforms/tegra210-jetson-cv-powermon-p2180-1000-a00.dtsi"
 #include "jetson-platforms/tegra210-jetson-cv-powermon-p2597.dtsi"
@@ -60,6 +61,7 @@
 
 	chosen {
 		board-has-eeprom;
+		firmware-blob-partition = "RP4";
 		stdout-path = &uarta;
 		verified-boot {
 			poweroff-on-red-state;
@@ -379,8 +381,11 @@
 			 <&tegra_car TEGRA210_CLK_PLL_A_OUT0>,
 			 <&tegra_car TEGRA210_CLK_EXTERN1>;
 		clock-names = "pll_a", "pll_a_out0", "extern1";
-		assigned-clocks = <&tegra_car TEGRA210_CLK_EXTERN1>;
+		assigned-clocks = <&tegra_car TEGRA210_CLK_EXTERN1>,
+				  <&tegra_car TEGRA210_CLK_PLL_A_OUT0>,
+				  <&tegra_car TEGRA210_CLK_PLL_A>;
 		assigned-clock-parents = <&tegra_car TEGRA210_CLK_PLL_A_OUT0>;
+		assigned-clock-rates = <12288000>, <49152000>, <368640000>;
 
 		nvidia,num-codec-link = <8>;
 
@@ -1211,5 +1216,13 @@
 		pinctrl-names = "dvfs_pwm_enable", "dvfs_pwm_disable";
 		pinctrl-0 = <&dvfs_pwm_active_state>;
 		pinctrl-1 = <&dvfs_pwm_inactive_state>;
+	};
+
+	cpu_alert: cpu-throttle-alert {
+		status = "okay";
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		status = "okay";
 	};
 };

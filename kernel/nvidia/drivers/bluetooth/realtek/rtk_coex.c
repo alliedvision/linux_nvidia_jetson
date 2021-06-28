@@ -65,7 +65,7 @@
 #define RTKBT_WARN(fmt, arg...) \
 			printk( KERN_DEBUG "rtk_btcoex: " fmt "\n" ,## arg)
 #define RTKBT_ERR(fmt, arg...) \
-			printk(KERN_ERR "rtk_btcoex: " fmt "\n" ,## arg)
+			printk(KERN_DEBUG "rtk_btcoex: " fmt "\n", ## arg)
 
 static struct rtl_coex_struct btrtl_coex;
 

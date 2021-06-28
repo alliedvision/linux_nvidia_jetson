@@ -3,7 +3,7 @@
  *
  * User-space interface to nvmap
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -471,6 +471,10 @@ static long nvmap_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case NVMAP_IOC_QUERY_HEAP_PARAMS:
 		err = nvmap_ioctl_query_heap_params(filp, uarg);
+		break;
+
+	case NVMAP_IOC_PARAMETERS:
+		err = nvmap_ioctl_query_handle_parameters(filp, uarg);
 		break;
 
 	default:

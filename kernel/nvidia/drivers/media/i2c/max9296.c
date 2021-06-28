@@ -251,6 +251,7 @@ ret:
 
 	return err;
 }
+EXPORT_SYMBOL(max9296_power_on);
 
 void max9296_power_off(struct device *dev)
 {
@@ -271,6 +272,7 @@ void max9296_power_off(struct device *dev)
 
 	mutex_unlock(&priv->lock);
 }
+EXPORT_SYMBOL(max9296_power_off);
 
 static int max9296_write_link(struct device *dev, u32 link)
 {
@@ -497,7 +499,6 @@ int max9296_sdev_unregister(struct device *dev, struct device *s_dev)
 	for (i = 0; i < priv->num_src; i++) {
 		if (s_dev == priv->sources[i].g_ctx->s_dev) {
 			priv->sources[i].g_ctx = NULL;
-			priv->num_src--;
 			break;
 		}
 	}
@@ -508,6 +509,7 @@ int max9296_sdev_unregister(struct device *dev, struct device *s_dev)
 		err = -EINVAL;
 		goto error;
 	}
+	priv->num_src--;
 
 error:
 	mutex_unlock(&priv->lock);
@@ -674,6 +676,7 @@ int max9296_start_streaming(struct device *dev, struct device *s_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(max9296_start_streaming);
 
 int max9296_stop_streaming(struct device *dev, struct device *s_dev)
 {
@@ -702,6 +705,7 @@ int max9296_stop_streaming(struct device *dev, struct device *s_dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(max9296_stop_streaming);
 
 int max9296_setup_streaming(struct device *dev, struct device *s_dev)
 {

@@ -1,7 +1,7 @@
 /*
  * tegra186-soc-eqos.dtsi: Ethernet QOS DTSI file.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -72,7 +72,8 @@
 				<0 189 0x4>;	/* tx3 */
 		nvidia,csr_clock_speed = <0x19>; /* CSR clock speed 25MHz */
 		nvidia,iso_bw = <81920>; /* sum of read and write bw, 80Mb/s */
-		nvidia,rx_riwt = <124>; /* usec value for Rx watchdog interrupt */
+		nvidia,rx_riwt = <60>; /* riwt value for Rx watchdog interrupt */
+		nvidia,rx_frames = <16>; /* Rx-frames to coalesc */
 		/* bootloader should update MAC address */
 		nvidia,local-mac-address = <0x00 0x00 0x00 0x00 0x00 0x00>;
 		clocks = <&tegra_car TEGRA186_CLK_EQOS_AXI>,

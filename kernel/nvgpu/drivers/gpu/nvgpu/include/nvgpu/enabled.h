@@ -92,9 +92,9 @@ struct gk20a;
 #define NVGPU_HAS_SYNCPOINTS			30
 /* sync fence FDs are available in, e.g., submit_gpfifo */
 #define NVGPU_SUPPORT_SYNC_FENCE_FDS		31
-/* NVGPU_IOCTL_CHANNEL_CYCLE_STATS is available */
+/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS is available */
 #define NVGPU_SUPPORT_CYCLE_STATS		32
-/* NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT is available */
+/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT is available */
 #define NVGPU_SUPPORT_CYCLE_STATS_SNAPSHOT	33
 /* Both gpu driver and device support TSG */
 #define NVGPU_SUPPORT_TSG			34

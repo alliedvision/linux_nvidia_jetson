@@ -296,11 +296,11 @@ static int tegra_vi4_probe(struct platform_device *pdev)
 			"using default number of vi channels,%d\n",
 			pdata->num_channels);
 	} else {
-		if (!(num_channels > pdata->num_channels)) {
+		if (num_channels < pdata->num_channels) {
 			pdata->num_channels = num_channels;
 		} else {
 			dev_warn(&pdev->dev,
-				"num vi-channels are out of range\n");
+				"num vi-channels are out of range, use default num\n");
 		}
 	}
 	dev_dbg(&pdev->dev, "num vi channels : %d\n", pdata->num_channels);

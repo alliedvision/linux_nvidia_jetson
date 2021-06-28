@@ -5,6 +5,7 @@
 # controllers with PCI-Express interface.
 #
 # Copyright(c) 2014-2018, Realtek Semiconductor Corp. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -35,6 +36,7 @@
 #define _PG_DRV_H
 
 #include <linux/cdev.h>
+#include <uapi/net/pgdrv.h>
 
 #define BYTE	__u8
 #define WORD	__u16
@@ -97,26 +99,6 @@ typedef struct _PG_DEV_
 	unsigned int				index;
 }PGDEV,*PPGDEV;
 
-typedef struct _PCI_CONFIG_RW_
-{
-	union
-	{
-		unsigned char	byte;
-		unsigned short	word;
-		unsigned int	dword;
-	};
-	unsigned int		bRead:1;
-	unsigned int		size:7;
-	unsigned int		addr:8;
-	unsigned int		reserve:16;
-}PCI_CONFIG_RW,*PPCI_CONFIG_RW;
-
-#define RTL_IOC_MAGIC					0x95
-
-#define IOC_PCI_CONFIG					_IOWR(RTL_IOC_MAGIC, 0, PCI_CONFIG_RW)
-#define IOC_IOMEM_OFFSET				_IOR(RTL_IOC_MAGIC, 1, unsigned int)
-#define IOC_DEV_FUN					_IOR(RTL_IOC_MAGIC, 2, unsigned int)
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 #define __devinit
 #define __devexit
@@ -128,4 +110,4 @@ void __exit pgdrv_exit(void);
 int __devinit pgdrv_prob(struct pci_dev *pdev, const struct pci_device_id *id);
 void __devexit pgdrv_remove(struct pci_dev *pdev);
 
-#endif // end of #ifndef _PG_DRV_H
+#endif /*_PG_DRV_H */

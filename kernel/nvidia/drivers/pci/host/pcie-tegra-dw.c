@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 - 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017 - 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -2517,26 +2517,53 @@ static void enable_ltr(struct pci_dev *pdev)
 	}
 }
 
+static inline int find_width_index(unsigned long width)
+{
+	if (width & (width-1))
+		return -1;
+	switch (width) {
+	case PCIE_LNK_X1:
+		return 0;
+	case PCIE_LNK_X2:
+		return 1;
+	case PCIE_LNK_X4:
+		return 2;
+	case PCIE_LNK_X8:
+		return 3;
+	default :
+		return -1;
+	}
+}
+
 static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 {
 	struct pci_host_bridge *host = pci_find_host_bridge(pp->bus);
 	struct tegra_pcie_dw *pcie = to_tegra_pcie(pp);
 	struct resource_entry *win;
 	struct pci_dev *pdev = NULL, *ppdev = NULL;
-	u32 width = 0, speed = 0, data = 0, pos = 0;
+	u32 speed = 0, data = 0, pos = 0;
 	struct pci_bus *child;
-	unsigned long freq;
+	unsigned long freq, width;
+	int width_index;
 
 	if (!tegra_pcie_dw_link_up(pp))
 		return;
 
 	/* Make EMC FLOOR freq request based on link width and speed */
 	data = readl(pp->dbi_base + CFG_LINK_STATUS_CONTROL);
+	/* Width is 6 bits field PCIE_CAP_NEGO_LINK_WIDTH
+	 * inside CFG_LINK_STATUS_CONTROL register
+	 */
 	width = ((data >> 16) & PCI_EXP_LNKSTA_NLW) >> 4;
-	/* Here 6 is size of PCIE_CAP_NEGO_LINK_WIDTH register field*/
-	width = find_first_bit((const unsigned long *)&width, 6);
+	width_index = find_width_index(width);
+	if (width_index == -1) {
+		dev_err(pcie->dev, "error in %s", __func__);
+		dev_err(pcie->dev, "width in CFG_LINK_STATUS_CONTROL is"
+			"wrong\n");
+		return;
+	}
 	speed = ((data >> 16) & PCI_EXP_LNKSTA_CLS);
-	freq = pcie->dvfs_tbl[width][speed - 1];
+	freq = pcie->dvfs_tbl[width_index][speed - 1];
 	dev_dbg(pp->dev, "EMC Freq requested = %lu\n", freq);
 
 	if (tegra_bwmgr_set_emc(pcie->emc_bw, freq, TEGRA_BWMGR_SET_EMC_FLOOR))

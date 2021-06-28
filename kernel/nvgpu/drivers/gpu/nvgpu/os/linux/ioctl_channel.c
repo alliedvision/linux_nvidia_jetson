@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics channel
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -128,8 +128,7 @@ void gk20a_channel_free_cycle_stats_buffer(struct channel_gk20a *ch)
 	nvgpu_mutex_release(&ch->cyclestate.cyclestate_buffer_mutex);
 }
 
-static int gk20a_channel_cycle_stats(struct channel_gk20a *ch,
-		       struct nvgpu_cycle_stats_args *args)
+int gk20a_channel_cycle_stats(struct channel_gk20a *ch, int dmabuf_fd)
 {
 	struct dma_buf *dmabuf;
 	void *virtual_address;
@@ -139,10 +138,10 @@ static int gk20a_channel_cycle_stats(struct channel_gk20a *ch,
 	if (!nvgpu_is_enabled(ch->g, NVGPU_SUPPORT_CYCLE_STATS))
 		return -ENOSYS;
 
-	if (args->dmabuf_fd && !priv->cyclestate_buffer_handler) {
+	if (dmabuf_fd && !priv->cyclestate_buffer_handler) {
 
 		/* set up new cyclestats buffer */
-		dmabuf = dma_buf_get(args->dmabuf_fd);
+		dmabuf = dma_buf_get(dmabuf_fd);
 		if (IS_ERR(dmabuf))
 			return PTR_ERR(dmabuf);
 		virtual_address = dma_buf_vmap(dmabuf);
@@ -154,12 +153,12 @@ static int gk20a_channel_cycle_stats(struct channel_gk20a *ch,
 		ch->cyclestate.cyclestate_buffer_size = dmabuf->size;
 		return 0;
 
-	} else if (!args->dmabuf_fd && priv->cyclestate_buffer_handler) {
+	} else if (!dmabuf_fd && priv->cyclestate_buffer_handler) {
 		gk20a_channel_free_cycle_stats_buffer(ch);
 		return 0;
 
-	} else if (!args->dmabuf_fd && !priv->cyclestate_buffer_handler) {
-		/* no requst from GL */
+	} else if (!dmabuf_fd && !priv->cyclestate_buffer_handler) {
+		/* no request from GL */
 		return 0;
 
 	} else {
@@ -168,7 +167,7 @@ static int gk20a_channel_cycle_stats(struct channel_gk20a *ch,
 	}
 }
 
-static int gk20a_flush_cycle_stats_snapshot(struct channel_gk20a *ch)
+int gk20a_flush_cycle_stats_snapshot(struct channel_gk20a *ch)
 {
 	int ret;
 
@@ -182,7 +181,7 @@ static int gk20a_flush_cycle_stats_snapshot(struct channel_gk20a *ch)
 	return ret;
 }
 
-static int gk20a_attach_cycle_stats_snapshot(struct channel_gk20a *ch,
+int gk20a_attach_cycle_stats_snapshot(struct channel_gk20a *ch,
 				u32 dmabuf_fd,
 				u32 perfmon_id_count,
 				u32 *perfmon_id_start)
@@ -274,46 +273,6 @@ int gk20a_channel_free_cycle_stats_snapshot(struct channel_gk20a *ch)
 	nvgpu_kfree(ch->g, client_linux);
 
 	nvgpu_mutex_release(&ch->cs_client_mutex);
-
-	return ret;
-}
-
-static int gk20a_channel_cycle_stats_snapshot(struct channel_gk20a *ch,
-			struct nvgpu_cycle_stats_snapshot_args *args)
-{
-	int ret;
-
-	/* is it allowed to handle calls for current GPU? */
-	if (!nvgpu_is_enabled(ch->g, NVGPU_SUPPORT_CYCLE_STATS_SNAPSHOT))
-		return -ENOSYS;
-
-	if (!args->dmabuf_fd)
-		return -EINVAL;
-
-	/* handle the command (most frequent cases first) */
-	switch (args->cmd) {
-	case NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_FLUSH:
-		ret = gk20a_flush_cycle_stats_snapshot(ch);
-		args->extra = 0;
-		break;
-
-	case NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_ATTACH:
-		ret = gk20a_attach_cycle_stats_snapshot(ch,
-						args->dmabuf_fd,
-						args->extra,
-						&args->extra);
-		break;
-
-	case NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_DETACH:
-		ret = gk20a_channel_free_cycle_stats_snapshot(ch);
-		args->extra = 0;
-		break;
-
-	default:
-		pr_err("cyclestats: unknown command %u\n", args->cmd);
-		ret = -EINVAL;
-		break;
-	}
 
 	return ret;
 }
@@ -874,6 +833,7 @@ clean_up:
  */
 u32 nvgpu_get_common_runlist_level(u32 level)
 {
+	nvgpu_speculation_barrier();
 	switch (level) {
 	case NVGPU_RUNLIST_INTERLEAVE_LEVEL_LOW:
 		return NVGPU_FIFO_RUNLIST_INTERLEAVE_LEVEL_LOW;
@@ -982,6 +942,7 @@ u32 nvgpu_get_ioctl_compute_preempt_mode(u32 compute_preempt_mode)
  */
 static u32 nvgpu_get_common_graphics_preempt_mode(u32 graphics_preempt_mode)
 {
+	nvgpu_speculation_barrier();
 	switch (graphics_preempt_mode) {
 	case NVGPU_GRAPHICS_PREEMPTION_MODE_WFI:
 		return NVGPU_PREEMPTION_MODE_GRAPHICS_WFI;
@@ -998,6 +959,7 @@ static u32 nvgpu_get_common_graphics_preempt_mode(u32 graphics_preempt_mode)
  */
 static u32 nvgpu_get_common_compute_preempt_mode(u32 compute_preempt_mode)
 {
+	nvgpu_speculation_barrier();
 	switch (compute_preempt_mode) {
 	case NVGPU_COMPUTE_PREEMPTION_MODE_WFI:
 		return NVGPU_PREEMPTION_MODE_COMPUTE_WFI;
@@ -1121,6 +1083,7 @@ long gk20a_channel_ioctl(struct file *filp,
 	/* this ioctl call keeps a ref to the file which keeps a ref to the
 	 * channel */
 
+	nvgpu_speculation_barrier();
 	switch (cmd) {
 	case NVGPU_IOCTL_CHANNEL_OPEN:
 		err = gk20a_channel_open_ioctl(ch->g,
@@ -1265,20 +1228,6 @@ long gk20a_channel_ioctl(struct file *filp,
 				(struct nvgpu_set_error_notifier *)buf);
 		gk20a_idle(ch->g);
 		break;
-#ifdef CONFIG_GK20A_CYCLE_STATS
-	case NVGPU_IOCTL_CHANNEL_CYCLE_STATS:
-		err = gk20a_busy(ch->g);
-		if (err) {
-			dev_err(dev,
-				"%s: failed to host gk20a for ioctl cmd: 0x%x",
-				__func__, cmd);
-			break;
-		}
-		err = gk20a_channel_cycle_stats(ch,
-				(struct nvgpu_cycle_stats_args *)buf);
-		gk20a_idle(ch->g);
-		break;
-#endif
 	case NVGPU_IOCTL_CHANNEL_SET_TIMEOUT:
 	{
 		u32 timeout =
@@ -1381,20 +1330,6 @@ long gk20a_channel_ioctl(struct file *filp,
 				NVGPU_ERR_NOTIFIER_RESETCHANNEL_VERIF_ERROR, true);
 		gk20a_idle(ch->g);
 		break;
-#ifdef CONFIG_GK20A_CYCLE_STATS
-	case NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT:
-		err = gk20a_busy(ch->g);
-		if (err) {
-			dev_err(dev,
-				"%s: failed to host gk20a for ioctl cmd: 0x%x",
-				__func__, cmd);
-			break;
-		}
-		err = gk20a_channel_cycle_stats_snapshot(ch,
-				(struct nvgpu_cycle_stats_snapshot_args *)buf);
-		gk20a_idle(ch->g);
-		break;
-#endif
 	case NVGPU_IOCTL_CHANNEL_WDT:
 		err = gk20a_channel_set_wdt_status(ch,
 				(struct nvgpu_channel_wdt_args *)buf);

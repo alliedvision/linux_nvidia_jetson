@@ -1,0 +1,121 @@
+/*
+ * tegra186-p3636-0001-a00-disp.dtsi : Lanai display dtsi
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/display/tegra-dc.h>
+#include <dt-bindings/display/tegra-panel.h>
+#include <panels/panel-a-wuxga-8-0.dtsi>
+
+#include <t18x-common-platforms/tegra186-hdmi.dtsi>
+#include <t18x-common-platforms/tegra186-dp.dtsi>
+
+/ {
+	host1x {
+		nvdisplay@15200000 {
+			status = "disabled";
+			nvidia,dc-flags = <TEGRA_DC_FLAG_ENABLED>;
+			nvidia,emc-clk-rate = <300000000>;
+			nvidia,fb-bpp = <32>;
+			nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
+			nvidia,fb-win = <0>;
+			win-mask = <0x3>;
+			nvidia,dc-or-node = "/host1x/dsi";
+			nvidia,dc-connector = <&dsi>;
+			nvidia,cmu-enable = <1>;
+		};
+
+		nvdisplay@15210000 {
+			status = "disabled";
+			nvidia,dc-flags = <TEGRA_DC_FLAG_ENABLED>;
+			nvidia,emc-clk-rate = <300000000>;
+			nvidia,fb-bpp = <32>; /* bits per pixel */
+			nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
+			nvidia,fb-win = <2>;
+			win-mask = <0xc>;
+			nvidia,dc-or-node = "/host1x/sor1";
+			nvidia,dc-connector = <&sor1>;
+			nvidia,cmu-enable = <1>;
+		};
+
+
+		nvdisplay@15220000 {
+			status = "disabled";
+			nvidia,dc-flags = <TEGRA_DC_FLAG_ENABLED>;
+			nvidia,emc-clk-rate = <300000000>;
+			nvidia,fb-bpp = <32>; /* bits per pixel */
+			nvidia,fb-win = <4>;
+			nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
+			win-mask = <0x30>;
+			nvidia,dc-or-node = "/host1x/sor";
+			nvidia,dc-connector = <&sor0>;
+			nvidia,cmu-enable = <1>;
+		};
+
+		dsi {
+			nvidia,dsi-controller-vs = <DSI_VS_1>;
+			status = "disabled";
+			nvidia,active-panel = <&panel_a_wuxga_8_0>;
+			nvidia,dsi-csi-loopback;
+			panel-a-wuxga-8-0 {
+				status = "disabled";
+				/* Only 2 lanes used on LANAI */
+				nvidia,dsi-n-data-lanes = <2>;
+				disp-default-out {
+					nvidia,out-parent-clk = "pll_d";
+					nvidia,out-flags = <TEGRA_DC_OUT_CONTINUOUS_MODE>;
+				};
+			};
+		};
+
+		sor {
+			status = "disabled";
+			nvidia,xbar-ctrl = <0 1 2 3 4>;
+			nvidia,hpd-gpio = <&tegra_main_gpio TEGRA_MAIN_GPIO(P, 0) GPIO_ACTIVE_LOW>;
+			nvidia,active-panel = <&sor0_dp_display>;
+			hdmi-display {
+				status = "disabled";
+			};
+			dp-display {
+				status = "disabled";
+			};
+		};
+		sor1 {
+			status = "disabled";
+			nvidia,xbar-ctrl = <0 1 2 3 4>;
+			nvidia,hpd-gpio = <&tegra_main_gpio TEGRA_MAIN_GPIO(P, 1) GPIO_ACTIVE_LOW>;
+			nvidia,active-panel = <&sor1_hdmi_display>;
+			hdmi-display {
+				status = "disabled";
+			};
+			dp-display {
+				status = "disabled";
+			};
+		};
+		dpaux@155c0000 {
+			status = "disabled";
+		};
+		dpaux@15040000 {
+			status = "disabled";
+		};
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		status = "disabled";
+		panel-a-wuxga-8-0-bl {
+			status = "disabled";
+			pwms = <&tegra_pwm1 0 40161>;
+		};
+	};
+};

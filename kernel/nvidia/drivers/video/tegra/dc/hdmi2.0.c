@@ -1,7 +1,7 @@
 /*
  * hdmi2.0.c: hdmi2.0 driver.
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -548,7 +548,6 @@ static void tegra_hdmi_hotplug_notify(struct tegra_hdmi *hdmi,
 static int tegra_hdmi_edid_eld_setup(struct tegra_hdmi *hdmi)
 {
 	int err;
-	int dev_id;
 
 	tegra_unpowergate_partition(hdmi->sor->powergate_id);
 
@@ -568,9 +567,7 @@ static int tegra_hdmi_edid_eld_setup(struct tegra_hdmi *hdmi)
 	 * Try to write ELD data to SOR (needed only for boot
 	 * doesn't do anything during hotplug)
 	 */
-	/* Read the dev_id of the sor */
-	dev_id = tegra_hda_get_dev_id(hdmi->sor);
-	tegra_hdmi_setup_hda_presence(dev_id);
+	tegra_hdmi_setup_hda_presence(hdmi->sor->dev_id);
 
 	tegra_powergate_partition(hdmi->sor->powergate_id);
 
@@ -2070,7 +2067,6 @@ static u32 tegra_hdmi_get_ex_colorimetry(struct tegra_hdmi *hdmi)
 static u32 tegra_hdmi_get_rgb_quant(struct tegra_hdmi *hdmi)
 {
 	u32 vmode = hdmi->dc->mode.vmode;
-	u32 hdmi_quant = HDMI_AVI_RGB_QUANT_DEFAULT;
 
 	/*
 	 * For seamless HDMI, read Q0/Q1 from bootloader
@@ -2095,14 +2091,8 @@ static u32 tegra_hdmi_get_rgb_quant(struct tegra_hdmi *hdmi)
 		}
 	}
 
-	dev_info(&hdmi->dc->ndev->dev, "hdmi: get RGB quant from EDID.\n");
-	if (tegra_edid_is_rgb_quantization_selectable(hdmi->edid)) {
-		if (vmode & FB_VMODE_LIMITED_RANGE)
-			hdmi_quant = HDMI_AVI_RGB_QUANT_LIMITED;
-		else
-			hdmi_quant = HDMI_AVI_RGB_QUANT_FULL;
-	}
-	return hdmi_quant;
+	return (vmode & FB_VMODE_LIMITED_RANGE) ? HDMI_AVI_RGB_QUANT_LIMITED :
+		HDMI_AVI_RGB_QUANT_FULL;
 }
 
 static u32 tegra_hdmi_get_ycc_quant(struct tegra_hdmi *hdmi)
@@ -3079,6 +3069,9 @@ static inline void tegra_sor_set_ref_clk_rate(struct tegra_dc_sor_data *sor)
 static long tegra_dc_hdmi_setup_clk_nvdisplay(struct tegra_dc *dc,
 					      struct clk *clk)
 {
+#define MIN_PARENT_CLK	(27000000)
+#define DIVIDER_CAP	(128)
+
 	struct clk *parent_clk;
 	struct tegra_hdmi *hdmi = tegra_dc_get_outdata(dc);
 	struct tegra_dc_sor_data *sor = hdmi->sor;
@@ -3114,6 +3107,20 @@ static long tegra_dc_hdmi_setup_clk_nvdisplay(struct tegra_dc *dc,
 		if ((IS_RGB(yuv_flag) && (yuv_flag == FB_VMODE_Y36)) ||
 				(yuv_flag == (FB_VMODE_Y444 | FB_VMODE_Y36)))
 			parent_clk_rate *= 3;
+
+		/*
+		 * For t18x plldx cannot go below 27MHz.
+		 * Real HW limit is lesser though.
+		 * 27Mz is chosen to have a safe margin.
+		 */
+		if (parent_clk_rate < (MIN_PARENT_CLK/DIVIDER_CAP)) {
+			dev_err(&dc->ndev->dev, "hdmi: unsupported parent clock rate (%ld).\n",
+					parent_clk_rate);
+			return -EINVAL;
+		}
+
+		while (parent_clk_rate < MIN_PARENT_CLK)
+			parent_clk_rate += parent_clk_rate;
 
 		clk_set_rate(parent_clk, parent_clk_rate);
 

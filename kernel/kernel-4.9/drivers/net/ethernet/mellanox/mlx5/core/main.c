@@ -1277,6 +1277,9 @@ static int init_one(struct pci_dev *pdev,
 	if (err)
 		goto clean_load;
 
+	if (mlx5_thermal_init(dev))
+		pr_info("failed to register thermal device\n");
+
 	pci_save_state(pdev);
 	return 0;
 
@@ -1300,6 +1303,7 @@ static void remove_one(struct pci_dev *pdev)
 	struct devlink *devlink = priv_to_devlink(dev);
 	struct mlx5_priv *priv = &dev->priv;
 
+	mlx5_thermal_deinit(dev);
 	devlink_unregister(devlink);
 	mlx5_unregister_device(dev);
 

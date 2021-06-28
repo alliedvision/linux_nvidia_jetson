@@ -20,6 +20,9 @@
 #include <linux/list.h>
 #include <linux/bitmap.h>
 #include <linux/errno.h>
+#include <linux/topology.h>
+
+#include <soc/tegra/chip-id.h>
 
 #include <asm/sysreg.h>
 
@@ -104,6 +107,7 @@ struct carmel_unit {
 	u32 id;
 	u32 pmselr;
 	bool is_used;
+	bool is_available;
 	struct cntr_info cntrs[UNIT_CTRS];
 	DECLARE_BITMAP(used_ctrs, UNIT_CTRS);
 	struct list_head next;
@@ -289,7 +293,7 @@ static int add_event(const struct quadd_event *event)
 	event_raw = CARMEL_EVENT(event->id);
 
 	unit = get_unit(unit_id);
-	if (!unit)
+	if (!unit || !unit->is_available)
 		return -ENOENT;
 
 	set_unit(unit);
@@ -444,6 +448,17 @@ current_events(int cpuid, struct quadd_event *events, int max)
 	return curr - events;
 }
 
+static bool is_cluster_available(int cluster_id)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu)
+		if (cpu_topology[cpu].cluster_id == cluster_id)
+			return true;
+
+	return false;
+}
+
 QUADD_PMU_CNTR_INFO(l2d_cache, L2D_CACHE);
 QUADD_PMU_CNTR_INFO(l2d_refill, L2D_CACHE_REFILL);
 QUADD_PMU_CNTR_INFO(l2d_cache_wb, L2D_CACHE_WB);
@@ -501,6 +516,9 @@ quadd_carmel_uncore_pmu_init(void)
 	int i;
 	struct carmel_unit *unit;
 
+	if (tegra_get_chipid() != TEGRA_CHIPID_TEGRA19)
+		return NULL;
+
 	INIT_LIST_HEAD(&ctx.units);
 
 	for (i = 0; i < NUM_L2S; i++) {
@@ -508,6 +526,7 @@ quadd_carmel_uncore_pmu_init(void)
 		unit->id = i;
 		unit->pmselr = get_unit_pmselr(1, i);
 		unit->is_used = false;
+		unit->is_available = is_cluster_available(i);
 
 		bitmap_zero(unit->used_ctrs, UNIT_CTRS);
 		list_add(&unit->next, &ctx.units);
@@ -517,6 +536,7 @@ quadd_carmel_uncore_pmu_init(void)
 	unit->id = NUM_L2S;
 	unit->pmselr = get_unit_pmselr(0, 0);
 	unit->is_used = false;
+	unit->is_available = true;
 
 	bitmap_zero(unit->used_ctrs, UNIT_CTRS);
 	list_add(&unit->next, &ctx.units);

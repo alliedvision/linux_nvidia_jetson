@@ -1,7 +1,7 @@
 /*
  * tegra210_dmic_alt.c - Tegra210 DMIC driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,6 +30,7 @@
 #include <sound/soc.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/pinconf-tegra.h>
+#include <linux/pinctrl/consumer.h>
 
 #include "tegra210_xbar_alt.h"
 #include "tegra210_dmic_alt.h"
@@ -120,7 +121,37 @@ static int tegra210_dmic_startup(struct snd_pcm_substream *substream,
 		}
 	}
 
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+		if (!IS_ERR_OR_NULL(dmic->pin_active_state)) {
+			ret = pinctrl_select_state(dmic->pinctrl,
+						dmic->pin_active_state);
+			if (ret < 0) {
+				dev_err(dev,
+				"Setting dmic pinctrl active state failed\n");
+				return -EINVAL;
+			}
+		}
+	}
+
 	return 0;
+}
+
+static void tegra210_dmic_shutdown(struct snd_pcm_substream *substream,
+				   struct snd_soc_dai *dai)
+{
+	struct device *dev = dai->dev;
+	struct tegra210_dmic *dmic = snd_soc_dai_get_drvdata(dai);
+	int ret;
+
+	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+		if (!IS_ERR_OR_NULL(dmic->pin_idle_state)) {
+			ret = pinctrl_select_state(
+				dmic->pinctrl, dmic->pin_idle_state);
+			if (ret < 0)
+				dev_err(dev,
+				"Setting dmic pinctrl idle state failed\n");
+		}
+	}
 }
 
 static int tegra210_dmic_hw_params(struct snd_pcm_substream *substream,
@@ -312,6 +343,7 @@ static int tegra210_dmic_put_control(struct snd_kcontrol *kcontrol,
 static struct snd_soc_dai_ops tegra210_dmic_dai_ops = {
 	.hw_params	= tegra210_dmic_hw_params,
 	.startup	= tegra210_dmic_startup,
+	.shutdown       = tegra210_dmic_shutdown,
 };
 
 static struct snd_soc_dai_driver tegra210_dmic_dais[] = {
@@ -592,6 +624,21 @@ static int tegra210_dmic_platform_probe(struct platform_device *pdev)
 		if (ret < 0)
 			dev_warn(&pdev->dev, "Failed to set %s setting\n",
 				 dmic->prod_name);
+	}
+
+	dmic->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(dmic->pinctrl)) {
+		dev_dbg(&pdev->dev, "Missing pinctrl device\n");
+		return 0;
+	}
+
+	dmic->pin_active_state = pinctrl_lookup_state(dmic->pinctrl,
+							"dap_active");
+	dmic->pin_idle_state = pinctrl_lookup_state(dmic->pinctrl,
+							"dap_inactive");
+	if (IS_ERR(dmic->pin_active_state) && IS_ERR(dmic->pin_idle_state)) {
+		dev_dbg(&pdev->dev, "Pinctrl: No DAP states found\n");
+		devm_pinctrl_put(dmic->pinctrl);
 	}
 
 	return 0;

@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -2997,6 +2997,34 @@ static void pre_transmit(struct eqos_prv_data *pdata, UINT qinx)
 	/* set Interrupt on Completion for last descriptor */
 	TX_NORMAL_DESC_TDES2_IC_WR(plast_desc->tdes2, 0x1);
 
+	if (ptx_ring->frame_cnt < UINT_MAX) {
+		ptx_ring->frame_cnt++;
+	} else if (ptx_ring->use_tx_frames == EQOS_COAELSCING_ENABLE &&
+		   (ptx_ring->frame_cnt %
+					ptx_ring->tx_coal_frames) < UINT_MAX) {
+		/* make sure count for tx_frame interrupt logic is retained */
+		ptx_ring->frame_cnt =
+				(ptx_ring->frame_cnt % ptx_ring->tx_coal_frames)
+					+ 1U;
+	} else {
+		ptx_ring->frame_cnt = 1U;
+	}
+
+	if (ptx_ring->use_tx_usecs == EQOS_COAELSCING_ENABLE) {
+		TX_NORMAL_DESC_TDES2_IC_WR(plast_desc->tdes2, 0x0);
+
+		/* update IOC bit if tx_frames is enabled. Tx_frames
+		 * can be enabled only along with tx_usecs.
+		 */
+		if (ptx_ring->use_tx_frames == EQOS_COAELSCING_ENABLE) {
+			if ((ptx_ring->frame_cnt %
+					ptx_ring->tx_coal_frames) == 0) {
+				TX_NORMAL_DESC_TDES2_IC_WR(
+							plast_desc->tdes2, 0x1);
+			}
+		}
+	}
+
 	/* set OWN bit of FIRST descriptor at end to avoid race condition */
 	ptx_desc = GET_TX_DESC_PTR(qinx, start_index);
 	TX_NORMAL_DESC_TDES3_OWN_WR(ptx_desc->tdes3, 0x1);
@@ -3162,7 +3190,7 @@ static INT eqos_pad_calibrate(struct eqos_prv_data *pdata)
 	struct platform_device *pdev = pdata->pdev;
 	int ret;
 	int i;
-	u32 hwreg;
+	u32 hwreg = 0;
 
 	if (tegra_platform_is_unit_fpga())
 		return 0;
@@ -3177,12 +3205,17 @@ static INT eqos_pad_calibrate(struct eqos_prv_data *pdata)
 	/* 2. delay for 1 usec */
 	usleep_range(1, 3);
 
+	/* use platform specific ETHER_QOS_AUTO_CAL_CONFIG_0 register value if set */
+	if(pdata->dt_cfg.reg_auto_cal_config_0_val)
+		hwreg = pdata->dt_cfg.reg_auto_cal_config_0_val;
+	else
+		PAD_AUTO_CAL_CFG_RD(hwreg);
+
 	/* 3. Set AUTO_CAL_ENABLE and AUTO_CAL_START in
 	 * reg ETHER_QOS_AUTO_CAL_CONFIG_0.
 	 */
-	PAD_AUTO_CAL_CFG_RD(hwreg);
 	hwreg |=
-	    ((PAD_AUTO_CAL_CFG_START_MASK) | (PAD_AUTO_CAL_CFG_ENABLE_MASK));
+		(PAD_AUTO_CAL_CFG_START_MASK) | (PAD_AUTO_CAL_CFG_ENABLE_MASK);
 
 	PAD_AUTO_CAL_CFG_WR(hwreg);
 

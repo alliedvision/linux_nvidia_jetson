@@ -1,0 +1,70 @@
+/*
+ * tegra186-p3636-0001-plugin-manager.dtsi : P3310 plugin manager
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <t18x-common-plugin-manager/tegra186-soc-prod-plugin-manager.dtsi>
+#include "tegra186-p3636-0001-odm-data-plugin-manager.dtsi"
+
+/ {
+	eeprom-manager {
+		data-size = <0x100>;
+		boardid-with-revision = <3636>;
+		boardid-with-config = <3636>;
+		bus@0 {
+			i2c-bus = <&gen8_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+				label = "cvm";
+			};
+			eeprom@1 {
+				slave-address = <0x57>;
+				label = "cvb";
+			};
+		};
+		bus@2 {
+			i2c-bus = <&gen1_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+			};
+		};
+		bus@3 {
+			i2c-bus = <&cam_i2c>;
+			eeprom@0 {
+				slave-address = <0x54>;
+				label = "cam";
+				enable-gpio = <2 9>;
+			};
+			eeprom@1 {
+				slave-address = <0x57>;
+				label = "cam";
+				enable-gpio = <2 9>;
+			};
+		};
+	};
+
+	plugin-manager {
+		ina3221_current_limit {
+			ids = ">=3636-0002-000";
+			override@0 {
+				target = <&ina3221x_40>;
+				_overlay_ {
+					channel@0 {
+						ti,current-warning-limit-ma = <3600>;
+						ti,current-critical-limit-ma = <3600>;
+					};
+				};
+			};
+		};
+	};
+};

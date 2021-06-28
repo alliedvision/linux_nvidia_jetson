@@ -1,7 +1,7 @@
 /*
  * tegra194-soc-eqos.dtsi: Ethernet QOS DTSI file.
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,33 @@
 
 
 / {
+	pinmux@2430000 {
+		eqos_txrx_tri_state_idle: eqos_idle {
+			eqos {
+				nvidia,pins = "eqos_td3_pe4","eqos_td2_pe3",
+						"eqos_td1_pe2","eqos_td0_pe1",
+						"eqos_txc_pe0","eqos_tx_ctl_pe5",
+						"eqos_rd3_pf1","eqos_rd2_pf0",
+						"eqos_rd1_pe7","eqos_rd0_pe6",
+						"eqos_rxc_pf3","eqos_rx_ctl_pf2";
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+			};
+		};
+
+		eqos_txrx_tri_state_default: eqos_default {
+			eqos {
+				nvidia,pins = "eqos_td3_pe4","eqos_td2_pe3",
+						"eqos_td1_pe2","eqos_td0_pe1",
+						"eqos_txc_pe0","eqos_tx_ctl_pe5",
+						"eqos_rd3_pf1","eqos_rd2_pf0",
+						"eqos_rd1_pe7","eqos_rd0_pe6",
+						"eqos_rxc_pf3","eqos_rx_ctl_pf2";
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+			};
+		};
+
+	};
+
 	ether_qos@2490000 {
 		compatible = "nvidia,eqos";
 		reg = <0x0 0x02490000 0x0 0x10000>;    /* EQOS Base Register */
@@ -67,9 +94,13 @@
 		dma-coherent;
 		nvidia,csr_clock_speed = <0x19>; /* CSR clock speed 25MHz */
 		nvidia,iso_bw = <81920>; /* sum of read and write bw, 80Mb/s */
-		nvidia,rx_riwt = <124>; /* usec value for Rx watchdog interrupt */
+		nvidia,rx_riwt = <60>; /* riwt value for Rx watchdog interrupt, this gets multiplied by 2.048us to get tx-usec */
+		nvidia,rx_frames = <16>; /* Rx-frames to coalesc */
 		nvidia,slot_intvl_val = <0x07C>;
 		status = "disabled";
+		pinctrl-names = "idle", "default";
+		pinctrl-0 = <&eqos_txrx_tri_state_idle>;
+		pinctrl-1 = <&eqos_txrx_tri_state_default>;
 		eqos_cool_dev: eqos-cool-dev {
 			cooling-min-state = <0>;
 			cooling-max-state = <5>;

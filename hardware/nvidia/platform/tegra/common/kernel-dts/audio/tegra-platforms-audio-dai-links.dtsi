@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,6 +70,26 @@
 				     49152000 >;/* AHUB_x8000_RATE */
 
 		nvidia,xbar = <&tegra_axbar>;
+
+		nvidia,audio-routing =
+			"x Headphone",          "x OUT",
+			"x IN",                 "x Mic",
+			"y Headphone",          "y OUT",
+			"y IN",                 "y Mic",
+			"z Headphone",          "z OUT",
+			"z IN",                 "z Mic",
+			"m Headphone",          "m OUT",
+			"m IN",                 "m Mic",
+			"n Headphone",          "n OUT",
+			"n IN",                 "n Mic",
+			"o Headphone",          "o OUT",
+			"o IN",                 "o Mic",
+			"a IN",                 "a Mic",
+			"b IN",                 "b Mic",
+			"c IN",                 "c Mic",
+			"d IN",                 "d Mic",
+			"d1 Headphone",         "d1 OUT",
+			"d2 Headphone",         "d2 OUT";
 
 		nvidia,dai-link-1 {
 			link-name = "spdif-dit-0";

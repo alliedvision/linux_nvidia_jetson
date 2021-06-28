@@ -77,6 +77,7 @@ bool gr_gv11b_is_valid_class(struct gk20a *g, u32 class_num)
 {
 	bool valid = false;
 
+	nvgpu_speculation_barrier();
 	switch (class_num) {
 	case VOLTA_COMPUTE_A:
 	case VOLTA_A:
@@ -106,6 +107,7 @@ bool gr_gv11b_is_valid_gfx_class(struct gk20a *g, u32 class_num)
 {
 	bool valid = false;
 
+	nvgpu_speculation_barrier();
 	switch (class_num) {
 	case VOLTA_A:
 	case PASCAL_A:
@@ -140,6 +142,7 @@ bool gr_gv11b_is_valid_compute_class(struct gk20a *g, u32 class_num)
 {
 	bool valid = false;
 
+	nvgpu_speculation_barrier();
 	switch (class_num) {
 	case VOLTA_COMPUTE_A:
 	case PASCAL_COMPUTE_A:

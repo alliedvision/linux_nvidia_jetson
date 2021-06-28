@@ -23,9 +23,9 @@
 #include "tegra194-powermon-p3668.dtsi"
 #include "tegra194-power-tree-p3668.dtsi"
 #include "tegra194-thermal-p3668.dtsi"
+#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
 #include "tegra194-p3668-pcie-plugin-manager.dtsi"
 #include "tegra194-plugin-manager-p3668.dtsi"
-#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
 
 / {
 	nvidia,fastboot-usb-vid = <0x0955>;
@@ -201,6 +201,12 @@
 
 	mttcan@c310000 {
 		status = "okay";
+		pll_source = "pllc";
+		clocks = <&bpmp_clks TEGRA194_CLK_CAN1_CORE>,
+			<&bpmp_clks TEGRA194_CLK_CAN1_HOST>,
+			<&bpmp_clks TEGRA194_CLK_CAN1>,
+			<&bpmp_clks TEGRA194_CLK_PLLC>;
+		clock-names = "can_core", "can_host","can", "pllc";
 	};
 
 	mttcan@c320000 {
@@ -309,6 +315,15 @@
 			output-high;
 			gpios = <TEGRA194_AON_GPIO(CC, 0) GPIO_ACTIVE_LOW>;
 			label = "w-disable2";
+			status = "okay";
+		};
+		suspend_gpio: suspend-led-gpio {
+			gpio-hog;
+			output-high;
+			gpio-suspend;
+			suspend-output-low;
+			gpios = <TEGRA194_AON_GPIO(CC, 1) GPIO_ACTIVE_HIGH>;
+			label = "suspend-led-gpio";
 			status = "okay";
 		};
 	};
@@ -461,6 +476,16 @@
 		};
 	};
 
+	leds {
+		compatible = "gpio-leds";
+		status = "okay";
+		pwr {
+			gpios = <&tegra_aon_gpio TEGRA194_AON_GPIO(CC, 1) GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+	};
+
+
 	/* QSPI flash S25FS128SAGNFI103 is controlled by qspi0 */
 	spi@3270000 {
 		spi-max-frequency = <136000000>;
@@ -501,6 +526,10 @@
 				<&bpmp_clks TEGRA194_CLK_CAN1>,
 				<&bpmp_clks TEGRA194_CLK_CAN2>;
 		};
+	};
+
+	soctherm-oc-event {
+		status = "okay";
 	};
 };
 

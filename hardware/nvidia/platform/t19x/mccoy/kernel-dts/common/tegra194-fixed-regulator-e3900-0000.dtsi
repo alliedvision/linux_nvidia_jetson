@@ -1,0 +1,282 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+
+#include <dt-bindings/gpio/tegra194-gpio.h>
+
+/ {
+	fixed-regulators {
+		e3900_AO_5v_cvb: regulator@201 {
+			compatible = "regulator-fixed";
+			reg = <201>;
+			regulator-name = "STBY-5v-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+
+		e3900_AO_3v3_cvb: regulator@202 {
+			compatible = "regulator-fixed";
+			reg = <202>;
+			regulator-name = "AO-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&e3900_AO_5v_cvb>;
+		};
+
+		e3900_atx_12v_cvb: regulator@203 {
+			compatible = "regulator-fixed";
+			reg = <203>;
+			regulator-name = "atx-12v-cvb";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+		};
+
+		e3900_atx_5v_cvb: regulator@204 {
+			compatible = "regulator-fixed";
+			reg = <204>;
+			regulator-name = "atx-5v-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+
+		hdr40_vdd_3v3: e3900_atx_3v3_cvb: regulator@205 {
+			compatible = "regulator-fixed";
+			reg = <205>;
+			regulator-name = "atx-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		/* CARRIER_PWR_ON as enable pin.
+		   CARRIER_PWR_ON -> VDDIO_AO_3V3 -> LD02.
+		*/
+		e3900_sys_3v3_cvb: regulator@206 {
+			compatible = "regulator-fixed";
+			reg = <206>;
+			regulator-name = "sys-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&e3900_atx_12v_cvb>;
+		};
+
+		e3900_cx_3v3_cvb: regulator@207 {
+			compatible = "regulator-fixed";
+			reg = <207>;
+			regulator-name = "cx-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&e3900_atx_12v_cvb>;
+		};
+
+		e3900_cx_vcore_cvb: regulator@208 {
+			compatible = "regulator-fixed";
+			reg = <208>;
+			regulator-name = "cx-vcore-cvb";
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <800000>;
+			vin-supply = <&e3900_atx_12v_cvb>;
+		};
+
+		e3900_cx_1v8_cvb: regulator@209 {
+			compatible = "regulator-fixed";
+			reg = <209>;
+			regulator-name = "cx-1v8-cvb";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&e3900_atx_12v_cvb>;
+		};
+
+		/*
+		   The enable pin is CX_1V8_PG which gets enabled after
+		   e3900_cx_1v8_cvb is enabled.
+		*/
+		e3900_cx_1v2_cvb: regulator@210 {
+			compatible = "regulator-fixed";
+			reg = <210>;
+			regulator-name = "cx-1v2-cvb";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			vin-supply = <&e3900_atx_12v_cvb>;
+		};
+
+		e3900_vdd_5v0_hdmi_cvb: regulator@211 {
+			compatible = "regulator-fixed";
+			reg = <211>;
+			regulator-name = "e3900-vdd-5v0-hdmi-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(A, 3) 0>;
+			enable-active-high;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		};
+
+		e3900_vbus1_cvb: regulator@212 {
+			compatible = "regulator-fixed";
+			reg = <212>;
+			regulator-name = "e3900-vbus1-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		e3900_vbus2_cvb: regulator@213 {
+			compatible = "regulator-fixed";
+			reg = <213>;
+			regulator-name = "e3900-vbus2-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		/*
+		   The Enable pin is P1_POWER_EN which is from
+		   CX6 [Pin: NCSI_MC_TXD0/GP[7]].
+		   CX6 will control P0_POWER_EN for the 100G port and
+		   P1_POWER_EN for the 10G phy by FW.
+		*/
+		e3900_AQR_0v85_cvb: regulator@214 {
+			compatible = "regulator-fixed";
+			reg = <214>;
+			regulator-name = "e3900-AQR-0v85-cvb";
+			regulator-min-microvolt = <850000>;
+			regulator-max-microvolt = <850000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		/*
+		   The enable pin is PS_0V85_PG which is power good
+		   signal from e3900_AQR_0v85_cvb.
+		*/
+		e3900_AQR_1v2_cvb: regulator@215 {
+			compatible = "regulator-fixed";
+			reg = <215>;
+			regulator-name = "e3900-AQR-1v2-cvb";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		/*
+		   The enable pin is PS_1V2_PG which is power good
+		   signal from e3900_AQR_1v2_cvb.
+		*/
+		e3900_AQR_2v1_cvb: regulator@216 {
+			compatible = "regulator-fixed";
+			reg = <216>;
+			regulator-name = "AQR-2v1-cvb";
+			regulator-min-microvolt = <2100000>;
+			regulator-max-microvolt = <2100000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		/*
+		   The enable pin is PS_2V1_PG which is power good
+		   signal from e3900_AQR_2v1_cvb.
+		*/
+		e3900_AQR_3v3_cvb: regulator@217 {
+			compatible = "regulator-fixed";
+			reg = <217>;
+			regulator-name = "AQR-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&e3900_cx_3v3_cvb>;
+		    };
+
+		/*
+		   Enable pin is from CARRIER_PWR_ON.
+		   LDO2 -> VDDIO_AO_3V3 -> CARRIER_PWR_ON
+		*/
+		e3900_sys_1v8_cvb: regulator@218 {
+			compatible = "regulator-fixed";
+			reg = <218>;
+			regulator-name = "sys-1v8-cvb";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		/*
+		   The enable pin is PS_1V8_PG which is power good
+		   signal from e3900_sys_1v8_cvb.
+		*/
+		e3900_vdd_1v0_sata_cvb: regulator@219 {
+			compatible = "regulator-fixed";
+			reg = <219>;
+			regulator-name = "vdd-1v0-sata-cvb";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		    };
+
+		e3900_avdd_cam_2v8_cvb: regulator@220 {
+			compatible = "regulator-fixed";
+			reg = <220>;
+			regulator-name = "avdd-cam-2v8-cvb";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(N, 0) 0>;
+			enable-active-high;
+			vin-supply = <&e3900_sys_3v3_cvb>;
+		};
+
+		e3900_cam_3v3_cvb: regulator@221 {
+			compatible = "regulator-fixed";
+			reg = <221>;
+			regulator-name = "cam-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(N, 0) 0>;
+			enable-active-high;
+			vin-supply = <&e3900_sys_3v3_cvb>;
+		};
+
+		e3900_vdd_1v8_sd_cvb: regulator@222 {
+			compatible = "regulator-fixed";
+			reg = <222>;
+			regulator-name = "e3900-vdd-1v8-sd-cvb";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(A, 0) 0>;
+			enable-active-high;
+			vin-supply = <&e3900_sys_1v8_cvb>;
+		};
+
+		e3900_vbus0_cvb: regulator@223 {
+			compatible = "regulator-fixed";
+			reg = <223>;
+			regulator-name = "e3900-vbus0-cvb";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			vin-supply = <&e3900_atx_5v_cvb>;
+		};
+		e3900_vdd_3v3_sd_cvb: regulator@224 {
+			compatible = "regulator-fixed";
+			reg = <224>;
+			regulator-name = "e3900-vdd-3v3-sd-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(A, 0) 0>;
+			enable-active-high;
+			vin-supply = <&e3900_sys_3v3_cvb>;
+		};
+		e3900_vdd_sys_en: regulator@113 {
+			compatible = "regulator-fixed";
+			reg = <225>;
+			regulator-name = "e3900_vdd_sys_en";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(M, 5) 0>;
+			enable-active-high;
+		};
+	};
+};

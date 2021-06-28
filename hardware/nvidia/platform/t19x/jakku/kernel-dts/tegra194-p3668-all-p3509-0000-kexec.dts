@@ -1,0 +1,148 @@
+/*
+ * Top level DTS file for CVM:P3668-0001 and CVB:P3509-0000.
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+#include "common/tegra194-p3668-common.dtsi"
+#include "common/tegra194-p3509-0000-a00.dtsi"
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	compatible = "nvidia,p3449-0000+p3668-0000", "nvidia,p3449-0000+p3668-0001", "nvidia,p3509-0000+p3668-0000", "nvidia,p3509-0000+p3668-0001", "nvidia,tegra194";
+	memory {
+		reg =   <0x0 0x80000000 0x0 0x2c000000 0x0 0xac200000 0x0 0x44600000 0x1 0x0 0x1 0x80000000>;
+		device_type = "memory";
+	};
+
+	trusty {
+		status = "okay";
+	};
+
+	cpus {
+		cpu@0 {
+			reg = <0x0 0x0>;
+		};
+		cpu@1 {
+			reg = <0x0 0x1>;
+		};
+		/delete-node/ cpu@6;
+		/delete-node/ cpu@7;
+		cpu-map {
+			/delete-node/ cluster3;
+		};
+	};
+
+	arm-pmu {
+		interrupt-affinity =    <&cl0_0>,
+					<&cl0_1>,
+					<&cl1_0>,
+					<&cl1_1>,
+					<&cl2_0>,
+					<&cl2_1>;
+	};
+
+	bpmp {
+		carveout-size = <0x400000>;
+		carveout-start = <0xf3800000>;
+	};
+
+	watchdog@30c0000 {
+		status = "okay";
+	};
+
+	pcie@14160000 {
+		status = "disabled";
+	};
+
+	pcie@141a0000 {
+		status = "disabled";
+	};
+
+	mttcan@c310000 {
+		status = "disabled";
+	};
+
+	sound {
+		status = "disabled";
+	};
+
+	aconnect@2a41000 {
+		status = "disabled";
+	};
+
+	hda@3510000 {
+		status = "disabled";
+	};
+
+	rtcpu@bc00000 {
+		status = "disabled";
+	};
+
+	spi@3270000 {
+		status = "disabled";
+	};
+
+	spi@c260000 {
+		status = "disabled";
+	};
+
+	host1x {
+		nvdisplay@15200000 {
+			status = "disabled";
+		};
+		nvdisplay@15210000 {
+			status = "disabled";
+		};
+		sor {
+			status = "disabled";
+		};
+		sor1 {
+			status = "disabled";
+		};
+		dpaux@155c0000 {
+			status = "disabled";
+		};
+		dpaux@155D0000 {
+			status = "disabled";
+		};
+		dpaux@155F0000 {
+			status = "disabled";
+		};
+		tegra_cec {
+			status = "disabled";
+		};
+		se@15810000 {
+			status = "disabled";
+		};
+		se@15820000 {
+			status = "disabled";
+		};
+		se@15830000 {
+			status = "disabled";
+		};
+		se@15840000 {
+			status = "disabled";
+		};
+	};
+
+	gv11b {
+		status = "disabled";
+	};
+
+	bcmdhd_pcie_wlan {
+		status = "disabled";
+	};
+};

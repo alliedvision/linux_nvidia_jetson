@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "tegra186-camera-rbpcv2-imx219.dtsi"
+
+#define CAM0_PWDN	TEGRA_MAIN_GPIO(N, 0)
+#define CAM1_PWDN	TEGRA_MAIN_GPIO(N, 3)
+#define CAM_I2C_MUX 	TEGRA_MAIN_GPIO(C, 4)
+
+/ {
+	cam_i2cmux{
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&cam_i2c>;
+		mux-gpios = <&tegra_main_gpio CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
+		i2c@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			rbpcv2_imx219_a@10 {
+				reset-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+			};
+		};
+		i2c@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			rbpcv2_imx219_c@10 {
+				reset-gpios = <&tegra_main_gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
+			};
+		};
+	};
+
+	gpio@2200000 {
+		camera-control-output-low {
+			gpio-hog;
+			output-low;
+			gpios = <CAM0_PWDN 0 CAM1_PWDN 0>;
+			label = "cam0-pwdn","cam1-pwdn";
+		};
+	};
+};

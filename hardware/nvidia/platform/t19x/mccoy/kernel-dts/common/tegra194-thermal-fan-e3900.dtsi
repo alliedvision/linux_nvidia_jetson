@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	thermal_fan_est_shared_data: tfesd {
+		tzp_governor_name = "continuous_therm_gov";
+		ndevs = <4>;
+		dev4 {
+			dev_data = "mlx5";
+			group = <1>;
+			coeffs = <100 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+		};
+	};
+
+	thermal-fan-est {
+		shared_data = <&thermal_fan_est_shared_data>;
+		use_tmargin;
+		thermal-zone-params {
+			governor-name = "continuous_therm_gov";
+			iir_power = <7>;
+			iir_min = <10>;
+			iir_max = <1000>;
+			iir_gain_qp = <1000>;
+			iir_upper_width = <1000>;
+			iir_lower_width = <1000>;
+		};
+		profiles {
+			default = "cool";
+			/delete-node/ quiet;
+			cool {
+				active_trip_temps = <10000 17000 45000 100000 120000
+							140000 160000 180000 200000 220000>;
+				active_hysteresis = <0 0 0 0 0 0 0 0 0 0>;
+			};
+		};
+	};
+};

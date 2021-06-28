@@ -993,6 +993,16 @@ int vi_capture_request(struct tegra_vi_channel *chan,
 	return 0;
 }
 
+int vi_stop_waiting(struct tegra_vi_channel *chan)
+{
+	struct vi_capture *capture = chan->capture_data;
+	struct completion *x = &capture->capture_resp;
+
+	x->done++;
+
+	return 0;
+}
+
 int vi_capture_status(struct tegra_vi_channel *chan,
 		int32_t timeout_ms)
 {

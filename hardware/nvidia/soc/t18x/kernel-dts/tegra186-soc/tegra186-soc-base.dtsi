@@ -1,7 +1,7 @@
 /*
  * tegra186-soc-base.dtsi: SoC Base DTSI file.
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@
 #include "tegra186-soc/tegra186-soc-disp-imp.dtsi"
 #include <dt-bindings/soc/gp10b-fuse.h>
 #include <dt-bindings/gpio/tegra186-gpio.h>
+#include "dt-bindings/input/input.h"
 
 / {
 	compatible = "nvidia,tegra186";
@@ -744,6 +745,20 @@
 		compatible = "nvidia,tegra186-aowake";
 		reg = <0x0 0xc370000 0x0 0x600>;
 		status = "disabled";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		gpio-keys,name = "gpio-keys";
+		status = "disabled";
+
+		sw_wake {
+			label = "sw-wake";
+			interrupt-parent = <&pm_irq>;
+			interrupts = <0 19 IRQ_TYPE_LEVEL_HIGH>;
+			linux,code = <KEY_POWER>;
+			wakeup-source;
+		};
 	};
 
 	tegra_pmc_iopower: pmc-iopower {

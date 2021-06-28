@@ -3965,6 +3965,7 @@ int gr_gk20a_add_zbc(struct gk20a *g, struct gr_gk20a *gr,
 	/* no endian swap ? */
 
 	nvgpu_mutex_acquire(&gr->zbc_lock);
+	nvgpu_speculation_barrier();
 	switch (zbc_val->type) {
 	case GK20A_ZBC_TYPE_COLOR:
 		/* search existing tables */
@@ -4069,6 +4070,7 @@ int gr_gk20a_query_zbc(struct gk20a *g, struct gr_gk20a *gr,
 	u32 index = query_params->index_size;
 	u32 i;
 
+	nvgpu_speculation_barrier();
 	switch (query_params->type) {
 	case GK20A_ZBC_TYPE_INVALID:
 		query_params->index_size = GK20A_ZBC_TABLE_SIZE;

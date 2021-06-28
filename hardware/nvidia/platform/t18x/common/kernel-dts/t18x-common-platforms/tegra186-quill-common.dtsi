@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-common.dtsi: Quill common dtsi.
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 
 #include <dt-bindings/types.h>
 #include <dt-bindings/gpio/tegra186-gpio.h>
+#include <dt-bindings/audio/tegra186-audio.h>
 /dts-v1/;
 
 /memreserve/ 0x80000000 0x00010000;
@@ -33,6 +34,8 @@
 #include "tegra186-quill-pwm-fan.dtsi"
 #include "tegra186-quill-thermal-fan-est.dtsi"
 #include "tegra186-host1x-camera.dtsi"
+#include <audio/tegra-platforms-audio-dmic3-5-switch.dtsi>
+
 / {
         compatible = "nvidia,tegra186";
 
@@ -994,9 +997,37 @@
 		status = "okay";
 	};
 
-    sce-ivc-channels {
-        i2c@480 {
-            status = "okay";
-        };
-    };
+	sce-ivc-channels {
+		i2c@480 {
+			status = "okay";
+		};
+	};
+
+	/* One can reserved memory in either static or dynamic way as per
+	   https://www.kernel.org/doc/Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
+	   So, Comment out static memory reservation and uncomment Dynamic
+	   memory reservation when need to use dynamic one.
+	 */
+	reserved-memory {
+		dummy_reserved: dummy_mem_region {
+			compatible = "nvidia,dummy_mem_region";
+
+			/* static memory reservation */
+			reg = <0x2 0x60000000 0x0 0xfff0000>;
+
+			/* Dynamic memory resevation */
+			/*size = <0x0 0xfff0000>;
+			alignment = <0x10000>;
+			alloc-ranges = <0x2 0x60000000 0x0 0xfff0000>;*/
+
+			no-map;
+			status = "disabled";
+		};
+	};
+
+	dummy-mem-carveout {
+		compatible = "nvidia,dummy_mem_carveout";
+		memory-region = <&dummy_reserved>;
+		status = "disabled";
+	};
 };

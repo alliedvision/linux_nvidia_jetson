@@ -1,5 +1,5 @@
 /*=============================================================================
-  Copyright (C) 2020 Allied Vision Technologies.  All Rights Reserved.
+  Copyright (C) 2021 Allied Vision Technologies.  All Rights Reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -25,9 +25,9 @@ version:     1.0.0
 #define CSI_HOST_CLK_MAX_FREQ	1250000000
 
 /* VI restrictions */
-#define FRAMESIZE_MIN_W     64
+#define FRAMESIZE_MIN_W     256
 #define FRAMESIZE_MAX_W     32768
-#define FRAMESIZE_INC_W     32
+#define FRAMESIZE_INC_W     192
 #define FRAMESIZE_MIN_H     32
 #define FRAMESIZE_MAX_H     32768
 #define FRAMESIZE_INC_H     1
@@ -40,6 +40,6 @@ version:     1.0.0
 #define DATA_IDENTIFIER_INQ_2   0x0
 #define DATA_IDENTIFIER_INQ_3   0x0
 #define DATA_IDENTIFIER_INQ_4   0x0
-#define MIN_ANNOUNCED_FRAMES    3
+#define MIN_ANNOUNCED_FRAMES    1
 
 #endif /* AVT_CSI2_SOC_H */

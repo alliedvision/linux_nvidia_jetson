@@ -1,7 +1,7 @@
 /*
  * T194 p2822-0000 audio common DTSI file.
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,7 +15,9 @@
 
 #include <audio/tegra-platforms-audio-dai-links.dtsi>
 #include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/audio/tegra194-audio.h>
 #include <dt-bindings/sound/rt5659.h>
+#include <audio/tegra-platforms-audio-dmic3-5-switch.dtsi>
 
 / {
 

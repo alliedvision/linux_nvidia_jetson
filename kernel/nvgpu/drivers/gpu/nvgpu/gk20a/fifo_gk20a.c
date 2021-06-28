@@ -2212,6 +2212,22 @@ int gk20a_fifo_tsg_unbind_channel_verify_status(struct channel_gk20a *ch)
 	return 0;
 }
 
+static bool gk20a_fifo_tsg_is_multi_channel(struct tsg_gk20a *tsg)
+{
+	bool ret = false;
+
+	nvgpu_rwsem_down_read(&tsg->ch_list_lock);
+	if (nvgpu_list_first_entry(&tsg->ch_list, channel_gk20a,
+				   ch_entry) !=
+	    nvgpu_list_last_entry(&tsg->ch_list, channel_gk20a,
+				   ch_entry)) {
+		ret = true;
+	}
+	nvgpu_rwsem_up_read(&tsg->ch_list_lock);
+
+	return ret;
+}
+
 int gk20a_fifo_tsg_unbind_channel(struct channel_gk20a *ch)
 {
 	struct gk20a *g = ch->g;
@@ -2237,7 +2253,12 @@ int gk20a_fifo_tsg_unbind_channel(struct channel_gk20a *ch)
 		goto fail_enable_tsg;
 	}
 
-	if (g->ops.fifo.tsg_verify_channel_status && !tsg_timedout) {
+	/*
+	 * State validation is only necessary if there are multiple channels in
+	 * the TSG.
+	 */
+	if (gk20a_fifo_tsg_is_multi_channel(tsg) &&
+	    g->ops.fifo.tsg_verify_channel_status && !tsg_timedout) {
 		err = g->ops.fifo.tsg_verify_channel_status(ch);
 		if (err) {
 			goto fail_enable_tsg;

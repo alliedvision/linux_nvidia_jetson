@@ -43,6 +43,10 @@ MODULE_PARM_DESC(v4l2_width_align, "v4l2_width_align");
 module_param(v4l2_width_align, int, 0600);/* S_IRUGO */
 
 
+static int add_wait_time_ms = 2000;
+module_param(add_wait_time_ms, int, 0600);
+
+
 #define AVT_DBG_LVL 3
 
 #define avt_dbg(dev, fmt, args...) \
@@ -832,10 +836,10 @@ static int avt_ctrl_send(struct i2c_client *client,
 			bayer_temp = bayer_rg;
 			break;
 
-                case 0:
-                        /* Fallback app running */
-                        dev_warn(&client->dev, "Invalid pixelformat detected (0). Fallback app running?");
-                        vc->value0 = MIPI_DT_RGB888;
+		case 0:
+			/* Fallback app running */
+			dev_warn(&client->dev, "Invalid pixelformat detected (0). Fallback app running?");
+			vc->value0 = MIPI_DT_RGB888;
 			break;       
 
 		default:
@@ -844,6 +848,7 @@ static int avt_ctrl_send(struct i2c_client *client,
 			return -EINVAL;
 		}
 		break;
+
 	case V4L2_AV_CSI2_WIDTH_R:
 		reg = BCRM_IMG_WIDTH_32RW;
 		length = AV_CAM_DATA_SIZE_32;
@@ -1238,7 +1243,6 @@ static void set_channel_stride_align_for_format(struct v4l2_subdev *sd, uint32_t
 	}
 }
 
-
 static int avt_tegra_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_subdev *sd;
@@ -1381,7 +1385,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	uint32_t common_max_clk = 0;
 	uint32_t common_inc_clk = 0;
 
-	avt_dbg(sd, "()\n");
+	avt_dbg(sd, "%s(cmd=%u)\n", __func__, cmd);
 
 	switch(cmd) {
 	case VIDIOC_R_I2C:
@@ -1395,15 +1399,15 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				i2c_reg->num_bytes, i2c_reg_buf);
 
 		if (ret < 0)
-			avt_err(sd, "i2c read failed (%d), bytes read = %d\n", ret, i2c_reg->num_bytes);
+			avt_err(sd, " I2C read failed. addr=0x%04X, num_bytes=%d, ret=%d\n", i2c_reg->register_address, i2c_reg->num_bytes, ret);
 		else
 		{
 			ret = copy_to_user((char *)i2c_reg->ptr_buffer, i2c_reg_buf, i2c_reg->num_bytes);
 
 			if (ret == 0)
-				avt_dbg(sd, "I2C read success. ret=%d\n", ret);
+				avt_dbg(sd, " I2C read success. addr=0x%04X, num_bytes=%d, ret=%d\n", i2c_reg->register_address, i2c_reg->num_bytes, ret);
 			else
-				avt_err(sd, "I2C read failed. copy_to_user failed. ret=%d\n", ret);
+				avt_err(sd, " I2C read failed. copy_to_user failed. addr=0x%04X, num_bytes=%d, ret=%d\n", i2c_reg->register_address, i2c_reg->num_bytes, ret);
 		}
 
 		kfree(i2c_reg_buf);
@@ -1423,15 +1427,21 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 		if (ret < 0)
 		{
-			avt_err(sd, "i2c write failed (%d), bytes written = %d\n", ret, i2c_reg->num_bytes);
+			avt_err(sd, " I2C write failed. addr=0x%04X, num_bytes=%d, ret=%d\n", i2c_reg->register_address, i2c_reg->num_bytes, ret);
 		}
 		/* Check if mode (BCRM or GenCP) is changed */
 		else
 		{
+			avt_dbg(sd, " I2C write success. addr=0x%04X, num_bytes=%d, ret=%d\n", i2c_reg->register_address, i2c_reg->num_bytes, ret);
+            
 			if(i2c_reg->register_address == CCI_CHANGE_MODE_8W)
 			{
 				priv->mode = i2c_reg_buf[0] == 0 ? AVT_BCRM_MODE : AVT_GENCP_MODE;
 				set_channel_avt_cam_mode(sd, priv->mode);
+				if (priv->mode)
+					set_channel_timeout(sd, AVT_TEGRA_TIMEOUT_DISABLED);
+				else
+					set_channel_timeout(sd, CAPTURE_TIMEOUT_MS);
 			}
 		}
 
@@ -1492,12 +1502,12 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
 				(char *) &avt_supported_lane_counts);
 		if (ret < 0) {
-			avt_err(sd, "BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R: i2c read failed (%d)\n", ret);
+			avt_err(sd, " BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
 		if(!(test_bit(priv->s_data->numlanes - 1, (const long *)(&avt_supported_lane_counts)))) {
-			avt_err(sd, "requested number of lanes (%u) not supported by this camera!\n",
+			avt_err(sd, " requested number of lanes (%u) not supported by this camera!\n",
 					priv->s_data->numlanes);
 			ret = -1;
 			break;
@@ -1506,7 +1516,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
 				priv->s_data->numlanes);
 		if (ret < 0){
-			avt_err(sd, "i2c write failed (%d)\n", ret);
+			avt_err(sd, " i2c write failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1520,7 +1530,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				(char *) &avt_min_clk);
 	
 		if (ret < 0) {
-			avt_err(sd, "BCRM_CSI2_LANE_COUNT_8RW: i2c read failed (%d)\n", ret);
+			avt_err(sd, " BCRM_CSI2_LANE_COUNT_8RW: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1531,7 +1541,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				(char *) &avt_max_clk);
 	
 		if (ret < 0) {
-			avt_err(sd, "BCRM_CSI2_CLOCK_MAX_32R: i2c read failed (%d)\n", ret);
+			avt_err(sd, " BCRM_CSI2_CLOCK_MAX_32R: i2c read failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1540,7 +1550,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				config->csi_clock, config->csi_clock, 1,
 				&common_min_clk, &common_max_clk, &common_inc_clk)
 				== false) {
-			avt_err(sd, "clock value does not fit the supported frequency range!\n");
+			avt_err(sd, " clock value does not fit the supported frequency range!\n");
 			return -EINVAL;
 		}
 
@@ -1554,7 +1564,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		ret = ioctl_gencam_i2cwrite_reg(priv->client, i2c_reg_address, i2c_reg_size,
 						i2c_reg_count, i2c_reg_buf);
 		if (ret < 0) {
-			avt_err(sd, "BCRM_CSI2_CLOCK_32RW: i2c write failed (%d)\n", ret);
+			avt_err(sd, " BCRM_CSI2_CLOCK_32RW: i2c write failed (%d)\n", ret);
 			ret = -1;
 			break;
 		}
@@ -1647,21 +1657,17 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 	case VIDIOC_TRIGGER_SOFTWARE:
     {
-      u8 trigger_source;
-      /* Sanity check */
-      ret = avt_reg_read(client,
-        priv->cci_reg.bcrm_addr +
-        BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
-        AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
-        (char *) &trigger_source);
+        u8 trigger_source;
+        /* Sanity check */
+        ret = avt_reg_read(client, priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_SOURCE_8RW, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, (char *) &trigger_source);
 
-      if (ret < 0) {
-        return ret;
-      }
+        if (ret < 0) {
+            return ret;
+        }
 
-      if (trigger_source != AV_CAM_SOFTWARE_TRIGGER) {
-        return -EPERM;
-      }
+        if (trigger_source != AV_CAM_SOFTWARE_TRIGGER) {
+            return -EPERM;
+        }
     }
 
 	/* Check if stream is already on */
@@ -1688,7 +1694,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_MODE_8RW, 0);
 		if (ret < 0) {
 			return ret;
-    }
+        }
 		set_channel_trigger_mode(sd, false);
 		set_channel_timeout(sd, CAPTURE_TIMEOUT_MS);
 		ret = 0;
@@ -1702,7 +1708,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		//pr_err("trigger mode enabled; ret: %d\n", ret);
 		if (ret < 0) {
 			return ret;
-    }
+        }
 		set_channel_trigger_mode(sd, true);
 		set_channel_timeout(sd, AVT_TEGRA_TIMEOUT_DISABLED);
 		ret = 0;
@@ -1710,133 +1716,132 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 	case VIDIOC_S_TRIGGER_ACTIVATION:
     {
-      int trigger_activation = *(int*)arg;
+        int trigger_activation = *(int*)arg;
 
-      /* Setting Frame Start Trigger Activation */
-      ret = avt_reg_write(client,
-          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW, trigger_activation);
+        /* Setting Frame Start Trigger Activation */
+        ret = avt_reg_write(client,
+            priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW, trigger_activation);
 
-      if (ret < 0) {
-        return ret;
-      }
+        if (ret < 0) {
+            return ret;
+        }
 
-      ret = 0;
-      break;
+        ret = 0;
+        break;
     }
 
 	case VIDIOC_G_TRIGGER_ACTIVATION:
     {
-      u8 trigger_activation;
-      ret = avt_reg_read(client,
-          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW,
-          AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
-          &trigger_activation);
+        u8 trigger_activation;
+        ret = avt_reg_read(client,
+            priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW,
+            AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+            &trigger_activation);
 
-      if (ret < 0) {
-        return ret;
-      }
+        if (ret < 0) {
+            return ret;
+        }
 
-      *(int*)arg = trigger_activation;
+        *(int*)arg = trigger_activation;
 
-      ret = 0;
-      break;
+        ret = 0;
+        break;
     }
 
 	case VIDIOC_G_TRIGGER_SOURCE:
     {
-      int *trigger_source = (int*)arg;
-      u8 trigger_source_reg;
-      
-      ret = avt_reg_read(client,
+        int *trigger_source = (int*)arg;
+        u8 trigger_source_reg;
+        
+        ret = avt_reg_read(client,
         priv->cci_reg.bcrm_addr +
         BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
         AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
         (char *) &trigger_source_reg);
 
-      if (ret < 0) {
-        return ret;
-      }
-      
-      switch(trigger_source_reg) {
-      case 4:
-        *trigger_source = V4L2_TRIGGER_SOURCE_SOFTWARE;
-        break;
-      case 0:
-        *trigger_source = V4L2_TRIGGER_SOURCE_LINE0;
-        break;
-      case 1:
-        *trigger_source = V4L2_TRIGGER_SOURCE_LINE1;
-        break;
-      case 2:
-        *trigger_source = V4L2_TRIGGER_SOURCE_LINE2;
-        break;
-      case 3:
-        *trigger_source = V4L2_TRIGGER_SOURCE_LINE3;
-        break;
-      default:
-        avt_err(sd, "Unknown trigger mode (%d) returned from camera. Driver outdated?", trigger_source_reg);
-        return -1;
-      }
+        if (ret < 0) {
+            return ret;
+        }
+        
+        switch(trigger_source_reg) {
+        case 4:
+            *trigger_source = V4L2_TRIGGER_SOURCE_SOFTWARE;
+            break;
+        case 0:
+            *trigger_source = V4L2_TRIGGER_SOURCE_LINE0;
+            break;
+        case 1:
+            *trigger_source = V4L2_TRIGGER_SOURCE_LINE1;
+            break;
+        case 2:
+            *trigger_source = V4L2_TRIGGER_SOURCE_LINE2;
+            break;
+        case 3:
+            *trigger_source = V4L2_TRIGGER_SOURCE_LINE3;
+            break;
+        default:
+            avt_err(sd, " Unknown trigger mode (%d) returned from camera. Driver outdated?", trigger_source_reg);
+            return -1;
+        }
 
-      ret = 0;
-      break;
+        ret = 0;
+        break;
     }
-
 
 	case VIDIOC_S_TRIGGER_SOURCE:
     {
-      u8 cur_trigger_source;
-      int trigger_source = *(int*)arg;
-      u8 trigger_source_reg;
-      
-      switch(trigger_source) {
-      case V4L2_TRIGGER_SOURCE_SOFTWARE:
-        trigger_source_reg = 4;
-        break;
-      case V4L2_TRIGGER_SOURCE_LINE0:
-        trigger_source_reg = 0;
-        break;
-      case V4L2_TRIGGER_SOURCE_LINE1:
-        trigger_source_reg = 1;
-        break;
-      case V4L2_TRIGGER_SOURCE_LINE2:
-        trigger_source_reg = 2;
-        break;
-      case V4L2_TRIGGER_SOURCE_LINE3:
-        trigger_source_reg = 3;
-        break;
-      default:
-        avt_err(sd, "invalid trigger source (%d)", trigger_source);
-        return -1;
-      }
+        u8 cur_trigger_source;
+        int trigger_source = *(int*)arg;
+        u8 trigger_source_reg;
+        
+        switch(trigger_source) {
+        case V4L2_TRIGGER_SOURCE_SOFTWARE:
+            trigger_source_reg = 4;
+            break;
+        case V4L2_TRIGGER_SOURCE_LINE0:
+            trigger_source_reg = 0;
+            break;
+        case V4L2_TRIGGER_SOURCE_LINE1:
+            trigger_source_reg = 1;
+            break;
+        case V4L2_TRIGGER_SOURCE_LINE2:
+            trigger_source_reg = 2;
+            break;
+        case V4L2_TRIGGER_SOURCE_LINE3:
+            trigger_source_reg = 3;
+            break;
+        default:
+            avt_err(sd, " invalid trigger source (%d)", trigger_source);
+            return -1;
+    }
 
       /* Check if we need to write to Trigger Source register.
        * If we do this more than once in the power cycle,
        * triggering non-empty frames is not  possible.
        */
-      ret = avt_reg_read(client,
+    ret = avt_reg_read(client,
         priv->cci_reg.bcrm_addr +
         BCRM_FRAME_START_TRIGGER_SOURCE_8RW,
         AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
         (char *) &cur_trigger_source);
 
-      if (ret < 0) {
+    if (ret < 0) {
         return ret;
-      }
+    }
 
-      if (cur_trigger_source == trigger_source_reg) {
-        avt_err(sd, "Trigger source already set!\n");
+    if (cur_trigger_source == trigger_source_reg) {
+        avt_err(sd, " Trigger source already set!\n");
         return 0;
-      }
+    }
 
-      ret = avt_reg_write(client,
-          priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_SOURCE_8RW, trigger_source_reg);
+    ret = avt_reg_write(client,
+        priv->cci_reg.bcrm_addr + BCRM_FRAME_START_TRIGGER_SOURCE_8RW, trigger_source_reg);
 
-      if (ret < 0) {
+    if (ret < 0) {
         return ret;
-      }
-      ret = 0;
-      break;
+    }
+    ret = 0;
+    break;
     }
 
 	default:
@@ -2005,9 +2010,7 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
 	struct v4l2_subdev_selection sel;
-	struct v4l2_streamparm parm = { 0 };
 	int ret;
-	u64 max_framerate;
 
 	// changing the resolution is not allowed with VIDIOC_S_FMT
 	if (priv->mode == AVT_BCRM_MODE &&
@@ -2049,18 +2052,6 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 		set_channel_stride_align_for_format(sd, format->format.code);
 	else
 		set_channel_stride_align(sd, 1);
-
-	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr +
-			BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-			(char *) &max_framerate);
-	if (ret >= 0) {
-		memcpy(&parm.parm.capture, &priv->streamcap, sizeof(struct v4l2_captureparm));
-		parm.parm.capture.timeperframe.numerator = FRAQ_NUM;
-		parm.parm.capture.timeperframe.denominator = (max_framerate * FRAQ_NUM) / UHZ_TO_HZ;
-		avt_s_parm(sd, &parm);
-	}
 
 	format->format.width = priv->frmp.r.width;
 	return 0;
@@ -3393,6 +3384,433 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 		strcpy(qctrl->name, "Sharpness");
 		break;
 
+	case V4L2_CID_EXPOSURE_AUTO_MIN:
+		avt_dbg(sd, "case V4L2_CID_EXPOSURE_AUTO_MIN\n");
+
+		if (!feature_inquiry_reg.feature_inq.exposure_auto) {
+			avt_info(sd, "control 'Exposure Auto Min' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
+		/* Exposure Auto max value should be non-zero */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_AUTO_MAX_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_AUTO_MAX_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Auto Exposure min time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_AUTO_MIN_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_AUTO_MIN_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		qctrl->default_value = value64;
+
+		/* get min and max times for Exposure they are also valid for
+		   Auto Exposure min time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MIN_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MIN_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.min_bcrm = value64;
+
+		/* reading the Maximum Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MAX_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		/* max auto exposure time should be
+		   <= (min(Exposure Auto max value, max exposure time)*/
+		if(bcrm_v4l2.max_bcrm > value64)
+			bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Step from Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.step_bcrm = value64;
+
+		convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
+		qctrl->minimum = bcrm_v4l2.min_v4l2;
+		qctrl->maximum = bcrm_v4l2.max_v4l2;
+		qctrl->step = bcrm_v4l2.step_v4l2;
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		strcpy(qctrl->name, "Exposure auto min");
+		break;
+
+	case V4L2_CID_EXPOSURE_AUTO_MAX:
+		avt_dbg(sd, "case V4L2_CID_EXPOSURE_AUTO_MAX\n");
+
+		if (!feature_inquiry_reg.feature_inq.exposure_auto) {
+			avt_info(sd, "control 'Exposure Auto Max' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
+		/* Exposure Auto max value should be non-zero */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_AUTO_MAX_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_AUTO_MAX_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+        /* workaround for older driver release:
+           Avoid default out of range for 32 bit controls */
+        if(value64 > S32_MAX) {
+            value64 = S32_MAX;
+        }
+		qctrl->default_value = value64;
+
+		/* reading the Auto Exposure min time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_AUTO_MIN_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_AUTO_MIN_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.min_bcrm = value64;
+
+		/* get min and max times for Exposure they are also valid for
+		   Auto Exposure max time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MAX_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MAX_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Minimum Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_MIN_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_MIN_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		/* main auto exposure time should be
+		   >= (max(Exposure Auto min value, min exposure time)*/
+		if(bcrm_v4l2.min_bcrm < value64)
+			bcrm_v4l2.min_bcrm = value64;
+
+		/* reading the Step from Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.step_bcrm = value64;
+
+		convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
+		qctrl->minimum = bcrm_v4l2.min_v4l2;
+		qctrl->maximum = bcrm_v4l2.max_v4l2;
+		qctrl->step = bcrm_v4l2.step_v4l2;
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		strcpy(qctrl->name, "Exposure auto max");
+		break;
+	case V4L2_CID_AUTOGAIN_MIN:
+
+		avt_dbg(sd, "case V4L2_CID_AUTOGAIN_MIN\n");
+
+		if (!feature_inquiry_reg.feature_inq.gain_auto) {
+			avt_info(sd, "control 'Auto Gain Min' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
+		/* Auto gain max value should be non-zero */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_AUTO_MAX_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_AUTO_MAX_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Auto gain min val */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_AUTO_MIN_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_AUTO_MIN_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		qctrl->default_value = value64;
+
+		/* get min and max vals for auto gain they are also valid for
+		   Auto gain min val */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MIN_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_MIN_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.min_bcrm = value64;
+
+		/* reading the Maximum gain time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MAX_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_MAX_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		/* max auto gain val should be
+		   <= (min(Auto gian max value, max gain val)*/
+		if(bcrm_v4l2.max_bcrm > value64)
+			bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Step from Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.step_bcrm = value64;
+
+		convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
+		qctrl->minimum = bcrm_v4l2.min_v4l2;
+		qctrl->maximum = bcrm_v4l2.max_v4l2;
+		qctrl->step = bcrm_v4l2.step_v4l2;
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		strcpy(qctrl->name, "Auto gain min");
+		break;
+
+	case V4L2_CID_AUTOGAIN_MAX:
+
+		avt_dbg(sd, "case V4L2_CID_AUTOGAIN_MAX\n");
+
+		if (!feature_inquiry_reg.feature_inq.gain_auto) {
+			avt_info(sd, "control 'Auto Gain Max' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
+		/* Auto gain max value should be non-zero */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_AUTO_MAX_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_AUTO_MAX_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		qctrl->default_value = value64;
+
+		/* reading the Auto gain min val */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_AUTO_MIN_64RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_AUTO_MIN_64RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.min_bcrm = value64;
+
+		/* get min and max vals for auto gain they are also valid for
+		   Auto gain max val */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MAX_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_MAX_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Minimum gain time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_MIN_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_MIN_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		/* min auto gain val should be
+		   >= (max(Auto gain min value, min gain val)*/
+		if(bcrm_v4l2.min_bcrm < value64)
+			bcrm_v4l2.min_bcrm = value64;
+
+		/* reading the Step from Exposure time */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+		bcrm_v4l2.step_bcrm = value64;
+
+		convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
+		qctrl->minimum = bcrm_v4l2.min_v4l2;
+		qctrl->maximum = bcrm_v4l2.max_v4l2;
+		qctrl->step = bcrm_v4l2.step_v4l2;
+		qctrl->default_value = qctrl->maximum;
+		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+		strcpy(qctrl->name, "Auto gain max");
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE:
+		avt_dbg(sd, "case V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE\n");
+
+		if (!feature_inquiry_reg.feature_inq.exposure_active_line_avail) {
+			avt_info(sd, "control 'exposure active line' not supported by firmware\n");
+			qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+			return 0;
+		}
+
+		/* reading the exposure active line mode value */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+				(char *) &value);
+		if (ret < 0) {
+			avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		if (value == 1)
+			/* true (ON) */
+			qctrl->default_value = true;
+		else
+			/* false (OFF) */
+			qctrl->default_value = false;
+
+		qctrl->minimum = 0;
+		qctrl->step = 1;
+		qctrl->maximum = 1;
+		qctrl->type = V4L2_CTRL_TYPE_BOOLEAN;
+
+		strcpy(qctrl->name, "Exposure Active Line Mode");
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR:
+		{
+			char selector;
+			avt_dbg(sd, "case V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR\n");
+
+			if (!feature_inquiry_reg.feature_inq.exposure_active_line_avail) {
+				avt_info(sd, "control 'exposure active line' not supported by firmware\n");
+				qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+				return 0;
+			}
+
+			/* reading the exposure active line mode value */
+			ret = avt_reg_read(client,
+					priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW,
+					AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+					(char *) &selector);
+			if (ret < 0) {
+				avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW: i2c read failed (%d)\n",
+						ret);
+				return ret;
+			}
+
+			qctrl->default_value = selector;
+			qctrl->minimum = 0;
+			qctrl->step = 1;
+			qctrl->maximum = 1;
+			qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+
+			strcpy(qctrl->name, "Exposure Active Line Selector");
+			break;
+		}
+
+	case V4L2_CID_EXPOSURE_ACTIVE_INVERT:
+		{
+			avt_dbg(sd, "case V4L2_CID_EXPOSURE_ACTIVE_INVERT\n");
+
+			if (!feature_inquiry_reg.feature_inq.exposure_active_line_avail) {
+				avt_info(sd, "control 'exposure active line' not supported by firmware\n");
+				qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
+				return 0;
+			}
+
+			qctrl->default_value = false;
+			qctrl->minimum = 0;
+			qctrl->step = 1;
+			qctrl->maximum = 1;
+			qctrl->type = V4L2_CTRL_TYPE_BOOLEAN;
+
+			strcpy(qctrl->name, "Exposure Active Invert");
+			break;
+		}
+
 	default:
 		avt_info(sd, "case default or not supported qctrl->id 0x%x\n",
 				qctrl->id);
@@ -3413,7 +3831,6 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 static int32_t convert_bcrm_to_v4l2_gctrl(struct bcrm_to_v4l2 *bcrmv4l2,
 		int64_t val64, bool abs)
 {
-
 	int32_t value = 0;
 	int32_t min = 0;
 	int32_t max = 0;
@@ -3561,6 +3978,46 @@ static int avt_ioctl_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *vc)
 		length = AV_CAM_DATA_SIZE_32;
 		break;
 
+	case V4L2_CID_EXPOSURE_AUTO_MIN:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_AUTO_MIN\n");
+		reg = BCRM_EXPOSURE_AUTO_MIN_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+		break;
+
+	case V4L2_CID_EXPOSURE_AUTO_MAX:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_AUTO_MAX\n");
+		reg = BCRM_EXPOSURE_AUTO_MAX_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+		break;
+
+	case V4L2_CID_AUTOGAIN_MIN:
+		avt_dbg(sd, "V4L2_CID_AUTOGAIN_MIN\n");
+		reg = BCRM_GAIN_AUTO_MIN_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+		break;
+
+	case V4L2_CID_AUTOGAIN_MAX:
+		avt_dbg(sd, "V4L2_CID_AUTOGAIN_MAX\n");
+		reg = BCRM_GAIN_AUTO_MAX_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE\n");
+		reg = BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW;
+		length = AV_CAM_DATA_SIZE_8;
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR\n");
+		reg = BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW;
+		length = AV_CAM_DATA_SIZE_8;
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_INVERT:
+		vc->value = priv->acquisition_active_invert;
+		return 0;
+
 	default:
 		avt_err(sd, "case default or not supported\n");
 		return -EINVAL;
@@ -3632,6 +4089,137 @@ static int avt_ioctl_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *vc)
 
 	return ret;
 }
+
+
+static int avt_get_acquitision_active_line(struct v4l2_subdev *sd, int *line)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+	int ret;
+
+	ret = avt_reg_read(client,
+		priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW,
+		AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, (char *) line);
+
+	if (ret < 0) {
+		avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW: i2c read failed (%d)\n",
+				ret);
+		return ret;
+	}
+	return 0;
+}
+
+
+static int avt_get_acquisition_active_mode(struct v4l2_subdev *sd, int *mode)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+	int ret;
+	char mode_tmp;
+
+	ret = avt_reg_read(client,
+		priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW,
+		AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, &mode_tmp);
+
+	if (ret < 0) {
+		avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW: i2c read failed (%d)\n",
+				ret);
+		return ret;
+	}
+
+	*mode = mode_tmp;
+
+	return 0;
+}
+
+
+static int avt_set_acquitision_active_line(struct v4l2_subdev *sd, int line)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+	int ret, active;
+	struct v4l2_ext_control ctrl = { .value = line };
+
+	ret = avt_get_acquisition_active_mode(sd, &active);
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (active) {
+		avt_err(sd, "Cannot set acquisition active line while acquisition active mode is enabled\n");
+		return -EBUSY;
+	}
+
+	ret = ioctl_bcrm_i2cwrite_reg(client, &ctrl, BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW + priv->cci_reg.bcrm_addr,
+			AV_CAM_DATA_SIZE_8);
+
+	if (ret < 0) {
+		avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW: i2c write failed (%d)\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
+
+static int avt_set_acquisition_active_mode(struct v4l2_subdev *sd, int mode)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+	int line;
+	int ret;
+	struct v4l2_ext_control ctrl = { 0 };
+
+	ret = avt_get_acquitision_active_line(sd, &line);
+	if (ret < 0) {
+		return ret;
+	}
+
+	ctrl.value = (mode ? (1 | (priv->acquisition_active_invert ? 2 : 0)) : 0) << (8*line);
+	ret = ioctl_bcrm_i2cwrite_reg(client, &ctrl, BCRM_LINE_CONFIGURATION_32RW + priv->cci_reg.bcrm_addr,
+			AV_CAM_DATA_SIZE_32);
+	if (ret < 0) {
+		avt_err(sd, "BCRM_LINE_CONFIGURATION_32RW: i2c write failed (%d)\n", ret);
+		return ret;
+	}
+
+	ctrl.value = mode;
+	ret = ioctl_bcrm_i2cwrite_reg(client, &ctrl, BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW + priv->cci_reg.bcrm_addr,
+			AV_CAM_DATA_SIZE_8);
+	if (ret < 0) {
+		avt_err(sd, "BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW: i2c write failed (%d)\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+
+static int avt_set_acquisition_active_invert(struct v4l2_subdev *sd, int invert)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+	int ret, active;
+
+	ret = avt_get_acquisition_active_mode(sd, &active);
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (active) {
+		avt_err(sd, "Cannot set acquisition active invert while acquisition active mode is enabled\n");
+		return -EBUSY;
+	}
+
+	priv->acquisition_active_invert = invert;
+
+	return 0;
+}
+
 
 static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 {
@@ -3980,6 +4568,83 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 				qctrl.minimum, qctrl.maximum, qctrl.step);
 		break;
 
+	case V4L2_CID_EXPOSURE_AUTO_MIN:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_AUTO_MIN, vc->value %u\n", vc->value);
+		reg = BCRM_EXPOSURE_AUTO_MIN_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+
+		qctrl.id = V4L2_CID_EXPOSURE_AUTO_MIN;
+		ret = ioctl_queryctrl(sd, &qctrl);
+
+		if (ret < 0) {
+			avt_err(sd, "queryctrl failed: ret %d\n", ret);
+			return ret;
+		}
+
+		vc->value = convert_s_ctrl(vc->value,
+				qctrl.minimum, qctrl.maximum, qctrl.step);
+		break;
+
+	case V4L2_CID_EXPOSURE_AUTO_MAX:
+		avt_dbg(sd, "V4L2_CID_EXPOSURE_AUTO_MAX, vc->value %u\n", vc->value);
+		reg = BCRM_EXPOSURE_AUTO_MAX_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+
+		qctrl.id = V4L2_CID_EXPOSURE_AUTO_MAX;
+		ret = ioctl_queryctrl(sd, &qctrl);
+
+		if (ret < 0) {
+			avt_err(sd, "queryctrl failed: ret %d\n", ret);
+			return ret;
+		}
+
+		vc->value = convert_s_ctrl(vc->value,
+				qctrl.minimum, qctrl.maximum, qctrl.step);
+		break;
+
+	case V4L2_CID_AUTOGAIN_MIN:
+		avt_dbg(sd, "V4L2_CID_AUTOGAIN_MIN, vc->value %u\n", vc->value);
+		reg = BCRM_GAIN_AUTO_MIN_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+
+		qctrl.id = V4L2_CID_AUTOGAIN_MIN;
+		ret = ioctl_queryctrl(sd, &qctrl);
+
+		if (ret < 0) {
+			avt_err(sd, "queryctrl failed: ret %d\n", ret);
+			return ret;
+		}
+
+		vc->value = convert_s_ctrl(vc->value,
+				qctrl.minimum, qctrl.maximum, qctrl.step);
+		break;
+
+	case V4L2_CID_AUTOGAIN_MAX:
+		avt_dbg(sd, "V4L2_CID_AUTOGAIN_MAX, vc->value %u\n", vc->value);
+		reg = BCRM_GAIN_AUTO_MAX_64RW;
+		length = AV_CAM_DATA_SIZE_64;
+
+		qctrl.id = V4L2_CID_AUTOGAIN_MAX;
+		ret = ioctl_queryctrl(sd, &qctrl);
+
+		if (ret < 0) {
+			avt_err(sd, "queryctrl failed: ret %d\n", ret);
+			return ret;
+		}
+
+		vc->value = convert_s_ctrl(vc->value,
+				qctrl.minimum, qctrl.maximum, qctrl.step);
+		break;
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_MODE:
+		return avt_set_acquisition_active_mode(sd, vc->value);
+
+	case V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR:
+		return avt_set_acquitision_active_line(sd, vc->value);
+
+	case V4L2_CID_EXPOSURE_ACTIVE_INVERT:
+		return avt_set_acquisition_active_invert(sd, vc->value);
+
 	default:
 		avt_err(sd, "case default or not supported\n");
 		ret = -EPERM;
@@ -4041,11 +4706,11 @@ static int read_max_resolution(struct v4l2_subdev *sd, uint32_t *max_width, uint
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
-	ret = avt_get_param(client, V4L2_AV_CSI2_SENSOR_WIDTH_R, max_width);
+	ret = avt_get_param(client, V4L2_AV_CSI2_WIDTH_MAXVAL_R, max_width);
 	if (ret < 0)
 		return ret;
 
-	ret = avt_get_param(client, V4L2_AV_CSI2_SENSOR_HEIGHT_R, max_height);
+	ret = avt_get_param(client, V4L2_AV_CSI2_HEIGHT_MAXVAL_R, max_height);
 	if (ret < 0)
 		return ret;
 
@@ -4310,7 +4975,6 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 	union bcrm_feature_reg feature_inquiry_reg;
 	CLEAR(bcrm_v4l2);
 
-
 	/* reading the Feature inquiry register */
 	ret = avt_reg_read(client,
 			priv->cci_reg.bcrm_addr + BCRM_FEATURE_INQUIRY_64R,
@@ -4332,101 +4996,116 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 	/* Copy new settings to internal structure */
 	memcpy(&priv->streamcap, &parm->parm.capture, sizeof(struct v4l2_captureparm));
 
-	/* reading the Minimum Frame Rate Level */
-	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MIN_64R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-			(char *) &value64);
-	if (ret < 0) {
-		avt_err(sd, "ACQUISITION_FRAME_RATE_MIN_64R: i2c read failed (%d)\n",
-				ret);
-		return ret;
+	if (tpf->numerator == 0) {
+		/* Enable auto frame rate */
+		vc.value = 0;
+		ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, AV_CAM_DATA_SIZE_8);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+	} else {
+		/* Enable and set manual frame rate */
+
+
+		/* reading the Minimum Frame Rate Level */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MIN_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_MIN_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		bcrm_v4l2.min_bcrm = value64;
+
+		/* reading the Maximum Frame Rate Level */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_MAX_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		bcrm_v4l2.max_bcrm = value64;
+
+		/* reading the Frame Rate Level step increment */
+		ret = avt_reg_read(client,
+				priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_INC_64R,
+				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+				(char *) &value64);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_INCREMENT_64R: i2c read failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		bcrm_v4l2.step_bcrm = value64;
+
+		convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
+		convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
+
+		min = bcrm_v4l2.min_v4l2;
+		max = bcrm_v4l2.max_v4l2;
+		/* Set step to 1 uHz because zero value came from camera register */
+		if(!step)
+			step = 1;
+
+		if (min > max) {
+			avt_err(sd, "Frame rate: min > max! (%llu > %llu)\n",
+					min, max);
+			return -EINVAL;
+		}
+		if (step <= 0) {
+			avt_err(sd, "Frame rate: non-positive step value (%llu)!\n",
+					step);
+			return -EINVAL;
+		}
+
+		/* Translate timeperframe to frequency
+		 * by inverting the fraction
+		 */
+		avt_dbg(sd, "[mjsob] %ul/%ul\n", tpf->denominator, tpf->numerator);
+		value64 = (tpf->denominator / tpf->numerator) * UHZ_TO_HZ;
+		value64 = convert_s_ctrl(value64, min, max, step);
+		if (value64 < 0) {
+			avt_err(sd, "Frame rate: non-positive value (%llu)!\n",
+					value64);
+			return -EINVAL;
+		}
+
+		/* Enable manual frame rate */
+		vc.value = 1;
+		ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, AV_CAM_DATA_SIZE_8);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		/* Save new frame rate to camera register */
+		vc.value = value64;
+		ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_64RW, AV_CAM_DATA_SIZE_64);
+		if (ret < 0) {
+			avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
+					ret);
+			return ret;
+		}
+
+		tpf->numerator = FRAQ_NUM;
+		tpf->denominator = value64 / FRAQ_NUM;
+
+		/* Copy modified settings back */
+		memcpy(&parm->parm.capture, &priv->streamcap, sizeof(struct v4l2_captureparm));
 	}
-
-	bcrm_v4l2.min_bcrm = value64;
-
-	/* reading the Maximum Frame Rate Level */
-	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-			(char *) &value64);
-	if (ret < 0) {
-		avt_err(sd, "ACQUISITION_FRAME_RATE_MAX_64R: i2c read failed (%d)\n",
-				ret);
-		return ret;
-	}
-
-	bcrm_v4l2.max_bcrm = value64;
-
-	/* reading the Frame Rate Level step increment */
-	ret = avt_reg_read(client,
-			priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_INC_64R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-			(char *) &value64);
-	if (ret < 0) {
-		avt_err(sd, "ACQUISITION_FRAME_RATE_INCREMENT_64R: i2c read failed (%d)\n",
-				ret);
-		return ret;
-	}
-
-	bcrm_v4l2.step_bcrm = value64;
-
-	convert_bcrm_to_v4l2(&bcrm_v4l2, min_enum, true);
-	convert_bcrm_to_v4l2(&bcrm_v4l2, max_enum, true);
-	convert_bcrm_to_v4l2(&bcrm_v4l2, step_enum, true);
-
-	min = bcrm_v4l2.min_v4l2;
-	max = bcrm_v4l2.max_v4l2;
-	/* Set step to 1 uHz because zero value came from camera register */
-	if(!step)
-		step = 1;
-
-	if (min > max) {
-		avt_err(sd, "Frame rate: min > max! (%llu > %llu)\n",
-				min, max);
-		return -EINVAL;
-	}
-	if (step <= 0) {
-		avt_err(sd, "Frame rate: non-positive step value (%llu)!\n",
-				step);
-		return -EINVAL;
-	}
-
-	/* Translate timeperframe to frequency
-	 * by inverting the fraction
-	 */
-	avt_dbg(sd, "[mjsob] %ul/%ul\n", tpf->denominator, tpf->numerator);
-	value64 = (tpf->denominator / tpf->numerator) * UHZ_TO_HZ;
-	value64 = convert_s_ctrl(value64, min, max, step);
-	if (value64 <= 0) {
-		avt_err(sd, "Frame rate: non-positive value (%llu)!\n",
-				value64);
-		return -EINVAL;
-	}
-
-	/* Enable manual frame rate */
-	vc.value = 1;
-	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, AV_CAM_DATA_SIZE_8);
-	if (ret < 0) {
-		avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
-				ret);
-		return ret;
-	}
-
-	/* Save new frame rate to camera register */
-	vc.value = value64;
-	ret = ioctl_bcrm_i2cwrite_reg(client, &vc, priv->cci_reg.bcrm_addr + BCRM_ACQUISITION_FRAME_RATE_64RW, AV_CAM_DATA_SIZE_64);
-	if (ret < 0) {
-		avt_err(sd, "ACQUISITION_FRAME_RATE_64RW: i2c write failed (%d)\n",
-				ret);
-		return ret;
-	}
-
-	tpf->numerator = FRAQ_NUM;
-	tpf->denominator = value64 / FRAQ_NUM;
-
-	/* Copy modified settings back */
-	memcpy(&parm->parm.capture, &priv->streamcap, sizeof(struct v4l2_captureparm));
 
 	return 0;
 }
@@ -4450,9 +5129,9 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	uint32_t i2c_reg;
 	uint32_t i2c_reg_size;
 	uint32_t i2c_reg_count;
-        const uint32_t poll_delay_ms = 2;
-        const uint32_t timeout_ms = 3000;
-        unsigned long timeout_jiffies = 0;
+    const uint32_t poll_delay_ms = 2;
+    const uint32_t timeout_ms = 3000;
+    unsigned long timeout_jiffies = 0;
 	uint8_t bcm_mode = 0;
 	char *i2c_reg_buf;;  
 
@@ -4463,9 +5142,7 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		set_channel_stride_align(sd, 1);
 
 	// set BCRM mode if required
-	ret = avt_reg_read(priv->client,
-			        CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
-				&bcm_mode);
+	ret = avt_reg_read(priv->client, CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, &bcm_mode);
 	if (ret < 0) {
 		avt_err(sd, "Failed to get BCM mode: i2c read failed (%d)\n", ret);
 		return ret;
@@ -4475,12 +5152,12 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	{
                 // GenCP mode -> Switch back to BCRM
 		CLEAR(i2c_reg);
-                bcm_mode = OPERATION_MODE_BCRM;
+        bcm_mode = OPERATION_MODE_BCRM;
 		i2c_reg = CCI_CHANGE_MODE_8W;
 		i2c_reg_size = AV_CAM_REG_SIZE;
 		i2c_reg_count = AV_CAM_DATA_SIZE_8;
 		i2c_reg_buf = (char *)&bcm_mode;
-                timeout_jiffies = jiffies + msecs_to_jiffies(timeout_ms);
+        timeout_jiffies = jiffies + msecs_to_jiffies(timeout_ms);
 
 		ret = ioctl_gencam_i2cwrite_reg(priv->client,
 						i2c_reg, i2c_reg_size,
@@ -4491,19 +5168,17 @@ static int avt_csi2_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			return ret;
 		}
 
-                // Wait for mode change
-                do
-                {
-                        usleep_range(poll_delay_ms*1000, (poll_delay_ms*1000)+1);
-                	ret = avt_reg_read(priv->client,
-			                        CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
-				                &bcm_mode);
-                } while ((ret >=0 ) && (bcm_mode != OPERATION_MODE_BCRM) && time_before(jiffies, timeout_jiffies));
+        // Wait for mode change
+        do
+        {
+            usleep_range(poll_delay_ms*1000, (poll_delay_ms*1000)+1);
+            ret = avt_reg_read(priv->client, CCI_CURRENT_MODE_8R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, &bcm_mode);
+        } while ((ret >=0 ) && (bcm_mode != OPERATION_MODE_BCRM) && time_before(jiffies, timeout_jiffies));
 
-                if (bcm_mode != OPERATION_MODE_BCRM)
-                {
-                        return -EINVAL;
-                }
+        if (bcm_mode != OPERATION_MODE_BCRM)
+        {
+            return -EINVAL;
+        }
 	}
 
 	priv->mode = AVT_BCRM_MODE;
@@ -4577,10 +5252,10 @@ static int read_cci_registers(struct i2c_client *client)
 	i2c_reg = cci_cmd_tbl[CCI_REGISTER_LAYOUT_VERSION].address;
 	i2c_reg_size = AV_CAM_REG_SIZE;
 	/*
-	 * Avoid last 3 bytes read as its WRITE only register except
+	 * Avoid last 4 bytes read as its WRITE only register except
 	 * CURRENT MODE REG
 	 */
-	i2c_reg_count = sizeof(priv->cci_reg) - 3;
+	i2c_reg_count = sizeof(priv->cci_reg) - 4;
 
 	i2c_reg_buf = (char *)&priv->cci_reg;
 	/* Calculate CRC from each reg up to the CRC reg */
@@ -4725,7 +5400,6 @@ static int cci_version_check(struct i2c_client *client)
 	return 0;
 }
 
-
 static int bcrm_version_check(struct i2c_client *client)
 {
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
@@ -4777,122 +5451,120 @@ static int gcprm_version_check(struct i2c_client *client)
 	return (value & 0xffff0000) >> 16 == GCPRM_MAJOR_VERSION ? 1 : 0;
 }
 
-
-
 static void bcrm_dump(struct i2c_client *client)
 {
-        return; /* DISABLED. DEBUG ONLY */
+    return; /* DISABLED. DEBUG ONLY */
 
 	/* Dump all BCRM registers (client, except write only ones) */
 
-	dump_bcrm_reg_32(client, BCRM_VERSION_32R, 				"BCRM_VERSION_32R");
-	dump_bcrm_reg_64(client, BCRM_FEATURE_INQUIRY_64R, 			"BCRM_FEATURE_INQUIRY_64R");
-	dump_bcrm_reg_64(client, BCRM_DEVICE_FIRMWARE_VERSION_64R, 		"BCRM_DEVICE_FIRMWARE_VERSION_64R");
-	dump_bcrm_reg_8(client, BCRM_WRITE_HANDSHAKE_8RW, 			"BCRM_WRITE_HANDSHAKE_8RW");
+	dump_bcrm_reg_32(client, BCRM_VERSION_32R, 				            "BCRM_VERSION_32R");
+	dump_bcrm_reg_64(client, BCRM_FEATURE_INQUIRY_64R, 			        "BCRM_FEATURE_INQUIRY_64R");
+	dump_bcrm_reg_64(client, BCRM_DEVICE_FIRMWARE_VERSION_64R, 		    "BCRM_DEVICE_FIRMWARE_VERSION_64R");
+	dump_bcrm_reg_8(client, BCRM_WRITE_HANDSHAKE_8RW, 			        "BCRM_WRITE_HANDSHAKE_8RW");
 
 	/* Streaming Control Registers */
 	dump_bcrm_reg_8(client, BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R, 		"BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R");
-	dump_bcrm_reg_8(client, BCRM_CSI2_LANE_COUNT_8RW, 			"BCRM_CSI2_LANE_COUNT_8RW");
-	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MIN_32R, 			"BCRM_CSI2_CLOCK_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MAX_32R, 			"BCRM_CSI2_CLOCK_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_32RW, 				"BCRM_CSI2_CLOCK_32RW");
-	dump_bcrm_reg_32(client, BCRM_BUFFER_SIZE_32R, 				"BCRM_BUFFER_SIZE_32R");
-	dump_bcrm_reg_32(client, BCRM_PHY_RESET_8RW, 			        "BCRM_PHY_RESET_8RW");
+	dump_bcrm_reg_8(client, BCRM_CSI2_LANE_COUNT_8RW, 			        "BCRM_CSI2_LANE_COUNT_8RW");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MIN_32R, 			        "BCRM_CSI2_CLOCK_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_MAX_32R, 			        "BCRM_CSI2_CLOCK_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_CSI2_CLOCK_32RW, 				        "BCRM_CSI2_CLOCK_32RW");
+	dump_bcrm_reg_32(client, BCRM_BUFFER_SIZE_32R, 				        "BCRM_BUFFER_SIZE_32R");
+	dump_bcrm_reg_32(client, BCRM_PHY_RESET_8RW, 			            "BCRM_PHY_RESET_8RW");
 
 	/* Acquisition Control Registers */
-	dump_bcrm_reg_8(client, BCRM_ACQUISITION_START_8RW, 			"BCRM_ACQUISITION_START_8RW");
-	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STOP_8RW, 			"BCRM_ACQUISITION_STOP_8RW");
-	dump_bcrm_reg_8(client, BCRM_ACQUISITION_ABORT_8RW, 			"BCRM_ACQUISITION_ABORT_8RW");
-	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STATUS_8R,			"BCRM_ACQUISITION_STATUS_8R");
-	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_64RW, 		"BCRM_ACQUISITION_FRAME_RATE_64RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_START_8RW, 			    "BCRM_ACQUISITION_START_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STOP_8RW, 			        "BCRM_ACQUISITION_STOP_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_ABORT_8RW, 			    "BCRM_ACQUISITION_ABORT_8RW");
+	dump_bcrm_reg_8(client, BCRM_ACQUISITION_STATUS_8R,			        "BCRM_ACQUISITION_STATUS_8R");
+	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_64RW, 		    "BCRM_ACQUISITION_FRAME_RATE_64RW");
 	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_MIN_64R, 		"BCRM_ACQUISITION_FRAME_RATE_MIN_64R");
 	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_MAX_64R, 		"BCRM_ACQUISITION_FRAME_RATE_MAX_64R");
 	dump_bcrm_reg_64(client, BCRM_ACQUISITION_FRAME_RATE_INC_64R, 		"BCRM_ACQUISITION_FRAME_RATE_INC_64R");
 	dump_bcrm_reg_8(client, BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW, 	"BCRM_ACQUISITION_FRAME_RATE_ENABLE_8RW");
 
-	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_MODE_8RW, 		"BCRM_FRAME_START_TRIGGER_MODE_8RW");
+	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_MODE_8RW, 		    "BCRM_FRAME_START_TRIGGER_MODE_8RW");
 	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_SOURCE_8RW,		"BCRM_FRAME_START_TRIGGER_SOURCE_8RW");
 	dump_bcrm_reg_8(client, BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW,	"BCRM_FRAME_START_TRIGGER_ACTIVATION_8RW");
 	
 	/* Image Format Control Registers */
-	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_32RW, 				"BCRM_IMG_WIDTH_32RW");
-	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MIN_32R, 			"BCRM_IMG_WIDTH_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MAX_32R, 			"BCRM_IMG_WIDTH_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_INC_32R, 			"BCRM_IMG_WIDTH_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_32RW, 				    "BCRM_IMG_WIDTH_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MIN_32R, 			    "BCRM_IMG_WIDTH_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_MAX_32R, 			    "BCRM_IMG_WIDTH_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_WIDTH_INC_32R, 			    "BCRM_IMG_WIDTH_INC_32R");
 
-	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_32RW,				"BCRM_IMG_HEIGHT_32RW");
-	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MIN_32R,			"BCRM_IMG_HEIGHT_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MAX_32R,			"BCRM_IMG_HEIGHT_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_INC_32R, 			"BCRM_IMG_HEIGHT_INC_32R");
-	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_32RW, 			"BCRM_IMG_OFFSET_X_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_32RW,				    "BCRM_IMG_HEIGHT_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MIN_32R,			    "BCRM_IMG_HEIGHT_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_MAX_32R,			    "BCRM_IMG_HEIGHT_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_HEIGHT_INC_32R, 			    "BCRM_IMG_HEIGHT_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_32RW, 			    "BCRM_IMG_OFFSET_X_32RW");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_MIN_32R, 			"BCRM_IMG_OFFSET_X_MIN_32R");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_MAX_32R, 			"BCRM_IMG_OFFSET_X_MAX_32R");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_X_INC_32R, 			"BCRM_IMG_OFFSET_X_INC_32R");
 
-	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_32RW, 			"BCRM_IMG_OFFSET_Y_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_32RW, 			    "BCRM_IMG_OFFSET_Y_32RW");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_MIN_32R, 			"BCRM_IMG_OFFSET_Y_MIN_32R");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_MAX_32R, 			"BCRM_IMG_OFFSET_Y_MAX_32R");
 	dump_bcrm_reg_32(client, BCRM_IMG_OFFSET_Y_INC_32R, 			"BCRM_IMG_OFFSET_Y_INC_32R");
 
-	dump_bcrm_reg_32(client, BCRM_IMG_MIPI_DATA_FORMAT_32RW, 		"BCRM_IMG_MIPI_DATA_FORMAT_32RW");
+	dump_bcrm_reg_32(client, BCRM_IMG_MIPI_DATA_FORMAT_32RW, 		    "BCRM_IMG_MIPI_DATA_FORMAT_32RW");
 	dump_bcrm_reg_64(client, BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R, 	"BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R");
 
 	dump_bcrm_reg_8(client, BCRM_IMG_BAYER_PATTERN_INQUIRY_8R, 		"BCRM_IMG_BAYER_PATTERN_INQUIRY_8R");
 	dump_bcrm_reg_8(client, BCRM_IMG_BAYER_PATTERN_8RW, 			"BCRM_IMG_BAYER_PATTERN_8RW");
 
-	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_X_8RW, 			"BCRM_IMG_REVERSE_X_8RW");
-	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_Y_8RW, 			"BCRM_IMG_REVERSE_Y_8RW");
+	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_X_8RW, 			    "BCRM_IMG_REVERSE_X_8RW");
+	dump_bcrm_reg_8(client, BCRM_IMG_REVERSE_Y_8RW, 			    "BCRM_IMG_REVERSE_Y_8RW");
 
-	dump_bcrm_reg_32(client, BCRM_SENSOR_WIDTH_32R, 			"BCRM_SENSOR_WIDTH_32R");
-	dump_bcrm_reg_32(client, BCRM_SENSOR_HEIGHT_32R, 			"BCRM_SENSOR_HEIGHT_32R");
+	dump_bcrm_reg_32(client, BCRM_SENSOR_WIDTH_32R, 			    "BCRM_SENSOR_WIDTH_32R");
+	dump_bcrm_reg_32(client, BCRM_SENSOR_HEIGHT_32R, 			    "BCRM_SENSOR_HEIGHT_32R");
 
-	dump_bcrm_reg_32(client, BCRM_WIDTH_MAX_32R, 				"BCRM_WIDTH_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_HEIGHT_MAX_32R, 				"BCRM_HEIGHT_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_WIDTH_MAX_32R, 				    "BCRM_WIDTH_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_HEIGHT_MAX_32R, 				    "BCRM_HEIGHT_MAX_32R");
 
 	/* Brightness Control Registers */
-	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_64RW, 			"BCRM_EXPOSURE_TIME_64RW");
+	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_64RW, 			    "BCRM_EXPOSURE_TIME_64RW");
 	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_MIN_64R, 			"BCRM_EXPOSURE_TIME_MIN_64R");
 	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_MAX_64R, 			"BCRM_EXPOSURE_TIME_MAX_64R");
 	dump_bcrm_reg_64(client, BCRM_EXPOSURE_TIME_INC_64R, 			"BCRM_EXPOSURE_TIME_INC_64R");
-	dump_bcrm_reg_8(client, BCRM_EXPOSURE_AUTO_8RW, 			"BCRM_EXPOSURE_AUTO_8RW");
+	dump_bcrm_reg_8(client, BCRM_EXPOSURE_AUTO_8RW, 			    "BCRM_EXPOSURE_AUTO_8RW");
 
 	dump_bcrm_reg_8(client, BCRM_INTENSITY_AUTO_PRECEDENCE_8RW, 		"BCRM_INTENSITY_AUTO_PRECEDENCE_8RW");
-	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW, "BCRM_INTENSITY_AUTO_PRECEDENCE_VALUE_32RW");
 	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_MIN_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_MIN_32R");
 	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_MAX_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_MAX_32R");
 	dump_bcrm_reg_32(client, BCRM_INTENSITY_AUTO_PRECEDENCE_INC_32R, 	"BCRM_INTENSITY_AUTO_PRECEDENCE_INC_32R");
 
-	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_32RW, 			"BCRM_BLACK_LEVEL_32RW");
-	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MIN_32R, 			"BCRM_BLACK_LEVEL_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MAX_32R, 			"BCRM_BLACK_LEVEL_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_INC_32R, 			"BCRM_BLACK_LEVEL_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_32RW, 			    "BCRM_BLACK_LEVEL_32RW");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MIN_32R, 			    "BCRM_BLACK_LEVEL_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_MAX_32R, 			    "BCRM_BLACK_LEVEL_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_BLACK_LEVEL_INC_32R, 			    "BCRM_BLACK_LEVEL_INC_32R");
 
-	dump_bcrm_reg_64(client, BCRM_GAIN_64RW, 				"BCRM_GAIN_64RW");
-	dump_bcrm_reg_64(client, BCRM_GAIN_MIN_64R,			 	"BCRM_GAIN_MIN_64R");
-	dump_bcrm_reg_64(client, BCRM_GAIN_MAX_64R, 				"BCRM_GAIN_MAX_64R");
-	dump_bcrm_reg_64(client, BCRM_GAIN_INC_64R, 				"BCRM_GAIN_INC_64R");
-	dump_bcrm_reg_8(client, BCRM_GAIN_AUTO_8RW, 				"BCRM_GAIN_AUTO_8RW");
+	dump_bcrm_reg_64(client, BCRM_GAIN_64RW, 				        "BCRM_GAIN_64RW");
+	dump_bcrm_reg_64(client, BCRM_GAIN_MIN_64R,			 	        "BCRM_GAIN_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_GAIN_MAX_64R, 				    "BCRM_GAIN_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_GAIN_INC_64R, 				    "BCRM_GAIN_INC_64R");
+	dump_bcrm_reg_8(client, BCRM_GAIN_AUTO_8RW, 				    "BCRM_GAIN_AUTO_8RW");
 
-	dump_bcrm_reg_64(client, BCRM_GAMMA_64RW, 				"BCRM_GAMMA_64RW");
-	dump_bcrm_reg_64(client, BCRM_GAMMA_MIN_64R, 				"BCRM_GAMMA_MIN_64R");
-	dump_bcrm_reg_64(client, BCRM_GAMMA_MAX_64R, 				"BCRM_GAMMA_MAX_64R");
-	dump_bcrm_reg_64(client, BCRM_GAMMA_INC_64R, 				"BCRM_GAMMA_INC_64R");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_64RW, 				        "BCRM_GAMMA_64RW");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_MIN_64R, 				    "BCRM_GAMMA_MIN_64R");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_MAX_64R, 				    "BCRM_GAMMA_MAX_64R");
+	dump_bcrm_reg_64(client, BCRM_GAMMA_INC_64R, 				    "BCRM_GAMMA_INC_64R");
 
-	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_32RW, 			"BCRM_CONTRAST_VALUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_32RW, 			    "BCRM_CONTRAST_VALUE_32RW");
 	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_MIN_32R, 			"BCRM_CONTRAST_VALUE_MIN_32R");
 	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_MAX_32R, 			"BCRM_CONTRAST_VALUE_MAX_32R");
 	dump_bcrm_reg_32(client, BCRM_CONTRAST_VALUE_INC_32R, 			"BCRM_CONTRAST_VALUE_INC_32R");
 
 	/* Color Management Registers */
-	dump_bcrm_reg_32(client, BCRM_SATURATION_32RW,				"BCRM_SATURATION_32RW");
-	dump_bcrm_reg_32(client, BCRM_SATURATION_MIN_32R,			"BCRM_SATURATION_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_SATURATION_MAX_32R, 			"BCRM_SATURATION_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_SATURATION_INC_32R, 			"BCRM_SATURATION_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_32RW,				    "BCRM_SATURATION_32RW");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_MIN_32R,			    "BCRM_SATURATION_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_MAX_32R, 			    "BCRM_SATURATION_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_SATURATION_INC_32R, 			    "BCRM_SATURATION_INC_32R");
 
-	dump_bcrm_reg_32(client, BCRM_HUE_32RW,				 	"BCRM_HUE_32RW");
-	dump_bcrm_reg_32(client, BCRM_HUE_MIN_32R, 				"BCRM_HUE_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_HUE_MAX_32R,				"BCRM_HUE_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_HUE_INC_32R, 				"BCRM_HUE_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_HUE_32RW,				 	        "BCRM_HUE_32RW");
+	dump_bcrm_reg_32(client, BCRM_HUE_MIN_32R, 				        "BCRM_HUE_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_HUE_MAX_32R,				        "BCRM_HUE_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_HUE_INC_32R, 				        "BCRM_HUE_INC_32R");
 
 	dump_bcrm_reg_64(client, BCRM_ALL_BALANCE_RATIO_64RW,			"BCRM_ALL_BALANCE_RATIO_64RW");
 	dump_bcrm_reg_64(client, BCRM_ALL_BALANCE_RATIO_MIN_64R, 		"BCRM_ALL_BALANCE_RATIO_MIN_64R");
@@ -4916,17 +5588,17 @@ static void bcrm_dump(struct i2c_client *client)
 	dump_bcrm_reg_8(client, BCRM_WHITE_BALANCE_AUTO_8RW, 			"BCRM_WHITE_BALANCE_AUTO_8RW");
 
 	/* Other Registers */
-	dump_bcrm_reg_32(client, BCRM_SHARPNESS_32RW, 				"BCRM_SHARPNESS_32RW");
-	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MIN_32R, 			"BCRM_SHARPNESS_MIN_32R");
-	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MAX_32R, 			"BCRM_SHARPNESS_MAX_32R");
-	dump_bcrm_reg_32(client, BCRM_SHARPNESS_INC_32R, 			"BCRM_SHARPNESS_INC_32R");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_32RW, 				    "BCRM_SHARPNESS_32RW");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MIN_32R, 			    "BCRM_SHARPNESS_MIN_32R");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_MAX_32R, 			    "BCRM_SHARPNESS_MAX_32R");
+	dump_bcrm_reg_32(client, BCRM_SHARPNESS_INC_32R, 			    "BCRM_SHARPNESS_INC_32R");
 
 	dump_bcrm_reg_32(client, BCRM_DEVICE_TEMPERATURE_32R, 			"BCRM_DEVICE_TEMPERATURE_32R");
 }
 
 static void dump_bcrm_reg_8(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-        struct avt_csi2_priv *priv;
+    struct avt_csi2_priv *priv;
 	int status = 0;
 	u8 data = 0;
 
@@ -4945,7 +5617,7 @@ static void dump_bcrm_reg_8(struct i2c_client *client, u16 nOffset, const char *
 
 static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-        struct avt_csi2_priv *priv;
+    struct avt_csi2_priv *priv;
 	int status = 0;
 	u32 data = 0;
 
@@ -4965,7 +5637,7 @@ static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char 
 
 static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-        struct avt_csi2_priv *priv;
+    struct avt_csi2_priv *priv;
 	int status = 0;
 	u64 data = 0;
    
@@ -4986,85 +5658,84 @@ static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char 
 /* Check if the device is answering to an I2C read request */
 static bool device_present(struct i2c_client *client)
 {
-        int status = 0;
-        u64 data = 0;
+    int status = 0;
+    u64 data = 0;
 
-        status = i2c_read(client, CCI_DEVICE_CAP_64R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,  (char *)&data);         
+    status = i2c_read(client, CCI_DEVICE_CAP_64R, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,  (char *)&data);         
 
-        return ((status < 0) || (data == 0)) ? false : true;
+    return ((status < 0) || (data == 0)) ? false : true;
 }
 
 static int soft_reset(struct i2c_client *client)
 {
-        int status = 0;
-        uint8_t reset_val = 1;
-        static const uint8_t default_heartbeat_val = 0x80;
-        uint8_t heartbeat_val = default_heartbeat_val;
-        uint64_t duration_ms = 0;
-        static const uint8_t heartbeat_low_limit = 0;
-        static const uint32_t delay_ms = 400;
-        static const uint32_t max_time_ms = 10000;
-        static const uint32_t add_wait_time_ms = 1500;
-        uint64_t start_jiffies = get_jiffies_64();
-        bool device_available = false;
-        bool heartbeat_available = false;
+    int status = 0;
+    uint8_t reset_val = 1;
+    static const uint8_t default_heartbeat_val = 0x80;
+    uint8_t heartbeat_val = default_heartbeat_val;
+    uint64_t duration_ms = 0;
+    static const uint8_t heartbeat_low_limit = 0;
+    static const uint32_t delay_ms = 400;
+    static const uint32_t max_time_ms = 10000;
+    uint64_t start_jiffies = get_jiffies_64();
+    bool device_available = false;
+    bool heartbeat_available = false;
 
-        /* Check, if heartbeat register is available (write default value and read it back)*/
-        status = i2c_write(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val);
-        heartbeat_available = (i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val) < 0) ? false : true;
-        /* If camera does not support heartbeat it delivers always 0 */
-        heartbeat_available = ((heartbeat_val != 0) && (status != 0)) ? true : false;
-        dev_info(&client->dev, "Heartbeat %ssupported", (heartbeat_available) ? "" : "not ");
+    /* Check, if heartbeat register is available (write default value and read it back)*/
+    status = i2c_write(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val);
+    heartbeat_available = (i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, sizeof(heartbeat_val), (char*)&heartbeat_val) < 0) ? false : true;
+    /* If camera does not support heartbeat it delivers always 0 */
+    heartbeat_available = ((heartbeat_val != 0) && (status != 0)) ? true : false;
+    dev_info(&client->dev, "Heartbeat %ssupported", (heartbeat_available) ? "" : "NOT ");
 
-        /* Execute soft reset */
-        status = i2c_write(client, CCI_SOFT_RESET_8W, AV_CAM_REG_SIZE, sizeof(reset_val), (char*)&reset_val);
+    /* Execute soft reset */
+    status = i2c_write(client, CCI_SOFT_RESET_8W, AV_CAM_REG_SIZE, sizeof(reset_val), (char*)&reset_val);
         
 	if (status >= 0)
-        {
-                dev_info(&client->dev, "Soft reset executed. Initializing camera...");
-        }
+    {
+        dev_info(&client->dev, "Soft reset executed. Initializing camera...");
+    }
 	else
-        {
-		dev_err(&client->dev, "Soft reset ERROR");   
-                return -EIO; 
-        }
+    {
+        dev_err(&client->dev, "Soft reset ERROR");   
+        return -EIO; 
+    }
 
-        /* Poll camera register to check if camera is back again */
+    /* Poll camera register to check if camera is back again */
+    do
+    {
+        usleep_range(delay_ms*1000, (delay_ms*1000)+1);
+        device_available = device_present(client);
+        duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
+    } while((duration_ms < max_time_ms) && !device_available);
+
+    if (!heartbeat_available)
+    {
+        /* Camera might need a few more seconds to be fully booted */
+        usleep_range(add_wait_time_ms*1000, (add_wait_time_ms*1000)+1);
+    }
+    else
+    {
+        /* Heartbeat is supported. Poll heartbeat register until value is lower than the default value again */
         do
         {
-                usleep_range(delay_ms*1000, (delay_ms*1000)+1);
-                device_available = device_present(client);
-                duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
-        } while((duration_ms < max_time_ms) && !device_available);
+            usleep_range(delay_ms*1000, (delay_ms*1000)+1);
+            status = i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, (char*)&heartbeat_val);
+            //dev_info(&client->dev, "Heartbeat val=0x%02X", heartbeat_val);
+            duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
+            if ((heartbeat_val > heartbeat_low_limit) && (heartbeat_val < default_heartbeat_val) && (status >= 0))
+            {
+                /* Heartbeat active -> Camera alive */
+                dev_info(&client->dev, "Heartbeat active!");
+                break;
+            }
+        } while (duration_ms < max_time_ms);
+    }
 
-        if (!heartbeat_available)
-        {
-                /* Camera might need a few more seconds to be fully booted */
-                usleep_range(add_wait_time_ms*1000, (add_wait_time_ms*1000)+1);
-        }
-        else
-        {
-                /* Heartbeat is supported. Poll heartbeat register until value is lower than the default value again */
-                do
-                {
-                        usleep_range(delay_ms*1000, (delay_ms*1000)+1);
-                        status = i2c_read(client, CCI_HEARTBEAT_8RW, AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8, (char*)&heartbeat_val);
-                        //dev_info(&client->dev, "Heartbeat val=0x%02X", heartbeat_val);
-                        duration_ms = jiffies_to_msecs(get_jiffies_64() - start_jiffies);       
-                        if ((heartbeat_val > heartbeat_low_limit) && (heartbeat_val < default_heartbeat_val) && (status >= 0))
-                        {
-                                /* Heartbeat active -> Camera alive */
-                                dev_info(&client->dev, "Heartbeat active!");
-                                break;
-                        }
-                } while (duration_ms < max_time_ms);
-        }
+    dev_info(&client->dev, "Camera boot time: %llums", duration_ms);
+    if (!device_available)
+            dev_err(&client->dev, "Camera not reconnected");   
 
-        dev_info(&client->dev, "Camera boot time: %llums", duration_ms);
-        if (!device_available)
-                dev_err(&client->dev, "Camera not reconnected");   
-
-        return 0;
+    return 0;
 }
 
 static ssize_t cci_register_layout_version_show(struct device *dev,
@@ -5611,7 +6282,7 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 		return ret;
 	}
 
-        avt_info(sd, "Camera supported lane counts value: 0x%x\n", avt_supported_lane_counts);
+    avt_info(sd, "Camera supported lane counts value: 0x%x\n", avt_supported_lane_counts);
 
 	if(!(test_bit(priv->s_data->numlanes - 1, (const long *)(&avt_supported_lane_counts)))) {
 		avt_err(sd, "requested number of lanes (%u) not supported by this camera!\n",
@@ -5751,7 +6422,7 @@ static int avt_csi2_probe(struct i2c_client *client,
 	struct v4l2_ctrl *ctrl;
 	union cci_device_caps_reg device_caps;
 	int i, j;
-
+    
 	v4l_dbg(1, debug, client, "chip found @ 0x%x (%s)\n",
 		client->addr << 1, client->adapter->name);
 
@@ -5788,6 +6459,9 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->subdev->internal_ops = &avt_csi2_int_ops;
 	priv->subdev->dev = &client->dev;
 
+	/* Set owner to NULL so we can unload the driver module */
+	priv->subdev->owner = NULL;
+
 	common_data->priv = priv;
 	common_data->dev = &client->dev;
 	common_data->ctrl_handler = &priv->hdl;
@@ -5799,27 +6473,27 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->streamcap.timeperframe.denominator = DEFAULT_FPS;
 	priv->streamcap.timeperframe.numerator = 1;
 
-        if (!device_present(client))
-        {
-                dev_err(dev, "No camera detected");
-                return -ENXIO;
-        }
-        else
-        {
-                dev_info(dev, "Camera detected!");
-        }
-             
-        /* Execute softreset to ensure camera is not in GenCP mode anymore */
-        ret = soft_reset(client);
-        if (ret < 0)
-        {
-                return ret;
-        }
+    if (!device_present(client))
+    {
+        dev_err(dev, "No camera detected");
+        return -ENXIO;
+    }
+    else
+    {
+        dev_info(dev, "Camera detected!");
+    }
+            
+    /* Execute softreset to ensure camera is not in GenCP mode anymore */
+    ret = soft_reset(client);
+    if (ret < 0)
+    {
+        return ret;
+    }
 
 	ret = read_cci_registers(client);
 
-        /* DEBUG: Dump all BCRM registers */
-        bcrm_dump(client);
+    /* DEBUG: Dump all BCRM registers */
+    bcrm_dump(client);
 
 	/* Set subdev name */
 	snprintf(priv->subdev->name, sizeof(priv->subdev->name), "%s %s %d-%x",
@@ -5930,13 +6604,14 @@ static int avt_csi2_probe(struct i2c_client *client,
 		priv->ctrl_cfg[i].max = qctrl.maximum;
 		priv->ctrl_cfg[i].def = qctrl.default_value;
 		priv->ctrl_cfg[i].step = qctrl.step;
+		priv->hdl.error = 0;
 
 		ctrl = v4l2_ctrl_new_custom(&priv->hdl,
 			&priv->ctrl_cfg[i], NULL);
 
 		if (ctrl == NULL) {
-			dev_err(&client->dev, "Failed to init %s ctrl\n",
-				priv->ctrl_cfg[i].name);
+			dev_err(&client->dev, "Failed to init %s ctrl (%d)\n",
+				priv->ctrl_cfg[i].name, priv->hdl.error);
 			continue;
 		}
 
@@ -5986,7 +6661,6 @@ static int avt_csi2_probe(struct i2c_client *client,
 	priv->cross_update = false;
 	priv->stride_align_enabled = true;
 	priv->crop_align_enabled = true;
-//KHO	priv->crop_align_enabled = false;
 
 	ret = avt_init_mode(priv->subdev);
 	if (ret < 0)

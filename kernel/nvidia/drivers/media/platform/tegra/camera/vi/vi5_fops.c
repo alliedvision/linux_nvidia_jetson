@@ -239,6 +239,23 @@ static int vi5_channel_setup_queue(struct tegra_channel *chan,
 done:
 	return ret;
 }
+static void vi5_bypass_datatype(struct tegra_channel *chan,
+	struct capture_descriptor *desc)
+{
+	struct tegra_mc_vi *mc = tegra_get_mc_vi();
+	u32 data_type = chan->fmtinfo->img_dt;
+
+	if(mc->bypass) {
+		desc->ch_cfg.match.datatype = 0x0;
+		desc->ch_cfg.match.datatype_mask = 0x0;
+		desc->ch_cfg.dt_enable = 1;
+		desc->ch_cfg.dt_override = data_type;
+	} else {
+		desc->ch_cfg.match.datatype = data_type;
+		desc->ch_cfg.match.datatype_mask = 0x3f;
+		desc->ch_cfg.dt_enable = 0;
+	}
+}
 
 static int tegra_channel_capture_setup(struct tegra_channel *chan)
 {
@@ -276,7 +293,6 @@ static void vi5_setup_surface(struct tegra_channel *chan,
 	u32 height = chan->format.height;
 	u32 width = chan->format.width;
 	u32 format = chan->fmtinfo->img_fmt;
-	u32 data_type = chan->fmtinfo->img_dt;
 	u32 csi_port = chan->port[0];
 	struct capture_descriptor *desc = &chan->request[descr_index];
 
@@ -287,10 +303,10 @@ static void vi5_setup_surface(struct tegra_channel *chan,
 	desc->ch_cfg.match.vc = (1u << chan->virtual_channel); /* one-hot bit encoding */
 	desc->ch_cfg.frame.frame_x = width;
 	desc->ch_cfg.frame.frame_y = height;
-	desc->ch_cfg.match.datatype = data_type;
-	desc->ch_cfg.match.datatype_mask = 0x3f;
 	desc->ch_cfg.pixfmt_enable = 1;
 	desc->ch_cfg.pixfmt.format = format;
+
+	vi5_bypass_datatype(chan, desc);
 
 	desc->ch_cfg.atomp.surface[0].offset = (u32)offset;
 	desc->ch_cfg.atomp.surface[0].offset_hi = (u32)(offset >> 32U);
@@ -836,6 +852,8 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 {
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
 	long err;
+
+	vi_stop_waiting(chan->tegra_vi_channel);
 
 	if (!chan->bypass)
 		vi5_channel_stop_kthreads(chan);

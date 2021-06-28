@@ -82,6 +82,8 @@ struct tegra_nvhdcp_packet {
 	__u32 port; /* (OUT) DP or HDMI */
 
 	__u32 binfo; /* (OUT) link/repeater status for DP */
+
+	__u32 sor; /* (OUT) SOR or SOR1 */
 };
 
 /* parameters to TEGRAIO_NVHDCP_SET_POLICY */

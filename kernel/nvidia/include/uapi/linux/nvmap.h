@@ -3,7 +3,7 @@
  *
  * structure declarations for nvmem and nvmap user-space ioctls
  *
- * Copyright (c) 2009-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -275,6 +275,18 @@ struct nvmap_query_heap_params {
 	__u64 largest_free_block;
 };
 
+struct nvmap_handle_parameters {
+    __u8 contig;
+    __u32 import_id;
+    __u32 handle;
+    __u32 heap_number;
+    __u32 access_flags;
+    __u64 heap;
+    __u64 align;
+    __u64 coherency;
+    __u64 size;
+};
+
 #define NVMAP_IOC_MAGIC 'N'
 
 /* Creates a new memory handle. On input, the argument is the size of the new
@@ -373,6 +385,8 @@ struct nvmap_query_heap_params {
 #define NVMAP_IOC_GET_HEAP_SIZE \
 	_IOR(NVMAP_IOC_MAGIC, 26, struct nvmap_heap_size)
 
+#define NVMAP_IOC_PARAMETERS \
+	_IOR(NVMAP_IOC_MAGIC, 27, struct nvmap_handle_parameters)
 /* START of T124 IOCTLS */
 /* Actually allocates memory for the specified handle, with kind */
 #define NVMAP_IOC_ALLOC_KIND _IOW(NVMAP_IOC_MAGIC, 100, struct nvmap_alloc_kind_handle)

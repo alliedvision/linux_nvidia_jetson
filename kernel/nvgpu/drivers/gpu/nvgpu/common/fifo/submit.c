@@ -212,6 +212,7 @@ static int nvgpu_submit_append_gpfifo_user_direct(struct channel_gk20a *c,
 	u32 end = start + len; /* exclusive */
 	int err;
 
+	nvgpu_speculation_barrier();
 	if (end > gpfifo_size) {
 		/* wrap-around */
 		int length0 = gpfifo_size - start;

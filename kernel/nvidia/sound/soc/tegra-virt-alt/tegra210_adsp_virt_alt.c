@@ -2,7 +2,7 @@
  * tegra210_adsp_virt_alt.c - Tegra ADSP audio driver
  *
  * Author: Sumit Bhattacharya <sumitb@nvidia.com>
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -194,7 +194,7 @@ struct tegra210_adsp {
 		uint32_t rate;
 	} pcm_path[ADSP_FE_COUNT+1][2];
 	struct nvaudio_ivc_ctxt *hivc_client;
-	int32_t fe_to_admaif_map[ADSP_FE_END - ADSP_FE_START + 1][2];
+	int32_t fe_to_admaif_map[ADSP_FE_COUNT][2];
 	int32_t apm_to_admaif_map[APM_IN_END - APM_IN_START + 1][2];
 	struct tegra210_adsp_switch switches[MAX_ADSP_SWITCHES];
 	bool is_fe_set[ADSP_FE_COUNT];

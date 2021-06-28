@@ -1,6 +1,6 @@
 #!/bin/bash
 #==============================================================================
-#  Copyright (C) 2012 - 2019 Allied Vision Technologies.  All Rights Reserved.
+#  Copyright (C) 2012 - 2021 Allied Vision Technologies.  All Rights Reserved.
 #
 #  Redistribution of this file, in original or modified form, without
 #  prior written consent of Allied Vision Technologies is prohibited.
@@ -30,7 +30,7 @@
 # script settings
 #==============================================================================
 SCRIPT_NAME=`basename "$0"`
-DEDICATED_VERSION="R32.4.4"
+DEDICATED_VERSION="R32.5.1"
 DEDICATED_BOARD="TX2/XAVIER"
 DEDICATED_BOARD_NANO="NANO"
 COMPLETE_INSTALL=false
@@ -60,27 +60,27 @@ PATH_SOURCES="${PATH_TARGET_L4T}/sources"
 # file settings
 #==============================================================================
 FILE_DRIVER_PACKAGE=""
-FILE_DRIVER_PACKAGE_TX2="Jetson_Linux_32.4.2_aarch64.tbz2"
-FILE_DRIVER_PACKAGE_NANO="Tegra210_Linux_32.4.2_aarch64.tbz2"
+FILE_DRIVER_PACKAGE_TX2="tegra186_linux_r32.5.1_aarch64.tbz2"
+FILE_DRIVER_PACKAGE_NANO="jetson-210_linux_r32.5.1_aarch64.tbz2"
 FILE_ROOTFS=""
-FILE_ROOTFS_TX2="Tegra_Linux_Sample-Root-Filesystem_32.4.2_aarch64.tbz2"
-FILE_ROOTFS_NANO="Tegra_Linux_Sample-Root-Filesystem_32.4.2_aarch64.tbz2"
+FILE_ROOTFS_TX2="tegra_linux_sample-root-filesystem_r32.5.1_aarch64.tbz2"
+FILE_ROOTFS_NANO="tegra_linux_sample-root-filesystem_r32.5.1_aarch64.tbz2"
 FILE_PUBLICSOURCES=""
 FILE_PUBLICSOURCES_TX2="public_sources.tbz2"
-FILE_PUBLICSOURCES_NANO="nano_public_sources.tbz2"
+FILE_PUBLICSOURCES_NANO="public_sources.tbz2"
 FILE_GCC_64="gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu.tar.xz"
 #==============================================================================
 # download urls
 #==============================================================================
 DOWNLOAD_URL_DRIVER_PACKAGE=""
-DOWNLOAD_URL_DRIVER_PACKAGE_TX2="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/t186ref_release_aarch64/Tegra186_Linux_R32.4.2_aarch64.tbz2"
-DOWNLOAD_URL_DRIVER_PACKAGE_NANO="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/t210ref_release_aarch64/Tegra210_Linux_R32.4.2_aarch64.tbz2"
+DOWNLOAD_URL_DRIVER_PACKAGE_TX2="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/t186/tegra186_linux_r32.5.1_aarch64.tbz2"                                  
+DOWNLOAD_URL_DRIVER_PACKAGE_NANO="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/t210/jetson-210_linux_r32.5.1_aarch64.tbz2"
 DOWNLOAD_URL_ROOTFS=""
-DOWNLOAD_URL_ROOTFS_TX2="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/t186ref_release_aarch64/Tegra_Linux_Sample-Root-Filesystem_R32.4.2_aarch64.tbz2"
-DOWNLOAD_URL_ROOTFS_NANO="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/t210ref_release_aarch64/Tegra_Linux_Sample-Root-Filesystem_R32.4.2_aarch64.tbz2"
+DOWNLOAD_URL_ROOTFS_TX2="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/t186/tegra_linux_sample-root-filesystem_r32.5.1_aarch64.tbz2"
+DOWNLOAD_URL_ROOTFS_NANO="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/t210/tegra_linux_sample-root-filesystem_r32.5.1_aarch64.tbz2"
 DOWNLOAD_URL_PUBLICSOURCES=""
-DOWNLOAD_URL_PUBLICSOURCES_TX2="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/Sources/T186/public_sources.tbz2"
-DOWNLOAD_URL_PUBLICSOURCES_NANO="https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/Sources/T210/public_sources.tbz2"
+DOWNLOAD_URL_PUBLICSOURCES_TX2="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/sources/t186/public_sources.tbz2"
+DOWNLOAD_URL_PUBLICSOURCES_NANO="https://developer.nvidia.com/embedded/l4t/r32_release_v5.1/r32_release_v5.1/sources/t210/public_sources.tbz2"
 DOWNLOAD_URL_GCC="https://developer.nvidia.com/embedded/dlc/l4t-gcc-7-3-1-toolchain-64-bit"
 #==============================================================================
 # include helper scripts

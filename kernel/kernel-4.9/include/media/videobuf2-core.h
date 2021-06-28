@@ -534,6 +534,7 @@ struct vb2_queue {
 	unsigned int			streaming:1;
 	unsigned int			start_streaming_called:1;
 	unsigned int			error:1;
+	unsigned int			buffer_error:1;
 	unsigned int			waiting_for_buffers:1;
 	unsigned int			is_multiplanar:1;
 	unsigned int			is_output:1;
@@ -689,6 +690,10 @@ int vb2_core_reqbufs(struct vb2_queue *q, enum vb2_memory memory,
  * returned from VIDIOC_CREATE_BUFS() handler in driver.
  */
 int vb2_core_create_bufs(struct vb2_queue *q, enum vb2_memory memory,
+		unsigned int *count, unsigned requested_planes,
+		const unsigned requested_sizes[], bool req_index, int index);
+
+int vb2_core_create_single_buf(struct vb2_queue *q, enum vb2_memory memory,
 		unsigned int *count, unsigned requested_planes,
 		const unsigned requested_sizes[], bool req_index, int index);
 

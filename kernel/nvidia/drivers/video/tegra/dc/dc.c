@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -57,6 +57,8 @@
 #include <linux/ote_protocol.h>
 #endif
 #include <linux/version.h>
+
+#include <clocksource/arm_arch_timer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/display.h>
@@ -2008,7 +2010,7 @@ static ssize_t dbg_nvdisp_topology_write(struct file *file,
 {
 	int res = 0, ret = 0;
 	int i = 0;
-	char buf[CHAR_BUF_SIZE_MAX] = {'\0'};
+	char buf[CHAR_BUF_SIZE_MAX+1] = {'\0'};
 	struct tegra_dc *primary =  NULL;
 	struct tegra_dc *curr = NULL;
 	bool dangling = false;
@@ -5014,9 +5016,20 @@ inline u64 tegra_dc_get_tsc_time(void)
 #else
 inline u64 tegra_dc_get_tsc_time(void)
 {
-	/* TBD: Add support for kernel 4.9 */
-	/* arch_timer_get_timecounter() doesn't exist in 4.9 */
-	return 0;
+	u64 frac = 0;
+	const struct cyclecounter *cc;
+	struct arch_timer_kvm_info *info;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
+	u64 value;
+#else
+	cycle_t value;
+#endif
+
+	info = arch_timer_get_kvm_info();
+	cc = info->timecounter.cc;
+
+	value = cc->read(cc);
+	return cyclecounter_cyc2ns(cc, value, 0, &frac);
 }
 #endif
 
@@ -6761,7 +6774,7 @@ static int tegra_dc_probe(struct platform_device *ndev)
 						"could not register isomgr. err=%ld\n",
 						PTR_ERR(dc->isomgr_handle));
 				ret = -ENOENT;
-				goto err_put_clk;
+				goto err_disable_dc;
 			}
 			dc->reserved_bw = tegra_dc_calc_min_bandwidth(dc);
 			/*
@@ -7439,6 +7452,14 @@ int tegra_dc_get_numof_dispsors(void)
 }
 EXPORT_SYMBOL(tegra_dc_get_numof_dispsors);
 
+struct tegra_dc_sor_info *tegra_dc_get_sor_cap(void)
+{
+	if (!hw_data || !hw_data->valid)
+		return NULL;
+
+	return hw_data->sor_info;
+}
+
 /* tegra_dc_get_max_lines() - gets v_total for current mode
  * @disp_id : the display id of the concerned head.
  *
@@ -7686,6 +7707,11 @@ inline bool tegra_dc_is_nvdisplay(void)
 }
 EXPORT_SYMBOL(tegra_dc_is_nvdisplay);
 
+static struct tegra_dc_sor_info t21x_sor_info[] = {
+	{ .hdcp_supported = false },  /* SOR0 */
+	{ .hdcp_supported = true },   /* SOR1 */
+};
+
 static void tegra_dc_populate_t21x_hw_data(struct tegra_dc_hw_data *hw_data)
 {
 	if (!hw_data)
@@ -7694,6 +7720,7 @@ static void tegra_dc_populate_t21x_hw_data(struct tegra_dc_hw_data *hw_data)
 	hw_data->nheads = 2;
 	hw_data->nwins = 5;
 	hw_data->nsors = 2;
+	hw_data->sor_info = t21x_sor_info;
 
 	/* unused */
 	hw_data->pd_table = NULL;

@@ -1,7 +1,7 @@
 /**
  * TEGRA_V4L2_CAMERA.h - utilities for tegra camera driver
  *
- * Copyright (c) 2017-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,6 +37,7 @@
 #define TEGRA_CAMERA_CID_EXPOSURE		(TEGRA_CAMERA_CID_BASE+10)
 #define TEGRA_CAMERA_CID_FRAME_RATE		(TEGRA_CAMERA_CID_BASE+11)
 #define TEGRA_CAMERA_CID_EXPOSURE_SHORT		(TEGRA_CAMERA_CID_BASE+12)
+#define TEGRA_CAMERA_CID_STEREO_EEPROM		(TEGRA_CAMERA_CID_BASE+13)
 
 #define TEGRA_CAMERA_CID_SENSOR_CONFIG		(TEGRA_CAMERA_CID_BASE+50)
 #define TEGRA_CAMERA_CID_SENSOR_MODE_BLOB	(TEGRA_CAMERA_CID_BASE+51)
@@ -78,6 +79,9 @@
 #define TEGRA_CAM_STRING_CTRL_EEPROM_INDEX 0
 #define TEGRA_CAM_STRING_CTRL_FUSEID_INDEX 1
 #define TEGRA_CAM_STRING_CTRL_OTP_INDEX 2
+
+#define TEGRA_CAM_MAX_COMPOUND_CONTROLS 4
+#define TEGRA_CAM_COMPOUND_CTRL_EEPROM_INDEX 0
 
 #define	CSI_PHY_MODE_DPHY	0
 #define	CSI_PHY_MODE_CPHY	1

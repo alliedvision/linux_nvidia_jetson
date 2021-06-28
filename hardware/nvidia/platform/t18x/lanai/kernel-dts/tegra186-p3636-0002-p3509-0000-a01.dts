@@ -1,0 +1,206 @@
+/*
+ * tegra186-p3636-0002-p3509-0000-a01.dts : Lanai A00 Board
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+#include "common/tegra186-p3636-0001-common.dtsi"
+#include "common/tegra186-p3509-0000-cvb.dtsi"
+#include "common/tegra186-p3509-0000-a00-fixed-regulator.dtsi"
+#include "common/tegra186-p3636-0001-a00-prod.dtsi"
+#include "common/tegra186-camera-lanai-rbpcv2-imx219.dtsi"
+
+/* plugin manager */
+#include "common/tegra186-super-module-e2614-p3509-0000-a00.dtsi"
+
+/ {
+	compatible = "nvidia,p3509-0000+p3636-0002", "nvidia,tegra186";
+
+	nvidia,dtsfilename = __FILE__;
+	nvidia,boardids = "3636:0002:A0";
+	nvidia,proc-boardid = "3636:0002:A0";
+	nvidia,fastboot-usb-vid = <0x0955>;
+	nvidia,fastboot-usb-pid = <0xee16>;
+
+	chosen {
+		board-has-eeprom;
+		bootargs ="console=ttyS0,115200";
+		stdout-path = &uarta;
+		nvidia,tegra-joint_xpu_rail;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x70000000>;
+	};
+
+	xudc@3550000 {
+		status = "okay";
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
+		phy-names = "usb2";
+		nvidia,boost-cpu-freq = <1200>;
+	};
+
+	usb_cd {
+		status = "disabled";
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
+		phy-names = "otg-phy";
+		nvidia,xusb-padctl = <&xusb_padctl>;
+	};
+
+	xhci@3530000 {
+		status = "okay";
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-1}>;
+		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb3-1";
+	};
+
+	xusb_padctl@3520000 {
+		status = "okay";
+
+		pads {
+			usb2 {
+				lanes {
+					usb2-0 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-1 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-2 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+			usb3 {
+				lanes {
+					usb3-1 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+		};
+
+		ports {
+			usb2-0 {
+				status = "okay";
+				mode = "otg";
+			};
+			usb2-1 {
+				status = "okay";
+				mode = "host";
+			};
+			usb2-2 {
+				status = "okay";
+				mode = "host";
+			};
+			usb3-1 {
+				nvidia,usb2-companion = <1>;
+				status = "okay";
+			};
+		};
+	};
+
+	pcie-controller@10003000 {
+		status = "okay";
+		pci@1,0 {
+			nvidia,num-lanes = <2>;
+			nvidia,disable-clock-request;
+			status = "okay";
+		};
+		pci@2,0 {
+			nvidia,num-lanes = <1>;
+                        nvidia,disable-clock-request;
+			status = "okay";
+		};
+		pci@3,0 {
+			nvidia,num-lanes = <1>;
+			nvidia,disable-clock-request;
+			status = "okay";
+		};
+	};
+
+        gpio@2200000 {
+		w-disable1 {
+			gpio-hog;
+			output-high;
+			gpios = <TEGRA_MAIN_GPIO(L, 0) GPIO_ACTIVE_LOW>;
+			label = "w-disable1";
+			status = "okay";
+		};
+		w-disable2 {
+			gpio-hog;
+			output-high;
+			gpios = <TEGRA_MAIN_GPIO(L, 2) GPIO_ACTIVE_LOW>;
+			label = "w-disable2";
+			status = "okay";
+		};
+        };
+
+	cpufreq@e070000 {
+		cpu_emc_map =
+			< 499200  204000>,
+			< 652800  408000>,
+			<1420800  665600>,
+			<1920000 1600000>;
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
+	};
+
+	host1x {
+		nvdisplay@15200000 {
+			status = "okay";
+			nvidia,dc-or-node = "/host1x/sor1";
+			nvidia,dc-connector = <&sor1>;
+			nvidia,fb-win = <0>;
+			win-mask = <0x7>;
+		};
+		nvdisplay@15210000 {
+			status = "okay";
+			bootloader-status = "disabled";
+			nvidia,dc-or-node = "/host1x/sor";
+			nvidia,dc-connector = <&sor0>;
+			nvidia,fb-win = <3>;
+			win-mask = <0x38>;
+		};
+		sor {
+			status = "okay";
+			nvidia,active-panel = <&sor0_dp_display>;
+			dp-display {
+				status = "okay";
+			};
+		};
+		sor1 {
+			status = "okay";
+			nvidia,active-panel = <&sor1_hdmi_display>;
+			hdmi-display {
+				status = "okay";
+			};
+		};
+		dpaux@155c0000 {
+			status = "okay";
+		};
+		dpaux@15040000 {
+			status = "okay";
+		};
+	};
+};
+#if LINUX_VERSION >= 414
+#include <tegra186-linux-4.14.dtsi>
+#endif

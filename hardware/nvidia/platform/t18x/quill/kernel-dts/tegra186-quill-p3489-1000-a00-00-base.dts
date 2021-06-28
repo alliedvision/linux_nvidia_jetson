@@ -442,6 +442,10 @@
 	tegra_udrm: tegra_udrm {
 		compatible = "nvidia,tegra-udrm";
 	};
+
+	soctherm-oc-event {
+		status = "okay";
+	};
 };
 
 #ifdef KERNEL_VERSION_4_9

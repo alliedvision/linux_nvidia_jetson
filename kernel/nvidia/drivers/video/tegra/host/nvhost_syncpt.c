@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Syncpoints
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -209,8 +209,16 @@ static bool syncpt_update_min_is_expired(
 	u32 id,
 	u32 thresh)
 {
+	if (sp->stop_stream_called)
+		return true;
+
 	syncpt_op().update_min(sp, id);
 	return nvhost_syncpt_is_expired(sp, id, thresh);
+}
+
+static bool syncpt_stop_waiting(struct nvhost_syncpt *sp)
+{
+	return sp->stop_stream_called;
 }
 
 /**
@@ -229,6 +237,9 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	bool (*syncpt_is_expired)(struct nvhost_syncpt *sp,
 			u32 id,
 			u32 thresh);
+	bool (*syncpt_stop)(struct nvhost_syncpt *sp);
+
+	syncpt_stop = syncpt_stop_waiting;
 
 	sp = nvhost_get_syncpt_owner_struct(id, sp);
 	host = syncpt_to_dev(sp);
@@ -343,6 +354,10 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 		} else if (interruptible)
 			remain = wait_event_interruptible_timeout(waiter->wq,
 				syncpt_is_expired(sp, id, thresh),
+				check);
+		else if (id == sp->stream_id)
+			remain = wait_event_timeout(waiter->wq,
+				(syncpt_is_expired(sp, id, thresh) || syncpt_stop(sp)),
 				check);
 		else
 			remain = wait_event_timeout(waiter->wq,
@@ -1053,10 +1068,11 @@ int nvhost_syncpt_mark_used(struct nvhost_syncpt *sp,
 {
 	int err = 0;
 
-	if (syncpt_op().mark_used && !sp->in_use[syncptid]) {
+	if (syncpt_op().mark_used &&
+	    sp->in_use_ch[syncptid] == NVHOST_SYNCPT_IN_USE_CH_NONE) {
 		err = syncpt_op().mark_used(sp, chid, syncptid);
 		if (!err) {
-			sp->in_use[syncptid] = true;
+			sp->in_use_ch[syncptid] = chid;
 			nvhost_syncpt_get_ref(sp, syncptid);
 		}
 	}
@@ -1064,17 +1080,23 @@ int nvhost_syncpt_mark_used(struct nvhost_syncpt *sp,
 	return err;
 }
 
-int nvhost_syncpt_mark_unused(struct nvhost_syncpt *sp, u32 syncptid)
+int nvhost_syncpt_mark_unused(struct nvhost_syncpt *sp, u32 chid)
 {
-	int err = 0;
+	int err = 0, i;
 
-	if (syncpt_op().mark_unused && sp->in_use[syncptid]) {
-		err = syncpt_op().mark_unused(sp, syncptid);
-		if (!err) {
-			sp->in_use[syncptid] = false;
-			nvhost_syncpt_put_ref(sp, syncptid);
+	if (!syncpt_op().mark_unused)
+		return err;
+
+	for (i = 0; i < nvhost_syncpt_nb_hw_pts(sp); i++) {
+		if (sp->in_use_ch[i] == chid) {
+			err = syncpt_op().mark_unused(sp, i);
+			if (err)
+				return err;
+			sp->in_use_ch[i] = NVHOST_SYNCPT_IN_USE_CH_NONE;
+			nvhost_syncpt_put_ref(sp, i);
 		}
 	}
+
 	return err;
 }
 
@@ -1117,8 +1139,8 @@ int nvhost_syncpt_init(struct platform_device *dev,
 
 	/* Allocate structs for min, max and base values */
 	sp->assigned = kzalloc(sizeof(bool) * nb_pts, GFP_KERNEL);
-	sp->in_use = kzalloc(sizeof(bool) * nb_pts, GFP_KERNEL);
 	sp->client_managed = kzalloc(sizeof(bool) * nb_pts, GFP_KERNEL);
+	sp->in_use_ch = kzalloc(sizeof(int) * nb_pts, GFP_KERNEL);
 	sp->syncpt_names = kzalloc(sizeof(char *) * nb_pts, GFP_KERNEL);
 	sp->last_used_by = kzalloc(sizeof(char *) * nb_pts, GFP_KERNEL);
 	sp->min_val = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
@@ -1149,7 +1171,7 @@ int nvhost_syncpt_init(struct platform_device *dev,
 	}
 
 	if (!(sp->assigned && sp->client_managed && sp->min_val && sp->max_val
-		     && sp->lock_counts && sp->in_use && sp->ref)) {
+		     && sp->lock_counts && sp->in_use_ch && sp->ref)) {
 		nvhost_err(&dev->dev, "syncpt in a wrong state");
 		/* frees happen in the deinit */
 		err = -ENOMEM;
@@ -1202,7 +1224,7 @@ int nvhost_syncpt_init(struct platform_device *dev,
 
 		/* initialize syncpt status */
 		sp->assigned[i] = false;
-		sp->in_use[i] = false;
+		sp->in_use_ch[i] = NVHOST_SYNCPT_IN_USE_CH_NONE;
 		if (nvhost_syncpt_is_valid_pt(sp, i))
 			sp->client_managed[i] = false;
 		else
@@ -1298,8 +1320,8 @@ void nvhost_syncpt_deinit(struct nvhost_syncpt *sp)
 	kfree(sp->client_managed);
 	sp->client_managed = NULL;
 
-	kfree(sp->in_use);
-	sp->in_use = NULL;
+	kfree(sp->in_use_ch);
+	sp->in_use_ch = NULL;
 
 	kfree(sp->assigned);
 	sp->assigned = NULL;
@@ -1450,6 +1472,42 @@ int nvhost_syncpt_wait_timeout_ext(struct platform_device *dev, u32 id,
 	return ret;
 }
 EXPORT_SYMBOL(nvhost_syncpt_wait_timeout_ext);
+
+int nvhost_syncpt_stop_waiting_ext(struct platform_device *dev, u32 id)
+{
+	struct nvhost_master *master = nvhost_get_host(dev);
+	struct nvhost_syncpt *sp =
+		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
+
+	sp->stop_stream_called = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_syncpt_stop_waiting_ext);
+
+int nvhost_syncpt_restart_waiting_ext(struct platform_device *dev, u32 id)
+{
+	struct nvhost_master *master = nvhost_get_host(dev);
+	struct nvhost_syncpt *sp =
+		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
+
+	sp->stop_stream_called = false;
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_syncpt_restart_waiting_ext);
+
+int nvhost_syncpt_remember_stream_id_ext(struct platform_device *dev, u32 id)
+{
+	struct nvhost_master *master = nvhost_get_host(dev);
+	struct nvhost_syncpt *sp =
+		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
+
+	sp->stream_id = id;
+
+	return 0;
+}
+EXPORT_SYMBOL(nvhost_syncpt_remember_stream_id_ext);
 
 int nvhost_syncpt_create_fence_single_ext(struct platform_device *dev,
 	u32 id, u32 thresh, const char *name, int *fence_fd)

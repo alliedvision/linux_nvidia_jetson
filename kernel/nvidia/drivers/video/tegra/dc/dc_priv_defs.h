@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -237,11 +237,16 @@ struct tegra_dc_pd_table {
 	struct mutex pd_lock;
 };
 
+struct tegra_dc_sor_info {
+	bool hdcp_supported;
+};
+
 struct tegra_dc_hw_data {
 	bool valid;
 	int nheads;
 	int nwins;
 	int nsors;
+	struct tegra_dc_sor_info *sor_info; /* per SOR info */
 	struct tegra_dc_pd_table *pd_table;
 	enum tegra_dc_hw version;
 };

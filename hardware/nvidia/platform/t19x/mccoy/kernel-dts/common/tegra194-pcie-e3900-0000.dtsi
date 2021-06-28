@@ -1,0 +1,107 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	gpio@c2f0000 {
+		pex-refclk-sel-low {
+			gpio-hog;
+			output-low;
+			gpios = <TEGRA194_AON_GPIO(AA, 5) 0>;
+			label = "pex_refclk_sel_low";
+			status = "disabled";
+		};
+
+		pex-refclk-sel-high {
+			gpio-hog;
+			output-high;
+			gpios = <TEGRA194_AON_GPIO(AA, 5) 0>;
+			label = "pex_refclk_sel_high";
+			status = "disabled";
+		};
+	};
+
+	pcie@14180000 {
+		status = "okay";
+
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+		nvidia,disable-aspm-states = <0xf>;
+		nvidia,enable-power-down;
+		nvidia,disable-clock-request;
+
+		phys = <&p2u_2>, <&p2u_3>, <&p2u_4>, <&p2u_5>,
+			<&p2u_6>, <&p2u_7>, <&p2u_8>, <&p2u_9>;
+		phy-names = "pcie-p2u-0", "pcie-p2u-1", "pcie-p2u-2",
+				"pcie-p2u-3", "pcie-p2u-4", "pcie-p2u-5",
+				"pcie-p2u-6", "pcie-p2u-7";
+	};
+
+	pcie@14100000 {
+		status = "okay";
+
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+		nvidia,disable-aspm-states = <0xc>;
+		nvidia,enable-power-down;
+		nvidia,disable-clock-request;
+
+		nvidia,max-speed = <2>;
+
+		phys = <&p2u_0>;
+		phy-names = "pcie-p2u-0";
+	};
+
+	pcie@141a0000 {
+		status = "okay";
+
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+		nvidia,disable-aspm-states = <0xf>;
+		nvidia,enable-power-down;
+		nvidia,disable-clock-request;
+
+		phys = <&p2u_12>, <&p2u_13>, <&p2u_14>, <&p2u_15>,
+			<&p2u_16>, <&p2u_17>, <&p2u_18>, <&p2u_19>;
+
+		phy-names = "pcie-p2u-0", "pcie-p2u-1", "pcie-p2u-2",
+				"pcie-p2u-3", "pcie-p2u-4", "pcie-p2u-5",
+				"pcie-p2u-6", "pcie-p2u-7";
+	};
+
+	pcie_ep@141a0000 {
+		status = "disabled";
+
+		nvidia,disable-aspm-states = <0xf>;
+
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+
+		phys = <&p2u_12>, <&p2u_13>, <&p2u_14>, <&p2u_15>,
+			     <&p2u_16>, <&p2u_17>, <&p2u_18>, <&p2u_19>;
+		phy-names = "pcie-p2u-0", "pcie-p2u-1", "pcie-p2u-2",
+				"pcie-p2u-3", "pcie-p2u-4", "pcie-p2u-5",
+				"pcie-p2u-6", "pcie-p2u-7";
+
+		nvidia,pex-rst-gpio = <&tegra_main_gpio
+					TEGRA194_MAIN_GPIO(GG, 1)
+					GPIO_ACTIVE_LOW>;
+	};
+
+	pcie@14120000 {
+		status = "disabled";
+	};
+
+	pcie@14140000 {
+		status = "disabled";
+	};
+
+	pcie@14160000 {
+		status = "disabled";
+	};
+};

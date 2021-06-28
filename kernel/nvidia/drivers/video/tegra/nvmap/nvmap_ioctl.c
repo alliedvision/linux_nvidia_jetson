@@ -3,7 +3,7 @@
  *
  * User-space interface to nvmap
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -990,4 +990,43 @@ int nvmap_ioctl_query_heap_params(struct file *filp, void __user *arg)
 		ret = -EFAULT;
 exit:
 	return ret;
+}
+
+int nvmap_ioctl_query_handle_parameters(struct file *filp, void __user *arg)
+{
+	struct nvmap_handle_parameters op;
+	struct nvmap_handle *handle;
+
+	if (copy_from_user(&op, arg, sizeof(op)))
+		return -EFAULT;
+
+	handle = nvmap_handle_get_from_fd(op.handle);
+	if (handle == NULL)
+		goto exit;
+
+	if (!handle->alloc)
+		op.heap = 0;
+	else
+		op.heap = handle->heap_type;
+
+	/* heap_number, only valid for IVM carveout */
+	op.heap_number = handle->peer;
+
+	op.size = handle->size;
+
+	if (handle->userflags & NVMAP_HANDLE_PHYS_CONTIG)
+		op.contig = 1U;
+	else
+		op.contig = 0U;
+
+	op.align = handle->align;
+
+	op.coherency = handle->flags;
+
+	if (copy_to_user(arg, &op, sizeof(op)))
+		return -EFAULT;
+	return 0;
+
+exit:
+	return -ENODEV;
 }

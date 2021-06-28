@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device-tree overlay for tegra194-p2888-0004-e3900-0000 40-pin
+ * Expansion Header.
+ *
+ * Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-common/jetson/tegra194-p2888-0004-e3900-0000.h>
+#include "../../galen/kernel-dts/tegra194-p2888-0001-p2822-0000-hdr40.dtsi"

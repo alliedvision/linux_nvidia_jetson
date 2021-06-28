@@ -114,9 +114,9 @@ struct nvgpu_gpu_zbc_query_table_args {
 #define NVGPU_GPU_FLAGS_SUPPORT_SPARSE_ALLOCS		(1ULL << 2)
 /* sync fence FDs are available in, e.g., submit_gpfifo */
 #define NVGPU_GPU_FLAGS_SUPPORT_SYNC_FENCE_FDS		(1ULL << 3)
-/* NVGPU_IOCTL_CHANNEL_CYCLE_STATS is available */
+/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS is available */
 #define NVGPU_GPU_FLAGS_SUPPORT_CYCLE_STATS		(1ULL << 4)
-/* NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT is available */
+/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT is available */
 #define NVGPU_GPU_FLAGS_SUPPORT_CYCLE_STATS_SNAPSHOT	(1ULL << 6)
 /* User-space managed address spaces support */
 #define NVGPU_GPU_FLAGS_SUPPORT_USERSPACE_MANAGED_AS	(1ULL << 7)
@@ -1416,6 +1416,31 @@ struct nvgpu_dbg_gpu_set_sm_exception_type_mask_args {
 	_IOW(NVGPU_DBG_GPU_IOCTL_MAGIC, 23, \
 			struct nvgpu_dbg_gpu_set_sm_exception_type_mask_args)
 
+struct nvgpu_dbg_gpu_cycle_stats_args {
+	__u32 dmabuf_fd;
+	__u32 reserved;
+};
+
+#define NVGPU_DBG_GPU_IOCTL_CYCLE_STATS	\
+	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 24, struct nvgpu_dbg_gpu_cycle_stats_args)
+
+/* cycle stats snapshot buffer support for mode E */
+struct nvgpu_dbg_gpu_cycle_stats_snapshot_args {
+	__u32 cmd;		/* in: command to handle     */
+	__u32 dmabuf_fd;	/* in: dma buffer handler    */
+	__u32 extra;		/* in/out: extra payload e.g.*/
+				/*    counter/start perfmon  */
+	__u32 reserved;
+};
+
+/* valid commands to control cycle stats shared buffer */
+#define NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_FLUSH   0
+#define NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_ATTACH  1
+#define NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT_CMD_DETACH  2
+
+#define NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT	\
+	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 25, struct nvgpu_dbg_gpu_cycle_stats_snapshot_args)
+
 /* MMU Debug Mode */
 #define NVGPU_DBG_GPU_CTX_MMU_DEBUG_MODE_DISABLED	0
 #define NVGPU_DBG_GPU_CTX_MMU_DEBUG_MODE_ENABLED	1
@@ -1599,11 +1624,6 @@ struct nvgpu_wait_args {
 	} condition; /* determined by type field */
 };
 
-/* cycle stats support */
-struct nvgpu_cycle_stats_args {
-	__u32 dmabuf_fd;
-} __packed;
-
 struct nvgpu_set_timeout_args {
 	__u32 timeout;
 } __packed;
@@ -1651,20 +1671,6 @@ struct nvgpu_notification {
 	__u16 status;	/* user sets bit 15, NV sets status 000e-000f */
 #define	NVGPU_CHANNEL_SUBMIT_TIMEOUT		1
 };
-
-/* cycle stats snapshot buffer support for mode E */
-struct nvgpu_cycle_stats_snapshot_args {
-	__u32 cmd;		/* in: command to handle     */
-	__u32 dmabuf_fd;	/* in: dma buffer handler    */
-	__u32 extra;		/* in/out: extra payload e.g.*/
-				/*    counter/start perfmon  */
-	__u32 pad0[1];
-};
-
-/* valid commands to control cycle stats shared buffer */
-#define NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_FLUSH   0
-#define NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_ATTACH  1
-#define NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT_CMD_DETACH  2
 
 /* configure watchdog per-channel */
 struct nvgpu_channel_wdt_args {
@@ -1764,8 +1770,6 @@ struct nvgpu_reschedule_runlist_args {
 	_IOW(NVGPU_IOCTL_MAGIC,  100, struct nvgpu_alloc_gpfifo_args)
 #define NVGPU_IOCTL_CHANNEL_WAIT		\
 	_IOWR(NVGPU_IOCTL_MAGIC, 102, struct nvgpu_wait_args)
-#define NVGPU_IOCTL_CHANNEL_CYCLE_STATS	\
-	_IOWR(NVGPU_IOCTL_MAGIC, 106, struct nvgpu_cycle_stats_args)
 #define NVGPU_IOCTL_CHANNEL_SUBMIT_GPFIFO	\
 	_IOWR(NVGPU_IOCTL_MAGIC, 107, struct nvgpu_submit_gpfifo_args)
 #define NVGPU_IOCTL_CHANNEL_ALLOC_OBJ_CTX	\
@@ -1786,8 +1790,6 @@ struct nvgpu_reschedule_runlist_args {
 	_IO(NVGPU_IOCTL_MAGIC,  116)
 #define NVGPU_IOCTL_CHANNEL_EVENT_ID_CTRL \
 	_IOWR(NVGPU_IOCTL_MAGIC, 117, struct nvgpu_event_id_ctrl_args)
-#define NVGPU_IOCTL_CHANNEL_CYCLE_STATS_SNAPSHOT	\
-	_IOWR(NVGPU_IOCTL_MAGIC, 118, struct nvgpu_cycle_stats_snapshot_args)
 #define NVGPU_IOCTL_CHANNEL_WDT \
 	_IOW(NVGPU_IOCTL_MAGIC, 119, struct nvgpu_channel_wdt_args)
 #define NVGPU_IOCTL_CHANNEL_SET_RUNLIST_INTERLEAVE \

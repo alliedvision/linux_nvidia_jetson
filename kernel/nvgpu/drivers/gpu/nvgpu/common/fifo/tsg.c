@@ -219,6 +219,7 @@ int gk20a_tsg_set_runlist_interleave(struct tsg_gk20a *tsg, u32 level)
 
 	nvgpu_log(g, gpu_dbg_sched, "tsgid=%u interleave=%u", tsg->tsgid, level);
 
+	nvgpu_speculation_barrier();
 	switch (level) {
 	case NVGPU_FIFO_RUNLIST_INTERLEAVE_LEVEL_LOW:
 	case NVGPU_FIFO_RUNLIST_INTERLEAVE_LEVEL_MEDIUM:

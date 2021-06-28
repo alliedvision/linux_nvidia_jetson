@@ -153,7 +153,7 @@ static long vi_channel_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	case _IOC_NR(VI_CAPTURE_GET_INFO): {
-		struct vi_capture_info info;
+		struct vi_capture_info info = { {0} };
 
 		err = vi_capture_get_info(chan, &info);
 		if (err < 0)

@@ -1,0 +1,59 @@
+/*
+ * tegra194-e3900-disp.dtsi:
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ *
+ * T194 McCoy uses only one display head out of the 4 available on T194:
+ *	fb0: Head0->SOR2->HDMI
+ * All six windows are assigned to this head.
+ */
+
+#include <dt-bindings/display/tegra-dc.h>
+#include <dt-bindings/display/tegra-panel.h>
+#include <t19x-common-platforms/tegra194-hdmi.dtsi>
+#include "tegra194-fixed-regulator-e3900-0000.dtsi"
+#include "galen/kernel-dts/common/tegra194-spmic-p2888-0001.dtsi"
+
+&head0 {
+	status = "okay";
+	nvidia,fb-bpp = <32>;
+	nvidia,fbmem-size = <265420800>; /* 8K (7680*4320) 32bpp double buffered */
+	nvidia,fb-flags = <TEGRA_FB_FLIP_ON_PROBE>;
+	win-mask = <0x3F>;
+	nvidia,fb-win = <0>;
+	nvidia,dc-connector = <&sor2>;
+	nvidia,dc-flags = <TEGRA_DC_FLAG_ENABLED>;
+	avdd_hdmi-supply = <&p2888_spmic_sd0>; /* 1v0 */
+	avdd_hdmi_pll-supply = <&p2888_spmic_sd1>; /* 1v8 */
+	vdd_hdmi_5v0-supply = <&e3900_vdd_5v0_hdmi_cvb>; /* 5v0 */
+};
+
+&sor2 {
+	status = "okay";
+	nvidia,active-panel = <&sor2_hdmi_display>;
+};
+
+&sor2_hdmi_display {
+	status = "okay";
+	disp-default-out {
+		nvidia,out-flags = <TEGRA_DC_OUT_HOTPLUG_LOW>;
+	};
+};
+
+&dpaux2 {
+	status = "okay";
+};
+
+&tegra_cec {
+	status = "okay";
+};

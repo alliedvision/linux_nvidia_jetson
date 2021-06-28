@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	bcpu_alert: bcpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "bcpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	mcpu_alert: mcpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "mcpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "gpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	thermal-zones {
+		BCPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&{/thermal-zones/BCPU-therm/trips/trip_bthrot}>;
+					cooling-device = <&bcpu_alert 1 1>;
+				};
+			};
+		};
+		MCPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&{/thermal-zones/MCPU-therm/trips/trip_bthrot}>;
+					cooling-device = <&mcpu_alert 1 1>;
+				};
+			};
+		};
+		GPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&{/thermal-zones/GPU-therm/trips/trip_bthrot}>;
+					cooling-device = <&gpu_alert 1 1>;
+				};
+			};
+		};
+	};
+};
