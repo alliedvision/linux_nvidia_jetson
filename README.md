@@ -28,7 +28,18 @@ Note that both reinstalling the driver or putting the update on hold may cause u
 
 ## Install Alvium CSI-2 driver to Jetson Nano, Nano 2GB, TX2, AGX Xavier or Xavier NX
 
- **Cross-compile binaries from source**    
+**Method A: Use precompiled binaries**   
+ 
+  Install the precompiled kernel including driver and installation instructions.   
+  For Jetson Nano, please use the file containing "a02" for A02 carrier boards and the other file for B01 carrier boards.
+
+  1. Extract the tarball on a host PC.
+
+  2. The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_32.5.1_<git-rev>.tar.gz.   
+     Copy the tarball to the target board. On the target board, extract the tarball and run the included install script.   
+     Reboot the board. Now you can use the driver. 
+
+ **Method B: Cross-compile binaries from source**      
   These scripts require a host PC with Ubuntu (18.04) installed.
 
   1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.   
