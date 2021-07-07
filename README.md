@@ -38,8 +38,26 @@ Note that both reinstalling the driver or putting the update on hold may cause u
   2. The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_32.5.1_<git-rev>.tar.gz.   
      Copy the tarball to the target board. On the target board, extract the tarball and run the included install script.   
      Reboot the board. Now you can use the driver. 
+	
+**Method B: Use SD card images** 
+	
+ SD card images are now available as assets of the release.
 
- **Method B: Cross-compile binaries from source**      
+ They are available for:
+  - Nano 2GB
+  - Nano 4GB (B01 carrier only)
+  - Xavier NX
+
+ Please note that the SD card images only run on boards with JetPack 4.5.1.   
+ JetPack 4.5.1 must be installed before using an SD card image.
+
+  1. Before writing the image to an SD card, decompress it with `lzma<filename>`.
+	
+  2. Flash the image to the microSD card, for example with balenaEtcher: https://www.balena.io/etcher/.
+	
+  3. Insert the microSD card and boot your Jetson board.	
+
+ **Method C: Cross-compile binaries from source**      
   These scripts require a host PC with Ubuntu (18.04) installed.
 
   1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.   
