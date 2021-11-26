@@ -5369,30 +5369,32 @@ static int cci_version_check(struct i2c_client *client)
 {
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
 	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
-	uint32_t cci_minver, cci_majver;
+	uint32_t cci_minor_ver, cci_major_ver;
 
-	cci_minver = (priv->cci_reg.layout_version & CCI_REG_LAYOUT_MINVER_MASK)
+	cci_minor_ver = (priv->cci_reg.layout_version & CCI_REG_LAYOUT_MINVER_MASK)
 				>> CCI_REG_LAYOUT_MINVER_SHIFT;
 
-	if (cci_minver == CCI_REG_LAYOUT_MINVER) {
-		dev_dbg(&client->dev, "%s: correct cci register minver: %d (0x%x)\n",
-				__func__, cci_minver, priv->cci_reg.layout_version);
+    /* We need at least the minor version defined */
+	if (cci_minor_ver >= CCI_REG_LAYOUT_MINVER) {
+		dev_dbg(&client->dev, "%s: valid cci register minor version: read: %d, expected minimum: %d\n",
+				__func__, cci_minor_ver, CCI_REG_LAYOUT_MINVER);
 	} else {
-		dev_err(&client->dev, "%s: cci reg minver mismatch! read: %d (0x%x) expected: %d\n",
-				__func__, cci_minver, priv->cci_reg.layout_version,
+		dev_err(&client->dev, "%s: cci reg minor version mismatch! read: %d (0x%x), expected: %d\n",
+				__func__, cci_minor_ver, priv->cci_reg.layout_version,
 				CCI_REG_LAYOUT_MINVER);
 		return -EINVAL;
 	}
 
-	cci_majver = (priv->cci_reg.layout_version & CCI_REG_LAYOUT_MAJVER_MASK)
+	cci_major_ver = (priv->cci_reg.layout_version & CCI_REG_LAYOUT_MAJVER_MASK)
 				>> CCI_REG_LAYOUT_MAJVER_SHIFT;
 
-	if (cci_majver == CCI_REG_LAYOUT_MAJVER) {
-		dev_dbg(&client->dev, "%s: correct cci register majver: %d (0x%x)\n",
-				__func__, cci_majver, priv->cci_reg.layout_version);
+    /* We need the exact major version */
+	if (cci_major_ver == CCI_REG_LAYOUT_MAJVER) {
+		dev_dbg(&client->dev, "%s: valid cci register major version: read: %d, expected: %d)\n",
+				__func__, cci_major_ver, CCI_REG_LAYOUT_MAJVER);
 	} else {
-		dev_err(&client->dev, "%s: cci reg majver mismatch! read: %d (0x%x) expected: %d\n",
-				__func__, cci_majver, priv->cci_reg.layout_version,
+		dev_err(&client->dev, "%s: cci reg major version mismatch! read: %d (0x%x), expected: %d\n",
+				__func__, cci_major_ver, priv->cci_reg.layout_version,
 				CCI_REG_LAYOUT_MAJVER);
 		return -EINVAL;
 	}

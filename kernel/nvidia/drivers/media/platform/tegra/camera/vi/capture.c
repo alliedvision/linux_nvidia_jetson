@@ -1026,7 +1026,17 @@ int vi_capture_status(struct tegra_vi_channel *chan,
 
 	/* negative timeout means wait forever */
 	if (timeout_ms < 0) {
-		wait_for_completion(&capture->capture_resp);
+		// This is workaround for issue on Xavier that was
+		// rebooting the device after about 3 minutes.
+		// When we are executing wait_for_completion without timeout,
+		// waiting thread is marked as stalled and whole system is rebooted.
+		// In case of wait_for_completion_timeout we are executing
+		// schedule() after timeout, that fixes this problem.
+		do {
+			ret = wait_for_completion_timeout(
+					&capture->capture_resp,
+					msecs_to_jiffies(120000)); // set timeout to 2min
+		} while (ret == 0); // wait until return value is not timeout
 	} else {
 		ret = wait_for_completion_timeout(
 				&capture->capture_resp,
