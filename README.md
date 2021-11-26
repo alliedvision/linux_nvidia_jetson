@@ -16,14 +16,22 @@ The scripts require Git on the host PC.
 
 ## Prerequisites: Install JetPack 4.5.1 to Jetson Nano, Nano 2GB, TX2, AGX Xavier or Xavier NX
  
-Install JetPack 4.5.1 (L4T 32.5.1) as per NVIDIA's instructions https://developer.nvidia.com/embedded/jetpack   
-    Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
-    https://docs.nvidia.com/sdk-manager/  
+Install JetPack 4.5.1 (L4T 32.5.1) as per NVIDIA's instructions https://developer.nvidia.com/embedded/jetpack      
+
+Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
+https://docs.nvidia.com/sdk-manager/  
 	
+**Nano and Nano 2GB: The driver installation requires JetPack 4.5.1 without any upgrades**.
+If your Jetson Nano board has a higher JetPack version, please downgrade 
+it to JetPack 4.5.1 with NVIDIA's SDK Manager before installing the driver. 
+
 ### Accidental overwriting of the driver
 As of JetPack 4.4, users can update L4T directly on the board with `apt-upgrade`. 
 Doing this may install newer L4T kernel and device tree files, which overwrite the driver for Allied Vision cameras. 
-If you use `apt-upgrade` nevertheless, please prevent overwriting the driver with `sudo apt-mark hold nvidia-l4t-kernel nvidia-l4t-kernel-dtbs`.
+If you use `apt-upgrade` nevertheless, please prevent overwriting the driver with:
+
+ `sudo apt-mark hold 'nvidia-l4t-*'`
+
 Note that both reinstalling the driver or putting the update on hold may cause unavailable features or bugfixes from NVIDIA.
 
 ## Install Alvium CSI-2 driver to Jetson Nano, Nano 2GB, TX2, AGX Xavier or Xavier NX
@@ -37,28 +45,10 @@ Note that both reinstalling the driver or putting the update on hold may cause u
 
   2. The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_32.5.1_<git-rev>.tar.gz.   
      Copy the tarball to the target board. On the target board, extract the tarball and run the included install script.   
-     Reboot the board. Now you can use the driver. 
-	
-**Method B: Use SD card images** 
-	
- SD card images are now available as assets of the release.
+     Reboot the board. Now you can use the driver. 	
 
- They are available for:
-  - Nano 2GB
-  - Nano 4GB (B01 carrier only)
-  - Xavier NX
-
- Please note that the SD card images only run on boards with JetPack 4.5.1.   
- JetPack 4.5.1 must be installed before using an SD card image.
-
-  1. Before writing the image to an SD card, decompress it with `lzma<filename>`.
-	
-  2. Flash the image to the microSD card, for example with balenaEtcher: https://www.balena.io/etcher/.
-	
-  3. Insert the microSD card and boot your Jetson board.	
-
- **Method C: Cross-compile binaries from source**      
-  These scripts require a host PC with Ubuntu (18.04) installed.
+ **Method B: Cross-compile binaries from source**      
+  The scripts require a host PC with Ubuntu (we recommend version 18.04) installed.
 
   1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.   
      On the host PC:
@@ -80,3 +70,5 @@ Note that both reinstalling the driver or putting the update on hold may cause u
  ## Additional information
  :open_book:
  https://github.com/alliedvision/documentation/blob/master/NVIDIA.rst
+
+
