@@ -123,7 +123,7 @@ createDeployTarball()
 	cp "$FILE_INSTALL_SCRIPT" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 	cp "$FILE_KERNEL_IMAGE" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
 
-	if [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_XAVIER" ]
+	if [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_XAVIER" ] || [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_NX" ]
 	then
 		#sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson AGX Xavier"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
 		#cp "$FILE_DEVICE_TREE_BLOB_XAVIER" "$PATH_TARGET_DEPLOY_TMP_FOLDER"
@@ -132,7 +132,13 @@ createDeployTarball()
 			./l4t_generate_soc_bup.sh t19x
 		)
 		cp ${PATH_TARGET_L4T}/bootloader/payloads_t19x/bl_update_payload "$PATH_TARGET_DEPLOY_TMP_FOLDER"
-		sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson Xavier"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
+
+		if [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_XAVIER" ]
+		then
+			sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson Xavier"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
+		else
+			sed -i -e '/REQ_MACHINE=/c\REQ_MACHINE="NVidia Jetson NX"' "$PATH_TARGET_DEPLOY_TMP_FOLDER/install.sh"
+		fi
 
 	elif [ "$DEDICATED_BOARD" = "$DEDICATED_BOARD_TX2" ]
 	then
@@ -379,7 +385,7 @@ then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"
 		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_NANO"
 		BOARD_SUB="2gb"
-	elif check_parameter $2 nx
+	elif check_parameter $2 "nx"
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NX"
 		FLASH_BOARD_CONFIG="$FLASH_BOARD_CONFIG_NX"
