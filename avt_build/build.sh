@@ -74,7 +74,7 @@ usage()
 {
 	log info "Usage: ${SCRIPT_NAME} <L4T> <TARGET_BOARD> <cmd> <component> --<option>"
 	log info "<L4T>.........location of Linux4Tegra setup"
-	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier, nx"
+	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier"
 	log info "<cmd>.........command to executed"
 	log info "                       all"
 	log info "                       build"
@@ -402,11 +402,15 @@ fi
 #------------------------------------------------------------------------------
 if proceed
 then
-	if check_parameter $2 "tx2" || check_parameter $2 "xavier" || check_parameter $2 "nx"
+	if check_parameter $2 "tx2" || check_parameter $2 "xavier"
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_TX2"
 		DEFAULT_CONFIG_UBOOT="$DEFAULT_CONFIG_UBOOT_TX2"
 		PATH_TARGET_UBOOT="$PATH_TARGET_UBOOT_TX2"
+  elif check_parameter $2 "nx"
+  then
+    log error "Target board 'nx' is deprecated. Please use 'xavier' for AGX Xavier and Xavier NX."
+    exit 1
 	elif check_parameter $2 "nano" 
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"

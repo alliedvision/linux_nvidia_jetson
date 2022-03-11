@@ -497,6 +497,7 @@ void free_ring_buffers(struct tegra_channel *chan, int frames)
 			vbuf->sequence = chan->sequence++;
 		else
 			chan->sequence++;
+
 		/* release one frame */
 		vbuf->field = V4L2_FIELD_NONE;
 		vb2_set_plane_payload(&vbuf->vb2_buf,
@@ -535,7 +536,6 @@ void free_ring_buffers(struct tegra_channel *chan, int frames)
 			vb2_buffer_done(&vbuf->vb2_buf,
 				chan->buffer_state[chan->free_index++]);
 
-
 		if (chan->free_index >= chan->capture_queue_depth)
 			chan->free_index = 0;
 		chan->num_buffers--;
@@ -561,17 +561,7 @@ static void add_buffer_to_ring(struct tegra_channel *chan,
 
 static void update_state_to_buffer(struct tegra_channel *chan, int state)
 {
-	int save_index = (chan->save_index - PREVIOUS_BUFFER_DEC_INDEX);
-
-	/* save index decrements by 2 as 3 bufs are added in ring buffer */
-	if (save_index < 0)
-		save_index += chan->capture_queue_depth;
-	/* update state for the previous buffer */
-	chan->buffer_state[save_index] = state;
-
-	/* for timeout/error case update the current buffer state as well */
-	if (chan->capture_state != CAPTURE_GOOD)
-		chan->buffer_state[chan->save_index] = state;
+	chan->buffer_state[chan->free_index] = state;
 }
 
 void tegra_channel_ring_buffer(struct tegra_channel *chan,
@@ -579,24 +569,15 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 					struct timespec *ts, int state)
 
 {
-	uint64_t curr_frame_jiffies;
-
 	if (!chan->bfirst_fstart && (chan->capture_queue_depth > 3))
 		chan->bfirst_fstart = true;
-	else
-		update_state_to_buffer(chan, state);
+	update_state_to_buffer(chan, state);
 
 	/* Capture state is not GOOD, release all buffers and re-init state */
 	if (chan->capture_state != CAPTURE_GOOD) {
 		free_ring_buffers(chan, chan->num_buffers);
 		tegra_channel_init_ring_buffer(chan);
-		/* Mark frame as incomplete only after stopping stream */
-		if (!atomic_read(&chan->is_streaming)) {
-			chan->stream_stats.frames_incomplete++;
-			chan->incomplete_flag = true;
-		/* Frames counted as underrun doesn't have any flag, because they are consider as dropped */
-		} else
-			chan->stream_stats.frames_underrun++;
+
 		return;
 	} else {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
@@ -606,15 +587,37 @@ void tegra_channel_ring_buffer(struct tegra_channel *chan,
 #else
 		vb->vb2_buf.timestamp = timespec_to_ns(ts);
 #endif
+	}
+
+	/* release buffer */
+	free_ring_buffers(chan, 1);
+}
+
+void tegra_channel_update_statistics(struct tegra_channel *chan)
+{
+    uint64_t curr_frame_jiffies = 0;
+
+    if (chan->capture_state != CAPTURE_GOOD) {
+		/* Mark frame as incomplete only after stopping stream */
+		if (!atomic_read(&chan->is_streaming))
+        {
+			chan->stream_stats.frames_incomplete++;
+			chan->incomplete_flag = true;
+		}
+        /* Frames counted as underrun doesn't have any flag, because they are considered as dropped */
+        else
+        {
+			chan->stream_stats.frames_underrun++;
+        }
+    }
+    else
+    {
 		chan->stream_stats.frames_count++;
 		curr_frame_jiffies = get_jiffies_64();
 		chan->stream_stats.current_frame_interval = jiffies_to_usecs(curr_frame_jiffies - chan->start_frame_jiffies);
 		chan->start_frame_jiffies = curr_frame_jiffies;
-	}
 
-	/* release buffer N at N+2 frame start event */
-	if (chan->num_buffers >= (chan->capture_queue_depth - 1))
-		free_ring_buffers(chan, 1);
+    }
 }
 
 void tegra_channel_ec_close(struct tegra_mc_vi *vi)
@@ -709,7 +712,7 @@ tegra_channel_queue_setup(struct vb2_queue *vq,
 	alloc_devs[0] = chan->vi->dev;
 
 	if (chan->avt_cam_mode)
-		*nbuffers = chan->created_bufs + 1;
+		*nbuffers = max((unsigned)(chan->created_bufs + 1), (unsigned)(*nbuffers));
 
 	if (vi->fops && vi->fops->vi_setup_queue)
 		return vi->fops->vi_setup_queue(chan, nbuffers);
@@ -2211,6 +2214,7 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		int ret = 0;
 
 		ret = vb2_core_streamon_ex(&chan->queue, chan->queue.type);
+
 		if (ret < 0)
 			return ret;
 

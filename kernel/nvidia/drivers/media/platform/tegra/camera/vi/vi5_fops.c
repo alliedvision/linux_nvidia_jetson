@@ -466,6 +466,7 @@ uncorr_err:
 	buf->vb2_state = VB2_BUF_STATE_ERROR;
 
 rel_buf:
+    tegra_channel_update_statistics(chan);
 	vi5_release_buffer(chan, buf);
 }
 

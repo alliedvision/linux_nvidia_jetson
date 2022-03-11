@@ -96,7 +96,7 @@ usage()
 {
 	log info "Usage: ${SCRIPT_NAME} <L4T> <TARGET_BOARD> --<options>"
 	log info "<L4T>.............location for Linux4Tegra setup"
-	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier, nx"
+	log info "<TARGET_BOARD>....Target board. Possible options: nano, tx2, xavier"
 	log info "<option>......possible options:"
 	log info "                       --complete...download everything needed for a complete flash"
 	log info "                       		   ...(rootfs + uboot)"
@@ -178,7 +178,7 @@ fi
 
 if proceed
 then
-	if check_parameter $2 "tx2" || check_parameter $2 "xavier" || check_parameter $2 nx
+	if check_parameter $2 "tx2" || check_parameter $2 "xavier"
 	then
 		FILE_ROOTFS="$FILE_ROOTFS_TX2"
 		DOWNLOAD_URL_ROOTFS="$DOWNLOAD_URL_ROOTFS_TX2"
@@ -186,6 +186,10 @@ then
 		DOWNLOAD_URL_DRIVER_PACKAGE="$DOWNLOAD_URL_DRIVER_PACKAGE_TX2"
 		FILE_PUBLICSOURCES="$FILE_PUBLICSOURCES_TX2"
 		DOWNLOAD_URL_PUBLICSOURCES="$DOWNLOAD_URL_PUBLICSOURCES_TX2"
+  elif check_parameter $2 "nx"
+  then
+    log error "Target board 'nx' is deprecated. Please use 'xavier' for AGX Xavier and Xavier NX."
+    exit 1
 	elif check_parameter $2 "nano" 
 	then
 		DEDICATED_BOARD="$DEDICATED_BOARD_NANO"

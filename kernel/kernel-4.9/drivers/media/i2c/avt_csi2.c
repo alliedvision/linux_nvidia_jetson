@@ -93,6 +93,8 @@ static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char 
 static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char *pRegName);
 static int soft_reset(struct i2c_client *client);
 static void dump_frame_param(struct v4l2_subdev *sd);
+static void dump_camera_firmware_version(struct i2c_client *client);
+static bool is_fallback_app_running(struct i2c_client *client);
 
 static void swapbytes(void *_object, size_t _size)
 {
@@ -171,6 +173,48 @@ static int i2c_write(struct i2c_client *client, uint32_t reg, uint32_t reg_size,
         kfree(i2c_w_buf);
 
 	return ret;
+}
+
+static bool is_fallback_app_running(struct i2c_client *client)
+{
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+    struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+    int ret = 0;
+    bool fallback_app_running = false;
+    u64 avail_mipi = 0;
+    uint8_t supported_lane_counts = 0;
+
+    /* If camera lists no available MIPI data formats or no available MIPI lanes the fallback app is running */
+    ret = avt_reg_read(client,
+        priv->cci_reg.bcrm_addr +
+        BCRM_IMG_AVAILABLE_MIPI_DATA_FORMATS_64R,
+        AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+        (char *) &avail_mipi);
+
+    if (ret < 0)
+    {
+        dev_err(&client->dev, "i2c read failed (%d)\n", ret);
+        return false;
+    }
+
+    ret = avt_reg_read(priv->client,
+        priv->cci_reg.bcrm_addr + BCRM_SUPPORTED_CSI2_LANE_COUNTS_8R,
+        AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
+        (char *) &supported_lane_counts);
+
+    if (ret < 0)
+    {
+        dev_err(&client->dev, "i2c read failed (%d)\n", ret);
+        return false;
+    }
+
+    fallback_app_running = ((avail_mipi == 0) || supported_lane_counts == 0);
+    if (fallback_app_running)
+    {
+        dev_warn(&client->dev, "Camera fallback app running. Streaming disabled.\n");
+    }
+
+    return fallback_app_running;
 }
 
 static bool bcrm_get_write_handshake_availibility(struct i2c_client *client)
@@ -549,10 +593,10 @@ static bool avt_check_fmt_available(struct i2c_client *client, u32 media_bus_fmt
 	}
 
     dev_dbg(&client->dev,"%s: Camera available MIPI data formats: 0x%llx\n", __FUNCTION__, avail_mipi);
-    if (avail_mipi == 0)
-    {       
+
+    if (priv->fallback_app_running)
+    {
             /* Fallback app running? -> Fake pixelformat */
-            dev_warn(&client->dev, "avail_mipi=0. Fallback app running?");
             avail_mipi = 0x80;      // RGB888 
     }
 
@@ -663,8 +707,8 @@ static int avt_ctrl_send(struct i2c_client *client,
 	bayer_inquiry_reg.value = 0;
 	feature_inquiry_reg.value = 0;
 
-	if (vc->id == V4L2_AV_CSI2_PIXELFORMAT_W) {
-
+	if (vc->id == V4L2_AV_CSI2_PIXELFORMAT_W) 
+    {
 		/* read the MIPI format register to check whether the camera
 		 * really support the requested pixelformat format
 		 */
@@ -675,14 +719,15 @@ static int avt_ctrl_send(struct i2c_client *client,
 				(char *) &avail_mipi);
 
 		if (ret < 0)
+        {
 			dev_err(&client->dev, "i2c read failed (%d)\n", ret);
+        }
 
-                if (avail_mipi == 0)
-                {
-                        /* Fallback app running? */
-                        dev_warn(&client->dev, "avail_mipi=0. Fallback app running?");
-                        avail_mipi = 0x80; // fake RGB888
-                }
+        if (priv->fallback_app_running)
+        {
+            /* Fallback app running? */
+            avail_mipi = 0x80; // fake RGB888
+        }
 		feature_inquiry_reg.value = avail_mipi;
 
         	/* read the Bayer Inquiry register to check whether the camera
@@ -3486,12 +3531,6 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 					ret);
 			return ret;
 		}
-
-        /* workaround for older driver release:
-           Avoid default out of range for 32 bit controls */
-        if(value64 > S32_MAX) {
-            value64 = S32_MAX;
-        }
 		qctrl->default_value = value64;
 
 		/* reading the Auto Exposure min time */
@@ -3719,7 +3758,6 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 		qctrl->minimum = bcrm_v4l2.min_v4l2;
 		qctrl->maximum = bcrm_v4l2.max_v4l2;
 		qctrl->step = bcrm_v4l2.step_v4l2;
-		qctrl->default_value = qctrl->maximum;
 		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
 		strcpy(qctrl->name, "Auto gain max");
 		break;
@@ -5296,10 +5334,28 @@ static int read_cci_registers(struct i2c_client *client)
 			priv->cci_reg.layout_version);
 	dev_info(&client->dev, "cci device capabilities: 0x%016llx\n",
 			priv->cci_reg.device_capabilities);
-	dev_info(&client->dev, "cci device guid: %s\n",
-			priv->cci_reg.device_guid);
-	dev_info(&client->dev, "cci gcprm_address: 0x%04x\n",
-			priv->cci_reg.gcprm_address);
+    dev_info(&client->dev, "cci device guid: %s\n",
+            priv->cci_reg.device_guid);
+    dev_info(&client->dev, "cci gcprm_address: 0x%04x\n",
+            priv->cci_reg.gcprm_address);
+    dev_info(&client->dev, "cci bcrm_address: 0x%04x\n",
+            priv->cci_reg.bcrm_addr);
+    dev_info(&client->dev, "cci device guid: %s\n",
+            priv->cci_reg.device_guid);
+    dev_info(&client->dev, "cci manufacturer_name: %s\n",
+            priv->cci_reg.manufacturer_name);
+    dev_info(&client->dev, "cci model_name: %s\n",
+            priv->cci_reg.model_name);
+    dev_info(&client->dev, "cci family_name: %s\n",
+            priv->cci_reg.family_name);
+    dev_info(&client->dev, "cci device_version: %s\n",
+            priv->cci_reg.device_version);
+    dev_info(&client->dev, "cci manufacturer_info: %s\n",
+            priv->cci_reg.manufacturer_info);
+    dev_info(&client->dev, "cci serial_number: %s\n",
+            priv->cci_reg.serial_number);
+    dev_info(&client->dev, "cci user_defined_name: %s\n",
+            priv->cci_reg.user_defined_name);
 
 	return 0;
 }
@@ -5600,61 +5656,104 @@ static void bcrm_dump(struct i2c_client *client)
 
 static void dump_bcrm_reg_8(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-    struct avt_csi2_priv *priv;
-	int status = 0;
-	u8 data = 0;
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+    struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+    int status = 0;
+    u8 data = 0;
+    uint32_t nReg = 0;
 
-	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
-	if (!priv)
-		return;
+    if (!priv)
+        return;
 
-	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
-			AV_CAM_DATA_SIZE_8, (char *)&data);
+    nReg = priv->cci_reg.bcrm_addr + nOffset;
+    status = i2c_read(client, nReg, AV_CAM_REG_SIZE,
+            AV_CAM_DATA_SIZE_8, (char *)&data);
 
-	if (status >= 0)
-                dev_info(&client->dev, "%s: %u (0x%x)", pRegName, data, data);
-	else
-		dev_err(&client->dev, "%s: ERROR", pRegName);
+    if (status >= 0)
+                dev_info(&client->dev, "%s (0x%04x): %u (0x%x)", pRegName, nReg, data, data);
+    else
+        dev_err(&client->dev, "%s: ERROR", pRegName);
 }
 
 static void dump_bcrm_reg_32(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-    struct avt_csi2_priv *priv;
-	int status = 0;
-	u32 data = 0;
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+    struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+    int status = 0;
+    u32 data = 0;
+    uint32_t nReg = 0;
 
-	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
-	if (!priv)
-		return;
+    if (!priv)
+        return;
 
-	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
-			  AV_CAM_DATA_SIZE_32, (char *)&data);
+    nReg = priv->cci_reg.bcrm_addr + nOffset;
+    status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
+              AV_CAM_DATA_SIZE_32, (char *)&data);
 
-	swapbytes(&data, sizeof(data));
-	if (status >= 0)
-                dev_info(&client->dev, "%s: %u (0x%08x)", pRegName, data, data);
-	else
-		dev_err(&client->dev, "%s: ERROR", pRegName);
+    swapbytes(&data, sizeof(data));
+    if (status >= 0)
+                dev_info(&client->dev, "%s (0x%04x): %u (0x%08x)", pRegName, nReg, data, data);
+    else
+        dev_err(&client->dev, "%s: ERROR", pRegName);
 }
 
 static void dump_bcrm_reg_64(struct i2c_client *client, u16 nOffset, const char *pRegName)
 {
-    struct avt_csi2_priv *priv;
-	int status = 0;
-	u64 data = 0;
-   
-	priv = devm_kzalloc(&client->dev, sizeof(struct avt_csi2_priv),	GFP_KERNEL);
-	if (!priv)
-		return;
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+    struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+    int status = 0;
+    u64 data = 0;
+    uint32_t nReg = 0;
 
-	status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
-			  AV_CAM_DATA_SIZE_64, (char *)&data);
+    if (!priv)
+        return;
 
- 	swapbytes(&data, sizeof(data));
-	if (status >= 0)
-                dev_info(&client->dev, "%s: %llu (0x%016llx)", pRegName, data, data);
-	else
-		dev_err(&client->dev, "%s: ERROR", pRegName);               
+    nReg = priv->cci_reg.bcrm_addr + nOffset;
+    status = i2c_read(client, priv->cci_reg.bcrm_addr + nOffset, AV_CAM_REG_SIZE,
+              AV_CAM_DATA_SIZE_64, (char *)&data);
+
+    swapbytes(&data, sizeof(data));
+    if (status >= 0)
+                dev_info(&client->dev, "%s (0x%04x): %llu (0x%016llx)", pRegName, nReg, data, data);
+    else
+        dev_err(&client->dev, "%s: ERROR", pRegName);
+}
+
+static void dump_camera_firmware_version(struct i2c_client *client)
+{
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
+    struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
+    int status = 0;
+    u64 data = 0;
+
+    if (!priv)
+        return;
+
+    status = i2c_read(client, priv->cci_reg.bcrm_addr + BCRM_DEVICE_FIRMWARE_VERSION_64R, AV_CAM_REG_SIZE,
+              AV_CAM_DATA_SIZE_64, (char *)&data);
+
+    swapbytes(&data, sizeof(data));
+
+    if (status >= 0)
+        if ((u32)((data >> 32) & 0xFFFFFFFF) < 50000)
+        {
+            dev_info(&client->dev, "Camera firmware version: %u.%u.%hu.%u (0x%016llx)",     (u8)(data & 0xFF),
+                                                                                            (u8)((data >> 8) & 0xFF),
+                                                                                            (u16)((data >> 16) & 0xFFFF),
+                                                                                            (u32)((data >> 32) & 0xFFFFFFFF), data);
+        }
+        else
+        {
+            /* Show git commit as hex */
+            dev_info(&client->dev, "Camera firmware version: %u.%u.%hu.%x (0x%016llx)",     (u8)(data & 0xFF),
+                                                                                            (u8)((data >> 8) & 0xFF),
+                                                                                            (u16)((data >> 16) & 0xFFFF),
+                                                                                            (u32)((data >> 32) & 0xFFFFFFFF), data);
+        }
+    else
+    {
+        dev_err(&client->dev, "Error while retrieving camera firmware version");
+    }
 }
 
 /* Check if the device is answering to an I2C read request */
@@ -6286,108 +6385,111 @@ static int avt_init_mode(struct v4l2_subdev *sd)
 
     avt_info(sd, "Camera supported lane counts value: 0x%x\n", avt_supported_lane_counts);
 
-	if(!(test_bit(priv->s_data->numlanes - 1, (const long *)(&avt_supported_lane_counts)))) {
-		avt_err(sd, "requested number of lanes (%u) not supported by this camera!\n",
-				priv->s_data->numlanes);
-		return -EINVAL;
-	}
+    if (!priv->fallback_app_running)
+    {
+        if(!(test_bit(priv->s_data->numlanes - 1, (const long *)(&avt_supported_lane_counts)))) {
+            avt_err(sd, "requested number of lanes (%u) not supported by this camera!\n",
+                    priv->s_data->numlanes);
+            return -EINVAL;
+        }
 
-	/* Set number of lanes */
-	ret = avt_reg_write(priv->client,
-			priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
-			priv->s_data->numlanes);
-	if (ret < 0) {
-		avt_err(sd, "i2c write failed (%d)\n", ret);
-		return ret;
-	}
+        /* Set number of lanes */
+        ret = avt_reg_write(priv->client,
+                priv->cci_reg.bcrm_addr + BCRM_CSI2_LANE_COUNT_8RW,
+                priv->s_data->numlanes);
+        if (ret < 0) {
+            avt_err(sd, "i2c write failed (%d)\n", ret);
+            return ret;
+        }
 
-	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MIN_32R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
-			(char *) &avt_min_clk);
+        ret = avt_reg_read(priv->client,
+                priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MIN_32R,
+                AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+                (char *) &avt_min_clk);
 
-	if (ret < 0) {
-		avt_err(sd, "i2c read failed (%d)\n", ret);
-		return ret;
-	}
+        if (ret < 0) {
+            avt_err(sd, "i2c read failed (%d)\n", ret);
+            return ret;
+        }
 
-	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MAX_32R,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
-			(char *) &avt_max_clk);
+        ret = avt_reg_read(priv->client,
+                priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_MAX_32R,
+                AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+                (char *) &avt_max_clk);
 
-	if (ret < 0) {
-		avt_err(sd, "i2c read failed (%d)\n", ret);
-		return ret;
-	}
+        if (ret < 0) {
+            avt_err(sd, "i2c read failed (%d)\n", ret);
+            return ret;
+        }
 
-	avt_dbg(sd, "csi clock camera range: %d:%d Hz, host range: %d:%d Hz\n",
-		avt_min_clk, avt_max_clk,
-		CSI_HOST_CLK_MIN_FREQ, CSI_HOST_CLK_MAX_FREQ);
+        avt_dbg(sd, "csi clock camera range: %d:%d Hz, host range: %d:%d Hz\n",
+            avt_min_clk, avt_max_clk,
+            CSI_HOST_CLK_MIN_FREQ, CSI_HOST_CLK_MAX_FREQ);
 
-	if (common_range(avt_min_clk, avt_max_clk, 1,
-			CSI_HOST_CLK_MIN_FREQ, CSI_HOST_CLK_MAX_FREQ, 1,
-			&common_min_clk, &common_max_clk, &common_inc_clk)
-			== false) {
-		avt_err(sd, "no common clock range for camera and host possible!\n");
-		return -EINVAL;
-	}
+        if (common_range(avt_min_clk, avt_max_clk, 1,
+                CSI_HOST_CLK_MIN_FREQ, CSI_HOST_CLK_MAX_FREQ, 1,
+                &common_min_clk, &common_max_clk, &common_inc_clk)
+                == false) {
+            avt_err(sd, "no common clock range for camera and host possible!\n");
+            return -EINVAL;
+        }
 
-	avt_dbg(sd, "camera/host common csi clock range: %d:%d Hz\n",
-			common_min_clk, common_max_clk);
+        avt_dbg(sd, "camera/host common csi clock range: %d:%d Hz\n",
+                common_min_clk, common_max_clk);
 
-	if (priv->csi_clk_freq == 0) {
-		avt_dbg(sd, "no csi clock requested, using common max (%d Hz)\n",
-				common_max_clk);
-		priv->csi_clk_freq = common_max_clk;
-	} else {
-		avt_dbg(sd, "using csi clock from dts: %u Hz\n",
-				priv->csi_clk_freq);
-	}
+        if (priv->csi_clk_freq == 0) {
+            avt_dbg(sd, "no csi clock requested, using common max (%d Hz)\n",
+                    common_max_clk);
+            priv->csi_clk_freq = common_max_clk;
+        } else {
+            avt_dbg(sd, "using csi clock from dts: %u Hz\n",
+                    priv->csi_clk_freq);
+        }
 
-	if ((priv->csi_clk_freq < common_min_clk) ||
-			(priv->csi_clk_freq > common_max_clk)) {
-		avt_err(sd, "unsupported csi clock frequency (%d Hz, range: %d:%d Hz)!\n",
-				priv->csi_clk_freq, common_min_clk,
-				common_max_clk);
-		return -EINVAL;
-	}
+        if ((priv->csi_clk_freq < common_min_clk) ||
+                (priv->csi_clk_freq > common_max_clk)) {
+            avt_err(sd, "unsupported csi clock frequency (%d Hz, range: %d:%d Hz)!\n",
+                    priv->csi_clk_freq, common_min_clk,
+                    common_max_clk);
+            return -EINVAL;
+        }
 
-	CLEAR(i2c_reg);
-	clk = priv->csi_clk_freq;
-	swapbytes(&clk, AV_CAM_DATA_SIZE_32);
-	i2c_reg = priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW;
-	i2c_reg_size = AV_CAM_REG_SIZE;
-	i2c_reg_count = AV_CAM_DATA_SIZE_32;
-	i2c_reg_buf = (char *) &clk;
-	ret = ioctl_gencam_i2cwrite_reg(priv->client, i2c_reg, i2c_reg_size,
-					i2c_reg_count, i2c_reg_buf);
+        CLEAR(i2c_reg);
+        clk = priv->csi_clk_freq;
+        swapbytes(&clk, AV_CAM_DATA_SIZE_32);
+        i2c_reg = priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW;
+        i2c_reg_size = AV_CAM_REG_SIZE;
+        i2c_reg_count = AV_CAM_DATA_SIZE_32;
+        i2c_reg_buf = (char *) &clk;
+        ret = ioctl_gencam_i2cwrite_reg(priv->client, i2c_reg, i2c_reg_size,
+                        i2c_reg_count, i2c_reg_buf);
 
-	ret = avt_reg_read(priv->client,
-			priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW,
-			AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
-			(char *) &avt_max_clk);
+        ret = avt_reg_read(priv->client,
+                priv->cci_reg.bcrm_addr + BCRM_CSI2_CLOCK_32RW,
+                AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+                (char *) &avt_max_clk);
 
-	if (ret < 0) {
-		avt_err(sd, "i2c read failed (%d)\n", ret);
-		return ret;
-	}
+        if (ret < 0) {
+            avt_err(sd, "i2c read failed (%d)\n", ret);
+            return ret;
+        }
 
-	avt_dbg(sd, "csi clock read from camera: %d Hz\n", avt_max_clk);
+        avt_dbg(sd, "csi clock read from camera: %d Hz\n", avt_max_clk);
+    }
 
-	ret = avt_read_fmt_from_device(sd, &(priv->mbus_fmt_code));
-	if (ret < 0)
-		return ret;
+    ret = avt_read_fmt_from_device(sd, &(priv->mbus_fmt_code));
+    if (ret < 0)
+        return ret;
 
-	ret = avt_init_frame_param(sd);
-	if (ret < 0)
-		return ret;
+    ret = avt_init_frame_param(sd);
+    if (ret < 0)
+        return ret;
 
-	sel.target = V4L2_SEL_TGT_CROP;
-	sel.r = priv->frmp.r;
-	ret = avt_set_selection(sd, NULL, &sel);
-	if (ret < 0)
-		return ret;
+    sel.target = V4L2_SEL_TGT_CROP;
+    sel.r = priv->frmp.r;
+    ret = avt_set_selection(sd, NULL, &sel);
+    if (ret < 0)
+        return ret;
 
 	// set BCRM mode
 	CLEAR(i2c_reg);
@@ -6477,14 +6579,14 @@ static int avt_csi2_probe(struct i2c_client *client,
 
     if (!device_present(client))
     {
-        dev_err(dev, "No camera detected");
+        dev_err(dev, "No camera detected (driver V%s)", DRIVER_VERSION);
         return -ENXIO;
     }
     else
     {
-        dev_info(dev, "Camera detected!");
+        dev_info(dev, "Camera detected! (driver V%s)", DRIVER_VERSION);
     }
-            
+
     /* Execute softreset to ensure camera is not in GenCP mode anymore */
     ret = soft_reset(client);
     if (ret < 0)
@@ -6493,14 +6595,19 @@ static int avt_csi2_probe(struct i2c_client *client,
     }
 
 	ret = read_cci_registers(client);
+    dump_camera_firmware_version(client);
+
+    /* Check if camera is running fallback app */
+    priv->fallback_app_running = is_fallback_app_running(client);
 
     /* DEBUG: Dump all BCRM registers */
     bcrm_dump(client);
 
 	/* Set subdev name */
-	snprintf(priv->subdev->name, sizeof(priv->subdev->name), "%s %s %d-%x",
+	snprintf(priv->subdev->name, sizeof(priv->subdev->name), "%s %s %s%d-%x",
 		priv->cci_reg.family_name,
 		priv->cci_reg.model_name,
+        priv->fallback_app_running ? "FB " : "",
 		i2c_adapter_id(client->adapter),
 		client->addr);
 
@@ -6595,8 +6702,9 @@ static int avt_csi2_probe(struct i2c_client *client,
 
 		priv->ctrl_cfg[i].type = qctrl.type;
 
-		if (qctrl.type == V4L2_CTRL_TYPE_INTEGER)
+		if (qctrl.type == V4L2_CTRL_TYPE_INTEGER || qctrl.type == V4L2_CTRL_TYPE_INTEGER64) {
 			priv->ctrl_cfg[i].flags |= V4L2_CTRL_FLAG_SLIDER;
+    }
 
 		priv->ctrl_cfg[i].ops = &avt_ctrl_ops;
 		priv->ctrl_cfg[i].name = avt_ctrl_mappings[j].attr.name;
@@ -6711,7 +6819,7 @@ static struct i2c_driver avt_csi2_driver = {
 
 module_i2c_driver(avt_csi2_driver);
 
-MODULE_AUTHOR("Allied Vision Inc.");
-MODULE_DESCRIPTION("Allied Vision's MIPI-CSI2 Camera Driver");
+MODULE_AUTHOR("Allied Vision Technologies GmbH");
+MODULE_DESCRIPTION("Allied Vision MIPI CSI-2 Camera Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("l4t-0.1");
+MODULE_VERSION(DRIVER_VERSION);

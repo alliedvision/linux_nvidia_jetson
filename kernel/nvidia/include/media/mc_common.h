@@ -397,6 +397,8 @@ int tegra_channel_write_blobs(struct tegra_channel *chan);
 void tegra_channel_ring_buffer(struct tegra_channel *chan,
 			       struct vb2_v4l2_buffer *vb,
 			       struct timespec *ts, int state);
+void tegra_channel_update_statistics(struct tegra_channel *chan);
+
 struct tegra_channel_buffer *dequeue_buffer(struct tegra_channel *chan,
 	bool requeue);
 struct tegra_channel_buffer *dequeue_dequeue_buffer(struct tegra_channel *chan);

@@ -231,7 +231,7 @@ static bool vi_notify_wait(struct tegra_channel *chan,
 		nvhost_syncpt_remember_stream_id_ext(chan->vi->ndev,
 				chan->syncpt[i][SOF_SYNCPT_IDX]);
 		err = nvhost_syncpt_wait_timeout_ext(chan->vi->ndev,
-				chan->syncpt[i][SOF_SYNCPT_IDX], thresh[i],
+				chan->syncpt[i][FE_SYNCPT_IDX], thresh[i],
 				chan->timeout, NULL, NULL);
 		if (unlikely(err)) {
 			dev_err(chan->vi->dev,
@@ -660,6 +660,7 @@ static int tegra_channel_capture_frame_single_thread(
 	}
 
 	set_timestamp(buf, &ts);
+    tegra_channel_update_statistics(chan);
 	tegra_channel_ring_buffer(chan, vb, &ts, state);
 	trace_tegra_channel_capture_frame("sof", ts);
 	return 0;
@@ -914,7 +915,10 @@ static void tegra_channel_capture_done(struct tegra_channel *chan)
 	if (chan->low_latency)
 		release_buffer(chan, buf);
 	else
+    {
+        tegra_channel_update_statistics(chan);
 		tegra_channel_ring_buffer(chan, &buf->buf, &ts, state);
+    }
 
 	trace_tegra_channel_capture_done("eof", ts);
 }
@@ -1046,6 +1050,38 @@ static void tegra_channel_stop_kthreads(struct tegra_channel *chan)
 	mutex_unlock(&chan->stop_kthread_lock);
 }
 
+void vi4_csi_channel_off(struct tegra_channel *chan)
+{
+	struct tegra_mc_vi *vi;
+	vi = chan->vi;
+
+	if (atomic_dec_and_test(&chan->power_on_refcnt)) {
+		if (tegra_channel_set_power(chan, 0) < 0)
+			dev_err(vi->dev, "Failed to power off subdevices\n");
+	}
+}
+
+int vi4_csi_channel_on(struct tegra_channel *chan)
+{
+	int ret = 0;
+	struct tegra_mc_vi *vi;
+	vi = chan->vi;
+
+	if (atomic_read(&chan->power_on_refcnt) == 1) {
+		//skip channel power on, if it is already on
+		return 0;
+	}
+
+	if (atomic_add_return(1, &chan->power_on_refcnt) == 1) {
+		ret = tegra_channel_set_power(chan, 1);
+		if (ret < 0) {
+			dev_err(vi->dev, "Failed to power on subdevices\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int vi4_channel_start_streaming(struct vb2_queue *vq, u32 count)
 {
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
@@ -1067,6 +1103,9 @@ static int vi4_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	if (ret < 0)
 		goto error_pipeline_start;
 #endif
+	ret = vi4_csi_channel_on(chan);
+	if (ret < 0)
+		goto error_csi_channel_on;
 
 	if (chan->bypass) {
 		ret = tegra_channel_set_stream(chan, true);
@@ -1189,6 +1228,7 @@ error_set_stream:
 	media_entity_pipeline_stop(&chan->video->entity);
 error_pipeline_start:
 #endif
+error_csi_channel_on:
 	vq->start_streaming_called = 0;
 	tegra_channel_queued_buf_done(chan, VB2_BUF_STATE_QUEUED,
 		chan->low_latency);
@@ -1235,6 +1275,7 @@ static int vi4_channel_stop_streaming(struct vb2_queue *vq)
 		tegra_channel_queued_buf_done(chan, VB2_BUF_STATE_ERROR,
 			chan->low_latency);
 	}
+	vi4_csi_channel_off(chan);
 
 	tegra_channel_set_stream(chan, false);
 
