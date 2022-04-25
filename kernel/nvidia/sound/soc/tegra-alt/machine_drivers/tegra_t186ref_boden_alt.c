@@ -1,7 +1,7 @@
 /*
  * tegra_t186ref_boden_alt.c - Tegra t186ref boden Machine driver
  *
- * Copyright (c) 2015-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -259,7 +259,7 @@ static int tegra_t186ref_boden_i2s_dai_init(struct snd_soc_pcm_runtime *rtd)
 	srate = dai_params->rate_min;
 
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-			DEFAULT_SAMPLE_RATE, 0, 0);
+			DEFAULT_SAMPLE_RATE, 0, 0, 0, 0);
 
 	/* set sys clk */
 	if (cpu_dai->driver->ops->set_sysclk) {

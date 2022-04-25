@@ -1,7 +1,7 @@
 /*
  * tegra210-p3448-0003-p3542-0000.dts
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
  */
 
 #include "../../porg/kernel-dts/tegra210-porg-p3448-common.dtsi"
+//#include "../../porg/kernel-dts/porg-platforms/tegra210-porg-camera-rbpcv3-imx477.dtsi"
+//#include "../../porg/kernel-dts/porg-platforms/tegra210-porg-camera-rbpcv2-imx219.dtsi"
 #include "batuu-platforms/tegra210-batuu-pinmux-p3448-0003.dtsi"
 #include "batuu-platforms/tegra210-batuu-gpio-p3448-0003.dtsi"
 #include "batuu-platforms/tegra210-batuu-p3448-emc-a00.dtsi"
@@ -81,12 +83,6 @@
 	extcon {
 		extcon@0 {
 			status = "disabled";
-		};
-	};
-
-	external-memory-controller@7001b000 {
-		emc-table@0 {
-			nvidia,ram-code = <1>;
 		};
 	};
 

@@ -2,7 +2,7 @@
  * MC error interrupt handling header file. Various defines and declarations
  * across tegra chips.
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,6 +53,7 @@
 
 struct platform_device;
 int tegra_mcerr_init(struct dentry *mc_paren, struct platform_device *pdev);
+void tegra_mcerr_resume(void);
 irqreturn_t tegra_mc_handle_general_fault(int src_chan, int intstatus);
 
 /*

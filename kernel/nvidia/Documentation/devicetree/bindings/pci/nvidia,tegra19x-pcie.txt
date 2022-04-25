@@ -149,6 +149,9 @@ Optional properties:
     immediate end point
 - "nvidia,plat-gpios" : Add gpio number that needs to be configured before
    system goes for enumeration
+- nvidia,enable-srns: This property needs to be present if the platform has SRNS
+   (Separate Reference clocks with No Spread-spectrum clocking) configuration
+   implemented. This property disables REFCLK supply to EP.
 
 Power supplies for Tegra194:
 //TODO

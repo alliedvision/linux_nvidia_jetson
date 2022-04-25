@@ -1,7 +1,7 @@
 /*
  * Lontium LT6911UXC HDMI-CSI bridge driver
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,22 +36,32 @@ static const struct of_device_id lt6911uxc_of_match[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, lt6911uxc_of_match);
+
+static const u32 ctrl_cid_list[] = {
+	TEGRA_CAMERA_CID_SENSOR_MODE_ID,
+};
+
 static const int lt6911uxc_60fps[] = {
 	60,
+};
+static const int lt6911uxc_30fps[] = {
+	30,
 };
 
 struct lt6911uxc {
 	struct i2c_client		*i2c_client;
 	struct v4l2_subdev		*subdev;
-	u16				fine_integ_time;
-	u32				frame_length;
+	u16	fine_integ_time;
+	u32	frame_length;
 	struct camera_common_data	*s_data;
 	struct tegracam_device		*tc_dev;
 };
 
 static const struct camera_common_frmfmt lt6911uxc_frmfmt[] = {
+
 	{{1920, 1080}, lt6911uxc_60fps, 1, 0, 0},
-	{{1280,  720}, lt6911uxc_60fps, 1, 0, 1},
+	{{3840, 2160}, lt6911uxc_60fps, 1, 0, 1},
+	{{1280,  720}, lt6911uxc_60fps, 1, 0, 2},
 };
 
 static const struct regmap_config sensor_regmap_config = {
@@ -66,6 +76,11 @@ static int lt6911uxc_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
 
+	return 0;
+}
+static int lt6911uxc_set_group_hold(struct tegracam_device *tc_dev, bool val)
+{
+	/* lt6911uxc does not support group hold */
 	return 0;
 }
 
@@ -407,6 +422,10 @@ done:
 	return err;
 }
 
+static struct tegracam_ctrl_ops lt6911uxc_ctrl_ops = {
+	.set_group_hold = lt6911uxc_set_group_hold,
+};
+
 static const struct v4l2_subdev_internal_ops lt6911uxc_subdev_internal_ops = {
 	.open = lt6911uxc_open,
 };
@@ -457,6 +476,7 @@ static int lt6911uxc_probe(struct i2c_client *client,
 	tc_dev->dev_regmap_config = &sensor_regmap_config;
 	tc_dev->sensor_ops = &lt6911uxc_common_ops;
 	tc_dev->v4l2sd_internal_ops = &lt6911uxc_subdev_internal_ops;
+	tc_dev->tcctrl_ops = &lt6911uxc_ctrl_ops;
 
 	err = tegracam_device_register(tc_dev);
 	if (err) {

@@ -435,6 +435,7 @@ struct hdac_stream {
 	bool prepared:1;
 	bool no_period_wakeup:1;
 	bool locked:1;
+	bool stripe:1;
 
 	/* timestamp */
 	unsigned long start_wallclk;	/* start + minimum wallclk */

@@ -42,8 +42,8 @@
 #include <soc/tegra/tegra_powergate.h>
 #include "tegra_cec.h"
 
-#include "../../../../nvidia/drivers/video/tegra/dc/dc.h"
-#include "../../../../nvidia/drivers/video/tegra/dc/dc_priv.h"
+#include "dc.h"
+#include "dc_priv.h"
 
 #define LOGICAL_ADDRESS_RESERVED2 0xD
 #define LOGICAL_ADDRESS_TV 0x0

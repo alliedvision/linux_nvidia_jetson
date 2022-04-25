@@ -15,7 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
- * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -1680,12 +1680,18 @@ static int smmu_master_show(struct seq_file *s, void *unused)
 	int i;
 	struct arm_smmu_master *master = s->private;
 
+	if (!master->cfg)
+		return 0;
 	for (i = 0; i < master->cfg->num_streamids; i++)
 		seq_printf(s, "streamids: % 3d ", master->cfg->streamids[i]);
 	seq_printf(s, "\n");
+
+	if (!master->cfg->smrs)
+		return 0;
 	for (i = 0; i < master->cfg->num_streamids; i++)
 		seq_printf(s, "smrs:      % 3d ", master->cfg->smrs[i].idx);
 	seq_printf(s, "\n");
+
 	return 0;
 }
 
@@ -2979,9 +2985,11 @@ static void arm_smmu_debugfs_create(struct arm_smmu_device *smmu)
 	if (!dent_gr)
 		goto err_out;
 
-	dent_gnsr = debugfs_create_dir("gnsr", smmu->debugfs_root);
-	if (!dent_gnsr)
-		goto err_out;
+	if (!is_tegra_hypervisor_mode()) {
+		dent_gnsr = debugfs_create_dir("gnsr", smmu->debugfs_root);
+		if (!dent_gnsr)
+			goto err_out;
+	}
 
 	smmu->masters_root = debugfs_create_dir("masters", smmu->debugfs_root);
 	if (!smmu->masters_root)
@@ -3042,75 +3050,82 @@ static void arm_smmu_debugfs_create(struct arm_smmu_device *smmu)
 	debugfs_create_regset32("regdump", S_IRUGO, smmu->debugfs_root,
 				smmu->regset);
 
-	bytes = sizeof(*smmu->perf_regset);
-	bytes += ARRAY_SIZE(arm_smmu_gnsr0_regs) * sizeof(*regs);
-	/*
-	 * Account the number of bytes for two sets of
-	 * counter group registers
-	 */
-	bytes += 2 * PMCG_SIZE * sizeof(*regs);
-	/*
-	 * Account the number of bytes for two sets of
-	 * event counter registers
-	 */
-	bytes += 2 * PMEV_SIZE * sizeof(*regs);
+	if (!is_tegra_hypervisor_mode()) {
+		bytes = sizeof(*smmu->perf_regset);
+		bytes += ARRAY_SIZE(arm_smmu_gnsr0_regs) * sizeof(*regs);
+		/*
+		 * Account the number of bytes for two sets of
+		 * counter group registers
+		 */
+		bytes += 2 * PMCG_SIZE * sizeof(*regs);
+		/*
+		 * Account the number of bytes for two sets of
+		 * event counter registers
+		 */
+		bytes += 2 * PMEV_SIZE * sizeof(*regs);
 
-	/* Allocate memory for Perf Monitor registers */
-	smmu->perf_regset =  kzalloc(bytes, GFP_KERNEL);
-	if (!smmu->perf_regset)
-		goto err_out;
-
-	/*
-	 * perf_regset base address is placed at offset (3 * smmu_pagesize)
-	 * from smmu->base address
-	 */
-	smmu->perf_regset->base = smmu->base[0] + 3 * (1 << smmu->pgshift);
-	smmu->perf_regset->nregs = ARRAY_SIZE(arm_smmu_gnsr0_regs) +
-		2 * PMCG_SIZE + 2 * PMEV_SIZE;
-	smmu->perf_regset->regs =
-		(struct debugfs_reg32 *)(smmu->perf_regset + 1);
-
-	regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
-
-	for (i = 0; i < ARRAY_SIZE(arm_smmu_gnsr0_regs); i++) {
-		regs->name = arm_smmu_gnsr0_regs[i].name;
-		regs->offset = arm_smmu_gnsr0_regs[i].offset;
-		regs++;
-	}
-
-	for (i = 0; i < PMEV_SIZE; i++) {
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMEVTYPER%d_0", i);
-		if (!regs->name)
+		/* Allocate memory for Perf Monitor registers */
+		smmu->perf_regset =  kzalloc(bytes, GFP_KERNEL);
+		if (!smmu->perf_regset)
 			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMEVTYPER(i);
-		regs++;
 
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMEVCNTR%d_0", i);
-		if (!regs->name)
+		/*
+		 * perf_regset base address is placed at offset
+		 * (3 * smmu_pagesize) from smmu->base address
+		 */
+		smmu->perf_regset->base = smmu->base[0] +
+			3 * (1 << smmu->pgshift);
+		smmu->perf_regset->nregs = ARRAY_SIZE(arm_smmu_gnsr0_regs) +
+			2 * PMCG_SIZE + 2 * PMEV_SIZE;
+		smmu->perf_regset->regs =
+			(struct debugfs_reg32 *)(smmu->perf_regset + 1);
+
+		regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
+
+		for (i = 0; i < ARRAY_SIZE(arm_smmu_gnsr0_regs); i++) {
+			regs->name = arm_smmu_gnsr0_regs[i].name;
+			regs->offset = arm_smmu_gnsr0_regs[i].offset;
+			regs++;
+		}
+
+		for (i = 0; i < PMEV_SIZE; i++) {
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMEVTYPER%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMEVTYPER(i);
+			regs++;
+
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMEVCNTR%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMEVCNTR(i);
+			regs++;
+		}
+
+		for (i = 0; i < PMCG_SIZE; i++) {
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMCGCR%d_0", i);
+			if (!regs->name)
 			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMEVCNTR(i);
-		regs++;
-	}
+			regs->offset = ARM_SMMU_GNSR0_PMCGCR(i);
+			regs++;
 
-	for (i = 0; i < PMCG_SIZE; i++) {
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMCGCR%d_0", i);
-		if (!regs->name)
-			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMCGCR(i);
-		regs++;
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMCGSMR%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMCGSMR(i);
+			regs++;
+		}
 
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMCGSMR%d_0", i);
-		if (!regs->name)
-			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMCGSMR(i);
-		regs++;
-	}
-
-	regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
-	for (i = 0; i < smmu->perf_regset->nregs; i++) {
-		debugfs_create_file(regs->name, S_IRUGO | S_IWUSR,
-			dent_gnsr, regs, &smmu_perf_regset_debugfs_fops);
-		regs++;
+		regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
+		for (i = 0; i < smmu->perf_regset->nregs; i++) {
+			debugfs_create_file(regs->name, S_IRUGO | S_IWUSR,
+				dent_gnsr, regs, &smmu_perf_regset_debugfs_fops);
+			regs++;
+		}
 	}
 
 	debugfs_create_file("context_filter", S_IRUGO | S_IWUSR,

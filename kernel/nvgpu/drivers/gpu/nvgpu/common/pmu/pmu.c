@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -129,6 +129,10 @@ static int nvgpu_init_task_pg_init(struct gk20a *g)
 	int err = 0;
 
 	nvgpu_log_fn(g, " ");
+
+	if (nvgpu_thread_is_running(&pmu->pg_init.state_task)) {
+		return 0;
+	}
 
 	nvgpu_cond_init(&pmu->pg_init.wq);
 
@@ -525,13 +529,13 @@ static int nvgpu_pg_init_task(void *arg)
 		case PMU_STATE_LOADING_ZBC:
 			nvgpu_pmu_dbg(g, "loaded zbc");
 			pmu_setup_hw_enable_elpg(g);
-			nvgpu_pmu_dbg(g, "PMU booted, thread exiting");
+			nvgpu_pmu_dbg(g, "PMU booted");
 
 			gk20a_gr_wait_initialized(g);
 
 			nvgpu_cg_elcg_enable_no_wait(g);
 
-			return 0;
+			break;
 		default:
 			nvgpu_pmu_dbg(g, "invalid state");
 			break;
@@ -559,8 +563,6 @@ int nvgpu_pmu_destroy(struct gk20a *g)
 	if (!g->support_pmu) {
 		return 0;
 	}
-
-	nvgpu_kill_task_pg_init(g);
 
 	nvgpu_pmu_get_pg_stats(g,
 		PMU_PG_ELPG_ENGINE_ID_GRAPHICS,	&pg_stat_data);

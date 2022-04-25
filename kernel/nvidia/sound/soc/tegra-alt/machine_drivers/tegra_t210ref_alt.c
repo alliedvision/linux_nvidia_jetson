@@ -1,7 +1,7 @@
 /*
  * tegra_t210ref_alt.c - Tegra t210ref Machine driver
  *
- * Copyright (c) 2013-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -211,7 +211,7 @@ static int tegra_t210ref_ad1937_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* initialize 256fs by default */
 	tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-			dai_params->rate_min, mclk, mclk);
+			dai_params->rate_min, 0, 0, mclk, mclk);
 
 	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) == SND_SOC_DAIFMT_CBM_CFM) {
 		/* direct MCLK mode in AD1937, mclk needs to be srate * 512 */
@@ -288,7 +288,7 @@ static int tegra_t210ref_spdif_init(struct snd_soc_pcm_runtime *rtd)
 	mclk = clk_out_rate * 2;
 
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-		dai_params->rate_min, mclk, clk_out_rate);
+		dai_params->rate_min, 0, 0, mclk, clk_out_rate);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;

@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@
 #include <nvgpu/therm.h>
 #include <nvgpu/mc.h>
 #include <nvgpu/channel_sync.h>
+#include <nvgpu/nvgpu_err.h>
 
 #include <trace/events/gk20a.h>
 
@@ -524,6 +525,10 @@ static void gk20a_free_cb(struct nvgpu_ref *refcount)
 {
 	struct gk20a *g = container_of(refcount,
 		struct gk20a, refcount);
+
+#ifdef CONFIG_NVGPU_SUPPORT_LINUX_ECC_ERROR_REPORTING
+	nvgpu_deinit_ecc_reporting(g);
+#endif
 
 	nvgpu_log(g, gpu_dbg_shutdown, "Freeing GK20A struct!");
 

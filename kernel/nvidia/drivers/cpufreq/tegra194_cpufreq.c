@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -60,6 +60,7 @@ static uint8_t tegra_hypervisor_mode;
 static int cpufreq_single_policy;
 
 static enum cpuhp_state hp_online;
+static uint32_t latest_freq_req[NR_CPUS];
 
 enum cluster {
 	CLUSTER0,
@@ -321,6 +322,13 @@ static int tegra194_set_speed(struct cpufreq_policy *policy, unsigned int index)
 
 	if (policy->cur == tgt_freq)
 		goto out;
+
+	/*
+	 * store freq request for all related (online + offline) CPUs
+	 * of this policy
+	 */
+	for_each_cpu(cpu, policy->related_cpus)
+		latest_freq_req[cpu] = tgt_freq;
 
 	freqs.new = tgt_freq;
 
@@ -830,6 +838,17 @@ static void __init pm_qos_register_notifier(void)
 		&cpu_freq_nb);
 }
 
+static int tegra194_cpufreq_online(unsigned int cpu)
+{
+	uint32_t tgt_freq = latest_freq_req[cpu];
+
+	if (tgt_freq != CPUFREQ_ENTRY_INVALID
+			&& tgt_freq != CPUFREQ_TABLE_END)
+		tegra_update_cpu_speed(tgt_freq, cpu);
+
+	return 0;
+}
+
 static int tegra194_cpufreq_offline(unsigned int cpu)
 {
 	struct cpufreq_frequency_table *ftbl;
@@ -962,6 +981,28 @@ static int __init init_freqtbls(struct device_node *dn)
 
 err_out:
 	return ret;
+}
+
+static void __init init_latest_freq_req(void)
+{
+	uint8_t cpu;
+	uint64_t ndiv;
+	enum cluster cl;
+	struct mrq_cpu_ndiv_limits_response *nltbl;
+
+	/*
+	 * set init value of latest_freq_req[cpu] as current cpu freq
+	 * according to current ndiv value.
+	 */
+	for (cpu = 0; cpu < num_possible_cpus(); ++cpu) {
+		cl = get_cpu_cluster(cpu);
+		nltbl = &tfreq_data.pcluster[cl].ndiv_limits_tbl;
+
+		smp_call_function_single(cpu, read_ndiv_request, &ndiv, 1);
+		ndiv &= 0xffff;
+
+		latest_freq_req[cpu] = map_ndiv_to_freq(nltbl, (uint16_t)ndiv);
+	}
 }
 
 static int __init get_ndiv_limits_tbl_from_bpmp(void)
@@ -1119,13 +1160,15 @@ static int __init tegra194_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_free_res;
 
+	init_latest_freq_req();
+
 	ret = cpufreq_register_driver(&tegra_cpufreq_driver);
 	if (ret)
 		goto err_free_res;
 
-	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_TEGRA_CPUFREQ,
 						"tegra194_cpufreq:online",
-						NULL,
+						tegra194_cpufreq_online,
 						tegra194_cpufreq_offline);
 	if (ret < 0) {
 		pr_err("tegra19x-cpufreq: failed to register cpuhp state\n");

@@ -1,0 +1,5 @@
+Template: avt-nvidia-l4t-bootloader/target-board
+Type: select
+Choices: ${board-configurations}
+Default: ${default-board-configuration}
+Description: Select board configuration:

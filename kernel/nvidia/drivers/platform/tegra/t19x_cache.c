@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -143,7 +143,7 @@ int t19x_flush_dcache_all(void)
 #else
 	u64 id_afr0;
 	u64 ret;
-	u64 retry = 10;
+	u64 retry = 20;
 
 	asm volatile ("mrs %0, ID_AFR0_EL1" : "=r"(id_afr0));
 	/* check if dcache flush through mts is supported */

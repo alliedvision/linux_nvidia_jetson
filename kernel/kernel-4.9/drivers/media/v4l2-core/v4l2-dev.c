@@ -486,9 +486,15 @@ static int v4l2_open(struct inode *inode, struct file *filp)
 	if (vdev->dev_debug & V4L2_DEV_DEBUG_FOP)
 		printk(KERN_DEBUG "%s: open (%d)\n",
 			video_device_node_name(vdev), ret);
-	/* decrease the refcount in case of an error */
-	if (ret)
+	if (ret) {
+		/* decrease the refcount in case of an error */
+		mutex_lock(&videodev_lock);
+		if (--vdev->open_count == 0) {
+			sysfs_notify(&vdev->dev.kobj, NULL, "availability");
+		}
+		mutex_unlock(&videodev_lock);
 		video_put(vdev);
+  }
 	return ret;
 }
 

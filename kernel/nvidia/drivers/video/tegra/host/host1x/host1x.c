@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Driver Entrypoint
  *
- * Copyright (c) 2010-2020, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -578,7 +578,7 @@ static long nvhost_ctrlctl(struct file *filp,
 		(_IOC_NR(cmd) == 0) ||
 		(_IOC_NR(cmd) > NVHOST_IOCTL_CTRL_LAST) ||
 		(_IOC_SIZE(cmd) > NVHOST_IOCTL_CTRL_MAX_ARG_SIZE)) {
-		nvhost_err(NULL, "invalid cmd 0x%x", cmd);
+		nvhost_err_ratelimited(NULL, "invalid cmd 0x%x", cmd);
 		return -ENOIOCTLCMD;
 	}
 

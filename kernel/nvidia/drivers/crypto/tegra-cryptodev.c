@@ -3,7 +3,7 @@
  *
  * crypto dev node for NVIDIA tegra aes hardware
  *
- * Copyright (c) 2010-2019, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 #include <linux/uaccess.h>
 #include <linux/nospec.h>
 #include <soc/tegra/chip-id.h>
+#include <linux/mutex.h>
 #include <crypto/rng.h>
 #include <crypto/hash.h>
 #include <linux/platform/tegra/common.h>
@@ -76,6 +77,7 @@ struct tegra_crypto_ctx {
 	u8 seed[TEGRA_CRYPTO_RNG_SEED_SIZE];
 	int use_ssk;
 	bool skip_exit;
+	struct mutex lock;
 };
 
 struct tegra_crypto_completion {
@@ -164,6 +166,8 @@ static int tegra_crypto_dev_open(struct inode *inode, struct file *filp)
 		kfree(ctx);
 		return ret;
 	}
+	mutex_init(&ctx->lock);
+
 	filp->private_data = ctx;
 	return ret;
 }
@@ -201,6 +205,7 @@ static int tegra_crypto_dev_release(struct inode *inode, struct file *filp)
 		tfm_index = 0;
 	}
 out:
+	mutex_destroy(&ctx->lock);
 	kfree(ctx);
 	filp->private_data = NULL;
 
@@ -352,16 +357,22 @@ static int process_crypt_req(struct file *filp, struct tegra_crypto_ctx *ctx,
 			/* crypto driver is asynchronous */
 			ret = wait_for_completion_timeout(&tcrypt_complete.restart,
 						msecs_to_jiffies(5000));
-			if (ret == 0)
+			if (ret == 0) {
+				pr_err("%scrypt timed out\n",
+					crypt_req->encrypt ? "en" : "de");
+				ret = -ENODATA;
 				goto process_req_buf_out;
+			}
 
 			if (tcrypt_complete.req_err < 0) {
 				ret = tcrypt_complete.req_err;
+				pr_err("%scrypt failed (%d)\n",
+					crypt_req->encrypt ? "en" : "de", ret);
 				goto process_req_buf_out;
 			}
 		} else if (ret < 0) {
-			pr_debug("%scrypt failed (%d)\n",
-				crypt_req->encrypt ? "en" : "de", ret);
+			pr_err("%scrypt failed (%d)\n",
+					crypt_req->encrypt ? "en" : "de", ret);
 			goto process_req_buf_out;
 		}
 
@@ -1101,7 +1112,8 @@ static int tegra_crypt_pka1_rsa(struct file *filp, struct tegra_crypto_ctx *ctx,
 	struct tegra_crypto_completion rsa_complete;
 
 	if (rsa_req->op_mode == RSA_INIT) {
-		tfm = crypto_alloc_akcipher("rsa", CRYPTO_ALG_TYPE_AKCIPHER, 0);
+		tfm = crypto_alloc_akcipher("rsa-pka1",
+					    CRYPTO_ALG_TYPE_AKCIPHER, 0);
 		if (IS_ERR(tfm)) {
 			pr_err("Failed to load transform for rsa: %ld\n",
 				PTR_ERR(tfm));
@@ -1466,6 +1478,17 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 	char *rng;
 	int ret = 0;
 
+	/*
+	 * Avoid processing ioctl if the file has been closed.
+	 * This will prevent crashes caused by NULL pointer dereference.
+	 */
+	if (!ctx) {
+		pr_err("%s: ctx not allocated\n", __func__);
+		return -EPERM;
+	}
+
+	mutex_lock(&ctx->lock);
+
 	switch (ioctl_num) {
 	case TEGRA_CRYPTO_IOCTL_NEED_SSK:
 		ctx->use_ssk = (int)arg;
@@ -1477,12 +1500,14 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 			sizeof(struct tegra_crypt_req_32));
 		if (ret) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		if (crypt_req_32.keylen > TEGRA_CRYPTO_MAX_KEY_SIZE) {
 			pr_err("key length %d exceeds max value %d\n",
 				crypt_req_32.keylen, TEGRA_CRYPTO_MAX_KEY_SIZE);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		crypt_req.op = crypt_req_32.op;
 		crypt_req.encrypt = crypt_req_32.encrypt;
@@ -1508,7 +1533,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 			sizeof(crypt_req));
 		if (ret) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		ret = process_crypt_req(filp, ctx, &crypt_req);
 		break;
@@ -1518,7 +1544,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 		if (copy_from_user(&rng_req_32, (void __user *)arg,
 			sizeof(rng_req_32))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 
 		for (i = 0; i < TEGRA_CRYPTO_RNG_SEED_SIZE; i++)
@@ -1533,7 +1560,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 				sizeof(rng_req))) {
 				pr_err("%s: copy_from_user fail(%d)\n",
 						__func__, ret);
-				return -EFAULT;
+				ret = -EFAULT;
+				goto out;
 			}
 		}
 
@@ -1542,7 +1570,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 		if (rng_req.type == RNG_DRBG) {
 			if (tegra_get_chip_id() == TEGRA20 ||
 				tegra_get_chip_id() == TEGRA30) {
-				return -EINVAL;
+				ret = -EINVAL;
+				goto out;
 			}
 			ctx->rng_drbg = crypto_alloc_rng("rng_drbg-aes-tegra",
 				CRYPTO_ALG_TYPE_RNG, 0);
@@ -1581,7 +1610,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 		if (copy_from_user(&rng_req_32, (void __user *)arg,
 			sizeof(rng_req_32))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 
 		rng_req.nbytes = rng_req_32.nbytes;
@@ -1596,7 +1626,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 				sizeof(rng_req))) {
 				pr_err("%s: copy_from_user fail(%d)\n",
 						__func__, ret);
-				return -EFAULT;
+				ret = -EFAULT;
+				goto out;
 			}
 		}
 
@@ -1607,7 +1638,8 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 			else
 				pr_err("mem alloc for rng fail");
 
-			return -ENODATA;
+			ret = -ENODATA;
+			goto out;
 		}
 
 		if (rng_req.type == RNG_DRBG) {
@@ -1644,12 +1676,11 @@ static long tegra_crypto_dev_ioctl(struct file *filp,
 				rng_req.nbytes);
 		}
 
-		if (ret != rng_req.nbytes) {
+		if (ret != 0) {
 			if (rng_req.type == RNG_DRBG)
 				pr_err("rng_drbg failed");
 			else
 				pr_err("rng failed");
-			ret = -ENODATA;
 			goto free_tfm;
 		}
 		ret = copy_to_user((void __user *)rng_req.rdata,
@@ -1671,12 +1702,14 @@ rng_out:
 			sizeof(sha_req_32));
 		if (ret) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		if (sha_req_32.keylen > TEGRA_CRYPTO_MAX_KEY_SIZE) {
 			pr_err("key length %d not within the range [0,%d]\n",
 				sha_req_32.keylen, TEGRA_CRYPTO_MAX_KEY_SIZE);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		for (i = 0; i < sha_req_32.keylen; i++)
 			sha_req.key[i] = sha_req_32.key[i];
@@ -1694,17 +1727,21 @@ rng_out:
 #endif
 
 	case TEGRA_CRYPTO_IOCTL_GET_SHA:
-		if (tegra_get_chip_id() == TEGRA20)
-			return -EINVAL;
+		if (tegra_get_chip_id() == TEGRA20) {
+			ret = -EINVAL;
+			goto out;
+		}
 		if (copy_from_user(&sha_req, (void __user *)arg,
 				sizeof(sha_req))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		if (sha_req.keylen > TEGRA_CRYPTO_MAX_KEY_SIZE) {
 			pr_err("key length %d not within the range [0,%d]\n",
 				sha_req.keylen, TEGRA_CRYPTO_MAX_KEY_SIZE);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		ret = tegra_crypto_sha(filp, ctx, &sha_req);
 		break;
@@ -1713,7 +1750,8 @@ rng_out:
 		if (copy_from_user(&sha_req_shash, (void __user *)arg,
 				sizeof(sha_req_shash))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		ret = tegra_crypto_sha_shash(filp, ctx, &sha_req_shash);
 		break;
@@ -1722,19 +1760,22 @@ rng_out:
 		if (copy_from_user(&rsa_req_ah, (void __user *)arg,
 			sizeof(rsa_req_ah))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		if (rsa_req_ah.algo >= NUM_RSA_ALGO) {
 			pr_err("Invalid value of algo index %d\n",
 				rsa_req_ah.algo);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		rsa_req_ah.algo = array_index_nospec(rsa_req_ah.algo,
 								NUM_RSA_ALGO);
 		if (rsa_req_ah.msg_len > MAX_RSA_MSG_LEN) {
 			pr_err("Illegal message from user of length = %d\n",
 				rsa_req_ah.msg_len);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		rsa_req_ah.msg_len = array_index_nospec(rsa_req_ah.msg_len,
 							MAX_RSA_MSG_LEN + 1);
@@ -1745,19 +1786,22 @@ rng_out:
 		if (copy_from_user(&rsa_req, (void __user *)arg,
 			sizeof(rsa_req))) {
 			pr_err("%s: copy_from_user fail(%d)\n", __func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 		if (rsa_req.msg_len > MAX_RSA_MSG_LEN) {
 			pr_err("Illegal message from user of length = %d\n",
 				rsa_req.msg_len);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		rsa_req.msg_len = array_index_nospec(rsa_req.msg_len,
 							MAX_RSA_MSG_LEN + 1);
 		if (rsa_req.algo >= NUM_RSA_ALGO) {
 			pr_err("Invalid value of algo index %d\n",
 				rsa_req.algo);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 		rsa_req.algo = array_index_nospec(rsa_req.algo,
 							NUM_RSA_ALGO);
@@ -1770,7 +1814,8 @@ rng_out:
 			sizeof(pka1_rsa_req))) {
 			pr_err("%s: copy_from_user fail(%d) for pka1_rsa_req\n",
 				__func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 
 		ret = tegra_crypt_pka1_rsa(filp, ctx, &pka1_rsa_req);
@@ -1782,7 +1827,7 @@ rng_out:
 			ret = -EFAULT;
 			pr_err("%s: copy_from_user fail(%d) for pka1_ecc_req\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 
 		ret = tegra_crypt_pka1_ecc(&pka1_ecc_req);
@@ -1794,7 +1839,7 @@ rng_out:
 			ret = -EFAULT;
 			pr_err("%s: copy_from_user fail(%d) for pka1_eddsa_req\n",
 				__func__, ret);
-			return ret;
+			goto out;
 		}
 
 		ret = tegra_crypt_pka1_eddsa(&pka1_eddsa_req);
@@ -1805,12 +1850,15 @@ rng_out:
 			sizeof(rng_req))) {
 			pr_err("%s: copy_from_user fail(%d)\n",
 					__func__, ret);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto out;
 		}
 
 		rng = kzalloc(rng_req.nbytes, GFP_KERNEL);
-		if (!rng)
-			return -ENODATA;
+		if (!rng) {
+			ret = -ENODATA;
+			goto out;
+		}
 
 		ctx->rng = crypto_alloc_rng("rng1-elp-tegra",
 			CRYPTO_ALG_TYPE_RNG, 0);
@@ -1826,9 +1874,8 @@ rng_out:
 		ret = crypto_rng_get_bytes(ctx->rng, rng,
 				rng_req.nbytes);
 
-		if (ret != rng_req.nbytes) {
+		if (ret != 0) {
 			pr_err("rng failed");
-			ret = -ENODATA;
 			goto free_rng1_tfm;
 		}
 
@@ -1847,9 +1894,10 @@ rng1_out:
 
 	default:
 		pr_debug("invalid ioctl code(%d)", ioctl_num);
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 out:
+	mutex_unlock(&ctx->lock);
 	return ret;
 }
 

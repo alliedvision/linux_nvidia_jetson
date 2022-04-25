@@ -1,7 +1,7 @@
 /*
  * NVDLA driver for T194
  *
- * Copyright (c) 2016-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -44,7 +44,6 @@
 #include "nvdla/nvdla_buffer.h"
 #include "nvdla/nvdla_debug.h"
 #include <uapi/linux/nvhost_nvdla_ioctl.h>
-#include "dla_fw_version.h"
 #include "dla_os_interface.h"
 
 #include "class_ids_t194.h"
@@ -112,6 +111,8 @@ clear_interrupt:
 	host1x_writel(pdev, flcn_thi_int_stat_r(), flcn_thi_int_stat_clr_f());
 	host1x_readl(pdev, flcn_thi_int_stat_r());
 	host1x_writel(pdev, flcn_irqsclr_r(), flcn_irqsclr_swgen1_set_f());
+	/* Notify FW that interuppt handling is complete */
+	host1x_writel(pdev, flcn_mailbox0_r(), DLA_MSG_INTERRUPT_HANDLING_COMPLETE);
 
 	return 0;
 }
@@ -620,7 +621,8 @@ int nvhost_nvdla_finalize_poweron(struct platform_device *pdev)
 	}
 
 	fw_ver_read_bin = host1x_readl(pdev, NV_DLA_OS_VERSION);
-	firmware_version = dla_version();
+
+	firmware_version = pdata->version;
 
 	if ((firmware_version & 0xffff00) != (fw_ver_read_bin & 0xffff00)) {
 		nvdla_dbg_err(pdev,

@@ -1,7 +1,7 @@
 /*
 * NVIDIA XUSB device mode controller
 *
-* Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
 * Copyright (c) 2015, Google Inc.
 *
 * This program is free software; you can redistribute it and/or modify it
@@ -4463,7 +4463,6 @@ static int tegra_xudc_powergate(struct tegra_xudc *xudc)
 		return 0;
 
 	dev_info(xudc->dev, "entering ELPG\n");
-	cancel_work_sync(&xudc->pullup_work);
 	spin_lock_irqsave(&xudc->lock, flags);
 	xudc->powergated = true;
 	xudc->saved_regs.ctrl = xudc_readl(xudc, CTRL);

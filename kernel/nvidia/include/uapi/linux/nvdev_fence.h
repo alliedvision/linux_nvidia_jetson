@@ -3,7 +3,7 @@
  *
  * Tegra PVA/DLA fence support
  *
- * Copyright (c) 2018-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ struct nvdev_fence {
 	__u32 action;
 #define NVDEV_FENCE_WAIT  	0
 #define NVDEV_FENCE_SIGNAL	1
+#define NVDEV_FENCE_SIGNAL_STRIDE	2
 	__u32 syncpoint_index;
 	__u32 syncpoint_value;
 	__u32 sync_fd;

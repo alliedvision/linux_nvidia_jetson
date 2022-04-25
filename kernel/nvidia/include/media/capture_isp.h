@@ -1,7 +1,7 @@
 /*
  * Tegra ISP capture operations
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Sudhir Vyas <svyas@nvidia.com>
  *
@@ -89,6 +89,10 @@ struct isp_capture_progress_status_req {
 	uint32_t __pad[4];
 } __ISP_CAPTURE_ALIGN;
 
+struct isp_buffer_req {
+	uint32_t mem;
+	uint32_t flag;
+} __ISP_CAPTURE_ALIGN;
 
 int isp_capture_init(struct tegra_isp_channel *chan);
 void isp_capture_shutdown(struct tegra_isp_channel *chan);
@@ -111,4 +115,6 @@ int isp_capture_request_ex(struct tegra_isp_channel *chan,
 		struct isp_capture_req_ex *capture_req_ex);
 int isp_capture_set_progress_status_notifier(struct tegra_isp_channel *chan,
 		struct isp_capture_progress_status_req *req);
+int isp_capture_buffer_request(
+	struct tegra_isp_channel *chan, struct isp_buffer_req *req);
 #endif

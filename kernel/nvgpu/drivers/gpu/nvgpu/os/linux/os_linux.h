@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,6 +25,7 @@
 
 #include "cde.h"
 #include "sched.h"
+#include "ecc_linux.h"
 
 struct nvgpu_os_linux_ops {
 	struct {
@@ -133,6 +134,10 @@ struct nvgpu_os_linux {
 	void __iomem *usermode_regs_saved;
 
 	u64 regs_bus_addr;
+
+#ifdef CONFIG_NVGPU_SUPPORT_LINUX_ECC_ERROR_REPORTING
+	struct nvgpu_ecc_reporting_linux ecc_reporting_linux;
+#endif
 
 	struct nvgpu_os_linux_ops ops;
 

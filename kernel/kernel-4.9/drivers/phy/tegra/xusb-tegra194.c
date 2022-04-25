@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -327,7 +327,6 @@ tegra194_usb2_lane_probe(struct tegra_xusb_pad *pad, struct device_node *np,
 			 unsigned int index)
 {
 	struct tegra_xusb_usb2_lane *usb2;
-	u32 offset;
 	int err;
 
 	usb2 = kzalloc(sizeof(*usb2), GFP_KERNEL);
@@ -342,14 +341,6 @@ tegra194_usb2_lane_probe(struct tegra_xusb_pad *pad, struct device_node *np,
 
 	err = tegra_xusb_lane_parse_dt(&usb2->base, np);
 	if (err < 0) {
-		kfree(usb2);
-		return ERR_PTR(err);
-	}
-
-	err = of_property_read_u32(np, "nvidia,hs_curr_level_offset", &offset);
-	if (err == 0) {
-		usb2->hs_curr_level_offset = offset;
-	} else if (err != -EINVAL) {
 		kfree(usb2);
 		return ERR_PTR(err);
 	}

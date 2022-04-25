@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -216,15 +216,17 @@ static int vblk_get_configinfo(struct vblk_dev *vblkdev)
 	return 0;
 }
 
-static void req_error_handler(struct vblk_dev *vblkdev, struct request *breq)
+static void req_error_handler(struct vblk_dev *vblkdev,
+			      struct request *breq, int error)
 {
-	dev_err(vblkdev->device,
-		"Error for request pos %llx type %llx size %x\n",
-		(blk_rq_pos(breq) * (uint64_t)SECTOR_SIZE),
-		(uint64_t)req_op(breq),
-		blk_rq_bytes(breq));
+	if ((breq->cmd_flags & REQ_QUIET) == 0)
+		dev_err(vblkdev->device,
+			"Error for request pos %llx type %llx size %x\n",
+			(blk_rq_pos(breq) * (uint64_t)SECTOR_SIZE),
+			(uint64_t)req_op(breq),
+			blk_rq_bytes(breq));
 
-	blk_end_request_all(breq, -EIO);
+	blk_end_request_all(breq, error);
 }
 
 /**
@@ -279,12 +281,12 @@ static bool complete_bio_req(struct vblk_dev *vblkdev)
 			if (req_resp->blkdev_resp.ioctl_resp.status != 0) {
 				dev_err(vblkdev->device,
 					"IOCTL request failed!\n");
-				req_error_handler(vblkdev, bio_req);
+				req_error_handler(vblkdev, bio_req, -EIO);
 				goto put_req;
 			}
 
 			if (vblk_complete_ioctl_req(vblkdev, vsc_req)) {
-				req_error_handler(vblkdev, bio_req);
+				req_error_handler(vblkdev, bio_req, -EIO);
 			} else {
 				if (blk_end_request(bio_req, 0, 0)) {
 					dev_err(vblkdev->device,
@@ -293,14 +295,15 @@ static bool complete_bio_req(struct vblk_dev *vblkdev)
 			}
 		} else {
 			if (req_resp->blkdev_resp.blk_resp.status != 0) {
-				req_error_handler(vblkdev, bio_req);
+				req_error_handler(vblkdev, bio_req, -EIO);
 				goto put_req;
 			}
 
 			if (req_op(bio_req) != REQ_OP_FLUSH) {
 				if (vs_req->blkdev_req.blk_req.num_blks !=
 						req_resp->blkdev_resp.blk_resp.num_blks) {
-					req_error_handler(vblkdev, bio_req);
+					req_error_handler(vblkdev,
+							  bio_req, -EIO);
 					goto put_req;
 				}
 			}
@@ -342,7 +345,7 @@ static bool complete_bio_req(struct vblk_dev *vblkdev)
 			}
 		}
 	} else if ((bio_req != NULL) && (status != 0)) {
-		req_error_handler(vblkdev, bio_req);
+		req_error_handler(vblkdev, bio_req, -EIO);
 	} else {
 		dev_err(vblkdev->device,
 			"VSC request %d has null bio request!\n",
@@ -404,6 +407,39 @@ static bool bio_req_sanity_check(struct vblk_dev *vblkdev,
 }
 
 /**
+ * is_valid_request - check if the request can be handled by the server
+ *
+ * we already know that virtual device supports - read/write capabilities
+ * so, we can reject invalid requests before sending down to the server
+ *
+ * return value: true if request is supported, false otherwise
+ */
+static bool is_valid_request(struct vblk_dev *vblkdev,
+			     int rq_code, struct request *bio)
+{
+	size_t i;
+	struct {
+		int rq_code;
+		uint32_t flag;
+		char *err_msg;
+	} checks[] = {
+		{ REQ_OP_READ, VS_BLK_READ_OP_F, "unsupported read" },
+		{ REQ_OP_WRITE, VS_BLK_WRITE_OP_F, "unsupported write" },
+		{ REQ_OP_FLUSH, VS_BLK_FLUSH_OP_F, "unsupport flush" },
+	};
+
+	for (i = 0; i < ARRAY_SIZE(checks); i++) {
+		if (rq_code == checks[i].rq_code &&
+		    (vblkdev->config.blk_config.req_ops_supported &
+			checks[i].flag) == 0) {
+			bio->cmd_flags |= REQ_QUIET;
+			dev_dbg(vblkdev->device, "%s\n", checks[i].err_msg);
+			return false;
+		}
+	}
+	return true;
+}
+/**
  * submit_bio_req: Fetch a bio request and submit it to
  * server for processing.
  */
@@ -416,6 +452,7 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 	size_t size;
 	size_t total_size = 0;
 	void *buffer;
+	int error = -EIO;
 
 	if (!tegra_hv_ivc_can_write(vblkdev->ivck))
 		goto bio_exit;
@@ -443,6 +480,10 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 #else
 	if (bio_req->cmd_type == REQ_TYPE_FS) {
 #endif
+		if (!is_valid_request(vblkdev, req_op(bio_req), bio_req)) {
+			error = -ENOTSUPP;
+			goto bio_exit;
+		}
 		if (req_op(bio_req) == REQ_OP_READ) {
 			vs_req->blkdev_req.req_op = VS_BLK_READ;
 		} else if (req_op(bio_req) == REQ_OP_WRITE) {
@@ -525,7 +566,7 @@ bio_exit:
 	}
 
 	if (bio_req != NULL) {
-		req_error_handler(vblkdev, bio_req);
+		req_error_handler(vblkdev, bio_req, error);
 		return true;
 	}
 

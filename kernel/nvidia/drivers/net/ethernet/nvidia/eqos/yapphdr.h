@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -212,6 +212,10 @@
 #define EQOS_L3_L4_FILTER_DISABLE 0x0
 #define EQOS_L3_L4_FILTER_ENABLE 0x1
 
+/* DMA Routing operations */
+#define EQOS_DMA_FILTER_DISABLE 0x0
+#define EQOS_DMA_FILTER_ENABLE 0x1
+
 /* Loopback mode */
 #define EQOS_MAC_LOOPBACK_DISABLE 0x0
 #define EQOS_MAC_LOOPBACK_ENABLE 0x1
@@ -331,6 +335,21 @@ struct eqos_l3_l4_filter {
 
 	/* TCP/UDP src/dst port number */
 	unsigned short port_no;
+
+	/* 0 - disable and 1 - enable */
+	int dma_routing_enable;
+
+	/* To hold DMA channel */
+	unsigned short dma_channel;
+
+	/* holds mask for L3 filter, 0 -> 31
+	 * 0: No bits are masked
+	 * 1: LSb[0] is maksed
+	 * 2: LSb[1:0] are masked
+	 * ....
+	 * 31: LSb[0:30] are masked , leaving only 31 bit
+	 */
+	unsigned short l3_mask;
 };
 
 struct eqos_vlan_filter {

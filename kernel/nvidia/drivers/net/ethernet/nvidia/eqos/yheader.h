@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -584,6 +584,9 @@
 /* Hash Table Reg count */
 #define EQOS_HTR_CNT (pdata->max_hash_table_size/32)
 
+/* MAX L3/L4 filters support */
+#define EQOS_MAX_L3_L4_FILTER           8U
+
 /* For handling VLAN filtering */
 #define EQOS_VLAN_PERFECT_FILTERING 0
 #define EQOS_VLAN_HASH_FILTERING 1
@@ -903,13 +906,16 @@ struct hw_if_struct {
 	INT(*config_mac_pkt_filter_reg)(UCHAR, UCHAR, UCHAR, UCHAR, UCHAR);
 	INT(*config_l3_l4_filter_enable)(INT);
 	INT(*config_l3_filters)(INT filter_no, INT enb_dis, INT ipv4_ipv6_match,
-                     INT src_dst_addr_match, INT perfect_inverse_match);
+			INT src_dst_addr_match, INT perfect_inverse_match,
+			INT dma_routing_enable, USHORT dma_channel,
+			USHORT l3_mask);
 	INT(*update_ip4_addr0)(INT filter_no, UCHAR addr[]);
 	INT(*update_ip4_addr1)(INT filter_no, UCHAR addr[]);
 	INT(*update_ip6_addr)(INT filter_no, USHORT addr[]);
-	INT(*config_l4_filters)(INT filter_no, INT enb_dis,
-		INT tcp_udp_match, INT src_dst_port_match,
-		INT perfect_inverse_match);
+	INT(*config_l4_filters)(INT filter_no, INT enb_dis, INT tcp_udp_match,
+				INT src_dst_port_match,
+				INT perfect_inverse_match,
+				INT dma_routing_enable, USHORT dma_channel);
 	INT(*update_l4_sa_port_no)(INT filter_no, USHORT port_no);
 	INT(*update_l4_da_port_no)(INT filter_no, USHORT port_no);
 
@@ -1342,6 +1348,8 @@ typedef enum {
 } pause_frames_e;
 #define PAUSE_FRAMES_DEFAULT PAUSE_FRAMES_ENABLED
 
+#define STATIC_Q_DMA_MAP 0
+#define DYNAMIC_Q_DMA_MAP 1
 #define QUEUE_PRIO_DEFAULT 0
 #define QUEUE_PRIO_MAX 7
 #define CHAN_NAPI_QUOTA_DEFAULT	64
@@ -1352,6 +1360,7 @@ typedef enum {
 struct eqos_cfg {
 	bool	use_multi_q;	/* 0=single queue, jumbo frames enabled */
 	rxq_ctrl_e	rxq_ctrl[MAX_CHANS];
+	uint		q_dma_map[MAX_CHANS];
 	uint		q_prio[MAX_CHANS];
 	uint		chan_napi_quota[MAX_CHANS];
 	uint		slot_num_check[MAX_CHANS];
@@ -1360,6 +1369,7 @@ struct eqos_cfg {
 	uint		eth_iso_enable;
 	bool		phy_apd_mode;	/* Represents PHY AUTO POWER DOWN mode */
 	uint		reg_auto_cal_config_0_val; /* EQOS_AUTO_CAL_CONFIG_0 REG */
+	u8		phyrst_lpmode; /* Phy in rst for low power mode */
 	u32		slot_intvl_val; /* Slot Interval Value*/
 };
 
@@ -1586,6 +1596,11 @@ struct eqos_prv_data {
 	/** Reserve SKB pointer and DMA */
 	struct sk_buff *resv_skb;
 	dma_addr_t resv_dma;
+	/* debugfs */
+#ifdef FILTER_DEBUGFS
+	struct dentry *d_root;
+	struct list_head d_head;
+#endif
 };
 
 typedef enum {

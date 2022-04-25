@@ -1,7 +1,7 @@
 /*
  * GV11B fifo
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -498,7 +498,8 @@ static int gv11b_fifo_poll_pbdma_chan_status(struct gk20a *g, u32 id,
 }
 
 static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
-			 u32 act_eng_id, u32 *reset_eng_bitmask)
+			 u32 act_eng_id, u32 *reset_eng_bitmask,
+			 bool preempt_retries_left)
 {
 	struct nvgpu_timeout timeout;
 	unsigned long delay = GR_IDLE_CHECK_DEFAULT; /* in micro seconds */
@@ -507,6 +508,7 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 	int ret = -EBUSY;
 	unsigned int loop_count = 0;
 	u32 eng_intr_pending;
+	bool check_preempt_retry = false;
 
 	/* timeout in milli seconds */
 	nvgpu_timeout_init(g, &timeout, g->ops.fifo.get_preempt_timeout(g),
@@ -565,9 +567,7 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 			 fifo_engine_status_ctx_status_ctxsw_switch_v()) {
 			/* Eng save hasn't started yet. Continue polling */
 			if (eng_intr_pending) {
-				/* if eng intr, stop polling */
-				*reset_eng_bitmask |= BIT(act_eng_id);
-				ret = 0;
+				check_preempt_retry = true;
 				break;
 			}
 
@@ -578,9 +578,7 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 
 			if (id == fifo_engine_status_id_v(eng_stat)) {
 				if (eng_intr_pending) {
-					/* preemption will not finish */
-					*reset_eng_bitmask |= BIT(act_eng_id);
-					ret = 0;
+					check_preempt_retry = true;
 					break;
 				}
 			} else {
@@ -594,9 +592,7 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 
 			if (id == fifo_engine_status_next_id_v(eng_stat)) {
 				if (eng_intr_pending) {
-					/* preemption will not finish */
-					*reset_eng_bitmask |= BIT(act_eng_id);
-					ret = 0;
+					check_preempt_retry = true;
 					break;
 				}
 			} else {
@@ -606,8 +602,13 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 			}
 
 		} else {
-			/* Preempt should be finished */
-			ret = 0;
+			if (eng_intr_pending) {
+				check_preempt_retry = true;
+			} else {
+				/* Preempt should be finished */
+				ret = 0;
+			}
+
 			break;
 		}
 		nvgpu_usleep_range(delay, delay * 2);
@@ -615,7 +616,19 @@ static int gv11b_fifo_poll_eng_ctx_status(struct gk20a *g, u32 id,
 				delay << 1, GR_IDLE_CHECK_MAX);
 	} while (!nvgpu_timeout_expired(&timeout));
 
-	if (ret) {
+
+	/* if eng intr, stop polling and check if we can retry preempts. */
+	if (check_preempt_retry) {
+		if (preempt_retries_left) {
+			ret = -EAGAIN;
+		} else {
+			/* preemption will not finish */
+			*reset_eng_bitmask |= BIT32(act_eng_id);
+			ret = 0;
+		}
+	}
+
+	if (ret && ret != -EAGAIN) {
 		/*
 		* The reasons a preempt can fail are:
 		* 1.Some other stalling interrupt is asserted preventing
@@ -770,7 +783,7 @@ static void gv11b_fifo_issue_runlist_preempt(struct gk20a *g,
 }
 
 int gv11b_fifo_is_preempt_pending(struct gk20a *g, u32 id,
-		 unsigned int id_type)
+		 unsigned int id_type, bool preempt_retries_left)
 {
 	struct fifo_gk20a *f = &g->fifo;
 	unsigned long runlist_served_pbdmas;
@@ -778,7 +791,7 @@ int gv11b_fifo_is_preempt_pending(struct gk20a *g, u32 id,
 	u32 pbdma_id;
 	u32 act_eng_id;
 	u32 runlist_id;
-	int ret = 0;
+	int err, ret = 0;
 	u32 tsgid;
 
 	if (id_type == ID_TYPE_TSG) {
@@ -795,14 +808,21 @@ int gv11b_fifo_is_preempt_pending(struct gk20a *g, u32 id,
 	runlist_served_engines = f->runlist_info[runlist_id].eng_bitmask;
 
 	for_each_set_bit(pbdma_id, &runlist_served_pbdmas, f->num_pbdma) {
-		ret |= gv11b_fifo_poll_pbdma_chan_status(g, tsgid, pbdma_id);
+		err = gv11b_fifo_poll_pbdma_chan_status(g, tsgid, pbdma_id);
+		if (err != 0) {
+			ret = err;
+		}
 	}
 
 	f->runlist_info[runlist_id].reset_eng_bitmask = 0;
 
 	for_each_set_bit(act_eng_id, &runlist_served_engines, f->max_engines) {
-		ret |= gv11b_fifo_poll_eng_ctx_status(g, tsgid, act_eng_id,
-				&f->runlist_info[runlist_id].reset_eng_bitmask);
+		err = gv11b_fifo_poll_eng_ctx_status(g, tsgid, act_eng_id,
+				&f->runlist_info[runlist_id].reset_eng_bitmask,
+				preempt_retries_left);
+		if ((err != 0) && (ret == 0)) {
+			ret = err;
+		}
 	}
 	return ret;
 }
@@ -847,10 +867,13 @@ int gv11b_fifo_enable_tsg(struct tsg_gk20a *tsg)
 int gv11b_fifo_preempt_tsg(struct gk20a *g, struct tsg_gk20a *tsg)
 {
 	struct fifo_gk20a *f = &g->fifo;
-	u32 ret = 0;
+	int ret = 0;
 	u32 token = PMU_INVALID_MUTEX_OWNER_ID;
 	u32 mutex_ret = 0;
 	u32 runlist_id;
+	u32 preempt_retry_count = 10U;
+	u32 preempt_retry_timeout =
+		g->ops.fifo.get_preempt_timeout(g) / preempt_retry_count;
 
 	nvgpu_log_fn(g, "tsgid: %d", tsg->tsgid);
 
@@ -860,23 +883,35 @@ int gv11b_fifo_preempt_tsg(struct gk20a *g, struct tsg_gk20a *tsg)
 		return 0;
 	}
 
-	nvgpu_mutex_acquire(&f->runlist_info[runlist_id].runlist_lock);
+	do {
+		nvgpu_mutex_acquire(&f->runlist_info[runlist_id].runlist_lock);
 
-	/* WAR for Bug 2065990 */
-	gk20a_fifo_disable_tsg_sched(g, tsg);
+		/* WAR for Bug 2065990 */
+		gk20a_fifo_disable_tsg_sched(g, tsg);
 
-	mutex_ret = nvgpu_pmu_mutex_acquire(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
+		mutex_ret = nvgpu_pmu_mutex_acquire(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
 
-	ret = __locked_fifo_preempt(g, tsg->tsgid, true);
+		ret = __locked_fifo_preempt(g, tsg->tsgid, true,
+					    preempt_retry_count > 1U);
 
-	if (!mutex_ret) {
-		nvgpu_pmu_mutex_release(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
-	}
+		if (!mutex_ret) {
+			nvgpu_pmu_mutex_release(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
+		}
 
-	/* WAR for Bug 2065990 */
-	gk20a_fifo_enable_tsg_sched(g, tsg);
+		/* WAR for Bug 2065990 */
+		gk20a_fifo_enable_tsg_sched(g, tsg);
 
-	nvgpu_mutex_release(&f->runlist_info[runlist_id].runlist_lock);
+		nvgpu_mutex_release(&f->runlist_info[runlist_id].runlist_lock);
+
+		if (ret != -EAGAIN) {
+			break;
+		}
+
+		ret = nvgpu_wait_for_stall_interrupts(g, preempt_retry_timeout);
+		if (ret != 0) {
+			nvgpu_log_info(g, "wait for stall interrupts failed %d", ret);
+		}
+	} while (--preempt_retry_count != 0U);
 
 	if (ret) {
 		if (nvgpu_platform_is_silicon(g)) {

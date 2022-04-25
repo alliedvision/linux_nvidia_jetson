@@ -2,7 +2,7 @@
  * tegra210_adsp_virt_alt.c - Tegra ADSP audio driver
  *
  * Author: Sumit Bhattacharya <sumitb@nvidia.com>
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -621,6 +621,12 @@ static int tegra210_adsp_send_connect_msg(struct tegra210_adsp_app *src,
 					uint32_t flags)
 {
 	apm_msg_t apm_msg;
+
+	if ((src == NULL) || (dst == NULL)) {
+		pr_err("%s: SRC = %p or DST = %p is NULL\n",
+			__func__, src, dst);
+		return -1;
+	}
 
 	apm_msg.msgq_msg.size = MSGQ_MSG_WSIZE(apm_fx_connect_params_t);
 	apm_msg.msg.call_params.size = sizeof(apm_fx_connect_params_t);
@@ -3195,8 +3201,10 @@ static int tegra210_adsp_mux_put(struct snd_kcontrol *kcontrol,
 	uint32_t cur_val = 0;
 	int ret = 0;
 
-	if (!adsp->init_done)
+	if (!adsp->init_done) {
+		dev_err(adsp->dev, "%s ADSP not initialized\n", __func__);
 		return -ENODEV;
+	}
 
 	if (e->reg >= TEGRA210_ADSP_VIRT_REG_MAX)
 		return -EINVAL;
@@ -5791,7 +5799,7 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 				     ARRAY_SIZE(tegra210_adsp_codec_dai));
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Could not register CODEC: %d\n", ret);
-		goto err_unregister_platform;
+		goto err_unregister_component;
 	}
 
 	spin_lock_init(&adsp->switch_lock);
@@ -5835,14 +5843,19 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 
 	adsp->nl_sk = netlink_kernel_create(&init_net, NETLINK_ADSP_EVENT, &cfg);
 	if (!adsp->nl_sk) {
-		pr_err("Error creating socket.\n");
-		return -1;
+		dev_err(&pdev->dev, "Error creating socket\n");
+		ret = -ENOMEM;
+		goto err_unregister_codec;
 	}
-	pr_info("Succssfully created NETLINK_ADSP_EVENT socket\n");
 
-	pr_info("tegra210_adsp_audio_platform_probe probe successfull.");
+	dev_info(&pdev->dev, "Tegra210 ADSP driver successfully registered\n");
+
 	return 0;
 
+err_unregister_codec:
+	snd_soc_unregister_codec(&pdev->dev);
+err_unregister_component:
+	snd_soc_unregister_component(&pdev->dev);
 err_unregister_platform:
 	snd_soc_unregister_platform(&pdev->dev);
 err_pm_disable:
@@ -5856,6 +5869,8 @@ static int tegra210_adsp_audio_platform_remove(struct platform_device *pdev)
 	struct tegra210_adsp *adsp = dev_get_drvdata(&pdev->dev);
 
 	netlink_kernel_release(adsp->nl_sk);
+	snd_soc_unregister_codec(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	tegra_pd_remove_device(&pdev->dev);
 	snd_soc_unregister_platform(&pdev->dev);

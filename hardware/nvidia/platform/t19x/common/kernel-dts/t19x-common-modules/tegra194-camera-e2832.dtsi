@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 					reg = <0>;
 					e2832_vi_in0: endpoint {
 						port-index = <0>;
-						bus-width = <4>;
+						bus-width = <8>;
 						remote-endpoint = <&e2832_csi_out0>;
 					};
 				};
@@ -46,7 +46,7 @@
 						reg = <0>;
 						e2832_csi_in0: endpoint@0 {
 							port-index = <0>;
-							bus-width = <4>;
+							bus-width = <8>;
 							remote-endpoint = <&e2832_out0>;
 						};
 					};
@@ -191,6 +191,7 @@
 			* the active pixel area
 			*
 			*/
+
 			mode0 { // E2832_1920x1080_60Fps
 				mclk_khz = "24000";
 				num_lanes = "4";
@@ -229,8 +230,45 @@
 				step_exp_time = "1";
 				default_exp_time = "16667"; /* us  */
 			};
+			mode1 { // E2832_3840x2160
+				mclk_khz = "24000";
+				num_lanes = "8";
+				tegra_sinterface = "serial_a";
+				phy_mode = "DPHY";
+				discontinuous_clk = "yes";
+				dpcm_enable = "false";
+				cil_settletime = "0";
 
-			mode1 { // E2832_1280x720_60Fps
+				active_w = "3840";
+				active_h = "2160";
+				mode_type = "rgb";
+				pixel_phase = "rgb888";
+				csi_pixel_bit_depth = "24";
+				readout_orientation = "0";
+				line_length = "3840";
+				inherent_gain = "1";
+				mclk_multiplier = "24";
+				pix_clk_hz = "576000000";
+
+				gain_factor = "16";
+				framerate_factor = "1000000";
+				exposure_factor = "1000000";
+				min_gain_val = "16"; /* 1.00x */
+				max_gain_val = "170"; /* 10.66x */
+				step_gain_val = "1";
+				default_gain = "16"; /* 1.00x */
+				min_hdr_ratio = "1";
+				max_hdr_ratio = "1";
+				min_framerate = "2000000"; /* 2.0 fps */
+				max_framerate = "60000000"; /* 60.0 fps */
+				step_framerate = "1";
+				default_framerate = "60000000"; /* 60.0 fps */
+				min_exp_time = "13"; /* us */
+				max_exp_time = "683709"; /* us */
+				step_exp_time = "1";
+				default_exp_time = "16667"; /* us  */
+			};
+			mode2 { // E2832_1280x720_60Fps
 				mclk_khz = "24000";
 				num_lanes = "4";
 				tegra_sinterface = "serial_a";
@@ -276,7 +314,7 @@
 					reg = <0>;
 					e2832_out0: endpoint {
 						port-index = <0>;
-						bus-width = <4>;
+						bus-width = <8>;
 						remote-endpoint = <&e2832_csi_in0>;
 					};
 				};

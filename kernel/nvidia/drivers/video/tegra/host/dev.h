@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/host/dev.h
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -76,6 +76,9 @@ do {									\
 /* convenience,shorter err/fn/dbg_info */
 #define nvhost_err(d, fmt, arg...) \
 	dev_err(d, "%s: " fmt "\n", __func__, ##arg)
+
+#define nvhost_err_ratelimited(d, fmt, arg...) \
+	dev_err_ratelimited(d, "%s: " fmt "\n", __func__, ##arg)
 
 #define nvhost_warn(d, fmt, arg...) \
 	dev_warn(d, "%s: " fmt "\n", __func__, ##arg)

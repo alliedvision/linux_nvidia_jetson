@@ -1,4 +1,4 @@
-# Copyright (c) 2015, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -15,7 +15,7 @@ ccflags-y += -DHWA_NV_1650337
 ccflags-y += -DHWA_FPGA_ONLY
 
 ## default build settings.
-ccflags-y += -DCONFIG_PTPSUPPORT_OBJ
+ccflags-y += -DCONFIG_PTPSUPPORT_OBJ -DFILTER_DEBUGFS
 
 ## enable this only for MODS verification
 ifeq ($(CONFIG_DISABLE_EQOS_CTRL_TRISTATE),y)

@@ -4,6 +4,8 @@
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
  * benh@kernel.crashing.org
  *
+ * Copyright (c) 2021, NVIDIA CORPORATION, All rights reserved.
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -603,14 +605,14 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 		base = dt_mem_next_cell(dt_root_addr_cells, &prop);
 		size = dt_mem_next_cell(dt_root_size_cells, &prop);
 
-		if (size &&
-		    early_init_dt_reserve_memory_arch(base, size, nomap) == 0)
-			pr_debug("Reserved memory: reserved region for node '%s': base %pa, size %ld MiB\n",
-				uname, &base, (unsigned long)size / SZ_1M);
-		else
-			pr_info("Reserved memory: failed to reserve memory for node '%s': base %pa, size %ld MiB\n",
-				uname, &base, (unsigned long)size / SZ_1M);
-
+		if (size) {
+			if (early_init_dt_reserve_memory_arch(base, size, nomap) == 0)
+				pr_debug("Reserved memory: reserved region for node '%s': base %pa, size %ld MiB\n",
+					uname, &base, (unsigned long)size / SZ_1M);
+			else
+				pr_err("Reserved memory: failed to reserve memory for node '%s': base %pa, size %ld MiB\n",
+					uname, &base, (unsigned long)size / SZ_1M);
+			}
 		len -= t_len;
 		if (first) {
 			fdt_reserved_mem_save_node(node, uname, base, size);

@@ -1,7 +1,7 @@
 /*
  * GV11B PMU
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 #include <nvgpu/io.h>
 #include <nvgpu/utils.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/nvgpu_err.h>
 
 #include "gk20a/pmu_gk20a.h"
 #include "gp10b/pmu_gp10b.h"
@@ -354,10 +355,18 @@ void gv11b_pmu_handle_ext_irq(struct gk20a *g, u32 intr0)
 				"pmu ecc interrupt intr1: 0x%x", intr1);
 
 			if (ecc_status & pwr_pmu_falcon_ecc_status_corrected_err_imem_m()) {
+				nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
+					GPU_PMU_FALCON_IMEM_ECC_CORRECTED,
+					ecc_addr,
+					g->ecc.pmu.pmu_ecc_corrected_err_count[0].counter);
 				nvgpu_log(g, gpu_dbg_intr,
 					"imem ecc error corrected");
 			}
 			if (ecc_status & pwr_pmu_falcon_ecc_status_uncorrected_err_imem_m()) {
+				nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
+					GPU_PMU_FALCON_IMEM_ECC_UNCORRECTED,
+					ecc_addr,
+					g->ecc.pmu.pmu_ecc_uncorrected_err_count[0].counter);
 				nvgpu_log(g, gpu_dbg_intr,
 					"imem ecc error uncorrected");
 			}
@@ -366,6 +375,10 @@ void gv11b_pmu_handle_ext_irq(struct gk20a *g, u32 intr0)
 					"dmem ecc error corrected");
 			}
 			if (ecc_status & pwr_pmu_falcon_ecc_status_uncorrected_err_dmem_m()) {
+				nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
+					GPU_PMU_FALCON_DMEM_ECC_UNCORRECTED,
+					ecc_addr,
+					g->ecc.pmu.pmu_ecc_uncorrected_err_count[0].counter);
 				nvgpu_log(g, gpu_dbg_intr,
 					"dmem ecc error uncorrected");
 			}

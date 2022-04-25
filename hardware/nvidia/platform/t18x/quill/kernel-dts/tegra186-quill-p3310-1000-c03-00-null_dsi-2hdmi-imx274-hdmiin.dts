@@ -1,0 +1,49 @@
+/*
+ * tegra186-quill-p3310-1000-c03-00-null_dsi-2hdmi-imx274-hdmiin.dts: DTS file
+ * for Quill to enable display on all three heads with dual HDMI: null DSI,
+ * dual HDMIs, IMX274 camera sensor and TC358840 HDMI IN.
+ *
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#include "tegra186-quill-p3310-1000-c03-00-dsi-hdmi-hdmi-imx274-hdmiin.dts"
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	host1x {
+		dsi {
+			nvidia,active-panel = <&null_dsi>;
+			null_dsi: panel-null-dsi-hotplug {
+				status = "okay";
+			};
+		};
+	};
+
+	i2c@3160000 {
+		tps65132@3e {
+			status = "disabled";
+		};
+
+		lp8557-backlight-s-wuxga-8-0@2c {
+			status = "disabled";
+		};
+	};
+
+	plugin-manager {
+		/delete-node/ fragment-e3320-dp;
+		/delete-node/ fragment-e3320-a00@1;
+		/delete-node/ fragment-e3320-a01@1;
+	};
+};

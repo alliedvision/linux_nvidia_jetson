@@ -1,7 +1,7 @@
 /*
  * tegra210_virt_alt_admaif.c - Tegra ADMAIF component driver
  *
- * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -197,7 +197,9 @@ static void tegra210_admaif_stop_capture(struct snd_soc_dai *dai)
 static int tegra210_admaif_trigger(struct snd_pcm_substream *substream, int cmd,
 				 struct snd_soc_dai *dai)
 {
-	pr_info("Pcm trigger for admaif %d : cmd_id %d \n", dai->id +1 , cmd);
+	pr_info("Pcm trigger for admaif%d %s: cmd_id %d\n", dai->id+1,
+		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+		"playback":"capture", cmd);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:

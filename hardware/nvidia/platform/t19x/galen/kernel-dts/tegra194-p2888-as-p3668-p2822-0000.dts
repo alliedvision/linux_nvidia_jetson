@@ -21,7 +21,7 @@
 / {
 	model = "NVIDIA Jetson-Xavier as Jetson-Xavier-NX Developer Kit";
 
-	compatible = "nvidia,p3668-0001", "nvidia,tegra194";
+	compatible = "nvidia,p3668-0001", "nvidia,p3668-emul", "nvidia,tegra194";
 
 	gv11b {
 		fuse-overrides = <GV11B_FUSE_OPT_TPC_DISABLE 0x1>;

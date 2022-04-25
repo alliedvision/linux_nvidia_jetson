@@ -16,7 +16,7 @@
 #include "common/tegra186-p3509-0000-cvb.dtsi"
 #include "common/tegra186-p3509-0000-a00-fixed-regulator.dtsi"
 #include "common/tegra186-p3636-0001-a00-prod.dtsi"
-#include "common/tegra186-camera-lanai-rbpcv2-imx219.dtsi"
+#include "common/tegra186-camera-lanai-avt_csi2.dtsi"
 
 /* plugin manager */
 #include "common/tegra186-super-module-e2614-p3509-0000-a00.dtsi"
@@ -150,6 +150,10 @@
 			status = "okay";
 		};
         };
+
+	mttcan@c310000 {
+		status = "okay";
+	};
 
 	cpufreq@e070000 {
 		cpu_emc_map =

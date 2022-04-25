@@ -1,72 +1,93 @@
-# NVIDIA Jetson driver
+# NVIDIA Jetson driver (Beta)
 
-Driver for Allied Vision Alvium cameras with MIPI CSI-2 interface for NVIDIA Jetson with JetPack 4.5.1 (L4T 32.5.1)     
+
+Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 4.6.1 (L4T 32.7.1)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
 
+THE SOFTWARE IS PRELIMINARY AND STILL IN TESTING AND VERIFICATION PHASE AND IS PROVIDED ON 
+AN “AS IS” AND “AS AVAILABLE” BASIS AND IS BELIEVED TO CONTAIN DEFECTS. A PRIMARY PURPOSE 
+OF THIS EARLY ACCESS IS TO OBTAIN FEEDBACK ON PERFORMANCE AND THE IDENTIFICATION OF 
+DEFECT SOFTWARE, HARDWARE AND DOCUMENTATION.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 ## Overview
 
-The scripts in this project build and install the Allied Vision CSI-2 driver to the NVIDIA Jetson boards.   
-:bulb: **This driver version supports V4L2 and GenICam for CSI-2 (camera usage with [Vimba's](https://www.alliedvision.com/en/products/vimba-sdk/) CSI-2 transport layer)**
+The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Platforms: AGX Xavier and Xavier NX development kits.    
-:bulb: Nano and TX2 are supported by driver version [2.1.0](https://github.com/alliedvision/linux_nvidia_jetson/tree/l4t-32.5.1-2.1.0)    
-JetPack 4.5.1 (L4T 32.5.1)  
+Compatible platforms with JetPack 4.6.1 (L4T 32.7.1) : 
+
++ Nano 2GB and 4GB NVIDIA developer kit
++ TX2 (including optional use of Allied Vision's adapter for up to 6 cameras) 
++ TX2 NX NVIDIA developer kit
++ AGX Xavier NVIDIA developer kit (including optional use of Allied Vision's adapter for up to 6 cameras) 
++ Xavier NX NVIDIA developer kit
++ Xavier NX on [Auvidea JNX30-PD](https://auvidea.eu/product/38401/) for Alvium cameras with FPD Link interface.
+
+
 The scripts require Git on the host PC.
 
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
 
-## Prerequisites: Install JetPack 4.5.1 to AGX Xavier or Xavier NX developer kit.
+## Prerequisites: Install JetPack 4.6.1
  
-Install JetPack 4.5.1 (L4T 32.5.1) as per NVIDIA's instructions https://developer.nvidia.com/embedded/jetpack      
+Install JetPack 4.6.1 (L4T 32.7.1) as per NVIDIA's instructions
+ https://developer.nvidia.com/embedded/jetpack      
 
 Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
 https://docs.nvidia.com/sdk-manager/  
-	
-### Accidental overwriting of the driver
-As of JetPack 4.4, users can update L4T directly on the board with `apt-upgrade`. 
-Doing this may install newer L4T kernel and device tree files, which overwrite the driver for Allied Vision cameras. 
-If you use `apt-upgrade` nevertheless, please prevent overwriting the driver with:
 
- `sudo apt-mark hold 'nvidia-l4t-*'`
 
-Note that both reinstalling the driver or putting the update on hold may cause unavailable features or bugfixes from NVIDIA.
+## Install Alvium MIPI driver
 
-## Install Alvium CSI-2 driver to Jetson AGX Xavier or Xavier NX
-
-**Method A: Use precompiled binaries**   
+### Method A: Use precompiled binaries   
  
-  Install the precompiled kernel including driver and installation instructions.   
+  Install the precompiled kernel, which includes the driver and an installation menu.   
 
-  1. Extract the tarball on a host PC.
+  1. Extract the tarball on a host PC.   
+  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_32.7.1_<git-rev>.tar.gz. 
 
-  2. The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_32.5.1_<git-rev>.tar.gz.   
-     Copy the tarball to the target board. On the target board, extract the tarball and run the included install script.   
-     Reboot the board. Now you can use the driver. 	
+2. Copy the tarball to the target board. 
+3. On the target board, extract the tarball and run the included install script.   
+4. Proceed with selecting options from the installation menu as described below.
 
- **Method B: Cross-compile binaries from source**      
-  The scripts require a host PC with Ubuntu (we recommend version 18.04) installed.
+### Method B: Cross-compile binaries from source      
+  The scripts require a host PC with Ubuntu (we recommend version 18.04).
 
-  1. Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.   
-     On the host PC:
-    
-  2. Run setup.sh, which prepares the directory structure, extracts the file archive, etc.:   
-     `$ ./setup.sh <WORK_DIR> <TARGET_BOARD> # For example, $ ./setup.sh work_dir xavier` 
-	 
-  3. Run build.sh, which builds the kernel, modules, device tree files, and the bootloader:   
-     `# Use the same WORK_DIR for all scripts`   
-     `# Example: $ ./build.sh work_dir xavier all all`   
-     `$ ./build.sh <WORK_DIR> <TARGET_BOARD> <BUILD_OPTIONS> <COMPONENTS> <OPTIONS>`    
-	 
-  4. Create a tarball with the kernel image and modules.   
-     `$ ./deploy.sh <WORK_DIR> <TARGET_BOARD> tarball`
-		 
-  5. Copy the tarball to the target board. On the target board, extract the tarball and run the included install script.   
-     Reboot the board. Now you can use the driver. 
+Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.
+
+**On the host PC:**
+
+1. Execute `./build.py -b <xavier>`  
+Use "xavier" for AGX Xavier, NX Xavier, TX2, and TX2 NX.   
+Use "nano" for Nano.
+
+2. Copy the tarball to the target board. 
+
+**On the target board:**
+
+Extract the tarball and run the included install script. 
+The script includes an **installation menu**, please use the option for your hardware: 
+
++ Option `none`: The Allied Vision camera driver is not loaded during bootup. To load the driver, reboot the board.
+
++ For NX Xavier, select option `devkit` or `auvidea`.   
+For Xavier AGX and TX2, select the option `2 cameras` or `6 cameras`.
+
+Reboot the board. Now you can use the driver. 
+
+To change the configuration after the driver was installed, enter:
+
+`dpkg-reconfigure avt-nvidia-l4t-bootloader`
+
+Reboot the board to apply the changes.
+
 
  ## Additional information
  :open_book:
  https://github.com/alliedvision/documentation/blob/master/NVIDIA.rst
-
-
-

@@ -393,12 +393,6 @@ struct igb_nfc_filter {
 	u16 action;
 };
 
-enum pm_status {
-        PM_ACTIVE = 0,
-        PM_SUSPENDED,
-        PM_SUSPENDING,
-};
-
 /* board specific private data structure */
 struct igb_adapter {
 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
@@ -407,7 +401,6 @@ struct igb_adapter {
 
 	unsigned long state;
 	unsigned int flags;
-	enum pm_status pm_status;
 
 	unsigned int num_q_vectors;
 	struct msix_entry msix_entries[MAX_MSIX_ENTRIES];

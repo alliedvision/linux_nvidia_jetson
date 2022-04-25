@@ -1,7 +1,7 @@
 /*
  * sensor_dt_test - sensor device tree test
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -907,8 +907,10 @@ int sensor_verify_dt(struct device_node *node, const u32 tvcf_version)
 	err = sv_dt_verify_full_dt(node, root_node);
 
 sv_fail:
-	sv_dt_free_node(root_node);
-	sv_dt_free_node(modeX_node);
+	if (root_node)
+		sv_dt_free_node(root_node);
+	if (modeX_node)
+		sv_dt_free_node(modeX_node);
 
 	if (err == 0)
 		camtest_log(KERN_INFO "Sensor DT test passed\n");

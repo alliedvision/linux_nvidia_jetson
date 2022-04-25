@@ -3,7 +3,7 @@
  *
  * Handle allocation and freeing routines for nvmap
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -455,7 +455,7 @@ static int handle_page_alloc(struct nvmap_client *client,
 			     struct nvmap_handle *h, bool contiguous)
 {
 	size_t size = h->size;
-	int nr_page = size >> PAGE_SHIFT;
+	size_t nr_page = size >> PAGE_SHIFT;
 	int i = 0, page_index = 0;
 	struct page **pages;
 	gfp_t gfp = GFP_NVMAP | __GFP_ZERO;
@@ -687,9 +687,10 @@ static void alloc_handle(struct nvmap_client *client,
 
 static int alloc_handle_from_va(struct nvmap_client *client,
 				 struct nvmap_handle *h,
-				 ulong vaddr)
+				 ulong vaddr,
+				 u32 flags)
 {
-	int nr_page = h->size >> PAGE_SHIFT;
+	size_t nr_page = h->size >> PAGE_SHIFT;
 	struct page **pages;
 	int ret = 0;
 
@@ -697,11 +698,15 @@ static int alloc_handle_from_va(struct nvmap_client *client,
 	if (IS_ERR_OR_NULL(pages))
 		return PTR_ERR(pages);
 
-	ret = nvmap_get_user_pages(vaddr & PAGE_MASK, nr_page, pages);
+	ret = nvmap_get_user_pages(vaddr & PAGE_MASK, nr_page, pages, true,
+				(flags & NVMAP_HANDLE_RO) ? 0 : FOLL_WRITE);
 	if (ret) {
 		nvmap_altfree(pages, nr_page * sizeof(*pages));
 		return ret;
 	}
+
+	if (flags & NVMAP_HANDLE_RO)
+		h->is_ro = true;
 
 	nvmap_clean_cache(&pages[0], nr_page);
 	h->pgalloc.pages = pages;
@@ -748,7 +753,7 @@ int nvmap_alloc_handle(struct nvmap_client *client,
 		       int peer)
 {
 	const unsigned int *alloc_policy;
-	int nr_page;
+	size_t nr_page;
 	int err = -ENOMEM;
 	int tag, i;
 	bool alloc_from_excl = false;
@@ -890,7 +895,12 @@ int nvmap_alloc_handle_from_va(struct nvmap_client *client,
 			client->task->pid, task_comm);
 	}
 
-	(void)alloc_handle_from_va(client, h, addr);
+	err = alloc_handle_from_va(client, h, addr, flags);
+	if (err) {
+		pr_err("alloc_handle_from_va failed %d", err);
+		nvmap_handle_put(h);
+		return -EINVAL;
+	}
 
 	if (h->alloc) {
 		NVMAP_TAG_TRACE(trace_nvmap_alloc_handle_done,

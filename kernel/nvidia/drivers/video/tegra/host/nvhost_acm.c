@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Automatic Clock Management
  *
- * Copyright (c) 2010-2020, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -695,6 +695,16 @@ int nvhost_module_init(struct platform_device *dev)
 	struct kobj_attribute *attr = NULL;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	struct nvhost_master *master = nvhost_get_host(dev);
+
+	if (!master) {
+		dev_err(&dev->dev, "master == NULL");
+		return -EAGAIN;
+	}
+
+	if (!pdata) {
+		dev_err(&dev->dev, "pdata == NULL");
+		return -EAGAIN;
+	}
 
 	if (!pdata->no_platform_dma_mask) {
 		dma_set_mask_and_coherent(&dev->dev, master->info.dma_mask);

@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/camera/tegra_camera_platform.c
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -350,6 +350,9 @@ int tegra_camera_update_isobw(void)
 	struct tegra_camera_info *info;
 	unsigned long total_khz;
 	unsigned long bw;
+#ifdef CONFIG_TEGRA_MC
+	unsigned long bw_mbps;
+#endif
 	int ret = 0;
 
 	if (tegra_camera_misc.parent == NULL) {
@@ -383,10 +386,13 @@ int tegra_camera_update_isobw(void)
 	/*
 	 * Different chip versions use different APIs to set LA for VI.
 	 * If one fails, try another, and fail if both of them don't work.
+	 * Convert bw from kbps to mbps, and round up to the next mbps to
+	 * guarantee it's larger than the requested for LA/PTSA setting.
 	 */
-	ret = tegra_set_camera_ptsa(TEGRA_LA_VI_W, bw, 1);
+	bw_mbps = (bw / 1000U) + 1;
+	ret = tegra_set_camera_ptsa(TEGRA_LA_VI_W, bw_mbps, 1);
 	if (ret) {
-		ret = tegra_set_latency_allowance(TEGRA_LA_VI_W, bw);
+		ret = tegra_set_latency_allowance(TEGRA_LA_VI_W, bw_mbps);
 		if (ret) {
 			dev_err(info->dev, "%s: set la failed: %d\n",
 				__func__, ret);

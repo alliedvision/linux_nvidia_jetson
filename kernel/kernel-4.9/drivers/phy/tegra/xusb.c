@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -137,8 +137,10 @@ tegra_xusb_lane_lookup_function(struct tegra_xusb_lane *lane,
 int tegra_xusb_lane_parse_dt(struct tegra_xusb_lane *lane,
 			     struct device_node *np)
 {
+	struct tegra_xusb_usb2_lane *usb2 = to_usb2_lane(lane);
 	struct device *dev = &lane->pad->dev;
 	const char *function;
+	s32 offset;
 	int err;
 
 	err = of_property_read_string(np, "nvidia,function", &function);
@@ -153,6 +155,14 @@ int tegra_xusb_lane_parse_dt(struct tegra_xusb_lane *lane,
 	}
 
 	lane->function = err;
+
+	err = of_property_read_s32(np, "nvidia,hs_curr_level_offset", &offset);
+	if (err == 0)
+		usb2->hs_curr_level_offset = offset;
+
+	/* this property is optional, ignore -EINVAL error */
+	if (err == -EINVAL)
+		err = 0;
 
 	return 0;
 }
@@ -658,6 +668,7 @@ static int tegra_xusb_add_usb2_port(struct tegra_xusb_padctl *padctl,
 
 	/* overcurrent disabled by default */
 	usb2->oc_pin = -1;
+	usb2->hs_txeq = -1;
 
 	usb2->base.ops = padctl->soc->ports.usb2.ops;
 
@@ -1334,6 +1345,7 @@ reset:
 	if (!padctl->is_xhci_iov)
 		reset_control_assert(padctl->rst);
 remove:
+	platform_set_drvdata(pdev, NULL);
 	soc->ops->remove(padctl);
 	return err;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -84,12 +84,26 @@ static void tegra_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	/* Dummy implementation for avoiding error from core */
 }
 
+static int pwm_tegra_tacho_set_wlen(struct pwm_tegra_tach *ptt,
+					int window_length)
+{
+	u32 tach0, wlen;
+
+	wlen = ffs(window_length) - 1;
+	tach0 = tachometer_readl(ptt, TACH_FAN_TACH0);
+	tach0 &= ~(TACH_FAN_TACH0_WIN_LENGTH_MASK <<
+			TACH_FAN_TACH0_WIN_LENGTH_SHIFT);
+	tach0 |= wlen << TACH_FAN_TACH0_WIN_LENGTH_SHIFT;
+	tachometer_writel(ptt, tach0, TACH_FAN_TACH0);
+
+	return 0;
+}
+
 static int pwm_tegra_tacho_set_capture_wlen(struct pwm_chip *chip,
 					    struct pwm_device *pwm,
 					    int window_length)
 {
 	struct pwm_tegra_tach *ptt = to_tegra_pwm_chip(chip);
-	u32 tach0, wlen;
 
 	if (hweight8(window_length) != 1) {
 		dev_err(ptt->dev,
@@ -103,12 +117,7 @@ static int pwm_tegra_tacho_set_capture_wlen(struct pwm_chip *chip,
 		return -EINVAL;
 	}
 
-	wlen = ffs(window_length) - 1;
-	tach0 = tachometer_readl(ptt, TACH_FAN_TACH0);
-	tach0 &= ~(TACH_FAN_TACH0_WIN_LENGTH_MASK <<
-			TACH_FAN_TACH0_WIN_LENGTH_SHIFT);
-	tach0 |= wlen << TACH_FAN_TACH0_WIN_LENGTH_SHIFT;
-	tachometer_writel(ptt, tach0, TACH_FAN_TACH0);
+	pwm_tegra_tacho_set_wlen(ptt, window_length);
 
 	ptt->capture_win_len = window_length;
 
@@ -286,6 +295,25 @@ static int pwm_tegra_tach_remove(struct platform_device *pdev)
 	return pwmchip_remove(&ptt->chip);
 }
 
+static int pwm_tegra_tach_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int pwm_tegra_tach_resume(struct device *dev)
+{
+	struct pwm_tegra_tach *ptt = dev_get_drvdata(dev);
+
+	pwm_tegra_tacho_set_wlen(ptt, ptt->capture_win_len);
+
+	return 0;
+}
+
+static const struct dev_pm_ops pwm_tegra_tach_pm_ops = {
+	.suspend        = pwm_tegra_tach_suspend,
+	.resume         = pwm_tegra_tach_resume,
+};
+
 static const struct of_device_id pwm_tegra_tach_of_match[] = {
 	{ .compatible = "nvidia,pwm-tegra186-tachometer" },
 	{ .compatible = "nvidia,pwm-tegra194-tachometer" },
@@ -297,6 +325,7 @@ static struct platform_driver tegra_tach_driver = {
 	.driver = {
 		.name = "pwm-tegra-tachometer",
 		.of_match_table = pwm_tegra_tach_of_match,
+		.pm = &pwm_tegra_tach_pm_ops,
 	},
 	.probe = pwm_tegra_tach_probe,
 	.remove = pwm_tegra_tach_remove,

@@ -1,7 +1,7 @@
 /*
  * VI NOTIFY driver for Tegra186
  *
- * Copyright (c) 2015-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2015-2021 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -113,6 +113,8 @@ static inline s64 get_ts_adjustment(u64 tsc_res)
 	#define _MAX_ADJUSTMENT_TRIES (5)
 	#define _DELTA_DIFF_THRESHOLD (5000)
 
+	preempt_disable();
+
 	do {
 		tsc = (s64)(arch_counter_get_cntvct() * tsc_res);
 
@@ -126,6 +128,8 @@ static inline s64 get_ts_adjustment(u64 tsc_res)
 		tries++;
 	} while ((tries < _MAX_ADJUSTMENT_TRIES) &&
 		    (abs(delta2 - delta1) > _DELTA_DIFF_THRESHOLD));
+
+	preempt_enable();
 
 	WARN_ON(tries == _MAX_ADJUSTMENT_TRIES);
 	#undef _MAX_ADJUSTMENT_TRIES
@@ -235,6 +239,9 @@ static int tegra_ivc_vi_notify_send(struct tegra_ivc_channel *chan,
 	 * - VI emitting an event before the request is processed. */
 	ret = wait_for_completion_killable_timeout(&ivn->ack, HZ);
 	if (ret <= 0) {
+		if (tegra_ivc_can_read(&chan->ivc))
+			dev_err(&chan->dev, "IVC frames pending to be read\n");
+
 		dev_err(&chan->dev, "no reply from camera processor\n");
 #ifndef BUG_200219206
 		WARN_ON(1);

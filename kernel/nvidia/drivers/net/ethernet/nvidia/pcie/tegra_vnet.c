@@ -37,6 +37,10 @@ struct tvnet_priv {
 	enum dir_link_state tx_link_state;
 	enum dir_link_state rx_link_state;
 	enum os_link_state os_link_state;
+
+	/* Flag to track ndo_stop done by suspend */
+	bool pm_closed;
+
 	/* To synchronize network link state machine*/
 	struct mutex link_state_lock;
 	wait_queue_head_t link_state_wq;
@@ -223,8 +227,8 @@ static void tvnet_host_stop_tx_queue(struct tvnet_priv *tvnet)
 
 	netif_stop_queue(ndev);
 	/* Get tx lock to make sure that there is no ongoing xmit */
-	netif_tx_lock_bh(ndev);
-	netif_tx_unlock_bh(ndev);
+	netif_tx_lock(ndev);
+	netif_tx_unlock(ndev);
 }
 
 static void tvnet_host_stop_rx_work(struct tvnet_priv *tvnet)
@@ -744,6 +748,7 @@ static int tvnet_host_probe(struct pci_dev *pdev,
 	tvnet = netdev_priv(ndev);
 	tvnet->ndev = ndev;
 	tvnet->pdev = pdev;
+	pci_set_drvdata(pdev, tvnet);
 
 	ret = pci_enable_device(pdev);
 	if (ret) {
@@ -857,6 +862,40 @@ fail:
 	return ret;
 }
 
+static int tvnet_host_suspend(struct pci_dev *pdev, pm_message_t state)
+{
+	struct tvnet_priv *tvnet = pci_get_drvdata(pdev);
+
+	disable_irq(pci_irq_vector(tvnet->pdev, 1));
+
+	if (tvnet->rx_link_state == DIR_LINK_STATE_UP) {
+		tvnet_host_close(tvnet->ndev);
+		tvnet->pm_closed = true;
+	}
+
+	return 0;
+}
+
+static int tvnet_host_resume(struct pci_dev *pdev)
+{
+	struct tvnet_priv *tvnet = pci_get_drvdata(pdev);
+#if ENABLE_DMA
+	struct dma_desc_cnt *desc_cnt = &tvnet->desc_cnt;
+
+	desc_cnt->wr_cnt = desc_cnt->rd_cnt = 0;
+	tvnet_host_write_dma_msix_settings(tvnet);
+#endif
+
+	if (tvnet->pm_closed == true) {
+		tvnet_host_open(tvnet->ndev);
+		tvnet->pm_closed = false;
+	}
+
+	enable_irq(pci_irq_vector(tvnet->pdev, 1));
+
+	return 0;
+}
+
 static const struct pci_device_id tvnet_host_pci_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_NVIDIA,
 		     PCI_DEVICE_ID_NVIDIA_JETSON_AGX_NETWORK) },
@@ -867,6 +906,10 @@ static struct pci_driver tvnet_pci_driver = {
 	.name		= "tvnet",
 	.id_table	= tvnet_host_pci_tbl,
 	.probe		= tvnet_host_probe,
+#ifdef CONFIG_PM
+	.suspend        = tvnet_host_suspend,
+	.resume         = tvnet_host_resume,
+#endif
 };
 
 module_pci_driver(tvnet_pci_driver);

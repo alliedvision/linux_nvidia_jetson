@@ -29,6 +29,11 @@ void blk_mq_free_queue(struct request_queue *q);
 int blk_mq_update_nr_requests(struct request_queue *q, unsigned int nr);
 void blk_mq_wake_waiters(struct request_queue *q);
 
+/*
+ * CPU hotplug helpers
+ */
+void blk_mq_enable_hotplug(void);
+void blk_mq_disable_hotplug(void);
 
 /*
  * CPU -> queue mappings

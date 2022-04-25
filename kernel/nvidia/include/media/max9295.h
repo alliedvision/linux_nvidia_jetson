@@ -16,7 +16,7 @@
 
 /**
  * @file
- * <b>MAX9295 API: For Maxim Integrated MAX9295 serializer.</b>
+ * <b>MAX9295 API: For Maxim Integrated MAX9295 serializer</b>
  *
  * @b Description: Defines elements used to set up and use a
  *  Maxim Integrated MAX9295 serializer.

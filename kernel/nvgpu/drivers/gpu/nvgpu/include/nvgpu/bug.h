@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,24 @@
 
 #ifdef __KERNEL__
 #include <linux/bug.h>
+/*
+ * Define an assert macro that code within nvgpu can use.
+ *
+ * The goal of this macro is for debugging but what that means varies from OS
+ * to OS. On Linux wee don't want to BUG() for general driver misbehaving. BUG()
+ * is a very heavy handed tool - in fact there's probably no where within the
+ * nvgpu core code where it makes sense to use a BUG() when running under Linux.
+ *
+ * However, on QNX (and POSIX) BUG() will just kill the current process. This
+ * means we can use it for handling bugs in nvgpu.
+ *
+ * As a result this macro varies depending on platform.
+ */
+#define nvgpu_assert(cond)	((void) WARN_ON(!(cond)))
+#define nvgpu_do_assert_print(g, fmt, arg...)				\
+	do {								\
+		nvgpu_err(g, fmt, ##arg);				\
+	} while (false)
 #elif defined(__NVGPU_POSIX__)
 #include <nvgpu/posix/bug.h>
 #else

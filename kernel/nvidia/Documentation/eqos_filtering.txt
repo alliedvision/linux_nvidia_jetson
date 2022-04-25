@@ -1,0 +1,90 @@
+DT based configuration for filtering with DMA selection.
+Following dt properties have to be added in ether_qos@2490000 node.
+
+1.  nvidia,queue_dma_map : u32 array of 4 values. Value at index n specfies if
+                           if nth queue is statically mapped to a DMA channel
+                           or dynamically mapped. Dynamic queue to DMA mapping
+                           is required for dynamic DMA selection for packets
+                           received in a particular queue which match filtering
+                           criteria.
+    Example:
+    nvidia,queue_dma_map = <1 1 0 0>;
+    Here queue 0 and 1 are set to have dynamic mapping while queue 2 and 3 will
+    have static mapping to DMA channel 2 and 3 respectively.
+
+2.  nvidia,filters : This property is an array of u32 values. Every three
+                     successive values gives the required paramertes to
+                     configure a single filter in format:
+
+                      nvidia,filters = < filter_conf IP_addr Port_num >
+
+                      filter conf bits :
+                       2     -> src/dst
+                       3     -> enable/disable
+                       4     -> perfect/inverse
+                       5     -> dma_routing_enable
+                       8:6   -> dma_channel
+                       9     -> ipv4/ipv6
+                       10    -> tcp/udp
+                       15:11 -> Mask Value for L3 filter address
+                                holds mask for L3 filter, 0 -> 31
+                                0: No bits are masked
+                                1: LSb[0] is maksed
+                                2: LSb[1:0] are masked
+                                ....
+                                31: LSb[0:30] are masked , leaving only 31 bit
+                       26:24 -> L3/L4
+                       30:28 -> filter number
+
+                       IP_addr : 32 bit value holding ip address in case of L3
+                                 filter. In case of L4 filter this value is not
+                                 applicable.
+
+                       Port_num: 32 bit value holding port number in case of L4
+                                 filter. In case of L3 filter this value is not
+                                 applicable.
+
+Macro EQOS_FILTER can be used to help in configuration.
+
+Following example can be used as a template.
+
+#define IPv4(a,b,c,d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
+#define FILTER_L3 0
+#define FILTER_L4 1
+#define FILTER_TCP 0
+#define FILTER_UDP 1
+#define FILTER_SRC 0
+#define FILTER_DST 1
+#define FILTER_DISABLE 0
+#define FILTER_ENABLE 1
+#define PERFECT_MATCHING 0
+#define INVERSE_MATCHING 1
+
+/*Accept ipv4 only */
+#define is_ipv6 0
+#define dma_routing_enable 1
+#define filter_enable 1
+
+#define EQOS_FILTER(filter_num, filter_type, src_dst, perfect_inverse, dma_channel, is_udp, l3_mask, ip, port) \
+                   (((filter_num) << 28) | ((filter_type) << 24) | \
+                   ((src_dst) << 2) | (filter_enable << 3) | \
+                   ((perfect_inverse) << 4) | (dma_routing_enable << 5) | \
+                   ((dma_channel) << 6) | (is_ipv6 << 9) \
+                   | ((is_udp) << 10)  | ((l3_mask) << 11)) ip port
+
+
+	ether_qos@2490000 {
+		nvidia,queue_dma_map = <1 1 0 0>;
+		nvidia,filters = < EQOS_FILTER( 0, FILTER_L3, FILTER_SRC, PERFECT_MATCHING, 2, FILTER_TCP, 0, IPv4(10,41,22,2), 0 )
+				   EQOS_FILTER( 1, FILTER_L3, FILTER_SRC, PERFECT_MATCHING, 3, FILTER_TCP, 0, IPv4(10,41,23,164), 0 )
+				   EQOS_FILTER( 2, FILTER_L3, FILTER_SRC, INVERSE_MATCHING, 0, FILTER_TCP, 0, IPv4(0,0,0,0), 0 ) >;
+        };
+
+In this example, there are three filters enabled:
+Filter 0 allows packets from source IP 10.41.22.2 and redirect all matching
+packets to DMA channel 2,
+Filter 1 allows packets from source IP 10.41.23.164 and redirect all matching
+packets to DMA channel 3.
+Filter 2 is an inverse filter with source IP 0:0:0:0 means that it will allow
+all packets except from source 0:0:0:0 and redirect allowed packets to DMA
+channel 0.

@@ -649,6 +649,9 @@ config NEED_PER_CPU_EMBED_FIRST_CHUNK
 	def_bool y
 	depends on NUMA
 
+config HOLES_IN_ZONE
+	def_bool y
+
 source kernel/Kconfig.preempt
 source kernel/Kconfig.hz
 

@@ -133,5 +133,27 @@
 			enable-active-high;
 			vin-supply = <&battery_reg>;
 		};
+
+		p2822_vdd_3v3_pcie: regulator@115 {
+			compatible = "regulator-fixed";
+			reg = <115>;
+			regulator-name = "vdd-3v3-pcie";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(Z, 2) 0>;
+			regulator-boot-on;
+			enable-active-high;
+		};
+
+		p2822_vdd_12v_pcie: regulator@116 {
+			compatible = "regulator-fixed";
+			reg = <116>;
+			regulator-name = "vdd-12v-pcie";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(A, 1) 1>;
+			regulator-boot-on;
+			enable-active-low;
+		};
 	};
 };

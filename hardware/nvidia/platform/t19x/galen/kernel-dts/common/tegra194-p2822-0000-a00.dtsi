@@ -16,7 +16,6 @@
 #include "dt-bindings/input/input.h"
 #include "tegra194-audio-p2822-0000.dtsi"
 #include "tegra194-p2822-disp.dtsi"
-#include "tegra194-p2822-0000-camera-avt-csi2.dtsi"
 
 / {
 	sdhci@3400000 {

@@ -51,6 +51,7 @@
 
                         phy: ethernet-phy@1 {
                                 reg = <1>;
+				phy_rst_lp_mode = <1>; /* 0=disable 1=enable */
                                 interrupt-parent = <&tegra_aon_gpio>;
                                 interrupts = <TEGRA_AON_GPIO(AA, 7) IRQ_TYPE_LEVEL_LOW>;
 

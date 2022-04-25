@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine hardware crypto algorithms.
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -471,13 +471,24 @@ static int tegra_init_key_slot(struct tegra_se_dev *se_dev)
 {
 	int i;
 
+	spin_lock_init(&key_slot_lock);
+	spin_lock(&key_slot_lock);
+	/*
+	 *To avoid multiple secure engine initializing
+	 *key-slots.
+	 */
+	if (key_slot.prev != key_slot.next) {
+		spin_unlock(&key_slot_lock);
+		return 0;
+	}
+	spin_unlock(&key_slot_lock);
+
 	se_dev->slot_list = devm_kzalloc(se_dev->dev,
 					 sizeof(struct tegra_se_slot) *
 					 TEGRA_SE_KEYSLOT_COUNT, GFP_KERNEL);
 	if (!se_dev->slot_list)
 		return -ENOMEM;
 
-	spin_lock_init(&key_slot_lock);
 	spin_lock(&key_slot_lock);
 	for (i = 0; i < TEGRA_SE_KEYSLOT_COUNT; i++) {
 		/*
@@ -2138,9 +2149,10 @@ static int tegra_se_rng_drbg_get_random(struct crypto_rng *tfm, const u8 *src,
 			       TEGRA_SE_RNG_DT_SIZE);
 	}
 
-	if (!ret)
-		ret = dlen;
-
+	/*
+	 * According to include/crypto/rng.h, this function should
+	 * return 0 for success, < 0 errorcode otherwise.
+	 */
 	mutex_unlock(&se_dev->mtx);
 	devm_kfree(se_dev->dev, req_ctx);
 
@@ -3575,7 +3587,6 @@ static int tegra_se_dh_compute_value(struct kpp_request *req)
 	struct tegra_se_dh_context *dh_ctx = NULL;
 	struct tegra_se_dev *se_dev;
 	struct scatterlist *src_sg;
-	struct tegra_se_ll *src_ll, *dst_ll;
 	u32 num_src_sgs, num_dst_sgs;
 	u8 *base_buff = NULL;
 	struct scatterlist src;
@@ -3644,8 +3655,8 @@ static int tegra_se_dh_compute_value(struct kpp_request *req)
 
 	tegra_se_fix_endianness(se_dev, src_sg, num_src_sgs, total, true);
 
-	src_ll = (struct tegra_se_ll *)(se_dev->src_ll_buf);
-	dst_ll = (struct tegra_se_ll *)(se_dev->dst_ll_buf);
+	se_dev->src_ll = (struct tegra_se_ll *)(se_dev->src_ll_buf);
+	se_dev->dst_ll = (struct tegra_se_ll *)(se_dev->dst_ll_buf);
 
 	err = tegra_map_sg(se_dev->dev, src_sg, 1, DMA_TO_DEVICE,
 			   se_dev->src_ll, total);
@@ -4321,6 +4332,60 @@ static int tegra_se_probe(struct platform_device *pdev)
 		goto ll_alloc_fail;
 	}
 
+	if (is_algo_supported(node, "drbg") || is_algo_supported(node, "aes") ||
+	    is_algo_supported(node, "cmac")) {
+		se_dev->aes_cmdbuf_cpuvaddr =
+			dma_alloc_attrs(se_dev->dev->parent,
+					SZ_16K * SE_MAX_SUBMIT_CHAIN_SZ,
+					&se_dev->aes_cmdbuf_iova, GFP_KERNEL,
+					__DMA_ATTR(attrs));
+
+		if (!se_dev->aes_cmdbuf_cpuvaddr)
+			goto ll_alloc_fail;
+
+		err = tegra_se_init_cmdbuf_addr(se_dev);
+		if (err) {
+			dev_err(se_dev->dev, "failed to init cmdbuf addr\n");
+			goto dma_free;
+		}
+	}
+
+	se_dev->aes_src_ll =
+		devm_kzalloc(&pdev->dev, sizeof(struct tegra_se_ll),
+			     GFP_KERNEL);
+	se_dev->aes_dst_ll =
+		devm_kzalloc(&pdev->dev, sizeof(struct tegra_se_ll),
+			     GFP_KERNEL);
+	if (!se_dev->aes_src_ll || !se_dev->aes_dst_ll) {
+		dev_err(se_dev->dev, "Linked list memory allocation failed\n");
+		goto aes_ll_buf_alloc_fail;
+	}
+
+	if (se_dev->ioc)
+		se_dev->total_aes_buf = dma_alloc_coherent(
+						se_dev->dev, SE_MAX_MEM_ALLOC,
+						&se_dev->total_aes_buf_addr,
+						GFP_KERNEL);
+	else
+		se_dev->total_aes_buf = kzalloc(SE_MAX_MEM_ALLOC, GFP_KERNEL);
+
+	if (!se_dev->total_aes_buf) {
+		err = -ENOMEM;
+		goto aes_buf_alloc_fail;
+	}
+
+	tegra_se_init_aesbuf(se_dev);
+
+	se_dev->syncpt_id = nvhost_get_syncpt_host_managed(se_dev->pdev,
+							   0, pdev->name);
+	if (!se_dev->syncpt_id) {
+		err = -EINVAL;
+		dev_err(se_dev->dev, "Cannot get syncpt_id for SE(%s)\n",
+			pdev->name);
+		goto reg_fail;
+	}
+
+	/* Algo registrations */
 	if (is_algo_supported(node, "drbg")) {
 		INIT_LIST_HEAD(&rng_algs[0].base.cra_list);
 		err = crypto_register_rng(&rng_algs[0]);
@@ -4374,8 +4439,6 @@ static int tegra_se_probe(struct platform_device *pdev)
 		}
 	}
 
-	node = of_node_get(se_dev->dev->of_node);
-
 	err = of_property_read_u32(node, "pka0-rsa-priority", &val);
 	if (!err)
 		rsa_alg.base.cra_priority = val;
@@ -4386,6 +4449,15 @@ static int tegra_se_probe(struct platform_device *pdev)
 				sizeof(rsa_alg.base.cra_name) - 1);
 
 	if (is_algo_supported(node, "rsa")) {
+		se_dev->dh_buf1 = (u32 *)devm_kzalloc(
+				se_dev->dev, TEGRA_SE_RSA2048_INPUT_SIZE,
+				GFP_KERNEL);
+		se_dev->dh_buf2 = (u32 *)devm_kzalloc(
+				se_dev->dev, TEGRA_SE_RSA2048_INPUT_SIZE,
+				GFP_KERNEL);
+		if (!se_dev->dh_buf1 || !se_dev->dh_buf2)
+			goto reg_fail;
+
 		err = crypto_register_akcipher(&rsa_alg);
 		if (err) {
 			dev_err(se_dev->dev, "crypto_register_akcipher fail");
@@ -4396,15 +4468,6 @@ static int tegra_se_probe(struct platform_device *pdev)
 			dev_err(se_dev->dev, "crypto_register_kpp fail");
 			goto reg_fail;
 		}
-
-		se_dev->dh_buf1 = (u32 *)devm_kzalloc(
-				se_dev->dev, TEGRA_SE_RSA2048_INPUT_SIZE,
-				GFP_KERNEL);
-		se_dev->dh_buf2 = (u32 *)devm_kzalloc(
-				se_dev->dev, TEGRA_SE_RSA2048_INPUT_SIZE,
-				GFP_KERNEL);
-		if (!se_dev->dh_buf1 || !se_dev->dh_buf2)
-			goto reg_fail;
 	}
 
 	if (is_algo_supported(node, "drbg")) {
@@ -4424,73 +4487,26 @@ static int tegra_se_probe(struct platform_device *pdev)
 		nvhost_module_idle(pdev);
 	}
 
-	se_dev->syncpt_id = nvhost_get_syncpt_host_managed(se_dev->pdev,
-							   0, pdev->name);
-	if (!se_dev->syncpt_id) {
-		err = -EINVAL;
-		dev_err(se_dev->dev, "Cannot get syncpt_id for SE(%s)\n",
-			pdev->name);
-		goto reg_fail;
-	}
-
-	se_dev->aes_src_ll = devm_kzalloc(&pdev->dev, sizeof(struct tegra_se_ll),
-				      GFP_KERNEL);
-	se_dev->aes_dst_ll = devm_kzalloc(&pdev->dev, sizeof(struct tegra_se_ll),
-				      GFP_KERNEL);
-	if (!se_dev->aes_src_ll || !se_dev->aes_dst_ll) {
-		dev_err(se_dev->dev, "Linked list memory allocation failed\n");
-		goto aes_buf_alloc_fail;
-	}
-
-	if (se_dev->ioc)
-		se_dev->total_aes_buf = dma_alloc_coherent(
-						se_dev->dev, SE_MAX_MEM_ALLOC,
-						&se_dev->total_aes_buf_addr,
-						GFP_KERNEL);
-	else
-		se_dev->total_aes_buf = kzalloc(SE_MAX_MEM_ALLOC, GFP_KERNEL);
-
-	if (!se_dev->total_aes_buf) {
-		err = -ENOMEM;
-		goto aes_buf_alloc_fail;
-	}
-
-	tegra_se_init_aesbuf(se_dev);
-
-	if (is_algo_supported(node, "drbg") || is_algo_supported(node, "aes") ||
-	    is_algo_supported(node, "cmac")) {
-		se_dev->aes_cmdbuf_cpuvaddr = dma_alloc_attrs(
-			se_dev->dev->parent, SZ_16K * SE_MAX_SUBMIT_CHAIN_SZ,
-			&se_dev->aes_cmdbuf_iova, GFP_KERNEL,
-			__DMA_ATTR(attrs));
-		if (!se_dev->aes_cmdbuf_cpuvaddr)
-			goto cmd_buf_alloc_fail;
-
-		err = tegra_se_init_cmdbuf_addr(se_dev);
-		if (err) {
-			dev_err(se_dev->dev, "failed to init cmdbuf addr\n");
-			goto dma_free;
-		}
-	}
-
 	tegra_se_boost_cpu_init(se_dev);
 
 	dev_info(se_dev->dev, "%s: complete", __func__);
 
 	return 0;
+reg_fail:
+	nvhost_syncpt_put_ref_ext(se_dev->pdev, se_dev->syncpt_id);
+aes_buf_alloc_fail:
+	kfree(se_dev->total_aes_buf);
+aes_ll_buf_alloc_fail:
+	kfree(se_dev->aes_src_ll);
+	kfree(se_dev->aes_dst_ll);
 dma_free:
 	dma_free_attrs(se_dev->dev->parent, SZ_16K * SE_MAX_SUBMIT_CHAIN_SZ,
 		       se_dev->aes_cmdbuf_cpuvaddr, se_dev->aes_cmdbuf_iova,
 		       __DMA_ATTR(attrs));
-cmd_buf_alloc_fail:
-	kfree(se_dev->total_aes_buf);
-aes_buf_alloc_fail:
-	nvhost_syncpt_put_ref_ext(se_dev->pdev, se_dev->syncpt_id);
-reg_fail:
-	tegra_se_free_ll_buf(se_dev);
 ll_alloc_fail:
 	if (se_dev->se_work_q)
 		destroy_workqueue(se_dev->se_work_q);
+	tegra_se_free_ll_buf(se_dev);
 
 	return err;
 }

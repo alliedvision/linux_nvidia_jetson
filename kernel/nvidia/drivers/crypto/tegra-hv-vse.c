@@ -4,7 +4,7 @@
  *
  * Support for Tegra Virtual Security Engine hardware crypto algorithms.
  *
- * Copyright (c) 2016-2020, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,6 +66,10 @@
 static struct task_struct *tegra_vse_task;
 static bool vse_thread_start;
 static bool is_rng1_registered;
+static bool is_aes0_registered;
+static bool is_aes1_registered;
+static bool is_sha_registered;
+static bool is_rsa_registered;
 
 /* Security Engine Linked List */
 struct tegra_virtual_se_ll {
@@ -92,6 +96,8 @@ struct tegra_vse_rng1_data {
 	u32 bytes_returned;
 	u8 data[TEGRA_VIRTUAL_SE_RNG1_SIZE];
 };
+/* Timeout response from SE server in status field */
+#define TEGRA_VSE_STATUS_TIMEOUT    (-13)
 
 struct tegra_vse_priv_data {
 	struct ablkcipher_request *reqs[TEGRA_HV_VSE_MAX_TASKS_PER_SUBMIT];
@@ -1908,7 +1914,7 @@ static void complete_call_back(void *data)
 	struct ablkcipher_request *req;
 	struct tegra_vse_priv_data *priv =
 		(struct tegra_vse_priv_data *)data;
-	int err = status_to_errno(priv->rx_status);
+	int err;
 	int num_sgs;
 	void *buf;
 
@@ -1916,6 +1922,8 @@ static void complete_call_back(void *data)
 		pr_err("%s:%d\n", __func__, __LINE__);
 		return;
 	}
+
+	err = status_to_errno(priv->rx_status);
 
 	dma_sync_single_for_cpu(priv->se_dev->dev, priv->buf_addr,
 		priv->gather_buf_sz, DMA_BIDIRECTIONAL);
@@ -2944,7 +2952,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 				sizeof(*ivc_req_msg),
 				GFP_KERNEL);
 	if (!ivc_req_msg)
-		return 0;
+		return -ENOMEM;
 
 	ivc_tx = &ivc_req_msg->d[0].tx;
 	ivc_req_msg->hdr.num_reqs = 1;
@@ -2952,7 +2960,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 	if (!priv) {
 		dev_err(se_dev->dev, "Priv Data allocation failed\n");
 		devm_kfree(se_dev->dev, ivc_req_msg);
-		return 0;
+		return -ENOMEM;
 	}
 
 	for (j = 0; j <= num_blocks; j++) {
@@ -2974,14 +2982,14 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 		/* Return error if engine is in suspended state */
 		if (atomic_read(&se_dev->se_suspended)) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = 0;
+			dlen = -ENODEV;
 			goto exit;
 		}
 		err = tegra_hv_vse_send_ivc(se_dev, pivck, ivc_req_msg,
 				sizeof(struct tegra_virtual_se_ivc_msg_t));
 		if (err) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = 0;
+			dlen = err;
 			goto exit;
 		}
 
@@ -2990,7 +2998,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 		mutex_unlock(&se_dev->server_lock);
 		if (time_left == 0) {
 			dev_err(se_dev->dev, "%s timeout\n", __func__);
-			dlen = 0;
+			dlen = -ETIMEDOUT;
 			goto exit;
 		}
 
@@ -3004,6 +3012,11 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 				TEGRA_VIRTUAL_SE_RNG_DT_SIZE);
 		}
 	}
+	/*
+	 * According to include/crypto/rng.h, this function should
+	 * return 0 for success, < 0 errorcode otherwise.
+	 */
+	dlen = 0;
 exit:
 	devm_kfree(se_dev->dev, priv);
 	devm_kfree(se_dev->dev, ivc_req_msg);
@@ -3040,7 +3053,7 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 				sizeof(*ivc_req_msg),
 				GFP_KERNEL);
 	if (!ivc_req_msg)
-		return 0;
+		return -ENOMEM;
 
 	ivc_tx = &ivc_req_msg->d[0].tx;
 	ivc_req_msg->hdr.num_reqs = 1;
@@ -3048,7 +3061,7 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 	if (!priv) {
 		dev_err(se_dev->dev, "Priv Data allocation failed\n");
 		devm_kfree(se_dev->dev, ivc_req_msg);
-		return 0;
+		return -ENOMEM;
 	}
 
 	for (j = 0; j <= num_blocks; j++) {
@@ -3072,23 +3085,33 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 		mutex_lock(&se_dev->server_lock);
 		if (atomic_read(&se_dev->se_suspended)) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = 0;
+			dlen = -ENODEV;
 			goto exit;
 		}
 		err = tegra_hv_vse_send_ivc(se_dev, pivck, ivc_req_msg,
 				sizeof(struct tegra_virtual_se_ivc_msg_t));
 		if (err) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = 0;
+			dlen = err;
 			goto exit;
 		}
 
 		time_left = wait_for_completion_timeout(&priv->alg_complete,
 				TEGRA_HV_VSE_TIMEOUT);
 		mutex_unlock(&se_dev->server_lock);
-		if ((time_left == 0) || (priv->rng1.status)) {
-			dev_err(se_dev->dev, "%s rng1 failed\n", __func__);
-			dlen = 0;
+		if (time_left == 0) {
+			dev_err(se_dev->dev, "%s server timeout\n", __func__);
+			dlen = -ETIMEDOUT;
+			goto exit;
+		}
+		else if (priv->rng1.status == (u8)TEGRA_VSE_STATUS_TIMEOUT) {
+			dev_dbg(se_dev->dev, "%s rng1 hw busy\n", __func__);
+			dlen = -EAGAIN;
+			goto exit;
+		} else if (priv->rng1.status) {
+			dev_err(se_dev->dev, "%s rng1 err %x\n", __func__,
+					priv->rng1.status);
+			dlen = -ENODATA;
 			goto exit;
 		}
 		rdata_addr =
@@ -3102,6 +3125,11 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 		}
 		total -= TEGRA_VIRTUAL_SE_RNG1_SIZE;
 	}
+	/*
+	 * According to include/crypto/rng.h, this function should
+	 * return 0 for success, < 0 errorcode otherwise.
+	 */
+	dlen = 0;
 exit:
 	devm_kfree(se_dev->dev, priv);
 	devm_kfree(se_dev->dev, ivc_req_msg);
@@ -3653,16 +3681,11 @@ static int tegra_vse_kthread(void *unused)
 			read_size = tegra_hv_ivc_read(pivck,
 					ivc_resp_msg,
 					sizeof(struct tegra_virtual_se_ivc_msg_t));
-			if (read_size <= 0) {
-				dev_err(se_dev->dev,
-					"tegra_hv_ivc_read returned error %d\n", read_size);
+			if (read_size < sizeof(struct tegra_virtual_se_ivc_msg_t) ) {
+				pr_err("tegra_hv_ivc_read returned error %d\n", read_size);
 				break;
 			}
-			if (read_size < sizeof(struct tegra_virtual_se_ivc_msg_t)) {
-				dev_err(se_dev->dev,
-					"Wrong read msg len %d\n", read_size);
-				continue;
-			}
+
 			p_dat =
 				(struct tegra_vse_tag *)ivc_resp_msg->hdr.tag;
 			priv = (struct tegra_vse_priv_data *)p_dat->priv_data;
@@ -3705,6 +3728,7 @@ static int tegra_vse_kthread(void *unused)
 			default:
 				dev_err(se_dev->dev, "Unknown command\n");
 			}
+			complete(&tegra_vse_complete);
 		}
 	}
 	kfree(ivc_resp_msg);
@@ -3797,6 +3821,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				"rng alg register failed. Err %d\n", err);
 			goto exit;
 		}
+		is_aes0_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_AES1) {
@@ -3812,6 +3837,24 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 			dev_err(se_dev->dev, "alloc_workqueue failed\n");
 			goto exit;
 		}
+
+		atomic_set(&se_dev->ivc_count, 0);
+
+		se_dev->priv_pool = mempool_create_kmalloc_pool(
+			TEGRA_HV_VSE_MEMPOOL_SIZE,
+			sizeof(struct tegra_vse_priv_data));
+		se_dev->req_pool = mempool_create_kmalloc_pool(
+			TEGRA_HV_VSE_MEMPOOL_SIZE,
+			sizeof(struct tegra_virtual_se_ivc_msg_t));
+		if (!se_dev->priv_pool || !se_dev->req_pool) {
+			err = -ENOMEM;
+			mempool_destroy(se_dev->priv_pool);
+			mempool_destroy(se_dev->req_pool);
+			dev_err(&pdev->dev,
+				"mempool_create failed for priv or req struct\n");
+			goto exit;
+		}
+
 		for (i = 0; i < ARRAY_SIZE(aes_algs); i++) {
 			err = crypto_register_alg(&aes_algs[i]);
 			if (err) {
@@ -3827,18 +3870,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				"cmac alg register failed. Err %d\n", err);
 			goto exit;
 		}
-		atomic_set(&se_dev->ivc_count, 0);
-		se_dev->priv_pool = mempool_create_kmalloc_pool(
-			TEGRA_HV_VSE_MEMPOOL_SIZE,
-			sizeof(struct tegra_vse_priv_data));
-		se_dev->req_pool = mempool_create_kmalloc_pool(
-			TEGRA_HV_VSE_MEMPOOL_SIZE,
-			sizeof(struct tegra_virtual_se_ivc_msg_t));
-		if (!se_dev->priv_pool || !se_dev->req_pool) {
-			dev_err(&pdev->dev,
-				"mempool_create failed for priv or req struct\n");
-			goto exit;
-		}
+		is_aes1_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_SHA) {
@@ -3850,6 +3882,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				goto exit;
 			}
 		}
+		is_sha_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_RSA) {
@@ -3861,6 +3894,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				goto exit;
 			}
 		}
+		is_rsa_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_RNG1) {
@@ -3905,18 +3939,34 @@ static int tegra_hv_vse_remove(struct platform_device *pdev)
 	int i;
 	struct tegra_virtual_se_dev *se_dev = platform_get_drvdata(pdev);
 
-	for (i = 0; i < ARRAY_SIZE(sha_algs); i++)
-		crypto_unregister_ahash(&sha_algs[i]);
+	complete_all(&tegra_vse_complete);
+	kthread_stop(tegra_vse_task);
+	if (is_aes0_registered)
+		crypto_unregister_rng(&rng_alg[0]);
 
-	for (i = 0; i < ARRAY_SIZE(rsa_algs); i++)
-		crypto_unregister_ahash(&rsa_algs[i]);
+	if (is_aes1_registered) {
+		crypto_unregister_ahash(&cmac_alg);
+		for (i = 0; i < (ARRAY_SIZE(aes_algs)); i++)
+			crypto_unregister_alg(&aes_algs[i]);
+	}
+
+	if (is_sha_registered) {
+		for (i = 0; i < ARRAY_SIZE(sha_algs); i++)
+			crypto_unregister_ahash(&sha_algs[i]);
+	}
+
+	if (is_rsa_registered) {
+		for (i = 0; i < ARRAY_SIZE(rsa_algs); i++)
+			crypto_unregister_ahash(&rsa_algs[i]);
+	}
 
 	if (is_rng1_registered)
 		crypto_unregister_rng(&rng1_trng_alg[0]);
 
+	tegra_hv_ivc_unreserve(g_ivck);
 	mempool_destroy(se_dev->priv_pool);
 	mempool_destroy(se_dev->req_pool);
-	kfree(se_dev);
+	devm_kfree(&pdev->dev, se_dev);
 
 	return 0;
 }

@@ -16,7 +16,7 @@
 
 /**
  * @file
- * <b>MAX9296 API: For Maxim Integrated MAX9295 deserializer.</b>
+ * <b>MAX9296 API: For Maxim Integrated MAX9296 deserializer</b>
  *
  * @b Description: Defines elements used to set up and use a
  *  Maxim Integrated MAX9296 deserializer.

@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Virtualization Host cdma for HOST1X
  *
- * Copyright (c) 2014-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -249,7 +249,7 @@ void vhost_cdma_timeout(struct nvhost_master *dev,
 	}
 	mutex_unlock(&cdma->sync_queue_lock);
 
-	if (!end_job)
+	if (!end_job || !start_job)
 		goto out;
 
 	job = start_job;

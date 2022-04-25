@@ -551,7 +551,7 @@ static inline void nvhost_syncpt_set_min_eq_max_ext(
 
 static inline const struct firmware *
 nvhost_client_request_firmware(struct platform_device *dev,
-	const char *fw_name)
+	const char *fw_name, bool warn)
 {
 	return NULL;
 }
@@ -827,11 +827,11 @@ static inline void nvhost_debug_dump_device(struct platform_device *pdev)
 #ifdef CONFIG_TEGRA_GRHOST
 const struct firmware *
 nvhost_client_request_firmware(struct platform_device *dev,
-	const char *fw_name);
+	const char *fw_name, bool warn);
 #else
 static inline const struct firmware *
 nvhost_client_request_firmware(struct platform_device *dev,
-	const char *fw_name)
+	const char *fw_name, bool warn)
 {
 	return NULL;
 }

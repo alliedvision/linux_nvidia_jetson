@@ -20,7 +20,7 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define QUADD_SAMPLES_VERSION	48
+#define QUADD_SAMPLES_VERSION	49
 #define QUADD_IO_VERSION	28
 
 #define QUADD_IO_VERSION_DYNAMIC_RB		5
@@ -78,6 +78,7 @@
 #define QUADD_SAMPLE_VERSION_PCLK_SEND_CHANGES	46
 #define QUADD_SAMPLE_VERSION_COMM_SAMPLES	47
 #define QUADD_SAMPLE_VERSION_UNCORE_EVENTS	48
+#define QUADD_SAMPLE_VERSION_SEQID		49
 
 #define QUADD_MMAP_HEADER_VERSION	1
 
@@ -422,6 +423,7 @@ struct quadd_header_data {
 struct quadd_record_data {
 	__u8 record_type;
 	__u16 extra_size;
+	__u32 seqid;
 
 	/* sample: it should be the biggest size */
 	union {

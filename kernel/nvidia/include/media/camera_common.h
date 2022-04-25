@@ -1,7 +1,7 @@
 /**
  * camera_common.h - utilities for tegra camera driver
  *
- * Copyright (c) 2015-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -92,6 +92,7 @@ struct camera_common_pdata {
 	bool v_flip;
 	bool h_mirror;
 	unsigned int fuse_id_addr;
+	unsigned int avdd_latency;
 };
 
 struct camera_common_eeprom_data {

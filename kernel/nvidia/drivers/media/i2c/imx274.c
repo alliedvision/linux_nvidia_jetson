@@ -1,7 +1,7 @@
 /*
  * imx274.c - imx274 sensor driver
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -750,6 +750,10 @@ static int imx274_power_on(struct camera_common_data *s_data)
 		goto imx274_avdd_fail;
 
 	usleep_range(1, 2);
+	/* Added latency due to AVDD setup time on McCoy */
+	if (pdata->avdd_latency)
+		usleep_range(pdata->avdd_latency, pdata->avdd_latency + 10);
+
 	if (pw->reset_gpio)
 		gpio_set_value(pw->reset_gpio, 1);
 	if (pw->pwdn_gpio)
@@ -950,6 +954,9 @@ struct camera_common_pdata *imx274_parse_dt(struct tegracam_device *tc_dev)
 
 	of_property_read_u32(node, "fuse_id_start_addr",
 		&board_priv_pdata->fuse_id_addr);
+
+	of_property_read_u32(node, "avdd-setup-delay",
+		&board_priv_pdata->avdd_latency);
 
 	return board_priv_pdata;
 }

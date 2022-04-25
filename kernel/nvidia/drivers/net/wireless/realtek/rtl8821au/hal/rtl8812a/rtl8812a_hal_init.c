@@ -3454,6 +3454,9 @@ void init_hal_spec_8821a(_adapter *adapter)
 	hal_spec->macid_num = 128;
 	hal_spec->sec_cam_ent_num = 64;
 	hal_spec->sec_cap = 0;
+	hal_spec->macid_cap = MACID_DROP_INDIRECT;
+	hal_spec->macid_txrpt = 0x8100;
+	hal_spec->macid_txrpt_pgsz = 16;
 
 	hal_spec->rfpath_num_2g = 1;
 	hal_spec->rfpath_num_5g = 1;
@@ -3500,6 +3503,9 @@ void init_hal_spec_8812a(_adapter *adapter)
 	hal_spec->macid_num = 128;
 	hal_spec->sec_cam_ent_num = 64;
 	hal_spec->sec_cap = 0;
+	hal_spec->macid_cap = MACID_DROP_INDIRECT;
+	hal_spec->macid_txrpt = 0x8100;
+	hal_spec->macid_txrpt_pgsz = 16;
 
 	hal_spec->rfpath_num_2g = 2;
 	hal_spec->rfpath_num_5g = 2;

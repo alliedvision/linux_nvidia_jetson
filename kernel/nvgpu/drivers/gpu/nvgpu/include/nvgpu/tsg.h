@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -90,7 +90,7 @@ int gk20a_enable_tsg(struct tsg_gk20a *tsg);
 int gk20a_disable_tsg(struct tsg_gk20a *tsg);
 int gk20a_tsg_bind_channel(struct tsg_gk20a *tsg,
 			struct channel_gk20a *ch);
-int gk20a_tsg_unbind_channel(struct channel_gk20a *ch);
+int gk20a_tsg_unbind_channel(struct channel_gk20a *ch, bool force);
 
 void gk20a_tsg_event_id_post_event(struct tsg_gk20a *tsg,
 				       int event_id);

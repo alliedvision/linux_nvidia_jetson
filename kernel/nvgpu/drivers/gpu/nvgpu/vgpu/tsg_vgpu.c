@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -112,7 +112,7 @@ int vgpu_tsg_bind_channel(struct tsg_gk20a *tsg,
 		nvgpu_err(tsg->g,
 			"vgpu_tsg_bind_channel failed, ch %d tsgid %d",
 			ch->chid, tsg->tsgid);
-		gk20a_tsg_unbind_channel(ch);
+		gk20a_tsg_unbind_channel(ch, true);
 	}
 
 	return err;

@@ -13,6 +13,10 @@
 
 / {
 	plugin-manager {
+		/delete-node/ fragment-pcie-c1-rp;
+		/delete-node/ fragment-pcie-older-than-p2822-B00;
+		/delete-node/ fragment-disable-uphy-rx-idle;
+
 		fragment-pcie-c5-rp {
 			odm-anded-override;
 			odm-data = "disable-pcie-c5-endpoint",
@@ -51,10 +55,18 @@
 				target = <&{/pcie_ep@141a0000}>;
 				_overlay_ {
 					status = "okay";
+					nvidia,enable-srns;
+					nvidia,enable-slot-supplies;
 				};
 			};
 			override@2 {
 				target = <&{/gpio@c2f0000/pex-refclk-sel-high}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+			override@3 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-low}>;
 				_overlay_ {
 					status = "okay";
 				};

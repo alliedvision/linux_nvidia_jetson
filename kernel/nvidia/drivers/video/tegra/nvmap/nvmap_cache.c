@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/nvmap/nvmap_cache.c
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -228,7 +228,7 @@ per_page_cache_maint:
 
 		ret = nvmap_cache_maint_phys_range(op, paddr, paddr + size,
 				inner, outer);
-		BUG_ON(ret != 0);
+		WARN_ON(ret != 0);
 		start = next;
 	}
 }
@@ -485,10 +485,10 @@ out:
  * NOTE: this omits outer cache operations which is fine for ARM64
  */
 static int __nvmap_do_cache_maint_list(struct nvmap_handle **handles,
-				u64 *offsets, u64 *sizes, int op, int nr,
+				u64 *offsets, u64 *sizes, int op, u32 nr_ops,
 				bool is_32)
 {
-	int i;
+	u32 i;
 	u64 total = 0;
 	u64 thresh = ~0;
 
@@ -498,7 +498,7 @@ static int __nvmap_do_cache_maint_list(struct nvmap_handle **handles,
 	if (nvmap_cache_maint_by_set_ways)
 		thresh = cache_maint_inner_threshold;
 
-	for (i = 0; i < nr; i++) {
+	for (i = 0; i < nr_ops; i++) {
 		bool inner, outer;
 		u32 *sizes_32 = (u32 *)sizes;
 		u64 size = is_32 ? sizes_32[i] : sizes[i];
@@ -520,7 +520,7 @@ static int __nvmap_do_cache_maint_list(struct nvmap_handle **handles,
 	/* Full flush in the case the passed list is bigger than our
 	 * threshold. */
 	if (total >= thresh) {
-		for (i = 0; i < nr; i++) {
+		for (i = 0; i < nr_ops; i++) {
 			if (handles[i]->userflags &
 			    NVMAP_HANDLE_CACHE_SYNC) {
 				nvmap_handle_mkclean(handles[i], 0,
@@ -541,7 +541,7 @@ static int __nvmap_do_cache_maint_list(struct nvmap_handle **handles,
 					nvmap_stats_read(NS_CFLUSH_RQ),
 					nvmap_stats_read(NS_CFLUSH_DONE));
 	} else {
-		for (i = 0; i < nr; i++) {
+		for (i = 0; i < nr_ops; i++) {
 			u32 *offs_32 = (u32 *)offsets, *sizes_32 = (u32 *)sizes;
 			u64 size = is_32 ? sizes_32[i] : sizes[i];
 			u64 offset = is_32 ? offs_32[i] : offsets[i];
@@ -565,7 +565,7 @@ static int __nvmap_do_cache_maint_list(struct nvmap_handle **handles,
 }
 
 inline int nvmap_do_cache_maint_list(struct nvmap_handle **handles,
-				u64 *offsets, u64 *sizes, int op, int nr,
+				u64 *offsets, u64 *sizes, int op, u32 nr_ops,
 				bool is_32)
 {
 	int ret = 0;
@@ -579,7 +579,7 @@ inline int nvmap_do_cache_maint_list(struct nvmap_handle **handles,
 		break;
 	default:
 		ret = __nvmap_do_cache_maint_list(handles,
-					offsets, sizes, op, nr, is_32);
+					offsets, sizes, op, nr_ops, is_32);
 		break;
 	}
 

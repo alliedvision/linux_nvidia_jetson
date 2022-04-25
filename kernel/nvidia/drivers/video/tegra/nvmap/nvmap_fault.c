@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/nvmap/nvmap_fault.c
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,7 +54,7 @@ void nvmap_vma_open(struct vm_area_struct *vma)
 	struct list_head *tmp_head = NULL;
 	pid_t current_pid = task_tgid_nr(current);
 	bool vma_pos_found = false;
-	int nr_page, i;
+	size_t nr_page, i;
 	ulong vma_open_count;
 
 	priv = vma->vm_private_data;
@@ -132,7 +132,7 @@ static void nvmap_vma_close(struct vm_area_struct *vma)
 	struct nvmap_vma_list *vma_list;
 	struct nvmap_handle *h;
 	bool vma_found = false;
-	int nr_page, i;
+	size_t nr_page, i;
 
 	if (!priv)
 		return;

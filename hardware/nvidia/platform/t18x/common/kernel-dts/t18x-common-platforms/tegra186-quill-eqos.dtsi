@@ -52,6 +52,7 @@
 				interrupt-parent = <&tegra_main_gpio>;
 				interrupts = <TEGRA_MAIN_GPIO(M, 5) IRQ_TYPE_LEVEL_LOW>;
 				reg = <0>;
+				phy_rst_lp_mode = <0>; /* 0=disable 1=enable */
 			};
 		};
         };

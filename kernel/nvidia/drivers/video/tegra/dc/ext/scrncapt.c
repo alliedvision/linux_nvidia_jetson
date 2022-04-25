@@ -1,7 +1,7 @@
 /*
  * scrncapt.c: Screen capture functionality for tegradc ext interface.
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Sungwook Kim <sungwookk@nvidia.com>
  *
@@ -436,7 +436,7 @@ int  tegra_dc_scrncapt_get_info(struct tegra_dc_ext_user *user,
 	struct tegra_dc_ext  *ext = user->ext;
 	struct tegra_dc      *dc  = ext->dc;
 	struct tegra_dc_ext_scrncapt_get_info_data __user  *pdt;
-	struct tegra_dc_ext_scrncapt_get_info_data         data;
+	struct tegra_dc_ext_scrncapt_get_info_data         data = {0};
 
 	/* no support of 1st implementation */
 	if (TEGRA_DC_EXT_SCRNCAPT_VER_V(args->ver) != 2)

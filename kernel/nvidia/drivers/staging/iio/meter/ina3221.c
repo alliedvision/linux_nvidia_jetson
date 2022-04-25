@@ -170,6 +170,14 @@ struct ina3221_chip {
 static int __locked_ina3221_switch_mode(struct ina3221_chip *chip,
 		int cpus, int cpufreq);
 
+static int ina3221_cpufreq_notify(struct notifier_block *nb,
+		unsigned long event, void *hcpu);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+static int ina3221_hotplug_notify(struct notifier_block *nb,
+		unsigned long event, void *hcpu);
+#endif
+
 static inline struct ina3221_chip *to_ina3221_chip(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -351,6 +359,30 @@ static int __locked_do_conversion(struct ina3221_chip *chip, u16 *vsh,
 	return __locked_end_conversion(chip);
 }
 
+static int ina3221_register_notifier(struct ina3221_chip *chip)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+	chip->nb_hot.notifier_call = ina3221_hotplug_notify;
+#endif
+	chip->nb_cpufreq.notifier_call = ina3221_cpufreq_notify;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+	register_hotcpu_notifier(&(chip->nb_hot));
+#endif
+	cpufreq_register_notifier(&(chip->nb_cpufreq),
+			CPUFREQ_TRANSITION_NOTIFIER);
+	return 0;
+}
+
+static int ina3221_unregister_notifier(struct ina3221_chip *chip)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+	unregister_hotcpu_notifier(&(chip->nb_hot));
+#endif
+	cpufreq_unregister_notifier(&(chip->nb_cpufreq),
+			CPUFREQ_TRANSITION_NOTIFIER);
+	return 0;
+}
+
 static int ina3221_get_mode(struct ina3221_chip *chip, char *buf)
 {
 	int v;
@@ -380,14 +412,17 @@ static int ina3221_set_mode_val(struct ina3221_chip *chip, long val)
 	}
 
 	if (val > 0) {
+		ina3221_unregister_notifier(chip);
 		ret = __locked_power_up_ina3221(chip,
 				chip->pdata->cont_conf_data);
 		if (!ret)
 			chip->mode = FORCED_CONTINUOUS;
 	} else if (val == 0) {
+		ina3221_unregister_notifier(chip);
 		chip->mode = FORCED_TRIGGERED;
 		ret = __locked_power_down_ina3221(chip);
 	} else {
+		ina3221_register_notifier(chip);
 		if (chip->alert_enabled) {
 			if (IS_TRIGGERED(chip->mode))
 				chip->mode = TRIGGERED;
@@ -1596,16 +1631,6 @@ static int ina3221_probe(struct i2c_client *client,
 		return ret;
 	}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-	chip->nb_hot.notifier_call = ina3221_hotplug_notify;
-#endif
-	chip->nb_cpufreq.notifier_call = ina3221_cpufreq_notify;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-	register_hotcpu_notifier(&(chip->nb_hot));
-#endif
-	cpufreq_register_notifier(&(chip->nb_cpufreq),
-			CPUFREQ_TRANSITION_NOTIFIER);
-
 	/* calculate critical current limit based on input voltage
 	 * and critical power limit.
 	 */
@@ -1685,11 +1710,6 @@ static int ina3221_probe(struct i2c_client *client,
 	}
 	return 0;
 exit_pd:
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-	unregister_hotcpu_notifier(&(chip->nb_hot));
-#endif
-	cpufreq_unregister_notifier(&(chip->nb_cpufreq),
-			CPUFREQ_TRANSITION_NOTIFIER);
 	return ret;
 }
 
@@ -1701,11 +1721,7 @@ static int ina3221_remove(struct i2c_client *client)
 	mutex_lock(&chip->mutex);
 	__locked_power_down_ina3221(chip);
 	mutex_unlock(&chip->mutex);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-	unregister_hotcpu_notifier(&(chip->nb_hot));
-#endif
-	cpufreq_unregister_notifier(&(chip->nb_cpufreq),
-			CPUFREQ_TRANSITION_NOTIFIER);
+	ina3221_unregister_notifier(chip);
 	return 0;
 }
 

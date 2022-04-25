@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -32,8 +32,6 @@
 
 #define VS_LOG_HEADS 4
 #define VS_LOG_SECTS 16
-
-#define SECTOR_SIZE 512
 
 #define MAX_VSC_REQS 32
 

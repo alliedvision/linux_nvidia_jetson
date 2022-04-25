@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -197,6 +197,21 @@ static void tegra_udrm_preclose(struct drm_device *drm, struct drm_file *file)
 		// are closing.
 		eventfd_ctx_put(fpriv->efd_ctx_close);
 		fpriv->efd_ctx_close = NULL;
+	}
+
+	if (fpriv->efd_ctx_set_master) {
+		eventfd_signal(fpriv->efd_ctx_set_master, 1);
+		eventfd_ctx_put(fpriv->efd_ctx_set_master);
+		fpriv->efd_ctx_set_master = NULL;
+	}
+
+}
+
+static void tegra_udrm_postclose(struct drm_device *drm, struct drm_file *file)
+{
+	if (file->driver_priv) {
+		kfree(file->driver_priv);
+		file->driver_priv = NULL;
 	}
 }
 
@@ -451,6 +466,7 @@ static struct drm_driver tegra_udrm_driver = {
 	.driver_features   = DRIVER_RENDER,
 	.open              = tegra_udrm_open,
 	.preclose          = tegra_udrm_preclose,
+	.postclose         = tegra_udrm_postclose,
 	.ioctls            = tegra_udrm_ioctls,
 	.num_ioctls        = ARRAY_SIZE(tegra_udrm_ioctls),
 	.fops              = &tegra_udrm_fops,

@@ -399,8 +399,11 @@ struct qcmdset macronix_porg_cmd_info_table[OPERATION_MAX_LIMIT] = {
 			.bus_width = X1, .dummy_cycles = 0},
 		{.is_ddr = FALSE, .bus_width = X1}
 	},
-	/*INVALID READ_ANY_REG */
-	{
+	/* READ_ANY_REG */
+	{ {.op_code = 0x65, .is_ddr = FALSE, .bus_width = X1, .post_txn = 2},
+		{.address = 0, .is_ddr = FALSE, .len = 3,
+			.bus_width = X1, .dummy_cycles = 1},
+		{.is_ddr = FALSE, .bus_width = X1}
 	},
 	/*INVALID WRITE_ANY_REG */
 	{
@@ -536,6 +539,9 @@ static const struct spi_device_id qspi_ids[] = {
 	},
 	{	"MX25U3235F",
 		INFO(0xC22536, 0, 4 * 1024, 1024, 0, 0, 0, 0, 256, 0)
+	},
+	{	"mx75u25690f",
+		INFO(0xC22939, 0, 4 * 1024, 8192, 0, 0, 0, 0, 256, 0)
 	},
 	{ },
 };

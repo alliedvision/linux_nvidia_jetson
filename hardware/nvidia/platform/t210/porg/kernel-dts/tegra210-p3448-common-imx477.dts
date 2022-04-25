@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera IMX477 rbpcv3 for t210 single
+ * cam connector baseboards
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Camera IMX477";
+	jetson-header-name = "Jetson Nano CSI Connector";
+	compatible = "nvidia,p3542-0000+p3448-0003","nvidia,p3449-0000-a02+p3448-0000-a02","nvidia,p3449-0000-a01+p3448-0000-a01";
+
+	/* IMX477 single sensor module */
+	fragment@0 {
+		target = <&imx477_single_cam0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&cam_module0>;
+		__overlay__ {
+			status = "okay";
+			badge = "porg_front_RBPCV3";
+			position = "front";
+			orientation = "1";
+		};
+	};
+	fragment@2 {
+		target = <&cam_module0_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx477 6-001a";
+			proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/rbpcv3_imx477_a@1a";
+		};
+	};
+	/* Enable VI ports */
+	fragment@3 {
+		target = <&vi_base>;
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@4 {
+		target = <&vi_port0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@5 {
+		target = <&rbpcv3_imx477_vi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_csi_out0>;
+		};
+	};
+	/* Enable CSI ports */
+	fragment@6 {
+		target = <&csi_base>;
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@7 {
+		target = <&csi_chan0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@8 {
+		target = <&csi_chan0_port0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@9 {
+		target = <&rbpcv3_imx477_csi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_out0>;
+		};
+	};
+	fragment@10 {
+		target = <&csi_chan0_port1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		target = <&rbpcv3_imx477_csi_out0>;
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&rbpcv3_imx477_vi_in0>;
+		};
+	};
+	/* tegra-camera-platform settings */
+	fragment@12 {
+		target = <&tcp>;
+		__overlay__ {
+			num_csi_lanes = <2>;
+			max_lane_speed = <1500000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			max_pixel_rate = <240000>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+        /* Disable default sensor */
+	fragment@13 {
+		target = <&imx219_single_cam0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+};

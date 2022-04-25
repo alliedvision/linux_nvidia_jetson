@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2021 NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -758,14 +758,10 @@ static long tegra_camrtc_wait_for_empty(struct device *dev,
 		timeout = 2 * HZ;
 
 	timeout = wait_event_timeout(
-		rtcpu->cmd.empty_waitq,
-		/* Make sure IRQ has been handled */
-		atomic_read(&rtcpu->cmd.emptied) != 0 &&
-		tegra_hsp_sm_pair_is_empty(rtcpu->sm_pair),
-		timeout);
-
-	if (timeout > 0)
-		atomic_set(&rtcpu->cmd.emptied, 0);
+			rtcpu->cmd.empty_waitq,
+			/* Make sure IRQ has been handled */
+			atomic_read(&rtcpu->cmd.emptied) != 0,
+			timeout);
 
 	return timeout;
 }
@@ -787,6 +783,9 @@ static int tegra_camrtc_mbox_exchange(struct device *dev,
 	}
 
 	atomic_set(&rtcpu->cmd.response, INVALID_RESPONSE);
+
+	/* Clear cmd.emptied before the write */
+	atomic_set(&rtcpu->cmd.emptied, 0);
 
 	tegra_hsp_sm_pair_write(rtcpu->sm_pair, command);
 

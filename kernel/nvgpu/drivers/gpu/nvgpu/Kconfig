@@ -143,6 +143,13 @@ config NVGPU_SUPPORT_CDE
 	help
 	  Enable support for extraction of comptags for CDE.
 
+config NVGPU_SUPPORT_LINUX_ECC_ERROR_REPORTING
+	bool "Support ECC error reporting for Linux"
+	depends on TEGRA_SAFETY
+	default y
+	help
+		Enable support for ECC error reporting for Linux.
+
 config NVGPU_USE_TEGRA_ALLOC_FD
 	bool "Use tegra_alloc_fd() for allocating dma_buf fds for vidmem"
 	depends on GK20A && GK20A_VIDMEM

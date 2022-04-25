@@ -1,7 +1,7 @@
 /*
  * ADSP mailbox manager
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -219,11 +219,13 @@ status_t nvadsp_mbox_send(struct nvadsp_mbox *mbox, uint32_t data,
 	int ret = 0;
 
 	if (!nvadsp_drv_data) {
+		pr_err("ADSP drv_data is NULL\n");
 		ret = -ENOSYS;
 		goto out;
 	}
 
 	if (!mbox) {
+		pr_err("ADSP MBOX is NULL\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -239,9 +241,11 @@ status_t nvadsp_mbox_send(struct nvadsp_mbox *mbox, uint32_t data,
 				 &nvadsp_drv_data->hwmbox_send_queue.comp,
 				 msecs_to_jiffies(timeout));
 			if (ret) {
+				pr_warn("ADSP HWMBOX send retry\n");
 				block = false;
 				goto retry;
 			} else {
+				pr_err("ADSP wait for completion timed out\n");
 				ret = -ETIME;
 				goto out;
 			}
@@ -250,7 +254,7 @@ status_t nvadsp_mbox_send(struct nvadsp_mbox *mbox, uint32_t data,
 				 data, ret);
 		}
 	} else if (ret) {
-		pr_debug("Failed to enqueue data 0x%x. ret: %d\n", data, ret);
+		pr_warn("Failed to enqueue data 0x%x. ret: %d\n", data, ret);
 		goto out;
 	}
  out:

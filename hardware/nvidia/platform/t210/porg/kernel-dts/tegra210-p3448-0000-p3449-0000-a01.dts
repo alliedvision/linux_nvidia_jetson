@@ -1,7 +1,7 @@
 /*
  * arch/arm64/boot/dts/tegra210-p3448-0000-p3449-0000-a01.dts
  *
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,11 @@
  */
 
 #include "tegra210-porg-p3448-common.dtsi"
+#include "porg-platforms/tegra210-porg-camera-rbpcv3-imx477.dtsi"
+#include "porg-platforms/tegra210-porg-camera-rbpcv2-imx219.dtsi"
 #include "porg-platforms/tegra210-porg-pinmux-p3448-0000-a01.dtsi"
 #include "porg-platforms/tegra210-porg-gpio-p3448-0000-a01.dtsi"
+#include "porg-platforms/tegra210-porg-p3448-emc-a00.dtsi"
 
 / {
 	model = "NVIDIA Jetson Nano Developer Kit";

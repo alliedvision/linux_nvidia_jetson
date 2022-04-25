@@ -19,9 +19,6 @@
  */
 / {
 	pcie@1003000 {
-		/delete-property/ iommus;
-		/delete-property/ iommu-map;
-		/delete-property/ iommu-map-mask;
 		nvidia,wake-gpio = <&gpio TEGRA_GPIO(A, 2) 0>;
 		nvidia,pmc-wakeup = <&tegra_pmc
 				PMC_WAKE_TYPE_EVENT 0 PMC_TRIGGER_TYPE_LOW>;
@@ -43,6 +40,7 @@
 #endif
 			nvidia,num-lanes = <4>;
 			status = "okay";
+			nvidia,disable-clock-request;
 		};
 
 		pci@2,0 {

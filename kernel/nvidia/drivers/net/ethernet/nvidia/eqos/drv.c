@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -47,6 +47,9 @@
 #include <linux/gpio.h>
 #include <linux/time.h>
 #include <linux/platform/tegra/ptp-notifier.h>
+#ifdef FILTER_DEBUGFS
+#include <linux/debugfs.h>
+#endif
 #include <linux/reset.h>
 #include "yheader.h"
 #include "yapphdr.h"
@@ -1126,14 +1129,17 @@ static int eqos_open(struct net_device *dev)
 	}
 
 	ret = eqos_clock_enable(pdata);
-	if (ret)
+	if (ret) {
+		dev_err(&dev->dev, "failed to enable clocks\n");
 		return ret;
+	}
 
 	/* issue CAR reset to device */
 	ret = hw_if->car_reset(pdata);
 	if (ret < 0) {
+		ret = -ENODEV;
 		dev_err(&dev->dev, "Failed to reset MAC\n");
-		return -ENODEV;
+		goto err_mac_rst;
 	}
 
 	/* PHY initialisation */
@@ -1141,7 +1147,7 @@ static int eqos_open(struct net_device *dev)
 	if (ret) {
 		dev_err(&dev->dev, "%s: Cannot attach to PHY (error: %d)\n",
 			__func__, ret);
-		return ret;
+		goto err_phy_init;
 	}
 
 	ret = request_txrx_irqs(pdata);
@@ -1173,22 +1179,47 @@ static int eqos_open(struct net_device *dev)
 	if (!pdata->resv_skb || pdata->resv_dma == 0) {
 		dev_err(&dev->dev, "failed to reserve SKB\n");
 		ret = -ENOMEM;
-		goto err_ptp;
+		goto err_mac;
 	}
-	phy_start(pdata->phydev);
 
+	if (pdata->wolopts) {
+		struct ethtool_wolinfo wol = { .cmd = ETHTOOL_SWOL };
+
+		wol.wolopts = WAKE_MAGIC;
+		ret = phy_ethtool_set_wol(pdata->phydev, &wol);
+		if (ret < 0) {
+			dev_err(&dev->dev, "Wol set failed\n");
+			goto err_mac;
+		}
+	}
+
+	phy_start(pdata->phydev);
 	netif_tx_start_all_queues(pdata->dev);
 
 	pr_debug("<--%s()\n", __func__);
 	return Y_SUCCESS;
 
- err_ptp:
+err_mac:
+	eqos_stop_dev(pdata);
+
+err_ptp:
 	desc_if->free_buff_and_desc(pdata);
 
- err_out_desc_buf_alloc_failed:
+err_out_desc_buf_alloc_failed:
 	free_txrx_irqs(pdata);
 
- err_irq_0:
+err_irq_0:
+	if (pdata->phydev)
+		phy_disconnect(pdata->phydev);
+
+err_phy_init:
+	pdata->hw_stopped = true;
+	/* Assert MAC RST gpio */
+	if (pdata->eqos_rst)
+		reset_control_assert(pdata->eqos_rst);
+
+err_mac_rst:
+	eqos_clock_disable(pdata);
 	pr_debug("<--%s()\n", __func__);
 	return ret;
 }
@@ -1219,7 +1250,7 @@ static int eqos_close(struct net_device *dev)
 		phy_stop(pdata->phydev);
 		phy_disconnect(pdata->phydev);
 		if (gpio_is_valid(pdata->phy_reset_gpio) &&
-				 (pdata->mac_ver > EQOS_MAC_CORE_4_10))
+				 (pdata->dt_cfg.phyrst_lpmode == 1U))
 			gpio_set_value(pdata->phy_reset_gpio, 0);
 		pdata->phydev = NULL;
 	}
@@ -2315,8 +2346,15 @@ static int process_rx_completions(struct eqos_rx_queue *rx_queue, int quota)
 #ifdef EQOS_ENABLE_RX_DESC_DUMP
 		dump_rx_desc(qinx, prx_desc, entry);
 #endif
+
+		/* Process rx packets which takes only 1 rx desc buffer
+		 * and drop other packets which are spread across
+		 * descriptors due to MTU mismatch. Do not free the
+		 * buffers but reuse the mapped skb buffer again.
+		 */
 		if (likely(!(status & EQOS_RDESC3_ES_BITS) &&
-			   (status & EQOS_RDESC3_LD))) {
+			   (status & EQOS_RDESC3_LD) &&
+			   (status & EQOS_RDESC3_FD))) {
 			/* Unmap the SKB */
 			skb = prx_swcx_desc->skb;
 			prx_swcx_desc->skb = NULL;
@@ -2350,10 +2388,8 @@ static int process_rx_completions(struct eqos_rx_queue *rx_queue, int quota)
 			}
 
 			eqos_receive_skb(pdata, dev, skb, qinx);
-		} else {
+		} else
 			eqos_update_rx_errors(dev, status);
-			dev_kfree_skb_any(prx_swcx_desc->skb);
-		}
 
 		received++;
 		if (eqos_rx_dirty(prx_ring) >=
@@ -2593,6 +2629,152 @@ static int eqos_config_l3_l4_filtering(struct net_device *dev,
 	return ret;
 }
 
+#ifdef FILTER_DEBUGFS
+struct fdata {
+	struct dentry *entry;
+	int index;
+	int type;
+	size_t size;
+	char name[64];
+	struct list_head list;
+};
+
+static int __eqos_debugfs_show(struct seq_file *file, void *unused)
+{
+	struct fdata *data = file->private;
+	struct eqos_l3_l4_filter *f = (struct eqos_l3_l4_filter *)(data + 1);
+
+	switch (data->type) {
+	case 0:
+		seq_printf(file, "Layer 3 filter\n");
+		seq_printf(file,
+	"..filter_no = %d\n..enable? = %s\n..src/dst = %s\n..type = %s\n"
+	"..ip = %d.%d.%d.%d\n..mask = %d\n..dma routing? = %s\n..dma = %d\n",
+	f->filter_no, f->filter_enb_dis ? "YES" : "NO",
+	f->src_dst_addr_match == 0 ? "SOURCE" : "DESTINATION",
+	f->perfect_inverse_match == 0 ? "PERFECT" : "INVERSE",
+	f->ip4_addr[0], f->ip4_addr[1], f->ip4_addr[2], f->ip4_addr[3],
+	f->l3_mask, f->dma_routing_enable ? "YES" : "NO",
+	f->dma_channel);
+		break;
+
+	case 1:
+		seq_printf(file, "Layer 4 filter\n");
+		seq_printf(file,
+	"..filter_no = %d\n..enable? = %s\n..src/dst = %s\n..type = %s\n"
+	"..port = %d\n..dma routing? = %s\n..dma = %d\n",
+	f->filter_no, f->filter_enb_dis ? "YES" : "NO",
+	f->src_dst_addr_match == 0 ? "SOURCE" : "DESTINATION",
+	f->perfect_inverse_match == 0 ? "PERFECT" : "INVERSE",
+	f->port_no, f->dma_routing_enable ? "YES" : "NO",
+	f->dma_channel);
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int __eqos_debugfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, __eqos_debugfs_show, inode->i_private);
+}
+
+static const struct file_operations __eqos_filter_fops = {
+	.open       = __eqos_debugfs_open,
+	.read       = seq_read,
+	.llseek     = seq_lseek,
+	.release    = single_release,
+};
+
+static int __eqos_debugfs_filter(struct eqos_prv_data *pdata, int index,
+					int type, void *data,  size_t sz)
+{
+	struct fdata *pos, *new;
+
+	list_for_each_entry(pos, &pdata->d_head, list) {
+		if (pos->type == type && pos->index == index) {
+			debugfs_remove_recursive(pos->entry);
+			list_del_init(&pos->list);
+			devm_kfree(&pdata->pdev->dev, pos);
+			break;
+		}
+	}
+	new = devm_kzalloc(&pdata->pdev->dev, sizeof *new + sz, GFP_KERNEL);
+	if (!new)
+		return -ENOMEM;
+	new->type = type;
+	new->index = index;
+	memcpy(new + 1, data, sz);
+	snprintf(new->name, sizeof(new->name), "filter_%02d", index);
+	new->entry = debugfs_create_file(new->name, 0440, pdata->d_root, new,
+			&__eqos_filter_fops);
+	INIT_LIST_HEAD(&new->list);
+	list_add(&new->list, &pdata->d_head);
+	return 0;
+}
+#endif
+
+static int __eqos_config_ip4_filters(struct eqos_prv_data *pdata,
+				   struct eqos_l3_l4_filter *l3_filter)
+{
+	struct hw_if_struct *hw_if = &(pdata->hw_if);
+	int ret = 0;
+
+	if (pdata->hw_feat.l3l4_filter_num == 0)
+		return EQOS_NO_HW_SUPPORT;
+
+	if ((l3_filter->filter_no + 1) > pdata->hw_feat.l3l4_filter_num) {
+		pr_err("%d filter is not supported in the HW\n",
+		       l3_filter->filter_no);
+		return EQOS_NO_HW_SUPPORT;
+	}
+
+	if ((l3_filter->dma_routing_enable == EQOS_DMA_FILTER_ENABLE) &&
+		(l3_filter->dma_channel > (pdata->hw_feat.rx_ch_cnt))) {
+		pr_err("%u dma channel is not supported in the HW\n",
+			l3_filter->dma_channel);
+		return EQOS_NO_HW_SUPPORT;
+	}
+
+
+	if (!pdata->l3_l4_filter) {
+		hw_if->config_l3_l4_filter_enable(1);
+		pdata->l3_l4_filter = 1;
+	}
+
+	/* configure the L3 filters */
+	hw_if->config_l3_filters(l3_filter->filter_no,
+				 l3_filter->filter_enb_dis, 0,
+				 l3_filter->src_dst_addr_match,
+				 l3_filter->perfect_inverse_match,
+				 l3_filter->dma_routing_enable,
+				 l3_filter->dma_channel,
+				 l3_filter->l3_mask);
+
+	if (!l3_filter->src_dst_addr_match)
+		hw_if->update_ip4_addr0(l3_filter->filter_no,
+					l3_filter->ip4_addr);
+	else
+		hw_if->update_ip4_addr1(l3_filter->filter_no,
+					l3_filter->ip4_addr);
+#ifdef FILTER_DEBUGFS
+	__eqos_debugfs_filter(pdata, l3_filter->filter_no, 0, l3_filter,
+				sizeof(*l3_filter));
+#endif
+
+	DBGPR_FILTER
+	    ("Successfully %s IPv4 %s %s addressing filtering on %d filter\n",
+	     (l3_filter->filter_enb_dis ? "ENABLED" : "DISABLED"),
+	     (l3_filter->perfect_inverse_match ? "INVERSE" : "PERFECT"),
+	     (l3_filter->src_dst_addr_match ? "DESTINATION" : "SOURCE"),
+	     l3_filter->filter_no);
+
+	return ret;
+}
+
 /*!
  * \details This function is invoked by ioctl function when user issues an
  * ioctl command to configure L3(IPv4) filtering. This function does following,
@@ -2612,7 +2794,6 @@ static int eqos_config_ip4_filters(struct net_device *dev,
 				   struct ifr_data_struct *req)
 {
 	struct eqos_prv_data *pdata = netdev_priv(dev);
-	struct hw_if_struct *hw_if = &(pdata->hw_if);
 	struct eqos_l3_l4_filter *u_l3_filter =
 	    (struct eqos_l3_l4_filter *)req->ptr;
 	struct eqos_l3_l4_filter l_l3_filter;
@@ -2627,36 +2808,7 @@ static int eqos_config_ip4_filters(struct net_device *dev,
 			   sizeof(struct eqos_l3_l4_filter)))
 		return -EFAULT;
 
-	if ((l_l3_filter.filter_no + 1) > pdata->hw_feat.l3l4_filter_num) {
-		pr_err("%d filter is not supported in the HW\n",
-		       l_l3_filter.filter_no);
-		return EQOS_NO_HW_SUPPORT;
-	}
-
-	if (!pdata->l3_l4_filter) {
-		hw_if->config_l3_l4_filter_enable(1);
-		pdata->l3_l4_filter = 1;
-	}
-
-	/* configure the L3 filters */
-	hw_if->config_l3_filters(l_l3_filter.filter_no,
-				 l_l3_filter.filter_enb_dis, 0,
-				 l_l3_filter.src_dst_addr_match,
-				 l_l3_filter.perfect_inverse_match);
-
-	if (!l_l3_filter.src_dst_addr_match)
-		hw_if->update_ip4_addr0(l_l3_filter.filter_no,
-					l_l3_filter.ip4_addr);
-	else
-		hw_if->update_ip4_addr1(l_l3_filter.filter_no,
-					l_l3_filter.ip4_addr);
-
-	DBGPR_FILTER
-	    ("Successfully %s IPv4 %s %s addressing filtering on %d filter\n",
-	     (l_l3_filter.filter_enb_dis ? "ENABLED" : "DISABLED"),
-	     (l_l3_filter.perfect_inverse_match ? "INVERSE" : "PERFECT"),
-	     (l_l3_filter.src_dst_addr_match ? "DESTINATION" : "SOURCE"),
-	     l_l3_filter.filter_no);
+	ret = __eqos_config_ip4_filters(pdata, &l_l3_filter);
 
 	DBGPR_FILTER("<--eqos_config_ip4_filters\n");
 
@@ -2712,7 +2864,10 @@ static int eqos_config_ip6_filters(struct net_device *dev,
 	hw_if->config_l3_filters(l_l3_filter.filter_no,
 				 l_l3_filter.filter_enb_dis, 1,
 				 l_l3_filter.src_dst_addr_match,
-				 l_l3_filter.perfect_inverse_match);
+				 l_l3_filter.perfect_inverse_match,
+				 l_l3_filter.dma_routing_enable,
+				 l_l3_filter.dma_channel,
+				 l_l3_filter.l3_mask);
 
 	hw_if->update_ip6_addr(l_l3_filter.filter_no, l_l3_filter.ip6_addr);
 
@@ -2724,6 +2879,65 @@ static int eqos_config_ip6_filters(struct net_device *dev,
 	     l_l3_filter.filter_no);
 
 	DBGPR_FILTER("<--eqos_config_ip6_filters\n");
+
+	return ret;
+}
+
+static int __eqos_config_tcp_udp_filters(struct eqos_prv_data *pdata,
+		       struct eqos_l3_l4_filter *l4_filter, int tcp_udp)
+
+{
+	struct hw_if_struct *hw_if = &(pdata->hw_if);
+	int ret = 0;
+
+	if (pdata->hw_feat.l3l4_filter_num == 0)
+		return EQOS_NO_HW_SUPPORT;
+
+	if ((l4_filter->filter_no + 1) > pdata->hw_feat.l3l4_filter_num) {
+		pr_err("%d filter is not supported in the HW\n",
+		       l4_filter->filter_no);
+		return EQOS_NO_HW_SUPPORT;
+	}
+
+	if ((l4_filter->dma_routing_enable == EQOS_DMA_FILTER_ENABLE) &&
+		(l4_filter->dma_channel > (pdata->hw_feat.rx_ch_cnt))) {
+		pr_err("%u dma channel is not supported in the HW\n",
+			l4_filter->dma_channel);
+		return EQOS_NO_HW_SUPPORT;
+	}
+
+	if (!pdata->l3_l4_filter) {
+		hw_if->config_l3_l4_filter_enable(1);
+		pdata->l3_l4_filter = 1;
+	}
+
+	/* configure the L4 filters */
+	hw_if->config_l4_filters(l4_filter->filter_no,
+				 l4_filter->filter_enb_dis,
+				 tcp_udp,
+				 l4_filter->src_dst_addr_match,
+				 l4_filter->perfect_inverse_match,
+				 l4_filter->dma_routing_enable,
+				 l4_filter->dma_channel);
+
+	if (l4_filter->src_dst_addr_match)
+		hw_if->update_l4_da_port_no(l4_filter->filter_no,
+					    l4_filter->port_no);
+	else
+		hw_if->update_l4_sa_port_no(l4_filter->filter_no,
+					    l4_filter->port_no);
+
+#ifdef FILTER_DEBUGFS
+	__eqos_debugfs_filter(pdata, l4_filter->filter_no, 1, l4_filter,
+				sizeof(*l4_filter));
+#endif
+	DBGPR_FILTER
+	    ("Successfully %s %s %s %s Port number filtering on %d filter\n",
+	     (l4_filter->filter_enb_dis ? "ENABLED" : "DISABLED"),
+	     (tcp_udp ? "UDP" : "TCP"),
+	     (l4_filter->perfect_inverse_match ? "INVERSE" : "PERFECT"),
+	     (l4_filter->src_dst_addr_match ? "DESTINATION" : "SOURCE"),
+	     l4_filter->filter_no);
 
 	return ret;
 }
@@ -2775,27 +2989,7 @@ static int eqos_config_tcp_udp_filters(struct net_device *dev,
 		pdata->l3_l4_filter = 1;
 	}
 
-	/* configure the L4 filters */
-	hw_if->config_l4_filters(l_l4_filter.filter_no,
-				 l_l4_filter.filter_enb_dis,
-				 tcp_udp,
-				 l_l4_filter.src_dst_addr_match,
-				 l_l4_filter.perfect_inverse_match);
-
-	if (l_l4_filter.src_dst_addr_match)
-		hw_if->update_l4_da_port_no(l_l4_filter.filter_no,
-					    l_l4_filter.port_no);
-	else
-		hw_if->update_l4_sa_port_no(l_l4_filter.filter_no,
-					    l_l4_filter.port_no);
-
-	DBGPR_FILTER
-	    ("Successfully %s %s %s %s Port number filtering on %d filter\n",
-	     (l_l4_filter.filter_enb_dis ? "ENABLED" : "DISABLED"),
-	     (tcp_udp ? "UDP" : "TCP"),
-	     (l_l4_filter.perfect_inverse_match ? "INVERSE" : "PERFECT"),
-	     (l_l4_filter.src_dst_addr_match ? "DESTINATION" : "SOURCE"),
-	     l_l4_filter.filter_no);
+	ret = __eqos_config_tcp_udp_filters(pdata, &l_l4_filter, tcp_udp);
 
 	DBGPR_FILTER("<--eqos_config_tcp_udp_filters\n");
 
@@ -5419,6 +5613,101 @@ void eqos_stop_dev(struct eqos_prv_data *pdata)
 	pr_debug("<--%s()\n", __func__);
 }
 
+void get_configure_l3v4_filter(struct eqos_prv_data *pdata)
+{
+	struct eqos_l3_l4_filter l3_l4_filter;
+	int i, filter_nums;
+	u32 filters[EQOS_MAX_L3_L4_FILTER][3] = { {0} };
+	struct device_node *pnode = pdata->pdev->dev.of_node;
+
+	dev_info(&pdata->dev->dev, "%s -->", __func__);
+
+	/* nvidia,filters = < filter_conf IP_addr Port_num >
+	 * filter conf bits :
+	 * 2     -> src/dst
+	 * 3     -> enable/disable
+	 * 4     -> perfect/inverse
+	 * 5     -> dma_routing_enable
+	 * 8:6   -> dma_channel
+	 * 9     -> ipv4/ipv6
+	 * 10    -> tcp/udp
+	 * 15:11 -> Mask Value for L3 filter address
+	 *          holds mask for L3 filter, 0 -> 31
+	 *          0: No bits are masked
+	 *          1: LSb[0] is maksed
+	 *          2: LSb[1:0] are masked
+	 *          ....
+	 *          31: LSb[0:30] are masked , leaving only bit 31
+	 *
+	 * 26:24 -> L3/L4
+	 * 30:28 -> filter number
+	 */
+
+	filter_nums = of_property_read_variable_u32_array(pnode,
+			"nvidia,filters", (u32 *)filters, 3,
+			EQOS_MAX_L3_L4_FILTER * 3);
+
+	if (filter_nums < 0 || ((filter_nums % 3) != 0)) {
+		if (filter_nums != -EINVAL)
+			dev_err(&pdata->pdev->dev,
+			"%s: nvidia,filters read failed\n", __func__);
+		return;
+	}
+
+	filter_nums /= 3;
+
+	for (i = 0; i < filter_nums; i += 1) {
+		u32 cur_filter = filters[i][0];
+		u8 type = (u8)((cur_filter >> 24) & 0x7);
+
+		if (cur_filter & (1U << 9)) {
+			dev_err(&pdata->pdev->dev, "Filter %d failed," \
+			" IPV6 not supported\n", ((cur_filter >> 28) & 0x7));
+			continue;
+		}
+
+		memset(&l3_l4_filter, 0, sizeof(l3_l4_filter));
+		l3_l4_filter.filter_no =  ((cur_filter >> 28) & 0x7);
+		l3_l4_filter.filter_enb_dis = ((cur_filter >> 3) & 0x1);
+		l3_l4_filter.src_dst_addr_match = ((cur_filter >> 2) & 0x1);
+		l3_l4_filter.perfect_inverse_match = ((cur_filter >> 4) & 0x1);
+		l3_l4_filter.dma_routing_enable = ((cur_filter >> 5) & 0x1);
+		l3_l4_filter.dma_channel = ((cur_filter >> 6) & 0x7);
+
+		/* L3 Filter */
+		if (!type) {
+			l3_l4_filter.ip4_addr[0] = ((u8 *)&filters[i][1])[3];
+			l3_l4_filter.ip4_addr[1] = ((u8 *)&filters[i][1])[2];
+			l3_l4_filter.ip4_addr[2] = ((u8 *)&filters[i][1])[1];
+			l3_l4_filter.ip4_addr[3] = ((u8 *)&filters[i][1])[0];
+			l3_l4_filter.l3_mask =  ((cur_filter >> 11) & 0x1f);
+
+			if (__eqos_config_ip4_filters(pdata, &l3_l4_filter))
+				dev_err(&pdata->pdev->dev,
+					"%s: Failed to configure filter %d\n",
+					__func__,  l3_l4_filter.filter_no);
+
+		/* L4 Filter */
+		} else if (type == 1) {
+			int is_udp = ((cur_filter >> 10) & 0x1);
+
+			l3_l4_filter.port_no = filters[i][2];
+
+			if (__eqos_config_tcp_udp_filters(pdata, &l3_l4_filter,
+									is_udp))
+				dev_err(&pdata->pdev->dev,
+					"%s: Failed to configure filter %d\n",
+					__func__,  l3_l4_filter.filter_no);
+
+		/* Unsupported filter type */
+		} else {
+			dev_err(&pdata->pdev->dev,
+				"%s: Wrong filter type %u for filter %d\n",
+				__func__, type, l3_l4_filter.filter_no);
+		}
+	}
+}
+
 void eqos_start_dev(struct eqos_prv_data *pdata)
 {
 	struct hw_if_struct *hw_if = &pdata->hw_if;
@@ -5443,6 +5732,8 @@ void eqos_start_dev(struct eqos_prv_data *pdata)
 
 	/* initializes MAC and DMA */
 	hw_if->init(pdata);
+
+	get_configure_l3v4_filter(pdata);
 
 	MAC_1US_TIC_WR(pdata->csr_clock_speed - 1);
 

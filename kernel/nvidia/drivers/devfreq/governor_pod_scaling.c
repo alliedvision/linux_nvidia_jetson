@@ -380,11 +380,21 @@ static void nvhost_scale_emc_debug_init(struct devfreq *df)
 	struct dentry *f;
 	char dirname[128];
 
+	if (!podgov)
+		return;
+
+	if (IS_ERR_OR_NULL(to_platform_device(df->dev.parent)->name)) {
+		pr_err("device name null\n");
+		return;
+	}
+
 	snprintf(dirname, sizeof(dirname), "%s_scaling",
 		to_platform_device(df->dev.parent)->name);
 
-	if (!podgov)
+	if (!debugfs_initialized()) {
+		pr_err("%s debugfs not initialized\n", dirname);
 		return;
+	}
 
 	podgov->debugdir = debugfs_create_dir(dirname, NULL);
 	if (!podgov->debugdir) {

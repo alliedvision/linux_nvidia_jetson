@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2017-2021 NVIDIA Corporation.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -224,7 +224,7 @@ static int railgate_residency_show(struct seq_file *s, void *data)
 	unsigned long total_rail_gate_time_ms;
 	unsigned long total_rail_ungate_time_ms;
 
-	if (platform->is_railgated(dev_from_gk20a(g))) {
+	if (platform && platform->is_railgated && platform->is_railgated(dev_from_gk20a(g))) {
 		time_since_last_state_transition_ms =
 				jiffies_to_msecs(jiffies -
 				g->pstats.last_rail_gate_complete);

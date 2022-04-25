@@ -4,7 +4,7 @@
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
  * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -259,6 +259,7 @@ struct ufs_pwr_mode_info {
  * struct ufs_hba_variant_ops - variant specific callbacks
  * @name: variant name
  * @init: called when the driver is initialized
+ * @late_init: called when the driver has initialized
  * @exit: called to cleanup everything done in init
  * @get_ufs_hci_version: called to get UFS HCI version
  * @clk_scale_notify: notifies that clks are scaled up/down
@@ -280,6 +281,7 @@ struct ufs_pwr_mode_info {
 struct ufs_hba_variant_ops {
 	const char *name;
 	int	(*init)(struct ufs_hba *);
+	int     (*late_init)(struct ufs_hba *);
 	void    (*exit)(struct ufs_hba *);
 	u32	(*get_ufs_hci_version)(struct ufs_hba *);
 	int	(*clk_scale_notify)(struct ufs_hba *, bool,
@@ -754,6 +756,8 @@ static inline int ufshcd_dme_peer_get(struct ufs_hba *hba,
 
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size);
 
+int ufs_get_device_specversion(struct ufs_hba *hba, u16 *spec);
+
 static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 {
 	return (pwr_info->pwr_rx == FAST_MODE ||
@@ -806,6 +810,14 @@ static inline u32 ufshcd_vops_get_ufs_hci_version(struct ufs_hba *hba)
 		return hba->vops->get_ufs_hci_version(hba);
 
 	return ufshcd_readl(hba, REG_UFS_VERSION);
+}
+
+static inline int ufshcd_vops_late_init(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->late_init)
+		return hba->vops->late_init(hba);
+
+	return 0;
 }
 
 static inline int ufshcd_vops_clk_scale_notify(struct ufs_hba *hba,

@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host VI
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: David Wang <davidw@nvidia.com>
  *
@@ -29,12 +29,18 @@
 #define __VI_CAPTURE_ALIGN __aligned(8)
 
 struct tegra_vi_channel;
+struct capture_buffer_table;
 
 struct vi_capture {
 	uint16_t channel_id;
 	struct device *rtcpu_dev;
 	struct tegra_vi_channel *vi_channel;
+	struct capture_buffer_table *buf_ctx;
 	struct capture_common_buf requests;
+	struct capture_descriptor_memoryinfo *requests_memoryinfo;
+		/**< memory info ringbuffer handle*/
+	uint64_t requests_memoryinfo_iova;
+		/**< memory info ringbuffer rtcpu iova */
 	size_t request_buf_size;
 	uint32_t queue_depth;
 	uint32_t request_size;
@@ -62,7 +68,7 @@ struct vi_capture {
 
 	struct mutex reset_lock;
 	struct mutex unpins_list_lock;
-	struct capture_common_unpins **unpins_list;
+	struct capture_common_unpins *unpins_list;
 
 	uint64_t vi_channel_mask;
 };
@@ -116,6 +122,11 @@ struct vi_capture_progress_status_req {
 
 	uint32_t buffer_depth;
 	uint32_t __pad[3];
+} __VI_CAPTURE_ALIGN;
+
+struct vi_buffer_req {
+	uint32_t mem;
+	uint32_t flag;
 } __VI_CAPTURE_ALIGN;
 /*
  * The compand configuration describes a piece-wise linear

@@ -1,7 +1,7 @@
 /*
  * GP10B Tegra HAL interface
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -72,6 +72,7 @@
 #include "gm20b/gr_gm20b.h"
 #include "gm20b/fifo_gm20b.h"
 #include "gm20b/acr_gm20b.h"
+#include "gp10b/acr_gp10b.h"
 #include "gm20b/pmu_gm20b.h"
 #include "gm20b/clk_gm20b.h"
 #include "gm20b/mm_gm20b.h"
@@ -734,7 +735,7 @@ static const struct gpu_ops gp10b_ops = {
 		.read_vin_cal_gain_offset_fuse = NULL,
 	},
 	.acr = {
-		.acr_sw_init = nvgpu_gm20b_acr_sw_init,
+		.acr_sw_init = nvgpu_gp10b_acr_sw_init,
 	},
 	.chip_init_gpu_characteristics = gp10b_init_gpu_characteristics,
 	.get_litter_value = gp10b_get_litter_value,

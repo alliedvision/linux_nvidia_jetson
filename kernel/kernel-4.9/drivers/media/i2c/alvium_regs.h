@@ -1,5 +1,5 @@
 /*=============================================================================
-  Copyright (C) 2020 Allied Vision Technologies.  All Rights Reserved.
+  Copyright (C) 2022 Allied Vision Technologies.  All Rights Reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 
 File:        alvium_regs.h
 
-version:     1.7.11
+version:     1.8.0
 =============================================================================*/
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,12 +27,12 @@ version:     1.7.11
 // Version of the GenCP over CSI spec
 #define GENCP_OVER_CCI_SPEC_VERSION_MAJOR           1
 #define GENCP_OVER_CCI_SPEC_VERSION_MINOR           1
-#define GENCP_OVER_CCI_SPEC_VERSION_PATCH           26
+#define GENCP_OVER_CCI_SPEC_VERSION_PATCH           31
 
 // Version of the BCRM spec
 #define BCRM_SPEC_VERSION_MAJOR                     1
 #define BCRM_SPEC_VERSION_MINOR                     1
-#define BCRM_SPEC_VERSION_PATCH                     9
+#define BCRM_SPEC_VERSION_PATCH                     15
 
 // CCI registers
 #define CCI_REG_LAYOUT_VER_32R                      0x0000
@@ -52,6 +52,7 @@ version:     1.7.11
 #define CCI_CURRENT_MODE_8R                         0x021D
 #define CCI_SOFT_RESET_8W                           0x021E
 #define CCI_HEARTBEAT_8RW                           0x021F
+#define CCI_CAMERA_I2C_ADDRESS_8RW                  0x0220
 
 // GCPRM register offsets
 #define GCPRM_LAYOUT_VERSION_32R                    0x0000
@@ -140,8 +141,9 @@ version:     1.7.11
 #define BCRM_FRAME_START_TRIGGER_SOFTWARE_8W        0x00C0
 #define BCRM_FRAME_START_TRIGGER_DELAY_32RW         0x00C4
 #define BCRM_EXPOSURE_ACTIVE_LINE_MODE_8RW          0x00C8
-#define BCRM_EXPOSURE_ACTIVE_LINE_SELECTOR_8RW      0x00CC
+#define BCRM_EXPOSURE_ACTIVE_OUTPUT_LINE_8RW        0x00CC
 #define BCRM_LINE_CONFIGURATION_32RW                0x00D0
+#define BCRM_LINE_STATUS_8R                         0x00D4
 #define BCRM_IMG_WIDTH_32RW                         0x0100
 #define BCRM_IMG_WIDTH_MIN_32R                      0x0104
 #define BCRM_IMG_WIDTH_MAX_32R                      0x0108
@@ -168,6 +170,9 @@ version:     1.7.11
 #define BCRM_SENSOR_HEIGHT_32R                      0x0164
 #define BCRM_WIDTH_MAX_32R                          0x0168
 #define BCRM_HEIGHT_MAX_32R                         0x016C
+#define BCRM_DIGITAL_BINNIG_INQ_16R                 0x0170
+#define BCRM_DIGITAL_BINNIG_SETTING_8RW             0x0172
+#define BCRM_DIGITAL_BINNIG_MODE_8RW                0x0173
 #define BCRM_EXPOSURE_TIME_64RW                     0x0180
 #define BCRM_EXPOSURE_TIME_MIN_64R                  0x0188
 #define BCRM_EXPOSURE_TIME_MAX_64R                  0x0190
@@ -203,10 +208,6 @@ version:     1.7.11
 #define BCRM_HUE_MIN_32R                            0x0254
 #define BCRM_HUE_MAX_32R                            0x0258
 #define BCRM_HUE_INC_32R                            0x025C
-#define BCRM_ALL_BALANCE_RATIO_64RW                 0x0260
-#define BCRM_ALL_BALANCE_RATIO_MIN_64R              0x0268
-#define BCRM_ALL_BALANCE_RATIO_MAX_64R              0x0270
-#define BCRM_ALL_BALANCE_RATIO_INC_64R              0x0278
 #define BCRM_RED_BALANCE_RATIO_64RW                 0x0280
 #define BCRM_RED_BALANCE_RATIO_MIN_64R              0x0288
 #define BCRM_RED_BALANCE_RATIO_MAX_64R              0x0290
@@ -229,8 +230,23 @@ version:     1.7.11
 #define BCRM_EXPOSURE_AUTO_MAX_64RW                 0x0338
 #define BCRM_GAIN_AUTO_MIN_64RW                     0x0340
 #define BCRM_GAIN_AUTO_MAX_64RW                     0x0348
-
-#define _BCRM_LAST_ADDR                             BCRM_GAIN_AUTO_MAX_64RW
+#define BCRM_AUTO_REGION_WIDTH_32RW                 0x0350
+#define BCRM_AUTO_REGION_WIDTH_MIN_32R              0x0354
+#define BCRM_AUTO_REGION_WIDTH_MAX_32R              0x0358
+#define BCRM_AUTO_REGION_WIDTH_INC_32R              0x035C
+#define BCRM_AUTO_REGION_HEIGHT_32RW                0x0360
+#define BCRM_AUTO_REGION_HEIGHT_MIN_32R             0x0364
+#define BCRM_AUTO_REGION_HEIGHT_MAX_32R             0x0368
+#define BCRM_AUTO_REGION_HEIGHT_INC_32R             0x036C
+#define BCRM_AUTO_REGION_OFFSET_X_32RW              0x0370
+#define BCRM_AUTO_REGION_OFFSET_X_MIN_32R           0x0374
+#define BCRM_AUTO_REGION_OFFSET_X_MAX_32R           0x0378
+#define BCRM_AUTO_REGION_OFFSET_X_INC_32R           0x037C
+#define BCRM_AUTO_REGION_OFFSET_Y_32RW              0x0380
+#define BCRM_AUTO_REGION_OFFSET_Y_MIN_32R           0x0384
+#define BCRM_AUTO_REGION_OFFSET_Y_MAX_32R           0x0388
+#define BCRM_AUTO_REGION_OFFSET_Y_INC_32R           0x038C
+#define _BCRM_LAST_ADDR                             BCRM_AUTO_REGION_OFFSET_Y_INC_32R
 
 #define AV_CAM_REG_SIZE                 2
 #define AV_CAM_DATA_SIZE_8              1
@@ -327,6 +343,23 @@ enum CCI_STRING_ENC {
     CCI_STRING_ENC_UTF16    = 2
 };
 
+/* BCRM digital binning setting */
+enum BCRM_DIGITAL_BINNING_SETTING {
+    DIGITAL_BINNING_OFF = 0,
+    DIGITAL_BINNING_2X2 = 1,
+    DIGITAL_BINNING_3X3 = 2,
+    DIGITAL_BINNING_4X4 = 3,
+    DIGITAL_BINNING_5X5 = 4,
+    DIGITAL_BINNING_6X6 = 5,
+    DIGITAL_BINNING_7X7 = 6,
+    DIGITAL_BINNING_8X8 = 7
+};
+
+/* BCRM digital binning mode */
+enum BCRM_DIGITAL_BINNING_MODE {
+    DIGITAL_BINNING_MODE_AVG = 0,
+    DIGITAL_BINNING_MODE_SUM = 1
+};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -461,6 +494,22 @@ union bcrm_bayer_inquiry_reg {
 	} bayer_pattern;
 
 	unsigned char value;
+};
+
+
+union bcrm_digital_binning_inquiry_reg {
+	struct {
+        unsigned short int digital_binning_2x2:1;
+        unsigned short int digital_binning_3x3:1;
+        unsigned short int digital_binning_4x4:1;
+        unsigned short int digital_binning_5x5:1;
+        unsigned short int digital_binning_6x6:1;
+        unsigned short int digital_binning_7x7:1;
+        unsigned short int digital_binning_8x8:1;
+        unsigned short int reserved:9;
+	} digital_binning_inquiry;
+
+	unsigned short int value;
 };
 
 #endif /* ALVIUM_REGS_H */

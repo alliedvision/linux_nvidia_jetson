@@ -1049,6 +1049,10 @@ static void tegra_pcie_enable_aer(struct tegra_pcie_port *port, bool enable)
 		data &= ~PCIE2_RP_VEND_CTL1_ERPT;
 	rp_writel(port, data, NV_PCIE2_RP_VEND_CTL1);
 }
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA, 0x0bf0, tegra_pcie_relax_enable);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA, 0x0bf1, tegra_pcie_relax_enable);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA, 0x0e1c, tegra_pcie_relax_enable);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_NVIDIA, 0x0e1d, tegra_pcie_relax_enable);
 
 static int tegra_pcie_attach(struct tegra_pcie *pcie)
 {
@@ -3338,7 +3342,8 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 	struct device_node *np = pcie->dev->of_node, *port;
 	struct of_pci_range_parser parser;
 	struct of_pci_range range;
-	u32 lanes = 0;
+	u32 lanes = 0, mask = 0;
+	unsigned int lane = 0;
 	struct resource res = {0};
 	int err;
 
@@ -3427,13 +3432,14 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 		if (err < 0) {
 			dev_err(pcie->dev, "failed to parse address: %d\n",
 				err);
-			return err;
+			goto err_node_put;
 		}
 
 		index = PCI_SLOT(err);
 		if (index < 1 || index > soc->num_ports) {
 			dev_err(pcie->dev, "invalid port number: %d\n", index);
-			return -EINVAL;
+			err = -EINVAL;
+			goto err_node_put;
 		}
 
 		index--;
@@ -3442,12 +3448,13 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 		if (err < 0) {
 			dev_err(pcie->dev, "failed to parse # of lanes: %d\n",
 				err);
-			return err;
+			goto err_node_put;
 		}
 
 		if (value > 16) {
 			dev_err(pcie->dev, "invalid # of lanes: %u\n", value);
-			return -EINVAL;
+			err = -EINVAL;
+			goto err_node_put;
 		}
 		lanes |= value << (index << 3);
 
@@ -3455,15 +3462,19 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 			continue;
 		}
 
+		mask |= ((1 << value) - 1) << lane;
+		lane += value;
+
 		rp = devm_kzalloc(pcie->dev, sizeof(*rp), GFP_KERNEL);
-		if (!rp)
-			return -ENOMEM;
+		if (!rp) {
+			err = -ENOMEM;
+			goto err_node_put;
+		}
 
 		err = of_address_to_resource(port, 0, &rp->regs);
 		if (err < 0) {
-			dev_err(pcie->dev, "failed to parse address: %d\n",
-				err);
-			return err;
+			dev_err(pcie->dev, "failed to parse address: %d\n", err);
+			goto err_node_put;
 		}
 
 		rp->gpio_presence_detection =
@@ -3567,6 +3578,10 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 	}
 
 	return 0;
+
+err_node_put:
+	of_node_put(port);
+	return err;
 }
 
 static int list_devices(struct seq_file *s, void *data)
@@ -3619,6 +3634,7 @@ static int apply_link_speed(struct seq_file *s, void *data)
 	tegra_pcie_link_speed(pcie);
 	seq_printf(s, "Done\n");
 	return 0;
+
 }
 
 static int check_d3hot(struct seq_file *s, void *data)

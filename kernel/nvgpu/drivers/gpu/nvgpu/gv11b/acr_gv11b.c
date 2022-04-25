@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -148,7 +148,11 @@ static void gv11b_acr_default_sw_init(struct gk20a *g, struct hs_acr *hs_acr)
 	hs_bl->bl_fw_name = HSBIN_ACR_BL_UCODE_IMAGE;
 
 	hs_acr->acr_type = ACR_DEFAULT;
-	hs_acr->acr_fw_name = HSBIN_ACR_UCODE_IMAGE;
+	if (!g->ops.pmu.is_debug_mode_enabled(g)) {
+		hs_acr->acr_fw_name = HSBIN_ACR_PROD_UCODE;
+	} else {
+		hs_acr->acr_fw_name = HSBIN_ACR_DBG_UCODE;
+	}
 
 	hs_acr->ptr_bl_dmem_desc = &hs_acr->bl_dmem_desc_v1;
 	hs_acr->bl_dmem_desc_size = sizeof(struct flcn_bl_dmem_desc_v1);

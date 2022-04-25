@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -585,8 +585,10 @@ void eqos_mdio_unregister(struct net_device *dev)
 		pdata->phydev = NULL;
 	}
 
-	mdiobus_unregister(pdata->mii);
-	pdata->mii->priv = NULL;
+	if (pdata->mii) {
+		mdiobus_unregister(pdata->mii);
+		pdata->mii->priv = NULL;
+	}
 	pdata->mii = NULL;
 
 	DBGPR_MDIO("<--eqos_mdio_unregister\n");

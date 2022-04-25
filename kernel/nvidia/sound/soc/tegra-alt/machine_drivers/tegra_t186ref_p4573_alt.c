@@ -1,7 +1,7 @@
 /*
  * tegra_t186ref_p4573_alt.c - Tegra t186 Machine driver for P4573 board
  *
- * Copyright (c) 2016-2019 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2021 NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -118,7 +118,8 @@ static int tegra186_hw_params(struct snd_pcm_substream *substream,
 	unsigned int clk_out_rate, bclk_ratio;
 	int ret, i;
 
-	ret = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, rate, 0, 0);
+	ret = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, rate, 0, 0,
+						0, 0);
 	if (ret < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return ret;

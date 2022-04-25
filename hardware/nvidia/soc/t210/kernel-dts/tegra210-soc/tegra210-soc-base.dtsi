@@ -2088,6 +2088,13 @@
 		clock-names = "div-clk", "parent";
                 resets = <&tegra_car 54>;
                 reset-names = "i2c";
+                prod-settings {
+			prod_c_sm {
+				prod = <
+					0x94 0xffffffff 0x00000304
+					0x6c 0xffffffff 0x00160001>;
+			};
+		};
 	};
 
 	i2c3: i2c@7000c500 {

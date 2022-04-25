@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Authors:
  *      VenkataJagadish.p	<vjagadish@nvidia.com>
@@ -117,7 +117,7 @@ static const struct file_operations ufs_tegra_debugfs_ops = {
 	.release        = single_release,
 };
 
-void ufs_tegra_init_debugfs(struct ufs_hba *hba)
+static int ufs_tegra_init_debugfs(struct ufs_hba *hba)
 {
 	struct dentry *device_root;
 	struct ufs_tegra_host *ufs_tegra = hba->priv;
@@ -127,6 +127,8 @@ void ufs_tegra_init_debugfs(struct ufs_hba *hba)
 			device_root, hba, &ufs_tegra_debugfs_ops);
 	if (ufs_tegra->enable_ufs_provisioning)
 		debugfs_provision_init(hba, device_root);
+
+	return 0;
 }
 #endif
 
@@ -1548,9 +1550,6 @@ static int ufs_tegra_init(struct ufs_hba *hba)
 		ufs_tegra_aux_reset_enable(ufs_tegra);
 		ufs_tegra_ufs_aux_prog(ufs_tegra);
 		ufs_tegra_cfg_vendor_registers(hba);
-#ifdef CONFIG_DEBUG_FS
-		ufs_tegra_init_debugfs(hba);
-#endif
 	}
 	return err;
 
@@ -1587,6 +1586,9 @@ static void ufs_tegra_exit(struct ufs_hba *hba)
 struct ufs_hba_variant_ops ufs_hba_tegra_vops = {
 	.name                   = "ufs-tegra",
 	.init                   = ufs_tegra_init,
+#ifdef CONFIG_DEBUG_FS
+	.late_init              = ufs_tegra_init_debugfs,
+#endif
 	.exit                   = ufs_tegra_exit,
 	.suspend		= ufs_tegra_suspend,
 	.resume			= ufs_tegra_resume,

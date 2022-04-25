@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (C) 2015 Google, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -418,26 +418,37 @@ static void tegra210_xusb_padctl_disable_pad_protection(
 }
 
 /* This API must be used to init unused SS ports */
-static void tegra210_xusb_padctl_init_usb3_port(int port,
+static void tegra210b01_xusb_padctl_init_ss_port_3(
 					struct tegra_xusb_padctl *padctl)
 {
 	u32 reg;
 
 	reg = padctl_readl(padctl, XUSB_PADCTL_SS_PORT_MAP);
-	reg &= ~SS_PORT_MAP(port, SS_PORT_MAP_PORT_DISABLED);
-	reg |= SS_PORT_MAP(port, port);
+	reg &= ~SS_PORT_MAP(3, SS_PORT_MAP_PORT_DISABLED);
+	reg |= SS_PORT_MAP(3, 3);
 	padctl_writel(padctl, reg, XUSB_PADCTL_SS_PORT_MAP);
 
+	/*
+	 * As SS port logic generates signals on both DISABLED and DEVICE mode,
+	 * the disabled ports falsely trigger the HS/FS device port logic.
+	 * We set the port capability to HOST instead of DISABLED as WAR for
+	 * the possible issue.
+	 */
+	reg = padctl_readl(padctl, XUSB_PADCTL_USB2_PORT_CAP);
+	reg &= ~XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_MASK(3);
+	reg |= XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_HOST(3);
+	padctl_writel(padctl, reg, XUSB_PADCTL_USB2_PORT_CAP);
+
 	reg = padctl_readl(padctl, XUSB_PADCTL_ELPG_PROGRAM_1);
-	reg &= ~SSPX_ELPG_VCORE_DOWN(port);
+	reg &= ~SSPX_ELPG_VCORE_DOWN(3);
 	padctl_writel(padctl, reg, XUSB_PADCTL_ELPG_PROGRAM_1);
 
 	reg = padctl_readl(padctl, XUSB_PADCTL_ELPG_PROGRAM_1);
-	reg &= ~SSPX_ELPG_CLAMP_EN_EARLY(port);
+	reg &= ~SSPX_ELPG_CLAMP_EN_EARLY(3);
 	padctl_writel(padctl, reg, XUSB_PADCTL_ELPG_PROGRAM_1);
 
 	reg = padctl_readl(padctl, XUSB_PADCTL_ELPG_PROGRAM_1);
-	reg &= ~SSPX_ELPG_CLAMP_EN(port);
+	reg &= ~SSPX_ELPG_CLAMP_EN(3);
 	padctl_writel(padctl, reg, XUSB_PADCTL_ELPG_PROGRAM_1);
 }
 
@@ -992,7 +1003,7 @@ static int tegra210_uphy_init(struct tegra_xusb_padctl *padctl)
 
 	/* Initialize Unused USB3 port on T210b01 for power saving */
 	if (t210b01_compatible(padctl) == 1)
-		tegra210_xusb_padctl_init_usb3_port(3, padctl);
+		tegra210b01_xusb_padctl_init_ss_port_3(padctl);
 
 	/* bring all PCIE PADs out of IDDQ */
 	for (i = 0; i < padctl->pcie->soc->num_lanes; i++) {
@@ -1617,8 +1628,23 @@ static int tegra210_usb2_phy_power_on(struct phy *phy)
 	value = padctl_readl(padctl, XUSB_PADCTL_USB2_OTG_PADX_CTL_0(index));
 	value &= ~USB2_OTG_PD_ZI;
 	value &= ~HS_CURR_LEVEL(~0);
-	value |= HS_CURR_LEVEL(priv->fuse.hs_curr_level[index] +
-				usb2->hs_curr_level_offset);
+	if (usb2->hs_curr_level_offset) {
+		int hs_current_level;
+
+		dev_dbg(&phy->dev, "UTMI port %d apply hs_curr_level_offset %d\n",
+			index, usb2->hs_curr_level_offset);
+
+		hs_current_level = (int) priv->fuse.hs_curr_level[index] +
+			usb2->hs_curr_level_offset;
+
+		if (hs_current_level < 0)
+			hs_current_level = 0;
+		if (hs_current_level > 0x3f)
+			hs_current_level = 0x3f;
+
+		value |= HS_CURR_LEVEL(hs_current_level);
+	} else
+		value |= HS_CURR_LEVEL(priv->fuse.hs_curr_level[index]);
 	padctl_writel(padctl, value, XUSB_PADCTL_USB2_OTG_PADX_CTL_0(index));
 
 	value = padctl_readl(padctl, XUSB_PADCTL_USB2_OTG_PADX_CTL_1(index));
@@ -2369,6 +2395,8 @@ static int tegra210_pcie_phy_power_on(struct phy *phy)
 		struct tegra_xusb_usb3_port *port =
 				tegra_xusb_find_usb3_port(padctl,
 					tegra210_usb3_lane_map(lane));
+		struct tegra_xusb_usb2_port *companion_usb2_port =
+				tegra_xusb_find_usb2_port(padctl, port->port);
 		int port_index;
 		int err;
 
@@ -2398,6 +2426,23 @@ static int tegra210_pcie_phy_power_on(struct phy *phy)
 					SS_PORT_MAP_PORT_DISABLED);
 		value |= SS_PORT_MAP(port_index, port->port);
 		padctl_writel(padctl, value, XUSB_PADCTL_SS_PORT_MAP);
+
+		/*
+		 * As SS port logic generates signals on both DISABLED
+		 * and DEVICE mode, the disabled ports falsely trigger
+		 * the HS/FS device port logic.
+		 * We set the port capability to HOST instead of DISABLED
+		 * as WAR for the possible issue.
+		 */
+		if (companion_usb2_port->port_cap == USB_PORT_DISABLED) {
+			companion_usb2_port->port_cap = USB_HOST_CAP;
+			value = padctl_readl(padctl, XUSB_PADCTL_USB2_PORT_CAP);
+			value &=
+			  ~XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_MASK(port->port);
+			value |=
+			  XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_HOST(port->port);
+			padctl_writel(padctl, value, XUSB_PADCTL_USB2_PORT_CAP);
+		}
 
 		value = padctl_readl(padctl,
 				XUSB_PADCTL_UPHY_USB3_PADX_ECTL_1(port_index));
@@ -2865,6 +2910,8 @@ static int tegra210_sata_phy_power_on(struct phy *phy)
 		struct tegra_xusb_usb3_port *port =
 				tegra_xusb_find_usb3_port(padctl,
 					tegra210_usb3_lane_map(lane));
+		struct tegra_xusb_usb2_port *companion_usb2_port =
+				tegra_xusb_find_usb2_port(padctl, port->port);
 		int port_index;
 		int err;
 
@@ -2894,6 +2941,23 @@ static int tegra210_sata_phy_power_on(struct phy *phy)
 					SS_PORT_MAP_PORT_DISABLED);
 		value |= SS_PORT_MAP(port_index, port->port);
 		padctl_writel(padctl, value, XUSB_PADCTL_SS_PORT_MAP);
+
+		/*
+		 * As SS port logic generates signals on both DISABLED
+		 * and DEVICE mode, the disabled ports falsely trigger
+		 * the HS/FS device port logic.
+		 * We set the port capability to HOST instead of DISABLED
+		 * as WAR for the possible issue.
+		 */
+		if (companion_usb2_port->port_cap == USB_PORT_DISABLED) {
+			companion_usb2_port->port_cap = USB_HOST_CAP;
+			value = padctl_readl(padctl, XUSB_PADCTL_USB2_PORT_CAP);
+			value &=
+			  ~XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_MASK(port->port);
+			value |=
+			  XUSB_PADCTL_USB2_PORT_CAP_PORTX_CAP_HOST(port->port);
+			padctl_writel(padctl, value, XUSB_PADCTL_USB2_PORT_CAP);
+		}
 
 		value = padctl_readl(padctl,
 				XUSB_PADCTL_UPHY_USB3_PADX_ECTL_1(port_index));
@@ -3519,7 +3583,7 @@ static int tegra210_xusb_padctl_resume_noirq(struct tegra_xusb_padctl *padctl)
 
 	/* Initialize Unused USB3 port on T210b01 for power saving */
 	if (t210b01_compatible(padctl) == 1)
-		tegra210_xusb_padctl_init_usb3_port(3, padctl);
+		tegra210b01_xusb_padctl_init_ss_port_3(padctl);
 
 	tegra210_xusb_padctl_restore(padctl);
 

@@ -3,7 +3,7 @@
  *
  * MC error code common to T3x and T11x. T20 has been left alone.
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -274,4 +274,9 @@ done:
 fail:
 	pr_err("init failied\n");
 	return -EINVAL;
+}
+
+void tegra_mcerr_resume(void)
+{
+	mc_writel(mc_int_mask, MC_INTMASK);
 }

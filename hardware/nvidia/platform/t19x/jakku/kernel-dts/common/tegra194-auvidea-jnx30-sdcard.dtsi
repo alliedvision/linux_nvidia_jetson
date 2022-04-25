@@ -1,0 +1,43 @@
+
+/ {
+  sdmmc3: sdhci@3440000 {           //added for sd card reader working on JNX30(fd)
+    status = "okay";
+    compatible = "nvidia,tegra194-sdhci";
+    reg = <0x0 0x3440000 0x0 0x00020000>;
+    interrupts = < 0 TEGRA194_IRQ_SDMMC3 0x04>;
+    iommus = <&smmu TEGRA_SID_SDMMC3A>;
+    dma-coherent;
+    max-clk-limit = <208000000>;
+    cd-gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(Q, 2) 0>;
+    bus-width = <4>;
+    cap-mmc-highspeed;
+    cap-sd-highspeed;
+    sd-uhs-sdr104;
+    sd-uhs-sdr50;
+    sd-uhs-sdr25;
+    sd-uhs-sdr12;
+    mmc-ddr-1_8v;
+    mmc-hs200-1_8v;
+    cd-inverted;
+    nvidia,min-tap-delay = <96>;
+    nvidia,max-tap-delay = <139>;
+    nvidia,vqmmc-always-on;
+    pwrdet-support;
+    pinctrl-names = "sdmmc_e_33v_enable", "sdmmc_e_33v_disable";
+    pinctrl-0 = <&sdmmc3_e_33V_enable>;
+    pinctrl-1 = <&sdmmc3_e_33V_disable>;
+    ignore-pm-notify;
+    resets = <&bpmp_resets TEGRA194_RESET_SDMMC3>;
+    reset-names = "sdhci";
+    pll_source = "pll_p", "pll_c4_muxed";
+    nvidia,set-parent-clk;
+    nvidia,parent_clk_list = "pll_p", "pll_p", "pll_p", "pll_p", "pll_p", "pll_c4_muxed", "pll_c4_muxed", "pll_c4_muxed", "pll_c4_muxed", "pll_c4_muxed", "NULL";
+    clocks = <&bpmp_clks TEGRA194_CLK_SDMMC3>,
+      <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+      <&bpmp_clks TEGRA194_CLK_PLLC4_MUXED>,
+      <&bpmp_clks TEGRA194_CLK_SDMMC_LEGACY_TM>;
+    clock-names = "sdmmc", "pll_p", "pll_c4_muxed", "sdmmc_legacy_tm";
+    uhs-mask = <0x08>;
+    nvidia,en-periodic-calib;
+  };
+};

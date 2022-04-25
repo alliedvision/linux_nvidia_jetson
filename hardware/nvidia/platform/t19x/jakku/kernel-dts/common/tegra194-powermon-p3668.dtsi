@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 				ti,rail-name = "VDD_IN";
 				ti,shunt-resistor-mohm = <5>;
 				ti,current-warning-limit-ma = <3000>;
-				ti,current-critical-limit-ma = <3600>;
+				ti,current-critical-limit-ma = <5000>;
 			};
 			channel@1 {
 				reg = <0x1>;

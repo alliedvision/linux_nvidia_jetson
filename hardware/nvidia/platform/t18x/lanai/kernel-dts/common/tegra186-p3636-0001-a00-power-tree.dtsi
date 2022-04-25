@@ -40,7 +40,7 @@
 		vdd_disp_3v3: regulator@203 {
 			compatible = "regulator-fixed";
 			reg = <203>;
-			regulator-name = "vdd-3v3-cvb";
+			regulator-name = "vdd-3v3-disp-cvb";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 		};

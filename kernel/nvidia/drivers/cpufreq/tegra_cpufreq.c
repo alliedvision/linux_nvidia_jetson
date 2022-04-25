@@ -581,9 +581,10 @@ static int set_hint(void *data, u64 val)
 	uint64_t cpu = (uint64_t)data;
 	int cur_cl;
 	uint32_t hint = val;
+	int ret = 0;
 
 	if (!val)
-		return 0;
+		return -EINVAL;
 
 	/* Take hotplug lock before taking tegra cpufreq lock */
 	get_online_cpus();
@@ -591,14 +592,19 @@ static int set_hint(void *data, u64 val)
 		spinlock_t *slock = &per_cpu(pcpu_slock, cpu);
 		cur_cl = tegra18_logical_to_cluster(cpu);
 		cpu = logical_to_phys_map(cpu);
-		spin_lock(slock);
-		tcpufreq_writel(hint, tfreq_data.pcluster[cur_cl].edvd_pub +
-			EDVD_CL_NDIV_VHINT_OFFSET, cpu);
-		tfreq_data.last_hint[cpu] = hint;
-		spin_unlock(slock);
+		if (!tegra_cpufreq_hv_mode) {
+			spin_lock(slock);
+			tcpufreq_writel(hint,
+				tfreq_data.pcluster[cur_cl].edvd_pub +
+				EDVD_CL_NDIV_VHINT_OFFSET, cpu);
+			tfreq_data.last_hint[cpu] = hint;
+			spin_unlock(slock);
+		} else {
+			ret = -EIO;
+		}
 	}
 	put_online_cpus();
-	return 0;
+	return ret;
 }
 
 /* get ndiv / vindex hint for a cpu */
@@ -606,6 +612,7 @@ static int get_hint(void *data, u64 *hint)
 {
 	uint64_t cpu = (uint64_t)data;
 	int cur_cl;
+	int ret = 0;
 
 	*hint = 0;
 
@@ -615,12 +622,17 @@ static int get_hint(void *data, u64 *hint)
 		cur_cl = tegra18_logical_to_cluster(cpu);
 		cpu = logical_to_phys_map(cpu);
 		pstore_rtrace_set_bypass(1);
-		*hint = tcpufreq_readl(tfreq_data.pcluster[cur_cl].edvd_pub +
-			EDVD_CL_NDIV_VHINT_OFFSET, cpu);
+		if (!tegra_cpufreq_hv_mode) {
+			*hint = tcpufreq_readl(
+				tfreq_data.pcluster[cur_cl].edvd_pub +
+				EDVD_CL_NDIV_VHINT_OFFSET, cpu);
+		} else {
+			ret = -EIO;
+		}
 		pstore_rtrace_set_bypass(0);
 	}
 	put_online_cpus();
-	return 0;
+	return ret;
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(ndiv_vindex_fops, get_hint, set_hint, "%08llx\n");
@@ -1012,11 +1024,15 @@ static int tegra_cpu_pm_notifier(struct notifier_block *nb,
 			cur_cl = tegra18_logical_to_cluster(cpu);
 			phy_cpu = logical_to_phys_map(cpu);
 
-			if (spin_trylock(slock)) {
-				tcpufreq_writel(tfreq_data.last_hint[cpu],
+			if (!tegra_cpufreq_hv_mode) {
+				if (spin_trylock(slock)) {
+					tcpufreq_writel(
+						tfreq_data.last_hint[cpu],
 						tfreq_data.pcluster[cur_cl].edvd_pub +
-						EDVD_CL_NDIV_VHINT_OFFSET, phy_cpu);
-				spin_unlock(slock);
+						EDVD_CL_NDIV_VHINT_OFFSET,
+						phy_cpu);
+					spin_unlock(slock);
+				}
 			}
 		}
 		break;
@@ -1330,6 +1346,7 @@ static int __init tegra186_cpufreq_probe(struct platform_device *pdev)
 	} else {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		regs = devm_ioremap_resource(&pdev->dev, res);
+		tegra_cpufreq_hv_mode = false;
 		if (IS_ERR(regs))
 			goto err_out;
 		tfreq_data.pcluster[B_CLUSTER].edvd_pub = regs + B_CL_OFFSET;

@@ -1,7 +1,7 @@
 /*
  * mipi_cal.c
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -809,11 +809,7 @@ static const struct tegra_mipi_soc tegra18x_mipi_soc = {
 	.debug_table_id = DEBUGFS_TABLE_T18x,
 	.pad_enable = &_tegra_mipi_bias_pad_enable,
 	.pad_disable = &_tegra_mipi_bias_pad_disable,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	.cil_sw_reset = NULL,
-#else
 	.cil_sw_reset = &nvcsi_cil_sw_reset,
-#endif
 	.calibrate = &tegra_mipical_using_prod,
 	.parse_cfg = &tegra_prod_get_config,
 	.powergate_id = TEGRA186_POWER_DOMAIN_DISP,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,5 +55,27 @@
 				};
 			};
 		};
+
+		gpu-64gb-disable-l3 {
+			ids = "2888-0005-*";
+			override@0 {
+				target = <&{/gv11b}>;
+				_overlay_ {
+					disable_l3_alloc;
+				};
+			};
+		};
+
+#if defined(LINUX_VERSION)
+		mc-disable-l3 {
+			ids = "2888-0005-*";
+			override@0 {
+				target = <&{/mc/mssnvlink@1f20000}>;
+				_overlay_ {
+					disable-nvlink-l3-alloc-hint;
+				};
+			};
+		};
+#endif
 	};
 };

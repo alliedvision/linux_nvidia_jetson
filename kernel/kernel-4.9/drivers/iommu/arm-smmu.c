@@ -15,7 +15,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (C) 2013 ARM Limited
- * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -88,9 +88,13 @@
 #define NUM_SID				64
 
 static int force_stage;
-module_param_named(force_stage, force_stage, int, S_IRUGO | S_IWUSR);
+module_param(force_stage, int, S_IRUGO);
 MODULE_PARM_DESC(force_stage,
 	"Force SMMU mappings to be installed at a particular stage of translation. A value of '1' or '2' forces the corresponding stage. All other values are ignored (i.e. no stage is forced). Note that selecting a specific stage will disable support for nested translation.");
+static bool disable_bypass = 1;
+module_param(disable_bypass, bool, S_IRUGO);
+MODULE_PARM_DESC(disable_bypass,
+	"Disable bypass streams such that incoming transactions from devices that are not attached to an iommu domain will report an abort back to the device and will not be allowed to pass through the SMMU.");
 
 enum arm_smmu_arch_version {
 	ARM_SMMU_V1 = 1,
@@ -1281,9 +1285,9 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	 */
 	for (i = 0; i < cfg->num_streamids; ++i) {
 		u32 idx = cfg->smrs ? cfg->smrs[i].idx : cfg->streamids[i];
+		u32 reg = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS;
 
-		writel_relaxed(S2CR_TYPE_BYPASS,
-			       gr0_base + ARM_SMMU_GR0_S2CR(idx));
+		writel_relaxed(reg, gr0_base + ARM_SMMU_GR0_S2CR(idx));
 	}
 
 	arm_smmu_master_free_smrs(smmu, cfg);
@@ -1460,9 +1464,14 @@ static int smmu_master_show(struct seq_file *s, void *unused)
 	int i;
 	struct arm_smmu_master *master = s->private;
 
+	if (!master->cfg)
+		return 0;
 	for (i = 0; i < master->cfg->num_streamids; i++)
 		seq_printf(s, "streamids: % 3d ", master->cfg->streamids[i]);
 	seq_printf(s, "\n");
+
+	if (!master->cfg->smrs)
+		return 0;
 	for (i = 0; i < master->cfg->num_streamids; i++)
 		seq_printf(s, "smrs:      % 3d ",
 			(master->cfg->smrs ? master->cfg->smrs[i].idx : -1));
@@ -2146,11 +2155,11 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 
-	/* Mark all SMRn as invalid and all S2CRn as bypass */
+	/* Mark all SMRn as invalid and all S2CRn as bypass unless overridden */
+	reg = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS;
 	for (i = 0; i < smmu->num_mapping_groups; ++i) {
 		writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
-		writel_relaxed(S2CR_TYPE_BYPASS,
-			gr0_base + ARM_SMMU_GR0_S2CR(i));
+		writel_relaxed(reg, gr0_base + ARM_SMMU_GR0_S2CR(i));
 	}
 
 	/* Make sure all context banks are disabled and clear CB_FSR  */
@@ -2174,8 +2183,12 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	/* Disable TLB broadcasting. */
 	reg |= (sCR0_VMIDPNE | sCR0_PTM);
 
-	/* Enable client access, but bypass when no mapping is found */
-	reg &= ~(sCR0_CLIENTPD);
+	/* Enable client access, handling unmatched streams as appropriate */
+	reg &= ~sCR0_CLIENTPD;
+	if (disable_bypass)
+		reg |= sCR0_USFCFG;
+	else
+		reg &= ~sCR0_USFCFG;
 
 	/* Disable forced broadcasting */
 	reg &= ~sCR0_FB;
@@ -2585,9 +2598,11 @@ static void arm_smmu_debugfs_create(struct arm_smmu_device *smmu)
 	if (!dent_gr)
 		goto err_out;
 
-	dent_gnsr = debugfs_create_dir("gnsr", smmu->debugfs_root);
-	if (!dent_gnsr)
-		goto err_out;
+	if (!is_tegra_hypervisor_mode()) {
+		dent_gnsr = debugfs_create_dir("gnsr", smmu->debugfs_root);
+		if (!dent_gnsr)
+			goto err_out;
+	}
 
 	smmu->masters_root = debugfs_create_dir("masters", smmu->debugfs_root);
 	if (!smmu->masters_root)
@@ -2648,75 +2663,81 @@ static void arm_smmu_debugfs_create(struct arm_smmu_device *smmu)
 	debugfs_create_regset32("regdump", S_IRUGO, smmu->debugfs_root,
 				smmu->regset);
 
-	bytes = sizeof(*smmu->perf_regset);
-	bytes += ARRAY_SIZE(arm_smmu_gnsr0_regs) * sizeof(*regs);
-	/*
-	 * Account the number of bytes for two sets of
-	 * counter group registers
-	 */
-	bytes += 2 * PMCG_SIZE * sizeof(*regs);
-	/*
-	 * Account the number of bytes for two sets of
-	 * event counter registers
-	 */
-	bytes += 2 * PMEV_SIZE * sizeof(*regs);
+	if (!is_tegra_hypervisor_mode()) {
+		bytes = sizeof(*smmu->perf_regset);
+		bytes += ARRAY_SIZE(arm_smmu_gnsr0_regs) * sizeof(*regs);
+		/*
+		 * Account the number of bytes for two sets of
+		 * counter group registers
+		 */
+		bytes += 2 * PMCG_SIZE * sizeof(*regs);
+		/*
+		 * Account the number of bytes for two sets of
+		 * event counter registers
+		 */
+		bytes += 2 * PMEV_SIZE * sizeof(*regs);
 
-	/* Allocate memory for Perf Monitor registers */
-	smmu->perf_regset =  kzalloc(bytes, GFP_KERNEL);
-	if (!smmu->perf_regset)
-		goto err_out;
-
-	/*
-	 * perf_regset base address is placed at offset (3 * smmu_pagesize)
-	 * from smmu->base address
-	 */
-	smmu->perf_regset->base = smmu->base + 3 * (1 << smmu->pgshift);
-	smmu->perf_regset->nregs = ARRAY_SIZE(arm_smmu_gnsr0_regs) +
-		2 * PMCG_SIZE + 2 * PMEV_SIZE;
-	smmu->perf_regset->regs =
-		(struct debugfs_reg32 *)(smmu->perf_regset + 1);
-
-	regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
-
-	for (i = 0; i < ARRAY_SIZE(arm_smmu_gnsr0_regs); i++) {
-		regs->name = arm_smmu_gnsr0_regs[i].name;
-		regs->offset = arm_smmu_gnsr0_regs[i].offset;
-		regs++;
-	}
-
-	for (i = 0; i < PMEV_SIZE; i++) {
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMEVTYPER%d_0", i);
-		if (!regs->name)
+		/* Allocate memory for Perf Monitor registers */
+		smmu->perf_regset =  kzalloc(bytes, GFP_KERNEL);
+		if (!smmu->perf_regset)
 			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMEVTYPER(i);
-		regs++;
 
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMEVCNTR%d_0", i);
-		if (!regs->name)
-			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMEVCNTR(i);
-		regs++;
-	}
+		/*
+		 * perf_regset base address is placed at offset
+		 * (3 * smmu_pagesize) from smmu->base address
+		 */
+		smmu->perf_regset->base = smmu->base + 3 * (1 << smmu->pgshift);
+		smmu->perf_regset->nregs = ARRAY_SIZE(arm_smmu_gnsr0_regs) +
+			2 * PMCG_SIZE + 2 * PMEV_SIZE;
+		smmu->perf_regset->regs =
+			(struct debugfs_reg32 *)(smmu->perf_regset + 1);
 
-	for (i = 0; i < PMCG_SIZE; i++) {
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMCGCR%d_0", i);
-		if (!regs->name)
-			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMCGCR(i);
-		regs++;
+		regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
 
-		regs->name = kasprintf(GFP_KERNEL, "GNSR0_PMCGSMR%d_0", i);
-		if (!regs->name)
-			goto err_out;
-		regs->offset = ARM_SMMU_GNSR0_PMCGSMR(i);
-		regs++;
-	}
+		for (i = 0; i < ARRAY_SIZE(arm_smmu_gnsr0_regs); i++) {
+			regs->name = arm_smmu_gnsr0_regs[i].name;
+			regs->offset = arm_smmu_gnsr0_regs[i].offset;
+			regs++;
+		}
 
-	regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
-	for (i = 0; i < smmu->perf_regset->nregs; i++) {
-		debugfs_create_file(regs->name, S_IRUGO | S_IWUSR,
+		for (i = 0; i < PMEV_SIZE; i++) {
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMEVTYPER%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMEVTYPER(i);
+			regs++;
+
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMEVCNTR%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMEVCNTR(i);
+			regs++;
+		}
+
+		for (i = 0; i < PMCG_SIZE; i++) {
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMCGCR%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMCGCR(i);
+			regs++;
+
+			regs->name = kasprintf(GFP_KERNEL,
+				"GNSR0_PMCGSMR%d_0", i);
+			if (!regs->name)
+				goto err_out;
+			regs->offset = ARM_SMMU_GNSR0_PMCGSMR(i);
+			regs++;
+		}
+
+		regs = (struct debugfs_reg32 *)smmu->perf_regset->regs;
+		for (i = 0; i < smmu->perf_regset->nregs; i++) {
+			debugfs_create_file(regs->name, S_IRUGO | S_IWUSR,
 			dent_gnsr, regs, &smmu_perf_regset_debugfs_fops);
-		regs++;
+			regs++;
+		}
 	}
 
 	debugfs_create_file("context_filter", S_IRUGO | S_IWUSR,

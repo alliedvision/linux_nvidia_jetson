@@ -1,7 +1,7 @@
 /*
  * FPDLink Serializer driver
  *
- * Copyright (C) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2021 NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,7 +45,6 @@ static DEFINE_MUTEX(i2c_list_mutex);
 int hdmi2fpd_enable(struct tegra_dc *dc)
 {
 	struct tegra_dc_hdmi2fpd_data *hdmi2fpd = tegra_fpdlink_get_outdata(dc);
-	int err;
 
 	if (hdmi2fpd && hdmi2fpd->hdmi2fpd_enabled)
 		return 0;
@@ -60,7 +59,7 @@ int hdmi2fpd_enable(struct tegra_dc *dc)
 
 	hdmi2fpd->hdmi2fpd_enabled = true;
 	mutex_unlock(&hdmi2fpd->lock);
-	return err;
+	return 0;
 }
 
 void hdmi2fpd_disable(struct tegra_dc *dc)

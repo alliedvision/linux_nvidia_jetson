@@ -1,7 +1,7 @@
 /*
  * Junction temperature thermal driver for Maxim Max77620.
  *
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *	   Mallikarjun Kasoju <mkasoju@nvidia.com>
@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 
-#define MAX77620_NORMAL_OPERATING_TEMP	100000
+#define MAX77620_NORMAL_OPERATING_TEMP	50000
 #define MAX77620_TJALARM1_TEMP		120000
 #define MAX77620_TJALARM2_TEMP		140000
 

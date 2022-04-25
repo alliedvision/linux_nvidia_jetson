@@ -1,0 +1,209 @@
+#!/bin/bash
+
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# This script runs on target post installation of nvidia-bootloader debian package.
+
+. /usr/share/debconf/confmodule
+db_version 2.0
+
+BOOT_CTRL_CONF="/etc/nv_boot_control.conf"
+OTA_PACKAGE_DIR="/opt/ota_package"
+T186REF_UPDATER="/usr/sbin/nv_update_engine"
+T186REF_NVBOOTCTRL="/usr/sbin/nvbootctrl"
+T210REF_UPDATER="/usr/sbin/l4t_payload_updater_t210"
+UPDATE_CONF="/opt/nvidia/l4t-bootloader-config/nv-l4t-bootloader-config.sh"
+bl_update_payload="bl_update_payload"
+bl_only_payload="bl_only_payload"
+
+if [ -e "/opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall" ]; then
+    echo "Pre-installing bootloader package, skip flashing"
+    exit 0
+fi
+
+reboot_notify () {
+    if [ -d /var/lib/update-notifier/user.d/ ]; then
+        notifier_file=/var/lib/update-notifier/user.d/${DPKG_MAINTSCRIPT_PACKAGE}
+        if [ -e "${notifier_file}" ];then
+            rm -rf "${notifier_file}"
+        fi
+        cat << EOF >> "${notifier_file}"
+Name: ${DPKG_MAINTSCRIPT_PACKAGE} Post Install Notification.
+Priority: High
+Terminal: False
+DontShowAfterReboot: True
+Description: Reboot is required to complete the installation.
+EOF
+        touch /var/lib/update-notifier/dpkg-run-stamp
+    fi
+
+    if [ -x /usr/share/update-notifier/notify-reboot-required ]; then
+        /usr/share/update-notifier/notify-reboot-required
+    fi
+}
+
+t186ref_install_payload () {
+    local payload_name="${1}"
+
+    if [ -f "${payload_dir}/${payload_name}" ]; then
+        # shellcheck disable=SC2164
+        pushd "${payload_dir}" &> /dev/null
+        # The update engine and payload updater currently only consumes payloads
+        # named "/opt/ota_package/bl_update_payload"
+        cp "${payload_name}" "${OTA_PACKAGE_DIR}"/bl_update_payload
+        "${T186REF_UPDATER}" --install no-reboot &> "${OTA_PACKAGE_DIR}/${payload_name}.log"
+        # shellcheck disable=SC2181
+        if [ $? -ne 0 ]; then
+            echo "ERROR. Procedure for ${payload_name} update FAILED."
+            echo "Cannot install package. Exiting..."
+            exit 1
+        fi
+        # shellcheck disable=SC2164
+        popd &> /dev/null
+        echo "Update ${payload_name} completed."
+    else
+        echo "ERROR. ${payload_dir}/${payload_name} does not exist."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+}
+
+t186ref_update () {
+    echo "Starting bootloader post-install procedure."
+
+    if [ -x "${T186REF_UPDATER}" ] && [ -x "${T186REF_NVBOOTCTRL}" ]; then
+        "${T186REF_UPDATER}" --enable-ab > /dev/null
+
+        rootfs_ab=$( "${T186REF_NVBOOTCTRL}" -t rootfs get-number-slots )
+        if [ "${rootfs_ab}" = "1" ]; then
+            echo "rootfs AB is not enabled."
+            t186ref_install_payload "${bl_update_payload}"
+        elif [ "${rootfs_ab}" = "2" ]; then
+            echo "rootfs AB is enabled."
+            # Installing bl_only_payload.
+            # kernel and kernel-dtb should be installed with Kernel Deb package.
+            t186ref_install_payload "${bl_only_payload}"
+        else
+            echo "The SMD may be corrupted. Exiting..."
+            exit 1
+        fi
+
+        echo "Reboot the target system for changes to take effect."
+        reboot_notify
+    else
+        echo "ERROR. ${T186REF_UPDATER} or ${T186REF_NVBOOTCTRL} is NOT executable."
+        echo "Post install script FAILED."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+}
+
+t210ref_update () {
+    echo "Starting bootloader post-install procedure."
+
+    if [ -x "${T210REF_UPDATER}" ]; then
+        local payload_name="${bl_update_payload}"
+        if [ -f "${payload_dir}/${payload_name}" ]; then
+            # shellcheck disable=SC2164
+            pushd "${payload_dir}" &> /dev/null
+            "${T210REF_UPDATER}" "${payload_dir}/${payload_name}" &> "${OTA_PACKAGE_DIR}/${payload_name}.log"
+            # shellcheck disable=SC2181
+            if [ $? -ne 0 ]; then
+                echo "ERROR. Procedure for bootloader update FAILED."
+                echo "Cannot install package. Exiting..."
+                exit 1
+            fi;
+            # shellcheck disable=SC2164
+            popd &> /dev/null
+            echo "Update bootloader completed."
+            echo "Reboot the target system for changes to take effect."
+            reboot_notify
+        else
+            echo "ERROR. ${payload_dir}/${payload_name} does not exist."
+            echo "Cannot install package. Exiting..."
+            exit 1
+        fi
+    else
+        echo "ERROR. ${T210REF_UPDATER} is NOT executable, post install script FAILED."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+}
+
+extlinux_update () {
+	local extlinux_conf="/boot/extlinux/extlinux.conf"
+
+	echo "Updating extlinux.conf..."
+	# check whether exlinux.conf exists
+	if [ ! -f "${extlinux_conf}" ]; then
+		if [ "${chipid}" == "0x19" ]; then
+			echo "ERROR. ${extlinux_conf} does not exist"
+			exit 1
+		fi
+		echo "File ${extlinux_conf} does not exist"
+		exit 0
+	fi
+
+	# check whether root= is set in extlinut.conf
+	# shellcheck disable=SC2155
+	local root_dev="$(grep -E "^[ \t]*APPEND.*[ \t]root=" ${extlinux_conf})"
+	if [ "${root_dev}" != "" ]; then
+		echo "Root device is set in the extlinux.conf"
+		return 0
+	fi
+
+	# get bootargs from /proc/cmdline
+	# shellcheck disable=SC2155
+	local boot_args="$(sed "s/\(root=.*\)[ \t]video=.*/\1/" </proc/cmdline)"
+	if [ "${boot_args}" == "" ]; then
+		echo "Boot args is not found from /proc/cmdline"
+		exit 1
+	fi
+
+	# fill the bootargs into the "APPEND" line in the extlinux.conf
+	echo "Adding bootargs into exlinux.conf..."
+	sed -i "/^[ \t]*APPEND/s|\$| ${boot_args}|" "${extlinux_conf}"
+	root_dev="$(grep -E "^[ \t]*APPEND.*[ \t]root=" ${extlinux_conf})"
+	if [ "${root_dev}" == "" ]; then
+		echo "Failed to add boot args into the extlinux.conf"
+		exit 1
+	fi
+}
+
+if [ ! -r "${BOOT_CTRL_CONF}" ]; then
+    echo "ERROR. Cannot open ${BOOT_CTRL_CONF} for reading."
+    echo "Cannot install package. Exiting..."
+    exit 1
+fi
+
+"${UPDATE_CONF}" -c
+
+chipid=$( awk '/TEGRA_CHIPID/ {print $2}' "${BOOT_CTRL_CONF}" )
+payload_dir="${OTA_PACKAGE_DIR}"
+
+case "${chipid}" in
+    0x18)
+        payload_dir+="/t18x"
+        t186ref_update
+        ;;
+    0x19)
+        payload_dir+="/t19x"
+        t186ref_update
+        ;;
+    0x21)
+        payload_dir+="/t21x"
+        t210ref_update
+        ;;
+    *)
+        echo "ERROR. Unrecognized chip ID: ${chipid}."
+        echo "Cannot install bootloader package. Exiting..."
+        exit 1
+esac
+
+extlinux_update

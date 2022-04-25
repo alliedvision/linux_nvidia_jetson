@@ -53,17 +53,6 @@
 #define codec_has_clkstop(codec) \
 	((codec)->core.power_caps & AC_PWRST_CLKSTOP)
 
-static inline int get_pcm_device(struct hda_codec *codec)
-{
-	int d = -1;
-	struct hda_pcm *cpcm;
-
-	list_for_each_entry(cpcm, &codec->pcm_list_head, list)
-		d = cpcm->device;
-
-	return d;
-}
-
 /*
  * Send and receive a verb - passed to exec_verb override for hdac_device
  */
@@ -887,6 +876,7 @@ int snd_hda_codec_new(struct hda_bus *bus, struct snd_card *card,
 
 	/* power-up all before initialization */
 	hda_set_power_state(codec, AC_PWRST_D0);
+	codec->core.dev.power.power_state = PMSG_ON;
 
 	snd_hda_codec_proc_new(codec);
 
@@ -1556,8 +1546,6 @@ int snd_hda_ctl_add(struct hda_codec *codec, hda_nid_t nid,
 	int err;
 	unsigned short flags = 0;
 	struct hda_nid_item *item;
-	int pcmdev = get_pcm_device(codec);
-	char prefixed_ctl[SNDRV_CTL_ELEM_ID_NAME_MAXLEN];
 
 	if (kctl->id.subdevice & HDA_SUBDEV_AMP_FLAG) {
 		flags |= HDA_NID_ITEM_AMP;
@@ -1568,11 +1556,6 @@ int snd_hda_ctl_add(struct hda_codec *codec, hda_nid_t nid,
 		nid = kctl->id.subdevice & 0xffff;
 	if (kctl->id.subdevice & (HDA_SUBDEV_NID_FLAG|HDA_SUBDEV_AMP_FLAG))
 		kctl->id.subdevice = 0;
-
-	/* Add prefix for mixer controls for handling multiple codec case*/
-	snprintf(prefixed_ctl, sizeof(prefixed_ctl), "%c %s", 'a' + pcmdev,
-			kctl->id.name);
-	strlcpy(kctl->id.name, prefixed_ctl, sizeof(kctl->id.name));
 
 	err = snd_ctl_add(codec->card, kctl);
 	if (err < 0)
@@ -3160,6 +3143,7 @@ static int hda_codec_runtime_resume(struct device *dev)
 #endif /* CONFIG_PM */
 
 #ifdef CONFIG_PM_SLEEP
+
 static int hda_codec_pm_suspend(struct device *dev)
 {
 	dev->power.power_state = PMSG_SUSPEND;
@@ -3603,7 +3587,7 @@ EXPORT_SYMBOL_GPL(snd_hda_set_power_save);
  * @nid: NID to check / update
  *
  * Check whether the given NID is in the amp list.  If it's in the list,
- * check the current AMP status, and update the the power-status according
+ * check the current AMP status, and update the power-status according
  * to the mute status.
  *
  * This function is supposed to be set or called from the check_power_status
@@ -4212,7 +4196,7 @@ void snd_print_pcm_bits(int pcm, char *buf, int buflen)
 
 	for (i = 0, j = 0; i < ARRAY_SIZE(bits); i++)
 		if (pcm & (AC_SUPPCM_BITS_8 << i))
-			j += snprintf(buf + j, buflen - j,  " %d", bits[i]);
+			j += scnprintf(buf + j, buflen - j,  " %d", bits[i]);
 
 	buf[j] = '\0'; /* necessary when j == 0 */
 }

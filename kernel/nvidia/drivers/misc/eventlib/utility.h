@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -124,5 +124,59 @@ static inline uint64_t increment64(volatile uint64_t *addr)
 	write64(addr, prev + 1);
 	return prev;
 }
+
+#if defined(__aarch64__) && defined(__GNUC__) && (__GNUC__ >= 11)
+
+static inline uint32_t
+tracebuf_sync_fetch_and_or_u32(uint32_t *ptr, uint32_t value)
+{
+	uint32_t result, tmp, flags = 0;
+
+	asm volatile(
+		"1:	ldxr %w[result], [%[ptr]]\n"
+		"	orr %w[tmp], %w[result], %w[value]\n"
+		"	stlxr %w[flags], %w[tmp], [%[ptr]]\n"
+		"	cbnz %w[flags], 1b\n"
+		"	dmb ish"
+		: [result] "=&r"(result), [tmp] "=&r"(tmp)
+		: [value] "r"(value), [flags] "r"(flags), [ptr] "r"(ptr)
+		: "cc", "memory");
+
+	return result;
+}
+
+static inline uint32_t
+tracebuf_sync_fetch_and_and_u32(uint32_t *ptr, uint32_t value)
+{
+	uint32_t result, tmp, flags = 0;
+
+	asm volatile(
+		"1:	ldxr %w[result], [%[ptr]]\n"
+		"	and %w[tmp], %w[result], %w[value]\n"
+		"	stlxr %w[flags], %w[tmp], [%[ptr]]\n"
+		"	cbnz %w[flags], 1b\n"
+		"	dmb ish"
+		: [result] "=&r"(result), [tmp] "=&r"(tmp)
+		: [value] "r"(value), [flags] "r"(flags), [ptr] "r"(ptr)
+		: "cc", "memory");
+
+	return result;
+}
+
+#else
+
+static inline uint32_t
+tracebuf_sync_fetch_and_or_u32(uint32_t *ptr, uint32_t value)
+{
+	return __sync_fetch_and_or(ptr, value);
+}
+
+static inline uint32_t
+tracebuf_sync_fetch_and_and_u32(uint32_t *ptr, uint32_t value)
+{
+	return __sync_fetch_and_and(ptr, value);
+}
+
+#endif
 
 #endif

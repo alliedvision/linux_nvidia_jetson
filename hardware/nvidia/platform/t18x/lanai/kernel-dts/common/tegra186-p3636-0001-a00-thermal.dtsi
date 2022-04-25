@@ -127,4 +127,8 @@
 			};
 		};
 	};
+
+	soctherm-oc-event {
+		status = "okay";
+	};
 };

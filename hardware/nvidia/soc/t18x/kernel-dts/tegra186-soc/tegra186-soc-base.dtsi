@@ -917,6 +917,10 @@
 			reg = <0x0 0x15200000 0x0 0x30000>;
 			nvidia,valid_heads = <0x03>;
 			nvidia,disp_imp_table = <&disp_imp_table>;
+			iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+			iommu-group-id = <TEGRA_IOMMU_GROUP_HOST1X>;
+			iommu-direct-regions = <&fb0_reserved &fb1_reserved
+						&fb2_reserved>;
 		};
 
 		head0: nvdisplay@15200000 {
@@ -975,8 +979,6 @@
 			pinctrl-11 = <&hdmi_dp1_dpd_enable>;
 			status = "disabled";
 			fb_reserved = <&fb0_reserved>;
-			iommu-direct-regions = <&fb0_reserved &fb1_reserved
-						&fb2_reserved>;
 		};
 
 		head1: nvdisplay@15210000 {
@@ -1035,8 +1037,6 @@
 			pinctrl-11 = <&hdmi_dp1_dpd_enable>;
 			status = "disabled";
 			fb_reserved = <&fb1_reserved>;
-			iommu-direct-regions = <&fb0_reserved &fb1_reserved
-						&fb2_reserved>;
 		};
 
 		head2: nvdisplay@15220000 {
@@ -1093,8 +1093,6 @@
 			pinctrl-11 = <&hdmi_dp1_dpd_enable>;
 			status = "disabled";
 			fb_reserved = <&fb2_reserved>;
-			iommu-direct-regions = <&fb0_reserved &fb1_reserved
-						&fb2_reserved>;
 		};
 
 		dsi: dsi {	/* dsi@15300000 */
@@ -1363,7 +1361,7 @@
 
 	gp10b {
 		compatible = "nvidia,tegra186-gp10b", "nvidia,gp10b";
-		dma-noncont;
+		dma-noncontig;
 		reg = <0x0 0x17000000 0x0 0x1000000
 		       0x0 0x18000000 0x0 0x1000000
 		       0x0 0x03b41000 0x0 0x00001000>;
@@ -3135,7 +3133,7 @@
 			compatible = "nvidia,tegra186-efuse-burn";
 			clocks = <&tegra_car TEGRA186_CLK_CLK_M>;
 			clock-names = "clk_m";
-			nvidia,tz = <&aotag>;
+			nvidia,tz = <&{/thermal-zones/GPU-therm}>;
 			nvidia,temp-range = <4000 101000>;
 			status = "disabled";
 		};

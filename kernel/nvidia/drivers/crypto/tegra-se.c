@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine hardware crypto algorithms.
  *
- * Copyright (c) 2011-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1401,9 +1401,10 @@ static int tegra_se_rng_drbg_get_random(struct crypto_rng *tfm,
 		}
 	}
 
-	if (!ret)
-		ret = dlen;
-
+	/*
+	 * According to include/crypto/rng.h, this function should
+	 * return 0 for success, < 0 errorcode otherwise.
+	 */
 	pm_runtime_put(se_dev->dev);
 	mutex_unlock(&se_hw_lock);
 

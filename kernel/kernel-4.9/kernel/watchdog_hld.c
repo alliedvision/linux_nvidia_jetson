@@ -19,7 +19,9 @@
 
 static DEFINE_PER_CPU(bool, hard_watchdog_warn);
 static DEFINE_PER_CPU(bool, watchdog_nmi_touch);
+#ifndef CONFIG_HARDLOCKUP_DETECTOR_OTHER_CPU
 static DEFINE_PER_CPU(struct perf_event *, watchdog_ev);
+#endif
 static DEFINE_PER_CPU(unsigned long, hrtimer_interrupts_saved);
 
 #ifdef CONFIG_HARDLOCKUP_DETECTOR_OTHER_CPU
@@ -32,7 +34,10 @@ static cpumask_t __read_mostly watchdog_cpus;
  */
 unsigned int __read_mostly hardlockup_panic =
 			CONFIG_BOOTPARAM_HARDLOCKUP_PANIC_VALUE;
+
+#ifndef CONFIG_HARDLOCKUP_DETECTOR_OTHER_CPU
 static unsigned long hardlockup_allcpu_dumped;
+#endif
 /*
  * We may not want to enable hard lockup detection by default in all cases,
  * for example when running the kernel as a guest on a hypervisor. In these

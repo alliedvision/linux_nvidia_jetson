@@ -73,64 +73,6 @@
 			};
 		};
 
-		tca9548: tca9548@72 {
-			compatible = "nxp,pca9548";
-			reg = <0x70>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			vcc-supply = <&p2822_vdd_1v8_cvb>;
-			force_bus_start = <CAMERA_I2C_MUX_BUS(0)>;
-
-			i2c@0 {
-				reg = <0>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@1 {
-				reg = <1>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@2 {
-				reg = <2>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@3 {
-				reg = <3>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@4 {
-				reg = <4>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@5 {
-				reg = <5>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@6 {
-				reg = <6>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-			i2c@7 {
-				reg = <7>;
-				i2c-mux,deselect-on-exit;
-				#address-cells = <1>;
-				#size-cells = <0>;
-			};
-		};
-
 		tca9548_77: tca9548@77 {
 			compatible = "nxp,pca9548";
 			reg = <0x77>;

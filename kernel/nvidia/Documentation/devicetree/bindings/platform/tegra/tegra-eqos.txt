@@ -133,6 +133,8 @@ Optional properties:
 - nvidia,rx_riwt:		Specifies the RX wathcdog interrupt timeout in usec
 				for an Rx descriptor for which IOC bit is not set.
 				The RIWT field is programmed as (<val> * 256) / 62.5
+- phy_rst_lp_mode		Specifies that the phy should be put in reset for low
+				power mode when it is set.
 
 Example:
 

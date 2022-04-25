@@ -449,7 +449,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
 		else {
 			if (!mod_timer(&t->proto_unreach_timer,
 						jiffies + (HZ/20)))
-				sctp_association_hold(asoc);
+				sctp_transport_hold(t);
 		}
 	} else {
 		struct net *net = sock_net(sk);
@@ -458,7 +458,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
 			 "encountered!\n", __func__);
 
 		if (del_timer(&t->proto_unreach_timer))
-			sctp_association_put(asoc);
+			sctp_transport_put(t);
 
 		sctp_do_sm(net, SCTP_EVENT_T_OTHER,
 			   SCTP_ST_OTHER(SCTP_EVENT_ICMP_PROTO_UNREACH),
@@ -812,7 +812,7 @@ static inline int sctp_hash_cmp(struct rhashtable_compare_arg *arg,
 		return err;
 
 	asoc = t->asoc;
-	if (!net_eq(sock_net(asoc->base.sk), x->net))
+	if (!net_eq(asoc->base.net, x->net))
 		goto out;
 	if (x->ep) {
 		if (x->ep != asoc->ep)
@@ -835,7 +835,7 @@ static inline u32 sctp_hash_obj(const void *data, u32 len, u32 seed)
 {
 	const struct sctp_transport *t = data;
 	const union sctp_addr *paddr = &t->ipaddr;
-	const struct net *net = sock_net(t->asoc->base.sk);
+	const struct net *net = t->asoc->base.net;
 	u16 lport = htons(t->asoc->base.bind_addr.port);
 	u32 addr;
 

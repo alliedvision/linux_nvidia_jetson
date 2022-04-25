@@ -1,7 +1,7 @@
 /*
  * QSPI driver for NVIDIA's Tegra210 QUAD SPI Controller.
  *
- * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -181,6 +181,12 @@
 #define CMD_TRANSFER				0
 #define ADDR_TRANSFER				1
 #define DATA_TRANSFER				2
+
+static int rx_tap_delay = -1;
+module_param(rx_tap_delay, int, 0444);
+
+static int tx_tap_delay = -1;
+module_param(tx_tap_delay, int, 0444);
 
 struct tegra_qspi_data {
 	struct device				*dev;
@@ -1232,6 +1238,37 @@ static int tegra_qspi_validate_request(struct spi_device *spi,
 	return 0;
 }
 
+static bool tegra_qspi_tap(struct tegra_qspi_data *tqspi,
+	char *name, int tap, unsigned int mask, unsigned int shift, u32 *cmd2)
+{
+	if (tap < 0)
+		return false;
+	if (tap & ~mask)
+		dev_warn(tqspi->dev, "%s (%d) should be within %d..%d range\n",
+			name, tap, 0, mask);
+	tap &= mask;
+	*cmd2 &= ~(mask << shift);
+	*cmd2 |= (tap << shift);
+	return true;
+}
+
+static void tegra_qspi_tap_delays(struct tegra_qspi_data *tqspi,
+	int tx_tap_delay, int rx_tap_delay)
+{
+	u32 cmd2 = tegra_qspi_readl(tqspi, QSPI_COMMAND2);
+	bool changed = false;
+
+	if (tegra_qspi_tap(tqspi, "tx_tap_delay", tx_tap_delay, 0x1F, 10, &cmd2))
+		changed = true;
+	if (tegra_qspi_tap(tqspi, "rx_tap_delay", rx_tap_delay, 0xFF, 0, &cmd2))
+		changed = true;
+	if (changed) {
+		dev_info(tqspi->dev, "rx tap = %d, tx tap = %d, COMMAND2 = %08x\n",
+			rx_tap_delay, tx_tap_delay, cmd2);
+		tegra_qspi_writel(tqspi, cmd2, QSPI_COMMAND2);
+	}
+}
+
 static void tegra_qspi_set_gr_registers(struct tegra_qspi_data *tqspi)
 {
 	char prod_name[MAX_PROD_NAME];
@@ -2249,6 +2286,7 @@ static int tegra_qspi_probe(struct platform_device *pdev)
 	tegra_qspi_writel(tqspi, tqspi->def_command1_reg, QSPI_COMMAND1);
 	tqspi->def_command2_reg = tegra_qspi_readl(tqspi, QSPI_COMMAND2);
 	tegra_qspi_set_gr_registers(tqspi);
+	tegra_qspi_tap_delays(tqspi, tx_tap_delay, rx_tap_delay);
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
@@ -2343,6 +2381,7 @@ static int tegra_qspi_resume(struct device *dev)
 	}
 	tegra_qspi_writel(tqspi, tqspi->command1_reg, QSPI_COMMAND1);
 	tegra_qspi_set_gr_registers(tqspi);
+	tegra_qspi_tap_delays(tqspi, tx_tap_delay, rx_tap_delay);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
 

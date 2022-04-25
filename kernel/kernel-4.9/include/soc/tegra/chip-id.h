@@ -135,6 +135,7 @@ struct tegra_sku_info {
 
 u32 tegra_read_straps(void);
 u32 tegra_read_chipid(void);
+int tegra_miscreg_set_erd(u64 err_config);
 
 extern struct tegra_sku_info tegra_sku_info;
 

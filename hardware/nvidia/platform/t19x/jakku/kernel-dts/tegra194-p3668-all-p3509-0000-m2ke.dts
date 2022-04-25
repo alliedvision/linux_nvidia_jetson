@@ -1,0 +1,122 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Device-tree overlay for tegra194-p3668-0001-p3509-0000 M.2 Key E Slot.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra194-p3668-all-p3509-0000.h>
+
+/ {
+	overlay-name = "Jetson M.2 Key E Slot";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				m2ke-pin8a {
+					nvidia,pins = "dap3_sclk_pt1";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_sclk";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin8b {
+					nvidia,pins = "dap3_sclk_pt1";
+					nvidia,function = "dmic1";
+					nvidia,pin-label = "dmic1_dat";
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin10a {
+					nvidia,pins = "dap3_fs_pt4";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_fs";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin10b {
+					nvidia,pins = "dap3_fs_pt4";
+					nvidia,function = "dmic2";
+					nvidia,pin-label = "dmic2_clk";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				m2ke-pin12a {
+					nvidia,pins = "dap3_din_pt3";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_din";
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin12b {
+					nvidia,pins = "dap3_din_pt3";
+					nvidia,function = "dmic2";
+					nvidia,pin-label = "dmic2_dat";
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin14a {
+					nvidia,pins = "dap3_dout_pt2";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_dout";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				m2ke-pin14b {
+					nvidia,pins = "dap3_dout_pt2";
+					nvidia,function = "dmic1";
+					nvidia,pin-label = "dmic1_clk";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				m2ke-pin22 {
+					nvidia,pins = "uart2_rx_px5";
+				};
+				m2ke-pin32 {
+					nvidia,pins = "uart2_tx_px4";
+				};
+				m2ke-pin34 {
+					nvidia,pins = "uart2_cts_px7";
+				};
+				m2ke-pin36 {
+					nvidia,pins = "uart2_rts_px6";
+				};
+				m2ke-pin58 {
+					nvidia,pins = "gen1_i2c_sda_pi4";
+				};
+				m2ke-pin60 {
+					nvidia,pins = "gen1_i2c_scl_pi3";
+				};
+			};
+		};
+	};
+};

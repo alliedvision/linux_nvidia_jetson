@@ -1,7 +1,7 @@
 /*
  * tegra186-quill-common-p3310-1000-a00.dtsi: Quill common dtsi.
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@
 	spi@3240000 {
 		status = "okay";
 		spi@0 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -57,7 +57,7 @@
 			};
 		};
 		spi@1 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <33000000>;
 			controller-data {

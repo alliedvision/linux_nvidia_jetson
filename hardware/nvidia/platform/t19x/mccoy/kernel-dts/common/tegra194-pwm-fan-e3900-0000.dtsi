@@ -17,7 +17,7 @@
 	pwm_fan_shared_data: pfsd {
 		/delete-property/ rpm_diff_tolerance;
 		/* reverse active_rpm, active_rru, active_rrd table for Tmargin */
-		active_rpm = <2150 1650 1150 1150 1150 1150 1150 1150 1150 1150>;
+		active_rpm = <2150 1750 1150 1150 1150 1150 1150 1150 1150 1150>;
 		active_rru = <1 2 40 40 40 40 40 40 40 40>;
 		active_rrd = <1 2 40 40 40 40 40 40 40 40>;
 	};

@@ -1,7 +1,7 @@
 /*
  * tegra_hv_comm.c: TTY over Tegra HV
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION. All rights reserved.
  *
  * Very loosely based on altera_jtaguart.c
  *
@@ -472,7 +472,7 @@ static int tegra_hv_comm_probe(struct platform_device *pdev)
 	if (i == -1)
 		i = 0;
 
-	if (i >= TEGRA_HV_COMM_MAXPORTS)
+	if (i >= TEGRA_HV_COMM_MAXPORTS || i < -1)
 		return -EINVAL;
 
 	dn = dev->of_node;

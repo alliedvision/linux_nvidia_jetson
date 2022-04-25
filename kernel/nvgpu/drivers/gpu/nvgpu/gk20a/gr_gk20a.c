@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -5321,7 +5321,7 @@ int gk20a_gr_handle_fecs_error(struct gk20a *g, struct channel_gk20a *ch,
 	} else {
 		nvgpu_err(g,
 			"unhandled fecs error interrupt 0x%08x for channel %u",
-			gr_fecs_intr, ch->chid);
+			gr_fecs_intr, chid);
 		gk20a_fecs_dump_falcon_stats(g);
 	}
 
@@ -8851,6 +8851,10 @@ int gr_gk20a_wait_for_pause(struct gk20a *g, struct nvgpu_warpstate *w_state)
 	u32 gpc, tpc, sm, sm_id;
 	u32 global_mask;
 
+	if (!g->ops.gr.get_sm_no_lock_down_hww_global_esr_mask ||
+	    !g->ops.gr.lock_down_sm || !g->ops.gr.bpt_reg_info)
+		return -EINVAL;
+
 	/* Wait for the SMs to reach full stop. This condition is:
 	 * 1) All SMs with valid warps must be in the trap handler (SM_IN_TRAP_MODE)
 	 * 2) All SMs in the trap handler must have equivalent VALID and PAUSED warp
@@ -8907,6 +8911,9 @@ int gr_gk20a_clear_sm_errors(struct gk20a *g)
 	struct gr_gk20a *gr = &g->gr;
 	u32 global_esr;
 	u32 sm_per_tpc = nvgpu_get_litter_value(g, GPU_LIT_NUM_SM_PER_TPC);
+
+	if (!g->ops.gr.get_sm_hww_global_esr || !g->ops.gr.clear_sm_hww)
+		return -EINVAL;
 
 	for (gpc = 0; gpc < gr->gpc_count; gpc++) {
 

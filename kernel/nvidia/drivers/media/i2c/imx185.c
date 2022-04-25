@@ -1,7 +1,7 @@
 /*
  * imx185.c - imx185 sensor driver
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES.All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -653,6 +653,7 @@ static int imx185_stop_streaming(struct tegracam_device *tc_dev)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct imx185 *priv = (struct imx185 *)tegracam_get_privdata(tc_dev);
+	struct device *dev = tc_dev->dev;
 	int err;
 
 	err = imx185_write_table(priv, mode_table[IMX185_MODE_STOP_STREAM]);
@@ -660,6 +661,8 @@ static int imx185_stop_streaming(struct tegracam_device *tc_dev)
 		return err;
 
 	/* SW_RESET will have no ACK */
+	dev_info(dev, "***0x%x will have no ACK(it's expected)****\n",
+			IMX185_SW_RESET_ADDR);
 	imx185_write_reg(s_data, IMX185_SW_RESET_ADDR, 0x01);
 
 	/*

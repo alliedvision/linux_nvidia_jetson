@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device-tree overlay for tegra194-p2888-0004-e3900-0000 Dual-IMX274
+ * Camera Module
+ *
+ * Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <t19x-common-modules/tegra194-camera-dual-imx274-overlay.dts>
+
+

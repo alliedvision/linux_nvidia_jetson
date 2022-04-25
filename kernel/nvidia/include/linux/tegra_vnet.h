@@ -394,6 +394,22 @@ static inline void tvnet_ivc_advance_rd(struct tvnet_counter *counter)
 	smp_mb();
 }
 
+static inline void tvnet_ivc_set_wr(struct tvnet_counter *counter, u32 val)
+{
+	WRITE_ONCE(*counter->wr, val);
+
+	/* BAR0 mmio address is wc mem, add mb to make sure cnts are updated */
+	smp_mb();
+}
+
+static inline void tvnet_ivc_set_rd(struct tvnet_counter *counter, u32 val)
+{
+	WRITE_ONCE(*counter->rd, val);
+
+	/* BAR0 mmio address is wc mem, add mb to make sure cnts are updated */
+	smp_mb();
+}
+
 static inline u32 tvnet_ivc_get_wr_cnt(struct tvnet_counter *counter)
 {
 	return READ_ONCE(*counter->wr);

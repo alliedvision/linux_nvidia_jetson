@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device-tree overlay for Respeaker 4 Mic Linear Array with board
+ * tegra186-quill-p3310-1000-c03-00-base.
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-common/jetson/tegra186-quill-p3310-1000-c03-00-base.h>
+#include <overlays/jetson-respeaker-4-mic-lin-array.dts>

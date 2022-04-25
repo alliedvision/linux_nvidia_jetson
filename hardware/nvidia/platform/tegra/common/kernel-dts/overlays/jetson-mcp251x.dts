@@ -2,7 +2,7 @@
 /*
  * Jetson Device-tree overlay for MCP251x CAN Controller.
  *
- * Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
  *
  */
 
@@ -10,6 +10,7 @@
 
 / {
 	overlay-name = "MCP251x CAN Controller";
+	jetson-header-name = "Jetson 40pin Header";
 	compatible = JETSON_COMPATIBLE;
 
 	fragment@0 {
@@ -52,43 +53,43 @@
 		target = <&pinmux>;
 		__overlay__ {
 			pinctrl-names = "default";
-			pinctrl-0 = <&hdr40_pinmux>;
+			pinctrl-0 = <&jetson_io_pinmux>;
 
-			hdr40_pinmux: header-40pin-pinmux {
-				pin19 {
+			jetson_io_pinmux: exp-header-pinmux {
+				hdr40-pin19 {
 					nvidia,pins = HDR40_PIN19;
 					nvidia,function = HDR40_SPI;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
 					nvidia,tristate = <TEGRA_PIN_DISABLE>;
-					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
-				pin21 {
+				hdr40-pin21 {
 					nvidia,pins = HDR40_PIN21;
 					nvidia,function = HDR40_SPI;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
 					nvidia,tristate = <TEGRA_PIN_DISABLE>;
 					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
-				pin23 {
+				hdr40-pin23 {
 					nvidia,pins = HDR40_PIN23;
 					nvidia,function = HDR40_SPI;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
 					nvidia,tristate = <TEGRA_PIN_DISABLE>;
 					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
-				pin24 {
+				hdr40-pin24 {
 					nvidia,pins = HDR40_PIN24;
 					nvidia,function = HDR40_SPI;
 					nvidia,pull = <TEGRA_PIN_PULL_UP>;
 					nvidia,tristate = <TEGRA_PIN_DISABLE>;
-					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
-				pin26 {
+				hdr40-pin26 {
 					nvidia,pins = HDR40_PIN26;
 					nvidia,function = HDR40_SPI;
 					nvidia,pull = <TEGRA_PIN_PULL_UP>;
 					nvidia,tristate = <TEGRA_PIN_DISABLE>;
-					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
 			};
 		};

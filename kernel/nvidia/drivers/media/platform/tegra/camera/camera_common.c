@@ -1,7 +1,7 @@
 /*
  * camera_common.c - utilities for tegra camera driver
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -50,6 +50,11 @@ static const struct camera_common_colorfmt camera_common_color_fmts[] = {
 		MEDIA_BUS_FMT_SGRBG12_1X12,
 		V4L2_COLORSPACE_SRGB,
 		V4L2_PIX_FMT_SGRBG16,
+	},
+	{
+		MEDIA_BUS_FMT_SGBRG12_1X12,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_SGBRG12
 	},
 	{
 		MEDIA_BUS_FMT_SRGGB10_1X10,
@@ -225,8 +230,10 @@ int camera_common_parse_clocks(struct device *dev,
 	err = of_property_read_string(np, "mclk", &pdata->mclk_name);
 	if (!err) {
 		dev_dbg(dev, "mclk in DT %s\n", pdata->mclk_name);
-		of_property_read_string(np, "parent-clk",
+		err = of_property_read_string(np, "parent-clk",
 					      &pdata->parentclk_name);
+		if (err)
+			dev_dbg(dev, "parent-clk not in DT \n");
 		return 0;
 	}
 
@@ -984,7 +991,7 @@ int camera_common_initialize(struct camera_common_data *s_data,
 		const char *dev_name)
 {
 	int err = 0;
-	char debugfs_name[10];
+	char debugfs_name[35];
 
 	if (s_data->dev == NULL)
 		return -EINVAL;

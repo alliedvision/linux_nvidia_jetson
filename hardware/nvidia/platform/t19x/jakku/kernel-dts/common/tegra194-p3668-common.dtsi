@@ -1,7 +1,7 @@
 /*
  * Common include DTS file for CVM:P3668-0001 and CVB:P3449-0000 variants.
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020 , NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -417,7 +417,7 @@
 	spi@3210000{ /* SPI1 in 40 pin conn */
 		status = "okay";
 		spi@0 { /* chip select 0 */
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <50000000>;
 			controller-data {
@@ -427,7 +427,7 @@
 			};
 		};
 		spi@1 { /* chip select 1 */
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <50000000>;
 			controller-data {
@@ -441,7 +441,7 @@
 	spi@3230000{ /* SPI3 in 40 pin conn */
 		status = "okay";
 		spi@0 { /* chip select 0 */
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <50000000>;
 			controller-data {
@@ -451,7 +451,7 @@
 			};
 		};
 		spi@1 { /* chips select 1 */
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <50000000>;
 			controller-data {

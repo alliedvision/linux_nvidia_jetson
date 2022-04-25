@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/mmap.c
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -39,6 +39,33 @@
 
 #define TMP_BUFFER_SIZE			(PATH_MAX)
 #define QUADD_MMAP_TREE_MAX_LEVEL	32
+
+static inline void __mmap_read_lock(struct mm_struct *mm)
+{
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
+	down_read(&mm->mmap_sem);
+#else
+	mmap_read_lock(mm);
+#endif
+}
+
+static inline bool __mmap_read_trylock(struct mm_struct *mm)
+{
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
+	return down_read_trylock(&mm->mmap_sem) != 0;
+#else
+	return mmap_read_trylock(mm);
+#endif
+}
+
+static inline void __mmap_read_unlock(struct mm_struct *mm)
+{
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
+	up_read(&mm->mmap_sem);
+#else
+	return mmap_read_unlock(mm);
+#endif
+}
 
 static void
 put_mmap_sample(struct quadd_mmap_data *s, char *filename,
@@ -186,7 +213,7 @@ static void get_process_vmas(struct task_struct *task)
 	if (!mm)
 		return;
 
-	down_read(&mm->mmap_sem);
+	__mmap_read_lock(mm);
 
 	buf = kmalloc(TMP_BUFFER_SIZE, GFP_ATOMIC);
 	if (!buf)
@@ -200,7 +227,7 @@ static void get_process_vmas(struct task_struct *task)
 	kfree(buf);
 
 out_put_mm:
-	up_read(&mm->mmap_sem);
+	__mmap_read_unlock(mm);
 	mmput(mm);
 }
 
@@ -239,12 +266,12 @@ static void get_all_processes(bool is_root_pid)
 			goto __continue;
 		mm = p->mm;
 
-		if (!down_read_trylock(&mm->mmap_sem))
+		if (!__mmap_read_trylock(mm))
 			goto __continue;
 
 		__get_process_vmas(p, mm, buf, TMP_BUFFER_SIZE);
 
-		up_read(&mm->mmap_sem);
+		__mmap_read_unlock(mm);
 __continue:
 		task_unlock(p);
 	}
@@ -296,13 +323,13 @@ void quadd_get_task_mmaps(struct quadd_ctx *ctx, struct task_struct *task)
 	if (!mm)
 		goto out_task_unlock;
 
-	if (down_read_trylock(&mm->mmap_sem)) {
+	if (__mmap_read_trylock(mm)) {
 		buf = kmalloc(TMP_BUFFER_SIZE, GFP_ATOMIC);
 		if (buf) {
 			__get_process_vmas(task, mm, buf, TMP_BUFFER_SIZE);
 			kfree(buf);
 		}
-		up_read(&mm->mmap_sem);
+		__mmap_read_unlock(mm);
 	}
 
 out_task_unlock:

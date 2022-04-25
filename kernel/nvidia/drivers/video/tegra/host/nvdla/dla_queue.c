@@ -1,7 +1,7 @@
 /*
  * NVDLA queue management
  *
- * Copyright (c) 2019-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -46,8 +46,9 @@
  * lock			Mutex lock for the array access.
  * alloc_table		Keep track of the index being assigned
  *			and freed for a task
- * max_task_cnt		Maximum task count that can be supported.
- *
+ * max_task_cnt	Maximum task count that can be supported.
+ * cleanup_done	Completion status of cleanup wait.
+ * cleanup_wait	Records wait for cleanup action.
  */
 
 struct nvdla_queue_task_pool {
@@ -58,6 +59,9 @@ struct nvdla_queue_task_pool {
 
 	unsigned long alloc_table;
 	unsigned long max_task_cnt;
+
+	struct completion cleanup_done;
+	int cleanup_wait;
 };
 
 static int nvdla_queue_task_pool_alloc(struct platform_device *pdev,
@@ -95,6 +99,9 @@ static int nvdla_queue_task_pool_alloc(struct platform_device *pdev,
 	task_pool->max_task_cnt = num_tasks;
 
 	mutex_init(&task_pool->lock);
+
+	init_completion(&task_pool->cleanup_done);
+	task_pool->cleanup_wait = 0;
 
 	return err;
 
@@ -549,6 +556,18 @@ int nvdla_queue_alloc_task_memory(
 	struct nvdla_queue_task_pool *task_pool =
 		(struct nvdla_queue_task_pool *)queue->task_pool;
 
+	if (task_pool->cleanup_wait == 1) {
+		unsigned long timeout =
+			msecs_to_jiffies(NVDLA_TASK_MEM_AVAIL_RETRY_PERIOD);
+
+		/**
+		 * Error intentionally ignored to be catpured as part of
+		 * out-of-range index during allocation.
+		 **/
+		(void) wait_for_completion_timeout(&task_pool->cleanup_done,
+				timeout);
+	}
+
 	mutex_lock(&task_pool->lock);
 
 	index = find_first_zero_bit(&task_pool->alloc_table,
@@ -556,8 +575,8 @@ int nvdla_queue_alloc_task_memory(
 
 	/* quit if pre-allocated task array is not free */
 	if (index >= task_pool->max_task_cnt) {
-		dev_err(&pdev->dev,
-				"failed to get Task Pool Memory\n");
+		dev_warn(&pdev->dev, "failed to get Task Pool Memory\n");
+		task_pool->cleanup_wait = 1; // wait for cleanup
 		err = -EAGAIN;
 		goto err_alloc_task_mem;
 	}
@@ -596,5 +615,10 @@ void nvdla_queue_free_task_memory(struct nvdla_queue *queue, int index)
 
 	mutex_lock(&task_pool->lock);
 	clear_bit(index, &task_pool->alloc_table);
+
+	if (task_pool->cleanup_wait == 1) {
+		task_pool->cleanup_wait = 0;
+		complete(&task_pool->cleanup_done);
+	}
 	mutex_unlock(&task_pool->lock);
 }

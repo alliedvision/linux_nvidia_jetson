@@ -61,6 +61,7 @@ struct quadd_hrt_ctx {
 
 	atomic64_t counter_samples;
 	atomic64_t skipped_samples;
+	atomic_t seqid;
 
 	struct timer_list ma_timer;
 	unsigned int ma_period;

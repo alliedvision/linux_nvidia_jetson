@@ -1043,8 +1043,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
 		 */
 		rxa *= 512;
 		value = (rxa > hw->adapter->max_frame_size) ?
-			(u64) ((rxa - hw->adapter->max_frame_size) *
-			(16000 / speed)) : 0;
+			(rxa - hw->adapter->max_frame_size) * (16000 / speed) :
+			0;
 
 		while (value > PCI_LTR_VALUE_MASK) {
 			scale++;
@@ -3868,6 +3868,8 @@ static s32 e1000_update_nvm_checksum_spt(struct e1000_hw *hw)
 	 * done without an erase because flash erase sets all bits
 	 * to 1's. We can write 1's to 0's without an erase
 	 */
+	act_offset = (old_bank_offset + E1000_ICH_NVM_SIG_WORD) * 2 + 1;
+
 	/* offset in words but we read dword */
 	act_offset = old_bank_offset + E1000_ICH_NVM_SIG_WORD - 1;
 	ret_val = e1000_read_flash_dword_ich8lan(hw, act_offset, &dword);

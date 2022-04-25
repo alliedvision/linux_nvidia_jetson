@@ -49,8 +49,3 @@
 	};
 };
 
-&tegra_dmic3 {
-	pinctrl-names = "dap_active", "dap_inactive";
-	pinctrl-0 = <&dmic3_dap_active_state>;
-	pinctrl-1 = <&dmic3_dap_inactive_state>;
-};

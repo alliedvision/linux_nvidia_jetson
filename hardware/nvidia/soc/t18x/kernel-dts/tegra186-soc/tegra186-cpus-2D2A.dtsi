@@ -1,7 +1,7 @@
 /*
- * arch/arm64/boot/dts/tegra186-2D2A.dtsi
+ * arch/arm64/boot/dts/tegra186-cpus-2D2A.dtsi
  *
- * Copyright (c) 2014-2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,9 @@
 		#address-cells = <2>;
 		#size-cells = <0>;
 
+ 		/delete-node/ cpu@4;
+ 		/delete-node/ cpu@5;
+
 		cpu-map {
 			cluster0 {
 				core0 {
@@ -43,6 +46,9 @@
 				core1 {
 					cpu = <&cpu_a57_1>;
 				};
+
+				/delete-node/ core2;
+				/delete-node/ core3;
 			};
 		};
 
@@ -52,10 +58,10 @@
 			reg = <0x0 0x0>;
 			enable-method = "psci";
 			cpu-idle-states = <&DENVER_C6 &DENVER_C7>;
-			cpu-release-addr = <0x0 0x8000fff8>;
 			cpu-ipc = <1024>;
 			next-level-cache = <&L2_DENVER>;
 			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_DENVER &CPU_COST_DENVER>;
 		};
 
 		denver_1: cpu@1 {
@@ -64,10 +70,10 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			cpu-idle-states = <&DENVER_C6 &DENVER_C7>;
-			cpu-release-addr = <0x0 0x8000fff8>;
 			cpu-ipc = <1024>;
 			next-level-cache = <&L2_DENVER>;
 			capacity-dmips-mhz = <1024>;
+			sched-energy-costs = <&CPU_COST_DENVER &CPU_COST_DENVER>;
 		};
 
 		cpu_a57_0: cpu@2 {
@@ -79,6 +85,7 @@
 			cpu-ipc = <752>;
 			next-level-cache = <&L2_A57>;
 			capacity-dmips-mhz = <752>;
+			sched-energy-costs = <&CPU_COST_A57 &CPU_COST_A57>;
 		};
 
 		cpu_a57_1: cpu@3 {
@@ -90,19 +97,20 @@
 			cpu-ipc = <752>;
 			next-level-cache = <&L2_A57>;
 			capacity-dmips-mhz = <752>;
+			sched-energy-costs = <&CPU_COST_A57 &CPU_COST_A57>;
 		};
 
 		L2_A57: l2-cache0 {
-                        compatible = "cache";
-                        cache-unified;
-                        cache-level = <2>;
-                };
+			compatible = "cache";
+			cache-unified;
+			cache-level = <2>;
+		};
 
-                L2_DENVER: l2-cache1 {
-                        compatible = "cache";
-                        cache-unified;
-                        cache-level = <2>;
-                };
+		L2_DENVER: l2-cache1 {
+			compatible = "cache";
+			cache-unified;
+			cache-level = <2>;
+		};
 	};
 
 	arm-pmu {
@@ -115,4 +123,12 @@
 		interrupt-affinity = <&{/cpus/cpu@0} &{/cpus/cpu@1}
 				      &{/cpus/cpu@2} &{/cpus/cpu@3}>;
 	};
+
+	denver-pmu {
+		compatible = "nvidia,denver15-pmu";
+		interrupts = <0 290 0x4>;
+		interrupt-affinity = <&{/cpus/cpu@0}>;
+	};
+
+	#include "tegra186-cpus-energy-2D4A.dtsi"
 };

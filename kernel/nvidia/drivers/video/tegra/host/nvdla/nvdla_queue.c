@@ -1,7 +1,7 @@
 /*
  * NVDLA queue and task management for T194
  *
- * Copyright (c) 2016-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -88,11 +88,17 @@ int nvdla_get_task_mem(struct nvdla_queue *queue,
 	struct nvdla_task *task = NULL;
 	struct nvdla_queue_task_mem_info task_mem_info;
 	struct platform_device *pdev = queue->pool->pdev;
+	int n_retries = (NVDLA_TASK_MEM_AVAIL_TIMEOUT_MS /
+					NVDLA_TASK_MEM_AVAIL_RETRY_PERIOD);
 
 	nvdla_dbg_fn(pdev, "");
 
 	/* get mem task descriptor and task mem from task_mem_pool */
-	err = nvdla_queue_alloc_task_memory(queue, &task_mem_info);
+	do {
+		n_retries = n_retries - 1;
+		err = nvdla_queue_alloc_task_memory(queue, &task_mem_info);
+	} while ((n_retries > 0) && (err == -EAGAIN));
+
 	task = task_mem_info.kmem_addr;
 	if ((err < 0) || !task)
 		goto fail_to_assign_pool;
@@ -168,6 +174,11 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 
 	/* unpin address list */
 	for (ii = 0; ii < task->num_addresses; ii++) {
+		if (task->memory_handles[ii].type ==
+				NVDLA_BUFFER_TYPE_INTERNAL) {
+			/* No unpinning required for internal buffers */
+			continue;
+		}
 		if (task->memory_handles[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
 				&task->memory_dmabuf[ii], 1);
@@ -279,32 +290,32 @@ static void nvdla_task_syncpt_reset(struct nvhost_syncpt *syncpt,
 
 static inline int nvdla_get_max_preaction_size(void)
 {
-	return (((MAX_NUM_NVDLA_PREFENCES + MAX_NUM_NVDLA_IN_TASK_STATUS +
-			MAX_NUM_NVDLA_OUT_TASK_STATUS +
-			MAX_NUM_NVDLA_OUT_TIMESTAMP) *
+	return (((MAX_NVDLA_PREFENCES_PER_TASK + MAX_NVDLA_IN_STATUS_PER_TASK +
+			MAX_NVDLA_OUT_STATUS_PER_TASK +
+			MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK) *
 		sizeof(struct dla_action_opcode)) +
-		(MAX_NUM_NVDLA_PREFENCES *
+		(MAX_NVDLA_PREFENCES_PER_TASK *
 			sizeof(struct dla_action_semaphore)) +
-		((MAX_NUM_NVDLA_IN_TASK_STATUS + MAX_NUM_NVDLA_OUT_TASK_STATUS) *
+		((MAX_NVDLA_IN_STATUS_PER_TASK + MAX_NVDLA_OUT_STATUS_PER_TASK) *
 			sizeof(struct dla_action_task_status)) +
-		(MAX_NUM_NVDLA_OUT_TIMESTAMP *
+		(MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK *
 			sizeof(struct dla_action_timestamp)) +
 		sizeof(struct dla_action_opcode));
 }
 
 static inline int nvdla_get_max_postaction_size(void)
 {
-	return (((MAX_NUM_NVDLA_POSTFENCES +
-				MAX_NUM_NVDLA_OUT_TASK_STATUS +
-				MAX_NUM_NVDLA_OUT_TIMESTAMP +
+	return (((MAX_NVDLA_POSTFENCES_PER_TASK +
+				MAX_NVDLA_OUT_STATUS_PER_TASK +
+				MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK +
 				NUM_PROFILING_POSTACTION) *
 		sizeof(struct dla_action_opcode)) +
-		(MAX_NUM_NVDLA_POSTFENCES *
+		(MAX_NVDLA_POSTFENCES_PER_TASK *
 			sizeof(struct dla_action_semaphore)) +
-		((MAX_NUM_NVDLA_OUT_TASK_STATUS +
+		((MAX_NVDLA_OUT_STATUS_PER_TASK +
 			NUM_PROFILING_POSTACTION) *
 			sizeof(struct dla_action_task_status)) +
-		(MAX_NUM_NVDLA_OUT_TIMESTAMP *
+		(MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK *
 			sizeof(struct dla_action_timestamp)) +
 		sizeof(struct dla_action_opcode));
 }
@@ -518,15 +529,24 @@ static int nvdla_map_task_memory(struct nvdla_task *task)
 	for (jj = 0; jj < task->num_addresses; jj++) {
 		dma_addr_t dma_addr;
 		size_t dma_size;
-		err = -EFAULT;
 
 		nvdla_dbg_info(pdev, "count[%d] handle[%u] offset[%u]",
 				jj,
 				task->memory_handles[jj].handle,
 				task->memory_handles[jj].offset);
 
-		if (!task->memory_handles[jj].handle)
+		if (task->memory_handles[jj].type ==
+				NVDLA_BUFFER_TYPE_INTERNAL) {
+			/* For internal buffers, offset is the final address */
+			next = add_address(next,
+					task->memory_handles[jj].offset);
+			continue;
+		}
+
+		if (!task->memory_handles[jj].handle) {
+			err = -EFAULT;
 			goto fail_to_pin_mem;
+		}
 
 		task->memory_dmabuf[jj] =
 			dma_buf_get(task->memory_handles[jj].handle);
@@ -819,9 +839,15 @@ static int nvdla_fill_signal_fence_action(struct nvdla_task *task,
 			break;
 		}
 
-		next = add_fence_action(next, ACTION_WRITE_SEM,
-			dma_addr + fence->semaphore_offset,
-			fence->semaphore_value);
+		if (fence->action == NVDEV_FENCE_SIGNAL_STRIDE) {
+			next = add_fence_action(next, ACTION_INCREMENT_SEM,
+				dma_addr + fence->semaphore_offset,
+				fence->semaphore_value);
+		} else {
+			next = add_fence_action(next, ACTION_WRITE_SEM,
+				dma_addr + fence->semaphore_offset,
+				fence->semaphore_value);
+		}
 		break;
 	}
 	case NVDEV_FENCE_TYPE_SEMAPHORE_TS: {
@@ -1155,7 +1181,8 @@ static int nvdla_fill_preactions(struct nvdla_task *task)
 	/* fill all preactions signals */
 	for (i = 0; i < task->num_prefences; i++) {
 		/* update action */
-		if (task->prefences[i].action != NVDEV_FENCE_SIGNAL)
+		if ((task->prefences[i].action != NVDEV_FENCE_SIGNAL) &&
+			(task->prefences[i].action != NVDEV_FENCE_SIGNAL_STRIDE))
 			continue;
 
 		err = nvdla_fill_signal_fence_action(task,
@@ -1183,7 +1210,7 @@ fail:
 	return err;
 }
 
-int nvdla_fill_task_desc(struct nvdla_task *task)
+int nvdla_fill_task_desc(struct nvdla_task *task, bool bypass_exec)
 {
 	int err;
 	struct dla_task_descriptor *task_desc;
@@ -1198,6 +1225,12 @@ int nvdla_fill_task_desc(struct nvdla_task *task)
 	task_desc->engine_id = DLA_ENGINE_ID;
 	task_desc->size = nvdla_get_task_desc_size();
 	task_desc->timeout = task->timeout;
+
+	task_desc->flags = 0U;
+	if (bypass_exec) {
+		task_desc->flags =
+			(task_desc->flags | DLA_DESC_FLAGS_BYPASS_EXEC);
+	}
 
 	/* update current task sequeue, make sure wrap around condition */
 	queue->sequence = queue->sequence + 1;
@@ -1235,14 +1268,22 @@ int nvdla_fill_task_desc(struct nvdla_task *task)
 	task->fence_counter = 0;
 
 	/* fill pre actions */
-	nvdla_fill_preactions(task);
+	err = nvdla_fill_preactions(task);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "fail to fill preactions");
+		goto fail_to_map_mem;
+	}
 
 	/* fill post actions */
-	nvdla_fill_postactions(task);
+	err = nvdla_fill_postactions(task);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "fail to fill postactions");
+		goto fail_to_map_mem;
+	}
 
 	/* ping user memory before submit to engine */
 	err = nvdla_map_task_memory(task);
-	if (err) {
+	if (err != 0) {
 		nvdla_dbg_err(pdev, "fail to pin mem");
 		goto fail_to_map_mem;
 	}
@@ -1252,6 +1293,7 @@ int nvdla_fill_task_desc(struct nvdla_task *task)
 	return 0;
 
 fail_to_map_mem:
+	(void) nvdla_unmap_task_memory(task);
 	return err;
 }
 
@@ -1266,8 +1308,8 @@ static int nvdla_send_cmd_channel(struct platform_device *pdev,
 	uint32_t method_id = cmd_data->method_id;
 	uint32_t method_data = cmd_data->method_data;
 	bool wait = cmd_data->wait;
-	u32 syncpt_wait_ids[MAX_NUM_NVDLA_PREFENCES];
-	u32 syncpt_wait_thresh[MAX_NUM_NVDLA_PREFENCES];
+	u32 syncpt_wait_ids[MAX_NVDLA_PREFENCES_PER_TASK];
+	u32 syncpt_wait_thresh[MAX_NVDLA_PREFENCES_PER_TASK];
 	u32 cmdbuf[3];
 	int err = 0, i;
 
@@ -1443,9 +1485,6 @@ int nvdla_get_signal_fences(struct nvdla_queue *queue, void *in_task)
 
 	nvdla_dbg_fn(pdev, "");
 
-	/* get task ref */
-	nvdla_task_get(task);
-
 	if (task->fence_counter == 0)
 		task->fence_counter = 1;
 
@@ -1511,6 +1550,9 @@ static int nvdla_queue_submit_op(struct nvdla_queue *queue, void *in_task)
 	nvdla_dbg_fn(pdev, "");
 
 	mutex_lock(&queue->list_lock);
+
+	/* Get a reference before registration or submission */
+	nvdla_task_get(task);
 
 	/* get fence from nvhost for MMIO mode*/
 	if (nvdla_dev->submit_mode == NVDLA_SUBMIT_MODE_MMIO) {
@@ -1580,8 +1622,10 @@ static int nvdla_queue_submit_op(struct nvdla_queue *queue, void *in_task)
 		err = nvdla_send_cmd(pdev, &cmd_data);
 		if (err) {
 			nvdla_dbg_err(pdev, "task[%p] submit failed", task);
-			nvdla_task_syncpt_reset(task->sp, queue->syncpt_id,
-					task->fence);
+			/* deletes invalid task from queue, puts refs */
+			nvdla_task_syncpt_reset(task->sp,
+				queue->syncpt_id,
+				task->fence);
 		}
 	}
 
@@ -1608,6 +1652,7 @@ fail_to_register:
 fail_to_channel_submit:
 	nvhost_module_idle(pdev);
 fail_to_poweron:
+	nvdla_task_free_locked(task);
 	mutex_unlock(&queue->list_lock);
 
 	return err;

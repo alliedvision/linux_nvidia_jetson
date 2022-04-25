@@ -2,7 +2,7 @@
  * arch/arm/mach-tegra/mc.c
  *
  * Copyright (C) 2010 Google, Inc.
- * Copyright (C) 2011-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2011-2022, NVIDIA Corporation.  All rights reserved.
  *
  * Author:
  *	Erik Gilling <konkers@google.com>
@@ -54,6 +54,7 @@ void __iomem *mc;
 void __iomem *mc_regs[MC_MAX_CHANNELS];
 unsigned int mssnvlink_hubs;
 void __iomem *mssnvlink_regs[MC_MAX_MSSNVLINK_HUBS];
+static u32 nvlink_reg_val[MC_MAX_MSSNVLINK_HUBS];
 
 u32 tegra_mc_readl(u32 reg)
 {
@@ -319,6 +320,7 @@ static void enable_mssnvlinks(struct platform_device *pdev)
 	void __iomem *regs;
 	int ret = 0, i;
 	u32 reg_val;
+	bool disable_l3_alloc_hint = false;
 
 	/* MSSNVLINK support is available in silicon or fpga only */
 	if (!tegra_platform_is_silicon())
@@ -345,6 +347,8 @@ static void enable_mssnvlinks(struct platform_device *pdev)
 		goto err_out;
 	}
 
+	disable_l3_alloc_hint = of_property_read_bool(dn, "disable-nvlink-l3-alloc-hint");
+
 	for (i = 0; i < mssnvlink_hubs; i++) {
 		regs = of_iomap(dn, i);
 		if (!regs) {
@@ -354,8 +358,10 @@ static void enable_mssnvlinks(struct platform_device *pdev)
 		}
 		mssnvlink_regs[i] = regs;
 		reg_val = __raw_readl(regs + MSSNVLINK_CYA_DESIGN_MODES);
-		reg_val |=  MSS_NVLINK_L3_ALLOC_HINT;
+		if (!disable_l3_alloc_hint)
+			reg_val |=  MSS_NVLINK_L3_ALLOC_HINT;
 		__raw_writel(reg_val, regs + MSSNVLINK_CYA_DESIGN_MODES);
+		nvlink_reg_val[i] = reg_val;
 	}
 
 err_out:
@@ -451,6 +457,19 @@ static int tegra_mc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int tegra_mc_resume_early(struct device *dev)
+{
+	int i;
+
+	if (mssnvlink_hubs != UINT_MAX) {
+		for (i = 0; i < mssnvlink_hubs; i++)
+			__raw_writel(nvlink_reg_val[i],
+				mssnvlink_regs[i] + MSSNVLINK_CYA_DESIGN_MODES);
+	}
+	tegra_mcerr_resume();
+	return 0;
+}
+
 u32 __weak tegra_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
 {
 	return 2000;
@@ -461,11 +480,16 @@ static int tegra_mc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops tegra_mc_pm_ops = {
+	.resume_early = tegra_mc_resume_early,
+};
+
 static struct platform_driver mc_driver = {
 	.driver = {
 		.name	= "nv-tegra-mc",
 		.of_match_table = tegra_mc_of_ids,
 		.owner	= THIS_MODULE,
+		.pm     = &tegra_mc_pm_ops,
 	},
 
 	.probe		= tegra_mc_probe,

@@ -9,15 +9,22 @@ dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-antmicro-adap
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-imx274-hdmi.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-imx185_v1.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-maxn.dtb
+dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-avt-14375-2cam.dtb
+dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-avt-14385-6cam.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-e3366-1199.dtb
-dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0006-p2822-0000.dtb
+dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0006-p2822-0000-avt-14385-6cam.dtb
+dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0006-p2822-0000-avt-14375-2cam.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0006-e3366-1199.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-as-0006-p2822-0000.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-as-p3668-p2822-0000.dtb
 dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-hdr40.dtbo
 dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-adafruit-sph0645lm4h.dtbo
+dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-adafruit-uda1334a.dtbo
 dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-fe-pi-audio.dtbo
 dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-respeaker-4-mic-array.dtbo
+dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-respeaker-4-mic-lin-array.dtbo
+dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-m2ke.dtbo
+dtbo-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p2888-0001-p2822-0000-csi.dtbo
 
 ifneq ($(dtb-y),)
 dtb-y := $(addprefix $(makefile-path)/,$(dtb-y))

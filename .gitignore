@@ -15,3 +15,11 @@ kernel/kernel-4.9/drivers/video/tegra/host
 # git files that we don't want to ignore even it they are dot-files
 #
 !.gitignore
+
+__pycache__
+*.pyc
+.*.swp
+.*.swo
+avt_build/work
+avt_build/.dlcache
+avt_build/build.log

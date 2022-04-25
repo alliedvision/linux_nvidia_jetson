@@ -50,6 +50,7 @@
 #define NVMAP_HANDLE_PHYS_CONTIG     (0x1ul << 6)
 #define NVMAP_HANDLE_CACHE_SYNC      (0x1ul << 7)
 #define NVMAP_HANDLE_CACHE_SYNC_AT_RESERVE      (0x1ul << 8)
+#define NVMAP_HANDLE_RO	             (0x1ul << 9)
 
 #ifdef CONFIG_NVMAP_PAGE_POOLS
 ulong nvmap_page_pool_get_unused_pages(void);

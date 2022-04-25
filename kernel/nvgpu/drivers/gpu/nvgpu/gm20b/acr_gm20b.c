@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1372,7 +1372,11 @@ static void gm20b_acr_default_sw_init(struct gk20a *g, struct hs_acr *hs_acr)
 
 	/* ACR HS ucode type & f/w name*/
 	hs_acr->acr_type = ACR_DEFAULT;
-	hs_acr->acr_fw_name = HSBIN_ACR_UCODE_IMAGE;
+	if (!g->ops.pmu.is_debug_mode_enabled(g)) {
+		hs_acr->acr_fw_name = GM20B_HSBIN_ACR_PROD_UCODE;
+	} else {
+		hs_acr->acr_fw_name = GM20B_HSBIN_ACR_DBG_UCODE;
+	}
 
 	/* bootlader interface used by ACR HS bootloader*/
 	hs_acr->ptr_bl_dmem_desc = &hs_acr->bl_dmem_desc;

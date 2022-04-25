@@ -1,7 +1,7 @@
 /*
  * tegra186-p3636-0001-common.dtsi : Lanai common dtsi.
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include "tegra186-p3636-0001-a00-audio.dtsi"
 #include "tegra186-p3636-0001-a00-thermal.dtsi"
 #include "tegra186-p3636-plugin-manager.dtsi"
+#include "tegra186-p3636-0001-a00-comms.dtsi"
 
 #define EXTCON_NONE		0
 #define EXTCON_USB		1
@@ -69,6 +70,11 @@
 		status = "okay";
 	};
 
+	/* gen8-i2c - ID EEPROM */
+	i2c@c250000 {
+		status="okay";
+	};
+
 	vi-bypass@15700000{
 		compatible = "nvidia,tegra186-vi-bypass";
 		status = "okay";
@@ -97,15 +103,10 @@
 		nvidia,invert-interrupt;
 	};
 
-
-	spi@3210000 {
-		status = "okay";
-	};
-
-	spi@3240000 {
+	spi@3210000 { /* SPI 1 to 40 pin header */
 		status = "okay";
 		spi@0 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -115,7 +116,7 @@
 			};
 		};
 		spi@1 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -126,6 +127,25 @@
 		};
 	};
 
+	spi@c260000 { /* SPI 2 to 40 pin header */
+		status = "okay";
+		spi@0 {
+			compatible = "tegra-spidev";
+			reg = <0x0>;
+			spi-max-frequency = <33000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+			};
+		};
+		spi@1 {
+			compatible = "tegra-spidev";
+			reg = <0x1>;
+			spi-max-frequency = <33000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+			};
+		};
+	};
 
 	external-connection {
 		vbus_id_extcon: extcon@1 {
@@ -183,6 +203,7 @@
 		extcon-cables = <&vbus_id_extcon 0>;
 		extcon-cable-names = "vbus";
 		#extcon-cells = <1>;
+		emc-frequency = <100000000>;
 	};
 
 	xhci@3530000 {

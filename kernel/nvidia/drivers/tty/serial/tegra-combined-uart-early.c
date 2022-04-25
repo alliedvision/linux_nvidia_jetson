@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,7 +24,7 @@
 
 static u32 update_and_send_mbox(u8 __iomem *addr, u32 mbox_val, char c)
 {
-	int bytes = bytes = (mbox_val >> NUM_BYTES_FIELD_BIT) & 0x3;
+	int bytes = (mbox_val >> NUM_BYTES_FIELD_BIT) & 0x3;
 
 	mbox_val |= BIT(INTR_TRIGGER_BIT);
 	mbox_val |= c << (bytes * 8);

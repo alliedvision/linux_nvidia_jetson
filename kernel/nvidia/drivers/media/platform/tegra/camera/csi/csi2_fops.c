@@ -82,16 +82,28 @@ int tegra_csi_error(struct tegra_csi_channel *chan, int port_idx)
 	 * corrected automatically
 	 */
 	val = pp_read(port, TEGRA_CSI_PIXEL_PARSER_STATUS);
-	err |= val & 0x4000;
+	err |= val & (0x4000 | TEGRA_CSI_PIXEL_PARSER_PL_CRC_ERR);
 	pp_write(port, TEGRA_CSI_PIXEL_PARSER_STATUS, val);
+
+    if (val) {
+        dev_err(chan->csi->dev,"pixel parser error %u",val);
+    }
 
 	val = cil_read(port, TEGRA_CSI_CIL_STATUS);
 	err |= val & 0x02;
 	cil_write(port, TEGRA_CSI_CIL_STATUS, val);
 
+    if (val) {
+        dev_err(chan->csi->dev,"cil status error %u",val);
+    }
+
 	val = cil_read(port, TEGRA_CSI_CILX_STATUS);
 	err |= val & 0x00020020;
 	cil_write(port, TEGRA_CSI_CILX_STATUS, val);
+
+    if (val) {
+        dev_err(chan->csi->dev,"cilx status error %u",val);
+    }
 
 	return err;
 }
@@ -372,6 +384,7 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	pp_write(port, TEGRA_CSI_PIXEL_STREAM_PP_COMMAND,
 			(0xF << CSI_PP_START_MARKER_FRAME_MAX_OFFSET) |
 			CSI_PP_SINGLE_SHOT_ENABLE | CSI_PP_ENABLE);
+
 	return 0;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 - 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017 - 2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -520,6 +520,8 @@ struct tegra_pcie_dw {
 	u32 target_speed;
 	void *cpu_virt_addr;
 	bool disable_clock_request;
+	bool enable_srns;
+	bool ep_mode_slot_supplies_en;
 	bool power_down_en;
 	bool is_safety_platform;
 	bool td_bit;
@@ -578,6 +580,8 @@ struct tegra_pcie_dw {
 	int *gpios;
 
 	struct regulator *pex_ctl_reg;
+	struct regulator *slot_ctl_3v3;
+	struct regulator *slot_ctl_12v;
 	struct margin_cmd mcmd;
 	u32 dvfs_tbl[4][4]; /* for x1/x2/x3/x4 and Gen-1/2/3/4 */
 };
@@ -1525,6 +1529,14 @@ static void config_plat_gpio(struct tegra_pcie_dw *pcie, bool flag)
 
 	for (count = 0; count < pcie->n_gpios; ++count)
 		gpiod_set_value(gpio_to_desc(pcie->gpios[count]), flag);
+
+	/*
+	 * According to PCI Express Card Electromechanical Specification
+	 * Revision 1.1, Table-2.4, T_PVPERL (Power stable to PERST# inactive)
+	 * should be a minimum of 100ms.
+	 */
+	if (flag && pcie->n_gpios > 0)
+		msleep(100);
 }
 
 static int apply_speed_change(struct seq_file *s, void *data)
@@ -3191,6 +3203,9 @@ static int tegra_pcie_dw_parse_dt(struct tegra_pcie_dw *pcie)
 		pcie->disabled_aspm_states = 0xF;
 	}
 
+	pcie->enable_srns = of_property_read_bool(pcie->dev->of_node,
+						  "nvidia,enable-srns");
+
 	if (pcie->mode == DW_PCIE_RC_TYPE) {
 		ret = of_property_read_u32(np, "nvidia,preset-init",
 					   &pcie->preset_init);
@@ -3300,6 +3315,10 @@ static int tegra_pcie_dw_parse_dt(struct tegra_pcie_dw *pcie)
 			dev_err(pcie->dev, "pex-rst-gpio is missing\n");
 			return pcie->pex_rst_gpio;
 		}
+
+		pcie->ep_mode_slot_supplies_en =
+			of_property_read_bool(pcie->dev->of_node,
+					      "nvidia,enable-slot-supplies");
 	}
 
 	return 0;
@@ -3473,7 +3492,8 @@ static void pex_ep_event_pex_rst_assert(struct tegra_pcie_dw *pcie)
 	if (ret < 0)
 		dev_err(pcie->dev, "runtime suspend failed: %d\n", ret);
 
-	if (!(pcie->cid == CTRL_4 && pcie->num_lanes == 1)) {
+	if (!(pcie->cid == CTRL_4 && pcie->num_lanes == 1) &&
+	    !pcie->enable_srns) {
 		/* Resets PLL CAL_VALID and RCAL_VALID */
 		ret = uphy_bpmp_pcie_ep_controller_pll_off(pcie->cid);
 		if (ret)
@@ -3501,7 +3521,8 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw *pcie)
 		return;
 	}
 
-	if (!(pcie->cid == CTRL_4 && pcie->num_lanes == 1)) {
+	if (!(pcie->cid == CTRL_4 && pcie->num_lanes == 1) &&
+	    !pcie->enable_srns) {
 		ret = uphy_bpmp_pcie_ep_controller_pll_init(pcie->cid);
 		if (ret) {
 			dev_err(pcie->dev, "UPHY init failed for PCIe EP:%d\n",
@@ -3965,6 +3986,72 @@ fail_pinctrl:
 	return;
 }
 
+static void get_slot_regulators(struct tegra_pcie_dw *pcie)
+{
+	if (pcie->cid != CTRL_5)
+		return;
+
+	pcie->slot_ctl_3v3 = devm_regulator_get_optional(pcie->dev, "vpcie3v3");
+	if (IS_ERR(pcie->slot_ctl_3v3))
+		dev_info(pcie->dev, "Failed to get 3V slot regulator: %ld\n",
+			 PTR_ERR(pcie->slot_ctl_3v3));
+
+	pcie->slot_ctl_12v = devm_regulator_get_optional(pcie->dev, "vpcie12v");
+	if (IS_ERR(pcie->slot_ctl_12v))
+		dev_info(pcie->dev, "Failed to get 12V slot regulator: %ld\n",
+			 PTR_ERR(pcie->slot_ctl_12v));
+}
+
+static int enable_slot_regulators(struct tegra_pcie_dw *pcie)
+{
+	int ret;
+
+	if (pcie->cid != CTRL_5)
+		return 0;
+
+	if (!IS_ERR(pcie->slot_ctl_3v3)) {
+		ret = regulator_enable(pcie->slot_ctl_3v3);
+		if (ret < 0) {
+			dev_err(pcie->dev,
+				"Enabling 3V3 supply to slot failed: %d\n",
+				ret);
+			return ret;
+		}
+	}
+
+	if (!IS_ERR(pcie->slot_ctl_12v)) {
+		ret = regulator_enable(pcie->slot_ctl_12v);
+		if (ret < 0) {
+			dev_err(pcie->dev,
+				"Enabling 12V supply to slot failed: %d\n",
+				ret);
+			regulator_disable(pcie->slot_ctl_3v3);
+			return ret;
+		}
+	}
+
+	/*
+	 * According to PCI Express Card Electromechanical Specification
+	 * Revision 1.1, Table-2.4, T_PVPERL (Power stable to PERST# inactive)
+	 * should be a minimum of 100ms.
+	 */
+	if (pcie->slot_ctl_3v3 || pcie->slot_ctl_12v)
+		msleep(100);
+
+	return 0;
+}
+
+static void disable_slot_regulators(struct tegra_pcie_dw *pcie)
+{
+	if (pcie->cid != CTRL_5)
+		return;
+
+	if (!IS_ERR(pcie->slot_ctl_3v3))
+		regulator_disable(pcie->slot_ctl_12v);
+	if (!IS_ERR(pcie->slot_ctl_12v))
+		regulator_disable(pcie->slot_ctl_3v3);
+}
+
 static int tegra_pcie_raise_legacy_irq(struct tegra_pcie_dw *pcie)
 {
 	/* There is no support from HW to raise a legacy irq apart from
@@ -4045,13 +4132,25 @@ static int tegra_pcie_config_ep(struct tegra_pcie_dw *pcie,
 	ep->addr_size = resource_size(res);
 	ep->page_size = SZ_64K;
 
+	if (pcie->ep_mode_slot_supplies_en) {
+		ret = enable_slot_regulators(pcie);
+		if (ret)
+			return ret;
+	}
+
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
 		dev_err(dev, "failed to initialize endpoint\n");
-		return ret;
+		goto fail_disable_regulators;
 	}
 
 	return 0;
+
+fail_disable_regulators:
+	if (pcie->ep_mode_slot_supplies_en)
+		disable_slot_regulators(pcie);
+
+	return ret;
 }
 
 static const struct tegra_pcie_of_data tegra_pcie_rc_of_data = {
@@ -4187,6 +4286,8 @@ static int tegra_pcie_dw_probe(struct platform_device *pdev)
 			PTR_ERR(pcie->pex_ctl_reg));
 		return PTR_ERR(pcie->pex_ctl_reg);
 	}
+
+	get_slot_regulators(pcie);
 
 	pcie->core_clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(pcie->core_clk)) {
@@ -4440,6 +4541,8 @@ static int tegra_pcie_dw_remove(struct platform_device *pdev)
 
 		if (pcie->cid != CTRL_5)
 			uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
+		if (pcie->ep_mode_slot_supplies_en)
+			disable_slot_regulators(pcie);
 	}
 	tegra_bwmgr_unregister(pcie->emc_bw);
 
@@ -4468,6 +4571,7 @@ static int tegra_pcie_dw_runtime_suspend(struct device *dev)
 	clk_disable_unprepare(pcie->core_clk);
 	regulator_disable(pcie->pex_ctl_reg);
 	config_plat_gpio(pcie, 0);
+	disable_slot_regulators(pcie);
 
 	if (pcie->cid != CTRL_5)
 		uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
@@ -4494,6 +4598,10 @@ static int tegra_pcie_dw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+
+	ret = enable_slot_regulators(pcie);
+	if (ret)
+		goto fail_slot_reg_en;
 
 	config_plat_gpio(pcie, 1);
 
@@ -4578,8 +4686,10 @@ fail_phy:
 	clk_disable_unprepare(pcie->core_clk);
 fail_core_clk:
 	regulator_disable(pcie->pex_ctl_reg);
-	config_plat_gpio(pcie, 0);
 fail_reg_en:
+	config_plat_gpio(pcie, 0);
+	disable_slot_regulators(pcie);
+fail_slot_reg_en:
 	if (pcie->cid != CTRL_5)
 		uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
 
@@ -4590,6 +4700,11 @@ static int tegra_pcie_dw_suspend_late(struct device *dev)
 {
 	struct tegra_pcie_dw *pcie = dev_get_drvdata(dev);
 	u32 val;
+
+	if (pcie->mode == DW_PCIE_EP_TYPE) {
+		dev_err(dev, "Tegra PCIe is in EP mode, suspend not allowed");
+		return -EPERM;
+	}
 
 	if (!pcie->link_state && pcie->power_down_en)
 		return 0;
@@ -4625,6 +4740,7 @@ static int tegra_pcie_dw_suspend_noirq(struct device *dev)
 	clk_disable_unprepare(pcie->core_clk);
 	regulator_disable(pcie->pex_ctl_reg);
 	config_plat_gpio(pcie, 0);
+	disable_slot_regulators(pcie);
 	if (pcie->cid != CTRL_5) {
 		ret = uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
 		if (ret) {
@@ -4666,12 +4782,16 @@ static int tegra_pcie_dw_resume_noirq(struct device *dev)
 		}
 	}
 
+	ret = enable_slot_regulators(pcie);
+	if (ret)
+		goto fail_slot_reg_en;
+
 	config_plat_gpio(pcie, 1);
 
 	ret = regulator_enable(pcie->pex_ctl_reg);
 	if (ret < 0) {
 		dev_err(dev, "regulator enable failed: %d\n", ret);
-		return ret;
+		goto fail_reg_en;
 	}
 
 	if (pcie->tsa_config_addr) {
@@ -4720,6 +4840,14 @@ static int tegra_pcie_dw_resume_noirq(struct device *dev)
 	val |= (APPL_CFG_MISC_ARCACHE_VAL << APPL_CFG_MISC_ARCACHE_SHIFT);
 	writel(val, pcie->appl_base + APPL_CFG_MISC);
 
+	if (pcie->enable_srns) {
+		/* Cut the REFCLK to EP as it is using its internal clock */
+		val = readl(pcie->appl_base + APPL_PINMUX);
+		val |= APPL_PINMUX_CLK_OUTPUT_IN_OVERRIDE_EN;
+		val &= ~APPL_PINMUX_CLK_OUTPUT_IN_OVERRIDE;
+		writel(val, pcie->appl_base + APPL_PINMUX);
+	}
+
 	if (pcie->disable_clock_request) {
 		val = readl(pcie->appl_base + APPL_PINMUX);
 		val |= APPL_PINMUX_CLKREQ_OVERRIDE_EN;
@@ -4753,7 +4881,19 @@ fail_phy:
 	clk_disable_unprepare(pcie->core_clk);
 fail_core_clk:
 	regulator_disable(pcie->pex_ctl_reg);
+fail_reg_en:
 	config_plat_gpio(pcie, 0);
+	disable_slot_regulators(pcie);
+fail_slot_reg_en:
+	if (pcie->cid != CTRL_5) {
+		ret = uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
+		if (ret) {
+			dev_err(pcie->dev,
+				"Disabling controller-%d failed:%d\n",
+				pcie->cid, ret);
+			return ret;
+		}
+	}
 	return ret;
 }
 
@@ -4805,9 +4945,11 @@ static void tegra_pcie_dw_shutdown(struct platform_device *pdev)
 		clk_disable_unprepare(pcie->core_clk);
 		regulator_disable(pcie->pex_ctl_reg);
 		config_plat_gpio(pcie, 0);
+		disable_slot_regulators(pcie);
 
 		if (pcie->cid != CTRL_5)
 			uphy_bpmp_pcie_controller_state_set(pcie->cid, false);
+
 	} else if (pcie->mode == DW_PCIE_EP_TYPE) {
 		if (!kfifo_put(&pcie->event_fifo, EP_EVENT_EXIT))
 			dev_err(pcie->dev, "EVENT: fifo is full\n");

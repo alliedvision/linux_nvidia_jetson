@@ -45,9 +45,11 @@ endif
 obj-$(CONFIG_TEGRA_PTP_NOTIFIER) += ptp-notifier.o
 obj-$(CONFIG_DENVER_CPU) += denver-knobs.o
 obj-$(CONFIG_DENVER_MCA) += denver_mca.o
-obj-$(CONFIG_TEGRA_SAFETY_SCE) += tegra-safety.o
 obj-$(CONFIG_TEGRA_HV_XHCI_DEBUG) += tegra-hv-xhci-debug.o
-tegra-safety-objs += tegra-safety-ivc.o tegra-safety-dev.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra-safety-ivc.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra_l1ss_cmd_resp_l2_interface.o tegra_l1ss.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra_l1ss_kernel_interface.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra-safety-dev.o
 
 obj-$(CONFIG_PSTORE_RAM) += tegra_ramoops.o
 

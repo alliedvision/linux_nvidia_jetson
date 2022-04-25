@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#define UARTV_BASE_NO_PREFIX   31f0000
+#define UARTV_BASE           0x31f0000
+
+#define UARTV_INT            288
+
+/ {
+	uartv: serial@UARTV_BASE_NO_PREFIX {
+		compatible = "nvidia,tegra20-uart";
+		reg = <0x0 UARTV_BASE 0x0 0x40>;
+		reg-shift = <2>;
+		interrupts = <0 UARTV_INT 0x04>;
+		status = "disabled";
+
+		/* This is a dummy value so that 8250_of.c of Linux does not to try to query the clk
+		 * driver, because there is nothing linked to this node, so it would result in
+		 * failed driver probing.
+		 *
+		 * The Hypervisor's UART emulation ignores any baud rate programming, so the value
+		 * or anything that gets derived from it probably doesn't really matter.
+		 */
+		clock-frequency = <408000000>;
+	};
+};

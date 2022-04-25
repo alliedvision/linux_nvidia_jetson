@@ -1,7 +1,7 @@
 /*
  * NVDLA Buffer Management Header
  *
- * Copyright (c) 2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -58,6 +58,28 @@ struct nvdla_buffers {
  *
  */
 struct nvdla_buffers *nvdla_buffer_init(struct platform_device *pdev);
+
+/**
+ * @brief	Checks for validity of nvdla_buffer
+ *
+ * This function checks the validity of buffer and is
+ * recommended to be called prior to any buffer operations
+ *
+ * @param nvdla_buffers Pointer to nvdla_buffers struct
+ * @return	            true on buffer being valid, and false otherwise
+ **/
+bool nvdla_buffer_is_valid(struct nvdla_buffers *nvdla_buffers);
+
+/**
+ * @brief	Sets host1x platform device corresponding to nvdla_buffer
+ *
+ * This function resets the platform_device pdev information of nvdla_buffer.
+ *
+ * @param nvdla_buffers	Pointer to nvdla_buffers struct
+ * @param pdev			Pointer to NvHost device
+ **/
+void nvdla_buffer_set_platform_device(struct nvdla_buffers *nvdla_buffers,
+		struct platform_device *pdev);
 
 /**
  * @brief			Pin the memhandle using dma_buf functions

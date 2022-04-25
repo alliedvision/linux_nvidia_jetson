@@ -2,7 +2,7 @@
 /*
  * Jetson Device-tree overlay for ReSpeaker 4 Mic Array.
  *
- * Copyright (c) 2020 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
  *
  */
 
@@ -10,6 +10,7 @@
 
 / {
 	overlay-name = "ReSpeaker 4 Mic Array";
+	jetson-header-name = "Jetson 40pin Header";
 	compatible = JETSON_COMPATIBLE;
 
 	fragment@0 {
@@ -58,10 +59,10 @@
 		target = <&pinmux>;
 		__overlay__ {
 			pinctrl-names = "default";
-			pinctrl-0 = <&hdr40_pinmux>;
+			pinctrl-0 = <&jetson_io_pinmux>;
 
-			hdr40_pinmux: header-40pin-pinmux {
-				pin12 {
+			jetson_io_pinmux: exp-header-pinmux {
+				hdr40-pin12 {
 					nvidia,pins = HDR40_PIN12;
 					nvidia,function = HDR40_I2S;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
@@ -69,7 +70,7 @@
 					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
 
-				pin35 {
+				hdr40-pin35 {
 					nvidia,pins = HDR40_PIN35;
 					nvidia,function = HDR40_I2S;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
@@ -77,7 +78,7 @@
 					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
 
-				pin38 {
+				hdr40-pin38 {
 					nvidia,pins = HDR40_PIN38;
 					nvidia,function = HDR40_I2S;
 					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;

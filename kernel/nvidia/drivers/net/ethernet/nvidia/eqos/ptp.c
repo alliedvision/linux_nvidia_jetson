@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -323,6 +323,7 @@ void eqos_ptp_remove(struct eqos_prv_data *pdata)
 	if (pdata->ptp_clock) {
 		ptp_clock_unregister(pdata->ptp_clock);
 		pr_debug("Removed PTP HW clock successfully\n");
+		pdata->ptp_clock = NULL;
 	}
 
 	DBGPR_PTP("<--eqos_ptp_remove\n");

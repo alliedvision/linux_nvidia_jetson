@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics FIFO (gr host)
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1602,6 +1602,7 @@ int gk20a_fifo_deferred_reset(struct gk20a *g, struct channel_gk20a *ch)
 		engines = gk20a_fifo_engines_on_id(g, tsg->tsgid, true);
 	} else {
 		nvgpu_err(g, "chid: %d is not bound to tsg", ch->chid);
+		engines = g->fifo.deferred_fault_engines;
 	}
 
 	if (engines == 0U) {
@@ -2196,9 +2197,9 @@ int gk20a_fifo_tsg_unbind_channel_verify_status(struct channel_gk20a *ch)
 	struct gk20a *g = ch->g;
 
 	if (gk20a_fifo_channel_status_is_next(g, ch->chid)) {
-		nvgpu_err(g, "Channel %d to be removed from TSG %d has NEXT set!",
+		nvgpu_log_info(g, "Channel %d to be removed from TSG %d has NEXT set!",
 			ch->chid, ch->tsgid);
-		return -EINVAL;
+		return -EAGAIN;
 	}
 
 	if (g->ops.fifo.tsg_verify_status_ctx_reload) {
@@ -2981,7 +2982,7 @@ static u32 gk20a_fifo_get_preempt_timeout(struct gk20a *g)
 }
 
 int gk20a_fifo_is_preempt_pending(struct gk20a *g, u32 id,
-		unsigned int id_type)
+		unsigned int id_type, bool preempt_retries_left)
 {
 	struct nvgpu_timeout timeout;
 	u32 delay = GR_IDLE_CHECK_DEFAULT;
@@ -3037,7 +3038,8 @@ void gk20a_fifo_preempt_timeout_rc(struct gk20a *g, struct channel_gk20a *ch)
 					RC_TYPE_PREEMPT_TIMEOUT);
 }
 
-int __locked_fifo_preempt(struct gk20a *g, u32 id, bool is_tsg)
+int __locked_fifo_preempt(struct gk20a *g, u32 id, bool is_tsg,
+			  bool preempt_retries_left)
 {
 	int ret;
 	unsigned int id_type;
@@ -3049,8 +3051,17 @@ int __locked_fifo_preempt(struct gk20a *g, u32 id, bool is_tsg)
 
 	id_type = is_tsg ? ID_TYPE_TSG : ID_TYPE_CHANNEL;
 
-	/* wait for preempt */
-	ret = g->ops.fifo.is_preempt_pending(g, id, id_type);
+	/*
+	 * Poll for preempt done. if stalling interrupts are pending
+	 * while preempt is in progress we poll for stalling interrupts
+	 * to finish based on return value from this function and
+	 * retry preempt again.
+	 * If HW is hung, on the last retry instance we try to identify
+	 * the engines hung and set the runlist reset_eng_bitmask
+	 * and mark preemption completion.
+	 */
+	ret = g->ops.fifo.is_preempt_pending(g, id, id_type,
+					     preempt_retries_left);
 
 	return ret;
 }
@@ -3072,7 +3083,7 @@ int gk20a_fifo_preempt_channel(struct gk20a *g, struct channel_gk20a *ch)
 
 	mutex_ret = nvgpu_pmu_mutex_acquire(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
 
-	ret = __locked_fifo_preempt(g, ch->chid, false);
+	ret = __locked_fifo_preempt(g, ch->chid, false, false);
 
 	if (!mutex_ret) {
 		nvgpu_pmu_mutex_release(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
@@ -3112,7 +3123,7 @@ int gk20a_fifo_preempt_tsg(struct gk20a *g, struct tsg_gk20a *tsg)
 
 	mutex_ret = nvgpu_pmu_mutex_acquire(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
 
-	ret = __locked_fifo_preempt(g, tsg->tsgid, true);
+	ret = __locked_fifo_preempt(g, tsg->tsgid, true, false);
 
 	if (!mutex_ret) {
 		nvgpu_pmu_mutex_release(&g->pmu, PMU_MUTEX_ID_FIFO, &token);
@@ -3785,7 +3796,7 @@ static int __locked_fifo_reschedule_preempt_next(struct channel_gk20a *ch,
 		gk20a_readl(g, fifo_preempt_r()));
 #endif
 	if (wait_preempt) {
-		g->ops.fifo.is_preempt_pending(g, preempt_id, preempt_type);
+		g->ops.fifo.is_preempt_pending(g, preempt_id, preempt_type, false);
 	}
 #ifdef TRACEPOINTS_ENABLED
 	trace_gk20a_reschedule_preempted_next(ch->chid);

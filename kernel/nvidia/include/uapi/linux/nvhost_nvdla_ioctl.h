@@ -3,7 +3,7 @@
  *
  * Tegra NvDLA Driver
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,6 +29,17 @@
 #endif
 
 /**
+ * Limits exposed to userspace
+ */
+#define MAX_NVDLA_PREFENCES_PER_TASK		32
+#define MAX_NVDLA_POSTFENCES_PER_TASK		32
+#define MAX_NVDLA_EMU_PREFENCES_PER_TASK	16
+#define MAX_NVDLA_EMU_POSTFENCES_PER_TASK	16
+#define MAX_NVDLA_IN_STATUS_PER_TASK		MAX_NVDLA_PREFENCES_PER_TASK
+#define MAX_NVDLA_OUT_STATUS_PER_TASK		MAX_NVDLA_POSTFENCES_PER_TASK
+#define MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK	32
+
+/**
  * struct nvdla_queue_stat_args strcture
  *
  * @status		queue status flags
@@ -52,6 +63,21 @@ struct nvdla_ping_args {
 	__u32 out_response;
 };
 
+/**
+ * struct nvdla_mem_share_handle structure for sharing memory identifier
+ * and its properties
+ *
+ * @share_id		identifier of handle to be shared
+ * @offset		offset within the shared memory
+ * @access_flags	access with which memory is intended to be shared
+ * @reserved		reserved for future use
+ **/
+struct nvdla_mem_share_handle {
+	__u32 share_id;
+	__u32 offset;
+	__u32 access_flags;
+	__u32 reserved;
+};
 
 /**
  * struct nvdla_pin_unpin_args strcture args for buffer pin/unpin
@@ -79,8 +105,9 @@ struct nvdla_pin_unpin_args {
 struct nvdla_submit_args {
 	__u64 tasks;
 	__u16 num_tasks;
-#define MAX_TASKS_PER_SUBMIT		16
+#define MAX_NVDLA_TASKS_PER_SUBMIT	16
 #define NVDLA_SUBMIT_FLAGS_ATOMIC	(1 << 0)
+#define NVDLA_SUBMIT_FLAGS_BYPASS_EXEC	(1 << 1)
 	__u16 flags;
 	__u32 version;
 };
@@ -112,11 +139,18 @@ struct nvdla_get_q_status_args {
  *
  * @handle		handle to buffer allocated in userspace
  * @offset		offset in buffer
+ * @type		buffer heap type
+ * @reserved		reserved for future use
  *
  */
 struct nvdla_mem_handle {
 	__u32 handle;
 	__u32 offset;
+#define NVDLA_BUFFER_TYPE_MC		0U
+#define NVDLA_BUFFER_TYPE_CV		1U
+#define NVDLA_BUFFER_TYPE_INTERNAL	2U
+	__u8 type;
+	__u8 reserved[3];
 };
 
 /**
@@ -239,8 +273,12 @@ struct nvdla_status_notify {
 	_IOWR(NVHOST_NVDLA_IOCTL_MAGIC, 7, struct nvdla_get_q_status_args)
 #define NVDLA_IOCTL_EMU_TASK_SUBMIT \
 	_IOWR(NVHOST_NVDLA_IOCTL_MAGIC, 8, struct nvdla_submit_args)
+#define NVDLA_IOCTL_ALLOC_QUEUE \
+	_IO(NVHOST_NVDLA_IOCTL_MAGIC, 9)
+#define NVDLA_IOCTL_RELEASE_QUEUE \
+	_IO(NVHOST_NVDLA_IOCTL_MAGIC, 10)
 #define NVDLA_IOCTL_LAST		\
-		_IOC_NR(NVDLA_IOCTL_EMU_TASK_SUBMIT)
+		_IOC_NR(NVDLA_IOCTL_RELEASE_QUEUE)
 
 #define NVDLA_IOCTL_MAX_ARG_SIZE  \
 		sizeof(struct nvdla_pin_unpin_args)

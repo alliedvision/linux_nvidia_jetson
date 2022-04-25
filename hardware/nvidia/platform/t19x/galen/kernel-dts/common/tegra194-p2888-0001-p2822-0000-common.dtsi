@@ -71,7 +71,7 @@
 		bluedroid_pm,host-wake-gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 0) 0>;
 		bluedroid_pm,ext-wake-gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(M, 7) 0>;
 		interrupt-parent = <&tegra_main_gpio>;
-		interrupts = <TEGRA194_MAIN_GPIO(Y, 0) 0x01>;
+		interrupts = <TEGRA194_MAIN_GPIO(Y, 0) IRQ_TYPE_EDGE_FALLING>;
 	};
 
 	spi@c260000 {
@@ -81,7 +81,7 @@
 	spi@3210000 {
 		status = "okay";
 		spi@0 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -90,7 +90,7 @@
 			};
 		};
 		spi@1 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <33000000>;
 			controller-data {

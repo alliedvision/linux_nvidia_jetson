@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (c) 2015, Google Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -70,7 +70,7 @@ to_usb3_lane(struct tegra_xusb_lane *lane)
 struct tegra_xusb_usb2_lane {
 	struct tegra_xusb_lane base;
 
-	u32 hs_curr_level_offset;
+	s32 hs_curr_level_offset;
 	bool powered_on;
 };
 
@@ -312,6 +312,7 @@ struct tegra_xusb_usb2_port {
 	int oc_pin;
 	int usb3_port_fake; /* only required for T210 device mode */
 	int vbus_id;
+	int hs_txeq;
 };
 
 static inline struct tegra_xusb_usb2_port *

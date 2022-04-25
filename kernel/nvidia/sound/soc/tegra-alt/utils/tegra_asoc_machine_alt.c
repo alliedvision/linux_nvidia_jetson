@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_machine_alt.c - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -4022,7 +4022,12 @@ int tegra_asoc_populate_dai_links(struct platform_device *pdev)
 			break;
 		}
 
-		of_property_read_string(subnp, "link-name", &dai_links[i].name);
+		ret = of_property_read_string(subnp, "link-name", &dai_links[i].name);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Property 'link-name' missing\n");
+			ret = -ENOENT;
+			break;
+		}
 
 		/*
 		 * special case for DSPK
@@ -4157,7 +4162,7 @@ int tegra_asoc_populate_codec_confs(struct platform_device *pdev)
 	char dai_link_name[MAX_STR_SIZE];
 	struct device_node *of_node;
 	struct device_node *np = pdev->dev.of_node, *subnp;
-
+	int ret = 0;
 	ahub_confs = machine->soc_data->ahub_confs;
 	num_ahub_confs = machine->soc_data->num_ahub_confs;
 	num_codec_confs = machine->num_codec_links;
@@ -4194,8 +4199,11 @@ int tegra_asoc_populate_codec_confs(struct platform_device *pdev)
 
 		codec_confs[i + num_ahub_confs].dev_name = NULL;
 		codec_confs[i + num_ahub_confs].of_node = of_node;
-		of_property_read_string(subnp, "name-prefix",
+		ret = of_property_read_string(subnp, "name-prefix",
 			&codec_confs[i + num_ahub_confs].name_prefix);
+		if (ret < 0)
+			dev_err(&pdev->dev,
+			"property 'name-prefix is missing, error %d \n", ret);
 
 		of_node_put(subnp);
 	}
@@ -4203,7 +4211,7 @@ int tegra_asoc_populate_codec_confs(struct platform_device *pdev)
 	card->num_configs = num_confs;
 	card->codec_conf = codec_confs;
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(tegra_asoc_populate_codec_confs);
 

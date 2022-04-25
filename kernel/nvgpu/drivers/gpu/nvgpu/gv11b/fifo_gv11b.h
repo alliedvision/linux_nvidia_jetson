@@ -1,7 +1,7 @@
 /*
  * GV11B Fifo
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -80,7 +80,7 @@ void gv11b_dump_eng_status(struct gk20a *g,
 u32 gv11b_fifo_intr_0_error_mask(struct gk20a *g);
 int gv11b_fifo_reschedule_runlist(struct channel_gk20a *ch, bool preempt_next);
 int gv11b_fifo_is_preempt_pending(struct gk20a *g, u32 id,
-		 unsigned int id_type);
+		 unsigned int id_type, bool preempt_retries_left);
 int gv11b_fifo_preempt_channel(struct gk20a *g, struct channel_gk20a *ch);
 int gv11b_fifo_preempt_tsg(struct gk20a *g, struct tsg_gk20a *tsg);
 int gv11b_fifo_enable_tsg(struct tsg_gk20a *tsg);

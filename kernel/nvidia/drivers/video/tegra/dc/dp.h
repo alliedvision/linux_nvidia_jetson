@@ -1,7 +1,7 @@
 /*
  * dp.h: tegra dp driver.
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -158,7 +158,7 @@ struct tegra_dc_dp_data {
 	u32 dpaux_dpcd_dbg_num_bytes;
 
 	bool early_enable;
-
+	struct i2c_adapter ddc;
 #ifdef CONFIG_DEBUG_FS
 	struct tegra_dp_test_settings test_settings;
 };

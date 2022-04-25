@@ -2,7 +2,7 @@
 /*
  * Definitions for Jetson tegra210-p3448-0000-p3449-0000-a01 board.
  *
- * Copyright (c) 2019-2020 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2021 NVIDIA CORPORATION. All rights reserved.
  *
  */
 
@@ -20,6 +20,13 @@
 #define HDR40_SPI	"spi1"
 /* SoC function name for UART interface on 40-pin header pins 8, 10, 11 and 36 */
 #define HDR40_UART	"uartb"
+
+/* Pin labels for I2S pins */
+#define HDR40_I2S_PIN_GRP	"i2s1"
+#define HDR40_I2S_SCLK		"i2s1_sclk"
+#define HDR40_I2S_FS		"i2s1_fs"
+#define HDR40_I2S_DIN		"i2s1_din"
+#define HDR40_I2S_DOUT		"i2s1_dout"
 
 /* SoC pin name definitions for 40-pin header */
 #define HDR40_PIN7	"aud_mclk_pbb0"

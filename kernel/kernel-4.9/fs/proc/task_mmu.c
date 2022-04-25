@@ -1136,8 +1136,8 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 					 * failed. FIXME: should this
 					 * function have returned
 					 * -ESRCH if get_task_mm()
-					 *  failed like if
-					 *  get_proc_task() fails?
+					 * failed like if
+					 * get_proc_task() fails?
 					 */
 					up_write(&mm->mmap_sem);
 					goto out_mm;

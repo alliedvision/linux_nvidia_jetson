@@ -70,6 +70,28 @@
 		avdd-usb-supply = <&p2888_spmic_ldo5>;
 	};
 
+	pcie@14180000 {
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+	};
+
+	pcie@14100000 {
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+	};
+
+	pcie@14140000 {
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+	};
+
+	pcie@141a0000 {
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+		vpcie3v3-supply = <&p2822_vdd_3v3_pcie>;
+		vpcie12v-supply = <&p2822_vdd_12v_pcie>;
+	};
+
+	pcie_ep@141a0000 {
+		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
+	};
+
 	pwm-fan {
 		vdd-fan-supply = <&p2822_vdd_fan>;
 	};

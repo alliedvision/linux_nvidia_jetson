@@ -23,9 +23,12 @@
 #include <linux/ptrace.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
-#include <linux/version.h>
 #include <linux/rculist.h>
 #include <linux/random.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
+#include <linux/sched/task_stack.h>
+#endif
 #include <clocksource/arm_arch_timer.h>
 
 #include <asm/cputype.h>
@@ -130,10 +133,10 @@ static inline u32 get_task_state(struct task_struct *task)
 
 static inline u64 get_posix_clock_monotonic_time(void)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 
-	ktime_get_ts(&ts);
-	return timespec_to_ns(&ts);
+	ktime_get_ts64(&ts);
+	return timespec64_to_ns(&ts);
 }
 
 static inline u64 get_arch_time(struct timecounter *tc)
@@ -166,6 +169,8 @@ __put_sample(struct quadd_record_data *data,
 {
 	ssize_t err;
 	struct quadd_comm_data_interface *comm = hrt.quadd_ctx->comm;
+
+	data->seqid = atomic_inc_return(&hrt.seqid);
 
 	err = comm->put_sample(data, vec, vec_count, cpu_id);
 	if (err < 0)
@@ -980,6 +985,7 @@ int quadd_hrt_start(void)
 
 	atomic64_set(&hrt.counter_samples, 0);
 	atomic64_set(&hrt.skipped_samples, 0);
+	atomic_set(&hrt.seqid, 0);
 
 	reset_cpu_ctx();
 
@@ -1044,9 +1050,6 @@ void quadd_hrt_stop(void)
 
 	atomic_set(&hrt.active, 0);
 	atomic_set(&hrt.mmap_active, 0);
-
-	atomic64_set(&hrt.counter_samples, 0);
-	atomic64_set(&hrt.skipped_samples, 0);
 
 	pid_list_clear();
 
@@ -1113,6 +1116,9 @@ struct quadd_hrt_ctx *quadd_hrt_init(struct quadd_ctx *ctx)
 		hrt.ma_period = 0;
 
 	atomic64_set(&hrt.counter_samples, 0);
+	atomic64_set(&hrt.skipped_samples, 0);
+	atomic_set(&hrt.seqid, 0);
+
 	init_arch_timer();
 
 	hrt.cpu_ctx = alloc_percpu(struct quadd_cpu_context);

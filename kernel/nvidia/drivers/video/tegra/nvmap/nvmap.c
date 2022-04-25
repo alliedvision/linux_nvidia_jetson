@@ -3,7 +3,7 @@
  *
  * Memory manager for Tegra GPU
  *
- * Copyright (c) 2009-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,6 +54,12 @@ void *__nvmap_kmap(struct nvmap_handle *h, unsigned int pagenum)
 	h = nvmap_handle_get(h);
 	if (!h)
 		return NULL;
+	/*
+	 * If the handle is RO and virtual mapping is requested in
+	 * kernel address space, return error.
+	 */
+	if (h->from_va && h->is_ro)
+		goto put_handle;
 
 	if (!h->alloc)
 		goto put_handle;
@@ -147,6 +153,13 @@ void *__nvmap_mmap(struct nvmap_handle *h)
 	h = nvmap_handle_get(h);
 	if (!h)
 		return NULL;
+	/*
+	 * If the handle is RO and virtual mapping is requested in
+	 * kernel address space, return error.
+	 */
+	if (h->from_va && h->is_ro)
+		goto put_handle;
+
 
 	if (!h->alloc)
 		goto put_handle;

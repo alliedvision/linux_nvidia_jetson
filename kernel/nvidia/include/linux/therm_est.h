@@ -1,7 +1,7 @@
 /*
  * include/linux/therm_est.h
  *
- * Copyright (c) 2010-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -163,6 +163,7 @@ struct fan_dev_data {
 	enum pwm_polarity fan_pwm_polarity;
 	int suspend_state;
 	const char *name;
+	const char *regulator_name;
 	struct regulator *fan_reg;
 	bool is_fan_reg_enabled;
 	struct dentry *debugfs_root;
@@ -187,7 +188,7 @@ struct fan_dev_data {
 	struct delayed_work fan_ramp_pwm_work;
 	struct delayed_work fan_ramp_rpm_work;
 	struct device *pwm_tach_dev;
-	struct mutex pwm_set;
+	struct completion pwm_set;
 	bool fan_rpm_in_limits;
 	int rpm_valid_retry_delay;
 	int rpm_invalid_retry_delay;

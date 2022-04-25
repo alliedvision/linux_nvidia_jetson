@@ -107,21 +107,11 @@
 		"",     "",     "",     "",     "",     "",     "",     "",     "",   "",
 		"",     "",     "",     "",     "",     "SPI3_CS0_N",     "",     "",     "",   "",
 		"",     "",     "",     "SPI1_CLK",     "SPI1_MISO",     "SPI1_MOSI",     "SPI1_CS0_N",     "SPI1_CS1_N",     "",     "";
-
-		pcie-reg-enable {
-			gpio-hog;
-			gpios = <TEGRA194_MAIN_GPIO(Z, 2) GPIO_ACTIVE_HIGH
-				 TEGRA194_MAIN_GPIO(A, 1) GPIO_ACTIVE_LOW>;
-			label = "pcie-3v3-reg", "pcie-12v-reg";
-			output-high;
-			status = "okay";
-		};
 	};
 
 	pcie@14180000 {
 		status = "okay";
 
-		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
 		nvidia,disable-clock-request;
@@ -136,7 +126,6 @@
 	pcie@14100000 {
 		status = "okay";
 
-		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xc>;
 		nvidia,enable-power-down;
 		nvidia,disable-clock-request;
@@ -152,7 +141,6 @@
 
 		nvidia,pex-wake = <&tegra_main_gpio TEGRA194_MAIN_GPIO(L, 2)
 					GPIO_ACTIVE_HIGH>;
-		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
 		nvidia,disable-clock-request;
@@ -164,14 +152,12 @@
 	pcie@141a0000 {
 		status = "disabled";
 
-		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
 		nvidia,disable-clock-request;
 
 		nvidia,plat-gpios =
-			<&tegra_main_gpio TEGRA194_MAIN_GPIO(Z, 2) GPIO_ACTIVE_HIGH    /* 3V3 */
-			 &tegra_main_gpio TEGRA194_MAIN_GPIO(A, 1) GPIO_ACTIVE_LOW     /* 12V */
+			<
 		       /*&tegra_main_gpio TEGRA194_MAIN_GPIO(Y, 4) GPIO_ACTIVE_HIGH */ /* I2C */
 			>;
 
@@ -192,8 +178,6 @@
 		status = "disabled";
 
 		nvidia,disable-aspm-states = <0xf>;
-
-		vddio-pex-ctl-supply = <&p2888_spmic_sd3>;
 
 		phys = <&p2u_12>, <&p2u_13>, <&p2u_14>, <&p2u_15>,
 			<&p2u_16>, <&p2u_17>, <&p2u_18>, <&p2u_19>;

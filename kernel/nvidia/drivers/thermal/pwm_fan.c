@@ -1,7 +1,7 @@
 /*
  * pwm_fan.c fan driver that is controlled by pwm
  *
- * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Anshul Jain <anshulj@nvidia.com>
  *
@@ -114,8 +114,7 @@ static void fan_validate_target_rpm(struct fan_dev_data *fan_data)
 						fan_data->next_target_pwm);
 
 	fan_data->fan_rpm_in_limits = false;
-	cancel_delayed_work(&fan_data->fan_ramp_rpm_work);
-	mutex_unlock(&fan_data->fan_state_lock);
+	cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
 	queue_delayed_work(fan_data->workqueue,
 			&fan_data->fan_ramp_rpm_work,
 			msecs_to_jiffies(fan_data->fan_ramp_time_ms));
@@ -126,12 +125,8 @@ static void fan_update_target_pwm(struct fan_dev_data *fan_data, int val)
 	if (fan_data) {
 		fan_data->next_target_pwm = min(val, fan_data->fan_cap_pwm);
 
-		/* If a new pwm update request, reset the lock sequence */
-		if (mutex_is_locked(&fan_data->pwm_set))
-			mutex_unlock(&fan_data->pwm_set);
-		mutex_lock(&fan_data->pwm_set);
 		if (fan_data->next_target_pwm != fan_data->fan_cur_pwm) {
-			cancel_delayed_work(&fan_data->fan_ramp_pwm_work);
+			cancel_delayed_work_sync(&fan_data->fan_ramp_pwm_work);
 			queue_delayed_work(fan_data->workqueue,
 					&fan_data->fan_ramp_pwm_work,
 					msecs_to_jiffies(fan_data->step_time));
@@ -659,19 +654,19 @@ static void fan_ramping_rpm_work_func(struct work_struct *work)
 			struct fan_dev_data,
 			fan_ramp_rpm_work);
 
-	if (!fan_data)
+	time_off = fan_data->rpm_invalid_retry_delay;
+	if (!wait_for_completion_timeout(&fan_data->pwm_set,
+					 msecs_to_jiffies(10000))) {
+		dev_info(fan_data->dev, "pwm_set completion timedout\n");
 		return;
-
-	/*
-	 * If mutex is locked, preempt. Only after pwm work function is done
-	 * with its execution, rpm work function should start.
-	 */
-	if (mutex_is_locked((&fan_data->pwm_set))) {
-		time_off = fan_data->fan_ramp_time_ms;
-		goto reschedule;
 	}
 
-	mutex_lock(&fan_data->fan_state_lock);
+	if (!mutex_trylock(&fan_data->fan_state_lock)) {
+		queue_delayed_work(fan_data->workqueue,
+			&fan_data->fan_ramp_rpm_work,
+			msecs_to_jiffies(fan_data->step_time + time_off));
+		return;
+	}
 
 	if (!fan_data->fan_temp_control_flag)
 		goto unlock_mutex;
@@ -791,13 +786,30 @@ static void fan_ramping_pwm_work_func(struct work_struct *work)
 {
 	int rru, rrd, err;
 	int cur_pwm, next_pwm;
+	int time_off;
 	struct delayed_work *dwork = container_of(work, struct delayed_work,
 									work);
 	struct fan_dev_data *fan_data = container_of(dwork, struct
 						fan_dev_data,
 						fan_ramp_pwm_work);
 
-	mutex_lock(&fan_data->fan_state_lock);
+	time_off = fan_data->rpm_invalid_retry_delay;
+	if (!mutex_trylock(&fan_data->fan_state_lock)) {
+		if (fan_data->pwm_tach_dev)
+			cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
+
+		queue_delayed_work(fan_data->workqueue,
+				&(fan_data->fan_ramp_pwm_work),
+				msecs_to_jiffies(fan_data->step_time));
+
+		if (fan_data->pwm_tach_dev)
+			queue_delayed_work(fan_data->workqueue,
+			&fan_data->fan_ramp_rpm_work,
+			msecs_to_jiffies(fan_data->step_time + time_off));
+		return;
+	}
+
+	reinit_completion(&fan_data->pwm_set);
 
 	cur_pwm = fan_data->fan_cur_pwm;
 	rru = fan_get_pwm_rru(cur_pwm, fan_data);
@@ -844,12 +856,21 @@ static void fan_ramping_pwm_work_func(struct work_struct *work)
 
 	set_pwm_duty_cycle(next_pwm, fan_data);
 	fan_data->fan_cur_pwm = next_pwm;
-	if (fan_data->next_target_pwm != next_pwm)
+	if (fan_data->next_target_pwm != next_pwm) {
+		if (fan_data->pwm_tach_dev)
+			cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
+
 		queue_delayed_work(fan_data->workqueue,
 				&(fan_data->fan_ramp_pwm_work),
 				msecs_to_jiffies(fan_data->step_time));
+
+		if (fan_data->pwm_tach_dev)
+			queue_delayed_work(fan_data->workqueue,
+			&fan_data->fan_ramp_rpm_work,
+			msecs_to_jiffies(fan_data->step_time + time_off));
+	}
 	else
-		mutex_unlock(&fan_data->pwm_set);
+		complete(&fan_data->pwm_set);
 
 	mutex_unlock(&fan_data->fan_state_lock);
 }
@@ -926,6 +947,33 @@ static ssize_t fan_profile_show(struct device *dev,
 		ret = sprintf(buf, "N/A\n");
 	}
 	return ret;
+}
+
+static ssize_t fan_available_profiles_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
+	int i;
+	ssize_t count = 0;
+
+	if (!fan_data)
+		return -EINVAL;
+	if (fan_data->num_profiles > 0) {
+		for (i = 0; i < fan_data->num_profiles; ++i) {
+			count += sprintf(&buf[count], "%s ",
+				fan_data->fan_profile_names[i]);
+		}
+
+		/* Truncate the trailing space */
+		if (count)
+			count--;
+
+		count += sprintf(&buf[count], "\n");
+	} else {
+		count = sprintf(buf, "N/A\n");
+	}
+
+	return count;
 }
 
 static ssize_t fan_profile_store(struct device *dev,
@@ -1178,6 +1226,9 @@ static DEVICE_ATTR(pwm_rpm_table, S_IRUGO,
 static DEVICE_ATTR(fan_profile, S_IWUSR | S_IRUGO,
 			fan_profile_show,
 			fan_profile_store);
+static DEVICE_ATTR(fan_available_profiles, S_IWUSR | S_IRUGO,
+			fan_available_profiles_show,
+			NULL);
 static DEVICE_ATTR(kickstart_params, S_IWUSR | S_IRUGO,
 			kickstart_params_show,
 			kickstart_params_store);
@@ -1190,6 +1241,7 @@ static DEVICE_ATTR(fan_rpm_in_limit, S_IRUGO,
 
 static struct attribute *pwm_fan_attrs[] = {
 	&dev_attr_fan_profile.attr,
+	&dev_attr_fan_available_profiles.attr,
 	&dev_attr_pwm_cap.attr,
 	&dev_attr_state_cap.attr,
 	&dev_attr_pwm_state_map.attr,
@@ -1297,7 +1349,13 @@ static int pwm_fan_probe(struct platform_device *pdev)
 
 	fan_data->dev = &pdev->dev;
 
-	fan_data->fan_reg = regulator_get(fan_data->dev, "vdd-fan");
+	of_property_read_string(node,
+				"regulator-name", &fan_data->regulator_name);
+
+	fan_data->fan_reg = fan_data->regulator_name ?
+		regulator_get(fan_data->dev, fan_data->regulator_name) :
+		regulator_get(fan_data->dev, "vdd-fan");
+
 	if (IS_ERR_OR_NULL(fan_data->fan_reg)) {
 		pr_err("FAN: coudln't get the regulator\n");
 		devm_kfree(&pdev->dev, (void *)fan_data);
@@ -1501,6 +1559,9 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&fan_data->fan_state_lock);
+	init_completion(&fan_data->pwm_set);
+	spin_lock_init(&fan_data->irq_lock);
+
 	fan_data->workqueue = alloc_workqueue(dev_name(&pdev->dev),
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 	if (!fan_data->workqueue) {
@@ -1564,7 +1625,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 			fan_data->rpm_diff_tolerance = (int)value;
 			dev_info(&pdev->dev,
 				"Using tachometer rpm feedback control");
-			mutex_init(&fan_data->pwm_set);
 			INIT_DELAYED_WORK(
 				&(fan_data->fan_ramp_rpm_work),
 				fan_ramping_rpm_work_func);
@@ -1640,7 +1700,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 			fan_data->fan_pwm_polarity ? "inversed" : "normal");
 	}
 
-	spin_lock_init(&fan_data->irq_lock);
 	atomic_set(&fan_data->tach_enabled, 0);
 	if (fan_data->tach_gpio != -1) {
 		/* init fan tach */
@@ -1844,9 +1903,9 @@ static int pwm_fan_resume(struct platform_device *pdev)
 {
 	struct fan_dev_data *fan_data = platform_get_drvdata(pdev);
 
-	mutex_lock(&fan_data->fan_state_lock);
-
 	gpio_free(fan_data->pwm_gpio);
+
+	reinit_completion(&fan_data->pwm_set);
 
 	queue_delayed_work(fan_data->workqueue,
 				&fan_data->fan_ramp_pwm_work,
@@ -1857,7 +1916,6 @@ static int pwm_fan_resume(struct platform_device *pdev)
 				msecs_to_jiffies(fan_data->step_time));
 
 	fan_data->fan_temp_control_flag = 1;
-	mutex_unlock(&fan_data->fan_state_lock);
 	return 0;
 }
 #endif

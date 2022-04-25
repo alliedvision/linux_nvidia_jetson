@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -51,19 +51,28 @@ static int nvgpu_clk_arb_release_completion_dev(struct inode *inode,
 {
 	struct nvgpu_clk_dev *dev = filp->private_data;
 	struct nvgpu_clk_session *session = dev->session;
+	struct gk20a *g = session->g;
+	struct nvgpu_clk_arb *arb = g->clk_arb;
 
+	clk_arb_dbg(g, " ");
 
-	clk_arb_dbg(session->g, " ");
+	nvgpu_spinlock_acquire(&session->session_lock);
+	nvgpu_spinlock_acquire(&arb->requests_lock);
+
+	nvgpu_list_del(&dev->node);
+
+	nvgpu_spinlock_release(&arb->requests_lock);
+	nvgpu_spinlock_release(&session->session_lock);
 
 	/* This is done to account for the extra refcount taken in
 	 * nvgpu_clk_arb_commit_request_fd without events support in iGPU
 	 */
-	if (!session->g->clk_arb->clk_arb_events_supported) {
+	if (!arb->clk_arb_events_supported) {
 		nvgpu_ref_put(&dev->refcount, nvgpu_clk_arb_free_fd);
 	}
 
-	nvgpu_ref_put(&session->refcount, nvgpu_clk_arb_free_session);
 	nvgpu_ref_put(&dev->refcount, nvgpu_clk_arb_free_fd);
+	nvgpu_ref_put(&session->refcount, nvgpu_clk_arb_free_session);
 	return 0;
 }
 

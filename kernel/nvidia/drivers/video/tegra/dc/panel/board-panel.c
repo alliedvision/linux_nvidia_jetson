@@ -1,7 +1,7 @@
 /*
  * board-panel.c: Functions definitions for general panel.
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -165,8 +165,13 @@ int tegra_panel_gpio_get_dt(const char *comp_str,
 				pr_err("tegra panel no gpio entry\n");
 			}
 			if (label) {
-				gpio_request(panel->panel_gpio[cnt],
+				err = gpio_request(panel->panel_gpio[cnt],
 					label);
+				if (err < 0) {
+					pr_err("gpio request failed for %s\n",
+						label);
+					goto fail;
+				}
 				label = NULL;
 			}
 		}

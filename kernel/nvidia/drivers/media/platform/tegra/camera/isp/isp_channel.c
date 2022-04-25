@@ -1,7 +1,7 @@
 /*
  * ISP channel driver for T186
  *
- * Copyright (c) 2017-2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2021 NVIDIA Corporation.  All rights reserved.
  *
  * Author: Sudhir Vyas <svyas@nvidia.com>
  *
@@ -57,6 +57,8 @@
 		_IOW('I', 9, struct isp_capture_req_ex)
 #define ISP_CAPTURE_SET_PROGRESS_STATUS_NOTIFIER \
 		_IOW('I', 10, struct isp_capture_progress_status_req)
+#define ISP_CAPTURE_BUFFER_REQUEST \
+		_IOW('I', 11, struct isp_buffer_req)
 
 struct isp_channel_drv {
 	struct device *dev;
@@ -108,6 +110,8 @@ static long isp_channel_ioctl(struct file *file, unsigned int cmd,
 
 	case _IOC_NR(ISP_CAPTURE_GET_INFO): {
 		struct isp_capture_info info;
+		(void)memset(&info, 0, sizeof(info));
+
 		err = isp_capture_get_info(chan, &info);
 		if (err)
 			dev_err(chan->isp_dev, "isp capture get info failed\n");
@@ -179,6 +183,17 @@ static long isp_channel_ioctl(struct file *file, unsigned int cmd,
 					"isp capture set progress status buffers failed\n");
 		break;
 	}
+	case _IOC_NR(ISP_CAPTURE_BUFFER_REQUEST): {
+		struct isp_buffer_req req;
+
+		if (copy_from_user(&req, ptr, sizeof(req)) != 0U)
+			break;
+
+		err = isp_capture_buffer_request(chan, &req);
+		if (err < 0)
+			dev_err(chan->isp_dev, "isp buffer req failed\n");
+		break;
+	}
 	default: {
 		dev_err(chan->isp_dev, "%s:Unknown ioctl\n", __func__);
 		return -ENOIOCTLCMD;
@@ -248,11 +263,11 @@ static int isp_channel_open(struct inode *inode, struct file *file)
 	chan->ops = chan_drv->ops;
 	chan->priv = file;
 
-	err = isp_channel_power_on(chan);
+	err = isp_capture_init(chan);
 	if (err < 0)
 		goto error;
 
-	err = isp_capture_init(chan);
+	err = isp_channel_power_on(chan);
 	if (err < 0)
 		goto init_err;
 
@@ -271,9 +286,9 @@ static int isp_channel_open(struct inode *inode, struct file *file)
 	return nonseekable_open(inode, file);
 
 chan_err:
-	isp_capture_shutdown(chan);
-init_err:
 	isp_channel_power_off(chan);
+init_err:
+	isp_capture_shutdown(chan);
 error:
 	kfree(chan);
 	return err;
@@ -285,8 +300,8 @@ static int isp_channel_release(struct inode *inode, struct file *file)
 	unsigned channel = iminor(inode);
 	struct isp_channel_drv *chan_drv = chan->drv;
 
-	isp_capture_shutdown(chan);
 	isp_channel_power_off(chan);
+	isp_capture_shutdown(chan);
 
 	mutex_lock(&chan_drv->lock);
 

@@ -3,7 +3,7 @@
  *
  * High-speed serial driver for NVIDIA Tegra SoCs
  *
- * Copyright (c) 2012-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  *
@@ -1701,15 +1701,23 @@ static int tegra_uart_debug_show(struct seq_file *s, void *unused)
 	struct uart_port *u = &tup->uport;
 	struct tty_port *port = &tup->uport.state->port;
 	unsigned long flags;
-	int count, ldisc_count;
+	int count = 0;
+	int ldisc_count = 0;
+	int ret = 0;
 
-	spin_lock_irqsave(&u->lock, flags);
-	count = tty_buffer_get_count(port);
-	ldisc_count = n_tty_buffer_get_count(port->itty);
-	seq_printf(s, "%d:%d\n", count, ldisc_count);
-	spin_unlock_irqrestore(&u->lock, flags);
+	if (port) {
+		spin_lock_irqsave(&u->lock, flags);
+		count = tty_buffer_get_count(port);
+		if (port->itty)
+			ldisc_count = n_tty_buffer_get_count(port->itty);
+		else
+			ret = -EIO;
+		seq_printf(s, "%d:%d\n", count, ldisc_count);
+		spin_unlock_irqrestore(&u->lock, flags);
+	} else
+		ret = -EIO;
 
-	return 0;
+	return ret;
 }
 
 static int tegra_uart_debug_open(struct inode *inode, struct file *f)

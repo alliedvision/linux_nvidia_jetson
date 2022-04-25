@@ -165,7 +165,10 @@ retry:
 		 */
 		replace_page = true;
 	} else if (flags & FOLL_GET) {
-		get_page(page);
+		if (unlikely(!try_get_page(page))) {
+			page = ERR_PTR(-ENOMEM);
+			goto out;
+		}
 
 		/* drop the pgmap reference now that we hold the page */
 		if (pgmap) {
@@ -371,6 +374,10 @@ static int get_gate_page(struct mm_struct *mm, unsigned long address,
 		 */
 		if (is_device_public_page(*page))
 			goto unmap;
+	}
+	if (unlikely(!try_get_page(*page))) {
+		ret = -ENOMEM;
+		goto unmap;
 	}
 	if (unlikely(!try_get_page(*page))) {
 		ret = -ENOMEM;

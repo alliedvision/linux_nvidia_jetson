@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine Elliptic crypto algorithms.
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -2814,7 +2814,7 @@ static int tegra_se_hash_data(struct tegra_se_elp_dev *se_dev, u32 *msg,
 	struct ahash_request *req;
 	struct tegra_crypto_completion sha_complete;
 
-	tfm = crypto_alloc_ahash(algo, 0, 0);
+	tfm = crypto_alloc_ahash(algo, CRYPTO_ALG_TESTED, 0);
 	if (IS_ERR(tfm)) {
 		dev_err(se_dev->dev, "Alloc %s hash transform failed\n", algo);
 		ret = PTR_ERR(tfm);
@@ -3798,7 +3798,7 @@ static struct akcipher_alg pka1_rsa_algs[] = {
 		.init = tegra_se_pka1_rsa_init,
 		.exit = tegra_se_pka1_rsa_exit,
 		.base = {
-			.cra_name = "rsa",
+			.cra_name = "rsa-pka1",
 			.cra_driver_name = "tegra-se-pka1-rsa",
 			.cra_blocksize = MAX_PKA1_SIZE,
 			.cra_ctxsize = sizeof(struct tegra_se_pka1_rsa_context),
@@ -3925,6 +3925,12 @@ static int tegra_se_elp_rng_get_random(struct crypto_rng *tfm,
 	}
 
 	ret = tegra_se_elp_rng_get(tfm, rdata, dlen);
+	/*
+	 * According to include/crypto/rng.h, this function should
+	 * return 0 for success, < 0 errorcode otherwise.
+	 */
+    if (ret == dlen)
+        ret = 0;
 
 rel_mutex:
 	tegra_se_release_rng1_mutex(se_dev);
@@ -4541,6 +4547,8 @@ static int tegra_se_elp_probe(struct platform_device *pdev)
 		goto clk_dis;
 	}
 
+	mutex_init(&se_dev->hw_lock);
+
 	err = crypto_register_kpp(&ecdh_algs[0]);
 	if (err) {
 		dev_err(se_dev->dev, "crypto_register_kpp ecdh failed\n");
@@ -4574,7 +4582,6 @@ static int tegra_se_elp_probe(struct platform_device *pdev)
 			goto rng_fail;
 		}
 	}
-	mutex_init(&se_dev->hw_lock);
 
 	err = crypto_register_akcipher(&ecdsa_alg);
 	if (err) {

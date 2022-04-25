@@ -18,6 +18,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/version.h>
 
 #include <linux/tegra_profiler.h>
 
@@ -47,12 +48,21 @@ static int show_version_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, show_version, NULL);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0))
 static const struct file_operations version_proc_fops = {
 	.open		= show_version_proc_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+#else
+static const struct proc_ops version_proc_fops = {
+	.proc_open	= show_version_proc_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+#endif
 
 static int show_capabilities(struct seq_file *f, void *offset)
 {
@@ -167,12 +177,21 @@ static int show_capabilities_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, show_capabilities, NULL);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0))
 static const struct file_operations capabilities_proc_fops = {
 	.open		= show_capabilities_proc_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+#else
+static const struct proc_ops capabilities_proc_fops = {
+	.proc_open	= show_capabilities_proc_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+#endif
 
 static int show_status(struct seq_file *f, void *offset)
 {
@@ -199,12 +218,21 @@ static int show_status_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, show_status, NULL);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0))
 static const struct file_operations status_proc_fops = {
 	.open		= show_status_proc_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+#else
+static const struct proc_ops status_proc_fops = {
+	.proc_open	= show_status_proc_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+#endif
 
 void quadd_proc_init(struct quadd_ctx *context)
 {

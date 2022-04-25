@@ -1,7 +1,7 @@
 /*
  * tegra_maui_alt.c - Tegra maui Machine driver
  *
- * Copyright (c) 2013-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -165,7 +165,7 @@ static int tegra_maui_spdif_init(struct snd_soc_pcm_runtime *rtd)
 	mclk = clk_out_rate * 2;
 
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-		dai_params->rate_min, mclk, clk_out_rate);
+		dai_params->rate_min, 0, 0, mclk, clk_out_rate);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;

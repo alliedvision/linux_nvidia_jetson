@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -429,6 +429,79 @@ static INT update_l4_sa_port_no(INT filter_no, USHORT port_no)
 	return Y_SUCCESS;
 }
 
+/**
+ * @brief eqos_set_l3mask - update l3 filter address mask
+ *
+ * @note
+ * Algorithm:
+ *    This sequence is used to configure L3((IPv4/IPv6)
+ *    filter address mask for address matching.
+ *
+ * @param[in] value
+ * @param[in] l3_mask
+ *
+ * @note
+ * API Group:
+ * - Initialization: Yes
+ * - Run time: Yes
+ * - De-initialization: No
+ *
+ *@return updated UINT value
+ */
+
+static inline UINT eqos_set_l3mask(UINT value, USHORT l3_mask, BOOL is_dst)
+{
+	UINT t_val = value;
+
+	if (is_dst)
+		t_val |= ((l3_mask <<
+			MAC_L3L4_CTR_L3HDBM0_SHIFT) &
+			MAC_L3L4_CTR_L3HDBM0);
+	else
+		t_val |= ((l3_mask <<
+			MAC_L3L4_CTR_L3HSBM0_SHIFT) &
+			MAC_L3L4_CTR_L3HSBM0);
+
+	return t_val;
+}
+
+/**
+ * @brief eqos_set_dcs - update dma routing register
+ *
+ * @note
+ * Algorithm:
+ *    This sequence is used to configure L3((IPv4/IPv6)
+ *    filters for address matching.
+ *
+ * @param[in] value
+ * @param[in] dma_routing_enable
+ * @param[in] dma_chan
+ *
+ * @note
+ * API Group:
+ * - Initialization: Yes
+ * - Run time: Yes
+ * - De-initialization: No
+ *
+ *@return updated UINT value
+ */
+
+static inline UINT eqos_set_dcs(UINT value,
+				UINT dma_routing_enable,
+				UINT dma_chan)
+{
+	UINT t_val = value;
+
+	t_val |= ((dma_routing_enable <<
+		MAC_L3L4_CTR_DMCHEN0_SHIFT) &
+		MAC_L3L4_CTR_DMCHEN0);
+	t_val |= ((dma_chan <<
+		MAC_L3L4_CTR_DMCHN0_SHIFT) &
+		MAC_L3L4_CTR_DMCHN0);
+
+	return t_val;
+}
+
 /*!
 * \brief This sequence is used to configure L4(TCP/UDP) filters for
 * SA and DA Port Number matching
@@ -441,12 +514,12 @@ static INT update_l4_sa_port_no(INT filter_no, USHORT port_no)
 * \retval -1 Failure
 */
 
-static INT config_l4_filters(INT filter_no,
-			     INT enb_dis,
-			     INT tcp_udp_match,
-			     INT src_dst_port_match, INT perfect_inverse_match)
+static INT config_l4_filters(INT filter_no, INT enb_dis,
+			     INT tcp_udp_match, INT src_dst_port_match,
+			     INT perfect_inverse_match, INT dma_routing_enable,
+			     USHORT dma_channel)
 {
-
+	UINT val = 0U;
 	MAC_L3L4CR_L4PEN0_WR(filter_no, tcp_udp_match);
 
 	if (src_dst_port_match == 0) {
@@ -454,6 +527,10 @@ static INT config_l4_filters(INT filter_no,
 			/* Enable L4 filters for SOURCE Port No matching */
 			MAC_L3L4CR_L4SPM0_WR(filter_no, 0x1);
 			MAC_L3L4CR_L4SPIM0_WR(filter_no, perfect_inverse_match);
+			MAC_L3L4CR_RD(filter_no, val);
+			val = eqos_set_dcs(val,	dma_routing_enable,
+							dma_channel);
+			MAC_L3L4CR_WR(filter_no, val);
 		} else {
 			/* Disable L4 filters for SOURCE Port No matching */
 			MAC_L3L4CR_L4SPM0_WR(filter_no, 0x0);
@@ -464,6 +541,10 @@ static INT config_l4_filters(INT filter_no,
 			/* Enable L4 filters for DESTINATION port No matching */
 			MAC_L3L4CR_L4DPM0_WR(filter_no, 0x1);
 			MAC_L3L4CR_L4DPIM0_WR(filter_no, perfect_inverse_match);
+			MAC_L3L4CR_RD(filter_no, val);
+			val = eqos_set_dcs(val, dma_routing_enable,
+							dma_channel);
+			MAC_L3L4CR_WR(filter_no, val);
 		} else {
 			/* Disable L4 filters for DESTINATION port No matching */
 			MAC_L3L4CR_L4DPM0_WR(filter_no, 0x0);
@@ -548,8 +629,13 @@ static INT update_ip4_addr0(INT filter_no, UCHAR addr[])
 static INT config_l3_filters(INT filter_no,
 			     INT enb_dis,
 			     INT ipv4_ipv6_match,
-			     INT src_dst_addr_match, INT perfect_inverse_match)
+			     INT src_dst_addr_match,
+			     INT perfect_inverse_match,
+			     INT dma_routing_enable,
+			     USHORT dma_channel,
+			     USHORT l3_mask)
 {
+	UINT val = 0U;
 	MAC_L3L4CR_L3PEN0_WR(filter_no, ipv4_ipv6_match);
 
 	/* For IPv6 either SA/DA can be checked, not both */
@@ -559,16 +645,24 @@ static INT config_l3_filters(INT filter_no,
 				/* Enable L3 filters for IPv6 SOURCE addr matching */
 				MAC_L3L4CR_L3SAM0_WR(filter_no, 0x1);
 				MAC_L3L4CR_L3SAIM0_WR(filter_no,
-						      perfect_inverse_match);
+					      perfect_inverse_match);
 				MAC_L3L4CR_L3DAM0_WR(filter_no, 0x0);
 				MAC_L3L4CR_L3DAIM0_WR(filter_no, 0x0);
+				MAC_L3L4CR_RD(filter_no, val);
+				val = eqos_set_dcs(val, dma_routing_enable,
+								dma_channel);
+				MAC_L3L4CR_WR(filter_no, val);
 			} else {
 				/* Enable L3 filters for IPv6 DESTINATION addr matching */
 				MAC_L3L4CR_L3SAM0_WR(filter_no, 0x0);
 				MAC_L3L4CR_L3SAIM0_WR(filter_no, 0x0);
 				MAC_L3L4CR_L3DAM0_WR(filter_no, 0x1);
 				MAC_L3L4CR_L3DAIM0_WR(filter_no,
-						      perfect_inverse_match);
+					      perfect_inverse_match);
+				MAC_L3L4CR_RD(filter_no, val);
+				val = eqos_set_dcs(val, dma_routing_enable,
+								dma_channel);
+				MAC_L3L4CR_WR(filter_no, val);
 			}
 		} else {
 			/* Disable L3 filters for IPv6 SOURCE/DESTINATION addr matching */
@@ -584,7 +678,14 @@ static INT config_l3_filters(INT filter_no,
 				/* Enable L3 filters for IPv4 SOURCE addr matching */
 				MAC_L3L4CR_L3SAM0_WR(filter_no, 0x1);
 				MAC_L3L4CR_L3SAIM0_WR(filter_no,
-						      perfect_inverse_match);
+					      perfect_inverse_match);
+				MAC_L3L4CR_L3HSBM0_WR(filter_no, l3_mask);
+				MAC_L3L4CR_RD(filter_no, val);
+				val = eqos_set_dcs(val, dma_routing_enable,
+								dma_channel);
+				val = eqos_set_l3mask(val, l3_mask,
+						src_dst_addr_match);
+				MAC_L3L4CR_WR(filter_no, val);
 			} else {
 				/* Disable L3 filters for IPv4 SOURCE addr matching */
 				MAC_L3L4CR_L3SAM0_WR(filter_no, 0x0);
@@ -596,6 +697,12 @@ static INT config_l3_filters(INT filter_no,
 				MAC_L3L4CR_L3DAM0_WR(filter_no, 0x1);
 				MAC_L3L4CR_L3DAIM0_WR(filter_no,
 						      perfect_inverse_match);
+				MAC_L3L4CR_RD(filter_no, val);
+				val = eqos_set_dcs(val, dma_routing_enable,
+								dma_channel);
+				val = eqos_set_l3mask(val, l3_mask,
+						src_dst_addr_match);
+				MAC_L3L4CR_WR(filter_no, val);
 			} else {
 				/* Disable L3 filters for IPv4 DESTINATION addr matching */
 				MAC_L3L4CR_L3DAM0_WR(filter_no, 0x0);
@@ -3265,7 +3372,7 @@ static INT eqos_car_reset(struct eqos_prv_data *pdata)
 
 	/* deassert rst line */
 	if (!IS_ERR_OR_NULL(pdata->eqos_rst))
-		reset_control_deassert(pdata->eqos_rst);
+		reset_control_reset(pdata->eqos_rst);
 
 	/* add delay of 10 usec */
 	udelay(10);
@@ -3848,7 +3955,8 @@ static INT configure_mac(struct eqos_prv_data *pdata)
 
 static INT eqos_yinit(struct eqos_prv_data *pdata)
 {
-	UINT qinx;
+	struct eqos_cfg *dt_cfg = &pdata->dt_cfg;
+	UINT qinx, val = 0U;
 	int i, j;
 
 	pr_debug("-->eqos_yinit\n");
@@ -3859,8 +3967,17 @@ static INT eqos_yinit(struct eqos_prv_data *pdata)
 	for (qinx = 0; qinx < EQOS_TX_QUEUE_CNT; qinx++) {
 		configure_mtl_queue(qinx, pdata);
 	}
-	/* Mapping MTL Rx queue and DMA Rx channel */
-	MTL_RQDCM0R_WR(0x3020100);
+	/* Mapping MTL Rx queue and DMA Rx channel
+	 * dt entry queue_dma_map defines 0 for static
+	 * 1 for dynamic queue to dma mapping.
+	 * For static case queue n is mapped to dma channel n
+	 */
+	val = ((dt_cfg->q_dma_map[3] ? BIT(28) : (3 << 24))  |  \
+		(dt_cfg->q_dma_map[2] ? BIT(20) : (2 << 16)) | \
+		(dt_cfg->q_dma_map[1] ? BIT(12) : (1 << 8)) | \
+		(dt_cfg->q_dma_map[0] ? BIT(4) : (0)));
+
+	MTL_RQDCM0R_WR(val);
 
 	i = (VIRT_INTR_CH_CRTL_RX_WR_MASK | VIRT_INTR_CH_CRTL_TX_WR_MASK);
 	for (j = 0; j < pdata->num_chans; j++) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +18,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <linux/of_platform.h>
 #include <uapi/linux/nvgpu.h>
 
 #include <nvgpu/defaults.h>
@@ -241,6 +242,8 @@ int nvgpu_probe(struct gk20a *g,
 	struct device *dev = dev_from_gk20a(g);
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	int err = 0;
+	struct device_node *np = dev->of_node;
+	bool disable_l3_alloc = false;
 
 	nvgpu_init_vars(g);
 	nvgpu_init_gr_vars(g);
@@ -263,6 +266,12 @@ int nvgpu_probe(struct gk20a *g,
 		else
 			nvgpu_err(g, "platform probe failed");
 		return err;
+	}
+
+	disable_l3_alloc = of_property_read_bool(np, "disable_l3_alloc");
+	if (disable_l3_alloc) {
+		nvgpu_log_info(g, "L3 alloc is disabled\n");
+		__nvgpu_set_enabled(g, NVGPU_DISABLE_L3_SUPPORT, true);
 	}
 
 	nvgpu_init_mm_vars(g);
@@ -312,6 +321,50 @@ static int cyclic_delta(int a, int b)
 }
 
 /**
+ * nvgpu_wait_for_stall_interrupts - Wait for the stalling interrupts to
+ *                                   complete.
+ *
+ * @g - The GPU to wait on.
+ * @timeout - maximum time period to wait for.
+ *
+ * Waits until all stalling interrupt handlers that have been scheduled to run
+ * have completed.
+ */
+int nvgpu_wait_for_stall_interrupts(struct gk20a *g, u32 timeout)
+{
+	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
+	int stall_irq_threshold = atomic_read(&l->hw_irq_stall_count);
+
+	/* wait until all stalling irqs are handled */
+	return NVGPU_COND_WAIT(&l->sw_irq_stall_last_handled_wq,
+		   cyclic_delta(stall_irq_threshold,
+				atomic_read(&l->sw_irq_stall_last_handled))
+		   <= 0, timeout);
+}
+
+/**
+ * nvgpu_wait_for_nonstall_interrupts - Wait for the nonstalling interrupts to
+ *                                      complete.
+ *
+ * @g - The GPU to wait on.
+ * @timeout - maximum time period to wait for.
+ *
+ * Waits until all non-stalling interrupt handlers that have been scheduled to
+ * run have completed.
+ */
+int nvgpu_wait_for_nonstall_interrupts(struct gk20a *g, u32 timeout)
+{
+	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
+	int nonstall_irq_threshold = atomic_read(&l->hw_irq_nonstall_count);
+
+	/* wait until all non-stalling irqs are handled */
+	return NVGPU_COND_WAIT(&l->sw_irq_nonstall_last_handled_wq,
+		   cyclic_delta(nonstall_irq_threshold,
+				atomic_read(&l->sw_irq_nonstall_last_handled))
+		   <= 0, timeout);
+}
+
+/**
  * nvgpu_wait_for_deferred_interrupts - Wait for interrupts to complete
  *
  * @g - The GPU to wait on.
@@ -321,21 +374,17 @@ static int cyclic_delta(int a, int b)
  */
 void nvgpu_wait_for_deferred_interrupts(struct gk20a *g)
 {
-	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
-	int stall_irq_threshold = atomic_read(&l->hw_irq_stall_count);
-	int nonstall_irq_threshold = atomic_read(&l->hw_irq_nonstall_count);
+	int ret;
 
-	/* wait until all stalling irqs are handled */
-	NVGPU_COND_WAIT(&l->sw_irq_stall_last_handled_wq,
-		   cyclic_delta(stall_irq_threshold,
-				atomic_read(&l->sw_irq_stall_last_handled))
-		   <= 0, 0);
+	ret = nvgpu_wait_for_stall_interrupts(g, 0U);
+	if (ret != 0) {
+		nvgpu_err(g, "wait for stall interrupts failed %d", ret);
+	}
 
-	/* wait until all non-stalling irqs are handled */
-	NVGPU_COND_WAIT(&l->sw_irq_nonstall_last_handled_wq,
-		   cyclic_delta(nonstall_irq_threshold,
-				atomic_read(&l->sw_irq_nonstall_last_handled))
-		   <= 0, 0);
+	ret = nvgpu_wait_for_nonstall_interrupts(g, 0U);
+	if (ret != 0) {
+		nvgpu_err(g, "wait for nonstall interrupts failed %d", ret);
+	}
 }
 
 static void nvgpu_free_gk20a(struct gk20a *g)

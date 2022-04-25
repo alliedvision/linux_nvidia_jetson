@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -50,8 +50,10 @@ static u32 nvgpu_vm_translate_linux_flags(struct gk20a *g, u32 flags)
 		core_flags |= NVGPU_VM_MAP_IO_COHERENT;
 	if (flags & NVGPU_AS_MAP_BUFFER_FLAGS_UNMAPPED_PTE)
 		core_flags |= NVGPU_VM_MAP_UNMAPPED_PTE;
-	if (flags & NVGPU_AS_MAP_BUFFER_FLAGS_L3_ALLOC)
-		core_flags |= NVGPU_VM_MAP_L3_ALLOC;
+	if (!nvgpu_is_enabled(g, NVGPU_DISABLE_L3_SUPPORT)) {
+		if (flags & NVGPU_AS_MAP_BUFFER_FLAGS_L3_ALLOC)
+			core_flags |= NVGPU_VM_MAP_L3_ALLOC;
+	}
 	if (flags & NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL)
 		core_flags |= NVGPU_VM_MAP_DIRECT_KIND_CTRL;
 	if (flags & NVGPU_AS_MAP_BUFFER_FLAGS_PLATFORM_ATOMIC)

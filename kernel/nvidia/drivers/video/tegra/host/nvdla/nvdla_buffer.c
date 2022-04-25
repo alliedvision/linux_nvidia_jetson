@@ -1,7 +1,7 @@
 /*
  * NVHOST buffer management for T194
  *
- * Copyright (c) 2016-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -234,6 +234,18 @@ struct nvdla_buffers *nvdla_buffer_init(struct platform_device *pdev)
 
 nvdla_buffer_init_err:
 	return ERR_PTR(err);
+}
+
+bool nvdla_buffer_is_valid(struct nvdla_buffers *nvdla_buffers)
+{
+	/* Currently there is only one check */
+	return (nvdla_buffers->pdev != NULL);
+}
+
+void nvdla_buffer_set_platform_device(struct nvdla_buffers *nvdla_buffers,
+		struct platform_device *pdev)
+{
+	nvdla_buffers->pdev = pdev;
 }
 
 int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,

@@ -83,6 +83,7 @@
 #define JEDEC_ID_S25FX512S	0x010220
 #define JEDEC_ID_S25FS256S	0x010219
 #define JEDEC_ID_MX25U51279G	0xC2953A
+#define JEDEC_ID_MX75U25690F	0xC22939
 #define JEDEC_ID_MX25U3235F	0xC22536
 
 static uint8_t macronix_device_id;
@@ -910,7 +911,8 @@ static int max_dummy_cyle_set(struct qspi *flash, uint8_t cmd_code, int dummy)
 	if (macronix_device_id == SFDP_ID_MX25U3235F) {
 		my_cfg &= ~RDCR_DUMMY_CYCLE;
 		my_cfg |= dummy_code << 6;
-	} else if (macronix_device_id == SFDP_ID_MX25U3232F) {
+	} else if ((macronix_device_id == SFDP_ID_MX25U3232F) ||
+			(flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)) {
 		/* If DC[1:0]=0b11 for MX25U3232F sets, dummy-cycle increased
 		 * from 6-cycle to 10-cycle
 		 */
@@ -956,7 +958,8 @@ static int qspi_quad_flag_set(struct qspi *flash, uint8_t is_set)
 		else
 			my_status &= ~MX_QUAD_ENABLE;
 		qspi_write_status_cfgr_reg(flash, my_status, 0, FALSE);
-	} else if (flash->flash_info->jedec_id == JEDEC_ID_MX25U51279G) {
+	} else if ((flash->flash_info->jedec_id == JEDEC_ID_MX25U51279G) ||
+			(flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)) {
 		read_sr1_reg(flash, &my_status);
 		read_max_cfg_reg(flash, &my_cfg);
 
@@ -1282,6 +1285,8 @@ static int qspi_erase(struct mtd_info *mtd, struct erase_info *instr)
 
 		/* "sector"-at-a-time erase */
 	} else {
+		if (flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)
+			flash->cmd_info_table[ERASE_SECT].qaddr.len = 4;
 		copy_cmd_default(&flash->cmd_table,
 				 &flash->cmd_info_table[ERASE_SECT]);
 
@@ -1379,6 +1384,10 @@ static int qspi_read(struct mtd_info *mtd, loff_t from, size_t len,
 				copy_cmd_default(&flash->cmd_table,
 				&flash->cmd_info_table[DDR_QUAD_IO_READ]);
 			} else {
+				if (flash->flash_info->jedec_id ==
+							 JEDEC_ID_MX75U25690F)
+					flash->cmd_info_table[QUAD_IO_READ].
+								qaddr.len = 4;
 				copy_cmd_default(&flash->cmd_table,
 					&flash->cmd_info_table[QUAD_IO_READ]);
 			}
@@ -1387,6 +1396,8 @@ static int qspi_read(struct mtd_info *mtd, loff_t from, size_t len,
 					&flash->cmd_info_table[FAST_READ]);
 		}
 	} else {
+		if (flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)
+			flash->cmd_info_table[QUAD_IO_READ].qaddr.len = 4;
 		copy_cmd_default(&flash->cmd_table,
 					&flash->cmd_info_table[QUAD_IO_READ]);
 	}
@@ -1394,9 +1405,13 @@ static int qspi_read(struct mtd_info *mtd, loff_t from, size_t len,
 #ifdef QSPI_BRINGUP_BUILD
 	if (flash->force_sdr)
 		if (flash->cmd_table.qcmd.op_code ==
-			flash->cmd_info_table[DDR_QUAD_IO_READ].qcmd.op_code)
+			flash->cmd_info_table[DDR_QUAD_IO_READ].qcmd.op_code) {
+			if (flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)
+				flash->cmd_info_table[QUAD_IO_READ].qaddr.
+									len = 4;
 			copy_cmd_default(&flash->cmd_table,
 					&flash->cmd_info_table[QUAD_IO_READ]);
+		}
 
 	if (flash->override_bus_width) {
 		if (flash->force_sdr)
@@ -1531,7 +1546,8 @@ static int qspi_read(struct mtd_info *mtd, loff_t from, size_t len,
 	}
 
 	if (flash->flash_info->jedec_id == JEDEC_ID_MX25U51279G ||
-		flash->flash_info->jedec_id == JEDEC_ID_MX25U3235F) {
+		flash->flash_info->jedec_id == JEDEC_ID_MX25U3235F ||
+			flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F) {
 		max_dummy_cyle_set(flash,
 				flash->cmd_table.qcmd.op_code,
 				flash->cmd_table.qaddr.dummy_cycles);
@@ -1582,6 +1598,8 @@ static int qspi_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 	mutex_lock(&flash->lock);
 
+	if (flash->flash_info->jedec_id == JEDEC_ID_MX75U25690F)
+		flash->cmd_info_table[PAGE_PROGRAM].qaddr.len = 4;
 	/* Set Controller data Parameters
 	 * Set DDR/SDR, X1/X4 and Dummy Cycles from DT
 	 */
@@ -1912,7 +1930,8 @@ static int qspi_init(struct qspi *flash)
 			wait_till_ready(flash, FALSE);
 		}
 	}
-	if (info->jedec_id == JEDEC_ID_MX25U51279G) {
+	if (info->jedec_id == JEDEC_ID_MX25U51279G ||
+			info->jedec_id == JEDEC_ID_MX75U25690F) {
 		max_qpi_set(flash, FALSE);
 		max_enable_4byte(flash);
 	}
@@ -1984,7 +2003,8 @@ static int qspi_probe(struct spi_device *spi)
 	else if (info->jedec_id == JEDEC_ID_S25FX512S ||
 					info->jedec_id == JEDEC_ID_S25FS256S)
 		flash->cmd_info_table = spansion_cmd_info_table;
-	else if (info->jedec_id == JEDEC_ID_MX25U3235F)
+	else if (info->jedec_id == JEDEC_ID_MX25U3235F ||
+					info->jedec_id == JEDEC_ID_MX75U25690F)
 		flash->cmd_info_table = macronix_porg_cmd_info_table;
 	else {
 		dev_err(&spi->dev, "error: %s: unsupported flash\n", __func__);

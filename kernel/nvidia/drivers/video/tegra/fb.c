@@ -6,7 +6,7 @@
  *         Colin Cross <ccross@android.com>
  *         Travis Geiselbrecht <travis@palm.com>
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1298,7 +1298,10 @@ struct tegra_fb_info *tegra_fb_register(struct platform_device *ndev,
 	info->pseudo_palette = pseudo_palette;
 	info->screen_base = tegra_fb->win.virt_addr;
 	info->screen_size = tegra_fb->fb_size;
-	info->state = FBINFO_STATE_SUSPENDED;
+	if (dc->out->type == TEGRA_DC_OUT_DSI)
+	    info->state = FBINFO_STATE_RUNNING;
+	else
+	    info->state = FBINFO_STATE_SUSPENDED;
 	strlcpy(info->fix.id, "tegra_fb", sizeof(info->fix.id));
 	info->fix.type		= FB_TYPE_PACKED_PIXELS;
 	info->fix.visual	= FB_VISUAL_TRUECOLOR;

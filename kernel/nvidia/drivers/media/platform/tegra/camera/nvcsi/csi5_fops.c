@@ -1,7 +1,7 @@
 /*
  * Tegra CSI5 device common APIs
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frankc@nvidia.com>
  *
@@ -301,7 +301,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	int err = 0, num_lanes;
 	struct tegra_csi_device *csi = chan->csi;
-	struct tegra_csi_port *port = &chan->ports[0];
+	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
 	if (chan->pg_mode) {
@@ -334,7 +334,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	struct tegra_csi_device *csi = chan->csi;
-	struct tegra_csi_port *port = &chan->ports[0];
+	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
 	if (chan->pg_mode) {

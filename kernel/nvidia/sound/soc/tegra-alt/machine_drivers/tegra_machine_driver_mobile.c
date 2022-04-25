@@ -1,7 +1,7 @@
 /*
  * tegra_machine_driver_mobile.c - Tegra ASoC Machine driver for mobile
  *
- * Copyright (c) 2017-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -294,14 +294,40 @@ static int tegra_machine_dai_init(struct snd_soc_pcm_runtime *runtime,
 	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
 	struct snd_soc_pcm_stream *dai_params;
 	unsigned int aud_mclk, srate;
-	int err;
+	int err, sample_size;
 	struct snd_soc_pcm_runtime *rtd;
 
 	srate = (machine->rate_via_kcontrol) ?
 			tegra_machine_srate_values[machine->rate_via_kcontrol] :
 			rate;
 
-	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, srate, 0, 0);
+	switch (formats) {
+	case SNDRV_PCM_FORMAT_S8:
+		sample_size = 8;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+		sample_size = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+	/*
+	 * I2S bit clock is derived from PLLA_OUT0 and size of
+	 * 24 bits results in fractional value and the clock
+	 * is not accurate with this. To have integer clock
+	 * division below is used. It means there are additional
+	 * bit clocks (8 cycles) which are ignored. Codec picks
+	 * up data for other channel when LRCK signal toggles.
+	 */
+	case SNDRV_PCM_FORMAT_S32_LE:
+		sample_size = 32;
+		break;
+	default:
+		pr_err("Wrong format!\n");
+		return -EINVAL;
+	}
+	formats = 1ULL << formats;
+
+	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, srate,
+						channels, sample_size, 0, 0);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;
@@ -387,7 +413,7 @@ static int tegra_machine_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	err = tegra_machine_dai_init(rtd, params_rate(params),
 				     params_channels(params),
-				     1ULL << params_format(params));
+				     params_format(params));
 	if (err < 0) {
 		dev_err(card->dev, "Failed dai init\n");
 		return err;
@@ -471,7 +497,7 @@ static int tegra_machine_compr_set_params(struct snd_compr_stream *cstream)
 
 	err = tegra_machine_dai_init(rtd, codec_params.sample_rate,
 				     codec_params.ch_out,
-				     SNDRV_PCM_FMTBIT_S16_LE);
+				     SNDRV_PCM_FORMAT_S16_LE);
 	if (err < 0) {
 		dev_err(card->dev, "Failed dai init\n");
 		return err;
@@ -738,6 +764,11 @@ static int tegra_machine_driver_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "mclk-fs",
 				 &machine->audio_clock.mclk_scale) < 0)
 		dev_dbg(&pdev->dev, "Missing property mclk-fs\n");
+
+	if (of_property_read_bool(np, "fixed-pll")) {
+		machine->audio_clock.fixed_pll = true;
+		dev_info(&pdev->dev, "PLL configuration is fixed from DT\n");
+	}
 
 	tegra_machine_dma_set_mask(pdev);
 

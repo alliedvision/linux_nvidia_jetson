@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -385,6 +385,7 @@ void adspff_fwrite(void)
 				(msgq_message_t *)&message);
 	if (ret < 0) {
 		pr_err("fwrite Dequeue failed %d.", ret);
+		kfree(msg_recv);
 		return;
 	}
 
@@ -649,7 +650,7 @@ int adspff_init(struct platform_device *pdev)
 		return -1;
 
 	app_info = nvadsp_app_init(handle, NULL);
-	if (!app_info) {
+	if (IS_ERR_OR_NULL(app_info)) {
 		pr_err("unable to init app adspff\n");
 		return -1;
 	}

@@ -1,7 +1,7 @@
 /*
  * Inter-VM Communication
  *
- * Copyright (C) 2014-2016, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -563,8 +563,11 @@ EXPORT_SYMBOL(tegra_ivc_write_poke);
 void *tegra_ivc_write_get_next_frame(struct ivc *ivc)
 {
 	int result = ivc_check_write(ivc);
-	if (result)
+	if (result) {
+		printk_ratelimited("%s :ivc_check_write failed, error %d\n",
+				__func__, result);
 		return ERR_PTR(result);
+	}
 
 	return ivc_frame_pointer(ivc, ivc->tx_channel, ivc->w_pos);
 }
@@ -574,8 +577,11 @@ EXPORT_SYMBOL(tegra_ivc_write_get_next_frame);
 int tegra_ivc_write_advance(struct ivc *ivc)
 {
 	int result = ivc_check_write(ivc);
-	if (result)
+	if (result) {
+		printk_ratelimited("%s: ivc_check_write failed , error %d\n",
+		__func__, result);
 		return result;
+	}
 
 	ivc_flush_frame(ivc, ivc->tx_handle, ivc->w_pos, 0, ivc->frame_size);
 

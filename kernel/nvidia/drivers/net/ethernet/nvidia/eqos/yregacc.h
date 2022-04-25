@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37645,6 +37645,20 @@ extern ULONG eqos_base_addr;
 
 #define MAC_ISR_LPI_LPOS 5
 #define MAC_ISR_LPI_HPOS 5
+
+#define MAC_L3L4_CTR_DMCHEN0		BIT(28)
+#define MAC_L3L4_CTR_DMCHEN0_SHIFT	28
+#define MAC_L3L4_CTR_DMCHN0		(BIT(24) | BIT(25) | \
+					BIT(26) | BIT(27))
+#define MAC_L3L4_CTR_DMCHN0_SHIFT	24
+
+#define MAC_L3L4_CTR_L3HDBM0		(BIT(11) | BIT(12) | \
+					BIT(13) | BIT(14) | BIT(15))
+#define MAC_L3L4_CTR_L3HDBM0_SHIFT	11
+
+#define MAC_L3L4_CTR_L3HSBM0		(BIT(6) | BIT(7) | \
+					BIT(8) | BIT(9) | BIT(10))
+#define MAC_L3L4_CTR_L3HSBM0_SHIFT	6
 
 #define GET_VALUE(data, lbit, hbit) ((data >> lbit) & (~(~0<<(hbit-lbit+1))))
 

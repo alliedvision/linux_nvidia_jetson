@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -276,13 +276,20 @@ static const struct eqos_stats eqos_mmc[] = {
 static int eqos_get_ts_info(struct net_device *net,
 			    struct ethtool_ts_info *info)
 {
+	struct eqos_prv_data *pdata = netdev_priv(net);
+
 	info->so_timestamping =
 	    SOF_TIMESTAMPING_TX_SOFTWARE |
 	    SOF_TIMESTAMPING_RX_SOFTWARE |
 	    SOF_TIMESTAMPING_SOFTWARE |
 	    SOF_TIMESTAMPING_TX_HARDWARE |
 	    SOF_TIMESTAMPING_RX_HARDWARE | SOF_TIMESTAMPING_RAW_HARDWARE;
-	info->phc_index = 0;
+
+	if (pdata && pdata->ptp_clock)
+	    info->phc_index = ptp_clock_index(pdata->ptp_clock);
+	else
+	    info->phc_index = -1;
+
 
 	info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON);
 
@@ -603,6 +610,12 @@ static int eqos_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	ret = phy_ethtool_set_wol(pdata->phydev, wol);
 	if (ret < 0)
 		return ret;
+
+	/* Save WoL state */
+	if (wol->wolopts & WAKE_MAGIC)
+		pdata->wolopts = 1;
+	else
+		pdata->wolopts = 0;
 
 	device_init_wakeup(&dev->dev, true);
 

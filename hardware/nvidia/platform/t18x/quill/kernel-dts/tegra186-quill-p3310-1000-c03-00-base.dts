@@ -14,7 +14,7 @@
  */
 
 #include "tegra186-quill-p3310-1000-a00-00-base.dts"
-
+ 
 / {
 	nvidia,dtsfilename = __FILE__;
 	nvidia,dtbbuildtime = __DATE__, __TIME__;

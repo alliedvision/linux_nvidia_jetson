@@ -117,6 +117,46 @@
 		};
 	};
 
+	/* camera plugin-manager */
+	plugin-manager {
+		/* E3323 camera board */
+		fragment-e3323@0 {
+			/* enable E3323 focuser 0 */
+			override@6 {
+				target = <&cam_module0_drivernode1>;
+				_overlay_ {
+					status = "okay";
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_focuser";
+					/* Driver v4l2 device name */
+					devname = "lc898212 2-0072";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@3180000/lc898212@72";
+				};
+			};
+			/* enable E3323 focuser 1 */
+			override@7 {
+				target = <&cam_module1_drivernode1>;
+				_overlay_ {
+					status = "okay";
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_focuser";
+					/* Driver v4l2 device name */
+					devname = "lc898212 1-0072";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@c240000/lc898212@72";
+				};
+			};
+			/* enable VI ports */
+			override@8 {
+				target = <&vi_base>;
+				_overlay_ {
+					num-channels=<4>;
+				};
+			};
+		};
+	};
+
 	tegra-camera-platform {
 		modules {
 			module0 {

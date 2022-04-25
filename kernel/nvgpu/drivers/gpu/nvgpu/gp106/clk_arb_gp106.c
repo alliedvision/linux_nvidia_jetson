@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -730,8 +730,8 @@ exit_arb:
 		nvgpu_atomic_set(&dev->poll_mask,
 		 NVGPU_POLLIN | NVGPU_POLLRDNORM);
 		nvgpu_clk_arb_event_post_event(dev);
-		nvgpu_ref_put(&dev->refcount, nvgpu_clk_arb_free_fd);
 		nvgpu_list_del(&dev->node);
+		nvgpu_ref_put(&dev->refcount, nvgpu_clk_arb_free_fd);
 	}
 	nvgpu_spinlock_release(&arb->requests_lock);
 

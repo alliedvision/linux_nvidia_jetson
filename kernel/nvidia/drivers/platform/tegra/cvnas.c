@@ -1,7 +1,7 @@
 /*
  * drivers/platform/tegra/cvnas.c
  *
- * Copyright (C) 2017-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2017-2018, NVIDIA Corporation.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -472,7 +472,6 @@ static int nvcvnas_probe(struct platform_device *pdev)
 	u32 cvsram_slice_data[2];
 	u32 cvsram_reg_data[4];
 	const struct of_device_id *match;
-	struct clk *clk;
 
 	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA19 &&
 		tegra_get_sku_id() == 0x9E) {
@@ -559,30 +558,6 @@ static int nvcvnas_probe(struct platform_device *pdev)
 		ret = PTR_ERR(cvnas_dev->clk);
 		goto err_get_clk;
 	}
-
-	/**
-	 * Change parent to clk_m then back to nafll_cvnas to avoid cvnas
-	 * clock rate not being able to change.
-	 */
-	clk = devm_clk_get(&pdev->dev, "clk_m");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		goto err_get_clk;
-	}
-
-	ret = clk_set_parent(cvnas_dev->clk, clk);
-	if (ret)
-		goto err_get_clk;
-
-	clk = devm_clk_get(&pdev->dev, "nafll_cvnas");
-	if (IS_ERR(clk)) {
-		ret = PTR_ERR(clk);
-		goto err_get_clk;
-	}
-
-	ret = clk_set_parent(cvnas_dev->clk, clk);
-	if (ret)
-		goto err_get_clk;
 
 	cvnas_dev->rst = devm_reset_control_get(&pdev->dev, "rst");
 	if (IS_ERR(cvnas_dev->rst)) {

@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra Video Input Device
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -406,10 +406,16 @@ void release_buffer(struct tegra_channel *chan,
 	 * the second buffer is intermittently frame of zeros
 	 * with no error status or padding.
 	 */
-	if (chan->capture_state != CAPTURE_GOOD || vbuf->sequence < 2)
+	if (chan->capture_state != CAPTURE_GOOD)
 		buf->state = VB2_BUF_STATE_REQUEUEING;
 
-	if (chan->sequence == 1) {
+
+    if (atomic_read(&chan->stop_streaming) && chan->avt_cam_mode) {
+        buf->state = VB2_BUF_STATE_ERROR;
+    }
+
+
+    if (chan->sequence == 1) {
 		/*
 		 * Evaluate the initial capture latency between videobuf2 queue
 		 * and first captured frame release to user-space.
@@ -711,8 +717,8 @@ tegra_channel_queue_setup(struct vb2_queue *vq,
 	sizes[0] = chan->format.sizeimage;
 	alloc_devs[0] = chan->vi->dev;
 
-	if (chan->avt_cam_mode)
-		*nbuffers = max((unsigned)(chan->created_bufs + 1), (unsigned)(*nbuffers));
+	if (chan->avt_cam_mode && chan->created_bufs > 0)
+		*nbuffers = chan->created_bufs + 1;
 
 	if (vi->fops && vi->fops->vi_setup_queue)
 		return vi->fops->vi_setup_queue(chan, nbuffers);
@@ -1006,6 +1012,8 @@ static int tegra_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
 	struct tegra_mc_vi *vi = chan->vi;
 
+    atomic_set(&chan->stop_streaming,0);
+
 	if (vi->fops)
 		return vi->fops->vi_start_streaming(vq, count);
 	return 0;
@@ -1015,6 +1023,8 @@ static void tegra_channel_stop_streaming(struct vb2_queue *vq)
 {
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
 	struct tegra_mc_vi *vi = chan->vi;
+
+    atomic_set(&chan->stop_streaming,1);
 
 	if (vi->fops)
 		vi->fops->vi_stop_streaming(vq);
@@ -1064,9 +1074,10 @@ tegra_channel_enum_framesizes(struct file *file, void *fh,
 	int ret = 0;
 
 	/* Convert v4l2 pixel format (fourcc) into media bus format code */
-	fse.code = tegra_core_get_code_by_fourcc(chan, sizes->pixel_format, 0);
-	if (fse.code < 0)
+	ret = tegra_core_get_code_by_fourcc(chan, sizes->pixel_format, 0);
+	if (ret < 0)
 		return -EINVAL;
+	fse.code = ret;
 	fse.index = sizes->index;
 
 	ret = v4l2_subdev_call(sd, pad, enum_frame_size, NULL, &fse);
@@ -1090,10 +1101,11 @@ tegra_channel_enum_frameintervals(struct file *file, void *fh,
 	int ret = 0;
 
 	/* Convert v4l2 pixel format (fourcc) into media bus format code */
-	fie.code = tegra_core_get_code_by_fourcc(
+	ret = tegra_core_get_code_by_fourcc(
 		chan, intervals->pixel_format, 0);
-	if (fie.code < 0)
+	if (ret < 0)
 		return -EINVAL;
+	fie.code = ret;
 	fie.index = intervals->index;
 	fie.width = intervals->width;
 	fie.height = intervals->height;
@@ -1791,6 +1803,7 @@ static void tegra_channel_populate_dev_info(struct tegra_camera_dev_info *cdev,
 	cdev->bpp = chan->fmtinfo->bpp.numerator;
 	/* BW in kBps */
 	cdev->bw = cdev->pixel_rate * cdev->bpp / 1024;
+	cdev->bw /= 8;
 }
 
 void tegra_channel_remove_subdevices(struct tegra_channel *chan)
@@ -2056,6 +2069,12 @@ tegra_channel_set_format(struct file *file, void *fh,
 {
 	struct tegra_channel *chan = video_drvdata(file);
 	int ret = 0;
+
+    if (format->fmt.pix.pixelformat == V4L2_PIX_FMT_CUSTOM)
+    {
+        chan->prev_format = chan->format;
+    }
+
 	/* get the suppod format by try_fmt */
 	ret = __tegra_channel_try_format(chan, &format->fmt.pix);
 	if (ret)
@@ -2152,7 +2171,11 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		int count = 1;
 		int plane_size[1] = { 0 };
 
+		if (chan->queue.owner && chan->queue.owner != file->private_data)
+				return -EBUSY;
+
 		ret = vb2_core_create_single_buf(&chan->queue, mem->memory, &count, 1, plane_size, true, mem->index);
+		chan->queue.owner = file->private_data;
 		chan->created_bufs++;
 
 		if (ret < 0)
@@ -2165,6 +2188,10 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 	case VIDIOC_MEM_FREE: {
 		struct v4l2_dma_mem *mem = arg;
 		int ret = 0;
+
+		if (chan->queue.owner && chan->queue.owner != file->private_data)
+				return -EBUSY;
+
 		ret = vb2_buffer_free(&chan->queue, mem->index);
 		if (ret < 0)
         	return ret;
@@ -2522,6 +2549,32 @@ int tegra_channel_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	return ret;
 }
 
+int tegra_channel_create_bufs(struct file *file, void *priv,
+						  struct v4l2_create_buffers *p)
+{
+	int ret;
+	struct v4l2_format format = p->format;
+
+
+	ret = tegra_channel_try_format(file,priv,&format);
+	if (ret < 0)
+		return ret;
+
+	if (format.fmt.pix.width != p->format.fmt.pix.width)
+		return -EINVAL;
+
+	if (format.fmt.pix.height != p->format.fmt.pix.height)
+		return -EINVAL;
+
+	if (format.fmt.pix.bytesperline > p->format.fmt.pix.bytesperline)
+		return -EINVAL;
+
+	if (format.fmt.pix.sizeimage > p->format.fmt.pix.sizeimage)
+		return -EINVAL;
+
+	return vb2_ioctl_create_bufs(file,priv,p);
+}
+
 static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_querycap		= tegra_channel_querycap,
 	.vidioc_enum_framesizes		= tegra_channel_enum_framesizes,
@@ -2535,7 +2588,7 @@ static const struct v4l2_ioctl_ops tegra_channel_ioctl_ops = {
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= tegra_channel_ioctl_qbuf,
 	.vidioc_dqbuf			= tegra_channel_ioctl_dqbuf,
-	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
+	.vidioc_create_bufs		= tegra_channel_create_bufs,
 	.vidioc_expbuf			= vb2_ioctl_expbuf,
 	.vidioc_streamon		= vb2_ioctl_streamon,
 	.vidioc_streamoff		= tegra_channel_streamoff,
@@ -2581,7 +2634,7 @@ static int tegra_channel_open(struct file *fp)
 	// check if camera has already been opened
 	list_for_each(cam_list_head_iter, &camera_list) {
 		cam_iter_entry = list_entry(cam_list_head_iter, struct camera_list_entry, camera_list_head);
-		if(cam_iter_entry->channel_id == chan->id) {
+		if(cam_iter_entry->channel_id == chan->id && chan->avt_cam_mode) {
 			return -EBUSY;
 		}
 	}
@@ -2645,9 +2698,12 @@ static int tegra_channel_close(struct file *fp)
 	struct video_device *vdev = video_devdata(fp);
 	struct tegra_channel *chan = video_drvdata(fp);
 	struct tegra_mc_vi *vi = chan->vi;
+    struct v4l2_subdev *sd = chan->subdev_on_csi;
 	bool is_singular;
 	struct camera_list_entry *cam_entry_to_delete = NULL, *cam_iter_entry;
 	struct list_head *cam_list_head_iter;
+	int was_streaming = atomic_read(&chan->is_streaming);
+	bool was_owner = chan->queue.owner == fp->private_data;
 
 	// get the list entry for this camera
 	list_for_each(cam_list_head_iter, &camera_list) {
@@ -2661,6 +2717,11 @@ static int tegra_channel_close(struct file *fp)
 	mutex_lock(&chan->video_lock);
 	is_singular = v4l2_fh_is_singular_file(fp);
 	ret = _vb2_fop_release(fp, NULL);
+
+	if (was_owner && was_streaming && chan->avt_cam_mode)
+	{
+		v4l2_subdev_call(sd,core,reset,0);
+	}
 
 	if (!is_singular) {
 		mutex_unlock(&chan->video_lock);
@@ -2676,7 +2737,12 @@ static int tegra_channel_close(struct file *fp)
 		kfree(cam_entry_to_delete);
 	}
 
-	vb2_core_queue_release(&chan->queue);
+    if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM)
+    {
+        struct v4l2_format format;
+        format.fmt.pix = chan->prev_format;
+        tegra_channel_set_format(fp,NULL,&format);
+    }
 
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -118,6 +118,9 @@
 #define   USB2_OTG_PD_DR			(1 << 2)
 #define   TERM_RANGE_ADJ(x)			(((x) & 0xf) << 3)
 #define   RPD_CTRL(x)				(((x) & 0x1f) << 26)
+
+#define XUSB_PADCTL_USB2_OTG_PADX_CTL3(x)	(0x94 + (x) * 0x40)
+#define   HS_TXEQ(x)				(((x) & 0x7) << 1)
 
 #define XUSB_PADCTL_USB2_BATTERY_CHRG_TDCD_DBNC_TIMER_0 (0x280)
 #define   TDCD_DBNC(x)                          (((x) & 0x7ff) << 0)
@@ -309,6 +312,8 @@
 		.funcs = tegra186_##_type##_functions,			\
 	}
 
+#define to_xusb_port(x) container_of((x), struct tegra_xusb_port, dev)
+
 struct tegra_xusb_fuse_calibration {
 	u32 hs_curr_level[TEGRA186_UTMI_PHYS];
 	u32 hs_squelch;
@@ -369,7 +374,6 @@ tegra186_usb2_lane_probe(struct tegra_xusb_pad *pad, struct device_node *np,
 			 unsigned int index)
 {
 	struct tegra_xusb_usb2_lane *usb2;
-	u32 offset;
 	int err;
 
 	usb2 = kzalloc(sizeof(*usb2), GFP_KERNEL);
@@ -384,14 +388,6 @@ tegra186_usb2_lane_probe(struct tegra_xusb_pad *pad, struct device_node *np,
 
 	err = tegra_xusb_lane_parse_dt(&usb2->base, np);
 	if (err < 0) {
-		kfree(usb2);
-		return ERR_PTR(err);
-	}
-
-	err = of_property_read_u32(np, "nvidia,hs_curr_level_offset", &offset);
-	if (!err)
-		usb2->hs_curr_level_offset = offset;
-	else if (err != -EINVAL) {
 		kfree(usb2);
 		return ERR_PTR(err);
 	}
@@ -770,6 +766,17 @@ static int tegra186_utmi_phy_power_on(struct phy *phy)
 					     priv->prod_list);
 		if (err)
 			dev_dbg(dev, "failed to apply prod for bias pad\n");
+	}
+
+	if (port->hs_txeq >= 0) {
+		dev_dbg(dev, "UTMI port %d apply HS_TXEQ %d\n",
+			index, port->hs_txeq);
+		reg = padctl_readl(padctl,
+				XUSB_PADCTL_USB2_OTG_PADX_CTL3(index));
+		reg &= ~HS_TXEQ(~0);
+		reg |= HS_TXEQ(port->hs_txeq);
+		padctl_writel(padctl, reg,
+				XUSB_PADCTL_USB2_OTG_PADX_CTL3(index));
 	}
 
 	reg = padctl_readl(padctl, XUSB_PADCTL_USB2_PAD_MUX);
@@ -1226,13 +1233,58 @@ static const struct tegra_xusb_pad_soc tegra186_usb2_pad = {
 	.ops = &tegra186_usb2_pad_ops,
 };
 
+static ssize_t hs_txeq_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct tegra_xusb_port *port = to_xusb_port(dev);
+	struct tegra_xusb_usb2_port *port2 = to_usb2_port(port);
+
+	if (port2->hs_txeq == -1)
+		return sprintf(buf, "port %d HS_TXEQ is not set\n",
+				port->index);
+	else
+		return sprintf(buf, "port %d HS_TXEQ: 0x%08x\n",
+				port->index, port2->hs_txeq);
+}
+
+static ssize_t hs_txeq_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t n)
+{
+	struct tegra_xusb_port *port = to_xusb_port(dev);
+	struct tegra_xusb_usb2_port *port2 = to_usb2_port(port);
+	int hs_txeq;
+
+	if (kstrtoint(buf, 10, &hs_txeq))
+		return -EINVAL;
+
+	if ((hs_txeq >= 0) && (hs_txeq <= 7))
+		port2->hs_txeq = hs_txeq;
+	else if (hs_txeq < 0)
+		port2->hs_txeq = -1;
+	else
+		return -EINVAL;
+
+	return n;
+}
+
+static DEVICE_ATTR(hs_txeq, 0644, hs_txeq_show, hs_txeq_store);
+
+static struct attribute *port_attrs[] = {
+	&dev_attr_hs_txeq.attr,
+	NULL,
+};
+static struct attribute_group port_attr_group = {
+	.attrs = port_attrs,
+};
+
 static int tegra186_usb2_port_enable(struct tegra_xusb_port *port)
 {
-	return 0;
+	return sysfs_create_group(&port->dev.kobj, &port_attr_group);
 }
 
 static void tegra186_usb2_port_disable(struct tegra_xusb_port *port)
 {
+	sysfs_remove_group(&port->dev.kobj, &port_attr_group);
 }
 
 static struct tegra_xusb_lane *

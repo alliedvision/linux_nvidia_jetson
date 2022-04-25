@@ -33,17 +33,15 @@
 				};
 			};
 			override@1 {
-				target = <&{/pcie@141a0000}>;
+				target = <&p2822_vdd_3v3_pcie>;
 				_overlay_ {
-					delete-target-property = "nvidia,plat-gpios";
+					delete-target-property = "gpio";
 				};
 			};
 			override@2 {
-				target = <&{/gpio@2200000}>;
+				target = <&p2822_vdd_12v_pcie>;
 				_overlay_ {
-					pcie-reg-enable {
-						status = "disabled";
-					};
+					delete-target-property = "gpio";
 				};
 			};
 		};

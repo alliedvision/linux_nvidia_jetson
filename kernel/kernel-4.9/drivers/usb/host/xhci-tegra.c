@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra xHCI host controller driver
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION. All rights reserved.
  * Copyright (C) 2014 Google, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -48,6 +48,10 @@ module_param(en_hcd_reinit, bool, 0644);
 MODULE_PARM_DESC(en_hcd_reinit, "Enable hcd reinit when hc died");
 static void xhci_reinit_work(struct work_struct *work);
 static int tegra_xhci_hcd_reinit(struct usb_hcd *hcd);
+
+static bool max_burst_war_enable = true;
+module_param(max_burst_war_enable, bool, 0644);
+MODULE_PARM_DESC(max_burst_war_enable, "Max burst WAR");
 
 #define BLACKLIST_SIZE	100
 static uint downgraded_usb3[BLACKLIST_SIZE];
@@ -227,24 +231,6 @@ static LIST_HEAD(hub_downgraded_list);
 static struct usb_device_id disable_usb_persist_quirk_list[] = {
 	/* Sandisk Extreme USB 3.0 pen drive, SuperSpeed */
 	{ USB_DEVICE_SS(0x0781, 0x5580) },
-	{ }  /* terminating entry must be last */
-};
-
-static struct usb_device_id max_burst_quirk_list[] = {
-	/* Seagate BUP Slim B */
-	{ USB_DEVICE_SS(0x0bc2, 0xab26) },
-	/* Seagate Expansion Portable Drive 1TB */
-	{ USB_DEVICE_SS(0x0bc2, 0x231a) },
-	/* JMicron TEYADI External SSD */
-	{ USB_DEVICE_SS(0x152d, 0x0576) },
-	/* JMicron JMS578 USB 3.1 to SATA Bridge */
-	{ USB_DEVICE_SS(0x152d, 0x0578) },
-	/* JMicron AXAGON USB to SATA adaptor */
-	{ USB_DEVICE_SS(0x152d, 0x1576) },
-	/* Inateck SS USB-SATA adaptor */
-	{ USB_DEVICE_SS(0x0080, 0xa001) },
-	/* M2X SSD */
-	{ USB_DEVICE_SS(0x152d, 0x0583) },
 	{ }  /* terminating entry must be last */
 };
 
@@ -550,6 +536,8 @@ struct tegra_xusb {
 	bool xhci_err_init;
 	struct usb_downgraded_port degraded_port[DEGRADED_PORT_COUNT];
 	unsigned int downgrade_enabled;
+
+	struct device *fwdev;
 };
 
 static struct hc_driver __read_mostly tegra_xhci_hc_driver;
@@ -3028,8 +3016,9 @@ static void tegra_xusb_probe_finish(const struct firmware *fw, void *context)
 		goto remove_padctl_irq;
 	}
 
-	if (IS_ERR(devm_tegrafw_register(dev, NULL,
-		TFW_NORMAL, fw_version_show, NULL)))
+	tegra->fwdev = devm_tegrafw_register(dev, NULL,
+			TFW_NORMAL, fw_version_show, NULL);
+	if (IS_ERR(tegra->fwdev))
 		dev_warn(dev, "cannot register firmware reader");
 
 	/* Enable EU3S bit of USBCMD */
@@ -3770,6 +3759,9 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(tegra->dev);
 	device_remove_file(&pdev->dev, &dev_attr_reload_hcd);
 
+	if (!IS_ERR(tegra->fwdev))
+		devm_tegrafw_unregister(dev, tegra->fwdev);
+
 	sysfs_remove_group(&pdev->dev.kobj, &tegra_xhci_attr_group);
 
 	if (tegra->soc->is_xhci_vf && (tegra->ivck != NULL)) {
@@ -3783,6 +3775,10 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 		usb_remove_hcd(xhci->shared_hcd);
 		usb_put_hcd(xhci->shared_hcd);
 		usb_remove_hcd(tegra->hcd);
+
+		disable_irq(tegra->xhci_irq);
+		disable_irq(tegra->padctl_irq);
+		disable_irq(tegra->mbox_irq);
 
 		devm_iounmap(&pdev->dev, tegra->fpci_base);
 		devm_release_mem_region(&pdev->dev, tegra->fpci_start,
@@ -3800,8 +3796,6 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 
 		fw_log_deinit(tegra);
 	}
-
-	tegra_xusb_host_vbus_power_off(tegra);
 
 	tegra_xusb_phy_disable(tegra);
 	if (!tegra->soc->is_xhci_vf) {
@@ -3822,6 +3816,8 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 		devm_free_irq(&pdev->dev, tegra->padctl_irq, tegra);
 		devm_free_irq(&pdev->dev, tegra->mbox_irq, tegra);
 	}
+
+	tegra_xusb_host_vbus_power_off(tegra);
 
 	tegra_xusb_debugfs_deinit(tegra);
 
@@ -5079,15 +5075,13 @@ static int tegra_xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 
 	if ((udev->speed >= USB_SPEED_SUPER) &&
 		((desc->bEndpointAddress & USB_ENDPOINT_DIR_MASK) ==
-			USB_DIR_OUT)) {
-		const struct usb_device_id *id;
-
-		for (id = max_burst_quirk_list; id->match_flags; id++) {
-			if (usb_match_device(udev, id) &&
-					usb_match_speed(udev, id)) {
-				ep->ss_ep_comp.bMaxBurst = 15;
-				break;
-			}
+			USB_DIR_OUT) && usb_endpoint_xfer_bulk(desc) &&
+			max_burst_war_enable) {
+		if (ep->ss_ep_comp.bMaxBurst != 15) {
+			dev_dbg(&udev->dev, "change ep %02x bMaxBurst (%d) to 15\n",
+				ep->ss_ep_comp.bMaxBurst,
+				desc->bEndpointAddress);
+			ep->ss_ep_comp.bMaxBurst = 15;
 		}
 	}
 

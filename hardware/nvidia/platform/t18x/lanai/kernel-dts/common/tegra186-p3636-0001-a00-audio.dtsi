@@ -47,5 +47,6 @@
 		 * rt565x_dai_link,  had to add here
 		 */
 		hdr40_snd_link_i2s: rt565x_dai_link: nvidia,dai-link-1 { };
+		hdr40_i2c1: i2c@c240000 { };
 	};
 };

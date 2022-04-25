@@ -49,6 +49,7 @@
 
 			phy0: ethernet-phy@0 {
 				reg = <0>;
+				phy_rst_lp_mode = <1>; /* 0=disable 1=enable */
 				interrupt-parent = <&tegra_main_gpio>;
 				interrupts = <TEGRA194_MAIN_GPIO(G, 4) IRQ_TYPE_LEVEL_LOW>;
 				marvell,copper-mode;

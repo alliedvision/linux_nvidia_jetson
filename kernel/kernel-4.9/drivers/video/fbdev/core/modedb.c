@@ -849,7 +849,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_16_9,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(74250000)},
 	/* 62: 1280x720p @ 29.97Hz/30Hz */
 	{.refresh = 30, .xres = 1280, .yres = 720, .pixclock = 13468,
 	 .left_margin = 220, .right_margin = 1760,
@@ -939,7 +939,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(148500000)},
 	/* 72: 1920x1080p @ 24Hz */
 	{.refresh = 24, .xres = 1920, .yres = 1080, .pixclock = 13468,
 	 .left_margin = 148, .right_margin = 638,
@@ -948,7 +948,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(74250000)},
 	/* 73: 1920x1080p @ 25Hz */
 	{.refresh = 25, .xres = 1920, .yres = 1080, .pixclock = 13468,
 	 .left_margin = 148, .right_margin = 528,
@@ -957,7 +957,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(74250000)},
 	/* 74: 1920x1080p @ 30Hz */
 	{.refresh = 30, .xres = 1920, .yres = 1080, .pixclock = 13468,
 	 .left_margin = 148, .right_margin = 88,
@@ -966,7 +966,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(74250000)},
 	/* 75: 1920x1080p @ 50Hz */
 	{.refresh = 50, .xres = 1920, .yres = 1080, .pixclock = 6734,
 	  .left_margin = 148, .right_margin = 528,
@@ -975,7 +975,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(148500000)},
 	/* 76: 1920x1080p @ 60Hz */
 	{.refresh = 60, .xres = 1920, .yres = 1080, .pixclock = 6734,
 	 .left_margin = 148, .right_margin = 88,
@@ -984,7 +984,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(148500000)},
 	/* 77: 1920x1080p @ 100Hz */
 	{.refresh = 100, .xres = 1920, .yres = 1080, .pixclock = 3367,
 	 .left_margin = 148, .right_margin = 528,
@@ -993,7 +993,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(297000000)},
 	/* 78: 1920x1080p @ 120Hz */
 	{.refresh = 120, .xres = 1920, .yres = 1080, .pixclock = 3367,
 	 .left_margin = 148, .right_margin = 88,
@@ -1002,7 +1002,7 @@ const struct fb_videomode cea_modes[] = {
 	 .sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	 .flag = FB_FLAG_RATIO_64_27,
 	 .vmode = FB_VMODE_NONINTERLACED,
-	 PCLK_HZ_PARAM(59400000)},
+	 PCLK_HZ_PARAM(297000000)},
 	/* 79: 1680x720p @ 24Hz */
 	{.refresh = 24, .xres = 1680, .yres = 720, .pixclock = 16835,
 	 .left_margin = 220, .right_margin = 1360,
@@ -1308,7 +1308,7 @@ const struct fb_videomode hdmi_ext_modes[HDMI_EXT_MODEDB_SIZE] = {
 };
 EXPORT_SYMBOL(hdmi_ext_modes);
 
-const struct fb_videomode vesa_modes[VESA_MODEDB_SIZE] = {
+const struct fb_videomode vesa_modes[] = {
 	/* 0 640x350-85 VESA */
 	{ NULL, 85, 640, 350, 31746, 96, 32, 60, 32, 64, 3,
 	  FB_SYNC_HOR_HIGH_ACT, FB_VMODE_NONINTERLACED, FB_MODE_IS_VESA,

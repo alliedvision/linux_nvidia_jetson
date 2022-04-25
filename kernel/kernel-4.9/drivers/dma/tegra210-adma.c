@@ -188,9 +188,9 @@ struct tegra_adma_chan {
 struct tegra_adma {
 	struct dma_device		dma_dev;
 	struct device			*dev;
-	struct clk                      *ahub_clk;
 	void __iomem			*base_addr;
 	void __iomem			*shrd_sem_addr;
+	struct clk			*ahub_clk;
 	unsigned int			nr_channels;
 	unsigned long			rx_requests_reserved;
 	unsigned long			tx_requests_reserved;
@@ -224,6 +224,12 @@ static inline u32 tdma_global_read(struct tegra_adma *tdma, u32 reg)
 	u32 global_reg_offset = tdma->chip_data->global_reg_offset;
 
 	return readl(tdma->base_addr + global_reg_offset + reg);
+}
+
+static inline void tdma_global_ch_write(struct tegra_adma *tdma, u32 reg,
+					u32 val)
+{
+	writel(val, tdma->base_addr + tdma->ch_base_offset + reg);
 }
 
 static inline void tdma_ch_write(struct tegra_adma_chan *tdc, u32 reg, u32 val)
@@ -275,20 +281,9 @@ static int tegra_adma_init(struct tegra_adma *tdma)
 	unsigned int global_reg_offset = tdma->chip_data->global_reg_offset;
 	unsigned int reg_soft_reset;
 
-	/*
-	 * Clear any interrupts:
-	 *
-	 * On Tegra186 and later, ADMA channels are virtualized and aliased
-	 * into 4 64K pages. A separate page carries global and configuration
-	 * registers for ADMA. Few registers are reshuffled as part of it and
-	 * moved to page specific space. Thus offset of these registers are
-	 * relative to the channel base offset and it needs to be taken into
-	 * account while updating. It works for Tegra210 as well as channel
-	 * base offset is 0.
-	 */
-	tdma_global_write(tdma,
-		tdma->ch_base_offset + chip_data->global_int_clear,
-		0x1);
+
+	/* Clear any interrupts */
+	tdma_global_ch_write(tdma, chip_data->global_int_clear, 0x1);
 
 	if (tdma->is_virt == false) {
 		/* Assert soft reset */
@@ -978,6 +973,7 @@ static int tegra_adma_runtime_resume(struct device *dev)
 			tdma_ch_write(tdc, ADMA_CH_CMD, ch_reg->cmd);
 		}
 	}
+
 	return 0;
 }
 
@@ -1145,16 +1141,6 @@ static int tegra_adma_probe(struct platform_device *pdev)
 
 	spin_lock_init(&tdma->global_lock);
 
-	pm_runtime_enable(&pdev->dev);
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret < 0)
-		goto rpm_disable;
-
-	ret = tegra_adma_init(tdma);
-	if (ret)
-		goto rpm_put;
-
 	INIT_LIST_HEAD(&tdma->dma_dev.channels);
 	for (i = 0; i < tdma->nr_channels; i++) {
 		struct tegra_adma_chan *tdc = &tdma->channels[i];
@@ -1172,6 +1158,16 @@ static int tegra_adma_probe(struct platform_device *pdev)
 		tdc->vc.desc_free = tegra_adma_desc_free;
 		tdc->tdma = tdma;
 	}
+
+	pm_runtime_enable(&pdev->dev);
+
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0)
+		goto rpm_disable;
+
+	ret = tegra_adma_init(tdma);
+	if (ret)
+		goto rpm_put;
 
 	dma_cap_set(DMA_SLAVE, tdma->dma_dev.cap_mask);
 	dma_cap_set(DMA_PRIVATE, tdma->dma_dev.cap_mask);
@@ -1215,13 +1211,13 @@ static int tegra_adma_probe(struct platform_device *pdev)
 
 dma_remove:
 	dma_async_device_unregister(&tdma->dma_dev);
-irq_dispose:
-	while (--i >= 0)
-		irq_dispose_mapping(tdma->channels[i].irq);
 rpm_put:
 	pm_runtime_put_sync(&pdev->dev);
 rpm_disable:
 	pm_runtime_disable(&pdev->dev);
+irq_dispose:
+	while (--i >= 0)
+		irq_dispose_mapping(tdma->channels[i].irq);
 
 	return ret;
 }
@@ -1230,9 +1226,8 @@ static int tegra_adma_remove(struct platform_device *pdev)
 {
 	struct tegra_adma *tdma = platform_get_drvdata(pdev);
 	int i;
-	struct device_node *node = pdev->dev.of_node;
 
-	of_dma_controller_free(node);
+	of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&tdma->dma_dev);
 
 	for (i = 0; i < tdma->nr_channels; ++i)

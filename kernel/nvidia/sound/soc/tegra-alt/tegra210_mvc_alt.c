@@ -1,7 +1,7 @@
 /*
  * tegra210_mvc_alt.c - Tegra210 MVC driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,7 +41,7 @@ static const struct reg_default tegra210_mvc_reg_defaults[] = {
 	{ TEGRA210_MVC_AXBAR_TX_INT_MASK, 0x00000001},
 	{ TEGRA210_MVC_AXBAR_TX_CIF_CTRL, 0x00007700},
 	{ TEGRA210_MVC_CG, 0x1},
-	{ TEGRA210_MVC_CTRL, 0x40000001},
+	{ TEGRA210_MVC_CTRL, TEGRA210_MVC_CTRL_DEFAULT},
 	{ TEGRA210_MVC_INIT_VOL, 0x00800000},
 	{ TEGRA210_MVC_TARGET_VOL, 0x00800000},
 	{ TEGRA210_MVC_DURATION, 0x000012c0},
@@ -56,6 +56,7 @@ static int tegra210_mvc_runtime_suspend(struct device *dev)
 {
 	struct tegra210_mvc *mvc = dev_get_drvdata(dev);
 
+	regmap_read(mvc->regmap, TEGRA210_MVC_CTRL, &(mvc->ctrl_value));
 	regcache_cache_only(mvc->regmap, true);
 	regcache_mark_dirty(mvc->regmap);
 
@@ -68,9 +69,10 @@ static int tegra210_mvc_runtime_resume(struct device *dev)
 
 	regcache_cache_only(mvc->regmap, false);
 	regcache_sync(mvc->regmap);
-	regmap_update_bits(mvc->regmap, TEGRA210_MVC_CTRL,
-			   TEGRA210_MVC_CURVE_TYPE_MASK,
-			   mvc->curve_type << TEGRA210_MVC_CURVE_TYPE_SHIFT);
+	regmap_write(mvc->regmap, TEGRA210_MVC_CTRL, mvc->ctrl_value);
+	regmap_update_bits(mvc->regmap, TEGRA210_MVC_SWITCH,
+		TEGRA210_MVC_VOLUME_SWITCH_MASK,
+		TEGRA210_MVC_VOLUME_SWITCH_TRIGGER);
 
 	return 0;
 }
@@ -79,6 +81,7 @@ static int tegra210_mvc_soft_reset(struct tegra210_mvc *mvc)
 {
 	int value;
 	int dcnt = 10;
+
 	/* issue soft reset */
 	regmap_write(mvc->regmap, TEGRA210_MVC_SOFT_RESET, 1);
 	/* wait for soft reset bit to clear */
@@ -133,8 +136,31 @@ static int tegra210_mvc_get_vol(struct snd_kcontrol *kcontrol,
 	struct tegra210_mvc *mvc = snd_soc_codec_get_drvdata(codec);
 	unsigned int reg = mc->reg;
 
-	if (reg == TEGRA210_MVC_TARGET_VOL) {
-		s32 val = mvc->volume;
+	if (reg == TEGRA210_MVC_CTRL) {
+		u32 val;
+		u8 mute_mask;
+
+		pm_runtime_get_sync(codec->dev);
+		regmap_read(mvc->regmap, TEGRA210_MVC_CTRL, &val);
+		pm_runtime_put(codec->dev);
+		mute_mask = (val >>  TEGRA210_MVC_MUTE_SHIFT) &
+			TEGRA210_MUTE_MASK_EN;
+
+		if (strstr(kcontrol->id.name, "Per Chan Mute Mask")) {
+			ucontrol->value.integer.value[0] = mute_mask;
+		} else {
+			if (mute_mask == TEGRA210_MUTE_MASK_EN ||
+							mute_mask == 0) {
+				ucontrol->value.integer.value[0] =
+						mute_mask ? 1 : 0;
+			} else {
+				dev_err(codec->dev, "Use Per Chan Mute Mask!");
+				return -EINVAL;
+			}
+		}
+	} else {
+		u8 chan = (reg - TEGRA210_MVC_TARGET_VOL)/REG_SIZE;
+		s32 val = mvc->volume[chan];
 
 		if (mvc->curve_type == CURVE_POLY)
 			val = ((val >> 16) * 100) >> 8;
@@ -143,14 +169,24 @@ static int tegra210_mvc_get_vol(struct snd_kcontrol *kcontrol,
 			val += 12000;
 		}
 		ucontrol->value.integer.value[0] = val;
-	} else {
-		u32 val;
-
-		regmap_read(mvc->regmap, reg, &val);
-		ucontrol->value.integer.value[0] =
-			((val & TEGRA210_MVC_MUTE_MASK) != 0);
 	}
 	return 0;
+}
+
+static void tegra210_mvc_conv_vol(struct tegra210_mvc *mvc, u8 chan, s32 val)
+{
+	/* Volume control read from mixer ctl is with  */
+	/* 100x scaling; for CURVE_POLY the reg range  */
+	/* is 0-100 (linear, Q24) and for CURVE_LINEAR */
+	/* it is -120dB to +40dB (Q8)                  */
+	if (mvc->curve_type == CURVE_POLY) {
+		if (val > 10000)
+			val = 10000;
+		mvc->volume[chan] = ((val * (1<<8)) / 100) << 16;
+	} else {
+		val -= 12000;
+		mvc->volume[chan] = (val * (1<<8)) / 100;
+	}
 }
 
 static int tegra210_mvc_put_vol(struct snd_kcontrol *kcontrol,
@@ -162,8 +198,7 @@ static int tegra210_mvc_put_vol(struct snd_kcontrol *kcontrol,
 	struct tegra210_mvc *mvc = snd_soc_codec_get_drvdata(codec);
 	unsigned int reg = mc->reg;
 	unsigned int value, wait = 0xffff;
-	int ret = 0;
-	s32 val;
+	int ret = 0, i;
 
 	pm_runtime_get_sync(codec->dev);
 	/* check if VOLUME_SWITCH is triggered*/
@@ -177,27 +212,49 @@ static int tegra210_mvc_put_vol(struct snd_kcontrol *kcontrol,
 		}
 	} while (value & TEGRA210_MVC_VOLUME_SWITCH_MASK);
 
-	if (reg == TEGRA210_MVC_TARGET_VOL) {
-		/* Volume control read from mixer ctl is with  */
-		/* 100x scaling; for CURVE_POLY the reg range  */
-		/* is 0-100 (linear, Q24) and for CURVE_LINEAR */
-		/* it is -120dB to +40dB (Q8)                  */
-		if (mvc->curve_type == CURVE_POLY) {
-			val = ucontrol->value.integer.value[0];
-			if (val > 10000)
-				val = 10000;
-			mvc->volume = ((val * (1<<8)) / 100) << 16;
-		} else {
-			val = ucontrol->value.integer.value[0] - 12000;
-			mvc->volume = (val * (1<<8)) / 100;
-		}
-		ret = regmap_write(mvc->regmap, reg, mvc->volume);
-	} else {
+	if (reg == TEGRA210_MVC_CTRL) {
+		u8 mute_mask;
+
+		if (strstr(kcontrol->id.name, "Per Chan Mute Mask"))
+			mute_mask = ucontrol->value.integer.value[0];
+		else
+			mute_mask =
+				ucontrol->value.integer.value[0] ?
+					TEGRA210_MUTE_MASK_EN : 0;
+
 		ret = regmap_update_bits(mvc->regmap, reg,
-				TEGRA210_MVC_MUTE_MASK,
-				(ucontrol->value.integer.value[0] ?
-				TEGRA210_MVC_MUTE_EN : 0));
+			TEGRA210_MVC_MUTE_MASK,
+			mute_mask << TEGRA210_MVC_MUTE_SHIFT);
+	} else {
+		u8 chan;
+
+		chan = (reg - TEGRA210_MVC_TARGET_VOL)/REG_SIZE;
+		tegra210_mvc_conv_vol(mvc, chan,
+				ucontrol->value.integer.value[0]);
+
+		/* Config init vol same as target vol */
+		if (strstr(kcontrol->id.name, "Channel")) {
+			regmap_write(mvc->regmap,
+				TEGRA210_MVC_REG_OFFSET(
+				TEGRA210_MVC_INIT_VOL, chan),
+				mvc->volume[chan]);
+			ret = regmap_write(mvc->regmap, reg, mvc->volume[chan]);
+		} else {
+			for (i = 0; i < TEGRA210_MVC_MAX_CHAN_COUNT; i++) {
+				if (i != 0)
+					mvc->volume[i] = mvc->volume[0];
+				regmap_write(mvc->regmap,
+					TEGRA210_MVC_REG_OFFSET(
+					TEGRA210_MVC_INIT_VOL, i),
+					mvc->volume[i]);
+				ret |= regmap_write(mvc->regmap,
+					TEGRA210_MVC_REG_OFFSET(reg, i),
+					mvc->volume[i]);
+
+			}
+		}
 	}
+
 	ret |= regmap_update_bits(mvc->regmap, TEGRA210_MVC_SWITCH,
 			TEGRA210_MVC_VOLUME_SWITCH_MASK,
 			TEGRA210_MVC_VOLUME_SWITCH_TRIGGER);
@@ -205,11 +262,44 @@ static int tegra210_mvc_put_vol(struct snd_kcontrol *kcontrol,
 end:
 	pm_runtime_put(codec->dev);
 
-	if (reg == TEGRA210_MVC_TARGET_VOL)
-		ret |= regmap_update_bits(mvc->regmap, TEGRA210_MVC_CTRL,
-				TEGRA210_MVC_MUTE_MASK, 0);
-
 	return ret;
+}
+
+static void tegra210_mvc_reset_vol_settings(struct tegra210_mvc *mvc,
+	struct device *dev)
+{
+	int i;
+
+	/* change volume to default init for new curve type */
+	if (mvc->curve_type == CURVE_POLY) {
+		for (i = 0; i < TEGRA210_MVC_MAX_CHAN_COUNT; i++)
+			mvc->volume[i] = TEGRA210_MVC_INIT_VOL_DEFAULT_POLY;
+	} else {
+		for (i = 0; i < TEGRA210_MVC_MAX_CHAN_COUNT; i++)
+			mvc->volume[i] = TEGRA210_MVC_INIT_VOL_DEFAULT_LINEAR;
+	}
+
+	pm_runtime_get_sync(dev);
+	/* program curve type */
+	regmap_update_bits(mvc->regmap, TEGRA210_MVC_CTRL,
+				TEGRA210_MVC_CURVE_TYPE_MASK,
+				mvc->curve_type <<
+				TEGRA210_MVC_CURVE_TYPE_SHIFT);
+
+	/* init the volume for channels in MVC */
+	for (i = 0; i < TEGRA210_MVC_MAX_CHAN_COUNT; i++) {
+		regmap_write(mvc->regmap,
+			TEGRA210_MVC_REG_OFFSET(TEGRA210_MVC_INIT_VOL, i),
+			mvc->volume[i]);
+		regmap_write(mvc->regmap,
+			TEGRA210_MVC_REG_OFFSET(TEGRA210_MVC_TARGET_VOL, i),
+			mvc->volume[i]);
+	}
+	/* trigger volume switch */
+	regmap_update_bits(mvc->regmap, TEGRA210_MVC_SWITCH,
+		TEGRA210_MVC_VOLUME_SWITCH_MASK,
+		TEGRA210_MVC_VOLUME_SWITCH_TRIGGER);
+	pm_runtime_put(dev);
 }
 
 static int tegra210_mvc_get_curve_type(struct snd_kcontrol *kcontrol,
@@ -228,13 +318,21 @@ static int tegra210_mvc_put_curve_type(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tegra210_mvc *mvc = snd_soc_codec_get_drvdata(codec);
+	int value;
+
+	regmap_read(mvc->regmap, TEGRA210_MVC_ENABLE, &value);
+	if (value & TEGRA210_MVC_EN) {
+		dev_err(codec->dev,
+			"Curve type can't be set when MVC is running\n");
+		return -EINVAL;
+	}
+
+	if (mvc->curve_type == ucontrol->value.integer.value[0])
+		return 0;
 
 	mvc->curve_type = ucontrol->value.integer.value[0];
-	/* change volume to default init for new curve type */
-	if (mvc->curve_type == CURVE_POLY)
-		mvc->volume = TEGRA210_MVC_INIT_VOL_DEFAULT_POLY;
-	else
-		mvc->volume = TEGRA210_MVC_INIT_VOL_DEFAULT_LINEAR;
+
+	tegra210_mvc_reset_vol_settings(mvc, codec->dev);
 
 	return 0;
 }
@@ -379,22 +477,6 @@ static int tegra210_mvc_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
-	/* disable per_channel_cntrl_en */
-	regmap_update_bits(mvc->regmap, TEGRA210_MVC_CTRL,
-		TEGRA210_MVC_PER_CHAN_CTRL_EN_MASK,
-		~(TEGRA210_MVC_PER_CHAN_CTRL_EN_MASK));
-
-	/* change curve type */
-	ret = regmap_update_bits(mvc->regmap, TEGRA210_MVC_CTRL,
-			TEGRA210_MVC_CURVE_TYPE_MASK,
-			mvc->curve_type <<
-			TEGRA210_MVC_CURVE_TYPE_SHIFT);
-
-	/* init the default volume=1 for MVC */
-	regmap_write(mvc->regmap, TEGRA210_MVC_INIT_VOL, mvc->volume);
-
-	regmap_write(mvc->regmap, TEGRA210_MVC_TARGET_VOL, mvc->volume);
-
 	/* program the poly coefficients */
 	for (i = 0; i < 9; i++)
 		tegra210_mvc_write_ram(mvc, i, mvc->poly_coeff[i]);
@@ -407,10 +489,6 @@ static int tegra210_mvc_hw_params(struct snd_pcm_substream *substream,
 	/* program duration_inv */
 	regmap_write(mvc->regmap, TEGRA210_MVC_DURATION_INV, mvc->duration_inv);
 
-	/* trigger volume switch */
-	ret |= regmap_update_bits(mvc->regmap, TEGRA210_MVC_SWITCH,
-			TEGRA210_MVC_VOLUME_SWITCH_MASK,
-			TEGRA210_MVC_VOLUME_SWITCH_TRIGGER);
 	return ret;
 }
 
@@ -442,11 +520,29 @@ static const struct soc_enum tegra210_mvc_format_enum =
 		ARRAY_SIZE(tegra210_mvc_format_text),
 		tegra210_mvc_format_text);
 
+#define TEGRA210_MVC_VOL_CTRL(chan) \
+	SOC_SINGLE_EXT("Channel" #chan " Vol", \
+		TEGRA210_MVC_REG_OFFSET(TEGRA210_MVC_TARGET_VOL, (chan - 1)), \
+		0, 16000, 0, tegra210_mvc_get_vol, tegra210_mvc_put_vol)
+
 static const struct snd_kcontrol_new tegra210_mvc_vol_ctrl[] = {
+	TEGRA210_MVC_VOL_CTRL(1),
+	TEGRA210_MVC_VOL_CTRL(2),
+	TEGRA210_MVC_VOL_CTRL(3),
+	TEGRA210_MVC_VOL_CTRL(4),
+	TEGRA210_MVC_VOL_CTRL(5),
+	TEGRA210_MVC_VOL_CTRL(6),
+	TEGRA210_MVC_VOL_CTRL(7),
+	TEGRA210_MVC_VOL_CTRL(8),
+	/* Will be deprecated in future */
 	SOC_SINGLE_EXT("Vol", TEGRA210_MVC_TARGET_VOL, 0, 16000, 0,
 		tegra210_mvc_get_vol, tegra210_mvc_put_vol),
+	/* Will be deprecated in future */
 	SOC_SINGLE_EXT("Mute", TEGRA210_MVC_CTRL, 0, 1, 0,
 		tegra210_mvc_get_vol, tegra210_mvc_put_vol),
+	SOC_SINGLE_EXT("Per Chan Mute Mask", TEGRA210_MVC_CTRL, 0,
+		TEGRA210_MUTE_MASK_EN, 0, tegra210_mvc_get_vol,
+		tegra210_mvc_put_vol),
 	SOC_ENUM_EXT("Curve Type", tegra210_mvc_curve_type_ctrl,
 		tegra210_mvc_get_curve_type, tegra210_mvc_put_curve_type),
 	SOC_SINGLE_EXT("Bits", 0, 0, 32, 0,
@@ -538,9 +634,7 @@ static bool tegra210_mvc_wr_rd_reg(struct device *dev, unsigned int reg)
 	case TEGRA210_MVC_INT_STATUS:
 	case TEGRA210_MVC_CTRL:
 	case TEGRA210_MVC_SWITCH:
-	case TEGRA210_MVC_INIT_VOL:
-	case TEGRA210_MVC_TARGET_VOL:
-	case TEGRA210_MVC_DURATION:
+	case TEGRA210_MVC_INIT_VOL ... TEGRA210_MVC_DURATION:
 	case TEGRA210_MVC_DURATION_INV:
 	case TEGRA210_MVC_POLY_N1:
 	case TEGRA210_MVC_POLY_N2:
@@ -575,6 +669,7 @@ static bool tegra210_mvc_volatile_reg(struct device *dev, unsigned int reg)
 	case TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL:
 	case TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_DATA:
 	case TEGRA210_MVC_PEAK_VALUE:
+	case TEGRA210_MVC_CTRL:
 		return true;
 	default:
 		return false;
@@ -633,8 +728,7 @@ static int tegra210_mvc_platform_probe(struct platform_device *pdev)
 	mvc->poly_coeff[7] = 5527252;
 	mvc->poly_coeff[8] = -785042;
 	mvc->curve_type = CURVE_LINEAR;
-	mvc->volume = TEGRA210_MVC_INIT_VOL_DEFAULT_LINEAR;
-
+	mvc->ctrl_value = TEGRA210_MVC_CTRL_DEFAULT;
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(&pdev->dev, mem);
 	if (IS_ERR(regs))
@@ -665,6 +759,7 @@ static int tegra210_mvc_platform_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	tegra210_mvc_reset_vol_settings(mvc, &pdev->dev);
 	return 0;
 }
 

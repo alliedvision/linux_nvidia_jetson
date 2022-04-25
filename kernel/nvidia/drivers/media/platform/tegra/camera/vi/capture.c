@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host VI
  *
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: David Wang <davidw@nvidia.com>
  *
@@ -21,6 +21,7 @@
 #include <linux/tegra-capture-ivc.h>
 #include <asm/arch_timer.h>
 #include <media/capture.h>
+#include <linux/tegra-camera-rtcpu.h>
 
 #define CAPTURE_CHANNEL_UNKNOWN_RESP 0xFFFFFFFF
 #define CAPTURE_CHANNEL_INVALID_ID 0xFFFF
@@ -204,7 +205,11 @@ void vi_capture_shutdown(struct tegra_vi_channel *chan)
 		}
 
 		capture_common_unpin_memory(&capture->requests);
-		kfree(capture->unpins_list);
+		if (capture->buf_ctx != NULL)
+			destroy_buffer_table(capture->buf_ctx);
+
+		vfree(capture->unpins_list);
+		capture->unpins_list = NULL;
 	}
 	kfree(capture);
 	chan->capture_data = NULL;
@@ -233,8 +238,13 @@ static int vi_capture_ivc_send_control(struct tegra_vi_channel *chan,
 	timeout = wait_for_completion_timeout(
 			&capture->control_resp, timeout);
 	if (timeout <= 0) {
+		if (tegra_capture_ivc_capture_control_can_read() != 0)
+			dev_err(chan->dev, "pending control response ivc reads\n");
+
 		dev_err(chan->dev,
 			"no reply from camera processor\n");
+		dev_err(chan->dev, "%s: pending chan_id %u msg_id %u\n",
+			__func__, resp_header.channel_id, resp_header.msg_id);
 		err = -ETIMEDOUT;
 		goto fail;
 	}
@@ -243,6 +253,8 @@ static int vi_capture_ivc_send_control(struct tegra_vi_channel *chan,
 			sizeof(resp_header)) != 0) {
 		dev_err(chan->dev,
 			"unexpected response from camera processor\n");
+		dev_err(chan->dev, "%s: sending chan_id %u msg_id %u\n",
+			__func__, resp_header.channel_id, resp_header.msg_id);
 		err = -EINVAL;
 		goto fail;
 	}
@@ -420,6 +432,32 @@ int vi_capture_setup(struct tegra_vi_channel *chan,
 	control_desc.header.msg_id = CAPTURE_CHANNEL_SETUP_REQ;
 	control_desc.header.transaction = transaction;
 
+	/* Allocate memoryinfo ringbuffer */
+	capture->requests_memoryinfo = dma_alloc_coherent(capture->rtcpu_dev,
+		setup->queue_depth * sizeof(*capture->requests_memoryinfo),
+		&capture->requests_memoryinfo_iova, GFP_KERNEL);
+
+	if (!capture->requests_memoryinfo) {
+		dev_err(chan->dev,
+			"%s: memoryinfo ringbuffer alloc failed\n", __func__);
+		goto memoryinfo_alloc_fail;
+	}
+
+	WARN_ON(capture->unpins_list != NULL);
+
+	capture->unpins_list =
+		vzalloc(setup->queue_depth * sizeof(*capture->unpins_list));
+
+	if (!capture->unpins_list) {
+		dev_err(chan->dev,
+			"%s: channel_unpins alloc failed\n", __func__);
+		goto unpin_alloc_fail;
+	}
+
+	config->requests_memoryinfo = capture->requests_memoryinfo_iova;
+	config->request_memoryinfo_size =
+			sizeof(struct capture_descriptor_memoryinfo);
+
 	config->channel_flags = setup->channel_flags;
 	config->vi_channel_mask = setup->vi_channel_mask;
 	config->slvsec_stream_main = setup->slvsec_stream_main;
@@ -481,9 +519,20 @@ int vi_capture_setup(struct tegra_vi_channel *chan,
 	return 0;
 
 cb_fail:
-	vi_capture_release(chan, CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
 resp_fail:
 submit_fail:
+	vfree(capture->unpins_list);
+	capture->unpins_list = NULL;
+unpin_alloc_fail:
+	/* Release memoryinfo ringbuffer */
+	dma_free_coherent(capture->rtcpu_dev,
+		capture->queue_depth *
+		sizeof(struct capture_descriptor_memoryinfo),
+		capture->requests_memoryinfo,
+		capture->requests_memoryinfo_iova);
+	capture->requests_memoryinfo = NULL;
+memoryinfo_alloc_fail:
+
 	tegra_capture_ivc_unregister_control_cb(transaction);
 control_cb_fail:
 	vi_capture_release_syncpts(chan);
@@ -615,6 +664,7 @@ static int csi_stream_tpg_disable(struct tegra_vi_channel *chan)
 	struct vi_capture *capture = chan->capture_data;
 	struct CAPTURE_CONTROL_MSG control_desc;
 	struct CAPTURE_CONTROL_MSG *resp_msg = &capture->control_resp_msg;
+	struct vi_capture_control_msg msg;
 	int err = 0;
 
 	memset(&control_desc, 0, sizeof(control_desc));
@@ -623,6 +673,11 @@ static int csi_stream_tpg_disable(struct tegra_vi_channel *chan)
 	control_desc.csi_stream_tpg_stop_req.stream_id = capture->stream_id;
 	control_desc.csi_stream_tpg_stop_req.virtual_channel_id =
 		capture->virtual_channel_id;
+
+	memset(&msg, 0, sizeof(struct vi_capture_control_msg));
+	msg.ptr = (uint64_t)&control_desc;
+	msg.size = sizeof(control_desc);
+	msg.response = (uint64_t)resp_msg;
 
 	err = vi_capture_ivc_send_control(chan, &control_desc,
 		sizeof(control_desc), CAPTURE_CSI_STREAM_TPG_STOP_RESP);
@@ -639,6 +694,7 @@ static int csi_stream_tpg_disable(struct tegra_vi_channel *chan)
 static int csi_stream_close(struct tegra_vi_channel *chan)
 {
 	struct vi_capture *capture = chan->capture_data;
+	struct vi_capture_control_msg msg;
 	struct CAPTURE_CONTROL_MSG control_desc;
 	struct CAPTURE_CONTROL_MSG *resp_msg = &capture->control_resp_msg;
 	int err = 0;
@@ -650,8 +706,12 @@ static int csi_stream_close(struct tegra_vi_channel *chan)
 	control_desc.phy_stream_close_req.stream_id = capture->stream_id;
 	control_desc.phy_stream_close_req.csi_port = capture->csi_port;
 
-	err = vi_capture_ivc_send_control(chan, &control_desc,
-		sizeof(control_desc), CAPTURE_PHY_STREAM_CLOSE_RESP);
+	memset(&msg, 0, sizeof(struct vi_capture_control_msg));
+	msg.ptr = (uint64_t)&control_desc;
+	msg.size = sizeof(control_desc);
+	msg.response = (uint64_t)resp_msg;
+
+	err = vi_capture_control_message(chan, &msg);
 	if ((err < 0) ||
 			(resp_msg->phy_stream_close_resp.result != CAPTURE_OK))
 		return err;
@@ -719,13 +779,25 @@ int vi_capture_release(struct tegra_vi_channel *chan,
 	err = vi_capture_ivc_send_control(chan, &control_desc,
 			sizeof(control_desc), CAPTURE_CHANNEL_RELEASE_RESP);
 	if (err < 0) {
-		goto submit_fail;
-	}
+		dev_err(chan->dev,
+				"%s: release channel IVC failed\n", __func__);
+		WARN_ON("RTCPU is in a bad state. Reboot to recover");
 
-	if (resp_msg->channel_release_resp.result != CAPTURE_OK) {
+		tegra_camrtc_reboot(chan->rtcpu_dev);
+
+		err = -EIO;
+	} else if (resp_msg->channel_release_resp.result != CAPTURE_OK) {
 		dev_err(chan->dev, "%s: control failed, errno %d", __func__,
 			resp_msg->channel_release_resp.result);
-		err = -EINVAL;
+		err = -EIO;
+	}
+
+	if (capture->requests_memoryinfo) {
+		/* Release memoryinfo ringbuffer */
+		dma_free_coherent(capture->rtcpu_dev,
+			capture->queue_depth * sizeof(struct capture_descriptor_memoryinfo),
+			capture->requests_memoryinfo, capture->requests_memoryinfo_iova);
+		capture->requests_memoryinfo = NULL;
 	}
 
 	ret = tegra_capture_ivc_unregister_capture_cb(capture->channel_id);
@@ -752,9 +824,6 @@ int vi_capture_release(struct tegra_vi_channel *chan,
 		capture_common_release_progress_status_notifier(
 			&capture->progress_status_notifier);
 
-	return 0;
-
-submit_fail:
 	return err;
 }
 
@@ -872,11 +941,25 @@ int vi_capture_control_message(struct tegra_vi_channel *chan,
 		resp_id = CAPTURE_SYNCGEN_DISABLE_RESP;
 		break;
 	case CAPTURE_PHY_STREAM_OPEN_REQ:
+		if (chan->is_stream_open) {
+			dev_dbg(chan->dev,
+				"stream is already open\n");
+			resp_msg->phy_stream_open_resp.result = CAPTURE_OK;
+			kfree(msg_cpy);
+			return 0;
+		}
 		resp_id = CAPTURE_PHY_STREAM_OPEN_RESP;
 		capture->stream_id = req_msg->phy_stream_open_req.stream_id;
 		capture->csi_port = req_msg->phy_stream_open_req.csi_port;
 		break;
 	case CAPTURE_PHY_STREAM_CLOSE_REQ:
+		if (!chan->is_stream_open) {
+			dev_dbg(chan->dev,
+				"stream is already closed\n");
+			resp_msg->phy_stream_close_resp.result = CAPTURE_OK;
+			kfree(msg_cpy);
+			return 0;
+		}
 		resp_id = CAPTURE_PHY_STREAM_CLOSE_RESP;
 		capture->stream_id = NVCSI_STREAM_INVALID_ID;
 		capture->csi_port = NVCSI_PORT_UNSPECIFIED;
@@ -930,6 +1013,11 @@ int vi_capture_control_message(struct tegra_vi_channel *chan,
 	err = vi_capture_ivc_send_control(chan, msg_cpy, msg->size, resp_id);
 	if (err < 0)
 		goto fail;
+
+	if (header->msg_id == CAPTURE_PHY_STREAM_OPEN_REQ)
+		chan->is_stream_open = true;
+	else if (header->msg_id == CAPTURE_PHY_STREAM_CLOSE_REQ)
+		chan->is_stream_open = false;
 
 	err = copy_to_user(response, resp_msg,
 			sizeof(*resp_msg)) ? -EFAULT : 0;
@@ -1042,6 +1130,11 @@ int vi_capture_status(struct tegra_vi_channel *chan,
 				&capture->capture_resp,
 				msecs_to_jiffies(timeout_ms));
 		if (ret == 0) {
+			/* Can we run ping test here ?*/
+			if (tegra_capture_ivc_capture_status_can_read() != 0) {
+				dev_err(chan->dev,
+				 "pending status response ivc reads\n");
+			}
 			dev_err(chan->dev,
 				"no reply from camera processor\n");
 			return -ETIMEDOUT;

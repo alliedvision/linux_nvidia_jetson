@@ -1,7 +1,7 @@
 /*
  * Virtualized GPU Memory Management
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -130,11 +130,12 @@ u64 vgpu_gp10b_locked_gmmu_map(struct vm_gk20a *vm,
 		chunk_length = min(size,
 			   nvgpu_sgt_get_length(sgt, sgl) - space_to_skip);
 
-		if (add_mem_desc(&mem_desc[mem_desc_count++], phys_addr,
+		if (add_mem_desc(&mem_desc[mem_desc_count], phys_addr,
 				 chunk_length, &oob_size)) {
 			err = -ENOMEM;
 			goto fail;
 		}
+		mem_desc_count++;
 
 		space_to_skip = 0;
 		size -= chunk_length;
@@ -177,8 +178,10 @@ u64 vgpu_gp10b_locked_gmmu_map(struct vm_gk20a *vm,
 		p->flags = TEGRA_VGPU_MAP_CACHEABLE;
 	if (flags & NVGPU_VM_MAP_IO_COHERENT)
 		p->flags |= TEGRA_VGPU_MAP_IO_COHERENT;
-	if (flags & NVGPU_VM_MAP_L3_ALLOC)
-		p->flags |= TEGRA_VGPU_MAP_L3_ALLOC;
+	if (!nvgpu_is_enabled(g, NVGPU_DISABLE_L3_SUPPORT)) {
+		if (flags & NVGPU_VM_MAP_L3_ALLOC)
+			p->flags |= TEGRA_VGPU_MAP_L3_ALLOC;
+	}
 	if (flags & NVGPU_VM_MAP_PLATFORM_ATOMIC) {
 		p->flags |= TEGRA_VGPU_MAP_PLATFORM_ATOMIC;
 	}

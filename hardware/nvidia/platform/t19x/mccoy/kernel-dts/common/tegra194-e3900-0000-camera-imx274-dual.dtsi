@@ -58,6 +58,7 @@
 					mclk = "extperiph1";
 					reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 					vana-supply = <&e3900_avdd_cam_2v8_cvb>;
+					avdd-setup-delay = <5000>;
 					vif-supply = <&e3900_sys_1v8_cvb>;
 				};
 			};
@@ -75,6 +76,7 @@
 					mclk = "extperiph1";
 					reset-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 					vana-supply = <&e3900_avdd_cam_2v8_cvb>;
+                                        avdd-setup-delay = <5000>;
 					vif-supply = <&e3900_sys_1v8_cvb>;
 				};
 			};

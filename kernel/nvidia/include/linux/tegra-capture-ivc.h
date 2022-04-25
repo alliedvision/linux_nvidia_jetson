@@ -1,7 +1,7 @@
 /*
  * Tegra capture IVC driver.
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -112,5 +112,18 @@ int tegra_capture_ivc_unregister_control_cb(uint32_t id);
  * unregistered.
  */
 int tegra_capture_ivc_unregister_capture_cb(uint32_t chan_id);
+
+/*
+ * Read number of pending capture control ivc messages
+ *
+ */
+int tegra_capture_ivc_capture_control_can_read(void);
+
+/*
+ * Read number of pending capture status ivc messages
+ *
+ */
+
+int tegra_capture_ivc_capture_status_can_read(void);
 
 #endif /* INCLUDE_CAPTURE_IVC_H */

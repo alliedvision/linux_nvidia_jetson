@@ -1,7 +1,7 @@
 /*
  * arch/arm64/boot/dts/tegra210-porg-p3448-common.dtsi
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@
 #include "porg-platforms/tegra210-porg-power-tree-p3448-0000-a00.dtsi"
 #include "porg-platforms/tegra210-pinmux-drive-sdmmc-common.dtsi"
 #include "porg-platforms/tegra210-porg-pwm-fan.dtsi"
-#include "porg-platforms/tegra210-porg-camera.dtsi"
 #include <t210-common-platforms/tegra210-ers-hdmi-e2190-1100-a00.dtsi>
 #include <t210-common-platforms/tegra210-dp.dtsi>
 #include <t210-common-platforms/tegra210-thermal-userspace-alert.dtsi>
@@ -39,6 +38,7 @@
 #include "porg-platforms/tegra210-porg-cpufreq.dtsi"
 #include "porg-platforms/tegra210-porg-powermon-p3448-0000-a00.dtsi"
 #include "porg-plugin-manager/tegra210-porg-eeprom-manager.dtsi"
+//#include "porg-plugin-manager/tegra210-porg-plugin-manager.dtsi"
 #include <tegra210-soc/mods-simple-bus.dtsi>
 #include "porg-platforms/tegra210-porg-extcon-p3448-0000-a00.dtsi"
 #include "porg-platforms/tegra210-porg-p3448-emc-a00.dtsi"
@@ -197,7 +197,7 @@
 	hdr40_spi1: spi@7000d400 { /* SPI 1 to 40 pin header */
 		status = "okay";
 		spi@0 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -206,7 +206,7 @@
 			};
 		};
 		spi@1 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -219,7 +219,7 @@
 	hdr40_spi2: spi@7000d600 { /* SPI 2 to 40 pin header */
 		status = "okay";
 		spi@0 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x0>;
 			spi-max-frequency = <33000000>;
 			controller-data {
@@ -228,7 +228,7 @@
 			};
 		};
 		spi@1 {
-			compatible = "spidev";
+			compatible = "tegra-spidev";
 			reg = <0x1>;
 			spi-max-frequency = <33000000>;
 			controller-data {

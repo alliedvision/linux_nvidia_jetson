@@ -1,7 +1,7 @@
 /*
  * GK20A Channel Synchronization Abstraction
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -596,7 +596,6 @@ channel_sync_semaphore_create(struct channel_gk20a *c, bool user_managed)
 {
 	struct nvgpu_channel_sync_semaphore *sema;
 	struct gk20a *g = c->g;
-	char pool_name[20];
 	int asid = -1;
 	int err;
 
@@ -610,7 +609,6 @@ channel_sync_semaphore_create(struct channel_gk20a *c, bool user_managed)
 	}
 	sema->c = c;
 
-	sprintf(pool_name, "semaphore_pool-%d", c->chid);
 	sema->pool = c->vm->sema_pool;
 
 	if (c->vm->as_share != NULL) {

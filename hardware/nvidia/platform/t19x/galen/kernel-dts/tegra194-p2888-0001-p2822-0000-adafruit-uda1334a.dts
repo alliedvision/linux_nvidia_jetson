@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device-tree overlay for Adafruit I2S Stereo Decoder Breakout
+ * (UDA1334A) with board tegra194-p2888-0001-p2822-0000.
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-common/jetson/tegra194-p2888-0001-p2822-0000.h>
+#include <overlays/jetson-adafruit-uda1334a.dts>

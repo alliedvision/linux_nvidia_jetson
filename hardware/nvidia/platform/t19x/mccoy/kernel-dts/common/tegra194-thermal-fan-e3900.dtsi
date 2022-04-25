@@ -38,7 +38,7 @@
 			default = "cool";
 			/delete-node/ quiet;
 			cool {
-				active_trip_temps = <10000 17000 45000 100000 120000
+				active_trip_temps = <17000 24000 52000 100000 120000
 							140000 160000 180000 200000 220000>;
 				active_hysteresis = <0 0 0 0 0 0 0 0 0 0>;
 			};

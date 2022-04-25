@@ -30,7 +30,6 @@
 #define PRG_ETH0_RGMII_MODE		BIT(0)
 
 /* mux to choose between fclk_div2 (bit unset) and mpll2 (bit set) */
-#define PRG_ETH0_CLK_M250_SEL_SHIFT	4
 #define PRG_ETH0_CLK_M250_SEL_MASK	GENMASK(4, 4)
 
 #define PRG_ETH0_TXDLY_SHIFT		5
@@ -123,8 +122,9 @@ static int meson8b_init_clk(struct meson8b_dwmac *dwmac)
 	init.num_parents = MUX_CLK_NUM_PARENTS;
 
 	dwmac->m250_mux.reg = dwmac->regs + PRG_ETH0;
-	dwmac->m250_mux.shift = PRG_ETH0_CLK_M250_SEL_SHIFT;
-	dwmac->m250_mux.mask = PRG_ETH0_CLK_M250_SEL_MASK;
+	dwmac->m250_mux.shift = __ffs(PRG_ETH0_CLK_M250_SEL_MASK);
+	dwmac->m250_mux.mask = PRG_ETH0_CLK_M250_SEL_MASK >>
+			       dwmac->m250_mux.shift;
 	dwmac->m250_mux.flags = 0;
 	dwmac->m250_mux.table = NULL;
 	dwmac->m250_mux.hw.init = &init;
@@ -280,7 +280,7 @@ static int meson8b_dwmac_probe(struct platform_device *pdev)
 
 	dwmac->pdev = pdev;
 	dwmac->phy_mode = of_get_phy_mode(pdev->dev.of_node);
-	if (dwmac->phy_mode < 0) {
+	if ((int)dwmac->phy_mode < 0) {
 		dev_err(&pdev->dev, "missing phy-mode property\n");
 		ret = -EINVAL;
 		goto err_remove_config_dt;

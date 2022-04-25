@@ -30,6 +30,7 @@
 #define FUSE_SKU_INFO	0x10
 #define TEGRA_APBMISC_EMU_REVID 0x60
 #define TEGRA_MISCREG_EMU_REVID 0x3160
+#define ERD_MASK_INBAND_ERR 0x1
 
 #define PMC_STRAPPING_OPT_A_RAM_CODE_SHIFT	4
 #define PMC_STRAPPING_OPT_A_RAM_CODE_MASK_LONG	\
@@ -54,6 +55,26 @@ static void __iomem *apbmisc_base;
 static void __iomem *strapping_base;
 static bool long_ram_code;
 static const struct apbmisc_data *apbmisc_data;
+
+/*
+ * The function sets ERD(Error Response Disable) bit.
+ * This allows to mask inband errors and always send an
+ * OKAY response from CBB to the master which caused error.
+ */
+int tegra_miscreg_set_erd(u64 err_config)
+{
+	int err = 0;
+	if (!apbmisc_base)
+		tegra_init_apbmisc();
+
+	if (!apbmisc_base) {
+		WARN(1, "apbmisc driver not initialized yet\n");
+		return -ENODEV;
+	}
+	writel_relaxed(ERD_MASK_INBAND_ERR, apbmisc_base + err_config);
+	return err;
+}
+EXPORT_SYMBOL(tegra_miscreg_set_erd);
 
 u32 tegra_read_chipid(void)
 {
@@ -290,7 +311,7 @@ void tegra_init_apbmisc(void)
 			apbmisc.flags = IORESOURCE_MEM;
 
 			/* strapping options */
-			if (tegra_get_chip_id() == TEGRA124) {
+			if (of_machine_is_compatible("nvidia,tegra124")) {
 				straps.start = 0x7000e864;
 				straps.end = 0x7000e867;
 			} else {

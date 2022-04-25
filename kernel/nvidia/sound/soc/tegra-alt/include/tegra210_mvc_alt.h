@@ -1,7 +1,7 @@
 /*
  * tegra210_mvc_alt.h - Definitions for Tegra210 MVC driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -72,8 +72,9 @@
 #define TEGRA210_MVC_EN							(1 << TEGRA210_MVC_EN_SHIFT)
 
 #define TEGRA210_MVC_MUTE_SHIFT					8
-#define TEGRA210_MVC_MUTE_MASK					(0xff << TEGRA210_MVC_MUTE_SHIFT)
-#define TEGRA210_MVC_MUTE_EN					(0xff << TEGRA210_MVC_MUTE_SHIFT)
+#define TEGRA210_MUTE_MASK_EN					0xff
+#define TEGRA210_MVC_MUTE_MASK					(TEGRA210_MUTE_MASK_EN << TEGRA210_MVC_MUTE_SHIFT)
+#define TEGRA210_MVC_MUTE_EN					(TEGRA210_MUTE_MASK_EN << TEGRA210_MVC_MUTE_SHIFT)
 
 #define TEGRA210_MVC_PER_CHAN_CTRL_EN_SHIFT		30
 #define TEGRA210_MVC_PER_CHAN_CTRL_EN_MASK		(1 << TEGRA210_MVC_PER_CHAN_CTRL_EN_SHIFT)
@@ -102,6 +103,7 @@
 #define TEGRA210_MVC_INIT_VOL_DEFAULT_POLY		0x01000000
 #define TEGRA210_MVC_INIT_VOL_DEFAULT_LINEAR	0x00000000
 
+#define TEGRA210_MVC_CTRL_DEFAULT	0x40000003
 /* Fields in TEGRA210_MVC ram ctrl */
 #define TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_READ_BUSY_SHIFT			31
 #define TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_READ_BUSY_MASK			(1 << TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_READ_BUSY_SHIFT)
@@ -125,6 +127,10 @@
 #define TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_RAM_ADDR_SHIFT			0
 #define TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_RAM_ADDR_MASK			(0x1ff << TEGRA210_MVC_AHUBRAMCTL_CONFIG_RAM_CTRL_RAM_ADDR_SHIFT)
 
+#define REG_SIZE 4
+#define TEGRA210_MVC_MAX_CHAN_COUNT 8
+#define TEGRA210_MVC_REG_OFFSET(reg, i) (reg + (REG_SIZE * i))
+
 enum {
 	CURVE_POLY,
 	CURVE_LINEAR,
@@ -134,8 +140,9 @@ struct tegra210_mvc {
 	struct regmap *regmap;
 	int poly_coeff[9];
 	int poly_n1, poly_n2, duration, duration_inv;
-	int volume;
+	int volume[TEGRA210_MVC_MAX_CHAN_COUNT];
 	unsigned int curve_type;
+	unsigned int ctrl_value;
 	unsigned int cif_channels;
 	unsigned int audio_bits;
 	unsigned int format_in;

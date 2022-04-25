@@ -3,7 +3,7 @@
  *
  * GPU memory management driver for Tegra
  *
- * Copyright (c) 2009-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -141,7 +141,7 @@ struct nvmap_pgalloc {
 #define NVMAP_IVM_LENGTH_WIDTH (16)
 #define NVMAP_IVM_LENGTH_MASK  ((1 << NVMAP_IVM_LENGTH_WIDTH) - 1)
 #define NVMAP_IVM_OFFSET_SHIFT (NVMAP_IVM_LENGTH_SHIFT + NVMAP_IVM_LENGTH_WIDTH)
-#define NVMAP_IVM_OFFSET_WIDTH (13)
+#define NVMAP_IVM_OFFSET_WIDTH (14)
 #define NVMAP_IVM_OFFSET_MASK  ((1 << NVMAP_IVM_OFFSET_WIDTH) - 1)
 #define NVMAP_IVM_IVMID_SHIFT  (NVMAP_IVM_OFFSET_SHIFT + NVMAP_IVM_OFFSET_WIDTH)
 #define NVMAP_IVM_IVMID_WIDTH  (3)
@@ -184,6 +184,7 @@ struct nvmap_handle {
 	struct list_head dmabuf_priv;
 	u64 ivm_id;
 	int peer;		/* Peer VM number */
+	bool is_ro;		/* Is handle read-only? */
 };
 
 struct nvmap_handle_info {
@@ -381,10 +382,11 @@ struct nvmap_handle_ref *__nvmap_validate_locked(struct nvmap_client *priv,
 struct nvmap_handle *nvmap_validate_get(struct nvmap_handle *h);
 
 struct nvmap_handle_ref *nvmap_create_handle(struct nvmap_client *client,
-					     size_t size);
+					     size_t size, bool ro_buf);
 
 struct nvmap_handle_ref *nvmap_create_handle_from_va(struct nvmap_client *client,
-						     ulong addr, size_t size);
+						     ulong addr, size_t size,
+						     unsigned int access_flags);
 
 struct nvmap_handle_ref *nvmap_duplicate_handle(struct nvmap_client *client,
 					struct nvmap_handle *h, bool skip_val);
@@ -457,7 +459,7 @@ int nvmap_cache_maint_phys_range(unsigned int op, phys_addr_t pstart,
 		phys_addr_t pend, int inner, int outer);
 
 int nvmap_do_cache_maint_list(struct nvmap_handle **handles, u64 *offsets,
-			      u64 *sizes, int op, int nr, bool is_32);
+			      u64 *sizes, int op, u32 nr_ops, bool is_32);
 int __nvmap_cache_maint(struct nvmap_client *client,
 			       struct nvmap_cache_op_64 *op);
 int nvmap_cache_debugfs_init(struct dentry *nvmap_root);
@@ -466,7 +468,7 @@ int nvmap_cache_debugfs_init(struct dentry *nvmap_root);
 struct dma_buf *__nvmap_dmabuf_export(struct nvmap_client *client,
 				 struct nvmap_handle *handle);
 struct dma_buf *__nvmap_make_dmabuf(struct nvmap_client *client,
-				    struct nvmap_handle *handle);
+				    struct nvmap_handle *handle, bool ro_buf);
 struct sg_table *__nvmap_sg_table(struct nvmap_client *client,
 				  struct nvmap_handle *h);
 void __nvmap_free_sg_table(struct nvmap_client *client,
@@ -680,10 +682,15 @@ static inline pid_t nvmap_client_pid(struct nvmap_client *client)
 }
 
 static inline int nvmap_get_user_pages(ulong vaddr,
-		                int nr_page, struct page **pages)
+				size_t nr_page, struct page **pages,
+				bool is_user_flags, u32 user_foll_flags)
 {
+	u32 foll_flags = FOLL_FORCE;
+	struct vm_area_struct *vma;
+	vm_flags_t vm_flags;
+	long user_pages = 0;
 	int ret = 0;
-	int user_pages;
+
 	down_read(&current->mm->mmap_sem);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
         user_pages = get_user_pages(current, current->mm,
@@ -691,14 +698,29 @@ static inline int nvmap_get_user_pages(ulong vaddr,
 			      1/*write*/, 1, /* force */
 			      pages, NULL);
 #else
-	user_pages = get_user_pages(vaddr & PAGE_MASK, nr_page,
-			      FOLL_WRITE | FOLL_FORCE,
-			      pages, NULL);
+	vma = find_vma(current->mm, vaddr);
+	if (vma) {
+		if (is_user_flags) {
+			foll_flags |= user_foll_flags;
+		} else {
+			vm_flags = vma->vm_flags;
+			/*
+			 * If the vaddr points to writable page then only
+			 * pass FOLL_WRITE flag
+			 */
+			if (vm_flags & VM_WRITE)
+				foll_flags |= FOLL_WRITE;
+		}
+		pr_debug("vaddr %lu is_user_flags %d user_foll_flags %x foll_flags %x.\n",
+			vaddr, is_user_flags?1:0, user_foll_flags, foll_flags);
+		user_pages = get_user_pages(vaddr & PAGE_MASK, nr_page,
+					    foll_flags, pages, NULL);
+	}
 #endif
 	up_read(&current->mm->mmap_sem);
 	if (user_pages != nr_page) {
 		ret = user_pages < 0 ? user_pages : -ENOMEM;
-		pr_err("get_user_pages requested/got: %d/%d]\n", nr_page,
+		pr_err("get_user_pages requested/got: %zu/%ld]\n", nr_page,
 				user_pages);
 		while (--user_pages >= 0)
 			put_page(pages[user_pages]);
@@ -735,5 +757,7 @@ extern struct of_device_id __nvmapcache_of_table;
 #define NVMAP_CACHE_OF_DECLARE(compat, fn) \
 	_OF_DECLARE(nvmapcache, nvmapcache_of, compat, fn, \
 			nvmap_setup_chip_cache_fn)
+
+bool nvmap_memory_available(size_t size);
 
 #endif /* __VIDEO_TEGRA_NVMAP_NVMAP_H */

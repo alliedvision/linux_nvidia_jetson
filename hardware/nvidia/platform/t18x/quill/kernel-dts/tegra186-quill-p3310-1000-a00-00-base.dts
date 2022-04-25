@@ -16,11 +16,7 @@
 #include <t18x-common-platforms/tegra186-quill-common-p3310-1000-a00.dtsi>
 #include <t18x-common-platforms/tegra186-quill-power-tree-p3310-1000-a00-00.dtsi>
 
-#if 0
-/* use this include for 6 cam adapter*/
-#include <t18x-common-platforms/tegra186-quill-camera-avt_csi2_6cam-a00.dtsi>
-#endif
-#include <t18x-common-platforms/tegra186-quill-camera-avt_csi2-a00.dtsi>
+#include <t18x-common-platforms/tegra186-quill-camera-modules.dtsi>
 
 #include <t18x-common-modules/tegra186-display-e3320-1000-a00.dtsi>
 
@@ -30,6 +26,7 @@
 #include <t18x-common-modules/tegra186-super-module-e2614-p2597-1000-a00.dtsi>
 #include <t18x-common-plugin-manager/tegra186-quill-display-plugin-manager.dtsi>
 #include <t18x-common-prod/tegra186-priv-quill-p3310-1000-a00-prod.dtsi>
+#include <t18x-common-plugin-manager/tegra186-quill-camera-plugin-manager.dtsi>
 
 / {
 	model = "quill";

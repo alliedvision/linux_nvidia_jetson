@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisp/nvdisp_bandwidth.c
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -290,7 +290,7 @@ void tegra_nvdisp_clear_bandwidth(struct tegra_dc *dc)
 	u32 new_iso_bw = 0;
 	u32 new_total_bw = 0;
 	u32 new_emc = 0;
-	u32 new_hubclk = 0;
+	u32 new_hubclk = ihub_bw_info.cur_config.hubclk;
 	bool before_win_update = false;
 
 	if (!tegra_platform_is_silicon())

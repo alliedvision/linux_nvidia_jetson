@@ -1038,7 +1038,7 @@ done:
 }
 
 /* Kill socket (only if zapped and orphan)
- * Must be called on unlocked socket.
+ * Must be called on unlocked socket, with l2cap channel lock.
  */
 static void l2cap_sock_kill(struct sock *sk)
 {
@@ -1327,7 +1327,6 @@ static void l2cap_sock_teardown_cb(struct l2cap_chan *chan, int err)
 	lock_sock_nested(sk, atomic_read(&chan->nesting));
 
 	parent = bt_sk(sk)->parent;
-
 	sock_set_flag(sk, SOCK_ZAPPED);
 
 	switch (chan->state) {
@@ -1356,8 +1355,8 @@ static void l2cap_sock_teardown_cb(struct l2cap_chan *chan, int err)
 
 		break;
 	}
-
 	release_sock(sk);
+
 }
 
 static void l2cap_sock_state_change_cb(struct l2cap_chan *chan, int state,

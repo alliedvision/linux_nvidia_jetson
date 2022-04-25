@@ -3,7 +3,7 @@
  *
  * Userspace thermal alert cooling device.
  *
- * Copyright (C) 2016-2020 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016-2021 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -294,6 +294,7 @@ static const struct of_device_id userspace_therm_of_match[] = {
 	{ .compatible = "userspace-therm-alert", },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, userspace_therm_of_match);
 
 static struct platform_driver userspace_therm_driver = {
 	.driver = {

@@ -1,7 +1,7 @@
 /*
  * tegra210_i2s.c - Tegra210 I2S driver
  *
- * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1119,8 +1119,13 @@ static int tegra210_i2s_platform_probe(struct platform_device *pdev)
 
 	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
 		if (of_property_read_string(np, "prod-name",
-					    &i2s->prod_name) == 0)
-			tegra_pinctrl_config_prod(&pdev->dev, i2s->prod_name);
+					    &i2s->prod_name) == 0) {
+			ret = tegra_pinctrl_config_prod(&pdev->dev,
+						i2s->prod_name);
+			if (ret != 0)
+				dev_warn(&pdev->dev, "Failed to set %s setting\n",
+						i2s->prod_name);
+		}
 
 		num_supplies = of_property_count_strings(np,
 							 "regulator-supplies");

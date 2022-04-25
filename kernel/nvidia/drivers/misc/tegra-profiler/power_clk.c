@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/power_clk.c
  *
- * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -111,6 +111,7 @@ static void make_sample(struct power_clk_source *s)
 	quadd_put_sample(&record, &vec, 1);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 static void
 make_sample_hotplug(int cpu, int is_online)
 {
@@ -126,6 +127,7 @@ make_sample_hotplug(int cpu, int is_online)
 
 	quadd_put_sample(&record, NULL, 0);
 }
+#endif
 
 static inline int
 is_data_changed(struct power_clk_source *s)
@@ -247,24 +249,15 @@ emc_notifier_call(struct notifier_block *nb,
 }
 
 static void
-read_cpufreq(struct power_clk_source *s, struct cpufreq_freqs *freq)
+read_cpufreq(struct power_clk_source *s, struct cpufreq_freqs *freq, int cpu)
 {
-	int cpu, cpufreq;
-
-	if (!mutex_trylock(&s->lock))
-		return;
-
-	if (!atomic_read(&s->active))
-		goto out_unlock;
-
-	cpu = freq->cpu;
-	cpufreq = freq->new;
+	int cpufreq = freq->new;
 
 	pr_debug("cpu: %d, cpufreq: %d\n", cpu, cpufreq);
 
 	if (cpu >= s->nr) {
 		pr_err_once("error: cpu id: %d\n", cpu);
-		goto out_unlock;
+		return;
 	}
 
 	s->cpu = cpu;
@@ -274,15 +267,13 @@ read_cpufreq(struct power_clk_source *s, struct cpufreq_freqs *freq)
 		 cpu, freq->old, cpufreq);
 
 	check_source(s);
-
-out_unlock:
-	mutex_unlock(&s->lock);
 }
 
 static int
 cpufreq_notifier_call(struct notifier_block *nb,
-		      unsigned long action, void *hcpu)
+		      unsigned long action, void *data)
 {
+	int cpu;
 	struct cpufreq_freqs *freq;
 	struct power_clk_source *s = &power_ctx.cpu;
 
@@ -292,13 +283,23 @@ cpufreq_notifier_call(struct notifier_block *nb,
 	pr_debug("action: %lu\n", action);
 
 	if (action == CPUFREQ_POSTCHANGE) {
-		freq = hcpu;
-		read_cpufreq(s, freq);
+		if (mutex_trylock(&s->lock)) {
+			freq = data;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0))
+			cpu = freq->cpu;
+			read_cpufreq(s, freq, cpu);
+#else
+			for_each_cpu(cpu, freq->policy->cpus)
+				read_cpufreq(s, freq, cpu);
+#endif
+			mutex_unlock(&s->lock);
+		}
 	}
 
 	return 0;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 static int
 cpu_hotplug_notifier_call(struct notifier_block *nb,
 			  unsigned long action, void *hcpu)
@@ -340,6 +341,7 @@ cpu_hotplug_notifier_call(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+#endif
 
 static void reset_data(struct power_clk_source *s)
 {
@@ -373,13 +375,18 @@ power_clk_work_func(struct work_struct *work)
 
 static DECLARE_WORK(power_clk_work, power_clk_work_func);
 
-static void power_clk_timer(unsigned long data)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0))
+static void power_clk_timer(struct timer_list *t)
+#else
+static void power_clk_timer(unsigned long unused)
+#endif
 {
-	struct timer_list *timer = &power_ctx.timer;
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 14, 0))
+	struct timer_list *t = &power_ctx.timer;
+#endif
 
 	schedule_work(&power_clk_work);
-	timer->expires = jiffies + msecs_to_jiffies(power_ctx.period);
-	add_timer(timer);
+	mod_timer(t, jiffies + msecs_to_jiffies(power_ctx.period));
 }
 
 static void
@@ -513,11 +520,12 @@ int quadd_power_clk_start(void)
 	}
 
 	if (power_ctx.period > 0) {
-		init_timer(timer);
-		timer->function = power_clk_timer;
-		timer->expires = jiffies + msecs_to_jiffies(power_ctx.period);
-		timer->data = 0;
-		add_timer(timer);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0))
+		timer_setup(timer, power_clk_timer, 0);
+#else
+		setup_timer(timer, power_clk_timer, 0);
+#endif
+		mod_timer(timer, jiffies + msecs_to_jiffies(power_ctx.period));
 	}
 
 	schedule_work(&read_all_sources_work);
@@ -568,7 +576,9 @@ int quadd_power_clk_init(struct quadd_ctx *quadd_ctx)
 
 	s = &power_ctx.cpu;
 	s->nb[PCLK_NB_CPU_FREQ].notifier_call = cpufreq_notifier_call;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 	s->nb[PCLK_NB_CPU_HOTPLUG].notifier_call = cpu_hotplug_notifier_call;
+#endif
 	init_source(s, nr_cpu_ids, QUADD_POWER_CLK_CPU);
 
 	power_ctx.quadd_ctx = quadd_ctx;
@@ -596,7 +606,7 @@ int quadd_power_clk_init(struct quadd_ctx *quadd_ctx)
 
 void quadd_power_clk_deinit(void)
 {
-	struct power_clk_source *s = &power_ctx.cpu;
+	struct power_clk_source *s __maybe_unused = &power_ctx.cpu;
 
 	quadd_power_clk_stop();
 

@@ -1625,9 +1625,10 @@ static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
 	list_for_each_entry(input, in, list) {
 		ret = crypto_shash_update(&sdesc->shash, input->buf,
 				input->len);
-		if (ret)
+		if (ret) {
 			pr_info("DRBG:crypto_shash_update failed: %d\n", ret);
 			return ret;
+		}
 	}
 	return crypto_shash_final(&sdesc->shash, outval);
 }

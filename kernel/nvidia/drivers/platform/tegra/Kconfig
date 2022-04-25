@@ -258,4 +258,17 @@ config TEGRA_CLOCKS_CONFIGURE
 	  Enable or disable clocks during kernel initialization.
 	  This helps in optimizing power by disabling some always on clocks.
 
+config TEGRA_SAFETY
+	tristate "Tegra safety ivc driver"
+	default n
+	help
+	  When enabled, establish the IVC channel with SCE FW and support ivc
+	  frame transfers.
+
+config TEGRA_SAFETY_IVC_DEBUG
+	tristate "Use ivc stubs for safety ivc driver testing"
+	depends on TEGRA_SAFETY
+	help
+	  When enabled, stub the IVC responses from SCE FW.
+
 source "drivers/platform/tegra/nvadsp/Kconfig"

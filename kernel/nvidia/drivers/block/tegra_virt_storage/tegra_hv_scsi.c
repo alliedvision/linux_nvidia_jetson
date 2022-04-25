@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -207,6 +207,10 @@ int vblk_complete_sg_io(struct vblk_dev *vblkdev,
 
 	if ((vblk_hp->data_direction == SCSI_FROM_DEVICE) ||
 		(vblk_hp->data_direction == SCSI_BIDIRECTIONAL)) {
+		if (vblk_hp->dxfer_len >=  SZ_256M) {
+			err = -EINVAL;
+			goto free_hp;
+		}
 		if (copy_to_user(hp->dxferp, data_buf, vblk_hp->dxfer_len)) {
 			err = -EFAULT;
 			goto free_hp;

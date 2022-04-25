@@ -1,0 +1,35 @@
+/*
+ * tegra186-p3636-0001-common.dtsi : Lanai common dtsi.
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/gpio/tegra186-gpio.h>
+/ {
+	sdhci@3440000 {
+		uhs-mask = <0x10>; /* SDR104 */
+		only-1-8-v;
+		/delete-property/ iommus;
+		status = "okay";
+	};
+
+	bcm4354: bcmdhd_wlan {
+		compatible = "android,bcmdhd_wlan";
+		interrupt-parent = <&tegra_aon_gpio>;
+		interrupts = <TEGRA_AON_GPIO(EE, 2) IRQ_TYPE_LEVEL_HIGH>;
+		fw_path = "/lib/firmware/brcm/fw_bcmdhd-old-unlocked.bin";
+		nv_path = "/lib/firmware/brcm/nvram.txt";
+		sdhci-host = <&sdmmc3>;
+		pwr-retry-cnt = <3>;
+		status = "okay";
+	};
+};

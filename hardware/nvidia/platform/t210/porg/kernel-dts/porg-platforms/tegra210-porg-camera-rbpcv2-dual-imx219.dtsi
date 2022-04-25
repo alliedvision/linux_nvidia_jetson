@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,24 +28,19 @@
 		#size-cells = <0>;
 		mux-gpios = <&gpio CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
 		i2c-parent = <&i2c7>;
-		status = "disabled";
 		i2c@0 {
-			status = "disabled";
 			reg = <0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			rbpcv2_imx219_a@10 {
-				status = "disabled";
 				reset-gpios = <&gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			};
 		};
 		i2c@1 {
-			status = "disabled";
 			reg = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			rbpcv2_imx219_e@10 {
-				status = "disabled";
 				reset-gpios = <&gpio CAM2_PWDN GPIO_ACTIVE_HIGH>;
 			};
 		};

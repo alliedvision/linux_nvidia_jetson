@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Device-tree overlay for tegra194-p2888-0001-p2822-0000 CSI Camera Connector.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra194-p2888-0001-p2822-0000.h>
+
+/ {
+	overlay-name = "Jetson AGX Xavier CSI Connector";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				csi-pin75 {
+					nvidia,pins = "cam_i2c_scl_pp2";
+				};
+				csi-pin77 {
+					nvidia,pins = "cam_i2c_sda_pp3";
+				};
+				csi-pin87 {
+					nvidia,pins = "gen2_i2c_scl_pcc7";
+				};
+				csi-pin89 {
+					nvidia,pins = "gen2_i2c_sda_pdd0";
+				};
+				csi-pin90 {
+					nvidia,pins = "dap5_sclk_pt5";
+					nvidia,function = "dspk0";
+					nvidia,pin-label = "dspk0_dat";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin92 {
+					nvidia,pins = "dap5_dout_pt6";
+					nvidia,function = "dspk0";
+					nvidia,pin-label = "dspk0_clk";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin105 {
+					nvidia,pins = "gen8_i2c_scl_pdd1";
+				};
+				csi-pin107 {
+					nvidia,pins = "gen8_i2c_sda_pdd2";
+				};
+			};
+		};
+	};
+};

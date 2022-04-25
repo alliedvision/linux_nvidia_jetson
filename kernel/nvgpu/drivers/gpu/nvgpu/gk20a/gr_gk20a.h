@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics Engine
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -602,7 +602,7 @@ u32 gk20a_gr_get_sm_no_lock_down_hww_global_esr_mask(struct gk20a *g);
 		if (g->support_pmu) {\
 			err = nvgpu_pg_elpg_disable(g);\
 			if (err != 0) {\
-				err = nvgpu_pg_elpg_enable(g); \
+				(void)nvgpu_pg_elpg_enable(g); \
 			} \
 		} \
 		if (err == 0) { \

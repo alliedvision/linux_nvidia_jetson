@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera IMX477 rbpcv3 for t210 single
+ * cam connector baseboards
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Camera IMX477 Dual";
+	jetson-header-name = "Jetson Nano CSI Connector";
+	compatible = "nvidia,p3449-0000-b00+p3448-0000-b00", "nvidia,p3449-0000-b00+p3448-0002-b00";
+
+	/* IMX219 dual sensor module */
+	fragment@0 {
+		target = <&imx477_cam0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&cam_module0>;
+		__overlay__ {
+			status = "okay";
+			badge = "porg_front_RBPCV3";
+			position = "front";
+			orientation = "1";
+		};
+	};
+	fragment@2 {
+		target = <&cam_module0_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx477 7-001a";
+			proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@0/rbpcv3_imx477_a@1a";
+		};
+	};
+	fragment@3 {
+		target = <&imx477_cam1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@4 {
+		target = <&cam_module1>;
+		__overlay__ {
+			status = "okay";
+			badge = "porg_rear_RBPCV3";
+			position = "rear";
+			orientation = "1";
+		};
+	};
+	fragment@5 {
+		target = <&cam_module1_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx477 8-001a";
+			proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@1/rbpcv3_imx477_e@1a";
+		};
+	};
+	fragment@6 {
+		target = <&imx219_cam0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@7 {
+		target = <&rbpcv3_imx477_vi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_csi_out0>;
+		};
+	};
+	fragment@8 {
+		target = <&rbpcv3_imx477_vi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_csi_out1>;
+		};
+	};
+	fragment@9 {
+		target = <&rbpcv3_imx477_csi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_dual_out0>;
+		};
+	};
+	fragment@10 {
+		target = <&rbpcv3_imx477_csi_out0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		target = <&rbpcv3_imx477_csi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv3_imx477_out1>;
+		};
+	};
+	fragment@12 {
+		target = <&rbpcv3_imx477_csi_out1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@13 {
+		target = <&imx219_cam1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

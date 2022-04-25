@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Device-tree overlay for tegra210-jetson-tx1-p2597-2180-a01-devkit
+ * 30-pin Expansion Header.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra210-jetson-tx1-p2597-2180-a01-devkit.h>
+
+/ {
+	overlay-name = "Jetson 30pin Header";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				hdr30-pin23 {
+					nvidia,pins = "pk3";
+					nvidia,function = "i2s5b";
+					nvidia,pin-group = "i2s5";
+					nvidia,pin-label = "i2s5b_sclk";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				hdr30-pin24 {
+					nvidia,pins = "pk2";
+					nvidia,function = "i2s5b";
+					nvidia,pin-group = "i2s5";
+					nvidia,pin-label = "i2s5b_dout";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				hdr30-pin25 {
+					nvidia,pins = "pk1";
+					nvidia,function = "i2s5b";
+					nvidia,pin-group = "i2s5";
+					nvidia,pin-label = "i2s5b_din";
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				hdr30-pin26 {
+					nvidia,pins = "pk0";
+					nvidia,function = "i2s5b";
+					nvidia,pin-group = "i2s5";
+					nvidia,pin-label = "i2s5b_fs";
+					nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+			};
+		};
+	};
+};

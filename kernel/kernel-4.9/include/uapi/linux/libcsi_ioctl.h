@@ -123,11 +123,11 @@ enum v4l2_triggeractivation
 
 enum v4l2_triggersource
 {
-    V4L2_TRIGGER_SOURCE_SOFTWARE = 0,
-    V4L2_TRIGGER_SOURCE_LINE0    = 1,
-    V4L2_TRIGGER_SOURCE_LINE1    = 2,
-    V4L2_TRIGGER_SOURCE_LINE2    = 3,
-    V4L2_TRIGGER_SOURCE_LINE3    = 4,
+    V4L2_TRIGGER_SOURCE_LINE0    = 0,
+    V4L2_TRIGGER_SOURCE_LINE1    = 1,
+    V4L2_TRIGGER_SOURCE_LINE2    = 2,
+    V4L2_TRIGGER_SOURCE_LINE3    = 3,
+    V4L2_TRIGGER_SOURCE_SOFTWARE = 4
 };
 
 ////////////////////////////////////////////////////////////////////////////////

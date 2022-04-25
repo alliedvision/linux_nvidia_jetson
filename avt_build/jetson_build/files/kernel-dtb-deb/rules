@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+ 
+.PHONY: binary
+ 
+clean:
+	dh clean
+ 
+binary:
+	dh binary
+ 
+build:
+ 
+override_dh_strip:
+override_dh_shlibdeps:

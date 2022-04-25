@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Job
  *
- * Copyright (c) 2010-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -93,7 +93,8 @@ static void init_fields(struct nvhost_job *job,
 	job->sp = num_syncpts ? mem : NULL;
 
 	job->reloc_addr_phys = job->addr_phys;
-	job->gather_addr_phys = &job->addr_phys[num_relocs];
+	if (job->addr_phys)
+		job->gather_addr_phys = &job->addr_phys[num_relocs];
 }
 
 struct nvhost_job *nvhost_job_alloc(struct nvhost_channel *ch,

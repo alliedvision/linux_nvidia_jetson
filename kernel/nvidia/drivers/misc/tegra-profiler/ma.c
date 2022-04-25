@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/ma.c
  *
- * Copyright (c) 2015, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -80,18 +80,24 @@ static void check_ma(struct quadd_hrt_ctx *hrt_ctx)
 	}
 }
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0))
+static void timer_interrupt(struct timer_list *t)
+#else
 static void timer_interrupt(unsigned long data)
+#endif
 {
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0))
+	struct quadd_hrt_ctx *hrt_ctx = from_timer(hrt_ctx, t, ma_timer);
+#else
 	struct quadd_hrt_ctx *hrt_ctx = (struct quadd_hrt_ctx *)data;
-	struct timer_list *timer = &hrt_ctx->ma_timer;
+	struct timer_list *t = &hrt_ctx->ma_timer;
+#endif
 
 	if (!atomic_read(&hrt_ctx->active))
 		return;
 
 	check_ma(hrt_ctx);
-
-	timer->expires = jiffies + msecs_to_jiffies(hrt_ctx->ma_period);
-	add_timer(timer);
+	mod_timer(t, jiffies + msecs_to_jiffies(hrt_ctx->ma_period));
 }
 
 void quadd_ma_start(struct quadd_hrt_ctx *hrt_ctx)
@@ -108,11 +114,12 @@ void quadd_ma_start(struct quadd_hrt_ctx *hrt_ctx)
 	hrt_ctx->vm_size_prev = 0;
 	hrt_ctx->rss_size_prev = 0;
 
-	init_timer(timer);
-	timer->function = timer_interrupt;
-	timer->expires = jiffies + msecs_to_jiffies(hrt_ctx->ma_period);
-	timer->data = (unsigned long)hrt_ctx;
-	add_timer(timer);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 14, 0))
+	timer_setup(timer, timer_interrupt, 0);
+#else
+	setup_timer(timer, timer_interrupt, (unsigned long)hrt_ctx);
+#endif
+	mod_timer(timer, jiffies + msecs_to_jiffies(hrt_ctx->ma_period));
 }
 
 void quadd_ma_stop(struct quadd_hrt_ctx *hrt_ctx)

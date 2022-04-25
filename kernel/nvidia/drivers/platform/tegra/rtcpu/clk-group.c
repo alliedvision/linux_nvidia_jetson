@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -136,10 +136,17 @@ struct camrtc_clk_group *camrtc_clk_group_get(
 		if (index >= nrates)
 			continue;
 
-		of_property_read_u32_index(np, "nvidia,clock-rates",
+		ret = of_property_read_u32_index(np, "nvidia,clock-rates",
 					2 * index, &grp->rates[index].slow);
-		of_property_read_u32_index(np, "nvidia,clock-rates",
+		if (ret)
+			dev_warn(dev, "expecting first index for \"%s\"\n",
+                        "nvidia,clock-rates");
+
+		ret = of_property_read_u32_index(np, "nvidia,clock-rates",
 					2 * index + 1, &grp->rates[index].fast);
+                if (ret)
+                        dev_warn(dev, "expecting second index for \"%s\"\n",
+                        "nvidia,clock-rates");
 	}
 
 	if (nparents == 2) {

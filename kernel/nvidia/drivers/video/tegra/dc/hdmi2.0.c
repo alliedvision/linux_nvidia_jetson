@@ -1,7 +1,7 @@
 /*
  * hdmi2.0.c: hdmi2.0 driver.
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -2850,7 +2850,7 @@ static int tegra_hdmi_controller_enable(struct tegra_hdmi *hdmi)
 		tegra_dc_enable_disp_ctrl_mode(dc);
 
 	/* enable hdcp only if valid edid */
-	if (hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid &&
+	if (hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid && hdmi->edid &&
 		(tegra_edid_get_monspecs(hdmi->edid, &hdmi->mon_spec) == 0))
 		tegra_nvhdcp_set_plug(hdmi->nvhdcp, true);
 
