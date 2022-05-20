@@ -253,7 +253,7 @@ then
 		fi
 	fi
 
-	if proceed && [ ! -f "$PATH_DOWNLOADS_GCC/$FILE_GCC_64" ] && [ ! -d "$PATH_DOWNLOADS_DTB" ]
+	if proceed && create_directory $PATH_DOWNLOADS_GCC && [ ! -f "$PATH_DOWNLOADS_GCC/$FILE_GCC_64" ] && [ ! -d "$PATH_DOWNLOADS_DTB" ]
 	then
 		if ! wget "$DOWNLOAD_URL_GCC" -O "$PATH_DOWNLOADS_GCC/$FILE_GCC_64"
 		then
