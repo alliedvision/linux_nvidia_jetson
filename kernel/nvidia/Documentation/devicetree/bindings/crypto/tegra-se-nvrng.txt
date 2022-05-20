@@ -1,0 +1,15 @@
+TEGRA SE NVRNG Error Handling Module
+
+Required properties :
+ - compatible : Must contain "nvidia,tegra234-se-nvrng".
+ - interrupts : Exactly one interrupt specifier.
+
+Example:
+	se: se_ahb@3ae0000 {
+		compatible = "nvidia,tegra234-se-nvrng";
+		reg = <0x0 0x03ae0000 0x0 0x10000>;
+		interrupts = <0 284 0x04>;
+		clocks = <&bpmp_clks TEGRA234_CLK_SE>;
+		clock-names = "se";
+		status = "disabled";
+	};

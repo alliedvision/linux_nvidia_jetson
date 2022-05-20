@@ -1,0 +1,83 @@
+From 614d6ea3d541eeffd0b06f85246337c071beaf36 Mon Sep 17 00:00:00 2001
+From: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Date: Fri, 28 May 2021 22:34:51 +0530
+Subject: [PATCH] bpmp: changes to fix sleep in atomic context.
+
+This patch fixes below crash where we are using API which
+might sleep in atomic context leading to below callstack.
+
+[1.074070] BUG: sleeping function called from invalid context at
+/dvs/git/dirty/git-master_modular/out/
+aarch64-arm64-tegra_defconfig-rt_patches-debug-extmod_ubuntu18.04_aarch64-extmod_linux_x86_64/
+kernel/src-rt/kernel-5.10/kernel/locking/rtmutex.c:969
+[1.074084] in_atomic(): 0, irqs_disabled(): 128, non_block: 0, pid: 1, name: swapper/0
+[1.074092] CPU: 4 PID: 1 Comm: swapper/0 Not tainted 5.10.27-rt36-tegra #1
+[1.074101] Hardware name: e3550_t194a (DT)
+[1.074105] Call trace:
+[1.074107]  dump_backtrace+0x0/0x1e8
+[1.074123]  show_stack+0x2c/0x38
+[1.074158]  dump_stack+0xe0/0x140
+[1.074169]  ___might_sleep+0xf8/0x138
+[1.074179]  rt_spin_lock+0x2c/0x48
+[1.074187]  tegra_bpmp_transfer_atomic+0x7c/0x268
+[1.074197]  tegra_bpmp_probe+0x278/0x468
+[1.074204]  platform_drv_probe+0x58/0xa8
+[1.074214]  really_probe+0x2a8/0x4f8
+[1.074221]  driver_probe_device+0xf4/0x160
+[1.074228]  device_driver_attach+0x74/0x98
+[1.074236]  __driver_attach+0xc0/0x170
+[1.074243]  bus_for_each_dev+0x84/0xd8
+[1.074249]  driver_attach+0x30/0x40
+[1.074255]  bus_add_driver+0x16c/0x250
+[1.074261]  driver_register+0x64/0x110
+[1.074268]  __platform_driver_register+0x60/0x70
+[1.074276]  tegra_bpmp_driver_init+0x20/0x28
+[1.074286]  do_one_initcall+0x54/0x318
+[1.074293]  kernel_init_freeable+0x22c/0x280
+[1.074304]  kernel_init+0x18/0x118
+[1.074311]  ret_from_fork+0x10/0x18
+
+JIRA ESLC-5885
+
+Signed-off-by: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Change-Id: I6f8d4ea9d2392eb1c04d389c1a865e119b215591
+---
+ drivers/firmware/tegra/bpmp.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/firmware/tegra/bpmp.c b/drivers/firmware/tegra/bpmp.c
+index 669bba6..dc4cf7c 100644
+--- a/drivers/firmware/tegra/bpmp.c
++++ b/drivers/firmware/tegra/bpmp.c
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
++ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+  */
+ 
+ #include <linux/clk/tegra.h>
+@@ -546,7 +546,6 @@ static int tegra_bpmp_ping(struct tegra_bpmp *bpmp)
+ 	struct mrq_ping_response response;
+ 	struct mrq_ping_request request;
+ 	struct tegra_bpmp_message msg;
+-	unsigned long flags;
+ 	ktime_t start, end;
+ 	int err;
+ 
+@@ -562,11 +561,9 @@ static int tegra_bpmp_ping(struct tegra_bpmp *bpmp)
+ 	msg.rx.data = &response;
+ 	msg.rx.size = sizeof(response);
+ 
+-	local_irq_save(flags);
+ 	start = ktime_get();
+-	err = tegra_bpmp_transfer_atomic(bpmp, &msg);
++	err = tegra_bpmp_transfer(bpmp, &msg);
+ 	end = ktime_get();
+-	local_irq_restore(flags);
+ 
+ 	if (!err)
+ 		dev_dbg(bpmp->dev,
+-- 
+2.7.4
+

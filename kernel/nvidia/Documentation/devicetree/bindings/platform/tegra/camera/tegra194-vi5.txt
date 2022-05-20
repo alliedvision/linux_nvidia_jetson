@@ -1,0 +1,124 @@
+NVIDIA Tegra Xavier (T19x) VI5 bindings
+
+Tegra VI5 (Video Input, version 5) is a pixel pipeline that receives packetized
+data from the Tegra NVCSI and SLVS-EC units, and outputs to frame buffers in
+memory for ISP5 and other clients. Functional implementation of the APIs is
+located in the Camera RTCPU firmware.
+
+Pre-boot hardware auto-detection is peformed by the NVIDIA Tegra plugin-manager
+for supported devices; if present, the attached camera board's Device Tree
+configuration overlays additional fields for assembling a complete system
+stream/channel graph for all camera sensor(s).
+
+Required properties:
+	- compatible: Should be "nvidia,tegra194-vi".
+	- reg: Register address space (MMIO).
+	- resets: All VI and MIPICAL resets.
+	- reset-names: Names of the above resets.
+	- clocks: All VI, NVCSI and MIPICAL clocks.
+	- clock-names: Names of the above clocks.
+	- power-domains: Power domain group, should be
+		"TEGRA194_POWER_DOMAIN_VE".
+	- nvidia,vi-falcon-device: VI5 Falcon device, should be "vi_thi".
+	- iommus: VI5 Stream ID, should be "TEGRA_SID_VI".
+	- iso-smmu: Isochronous SMMU, should be set.
+	- non-coherent: Non-coherent DMA, should be set.
+
+	-- Camera Board Overlay --
+	- num-channels: Total number of VI channels, usually equal to number of
+		sensors (incl. SERDES-attached ones). Certain sensors supporting WDR/DOL
+		modes may simultaneously utilize more than one VI channel.
+
+	-- Port (ports) --
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Ports (port@PQ) --
+	- reg: Channel/stream index, same as <PQ>.
+
+	-- Endpoint (endpoint) --
+	- vc-id: Virtual channel ID; {0-15}, omit or set to 0 if not using SERDES
+		setup.
+	- port-index: NVCSI port index; {0-7}.
+	- bus-width: Number of D-Phy or C-Phy lanes.
+	- remote-endpoint: Label to NVCSI node.
+
+Example:
+
+	vi: vi@15c10000 {
+		compatible = "nvidia,tegra194-vi";
+
+		reg = <0x0 0x15c10000 0x0 0x00230000>,
+			<0x0 0x15f00000 0x0 0x00100000>;
+		resets = <&bpmp_resets TEGRA194_RESET_VI>,
+			<&bpmp_resets TEGRA194_RESET_TSCTNVI>,
+			<&bpmp_resets TEGRA194_RESET_MIPI_CAL>;
+		reset-names = "vi", "tsctnvi", "mipi_cal";
+		clocks = <&bpmp_clks TEGRA194_CLK_VI>,
+			<&bpmp_clks TEGRA194_CLK_VI_CONST>,
+			<&bpmp_clks TEGRA194_CLK_NVCSI>,
+			<&bpmp_clks TEGRA194_CLK_NVCSILP>,
+			<&bpmp_clks TEGRA194_CLK_MIPI_CAL>,
+			<&bpmp_clks TEGRA194_CLK_UART_FST_MIPI_CAL>;
+		clock-names = "vi", "vi-const", "nvcsi", "nvcsilp",
+			"mipi_cal", "uart_fs_mipi_cal";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_VE>;
+
+		nvidia,vi-falcon-device = <&vi_thi>;
+
+		iommus = <&smmu TEGRA_SID_VI>;
+		iso-smmu;
+		non-coherent;
+	};
+
+	/* Camera board-specific config overlay */
+	vi@15c10000 {
+		num-channels = <2>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				imx390_vi_in0: endpoint {
+					vc-id = <0>;
+					port-index = <0>;
+					bus-width = <2>;
+					remote-endpoint = <&imx390_csi_out0>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				imx390_vi_in1: endpoint {
+					vc-id = <1>;
+					port-index = <0>;
+					bus-width = <2>;
+					remote-endpoint = <&imx390_csi_out1>;
+				};
+			};
+		};
+	};
+
+== VI5 Falcon unit ==
+
+The VI5 Falcon is a microcontroller for the VI5 unit. THI is the Tegra Host
+Interface.
+
+Required properties:
+	- compatible: Should be "nvidia,nvidia,tegra194-vi-thi".
+	- reg: Register address space (MMIO).
+
+Optional properties:
+	- clocks: All VI clocks.
+	- clock-names: Names of the above clocks.
+	- power-domains: Power domain group, should be "TEGRA194_POWER_DOMAIN_VE".
+
+Example:
+
+	vi_thi: vi-thi@15f00000 {
+		compatible = "nvidia,tegra194-vi-thi";
+
+		clocks = <&bpmp_clks TEGRA194_CLK_VI>,
+				<&bpmp_clks TEGRA194_CLK_VI_CONST>;
+		clock-names = "vi", "vi-const";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_VE>;
+	};

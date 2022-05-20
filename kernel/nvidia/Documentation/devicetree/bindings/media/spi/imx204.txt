@@ -1,0 +1,112 @@
+Sony IMX204 CMOS Image Sensor, NVIDIA TCF driver bindings
+
+The Sony IMX204 is a 20.68 MP CMOS colour image sensor; the following Device
+Tree bindings are for the NVIDIA Tegra Camera Framework (TCF) driver, for use on
+embedded NVIDIA Tegra SOC platforms.
+
+Camera-board specific overlays are applied by the NVIDIA Tegra plugin-manager
+pre-boot, they define the physical regulator and GPIO connections which differ
+by the Jetson board and chip generation, and the camera daughter board revision.
+
+Required properties:
+	- compatible: Should be "sony,imx204".
+	- sensor_model: Name of sensor, should be "imx204".
+	- reg: Sensor SPI chip select, should be '0'.
+	- modeXY: Please see tegra-camera-framework.txt for DT bindings.
+
+	- avdd-reg: Name of analog power regulator.
+	- vana-supply: Analog power source (2.80 V).
+	- iovdd-reg: Name of interface power regulator.
+	- vif-supply: Interface power source (1.80 V).
+	- dvdd-reg: Name of digital power regulator.
+	- vdig-supply: Digital power source (1.20 V).
+
+	- spi-max-frequency: Speed of the SPI bus for control programming [Hz].
+	- clocks: All clocks from the Tegra SoC used to drive sensor.
+	- clock-names: Names of the above clocks.
+	- mclk: Name of the MIPI clock (aka. INCK) driven from the Tegra SOC.
+	- clock-frequency: Frequency of the mclk source [Hz].
+	- reset-gpios: GPIO(s) used to ouput reset/enable signal.
+	- pwdn-gpios: GPIO(s) used to enable/disable sensor power.
+
+	- focus_macro: Focus macro distance.
+	- focus_infinity: Focus distance at infinity.
+	- focus_max_slew_rate: Focuser maximum slew rate.
+	- min_aperture = Minimum aperture.
+	- max_aperture = Maximum aperture.
+	- min_aperture_fnumber: Minimum aperture f-number (x1000).
+	- max_aperture_fnumber: Maximum aperture f-number (x1000).
+	- aperture_max_slew_rate: Maximum aperture slew rate.
+	- fnumber_map: F-number (x1000) to focuser motor position LUT.
+
+Optional properties:
+	- physical_w: Horizontal width of active surface [mm].
+	- physical_h: Vertical height of active surface [mm].
+
+	- has_eeprom: Property is present if there is a sensor-external EEPROM.
+	- fuse_id_start_addr: Sensor-internal fuse base I2C address.
+
+	- use_sensor_mode_id: Whether to enable use of the V4L2
+		CID_SENSOR_MODE_ID control, which enables explicit sensor mode
+		enumeration and selection. (Default: false)
+
+	- delayed_gain: Whether gain settings should be offset by one frame to
+		be in sync w/ exposure settings (takes effect on n+2 frame).
+		 (Default: false)
+	- use_decibel_gain: Whether to convert gain to dB units before passing
+		to driver. (Default: false)
+	- post_crop_frame_drop: Number of frames to silently discard following
+		application of crop settings, as the initial ones may be
+		corrupted. (Default: 0)
+	- limit_analog_gain: Enable as a WAR to prevent banding for the IMX185
+		sensor. (Default: false)
+
+	- nvidia,gmsl-ser-device: MIPI CSI-2 serializer device node.
+	- nvidia,gmsl-dser-device: MIPI CSI-2 deserializer device node.
+
+Deprecated properties:
+	- devnode: Name of V4L2 character device in filesystem, this property is
+		now deprecated, the Tegra Camera Framework enumerates them
+		automatically.
+	- dovdd-supply: Digital I/O power source (1.80 V), should use vif-supply
+		for new drivers.
+
+Example:
+
+	imx204@0 {
+		compatible = "sony,imx204";
+		reg = <0>;
+		spi-max-frequency = <12000000>;
+
+		/* Physical dimensions of sensor */
+		physical_w = "4.713";
+		physical_h = "3.494";
+
+		/* enable delay gain due to no hardware group hold support */
+		delayed_gain = "true";
+
+		/* Define any required hw resources needed by driver */
+		/* ie, clocks, io pins, power sources */
+		/* mclk = "cam_mclk1"; Not in use. */
+		devname = "imx204";
+
+		/* Sensor Model */
+		sensor_model = "imx204";
+
+		focus_macro = "100";
+		focus_infinity = "208";
+		focus_max_slew_rate = "180";
+		min_aperture = "2";
+		max_aperture = "90";
+		min_aperture_fnumber = "2000";
+		max_aperture_fnumber = "22000";
+		aperture_max_slew_rate = "180";
+		/* <FNumber*1000 motor-pos> */
+		fnumber_map = <2000 2>, <2800 34>, <4000 49>, <5600 59>,
+			<8000 67>, <11000 71>, <16000 75>, <22000 78>;
+	};
+
+	/* Camera board-specific config overlay */
+	imx204@0 {
+		reset-gpios = <&tegra_main_gpio SLVS_CAM0_RST_L GPIO_ACTIVE_HIGH>;
+	};

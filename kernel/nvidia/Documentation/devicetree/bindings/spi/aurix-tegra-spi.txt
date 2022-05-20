@@ -1,0 +1,38 @@
+SPI Protocol Driver for Aurix-Tegra communication
+
+This is a SPI protocol driver that is used to provide protocol based
+communicaton between Aurix and Tegra
+
+Required properties :
+- compatible : "aurix-tegra-spi"
+- spi-max-frequency : Maximum SPI clocking speed to be used for communication
+
+
+Example:
+
+        spi@c260000 {
+                compatible = "nvidia,tegra186-spi-slave";
+                reg = <0x0 0xc260000 0x0 0x10000>;
+                interrupts = <0x0 0x25 0x4>;
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+                iommus = <0x6 0x20>;
+                dma-coherent;
+                dmas = <0x11 0x10 0x11 0x10>;
+                dma-names = "rx", "tx";
+                spi-max-frequency = <65000000>;
+                nvidia,clk-parents = "pll_p", "osc";
+                clocks = <0x4 0x88 0x4 0x5e 0x4 0x5b>;
+                clock-names = "spi", "pll_p", "osc";
+                resets = <0x5 0x5c>;
+                reset-names = "spi";
+                status = "okay";
+                linux,phandle = <0x8b>;
+                phandle = <0x8b>;
+
+                spi@0 {
+                        compatible = "aurix-tegra-spi";
+                        spi-max-frequency = <10000000>;
+                };
+        };
+};

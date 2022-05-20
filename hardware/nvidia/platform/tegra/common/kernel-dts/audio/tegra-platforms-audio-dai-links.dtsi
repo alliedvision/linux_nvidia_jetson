@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "tegra-platforms-audio-simple-bus.dtsi"
+#include "tegra-platforms-audio-enable.dtsi"
+/ {
+	aconnect@2a41000 {
+		adsp_audio {
+			compr-ops = <1>;
+			num-plugin = <6>;
+			plugin-info-1 {
+				plugin-name = "mp3-dec1";
+				firmware-name = "nvmp3dec.elf";
+				widget-name = "MP3-DEC1";
+			};
+			plugin-info-2 {
+				plugin-name = "spkprot";
+				firmware-name = "nvspkprot.elf";
+				widget-name = "SPKPROT-SW";
+			};
+			plugin-info-3 {
+				plugin-name = "src";
+				firmware-name = "nvsrc.elf";
+				widget-name = "SRC";
+			};
+			plugin-info-4 {
+				plugin-name = "aac-dec1";
+				firmware-name = "nvaacdec.elf";
+				widget-name = "AAC-DEC1";
+			};
+			plugin-info-5 {
+				plugin-name = "aec";
+				firmware-name = "nvoice.elf";
+				widget-name = "AEC";
+			};
+			plugin-info-6 {
+				plugin-name = "wire";
+				firmware-name = "libnvwirefx.elf";
+				widget-name = "WIRE";
+			};
+		};
+	};
+};

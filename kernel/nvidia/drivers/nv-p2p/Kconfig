@@ -1,0 +1,9 @@
+#
+#
+#
+
+menuconfig TEGRA_RDMA
+	tristate "TEGRA_RDMA_DRIVER"
+	default n
+	help
+	    If in doubt, say N.

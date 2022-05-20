@@ -1,0 +1,166 @@
+
+Linux driver for OAK revision A0/B0 (For Linux kernel 5)
+--------------------------------------------------------
+
+The purpose of this linux driver is to provide basic functionality for network data
+exchange between the common Linux protocol implementation and up to 10Gbit Ethernet
+networks.
+
+Additional functionality is provided by the driver to the user space, that allows
+control of the particular chip components e.g.: Unimac, ESU and Gicu.
+
+This functional enhancement is not subject of a common Linux driver but is primarily
+used to control and test the operation modes of the test/board in a way that is not
+directly supported by the standard network protocoll. See also the 'cmdtool' source.
+
+Compilation:
+------------
+
+1) On your target Linux system execute: sudo su
+2) Then change to any directory and extract the complete source from the source file:
+   tar -xvf ./drv-src.tar
+3) The driver supports currently the two known Marvell PCIe device vendor IDs:
+
+   vendor: 0x11AB device: 0x0000	(undefined)
+   vendor: 0x11AB device: 0xABCD
+
+   Execute: lspci -v -d 11ab: -vv
+   
+   If the device id is not listed above you do not need to change the ID in the system
+   but you just can add the alternate device ID to the driver source.
+
+   With a source code editor:
+   Just copy line 36 in file oak.c (PCI_DEVICE(0x11AB, 0x0000), insert the new line
+   after the current one and change the device ID 0x0000 to the one listed in your
+   PCIe configuration space. 
+
+4) COMPILATION:
+
+   Now the driver source has to be compiled against the kernel in use, at least kernel
+   release 5.4.2.
+
+   # make -C /lib/modules/`uname -r`/build M=`pwd` modules
+
+   The command line above locates your current kernel version (uname -r) and builds a new
+   kernel object (oak_pci.ko) in the current directory. Alternatively you can change the
+   KDIR line in the file ./m accordingly and execute: ./m
+   
+   If there is any compilation error please report to Marvell.  
+
+   Please note that the driver does not support MSI.
+   For the purpose of parallel processing of interrupts only MSIX is supported by the driver
+   and must be supported (enabled) by the linux kernel. This should be the default.
+
+5) LOADING ...:
+   Once you have successfully generated the kernel object you may load it manually to
+   the kernel environment from your working directory. This is done with the 'insmod' system
+   tool.
+
+   When loading the kernel object you should define a debug level. This generates log messages
+   in the system log file that can be used to trace the driver activity.
+
+   To do this start the background syslog monitoring in a separate command shell:
+   # tail -f  /var/log/syslog &
+   Alternatively you can also use the dmesg (-c / clear) command.
+
+   Then load the driver with debug level 3 (bit 0 and 1):
+
+   # insmod oak_pci.ko debug=0x00 chan=10 txs=32 rxs=32 rto=100 mhdr=0
+
+   Debug levels comply to the system defined values e.g.:
+
+   NETIF_MSG_DRV           = 0x0001,
+   NETIF_MSG_PROBE         = 0x0002,
+   NETIF_MSG_LINK          = 0x0004,
+   NETIF_MSG_TIMER         = 0x0008,
+   NETIF_MSG_IFDOWN        = 0x0010,
+   NETIF_MSG_IFUP          = 0x0020,
+   NETIF_MSG_RX_ERR        = 0x0040,
+   NETIF_MSG_TX_ERR        = 0x0080,
+   NETIF_MSG_TX_QUEUED     = 0x0100,
+   NETIF_MSG_INTR          = 0x0200,
+   NETIF_MSG_TX_DONE       = 0x0400,
+   NETIF_MSG_RX_STATUS     = 0x0800,
+   NETIF_MSG_PKTDATA       = 0x1000,
+   NETIF_MSG_HW            = 0x2000,
+   NETIF_MSG_WOL           = 0x4000,
+
+6) PARAMETERS:
+   Additional load parameter as used in 5) above:
+   chan=10  This load parameter is used to limit the internal number of transmit/receive
+            descriptor pairs of the PCIe Unimac at port 11.
+	    The default is 10 and may be changed to a value between 1...10 e.g.
+            for better debugging. Note that not all channels will be in use by the
+            Linux protocol stack.
+   txs=32   This parameter defines the maximal number of descriptor entries on the
+            transmit side, that is the number of TX packets that can be queued to 
+            each of the configured descriptors.
+   rxs=32   The same as txs but applies to the receive descriptors.
+   rto=100  Receive timeout: the timeout before a receive interrupt is executed on any
+            receive descriptor ring in case there is low traffic and packet delay time
+            in the ring shall be reduced (to be verfied with icmp response time/ping).
+            The value is given in micro seconds.
+   mhdr=1   Instructs the ESU to create the Marvell-header status per rx packet. 
+            This may be required for some Unimac receive mappings that require packet
+	    flow information e.g. source port id .... 
+	    There is no need to change it to zero.
+
+7) Once the kernel object has been loaded successfully the ifconfig -a command should
+   display a new network interface.
+
+   Up to this level of operation the driver did not yet fully access the Unimac and other
+   parts. It just checked the existing PCIe device and  'attached' to the kernel's networking
+   interface and is still waiting to be started. 
+
+8) CONFIGURATION:
+   When you assign an IP address to the interface e.g. #ifconfig ethX 1.1.1.1 the driver gets
+   the start command for complete initialization of the hardware. This may be the most critical
+   situation for any problems. After this the driver should be able to send and receive packets
+   and process interrupt handling. It's now fully operational.
+
+   In this state you may use the cmdtool (test tool) as shown in 11) below.
+
+9) STOP:
+   ifconfig ethX stops activities on the hardware again. The driver is now disconnected from
+   the network and not fully operational.
+
+10) UNLOAD: Finally you may unload the driver with: # rmmod oak_pci
+
+11) CMDTOOL (comamnd line tool, may be packaged sperately)
+
+   In the driver source directory extract the file cli-src.tar .
+   This creates a subdirectory cmdtool in the current directory.
+
+   Change to the directory: # cd cmdtool
+   and just execute: # make
+
+   This generates a binary: cli
+
+   Just execute for help: # ./cli
+
+   Syntax error, use: ./cli [ help ] <command> ... 
+   commands : help mac esu gicu pcie gen exec rxmap irq showc dump set ATU VTU TCAM ESTAT ...
+
+   This shows a list of commands that can be executed on top of the driver's interface, that has to be specified
+   with the argument -if ethX
+
+   Each command can be shown in detail with # ./cli help <cmd>
+
+   The following most command groups can be used:
+
+   mac - write or read (dump) registers of the Unimac at port 11.
+   esu - write or read (dump) registers of the ESU.
+   gicu- write or read (dump) registers of the Gicu.
+
+   irq - displays the interrupt mapping scheme of MSIX interrupts in use for each particular tx/tx channel.
+   showc - display tx or rx descriptor information for a specific range of descritors but the maximal number
+         that have been configured with rxs/txs parameter. This displays the byte count of each frame in a 
+         tx/rx descriptor , timestamp information, buffer DMA addresses, Vlan tags, checksum info and the 
+         HW read/write pointers of the Unimac. This command may be used to trace round robin activities on 
+         a particular descriptor ring of the Unimac.
+
+   ATU VTU TCAM ESTAT
+   Commands for ATU VTU operations or TCAM operations or ESU port statistics.
+
+   rxmap - setup a Unimac rx-mapping on a specific queue[0-9] on a rx descripror/ring.
+   dump - hexdump of binary file.

@@ -1,0 +1,15 @@
+NVIDIA Denver hardwood debug driver
+===================================
+
+This driver is used for the Nvidia-internal Denver CPU debug tool.
+It reserves a single interrupt.
+
+Required properties:
+	- compatible : "nvidia,denver-hardwood"
+	- interrupts : Must contain a single interrupt in sync with MTS
+
+Example:
+	hardwood {
+		compatible = "nvidia,denver-hardwood";
+		interrupts = <0 24 0x4>;
+	};

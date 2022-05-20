@@ -1,0 +1,174 @@
+/ {
+	mc_sid@2c00000 {
+		compatible = "nvidia,tegra186-mc";
+		reg = <0x0 0x02c00000 0x0 0x000b0000>;
+	};
+
+	i2c@3160000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@c240000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@3180000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@3190000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@31b0000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@31c0000 {
+		/delete-node/ prod-settings;
+	};
+
+	i2c@c250000 {
+		/delete-node/ prod-settings;
+	};
+	i2c@31e0000 {
+		/delete-node/ prod-settings;
+	};
+
+	bpmp {
+		i2c {
+			spmic@3c {
+				interrupt-parent = <&intc>;
+				interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+	};
+
+	/* Upstream kernel does not implement pinctrl driver (pinmux)
+           as the pinmuxing is done in MB1 */
+	gpio@2200000 {
+		/delete-property/ gpio-ranges;
+	};
+
+	gpio@c2f0000 {
+		/delete-property/ gpio-ranges;
+	};
+
+	hda@3510000 {
+		power-domains = <&bpmp TEGRA186_POWER_DOMAIN_DISP>;
+	};
+
+	ethernet@2490000 {
+		compatible = "nvidia,tegra186-eqos",
+			     "snps,dwc-qos-ethernet-4.10";
+		reg = <0x0 0x02490000 0x0 0x10000>;
+		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>, /* common */
+			     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>, /* power */
+			     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>, /* rx0 */
+			     <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>, /* tx0 */
+			     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>, /* rx1 */
+			     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>, /* tx1 */
+			     <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>, /* rx2 */
+			     <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>, /* tx2 */
+			     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>, /* rx3 */
+			     <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>; /* tx3 */
+		clocks = <&bpmp TEGRA186_CLK_AXI_CBB>,
+			 <&bpmp TEGRA186_CLK_EQOS_AXI>,
+			 <&bpmp TEGRA186_CLK_EQOS_RX>,
+			 <&bpmp TEGRA186_CLK_EQOS_TX>,
+			 <&bpmp TEGRA186_CLK_EQOS_PTP_REF>;
+		clock-names = "master_bus", "slave_bus", "rx", "tx", "ptp_ref";
+		resets = <&bpmp TEGRA186_RESET_EQOS>;
+		reset-names = "eqos";
+
+		snps,write-requests = <1>;
+		snps,read-requests = <3>;
+		snps,burst-map = <0x7>;
+		snps,txpbl = <32>;
+		snps,rxpbl = <8>;
+		status = "okay";
+
+		phy-reset-gpios = <&tegra_main_gpio TEGRA_MAIN_GPIO(M, 4) GPIO_ACTIVE_LOW>;
+		phy-handle = <&phy>;
+		phy-mode = "rgmii";
+
+		/delete-property/ pinctrl-names;
+		/delete-property/ pinctrl-0;
+		/delete-property/ pinctrl-1;
+
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy: phy@0 {
+				compatible = "ethernet-phy-ieee802.3-c22";
+				reg = <0x0>;
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA_MAIN_GPIO(M, 5) IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+	};
+
+	host1x@13e00000 {
+		reset-names = "host1x";
+		reg-names = "vm", "hypervisor";
+
+		/delete-node/ display-hub@15200000;
+		/delete-node/ sor;
+		/delete-node/ sor1;
+	};
+
+	plugin-manager {
+		fragement@6 {
+			override@7 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+					/delete-node/ sor;
+					/delete-node/ sor1;
+				};
+			};
+		};
+
+		fragment-e3320-a00@1 {
+			overrides@2 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+				};
+			};
+		};
+
+		fragment-e3320-a01@1 {
+			overrides@3 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+				};
+			};
+		};
+
+		fragment-e3320-a00@3 {
+			overrides@0 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+				};
+			};
+		};
+
+		fragment-e3320-dp {
+			override@0 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+					/delete-node/ sor;
+				};
+			};
+		};
+
+		fragment-e1824-a00@3 {
+			overrides@0 {
+				_overlay_ {
+					/delete-node/ display-hub@15200000;
+					/delete-node/ sor;
+				};
+			};
+		};
+	};
+};

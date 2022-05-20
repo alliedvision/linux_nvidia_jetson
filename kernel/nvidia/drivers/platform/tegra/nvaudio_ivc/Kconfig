@@ -1,0 +1,8 @@
+config TEGRA_VIRT_AUDIO_IVC
+	tristate "IVC client for Tegra virt audio"
+	depends on TEGRA_HV_MANAGER
+	help
+	  Say Y or M here if you want to add support for tegra virtual ivc communication
+	  for audio client. This ivc communication module is common for all virtualized
+	  tegra platforms. This is used by both pcm and control interfaces. This module
+	  uses hypervisor IVC APIs for communication with audio server.

@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include "dt-bindings/input/input.h"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	overlay-name = "Add P3737 A04 Overlay Support";
+	compatible = "nvidia,tegra23x";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			ids = ">=3737-0000-TS4","3737-0000-RC1";
+		};
+		__overlay__ {
+			i2c@c240000 {
+				ucsi_ccg@8 {
+					interrupt-parent = <&tegra_main_gpio>;
+					interrupts = <TEGRA234_MAIN_GPIO(Y, 4) IRQ_TYPE_LEVEL_LOW>;
+				};
+			};
+		};
+	};
+};
+

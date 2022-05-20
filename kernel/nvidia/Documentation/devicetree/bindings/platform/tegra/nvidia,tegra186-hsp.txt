@@ -1,0 +1,74 @@
+NVIDIA Tegra Hardware Synchronization Primitives (HSP)
+
+The HSP modules are used for the processors to share resources and communicate
+together. It provides a set of hardware synchronization primitives for
+interprocessor communication. So the interprocessor communication (IPC)
+protocols can use hardware synchronization primitives, when operating between
+two processors not in an SMP relationship.
+
+The HSP features supported are shared mailboxes and shared semaphores.
+Arbitrated semaphores and doorbells are not currently used.
+
+Required properties:
+- name : Should be hsp
+- compatible
+    Array of strings.
+    one of:
+    - "nvidia,tegra186-hsp"
+- reg : Offset and length of the register set for the device.
+- interrupt-names
+    Array of strings.
+    Contains a list of names for the interrupts described by the interrupt
+    property. May contain the following entries, in any order:
+    - "shared0" (for top0 or top1 hsp only)
+    - "shared1", "shared2", "shared3", "shared4"
+    - "shared5", "shared6", "shared7", "doorbell" (for top0 hsp only)
+    - "full0" ... "full7" (for pre-routed full mailbox interrupts only)
+    - "empty0" ... "empty7" (for pre-routed empty mailbox interrupts only)
+    Users of this binding MUST look up entries in the interrupt property
+    by name, using this interrupt-names property to do so.
+    For "sharedX", X refers to the HSP_INT_IE_<X> register used to route HSP
+    interrupts to a shared interrupt.
+    For "fullN" and "emptyN", N refers to the number of the shared mailbox or
+    register HSP_SHRD_MBOX_MBOX_<N>_SHRD_MBOX_0. Any "fullN" or "emptyN" can be
+    used with APE HSP, which have all HSP interrupts directly routed to APE GIC.
+    For other HSP blocks, the interrupt must be prerouted to a shared interrupt
+    with a corresponding bit set in HSP_INT_IE_<i> register.
+- interrupts
+    Array of interrupt specifiers.
+    Must contain one entry per entry in the interrupt-names property,
+    in a matching order.
+- #mbox-cells : Should be 2.
+- nvidia,mbox-ie : if present, use mailbox-specific IE register
+
+The mbox specifier of the "mboxes" property in the client node should
+contain two data cells. The first one should be the HSP type and the
+second one should be the ID of the mailbox that the client is going to
+use. The information about data cell contents can be found in the
+following file.
+
+- <dt-bindings/mailbox/tegra186-hsp.h>.
+
+Example:
+
+hsp_rce: tegra-hsp@b950000 {
+    compatible = "nvidia,tegra186-hsp";
+    reg = <0x0 0x0b950000 0x0 0x00090000>;
+    interrupts =    <0 TEGRA194_IRQ_RCE_HSP_SHARED_1 0x4>,
+            <0 TEGRA194_IRQ_RCE_HSP_SHARED_2 0x4>,
+            <0 TEGRA194_IRQ_RCE_HSP_SHARED_3 0x4>,
+            <0 TEGRA194_IRQ_RCE_HSP_SHARED_4 0x4>;
+    nvidia,mbox-ie;
+    #mbox-cells = <2>;
+    interrupt-names = "shared1", "shared2", "shared3", "shared4";
+};
+
+client {
+    ...
+    mboxes =
+        <&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(3)>,
+        <&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(0)>,
+        <&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(1)>,
+        <&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 0>;
+    mbox-names = "progress-rx", "vm-tx", "vm-rx", "vm-ss";
+};

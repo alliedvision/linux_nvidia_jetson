@@ -1,0 +1,12 @@
+Source: avt-nvidia-l4t-bootloader
+Maintainer: Allied Vision Technologies GmbH
+
+Package: avt-nvidia-l4t-bootloader
+Architecture: arm64
+Pre-Depends: nvidia-l4t-core (>> 34.1-0), nvidia-l4t-core (<< 34.2-0)
+Depends: nvidia-l4t-tools (= ${L4T_TOOLS_VERSION}), nvidia-l4t-init (>> 34.1-0), nvidia-l4t-init (<< 34.2-0)
+Conflicts: nvidia-l4t-bootloader
+Section: bootloader
+Priority: standard
+Homepage: http://developer.nvidia.com/jetson
+Description: NVIDIA Bootloader Package with Allied Vision ALVIUM CSI Drivers

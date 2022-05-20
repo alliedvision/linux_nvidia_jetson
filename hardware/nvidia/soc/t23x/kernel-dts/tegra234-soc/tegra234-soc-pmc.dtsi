@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra234-soc-pmc.dtsi: Tegra234 soc dtsi file for PMC.
+ */
+
+
+/ {
+	tegra_pmc: pmc@c360000 {
+		compatible = "nvidia,tegra234-pmc";
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		reg = <0x0 0x0c360000 0x0 0x10000>,
+		      <0x0 0x0c370000 0x0 0x10000>,
+		      <0x0 0x0c390000 0x0 0x10000>,
+		      <0x0 0x0c3a0000 0x0 0x10000>;
+		reg-names = "pmc", "wake", "scratch", "misc";
+
+		#interrupt-cells = <2>;
+		interrupt-controller;
+#else
+		reg = <0x0 0xC360000 0x0 0x400
+			0x0 0xC390000 0x0 0x2fff
+			0x0 0xC3a0000 0x0 0xfff>;
+#endif
+		#padcontroller-cells = <1>;
+		nvidia,restrict-voltage-switch;
+		pinctrl-names = "default";
+		pinctrl-0 = <&iopad_defaults>;
+		status = "disabled";
+		iopad_defaults: iopad-defaults {
+		};
+	};
+
+#if TEGRA_PMC_VERSION < DT_VERSION_2
+	tegra_aowake: pmc@c370000 {
+		compatible = "nvidia,tegra194-aowake";
+		reg = <0x0 0xc370000 0x0 0x600>;
+		status = "disabled";
+	};
+#endif
+
+};

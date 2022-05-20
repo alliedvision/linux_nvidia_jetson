@@ -1,0 +1,256 @@
+#include "tegrabl_carveout_id.h"
+#include "tegra234-mb1-bct-carveout-common.dtsi"
+
+/ {
+    misc {
+        enable_dram_page_blacklisting = <0x0>;
+        enable_vpr_resize = <0>;
+        disable_sc7 = <1>;
+        disable_fuse_visibility = <0>;
+        disable_mb2_glitch_protection = <0>;
+        carveout_alloc_direction = <1>;
+        enable_dram_error_injection = <0>;
+        enable_nvdec = <1>;
+        enable_tsec = <0>;
+        enable_tz_encryption = <0>;
+        enable_vpr_encryption = <0>;
+        enable_gsc_encryption = <0>;
+        disable_l2_tz_encryption_regeneration = <0>;
+        disable_gsc_encryption_regeneration = <0>;
+        disable_vpr_encryption_regeneration = <0>;
+        enable_permissive_ccplex_firewalls = <0>;
+        axi_ap_virtual_client = <1>;
+
+        tsc_controls {
+            tsc_locking_config = <0x119>;
+            tsc_locking_diff_configuration = <0x0>;
+            tsc_locking_ref_frequency_configuration = <0x0>;
+            tsc_locking_control = <0x1>;
+            tsc_locking_adjust_configuration = <0x0>;
+            tsc_locking_fast_adjust_configuration = <0x5b911>;
+            tsc_locking_adjust_delta_control = <0x67>;
+            tsc_capture_control_ptx = <0x0>;
+            tsc_capture_config_ptx = <0x13>;
+            tsc_stscrsr = <0x1>;
+            tsc_locking_adjust_num_control = <0x0>;
+        };
+
+        cpu {
+            ////////// cpu variables //////////
+            ccplex_platform_features = <0x0 0x00000000>;
+            cmu_misc_ctrl = <0x0>;
+            min_adc_fuse_rev = <0x1>;
+            cpu_vmon = <0x0087f001>; // vmon field in WP0 payload
+            num_clusters_2core_pair_lockstep = <0x0>;
+            num_clusters_1core_pair_lockstep = <0x0>;
+            cluster_misc_ctrl@0 {
+                value = <0x90>;
+            };
+            cluster_misc_ctrl@1 {
+                value = <0x90>;
+            };
+            cluster_misc_ctrl@2 {
+                value = <0x90>;
+            };
+            pllx_data {
+                pllx_refclk_khz = <0x9600>;
+                dsu_hpll_base = <0x40203401>;
+                dsu_hpll_misc_0 = <0x40480000>;
+                dsu_hpll_misc_1 = <0x0>;
+                dsu_hpll_misc_2 = <0x1f720f05>;
+                dsu_hpll_misc_3 = <0x4>;
+                dsu_hpll_misc_4 = <0x5cb0000>;
+                dsu_hpll_misc_5 = <0x0>;
+                dsu_hpll_misc_7 = <0x0>;
+                cpu_hpll_base = <0x40203401>;
+                cpu_hpll_misc_0 = <0x40480000>;
+                cpu_hpll_misc_1 = <0x0>;
+                cpu_hpll_misc_2 = <0x1f720f05>;
+                cpu_hpll_misc_3 = <0x4>;
+                cpu_hpll_misc_4 = <0x5cb0000>;
+                cpu_hpll_misc_5 = <0x0>;
+                cpu_hpll_misc_7 = <0x0>;
+            };
+            nafll_data@0 {
+                dsu_nafll_skp_coeff = <0xff2f0000>;
+                dsu_nafll_skp_ctrl = <0x25>;
+                dsu_nafll_coeff = <0xd9010003>;
+                dsu_nafll_cfg1 = <0x30000010>;
+                dsu_nafll_cfg2 = <0x30a0c0d>;
+                dsu_nafll_cfg3 = <0x0>;
+                dsu_nafll_ctrl1 = <0xc>;
+                dsu_nafll_ctrl2 = <0xf250000>;
+                cpu_nafll_skp_coeff = <0xff2f0000>;
+                cpu_nafll_skp_ctrl = <0x25>;
+                cpu_nafll_coeff = <0xd9010003>;
+                cpu_nafll_cfg1 = <0x30000010>;
+                cpu_nafll_cfg2 = <0x30a0c0d>;
+                cpu_nafll_cfg3 = <0x0>;
+                cpu_nafll_ctrl1 = <0xc>;
+                cpu_nafll_ctrl2 = <0xf250000>;
+            };
+            nafll_data@1 {
+                dsu_nafll_skp_coeff = <0xff2f0000>;
+                dsu_nafll_skp_ctrl = <0x25>;
+                dsu_nafll_coeff = <0xd9010003>;
+                dsu_nafll_cfg1 = <0x30000010>;
+                dsu_nafll_cfg2 = <0x30a0c0d>;
+                dsu_nafll_cfg3 = <0x0>;
+                dsu_nafll_ctrl1 = <0xc>;
+                dsu_nafll_ctrl2 = <0xf250000>;
+                cpu_nafll_skp_coeff = <0xff2f0000>;
+                cpu_nafll_skp_ctrl = <0x25>;
+                cpu_nafll_coeff = <0xd9010003>;
+                cpu_nafll_cfg1 = <0x30000010>;
+                cpu_nafll_cfg2 = <0x30a0c0d>;
+                cpu_nafll_cfg3 = <0x0>;
+                cpu_nafll_ctrl1 = <0xc>;
+                cpu_nafll_ctrl2 = <0xf250000>;
+            };
+            nafll_data@2 {
+                dsu_nafll_skp_coeff = <0xff2f0000>;
+                dsu_nafll_skp_ctrl = <0x25>;
+                dsu_nafll_coeff = <0xd9010003>;
+                dsu_nafll_cfg1 = <0x30000010>;
+                dsu_nafll_cfg2 = <0x30a0c0d>;
+                dsu_nafll_cfg3 = <0x0>;
+                dsu_nafll_ctrl1 = <0xc>;
+                dsu_nafll_ctrl2 = <0xf250000>;
+                cpu_nafll_skp_coeff = <0xff2f0000>;
+                cpu_nafll_skp_ctrl = <0x25>;
+                cpu_nafll_coeff = <0xd9010003>;
+                cpu_nafll_cfg1 = <0x30000010>;
+                cpu_nafll_cfg2 = <0x30a0c0d>;
+                cpu_nafll_cfg3 = <0x0>;
+                cpu_nafll_ctrl1 = <0xc>;
+                cpu_nafll_ctrl2 = <0xf250000>;
+            };
+
+            clock_sel_data {
+                cpu_burst_policy = <0xf>;
+                dsu_burst_policy = <0xf>;
+            };
+            avfs_data {
+                avfs_refclk_khz = <0x9600>;
+                cpu_lut_sw_freq_req = <0x4ec>;
+                dsu_lut_sw_freq_req = <0x4ec>;
+                scratch_freq_defaults@0{
+                    value = <0x9d>;
+                };
+                scratch_freq_defaults@1{
+                    value = <0x9d>;
+                };
+                scratch_freq_defaults@2{
+                    value = <0x9d>;
+                };
+            };
+        };
+
+        //////// Clock data ///////////
+        clock {
+            bpmp_cpu_nic_clk_divisor = <0>;
+            bpmp_apb_clk_divisor = <0>;
+            axi_cbb_clk_divisor = <0>;
+            tz_se_clk_divisor = <1>;
+            aon_apb_clk_divisor = <0>;
+            switch_cbb_clk_plc2 = <0>;
+            switch_bpmp_clk_nafll = <0>;
+            switch_scfclk_to_pllhub = <0>;
+            bpmp_vmon_enable = <0>;
+            bpmp_nafll {
+               coeff_mdiv = <0>;
+               coeff_pdev = <0>;
+               coeff_fll_frug_fast = <0>;
+               coeff_fll_frug_main = <0>;
+               cfg2_fll_init = <0>;
+               cfg2_fll_ctrl_ldmem = <0>;
+               cfg2_fll_switch_ldmem = <0>;
+               lut_sw_freq_req_sw_override_ndiv = <0>;
+               lut_sw_freq_req_ndiv = <0>;
+               cfg1_vfgain = <0>;
+            };
+        };
+
+        ///////// Debug data //////////
+        debug {
+            uart_instance = <2>;
+            wdt_period_secs = <0>;
+            log_level = <4>;
+            uart8_usb_port_sel = <0>;
+            usb2_nvjtag = <0>;
+            swd_usb_port_sel = <0>;
+            switch_bootchain = <0>;
+            reset_to_recovery = <1>;
+            enable_wdt = <0>;
+            disable_wdt_globally = <0>;
+        };
+
+        ///////// FMON ////////////
+        fmon {
+            osc_threshold_low = <0x30E>; // 16 bit wide
+            osc_threshold_high = <0x375>; // 16 bit wide
+            pmc_threshold_low = <0x51B>; // 16 bit wide
+            pmc_threshold_high = <0x6FF>; // 16 bit wide
+            fsi_threshold_low = <0x25D>; // 16 bit wide
+            fsi_threshold_high = <0x29D>; // 16 bit wide
+        };
+
+        ///////// VMON ///////////
+        vmon {
+            vrefo_calib_override = <0>;
+            vrefo_min_rev_threshold = <1>;
+            vrefo_calib_val = <0>;
+            min_adc_fuse_rev = <1>;
+            vdd_soc {
+                int { // SKU = 0
+                    vmin_threshold = <0x1D>;
+                    vmax_threshold = <0x69>;
+                };
+                ta990sa { // SKU = 0x90
+                    vmin_threshold = <0x1D>;
+                    vmax_threshold = <0x69>;
+                };
+                ta970sa { // SKU = 0x97
+                    vmin_threshold = <0x1D>;
+                    vmax_threshold = <0x69>;
+                };
+                te990m { // SKU = 0xD0
+                    vmin_threshold = <0x17>;
+                    vmax_threshold = <0x76>;
+                };
+                te980m { // SKU = 0xD3
+                    vmin_threshold = <0x17>;
+                    vmax_threshold = <0x76>;
+                };
+            };
+            vdd_cpu {
+                int {  // SKU = 0
+                    vmin_threshold = <0x17>;
+                    vmax_threshold = <0x6D>;
+                };
+                ta990sa { // SKU = 0x90
+                    vmin_threshold = <0x17>;
+                    vmax_threshold = <0x6D>;
+                };
+                ta970sa { // SKU = 0x97
+                    vmin_threshold = <0x17>;
+                    vmax_threshold = <0x6D>;
+                };
+                te990m { // SKU = 0xD0
+                    vmin_threshold = <0x14>;
+                    vmax_threshold = <0x7B>;
+                };
+                te980m { // SKU = 0xD3
+                    vmin_threshold = <0x14>;
+                    vmax_threshold = <0x7B>;
+                };
+            };
+        };
+
+        ///////// SOCTHERM ///////////
+        soctherm {
+            max_chip_limit = <0x73>;
+            min_chip_limit = <0xFFFFFFE2>;
+        };
+    };
+};

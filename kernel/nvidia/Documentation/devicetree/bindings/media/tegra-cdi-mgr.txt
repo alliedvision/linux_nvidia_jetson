@@ -1,0 +1,52 @@
+NVIDIA tegra cdi mgr driver
+
+This file documents the properties used by the cdi-mgr driver in tegra platform
+
+Required properties:
+- compatible : Should be "nvidia,cdi-mgr"
+- i2c-bus : Should contain the i2c bus number that the device is attached to tegra for controlling the cdi
+- csi-port : Should contain the csi port number that the device is attached to tegra for image streaming
+
+Optional properties:
+- pwdn-gpios : Should contain the list for gpios to control power in order of aggregator and camera instances
+- pwr-items : Map power items to the GPIO item specified in the pwdn-gpios list, starting from 0. For example,
+              pwr-item 0 is for the deserializer, while pwr-item 1, 2, 3, 4 are for links 0, 1, 2, 3
+- default-power-on : If this property is used, while probing the device, pwdn-gpios are powered on
+- runtime-pwrctrl-off : If this property is used, power control gpios keep the same status and they're
+                        never changed.
+- interrupt-parent : Should contain interrupt parent for gpio interrupt
+- interrupts : Should contain the gpio number that is connected to status pin in cdi device
+- pwms : PWM property to point to the PWM chip, chip-relative PWM number and period in nano seconds
+- ext-pwr-ctrl-deserializer : Deserializer power is controlled externally
+- ext-pwr-ctrl-sensor : Sensor power is controlled externally
+
+Example:
+sipl_devblk_0 {
+	compatible = "nvidia,cdi-mgr";
+	pwms = <&sipl_devblk_pwm_4 0 33333333>; /* PWM name, chip-relative PWM number, period in nano seconds */
+	status = "okay";
+	tegra {
+		i2c-bus = <0>;
+		csi-port = <0>;
+		interrupt-parent = <&tegra_main_gpio>;
+		interrupts = <TEGRA194_MAIN_GPIO(P, 5) 2>; /* GMSLA_STATUS_OC : falling edge sensitive */
+	};
+
+	deserializer {
+		addr = <0x29>;   /* 7 bit slave address */
+		reg_len = <16>;  /* 16 bit register length */
+		dat_len = <8>;   /* 8 bit data length */
+		des_i2c_port = <0>; /* I2C port number of the deserializer */
+		/* des_tx_port = <0>;*/ /* CSI Tx port number. Define des_tx_port only if the dedicated output Tx port is required */
+		dphy_rate_x2 = <2500000>; /* Data rate in DPHY x2. Unit size is kbps */
+		dphy_rate_x4 = <2500000>; /* Data rate in DPHY x4. Unit size is kbps */
+		cphy_rate_x2 = <2000000>; /* Data rate in CPHY x2. Unit size is ksps */
+		cphy_rate_x4 = <1700000>; /* Data rate in CPHY x4. Unit size is ksps */
+	};
+
+	pwr_ctrl {
+		power_port = <0>;
+		ext-pwr-ctrl-deserializer; /* The deserializer power is controlled by Aurix */
+		ext-pwr-ctrl-sensor; /* The sensor power is controlled by Aurix */
+	};
+};

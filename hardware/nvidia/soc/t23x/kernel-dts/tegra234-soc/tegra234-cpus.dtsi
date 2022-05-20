@@ -1,0 +1,390 @@
+/*
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cl0_0>;
+				};
+
+				core1 {
+					cpu = <&cl0_1>;
+				};
+
+				core2 {
+					cpu = <&cl0_2>;
+				};
+
+				core3 {
+					cpu = <&cl0_3>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cl1_0>;
+				};
+
+				core1 {
+					cpu = <&cl1_1>;
+				};
+
+				core2 {
+					cpu = <&cl1_2>;
+				};
+
+				core3 {
+					cpu = <&cl1_3>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&cl2_0>;
+				};
+
+				core1 {
+					cpu = <&cl2_1>;
+				};
+
+				core2 {
+					cpu = <&cl2_2>;
+				};
+
+				core3 {
+					cpu = <&cl2_3>;
+				};
+			};
+		};
+
+		cl0_0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_00>;
+		};
+		cl0_1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x100>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_01>;
+		};
+		cl0_2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x200>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_02>;
+		};
+		cl0_3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x300>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_03>;
+		};
+		cl1_0: cpu@4 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x10000>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_10>;
+		};
+		cl1_1: cpu@5 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x10100>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_11>;
+		};
+		cl1_2: cpu@6 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x10200>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_12>;
+		};
+		cl1_3: cpu@7 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x10300>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_13>;
+		};
+		cl2_0: cpu@8 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x20000>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_20>;
+		};
+		cl2_1: cpu@9 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x20100>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_21>;
+		};
+		cl2_2: cpu@10 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x20200>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_22>;
+		};
+		cl2_3: cpu@11 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x20300>;
+			enable-method = "psci";
+			i-cache-size = <65536>;
+			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
+			next-level-cache = <&l2c_23>;
+		};
+	};
+
+	l2c_00: l2-cache00 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu0>;
+	};
+
+	l2c_01: l2-cache01 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu0>;
+	};
+
+	l2c_02: l2-cache02 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu0>;
+	};
+
+	l2c_03: l2-cache03 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu0>;
+	};
+
+	l2c_10: l2-cache10 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu1>;
+	};
+
+	l2c_11: l2-cache11 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu1>;
+	};
+
+	l2c_12: l2-cache12 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu1>;
+	};
+
+	l2c_13: l2-cache13 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu1>;
+	};
+
+	l2c_20: l2-cache20 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu2>;
+	};
+
+	l2c_21: l2-cache21 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu2>;
+	};
+
+	l2c_22: l2-cache22 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu2>;
+	};
+
+	l2c_23: l2-cache23 {
+		cache-size = <262144>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		cache-unified;
+		next-level-cache = <&l3c_dsu2>;
+	};
+
+	l3c_dsu0: l3-cache0 {
+		cache-size = <2097152>;
+		cache-line-size = <64>;
+		cache-sets = <2048>;
+	};
+
+	l3c_dsu1: l3-cache1 {
+		cache-size = <2097152>;
+		cache-line-size = <64>;
+		cache-sets = <2048>;
+	};
+
+	l3c_dsu2: l3-cache2 {
+		cache-size = <2097152>;
+		cache-line-size = <64>;
+		cache-sets = <2048>;
+	};
+
+	arm-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
+		status = "okay";
+	};
+
+	dsu-pmu-0 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 547 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&{/cpus/cpu@0}>, <&{/cpus/cpu@1}>, <&{/cpus/cpu@2}>, <&{/cpus/cpu@3}>;
+		status = "okay";
+	};
+
+	dsu-pmu-1 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 548 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&{/cpus/cpu@4}>, <&{/cpus/cpu@5}>, <&{/cpus/cpu@6}>, <&{/cpus/cpu@7}>;
+		status = "okay";
+	};
+
+	dsu-pmu-2 {
+		compatible = "arm,dsu-pmu";
+		interrupts = <GIC_SPI 549 IRQ_TYPE_LEVEL_HIGH>;
+		cpus = <&{/cpus/cpu@8}>, <&{/cpus/cpu@9}>, <&{/cpus/cpu@10}>, <&{/cpus/cpu@11}>;
+		status = "okay";
+	};
+
+	scf-pmu {
+		compatible = "nvidia,scf-pmu";
+		interrupts = <GIC_SPI  551 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-affinity = <&{/cpus/cpu@0}>;
+		status = "okay";
+	};
+
+	spe-pmu {
+		compatible = "arm,statistical-profiling-extension-v1";
+		interrupts = <GIC_PPI 5 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+	};
+
+};

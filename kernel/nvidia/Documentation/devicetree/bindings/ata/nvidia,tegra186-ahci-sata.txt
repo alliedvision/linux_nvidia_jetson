@@ -1,0 +1,70 @@
+Tegra186 SoC SATA AHCI controller.
+
+Required Properties:
+- compatible : For Tegra186, must contain "nvidia,tegra186-ahci-sata".
+    For Tegra194, must contain "nvidia,tegra194-ahci-sata".
+- reg : Must contain an entry for each entry in reg-names.
+- reg-names : Must include the following entries:
+  - sata-ahci.
+  - sata-config.
+  - sata-ipfs.
+  - sata-aux.
+- interrupts : Defines the interrupt used by SATA.
+- iommus : A reference to the IOMMU.
+    See Documentation/devicetree/bindings/iommu/iommu.txt.
+- power-domains : A phandle and PM domain specifier as defined by bindings of
+    the power controller specified by phandle.
+    See Documentation/devicetree/bindings/power/power_domains.txt.
+- clocks : Must contain an entry for each entry in clock-names.
+- clock-names : Must include the following entries:
+  - sata.
+  - sata-oob.
+  - pllp
+  - pllp-uphy.
+- resets : Must contain an entry for each entry in reset-names.
+- reset-names : Must include the following entries:
+  - sata.
+  - sata-cold.
+- pinctrl-names: Define pinctrls for devslp pin.
+- pinctrl-0 : The pincontrol settings to configure devslp pin.
+- pinctrl-1 : The pincontrol settings to place devslp pin in pull up state.
+- nvidia,disable-features : Defines features to be disabled. Must be one of the
+  following entries:
+    - devslp.
+    - hipm.
+    - dipm.
+    - slumber.
+    - partial.
+    - ncq.
+- nvidia,link-flags : Defines link flags. Must be one of the following entries:
+    - max_power.
+    - min_power.
+    - med_power.
+
+Example:
+
+	tegra_sata: ahci-sata@3507000 {
+		compatible = "nvidia,tegra186-ahci-sata";
+		reg = <0x0 0x03507000 0x0 0x00002000>,
+		      <0x0 0x03501000 0x0 0x00006000>,
+		      <0x0 0x03500000 0x0 0x00001000>,
+		      <0x0 0x03A90000 0x0 0x00010000>;
+		reg-names = "sata-ahci", "sata-config", "sata-ipfs", "sata-aux";
+		interrupts = <0 TEGRA186_IRQ_SATA 0x04>;
+		iommus = <&smmu TEGRA_SID_SATA2>;
+		iommu_sodev_map;
+		power-domains = <&bpmp TEGRA186_POWER_DOMAIN_SAX>;
+		clocks = <&tegra_car TEGRA186_CLK_SATA>,
+			 <&tegra_car TEGRA186_CLK_SATA_OOB>,
+			 <&tegra_car TEGRA186_CLK_PLLP>,
+			 <&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+		clock-names = "sata", "sata-oob", "pllp", "pllp-uphy";
+		resets = <&tegra_car TEGRA186_RESET_SATA>,
+			 <&tegra_car TEGRA186_RESET_SATACOLD>;
+		reset-names = "sata", "sata-cold";
+		pinctrl-names = "devslp_active", "devslp_pullup";
+		pinctrl-0 = <&devslp_active_state>;
+		pinctrl-1 = <&devslp_pullup_state>;
+		nvidia,disable-features = "devslp", "dipm";
+		nvidia,link-flags = "min_power";
+	};

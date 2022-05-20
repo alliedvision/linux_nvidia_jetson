@@ -1,0 +1,35 @@
+NVIDIA ivm carveout
+-----------------------
+
+This is child node of upstream /reserved-memory node.
+It's used for OS to exclude the memory region for normal usage.
+
+The memory region,"ivm_carveout" declares ivm heap and used by nvmap
+clients to allocate physical memory from the heap
+with certain cache-attributes. The allocation from IVM heap is shared
+in guest VMs.
+
+
+Required properties:
+- compatible: "nvidia,ivm_carveout";
+- status: property is used to enable or disable the heap.
+- reg: property is currently ignored, as IVM heap starting address and size are probed from hypervisor in run time.
+- ivm: property links to the heap entry made in PCT platform_config.h,
+       here the second element should be the index of the heap declared in in .mempools field
+- alloc: property indicates whether it is a producer VM which can allocate or not.
+         Note that for any IVM heap only one guest VM should configure alloc = 1, while other configures alloc=0
+
+Rest of the properties are common properties defined under /reserved-memory node Documentation
+
+Example:
+--------
+	ivm0: carveout0 {
+		status = "okay";
+		compatible = "nvidia,ivm_carveout";
+		reg = <0x0 0x0 0x0 0x04c00000>;
+		ivm = <&tegra_hv 16>;
+		alloc = <1>;
+		no-map;
+	};
+~
+

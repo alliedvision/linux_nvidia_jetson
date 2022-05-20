@@ -1,0 +1,24 @@
+*.dtb
+uImage
+zImage
+
+kernel/kernel-4.9/arch/arm64/boot/dts/_ddot_/
+*.dtbo
+
+avt_build/binaries
+avt_build/resources/driverPackage/*
+avt_build/resources/gcc
+avt_build/resources/sdcard
+kernel/kernel-4.9/drivers/video/tegra/host
+
+#
+# git files that we don't want to ignore even it they are dot-files
+#
+!.gitignore
+
+__pycache__
+*.pyc
+.*.swp
+.*.swo
+avt_build/work
+avt_build/.dlcache

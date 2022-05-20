@@ -1,0 +1,275 @@
+/*
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <time.h>
+
+#include <unit/io.h>
+#include <unit/core.h>
+#include <unit/args.h>
+#include <unit/unit.h>
+#include <unit/module.h>
+#include <unit/results.h>
+
+#include <nvgpu/posix/probe.h>
+#include <nvgpu/posix/posix-fault-injection.h>
+
+/*
+ * Sempaphore to limit the number of threads
+ */
+sem_t unit_thread_semaphore;
+
+/*
+ * C11 thread local storage, used to access test context when a signal is
+ * received (ex: SIGSEGV) in a thread.
+ */
+_Thread_local struct unit_module *thread_local_module;
+_Thread_local struct unit_module_test *thread_local_test;
+
+/*
+ * Execute a module and all its subtests. This function builds a gk20a for the
+ * test to use by executing nvgpu_posix_probe() and nvgpu_posix_cleanup();
+ */
+static void *core_exec_module(void *module_param)
+{
+	unsigned int i;
+	struct unit_module *module = (struct unit_module *) module_param;
+	struct gk20a *g;
+	struct nvgpu_posix_fault_inj_container *fi_container = NULL;
+	clock_t begin;
+	double time_spent;
+
+	/*
+	 * Setup fault injection first so that faults can be injected in
+	 * nvgpu_posix_probe().
+	 */
+	fi_container = (struct nvgpu_posix_fault_inj_container *)
+			malloc(sizeof(struct nvgpu_posix_fault_inj_container));
+	if (fi_container == NULL) {
+		core_msg_color(module->fw, C_RED,
+				"  failed to allocate fault inj: Module %s\n",
+				module->name);
+		goto thread_exit;
+	}
+	memset(fi_container, 0, sizeof(struct nvgpu_posix_fault_inj_container));
+	module->fw->nvgpu.nvgpu_posix_init_fault_injection(fi_container);
+	if (module->fw->nvgpu.nvgpu_posix_init_fault_injection_qnx != NULL) {
+		module->fw->nvgpu.nvgpu_posix_init_fault_injection_qnx(fi_container);
+	}
+
+	g = module->fw->nvgpu.nvgpu_posix_probe();
+
+	if (!g) {
+		core_msg_color(module->fw, C_RED,
+				"  nvgpu_posix_probe failed: Module %s\n",
+				module->name);
+		goto thread_exit;
+	}
+
+	core_vbs(module->fw, 1, "Execing module: %s\n", module->name);
+	begin = clock();
+
+	thread_local_module = module;
+
+	/*
+	 * Execute each test within the module. No reinit is done between tests.
+	 * Thats up to the module itself to handle. Any setup/teardown between
+	 * unit tests must be handled within the module.
+	 */
+	for (i = 0; i < module->nr_tests; i++) {
+		struct unit_module_test *t = module->tests + i;
+		int test_status;
+		thread_local_test = t;
+
+		if (t->test_lvl > module->fw->args->test_lvl) {
+			core_add_test_record(module->fw, module, t, SKIPPED);
+			core_vbs(module->fw, 1, "Skipping L%d test %s.%s\n",
+					t->test_lvl, module->name, t->fn_name);
+			continue;
+		}
+		core_msg(module->fw, "Running %s.%s(%s)\n", module->name,
+			t->fn_name, t->case_name);
+
+		test_status = t->fn(module, g, t->args);
+
+		if (test_status != UNIT_SUCCESS)
+			core_msg_color(module->fw, C_RED,
+				"  Unit error! Test %s.%s(%s) FAILED!\n",
+				module->name, t->fn_name, t->case_name);
+
+		core_add_test_record(module->fw, module, t,
+				test_status == UNIT_SUCCESS ? PASSED : FAILED);
+	}
+
+	module->fw->nvgpu.nvgpu_posix_cleanup(g);
+
+	time_spent = (double)(clock() - begin) / CLOCKS_PER_SEC;
+	core_vbs(module->fw, 1, "Module completed: %s (execution time: %f)\n",
+		 module->name, time_spent);
+thread_exit:
+	if (fi_container != NULL) {
+		free(fi_container);
+	}
+	sem_post(&unit_thread_semaphore);
+	return NULL;
+}
+
+/*
+ * Go over all the modules and run them one by one.
+ */
+static void run_modules(struct unit_fw *fw)
+{
+	struct unit_module **modules;
+
+	for (modules = fw->modules; *modules != NULL; modules++) {
+		if (fw->args->thread_count == 1) {
+			core_exec_module(*modules);
+		} else {
+			sem_wait(&unit_thread_semaphore);
+			pthread_create(&((*modules)->thread), NULL,
+				core_exec_module, (void *) *modules);
+		}
+	}
+}
+
+/*
+ * According to POSIX, "Signals which are generated by some action attributable
+ * to a particular thread, such as a hardware fault, shall be generated for the
+ * thread that caused the signal to be generated."
+ * This custom signal handler will be run from within the thread that caused the
+ * exception. Thanks to the context being saved in local thread storage, it is
+ * then trivial to report which test case failed, and then terminate the thread.
+ */
+static void thread_error_handler(int sig, siginfo_t *siginfo, void *context)
+{
+	core_msg_color(thread_local_module->fw, C_RED,
+			"  Signal %d in Test: %s.%s(%s)!\n", sig,
+			thread_local_module->name, thread_local_test->fn_name,
+			thread_local_test->case_name);
+	core_add_test_record(thread_local_module->fw, thread_local_module,
+			thread_local_test, FAILED);
+	sem_post(&unit_thread_semaphore);
+
+	/*
+	 * If single threaded, the signal will cause the process to end, so
+	 * exit gracefully while printing test results.
+	 */
+	if (thread_local_module->fw->args->thread_count == 1) {
+		core_print_test_status(thread_local_module->fw);
+		exit(-1);
+	}
+	pthread_exit(NULL);
+}
+
+/*
+ * Install a custom signal handler for several signals to be used when running
+ * in multithreaded environment.
+ */
+static int install_thread_error_handler(void)
+{
+	struct sigaction action;
+	int err;
+
+	memset(&action, 0, sizeof(action));
+	action.sa_sigaction = &thread_error_handler;
+	action.sa_flags = SA_SIGINFO;
+
+	/* SIGSEGV: Invalid memory reference */
+	err = sigaction(SIGSEGV, &action, NULL);
+	if (err < 0) {
+		return err;
+	}
+	/* SIGILL: Illegal Instruction */
+	err = sigaction(SIGILL, &action, NULL);
+	if (err < 0) {
+		return err;
+	}
+	/* SIGFPE: Floating-point exception */
+	err = sigaction(SIGFPE, &action, NULL);
+	if (err < 0) {
+		return err;
+	}
+	/* SIGBUS: Bus error */
+	err = sigaction(SIGBUS, &action, NULL);
+	if (err < 0) {
+		return err;
+	}
+	/* SIGSYS: Bad system call */
+	err = sigaction(SIGSYS, &action, NULL);
+	if (err < 0) {
+		return err;
+	}
+	return 0;
+}
+
+/*
+ * Execute all modules loaded by the unit test framework.
+ */
+int core_exec(struct unit_fw *fw)
+{
+	struct unit_module **modules;
+	int err = 0;
+
+	if (args(fw)->nvtest) {
+		/* special prints for NVTEST fw in GVS */
+		printf("[start: %s]\n", args(fw)->binary_name);
+	}
+	core_vbs(fw, 1, "Using %d threads\n", fw->args->thread_count);
+	sem_init(&unit_thread_semaphore, 0, fw->args->thread_count);
+
+	/*
+	 * By default, use a custom signal hanlder to catch faults such as
+	 * SIGSEGV. This can be disabled with the -d argument to make it
+	 * easier to investigate with a debugger.
+	 */
+	if (!fw->args->debug) {
+		err = install_thread_error_handler();
+		if (err != 0) {
+			core_msg_color(fw, C_RED,
+			"  Failed to install signal handler!\n");
+			return err;
+		}
+	}
+
+	run_modules(fw);
+
+	if (fw->args->thread_count > 1) {
+		for (modules = fw->modules; *modules != NULL; modules++) {
+			pthread_join((*modules)->thread, NULL);
+		}
+	}
+
+	if (args(fw)->nvtest) {
+		/* special prints for NVTEST fw in GVS */
+		printf("[%s: %s]\n",
+			((fw->results->nr_tests - fw->results->nr_passing -
+					fw->results->nr_skipped) == 0) ?
+				"pass" : "fail",
+			args(fw)->binary_name);
+	}
+	return 0;
+}

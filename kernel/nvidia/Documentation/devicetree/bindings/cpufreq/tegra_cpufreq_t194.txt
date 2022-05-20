@@ -1,0 +1,83 @@
+* Device tree binding for Nvidia Tegra194 cpufreq driver
+--------------------------------------------
+
+This document defines the device-specific binding for the Tegra194 cpufreq
+driver. It does not contain bindings for generic tegra cpufreq driver
+which are common across all the tegra cpufreq platform driver.
+
+The Tegra194 cpufreq driver makes frequency request by writing frequency hints
+to per-core system register. It calculates per core cpufreq by reading per core
+cycle counters. Cycles are measured by reading from system register twice, with
+sufficient delay in between, then dividing the number of CPU clock cycles by
+reference clock cycles, and scaling the result with reference clock frequency.
+
+Behind the scene CPU interacts with AVFS and BPMP-FW to adjust CPU rail voltage
+for the desired frequency.
+
+Required properties:
+- compatible: should be "nvidia,tegra194-cpufreq".
+
+- cpu_emc_map: an array of pairs of 32-bit unsigned integers.
+
+               the first entry in each pair is the CPU frequency in khz
+               the second entry in each pair is the EMC frequency in khz
+
+               essentially, this is a table mapping the requested CPU
+               frequency to the corresponding EMC frequency floor:
+
+                     floor(requested_cpu_frequency) --> emc frequency
+
+               the purpose is to maintain a good level of external memory
+               bandwidth with the given CPU rate.
+
+- status: "okay" or "disabled" to enable/disable the node.
+
+Optional properties:
+- cpufreq_single_policy
+  If this property exists, all 8 CPUs in tegra194 share the same cpufreq policy
+  If this property doesn't exist, one cpufreq policy is created for each cluster
+
+- freq_table_step_size:
+  A property of 16-bit unsigned integer.  Cpu frequency table step size.
+  If not provided, frequency step is set to the 50MHz by default. The table step
+  size is rounded to AVFS update frequency multiple when applied to CPU
+  frequency table construction.
+
+- nvidia,autocc3-freq: autocc3 cluster freq.
+  This property is a list of 32-bit unsigned integers.
+  If a cluster goes in idle, cc3 freq will be requested for that cluster.
+  This property will be ignored if auto-cc3 is disabled in BPMP-FW.
+
+  The 1st entry is the cc3 freq for the 1st cluster, the 2nd entry is the
+  cc3 freq for the 2nd cluster, the 3rd entry is the cc3 freq for the 3rd
+  cluster, the 4th entry is the cc3 freq for the 4th cluster.
+
+  If auto-cc3 is enabled, but this property does not exist, or less than
+  4 entries are in the list, the autocc3-freq will be calculated with
+  parameters returned in BPMP-FW query response for the clusters without
+  auto-cc3 frequency in the device tree.
+
+Example 1: everything
+----------
+	cpufreq {
+		compatible = "nvidia,tegra194-cpufreq";
+		status = "okay";
+                cpu_freq_single_policy;
+                freq_table_step_size = /bits/ 16 <0x6>;
+                nvidia,autocc3-freq = <0 0 0 0>;
+		cpu_emc_map = <2112000  2133000>,
+				<1881600 800000>,
+				<1574400 665000>,
+				<1267200 408000>;
+	};
+
+Example 2: policy per cluster, default step size, no autocc3-freq
+----------
+	cpufreq {
+		compatible = "nvidia,tegra194-cpufreq";
+		status = "okay";
+		cpu_emc_map = <2112000  2133000>,
+				<1881600 800000>,
+				<1574400 665000>,
+				<1267200 408000>;
+	};

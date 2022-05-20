@@ -1,0 +1,19 @@
+NVIDIA Denver PMU
+=================
+
+This driver supports hardware perfmon event counting for the Denver L2 cluster.
+The supported events are standard ARM L2 event numbering, but with a
+0xd00 mask to differentiate these events from the A57 L2 cluster.
+
+Required properties:
+	- compatible: "nvidia,denver15-pmu"
+	- interrupts: single hardware-specified interrupt
+	- interrupt-affinity : this driver must be pinned to Denver core 0 (cpu@0)
+		in order to correctly field PMU interrupts from the L2.
+
+Example:
+	denver-pmu {
+		compatible = "nvidia,denver15-pmu";
+		interrupts = <0 290 0x4>;
+		interrupt-affinity = <&{/cpus/cpu@0}>;
+	};

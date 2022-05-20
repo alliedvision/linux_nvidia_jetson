@@ -1,0 +1,40 @@
+NVIDIA Deep Learning Accelerator (NVDLA)
+
+NVDLA is fixed-function hardware accelerator used for inferencing Convolutional Neural Networks.
+
+This document describes the device tree bindings for NVDLA hardware itself, as well as for subnodes
+corresponding to this engine.
+
+Required properties:
+- compatible: "nvidia,tegra194-nvdla"
+- power-domains: phandle pointing to the parent power domain
+- reg: Physical base address and length of the DLA registers (includes DLA Falcon and DLA Core Engines).
+- interrupts: The interrupt IRQ info for DLA
+- resets: One entry pointing to DLA reset.
+- clock-names: Must include the following entries:
+    "nvdla0/1": DLA Core Engine clock
+    "nvdla0/1_flcn": DLA Falcon clock
+- clocks: One entry for each entry in 'clock-names'
+- iommus: Entry for DLA stream ID
+- iommu-group-id: Entry for specifying IOMMU group DLA belongs to, should be "TEGRA_IOMMU_GROUP_HOST1X".
+- dma-coherent: Present if dma operations are coherent
+
+Example from tegra194-soc-base.dtsi:
+
+	nvdla0: nvdla0@15880000 {
+		compatible = "nvidia,tegra194-nvdla";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DLAA>;
+		reg = <0x0 0x15880000 0x0 0x00040000>;
+		interrupts = <0 236 0x04>;
+
+		resets = <&bpmp_resets TEGRA194_RESET_DLA0>;
+		clocks = <&bpmp_clks TEGRA194_CLK_DLA0_CORE>,
+			 <&bpmp_clks TEGRA194_CLK_DLA0_FALCON>;
+		clock-names = "nvdla0", "nvdla0_flcn";
+
+		iommus = <&smmu TEGRA_SID_NVDLA0>;
+		iommu-group-id = <TEGRA_IOMMU_GROUP_HOST1X>;
+		dma-coherent;
+	};
+
+

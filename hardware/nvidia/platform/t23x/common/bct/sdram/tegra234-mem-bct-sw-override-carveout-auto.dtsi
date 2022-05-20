@@ -1,0 +1,26 @@
+// NOTE: This file was auto generated: No manual change must be made in this file
+
+McGeneralizedCarveoutLite32Cfg0 = <0x7fa>;
+McGeneralizedCarveoutLite32Cfg1 = <0x2>;
+McGeneralizedCarveoutLite32Access0 = <0x400000>;
+McGeneralizedCarveoutLite32Access1 = <0x0>;
+McGeneralizedCarveoutLite32Access2 = <0x300000>;
+McGeneralizedCarveoutLite32Access3 = <0x0>;
+McGeneralizedCarveoutLite32Access4 = <0x0>;
+McGeneralizedCarveoutLite32Access5 = <0x0>;
+McGeneralizedCarveoutLite32Access6 = <0x0>;
+McGeneralizedCarveoutLite32Access7 = <0x0>;
+McGeneralizedCarveoutLite32Access8 = <0x0>;
+McGeneralizedCarveoutLite32Access9 = <0x0>;
+McGeneralizedCarveoutLite42Cfg0 = <0x7fa>;
+McGeneralizedCarveoutLite42Cfg1 = <0x0>;
+McGeneralizedCarveoutLite42Access0 = <0x0>;
+McGeneralizedCarveoutLite42Access1 = <0x2000080>;
+McGeneralizedCarveoutLite42Access2 = <0x300000>;
+McGeneralizedCarveoutLite42Access3 = <0x0>;
+McGeneralizedCarveoutLite42Access4 = <0x0>;
+McGeneralizedCarveoutLite42Access5 = <0x0>;
+McGeneralizedCarveoutLite42Access6 = <0x0>;
+McGeneralizedCarveoutLite42Access7 = <0x0>;
+McGeneralizedCarveoutLite42Access8 = <0x0>;
+McGeneralizedCarveoutLite42Access9 = <0x0>;

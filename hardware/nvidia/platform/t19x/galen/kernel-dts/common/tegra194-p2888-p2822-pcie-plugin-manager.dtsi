@@ -1,0 +1,125 @@
+/*
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	plugin-manager {
+		fragment-pcie-c1-rp {
+			ids = "<2822-0000-200";
+			override@0 {
+				target = <&{/pcie@14100000}>;
+				_overlay_ {
+					nvidia,max-speed = <1>;
+				};
+			};
+		};
+
+		fragment-pcie-older-than-p2822-B00 {
+			ids = "<2822-0000-400";
+			override@0 {
+				target = <&{/pcie@14100000}>;
+				_overlay_ {
+					nvidia,disable-aspm-states = <0xf>;
+				};
+			};
+			override@1 {
+				target = <&p2822_vdd_3v3_pcie>;
+				_overlay_ {
+					delete-target-property = "gpio";
+				};
+			};
+			override@2 {
+				target = <&p2822_vdd_12v_pcie>;
+				_overlay_ {
+					delete-target-property = "gpio";
+				};
+			};
+		};
+
+#if LINUX_VERSION < 500
+		fragment-disable-uphy-rx-idle {
+			ids = "<=2822-0000-300";
+			override@0 {
+				target = <&{/hsio_p2u/p2u@03e10000}>;
+				_overlay_ {
+					append-string-property = "nvidia,disable-uphy-rx-idle";
+				};
+			};
+		};
+#endif
+
+		fragment-pcie-c5-rp {
+			odm-anded-override;
+			odm-data = "disable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
+			override@0 {
+				target = <&{/pcie@141a0000}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@1 {
+				target = <&{/pcie_ep@141a0000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+#if LINUX_VERSION < 500
+			override@2 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-low}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@3 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-high}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+#endif
+		};
+
+		fragment-pcie-c5-ep {
+			odm-anded-override;
+			odm-data = "enable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
+			override@0 {
+				target = <&{/pcie@141a0000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+			override@1 {
+				target = <&{/pcie_ep@141a0000}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+#if LINUX_VERSION < 500
+			override@2 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-low}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+			override@3 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-high}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+#endif
+		};
+	};
+};

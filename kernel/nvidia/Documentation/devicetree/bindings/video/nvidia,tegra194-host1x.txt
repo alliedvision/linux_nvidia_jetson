@@ -1,0 +1,82 @@
+NVIDIA Tegra Host1x
+
+The Tegra Host1x hardware provides a bus for multimedia and
+other data processing engines, with support for offloading
+engine programming from CPU, hardware-based synchronization
+between engines and other hardware on the SoC or attached buses,
+and support for virtualizing these resources.
+
+This document describes the device tree bindings for the Host1x
+hardware itself, as well as for subnodes corresponding to
+engines on the Host1x bus that are traditionally managed as
+part of the Host1x driver on NVIDIA downstream kernels:
+- VIC: Video Image Compositor
+- NVJPG: JPG decompressor
+- NVENC: Video encoder
+- NVDEC: Video decoder
+- TSEC: Security engine
+
+Required properties:
+- compatible: "nvidia,tegra194-host1x" for native,
+    "nvidia,tegra194-host1x-hv" for virtualized. Additionally,
+    "simple-bus".
+- reg: Physical base address and length of the controller's registers.
+  For Tegra194, one entry for each entry in 'reg-names':
+    "guest" - VM region assigned to the operating system / VM.
+    "sem-syncpt-shim" - Memory syncpoint shim aperture.
+- interrupts: Two entries, first pointing to the syncpoint threshold
+  interrupt, second pointing to the general (error) interrupt.
+- resets: One entry pointing to HOST1X reset.
+- clocks: One entry for each entry in 'clock-names':
+    "host1x": Host1x clock
+    "actmon": Actmon clock
+- iommus: Entries for any stream IDs for Host1x CDMA use.
+- nvidia,vmid: Index of the VM region assigned to the VM (starting from 1).
+
+Optional properties:
+- reg / reg-names:
+    "hypervisor": Common register region, if not running as a guest
+       in a virtualized configuration.
+    "actmon" - Host1x ACTMON register aperture.
+- nvidia,ch-base: Index of first channel assigned to this VM
+- nvidia,nb-channels: Number of channels assigned to this VM
+- nvidia,pts-base: ID of first syncpoint assigned to this VM
+- nvidia,nb-pts: Number of syncpoints assigned to this VM
+- nvidia,vi-syncpt-pool: <base length> pair describing range of
+    syncpoints reserved to be allocated by VI.
+- nvidia,nb-hw-pts: Number of syncpoints in hardware.
+- vmserver-owns-engines: 1 in virtualized system
+- ivc-queue0: IVC queue to NvHost Server in virtualized system
+
+Subnodes:
+
+Context devices:
+  For each data buffer context stream ID usable by this instance, a node with:
+  - compatible: "nvidia,tegra186-iommu-context"
+  - iommus: Entry for the stream ID
+
+VIC / NVJPG / NVENC / NVENC1 :
+- compatible: For engine owned by this VM, one of
+    "nvidia,tegra194-vic", "nvidia,tegra194-nvjpg", "nvidia,tegra194-nvenc".
+    For engine owned by NvHost Server, one of
+    "nvidia,tegra194-vhost-vic", "nvidia,tegra194-vhost-nvjpg", "nvidia,tegra194-vhost-nvenc".
+- reg: Register aperture
+- interrupts: Interrupt
+- resets: Reset
+- clocks: Clock
+- clock-names: "vic"/"nvjpg"/"nvenc"
+- power-domains: Power domain
+- iommus: Entry for firmware stream ID
+
+NVDEC / NVDEC1 :
+As for VIC/NVJPG/NVENC, but with
+- compatible: "nvidia,tegra194-nvdec" or "nvidia,tegra194-vhost-nvdec".
+- clocks / clock-names: Additional entries for "kfuse" and "efuse"
+
+TSEC / TSECB:
+As for VIC/NVJPG/NVENC, but with
+- compatible: "nvidia,tegra194-tsec".
+- clocks / clock-names: Additional entry for "efuse"
+
+Other subnodes are described in separate binding files.
+

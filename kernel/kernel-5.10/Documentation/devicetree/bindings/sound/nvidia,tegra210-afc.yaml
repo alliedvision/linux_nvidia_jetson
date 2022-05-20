@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra210-afc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra210 Audio Flow Controller (AFC) DT Bindings
+
+description: |
+  AFC can control the flow traffic between two I2S instances running at
+  different clocks that are up to 100 ppm apart. The AFC implements high
+  fidelity interpolation and decimation algorithms that compensate for
+  clock differences. The AFC can handle burst traffic from SFCs and can
+  control traffic flow anywhere in the audio route.
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra210 based platforms
+          const: "nvidia,tegra210-afc"
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-afc", "nvidia,tegra210-afc"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-afc", "nvidia,tegra210-afc"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-afc-id:
+    description: Must be specified to uniquely identify an AFC instance
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-afc-id
+
+examples:
+
+  - |
+    afc@702d7000 {
+        compatible = "nvidia,tegra210-afc";
+        reg = <0x702d7000 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-afc-id = <0>;
+    };
+
+  - |
+    afc@2907000 {
+        compatible = "nvidia,tegra186-afc", "nvidia,tegra210-afc";
+        reg = <0x0 0x2907000 0x0 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-afc-id = <0>;
+    };
+
+  - |
+    afc@2907000 {
+        compatible = "nvidia,tegra194-afc", "nvidia,tegra210-afc";
+        reg = <0x0 0x2907000 0x0 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-afc-id = <0>;
+    };
+
+...

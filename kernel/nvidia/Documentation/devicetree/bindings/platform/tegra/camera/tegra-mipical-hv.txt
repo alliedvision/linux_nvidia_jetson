@@ -1,0 +1,19 @@
+NVIDIA Tegra Hypervisor (hv) MIPICAL bindings
+
+The MIPICAL unit performs calibration at start of capture or transmission to
+condition the impedance of MIPI D-Phy CSI-2 and DSI lanes. Hypervisor can
+own the mipical driver, and receive/send messages to guest OS.
+
+Required properties:
+	- compatible: Should be "nvidia,tegra-mipical-hv".
+	- ivc_queue: ivc queue to receive messages.
+	- status: Can be "okay" to enable kernel probe or "disabled".
+
+Example:
+
+	mipical@3990000 {
+		compatible = "nvidia,tegra-mipical-hv";
+		ivc_queue = <&tegra_hv 101>
+		status = "disabled";
+	};
+

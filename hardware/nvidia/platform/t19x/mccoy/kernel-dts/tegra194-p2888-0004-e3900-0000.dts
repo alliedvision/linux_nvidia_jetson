@@ -1,0 +1,30 @@
+/*
+ * Top level DTS file for CVM:P2888-0004 and CVB:E3900-0000.
+ *
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "common/tegra194-p2888-0004-e3900-0000-common.dtsi"
+#include "common/tegra194-camera-modules-e3900-0000.dtsi"
+#include "t19x-common-modules/tegra194-camera-plugin-manager.dtsi"
+#include "common/tegra194-plugin-manager-e3900-0000.dtsi"
+#include "common/tegra194-pcie-e3900-0000.dtsi"
+
+/ {
+        nvidia,dtsfilename = __FILE__;
+        nvidia,dtbbuildtime = __DATE__, __TIME__;
+        nvidia,fastboot-usb-vid = <0x0955>;
+        nvidia,fastboot-usb-pid = <0xee1e>;
+        model = "Clara-AGX";
+        compatible = "nvidia,e3900-0000+p2888-0004", "nvidia,galen", "nvidia,jetson-xavier", "nvidia,tegra194";
+};
+

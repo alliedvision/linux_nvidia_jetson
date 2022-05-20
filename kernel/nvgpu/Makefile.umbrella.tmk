@@ -1,0 +1,172 @@
+################################### tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+# tmake for SW Mobile
+#
+# Repository umbrella makefile fragment for "nvgpu"
+#
+###############################################################################
+
+#
+# Components common to all builds
+#
+NV_REPOSITORY_COMPONENTS :=
+
+ifneq ($(NV_BUILD_CONFIGURATION_OS_IS_INTEGRITY),1)
+
+ifeq ($(NV_BUILD_CONFIGURATION_OS_IS_QNX),1)
+ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),1)
+# On QNX, the unit tests are built only for safety profile.
+build_nvgpu_ut := 1
+endif
+else
+# On L4T, the unit tests are built with safety profile forced.
+build_nvgpu_ut := 1
+endif
+
+ifeq ($(build_nvgpu_ut),1)
+NV_REPOSITORY_COMPONENTS := libs/igpu
+NV_REPOSITORY_COMPONENTS += libs/dgpu
+NV_REPOSITORY_COMPONENTS += userspace
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/bitops
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/env
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/fault-injection
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/bug
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/os_sched
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/sizes
+NV_REPOSITORY_COMPONENTS += userspace/units/init
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/log2
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/thread
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/cond
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/timers
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/kmem
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/rwsem
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/queue
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/utils
+NV_REPOSITORY_COMPONENTS += userspace/units/posix/circ_buf
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/bit-utils
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/lock
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/nvgpu_gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/atomic
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/rbtree
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/static_analysis
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/string
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/worker
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/kref
+NV_REPOSITORY_COMPONENTS += userspace/units/interface/list
+NV_REPOSITORY_COMPONENTS += userspace/units/bus
+NV_REPOSITORY_COMPONENTS += userspace/units/pramin
+NV_REPOSITORY_COMPONENTS += userspace/units/priv_ring
+NV_REPOSITORY_COMPONENTS += userspace/units/ptimer
+NV_REPOSITORY_COMPONENTS += userspace/units/mc
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_sgt
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_mem
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_mem/dgpu
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/buddy_allocator
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/nvgpu_allocator
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/bitmap_allocator
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/page_allocator
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/as
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/dma
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/gmmu/pd_cache
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/gmmu/page_table
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/cache/flush_gk20a_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/cache/flush_gv11b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gmmu/gmmu_gk20a_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gmmu/gmmu_gm20b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gmmu/gmmu_gp10b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gmmu/gmmu_gv11b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gp10b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/gv11b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/hal/mmu_fault/gv11b_fusa
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/mm
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/page_table_faults
+NV_REPOSITORY_COMPONENTS += userspace/units/mm/vm
+NV_REPOSITORY_COMPONENTS += userspace/units/netlist
+NV_REPOSITORY_COMPONENTS += userspace/units/fb
+NV_REPOSITORY_COMPONENTS += userspace/units/fbp
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/channel
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/channel/gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/channel/gm20b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/channel/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ctxsw_timeout/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/engine
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/engine/gm20b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/engine/gp10b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/engine/gv100
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/engine/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/fifo
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/fifo/gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/fifo/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/pbdma
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/pbdma/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/pbdma/gm20b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/pbdma/gp10b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/preempt
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/preempt/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ramfc/gp10b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ramfc/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ramin/gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ramin/gm20b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/ramin/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/runlist
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/runlist/gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/runlist/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/tsg
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/tsg/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/userd/gk20a
+NV_REPOSITORY_COMPONENTS += userspace/units/fifo/usermode/gv11b
+NV_REPOSITORY_COMPONENTS += userspace/units/fuse
+NV_REPOSITORY_COMPONENTS += userspace/units/ltc
+NV_REPOSITORY_COMPONENTS += userspace/units/enabled
+NV_REPOSITORY_COMPONENTS += userspace/units/falcon
+NV_REPOSITORY_COMPONENTS += userspace/units/falcon/falcon_tests
+NV_REPOSITORY_COMPONENTS += userspace/units/pmu
+NV_REPOSITORY_COMPONENTS += userspace/units/therm
+NV_REPOSITORY_COMPONENTS += userspace/units/top
+NV_REPOSITORY_COMPONENTS += userspace/units/class
+NV_REPOSITORY_COMPONENTS += userspace/units/gr
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/falcon
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/config
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/init
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/setup
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/fs_state
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/global_ctx
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/ctx
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/obj_ctx
+NV_REPOSITORY_COMPONENTS += userspace/units/gr/intr
+NV_REPOSITORY_COMPONENTS += userspace/units/acr
+NV_REPOSITORY_COMPONENTS += userspace/units/ce
+NV_REPOSITORY_COMPONENTS += userspace/units/cg
+NV_REPOSITORY_COMPONENTS += userspace/units/rc
+NV_REPOSITORY_COMPONENTS += userspace/units/sync
+NV_REPOSITORY_COMPONENTS += userspace/units/ecc
+NV_REPOSITORY_COMPONENTS += userspace/units/io
+endif
+endif
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 8
+# End:
+# vi: set tabstop=8 noexpandtab:

@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	plugin-manager {
+		/delete-node/ fragment-pcie-c1-rp;
+		/delete-node/ fragment-pcie-older-than-p2822-B00;
+		/delete-node/ fragment-disable-uphy-rx-idle;
+
+		fragment-pcie-c5-rp {
+			odm-anded-override;
+			odm-data = "disable-pcie-c5-endpoint",
+					"enable-nvhs-uphy-pcie-c5";
+			override@0 {
+				target = <&{/pcie@141a0000}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@1 {
+				target = <&{/pcie_ep@141a0000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+#if TEGRA_PCIE_VERSION < DT_VERSION_2
+			override@2 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-low}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+#endif
+		};
+
+		fragment-pcie-c5-ep {
+			odm-anded-override;
+			odm-data = "enable-pcie-c5-endpoint",
+					"enable-nvhs-uphy-pcie-c5";
+			override@0 {
+				target = <&{/pcie@141a0000}>;
+				_overlay_ {
+					status = "disabled";
+				};
+			};
+			override@1 {
+				target = <&{/pcie_ep@141a0000}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+#if TEGRA_PCIE_VERSION < DT_VERSION_2
+			override@2 {
+				target = <&{/gpio@c2f0000/pex-refclk-sel-high}>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+#endif
+		};
+
+		/* E2832 (LT6911UXC) drives I2S clocks */
+		fragment-e2832-i2s {
+			ids = "2832-*";
+			override@0 {
+				target = <&csi_conn_i2s>;
+				_overlay_ {
+					bitclock-master;
+					frame-master;
+				};
+			};
+		};
+	};
+};

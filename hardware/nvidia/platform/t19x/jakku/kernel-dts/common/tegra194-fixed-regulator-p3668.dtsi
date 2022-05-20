@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <t19x-common-platforms/tegra194-platforms-simple-bus.dtsi>
+
+/ {
+	fixed-regulators {
+		hdr40_vdd_5v0: battery_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vdd-ac-bat";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-always-on;
+		};
+
+		p3668_vdd_sdmmc1_sw: regulator@106 {
+			compatible = "regulator-fixed";
+			reg = <106>;
+			regulator-name = "vdd-sdmmc1-sw";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(G, 2) 0>;
+			enable-active-high;
+		};
+
+		p3668_vdd_1v8_sd: regulator@104 {
+			compatible = "regulator-fixed";
+			reg = <104>;
+			regulator-name = "vdd-1v8-sd";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			enable-active-high;
+		};
+	};
+};

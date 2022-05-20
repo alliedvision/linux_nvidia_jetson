@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-super-module-e2614-p2888-0000.dtsi: E2600 DTSI file.
+ */
+
+#include <t19x-common-modules/tegra194-super-module-e2614.dtsi>
+
+/ {
+	i2c@31e0000 {
+		i2cmux@70 {
+			vcc-supply = <&p2822_vdd_3v3_cvb>;
+			i2c@0 {
+				tas2552.9-0040@40 {
+					iovdd-supply = <&p2822_vdd_3v3_cvb>;
+				};
+				tas2552.9-0041@41 {
+					iovdd-supply = <&p2822_vdd_3v3_cvb>;
+                                };
+			};
+
+			i2c@3 {
+				rt5659.12-001a@1a {
+					/* Codec IRQ output */
+					interrupt-parent = <&tegra_main_gpio>;
+					interrupts = <TEGRA194_MAIN_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+
+                icm20628@68 {
+			vdd-supply = <&p2822_vdd_3v3_cvb>;
+			vlogic-supply = <&p2822_vdd_3v3_cvb>;
+                };
+
+		rt5659.1-001a@1a {
+			/* Codec IRQ output */
+			interrupt-parent = <&tegra_main_gpio>;
+			interrupts = <TEGRA194_MAIN_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	plugin-manager {
+		fragment-e2614-common@0 {
+			overrides@10 {
+				target = <&tegra_sound>;
+				_overlay_ {
+					nvidia-audio-card,widgets =
+						"Headphone",	"CVB-RT Headphone Jack",
+						"Microphone",	"CVB-RT Mic Jack",
+						"Speaker",	"CVB-RT Int Spk",
+						"Microphone",	"CVB-RT Int Mic",
+						"Headphone",	"H40-RT Headphone",
+						"Microphone",	"H40-RT Mic",
+						"Headphone",	"H40-TAS-R Headphone",
+						"Headphone",	"H40-TAS-L Headphone";
+
+					nvidia-audio-card,routing =
+						"CVB-RT Headphone Jack",	"CVB-RT HPO L Playback",
+						"CVB-RT Headphone Jack",	"CVB-RT HPO R Playback",
+						"CVB-RT IN1P",			"CVB-RT Mic Jack",
+						"CVB-RT IN2P",			"CVB-RT Mic Jack",
+						"CVB-RT Int Spk",		"CVB-RT SPO Playback",
+						"CVB-RT DMIC L1",		"CVB-RT Int Mic",
+						"CVB-RT DMIC L2",		"CVB-RT Int Mic",
+						"CVB-RT DMIC R1",		"CVB-RT Int Mic",
+						"CVB-RT DMIC R2",		"CVB-RT Int Mic",
+						"H40-RT Headphone",		"H40-RT HPO L Playback",
+						"H40-RT Headphone",		"H40-RT HPO R Playback",
+						"H40-RT IN1P",			"H40-RT Mic",
+						"H40-TAS-R Headphone",		"H40-TAS-R OUT",
+						"H40-TAS-L Headphone",		"H40-TAS-L OUT";
+				};
+			};
+		};
+	};
+};

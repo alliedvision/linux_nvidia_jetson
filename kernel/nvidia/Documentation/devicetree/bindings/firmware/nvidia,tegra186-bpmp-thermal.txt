@@ -1,0 +1,14 @@
+BPMP THERMAL
+
+Binding for the BPMP thermal driver.
+
+Required properties:
+- compatible: Must be "nvidia,tegra186-bpmp-thermal"
+- #thermal-sensor-cells: Should be 1
+
+Example:
+
+	bpmpthermal {
+		compatible = "nvidia,tegra186-bpmp-thermal";
+		#thermal-sensor-cells = <1>;
+	};

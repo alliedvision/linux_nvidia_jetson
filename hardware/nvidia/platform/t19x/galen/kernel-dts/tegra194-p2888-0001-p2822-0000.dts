@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Top level DTS file for CVM:P2888-0001 and CVB:P2822-0000.
+ */
+#include "common/tegra194-p2888-0001-p2822-0000-common.dtsi"
+#include "common/tegra194-p2822-camera-modules.dtsi"
+#include "common/tegra194-audio-p2822-0000.dtsi"
+
+#if defined(LINUX_VERSION) && LINUX_VERSION >= 419
+
+/ {
+	/* FIXME: K5.4 overrides */
+	bpmp {
+		i2c {
+			spmic@3c {
+				interrupt-parent = <&intc>;
+				interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+	};
+
+	hda@3510000 {
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+		resets = <&bpmp TEGRA194_RESET_HDA>,
+			 <&bpmp TEGRA194_RESET_HDA2CODEC_2X>,
+			 <&bpmp TEGRA194_RESET_HDA2HDMICODEC>;
+		reset-names = "hda", "hda2codec_2x", "hda2hdmi";
+	};
+
+	serial@3100000 {
+		compatible = "nvidia,tegra194-hsuart";
+	};
+
+	tegra-cache {
+		status = "okay";
+	};
+};
+
+#endif

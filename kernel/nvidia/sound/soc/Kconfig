@@ -1,0 +1,7 @@
+if SND_SOC && (("$(VERSION)" < "6") && ("$(VERSION)" > "4"))
+source "sound/soc/tegra-virt-alt/Kconfig"
+endif
+
+if SND_SOC && ("$(VERSION)" < "5")
+source "sound/soc/tegra-alt/Kconfig"
+endif

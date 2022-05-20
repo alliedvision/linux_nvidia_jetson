@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * P3737 audio DTSI file.
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+#include <audio/tegra-platforms-audio-dai-links.dtsi>
+#include <audio/tegra186-audio-dai-links.dtsi>
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include <dt-bindings/audio/tegra234-audio.h>
+#include <audio/tegra-platforms-audio-dmic3-5-switch.dtsi>
+
+/ {
+	aconnect@2a41000 {
+		status = "okay";
+
+		agic-controller@2a41000 {
+			status = "okay";
+		};
+
+		adsp@2993000 {
+			status = "okay";
+		};
+
+		ahub {
+			/* I2S4 in Short frame sync for BT SCO */
+			i2s@2901300 {
+				bclk-ratio = <4>;
+			};
+		};
+	};
+
+	tegra_acsl_audio: acsl_audio {
+		status = "okay";
+	};
+
+	hda@3510000 {
+		nvidia,model = "NVIDIA Jetson AGX Orin HDA";
+		status = "okay";
+	};
+
+	tegra_sound: sound {
+		status = "okay";
+		compatible = "nvidia,tegra186-ape";
+		nvidia-audio-card,name = "NVIDIA Jetson AGX Orin APE";
+		clocks = <&bpmp_clks TEGRA234_CLK_PLLA>,
+			 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>,
+			 <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		clock-names = "pll_a", "pll_a_out0", "extern1";
+		assigned-clocks = <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>;
+	};
+};
+
+/*
+ * Default config for all I2S dai links are
+ * format = "i2s", bitclock-slave, frame-slave,
+ * bitclock-noninversion, frame-noninversion,
+ * Any change from default needs override on
+ * platform specific files.
+ */
+
+hdr40_snd_link_i2s: &i2s2_to_codec { };
+
+/* Override with BT SCO entries */
+&i2s4_to_codec {
+	format = "dsp_a";
+	bitclock-inversion;
+};

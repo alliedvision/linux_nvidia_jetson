@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra210-mixer.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra210 Mixer DT Bindings
+
+description: |
+  The mixer supports up to ten 7.1 channel audio input streams and five
+  outputs (each of which can be a mix of any combination of the 10 input
+  streams). Examples include mixing system tones with voice calls, mixing
+  two audio playbacks to create a transition effect.
+
+  Mixer features
+    * Supports mixing upto 10 input streams of 7.1 channel audio each
+    * Supports five outputs of which each can be a mix of 10 input streams
+    * Time ramp-up/ramp-down volume control provided for each stream
+    * Fixed gain for each stream is possible
+    * A 32-bit sample counter is provided for each input stream to count the
+      number of samples consumed
+    * A peak meter for each input stream is available
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra210 based platforms
+          const: "nvidia,tegra210-amixer"
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-amixer", "nvidia,tegra210-amixer"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-amixer", "nvidia,tegra210-amixer"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-amixer-id:
+    description: Must be specified with Mixer instance number
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-amixer-id
+
+examples:
+
+  - |
+    amixer@702dbb00 {
+        compatible = "nvidia,tegra210-amixer";
+        reg = <0x702dbb00 0x800>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amixer-id = <0>;
+    };
+
+  - |
+    amixer@290bb00 {
+        compatible = "nvidia,tegra186-amixer", "nvidia,tegra210-amixer";
+        reg = <0x0 0x290bb00 0x0 0x800>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amixer-id = <0>;
+    };
+
+  - |
+    amixer@290bb00 {
+        compatible = "nvidia,tegra194-amixer", "nvidia,tegra210-amixer";
+        reg = <0x0 0x290bb00 0x0 0x800>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amixer-id = <0>;
+    };
+
+...

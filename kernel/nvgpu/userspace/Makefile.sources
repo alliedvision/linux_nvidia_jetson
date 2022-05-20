@@ -1,0 +1,161 @@
+# -*- mode: makefile -*-
+#
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+
+include $(NVGPU_SRC)/Makefile.sources
+include $(NVGPU_NEXT_SRC)/Makefile.sources
+
+OBJS := $(srcs:%.c=$(NVGPU_OUT)/%.o) $(srcs_next:%.c=$(NVGPU_OUT)/%.o)
+
+HEADERS :=	\
+	$(NVGPU_SRC)/include/nvgpu/*.h		\
+	$(NVGPU_SRC)/include/nvgpu/hw/*/*.h
+
+CORE_OBJS :=	\
+	$(CORE_OUT)/unit_main.o			\
+	$(CORE_OUT)/nvgpu.o			\
+	$(CORE_OUT)/args.o			\
+	$(CORE_OUT)/io.o			\
+	$(CORE_OUT)/module.o			\
+	$(CORE_OUT)/required_tests.o		\
+	$(CORE_OUT)/results.o			\
+	$(CORE_OUT)/exec.o			\
+	$(CORE_OUT)/utils.o
+
+CORE_HEADERS :=	\
+	$(CORE_SRC)/../include/unit/*.h
+
+# Each directory under the UNIT_SRC directory should correspond to one module.
+UNITS :=				\
+	$(UNIT_SRC)/posix/env		\
+	$(UNIT_SRC)/posix/bitops	\
+	$(UNIT_SRC)/posix/fault-injection \
+	$(UNIT_SRC)/posix/bug		\
+	$(UNIT_SRC)/posix/os_sched	\
+	$(UNIT_SRC)/posix/log2		\
+	$(UNIT_SRC)/posix/sizes		\
+	$(UNIT_SRC)/posix/thread	\
+	$(UNIT_SRC)/posix/cond		\
+	$(UNIT_SRC)/posix/timers	\
+	$(UNIT_SRC)/posix/kmem		\
+	$(UNIT_SRC)/posix/rwsem		\
+	$(UNIT_SRC)/posix/queue		\
+	$(UNIT_SRC)/posix/utils		\
+	$(UNIT_SRC)/posix/circ_buf	\
+	$(UNIT_SRC)/bus			\
+	$(UNIT_SRC)/pramin		\
+	$(UNIT_SRC)/ptimer		\
+	$(UNIT_SRC)/priv_ring		\
+	$(UNIT_SRC)/init		\
+	$(UNIT_SRC)/interface/bit-utils	\
+	$(UNIT_SRC)/interface/lock	\
+	$(UNIT_SRC)/interface/nvgpu_gk20a	\
+	$(UNIT_SRC)/interface/atomic	\
+	$(UNIT_SRC)/interface/rbtree	\
+	$(UNIT_SRC)/interface/static_analysis	\
+	$(UNIT_SRC)/interface/string	\
+	$(UNIT_SRC)/interface/worker	\
+	$(UNIT_SRC)/interface/kref	\
+	$(UNIT_SRC)/interface/list	\
+	$(UNIT_SRC)/mc			\
+	$(UNIT_SRC)/mm/nvgpu_sgt	\
+	$(UNIT_SRC)/mm/allocators/buddy_allocator	\
+	$(UNIT_SRC)/mm/allocators/nvgpu_allocator	\
+	$(UNIT_SRC)/mm/allocators/bitmap_allocator	\
+	$(UNIT_SRC)/mm/allocators/page_allocator	\
+        $(UNIT_SRC)/mm/as		\
+	$(UNIT_SRC)/mm/dma		\
+	$(UNIT_SRC)/mm/gmmu/pd_cache	\
+	$(UNIT_SRC)/mm/gmmu/page_table	\
+	$(UNIT_SRC)/mm/hal/cache/flush_gk20a_fusa	\
+	$(UNIT_SRC)/mm/hal/cache/flush_gv11b_fusa	\
+	$(UNIT_SRC)/mm/hal/gmmu/gmmu_gk20a_fusa		\
+	$(UNIT_SRC)/mm/hal/gmmu/gmmu_gm20b_fusa		\
+	$(UNIT_SRC)/mm/hal/gmmu/gmmu_gp10b_fusa		\
+	$(UNIT_SRC)/mm/hal/gmmu/gmmu_gv11b_fusa		\
+	$(UNIT_SRC)/mm/hal/gp10b_fusa	\
+	$(UNIT_SRC)/mm/hal/gv11b_fusa	\
+	$(UNIT_SRC)/mm/hal/mmu_fault/gv11b_fusa		\
+	$(UNIT_SRC)/mm/mm		\
+	$(UNIT_SRC)/mm/page_table_faults \
+	$(UNIT_SRC)/mm/nvgpu_mem	\
+	$(UNIT_SRC)/mm/vm		\
+	$(UNIT_SRC)/netlist		\
+        $(UNIT_SRC)/fb 	        	\
+	$(UNIT_SRC)/fbp			\
+	$(UNIT_SRC)/fifo		\
+	$(UNIT_SRC)/fifo/fifo/gk20a	\
+	$(UNIT_SRC)/fifo/fifo/gv11b	\
+	$(UNIT_SRC)/fifo/channel	\
+	$(UNIT_SRC)/fifo/channel/gk20a	\
+	$(UNIT_SRC)/fifo/channel/gm20b	\
+	$(UNIT_SRC)/fifo/channel/gv11b	\
+	$(UNIT_SRC)/fifo/ctxsw_timeout/gv11b            \
+	$(UNIT_SRC)/fifo/engine		\
+	$(UNIT_SRC)/fifo/engine/gm20b	\
+	$(UNIT_SRC)/fifo/engine/gp10b	\
+	$(UNIT_SRC)/fifo/engine/gv100	\
+	$(UNIT_SRC)/fifo/engine/gv11b	\
+	$(UNIT_SRC)/fifo/fifo		\
+	$(UNIT_SRC)/fifo/pbdma		\
+	$(UNIT_SRC)/fifo/pbdma/gm20b	\
+	$(UNIT_SRC)/fifo/pbdma/gp10b	\
+	$(UNIT_SRC)/fifo/pbdma/gv11b	\
+	$(UNIT_SRC)/fifo/preempt	\
+	$(UNIT_SRC)/fifo/preempt/gv11b	\
+	$(UNIT_SRC)/fifo/ramfc/gp10b	\
+	$(UNIT_SRC)/fifo/ramfc/gv11b	\
+	$(UNIT_SRC)/fifo/ramin/gk20a	\
+	$(UNIT_SRC)/fifo/ramin/gm20b	\
+	$(UNIT_SRC)/fifo/ramin/gv11b	\
+	$(UNIT_SRC)/fifo/runlist	\
+	$(UNIT_SRC)/fifo/runlist/gk20a	\
+	$(UNIT_SRC)/fifo/runlist/gv11b	\
+	$(UNIT_SRC)/fifo/tsg		\
+	$(UNIT_SRC)/fifo/tsg/gv11b	\
+	$(UNIT_SRC)/fifo/userd/gk20a	\
+	$(UNIT_SRC)/fifo/usermode/gv11b	\
+	$(UNIT_SRC)/ltc			\
+	$(UNIT_SRC)/enabled		\
+	$(UNIT_SRC)/falcon		\
+	$(UNIT_SRC)/falcon/falcon_tests	\
+	$(UNIT_SRC)/fuse		\
+	$(UNIT_SRC)/pmu			\
+	$(UNIT_SRC)/therm		\
+	$(UNIT_SRC)/top			\
+	$(UNIT_SRC)/class		\
+	$(UNIT_SRC)/gr			\
+	$(UNIT_SRC)/gr/falcon		\
+	$(UNIT_SRC)/gr/config		\
+	$(UNIT_SRC)/gr/init		\
+	$(UNIT_SRC)/gr/fs_state		\
+	$(UNIT_SRC)/gr/global_ctx	\
+	$(UNIT_SRC)/gr/ctx		\
+	$(UNIT_SRC)/gr/obj_ctx		\
+	$(UNIT_SRC)/gr/intr		\
+	$(UNIT_SRC)/gr/setup		\
+	$(UNIT_SRC)/acr			\
+	$(UNIT_SRC)/ce			\
+	$(UNIT_SRC)/cg                  \
+	$(UNIT_SRC)/rc                  \
+	$(UNIT_SRC)/sync		\
+	$(UNIT_SRC)/ecc			\
+	$(UNIT_SRC)/io

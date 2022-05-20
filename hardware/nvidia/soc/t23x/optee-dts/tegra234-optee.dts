@@ -1,0 +1,32 @@
+/*
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ */
+
+/dts-v1/;
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* MB2 fills the non-secure memory chucks here in order to
+	 * enable the dynamic shared memory in OP-TEE.
+	 * Example:
+	 * nsec-memory@<xxx> {
+	 * 	device_type = "memory";
+	 *	reg = <xxx xxx xxx xxx>;
+	 * };
+	 */
+
+	/* MB2 will fill the address and size of EKB blob */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ekb-blob@0 {
+			compatible = "jetson-ekb-blob";
+			reg = <0 0 0 0>;
+		};
+	};
+};

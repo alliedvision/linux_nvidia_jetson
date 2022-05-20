@@ -1,0 +1,126 @@
+/*
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-soc-eqos.dtsi: Ethernet QOS DTSI file.
+ */
+
+#include <dt-bindings/clock/tegra194-clock.h>
+#include <dt-bindings/reset/tegra194-reset.h>
+
+#define MAKE_EQOS_TRIP(name, temp, hyst) \
+	eqos_##name: eqos-##name@temp { \
+		temperature = <(temp)>; \
+		hysteresis = <hyst>; \
+		type = "active"; \
+	}
+
+#define MAP_EQOS(name, state) \
+	map_eqos_##name { \
+		trip = <&eqos_##name>; \
+		cooling-device = <&eqos_cool_dev state state>; \
+		cdev-type = "tegra-eqos"; \
+	}
+
+
+/ {
+	pinmux@2430000 {
+		eqos_mii_rx_input_state_disable: eqos_rx_disable {
+			eqos {
+				nvidia,pins = "eqos_rd0_pe6","eqos_rd1_pe7",
+						"eqos_rd2_pf0","eqos_rd3_pf1",
+						"eqos_rx_ctl_pf2";
+
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+		};
+		eqos_mii_rx_input_state_enable: eqos_rx_enable {
+			eqos {
+				nvidia,pins = "eqos_rd0_pe6","eqos_rd1_pe7",
+						"eqos_rd2_pf0","eqos_rd3_pf1",
+						"eqos_rx_ctl_pf2";
+
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+	};
+
+	aliases {
+		ethernet = "/ethernet@2490000";
+	};
+
+	ethernet@2490000 {
+		compatible = "nvidia,nveqos";
+		reg = <0x0 0x02490000 0x0 0x10000>;    /* EQOS Base Register */
+		reg-names = "mac-base";
+		interrupts = 	<0 194 0x4>,	/* common */
+				<0 186 0x4>,	/* tx0 */
+				<0 187 0x4>,	/* tx1 */
+				<0 188 0x4>,	/* tx2 */
+				<0 189 0x4>,	/* tx3 */
+				<0 190 0x4>,	/* rx0 */
+				<0 191 0x4>,	/* rx1 */
+				<0 192 0x4>,	/* rx2 */
+				<0 193 0x4>;	/* rx3 */
+		clocks = <&bpmp_clks TEGRA194_CLK_PLLREFE_VCOOUT>,
+			 <&bpmp_clks TEGRA194_CLK_EQOS_AXI>,
+			 <&bpmp_clks TEGRA194_CLK_EQOS_RX>,
+			 <&bpmp_clks TEGRA194_CLK_EQOS_PTP_REF>,
+			 <&bpmp_clks TEGRA194_CLK_EQOS_TX>,
+			 <&bpmp_clks TEGRA194_CLK_AXI_CBB>;
+		clock-names = "pllrefe_vcoout", "eqos_axi", "eqos_rx", "eqos_ptp_ref", "eqos_tx", "axi_cbb";
+		resets = <&bpmp_resets TEGRA194_RESET_EQOS>;
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_EQOSR>,
+			        <&mc TEGRA194_MEMORY_CLIENT_EQOSW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+		reset-names = "mac_rst";
+		nvidia,promisc_mode = <1>;
+		nvidia,num-dma-chans = <4>;
+		nvidia,dma-chans = <0 1 2 3>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D>;
+		nvidia,num-mtl-queues = <4>;
+		nvidia,mtl-queues = <0 1 2 3>;
+		nvidia,rx-queue-prio = <0x2 0x1 0x30 0x48>;
+		nvidia,dcs-enable = <0x1>;
+		nvidia,pad_calibration = <0x1>;
+		nvidia,tx-queue-prio = <0x0 0x7 0x2 0x3>;
+		iommus = <&smmu TEGRA_SID_EQOS>;
+		iommu-resv-regions = <0x0 0x0 0x0 0x40000000 0x0 0x60000000 0xffffffff 0xffffffff>;
+		dma-coherent;
+		/* usec value for Rx watchdog interrupt */
+		nvidia,rx_riwt = <256>;
+		nvidia,rx_frames = <64>;
+		nvidia,tx_usecs = <256>;
+		nvidia,tx_frames = <5>;
+		/* PTP_ref clock speed in Hz (312.5 MHz)*/
+		nvidia,ptp_ref_clock_speed = <312500000>;
+		status = "disabled";
+		pinctrl-names = "mii_rx_disable", "mii_rx_enable";
+		pinctrl-0 = <&eqos_mii_rx_input_state_disable>;
+		pinctrl-1 = <&eqos_mii_rx_input_state_enable>;
+		eqos_cool_dev: eqos-cool-dev {
+			cooling-min-state = <0>;
+			cooling-max-state = <5>;
+			#cooling-cells = <2>;
+		};
+	};
+
+};

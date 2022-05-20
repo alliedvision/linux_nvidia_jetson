@@ -1,0 +1,5 @@
+avt-nvidia-l4t-kernel (${KERNEL_RELEASE}-${L4T_VERSION}-${AVT_RELEASE}) stable; urgency=low
+
+  * Refer to Package Release Notes for details: http://developer.nvidia.com/jetson
+
+ -- NVIDIA Corporation <linux-tegra-bugs@nvidia.com>  Fri, 19 Feb 2021 08:47:08 -0800

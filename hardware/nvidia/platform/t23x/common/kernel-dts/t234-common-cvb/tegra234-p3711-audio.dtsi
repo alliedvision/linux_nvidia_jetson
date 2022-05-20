@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <audio/tegra-platforms-audio-dai-links.dtsi>
+#include <audio/tegra186-audio-dai-links.dtsi>
+
+/ {
+	aconnect@2a41000 {
+		status = "okay";
+
+		agic-controller@2a41000 {
+			status = "okay";
+		};
+
+		adsp@2993000 {
+			status = "okay";
+		};
+	};
+
+	hda@3510000 {
+		hda,card-name = "tegra-hda-xnx";
+		status = "okay";
+	};
+
+	tegra_sound: sound {
+		status = "okay";
+		compatible = "nvidia,tegra-audio-t186ref-mobile-rt565x";
+		nvidia-audio-card,name = "jetson-xaviernx-ape";
+		clocks = <&bpmp_clks TEGRA234_CLK_PLLA>,
+			 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>,
+			 <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		clock-names = "pll_a", "pll_a_out0", "extern1";
+		assigned-clocks = <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>,
+				  <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA234_CLK_PLLA>,
+					 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>;
+
+		nvidia-audio-card,mclk-fs = <256>;
+	};
+};
+
+hdr40_snd_link_i2s: &i2s5_to_codec { };

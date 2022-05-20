@@ -1,0 +1,27 @@
+NVIDIA vpr carveout
+-----------------------
+VPR is an acronym which stands for "Video Protection Region".
+VPR is a region in memory which is secured by the MC from
+access and modification by engines that are not part of the
+video decode and display process.
+The intended use of the VPR region is to prevent rogue
+hardware or software from gaining access to protected video data
+
+This is child node of upstream /reserved-memory node.
+It's used for OS to exclude the memory region for normal usage.
+
+Required properties:
+- compatible: "nvidia,vpr_carveout";
+- reusable: It tells the VPR memory can be used by CMA
+
+Rest of the properties are common properties defined under /reserved-memory node Documentation
+
+Example:
+--------
+	vpr: vpr-carveout {
+		compatible = "nvidia,vpr-carveout";
+		size = <0 0x2a000000>;
+		alignment = <0 0x400000>;
+		alloc-ranges = <0x0 0x80000000 0x0 0x70000000>;
+		reusable;
+	};

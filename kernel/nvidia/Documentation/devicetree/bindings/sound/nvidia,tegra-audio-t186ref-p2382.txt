@@ -1,0 +1,567 @@
+* NVIDIA Tegra Auto Audio Machine Driver
+
+The Tegra Automotive Audio Machine Driver is used to configure
+sound card properties.
+
+Required properties:
+- compatible : Must be "nvidia,tegra-audio-t186ref-p2382".
+- nvidia,num-codec-link : number of I2S interfaces to DAC/ADC's.
+- nvidia,num-amx : number of audio multiplexers used.
+- nvidia,num-adx : number of audio demuxers used.
+- nvidia,amx-slot-size : specify each amx instance total slots enable.
+- nvidia,adx-slot-size : specify each adx instance total slots enable.
+- nvidia,amx<n>-slot-map : specify mapping for data per amx instance.
+- nvidia,adx<n>-slot-map : specify mapping for data per adx instance.
+- nvidia,dai-link-<n> : specify I2S<n> configuration.
+- tx-mask : property to specify slot arrangement in I2S(data in).
+- rx-mask : property to specify slot arrangement in I2S(data out).
+- format : specify I2S controller operating mode[dsp_a, dsp_b, i2s].
+- [bitclock/frame]-[master/slave] : specifies I2S controller is bitclock/frame sync master
+			or slave. Both bitclock and frame sync can be either master
+			or slave at a given time i.e. permissible combinations are
+			[bitclock-master,frame-master] OR [bitclock-slave,frame-slave]
+- bitclock-noninversion : I2S controller drive data on negative edge of
+			bitclock and samples data on positive edge.
+- bitclock-inversion: I2S controller drives data on positive edge
+			and samples data on negative edge.
+
+- frame-noninversion: Frame starts with rising FSYNC edge[DSP A/B].
+- frame-inversion: Frame starts with falling FSYNC edge[DSP A/B].
+- bit-format : Supported values "s32_le" or "s16_le".
+- bclk_ratio : Property can be used to match codec clocks for cases
+		where codec can not generate low bit clocks.
+		bclk_ratio = bitclock / (bit-format * num-channel * srate)
+- srate : Sets sampling rate, for example, 48000.
+- num-channel : Sets the number of channels, for example, 2 or 8.
+- num-channel-rx/tx : Allows to set only rx/tx channels for I2S.
+		If entry doesn't exist, num-channel is taken.
+
+Example:
+
+sound_ref {
+		status = "okay";
+		compatible = "nvidia,tegra-audio-t186ref-p2382";
+
+		nvidia,num-codec-link = <6>;
+
+		nvidia,num-amx = <4>;
+		nvidia,num-adx = <4>;
+
+		nvidia,amx-slot-size = <32 32 32 32>;
+		nvidia,adx-slot-size = <32 32 32 32>;
+
+		nvidia,amx1-input-channels = <2 2 2 2>;
+		nvidia,amx1-output-channels = <8>;
+		nvidia,amx1-input-bits = <16 16 16 16>;
+		nvidia,amx1-output-bits = <32>;
+
+		nvidia,amx1-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,amx2-input-channels = <2 2 2 2>;
+		nvidia,amx2-output-channels = <8>;
+		nvidia,amx2-input-bits = <16 16 16 16>;
+		nvidia,amx2-output-bits = <32>;
+
+		nvidia,amx2-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,amx3-input-channels = <2 2 2 2>;
+		nvidia,amx3-output-channels = <8>;
+		nvidia,amx3-input-bits = <16 16 16 16>;
+		nvidia,amx3-output-bits = <32>;
+
+		nvidia,amx3-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,amx4-input-channels = <2 2 2 2>;
+		nvidia,amx4-output-channels = <8>;
+		nvidia,amx4-input-bits = <16 16 16 16>;
+		nvidia,amx4-output-bits = <32>;
+
+		nvidia,amx4-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,adx1-input-channels = <8>;
+		nvidia,adx1-output-channels = <6 2 2 2>;
+		nvidia,adx1-input-bits = <32>;
+		nvidia,adx1-output-bits = <16 16 16 16>;
+
+		nvidia,adx1-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(0, 3, 0)
+			TDM_SLOT_MAP(0, 3, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(0, 4, 0)
+			TDM_SLOT_MAP(0, 4, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(0, 5, 0)
+			TDM_SLOT_MAP(0, 5, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(0, 6, 0)
+			TDM_SLOT_MAP(0, 6, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,adx2-input-channels = <8>;
+		nvidia,adx2-output-channels = <2 2 2 2>;
+		nvidia,adx2-input-bits = <32>;
+		nvidia,adx2-output-bits = <16 16 16 16>;
+
+		nvidia,adx2-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,adx3-input-channels = <8>;
+		nvidia,adx3-output-channels = <2 2 2 2>;
+		nvidia,adx3-input-bits = <32>;
+		nvidia,adx3-output-bits = <16 16 16 16>;
+
+		nvidia,adx3-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,adx4-input-channels = <8>;
+		nvidia,adx4-output-channels = <2 2 2 2>;
+		nvidia,adx4-input-bits = <32>;
+		nvidia,adx4-output-bits = <16 16 16 16>;
+
+		nvidia,adx4-slot-map = <
+			/* slot 0 - Hi */
+			TDM_SLOT_MAP(0, 1, 0)
+			TDM_SLOT_MAP(0, 1, 1)
+			/* slot 1 - Hi */
+			TDM_SLOT_MAP(0, 2, 0)
+			TDM_SLOT_MAP(0, 2, 1)
+			/* slot 2 - Hi */
+			TDM_SLOT_MAP(1, 1, 0)
+			TDM_SLOT_MAP(1, 1, 1)
+			/* slot 3 - Hi */
+			TDM_SLOT_MAP(1, 2, 0)
+			TDM_SLOT_MAP(1, 2, 1)
+			/* slot 4 - Hi */
+			TDM_SLOT_MAP(2, 1, 0)
+			TDM_SLOT_MAP(2, 1, 1)
+			/* slot 5 - Hi */
+			TDM_SLOT_MAP(2, 2, 0)
+			TDM_SLOT_MAP(2, 2, 1)
+			/* slot 6 - Hi */
+			TDM_SLOT_MAP(3, 1, 0)
+			TDM_SLOT_MAP(3, 1, 1)
+			/* slot 7 - Hi */
+			TDM_SLOT_MAP(3, 2, 0)
+			TDM_SLOT_MAP(3, 2, 1)
+			/* slot 0 to 7 - Low */
+			/* slot 0 to 7 - Low */
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)
+			TDM_SLOT_MAP(0, 0, 0)>;
+
+		nvidia,audio-routing =
+			"Headphone-x", "x OUT",
+			"x IN", "LineIn-x",
+			"Headphone-y", "y OUT",
+			"y IN", "LineIn-y",
+			"Headphone-d", "d OUT",
+			"d IN", "LineIn-d",
+			"BT-out", "b OUT",
+			"b IN", "BT-in",
+			"EAVB-out", "ADSP EAVB Transmit",
+			"ADSP EAVB Receive", "EAVB-in";
+
+		nvidia,xbar = <&tegra_axbar>;
+
+		nvidia,dai-link-1 {
+			link-name = "p2382-audio-dsp-tdm1-1";
+			cpu-dai = <&tegra_i2s3>;
+			codec-dai = <&spdif_dit0>;
+			cpu-dai-name = "I2S3";
+			codec-dai-name = "dit-hifi";
+			tx-mask = <0xFF>;
+			rx-mask = <0xFF>;
+			format = "dsp_a";
+			bitclock-master;
+			frame-master;
+			bitclock-noninversion;
+			frame-inversion;
+			bit-format = "s32_le";
+			bclk_ratio = <1>;
+			srate = <48000>;
+			num-channel = <8>;
+			name-prefix = "x";
+		};
+
+		nvidia,dai-link-2 {
+			link-name = "p2382-audio-dsp-tdm1-2";
+			cpu-dai = <&tegra_i2s4>;
+			codec-dai = <&spdif_dit1>;
+			cpu-dai-name = "I2S4";
+			codec-dai-name = "dit-hifi";
+			tx-mask = <0xFF>;
+			rx-mask = <0xFF>;
+			format = "dsp_a";
+			bitclock-master;
+			frame-master;
+			bitclock-noninversion;
+			frame-inversion;
+			bit-format = "s32_le";
+			bclk_ratio = <1>;
+			srate = <48000>;
+			num-channel = <8>;
+			name-prefix = "y";
+		};
+
+		nvidia,dai-link-3 {
+			link-name = "dummy-playback";
+			cpu-dai = <&tegra_i2s1>;
+			codec-dai = <&spdif_dit2>;
+			cpu-dai-name = "I2S1";
+			codec-dai-name = "dit-hifi";
+			tx-mask = <0x3FF>;
+			rx-mask = <0x3FF>;
+			format = "dsp_a";
+			bitclock-slave;
+			frame-slave;
+			bitclock-noninversion;
+			frame-inversion;
+			bit-format = "s32_le";
+			bclk_ratio = <1>;
+			srate = <48000>;
+			num-channel = <10>;
+			name-prefix = "d";
+		};
+
+		nvidia,dai-link-4 {
+			link-name = "p2382-btsco";
+			cpu-dai = <&tegra_i2s6>;
+			codec-dai = <&spdif_dit3>;
+			cpu-dai-name = "I2S6";
+			codec-dai-name = "dit-hifi";
+			format = "i2s";
+			bitclock-master;
+			frame-master;
+			bit-format = "s16_le";
+			bclk_ratio = <1>;
+			srate = <8000>;
+			num-channel = <2>;
+			name-prefix = "b";
+		};
+
+		nvidia,dai-link-5 {
+			link-name = "dummy-playback";
+			cpu-dai = <&tegra_i2s2>;
+			codec-dai = <&spdif_dit4>;
+			cpu-dai-name = "I2S2";
+			codec-dai-name = "dit-hifi";
+			tx-mask = <0xFF>;
+			rx-mask = <0xFF>;
+			format = "dsp_a";
+			bitclock-master;
+			frame-master;
+			bitclock-noninversion;
+			frame-inversion;
+			bit-format = "s32_le";
+			bclk_ratio = <1>;
+			srate = <48000>;
+			num-channel = <8>;
+			name-prefix = "d";
+		};
+
+		nvidia,dai-link-6 {
+			link-name = "p2382-btsco";
+			cpu-dai = <&tegra_i2s5>;
+			codec-dai = <&spdif_dit5>;
+			cpu-dai-name = "I2S5";
+			codec-dai-name = "dit-hifi";
+			format = "i2s";
+			bitclock-master;
+			frame-master;
+			bit-format = "s16_le";
+			bclk_ratio = <1>;
+			srate = <8000>;
+			num-channel = <2>;
+			name-prefix = "b";
+		};
+
+	};

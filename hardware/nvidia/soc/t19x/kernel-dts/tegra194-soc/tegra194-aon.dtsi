@@ -1,0 +1,98 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	aon: aon@c000000 {
+		compatible = "nvidia,tegra186-aon";
+		status = "okay";
+		iommus = <&smmu TEGRA_SID_AON>;
+		dma-coherent;
+		reg = <0x0 0x0c1a0000 0x0 0x40000>; /* AON shared semaphore */
+		#mbox-cells = <1>;
+		nvidia,ivc-carveout-base-ss = <0>;
+		nvidia,ivc-carveout-size-ss = <1>;
+		nvidia,ivc-rx-ss = <2>;
+		nvidia,ivc-tx-ss = <3>;
+		nvidia,ivc-dbg-enable-ss = <0>;
+
+		hsp {
+			compatible = "nvidia,tegra-aon-hsp";
+			mboxes =
+			 <&aon_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(3)>,
+			 <&aon_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(2)>;
+			mbox-names = "ivc-tx", "ivc-rx";
+		};
+
+		ivc-channels@80000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ivc_aon_echo@0 {
+				reg = <0x0000>, <0x10000>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <16>;
+				nvidia,frame-size = <64>;
+			};
+			ivc_aon_aondbg@480 {
+				reg = <0x0480>, <0x10480>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <2>;
+				nvidia,frame-size = <128>;
+			};
+			ivc_aon_spi@600 {
+				reg = <0x0600>, <0x10600>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <2>;
+				nvidia,frame-size = <24704>;
+			};
+			ivc_can0@c780 {
+				reg = <0xc780>, <0x1c780>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <16>;
+				nvidia,frame-size = <128>;
+			};
+			ivc_can1@d000 {
+				reg = <0xd000>, <0x1d000>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <16>;
+				nvidia,frame-size = <128>;
+			};
+			ivc_aon_shub@d880 {
+				reg = <0xd880>, <0x1d880>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <32>;
+				nvidia,frame-size = <256>;
+			};
+		};
+	};
+
+	aondbg {
+		compatible = "nvidia,tegra186-aondbg";
+		mboxes = <&aon 1>;
+		status = "okay";
+	};
+
+	aon_shub {
+		status = "disabled";
+		compatible = "nvidia,tegra186_aon_shub";
+		mboxes = <&aon 5>;
+	};
+	aon_clks: aonclk {
+		compatible = "nvidia,tegra-aon-clks";
+		#clock-cells = <1>;
+		status = "okay";
+	};
+};

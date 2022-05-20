@@ -1,0 +1,133 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	i2c@3180000 {
+		pex9749: pex9749@5f {
+			compatible = "pex9749";
+			reg = <0x5f>;
+			#thermal-sensor-cells = <0>;
+		};
+	};
+
+	thermal-zones {
+		PCIe-MiniSAS {
+			thermal-sensors = <&pex9749>;
+			polling-delay = <1000>;
+			polling-delay-passive = <1000>;
+
+			trips {
+				minisas_alert0: trip-point0 {
+					temperature = <0>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert1: trip-point1 {
+					temperature = <65000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert2: trip-point2 {
+					temperature = <70000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert3: trip-point3 {
+					temperature = <75000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert4: trip-point4 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert5: trip-point5 {
+					temperature = <85000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert6: trip-point6 {
+					temperature = <90000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert7: trip-point7 {
+					temperature = <95000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+
+				minisas_alert8: trip-point8 {
+					temperature = <110000>;
+					hysteresis = <2000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&minisas_alert0>;
+					cooling-device = <&pwm_fan_fpga 0 0>;
+				};
+
+				map1 {
+					trip = <&minisas_alert1>;
+					cooling-device = <&pwm_fan_fpga 0 0>;
+				};
+
+				map2 {
+					trip = <&minisas_alert2>;
+					cooling-device = <&pwm_fan_fpga 1 1>;
+				};
+
+				map3 {
+					trip = <&minisas_alert3>;
+					cooling-device = <&pwm_fan_fpga 2 2>;
+				};
+
+				map4 {
+					trip = <&minisas_alert4>;
+					cooling-device = <&pwm_fan_fpga 3 3>;
+				};
+
+				map5 {
+					trip = <&minisas_alert5>;
+					cooling-device = <&pwm_fan_fpga 4 4>;
+				};
+
+				map6 {
+					trip = <&minisas_alert6>;
+					cooling-device = <&pwm_fan_fpga 5 5>;
+				};
+
+				map7 {
+					trip = <&minisas_alert7>;
+					cooling-device = <&pwm_fan_fpga 6 6>;
+				};
+
+				map8 {
+					trip = <&minisas_alert8>;
+					cooling-device = <&pwm_fan_fpga 7 7>;
+				};
+			};
+		};
+	};
+};

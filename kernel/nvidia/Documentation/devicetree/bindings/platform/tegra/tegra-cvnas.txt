@@ -1,0 +1,56 @@
+NVIDIA Tegra CVNAS (Comput Vision NOC and SRAM)
+
+	- CVNAS
+		CVNAS provides a high bandwidth, low latency SRAM for CV cluster.
+		CVNAS consists of 2 main blocks: CVNOC and CVSRAM
+	- CVNOC
+		CVNOC is a backbone, implemented using FlexNOC which interconnects
+		masters to the memory.
+	- CVSRAM
+		CVSRAM is high bandwidth, low latency SRAM size of 4MB
+		Except the CV clients(PVA, DLA), no other IPs can access it
+		CPU can access it through low speed debug aperture
+
+Required properties:
+	- compatible : Must be one of the below -
+		"nvidia,tegra-cvnas"
+		"nvidia,tegra-cvnas-hv"
+	- power-domains = Power domain group, should be
+		TEGRA194_POWER_DOMAIN_CV
+	- reg : Should contain 2 register ranges(address and length) pairs
+		Register address space (MMIO). It should have values -
+		CV0_REG0_BASE - CVNAS MMIO registers range
+		CV0_SRAM_BASE - CVSRAM Base address and size
+		HSM_BASE - HSM MMIO registers range
+	- clocks: CVNAS clock
+	- resets: All CVNAS resets -
+		TEGRA194_RESET_CVNAS
+		TEGRA194_RESET_CVNAS_FCM
+	- reset-names: Names of the resets required for CVNAS.
+		Must include following entries:
+		rst
+		rst_fcm
+	- interrupts: Specify the interrupts IRQ info for device
+	- cvsramslice : CVSRAM has 4 slices of 1 MB each with ECC storage
+	- cvsram-reg : 4MB CVSRAM memory map
+		Start address: 0x 50000000
+		End address: 0x503F_FFFF
+	- status : disabled or okay
+
+Example:
+	tegra-cvnas {
+		compatible = "nvidia,tegra-cvnas";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_CV>;
+		reg = <0x0 0x14000000 0x0 0x20000>, /* CV0_REG0_BASE */
+		      <0x0 0x14020000 0x0 0x10000>, /* CV0_SRAM_BASE */
+		      <0x0 0x0b240000 0x0 0x10000>; /* HSM_BASE */
+		clocks = <&bpmp_clks TEGRA194_CLK_CVNAS>;
+		resets = <&bpmp_resets TEGRA194_RESET_CVNAS>,
+			 <&bpmp_resets TEGRA194_RESET_CVNAS_FCM>;
+		reset-names = "rst", "rst_fcm";
+		interrupts = <0 238 4>,
+			     <0 239 4>;
+		cvsramslice = <4 0x1000>;
+		cvsram-reg = <0x0 0x50000000 0x0 0x400000>;
+		status = "disabled";
+	};

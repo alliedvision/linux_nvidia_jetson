@@ -1,0 +1,170 @@
+/*
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/clock/tegra234-clock.h>
+#include <dt-bindings/reset/tegra234-reset.h>
+#include <dt-bindings/soc/tegra234-powergate.h>
+#include <dt-bindings/memory/tegra234-smmu-streamid.h>
+#include <dt-bindings/interconnect/tegra_icc_id.h>
+
+/ {
+	pcie_ep@14100000 {
+		compatible = "nvidia,tegra234-pcie-ep";
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_PCIEX1A>;
+		reg = <0x00 0x14100000 0x0 0x00020000   /* appl registers (128K)      */
+		       0x00 0x30040000 0x0 0x00040000   /* iATU_DMA reg space (256K)  */
+		       0x00 0x30080000 0x0 0x00040000   /* DBI space (256K)           */
+		       0x20 0x80000000 0x0 0x40000000>; /* Address Space (1G)         */
+		reg-names = "appl", "atu_dma", "dbi", "addr_space";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+
+		status = "disabled";
+
+		clocks = <&bpmp_clks TEGRA234_CLK_PEX0_C1_CORE>;
+		clock-names = "core";
+
+		resets = <&bpmp_resets TEGRA234_RESET_PEX0_CORE_1_APB>,
+			 <&bpmp_resets TEGRA234_RESET_PEX0_CORE_1>;
+		reset-names = "apb", "core";
+
+		interrupts = <0 45 0x04>;	/* controller interrupt */
+		interrupt-names = "intr";
+
+		nvidia,dvfs-tbl = < 204000000 408000000 800000000  1333000000
+					0         0         0          0
+					0         0         0          0
+					0         0         0          0 >;
+
+		nvidia,bar0-size = <0x100000>;	/* 1 MB */
+		nvidia,device-id = /bits/ 16 <0x1AD4>;
+		nvidia,controller-id = <&bpmp 0x1>;
+		num-lanes = <1>;
+		nvidia,aux-clk-freq = <0x13>;
+		nvidia,disable-aspm-states = <0xf>;
+		nvidia,aspm-cmrt = <0x3C>;
+		nvidia,aspm-pwr-on-t = <0x14>;
+		nvidia,aspm-l0s-entrance-latency = <0x3>;
+		nvidia,aspm-l1-entrance-latency = <0x5>;
+
+		num-ib-windows = <2>;
+		num-ob-windows = <8>;
+
+		nvidia,host1x = <&host1x>;
+
+		nvidia,cfg-link-cap-l1sub = <0x154>;
+		nvidia,event-cntr-ctrl = <0x168>;
+		nvidia,event-cntr-data = <0x16c>;
+		nvidia,max-speed = <2>;
+		nvidia,ptm-cap-off = <0x29c>;
+
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE1>;
+		iommu-map = <0x0 &smmu_niso1 TEGRA_SID_NISO1_PCIE1 0x1000>;
+		msi-parent = <&gic_v2m TEGRA_SID_NISO1_PCIE1>;
+		msi-map = <0x0 &gic_v2m TEGRA_SID_NISO1_PCIE1 0x1000>;
+		dma-coherent;
+		iommu-map-mask = <0x0>;
+
+		interconnects = <&tegra_icc TEGRA_ICC_PCIE_1 &tegra_icc TEGRA_ICC_PRIMARY>;
+		interconnect-names = "icc_bwmgr";
+
+		nvidia,bpmp = <&bpmp 0x1>;
+		nvidia,aspm-cmrt-us = <60>;
+		nvidia,aspm-pwr-on-t-us = <20>;
+		nvidia,aspm-l0s-entrance-latency-us = <3>;
+	};
+
+	pcie@14100000 {
+		compatible = "nvidia,tegra234-pcie", "snps,dw-pcie";
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_PCIEX1A>;
+		reg = <0x00 0x14100000 0x0 0x00020000   /* appl registers (128K)      */
+		       0x00 0x30000000 0x0 0x00040000   /* configuration space (256K) */
+		       0x00 0x30040000 0x0 0x00040000   /* iATU_DMA reg space (256K)  */
+		       0x00 0x30080000 0x0 0x00040000   /* DBI reg space (256K)       */
+		       0x20 0xb0000000 0x0 0x10000000>; /* ECAM (256MB)               */
+		reg-names = "appl", "config", "atu_dma", "dbi", "ecam";
+
+		status = "disabled";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		num-lanes = <1>;
+		num-viewport = <8>;
+
+		clocks = <&bpmp_clks TEGRA234_CLK_PEX0_C1_CORE>,
+			 <&bpmp_clks TEGRA234_CLK_PEX0_C1_CORE_M>;
+		clock-names = "core", "core_m";
+
+		resets = <&bpmp_resets TEGRA234_RESET_PEX0_CORE_1_APB>,
+			 <&bpmp_resets TEGRA234_RESET_PEX0_CORE_1>;
+		reset-names = "apb", "core";
+
+		interrupts = <0 45 0x04>,	/* controller interrupt */
+			     <0 46 0x04>;	/* MSI interrupt */
+		interrupt-names = "intr", "msi";
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0>;
+		interrupt-map = <0 0 0 0 &intc 0 45 0x04>;
+
+
+		linux,pci-domain = <1>;
+
+		nvidia,bpmp = <&bpmp 1>;
+		nvidia,aspm-cmrt-us = <60>;
+		nvidia,aspm-pwr-on-t-us = <20>;
+		nvidia,aspm-l0s-entrance-latency-us = <3>;
+
+		nvidia,dvfs-tbl = < 204000000 408000000 800000000  1333000000
+					0         0         0          0
+					0         0         0          0
+					0         0         0          0 >;
+
+		nvidia,max-speed = <2>;
+		nvidia,disable-aspm-states = <0xf>;
+		nvidia,disable-l1-cpm;
+		nvidia,aux-clk-freq = <0x13>;
+		nvidia,preset-init = <0x5>;
+		nvidia,aspm-cmrt = <0x3C>;
+		nvidia,aspm-pwr-on-t = <0x14>;
+		nvidia,aspm-l0s-entrance-latency = <0x3>;
+
+		bus-range = <0x0 0xff>;
+		ranges = <0x81000000 0x00 0x30100000 0x00 0x30100000 0x0 0x00100000      /* downstream I/O (1MB) */
+			  0x82000000 0x00 0x40000000 0x20 0xa8000000 0x0 0x08000000      /* non-prefetchable memory (128MB) */
+			  0xc3000000 0x20 0x80000000 0x20 0x80000000 0x0 0x28000000>;    /* prefetchable memory (640MB) */
+
+		nvidia,cfg-link-cap-l1sub = <0x154>;
+		nvidia,cap-pl16g-status = <0x164>;
+		nvidia,cap-pl16g-cap-off = <0x178>;
+		nvidia,event-cntr-ctrl = <0x168>;
+		nvidia,event-cntr-data = <0x16c>;
+		nvidia,dl-feature-cap = <0x2dc>;
+		nvidia,ptm-cap-off = <0x29c>;
+
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE1>;
+		iommu-map = <0x0 &smmu_niso1 TEGRA_SID_NISO1_PCIE1 0x1000>;
+		msi-parent = <&gic_v2m TEGRA_SID_NISO1_PCIE1>;
+		msi-map = <0x0 &gic_v2m TEGRA_SID_NISO1_PCIE1 0x1000>;
+		dma-coherent;
+		iommu-map-mask = <0x0>;
+
+		interconnects = <&tegra_icc TEGRA_ICC_PCIE_1 &tegra_icc TEGRA_ICC_PRIMARY>;
+		interconnect-names = "icc_bwmgr";
+	};
+};

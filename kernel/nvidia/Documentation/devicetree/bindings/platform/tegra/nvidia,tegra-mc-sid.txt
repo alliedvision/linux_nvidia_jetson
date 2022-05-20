@@ -1,0 +1,33 @@
+Nvidia, tegra-mc-sid:
+==================
+
+The device node describes arm mc-sid properties.
+Each device(cpu, DMA capable engines) behind smmu, does memory Rd/Wr
+transaction. These transactions go through MC SID, memory controller
+stream id HW. The MC sid HW allowes adding/overriding StreamID to a transaction.
+
+All these things defines by Nvidia, tegra-mc-sid dt node.
+
+Required properties:
+--------------------
+- compatible = Must be one of the following
+               "nvidia,tegra-mc-sid"
+               or
+               "nvidia,tegra186-mc-sid"
+               or
+               "nvidia,tegra194-mc-sid"
+-reg = MC Sid registers ranges
+
+Optional properties:
+--------------------
+- nvidia,host1x-ctx-streamid: Stream id for host1x context bank
+
+Examples:
+=========
+
+mc_sid@2c00000 {
+	compatible = "nvidia,tegra186-mc-sid";
+	reg = <0x0 0x02c00000 0x0 0xb0000>;
+	nvidia,host1x-ctx-streamid;
+};
+

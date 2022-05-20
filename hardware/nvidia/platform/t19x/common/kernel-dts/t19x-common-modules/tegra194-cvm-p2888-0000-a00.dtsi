@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * T194 P2888-1000 common DTSI file.
+ */
+
+#include <dt-bindings/types.h>
+/dts-v1/;
+
+/memreserve/ 0x80000000 0x00010000;
+
+#include <tegra194-soc/tegra194-soc-cvm.dtsi>
+
+/ {
+	model = "Jetson-AGX";
+	compatible = "nvidia,tegra194";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	pmc@c360000 {
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		nvidia,invert-interrupt;
+#endif
+		iopad-defaults {
+			sdmmc-io-pads {
+				pins = "sdmmc1-hv", "sdmmc3-hv";
+				nvidia,enable-voltage-switching;
+			};
+		};
+	};
+
+#if TEGRA_PMC_VERSION < DT_VERSION_2
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+#endif
+
+	plugin-manager {
+		fragment-p2888-mods {
+			odm-data = "mods-build";
+			override@0 {
+				target = <&gpcdma>;
+				_overlay_ {
+					nvidia,bypass-smmu;
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,51 @@
+config PCIE_TEGRA
+	tristate
+
+config PCIE_TEGRA_HOST
+	tristate "Tegra194 PCIe Host Mode"
+	depends on ARCH_TEGRA
+	depends on PCI
+	depends on PCI_MSI_IRQ_DOMAIN
+	select PCIE_DW_HOST
+	select PCIE_TEGRA
+	help
+	 Say Y here if you want to enable root port mode functionality of the
+	 PCIe controllers found in Tegra T19x SoC. Selecting this alone doesn't
+	 enable the DMA functionality built into the root port
+
+config PCIE_TEGRA_EP
+	tristate "Tegra194 PCIe Endpoint Mode"
+	depends on ARCH_TEGRA
+	depends on PCI_ENDPOINT
+	select PCIE_DW_EP
+	select PCIE_TEGRA
+	help
+	 Enables support for the PCIe controller in the Tegra (T19x) SoC
+	 to work in endpoint mode.
+
+if PCIE_TEGRA
+
+config PCIE_TEGRA_DW_DMA_TEST
+	bool "DMA test framework"
+	depends on PCIE_TEGRA_HOST
+	help
+	 Say Y here if you want to enable test framework for the DMA which is
+	 integrated into root port. Please note that this framework should be
+	 used only for testing purposes and enabling it would have security
+	 implications. If you are not sure, select NO.
+
+config PCIE_TEGRA_DW_LANE_MARGIN
+	bool "PCIe Gen4 lane margining test"
+	help
+	 Say Y here if you want to enable test framework for the PCIe Gen4
+	 lane margining. Please note that this framework should be used only
+	 for testing purposes. If you are not sure, select NO.
+
+config PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	bool "PCIe two side lane margining"
+	depends on PCIE_TEGRA_DW_LANE_MARGIN
+	help
+	 Say Y here if you want to execute PCIe Gen4 lane margining on both sides.
+	 Please note that this framework should be used only for testing purposes.
+	 If you are not sure, select NO.
+endif

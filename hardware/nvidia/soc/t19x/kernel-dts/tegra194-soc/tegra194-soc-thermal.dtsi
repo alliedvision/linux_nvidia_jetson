@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <dt-bindings/thermal/tegra194-thermal.h>
+
+/ {
+	thermal-zones {
+		pllx: CPU-therm {
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_PLLX>;
+			status = "disabled";
+		};
+
+		GPU-therm {
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_GPU>;
+			status = "disabled";
+		};
+
+		AUX-therm {
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_AUX>;
+			status = "disabled";
+		};
+
+		aotag: AO-therm {
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_AO>;
+			status = "disabled";
+		};
+
+		tj_therm: tj-therm {
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_TJ_MAX>;
+			status = "disabled";
+		};
+	};
+
+	soctherm-oc-event {
+		compatible = "nvidia,tegra194-oc-event";
+		mboxes = <&bpmp_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(2)>;
+		mbox-names = "oc-rx";
+		reg = <0x0 0x0d280000 0x0 0xa40>;
+		status = "disabled";
+	};
+};

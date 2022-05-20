@@ -1,0 +1,139 @@
+NVIDIA Tegra T194 RCE Auxiliary CPU
+
+RCE (Real-time Camera Engine) is an auxiliary CPU providing real-time
+control of camera capture devices.
+
+The RCE firmware implements IVC, and uses HSP mailboxes and shared
+semaphores to set up IVC.  When the RCE FW starts, it expects AST
+regions 0/1/2 are already set up for the RCE to access FW in DRAM,
+SYSRAM if applicable, and the special carveout used by camera
+hardware. By default, the memory areas and AST regions are set up by
+the Tegra bootloader.
+
+After RCE is started, it waits for "HSP-VM" commands in the designated
+HSP shared mailboxes to set up IVC channels and trace area.  With a
+special firmware image, RCE supports up to two VM Guest OS instances
+to use the camera capture devices.
+
+== RCE top-level node ==
+
+The RCE core is represented by the top-level node including direct HW resources
+such as clocks, resets etc.
+
+Required properties:
+- compatible: Should be "nvidia,tegra194-rce" for T19x.
+- nvidia,cpu-name: CPU name used when logging
+- reg: Address entries (RCE EVP, RCE PM. RCE CPU AST,
+  RCE DMA AST)
+  Formatted as per standard rules for this property.
+- reg-names: "rce-evp",  "rce-pm", "ast-cpu", "ast-dma"
+  as per the reg property.
+- clock-names: Names of the clocks required by RCE.
+  Must include following entries:
+  - "rce-cpu-nic", "rce-nic"
+- clocks: Should contain an entry for each entry in clock-names.
+  See ../clock/clock-bindings.txt for details.
+- reset-names: Names of the resets required for RCE.
+  Must include following entry:
+  - "rce-all"
+- resets: Should contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for
+- nvidia,camera-device-names: Names of the camera devices required by RCE.
+  Should include following entries:
+  - "isp", "vi", "nvcsi"
+- nvidia,camera-devices: Should contain an OF phandle for each entry
+  in nvidia,camera-device-names.
+- iommus: A reference to the IOMMU.
+    See Documentation/devicetree/bindings/iommu/iommu.txt.
+- iommu-resv-regions: Contains 4 cells representing two 64-bit
+  integers indicating start and end of the reserved memory region.
+  Should contain reservations for address ranges outside the aperture
+  used by RCE FW, 0xa000000..0xc000000 for RCE VM1 interface,
+  0xc0000000..0xe0000000 for RCE VM2 interface.
+- dma-coherent: Present if dma operations are coherent
+- nvidia,ivc-channels: A phandle list of IVC channel regions.
+  For each IVC channel regions:
+  - an OF phandle pointing to the list,
+  - optional arguments (3 cells by default, values are ignored)
+  For IVC channel details, please refer to: ./tegra-ivc-channel.txt
+
+Optional properties:
+- interrupt-names: names of interrupts used by RCE. Should include
+  following entry:
+  - "wdt-remote"
+- interrupts: Should contain an entry for each entry in
+  interrupt-names. See ../interrupt-controller/interrupts.txt
+- nvidia,clock-rates should include two rates for each entry in clocks,
+  inactive rate (19.2 MHz) and active rate (370 MHz)
+- nvidia,clock-parents: should include two parent clocks, one used for
+  inactive rates (clk-m) and another for active rates (nafll-rce).
+  See ../clock/clock-bindings.txt for details.
+- nvidia,clock-parent-names: should contain names for the parent clocks
+- nvidia,autosuspend-delay-ms: Autosuspend delay for RCE device in
+  milliseconds.
+- nvidia,trace: A phandle to OF node representing trace.
+
+== RCE Sub Nodes for the HSP Protocol ==
+
+The hsp protocol node describes the hardware synchronization
+primitive(s) used between CCPLEX and RCE to signal, e.g., incoming IVC
+messages or IVC write room.
+
+Required properties, when the HSP-VM protocol is used between CCPLEX
+and RCE:
+- compatible = "nvidia,tegra-camrtc-hsp-vm";
+- mbox-names: Names of the mbox devices used by the hsp-vm
+  protocol. Must include following entries: "vm-tx", "vm-rx". Should
+  include entry "vm-ss".
+- mboxes: Must contain an mbox specifier entry for each entry in
+  mbox-names.
+
+* For more HSP details, refer: ./nvidia,tegra186-hsp.txt
+
+== Possible example ==
+
+rtcpu@bc00000 {
+	compatible = "nvidia,tegra194-rce";
+	reg =	<0 0xbc00000 0 0x1000>,	  /* RCE EVP (RCE_ATCM_EVP) */
+		<0 0xb9f0000 0 0x40000>,  /* RCE PM */
+		<0 0xb840000 0 0x10000>,
+		<0 0xb850000 0 0x10000>;
+	reg-names = "rce-evp", "rce-pm", "ast-cpu", "ast-dma";
+	clocks = <&bpmp_clks TEGRA194_CLK_RCE_CPU_NIC>,
+		 <&bpmp_clks TEGRA194_CLK_RCE_NIC>;
+	clock-names = "rce-cpu-nic", "rce-nic";
+	nvidia,clock-rates = <19200000 370000000>, <19200000 370000000>;
+
+	nvidia,clock-parents = <&bpmp_clks TEGRA194_CLK_CLK_M>,
+		<&bpmp_clks TEGRA194_CLK_NAFLL_RCE>;
+	nvidia,clock-parent-names = "clk-m", "nafll-rce";
+
+	resets = <&bpmp_resets TEGRA194_RESET_RCE_ALL>;
+	reset-names = "rce-all";
+
+	interrupts = <0 TEGRA194_IRQ_RCE_WDT_REMOTE 0x4>;
+	interrupt-names = "wdt-remote";
+
+	nvidia,camera-devices = <&isp &vi &nvcsi>;
+	nvidia,camera-device-names = "isp", "vi", "nvcsi";
+
+	nvidia,memory-bw = <0xffffffff>;
+	iommus = <&smmu TEGRA_SID_RCE>;
+	iommu-resv-regions = <0x0 0x0 0x0 0xA0000000 0x0>,
+			<0xc0000000 0xffffffff 0xffffffff>;
+	dma-coherent;
+
+	nvidia,trace = <&{/tegra-rtcpu-trace} 4 0x70100000 0x100000>;
+	nvidia,ivc-channels = <&{/camera-ivc-channels} 2 0x90000000 0x10000>;
+
+	nvidia,autosuspend-delay-ms = <5000>;
+
+	hsp-vm1 {
+		compatible = "nvidia,tegra-camrtc-hsp-vm";
+		mboxes =
+			<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(0)>,
+			<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(1)>,
+			<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 0>;
+		mbox-names = "vm-tx", "vm-rx", "vm-ss";
+	};
+};

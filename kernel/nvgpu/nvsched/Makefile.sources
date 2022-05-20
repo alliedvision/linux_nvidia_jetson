@@ -1,0 +1,25 @@
+# tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2021 NVIDIA CORPORATION.  All Rights Reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
+# Build sources and include for the nv_sched core implementation. This
+# file defines a list of source files and header includes that can be
+# added to another project. nv_sched alone is not going to do anything:
+# it has to be tied to some HW.
+#
+# The intent is to build this same code into different places. One
+# obvious example is a kernel mode driver for the GPU. But this should
+# also be buildable, long term, as firmware running on a ucontroller in
+# the GPU.
+
+NVS_SOURCES +=	src/sched.c		\
+		src/logging.c		\
+		src/domain.c
+
+NVS_INCLUDE +=	include

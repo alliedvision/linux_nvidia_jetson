@@ -1,0 +1,287 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	cpus {
+		cpu@0 {
+			#cooling-cells = <2>;
+		};
+		cpu@4 {
+			#cooling-cells = <2>;
+		};
+		cpu@8 {
+			#cooling-cells = <2>;
+		};
+	};
+
+	thermal-zones {
+		CPU-therm {
+			trips {
+				cpu_sw_shutdown: cpu-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				cpu_sw_throttle: cpu-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				cpu_hot_surface: cpu-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		GPU-therm {
+			trips {
+				gpu_sw_shutdown: gpu-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				gpu_sw_throttle: gpu-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				gpu_hot_surface: gpu-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		CV0-therm {
+			trips {
+				cv0_sw_shutdown: cv0-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				cv0_sw_throttle: cv0-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				cv0_hot_surface: cv0-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cv0_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		CV1-therm {
+			trips {
+				cv1_sw_shutdown: cv1-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				cv1_sw_throttle: cv1-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				cv1_hot_surface: cv1-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cv1_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		CV2-therm {
+			trips {
+				cv2_sw_shutdown: cv2-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				cv2_sw_throttle: cv2-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				cv2_hot_surface: cv2-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&cv2_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		SOC0-therm {
+			trips {
+				soc0_sw_shutdown: soc0-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				soc0_sw_throttle: soc0-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				soc0_hot_surface: soc0-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&soc0_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		SOC1-therm {
+			trips {
+				soc1_sw_shutdown: soc1-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				soc1_sw_throttle: soc1-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				soc1_hot_surface: soc1-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&soc1_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+
+		SOC2-therm {
+			trips {
+				soc2_sw_shutdown: soc2-sw-shutdown {
+					temperature = <104500>;
+					type = "critical";
+					hysteresis = <0>;
+				};
+				soc2_sw_throttle: soc2-sw-throttle {
+					temperature = <99000>;
+					type = "passive";
+					hysteresis = <0>;
+				};
+				soc2_hot_surface: soc2-hot-surface {
+					temperature = <70000>;
+					type = "active";
+					hysteresis = <8000>;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&soc2_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+		};
+	};
+};

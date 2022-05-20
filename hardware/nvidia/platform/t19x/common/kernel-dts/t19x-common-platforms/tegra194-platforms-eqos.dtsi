@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-platforms-eqos.dtsi: Ethernet QOS DTSI file.  Common for all
+ * t194 platforms boards.
+ */
+#include <dt-bindings/gpio/tegra194-gpio.h>
+
+/ {
+        ethernet@2490000 {
+		interrupts =	<0 194 0x4>,    /* common */
+				<0 186 0x4>,    /* tx0 */
+				<0 190 0x4>;    /* rx0 */
+		/* rxq_enable_ctrl = <rx0 rx1 rx2 rx3>
+		 * 0x0 = Not enabled, 0x1 = Enabled for AV
+		 * 0x2 = Enabled for Legacy, 0x3 = Reserved
+		 */
+		nvidia,rxq_enable_ctrl = <2>;
+		nvidia,num-dma-chans = <1>;
+		nvidia,dma-chans = <0>;
+		nvidia,num-mtl-queues = <1>;
+		nvidia,mtl-queues = <0>;
+		nvidia,rx-queue-prio = <0x2>;
+		nvidia,tx-queue-prio = <0x0>;
+		/* 0=enable, 1=disable */
+		nvidia,pause_frames = <0>;
+		nvidia,phy-reset-gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(G, 5) 0>;
+		phy-mode = "rgmii-id";
+		phy-handle = <&phy>;
+		nvidia,max-platform-mtu = <16383>;
+
+		mdio {
+			compatible = "nvidia,eqos-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy: phy@0 {
+				reg = <0>;
+#if TEGRA_ETHERNETPHY_DT_VERSION >= DT_VERSION_2
+				/* use phy in poll mode */
+#else
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA194_MAIN_GPIO(G, 4) IRQ_TYPE_LEVEL_LOW>;
+#endif
+				marvell,copper-mode;
+				/* Setup LED[2] as interrupt pin (active low) */
+				marvell,reg-init = <0x03 0x12 0x7fff 0x880>;
+			};
+		};
+	};
+
+	thermal-zones {
+		CPU-therm {
+			trips {
+				MAKE_EQOS_TRIP(m40, -40000, 5000);
+				MAKE_EQOS_TRIP(m5, -5000, 5000);
+				MAKE_EQOS_TRIP(p30, 30000, 5000);
+				MAKE_EQOS_TRIP(p65, 65000, 5000);
+				MAKE_EQOS_TRIP(p100, 100000, 5000);
+			};
+
+			cooling-maps {
+				MAP_EQOS(m40, 1);
+				MAP_EQOS(m5, 2);
+				MAP_EQOS(p30, 3);
+				MAP_EQOS(p65, 4);
+				MAP_EQOS(p100, 5);
+			};
+		};
+	};
+};

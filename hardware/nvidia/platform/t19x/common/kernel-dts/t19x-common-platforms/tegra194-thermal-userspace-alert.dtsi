@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	cpu_alert: cpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "cpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "gpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	aux_alert: aux-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "aux-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	hot_surface_alert: hot-surface-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "hot-surface-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	thermal-zones {
+		CPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cpu_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&cpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+		AUX-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&aux_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&aux_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+		GPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&gpu_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&gpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,54 @@
+From 6104339cde1c50ae4793a60ac20eaf86669f0d50 Mon Sep 17 00:00:00 2001
+From: "at@nvidia.com" <at@nvidia.com>
+Date: Thu, 31 Jan 2019 16:51:31 +0530
+Subject: [PATCH 4/5] mm: enable THP support and disable the feature by default
+
+This patch enables TRANSPARENT_HUGE_PAGE support for RT Kernel
+and disables the feature by default. Users can enable the feature
+by writing into /sys/kernel/mm/transparent_hugepage/enabled
+
+Bug 2486138
+
+Change-Id: Ifcb018ccbd030fe26c62a4125847ccc1521ee76e
+Signed-off-by: at <at@nvidia.com>
+---
+ mm/Kconfig | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/mm/Kconfig b/mm/Kconfig
+index c8cbcb5..cdde081 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -387,7 +387,7 @@ config NOMMU_INITIAL_TRIM_EXCESS
+ 
+ config TRANSPARENT_HUGEPAGE
+ 	bool "Transparent Hugepage Support"
+-	depends on HAVE_ARCH_TRANSPARENT_HUGEPAGE && !PREEMPT_RT
++	depends on HAVE_ARCH_TRANSPARENT_HUGEPAGE
+ 	select COMPACTION
+ 	select XARRAY_MULTI
+ 	help
+@@ -403,7 +403,7 @@ config TRANSPARENT_HUGEPAGE
+ choice
+ 	prompt "Transparent Hugepage Support sysfs defaults"
+ 	depends on TRANSPARENT_HUGEPAGE
+-	default TRANSPARENT_HUGEPAGE_ALWAYS
++	default TRANSPARENT_HUGEPAGE_NEVER
+ 	help
+ 	  Selects the sysfs defaults for Transparent Hugepage Support.
+ 
+@@ -422,6 +422,11 @@ choice
+ 	  madvise(MADV_HUGEPAGE) but it won't risk to increase the
+ 	  memory footprint of applications without a guaranteed
+ 	  benefit.
++	config TRANSPARENT_HUGEPAGE_NEVER
++		bool "never"
++	help
++	  Disables Transparent Hugepages by default at boot as this
++	  feature is known to pose issues in RT Kernel
+ endchoice
+ 
+ config ARCH_WANTS_THP_SWAP
+-- 
+2.7.4
+

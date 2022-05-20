@@ -1,0 +1,26 @@
+NVIDIA generic carveout
+-----------------------
+
+This is child node of upstream /reserved-memory node.
+It's used for OS to exclude the memory region for normal usage.
+
+The memory region,"generic_carveout" is a heap and used by nvmap
+clients to allocate physical memory from the heap
+with certain cache-attributes.
+
+For further property details, refer /reserved-memory
+documentation.
+
+Required properties:
+- compatible: "nvidia,generic_carveout";
+
+Example:
+--------
+	generic_reserved: generic_carveout {
+		compatible = "nvidia,generic_carveout";
+			size = <0 0>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0 0 0x1 0>;
+			no-map;
+			status = "disabled";
+		};

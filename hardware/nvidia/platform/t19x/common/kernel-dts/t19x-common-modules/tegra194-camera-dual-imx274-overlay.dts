@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera Dual-IMX274 on t19x platforms
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/ {
+	overlay-name = "Camera Dual IMX274";
+	jetson-header-name = "Jetson AGX Xavier CSI Connector";
+	compatible = "nvidia,p2822-0000+p2888-0001", "nvidia,e3900-0000+p2888-0004" ;
+
+	fragment@0 {
+		target = <&imx274_cam0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&cam_module0>;
+		__overlay__ {
+			status = "okay";
+			badge = "imx274_bottom_A6V26";
+			position = "bottom";
+			orientation = "0";
+		};
+	};
+	fragment@2 {
+		target = <&cam_module0_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx274 30-001a";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/imx274_a@1a";
+		};
+	};
+	fragment@3 {
+		target = <&cam_module0_drivernode1>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_lens";
+			proc-device-tree = "/proc/device-tree/lens_imx274@A6V26/";
+		};
+	};
+	fragment@4 {
+		target = <&imx274_cam1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@5 {
+		target = <&cam_module1>;
+		__overlay__ {
+			status = "okay";
+			badge = "imx274_top_A6V26";
+			position = "top";
+			orientation = "0";
+		};
+	};
+	fragment@6 {
+		target = <&cam_module1_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx274 31-001a";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/imx274_c@1a";
+		};
+	};
+	fragment@7 {
+		target = <&cam_module1_drivernode1>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_lens";
+			proc-device-tree = "/proc/device-tree/lens_imx274@A6V26/";
+		};
+	};
+	/* Enable VI ports */
+	fragment@8 {
+		target = <&vi_base>;
+		__overlay__ {
+			num-channels=<2>;
+		};
+	};
+	fragment@9 {
+		target = <&vi_port0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@10 {
+		target = <&vi_port1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		target = <&liimx274_vi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <4>;
+			remote-endpoint = <&liimx274_csi_out0>;
+		};
+	};
+	fragment@12 {
+		target = <&liimx274_vi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <4>;
+			remote-endpoint = <&liimx274_csi_out1>;
+		};
+	};
+	/* Enable CSI ports */
+	fragment@13{
+		target = <&csi_base>;
+		__overlay__ {
+			num-channels=<2>;
+		};
+	};
+	fragment@14 {
+		target = <&csi_chan0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@15 {
+		target = <&csi_chan0_port0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@16 {
+		target = <&liimx274_csi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <4>;
+			remote-endpoint = <&liimx274_imx274_out0>;
+		};
+	};
+	fragment@17 {
+		target = <&csi_chan0_port1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@18 {
+		target = <&liimx274_csi_out0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@19 {
+		target = <&csi_chan1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@20 {
+		target = <&csi_chan1_port0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@21 {
+		target = <&liimx274_csi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <4>;
+			remote-endpoint = <&liimx274_imx274_out1>;
+		};
+	};
+	fragment@22 {
+		target = <&csi_chan1_port1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@23 {
+		target = <&liimx274_csi_out1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	/* tegra-camera-platform settings */
+	fragment@24 {
+		target = <&tcp>;
+		__overlay__ {
+			num_csi_lanes = <8>;
+			max_lane_speed = <1500000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+	/* pca9646 i2c mux */
+	fragment@25 {
+		target = <&tca9546_70>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};
+
+

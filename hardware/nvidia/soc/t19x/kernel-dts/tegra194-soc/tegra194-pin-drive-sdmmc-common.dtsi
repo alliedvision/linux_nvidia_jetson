@@ -1,0 +1,71 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/pinctrl/pinctrl-tegra-io-pad.h>
+
+/ {
+	pmc@c360000 {
+#if TEGRA_SDMMC_VERSION >= DT_VERSION_2
+		sdmmc1_3v3: sdmmc1-3v3 {
+			pins = "sdmmc1-hv";
+			power-source = <TEGRA_IO_PAD_VOLTAGE_3V3>;
+		};
+
+		sdmmc1_1v8: sdmmc1-1v8 {
+			pins = "sdmmc1-hv";
+			power-source = <TEGRA_IO_PAD_VOLTAGE_1V8>;
+		};
+
+		sdmmc3_3v3: sdmmc3-3v3 {
+			pins = "sdmmc3-hv";
+			power-source = <TEGRA_IO_PAD_VOLTAGE_3V3>;
+		};
+
+		sdmmc3_1v8: sdmmc3-1v8 {
+			pins = "sdmmc3-hv";
+			power-source = <TEGRA_IO_PAD_VOLTAGE_1V8>;
+		};
+#endif
+
+		sdmmc1_e_33V_enable: sdmmc1_e_33V_enable {
+			sdmmc1 {
+				pins = "sdmmc1-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_3300000UV>;
+			};
+		};
+
+		sdmmc1_e_33V_disable: sdmmc1_e_33V_disable {
+			sdmmc1 {
+				pins = "sdmmc1-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_1800000UV>;
+			};
+		};
+
+		sdmmc3_e_33V_enable: sdmmc3_e_33V_enable {
+			sdmmc3 {
+				pins = "sdmmc3-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_3300000UV>;
+			};
+		};
+
+		sdmmc3_e_33V_disable: sdmmc3_e_33V_disable {
+			sdmmc3 {
+				pins = "sdmmc3-hv";
+				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_1800000UV>;
+			};
+		};
+	};
+};

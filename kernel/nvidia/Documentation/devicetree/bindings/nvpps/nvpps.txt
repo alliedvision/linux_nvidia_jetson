@@ -1,0 +1,35 @@
+NVIDIA nvpps driver bindings
+
+Nvpps is a Linux Kernel mode driver to support the Xavier & Orin time domain
+correlation feature.
+
+Required properties:
+
+- compatibles: should be "nvpps,tegra194-nvpps"
+- gpios: GPIO number and active level for the PPS input signal
+
+Optional properties:
+- memmap_phc_regs: boolean flag to indicate MAC PHC regs to be memory mapped
+				   for getting PTP time. If not defined ptp notifer method will
+				   be used along with EQOS interface.
+- interface: NW interface name to be used for MAC PHC regs. This field can be
+			 set to 'eqos', 'mgbe0', 'mgbe1', 'mgbe2' or 'mgbe3' for Orin.
+			 For Xavier, it shoud be set to 'eqos'. If undef, default to 'eqos'
+
+Example:
+
+nvpps {
+	compatible = "nvidia,tegrat194-nvpps";
+	status = "okay";
+	gpios = <&tegra_aon_gpio TEGRA194_AON_GPIO(BB, 2) GPIO_ACTIVE_HIGH>;
+};
+
+Example:
+
+nvpps {
+	compatible = "nvidia,tegra194-nvpps";
+	status = "okay";
+	gpios = <&tegra_aon_gpio TEGRA234_AON_GPIO(EE, 6) GPIO_ACTIVE_HIGH>;
+	memmap_phc_regs;
+	interface = "mgbe2";
+};

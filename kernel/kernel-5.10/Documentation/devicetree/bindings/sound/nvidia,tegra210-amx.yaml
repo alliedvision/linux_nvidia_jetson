@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra210-amx.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra210 Audio Multiplexer (AMX) DT Bindings
+
+description: |
+  AMX block can multiplex up to four input streams, where each input stream
+  can have up to 16 channels and can generate an output stream of up to 16
+  channels. A byte RAM helps to form an output frame by any combination of
+  bytes from the four input streams.
+
+  Two modes of data synchronization between input streams is available. This
+  feature only starts the data transfer. Once the data transfer starts (if at
+  least one frame is sent out), the AMX works in "wait for all mode".
+    * Wait for all mode: In the beginning, wait for all enabled input streams
+      to have data before forming the very first frame.
+    * Wait for any mode: Start whenever data is available in any of the enabled
+      input streams.
+  AMX supports auto disable and audio enable feature of IDLE streams.
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra210 based platforms
+          const: "nvidia,tegra210-amx"
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-amx", "nvidia,tegra210-amx"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-amx"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-amx-id:
+    description: Must be specified to uniquely identify an AMX instance
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-amx-id
+
+examples:
+
+  - |
+    amx@702d3000 {
+        compatible = "nvidia,tegra210-amx";
+        reg = <0x702d3000 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amx-id = <0>;
+    };
+
+  - |
+    amx@2903000 {
+        compatible = "nvidia,tegra186-amx", "nvidia,tegra210-amx";
+        reg = <0x0 0x2903000 0x0 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amx-id = <0>;
+    };
+
+  - |
+    amx@2903000 {
+        compatible = "nvidia,tegra194-amx";
+        reg = <0x0 0x2903000 0x0 0x100>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-amx-id = <0>;
+    };
+
+...

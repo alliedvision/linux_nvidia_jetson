@@ -1,0 +1,48 @@
+NVIDIA Tegra IVC channel bindings
+
+Each IVC channel represents the unique communication protocol defined
+between kernel running on CCPLEX CPUs and remote CPU core. Each IVC
+channel has two memory buffers, one for each direction. The RX buffer
+is for messages sent by the remote CPU, the TX channel for
+messages sent to the remote CPU.
+
+Both IPC memory buffers are have two headers followed by data
+frames. The first write header is updated only by the producer and the
+second read header is updated only by the consumer. The header and
+frame sizes are multiples of 64-byte cache lines.
+
+== IVC channel top-level node ==
+
+List of IVC channels implemented by remote core to talk to CCPLEX.
+The top-level node defines a shared memory area allocated by IVC
+channels within it.
+
+== IVC channel sub nodes ==
+
+Each IVC channel implemented by the remote CPU must be represented as
+a separate child node within the top-level node.
+
+Required properties:
+- compatible: Should represent the protocol to be used on this IVC channel.
+  See other binding documents in this directory for potential values.
+  For example:
+  "nvidia,tegra186-ivc-protocol-echo" for ivc echo test channel.
+- nvidia,service: Protocol name.
+- nvidia,version: Protocol version
+- nvidia,group: Bitmap used fro shared semaphore signaling
+- nvidia,frame-size: Size of the data frame. Must be a multiple of 64.
+- nvidia,frame-count: Number of frames in rx or tx buffers.
+  Must be a power of 2.
+
+Example:
+
+camera-ivc-channels {
+	echo@0 {
+		compatible = "nvidia,tegra186-ivc-protocol-echo";
+		nvidia,service = "echo";
+		nvidia,version = <0>;
+		nvidia,group = <1>;
+		nvidia,frame-count = <16>;
+		nvidia,frame-size = <64>;
+	};
+}

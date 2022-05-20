@@ -1,0 +1,374 @@
+/*
+ * Common include DTS file for CVM:P2888-0004 and CVB:E3900-0000 variants.
+ *
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/extcon-ids.h>
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/usb/role.h>
+#include <galen/kernel-dts/common/tegra194-p2888-0000-a00.dtsi>
+#include <t19x-common-platforms/tegra194-platforms-eqos.dtsi>
+#include "tegra194-e3900-0000.dtsi"
+#include "tegra194-power-tree-p2888-0004-e3900-0000.dtsi"
+#include <t19x-common-platforms/tegra194-comms.dtsi>
+#include <galen/kernel-dts/common/tegra194-thermal-p2888.dtsi>
+#include "tegra194-thermal-fan-e3900.dtsi"
+#include "tegra194-thermal-minisas-e3900.dtsi"
+#include <galen/kernel-dts/common/tegra194-plugin-manager-p2888-0000.dtsi>
+#include "tegra194-audio-e3900-0000.dtsi"
+#include "tegra194-super-module-e2614-e3900-0000.dtsi"
+#include "tegra194-pwm-fan-e3900-0000.dtsi"
+#include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
+
+/ {
+	chosen {
+		bootargs ="console=ttyTCU0,115200";
+		board-has-eeprom;
+	};
+
+	psci {
+		nvidia,system-lp0-disable;
+	};
+
+	spi@c260000 {
+		status = "disabled";
+	};
+
+	spi@3210000 {
+		status = "okay";
+		spi@0 {
+			compatible = "tegra-spidev";
+			reg = <0x0>;
+			spi-max-frequency = <33000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x11>;
+			};
+		};
+		spi@1 {
+			compatible = "tegra-spidev";
+			reg = <0x1>;
+			spi-max-frequency = <33000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x11>;
+			};
+		};
+	};
+
+	spi@3270000 {
+		status = "disabled";
+	};
+
+	spi@3300000 {
+		status = "disabled";
+	};
+
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+
+	hdr40_i2c0: i2c@c240000 {
+		bmi160@69 {
+			compatible = "bmi,bmi160";
+			reg = <0x69>;
+			interrupt-parent = <&tegra_aon_gpio>;
+			interrupts = <TEGRA194_AON_GPIO(AA, 2) GPIO_ACTIVE_LOW>;
+			accelerometer_matrix    = [01 00 00 00 01 00 00 00 01];
+			gyroscope_matrix        = [01 00 00 00 01 00 00 00 01];
+			accelerometer_delay_us_min = <1250>;
+			gyroscope_delay_us_min = <1250>;
+			status = "disabled";
+		};
+		ucsi_ccg: ucsi_ccg@8 {
+			status = "disabled";
+		};
+	};
+
+	xusb_padctl: xusb_padctl@3520000 {
+		status = "okay";
+
+		pads {
+			usb2 {
+				lanes {
+					usb2-0 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-1 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-2 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-3 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+			usb3 {
+				lanes {
+					usb3-0 {
+						status = "disabled";
+					};
+					usb3-1 {
+						status = "disabled";
+					};
+					usb3-2 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb3-3 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+		};
+
+		ports {
+			usb2-0 {
+				mode = "otg";
+				vbus-supply = <&e3900_atx_5v_cvb>;
+				status = "okay";
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+				usb-role-switch;
+				connector {
+					compatible = "usb-b-connector", "gpio-usb-b-connector";
+					label = "micro-USB";
+					type = "micro";
+					cable-connected-on-boot = <USB_ROLE_DEVICE>;
+				};
+#endif
+			};
+			usb2-1 {
+				mode = "host";
+				vbus-supply = <&e3900_vbus0_cvb>;
+				status = "okay";
+			};
+			usb2-2 {
+				mode = "host";
+				vbus-supply = <&e3900_vbus1_cvb>;
+				status = "okay";
+			};
+			usb2-3 {
+				mode = "host";
+				vbus-supply = <&e3900_vbus2_cvb>;
+				status = "okay";
+			};
+			usb3-0 {
+				status = "disabled";
+			};
+			usb3-1 {
+				status = "disabled";
+			};
+			usb3-2 {
+				nvidia,usb2-companion = <2>;
+				/delete-property/ nvidia,usb3-gen1-only;
+				status = "okay";
+			};
+			usb3-3 {
+				nvidia,usb2-companion = <3>;
+				/delete-property/ nvidia,usb3-gen1-only;
+				status = "okay";
+			};
+		};
+	};
+
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
+	external-connection {
+		vbus_extcon: extcon@1 {
+			compatible = "extcon-gpio-states";
+			reg = <0x1>;
+			extcon-gpio,name = "VBUS";
+			/delete-property/ extcon-gpio,wait-for-gpio-scan;
+			/delete-property/ extcon-gpio,cable-states;
+			/delete-property/ gpios;
+			extcon-gpio,out-cable-names = <EXTCON_USB EXTCON_USB_HOST EXTCON_NONE>;
+			cable-connected-on-boot = <0>;
+			#extcon-cells = <1>;
+			status = "okay";
+		};
+	};
+#endif
+
+	tegra_xudc: xudc@3550000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
+		extcon-cables = <&vbus_extcon 0>;
+		extcon-cable-names = "vbus";
+		#extcon-cells = <1>;
+#endif
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		phy-names = "usb2-0";
+#else
+		phy-names = "usb2";
+#endif
+		nvidia,xusb-padctl = <&xusb_padctl>;
+		nvidia,boost_cpu_freq = <1200>;
+		status = "okay";
+	};
+
+	tegra_xhci: xhci@3610000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
+		extcon-cables = <&vbus_extcon 1>;
+		extcon-cable-names = "id";
+		#extcon-cells = <1>;
+#endif
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-3}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-2}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-3}>;
+		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3", "usb3-2", "usb3-3";
+		nvidia,xusb-padctl = <&xusb_padctl>;
+		status = "okay";
+	};
+
+	arm-pmu {
+		status = "okay";
+	};
+
+	power-domain {
+		status = "disabled";
+	};
+
+	interrupt-controller {
+		status = "disabled";
+	};
+
+	mods-simple-bus {
+		status = "disabled";
+	};
+
+	eeprom-manager {
+		status = "disabled";
+	};
+
+	cpuidle {
+		compatible = "nvidia,tegra19x-cpuidle";
+		status = "okay";
+	};
+
+	thermal-zones {
+		status = "disabled";
+	};
+
+	reserved-memory {
+		ramoops_carveout {
+			status = "okay";
+		};
+	};
+
+	mttcan@c310000 {
+		status = "okay";
+		pll_source = "pllc";
+		clocks = <&bpmp_clks TEGRA194_CLK_CAN1_CORE>,
+			<&bpmp_clks TEGRA194_CLK_CAN1_HOST>,
+			<&bpmp_clks TEGRA194_CLK_CAN1>,
+			<&bpmp_clks TEGRA194_CLK_PLLC>;
+		clock-names = "can_core", "can_host","can", "pllc";
+	};
+
+	mttcan@c320000 {
+		status = "okay";
+		pll_source = "pllc";
+		clocks = <&bpmp_clks TEGRA194_CLK_CAN2_CORE>,
+			<&bpmp_clks TEGRA194_CLK_CAN2_HOST>,
+			<&bpmp_clks TEGRA194_CLK_CAN2>,
+			<&bpmp_clks TEGRA194_CLK_PLLC>;
+		clock-names = "can_core", "can_host","can", "pllc";
+	};
+
+	serial@3110000 {
+		status = "okay";
+	};
+
+	pwm@3280000 {
+		status = "okay";
+	};
+
+	pwm@32c0000 {
+		status = "okay";
+	};
+
+	pwm@32f0000 {
+		status = "okay";
+	};
+
+	hdr40_i2c1: i2c@31e0000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&dpaux_default>;
+		bmi160@69 {
+			compatible = "bmi,bmi160";
+			reg = <0x69>;
+			accelerometer_matrix    = [01 00 00 00 01 00 00 00 01];
+			gyroscope_matrix        = [01 00 00 00 01 00 00 00 01];
+			status = "disabled";
+		};
+	};
+
+	host1x@13e00000 {
+		dpaux@155F0000 {
+			status = "okay";
+			compatible = "nvidia,tegra194-dpaux3-padctl";
+			/delete-property/ power-domains;
+			dpaux_default: pinmux@0 {
+				dpaux3_pins {
+					pins = "dpaux3-3";
+					function = "i2c";
+				};
+			};
+
+			prod-settings {
+				prod_c_dpaux_dp {
+					prod = <0x0 0x124 0x37fe 0xc001>;
+				};
+			};
+		};
+	};
+
+	ufshci@2450000 {
+		status = "disabled";
+		nvidia,enable-hs-mode;
+		nvidia,cd-gpios = <&tegra_aon_gpio TEGRA194_AON_GPIO(EE, 0) GPIO_ACTIVE_HIGH>;
+		nvidia,cd-wakeup-capable;
+	};
+	pfsd {
+		pwm_polarity= <PWM_POLARITY_NORMAL>;
+		suspend_state = <0>;
+	};
+
+	clocks-init {
+		compatible = "nvidia,clocks-config";
+		status = "okay";
+		disable {
+			clocks = <&aon_clks TEGRA194_CLK_PLLAON>,
+				<&bpmp_clks TEGRA194_CLK_CAN1>,
+				<&bpmp_clks TEGRA194_CLK_CAN2>;
+		};
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
+		status = "okay";
+	};
+};
+
+#if LINUX_VERSION >= 414
+#include <tegra194-linux-4.14.dtsi>
+#endif

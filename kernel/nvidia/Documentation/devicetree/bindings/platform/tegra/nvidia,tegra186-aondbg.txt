@@ -1,0 +1,23 @@
+NVIDIA Tegra SPE/AON debug with communication via the "IVC" protocol.
+
+AON is an aux CPU which communicates with CCPLEX over IVC. The AON debug driver
+provides a set of debug features used to fetch the SPE processor state and the
+power state in which it is running. It provides some debugfs nodes to fetch
+FW version and some register dumps in case of an error. Also adds a provision
+to enable run time debug spew.
+
+Required properties:
+- compatible
+    Array of strings.
+    one of:
+    - "nvidia,tegra186-aondbg"
+- mboxes
+    Should have the respective mbox index to indicate the ivc channel id.
+    Formatted as per standard rules for this property
+
+Example:
+
+aondbg {
+    compatible = "nvidia,tegra186-aondbg";
+    mboxes = <&aon 1>;
+};

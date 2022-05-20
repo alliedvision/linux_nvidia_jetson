@@ -1,0 +1,17 @@
+if SND_SOC
+
+config SND_SOC_TEGRA210_ADSP_VIRT_ALT
+	tristate "Tegra ADSP driver for virt"
+	depends on SND_SOC_TEGRA_VIRT_T210REF_PCM && TEGRA_NVADSP
+
+config SND_SOC_TEGRA_VIRT_T210REF_PCM
+	tristate "Tegra210 virt PCM driver"
+	depends on TEGRA_HV_MANAGER
+	select SND_SOC_TEGRA_VIRT_IVC_COMM_DEFS
+	help
+	  Say Y or M if you want to add support for Tegra210 para-virtualized PCM audio.
+	  The pcm driver exposes a number of playback and capture pcm interfaces. It uses
+	  the native pcm driver for dma interface and ivc communication module for ivc.
+	  The number of interfaces exposed is configurable via device tree.
+
+endif

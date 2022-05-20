@@ -1,0 +1,1 @@
+obj-$(CONFIG_VIDEO_AVT_CSI2) += avt_csi2.o

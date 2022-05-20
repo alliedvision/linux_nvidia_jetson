@@ -1,0 +1,41 @@
+/*
+# CFG Version 1.0
+# This File contains the configuration of multiple rails.
+*/
+
+/ {
+	device {
+		qspiflash@0 {
+			clock-source-id = <0x5>; /* PLLC_OUT0 */
+			clock-source-frequency = <199999999>;
+			interface-frequency = <99999999>;
+			enable-ddr-mode;
+			maximum-bus-width = <2>;
+			fifo-access-mode = <1>;
+			read-dummy-cycle = <8>;
+			trimmer1-val = <0>;
+			trimmer2-val = <0x10>;
+		};
+		sdmmc@3 {
+			clock-source-id = <8>; /* 3:PLLP_OUT0, 8:PLLC4_OUT0_LJ */
+			clock-source-frequency = <200000000>;
+			best-mode = <3>; /* 1:DDR52, 3:HS400 */
+			pd-offset = <0>;
+			pu-offset = <0>;
+			enable-strobe-hs400;
+			dqs-trim-hs400 = <40>;
+		};
+		ufs@0 {
+			max-hs-mode = <4>;
+			max-pwm-mode = <4>;
+			max-active-lanes = <2>;
+			page-align-size = <4096>;
+			enable-hs-mode;
+//			enable-fast-auto-mode;
+//			enable-hs-rate-b;
+			enable-hs-rate-a = <1>;
+			init-state = <0>;
+		};
+	};
+};
+

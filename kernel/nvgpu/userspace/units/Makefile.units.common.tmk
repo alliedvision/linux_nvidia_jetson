@@ -1,0 +1,110 @@
+################################### tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+# tmake for SW Mobile component makefile
+#
+###############################################################################
+
+ifdef NV_COMPONENT_FLAG_SHARED_LIBRARY_SECTION
+include $(NV_BUILD_START_COMPONENT)
+
+NV_COMPONENT_NAME		:= $(NVGPU_UNIT_NAME)
+NV_COMPONENT_OWN_INTERFACE_DIR	:= .
+
+#For the simple case, if there's only one source file with the same name as the
+#component, the unit test can let this makefile add it.
+#But if the unit test has > 1 file, they can define NVGPU_UNIT_SRCS
+ifdef NVGPU_UNIT_SRCS
+NV_COMPONENT_SOURCES		:= \
+                                $(NVGPU_UNIT_SRCS)
+else
+NV_COMPONENT_SOURCES		:= \
+                                $(NVGPU_UNIT_NAME).c
+endif
+
+ifdef NVGPU_UNIT_INCLUDES
+NV_COMPONENT_INCLUDES 		:= \
+				$(NVGPU_UNIT_INCLUDES)
+endif
+NV_COMPONENT_INCLUDES 		+= \
+				$(NV_SOURCE)/kernel/nvgpu/userspace/units/mock-iospace/include \
+				$(NV_SOURCE)/kernel/nvgpu/drivers/gpu/nvgpu/include \
+				$(NV_SOURCE)/kernel/nvgpu/drivers/gpu/nvgpu \
+				$(NV_SOURCE)/kernel/nvgpu-next/drivers/gpu/nvgpu/include \
+				$(NV_SOURCE)/kernel/nvgpu-next/drivers/gpu/nvgpu
+
+ifdef NVGPU_CFLAGS
+NV_COMPONENT_CFLAGS		:= \
+				$(NVGPU_CFLAGS)
+else
+NV_COMPONENT_CFLAGS		+= -D__NVGPU_POSIX__
+endif
+NV_COMPONENT_CFLAGS		+= -D__NVGPU_UNIT_TEST__
+NV_COMPONENT_CFLAGS		+= -DNVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+
+ifneq ($(NV_BUILD_CONFIGURATION_OS_IS_QNX),1)
+NVGPU_FORCE_SAFETY_PROFILE	:= 1
+NVGPU_FORCE_DEBUG_PROFILE	:= 1
+endif
+
+-include $(NV_SOURCE)/kernel/nvgpu/drivers/gpu/nvgpu/Makefile.shared.configs
+NV_COMPONENT_CFLAGS             += $(NVGPU_COMMON_CFLAGS)
+
+NV_COMPONENT_NEEDED_INTERFACE_DIRS := \
+                                $(NV_SOURCE)/kernel/nvgpu/userspace
+
+ifdef NVGPU_UNIT_SHARED_LIBRARIES
+NV_COMPONENT_SYSTEM_SHARED_LIBRARIES += $(NVGPU_UNIT_SHARED_LIBRARIES)
+endif
+
+ifdef NVGPU_UNIT_INTERFACE_DIRS
+NV_COMPONENT_NEEDED_INTERFACE_DIRS += $(NVGPU_UNIT_INTERFACE_DIRS) 
+endif
+ifdef CONFIG_NVGPU_DGPU
+NV_COMPONENT_NEEDED_INTERFACE_DIRS += $(NV_SOURCE)/kernel/nvgpu/libs/dgpu
+else
+NV_COMPONENT_NEEDED_INTERFACE_DIRS += $(NV_SOURCE)/kernel/nvgpu/libs/igpu
+endif
+
+ifdef NVGPU_SYSTEMIMAGE_DIR
+NV_COMPONENT_SYSTEMIMAGE_DIR := $(NVGPU_SYSTEMIMAGE_DIR)
+else
+ifdef CONFIG_NVGPU_DGPU
+NV_COMPONENT_SYSTEMIMAGE_DIR    := $(NV_SYSTEMIMAGE_TEST_EXECUTABLE_DIR)/nvgpu_unit/units/dgpu
+else
+NV_COMPONENT_SYSTEMIMAGE_DIR    := $(NV_SYSTEMIMAGE_TEST_EXECUTABLE_DIR)/nvgpu_unit/units/igpu
+endif
+endif
+
+systemimage:: $(NV_COMPONENT_SYSTEMIMAGE_DIR)
+$(NV_COMPONENT_SYSTEMIMAGE_DIR) : $(NV_SYSTEMIMAGE_TEST_EXECUTABLE_DIR)
+	$(MKDIR_P) $@
+
+include $(NV_BUILD_SHARED_LIBRARY)
+
+endif
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 8
+# End:
+# vi: set tabstop=8 noexpandtab:

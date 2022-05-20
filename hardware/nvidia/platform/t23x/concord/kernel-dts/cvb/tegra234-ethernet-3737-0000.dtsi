@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
+/ {
+	/* MGBE - A */
+	ethernet@6810000 {
+		status = "okay";
+		nvidia,mac-addr-idx = <0>;
+		nvidia,max-platform-mtu = <16383>;
+		/* 0=enable, 1=disable */
+		nvidia,pause_frames = <0>;
+		phy-handle = <&mgbe0_aqr113c_phy>;
+		phy-mode = "10gbase-r";
+		/* 0:XFI 10G, 1:XFI 5G, 2:USXGMII 10G, 3:USXGMII 5G */
+		nvidia,phy-iface-mode = <0>;
+
+		mdio {
+			compatible = "nvidia,eqos-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mgbe0_aqr113c_phy: ethernet_phy@0 {
+				compatible = "ethernet-phy-ieee802.3-c45";
+				reg = <0x0>;
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA234_MAIN_GPIO(Y, 3) IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+	};
+};

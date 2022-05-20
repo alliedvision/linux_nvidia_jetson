@@ -1,0 +1,61 @@
+
+NVIDIA Tegra Erista (T21x) MIPICAL bindings
+
+The MIPICAL unit performs calibration at start of capture or transmission to
+condition the impedance of MIPI D-Phy CSI-2 and DSI lanes.
+
+PROD settings
+
+Required properties:
+	- compatible: Should be "nvidia,tegra210-mipical".
+	- reg: Register address space (MMIO).
+	- clocks: All MIPICAL clocks.
+	- clock-names: Names of the above clocks.
+	- assigned-clocks: MIPICAL clock, should be "TEGRA210_CLK_CLK72MHZ".
+	- assigned-clock-parents: Parent clock, should be "TEGRA210_CLK_PLL_P".
+	- assigned-clock-rates: Supported clock rate(s).
+
+	-- PROD value groups (prod-settings) --
+	- #prod-cells: Number of PROD settings per config tuple (default: 3).
+
+	-- D-Phy DSI values (prod_c_dphy_dsi) --
+	-- PROD values (prod) --
+	- prod: List of tuples (each size #prod-cells) corresponding to a PROD
+		config.
+
+Example:
+
+	mipical {
+		compatible = "nvidia,tegra210-mipical";
+		reg = <0x0 0x700e3000 0x0 0x00000100>;
+		clocks = <&tegra_car TEGRA210_CLK_MIPI_CAL>,
+			<&tegra_car TEGRA210_CLK_CLK72MHZ>;
+		clock-names = "mipi_cal", "uart_mipi_cal";
+
+		assigned-clocks = <&tegra_car TEGRA210_CLK_CLK72MHZ>;
+		assigned-clock-parents = <&tegra_car TEGRA210_CLK_PLL_P>;
+		assigned-clock-rates = <68000000>;
+	};
+
+	/* PROD settings */
+	mipical {
+		prod-settings {
+			#prod-cells = <3>;
+			prod_c_dphy_dsi {
+				prod = <
+					0x00000038 0x00001f00 0x00000200 //MIPI_CAL_DSIA_MIPI_CAL_CONFIG_0	12:8=MIPI_CAL_HSPUOSDSIA	0x2
+					0x0000003c 0x00001f00 0x00000200 //MIPI_CAL_DSIB_MIPI_CAL_CONFIG_0	12:8=MIPI_CAL_HSPUOSDSIB	0x2
+					0x00000040 0x00001f00 0x00000200 //MIPI_CAL_DSIC_MIPI_CAL_CONFIG_0	12:8=MIPI_CAL_HSPUOSDSIC	0x2
+					0x00000044 0x00001f00 0x00000200 //MIPI_CAL_DSID_MIPI_CAL_CONFIG_0	12:8=MIPI_CAL_HSPUOSDSID	0x2
+
+					0x0000005c 0x00000f00 0x00000300 //MIPI_CAL_MIPI_BIAS_PAD_CFG1_0	11:8=PAD_DRIV_UP_REF	0x3
+					0x00000060 0x000f00f0 0x00010010 //MIPI_CAL_MIPI_BIAS_PAD_CFG2_0	07:04=PAD_VAUXP_LEVEL	0x1
+									 //					19:16=PAD_VCLAMP_LEVEL	0x1
+					0x00000064 0x0000001f 0x00000002 //MIPI_CAL_DSIA_MIPI_CAL_CONFIG_2_0	04:00=MIPI_CAL_HSCLKPUOSDSIA 0x2
+					0x00000068 0x0000001f 0x00000002 //MIPI_CAL_DSIB_MIPI_CAL_CONFIG_2_0	04:00=MIPI_CAL_HSCLKPUOSDSIB 0x2
+					0x00000070 0x0000001f 0x00000002 //MIPI_CAL_DSIC_MIPI_CAL_CONFIG_2_0	04:00=MIPI_CAL_HSCLKPUOSDSIC 0x2
+					0x00000074 0x0000001f 0x00000002 //MIPI_CAL_DSID_MIPI_CAL_CONFIG_2_0	04:00=MIPI_CAL_HSCLKPUOSDSID 0x2
+					>;
+			};
+		};
+	};

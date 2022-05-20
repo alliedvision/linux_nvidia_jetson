@@ -1,0 +1,41 @@
+/ {
+	misc {
+		carveout {
+			aux_info@CARVEOUT_TSEC_HOST1X {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x100000>; /* 1MB */
+				alignment = <0x0 0x100000>; /* 1MB */
+			};
+			aux_info@CARVEOUT_TEMP_QB_DATA {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0xA00000>; /* 10MB */
+				alignment = <0x0 0x10000>; /* 64KB */
+			};
+			aux_info@CARVEOUT_TEMP_QB_IO_BUFFER {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x800000>; /* 8MB */
+				alignment = <0x0 0x10000>; /* 64KB */
+			};
+			aux_info@CARVEOUT_TSEC_CCPLEX {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x100000>; /* 1MB */
+				alignment = <0x0 0x100000>; /* 1MB */
+			};
+			aux_info@CARVEOUT_UEFI {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x4000000>; /* 64MB */
+				alignment = <0x0 0x200000>; /* 2MB */
+			};
+			aux_info@CARVEOUT_OS {
+				pref_base = <0x0 0x80000000>;
+				size = <0x0 0x20000000>; /* 512MB */
+				alignment = <0x0 0x200000>; /* 2MB */
+			};
+			aux_info@CARVEOUT_GR {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x10000>; /* 64KB */
+				alignment = <0x0 0x10000>; /* 64KB */
+			};
+		};
+	};
+};

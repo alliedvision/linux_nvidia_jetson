@@ -1,0 +1,47 @@
+Nvidia, arm-smmu:
+==================
+
+The device node describes Nvidia iommu device node.
+It contains common properties @/iommu/iommu.txt and
+@iommu/arm-smmu.txt.
+It also contains Nvidia specific properites to support
+older kernel version iommu bindings.
+
+Required properties:
+--------------------
+- compatible = Must be one of the following
+               "t19x,arm,mmu-500"
+- reg : Should contain 2 register ranges(address and length) pairs
+  Register address space (MMIO).
+- interrupts: Specify the interrupts IRQ info for device
+- stream-match-mask : For SMMUs supporting stream matching and using
+                      #iommu-cells = <1>, specifies a mask of bits to ignore
+                      when matching stream IDs (e.g. this may be programmed
+                      into the SMRn.MASK field of every stream match register
+                      used). More can be find from upstream @
+                      Documentation/devicetree/bindings/iommu/arm-smmu.txt.
+- input-address-size: Number of address bits being physically connected to an
+                      SMMU instance, as the input virtual address width. More can
+                      be found @ upstream
+                      @Documentation/devicetree/bindings/iommu/arm-smmu.txt.
+- iso-smmu-id : Number of iso smmus
+- suspend-save-reg : Secure Scrach space to save SMMU configuration across suspend resume
+- status : disabled or okay
+
+Examples:
+========
+
+smmu: iommu@12000000{
+		compatible = "t19x,arm,mmu-500";
+		reg = <0 0x12000000 0 0x800000>,
+		      <0 0x11000000 0 0x800000>,
+		      <0 0x10000000 0 0x800000>;
+		interrupts = <0 170 4>,
+		stream-match-mask = <0x7F80>;
+		input-address-size = <39>; /* Used by K4.14 only */
+		iso-smmu-id = <2>;
+
+		suspend-save-reg = <0x0c3902ac>; /* SCRATCH_SECURE_RSV73_SCRATCH_0 */
+
+		status = "disabled";
+}

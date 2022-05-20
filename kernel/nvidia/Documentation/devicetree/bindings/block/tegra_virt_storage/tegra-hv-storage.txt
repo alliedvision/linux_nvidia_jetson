@@ -1,0 +1,21 @@
+Tegra Virtual Storage driver
+
+Virtual Storage Driver is the front end driver that interfaces with the
+Storage Virtualization System for Tegra SOC and provides a block device
+interface
+
+Required Properties:
+- compatible: should be "nvidia,tegra-hv-storage"
+- instance:   to identify a specific instance of the device
+- ivc:        ivc channel to used for communication with Virtualization System
+- mempool:    mempool used for data transfers with Virtualization System
+
+Example:
+	tegra_virt_storage0 {
+		compatible = "nvidia,tegra-hv-storage";
+		instance = <0>;
+		ivc = <&tegra_hv 63>;
+		mempool = <10>;
+		status = "okay";
+	};
+

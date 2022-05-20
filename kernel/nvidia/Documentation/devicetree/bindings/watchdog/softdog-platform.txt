@@ -1,0 +1,21 @@
+Software watchdog
+
+Software watchdog is enabled when a hardware watchdog controller is not
+available. This would work in multi cpu system where one or more cpus hang
+while cpu running wdt is still working.
+
+Required properties:
+- compatible: Should be "softdog-platform".
+
+Optional properties for recovery mode:
+- nvidia,watchdog-index: Watchdog to be use, it can be 0, 1 or 2.
+- nvidia,timer-index: Timer to be use for counter. It can be 0 to 7.
+- watchdog,nowayout: Watchdog cannot be disabled.
+- watchdog,reboot: initiate reboot when watchdog is triggered.
+- watchdog,panic: panic when watchdog is triggered.
+
+Examples:
+soft_wdt: soft_watchdog {
+	compatible = "softdog-platform";
+	status = "disabled";
+};

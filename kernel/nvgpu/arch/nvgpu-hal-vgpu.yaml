@@ -1,0 +1,31 @@
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# VGPU HAL units.
+#
+
+init:
+  safe: no
+  owner: Aparna D
+  sources: [ hal/vgpu/init/init_hal_vgpu.c,
+             hal/vgpu/init/init_hal_vgpu.h,
+             hal/vgpu/init/vgpu_hal_gv11b.c,
+             hal/vgpu/init/vgpu_hal_gv11b.h,
+             hal/vgpu/init/vgpu_hal_ga10b.c,
+             hal/vgpu/init/vgpu_hal_ga10b.h ]
+
+fifo:
+  safe : no
+  owner: Aparna D
+  children:
+    fifo:
+     safe: no
+     sources: [ hal/vgpu/fifo/fifo_gv11b_vgpu.c,
+                hal/vgpu/fifo/fifo_gv11b_vgpu.h ]
+
+sync:
+  safe: no
+  owner: Aparna D
+  children:
+    syncpt:
+      sources: [ hal/vgpu/sync/syncpt_cmdbuf_gv11b_vgpu.c,
+                 hal/vgpu/sync/syncpt_cmdbuf_gv11b_vgpu.h ]

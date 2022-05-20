@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra234-soc-sim.dtsi: Simulation and Emulation SOC base
+ *			  DTSI file used for all sim DTSI.
+ */
+
+#include <tegra234-soc/tegra234-soc-base.dtsi>
+
+/ {
+	reserved-memory {
+		grid-of-semaphores {
+			status = "okay";
+		};
+
+		vpr: vpr-carveout {
+				compatible = "nvidia,vpr-carveout";
+				size = <0 0x10000000>;
+				alignment = <0 0x400000>;
+				alloc-ranges = <0x0 0x80000000 0x0 0x70000000>;
+		};
+
+		/* The sec-mon memory in bootwrapper */
+		sec-mon {
+			reg = <0x0 0x84080000 0x0 0x400000>;
+		};
+
+		bpmp-fw {
+			reg = <0x0 0x84c00000 0x0 0x400000>;
+		};
+	};
+
+	tegra-carveouts {
+		status = "okay";
+	};
+
+	/* L4 cache */
+	tegra-cache {
+		status = "okay";
+	};
+
+	power-domain {
+		status = "okay";
+	};
+
+	interrupt-controller {
+		status = "okay";
+	};
+
+	mc {
+		status = "okay";
+	};
+
+	mc_sid@2c00000 {
+		status = "okay";
+	};
+
+	iommu@12000000 {
+		status = "okay";
+	};
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+	smmu_suspend {
+		status = "okay";
+	};
+#endif
+
+	tegra-hsp@c150000 {
+		status = "okay";
+	};
+
+	tegra-hsp@3c00000 {
+		status = "okay";
+	};
+
+	psci {
+		status = "okay";
+	};
+
+	cpus {
+		/*
+		 * Override the MPIDR value for simulator because MPIDR
+		 * value returned by the CPU on simulator is different
+		 * from the one in soc-base dtsi.
+		 */
+		cpu@0 {
+			reg = <0x0 0x0>;
+		};
+
+		cpu@1 {
+			status = "disabled";
+		};
+
+		cpu@2 {
+			status = "disabled";
+		};
+
+		cpu@3 {
+			status = "disabled";
+		};
+
+		cpu@4 {
+			status = "disabled";
+		};
+
+		cpu@5 {
+			status = "disabled";
+		};
+
+		cpu@6 {
+			status = "disabled";
+		};
+
+		cpu@7 {
+			status = "disabled";
+		};
+
+		cpu@8 {
+			status = "disabled";
+		};
+
+		cpu@9 {
+			status = "disabled";
+		};
+
+		cpu@10 {
+			status = "disabled";
+		};
+
+		cpu@11 {
+			status = "disabled";
+		};
+	};
+
+	kfuse@3828000 {
+		status = "okay";
+	};
+
+	ga10b {
+		status = "okay";
+	};
+
+	mc {
+		/delete-property/ ranges;
+		/delete-node/ mssnvlink@1f20000;
+	};
+
+	display@13800000 {
+		status = "okay";
+	};
+
+	ldpc-enc@15700000 {
+                status = "okay";
+        };
+
+        ldpc-dec@15780000 {
+                status = "okay";
+        };
+
+	tegra_safety: sce@b000000 {
+		status = "okay";
+	};
+
+	tegra_safety_ivc: tegra_safety_ivc {
+                status = "okay";
+        };
+
+	tegra-hsp@b150000 {
+		status = "okay";
+	};
+
+	tegra_hv_L1L0ivc {
+		status = "okay";
+	};
+
+	safetysrv_cfg{
+		status = "okay";
+        };
+
+        ecthreshold_cfg: ecthreshold_cfg {
+		status="okay";
+	};
+
+        safety_ivc {
+		compatible = "nvidia,tegra-hv-safety-ivc";
+		client_0 {
+			channel = "lpbck_0";
+			channelEx = "lpbck_ex_0";
+			layerid = <4>;
+		};
+	};
+
+};

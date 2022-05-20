@@ -1,0 +1,233 @@
+NVIDIA Tegra Camera Framework (TCF) bindings
+
+The Tegra Camera Framework (TCF) is a kernel API for digital image sensor
+drivers to register and interface with the V4L2 Framework on Tegra SOC
+platforms. User-mode applications may directly request raw (e.g. bayer, YUV)
+frame captures through sysfs device nodes enumerated in the /dev/videoXY.
+
+Using the V4L2 CIDs, sensor programming is abstracted; they enable automatic
+power and clocks control, resolution and mode selection, and sensor gain,
+exposure and frame rate programming (for 3A).
+
+Supported sources include: MIPI CSI-2 (via Tegra NVCSI, incl. TPGs), SLVS-EC
+(via Tegra SLVS-EC, T19x only), NVIDIA VIVID and other V4L2 devices (e.g.
+webcams).
+
+== Sensor Modes ==
+
+Enumerated sensor modes are initial platform configuration and properties of the
+data to be received from the sensor. Frame sizes, data types, clocks and
+physical input streams are fixed; but frame rates, exposure times and gain may
+be varied.
+
+For source control settings (gain, framerate, exposure), the ranges are given
+as fixed-point integer literal values, at 1 s = 1,000,000 us resolution; this is
+done to preserve precision in floating-point calculations.
+
+Modes are enumerated as mode<0..N-1> in the base of sensors' Device Tree nodes.
+
+Required properties:
+	- mclk_khz: Rate of the MIPI clock (aka. INCK) driven from the Tegra SoC
+		[kHz].
+	- num_lanes: Number of D-Phy lanes or C-Phy trios.
+	- tegra_sinterface: The NVCSI port, enumerated from "serial_<A-E>"
+		(<T19x) and "serial<A-H>" (>=T19x).
+	- phy_mode: The MIPI CSI-2 PHY mode; "DPHY" or "CPHY"; or "SLVS" for
+		Sony SLVS-EC.
+	- discontinuous_clk: Whether the D-Phy clock is discontinuous; "yes" or
+		"no".
+	- dpcm_enable: Whether DPCM compression is enabled; "true" or "false".
+
+	- active_width: Horizontal width of the valid image surface [px].
+	- active_height: Vertical height of the valid image surface [px].
+	- mode_type: Pixel readout format; usually "bayer".
+	- pixel_phase: Pixel arrangment, usually "rggb" or variation.
+	- csi_pixel_bit_depth: Pixel bit depth [bit].
+	- readout_orientation: Rotations of the image surface performed by the
+		sensor; specified as {"90", "180", "270"}.
+	- line_length: Length of pixel line [px].
+	- inherent_gain: Sensor inherent gain, usually "1".
+	- mclk_multiplier: Factor, pix_clk_hz / (mclk_khz * 1000).
+	- pix_clk_hz: Pixel rate from the sensor [Hz].
+
+	Source Control Settings:
+	- gain_factor: Integer conversion factor, set to "1000000".
+	- min_gain_val: Minimum gain [dB] = min_gain_val / gain_factor.
+	- max_gain_val: Maximum gain [dB] = max_gain_val / gain_factor.
+	- step_gain_val: Smallest gain to vary [dB] = step_gain_val /
+		gain_factor.
+	- default_gain: Default gain [dB]; recommended to match min_gain_val for
+		optimal results.
+	- framerate_factor: Integer conversion factor, set to "1000000".
+	- min_framerate: Minimum framerate [fps] = min_framerate /
+		framerate_factor.
+	- max_framerate: Maximum framerate [fps] = max_framerate /
+		framerate_factor.
+	- step_framerate: Smallest framerate to vary [fps] =
+		step_framerate / framerate_factor.
+	- default_framerate: Default framerate [fps]; recommended to match
+		max_framerate for optimal results.
+	- exposure_factor: Integer conversion factor, set to "1000000".
+	- min_exp_time: Minimum exposure [us] = min_exp_time / exposure_factor.
+	- max_exp_time: Maximum exposure [us] = max_exp_time / exposure_factor.
+	- step_exp_val: Smallest exposure to vary [us] =
+		step_exp_time / exposure_factor.
+	- default_exp_time: Default exposure [us]; recommended to match
+		min_exp_time for optimal results.
+
+	- embedded_metadata_height: The number of extra lines in each frame
+		containing metadata (not counted in active_height).
+
+Optional properties:
+	Wide Dynamic Range (WDR) settings:
+	- min_hdr_ratio: Minimum HDR ratio.
+	- max_hdr_ratio: Maximum HDR ratio.
+	- num_of_exposure: Number of exposures [frame].
+	- num_of_ignored_lines: Cropping use, number of ignored lines [line].
+	- num_of_lines_offset_0: Cropping use, vertical blanking before short
+		exposure data [line].
+	- num_of_ignored_pixels: Cropping use, length of line info [px].
+	- num_of_left_margin_pixels: Cropping use, left margin before active
+		pixels area (after num_of_ignored_pixels).
+	- num_of_right_margin_pixels: Cropping use, right margin after active
+		pixels area.
+
+Example:
+
+	imx274_a@1a {
+		...
+
+		mode0 {
+			mclk_khz = "24000";
+			num_lanes = "4";
+			tegra_sinterface = "serial_a";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+
+			active_w = "3840";
+			active_h = "2160";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "0";
+			line_length = "4208";
+			inherent_gain = "1";
+			mclk_multiplier = "24";
+			pix_clk_hz = "576000000";
+
+			gain_factor = "1000000";
+			min_gain_val = "1000000";
+			max_gain_val = "44400000";
+			step_gain_val = "1";
+			default_gain = "1000000";
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			framerate_factor = "1000000";
+			min_framerate = "1500000";
+			max_framerate = "60000000";
+			step_framerate = "1";
+			default_framerate= "60000000";
+			exposure_factor = "1000000";
+			min_exp_time = "44";
+			max_exp_time = "478696";
+			step_exp_time = "1";
+			default_exp_time = "16667";
+			embedded_metadata_height = "1";
+		};
+		mode1 {
+			...
+		};
+	}
+
+== Tegra Camera Platform ==
+
+This node provides the complete system view of camera resources, it is used for
+bandwidth and clock allocation, and user-space applications (e.g. NVIDIA PCL).
+
+A module is a unit camera package, it is further subdivided into drivernodes,
+which are image sensors, lenses and focusers.
+
+If available, a custom lens property may be created to provide the camera
+package metadata to user-space applications. The path to this structure is
+specified as a "v4l2_lens" drivernode under modules.
+
+Required properties:
+	compatible: Should be "nvidia, tegra-camera-platform".
+	num_csi_lanes: Total number of concurrent NVCSI lanes.
+	max_lane_speed = Maximum D-Phy or C-Phy lane data rate [kb/s].
+	min_bits_per_pixel: Minimum pixel bit depth [bit].
+	vi_peak_byte_per_pixel: Maximum data packets to VI per pixel [byte].
+	vi_bw_margin_pct: VI bandwidth margin [pct], concurrent use.
+
+	max_pixel_rate = Maximum ISP processing rate [kPx/s], concurrent use.
+	isp_peak_byte_per_pixel: Maximum data packets to ISP per pixel [byte].
+	isp_bw_margin_pct: ISP bandwidth margin [pct], concurrent use.
+
+	-- Modules (modules) --
+	badge: String use for matching camera module to ISP program configuration,
+		"<sensor_model>_" + "<position>_" + "<six-char package model>".
+	position: Camera position on device; {"rear", "front", "bottom", "top",
+		"center", "topleft", "topright, "centerleft", "centerright",
+		"bottomleft", "bottomright", "<0-5>"}.
+	orientation: Camera rotation; multiplier of 90 degrees; {"1", "2", "3"}.
+
+	-- Driver Nodes (drivernodeXY) --
+	pcl_id: PCL device class; {"v4l2_sensor", "v4l2_lens", ...}.
+	devname: Sensors only, V4L2 device name string; "<sensor_model> 3" +
+		"<0-9, sensor index>" + "-00" + "<sensor I2C addr.>".
+	proc-device-tree: Full path to the sensor Device Tree node in the
+		filesystem.
+
+Optional properties:
+	-- Camera Package Lens --
+	min_focus_distance: Minimum focus distance [mm].
+	hyper_focal: Hyper-focal distance at infinity [mm].
+	focal_length: Focal length [mm].
+	f_number: Aperture integer literal [f-stop].
+	aperture: Aperture decimal literal [f-stop].
+
+Example:
+
+	tegra-camera-platform { {
+		compatible = "nvidia, tegra-camera-platform";
+
+		num_csi_lanes = <8>;
+		max_lane_speed = <1500000>;
+		min_bits_per_pixel = <10>;
+		vi_peak_byte_per_pixel = <2>;
+		vi_bw_margin_pct = <25>;
+		max_pixel_rate = <750000>;
+		isp_peak_byte_per_pixel = <5>;
+		isp_bw_margin_pct = <25>;
+
+		modules {
+			module0 {
+				badge = "imx274_bottom_A6V26";
+				position = "bottom";
+				orientation = "1";
+				drivernode0 {
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_sensor";
+					/* Driver v4l2 device name */
+					devname = "imx274 30-001a";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/imx274_a@1a";
+				};
+				drivernode1 {
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_lens";
+					proc-device-tree = "/proc/device-tree/lens_imx274@A6V26/";
+				};
+			};
+		}
+	}
+
+	lens_imx274@A6V26 {
+		min_focus_distance = "0.0";
+		hyper_focal = "0.0";
+		focal_length = "5.00";
+		f_number = "2.0";
+		aperture = "2.2";
+	};

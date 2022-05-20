@@ -1,0 +1,16 @@
+* NVIDIA Tegra SAF775x codec driver
+
+The Tegra SAF775x provide userspace interface to control
+programming of SAF775x hardware.
+
+Required properties:
+- compatible: Must be "nvidia,tegra-saf775x".
+- rst-gpio : phandle for tmpm32xi2c_61 and gpio number on tmpm32xi2c_61.
+
+Example:
+
+saf775x { /* dirana3 */
+	status = "okay";
+	compatible = "nvidia,tegra-saf775x";
+	rst-gpio = <&tmpm32xi2c_61 TMPM32X_GPIO(A, 7) 0>;
+};

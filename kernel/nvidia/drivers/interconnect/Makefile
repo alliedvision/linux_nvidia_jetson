@@ -1,0 +1,1 @@
+obj-$(CONFIG_INTERCONNECT_TEGRA)	+= tegra/

@@ -1,0 +1,112 @@
+/*
+ * tegra194-audio-e3900-0000.dtsi: Audio DT file.
+ *
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+#include <audio/tegra186-audio-dai-links.dtsi>
+#include <audio/tegra-platforms-audio-dai-links.dtsi>
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/audio/tegra194-audio.h>
+#include <audio/tegra-platforms-audio-dmic3-5-switch.dtsi>
+
+/ {
+
+	aconnect@2a41000 {
+		status = "okay";
+
+		agic-controller@2a41000 {
+			status = "okay";
+		};
+
+		adsp@2993000 {
+			status = "okay";
+		};
+	};
+
+	i2c@c250000 {
+		rt5658: rt5659.7-001a@1a {
+			compatible = "realtek,rt5658";
+			reg = <0x1a>;
+
+			/* refer include/sound/rt5659.h for the values to be used */
+			realtek,jd-src = <2>; /* RT5659_JD_HDA_HEADER */
+			realtek,dmic1-data-pin = <0>; /* RT5659_DMIC1_NULL> */
+			realtek,dmic2-data-pin = <0>; /* RT5659_DMIC2_NULL> */
+
+			/* Codec IRQ output */
+			interrupt-parent = <&tegra_main_gpio>;
+			interrupts = <TEGRA194_MAIN_GPIO(S, 5) GPIO_ACTIVE_HIGH>;
+
+			#sound-dai-cells = <1>;
+
+			status = "okay";
+		};
+	};
+
+	hda@3510000 {
+		status = "okay";
+
+		nvidia,model = "NVIDIA Jetson Clara AGX HDA";
+	};
+
+	tegra_sound: sound {
+		status = "okay";
+		compatible = "nvidia,tegra186-ape";
+		nvidia-audio-card,name = "NVIDIA Jetson Clara AGX APE";
+		clocks = <&bpmp_clks TEGRA194_CLK_PLLA>,
+			 <&bpmp_clks TEGRA194_CLK_PLLA_OUT0>,
+			 <&bpmp_clks TEGRA194_CLK_AUD_MCLK>;
+		clock-names = "pll_a", "pll_a_out0", "extern1";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLA_OUT0>;
+
+		nvidia-audio-card,widgets =
+			"Headphone",	"CVB-RT Headphone Jack",
+			"Microphone",	"CVB-RT Mic Jack",
+			"Speaker",	"CVB-RT Int Spk",
+			"Microphone",	"CVB-RT Int Mic";
+
+		nvidia-audio-card,routing =
+			"CVB-RT Headphone Jack",     "CVB-RT HPO L Playback",
+			"CVB-RT Headphone Jack",     "CVB-RT HPO R Playback",
+			"CVB-RT IN1P",		     "CVB-RT Mic Jack",
+			"CVB-RT IN2P",		     "CVB-RT Mic Jack",
+			"CVB-RT Int Spk",	     "CVB-RT SPO Playback",
+			"CVB-RT DMIC L1",	     "CVB-RT Int Mic",
+			"CVB-RT DMIC L2",	     "CVB-RT Int Mic",
+			"CVB-RT DMIC R1",	     "CVB-RT Int Mic",
+			"CVB-RT DMIC R2",	     "CVB-RT Int Mic";
+
+		nvidia-audio-card,mclk-fs = <256>;
+	};
+};
+
+/*
+ * Default config for all I2S dai links are
+ * format = "i2s", bitclock-slave, frame-slave,
+ * bitclock-noninversion, frame-noninversion,
+ * Any change from default needs override on
+ * platform specific files.
+ */
+
+&i2s1_to_codec {
+	link-name = "rt565x-playback";
+	codec {
+		sound-dai = <&rt5658 0>;
+		prefix = "CVB-RT";
+	};
+};
+
+hdr40_snd_link_i2s: &i2s2_to_codec { };
+
+/* I2S link on CSI Connector */
+csi_conn_i2s: &i2s4_to_codec { };

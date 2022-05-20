@@ -1,0 +1,2147 @@
+/*
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/version.h>
+#include <dt-bindings/clock/tegra194-clock.h>
+#include <dt-bindings/reset/tegra194-reset.h>
+#include <dt-bindings/mailbox/tegra186-hsp.h>
+#include "dt-bindings/display/tegra-dc.h"
+#include "dt-bindings/interrupt/tegra194-irq.h"
+#include "dt-bindings/interrupt-controller/arm-gic.h"
+#include "dt-bindings/soc/tegra194-powergate.h"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+#include <dt-bindings/memory/tegra186-mc.h>
+#include <dt-bindings/memory/tegra194-mc.h>
+#endif
+#include <dt-bindings/memory/tegra-swgroup.h>
+#include <dt-bindings/memory/tegra194-swgroup.h>
+#include "dt-bindings/soc/tegra194-powergate.h"
+#include "tegra194-soc/tegra194-soc-sata.dtsi"
+#include "tegra194-soc/tegra194-soc-power-domain.dtsi"
+#include "tegra194-trusty.dtsi"
+#include "tegra194-soc-cbb.dtsi"
+#include "tegra194-soc-pcie.dtsi"
+#include "tegra194-soc-eqos.dtsi"
+#include "tegra194-soc-uart.dtsi"
+#include "tegra194-soc-sdhci.dtsi"
+#include "tegra194-soc-ufshc.dtsi"
+#include "tegra194-soc-spi.dtsi"
+#include "tegra194-soc-pwm.dtsi"
+#include "tegra194-soc-i2c.dtsi"
+#include "tegra194-soc-can.dtsi"
+#include "tegra194-soc-audio.dtsi"
+#include "tegra194-safety-sce.dtsi"
+#include "tegra194-camera.dtsi"
+#include "tegra194-soc/tegra194-soc-actmon.dtsi"
+#include "tegra194-soc/tegra194-soc-disp-imp.dtsi"
+#include "tegra194-soc/tegra194-aon.dtsi"
+#include "tegra194-soc/tegra194-cpus.dtsi"
+#include "tegra194-soc-thermal.dtsi"
+#include "tegra194-soc-memory.dtsi"
+#include "dt-bindings/soc/tegra-io-pads.h"
+#include "dt-bindings/input/input.h"
+
+/ {
+	compatible = "nvidia,tegra186";
+	interrupt-parent = <&intc>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+#if TEGRA_IOMMU_DT_VERSION < DT_VERSION_2
+	dma-ranges = <0x0 0x0 0x0 0x0 0x7f 0xffff0000>;
+#endif
+
+	aliases {
+		host1x = &host1x;
+	};
+
+	tegra-cvnas {
+		compatible = "nvidia,tegra-cvnas";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_CV>;
+		reg = <0x0 0x14000000 0x0 0x20000>, /* CV0_REG0_BASE */
+		      <0x0 0x14020000 0x0 0x10000>, /* CV0_SRAM_BASE */
+		      <0x0 0x0b240000 0x0 0x10000>; /* HSM_BASE */
+		clocks = <&bpmp_clks TEGRA194_CLK_CVNAS>;
+		resets = <&bpmp_resets TEGRA194_RESET_CVNAS>,
+			 <&bpmp_resets TEGRA194_RESET_CVNAS_FCM>;
+		reset-names = "rst", "rst_fcm";
+		interrupts = <0 238 4>,
+			     <0 239 4>;
+		cvsramslice = <4 0x1000>;
+		cvsram-reg = <0x0 0x50000000 0x0 0x400000>;
+		status = "disabled";
+	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+			status = "disabled";
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 10
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
+		status = "disabled";
+	};
+
+	timer@3010000 {
+		/* Do not enable this node (SOC Timer) as ARM Generic Timer
+		 * (DT node="timer") should be used instead
+		 */
+		compatible = "nvidia,tegra186-timer";
+		interrupts = <0 0 4>,
+			     <0 1 4>,
+			     <0 2 4>,
+			     <0 3 4>,
+			     <0 4 4>,
+			     <0 5 4>,
+			     <0 6 4>,
+			     <0 7 4>;
+		clock-frequency = <19200000>;
+		reg = <0x0 0x03010000 0x0 0x000e0000>;
+		tmr-count = <10>;
+		wdt-count = <3>;
+		status = "disabled";
+	};
+
+	tegra_pm_irq: tegra194-pm-irq {
+		compatible = "nvidia,tegra194-pm-irq";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		status = "disabled";
+	};
+
+#if TEGRA_BPMP_FW_DT_VERSION <= DT_VERSION_1
+	bpmp_clks: clock@0 {
+		compatible = "nvidia,tegra-bpmp-clks";
+		reg = <0x0 0x0 0x0 0x0>;
+		#clock-cells = <1>;
+		status = "disabled";
+	};
+
+	bpmp_resets: bpmp_reset@0 {
+		compatible = "nvidia,bpmp-resets";
+		reg = <0x0 0x0 0x0 0x0>;
+		#reset-cells = <1>;
+		status = "disabled";
+	};
+#endif
+
+	tegra_rtc: rtc@c2a0000 {
+#if TEGRA_RTC_DT_VERSION >= DT_VERSION_2
+		compatible = "nvidia,tegra20-rtc";
+		interrupt-parent = <&tegra_pmc>;
+		interrupts = <73 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&bpmp TEGRA194_CLK_CLK_32K>;
+		clock-names = "rtc";
+#else
+		compatible = "nvidia,tegra18-rtc";
+		interrupt-parent = <&tegra_pm_irq>;
+		interrupts = <0 10 0x04>;
+#endif
+		reg = <0x0 0x0c2a0000 0x0 0x00010000>;
+		status = "disabled";
+	};
+
+	mods_test: mods_test {
+		compatible = "nvidia,mods_test";
+		status = "disabled";
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
+		status = "disabled";
+	};
+
+	intc: interrupt-controller@3881000 {
+		compatible = "arm,cortex-a15-gic";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <0 0x03881000 0 0x1000>,
+			<0 0x03882000 0 0x2000>,
+			<0 0x03884000 0 0x2000>,
+			<0 0x03886000 0 0x2000>;
+		interrupts = <GIC_PPI 9
+			(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_HIGH)>;
+		interrupt-parent = <&intc>;
+		status = "disabled";
+	};
+
+	chipid@100000 {
+		compatible = "nvidia,tegra186-chipid";
+		reg = <0x0 0x00100000 0x0 0x10000>;
+		status = "disabled";
+	};
+
+	miscreg@00100000 {
+		compatible = "nvidia,tegra194-misc", "nvidia,tegra186-miscreg";
+		reg = <0x0 0x00100000 0x0 0xf000>, /* Chipid */
+		    <0x0 0x0010f000 0x0 0x1000>; /* Straps */
+		status = "disabled";
+	};
+
+	aon_hsp: tegra-hsp@c150000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x0c150000 0x0 0x00090000>;
+		interrupts =	<0 TEGRA194_IRQ_AON_HSP_SHARED_1 0x4>,
+				<0 TEGRA194_IRQ_AON_HSP_SHARED_2 0x4>,
+				<0 TEGRA194_IRQ_AON_HSP_SHARED_3 0x4>,
+				<0 TEGRA194_IRQ_AON_HSP_SHARED_4 0x4>;
+		interrupt-names = "shared1", "shared2", "shared3", "shared4";
+		#mbox-cells = <2>;
+		nvidia,mbox-ie;
+		status = "disabled";
+	};
+
+	hsp_top: tegra-hsp@3c00000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x03c00000 0x0 0x000a0000>;
+		interrupts =	<0 176 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_0 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_1 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_2 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_3 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_4 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_5 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_6 0x4>,
+				<0 TEGRA194_IRQ_TOP0_HSP_SHARED_7 0x4>;
+		interrupt-names = "doorbell",
+				"shared0", "shared1", "shared2", "shared3",
+				"shared4", "shared5", "shared6", "shared7";
+		#mbox-cells = <2>;
+		nvidia,mbox-ie;
+		status = "disabled";
+	};
+
+	sce_hsp: tegra-hsp@b150000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x0b150000 0x0 0x00090000>;
+		interrupts =	<0 TEGRA194_IRQ_SCE_HSP_SHARED_1 0x4>,
+				<0 TEGRA194_IRQ_SCE_HSP_SHARED_2 0x4>,
+				<0 TEGRA194_IRQ_SCE_HSP_SHARED_3 0x4>,
+				<0 TEGRA194_IRQ_SCE_HSP_SHARED_4 0x4>;
+		interrupt-names = "shared1", "shared2", "shared3", "shared4";
+		nvidia,mbox-ie;
+		status = "disabled";
+	};
+
+	hsp_rce: tegra-hsp@b950000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x0b950000 0x0 0x00090000>;
+		interrupts =	<0 TEGRA194_IRQ_RCE_HSP_SHARED_1 0x4>,
+				<0 TEGRA194_IRQ_RCE_HSP_SHARED_2 0x4>,
+				<0 TEGRA194_IRQ_RCE_HSP_SHARED_3 0x4>,
+				<0 TEGRA194_IRQ_RCE_HSP_SHARED_4 0x4>;
+		nvidia,mbox-ie;
+		#mbox-cells = <2>;
+		interrupt-names = "shared1", "shared2", "shared3", "shared4";
+		status = "disabled";
+	};
+
+	bpmp_hsp: tegra-hsp@d150000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x0d150000 0x0 0x00090000>;
+		interrupts = <0 TEGRA194_IRQ_BPMP_HSP_SHARED_1 0x4>;
+		interrupt-names = "full2";
+		nvidia,mbox-ie;
+		#mbox-cells = <2>;
+		status = "disabled";
+	};
+
+	hsp_pva0: tegra-hsp@16160000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x16160000 0x0 0x00090000>;
+		interrupts = <0 234 0x04>;
+		interrupt-names = "shared0";
+		nvidia,num-SM = <0x8>; /* num of shared mailboxes  */
+		nvidia,num-SS = <0x4>; /* num of shared semaphores */
+		nvidia,num-SI = <0x5>; /* num of shared interrupts */
+		nvidia,mbox-ie;
+		status = "disabled";
+	};
+
+	hsp_pva1: tegra-hsp@16960000 {
+		compatible = "nvidia,tegra186-hsp";
+		reg = <0x0 0x16960000 0x0 0x00090000>;
+		interrupts = <0 235 0x04>;
+		interrupt-names = "shared0";
+		nvidia,num-SM = <0x8>; /* num of shared mailboxes  */
+		nvidia,num-SS = <0x4>; /* num of shared semaphores */
+		nvidia,num-SI = <0x5>; /* num of shared interrupts */
+		nvidia,mbox-ie;
+		status = "disabled";
+	};
+
+	efuse@3820000 {
+		compatible = "nvidia,tegra194-efuse";
+		reg = <0x0 0x03820000 0x0 0x600>;
+		clocks = <&bpmp_clks TEGRA194_CLK_FUSE>,
+		         <&bpmp_clks TEGRA194_CLK_CLK_M>;
+		clock-names = "fuse", "clk_m";
+		status = "disabled";
+#if LINUX_VERSION < 419
+		efuse-burn {
+			compatible = "nvidia,tegra194-efuse-burn";
+			clocks = <&bpmp_clks TEGRA194_CLK_CLK_M>;
+			clock-names = "clk_m";
+			status = "disabled";
+		};
+#endif
+	};
+#if LINUX_VERSION >= 419
+	efuse-burn {
+		compatible = "nvidia,tegra194-efuse-burn";
+		clocks = <&bpmp_clks TEGRA194_CLK_CLK_M>;
+		clock-names = "clk_m";
+		status = "disabled";
+	};
+#endif
+
+	kfuse@3830000 {
+		compatible = "nvidia,tegra194-kfuse";
+		reg = <0x0 0x3830000 0x0 0x10000>;
+		clocks = <&bpmp_clks TEGRA194_CLK_KFUSE>;
+		clock-names = "kfuse";
+		status = "disabled";
+	};
+
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	sysram@40000000 {
+		compatible = "nvidia,tegra194-sysram", "mmio-sram";
+		reg = <0x0 0x40000000 0x0 0x50000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x40000000 0x50000>;
+
+		cpu_bpmp_tx: shmem@4e000 {
+			compatible = "nvidia,tegra194-bpmp-shmem";
+			reg = <0x4e000 0x1000>;
+			label = "cpu-bpmp-tx";
+			pool;
+		};
+
+		cpu_bpmp_rx: shmem@4f000 {
+			compatible = "nvidia,tegra194-bpmp-shmem";
+			reg = <0x4f000 0x1000>;
+			label = "cpu-bpmp-rx";
+			pool;
+		};
+	};
+
+	bpmp: bpmp {
+		compatible = "nvidia,tegra186-bpmp";
+		mboxes = <&hsp_top TEGRA_HSP_MBOX_TYPE_DB
+				   TEGRA_HSP_DB_MASTER_BPMP>;
+		shmem = <&cpu_bpmp_tx &cpu_bpmp_rx>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+		#power-domain-cells = <1>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_BPMPR>,
+				<&mc TEGRA194_MEMORY_CLIENT_BPMPW>,
+				<&mc TEGRA194_MEMORY_CLIENT_BPMPDMAR>,
+				<&mc TEGRA194_MEMORY_CLIENT_BPMPDMAW>;
+		interconnect-names = "dma-mem", "dma-mem", "dma-mem", "dma-mem";
+#endif
+
+		pwr_i2c: i2c {
+			compatible = "nvidia,tegra186-bpmp-i2c";
+			nvidia,bpmp-bus-id = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		bpmpthermal {
+			compatible = "nvidia,tegra186-bpmp-thermal";
+			#thermal-sensor-cells = <1>;
+			status = "disabled";
+		};
+	};
+#else
+	bpmp: bpmp {
+		compatible = "nvidia,tegra186-bpmp";
+		reg = <0x0 0x0d000000 0x0 0x00800000>,
+		      <0x0 0x4004e000 0x0 0x00001000>,
+		      <0x0 0x4004f000 0x0 0x00001000>;
+		status = "disabled";
+		#power-domain-cells = <1>;
+		#strap-cells = <1>;
+		#nvidia,controller-id-cells = <1>;
+
+		bpmpthermal {
+			compatible = "nvidia,tegra186-bpmp-thermal";
+			#thermal-sensor-cells = <1>;
+			status = "disabled";
+		};
+	};
+#endif
+
+	se: se_elp@3ad0000 {
+		compatible = "nvidia,tegra194-se-elp";
+		reg = <0x0 0x03ad0000 0x0 0x10000>,
+		      <0x0 0x03ae0000 0x0 0x10000>;
+		interrupts = <0 283 0x04>;
+		clocks = <&bpmp_clks TEGRA194_CLK_SE>;
+		clock-names = "se";
+		pka1-rsa-priority = <300>;
+		status = "disabled";
+	};
+
+	host1x: host1x@13e00000 {
+		compatible = "nvidia,tegra194-host1x", "simple-bus";
+		reg = <0x0 0x13e10000 0x0 0x00010000>,
+		      <0x0 0x13e00000 0x0 0x00010000>,
+		      <0x0 0x13ec0000 0x0 0x00060000>,
+		      <0x0 0x60000000 0x0 0x00400000>;
+		reg-names = "guest", "hypervisor", "actmon", "sem-syncpt-shim";
+		interrupts = <0 265 0x04>,
+			     <0 263 0x04>;
+		nvidia,ignore-dt-update;
+		wakeup_capable;
+		resets = <&bpmp_resets TEGRA194_RESET_HOST1X>;
+		clocks = <&bpmp_clks TEGRA194_CLK_HOST1X>,
+			 <&bpmp_clks TEGRA194_CLK_ACTMON>;
+		clock-names = "host1x", "actmon";
+		nvidia,vmid = <1>;
+
+		iommus = <&smmu TEGRA_SID_HC>,
+			 <&smmu TEGRA_SID_HC_VM0>,
+			 <&smmu TEGRA_SID_HC_VM1>,
+			 <&smmu TEGRA_SID_HC_VM2>,
+			 <&smmu TEGRA_SID_HC_VM3>,
+			 <&smmu TEGRA_SID_HC_VM4>,
+			 <&smmu TEGRA_SID_HC_VM5>,
+			 <&smmu TEGRA_SID_HC_VM6>,
+			 <&smmu TEGRA_SID_HC_VM7>;
+		dma-coherent;
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_HOST1XDMAR>;
+		interconnect-names = "dma-mem";
+#else
+		dma-ranges = <0x0 0x0 0x0 0x0 0x7f 0xffff0000>;
+#endif
+
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ranges;
+
+		host1x_ctx0: ctx0 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX0>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx1: ctx1 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX1>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx2: ctx2 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX2>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx3: ctx3 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX3>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx4: ctx4 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX4>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx5: ctx5 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX5>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx6: ctx6 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX6>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		host1x_ctx7: ctx7 {
+			compatible = "nvidia,tegra186-iommu-context";
+			iommus = <&smmu TEGRA_SID_HOST1X_CTX7>;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		vic@15340000 {
+			compatible = "nvidia,tegra194-vic";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_VIC>;
+			reg = <0x0 0x15340000 0x0 0x00040000>;
+			interrupts = <0 206 0x04>;
+
+			resets = <&bpmp_resets TEGRA194_RESET_VIC>;
+			clocks = <&bpmp_clks TEGRA194_CLK_VIC>;
+			clock-names = "vic";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		nvjpg@15380000 {
+			compatible = "nvidia,tegra194-nvjpg";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVJPG>;
+			reg = <0x0 0x15380000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_NVJPG>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NVJPG>;
+			clock-names = "nvjpg";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		tsec@15500000 {
+			compatible = "nvidia,tegra194-tsec";
+			reg = <0x0 0x15500000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_TSEC>;
+			clocks = <&bpmp_clks TEGRA194_CLK_TSEC>,
+			         <&bpmp_clks TEGRA194_CLK_FUSE>;
+			clock-names = "tsec", "efuse";
+
+			iommus = <&smmu TEGRA_SID_TSEC>;
+			dma-coherent;
+		};
+
+		tsecb@15100000 {
+			compatible = "nvidia,tegra194-tsec";
+			reg = <0x0 0x15100000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_TSECB>;
+			clocks = <&bpmp_clks TEGRA194_CLK_TSECB>,
+			         <&bpmp_clks TEGRA194_CLK_FUSE>;
+			clock-names = "tsecb", "efuse";
+
+			iommus = <&smmu TEGRA_SID_TSECB>;
+			dma-coherent;
+		};
+
+		nvdec@15480000 {
+			compatible = "nvidia,tegra194-nvdec";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVDECA>;
+			reg = <0x0 0x15480000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_NVDEC>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NVDEC>,
+				 <&bpmp_clks TEGRA194_CLK_KFUSE>,
+				 <&bpmp_clks TEGRA194_CLK_FUSE>;
+			clock-names = "nvdec", "kfuse", "efuse";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		nvdec1@15140000 {
+			compatible = "nvidia,tegra194-nvdec";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVDECB>;
+			reg = <0x0 0x15140000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_NVDEC1>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NVDEC1>,
+				 <&bpmp_clks TEGRA194_CLK_KFUSE>,
+				 <&bpmp_clks TEGRA194_CLK_FUSE>;
+			clock-names = "nvdec", "kfuse", "efuse";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		nvenc@154c0000 {
+			compatible = "nvidia,tegra194-nvenc";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVENCA>;
+			reg = <0x0 0x154c0000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_NVENC>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NVENC>;
+			clock-names = "nvenc";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		nvenc1@15a80000 {
+			compatible = "nvidia,tegra194-nvenc";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVENCB>;
+			reg = <0x0 0x15a80000 0x0 0x00040000>;
+			resets = <&bpmp_resets TEGRA194_RESET_NVENC1>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NVENC1>;
+			clock-names = "nvenc";
+
+			iommus = <&smmu TEGRA_SID_VIC>;
+			dma-coherent;
+		};
+
+		nvdla0: nvdla0@15880000 {
+			compatible = "nvidia,tegra194-nvdla";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DLAA>;
+			reg = <0x0 0x15880000 0x0 0x00040000>;
+			interrupts = <0 236 0x04>;
+
+			resets = <&bpmp_resets TEGRA194_RESET_DLA0>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_DLA>,
+				 <&bpmp_clks TEGRA194_CLK_NAFLL_DLA_FALCON>,
+				 <&bpmp_clks TEGRA194_CLK_DLA0_CORE>,
+				 <&bpmp_clks TEGRA194_CLK_DLA0_FALCON>;
+			clock-names = "nafll_dla", "nafll_dla_falcon", "nvdla0", "nvdla0_flcn";
+
+			iommus = <&smmu TEGRA_SID_NVDLA0>;
+			dma-coherent;
+		};
+
+		nvdla1: nvdla1@158c0000 {
+			compatible = "nvidia,tegra194-nvdla";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DLAB>;
+			reg = <0x0 0x158c0000 0x0 0x00040000>;
+			interrupts = <0 237 0x04>;
+
+			resets = <&bpmp_resets TEGRA194_RESET_DLA1>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_DLA>,
+				 <&bpmp_clks TEGRA194_CLK_NAFLL_DLA_FALCON>,
+				 <&bpmp_clks TEGRA194_CLK_DLA1_CORE>,
+				 <&bpmp_clks TEGRA194_CLK_DLA1_FALCON>;
+			clock-names = "nafll_dla", "nafll_dla_falcon", "nvdla1", "nvdla1_flcn";
+
+			iommus = <&smmu TEGRA_SID_NVDLA1>;
+			dma-coherent;
+		};
+
+		display-hub@15200000 {
+			compatible = "nvidia,tegra194-display", "simple-bus";
+			reg = <0x0 0x15200000 0x0 0x40000>;
+			nvidia,valid_heads = <0x0>;
+			nvidia,disp_imp_table = <&disp_imp_table>;
+
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			ranges;
+
+			head0: display@15200000 {
+				status = "disabled";
+				compatible = "nvidia,tegra194-dc";
+				reg = <0x0 0x15200000 0x0 0x10000>;
+				interrupts = <0 153 4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
+#else
+				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+				iso-smmu;
+#endif
+
+				non-coherent;
+
+				nvidia,dc-ctrlnum = <0>;
+				nvidia,cmu-enable = <0x1>;
+				nvidia,bpmp = <&bpmp>;
+
+				clock-names = "nvdisplay_disp", "pll_disphub",
+					      "nvdisplayhub", "nvdisplay_p0",
+					      "nvdisplay_p1", "nvdisplay_p2",
+					      "nvdisplay_p3", "pllp_display",
+					      "pll_d", "plld2",
+					      "plld3", "plld4",
+					      "emc";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+					 <&bpmp_clks TEGRA194_CLK_PLLDISPHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD2>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD4>,
+					 <&bpmp_clks TEGRA194_CLK_EMC>;
+				reset-names = "misc", "wgrp0", "wgrp1", "wgrp2",
+					      "wgrp3", "wgrp4", "wgrp5", "head0";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD0>;
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+				power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPB>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPC>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+				power-domain-names = "disa", "disb", "disc", "sor", "dpaux";
+#endif
+				fb_reserved = <&fb0_reserved>;
+				iommu-direct-regions = <&fb0_reserved &fb1_reserved
+							&fb2_reserved &fb3_reserved>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				interconnects = <&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR>,
+						<&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR1>;
+				interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+				pinctrl-names = "hdmi-dp0-dpd-disable", "hdmi-dp0-dpd-enable",
+						"hdmi-dp1-dpd-disable", "hdmi-dp1-dpd-enable",
+						"hdmi-dp2-dpd-disable", "hdmi-dp2-dpd-enable",
+						"hdmi-dp3-dpd-disable", "hdmi-dp3-dpd-enable";
+				pinctrl-0 = <&hdmi_dp0_dpd_disable>;
+				pinctrl-1 = <&hdmi_dp0_dpd_enable>;
+				pinctrl-2 = <&hdmi_dp1_dpd_disable>;
+				pinctrl-3 = <&hdmi_dp1_dpd_enable>;
+				pinctrl-4 = <&hdmi_dp2_dpd_disable>;
+				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
+				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
+				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+			}; //display@15200000
+
+			head1: display@15210000 {
+				status = "disabled";
+				compatible = "nvidia,tegra194-dc";
+				reg = <0x0 0x15210000 0x0 0x10000>;
+				interrupts = <0 154 4>;
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
+#else
+				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+				iso-smmu;
+#endif
+
+				non-coherent;
+
+				nvidia,dc-ctrlnum = <1>;
+				nvidia,cmu-enable = <0x1>;
+				nvidia,bpmp = <&bpmp>;
+
+				clock-names = "nvdisplay_disp", "pll_disphub",
+					      "nvdisplayhub", "nvdisplay_p0",
+					      "nvdisplay_p1", "nvdisplay_p2",
+					      "nvdisplay_p3", "pllp_display",
+					      "pll_d", "plld2",
+					      "plld3", "plld4",
+					      "disp2_emc";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+					 <&bpmp_clks TEGRA194_CLK_PLLDISPHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD2>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD4>,
+					 <&bpmp_clks TEGRA194_CLK_EMC>;
+				reset-names = "misc", "wgrp0", "wgrp1", "wgrp2",
+					      "wgrp3", "wgrp4", "wgrp5", "head1";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD1>;
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+				power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPB>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPC>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+				power-domain-names = "disa", "disb", "disc", "sor", "dpaux";
+#endif
+				fb_reserved = <&fb1_reserved>;
+				iommu-direct-regions = <&fb0_reserved &fb1_reserved
+							&fb2_reserved &fb3_reserved>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				interconnects = <&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR>,
+						<&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR1>;
+				interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+				pinctrl-names = "hdmi-dp0-dpd-disable", "hdmi-dp0-dpd-enable",
+						"hdmi-dp1-dpd-disable", "hdmi-dp1-dpd-enable",
+						"hdmi-dp2-dpd-disable", "hdmi-dp2-dpd-enable",
+						"hdmi-dp3-dpd-disable", "hdmi-dp3-dpd-enable";
+				pinctrl-0 = <&hdmi_dp0_dpd_disable>;
+				pinctrl-1 = <&hdmi_dp0_dpd_enable>;
+				pinctrl-2 = <&hdmi_dp1_dpd_disable>;
+				pinctrl-3 = <&hdmi_dp1_dpd_enable>;
+				pinctrl-4 = <&hdmi_dp2_dpd_disable>;
+				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
+				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
+				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+			}; //display@15210000
+
+			head2: display@15220000 {
+				status = "disabled";
+				compatible = "nvidia,tegra194-dc";
+				reg = <0x0 0x15220000 0x0 0x10000>;
+				interrupts = <0 155 4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
+#else
+				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+				iso-smmu;
+#endif
+
+				non-coherent;
+
+				nvidia,dc-ctrlnum = <2>;
+				nvidia,cmu-enable = <0x1>;
+				nvidia,bpmp = <&bpmp>;
+
+				clock-names = "nvdisplay_disp", "pll_disphub",
+					      "nvdisplayhub", "nvdisplay_p0",
+					      "nvdisplay_p1", "nvdisplay_p2",
+					      "nvdisplay_p3", "pllp_display",
+					      "pll_d", "plld2",
+					      "plld3", "plld4",
+					      "disp3_emc";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+					 <&bpmp_clks TEGRA194_CLK_PLLDISPHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD2>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD4>,
+					 <&bpmp_clks TEGRA194_CLK_EMC>;
+				reset-names = "misc", "wgrp0", "wgrp1", "wgrp2",
+					      "wgrp3", "wgrp4", "wgrp5", "head2";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD2>;
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+				power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPB>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPC>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+				power-domain-names = "disa", "disb", "disc", "sor", "dpaux";
+#endif
+				fb_reserved = <&fb2_reserved>;
+				iommu-direct-regions = <&fb0_reserved &fb1_reserved
+							&fb2_reserved &fb3_reserved>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				interconnects = <&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR>,
+						<&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR1>;
+				interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+				pinctrl-names = "hdmi-dp0-dpd-disable", "hdmi-dp0-dpd-enable",
+						"hdmi-dp1-dpd-disable", "hdmi-dp1-dpd-enable",
+						"hdmi-dp2-dpd-disable", "hdmi-dp2-dpd-enable",
+						"hdmi-dp3-dpd-disable", "hdmi-dp3-dpd-enable";
+				pinctrl-0 = <&hdmi_dp0_dpd_disable>;
+				pinctrl-1 = <&hdmi_dp0_dpd_enable>;
+				pinctrl-2 = <&hdmi_dp1_dpd_disable>;
+				pinctrl-3 = <&hdmi_dp1_dpd_enable>;
+				pinctrl-4 = <&hdmi_dp2_dpd_disable>;
+				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
+				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
+				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+			}; //display@15220000
+
+			head3: display@15230000 {
+				status = "disabled";
+				compatible = "nvidia,tegra194-dc";
+				reg = <0x0 0x15230000 0x0 0x10000>;
+				interrupts = <0 242 4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
+#else
+				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+				iso-smmu;
+#endif
+
+				non-coherent;
+
+				nvidia,dc-ctrlnum = <3>;
+				nvidia,cmu-enable = <0x1>;
+				nvidia,bpmp = <&bpmp>;
+
+				clock-names = "nvdisplay_disp", "pll_disphub",
+					      "nvdisplayhub", "nvdisplay_p0",
+					      "nvdisplay_p1", "nvdisplay_p2",
+					      "nvdisplay_p3", "pllp_display",
+					      "pll_d", "plld2",
+					      "plld3", "plld4",
+					      "disp4_emc";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+					 <&bpmp_clks TEGRA194_CLK_PLLDISPHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+					 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD2>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD3>,
+					 <&bpmp_clks TEGRA194_CLK_PLLD4>,
+					 <&bpmp_clks TEGRA194_CLK_EMC>;
+				reset-names = "misc", "wgrp0", "wgrp1", "wgrp2",
+					      "wgrp3", "wgrp4", "wgrp5", "head3";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>,
+					 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD3>;
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+				power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPB>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISPC>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>,
+					<&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+				power-domain-names = "disa", "disb", "disc", "sor", "dpaux";
+#endif
+				fb_reserved = <&fb3_reserved>;
+				iommu-direct-regions = <&fb0_reserved &fb1_reserved
+							&fb2_reserved &fb3_reserved>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+				interconnects = <&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR>,
+						<&mc TEGRA194_MEMORY_CLIENT_NVDISPLAYR1>;
+				interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+				pinctrl-names = "hdmi-dp0-dpd-disable", "hdmi-dp0-dpd-enable",
+						"hdmi-dp1-dpd-disable", "hdmi-dp1-dpd-enable",
+						"hdmi-dp2-dpd-disable", "hdmi-dp2-dpd-enable",
+						"hdmi-dp3-dpd-disable", "hdmi-dp3-dpd-enable";
+				pinctrl-0 = <&hdmi_dp0_dpd_disable>;
+				pinctrl-1 = <&hdmi_dp0_dpd_enable>;
+				pinctrl-2 = <&hdmi_dp1_dpd_disable>;
+				pinctrl-3 = <&hdmi_dp1_dpd_enable>;
+				pinctrl-4 = <&hdmi_dp2_dpd_disable>;
+				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
+				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
+				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+			}; //display@15230000
+		}; /* display-hub@15200000 */
+
+		sor0: sor {
+			status = "disabled";
+			compatible = "nvidia,tegra194-sor";
+			reg = <0x0 0x15B00000 0x0 0x40000>;
+			interrupts = <0 157 0x4>;
+
+			nvidia,sor-ctrlnum = <0>;
+			nvidia,dpaux = <&dpaux0>;
+			nvidia,xbar-ctrl = <0x2 0x1 0x0 0x3 0x4>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_SOR0_REF>,
+				 <&bpmp_clks TEGRA194_CLK_SOR_SAFE>,
+				 <&bpmp_clks TEGRA194_CLK_SOR0_PAD_CLKOUT>,
+				 <&bpmp_clks TEGRA194_CLK_SOR0_OUT>,
+				 <&bpmp_clks TEGRA194_CLK_PLLDP>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+				 <&bpmp_clks TEGRA194_CLK_MAUD>,
+				 <&bpmp_clks TEGRA194_CLK_HDA>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2CODEC_2X>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2HDMICODEC>;
+			clock-names = "sor0_ref", "sor_safe", "sor0_pad_clkout",
+				      "sor0", "pll_dp", "pllp_out0",
+				      "maud", "hda", "hda2codec_2x",
+				      "hda2hdmi";
+			resets = <&bpmp_resets TEGRA194_RESET_SOR0>,
+				 <&bpmp_resets TEGRA194_RESET_HDA>,
+				 <&bpmp_resets TEGRA194_RESET_HDA2HDMICODEC>;
+			reset-names = "sor0","hda_rst","hda2hdmi_rst";
+
+			sor0_hdmi_display: hdmi-display {
+				compatible = "hdmi,display";
+				status = "disabled";
+			};
+			sor0_dp_display: dp-display {
+				compatible = "dp, display";
+				status = "disabled";
+			};
+		}; //sor
+
+		sor1: sor1 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-sor";
+			reg = <0x0 0x15B40000 0x0 0x40000>;
+			interrupts = <0 158 0x4>;
+
+			nvidia,sor-ctrlnum = <1>;
+			nvidia,dpaux = <&dpaux1>;
+			nvidia,xbar-ctrl = <0x2 0x1 0x0 0x3 0x4>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_SOR1_REF>,
+				 <&bpmp_clks TEGRA194_CLK_SOR_SAFE>,
+				 <&bpmp_clks TEGRA194_CLK_SOR1_PAD_CLKOUT>,
+				 <&bpmp_clks TEGRA194_CLK_SOR1_OUT>,
+				 <&bpmp_clks TEGRA194_CLK_PLLDP>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+				 <&bpmp_clks TEGRA194_CLK_MAUD>,
+				 <&bpmp_clks TEGRA194_CLK_HDA>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2CODEC_2X>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2HDMICODEC>;
+			clock-names = "sor1_ref", "sor_safe", "sor1_pad_clkout",
+				      "sor1", "pll_dp", "pllp_out0",
+				      "maud", "hda", "hda2codec_2x",
+				      "hda2hdmi";
+			resets = <&bpmp_resets TEGRA194_RESET_SOR1>,
+				 <&bpmp_resets TEGRA194_RESET_HDA>,
+				 <&bpmp_resets TEGRA194_RESET_HDA2HDMICODEC>;
+			reset-names = "sor1","hda_rst","hda2hdmi_rst";
+
+			sor1_hdmi_display: hdmi-display {
+				compatible = "hdmi,display";
+				status = "disabled";
+			};
+			sor1_dp_display: dp-display {
+				compatible = "dp, display";
+				status = "disabled";
+			};
+		}; //sor1
+
+		sor2: sor2 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-sor";
+			reg = <0x0 0x15B80000 0x0 0x40000>;
+			interrupts = <0 243 0x4>;
+
+			nvidia,sor-ctrlnum = <2>;
+			nvidia,dpaux = <&dpaux2>;
+			nvidia,xbar-ctrl = <0x2 0x1 0x0 0x3 0x4>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_SOR2_REF>,
+				 <&bpmp_clks TEGRA194_CLK_SOR_SAFE>,
+				 <&bpmp_clks TEGRA194_CLK_SOR2_PAD_CLKOUT>,
+				 <&bpmp_clks TEGRA194_CLK_SOR2_OUT>,
+				 <&bpmp_clks TEGRA194_CLK_PLLDP>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+				 <&bpmp_clks TEGRA194_CLK_MAUD>,
+				 <&bpmp_clks TEGRA194_CLK_HDA>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2CODEC_2X>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2HDMICODEC>;
+			clock-names = "sor2_ref", "sor_safe", "sor2_pad_clkout",
+				      "sor2", "pll_dp", "pllp_out0",
+				      "maud", "hda", "hda2codec_2x",
+				      "hda2hdmi";
+			resets = <&bpmp_resets TEGRA194_RESET_SOR2>,
+				 <&bpmp_resets TEGRA194_RESET_HDA>,
+				 <&bpmp_resets TEGRA194_RESET_HDA2HDMICODEC>;
+			reset-names = "sor2","hda_rst","hda2hdmi_rst";
+
+			sor2_hdmi_display: hdmi-display {
+				compatible = "hdmi,display";
+				status = "disabled";
+			};
+			sor2_dp_display: dp-display {
+				compatible = "dp, display";
+				status = "disabled";
+			};
+		}; //sor2
+
+		sor3: sor3 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-sor";
+			reg = <0x0 0x15BC0000 0x0 0x40000>;
+			interrupts = <0 244 0x4>;
+
+			nvidia,sor-ctrlnum = <3>;
+			nvidia,dpaux = <&dpaux3>;
+			nvidia,xbar-ctrl = <0x2 0x1 0x0 0x3 0x4>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_SOR3_REF>,
+				 <&bpmp_clks TEGRA194_CLK_SOR_SAFE>,
+				 <&bpmp_clks TEGRA194_CLK_SOR3_PAD_CLKOUT>,
+				 <&bpmp_clks TEGRA194_CLK_SOR3_OUT>,
+				 <&bpmp_clks TEGRA194_CLK_PLLDP>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+				 <&bpmp_clks TEGRA194_CLK_MAUD>,
+				 <&bpmp_clks TEGRA194_CLK_HDA>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2CODEC_2X>,
+				 <&bpmp_clks TEGRA194_CLK_HDA2HDMICODEC>;
+			clock-names = "sor3_ref", "sor_safe", "sor3_pad_clkout",
+				      "sor3", "pll_dp", "pllp_out0",
+				      "maud", "hda", "hda2codec_2x",
+				      "hda2hdmi";
+			resets = <&bpmp_resets TEGRA194_RESET_SOR3>,
+				 <&bpmp_resets TEGRA194_RESET_HDA>,
+				 <&bpmp_resets TEGRA194_RESET_HDA2HDMICODEC>;
+			reset-names = "sor3","hda_rst","hda2hdmi_rst";
+
+			sor3_hdmi_display: hdmi-display {
+				compatible = "hdmi,display";
+				status = "disabled";
+			};
+			sor3_dp_display: dp-display {
+				compatible = "dp, display";
+				status = "disabled";
+			};
+		}; //sor3
+
+		dpaux0: dpaux@155c0000 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-dpaux";
+			reg = <0x0 0x155c0000 0x0 0x00010000>;
+			interrupts = <0 159 4>;
+			nvidia,dpaux-ctrlnum = <0>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_DPAUX>;
+			clock-names = "dpaux";
+			resets = <&bpmp_resets TEGRA194_RESET_DPAUX>;
+			reset-names = "dpaux";
+			power-domains = <&disa_pd>;
+		}; //dpaux0
+
+		dpaux1: dpaux@155D0000 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-dpaux";
+			reg = <0x0 0x155D0000 0x0 0x00010000>;
+			interrupts = <0 160 4>;
+			nvidia,dpaux-ctrlnum = <1>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_DPAUX1>;
+			clock-names = "dpaux1";
+			resets = <&bpmp_resets TEGRA194_RESET_DPAUX1>;
+			reset-names = "dpaux1";
+			power-domains = <&disa_pd>;
+		}; //dpaux1
+
+		dpaux2: dpaux@155E0000 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-dpaux";
+			reg = <0x0 0x155E0000 0x0 0x00010000>;
+			interrupts = <0 245 4>;
+			nvidia,dpaux-ctrlnum = <2>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_DPAUX2>;
+			clock-names = "dpaux2";
+			resets = <&bpmp_resets TEGRA194_RESET_DPAUX2>;
+			reset-names = "dpaux2";
+			power-domains = <&disa_pd>;
+		}; //dpaux2
+
+		dpaux3: dpaux@155F0000 {
+			status = "disabled";
+			compatible = "nvidia,tegra194-dpaux";
+			reg = <0x0 0x155F0000 0x0 0x00010000>;
+			interrupts = <0 246 4>;
+			nvidia,dpaux-ctrlnum = <3>;
+
+			clocks = <&bpmp_clks TEGRA194_CLK_DPAUX3>;
+			clock-names = "dpaux3";
+			resets = <&bpmp_resets TEGRA194_RESET_DPAUX3>;
+			reset-names = "dpaux3";
+#if TEGRA_POWER_DOMAIN_DT_VERSION <= DT_VERSION_2
+			power-domains = <&disa_pd>;
+#else
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+#endif
+		}; //dpaux3
+
+		tegra_cec: tegra_cec {
+			status = "disabled";
+			compatible = "nvidia,tegra194-cec";
+			reg = <0x0 0x03960000 0x0 0x00001000>;
+			interrupts = <0 162 0x04>;
+			clocks = <&bpmp_clks TEGRA194_CLK_CEC>;
+			clock-names = "cec";
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+#endif
+		};
+
+		vi: vi@15c10000 {
+			compatible = "nvidia,tegra194-vi";
+			/* cfg page is used by slvsec as well as ch35 */
+			reg = <0x0 0x15c10000 0x0 0x00230000>,
+				<0x0 0x15f00000 0x0 0x00100000>;
+			clocks = <&bpmp_clks TEGRA194_CLK_VI>;
+			clock-names = "vi";
+
+			nvidia,vi-falcon-device = <&vi_thi>;
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+			iommus = <&smmu_iso TEGRA_SID_VI>;
+#else
+			iommus = <&smmu TEGRA_SID_VI>;
+			iso-smmu;
+#endif
+			non-coherent;
+		};
+
+		vi_thi: vi-thi@15f00000 {
+			compatible = "nvidia,tegra194-vi-thi";
+		};
+
+		isp: isp@14800000 {
+			compatible = "nvidia,tegra194-isp";
+
+			clocks = <&bpmp_clks TEGRA194_CLK_ISP>;
+			clock-names = "isp";
+
+			nvidia,isp-falcon-device = <&isp_thi>;
+
+			iommus = <&smmu TEGRA_SID_ISP>;
+			dma-coherent;
+		};
+
+		isp_thi: isp-thi@14b00000 {
+			compatible = "nvidia,tegra194-isp-thi";
+		};
+
+		nvcsi: nvcsi@15a00000 {
+			compatible = "nvidia,tegra194-nvcsi";
+			clocks = <&bpmp_clks TEGRA194_CLK_NVCSI>;
+			clock-names = "nvcsi";
+		};
+
+		slvs_ec: slvs-ec@15ac0000 {
+			compatible = "nvidia,tegra-slvs-ec";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_VE>;
+			reg = <0x0 0x15ac0000 0x0 0x00040000>,
+				/* Aperture for VI CFG page */
+				<0x0 0x15c00000 0x0 0x00010000>,
+				/* Aperture for VI channel #35 */
+				<0x0 0x15e40000 0x0 0x00010000>;
+			resets = <&bpmp_resets TEGRA194_RESET_SLVSEC>;
+			reset-names = "slvs-ec";
+			clocks = <&bpmp_clks TEGRA194_CLK_SLVSEC>,
+				 <&bpmp_clks TEGRA194_CLK_SLVSEC_PADCTRL>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+			clock-names = "slvs-ec", "slvs-ec-lp", "slvs-ec-parent";
+			interrupts = <0 74 0x04>,
+				/* syncgen uses VI VM8 interrupt (255) */
+				<0 255 0x04>;
+			nvidia,vi-device = <&vi_thi>;
+			interrupt-names = "slvs-ec", "syncgen";
+			status = "disabled";
+		};
+
+		pva0: pva0 {
+			compatible = "nvidia,tegra194-pva";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_PVAA>;
+			reg = <0x0 0x16000000 0x0 0x800000>;
+			interrupts = <0 234 0x04>;
+
+			resets = <&bpmp_resets TEGRA194_RESET_PVA0_ALL>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_VPS>,
+				 <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_CORE>,
+				 <&bpmp_clks TEGRA194_CLK_PVA0_AXI>,
+				 <&bpmp_clks TEGRA194_CLK_PVA0_VPS0>,
+				 <&bpmp_clks TEGRA194_CLK_PVA0_VPS1>;
+			clock-names = "nafll_pva_vps", "nafll_pva_core", "axi", "vps0", "vps1";
+
+			iommus = <&smmu TEGRA_SID_PVA0>;
+			dma-coherent;
+		};
+
+		pva1: pva1 {
+			compatible = "nvidia,tegra194-pva";
+			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_PVAB>;
+			reg = <0x0 0x16800000 0x0 0x800000>;
+			interrupts = <0 235 0x04>;
+
+			resets = <&bpmp_resets TEGRA194_RESET_PVA1_ALL>;
+			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_VPS>,
+				 <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_CORE>,
+				 <&bpmp_clks TEGRA194_CLK_PVA1_AXI>,
+				 <&bpmp_clks TEGRA194_CLK_PVA1_VPS0>,
+				 <&bpmp_clks TEGRA194_CLK_PVA1_VPS1>;
+			clock-names = "nafll_pva_vps", "nafll_pva_core", "axi", "vps0", "vps1";
+
+			iommus = <&smmu TEGRA_SID_PVA1>;
+			dma-coherent;
+		};
+
+		se@15810000 {
+			compatible = "nvidia,tegra186-se1-nvhost";
+			reg = <0x0 0x15810000 0x0 0x10000>;
+			supported-algos = "drbg";
+			nvidia,io-coherent;
+			opcode_addr = <0x204>;
+			resets = <&bpmp_resets TEGRA194_RESET_SE>;
+			clocks = <&bpmp_clks TEGRA194_CLK_SE>;
+			clock-names = "se";
+
+			iommus = <&smmu TEGRA_SID_SE>;
+			dma-coherent;
+
+			status = "disabled";
+		};
+
+		se@15820000 {
+			compatible = "nvidia,tegra186-se2-nvhost";
+			reg = <0x0 0x15820000 0x0 0x10000>;
+			supported-algos = "xts", "aes", "cmac";
+			nvidia,io-coherent;
+			opcode_addr = <0x404>;
+			resets = <&bpmp_resets TEGRA194_RESET_SE>;
+			clocks = <&bpmp_clks TEGRA194_CLK_SE>;
+			clock-names = "se";
+
+			iommus = <&smmu TEGRA_SID_SE1>;
+			dma-coherent;
+
+			status = "disabled";
+		};
+
+		se@15830000 {
+			compatible = "nvidia,tegra186-se3-nvhost";
+			reg = <0x0 0x15830000 0x0 0x10000>;
+			supported-algos = "rsa";
+			nvidia,io-coherent;
+			opcode_addr = <0x604>;
+			resets = <&bpmp_resets TEGRA194_RESET_SE>;
+			clocks = <&bpmp_clks TEGRA194_CLK_SE>;
+			clock-names = "se";
+
+			iommus = <&smmu TEGRA_SID_SE2>;
+			dma-coherent;
+
+			status = "disabled";
+		};
+
+		se@15840000 {
+			compatible = "nvidia,tegra186-se4-nvhost";
+			reg = <0x0 0x15840000 0x0 0x10000>;
+			supported-algos = "sha";
+			nvidia,io-coherent;
+			opcode_addr = <0x104>;
+			resets = <&bpmp_resets TEGRA194_RESET_SE>;
+			clocks = <&bpmp_clks TEGRA194_CLK_SE>;
+			clock-names = "se";
+
+			iommus = <&smmu TEGRA_SID_SE3>;
+			dma-coherent;
+
+			status = "disabled";
+		};
+	}; // host1x@13e00000
+
+	gpcdma: dma@2600000 {
+		compatible = "nvidia,tegra19x-gpcdma", "nvidia,tegra186-gpcdma";
+		reg = <0x0 0x2600000 0x0 0x210000>;
+		resets = <&bpmp_resets TEGRA194_RESET_GPCDMA>;
+		reset-names = "gpcdma";
+		interrupts = <0 75 0x04
+			0 76 0x04
+			0 77 0x04
+			0 78 0x04
+			0 79 0x04
+			0 80 0x04
+			0 81 0x04
+			0 82 0x04
+			0 83 0x04
+			0 84 0x04
+			0 85 0x04
+			0 86 0x04
+			0 87 0x04
+			0 88 0x04
+			0 89 0x04
+			0 90 0x04
+			0 91 0x04
+			0 92 0x04
+			0 93 0x04
+			0 94 0x04
+			0 95 0x04
+			0 96 0x04
+			0 97 0x04
+			0 98 0x04
+			0 99 0x04
+			0 100 0x04
+			0 101 0x04
+			0 102 0x04
+			0 103 0x04
+			0 104 0x04
+			0 105 0x04
+			0 106 0x04
+			0 107 0x04>;
+		#dma-cells = <1>;
+		iommus = <&smmu TEGRA_SID_GPCDMA_0>;
+		dma-coherent;
+		nvidia,start-dma-channel-index = <1>;
+		dma-channels = <31>;
+
+		status = "disabled";
+	};
+
+	tegra_pinctrl: pinmux: pinmux@2430000 {
+		compatible = "nvidia,tegra194-pinmux";
+		reg = <0x0 0x2430000 0x0 0x17000
+			0x0 0xc300000 0x0 0x4000>;
+#if TEGRA_GPIO_DT_VERSION < DT_VERSION_2
+		#gpio-range-cells = <3>;
+#endif
+		status = "disabled";
+
+		vbus_en0_sfio_tristate_state: vbus_en0_oc_tristate {
+			usb_vbus_en0_pz1 {
+				nvidia,pins = "usb_vbus_en0_pz1";
+				nvidia,function = "usb";
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		vbus_en1_sfio_tristate_state: vbus_en1_oc_tristate {
+			usb_vbus_en1_pz2 {
+				nvidia,pins = "usb_vbus_en1_pz2";
+				nvidia,function = "usb";
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		vbus_en0_sfio_passthrough_state: vbus_en0_oc_passthrough {
+			usb_vbus_en0_pz1 {
+				nvidia,pins = "usb_vbus_en0_pz1";
+				nvidia,function = "usb";
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		vbus_en1_sfio_passthrough_state: vbus_en1_oc_passthrough {
+			usb_vbus_en1_pz2 {
+				nvidia,pins = "usb_vbus_en1_pz2";
+				nvidia,function = "usb";
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		vbus_en0_default_state: vbus_en0_default {
+			usb_vbus_en0_pz1 {
+				nvidia,pins = "usb_vbus_en0_pz1";
+				nvidia,function = "rsvd1";
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		vbus_en1_default_state: vbus_en1_default {
+			usb_vbus_en1_pz2 {
+				nvidia,pins = "usb_vbus_en1_pz2";
+				nvidia,function = "rsvd1";
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+	};
+
+	tegra_main_gpio: gpio@2200000 {
+		compatible = "nvidia,tegra194-gpio";
+		reg-names = "security", "gpio";
+		reg =
+			<0x0 0x2200000 0x0 0x10000>,
+			<0x0 0x2210000 0x0 0x10000>;
+		interrupts =
+			<0 TEGRA194_IRQ_GPIO0_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO0_7 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO1_7 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO2_7 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO3_7 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO4_7 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_3 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_4 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_5 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_6 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_GPIO5_7 IRQ_TYPE_LEVEL_HIGH>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+#if TEGRA_GPIO_DT_VERSION < DT_VERSION_2
+		gpio-ranges =
+			<&tegra_pinctrl TEGRA194_MAIN_GPIO_BASE(A) TEGRA_PIN_BASE(A) TEGRA194_MAIN_GPIO_RANGE(A, Z) >,
+			<&tegra_pinctrl TEGRA194_MAIN_GPIO_BASE(FF) TEGRA_PIN_BASE(FF) TEGRA194_MAIN_GPIO_RANGE(FF, GG) >;
+#endif
+		status = "disabled";
+	};
+
+	tegra_aon_gpio: gpio@c2f0000 {
+		compatible = "nvidia,tegra194-gpio-aon";
+		reg-names = "security", "gpio", "gte";
+		reg = 	<0x0 0xc2f0000 0x0 0x1000>,
+			<0x0 0xc2f1000 0x0 0x1000>,
+			<0x0 0xc1e0000 0x0 0x10000>;
+		interrupts =
+			<0 TEGRA194_IRQ_AON_GPIO_0 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_AON_GPIO_1 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_AON_GPIO_2 IRQ_TYPE_LEVEL_HIGH>,
+			<0 TEGRA194_IRQ_AON_GPIO_3 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+#if TEGRA_GPIO_DT_VERSION < DT_VERSION_2
+		gpio-ranges =
+			<&tegra_pinctrl TEGRA194_AON_GPIO_BASE(AA) TEGRA_PIN_BASE(AA) TEGRA194_AON_GPIO_RANGE(AA, EE) >;
+#endif
+	};
+
+	tegra_gte_lic: gte@3aa0000 {
+		compatible = "nvidia,tegra194-gte-lic";
+		reg = <0x0 0x3aa0000 0x0 0x10000>;
+		interrupts = <0 11 0x4>;
+		nvidia,int-threshold = <1>;
+		nvidia,num-slices = <11>;
+		status = "disabled";
+	};
+
+	tegra_gte_aon: gte@c1e0000 {
+		compatible = "nvidia,tegra194-gte-aon";
+		reg = <0x0 0xc1e0000 0x0 0x10000>;
+		interrupts = <0 13 0x4>;
+		nvidia,int-threshold = <1>;
+		nvidia,num-slices = <3>;
+		nvidia,gpio-controller = <&tegra_aon_gpio>;
+		status = "disabled";
+	};
+
+	tegra_wdt:watchdog@30c0000 {
+		compatible = "nvidia,tegra-wdt-t18x";
+		reg = <0x0 0x030c0000 0x0 0x10000>, /* WDT0 */
+		      <0x0 0x03020000 0x0 0x10000>, /* TMR0 */
+		      <0x0 0x03010000 0x0 0x10000>; /* TKE */
+		interrupts = <0 7 0x4 0 8 0x4>; /* TKE shared int */
+		nvidia,watchdog-index = <0>;
+		nvidia,timer-index = <7>;
+		nvidia,expiry-count = <5>;
+		nvidia,enable-on-init;
+		nvidia,extend-watchdog-suspend;
+		timeout-sec = <120>;
+		nvidia,disable-debug-reset;
+		status = "disabled";
+	};
+
+	tegra_fiq_debugger {
+		compatible = "nvidia,fiq-debugger";
+		use-console-port;
+		interrupts = <0 17 0x4>;
+	};
+
+	tegra_pcie_pexclk_pinctrl: pinctrl@3790000 {
+		compatible = "nvidia,tegra194-pexclk-padctl";
+		reg = <0x0 0x03790000 0x0 0x1000>,
+		      <0x0 0x037a0000 0x0 0x1000>;
+		status = "disabled";
+	};
+
+	tegra_tachometer: tachometer@39c0000 {
+		compatible = "nvidia,pwm-tegra194-tachometer";
+		reg = <0x0 0x039c0000 0x0 0x10>;
+		#pwm-cells = <2>;
+		clocks = <&bpmp_clks TEGRA194_CLK_TACH>;
+		clock-names = "tach";
+		resets = <&bpmp_resets TEGRA194_RESET_TACH>;
+		reset-names = "tach";
+		pulse-per-rev = <2>;
+		capture-window-length = <2>;
+		disable-clk-gate;
+		status = "disabled";
+	};
+
+	generic_pwm_tachometer {
+		compatible = "generic-pwm-tachometer";
+		pwms = <&tegra_tachometer 0 1000000>;
+		status = "disabled";
+	};
+
+	tegra_pmc: pmc@c360000 {
+		compatible = "nvidia,tegra194-pmc";
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		reg = <0x0 0x0c360000 0x0 0x10000>,
+		      <0x0 0x0c370000 0x0 0x10000>,
+		      <0x0 0x0c380000 0x0 0x10000>,
+		      <0x0 0x0c390000 0x0 0x10000>,
+		      <0x0 0x0c3a0000 0x0 0x10000>;
+		reg-names = "pmc", "wake", "aotag", "scratch", "misc";
+
+		#interrupt-cells = <2>;
+		interrupt-controller;
+#else
+		reg = <0x0 0xC360000 0x0 0x400
+			0x0 0xC390000 0x0 0x2fff
+			0x0 0xC3a0000 0x0 0xfff>;
+#endif
+		#padcontroller-cells = <1>;
+		nvidia,restrict-voltage-switch;
+		pinctrl-names = "default";
+		pinctrl-0 = <&iopad_defaults>;
+		status = "disabled";
+		iopad_defaults: iopad-defaults {
+		};
+
+		hdmi_dp0_dpd_enable: hdmi-dp0-dpd-enable {
+			hdmi-dp0-pad-lowpower-enable {
+				pins = "hdmi-dp0";
+				low-power-enable;
+			};
+		};
+
+		hdmi_dp0_dpd_disable: hdmi-dp0-dpd-disable {
+			hdmi-dp0-pad-lowpower-disable {
+				pins = "hdmi-dp0";
+				low-power-disable;
+			};
+		};
+
+		hdmi_dp1_dpd_enable: hdmi-dp1-dpd-enable {
+			hdmi-dp1-pad-lowpower-enable {
+				pins = "hdmi-dp1";
+				low-power-enable;
+			};
+		};
+
+		hdmi_dp1_dpd_disable: hdmi-dp1-dpd-disable {
+			hdmi-dp1-pad-lowpower-disable {
+				pins = "hdmi-dp1";
+				low-power-disable;
+			};
+		};
+
+		hdmi_dp2_dpd_enable: hdmi-dp2-dpd-enable {
+			hdmi-dp2-pad-lowpower-enable {
+				pins = "hdmi-dp2";
+				low-power-enable;
+			};
+		};
+
+		hdmi_dp2_dpd_disable: hdmi-dp2-dpd-disable {
+			hdmi-dp2-pad-lowpower-disable {
+				pins = "hdmi-dp2";
+				low-power-disable;
+			};
+		};
+
+		hdmi_dp3_dpd_enable: hdmi-dp3-dpd-enable {
+			hdmi-dp3-pad-lowpower-enable {
+				pins = "hdmi-dp3";
+				low-power-enable;
+			};
+		};
+
+		hdmi_dp3_dpd_disable: hdmi-dp3-dpd-disable {
+			hdmi-dp3-pad-lowpower-disable {
+				pins = "hdmi-dp3";
+				low-power-disable;
+			};
+		};
+	};
+
+#if TEGRA_PMC_VERSION < DT_VERSION_2
+	tegra_aowake: pmc@c370000 {
+		compatible = "nvidia,tegra194-aowake";
+		reg = <0x0 0xc370000 0x0 0x600>;
+		status = "disabled";
+	};
+#endif
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		gpio-keys,name = "gpio-keys";
+		status = "disabled";
+
+		sw_wake {
+			label = "sw-wake";
+			linux,code = <KEY_WAKEUP>;
+			wakeup-source;
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+			interrupt-parent = <&tegra_pmc>;
+			interrupts = <83 IRQ_TYPE_EDGE_RISING>;
+#else
+			interrupt-parent = <&tegra_pm_irq>;
+			interrupts = <0 179 IRQ_TYPE_EDGE_RISING>;
+#endif
+		};
+	};
+
+	xusb_padctl: xusb_padctl@3520000 {
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+		compatible = "nvidia,tegra194-xusb-padctl";
+#else
+		compatible = "nvidia,tegra19x-xusb-padctl";
+#endif
+		reg = <0x0 0x03520000 0x0 0x1000>,
+			<0x0 0x03540000 0x0 0x1000>;
+		reg-names = "padctl", "ao";
+		interrupts = <0 167 0x4>;
+		resets = <&bpmp_resets TEGRA194_RESET_XUSB_PADCTL>;
+		reset-names = "padctl";
+		status = "disabled";
+
+		pads {
+			usb2 {
+				clocks = <&bpmp_clks TEGRA194_CLK_USB2_TRK>;
+				clock-names = "trk";
+
+				lanes {
+					usb2-0 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb2-1 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb2-2 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb2-3 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+				};
+			};
+			usb3 {
+				lanes {
+					usb3-0 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb3-1 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb3-2 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+					usb3-3 {
+						status = "disabled";
+						#phy-cells = <0>;
+					};
+				};
+			};
+		};
+
+		ports {
+			usb2-0 {
+				status = "disabled";
+			};
+			usb2-1 {
+				status = "disabled";
+			};
+			usb2-2 {
+				status = "disabled";
+			};
+			usb2-3 {
+				status = "disabled";
+			};
+			usb3-0 {
+				status = "disabled";
+			};
+			usb3-1 {
+				status = "disabled";
+			};
+			usb3-2 {
+				status = "disabled";
+			};
+			usb3-3 {
+				status = "disabled";
+			};
+		};
+	};
+
+	tegra_usb_cd: usb_cd {
+		compatible = "nvidia,tegra194-usb-cd";
+		nvidia,xusb-padctl = <&xusb_padctl>;
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
+		phy-names = "otg-phy";
+		status = "okay";
+	};
+
+	tegra_xudc: xudc@3550000 {
+		compatible = "nvidia,tegra194-xudc";
+		reg = <0x0 0x03550000 0x0 0x8000>,
+			<0x0 0x03558000 0x0 0x1000>;
+		reg-names = "base", "fpci";
+		interrupts = <0 166 0x4>;
+		clocks = <&bpmp_clks TEGRA194_CLK_XUSB_CORE_DEV>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_SS_SUPERSPEED>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_SS>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FS>;
+		clock-names = "dev", "ss", "ss_src", "fs_src";
+
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+		power-domains =  <&bpmp TEGRA194_POWER_DOMAIN_XUSBB>,
+			<&bpmp TEGRA194_POWER_DOMAIN_XUSBA>;
+		power-domain-names = "dev", "ss";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_DEV>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_xhci: xhci@3610000 {
+		compatible = "nvidia,tegra194-xhci", "nvidia,tegra194-xusb";
+		reg = <0x0 0x03610000 0x0 0x40000>,
+			<0x0 0x03600000 0x0 0x10000>;
+		reg-names = "base", "fpci";
+
+		interrupts = <0 163 0x4>, <0 164 0x4>, <0 167 0x4>;
+#if defined(LINUX_VERSION) && LINUX_VERSION <= 414
+		interrupt-parent = <&tegra_pm_irq>;
+#endif
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTR>,
+				<&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+		clocks = <&bpmp_clks TEGRA194_CLK_XUSB_CORE_MUX>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_CORE_HOST>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_CORE_SS>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FALCON>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FALCON_HOST>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FALCON_SS>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FS>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_FS_HOST>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_SS>,
+			<&bpmp_clks TEGRA194_CLK_XUSB_SS_SUPERSPEED>,
+			<&bpmp_clks TEGRA194_CLK_UTMIPLL>,
+			<&bpmp_clks TEGRA194_CLK_CLK_M>,
+			<&bpmp_clks TEGRA194_CLK_PLLE>;
+		clock-names = "xusb_hs_src", "xusb_host",
+			"xusb_core_superspeed_clk", "xusb_falcon_src",
+			"xusb_falcon_host_clk", "xusb_falcon_superspeed_clk",
+			"xusb_fs_src", "xusb_fs_host_clk", "xusb_ss_src",
+			"xusb_ss", "pll_u_480m", "clk_m", "pll_e";
+
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+		power-domains =  <&bpmp TEGRA194_POWER_DOMAIN_XUSBC>,
+			<&bpmp TEGRA194_POWER_DOMAIN_XUSBA>;
+		power-domain-names = "xusb_host", "xusb_ss";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_HOST>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_xhci_vf1: xhci@3660000 {
+		compatible = "nvidia,tegra194-xhci-vf1", "nvidia,tegra194-xusb-vf1";
+		reg = <0x0 0x03660000 0x0 0x40000>;
+		reg-names = "base";
+
+		interrupts = <0 21 0x4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTR>,
+				<&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_VF0>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_xhci_vf2: xhci@36b0000 {
+		compatible = "nvidia,tegra194-xhci-vf2", "nvidia,tegra194-xusb-vf2";
+		reg = <0x0 0x036b0000 0x0 0x40000>;
+		reg-names = "base";
+
+		interrupts = <0 22 0x4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTR>,
+				<&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_VF1>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_xhci_vf3: xhci@3700000 {
+		compatible = "nvidia,tegra194-xhci-vf3", "nvidia,tegra194-xusb-vf3";
+		reg = <0x0 0x03700000 0x0 0x40000>;
+		reg-names = "base";
+
+		interrupts = <0 23 0x4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTR>,
+				<&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_VF2>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_xhci_vf4: xhci@3750000 {
+		compatible = "nvidia,tegra194-xhci-vf4", "nvidia,tegra194-xusb-vf4";
+		reg = <0x0 0x03750000 0x0 0x40000>;
+		reg-names = "base";
+
+		interrupts = <0 24 0x4>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTR>,
+				<&mc TEGRA194_MEMORY_CLIENT_XUSB_HOSTW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
+
+		nvidia,xusb-padctl = <&xusb_padctl>;
+
+		iommus = <&smmu TEGRA_SID_XUSB_VF3>;
+		dma-coherent;
+
+		status = "disabled";
+	};
+
+	tegra_gv11b: gv11b {
+		compatible = "nvidia,gv11b";
+		#cooling-cells = <2>;
+		reg = <0x0 0x17000000 0x0 0x1000000
+		       0x0 0x18000000 0x0 0x1000000
+		       0x0 0x03b41000 0x0 0x00001000>;
+		interrupts = <0 70 0x04
+		              0 71 0x04>;
+		dma-noncontig;
+		interrupt-names = "stall", "nonstall";
+		nvidia,host1x = <&host1x>;
+		access-vpr-phys;
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_GPU>;
+		clocks = <&bpmp_clks TEGRA194_CLK_GPCCLK>,
+			<&bpmp_clks TEGRA194_CLK_GPU_PWR>,
+			<&bpmp_clks TEGRA194_CLK_FUSE>;
+		clock-names = "gpu", "pwr", "fuse";
+		resets = <&bpmp_resets TEGRA194_RESET_GPU>;
+		dma-coherent;
+		status = "disabled";
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+		cpu_off = <0x84000002>;
+		cpu_on = <0xC4000003>;
+		cpu_suspend = <0xC4000001>;
+		status = "disabled";
+	};
+
+	bwmgr: bwmgr {
+		compatible = "nvidia,bwmgr";
+		clocks = <&bpmp_clks TEGRA194_CLK_EMC>;
+		clock-names = "emc";
+		cdev-type = "bwmgr-therm-handler";
+		cooling-min-state = <0>;
+		cooling-max-state = <1>;
+		#cooling-cells = <2>;
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+		nvidia,bpmp = <&bpmp>;
+#endif
+		status = "okay";
+	};
+
+	tegra_hv_xhci_debug@0 {
+		compatible = "nvidia,tegra-hv-xhci-debug";
+		status = "disabled";
+	};
+
+	arm64_ras: arm64_ras {
+		compatible = "arm,armv8.2-ras";
+		interrupts = <0 392 0x04>,
+				<0 393 0x04>,
+				<0 394 0x04>,
+				<0 395 0x04>,
+				<0 396 0x04>,
+				<0 397 0x04>,
+				<0 398 0x04>,
+				<0 399 0x04>;
+		status = "disabled";
+	};
+
+	carmel_ras {
+		compatible = "nvidia,carmel-ras";
+		status = "disabled";
+	};
+
+	cpufreq {
+		compatible = "nvidia,tegra194-cpufreq";
+		status = "disabled";
+		cpu_emc_map = <2112000  2133000>,
+				<1881600 800000>,
+				<1574400 665000>,
+				<1267200 408000>;
+	};
+
+	mipical@3990000{
+		compatible = "nvidia, tegra194-mipical";
+		reg = <0x0 0x03990000 0x0 0x10000>;
+		clocks = <&bpmp_clks TEGRA194_CLK_MIPI_CAL>,
+			<&bpmp_clks TEGRA194_CLK_UART_FST_MIPI_CAL>;
+		clock-names = "mipi_cal", "uart_fs_mipi_cal";
+		resets = <&bpmp_resets TEGRA194_RESET_MIPI_CAL>;
+		reset-names = "mipi_cal";
+		status = "disabled";
+#if TEGRA_POWER_DOMAIN_DT_VERSION >= DT_VERSION_3
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+#endif
+	};
+
+	tnvlink_controller: tegra_nvlink_controller {
+		compatible = "nvidia,t19x-nvlink-controller";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_NVL>;
+		reg = <0x0 0x3b80000 0x0 0x1000 /* NVLW_TIOCTRL */
+		       0x0 0x3b84000 0x0 0x1000 /* NVLW_NVLIPT */
+		       0x0 0x3b86000 0x0 0x1000 /* NVLW_MINION */
+		       0x0 0x3b90000 0x0 0x4000 /* NVLW_NVL */
+		       0x0 0x3b94000 0x0 0x1000 /* NVLW_SYNC2X */
+		       0x0 0x3b96000 0x0 0x1000 /* NVLW_NVLTLC */
+		       0x0 0x1f00000 0x0 0x20000>; /* MSSNVLINK_0 */
+		clocks = <&bpmp_clks TEGRA194_CLK_NVHS_PLL0_MGMT>,
+				<&bpmp_clks TEGRA194_CLK_PLLREFE_VCOOUT_GATED>,
+				<&bpmp_clks TEGRA194_CLK_NVLINK_SYS>,
+				<&bpmp_clks TEGRA194_CLK_PLLNVHS>,
+				<&bpmp_clks TEGRA194_CLK_CLK_M>,
+				<&bpmp_clks TEGRA194_CLK_NVLINK_PLL_TXCLK>,
+				<&bpmp_clks TEGRA194_CLK_NVLINK_TX>,
+				<&bpmp_clks TEGRA194_CLK_FUSE>;
+		clock-names = "nvhs_pll0_mgmt", "pllrefe_vcoout_gated", "nvlink_sys", "pllnvhs", "clk_m", "nvlink_pll_txclk", "nvlink_tx", "fuse";
+		resets = <&bpmp_resets TEGRA194_RESET_MSSNVL>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_PM>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_PLL0>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L0>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L1>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L2>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L3>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L4>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L5>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L6>,
+				<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L7>,
+				<&bpmp_resets TEGRA194_RESET_NVLINK>;
+		reset-names = "mssnvl", "nvhs_uphy_pm", "nvhs_uphy", "nvhs_uphy_pll0",
+				"nvhs_uphy_l0", "nvhs_uphy_l1", "nvhs_uphy_l2",
+				"nvhs_uphy_l3",	"nvhs_uphy_l4",	"nvhs_uphy_l5",
+				"nvhs_uphy_l6",	"nvhs_uphy_l7", "nvlink";
+		interrupts = <0 178 0x4>; /* NVLINK2HOST interrupt */
+		status = "disabled";
+	};
+
+	nvpmodel {
+		compatible = "nvidia,nvpmodel";
+		clocks = <&bpmp_clks TEGRA194_CLK_EMC>,
+				<&bpmp_clks TEGRA194_CLK_NAFLL_DLA>,
+				<&bpmp_clks TEGRA194_CLK_NAFLL_DLA_FALCON>,
+				<&bpmp_clks TEGRA194_CLK_NAFLL_PVA_VPS>,
+				<&bpmp_clks TEGRA194_CLK_NAFLL_PVA_CORE>,
+				<&bpmp_clks TEGRA194_CLK_NAFLL_CVNAS>;
+		clock-names = "emc", "nafll_dla", "nafll_dla_falcon",
+				"nafll_pva_vps", "nafll_pva_core", "nafll_cvnas";
+		status = "okay";
+	};
+
+	external-connection {
+		disp-state {
+			compatible = "extcon-disp-state";
+			#extcon-cells = <1>;
+		};
+	};
+};

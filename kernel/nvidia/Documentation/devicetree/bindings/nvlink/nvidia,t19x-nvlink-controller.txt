@@ -1,0 +1,102 @@
+Nvidia, t19x-nvlink-controller:
+==============================
+
+The device node describes Tegra Nvlink controller for T194. NVLINK is a high
+speed serial communication protocol and an interconnect developed by NVIDIA.
+
+Required properties:
+--------------------
+- compatible = Must be "nvidia,t19x-nvlink-controller".
+- reg: A list of physical base address and length for each set of controller
+  registers.
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details.
+- clock-names: Must include the following entries:
+  - "nvhs_pll0_mgmt"
+  - "pllrefe_vcoout_gated"
+  - "nvlink_sys"
+  - "pllnvhs"
+  - "clk_m"
+  - "nvlink_pll_txclk"
+  - "nvlink_tx"
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- reset-names: Must include the following entries:
+  - "mssnvl"
+  - "nvhs_uphy_pm"
+  - "nvhs_uphy"
+  - "nvhs_uphy_pll0"
+  - "nvhs_uphy_l0"
+  - "nvhs_uphy_l1"
+  - "nvhs_uphy_l2"
+  - "nvhs_uphy_l3"
+  - "nvhs_uphy_l4"
+  - "nvhs_uphy_l5"
+  - "nvhs_uphy_l6"
+  - "nvhs_uphy_l7"
+  - "nvlink"
+- interrupts: The interrupts IRQ info for the device.
+- local_dev_id: Local Nvlink endpoint device(T194) ID. This must be 0.
+- local_link_id: Local Nvlink endpoint device(T194) link ID. This must be 0.
+- remote_dev_id: Remote Nvlink endpoint device(dGPU) ID. This must be 1.
+- remote_link_id: Remote Nvlink endpoint device(dGPU) link ID. This must be 1.
+
+Examples:
+========
+
+Tegra194:
+--------
+
+SoC DTSI:
+
+tnvlink_controller: tegra_nvlink_controller {
+	compatible = "nvidia,t19x-nvlink-controller";
+	reg = <0x0 0x3b80000 0x0 0x1000 /* NVLW_TIOCTRL */
+	       0x0 0x3b84000 0x0 0x1000 /* NVLW_NVLIPT */
+	       0x0 0x3b86000 0x0 0x1000 /* NVLW_MINION */
+	       0x0 0x3b90000 0x0 0x4000 /* NVLW_NVL */
+	       0x0 0x3b94000 0x0 0x1000 /* NVLW_SYNC2X */
+	       0x0 0x3b96000 0x0 0x1000 /* NVLW_NVLTLC */
+	       0x0 0x1f00000 0x0 0x20000>; /* MSSNVLINK_0 */
+	clocks = <&bpmp_clks TEGRA194_CLK_NVHS_PLL0_MGMT>,
+			<&bpmp_clks TEGRA194_CLK_PLLREFE_VCOOUT_GATED>,
+			<&bpmp_clks TEGRA194_CLK_NVLINK_SYS>,
+			<&bpmp_clks TEGRA194_CLK_PLLNVHS>,
+			<&bpmp_clks TEGRA194_CLK_CLK_M>,
+			<&bpmp_clks TEGRA194_CLK_NVLINK_PLL_TXCLK>,
+			<&bpmp_clks TEGRA194_CLK_NVLINK_TX>;
+	clock-names = "nvhs_pll0_mgmt", "pllrefe_vcoout_gated", "nvlink_sys",
+			"pllnvhs", "clk_m", "nvlink_pll_txclk", "nvlink_tx";
+	resets = <&bpmp_resets TEGRA194_RESET_MSSNVL>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_PM>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_PLL0>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L0>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L1>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L2>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L3>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L4>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L5>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L6>,
+			<&bpmp_resets TEGRA194_RESET_NVHS_UPHY_L7>,
+			<&bpmp_resets TEGRA194_RESET_NVLINK>;
+	reset-names = "mssnvl", "nvhs_uphy_pm", "nvhs_uphy", "nvhs_uphy_pll0",
+			"nvhs_uphy_l0", "nvhs_uphy_l1", "nvhs_uphy_l2",
+			"nvhs_uphy_l3",	"nvhs_uphy_l4",	"nvhs_uphy_l5",
+			"nvhs_uphy_l6",	"nvhs_uphy_l7", "nvlink";
+	interrupts = <0 178 0x4>; /* NVLINK2HOST interrupt */
+	status = "disabled";
+};
+
+Board DTSI:
+
+tegra_nvlink_controller {
+	status = "okay";
+
+	endpoint {
+		local_dev_id = <0>;
+		local_link_id = <0>;
+		remote_dev_id = <1>;
+		remote_link_id = <1>;
+	};
+};

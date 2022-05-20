@@ -1,0 +1,6 @@
+config SND_T23X_SAFETY_I2S
+	tristate "Nvidia T23x Safety I2S driver"
+	depends on SND
+	default m
+	help
+	  Standalone sound card driver for T234 Safety I2S module

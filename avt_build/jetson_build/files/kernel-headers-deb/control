@@ -1,0 +1,12 @@
+Source: avt-nvidia-l4t-kernel-headers
+Maintainer: Allied Vision Technologies GmbH
+
+Package: avt-nvidia-l4t-kernel-headers
+Architecture: arm64
+Pre-Depends: nvidia-l4t-core (>> 34.1-0), nvidia-l4t-core (<< 34.2-0)
+Depends: libc6,  avt-nvidia-l4t-kernel (= ${KERNEL_RELEASE}-${L4T_VERSION}-${AVT_RELEASE})
+Conflicts: nvidia-l4t-kernel-headers
+Section: kernel
+Priority: standard
+Homepage: http://developer.nvidia.com/jetson
+Description: NVIDIA Linux Tegra Kernel Headers Package with Allied Vision ALVIUM CSI Drivers

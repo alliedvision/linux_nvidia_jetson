@@ -1,0 +1,53 @@
+NVIDIA Tegra Display Port Aux.
+
+The Tegra DPAUX provides an engine for programming Display Port Auxiliary
+channels so that display data can be output to connected monitor.
+It also used by HDMI for DDC communication with connected monitor.
+
+This document describes the device tree bindings for the DPAUX hardware itself,
+as well as for subnodes corresponding to this engine.
+
+Required properties:
+- status: Should be "disabled" in SoC and "okay" in Board DTSI.
+- compatible: Must be "nvidia,tegra194-dpaux".
+- reg: A list of physical base address and length of DPAUX's registers.
+- interrupts: The interrupt IRQ info for the DPAUX hardware.
+- nvidia,dpaux-ctrlnum: DPAUX number mapping to display hardware physical number.
+- clock-names: Must include the following entries:
+  "dpaux"
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details
+- reset-names: Must include the following entries:
+  "dpaux"
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- power-domains: Power domain group, should be configured for controlling DPAUX hardware.
+  This should always be set to "&disa_pd" because all of the DPAUX instances belong to
+  the DISP domain.
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+dpaux0: dpaux@155c0000 {
+	status: "disabled";
+	compatible = "nvidia,tegra194-dpaux";
+	reg = <0x0 0x155c0000 0x0 0x00010000>;
+	interrupts = <0 159 4>;
+	nvidia,dpaux-ctrlnum = <0>;
+
+	clocks = <&bpmp_clks TEGRA194_CLK_DPAUX>;
+	clock-names = "dpaux";
+	resets = <&bpmp_resets TEGRA194_RESET_DPAUX>;
+	reset-names = "dpaux";
+	power-domains = <&disa_pd>;
+}; //dpaux0
+
+Board DTSI:
+----------
+
+dpaux0: dpaux@155c0000 {
+	status: "okay";
+};

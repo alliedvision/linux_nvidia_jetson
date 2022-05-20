@@ -1,0 +1,12 @@
+Source: avt-nvidia-l4t-kernel
+Maintainer: Allied Vision Technologies GmbH
+
+Package: avt-nvidia-l4t-kernel
+Architecture: arm64
+Pre-Depends: nvidia-l4t-core (>> 34.1-0), nvidia-l4t-core (<< 34.2-0)
+Depends: nvidia-l4t-tools (>> 34.1-0), nvidia-l4t-tools (<< 34.2-0)
+Conflicts: nvidia-l4t-kernel
+Section: kernel
+Priority: standard
+Homepage: http://developer.nvidia.com/jetson
+Description: NVIDIA Kernel Package with Allied Vision ALVIUM CSI Drivers

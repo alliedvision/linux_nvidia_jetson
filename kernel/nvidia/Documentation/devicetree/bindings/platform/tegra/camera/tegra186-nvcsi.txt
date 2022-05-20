@@ -1,0 +1,119 @@
+NVIDIA Tegra Parker (T18x) NVCSI bindings
+
+Tegra NVCSI is a MIPI CSI-2 receiver, supporting the D-Phy v1.2 and C-Phy v1.0
+interfaces, it outputs packetized data directly to the VI4 unit.
+
+The MIPICAL unit performs calibration at start of capture to condition the
+impedance of CSI-2 D-Phy lanes. D-Phy initial and periodic DESKEW calibration
+is performed when a sensor operates at or above 1.5 Gb/s.
+
+An internal Test Pattern Generator (TPG) unit is present for system bandwidth
+and image signal processing testing.
+
+Pre-boot hardware auto-detection is peformed by the NVIDIA Tegra plugin-manager
+for supported devices; if present, the attached camera board's Device Tree
+configuration overlays additional fields for assembling a complete system
+stream/channel graph for all camera sensor(s).
+
+Required properties:
+	- compatible: Should be "nvidia,tegra194-nvcsi".
+	- reg: Register address space (MMIO).
+	- power-domains: Power domain group, should be
+		"TEGRA194_POWER_DOMAIN_VE".
+	- resets: All NVCSI resets.
+	- clocks: All NVCSI clocks.
+	- clock-names: Names of the above clocks.
+	- interrupts: All NVCSI interrupts.
+	- iommus: NVCSI Stream ID, should be "TEGRA_SID_NVCSI".
+	- iommu-group-id: IOMMU group, should be "TEGRA_IOMMU_GROUP_HOST1X".
+	- num-ports: Number of physical D-Phy or C-Phy combo ports.
+
+	-- Camera Board Configuration --
+	- num-channels: Total number of NVCSI streams, usually equal to number of
+		sensors and/or SERDES attached.
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Channels (channel@XY) --
+	- reg: The NVCSI stream index, {0-7}.
+
+	-- Port (ports) --
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Ports (port@{0,1}) --
+	- reg: Sensor-link (<0>) or VI-link (<1>).
+
+	-- Endpoint (endpoint@{0,1}) --
+	- port-index: Sensor-link only, NVCSI port index; {0-5} (A-F).
+	- bus-width: Sensor-link only, number of D-Phy lanes or C-Phy trios used
+		in SCIL; {1-4}.
+	- remote-endpoint: Label to sensor or VI node.
+
+Example:
+
+	nvcsi@150c0000 {
+		compatible = "nvidia,tegra186-nvcsi";
+		power-domains = <&bpmp TEGRA186_POWER_DOMAIN_VE>;
+		reg = <0x0 0x150c0000 0x0 0x00040000>;
+		resets = <&tegra_car TEGRA186_RESET_NVCSI>;
+		clocks = <&tegra_car TEGRA186_CLK_NVCSI>,
+			<&tegra_car TEGRA186_CLK_NVCSILP>,
+			<&tegra_car TEGRA186_CLK_PLLNVCSI>,
+			<&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+		clock-names = "nvcsi", "nvcsilp", "nvcsi_parent",
+			"nvcsilp_parent";
+		interrupts = <0 119 0x04>;
+		iommus = <&smmu TEGRA_SID_NVCSI>;
+		iommu-group-id = <TEGRA_IOMMU_GROUP_HOST1X>;
+		num-ports = <6>;
+	};
+
+	/* Camera board-specific config overlay */
+	nvcsi@150c0000 {
+		num-channels = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		channel@0 {
+			reg = <0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					liimx274_csi_in0: endpoint@0 {
+						port-index = <0>;
+						bus-width = <4>;
+						remote-endpoint = <&liimx274_imx274_out0>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					liimx274_csi_out0: endpoint@1 {
+						remote-endpoint = <&liimx274_vi_in0>;
+					};
+				};
+			};
+		};
+		channel@1 {
+			reg = <1>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					liimx274_csi_in1: endpoint@2 {
+						port-index = <2>;
+						bus-width = <4>;
+						remote-endpoint = <&liimx274_imx274_out1>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					liimx274_csi_out1: endpoint@3 {
+						remote-endpoint = <&liimx274_vi_in1>;
+					};
+				};
+			};
+		};
+	};

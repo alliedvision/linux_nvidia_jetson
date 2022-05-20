@@ -1,0 +1,40 @@
+/*
+ * Top level DTS file for CVM:P2888-0008 and CVB:P2822-0000
+ *
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "../../galen/kernel-dts/tegra194-p2888-0001-p2822-0000.dts"
+#include "common/tegra194-p2888-0008-p2822-0000.dtsi"
+#include "common/tegra194-thermal-p2888-0008.dtsi"
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+	compatible = "nvidia,jetson-xavier-industrial", "nvidia,tegra194";
+	model = "Jetson-AGXi-Safety";
+
+	sce@b000000 {
+		status = "okay";
+		hsp {
+			nvidia,hsp-shared-mailbox = <&sce_hsp 0>;
+		};
+	};
+
+	tegra-hsp@b150000 {
+		status = "okay";
+	};
+
+	psci {
+		nvidia,system-lp0-disable;
+	};
+};

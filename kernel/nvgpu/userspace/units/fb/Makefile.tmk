@@ -1,0 +1,25 @@
+################################### tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+#
+# tmake for SW Mobile component makefile
+#
+###############################################################################
+
+NVGPU_UNIT_NAME=fb
+NVGPU_UNIT_SRCS=fb_fusa.c fb_gv11b_fusa.c fb_gm20b_fusa.c \
+	fb_mmu_fault_gv11b_fusa.c fb_intr_gv11b_fusa.c
+
+include $(NV_COMPONENT_DIR)/../Makefile.units.common.tmk
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 8
+# End:
+# vi: set tabstop=8 noexpandtab:

@@ -1,0 +1,21 @@
+Tegra carveouts
+---------------
+Platform-defined memory regions of physically contiguous memory which are not managed by the OS.
+
+Required properties:
+- compatible: "nvidia,carveouts" / "nvidia,carveouts-t18x" / "nvidia,carveouts-t19x";
+- memory-region : Array of "reserved-memory" nodes. Each "reserved-memory" node represents exclusive
+                  memory region not to be used by OS for normal usage. Refer /reserved-memory
+                  documentation for further details.
+- status = "okay / disabled";
+
+Example:
+--------
+    tegra-carveouts {
+        compatible = "nvidia,carveouts-t19x";
+        memory-region = <&gos_reserved &generic_reserved>;
+        status = "disabled";
+    };
+
+gos_reserved is the non Zero size reserved-memory region defined "reserved-memory" node.
+Zero sized memory-regions should be kept at the end of memory-region array.

@@ -1,0 +1,50 @@
+From 776be30ccafa59e78443aa79df8fc33d9678921b Mon Sep 17 00:00:00 2001
+From: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Date: Fri, 23 Oct 2020 20:52:25 +0530
+Subject: [PATCH] rt-patch: changes to fix compilation error
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+error: ‘RB_ROOT_CACHED’ undeclared here (not in a function); did you mean ‘IRQ_WORK_CLAIMED’?
+, .waiters = RB_ROOT_CACHED \
+             ^
+kernel/src-rt/kernel-5.9/include/linux/rtmutex.h:82:4: note: in expansion of macro ‘__RT_MUTEX_INITIALIZER_PLAIN’
+{ __RT_MUTEX_INITIALIZER_PLAIN(mutexname) \
+  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+kernel/src-rt/kernel-5.9/include/linux/mutex_rt.h:23:11: note: in expansion of macro ‘__RT_MUTEX_INITIALIZER’
+ .lock = __RT_MUTEX_INITIALIZER(mutexname.lock)  \
+
+Signed-off-by: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Change-Id: Ia3caaa9c4183cc8e7f0d644e1e5600b2ac6dd546
+---
+ include/linux/rbtree.h      | 2 --
+ include/linux/rbtree_type.h | 1 +
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/include/linux/rbtree.h b/include/linux/rbtree.h
+index c33b0e1..23f338b 100644
+--- a/include/linux/rbtree.h
++++ b/include/linux/rbtree.h
+@@ -102,8 +102,6 @@ static inline void rb_link_node_rcu(struct rb_node *node, struct rb_node *parent
+ 			typeof(*pos), field); 1; }); \
+ 	     pos = n)
+ 
+-#define RB_ROOT_CACHED (struct rb_root_cached) { {NULL, }, NULL }
+-
+ /* Same as rb_first(), but O(1) */
+ #define rb_first_cached(root) (root)->rb_leftmost
+ 
+diff --git a/include/linux/rbtree_type.h b/include/linux/rbtree_type.h
+index 77a89dd..bdd0ef5 100644
+--- a/include/linux/rbtree_type.h
++++ b/include/linux/rbtree_type.h
+@@ -28,4 +28,5 @@ struct rb_root_cached {
+ 	struct rb_node *rb_leftmost;
+ };
+ 
++#define RB_ROOT_CACHED (struct rb_root_cached) { {NULL, }, NULL }
+ #endif
+-- 
+2.7.4
+

@@ -1,0 +1,2293 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/sound/tegra-asoc-dais.h>
+
+#define ADMAIF_FIFO(i)	(TEGRA186_ADMAIF_FIFO_OFFSET + i - 1)
+#define ADMAIF_CIF(i)	(TEGRA186_ADMAIF_CIF_OFFSET  + i - 1)
+
+/ {
+	sound {
+		/* ADMAIF <--> XBAR PCM links */
+		admaif1_pcm_link: nvidia-audio-card,dai-link@0 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF1>;
+			};
+		};
+
+		admaif2_pcm_link: nvidia-audio-card,dai-link@1 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF2>;
+			};
+		};
+
+		admaif3_pcm_link: nvidia-audio-card,dai-link@2 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF3>;
+			};
+		};
+
+		admaif4_pcm_link: nvidia-audio-card,dai-link@3 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF4>;
+			};
+		};
+
+		admaif5_pcm_link: nvidia-audio-card,dai-link@4 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF5>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF5>;
+			};
+		};
+
+		admaif6_pcm_link: nvidia-audio-card,dai-link@5 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF6>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF6>;
+			};
+		};
+
+		admaif7_pcm_link: nvidia-audio-card,dai-link@6 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF7>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF7>;
+			};
+		};
+
+		admaif8_pcm_link: nvidia-audio-card,dai-link@7 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF8>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF8>;
+			};
+		};
+
+		admaif9_pcm_link: nvidia-audio-card,dai-link@8 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF9>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF9>;
+			};
+		};
+
+		admaif10_pcm_link: nvidia-audio-card,dai-link@9 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF10>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF10>;
+			};
+		};
+
+		admaif11_pcm_link: nvidia-audio-card,dai-link@10 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF11>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF11>;
+			};
+		};
+
+		admaif12_pcm_link: nvidia-audio-card,dai-link@11 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF12>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF12>;
+			};
+		};
+
+		admaif13_pcm_link: nvidia-audio-card,dai-link@12 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF13>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF13>;
+			};
+		};
+
+		admaif14_pcm_link: nvidia-audio-card,dai-link@13 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF14>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF14>;
+			};
+		};
+
+		admaif15_pcm_link: nvidia-audio-card,dai-link@14 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF15>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF15>;
+			};
+		};
+
+		admaif16_pcm_link: nvidia-audio-card,dai-link@15 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF16>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF16>;
+			};
+		};
+
+		admaif17_pcm_link: nvidia-audio-card,dai-link@16 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF17>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF17>;
+			};
+		};
+
+		admaif18_pcm_link: nvidia-audio-card,dai-link@17 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF18>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF18>;
+			};
+		};
+
+		admaif19_pcm_link: nvidia-audio-card,dai-link@18 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF19>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF19>;
+			};
+		};
+
+		admaif20_pcm_link: nvidia-audio-card,dai-link@19 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF20>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF20>;
+			};
+		};
+
+		/*
+		 * List ADSP PCM/COMPR links just after ADMAIF PCM links.
+		 * This keeps the ADSP PCM/COMPR device IDs continuous from
+		 * ADMAIF PCM devices and remain the same even if links
+		 * which follow these are removed or any new links are added.
+		 */
+		adsp_pcm_fe1: nvidia-audio-card,dai-link@20 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_PCM1>;
+			};
+			codec {
+				sound-dai = <&tegra_adsp_audio ADSP_FE1>;
+			};
+		};
+
+		adsp_pcm_fe2: nvidia-audio-card,dai-link@21 {
+			status = "okay";
+
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_PCM2>;
+			};
+			codec {
+				sound-dai = <&tegra_adsp_audio ADSP_FE2>;
+			};
+		};
+
+		adsp_compr_fe3: nvidia-audio-card,dai-link@22 {
+			status = "okay";
+
+			link-type = <COMPR_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_COMPR1>;
+			};
+			codec {
+				sound-dai = <&tegra_adsp_audio ADSP_FE3>;
+			};
+		};
+
+		adsp_compr_fe4: nvidia-audio-card,dai-link@23 {
+			status = "okay";
+
+			link-type = <COMPR_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_COMPR2>;
+			};
+			codec {
+				sound-dai = <&tegra_adsp_audio ADSP_FE4>;
+			};
+		};
+
+		/* ADSP to ADMAIF links */
+		adsp_to_admaif1: nvidia-audio-card,dai-link@24 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF1>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(1)>;
+			};
+		};
+
+		adsp_to_admaif2: nvidia-audio-card,dai-link@25 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF2>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(2)>;
+			};
+		};
+
+		adsp_to_admaif3: nvidia-audio-card,dai-link@26 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF3>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(3)>;
+			};
+		};
+
+		adsp_to_admaif4: nvidia-audio-card,dai-link@27 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF4>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(4)>;
+			};
+		};
+
+		adsp_to_admaif5: nvidia-audio-card,dai-link@28 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF5>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(5)>;
+			};
+		};
+
+		adsp_to_admaif6: nvidia-audio-card,dai-link@29 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF6>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(6)>;
+			};
+		};
+
+		adsp_to_admaif7: nvidia-audio-card,dai-link@30 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF7>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(7)>;
+			};
+		};
+
+		adsp_to_admaif8: nvidia-audio-card,dai-link@31 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF8>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(8)>;
+			};
+		};
+
+		adsp_to_admaif9: nvidia-audio-card,dai-link@32 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF9>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(9)>;
+			};
+		};
+
+		adsp_to_admaif10: nvidia-audio-card,dai-link@33 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF10>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(10)>;
+			};
+		};
+
+		adsp_to_admaif11: nvidia-audio-card,dai-link@34 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF11>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(11)>;
+			};
+		};
+
+		adsp_to_admaif12: nvidia-audio-card,dai-link@35 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF12>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(12)>;
+			};
+		};
+
+		adsp_to_admaif13: nvidia-audio-card,dai-link@36 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF13>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(13)>;
+			};
+		};
+
+		adsp_to_admaif14: nvidia-audio-card,dai-link@37 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF14>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(14)>;
+			};
+		};
+
+		adsp_to_admaif15: nvidia-audio-card,dai-link@38 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF15>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(15)>;
+			};
+		};
+
+		adsp_to_admaif16: nvidia-audio-card,dai-link@39 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF16>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(16)>;
+			};
+		};
+
+		adsp_to_admaif17: nvidia-audio-card,dai-link@40 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF17>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(17)>;
+			};
+		};
+
+		adsp_to_admaif18: nvidia-audio-card,dai-link@41 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF18>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(18)>;
+			};
+		};
+
+		adsp_to_admaif19: nvidia-audio-card,dai-link@42 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF19>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(19)>;
+			};
+		};
+
+		adsp_to_admaif20: nvidia-audio-card,dai-link@43 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adsp_audio ADSP_ADMAIF20>;
+			};
+			codec {
+				sound-dai = <&tegra_admaif ADMAIF_FIFO(20)>;
+			};
+		};
+
+		/* ADMAIF <--> XBAR CODEC links */
+		admaif1_codec_link: nvidia-audio-card,dai-link@44 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(1)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF1>;
+			};
+		};
+
+		admaif2_codec_link: nvidia-audio-card,dai-link@45 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(2)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF2>;
+			};
+		};
+
+		admaif3_codec_link: nvidia-audio-card,dai-link@46 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(3)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF3>;
+			};
+		};
+
+		admaif4_codec_link: nvidia-audio-card,dai-link@47 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(4)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF4>;
+			};
+		};
+
+		admaif5_codec_link: nvidia-audio-card,dai-link@48 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(5)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF5>;
+			};
+		};
+
+		admaif6_codec_link: nvidia-audio-card,dai-link@49 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(6)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF6>;
+			};
+		};
+
+		admaif7_codec_link: nvidia-audio-card,dai-link@50 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(7)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF7>;
+			};
+		};
+
+		admaif8_codec_link: nvidia-audio-card,dai-link@51 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(8)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF8>;
+			};
+		};
+
+		admaif9_codec_link: nvidia-audio-card,dai-link@52 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(9)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF9>;
+			};
+		};
+
+		admaif10_codec_link: nvidia-audio-card,dai-link@53 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(10)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF10>;
+			};
+		};
+
+		admaif11_codec_link: nvidia-audio-card,dai-link@54 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(11)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF11>;
+			};
+		};
+
+		admaif12_codec_link: nvidia-audio-card,dai-link@55 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(12)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF12>;
+			};
+		};
+
+		admaif13_codec_link: nvidia-audio-card,dai-link@56 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(13)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF13>;
+			};
+		};
+
+		admaif14_codec_link: nvidia-audio-card,dai-link@57 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(14)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF14>;
+			};
+		};
+
+		admaif15_codec_link: nvidia-audio-card,dai-link@58 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(15)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF15>;
+			};
+		};
+
+		admaif16_codec_link: nvidia-audio-card,dai-link@59 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(16)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF16>;
+			};
+		};
+
+		admaif17_codec_link: nvidia-audio-card,dai-link@60 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(17)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF17>;
+			};
+		};
+
+		admaif18_codec_link: nvidia-audio-card,dai-link@61 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(18)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF18>;
+			};
+		};
+
+		admaif19_codec_link: nvidia-audio-card,dai-link@62 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(19)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF19>;
+			};
+		};
+
+		admaif20_codec_link: nvidia-audio-card,dai-link@63 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_admaif ADMAIF_CIF(20)>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADMAIF20>;
+			};
+		};
+
+		/* XBAR <---> I2S links */
+		xbar_to_i2s1: nvidia-audio-card,dai-link@64 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S1>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s1 I2S_CIF>;
+				prefix = "I2S1";
+			};
+		};
+
+		xbar_to_i2s2: nvidia-audio-card,dai-link@65 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S2>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s2 I2S_CIF>;
+				prefix = "I2S2";
+			};
+		};
+
+		xbar_to_i2s3: nvidia-audio-card,dai-link@66 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S3>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s3 I2S_CIF>;
+				prefix = "I2S3";
+			};
+		};
+
+		xbar_to_i2s4: nvidia-audio-card,dai-link@67 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S4>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s4 I2S_CIF>;
+				prefix = "I2S4";
+			};
+		};
+
+		xbar_to_i2s5: nvidia-audio-card,dai-link@68 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S5>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s5 I2S_CIF>;
+				prefix = "I2S5";
+			};
+		};
+
+		xbar_to_i2s6: nvidia-audio-card,dai-link@69 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_I2S6>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s6 I2S_CIF>;
+				prefix = "I2S6";
+			};
+		};
+
+		/* XBAR <----> DMIC links */
+		xbar_to_dmic1: nvidia-audio-card,dai-link@70 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DMIC1>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic1 DMIC_CIF>;
+				prefix = "DMIC1";
+			};
+		};
+
+		xbar_to_dmic2: nvidia-audio-card,dai-link@71 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DMIC2>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic2 DMIC_CIF>;
+				prefix = "DMIC2";
+			};
+		};
+
+		xbar_to_dmic3: nvidia-audio-card,dai-link@72 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DMIC3>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic3 DMIC_CIF>;
+				prefix = "DMIC3";
+			};
+		};
+
+		xbar_to_dmic4: nvidia-audio-card,dai-link@73 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DMIC4>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic4 DMIC_CIF>;
+				prefix = "DMIC4";
+			};
+		};
+
+		/* XBAR <----> DSPK links */
+		xbar_to_dspk1: nvidia-audio-card,dai-link@74 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DSPK1>;
+			};
+			codec {
+				sound-dai = <&tegra_dspk1 DSPK_CIF>;
+				prefix = "DSPK1";
+			};
+		};
+
+		xbar_to_dspk2: nvidia-audio-card,dai-link@75 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_DSPK2>;
+			};
+			codec {
+				sound-dai = <&tegra_dspk2 DSPK_CIF>;
+				prefix = "DSPK2";
+			};
+		};
+
+		/* I2S(DAP) <----> I2S(Dummy) links */
+		i2s1_to_codec: nvidia-audio-card,dai-link@76 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s1_cpu: cpu {
+				sound-dai = <&tegra_i2s1 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s1 I2S_DUMMY>;
+			};
+		};
+
+		i2s2_to_codec: nvidia-audio-card,dai-link@77 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s2_cpu: cpu {
+				sound-dai = <&tegra_i2s2 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s2 I2S_DUMMY>;
+			};
+		};
+
+		i2s3_to_codec: nvidia-audio-card,dai-link@78 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s3_cpu: cpu {
+				sound-dai = <&tegra_i2s3 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s3 I2S_DUMMY>;
+			};
+		};
+
+		i2s4_to_codec: nvidia-audio-card,dai-link@79 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s4_cpu: cpu {
+				sound-dai = <&tegra_i2s4 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s4 I2S_DUMMY>;
+			};
+		};
+
+		i2s5_to_codec: nvidia-audio-card,dai-link@80 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s5_cpu: cpu {
+				sound-dai = <&tegra_i2s5 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s5 I2S_DUMMY>;
+			};
+		};
+
+		i2s6_to_codec: nvidia-audio-card,dai-link@81 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			i2s6_cpu: cpu {
+				sound-dai = <&tegra_i2s6 I2S_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_i2s6 I2S_DUMMY>;
+			};
+		};
+
+		/* DMIC(DAP) <----> DMIC(Dummy) links */
+		dmic1_to_codec: nvidia-audio-card,dai-link@82 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dmic1 DMIC_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic1 DMIC_DUMMY>;
+			};
+		};
+
+		dmic2_to_codec: nvidia-audio-card,dai-link@83 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dmic2 DMIC_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic2 DMIC_DUMMY>;
+			};
+		};
+
+		dmic3_to_codec: nvidia-audio-card,dai-link@84 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dmic3 DMIC_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic3 DMIC_DUMMY>;
+			};
+		};
+
+		dmic4_to_codec: nvidia-audio-card,dai-link@85 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dmic4 DMIC_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dmic4 DMIC_DUMMY>;
+			};
+		};
+
+		/* DSPK(DAP) <----> DSPK(Dummy) links */
+		dspk1_to_codec: nvidia-audio-card,dai-link@86 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dspk1 DSPK_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dspk1 DSPK_DUMMY>;
+			};
+			codec@1 {
+			};
+		};
+
+		dspk2_to_codec: nvidia-audio-card,dai-link@87 {
+			status = "okay";
+
+			format = "i2s";
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_dspk2 DSPK_DAP>;
+			};
+			codec {
+				sound-dai = <&tegra_dspk2 DSPK_DUMMY>;
+			};
+			codec@1 {
+			};
+		};
+
+		xbar_to_amx1_in1: nvidia-audio-card,dai-link@88 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX1_IN1>;
+			};
+			codec {
+				sound-dai = <&tegra_amx1 AMX_IN1>;
+				prefix = "AMX1";
+			};
+		};
+
+		xbar_to_amx1_in2: nvidia-audio-card,dai-link@89 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX1_IN2>;
+			};
+			codec {
+				sound-dai = <&tegra_amx1 AMX_IN2>;
+				prefix = "AMX1";
+			};
+		};
+
+		xbar_to_amx1_in3: nvidia-audio-card,dai-link@90 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX1_IN3>;
+			};
+			codec {
+				sound-dai = <&tegra_amx1 AMX_IN3>;
+				prefix = "AMX1";
+			};
+		};
+
+		xbar_to_amx1_in4: nvidia-audio-card,dai-link@91 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX1_IN4>;
+			};
+			codec {
+				sound-dai = <&tegra_amx1 AMX_IN4>;
+				prefix = "AMX1";
+			};
+		};
+
+		amx1_out_to_xbar: nvidia-audio-card,dai-link@92 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amx1 AMX_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AMX1_OUT>;
+			};
+		};
+
+		xbar_to_amx2_in1: nvidia-audio-card,dai-link@93 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX2_IN1>;
+			};
+			codec {
+				sound-dai = <&tegra_amx2 AMX_IN1>;
+				prefix = "AMX2";
+			};
+		};
+
+		xbar_to_amx2_in2: nvidia-audio-card,dai-link@94 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX2_IN2>;
+			};
+			codec {
+				sound-dai = <&tegra_amx2 AMX_IN2>;
+				prefix = "AMX2";
+			};
+		};
+
+		xbar_to_amx2_in3: nvidia-audio-card,dai-link@95 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX2_IN3>;
+			};
+			codec {
+				sound-dai = <&tegra_amx2 AMX_IN3>;
+				prefix = "AMX2";
+			};
+		};
+
+		xbar_to_amx2_in4: nvidia-audio-card,dai-link@96 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX2_IN4>;
+			};
+			codec {
+				sound-dai = <&tegra_amx2 AMX_IN4>;
+				prefix = "AMX2";
+			};
+		};
+
+		amx2_out_to_xbar: nvidia-audio-card,dai-link@97 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amx2 AMX_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AMX2_OUT>;
+			};
+		};
+
+		xbar_to_amx3_in1: nvidia-audio-card,dai-link@98 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX3_IN1>;
+			};
+			codec {
+				sound-dai = <&tegra_amx3 AMX_IN1>;
+				prefix = "AMX3";
+			};
+		};
+
+		xbar_to_amx3_in2: nvidia-audio-card,dai-link@99 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX3_IN2>;
+			};
+			codec {
+				sound-dai = <&tegra_amx3 AMX_IN2>;
+				prefix = "AMX3";
+			};
+		};
+
+		xbar_to_amx3_in3: nvidia-audio-card,dai-link@100 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX3_IN3>;
+			};
+			codec {
+				sound-dai = <&tegra_amx3 AMX_IN3>;
+				prefix = "AMX3";
+			};
+		};
+
+		xbar_to_amx3_in4: nvidia-audio-card,dai-link@101 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX3_IN4>;
+			};
+			codec {
+				sound-dai = <&tegra_amx3 AMX_IN4>;
+				prefix = "AMX3";
+			};
+		};
+
+		amx3_out_to_xbar: nvidia-audio-card,dai-link@102 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amx3 AMX_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AMX3_OUT>;
+			};
+		};
+
+		xbar_to_amx4_in1: nvidia-audio-card,dai-link@103 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX4_IN1>;
+			};
+			codec {
+				sound-dai = <&tegra_amx4 AMX_IN1>;
+				prefix = "AMX4";
+			};
+		};
+
+		xbar_to_amx4_in2: nvidia-audio-card,dai-link@104 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX4_IN2>;
+			};
+			codec {
+				sound-dai = <&tegra_amx4 AMX_IN2>;
+				prefix = "AMX4";
+			};
+		};
+
+		xbar_to_amx4_in3: nvidia-audio-card,dai-link@105 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX4_IN3>;
+			};
+			codec {
+				sound-dai = <&tegra_amx4 AMX_IN3>;
+				prefix = "AMX4";
+			};
+		};
+
+		xbar_to_amx4_in4: nvidia-audio-card,dai-link@106 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AMX4_IN4>;
+			};
+			codec {
+				sound-dai = <&tegra_amx4 AMX_IN4>;
+				prefix = "AMX4";
+			};
+		};
+
+		amx4_out_to_xbar: nvidia-audio-card,dai-link@107 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amx4 AMX_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AMX4_OUT>;
+			};
+		};
+
+		xbar_to_adx1_in: nvidia-audio-card,dai-link@108 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ADX1_IN>;
+			};
+			codec {
+				sound-dai = <&tegra_adx1 ADX_IN>;
+				prefix = "ADX1";
+			};
+		};
+
+		adx1_out1_to_xbar: nvidia-audio-card,dai-link@109 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx1 ADX_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX1_OUT1>;
+			};
+		};
+
+		adx1_out2_to_xbar: nvidia-audio-card,dai-link@110 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx1 ADX_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX1_OUT2>;
+			};
+		};
+
+		adx1_out3_to_xbar: nvidia-audio-card,dai-link@111 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx1 ADX_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX1_OUT3>;
+			};
+		};
+
+		adx1_out4_to_xbar: nvidia-audio-card,dai-link@112 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx1 ADX_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX1_OUT4>;
+			};
+		};
+
+		xbar_to_adx2_in: nvidia-audio-card,dai-link@113 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ADX2_IN>;
+			};
+			codec {
+				sound-dai = <&tegra_adx2 ADX_IN>;
+				prefix = "ADX2";
+			};
+		};
+
+		adx2_out1_to_xbar: nvidia-audio-card,dai-link@114 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx2 ADX_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX2_OUT1>;
+			};
+		};
+
+		adx2_out2_to_xbar: nvidia-audio-card,dai-link@115 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx2 ADX_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX2_OUT2>;
+			};
+		};
+
+		adx2_out3_to_xbar: nvidia-audio-card,dai-link@116 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx2 ADX_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX2_OUT3>;
+			};
+		};
+
+		adx2_out4_to_xbar: nvidia-audio-card,dai-link@117 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx2 ADX_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX2_OUT4>;
+			};
+		};
+
+		xbar_to_adx3_in: nvidia-audio-card,dai-link@118 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ADX3_IN>;
+			};
+			codec {
+				sound-dai = <&tegra_adx3 ADX_IN>;
+				prefix = "ADX3";
+			};
+		};
+
+		adx3_out1_to_xbar: nvidia-audio-card,dai-link@119 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx3 ADX_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX3_OUT1>;
+			};
+		};
+
+		adx3_out2_to_xbar: nvidia-audio-card,dai-link@120 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx3 ADX_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX3_OUT2>;
+			};
+		};
+
+		adx3_out3_to_xbar: nvidia-audio-card,dai-link@121 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx3 ADX_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX3_OUT3>;
+			};
+		};
+
+		adx3_out4_to_xbar: nvidia-audio-card,dai-link@122 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx3 ADX_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX3_OUT4>;
+			};
+		};
+
+		xbar_to_adx4_in: nvidia-audio-card,dai-link@123 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ADX4_IN>;
+			};
+			codec {
+				sound-dai = <&tegra_adx4 ADX_IN>;
+				prefix = "ADX4";
+			};
+		};
+
+		adx4_out1_to_xbar: nvidia-audio-card,dai-link@124 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx4 ADX_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX4_OUT1>;
+			};
+		};
+
+		adx4_out2_to_xbar: nvidia-audio-card,dai-link@125 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx4 ADX_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX4_OUT2>;
+			};
+		};
+
+		adx4_out3_to_xbar: nvidia-audio-card,dai-link@126 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx4 ADX_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX4_OUT3>;
+			};
+		};
+
+		adx4_out4_to_xbar: nvidia-audio-card,dai-link@127 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_adx4 ADX_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ADX4_OUT4>;
+			};
+		};
+
+		xbar_to_mixer_in1: nvidia-audio-card,dai-link@128 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF1>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN1>;
+			};
+		};
+
+		xbar_to_mixer_in2: nvidia-audio-card,dai-link@129 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF2>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN2>;
+			};
+		};
+
+		xbar_to_mixer_in3: nvidia-audio-card,dai-link@130 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF3>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN3>;
+			};
+		};
+
+		xbar_to_mixer_in4: nvidia-audio-card,dai-link@131 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF4>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN4>;
+			};
+		};
+
+		xbar_to_mixer_in5: nvidia-audio-card,dai-link@132 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF5>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN5>;
+			};
+		};
+
+		xbar_to_mixer_in6: nvidia-audio-card,dai-link@133 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF6>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN6>;
+			};
+		};
+
+		xbar_to_mixer_in7: nvidia-audio-card,dai-link@134 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF7>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN7>;
+			};
+		};
+
+		xbar_to_mixer_in8: nvidia-audio-card,dai-link@135 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF8>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN8>;
+			};
+		};
+
+		xbar_to_mixer_in9: nvidia-audio-card,dai-link@136 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF9>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN9>;
+			};
+		};
+
+		xbar_to_mixer_in10: nvidia-audio-card,dai-link@137 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF10>;
+			};
+			codec {
+				sound-dai = <&tegra_amixer MIXER_IN10>;
+			};
+		};
+
+		mixer_out1_to_xbar: nvidia-audio-card,dai-link@138 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amixer MIXER_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF1>;
+			};
+		};
+
+		mixer_out2_to_xbar: nvidia-audio-card,dai-link@139 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amixer MIXER_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF2>;
+			};
+		};
+
+		mixer_out3_to_xbar: nvidia-audio-card,dai-link@140 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amixer MIXER_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF3>;
+			};
+		};
+
+		mixer_out4_to_xbar: nvidia-audio-card,dai-link@141 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amixer MIXER_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF4>;
+			};
+		};
+
+		mixer_out5_to_xbar: nvidia-audio-card,dai-link@142 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_amixer MIXER_OUT5>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MIXER_IF5>;
+			};
+		};
+
+		xbar_to_sfc1: nvidia-audio-card,dai-link@143 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_SFC1>;
+			};
+			codec {
+				sound-dai = <&tegra_sfc1 SFC_IN>;
+				prefix = "SFC1";
+			};
+		};
+
+		xbar_to_sfc2: nvidia-audio-card,dai-link@144 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_SFC2>;
+			};
+			codec {
+				sound-dai = <&tegra_sfc2 SFC_IN>;
+				prefix = "SFC2";
+			};
+		};
+
+		xbar_to_sfc3: nvidia-audio-card,dai-link@145 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_SFC3>;
+			};
+			codec {
+				sound-dai = <&tegra_sfc3 SFC_IN>;
+				prefix = "SFC3";
+			};
+		};
+
+		xbar_to_sfc4: nvidia-audio-card,dai-link@146 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_SFC4>;
+			};
+			codec {
+				sound-dai = <&tegra_sfc4 SFC_IN>;
+				prefix = "SFC4";
+			};
+		};
+
+		sfc1_to_xbar: nvidia-audio-card,dai-link@147 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_sfc1 SFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_SFC1>;
+			};
+		};
+
+		sfc2_to_xbar: nvidia-audio-card,dai-link@148 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_sfc2 SFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_SFC2>;
+			};
+		};
+
+		sfc3_to_xbar: nvidia-audio-card,dai-link@149 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_sfc3 SFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_SFC3>;
+			};
+		};
+
+		sfc4_to_xbar: nvidia-audio-card,dai-link@150 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_sfc4 SFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_SFC4>;
+			};
+		};
+
+		xbar_to_afc1: nvidia-audio-card,dai-link@151 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC1>;
+			};
+			codec {
+				sound-dai = <&tegra_afc1 AFC_IN>;
+				prefix = "AFC1";
+			};
+		};
+
+		xbar_to_afc2: nvidia-audio-card,dai-link@152 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC2>;
+			};
+			codec {
+				sound-dai = <&tegra_afc2 AFC_IN>;
+				prefix = "AFC2";
+			};
+		};
+
+		xbar_to_afc3: nvidia-audio-card,dai-link@153 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC3>;
+			};
+			codec {
+				sound-dai = <&tegra_afc3 AFC_IN>;
+				prefix = "AFC3";
+			};
+		};
+
+		xbar_to_afc4: nvidia-audio-card,dai-link@154 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC4>;
+			};
+			codec {
+				sound-dai = <&tegra_afc4 AFC_IN>;
+				prefix = "AFC4";
+			};
+		};
+
+		xbar_to_afc5: nvidia-audio-card,dai-link@155 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC5>;
+			};
+			codec {
+				sound-dai = <&tegra_afc5 AFC_IN>;
+				prefix = "AFC5";
+			};
+		};
+
+		xbar_to_afc6: nvidia-audio-card,dai-link@156 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_AFC6>;
+			};
+			codec {
+				sound-dai = <&tegra_afc6 AFC_IN>;
+				prefix = "AFC6";
+			};
+		};
+
+		afc1_to_xbar: nvidia-audio-card,dai-link@157 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc1 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC1>;
+			};
+		};
+
+		afc2_to_xbar: nvidia-audio-card,dai-link@158 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc2 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC2>;
+			};
+		};
+
+		afc3_to_xbar: nvidia-audio-card,dai-link@159 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc3 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC3>;
+			};
+		};
+
+		afc4_to_xbar: nvidia-audio-card,dai-link@160 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc4 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC4>;
+			};
+		};
+
+		afc5_to_xbar: nvidia-audio-card,dai-link@161 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc5 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC5>;
+			};
+		};
+
+		afc6_to_xbar: nvidia-audio-card,dai-link@162 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_afc6 AFC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_AFC6>;
+			};
+		};
+
+		xbar_to_mvc1: nvidia-audio-card,dai-link@163 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MVC1>;
+			};
+			codec {
+				sound-dai = <&tegra_mvc1 MVC_IN>;
+				prefix = "MVC1";
+			};
+		};
+
+		xbar_to_mvc2: nvidia-audio-card,dai-link@164 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_MVC2>;
+			};
+			codec {
+				sound-dai = <&tegra_mvc2 MVC_IN>;
+				prefix = "MVC2";
+			};
+		};
+
+		mvc1_to_xbar: nvidia-audio-card,dai-link@165 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_mvc1 MVC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MVC1>;
+			};
+		};
+
+		mvc2_to_xbar: nvidia-audio-card,dai-link@166 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_mvc2 MVC_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_MVC2>;
+			};
+		};
+
+		xbar_to_ope1: nvidia-audio-card,dai-link@167 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_OPE1>;
+			};
+			codec {
+				sound-dai = <&tegra_ope1 OPE_IN>;
+				prefix = "OPE1";
+			};
+		};
+
+		ope1_to_xbar: nvidia-audio-card,dai-link@168 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_ope1 OPE_OUT>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_OPE1>;
+			};
+		};
+
+		xbar_to_asrc_in1: nvidia-audio-card,dai-link@169 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF1>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN1>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in2: nvidia-audio-card,dai-link@170 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF2>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN2>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in3: nvidia-audio-card,dai-link@171 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF3>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN3>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in4: nvidia-audio-card,dai-link@172 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF4>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN4>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in5: nvidia-audio-card,dai-link@173 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF5>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN5>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in6: nvidia-audio-card,dai-link@174 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF6>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN6>;
+				prefix = "ASRC1";
+			};
+		};
+
+		xbar_to_asrc_in7: nvidia-audio-card,dai-link@175 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF7>;
+			};
+			codec {
+				sound-dai = <&tegra_asrc ASRC_IN7>;
+				prefix = "ASRC1";
+			};
+		};
+
+		asrc_out1_to_xbar: nvidia-audio-card,dai-link@176 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT1>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF1>;
+			};
+		};
+
+		asrc_out2_to_xbar: nvidia-audio-card,dai-link@177 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT2>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF2>;
+			};
+		};
+
+		asrc_out3_to_xbar: nvidia-audio-card,dai-link@178 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT3>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF3>;
+			};
+		};
+
+		asrc_out4_to_xbar: nvidia-audio-card,dai-link@179 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT4>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF4>;
+			};
+		};
+
+		asrc_out5_to_xbar: nvidia-audio-card,dai-link@180 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT5>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF5>;
+			};
+		};
+
+		asrc_out6_to_xbar: nvidia-audio-card,dai-link@181 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_asrc ASRC_OUT6>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ASRC_IF6>;
+			};
+		};
+
+		arad_to_xbar: nvidia-audio-card,dai-link@182 {
+			status = "okay";
+
+			link-type = <C2C_LINK>;
+			cpu {
+				sound-dai = <&tegra_arad ARAD>;
+			};
+			codec {
+				sound-dai = <&tegra_axbar XBAR_ARAD>;
+			};
+		};
+	};
+};

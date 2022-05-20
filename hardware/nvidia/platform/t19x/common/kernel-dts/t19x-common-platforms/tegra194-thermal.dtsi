@@ -1,0 +1,259 @@
+/*
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+#include "tegra194-balanced-throttle.dtsi"
+#include "tegra194-pwm-fan.dtsi"
+#include "tegra194-thermal-fan-est.dtsi"
+/* THERMAL gpio definitions */
+#define TEMP_ALERT TEGRA194_MAIN_GPIO(H, 2)
+
+/ {
+	bpmp {
+		bpmpthermal {
+			status = "okay";
+		};
+	};
+
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
+	bpmp_i2c {
+#endif
+		tegra_tmp451: temp-sensor@4c {
+			status = "okay";
+			#thermal-sensor-cells = <1>;
+			compatible = "ti,tmp451";
+			reg = <0x4c>;
+			sensor-name = "tmp451-ext";
+			supported-hwrev = <1>;
+			offset = <(-38)>;
+			conv-rate = <0x06>;
+			extended-rage = <1>;
+
+			interrupt-parent = <&tegra_main_gpio>;
+			interrupts = <TEMP_ALERT IRQ_TYPE_LEVEL_LOW>;
+			temp-alert-gpio = <&tegra_main_gpio TEMP_ALERT 0>;
+
+#if TEGRA_BPMP_FW_DT_VERSION < DT_VERSION_2
+			vdd-supply = <&e3360_vdd_slt_1v8>;
+#endif
+
+			/* vdd-supply configured in power tree */
+
+			loc {
+				/* set to maximum for not having local  shutdown */
+				shutdown-limit = <107>;
+			};
+			ext {
+				shutdown-limit = <109>;
+			};
+		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
+	};
+#endif
+
+	cpus {
+		cpu@0 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@2 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@4 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@6 {
+			#cooling-cells = <2>;
+		};
+	};
+
+	thermal-zones {
+		status = "okay";
+
+		Tboard_tegra: Tboard_tegra {
+			status = "okay";
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&tegra_tmp451 0>;
+		};
+
+		Tdiode_tegra: Tdiode_tegra {
+			status = "okay";
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&tegra_tmp451 1>;
+		};
+
+		CPU-therm {
+			status = "okay";
+			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_critical {
+					temperature = <95500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+
+				cpu_sw_throttle: cpu-sw-throttle {
+					temperature = <90000>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+
+				cpu_hot_surface: cpu-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		AUX-therm {
+			status = "okay";
+			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_critical {
+					temperature = <94500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+
+				aux_sw_throttle: aux-sw-throttle {
+					temperature = <89000>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+
+				aux_hot_surface: aux-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>,
+					<&cl1_0 THERMAL_NO_LIMIT 14>,
+					<&cl2_0 THERMAL_NO_LIMIT 14>,
+					<&cl3_0 THERMAL_NO_LIMIT 14>,
+					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		GPU-therm {
+			status = "okay";
+			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_critical {
+					temperature = <98000>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+
+				gpu_sw_throttle: gpu-sw-throttle {
+					temperature = <92500>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+
+				gpu_hot_surface: gpu-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>,
+					<&cl1_0 THERMAL_NO_LIMIT 14>,
+					<&cl2_0 THERMAL_NO_LIMIT 14>,
+					<&cl3_0 THERMAL_NO_LIMIT 14>,
+					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		AO-therm {
+			status = "okay";
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
+			trips {
+				trip_dram_refresh {
+					temperature = <85000>;
+					type = "active";
+					hysteresis = <3000>;
+					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&{/thermal-zones/AO-therm/trips/trip_dram_refresh}>;
+					cdev-type = "bwmgr-therm-handler";
+					cooling-device = <&bwmgr THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+	};
+};

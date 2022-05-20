@@ -1,0 +1,17 @@
+NVIDIA Hypervisor XHCI server debug driver
+==========================================
+
+This document defines the device-specific binding for NVIDIA Hypervisor XHCI server debug driver.
+The NVIDIA Hypervisor XHCI server debug driver adds support of getting XHCI firmware log from XHCI Server in virtualization setup.
+
+Required properties:
+
+- compatible: Should be "nvidia,tegra-hv-xhci-debug"
+- ivc: IVC channel number reserved between XHCI Server and the VM
+
+Below is a sample Hypervisor XHCI server debug driver's DT entry with IVC channel number as 72.
+
+tegra_hv_xhci_debug@0 {
+                ivc = <&tegra_hv 72>;
+                status = "okay";
+};

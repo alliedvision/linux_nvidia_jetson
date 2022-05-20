@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	aliases {
+		rtc0 = &vrs_rtc;
+		rtc1 = &tegra_rtc;
+	};
+
+	bpmp {
+		i2c {
+			vrs@3c {
+				compatible = "nvidia,vrs-pseq";
+				reg = <0x3c>;
+				interrupt-parent = <&intc>;
+				/* IRQ is active-low but pmc inverts the signal */
+				interrupts = <GIC_SPI TEGRA234_IRQ_PMIC_EXT_INTR IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-controller;
+				#interrupt-cells = <3>;
+				status = "disabled";
+
+				vrs_rtc: rtc {
+					status = "disabled";
+				};
+			};
+		};
+	};
+};

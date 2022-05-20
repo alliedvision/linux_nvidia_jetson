@@ -1,0 +1,310 @@
+/*
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra234-soc-mgbe.dtsi: Ethernet MGBE DTSI file.
+ */
+
+/ {
+	mgbe_vm_irq_config: mgbe-vm-irq-config {
+		nvidia,num-vm-irqs = <5>;
+		vm_irq1 {
+			nvidia,num-vm-channels = <2>;
+			nvidia,vm-channels = <0 1>;
+			nvidia,vm-num = <0>;
+		};
+		vm_irq2 {
+			nvidia,num-vm-channels = <2>;
+			nvidia,vm-channels = <2 3>;
+			nvidia,vm-num = <1>;
+		};
+		vm_irq3 {
+			nvidia,num-vm-channels = <2>;
+			nvidia,vm-channels = <4 5>;
+			nvidia,vm-num = <2>;
+		};
+		vm_irq4 {
+			nvidia,num-vm-channels = <2>;
+			nvidia,vm-channels = <6 7>;
+			nvidia,vm-num = <3>;
+		};
+		vm_irq5 {
+			nvidia,num-vm-channels = <2>;
+			nvidia,vm-channels = <8 9>;
+			nvidia,vm-num = <4>;
+		};
+	};
+
+	ethernet@6810000 {
+		compatible = "nvidia,nvmgbe";
+		reg = <0x0 0x06810000 0x0 0x10000>, /* MGBE base */
+		      <0x0 0x068A0000 0x0 0x10000>, /* XPCS base */
+		      <0x0 0x068D0000 0x0 0x10000>, /* MACsec RM base */
+		      <0x0 0x06800000 0x0 0x10000>; /* HV base */
+		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		interrupts = 	<0 384 0x4>,	/* common */
+				<0 385 0x4>,	/* vm0 */
+				<0 386 0x4>,	/* vm1 */
+				<0 387 0x4>,	/* vm2 */
+				<0 388 0x4>,	/* vm3 */
+				<0 389 0x4>,	/* vm4 */
+				<0 390 0x4>,	/* MACsec non-secure intr */
+				<0 391 0x4>;	/* MACsec secure intr */
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+				  "macsec-ns-irq", "macsec-s-irq";
+		resets = <&bpmp_resets TEGRA234_RESET_MGBE0_MAC>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE0_PCS>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE0_MACSEC>; /* MACsec non-secure reset */
+		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		clocks = <&bpmp_clks TEGRA234_CLK_MGBE0_RX_INPUT_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_PCS_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_PCS_INPUT>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_TX>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_TX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_MAC_DIVIDER>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_MAC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_EEE_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_APP>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_PTP_REF>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_MACSEC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_INPUT>;
+		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
+			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
+			      "mac", "eee_pcs", "app", "ptp_ref",
+			      "mgbe_macsec", "rx_input";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE>;
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBA>;
+		nvidia,num-dma-chans = <10>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,num-mtl-queues = <10>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		/* Residual Queue can be any valid queue except RxQ0 */
+		nvidia,residual-queue = <1>;
+		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
+		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
+		status = "disabled";
+		nvidia,dcs-enable = <0x1>;
+		nvidia,rx_riwt = <512>;
+		nvidia,rx_frames = <64>;
+		nvidia,tx_usecs = <256>;
+		nvidia,tx_frames = <16>;
+		nvidia,promisc_mode = <1>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,ptp_ref_clock_speed = <312500000>;
+		nvidia,instance_id = <0>; /* MGBE0 instance */
+		nvidia,ptp-rx-queue = <3>;
+	};
+
+	ethernet@6910000 {
+		compatible = "nvidia,nvmgbe";
+		reg = <0x0 0x06910000 0x0 0x10000>, /* MGBE base */
+		      <0x0 0x069A0000 0x0 0x10000>, /* XPCS base */
+		      <0x0 0x069D0000 0x0 0x10000>, /* MACsec RM base */
+		      <0x0 0x06900000 0x0 0x10000>; /* HV base */
+		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		interrupts = 	<0 392 0x4>,	/* common */
+				<0 393 0x4>,	/* vm0 */
+				<0 394 0x4>,	/* vm1 */
+				<0 395 0x4>,	/* vm2 */
+				<0 396 0x4>,	/* vm3 */
+				<0 397 0x4>,	/* vm4 */
+				<0 398 0x4>,	/* MACsec non-secure intr */
+				<0 399 0x4>;	/* MACsec secure intr */
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+				  "macsec-ns-irq", "macsec-s-irq";
+		resets = <&bpmp_resets TEGRA234_RESET_MGBE1_MAC>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE1_PCS>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE1_MACSEC>; /* MACsec non-secure reset */
+		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		clocks = <&bpmp_clks TEGRA234_CLK_MGBE1_RX_INPUT_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_PCS_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_PCS_INPUT>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_TX>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_TX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_MAC_DIVIDER>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_MAC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_EEE_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_APP>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_PTP_REF>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_MACSEC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_INPUT>;
+		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
+			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
+			      "mac", "eee_pcs", "app", "ptp_ref",
+			      "mgbe_macsec", "rx_input";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF1>;
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBB>;
+		nvidia,num-dma-chans = <10>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,num-mtl-queues = <10>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		/* Residual Queue can be any valid queue except RxQ0 */
+		nvidia,residual-queue = <1>;
+		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
+		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
+		status = "disabled";
+		nvidia,dcs-enable = <0x1>;
+		nvidia,rx_riwt = <512>;
+		nvidia,rx_frames = <64>;
+		nvidia,tx_usecs = <256>;
+		nvidia,tx_frames = <16>;
+		nvidia,promisc_mode = <1>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,ptp_ref_clock_speed = <312500000>;
+		nvidia,instance_id = <1>; /* MGBE1 instance */
+		nvidia,ptp-rx-queue = <3>;
+	};
+
+	ethernet@6A10000 {
+		compatible = "nvidia,nvmgbe";
+		reg = <0x0 0x06A10000 0x0 0x10000>, /* MGBE base */
+		      <0x0 0x06AA0000 0x0 0x10000>, /* XPCS base */
+		      <0x0 0x06AD0000 0x0 0x10000>, /* MACsec RM base */
+		      <0x0 0x06A00000 0x0 0x10000>; /* HV base */
+		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		interrupts = 	<0 400 0x4>,	/* common */
+				<0 401 0x4>,	/* vm0 */
+				<0 402 0x4>,	/* vm1 */
+				<0 403 0x4>,	/* vm2 */
+				<0 404 0x4>,	/* vm3 */
+				<0 405 0x4>,	/* vm4 */
+				<0 406 0x4>,	/* MACsec non-secure intr */
+				<0 407 0x4>;	/* MACsec secure intr */
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+				  "macsec-ns-irq", "macsec-s-irq";
+		resets = <&bpmp_resets TEGRA234_RESET_MGBE2_MAC>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE2_PCS>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE2_MACSEC>; /* MACsec non-secure reset */
+		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		clocks = <&bpmp_clks TEGRA234_CLK_MGBE2_RX_INPUT_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_PCS_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_PCS_INPUT>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_TX>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_TX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_MAC_DIVIDER>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_MAC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_EEE_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_APP>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_PTP_REF>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_MACSEC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_INPUT>;
+		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
+			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
+			      "mac", "eee_pcs", "app", "ptp_ref",
+			      "mgbe_macsec", "rx_input";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF2>;
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBC>;
+		nvidia,num-dma-chans = <10>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,num-mtl-queues = <10>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		/* Residual Queue can be any valid queue except RxQ0 */
+		nvidia,residual-queue = <1>;
+		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
+		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
+		status = "disabled";
+		nvidia,dcs-enable = <0x1>;
+		nvidia,rx_riwt = <512>;
+		nvidia,rx_frames = <64>;
+		nvidia,tx_usecs = <256>;
+		nvidia,tx_frames = <16>;
+		nvidia,promisc_mode = <1>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,ptp_ref_clock_speed = <312500000>;
+		nvidia,instance_id = <2>; /* MGBE2 instance */
+		nvidia,ptp-rx-queue = <3>;
+	};
+
+	ethernet@6B10000 {
+		compatible = "nvidia,nvmgbe";
+		reg = <0x0 0x06B10000 0x0 0x10000>, /* MGBE base */
+		      <0x0 0x06BA0000 0x0 0x10000>, /* XPCS base */
+		      <0x0 0x06BD0000 0x0 0x10000>, /* MACsec RM base */
+		      <0x0 0x06B00000 0x0 0x10000>; /* HV base */
+		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		interrupts = 	<0 408 0x4>,	/* common */
+				<0 409 0x4>,	/* vm0 */
+				<0 410 0x4>,	/* vm1 */
+				<0 411 0x4>,	/* vm2 */
+				<0 412 0x4>,	/* vm3 */
+				<0 413 0x4>,	/* vm4 */
+				<0 414 0x4>,	/* MACsec non-secure intr */
+				<0 415 0x4>;	/* MACsec secure intr */
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+				  "macsec-ns-irq", "macsec-s-irq";
+		resets = <&bpmp_resets TEGRA234_RESET_MGBE3_MAC>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE3_PCS>,
+			 <&bpmp_resets TEGRA234_RESET_MGBE3_MACSEC>; /* MACsec non-secure reset */
+		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		clocks = <&bpmp_clks TEGRA234_CLK_MGBE3_RX_INPUT_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_PCS_M>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_PCS_INPUT>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_TX>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_TX_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_MAC_DIVIDER>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_MAC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_EEE_PCS>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_APP>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_PTP_REF>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_MACSEC>,
+			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_INPUT>;
+		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
+			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
+			      "mac", "eee_pcs", "app", "ptp_ref",
+			      "mgbe_macsec", "rx_input";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF3>;
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEA>;
+		nvidia,num-dma-chans = <10>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,num-mtl-queues = <10>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		/* Residual Queue can be any valid queue except RxQ0 */
+		nvidia,residual-queue = <1>;
+		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
+		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
+		status = "disabled";
+		nvidia,dcs-enable = <0x1>;
+		nvidia,rx_riwt = <512>;
+		nvidia,rx_frames = <64>;
+		nvidia,tx_usecs = <256>;
+		nvidia,tx_frames = <16>;
+		nvidia,promisc_mode = <1>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,ptp_ref_clock_speed = <312500000>;
+		nvidia,instance_id = <3>; /* MGBE3 instance */
+		nvidia,ptp-rx-queue = <3>;
+	};
+};

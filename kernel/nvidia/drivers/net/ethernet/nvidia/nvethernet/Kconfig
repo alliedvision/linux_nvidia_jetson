@@ -1,0 +1,19 @@
+config NVETHERNET
+	tristate "NVIDIA Tegra Ethernet EQOS driver"
+	select PHYLIB
+	select CRC32
+	select MII
+	depends on OF && HAS_DMA
+	default n
+	help
+	Say Y here if you have a NVIDIA Tegra Ethernet EQOS Adapter.
+
+	To compile this driver as a module, choose M here: the module
+	will be called nvethernet.
+config NVETHERNET_SELFTESTS
+	bool "Support for NVETHERNET Selftests"
+	depends on NVETHERNET
+	default n
+	help
+	  This adds support for NVETHERNET Selftests using ethtool. Enable this
+	  feature if you are facing problems with your HW.

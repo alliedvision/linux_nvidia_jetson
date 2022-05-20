@@ -1,0 +1,26 @@
+TEGRA SE ELLIPTIC PKA1/RNG1 Crypto Module
+
+This module enables support for PKA1 features that include RSA/ECC internally
+and RNG1.
+
+Required properties:
+
+- compatible : Should be one of :
+  - For T210, use "nvidia,tegra210b01-se-elp".
+  - For T186, use "nvidia,tegra186-se-elp".
+  - For T194, use "nvidia,tegra194-se-elp".
+- reg : Offset and length of the register set for the module.
+- interrupts: Interrupt numbers.
+
+Optional properties:
+
+- pka1-rsa-priority : cra_priority of the algorithm.
+
+Example:
+	se: se_pka1@3ad0000 {
+		compatible = "nvidia,tegra186-se-elp";
+		reg = <0x0 0x03ad0000 0x0 0x10000>,
+		      <0x0 0x03ae0000 0x0 0x10000>;
+		interrupts = <0 283 0x04>;
+		pka1-rsa-priority = <300>;
+	};

@@ -1,0 +1,283 @@
+#!/usr/bin/python3
+import os.path
+import shutil
+import re
+
+import debconf
+
+
+_bootloader_conf_path = '/etc/nv_boot_control.conf'
+
+
+class BoardDefinition:
+    def __init__(self, name, chip_id, board_id,  configurations):
+        self.name = name
+        self.chip_id = chip_id
+        self.board_id = board_id
+        self.configurations = configurations
+
+
+class NvSpecInformation:
+    def __init__(self, prefix: str):
+        self.prefix = prefix
+        self._parts = []
+        self._base = None
+        self._tail = None
+        self._target_board = None
+
+    def parse(self,line: str):
+        spec = line.replace(f'{self.prefix} ', '')
+        parts = spec.split('-')
+        self._parts = [part.strip() for part in parts]
+        self._tail = parts.pop(len(parts) - 1)
+        self._base = '-'.join([parts.pop(0) for i in range(6)])
+        self._target_board = '-'.join(parts)
+
+    def rebuild(self,target_board: str):
+        return f'{self.prefix} {self._base}-{target_board}-{self._tail}'
+
+    def board_id(self):
+        return self._parts[0]
+
+    def board_ver(self):
+        return self._parts[1]
+
+    def board_sku(self):
+        return self._parts[2]
+
+    def target_board(self):
+        return self._target_board
+
+
+class Configuration:
+    def __init__(self, name, dtb, board_sku, board_ver=None):
+        self.name = name
+        self.dtb = dtb
+        self.board_sku = board_sku
+        self.board_ver = board_ver
+
+agx_devkit = BoardDefinition('Jetson AGX Xavier devkit', '0x19', '2888', [
+    Configuration('2 cameras', 'tegra194-p2888-0001-p2822-0000-avt-14375-2cam.dtb', '0001'),
+    Configuration('2 cameras', 'tegra194-p2888-0001-p2822-0000-avt-14375-2cam.dtb', '0004'),
+
+    Configuration('6 cameras (beta)', 'tegra194-p2888-0001-p2822-0000-avt-14385-6cam.dtb', '0001'),
+    Configuration('6 cameras (beta)', 'tegra194-p2888-0001-p2822-0000-avt-14385-6cam.dtb', '0004'),
+
+    Configuration('None', 'tegra194-p2888-0001-p2822-0000.dtb', '0001'),
+    Configuration('None', 'tegra194-p2888-0001-p2822-0000.dtb', '0004'),
+])
+
+agx_orin_devkit = BoardDefinition('Jetson AGX Orin devkit', '0x23', '3701', [
+    Configuration('14375: 2 cameras', 'tegra234-p3701-0000-p3737-0000-avt-14375-2cam.dtb', '0000'),
+
+    Configuration('None', 'tegra234-p3701-0000-p3737-0000.dtb', '0000'),
+])
+
+nx_devkit = BoardDefinition('Jetson Xavier NX devkit', '0x19', '3668', [
+    Configuration('DevKit', 'tegra194-p3668-0000-p3509-0000-avt.dtb', '0000'),
+    Configuration('DevKit', 'tegra194-p3668-0001-p3509-0000-avt.dtb', '0001'),
+    #NX 16GB
+    Configuration('DevKit', 'tegra194-p3668-0001-p3509-0000-avt.dtb', '0003'),
+
+    #Configuration('Auvidea JNX30 (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30.dtb', '0000'),
+    #Configuration('Auvidea JNX30 (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30.dtb', '0001'),
+    #NX 16GB
+    #Configuration('Auvidea JNX30 (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30.dtb', '0003'),
+
+    #Configuration('Auvidea JNX30+38491 FPD-Link (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30-38491.dtb', '0000'),
+    #Configuration('Auvidea JNX30+38491 FPD-Link (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30-38491.dtb', '0001'),
+    #NX 16GB
+    #Configuration('Auvidea JNX30+38491 FPD-Link (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30-38491.dtb', '0003'),
+
+    Configuration('None', 'tegra194-p3668-0000-p3509-0000.dtb', '0000'),
+    Configuration('None', 'tegra194-p3668-0001-p3509-0000.dtb', '0001'),
+    #NX 16GB
+    Configuration('None', 'tegra194-p3668-0001-p3509-0000.dtb', '0003'),
+])
+
+boards = [
+    agx_devkit,
+    nx_devkit,
+    agx_orin_devkit
+]
+
+_label_keywords = ['APPEND', 'FDT', 'FDTDIR', 'INITRD', 'LINUX', 'MENU']
+
+
+class ActiveBoard:
+    def __init__(self):
+        self._tnspec = NvSpecInformation('TNSPEC')
+        self._compatible_spec = NvSpecInformation('COMPATIBLE_SPEC')
+        self._name = None
+        self._configurations = None
+        self._active_configuration = None
+
+    def name(self):
+        return self._name
+
+    def configurations(self):
+        return self._configurations
+
+    def active_configuration(self):
+        return self._active_configuration
+
+    def update_active_configuration(self, new_configuration):
+        self._active_configuration = new_configuration
+
+        new_config = self._configurations[new_configuration]
+
+        extlinux = '/boot/extlinux/extlinux.conf'
+
+        label = 'AVT'
+
+        backup = extlinux + '.avt-backup'
+
+        if len(new_config.dtb) == 0:
+            if os.path.exists(backup):
+                shutil.copyfile(backup, extlinux)
+            return True
+
+        if not os.path.exists(backup):
+            shutil.copyfile(extlinux, backup)
+
+        os.system('sudo rm /boot/dtb/kernel_*')
+
+        shutil.copyfile('/boot/%s' % new_config.dtb, '/boot/kernel_%s' % new_config.dtb)
+        shutil.copyfile('/boot/%s' % new_config.dtb, '/boot/dtb/kernel_%s' % new_config.dtb)
+
+        with open(extlinux, 'r') as fin:
+            contents = fin.readlines()
+
+        entry = 'LABEL %s' % label
+        entry_skip = False
+        default_label = None
+        current_label = None
+        default_entry_linux = 'LINUX /boot/Image'
+        default_entry_initrd = 'INITRD /boot/initrd'
+        default_entry_append = 'APPEND ${cbootargs}'
+        out = []
+
+        for line in contents:
+            # Find the default LABEL and copy its LINUX/INITRD/APPEND
+            # items into the newly added LABEL
+            if default_label is None:
+                name = re.match(r'DEFAULT (.*)', line, re.M | re.I)
+                if name:
+                    default_label = name.group(1)
+            else:
+                name = re.match(r'LABEL (.*)', line, re.M | re.I)
+                if name:
+                    current_label = name.group(1)
+            if current_label and current_label == default_label:
+                words = line.strip().split()
+                if words:
+                    if words[0] == 'LINUX':
+                        default_entry_linux = line.strip()
+                    elif words[0] == 'INITRD':
+                        default_entry_initrd = line.strip()
+                    elif words[0] == 'APPEND':
+                        default_entry_append = line.strip()
+                    elif words[0] == 'LABEL':
+                        words = line.strip().split(' ', 1)
+                        if words[1] != current_label:
+                            # Stop if meeting the next LABEL
+                            current_label = "#"
+            line = re.sub(r'^DEFAULT .*', 'DEFAULT %s' % label, line)
+            if entry == line.strip():
+                entry_skip = True
+                continue
+            if entry_skip:
+                words = line.strip().split()
+                if not words:
+                    continue
+                if words[0][0] == '#':
+                    continue
+                if words[0] in _label_keywords:
+                    continue
+                entry_skip = False
+            out.append(line)
+
+        # If last line is not blank, add one.
+        if not out[-1].isspace():
+            out.append('\n')
+
+        out.append('LABEL %s' % label)
+        out.append('\n\tMENU LABEL %s' % new_config.name)
+        out.append('\n\t%s' % default_entry_linux)
+        out.append('\n\tFDT /boot/kernel_%s' % new_config.dtb)
+        out.append('\n\t%s' % default_entry_initrd)
+        out.append('\n\t%s\n' % default_entry_append)
+
+        with open(extlinux, 'w') as fout:
+            for line in out:
+                fout.write(line)
+
+        return True
+
+    def _check_board_configuration(self, conf: Configuration):
+        if self._tnspec.board_sku() == conf.board_sku:
+            if conf.board_ver is None:
+                return True
+            elif self._compatible_spec.board_ver() == conf.board_ver:
+                return True
+
+        return False
+
+    @staticmethod
+    def get():
+        active_board = ActiveBoard()
+
+        bootloader_conf_file = open(_bootloader_conf_path, 'r')
+        lines = bootloader_conf_file.readlines()
+        bootloader_conf_file.close()
+
+        chip_id = None
+
+        for line in lines:
+            if line.startswith(active_board._tnspec.prefix):
+                active_board._tnspec.parse(line)
+            elif line.startswith(active_board._compatible_spec.prefix):
+                active_board._compatible_spec.parse(line)
+            elif line.startswith('TEGRA_CHIPID'):
+                chip_id = line.replace('TEGRA_CHIPID ', '').strip()
+
+        if chip_id is None:
+            return
+
+        detected_boards = [b for b in boards if b.chip_id == chip_id and b.board_id == active_board._compatible_spec.board_id()]
+
+        if len(detected_boards) < 1:
+            return
+
+        board = detected_boards[0]
+
+        active_board._name = board.name
+
+        active_board._configurations = [conf for conf in board.configurations if active_board._check_board_configuration(conf)]
+
+        return active_board
+
+
+def main():
+    active_board = ActiveBoard.get()
+
+    if active_board is None:
+        print("No active board found\n")
+        exit(1)
+
+    config_list = [c.name for c in active_board.configurations()]
+
+    db = debconf.Debconf(run_frontend=True)
+    db.subst('avt-nvidia-l4t-bootloader/target-board', 'board-configurations', ', '.join(config_list))
+    db.subst('avt-nvidia-l4t-bootloader/target-board', 'default-board-configuration', config_list[0])
+    db.forceInput(debconf.HIGH, 'avt-nvidia-l4t-bootloader/target-board')
+    db.command('GO')
+    new_option = db.getString('avt-nvidia-l4t-bootloader/target-board')
+    for i in range(len(config_list)):
+        if config_list[i] == new_option:
+            active_board.update_active_configuration(i)
+            break
+
+
+if __name__ == '__main__':
+    main()

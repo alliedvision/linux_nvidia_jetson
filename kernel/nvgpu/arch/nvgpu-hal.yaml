@@ -1,0 +1,10 @@
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# HAL units. These are the units that have access to HW.
+#
+
+init:
+  safe: yes
+  owner: Terje B
+  sources: [ include/nvgpu/hal_init.h ]
+

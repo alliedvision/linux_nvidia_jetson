@@ -1,0 +1,35 @@
+NVIDIA Tegra AON SPI controller.
+
+This is a wrapper driver that makes call to AON cluster which control
+AON SPI controller. Clock, reset and dma controls are handled by native
+driver in AON.
+
+Required properties :
+- compatible : "nvidia,tegra186-aon-spi".
+- bus-number : SPI bus/controller number.
+- mboxes : Mailbox used to communicate with AON SPI native driver.
+
+Recommended properties:
+- spi-max-frequency : Definition as per
+                     Documentation/devicetree/bindings/spi/spi-bus.txt
+
+Optional properties :
+
+spi-client device controller properties :
+  Below properties should be defined under 'controller-data' child node.
+  These values will be passed on to AON native driver.
+- nvidia,cs-setup-clk-count : CS setup timing parameter.
+- nvidia,cs-hold-clk-count : CS hold timing parameter.
+- nvidia,cs-inactive-cycles : Cycles to be inactive between two packets.
+  CS Inactive between packets is disabled if the value of this is zero.
+
+Example:
+
+aon_spi: aon_spi@c260000 {
+	compatible = "nvidia,tegra186-aon-spi";
+	bus-number = <1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	spi-max-frequency = <12000000>;
+	mboxes = <&aon 2>;
+};

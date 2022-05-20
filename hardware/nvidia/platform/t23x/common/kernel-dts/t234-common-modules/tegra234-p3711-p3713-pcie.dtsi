@@ -1,0 +1,92 @@
+/*
+ * T234 P3711-P3713 PCIe DTSI file.
+ *
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	/* C5 (RP - Primary Config) - miniSAS Port-A */
+	pcie@141a0000 {
+		status = "okay";
+
+		num-lanes = <4>;
+
+		nvidia,enable-srns;
+		nvidia,pex-prsnt-gpios = <&tegra_main_gpio
+					  TEGRA234_MAIN_GPIO(R, 4)
+					  GPIO_ACTIVE_LOW>;
+
+		phys = <&p2u_nvhs_0>, <&p2u_nvhs_1>, <&p2u_nvhs_2>,
+		       <&p2u_nvhs_3>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	/* C5 (EP - Secondary Config) - miniSAS Port-A */
+	pcie_ep@141a0000 {
+		status = "disabled";
+
+		num-lanes = <4>;
+
+		nvidia,enable-srns;
+		nvidia,pex-prsnt-gpios = <&tegra_main_gpio
+					  TEGRA234_MAIN_GPIO(R, 4)
+					  GPIO_ACTIVE_LOW>;
+		reset-gpios = <&tegra_main_gpio
+			       TEGRA234_MAIN_GPIO(AF, 1)
+			       GPIO_ACTIVE_LOW>;
+
+		phys = <&p2u_nvhs_0>, <&p2u_nvhs_1>, <&p2u_nvhs_2>,
+		       <&p2u_nvhs_3>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	/* C6 (EP - Primary Config) - miniSAS Port-B */
+	pcie_ep@141c0000 {
+		status = "okay";
+
+		nvidia,enable-srns;
+		nvidia,pex-prsnt-gpios = <&tegra_main_gpio
+					  TEGRA234_MAIN_GPIO(R, 5)
+					  GPIO_ACTIVE_LOW>;
+		reset-gpios = <&tegra_main_gpio
+			       TEGRA234_MAIN_GPIO(AF, 3)
+			       GPIO_ACTIVE_LOW>;
+
+		phys = <&p2u_nvhs_4>, <&p2u_nvhs_5>, <&p2u_nvhs_6>,
+		       <&p2u_nvhs_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	/* C6 (RP - Secondary Config) - miniSAS Port-B */
+	pcie@141c0000 {
+		status = "disabled";
+
+		nvidia,enable-srns;
+		nvidia,pex-prsnt-gpios = <&tegra_main_gpio
+					  TEGRA234_MAIN_GPIO(R, 5)
+					  GPIO_ACTIVE_LOW>;
+
+		phys = <&p2u_nvhs_4>, <&p2u_nvhs_5>, <&p2u_nvhs_6>,
+		       <&p2u_nvhs_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	/* C7 On-board Ethernet */
+	pcie@141e0000 {
+		status = "okay";
+
+		num-lanes = <1>;
+
+		phys = <&p2u_gbe_0>;
+		phy-names = "p2u-0";
+	};
+};

@@ -1,0 +1,5 @@
+append_menu "Graphics support"
+
+source "drivers/video/tegra/Kconfig"
+
+endmenu

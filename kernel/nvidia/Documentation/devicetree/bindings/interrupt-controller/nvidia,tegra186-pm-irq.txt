@@ -1,0 +1,23 @@
+Tegra PM interrupt Controller
+
+Interrupts from power management unit.
+
+Required properties:
+- compatible :
+  for Tegra186, "nvidia,tegra186-pm-irq",
+  for Tegra194, "nvidia,tegra194-pm-irq".
+- interrupt-controller : Identifies the node as an interrupt controller.
+- #interrupt-cells : Specifies the number of cells needed to encode an
+  interrupt source. The value must be 3.
+- interrupt-parent : a phandle to the GIC these interrupts are routed
+  to.
+
+Example:
+
+	pm_irq: tegra186-pm-irq {
+		compatible = "nvidia,tegra186-pm-irq";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		interrupt-parent = <&intc>;
+		status = "disabled";
+	};

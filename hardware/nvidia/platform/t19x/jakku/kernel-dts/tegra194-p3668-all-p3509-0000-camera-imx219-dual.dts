@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for dual camera IMX219 rbpcv2 on dual
+ * cam connector baseboards
+ *
+ * Copyright (c) 2021 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Camera IMX219 Dual";
+	jetson-header-name = "Jetson Nano CSI Connector";
+	compatible = "nvidia,p3449-0000+p3668-0000", "nvidia,p3449-0000+p3668-0001", "nvidia,p3509-0000+p3668-0000", "nvidia,p3509-0000+p3668-0001";
+
+	/* IMX219 dual sensor module */
+	fragment@0 {
+		target = <&imx219_cam0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&cam_module0>;
+		__overlay__ {
+			status = "okay";
+			badge = "jakku_front_RBP194";
+			position = "front";
+			orientation = "1";
+		};
+	};
+	fragment@2 {
+		target = <&cam_module0_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx219 9-0010";
+			proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@0/rbpcv2_imx219_a@10";
+		};
+	};
+	fragment@3 {
+		target = <&imx219_cam1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@4 {
+		target = <&cam_module1>;
+		__overlay__ {
+			status = "okay";
+			badge = "jakku_rear_RBP194";
+			position = "rear";
+			orientation = "1";
+		};
+	};
+	fragment@5 {
+		target = <&cam_module1_drivernode0>;
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx219 10-0010";
+			proc-device-tree = "/proc/device-tree/cam_i2cmux/i2c@1/rbpcv2_imx219_c@10";
+		};
+	};
+	fragment@6 {
+		target = <&rbpcv2_imx219_vi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv2_imx219_csi_out0>;
+		};
+	};
+	fragment@7 {
+		target = <&rbpcv2_imx219_vi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv2_imx219_csi_out1>;
+		};
+	};
+	fragment@8 {
+		target = <&rbpcv2_imx219_csi_in0>;
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv2_imx219_out0>;
+		};
+	};
+	fragment@9 {
+		target = <&rbpcv2_imx219_csi_out0>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@10 {
+		target = <&rbpcv2_imx219_csi_in1>;
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <2>;
+			remote-endpoint = <&rbpcv2_imx219_out1>;
+		};
+	};
+	fragment@12 {
+		target = <&rbpcv2_imx219_csi_out1>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};

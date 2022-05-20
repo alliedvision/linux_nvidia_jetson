@@ -1,0 +1,3 @@
+/dts-v1/;
+
+#include "tegra234-chip.dtsi"

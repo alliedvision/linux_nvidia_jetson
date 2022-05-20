@@ -1,0 +1,74 @@
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# Top level NVGPU architecure description in YAML.
+#
+# The format of this document is structured by element and unit. Though only
+# units may have source files associated with them. All units must exist in an
+# element.
+#
+
+nvgpu:
+  safe: no
+  children:
+    # The common code element. This has gr, mm, etc.
+    common:
+      safe: no
+      children:
+        !include nvgpu-common.yaml
+
+    # HAL units - Hardware Abstraction Layer.
+    hal:
+      safe: no
+      children:
+        !include nvgpu-hal-new.yaml
+
+    # The QNX OS layer implementation units.
+    qnx:
+      safe: yes
+      children:
+        !include nvgpu-qnx.yaml
+
+    # And the Linux version of the OS implementation units.
+    linux:
+      safe: no
+      children:
+        !include nvgpu-linux.yaml
+
+    # POSIX units for implementing the OS layer for unit testing.
+    posix:
+      children:
+        !include nvgpu-posix.yaml
+
+
+    # Inteface units - these provide interfaces for NVGPU to the underlying
+    # OS or CPU.
+    interface:
+      safe: yes
+      owner: Alex W
+      children:
+        !include nvgpu-interface.yaml
+
+    # Virtualization code.
+    vgpu:
+      safe: yes
+      children:
+        !include nvgpu-vgpu.yaml
+
+    # Virtualization HAL code.
+    hal-vgpu:
+      safe: yes
+      children:
+        !include nvgpu-hal-vgpu.yaml
+
+    # A meta-element for the GPU HW. A good example of this is the HW headers.
+    # This is not code we write in nvgpu, but we import it from the GPU HW
+    # tree (with a little tranformation - the gen reg scrip).
+    gpu_hw:
+      safe: no
+      children:
+        !include nvgpu-gpu_hw.yaml
+
+    nvgpu_next:
+      safe: no
+      children:
+        !include nvgpu-next.yaml

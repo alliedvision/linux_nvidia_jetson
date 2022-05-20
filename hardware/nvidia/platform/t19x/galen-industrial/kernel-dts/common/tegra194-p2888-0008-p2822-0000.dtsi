@@ -1,0 +1,97 @@
+/*
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+	nvidia,fastboot-usb-vid = <0x0955>;
+	nvidia,fastboot-usb-pid = <0xee1e>;
+
+	model = "Jetson-AGXi";
+	compatible = "nvidia,jetson-xavier-industrial", "nvidia,tegra194";
+
+	/* QSPI flash S25FS512SFABHB210 is controlled by qspi0 */
+	spi@3270000 {
+		spi-max-frequency = <136000000>;
+		status = "okay";
+		prod-settings {
+			#prod-cells = <3>;
+			prod {
+				prod = <0x04 0x000000ff 0x10>;
+			};
+		};
+		/* QSPI NOR */
+		spiflash@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "s25fs512s";
+			reg = <0>;
+			spi-max-frequency = <136000000>;
+			partition@0 {
+				label = "Whole_flash0";
+				reg = <0x00000000 0x4000000>;	/* size of QSPI-NOR 64MB == 512Mb */
+			};
+			controller-data {
+				nvidia,x1-len-limit = <16>;
+				nvidia,x1-bus-speed = <136000000>; /* In Mhz */
+				nvidia,x1-dymmy-cycle = <8>;
+				nvidia,x4-bus-speed = <136000000>;
+				nvidia,x4-dymmy-cycle = <8>;
+				nvidia,x4-is-ddr=<0>;
+				nvidia,ctrl-bus-clk-ratio = <1>;
+			};
+		};
+	};
+	spi@3300000 {
+		spi-max-frequency = <136000000>;
+		status = "okay";
+		prod-settings {
+			#prod-cells = <3>;
+			prod {
+				prod = <0x04 0x000000ff 0x10>;
+			};
+		};
+		/* QSPI NOR */
+		spiflash@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "mx75u25690f";
+			reg = <0>;
+			spi-max-frequency = <136000000>;
+			partition@0 {
+				label = "Secure_ROM";
+				reg = <0x00000000 0x2000000>;	/* size of QSPI-NOR 32MB == 256Mb */
+			};
+			controller-data {
+				nvidia,x1-len-limit = <16>;
+				nvidia,x1-bus-speed = <136000000>; /* In Mhz */
+				nvidia,x1-dymmy-cycle = <8>;
+				nvidia,x4-bus-speed = <136000000>;
+				nvidia,x4-dymmy-cycle = <8>;
+				nvidia,x4-is-ddr=<0>;
+				nvidia,ctrl-bus-clk-ratio = <1>;
+			};
+		};
+	};
+
+	fixed-regulators {
+		/* Override PCIe 12V regulator GPIO for AGX Industrial. */
+		regulator@116 {
+			gpio = <&tegra_aon_gpio TEGRA194_AON_GPIO(AA, 7) 1>;
+		};
+	};
+
+	pwm-fan {
+		regulator-name = "vdd-12v-pcie";
+	};
+};

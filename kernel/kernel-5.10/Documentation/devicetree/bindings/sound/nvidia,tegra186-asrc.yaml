@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra186-asrc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra186 Arbitrary Sample Rate Converter (ASRC) DT Bindings
+
+description: |
+  Audio systems may require high fidelity sample rate conversion. The sample
+  rate may not be known at the stream setup time or is potentially time varying.
+  In addition, ratio between input and output sample rate can be any arbitray
+  number and input/output clocks can be derived from the asynchronous clocks.
+  For such scenarios ASRC is required. It can handle wide range of sample rate
+  ratios 1:24 or 24:1.
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-asrc"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-asrc", "nvidia,tegra186-asrc"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-asrc-id:
+    description: Must be specified to uniquely identify ASRC instance.
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-asrc-id
+
+examples:
+  - |
+    asrc@2910000 {
+        compatible = "nvidia,tegra186-asrc";
+        reg = <0x0 0x2910000 0x0 0x2000>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-asrc-id = <0>;
+    };
+
+  - |
+    asrc@2910000 {
+        compatible = "nvidia,tegra194-asrc", "nvidia,tegra186-asrc";
+        reg = <0x0 0x2910000 0x0 0x2000>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-asrc-id = <0>;
+    };
+
+...

@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra210-aconnect.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra ACONNECT Bus DT bindings
+
+description: The Tegra ACONNECT bus is an AXI switch which is used to connnect
+  various components inside the Audio Processing Engine (APE). All CPU accesses
+  to the APE subsystem go through the ACONNECT via an APB to AXI wrapper. All
+  devices accessed via the ACONNNECT are described by child-nodes.
+
+maintainers:
+  - Thierry Reding <treding@nvidia.com>
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible: Must be "nvidia,tegra210-aconnect"
+
+  clocks:
+    - items:
+        description: APE clock
+    - items:
+        description: APE interface clock
+
+  clock-names:
+    - items:
+        const: ape
+    - items:
+        const: apb2ape
+
+  power-domains:
+    description: Must contain a phandle that points to the audio powergate
+
+  "#address-cells":
+    description: The number of cells used to represent physical base addresses
+      in the aconnect address space. Should be 1.
+
+  "#size-cells":
+    description: The number of cells used to represent the size of an address
+      range in the aconnect address space. Should be 1.
+
+  ranges:
+    description: Mapping of the aconnect address space to the CPU address space.
+
+required:
+  - compatible
+  - clocks
+  - clock-names
+  - power-domains
+  - "#address-cells"
+  - "size-cells"
+  - ranges
+
+examples:
+
+  - |
+    aconnect@702c0000 {
+        compatible = "nvidia,tegra210-aconnect";
+        clocks = <&tegra_car TEGRA210_CLK_APE>,
+                 <&tegra_car TEGRA210_CLK_APB2APE>;
+        clock-names = "ape", "apb2ape";
+        power-domains = <&pd_audio>;
+
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges = <0x702c0000 0x0 0x702c0000 0x00040000>;
+
+        child1 {
+            ...
+        };
+
+        child2 {
+            ...
+        };
+    };
+
+...

@@ -1,0 +1,31 @@
+NVIDIA Tegra Xavier (T19x) MIPICAL bindings
+
+The MIPICAL unit performs calibration at start of capture or transmission to
+condition the impedance of MIPI D-Phy CSI-2 and DSI lanes. DSI is not POR for
+Xavier and is not used.
+
+Required properties:
+	- compatible: Should be "nvidia, tegra194-mipical".
+	- reg: Register address space (MMIO).
+	- clocks: All MIPICAL clocks.
+	- clock-names: Names of the above clocks.
+	- resets: All MIPICAL resets.
+	- reset-names: Names of the above resets.
+	- status: Can be "okay" to enable kernel probe or "disabled".
+
+	- mipical prod settings for Xavier in kernel is not used.
+	  Prod settings are packaged with the RCE FW (rtcpu dir).
+
+Example:
+
+	mipical@3990000 {
+		compatible = "nvidia, tegra194-mipical";
+		reg = <0x0 0x03990000 0x0 0x10000>;
+		clocks = <&bpmp_clks TEGRA194_CLK_MIPI_CAL>,
+			<&bpmp_clks TEGRA194_CLK_UART_FST_MIPI_CAL>;
+		clock-names = "mipi_cal", "uart_fs_mipi_cal";
+		resets = <&bpmp_resets TEGRA194_RESET_MIPI_CAL>;
+		reset-names = "mipi_cal";
+		status = "disabled";
+	};
+

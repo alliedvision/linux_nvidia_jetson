@@ -1,0 +1,707 @@
+/*
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		generic_reserved: generic_carveout {
+			compatible = "nvidia,generic_carveout";
+			size = <0 0>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0x1 0 0x1 0>;
+			no-map;
+			status = "disabled";
+		};
+
+		gos_reserved: grid-of-semaphores {
+			compatible = "nvidia,gosmem";
+			size = <0 0x6000>;
+			alignment = <0 0x1000>;
+			no-map;
+			status = "disabled";
+			cvdevs = <&nvdla0 &nvdla1 &pva0 &pva1 &vi_thi &isp_thi>;
+		};
+
+		ramoops_reserved: ramoops_carveout {
+			compatible = "nvidia,ramoops";
+			size = <0x0 0x200000>;
+			alignment = <0x0 0x10000>;
+			alloc-ranges = <0x0 0x0 0x1 0x0>;
+			no-map;
+		};
+
+		fb0_reserved: fb0_carveout {
+			reg = <0x00 0x00 0x00 0x00
+			       0x00 0x00 0x00 0x00>;
+			reg-names = "surface", "lut";
+			no-map;
+		};
+		fb1_reserved: fb1_carveout {
+			reg = <0x00 0x00 0x00 0x00
+			       0x00 0x00 0x00 0x00>;
+			reg-names = "surface", "lut";
+			no-map;
+		};
+		fb2_reserved: fb2_carveout {
+			reg = <0x00 0x00 0x00 0x00
+			       0x00 0x00 0x00 0x00>;
+			reg-names = "surface", "lut";
+			no-map;
+		};
+		fb3_reserved: fb3_carveout {
+			reg = <0x00 0x00 0x00 0x00
+			       0x00 0x00 0x00 0x00>;
+			reg-names = "surface", "lut";
+			no-map;
+		};
+
+	};
+
+	tegra-carveouts {
+		compatible = "nvidia,carveouts-t19x";
+                /* *************Note**************
+		 * Zero sized memory regions has to be kept at the end of "memory-region"
+		 * array. "memory-region" parser stops parsing other regions in the array
+                 * once it finds Zero size "memory-region". Hence keep non zero sized
+		 * "memory-region" before the zero sized ones.
+		 */
+		memory-region = <&gos_reserved &generic_reserved>;
+		status = "disabled";
+	};
+
+	tegra-cache {
+		compatible = "nvidia,t19x-cache";
+		l3-gpu-cpu-ways = <0>;
+		l3-gpu-only-ways = <0>;
+		l3-total-ways = <16>;
+		l3-size = /bits/ 64 <0x0000000000400000>; /* 4 MB */
+		status = "disabled";
+	};
+
+	mc: mc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "nvidia,tegra-t19x-mc";
+		reg-ranges = <1>;
+		reg	   = <0x0 0x2c10000 0x0 0x10000   /* MCB */
+			      0x0 0x2c20000 0x0 0x10000   /* MC0 */
+			      0x0 0x2c30000 0x0 0x10000   /* MC1 */
+			      0x0 0x2c40000 0x0 0x10000   /* MC2 */
+			      0x0 0x2c50000 0x0 0x10000   /* MC3 */
+			      0x0 0x2b80000 0x0 0x10000   /* MC4 */
+			      0x0 0x2b90000 0x0 0x10000   /* MC5 */
+			      0x0 0x2ba0000 0x0 0x10000   /* MC6 */
+			      0x0 0x2bb0000 0x0 0x10000   /* MC7 */
+			      0x0 0x1700000 0x0 0x10000   /* MC8 */
+			      0x0 0x1710000 0x0 0x10000   /* MC9 */
+			      0x0 0x1720000 0x0 0x10000   /* MC10 */
+			      0x0 0x1730000 0x0 0x10000   /* MC11 */
+			      0x0 0x1740000 0x0 0x10000   /* MC12 */
+			      0x0 0x1750000 0x0 0x10000   /* MC13 */
+			      0x0 0x1760000 0x0 0x10000   /* MC14 */
+			      0x0 0x1770000 0x0 0x10000   /* MC15 */
+			      0x0 0x2C60000 0x0 0x10000   /* EMCB */
+			      0x0 0x2c70000 0x0 0x10000   /* EMC0 */
+			      0x0 0x2c80000 0x0 0x10000   /* EMC1 */
+			      0x0 0x2c90000 0x0 0x10000   /* EMC2 */
+			      0x0 0x2ca0000 0x0 0x10000   /* EMC3 */
+			      0x0 0x2cb0000 0x0 0x10000   /* EMC4 */
+			      0x0 0x2cc0000 0x0 0x10000   /* EMC5 */
+			      0x0 0x2cd0000 0x0 0x10000   /* EMC6 */
+			      0x0 0x2ce0000 0x0 0x10000   /* EMC7 */
+			      0x0 0x1780000 0x0 0x10000   /* EMC8 */
+			      0x0 0x1790000 0x0 0x10000   /* EMC9 */
+			      0x0 0x17a0000 0x0 0x10000   /* EMC10 */
+			      0x0 0x17b0000 0x0 0x10000   /* EMC11 */
+			      0x0 0x17c0000 0x0 0x10000   /* EMC12 */
+			      0x0 0x17d0000 0x0 0x10000   /* EMC13 */
+			      0x0 0x17e0000 0x0 0x10000   /* EMC14 */
+			      0x0 0x17f0000 0x0 0x10000>; /* EMC15 */
+
+		interrupts = <0 223 0x4>, <0 224 0x4>;
+		int_mask   = <0x1b3140>;
+		hub_int_mask   = <0x1>;
+		ecc_int_mask   = <0x1c00>;
+
+		channels   = <16>;
+		ranges;
+		status = "disabled";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		#interconnect-cells = <1>;
+
+			/*
+			 * Bit 39 of addresses passing through the memory
+			 * controller selects the XBAR format used when memory
+			 * is accessed. This is used to transparently access
+			 * memory in the XBAR format used by the discrete GPU
+			 * (bit 39 set) or Tegra (bit 39 clear).
+			 *
+			 * As a consequence, the operating system must ensure
+			 * that bit 39 is never used implicitly, for example
+			 * via an I/O virtual address mapping of an IOMMU. If
+			 * devices require access to the XBAR switch, their
+			 * drivers must set this bit explicitly.
+			 *
+			 * Limit the DMA range for memory clients to [38:0].
+			 */
+		dma-ranges = <0x0 0x0 0x0 0x0 0x80 0x0>;
+#endif
+
+		mssnvlink@1f20000 {
+			reg = <0x0 0x1f20000 0x0 0x20000   /* MSSNVLINK 1: igpu0 link */
+			       0x0 0x1f40000 0x0 0x20000   /* MSSNVLINK 2: igpu1 link */
+			       0x0 0x1f60000 0x0 0x20000   /* MSSNVLINK 3: igpu2 link */
+			       0x0 0x1f80000 0x0 0x20000>; /* MSSNVLINK 4: igpu3 link */
+			mssnvlink_hubs = <4>;
+		};
+	};
+
+	mc_sid@2c00000 {
+		status = "disabled";
+		compatible = "nvidia,tegra194-mc-sid";
+		reg = <0x0 0x02c00000 0x0 0x00010000>; /* MC_SID_BASE */
+	};
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+	smmu_suspend {
+		compatible = "nvidia,smmu_suspend";
+		reg = <0 0x12000000 0 0x800000>,
+		      <0 0x11000000 0 0x800000>,
+		      <0 0x10000000 0 0x800000>;
+		suspend-save-reg = <0x0c3902ac>; /* SCRATCH_SECURE_RSV73_SCRATCH_0 */
+		status = "disabled";
+	};
+
+	smmu_iso: iommu@10000000{
+		compatible = "arm,mmu-500","nvidia,smmu-500";
+		reg = <0 0x10000000 0 0x800000>;
+		#global-interrupts = <1>;
+		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>;
+		stream-match-mask = <0x7F80>;
+		#iommu-cells = <1>;
+		status = "disabled";
+	};
+
+	smmu: iommu@12000000{
+		compatible = "arm,mmu-500","nvidia,tegra194-smmu";
+		reg = <0 0x12000000 0 0x800000>,
+		      <0 0x11000000 0 0x800000>;
+		#global-interrupts = <2>;
+		interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+		stream-match-mask = <0x7F80>;
+		#iommu-cells = <1>;
+		status = "disabled";
+
+#else
+	smmu: iommu@12000000{
+		compatible = "t19x,arm,mmu-500";
+		reg = <0x0 0x12000000 0x0 0x01000000>, /* SMMU0 16MB */
+		      <0x0 0x11000000 0x0 0x01000000>, /* SMMU1 16MB */
+		      <0x0 0x10000000 0x0 0x01000000>; /* SMMU2 16MB */
+
+		#global-interrupts = <6>;
+		interrupts = <0 170 4>,
+			     <0 171 4>,
+			     <0 232 4>,
+			     <0 233 4>,
+			     <0 240 4>,
+			     <0 241 4>;
+		iso-smmu-id = <2>;
+		status = "disabled";
+		#iommu-cells = <1>;
+#endif
+		suspend-save-reg = <0x0c3902ac>; /* SCRATCH_SECURE_RSV73_SCRATCH_0 */
+
+		/* Note: Keep domain and address space in alphabetical order */
+		domains {
+			aon_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_AON>;
+			};
+			ape_domain {
+				address-space = <&ape_as>;
+				sid-list = <TEGRA_SID(APE)
+					    TEGRA_SID(EQOS)>;
+			};
+			bpmp_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_BPMP>;
+			};
+			gpcdma_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_GPCDMA_0>;
+			};
+			hda_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_HDA>;
+			};
+			host1x_domain {
+				address-space = <&host1x_as>;
+				sid-list = <TEGRA_SID(HC)>;
+			};
+			host1x_client_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID(VIC)
+					    TEGRA_SID(NVDEC)
+					    TEGRA_SID(NVENC)
+					    TEGRA_SID(NVJPG)
+					    TEGRA_SID(NVDLA0)
+					    TEGRA_SID(NVDLA1)
+					    TEGRA_SID(NVENC1)
+					    TEGRA_SID(NVDEC1)
+					    TEGRA_SID(TSEC)
+					    TEGRA_SID(TSECB)>;
+			};
+			host1x0_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX0>;
+			};
+			host1x1_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX1>;
+			};
+			host1x2_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX2>;
+			};
+			host1x3_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX3>;
+			};
+			host1x4_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX4>;
+			};
+			host1x5_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX5>;
+			};
+			host1x6_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX6>;
+			};
+			host1x7_domain {
+				address-space = <&host1x_client_as>;
+				sid-list = <TEGRA_SID_HOST1X_CTX7>;
+			};
+			isp_domain {
+				address-space = <&pixel_as>;
+				sid-list = <TEGRA_SID_ISP>;
+			};
+			nvdisplay_domain {
+				address-space = <&nvdisplay_as>;
+				sid-list = <TEGRA_SID(NVDISPLAY)>;
+			};
+			pcie0_domain {
+				address-space = <&pcie0_as>;
+				sid-list = <TEGRA_SID_PCIE0>;
+			};
+			pcie1_domain {
+				address-space = <&pcie1_as>;
+				sid-list = <TEGRA_SID_PCIE1>;
+			};
+			pcie2_domain {
+				address-space = <&pcie2_as>;
+				sid-list = <TEGRA_SID_PCIE2>;
+			};
+			pcie3_domain {
+				address-space = <&pcie3_as>;
+				sid-list = <TEGRA_SID_PCIE3>;
+			};
+			pcie4_domain {
+				address-space = <&pcie4_as>;
+				sid-list = <TEGRA_SID_PCIE4>;
+			};
+			pcie5_domain {
+				address-space = <&pcie5_as>;
+				sid-list = <TEGRA_SID_PCIE5>;
+			};
+			pva0_domain {
+				address-space = <&pva_as>;
+				sid-list = <TEGRA_SID(PVA0)>;
+			};
+			pva1_domain {
+				address-space = <&pva_as>;
+				sid-list = <TEGRA_SID(PVA1)>;
+			};
+			sce_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SCE>;
+			};
+			rce_domain {
+				address-space = <&camera_vm1_as>;
+				sid-list = <TEGRA_SID_RCE>;
+			};
+			sata2_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SATA2>;
+			};
+			sdmmc1a_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SDMMC1A>;
+			};
+			sdmmc3a_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SDMMC3A>;
+			};
+			sdmmc4a_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SDMMC4A>;
+			};
+			se_domain {
+				address-space = <&se_client_as>;
+				sid-list = <TEGRA_SID(SE)
+					    TEGRA_SID(SE1)
+					    TEGRA_SID(SE2)
+					    TEGRA_SID(SE3)>;
+			};
+			smmu_test_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_SMMU_TEST>;
+			};
+			ufshci_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_UFSHC>;
+			};
+			vi_domain {
+				address-space = <&pixel_as>;
+				sid-list = <TEGRA_SID_VI>;
+			};
+			xusb_dev_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_DEV>;
+			};
+			xusb_host_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_HOST>;
+			};
+			xusb_host_vf0_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_VF0>;
+			};
+			xusb_host_vf1_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_VF1>;
+			};
+			xusb_host_vf2_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_VF2>;
+			};
+			xusb_host_vf3_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_XUSB_VF3>;
+			};
+			eqos_vf1_domain {
+				address-space = <&common_as>;
+				sid-list = <TEGRA_SID_EQOS_VF1>;
+			};
+		};
+
+		address-space-prop {
+			ape_as: ape {
+				iova-start = <0x0 0x40000000>;
+				iova-size = <0x0 0x20000000>;
+			};
+			camera_vm0_as: camera_vm0 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x0 0x20000000>;
+			};
+			camera_vm1_as: camera_vm1 {
+				iova-start = <0x0 0xA0000000>;
+				iova-size = <0x0 0x20000000>;
+			};
+			common_as: common {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x0 0x7FF00000>;
+			};
+			host1x_as: host1x {
+				iova-start = <0x0 0x1000>;
+				iova-size = <0x0 0xFFFFEFFF>;
+			};
+			host1x_client_as: host1x_client {
+				iova-start = <0x0 0x1000>;
+				iova-size = <0x1F 0xFFFFF000>;
+			};
+			nvdisplay_as: nvdisplay {
+				iova-start = <0x0 0x1000>;
+				iova-size = <0x0 0xFFFFEFFF>;
+			};
+			pcie0_as: pcie0 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x4 0x7FFFFFFF>;
+			};
+			pcie1_as: pcie1 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x1F 0x7FFFFFFF>;
+			};
+			pcie2_as: pcie2 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x0 0xFFFFFFFF>;
+			};
+			pcie3_as: pcie3 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x0 0xFFFFFFFF>;
+			};
+			pcie4_as: pcie4 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x4 0x7FFFFFFF>;
+			};
+			pcie5_as: pcie5 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x4 0x7FFFFFFF>;
+			};
+			pixel_as: pixel {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x4 0x3FFFFFFF>; /* 8 Gigs is enough for everyone */
+			};
+			/* Modify pva kernel code for any iova-start change*/
+			pva_as: pva0 {
+				iova-start = <0x0 0x80000000>;
+				iova-size = <0x0 0x7FFFFFFF>;
+			};
+			se_client_as: se {
+				iova-start = <0x0 0x1000>;
+				iova-size = <0x0 0xFFFFEFFF>;
+			};
+		};
+	};
+
+	smmu_test: smmu_test {
+		compatible = "nvidia,smmu_test";
+		iommus = <&smmu TEGRA_SID_SMMU_TEST>;
+	};
+
+	dma_test: dma_test {
+		compatible = "nvidia,dma_test";
+	};
+
+	mods_smmu: mods_smmu {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_SMMU_TEST>;
+		dma-coherent;
+		dev-names = "mods_smmu";
+		status = "disabled";
+	};
+
+	mods_iso_smmu: mods_iso_smmu {
+		compatible = "nvidia,mods_smmu";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		iommus = <&smmu_iso TEGRA_SID_SMMU_TEST>;
+#else
+		iommus = <&smmu TEGRA_SID_SMMU_TEST>;
+		iso-smmu;
+#endif
+		non-coherent;
+		dev-names = "mods_iso_smmu";
+		status = "disabled";
+	};
+
+	mods_pcie0: mods_pcie0 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE0>;
+		dma-coherent;
+		dev-names = "mods_pcie0";
+		status = "disabled";
+	};
+
+        mods_pcie1: mods_pcie1 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE1>;
+		dma-coherent;
+		dev-names = "mods_pcie1";
+		status = "disabled";
+	};
+
+	mods_pcie2: mods_pcie2 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE2>;
+		dma-coherent;
+		dev-names = "mods_pcie2";
+		status = "disabled";
+	};
+
+	mods_pcie3: mods_pcie3 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE3>;
+		dma-coherent;
+		dev-names = "mods_pcie3";
+		status = "disabled";
+	};
+
+	mods_pcie4: mods_pcie4 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE4>;
+		dma-coherent;
+		dev-names = "mods_pcie4";
+		status = "disabled";
+	};
+
+	mods_pcie5: mods_pcie5 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_PCIE5>;
+		dma-coherent;
+		dev-names = "mods_pcie5";
+		status = "disabled";
+	};
+
+	mods_isp: mods_isp {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_ISP>;
+		dma-coherent;
+		dev-names = "mods_isp";
+		status = "disabled";
+	};
+
+	mods_dma: mods_dma {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu TEGRA_SID_GPCDMA_0>;
+		dma-coherent;
+		dev-names = "mods_dma";
+		status = "disabled";
+	};
+};

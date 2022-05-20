@@ -1,0 +1,108 @@
+/*
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Jetson Device-tree overlay for ReSpeaker 4 Mic Array.
+ */
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+
+/ {
+	overlay-name = "ReSpeaker 4 Mic Array";
+	jetson-header-name = "Jetson 40pin Header";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&hdr40_i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ac108_a: ac108@3b{
+				compatible = "x-power,ac108_0";
+				reg = <0x3b>;
+				#sound-dai-cells = <0>;
+				data-protocol = <0>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&tegra_sound>;
+		__overlay__ {
+			nvidia-audio-card,widgets =
+				"Microphone",   "H40-AC Mic";
+			nvidia-audio-card,routing =
+				"H40-AC MIC1N",              "H40-AC Mic",
+				"H40-AC MIC1P",              "H40-AC Mic",
+				"H40-AC MIC2N",              "H40-AC Mic",
+				"H40-AC MIC2P",              "H40-AC Mic",
+				"H40-AC MIC3N",              "H40-AC Mic",
+				"H40-AC MIC3P",              "H40-AC Mic",
+				"H40-AC MIC4N",              "H40-AC Mic",
+				"H40-AC MIC4P",              "H40-AC Mic",
+				"H40-AC Capture",            "H40-AC Mic";
+		};
+	};
+
+	fragment@2 {
+		target = <&hdr40_snd_link_i2s>;
+		__overlay__ {
+			link-name = "respeaker-4-mic-array";
+			format = "dsp_a";
+			bitclock-master;
+			frame-master;
+			codec {
+				sound-dai = <&ac108_a>;
+				prefix = "H40-AC";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+
+			jetson_io_pinmux: exp-header-pinmux {
+				hdr40-pin12 {
+					nvidia,pins = HDR40_PIN12;
+					nvidia,function = HDR40_I2S;
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+
+				hdr40-pin35 {
+					nvidia,pins = HDR40_PIN35;
+					nvidia,function = HDR40_I2S;
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+
+				hdr40-pin38 {
+					nvidia,pins = HDR40_PIN38;
+					nvidia,function = HDR40_I2S;
+					nvidia,pull = <TEGRA_PIN_PULL_DOWN>;
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+			};
+		};
+	};
+};

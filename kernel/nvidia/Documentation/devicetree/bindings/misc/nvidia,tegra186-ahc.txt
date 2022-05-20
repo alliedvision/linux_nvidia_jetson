@@ -1,0 +1,21 @@
+* NVIDIA Tegra AHC device
+
+The Tegra AHC device is interface to AHUB clients interface
+which can capture interrupt and live status of all ahub
+clients.
+
+Required properties:
+- compatible: Must be "nvidia,tegra186-ahc".
+- interrupt-parent : phandle for agic device
+- reg : register address space for ahc
+- interrupt : property define interrupt number, state, routed
+  interface
+
+Example:
+
+tegra_ahc: ahc@290b900 {
+	compatible = "nvidia,tegra186-ahc";
+	interrupt-parent = <&tegra_agic>;
+	reg = <0x0 0x290b900 0x0 0x200>;
+	interrupts =  <GIC_SPI INT_AHUB_ERR IRQ_TYPE_LEVEL_HIGH ROUTE_TO_HOST_INTF0>;
+};

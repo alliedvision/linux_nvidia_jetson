@@ -1,0 +1,15 @@
+append_menu "Device Drivers"
+
+if ARCH_TEGRA
+source "drivers/bluetooth/realtek/Kconfig"
+source "drivers/misc/tegra186-ahc/Kconfig"
+source "drivers/nvpmodel/Kconfig"
+source "drivers/nv-p2p/Kconfig"
+source "drivers/iommu/Kconfig"
+source "drivers/nvpps/Kconfig"
+source "drivers/trusty/Kconfig"
+source "drivers/virt/tegra/Kconfig"
+source "drivers/virt/ptp/Kconfig"
+endif
+
+endmenu

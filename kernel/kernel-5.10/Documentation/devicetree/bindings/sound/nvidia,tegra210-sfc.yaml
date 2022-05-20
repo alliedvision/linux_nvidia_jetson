@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra210-sfc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra210 Sample Frequency Converter (SFC) DT Bindings
+
+description: |
+  The SFC converts sampling frequency of the input signal from one frequency
+  to another. Following are the features of SFC,
+    * Supports sampling frequency conversion of streams up to two channels.
+    * Has a very low latency with the maximum latency of < 125 us.
+    * Supports inter conversion of following sampling frequencies
+      8, 11.025, 16, 22.05, 24, 32, 44.1, 48, 88.2, 96, 176.4, 192 kHz, with
+      following exceptions where conversion is not possible.
+        176.4 <---> 8 kHz
+        192   <---> 8 kHz
+        176.4 <---> 11.025 kHz
+        192   <---> 11.025 kHz
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra210 based platforms
+          const: "nvidia,tegra210-sfc"
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-sfc", "nvidia,tegra210-sfc"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-sfc", "nvidia,tegra210-sfc"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-sfc-id:
+    description: Must be specified with SFC instance number.
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-sfc-id
+
+examples:
+
+  - |
+    sfc@702d2000 {
+        compatible = "nvidia,tegra210-sfc";
+        reg = <0x702d2000 0x200>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-sfc-id = <0>;
+    };
+
+  - |
+    sfc@2902000 {
+        compatible = "nvidia,tegra186-sfc", "nvidia,tegra210-sfc";
+        reg = <0x0 0x2902000 0x0 0x200>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-sfc-id = <0>;
+    };
+
+  - |
+    sfc@2902000 {
+        compatible = "nvidia,tegra194-sfc", "nvidia,tegra210-sfc";
+        reg = <0x0 0x2902000 0x0 0x200>;
+        #sound-dai-cells = <1>;
+        nvidia,ahub-sfc-id = <0>;
+    };
+
+...

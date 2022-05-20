@@ -1,0 +1,113 @@
+NVIDIA Tegra Display Controller
+
+The Tegra Display Hardware (DC) provides an engine for display processing
+pipeline with support of format conversion, scaling, rotation of display
+content with supporting different protocols for display pipeline.
+
+This document describes the device tree bindings for the Display Controller
+hardware itself, as well as for subnodes corresponding to this engine.
+
+Required properties:
+- status: Should be "disabled" in SoC and "okay" in Board DTSI.
+- compatible: Must be "nvidia,tegra194-dc".
+- reg: A list of physical base address and length of the controller's
+  registers.
+- interrupts: The interrupt IRQ info for the controller.
+- iommus: DC Stream ID, should be "TEGRA_SID_NVDISPLAY".
+- iso-smmu: Isochronous SMMU, should be set because display HW memory accesses are always ISO.
+- non-coherent: Non-coherent DMA, should be set because ISO clients can't snoop CPU caches.
+- nvidia,dc-ctrlnum: Controller number mapping to display hardware physical number.
+- clock-names: Must include the following entries:
+  "nvdisplayhub", "nvdisplay_p0", "nvdisplay_p1", "nvdisplay_p2",
+  "nvdisplay_p3", "pllp_display", "pll_d", "plld2", "plld3", "plld4"
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details
+- reset-names: Must include the following entries:
+  - "misc", "wgrp0", "wgrp1", "wgrp2", "wgrp3", "wgrp4", "wgrp5", "headX"
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- fb_reserved: The frame buffer reserved for this display controller.
+- iommu-direct-regions: The mapping of framebuffer to this display controller.
+- pinctrl-names: Define pinctrls for input/output pins per SOR.
+- pinctrl-0 : The pincontrol settings to dpd disable on SOR0.
+- pinctrl-1 : The pincontrol settings to dpd enable on SOR0.
+- pinctrl-2: The pincontrol settings to dpd disable on SOR1.
+- pinctrl-3 : The pincontrol settings to dpd enable on SOR1.
+- pinctrl-4: The pincontrol settings to dpd disable on SOR2.
+- pinctrl-5: The pincontrol settings to dpd enable on SOR2.
+- pinctrl-6: The pincontrol settings to dpd disable on SOR3.
+- pinctrl-7: The pincontrol settings to dpd enable on SOR3.
+Optional properties:
+- nvidia,cmu-enable: Controls output LUT on NvDisplay.
+
+Example:
+=======
+
+SoC DTSI:
+
+head0: display@15200000 {
+	status: "disabled";
+	compatible = "nvidia,tegra194-dc";
+	reg = <0x0 0x15200000 0x0 0x10000>;
+	interrupts = <0 153 4>;
+
+	iommus = <&smmu TEGRA_SID_NVDISPLAY>;
+	iso-smmu;
+	non-coherent;
+
+	nvidia,dc-ctrlnum = <0>;
+	nvidia,cmu-enable = <0x1>;
+
+	clock-names = "nvdisplay_disp",
+		      "nvdisplayhub", "nvdisplay_p0",
+		      "nvdisplay_p1", "nvdisplay_p2",
+		      "nvdisplay_p3", "pllp_display",
+		      "pll_d", "plld2",
+		      "plld3", "plld4";
+	clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+		 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+		 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+		 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+		 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+		 <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+		 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+		 <&bpmp_clks TEGRA194_CLK_PLLD>,
+		 <&bpmp_clks TEGRA194_CLK_PLLD2>,
+		 <&bpmp_clks TEGRA194_CLK_PLLD3>,
+		 <&bpmp_clks TEGRA194_CLK_PLLD4>,
+		 <&bpmp_clks TEGRA194_CLK_EMC>;
+	reset-names = "misc", "wgrp0", "wgrp1", "wgrp2",
+		      "wgrp3", "wgrp4", "wgrp5", "head0";
+	resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>,
+		 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD0>;
+	fb_reserved = <&fb0_reserved>;
+	iommu-direct-regions = <&fb0_reserved &fb1_reserved
+				&fb2_reserved &fb3_reserved>;
+
+	pinctrl-names = "hdmi-dp0-dpd-disable", "hdmi-dp0-dpd-enable",
+			"hdmi-dp1-dpd-disable", "hdmi-dp1-dpd-enable",
+			"hdmi-dp2-dpd-disable", "hdmi-dp2-dpd-enable",
+			"hdmi-dp3-dpd-disable", "hdmi-dp3-dpd-enable";
+	pinctrl-0 = <&hdmi_dp0_dpd_disable>;
+	pinctrl-1 = <&hdmi_dp0_dpd_enable>;
+	pinctrl-2 = <&hdmi_dp1_dpd_disable>;
+	pinctrl-3 = <&hdmi_dp1_dpd_enable>;
+	pinctrl-4 = <&hdmi_dp2_dpd_disable>;
+	pinctrl-5 = <&hdmi_dp2_dpd_enable>;
+	pinctrl-6 = <&hdmi_dp3_dpd_disable>;
+	pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+}; //display@15200000
+
+
+Board DTSI:
+----------
+
+head0: display@15200000 {
+	status: "okay";
+};

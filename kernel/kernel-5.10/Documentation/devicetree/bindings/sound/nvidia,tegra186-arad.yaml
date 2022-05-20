@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/nvidia,tegra186-arad.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NVIDIA Tegra186 Audio Ratio Detector (ARAD) DT Bindings
+
+description: |
+  ARAD has several lanes, each of which has the capacity to find the frequency
+  or time period ratio between any two of the I/O clocks in APE. This has many
+  applications including sample rate conversions without software configuration
+  of the ratio, ppm compensation.
+
+maintainers:
+  - Jonathan Hunter <jonathanh@nvidia.com>
+  - Sameer Pujar <spujar@nvidia.com>
+  - Mohan Kumar D <mkumard@nvidia.com>
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          description: for Tegra186 based platforms
+          const: "nvidia,tegra186-arad"
+      - items:
+          description: for Tegra194 based platforms
+          const: "nvidia,tegra194-arad", "nvidia,tegra186-arad"
+
+  reg:
+    maxItems: 1
+    description: Must contain physical base address and length of device's
+      registers
+
+  "#sound-dai-cells":
+    description: The cell specifies number of DAIs.
+    const: 1
+
+  nvidia,ahub-arad-id:
+    description: must be specified to uniquely identify ARAD instance.
+
+required:
+  - compatible
+  - reg
+  - "#sound-dai-cells"
+  - nvidia,ahub-arad-id
+
+examples:
+  - |
+    arad@290e400 {
+        compatible = "nvidia,tegra186-arad";
+        reg = <0x0 0x290e400 0x0 0x400>;
+        nvidia,ahub-arad-id = <0>;
+        #sound-dai-cells = <1>;
+    };
+
+  - |
+    arad@290e400 {
+        compatible = "nvidia,tegra194-arad", "nvidia,tegra186-arad";
+        reg = <0x0 0x290e400 0x0 0x400>;
+        nvidia,ahub-arad-id = <0>;
+        #sound-dai-cells = <1>;
+    };
+
+...

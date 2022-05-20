@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * mods_net.c - This file is part of NVIDIA MODS kernel driver.
+ *
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * NVIDIA MODS kernel driver is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with NVIDIA MODS kernel driver.
+ * If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "mods_internal.h"
+#include <linux/netdevice.h>
+
+int esc_mods_net_force_link(struct mods_client *client,
+			    struct MODS_NET_DEVICE_NAME *p)
+{
+	struct net_device *ndev;
+
+	if (!p ||
+	    (strnlen(p->device_name, MAX_NET_DEVICE_NAME_LENGTH) == 0) ||
+	    (!memchr(p->device_name, '\0', MAX_NET_DEVICE_NAME_LENGTH))) {
+		cl_error("invalid device name\n");
+		return -EINVAL;
+	}
+
+	for_each_netdev(&init_net, ndev)
+		if (!strcmp(ndev->name, p->device_name)) {
+			netif_carrier_on(ndev);
+			cl_info("carrier forced on: %s\n", p->device_name);
+			return OK;
+		}
+
+	cl_error("failed to find network device %s\n", p->device_name);
+	return -EINVAL;
+}

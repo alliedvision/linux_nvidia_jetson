@@ -1,0 +1,17 @@
+Comms and Security virtual CAN controller Device Tree Bindings
+--------------------------------------------------------------
+
+This is the virtualised CAN device driver for Comms and Security enabled PCT, Linux will be the
+guest VM and it used this device driver to communicate with Comms VM via IVC
+
+
+Required properties:
+compatible:         should be "nvidia,tegra-hv-seccan"
+       ivc:         ivc channel number
+
+Example:
+       tegra_hv_seccan@0 {
+         compatible = "nvidia,tegra-hv-seccan";
+         status = "okay";
+         ivc = <&tegra_hv 355>;
+       };

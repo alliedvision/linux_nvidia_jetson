@@ -1,0 +1,888 @@
+
+/ {
+    mb2-misc {
+        disable_cpu_l2ecc = <0>;
+#ifdef ENABLE_XUSB_FW
+        enable_xusb_fw = <1>;
+#else
+        enable_xusb_fw = <0>;
+#endif
+        enable_combined_uart = <1>;
+        spe_uart_instance = <2>;
+        cpubl_load_offset = <0xC00000>;
+        enable_eks = <0>;
+        disable_snor_provisioning = <0>;
+
+        mss_perf {
+            mss_pm_disable = <0>;
+            mss_pm_secure = <0>;
+            emc_pm_gather_adr_filter_override = <0>;
+            emc_pm_gather_cgid_filter_override = <0>;
+            global_hwpm_disable = <0>;
+            mc_stat_control_emc_gather_override = <0>;
+        };
+
+        display {
+            pmc_2sor0_force_internal = <0>;
+            pmc_2sor1_force_internal = <0>;
+            pmc_2sor_vpr_secure_mode = <0>;
+            pmc_2sor_clk_ctrl_owner = <0>;
+            pmc_2disp_pnl_rd_ctrl_owner = <0>;
+            pmc_2disp_pnl_ctrl_owner = <0>;
+            pmc_2disp_dsi_pad_ctrl_owner = <0>;
+        };
+
+        eeprom {
+            cvm_eeprom_i2c_instance = <0>;
+            cvm_eeprom_i2c_slave_address = <0>;
+            cvm_eeprom_read_size = <0>;
+            cvb_eeprom_i2c_instance = <0>;
+            cvb_eeprom_i2c_slave_address = <0>;
+            cvb_eeprom_read_size = <0>;
+        };
+
+        clocks {
+            aon_cpu_nic_clk_divisor = <0>;
+            pllaon_data {
+               divn = <0>;
+               divm = <0>;
+               divp = <0>;
+               divn_frac = <0>;
+            };
+        };
+
+        /* Control fields for SPE cluster. */
+        auxp_controls@0 {
+            enable_init = <1>;
+            enable_fw_load = <1>;
+            enable_unhalt = <1>;
+        };
+        /* Control fields for SCE cluster. */
+        auxp_controls@1 {
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+        };
+        /* Control fields for RCE cluster. */
+#ifdef ENABLE_RCE
+        auxp_controls@2 {
+            enable_init = <1>;
+            enable_fw_load = <1>;
+            enable_unhalt = <1>;
+        };
+#else
+        auxp_controls@2 {
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+        };
+#endif
+        /* Control fields for DCE cluster. */
+#ifdef ENABLE_DCE
+        auxp_controls@3 {
+            enable_init = <1>;
+            enable_fw_load = <1>;
+            enable_unhalt = <1>;
+            reset_vector = <0x40000000>;
+        };
+#else
+        auxp_controls@3 {
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+            reset_vector = <0x40000000>;
+        };
+#endif
+        /* Control fields for APE cluster. */
+        auxp_controls@4 {
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+        };
+        /* Control fields for FSI cluster. */
+#ifdef ENABLE_FSI
+        auxp_controls@5 {
+            enable_init = <0>;
+            enable_fw_load = <1>;
+            enable_unhalt = <1>;
+        };
+#else
+        auxp_controls@5 {
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+        };
+#endif
+        /* Configuration fields for SPE AST0. */
+        auxp_ast_config@0 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            here x belongs to <0..15>. */
+            streamid-0 = <0x16>;
+            streamid-1 = <0x0>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC8 used for SPE FW in DRAM. */
+                carveout = <0x8>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                enable = <0x0>;
+                /* GSC16 used for BPMP_SPE_IPC in SysRAM. */
+                carveout = <0x10>;
+                va = <0x00000000 0x40078000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for SPE AST1. */
+        auxp_ast_config@1 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x16>;
+            streamid-1 = <0x0>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC8 used for SPE FW in DRAM. */
+                carveout = <0x8>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                /* Keeping it disabled for SPE DMA, enable if required. */
+                enable = <0x0>;
+                /* GSC16 used for BPMP_SPE_IPC in SysRAM. */
+                carveout = <0x10>;
+                va = <0x00000000 0x40078000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for SCE AST0. */
+        auxp_ast_config@2 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x1F>;
+            streamid-1 = <0x0>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC9 used for SCE FW in DRAM. */
+                carveout = <0x9>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                enable = <0x0>;
+                /* GSC25 used for BPMP_SCE_IPC in SysRAM. */
+                carveout = <0x19>;
+                va = <0x00000000 0x40072000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@2 {
+                /* Keeping it disabled for DRAM ECC error injection carveout, enable if required. */
+                enable = <0x0>;
+                /* GSC49 used for DRAM ECC error injection */
+                carveout = <0x31>;
+                va = <0x00000000 0x70200000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for SCE AST1. */
+        auxp_ast_config@3 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x1F>;
+            streamid-1 = <0x0>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC9 used for SCE FW in DRAM. */
+                carveout = <0x9>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                /* Keeping it disabled for SCE DMA, enable if required. */
+                enable = <0x0>;
+                /* GSC25 used for BPMP_SCE_IPC in SysRAM. */
+                carveout = <0x19>;
+                va = <0x00000000 0x40072000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@2 {
+                /* Keeping it disabled for DRAM ECC error injection carveout, enable if required. */
+                enable = <0x0>;
+                /* GSC49 used for DRAM ECC error injection */
+                carveout = <0x31>;
+                va = <0x00000000 0x70200000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for RCE AST0. */
+        auxp_ast_config@4 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0xA>; /* TEGRA_SID_NISO0_RCE*/
+            streamid-1 = <0x16>; /* TEGRA_SID_NISO0_RCE_VM2 */
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC17 used for RCE FW in DRAM. */
+                carveout = <0x11>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 1MB */
+                size = <0x100000>;
+            };
+            ast_region@1 {
+                enable = <0x1>;
+                /* GSC13 used for BPMP_RCE_IPC in SysRAM. */
+                carveout = <0xd>;
+                va = <0x00000000 0x4007c000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 8K */
+                size = <0x8192>;
+            };
+            ast_region@2 {
+                enable = <0x1>;
+                /* GSC24 used for camera task list FW in DRAM. */
+                carveout = <0x18>;
+                va = <0x00000000 0x78000000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 32MB */
+                size = <0x2000000>;
+            };
+            ast_region@3 {
+                /* Enable if required. */
+                enable = <0x0>;
+                /* GSC26 used for CV grid of semapahores in DRAM. */
+                carveout = <0x1a>;
+                /* Edit this according to RCE VA map. */
+                va = <0x00000000 0x72100000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for RCE AST1. */
+        auxp_ast_config@5 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0xA>; /* TEGRA_SID_NISO0_RCE*/
+            streamid-1 = <0x16>; /* TEGRA_SID_NISO0_RCE_VM2 */
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC17 used for RCE FW in DRAM. */
+                carveout = <0x11>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 1MB */
+                size = <0x100000>;
+            };
+            ast_region@1 {
+                enable = <0x1>;
+                /* GSC13 used for BPMP_RCE_IPC in SysRAM. */
+                carveout = <0xd>;
+                va = <0x00000000 0x4007c000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 8K */
+                size = <0x8192>;
+            };
+            ast_region@2 {
+                enable = <0x1>;
+                /* GSC24 used for camera task list FW in DRAM. */
+                carveout = <0x18>;
+                va = <0x00000000 0x78000000>;
+                physical = <0x1>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                /* 32MB */
+                size = <0x2000000>;
+            };
+            ast_region@3 {
+                /* Enable if required. */
+                enable = <0x0>;
+                /* GSC26 used for CV grid of semapahores in DRAM. */
+                carveout = <0x1a>;
+                /* Edit this according to RCE VA map. */
+                va = <0x00000000 0x72100000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for DCE AST0. */
+        auxp_ast_config@6 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x5>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC20 used for DCE FW in DRAM. */
+                carveout = <0x14>;
+                va = <0x00000000 0x40000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xde000000>;
+                size = <0x2000000>;
+            };
+            ast_region@1 {
+                enable = <0x0>;
+                /* GSC11 used for BPMP_DCE_IPC in SysRAM. */
+                carveout = <0xb>;
+                va = <0x00000000 0x4007a000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x2000>;
+            };
+        };
+        /* Configuration fields for DCE AST1. */
+        auxp_ast_config@7 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x5>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC20 used for DCE FW in DRAM. */
+                carveout = <0x14>;
+                va = <0x00000000 0x40000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xde000000>;
+                size = <0x2000000>;
+            };
+            ast_region@1 {
+                enable = <0x0>;
+                /* GSC11 used for BPMP_DCE_IPC in SysRAM. */
+                carveout = <0xb>;
+                va = <0x00000000 0x4007a000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x2000>;
+            };
+        };
+        /* Configuration fields for APE ACAST AST. */
+        auxp_ast_config@8 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x2>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC7 used for ADSP FW in DRAM. */
+                carveout = <0x7>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x7>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                /* Enable if required. */
+                enable = <0x0>;
+                /* GSC10 in DRAM. */
+                carveout = <0xa>;
+                /* Update according to APE VA map. */
+                va = <0x00000000 0xffffffff>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for APE ADAST AST. */
+        auxp_ast_config@9 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x2>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x1>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                /* Keeping it disabled for APE DMA, enable if required. */
+                enable = <0x0>;
+                /* GSC7 used for ADSP FW in DRAM. */
+                carveout = <0x7>;
+                va = <0x00000000 0x70000000>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x7>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+            ast_region@1 {
+                /* Enable if required. */
+                enable = <0x0>;
+                /* GSC10 in DRAM. */
+                carveout = <0xa>;
+                va = <0x0000000f 0xffffffff>;
+                physical = <0x0>;
+                /* Update this to point to the streamid to be used. */
+                vm_index = <0x0>;
+                aperture_id = <0x0>;
+                snoop = <0x0>;
+                pa = <0xffffffff>;
+                size = <0x431>;
+            };
+        };
+        /* Configuration fields for FSI CPU0 AST. */
+        auxp_ast_config@10 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x11>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x0>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC29(FSI) carveout for FSI FW in DRAM */
+                carveout = <0x1d>;
+                va = <0x00000000 0x4c000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x1d>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+           ast_region@1 {
+                enable = <0x1>;
+                carveout = <0>;
+                va = <0x00000000 0x40000000>;
+                /* Use SMMU for now */
+                physical = <0x0>;
+                /* Use FSI StreamID */
+                vm_index = <0x1>;
+                /* GSC41(FSI-CPU-NS) carveout for FSI-CCPLEX data exchange */
+                aperture_id = <0x29>;
+                /* need to snoop CCPLEX caches */
+                snoop = <0x1>;
+                /* IOVA range */
+                pa = <0xf0000000>;
+                size = <0x01000000>;
+            };
+        };
+        /* Configuration fields for FSI CPU1 AST. */
+        auxp_ast_config@11 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x11>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x0>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC29(FSI) carveout for FSI FW in DRAM */
+                carveout = <0x1d>;
+                va = <0x00000000 0x4c000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x1d>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+            ast_region@1 {
+                enable = <0x1>;
+                carveout = <0>;
+                va = <0x00000000 0x40000000>;
+                /* Use SMMU for now */
+                physical = <0x0>;
+                /* Use FSI StreamID */
+                vm_index = <0x1>;
+                /* GSC41(FSI-CPU-NS) carveout for FSI-CCPLEX data exchange */
+                aperture_id = <0x29>;
+                /* need to snoop CCPLEX caches */
+                snoop = <0x1>;
+                /* IOVA range */
+                pa = <0xf0000000>;
+                size = <0x01000000>;
+            };
+        };
+        /* Configuration fields for FSI CPU2 AST. */
+        auxp_ast_config@12 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x11>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x0>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC29(FSI) carveout for FSI FW in DRAM */
+                carveout = <0x1d>;
+                va = <0x00000000 0x4c000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x1d>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+            ast_region@1 {
+                enable = <0x1>;
+                carveout = <0>;
+                va = <0x00000000 0x40000000>;
+                /* Use SMMU for now */
+                physical = <0x0>;
+                /* Use FSI StreamID */
+                vm_index = <0x1>;
+                /* GSC41(FSI-CPU-NS) carveout for FSI-CCPLEX data exchange */
+                aperture_id = <0x29>;
+                /* need to snoop CCPLEX caches */
+                snoop = <0x1>;
+                /* IOVA range */
+                pa = <0xf0000000>;
+                size = <0x01000000>;
+            };
+        };
+        /* Configuration fields for FSI CPU3 AST. */
+        auxp_ast_config@13 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x11>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x0>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x1>;
+                /* GSC29(FSI) carveout for FSI FW in DRAM */
+                carveout = <0x1d>;
+                va = <0x00000000 0x4c000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x1d>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+            ast_region@1 {
+                enable = <0x1>;
+                carveout = <0x0>;
+                va = <0x00000000 0x40000000>;
+                /* Use SMMU for now */
+                physical = <0x0>;
+                /* Use FSI StreamID */
+                vm_index = <0x1>;
+                /* GSC41(FSI-CPU-NS) carveout for FSI-CCPLEX data exchange */
+                aperture_id = <0x29>;
+                /* need to snoop CCPLEX caches */
+                snoop = <0x1>;
+                /* IOVA range */
+                pa = <0xf0000000>;
+                size = <0x01000000>;
+            };
+        };
+        /* Configuration fields for FSI CHSM AST. */
+        auxp_ast_config@14 {
+            /* A total of 16 streamids can be provided as streamid-x,
+            where x belongs to <0..15>. */
+            streamid-0 = <0x7f>;
+            streamid-1 = <0x11>;
+            streamid-2 = <0x0>;
+            default_carveout_id = <0x0>;
+            default_snoop = <0x0>;
+            matcherrctrl = <0x0>;
+            /* A total of 8 regions can be provided as ast_region@x,
+            where x belongs to <0..7>. */
+            ast_region@0 {
+                enable = <0x0>;
+                /* GSC29(FSI) carveout for FSI FW in DRAM */
+                carveout = <0x1d>;
+                va = <0x00000000 0x4c000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x1d>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+            ast_region@1 {
+                enable = <0x0>;
+                carveout = <0>;
+                va = <0x00000000 0x40000000>;
+                /* Use SMMU for now */
+                physical = <0x0>;
+                /* Use FSI StreamID */
+                vm_index = <0x1>;
+                /* GSC41(FSI-CPU-NS) carveout for FSI-CCPLEX data exchange */
+                aperture_id = <0x29>;
+                /* need to snoop CCPLEX caches */
+                snoop = <0x1>;
+                /* IOVA range */
+                pa = <0xf0000000>;
+                size = <0x01000000>;
+            };
+        };
+        /* CBB PCIE AMAP regions */
+        cbb_amap@0 {
+                base_32b = <0x00000000 0x38000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000024 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+        cbb_amap@1 {
+                base_32b = <0x00000000 0x30000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000020 0x80000000>;
+                size_64b = <0x00000000 0x40000000>;
+        };
+        cbb_amap@2 {
+                base_32b = <0x00000000 0x32000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000020 0xc0000000>;
+                size_64b = <0x00000000 0x40000000>;
+        };
+        cbb_amap@3 {
+                base_32b = <0x00000000 0x34000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000021 0x00000000>;
+                size_64b = <0x00000000 0x40000000>;
+        };
+        cbb_amap@4 {
+                base_32b = <0x00000000 0x36000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000021 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+        cbb_amap@5 {
+                base_32b = <0x00000000 0x3a000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000027 0x40000000>;
+                size_64b = <0x00000004 0x00000000>;
+        };
+        cbb_amap@6 {
+                base_32b = <0x00000000 0x3c000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x0000002b 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+        cbb_amap@7 {
+                base_32b = <0x00000000 0x3e000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x0000002e 0x40000000>;
+                size_64b = <0x00000004 0x00000000>;
+        };
+        cbb_amap@8 {
+                base_32b = <0x00000000 0x2a000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000032 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+        cbb_amap@9 {
+                base_32b = <0x00000000 0x2c000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000035 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+        cbb_amap@10 {
+                base_32b = <0x00000000 0x2e000000>;
+                size_32b = <0x00000000 0x02000000>;
+                base_64b = <0x00000038 0x40000000>;
+                size_64b = <0x00000003 0x00000000>;
+        };
+    };
+};

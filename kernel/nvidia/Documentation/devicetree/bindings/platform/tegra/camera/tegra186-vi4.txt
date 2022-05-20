@@ -1,0 +1,85 @@
+NVIDIA Tegra Parker (T18x) VI4 bindings
+
+Tegra VI4 (Video Input, version 4) is a pixel pipeline that receives packetized
+data from the Tegra NVCSI unit, and outputs directly to ISP4 or to frame buffers
+in memory for ISP4 and other clients.
+
+Pre-boot hardware auto-detection is peformed by the NVIDIA Tegra plugin-manager
+for supported devices; if present, the attached camera board's Device Tree
+configuration overlays additional fields for assembling a complete system
+stream/channel graph for all camera sensor(s).
+
+Required properties:
+	- compatible: Should be "nvidia,tegra194-vi".
+	- reg: Register address space (MMIO).
+	- power-domains: Power domain group, should be
+		"TEGRA186_POWER_DOMAIN_VE".
+	- resets: All VI resets.
+	- reset-names: Names of the above resets.
+	- clocks: All VI and NVCSI clocks.
+	- clock-names: Names of the above clocks.
+	- interrupts: All VI interrupts.
+	- iommus: VI4 Stream ID, should be "TEGRA_SID_VI".
+	- iommu-group-id: IOMMU group, should be "TEGRA_IOMMU_GROUP_HOST1X".
+
+	-- Camera Board Overlay --
+	- num-channels: Total number of VI channels, usually equal to number of
+		sensors (incl. SERDES-attached ones). Certain sensors supporting WDR/DOL
+		modes may simultaneously utilize more than one VI channel.
+
+	-- Port (ports) --
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Ports (port@PQ) --
+	- reg: Channel/stream index, same as <PQ>.
+
+	-- Endpoint (endpoint) --
+	- port-index: NVCSI port index; {0-7}.
+	- bus-width: Number of D-Phy or C-Phy lanes.
+	- remote-endpoint: Label to NVCSI node.
+
+Example:
+
+	tegra_vi: vi@15700000 {
+		compatible = "nvidia,tegra186-vi";
+		reg = <0x0 0x15700000 0x0 0x00100000>;
+		power-domains = <&bpmp TEGRA186_POWER_DOMAIN_VE>;
+		resets = <&tegra_car TEGRA186_RESET_VI>,
+			<&tegra_car TEGRA186_RESET_TSCTNVI>;
+		reset-names = "vi", "tsctnvi";
+		clocks = <&tegra_car TEGRA186_CLK_VI>,
+			<&tegra_car TEGRA186_CLK_NVCSI>,
+			<&tegra_car TEGRA186_CLK_NVCSILP>;
+		clock-names = "vi", "nvcsi", "nvcsilp";
+		interrupts = <0 201 0x04
+			0 202 0x04
+			0 203 0x04>;
+		iommus = <&smmu TEGRA_SID_VI>;
+		iommu-group-id = <TEGRA_IOMMU_GROUP_HOST1X>;
+	};
+
+	/* Camera board-specific config overlay */
+	vi@15700000 {
+		num-channels = <2>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				liimx274_vi_in0: endpoint {
+					port-index = <0>;
+					bus-width = <4>;
+					remote-endpoint = <&liimx274_csi_out0>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				liimx274_vi_in1: endpoint {
+					port-index = <2>;
+					bus-width = <4>;
+					remote-endpoint = <&liimx274_csi_out1>;
+				};
+			};
+		};
+	};

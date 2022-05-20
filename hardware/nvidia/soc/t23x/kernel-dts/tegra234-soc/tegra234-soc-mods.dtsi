@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2021-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <dt-bindings/memory/tegra234-smmu-streamid.h>
+
+/ {
+	mods_smmu: mods_smmu {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_SMMU_TEST>;
+		non-coherent;
+		dev-names = "mods_smmu";
+		status = "disabled";
+	};
+
+	mods_pcie0: mods_pcie0 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE0>;
+		dma-coherent;
+		dev-names = "mods_pcie0";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x0>;
+	};
+
+	mods_pcie1: mods_pcie1 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE1>;
+		dma-coherent;
+		dev-names = "mods_pcie1";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x1>;
+	};
+
+	mods_pcie2: mods_pcie2 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE2>;
+		dma-coherent;
+		dev-names = "mods_pcie2";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x2>;
+	};
+
+	mods_pcie3: mods_pcie3 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE3>;
+		dma-coherent;
+		dev-names = "mods_pcie3";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x3>;
+	};
+
+	mods_pcie4: mods_pcie4 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE4>;
+		dma-coherent;
+		dev-names = "mods_pcie4";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x4>;
+	};
+
+	mods_pcie5: mods_pcie5 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE5>;
+		dma-coherent;
+		dev-names = "mods_pcie5";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x5>;
+	};
+
+	mods_pcie6: mods_pcie6 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE6>;
+		dma-coherent;
+		dev-names = "mods_pcie6";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x6>;
+	};
+
+	mods_pcie7: mods_pcie7 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE7>;
+		dma-coherent;
+		dev-names = "mods_pcie7";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x7>;
+	};
+
+	mods_pcie8: mods_pcie8 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE8>;
+		dma-coherent;
+		dev-names = "mods_pcie8";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x8>;
+	};
+
+	mods_pcie9: mods_pcie9 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE9>;
+		dma-coherent;
+		dev-names = "mods_pcie9";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 0x9>;
+	};
+
+	mods_pcie10: mods_pcie10 {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_PCIE10>;
+		dma-coherent;
+		dev-names = "mods_pcie10";
+		status = "disabled";
+		nvidia,bpmp = <&bpmp 10>;
+	};
+	mods_isp: mods_isp {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_ISP>;
+		dma-coherent;
+		dev-names = "mods_isp";
+		status = "disabled";
+	};
+
+	mods_test: mods_test {
+		compatible = "nvidia,mods_test";
+		status = "disabled";
+	};
+
+	mods_dma: mods_dma {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_GPCDMA_0>;
+		dma-coherent;
+		dev-names = "mods_dma";
+		status = "disabled";
+	};
+
+	mods_qspi0_dma: mods_qspi0_dma {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_QSPI0>;
+		dma-coherent;
+		dev-names = "mods_qspi0_dma";
+		status = "disabled";
+	};
+
+	mods_qspi1_dma: mods_qspi1_dma {
+		compatible = "nvidia,mods_smmu";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_QSPI1>;
+		dma-coherent;
+		dev-names = "mods_qspi1_dma";
+		status = "disabled";
+	};
+};

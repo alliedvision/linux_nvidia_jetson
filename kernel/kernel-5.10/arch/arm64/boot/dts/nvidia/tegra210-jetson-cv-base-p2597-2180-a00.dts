@@ -1,0 +1,16 @@
+#include "../../../../../../../hardware/nvidia/platform/t210/jetson/kernel-dts/tegra210-jetson-cv-base-p2597-2180-a00.dts"
+
+/ {
+        pcie@1003000 {
+		/delete-property/ power-domains;
+	};
+
+	pmc@7000e400 {
+		powergates {
+			/delete-node/ pcie;
+		};
+	};
+	sdhci@700b0600 {
+		uhs-mask = <0x40>;
+	};
+};

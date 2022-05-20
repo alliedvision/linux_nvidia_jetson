@@ -1,0 +1,155 @@
+NVIDIA Tegra186 pinmux controller.
+
+Required properties:
+- compatible : "nvidia,tegra186-pinmux".
+- reg : Should contain the physical address and length of the pin.
+
+Please refer to pinctrl-bindings.txt in this directory for details of the
+common pinctrl bindings used by client devices, including the meaning of the
+phrase "pin configuration node".
+
+The name of each subnode is not important; all subnodes should be enumerated
+and processed purely based on their content.
+
+Each subnode only affects those parameters that are explicitly listed. In
+other words, a subnode that lists a mux function but no pin configuration
+parameters implies no information about any pin configuration parameters.
+Similarly, a pin subnode that describes a pullup parameter implies no
+information about e.g. the mux function or tristate parameter. For this
+reason, even seemingly boolean values are actually tristates in this binding:
+unspecified, off, or on. Unspecified is represented as an absent property,
+and off/on are represented as integer values 0 and 1.
+
+See the TRM to determine which properties and values apply to each pin/group.
+Macro values for property values are defined in
+include/dt-binding/pinctrl/pinctrl-tegra.h.
+
+Required subnode-properties:
+- nvidia,pins : An array of strings. Each string contains the name of a pin or
+    group. Valid values for these names are listed below.
+
+Optional subnode-properties:
+- nvidia,function: A string containing the name of the function to mux to the
+    pin or group.
+- nvidia,pull: Integer, representing the pull-down/up to apply to the pin.
+    0: none, 1: down, 2: up.
+- nvidia,tristate: Integer.
+    0: drive, 1: tristate.
+- nvidia,enable-input: Integer. Enable the pin's input path.
+    enable :TEGRA_PIN_ENABLE0 and
+    disable or output only: TEGRA_PIN_DISABLE.
+- nvidia,open-drain: Integer.
+    enable: TEGRA_PIN_ENABLE.
+    disable: TEGRA_PIN_DISABLE.
+- nvidia,lock: Integer. Lock the pin configuration against further changes
+    until reset.
+    enable: TEGRA_PIN_ENABLE.
+    disable: TEGRA_PIN_DISABLE.
+- nvidia,io-hv: Integer. Select high-voltage receivers.
+    normal: TEGRA_PIN_DISABLE
+    high: TEGRA_PIN_ENABLE
+- nvidia,high-speed-mode: Integer. Enable high speed mode the pins.
+    normal: TEGRA_PIN_DISABLE
+    high: TEGRA_PIN_ENABLE
+- nvidia,schmitt: Integer. Enables Schmitt Trigger on the input.
+    normal: TEGRA_PIN_DISABLE
+    high: TEGRA_PIN_ENABLE
+- nvidia,drive-type: Integer. Valid range 0...3.
+- nvidia,pull-down-strength: Integer. Controls drive strength. 0 is weakest.
+    The range of valid values depends on the pingroup. See "CAL_DRVDN" in the
+    Tegra TRM.
+- nvidia,pull-up-strength: Integer. Controls drive strength. 0 is weakest.
+    The range of valid values depends on the pingroup. See "CAL_DRVUP" in the
+    Tegra TRM.
+- nvidia,slew-rate-rising: Integer. Controls rising signal slew rate. 0 is
+    fastest. The range of valid values depends on the pingroup. See
+    "DRVDN_SLWR" in the Tegra TRM.
+- nvidia,slew-rate-falling: Integer. Controls falling signal slew rate. 0 is
+    fastest. The range of valid values depends on the pingroup. See
+    "DRVUP_SLWF" in the Tegra TRM.
+
+Valid values for pin and group names (nvidia,pins) are:
+
+  MUX groups:
+
+    These correspond to Tegra PINMUX_AUX_* (pinmux) registers. Any property
+    that exists in those registers may be set for the following pin names.
+
+    aud_mclk_pj4, batt_oc_ps2, bcpu_pwr_req_ph4, cam_i2c_scl_po2,
+    cam_i2c_sda_po3, can0_din_pz3, can0_dout_pz2, can1_din_pz1, can1_dout_pz0,
+    can_gpio0_paa0, can_gpio1_paa1, can_gpio2_paa2, can_gpio3_paa3,
+    can_gpio4_paa4, can_gpio5_paa5, can_gpio6_paa6, can_gpio7_paa7,
+    clk_32k_in, dap1_din_pj2, dap1_dout_pj1, dap1_fs_pj3, dap1_sclk_pj0,
+    dap2_din_pc3, dap2_dout_pc2, dap2_fs_pc4, dap2_sclk_pc1, dap4_din_pcc2,
+    dap4_dout_pcc1, dap4_fs_pcc3, dap4_sclk_pcc0, directdc1_clk_pq0,
+    directdc1_in_pq1, directdc1_out0_pq2, directdc1_out1_pq3,
+    directdc1_out2_pq4, directdc1_out3_pq5, directdc_comp, dmic1_clk_pm1,
+    dmic1_dat_pm0, dmic2_clk_pm3, dmic2_dat_pm2, dmic4_clk_pm5,
+    dmic4_dat_pm4, dp_aux_ch0_hpd_pp0, dp_aux_ch1_hpd_pp1, eqos_comp,
+    eqos_mdc_pf5, eqos_mdio_pf4, eqos_rd0_pe6, eqos_rd1_pe7, eqos_rd2_pf0,
+    eqos_rd3_pf1, eqos_rxc_pf3, eqos_rx_ctl_pf2, eqos_td0_pe1, eqos_td1_pe2,
+    eqos_td2_pe3, eqos_td3_pe4, eqos_txc_pe0, eqos_tx_ctl_pe5,
+    extperiph1_clk_po0, extperiph2_clk_po1, gen1_i2c_scl_pc5, gen1_i2c_sda_pc6,
+    gen7_i2c_scl_pl0, gen7_i2c_sda_pl1, gen8_i2c_scl_pw0, gen8_i2c_sda_pw1,
+    gen9_i2c_scl_pl2, gen9_i2c_sda_pl3, gpio_aud0_pj5, gpio_aud1_pj6,
+    gpio_aud2_pj7, gpio_aud3_pk0, gpio_cam1_pn0, gpio_cam2_pn1, gpio_cam3_pn2,
+    gpio_cam4_pn3, gpio_cam5_pn4, gpio_cam6_pn5, gpio_cam7_pn6, gpio_dis0_pu0,
+    gpio_dis1_pu1, gpio_dis2_pu2, gpio_dis3_pu3, gpio_dis4_pu4, gpio_dis5_pu5,
+    gpio_edp0_pp3, gpio_edp1_pp4, gpio_edp2_pp5, gpio_edp3_pp6, gpio_mdm1_py0,
+    gpio_mdm2_py1, gpio_mdm3_py2, gpio_mdm4_py3, gpio_mdm5_py4, gpio_mdm6_py5,
+    gpio_mdm7_py6, gpio_pq0_pi0, gpio_pq1_pi1, gpio_pq2_pi2, gpio_pq3_pi3,
+    gpio_pq4_pi4, gpio_pq5_pi5, gpio_pq6_pi6, gpio_pq7_pi7, gpio_sen0_pv0,
+    gpio_sen1_pv1, gpio_sen2_pv2, gpio_sen3_pv3, gpio_sen4_pv4, gpio_sen5_pv5,
+    gpio_sen6_pv6, gpio_sen7_pv7, gpio_sen8_pee0, gpio_sen9_pee1, gpio_sw1_pff1,
+    gpio_sw2_pff2, gpio_sw3_pff3, gpio_sw4_pff4, gpio_wan1_pb4, gpio_wan2_pb5,
+    gpio_wan3_pb6, gpio_wan4_pc0, gpio_wan5_ph0, gpio_wan6_ph1, gpio_wan7_ph2,
+    gpio_wan8_ph3, gp_pwm6_pl6, gp_pwm7_pl7, gpu_pwr_req_ph6, hdmi_cec_pp2,
+    mcpu_pwr_req_ph5, pex_l0_clkreq_n_pa1, pex_l0_rst_n_pa0,
+    pex_l1_clkreq_n_pa4, pex_l1_rst_n_pa3, pex_l2_clkreq_n_pa6,
+    pex_l2_rst_n_pa5, pex_wake_n_pa2, pmu_int, power_on_pff0, pwr_i2c_scl_ps0,
+    pwr_i2c_sda_ps1, qspi_comp, qspi_cs_n_pr5, qspi_io0_pr1, qspi_io1_pr2,
+    qspi_io2_pr3, qspi_io3_pr4, qspi_sck_pr0, safe_state_ps3, sdmmc1_clk_pd0,
+    sdmmc1_cmd_pd1, sdmmc1_comp, sdmmc1_dat0_pd2, sdmmc1_dat1_pd3,
+    sdmmc1_dat2_pd4, sdmmc1_dat3_pd5, sdmmc3_clk_pg0, sdmmc3_cmd_pg1,
+    sdmmc3_comp, sdmmc3_dat0_pg2, sdmmc3_dat1_pg3, sdmmc3_dat2_pg4,
+    sdmmc3_dat3_pg5, shutdown, soc_pwr_req, touch_clk_pee2, uart1_cts_pt3,
+    uart1_rts_pt2, uart1_rx_pt1, uart1_tx_pt0, uart2_cts_px3, uart2_rts_px2,
+    uart2_rx_px1, uart2_tx_px0, uart3_cts_pw5, uart3_rts_pw4, uart3_rx_pw3,
+    uart3_tx_pw2, uart4_cts_pb3, uart4_rts_pb2, uart4_rx_pb1, uart4_tx_pb0,
+    uart5_cts_px7, uart5_rts_px6, uart5_rx_px5, uart5_tx_px4, uart7_rx_pw7,
+    uart7_tx_pw6, ufs0_ref_clk_pbb0, ufs0_rst_pbb1, usb_vbus_en0_pl4,
+    usb_vbus_en1_pl5, vcomp_alert_ps4.
+
+  Drive groups:
+
+    sdmmc4_dat3, sdmmc4_dat2, sdmmc4_dat1, sdmmc4_dat0, sdmmc4_dat7,
+    sdmmc4_dat6, sdmmc4_dat5, sdmmc4_dat4, sdmmc4_cmd, sdmmc4_dqs, sdmmc4_clk.
+
+Valid values for nvidia,functions are:
+
+    aud, can0, can1, ccla, dca, dcb, dcc, directdc, directdc1, displaya,
+    displayb, dmic1, dmic2, dmic3, dmic4, dmic5, dp, dspk0, dspk1, dtv, eqos,
+    extperiph1, extperiph2, extperiph3, extperiph4, gp, gpio, hdmi, i2c1,
+    i2c2, i2c3, i2c5, i2c7, i2c8, i2c9, i2s1, i2s2, i2s3, i2s4, i2s5, i2s6,
+    iqc0, iqc1, nv, pe, pe0, pe1, pe2, qspi, rsvd0, rsvd1, rsvd2, rsvd3, sata,
+    sce, sdmmc1, sdmmc2, sdmmc3, sdmmc4, soc, spdif, spi1, spi2, spi3, spi4,
+    touch, uarta, uartb, uartc, uartd, uarte, uartf, uartg, ufs0, usb, vgp1,
+    vgp2, vgp3, vgp4, vgp5, vgp6, wdt.
+
+Example:
+	pinmux@2430000 {
+		compatible = "nvidia,tegra186-pinmux";
+		reg = <0x0 0x2430000 0x0 0x15000
+			0x0 0xc300000 0x0 0x4000>;
+		#gpio-range-cells = <3>;
+
+		vbus_en0_sfio_tristate_state: vbus_en0_oc_tristate {
+			usb_vbus_en0_pl4 {
+				nvidia,pins = "usb_vbus_en0_pl4";
+				nvidia,function = "usb";
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+				nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+	}

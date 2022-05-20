@@ -1,0 +1,56 @@
+/*
+ * GV100 FB INTR
+ *
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include <nvgpu/gk20a.h>
+#include <nvgpu/io.h>
+
+#include "fb_intr_gv100.h"
+
+#include <nvgpu/hw/gv100/hw_fb_gv100.h>
+
+void gv100_fb_intr_enable(struct gk20a *g)
+{
+	u32 mask;
+
+	mask = fb_niso_intr_en_set_mmu_other_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_nonreplayable_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_nonreplayable_fault_overflow_m() |
+		fb_niso_intr_en_set_mmu_replayable_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_replayable_fault_overflow_m();
+
+	nvgpu_writel(g, fb_niso_intr_en_set_r(0), mask);
+}
+
+void gv100_fb_intr_disable(struct gk20a *g)
+{
+	u32 mask;
+
+	mask = fb_niso_intr_en_set_mmu_other_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_nonreplayable_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_nonreplayable_fault_overflow_m() |
+		fb_niso_intr_en_set_mmu_replayable_fault_notify_m() |
+		fb_niso_intr_en_set_mmu_replayable_fault_overflow_m();
+
+	nvgpu_writel(g, fb_niso_intr_en_clr_r(0), mask);
+}

@@ -1,0 +1,332 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * T234 P3701 common DTSI file.
+ */
+
+#include <dt-bindings/types.h>
+#include <tegra234-soc/tegra234-soc-cvm.dtsi>
+#include "tegra234-p3701-fixed-regulator.dtsi"
+#include "tegra234-p3701-power-tree.dtsi"
+#include "tegra234-p3701-powermon.dtsi"
+#include <t234-common-cvm/tegra234-platforms-vrs.dtsi>
+#include "tegra234-thermal.dtsi"
+
+/ {
+	model = "Jetson-AGX";
+	compatible = "nvidia,tegra234";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		bootargs ="console=ttyTCU0,115200";
+		board-has-eeprom;
+	};
+
+	cpufreq {
+		compatible = "nvidia,t234-cpufreq";
+		status = "okay";
+		cpu_emc_map = <1907200 1600000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>;
+	};
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+	ccplex {
+		compatible = "nvidia,t234-ccplex";
+		cpu_emc_map = <1907200 1600000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>;
+	};
+#endif
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+
+	arm-pmu {
+		status = "okay";
+	};
+
+	power-domain {
+		status = "okay";
+	};
+
+	interrupt-controller {
+		status = "okay";
+	};
+
+	interrupt-controller@f400000 {
+		status = "okay";
+	};
+
+	timer {
+		status = "okay";
+	};
+
+	watchdog@2190000 {
+		status = "okay";
+	};
+
+	aon-en@C600000 {
+		status = "okay";
+	};
+
+	cbb-en@1300000 {
+		status = "okay";
+	};
+
+	bpmp-en@D600000 {
+		status = "disabled";
+	};
+
+	dce-en@BE00000 {
+		status = "okay";
+	};
+
+	rce-en@BE00000 {
+		status = "okay";
+	};
+
+	sce-en@B600000 {
+		status = "okay";
+	};
+
+	cpuidle {
+		compatible = "nvidia,tegra19x-cpuidle";
+		status = "okay";
+	};
+
+	thermal-zones {
+		status = "disabled";
+	};
+
+	reserved-memory {
+		ramoops_carveout {
+			status = "okay";
+		};
+		grid-of-semaphores {
+			status = "okay";
+		};
+		vpr-carveout {
+			status = "disabled";
+		};
+	};
+
+        tegra-cache {
+                status = "okay";
+        };
+
+	serial@3100000 {
+		status = "okay";
+	};
+
+        mc {
+                status = "okay";
+                /delete-property/ ranges;
+                /delete-node/ mssnvlink@1f20000;
+        };
+
+        mc_sid@2c00000 {
+                status = "okay";
+        };
+
+        iommu@12000000 {
+                status = "okay";
+        };
+
+        iommu@10000000 {
+                status = "okay";
+        };
+
+        iommu@8000000 {
+                status = "okay";
+        };
+
+	serial@3130000 {
+		status = "okay";
+	};
+
+	serial@3140000 {
+		status = "disabled";
+	};
+
+	combined-uart {
+		compatible = "nvidia,tegra194-tcu";
+		console-port;
+		combined-uart;
+		status = "okay";
+	};
+
+	pwm@c340000 {
+		status = "disabled";
+	};
+
+	rtcpu@bc00000 {
+		status = "okay";
+	};
+
+	eeprom-manager {
+		data-size = <0x100>;
+		bus@0 {
+			i2c-bus = <&gen1_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+				label = "cvm";
+			};
+		};
+	};
+
+	soctherm-oc-event {
+		status = "disabled";
+	};
+
+	display@13800000 {
+		status = "disabled";
+	};
+
+	/* QSPI flash MX25U51279 is controlled by qspi0 */
+	spi@3270000 {
+		spi-max-frequency = <136000000>;
+		status = "okay";
+		prod-settings {
+			#prod-cells = <3>;
+			prod {
+				prod = <0x04 0x000000ff 0x10>;
+			};
+			/delete-node/ prod_c_nonsecure;
+			/delete-node/ prod_c_nopwrsave;
+			/delete-node/ prod_c_secure;
+			/delete-node/ prod_c_pwrsave;
+		};
+		/* QSPI NOR */
+		spiflash@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "MX25U51279G";
+			reg = <0>;
+			spi-max-frequency = <136000000>;
+			partition@0 {
+				label = "Whole_flash0";
+				reg = <0x00000000 0x4000000>;	/* size of QSPI-NOR 64MB == 512Mb */
+			};
+			controller-data {
+				nvidia,x1-len-limit = <16>;
+				nvidia,x1-bus-speed = <136000000>; /* In Mhz */
+				nvidia,x1-dymmy-cycle = <8>;
+				nvidia,x4-bus-speed = <136000000>;
+				nvidia,x4-dymmy-cycle = <8>;
+				nvidia,x4-is-ddr=<0>;
+				nvidia,ctrl-bus-clk-ratio = <1>;
+			};
+		};
+	};
+
+	sdhci@3460000 {
+                uhs-mask = <0x0>;
+		no-sdio;
+		no-sd;
+		supports-cqe;
+		status = "okay";
+	};
+
+	gpio@2200000 {
+                status = "okay";
+        };
+
+	gpio@c2f0000 {
+                status = "okay";
+        };
+
+	pinmux@2430000 {
+		status = "okay";
+	};
+
+        host1x@13e00000 {
+                status = "okay";
+        };
+
+        tegra-hsp@c150000 {
+                status = "okay";
+        };
+
+        tegra-hsp@3c00000 {
+                status = "okay";
+        };
+
+        tegra-hsp@b950000 {
+                status = "okay";
+        };
+
+        chipid@100000 {
+                status = "okay";
+        };
+
+	ldpc-enc {
+                status = "disabled";
+        };
+
+	efuse@3810000 {
+		status = "okay";
+	};
+
+	efuse-burn {
+		status = "okay";
+	};
+
+	rtc@c2a0000 {
+		status = "okay";
+	};
+
+	nvrng@3ae0000 {
+		status = "okay";
+	};
+
+	tachometer@39c0000 {
+		status = "okay";
+	};
+
+	bpmp {
+		status = "okay";
+	};
+
+	pmc@c360000 {
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		nvidia,invert-interrupt;
+#endif
+		iopad-defaults {
+			sdmmc-io-pads {
+				pins = "sdmmc1-hv", "sdmmc3-hv";
+				nvidia,enable-voltage-switching;
+			};
+		};
+	};
+
+#if TEGRA_PMC_VERSION < DT_VERSION_2
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+#endif
+
+	actmon@d230000 {
+		status = "disabled";
+		mc_all {
+			status = "disabled";
+		};
+	};
+};

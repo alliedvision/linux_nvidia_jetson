@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+#include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	pwm_fan_shared_data_fpga: pfsd-fpga {
+		num_resources = <0>;
+		secret = <47>;
+		active_steps = <10>;
+		active_rpm = <0 1000 2000 3000 4000 5000 6000 7000 10000 11000>;
+		rpm_diff_tolerance = <2>;
+		active_rru = <40 2 1 1 1 1 1 1 1 1>;
+		active_rrd = <40 2 1 1 1 1 1 1 1 1>;
+		state_cap_lookup = <2 2 2 2 3 3 3 4 4 4>;
+		pwm_period = <45334>;
+		pwm_id = <8>;
+		pwm_polarity = <PWM_POLARITY_NORMAL>;
+		suspend_state = <0>;
+		step_time = <100>; /* mesecs */
+		state_cap = <7>;
+		active_pwm_max = <256>;
+		tach_period = <1000>;
+		tach_gpio =  <&tegra_aon_gpio TEGRA194_AON_GPIO(BB, 2) GPIO_ACTIVE_LOW>;
+		pwm_gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(R, 0) GPIO_ACTIVE_LOW>;
+	};
+
+	pwm_fan_fpga: pwm-fan-fpga {
+		compatible = "pwm-fan";
+		status = "okay";
+		#pwm-cells = <1>;
+		pwms = <&tegra_pwm8 0 45334>;
+		shared_data = <&pwm_fan_shared_data_fpga>;
+		#cooling-cells = <2>;
+		cdev-type = "pwm-fan-fpga";
+		profiles {
+			default = "cool";
+			cool {
+				state_cap = <7>;
+#if TEGRA_PWM_FAN_DT_VERSION == DT_VERSION_2
+				cooling-levels = <178 170 155 130 103 65 0 0 0 0>;
+#else
+				active_pwm = <77 85 100 125 152 190 255 255 255 255>;
+#endif
+			};
+		};
+	};
+};

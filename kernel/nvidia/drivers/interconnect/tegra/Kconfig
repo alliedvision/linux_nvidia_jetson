@@ -1,0 +1,5 @@
+config INTERCONNECT_TEGRA
+	bool "Tegra interconnect drivers"
+	depends on ARCH_TEGRA
+	help
+	  Support for Tegra interconnect provider.

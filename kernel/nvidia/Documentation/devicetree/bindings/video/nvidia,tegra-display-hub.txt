@@ -1,0 +1,44 @@
+NVIDIA Tegra Display Hub
+
+The Tegra Display Hardware (DC) provides an engine for display processing
+pipeline with support of format conversion, scaling, rotation of display
+content with supporting different protocols for display pipeline.
+
+This display-hub node is used for mainly initializing chip-level information
+about display HW, such as the total number of heads, windows, and SORs.
+It is also used for retrieval of the static IMP table from device tree.
+Rest of details for Tegra DC are given in ./nvidia,tegrat194-dc.txt
+
+Required properties:
+- compatible: Must be "nvidia,tegra186-display" or "nvidia,tegra194-display".
+- reg: The physical base address and length of the address spaces for all heads.
+  For T194, the physical base address should be that of HEAD0, and
+  the length should be 0x40000 to cover HEAD0 - HEAD3.
+- nvidia,valid_heads: This is a legacy property that is carried over from T186.
+  It must be set to 0x0.
+- nvidia,disp_imp_table: This table contains static IMP (Is Mode Possible)
+  settings for different display configurations. IMP is essentially a SW/HW
+  feature that programs display's bandwidth resources so that the display pipeline
+  doesn't underflow.
+
+Subnodes:
+- display@152x0000: Refer to its binding doc:
+  Documentation/devicetree/bindings/video/nvidia,tegra194-dc.txt
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+display-hub@15200000 {
+	compatible = "nvidia,tegra194-display", "simple-bus";
+	reg = <0x0 0x15200000 0x0 0x40000>;
+	nvidia,valid_heads = <0x0>;
+	nvidia,disp_imp_table = <&disp_imp_table>;
+
+	display@15200000 {...};
+	display@15210000 {...};
+	display@15220000 {...};
+	display@15230000 {...};
+};

@@ -1,0 +1,34 @@
+NVIDIA Tegra timers
+
+This device node specifies the properties of Nvidia designed timer hardware.
+
+Unlike ARM architectured timers, these Tegra timers are not part of CPU,
+instead, they are part of SoC.
+
+Required Properties:
+ - compatible: should be set to "nvidia,tegra186-timer"
+ - interrupts: interrupt mapping for supported timers.
+ - clock-frequency: timer frequency, an 32b integer.
+ - reg: address range for configuration registers
+ - tmr-count: the maximum number of supported timer units
+ - wdt-count: the maximum number of supported watchdog timer units
+
+Not all timers in the node need to be used.
+
+Example:
+
+	timer@3020000 {
+		compatible = "nvidia,tegra186-timer";
+		interrupts = <0 0 4>,
+			     <0 1 4>,
+			     <0 2 4>,
+			     <0 3 4>,
+			     <0 4 4>,
+			     <0 5 4>,
+		clock-frequency = <19200000>;
+		reg = <0x0 0x03010000 0x0 0x000e0000>;
+		tmr-count = <10>;
+		wdt-count = <3>;
+		status = "disabled";
+	};
+

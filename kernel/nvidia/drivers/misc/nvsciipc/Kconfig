@@ -1,0 +1,9 @@
+config NVSCIIPC
+	tristate "NvSciIpc kernel module"
+	default n
+	help
+	This kernel module is added for supporting vuid and secure
+	buffer sharing feature of NvSciIpc.
+
+	Select Y to enable nvsciipc support built into kernel
+	or select M to enable nvsciipc support as loadable module.

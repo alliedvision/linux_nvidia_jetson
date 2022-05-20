@@ -1,0 +1,53 @@
+config TEGRA_KFUSE
+	bool "Tegra kfuse support"
+	default n
+	depends on ARCH_TEGRA
+	help
+	  Enable Tegra kfuse support. The kfuse block stores downstream and
+	  upstream HDCP keys for use by the HDMI module.
+
+config TEGRA_FUSE_DOWNSTREAM
+	bool "Downstream Tegra Fuse Support"
+	depends on ARCH_TEGRA
+	help
+	  This option enables support for downstream TEGRA efuse and platform
+	  level helper code.
+
+config TEGRA_FUSE_BURN
+	bool "Downstream Tegra Fuse Burn Support"
+	depends on ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC || ARCH_TEGRA_114_SOC || \
+		   ARCH_TEGRA_124_SOC || ARCH_TEGRA_132_SOC || ARCH_TEGRA_210_SOC || \
+		   SOC_TEGRA_PMC
+	help
+	  This option enables support for downstream TEGRA fuse-burn feature.
+
+config TEGRA_PROC_POWER_MODEL
+	bool "Tegra process power model support"
+	depends on ARCH_TEGRA
+	help
+	  Used to create a simple processor power model (PPM) by
+	  collating various chip specific data including voltage,
+	  frequency, and number of cores. This driver is used by
+	  various other drivers including EDP.
+
+config TEGRA_DVFS
+	bool
+	depends on ARCH_TEGRA
+	select PM_OPP
+	help
+	  This adds Tegra DVFS support. There could be several power
+	  rails involved and there might be rails dependency based
+	  on different SoCs, this config enable the generic DVFS
+	  library needed by each SoCs DVFS files.
+
+	  If in doubt, say N.
+
+config TEGRA_210_DVFS
+	bool "Tegra210 DVFS support"
+	depends on ARCH_TEGRA_210_SOC
+	select TEGRA_DVFS
+	help
+	  This enable Tegra210 DVFS functionality, it implements SoC
+	  specific initialization code to be invoked by probe function
+	  defined in generic Tegra DVFS driver, so while enabled it
+	  needs the config TEGRA_DVFS to be enabled as well.

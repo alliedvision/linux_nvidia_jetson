@@ -1,0 +1,42 @@
+NVIDIA Tegra Display Power Domains
+
+This document describes the device tree bindings for the DC power domains,
+as well as for subnodes corresponding to these engines. These nodes present
+under SoC power domain parent node.
+
+Required properties:
+- compatible: This can be either "nvidia,tegra194-disa-pd",
+  "nvidia,tegra194-disb-pd" or "nvidia,tegra194-disc-pd".
+  All these nodes should be present. These power domains
+  control power to heads and windows given below:
+  - DISA power domain
+    - HEAD0
+    - WINDOW0
+  - DISB power domain
+    - HEAD1
+    - WINDOW1, WINDOW2
+  - DISC power domain
+    - HEAD2, HEAD3
+    - WINDOW3, WINDOW4, WINDOW5
+- partition-id: A power partition which needs to enabled before DC operation.
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+disa_pd: disa-pd {
+	compatible = "nvidia,tegra194-disa-pd";
+	partition-id = <TEGRA194_POWER_DOMAIN_DISP>;
+};
+
+disb_pd: disb-pd {
+	compatible = "nvidia,tegra194-disb-pd";
+	partition-id = <TEGRA194_POWER_DOMAIN_DISPB>;
+};
+
+disc_pd: disc-pd {
+	compatible = "nvidia,tegra194-disc-pd";
+	partition-id = <TEGRA194_POWER_DOMAIN_DISPC>;
+}

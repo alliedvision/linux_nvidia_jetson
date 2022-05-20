@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	p2888_shuntv_offset: shuntv-offset {
+		offset = <0>;
+		range@0 {
+			start = <0xFFFFFFD8>;
+			end = <0xFFFFFFD8>;
+			offset = <40>;
+		};
+	};
+
+	i2c@c240000 {
+		ina3221x_40: ina3221@40 {
+			compatible = "ti,ina3221";
+			reg = <0x40>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			channel@0 {
+				reg = <0x0>;
+				label = "GPU";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+			channel@1 {
+				reg = <0x1>;
+				label = "CPU";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+			channel@2 {
+				reg = <0x2>;
+				label = "SOC";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+		};
+		ina3221x_41: ina3221@41 {
+			compatible = "ti,ina3221";
+			reg = <0x41>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			channel@0 {
+				reg = <0x0>;
+				label = "CV";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+			channel@1 {
+				reg = <0x1>;
+				label = "VDDRQ";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+			channel@2 {
+				reg = <0x2>;
+				label = "SYS5V";
+				shunt-resistor-micro-ohms = <5000>;
+				shunt-volt-offset-uv = <&p2888_shuntv_offset>;
+			};
+		};
+	};
+};
