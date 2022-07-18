@@ -38,4 +38,12 @@
 			};
 		};
 	};
+
+	fragment-usb-vbus-en0@1 {
+		target-path = "/fixed-regulators/regulator@114";
+		delete_prop = "enable-active-high";
+		board_config {
+			ids = "<2822-0000-400";
+		};
+	};
 };

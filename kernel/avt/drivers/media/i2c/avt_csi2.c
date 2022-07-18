@@ -1912,6 +1912,27 @@ static bool avt_mode_reinit_required(struct avt_csi2_priv *priv)
     return priv->numlanes != priv->s_data->numlanes;
 }
 
+static void avt_disable_stream_ctrls(struct avt_csi2_priv *priv,bool disabled)
+{
+    int i;
+
+    for (i = 0; i < AVT_MAX_CTRLS;i++)
+    {
+        if (priv->ctrls[i] != NULL)
+        {
+            if (priv->ctrls[i]->priv != NULL)
+            {
+                struct avt_ctrl_mapping *mapping = priv->ctrls[i]->priv;
+
+                if (mapping->disabled_while_streaming)
+                {
+                    v4l2_ctrl_grab(priv->ctrls[i],disabled);
+                }
+            }
+        }
+    }
+}
+
 /* Start/Stop streaming from the device */
 static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 {
@@ -1937,6 +1958,8 @@ static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
             if (trigger_sw_ctrl)
                 v4l2_ctrl_activate(trigger_sw_ctrl,true);
 
+            avt_disable_stream_ctrls(priv,true);
+
             ret = avt_set_param(client, V4L2_AV_CSI2_STREAMON_W, 1);
 
             priv->value_update_thread = kthread_run(auto_value_update_thread, priv, "avt_csi2");
@@ -1955,6 +1978,8 @@ static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
         if (trigger_sw_ctrl)
             v4l2_ctrl_activate(trigger_sw_ctrl,false);
+
+        avt_disable_stream_ctrls(priv,false);
 	}
 
 	if (ret < 0)
@@ -2289,7 +2314,7 @@ static int avt_csi2_enum_frameintervals(struct v4l2_subdev *sd,
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
 	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
 	int ret;
-	u64 min_framerate,max_framerate,framerate_step;
+	u64 min_framerate,max_framerate,framerate_step,tmp;
 
 	if(fie->index > 0)
 		return -EINVAL;
@@ -2338,43 +2363,34 @@ static int avt_csi2_enum_frameintervals(struct v4l2_subdev *sd,
 		return ret;
 	}
 
-	fie->max_interval.numerator = FRAQ_NUM;
-	fie->max_interval.denominator = (min_framerate * FRAQ_NUM) / UHZ_TO_HZ;
+    tmp = min_framerate * FRAQ_NUM;
 
+    //Check if result of division will be between 0 and 1, if it is so increase numerator
+    if (tmp < UHZ_TO_HZ) {
+        fie->max_interval.numerator = UHZ_TO_HZ;
+        fie->max_interval.denominator = min_framerate;
+    }
+    else {
+        fie->max_interval.numerator = FRAQ_NUM;
+        fie->max_interval.denominator = tmp / UHZ_TO_HZ;
+    }
 
-	fie->interval.numerator = FRAQ_NUM;
-	fie->interval.denominator = (max_framerate * FRAQ_NUM) / UHZ_TO_HZ;
+    tmp = max_framerate * FRAQ_NUM;
+
+    //Check if result of division will be between 0 and 1, if it is so increase numerator
+    if (tmp < UHZ_TO_HZ) {
+        fie->max_interval.numerator = UHZ_TO_HZ;
+        fie->max_interval.denominator = max_framerate;
+    }
+    else {
+        fie->interval.numerator = FRAQ_NUM;
+        fie->interval.denominator = tmp / UHZ_TO_HZ;
+    }
+
 
 	return 0;
 }
 
-static int convert_bcrm_to_v4l2(struct bcrm_to_v4l2 *bcrmv4l2)
-{
-	int64_t value_min = bcrmv4l2->min_bcrm;
-	int64_t value_max = bcrmv4l2->max_bcrm;
-	int64_t value_step = bcrmv4l2->step_bcrm;
-
-	/* Clamp to limits of int32 representation */
-	if (value_min > S32_MAX)
-		value_min = S32_MAX;
-	if (value_min < S32_MIN)
-		value_min = S32_MIN;
-
-	if (value_max > S32_MAX)
-		value_max = S32_MAX;
-	if (value_max < value_min)
-		value_max = value_min;
-
-	if (value_step > S32_MAX)
-		value_step = S32_MAX;
-	if (value_step < S32_MIN)
-		value_step = S32_MIN;
-
-	bcrmv4l2->min_v4l2 = (int32_t)value_min;
-	bcrmv4l2->max_v4l2 = (int32_t)value_max;
-	bcrmv4l2->step_v4l2 = (int32_t)value_step;
-	return 0;
-}
 
 static __s32 convert_s_ctrl(__s32 val, __s32 min, __s32 max, __s32 step)
 {
@@ -5315,10 +5331,9 @@ static int avt_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame
 	struct v4l2_fract *tpf = &(priv->streamcap.timeperframe);
 	struct v4l2_ext_control vc;
 	int ret;
-	u64 value64, min, max, step;
-	struct bcrm_to_v4l2 bcrm_v4l2;
+    struct v4l2_query_ext_ctrl qctrl;
+    u64 value64;
 	union bcrm_feature_reg feature_inquiry_reg;
-	CLEAR(bcrm_v4l2);
 
 	/* reading the Feature inquiry register */
 	ret = read_feature_register(sd, &feature_inquiry_reg);
@@ -5380,7 +5395,7 @@ static int avt_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame
 			return ret;
 		}
 
-		bcrm_v4l2.min_bcrm = value64;
+		qctrl.minimum = value64;
 
 		/* reading the Maximum Frame Rate Level */
 		ret = avt_reg_read(client,
@@ -5393,7 +5408,7 @@ static int avt_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame
 			return ret;
 		}
 
-		bcrm_v4l2.max_bcrm = value64;
+        qctrl.maximum = value64;
 
 		/* reading the Frame Rate Level step increment */
 		ret = avt_reg_read(client,
@@ -5406,33 +5421,30 @@ static int avt_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame
 			return ret;
 		}
 
-		bcrm_v4l2.step_bcrm = value64;
+		qctrl.step = value64;
 
-		convert_bcrm_to_v4l2(&bcrm_v4l2);
-
-		min = bcrm_v4l2.min_v4l2;
-		max = bcrm_v4l2.max_v4l2;
 		/* Set step to 1 uHz because zero value came from camera register */
-		if(!step)
-			step = 1;
+		if(!qctrl.step)
+            qctrl.step = 1;
 
-		if (min > max) {
+		if (qctrl.minimum > qctrl.maximum) {
 			avt_err(sd, "Frame rate: min > max! (%llu > %llu)\n",
-					min, max);
+                    qctrl.minimum, qctrl.maximum);
 			return -EINVAL;
 		}
-		if (step <= 0) {
+		if (qctrl.step <= 0) {
 			avt_err(sd, "Frame rate: non-positive step value (%llu)!\n",
-					step);
+                    qctrl.step);
 			return -EINVAL;
 		}
 
 		/* Translate timeperframe to frequency
 		 * by inverting the fraction
 		 */
-		value64 = (tpf->denominator * UHZ_TO_HZ) / tpf->numerator;
-		value64 = convert_s_ctrl(value64, min, max, step);
-		if (value64 < 0) {
+        value64 = (tpf->denominator * UHZ_TO_HZ) / tpf->numerator;
+        value64 = convert_s_ctrl64(&qctrl,value64);
+
+        if (value64 < 0) {
 			avt_err(sd, "Frame rate: non-positive value (%llu)!\n",
 					value64);
 			return -EINVAL;
@@ -5456,8 +5468,15 @@ static int avt_s_frame_interval(struct v4l2_subdev *sd, struct v4l2_subdev_frame
 			return ret;
 		}
 
-		tpf->numerator = FRAQ_NUM;
-		tpf->denominator = value64 / FRAQ_NUM;
+        //Check if result of division will be between 0 and 1, if it is so increase numerator
+        if (value64 < FRAQ_NUM) {
+            tpf->numerator = FRAQ_NUM * FRAQ_NUM;
+            tpf->denominator = value64;
+        }
+        else {
+            tpf->numerator = FRAQ_NUM;
+            tpf->denominator = value64 / FRAQ_NUM;
+        }
 
 		/* Copy modified settings back */
 		memcpy(&interval->interval, &priv->streamcap.timeperframe, sizeof(struct v4l2_fract));
@@ -7088,7 +7107,7 @@ static int avt_initialize_controls(struct i2c_client *client, struct avt_csi2_pr
 			priv->ctrl_cfg[i].menu_skip_mask = 0;
 		}
 
-        ctrl = v4l2_ctrl_new_custom(&priv->hdl, &priv->ctrl_cfg[i], NULL);
+        ctrl = v4l2_ctrl_new_custom(&priv->hdl, &priv->ctrl_cfg[i], (void *)&avt_ctrl_mappings[j]);
 
         if (ctrl == NULL) {
             dev_err(&client->dev, "Failed to init %s ctrl (%d)\n", priv->ctrl_cfg[i].name, priv->hdl.error);

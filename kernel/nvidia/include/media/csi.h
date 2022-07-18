@@ -124,6 +124,8 @@ struct tegra_csi_channel {
 	atomic_t is_streaming;
 
 	struct device_node *of_node;
+
+	bool bypass_dt;
 };
 
 static inline struct tegra_csi_channel *to_csi_chan(struct v4l2_subdev *subdev)

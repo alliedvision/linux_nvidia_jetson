@@ -3,3 +3,8 @@ Type: select
 Choices: ${board-configurations}
 Default: ${default-board-configuration}
 Description: Select board configuration:
+
+Template: avt-nvidia-l4t-bootloader/beta-warning
+Type: note
+Description: WARNING: beta configuration selected!
+ The selected configuration is in beta state and not validated.

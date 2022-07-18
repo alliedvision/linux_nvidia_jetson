@@ -1,7 +1,7 @@
 # NVIDIA Jetson driver (Beta)
 
 
-Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.0 DP (L4T 34.1.0)     
+Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.0.1 DP (L4T 34.1.1)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
 
@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Compatible platforms with JetPack 5.0 DP (L4T 34.1.0) : 
+Compatible platforms with JetPack 5.0.1 DP (L4T 34.1.1) : 
 
 + AGX Xavier NVIDIA developer kit (including optional use of Allied Vision's adapter for up to 6 cameras) 
 + Xavier NX NVIDIA developer kit
@@ -32,9 +32,9 @@ The scripts require Git on the host PC.
 
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
 
-## Prerequisites: Install JetPack 5.0 Developer Preview
+## Prerequisites: Install JetPack 5.0.1 Developer Preview
  
-Install JetPack 5.0 DP (L4T 34.1.0) as per NVIDIA's instructions
+Install JetPack 5.0.1 DP (L4T 34.1.1) as per NVIDIA's instructions
  https://developer.nvidia.com/embedded/jetpack      
 
 Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
@@ -48,7 +48,7 @@ https://docs.nvidia.com/sdk-manager/
   Install the precompiled kernel, which includes the driver and an installation menu.   
 
   1. Extract the tarball on a host PC.   
-  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_34.1.0_<git-rev>.tar.gz. 
+  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_34.1.1_<git-rev>.tar.gz. 
 
 2. Copy the tarball to the target board. 
 3. On the target board, extract the tarball and run the included install script.   

@@ -231,10 +231,9 @@ done:
 static void vi5_bypass_datatype(struct tegra_channel *chan,
 	struct capture_descriptor *desc)
 {
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
 	u32 data_type = chan->fmtinfo->img_dt;
 
-	if(mc->bypass) {
+	if(chan->bypass_dt) {
 		desc->ch_cfg.match.datatype = 0x0;
 		desc->ch_cfg.match.datatype_mask = 0x0;
 		desc->ch_cfg.dt_enable = 1;
@@ -902,10 +901,10 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
 	long err;
 
-	vi_stop_waiting(chan->tegra_vi_channel);
-
-	if (!chan->bypass)
-		vi5_channel_stop_kthreads(chan);
+	if (!chan->bypass) {
+        vi_stop_waiting(chan->tegra_vi_channel);
+        vi5_channel_stop_kthreads(chan);
+    }
 
 	/* csi stream/sensor(s) devices to be closed before vi channel */
 	tegra_channel_set_stream(chan, false);

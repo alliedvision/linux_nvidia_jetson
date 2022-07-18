@@ -3,7 +3,7 @@
  *
  * Handle allocation and freeing routines for nvmap
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -410,31 +410,44 @@ static int alloc_colored(u32 nr_pages,
 			min_count = state.list->counts[i];
 	}
 
-	/* Compute the number of perfect / imperfect tiles and the maximum
+	/*
+	 * Compute the number of perfect / imperfect tiles and the maximum
 	 * number of pages with the same color can be in a tile
+	 *
+	 * Perfect tile: A tile which consist of one page of each color i.e. 16 pages,
+	 *               each of different color
+	 * Imperfect tile: A tile which is not perfect i.e. at least some color will repeat
+	 * max_color_per_tile: How many max times any color can be present in a tile
 	 */
-	if (max_count / nr_tiles >= 3) {
-		/* It is not possible to create perfect tiles with
-		 * max_color_per_tile <= 3
+	if (min_count == 0) {
+		/*
+		 * If there is no page of at least one color, then not a sigle perefect tile can be
+		 * created. The max color pages would need to be distributed equally among all
+		 * tiles.
 		 */
 		nr_perfect = 0;
 		state.max_color_per_tile = (max_count + nr_tiles - 1)
 					   / nr_tiles;
-	} else if (nr_tiles * 2 == max_count) {
-		/* All of the tiles can be perfect */
+	} else if (min_count == nr_tiles) {
+		/*
+		 * If pages with each color are at least the number of tiles, then all of the tiles
+		 * can be perfect.
+		 */
 		nr_perfect = nr_tiles;
-		state.max_color_per_tile = 2;
+		state.max_color_per_tile = 1;
 	} else {
-		/* Some of the tiles can be perfect */
-		nr_perfect = nr_tiles - (max_count % nr_tiles);
-		state.max_color_per_tile = 3;
+		/*
+		 * Some of the tiles can be perfect and remaining will be imperfect.
+		 * min_count number of perfect tiles can be created, hence the min_count number of
+		 * pages
+		 * having max color would be present in the perfect tiles, The remaining pages would
+		 * be distributed equally among the imperfect tiles.
+		 */
+		nr_perfect = min_count;
+		nr_imperfect = nr_tiles - nr_perfect;
+		state.max_color_per_tile = ((max_count - nr_perfect) + nr_imperfect - 1)
+					   / nr_imperfect;
 	}
-	/* Check if the number of perfect tiles is bound by the color with the
-	 * minimum count
-	 */
-	if (nr_perfect * 2 > min_count)
-		nr_perfect = min_count / 2;
-
 	nr_imperfect = nr_tiles - nr_perfect;
 
 	/* Output tiles */

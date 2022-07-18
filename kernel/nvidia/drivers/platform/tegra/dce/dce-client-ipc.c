@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -322,14 +322,17 @@ static void dce_client_process_event_ipc(struct tegra_dce *d,
 	}
 	msg_length = DCE_CLIENT_MAX_IPC_MSG_SIZE;
 
-	ret = dce_ipc_read_message(d, cl->int_type, msg_data, msg_length);
-	if (ret) {
-		dce_err(d, "Error in reading DCE msg for ch_type [%d]",
-			cl->int_type);
-		goto done;
-	}
+	do {
+		ret = dce_ipc_read_message(d, cl->int_type, msg_data, msg_length);
+		if (ret) {
+			dce_info(d, "Error in reading DCE msg for ch_type [%d]",
+				cl->int_type);
+			goto done;
+		}
 
-	cl->callback_fn(cl->handle, cl->type, msg_length, msg_data, cl->data);
+		cl->callback_fn(cl->handle, cl->type, msg_length, msg_data, cl->data);
+	} while (dce_ipc_is_data_available(d, cl->int_type));
+
 done:
 	if (msg_data)
 		dce_kfree(d, msg_data);

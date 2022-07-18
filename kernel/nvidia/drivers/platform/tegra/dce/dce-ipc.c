@@ -675,7 +675,7 @@ int dce_ipc_read_message(struct tegra_dce *d, u32 ch_type,
 
 	ret = _dce_ipc_get_next_read_buff(ch);
 	if (ret) {
-		dce_err(ch->d, "Error getting next free buf to read");
+		dce_info(ch->d, "Error getting next free buf to read");
 		goto out;
 	}
 
