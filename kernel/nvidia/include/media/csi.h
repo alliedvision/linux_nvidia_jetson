@@ -121,6 +121,8 @@ struct tegra_csi_channel {
 
 	struct device_node *of_node;
 	unsigned int packet_crc_error;
+
+	bool bypass_dt;
 };
 
 static inline struct tegra_csi_channel *to_csi_chan(struct v4l2_subdev *subdev)

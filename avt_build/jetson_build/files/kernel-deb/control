@@ -5,7 +5,7 @@ Package: avt-nvidia-l4t-kernel
 Architecture: arm64
 Pre-Depends: nvidia-l4t-core (>> 32.7-0), nvidia-l4t-core (<< 32.8-0)
 Depends: nvidia-l4t-tools (>> 32.7-0), nvidia-l4t-tools (<< 32.8-0)
-Conflicts: nvidia-l4t-kernel
+Conflicts: nvidia-l4t-kernel (<< 32.8-0)
 Section: kernel
 Priority: standard
 Homepage: http://developer.nvidia.com/jetson

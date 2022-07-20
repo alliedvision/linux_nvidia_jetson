@@ -69,7 +69,7 @@ struct nvhost_syncpt {
 	struct nvhost_syncpt_attr invalid_syncpt_type_attr;
 	struct nvhost_syncpt_attr invalid_assigned_attr;
 #endif
-	bool stop_stream_called;
+	atomic_t *stop_stream_called;
 	u32 stream_id;
 };
 

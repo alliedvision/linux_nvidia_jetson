@@ -356,10 +356,8 @@ static int tegra_channel_error_status(struct tegra_channel *chan)
 		csi_write(chan, index, TEGRA_VI_CSI_ERROR_STATUS, val);
 
         if (val) {
-            dev_err(chan->vi->dev, "%s:error %x frame %d\n",
+            dev_dbg(chan->vi->dev, "%s:error %x frame %d\n",
                     __func__, val, chan->sequence);
-
-            return val;
         }
 
         err = tegra_csi_error(csi_chan, index);
@@ -369,10 +367,8 @@ static int tegra_channel_error_status(struct tegra_channel *chan)
         }
 
         if (err) {
-            dev_err(chan->vi->dev, "%s:error %x frame %d\n",
+            dev_dbg(chan->vi->dev, "%s:error %x frame %d\n",
                     __func__, err, chan->sequence);
-
-            return err;
         }
 	}
 
@@ -387,10 +383,11 @@ static int tegra_channel_capture_frame_single_thread(
 	struct vb2_v4l2_buffer *vb = &buf->buf;
 	struct timespec ts;
 	int err = 0;
-	u32 val, mw_ack_done;
+	u32 val, frame_start, mw_ack_done;
 	int bytes_per_line = chan->format.bytesperline;
 	int index = 0;
-	u32 thresh[TEGRA_CSI_BLOCKS] = { 0 };
+	u32 start_thresh[TEGRA_CSI_BLOCKS] = { 0 };
+    u32 release_thresh[TEGRA_CSI_BLOCKS] = { 0 };
 	int valid_ports = chan->valid_ports;
 	int state = VB2_BUF_STATE_DONE;
 
@@ -421,22 +418,23 @@ static int tegra_channel_capture_frame_single_thread(
 				TEGRA_VI_CSI_SURFACE1_STRIDE, bytes_per_line);
 		}
 
-		/* Program syncpoints */
-        thresh[index] = nvhost_syncpt_incr_max_ext(chan->vi->ndev, chan->syncpt[index][1], 1);
+        /* Program syncpoints */
+        start_thresh[index] = nvhost_syncpt_incr_max_ext(chan->vi->ndev, chan->syncpt[index][0], 1);
+        release_thresh[index] = nvhost_syncpt_incr_max_ext(chan->vi->ndev, chan->syncpt[index][1], 1);
 
 
 
         /* Do not arm sync points if FIFO had entries before */
-		if (!chan->syncpoint_fifo[index][0]) {
+        if (!chan->syncpoint_fifo[index][0]) {
+            frame_start = VI_CSI_PP_FRAME_START(chan->port[index]);
+            val = VI_CFG_VI_INCR_SYNCPT_COND(frame_start) | chan->syncpt[index][0];
+            tegra_channel_write(chan, TEGRA_VI_CFG_VI_INCR_SYNCPT, val);
+
             mw_ack_done = VI_CSI_MW_ACK_DONE(chan->port[index]);
             val = VI_CFG_VI_INCR_SYNCPT_COND(mw_ack_done) | chan->syncpt[index][1];
             tegra_channel_write(chan, TEGRA_VI_CFG_VI_INCR_SYNCPT, val);
-
         } else
-			chan->syncpoint_fifo[index][0]--;
-
-
-
+            chan->syncpoint_fifo[index][0]--;
     }
 
 	/* enable input stream once the VI registers are configured */
@@ -462,33 +460,36 @@ static int tegra_channel_capture_frame_single_thread(
 		csi_write(chan, index,
 			TEGRA_VI_CSI_SINGLE_SHOT, SINGLE_SHOT_CAPTURE);
 
-	chan->capture_state = CAPTURE_GOOD;
-	for (index = 0; index < valid_ports; index++) {
-		if (chan->pending_trigger) {
-			nvhost_syncpt_cpu_incr_ext(chan->vi->ndev, chan->syncpt[index][0]);
-			chan->pending_trigger = false;
-		}
-		nvhost_syncpt_remember_stream_id_ext(chan->vi->ndev,
-			chan->syncpt[index][0]);
+
+    chan->capture_state = CAPTURE_GOOD;
+    for (index = 0; index < valid_ports; index++) {
+
         err = nvhost_syncpt_wait_timeout_ext(chan->vi->ndev,
-            chan->syncpt[index][1], thresh[index],
-            chan->timeout, NULL,&ts);
+                                             chan->syncpt[index][0], start_thresh[index],
+                                             chan->timeout, NULL, &ts);
 
-		if (err) {
-			dev_err(&chan->video->dev,
-				"frame EOF syncpt timeout!%d\n", index);
-			state = VB2_BUF_STATE_REQUEUEING;
-			/* perform error recovery for timeout */
-			tegra_channel_ec_recover(chan);
-			chan->capture_state = CAPTURE_TIMEOUT;
-            break;
-		}
-	}
+        if (err == -ECANCELED) {
+            dev_dbg(&chan->video->dev,
+                    "frame SOF syncpt cancelled!\n");
 
+            state = VB2_BUF_STATE_ERROR;
+            goto capture_end;
+        }
+        else if (err) {
+            dev_err(&chan->video->dev,
+                    "frame SOF syncpt timeout!\n");
 
-	getrawmonotonic(&ts);
+            tegra_channel_error_status(chan);
 
-	if (!err && !chan->pg_mode) {
+            state = VB2_BUF_STATE_REQUEUEING;
+            /* perform error recovery for timeout */
+            tegra_channel_ec_recover(chan);
+            chan->capture_state = CAPTURE_TIMEOUT;
+            goto capture_end;
+        }
+    }
+
+	if (!chan->pg_mode) {
 		/* Marking error frames and resume capture */
 		/* TODO: TPG has frame height short error always set */
 		err = tegra_channel_error_status(chan);
@@ -497,11 +498,45 @@ static int tegra_channel_capture_frame_single_thread(
 			chan->capture_state = CAPTURE_ERROR;
 			/* do we have to run recover here ?? */
             tegra_channel_ec_recover(chan);
+
+            goto capture_end;
 		}
 	}
 
-    if (kthread_should_stop() && chan->avt_cam_mode)
-        state = VB2_BUF_STATE_ERROR;
+    for (index = 0; index < valid_ports; index++) {
+        err = nvhost_syncpt_wait_timeout_ext(chan->vi->ndev,
+                                             chan->syncpt[index][1], release_thresh[index],
+                                             500, NULL, &ts);
+
+        if (err) {
+            dev_err(&chan->video->dev,
+                    "frame EOF syncpt timeout!%d\n", index);
+
+            tegra_channel_error_status(chan);
+
+            state = VB2_BUF_STATE_REQUEUEING;
+            /* perform error recovery for timeout */
+            tegra_channel_ec_recover(chan);
+            chan->capture_state = CAPTURE_TIMEOUT;
+
+            goto capture_end;
+        }
+    }
+
+    if (!chan->pg_mode) {
+        /* Marking error frames and resume capture */
+        /* TODO: TPG has frame height short error always set */
+        err = tegra_channel_error_status(chan);
+        if (err) {
+            state = VB2_BUF_STATE_REQUEUEING;
+            chan->capture_state = CAPTURE_ERROR;
+            /* do we have to run recover here ?? */
+            tegra_channel_ec_recover(chan);
+        }
+    }
+
+capture_end:
+    getrawmonotonic(&ts);
 
     set_timestamp(buf, &ts);
     tegra_channel_update_statistics(chan);
@@ -879,8 +914,9 @@ static int vi2_channel_stop_streaming(struct vb2_queue *vq)
 	int err = 0;
 
 	if (chan->avt_cam_mode || chan->trigger_mode) {
-		for (index = 0; index < chan->valid_ports; index++)
-			nvhost_syncpt_stop_waiting_ext(chan->vi->ndev, chan->syncpt[index][1]);
+		for (index = 0; index < chan->valid_ports; index++) {
+			nvhost_syncpt_stop_waiting_ext(chan->vi->ndev, chan->syncpt[index][0]);
+		}
 	}
 
 	if (!chan->bypass) {
@@ -913,8 +949,9 @@ static int vi2_channel_stop_streaming(struct vb2_queue *vq)
 	tegra_channel_set_stream(chan, false);
 
 	if (chan->avt_cam_mode || chan->trigger_mode) {
-		for (index = 0; index < chan->valid_ports; index++)
-			nvhost_syncpt_restart_waiting_ext(chan->vi->ndev, chan->syncpt[index][1]);
+		for (index = 0; index < chan->valid_ports; index++) {
+			nvhost_syncpt_restart_waiting_ext(chan->vi->ndev, chan->syncpt[index][0]);
+		}
 	}
 
 	err = tegra_channel_write_blobs(chan);

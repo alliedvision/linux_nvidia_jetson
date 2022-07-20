@@ -130,7 +130,6 @@ static void csi5_bypass_datatype(struct tegra_csi_channel *chan, u32 stream_id)
 {
 	struct tegra_csi_port *port = &chan->ports[0];
 	struct CAPTURE_CONTROL_MSG msg;
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
 
 	memset(&msg, 0, sizeof(msg));
 	msg.header.msg_id = CAPTURE_CSI_STREAM_SET_PARAM_REQ;
@@ -140,7 +139,7 @@ static void csi5_bypass_datatype(struct tegra_csi_channel *chan, u32 stream_id)
 	msg.csi_stream_set_param_req.virtual_channel_id = port->virtual_channel_id;
 	msg.csi_stream_set_param_req.param_type = NVCSI_PARAM_TYPE_DT_OVERRIDE;
 
-	if(mc->bypass) {
+	if(chan->bypass_dt) {
 		msg.csi_stream_set_param_req.dt_override_config.enable_override = 1;
 		msg.csi_stream_set_param_req.dt_override_config.override_type = NVCSI_DATATYPE_YUV422_8;
 	} else

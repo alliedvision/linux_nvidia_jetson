@@ -279,6 +279,8 @@ struct tegra_channel {
 	int created_bufs;
     struct v4l2_pix_format prev_format;
     atomic_t stop_streaming;
+
+	bool bypass_dt;
 };
 
 #define to_tegra_channel(vdev) \

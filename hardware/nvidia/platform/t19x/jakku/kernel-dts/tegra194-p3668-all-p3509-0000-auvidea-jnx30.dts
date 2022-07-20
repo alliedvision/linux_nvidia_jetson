@@ -16,7 +16,7 @@
 /dts-v1/;
 #include "common/tegra194-p3668-common.dtsi"
 #include "common/tegra194-p3509-0000-a00.dtsi"
-#include "common/tegra194-camera-jakku-avt-auvidea-3cam.dtsi"
+#include "common/tegra194-camera-jakku-avt-auvidea-jnx30-38401.dtsi"
 #include "common/tegra194-auvidea-jnx30-sdcard.dtsi"
 
 / {

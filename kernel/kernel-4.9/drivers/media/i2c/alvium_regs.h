@@ -32,7 +32,7 @@ version:     1.8.0
 // Version of the BCRM spec
 #define BCRM_SPEC_VERSION_MAJOR                     1
 #define BCRM_SPEC_VERSION_MINOR                     1
-#define BCRM_SPEC_VERSION_PATCH                     15
+#define BCRM_SPEC_VERSION_PATCH                     16
 
 // CCI registers
 #define CCI_REG_LAYOUT_VER_32R                      0x0000
@@ -171,8 +171,8 @@ version:     1.8.0
 #define BCRM_WIDTH_MAX_32R                          0x0168
 #define BCRM_HEIGHT_MAX_32R                         0x016C
 #define BCRM_DIGITAL_BINNIG_INQ_16R                 0x0170
-#define BCRM_DIGITAL_BINNIG_SETTING_8RW             0x0172
-#define BCRM_DIGITAL_BINNIG_MODE_8RW                0x0173
+#define BCRM_DIGITAL_BINNIG_SETTING_8RW             0x0174
+#define BCRM_DIGITAL_BINNIG_MODE_8RW                0x0178
 #define BCRM_EXPOSURE_TIME_64RW                     0x0180
 #define BCRM_EXPOSURE_TIME_MIN_64R                  0x0188
 #define BCRM_EXPOSURE_TIME_MAX_64R                  0x0190

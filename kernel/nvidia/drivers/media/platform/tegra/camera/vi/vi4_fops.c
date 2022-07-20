@@ -25,6 +25,8 @@
 #include "vi4_fops.h"
 #include <media/sensor_common.h>
 #include <trace/events/camera_common.h>
+#include <host1x/host1x.h>
+
 #define BPP_MEM		2
 #define MAX_VI_CHANNEL 12
 #define NUM_FIELDS_INTERLACED 2
@@ -190,7 +192,7 @@ static struct tegra_csi_channel *find_linked_csi_channel(
 	return csi_chan;
 }
 
-static bool vi_notify_wait(struct tegra_channel *chan,
+static int vi_notify_wait(struct tegra_channel *chan,
 		struct tegra_channel_buffer *buf,
 		struct timespec *ts)
 {
@@ -226,6 +228,8 @@ static bool vi_notify_wait(struct tegra_channel *chan,
 	for (i = 0; i < chan->valid_ports; i++) {
 		nvhost_syncpt_remember_stream_id_ext(chan->vi->ndev,
 				chan->syncpt[i][SOF_SYNCPT_IDX]);
+		nvhost_syncpt_remember_stream_id_ext(chan->vi->ndev,
+				chan->syncpt[i][FE_SYNCPT_IDX]);
         if (chan->low_latency)
         {
             err = nvhost_syncpt_wait_timeout_ext(chan->vi->ndev,
@@ -239,10 +243,16 @@ static bool vi_notify_wait(struct tegra_channel *chan,
                 chan->timeout, NULL, NULL);
         }
 
-		if (unlikely(err)) {
+        if (err == -ECANCELED) {
+            dev_dbg(chan->vi->dev,
+                    "PXL_SOF syncpt canceled! err = %d\n", err);
+
+            return err;
+        }
+		else if (unlikely(err)) {
 			dev_err(chan->vi->dev,
 				"PXL_SOF syncpt timeout! err = %d\n", err);
-			return false;
+			return -ETIMEDOUT;
 		} else {
 			struct vi_capture_status status;
 
@@ -266,7 +276,7 @@ static bool vi_notify_wait(struct tegra_channel *chan,
 		}
 	}
 
-	return true;
+	return 0;
 }
 
 static void tegra_channel_surface_setup(
@@ -376,7 +386,6 @@ static int tegra_channel_notify_enable(
 {
 	struct tegra_vi4_syncpts_req req;
 	int i, err;
-
 	chan->vnc_id[index] = -1;
 	for (i = 0; i < MAX_VI_CHANNEL; i++) {
 		chan->vnc[index] = vi_notify_channel_open(i);
@@ -412,7 +421,6 @@ static int tegra_channel_notify_enable(
 			chan->vi->ndev, chan->syncpt[index][SOF_SYNCPT_IDX]);
 		return -EFAULT;
 	}
-
 	nvhost_syncpt_set_min_eq_max_ext(
 		chan->vi->ndev, chan->syncpt[index][SOF_SYNCPT_IDX]);
 	nvhost_syncpt_set_min_eq_max_ext(
@@ -484,11 +492,10 @@ static int tegra_channel_notify_disable(
 static void vi4_bypass_datatype(struct tegra_channel *chan,
 		unsigned int index)
 {
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
 	u32 vnc_id = chan->vnc_id[index];
 	u32 data_type = chan->fmtinfo->img_dt;
 
-	if(mc->bypass) {
+	if(chan->bypass_dt) {
 		vi4_channel_write(chan, vnc_id, MATCH_DATATYPE, 0x0);
 		vi4_channel_write(chan, vnc_id, DT_OVERRIDE,
 				DT_OVRD_EN | (data_type << OVRD_DT_SHIFT));
@@ -645,8 +652,13 @@ static int tegra_channel_capture_frame_single_thread(
 				CONTROL, SINGLESHOT | MATCH_STATE_EN);
 		}
 
+        err = vi_notify_wait(chan, buf, &ts);
+
 		/* wait for vi notifier events */
-		if (!vi_notify_wait(chan, buf, &ts)) {
+        if (err == -ECANCELED) {
+            state = VB2_BUF_STATE_ERROR;
+        }
+        else if (err) {
 			tegra_channel_error_recovery(chan);
 
 			state = VB2_BUF_STATE_REQUEUEING;
@@ -665,10 +677,6 @@ static int tegra_channel_capture_frame_single_thread(
 		spin_unlock_irqrestore(&chan->capture_state_lock, flags);
 	}
 
-    if (atomic_read(&chan->stop_streaming) && chan->avt_cam_mode)
-    {
-        state = VB2_BUF_STATE_ERROR;
-    }
 
     set_timestamp(buf, &ts);
     tegra_channel_update_statistics(chan);
@@ -789,10 +797,15 @@ static void tegra_channel_release_frame(struct tegra_channel *chan,
 				chan->syncpt[i][FE_SYNCPT_IDX],
 				buf->thresh[i],
 				chan->timeout, NULL, NULL);
-		if (unlikely(err))
-			dev_err(chan->vi->dev,
-				"ATOMP_FE syncpt timeout! err = %d\n", err);
-		else {
+        if (err == -ECANCELED) {
+            dev_dbg(chan->vi->dev,
+                    "ATOMP_FE syncpt canceled! err = %d\n", err);
+        }
+        else if (unlikely(err)) {
+            dev_err(chan->vi->dev,
+                    "ATOMP_FE syncpt timeout! err = %d\n", err);
+        }
+        else {
 			dev_dbg(&chan->video->dev,
 				"%s: vi4 got EOF syncpt buf[%p]\n", __func__, buf);
 			csi->fops->csi_check_status(csi_chan, i);
@@ -1222,8 +1235,10 @@ static int vi4_channel_stop_streaming(struct vb2_queue *vq)
 	cancel_work_sync(&chan->error_work);
 
 	if (chan->avt_cam_mode || chan->trigger_mode) {
-		for (i = 0; i < chan->valid_ports; i++)
+		for (i = 0; i < chan->valid_ports; i++) {
+			nvhost_syncpt_stop_waiting_ext(chan->vi->ndev, chan->syncpt[i][SOF_SYNCPT_IDX]);
 			nvhost_syncpt_stop_waiting_ext(chan->vi->ndev, chan->syncpt[i][FE_SYNCPT_IDX]);
+		}
 	}
 
 	if (!chan->bypass) {
@@ -1250,8 +1265,10 @@ static int vi4_channel_stop_streaming(struct vb2_queue *vq)
 	tegra_channel_set_stream(chan, false);
 
 	if (chan->avt_cam_mode || chan->trigger_mode) {
-		for (i = 0; i < chan->valid_ports; i++)
+		for (i = 0; i < chan->valid_ports; i++) {
+			nvhost_syncpt_restart_waiting_ext(chan->vi->ndev, chan->syncpt[i][SOF_SYNCPT_IDX]);
 			nvhost_syncpt_restart_waiting_ext(chan->vi->ndev, chan->syncpt[i][FE_SYNCPT_IDX]);
+		}
 	}
 
 	err = tegra_channel_write_blobs(chan);

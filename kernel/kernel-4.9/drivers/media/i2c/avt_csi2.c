@@ -1729,8 +1729,9 @@ static int auto_value_update_thread(void *param)
     struct avt_csi2_priv *priv = (struct avt_csi2_priv *)param;
     struct i2c_client *client = priv->client;
     struct v4l2_subdev *sd = priv->subdev;
-    struct v4l2_ctrl_handler *handler =sd->ctrl_handler;
-    struct v4l2_ctrl *exposure_ctrl,*exposure_auto_ctrl,*gain_ctrl,*gain_auto_ctrl,*awb_ctrl,*red_balance_ctrl;
+    struct v4l2_ctrl_handler *handler = sd->ctrl_handler;
+    struct v4l2_ctrl *exposure_ctrl,*exposure_auto_ctrl,*gain_ctrl,*gain_auto_ctrl,*awb_ctrl,*red_balance_ctrl,
+			*blue_balance_ctrl;
     int ret;
 
     exposure_ctrl = v4l2_ctrl_find(handler,V4L2_CID_EXPOSURE);
@@ -1739,6 +1740,7 @@ static int auto_value_update_thread(void *param)
     gain_auto_ctrl = v4l2_ctrl_find(handler,V4L2_CID_AUTOGAIN);
     awb_ctrl = v4l2_ctrl_find(handler,V4L2_CID_AUTO_WHITE_BALANCE);
     red_balance_ctrl = v4l2_ctrl_find(handler,V4L2_CID_RED_BALANCE);
+	blue_balance_ctrl = v4l2_ctrl_find(handler,V4L2_CID_BLUE_BALANCE);
 
 
     while (!kthread_should_stop())
@@ -1823,7 +1825,28 @@ static int auto_value_update_thread(void *param)
                     v4l2_ctrl_s_ctrl_int64(red_balance_ctrl,red_balance);
                     priv->ignore_control_write = false;
                 }
-            }
+
+				if (blue_balance_ctrl != NULL)
+				{
+					uint64_t blue_balance;
+
+					ret = avt_reg_read(client,
+									   priv->cci_reg.bcrm_addr + BCRM_BLUE_BALANCE_RATIO_64RW,
+									   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+									   (char *) &blue_balance);
+
+					if (ret < 0)
+					{
+						avt_warn(sd,"Blue balance update failed");
+					}
+
+					avt_dbg(sd,"Blue balance update");
+
+					priv->ignore_control_write = true;
+					v4l2_ctrl_s_ctrl_int64(blue_balance_ctrl,blue_balance);
+					priv->ignore_control_write = false;
+				}
+			}
         }
 
         if (0 == priv->value_update_interval)
@@ -1845,6 +1868,27 @@ static bool avt_mode_reinit_required(struct avt_csi2_priv *priv)
       return priv->numlanes != priv->csi_fixed_lanes;
     }
     return priv->numlanes != priv->s_data->numlanes;
+}
+
+static void avt_disable_stream_ctrls(struct avt_csi2_priv *priv,bool disabled)
+{
+    int i;
+
+    for (i = 0; i < AVT_MAX_CTRLS;i++)
+    {
+        if (priv->ctrls[i] != NULL)
+        {
+            if (priv->ctrls[i]->priv != NULL)
+            {
+                struct avt_ctrl_mapping *mapping = priv->ctrls[i]->priv;
+
+                if (mapping->disabled_while_streaming)
+                {
+                    v4l2_ctrl_grab(priv->ctrls[i],disabled);
+                }
+            }
+        }
+    }
 }
 
 /* Start/Stop streaming from the device */
@@ -1872,6 +1916,8 @@ static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
             if (trigger_sw_ctrl)
                 v4l2_ctrl_activate(trigger_sw_ctrl,true);
 
+            avt_disable_stream_ctrls(priv,true);
+
             ret = avt_set_param(client, V4L2_AV_CSI2_STREAMON_W, 1);
 
             priv->value_update_thread = kthread_run(auto_value_update_thread, priv, "avt_csi2");
@@ -1890,6 +1936,8 @@ static int avt_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
         if (trigger_sw_ctrl)
             v4l2_ctrl_activate(trigger_sw_ctrl,false);
+
+        avt_disable_stream_ctrls(priv,false);
 	}
 
 	if (ret < 0)
@@ -2198,10 +2246,8 @@ static int avt_csi2_enum_frameintervals(struct v4l2_subdev *sd,
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
 	struct avt_csi2_priv *priv = (struct avt_csi2_priv *)s_data->priv;
 	int ret;
+	u64 min_framerate,max_framerate,framerate_step,tmp;
 
-	/* Only one frame rate should be returned
-	 * - the current frame rate
-	 */
 	if(fie->index > 0)
 		return -EINVAL;
 
@@ -2210,42 +2256,73 @@ static int avt_csi2_enum_frameintervals(struct v4l2_subdev *sd,
         return -EINVAL;
     }
 
-	ret = read_framerate(sd, &fie->interval);
-
-	if(ret) {
+	ret = avt_reg_read(client,
+					   priv->cci_reg.bcrm_addr +
+					   BCRM_ACQUISITION_FRAME_RATE_INC_64R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+					   (char *) &framerate_step);
+	if (ret < 0) {
+		dev_err(&client->dev, "read frameinterval inc failed\n");
 		return ret;
 	}
 
+	if (framerate_step) {
+		fie->type = V4L2_SUBDEV_FRMIVAL_TYPE_STEPWISE;
+		fie->step_interval.numerator = FRAQ_NUM;
+		fie->step_interval.denominator = (framerate_step * FRAQ_NUM) / UHZ_TO_HZ;
+	}
+	else {
+		fie->type = V4L2_SUBDEV_FRMIVAL_TYPE_CONTINUOUS;
+	}
+
+	ret = avt_reg_read(client,
+					   priv->cci_reg.bcrm_addr +
+					   BCRM_ACQUISITION_FRAME_RATE_MIN_64R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+					   (char *) &min_framerate);
+	if (ret < 0) {
+		dev_err(&client->dev, "read min frameinterval failed\n");
+		return ret;
+	}
+
+	ret = avt_reg_read(client,
+					   priv->cci_reg.bcrm_addr +
+					   BCRM_ACQUISITION_FRAME_RATE_MAX_64R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+					   (char *) &max_framerate);
+	if (ret < 0) {
+		dev_err(&client->dev, "read max frameinterval failed\n");
+		return ret;
+	}
+
+    tmp = min_framerate * FRAQ_NUM;
+
+    //Check if result of division will be between 0 and 1, if it is so increase numerator
+    if (tmp < UHZ_TO_HZ) {
+        fie->max_interval.numerator = UHZ_TO_HZ;
+        fie->max_interval.denominator = min_framerate;
+    }
+    else {
+        fie->max_interval.numerator = FRAQ_NUM;
+        fie->max_interval.denominator = tmp / UHZ_TO_HZ;
+    }
+
+    tmp = max_framerate * FRAQ_NUM;
+
+    //Check if result of division will be between 0 and 1, if it is so increase numerator
+    if (tmp < UHZ_TO_HZ) {
+        fie->max_interval.numerator = UHZ_TO_HZ;
+        fie->max_interval.denominator = max_framerate;
+    }
+    else {
+        fie->interval.numerator = FRAQ_NUM;
+        fie->interval.denominator = tmp / UHZ_TO_HZ;
+    }
+
+
 	return 0;
 }
 
-static int convert_bcrm_to_v4l2(struct bcrm_to_v4l2 *bcrmv4l2)
-{
-	int64_t value_min = bcrmv4l2->min_bcrm;
-	int64_t value_max = bcrmv4l2->max_bcrm;
-	int64_t value_step = bcrmv4l2->step_bcrm;
-
-	/* Clamp to limits of int32 representation */
-	if (value_min > S32_MAX)
-		value_min = S32_MAX;
-	if (value_min < S32_MIN)
-		value_min = S32_MIN;
-
-	if (value_max > S32_MAX)
-		value_max = S32_MAX;
-	if (value_max < value_min)
-		value_max = value_min;
-
-	if (value_step > S32_MAX)
-		value_step = S32_MAX;
-	if (value_step < S32_MIN)
-		value_step = S32_MIN;
-
-	bcrmv4l2->min_v4l2 = (int32_t)value_min;
-	bcrmv4l2->max_v4l2 = (int32_t)value_max;
-	bcrmv4l2->step_v4l2 = (int32_t)value_step;
-	return 0;
-}
 
 static __s32 convert_s_ctrl(__s32 val, __s32 min, __s32 max, __s32 step)
 {
@@ -3203,18 +3280,8 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 
 		qctrl->maximum = (s64)value64;
 
-		/* reading the Exposure time step increment */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n",
-					ret);
-			return ret;
-		}
-
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
 
 		if (qctrl->minimum > qctrl->maximum) {
 			avt_err(sd, "Exposure: min > max! (%lld > %lld)\n",
@@ -3273,18 +3340,8 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 
 		qctrl->maximum = (__s64) value64;
 
-		/* reading the Gain step increment */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
-					ret);
-			return ret;
-		}
-
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
 
 		if (qctrl->minimum > qctrl->maximum) {
 			avt_err(sd, "Gain: min > max! (%lld > %lld)\n",
@@ -3563,16 +3620,8 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 		if(qctrl->maximum  > ((__s64) value64))
 			qctrl->maximum  = ((__s64) value64);
 
-		/* reading the Step from Exposure time */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n", ret);
-			return ret;
-		}
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
 
 		if (qctrl->minimum > qctrl->maximum) {
 			avt_err(sd, "Exposure auto: min > max! (%lld > %lld)\n", qctrl->minimum, qctrl->maximum);
@@ -3640,16 +3689,8 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 		if(qctrl->minimum  < ((__s64) value64))
 			qctrl->minimum  = ((__s64) value64);
 
-		/* reading the Step from Exposure time */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_EXPOSURE_TIME_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_EXPOSURE_TIME_INC_64R: i2c read failed (%d)\n", ret);
-			return ret;
-		}
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
 
 		if (qctrl->minimum > qctrl->maximum) {
 			avt_err(sd, "Exposure auto: min > max! (%lld > %lld)\n", qctrl->minimum, qctrl->maximum);
@@ -3719,17 +3760,8 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 		if(qctrl->maximum  > ((__s64) value64))
 			qctrl->maximum  = ((__s64) value64);
 
-		/* reading the Step from Gain */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
-					ret);
-			return ret;
-		}
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
 
 		strcpy(qctrl->name, "Gain auto min");
 		if (qctrl->minimum > qctrl->maximum) {
@@ -3802,17 +3834,9 @@ static int ioctl_queryctrl64(struct v4l2_subdev *sd,
 		if(qctrl->minimum  < ((__s64) value64))
 			qctrl->minimum  = ((__s64) value64);
 
-		/* reading the Step from Exposure time */
-		ret = avt_reg_read(client,
-				priv->cci_reg.bcrm_addr + BCRM_GAIN_INC_64R,
-				AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
-				(char *) &value64);
-		if (ret < 0) {
-			avt_err(sd, "BCRM_GAIN_INC_64R: i2c read failed (%d)\n",
-					ret);
-			return ret;
-		}
-		qctrl->step = value64;
+		/* setting step value fixed to 1 to avoid fighting between camera and driver side adjustments */
+		qctrl->step = 1;
+
 		strcpy(qctrl->name, "Gain auto max");
 		break;
 
@@ -4372,6 +4396,44 @@ static int avt_set_acquisition_active_invert(struct v4l2_subdev *sd, int invert)
 }
 
 
+static bool register_readback_required(u32 control)
+{
+  return (control == V4L2_CID_EXPOSURE) ||
+         (control == V4L2_CID_GAIN) ||
+         (control == V4L2_CID_GAIN_AUTO_MIN) ||
+         (control == V4L2_CID_GAIN_AUTO_MAX) ||
+         (control == V4L2_CID_EXPOSURE_AUTO_MIN) ||
+         (control == V4L2_CID_EXPOSURE_AUTO_MAX);
+}
+
+
+static int register_readback64(struct v4l2_subdev *sd, u32 ctrl_id, unsigned int reg)
+{
+  int64_t value64 = 0;
+  struct i2c_client *client = v4l2_get_subdevdata(sd);
+  struct avt_csi2_priv *priv = avt_get_priv(sd);
+  struct v4l2_ctrl *ctrl;
+  int ret; 
+
+  ctrl = avt_get_control(sd, ctrl_id);
+
+  ret = avt_reg_read(client,
+             priv->cci_reg.bcrm_addr + reg,
+             AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_64,
+             (char *) &value64);
+  if (ret < 0) {
+    avt_err(sd, "i2c read failed (%d)\n", ret);
+    return ret;
+  }
+
+  priv->ignore_control_write = true;
+  ret = __v4l2_ctrl_s_ctrl_int64(ctrl, value64);
+  priv->ignore_control_write = false;
+
+  return ret;
+}
+
+
 static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 {
 	int ret = 0;
@@ -4855,9 +4917,12 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 	ret = ioctl_bcrm_i2cwrite_reg(client,
 			vc, reg + priv->cci_reg.bcrm_addr, length);
 
-	avt_dbg(sd, "ret %d\n", ret);
+	if (ret < 0) {
+		avt_err(sd, "i2c write failed failed (%d)\n", ret);
+		return ret;
+	}
 
-	if (V4L2_CID_EXPOSURE == vc->id)
+	if (vc->id == V4L2_CID_EXPOSURE)
 	{
 		uint64_t value64;
 		struct v4l2_fract *tpf = (&priv->streamcap.timeperframe);
@@ -4874,6 +4939,10 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 
 		tpf->numerator = FRAQ_NUM;
 		tpf->denominator = value64 / FRAQ_NUM;
+	}
+
+	if(register_readback_required(vc->id)) {
+		ret = register_readback64(sd, vc->id, reg);
 	}
 
 	return ret < 0 ? ret : 0;
@@ -5206,10 +5275,9 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 	struct v4l2_fract *tpf = &(priv->streamcap.timeperframe);
 	struct v4l2_ext_control vc;
 	int ret;
-	u64 value64, min, max, step;
-	struct bcrm_to_v4l2 bcrm_v4l2;
+    struct v4l2_query_ext_ctrl qctrl;
+    u64 value64;
 	union bcrm_feature_reg feature_inquiry_reg;
-	CLEAR(bcrm_v4l2);
 
     parm->parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
     parm->parm.capture.readbuffers = 1;
@@ -5274,7 +5342,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 			return ret;
 		}
 
-		bcrm_v4l2.min_bcrm = value64;
+		qctrl.minimum = value64;
 
 		/* reading the Maximum Frame Rate Level */
 		ret = avt_reg_read(client,
@@ -5287,7 +5355,7 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 			return ret;
 		}
 
-		bcrm_v4l2.max_bcrm = value64;
+        qctrl.maximum = value64;
 
 		/* reading the Frame Rate Level step increment */
 		ret = avt_reg_read(client,
@@ -5300,33 +5368,30 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 			return ret;
 		}
 
-		bcrm_v4l2.step_bcrm = value64;
+		qctrl.step = value64;
 
-		convert_bcrm_to_v4l2(&bcrm_v4l2);
-
-		min = bcrm_v4l2.min_v4l2;
-		max = bcrm_v4l2.max_v4l2;
 		/* Set step to 1 uHz because zero value came from camera register */
-		if(!step)
-			step = 1;
+		if(!qctrl.step)
+            qctrl.step = 1;
 
-		if (min > max) {
+		if (qctrl.minimum > qctrl.maximum) {
 			avt_err(sd, "Frame rate: min > max! (%llu > %llu)\n",
-					min, max);
+                    qctrl.minimum, qctrl.maximum);
 			return -EINVAL;
 		}
-		if (step <= 0) {
+		if (qctrl.step <= 0) {
 			avt_err(sd, "Frame rate: non-positive step value (%llu)!\n",
-					step);
+                    qctrl.step);
 			return -EINVAL;
 		}
 
 		/* Translate timeperframe to frequency
 		 * by inverting the fraction
 		 */
-		value64 = (tpf->denominator * UHZ_TO_HZ) / tpf->numerator;
-		value64 = convert_s_ctrl(value64, min, max, step);
-		if (value64 < 0) {
+        value64 = (tpf->denominator * UHZ_TO_HZ) / tpf->numerator;
+        value64 = convert_s_ctrl64(&qctrl,value64);
+
+        if (value64 < 0) {
 			avt_err(sd, "Frame rate: non-positive value (%llu)!\n",
 					value64);
 			return -EINVAL;
@@ -5350,8 +5415,15 @@ static int avt_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parm)
 			return ret;
 		}
 
-		tpf->numerator = FRAQ_NUM;
-		tpf->denominator = value64 / FRAQ_NUM;
+        //Check if result of division will be between 0 and 1, if it is so increase numerator
+        if (value64 < FRAQ_NUM) {
+            tpf->numerator = FRAQ_NUM * FRAQ_NUM;
+            tpf->denominator = value64;
+        }
+        else {
+            tpf->numerator = FRAQ_NUM;
+            tpf->denominator = value64 / FRAQ_NUM;
+        }
 
 		/* Copy modified settings back */
 		memcpy(&parm->parm.capture, &priv->streamcap, sizeof(struct v4l2_captureparm));
@@ -6873,7 +6945,7 @@ static int avt_initialize_controls(struct i2c_client *client, struct avt_csi2_pr
             priv->ctrl_cfg[i].menu_skip_mask = 0;
         }
 
-        ctrl = v4l2_ctrl_new_custom(&priv->hdl, &priv->ctrl_cfg[i], NULL);
+        ctrl = v4l2_ctrl_new_custom(&priv->hdl, &priv->ctrl_cfg[i], (void *)&avt_ctrl_mappings[j]);
 
         if (ctrl == NULL) {
             dev_err(&client->dev, "Failed to init %s ctrl (%d)\n", priv->ctrl_cfg[i].name, priv->hdl.error);

@@ -210,7 +210,11 @@ def build_tar_bundle(args, board):
   base_dir = Path(__file__).parent
   p = board.build_dir / "Linux_for_Tegra/kernel/avt/"
   template_args = t.get_template_args(board)
-  bundle_name = string.Template("AlliedVision_NVidia_${BOARD_NAME}_L4T_${L4T_VERSION}_${AVT_RELEASE}").substitute(template_args)
+  if board.bundle_name is None:
+    bundle_name = string.Template("AlliedVision_NVidia_L4T_${L4T_VERSION}_${AVT_RELEASE}").substitute(template_args)
+  else:
+    bundle_name = string.Template("AlliedVision_NVidia_${BOARD_NAME}_L4T_${L4T_VERSION}_${AVT_RELEASE}").substitute(template_args)
+
 
   bundle_file = p / f'{bundle_name}.tar.gz'
 

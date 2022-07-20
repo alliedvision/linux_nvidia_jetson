@@ -262,6 +262,7 @@ struct avt_ctrl_mapping {
         s8  *name;
         u8  feature_avail;
     } attr;
+    bool disabled_while_streaming : 1;
 };
 
 #define V4L2_CID_EXPOSURE_AUTO_MIN              (V4L2_CID_CAMERA_CLASS_BASE+40)
@@ -299,6 +300,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_32,
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_CONTRAST,
@@ -439,6 +441,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_BOOLEAN,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_VFLIP,
@@ -448,6 +451,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_BOOLEAN,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_SHARPNESS,
@@ -514,7 +518,8 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_BOOLEAN,
         .flags          = 0,
-    },
+        .disabled_while_streaming = true,
+	},
     {
         .id             = V4L2_CID_EXPOSURE_ACTIVE_LINE_SELECTOR,
         .attr           = AV_ATTR_EXPOSURE_ACTIVE_LINE_SELECTOR,
@@ -523,6 +528,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_EXPOSURE_ACTIVE_INVERT,
@@ -531,6 +537,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_BOOLEAN,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_TRIGGER_MODE,
@@ -540,6 +547,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_BOOLEAN,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_TRIGGER_ACTIVATION,
@@ -549,6 +557,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_MENU,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_TRIGGER_SOURCE,
@@ -558,6 +567,7 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_MENU,
         .flags          = 0,
+        .disabled_while_streaming = true,
     },
     {
         .id             = V4L2_CID_TRIGGER_SOFTWARE,

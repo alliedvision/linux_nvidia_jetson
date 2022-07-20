@@ -17,13 +17,13 @@ def tools(args):
     if avt_release is None:
       process = subprocess.run(['git','rev-parse','--short','HEAD'],stdout=subprocess.PIPE)
       git_hash = process.stdout.decode("utf-8").strip()
-      avt_release = f'dev-{git_hash}'
+      avt_release = f'{AVT_RELEASE}~g{git_hash}'
 
     template_args = {
       "L4T_TOOLS_VERSION": board.l4t_tools_version,
       "KERNEL_RELEASE": KERNEL_RELEASE,
       "L4T_VERSION": L4T_VERSION,
-      "AVT_RELEASE": AVT_RELEASE,
+      "AVT_RELEASE": avt_release,
       "BOARD_NAME": board.bundle_name
     }
     return template_args

@@ -96,7 +96,17 @@ static int tegra_vi5_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	struct camera_common_data *s_data =
 				to_camera_common_data(sd->dev);
 	struct tegracam_ctrl_handler *handler = s_data->tegracam_ctrl_hdl;
-	struct tegracam_sensor_data *sensor_data = &handler->sensor_data;
+	struct tegracam_sensor_data *sensor_data;
+
+	if (handler == NULL) {
+		return 0;
+	}
+
+	sensor_data = &handler->sensor_data;
+
+	if (sensor_data == NULL) {
+		return 0;
+	}
 
 	/* TODO: Support reading blobs for multiple devices */
 	switch (ctrl->id) {
@@ -242,10 +252,9 @@ done:
 static void vi5_bypass_datatype(struct tegra_channel *chan,
 	struct capture_descriptor *desc)
 {
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
 	u32 data_type = chan->fmtinfo->img_dt;
 
-	if(mc->bypass) {
+	if(chan->bypass_dt) {
 		desc->ch_cfg.match.datatype = 0x0;
 		desc->ch_cfg.match.datatype_mask = 0x0;
 		desc->ch_cfg.dt_enable = 1;

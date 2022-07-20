@@ -3,7 +3,7 @@ from collections import namedtuple
 from . import upstream
 from . import build
 
-AVT_RELEASE = "4.0.0~beta1"
+AVT_RELEASE = "4.0.0"
 KERNEL_RELEASE = "4.9.253-tegra"
 L4T_VERSION = "32.7.1"
 
@@ -70,8 +70,8 @@ class Board:
 
 
 known_boards = {
-  'nano':   ("Nano, Nano 2GB", "nano", get_nano_upstream_files,       ['tegra210'],             ['t21x'], kernel_extra_files_nano,bootloader_payload_files_nano, "32.7.1-20220219090432"),
-  'xavier': ("AGX, NX, TX2", "xavier", get_tx2_agx_nx_upstream_files, ['tegra194','tegra186'], ['t19x','t18x'], kernel_extra_files_xavier,bootloader_payload_files_xavier, "32.7.1-20220219090344"),
+  'nano':   ("Nano, Nano 2GB", "nano", "nano", get_nano_upstream_files,       ['tegra210'],             ['t21x'], kernel_extra_files_nano,bootloader_payload_files_nano, "32.7.1-20220219090432"),
+  'xavier': ("AGX, NX, TX2", "xavier", None, get_tx2_agx_nx_upstream_files, ['tegra194','tegra186'], ['t19x','t18x'], kernel_extra_files_xavier,bootloader_payload_files_xavier, "32.7.1-20220219090344"),
 }
 
 
@@ -80,7 +80,7 @@ def boards(args):
   build_dir = build.build_dir(args)
 
   def mk_board(brd):
-    return Board(brd[0], brd[1], build_dir(brd[1]), brd[2](UpstreamFile), brd[3], brd[4], brd[5], brd[6],brd[7])
+    return Board(brd[0], brd[2], build_dir(brd[1]), brd[3](UpstreamFile), brd[4], brd[5], brd[6], brd[7],brd[8])
 
   UpstreamFile = upstream.upstream(args)
   return [mk_board(known_boards[board]) for board in args.boards]

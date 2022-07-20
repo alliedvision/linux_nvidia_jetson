@@ -209,16 +209,17 @@ static bool syncpt_update_min_is_expired(
 	u32 id,
 	u32 thresh)
 {
-	if (sp->stop_stream_called)
+	if (atomic_read(&sp->stop_stream_called[id]))
 		return true;
+
 
 	syncpt_op().update_min(sp, id);
 	return nvhost_syncpt_is_expired(sp, id, thresh);
 }
 
-static bool syncpt_stop_waiting(struct nvhost_syncpt *sp)
+static bool syncpt_stop_waiting(struct nvhost_syncpt *sp,u32 id)
 {
-	return sp->stop_stream_called;
+	return atomic_read(&sp->stop_stream_called[id]) ? true : false;
 }
 
 /**
@@ -237,7 +238,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	bool (*syncpt_is_expired)(struct nvhost_syncpt *sp,
 			u32 id,
 			u32 thresh);
-	bool (*syncpt_stop)(struct nvhost_syncpt *sp);
+	bool (*syncpt_stop)(struct nvhost_syncpt *sp,u32 id);
 
 	syncpt_stop = syncpt_stop_waiting;
 
@@ -357,7 +358,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 				check);
 		else if (id == sp->stream_id)
 			remain = wait_event_timeout(waiter->wq,
-				(syncpt_is_expired(sp, id, thresh) || syncpt_stop(sp)),
+				(syncpt_is_expired(sp, id, thresh) || syncpt_stop(sp, id)),
 				check);
 		else
 			remain = wait_event_timeout(waiter->wq,
@@ -377,8 +378,12 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 				}
 			}
 
-			err = 0;
-			break;
+            if (syncpt_stop(sp,id) && remain > 0)
+                err = -ECANCELED;
+            else
+			    err = 0;
+
+            break;
 		}
 
 		if (timeout != NVHOST_NO_TIMEOUT) {
@@ -1145,6 +1150,7 @@ int nvhost_syncpt_init(struct platform_device *dev,
 	sp->last_used_by = kzalloc(sizeof(char *) * nb_pts, GFP_KERNEL);
 	sp->min_val = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
 	sp->max_val = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
+	sp->stop_stream_called = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
 	sp->lock_counts =
 		kzalloc(sizeof(atomic_t) * nvhost_syncpt_nb_mlocks(sp),
 			GFP_KERNEL);
@@ -1326,6 +1332,9 @@ void nvhost_syncpt_deinit(struct nvhost_syncpt *sp)
 	kfree(sp->assigned);
 	sp->assigned = NULL;
 
+	kfree(sp->stop_stream_called);
+	sp->stop_stream_called = NULL;
+
 	nvhost_syncpt_deinit_timeline(sp);
 }
 
@@ -1479,7 +1488,7 @@ int nvhost_syncpt_stop_waiting_ext(struct platform_device *dev, u32 id)
 	struct nvhost_syncpt *sp =
 		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
 
-	sp->stop_stream_called = true;
+	atomic_set(&sp->stop_stream_called[id],1);
 
 	return 0;
 }
@@ -1491,7 +1500,7 @@ int nvhost_syncpt_restart_waiting_ext(struct platform_device *dev, u32 id)
 	struct nvhost_syncpt *sp =
 		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
 
-	sp->stop_stream_called = false;
+	atomic_set(&sp->stop_stream_called[id],0);
 
 	return 0;
 }

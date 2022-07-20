@@ -1113,9 +1113,25 @@ tegra_channel_enum_frameintervals(struct file *file, void *fh,
 	ret = v4l2_subdev_call(sd, pad, enum_frame_interval, NULL, &fie);
 
 	if (!ret) {
-		intervals->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-		intervals->discrete.numerator = fie.interval.numerator;
-		intervals->discrete.denominator = fie.interval.denominator;
+		if (fie.type == V4L2_SUBDEV_FRMIVAL_TYPE_DISCRETE) {
+			intervals->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+			intervals->discrete = fie.interval;
+		}
+		else if (fie.type == V4L2_SUBDEV_FRMIVAL_TYPE_STEPWISE) {
+			intervals->type = V4L2_FRMIVAL_TYPE_STEPWISE;
+			intervals->stepwise.min = fie.interval;
+			intervals->stepwise.max = fie.max_interval;
+			intervals->stepwise.step = fie.step_interval;
+		}
+		else if (fie.type == V4L2_SUBDEV_FRMIVAL_TYPE_CONTINUOUS) {
+			intervals->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+			intervals->stepwise.min = fie.interval;
+			intervals->stepwise.max = fie.max_interval;
+			intervals->stepwise.step.denominator = 1;
+			intervals->stepwise.step.numerator = 1;
+		}
+
+
 	}
 
 	return ret;
@@ -2009,12 +2025,19 @@ tegra_channel_try_format(struct file *file, void *fh,
 	return  __tegra_channel_try_format(chan, &format->fmt.pix);
 }
 
-static void tegra_channel_s_bypass_vi_dt_match(struct v4l2_subdev *sd, bool bypass)
+static void tegra_channel_s_bypass_vi_dt_match(struct tegra_channel *chan, bool bypass)
 {
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
+	struct tegra_csi_device *csi = tegra_get_mc_csi();
+	struct tegra_csi_channel *csi_it;
+	int i = 0;
 
-	if (mc)
-		mc->bypass = bypass;
+	list_for_each_entry(csi_it, &csi->csi_chans, list) {
+		for (i = 0; i < chan->num_subdevs; i++)
+			if (chan->subdev[i] == &csi_it->subdev)
+				csi_it->bypass_dt = bypass;
+	}
+
+	chan->bypass_dt = bypass;
 }
 
 static int
@@ -2033,9 +2056,9 @@ __tegra_channel_set_format(struct tegra_channel *chan,
 	v4l2_fill_mbus_format(&fmt.format, pix, vfmt->code);
 
 	if (chan->format.pixelformat == V4L2_PIX_FMT_CUSTOM) {
-		tegra_channel_s_bypass_vi_dt_match(sd, true);
+		tegra_channel_s_bypass_vi_dt_match(chan, true);
 	} else {
-		tegra_channel_s_bypass_vi_dt_match(sd, false);
+		tegra_channel_s_bypass_vi_dt_match(chan, false);
 	}
 
 	ret = v4l2_subdev_call(sd, pad, set_fmt, NULL, &fmt);

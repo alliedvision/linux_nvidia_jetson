@@ -16,19 +16,3 @@
  */
 
 #include "tegra210-camera-avt.dtsi"
-
-/ {
-    host1x {
-		i2c@546c0000 {
-			avt_pca9548@70 {
-				status = "okay";
-				i2c@2 {
-					status = "okay";
-					avt_csi2@3c {
-						status = "okay";
-					};
-				};
-			};
-		};
-	};
-};

@@ -7,6 +7,7 @@ makefile-path := platform/t18x/lanai/kernel-dts
 dtb-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0001-p3509-0000-a01.dtb
 dtb-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0002-p3509-0000-a01.dtb
 dtb-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0002-lanai.dtb
+dtb-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0001-auvidea-jnx30d-avt.dtb
 dtbo-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0001-p3509-0000-a01-adafruit-sph0645lm4h.dtbo
 dtbo-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0001-p3509-0000-a01-adafruit-uda1334a.dtbo
 dtbo-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra186-p3636-0001-p3509-0000-a01-fe-pi-audio.dtbo

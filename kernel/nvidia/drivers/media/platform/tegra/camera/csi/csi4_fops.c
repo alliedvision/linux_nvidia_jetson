@@ -95,9 +95,7 @@ static void csi4_stream_init(struct tegra_csi_channel *chan, int csi_port)
 
 static void csi4_bypass_datatype(struct tegra_csi_channel *chan, int port_idx)
 {
-	struct tegra_mc_vi *mc = tegra_get_mc_vi();
-
-	if(mc->bypass)
+	if(chan->bypass_dt)
 		csi4_stream_write(chan, port_idx, VC0_DT_OVERRIDE,
 			CFG_VC0_DT_OVERRIDE_EN | 0x22);
 	else
