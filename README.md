@@ -1,33 +1,21 @@
-# NVIDIA Jetson driver (Beta)
+# NVIDIA Jetson driver
 
-
-Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 4.6.1 (L4T 32.7.1)     
+Driver for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 4.6.1 (L4T 32.7.1)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
-
-THE SOFTWARE IS PRELIMINARY AND STILL IN TESTING AND VERIFICATION PHASE AND IS PROVIDED ON 
-AN “AS IS” AND “AS AVAILABLE” BASIS AND IS BELIEVED TO CONTAIN DEFECTS. A PRIMARY PURPOSE 
-OF THIS EARLY ACCESS IS TO OBTAIN FEEDBACK ON PERFORMANCE AND THE IDENTIFICATION OF 
-DEFECT SOFTWARE, HARDWARE AND DOCUMENTATION.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING 
-BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Overview
 
 The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Compatible platforms with JetPack 4.6.1 (L4T 32.7.1) : 
+Compatible platforms with JetPack 4.6.1 (L4T 32.7.1): 
 
 + Nano 2GB and 4GB NVIDIA developer kit
-+ TX2 (including optional use of Allied Vision's adapter for up to 6 cameras) 
++ TX2 (Beta: including optional use of Allied Vision's adapter for up to 6 cameras) 
 + TX2 NX NVIDIA developer kit
-+ AGX Xavier NVIDIA developer kit (including optional use of Allied Vision's adapter for up to 6 cameras) 
++ AGX Xavier NVIDIA developer kit (Beta: including optional use of Allied Vision's adapter for up to 6 cameras) 
 + Xavier NX NVIDIA developer kit
-+ Xavier NX on [Auvidea JNX30-PD](https://auvidea.eu/product/38401/) for Alvium cameras with FPD Link interface.
++ Beta: Xavier NX on [Auvidea JNX30-PD](https://auvidea.eu/product/38401/) for Alvium cameras with FPD Link interface.
 
 
 The scripts require Git on the host PC.
