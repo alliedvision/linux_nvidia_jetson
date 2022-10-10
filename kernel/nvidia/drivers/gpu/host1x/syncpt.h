@@ -41,7 +41,7 @@ struct host1x_syncpt {
 	/* interrupt data */
 	struct host1x_syncpt_intr intr;
 
-	/* 
+	/*
 	 * If a submission incrementing this syncpoint fails, lock it so that
 	 * further submission cannot be made until application has handled the
 	 * failure.

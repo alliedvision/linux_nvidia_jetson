@@ -258,10 +258,20 @@ static int gk20a_as_ioctl_get_va_regions(
 		(void) memset(&region, 0, sizeof(struct nvgpu_as_va_region));
 
 		region.page_size = vm->gmmu_page_sizes[i];
+		/*
+		 * The gmmu_page_sizes values are assigned in nvgpu_vm_init_attribute function.
+		 * The only value that can possibly be zero is vm->gmmu_page_sizes[1] when big_pages
+		 * are not enabled.
+		 * The upper bound on page_sizes already handles this issue. When big_pages are not enabled
+		 * write_entries will be 1 and hence vm->gmmu_page_sizes[1] will never be accessed.
+		 * Hence, an assert would suffice instead of an if check.
+		 */
+		nvgpu_assert(region.page_size > 0U);
+
 		region.offset = nvgpu_alloc_base(vma);
 		/* No __aeabi_uldivmod() on some platforms... */
 		region.pages = (nvgpu_alloc_end(vma) -
-			nvgpu_alloc_base(vma)) >> ilog2(region.page_size);
+			nvgpu_alloc_base(vma)) >> nvgpu_ilog2(region.page_size);
 
 		if (copy_to_user(user_region_ptr + i, &region, sizeof(region)))
 			return -EFAULT;

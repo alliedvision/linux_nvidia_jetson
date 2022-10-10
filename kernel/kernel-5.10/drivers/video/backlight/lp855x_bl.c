@@ -4,7 +4,7 @@
  *
  *			Copyright (C) 2011 Texas Instruments
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -168,26 +168,28 @@ static int lp855x_configure(struct lp855x *lp)
 		}
 	}
 
-	val = pd->initial_brightness;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
-	if (ret)
-		goto err;
+	if (!pd->skip_i2c_configuration) {
+		val = pd->initial_brightness;
+		ret = lp855x_write_byte(lp, lp->cfg->reg_brightness, val);
+		if (ret)
+			goto err;
 
-	val = pd->device_control;
-	ret = lp855x_write_byte(lp, lp->cfg->reg_devicectrl, val);
-	if (ret)
-		goto err;
+		val = pd->device_control;
+		ret = lp855x_write_byte(lp, lp->cfg->reg_devicectrl, val);
+		if (ret)
+			goto err;
 
-	if (pd->size_program > 0) {
-		for (i = 0; i < pd->size_program; i++) {
-			addr = pd->rom_data[i].addr;
-			val = pd->rom_data[i].val;
-			if (!lp855x_is_valid_rom_area(lp, addr))
-				continue;
+		if (pd->size_program > 0) {
+			for (i = 0; i < pd->size_program; i++) {
+				addr = pd->rom_data[i].addr;
+				val = pd->rom_data[i].val;
+				if (!lp855x_is_valid_rom_area(lp, addr))
+					continue;
 
-			ret = lp855x_write_byte(lp, addr, val);
-			if (ret)
-				goto err;
+				ret = lp855x_write_byte(lp, addr, val);
+				if (ret)
+					goto err;
+			}
 		}
 	}
 
@@ -375,6 +377,7 @@ static int lp855x_parse_dt(struct lp855x *lp)
 	of_property_read_u8(node, "dev-ctrl", &pdata->device_control);
 	of_property_read_u8(node, "init-brt", &pdata->initial_brightness);
 	of_property_read_u32(node, "pwm-period", &pdata->period_ns);
+	pdata->skip_i2c_configuration = of_property_read_bool(node, "skip-i2c-configuration");
 
 	/* Fill ROM platform data if defined */
 	rom_length = of_get_child_count(node);
@@ -460,11 +463,9 @@ static int lp855x_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	lp->chip_id = id->driver_data;
 	lp->pdata = dev_get_platdata(&cl->dev);
 
-	if (!lp->pdata) {
-		ret = lp855x_parse_dt(lp);
-		if (ret < 0)
-			return ret;
-	}
+	ret = lp855x_parse_dt(lp);
+	if (ret < 0)
+		return ret;
 
 	if (lp->pdata->period_ns > 0)
 		lp->mode = PWM_BASED;

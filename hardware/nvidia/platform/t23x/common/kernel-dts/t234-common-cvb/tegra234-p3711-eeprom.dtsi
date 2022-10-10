@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,10 +15,10 @@
 	eeprom-manager {
 		data-size = <0x100>;
 		bus@0 {
-			i2c-bus = <&dp_aux_ch2_i2c>;
-			eeprom@1 {
-				slave-address = <0x57>;
-				label = "cvb";
+			i2c-bus = <&gen1_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+				label = "cvm";
 			};
 		};
 
@@ -63,7 +63,12 @@
 		};
 
 		bus@6 {
-			i2c-bus = <&gen2_i2c>;
+			i2c-bus = <&dp_aux_ch2_i2c>;
+			eeprom@0 {
+				slave-address = <0x57>;
+				label = "cvb";
+			};
+
 			eeprom@1 {
 				slave-address = <0x51>;
 				label = "P3719";

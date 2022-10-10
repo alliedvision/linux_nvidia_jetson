@@ -1,14 +1,3 @@
-config TEGRA_ARM_SMMU_T19x
-	bool "TEGRA ARM SMMU for T19x"
-	depends on ARM_SMMU
-	default n
-	help
-	  Support for implementations of the ARM System MMU architecture
-	  versions 1 and 2 for T19x based architectures.
-
-	  Say Y here if your SoC includes an IOMMU device implementing
-	  the ARM SMMU architecture for T19x based architectures.
-
 config ARM_SMMU_SUSPEND
 	bool "ARM SMMU SUSPEND"
 	depends on (ARM_SMMU && PM_SLEEP)

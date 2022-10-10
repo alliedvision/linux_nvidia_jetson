@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -14,9 +14,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/version.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#include <linux/fs.h>
 #include <linux/scatterlist.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+#include <linux/iosys-map.h>
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#include <linux/dma-buf-map.h>
+#endif
 
 #include <nvgpu/comptags.h>
 #include <nvgpu/enabled.h>
@@ -317,4 +324,48 @@ out:
 	if (!err)
 		*state = s;
 	return err;
+}
+
+static void *__gk20a_dmabuf_vmap(struct dma_buf *dmabuf)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map;
+#else
+	struct dma_buf_map map;
+#endif
+	/* Linux v5.11 and later kernels */
+	if (dma_buf_vmap(dmabuf, &map))
+		return NULL;
+
+	return map.vaddr;
+#else
+	/* Linux v5.10 and earlier kernels */
+	return dma_buf_vmap(dmabuf);
+#endif
+}
+
+void *gk20a_dmabuf_vmap(struct dma_buf *dmabuf)
+{
+	if ((dmabuf->file->f_mode & (FMODE_WRITE | FMODE_PWRITE)) == 0U) {
+		return NULL;
+	}
+
+	return __gk20a_dmabuf_vmap(dmabuf);
+}
+
+void gk20a_dmabuf_vunmap(struct dma_buf *dmabuf, void *addr)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map = IOSYS_MAP_INIT_VADDR(addr);
+#else
+	struct dma_buf_map map = DMA_BUF_MAP_INIT_VADDR(addr);
+#endif
+	/* Linux v5.11 and later kernels */
+	dma_buf_vunmap(dmabuf, &map);
+#else
+	/* Linux v5.10 and earlier kernels */
+	dma_buf_vunmap(dmabuf, addr);
+#endif
 }

@@ -1,0 +1,68 @@
+From adb5fda7c0e5c6ca89c2a71c2f15b372e039ae8a Mon Sep 17 00:00:00 2001
+From: pumahsu <pumahsu@google.com>
+Date: Thu, 10 Dec 2020 17:05:18 +0100
+Subject: [PATCH 040/830] FROMGIT: USB: typec: tcpm: Hard Reset after not
+ receiving a Request
+X-NVConfidentiality: public
+
+PD 3.0 spec 8.3.3.2.3, A Get_Source_Cap message is sent
+to a UUT that is in the PE_SRC_Ready state. After sending
+a Source_Capabilities message, the UUT should then expect
+a Request message in response. When one is not received,
+the UUT should timeout to PE_SRC_Hard_Reset.
+
+Bug: 142545898
+Test: PD compliance TDA.2.2.9
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: pumahsu <pumahsu@google.com>
+Signed-off-by: Kyle Tso <kyletso@google.com>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Link: https://lore.kernel.org/r/20201210160521.3417426-3-gregkh@linuxfoundation.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 6b82e6e9223f8e92cfc666d6b849116b4c1ae4c1)
+(cherry picked from commit b5654e3bb256a3abb9aca67dd9141c8c2d213760)
+(cherry picked from commit b63fb2f0edd95759e6aac750d5cc18b7d524e280)
+(cherry picked from commit 60e998d1c6d98cd28b14a677b61278c33cc5c7df usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I533237250e4ff0e272b230c1b055b9362b8fd4ad
+---
+ drivers/usb/typec/tcpm/tcpm.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index 3a8a7b2567e4..f1f913902a18 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -2251,6 +2251,7 @@ static int tcpm_pd_send_control(struct tcpm_port *port,
+ static bool tcpm_send_queued_message(struct tcpm_port *port)
+ {
+ 	enum pd_msg_request queued_message;
++	int ret;
+ 
+ 	do {
+ 		queued_message = port->queued_message;
+@@ -2270,7 +2271,16 @@ static bool tcpm_send_queued_message(struct tcpm_port *port)
+ 			tcpm_pd_send_sink_caps(port);
+ 			break;
+ 		case PD_MSG_DATA_SOURCE_CAP:
+-			tcpm_pd_send_source_caps(port);
++			ret = tcpm_pd_send_source_caps(port);
++			if (ret < 0) {
++				tcpm_log(port,
++					 "Unable to send src caps, ret=%d",
++					 ret);
++				tcpm_set_state(port, SOFT_RESET_SEND, 0);
++			} else if (port->pwr_role == TYPEC_SOURCE) {
++				tcpm_set_state(port, HARD_RESET_SEND,
++					       PD_T_SENDER_RESPONSE);
++			}
+ 			break;
+ 		default:
+ 			break;
+-- 
+2.17.1
+

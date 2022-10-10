@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,6 +67,8 @@ static u64 nvgpu_bitmap_balloc_fixed(struct nvgpu_allocator *na,
 	struct nvgpu_bitmap_allocator *a = bitmap_allocator(na);
 	u64 blks, offs, ret;
 
+	(void)page_size;
+
 	/* Compute the bit offset and make sure it's aligned to a block.  */
 	offs = base >> a->blk_shift;
 	if (nvgpu_safe_mult_u64(offs, a->blk_size) != base) {
@@ -95,7 +97,6 @@ static u64 nvgpu_bitmap_balloc_fixed(struct nvgpu_allocator *na,
 
 	a->bytes_alloced = nvgpu_safe_add_u64(a->bytes_alloced,
 				nvgpu_safe_mult_u64(blks, a->blk_size));
-NVGPU_COV_WHITELIST(false_positive, NVGPU_MISRA(Rule, 14_3), "Bug 2615925")
 	nvgpu_assert(a->nr_fixed_allocs < U64_MAX);
 	a->nr_fixed_allocs++;
 	alloc_unlock(na);
@@ -281,7 +282,6 @@ static u64 nvgpu_bitmap_balloc(struct nvgpu_allocator *na, u64 len)
 	alloc_dbg(na, "Alloc 0x%-10llx 0x%-5llx [bits=0x%x (%u)]",
 		  addr, len, blks, blks);
 
-NVGPU_COV_WHITELIST(false_positive, NVGPU_MISRA(Rule, 14_3), "Bug 2615925")
 	nvgpu_assert(a->nr_allocs < U64_MAX);
 	a->nr_allocs++;
 	a->bytes_alloced = nvgpu_safe_add_u64(a->bytes_alloced,
@@ -349,6 +349,10 @@ static void nvgpu_bitmap_alloc_destroy(struct nvgpu_allocator *na)
 	struct nvgpu_bitmap_alloc *alloc;
 	struct nvgpu_rbtree_node *node = NULL;
 
+	alloc_lock(na);
+
+	nvgpu_fini_alloc_debug(na);
+
 	/*
 	 * Kill any outstanding allocations.
 	 */
@@ -365,6 +369,8 @@ static void nvgpu_bitmap_alloc_destroy(struct nvgpu_allocator *na)
 	nvgpu_kmem_cache_destroy(a->meta_data_cache);
 	nvgpu_kfree(nvgpu_alloc_to_gpu(na), a->bitmap);
 	nvgpu_kfree(nvgpu_alloc_to_gpu(na), a);
+
+	alloc_unlock(na);
 }
 
 #ifdef __KERNEL__
@@ -389,9 +395,7 @@ static void nvgpu_bitmap_print_stats(struct nvgpu_allocator *na,
 }
 #endif
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 8_7), "Bug 2823817")
 static const struct nvgpu_allocator_ops bitmap_ops = {
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 8_7))
 	.alloc		= nvgpu_bitmap_balloc,
 	.free_alloc	= nvgpu_bitmap_free,
 
@@ -493,9 +497,7 @@ int nvgpu_bitmap_allocator_init(struct gk20a *g, struct nvgpu_allocator *na,
 	nvgpu_smp_wmb();
 	a->inited = true;
 
-#ifdef CONFIG_DEBUG_FS
 	nvgpu_init_alloc_debug(g, na);
-#endif
 	alloc_dbg(na, "New allocator: type      bitmap");
 	alloc_dbg(na, "               base      0x%llx", a->base);
 	alloc_dbg(na, "               bit_offs  0x%llx", a->bit_offs);

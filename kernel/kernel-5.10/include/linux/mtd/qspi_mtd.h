@@ -234,7 +234,7 @@ struct qcmdset macronix_cmd_info_table[OPERATION_MAX_LIMIT] = {
 	/* QUAD_IO_READ */
 	{ {.op_code = 0xEB, .is_ddr = FALSE, .bus_width = X1, .post_txn = 2},
 		{.address = 0, .is_ddr = FALSE, .len = 4,
-			.bus_width = X4, .dummy_cycles = 32},
+			.bus_width = X4, .dummy_cycles = 40},
 		{.is_ddr = FALSE, .bus_width = X4}
 	},
 	/* DDR_FAST_READ */

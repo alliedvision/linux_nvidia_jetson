@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/power_clk.c
  *
- * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -57,8 +57,8 @@ struct power_clk_source {
 	struct clk *clkp;
 	struct notifier_block nb[PCLK_NB_MAX];
 
-	int cpu;
-	int nr;
+	unsigned int cpu;
+	unsigned int nr;
 	struct power_clk_data data[PCLK_MAX_VALUES];
 
 	atomic_t active;
@@ -82,7 +82,7 @@ static struct power_clk_context_s power_ctx;
 
 static void make_sample(struct power_clk_source *s)
 {
-	int i;
+	unsigned int i;
 	u32 values[PCLK_MAX_VALUES];
 	struct quadd_iovec vec;
 
@@ -93,7 +93,7 @@ static void make_sample(struct power_clk_source *s)
 
 	p->type = (u8)s->type;
 	p->time = quadd_get_time();
-	p->cpu_id = (u32)s->cpu;
+	p->cpu_id = s->cpu;
 	p->flags = 0;
 
 	if (s->type == QUADD_POWER_CLK_CPU) {
@@ -113,7 +113,7 @@ static void make_sample(struct power_clk_source *s)
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 static void
-make_sample_hotplug(int cpu, int is_online)
+make_sample_hotplug(unsigned int cpu, int is_online)
 {
 	struct quadd_record_data record;
 	struct quadd_hotplug_data *s = &record.hotplug;
@@ -132,7 +132,7 @@ make_sample_hotplug(int cpu, int is_online)
 static inline int
 is_data_changed(struct power_clk_source *s)
 {
-	int i, cpu;
+	unsigned int i, cpu;
 
 	if (s->type == QUADD_POWER_CLK_CPU) {
 		cpu = s->cpu;
@@ -150,7 +150,7 @@ is_data_changed(struct power_clk_source *s)
 static inline void
 update_data(struct power_clk_source *s)
 {
-	int i, cpu;
+	unsigned int i, cpu;
 
 	if (s->type == QUADD_POWER_CLK_CPU) {
 		cpu = s->cpu;
@@ -171,15 +171,15 @@ static void check_source(struct power_clk_source *s)
 }
 
 static void
-read_source(struct power_clk_source *s, int cpu)
+read_source(struct power_clk_source *s, unsigned int cpu)
 {
 	unsigned int value;
 
 	switch (s->type) {
 	case QUADD_POWER_CLK_CPU:
 		/* update cpu frequency */
-		if (cpu < 0 || cpu >= max_t(int, s->nr, nr_cpu_ids)) {
-			pr_err_once("error: cpu id: %d\n", cpu);
+		if (cpu >= max_t(unsigned int, s->nr, nr_cpu_ids)) {
+			pr_err_once("error: cpu id: %u\n", cpu);
 			break;
 		}
 
@@ -190,7 +190,7 @@ read_source(struct power_clk_source *s, int cpu)
 
 		s->cpu = cpu;
 		s->data[cpu].value = value;
-		pr_debug("PCLK_CPU(%d), value: %u\n", cpu, s->data[cpu].value);
+		pr_debug("PCLK_CPU(%u), value: %u\n", cpu, s->data[cpu].value);
 		check_source(s);
 
 		mutex_unlock(&s->lock);
@@ -249,21 +249,22 @@ emc_notifier_call(struct notifier_block *nb,
 }
 
 static void
-read_cpufreq(struct power_clk_source *s, struct cpufreq_freqs *freq, int cpu)
+read_cpufreq(struct power_clk_source *s, struct cpufreq_freqs *freq,
+	     unsigned int cpu)
 {
-	int cpufreq = freq->new;
+	unsigned int cpufreq = freq->new;
 
-	pr_debug("cpu: %d, cpufreq: %d\n", cpu, cpufreq);
+	pr_debug("cpu: %u, cpufreq: %u\n", cpu, cpufreq);
 
 	if (cpu >= s->nr) {
-		pr_err_once("error: cpu id: %d\n", cpu);
+		pr_err_once("error: cpu id: %u\n", cpu);
 		return;
 	}
 
 	s->cpu = cpu;
 	s->data[cpu].value = cpufreq;
 
-	pr_debug("[%d] cpufreq: %u --> %u\n",
+	pr_debug("[%u] cpufreq: %u --> %u\n",
 		 cpu, freq->old, cpufreq);
 
 	check_source(s);
@@ -273,7 +274,7 @@ static int
 cpufreq_notifier_call(struct notifier_block *nb,
 		      unsigned long action, void *data)
 {
-	int cpu;
+	unsigned int cpu;
 	struct cpufreq_freqs *freq;
 	struct power_clk_source *s = &power_ctx.cpu;
 
@@ -304,18 +305,18 @@ static int
 cpu_hotplug_notifier_call(struct notifier_block *nb,
 			  unsigned long action, void *hcpu)
 {
-	int cpu;
+	unsigned int cpu;
 	struct power_clk_source *s = &power_ctx.cpu;
 
 	if (!atomic_read(&s->active))
 		return NOTIFY_DONE;
 
-	cpu = (long)hcpu;
+	cpu = (unsigned long)hcpu;
 
-	pr_debug("cpu: %d, action: %lu\n", cpu, action);
+	pr_debug("cpu: %u, action: %lu\n", cpu, action);
 
 	if (cpu >= s->nr) {
-		pr_err_once("error: cpu id: %d\n", cpu);
+		pr_err_once("error: cpu id: %u\n", cpu);
 		return NOTIFY_DONE;
 	}
 
@@ -345,7 +346,7 @@ cpu_hotplug_notifier_call(struct notifier_block *nb,
 
 static void reset_data(struct power_clk_source *s)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < s->nr; i++) {
 		s->data[i].value = 0;
@@ -354,12 +355,12 @@ static void reset_data(struct power_clk_source *s)
 }
 
 static void init_source(struct power_clk_source *s,
-			int nr_values,
+			unsigned int nr_values,
 			unsigned int type)
 {
 	s->clkp = NULL;
 	s->type = type;
-	s->nr = min_t(int, nr_values, PCLK_MAX_VALUES);
+	s->nr = min_t(unsigned int, nr_values, PCLK_MAX_VALUES);
 	atomic_set(&s->active, 0);
 	mutex_init(&s->lock);
 
@@ -392,7 +393,7 @@ static void power_clk_timer(unsigned long unused)
 static void
 read_all_sources_work_func(struct work_struct *work)
 {
-	int cpu_id;
+	unsigned int cpu_id;
 	struct power_clk_source *s = &power_ctx.cpu;
 
 	if (power_ctx.is_cpufreq) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -53,13 +53,6 @@
 #define get_noc_errlog_subfield(_x_, _msb_, _lsb_) \
 	CBB_EXTRACT(_x_, _msb_, _lsb_)
 
-extern int nvcvnas_busy(void);
-extern int nvcvnas_idle(void);
-extern int is_nvcvnas_probed(void);
-extern int nvcvnas_busy_no_rpm(void);
-extern int nvcvnas_idle_no_rpm(void);
-extern int is_nvcvnas_clk_enabled(void);
-
 struct tegra_noc_packet_header {
 	bool lock;   // [0]
 	u8   opc;    // [4:1]
@@ -93,7 +86,7 @@ struct tegra_noc_userbits {
 struct tegra_cbb_errlog_record {
 	struct list_head node;
 	struct serr_hook *callback;
-	char *name;
+	const char *name;
 	phys_addr_t start;
 	void __iomem *vaddr;
 	int num_intr;

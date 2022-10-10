@@ -1,7 +1,7 @@
 /*
  * include/uapi/misc/tegra-cryptodev.h
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION. All Rights Reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -160,8 +160,8 @@ struct tegra_crypt_req {
 	unsigned int keylen;
 	char iv[TEGRA_CRYPTO_IV_SIZE];
 	unsigned int ivlen;
-	__u8 *plaintext;
-	__u8 *result;
+	unsigned char __user *plaintext;
+	unsigned char __user *result;
 	unsigned int plaintext_sz;
 	unsigned int skip_key;
 	unsigned int skip_iv;
@@ -197,7 +197,7 @@ struct tegra_crypt_req_32 {
  */
 struct tegra_rng_req {
 	__u8 seed[TEGRA_CRYPTO_RNG_SEED_SIZE];
-	__u8 *rdata; /* random generated data */
+	unsigned char __user *rdata; /* random generated data */
 	unsigned int nbytes; /* random data length */
 	unsigned int type;
 };
@@ -274,9 +274,9 @@ struct tegra_rsa_req_32 {
 struct tegra_sha_req {
 	char key[TEGRA_CRYPTO_MAX_KEY_SIZE];
 	unsigned int keylen;
-	unsigned char *algo;
-	unsigned char *plaintext;
-	unsigned char *result;
+	const char __user *algo;
+	unsigned char __user *plaintext;
+	unsigned char __user *result;
 	unsigned int plaintext_sz;
 };
 #define TEGRA_CRYPTO_IOCTL_GET_SHA	\

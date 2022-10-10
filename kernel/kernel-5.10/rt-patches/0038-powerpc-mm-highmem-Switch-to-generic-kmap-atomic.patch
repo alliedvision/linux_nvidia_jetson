@@ -1,7 +1,7 @@
-From e594bc3ae2b118f34b024d6eb300a8619be54fbe Mon Sep 17 00:00:00 2001
+From 617a68b9f194315db57308b8e0dd2e5970f14ea0 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:27 +0100
-Subject: [PATCH 038/304] powerpc/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 038/318] powerpc/mm/highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture
 
@@ -13,18 +13,18 @@ Cc: linuxppc-dev@lists.ozlabs.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/powerpc/Kconfig                  |  1 +
- arch/powerpc/include/asm/fixmap.h     |  4 +--
- arch/powerpc/include/asm/highmem.h    |  7 ++--
- arch/powerpc/include/asm/kmap_types.h | 13 -------
+ arch/powerpc/include/asm/fixmap.h     |  4 +-
+ arch/powerpc/include/asm/highmem.h    |  7 ++-
+ arch/powerpc/include/asm/kmap_types.h | 13 ------
  arch/powerpc/mm/Makefile              |  1 -
- arch/powerpc/mm/highmem.c             | 67 -----------------------------------
- arch/powerpc/mm/mem.c                 |  7 ----
+ arch/powerpc/mm/highmem.c             | 67 ---------------------------
+ arch/powerpc/mm/mem.c                 |  7 ---
  7 files changed, 8 insertions(+), 92 deletions(-)
  delete mode 100644 arch/powerpc/include/asm/kmap_types.h
  delete mode 100644 arch/powerpc/mm/highmem.c
 
 diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 5afa0eb..7da69f3 100644
+index 5afa0ebd78ca..7da69f334fa4 100644
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
 @@ -410,6 +410,7 @@ menu "Kernel options"
@@ -36,7 +36,7 @@ index 5afa0eb..7da69f3 100644
  source "kernel/Kconfig.hz"
  
 diff --git a/arch/powerpc/include/asm/fixmap.h b/arch/powerpc/include/asm/fixmap.h
-index 591b2f4..947b5b9 100644
+index 897cc68758d4..a832aeafe560 100644
 --- a/arch/powerpc/include/asm/fixmap.h
 +++ b/arch/powerpc/include/asm/fixmap.h
 @@ -20,7 +20,7 @@
@@ -58,7 +58,7 @@ index 591b2f4..947b5b9 100644
  #ifdef CONFIG_PPC_8xx
  	/* For IMMR we need an aligned 512K area */
 diff --git a/arch/powerpc/include/asm/highmem.h b/arch/powerpc/include/asm/highmem.h
-index 104026f..80a5ae7 100644
+index 104026f7d6bc..80a5ae771c65 100644
 --- a/arch/powerpc/include/asm/highmem.h
 +++ b/arch/powerpc/include/asm/highmem.h
 @@ -24,12 +24,10 @@
@@ -88,7 +88,7 @@ index 104026f..80a5ae7 100644
  #endif /* _ASM_HIGHMEM_H */
 diff --git a/arch/powerpc/include/asm/kmap_types.h b/arch/powerpc/include/asm/kmap_types.h
 deleted file mode 100644
-index c8fa182..00000000
+index c8fa182d48c8..000000000000
 --- a/arch/powerpc/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -106,7 +106,7 @@ index c8fa182..00000000
 -#endif	/* __KERNEL__ */
 -#endif	/* _ASM_POWERPC_KMAP_TYPES_H */
 diff --git a/arch/powerpc/mm/Makefile b/arch/powerpc/mm/Makefile
-index 55b4a8b..3b4e9e4 100644
+index 55b4a8bd408a..3b4e9e4e25ea 100644
 --- a/arch/powerpc/mm/Makefile
 +++ b/arch/powerpc/mm/Makefile
 @@ -16,7 +16,6 @@ obj-$(CONFIG_NEED_MULTIPLE_NODES) += numa.o
@@ -119,7 +119,7 @@ index 55b4a8b..3b4e9e4 100644
  obj-$(CONFIG_KASAN)		+= kasan/
 diff --git a/arch/powerpc/mm/highmem.c b/arch/powerpc/mm/highmem.c
 deleted file mode 100644
-index 624b443..00000000
+index 624b4438aff9..000000000000
 --- a/arch/powerpc/mm/highmem.c
 +++ /dev/null
 @@ -1,67 +0,0 @@
@@ -191,7 +191,7 @@ index 624b443..00000000
 -}
 -EXPORT_SYMBOL(kunmap_atomic_high);
 diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 22eb1c7..1b74565 100644
+index 22eb1c718e62..1b74565b3e16 100644
 --- a/arch/powerpc/mm/mem.c
 +++ b/arch/powerpc/mm/mem.c
 @@ -62,11 +62,6 @@
@@ -216,5 +216,5 @@ index 22eb1c7..1b74565 100644
  
  	printk(KERN_DEBUG "Top of RAM: 0x%llx, Total RAM: 0x%llx\n",
 -- 
-2.7.4
+2.17.1
 

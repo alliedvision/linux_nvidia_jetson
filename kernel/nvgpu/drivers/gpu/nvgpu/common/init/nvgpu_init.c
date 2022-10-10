@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <nvgpu/debug.h>
 #include <nvgpu/nvgpu_common.h>
 #include <nvgpu/kmem.h>
 #include <nvgpu/allocator.h>
@@ -40,8 +41,13 @@
 #include <nvgpu/fb.h>
 #include <nvgpu/device.h>
 #include <nvgpu/gr/gr.h>
+#include <nvgpu/power_features/cg.h>
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
 #include <nvgpu/gsp.h>
+#include <nvgpu/gsp_sched.h>
+#endif
+#ifdef CONFIG_NVGPU_GSP_STRESS_TEST
+#include <nvgpu/gsp/gsp_test.h>
 #endif
 #include <nvgpu/pm_reservation.h>
 #include <nvgpu/netlist.h>
@@ -110,7 +116,7 @@ static int nvgpu_sw_quiesce_thread(void *data)
 
 	nvgpu_disable_irqs(g);
 	nvgpu_channel_sw_quiesce(g);
-	nvgpu_bug_exit(1);
+	nvgpu_bug_exit();
 
 done:
 	nvgpu_log_info(g, "done");
@@ -258,23 +264,23 @@ static int nvgpu_falcons_sw_init(struct gk20a *g)
 		goto done_sec2;
 	}
 
+#endif
 	err = g->ops.falcon.falcon_sw_init(g, FALCON_ID_GSPLITE);
 	if (err != 0) {
 		nvgpu_err(g, "failed to sw init FALCON_ID_GSPLITE");
 		goto done_nvdec;
 	}
-#endif
 
 	return 0;
 
-#ifdef CONFIG_NVGPU_DGPU
 done_nvdec:
+#ifdef CONFIG_NVGPU_DGPU
 	g->ops.falcon.falcon_sw_free(g, FALCON_ID_NVDEC);
 done_sec2:
 	g->ops.falcon.falcon_sw_free(g, FALCON_ID_SEC2);
 done_fecs:
-	g->ops.falcon.falcon_sw_free(g, FALCON_ID_FECS);
 #endif
+	g->ops.falcon.falcon_sw_free(g, FALCON_ID_FECS);
 done_pmu:
 	g->ops.falcon.falcon_sw_free(g, FALCON_ID_PMU);
 
@@ -344,14 +350,17 @@ int nvgpu_prepare_poweroff(struct gk20a *g)
 		ret = tmp_ret;
 	}
 
+#ifndef CONFIG_NVGPU_DGPU
 #ifdef CONFIG_NVGPU_GSP_STRESS_TEST
-	ret = nvgpu_gsp_stress_test_halt(g, true);
-	if (ret != 0) {
+	tmp_ret = nvgpu_gsp_stress_test_halt(g, true);
+	if (tmp_ret != 0) {
+		ret = tmp_ret;
 		nvgpu_err(g, "Failed to halt GSP stress test");
 	}
 #endif
-#if defined(CONFIG_NVGPU_GSP_SCHEDULER)
-	nvgpu_gsp_suspend(g);
+#ifdef CONFIG_NVGPU_GSP_SCHEDULER
+	nvgpu_gsp_sched_suspend(g, g->gsp_sched);
+#endif
 #endif
 
 	nvgpu_falcons_sw_free(g);
@@ -367,10 +376,12 @@ int nvgpu_prepare_poweroff(struct gk20a *g)
 	}
 #endif
 
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	/* Disable GPCPLL */
 	if (g->ops.clk.suspend_clk_support != NULL) {
 		g->ops.clk.suspend_clk_support(g);
 	}
+#endif
 #ifdef CONFIG_NVGPU_CLK_ARB
 	if (g->ops.clk_arb.stop_clk_arb_threads != NULL) {
 		g->ops.clk_arb.stop_clk_arb_threads(g);
@@ -383,8 +394,9 @@ int nvgpu_prepare_poweroff(struct gk20a *g)
 	 * This will ensure that CIC will not get probed
 	 * after it's deinit.
 	 */
-	ret = nvgpu_cic_mon_deinit(g);
-	if (ret != 0) {
+	tmp_ret = nvgpu_cic_mon_deinit(g);
+	if (tmp_ret != 0) {
+		ret = tmp_ret;
 		nvgpu_err(g, "Failed to deinit CIC-mon.");
 	}
 
@@ -528,6 +540,7 @@ static int nvgpu_init_boot_clk_or_clk_arb(struct gk20a *g)
 {
 	int err = 0;
 
+	(void)g;
 #ifdef CONFIG_NVGPU_LS_PMU
 	if (nvgpu_is_enabled(g, NVGPU_PMU_PSTATE) &&
 		(g->pmu->fw->ops.clk.clk_set_boot_clk != NULL)) {
@@ -565,6 +578,7 @@ static int nvgpu_init_per_device_identifier(struct gk20a *g)
 
 static int nvgpu_init_set_debugger_mode(struct gk20a *g)
 {
+	(void)g;
 #ifdef CONFIG_NVGPU_DEBUGGER
 	/* Restore the debug setting */
 	g->ops.fb.set_debug_mode(g, g->mmu_debug_ctrl);
@@ -602,6 +616,8 @@ static int nvgpu_init_xve_set_speed(struct gk20a *g)
 			return err;
 		}
 	}
+#else
+	(void)g;
 #endif
 	return 0;
 }
@@ -637,13 +653,27 @@ static int nvgpu_init_slcg_acb_load_gating_prod(struct gk20a *g)
 	return 0;
 }
 
-#ifdef CONFIG_TEGRA_HV_MANAGER
+static int nvgpu_init_cg_ltc_load_gating_prod(struct gk20a *g)
+{
+	nvgpu_cg_slcg_ltc_load_enable(g);
+	nvgpu_cg_blcg_ltc_load_enable(g);
+
+	return 0;
+}
+
+static int nvgpu_init_cg_ctrl_load_gating_prod(struct gk20a *g)
+{
+	nvgpu_cg_slcg_ctrl_load_enable(g, true);
+
+	return 0;
+}
+
 static int nvgpu_ipa_pa_rwsem_init(struct gk20a *g)
 {
 	nvgpu_rwsem_init(&(g->ipa_pa_cache.ipa_pa_rw_lock));
 	return 0;
 }
-#endif
+
 static int nvgpu_init_interrupt_setup(struct gk20a *g)
 {
 	/**
@@ -697,9 +727,7 @@ static int nvgpu_early_init(struct gk20a *g)
 		 * prior to enabling interrupts for corresponding units.
 		 */
 		NVGPU_INIT_TABLE_ENTRY(g->ops.ecc.ecc_init_support, NO_FLAG),
-#ifdef CONFIG_TEGRA_HV_MANAGER
 		NVGPU_INIT_TABLE_ENTRY(&nvgpu_ipa_pa_rwsem_init, NO_FLAG),
-#endif
 		NVGPU_INIT_TABLE_ENTRY(&nvgpu_device_init, NO_FLAG),
 #ifdef CONFIG_NVGPU_DGPU
 		NVGPU_INIT_TABLE_ENTRY(g->ops.bios.bios_sw_init, NO_FLAG),
@@ -724,7 +752,9 @@ static int nvgpu_early_init(struct gk20a *g)
 		 * SOB after graphics power saving features (blcg/slcg) are
 		 * enabled. For now, do it here.
 		 */
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 		NVGPU_INIT_TABLE_ENTRY(g->ops.clk.init_clk_support, NO_FLAG),
+#endif
 #ifdef CONFIG_NVGPU_DGPU
 		NVGPU_INIT_TABLE_ENTRY(&nvgpu_init_fbpa_ecc, NO_FLAG),
 		NVGPU_INIT_TABLE_ENTRY(g->ops.fb.init_fbpa, NO_FLAG),
@@ -846,8 +876,10 @@ int nvgpu_finalize_poweron(struct gk20a *g)
 		NVGPU_INIT_TABLE_ENTRY(g->ops.acr.acr_init,
 				       NVGPU_SEC_PRIVSECURITY),
 		NVGPU_INIT_TABLE_ENTRY(&nvgpu_sw_quiesce_init_support, NO_FLAG),
+#ifdef CONFIG_NVGPU_NVLINK
 		NVGPU_INIT_TABLE_ENTRY(g->ops.nvlink.init,
 				       NVGPU_SUPPORT_NVLINK),
+#endif
 
 #ifdef CONFIG_NVGPU_DEBUGGER
 		NVGPU_INIT_TABLE_ENTRY(g->ops.ptimer.config_gr_tick_freq,
@@ -870,6 +902,15 @@ int nvgpu_finalize_poweron(struct gk20a *g)
 		NVGPU_INIT_TABLE_ENTRY(g->ops.acr.acr_construct_execute,
 				       NVGPU_SEC_PRIVSECURITY),
 		/**
+		 * Set ltc_lts_set_mgmt registers only after ACR boot(See
+		 * bug200601972 for details). In order to accomplish this
+		 * ltc_lts_set_mgmt_setup is decoupled from
+		 * nvgpu_init_ltc_support which needs to be executed before ACR
+		 * boot.
+		 */
+		NVGPU_INIT_TABLE_ENTRY(g->ops.ltc.ltc_lts_set_mgmt_setup,
+				       NO_FLAG),
+		/**
 		 * Set atomic mode after acr boot(See Bug 3268664 for
 		 * details). For acr to boot, nvgpu_init_fb_support
 		 * and init_mm_support is required.
@@ -877,6 +918,18 @@ int nvgpu_finalize_poweron(struct gk20a *g)
 		 * in the init sequence and called after acr boot.
 		 */
 		NVGPU_INIT_TABLE_ENTRY(g->ops.fb.set_atomic_mode, NO_FLAG),
+
+		/**
+		 * During acr boot, PLM for ltc clock gating registers
+		 * will be lowered for nvgpu(PL0) write access. So,
+		 * ltc clock gating programming is done after acr boot.
+		 * Bug 3469873
+		 */
+		NVGPU_INIT_TABLE_ENTRY(&nvgpu_init_cg_ltc_load_gating_prod,
+								NO_FLAG),
+		/* Load SLCG for CTRL unit */
+		NVGPU_INIT_TABLE_ENTRY(&nvgpu_init_cg_ctrl_load_gating_prod,
+								NO_FLAG),
 #ifdef CONFIG_NVGPU_DGPU
 		NVGPU_INIT_TABLE_ENTRY(g->ops.sec2.init_sec2_support,
 				       NVGPU_SUPPORT_SEC2_RTOS),
@@ -905,7 +958,8 @@ int nvgpu_finalize_poweron(struct gk20a *g)
 		NVGPU_INIT_TABLE_ENTRY(&nvgpu_init_boot_clk_or_clk_arb, NO_FLAG),
 		NVGPU_INIT_TABLE_ENTRY(g->ops.therm.init_therm_support, NO_FLAG),
 #ifdef CONFIG_NVGPU_COMPRESSION
-		NVGPU_INIT_TABLE_ENTRY(g->ops.cbc.cbc_init_support, NO_FLAG),
+		NVGPU_INIT_TABLE_ENTRY(g->ops.cbc.cbc_init_support,
+				NVGPU_SUPPORT_COMPRESSION),
 #endif
 		NVGPU_INIT_TABLE_ENTRY(g->ops.chip_init_gpu_characteristics,
 				       NO_FLAG),
@@ -927,9 +981,14 @@ int nvgpu_finalize_poweron(struct gk20a *g)
 #endif
 		NVGPU_INIT_TABLE_ENTRY(g->ops.channel.resume_all_serviceable_ch,
 				       NO_FLAG),
-#if defined(CONFIG_NVGPU_GSP_SCHEDULER) || defined(CONFIG_NVGPU_GSP_STRESS_TEST)
+#ifndef CONFIG_NVGPU_DGPU
+#ifdef CONFIG_NVGPU_GSP_SCHEDULER
 		/* Init gsp ops */
-		NVGPU_INIT_TABLE_ENTRY(&nvgpu_gsp_sw_init, NO_FLAG),
+		NVGPU_INIT_TABLE_ENTRY(&nvgpu_gsp_sched_sw_init, NO_FLAG),
+#endif
+#ifdef CONFIG_NVGPU_GSP_STRESS_TEST
+		NVGPU_INIT_TABLE_ENTRY(&nvgpu_gsp_stress_test_sw_init, NO_FLAG),
+#endif
 #endif
 	};
 	size_t i;
@@ -1032,8 +1091,12 @@ int nvgpu_init_gpu_characteristics(struct gk20a *g)
 	 * (even if kernel-mode submits aren't enabled where full deterministic
 	 * features matter).
 	 */
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	if (nvgpu_has_syncpoints(g) &&
 			g->aggressive_sync_destroy_thresh == 0U) {
+#else
+	if (nvgpu_has_syncpoints(g)) {
+#endif
 		nvgpu_set_enabled(g,
 				NVGPU_SUPPORT_DETERMINISTIC_SUBMIT_FULL,
 				true);
@@ -1115,9 +1178,11 @@ static void gk20a_free_cb(struct nvgpu_ref *refcount)
 		g->ops.ecc.ecc_remove_support(g);
 	}
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	if (g->remove_support != NULL) {
 		g->remove_support(g);
 	}
+#endif
 
 	if (g->ops.ltc.ltc_remove_support != NULL) {
 		g->ops.ltc.ltc_remove_support(g);
@@ -1141,9 +1206,13 @@ static void gk20a_free_cb(struct nvgpu_ref *refcount)
 
 	nvgpu_sw_quiesce_remove_support(g);
 
+	gk20a_debug_deinit(g);
+
+#ifdef CONFIG_NVGPU_NON_FUSA
 	if (g->gfree != NULL) {
 		g->gfree(g);
 	}
+#endif
 }
 
 struct gk20a *nvgpu_get(struct gk20a *g)

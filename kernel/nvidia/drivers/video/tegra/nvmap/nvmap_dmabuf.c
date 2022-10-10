@@ -1,7 +1,7 @@
 /*
  * dma_buf exporter for nvmap
  *
- * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,6 +30,9 @@
 #include <linux/of.h>
 #include <linux/version.h>
 #include <linux/iommu.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+#include <linux/iosys-map.h>
+#endif
 
 #include <trace/events/nvmap.h>
 
@@ -393,7 +396,11 @@ static void nvmap_dmabuf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 	__nvmap_munmap(info->handle, vaddr);
 }
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+static int nvmap_dmabuf_vmap(struct dma_buf *dmabuf, struct iosys_map *map)
+#else
 static int nvmap_dmabuf_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+#endif
 {
 	struct nvmap_handle_info *info = dmabuf->priv;
 	void *res;
@@ -416,7 +423,11 @@ static int nvmap_dmabuf_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+static void nvmap_dmabuf_vunmap(struct dma_buf *dmabuf, struct iosys_map *map)
+#else
 static void nvmap_dmabuf_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+#endif
 {
        struct nvmap_handle_info *info = dmabuf->priv;
 
@@ -534,10 +545,11 @@ static struct dma_buf *__dma_buf_export(struct nvmap_handle_info *info,
 		exp_info.flags = O_RDWR;
 	}
 
-#ifndef NVMAP_LOADABLE_MODULE
+#ifndef NVMAP_UPSTREAM_KERNEL
+	/* Disable defer unmap feature only for kstable */
 	exp_info.exp_flags = DMABUF_CAN_DEFER_UNMAP |
 				DMABUF_SKIP_CACHE_SYNC;
-#endif /* !NVMAP_LOADABLE_MODULE */
+#endif /* !NVMAP_UPSTREAM_KERNEL */
 	exp_info.exp_name = dmabuf_name;
 
 	return dma_buf_export(&exp_info);
@@ -585,6 +597,7 @@ int __nvmap_dmabuf_fd(struct nvmap_client *client,
 #if !defined(NVMAP_CONFIG_HANDLE_AS_ID) && !defined(NVMAP_LOADABLE_MODULE)
 	int start_fd = NVMAP_CONFIG_FD_START;
 #endif
+	int ret;
 
 #ifdef NVMAP_CONFIG_DEFER_FD_RECYCLE
 	if (client->next_fd < NVMAP_CONFIG_FD_START)
@@ -600,10 +613,14 @@ int __nvmap_dmabuf_fd(struct nvmap_client *client,
 	 * pselect() syscalls.
 	 */
 #if defined(NVMAP_LOADABLE_MODULE) || defined(NVMAP_CONFIG_HANDLE_AS_ID)
-	return get_unused_fd_flags(flags);
+	ret = get_unused_fd_flags(flags);
 #else
-	return __alloc_fd(current->files, start_fd, sysctl_nr_open, flags);
+	ret =  __alloc_fd(current->files, start_fd, sysctl_nr_open, flags);
 #endif
+	if (ret == -EMFILE)
+		pr_err_ratelimited("NvMap: FD limit is crossed for uid %d\n",
+				   from_kuid(current_user_ns(), current_uid()));
+	return ret;
 }
 
 static struct dma_buf *__nvmap_dmabuf_export(struct nvmap_client *client,

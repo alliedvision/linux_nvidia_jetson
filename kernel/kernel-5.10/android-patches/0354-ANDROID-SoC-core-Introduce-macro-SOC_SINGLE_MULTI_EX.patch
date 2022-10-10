@@ -1,0 +1,107 @@
+From a42f3ea242b0b9138174f473a4e74809c80536c7 Mon Sep 17 00:00:00 2001
+From: Meng Wang <mwang@codeaurora.org>
+Date: Wed, 6 Sep 2017 10:21:14 +0800
+Subject: [PATCH 354/830] ANDROID: SoC: core: Introduce macro
+ SOC_SINGLE_MULTI_EXT
+X-NVConfidentiality: public
+
+For some of the mixer controls, client would like to register
+count as a parameter. Macro adds support to specify the count.
+
+BUG: 144610828
+Change-Id: I26343af2e4a35952d93dc2d5fa0caad2a3e50ffe
+Signed-off-by: Banajit Goswami <bgoswami@codeaurora.org>
+Signed-off-by: Sudheer Papothi <spapothi@codeaurora.org>
+Signed-off-by: Meng Wang <mwang@codeaurora.org>
+---
+ include/sound/soc.h  | 15 +++++++++++++++
+ sound/soc/soc-core.c | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+)
+
+diff --git a/include/sound/soc.h b/include/sound/soc.h
+index 9b69d7015ae8..888944284232 100644
+--- a/include/sound/soc.h
++++ b/include/sound/soc.h
+@@ -239,6 +239,14 @@
+ 	.get = xhandler_get, .put = xhandler_put, \
+ 	.private_value = SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift, \
+ 					    xmax, xinvert) }
++#define SOC_SINGLE_MULTI_EXT(xname, xreg, xshift, xmax, xinvert, xcount,\
++	xhandler_get, xhandler_put) \
++{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
++	.info = snd_soc_info_multi_ext, \
++	.get = xhandler_get, .put = xhandler_put, \
++	.private_value = (unsigned long)&(struct soc_multi_mixer_control) \
++		{.reg = xreg, .shift = xshift, .rshift = xshift, .max = xmax, \
++		.count = xcount, .platform_max = xmax, .invert = xinvert} }
+ #define SOC_SINGLE_EXT_TLV(xname, xreg, xshift, xmax, xinvert,\
+ 	 xhandler_get, xhandler_put, tlv_array) \
+ {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+@@ -615,6 +623,8 @@ int snd_soc_get_strobe(struct snd_kcontrol *kcontrol,
+ 	struct snd_ctl_elem_value *ucontrol);
+ int snd_soc_put_strobe(struct snd_kcontrol *kcontrol,
+ 	struct snd_ctl_elem_value *ucontrol);
++int snd_soc_info_multi_ext(struct snd_kcontrol *kcontrol,
++	struct snd_ctl_elem_info *uinfo);
+ 
+ /**
+  * struct snd_soc_jack_pin - Describes a pin to update based on jack detection
+@@ -1239,6 +1249,11 @@ struct soc_mreg_control {
+ 	unsigned int regbase, regcount, nbits, invert;
+ };
+ 
++struct soc_multi_mixer_control {
++	int min, max, platform_max, count;
++	unsigned int reg, rreg, shift, rshift, invert;
++};
++
+ /* enumerated kcontrol */
+ struct soc_enum {
+ 	int reg;
+diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
+index 748f9398bd4f..3c42e586bc87 100644
+--- a/sound/soc/soc-core.c
++++ b/sound/soc/soc-core.c
+@@ -3010,6 +3010,39 @@ int snd_soc_get_dai_id(struct device_node *ep)
+ }
+ EXPORT_SYMBOL_GPL(snd_soc_get_dai_id);
+ 
++/**
++ * snd_soc_info_multi_ext - external single mixer info callback
++ * @kcontrol: mixer control
++ * @uinfo: control element information
++ *
++ * Callback to provide information about a single external mixer control.
++ * that accepts multiple input.
++ *
++ * Returns 0 for success.
++ */
++int snd_soc_info_multi_ext(struct snd_kcontrol *kcontrol,
++	struct snd_ctl_elem_info *uinfo)
++{
++	struct soc_multi_mixer_control *mc =
++		(struct soc_multi_mixer_control *)kcontrol->private_value;
++	int platform_max;
++
++	if (!mc->platform_max)
++		mc->platform_max = mc->max;
++	platform_max = mc->platform_max;
++
++	if (platform_max == 1 && !strnstr(kcontrol->id.name, " Volume", 30))
++		uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
++	else
++		uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
++
++	uinfo->count = mc->count;
++	uinfo->value.integer.min = 0;
++	uinfo->value.integer.max = platform_max;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(snd_soc_info_multi_ext);
++
+ int snd_soc_get_dai_name(struct of_phandle_args *args,
+ 				const char **dai_name)
+ {
+-- 
+2.17.1
+

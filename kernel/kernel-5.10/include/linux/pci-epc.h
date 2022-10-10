@@ -3,6 +3,7 @@
  * PCI Endpoint *Controller* (EPC) header file
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2022 NVIDIA Corporation.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
@@ -121,6 +122,7 @@ struct pci_epc {
 	spinlock_t			lock;
 	unsigned long			function_num_map;
 	struct atomic_notifier_head	notifier;
+	struct blocking_notifier_head	block_notifier;
 };
 
 /**
@@ -173,6 +175,12 @@ pci_epc_register_notifier(struct pci_epc *epc, struct notifier_block *nb)
 	return atomic_notifier_chain_register(&epc->notifier, nb);
 }
 
+static inline int
+pci_epc_register_block_notifier(struct pci_epc *epc, struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&epc->block_notifier, nb);
+}
+
 struct pci_epc *
 __devm_pci_epc_create(struct device *dev, const struct pci_epc_ops *ops,
 		      struct module *owner);
@@ -184,6 +192,7 @@ void pci_epc_destroy(struct pci_epc *epc);
 int pci_epc_add_epf(struct pci_epc *epc, struct pci_epf *epf);
 void pci_epc_linkup(struct pci_epc *epc);
 void pci_epc_init_notify(struct pci_epc *epc);
+void pci_epc_deinit_notify(struct pci_epc *epc);
 void pci_epc_remove_epf(struct pci_epc *epc, struct pci_epf *epf);
 int pci_epc_write_header(struct pci_epc *epc, u8 func_no,
 			 struct pci_epf_header *hdr);

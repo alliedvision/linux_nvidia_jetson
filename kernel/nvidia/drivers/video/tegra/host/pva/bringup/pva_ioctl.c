@@ -1,7 +1,7 @@
 /*
  * PVA Ioctl Handling for T194
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -324,13 +324,16 @@ static int pva_submit(struct pva_private *priv, void *arg)
 						&pts, 1,
 						"fence_pva",
 						&fence->sync_fd);
-
+					if (err) {
+						nvhost_err(&priv->pva->pdev->dev,
+							    "failed to create per fence sync fd");
+						goto err_submit_task;
+					}
 					break;
 				}
 				case NVDEV_FENCE_TYPE_SEMAPHORE:
 					break;
 				default:
-					err = -ENOSYS;
 					nvhost_warn(&priv->pva->pdev->dev,
 						    "Bad fence type");
 				}

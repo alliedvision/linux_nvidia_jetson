@@ -21,6 +21,8 @@ struct host1x_job_gather {
 struct host1x_job_wait {
 	u32 id;
 	u32 threshold;
+	u32 next_class;
+	bool relative;
 };
 
 struct host1x_job_cmd {

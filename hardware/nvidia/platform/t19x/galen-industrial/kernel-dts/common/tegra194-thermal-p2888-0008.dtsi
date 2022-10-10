@@ -68,6 +68,24 @@
 					writable;
 				};
 			};
+			cooling-maps {
+				map0 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 11>;
+				};
+				map1 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 11>;
+				};
+				map2 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 11>;
+				};
+				map3 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 11>;
+				};
+			};
 		};
 
 		GPU-therm {
@@ -83,6 +101,24 @@
 					type = "passive";
 					hysteresis = <0>;
 					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 11>;
+				};
+				map1 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 11>;
+				};
+				map2 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 11>;
+				};
+				map3 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 11>;
 				};
 			};
 		};

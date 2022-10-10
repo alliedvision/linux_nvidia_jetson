@@ -24,6 +24,7 @@
 			pu-offset = <0>;
 			enable-strobe-hs400;
 			dqs-trim-hs400 = <40>;
+			init-type = <0>; /* 0:SKIP_NONE(Full init) 1:SKIP_INIT 3:PARTIAL_INIT */
 		};
 		ufs@0 {
 			max-hs-mode = <4>;

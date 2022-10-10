@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -42,14 +42,22 @@
 
 #define AON_ROOT	0
 #define AON_MODS	1
+#define AON_ADCC	2
 
 #define IVC_DBG_CH_FRAME_SIZE 64
-#define MODS_DEFAULT_VAL      0xFFFF
-#define MODS_DEFAULT_LOOPS    10
-#define MODS_DEFAULT_CHANS    0x1
-#define MODS_BASIC_TEST       0x0
-#define MODS_DMA_MEM2MEM      0x1
-#define MODS_DMA_IO2MEM       0x2
+#define MODS_DEFAULT_VAL	  0xFFFF
+#define MODS_DEFAULT_LOOPS	  10
+#define MODS_DEFAULT_CHANS	  0x1
+#define MODS_BASIC_TEST		  0x0
+#define MODS_DMA_MEM2MEM	  0x1
+#define MODS_DMA_IO2MEM		  0x2
+#define MODS_ADCC_SINGLE	  0x3
+#define MODS_ADCC_CONT		  0x4
+
+#define ADCC_MODE_SINGLE_SHOT 1
+#define ADCC_MODE_CONT		  0
+#define ADCC_CLK_SRC_OSC	  0
+#define ADCC_CLK_SRC_PLLP	  1
 
 #define AONFW_BOOT	1
 
@@ -59,6 +67,7 @@ struct tegra_aondbg {
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
 	struct dentry *aon_root;
+	bool supports_adcc;
 };
 
 static struct tegra_aondbg aondbg_dev;
@@ -81,13 +90,20 @@ struct dbgfs_dir {
 
 static struct dbgfs_dir aon_dbgfs_dirs[] = {
 	{.name = "aon", .parent = NULL},
-	{.name = "aon_mods", .parent = &aon_dbgfs_dirs[AON_ROOT]}
+	{.name = "aon_mods", .parent = &aon_dbgfs_dirs[AON_ROOT]},
+	{.name = "adcc", .parent = &aon_dbgfs_dirs[AON_MODS]}
 };
 
-static u32 mods_result		= MODS_DEFAULT_VAL;
-static u32 mods_dma_chans	= MODS_DEFAULT_CHANS;
-static u32 mods_case		= MODS_BASIC_TEST;
-static u32 mods_loops		= MODS_DEFAULT_LOOPS;
+static u32 mods_result		 = MODS_DEFAULT_VAL;
+static u32 mods_dma_chans	 = MODS_DEFAULT_CHANS;
+static u32 mods_adcc_chans	 = MODS_DEFAULT_CHANS;
+static u32 mods_case		 = MODS_BASIC_TEST;
+static u32 mods_loops		 = MODS_DEFAULT_LOOPS;
+static u32 mods_adcc_smpl_dur	 = 16;
+static u32 mods_adcc_avg_window  = 1024;
+static u32 mods_adcc_clk_src	 = ADCC_CLK_SRC_OSC;
+static u64 mods_adcc_chans_data;
+static u64 mods_adcc_dac_lb_data;
 
 static unsigned int completion_timeout = 50;
 
@@ -98,6 +114,7 @@ static DEFINE_SPINLOCK(mods);
 static DEFINE_SPINLOCK(completion);
 static DEFINE_SPINLOCK(loops);
 static DEFINE_SPINLOCK(mods_dma);
+static DEFINE_SPINLOCK(mods_adcc);
 
 static struct aon_dbgfs_node aon_nodes[];
 
@@ -154,6 +171,7 @@ static unsigned int get_mods_loops(void)
 
 	return val;
 }
+
 static void set_mods_dma_chans(u32 dma_chans)
 {
 	spin_lock(&mods_dma);
@@ -172,9 +190,145 @@ static unsigned int get_mods_dma_chans(void)
 	return val;
 }
 
+static void set_mods_adcc_chans(u64 chans)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_chans = (u32) (chans & 0xFFFFFFFFUL);
+	spin_unlock(&mods_adcc);
+}
+
+static unsigned int get_mods_adcc_chans(void)
+{
+	unsigned int val;
+
+	spin_lock(&mods_adcc);
+	val = mods_adcc_chans;
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void set_mods_adcc_smpl_dur(u64 dur)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_smpl_dur = (u32)(dur & 0xFFFFFFFFUL);
+	spin_unlock(&mods_adcc);
+}
+
+static unsigned int get_mods_adcc_smpl_dur(void)
+{
+	unsigned int val;
+
+	spin_lock(&mods_adcc);
+	val = mods_adcc_smpl_dur;
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void set_mods_adcc_avg_window(u64 avg)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_avg_window = (u32) (avg & 0xFFFFFFFFUL);
+	spin_unlock(&mods_adcc);
+}
+
+static unsigned int get_mods_adcc_avg_window(void)
+{
+	unsigned int val;
+
+	spin_lock(&mods_adcc);
+	val = mods_adcc_avg_window;
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void set_mods_adcc_clk_src(u64 src)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_clk_src = (u32)(src & 0xFFFFFFFFUL);
+	spin_unlock(&mods_adcc);
+}
+
+static u64 get_mods_adcc_chans_data(void)
+{
+	u32 val;
+
+	spin_lock(&mods_adcc);
+	val = (u32)(mods_adcc_chans_data & 0xFFFFFFFFUL);
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void set_mods_adcc_chans_data(u64 adcc_data)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_chans_data = adcc_data;
+	spin_unlock(&mods_adcc);
+}
+
+static u64 get_mods_adcc_dac_lb_data(void)
+{
+	u64 val;
+
+	spin_lock(&mods_adcc);
+	val = mods_adcc_dac_lb_data;
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void set_mods_adcc_dac_lb_data(u64 lb_data)
+{
+	spin_lock(&mods_adcc);
+	mods_adcc_dac_lb_data = lb_data;
+	spin_unlock(&mods_adcc);
+}
+
+static unsigned int get_mods_adcc_clk_src(void)
+{
+	unsigned int val;
+
+	spin_lock(&mods_adcc);
+	val = mods_adcc_clk_src;
+	spin_unlock(&mods_adcc);
+
+	return val;
+}
+
+static void aon_create_mods_req(struct aon_dbg_request *req, u32 data)
+{
+	switch (data) {
+	case MODS_BASIC_TEST:
+		break;
+	case MODS_DMA_MEM2MEM:
+	case MODS_DMA_IO2MEM:
+		req->data.mods_req.dma_chans = get_mods_dma_chans();
+		break;
+	case MODS_ADCC_SINGLE:
+		req->data.mods_req.adcc.chans = get_mods_adcc_chans();
+		req->data.mods_req.adcc.mode = ADCC_MODE_SINGLE_SHOT;
+		req->data.mods_req.adcc.sampling_dur = get_mods_adcc_smpl_dur();
+		req->data.mods_req.adcc.avg_window = get_mods_adcc_avg_window();
+		req->data.mods_req.adcc.clk_src = get_mods_adcc_clk_src();
+		req->data.mods_req.adcc.lb_data = get_mods_adcc_dac_lb_data();
+		break;
+	case MODS_ADCC_CONT:
+		req->data.mods_req.adcc.chans = get_mods_adcc_chans();
+		req->data.mods_req.adcc.mode = ADCC_MODE_CONT;
+		req->data.mods_req.adcc.sampling_dur = get_mods_adcc_smpl_dur();
+		req->data.mods_req.adcc.avg_window = get_mods_adcc_avg_window();
+		req->data.mods_req.adcc.clk_src = get_mods_adcc_clk_src();
+		req->data.mods_req.adcc.lb_data = get_mods_adcc_dac_lb_data();
+		break;
+	}
+}
+
 static struct aon_dbg_response *aon_create_ivc_dbg_req(u32 request,
-						       u32 flag,
-						       u32 data)
+							   u32 flag,
+							   u32 data)
 {
 	struct tegra_aondbg *aondbg = &aondbg_dev;
 	struct aon_dbg_request req;
@@ -190,8 +344,8 @@ static struct aon_dbg_response *aon_create_ivc_dbg_req(u32 request,
 	switch (req.req_type) {
 	case AON_MODS_CASE:
 		req.data.mods_req.loops = get_mods_loops();
-		req.data.mods_req.dma_chans = get_mods_dma_chans();
 		req.data.mods_req.mods_case = data;
+		aon_create_mods_req(&req, data);
 		break;
 	case AON_MODS_CRC:
 	case AON_PING:
@@ -439,20 +593,40 @@ static int aon_mods_case_store(void *data, u64 val)
 {
 	struct aon_dbg_response *resp;
 	int ret = 0;
+	int i;
+	u64 adcc_data = 0U;
+	u64 ch_data = 0U;
 
-	if (val > MODS_DMA_IO2MEM) {
+	if (val > MODS_ADCC_CONT) {
 		ret = -1;
 		dev_err(aondbg_dev.dev, "Invalid mods case\n");
 		goto out;
 	}
 
+	if (val > MODS_DMA_IO2MEM && val <= MODS_ADCC_CONT) {
+		if (!aondbg_dev.supports_adcc) {
+			ret = -1;
+			dev_err(aondbg_dev.dev, "no adcc on this platform\n");
+			goto out;
+		}
+	}
+
 	mutex_lock(&aon_mutex);
 	set_mods_result(MODS_DEFAULT_VAL);
 	resp = aon_create_ivc_dbg_req(*(u32 *)data, WRITE, val);
-	if (IS_ERR(resp))
+	if (IS_ERR(resp)) {
 		ret = PTR_ERR(resp);
-	else
+	} else {
 		set_mods_result(resp->status);
+		if (val == MODS_ADCC_SINGLE || val == MODS_ADCC_CONT) {
+			adcc_data = 0U;
+			for (i = 0; i < ADCC_NCHANS; i++) {
+				ch_data = resp->data.adcc_resp.ch_data[i];
+				adcc_data |= (ch_data & 0x3FFU) << (i * 10);
+			}
+			set_mods_adcc_chans_data(adcc_data);
+		}
+	}
 	mutex_unlock(&aon_mutex);
 
 out:
@@ -508,6 +682,101 @@ static int aon_mods_dma_store(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(aon_mods_dma_fops, aon_mods_dma_show,
 			aon_mods_dma_store, "%lld\n");
 
+static int aon_mods_adcc_chans_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_chans();
+
+	return 0;
+}
+
+static int aon_mods_adcc_chans_store(void *data, u64 val)
+{
+	set_mods_adcc_chans(val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_chans_fops, aon_mods_adcc_chans_show,
+			aon_mods_adcc_chans_store, "%lld\n");
+
+static int aon_mods_adcc_smpl_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_smpl_dur();
+
+	return 0;
+}
+
+static int aon_mods_adcc_smpl_store(void *data, u64 val)
+{
+	set_mods_adcc_smpl_dur(val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_smpl_fops, aon_mods_adcc_smpl_show,
+			aon_mods_adcc_smpl_store, "%lld\n");
+
+static int aon_mods_adcc_avg_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_avg_window();
+
+	return 0;
+}
+
+static int aon_mods_adcc_avg_store(void *data, u64 val)
+{
+	set_mods_adcc_avg_window(val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_avg_fops, aon_mods_adcc_avg_show,
+			aon_mods_adcc_avg_store, "%lld\n");
+
+static int aon_mods_adcc_clk_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_clk_src();
+
+	return 0;
+}
+
+static int aon_mods_adcc_clk_store(void *data, u64 val)
+{
+	set_mods_adcc_clk_src(val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_clk_fops, aon_mods_adcc_clk_show,
+			aon_mods_adcc_clk_store, "%lld\n");
+
+static int aon_mods_adcc_data_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_chans_data();
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_data_fops, aon_mods_adcc_data_show,
+			NULL, "%lld\n");
+
+static int aon_mods_adcc_dac_show(void *data, u64 *val)
+{
+	*val = get_mods_adcc_dac_lb_data();
+
+	return 0;
+}
+
+static int aon_mods_adcc_dac_store(void *data, u64 val)
+{
+	set_mods_adcc_dac_lb_data(val);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(aon_mods_adcc_dac_fops, aon_mods_adcc_dac_show,
+			aon_mods_adcc_dac_store, "%lld\n");
+
 static int aon_timeout_show(void *data, u64 *val)
 {
 	*val = get_completion_timeout();
@@ -538,6 +807,18 @@ static struct aon_dbgfs_node aon_nodes[] = {
 			.mode = 0644, .fops = &aon_mods_case_fops,},
 	{.name = "dma_channels", .pdr_id = AON_MODS,
 			.mode = 0644, .fops = &aon_mods_dma_fops,},
+	{.name = "adcc_chans", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_chans_fops,},
+	{.name = "sampling_dur", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_smpl_fops,},
+	{.name = "avg_window", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_avg_fops,},
+	{.name = "clk_src", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_clk_fops,},
+	{.name = "adcc_data", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_data_fops,},
+	{.name = "dac", .pdr_id = AON_ADCC,
+			.mode = 0644, .fops = &aon_mods_adcc_dac_fops,},
 	{.name = "ping", .id = AON_PING, .pdr_id = AON_ROOT,
 			.mode = 0644, .fops = &aon_ping_fops,},
 	{.name = "tag", .id = AON_QUERY_TAG, .pdr_id = AON_ROOT,
@@ -631,6 +912,11 @@ int tegra_aon_debugfs_create(struct tegra_aon *aon)
 		goto exit;
 	}
 
+	if (of_property_read_bool(np, NV("adcc")))
+		aondbg->supports_adcc = true;
+	else
+		aondbg->supports_adcc = false;
+
 	aondbg->dev = aon->dev;
 	aondbg->aon = aon;
 	aondbg->cl.dev = aon->dev;
@@ -651,8 +937,8 @@ int tegra_aon_debugfs_create(struct tegra_aon *aon)
 
 	for (i = 0; i < ARRAY_SIZE(aon_nodes); i++) {
 		aon_nodes[i].wait_on = devm_kzalloc(aon->dev,
-						    sizeof(struct completion),
-						    GFP_KERNEL);
+							sizeof(struct completion),
+							GFP_KERNEL);
 		if (!aon_nodes[i].wait_on) {
 			dev_err(dev, "out of memory.\n");
 			ret = -ENOMEM;

@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Automatic Clock Management
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -34,19 +34,11 @@
 int nvhost_clk_get(struct platform_device *dev, char *name, struct clk **clk);
 
 void nvhost_module_busy_noresume(struct platform_device *dev);
-void nvhost_module_reset(struct platform_device *dev, bool reboot);
 void nvhost_module_reset_for_stage2(struct platform_device *dev);
-int nvhost_module_busy(struct platform_device *dev);
 void nvhost_module_idle_mult(struct platform_device *dev, int refs);
-int nvhost_module_add_client(struct platform_device *dev,
-		void *priv);
-void nvhost_module_remove_client(struct platform_device *dev,
-		void *priv);
 int nvhost_module_get_rate(struct platform_device *dev,
 		unsigned long *rate,
 		int index);
-int nvhost_module_set_rate(struct platform_device *dev, void *priv,
-		unsigned long constraint, int index, unsigned long attr);
 
 int nvhost_module_do_idle(struct device *dev);
 int nvhost_module_do_unidle(struct device *dev);

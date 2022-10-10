@@ -1,0 +1,141 @@
+From c0e2e20ef6a8080847fb45853136b2f9b0e7390f Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 27 Mar 2020 10:04:16 -0700
+Subject: [PATCH 138/830] Revert "sched/core: Prevent race condition between
+ cpuset and __sched_setscheduler()"
+X-NVConfidentiality: public
+
+This reverts commit 710da3c8ea7dfbd327920afd3831d8c82c42789d.
+
+When changing a thread's scheduling priority, binder calls
+sched_setscheduler_nocheck() while holding the node lock and
+proc inner lock. This was safe until v5.3 when this change was
+introduced where cpuset_read_lock() is called in this path
+which can sleep.
+
+This patch was introduced to fix a possible accounting error
+in sched deadline (potential oversell of CPU bandwidth) due
+to a race condition between cpusets and __sched_setscheduler().
+This is not an issue for Android.
+
+This should be fixed in the binder driver, but that may take
+some time.
+
+Bug: 151861772
+Change-Id: Ica1ef71b3cdcdc509b341ea1b57c41f8ee73794a
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ include/linux/cpuset.h |  5 -----
+ kernel/cgroup/cpuset.c | 11 -----------
+ kernel/sched/core.c    | 20 +++-----------------
+ 3 files changed, 3 insertions(+), 33 deletions(-)
+
+diff --git a/include/linux/cpuset.h b/include/linux/cpuset.h
+index 04c20de66afc..7f1478c26a33 100644
+--- a/include/linux/cpuset.h
++++ b/include/linux/cpuset.h
+@@ -55,8 +55,6 @@ extern void cpuset_init_smp(void);
+ extern void cpuset_force_rebuild(void);
+ extern void cpuset_update_active_cpus(void);
+ extern void cpuset_wait_for_hotplug(void);
+-extern void cpuset_read_lock(void);
+-extern void cpuset_read_unlock(void);
+ extern void cpuset_cpus_allowed(struct task_struct *p, struct cpumask *mask);
+ extern void cpuset_cpus_allowed_fallback(struct task_struct *p);
+ extern nodemask_t cpuset_mems_allowed(struct task_struct *p);
+@@ -178,9 +176,6 @@ static inline void cpuset_update_active_cpus(void)
+ 
+ static inline void cpuset_wait_for_hotplug(void) { }
+ 
+-static inline void cpuset_read_lock(void) { }
+-static inline void cpuset_read_unlock(void) { }
+-
+ static inline void cpuset_cpus_allowed(struct task_struct *p,
+ 				       struct cpumask *mask)
+ {
+diff --git a/kernel/cgroup/cpuset.c b/kernel/cgroup/cpuset.c
+index 762204084682..a00c59ba4504 100644
+--- a/kernel/cgroup/cpuset.c
++++ b/kernel/cgroup/cpuset.c
+@@ -334,17 +334,6 @@ static struct cpuset top_cpuset = {
+  */
+ 
+ static DEFINE_MUTEX(cpuset_mutex);
+-
+-void cpuset_read_lock(void)
+-{
+-	percpu_down_read(&cpuset_rwsem);
+-}
+-
+-void cpuset_read_unlock(void)
+-{
+-	percpu_up_read(&cpuset_rwsem);
+-}
+-
+ static DEFINE_SPINLOCK(callback_lock);
+ 
+ static struct workqueue_struct *cpuset_migrate_mm_wq;
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index f72cfc8be7ac..3d7bdd98eb3c 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -5312,9 +5312,6 @@ static int __sched_setscheduler(struct task_struct *p,
+ 			return retval;
+ 	}
+ 
+-	if (pi)
+-		cpuset_read_lock();
+-
+ 	/*
+ 	 * Make sure no PI-waiters arrive (or leave) while we are
+ 	 * changing the priority of the task:
+@@ -5389,8 +5386,6 @@ static int __sched_setscheduler(struct task_struct *p,
+ 	if (unlikely(oldpolicy != -1 && oldpolicy != p->policy)) {
+ 		policy = oldpolicy = -1;
+ 		task_rq_unlock(rq, p, &rf);
+-		if (pi)
+-			cpuset_read_unlock();
+ 		goto recheck;
+ 	}
+ 
+@@ -5455,10 +5450,8 @@ static int __sched_setscheduler(struct task_struct *p,
+ 	preempt_disable();
+ 	task_rq_unlock(rq, p, &rf);
+ 
+-	if (pi) {
+-		cpuset_read_unlock();
++	if (pi)
+ 		rt_mutex_adjust_pi(p);
+-	}
+ 
+ 	/* Run balance callbacks after we've adjusted the PI chain: */
+ 	balance_callback(rq);
+@@ -5468,8 +5461,6 @@ static int __sched_setscheduler(struct task_struct *p,
+ 
+ unlock:
+ 	task_rq_unlock(rq, p, &rf);
+-	if (pi)
+-		cpuset_read_unlock();
+ 	return retval;
+ }
+ 
+@@ -5598,14 +5589,9 @@ do_sched_setscheduler(pid_t pid, int policy, struct sched_param __user *param)
+ 	rcu_read_lock();
+ 	retval = -ESRCH;
+ 	p = find_process_by_pid(pid);
+-	if (likely(p))
+-		get_task_struct(p);
+-	rcu_read_unlock();
+-
+-	if (likely(p)) {
++	if (p != NULL)
+ 		retval = sched_setscheduler(p, policy, &lparam);
+-		put_task_struct(p);
+-	}
++	rcu_read_unlock();
+ 
+ 	return retval;
+ }
+-- 
+2.17.1
+

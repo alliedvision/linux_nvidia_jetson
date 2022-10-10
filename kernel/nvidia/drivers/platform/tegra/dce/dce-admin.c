@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,45 +23,29 @@
  * dce_admin_ipc_wait - Waits for message from DCE.
  *
  * @d :  Pointer to tegra_dce struct.
+ * @w_type : Requested wait type.
  *
  * Return : 0 if successful
  */
 int dce_admin_ipc_wait(struct tegra_dce *d, u32 w_type)
 {
 	int ret = 0;
-	enum dce_worker_event_id_type event;
-	struct admin_rpc_post_boot_info *admin_rpc = &d->admin_rpc;
 
-	switch (w_type) {
-	case DCE_IPC_WAIT_TYPE_SYNC:
-		event = EVENT_ID_DCE_IPC_MESSAGE_SENT;
-		break;
-	case DCE_IPC_WAIT_TYPE_RPC:
-		event = EVENT_ID_DCE_IPC_MESSAGE_SENT;
-		break;
-	default:
-		dce_err(d, "Invalid wait type [%d]", w_type);
-		break;
+	ret = dce_wait_interruptible(d, DCE_WAIT_ADMIN_IPC);
+	if (ret) {
+		/**
+		 * TODO: Add error handling for abort and retry
+		 */
+		dce_err(d, "Admin IPC wait was interrupted with err:%d", ret);
+		goto out;
 	}
 
-	if (dce_is_bootstrap_done(d)) {
-		DCE_COND_WAIT_INTERRUPTIBLE(&admin_rpc->recv_wait,
-			atomic_read(&admin_rpc->complete) == 1,
-			0);
-		atomic_set(&admin_rpc->complete, 0);
-	} else {
-		dce_worker_thread_wait(d, event);
-	}
-
-	if (dce_worker_get_state(d)
-			== STATE_DCE_WORKER_ABORTED)
-		ret = -1;
-
+out:
 	return ret;
 }
 
 /**
- * dce_admin_interface_isr - Isr for the CCPLEX<->DCE admin interface
+ * dce_admin_wakeup_ipc - wakeup process, waiting for Admin RPC
  *
  * @d :  Pointer to tegra_de struct.
  *
@@ -69,25 +53,11 @@ int dce_admin_ipc_wait(struct tegra_dce *d, u32 w_type)
  */
 static void dce_admin_wakeup_ipc(struct tegra_dce *d)
 {
-	enum dce_worker_event_id_type event = EVENT_ID_DCE_IPC_SIGNAL_RECEIVED;
+	int ret;
 
-	dce_worker_thread_wakeup(d, event);
-}
-
-/**
- * dce_admin_wakeup_rpc_post_boot - Wakeup process waiting for response
- *				    from DCE for Admin rpc interface.
- *
- * @d :  Pointer to tegra_de struct.
- *
- * Return : Void
- */
-static void dce_admin_ipc_post_boot_wakeup(struct tegra_dce *d)
-{
-	struct admin_rpc_post_boot_info *admin_rpc = &d->admin_rpc;
-
-	atomic_set(&admin_rpc->complete, 1);
-	dce_cond_signal_interruptible(&admin_rpc->recv_wait);
+	ret = dce_fsm_post_event(d, EVENT_ID_DCE_ADMIN_IPC_MSG_RECEIVED, NULL);
+	if (ret)
+		dce_err(d, "Error while posting ADMIN_IPC_MSG_RECEIVED event");
 }
 
 /**
@@ -122,10 +92,7 @@ void dce_admin_ipc_handle_signal(struct tegra_dce *d, u32 ch_type)
 	}
 
 	if (ch_type == DCE_IPC_CH_KMD_TYPE_ADMIN) {
-		if (dce_is_bootstrap_done(d))
-			dce_admin_ipc_post_boot_wakeup(d);
-		else
-			dce_admin_wakeup_ipc(d);
+		dce_admin_wakeup_ipc(d);
 	} else {
 		dce_client_ipc_wakeup(d, ch_type);
 	}
@@ -196,7 +163,6 @@ out:
 int dce_admin_init(struct tegra_dce *d)
 {
 	int ret = 0;
-	struct admin_rpc_post_boot_info *admin_rpc = &d->admin_rpc;
 
 	d->boot_status |= DCE_EARLY_INIT_START;
 	ret = dce_ipc_allocate_region(d);
@@ -211,18 +177,9 @@ int dce_admin_init(struct tegra_dce *d)
 		goto err_channel_init;
 	}
 
-	ret = dce_cond_init(&admin_rpc->recv_wait);
-	if (ret) {
-		dce_err(d, "Admin post-bootstrap RPC cond init failed");
-		goto err_admin_postboot_rpc_init;
-	}
-	atomic_set(&admin_rpc->complete, 0);
-
 	d->boot_status |= DCE_EARLY_INIT_DONE;
 	return 0;
 
-err_admin_postboot_rpc_init:
-	dce_cond_destroy(&admin_rpc->recv_wait);
 err_channel_init:
 	dce_ipc_free_region(d);
 err_ipc_reg_alloc:
@@ -240,11 +197,6 @@ err_ipc_reg_alloc:
  */
 void dce_admin_deinit(struct tegra_dce *d)
 {
-	struct admin_rpc_post_boot_info *admin_rpc = &d->admin_rpc;
-
-	atomic_set(&admin_rpc->complete, 0);
-	dce_cond_destroy(&admin_rpc->recv_wait);
-
 	dce_admin_channel_deinit(d);
 
 	dce_ipc_free_region(d);
@@ -327,12 +279,49 @@ void dce_admin_free_message(struct tegra_dce *d,
 int dce_admin_send_msg(struct tegra_dce *d, struct dce_ipc_message *msg)
 {
 	int ret = 0;
+	struct dce_admin_send_msg_params params;
+
+	params.msg = msg;
+
+	ret = dce_fsm_post_event(d,
+				 EVENT_ID_DCE_ADMIN_IPC_MSG_REQUESTED,
+				 (void *)&params);
+	if (ret)
+		dce_err(d, "Unable to send msg invalid FSM state");
+
+	return ret;
+}
+
+/**
+ * dce_admin_send_msg - Sends messages on Admin Channel
+ *				synchronously and waits for an ack.
+ *
+ * @d : Pointer to tegra_dce struct.
+ * @msg : Pointer to allocated message.
+ *
+ * Return : 0 if successful
+ */
+int dce_admin_handle_ipc_requested_event(struct tegra_dce *d, void *params)
+{
+	int ret = 0;
+	struct dce_ipc_message *msg;
+	struct dce_admin_send_msg_params *admin_params =
+			(struct dce_admin_send_msg_params *)params;
+
+	/* Error check on msg */
+	msg = admin_params->msg;
 
 	ret = dce_ipc_send_message_sync(d, DCE_IPC_CHANNEL_TYPE_ADMIN, msg);
 	if (ret)
 		dce_err(d, "Error sending admin message on admin interface");
 
 	return ret;
+}
+
+int dce_admin_handle_ipc_received_event(struct tegra_dce *d, void *params)
+{
+	dce_wakeup_interruptible(d, DCE_WAIT_ADMIN_IPC);
+	return 0;
 }
 
 /**
@@ -428,6 +417,79 @@ out:
 	/**
 	 * TODO : Add more error handling here
 	 */
+	return ret;
+}
+
+/**
+ * dce_admin_send_prepare_sc7 - Sends DCE_ADMIN_CMD_PREPARE_SC7 cmd.
+ *
+ * @d - Pointer to tegra_dce struct.
+ * @msg - Pointer to dce_ipc_msg struct.
+ *
+ * Return - 0 if successful
+ */
+int dce_admin_send_prepare_sc7(struct tegra_dce *d,
+			    struct dce_ipc_message *msg)
+{
+	int ret = -1;
+	struct dce_admin_ipc_cmd *req_msg;
+	struct dce_admin_ipc_resp *resp_msg;
+
+	if (!msg || !msg->tx.data || !msg->rx.data)
+		goto out;
+
+	req_msg = (struct dce_admin_ipc_cmd *)(msg->tx.data);
+	resp_msg = (struct dce_admin_ipc_resp *) (msg->rx.data);
+
+	req_msg->cmd = (uint32_t)DCE_ADMIN_CMD_PREPARE_SC7;
+
+	ret = dce_admin_send_msg(d, msg);
+	if (ret) {
+		dce_err(d, "Error sending prepare sc7 command [%d]", ret);
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+/**
+ * dce_admin_send_enter_sc7 - Sends DCE_ADMIN_CMD_ENTER_SC7 cmd.
+ *
+ * @d - Pointer to tegra_dce struct.
+ * @msg - Pointer to dce_ipc_msg struct.
+ *
+ * Return - 0 if successful
+ */
+int dce_admin_send_enter_sc7(struct tegra_dce *d,
+			     struct dce_ipc_message *msg)
+{
+	int ret = -1;
+	struct dce_admin_ipc_cmd *req_msg;
+	struct dce_admin_ipc_resp *resp_msg;
+
+	if (!msg || !msg->tx.data || !msg->rx.data)
+		goto out;
+
+	req_msg = (struct dce_admin_ipc_cmd *)(msg->tx.data);
+	resp_msg = (struct dce_admin_ipc_resp *) (msg->rx.data);
+
+	req_msg->cmd = (uint32_t)DCE_ADMIN_CMD_ENTER_SC7;
+
+	ret = dce_ipc_send_message(d, DCE_IPC_CHANNEL_TYPE_ADMIN, msg->tx.data, msg->tx.size);
+	if (ret) {
+		dce_err(d, "Error sending enter sc7 command [%d]", ret);
+		goto out;
+	}
+
+	/* Wait for SC7 Enter done */
+	ret = dce_wait_interruptible(d, DCE_WAIT_SC7_ENTER);
+	if (ret) {
+		dce_err(d, "SC7 Enter wait was interrupted with err:%d", ret);
+		goto out;
+	}
+
+out:
 	return ret;
 }
 

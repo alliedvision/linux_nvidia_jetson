@@ -1,0 +1,43 @@
+From 92a9b00fb502fd6f00ccefcce35a0bb34cbf717d Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Mon, 25 Nov 2019 14:19:33 -0800
+Subject: [PATCH 588/830] ANDROID: gki_defconfig: enable CONFIG_IKHEADERS as m
+X-NVConfidentiality: public
+
+Change-Id: I584b09e1565a1453567e692fdff9e92790b4a29e
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Bug: 143710295
+Test: Treehugger
+(cherry picked from commit 991e1d9b7b3d06d744e851924fd17643424db690)
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 812ed223fadc..80b8eff87fb8 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -9,6 +9,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
++CONFIG_IKHEADERS=m
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index e9039a54c5c0..ac1f62245426 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -10,6 +10,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
++CONFIG_IKHEADERS=m
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_RT_GROUP_SCHED=y
+-- 
+2.17.1
+

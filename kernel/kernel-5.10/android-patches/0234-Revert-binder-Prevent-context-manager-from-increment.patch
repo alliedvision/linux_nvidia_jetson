@@ -1,0 +1,58 @@
+From b5f8a2efbb7440d2b058bbf22aa671dfb2f58bf6 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 28 Aug 2020 08:55:25 -0700
+Subject: [PATCH 234/830] Revert "binder: Prevent context manager from
+ incrementing ref 0"
+X-NVConfidentiality: public
+
+This reverts commit c5665cafbedd2e2a523fe933e452391a02d3adb3.
+
+This patch was causing display hangs for Qualcomm after the 5.4.58
+merge.
+
+Bug: 166779391
+Change-Id: Iaf22ede68247422709b00f059e5c4d517f219adf
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ drivers/android/binder.c | 15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
+
+diff --git a/drivers/android/binder.c b/drivers/android/binder.c
+index 366b12405708..edda6c5cb99f 100644
+--- a/drivers/android/binder.c
++++ b/drivers/android/binder.c
+@@ -2969,12 +2969,6 @@ static void binder_transaction(struct binder_proc *proc,
+ 			goto err_dead_binder;
+ 		}
+ 		e->to_node = target_node->debug_id;
+-		if (WARN_ON(proc == target_proc)) {
+-			return_error = BR_FAILED_REPLY;
+-			return_error_param = -EINVAL;
+-			return_error_line = __LINE__;
+-			goto err_invalid_target_handle;
+-		}
+ 		if (security_binder_transaction(proc->cred,
+ 						target_proc->cred) < 0) {
+ 			return_error = BR_FAILED_REPLY;
+@@ -3632,17 +3626,10 @@ static int binder_thread_write(struct binder_proc *proc,
+ 				struct binder_node *ctx_mgr_node;
+ 				mutex_lock(&context->context_mgr_node_lock);
+ 				ctx_mgr_node = context->binder_context_mgr_node;
+-				if (ctx_mgr_node) {
+-					if (ctx_mgr_node->proc == proc) {
+-						binder_user_error("%d:%d context manager tried to acquire desc 0\n",
+-								  proc->pid, thread->pid);
+-						mutex_unlock(&context->context_mgr_node_lock);
+-						return -EINVAL;
+-					}
++				if (ctx_mgr_node)
+ 					ret = binder_inc_ref_for_node(
+ 							proc, ctx_mgr_node,
+ 							strong, NULL, &rdata);
+-				}
+ 				mutex_unlock(&context->context_mgr_node_lock);
+ 			}
+ 			if (ret)
+-- 
+2.17.1
+

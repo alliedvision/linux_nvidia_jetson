@@ -1,7 +1,7 @@
 /*
  * Virtualized GPU for Linux
  *
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -145,7 +145,6 @@ static int vgpu_init_support(struct platform_device *pdev)
 	}
 
 	nvgpu_mutex_init(&g->dbg_sessions_lock);
-	nvgpu_mutex_init(&g->client_lock);
 #if defined(CONFIG_NVGPU_CYCLESTATS)
 	nvgpu_mutex_init(&g->cs_lock);
 #endif

@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics FIFO (gr host)
  *
- * Copyright (c) 2011-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,12 +54,15 @@ bool gk20a_fifo_find_pbdma_for_runlist(struct gk20a *g,
 
 u32 gk20a_fifo_get_runlist_timeslice(struct gk20a *g)
 {
+	(void)g;
 	return fifo_runlist_timeslice_timeout_128_f() |
 			fifo_runlist_timeslice_timescale_3_f() |
 			fifo_runlist_timeslice_enable_true_f();
 }
 
-u32 gk20a_fifo_get_pb_timeslice(struct gk20a *g) {
+u32 gk20a_fifo_get_pb_timeslice(struct gk20a *g)
+{
+	(void)g;
 	return fifo_pb_timeslice_timeout_16_f() |
 			fifo_pb_timeslice_timescale_0_f() |
 			fifo_pb_timeslice_enable_true_f();

@@ -1,0 +1,43 @@
+From 5776e91848c758c39fed863a433a15f4122eee75 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 24 Apr 2020 10:12:38 -0700
+Subject: [PATCH 702/830] ANDROID: gki_defconfig: enable vendor hooks
+X-NVConfidentiality: public
+
+Bug: 156285741
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I8e856dd876012b67235b643fee9522d2679c4961
+[ebiggers: split this out from "ANDROID: add support for vendor hooks"]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index d798ea28e496..0bd8c6a411a3 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -391,6 +391,7 @@ CONFIG_GENERIC_PHY=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDERFS=y
++CONFIG_ANDROID_VENDOR_HOOKS=y
+ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 336c0b2956b9..5de02c514c44 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -335,6 +335,7 @@ CONFIG_IIO_TRIGGER=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDERFS=y
++CONFIG_ANDROID_VENDOR_HOOKS=y
+ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+-- 
+2.17.1
+

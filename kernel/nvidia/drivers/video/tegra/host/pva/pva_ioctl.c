@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +14,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/err.h>
 #include <linux/jiffies.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
@@ -24,6 +24,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/circ_buf.h>
 #include <linux/nospec.h>
 #include <asm/ioctls.h>
 #include <asm/barrier.h>
@@ -34,29 +35,24 @@
 
 #include "pva.h"
 #include "pva_queue.h"
-#include "dev.h"
-#include "nvhost_buffer.h"
-#include "nvhost_acm.h"
+#include "nvpva_buffer.h"
 #include "pva_vpu_exe.h"
+#include "pva_vpu_app_auth.h"
+#include "pva_system_allow_list.h"
 #include "nvpva_client.h"
 /**
  * @brief pva_private - Per-fd specific data
  *
  * pdev		Pointer the pva device
  * queue	Pointer the struct nvpva_queue
- * buffer	Pointer to the struct nvhost_buffer
+ * buffer	Pointer to the struct nvpva_buffer
  */
 struct pva_private {
 	struct pva *pva;
 	struct nvpva_queue *queue;
+	struct pva_cb *vpu_print_buffer;
 	struct nvpva_client_context *client;
 };
-
-static char *tests_app_names[3] = {
-					"nvpva_stress_power.elf",
-					"nvpva_stress_power_didt.elf",
-					"nvpva_stress_timing.elf"
-				};
 
 static int copy_part_from_user(void *kbuffer, size_t kbuffer_size,
 			       struct nvpva_ioctl_part part)
@@ -83,6 +79,81 @@ out:
 	return err;
 }
 
+static struct pva_cb *pva_alloc_cb(struct device *dev, uint32_t size)
+{
+	int err;
+	struct pva_cb *cb;
+
+	if ((size == 0) || (((size - 1) & size) != 0)) {
+		dev_err(dev, "invalid circular buffer size: %u; it must be 2^N.", size);
+		err = -EINVAL;
+		goto out;
+	}
+
+	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(cb)) {
+		err = PTR_ERR(cb);
+		goto out;
+	}
+
+	cb->size = size;
+	cb->buffer_va =
+		dma_alloc_coherent(dev, cb->size, &cb->buffer_addr, GFP_KERNEL);
+
+	if (IS_ERR_OR_NULL(cb->buffer_va)) {
+		err = PTR_ERR(cb->buffer_va);
+		goto free_mem;
+	}
+
+	cb->head_va = dma_alloc_coherent(dev, sizeof(uint32_t), &cb->head_addr,
+					 GFP_KERNEL);
+	if (IS_ERR_OR_NULL(cb->head_va)) {
+		err = PTR_ERR(cb->head_va);
+		goto free_buffer;
+	}
+
+	cb->tail_va = dma_alloc_coherent(dev, sizeof(uint32_t), &cb->tail_addr,
+					 GFP_KERNEL);
+	if (IS_ERR_OR_NULL(cb->tail_va)) {
+		err = PTR_ERR(cb->tail_va);
+		goto free_head;
+	}
+
+	cb->err_va = dma_alloc_coherent(dev, sizeof(uint32_t), &cb->err_addr,
+					 GFP_KERNEL);
+	if (IS_ERR_OR_NULL(cb->err_va)) {
+		err = PTR_ERR(cb->err_va);
+		goto free_tail;
+	}
+
+	*cb->head_va = 0;
+	cb->tail = 0;
+	*cb->tail_va = cb->tail;
+	*cb->err_va = 0;
+	return cb;
+
+free_tail:
+	dma_free_coherent(dev, sizeof(uint32_t), cb->tail_va, cb->tail_addr);
+free_head:
+	dma_free_coherent(dev, sizeof(uint32_t), cb->head_va, cb->head_addr);
+free_buffer:
+	dma_free_coherent(dev, cb->size, cb->buffer_va, cb->buffer_addr);
+free_mem:
+	kfree(cb);
+out:
+	return ERR_PTR(err);
+}
+
+static void pva_free_cb(struct device *dev, struct pva_cb *cb)
+{
+	dma_free_coherent(dev, sizeof(uint32_t), cb->tail_va, cb->tail_addr);
+	dma_free_coherent(dev, sizeof(uint32_t), cb->head_va, cb->head_addr);
+	dma_free_coherent(dev, sizeof(uint32_t), cb->err_va, cb->err_addr);
+	dma_free_coherent(dev, cb->size, cb->buffer_va, cb->buffer_addr);
+	kfree(cb);
+}
+
+
 /**
  * @brief	Copy a single task from userspace to kernel space
  *
@@ -104,7 +175,7 @@ static int pva_copy_task(struct nvpva_ioctl_task *ioctl_task,
 	u32 i;
 	struct pva_elf_image *image = NULL;
 
-	nvhost_dbg_fn("");
+	nvpva_dbg_fn(task->pva, "");
 	/*
 	 * These fields are clear-text in the task descriptor. Just
 	 * copy them.
@@ -257,13 +328,11 @@ static int pva_submit(struct pva_private *priv, void *arg)
 	struct nvpva_ioctl_submit_in_arg *ioctl_tasks_header =
 		(struct nvpva_ioctl_submit_in_arg *)arg;
 	struct nvpva_ioctl_task *ioctl_tasks = NULL;
-	struct pva_submit_tasks tasks_header;
+	struct pva_submit_tasks *tasks_header;
 	int err = 0;
 	unsigned long rest;
 	int i, j;
 	uint32_t num_tasks;
-
-	memset(&tasks_header, 0, sizeof(tasks_header));
 
 	num_tasks = ioctl_tasks_header->tasks.size / sizeof(*ioctl_tasks);
 	/* Sanity checks for the task heaader */
@@ -281,10 +350,19 @@ static int pva_submit(struct pva_private *priv, void *arg)
 		goto out;
 	}
 
+
 	/* Allocate memory for the UMD representation of the tasks */
 	ioctl_tasks = kzalloc(ioctl_tasks_header->tasks.size, GFP_KERNEL);
 	if (ioctl_tasks == NULL) {
 		pr_err("pva: submit: allocation for tasks failed");
+		err = -ENOMEM;
+		goto out;
+	}
+
+	tasks_header = kzalloc(sizeof(struct pva_submit_tasks), GFP_KERNEL);
+	if (tasks_header == NULL) {
+		pr_err("pva: submit: allocation for tasks_header failed");
+		kfree(ioctl_tasks);
 		err = -ENOMEM;
 		goto out;
 	}
@@ -299,6 +377,8 @@ static int pva_submit(struct pva_private *priv, void *arg)
 		pr_err("pva: failed to copy tasks");
 		goto free_ioctl_tasks;
 	}
+
+	tasks_header->num_tasks = 0;
 
 	/* Go through the tasks and make a KMD representation of them */
 	for (i = 0; i < num_tasks; i++) {
@@ -331,8 +411,8 @@ static int pva_submit(struct pva_private *priv, void *arg)
 		kref_init(&task->ref);
 		INIT_LIST_HEAD(&task->node);
 
-		tasks_header.tasks[i] = task;
-		tasks_header.num_tasks += 1;
+		tasks_header->tasks[i] = task;
+		tasks_header->num_tasks += 1;
 
 		task->dma_addr = task_mem_info.dma_addr;
 		task->va = task_mem_info.va;
@@ -343,31 +423,34 @@ static int pva_submit(struct pva_private *priv, void *arg)
 		task->client = priv->client;
 
 		/* setup ownership */
-		nvhost_module_busy(task->pva->pdev);
+		err = nvhost_module_busy(task->pva->pdev);
+		if (err)
+			goto free_tasks;
+
 		nvpva_client_context_get(task->client);
 
 		err = pva_copy_task(ioctl_tasks + i, task);
 		if (err)
 			goto free_tasks;
 
+		if (priv->pva->vpu_printf_enabled)
+			task->stdout = priv->vpu_print_buffer;
 	}
 
 	/* Populate header structure */
-	tasks_header.execution_timeout_us =
+	tasks_header->execution_timeout_us =
 		ioctl_tasks_header->execution_timeout_us;
 
 	/* TODO: submission timeout */
-
 	/* ..and submit them */
-	err = nvpva_queue_submit(priv->queue, &tasks_header);
+	err = nvpva_queue_submit(priv->queue, tasks_header);
 
-	if (err < 0) {
+	if (err < 0)
 		goto free_tasks;
-	}
 
 	/* Copy fences back to userspace */
-	for (i = 0; i < tasks_header.num_tasks; i++) {
-		struct pva_submit_task *task = tasks_header.tasks[i];
+	for (i = 0; i < tasks_header->num_tasks; i++) {
+		struct pva_submit_task *task = tasks_header->tasks[i];
 		u32 n_copied[NVPVA_MAX_FENCE_TYPES] = {};
 		struct nvpva_fence_action __user *action_fences =
 			(struct nvpva_fence_action __user *)ioctl_tasks[i]
@@ -390,7 +473,7 @@ static int pva_submit(struct pva_private *priv, void *arg)
 				    ioctl_tasks[i].user_fence_actions.size);
 
 		if (rest) {
-			nvhost_warn(&priv->pva->pdev->dev,
+			nvpva_warn(&priv->pva->pdev->dev,
 				    "Failed to copy pva fences to userspace");
 			err = -EFAULT;
 			goto free_tasks;
@@ -398,13 +481,18 @@ static int pva_submit(struct pva_private *priv, void *arg)
 	}
 
 free_tasks:
-	for (i = 0; i < tasks_header.num_tasks; i++) {
-		struct pva_submit_task *task = tasks_header.tasks[i];
+
+	for (i = 0; i < tasks_header->num_tasks; i++) {
+		struct pva_submit_task *task = tasks_header->tasks[i];
 		/* Drop the reference */
 		kref_put(&task->ref, pva_task_free);
 	}
+
 free_ioctl_tasks:
+
 	kfree(ioctl_tasks);
+	kfree(tasks_header);
+
 out:
 	return err;
 }
@@ -416,17 +504,21 @@ static int pva_pin(struct pva_private *priv, void *arg)
 	struct nvpva_pin_in_arg *in_arg = (struct nvpva_pin_in_arg *)arg;
 	struct nvpva_pin_out_arg *out_arg = (struct nvpva_pin_out_arg *)arg;
 
-	dmabuf[0] = dma_buf_get(in_arg->pin.import_id);
+	dmabuf[0] = dma_buf_get(in_arg->pin.handle);
 	if (IS_ERR_OR_NULL(dmabuf[0])) {
 		dev_err(&priv->pva->pdev->dev, "invalid handle to pin: %u",
-			in_arg->pin.import_id);
+			in_arg->pin.handle);
 		err = -EFAULT;
 		goto out;
 	}
 
-	err = nvhost_buffer_pin(priv->client->buffers, &dmabuf[0], 1);
-	out_arg->pin_id = in_arg->pin.import_id;
-
+	err = nvpva_buffer_pin(priv->client->buffers,
+			       &dmabuf[0],
+			       &in_arg->pin.offset,
+			       &in_arg->pin.size,
+			       1,
+			       &out_arg->pin_id,
+			       &out_arg->error_code);
 	dma_buf_put(dmabuf[0]);
 out:
 	return err;
@@ -435,98 +527,119 @@ out:
 static int pva_unpin(struct pva_private *priv, void *arg)
 {
 	int err = 0;
-	struct dma_buf *dmabuf[1];
 	struct nvpva_unpin_in_arg *in_arg = (struct nvpva_unpin_in_arg *)arg;
 
-	dmabuf[0] = dma_buf_get(in_arg->pin_id);
-	if (IS_ERR_OR_NULL(dmabuf[0])) {
-		dev_err(&priv->pva->pdev->dev, "invalid handle to unpin: %u",
-			in_arg->pin_id);
-		err = -EFAULT;
+	nvpva_buffer_unpin_id(priv->client->buffers, &in_arg->pin_id, 1);
+
+	return err;
+}
+
+static int
+pva_authenticate_vpu_app(struct pva *pva,
+			 struct pva_vpu_auth_s *auth,
+			 uint8_t *data,
+			 u32 size,
+			 bool is_sys)
+{
+	int err = 0;
+
+	if (!auth->pva_auth_enable)
 		goto out;
+
+	mutex_lock(&auth->allow_list_lock);
+	if (!auth->pva_auth_allow_list_parsed) {
+		if (is_sys)
+			err = pva_auth_allow_list_parse_buf(pva->pdev,
+				auth, pva_auth_allow_list_sys,
+				pva_auth_allow_list_sys_len);
+		else
+			err = pva_auth_allow_list_parse(pva->pdev, auth);
+
+		if (err) {
+			nvpva_warn(&pva->pdev->dev,
+					"allow list parse failed");
+			mutex_unlock(&auth->allow_list_lock);
+			goto out;
+		}
 	}
 
-	nvhost_buffer_unpin(priv->client->buffers, &dmabuf[0], 1);
-
-	dma_buf_put(dmabuf[0]);
+	mutex_unlock(&auth->allow_list_lock);
+	err = pva_vpu_check_sha256_key(pva,
+				       auth->vpu_hash_keys,
+				       data,
+				       size);
+	if (err != 0)
+		nvpva_dbg_fn(pva, "app authentication failed");
 out:
 	return err;
 }
 
 static int pva_register_vpu_exec(struct pva_private *priv, void *arg)
 {
-	struct nvpva_vpu_exe_register_in_arg *reg_in =
-		(struct nvpva_vpu_exe_register_in_arg *)arg;
-	struct nvpva_vpu_exe_register_out_arg *reg_out =
-		(struct nvpva_vpu_exe_register_out_arg *)arg;
-	struct pva_elf_image *image;
-	void *exec_data = NULL;
-	int err = 0;
-	uint16_t exe_id;
-	uint16_t system_app_id;
-	const struct firmware *test_app;
+	struct	nvpva_vpu_exe_register_in_arg *reg_in =
+			(struct nvpva_vpu_exe_register_in_arg *)arg;
+	struct	nvpva_vpu_exe_register_out_arg *reg_out =
+			(struct nvpva_vpu_exe_register_out_arg *)arg;
+	struct pva_elf_image	*image;
+	void			*exec_data = NULL;
+	uint16_t		exe_id;
+	bool			is_system = false;
+	uint64_t		data_size;
+	int			err = 0;
 
-	if (reg_in->exe_data.addr == 0xFFFFFFFFFFFFFFFFULL) {
-		system_app_id = reg_in->exe_data.size;
-		if (system_app_id > NVPVA_MAX_TEST_ID) {
-			nvhost_dbg_fn("invalid test app ID");
-			err = -ENOENT;
-			return err;
-		}
-
-		test_app = nvhost_client_request_firmware(priv->pva->pdev,
-				tests_app_names[system_app_id], true);
-		if (!test_app) {
-			nvhost_dbg_fn("pva test app request failed");
-			dev_err(&priv->pva->pdev->dev,
-				"Failed to load the %s test_app\n",
-				tests_app_names[system_app_id]);
-			err = -ENOENT;
-			return err;
-		}
-		err = pva_load_vpu_app(&priv->client->elf_ctx,
-				       (uint8_t *)(test_app->data),
-				       test_app->size, &exe_id, true,
-				       priv->pva->version);
-		release_firmware(test_app);
-	} else {
-		uint64_t data_size = reg_in->exe_data.size;
-		bool is_system = ((data_size & 0x8000000000000000ULL) != 0);
-
-		data_size &= 0x7FFFFFFFFFFFFFFFULL;
-		reg_in->exe_data.size &= 0x7FFFFFFFFFFFFFFFULL;
-		exec_data = kmalloc(data_size, GFP_KERNEL);
-		if (exec_data == NULL) {
-			nvhost_err(&priv->pva->pdev->dev,
-				   "failed to allocate memory for elf");
-			err = -ENOMEM;
-			goto out;
-		}
-
-		err = copy_part_from_user(exec_data, data_size,
-					  reg_in->exe_data);
-		if (err) {
-			nvhost_err(&priv->pva->pdev->dev,
-				"failed to copy vpu exe data");
-			goto free_mem;
-		}
-
-		err = pva_load_vpu_app(&priv->client->elf_ctx, exec_data,
-				       data_size, &exe_id, is_system,
-				       priv->pva->version);
+	data_size = reg_in->exe_data.size;
+	exec_data = kmalloc(data_size, GFP_KERNEL);
+	if (exec_data == NULL) {
+		nvpva_err(&priv->pva->pdev->dev,
+				"failed to allocate memory for elf");
+		err = -ENOMEM;
+		goto out;
 	}
 
+	err = copy_part_from_user(exec_data, data_size,
+				  reg_in->exe_data);
 	if (err) {
-		nvhost_err(&priv->pva->pdev->dev, "failed to register vpu app");
+		nvpva_err(&priv->pva->pdev->dev,
+			"failed to copy vpu exe data");
+		goto free_mem;
+	}
+
+	err = pva_authenticate_vpu_app(priv->pva,
+				       &priv->pva->pva_auth,
+				       (uint8_t *)exec_data,
+				       data_size,
+				       false);
+	if (err != 0) {
+		err = pva_authenticate_vpu_app(priv->pva,
+					       &priv->pva->pva_auth_sys,
+					       (uint8_t *)exec_data,
+					       data_size,
+					       true);
+		if (err != 0)
+			goto free_mem;
+
+		is_system = true;
+	}
+
+	err = pva_load_vpu_app(&priv->client->elf_ctx, exec_data,
+				data_size, &exe_id,
+				is_system,
+				priv->pva->version);
+
+	if (err) {
+		nvpva_err(&priv->pva->pdev->dev,
+			  "failed to register vpu app");
 		goto free_mem;
 	}
 
 	reg_out->exe_id = exe_id;
 	image = get_elf_image(&priv->client->elf_ctx, exe_id);
-	reg_out->num_of_symbols = image->num_symbols;
+	reg_out->num_of_symbols = image->num_symbols -
+				  image->num_sys_symbols;
 	reg_out->symbol_size_total = image->symbol_size_total;
 
 free_mem:
+
 	if (exec_data != NULL)
 		kfree(exec_data);
 out:
@@ -549,35 +662,38 @@ static int pva_get_symbol_id(struct pva_private *priv, void *arg)
 		(struct nvpva_get_symbol_out_arg *)arg;
 	char *symbol_buffer;
 	int err = 0;
+	uint64_t name_size = symbol_in->name.size;
 	struct pva_elf_symbol symbol = {0};
 
-	if (symbol_in->name.size > ELF_MAX_SYMBOL_LENGTH) {
-		nvhost_err(&priv->pva->pdev->dev, "symbol size too large:%llu",
+	if (name_size > ELF_MAX_SYMBOL_LENGTH) {
+		nvpva_warn(&priv->pva->pdev->dev, "symbol size too large:%llu",
 			   symbol_in->name.size);
-		err = -EINVAL;
-		goto out;
+		name_size = ELF_MAX_SYMBOL_LENGTH;
 	}
-	symbol_buffer = kmalloc(symbol_in->name.size, GFP_KERNEL);
+
+	symbol_buffer = kmalloc(name_size, GFP_KERNEL);
 	if (symbol_buffer == NULL) {
 		err = -ENOMEM;
 		goto out;
 	}
-	err = copy_part_from_user(symbol_buffer, symbol_in->name.size,
-				  symbol_in->name);
+
+	err = copy_from_user(symbol_buffer,
+			     (void __user *)symbol_in->name.addr,
+			     name_size);
 	if (err) {
-		nvhost_err(&priv->pva->pdev->dev,
+		nvpva_err(&priv->pva->pdev->dev,
 			   "failed to copy all name from user");
 		goto free_mem;
 	}
 
-	if (symbol_buffer[symbol_in->name.size - 1] != '\0') {
-		nvhost_err(&priv->pva->pdev->dev,
+	if (symbol_buffer[name_size - 1] != '\0') {
+		nvpva_warn(&priv->pva->pdev->dev,
 			   "symbol name not terminated with NULL");
-		goto free_mem;
+		symbol_buffer[name_size - 1] = '\0';
 	}
 
 	err = pva_get_sym_info(&priv->client->elf_ctx, symbol_in->exe_id,
-			     symbol_buffer, &symbol);
+				symbol_buffer, &symbol);
 	if (err) {
 		goto free_mem;
 	}
@@ -592,13 +708,182 @@ out:
 	return err;
 }
 
+static int pva_get_symtab(struct pva_private *priv, void *arg)
+{
+	struct nvpva_get_sym_tab_in_arg *sym_tab_in =
+		(struct nvpva_get_sym_tab_in_arg *)arg;
+
+	int err = 0;
+	struct nvpva_sym_info *sym_tab_buffer;
+	u64 tab_size;
+
+	err = pva_get_sym_tab_size(&priv->client->elf_ctx,
+				   sym_tab_in->exe_id,
+				   &tab_size);
+	if (err)
+		goto out;
+
+	if (sym_tab_in->tab.size < tab_size) {
+		nvpva_err(&priv->pva->pdev->dev,
+			   "symbol table size smaller than needed:%llu",
+			   sym_tab_in->tab.size);
+		err = -EINVAL;
+		goto out;
+	}
+
+	sym_tab_buffer = kmalloc(tab_size, GFP_KERNEL);
+	if (sym_tab_buffer == NULL) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	err = pva_get_sym_tab(&priv->client->elf_ctx,
+			  sym_tab_in->exe_id,
+			  sym_tab_buffer);
+	if (err)
+		goto free_mem;
+
+	err = copy_to_user((void __user *)sym_tab_in->tab.addr,
+		     sym_tab_buffer,
+		     tab_size);
+
+free_mem:
+	kfree(sym_tab_buffer);
+out:
+	return err;
+}
+
+/* Maximum VPU print buffer size is 16M */
+#define MAX_VPU_PRINT_BUFFER_SIZE (16 * (1 << 20))
+static int pva_set_vpu_print_buffer_size(struct pva_private *priv, void *arg)
+{
+	union nvpva_set_vpu_print_buffer_size_args *in_arg =
+		(union nvpva_set_vpu_print_buffer_size_args *)arg;
+	uint32_t buffer_size = in_arg->in.size;
+	struct device *dev = &priv->pva->pdev->dev;
+	int err = 0;
+
+	if (buffer_size > MAX_VPU_PRINT_BUFFER_SIZE) {
+		dev_err(&priv->pva->pdev->dev,
+			"requested VPU print buffer too large: %u > %u\n",
+			buffer_size, MAX_VPU_PRINT_BUFFER_SIZE);
+		err = -EINVAL;
+		goto out;
+	}
+
+	mutex_lock(&priv->queue->list_lock);
+	if (!list_empty(&priv->queue->tasklist)) {
+		dev_err(&priv->pva->pdev->dev,
+			"can't set VPU print buffer size when there's unfinished tasks\n");
+		err = -EAGAIN;
+		goto unlock;
+	}
+
+	if (priv->vpu_print_buffer != NULL) {
+		pva_free_cb(dev, priv->vpu_print_buffer);
+		priv->vpu_print_buffer = NULL;
+	}
+
+	if (buffer_size == 0)
+		goto unlock;
+
+	priv->vpu_print_buffer = pva_alloc_cb(dev, buffer_size);
+
+	if (IS_ERR(priv->vpu_print_buffer)) {
+		err = PTR_ERR(priv->vpu_print_buffer);
+		priv->vpu_print_buffer = NULL;
+	}
+
+unlock:
+	mutex_unlock(&priv->queue->list_lock);
+out:
+	return err;
+}
+
+static ssize_t pva_read_cb(struct pva_cb *cb, u8 __user *buffer,
+			   size_t buffer_size)
+{
+	const u32 tail = cb->tail;
+	const u32 head = *cb->head_va;
+	const u32 size = cb->size;
+	ssize_t ret = 0;
+	u32 transfer1_size;
+	u32 transfer2_size;
+
+	/*
+	 * Check if overflow happened, and if so, report it.
+	 */
+	if (*cb->err_va != 0) {
+		pr_warn("pva: VPU print buffer overflowed!\n");
+		ret = -ENOSPC;
+		goto out;
+	}
+
+	transfer1_size = CIRC_CNT_TO_END(head, tail, size);
+	if (transfer1_size <= buffer_size) {
+		buffer_size -= transfer1_size;
+	} else {
+		transfer1_size = buffer_size;
+		buffer_size = 0;
+	}
+
+	transfer2_size =
+		CIRC_CNT(head, tail, size) - CIRC_CNT_TO_END(head, tail, size);
+	if (transfer2_size <= buffer_size) {
+		buffer_size -= transfer2_size;
+	} else {
+		transfer2_size = buffer_size;
+		buffer_size = 0;
+	}
+
+	if (transfer1_size > 0) {
+		unsigned long failed_count;
+
+		failed_count = copy_to_user(buffer, cb->buffer_va + tail,
+					    transfer1_size);
+		if (failed_count > 0) {
+			pr_err("pva: VPU print buffer: write to user buffer 1 failed\n");
+			ret = -EFAULT;
+			goto out;
+		}
+	}
+
+	if (transfer2_size > 0) {
+		unsigned long failed_count;
+
+		failed_count = copy_to_user(&buffer[transfer1_size],
+					    cb->buffer_va, transfer2_size);
+		if (failed_count > 0) {
+			pr_err("pva: VPU print buffer: write to user buffer 2 failed\n");
+			ret = -EFAULT;
+			goto out;
+		}
+	}
+
+	cb->tail =
+		(cb->tail + transfer1_size + transfer2_size) & (cb->size - 1);
+
+	/*
+	 * Update tail so that firmware knows the content is consumed; Memory
+	 * barrier is needed here because the update should only be visible to
+	 * firmware after the content is read.
+	 */
+	mb();
+	*cb->tail_va = cb->tail;
+	ret = transfer1_size + transfer2_size;
+
+out:
+	return ret;
+}
+
 static long pva_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct pva_private *priv = file->private_data;
 	u8 buf[NVPVA_IOCTL_MAX_SIZE] __aligned(sizeof(u64));
 	int err = 0;
+	int err2 = 0;
 
-	nvhost_dbg_fn("");
+	nvpva_dbg_fn(priv->pva, "");
 
 	if ((_IOC_TYPE(cmd) != NVPVA_IOCTL_MAGIC) ||
 	    (_IOC_NR(cmd) == 0) ||
@@ -616,14 +901,17 @@ static long pva_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	switch (cmd) {
+	case NVPVA_IOCTL_GET_SYMBOL_ID:
+		err = pva_get_symbol_id(priv, buf);
+		break;
+	case NVPVA_IOCTL_GET_SYM_TAB:
+		err = pva_get_symtab(priv, buf);
+		break;
 	case NVPVA_IOCTL_REGISTER_VPU_EXEC:
 		err = pva_register_vpu_exec(priv, buf);
 		break;
 	case NVPVA_IOCTL_UNREGISTER_VPU_EXEC:
 		err = pva_unregister_vpu_exec(priv, buf);
-		break;
-	case NVPVA_IOCTL_GET_SYMBOL_ID:
-		err = pva_get_symbol_id(priv, buf);
 		break;
 	case NVPVA_IOCTL_PIN:
 		err = pva_pin(priv, buf);
@@ -634,13 +922,18 @@ static long pva_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case NVPVA_IOCTL_SUBMIT:
 		err = pva_submit(priv, buf);
 		break;
+	case NVPVA_IOCTL_SET_VPU_PRINT_BUFFER_SIZE:
+		err = pva_set_vpu_print_buffer_size(priv, buf);
+		break;
 	default:
-		err = -ENOIOCTLCMD;
+		err2 = -ENOIOCTLCMD;
 		break;
 	}
 
-	if ((err == 0) && (_IOC_DIR(cmd) & _IOC_READ))
-		err = copy_to_user((void __user *)arg, buf, _IOC_SIZE(cmd));
+	if ((err2 == 0) && (_IOC_DIR(cmd) & _IOC_READ))
+		err2 = copy_to_user((void __user *)arg, buf, _IOC_SIZE(cmd));
+
+	err = (err == 0) ? err2 : err;
 
 	return err;
 }
@@ -662,12 +955,6 @@ static int pva_open(struct inode *inode, struct file *file)
 
 	file->private_data = priv;
 	priv->pva = pva;
-
-	/* add the pva client to nvhost */
-	err = nvhost_module_add_client(pdev, priv);
-	if (err < 0)
-		goto err_add_client;
-
 	priv->queue = nvpva_queue_alloc(pva->pool,
 					 MAX_PVA_TASK_COUNT_PER_QUEUE);
 
@@ -675,9 +962,9 @@ static int pva_open(struct inode *inode, struct file *file)
 		err = PTR_ERR(priv->queue);
 		goto err_alloc_queue;
 	}
-	sema_init(&priv->queue->task_pool_sem, MAX_PVA_TASK_COUNT_PER_QUEUE);
 
-	priv->client = nvpva_client_context_alloc(pva, current->pid);
+	sema_init(&priv->queue->task_pool_sem, MAX_PVA_TASK_COUNT_PER_QUEUE);
+	priv->client = nvpva_client_context_alloc(pdev, pva, current->pid);
 	if (priv->client == NULL) {
 		err = -ENOMEM;
 		dev_err(&pdev->dev, "failed to allocate client context");
@@ -690,7 +977,6 @@ err_alloc_context:
 	nvpva_queue_put(priv->queue);
 err_alloc_queue:
 	nvhost_module_remove_client(pdev, priv);
-err_add_client:
 	kfree(priv);
 err_alloc_priv:
 	return err;
@@ -705,7 +991,13 @@ static void pva_queue_flush(struct pva *pva, struct nvpva_queue *queue)
 	u32 nregs;
 
 	nregs = pva_cmd_abort_task(&cmd, queue->id, flags);
-	nvhost_module_busy(pva->pdev);
+	err = nvhost_module_busy(pva->pdev);
+	if (err < 0) {
+		dev_err(&pva->pdev->dev, "error in powering up pva %d",
+			err);
+		goto err_out;
+	}
+
 	err = pva->version_config->submit_cmd_sync(pva, &cmd, nregs, queue->id,
 						   &status);
 	nvhost_module_idle(pva->pdev);
@@ -736,14 +1028,14 @@ static int pva_release(struct inode *inode, struct file *file)
 	mutex_unlock(&priv->queue->list_lock);
 	if (!queue_empty) {
 		/* Cancel remaining tasks */
-		nvhost_warn(&priv->pva->pdev->dev, "cancel remaining tasks");
+		nvpva_dbg_info(priv->pva, "cancel remaining tasks");
 		pva_queue_flush(priv->pva, priv->queue);
 	}
 
 	/* make sure all tasks have been finished */
 	for (i = 0; i < MAX_PVA_TASK_COUNT_PER_QUEUE; i++) {
 		if (down_killable(&priv->queue->task_pool_sem) != 0) {
-			nvhost_err(
+			nvpva_err(
 				&priv->pva->pdev->dev,
 				"interrupted while waiting %d tasks\n",
 				MAX_PVA_TASK_COUNT_PER_QUEUE - i);
@@ -761,13 +1053,38 @@ static int pva_release(struct inode *inode, struct file *file)
 	 */
 	nvpva_queue_put(priv->queue);
 
-	/* Release handle to nvhost_acm */
-	nvhost_module_remove_client(priv->pva->pdev, priv);
+	/* Free VPU print buffer if allocated */
+	if (priv->vpu_print_buffer != NULL) {
+		pva_free_cb(&priv->pva->pdev->dev, priv->vpu_print_buffer);
+		priv->vpu_print_buffer = NULL;
+	}
 
 	/* Finally, release the private data */
 	kfree(priv);
 
 	return 0;
+}
+
+static ssize_t pva_read_vpu_print_buffer(struct file *file,
+					 char __user *user_buffer,
+					 size_t buffer_size, loff_t *off)
+{
+	struct pva_private *priv = file->private_data;
+	ssize_t ret;
+
+	mutex_lock(&priv->queue->list_lock);
+
+	if (priv->vpu_print_buffer != NULL) {
+		ret = pva_read_cb(priv->vpu_print_buffer, user_buffer,
+				  buffer_size);
+	} else {
+		pr_warn("pva: VPU print buffer size needs to be specified\n");
+		ret = -EIO;
+	}
+
+	mutex_unlock(&priv->queue->list_lock);
+
+	return ret;
 }
 
 const struct file_operations tegra_pva_ctrl_ops = {
@@ -779,4 +1096,5 @@ const struct file_operations tegra_pva_ctrl_ops = {
 #endif
 	.open = pva_open,
 	.release = pva_release,
+	.read = pva_read_vpu_print_buffer,
 };

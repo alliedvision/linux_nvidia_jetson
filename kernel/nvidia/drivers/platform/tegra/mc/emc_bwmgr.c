@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/platform/tegra/isomgr.h>
+#include <linux/platform/tegra/bwmgr_mc.h>
 #include <linux/debugfs.h>
 #include <linux/thermal.h>
 #include <linux/version.h>

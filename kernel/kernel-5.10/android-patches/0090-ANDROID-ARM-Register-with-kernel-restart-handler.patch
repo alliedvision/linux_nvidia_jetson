@@ -1,0 +1,67 @@
+From 8ac6bdafea22a59e141f174ea442e8b64f65d0ea Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 15 Oct 2019 16:51:45 +0200
+Subject: [PATCH 090/830] ANDROID: ARM: Register with kernel restart handler
+X-NVConfidentiality: public
+
+By making use of the kernel restart handler, board specific restart
+handlers can be prioritized amongst available mechanisms for a particular
+board or system.
+
+Select the default priority of 128 to indicate that the restart callback
+in the machine description is the default restart mechanism.
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+
+Bug: 163752725
+Link: https://lore.kernel.org/lkml/20191015145147.1106247-5-thierry.reding@gmail.com/
+Change-Id: I14934e1bbac4163d9cf881dc0dcfa3da77de9dd8
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm/kernel/setup.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/kernel/setup.c b/arch/arm/kernel/setup.c
+index b06602cea99c..b0e2e31c9856 100644
+--- a/arch/arm/kernel/setup.c
++++ b/arch/arm/kernel/setup.c
+@@ -1082,6 +1082,20 @@ void __init hyp_mode_check(void)
+ #endif
+ }
+ 
++static void (*__arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
++
++static int arm_restart(struct notifier_block *nb, unsigned long action,
++		       void *data)
++{
++	__arm_pm_restart(action, data);
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block arm_restart_nb = {
++	.notifier_call = arm_restart,
++	.priority = 128,
++};
++
+ void __init setup_arch(char **cmdline_p)
+ {
+ 	const struct machine_desc *mdesc = NULL;
+@@ -1149,8 +1163,10 @@ void __init setup_arch(char **cmdline_p)
+ 	paging_init(mdesc);
+ 	request_standard_resources(mdesc);
+ 
+-	if (mdesc->restart)
+-		arm_pm_restart = mdesc->restart;
++	if (mdesc->restart) {
++		__arm_pm_restart = mdesc->restart;
++		register_restart_handler(&arm_restart_nb);
++	}
+ 
+ 	unflatten_device_tree();
+ 
+-- 
+2.17.1
+

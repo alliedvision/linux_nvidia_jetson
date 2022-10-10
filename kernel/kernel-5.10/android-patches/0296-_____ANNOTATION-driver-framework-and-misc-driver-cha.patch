@@ -1,0 +1,24 @@
+From 1a7183a63a665529e13046e9bb3ccfc32bb0fdc2 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 13:58:35 -0700
+Subject: [PATCH 296/830] _____ANNOTATION: driver framework and misc driver
+ changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index b3372ce3e435..b09c23c9cfd9 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -13,3 +13,4 @@ mm (memory management) changes
+ security changes
+ binder changes
+ ion changes
++driver framework and misc driver changes
+-- 
+2.17.1
+

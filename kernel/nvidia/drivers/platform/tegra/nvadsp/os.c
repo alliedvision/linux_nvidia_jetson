@@ -5,7 +5,7 @@
  * Copyright (C) 2011 Texas Instruments, Inc.
  * Copyright (C) 2011 Google, Inc.
  *
- * Copyright (C) 2014-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,6 +20,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/errno.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
@@ -57,9 +58,6 @@
 #include "hwmailbox.h"
 #include "log_state.h"
 
-#define NVADSP_ELF "adsp.elf"
-#define NVADSP_FIRMWARE NVADSP_ELF
-
 #define MAILBOX_REGION		".mbox_shared_data"
 #define DEBUG_RAM_REGION	".debug_mem_logs"
 
@@ -87,9 +85,6 @@
 
 /* total number of crashes allowed on adsp */
 #define ALLOWED_CRASHES	1
-
-#define DISABLE_MBOX2_FULL_INT	0x0
-#define ENABLE_MBOX2_FULL_INT	0xFFFFFFFF
 
 #define LOGGER_TIMEOUT		1 /* in ms */
 #define ADSP_WFI_TIMEOUT	800 /* in ms */
@@ -334,7 +329,7 @@ bool is_adsp_dram_addr(u64 addr)
 
 int nvadsp_add_load_mappings(phys_addr_t pa, void *mapping, int len)
 {
-	if (map_idx >= NM_LOAD_MAPPINGS)
+	if (map_idx < 0 || map_idx >= NM_LOAD_MAPPINGS)
 		return -EINVAL;
 
 	adsp_map[map_idx].da = pa;
@@ -448,6 +443,7 @@ static inline void __maybe_unused dump_global_symbol_table(void)
 				"STT_FUNC" : "STT_OBJECT");
 }
 
+#ifdef CONFIG_ANDROID
 static int
 __maybe_unused create_global_symbol_table(const struct firmware *fw)
 {
@@ -461,6 +457,11 @@ __maybe_unused create_global_symbol_table(const struct firmware *fw)
 	int num_ent = 1;
 	struct elf32_sym *sym;
 	struct elf32_sym *last_sym;
+
+	if (!sym_shdr || !str_shdr) {
+		dev_dbg(dev, "section symtab/strtab not found!\n");
+		return -EINVAL;
+	}
 
 	sym = (struct elf32_sym *)(elf_data + sym_shdr->sh_offset);
 	name_table = elf_data + str_shdr->sh_offset;
@@ -489,6 +490,7 @@ __maybe_unused create_global_symbol_table(const struct firmware *fw)
 	priv.adsp_glo_sym_tbl[0].addr = i;
 	return 0;
 }
+#endif /* CONFIG_ANDROID */
 
 struct global_sym_info * __maybe_unused find_global_symbol(const char *sym_name)
 {
@@ -513,6 +515,7 @@ struct global_sym_info * __maybe_unused find_global_symbol(const char *sym_name)
 static void *get_mailbox_shared_region(const struct firmware *fw)
 {
 	struct device *dev;
+	struct nvadsp_drv_data *drv_data = platform_get_drvdata(priv.pdev);
 	struct elf32_shdr *shdr;
 	int addr;
 	int size;
@@ -533,6 +536,7 @@ static void *get_mailbox_shared_region(const struct firmware *fw)
 	dev_dbg(dev, "the shared section is present at 0x%x\n", shdr->sh_addr);
 	addr = shdr->sh_addr;
 	size = shdr->sh_size;
+	drv_data->shared_adsp_os_data_iova  = addr;
 	return nvadsp_da_to_va_mappings(addr, size);
 }
 
@@ -540,8 +544,8 @@ static void copy_io_in_l(void *to, const void *from, int sz)
 {
 	int i;
 	for (i = 0; i < sz; i += 4) {
-		int val = *(int *)(from + i);
-		writel(val, to + i);
+		u32 val = *(u32 *)(from + i);
+		writel(val, (void __iomem *)(to + i));
 	}
 }
 
@@ -625,9 +629,6 @@ static void *nvadsp_dma_alloc_and_map_at(struct platform_device *pdev,
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
 	unsigned long align_mask = ~0UL << fls_long(size - 1);
-	unsigned long shift = __ffs(domain->pgsize_bitmap);
-	unsigned long pg_size = 1UL << shift;
-	unsigned long mp_size = pg_size;
 	struct device *dev = &pdev->dev;
 	dma_addr_t aligned_iova = iova & align_mask;
 	dma_addr_t end = iova + size;
@@ -635,6 +636,16 @@ static void *nvadsp_dma_alloc_and_map_at(struct platform_device *pdev,
 	phys_addr_t pa, pa_new;
 	void *cpu_va;
 	int ret;
+	unsigned long shift = 0, pg_size = 0, mp_size = 0;
+
+	if (!domain) {
+		dev_err(dev, "Unable to get iommu_domain\n");
+		return NULL;
+	}
+
+	shift = __ffs(domain->pgsize_bitmap);
+	pg_size = 1UL << shift;
+	mp_size = pg_size;
 
 	/*
 	 * Reserve iova range using aligned size: adsp memory might not start
@@ -844,10 +855,10 @@ static int nvadsp_firmware_load(struct platform_device *pdev)
 	const struct firmware *fw;
 	int ret = 0;
 
-	ret = request_firmware(&fw, NVADSP_FIRMWARE, dev);
+	ret = request_firmware(&fw, drv_data->adsp_elf, dev);
 	if (ret < 0) {
 		dev_err(dev, "reqest firmware for %s failed with %d\n",
-				NVADSP_FIRMWARE, ret);
+				drv_data->adsp_elf, ret);
 		goto end;
 	}
 #ifdef CONFIG_ANDROID
@@ -863,16 +874,16 @@ static int nvadsp_firmware_load(struct platform_device *pdev)
 		goto release_firmware;
 	}
 
-	dev_info(dev, "Loading ADSP OS firmware %s\n", NVADSP_FIRMWARE);
+	dev_info(dev, "Loading ADSP OS firmware %s\n", drv_data->adsp_elf);
 
 	ret = nvadsp_os_elf_load(fw);
 	if (ret) {
-		dev_err(dev, "failed to load %s\n", NVADSP_FIRMWARE);
+		dev_err(dev, "failed to load %s\n", drv_data->adsp_elf);
 		goto deallocate_os_memory;
 	}
 
 	shared_mem = get_mailbox_shared_region(fw);
-	if (IS_ERR(shared_mem)) {
+	if (IS_ERR_OR_NULL(shared_mem)) {
 		if (drv_data->chip_data->adsp_shared_mem_hwmbox != 0) {
 			/*
 			 * If FW is not explicitly defining a shared memory
@@ -882,6 +893,10 @@ static int nvadsp_firmware_load(struct platform_device *pdev)
 			drv_data->shared_adsp_os_data_iova = priv.adsp_os_addr;
 			shared_mem = nvadsp_da_to_va_mappings(
 					priv.adsp_os_addr, priv.adsp_os_size);
+			if (!shared_mem) {
+				dev_err(dev, "Failed to get VA for ADSP OS\n");
+				goto deallocate_os_memory;
+			}
 		} else {
 			dev_err(dev, "failed to locate shared memory\n");
 			goto deallocate_os_memory;
@@ -953,6 +968,7 @@ EXPORT_SYMBOL(nvadsp_os_load);
  *	0 - min emc freq
  *	> 0 - expected emc freq at this adsp freq
  */
+#ifdef CONFIG_TEGRA_ADSP_DFS
 u32 adsp_to_emc_freq(u32 adspfreq)
 {
 	/*
@@ -964,6 +980,7 @@ u32 adsp_to_emc_freq(u32 adspfreq)
 	else
 		return 0;		/* emc min */
 }
+#endif
 
 static int nvadsp_set_ape_emc_freq(struct nvadsp_drv_data *drv_data)
 {
@@ -1458,7 +1475,7 @@ static void get_adsp_state(void)
 	struct nvadsp_drv_data *drv_data;
 	struct device *dev;
 	uint32_t val;
-	char *msg;
+	const char *msg;
 
 	if (!priv.pdev) {
 		pr_err("ADSP Driver is not initialized\n");
@@ -1653,8 +1670,8 @@ EXPORT_SYMBOL(dump_adsp_sys);
 static void nvadsp_free_os_interrupts(struct nvadsp_os_data *priv)
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(priv->pdev);
-	int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
-	int wfi_virq = drv_data->agic_irqs[WFI_VIRQ];
+	unsigned int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
+	unsigned int wfi_virq = drv_data->agic_irqs[WFI_VIRQ];
 	struct device *dev = &priv->pdev->dev;
 
 	devm_free_irq(dev, wdt_virq, priv);
@@ -1664,8 +1681,8 @@ static void nvadsp_free_os_interrupts(struct nvadsp_os_data *priv)
 static int nvadsp_setup_os_interrupts(struct nvadsp_os_data *priv)
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(priv->pdev);
-	int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
-	int wfi_virq = drv_data->agic_irqs[WFI_VIRQ];
+	unsigned int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
+	unsigned int wfi_virq = drv_data->agic_irqs[WFI_VIRQ];
 	struct device *dev = &priv->pdev->dev;
 	int ret;
 
@@ -1682,9 +1699,6 @@ static int nvadsp_setup_os_interrupts(struct nvadsp_os_data *priv)
 		dev_err(dev, "cannot request for wfi interrupt\n");
 		goto free_interrupts;
 	}
-
-	writel(DISABLE_MBOX2_FULL_INT,
-	       priv->hwmailbox_base + drv_data->chip_data->hwmb.hwmbox2_reg);
 
  end:
 
@@ -1773,10 +1787,24 @@ int nvadsp_os_start(void)
 	if (ret < 0)
 		goto unlock;
 
-	if (cold_start && drv_data->chip_data->adsp_shared_mem_hwmbox != 0) {
-		hwmbox_writel((uint32_t)drv_data->shared_adsp_os_data_iova,
+	if (cold_start) {
+		if (drv_data->chip_data->adsp_shared_mem_hwmbox != 0)
+			hwmbox_writel(
+				(uint32_t)drv_data->shared_adsp_os_data_iova,
 				drv_data->chip_data->adsp_shared_mem_hwmbox);
-		/* Write ACSR base address only once */
+
+		if (!is_tegra_hypervisor_mode() &&
+			drv_data->chip_data->adsp_os_config_hwmbox != 0) {
+			/* Set ADSP to do decompression */
+			uint32_t val = (ADSP_CONFIG_DECOMPRESS_EN <<
+						ADSP_CONFIG_DECOMPRESS_SHIFT);
+
+			/* Write to HWMBOX5 */
+			hwmbox_writel(val,
+				drv_data->chip_data->adsp_os_config_hwmbox);
+		}
+
+		/* Write ACSR base address and decompr enable flag only once */
 		cold_start = 0;
 	}
 
@@ -1815,19 +1843,23 @@ int nvadsp_os_start(void)
 	priv.os_running = drv_data->adsp_os_running = true;
 	priv.num_start++;
 #if defined(CONFIG_TEGRA_ADSP_FILEIO)
-	if (!drv_data->adspff_init) {
-		ret = adspff_init(priv.pdev);
-		if (ret) {
-			priv.os_running = drv_data->adsp_os_running = false;
-			dev_err(dev,
-				"adsp boot failed at adspff init with ret = %d",
-				ret);
-			dump_adsp_sys();
-			free_interrupts(&priv);
+	if ((drv_data->adsp_os_secload) && (!drv_data->adspff_init)) {
+		int adspff_status = adspff_init(priv.pdev);
+
+		if (adspff_status) {
+			if (adspff_status != -ENOENT) {
+				priv.os_running = drv_data->adsp_os_running = false;
+				dev_err(dev,
+					"adsp boot failed at adspff init with ret = %d",
+					adspff_status);
+				dump_adsp_sys();
+				free_interrupts(&priv);
 #ifdef CONFIG_PM
-			pm_runtime_put_sync(&priv.pdev->dev);
+				pm_runtime_put_sync(&priv.pdev->dev);
 #endif
-			goto unlock;
+				ret = adspff_status;
+				goto unlock;
+			}
 		} else
 			drv_data->adspff_init = true;
 	}
@@ -1936,12 +1968,13 @@ static void __nvadsp_os_stop(bool reload)
 	}
 #endif
 
-	writel(ENABLE_MBOX2_FULL_INT,
-	       priv.hwmailbox_base + drv_data->chip_data->hwmb.hwmbox2_reg);
+	err = nvadsp_mbox_send(&adsp_com_mbox,
+				ADSP_OS_STOP,
+				NVADSP_MBOX_SMSG, true, UINT_MAX);
+	if (err)
+		dev_err(dev, "failed to send stop msg to adsp\n");
 	err = wait_for_completion_timeout(&entered_wfi,
 		msecs_to_jiffies(ADSP_WFI_TIMEOUT));
-	writel(DISABLE_MBOX2_FULL_INT,
-	       priv.hwmailbox_base + drv_data->chip_data->hwmb.hwmbox2_reg);
 
 	/*
 	 * ADSP needs to be in WFI/WFE state to properly reset it.
@@ -1976,7 +2009,8 @@ static void __nvadsp_os_stop(bool reload)
 		logger->ram_iter = 0;
 		/* load a fresh copy of adsp.elf */
 		if (nvadsp_os_elf_load(fw))
-			dev_err(dev, "failed to reload %s\n", NVADSP_FIRMWARE);
+			dev_err(dev, "failed to reload %s\n",
+				drv_data->adsp_elf);
 	}
 
  end:
@@ -2061,7 +2095,7 @@ static void nvadsp_os_restart(struct work_struct *work)
 	struct nvadsp_os_data *data =
 		container_of(work, struct nvadsp_os_data, restart_os_work);
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(data->pdev);
-	int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
+	unsigned int wdt_virq = drv_data->agic_irqs[WDT_VIRQ];
 	int wdt_irq = drv_data->chip_data->wdt_irq;
 	struct device *dev = &data->pdev->dev;
 
@@ -2187,8 +2221,13 @@ static int adsp_create_os_version(struct dentry *adsp_debugfs_root)
 	return 0;
 }
 
+#if KERNEL_VERSION(5, 10, 0) > LINUX_VERSION_CODE
 static unsigned int adsp_health_poll(struct file *file,
 			poll_table *wait)
+#else
+static __poll_t adsp_health_poll(struct file *file,
+			poll_table *wait)
+#endif
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(priv.pdev);
 

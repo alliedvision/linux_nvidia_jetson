@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -466,22 +466,28 @@ int vi_capture_init(
 	struct vi_capture *capture;
 	struct device_node *dn;
 	struct platform_device *rtc_pdev;
+	struct device *dev;
 
-	dev_dbg(chan->dev, "%s++\n", __func__);
+	if (chan->drv->use_legacy_path)
+		dev = chan->dev;
+	else
+		dev = &chan->vi_capture_pdev->dev;
+
+	dev_dbg(dev, "%s++\n", __func__);
 	dn = of_find_node_by_path("tegra-camera-rtcpu");
 	if (of_device_is_available(dn) == 0) {
-		dev_err(chan->dev, "failed to find rtcpu device node\n");
+		dev_err(dev, "failed to find rtcpu device node\n");
 		return -ENODEV;
 	}
 	rtc_pdev = of_find_device_by_node(dn);
 	if (rtc_pdev == NULL) {
-		dev_err(chan->dev, "failed to find rtcpu platform\n");
+		dev_err(dev, "failed to find rtcpu platform\n");
 		return -ENODEV;
 	}
 
 	capture = kzalloc(sizeof(*capture), GFP_KERNEL);
 	if (unlikely(capture == NULL)) {
-		dev_err(chan->dev, "failed to allocate capture channel\n");
+		dev_err(dev, "failed to allocate capture channel\n");
 		return -ENOMEM;
 	}
 
@@ -567,7 +573,7 @@ struct device *vi_csi_stream_to_nvhost_device(
 	struct tegra_capture_vi_data *info = platform_get_drvdata(pdev);
 	uint32_t vi_inst_id = 0;
 
-	if (csi_stream_id > MAX_NVCSI_STREAM_IDS) {
+	if (csi_stream_id >= MAX_NVCSI_STREAM_IDS) {
 		dev_err(&pdev->dev, "Invalid NVCSI stream Id\n");
 		return NULL;
 	}
@@ -581,6 +587,7 @@ int vi_capture_setup(
 	struct vi_capture_setup *setup)
 {
 	struct vi_capture *capture = chan->capture_data;
+	struct tegra_capture_vi_data *info;
 	uint32_t transaction;
 	struct CAPTURE_CONTROL_MSG control_desc;
 	struct CAPTURE_CONTROL_MSG *resp_msg = &capture->control_resp_msg;
@@ -592,18 +599,27 @@ int vi_capture_setup(
 #endif
 
 	uint32_t vi_inst = 0;
+	struct device *dev;
+
+	if (chan->drv->use_legacy_path)
+		dev = chan->dev;
+	else
+		dev = &chan->vi_capture_pdev->dev;
 
 	if (setup->csi_stream_id >= MAX_NVCSI_STREAM_IDS ||
 		setup->virtual_channel_id >= MAX_VIRTUAL_CHANNEL_PER_STREAM) {
-		dev_err(chan->dev, "Invalid stream id or virtual channel id\n");
+		dev_err(dev, "Invalid stream id or virtual channel id\n");
 		return -EINVAL;
 	}
 
-	if (chan->vi_capture_pdev != NULL) {
-		struct tegra_capture_vi_data *info =
-			platform_get_drvdata(chan->vi_capture_pdev);
-		vi_inst = info->vi_instance_table[setup->csi_stream_id];
+	if (chan->vi_capture_pdev == NULL) {
+		dev_err(dev,
+			"%s: channel capture device is NULL", __func__);
+		return -EINVAL;
 	}
+
+	info = platform_get_drvdata(chan->vi_capture_pdev);
+	vi_inst = info->vi_instance_table[setup->csi_stream_id];
 
 	/* V4L2 directly calls this function. So need to make sure the
 	 * correct VI5 instance is associated with the VI capture channel.
@@ -1211,6 +1227,11 @@ int vi_capture_control_message_from_user(
 	struct CAPTURE_CONTROL_MSG *resp_msg;
 	int err = 0;
 
+	if (chan == NULL) {
+		dev_err(NULL, "%s: NULL VI channel received\n", __func__);
+		return -ENODEV;
+	}
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	nv_camera_log(chan->ndev,
 		arch_counter_get_cntvct(),
@@ -1220,11 +1241,6 @@ int vi_capture_control_message_from_user(
 		__arch_counter_get_cntvct(),
 		NVHOST_CAMERA_VI_CAPTURE_SET_CONFIG);
 #endif
-
-	if (chan == NULL) {
-		dev_err(NULL,"%s: NULL VI channel received\n", __func__);
-		return -ENODEV;
-	}
 
 	capture = chan->capture_data;
 
@@ -1671,7 +1687,7 @@ static int csi_vi_get_mapping_table(struct platform_device *pdev)
 		uint32_t stream_index = NVCSI_STREAM_INVALID_ID;
 		uint32_t vi_unit_id = INVALID_VI_UNIT_ID;
 
-		of_property_read_u32_index(np,
+		(void)of_property_read_u32_index(np,
 			"nvidia,vi-mapping",
 			2 * index,
 			&stream_index);
@@ -1684,7 +1700,7 @@ static int csi_vi_get_mapping_table(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		of_property_read_u32_index(np,
+		(void)of_property_read_u32_index(np,
 			"nvidia,vi-mapping",
 			2 * index + 1,
 			&vi_unit_id);

@@ -14,7 +14,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST)
 #include "stdalign.h"
+#else
+#define alignof _Alignof /*stdalign.h not found*/
+#endif
+
 #include "nvpva_elf_parser.h"
 #include <linux/string.h>
 

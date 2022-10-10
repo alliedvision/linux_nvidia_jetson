@@ -1,0 +1,55 @@
+From 5f0e23b857171ad8f0450844ebcbbf21e68352ca Mon Sep 17 00:00:00 2001
+From: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Date: Thu, 3 Dec 2020 14:08:13 -0800
+Subject: [PATCH 033/830] FROMGIT: usb: typec: intel_pmc_mux: Use correct
+ response message bits
+X-NVConfidentiality: public
+
+When Intel PMC Mux agent driver receives the response message from PMC, it
+checks for the same response bits for all the mux states.
+Corrected it by checking correct response message bits, Bit 8 & 9 for the
+SAFE Mode and Alternate Modes and Bit 16 & 17 for the Connect and
+Disconnect Modes.
+
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Link: https://lore.kernel.org/r/20201203220813.16281-1-utkarsh.h.patel@intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3a288efb08543b1368f8d49342e5943f1adf58ea usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ifc0f715f566917b8e900d2843658db24b514d372
+---
+ drivers/usb/typec/mux/intel_pmc_mux.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/typec/mux/intel_pmc_mux.c b/drivers/usb/typec/mux/intel_pmc_mux.c
+index 144d80078bb8..6d38e22f3350 100644
+--- a/drivers/usb/typec/mux/intel_pmc_mux.c
++++ b/drivers/usb/typec/mux/intel_pmc_mux.c
+@@ -176,6 +176,7 @@ static int hsl_orientation(struct pmc_usb_port *port)
+ static int pmc_usb_command(struct pmc_usb_port *port, u8 *msg, u32 len)
+ {
+ 	u8 response[4];
++	u8 status_res;
+ 	int ret;
+ 
+ 	/*
+@@ -189,9 +190,13 @@ static int pmc_usb_command(struct pmc_usb_port *port, u8 *msg, u32 len)
+ 	if (ret)
+ 		return ret;
+ 
+-	if (response[2] & PMC_USB_RESP_STATUS_FAILURE) {
+-		if (response[2] & PMC_USB_RESP_STATUS_FATAL)
++	status_res = (msg[0] & 0xf) < PMC_USB_SAFE_MODE ?
++		     response[2] : response[1];
++
++	if (status_res & PMC_USB_RESP_STATUS_FAILURE) {
++		if (status_res & PMC_USB_RESP_STATUS_FATAL)
+ 			return -EIO;
++
+ 		return -EBUSY;
+ 	}
+ 
+-- 
+2.17.1
+

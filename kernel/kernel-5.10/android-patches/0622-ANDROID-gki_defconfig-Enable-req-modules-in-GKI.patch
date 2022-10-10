@@ -1,0 +1,62 @@
+From c9bba12579a383b092a9922d1831b7ee0617ebc2 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Tue, 28 Jan 2020 16:11:56 -0800
+Subject: [PATCH 622/830] ANDROID: gki_defconfig: Enable req modules in GKI
+X-NVConfidentiality: public
+
+SND_VMASTER must be builtin to the GKI for leaf configs of this
+config such as SND_8X0 and AC_97 to be loaded as modules.
+
+CRYPTO_ENGINE is now used by Android userspace.
+Enable as part of GKI.
+
+Bug: 130424539
+Bug: 139431025
+Test: Treehugger
+Change-Id: I2cd422a88a3ec0bc6bbf59d9faa3616e42cc2038
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ init/Kconfig.gki | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 763ce5479359..153360cc4a03 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -21,6 +21,22 @@ config GKI_HIDDEN_REGMAP_CONFIGS
+ 	  These are normally selected implicitely when a module
+ 	  that relies on it is configured.
+ 
++config GKI_HIDDEN_CRYPTO_CONFIGS
++	bool "Hidden CRYPTo configs needed for GKI"
++	select CRYPTO_ENGINE
++	help
++	  Dummy config option used to enable hidden SNDconfigs.
++	  These are normally selected implicitely when a module
++	  that relies on it is configured.
++
++config GKI_HIDDEN_SND_CONFIGS
++	bool "Hidden SND configs needed for GKI"
++	select SND_VMASTER
++	help
++	  Dummy config option used to enable hidden SND configs.
++	  These are normally selected implicitely when a module
++	  that relies on it is configured.
++
+ config GKI_HIDDEN_SND_SOC_CONFIGS
+ 	bool "Hidden SND_SOC configs needed for GKI"
+ 	select SND_SOC_GENERIC_DMAENGINE_PCM if (SND_SOC && SND)
+@@ -107,8 +123,10 @@ config GKI_LEGACY_WEXT_ALLCONFIG
+ #
+ config GKI_HACKS_TO_FIX
+ 	bool "GKI Dummy config options"
++	select GKI_HIDDEN_CRYPTO_CONFIGS
+ 	select GKI_HIDDEN_DRM_CONFIGS
+ 	select GKI_HIDDEN_REGMAP_CONFIGS
++	select GKI_HIDDEN_SND_CONFIGS
+ 	select GKI_HIDDEN_SND_SOC_CONFIGS
+ 	select GKI_HIDDEN_MMC_CONFIGS
+ 	select GKI_HIDDEN_GPIO_CONFIGS
+-- 
+2.17.1
+

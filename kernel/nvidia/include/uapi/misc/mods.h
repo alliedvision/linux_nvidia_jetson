@@ -2,7 +2,7 @@
 /*
  * mods.h - This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -25,7 +25,7 @@
 
 /* Driver version */
 #define MODS_DRIVER_VERSION_MAJOR 4
-#define MODS_DRIVER_VERSION_MINOR 2
+#define MODS_DRIVER_VERSION_MINOR 8
 #define MODS_DRIVER_VERSION ((MODS_DRIVER_VERSION_MAJOR << 8) | \
 			     ((MODS_DRIVER_VERSION_MINOR / 10) << 4) | \
 			     (MODS_DRIVER_VERSION_MINOR % 10))
@@ -1056,6 +1056,7 @@ union ACPI_ARGUMENT {
 #define ACPI_MODS_TYPE_METHOD    3
 
 #define ACPI_MAX_BUFFER_LENGTH   4096
+#define ACPI_MAX_DEV_CHILDREN    16
 #define ACPI_MAX_METHOD_LENGTH   12
 #define ACPI_MAX_ARGUMENT_NUMBER 12
 
@@ -1149,6 +1150,16 @@ struct MODS_ACPI_GET_DDC {
 
 	/* IN */
 	struct mods_pci_dev device;
+};
+
+/* Used by MODS_ESC_GET_ACPI_DEV_CHILDREN ioctl */
+struct MODS_GET_ACPI_DEV_CHILDREN {
+	/* OUT */
+	__u32                 num_children;
+	__u32                 children[ACPI_MAX_DEV_CHILDREN];
+
+	/* IN */
+	struct mods_pci_dev_2 device;
 };
 
 /* Used by ioctls:
@@ -1795,6 +1806,21 @@ struct MODS_TZ_PARAMS {
 	int status;
 };
 
+/* Used by MODS_ESC_OIST_STATUS ioctl.
+ *
+ * Available only on Tegra.
+ */
+struct MODS_TEGRA_OIST_STATUS {
+	/* IN */
+	__u64 smc_func_id;
+	/* IN */
+	__u64 a1;
+	/* IN */
+	__u64 a2;
+	/* OUT */
+	__u64 smc_status;
+};
+
 #define MODS_IOMMU_MAP_CONTIGUOUS 1
 
 #pragma pack(pop)
@@ -1994,6 +2020,8 @@ struct MODS_TZ_PARAMS {
 #define MODS_ESC_MODS_GET_DRIVER_STATS MODSIO(R, 135, MODS_GET_DRIVER_STATS)
 #define MODS_ESC_BPMP_SET_PCIE_STATE MODSIO(W, 136, MODS_SET_PCIE_STATE)
 #define MODS_ESC_BPMP_INIT_PCIE_EP_PLL MODSIO(W, 137, MODS_INIT_PCIE_EP_PLL)
+#define MODS_ESC_GET_ACPI_DEV_CHILDREN MODSIO(WR, 138, MODS_GET_ACPI_DEV_CHILDREN)
 #define MODS_ESC_SEND_TZ_MSG MODSIO(WR, 139, MODS_TZ_PARAMS)
+#define MODS_ESC_OIST_STATUS MODSIO(WR, 140, MODS_TEGRA_OIST_STATUS)
 
 #endif /* _UAPI_MODS_H_  */

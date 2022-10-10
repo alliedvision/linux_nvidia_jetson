@@ -1,7 +1,7 @@
 /*
  * Tegra CSI5 device common APIs
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frankc@nvidia.com>
  *
@@ -135,16 +135,17 @@ static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 	struct CAPTURE_CONTROL_MSG msg;
-
+	int vi_port = 0;
 	/* If the tegra_vi_channel is NULL it means that is PCL TPG usecase where fusa UMD opens the
 	 * VI channel and sends channel messages but for CSI messages it uses this V4L2 path.
 	 * In such a case query fusacapture KMD for the tegra_vi_channel associated with the
 	 * current stream id/vc id combination.
 	 * If still NULL, we are in erroroneous state, exit with error.
 	 */
-	if (tegra_chan->tegra_vi_channel == NULL) {
-		tegra_chan->tegra_vi_channel = get_tegra_vi_channel(stream_id, tegra_chan->virtual_channel);
-		if (tegra_chan->tegra_vi_channel == NULL) {
+	if (tegra_chan->tegra_vi_channel[0] == NULL) {
+		tegra_chan->tegra_vi_channel[0] = get_tegra_vi_channel(stream_id,
+								tegra_chan->virtual_channel);
+		if (tegra_chan->tegra_vi_channel[0] == NULL) {
 			dev_err(csi->dev, "%s: VI channel not found for stream- %d vc- %d\n",
 				__func__,stream_id,tegra_chan->virtual_channel);
 			return -EINVAL;
@@ -158,7 +159,12 @@ static int csi5_stream_open(struct tegra_csi_channel *chan, u32 stream_id,
 	msg.phy_stream_open_req.stream_id = stream_id;
 	msg.phy_stream_open_req.csi_port = csi_port;
 
-	return csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	if (tegra_chan->valid_ports > 1)
+		vi_port = (stream_id > 0) ? 1 : 0;
+	else
+		vi_port = 0;
+
+	return csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.phy_stream_open_resp.result);
 }
 
@@ -169,6 +175,7 @@ static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 	struct tegra_channel *tegra_chan =
 			v4l2_get_subdev_hostdata(&chan->subdev);
 	int err = 0;
+	int vi_port = 0;
 
 	struct CAPTURE_CONTROL_MSG msg;
 
@@ -179,7 +186,12 @@ static void csi5_stream_close(struct tegra_csi_channel *chan, u32 stream_id,
 	msg.phy_stream_close_req.stream_id = stream_id;
 	msg.phy_stream_close_req.csi_port = csi_port;
 
-	err = csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	if (tegra_chan->valid_ports > 1)
+		vi_port = (stream_id > 0) ? 1 : 0;
+	else
+		vi_port = 0;
+
+	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.phy_stream_open_resp.result);
 	if (err < 0) {
 		dev_err(csi->dev, "%s: Error in closing stream_id=%u, csi_port=%u\n",
@@ -200,6 +212,7 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	const struct sensor_mode_properties *mode = NULL;
 
 	unsigned int cil_settletime = 0;
+	int vi_port = 0;
 
 	struct CAPTURE_CONTROL_MSG msg;
 	struct nvcsi_brick_config brick_config;
@@ -263,7 +276,12 @@ static int csi5_stream_set_config(struct tegra_csi_channel *chan, u32 stream_id,
 	msg.csi_stream_set_config_req.brick_config = brick_config;
 	msg.csi_stream_set_config_req.cil_config = cil_config;
 
-	return csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	if (tegra_chan->valid_ports > 1)
+		vi_port = (stream_id > 0) ? 1 : 0;
+	else
+		vi_port = 0;
+
+	return csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 							&msg.csi_stream_set_config_resp.result);
 }
 
@@ -289,7 +307,7 @@ static int csi5_stream_tpg_start(struct tegra_csi_channel *chan, u32 stream_id,
 	tpg_config = &(msg.csi_stream_tpg_set_config_req.tpg_config);
 
 	csi->get_tpg_settings(port, tpg_config);
-	err = csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[0], &msg,
 			&msg.csi_stream_tpg_set_config_resp.result);
 	if (err < 0) {
 		dev_err(csi->dev, "%s: Error in TPG set config stream_id=%u, csi_port=%u\n",
@@ -304,7 +322,7 @@ static int csi5_stream_tpg_start(struct tegra_csi_channel *chan, u32 stream_id,
 	msg.csi_stream_tpg_start_rate_req.virtual_channel_id = virtual_channel_id;
 	msg.csi_stream_tpg_start_rate_req.frame_rate = port->framerate;
 
-	err = csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[0], &msg,
 			&msg.csi_stream_tpg_start_resp.result);
 	if (err < 0) {
 		dev_err(csi->dev, "%s: Error in TPG start stream_id=%u, csi_port=%u\n",
@@ -334,7 +352,7 @@ static void csi5_stream_tpg_stop(struct tegra_csi_channel *chan, u32 stream_id,
 	msg.csi_stream_tpg_stop_req.stream_id = stream_id;
 	msg.csi_stream_tpg_stop_req.virtual_channel_id = virtual_channel_id;
 
-	err = csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[0], &msg,
 			&msg.csi_stream_tpg_stop_resp.result);
 	if (err < 0) {
 		dev_err(csi->dev, "%s: Error in TPG stop stream_id=%u\n",
@@ -368,6 +386,7 @@ int csi5_tpg_set_gain(struct tegra_csi_channel *chan, int gain_ratio_tpg)
 	struct tegra_channel *tegra_chan =
 		v4l2_get_subdev_hostdata(&chan->subdev);
 	int err = 0;
+	int vi_port = 0;
 	struct CAPTURE_CONTROL_MSG msg;
 
 	if (!chan->pg_mode) {
@@ -390,8 +409,9 @@ int csi5_tpg_set_gain(struct tegra_csi_channel *chan, int gain_ratio_tpg)
 		port->virtual_channel_id;
 	msg.csi_stream_tpg_apply_gain_req.gain_ratio =
 		get_tpg_gain_ratio_setting(gain_ratio_tpg);
+	vi_port = (tegra_chan->valid_ports > 1) ? port->stream_id : 0;
 
-	err = csi5_send_control_message(tegra_chan->tegra_vi_channel, &msg,
+	err = csi5_send_control_message(tegra_chan->tegra_vi_channel[vi_port], &msg,
 			&msg.csi_stream_tpg_apply_gain_resp.result);
 	if (err < 0) {
 		dev_err(csi->dev, "%s: Error in setting TPG gain stream_id=%u, csi_port=%u\n",
@@ -405,7 +425,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	int err = 0, num_lanes;
 	struct tegra_csi_device *csi = chan->csi;
-	struct tegra_csi_port *port = &chan->ports[0];
+	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
 	if (chan->pg_mode) {
@@ -438,7 +458,7 @@ static int csi5_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 static void csi5_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	struct tegra_csi_device *csi = chan->csi;
-	struct tegra_csi_port *port = &chan->ports[0];
+	struct tegra_csi_port *port = &chan->ports[port_idx];
 	u32 csi_pt, st_id, vc_id;
 
 	if (chan->pg_mode) {

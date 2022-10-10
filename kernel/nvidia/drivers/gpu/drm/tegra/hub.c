@@ -1009,8 +1009,14 @@ static int tegra_display_hub_runtime_resume(struct host1x_client *client)
 	unsigned int i;
 	int err;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	err = pm_runtime_resume_and_get(dev);
+	if (err < 0) {
+#else
 	err = pm_runtime_get_sync(dev);
 	if (err < 0) {
+		pm_runtime_put_noidle(dev);
+#endif
 		dev_err(dev, "failed to get runtime PM: %d\n", err);
 		return err;
 	}

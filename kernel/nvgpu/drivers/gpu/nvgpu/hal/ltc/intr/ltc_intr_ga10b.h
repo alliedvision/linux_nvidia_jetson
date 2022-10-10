@@ -1,7 +1,7 @@
 /*
  * GA10B L2 INTR
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,11 @@ struct gk20a;
 void ga10b_ltc_intr_configure(struct gk20a *g);
 void ga10b_ltc_intr_isr(struct gk20a *g, u32 ltc);
 void ga10b_ltc_intr3_configure_extra(struct gk20a *g, u32 *reg);
+void ga10b_ltc_intr3_interrupts(struct gk20a *g, u32 ltc, u32 slice,
+				u32 ltc_intr3);
+void ga10b_ltc_intr_handle_lts_intr(struct gk20a *g, u32 ltc, u32 slice);
+void ga10b_ltc_intr_handle_lts_intr2(struct gk20a *g, u32 ltc, u32 slice);
+void ga10b_ltc_intr_handle_lts_intr3(struct gk20a *g, u32 ltc, u32 slice);
 void ga10b_ltc_intr_handle_lts_intr3_extra(struct gk20a *g, u32 ltc, u32 slice, u32 *reg_value);
 
 #endif /* NVGPU_LTC_INTR_GA10B_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,7 +37,7 @@ int test_ilog2(struct unit_module *m,
 
 	for (i = 0; i < BITS_PER_LONG; i++) {
 		test = 1UL << i;
-		ret = ilog2(test);
+		ret = nvgpu_ilog2(test);
 		if (ret != i) {
 			unit_return_fail(m,
 				"ilog2 failure %ld\n", test);
@@ -47,7 +47,7 @@ int test_ilog2(struct unit_module *m,
 	for (i = 1; i < (BITS_PER_LONG - 1); i++) {
 		test = 1UL << i;
 		test += 1;
-		ret = ilog2(test);
+		ret = nvgpu_ilog2(test);
 		if (ret != i) {
 			unit_return_fail(m,
 				"ilog2 failure %ld\n", test);

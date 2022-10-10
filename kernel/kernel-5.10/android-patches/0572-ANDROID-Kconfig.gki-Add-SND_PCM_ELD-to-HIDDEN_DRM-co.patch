@@ -1,0 +1,32 @@
+From 239bb99b4b4bf6dc72976142a713520c222f4739 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 22 Oct 2019 23:48:02 +0000
+Subject: [PATCH 572/830] ANDROID: Kconfig.gki: Add SND_PCM_ELD to HIDDEN_DRM
+ configs
+X-NVConfidentiality: public
+
+SND_PCM_ELD is used by DRM drivers for HDMI audio,
+so add it to the HIDDEN_DRM configs.
+
+Bug: 142268770
+Change-Id: I914beef34b2cf5174da76a5d1a4d443117f1b687
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 8dc30bfadcdf..d8a2cf0adc61 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -4,6 +4,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_GEM_CMA_HELPER
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
++	select SND_PCM_ELD
+ 	help
+ 	  Dummy config option used to enable hidden DRM configs.
+ 	  These are normally selected implicitely when including a
+-- 
+2.17.1
+

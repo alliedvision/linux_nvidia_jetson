@@ -1,0 +1,33 @@
+From 32ad197437f69d7f82fb35f27b69d9faeb1d5288 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Fri, 28 Feb 2020 18:04:05 -0800
+Subject: [PATCH 647/830] ANDROID: GKI: Remove CONFIG_BRIDGE from arm64 config
+X-NVConfidentiality: public
+
+CONFIG_BRIDGE is not needed at boot time and is tristate.
+Any GKI device which requires this config can load the bridge module
+during init.
+
+Bug: 135666008
+Test: Treehugger
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Change-Id: If22ceac2982a0f6b7a922393fb1dd08c68f6bc70
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 1e09038576e3..ea3f76017463 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -184,7 +184,6 @@ CONFIG_IP6_NF_MANGLE=y
+ CONFIG_IP6_NF_RAW=y
+ CONFIG_TIPC=y
+ CONFIG_L2TP=y
+-CONFIG_BRIDGE=y
+ CONFIG_NET_SCHED=y
+ CONFIG_NET_SCH_HTB=y
+ CONFIG_NET_SCH_INGRESS=y
+-- 
+2.17.1
+

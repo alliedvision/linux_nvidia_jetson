@@ -3,7 +3,7 @@
  *
  * crypto dev node for NVIDIA tegra aes hardware
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -183,7 +183,7 @@ static int tegra_crypto_dev_release(struct inode *inode, struct file *filp)
 {
 	struct tegra_crypto_ctx *ctx = filp->private_data;
 	int i = 0;
-	static int tfm_index;
+	static unsigned int tfm_index;
 	int ret = 0;
 
 	/* store_tfm is needed to store the tfms in order to free them
@@ -1147,7 +1147,8 @@ static int tegra_crypt_pka1_rsa(struct tegra_crypto_ctx *ctx,
 	if (rsa_req->op_mode == RSA_INIT) {
 		if (ctx->pka1_rsa_tfm)
 			return 0;
-		tfm = crypto_alloc_akcipher("rsa", CRYPTO_ALG_TYPE_AKCIPHER, 0);
+		tfm = crypto_alloc_akcipher("rsa-tegra",
+				CRYPTO_ALG_TYPE_AKCIPHER, 0);
 		if (IS_ERR(tfm)) {
 			pr_err("Failed to load transform for rsa: %ld\n",
 				PTR_ERR(tfm));
@@ -1354,7 +1355,7 @@ static int tegra_crypto_sha(struct tegra_sha_req *sha_req)
 
 	hash_buff = xbuf[0];
 	total = sha_req->plaintext_sz;
-	while (total >= 0) {
+	while (true) {
 		size = min(total, PAGE_SIZE);
 		ret = copy_from_user((void *)hash_buff,
 			     (void __user *)sha_req->plaintext,
@@ -1419,16 +1420,13 @@ static int tegra_crypto_sha(struct tegra_sha_req *sha_req)
 	}
 
 out:
-	kfree(result);
 	free_bufs(xbuf);
-
 out_buf:
 	ahash_request_free(req);
-
 out_noreq:
 	crypto_free_ahash(tfm);
-
 out_alloc:
+	kfree(result);
 	return ret;
 }
 

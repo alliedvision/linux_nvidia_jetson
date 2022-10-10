@@ -3,6 +3,7 @@
  * PCI Endpoint *Function* (EPF) header file
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2022 NVIDIA Corporation.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
@@ -18,6 +19,7 @@ struct pci_epf;
 enum pci_notify_event {
 	CORE_INIT,
 	LINK_UP,
+	CORE_DEINIT,
 };
 
 enum pci_barno {
@@ -133,6 +135,7 @@ struct pci_epf {
 	struct pci_epf_driver	*driver;
 	struct list_head	list;
 	struct notifier_block   nb;
+	struct notifier_block   block_nb;
 	/* mutex to protect against concurrent access of pci_epf_ops */
 	struct mutex		lock;
 };

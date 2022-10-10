@@ -2,7 +2,7 @@
 /*
  * MAXIM DP Serializer driver for MAXIM GMSL Serializers
  *
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/device.h>
@@ -20,6 +20,9 @@
 #include <linux/of_gpio.h>
 #include <linux/workqueue.h>
 #include <linux/of_device.h>
+#include <linux/of.h>
+
+#define MAX_GMSL_DP_SER_REG_13			0xD
 
 #define MAX_GMSL_DP_SER_CTRL3			0x13
 #define MAX_GMSL_DP_SER_CTRL3_LOCK_MASK		(1 << 3)
@@ -28,6 +31,9 @@
 #define MAX_GMSL_DP_SER_INTR8			0x20
 #define MAX_GMSL_DP_SER_INTR8_MASK		(1 << 0)
 #define MAX_GMSL_DP_SER_INTR8_VAL		0x1
+
+#define MAX_GMSL_DP_SER_INTR9			0x21
+#define MAX_GMSL_DP_SER_LOSS_OF_LOCK_FLAG	(1 << 0)
 
 #define MAX_GMSL_DP_SER_LINK_CTRL_PHY_A		0x29
 #define MAX_GMSL_DP_SER_LINK_CTRL_A_MASK	(1 << 0)
@@ -69,6 +75,8 @@
 #define MAX_GMSL_DP_SER_LINK_ENABLE_MASK	(1 << 0)
 
 #define MAX_GMSL_DP_SER_MISC_CONFIG_B1		0x7019
+#define MAX_GMSL_DP_SER_MISC_CONFIG_B1_MASK	(1 << 0)
+#define MAX_GMSL_DP_SER_MISC_CONFIG_B1_VAL	0x1
 #define MAX_GMSL_DP_SER_MAX_LINK_COUNT		0x7070
 #define MAX_GMSL_DP_SER_MAX_LINK_RATE		0x7074
 
@@ -77,6 +85,19 @@
 #define MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY		0x70A4
 #define MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY_MASK	(0x3F << 0)
 #define MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY_100KBPS	0x8
+
+#define MAX_GMSL_DP_SER_MST_PAYLOAD_ID_0	0x7904
+#define MAX_GMSL_DP_SER_MST_PAYLOAD_ID_1	0x7908
+#define MAX_GMSL_DP_SER_MST_PAYLOAD_ID_2	0x790C
+#define MAX_GMSL_DP_SER_MST_PAYLOAD_ID_3	0x7910
+
+#define MAX_GMSL_DP_SER_TX3_0		0xA3
+#define MAX_GMSL_DP_SER_TX3_1		0xA7
+#define MAX_GMSL_DP_SER_TX3_2		0xAB
+#define MAX_GMSL_DP_SER_TX3_3		0xAF
+
+#define MAX_GMSL_ARRAY_SIZE		4
+
 
 struct max_gmsl_dp_ser_source {
 	struct fwnode_handle *fwnode;
@@ -92,7 +113,6 @@ struct max_gmsl_dp_ser_priv {
 	struct gpio_desc *gpiod_pwrdn;
 	u8 dprx_lane_count;
 	u8 dprx_link_rate;
-	u8 gmsl_link_select;
 	struct mutex mutex;
 	struct regmap *regmap;
 	struct work_struct work;
@@ -100,6 +120,12 @@ struct max_gmsl_dp_ser_priv {
 	struct workqueue_struct *wq;
 	int ser_errb;
 	unsigned int ser_irq;
+	bool enable_mst;
+	u8 mst_payload_ids[MAX_GMSL_ARRAY_SIZE];
+	u8 gmsl_stream_ids[MAX_GMSL_ARRAY_SIZE];
+	u8 gmsl_link_select[MAX_GMSL_ARRAY_SIZE];
+	bool link_a_is_enabled;
+	bool link_b_is_enabled;
 };
 
 static int max_gmsl_dp_ser_read(struct max_gmsl_dp_ser_priv *priv, int reg)
@@ -137,9 +163,50 @@ static inline void max_gmsl_dp_ser_update(struct max_gmsl_dp_ser_priv *priv,
 	max_gmsl_dp_ser_write(priv, reg, update_val);
 }
 
-static void max_gmsl_dp_ser_sst_setup(struct max_gmsl_dp_ser_priv *priv)
+static void max_gmsl_dp_ser_mst_setup(struct max_gmsl_dp_ser_priv *priv)
 {
+	int i;
+	static const int max_mst_payload_id_reg[] = {
+		MAX_GMSL_DP_SER_MST_PAYLOAD_ID_0,
+		MAX_GMSL_DP_SER_MST_PAYLOAD_ID_1,
+		MAX_GMSL_DP_SER_MST_PAYLOAD_ID_2,
+		MAX_GMSL_DP_SER_MST_PAYLOAD_ID_3,
+	};
+	static const int max_gmsl_stream_id_regs[] = {
+		MAX_GMSL_DP_SER_TX3_0,
+		MAX_GMSL_DP_SER_TX3_1,
+		MAX_GMSL_DP_SER_TX3_2,
+		MAX_GMSL_DP_SER_TX3_3,
+	};
+
+	/* enable MST by programming MISC_CONFIG_B1 reg  */
+	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_MISC_CONFIG_B1,
+			       MAX_GMSL_DP_SER_MISC_CONFIG_B1_MASK,
+			       MAX_GMSL_DP_SER_MISC_CONFIG_B1_VAL);
+
+	/* program MST payload IDs */
+	for (i = 0; i < ARRAY_SIZE(priv->mst_payload_ids); i++) {
+		max_gmsl_dp_ser_write(priv, max_mst_payload_id_reg[i],
+				      priv->mst_payload_ids[i]);
+	}
+
+	/* Program stream IDs */
+	for (i = 0; i < ARRAY_SIZE(priv->gmsl_stream_ids); i++) {
+		max_gmsl_dp_ser_write(priv, max_gmsl_stream_id_regs[i],
+				      priv->gmsl_stream_ids[i]);
+	}
+}
+
+static void max_gmsl_dp_ser_setup(struct max_gmsl_dp_ser_priv *priv)
+{
+	int i;
 	u8 gmsl_link_select_value = 0;
+	static const int max_gmsl_ser_vid_tx_regs[] = {
+		MAX_GMSL_DP_SER_VID_TX_X,
+		MAX_GMSL_DP_SER_VID_TX_Y,
+		MAX_GMSL_DP_SER_VID_TX_Z,
+		MAX_GMSL_DP_SER_VID_TX_U,
+	};
 
 	max_gmsl_dp_ser_write(priv, MAX_GMSL_DP_SER_PHY_EDP_0_CTRL0_B0, 0x0f);
 	max_gmsl_dp_ser_write(priv, MAX_GMSL_DP_SER_PHY_EDP_0_CTRL0_B1, 0x0f);
@@ -161,25 +228,35 @@ static void max_gmsl_dp_ser_sst_setup(struct max_gmsl_dp_ser_priv *priv)
 	max_gmsl_dp_ser_write(priv, MAX_GMSL_DP_SER_MAX_LINK_COUNT,
 			      priv->dprx_lane_count);
 
-	gmsl_link_select_value = (priv->gmsl_link_select <<
-				  MAX_GMSL_DP_SER_LINK_SEL_SHIFT_VAL);
-
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_VID_TX_X,
-			       MAX_GMSL_DP_SER_VID_TX_LINK_MASK,
-			       gmsl_link_select_value);
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_VID_TX_Y,
-			       MAX_GMSL_DP_SER_VID_TX_LINK_MASK,
-			       gmsl_link_select_value);
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_VID_TX_Z,
-			       MAX_GMSL_DP_SER_VID_TX_LINK_MASK,
-			       gmsl_link_select_value);
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_VID_TX_U,
-			       MAX_GMSL_DP_SER_VID_TX_LINK_MASK,
-			       gmsl_link_select_value);
+	for (i = 0; i < MAX_GMSL_ARRAY_SIZE; i++) {
+		gmsl_link_select_value = (priv->gmsl_link_select[i] <<
+					  MAX_GMSL_DP_SER_LINK_SEL_SHIFT_VAL);
+		max_gmsl_dp_ser_update(priv, max_gmsl_ser_vid_tx_regs[i],
+				       MAX_GMSL_DP_SER_VID_TX_LINK_MASK,
+				       gmsl_link_select_value);
+	}
 
 	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY,
 			       MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY_MASK,
 			       MAX_GMSL_DP_SER_I2C_SPEED_CAPABILITY_100KBPS);
+
+	if (priv->enable_mst)
+		max_gmsl_dp_ser_mst_setup(priv);
+}
+
+static bool max_gmsl_dp_ser_check_dups(u8 *ids)
+{
+	int i = 0, j = 0;
+
+	/* check if IDs are unique */
+	for (i = 0; i < MAX_GMSL_ARRAY_SIZE; i++) {
+		for (j = i + 1; j < MAX_GMSL_ARRAY_SIZE; j++) {
+			if (ids[i] == ids[j])
+				return false;
+		}
+	}
+
+	return true;
 }
 
 static int max_gmsl_read_lock(struct max_gmsl_dp_ser_priv *priv,
@@ -197,6 +274,16 @@ static int max_gmsl_read_lock(struct max_gmsl_dp_ser_priv *priv,
 
 static irqreturn_t max_gsml_dp_ser_irq_handler(int irq, void *dev_id)
 {
+	struct max_gmsl_dp_ser_priv *priv = dev_id;
+	int ret = 0;
+	struct device *dev = &priv->client->dev;
+
+	ret = max_gmsl_dp_ser_read(priv, MAX_GMSL_DP_SER_INTR9);
+	if (ret & MAX_GMSL_DP_SER_LOSS_OF_LOCK_FLAG)
+		dev_dbg(dev, "%s: Fault due to GMSL Link Loss\n", __func__);
+
+	dev_dbg(dev, "%s: Sticky bit LOSS_OF_LOCK_FLAG cleared\n", __func__);
+
 	return IRQ_HANDLED;
 }
 
@@ -207,7 +294,6 @@ static void tegra_poll_gmsl_training_lock(struct work_struct *work)
 	struct max_gmsl_dp_ser_priv *priv = container_of(dwork,
 					struct max_gmsl_dp_ser_priv, delay_work);
 	int ret = 0;
-	u32 lctrl_reg = 0;
 
 	ret = max_gmsl_read_lock(priv, MAX_GMSL_DP_SER_CTRL3,
 				 MAX_GMSL_DP_SER_CTRL3_LOCK_MASK,
@@ -217,23 +303,24 @@ static void tegra_poll_gmsl_training_lock(struct work_struct *work)
 		goto reschedule;
 	}
 
-	if (priv->gmsl_link_select == MAX_GMSL_DP_SER_ENABLE_LINK_A) {
-		lctrl_reg = MAX_GMSL_DP_SER_LCTRL2_A;
-		dev_dbg(&priv->client->dev,
-			"GMSL Lock is being set for Link A\n");
-	} else {
-		lctrl_reg = MAX_GMSL_DP_SER_LCTRL2_B;
-		dev_dbg(&priv->client->dev,
-			"GMSL Lock is being set for Link B\n");
+	if (priv->link_a_is_enabled) {
+		ret = max_gmsl_read_lock(priv, MAX_GMSL_DP_SER_LCTRL2_A,
+					 MAX_GMSL_DP_SER_LCTRL2_LOCK_MASK,
+					 MAX_GMSL_DP_SER_LCTRL2_LOCK_VAL);
+		if (ret < 0) {
+			dev_dbg(&priv->client->dev, "GMSL Lock set failed for Link A\n");
+			goto reschedule;
+		}
 	}
 
-	ret = max_gmsl_read_lock(priv, lctrl_reg,
-				 MAX_GMSL_DP_SER_LCTRL2_LOCK_MASK,
-				 MAX_GMSL_DP_SER_LCTRL2_LOCK_VAL);
-
-	if (ret < 0) {
-		dev_dbg(&priv->client->dev, "GMSL Lock set failed\n");
-		goto reschedule;
+	if (priv->link_b_is_enabled) {
+		ret = max_gmsl_read_lock(priv, MAX_GMSL_DP_SER_LCTRL2_B,
+					 MAX_GMSL_DP_SER_LCTRL2_LOCK_MASK,
+					 MAX_GMSL_DP_SER_LCTRL2_LOCK_VAL);
+		if (ret < 0) {
+			dev_dbg(&priv->client->dev, "GMSL Lock set failed for Link B\n");
+			goto reschedule;
+		}
 	}
 
 	ret = max_gmsl_read_lock(priv, MAX_GMSL_DP_SER_DPRX_TRAIN,
@@ -314,16 +401,22 @@ static int max_gmsl_dp_ser_init(struct device *dev)
 	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_LINK_ENABLE,
 			       MAX_GMSL_DP_SER_LINK_ENABLE_MASK, 0x0);
 
-	max_gmsl_dp_ser_sst_setup(priv);
+	max_gmsl_dp_ser_setup(priv);
 
 	/*
 	 * Write RESET_LINK = 0 (for both Phy A, 0x29, and Phy B, 0x33)
 	 * to initiate the GMSL link lock process.
 	 */
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_LINK_CTRL_PHY_A,
-			       MAX_GMSL_DP_SER_LINK_CTRL_A_MASK, 0x0);
-	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_LINK_CTRL_PHY_B,
-			       MAX_GMSL_DP_SER_LINK_CTRL_B_MASK, 0x0);
+	if (priv->link_a_is_enabled)
+		max_gmsl_dp_ser_update(priv,
+				       MAX_GMSL_DP_SER_LINK_CTRL_PHY_A,
+				       MAX_GMSL_DP_SER_LINK_CTRL_A_MASK,
+				       0x0);
+	if (priv->link_b_is_enabled)
+		max_gmsl_dp_ser_update(priv,
+				       MAX_GMSL_DP_SER_LINK_CTRL_PHY_B,
+				       MAX_GMSL_DP_SER_LINK_CTRL_B_MASK,
+				       0x0);
 
 	/*
 	 * Set LINK_ENABLE = 1 (0x7000) to enable SOC DP link training,
@@ -338,12 +431,69 @@ static int max_gmsl_dp_ser_init(struct device *dev)
 	return ret;
 }
 
+static int max_gmsl_dp_ser_parse_mst_props(struct i2c_client *client,
+					   struct max_gmsl_dp_ser_priv *priv)
+{
+	struct device *dev = &priv->client->dev;
+	struct device_node *ser = dev->of_node;
+	int err = 0;
+	bool ret;
+
+	priv->enable_mst = of_property_read_bool(ser,
+						 "enable-mst");
+	if (priv->enable_mst)
+		dev_info(dev, "%s: MST mode enabled:\n", __func__);
+	else
+		dev_info(dev, "%s: MST mode not enabled:\n", __func__);
+
+	if (priv->enable_mst) {
+		err = of_property_read_variable_u8_array(ser,
+							 "mst-payload-ids",
+							 priv->mst_payload_ids, 1,
+							 ARRAY_SIZE(priv->mst_payload_ids));
+
+		if (err < 0) {
+			dev_info(dev,
+				 "%s: MST Payload prop not found or invalid\n",
+				 __func__);
+			return -EINVAL;
+		}
+
+		ret = max_gmsl_dp_ser_check_dups(priv->mst_payload_ids);
+		if (!ret) {
+			dev_err(dev, "%s: payload IDs are not unique\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		err = of_property_read_variable_u8_array(ser,
+							 "gmsl-stream-ids",
+							 priv->gmsl_stream_ids, 1,
+							 ARRAY_SIZE(priv->gmsl_stream_ids));
+		if (err < 0) {
+			dev_info(dev,
+				 "%s: GMSL Stream ID property not found or invalid\n",
+				 __func__);
+			return -EINVAL;
+		}
+
+		ret = max_gmsl_dp_ser_check_dups(priv->gmsl_stream_ids);
+		if (!ret) {
+			dev_err(dev, "%s: stream IDs are not unique\n",
+				__func__);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int max_gmsl_dp_ser_parse_dt(struct i2c_client *client,
 				    struct max_gmsl_dp_ser_priv *priv)
 {
 	struct device *dev = &priv->client->dev;
 	struct device_node *ser = dev->of_node;
-	int err = 0;
+	int err = 0, i;
 	u32 val = 0;
 
 	dev_info(dev, "%s: parsing serializer device tree:\n", __func__);
@@ -384,29 +534,39 @@ static int max_gmsl_dp_ser_parse_dt(struct i2c_client *client,
 		dev_info(dev, "%s: - dprx-link-rate %i\n", __func__, val);
 	}
 
-	err = of_property_read_u32(ser, "gmsl-link-select", &val);
-	if (err) {
-		if (err == -EINVAL) {
-			dev_info(dev, "%s: - link-select property not found\n",
-				 __func__);
-			priv->gmsl_link_select = 0x0;
-			dev_info(dev, "%s: link-select set to LINK A: 0x0\n",
-				 __func__);
+	err = of_property_read_variable_u8_array(ser, "gmsl-link-select",
+						 priv->gmsl_link_select, 1,
+						 ARRAY_SIZE(priv->gmsl_link_select));
+	if (err < 0) {
+		dev_info(dev,
+			 "%s: GMSL Link select property not found or invalid\n",
+			 __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(priv->gmsl_link_select); i++) {
+		if ((priv->gmsl_link_select[i] == MAX_GMSL_DP_SER_ENABLE_LINK_A)
+		    || (priv->gmsl_link_select[i] ==
+		    MAX_GMSL_DP_SER_ENABLE_LINK_AB)) {
+			priv->link_a_is_enabled = true;
+		} else if ((priv->gmsl_link_select[i] == MAX_GMSL_DP_SER_ENABLE_LINK_B)
+		    || (priv->gmsl_link_select[i] ==
+		    MAX_GMSL_DP_SER_ENABLE_LINK_AB)) {
+			priv->link_b_is_enabled = true;
 		} else {
-			return err;
-		}
-	} else {
-		if ((val != MAX_GMSL_DP_SER_ENABLE_LINK_A) &&
-		    (val != MAX_GMSL_DP_SER_ENABLE_LINK_B)) {
-			dev_err(dev, "%s: Invalid gmsl-link-select %i\n",
-				__func__, val);
+			dev_info(dev,
+				 "%s: GMSL Link select values are invalid\n",
+				 __func__);
 			return -EINVAL;
 		}
-		/* set link-select*/
-		priv->gmsl_link_select = val;
-		dev_info(dev, "%s: - link-select %i\n",
-			 __func__, val);
 	}
+
+	err = max_gmsl_dp_ser_parse_mst_props(client, priv);
+	if (err != 0) {
+		dev_err(dev, "%s: error parsing MST props\n", __func__);
+		return -EFAULT;
+	}
+
 	return 0;
 }
 
@@ -430,6 +590,16 @@ static int max_gmsl_dp_ser_probe(struct i2c_client *client)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
+	dev = &priv->client->dev;
+
+	ret = max_gmsl_dp_ser_read(priv, MAX_GMSL_DP_SER_REG_13);
+	if (ret != 0) {
+		dev_info(dev, "%s: MAXIM Serializer detected\n", __func__);
+	} else {
+		dev_err(dev, "%s: MAXIM Serializer Not detected\n", __func__);
+		return -ENODEV;
+	}
+
 	ret = max_gmsl_dp_ser_parse_dt(client, priv);
 	if (ret < 0) {
 		dev_err(dev, "%s: error parsing device tree\n", __func__);
@@ -445,19 +615,38 @@ static int max_gmsl_dp_ser_probe(struct i2c_client *client)
 		return -EFAULT;
 	}
 
+	ret = max_gmsl_dp_ser_read(priv, MAX_GMSL_DP_SER_INTR9);
+	if (ret < 0) {
+		dev_err(dev, "%s: INTR9 register read failed\n", __func__);
+		return -EFAULT;
+	}
 	/* enable INTR8.LOSS_OF_LOCK_OEN */
 	max_gmsl_dp_ser_update(priv, MAX_GMSL_DP_SER_INTR8,
 			       MAX_GMSL_DP_SER_INTR8_MASK,
 			       MAX_GMSL_DP_SER_INTR8_VAL);
 
 	priv->ser_errb = of_get_named_gpio(ser, "ser-errb", 0);
+
+	ret = devm_gpio_request_one(&client->dev, priv->ser_errb,
+				    GPIOF_DIR_IN, "GPIO_MAXIM_SER");
+	if (ret < 0) {
+		dev_err(dev, "%s: GPIO request failed\n ret: %d",
+			__func__, ret);
+		return ret;
+	}
+
 	if (gpio_is_valid(priv->ser_errb)) {
 		priv->ser_irq = gpio_to_irq(priv->ser_errb);
-		ret = request_threaded_irq(priv->ser_irq,
+		ret = request_threaded_irq(priv->ser_irq, NULL,
 					   max_gsml_dp_ser_irq_handler,
-					   NULL, IRQF_TRIGGER_RISING
-					   | IRQF_TRIGGER_FALLING
+					   IRQF_TRIGGER_FALLING
 					   | IRQF_ONESHOT, "SER", priv);
+		if (ret < 0) {
+			dev_err(dev, "%s: Unable to register IRQ handler ret: %d\n",
+				__func__, ret);
+			return ret;
+		}
+
 	}
 	return ret;
 }

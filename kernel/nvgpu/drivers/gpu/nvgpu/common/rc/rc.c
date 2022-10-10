@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,6 +61,12 @@ void nvgpu_rc_fifo_recover(struct gk20a *g, u32 eng_bitmask,
 				 rc_type, NULL);
 #else
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)eng_bitmask;
+	(void)hw_id;
+	(void)id_is_tsg;
+	(void)id_is_known;
+	(void)debug_dump;
+	(void)rc_type;
 #endif
 }
 
@@ -83,6 +89,8 @@ void nvgpu_rc_ctxsw_timeout(struct gk20a *g, u32 eng_bitmask,
 			RC_TYPE_CTXSW_TIMEOUT);
 #else
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)eng_bitmask;
+	(void)debug_dump;
 #endif
 }
 
@@ -162,6 +170,7 @@ void nvgpu_rc_runlist_update(struct gk20a *g, u32 runlist_id)
 	 * on time.
 	 */
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)runlist_id;
 #endif
 }
 
@@ -209,8 +218,46 @@ void nvgpu_rc_gr_fault(struct gk20a *g, struct nvgpu_tsg *tsg,
 	}
 #else
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)tsg;
+	(void)ch;
 #endif
 	nvgpu_log(g, gpu_dbg_gr, "done");
+}
+
+void nvgpu_rc_ce_fault(struct gk20a *g, u32 inst_id)
+{
+	struct nvgpu_channel *ch = NULL;
+	struct nvgpu_tsg *tsg = NULL;
+	u32 chid = NVGPU_INVALID_CHANNEL_ID;
+	u64 inst_ptr = 0U;
+
+	if (g->ops.ce.get_inst_ptr_from_lce != NULL) {
+		inst_ptr = g->ops.ce.get_inst_ptr_from_lce(g,
+						inst_id);
+	}
+	/* refch will be put back before recovery */
+	ch = nvgpu_channel_refch_from_inst_ptr(g, inst_ptr);
+	if (ch == NULL) {
+		return;
+	} else {
+		chid = ch->chid;
+		nvgpu_channel_put(ch);
+		tsg = nvgpu_tsg_from_ch(ch);
+		if (tsg == NULL) {
+			nvgpu_err(g, "channel_id: %d not bound to tsg",
+						chid);
+			/* ToDo: Trigger Quiesce? */
+			return;
+		}
+		nvgpu_tsg_set_error_notifier(g, tsg, NVGPU_ERR_NOTIFIER_CE_ERROR);
+	}
+#ifdef CONFIG_NVGPU_RECOVERY
+	nvgpu_rc_tsg_and_related_engines(g, tsg, true,
+			RC_TYPE_CE_FAULT);
+#else
+	WARN_ON(!g->sw_quiesce_pending);
+	(void)tsg;
+#endif
 }
 
 void nvgpu_rc_sched_error_bad_tsg(struct gk20a *g)
@@ -292,6 +339,9 @@ void nvgpu_rc_tsg_and_related_engines(struct gk20a *g, struct nvgpu_tsg *tsg,
 #endif
 #else
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)tsg;
+	(void)debug_dump;
+	(void)rc_type;
 #endif
 }
 
@@ -309,9 +359,11 @@ void nvgpu_rc_mmu_fault(struct gk20a *g, u32 act_eng_bitmask,
 	if ((id != INVAL_ID) && (id_type == ID_TYPE_TSG)) {
 		struct nvgpu_tsg *tsg = &g->fifo.tsg[id];
 		nvgpu_tsg_set_ctx_mmu_error(g, tsg);
-		nvgpu_tsg_mark_error(g, tsg);
+		(void)nvgpu_tsg_mark_error(g, tsg);
 	}
 
 	WARN_ON(!g->sw_quiesce_pending);
+	(void)rc_type;
+	(void)mmufault;
 #endif
 }

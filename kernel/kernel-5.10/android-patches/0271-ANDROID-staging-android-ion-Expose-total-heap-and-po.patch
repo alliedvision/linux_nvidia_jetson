@@ -1,0 +1,297 @@
+From 3907769d1028f7c98c9d34626b30e6cb03824696 Mon Sep 17 00:00:00 2001
+From: Suren Baghdasaryan <surenb@google.com>
+Date: Wed, 13 Nov 2019 10:45:00 -0800
+Subject: [PATCH 271/830] ANDROID: staging: android: ion: Expose total heap and
+ pool sizes via sysfs
+X-NVConfidentiality: public
+
+Add sysfs attributes to track ion total heap and pool memory allocations.
+The following sysfs attributes are added:
+
+/sys/kernel/ion/total_heaps_kb
+/sys/kernel/ion/total_pools_kb
+
+Bug: 138148041
+Bug: 154238995
+Test: adb shell cat /sys/kernel/ion/*
+Change-Id: If92770dc3389af865c619525f04d3ba0e013b244
+Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+---
+ Documentation/ABI/testing/sysfs-kernel-ion    | 27 +++++++
+ .../staging/android/ion/heaps/ion_page_pool.c | 11 +++
+ .../staging/android/ion/heaps/ion_page_pool.h |  1 +
+ .../android/ion/heaps/ion_system_heap.c       | 14 ++++
+ drivers/staging/android/ion/ion.c             | 72 ++++++++++++++++++-
+ drivers/staging/android/ion/ion_buffer.c      |  9 +++
+ drivers/staging/android/ion/ion_private.h     |  2 +
+ include/linux/ion.h                           |  2 +
+ 8 files changed, 136 insertions(+), 2 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-kernel-ion
+
+diff --git a/Documentation/ABI/testing/sysfs-kernel-ion b/Documentation/ABI/testing/sysfs-kernel-ion
+new file mode 100644
+index 000000000000..f57f970574ae
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-kernel-ion
+@@ -0,0 +1,27 @@
++What:		/sys/kernel/ion
++Date:		Dec 2019
++KernelVersion:	4.14.158
++Contact:	Suren Baghdasaryan <surenb@google.com>,
++		Sandeep Patil <sspatil@google.com>
++Description:
++		The /sys/kernel/ion directory contains a snapshot of the
++		internal state of ION memory heaps and pools.
++Users:		kernel memory tuning tools
++
++What:		/sys/kernel/ion/total_heaps_kb
++Date:		Dec 2019
++KernelVersion:	4.14.158
++Contact:	Suren Baghdasaryan <surenb@google.com>,
++		Sandeep Patil <sspatil@google.com>
++Description:
++		The total_heaps_kb file is read-only and specifies how much
++		memory in Kb is allocated to ION heaps.
++
++What:		/sys/kernel/ion/total_pools_kb
++Date:		Dec 2019
++KernelVersion:	4.14.158
++Contact:	Suren Baghdasaryan <surenb@google.com>,
++		Sandeep Patil <sspatil@google.com>
++Description:
++		The total_pools_kb file is read-only and specifies how much
++		memory in Kb is allocated to ION pools.
+diff --git a/drivers/staging/android/ion/heaps/ion_page_pool.c b/drivers/staging/android/ion/heaps/ion_page_pool.c
+index 7e9a4de4810c..d34c192b1c27 100644
+--- a/drivers/staging/android/ion/heaps/ion_page_pool.c
++++ b/drivers/staging/android/ion/heaps/ion_page_pool.c
+@@ -97,6 +97,17 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
+ 	return count << pool->order;
+ }
+ 
++int ion_page_pool_nr_pages(struct ion_page_pool *pool)
++{
++	int nr_total_pages;
++
++	mutex_lock(&pool->mutex);
++	nr_total_pages = ion_page_pool_total(pool, true);
++	mutex_unlock(&pool->mutex);
++
++	return nr_total_pages;
++}
++
+ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
+ 			 int nr_to_scan)
+ {
+diff --git a/drivers/staging/android/ion/heaps/ion_page_pool.h b/drivers/staging/android/ion/heaps/ion_page_pool.h
+index e205d0086833..10c79090c7a0 100644
+--- a/drivers/staging/android/ion/heaps/ion_page_pool.h
++++ b/drivers/staging/android/ion/heaps/ion_page_pool.h
+@@ -53,6 +53,7 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order);
+ void ion_page_pool_destroy(struct ion_page_pool *pool);
+ struct page *ion_page_pool_alloc(struct ion_page_pool *pool);
+ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page);
++int ion_page_pool_nr_pages(struct ion_page_pool *pool);
+ 
+ /** ion_page_pool_shrink - shrinks the size of the memory cached in the pool
+  * @pool:		the pool
+diff --git a/drivers/staging/android/ion/heaps/ion_system_heap.c b/drivers/staging/android/ion/heaps/ion_system_heap.c
+index b249104042c1..fc630492996f 100644
+--- a/drivers/staging/android/ion/heaps/ion_system_heap.c
++++ b/drivers/staging/android/ion/heaps/ion_system_heap.c
+@@ -208,6 +208,19 @@ static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
+ 	return nr_total;
+ }
+ 
++static long ion_system_get_pool_size(struct ion_heap *heap)
++{
++	struct ion_system_heap *sys_heap;
++	long total_pages = 0;
++	int i;
++
++	sys_heap = container_of(heap, struct ion_system_heap, heap);
++	for (i = 0; i < NUM_ORDERS; i++)
++		total_pages += ion_page_pool_nr_pages(sys_heap->pools[i]);
++
++	return total_pages;
++}
++
+ static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
+ {
+ 	int i;
+@@ -245,6 +258,7 @@ static struct ion_heap_ops system_heap_ops = {
+ 	.allocate = ion_system_heap_allocate,
+ 	.free = ion_system_heap_free,
+ 	.shrink = ion_system_heap_shrink,
++	.get_pool_size = ion_system_get_pool_size,
+ };
+ 
+ static struct ion_system_heap system_heap = {
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index aa299172e61d..10c33b16fef2 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -421,6 +421,63 @@ void ion_device_remove_heap(struct ion_heap *heap)
+ }
+ EXPORT_SYMBOL_GPL(ion_device_remove_heap);
+ 
++static ssize_t
++total_heaps_kb_show(struct kobject *kobj, struct kobj_attribute *attr,
++		    char *buf)
++{
++	return sprintf(buf, "%llu\n",
++		       div_u64(ion_get_total_heap_bytes(), 1024));
++}
++
++static ssize_t
++total_pools_kb_show(struct kobject *kobj, struct kobj_attribute *attr,
++		    char *buf)
++{
++	struct ion_device *dev = internal_dev;
++	struct ion_heap *heap;
++	u64 total_pages = 0;
++
++	down_read(&dev->lock);
++	plist_for_each_entry(heap, &dev->heaps, node)
++		if (heap->ops->get_pool_size)
++			total_pages += heap->ops->get_pool_size(heap);
++	up_read(&dev->lock);
++
++	return sprintf(buf, "%llu\n", total_pages * (PAGE_SIZE / 1024));
++}
++
++static struct kobj_attribute total_heaps_kb_attr =
++	__ATTR_RO(total_heaps_kb);
++
++static struct kobj_attribute total_pools_kb_attr =
++	__ATTR_RO(total_pools_kb);
++
++static struct attribute *ion_device_attrs[] = {
++	&total_heaps_kb_attr.attr,
++	&total_pools_kb_attr.attr,
++	NULL,
++};
++
++ATTRIBUTE_GROUPS(ion_device);
++
++static int ion_init_sysfs(void)
++{
++	struct kobject *ion_kobj;
++	int ret;
++
++	ion_kobj = kobject_create_and_add("ion", kernel_kobj);
++	if (!ion_kobj)
++		return -ENOMEM;
++
++	ret = sysfs_create_groups(ion_kobj, ion_device_groups);
++	if (ret) {
++		kobject_put(ion_kobj);
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int ion_device_create(void)
+ {
+ 	struct ion_device *idev;
+@@ -437,8 +494,13 @@ static int ion_device_create(void)
+ 	ret = misc_register(&idev->dev);
+ 	if (ret) {
+ 		pr_err("ion: failed to register misc device.\n");
+-		kfree(idev);
+-		return ret;
++		goto err_reg;
++	}
++
++	ret = ion_init_sysfs();
++	if (ret) {
++		pr_err("ion: failed to add sysfs attributes.\n");
++		goto err_sysfs;
+ 	}
+ 
+ 	idev->debug_root = debugfs_create_dir("ion", NULL);
+@@ -446,5 +508,11 @@ static int ion_device_create(void)
+ 	plist_head_init(&idev->heaps);
+ 	internal_dev = idev;
+ 	return 0;
++
++err_sysfs:
++	misc_deregister(&idev->dev);
++err_reg:
++	kfree(idev);
++	return ret;
+ }
+ subsys_initcall(ion_device_create);
+diff --git a/drivers/staging/android/ion/ion_buffer.c b/drivers/staging/android/ion/ion_buffer.c
+index 446d5d50c779..0c6db9119fc1 100644
+--- a/drivers/staging/android/ion/ion_buffer.c
++++ b/drivers/staging/android/ion/ion_buffer.c
+@@ -13,6 +13,8 @@
+ 
+ #include "ion_private.h"
+ 
++static atomic_long_t total_heap_bytes;
++
+ /* this function should only be called while dev->lock is held */
+ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
+ 					    struct ion_device *dev,
+@@ -65,6 +67,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
+ 
+ 	INIT_LIST_HEAD(&buffer->attachments);
+ 	mutex_init(&buffer->lock);
++	atomic_long_add(len, &total_heap_bytes);
+ 	return buffer;
+ 
+ err1:
+@@ -215,6 +218,7 @@ int ion_buffer_destroy(struct ion_device *dev, struct ion_buffer *buffer)
+ 	}
+ 
+ 	heap = buffer->heap;
++	atomic_long_sub(buffer->size, &total_heap_bytes);
+ 
+ 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
+ 		ion_heap_freelist_add(heap, buffer);
+@@ -251,3 +255,8 @@ void ion_buffer_kmap_put(struct ion_buffer *buffer)
+ 		buffer->vaddr = NULL;
+ 	}
+ }
++
++u64 ion_get_total_heap_bytes(void)
++{
++	return atomic_long_read(&total_heap_bytes);
++}
+diff --git a/drivers/staging/android/ion/ion_private.h b/drivers/staging/android/ion/ion_private.h
+index ca4ca2389397..db4e90683f4c 100644
+--- a/drivers/staging/android/ion/ion_private.h
++++ b/drivers/staging/android/ion/ion_private.h
+@@ -53,4 +53,6 @@ extern int ion_free(struct ion_buffer *buffer);
+ /* ion heap helpers */
+ extern int ion_heap_cleanup(struct ion_heap *heap);
+ 
++u64 ion_get_total_heap_bytes(void);
++
+ #endif /* _ION_PRIVATE_H */
+diff --git a/include/linux/ion.h b/include/linux/ion.h
+index 088705119b16..4eadf397a6bc 100644
+--- a/include/linux/ion.h
++++ b/include/linux/ion.h
+@@ -53,6 +53,7 @@ struct ion_buffer {
+  * struct ion_heap_ops - ops to operate on a given heap
+  * @allocate:		allocate memory
+  * @free:		free memory
++ * @get_pool_size:	get pool size in pages
+  *
+  * allocate returns 0 on success, -errno on error.
+  * map_dma and map_kernel return pointer on success, ERR_PTR on
+@@ -67,6 +68,7 @@ struct ion_heap_ops {
+ 			unsigned long flags);
+ 	void (*free)(struct ion_buffer *buffer);
+ 	int (*shrink)(struct ion_heap *heap, gfp_t gfp_mask, int nr_to_scan);
++	long (*get_pool_size)(struct ion_heap *heap);
+ };
+ 
+ /**
+-- 
+2.17.1
+

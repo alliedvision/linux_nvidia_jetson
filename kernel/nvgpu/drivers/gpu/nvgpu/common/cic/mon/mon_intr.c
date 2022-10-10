@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,6 +49,7 @@ void nvgpu_cic_mon_intr_stall_unit_config(struct gk20a *g, u32 unit, bool enable
 	nvgpu_spinunlock_irqrestore(&g->mc.intr_lock, flags);
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 void nvgpu_cic_mon_intr_nonstall_unit_config(struct gk20a *g, u32 unit, bool enable)
 {
 	unsigned long flags = 0;
@@ -57,6 +58,7 @@ void nvgpu_cic_mon_intr_nonstall_unit_config(struct gk20a *g, u32 unit, bool ena
 	g->ops.mc.intr_nonstall_unit_config(g, unit, enable);
 	nvgpu_spinunlock_irqrestore(&g->mc.intr_lock, flags);
 }
+#endif
 
 void nvgpu_cic_mon_intr_stall_pause(struct gk20a *g)
 {
@@ -76,6 +78,7 @@ void nvgpu_cic_mon_intr_stall_resume(struct gk20a *g)
 	nvgpu_spinunlock_irqrestore(&g->mc.intr_lock, flags);
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 void nvgpu_cic_mon_intr_nonstall_pause(struct gk20a *g)
 {
 	unsigned long flags = 0;
@@ -149,6 +152,7 @@ void nvgpu_cic_mon_intr_nonstall_handle(struct gk20a *g)
 
 	(void)nvgpu_cic_rm_broadcast_last_irq_nonstall(g);
 }
+#endif
 
 u32 nvgpu_cic_mon_intr_stall_isr(struct gk20a *g)
 {
@@ -181,11 +185,7 @@ u32 nvgpu_cic_mon_intr_stall_isr(struct gk20a *g)
 
 void nvgpu_cic_mon_intr_stall_handle(struct gk20a *g)
 {
-	nvgpu_trace_intr_thread_stall_start(g);
-
 	g->ops.mc.isr_stall(g);
-
-	nvgpu_trace_intr_thread_stall_done(g);
 
 	/* sync handled irq counter before re-enabling interrupts */
 	nvgpu_cic_rm_set_irq_stall(g, 0);

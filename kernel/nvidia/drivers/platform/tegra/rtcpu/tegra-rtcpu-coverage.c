@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,8 @@
  */
 
 #define _BullseyeCoverage 1
+
+#include <linux/tegra-rtcpu-coverage.h>
 
 #include <soc/tegra/camrtc-channels.h>
 #include <linux/debugfs.h>

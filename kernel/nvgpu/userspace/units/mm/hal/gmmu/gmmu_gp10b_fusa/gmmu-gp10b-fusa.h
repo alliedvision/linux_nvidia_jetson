@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,11 +39,7 @@ struct unit_module;
  *
  * Test Type: Feature
  *
-<<<<<<< HEAD
  * Targets: gops_mm.gops_mm_gmmu.get_default_big_page_size,
-=======
- * Targets: gops_mm_gmmu.get_default_big_page_size,
->>>>>>> 2769ccf4e... gpu: nvgpu: userspace: update "Targets" field for mm
  * nvgpu_gmmu_default_big_page_size
  *
  * Input: None

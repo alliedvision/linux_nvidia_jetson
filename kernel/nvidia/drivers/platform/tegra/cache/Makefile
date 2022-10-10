@@ -17,5 +17,3 @@ endif
 ifneq ($(filter y,$(CONFIG_ARCH_TEGRA_19x_SOC) $(CONFIG_ARCH_TEGRA_194_SOC) $(CONFIG_ARCH_TEGRA_23x_SOC)),)
 obj-y += tegra19x-cache.o
 endif
-
-obj-$(CONFIG_ARCH_TEGRA_23x_SOC) += tegra23x-cache.o

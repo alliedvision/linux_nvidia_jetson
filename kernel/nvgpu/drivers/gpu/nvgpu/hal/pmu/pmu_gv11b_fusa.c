@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -141,37 +141,23 @@ static int gv11b_pmu_correct_ecc(struct gk20a *g, u32 ecc_status, u32 ecc_addr)
 
 	if ((ecc_status &
 		pwr_pmu_falcon_ecc_status_corrected_err_imem_m()) != 0U) {
-		nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
-			GPU_PMU_FALCON_IMEM_ECC_CORRECTED,
-			ecc_addr,
-			g->ecc.pmu.pmu_ecc_corrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "imem ecc error corrected");
+		nvgpu_err(g, "falcon imem ecc error corrected. "
+				"ecc_addr(0x%x)", ecc_addr);
 	}
 	if ((ecc_status &
 		pwr_pmu_falcon_ecc_status_uncorrected_err_imem_m()) != 0U) {
-		nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
-			GPU_PMU_FALCON_IMEM_ECC_UNCORRECTED,
-			ecc_addr,
-			g->ecc.pmu.pmu_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "imem ecc error uncorrected");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+				GPU_PMU_IMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "falcon imem ecc error uncorrected. "
+				"ecc_addr(0x%x)", ecc_addr);
 		ret = -EFAULT;
 	}
 	if ((ecc_status &
-		pwr_pmu_falcon_ecc_status_corrected_err_dmem_m()) != 0U) {
-		nvgpu_log(g, gpu_dbg_intr, "dmem ecc error corrected");
-		/* This error is not expected to occur in gv11b and hence,
-		 * this scenario is considered as a fatal error.
-		 */
-		nvgpu_mutex_release(&g->pmu->isr_mutex);
-		BUG();
-	}
-	if ((ecc_status &
 		pwr_pmu_falcon_ecc_status_uncorrected_err_dmem_m()) != 0U) {
-		nvgpu_report_ecc_err(g, NVGPU_ERR_MODULE_PMU, 0,
-			GPU_PMU_FALCON_DMEM_ECC_UNCORRECTED,
-			ecc_addr,
-			g->ecc.pmu.pmu_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "dmem ecc error uncorrected");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+				GPU_PMU_DMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "falcon dmem ecc error uncorrected. "
+				"ecc_addr(0x%x)", ecc_addr);
 		ret = -EFAULT;
 	}
 
@@ -303,6 +289,8 @@ u32 gv11b_pmu_falcon_base_addr(void)
 
 bool gv11b_is_pmu_supported(struct gk20a *g)
 {
+	(void)g;
+
 #ifdef CONFIG_NVGPU_LS_PMU
 	return true;
 #else
@@ -477,6 +465,8 @@ void gv11b_pmu_enable_irq(struct nvgpu_pmu *pmu, bool enable)
 u32 gv11b_pmu_get_irqdest(struct gk20a *g)
 {
 	u32 intr_dest;
+
+	(void)g;
 
 #ifdef CONFIG_NVGPU_LS_PMU
 	/* dest 0=falcon, 1=host; level 0=irq0, 1=irq1 */

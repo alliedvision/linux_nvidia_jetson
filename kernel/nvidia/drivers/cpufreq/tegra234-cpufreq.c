@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,15 +25,8 @@
 #include <linux/slab.h>
 #include <linux/platform/tegra/mc_utils.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 #include <soc/tegra/bpmp.h>
 #include <soc/tegra/cpufreq_cpu_emc_table.h>
-#else
-#include <asm/smp_plat.h>
-#include <soc/tegra/tegra_bpmp.h>
-#include <soc/tegra/bpmp_abi.h>
-#include "cpufreq_cpu_emc_table.h"
-#endif
 #include <dt-bindings/interconnect/tegra_icc_id.h>
 
 #define KHZ				1000
@@ -178,6 +171,7 @@ static unsigned int tegra234_get_speed_common(u32 cpu, u32 delay)
 	 * observation window. Using workqueue to call udelay() with
 	 * interrupts enabled.
 	 */
+	memset(&read_counters_work, 0, sizeof(struct read_counters_work));
 	read_counters_work.c.cpu = cpu;
 	read_counters_work.c.delay = delay;
 	INIT_WORK_ONSTACK(&read_counters_work.work, tegra_read_counters);
@@ -317,30 +311,21 @@ static void tegra234_cpufreq_free_resources(void)
 	kfree(cpu_emc_map_ptr);
 }
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 static struct cpufreq_frequency_table *
 init_freq_table(struct platform_device *pdev, struct tegra_bpmp *bpmp,
 	unsigned int cluster_id, struct mrq_cpu_ndiv_limits_response *resp)
-#else
-static struct cpufreq_frequency_table *
-init_freq_table(struct platform_device *pdev,
-	unsigned int cluster_id, struct mrq_cpu_ndiv_limits_response *resp)
-#endif
 {
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int num_freqs, ndiv, delta_ndiv;
 	struct mrq_cpu_ndiv_limits_request req;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	struct tegra_bpmp_message msg;
 	int err;
-#endif
 	u16 freq_table_step_size;
 	int index;
 
 	memset(&req, 0, sizeof(req));
 	req.cluster_id = cluster_id;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	memset(&msg, 0, sizeof(msg));
 	msg.mrq = MRQ_CPU_NDIV_LIMITS;
 	msg.tx.data = &req;
@@ -351,10 +336,12 @@ init_freq_table(struct platform_device *pdev,
 	err = tegra_bpmp_transfer(bpmp, &msg);
 	if (err)
 		return ERR_PTR(err);
-#else
-	tegra_bpmp_send_receive(MRQ_CPU_NDIV_LIMITS, &req, sizeof(req),
-			resp, sizeof(*resp));
-#endif
+	if (msg.rx.ret == -BPMP_EINVAL) {
+		/* Cluster not available */
+		return NULL;
+	}
+	if (msg.rx.ret)
+		return ERR_PTR(-EINVAL);
 
 	/*
 	 * Make sure frequency table step is a multiple of mdiv to match
@@ -424,9 +411,7 @@ static void tegra_cpufreq_debug_exit(void)
 static int tegra234_cpufreq_probe(struct platform_device *pdev)
 {
 	struct tegra234_cpufreq_data *data;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	struct tegra_bpmp *bpmp;
-#endif
 	struct resource *res;
 	struct device_node *dn;
 	int err, i, cpu, cl;
@@ -436,11 +421,9 @@ static int tegra234_cpufreq_probe(struct platform_device *pdev)
 		TEGRA_ICC_CPU_CLUSTER2
 	};
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	bpmp = tegra_bpmp_get(&pdev->dev);
 	if (IS_ERR(bpmp))
 		return -EPROBE_DEFER;
-#endif
 
 	dn = pdev->dev.of_node;
 	cpu_emc_map_ptr = tegra_cpufreq_cpu_emc_map_dt_init(dn);
@@ -505,13 +488,8 @@ static int tegra234_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < data->num_clusters; i++) {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 		data->tables[i] = init_freq_table(pdev, bpmp, i,
 							&data->ndiv_limits[i]);
-#else
-		data->tables[i] = init_freq_table(pdev, i,
-							&data->ndiv_limits[i]);
-#endif
 		if (IS_ERR(data->tables[i])) {
 			err = PTR_ERR(data->tables[i]);
 			goto err_free_res;
@@ -545,9 +523,7 @@ err_free_map_ptr:
 	if (cpu_emc_map_ptr)
 		kfree(cpu_emc_map_ptr);
 put_bpmp:
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	tegra_bpmp_put(bpmp);
-#endif
 	return err;
 }
 

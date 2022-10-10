@@ -1,7 +1,7 @@
-From 86c67f0476a141a4a4ae1eceb9e8ec22dab508a3 Mon Sep 17 00:00:00 2001
+From 77b224078c4fcabd5811305d64dd4b5d63905382 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:14 +0100
-Subject: [PATCH 144/304] atm: eni: Use tasklet_disable_in_atomic() in the
+Subject: [PATCH 144/318] atm: eni: Use tasklet_disable_in_atomic() in the
  send() callback
 
 The atmdev_ops::send callback which calls tasklet_disable() is invoked with
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index b574cce..422753d 100644
+index b574cce98dc3..422753d52244 100644
 --- a/drivers/atm/eni.c
 +++ b/drivers/atm/eni.c
 @@ -2054,7 +2054,7 @@ static int eni_send(struct atm_vcc *vcc,struct sk_buff *skb)
@@ -37,5 +37,5 @@ index b574cce..422753d 100644
  	tasklet_enable(&ENI_DEV(vcc->dev)->task);
  	if (res == enq_ok) return 0;
 -- 
-2.7.4
+2.17.1
 

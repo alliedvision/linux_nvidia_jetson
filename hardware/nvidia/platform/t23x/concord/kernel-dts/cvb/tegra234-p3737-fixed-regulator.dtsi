@@ -125,7 +125,6 @@
 			regulator-max-microvolt = <3300000>;
 			vin-supply = <&p3737_vdd_3v3_sys>;
 			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(A, 0) 0>;
-			regulator-always-on; /* Keeping always-on for bringup */
 			enable-active-high;
 		};
 		p3737_vdd_usbc1_vbus: regulator@112 {

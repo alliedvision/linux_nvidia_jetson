@@ -1,7 +1,7 @@
 /*
  * PVA Task Management
  *
- * Copyright (c) 2016-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,8 +25,6 @@
 #include <linux/nvhost.h>
 #include <linux/cvnas.h>
 
-#include <trace/events/nvhost.h>
-
 #ifdef CONFIG_EVENTLIB
 #include <linux/keventlib.h>
 #include <uapi/linux/nvdev_fence.h>
@@ -43,7 +41,6 @@
 #endif
 
 #include "nvhost_syncpt_unit_interface.h"
-#include "nvhost_gos.h"
 #include <linux/seq_file.h>
 #include "pva.h"
 #include "pva-task.h"
@@ -532,8 +529,6 @@ static inline int pva_task_write_ptr_op(u8 *base, u8 action, u64 addr, u32 val)
 static int pva_task_write_preactions(struct pva_submit_task *task,
 				     struct pva_hw_task *hw_task)
 {
-	struct platform_device *host1x_pdev =
-		to_platform_device(task->pva->pdev->dev.parent);
 	u8 *hw_preactions = hw_task->preactions;
 	int i = 0, j = 0, ptr = 0;
 	u8 action_ts;
@@ -546,11 +541,7 @@ static int pva_task_write_preactions(struct pva_submit_task *task,
 
 		switch (fence->type) {
 		case NVDEV_FENCE_TYPE_SYNCPT: {
-			dma_addr_t syncpt_addr = nvhost_syncpt_gos_address(
-							task->pva->pdev,
-							fence->syncpoint_index);
-			if (!syncpt_addr)
-				syncpt_addr = nvhost_syncpt_address(
+			dma_addr_t syncpt_addr = nvhost_syncpt_address(
 							task->queue->vm_pdev,
 							fence->syncpoint_index);
 
@@ -597,10 +588,7 @@ static int pva_task_write_preactions(struct pva_submit_task *task,
 							id, thresh))
 					continue;
 
-				syncpt_addr = nvhost_syncpt_gos_address(
-							task->pva->pdev, id);
-				if (!syncpt_addr)
-					syncpt_addr = nvhost_syncpt_address(
+				syncpt_addr = nvhost_syncpt_address(
 							task->queue->vm_pdev, id);
 
 				ptr += pva_task_write_ptr_op(
@@ -652,14 +640,9 @@ static int pva_task_write_preactions(struct pva_submit_task *task,
 		for (j = 0; j < task->num_pvafences[i]; j++) {
 			struct nvdev_fence *fence =
 				&task->pvafences[i][j].fence;
-			u32 thresh;
 
 			switch (fence->type) {
 			case NVDEV_FENCE_TYPE_SYNCPT: {
-				dma_addr_t syncpt_gos_addr =
-					nvhost_syncpt_gos_address(
-						task->pva->pdev,
-						fence->syncpoint_index);
 				dma_addr_t syncpt_addr =
 					nvhost_syncpt_address(
 						task->queue->vm_pdev,
@@ -671,17 +654,6 @@ static int pva_task_write_preactions(struct pva_submit_task *task,
 					syncpt_addr,
 					1U);
 				task->fence_num += increment;
-				/* Make a syncpoint increment */
-				if (syncpt_gos_addr) {
-					thresh = nvhost_syncpt_read_maxval(
-						host1x_pdev,
-						task->queue->syncpt_id) +
-						task->fence_num;
-					ptr += pva_task_write_ptr_op(
-						&hw_preactions[ptr],
-						TASK_ACT_PTR_WRITE_VAL,
-						syncpt_gos_addr, thresh);
-				}
 				break;
 			}
 			case NVDEV_FENCE_TYPE_SEMAPHORE:
@@ -735,14 +707,9 @@ static void pva_task_write_postactions(struct pva_submit_task *task,
 {
 	dma_addr_t syncpt_addr = nvhost_syncpt_address(task->queue->vm_pdev,
 				task->queue->syncpt_id);
-	dma_addr_t syncpt_gos_addr = nvhost_syncpt_gos_address(task->pva->pdev,
-				task->queue->syncpt_id);
 	u8 *hw_postactions = hw_task->postactions;
 	int ptr = 0, i = 0;
-	struct platform_device *host1x_pdev =
-			to_platform_device(task->pva->pdev->dev.parent);
 	dma_addr_t output_status_addr;
-	u32 thresh;
 	u8 action_ts;
 	int j;
 
@@ -835,17 +802,6 @@ static void pva_task_write_postactions(struct pva_submit_task *task,
 	}
 
 	task->fence_num += 1;
-
-	/* Make a syncpoint increment */
-	if (syncpt_gos_addr) {
-		thresh = nvhost_syncpt_read_maxval(
-			host1x_pdev,
-			task->queue->syncpt_id) + task->fence_num;
-		ptr += pva_task_write_ptr_op(
-			&hw_postactions[ptr],
-			TASK_ACT_PTR_WRITE_VAL,
-			syncpt_gos_addr, thresh);
-	}
 
 	ptr += pva_task_write_ptr_op(&hw_postactions[ptr],
 		TASK_ACT_PTR_WRITE_VAL, syncpt_addr, 1);
@@ -1182,8 +1138,7 @@ static void
 pva_eventlib_record_r5_states(struct platform_device *pdev,
 			      u32 syncpt_id,
 			      u32 syncpt_thresh,
-			      struct pva_task_statistics *stats,
-			      u32 operation)
+			      struct pva_task_statistics *stats)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct nvhost_pva_task_state state;
@@ -1194,7 +1149,9 @@ pva_eventlib_record_r5_states(struct platform_device *pdev,
 	state.class_id = pdata->class;
 	state.syncpt_id = syncpt_id;
 	state.syncpt_thresh = syncpt_thresh;
-	state.operation = operation;
+	state.vpu_id	= stats->vpu_assigned;
+	state.queue_id	= 0;
+	state.iova	= 0;
 
 	keventlib_write(pdata->eventlib_id,
 			&state,
@@ -1264,8 +1221,7 @@ pva_eventlib_record_perf_counter(struct platform_device *pdev,
 }
 static void
 pva_eventlib_record_r5_states(struct platform_device *pdev,
-			      struct pva_task_statistics *stats,
-			      u32 operation)
+			      struct pva_task_statistics *stats)
 {
 }
 #endif
@@ -1330,7 +1286,7 @@ static void pva_task_update(struct pva_submit_task *task)
 	pva_eventlib_record_r5_states(pdev,
 			queue->syncpt_id,
 			task->syncpt_thresh,
-			stats, task->operation);
+			stats);
 
 	/* Record task postfences */
 	nvhost_eventlib_log_fences(pdev,

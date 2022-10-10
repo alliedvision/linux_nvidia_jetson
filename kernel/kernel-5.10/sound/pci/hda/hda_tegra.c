@@ -148,6 +148,7 @@ static void hda_tegra_init(struct hda_tegra *hda)
 	/* program HDA_GSC_ID to get access to APR */
 	switch (tegra_get_chip_id()) {
 	case TEGRA194:
+	case TEGRA234:
 		writel(HDA_GSC_ID, hda->regs + HDA_GSC_REG);
 		break;
 	default:

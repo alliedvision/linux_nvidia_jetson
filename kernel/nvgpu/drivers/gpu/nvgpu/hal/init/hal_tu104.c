@@ -1,7 +1,7 @@
 /*
  * TU104 Tegra HAL interface
  *
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -51,7 +51,7 @@
 #include "hal/priv_ring/priv_ring_gp10b.h"
 #include "hal/priv_ring/priv_ring_gv11b.h"
 #include "hal/power_features/cg/tu104_gating_reglist.h"
-#include "hal/cbc/cbc_gm20b.h"
+#include "hal/cbc/cbc_gv11b.h"
 #include "hal/cbc/cbc_tu104.h"
 #include "hal/therm/therm_gm20b.h"
 #include "hal/therm/therm_tu104.h"
@@ -81,6 +81,7 @@
 #include "hal/fuse/fuse_gm20b.h"
 #include "hal/fuse/fuse_gp10b.h"
 #include "hal/fuse/fuse_gp106.h"
+#include "hal/fuse/fuse_gv11b.h"
 #include "hal/fuse/fuse_tu104.h"
 #ifdef CONFIG_NVGPU_RECOVERY
 #include "hal/rc/rc_gv11b.h"
@@ -130,6 +131,7 @@
 #include "hal/gr/falcon/gr_falcon_gv11b.h"
 #include "hal/gr/falcon/gr_falcon_tu104.h"
 #include "hal/gr/config/gr_config_gm20b.h"
+#include "hal/gr/config/gr_config_gv11b.h"
 #include "hal/gr/config/gr_config_gv100.h"
 #ifdef CONFIG_NVGPU_GRAPHICS
 #include "hal/gr/zbc/zbc_gm20b.h"
@@ -308,7 +310,9 @@ static const struct gops_ecc tu104_ops_ecc = {
 static const struct gops_ltc_intr tu104_ops_ltc_intr = {
 	.configure = gv11b_ltc_intr_configure,
 	.isr = gv11b_ltc_intr_isr,
+#ifdef CONFIG_NVGPU_NON_FUSA
 	.en_illegal_compstat = gv11b_ltc_intr_en_illegal_compstat,
+#endif
 };
 
 static const struct gops_ltc tu104_ops_ltc = {
@@ -318,7 +322,9 @@ static const struct gops_ltc tu104_ops_ltc = {
 	.determine_L2_size_bytes = gp10b_determine_L2_size_bytes,
 	.init_fs_state = ltc_tu104_init_fs_state,
 	.flush = gm20b_flush_ltc,
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 	.set_enabled = gp10b_ltc_set_enabled,
+#endif
 #ifdef CONFIG_NVGPU_GRAPHICS
 	.set_zbc_s_entry = gv11b_ltc_set_zbc_stencil_entry,
 	.set_zbc_color_entry = gm20b_ltc_set_zbc_color_entry,
@@ -339,7 +345,7 @@ static const struct gops_ltc tu104_ops_ltc = {
 static const struct gops_cbc tu104_ops_cbc = {
 	.cbc_init_support = nvgpu_cbc_init_support,
 	.cbc_remove_support = nvgpu_cbc_remove_support,
-	.init = tu104_cbc_init,
+	.init = gv11b_cbc_init,
 	.alloc_comptags = tu104_cbc_alloc_comptags,
 	.ctrl = tu104_cbc_ctrl,
 	.fix_config = NULL,
@@ -355,11 +361,17 @@ static const struct gops_ce tu104_ops_ce = {
 #endif
 	.set_pce2lce_mapping = tu104_ce_set_pce2lce_mapping,
 	.isr_stall = gv11b_ce_stall_isr,
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	.isr_nonstall = NULL,
+#endif
 	.get_num_pce = gv11b_ce_get_num_pce,
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	.mthd_buffer_fault_in_bar2_fault = gv11b_ce_mthd_buffer_fault_in_bar2_fault,
+#endif
 	.init_prod_values = gv11b_ce_init_prod_values,
+	.halt_engine = gv11b_ce_halt_engine,
 	.request_idle = NULL,
+	.get_inst_ptr_from_lce = gv11b_ce_get_inst_ptr_from_lce,
 };
 
 static const struct gops_gr_ecc tu104_ops_gr_ecc = {
@@ -445,6 +457,7 @@ static const struct gops_gr_config tu104_ops_gr_config = {
 	.get_gpc_tpc_mask = gm20b_gr_config_get_gpc_tpc_mask,
 	.get_tpc_count_in_gpc = gm20b_gr_config_get_tpc_count_in_gpc,
 	.get_pes_tpc_mask = gm20b_gr_config_get_pes_tpc_mask,
+	.get_gpc_pes_mask = gv11b_gr_config_get_gpc_pes_mask,
 	.get_pd_dist_skip_table_size = gm20b_gr_config_get_pd_dist_skip_table_size,
 	.init_sm_id_table = gv100_gr_config_init_sm_id_table,
 #ifdef CONFIG_NVGPU_GRAPHICS
@@ -792,7 +805,9 @@ static const struct gops_fb tu104_ops_fb = {
 	.fbpa_ecc_free = tu104_fbpa_ecc_free,
 	.init_hw = gv11b_fb_init_hw,
 	.init_fs_state = gp106_fb_init_fs_state,
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	.set_atomic_mode = tu104_fb_set_atomic_mode,
+#endif
 	.set_mmu_page_size = NULL,
 	.mmu_ctrl = gm20b_fb_mmu_ctrl,
 	.mmu_debug_ctrl = gm20b_fb_mmu_debug_ctrl,
@@ -815,14 +830,18 @@ static const struct gops_fb tu104_ops_fb = {
 	.set_debug_mode = gm20b_fb_set_debug_mode,
 	.set_mmu_debug_mode = gv100_fb_set_mmu_debug_mode,
 #endif
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	.tlb_invalidate = fb_tu104_tlb_invalidate,
+#endif
 #ifdef CONFIG_NVGPU_REPLAYABLE_FAULT
 	.handle_replayable_fault = gv11b_fb_handle_replayable_mmu_fault,
 	.mmu_invalidate_replay = tu104_fb_mmu_invalidate_replay,
 #endif
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	.mem_unlock = gv100_fb_memory_unlock,
 	.init_nvlink = gv100_fb_init_nvlink,
 	.enable_nvlink = gv100_fb_enable_nvlink,
+#endif
 	.init_fbpa = tu104_fbpa_init,
 	.handle_fbpa_intr = tu104_fbpa_handle_intr,
 	.write_mmu_fault_buffer_lo_hi = tu104_fb_write_mmu_fault_buffer_lo_hi,
@@ -839,10 +858,12 @@ static const struct gops_fb tu104_ops_fb = {
 	.is_fault_buf_enabled = gv11b_fb_is_fault_buf_enabled,
 	.fault_buf_set_state_hw = gv11b_fb_fault_buf_set_state_hw,
 	.fault_buf_configure_hw = gv11b_fb_fault_buf_configure_hw,
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 #ifdef CONFIG_NVGPU_DGPU
 	.get_vidmem_size = tu104_fb_get_vidmem_size,
 #endif
 	.apply_pdb_cache_errata = tu104_fb_apply_pdb_cache_errata,
+#endif
 };
 
 static const struct gops_nvdec tu104_ops_nvdec = {
@@ -1282,6 +1303,7 @@ static const struct gops_regops tu104_ops_regops = {
 	.get_hwpm_router_register_ranges = tu104_get_hwpm_router_register_ranges,
 	.get_hwpm_pma_channel_register_ranges = tu104_get_hwpm_pma_channel_register_ranges,
 	.get_hwpm_pma_trigger_register_ranges = tu104_get_hwpm_pma_trigger_register_ranges,
+	.get_hwpm_pc_sampler_register_ranges = tu104_get_hwpm_pc_sampler_register_ranges,
 	.get_smpc_register_ranges = tu104_get_smpc_register_ranges,
 	.get_cau_register_ranges = tu104_get_cau_register_ranges,
 	.get_hwpm_perfmux_register_ranges = tu104_get_hwpm_perfmux_register_ranges,
@@ -1512,6 +1534,7 @@ static const struct gops_fuse tu104_ops_fuse = {
 	.fuse_status_opt_fbp = gm20b_fuse_status_opt_fbp,
 	.fuse_status_opt_l2_fbp = gm20b_fuse_status_opt_l2_fbp,
 	.fuse_status_opt_gpc = gm20b_fuse_status_opt_gpc,
+	.fuse_status_opt_pes_gpc = gv11b_fuse_status_opt_pes_gpc,
 	.fuse_status_opt_tpc_gpc = gm20b_fuse_status_opt_tpc_gpc,
 	.fuse_ctrl_opt_tpc_gpc = gm20b_fuse_ctrl_opt_tpc_gpc,
 	/* Turing is multi-GPC config, static GPC PG to be taken care later */
@@ -1626,6 +1649,7 @@ static const struct gops_top tu104_ops_top = {
 	.get_max_lts_per_ltc = gm20b_top_get_max_lts_per_ltc,
 	.get_num_ltcs = gm20b_top_get_num_ltcs,
 	.get_num_lce = gv11b_top_get_num_lce,
+	.get_max_pes_per_gpc = gv11b_top_get_max_pes_per_gpc,
 };
 #endif
 
@@ -1758,6 +1782,7 @@ int tu104_init_hal(struct gk20a *g)
 	nvgpu_set_errata(g, NVGPU_ERRATA_VBIOS_NVLINK_MASK, true);
 	nvgpu_set_errata(g, NVGPU_ERRATA_200391931, true);
 	nvgpu_set_errata(g, NVGPU_ERRATA_SYNCPT_INVALID_ID_0, true);
+	nvgpu_set_errata(g, NVGPU_ERRATA_3524791, true);
 
 	nvgpu_set_enabled(g, NVGPU_SEC_PRIVSECURITY, true);
 	nvgpu_set_enabled(g, NVGPU_SEC_SECUREGPCCS, true);
@@ -1887,6 +1912,7 @@ int tu104_init_hal(struct gk20a *g)
 #ifdef CONFIG_NVGPU_CLK_ARB
 	nvgpu_set_enabled(g, NVGPU_CLK_ARB_ENABLED, false);
 #endif
+	nvgpu_set_enabled(g, NVGPU_SUPPORT_PES_FS, true);
 	g->name = "tu10x";
 
 	return 0;

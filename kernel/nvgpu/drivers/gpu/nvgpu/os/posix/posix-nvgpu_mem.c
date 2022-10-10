@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -103,11 +103,14 @@ u64 nvgpu_mem_sgl_phys(struct gk20a *g, void *sgl)
 {
 	struct nvgpu_mem_sgl *mem = (struct nvgpu_mem_sgl *)sgl;
 
+	(void)g;
 	return (u64)(uintptr_t)mem->phys;
 }
 
 u64 nvgpu_mem_sgl_ipa_to_pa(struct gk20a *g, void *sgl, u64 ipa, u64 *pa_len)
 {
+	(void)ipa;
+	(void)pa_len;
 	return nvgpu_mem_sgl_phys(g, sgl);
 }
 
@@ -145,6 +148,7 @@ bool nvgpu_mem_sgt_iommuable(struct gk20a *g, struct nvgpu_sgt *sgt)
 {
 	struct nvgpu_os_posix *p = nvgpu_os_posix_from_gk20a(g);
 
+	(void)sgt;
 	return p->mm_sgt_is_iommuable;
 }
 
@@ -301,6 +305,8 @@ int nvgpu_mem_create_from_mem(struct gk20a *g,
 	u64 start = start_page * U64(NVGPU_CPU_PAGE_SIZE);
 	u64 size = U64(nr_pages) * U64(NVGPU_CPU_PAGE_SIZE);
 
+	(void)g;
+
 	if (src->aperture != APERTURE_SYSMEM) {
 		return -EINVAL;
 	}
@@ -327,6 +333,10 @@ int nvgpu_mem_create_from_mem(struct gk20a *g,
 int __nvgpu_mem_create_from_phys(struct gk20a *g, struct nvgpu_mem *dest,
 				 u64 src_phys, int nr_pages)
 {
+	(void)g;
+	(void)dest;
+	(void)src_phys;
+	(void)nr_pages;
 	BUG();
 	return 0;
 }

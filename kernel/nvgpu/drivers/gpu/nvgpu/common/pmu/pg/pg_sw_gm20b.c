@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,17 +27,21 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/pmu/pmu_pg.h>
 #include <nvgpu/engines.h>
+#include <nvgpu/string.h>
 
 #include "pg_sw_gm20b.h"
 #include "pmu_pg.h"
 
 u32 gm20b_pmu_pg_engines_list(struct gk20a *g)
 {
+	(void)g;
 	return BIT32(PMU_PG_ELPG_ENGINE_ID_GRAPHICS);
 }
 
 u32 gm20b_pmu_pg_feature_list(struct gk20a *g, u32 pg_engine_id)
 {
+	(void)g;
+
 	if (pg_engine_id == PMU_PG_ELPG_ENGINE_ID_GRAPHICS) {
 		return NVGPU_PMU_GR_FEATURE_MASK_POWER_GATING;
 	}
@@ -49,6 +53,8 @@ static void pmu_handle_zbc_msg(struct gk20a *g, struct pmu_msg *msg,
 	void *param, u32 status)
 {
 	struct nvgpu_pmu *pmu = param;
+	(void)msg;
+	(void)status;
 	nvgpu_pmu_dbg(g, "reply ZBC_TABLE_UPDATE");
 	pmu->pg->zbc_save_done = true;
 }
@@ -342,6 +348,8 @@ int gm20b_pmu_pg_init_send(struct gk20a *g, struct nvgpu_pmu *pmu,
 void nvgpu_gm20b_pg_sw_init(struct gk20a *g,
 		struct nvgpu_pmu_pg *pg)
 {
+	(void)g;
+
 	pg->elpg_statistics = gm20b_pmu_elpg_statistics;
 	pg->init_param = NULL;
 	pg->supported_engines_list = gm20b_pmu_pg_engines_list;

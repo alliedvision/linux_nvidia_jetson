@@ -122,7 +122,6 @@
 	/* ISO-SMMU is not available for a VM and hence
 	 * all the properties related to ISO-SMMU are deleted.
 	 * TEGRA_IOMMU_DT_VERSION supports multiple SMMU instances */
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 	iommu@10000000 {
 		/delete-property/ stream-match-mask;
 		status = "disabled";
@@ -131,13 +130,6 @@
 	iommu@12000000 {
 		/delete-property/ stream-match-mask;
 	};
-#else
-	iommu@12000000 {
-		reg = <0x0 0x12000000 0x0 0x01000000>, /* SMMU0 16MB */
-		      <0x0 0x11000000 0x0 0x01000000>; /* SMMU1 16MB */
-		/delete-property/ iso-smmu-id;
-	};
-#endif
 
 	xhci@3610000 {
 		vfs_num = <4>;

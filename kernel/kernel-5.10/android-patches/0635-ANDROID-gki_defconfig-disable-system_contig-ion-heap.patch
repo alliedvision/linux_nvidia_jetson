@@ -1,0 +1,43 @@
+From e72f72ad89c1a0b4370d21a7f7d2d8b90103d316 Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Wed, 12 Feb 2020 23:45:28 -0800
+Subject: [PATCH 635/830] ANDROID: gki_defconfig: disable system_contig ion
+ heap.
+X-NVConfidentiality: public
+
+Test: build, boot, ion-unit-test
+Bug: 138149732
+Change-Id: Ic7bc1e59c5bdbdda656fbc06e6dcffea6b7740cf
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index b06cd8997771..461d9bef7a76 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -356,7 +356,6 @@ CONFIG_ASHMEM=y
+ CONFIG_ANDROID_VSOC=y
+ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+-CONFIG_ION_SYSTEM_CONTIG_HEAP=y
+ CONFIG_COMMON_CLK_SCPI=y
+ CONFIG_HWSPINLOCK=y
+ CONFIG_MAILBOX=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index eb26f04eb04a..fccc478530b5 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -307,7 +307,6 @@ CONFIG_STAGING=y
+ CONFIG_ASHMEM=y
+ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+-CONFIG_ION_SYSTEM_CONTIG_HEAP=y
+ CONFIG_PM_DEVFREQ=y
+ CONFIG_IIO=y
+ CONFIG_ANDROID=y
+-- 
+2.17.1
+

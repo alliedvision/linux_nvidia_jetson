@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This header is BSD licensed so anyone can use the definitions to implement
  * compatible drivers/servers.
@@ -183,7 +183,7 @@ int tegra_hv_ivc_can_write(struct tegra_hv_ivc_cookie *ivck);
  * value returned as the receiver consumes frames.
  *
  */
-uint32_t tegra_hv_ivc_tx_frames_avilable(struct tegra_hv_ivc_cookie *ivck);
+uint32_t tegra_hv_ivc_tx_frames_available(struct tegra_hv_ivc_cookie *ivck);
 
 /**
  * ivc_hv_ivc_tx_empty - Test whether the tx queue is empty
@@ -380,7 +380,7 @@ static inline int tegra_hv_ivc_can_write(struct tegra_hv_ivc_cookie *ivck)
 	return 0;
 }
 
-static inline uint32_t tegra_hv_ivc_tx_frames_avilable(
+static inline uint32_t tegra_hv_ivc_tx_frames_available(
 		struct tegra_hv_ivc_cookie *ivck)
 {
 	return 0;

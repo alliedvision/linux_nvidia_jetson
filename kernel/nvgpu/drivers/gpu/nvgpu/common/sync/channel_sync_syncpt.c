@@ -1,7 +1,7 @@
 /*
  * GK20A Channel Synchronization Abstraction
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -165,6 +165,10 @@ static int channel_sync_syncpt_wait_fd(struct nvgpu_channel_sync *s, int fd,
 {
 	struct nvgpu_channel_sync_syncpt *sp =
 		nvgpu_channel_sync_syncpt_from_base(s);
+	(void)s;
+	(void)fd;
+	(void)wait_cmd;
+	(void)max_wait_cmds;
 	nvgpu_err(sp->c->g,
 		  "trying to use sync fds with CONFIG_NVGPU_SYNCFD_NONE");
 	return -ENODEV;
@@ -174,6 +178,8 @@ static int channel_sync_syncpt_wait_fd(struct nvgpu_channel_sync *s, int fd,
 static void channel_sync_syncpt_update(void *priv, int nr_completed)
 {
 	struct nvgpu_channel *ch = priv;
+
+	(void)nr_completed;
 
 	nvgpu_channel_update(ch);
 

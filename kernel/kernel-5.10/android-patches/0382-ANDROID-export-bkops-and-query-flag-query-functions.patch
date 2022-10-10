@@ -1,0 +1,101 @@
+From 2b19cf4363206d195ede02bf0af27f4e4acb1aee Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Sun, 13 Sep 2020 23:21:59 -0700
+Subject: [PATCH 382/830] ANDROID: export bkops and query/flag query functions
+X-NVConfidentiality: public
+
+This allows to call outside of ufshcd core.
+
+Bug: 158050260
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: Ic989ab580303edaca03e7a47a243524c5e22c8de
+---
+ drivers/scsi/ufs/ufshcd.c | 10 +++++++---
+ drivers/scsi/ufs/ufshcd.h |  6 ++++++
+ 2 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index a98a43f5eb8e..cdd50b4a9ff6 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -2888,7 +2888,7 @@ static inline void ufshcd_init_query(struct ufs_hba *hba,
+ 	(*request)->upiu_req.selector = selector;
+ }
+ 
+-static int ufshcd_query_flag_retry(struct ufs_hba *hba,
++int ufshcd_query_flag_retry(struct ufs_hba *hba,
+ 	enum query_opcode opcode, enum flag_idn idn, u8 index, bool *flag_res)
+ {
+ 	int ret;
+@@ -2910,6 +2910,7 @@ static int ufshcd_query_flag_retry(struct ufs_hba *hba,
+ 			__func__, opcode, idn, ret, retries);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_query_flag_retry);
+ 
+ /**
+  * ufshcd_query_flag() - API function for sending flag query requests
+@@ -3129,7 +3130,7 @@ EXPORT_SYMBOL(ufshcd_get_config_desc_lock);
+  *
+  * Returns 0 for success, non-zero in case of failure
+ */
+-static int ufshcd_query_attr_retry(struct ufs_hba *hba,
++int ufshcd_query_attr_retry(struct ufs_hba *hba,
+ 	enum query_opcode opcode, enum attr_idn idn, u8 index, u8 selector,
+ 	u32 *attr_val)
+ {
+@@ -3152,6 +3153,7 @@ static int ufshcd_query_attr_retry(struct ufs_hba *hba,
+ 			__func__, idn, ret, QUERY_REQ_RETRIES);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_query_attr_retry);
+ 
+ static int __ufshcd_query_descriptor(struct ufs_hba *hba,
+ 			enum query_opcode opcode, enum desc_idn idn, u8 index,
+@@ -3384,6 +3386,7 @@ int ufshcd_read_desc_param(struct ufs_hba *hba,
+ 		kfree(desc_buf);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_read_desc_param);
+ 
+ /**
+  * struct uc_string_id - unicode string
+@@ -5417,7 +5420,7 @@ static inline int ufshcd_get_bkops_status(struct ufs_hba *hba, u32 *status)
+  * to know whether auto bkops is enabled or disabled after this function
+  * returns control to it.
+  */
+-static int ufshcd_bkops_ctrl(struct ufs_hba *hba,
++int ufshcd_bkops_ctrl(struct ufs_hba *hba,
+ 			     enum bkops_status status)
+ {
+ 	int err;
+@@ -5445,6 +5448,7 @@ static int ufshcd_bkops_ctrl(struct ufs_hba *hba,
+ out:
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_bkops_ctrl);
+ 
+ /**
+  * ufshcd_urgent_bkops - handle urgent bkops exception event
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index ba6c981859ba..a101eae90031 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -1106,8 +1106,14 @@ int ufshcd_read_desc_param(struct ufs_hba *hba,
+ 			   u8 param_size);
+ int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
+ 		      enum attr_idn idn, u8 index, u8 selector, u32 *attr_val);
++int ufshcd_query_attr_retry(struct ufs_hba *hba,
++	enum query_opcode opcode, enum attr_idn idn, u8 index, u8 selector,
++	u32 *attr_val);
+ int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
+ 	enum flag_idn idn, u8 index, bool *flag_res);
++int ufshcd_query_flag_retry(struct ufs_hba *hba,
++	enum query_opcode opcode, enum flag_idn idn, u8 index, bool *flag_res);
++int ufshcd_bkops_ctrl(struct ufs_hba *hba, enum bkops_status status);
+ 
+ void ufshcd_auto_hibern8_enable(struct ufs_hba *hba);
+ void ufshcd_auto_hibern8_update(struct ufs_hba *hba, u32 ahit);
+-- 
+2.17.1
+

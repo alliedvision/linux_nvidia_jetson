@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This header is BSD licensed so anyone can use the definitions to implement
  * compatible drivers/servers.
@@ -34,7 +34,7 @@
 
 #include <linux/ioctl.h>
 
-#define NVSCIIPC_MAX_EP_NAME      32
+#define NVSCIIPC_MAX_EP_NAME      64
 
 struct nvsciipc_config_entry {
 	/* endpoint name */

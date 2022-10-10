@@ -1,0 +1,31 @@
+From 2643ca196b685b92a72a3006a5731a705e871089 Mon Sep 17 00:00:00 2001
+From: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Date: Wed, 11 Dec 2019 16:34:37 -0800
+Subject: [PATCH 349/830] ANDROID: drivers: gpu: drm: export
+ drm_mode_convert_umode symbol
+X-NVConfidentiality: public
+
+Export drm_mode_convert_umode symbol for module consumption.
+
+Bug: 139653858
+Signed-off-by: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Change-Id: I5d4c15a5edb28616a2ff01d5acdf498bad6973d8
+---
+ drivers/gpu/drm/drm_modes.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/drm_modes.c b/drivers/gpu/drm/drm_modes.c
+index 0f99e5453f15..17712df52cdd 100644
+--- a/drivers/gpu/drm/drm_modes.c
++++ b/drivers/gpu/drm/drm_modes.c
+@@ -2016,6 +2016,7 @@ int drm_mode_convert_umode(struct drm_device *dev,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(drm_mode_convert_umode);
+ 
+ /**
+  * drm_mode_is_420_only - if a given videomode can be only supported in YCBCR420
+-- 
+2.17.1
+

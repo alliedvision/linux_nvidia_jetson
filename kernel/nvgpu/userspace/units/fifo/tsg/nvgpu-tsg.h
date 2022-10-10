@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -91,7 +91,7 @@ int test_tsg_open(struct unit_module *m,
  *   - Allocate channel with nvgpu_channel_open_new.
  *   - Check that nvgpu_tsg_bind_channel returns 0.
  *   - Check that TSG's list of channel is not empty.
- *   - Unbind channel with nvgpu_tsg_force_unbind_channel.
+ *   - Unbind channel with nvgpu_tsg_unbind_channel.
  *   - Check that ch->tsgid is now invalid.
  *   - Check that tsg can be retrieved from ch using nvgpu_tsg_from_ch.
  * - Check TSG bind failure cases:
@@ -121,7 +121,7 @@ int test_tsg_bind_channel(struct unit_module *m,
  *
  * Test Type: Feature
  *
- * Targets: nvgpu_tsg_force_unbind_channel
+ * Targets: nvgpu_tsg_unbind_channel
  *
  * Input: test_fifo_init_support() run for this GPU
  *

@@ -95,13 +95,11 @@ struct __packed pva_ucode_hdr_s {
 struct pva_ucode_r5_sysfw_info_s {
 	struct pva_ucode_seg_s evp __aligned(128);
 	struct pva_ucode_seg_s dram __aligned(128);
-	struct pva_ucode_seg_s overlay __aligned(128);
 	struct pva_ucode_seg_s crash_dump __aligned(128);
 	struct pva_ucode_seg_s trace_log __aligned(128);
 	struct pva_ucode_seg_s code_coverage __aligned(128);
 	struct pva_ucode_seg_s debug_log __aligned(128);
 	struct pva_ucode_seg_s cached_dram __aligned(128);
-	struct pva_ucode_seg_s uncached_dram __aligned(128);
 };
 
 #endif

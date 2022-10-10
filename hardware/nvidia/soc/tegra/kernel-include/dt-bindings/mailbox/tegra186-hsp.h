@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,8 +30,12 @@
 #define TEGRA_HSP_MBOX_TYPE_SM 0x1
 #define TEGRA_HSP_MBOX_TYPE_SS 0x2
 #define TEGRA_HSP_MBOX_TYPE_AS 0x3
-#define TEGRA_HSP_MBOX_TYPE_SM_128BIT 0x4
 
+#if TEGRA_HSP_DT_VERSION >= DT_VERSION_2
+#define TEGRA_HSP_MBOX_TYPE_SM_128BIT (1 << 8)
+#else
+#define TEGRA_HSP_MBOX_TYPE_SM_128BIT 0x4
+#endif
 /*
  * These defines represent the bit associated with the given master ID in the
  * doorbell registers.

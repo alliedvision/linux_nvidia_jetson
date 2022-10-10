@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,9 +49,9 @@
 #define MGBE_LPI_ENTRY_TIMER_MASK	0xFFFF8U
 /* 1US TIC counter - This counter should be programmed with the number of clock
  * cycles of CSR clock that constitutes a period of 1us.
- * it should be APB clock in MHZ i.e 408-1 for silicon and 13MHZ-1 for uFPGA
+ * it should be APB clock in MHZ i.e 480-1 for silicon and 13MHZ-1 for uFPGA
  */
-#define MGBE_1US_TIC_COUNTER		0x197
+#define MGBE_1US_TIC_COUNTER		0x1DF
 
 /** @} */
 
@@ -112,6 +112,7 @@
 #define MGBE_MAC_TSNSSEC		0x0D30
 #define MGBE_MAC_TSSEC			0x0D34
 #define MGBE_MAC_TSPKID			0x0D38
+#define MGBE_MAC_PPS_CTL		0x0D70
 #define MGBE_MAC_PTO_CR			0x0DC0
 #define MGBE_MAC_PIDR0			0x0DC4
 #define MGBE_MAC_PIDR1			0x0DC8
@@ -128,8 +129,13 @@
 #define MGBE_WRAP_AXI_ASID1_CTRL	0x8404
 #define MGBE_WRAP_AXI_ASID2_CTRL	0x8408
 #define MGBE_WRAP_COMMON_INTR_ENABLE	0x8704
+#define MGBE_REGISTER_PARITY_ERR	OSI_BIT(5)
+#define MGBE_CORE_CORRECTABLE_ERR	OSI_BIT(4)
+#define MGBE_CORE_UNCORRECTABLE_ERR	OSI_BIT(3)
+#define MGBE_MAC_SBD_INTR		OSI_BIT(2)
 #define MGBE_WRAP_COMMON_INTR_STATUS	0x8708
 #define MGBE_VIRT_INTR_APB_CHX_CNTRL(x)	(0x8200U + ((x) * 4U))
+#define MGBE_VIRTUAL_APB_ERR_CTRL	0x8300
 #define MGBE_WRAP_SYNC_TSC_PTP_CAPTURE	0x800CU
 #define MGBE_WRAP_TSC_CAPTURE_LOW	0x8010U
 #define MGBE_WRAP_TSC_CAPTURE_HIGH	0x8014U
@@ -252,6 +258,8 @@
 #define MGBE_MAC_L4_ADDR_SP_MASK	0x0000FFFFU
 #define MGBE_MAC_L4_ADDR_DP_MASK	0xFFFF0000U
 #define MGBE_MAC_L4_ADDR_DP_SHIFT	16
+#define MGBE_MAC_PPS_CTL_PPSCTRL0	(OSI_BIT(3) | OSI_BIT(2) |\
+					 OSI_BIT(1) | OSI_BIT(0))
 /** @} */
 
 /**
@@ -368,7 +376,6 @@
 #define MGBE_MTL_FRP_IE2_IM			OSI_BIT(2)
 #define MGBE_MTL_FRP_IE2_RF			OSI_BIT(1)
 #define MGBE_MTL_FRP_IE2_AF			OSI_BIT(0)
-#define MGBE_MTL_FRP_IE3_DCH_SHIFT		8U
 #define MGBE_MTL_FRP_IE3_DCH_MASK		0xFFFFU
 /* Indirect register defines */
 #define MGBE_MTL_RXP_DROP_CNT			0U
@@ -476,7 +483,7 @@
 #define MGBE_ISR_TSIS				OSI_BIT(12)
 #define MGBE_DMA_ISR_MTLIS                      OSI_BIT(16)
 #define MGBE_DMA_ISR_MACIS                      OSI_BIT(17)
-#define MGBE_DMA_ISR_DCH0_DCH15_MASK		0xFFU
+#define MGBE_DMA_ISR_DCH0_DCH15_MASK		0x3FFU
 #define MGBE_DMA_CHX_STATUS_TPS			OSI_BIT(1)
 #define MGBE_DMA_CHX_STATUS_TBU			OSI_BIT(2)
 #define MGBE_DMA_CHX_STATUS_RBU			OSI_BIT(7)
@@ -634,6 +641,7 @@
 						 OSI_BIT(21) | OSI_BIT(22))
 #define MGBE_MTL_EST_CONTROL_CTOV_SHIFT		11U
 #define MGBE_MTL_EST_CTOV_RECOMMEND		42U
+#define MGBE_8PTP_CYCLE				26U
 #ifdef MACSEC_SUPPORT
 /**
  * MACSEC Recommended value
@@ -648,7 +656,6 @@
 #define MGBE_MTL_EST_CONTROL_LCSE_SHIFT		6U
 #define MGBE_MTL_EST_CONTROL_DDBF		OSI_BIT(4)
 #define MGBE_MTL_EST_CONTROL_SSWL		OSI_BIT(1)
-#define MGBE_MTL_EST_CONTROL_EEST		OSI_BIT(0)
 #define MGBE_MTL_EST_OVERHEAD_OVHD		(OSI_BIT(0) | OSI_BIT(1) | \
 						 OSI_BIT(2) | OSI_BIT(3) | \
 						 OSI_BIT(4) | OSI_BIT(5))
@@ -665,8 +672,8 @@
 						 OSI_BIT(14) | OSI_BIT(15) | \
 						 OSI_BIT(16) | OSI_BIT(17) | \
 						 OSI_BIT(18) | OSI_BIT(19))
-#define MGBE_MTL_EST_GCRR			OSI_BIT(2)
 #define MGBE_MTL_EST_SRWO			OSI_BIT(0)
+#define MGBE_MTL_EST_GCRR			OSI_BIT(2)
 #define MGBE_MTL_EST_ERR0			OSI_BIT(20)
 /* EST GCRA addresses */
 #define MGBE_MTL_EST_BTR_LOW			((unsigned int)0x0 << \
@@ -695,7 +702,7 @@
 #define MGBE_MTL_EST_ITRE_IEHF			OSI_BIT(2)
 #define MGBE_MTL_EST_ITRE_IEBE			OSI_BIT(1)
 #define MGBE_MTL_EST_ITRE_IECC			OSI_BIT(0)
-#define MGBE_MAC_SBD_INTR			OSI_BIT(2)
+
 #define MGBE_MAC_EXT_CNF_DDS			OSI_BIT(7)
 #define MGBE_MAC_EXT_CNF_EIPG 			0x1U
 #define MGBE_MAC_EXT_CNF_EIPG_MASK		0x7FU
@@ -1090,4 +1097,50 @@
 #define MGBE_MAC_FRP_BYTES128		128U
 #define MGBE_MAC_FRP_BYTES256		256U
 /** @} */
+
+#ifdef HSI_SUPPORT
+/**
+ * @addtogroup MGBE-HSI
+ *
+ * @brief HSI feature related registers and bitmap
+ * @{
+ */
+#define MGBE_MTL_ECC_INTERRUPT_ENABLE		0x10C8U
+#define MGBE_MTL_TXCEIE				OSI_BIT(0)
+#define MGBE_MTL_RXCEIE				OSI_BIT(4)
+#define MGBE_MTL_GCEIE				OSI_BIT(8)
+#define MGBE_MTL_RPCEIE				OSI_BIT(12)
+#define MGBE_DMA_ECC_INTERRUPT_ENABLE		0x3068U
+#define MGBE_DMA_TCEIE				OSI_BIT(0)
+#define MGBE_DMA_DCEIE				OSI_BIT(1)
+#define MGBE_MAC_SCSR_CONTROL			0x164U
+#define MGBE_CPEN				OSI_BIT(0)
+#define MGBE_MTL_ECC_INTERRUPT_STATUS		0x10CCU
+#define MGBE_DMA_ECC_INTERRUPT_STATUS		0x306CU
+#define MGBE_DWCXG_CORE_MAC_FSM_ACT_TIMER	0x15CU
+#define MGBE_CTMR_SHIFT				28U
+#define MGBE_CTMR_MASK				0x70000000U
+#define MGBE_LTMRMD_SHIFT			20U
+#define MGBE_LTMRMD_MASK			0xF00000U
+#define MGBE_NTMRMD_SHIFT			16U
+#define MGBE_NTMRMD_MASK			0xF0000U
+#define MGBE_TMR_SHIFT				0U
+#define MGBE_TMR_MASK				0x3FFU
+#define MGBE_MTL_ECC_CONTROL			0x10C0U
+#define MGBE_MTL_ECC_MTXED			OSI_BIT(0)
+#define MGBE_MTL_ECC_MRXED			OSI_BIT(1)
+#define MGBE_MTL_ECC_MGCLED			OSI_BIT(2)
+#define MGBE_MTL_ECC_MRXPED			OSI_BIT(3)
+#define MGBE_MTL_ECC_TSOED			OSI_BIT(4)
+#define MGBE_MTL_ECC_DESCED			OSI_BIT(5)
+#define MGBE_MAC_FSM_CONTROL			0x158U
+#define MGBE_TMOUTEN				OSI_BIT(0)
+#define MGBE_PRTYEN				OSI_BIT(1)
+#define MGBE_MAC_DPP_FSM_INTERRUPT_STATUS	0x150U
+#define MGBE_MTL_DPP_CONTROL			0x10E0U
+#define MGBE_DDPP				OSI_BIT(0)
+#define MGBE_MAC_DPP_FSM_INTERRUPT_STATUS	0x150U
+/** @} */
+#endif
+
 #endif /* MGBE_CORE_H_ */

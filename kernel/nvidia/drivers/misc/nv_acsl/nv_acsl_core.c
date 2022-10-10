@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -120,7 +120,7 @@ static int append_buf_to_csm(struct acsl_drv *drv, uint8_t PORT,
 {
 	struct csm_sm_state_t *csm_sm = drv->csm_sm;
 	struct device *dev = drv->dev;
-	status_t ret;
+	status_t ret = 0;
 
 	csm_sm->acq_buf_index[PORT][COMP_ID] =
 		drv->m_rel_buf_index[PORT][COMP_ID];
@@ -228,7 +228,7 @@ status_t csm_app_init(struct acsl_drv *drv)
 	struct csm_sm_state_t *csm_sm;
 	struct device *dev = drv->dev;
 	uint8_t i, j;
-	status_t ret;
+	status_t ret = 0;
 
 	for (i = 0; i < MAX_COMP; i++) {
 		for (j = 0; j < MAX_PORTS; j++) {

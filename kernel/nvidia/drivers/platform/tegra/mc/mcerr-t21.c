@@ -1,7 +1,7 @@
 /*
  * Tegra 12x SoC-specific mcerr code.
  *
- * Copyright (c) 2014-2017, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -345,10 +345,6 @@ static const struct mc_error *mcerr_default_info(u32 intr)
 	return NULL;
 }
 
-void __weak smmu_dump_pagetable(int swgid, dma_addr_t addr)
-{
-}
-
 /*
  * This will print at least 8 hex digits for address. If the address is bigger
  * then more digits will be printed but the full 16 hex digits for a 64 bit
@@ -359,9 +355,6 @@ static void mcerr_default_print(const struct mc_error *err,
 				u32 status, phys_addr_t addr,
 				int secure, int rw, const char *smmu_info)
 {
-	if (smmu_info)
-		smmu_dump_pagetable(client->swgid, addr);
-
 	if (err->flags & E_VPR)
 		mcerr_pr("vpr base=%x:%x, size=%x, ctrl=%x, override:(%x, %x, %x, %x)\n",
 			 mc_readl(MC_VIDEO_PROTECT_BOM_ADR_HI),
@@ -398,9 +391,18 @@ static void arb_intr(void)
 	spin_unlock_irqrestore(&arb_intr_info.lock, flags);
 }
 
-static void clear_interrupt(unsigned int irq)
+static void set_intstatus(unsigned int irq)
 {
+	/* Clear int status to clear MSS to LIC interrupts */
 	mc_writel(0x00033F40, MC_INTSTATUS);
+}
+
+static void clear_intstatus(unsigned int irq)
+{
+}
+
+static void save_intstatus(unsigned int irq)
+{
 }
 
 static void mcerr_info_update(struct mc_client *c, u32 stat)
@@ -478,7 +480,9 @@ end:
 }
 
 static struct mcerr_ops mcerr_ops = {
-	.clear_interrupt = clear_interrupt,
+	.set_intstatus = set_intstatus,
+	.clear_intstatus = clear_intstatus,
+	.save_intstatus = save_intstatus,
 	.log_mcerr_fault = log_mcerr_fault,
 	.nr_clients = ARRAY_SIZE(mc_clients),
 	.intr_descriptions = t210_intr_info,

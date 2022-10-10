@@ -2,7 +2,7 @@
 /*
  * tegra210_adsp_virt_alt.h - Tegra210 ADSP header
  *
- * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,22 +64,6 @@ enum tegra210_adsp_virt_regs {
 	TEGRA210_ADSP_ADMAIF18,
 	TEGRA210_ADSP_ADMAIF19,
 	TEGRA210_ADSP_ADMAIF20,
-
-	TEGRA210_ADSP_NULL_SINK1,
-	TEGRA210_ADSP_NULL_SINK2,
-	TEGRA210_ADSP_NULL_SINK3,
-	TEGRA210_ADSP_NULL_SINK4,
-	TEGRA210_ADSP_NULL_SINK5,
-	TEGRA210_ADSP_NULL_SINK6,
-	TEGRA210_ADSP_NULL_SINK7,
-	TEGRA210_ADSP_NULL_SINK8,
-	TEGRA210_ADSP_NULL_SINK9,
-	TEGRA210_ADSP_NULL_SINK10,
-	TEGRA210_ADSP_NULL_SINK11,
-	TEGRA210_ADSP_NULL_SINK12,
-	TEGRA210_ADSP_NULL_SINK13,
-	TEGRA210_ADSP_NULL_SINK14,
-	TEGRA210_ADSP_NULL_SINK15,
 
 	/* Virtual regs for apps */
 	TEGRA210_ADSP_APM_IN1,
@@ -182,8 +166,7 @@ enum tegra210_adsp_virt_regs {
 #define ADSP_FE_START		TEGRA210_ADSP_FRONT_END1
 #define ADSP_FE_END		TEGRA210_ADSP_FRONT_END15
 #define ADSP_ADMAIF_START	TEGRA210_ADSP_ADMAIF1
-#define ADSP_NULL_SINK_START	TEGRA210_ADSP_NULL_SINK1
-#define ADSP_ADMAIF_END		TEGRA210_ADSP_NULL_SINK15
+#define ADSP_ADMAIF_END		TEGRA210_ADSP_ADMAIF20
 #define ADSP_EAVB_START		TEGRA210_ADSP_EAVB
 #define ADSP_FE_COUNT		ADSP_EAVB_START
 #define APM_IN_START		TEGRA210_ADSP_APM_IN1
@@ -197,10 +180,7 @@ enum tegra210_adsp_virt_regs {
 #define PLUGIN_START		TEGRA210_ADSP_PLUGIN1
 #define PLUGIN_END			TEGRA210_ADSP_PLUGIN20
 #define PLUGIN_NUM			((PLUGIN_END - PLUGIN_START) + 1)
-#define ADSP_MAX_NULL_SINK	(ADSP_ADMAIF_END - ADSP_NULL_SINK_START + 1)
 
-#define IS_NULL_SINK(reg)	((reg >= ADSP_NULL_SINK_START) && \
-					(reg <= ADSP_ADMAIF_END))
 #define IS_APM_IN(reg)		((reg >= APM_IN_START) && (reg <= APM_IN_END))
 #define IS_APM_OUT(reg)		((reg >= APM_OUT_START) && (reg <= APM_OUT_END))
 #define IS_APM(reg)		(IS_APM_IN(reg) | IS_APM_OUT(reg))
@@ -215,13 +195,11 @@ enum tegra210_adsp_virt_regs {
 #define IS_ADSP_ADMAIF(reg)	((reg >= ADSP_ADMAIF_START) \
 						&& (reg <= ADSP_ADMAIF_END))
 
-#define IS_VALID_INPUT(fe, mask)	((1 << (fe - 1)) & mask)
 /* ADSP_MSG_FLAGs */
 #define TEGRA210_ADSP_MSG_FLAG_SEND	0x0
 #define TEGRA210_ADSP_MSG_FLAG_HOLD	0x1
 #define TEGRA210_ADSP_MSG_FLAG_NEED_ACK 0x2
 
-#define MAX_ADSP_SWITCHES		3
 /* TODO : Remove hard-coding and get data from DTS */
 #define TEGRA210_ADSP_ADMA_CHANNEL_START	10
 #define TEGRA210_ADSP_ADMA_CHANNEL_COUNT	10
@@ -233,15 +211,12 @@ enum tegra210_adsp_virt_regs {
 #define TEGRA210_ADSP_ADMA_CHANNEL_START_HV  16
 
 /* ADSP base index for widget name update */
+
 #define TEGRA210_ADSP_ROUTE_BASE	((TEGRA210_ADSP_ADMAIF20 * 18) + \
-					(ADSP_MAX_NULL_SINK * 17) +	\
-					(52 * (APM_OUT_START - APM_IN_START)))
-
-
-#define TEGRA210_ADSP_WIDGET_BASE	((ADSP_ADMAIF_END * 3) +	\
-					((TEGRA210_ADSP_PLUGIN1 -	\
-					TEGRA210_ADSP_APM_IN1) * 2) +	\
-					ADSP_MAX_NULL_SINK)
+					(15 * TEGRA210_ADSP_APM_OUT1))
+#define TEGRA210_ADSP_WIDGET_BASE \
+	((TEGRA210_ADSP_ADMAIF20 * 3) + \
+	(TEGRA210_ADSP_PLUGIN1 - TEGRA210_ADSP_APM_IN1) * 2)
 
 #define IS_MMAP_ACCESS(access)	\
 	((access == SNDRV_PCM_ACCESS_MMAP_INTERLEAVED) || \

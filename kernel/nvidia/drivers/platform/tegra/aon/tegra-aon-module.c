@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -198,8 +198,13 @@ static int tegra_aon_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	match = of_match_device(tegra_aon_of_match, dev);
-	pdata = (struct aon_platform_data *)match->data;
+	if (match == NULL) {
+		dev_info(dev, "no matching of node\n");
+		ret = -ENODATA;
+		goto exit;
+	}
 
+	pdata = (struct aon_platform_data *)match->data;
 	WARN_ON(!pdata);
 	if (!pdata) {
 		dev_info(dev, "no platform data\n");

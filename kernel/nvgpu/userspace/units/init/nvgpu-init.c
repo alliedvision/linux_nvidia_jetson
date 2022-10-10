@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -95,13 +95,13 @@ static void no_return_u32_param(struct gk20a *g, u32 dummy)
 	/* no op  */
 }
 
-int test_setup_env(struct unit_module *m,
+int init_test_setup_env(struct unit_module *m,
 			  struct gk20a *g, void *args)
 {
 	return UNIT_SUCCESS;
 }
 
-int test_free_env(struct unit_module *m,
+int init_test_free_env(struct unit_module *m,
 			 struct gk20a *g, void *args)
 {
 	/* Clean up quiesce thread */
@@ -185,6 +185,7 @@ int test_get_litter_value(struct unit_module *m,
 					VOLTA_DMA_COPY_A);
 	assert(gv11b_get_litter_value(g, GPU_LIT_GPC_PRIV_STRIDE) ==
 					proj_gpc_priv_stride_v());
+#ifdef CONFIG_NVGPU_DEBUGGER
 	assert(gv11b_get_litter_value(g, GPU_LIT_PERFMON_PMMGPCTPCA_DOMAIN_START) ==
 					2);
 	assert(gv11b_get_litter_value(g, GPU_LIT_PERFMON_PMMGPCTPCB_DOMAIN_START) ==
@@ -199,6 +200,7 @@ int test_get_litter_value(struct unit_module *m,
 					3);
 	assert(gv11b_get_litter_value(g, GPU_LIT_PERFMON_PMMFBP_ROP_DOMAIN_COUNT) ==
 					2);
+#endif
 
 	if (!EXPECT_BUG(gv11b_get_litter_value(g, U32_MAX))) {
 		unit_err(m, "%s: failed to detect INVALID value\n",
@@ -291,8 +293,10 @@ int test_get_put(struct unit_module *m,
 	nvgpu_ref_init(&g->refcount);
 
 	/* to cover the cases where these are set */
+#ifdef CONFIG_NVGPU_NON_FUSA
 	g->remove_support = no_return;
 	g->gfree = no_return;
+#endif
 	g->ops.ecc.ecc_remove_support = no_return;
 	g->ops.ltc.ltc_remove_support = no_return;
 
@@ -396,8 +400,12 @@ static void set_poweron_funcs_success(struct gk20a *g)
 	/* these are the simple case of just taking a g param */
 	setup_simple_init_func_success(&g->ops.ecc.ecc_init_support, i++);
 	setup_simple_init_func_success(&g->ops.mm.pd_cache_init, i++);
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	setup_simple_init_func_success(&g->ops.clk.init_clk_support, i++);
+#endif
+#ifdef CONFIG_NVGPU_NVLINK
 	setup_simple_init_func_success(&g->ops.nvlink.init, i++);
+#endif
 	setup_simple_init_func_success(&g->ops.fifo.reset_enable_hw, i++);
 	setup_simple_init_func_success(&g->ops.ltc.init_ltc_support, i++);
 	setup_simple_init_func_success(&g->ops.mm.init_mm_support, i++);
@@ -497,7 +505,9 @@ int test_poweron_branches(struct unit_module *m, struct gk20a *g, void *args)
 	set_poweron_funcs_success(g);
 
 	/* hit all the NULL pointer checks */
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	g->ops.clk.init_clk_support = NULL;
+#endif
 	g->ops.therm.elcg_init_idle_filters = NULL;
 	g->ops.ecc.ecc_init_support = NULL;
 	g->ops.channel.resume_all_serviceable_ch = NULL;
@@ -560,7 +570,9 @@ int test_poweroff(struct unit_module *m, struct gk20a *g, void *args)
 	setup_simple_init_func_success(&g->ops.fifo.fifo_suspend, i++);
 	simple_init_func_ptrs_count = i;
 
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	g->ops.clk.suspend_clk_support = no_return;
+#endif
 	g->ops.mc.intr_mask = no_return;
 	g->ops.falcon.falcon_sw_free = no_return_u32_param;
 
@@ -583,7 +595,9 @@ int test_poweroff(struct unit_module *m, struct gk20a *g, void *args)
 	/* Cover branches for NULL ptr checks */
 	g->ops.mc.intr_mask = NULL;
 	g->ops.channel.suspend_all_serviceable_ch = NULL;
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	g->ops.clk.suspend_clk_support = NULL;
+#endif
 	err = nvgpu_prepare_poweroff(g);
 	if (err != 0) {
 		unit_return_fail(m, "nvgpu_prepare_poweroff returned fail\n");
@@ -795,7 +809,7 @@ int test_quiesce(struct unit_module *m, struct gk20a *g, void *args)
 }
 
 struct unit_module_test init_tests[] = {
-	UNIT_TEST(init_setup_env,			test_setup_env,		NULL, 0),
+	UNIT_TEST(init_setup_env,			init_test_setup_env,	NULL, 0),
 	UNIT_TEST(get_litter_value,			test_get_litter_value,	NULL, 0),
 	UNIT_TEST(init_can_busy,			test_can_busy,		NULL, 0),
 	UNIT_TEST(init_get_put,				test_get_put,		NULL, 0),
@@ -805,7 +819,7 @@ struct unit_module_test init_tests[] = {
 	UNIT_TEST(init_poweroff,			test_poweroff,		NULL, 2),
 	UNIT_TEST(init_check_gpu_state,			test_check_gpu_state,	NULL, 2),
 	UNIT_TEST(init_quiesce,				test_quiesce,		NULL, 2),
-	UNIT_TEST(init_free_env,			test_free_env,		NULL, 0),
+	UNIT_TEST(init_free_env,			init_test_free_env,	NULL, 0),
 };
 
 UNIT_MODULE(init, init_tests, UNIT_PRIO_NVGPU_TEST);

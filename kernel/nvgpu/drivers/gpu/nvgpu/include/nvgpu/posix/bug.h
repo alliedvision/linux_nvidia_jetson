@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -60,9 +60,8 @@ void dump_stack(void);
  *
  * Function to be invoked upon identifying an unexpected state or result in the
  * code. This function invokes the quiesce callback if it is already registered.
- * If the callback is not yet registered, a SIGSEGV is raised using library
- * function #raise to terminate the process. Function does not perform any
- * validation of the parameters.
+ * A SIGSEGV is raised using library function #raise to terminate the process.
+ * Function does not perform any validation of the parameters.
  *
  * @param msg [in]	Message to be printed in log.
  * @param line_no [in]	Line number.
@@ -148,12 +147,10 @@ struct nvgpu_bug_cb;
  * @brief Exit current process
  *
  * This function is used during the handling of a bug to exit the calling
- * program. Uses the library function #exit with \a status as parameter.
- * Function does not perform any validation of the parameter.
- *
- * @param status [in]	Exit status to be used for the program.
+ * program, a SIGSEGV is raised using library function #raise to terminate
+ * the process.
  */
-void nvgpu_bug_exit(int status);
+void nvgpu_bug_exit(void);
 
 /**
  * @brief Register callback to be invoked on BUG()

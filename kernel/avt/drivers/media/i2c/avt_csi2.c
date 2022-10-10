@@ -6928,6 +6928,8 @@ static int avt_init_mode(struct v4l2_subdev *sd)
         avt_dbg(sd, "camera/host common csi clock range: %d:%d Hz\n",
                 common_min_clk, common_max_clk);
 
+        priv->host_csi_clk_freq = common_max_clk;
+
         if (priv->csi_clk_freq == 0) {
             avt_dbg(sd, "no csi clock requested, using common max (%d Hz)\n",
                     common_max_clk);
@@ -7125,7 +7127,7 @@ static int avt_initialize_controls(struct i2c_client *client, struct avt_csi2_pr
 
 			config.max = ARRAY_SIZE(priv->link_freqs) - 1;
 
-			priv->link_freqs[0] = priv->csi_clk_freq;
+			priv->link_freqs[0] = priv->host_csi_clk_freq;
 
 			config.qmenu_int = priv->link_freqs;
 		}

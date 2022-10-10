@@ -1,7 +1,7 @@
-From 387bc3324f313926160555eec94075b5563c7595 Mon Sep 17 00:00:00 2001
+From 466af2f60753afe07248ce047a155a8f1fc5653f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 28 Oct 2020 18:55:27 +0100
-Subject: [PATCH 066/304] lib/test_lockup: Minimum fix to get it compiled on
+Subject: [PATCH 066/318] lib/test_lockup: Minimum fix to get it compiled on
  PREEMPT_RT
 
 On PREEMPT_RT the locks are quite different so they can't be tested as
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 16 insertions(+)
 
 diff --git a/lib/test_lockup.c b/lib/test_lockup.c
-index f1a020b..864554e 100644
+index f1a020bcc763..864554e76973 100644
 --- a/lib/test_lockup.c
 +++ b/lib/test_lockup.c
 @@ -480,6 +480,21 @@ static int __init test_lockup_init(void)
@@ -51,14 +51,14 @@ index f1a020b..864554e 100644
  	if (test_magic(lock_spinlock_ptr,
  		       offsetof(spinlock_t, rlock.magic),
  		       SPINLOCK_MAGIC) ||
-@@ -494,6 +509,7 @@ static int __init test_lockup_init(void)
+@@ -493,6 +508,7 @@ static int __init test_lockup_init(void)
+ 		       offsetof(struct rw_semaphore, wait_lock.magic),
  		       SPINLOCK_MAGIC))
  		return -EINVAL;
- #endif
 +#endif
+ #endif
  
  	if ((wait_state != TASK_RUNNING ||
- 	     (call_cond_resched && !reacquire_locks) ||
 -- 
-2.7.4
+2.17.1
 

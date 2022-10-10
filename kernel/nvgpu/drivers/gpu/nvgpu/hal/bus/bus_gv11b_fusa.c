@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,5 +34,7 @@ void gv11b_bus_configure_debug_bus(struct gk20a *g)
 	nvgpu_writel(g, bus_debug_sel_1_r(), 0U);
 	nvgpu_writel(g, bus_debug_sel_2_r(), 0U);
 	nvgpu_writel(g, bus_debug_sel_3_r(), 0U);
+#else
+	(void)g;
 #endif
 }

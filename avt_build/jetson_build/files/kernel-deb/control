@@ -3,9 +3,9 @@ Maintainer: Allied Vision Technologies GmbH
 
 Package: avt-nvidia-l4t-kernel
 Architecture: arm64
-Pre-Depends: nvidia-l4t-core (>> 34.1-0), nvidia-l4t-core (<< 34.2-0)
-Depends: nvidia-l4t-tools (>> 34.1-0), nvidia-l4t-tools (<< 34.2-0)
-Conflicts: nvidia-l4t-kernel (<< 34.2-0)
+Pre-Depends: nvidia-l4t-core (>> 35.1-0), nvidia-l4t-core (<< 35.2-0)
+Depends: nvidia-l4t-tools (>> 35.1-0), nvidia-l4t-tools (<< 35.2-0)
+Conflicts: nvidia-l4t-kernel (<< 35.2-0)
 Section: kernel
 Priority: standard
 Homepage: http://developer.nvidia.com/jetson

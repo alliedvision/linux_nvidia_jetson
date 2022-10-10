@@ -1,7 +1,7 @@
 /*
  * Cycle stats snapshots support
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,6 +36,7 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/cyclestats_snapshot.h>
+#include <nvgpu/string.h>
 
 /* check client for pointed perfmon ownership */
 #define CONTAINS_PERFMON(cl, pm)				\
@@ -336,12 +337,12 @@ next_hw_fifo_entry:
 	/* re-set HW buffer after processing taking wrapping into account */
 	if (css->hw_get < src) {
 		(void) memset(css->hw_get, 0xff,
-			(src - css->hw_get) * sizeof(*src));
+			(size_t)(src - css->hw_get) * sizeof(*src));
 	} else {
 		(void) memset(css->hw_snapshot, 0xff,
-				(src - css->hw_snapshot) * sizeof(*src));
+			(size_t)(src - css->hw_snapshot) * sizeof(*src));
 		(void) memset(css->hw_get, 0xff,
-				(css->hw_end - css->hw_get) * sizeof(*src));
+			(size_t)(css->hw_end - css->hw_get) * sizeof(*src));
 	}
 	g->cs_data->hw_get = src;
 
@@ -602,5 +603,6 @@ int nvgpu_css_check_data_available(struct nvgpu_channel *ch, u32 *pending,
 
 u32 nvgpu_css_get_max_buffer_size(struct gk20a *g)
 {
+	(void)g;
 	return 0xffffffffU;
 }

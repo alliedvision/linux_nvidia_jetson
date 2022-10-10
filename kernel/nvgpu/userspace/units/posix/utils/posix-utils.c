@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -460,7 +460,7 @@ int test_round_macros(struct unit_module *m,
 				"round_mask failure %d\n", result);
 		}
 	}
-
+#ifdef CONFIG_NVGPU_NON_FUSA
 	result = ROUND_BY_VALUE;
 	for (i = 0; i < ROUND_BY_VALUE; i++) {
 		test1 = (ROUND_DOWN_RESULT + 1U) + i;
@@ -468,6 +468,7 @@ int test_round_macros(struct unit_module *m,
 			unit_return_fail(m, "round_up failure %d %d\n", test1, i);
 		}
 	}
+#endif
 
 	result = ROUND_BY_VALUE;
 	for (i = 0; i < ROUND_BY_VALUE; i++) {

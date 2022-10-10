@@ -1,7 +1,7 @@
 /*
  * GV11B FB
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,6 +48,7 @@
 
 static void gv11b_init_nvlink_soc_credits(struct gk20a *g)
 {
+	(void)g;
 #ifndef __NVGPU_POSIX__
 	if (nvgpu_platform_is_silicon(g)) {
 		nvgpu_log(g, gpu_dbg_info, "nvlink soc credits init done by bpmp");
@@ -115,3 +116,58 @@ void gv11b_fb_init_fs_state(struct gk20a *g)
 		nvgpu_writel(g, fb_priv_mmu_phy_secure_r(), U32_MAX);
 	}
 }
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+void gv11b_fb_cbc_configure(struct gk20a *g, struct nvgpu_cbc *cbc)
+{
+	u32 compbit_base_post_divide;
+	u64 compbit_base_post_multiply64;
+	u64 compbit_store_iova;
+	u64 compbit_base_post_divide64;
+
+#ifdef CONFIG_NVGPU_SIM
+	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL)) {
+		compbit_store_iova = nvgpu_mem_get_phys_addr(g,
+					&cbc->compbit_store.mem);
+	} else
+#endif
+	{
+		compbit_store_iova = nvgpu_mem_get_addr(g,
+					&cbc->compbit_store.mem);
+	}
+	/* must be aligned to 64 KB */
+	compbit_store_iova = round_up(compbit_store_iova, (u64)SZ_64K);
+
+	compbit_base_post_divide64 = compbit_store_iova >>
+			fb_mmu_cbc_base_address_alignment_shift_v();
+
+	do_div(compbit_base_post_divide64, nvgpu_ltc_get_ltc_count(g));
+	compbit_base_post_divide = u64_lo32(compbit_base_post_divide64);
+
+	compbit_base_post_multiply64 = ((u64)compbit_base_post_divide *
+		nvgpu_ltc_get_ltc_count(g)) <<
+		fb_mmu_cbc_base_address_alignment_shift_v();
+
+	if (compbit_base_post_multiply64 < compbit_store_iova) {
+		compbit_base_post_divide++;
+	}
+
+	if (g->ops.cbc.fix_config != NULL) {
+		compbit_base_post_divide =
+			g->ops.cbc.fix_config(g, (int)compbit_base_post_divide);
+	}
+
+	nvgpu_writel(g, fb_mmu_cbc_base_r(),
+		fb_mmu_cbc_base_address_f(compbit_base_post_divide));
+
+	nvgpu_log(g, gpu_dbg_info | gpu_dbg_map_v | gpu_dbg_pte,
+		"compbit base.pa: 0x%x,%08x cbc_base:0x%08x\n",
+		(u32)(compbit_store_iova >> 32),
+		(u32)(compbit_store_iova & U32_MAX),
+		compbit_base_post_divide);
+	nvgpu_log(g, gpu_dbg_fn, "cbc base %x",
+		nvgpu_readl(g, fb_mmu_cbc_base_r()));
+
+	cbc->compbit_store.base_hw = compbit_base_post_divide;
+}
+#endif

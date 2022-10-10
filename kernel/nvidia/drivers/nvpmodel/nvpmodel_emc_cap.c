@@ -136,6 +136,7 @@ static ssize_t clk_cap_store(struct kobject *kobj,
 				size_t count)
 {
 	unsigned long rate;
+	long rate_signed;
 	int ret;
 	struct nvpmodel_clk *clk = container_of(attr, struct nvpmodel_clk, attr);
 
@@ -147,9 +148,11 @@ static ssize_t clk_cap_store(struct kobject *kobj,
 	if (ret)
 		return ret;
 
-	rate = clk_round_rate(clk->clk, rate);
-	if (rate < 0)
+	rate_signed = clk_round_rate(clk->clk, rate);
+	if (rate_signed < 0)
 		return -EINVAL;
+	else
+		rate = (unsigned long)rate_signed;
 
 	/* Apply new freq cap */
 	ret = clk_set_max_rate(clk->clk, rate);

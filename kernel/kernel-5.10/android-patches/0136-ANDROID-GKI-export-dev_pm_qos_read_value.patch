@@ -1,0 +1,36 @@
+From 62fff85cf05efb2c560242602f106a5a1d82a24f Mon Sep 17 00:00:00 2001
+From: Mark Salyzyn <salyzyn@google.com>
+Date: Wed, 19 Aug 2020 05:29:01 -0700
+Subject: [PATCH 136/830] ANDROID: GKI: export dev_pm_qos_read_value
+X-NVConfidentiality: public
+
+min_freq and max_freq from sysfs now go to the dev_pm_qos_request
+interface, so porting will require access to dev_pm_qos_read_value.
+
+Signed-off-by: Mark Salyzyn <salyzyn@google.com>
+Fixes: 27dbc542f651ed09de910f274b32634904103774 ("PM / devfreq: Use PM QoS for sysfs min/max_freq")
+Bug: 165523817
+Change-Id: I6837f8d75a61faf8bf18d1b9a37419632e5c7134
+(cherry picked from commit dc32196ca1bf69f0040e0a8732179dd9cc3d8f30)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit d13ee33d477989a1171194e8df94711546a565c8)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ drivers/base/power/qos.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/base/power/qos.c b/drivers/base/power/qos.c
+index 8e93167f1783..0489db3a1f60 100644
+--- a/drivers/base/power/qos.c
++++ b/drivers/base/power/qos.c
+@@ -137,6 +137,7 @@ s32 dev_pm_qos_read_value(struct device *dev, enum dev_pm_qos_req_type type)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(dev_pm_qos_read_value);
+ 
+ /**
+  * apply_constraint - Add/modify/remove device PM QoS request.
+-- 
+2.17.1
+

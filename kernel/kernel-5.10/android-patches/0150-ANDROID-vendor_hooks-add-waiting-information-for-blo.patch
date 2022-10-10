@@ -1,0 +1,254 @@
+From 63faffb57a27d74f6f6eb4338fd0d13e59f370ac Mon Sep 17 00:00:00 2001
+From: Sangmoon Kim <sangmoon.kim@samsung.com>
+Date: Wed, 5 Aug 2020 22:13:43 +0900
+Subject: [PATCH 150/830] ANDROID: vendor_hooks: add waiting information for
+ blocked tasks
+X-NVConfidentiality: public
+
+ - Add the hook to get mutex/rwsem information that the tasks
+   are waiting for.
+
+ - Add the hook to print messages for sched_show_task.
+
+ - ANDROID_VENDOR_DATA_ARRAY added to task_struct
+
+Bug: 162776704
+
+Signed-off-by: Sangmoon Kim <sangmoon.kim@samsung.com>
+Change-Id: Ib436fbd8d0ad509c3b5a73ea8f5170e0761a13fd
+(cherry picked from commit b519ac423787d38f467ca479d2126b7204d6f498)
+---
+ drivers/android/vendor_hooks.c |  8 +++++
+ include/linux/sched.h          |  2 ++
+ include/trace/hooks/dtask.h    | 53 ++++++++++++++++++++++++++++++++++
+ kernel/locking/mutex.c         |  5 ++++
+ kernel/locking/rwsem.c         |  7 +++++
+ kernel/sched/core.c            |  2 ++
+ 6 files changed, 77 insertions(+)
+ create mode 100644 include/trace/hooks/dtask.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 6d303bf48ccc..31d843f43cc2 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -12,6 +12,7 @@
+ #include <trace/hooks/fpsimd.h>
+ #include <trace/hooks/rwsem.h>
+ #include <trace/hooks/futex.h>
++#include <trace/hooks/dtask.h>
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+@@ -40,6 +41,13 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_futex_plist_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mutex_wait_start);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mutex_wait_finish);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_read_wait_start);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_read_wait_finish);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_start);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_finish);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_show_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index f996d1f343bb..47b7276199a7 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -34,6 +34,7 @@
+ #include <linux/rseq.h>
+ #include <linux/seqlock.h>
+ #include <linux/kcsan.h>
++#include <linux/android_vendor.h>
+ 
+ /* task_struct member predeclarations (sorted alphabetically): */
+ struct audit_context;
+@@ -1356,6 +1357,7 @@ struct task_struct {
+ 	struct callback_head		mce_kill_me;
+ 	int				mce_count;
+ #endif
++	ANDROID_VENDOR_DATA_ARRAY(1, 2);
+ 
+ 	/*
+ 	 * New fields for task_struct should be added above here, so that
+diff --git a/include/trace/hooks/dtask.h b/include/trace/hooks/dtask.h
+new file mode 100644
+index 000000000000..f4fafbfedc23
+--- /dev/null
++++ b/include/trace/hooks/dtask.h
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM dtask
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_DTASK_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_DTASK_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct mutex;
++DECLARE_HOOK(android_vh_mutex_wait_start,
++	TP_PROTO(struct mutex *lock),
++	TP_ARGS(lock));
++DECLARE_HOOK(android_vh_mutex_wait_finish,
++	TP_PROTO(struct mutex *lock),
++	TP_ARGS(lock));
++
++struct rw_semaphore;
++DECLARE_HOOK(android_vh_rwsem_read_wait_start,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_rwsem_read_wait_finish,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_rwsem_write_wait_start,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_rwsem_write_wait_finish,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++
++struct task_struct;
++DECLARE_HOOK(android_vh_sched_show_task,
++	TP_PROTO(struct task_struct *task),
++	TP_ARGS(task));
++#else
++#define trace_android_vh_mutex_wait_start(lock)
++#define trace_android_vh_mutex_wait_finish(lock)
++#define trace_android_vh_rwsem_read_wait_start(sem)
++#define trace_android_vh_rwsem_read_wait_finish(sem)
++#define trace_android_vh_rwsem_write_wait_start(sem)
++#define trace_android_vh_rwsem_write_wait_finish(sem)
++#define trace_android_vh_sched_show_task(task)
++#endif
++
++#endif /* _TRACE_HOOK_DTASK_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/locking/mutex.c b/kernel/locking/mutex.c
+index 86061901636c..525a0b876320 100644
+--- a/kernel/locking/mutex.c
++++ b/kernel/locking/mutex.c
+@@ -36,6 +36,8 @@
+ # include "mutex.h"
+ #endif
+ 
++#include <trace/hooks/dtask.h>
++
+ void
+ __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
+ {
+@@ -1014,6 +1016,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
+ 
+ 	waiter.task = current;
+ 
++	trace_android_vh_mutex_wait_start(lock);
+ 	set_current_state(state);
+ 	for (;;) {
+ 		bool first;
+@@ -1065,6 +1068,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
+ 	spin_lock(&lock->wait_lock);
+ acquired:
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_mutex_wait_finish(lock);
+ 
+ 	if (ww_ctx) {
+ 		/*
+@@ -1093,6 +1097,7 @@ __mutex_lock_common(struct mutex *lock, long state, unsigned int subclass,
+ 
+ err:
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_mutex_wait_finish(lock);
+ 	__mutex_remove_waiter(lock, &waiter);
+ err_early_kill:
+ 	spin_unlock(&lock->wait_lock);
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index 4ff7ec6c6ab9..783648a6593e 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -30,6 +30,7 @@
+ 
+ #include "lock_events.h"
+ #include <trace/hooks/rwsem.h>
++#include <trace/hooks/dtask.h>
+ 
+ /*
+  * The least significant 3 bits of the owner value has the following
+@@ -1090,6 +1091,7 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 	wake_up_q(&wake_q);
+ 
+ 	/* wait to be given the lock */
++	trace_android_vh_rwsem_read_wait_start(sem);
+ 	for (;;) {
+ 		set_current_state(state);
+ 		if (!smp_load_acquire(&waiter.task)) {
+@@ -1109,6 +1111,7 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 	}
+ 
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_rwsem_read_wait_finish(sem);
+ 	lockevent_inc(rwsem_rlock);
+ 	return sem;
+ 
+@@ -1120,6 +1123,7 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 	}
+ 	raw_spin_unlock_irq(&sem->wait_lock);
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_rwsem_read_wait_finish(sem);
+ 	lockevent_inc(rwsem_rlock_fail);
+ 	return ERR_PTR(-EINTR);
+ }
+@@ -1220,6 +1224,7 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ wait:
+ 	trace_android_vh_rwsem_wake(sem);
+ 	/* wait until we successfully acquire the lock */
++	trace_android_vh_rwsem_write_wait_start(sem);
+ 	set_current_state(state);
+ 	for (;;) {
+ 		if (rwsem_try_write_lock(sem, wstate)) {
+@@ -1279,6 +1284,7 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ 		raw_spin_lock_irq(&sem->wait_lock);
+ 	}
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_rwsem_write_wait_finish(sem);
+ 	list_del(&waiter.list);
+ 	rwsem_disable_reader_optspin(sem, disable_rspin);
+ 	raw_spin_unlock_irq(&sem->wait_lock);
+@@ -1288,6 +1294,7 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ 
+ out_nolock:
+ 	__set_current_state(TASK_RUNNING);
++	trace_android_vh_rwsem_write_wait_finish(sem);
+ 	raw_spin_lock_irq(&sem->wait_lock);
+ 	list_del(&waiter.list);
+ 
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 260a9e90a434..f0525af80b1c 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -28,6 +28,7 @@
+ #include "smp.h"
+ 
+ #include <trace/hooks/sched.h>
++#include <trace/hooks/dtask.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+@@ -6454,6 +6455,7 @@ void sched_show_task(struct task_struct *p)
+ 		(unsigned long)task_thread_info(p)->flags);
+ 
+ 	print_worker_info(KERN_INFO, p);
++	trace_android_vh_sched_show_task(p);
+ 	show_stack(p, NULL, KERN_INFO);
+ 	put_task_stack(p);
+ }
+-- 
+2.17.1
+

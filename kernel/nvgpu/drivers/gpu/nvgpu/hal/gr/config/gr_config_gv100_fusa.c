@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -133,6 +133,8 @@ static int gr_gv100_remove_logical_tpc(struct nvgpu_gr_config *gr_config,
 	int err = 0;
 	u32 num_tpc_mask = gpc_tpc_mask[gpc_id];
 
+	(void)gr_config;
+
 	if ((gpc_id == disable_gpc_id) &&
 	    ((num_tpc_mask & BIT32(disable_tpc_id)) != 0U)) {
 		/* Safety check if a TPC is removed twice */
@@ -172,6 +174,8 @@ static int gr_gr100_find_perf_reduction_rate_gpc(struct gk20a *g,
 	bool is_tpc_removed_gpc = false;
 	bool is_tpc_removed_pes = false;
 	u32 tpc_cnt = 0U;
+
+	(void)g;
 
 	for (gpc_id = 0;
 	     gpc_id < nvgpu_gr_config_get_gpc_count(gr_config);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -171,15 +171,17 @@ void dce_mailbox_set_full_interrupt(struct tegra_dce *d, u8 id)
 }
 
 /**
- * dce_mailbox_send_cmd_sync - Sends command via mailbox and waits for ack.
+ * dce_handle_mailbox_send_cmd_sync - handler function for
+ *				      mailbox_send_cmd_sync
  *
  * @d : Pointer to tegra_dce struct.
  * @cmd : The command to be sent.
  * @interface  : boot or admin interface
  *
- * Return : 0 if successful.
+ *
+ * Return : Void
  */
-int dce_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface)
+int dce_handle_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface)
 {
 	int ret = 0;
 	struct dce_mailbox_interface *d_mb;
@@ -200,6 +202,34 @@ int dce_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface)
 
 	ret = d_mb->dce_mailbox_wait(d);
 
+	return ret;
+}
+
+/**
+ * dce_mailbox_send_cmd_sync - Sends command via mailbox and waits for ack.
+ *
+ * @d : Pointer to tegra_dce struct.
+ * @cmd : The command to be sent.
+ * @interface  : boot or admin interface
+ *
+ * Return : 0 if successful.
+ */
+int dce_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface)
+{
+	int ret = 0;
+	struct dce_mailbox_send_cmd_params params;
+
+	params.cmd = cmd;
+	params.interface = interface;
+
+	ret = dce_fsm_post_event(d, EVENT_ID_DCE_MBOX_IPC_MSG_REQUESTED,
+				 (void *)&params);
+	if (ret) {
+		dce_err(d, "Unable to send msg ret :%d", ret);
+		goto out;
+	}
+
+out:
 	return ret;
 }
 

@@ -1,7 +1,7 @@
 /*
  * GM20B Clocks
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -68,6 +68,7 @@ static struct pll_parms gpc_pll_params_b1 = {
 	500,			/* Locking and ramping timeout */
 	40,			/* Lock delay in NA mode */
 	5,			/* IDDQ mode exit delay */
+	0,			/* DFS control settings */
 };
 
 static struct pll_parms gpc_pll_params_c1 = {
@@ -122,14 +123,16 @@ static void dump_gpc_pll(struct gk20a *g, struct pll *gpll, u32 last_cfg)
 static u32 get_interim_pldiv(struct gk20a *g, u32 old_pl, u32 new_pl)
 {
 	u32 pl;
+	unsigned long ffs_old_pl = nvgpu_ffs(old_pl);
+	unsigned long ffs_new_pl = nvgpu_ffs(new_pl);
 
 	if ((g->clk.gpc_pll.id == GM20B_GPC_PLL_C1) ||
-	    ((old_pl & new_pl) != 0U)) {
+	    ((old_pl & new_pl) != 0U) || (ffs_old_pl == 0UL) || (ffs_new_pl == 0UL)) {
 		return 0;
 	}
 
-	pl = old_pl | BIT32(nvgpu_ffs(new_pl) - 1U);	/* pl never 0 */
-	new_pl |= BIT32(nvgpu_ffs(old_pl) - 1U);
+	pl = old_pl | BIT32(nvgpu_safe_cast_u64_to_u32(ffs_new_pl) - 1U);	/* pl never 0 */
+	new_pl |= BIT32(nvgpu_safe_cast_u64_to_u32(ffs_old_pl) - 1U);
 
 	return min(pl, new_pl);
 }
@@ -216,7 +219,7 @@ static void clk_config_pll(struct clk_gk20a *clk, struct pll *pll,
 				if (vco_f >= min_vco_f && vco_f <= max_vco_f) {
 					lwv = (vco_f + (nvgpu_pl_to_div(pl) / 2U))
 						/ nvgpu_pl_to_div(pl);
-					delta = abs(S32(lwv) -
+					delta = (u32)abs(S32(lwv) -
 							S32(target_clk_f));
 
 					if (delta < best_delta) {
@@ -272,13 +275,13 @@ static inline u32 fuse_get_gpcpll_adc_rev(u32 val)
 static inline int fuse_get_gpcpll_adc_slope_uv(u32 val)
 {
 	/*      Integer part in mV  * 1000 + fractional part in uV */
-	return ((val >> 24) & 0x3fU) * 1000U + ((val >> 14) & 0x3ffU);
+	return (int)(((val >> 24) & 0x3fU) * 1000U + ((val >> 14) & 0x3ffU));
 }
 
 static inline int fuse_get_gpcpll_adc_intercept_uv(u32 val)
 {
 	/*      Integer part in mV  * 1000 + fractional part in 100uV */
-	return ((val >> 4) & 0x3ffU) * 1000U + ((val >> 0) & 0xfU) * 100U;
+	return (int)(((val >> 4) & 0x3ffU) * 1000U + ((val >> 0) & 0xfU) * 100U);
 }
 
 static int nvgpu_fuse_calib_gpcpll_get_adc(struct gk20a *g,
@@ -338,10 +341,11 @@ static void clk_config_dvfs_detection(int mv, struct na_dvfs *d)
 
 	coeff_max = trim_sys_gpcpll_dvfs0_dfs_coeff_v(
 		trim_sys_gpcpll_dvfs0_dfs_coeff_m());
-	coeff = DIV_ROUND_CLOSEST(mv * p->coeff_slope, 1000) + p->coeff_offs;
-	coeff = DIV_ROUND_CLOSEST(coeff, 1000);
+	coeff = (u32)(DIV_ROUND_CLOSEST(mv * p->coeff_slope, 1000) +
+			p->coeff_offs);
+	coeff = DIV_ROUND_CLOSEST(coeff, 1000U);
 	coeff = min(coeff, coeff_max);
-	d->dfs_coeff = coeff;
+	d->dfs_coeff = (int)coeff;
 
 	d->dfs_ext_cal = DIV_ROUND_CLOSEST(mv * 1000 - p->uvdet_offs,
 					   p->uvdet_slope);
@@ -473,14 +477,14 @@ static void clk_setup_dvfs_detection(struct gk20a *g, struct pll *gpll)
 	data &= ~DFS_EXT_STROBE;
 	gk20a_writel(g, trim_gpc_bcast_gpcpll_dvfs2_r(), data);
 
-	clk_set_dfs_ext_cal(g, d->dfs_ext_cal);
+	clk_set_dfs_ext_cal(g, (u32)d->dfs_ext_cal);
 }
 
 /* Enable NA/DVFS mode */
 static int clk_enbale_pll_dvfs(struct gk20a *g)
 {
 	u32 data, cfg = 0;
-	int delay = gpc_pll_params.iddq_exit_delay; /* iddq & calib delay */
+	u32 delay = gpc_pll_params.iddq_exit_delay; /* iddq & calib delay */
 	struct pll_parms *p = &gpc_pll_params;
 	bool calibrated = (p->uvdet_slope != 0) && (p->uvdet_offs != 0);
 
@@ -605,6 +609,8 @@ static void clk_setup_slide(struct gk20a *g, u32 clk_u)
 	default:
 		nvgpu_err(g, "Unexpected reference rate %u kHz", clk_u);
 		BUG();
+		step_a = 0U;
+		step_b = 0U;
 		break;
 	}
 
@@ -623,7 +629,7 @@ static int clk_slide_gpc_pll(struct gk20a *g, struct pll *gpll)
 {
 	u32 data, coeff;
 	u32 nold, sdm_old;
-	int ramp_timeout = gpc_pll_params.lock_timeout;
+	int ramp_timeout = (int)gpc_pll_params.lock_timeout;
 
 	/* get old coefficients */
 	coeff = gk20a_readl(g, trim_sys_gpcpll_coeff_r());
@@ -1114,8 +1120,8 @@ static int clk_program_na_gpc_pll(struct gk20a *g, struct pll *gpll_new,
 	 *   end-points.
 	 */
 	clk_set_dfs_coeff(g, 0);
-	clk_set_dfs_ext_cal(g, gpll_new->dvfs.dfs_ext_cal);
-	clk_set_dfs_coeff(g, gpll_new->dvfs.dfs_coeff);
+	clk_set_dfs_ext_cal(g, (u32)gpll_new->dvfs.dfs_ext_cal);
+	clk_set_dfs_coeff(g, (u32)gpll_new->dvfs.dfs_coeff);
 
 	gk20a_dbg_clk(g, "config_pll  %d kHz, M %d, N %d, PL %d(div%d), mV(cal) %d(%d), DC %d",
 		gpll_new->freq, gpll_new->M, gpll_new->N, gpll_new->PL,
@@ -1317,6 +1323,7 @@ int gm20b_clk_is_prepared(struct clk_gk20a *clk)
 
 unsigned long gm20b_recalc_rate(struct clk_gk20a *clk, unsigned long parent_rate)
 {
+	(void)parent_rate;
 	return rate_gpc2clk_to_gpu(clk->gpc_pll.freq);
 }
 
@@ -1326,9 +1333,11 @@ int gm20b_gpcclk_set_rate(struct clk_gk20a *clk, unsigned long rate,
 	u32 old_freq;
 	int ret = -ENODATA;
 
+	(void)parent_rate;
+
 	nvgpu_mutex_acquire(&clk->clk_mutex);
 	old_freq = clk->gpc_pll.freq;
-	ret = set_pll_target(clk->g, rate_gpu_to_gpc2clk(rate), old_freq);
+	ret = set_pll_target(clk->g, (u32)rate_gpu_to_gpc2clk(rate), old_freq);
 	if ((ret == 0) && clk->gpc_pll.enabled && clk->clk_hw_on) {
 		ret = set_pll_freq(clk->g, true);
 	}
@@ -1345,13 +1354,15 @@ long gm20b_round_rate(struct clk_gk20a *clk, unsigned long rate,
 	unsigned long maxrate;
 	struct gk20a *g = clk->g;
 
+	(void)parent_rate;
+
 	maxrate = g->ops.clk.get_maxrate(g, CTRL_CLK_DOMAIN_GPCCLK);
 	if (rate > maxrate) {
 		rate = maxrate;
 	}
 
 	nvgpu_mutex_acquire(&clk->clk_mutex);
-	freq = rate_gpu_to_gpc2clk(rate);
+	freq = (u32)rate_gpu_to_gpc2clk(rate);
 	if (freq > gpc_pll_params.max_freq) {
 		freq = gpc_pll_params.max_freq;
 	} else if (freq < gpc_pll_params.min_freq) {
@@ -1364,7 +1375,7 @@ long gm20b_round_rate(struct clk_gk20a *clk, unsigned long rate,
 	clk_config_pll(clk, &tmp_pll, &gpc_pll_params, &freq, true);
 	nvgpu_mutex_release(&clk->clk_mutex);
 
-	return rate_gpc2clk_to_gpu(tmp_pll.freq);
+	return (long)rate_gpc2clk_to_gpu(tmp_pll.freq);
 }
 
 static int gm20b_init_clk_setup_hw(struct gk20a *g)

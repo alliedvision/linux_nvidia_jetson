@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -194,9 +194,9 @@ int nvgpu_vidmem_export_linux(struct gk20a *g, size_t bytes)
 	buf->priv = priv;
 
 #ifdef CONFIG_NVGPU_USE_TEGRA_ALLOC_FD
-	fd = tegra_alloc_fd(current->files, 1024, O_RDWR);
+	fd = tegra_alloc_fd(current->files, 1024, O_RDWR | O_CLOEXEC);
 #else
-	fd = get_unused_fd_flags(O_RDWR);
+	fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 #endif
 	if (fd < 0) {
 		/* ->release frees what we have done */

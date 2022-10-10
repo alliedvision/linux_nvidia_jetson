@@ -1,7 +1,7 @@
-From 6005bfb75d56ec4cecd29c95c8d37414d75438f6 Mon Sep 17 00:00:00 2001
+From aaf5e40b2b2920c02974bc1244eeb4526679fdd5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:10 +0100
-Subject: [PATCH 140/304] tasklets: Prevent tasklet_unlock_spin_wait() deadlock
+Subject: [PATCH 140/318] tasklets: Prevent tasklet_unlock_spin_wait() deadlock
  on RT
 
 tasklet_unlock_spin_wait() spin waits for the TASKLET_STATE_SCHED bit in
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 29 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 77cd88c..4b3ec31 100644
+index 77cd88cc4575..4b3ec31189db 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -654,7 +654,7 @@ enum
@@ -58,7 +58,7 @@ index 77cd88c..4b3ec31 100644
  static inline int tasklet_trylock(struct tasklet_struct *t) { return 1; }
  static inline void tasklet_unlock(struct tasklet_struct *t) { }
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index ecc3ac4..fcb201c 100644
+index ecc3ac4091c8..fcb201ceed71 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -614,6 +614,32 @@ void tasklet_init(struct tasklet_struct *t,
@@ -104,5 +104,5 @@ index ecc3ac4..fcb201c 100644
  {
  	smp_mb__before_atomic();
 -- 
-2.7.4
+2.17.1
 

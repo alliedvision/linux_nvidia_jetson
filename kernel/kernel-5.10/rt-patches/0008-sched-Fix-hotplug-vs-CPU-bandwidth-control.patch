@@ -1,7 +1,7 @@
-From 81d61285fa78bf4176a259b177f16e361984d645 Mon Sep 17 00:00:00 2001
+From 19e3291f6d85ec9eb8fa5547cb484436546050f5 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:05 +0200
-Subject: [PATCH 008/304] sched: Fix hotplug vs CPU bandwidth control
+Subject: [PATCH 008/318] sched: Fix hotplug vs CPU bandwidth control
 
 Since we now migrate tasks away before DYING, we should also move
 bandwidth unthrottle, otherwise we can gain tasks from unthrottle
@@ -24,10 +24,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 14d75fd..93b60da 100644
+index 2f9012906888..725c6de41778 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6970,6 +6970,8 @@ int sched_cpu_activate(unsigned int cpu)
+@@ -6971,6 +6971,8 @@ int sched_cpu_activate(unsigned int cpu)
  
  int sched_cpu_deactivate(unsigned int cpu)
  {
@@ -36,7 +36,7 @@ index 14d75fd..93b60da 100644
  	int ret;
  
  	set_cpu_active(cpu, false);
-@@ -6984,6 +6986,14 @@ int sched_cpu_deactivate(unsigned int cpu)
+@@ -6985,6 +6987,14 @@ int sched_cpu_deactivate(unsigned int cpu)
  
  	balance_push_set(cpu, true);
  
@@ -51,7 +51,7 @@ index 14d75fd..93b60da 100644
  #ifdef CONFIG_SCHED_SMT
  	/*
  	 * When going down, decrement the number of cores with SMT present.
-@@ -7065,10 +7075,6 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7066,10 +7076,6 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);
@@ -63,7 +63,7 @@ index 14d75fd..93b60da 100644
  	rq_unlock_irqrestore(rq, &rf);
  
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index a3ae00c..a47e32f 100644
+index a3ae00c348a8..a47e32fcd18b 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
 @@ -565,7 +565,7 @@ static int push_dl_task(struct rq *rq);
@@ -76,10 +76,10 @@ index a3ae00c..a47e32f 100644
  
  static DEFINE_PER_CPU(struct callback_head, dl_push_head);
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index b5cf418..7aeaa21 100644
+index 41b14d924203..0e9a10c50090 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -265,7 +265,7 @@ static void pull_rt_task(struct rq *this_rq);
+@@ -270,7 +270,7 @@ static void pull_rt_task(struct rq *this_rq);
  static inline bool need_pull_rt_task(struct rq *rq, struct task_struct *prev)
  {
  	/* Try to pull RT tasks here if we lower this rq's prio */
@@ -89,5 +89,5 @@ index b5cf418..7aeaa21 100644
  
  static inline int rt_overloaded(struct rq *rq)
 -- 
-2.7.4
+2.17.1
 

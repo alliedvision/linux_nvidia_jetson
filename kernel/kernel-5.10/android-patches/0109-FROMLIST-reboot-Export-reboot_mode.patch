@@ -1,0 +1,35 @@
+From e9cee0bbfd76b843f7542b44e08563a438f22402 Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Fri, 8 Nov 2019 15:40:51 -0800
+Subject: [PATCH 109/830] FROMLIST: reboot: Export reboot_mode
+X-NVConfidentiality: public
+
+Export reboot_mode to support kernel modules wishing to modify reboot_mode.
+
+Change-Id: I8d25aec75331a57fab85c12b8527a329e2a4f19d
+Bug: 143964928
+Link: https://lore.kernel.org/patchwork/patch/1151092/
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Reviewed-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ kernel/reboot.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index af6f23d8bea1..aa274e1c4839 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -32,7 +32,9 @@ EXPORT_SYMBOL(cad_pid);
+ #define DEFAULT_REBOOT_MODE
+ #endif
+ enum reboot_mode reboot_mode DEFAULT_REBOOT_MODE;
++EXPORT_SYMBOL_GPL(reboot_mode);
+ enum reboot_mode panic_reboot_mode = REBOOT_UNDEFINED;
++EXPORT_SYMBOL_GPL(panic_reboot_mode);
+ 
+ /*
+  * This variable is used privately to keep track of whether or not
+-- 
+2.17.1
+

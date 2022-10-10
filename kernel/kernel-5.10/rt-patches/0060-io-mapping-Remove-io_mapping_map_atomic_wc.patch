@@ -1,19 +1,19 @@
-From f17174d4b81410332efebe8545c09654523d9dc1 Mon Sep 17 00:00:00 2001
+From 36b6972ee7534baf271e5932e11a609aee634921 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:49 +0100
-Subject: [PATCH 060/304] io-mapping: Remove io_mapping_map_atomic_wc()
+Subject: [PATCH 060/318] io-mapping: Remove io_mapping_map_atomic_wc()
 
 No more users. Get rid of it and remove the traces in documentation.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- Documentation/driver-api/io-mapping.rst | 22 ++++++-----------
- include/linux/io-mapping.h              | 42 ++-------------------------------
+ Documentation/driver-api/io-mapping.rst | 22 +++++--------
+ include/linux/io-mapping.h              | 42 ++-----------------------
  2 files changed, 9 insertions(+), 55 deletions(-)
 
 diff --git a/Documentation/driver-api/io-mapping.rst b/Documentation/driver-api/io-mapping.rst
-index a0cfb15..a7830c5 100644
+index a0cfb15988df..a7830c59481f 100644
 --- a/Documentation/driver-api/io-mapping.rst
 +++ b/Documentation/driver-api/io-mapping.rst
 @@ -21,19 +21,15 @@ mappable, while 'size' indicates how large a mapping region to
@@ -75,7 +75,7 @@ index a0cfb15..a7830c5 100644
  The mappings are released with::
  
 diff --git a/include/linux/io-mapping.h b/include/linux/io-mapping.h
-index c093e81..4bb8223 100644
+index c093e81310a9..4bb8223f2f82 100644
 --- a/include/linux/io-mapping.h
 +++ b/include/linux/io-mapping.h
 @@ -60,28 +60,7 @@ io_mapping_fini(struct io_mapping *mapping)
@@ -135,5 +135,5 @@ index c093e81..4bb8223 100644
  io_mapping_map_local_wc(struct io_mapping *mapping, unsigned long offset)
  {
 -- 
-2.7.4
+2.17.1
 

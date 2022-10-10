@@ -51,18 +51,17 @@ static int gm20b_ltc_wait_for_clean(struct gk20a *g)
 
 		/*
 		 * Use 5ms - this should be sufficient time to flush the cache.
-		 * On tegra, rough EMC BW available for old tegra chips (newer
-		 * chips are strictly faster) can be estimated as follows:
+		 * On tegra, rough EMC BW available can be estimated as follows:
 		 *
-		 * Lowest reasonable EMC clock speed will be around 102MHz on
-		 * t124 for display enabled boards and generally fixed to max
+		 * Lowest reasonable EMC clock speed will be around 204MHz on
+		 * t234 for display enabled boards and generally fixed to max
 		 * for non-display boards (since they are generally plugged in).
 		 *
-		 * Thus, the available BW is 64b * 2 * 102MHz = 1.3GB/s. Of that
+		 * Thus, the available BW is 128B * 2 * 204MHz = ~52GB/s. Of that
 		 * BW the GPU will likely get about half (display and overhead/
-		 * utilization inefficiency eating the rest) so 650MB/s at
+		 * utilization inefficiency eating the rest) so 26GB/s at
 		 * worst. Assuming at most 1MB of GPU L2 cache (less for most
-		 * chips) worst case is we take 1MB/650MB/s = 1.5ms.
+		 * chips) worst case is we take 1MB/26GB/s = 38us.
 		 *
 		 * So 5ms timeout here should be more than sufficient.
 		 */

@@ -1,0 +1,23 @@
+From a19a4627296638208f8bf371861e55222ea225ab Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:00:20 -0700
+Subject: [PATCH 358/830] _____ANNOTATION: media changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index 19c555ab41f6..3f0c9df8c374 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -18,3 +18,4 @@ tty changes
+ USB changes
+ graphics changes
+ sound changes
++media changes
+-- 
+2.17.1
+

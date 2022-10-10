@@ -1,0 +1,38 @@
+From 83c7070873a40eafa2c847577056c45b29b3587b Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Thu, 27 Jun 2019 11:19:50 -0700
+Subject: [PATCH 374/830] FROMLIST: scsi: ufs: atomic update for
+ clkgating_enable (2)
+X-NVConfidentiality: public
+
+When giving a stress test which enables/disables clkgating, we hit device
+timeout sometimes. This patch avoids subtle racy condition to address it.
+
+Note that, this requires a patch to address the device stuck by REQ_CLKS_OFF in
+__ufshcd_release().
+
+The fix is "scsi: ufs: avoid to call REQ_CLKS_OFF to CLKS_OFF".
+
+Link: https://lore.kernel.org/linux-scsi/20201028194352.GA3060274@google.com/T/#m979bdb55500f3f63fa4e975524f8559c80697862
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: Ice47cbd199850aadd15166ac414fd97db3a79aad
+---
+ drivers/scsi/ufs/ufshcd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 04a6e27ed6f1..4ac8e01862d9 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1835,7 +1835,7 @@ static ssize_t ufshcd_clkgate_enable_store(struct device *dev,
+ 		goto out;
+ 
+ 	if (value)
+-		hba->clk_gating.active_reqs--;
++		__ufshcd_release(hba);
+ 	else
+ 		hba->clk_gating.active_reqs++;
+ 
+-- 
+2.17.1
+

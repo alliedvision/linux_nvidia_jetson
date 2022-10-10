@@ -1,0 +1,65 @@
+From d292692800b96f14967f2ad4cd51b8aa7de06f55 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Tue, 7 Apr 2020 14:48:14 -0700
+Subject: [PATCH 449/830] ANDROID: Incremental fs: Fix compound page usercopy
+ crash
+X-NVConfidentiality: public
+
+Bug: 153560805
+Test: incfs_test passes on qemu and Pixel 4
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I1b55341e4e4247a74f3f539b9d190fef0ca409b8
+---
+ fs/incfs/data_mgmt.c | 3 ++-
+ fs/incfs/vfs.c       | 7 ++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 0b789e62ac4b..4ec08eb52461 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -507,7 +507,8 @@ int incfs_get_filled_blocks(struct data_file *df,
+ 		return 0;
+ 	}
+ 
+-	bme = kzalloc(sizeof(*bme) * READ_BLOCKMAP_ENTRIES, GFP_NOFS);
++	bme = kzalloc(sizeof(*bme) * READ_BLOCKMAP_ENTRIES,
++		      GFP_NOFS | __GFP_COMP);
+ 	if (!bme)
+ 		return -ENOMEM;
+ 
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index b105440de8cb..38ed58c584bf 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -859,7 +859,7 @@ static struct mem_range incfs_copy_signature_info_from_user(u8 __user *original,
+ 	if (size > INCFS_MAX_SIGNATURE_SIZE)
+ 		return range(ERR_PTR(-EFAULT), 0);
+ 
+-	result = kzalloc(size, GFP_NOFS);
++	result = kzalloc(size, GFP_NOFS | __GFP_COMP);
+ 	if (!result)
+ 		return range(ERR_PTR(-ENOMEM), 0);
+ 
+@@ -1297,7 +1297,8 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
+ 		return -EFAULT;
+ 
+ 	usr_fill_block_array = u64_to_user_ptr(fill_blocks.fill_blocks);
+-	data_buf = (u8 *)__get_free_pages(GFP_NOFS, get_order(data_buf_size));
++	data_buf = (u8 *)__get_free_pages(GFP_NOFS | __GFP_COMP,
++					  get_order(data_buf_size));
+ 	if (!data_buf)
+ 		return -ENOMEM;
+ 
+@@ -1412,7 +1413,7 @@ static long ioctl_read_file_signature(struct file *f, void __user *arg)
+ 	if (sig_buf_size > INCFS_MAX_SIGNATURE_SIZE)
+ 		return -E2BIG;
+ 
+-	sig_buffer = kzalloc(sig_buf_size, GFP_NOFS);
++	sig_buffer = kzalloc(sig_buf_size, GFP_NOFS | __GFP_COMP);
+ 	if (!sig_buffer)
+ 		return -ENOMEM;
+ 
+-- 
+2.17.1
+

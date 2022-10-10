@@ -3,6 +3,7 @@
  * PCI Endpoint *Function* (EPF) library
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2022 NVIDIA Corporation.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
@@ -145,9 +146,10 @@ static void pci_epf_remove_cfs(struct pci_epf_driver *driver)
 		return;
 
 	mutex_lock(&pci_epf_mutex);
-	list_for_each_entry_safe(group, tmp, &driver->epf_group, group_entry)
+	list_for_each_entry_safe(group, tmp, &driver->epf_group, group_entry) {
+		list_del(&group->group_entry);
 		pci_ep_cfs_remove_epf_group(group);
-	list_del(&driver->epf_group);
+	}
 	mutex_unlock(&pci_epf_mutex);
 }
 

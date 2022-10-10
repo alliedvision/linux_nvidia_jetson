@@ -1,7 +1,7 @@
 /*
  * GV11B fifo
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,8 +40,10 @@ static void enable_fifo_interrupts(struct gk20a *g)
 {
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_FIFO,
 					NVGPU_CIC_INTR_ENABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_FIFO,
 					   NVGPU_CIC_INTR_ENABLE);
+#endif
 
 	g->ops.fifo.intr_0_enable(g, true);
 	g->ops.fifo.intr_1_enable(g, true);

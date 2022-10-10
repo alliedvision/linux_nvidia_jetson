@@ -1,0 +1,58 @@
+Maxim GMSL DP Serializer Driver
+
+Required properties:
+- compatible : should be "maxim,max_gmsl_dp_ser".
+- reg : I2C address of the Maxim display serializer.
+- max_gmsl_dp_ser-pwrdn : GPIO pin number of the PWRDN pin.
+                          This is the pin that's used to power
+                          up the Maxim display serializer chip.
+- gmsl-link-select : This property is an array of 4 unsigned 8 bit values
+                     that determines which GMSL output link will be enabled
+                     for each video pipe X, Y, Z, and U..
+                     The possible values for each pipe are:
+                     - 0x0 (Link A),
+                     - 0x1 (Link B),
+                     - 0x2 (Link A + B).
+
+Optional properties:
+- dprx-link-rate : Configures the DP link rate of the serializer chip.
+                   The default value is 0x1E (HBR3). The possible values are:
+                   - 0xA (HBR),
+                   - 0x14 (HBR2),
+                   - 0x1E (HBR3).
+- dprx-lane-count : Configures the DP lane count of the serializer chip.
+                    The default value is 0x4. The possible values are:
+                    - 0x1,
+                    - 0x2,
+                    - 0x4.
+- ser-errb : GPIO pin number of the ERRB pin. This pin is used for error
+             and fault reporting by the serializer chip.
+- enable-mst : This is a boolean property. If this property is present
+               the driver will enable MST mode.
+- mst-payload-ids : This property is an array of 4 unsigned 8 bit values which
+                    represent MST payload IDs of pipe X, Y, Z, U. This property
+                    is mandatory if enable-mst property is mentioned in dt.
+- gmsl-stream-ids : This property is an array of 4 unsigned 8 bit values which
+                    represent GMSL stream IDs of pipe X, Y, Z, U. This property
+                    is mandatory if enable-mst property is mentioned in dt.
+
+Example:
+
+	i2c@31e0000 {
+		status = "okay";
+		maxim_ser: max_gmsl_dp_ser@40 {
+			compatible = "maxim,max_gmsl_dp_ser";
+			reg = <0x40>;
+			status = "okay";
+			max_gmsl_dp_ser-pwrdn = <&tegra_main_gpio
+							TEGRA234_MAIN_GPIO(G, 3)
+							GPIO_ACTIVE_HIGH>;
+			ser-errb = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 7) 0>;
+			dprx-link-rate = <0x1e>;
+			dprx-lane-count = <0x4>;
+			enable-mst;
+			mst-payload-ids  = /bits/ 8 <0x1 0x2 0x3 0x4>;
+                        gmsl-stream-ids  = /bits/ 8 <0x0 0x1 0x2 0x3>;
+                        gmsl-link-select = /bits/ 8 <0x0 0x1 0x2 0x1>;
+		};
+	};

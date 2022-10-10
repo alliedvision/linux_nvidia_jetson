@@ -1,0 +1,30 @@
+From 23333725fe0c3b9ff50f6440d04dfb8a97712451 Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Tue, 4 Aug 2020 10:55:30 -0700
+Subject: [PATCH 742/830] ANDROID: Use DTC from the hermetic toolchain
+X-NVConfidentiality: public
+
+Set DTC from kernel build tools. The DTC is the same as used in AOSP.
+
+Bug: 162811113
+Change-Id: I16c513ba9c6ce5a1206e95e8de4ae923c11db894
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ build.config.common | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.common b/build.config.common
+index 74f15aaca731..0ca65cf86544 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -7,6 +7,7 @@ LD=ld.lld
+ NM=llvm-nm
+ OBJCOPY=llvm-objcopy
+ DEPMOD=depmod
++DTC=dtc
+ CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r399163b/bin
+ BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+ 
+-- 
+2.17.1
+

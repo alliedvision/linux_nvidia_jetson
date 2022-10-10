@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,10 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/nvhost.h>
 #include <linux/wait.h>
 
-#include "nvhost_acm.h"
-#include "dev.h"
 #include "pva.h"
 
 static void pva_abort_handler(struct work_struct *work)
@@ -59,7 +57,7 @@ static void pva_abort_handler(struct work_struct *work)
 	 * routine handle the failure
 	 */
 	if (!pva->booted) {
-		nvhost_warn(&pdev->dev, "Recovery skipped: PVA is not booted");
+		nvpva_warn(&pdev->dev, "Recovery skipped: PVA is not booted");
 		goto skip_recovery;
 	}
 
@@ -69,7 +67,7 @@ static void pva_abort_handler(struct work_struct *work)
 	/* Remove pending tasks from the queue */
 	nvpva_queue_abort_all(pva->pool);
 
-	nvhost_warn(&pdev->dev, "Recovery finished");
+	nvpva_warn(&pdev->dev, "Recovery finished");
 
 skip_recovery:
 	mutex_unlock(&pva->ccq_mutex);

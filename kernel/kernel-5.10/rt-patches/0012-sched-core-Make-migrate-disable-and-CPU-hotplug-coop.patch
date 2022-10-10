@@ -1,7 +1,7 @@
-From d7a65bc7ab7d04865bf379aa2765efb94cd362e7 Mon Sep 17 00:00:00 2001
+From 218da78a7b6e2d36484b082498c5fb5eccea55c5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:09 +0200
-Subject: [PATCH 012/304] sched/core: Make migrate disable and CPU hotplug
+Subject: [PATCH 012/318] sched/core: Make migrate disable and CPU hotplug
  cooperative
 
 On CPU unplug tasks which are in a migrate disabled region cannot be pushed
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 34 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 5b33318..0649d5e 100644
+index b99c1913e417..177f4d340112 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1730,10 +1730,17 @@ static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
@@ -74,7 +74,7 @@ index 5b33318..0649d5e 100644
  #endif
  
  static void
-@@ -7057,15 +7075,20 @@ static void balance_push(struct rq *rq)
+@@ -7058,15 +7076,20 @@ static void balance_push(struct rq *rq)
  	 * Both the cpu-hotplug and stop task are in this case and are
  	 * required to complete the hotplug process.
  	 */
@@ -97,7 +97,7 @@ index 5b33318..0649d5e 100644
  			raw_spin_unlock(&rq->lock);
  			rcuwait_wake_up(&rq->hotplug_wait);
  			raw_spin_lock(&rq->lock);
-@@ -7112,7 +7135,8 @@ static void balance_hotplug_wait(void)
+@@ -7113,7 +7136,8 @@ static void balance_hotplug_wait(void)
  {
  	struct rq *rq = this_rq();
  
@@ -107,7 +107,7 @@ index 5b33318..0649d5e 100644
  			   TASK_UNINTERRUPTIBLE);
  }
  
-@@ -7357,7 +7381,7 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7358,7 +7382,7 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);
@@ -117,7 +117,7 @@ index 5b33318..0649d5e 100644
  
  	calc_load_migrate(rq);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index a555b30..589d8b1 100644
+index a555b30ad688..589d8b1960ba 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1058,6 +1058,10 @@ struct rq {
@@ -132,5 +132,5 @@ index a555b30..589d8b1 100644
  
  #ifdef CONFIG_FAIR_GROUP_SCHED
 -- 
-2.7.4
+2.17.1
 

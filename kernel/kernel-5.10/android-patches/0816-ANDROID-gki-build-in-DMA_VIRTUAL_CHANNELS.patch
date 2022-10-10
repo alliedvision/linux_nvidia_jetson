@@ -1,0 +1,34 @@
+From 1c9b61fa8910a4e37451bf49d6a8f78bb0a2c89c Mon Sep 17 00:00:00 2001
+From: zhang sanshan <pete.zhang@nxp.com>
+Date: Mon, 6 Jul 2020 18:57:52 +0800
+Subject: [PATCH 816/830] ANDROID: gki: build-in DMA_VIRTUAL_CHANNELS
+X-NVConfidentiality: public
+
+audio driver us edma to instore data.
+fsl-edma used api in virt-dma, like vchan_init to dma opt.
+There is not hardware involved. build-in DMA_VIRTUAL_CHANNELS
+
+Bug: 160627323
+Bug: 174628645
+Signed-off-by: zhang sanshan <pete.zhang@nxp.com>
+Signed-off-by: Miles Chen <miles.chen@mediatek.com>
+Change-Id: I5427cb6ef3725163f396836bfd3ebe23037c06f2
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index e0511c09eb78..fad370106dd7 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -48,6 +48,7 @@ config GKI_HIDDEN_SND_SOC_CONFIGS
+ 	select SND_SOC_GENERIC_DMAENGINE_PCM if (SND_SOC && SND)
+ 	select SND_PCM_IEC958
+ 	select SND_SOC_COMPRESS if (SND_SOC && SND)
++	select DMA_VIRTUAL_CHANNELS
+ 	help
+ 	  Dummy config option used to enable hidden SND_SOC configs.
+ 	  These are normally selected implicitly when a module
+-- 
+2.17.1
+

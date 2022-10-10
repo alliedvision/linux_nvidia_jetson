@@ -1,0 +1,132 @@
+From 394769f3a2256db2de856dc5ef865d79080b5fff Mon Sep 17 00:00:00 2001
+From: Satya Tangirala <satyat@google.com>
+Date: Tue, 21 Jan 2020 09:27:43 -0800
+Subject: [PATCH 391/830] ANDROID: block: Introduce passthrough keyslot manager
+X-NVConfidentiality: public
+
+The regular keyslot manager is designed for devices that have a small
+number of keyslots that need to be programmed with keys ahead of time,
+and bios that are sent to the device need to be tagged with a keyslot
+index.
+
+Some inline encryption hardware may not have any limitations on the
+number of keyslot, and may instead allow each bio to be tagged with
+a raw key, data unit number, etc. rather than a pre-programmed keyslot's
+index. These devices don't need any sort of keyslot management, and it's
+better for these devices not to have to allocate a regular keyslot
+manager with some fixed number of keyslots. These devices can instead
+set up a passthrough keyslot manager in their request queue, which
+require less resources than regular keyslot managers, as they simply
+do no-ops when trying to program keys into slots.
+
+Separately, the device mapper may map over devices that have inline
+encryption hardware, and it wants to pass the key along to the
+underlying hardware. While the DM layer can expose inline encryption
+capabilities by setting up a regular keyslot manager with some fixed
+number of keyslots in the dm device's request queue, this only wastes
+memory since the keys programmed into the dm device's request queue
+will never be used. Instead, it's better to set up a passthrough
+keyslot manager for dm devices.
+
+Bug: 137270441
+Bug: 147814592
+Bug: 162257830
+Change-Id: I6d91e83e86a73b0d6066873c8a9117cf2c089234
+Signed-off-by: Satya Tangirala <satyat@google.com>
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ block/keyslot-manager.c         | 41 +++++++++++++++++++++++++++++++++
+ include/linux/keyslot-manager.h |  2 ++
+ 2 files changed, 43 insertions(+)
+
+diff --git a/block/keyslot-manager.c b/block/keyslot-manager.c
+index 86f8195d8039..ec5e10fff242 100644
+--- a/block/keyslot-manager.c
++++ b/block/keyslot-manager.c
+@@ -62,6 +62,11 @@ static inline void blk_ksm_hw_exit(struct blk_keyslot_manager *ksm)
+ 		pm_runtime_put_sync(ksm->dev);
+ }
+ 
++static inline bool blk_ksm_is_passthrough(struct blk_keyslot_manager *ksm)
++{
++	return ksm->num_slots == 0;
++}
++
+ /**
+  * blk_ksm_init() - Initialize a keyslot manager
+  * @ksm: The keyslot_manager to initialize.
+@@ -205,6 +210,10 @@ blk_status_t blk_ksm_get_slot_for_key(struct blk_keyslot_manager *ksm,
+ 	int err;
+ 
+ 	*slot_ptr = NULL;
++
++	if (blk_ksm_is_passthrough(ksm))
++		return BLK_STS_OK;
++
+ 	down_read(&ksm->lock);
+ 	slot = blk_ksm_find_and_grab_keyslot(ksm, key);
+ 	up_read(&ksm->lock);
+@@ -325,6 +334,16 @@ int blk_ksm_evict_key(struct blk_keyslot_manager *ksm,
+ 	struct blk_ksm_keyslot *slot;
+ 	int err = 0;
+ 
++	if (blk_ksm_is_passthrough(ksm)) {
++		if (ksm->ksm_ll_ops.keyslot_evict) {
++			blk_ksm_hw_enter(ksm);
++			err = ksm->ksm_ll_ops.keyslot_evict(ksm, key, -1);
++			blk_ksm_hw_exit(ksm);
++			return err;
++		}
++		return 0;
++	}
++
+ 	blk_ksm_hw_enter(ksm);
+ 	slot = blk_ksm_find_keyslot(ksm, key);
+ 	if (!slot)
+@@ -360,6 +379,9 @@ void blk_ksm_reprogram_all_keys(struct blk_keyslot_manager *ksm)
+ {
+ 	unsigned int slot;
+ 
++	if (WARN_ON(blk_ksm_is_passthrough(ksm)))
++		return;
++
+ 	/* This is for device initialization, so don't resume the device */
+ 	down_write(&ksm->lock);
+ 	for (slot = 0; slot < ksm->num_slots; slot++) {
+@@ -401,3 +423,22 @@ void blk_ksm_unregister(struct request_queue *q)
+ {
+ 	q->ksm = NULL;
+ }
++
++/**
++ * blk_ksm_init_passthrough() - Init a passthrough keyslot manager
++ * @ksm: The keyslot manager to init
++ *
++ * Initialize a passthrough keyslot manager.
++ * Called by e.g. storage drivers to set up a keyslot manager in their
++ * request_queue, when the storage driver wants to manage its keys by itself.
++ * This is useful for inline encryption hardware that don't have a small fixed
++ * number of keyslots, and for layered devices.
++ *
++ * See blk_ksm_init() for more details about the parameters.
++ */
++void blk_ksm_init_passthrough(struct blk_keyslot_manager *ksm)
++{
++	memset(ksm, 0, sizeof(*ksm));
++	init_rwsem(&ksm->lock);
++}
++EXPORT_SYMBOL_GPL(blk_ksm_init_passthrough);
+diff --git a/include/linux/keyslot-manager.h b/include/linux/keyslot-manager.h
+index 18f3f5346843..323e15dd6fa7 100644
+--- a/include/linux/keyslot-manager.h
++++ b/include/linux/keyslot-manager.h
+@@ -103,4 +103,6 @@ void blk_ksm_reprogram_all_keys(struct blk_keyslot_manager *ksm);
+ 
+ void blk_ksm_destroy(struct blk_keyslot_manager *ksm);
+ 
++void blk_ksm_init_passthrough(struct blk_keyslot_manager *ksm);
++
+ #endif /* __LINUX_KEYSLOT_MANAGER_H */
+-- 
+2.17.1
+

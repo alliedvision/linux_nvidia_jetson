@@ -1,7 +1,7 @@
 /*
  * drivers/misc/bluedroid_pm.c
  *
- # Copyright (c) 2013-2021, NVIDIA CORPORATION. All rights reserved.
+ # Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -492,10 +492,18 @@ static int bluedroid_pm_suspend(struct platform_device *pdev,
 {
 	struct bluedroid_pm_data *bluedroid_pm = platform_get_drvdata(pdev);
 	unsigned long flags;
+	int ret = 0;
 
-	if (bluedroid_pm->host_wake)
-		if (!bluedroid_pm->is_blocked || !bluedroid_pm_blocked)
-			enable_irq_wake(bluedroid_pm->host_wake_irq);
+	if (bluedroid_pm->host_wake) {
+		if (!bluedroid_pm->is_blocked || !bluedroid_pm_blocked) {
+			ret = enable_irq_wake(bluedroid_pm->host_wake_irq);
+			if (ret < 0) {
+				BDP_ERR("Failed to enable irq wake for irq %d, %d\n",
+					bluedroid_pm->host_wake_irq, ret);
+				return ret;
+			}
+		}
+	}
 
 	spin_lock_irqsave(&bluedroid_pm->lock, flags);
 	bluedroid_pm->resumed = false;

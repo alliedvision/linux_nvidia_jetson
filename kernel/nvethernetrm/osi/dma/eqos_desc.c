@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,23 +62,18 @@ static inline void eqos_get_rx_vlan(struct osi_rx_desc *rx_desc,
  * @param[in] pkt_err_stats: Packet error stats which stores the errors reported
  */
 static inline void eqos_update_rx_err_stats(struct osi_rx_desc *rx_desc,
-					    struct osi_pkt_err_stats
-					    pkt_err_stats)
+					    struct osi_pkt_err_stats *stats)
 {
 	/* increment rx crc if we see CE bit set */
 	if ((rx_desc->rdes3 & RDES3_ERR_CRC) == RDES3_ERR_CRC) {
-		pkt_err_stats.rx_crc_error =
-			osi_update_stats_counter(
-					pkt_err_stats.rx_crc_error,
-					1UL);
+		stats->rx_crc_error =
+			osi_update_stats_counter(stats->rx_crc_error, 1UL);
 	}
 
 	/* increment rx frame error if we see RE bit set */
 	if ((rx_desc->rdes3 & RDES3_ERR_RE) == RDES3_ERR_RE) {
-		pkt_err_stats.rx_frame_error =
-			osi_update_stats_counter(
-					pkt_err_stats.rx_frame_error,
-					1UL);
+		stats->rx_frame_error =
+			osi_update_stats_counter(stats->rx_frame_error, 1UL);
 	}
 }
 
@@ -170,8 +165,8 @@ static void eqos_get_rx_csum(struct osi_rx_desc *rx_desc,
  * @param[in] rx_desc: Rx Descriptor.
  * @param[in] rx_pkt_cx: Per-Rx packet context structure
  */
-static void eqos_get_rx_hash(struct osi_rx_desc *rx_desc,
-			     struct osi_rx_pkt_cx *rx_pkt_cx)
+static void eqos_get_rx_hash(OSI_UNUSED struct osi_rx_desc *rx_desc,
+			     OSI_UNUSED struct osi_rx_pkt_cx *rx_pkt_cx)
 {
 }
 

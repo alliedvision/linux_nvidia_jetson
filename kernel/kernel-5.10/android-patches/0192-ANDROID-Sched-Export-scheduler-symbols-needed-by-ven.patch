@@ -1,0 +1,135 @@
+From 7393eca2fc4a2f2853fee6005bb3278158163bf5 Mon Sep 17 00:00:00 2001
+From: Shaleen Agrawal <shalagra@codeaurora.org>
+Date: Mon, 26 Oct 2020 18:23:50 -0700
+Subject: [PATCH 192/830] ANDROID: Sched: Export scheduler symbols needed by
+ vendor modules
+X-NVConfidentiality: public
+
+Need to export internal scheduler symbols to facilitate vendor module
+with scheduler based value-adds.
+
+Bug: 173725277
+Change-Id: I021f09097dfc1480abcc998cc8e05e75b2ee828b
+Signed-off-by: Shaleen Agrawal <shalagra@codeaurora.org>
+Signed-off-by: Pavankumar Kondeti <pkondeti@codeaurora.org>
+---
+ drivers/base/arch_topology.c | 1 +
+ kernel/cgroup/cgroup.c       | 1 +
+ kernel/fork.c                | 1 +
+ kernel/irq_work.c            | 2 +-
+ kernel/kthread.c             | 1 +
+ kernel/sched/core.c          | 3 +++
+ kernel/sched/cputime.c       | 1 +
+ kernel/softirq.c             | 1 +
+ 8 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index 78069d49faff..56f317fb7ee2 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -33,6 +33,7 @@ __weak bool arch_freq_counters_available(const struct cpumask *cpus)
+ 	return false;
+ }
+ DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
++EXPORT_PER_CPU_SYMBOL_GPL(freq_scale);
+ 
+ void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
+ 			     unsigned long max_freq)
+diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+index 4927289a91a9..a47597dccdb0 100644
+--- a/kernel/cgroup/cgroup.c
++++ b/kernel/cgroup/cgroup.c
+@@ -4198,6 +4198,7 @@ struct cgroup_subsys_state *css_next_child(struct cgroup_subsys_state *pos,
+ 		return next;
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(css_next_child);
+ 
+ /**
+  * css_next_descendant_pre - find the next descendant for pre-order walk
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 6ca205964a74..818ee71c6987 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -139,6 +139,7 @@ static const char * const resident_page_types[] = {
+ DEFINE_PER_CPU(unsigned long, process_counts) = 0;
+ 
+ __cacheline_aligned DEFINE_RWLOCK(tasklist_lock);  /* outer */
++EXPORT_SYMBOL_GPL(tasklist_lock);
+ 
+ #ifdef CONFIG_PROVE_RCU
+ int lockdep_tasklist_lock_is_held(void)
+diff --git a/kernel/irq_work.c b/kernel/irq_work.c
+index eca83965b631..e0ed16db660c 100644
+--- a/kernel/irq_work.c
++++ b/kernel/irq_work.c
+@@ -111,7 +111,7 @@ bool irq_work_queue_on(struct irq_work *work, int cpu)
+ 	return true;
+ #endif /* CONFIG_SMP */
+ }
+-
++EXPORT_SYMBOL_GPL(irq_work_queue_on);
+ 
+ bool irq_work_needs_cpu(void)
+ {
+diff --git a/kernel/kthread.c b/kernel/kthread.c
+index 508fe5278285..6a039c3850f0 100644
+--- a/kernel/kthread.c
++++ b/kernel/kthread.c
+@@ -476,6 +476,7 @@ void kthread_bind_mask(struct task_struct *p, const struct cpumask *mask)
+ {
+ 	__kthread_bind_mask(p, mask, TASK_UNINTERRUPTIBLE);
+ }
++EXPORT_SYMBOL_GPL(kthread_bind_mask);
+ 
+ /**
+  * kthread_bind - bind a just-created kthread to a cpu.
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 1f53d01e90f7..aedb492960c8 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -201,6 +201,7 @@ struct rq *__task_rq_lock(struct task_struct *p, struct rq_flags *rf)
+ 			cpu_relax();
+ 	}
+ }
++EXPORT_SYMBOL_GPL(__task_rq_lock);
+ 
+ /*
+  * task_rq_lock - lock p->pi_lock and lock the rq @p resides on.
+@@ -7073,7 +7074,9 @@ int in_sched_functions(unsigned long addr)
+  * Every task in system belongs to this group at bootup.
+  */
+ struct task_group root_task_group;
++EXPORT_SYMBOL_GPL(root_task_group);
+ LIST_HEAD(task_groups);
++EXPORT_SYMBOL_GPL(task_groups);
+ 
+ /* Cacheline aligned slab cache for task_group */
+ static struct kmem_cache *task_group_cache __read_mostly;
+diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
+index d22d8dfe4245..d73e5247ade9 100644
+--- a/kernel/sched/cputime.c
++++ b/kernel/sched/cputime.c
+@@ -18,6 +18,7 @@
+  * compromise in place of having locks on each irq in account_system_time.
+  */
+ DEFINE_PER_CPU(struct irqtime, cpu_irqtime);
++EXPORT_PER_CPU_SYMBOL_GPL(cpu_irqtime);
+ 
+ static int sched_clock_irqtime;
+ 
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 86e549d5dc23..169a780a2719 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -55,6 +55,7 @@ EXPORT_PER_CPU_SYMBOL(irq_stat);
+ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+ 
+ DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
++EXPORT_PER_CPU_SYMBOL_GPL(ksoftirqd);
+ 
+ /*
+  * active_softirqs -- per cpu, a mask of softirqs that are being handled,
+-- 
+2.17.1
+

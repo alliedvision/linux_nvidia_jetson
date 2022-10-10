@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -50,6 +50,19 @@
 				nvidia,frame-count = <2>;
 				nvidia,frame-size = <64>;
 			};
+
+			ivc_aon_echo@100 {
+				reg = <0x0100>, <0x10100>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <16>;
+				nvidia,frame-size = <64>;
+			};
 		};
+	};
+
+	aon_echo {
+		compatible = "nvidia,tegra186-aon-ivc-echo";
+		mboxes = <&aon 1>;
+		status = "disabled";
 	};
 };

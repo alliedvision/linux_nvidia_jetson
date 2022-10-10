@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -80,7 +80,7 @@ static int frp_entry_find(struct osi_core_priv_data *const osi_core,
 				found = OSI_ENABLE;
 			} else {
 				/* Increment entries */
-				*no_entries = *no_entries + 1U;
+				*no_entries =  (unsigned char) (*no_entries + 1U);
 			}
 		}
 	}
@@ -117,18 +117,18 @@ static unsigned char frp_req_entries(unsigned char offset,
 	}
 
 	/* Check does the given length can fit in fist entry */
-	if (match_length <= FRP_OFFSET_BYTES(offset)) {
+	if (match_length <= (unsigned char) FRP_OFFSET_BYTES(offset)) {
 		/* Require one entry */
 		return 1U;
 	}
 	/* Initialize req as 1U and decrement length by FRP_OFFSET_BYTES */
 	req = 1U;
-	match_length -= FRP_OFFSET_BYTES(offset);
+	match_length = (unsigned char) (match_length - (unsigned char) FRP_OFFSET_BYTES(offset));
 	if ((match_length / FRP_MD_SIZE) < OSI_FRP_MATCH_DATA_MAX) {
-		req += (match_length / FRP_MD_SIZE);
+		req = (unsigned char) (req + (match_length /  FRP_MD_SIZE));
 		if ((match_length % FRP_MD_SIZE) != OSI_NONE) {
 			/* Need one more entry */
-			req += 1U;
+			req  = (unsigned char) (req + 1U);
 		}
 	}
 
@@ -274,7 +274,7 @@ static int frp_entry_add(struct osi_core_priv_data *const osi_core,
 			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 				"No Link FRP ID index found\n",
 				OSI_NONE);
-			i = next_frp_id;
+			i = (unsigned char) next_frp_id;
 		}
 		ok_index = i;
 	}
@@ -462,7 +462,7 @@ static int frp_add_proto(struct osi_core_priv_data *const osi_core,
 	/* Check and Add protocol FRP entire */
 	if (proto_entry == OSI_ENABLE) {
 		/* Check for space */
-		req = frp_req_entries(cmd->offset, cmd->match_length) + 1U;
+		req = (unsigned char) (frp_req_entries(cmd->offset, cmd->match_length) + 1U);
 		if (*pos > (OSI_FRP_MAX_ENTRY - req)) {
 			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 				"Fail add FRP protocol entry\n",
@@ -484,7 +484,7 @@ static int frp_add_proto(struct osi_core_priv_data *const osi_core,
 		}
 
 		/* Increment pos value */
-		*pos += 1U;
+		*pos = (unsigned char) (*pos + 1U);
 	}
 
 	return 0;
@@ -499,8 +499,8 @@ static int frp_add_proto(struct osi_core_priv_data *const osi_core,
  * @param[in] cmd: OSI FRP command structure.
  *
  */
-static void frp_parse_mtype(struct osi_core_priv_data *const osi_core,
-			   struct osi_core_frp_cmd *const cmd)
+static void frp_parse_mtype(OSI_UNUSED struct osi_core_priv_data *const osi_core,
+			    struct osi_core_frp_cmd *const cmd)
 {
 	unsigned char offset;
 	unsigned char match_type = cmd->match_type;
@@ -592,7 +592,7 @@ static int frp_delete(struct osi_core_priv_data *const osi_core,
 		   (sizeof(struct osi_core_frp_entry) * count));
 
 	/* Move in FRP table entries by count */
-	for (i = (pos + count); i <= frp_cnt; i++) {
+	for (i = (unsigned char) (pos + count); i <= frp_cnt; i++) {
 		frp_entry_copy(&osi_core->frp_table[pos],
 			       &osi_core->frp_table[i]);
 		pos++;

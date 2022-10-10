@@ -1,7 +1,7 @@
-From 821a8bf645b1e42e9729b93df7ce486d748d73bf Mon Sep 17 00:00:00 2001
+From 22f4ffe751054e4ca5b5201bc2358c308ba67066 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:07 +0200
-Subject: [PATCH 010/304] sched: Add migrate_disable()
+Subject: [PATCH 010/318] sched: Add migrate_disable()
 
 Add the base migrate_disable() support (under protest).
 
@@ -15,15 +15,15 @@ ease of review.
 Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/preempt.h |  65 ++++++++++++++++++++++++++++
+ include/linux/preempt.h |  65 +++++++++++++++++++++++
  include/linux/sched.h   |   3 ++
- kernel/sched/core.c     | 112 +++++++++++++++++++++++++++++++++++++++++++++---
+ kernel/sched/core.c     | 112 +++++++++++++++++++++++++++++++++++++---
  kernel/sched/sched.h    |   6 ++-
- lib/smp_processor_id.c  |   5 +++
+ lib/smp_processor_id.c  |   5 ++
  5 files changed, 183 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 7d9c1c0..97ba7c9 100644
+index 7d9c1c0e149c..97ba7c920653 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -322,6 +322,69 @@ static inline void preempt_notifier_init(struct preempt_notifier *notifier,
@@ -104,7 +104,7 @@ index 7d9c1c0..97ba7c9 100644
 +
  #endif /* __LINUX_PREEMPT_H */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 2660ee4..30857da 100644
+index f996d1f343bb..f7cd444b69d9 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -730,6 +730,9 @@ struct task_struct {
@@ -118,7 +118,7 @@ index 2660ee4..30857da 100644
  #ifdef CONFIG_PREEMPT_RCU
  	int				rcu_read_lock_nesting;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 3ba9f4b..b19849c 100644
+index a8cf94523cb3..22c0c07f3c7f 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1705,6 +1705,61 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
@@ -303,7 +303,7 @@ index 3ba9f4b..b19849c 100644
  static void
  ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
  {
-@@ -4585,6 +4684,7 @@ static void __sched notrace __schedule(bool preempt)
+@@ -4589,6 +4688,7 @@ static void __sched notrace __schedule(bool preempt)
  		 */
  		++*switch_count;
  
@@ -312,7 +312,7 @@ index 3ba9f4b..b19849c 100644
  
  		trace_sched_switch(preempt, prev, next);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 76695d3..a555b30 100644
+index 76695d3a7907..a555b30ad688 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1907,14 +1907,16 @@ static inline bool sched_fair_runnable(struct rq *rq)
@@ -335,7 +335,7 @@ index 76695d3..a555b30 100644
  
  #endif
 diff --git a/lib/smp_processor_id.c b/lib/smp_processor_id.c
-index 525222e..faaa927 100644
+index 525222e4f409..faaa927ac2c8 100644
 --- a/lib/smp_processor_id.c
 +++ b/lib/smp_processor_id.c
 @@ -26,6 +26,11 @@ unsigned int check_preemption_disabled(const char *what1, const char *what2)
@@ -351,5 +351,5 @@ index 525222e..faaa927 100644
  	 * It is valid to assume CPU-locality during early bootup:
  	 */
 -- 
-2.7.4
+2.17.1
 

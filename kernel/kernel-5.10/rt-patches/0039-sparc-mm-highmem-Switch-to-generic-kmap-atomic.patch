@@ -1,7 +1,7 @@
-From 3b3fd19b25e4df9e099318f24b986d3bb57c48bb Mon Sep 17 00:00:00 2001
+From 51aac84b14084c4bf08e109a81ecbaab5feaaf15 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:28 +0100
-Subject: [PATCH 039/304] sparc/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 039/318] sparc/mm/highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture
 
@@ -11,18 +11,18 @@ Cc: sparclinux@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/sparc/Kconfig                  |   1 +
- arch/sparc/include/asm/highmem.h    |   8 ++-
- arch/sparc/include/asm/kmap_types.h |  11 ----
+ arch/sparc/include/asm/highmem.h    |   8 +-
+ arch/sparc/include/asm/kmap_types.h |  11 ---
  arch/sparc/include/asm/vaddrs.h     |   4 +-
  arch/sparc/mm/Makefile              |   3 -
- arch/sparc/mm/highmem.c             | 115 ------------------------------------
+ arch/sparc/mm/highmem.c             | 115 ----------------------------
  arch/sparc/mm/srmmu.c               |   2 -
  7 files changed, 8 insertions(+), 136 deletions(-)
  delete mode 100644 arch/sparc/include/asm/kmap_types.h
  delete mode 100644 arch/sparc/mm/highmem.c
 
 diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index 530b7ec..a38d00d 100644
+index 530b7ec5d3ca..a38d00d8b783 100644
 --- a/arch/sparc/Kconfig
 +++ b/arch/sparc/Kconfig
 @@ -139,6 +139,7 @@ config MMU
@@ -34,7 +34,7 @@ index 530b7ec..a38d00d 100644
  config ZONE_DMA
  	bool
 diff --git a/arch/sparc/include/asm/highmem.h b/arch/sparc/include/asm/highmem.h
-index 6c35f0d..8751162 100644
+index 6c35f0d27ee1..875116209ec1 100644
 --- a/arch/sparc/include/asm/highmem.h
 +++ b/arch/sparc/include/asm/highmem.h
 @@ -24,7 +24,6 @@
@@ -68,7 +68,7 @@ index 6c35f0d..8751162 100644
  #endif /* _ASM_HIGHMEM_H */
 diff --git a/arch/sparc/include/asm/kmap_types.h b/arch/sparc/include/asm/kmap_types.h
 deleted file mode 100644
-index 55a99b6b..00000000
+index 55a99b6bd91e..000000000000
 --- a/arch/sparc/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,11 +0,0 @@
@@ -84,7 +84,7 @@ index 55a99b6b..00000000
 -
 -#endif
 diff --git a/arch/sparc/include/asm/vaddrs.h b/arch/sparc/include/asm/vaddrs.h
-index 84d054b..4fec034 100644
+index 84d054b07a6f..4fec0341e2a8 100644
 --- a/arch/sparc/include/asm/vaddrs.h
 +++ b/arch/sparc/include/asm/vaddrs.h
 @@ -32,13 +32,13 @@
@@ -104,7 +104,7 @@ index 84d054b..4fec034 100644
  	__end_of_fixed_addresses
  };
 diff --git a/arch/sparc/mm/Makefile b/arch/sparc/mm/Makefile
-index b078205..68db1f8 100644
+index b078205b70e0..68db1f859b02 100644
 --- a/arch/sparc/mm/Makefile
 +++ b/arch/sparc/mm/Makefile
 @@ -15,6 +15,3 @@ obj-$(CONFIG_SPARC32)   += leon_mm.o
@@ -116,7 +116,7 @@ index b078205..68db1f8 100644
 -obj-$(CONFIG_HIGHMEM)   += highmem.o
 diff --git a/arch/sparc/mm/highmem.c b/arch/sparc/mm/highmem.c
 deleted file mode 100644
-index 8f2a2af..00000000
+index 8f2a2afb048a..000000000000
 --- a/arch/sparc/mm/highmem.c
 +++ /dev/null
 @@ -1,115 +0,0 @@
@@ -236,7 +236,7 @@ index 8f2a2af..00000000
 -}
 -EXPORT_SYMBOL(kunmap_atomic_high);
 diff --git a/arch/sparc/mm/srmmu.c b/arch/sparc/mm/srmmu.c
-index 0070f8b..a03caa5 100644
+index 0070f8b9a753..a03caa5f6628 100644
 --- a/arch/sparc/mm/srmmu.c
 +++ b/arch/sparc/mm/srmmu.c
 @@ -971,8 +971,6 @@ void __init srmmu_paging_init(void)
@@ -249,5 +249,5 @@ index 0070f8b..a03caa5 100644
  		unsigned long max_zone_pfn[MAX_NR_ZONES] = { 0 };
  
 -- 
-2.7.4
+2.17.1
 

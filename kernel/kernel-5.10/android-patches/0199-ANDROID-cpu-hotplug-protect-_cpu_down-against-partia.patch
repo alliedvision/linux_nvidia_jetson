@@ -1,0 +1,38 @@
+From 4813d3eef4ebe5e6b939022d467dd6c6324143e8 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Thu, 13 Aug 2020 18:53:02 +0100
+Subject: [PATCH 199/830] ANDROID: cpu/hotplug: protect _cpu_down against
+ partial HP
+X-NVConfidentiality: public
+
+In the event of a partial _cpu_down, (i.e. _cpu_down(target) where
+target > CPUHP_AP_OFFLINE), the cpu_online_mask won't be aligned with
+cpu_active_mask. This is an issue when trying to offline the last CPU
+from cpu_active_mask, while num_online_cpus() > 1.
+
+Protect against this case by checking num_active_cpus() instead of
+num_online_cpus().
+
+Bug: 161210528
+Change-Id: Ibe7d9ef69e5f91e99be0d98076614a7654bda094
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ kernel/cpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 20ee5aa6523a..49ff11757b66 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1054,7 +1054,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
+ 	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
+ 	int prev_state, ret = 0;
+ 
+-	if (num_online_cpus() == 1)
++	if (num_active_cpus() == 1)
+ 		return -EBUSY;
+ 
+ 	if (!cpu_present(cpu))
+-- 
+2.17.1
+

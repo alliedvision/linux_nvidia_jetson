@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,5 +26,6 @@
 
 bool gv11b_is_fault_engine_subid_gpc(struct gk20a *g, u32 engine_subid)
 {
+	(void)g;
 	return (engine_subid == gmmu_fault_client_type_gpc_v());
 }

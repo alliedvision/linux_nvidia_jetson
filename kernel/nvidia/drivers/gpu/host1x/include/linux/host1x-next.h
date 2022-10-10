@@ -34,6 +34,11 @@ u64 host1x_get_dma_mask(struct host1x *host1x);
  * struct host1x_bo_cache - host1x buffer object cache
  * @mappings: list of mappings
  * @lock: synchronizes accesses to the list of mappings
+ *
+ * Note that entries are not periodically evicted from this cache and instead need to be
+ * explicitly released. This is used primarily for DRM/KMS where the cache's reference is
+ * released when the last reference to a buffer object represented by a mapping in this
+ * cache is dropped.
  */
 struct host1x_bo_cache {
 	struct list_head mappings;
@@ -218,10 +223,7 @@ u32 host1x_syncpt_base_id(struct host1x_syncpt_base *base);
 void host1x_syncpt_release_vblank_reservation(struct host1x_client *client,
 					      u32 syncpt_id);
 
-struct host1x_syncpt *host1x_syncpt_fd_get(int fd);
-
 struct dma_fence *host1x_fence_create(struct host1x_syncpt *sp, u32 threshold);
-int host1x_fence_create_fd(struct host1x_syncpt *sp, u32 threshold);
 int host1x_fence_extract(struct dma_fence *fence, u32 *id, u32 *threshold);
 
 /*
@@ -324,13 +326,18 @@ struct host1x_job {
 	/* Callback called when job is freed */
 	void (*release)(struct host1x_job *job);
 	void *user_data;
+
+	/* Whether host1x-side firewall should be ran for this job or not */
+	bool enable_firewall;
 };
 
 struct host1x_job *host1x_job_alloc(struct host1x_channel *ch,
-				    u32 num_cmdbufs, u32 num_relocs);
+				    u32 num_cmdbufs, u32 num_relocs,
+				    bool skip_firewall);
 void host1x_job_add_gather(struct host1x_job *job, struct host1x_bo *bo,
 			   unsigned int words, unsigned int offset);
-void host1x_job_add_wait(struct host1x_job *job, u32 id, u32 thresh);
+void host1x_job_add_wait(struct host1x_job *job, u32 id, u32 thresh,
+			 bool relative, u32 next_class);
 struct host1x_job *host1x_job_get(struct host1x_job *job);
 void host1x_job_put(struct host1x_job *job);
 int host1x_job_pin(struct host1x_job *job, struct device *dev);

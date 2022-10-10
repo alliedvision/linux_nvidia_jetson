@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -411,7 +411,7 @@ static int _pwr_policy_construct_WAR_SW_Threshold_policy(struct gk20a *g,
 	}
 
 	status = boardobjgrp_objinsert(&ppwrpolicyobjs->pwr_policies.super,
-			obj_tmp, obj_index);
+			obj_tmp, (u8)obj_index);
 
 	if (status != 0) {
 		nvgpu_err(g,
@@ -688,7 +688,7 @@ static int devinit_get_pwr_policy_table(struct gk20a *g,
 		}
 
 		status = boardobjgrp_objinsert(&ppwrpolicyobjs->pwr_policies.super,
-				obj_tmp, obj_index);
+				obj_tmp, (u8)obj_index);
 
 		if (status != 0) {
 			nvgpu_err(g,

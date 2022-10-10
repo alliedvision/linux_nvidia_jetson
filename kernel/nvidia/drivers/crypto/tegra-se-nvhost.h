@@ -1,7 +1,7 @@
 /*
  * Header file for Tegra Security Engine
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -326,6 +326,7 @@
 #define TEGRA_SE_RSA1024_INPUT_SIZE		128
 #define TEGRA_SE_RSA1536_INPUT_SIZE		192
 #define TEGRA_SE_RSA2048_INPUT_SIZE		256
+#define TEGRA_SE_CMAC_MAX_INPUT_SIZE		(TEGRA_SE_AES_BLOCK_SIZE * 256)
 
 #define TEGRA_SE_AES_CMAC_STATE_SIZE	16
 #define SHA1_STATE_SIZE	20

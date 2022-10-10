@@ -1,7 +1,7 @@
-From 880c1bbd8494f254736c10f4c56ce680cce81971 Mon Sep 17 00:00:00 2001
+From 2c374164ec07997cafaf21a27e9bb14a440966e8 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:31:14 +0200
-Subject: [PATCH 177/304] locking/rtmutex: wire up RT's locking
+Subject: [PATCH 177/318] locking/rtmutex: wire up RT's locking
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  11 files changed, 77 insertions(+), 19 deletions(-)
 
 diff --git a/include/linux/mutex.h b/include/linux/mutex.h
-index 4d671fb..e45774a 100644
+index 4d671fba3cab..e45774a337d2 100644
 --- a/include/linux/mutex.h
 +++ b/include/linux/mutex.h
 @@ -22,6 +22,20 @@
@@ -69,7 +69,7 @@ index 4d671fb..e45774a 100644
 +
  #endif /* __LINUX_MUTEX_H */
 diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index 4c715be..9323af8 100644
+index 4c715be48717..9323af8a9244 100644
 --- a/include/linux/rwsem.h
 +++ b/include/linux/rwsem.h
 @@ -16,6 +16,11 @@
@@ -99,7 +99,7 @@ index 4c715be..9323af8 100644
   * lock for reading
   */
 diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-index 7989784..c3c7029 100644
+index 79897841a2cc..c3c70291b46c 100644
 --- a/include/linux/spinlock.h
 +++ b/include/linux/spinlock.h
 @@ -309,7 +309,11 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
@@ -136,7 +136,7 @@ index 7989784..c3c7029 100644
   * Pull the atomic_t declaration:
   * (asm-mips/atomic.h needs above definitions)
 diff --git a/include/linux/spinlock_api_smp.h b/include/linux/spinlock_api_smp.h
-index 19a9be9..da38149 100644
+index 19a9be9d97ee..da38149f2843 100644
 --- a/include/linux/spinlock_api_smp.h
 +++ b/include/linux/spinlock_api_smp.h
 @@ -187,6 +187,8 @@ static inline int __raw_spin_trylock_bh(raw_spinlock_t *lock)
@@ -150,7 +150,7 @@ index 19a9be9..da38149 100644
  
  #endif /* __LINUX_SPINLOCK_API_SMP_H */
 diff --git a/include/linux/spinlock_types.h b/include/linux/spinlock_types.h
-index 5c8664d..8d896d3 100644
+index 5c8664d57fb8..8d896d3e1a01 100644
 --- a/include/linux/spinlock_types.h
 +++ b/include/linux/spinlock_types.h
 @@ -11,8 +11,13 @@
@@ -171,7 +171,7 @@ index 5c8664d..8d896d3 100644
  
  #endif /* __LINUX_SPINLOCK_TYPES_H */
 diff --git a/include/linux/spinlock_types_up.h b/include/linux/spinlock_types_up.h
-index c09b6407..d9b371f 100644
+index c09b6407ae1b..d9b371fa13e0 100644
 --- a/include/linux/spinlock_types_up.h
 +++ b/include/linux/spinlock_types_up.h
 @@ -1,7 +1,7 @@
@@ -184,7 +184,7 @@ index c09b6407..d9b371f 100644
  #endif
  
 diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
-index bf82259..cbe3aa4 100644
+index bf82259cff96..cbe3aa495519 100644
 --- a/kernel/Kconfig.preempt
 +++ b/kernel/Kconfig.preempt
 @@ -59,6 +59,7 @@ config PREEMPT_RT
@@ -196,7 +196,7 @@ index bf82259..cbe3aa4 100644
  	  This option turns the kernel into a real-time kernel by replacing
  	  various locking primitives (spinlocks, rwlocks, etc.) with
 diff --git a/kernel/locking/Makefile b/kernel/locking/Makefile
-index 6d11cfb..c7fbf73 100644
+index 6d11cfb9b41f..c7fbf737e16e 100644
 --- a/kernel/locking/Makefile
 +++ b/kernel/locking/Makefile
 @@ -3,7 +3,7 @@
@@ -235,7 +235,7 @@ index 6d11cfb..c7fbf73 100644
  obj-$(CONFIG_LOCK_TORTURE_TEST) += locktorture.o
  obj-$(CONFIG_WW_MUTEX_SELFTEST) += test-ww_mutex.o
 diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
-index a163542d..3821c72 100644
+index cc5cc889b5b7..f7c909ef1261 100644
 --- a/kernel/locking/rwsem.c
 +++ b/kernel/locking/rwsem.c
 @@ -28,6 +28,7 @@
@@ -275,7 +275,7 @@ index a163542d..3821c72 100644
  }
  EXPORT_SYMBOL(up_read_non_owner);
 diff --git a/kernel/locking/spinlock.c b/kernel/locking/spinlock.c
-index 0ff0838..45445a2 100644
+index 0ff08380f531..45445a2f1799 100644
 --- a/kernel/locking/spinlock.c
 +++ b/kernel/locking/spinlock.c
 @@ -124,8 +124,11 @@ void __lockfunc __raw_##op##_lock_bh(locktype##_t *lock)		\
@@ -309,7 +309,7 @@ index 0ff0838..45445a2 100644
  
  void __lockfunc _raw_spin_lock_nested(raw_spinlock_t *lock, int subclass)
 diff --git a/kernel/locking/spinlock_debug.c b/kernel/locking/spinlock_debug.c
-index b9d9308..72e306e 100644
+index b9d93087ee66..72e306e0e8a3 100644
 --- a/kernel/locking/spinlock_debug.c
 +++ b/kernel/locking/spinlock_debug.c
 @@ -31,6 +31,7 @@ void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
@@ -343,5 +343,5 @@ index b9d9308..72e306e 100644
 +
 +#endif
 -- 
-2.7.4
+2.17.1
 

@@ -1,7 +1,7 @@
 /*
  * imx390.c - imx390 sensor driver
  *
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -49,7 +49,7 @@
 #define IMX390_ANALOG_GAIN_SP1H_ADDR	0x0018
 #define IMX390_ANALOG_GAIN_SP1L_ADDR	0x001A
 
-const struct of_device_id imx390_of_match[] = {
+static const struct of_device_id imx390_of_match[] = {
 	{ .compatible = "sony,imx390",},
 	{ },
 };
@@ -483,6 +483,9 @@ static int imx390_set_mode(struct tegracam_device *tc_dev)
 		dev_err(dev, "Failed to find matching dt id\n");
 		return -EINVAL;
 	}
+
+	if (s_data->mode_prop_idx < 0)
+		return -EINVAL;
 
 	err = imx390_write_table(priv, mode_table[s_data->mode_prop_idx]);
 	if (err)

@@ -1,7 +1,7 @@
 /*
  * sensor_kernel_tests_runner - test runner for sensor kernel tests
  *
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,7 +40,7 @@
 static char tvcf_vers_buff[SKT_TVCF_VERS_BUFF_SIZE];
 static u32 dest_portid;
 
-struct skt_test skt_available_tests[] = {
+static struct skt_test skt_available_tests[] = {
 	{
 		.name = "Sensor DT Test",
 		.description = "Asserts compliance of sensor DT",

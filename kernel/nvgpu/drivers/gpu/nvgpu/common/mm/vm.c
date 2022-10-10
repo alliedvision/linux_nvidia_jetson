@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,6 +41,7 @@
 #include <nvgpu/static_analysis.h>
 #include <nvgpu/power_features/pg.h>
 #include <nvgpu/nvhost.h>
+#include <nvgpu/string.h>
 
 struct nvgpu_ctag_buffer_info {
 	u64			size;
@@ -288,13 +289,7 @@ void nvgpu_vm_mapping_batch_finish_locked(
 	int err;
 
 	/* hanging kref_put batch pointer? */
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON(vm->kref_put_batch == mapping_batch);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	if (mapping_batch->need_tlb_invalidate) {
 		struct gk20a *g = gk20a_from_vm(vm);
@@ -593,6 +588,7 @@ static int nvgpu_vm_init_check_vma_limits(struct gk20a *g, struct vm_gk20a *vm,
 				u64 user_lp_vma_start, u64 user_lp_vma_limit,
 				u64 kernel_vma_start, u64 kernel_vma_limit)
 {
+	(void)vm;
 	if ((user_vma_start > user_vma_limit) ||
 		(user_lp_vma_start > user_lp_vma_limit) ||
 		(kernel_vma_start >= kernel_vma_limit)) {
@@ -638,7 +634,7 @@ static int nvgpu_vm_init_vma(struct gk20a *g, struct vm_gk20a *vm,
 		 * is set.
 		 */
 		if (!big_pages || unified_va) {
-			user_vma_start = vm->va_start;
+			user_vma_start = vm->virtaddr_start;
 			user_vma_limit = nvgpu_safe_sub_u64(vm->va_limit,
 							kernel_reserved);
 			user_lp_vma_start = user_vma_limit;
@@ -648,14 +644,14 @@ static int nvgpu_vm_init_vma(struct gk20a *g, struct vm_gk20a *vm,
 			 * Ensure small_big_split falls between user vma
 			 * start and end.
 			 */
-			if ((small_big_split <= vm->va_start) ||
+			if ((small_big_split <= vm->virtaddr_start) ||
 				(small_big_split >=
 					nvgpu_safe_sub_u64(vm->va_limit,
 							kernel_reserved))) {
 				return -EINVAL;
 			}
 
-			user_vma_start = vm->va_start;
+			user_vma_start = vm->virtaddr_start;
 			user_vma_limit = small_big_split;
 			user_lp_vma_start = small_big_split;
 			user_lp_vma_limit = nvgpu_safe_sub_u64(vm->va_limit,
@@ -723,6 +719,8 @@ static int nvgpu_vm_init_attributes(struct mm_gk20a *mm,
 	u64 aperture_size;
 	u64 default_aperture_size;
 
+	(void)big_pages;
+
 	g->ops.mm.get_default_va_sizes(&default_aperture_size, NULL, NULL);
 
 	aperture_size = nvgpu_safe_add_u64(kernel_reserved,
@@ -755,7 +753,7 @@ static int nvgpu_vm_init_attributes(struct mm_gk20a *mm,
 		vm->vma[GMMU_PAGE_SIZE_BIG] = &vm->user_lp;
 	}
 
-	vm->va_start = low_hole;
+	vm->virtaddr_start = low_hole;
 	vm->va_limit = aperture_size;
 
 	vm->big_page_size     = vm->gmmu_page_sizes[GMMU_PAGE_SIZE_BIG];
@@ -1185,6 +1183,8 @@ static int nvgpu_vm_do_map(struct vm_gk20a *vm,
 	 */
 	u8 pte_kind;
 
+	(void)os_buf;
+	(void)flags;
 #ifdef CONFIG_NVGPU_COMPRESSION
 	err = nvgpu_vm_compute_compression(vm, binfo_ptr);
 	if (err != 0) {
@@ -1216,7 +1216,7 @@ static int nvgpu_vm_do_map(struct vm_gk20a *vm,
 	}
 
 	if (binfo_ptr->compr_kind != NVGPU_KIND_INVALID) {
-		struct gk20a_comptags comptags = { 0 };
+		struct gk20a_comptags comptags = { };
 
 		/*
 		 * Get the comptags state
@@ -1272,11 +1272,16 @@ static int nvgpu_vm_do_map(struct vm_gk20a *vm,
 	 * Figure out the kind and ctag offset for the GMMU page tables
 	 */
 	if (binfo_ptr->compr_kind != NVGPU_KIND_INVALID && ctag_offset != 0U) {
+
+		u64 compression_page_size = g->ops.fb.compression_page_size(g);
+
+		nvgpu_assert(compression_page_size > 0ULL);
+
 		/*
 		 * Adjust the ctag_offset as per the buffer map offset
 		 */
 		ctag_offset += (u32)(phys_offset >>
-			ilog2(g->ops.fb.compression_page_size(g)));
+			nvgpu_ilog2(compression_page_size));
 		nvgpu_assert((binfo_ptr->compr_kind >= 0) &&
 			     (binfo_ptr->compr_kind <= (s16)U8_MAX));
 		pte_kind = (u8)binfo_ptr->compr_kind;
@@ -1410,6 +1415,8 @@ static int nvgpu_vm_map_check_attributes(struct vm_gk20a *vm,
 {
 	struct gk20a *g = gk20a_from_vm(vm);
 
+	(void)compr_kind;
+
 	if (vm->userspace_managed &&
 		((flags & NVGPU_VM_MAP_FIXED_OFFSET) == 0U)) {
 		nvgpu_err(g,
@@ -1461,7 +1468,7 @@ int nvgpu_vm_map(struct vm_gk20a *vm,
 {
 	struct gk20a *g = gk20a_from_vm(vm);
 	struct nvgpu_mapped_buf *mapped_buffer = NULL;
-	struct nvgpu_ctag_buffer_info binfo = { 0 };
+	struct nvgpu_ctag_buffer_info binfo = { };
 	enum gk20a_mem_rw_flag rw = buffer_rw_mode;
 	struct nvgpu_vm_area *vm_area = NULL;
 	int err = 0;

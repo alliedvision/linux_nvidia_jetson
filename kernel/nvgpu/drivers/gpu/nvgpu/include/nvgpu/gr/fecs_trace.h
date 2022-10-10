@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,14 +28,14 @@
 #include <nvgpu/types.h>
 #include <nvgpu/list.h>
 #include <nvgpu/lock.h>
-#include <nvgpu/thread.h>
+#include <nvgpu/periodic_timer.h>
 
 /*
  * If HW circular buffer is getting too many "buffer full" conditions,
  * increasing this constant should help (it drives Linux' internal buffer size).
  */
 #define GK20A_FECS_TRACE_NUM_RECORDS		(1 << 10)
-#define GK20A_FECS_TRACE_FRAME_PERIOD_US	(1000000ULL/60ULL)
+#define GK20A_FECS_TRACE_FRAME_PERIOD_NS	(1000000000ULL/60ULL)
 #define GK20A_FECS_TRACE_PTIMER_SHIFT		5
 
 #define NVGPU_GPU_CTXSW_TAG_SOF                     0x00U
@@ -54,7 +54,7 @@
 	NVGPU_GPU_CTXSW_TAG_INVALID_TIMESTAMP
 
 #define NVGPU_GPU_CTXSW_FILTER_ISSET(n, p) \
-	((p)->tag_bits[(n) / 64] &   (1 << ((n) & 63)))
+	((p)->tag_bits[(n) / 64] &   (1U << ((n) & 63)))
 
 #define NVGPU_GPU_CTXSW_FILTER_SIZE (NVGPU_GPU_CTXSW_TAG_LAST + 1)
 #define NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT 31
@@ -71,7 +71,7 @@ struct nvgpu_gr_fecs_trace {
 	struct nvgpu_mutex list_lock;
 
 	struct nvgpu_mutex poll_lock;
-	struct nvgpu_thread poll_task;
+	struct nvgpu_periodic_timer poll_timer;
 
 	struct nvgpu_mutex enable_lock;
 	u32 enable_count;

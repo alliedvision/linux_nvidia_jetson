@@ -1,0 +1,75 @@
+From ac6fd92b1045ba1ba76f2df724743da21254b8cf Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Wed, 23 Sep 2020 14:01:31 -0600
+Subject: [PATCH 526/830] FROMLIST: soc: qcom: cmd-db: allow loading as a
+ module
+X-NVConfidentiality: public
+
+This patch enables Command DB driver to be loaded as a module. Command
+DB is inherent to RPMH interaction and as such would never be unloaded.
+Add supress_bind_attrs to make it a permanently loaded module.
+
+Bug: 169259846
+Link: https://lore.kernel.org/linux-arm-msm/20201001154144.5226-1-ilina@codeaurora.org/T/#u
+Reviewed-by: John Stultz <john.stultz@linaro.org>
+Tested-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: Ieef72d620ab0f5261c88098f4e90468c9fa55932
+---
+ drivers/soc/qcom/Kconfig  | 2 +-
+ drivers/soc/qcom/cmd-db.c | 8 +++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index d65e4bcf9911..79b568f82a1c 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -17,7 +17,7 @@ config QCOM_AOSS_QMP
+ 	  Subsystem (AOSS) using Qualcomm Messaging Protocol (QMP).
+ 
+ config QCOM_COMMAND_DB
+-	bool "Qualcomm Command DB"
++	tristate "Qualcomm Command DB"
+ 	depends on ARCH_QCOM || COMPILE_TEST
+ 	depends on OF_RESERVED_MEM
+ 	help
+diff --git a/drivers/soc/qcom/cmd-db.c b/drivers/soc/qcom/cmd-db.c
+index fc5610603b17..dd872017f345 100644
+--- a/drivers/soc/qcom/cmd-db.c
++++ b/drivers/soc/qcom/cmd-db.c
+@@ -1,8 +1,9 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved. */
++/* Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved. */
+ 
+ #include <linux/debugfs.h>
+ #include <linux/kernel.h>
++#include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/of_reserved_mem.h>
+@@ -340,12 +341,14 @@ static const struct of_device_id cmd_db_match_table[] = {
+ 	{ .compatible = "qcom,cmd-db" },
+ 	{ }
+ };
++MODULE_DEVICE_TABLE(of, cmd_db_match_table);
+ 
+ static struct platform_driver cmd_db_dev_driver = {
+ 	.probe  = cmd_db_dev_probe,
+ 	.driver = {
+ 		   .name = "cmd-db",
+ 		   .of_match_table = cmd_db_match_table,
++		   .suppress_bind_attrs = true,
+ 	},
+ };
+ 
+@@ -354,3 +357,6 @@ static int __init cmd_db_device_init(void)
+ 	return platform_driver_register(&cmd_db_dev_driver);
+ }
+ arch_initcall(cmd_db_device_init);
++
++MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Command DB Driver");
++MODULE_LICENSE("GPL v2");
+-- 
+2.17.1
+

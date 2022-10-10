@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +18,9 @@
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/mailbox_controller.h>
+
+/* from drivers/mailbox/mailbox.h */
+#include "mailbox.h"
 
 #include "tegra23x_psc.h"
 
@@ -115,17 +118,8 @@ static int psc_mbox_startup(struct mbox_chan *chan)
 	u32 ext_ctrl = LIC_INTR_EN;
 
 	writel(ext_ctrl, vm_chan->base + MBOX_CHAN_EXT_CTRL);
+	chan->txdone_method = TXDONE_BY_ACK;
 	return 0;
-}
-
-static bool psc_mbox_last_tx_done(struct mbox_chan *chan)
-{
-	struct mbox_vm_chan  *vm_chan = chan->con_priv;
-	u32 ext_ctrl;
-
-	ext_ctrl = readl(vm_chan->base + MBOX_CHAN_EXT_CTRL);
-
-	return (ext_ctrl & MBOX_IN_VALID) == 0;
 }
 
 static void psc_mbox_shutdown(struct mbox_chan *chan)
@@ -141,7 +135,6 @@ static const struct mbox_chan_ops psc_mbox_ops = {
 	.send_data = psc_mbox_send_data,
 	.startup = psc_mbox_startup,
 	.shutdown = psc_mbox_shutdown,
-	.last_tx_done = psc_mbox_last_tx_done,
 };
 
 static int tegra234_psc_probe(struct platform_device *pdev)
@@ -195,9 +188,9 @@ static int tegra234_psc_probe(struct platform_device *pdev)
 	psc->mbox.chans = &psc->chan[0];
 	psc->mbox.num_chans = MBOX_NUM;
 	psc->mbox.ops = &psc_mbox_ops;
+	/* drive txdone by mailbox client ACK with tx_block set to false */
 	psc->mbox.txdone_irq = false;
-	psc->mbox.txdone_poll = true;
-	psc->mbox.txpoll_period = 1;
+	psc->mbox.txdone_poll = false;
 
 	platform_set_drvdata(pdev, psc);
 

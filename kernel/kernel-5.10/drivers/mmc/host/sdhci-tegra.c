@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -109,6 +109,8 @@
 #define SDHCI_VNDR_TUN_CTRL0_TUN_WORD_SEL_MASK		0x7
 
 #define SDHCI_TEGRA_VNDR_TUN_CTRL1_0			0x1c4
+#define SDHCI_TEGRA_VNDR_TUN_CTRL1_DQ_OFF_MASK          0xc0000000
+#define SDHCI_TEGRA_VNDR_TUN_CTRL1_DQ_OFF_SHIFT         30
 #define SDHCI_TEGRA_VNDR_TUN_STATUS0			0x1C8
 #define SDHCI_TEGRA_VNDR_TUN_STATUS1			0x1CC
 #define SDHCI_TEGRA_VNDR_TUN_STATUS1_TAP_MASK		0xFF
@@ -164,6 +166,7 @@
  */
 #define NVQUIRK_HAS_TMCLK				BIT(14)
 #define NVQUIRK_ENABLE_PERIODIC_CALIB			BIT(15)
+#define NVQUIRK_ENABLE_TUNING_DQ_OFFSET			BIT(16)
 #define SDHCI_TEGRA_FALLBACK_CLK_HZ			400000
 
 #define MAX_TAP_VALUE		256
@@ -251,13 +254,15 @@ struct sdhci_tegra {
 	bool ddr_signaling;
 	bool pad_calib_required;
 	bool pad_control_available;
-
+	struct dentry *sdhcid;
 	struct reset_control *rst;
 	struct pinctrl *pinctrl_sdmmc;
 	struct pinctrl_state *pinctrl_state_3v3;
 	struct pinctrl_state *pinctrl_state_1v8;
 	struct pinctrl_state *pinctrl_state_3v3_drv;
 	struct pinctrl_state *pinctrl_state_1v8_drv;
+	struct pinctrl_state *pinctrl_state_sdexp_disable;
+	struct pinctrl_state *pinctrl_state_sdexp_enable;
 	bool slcg_status;
 	unsigned int tuning_status;
 	#define TUNING_STATUS_DONE	1
@@ -565,21 +570,6 @@ static void tegra_sdhci_set_tap(struct sdhci_host *host, unsigned int tap)
 	}
 }
 
-static void tegra_sdhci_hs400_enhanced_strobe(struct sdhci_host *host,
-					      bool enable)
-{
-	u32 val;
-
-	val = sdhci_readl(host, SDHCI_TEGRA_VENDOR_SYS_SW_CTRL);
-
-	if (enable)
-		val |= SDHCI_TEGRA_SYS_SW_CTRL_ENHANCED_STROBE;
-	else
-		val &= ~SDHCI_TEGRA_SYS_SW_CTRL_ENHANCED_STROBE;
-
-	sdhci_writel(host, val, SDHCI_TEGRA_VENDOR_SYS_SW_CTRL);
-
-}
 static void tegra_sdhci_apply_tuning_correction(struct sdhci_host *host,
 		u16 tun_iter, u8 upthres, u8 lowthres, u8 fixed_tap)
 {
@@ -1380,7 +1370,7 @@ static void tegra_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (!tegra_host->skip_clk_rst) {
 		host_clk = tegra_sdhci_apply_clk_limits(host, clock);
 		clk_set_rate(pltfm_host->clk, host_clk);
-		tegra_host->curr_clk_rate = host_clk;
+		tegra_host->curr_clk_rate = clk_get_rate(pltfm_host->clk);
 		if (tegra_host->ddr_signaling)
 			host->max_clk = host_clk;
 		else
@@ -1392,6 +1382,32 @@ static void tegra_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		tegra_sdhci_pad_autocalib(host);
 		tegra_host->pad_calib_required = false;
 	}
+}
+
+static void tegra_sdhci_hs400_enhanced_strobe(struct sdhci_host *host,
+					      bool enable)
+{
+	u32 val;
+
+	val = sdhci_readl(host, SDHCI_TEGRA_VENDOR_SYS_SW_CTRL);
+
+	if (enable) {
+		val |= SDHCI_TEGRA_SYS_SW_CTRL_ENHANCED_STROBE;
+		/*
+		 * When CMD13 is sent from mmc_select_hs400es() after
+		 * switching to HS400ES mode, the bus is operating at
+		 * either MMC_HIGH_26_MAX_DTR or MMC_HIGH_52_MAX_DTR.
+		 * To meet Tegra SDHCI requirement at HS400ES mode, force SDHCI
+		 * interface clock to MMC_HS200_MAX_DTR (200 MHz) so that host
+		 * controller CAR clock and the interface clock are rate matched.
+		 */
+		tegra_sdhci_set_clock(host, MMC_HS200_MAX_DTR);
+	} else {
+		val &= ~SDHCI_TEGRA_SYS_SW_CTRL_ENHANCED_STROBE;
+	}
+
+	sdhci_writel(host, val, SDHCI_TEGRA_VENDOR_SYS_SW_CTRL);
+
 }
 
 static int tegra_sdhci_set_host_clock(struct sdhci_host *host, bool enable)
@@ -1520,12 +1536,31 @@ static void tegra_sdhci_dll_calib(struct sdhci_host *host)
 static int tegra_sdhci_execute_hw_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_tegra *tegra_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_tegra_soc_data *soc_data = tegra_host->soc_data;
 	int err;
+	u32 val;
 
 	if (tegra_sdhci_skip_retuning(host))
 		return 0;
 
+	if (soc_data->nvquirks & NVQUIRK_ENABLE_TUNING_DQ_OFFSET) {
+		/* Configure DQ_OFFSET=1 before tuning */
+		val = sdhci_readl(host, SDHCI_TEGRA_VNDR_TUN_CTRL1_0);
+		val &= ~SDHCI_TEGRA_VNDR_TUN_CTRL1_DQ_OFF_MASK;
+		val |= (1U << SDHCI_TEGRA_VNDR_TUN_CTRL1_DQ_OFF_SHIFT);
+		sdhci_writel(host, val, SDHCI_TEGRA_VNDR_TUN_CTRL1_0);
+	}
 	err = sdhci_execute_tuning(mmc, opcode);
+
+	if (soc_data->nvquirks & NVQUIRK_ENABLE_TUNING_DQ_OFFSET) {
+		/* Reset DQ_OFFSET=0 after tuning */
+		val = sdhci_readl(host, SDHCI_TEGRA_VNDR_TUN_CTRL1_0);
+		val &= ~SDHCI_TEGRA_VNDR_TUN_CTRL1_DQ_OFF_MASK;
+		sdhci_writel(host, val, SDHCI_TEGRA_VNDR_TUN_CTRL1_0);
+	}
+
 	if (!err && !host->tuning_err)
 		tegra_sdhci_post_tuning(host);
 
@@ -1761,6 +1796,27 @@ static bool tegra_sdhci_skip_retuning(struct sdhci_host *host)
 	return false;
 }
 
+static void tegra_sdhci_init_sdexp_pinctrl_info(struct sdhci_tegra *tegra_host)
+{
+	if (IS_ERR_OR_NULL(tegra_host->pinctrl_sdmmc)) {
+		pr_debug("No pinctrl info for SD express selection\n");
+			return;
+	}
+
+	tegra_host->pinctrl_state_sdexp_disable = pinctrl_lookup_state(
+				tegra_host->pinctrl_sdmmc, "sdmmc-sdexp-disable");
+	if (IS_ERR(tegra_host->pinctrl_state_sdexp_disable)) {
+		if (PTR_ERR(tegra_host->pinctrl_state_sdexp_disable) == -ENODEV)
+			tegra_host->pinctrl_state_sdexp_disable = NULL;
+	}
+
+	tegra_host->pinctrl_state_sdexp_enable = pinctrl_lookup_state(
+				tegra_host->pinctrl_sdmmc, "sdmmc-sdexp-enable");
+	if (IS_ERR(tegra_host->pinctrl_state_sdexp_enable)) {
+		if (PTR_ERR(tegra_host->pinctrl_state_sdexp_enable) == -ENODEV)
+			tegra_host->pinctrl_state_sdexp_enable = NULL;
+	}
+}
 static int tegra_sdhci_init_pinctrl_info(struct device *dev,
 					 struct sdhci_tegra *tegra_host)
 {
@@ -2134,6 +2190,27 @@ static void sdhci_tegra_sd_express_mode_select(struct sdhci_host *host, bool req
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_tegra *tegra_host = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	if (req) {
+		if (!IS_ERR_OR_NULL(tegra_host->pinctrl_state_sdexp_enable)) {
+			ret = pinctrl_select_state(tegra_host->pinctrl_sdmmc,
+						tegra_host->pinctrl_state_sdexp_enable);
+			if (ret < 0) {
+				pr_err("%s: Dynamic switch to SD express mode failed\n",
+						mmc_hostname(host->mmc));
+			}
+		}
+	} else {
+		if (!IS_ERR_OR_NULL(tegra_host->pinctrl_state_sdexp_disable)) {
+			ret = pinctrl_select_state(tegra_host->pinctrl_sdmmc,
+						tegra_host->pinctrl_state_sdexp_disable);
+			if (ret < 0) {
+				pr_err("%s: Dynamic switch to SD mode operation failed\n",
+						mmc_hostname(host->mmc));
+			}
+		}
+	}
 
 	if (gpio_is_valid(tegra_host->mux_sel_gpio)) {
 		if (req == false) {
@@ -2609,11 +2686,29 @@ static const struct sdhci_tegra_soc_data soc_data_tegra234 = {
 		    NVQUIRK_SDMMC_CLK_OVERRIDE |
 		    NVQUIRK_ENABLE_SDR104 |
 		    NVQUIRK_HAS_TMCLK,
+	.min_tap_delay = 95,
+	.max_tap_delay = 111,
+	.use_bwmgr = false,
+};
+
+static const struct sdhci_tegra_soc_data soc_data_tegra239 = {
+	.pdata = &sdhci_tegra186_pdata,
+	.dma_mask = DMA_BIT_MASK(39),
+	.nvquirks = NVQUIRK_NEEDS_PAD_CONTROL |
+		    NVQUIRK_HAS_PADCALIB |
+		    NVQUIRK_DIS_CARD_CLK_CONFIG_TAP |
+		    NVQUIRK_CONTROL_TRIMMER_SUPPLY |
+		    NVQUIRK_ENABLE_SDR50 |
+		    NVQUIRK_SDMMC_CLK_OVERRIDE |
+		    NVQUIRK_ENABLE_SDR104 |
+		    NVQUIRK_ENABLE_TUNING_DQ_OFFSET |
+		    NVQUIRK_HAS_TMCLK,
 	.use_bwmgr = false,
 };
 
 
 static const struct of_device_id sdhci_tegra_dt_match[] = {
+	{ .compatible = "nvidia,tegra239-sdhci", .data = &soc_data_tegra239 },
 	{ .compatible = "nvidia,tegra234-sdhci", .data = &soc_data_tegra234 },
 	{ .compatible = "nvidia,tegra194-sdhci", .data = &soc_data_tegra194 },
 	{ .compatible = "nvidia,tegra186-sdhci", .data = &soc_data_tegra186 },
@@ -2913,6 +3008,7 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
 	if (host->mmc->caps2 & MMC_CAP2_SD_EXPRESS_SUPPORT) {
 		BLOCKING_INIT_NOTIFIER_HEAD(&tegra_host->notifier_from_sd);
 		BLOCKING_INIT_NOTIFIER_HEAD(&tegra_host->notifier_to_sd);
+		tegra_sdhci_init_sdexp_pinctrl_info(tegra_host);
 		sdhci_tegra_sd_express_mode_select(host, false);
 		tegra_host->sd_exp_support = true;
 	}
@@ -2992,6 +3088,11 @@ static int sdhci_tegra_remove(struct platform_device *pdev)
 		clk_disable_unprepare(pltfm_host->clk);
 		clk_disable_unprepare(tegra_host->tmclk);
 	}
+
+	if (!tegra_host->disable_rtpm)
+		pm_runtime_disable(mmc_dev(host->mmc));
+
+	debugfs_remove_recursive(tegra_host->sdhcid);
 
 	sdhci_pltfm_free(pdev);
 
@@ -3086,6 +3187,8 @@ static int sdhci_tegra_runtime_resume(struct device *dev)
 				"Boosting eMC clock failed, err: %d\n",
 				ret);
 	}
+
+	tegra_host->tuning_status = TUNING_STATUS_RETUNE;
 
 	return ret;
 
@@ -3186,8 +3289,7 @@ static int __maybe_unused sdhci_tegra_resume(struct device *dev)
 		host->mmc->rem_card_present = true;
 	}
 
-	if (host->mmc->rem_card_present == false)
-		tegra_host->tuning_status = TUNING_STATUS_RETUNE;
+	tegra_host->tuning_status = TUNING_STATUS_RETUNE;
 
 	ret = tegra_sdhci_set_host_clock(host, true);
 	if (ret)
@@ -3340,10 +3442,6 @@ err_detect:
 DEFINE_SIMPLE_ATTRIBUTE(sdhci_tegra_card_insert_fops, get_card_insert,
 	set_card_insert, "%llu\n");
 
-
-
-
-
 static void sdhci_tegra_debugfs_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3355,6 +3453,8 @@ static void sdhci_tegra_debugfs_init(struct sdhci_host *host)
 		dev_err(mmc_dev(host->mmc), "Failed to create debugfs\n");
 		return;
 	}
+
+	tegra_host->sdhcid = sdhcidir;
 
 	/* Create clock debugfs dir under sdhci debugfs dir */
 	clkdir = debugfs_create_dir("clock_data", sdhcidir);

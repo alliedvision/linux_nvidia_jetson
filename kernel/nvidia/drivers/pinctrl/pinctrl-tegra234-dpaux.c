@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Prathamesh Shete <pshete@nvidia.com>
  *
@@ -246,6 +246,11 @@ static int tegra234_dpaux_pinctrl_probe(struct platform_device *pdev)
 	tdpaux_ctl->dev = &pdev->dev;
 	cdata = (struct tegra_dpaux_chip_data *)
 				of_device_get_match_data(&pdev->dev);
+
+	if (!cdata) {
+		dev_err(&pdev->dev, "no device match found for dpaux_pinctrl\n");
+		return -EINVAL;
+	}
 
 	tdpaux_ctl->pdev = pdev;
 	tdpaux_ctl->regs = devm_ioremap_resource(&pdev->dev,

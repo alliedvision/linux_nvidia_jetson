@@ -48,3 +48,7 @@ obj-y += tegra234-mc-sid.o
 obj-y += mcerr-t23x.o
 obj-y += mc_utils.o
 endif
+
+ifeq ($(CONFIG_TEGRA_SOC_HWPM),y)
+obj-y += mc-hwpm.o
+endif

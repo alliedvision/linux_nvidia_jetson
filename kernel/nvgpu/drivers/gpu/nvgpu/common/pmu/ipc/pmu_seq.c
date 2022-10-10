@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 #include <nvgpu/kmem.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/pmu.h>
+#include <nvgpu/string.h>
 
 struct nvgpu_pmu;
 
@@ -33,6 +34,8 @@ void nvgpu_pmu_sequences_sw_setup(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct pmu_sequences *sequences)
 {
 	u32 i;
+
+	(void)pmu;
 
 	nvgpu_log_fn(g, " ");
 
@@ -51,6 +54,8 @@ int nvgpu_pmu_sequences_init(struct gk20a *g, struct nvgpu_pmu *pmu,
 {
 	int err = 0;
 	struct pmu_sequences *sequences;
+
+	(void)pmu;
 
 	nvgpu_log_fn(g, " ");
 
@@ -85,6 +90,8 @@ exit:
 void nvgpu_pmu_sequences_deinit(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct pmu_sequences *sequences)
 {
+	(void)pmu;
+
 	nvgpu_log_fn(g, " ");
 
 	if (sequences == NULL) {
@@ -145,6 +152,8 @@ void nvgpu_pmu_seq_release(struct gk20a *g,
 			   struct pmu_sequences *sequences,
 			   struct pmu_sequence *seq)
 {
+	(void)g;
+
 	seq->state	= PMU_SEQ_STATE_FREE;
 	seq->callback	= NULL;
 	seq->cb_params	= NULL;
@@ -258,6 +267,6 @@ void nvgpu_pmu_seq_callback(struct gk20a *g, struct pmu_sequence *seq,
 			    struct pmu_msg *msg, int err)
 {
 	if (seq->callback != NULL) {
-		seq->callback(g, msg, seq->cb_params, err);
+		seq->callback(g, msg, seq->cb_params, (u32)err);
 	}
 }

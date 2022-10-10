@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,7 +35,7 @@
 #include "hal/fb/ecc/fb_ecc_gv11b.h"
 #include "hal/fb/intr/fb_intr_gv11b.h"
 #include "hal/fb/intr/fb_intr_ecc_gv11b.h"
-#include "hal/cic/mon/cic_gv11b.h"
+#include "hal/cic/mon/cic_ga10b.h"
 #include <nvgpu/hw/gv11b/hw_fb_gv11b.h>
 
 #include "fb_fusa.h"
@@ -64,8 +64,7 @@ int fb_gv11b_init_test(struct unit_module *m, struct gk20a *g, void *args)
 	g->ops.mc.intr_nonstall_unit_config =
 		mc_gp10b_intr_nonstall_unit_config;
 	g->ops.fb.intr.enable = gv11b_fb_intr_enable;
-	g->ops.cic_mon.init = gv11b_cic_mon_init;
-	g->ops.cic_mon.report_err = nvgpu_cic_mon_report_err_safety_services;
+	g->ops.cic_mon.init = ga10b_cic_mon_init;
 
 	/*
 	 * Define some arbitrary addresses for test purposes.

@@ -4,7 +4,6 @@ obj-$(CONFIG_NVS_AON_SHUB) += nvs-aonsh/
 obj-$(CONFIG_TEGRA_PROFILER) += tegra-profiler/
 
 obj-$(CONFIG_NVS_DFSH) += nvs-dfsh/
-obj-$(CONFIG_SAF775x_HWDEP) += saf775x/
 obj-$(CONFIG_BLUEDROID_PM)      += bluedroid_pm.o
 obj-$(CONFIG_SENSORS_NCT1008)	+= nct1008.o
 obj-$(CONFIG_SENSORS_PEX9749)	+= pex9749.o

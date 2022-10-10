@@ -1,0 +1,33 @@
+From 06ffeb768b5caf4a6835841c14a7a8aac200159a Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Wed, 8 Jan 2020 15:11:06 +0000
+Subject: [PATCH 610/830] ANDROID: README: Add add user reference to
+ backporting comment
+X-NVConfidentiality: public
+
+The backporting comment shall refer to the user adding the comment. It
+otherwise might become ambiguous.
+
+Fixes: f8978f4f6a5e ("ANDROID: add README.md")
+Change-Id: I40974a4c2e536fea6f2042b7322bba415640a552
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index e10eee47488e..5612ab828a10 100644
+--- a/README.md
++++ b/README.md
+@@ -71,7 +71,7 @@ instead of `UPSTREAM:`.
+         Bug: 135791357
+         Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
+         (cherry picked from commit c31e73121f4c1ec41143423ac6ce3ce6dafdcec1)
+-        [ Resolved minor conflict in drivers/foo/bar.c ]
++        [joe: Resolved minor conflict in drivers/foo/bar.c ]
+         Signed-off-by: Joe Smith <joe.smith@foo.org>
+ ```
+ 
+-- 
+2.17.1
+

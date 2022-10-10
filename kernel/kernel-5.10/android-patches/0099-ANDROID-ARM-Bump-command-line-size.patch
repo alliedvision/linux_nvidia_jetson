@@ -1,0 +1,33 @@
+From cb1e7c799bf57c7d546abdb5dff32aa9427102a0 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Thu, 12 Nov 2020 20:30:45 -0800
+Subject: [PATCH 099/830] ANDROID: ARM: Bump command line size
+X-NVConfidentiality: public
+
+1KB command line is insufficient to boot cuttlefish for ARM.
+
+Increase it to 2KB to match ARM64.
+
+Bug: 165410044
+Change-Id: Icc230926c1c01e4fe82944e1fe0f8c6f068110ea
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm/include/uapi/asm/setup.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/include/uapi/asm/setup.h b/arch/arm/include/uapi/asm/setup.h
+index 25ceda63b284..345bf0a9a0ab 100644
+--- a/arch/arm/include/uapi/asm/setup.h
++++ b/arch/arm/include/uapi/asm/setup.h
+@@ -17,7 +17,7 @@
+ 
+ #include <linux/types.h>
+ 
+-#define COMMAND_LINE_SIZE 1024
++#define COMMAND_LINE_SIZE 2048
+ 
+ /* The list ends with an ATAG_NONE node. */
+ #define ATAG_NONE	0x00000000
+-- 
+2.17.1
+

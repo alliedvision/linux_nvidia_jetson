@@ -2,13 +2,13 @@
 /*
  * PCIe EDMA Framework
  *
- * Copyright (C) 2021 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2021-2022 NVIDIA Corporation. All rights reserved.
  */
 
 #ifndef TEGRA_PCIE_DMA_OSI_H
 #define TEGRA_PCIE_DMA_OSI_H
 
-#define OSI_BIT(b)		(1 << (b))
+#define OSI_BIT(b)		(1U << (b))
 /** generates bit mask for 32 bit value */
 #define OSI_GENMASK(h, l)	(((~0U) << (l)) & (~0U >> (31U - (h))))
 
@@ -27,9 +27,15 @@
 #define WRITE_ENABLE			OSI_BIT(0)
 #define WRITE_DISABLE			0x0
 
+#define DMA_WRITE_DOORBELL_OFF		0x10
+#define DMA_WRITE_DOORBELL_OFF_WR_STOP	OSI_BIT(31)
+
 #define DMA_READ_ENGINE_EN_OFF		0x2C
 #define READ_ENABLE			OSI_BIT(0)
 #define READ_DISABLE			0x0
+
+#define DMA_READ_DOORBELL_OFF		0x30
+#define DMA_READ_DOORBELL_OFF_RD_STOP	OSI_BIT(31)
 
 #define DMA_TRANSFER_SIZE_OFF_WRCH		0x8
 #define DMA_SAR_LOW_OFF_WRCH			0xC
@@ -38,6 +44,22 @@
 #define DMA_DAR_HIGH_OFF_WRCH			0x18
 #define DMA_LLP_LOW_OFF_WRCH			0x1C
 #define DMA_LLP_HIGH_OFF_WRCH			0x20
+
+#define DMA_WRITE_DONE_IMWR_LOW_OFF		0x60
+#define DMA_WRITE_DONE_IMWR_HIGH_OFF		0x64
+#define DMA_WRITE_ABORT_IMWR_LOW_OFF		0x68
+#define DMA_WRITE_ABORT_IMWR_HIGH_OFF		0x6c
+#define DMA_WRITE_CH01_IMWR_DATA_OFF		0x70
+#define DMA_WRITE_CH23_IMWR_DATA_OFF		0x74
+
+#define DMA_WRITE_LINKED_LIST_ERR_EN_OFF	0x90
+#define DMA_READ_LINKED_LIST_ERR_EN_OFF		0xC4
+
+#define DMA_READ_DONE_IMWR_LOW_OFF		0xcc
+#define DMA_READ_DONE_IMWR_HIGH_OFF		0xd0
+#define DMA_READ_ABORT_IMWR_LOW_OFF		0xd4
+#define DMA_READ_ABORT_IMWR_HIGH_OFF		0xd8
+#define DMA_READ_CH01_IMWR_DATA_OFF		0xdc
 
 #define DMA_CH_CONTROL1_OFF_RDCH		0x100
 #define DMA_CH_CONTROL1_OFF_RDCH_LLE		OSI_BIT(9)
@@ -64,9 +86,6 @@
 #define DMA_READ_INT_STATUS_OFF		0xA0
 #define DMA_READ_INT_MASK_OFF		0xA8
 #define DMA_READ_INT_CLEAR_OFF		0xAC
-
-#define DMA_WRITE_DOORBELL_OFF		0x10
-#define DMA_WRITE_DOORBELL_OFF_WR_STOP	OSI_BIT(31)
 
 struct edma_ctrl {
 	uint32_t cb:1;
@@ -103,48 +122,25 @@ struct edma_dblock {
 	struct edma_hw_desc_llp llp;
 };
 
-static inline unsigned int osi_readl(void *addr)
+static inline unsigned int dma_common_rd(void __iomem *p, unsigned int offset)
 {
-	return *(volatile unsigned int *)addr;
+	return readl(p + offset);
 }
 
-
-static inline unsigned int dma_common_rd(void *p, unsigned int offset)
+static inline void dma_common_wr(void __iomem *p, unsigned int val, unsigned int offset)
 {
-	unsigned char *addr;
-
-	addr = (unsigned char *)p + offset;
-	return osi_readl((void *)addr);
+	writel(val, p + offset);
 }
 
-static inline void osi_writel(unsigned int val, void *addr)
-{
-	*(volatile unsigned int *)addr = val;
-}
-
-static inline void dma_common_wr(void *p, unsigned int val, unsigned int offset)
-{
-	unsigned char *addr;
-
-	addr = (unsigned char *)p + offset;
-	osi_writel(val, (void *)addr);
-}
-
-static inline void dma_channel_wr(void *p, unsigned char c, unsigned int val,
+static inline void dma_channel_wr(void __iomem *p, unsigned char c, unsigned int val,
 				  u32 offset)
 {
-	unsigned char *addr;
-
-	addr = (unsigned char *)p + offset + (0x200 * (c + 1));
-	osi_writel(val, (void *)addr);
+	writel(val, (0x200 * (c + 1)) + p + offset);
 }
 
-static inline unsigned int dma_channel_rd(void *p, unsigned char c, u32 offset)
+static inline unsigned int dma_channel_rd(void __iomem *p, unsigned char c, u32 offset)
 {
-	unsigned char *addr;
-
-	addr = (unsigned char *)p + offset + (0x200 * (c + 1));
-	return osi_readl((void *)addr);
+	return readl((0x200 * (c + 1)) + p + offset);
 }
 
 #endif // TEGRA_PCIE_DMA_OSI_H

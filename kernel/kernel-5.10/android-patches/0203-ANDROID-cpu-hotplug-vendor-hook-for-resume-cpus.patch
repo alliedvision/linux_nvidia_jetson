@@ -1,0 +1,81 @@
+From 5ec852ac041dda04ac6893680737a2abd7d9a1f9 Mon Sep 17 00:00:00 2001
+From: Stephen Dickey <dickey@codeaurora.org>
+Date: Tue, 1 Dec 2020 11:36:27 -0800
+Subject: [PATCH 203/830] ANDROID: cpu/hotplug: vendor hook for resume cpus
+X-NVConfidentiality: public
+
+Incorporate a vendor hook in the resume cpus path
+so that vendor specific activities may take place.
+
+Bug: 161210528
+Change-Id: I74d03247491b004e891dbcfe06a478d00a95ba9f
+Signed-off-by: Stephen Dickey <dickey@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/sched.h    | 5 +++++
+ kernel/cpu.c                   | 7 +++++++
+ 3 files changed, 13 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index a3b81ced2d06..be760d916ca5 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -67,6 +67,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_newidle_balance);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_nohz_balancer_kick);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_queue);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_migrate_queued_task);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_resume_cpus);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_energy_efficient_cpu);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_sugov_sched_attr);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index b720b3be15ae..c602a1a24e93 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -102,6 +102,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_migrate_queued_task,
+ 		 int *detached),
+ 	TP_ARGS(rq, rf, p, new_cpu, detached), 1);
+ 
++DECLARE_RESTRICTED_HOOK(android_rvh_resume_cpus,
++	TP_PROTO(struct cpumask *cpus, int *err),
++	TP_ARGS(cpus, err), 1);
++
+ DECLARE_RESTRICTED_HOOK(android_rvh_find_energy_efficient_cpu,
+ 	TP_PROTO(struct task_struct *p, int prev_cpu, int sync, int *new_cpu),
+ 	TP_ARGS(p, prev_cpu, sync, new_cpu), 1);
+@@ -206,6 +210,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
+ #define trace_android_rvh_sched_nohz_balancer_kick(rq, flags, done)
+ #define trace_android_rvh_find_busiest_queue(dst_cpu, group, env_cpus, busiest, done)
+ #define trace_android_rvh_migrate_queued_task(rq, rf, p, new_cpu, detached)
++#define trace_android_rvh_resume_cpus(cpus, err)
+ #define trace_android_rvh_find_energy_efficient_cpu(p, prev_cpu, sync, new_cpu)
+ #define trace_android_vh_set_sugov_sched_attr(attr)
+ #define trace_android_rvh_set_iowait(p, should_iowait_boost)
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 39d2e0d7b754..19c3f6cbd5eb 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -41,6 +41,9 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/cpuhp.h>
+ 
++#undef CREATE_TRACE_POINTS
++#include <trace/hooks/sched.h>
++
+ #include "smpboot.h"
+ 
+ /**
+@@ -1316,6 +1319,10 @@ int resume_cpus(struct cpumask *cpus)
+ 	for_each_cpu(cpu, cpus)
+ 		set_cpu_active(cpu, true);
+ 
++	trace_android_rvh_resume_cpus(cpus, &err);
++	if (err)
++		goto err_cpu_maps_update;
++
+ 	/* Lazy Resume.  Build domains immediately instead of scheduling
+ 	 * a workqueue.  This is so that the cpu can pull load when
+ 	 * sent a load balancing kick.
+-- 
+2.17.1
+

@@ -1,0 +1,42 @@
+From dd01d4612a2626538c65bc958ee2fb3f40dbc0bd Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Mon, 20 Apr 2020 21:33:36 +0000
+Subject: [PATCH 532/830] ANDROID: pinctrl: qcom: Kconfig: Make new
+ PINCTRL_SM8250 depend on QCOM_SCM || !QCOM_SCM
+X-NVConfidentiality: public
+
+The PINCTRL_MSM code depends on QCOM_SCM, so if QCOM_SCM is a
+module the PINCTRL_MSM code needs to be as well. However, the
+PINCTRL_MSM isn't a visible option, and is only selected by
+other options, so make all the options that select it dependent
+on QCOM_SCM || !QCOM_SCM which makes sure the option is a module
+if the QCOM_SCM code is also a module.
+
+Would be welcome to ideas of simpler ways of expressing this.
+
+This patch just adds another entry as a new PINCTRL_MSM selector
+was added upstream, and fixes build issues with arm64 defconfig
+
+Fixes: 4e3ec9e407ad ("pinctrl: qcom: Add sm8250 pinctrl driver.")
+Fixes: e7b258acf893 ("ANDROID: pinctrl: qcom: Kconfig: Make PINCTRL_MSM selectors depend on QCOM_SCM || !QCOM_SCM")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I7c7b9b46d17ccc5d29e81be3b0b6ca77b3f139d3
+---
+ drivers/pinctrl/qcom/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/pinctrl/qcom/Kconfig b/drivers/pinctrl/qcom/Kconfig
+index c412702cd6b6..416bd510f83f 100644
+--- a/drivers/pinctrl/qcom/Kconfig
++++ b/drivers/pinctrl/qcom/Kconfig
+@@ -251,6 +251,7 @@ config PINCTRL_SM8150
+ config PINCTRL_SM8250
+ 	tristate "Qualcomm Technologies Inc SM8250 pin controller driver"
+ 	depends on GPIOLIB && OF
++	depends on QCOM_SCM || !QCOM_SCM
+ 	select PINCTRL_MSM
+ 	help
+ 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+-- 
+2.17.1
+

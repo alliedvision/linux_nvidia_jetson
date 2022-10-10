@@ -1,0 +1,52 @@
+From 6e8494d867b064f3fc37532cacd05e11fc4cf1cb Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 15 Nov 2019 15:38:06 -0800
+Subject: [PATCH 389/830] ANDROID: virtio_blk: Remove BUG_ON for discard/zero
+ ops
+X-NVConfidentiality: public
+
+The virtio_blk driver used by cuttlefish can crash if discard/zero ops,
+added in 4.20, pass through virtio_queue_rq(). Our theory is that this
+happens because multiple discards are merged, causing nr_phys_segments
+to be increased beyond the sg_elem size. This makes sense as a
+discard/zero is a form of I/O not backed by specific data.
+
+This patch should be submitted upstream once the true root cause has
+been tracked down and full analysis of the issue has been done.
+
+Originally-by: Satya Tangirala <satyat@google.com>
+Bug: 144592287
+Test: boot cuttlefish with f2fs userdata and wait 1 minute
+Change-Id: Ic73e08035c91ec9c718e6496930b326d084062a4
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ drivers/block/virtio_blk.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/block/virtio_blk.c b/drivers/block/virtio_blk.c
+index 42acf9587ef3..018fb172a098 100644
+--- a/drivers/block/virtio_blk.c
++++ b/drivers/block/virtio_blk.c
+@@ -228,8 +228,6 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
+ 	bool unmap = false;
+ 	u32 type;
+ 
+-	BUG_ON(req->nr_phys_segments + 2 > vblk->sg_elems);
+-
+ 	switch (req_op(req)) {
+ 	case REQ_OP_READ:
+ 	case REQ_OP_WRITE:
+@@ -253,6 +251,10 @@ static blk_status_t virtio_queue_rq(struct blk_mq_hw_ctx *hctx,
+ 		return BLK_STS_IOERR;
+ 	}
+ 
++	BUG_ON(type != VIRTIO_BLK_T_DISCARD &&
++	       type != VIRTIO_BLK_T_WRITE_ZEROES &&
++	       (req->nr_phys_segments + 2 > vblk->sg_elems));
++
+ 	vbr->out_hdr.type = cpu_to_virtio32(vblk->vdev, type);
+ 	vbr->out_hdr.sector = type ?
+ 		0 : cpu_to_virtio64(vblk->vdev, blk_rq_pos(req));
+-- 
+2.17.1
+

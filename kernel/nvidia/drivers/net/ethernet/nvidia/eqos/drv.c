@@ -29,7 +29,7 @@
  * DAMAGE.
  * ========================================================================= */
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -3136,6 +3136,7 @@ static int eqos_handle_prv_ts_ioctl(struct eqos_prv_data *pdata,
 	u64 ns;
 	u32 reminder;
 	int ret = 0;
+	const char *intf_name = "eth0";
 
 	pr_debug("-->eqos_handle_prv_ts_ioctl\n");
 
@@ -3157,7 +3158,7 @@ static int eqos_handle_prv_ts_ioctl(struct eqos_prv_data *pdata,
 		pr_err("eqos ioctl: Unsupported clockid\n");
 	}
 
-	ret = get_ptp_hwtime(&ns);
+	ret = tegra_get_hwtime(intf_name, &ns, PTP_HWTIME);
 
 	raw_spin_unlock_irqrestore(&eqos_ts_lock, flags);
 
@@ -3737,8 +3738,6 @@ static int eqos_handle_hwtstamp_ioctl(struct eqos_prv_data *pdata,
 		hw_if->init_systime(now.tv_sec, now.tv_nsec);
 
 		DBGPR_PTP("-->eqos registering get_ptp function\n");
-		/* Register broadcasting MAC timestamp to clients */
-		tegra_register_hwtime_source(eqos_get_ptptime, pdata);
 
 		/* Enable slot function control */
 		eqos_enable_slot_function_ctrl(pdata);
@@ -5378,7 +5377,7 @@ void eqos_stop_dev(struct eqos_prv_data *pdata)
 
 #ifdef CONFIG_TEGRA_PTP_NOTIFIER
 	/* Unregister broadcasting MAC timestamp to clients */
-	tegra_unregister_hwtime_source();
+	tegra_unregister_hwtime_source(pdata->dev);
 #endif
 	/* turn off sources of data into dev */
 	netif_tx_disable(pdata->dev);

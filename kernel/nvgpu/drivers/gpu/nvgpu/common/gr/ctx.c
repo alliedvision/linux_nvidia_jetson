@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@
 #include <nvgpu/io.h>
 #include <nvgpu/gmmu.h>
 #include <nvgpu/dma.h>
+#include <nvgpu/string.h>
 
 #include <nvgpu/power_features/pg.h>
 #include "common/gr/ctx_priv.h"
@@ -162,6 +163,8 @@ void nvgpu_gr_ctx_free_patch_ctx(struct gk20a *g, struct vm_gk20a *vm,
 {
 	struct patch_desc *patch_ctx = &gr_ctx->patch_ctx;
 
+	(void)g;
+
 	if (nvgpu_mem_is_valid(&patch_ctx->mem)) {
 		nvgpu_dma_unmap_free(vm, &patch_ctx->mem);
 		patch_ctx->data_count = 0;
@@ -200,6 +203,9 @@ static int nvgpu_gr_ctx_map_ctx_circular_buffer(struct gk20a *g,
 	u64 *g_bfr_va;
 	u32 *g_bfr_index;
 	u64 gpu_va = 0ULL;
+
+	(void)g;
+	(void)vpr;
 
 	g_bfr_va = &gr_ctx->global_ctx_buffer_va[0];
 	g_bfr_index = &gr_ctx->global_ctx_buffer_index[0];
@@ -241,6 +247,9 @@ static int nvgpu_gr_ctx_map_ctx_attribute_buffer(struct gk20a *g,
 	u64 *g_bfr_va;
 	u32 *g_bfr_index;
 	u64 gpu_va = 0ULL;
+
+	(void)g;
+	(void)vpr;
 
 	g_bfr_va = &gr_ctx->global_ctx_buffer_va[0];
 	g_bfr_index = &gr_ctx->global_ctx_buffer_index[0];
@@ -284,6 +293,9 @@ static int nvgpu_gr_ctx_map_ctx_pagepool_buffer(struct gk20a *g,
 	u32 *g_bfr_index;
 	u64 gpu_va = 0ULL;
 
+	(void)g;
+	(void)vpr;
+
 	g_bfr_va = &gr_ctx->global_ctx_buffer_va[0];
 	g_bfr_index = &gr_ctx->global_ctx_buffer_index[0];
 
@@ -325,6 +337,8 @@ static int nvgpu_gr_ctx_map_ctx_buffer(struct gk20a *g,
 	u64 *g_bfr_va;
 	u32 *g_bfr_index;
 	u64 gpu_va = 0ULL;
+
+	(void)g;
 
 	g_bfr_va = &gr_ctx->global_ctx_buffer_va[0];
 	g_bfr_index = &gr_ctx->global_ctx_buffer_index[0];
@@ -478,6 +492,8 @@ void nvgpu_gr_ctx_load_golden_ctx_image(struct gk20a *g,
 #ifdef CONFIG_NVGPU_DEBUGGER
 	u64 virt_addr = 0;
 #endif
+
+	(void)cde;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gr, " ");
 
@@ -723,6 +739,8 @@ void nvgpu_gr_ctx_set_zcull_ctx(struct gk20a *g, struct nvgpu_gr_ctx *gr_ctx,
 	u32 mode, u64 gpu_va)
 {
 	struct zcull_ctx_desc *zcull_ctx = &gr_ctx->zcull_ctx;
+
+	(void)g;
 
 	zcull_ctx->ctx_sw_mode = mode;
 	zcull_ctx->gpu_va = gpu_va;
@@ -1025,6 +1043,8 @@ void nvgpu_gr_ctx_free_pm_ctx(struct gk20a *g, struct vm_gk20a *vm,
 	if (pm_ctx->mem.gpu_va != 0ULL) {
 		nvgpu_dma_unmap_free(vm, &pm_ctx->mem);
 	}
+
+	(void)g;
 }
 
 struct nvgpu_mem *nvgpu_gr_ctx_get_pm_ctx_mem(struct nvgpu_gr_ctx *gr_ctx)

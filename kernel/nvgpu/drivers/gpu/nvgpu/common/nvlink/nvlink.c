@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -310,13 +310,20 @@ exit:
 
 int nvgpu_nvlink_link_early_init(struct gk20a *g)
 {
+	u32 discovered_links;
 	u32 link_id;
 	int ret = 0;
 	/*
 	 * First check the topology and setup connectivity
 	 * HACK: we are only enabling one link for now!!!
 	 */
-	link_id = (u32)(nvgpu_ffs(g->nvlink.discovered_links) - 1UL);
+	discovered_links = nvgpu_ffs(g->nvlink.discovered_links);
+	if (discovered_links == 0) {
+		nvgpu_err(g, "discovered links is 0");
+		return -EINVAL;
+	}
+
+	link_id = (u32)(discovered_links - 1UL);
 	g->nvlink.links[link_id].remote_info.is_connected = true;
 	g->nvlink.links[link_id].remote_info.device_type =
 							nvgpu_nvlink_endp_tegra;

@@ -1,0 +1,50 @@
+From 824990b3a00fa800f1b24e726c0b2e3e495e74f4 Mon Sep 17 00:00:00 2001
+From: Chanho Park <chanho61.park@samsung.com>
+Date: Tue, 13 Oct 2020 08:50:18 +0000
+Subject: [PATCH 787/830] ANDROID: GKI: add built-in PCIE_DW_PLAT_EP
+X-NVConfidentiality: public
+
+To build an EP driver which is based on PCIe designware as module, we
+need to get some symbols from pcie-designware_ep.c. To select the
+source from GKI kernel, we should enable PCIE_DW_PLAT_EP driver as
+prebuilt.
+
+Bug: 167931570
+Signed-off-by: Chanho Park <chanho61.park@samsung.com>
+Change-Id: Iffc1d90419378e1f3cf13c3e5ecddadd84dc1540
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 80363b8499e7..c2e0ec69bb74 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -225,8 +225,10 @@ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_PCIEPORTBUS=y
+ CONFIG_PCI_HOST_GENERIC=y
++CONFIG_PCIE_DW_PLAT_EP=y
+ CONFIG_PCIE_QCOM=y
+ CONFIG_PCIE_KIRIN=y
++CONFIG_PCI_ENDPOINT=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_SUN50I_DE2_BUS is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index d8d7b1513c5f..7b41f7b1add3 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -204,6 +204,8 @@ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_PCIEPORTBUS=y
+ CONFIG_PCI_MSI=y
++CONFIG_PCIE_DW_PLAT_EP=y
++CONFIG_PCI_ENDPOINT=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ # CONFIG_FW_CACHE is not set
+ CONFIG_GNSS=y
+-- 
+2.17.1
+

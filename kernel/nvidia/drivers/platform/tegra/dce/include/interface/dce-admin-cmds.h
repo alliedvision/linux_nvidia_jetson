@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -32,34 +32,33 @@
 
 #define DCE_ADMIN_CMD_MAX_NFRAMES		4
 
-#define DCE_ADMIN_CMD_VERSION		0x00U // returns version of interface
-#define DCE_ADMIN_CMD_HOST_VERSION	0x01U // host supplied version
-#define DCE_ADMIN_CMD_GET_FW_VERSION	0x02U // return FW version info
-#define DCE_ADMIN_CMD_ECHO		0x02U // echo data back to CCPLEX
-#define DCE_ADMIN_CMD_MEM_MAP		0x03U // map a region of memory
-#define DCE_ADMIN_CMD_MEM_INFO		0x04U // return info about a region
-#define DCE_ADMIN_CMD_IPC_INFO		0x05U // return IPC chan info
-#define DCE_ADMIN_CMD_IPC_CREATE	0x06U // create an IPC channel
-#define DCE_ADMIN_CMD_PREPARE_SC7	0x07U // prepare to enter SC7
-#define DCE_ADMIN_CMD_ENTER_SC7		0x08U // enter SC7
-#define DCE_ADMIN_CMD_SET_LOGGING	0x09U // set logging level
-#define DCE_ADMIN_CMD_GET_LOG_INFO	0x08U // get current log info
-#define DCE_ADMIN_CMD_LOCK_CHANGES	0x0AU // lock creating new channels
-					      // and changing memory areas
-#define DCE_ADMIN_CMD_CODE_COVERAGE_START 0x0BU // start collecting code
+#define DCE_ADMIN_CMD_VERSION		0x00U   // returns version of interface
+#define DCE_ADMIN_CMD_HOST_VERSION	0x01U   // host supplied version
+#define DCE_ADMIN_CMD_GET_FW_VERSION	0x02U   // return FW version info
+#define DCE_ADMIN_CMD_ECHO		0x03U   // echo data back to CCPLEX
+#define DCE_ADMIN_CMD_MEM_MAP		0x04U   // map a region of memory
+#define DCE_ADMIN_CMD_MEM_INFO		0x05U   // return info about a region
+#define DCE_ADMIN_CMD_IPC_INFO		0x06U   // return IPC chan info
+#define DCE_ADMIN_CMD_IPC_CREATE	0x07U   // create an IPC channel
+#define DCE_ADMIN_CMD_PREPARE_SC7	0x08U   // prepare to enter SC7
+#define DCE_ADMIN_CMD_ENTER_SC7		0x09U   // enter SC7
+#define DCE_ADMIN_CMD_SET_LOGGING	0x0AU   // set logging level
+#define DCE_ADMIN_CMD_GET_LOG_INFO	0x0BU   // get current log info
+#define DCE_ADMIN_CMD_LOCK_CHANGES	0x0CU   // lock creating new channels
+						// and changing memory areas
+#define DCE_ADMIN_CMD_CODE_COVERAGE_START 0x0DU // start collecting code
 						// coverage data
-#define DCE_ADMIN_CMD_CODE_COVERAGE_STOP 0x0CU	// stop collecting code
+#define DCE_ADMIN_CMD_CODE_COVERAGE_STOP 0x0EU  // stop collecting code
 						// coverage data
-#define DCE_ADMIN_CMD_PERF_START	0x0DU // start collecting perf data
-#define DCE_ADMIN_CMD_PERF_STOP		0x0EU // stop collecting perf data
-#define DCE_ADMIN_CMD_TEST_START	0x0FU // start tests
-#define DCE_ADMIN_CMD_TEST_STOP		0x10U // stop tests and return status
-#define DCE_ADMIN_CMD_DEBUG		0x11U // debug command
+#define DCE_ADMIN_CMD_PERF_START	0x0FU   // start collecting perf data
+#define DCE_ADMIN_CMD_PERF_STOP		0x10U   // stop collecting perf data
+#define DCE_ADMIN_CMD_TEST_START	0x11U   // start tests
+#define DCE_ADMIN_CMD_TEST_STOP		0x12U   // stop tests and return status
+#define DCE_ADMIN_CMD_DEBUG		0x13U   // debug command
 
-#define DCE_ADMIN_CMD_RM_BOOTSTRAP	0x12U // tell RM to "bootstrap"
+#define DCE_ADMIN_CMD_RM_BOOTSTRAP	0x14U   // tell RM to "bootstrap"
 
-#define DCE_ADMIN_CMD_NEXT		0x13U // must be last command ID + 1
-
+#define DCE_ADMIN_CMD_NEXT		0x15U   // must be last command ID + 1
 
 struct dce_admin_version_info {
 	uint32_t	version;

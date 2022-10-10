@@ -1,7 +1,7 @@
-From c149c94629faab8d5667717ca6a84961d9c2441e Mon Sep 17 00:00:00 2001
+From 28a37b3b402a9dcc86bfe41bfbe5e59c16aab7d8 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 13 Nov 2020 11:24:14 +0000
-Subject: [PATCH 023/304] sched/core: Add missing completion for
+Subject: [PATCH 023/318] sched/core: Add missing completion for
  affine_move_task() waiters
 
 Qian reported that some fuzzer issuing sched_setaffinity() ends up stuck on
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 4276eb7..772d49f 100644
+index 82b9887b1664..90805fc11b6c 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1936,7 +1936,7 @@ static int migration_cpu_stop(void *data)
@@ -55,10 +55,11 @@ index 4276eb7..772d49f 100644
  		/*
  		 * This happens when we get migrated between migrate_enable()'s
  		 * preempt_enable() and scheduling the stopper task. At that
-@@ -1947,6 +1947,17 @@ static int migration_cpu_stop(void *data)
+@@ -1946,6 +1946,17 @@ static int migration_cpu_stop(void *data)
+ 		 * more likely.
  		 */
  
- 		/*
++		/*
 +		 * The task moved before the stopper got to run. We're holding
 +		 * ->pi_lock, so the allowed mask is stable - if it got
 +		 * somewhere allowed, we're done.
@@ -69,10 +70,9 @@ index 4276eb7..772d49f 100644
 +			goto out;
 +		}
 +
-+		/*
+ 		/*
  		 * When this was migrate_enable() but we no longer have an
  		 * @pending, a concurrent SCA 'fixed' things and we should be
- 		 * valid again. Nothing to do.
 -- 
-2.7.4
+2.17.1
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -172,6 +172,21 @@ int nvgpu_acr_init(struct gk20a *g)
 		break;
 	}
 
+	/*
+	 * Firmware is stored in soc specific path in FMODEL
+	 * Hence NVGPU_REQUEST_FIRMWARE_NO_WARN is used instead
+	 * of NVGPU_REQUEST_FIRMWARE_NO_SOC
+	 */
+	if (err == 0) {
+#ifdef CONFIG_NVGPU_SIM
+		if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL)) {
+			g->acr->fw_load_flag = NVGPU_REQUEST_FIRMWARE_NO_WARN;
+		} else
+#endif
+		{
+			g->acr->fw_load_flag = NVGPU_REQUEST_FIRMWARE_NO_SOC;
+		}
+	}
 done:
 	return err;
 }

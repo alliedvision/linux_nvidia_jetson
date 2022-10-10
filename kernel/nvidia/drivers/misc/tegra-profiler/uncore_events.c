@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/uncore_events.c
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -172,8 +172,14 @@ static enum hrtimer_restart hrtimer_handler(struct hrtimer *hrtimer)
 
 static void start_hrtimer(void)
 {
+#if ((defined(CONFIG_PREEMPT_RT) || defined(CONFIG_PREEMPT_RT_FULL)) && \
+		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)))
+	hrtimer_start(&ctx.hrtimer, ns_to_ktime(ctx.sample_period),
+		      HRTIMER_MODE_REL_PINNED_HARD);
+#else
 	hrtimer_start(&ctx.hrtimer, ns_to_ktime(ctx.sample_period),
 		      HRTIMER_MODE_REL_PINNED);
+#endif
 }
 
 static void cancel_hrtimer(void)
@@ -183,7 +189,7 @@ static void cancel_hrtimer(void)
 
 static void init_hrtimer(void)
 {
-#if (defined(CONFIG_PREEMPT_RT_FULL) && \
+#if ((defined(CONFIG_PREEMPT_RT) || defined(CONFIG_PREEMPT_RT_FULL)) && \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)))
 	hrtimer_init(&ctx.hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 #else

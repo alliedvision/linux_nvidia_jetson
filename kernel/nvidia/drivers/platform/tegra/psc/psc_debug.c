@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/dma-mapping.h>
 #include <linux/types.h>
+#include <linux/completion.h>
 #include "tegra23x_psc.h"
 
 /* EXT_CFG register offset */
@@ -69,8 +70,7 @@ struct psc_debug_dev {
 	struct platform_device *pdev;
 	struct mbox_client cl;
 	struct mbox_chan *chan;
-	wait_queue_head_t read_wait;
-	atomic_t data_ready;
+	struct completion rx_complete;
 
 	u8 rx_msg[MBOX_MSG_LEN];
 };
@@ -99,7 +99,7 @@ static int psc_debug_open(struct inode *inode, struct file *file)
 	}
 
 	dbg->chan = chan;
-	atomic_set(&dbg->data_ready, RX_IDLE);
+	init_completion(&dbg->rx_complete);
 	nonseekable_open(inode, file);
 
 return_unlock:
@@ -115,7 +115,6 @@ static int psc_debug_release(struct inode *inode, struct file *file)
 
 	mbox_free_channel(dbg->chan);
 
-	atomic_set(&dbg->data_ready, RX_IDLE);
 	file->private_data = NULL;
 
 	mutex_unlock(&dbg->lock);
@@ -134,28 +133,29 @@ static ssize_t psc_debug_read(struct file *file, char __user *buffer,
 
 	mutex_lock(&dbg->lock);
 
-	if (atomic_read(&dbg->data_ready) != RX_READY) {
-		if (file->f_flags & O_NONBLOCK) {
-			ret = -EAGAIN;
-			goto return_unlock;
-		}
-
-		if (wait_event_interruptible(dbg->read_wait,
-					atomic_cmpxchg(&dbg->data_ready,
-						RX_READY,
-						RX_IDLE) == RX_READY)) {
-			ret = -EINTR;
-			goto return_unlock;
-		}
-	}
-
 	ret = simple_read_from_buffer(buffer, count, &pos,
 			dbg->rx_msg, min_t(size_t, count, MBOX_MSG_LEN));
 	*ppos += pos;
 
-return_unlock:
 	mutex_unlock(&dbg->lock);
 	return ret;
+}
+
+static int send_msg_block(struct psc_debug_dev *dbg, void *tx)
+{
+	int ret;
+
+	reinit_completion(&dbg->rx_complete);
+
+	ret = mbox_send_message(dbg->chan, tx);
+	if (ret < 0)
+		return ret;
+
+	mbox_client_txdone(dbg->chan, 0);
+	ret = wait_for_completion_timeout(&dbg->rx_complete,
+			msecs_to_jiffies(dbg->cl.tx_tout));
+	return ret == 0 ? -ETIME : 0;
+
 }
 
 static ssize_t psc_debug_write(struct file *file, const char __user *buffer,
@@ -177,8 +177,7 @@ static ssize_t psc_debug_write(struct file *file, const char __user *buffer,
 		ret = -EFAULT;
 		goto return_unlock;
 	}
-	atomic_set(&dbg->data_ready, RX_IDLE);
-	ret = mbox_send_message(dbg->chan, tx_buf);
+	ret = send_msg_block(dbg, tx_buf);
 
 return_unlock:
 	mutex_unlock(&dbg->lock);
@@ -197,7 +196,7 @@ static long xfer_data(struct file *file, char __user *data)
 	long ret = 0;
 	union mbox_msg msg = {};
 	struct xfer_info info;
-	struct xfer_info __user *ptr_xfer = (struct xfer_info *)data;
+	struct xfer_info __user *ptr_xfer = (struct xfer_info __user *)data;
 
 	if (copy_from_user(&info, data, sizeof(struct xfer_info))) {
 		dev_err(&pdev->dev, "failed to copy data.\n");
@@ -250,21 +249,8 @@ static long xfer_data(struct file *file, char __user *data)
 	msg.tx_size = info.tx_size;
 	msg.rx_size = info.rx_size;
 
-	atomic_set(&dbg->data_ready, RX_IDLE);
-	ret = mbox_send_message(dbg->chan, &msg);
-	if (ret < 0) {
-		dev_err(dev, "mbox_send_message() failed: ret:%ld\n", ret);
+	if (send_msg_block(dbg, &msg) != 0)
 		goto free_rx;
-	}
-
-	if (atomic_read(&dbg->data_ready) != RX_READY &&
-		wait_event_interruptible(dbg->read_wait,
-				atomic_cmpxchg(&dbg->data_ready,
-					RX_READY,
-					RX_IDLE) == RX_READY)) {
-		ret = -EINTR;
-		goto free_rx;
-	}
 
 	/* copy mbox payload */
 	if (copy_to_user(&ptr_xfer->out[0],
@@ -331,9 +317,7 @@ static void psc_chan_rx_callback(struct mbox_client *c, void *msg)
 	dev_dbg(dev, "%s\n", __func__);
 
 	memcpy(dbg->rx_msg, msg, MBOX_MSG_LEN);
-
-	atomic_set(&dbg->data_ready, RX_READY);
-	wake_up_interruptible(&dbg->read_wait);
+	complete(&dbg->rx_complete);
 }
 
 #define NV(x) "nvidia," #x
@@ -358,15 +342,11 @@ setup_extcfg(struct platform_device *pdev, struct psc_debug_dev *dbg,
 				(u8 *)&value, sizeof(value))) {
 		dev_dbg(&pdev->dev, "sidtable:%08x\n", value);
 		writel(value, base + EXT_CFG_SIDTABLE);
-		debugfs_create_x32("sidtable", 0644, root,
-				(u32 *)(base + EXT_CFG_SIDTABLE));
-
 	}
+
 	if (!of_property_read_u32(np, NV(sidconfig), &value)) {
 		dev_dbg(&pdev->dev, "sidcfg:%08x\n", value);
 		writel(value, base + EXT_CFG_SIDCONFIG);
-		debugfs_create_x32("sidcfg", 0644, root,
-				(u32 *)(base + EXT_CFG_SIDCONFIG));
 	}
 
 	return 0;
@@ -396,12 +376,11 @@ int psc_debugfs_create(struct platform_device *pdev)
 
 	dbg->cl.dev = dev;
 	dbg->cl.rx_callback = psc_chan_rx_callback;
-	dbg->cl.tx_block = true;
+	dbg->cl.tx_block = false;
 	dbg->cl.tx_tout = DEFAULT_TX_TIMEOUT;
 	dbg->cl.knows_txdone = false;
 	dbg->pdev = pdev;
 
-	init_waitqueue_head(&dbg->read_wait);
 	mutex_init(&dbg->lock);
 
 	debugfs_create_x64("tx_timeout", 0644, debugfs_root,

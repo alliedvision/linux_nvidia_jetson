@@ -28,6 +28,7 @@
 		phy-mode = "10gbase-r";
 		/* 0:XFI 10G, 1:XFI 5G, 2:USXGMII 10G, 3:USXGMII 5G */
 		nvidia,phy-iface-mode = <0>;
+		nvidia,phy-reset-gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Y, 1) 0>;
 
 		mdio {
 			compatible = "nvidia,eqos-mdio";
@@ -37,8 +38,8 @@
 			mgbe0_aqr113c_phy: ethernet_phy@0 {
 				compatible = "ethernet-phy-ieee802.3-c45";
 				reg = <0x0>;
-				interrupt-parent = <&tegra_main_gpio>;
-				interrupts = <TEGRA234_MAIN_GPIO(Y, 3) IRQ_TYPE_LEVEL_LOW>;
+				nvidia,phy-rst-pdelay-msec = <150>; /* msec */
+				nvidia,phy-rst-duration-usec = <221000>; /* usec */
 			};
 		};
 	};

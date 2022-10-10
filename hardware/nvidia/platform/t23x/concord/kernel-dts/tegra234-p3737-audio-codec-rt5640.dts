@@ -2,7 +2,7 @@
 /*
  * Audio DT overlay to enable onboard rt5640 audio codec on Concord
  *
- * Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  */
 
@@ -53,6 +53,14 @@
 				sound-name-prefix = "CVB-RT";
 
 				status = "okay";
+
+				port {
+					rt5640_ep: endpoint {
+						remote-endpoint = <&i2s1_dap_ep>;
+						mclk-fs = <256>;
+						link-name = "rt5640-playback";
+					};
+				};
 			};
 		};
 	};
@@ -90,6 +98,41 @@
 				sound-dai = <&rt5640 0>;
 				prefix = "CVB-RT";
 			};
+		};
+	};
+
+	fragment@3 {
+		target = <&tegra_sound_graph>;
+
+		__overlay__ {
+			widgets = "Headphone",    "CVB-RT Headphone Jack",
+				  "Microphone",   "CVB-RT Mic Jack",
+				  "Speaker",      "CVB-RT Int Spk",
+				  "Microphone",   "CVB-RT Int Mic";
+
+			routing = "CVB-RT Headphone Jack",     "CVB-RT HPOL",
+				  "CVB-RT Headphone Jack",     "CVB-RT HPOR",
+				  "CVB-RT IN1P",               "CVB-RT Mic Jack",
+				  "CVB-RT IN2P",               "CVB-RT Mic Jack",
+				  "CVB-RT Int Spk",            "CVB-RT SPOLP",
+				  "CVB-RT Int Spk",            "CVB-RT SPORP",
+				  "CVB-RT DMIC1",              "CVB-RT Int Mic",
+				  "CVB-RT DMIC2",              "CVB-RT Int Mic";
+
+			/*
+			 * For codec2codec based DAI link design this is required.
+			 * For DPCM based design, this is optional and instead
+			 * it will be picked from codec port node.
+			 */
+			mclk-fs = <256>;
+		};
+	};
+
+	fragment@4 {
+		target = <&i2s1_dap_ep>;
+
+		__overlay__ {
+			remote-endpoint = <&rt5640_ep>;
 		};
 	};
 };

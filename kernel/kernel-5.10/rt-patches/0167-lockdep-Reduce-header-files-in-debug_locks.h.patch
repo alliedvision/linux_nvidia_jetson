@@ -1,7 +1,7 @@
-From aa710c7eae64d68c1e309a563d454818644ba3ce Mon Sep 17 00:00:00 2001
+From ba9cea2f7900b6db5c7096cceffd6c8fb3e62569 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 16:55:25 +0200
-Subject: [PATCH 167/304] lockdep: Reduce header files in debug_locks.h
+Subject: [PATCH 167/318] lockdep: Reduce header files in debug_locks.h
 
 The inclusion of printk.h leads to circular dependency if spinlock_t is
 based on rt_mutex.
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/include/linux/debug_locks.h b/include/linux/debug_locks.h
-index edb5c18..3f49e65 100644
+index edb5c186b0b7..3f49e65169c6 100644
 --- a/include/linux/debug_locks.h
 +++ b/include/linux/debug_locks.h
 @@ -3,8 +3,7 @@
@@ -28,5 +28,5 @@ index edb5c18..3f49e65 100644
  struct task_struct;
  
 -- 
-2.7.4
+2.17.1
 

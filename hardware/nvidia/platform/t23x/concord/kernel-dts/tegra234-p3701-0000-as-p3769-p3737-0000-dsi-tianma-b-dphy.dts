@@ -29,10 +29,30 @@
 		};
 	};
 	/* Disable all camera related nodes to avoid conflict in mipi pads */
-	rce-en@BE00000 {
-		status = "disabled";
+	host1x@13e00000 {
+		vi0@15c00000 {
+			status = "disabled";
+		};
+		vi0-thi@15f00000 {
+			status = "disabled";
+		};
+		vi1@14c00000 {
+			status = "disabled";
+		};
+		vi1-thi@14f00000 {
+			status = "disabled";
+		};
+		isp@14800000 {
+			status = "disabled";
+		};
+		isp-thi@14b00000 {
+			status = "disabled";
+		};
+		nvcsi@15a00000 {
+			status = "disabled";
+		};
 	};
-	nvcsi@15a00000 {
+	rce-en@BE00000 {
 		status = "disabled";
 	};
 	tegra-capture-vi {

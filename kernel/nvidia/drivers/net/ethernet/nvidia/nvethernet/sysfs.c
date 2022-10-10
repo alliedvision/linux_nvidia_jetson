@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -228,9 +228,7 @@ static ssize_t macsec_enable_store(struct device *dev,
 {
 	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
 	struct ether_priv_data *pdata = netdev_priv(ndev);
-	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct macsec_priv_data *macsec_pdata = pdata->macsec_pdata;
-	unsigned int enable = 0;
 	int ret = 0;
 
 	if (!netif_running(ndev)) {
@@ -242,28 +240,6 @@ static ssize_t macsec_enable_store(struct device *dev,
 		ret = macsec_close(macsec_pdata);
 	} else if (strncmp(buf, "txrx", 4) == OSI_NONE) {
 		ret = macsec_open(macsec_pdata, OSI_NULL);
-	} else if (strncmp(buf, "tx", 2) == OSI_NONE) {
-		if (macsec_pdata->enabled == OSI_NONE) {
-			ret = macsec_open(macsec_pdata, OSI_NONE);
-		}
-		enable |= (OSI_MACSEC_TX_EN);
-		ret = osi_macsec_en(osi_core, enable);
-		if (ret < 0) {
-			dev_err(dev, "%s: Failed to enable macsec Tx\n",
-				__func__);
-		}
-		macsec_pdata->enabled = OSI_MACSEC_TX_EN;
-	} else if (strncmp(buf, "rx", 2) == OSI_NONE) {
-		if (macsec_pdata->enabled == OSI_NONE) {
-			ret = macsec_open(macsec_pdata, OSI_NONE);
-		}
-		enable |= (OSI_MACSEC_RX_EN);
-		ret = osi_macsec_en(osi_core, enable);
-		if (ret < 0) {
-			dev_err(dev, "%s: Failed to enable macsec Rx\n",
-				__func__);
-		}
-		macsec_pdata->enabled = OSI_MACSEC_RX_EN;
 	} else {
 		dev_err(pdata->dev,
 			"Invalid. Valid inputs are 0/tx/rx/txrx\n");
@@ -445,6 +421,93 @@ static ssize_t macsec_loopback_store(struct device *dev,
 static DEVICE_ATTR(macsec_loopback, (S_IRUGO | S_IWUSR),
 		   macsec_loopback_show,
 		   macsec_loopback_store);
+
+#ifdef HSI_SUPPORT
+/**
+ * @brief Shows HSI feature enabled status
+ *
+ * Algorithm: Shows HSI feature enabled status
+ *
+ * @param[in] dev: Device data.
+ * @param[in] attr: Device attribute
+ * @param[in] buf: Buffer to store the current status
+ */
+static ssize_t hsi_enable_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 (osi_core->hsi.enabled == OSI_ENABLE) ?
+			 "enabled" : "disabled");
+}
+
+/**
+ * @brief Set HSI enabled status
+ *
+ * Algorithm: This is used to set HSI feature enable status
+ *
+ * @param[in] dev: Device data.
+ * @param[in] attr: Device attribute
+ * @param[in] buf: Buffer which contains the user input
+ * @param[in] size: size of buffer
+ *
+ * @return size of buffer.
+ */
+static ssize_t hsi_enable_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+	struct osi_ioctl ioctl_data = {};
+	int ret = 0;
+
+	if (!netif_running(ndev)) {
+		dev_err(pdata->dev, "Not Allowed. Ether interface is not up\n");
+		return size;
+	}
+
+	ioctl_data.cmd = OSI_CMD_HSI_CONFIGURE;
+	if (strncmp(buf, "enable", 6) == OSI_NONE) {
+		ioctl_data.arg1_u32 = OSI_ENABLE;
+		ret = osi_handle_ioctl(pdata->osi_core, &ioctl_data);
+		if (ret < 0) {
+			dev_err(pdata->dev,
+				"Failed to enable HSI\n");
+		} else {
+			osi_core->hsi.enabled = OSI_ENABLE;
+			dev_info(pdata->dev, "HSI Enabled\n");
+		}
+	} else if (strncmp(buf, "disable", 7) == OSI_NONE) {
+		ioctl_data.arg1_u32 = OSI_DISABLE;
+		ret = osi_handle_ioctl(pdata->osi_core, &ioctl_data);
+		if (ret < 0) {
+			dev_err(pdata->dev,
+				"Failed to disable HSI\n");
+		} else {
+			osi_core->hsi.enabled = OSI_DISABLE;
+			dev_info(pdata->dev, "HSI Disabled\n");
+		}
+	} else {
+		dev_err(pdata->dev,
+			"Invalid entry. Valid Entries are enable/disable\n");
+	}
+
+	return size;
+}
+
+/**
+ * @brief Sysfs attribute for HSI enable
+ *
+ */
+static DEVICE_ATTR(hsi_enable, 0644,
+		   hsi_enable_show,
+		   hsi_enable_store);
+#endif
 
 #define MAC_ADDR_FMT	"%02x:%02x:%02x:%02x:%02x:%02x"
 #define ETHTYPE_FMT	"%02x%02x"
@@ -687,8 +750,6 @@ static int parse_inputs(const char *buf,
 			case 3:
 				flags |= OSI_LUT_FLAGS_BYTE3_PATTERN_VALID;
 				break;
-			default:
-				break;
 			}
 			lut_in->byte_pattern[i] = byte[i];
 			lut_in->byte_pattern_offset[i] = byte_offset[i];
@@ -741,7 +802,7 @@ static void dump_byp_lut(char **buf_p, unsigned short ctlr_sel,
 		lut_config.lut_sel = OSI_LUT_SEL_BYPASS;
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			pr_err("%s: Failed to read BYP LUT\n", __func__);
 			*buf_p = buf;
 			return;
@@ -848,7 +909,7 @@ static ssize_t macsec_byp_lut_store(struct device *dev,
 		goto exit;
 	}
 
-	if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+	if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 		dev_err(dev, "%s: Failed to config BYP LUT\n", __func__);
 		goto exit;
 	} else {
@@ -960,7 +1021,7 @@ static void dump_dbg_buffers(char **buf_p, unsigned short ctlr_sel,
 		dbg_buf_config.rw = OSI_DBG_TBL_READ;
 		dbg_buf_config.ctlr_sel = ctlr_sel;
 		dbg_buf_config.index = i;
-		if (osi_macsec_dbg_buf_config(osi_core, &dbg_buf_config) < 0) {
+		if (osi_macsec_config_dbg_buf(osi_core, &dbg_buf_config) < 0) {
 			pr_err("%s: Failed to read debug buffers\n", __func__);
 			*buf_p = buf;
 			return;
@@ -979,7 +1040,7 @@ static void dump_dbg_buffers(char **buf_p, unsigned short ctlr_sel,
 		dbg_buf_config.rw = OSI_DBG_TBL_WRITE;
 		dbg_buf_config.ctlr_sel = ctlr_sel;
 		dbg_buf_config.index = i;
-		if (osi_macsec_dbg_buf_config(osi_core, &dbg_buf_config) < 0) {
+		if (osi_macsec_config_dbg_buf(osi_core, &dbg_buf_config) < 0) {
 			pr_err("%s: Failed to write debug buffers\n", __func__);
 			return;
 		}
@@ -1124,7 +1185,7 @@ static ssize_t macsec_sci_lut_show(struct device *dev,
 		lut_config.lut_sel = OSI_LUT_SEL_SCI;
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			dev_err(dev, "%s: Failed to read SCI LUT\n", __func__);
 			goto exit;
 		} else {
@@ -1158,7 +1219,7 @@ static ssize_t macsec_sci_lut_show(struct device *dev,
 		lut_config.lut_sel = OSI_LUT_SEL_SCI;
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			dev_err(dev, "%s: Failed to read BYP LUT\n", __func__);
 			goto exit;
 		} else {
@@ -1265,7 +1326,7 @@ static ssize_t macsec_sci_lut_store(struct device *dev,
 	}
 	lut_config.sci_lut_out.sc_index = sc_index;
 
-	if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+	if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 		dev_err(dev, "%s: Failed to config SCI LUT\n", __func__);
 		goto exit;
 	} else {
@@ -1298,7 +1359,7 @@ static void dump_kt(char **buf_p, unsigned short ctlr_sel,
 		kt_config.table_config.ctlr_sel = ctlr_sel;
 		kt_config.table_config.rw = OSI_LUT_READ;
 		kt_config.table_config.index = i;
-		if (osi_macsec_kt_config(osi_core, &kt_config) < 0) {
+		if (osi_macsec_config_kt(osi_core, &kt_config) < 0) {
 			pr_err("%s: Failed to read KT\n", __func__);
 			*buf_p = buf;
 			return;
@@ -1486,7 +1547,7 @@ static ssize_t macsec_kt_store(struct device *dev,
 		kt_config.flags |= OSI_LUT_FLAGS_ENTRY_VALID;
 	}
 
-	ret = osi_macsec_kt_config(osi_core, &kt_config);
+	ret = osi_macsec_config_kt(osi_core, &kt_config);
 	if (ret < 0) {
 		pr_err("%s: Failed to set SAK", __func__);
 		goto exit;
@@ -1534,7 +1595,7 @@ static void dump_sc_state_lut(char **buf_p, unsigned short ctlr_sel,
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
 		lut_config.lut_sel = OSI_LUT_SEL_SC_STATE;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			pr_err("%s: Failed to read BYP LUT\n", __func__);
 			*buf_p = buf;
 			return;
@@ -1622,7 +1683,7 @@ static ssize_t macsec_sc_state_lut_store(struct device *dev,
 	lut_config.lut_sel = OSI_LUT_SEL_SC_STATE;
 	lut_config.sc_state_out.curr_an = curr_an;
 
-	if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+	if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 		dev_err(dev, "%s: Failed to config SC STATE LUT\n", __func__);
 		goto exit;
 	} else {
@@ -1655,7 +1716,7 @@ static void dump_sa_state_lut(char **buf_p, unsigned short ctlr_sel,
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
 		lut_config.lut_sel = OSI_LUT_SEL_SA_STATE;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			pr_err("%s: Failed to read BYP LUT\n", __func__);
 			goto exit;
 		}
@@ -1764,7 +1825,7 @@ static ssize_t macsec_sa_state_lut_store(struct device *dev,
 	lut_config.sa_state_out.lowest_pn = lowest_pn;
 	lut_config.lut_sel = OSI_LUT_SEL_SA_STATE;
 
-	if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+	if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 		dev_err(dev, "%s: Failed to config SA STATE LUT\n", __func__);
 		goto exit;
 	} else {
@@ -1798,7 +1859,7 @@ static void dump_sc_param_lut(char **buf_p, unsigned short ctlr_sel,
 		lut_config.table_config.rw = OSI_LUT_READ;
 		lut_config.table_config.index = i;
 		lut_config.lut_sel = OSI_LUT_SEL_SC_PARAM;
-		if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+		if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 			pr_err("%s: Failed to read BYP LUT\n", __func__);
 			goto exit;
 		}
@@ -1932,7 +1993,7 @@ static ssize_t macsec_sc_param_lut_store(struct device *dev,
 		lut_config.sc_param_out.sci[i] = (unsigned char)sci[i];
 	}
 
-	if (osi_macsec_lut_config(osi_core, &lut_config) < 0) {
+	if (osi_macsec_config_lut(osi_core, &lut_config) < 0) {
 		dev_err(dev, "%s: Failed to config SC PARAM LUT\n", __func__);
 		goto exit;
 	} else {
@@ -2016,6 +2077,89 @@ static DEVICE_ATTR(macsec_irq_stats, (S_IRUGO | S_IWUSR),
 		   macsec_irq_stats_show,
 		   NULL);
 #endif /* MACSEC_SUPPORT */
+
+/**
+ * @brief Shows the current driver setting for PHY iface mode
+ *
+ * Algorithm: Display the current PHY iface mode setting.
+ *
+ * @param[in] dev: Device data.
+ * @param[in] attr: Device attribute
+ * @param[in] buf: Buffer to store the current PHY iface mode
+ *
+ * @note MAC and PHY need to be initialized.
+ */
+static ssize_t ether_phy_iface_mode_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+
+	switch (osi_core->phy_iface_mode) {
+	case OSI_XFI_MODE_10G:
+		return scnprintf(buf, PAGE_SIZE, "XFI-10G\n");
+	case OSI_XFI_MODE_5G:
+		return scnprintf(buf, PAGE_SIZE, "XFI-5G\n");
+	case OSI_USXGMII_MODE_10G:
+		return scnprintf(buf, PAGE_SIZE, "USX-10G\n");
+	case OSI_USXGMII_MODE_5G:
+		return scnprintf(buf, PAGE_SIZE, "USX-5G\n");
+	default:
+		return scnprintf(buf, PAGE_SIZE, "XFI-10G\n");
+	}
+}
+
+/**
+ * @brief Set the user setting of PHY iface mode.
+ *
+ * Algorithm: This is used to set the user mode settings of PHY iface mode
+ * @param[in] dev: Device data.
+ * @param[in] attr: Device attribute
+ * @param[in] buf: Buffer which contains the user settings of PHY iface mode
+ * @param[in] size: size of buffer
+ *
+ * @note MAC and PHY need to be initialized.
+ *
+ * @return size of buffer.
+ */
+static ssize_t ether_phy_iface_mode_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t size)
+{
+	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+
+	if (netif_running(ndev)) {
+		dev_err(pdata->dev, "Not Allowed. Ether interface is up\n");
+		return size;
+	}
+
+	if (strncmp(buf, "XFI-10G", 7) == 0U) {
+		osi_core->phy_iface_mode = OSI_XFI_MODE_10G;
+	} else if (strncmp(buf, "XFI-5G", 6) == 0U) {
+		osi_core->phy_iface_mode = OSI_XFI_MODE_5G;
+	} else if (strncmp(buf, "USX-10G", 7) == 0U) {
+		osi_core->phy_iface_mode = OSI_USXGMII_MODE_10G;
+	} else if (strncmp(buf, "USX-5G", 6) == 0U) {
+		osi_core->phy_iface_mode = OSI_USXGMII_MODE_5G;
+	} else {
+		dev_err(pdata->dev,
+			"Invalid value passed. Valid values are XFI-10G/XFI-5G/USX-10G/USX-5G\n");
+	}
+
+	return size;
+}
+
+/**
+ * @brief Sysfs attribute for PHY iface Mode
+ *
+ */
+static DEVICE_ATTR(phy_iface_mode, (S_IRUGO | S_IWUSR),
+		   ether_phy_iface_mode_show,
+		   ether_phy_iface_mode_store);
 
 /**
  * @brief Shows the current driver setting for UPHY GBE mocd
@@ -2489,11 +2633,15 @@ static struct attribute *ether_sysfs_attrs[] = {
 	&dev_attr_macsec_dbg_events.attr,
 #endif /* MACSEC_SUPPORT */
 	&dev_attr_uphy_gbe_mode.attr,
+	&dev_attr_phy_iface_mode.attr,
 #ifdef ETHER_NVGRO
 	&dev_attr_nvgro_pkt_age_msec.attr,
 	&dev_attr_nvgro_timer_interval.attr,
 	&dev_attr_nvgro_stats.attr,
 	&dev_attr_nvgro_dump.attr,
+#endif
+#ifdef HSI_SUPPORT
+	&dev_attr_hsi_enable.attr,
 #endif
 	NULL
 };

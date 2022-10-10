@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -161,6 +161,7 @@ void gp10b_write_dmatrfbase(struct gk20a *g, u32 addr)
 
 bool gp10b_is_pmu_supported(struct gk20a *g)
 {
+	(void)g;
 	return true;
 }
 

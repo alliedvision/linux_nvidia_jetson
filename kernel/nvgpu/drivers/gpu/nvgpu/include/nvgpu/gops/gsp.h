@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,11 +27,14 @@
 struct gk20a;
 struct nvgpu_gsp;
 
+#define GSP_WAIT_TIME_MS 10000U
+
 struct gops_gsp {
 	u32 (*falcon_base_addr)(void);
 	u32 (*falcon2_base_addr)(void);
 	void (*falcon_setup_boot_config)(struct gk20a *g);
 	int (*gsp_reset)(struct gk20a *g);
+	bool (*validate_mem_integrity)(struct gk20a *g);
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
 	u32 (*gsp_get_queue_head)(u32 i);
 	u32 (*gsp_get_queue_head_size)(void);
@@ -50,7 +53,7 @@ struct gops_gsp {
 	void (*msgq_tail)(struct gk20a *g, struct nvgpu_gsp *gsp,
 			u32 *tail, bool set);
 	void (*enable_irq)(struct gk20a *g, bool enable);
-	void (*gsp_isr)(struct gk20a *g);
+	void (*gsp_isr)(struct gk20a *g, struct nvgpu_gsp *gsp);
 	void (*set_msg_intr)(struct gk20a *g);
 #endif /* CONFIG_NVGPU_GSP_SCHEDULER */
 };

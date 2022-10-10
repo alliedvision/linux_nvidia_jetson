@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -153,5 +153,10 @@ static inline u32 sec_lic_intr_enable_r(int version)
 		return v1_sec_lic_intr_enable_r();
 	else
 		return v2_sec_lic_intr_enable_r();
+}
+
+static inline u32 hwpm_get_offset(void)
+{
+	return 0x200000;
 }
 #endif

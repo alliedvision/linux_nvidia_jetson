@@ -1,0 +1,38 @@
+From ad0c1038d2e704a59fdcb7c522d6114281dd72e3 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Mon, 20 Apr 2020 21:31:15 +0000
+Subject: [PATCH 529/830] ANDROID: irqchip: Kconfig: Make QCOM_PDC depend on
+ QCOM_SCM || !QCOM_SCM
+X-NVConfidentiality: public
+
+The qcom-pdc code calls qcom_scm_*, and since the QCOM_SCM
+config can now be set as a module, this requires the QCOM_PDC
+also be a module in that case, so make the dependency explicit
+in the Kconfig.
+
+This is done via the non-intuitive "depends on QCOM_SCM || !QCOM_SCM"
+Kconfig syntax, which basically ensures that QCOM_SCM isn't
+configured as a module if ARM_SMMU is built in.
+
+Fixes: 6a1652effdb8 ("ANDROID: firmware: QCOM_SCM: Allow qcom_scm driver to be loadable as a permenent module")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: Ie1a3c0644e49646c2b071b878cf1263d46be8e0d
+---
+ drivers/irqchip/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
+index 298910ffd29d..4006b4fd7b62 100644
+--- a/drivers/irqchip/Kconfig
++++ b/drivers/irqchip/Kconfig
+@@ -441,6 +441,7 @@ config GOLDFISH_PIC
+ config QCOM_PDC
+ 	tristate "QCOM PDC"
+ 	depends on ARCH_QCOM
++	depends on QCOM_SCM || !QCOM_SCM
+ 	select IRQ_DOMAIN_HIERARCHY
+ 	help
+ 	  Power Domain Controller driver to manage and configure wakeup
+-- 
+2.17.1
+

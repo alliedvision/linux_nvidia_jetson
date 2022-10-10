@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera E2832 on t19x platforms
+ *
+ * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Jetson Camera HDMI CSI Bridge";
+	jetson-header-name = "Jetson AGX CSI Connector";
+	compatible = "nvidia,p2822-0000+p2888-0001","nvidia,jetson-xavier-industrial","nvidia,e3900-0000+p2888-0004";
+
+	/* E2832 module using ODM-DATA */
+	fragment@0 {
+		target = <&e2832_cam0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		target = <&cam_module0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "e2832_ltx6911";
+			position = "bottom";
+			orientation = "0";
+		};
+	};
+	fragment@2 {
+		target = <&cam_module0_drivernode0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "e2832 2-002b";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/e2832@2b";
+		};
+	};
+	/* Enable VI ports */
+	fragment@3 {
+		target-path = "/tegra-capture-vi";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@4 {
+		target = <&vi_port0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@5 {
+		target = <&e2832_vi_in0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <8>;
+			remote-endpoint = <&e2832_csi_out0>;
+		};
+	};
+	/* Enable CSI ports */
+	fragment@6 {
+		//// target = <&csi_base>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@7 {
+		target = <&csi_chan0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@8 {
+		target = <&csi_chan0_port0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@9 {
+		target = <&e2832_csi_in0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <8>;
+			remote-endpoint = <&e2832_out0>;
+		};
+	};
+	fragment@10 {
+		target = <&csi_chan0_port1>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		target = <&e2832_csi_out0>;
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&e2832_vi_in0>;
+		};
+	};
+	/* tegra-camera-platform settings */
+	fragment@12 {
+		target-path = "/tegra-camera-platform";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num_csi_lanes = <4>;
+			max_lane_speed = <1500000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+};

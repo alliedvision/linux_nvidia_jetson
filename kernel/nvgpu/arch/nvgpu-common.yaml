@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
 #
 # Common elements and units in nvgpu.
 #
@@ -15,7 +15,8 @@ nvgpu:
   sources: [ include/nvgpu/gk20a.h,
              include/nvgpu/nvgpu_common.h,
              include/nvgpu/cov_whitelist.h,
-             include/nvgpu/static_analysis.h ]
+             include/nvgpu/static_analysis.h,
+             include/nvgpu/l1ss_err_reporting.h ]
 
 bios:
   safe: yes
@@ -126,7 +127,9 @@ cbc:
   owner: Seshendra G
   sources: [ common/cbc/cbc.c,
              include/nvgpu/cbc.h,
-             include/nvgpu/gops/cbc.h ]
+             include/nvgpu/gops/cbc.h,
+             include/nvgpu/nvgpu_ivm.h,
+             common/cbc/contig_pool.c ]
 
 regops:
   safe: no
@@ -245,6 +248,9 @@ sim:
              include/nvgpu/hw_sim_pci.h,
              include/nvgpu/sim.h ]
 
+timers:
+  sources: [ common/timers_common.c ]
+
 utils:
   safe: yes
   owner: Alex W
@@ -314,21 +320,34 @@ gsp:
   owner: Ramesh M
   gpu: igpu
   sources: [ common/gsp/gsp_init.c,
-             common/gsp/gsp_priv.h,
              common/gsp/gsp_bootstrap.c,
-             common/gsp/gsp_bootstrap.h,
-             common/gsp/gsp_test.c,
-             include/nvgpu/gsp.h,
-             include/nvgpu/gsp/gsp_test.h,
-             common/gsp/ipc/gsp_seq.c,
-             common/gsp/ipc/gsp_seq.h,
-             common/gsp/ipc/gsp_queue.c,
-             common/gsp/ipc/gsp_queue.h,
-             common/gsp/ipc/gsp_cmd.c,
-             common/gsp/ipc/gsp_cmd.h,
-             common/gsp/ipc/gsp_msg.c,
-             common/gsp/ipc/gsp_msg.h,
              include/nvgpu/gsp.h ]
+
+gsp_sched:
+  safe: no
+  owner: Ramesh M
+  gpu: igpu
+  sources: [ common/gsp_scheduler/ipc/gsp_seq.c,
+             common/gsp_scheduler/ipc/gsp_seq.h,
+             common/gsp_scheduler/ipc/gsp_queue.c,
+             common/gsp_scheduler/ipc/gsp_queue.h,
+             common/gsp_scheduler/ipc/gsp_cmd.c,
+             common/gsp_scheduler/ipc/gsp_cmd.h,
+             common/gsp_scheduler/ipc/gsp_msg.c,
+             common/gsp_scheduler/ipc/gsp_msg.h,
+             common/gsp_scheduler/gsp_scheduler.c,
+             common/gsp_scheduler/gsp_scheduler.h,
+             common/gsp_scheduler/gsp_runlist.c,
+             common/gsp_scheduler/gsp_runlist.h,
+             include/nvgpu/gsp_sched.h ]
+
+gsp_test:
+  safe: no
+  owner: Ramesh M
+  gpu: igpu
+  sources: [ include/nvgpu/gsp/gsp_test.h,
+             common/gsp_test/gsp_test.c,
+             common/gsp_test/gsp_test.h ]
 
 engine_queues:
   owner: Sagar K
@@ -1121,6 +1140,7 @@ cic:
              common/cic/mon/mon_pri.c,
              common/cic/mon/mon_pmu.c,
              common/cic/mon/mon_mmu.c,
+             common/cic/mon/mon_report_err.c,
              common/cic/mon/cic_mon_priv.h,
              include/nvgpu/gops/cic_mon.h,
              include/nvgpu/cic_mon.h,

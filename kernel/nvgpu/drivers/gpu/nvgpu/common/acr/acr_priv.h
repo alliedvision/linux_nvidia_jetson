@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -109,6 +109,14 @@ struct wpr_carveout_info;
 #define ACR_COMPLETION_TIMEOUT_NON_SILICON_MS 10000U /*in msec */
 #define ACR_COMPLETION_TIMEOUT_SILICON_MS 100 /*in msec */
 
+/*
+ * ACR firmware returns these error codes when below mentioned error occurs.
+ */
+# define ACR_ERROR_WDT                         0x66U
+# define ACR_ERROR_REG_ACCESS_FAILURE          0x1BU
+# define ACR_ERROR_RISCV_EXCEPTION             0x84U
+# define ACR_ERROR_LS_SIG_VERIF_FAIL           0x0BU
+
 struct acr_lsf_config {
 	u32 falcon_id;
 	u32 falcon_dma_idx;
@@ -122,6 +130,7 @@ struct acr_lsf_config {
 struct nvgpu_acr {
 	struct gk20a *g;
 
+	u32 fw_load_flag;
 	u32 bootstrap_owner;
 	u32 num_of_sig;
 

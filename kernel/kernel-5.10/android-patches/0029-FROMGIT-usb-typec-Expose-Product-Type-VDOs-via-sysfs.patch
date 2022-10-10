@@ -1,0 +1,122 @@
+From cc08d053877754f456e49fdf1109c6ed15c1b4a3 Mon Sep 17 00:00:00 2001
+From: Prashant Malani <pmalani@chromium.org>
+Date: Wed, 25 Nov 2020 00:49:11 -0800
+Subject: [PATCH 029/830] FROMGIT: usb: typec: Expose Product Type VDOs via
+ sysfs
+X-NVConfidentiality: public
+
+A PD-capable device can return up to 3 Product Type VDOs as part of its
+DiscoverIdentity Response (USB PD Spec, Rev 3.0, Version 2.0, Section
+6.4.4.3.1). Add sysfs attributes to expose these to userspace.
+
+Bug: 174347172
+Cc: Benson Leung <bleung@chromium.org>
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Prashant Malani <pmalani@chromium.org>
+Link: https://lore.kernel.org/r/20201125084911.1077462-2-pmalani@chromium.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 2e70c495cadebdcc6f80fde3553401bb0987b29f
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Cc: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I40f39f5774227b73635b87ce3b6f4c69f33b0aa7
+---
+ Documentation/ABI/testing/sysfs-class-typec | 24 +++++++++++++++
+ drivers/usb/typec/class.c                   | 33 +++++++++++++++++++++
+ 2 files changed, 57 insertions(+)
+
+diff --git a/Documentation/ABI/testing/sysfs-class-typec b/Documentation/ABI/testing/sysfs-class-typec
+index 88ffc14d4cd2..619c4c67432b 100644
+--- a/Documentation/ABI/testing/sysfs-class-typec
++++ b/Documentation/ABI/testing/sysfs-class-typec
+@@ -228,6 +228,30 @@ Description:
+ 		will show 0 until Discover Identity command result becomes
+ 		available. The value can be polled.
+ 
++What:		/sys/class/typec/<port>-{partner|cable}/identity/product_type_vdo1
++Date:		October 2020
++Contact:	Prashant Malani <pmalani@chromium.org>
++Description:
++		1st Product Type VDO of Discover Identity command result.
++		The value will show 0 until Discover Identity command result becomes
++		available and a valid Product Type VDO is returned.
++
++What:		/sys/class/typec/<port>-{partner|cable}/identity/product_type_vdo2
++Date:		October 2020
++Contact:	Prashant Malani <pmalani@chromium.org>
++Description:
++		2nd Product Type VDO of Discover Identity command result.
++		The value will show 0 until Discover Identity command result becomes
++		available and a valid Product Type VDO is returned.
++
++What:		/sys/class/typec/<port>-{partner|cable}/identity/product_type_vdo3
++Date:		October 2020
++Contact:	Prashant Malani <pmalani@chromium.org>
++Description:
++		3rd Product Type VDO of Discover Identity command result.
++		The value will show 0 until Discover Identity command result becomes
++		available and a valid Product Type VDO is returned.
++
+ 
+ USB Type-C port alternate mode devices.
+ 
+diff --git a/drivers/usb/typec/class.c b/drivers/usb/typec/class.c
+index 0b90d95d1f40..71c2227f1874 100644
+--- a/drivers/usb/typec/class.c
++++ b/drivers/usb/typec/class.c
+@@ -124,10 +124,40 @@ static ssize_t product_show(struct device *dev, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR_RO(product);
+ 
++static ssize_t product_type_vdo1_show(struct device *dev, struct device_attribute *attr,
++				      char *buf)
++{
++	struct usb_pd_identity *id = get_pd_identity(dev);
++
++	return sysfs_emit(buf, "0x%08x\n", id->vdo[0]);
++}
++static DEVICE_ATTR_RO(product_type_vdo1);
++
++static ssize_t product_type_vdo2_show(struct device *dev, struct device_attribute *attr,
++				      char *buf)
++{
++	struct usb_pd_identity *id = get_pd_identity(dev);
++
++	return sysfs_emit(buf, "0x%08x\n", id->vdo[1]);
++}
++static DEVICE_ATTR_RO(product_type_vdo2);
++
++static ssize_t product_type_vdo3_show(struct device *dev, struct device_attribute *attr,
++				      char *buf)
++{
++	struct usb_pd_identity *id = get_pd_identity(dev);
++
++	return sysfs_emit(buf, "0x%08x\n", id->vdo[2]);
++}
++static DEVICE_ATTR_RO(product_type_vdo3);
++
+ static struct attribute *usb_pd_id_attrs[] = {
+ 	&dev_attr_id_header.attr,
+ 	&dev_attr_cert_stat.attr,
+ 	&dev_attr_product.attr,
++	&dev_attr_product_type_vdo1.attr,
++	&dev_attr_product_type_vdo2.attr,
++	&dev_attr_product_type_vdo3.attr,
+ 	NULL
+ };
+ 
+@@ -146,6 +176,9 @@ static void typec_report_identity(struct device *dev)
+ 	sysfs_notify(&dev->kobj, "identity", "id_header");
+ 	sysfs_notify(&dev->kobj, "identity", "cert_stat");
+ 	sysfs_notify(&dev->kobj, "identity", "product");
++	sysfs_notify(&dev->kobj, "identity", "product_type_vdo1");
++	sysfs_notify(&dev->kobj, "identity", "product_type_vdo2");
++	sysfs_notify(&dev->kobj, "identity", "product_type_vdo3");
+ }
+ 
+ /* ------------------------------------------------------------------------- */
+-- 
+2.17.1
+

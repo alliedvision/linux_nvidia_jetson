@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Driver Entrypoint
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,6 +54,7 @@
 #include "platform.h"
 
 #include "../syncpt_fd.h"
+#include "../nvhost_syncpt_dmabuf.h"
 
 #ifdef CONFIG_TEGRA_GRHOST_SYNC
 #include "nvhost_sync.h"
@@ -63,7 +64,6 @@
 #include "chip_support.h"
 #include "t210/t210.h"
 
-#include "t186/t186.h"
 #include "t194/t194.h"
 #include "t23x/t23x.h"
 #ifdef CONFIG_TEGRA_T239_GRHOST
@@ -705,6 +705,9 @@ static long nvhost_ctrlctl(struct file *filp,
 	case NVHOST_IOCTL_CTRL_SYNC_FILE_EXTRACT:
 		err = nvhost_ioctl_ctrl_sync_file_extract(priv, (void *)buf);
 		break;
+	case NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD:
+		err = nvhost_syncpt_dmabuf_alloc(priv->dev, (void *)buf);
+		break;
 	default:
 		nvhost_err(&priv->dev->dev->dev, "invalid cmd 0x%x", cmd);
 		err = -ENOIOCTLCMD;
@@ -998,17 +1001,6 @@ static int nvhost_alloc_resources(struct nvhost_master *host)
 static struct of_device_id tegra_host1x_of_match[] = {
 	{ .compatible = "nvidia,tegra210-host1x",
 		.data = (struct nvhost_device_data *)&t21_host1x_info },
-	{ .name = "host1x",
-		.compatible = "nvidia,tegra186-host1x",
-		.data = (struct nvhost_device_data *)&t18_host1x_info },
-	{ .name = "host1xb",
-		.compatible = "nvidia,tegra186-host1x",
-		.data = (struct nvhost_device_data *)&t18_host1xb_info },
-	{ .compatible = "nvidia,tegra186-host1x-cl34000094",
-		.data = (struct nvhost_device_data *)&t18_host1x_info },
-	{ .name = "host1x",
-	  .compatible = "nvidia,tegra186-host1x-hv",
-		.data = (struct nvhost_device_data *)&t18_host1x_hv_info },
 	{ .name = "host1x",
 		.compatible = "nvidia,tegra194-host1x",
 		.data = (struct nvhost_device_data *)&t19_host1x_info },

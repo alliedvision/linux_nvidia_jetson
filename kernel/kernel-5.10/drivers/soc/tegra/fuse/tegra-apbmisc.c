@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,6 +15,8 @@
 #include "fuse.h"
 
 #define FUSE_SKU_INFO	0x10
+
+#define ERD_ERR_CONFIG 0x120c
 #define ERD_MASK_INBAND_ERR 0x1
 
 #define TEGRA_APBMISC_EMU_REVID 0x60
@@ -112,6 +114,63 @@ u8 tegra_get_minor_rev(void)
 }
 EXPORT_SYMBOL(tegra_get_minor_rev);
 
+u8 tegra_get_platform(void)
+{
+	return (tegra_read_chipid() >> 20) & 0xf;
+}
+EXPORT_SYMBOL(tegra_get_platform);
+
+bool tegra_is_silicon(void)
+{
+	switch (tegra_get_chip_id()) {
+	case TEGRA194:
+	case TEGRA234:
+		if (tegra_get_platform() == 0)
+			return true;
+
+		return false;
+	}
+
+	/*
+	 * Chips prior to Tegra194 have a different way of determining whether
+	 * they are silicon or not. Since we never supported simulation on the
+	 * older Tegra chips, don't bother extracting the information and just
+	 * report that we're running on silicon.
+	 */
+	return true;
+}
+
+bool tegra_platform_is_silicon(void)
+{
+	return tegra_is_silicon();
+}
+EXPORT_SYMBOL(tegra_platform_is_silicon);
+bool tegra_platform_is_qt(void)
+{
+	return tegra_get_platform() == PRE_SI_QT;
+}
+EXPORT_SYMBOL(tegra_platform_is_qt);
+bool tegra_platform_is_fpga(void)
+{
+	return tegra_get_platform() == PRE_SI_FPGA;
+}
+EXPORT_SYMBOL(tegra_platform_is_fpga);
+bool tegra_platform_is_vdk(void)
+{
+	return tegra_get_platform() == PRE_SI_VDK;
+}
+EXPORT_SYMBOL(tegra_platform_is_vdk);
+bool tegra_platform_is_sim(void)
+{
+	return tegra_platform_is_vdk();
+}
+EXPORT_SYMBOL(tegra_platform_is_sim);
+bool tegra_platform_is_vsp(void)
+{
+	return tegra_get_platform() == PRE_SI_VSP;
+}
+EXPORT_SYMBOL(tegra_platform_is_vsp);
+
 u32 tegra_read_straps(void)
 {
 	WARN(!chipid, "Tegra ABP MISC not yet available\n");
@@ -149,6 +208,28 @@ int tegra_miscreg_set_erd(u64 err_config)
 	return err;
 }
 EXPORT_SYMBOL(tegra_miscreg_set_erd);
+
+/*
+ * The function sets ERD(Error Response Disable) bit.
+ * This allows to mask inband errors and always send an
+ * OKAY response from CBB to the master which caused error.
+ */
+int tegra194_miscreg_mask_serror(void)
+{
+	if (!apbmisc_base)
+		return -EPROBE_DEFER;
+
+	if (!of_machine_is_compatible("nvidia,tegra194")) {
+		WARN(1, "Only supported for Tegra194 devices!\n");
+		return -EOPNOTSUPP;
+	}
+
+	writel_relaxed(ERD_MASK_INBAND_ERR,
+		       apbmisc_base + ERD_ERR_CONFIG);
+
+	return 0;
+}
+EXPORT_SYMBOL(tegra194_miscreg_mask_serror);
 
 static const struct of_device_id apbmisc_match[] __initconst = {
 	{ .compatible = "nvidia,tegra20-apbmisc",
@@ -260,7 +341,8 @@ void __init tegra_init_apbmisc(void)
 	} else {
 		chipid = readl_relaxed(apbmisc_base + 4);
 		if (!of_machine_is_compatible("nvidia,tegra194") &&
-			!of_machine_is_compatible("nvidia,tegra234")) {
+			!of_machine_is_compatible("nvidia,tegra234") &&
+			!of_machine_is_compatible("nvidia,tegra239")) {
 			iounmap(apbmisc_base);
 		}
 	}
@@ -282,15 +364,6 @@ u32 tegra_read_emu_revid(void)
 }
 EXPORT_SYMBOL(tegra_read_emu_revid);
 
-u32 tegra_get_sku_id(void)
-{
-	if (!tegra_sku_info.sku_id)
-		tegra_fuse_readl(FUSE_SKU_INFO, &tegra_sku_info.sku_id);
-
-	return tegra_sku_info.sku_id;
-}
-EXPORT_SYMBOL(tegra_get_sku_id);
-
 enum tegra_revision tegra_chip_get_revision(void)
 {
 	return tegra_sku_info.revision;
@@ -309,65 +382,6 @@ EXPORT_SYMBOL(is_t210b01_sku);
 /*
  * platform query functions begin
  */
-static enum tegra_platform __tegra_get_platform(void)
-{
-	u32 major, pre_si_plat;
-
-	major = tegra_get_major_rev();
-	pre_si_plat = tegra_get_pre_si_plat();
-
-	if (pre_si_plat == PRE_SI_VSP)
-		return TEGRA_PLATFORM_VSP;
-
-	if (!major) {
-		u32 minor;
-
-		minor = tegra_get_minor_rev();
-		switch (minor) {
-		case MINOR_QT:
-			return TEGRA_PLATFORM_QT;
-		case MINOR_FPGA:
-			return TEGRA_PLATFORM_FPGA;
-		case MINOR_ASIM_QT:
-			return TEGRA_PLATFORM_QT;
-		case MINOR_ASIM_LINSIM:
-			return TEGRA_PLATFORM_LINSIM;
-		case MINOR_VDK:
-			return TEGRA_PLATFORM_VDK;
-		}
-	} else if (pre_si_plat) {
-		switch (pre_si_plat) {
-		case PRE_SI_QT:
-			return TEGRA_PLATFORM_QT;
-		case PRE_SI_FPGA:
-			return TEGRA_PLATFORM_FPGA;
-		case PRE_SI_UNIT_FPGA:
-			return TEGRA_PLATFORM_UNIT_FPGA;
-		case PRE_SI_ASIM_QT:
-			return TEGRA_PLATFORM_QT;
-		case PRE_SI_ASIM_LINSIM:
-			return TEGRA_PLATFORM_LINSIM;
-		case PRE_SI_VDK:
-			return TEGRA_PLATFORM_VDK;
-		case PRE_SI_VSP:
-			return TEGRA_PLATFORM_VSP;
-		}
-	}
-
-	return TEGRA_PLATFORM_SILICON;
-}
-
-static enum tegra_platform tegra_platform_id = TEGRA_PLATFORM_MAX;
-
-enum tegra_platform tegra_get_platform(void)
-{
-	if (unlikely(tegra_platform_id == TEGRA_PLATFORM_MAX))
-		tegra_platform_id = __tegra_get_platform();
-
-	return tegra_platform_id;
-}
-EXPORT_SYMBOL(tegra_get_platform);
-
 bool tegra_cpu_is_asim(void)
 {
 	u32 major, pre_si_plat;

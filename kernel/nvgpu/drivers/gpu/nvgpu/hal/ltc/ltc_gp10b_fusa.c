@@ -1,7 +1,7 @@
 /*
  * GP10B L2
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -58,6 +58,7 @@ u64 gp10b_determine_L2_size_bytes(struct gk20a *g)
 	return ret;
 }
 
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 void gp10b_ltc_set_enabled(struct gk20a *g, bool enabled)
 {
 	u32 reg_f = ltc_ltcs_ltss_tstg_set_mgmt_2_l2_bypass_mode_enabled_f();
@@ -73,3 +74,4 @@ void gp10b_ltc_set_enabled(struct gk20a *g, bool enabled)
 
 	nvgpu_writel(g, ltc_ltcs_ltss_tstg_set_mgmt_2_r(), reg);
 }
+#endif

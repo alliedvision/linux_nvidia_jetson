@@ -1,0 +1,84 @@
+From 9b2f68e4a5c4d613ae6bb065be9666ac978096bc Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Wed, 2 Dec 2020 15:12:39 +0000
+Subject: [PATCH 067/830] FROMLIST: scripts: merge_config: add strict mode to
+ fail upon any redefinition
+X-NVConfidentiality: public
+
+When merging configuration fragments, it might be of interest to
+identify mismatches (redefinitions) programmatically. Hence add the
+option -s (strict mode) to instruct merge_config.sh to bail out in
+case any redefinition has been detected.
+
+With strict mode, warnings are emitted as before, but the script
+terminates with rc=1. If -y is set to define "builtin having
+precedence over modules", fragments are still allowed to set =m (while
+the base config has =y). Strict mode will tolerate that as demotions
+from =y to =m are ignored when setting -y.
+
+Bug: 174454795
+Link: https://lore.kernel.org/linux-kbuild/20201202151238.3776616-1-maennich@google.com/
+Cc: Masahiro Yamada <masahiroy@kernel.org>
+Signed-off-by: Matthias Maennich <maennich@google.com>
+Change-Id: Ib982a87811956e48b718a15680f06474a39dc19d
+---
+ scripts/kconfig/merge_config.sh | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/scripts/kconfig/merge_config.sh b/scripts/kconfig/merge_config.sh
+index 63c8565206a4..e5b46980c22a 100755
+--- a/scripts/kconfig/merge_config.sh
++++ b/scripts/kconfig/merge_config.sh
+@@ -28,6 +28,7 @@ usage() {
+ 	echo "  -r    list redundant entries when merging fragments"
+ 	echo "  -y    make builtin have precedence over modules"
+ 	echo "  -O    dir to put generated output files.  Consider setting \$KCONFIG_CONFIG instead."
++	echo "  -s    strict mode. Fail if the fragment redefines any value."
+ 	echo
+ 	echo "Used prefix: '$CONFIG_PREFIX'. You can redefine it with \$CONFIG_ environment variable."
+ }
+@@ -37,6 +38,7 @@ ALLTARGET=alldefconfig
+ WARNREDUN=false
+ BUILTIN=false
+ OUTPUT=.
++STRICT=false
+ CONFIG_PREFIX=${CONFIG_-CONFIG_}
+ 
+ while true; do
+@@ -75,6 +77,11 @@ while true; do
+ 		shift 2
+ 		continue
+ 		;;
++	"-s")
++		STRICT=true
++		shift
++		continue
++		;;
+ 	*)
+ 		break
+ 		;;
+@@ -141,6 +148,9 @@ for ORIG_MERGE_FILE in $MERGE_LIST ; do
+ 			echo Previous  value: $PREV_VAL
+ 			echo New value:       $NEW_VAL
+ 			echo
++			if [ "$STRICT" = "true" ]; then
++				STRICT_MODE_VIOLATED=true
++			fi
+ 		elif [ "$WARNREDUN" = "true" ]; then
+ 			echo Value of $CFG is redundant by fragment $ORIG_MERGE_FILE:
+ 		fi
+@@ -153,6 +163,11 @@ for ORIG_MERGE_FILE in $MERGE_LIST ; do
+ 	cat $MERGE_FILE >> $TMP_FILE
+ done
+ 
++if [ "$STRICT_MODE_VIOLATED" = "true" ]; then
++	echo "The fragment redefined a value and strict mode had been passed."
++	exit 1
++fi
++
+ if [ "$RUNMAKE" = "false" ]; then
+ 	cp -T -- "$TMP_FILE" "$KCONFIG_CONFIG"
+ 	echo "#"
+-- 
+2.17.1
+

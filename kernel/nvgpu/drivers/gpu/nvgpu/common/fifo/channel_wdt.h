@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,7 +36,10 @@ void nvgpu_channel_worker_poll_wakeup_post_process_item(
 u32 nvgpu_channel_worker_poll_wakeup_condition_get_timeout(
 		struct nvgpu_worker *worker);
 #else
-static inline void nvgpu_channel_launch_wdt(struct nvgpu_channel *ch) {}
+static inline void nvgpu_channel_launch_wdt(struct nvgpu_channel *ch)
+{
+	(void)ch;
+}
 #endif /* CONFIG_NVGPU_CHANNEL_WDT */
 
 #endif /* NVGPU_COMMON_FIFO_CHANNEL_WDT_H */

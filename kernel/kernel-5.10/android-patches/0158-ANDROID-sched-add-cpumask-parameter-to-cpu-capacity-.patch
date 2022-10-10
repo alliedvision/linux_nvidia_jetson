@@ -1,0 +1,61 @@
+From 315f0ff8ca29d28ce41218250cb3f9e199c1f757 Mon Sep 17 00:00:00 2001
+From: Yun Hsiang <yun.hsiang@mediatek.com>
+Date: Mon, 31 Aug 2020 15:13:01 +0800
+Subject: [PATCH 158/830] ANDROID: sched: add cpumask parameter to cpu capacity
+ vendor hook
+X-NVConfidentiality: public
+
+Different cpu type will have different suppression ratio.
+So we add cpumask parameter to cpu capacity vendor hook.
+
+Bug: 167126223
+
+Signed-off-by: Yun Hsiang <yun.hsiang@mediatek.com>
+Change-Id: I983a3aca2195f7c37c43d31fa588c999a825ee49
+---
+ drivers/base/arch_topology.c   | 2 +-
+ include/trace/hooks/topology.h | 8 +++++---
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index 513639b2e1dd..441f90526525 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -53,7 +53,7 @@ void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
+ 
+ 	scale = (cur_freq << SCHED_CAPACITY_SHIFT) / max_freq;
+ 
+-	trace_android_vh_arch_set_freq_scale(cur_freq, max_freq, &scale);
++	trace_android_vh_arch_set_freq_scale(cpus, cur_freq, max_freq, &scale);
+ 
+ 	for_each_cpu(i, cpus)
+ 		per_cpu(freq_scale, i) = scale;
+diff --git a/include/trace/hooks/topology.h b/include/trace/hooks/topology.h
+index 65ee1962b833..d67d8491eb17 100644
+--- a/include/trace/hooks/topology.h
++++ b/include/trace/hooks/topology.h
+@@ -9,16 +9,18 @@
+ 
+ #include <linux/tracepoint.h>
+ #include <trace/hooks/vendor_hooks.h>
++#include <linux/cpumask.h>
+ 
+ #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+ 
+ DECLARE_HOOK(android_vh_arch_set_freq_scale,
+-	TP_PROTO(unsigned long freq, unsigned long max, unsigned long *scale),
+-	TP_ARGS(freq, max, scale));
++	TP_PROTO(const struct cpumask *cpus, unsigned long freq,
++		 unsigned long max, unsigned long *scale),
++	TP_ARGS(cpus, freq, max, scale));
+ 
+ #else
+ 
+-#define trace_android_vh_arch_set_freq_scale(freq, max, scale)
++#define trace_android_vh_arch_set_freq_scale(cpus, freq, max, scale)
+ 
+ #endif
+ 
+-- 
+2.17.1
+

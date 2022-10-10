@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,8 @@ static int gm20b_bootstrap_hs_acr(struct gk20a *g, struct nvgpu_acr *acr)
 {
 	int err = 0;
 
+	(void)acr;
+
 	nvgpu_log_fn(g, " ");
 
 	err = nvgpu_acr_bootstrap_hs_ucode(g, g->acr, &g->acr->acr);
@@ -57,6 +59,8 @@ static int gm20b_acr_patch_wpr_info_to_ucode(struct gk20a *g,
 	struct flcn_acr_desc_v0 *acr_dmem_desc;
 	u32 *acr_ucode_header = NULL;
 	u32 *acr_ucode_data = NULL;
+
+	(void)acr;
 
 	nvgpu_log_fn(g, " ");
 
@@ -95,6 +99,7 @@ static int gm20b_acr_patch_wpr_info_to_ucode(struct gk20a *g,
 static u32 gm20b_acr_lsf_pmu(struct gk20a *g,
 		struct acr_lsf_config *lsf)
 {
+	(void)g;
 	/* PMU LS falcon info */
 	lsf->falcon_id = FALCON_ID_PMU;
 	lsf->falcon_dma_idx = GK20A_PMU_DMAIDX_UCODE;
@@ -110,6 +115,7 @@ static u32 gm20b_acr_lsf_pmu(struct gk20a *g,
 static u32 gm20b_acr_lsf_fecs(struct gk20a *g,
 		struct acr_lsf_config *lsf)
 {
+	(void)g;
 	/* FECS LS falcon info */
 	lsf->falcon_id = FALCON_ID_FECS;
 	lsf->falcon_dma_idx = GK20A_PMU_DMAIDX_UCODE;

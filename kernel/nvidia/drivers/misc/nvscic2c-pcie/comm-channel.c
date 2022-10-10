@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -188,10 +188,12 @@ send_msg(struct comm_channel_ctx_t *comm_ctx, struct comm_msg *msg)
 	void __iomem *to = NULL;
 	struct fifo_t *fifo = NULL;
 	struct syncpt_t *syncpt = NULL;
+	enum peer_cpu_t peer_cpu = NVCPU_ORIN;
 
 	fifo = &comm_ctx->fifo;
 	syncpt = &comm_ctx->syncpt;
 
+	peer_cpu = pci_client_get_peer_cpu(comm_ctx->pci_client_h);
 	mutex_lock(&fifo->send_lock);
 
 	/* if no space available, at the moment, client can try again. */
@@ -209,8 +211,13 @@ send_msg(struct comm_channel_ctx_t *comm_ctx, struct comm_msg *msg)
 	writel(fifo->local_hdr->wr_count,
 	       (void __iomem *)(&fifo->send_hdr->wr_count));
 
+	if (peer_cpu == NVCPU_X86_64) {
+	/* comm-channel irq verctor always take from index 0 */
+		ret = pci_client_raise_irq(comm_ctx->pci_client_h, PCI_EPC_IRQ_MSI, 0);
+	} else {
 	/* notify peer for each write.*/
-	writel(0x1, syncpt->peer_mem.pva);
+		writel(0x1, syncpt->peer_mem.pva);
+	}
 
 	fifo->wr_pos = fifo->wr_pos + 1;
 	if (fifo->wr_pos >= fifo->nframes)
@@ -245,6 +252,26 @@ comm_channel_bootstrap_msg_send(void *comm_channel_h, struct comm_msg *msg)
 }
 
 int
+comm_channel_edma_rx_desc_iova_send(void *comm_channel_h, struct comm_msg *msg)
+{
+	struct comm_channel_ctx_t *comm_ctx =
+				(struct comm_channel_ctx_t *)comm_channel_h;
+
+	if (WARN_ON(!comm_ctx || !msg))
+		return -EINVAL;
+
+	if (WARN_ON(msg->type != COMM_MSG_TYPE_EDMA_RX_DESC_IOVA_RETURN))
+		return -EINVAL;
+
+	/*
+	 * this is a special one-time message where the sender: @DRV_MODE_EPF
+	 * shares it's iova of edma rx descriptors to peer x86 @DRV_MODE_EPC
+	 */
+
+	return send_msg(comm_ctx, msg);
+}
+
+int
 comm_channel_msg_send(void *comm_channel_h, struct comm_msg *msg)
 {
 	enum nvscic2c_pcie_link link = NVSCIC2C_PCIE_LINK_DOWN;
@@ -260,6 +287,7 @@ comm_channel_msg_send(void *comm_channel_h, struct comm_msg *msg)
 		return -EINVAL;
 
 	link = pci_client_query_link_status(comm_ctx->pci_client_h);
+
 	if (link != NVSCIC2C_PCIE_LINK_UP)
 		return -ENOLINK;
 
@@ -299,6 +327,7 @@ recv_taskfn(void *arg)
 			    msg->type < COMM_MSG_TYPE_MAXIMUM) {
 				mutex_lock(&comm_ctx->cb_ops_lock);
 				cb_ops = &comm_ctx->cb_ops[msg->type];
+
 				if (cb_ops->callback)
 					cb_ops->callback
 						((void *)msg, cb_ops->ctx);
@@ -306,6 +335,7 @@ recv_taskfn(void *arg)
 			}
 
 			fifo->local_hdr->rd_count++;
+
 			writel(fifo->local_hdr->rd_count,
 			       (void __iomem *)(&fifo->send_hdr->rd_count));
 
@@ -407,7 +437,9 @@ stop_msg_handling(struct comm_channel_ctx_t *comm_ctx)
 		 */
 		r_task->shutdown = true;
 		wake_up_interruptible(&r_task->waitq);
-		wait_for_completion_interruptible(&r_task->shutdown_compl);
+		ret = wait_for_completion_interruptible(&r_task->shutdown_compl);
+		if (ret)
+			pr_err("Failed to wait for completion\n");
 
 		r_task->created = false;
 	}
@@ -641,7 +673,7 @@ allocate_fifo_memory(struct comm_channel_ctx_t *comm_ctx)
 	}
 
 	fifo->recv_hdr = (struct header *)(fifo->self_mem.pva);
-	fifo->send_hdr = (struct header *)(fifo->peer_mem.pva);
+	fifo->send_hdr = (__force struct header *)(fifo->peer_mem.pva);
 	fifo->recv = ((u8 *)fifo->recv_hdr + sizeof(struct header));
 	fifo->send = ((u8 *)fifo->send_hdr + sizeof(struct header));
 

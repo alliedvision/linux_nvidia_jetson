@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,9 +22,6 @@
 
 #ifndef NVGPU_POSIX_TIMERS_H
 #define NVGPU_POSIX_TIMERS_H
-
-#include <sys/time.h>
-#include <time.h>
 
 #include <nvgpu/types.h>
 #include <nvgpu/log.h>
@@ -51,7 +48,7 @@
 ({									\
 	const struct nvgpu_timeout *t_ptr = (timeout);			\
 	int ret_cpu = 0;						\
-	if (nvgpu_current_time_ns() > t_ptr->time) {			\
+	if (nvgpu_current_time_ns() > t_ptr->time_duration) {			\
 		if ((t_ptr->flags & NVGPU_TIMER_SILENT_TIMEOUT) == 0U) { \
 			nvgpu_err(t_ptr->g, "Timeout detected @ %p" fmt, \
 							caller, ##arg);	\

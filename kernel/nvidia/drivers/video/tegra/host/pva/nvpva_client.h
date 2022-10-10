@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,14 +27,19 @@ struct nvpva_client_context {
 	/* Reference to the device*/
 	struct pva *pva;
 
+	/* context device */
+	struct platform_device *cntxt_dev;
+
 	/* PID of client process which uses this context */
 	pid_t pid;
 
 	/* This tracks active users */
 	u32 ref_count;
 
+	u32 sid_index;
+
 	/* Data structure to track pinned buffers for this client */
-	struct nvhost_buffers *buffers;
+	struct nvpva_buffers *buffers;
 
 	u32 curr_sema_value;
 	struct mutex sema_val_lock;
@@ -47,8 +52,10 @@ struct pva;
 int nvpva_client_context_init(struct pva *pva);
 void nvpva_client_context_deinit(struct pva *pva);
 void nvpva_client_context_get(struct nvpva_client_context *client);
-struct nvpva_client_context *nvpva_client_context_alloc(struct pva *dev,
-							pid_t pid);
+struct nvpva_client_context
+*nvpva_client_context_alloc(struct platform_device *pdev,
+			    struct pva *dev,
+			    pid_t pid);
 void nvpva_client_context_put(struct nvpva_client_context *client);
 
 #endif /* NVPVA_CLIENT_H */

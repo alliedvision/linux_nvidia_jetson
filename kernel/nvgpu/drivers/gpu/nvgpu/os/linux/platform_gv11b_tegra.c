@@ -1,7 +1,7 @@
 /*
  * GV11B Tegra Platform Interface
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -105,6 +105,8 @@ static int gv11b_tegra_probe(struct device *dev)
 		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
 	}
 
+	nvgpu_mutex_init(&platform->clks_lock);
+
 	err = gp10b_tegra_get_clocks(dev);
 	if (err != 0) {
 		return err;
@@ -140,6 +142,7 @@ static int gv11b_tegra_remove(struct device *dev)
 #endif
 
 	nvgpu_mutex_destroy(&platform->clk_get_freq_lock);
+	nvgpu_mutex_destroy(&platform->clks_lock);
 
 	return 0;
 }
@@ -307,7 +310,7 @@ struct gk20a_platform gv11b_tegra_platform = {
 
 	.honors_aperture = true,
 	.unified_memory = true,
-	.dma_mask = DMA_BIT_MASK(36),
+	.dma_mask = DMA_BIT_MASK(38),
 
 	.reset_assert = gp10b_tegra_reset_assert,
 	.reset_deassert = gp10b_tegra_reset_deassert,

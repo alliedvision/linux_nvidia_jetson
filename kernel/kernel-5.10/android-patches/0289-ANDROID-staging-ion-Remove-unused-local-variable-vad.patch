@@ -1,0 +1,46 @@
+From 8edda53ddbbcea8853224bc909fcca9e3b87142b Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Sun, 19 Jul 2020 10:08:28 -0700
+Subject: [PATCH 289/830] ANDROID: staging: ion: Remove unused local variable
+ 'vaddr'
+X-NVConfidentiality: public
+
+Remove definition of unused local variable 'vaddr' in
+ion_dma_buf_begin_cpu_access() to avoid the following compiler
+warning:
+
+drivers/staging/android/ion/ion_dma_buf.c:166:8: warning: unused variable 'vaddr' [-Wunused-variable]
+        void *vaddr;
+              ^
+
+Bug: 158635261
+Bug: 170264063
+Fixes: b8018578d1c3 ("ANDROID: ion: remove kmap from begin[end]_cpu_access")
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+Change-Id: I0b9061651c9349420018169eeda152e53b9b7f95
+(cherry picked from commit 1767d2f0b609f4a11baf73b219fae52c089cac38)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit 78eb09060d7459e0f036e939cf89e47348a7c464)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit fa310cf945456d17531520d8733aae6f1b278af2)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 8b6741696b08..47ae54af5ccf 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -163,7 +163,6 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+ {
+ 	struct ion_buffer *buffer = dmabuf->priv;
+ 	struct ion_heap *heap = buffer->heap;
+-	void *vaddr;
+ 	struct ion_dma_buf_attachment *a;
+ 
+ 	if (heap->buf_ops.begin_cpu_access)
+-- 
+2.17.1
+

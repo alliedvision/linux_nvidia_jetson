@@ -1,0 +1,34 @@
+From ace11ec1361c882ccf6cdaa9bd5cafe0eaa6b3a4 Mon Sep 17 00:00:00 2001
+From: Mike Tipton <mdtipton@codeaurora.org>
+Date: Mon, 2 Nov 2020 15:27:58 -0800
+Subject: [PATCH 313/830] ANDROID: clk: Enable writable debugfs files
+X-NVConfidentiality: public
+
+Enable writable clock debugfs files which are required for debugging and
+testing. This doesn't introduce security or safety issues for Android
+since debugfs itself is already considered unsafe and mounting it isn't
+allowed on user devices.
+
+Bug: 172264964
+Change-Id: I68bd54cfe3765e2b3cbb208383c6117e662054b7
+Signed-off-by: Mike Tipton <mdtipton@codeaurora.org>
+---
+ drivers/clk/clk.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index d7ec0022d1bf..9ba26b1788ec 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -3489,7 +3489,7 @@ static int clk_dump_show(struct seq_file *s, void *data)
+ }
+ DEFINE_SHOW_ATTRIBUTE(clk_dump);
+ 
+-#undef CLOCK_ALLOW_WRITE_DEBUGFS
++#define CLOCK_ALLOW_WRITE_DEBUGFS
+ #ifdef CLOCK_ALLOW_WRITE_DEBUGFS
+ /*
+  * This can be dangerous, therefore don't provide any real compile time
+-- 
+2.17.1
+

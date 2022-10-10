@@ -182,29 +182,29 @@ int nvgpu_acr_lsf_fecs_ucode_details(struct gk20a *g, void *lsf_ucode_img)
 	switch (ver) {
 		case NVGPU_GPUID_GV11B:
 			fecs_sig = nvgpu_request_firmware(g, GM20B_FECS_UCODE_SIG,
-				NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			break;
 		case NVGPU_GPUID_GA10B:
 			if (!nvgpu_is_enabled(g, NVGPU_PKC_LS_SIG_ENABLED)) {
 				fecs_sig = nvgpu_request_firmware(g,
 					GM20B_FECS_UCODE_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			} else {
 				fecs_sig = nvgpu_request_firmware(g,
 					GA10B_FECS_UCODE_PKC_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			}
 			break;
 #ifdef CONFIG_NVGPU_DGPU
 		case NVGPU_GPUID_TU104:
 			fecs_sig = nvgpu_request_firmware(g, TU104_FECS_UCODE_SIG,
-				NVGPU_REQUEST_FIRMWARE_NO_SOC);
+					g->acr->fw_load_flag);
 			break;
 #endif
 #if defined(CONFIG_NVGPU_NON_FUSA)
 		case NVGPU_GPUID_GA100:
 			fecs_sig = nvgpu_request_firmware(g, GA100_FECS_UCODE_SIG,
-				NVGPU_REQUEST_FIRMWARE_NO_SOC);
+					g->acr->fw_load_flag);
 			break;
 #endif
 
@@ -325,29 +325,29 @@ int nvgpu_acr_lsf_gpccs_ucode_details(struct gk20a *g, void *lsf_ucode_img)
 	switch (ver) {
 		case NVGPU_GPUID_GV11B:
 			gpccs_sig = nvgpu_request_firmware(g, T18x_GPCCS_UCODE_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			break;
 		case NVGPU_GPUID_GA10B:
 			if (!nvgpu_is_enabled(g, NVGPU_PKC_LS_SIG_ENABLED)) {
 				gpccs_sig = nvgpu_request_firmware(g,
 					T18x_GPCCS_UCODE_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			} else {
 				gpccs_sig = nvgpu_request_firmware(g,
 					GA10B_GPCCS_UCODE_PKC_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_WARN);
+					g->acr->fw_load_flag);
 			}
 			break;
 #ifdef CONFIG_NVGPU_DGPU
 		case NVGPU_GPUID_TU104:
 			gpccs_sig = nvgpu_request_firmware(g, TU104_GPCCS_UCODE_SIG,
-					NVGPU_REQUEST_FIRMWARE_NO_SOC);
+					g->acr->fw_load_flag);
 			break;
 #endif
 #if defined(CONFIG_NVGPU_NON_FUSA)
 		case NVGPU_GPUID_GA100:
 			gpccs_sig = nvgpu_request_firmware(g, GA100_GPCCS_UCODE_SIG,
-				NVGPU_REQUEST_FIRMWARE_NO_SOC);
+					g->acr->fw_load_flag);
 			break;
 #endif
 
@@ -469,11 +469,11 @@ int nvgpu_acr_lsf_sec2_ucode_details(struct gk20a *g, void *lsf_ucode_img)
 	if (g->is_fusa_sku) {
 		sec2_fw = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_IMAGE_FUSA_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	} else {
 		sec2_fw = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_IMAGE_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	}
 
 	if (sec2_fw == NULL) {
@@ -487,11 +487,11 @@ int nvgpu_acr_lsf_sec2_ucode_details(struct gk20a *g, void *lsf_ucode_img)
 	if (g->is_fusa_sku) {
 		sec2_desc = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_DESC_FUSA_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	} else {
 		sec2_desc = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_DESC_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	}
 
 	if (sec2_desc == NULL) {
@@ -505,11 +505,11 @@ int nvgpu_acr_lsf_sec2_ucode_details(struct gk20a *g, void *lsf_ucode_img)
 	if (g->is_fusa_sku) {
 		sec2_sig = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_SIG_FUSA_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	} else {
 		sec2_sig = nvgpu_request_firmware(g,
 			LSF_SEC2_UCODE_SIG_BIN,
-			NVGPU_REQUEST_FIRMWARE_NO_SOC);
+			g->acr->fw_load_flag);
 	}
 	if (sec2_sig == NULL) {
 		nvgpu_err(g, "failed to load SEC2 sig!!");
@@ -976,6 +976,8 @@ static int lsf_gen_wpr_requirements(struct gk20a *g,
 #endif
 	u32 wpr_offset;
 	u32 flcn_cnt;
+
+	(void)g;
 
 	/*
 	 * Start with an array of WPR headers at the base of the WPR.

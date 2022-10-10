@@ -20,7 +20,7 @@
 
 #include <dt-bindings/gpio/tegra234-gpio.h>
 
-#define JETSON_COMPATIBLE	"nvidia,p3737-0000+p3701-0000"
+#define JETSON_COMPATIBLE	"nvidia,p3737-0000+p3701-0000", "nvidia,p3737-0000+p3701-0004"
 
 /* SoC function name for clock signal on 40-pin header pin 7 */
 #define HDR40_CLK	"extperiph4"

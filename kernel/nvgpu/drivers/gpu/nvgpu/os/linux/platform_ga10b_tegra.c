@@ -1,7 +1,7 @@
 /*
  * GA10B Tegra Platform Interface
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,8 +23,10 @@
 #include <linux/iommu.h>
 #include <linux/hashtable.h>
 #include <linux/clk.h>
-#ifdef CONFIG_TEGRA_BWMGR
-#include <linux/platform/tegra/emc_bwmgr.h>
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
+#include <linux/platform/tegra/mc_utils.h>
+#include <linux/interconnect.h>
+#include <dt-bindings/interconnect/tegra_icc_id.h>
 #endif
 #include <linux/pm_runtime.h>
 #include <linux/fuse.h>
@@ -33,7 +35,6 @@
 #include <nvgpu/nvhost.h>
 #include <nvgpu/soc.h>
 #include <nvgpu/fuse.h>
-#include <nvgpu/linux/soc_fuse.h>
 
 #ifdef CONFIG_NV_TEGRA_BPMP
 #include <soc/tegra/tegra-bpmp-dvfs.h>
@@ -82,6 +83,35 @@ struct gk20a_platform_clk tegra_ga10b_clocks[] = {
 #define NVGPU_GPC0_DISABLE  BIT(0)
 #define NVGPU_GPC1_DISABLE  BIT(1)
 
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
+static int ga10b_tegra_set_emc_rate(struct gk20a_scale_profile *profile,
+		unsigned long gpu_rate, unsigned long emc3d_ratio)
+{
+	unsigned long emc_rate, rate;
+	unsigned long peak_bw;
+	u32 emc_freq_kbps;
+
+	if (profile && profile->private_data) {
+
+		emc_rate = gpu_rate * EMC_BW_RATIO;
+		emc_rate = (emc_rate < gpu_rate) ? ULONG_MAX : emc_rate;
+		rate = emc_rate * emc3d_ratio;
+		emc_rate = (rate < emc_rate && emc3d_ratio > 0) ? ULONG_MAX : rate;
+		emc_rate /= 1000;
+
+		/* peak bandwidth in kilobytes per second  */
+		peak_bw = emc_freq_to_bw(emc_rate/1000);
+		emc_freq_kbps = (peak_bw > UINT_MAX) ? UINT_MAX : peak_bw;
+
+		return icc_set_bw((struct icc_path *)profile->private_data,
+								0, emc_freq_kbps);
+	} else {
+		/* EMC scaling profile is not available */
+		return 0;
+	}
+}
+#endif
+
 static bool ga10b_tegra_is_clock_available(struct gk20a *g, char *clk_name)
 {
 	u32 gpc_disable = 0U;
@@ -93,14 +123,16 @@ static bool ga10b_tegra_is_clock_available(struct gk20a *g, char *clk_name)
 	}
 
 	if ((strcmp(clk_name, "gpc0clk") == 0) &&
-				(gpc_disable & NVGPU_GPC0_DISABLE)) {
-		nvgpu_info(g, "GPC0 is floor-swept");
+				((gpc_disable & NVGPU_GPC0_DISABLE) ||
+				 (g->gpc_pg_mask & NVGPU_GPC0_DISABLE))) {
+		nvgpu_log_info(g, "GPC0 is floor-swept");
 		return false;
 	}
 
 	if ((strcmp(clk_name, "gpc1clk") == 0) &&
-				(gpc_disable & NVGPU_GPC1_DISABLE)) {
-		nvgpu_info(g, "GPC1 is floor-swept");
+				((gpc_disable & NVGPU_GPC1_DISABLE) ||
+				 (g->gpc_pg_mask & NVGPU_GPC1_DISABLE))) {
+		nvgpu_log_info(g, "GPC1 is floor-swept");
 		return false;
 	}
 
@@ -119,7 +151,7 @@ static int ga10b_tegra_acquire_platform_clocks(struct device *dev,
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	struct gk20a *g = platform->g;
 	struct device_node *np = nvgpu_get_node(g);
-	unsigned int i, num_clks_dt;
+	unsigned int i, j = 0, num_clks_dt;
 	int err;
 
 	/* Get clocks only on supported platforms(silicon and fpga) */
@@ -136,6 +168,8 @@ static int ga10b_tegra_acquire_platform_clocks(struct device *dev,
 		nvgpu_err(g, "unable to read clocks from DT");
 		return -ENODEV;
 	}
+
+	nvgpu_mutex_acquire(&platform->clks_lock);
 
 	platform->num_clks = 0;
 
@@ -157,11 +191,17 @@ static int ga10b_tegra_acquire_platform_clocks(struct device *dev,
 		} else {
 			rate = clk_entries[i].default_rate;
 			clk_set_rate(c, rate);
-			platform->clk[i] = c;
+
+			/*
+			 * Note that DT clocks are iterated by index 'i' and
+			 * available clocks are iterated by index 'j' in the
+			 * platform->clk array.
+			 */
+			platform->clk[j++] = c;
 		}
 	}
 
-	platform->num_clks = i;
+	platform->num_clks = j;
 
 #ifdef CONFIG_NV_TEGRA_BPMP
 	if (platform->clk[0]) {
@@ -172,13 +212,17 @@ static int ga10b_tegra_acquire_platform_clocks(struct device *dev,
 	}
 #endif
 
+	nvgpu_mutex_release(&platform->clks_lock);
+
 	return 0;
 
 err_get_clock:
-	while (i > 0 && i--) {
-		clk_put(platform->clk[i]);
-		platform->clk[i] = NULL;
+	while (j > 0 && j--) {
+		clk_put(platform->clk[j]);
+		platform->clk[j] = NULL;
 	}
+
+	nvgpu_mutex_release(&platform->clks_lock);
 
 	return err;
 }
@@ -191,28 +235,40 @@ static int ga10b_tegra_get_clocks(struct device *dev)
 
 void ga10b_tegra_scale_init(struct device *dev)
 {
-#ifdef CONFIG_TEGRA_BWMG
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
+	struct icc_path *icc_path_handle;
 
 	if (!profile)
 		return;
 
 	platform->g->emc3d_ratio = EMC3D_GA10B_RATIO;
 
-	gp10b_tegra_scale_init(dev);
+	if ((struct icc_path *)profile->private_data)
+		return;
+
+	icc_path_handle = icc_get(dev, TEGRA_ICC_GPU, TEGRA_ICC_PRIMARY);
+	if (IS_ERR_OR_NULL(icc_path_handle)) {
+		dev_err(dev, "%s unable to get icc path (err=%ld)\n",
+				__func__, PTR_ERR(icc_path_handle));
+		return;
+	}
+
+	profile->private_data = (void *)icc_path_handle;
 #endif
 }
 
 static void ga10b_tegra_scale_exit(struct device *dev)
 {
-#ifdef CONFIG_TEGRA_BWMGR
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
 
-	if (profile)
-		tegra_bwmgr_unregister(
-			(struct tegra_bwmgr_client *)profile->private_data);
+	if (profile && profile->private_data) {
+		icc_put((struct icc_path *)profile->private_data);
+		profile->private_data = NULL;
+	}
 #endif
 }
 
@@ -250,6 +306,8 @@ static int ga10b_tegra_probe(struct device *dev)
 		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
 	}
 
+	nvgpu_mutex_init(&platform->clks_lock);
+
 	err = ga10b_tegra_get_clocks(dev);
 	if (err != 0) {
 		return err;
@@ -284,6 +342,7 @@ static int ga10b_tegra_remove(struct device *dev)
 #endif
 
 	nvgpu_mutex_destroy(&platform->clk_get_freq_lock);
+	nvgpu_mutex_destroy(&platform->clks_lock);
 
 	return 0;
 }
@@ -321,17 +380,19 @@ static bool ga10b_tegra_is_railgated(struct device *dev)
 
 static int ga10b_tegra_railgate(struct device *dev)
 {
-#ifdef CONFIG_TEGRA_BWMGR
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
+	int ret = 0;
 
 	/* remove emc frequency floor */
-	if (profile)
-		tegra_bwmgr_set_emc(
-			(struct tegra_bwmgr_client *)profile->private_data,
-			0, TEGRA_BWMGR_SET_EMC_FLOOR);
-#endif /* CONFIG_TEGRA_BWMGR */
-
+	if (profile && profile->private_data) {
+		ret = icc_set_bw((struct icc_path *)profile->private_data,
+						0, 0);
+		if (ret)
+			dev_err(dev, "failed to set emc freq rate:%d\n", ret);
+	}
+#endif
 	gp10b_tegra_clks_control(dev, false);
 
 	return 0;
@@ -390,6 +451,13 @@ static int ga10b_tegra_bpmp_mrq_set(struct device *dev)
 					return ret;
 				}
 			}
+
+			/* re-initialize the clocks */
+			ret = ga10b_tegra_get_clocks(dev);
+			if (ret != 0) {
+				nvgpu_err(g, "get clocks failed ");
+				return ret;
+			}
 		}
 	}
 	return 0;
@@ -399,29 +467,30 @@ static int ga10b_tegra_bpmp_mrq_set(struct device *dev)
 static int ga10b_tegra_unrailgate(struct device *dev)
 {
 	int ret = 0;
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
-#ifdef CONFIG_TEGRA_BWMGR
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
+	unsigned long max_rate;
+	long rate;
 #endif
 
 #if defined(CONFIG_TEGRA_BPMP)
 	ret = ga10b_tegra_bpmp_mrq_set(dev);
-	if (ret != 0) {
-		nvgpu_err(platform->g, "ga10b_tegra_bpmp_mrq_set failed");
+	if (ret != 0)
 		return ret;
-	}
 #endif
 
 	/* Setting clk controls */
 	gp10b_tegra_clks_control(dev, true);
 
-#ifdef CONFIG_TEGRA_BWMGR
-	/* to start with set emc frequency floor to max rate*/
-	if (profile)
-		tegra_bwmgr_set_emc(
-			(struct tegra_bwmgr_client *)profile->private_data,
-			tegra_bwmgr_get_max_emc_rate(),
-			TEGRA_BWMGR_SET_EMC_FLOOR);
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
+	/* to start with set emc frequency floor for max gpu sys rate*/
+	rate = clk_round_rate(platform->clk[0], (UINT_MAX - 1));
+	max_rate = (rate < 0) ? ULONG_MAX : (unsigned long)rate;
+	ret = ga10b_tegra_set_emc_rate(profile,
+					max_rate, platform->g->emc3d_ratio);
+	if (ret)
+		dev_err(dev, "failed to set emc freq rate:%d\n", ret);
 #endif
 	return ret;
 }
@@ -485,6 +554,34 @@ static int ga10b_tegra_set_fbp_pg_mask(struct device *dev, u32 dt_fbp_pg_mask)
 
 	nvgpu_err(g, "Invalid FBP-PG mask");
 	return -EINVAL;
+}
+
+void ga10b_tegra_postscale(struct device *pdev,
+					unsigned long freq)
+{
+#if defined(CONFIG_INTERCONNECT) && defined(CONFIG_TEGRA_T23X_GRHOST)
+	struct gk20a_platform *platform = gk20a_get_platform(pdev);
+	struct gk20a_scale_profile *profile = platform->g->scale_profile;
+	struct gk20a *g = get_gk20a(pdev);
+	int ret = 0;
+
+	nvgpu_log_fn(g, " ");
+	if (profile && profile->private_data &&
+			!platform->is_railgated(pdev)) {
+		unsigned long emc_scale;
+
+		if (freq <= gp10b_freq_table[0])
+			emc_scale = 0;
+		else
+			emc_scale = g->emc3d_ratio;
+
+		ret = ga10b_tegra_set_emc_rate(profile,
+					freq, emc_scale);
+		if (ret)
+			dev_err(pdev, "failed to set emc freq rate:%d\n", ret);
+	}
+	nvgpu_log_fn(g, "done");
+#endif
 }
 
 static void ga10b_tegra_set_valid_tpc_pg_mask(struct gk20a_platform *platform)
@@ -622,7 +719,7 @@ struct gk20a_platform ga10b_tegra_platform = {
 	.late_probe = ga10b_tegra_late_probe,
 	.remove = ga10b_tegra_remove,
 	.railgate_delay_init    = 500,
-	.can_railgate_init      = false,
+	.can_railgate_init      = true,
 
 #ifdef CONFIG_NVGPU_STATIC_POWERGATE
 	/* add tpc powergate JIRA NVGPU-4683 */
@@ -655,7 +752,7 @@ struct gk20a_platform ga10b_tegra_platform = {
 	.enable_perfmon         = true,
 
 	/* power management configuration  JIRA NVGPU-4683 */
-	.enable_elpg            = false,
+	.enable_elpg            = true,
 	.enable_elpg_ms         = false,
 	.can_elpg_init          = true,
 	.enable_aelpg           = false,
@@ -675,7 +772,7 @@ struct gk20a_platform ga10b_tegra_platform = {
 	/* frequency scaling configuration */
 	.initscale = ga10b_tegra_scale_init,
 	.prescale = gp10b_tegra_prescale,
-	.postscale = gp10b_tegra_postscale,
+	.postscale = ga10b_tegra_postscale,
 	.devfreq_governor = "nvhost_podgov",
 
 	.qos_notify = gk20a_scale_qos_notify,
@@ -692,7 +789,7 @@ struct gk20a_platform ga10b_tegra_platform = {
 	 * This specifies the maximum contiguous size of a DMA mapping to Linux
 	 * kernel's DMA framework.
 	 * The IOMMU is capable of mapping all of physical memory and hence
-	 * dma_mask is set to memory size (128GB in this case).
+	 * dma_mask is set to memory size (512GB in this case).
 	 * For iGPU, nvgpu executes own dma allocs (e.g. alloc_page()) and
 	 * sg_table construction. No IOMMU mapping is required and so dma_mask
 	 * value is not important.
@@ -700,7 +797,7 @@ struct gk20a_platform ga10b_tegra_platform = {
 	 * significant. In this case, IOMMU bit in GPU physical address is not
 	 * relevant.
 	 */
-	.dma_mask = DMA_BIT_MASK(37),
+	.dma_mask = DMA_BIT_MASK(39),
 
 	.reset_assert = gp10b_tegra_reset_assert,
 	.reset_deassert = gp10b_tegra_reset_deassert,

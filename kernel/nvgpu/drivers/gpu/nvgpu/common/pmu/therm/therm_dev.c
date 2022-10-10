@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -82,30 +82,27 @@ static struct pmu_board_obj *therm_device_construct(struct gk20a *g,
 	struct therm_device *ptherm_device = NULL;
 	int status = 0;
 
+	if (pmu_board_obj_get_type(pargs) !=
+			NV_VBIOS_THERM_DEVICE_1X_ENTRY_CLASS_GPU) {
+		nvgpu_err(g, "unsupported therm_device class - 0x%x",
+			pmu_board_obj_get_type(pargs));
+		return NULL;
+	}
+
 	ptherm_device = nvgpu_kzalloc(g, sizeof(struct therm_device));
 	if (ptherm_device == NULL) {
 		return NULL;
 	}
 	obj = (struct pmu_board_obj *)(void *)ptherm_device;
 
-	if (pmu_board_obj_get_type(pargs) ==
-			NV_VBIOS_THERM_DEVICE_1X_ENTRY_CLASS_GPU) {
-		status = construct_therm_device_gpu(g, obj, pargs);
-	} else {
-		nvgpu_err(g, "unsupported therm_device class - 0x%x",
-			pmu_board_obj_get_type(pargs));
-		return NULL;
-	}
+	status = construct_therm_device_gpu(g, obj, pargs);
 
-	if(status != 0) {
-		obj = NULL;
+	if (status != 0) {
 		nvgpu_err(g,
 			"could not allocate memory for therm_device");
-		if (obj != NULL) {
-			nvgpu_kfree(g, obj);
-		}
+		nvgpu_kfree(g, obj);
+		obj = NULL;
 	}
-
 
 	return obj;
 }
@@ -199,7 +196,7 @@ static int devinit_get_therm_device_table(struct gk20a *g,
 		}
 
 		status = boardobjgrp_objinsert(&pthermdeviceobjs->super.super,
-				obj_tmp, obj_index);
+				obj_tmp, (u8)obj_index);
 
 		if (status != 0) {
 			nvgpu_err(g,

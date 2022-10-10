@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Command DMA
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -378,15 +378,10 @@ static void update_cdma_locked(struct nvhost_cdma *cdma)
 }
 
 
-void nvhost_cdma_finalize_job_incrs(struct nvhost_syncpt *syncpt,
+void nvhost_cdma_finalize_job_incrs(struct platform_device *pdev,
 					struct nvhost_job_syncpt *sp)
 {
-	u32 id = sp->id;
-	u32 fence = sp->fence;
-
-	atomic_set(&syncpt->min_val[id], fence);
-	syncpt_op().reset(syncpt, id);
-	nvhost_syncpt_update_min(syncpt, id);
+	nvhost_syncpt_set_min_update(pdev, sp->id, sp->fence);
 }
 
 void nvhost_cdma_update_sync_queue(struct nvhost_cdma *cdma,
@@ -482,7 +477,7 @@ out:
 		nvhost_job_set_notifier(job, NVHOST_CHANNEL_SUBMIT_TIMEOUT);
 
 		for (i = 0; i < job->num_syncpts; ++i)
-			nvhost_cdma_finalize_job_incrs(syncpt, job->sp + i);
+			nvhost_cdma_finalize_job_incrs(dev, job->sp + i);
 
 		/* cleanup push buffer */
 		cdma_op().timeout_pb_cleanup(cdma, job->first_get,

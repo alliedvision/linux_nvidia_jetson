@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,6 +66,7 @@ int nvgpu_tegra_fuse_read_gcplex_config_fuse(struct gk20a *g, u32 *val)
 
 int nvgpu_tegra_fuse_read_per_device_identifier(struct gk20a *g, u64 *pdi)
 {
+	(void)g;
 	*pdi = 0;
 
 	return 0;

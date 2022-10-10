@@ -1,0 +1,31 @@
+From a986ce570a796f312031eebd57fa37c683f7b5a5 Mon Sep 17 00:00:00 2001
+From: Prasad Sodagudi <psodagud@codeaurora.org>
+Date: Wed, 23 Sep 2020 06:03:14 -0700
+Subject: [PATCH 120/830] ANDROID: Export perf_event_read_local function
+X-NVConfidentiality: public
+
+perf_event_read_local function is used by downstream
+vendor modules, so export perf_event_read_local function.
+
+Bug: 151972133
+Change-Id: I61874fda79502f72b348394d96d8a2b02a6727d9
+Signed-off-by: Prasad Sodagudi <psodagud@codeaurora.org>
+---
+ kernel/events/core.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index c8b3f94f0dbb..f58a026dd2d3 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -4457,6 +4457,7 @@ int perf_event_read_local(struct perf_event *event, u64 *value,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(perf_event_read_local);
+ 
+ static int perf_event_read(struct perf_event *event, bool group)
+ {
+-- 
+2.17.1
+

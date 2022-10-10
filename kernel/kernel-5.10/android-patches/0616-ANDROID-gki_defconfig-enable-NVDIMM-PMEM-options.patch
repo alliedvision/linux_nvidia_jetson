@@ -1,0 +1,76 @@
+From a38c35a380aa2b167991d0ca9aab78317fef752e Mon Sep 17 00:00:00 2001
+From: Kenny Root <kroot@google.com>
+Date: Fri, 24 Jan 2020 14:08:53 -0800
+Subject: [PATCH 616/830] ANDROID: gki_defconfig: enable NVDIMM/PMEM options
+X-NVConfidentiality: public
+
+Options needed for the virtual platform and physical platforms via DT
+to define PMEM regions for resume-on-reboot feature
+
+Bug: 146400078
+Change-Id: Icaffbd3a7425ac3d9914378fb356d32f9393eec0
+Signed-off-by: Kenny Root <kroot@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 4 ++++
+ arch/x86/configs/gki_defconfig   | 4 ++++
+ cuttlefish.fragment              | 1 +
+ 3 files changed, 9 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 733ee86ed4fe..d132bb0be606 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -369,6 +369,7 @@ CONFIG_DMADEVICES=y
+ CONFIG_UIO=y
+ CONFIG_VIRTIO_PCI=m
+ # CONFIG_VIRTIO_PCI_LEGACY is not set
++CONFIG_VIRTIO_PMEM=m
+ CONFIG_VIRTIO_INPUT=m
+ CONFIG_VIRTIO_MMIO=m
+ CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+@@ -395,6 +396,9 @@ CONFIG_QCOM_PDC=y
+ CONFIG_GENERIC_PHY=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_LIBNVDIMM=y
++# CONFIG_ND_BLK is not set
++# CONFIG_BTT is not set
+ CONFIG_INTERCONNECT=y
+ CONFIG_EXT4_FS=y
+ CONFIG_EXT4_FS_SECURITY=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 12d16798309d..9e02cfd36b83 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -319,6 +319,7 @@ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_TEST=m
+ CONFIG_UIO=y
+ CONFIG_VIRTIO_PCI=m
++CONFIG_VIRTIO_PMEM=m
+ CONFIG_VIRTIO_INPUT=m
+ CONFIG_VIRTIO_MMIO=m
+ CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+@@ -331,6 +332,9 @@ CONFIG_PM_DEVFREQ=y
+ CONFIG_IIO=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_LIBNVDIMM=y
++# CONFIG_ND_BLK is not set
++# CONFIG_BTT is not set
+ CONFIG_EXT4_FS=y
+ CONFIG_EXT4_FS_SECURITY=y
+ CONFIG_F2FS_FS=y
+diff --git a/cuttlefish.fragment b/cuttlefish.fragment
+index 99cc100dfd39..5a2e559fc745 100644
+--- a/cuttlefish.fragment
++++ b/cuttlefish.fragment
+@@ -15,5 +15,6 @@ CONFIG_SND_INTEL8X0=m
+ CONFIG_USB_DUMMY_HCD=m
+ CONFIG_RTC_DRV_TEST=m
+ CONFIG_VIRTIO_PCI=m
++CONFIG_VIRTIO_PMEM=m
+ CONFIG_VIRTIO_INPUT=m
+ CONFIG_VIRTIO_MMIO=m
+-- 
+2.17.1
+

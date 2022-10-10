@@ -1,7 +1,7 @@
 /*
  * GM20B CBC
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -221,24 +221,23 @@ u32 gm20b_cbc_fix_config(struct gk20a *g, int base)
 	u32 val = gk20a_readl(g, ltc_ltcs_ltss_cbc_num_active_ltcs_r());
 
 	if (val == 2U) {
-		return base * 2;
+		return (u32)(base * 2);
 	} else if (val != 1U) {
 		nvgpu_err(g, "Invalid number of active ltcs: %08x", val);
 	}
 
-	return base;
+	return (u32)base;
 }
 
 
-void gm20b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc)
+void gm20b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc, bool is_resume)
 {
-	u32 max_size = g->max_comptag_mem;
-	u32 max_comptag_lines = max_size << 3U;
-
 	u32 compbit_base_post_divide;
 	u64 compbit_base_post_multiply64;
 	u64 compbit_store_iova;
 	u64 compbit_base_post_divide64;
+	enum nvgpu_cbc_op cbc_op = is_resume ? nvgpu_cbc_op_invalidate
+					     : nvgpu_cbc_op_clear;
 
 #ifdef CONFIG_NVGPU_SIM
 	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL)) {
@@ -268,7 +267,7 @@ void gm20b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc)
 	/* Bug 1477079 indicates sw adjustment on the posted divided base. */
 	if (g->ops.cbc.fix_config != NULL) {
 		compbit_base_post_divide =
-			g->ops.cbc.fix_config(g, compbit_base_post_divide);
+			g->ops.cbc.fix_config(g, (int)compbit_base_post_divide);
 	}
 
 	gk20a_writel(g, ltc_ltcs_ltss_cbc_base_r(),
@@ -282,7 +281,6 @@ void gm20b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc)
 
 	cbc->compbit_store.base_hw = compbit_base_post_divide;
 
-	g->ops.cbc.ctrl(g, nvgpu_cbc_op_invalidate,
-			    0, max_comptag_lines - 1U);
+	g->ops.cbc.ctrl(g, cbc_op, 0, cbc->max_comptag_lines - 1U);
 
 }

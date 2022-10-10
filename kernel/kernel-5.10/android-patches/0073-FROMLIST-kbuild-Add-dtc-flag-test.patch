@@ -1,0 +1,76 @@
+From b203495a9d7fccbbee502388471ff0ed7e71de47 Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Tue, 4 Aug 2020 10:51:56 -0700
+Subject: [PATCH 073/830] FROMLIST: kbuild: Add dtc flag test
+X-NVConfidentiality: public
+
+Host dtc may not support the same flags as kernel's copy of dtc. Test
+if dtc supports each flag when the dtc comes from host.
+
+Bug: 162811113
+Link: https://lore.kernel.org/linux-devicetree/1596650328-14869-1-git-send-email-eberman@codeaurora.org/
+Change-Id: Iab4e95c7100817c8b4ad40dcaafa6e6c29a85163
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ scripts/Makefile.lib | 34 ++++++++++++++++++++++------------
+ 1 file changed, 22 insertions(+), 12 deletions(-)
+
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index a1e0a58fb185..1a4477515b48 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -275,19 +275,29 @@ quiet_cmd_gzip = GZIP    $@
+ 
+ # DTC
+ # ---------------------------------------------------------------------------
++ifeq ("$(origin DTC)", "command line")
++PHONY += $(DTC)
++dtc-option = $(call try-run, $(DTC) $1 -v,$1)
++else
++# Just add the flag. DTC is compiled later as a prerequisite, so there's no dtc
++# to test the flag against. This is okay because we're not testing flags which
++# aren't supported by in-kernel dtc to begin with.
++dtc-option = $1
++endif
++
+ DTC ?= $(objtree)/scripts/dtc/dtc
+-DTC_FLAGS += -Wno-interrupt_provider
++DTC_FLAGS += $(call dtc-option,-Wno-interrupt_provider)
+ 
+ # Disable noisy checks by default
+ ifeq ($(findstring 1,$(KBUILD_EXTRA_WARN)),)
+-DTC_FLAGS += -Wno-unit_address_vs_reg \
+-	-Wno-unit_address_format \
+-	-Wno-avoid_unnecessary_addr_size \
+-	-Wno-alias_paths \
+-	-Wno-graph_child_address \
+-	-Wno-simple_bus_reg \
+-	-Wno-unique_unit_address \
+-	-Wno-pci_device_reg
++DTC_FLAGS += $(call dtc-option,-Wno-unit_address_vs_reg) \
++	$(call dtc-option,-Wno-unit_address_format) \
++	$(call dtc-option,-Wno-avoid_unnecessary_addr_size) \
++	$(call dtc-option,-Wno-alias_paths) \
++	$(call dtc-option,-Wno-graph_child_address) \
++	$(call dtc-option,-Wno-simple_bus_reg) \
++	$(call dtc-option,-Wno-unique_unit_address) \
++	$(call dtc-option,-Wno-pci_device_reg)
+ endif
+ 
+ ifeq ($(CONFIG_TEGRA_DTC_SUPPRESS_WARNINGS),y)
+@@ -317,9 +327,9 @@ DTC_FLAGS += \
+ endif
+ 
+ ifneq ($(findstring 2,$(KBUILD_EXTRA_WARN)),)
+-DTC_FLAGS += -Wnode_name_chars_strict \
+-	-Wproperty_name_chars_strict \
+-	-Winterrupt_provider
++DTC_FLAGS += $(call dtc-option,-Wnode_name_chars_strict) \
++	$(call dtc-option,-Wproperty_name_chars_strict) \
++	$(call dtc-option,-Winterrupt_provider)
+ endif
+ 
+ DTC_FLAGS += $(DTC_FLAGS_$(basetarget))
+-- 
+2.17.1
+

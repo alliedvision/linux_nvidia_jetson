@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -379,7 +379,7 @@ int test_tsg_bind_channel(struct unit_module *m,
 				goto done);
 			unit_assert(nvgpu_tsg_from_ch(ch) == tsg, goto done);
 
-			err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+			err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 			unit_assert(err == 0, goto done);
 			unit_assert(ch->tsgid == NVGPU_INVALID_TSG_ID,
 				goto done);
@@ -564,7 +564,7 @@ int test_tsg_unbind_channel(struct unit_module *m,
 			branches & F_TSG_UNBIND_CHANNEL_ABORT_CLEAN_UP_NULL ?
 			NULL : gops.channel.abort_clean_up;
 
-		err = nvgpu_tsg_force_unbind_channel(tsg, chA);
+		err = nvgpu_tsg_unbind_channel(tsg, chA, true);
 
 		if (branches & fail) {
 			/* check that TSG has been torn down */
@@ -986,7 +986,7 @@ done:
 	}
 
 	if (ch != NULL) {
-		nvgpu_tsg_force_unbind_channel(tsg, ch);
+		nvgpu_tsg_unbind_channel(tsg, ch, true);
 		nvgpu_channel_close(ch);
 	}
 	if (tsg != NULL) {
@@ -1059,7 +1059,7 @@ int test_tsg_unbind_channel_check_ctx_reload(struct unit_module *m,
 
 		if ((branches & F_UNBIND_CHANNEL_CHECK_CTX_RELOAD_SET) &&
 		    (branches & F_UNBIND_CHANNEL_CHECK_CTX_RELOAD_CHID_MATCH)) {
-			nvgpu_tsg_force_unbind_channel(tsg, chB);
+			nvgpu_tsg_unbind_channel(tsg, chB, true);
 			unit_assert(stub[0].chid == chB->chid, goto done);
 		}
 	}

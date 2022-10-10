@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -161,6 +161,8 @@ static int gv11b_fifo_check_eng_intr_pending(struct gk20a *g, u32 id,
 {
 	bool check_preempt_retry = false;
 	int ret = -EBUSY;
+
+	(void)g;
 
 	if (engine_status->ctxsw_status == NVGPU_CTX_STATUS_CTXSW_SWITCH) {
 		/* Eng save hasn't started yet. Continue polling */

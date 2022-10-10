@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -119,6 +119,7 @@ void gm20b_gr_init_get_access_map(struct gk20a *g,
 	};
 	size_t array_size;
 
+	(void)g;
 	*whitelist = wl_addr_gm20b;
 	array_size = ARRAY_SIZE(wl_addr_gm20b);
 	*num_entries = nvgpu_safe_cast_u64_to_u32(array_size);
@@ -136,6 +137,10 @@ void gm20b_gr_init_sm_id_numbering(struct gk20a *g, u32 gpc, u32 tpc, u32 smid,
 	u32 gpc_offset = nvgpu_safe_mult_u32(gpc_stride, gpc);
 	u32 tpc_offset = nvgpu_safe_mult_u32(tpc_in_gpc_stride, tpc);
 	u32 offset_sum = nvgpu_safe_add_u32(gpc_offset, tpc_offset);
+
+	(void)gr_config;
+	(void)gr_ctx;
+	(void)patch;
 
 	nvgpu_writel(g,
 		     nvgpu_safe_add_u32(gr_gpc0_tpc0_sm_cfg_r(), offset_sum),
@@ -164,6 +169,9 @@ int gm20b_gr_init_sm_id_config(struct gk20a *g, u32 *tpc_sm_id,
 	u32 tpc_index, gpc_index;
 	u32 tpc_cnt = nvgpu_safe_sub_u32(
 			nvgpu_gr_config_get_tpc_count(gr_config), 1U);
+
+	(void)gr_ctx;
+	(void)patch;
 
 	/* Each NV_PGRAPH_PRI_CWD_GPC_TPC_ID can store 4 TPCs.*/
 	for (i = 0U;
@@ -211,6 +219,7 @@ int gm20b_gr_init_sm_id_config(struct gk20a *g, u32 *tpc_sm_id,
 
 void gm20b_gr_init_tpc_mask(struct gk20a *g, u32 gpc_index, u32 pes_tpc_mask)
 {
+	(void)gpc_index;
 	nvgpu_writel(g, gr_fe_tpc_fs_r(), pes_tpc_mask);
 }
 
@@ -508,31 +517,37 @@ void gm20b_gr_init_commit_global_timeslice(struct gk20a *g)
 
 u32 gm20b_gr_init_get_bundle_cb_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_scc_bundle_cb_size_div_256b__prod_v();
 }
 
 u32 gm20b_gr_init_get_min_gpm_fifo_depth(struct gk20a *g)
 {
+	(void)g;
 	return gr_pd_ab_dist_cfg2_state_limit_min_gpm_fifo_depths_v();
 }
 
 u32 gm20b_gr_init_get_bundle_cb_token_limit(struct gk20a *g)
 {
+	(void)g;
 	return gr_pd_ab_dist_cfg2_token_limit_init_v();
 }
 
 u32 gm20b_gr_init_get_attrib_cb_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_gpc0_ppc0_cbm_beta_cb_size_v_default_v();
 }
 
 u32 gm20b_gr_init_get_alpha_cb_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_gpc0_ppc0_cbm_alpha_cb_size_v_default_v();
 }
 
 u32 gm20b_gr_init_get_attrib_cb_size(struct gk20a *g, u32 tpc_count)
 {
+	(void)tpc_count;
 	return nvgpu_safe_add_u32(
 		g->ops.gr.init.get_attrib_cb_default_size(g),
 		(g->ops.gr.init.get_attrib_cb_default_size(g) >> 1));
@@ -540,6 +555,7 @@ u32 gm20b_gr_init_get_attrib_cb_size(struct gk20a *g, u32 tpc_count)
 
 u32 gm20b_gr_init_get_alpha_cb_size(struct gk20a *g, u32 tpc_count)
 {
+	(void)tpc_count;
 	return nvgpu_safe_add_u32(
 		g->ops.gr.init.get_alpha_cb_default_size(g),
 		(g->ops.gr.init.get_alpha_cb_default_size(g) >> 1));
@@ -611,6 +627,7 @@ void gm20b_gr_init_commit_global_bundle_cb(struct gk20a *g,
 
 u32 gm20b_gr_init_pagepool_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_scc_pagepool_total_pages_hwmax_value_v();
 }
 

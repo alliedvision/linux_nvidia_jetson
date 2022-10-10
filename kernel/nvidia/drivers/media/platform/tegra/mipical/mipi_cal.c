@@ -1,7 +1,7 @@
 /*
  * mipi_cal.c
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -824,11 +824,6 @@ static int t21x_tegra_mipical_using_prod(struct tegra_mipi *mipi, int lanes)
 #endif
 	mutex_unlock(&mipi->lock);
 	return err;
-}
-
-int nvcsi_cil_sw_reset_no_op(int lanes, int enable)
-{
-	return 0;
 }
 
 /*

@@ -1,0 +1,40 @@
+From 44729fd1dddeb43c97e6bf573531e1856e498df3 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Mon, 19 Oct 2020 16:59:35 -0700
+Subject: [PATCH 797/830] ANDROID: enable LLVM_IAS=1 for clang's integrated
+ assembler for aarch64
+X-NVConfidentiality: public
+
+Step 8 of:
+https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+/master/BINUTILS_KERNEL_DEPRECATION.md
+
+x86_64 is blocked on AOSP LLVM not yet containing:
+Link: https://github.com/llvm/llvm-project/commit/3c2a56a857227b6bc39285747269f02cd7a9dbe5
+
+32b arm is blocked on quite a few different issues:
+Link: https://lore.kernel.org/linux-arm-kernel/CAKwvOdndZRv+_FaNFUBtT=zEPG3mh2cb9vfRFCsU5Dus4zzcEw@mail.gmail.com/
+
+Bug: 141693040
+Bug: 169938486
+Bug: 171348143
+Bug: 172699078
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: I2d8ca9c8218a2ad96505daa9f029ed5a3bdb3661
+---
+ build.config.aarch64 | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.aarch64 b/build.config.aarch64
+index 97758e66097e..0b9adb9811ce 100644
+--- a/build.config.aarch64
++++ b/build.config.aarch64
+@@ -1,5 +1,6 @@
+ ARCH=arm64
+ 
++LLVM_IAS=1
+ CROSS_COMPILE=aarch64-linux-gnu-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+-- 
+2.17.1
+

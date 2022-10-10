@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -57,6 +57,7 @@ void dce_mailbox_isr(struct tegra_dce *d);
 void dce_mailbox_set_full_interrupt(struct tegra_dce *d, u8 id);
 
 int dce_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface);
+int dce_handle_mailbox_send_cmd_sync(struct tegra_dce *d, u32 cmd, u32 interface);
 
 int dce_mailbox_init_interface(struct tegra_dce *d, u8 id, u8 s_mb,
 		u8 r_mb, int (*dce_mailbox_wait)(struct tegra_dce *),

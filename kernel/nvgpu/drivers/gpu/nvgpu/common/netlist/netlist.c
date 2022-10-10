@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -262,6 +262,8 @@ static bool nvgpu_netlist_handle_generic_region_id(struct gk20a *g,
 			struct nvgpu_netlist_vars *netlist_vars)
 {
 	bool handled = true;
+
+	(void)size;
 
 	switch (region_id) {
 	case NETLIST_REGIONID_BUFFER_SIZE:

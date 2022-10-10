@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,7 +28,7 @@
 struct gk20a;
 struct nvgpu_cbc;
 
-void gv11b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc);
+void gv11b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc, bool is_resume);
 
 #endif
 #endif

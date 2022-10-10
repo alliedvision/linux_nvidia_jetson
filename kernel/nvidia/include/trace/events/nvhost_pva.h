@@ -1,7 +1,7 @@
 /*
  * Nvhost event logging to ftrace.
  *
- * Copyright (c) 2017-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -199,12 +199,55 @@ TRACE_EVENT(nvhost_pva_task_vpu_perf,
 		__entry->min, __entry->max)
 );
 
+TRACE_EVENT(nvhost_pva_task_timestamp,
+
+	TP_PROTO(
+		const char *name,
+		u32 class,
+		u32 syncpoint_id,
+		u32 syncpoint_thresh,
+		u64 start_time,
+		u64 end_time
+		),
+
+	TP_ARGS(
+		name,
+		class,
+		syncpoint_id,
+		syncpoint_thresh,
+		start_time,
+		end_time
+		),
+
+	TP_STRUCT__entry(
+		__field(const char *, name)
+		__field(u32, class)
+		__field(u32, syncpoint_id)
+		__field(u32, syncpoint_thresh)
+		__field(u64, start_time)
+		__field(u64, end_time)
+		),
+
+	TP_fast_assign(
+		__entry->name = name;
+		__entry->class = class;
+		__entry->syncpoint_id = syncpoint_id;
+		__entry->syncpoint_thresh = syncpoint_thresh;
+		__entry->start_time = start_time;
+		__entry->end_time = end_time;
+		),
+
+	TP_printk("name=%s, class=0x%02x, syncpoint_id=%u, syncpoint_thresh=%u, start_time=%llu, end_time=%llu",
+		__entry->name, __entry->class, __entry->syncpoint_id, __entry->syncpoint_thresh,
+		__entry->start_time, __entry->end_time)
+);
+
 #endif /*  _TRACE_NVHOST_PVA_H */
 
 /* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_PATH ../../../nvidia/include/trace/events
+#define TRACE_INCLUDE_PATH ../../include/trace/events
 
 #define TRACE_INCLUDE_FILE nvhost_pva
 /* This part must be outside protection */

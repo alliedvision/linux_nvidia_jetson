@@ -43,6 +43,7 @@
  */
 bool gm20b_ltc_pri_is_ltc_addr(struct gk20a *g, u32 addr)
 {
+	(void)g;
 	return ((addr >= ltc_pltcg_base_v()) && (addr < ltc_pltcg_extent_v()));
 }
 

@@ -1,7 +1,7 @@
 /*
  * NVIDIA Media controller graph management
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -541,7 +541,8 @@ int tegra_vi_get_port_info(struct tegra_channel *chan,
 	struct device_node *ports;
 	struct device_node *port;
 	int value = 0xFFFF;
-	int ret = 0, i;
+	int ret = 0;
+	u32 i = 0;
 
 	ports = of_get_child_by_name(node, "ports");
 	if (ports == NULL)
@@ -604,7 +605,7 @@ int tegra_vi_get_port_info(struct tegra_channel *chan,
 			 * bricks to add as many ports necessary.
 			 */
 			value -= 4;
-			for (i = 1; value > 0; i++, value -= 4) {
+			for (i = 1; value > 0 && i < TEGRA_CSI_BLOCKS; i++, value -= 4) {
 				int next_port = chan->port[i-1] + 2;
 
 				next_port = (next_port % (NVCSI_PORT_H + 1));

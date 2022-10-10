@@ -1,7 +1,7 @@
 /*
  * ov10823.c - ov10823 sensor driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -583,9 +583,15 @@ static int ov10823_s_stream(struct v4l2_subdev *sd, int enable)
 			mode_table[OV10823_MODE_STOP_STREAM]);
 		}
 
+	if (s_data->mode < 0)
+		return -EINVAL;
+
 	dev_dbg(&client->dev, "%s: write mode table %d\n",
 		__func__, s_data->mode);
 	err = ov10823_write_table(priv, mode_table[s_data->mode]);
+
+	if (priv->fsync < 0 || priv->fsync > OV10823_FSYNC_SLAVE)
+		return -EINVAL;
 
 	if (fsync_table[priv->fsync]) {
 		dev_dbg(&client->dev, "%s: write fsync table %d\n", __func__,
@@ -893,7 +899,7 @@ static int ov10823_read_otp(struct ov10823 *priv, u8 *buf,
 static int ov10823_otp_setup(struct ov10823 *priv)
 {
 	struct device *dev = &priv->i2c_client->dev;
-	int i;
+	int i, ret;
 	struct v4l2_ctrl *ctrl;
 	u8 otp_buf[OV10823_OTP_SIZE];
 
@@ -907,9 +913,12 @@ static int ov10823_otp_setup(struct ov10823 *priv)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < OV10823_OTP_SIZE; i++)
-		sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+	for (i = 0; i < OV10823_OTP_SIZE; i++) {
+		ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 			otp_buf[i]);
+		if (ret < 0)
+			return -EINVAL;
+	}
 	ctrl->p_cur.p_char = ctrl->p_new.p_char;
 
 	return 0;
@@ -918,7 +927,7 @@ static int ov10823_otp_setup(struct ov10823 *priv)
 static int ov10823_fuse_id_setup(struct ov10823 *priv)
 {
 	struct device *dev = &priv->i2c_client->dev;
-	int i;
+	int i, ret;
 	struct v4l2_ctrl *ctrl;
 	u8 fuse_id[OV10823_FUSE_ID_SIZE];
 
@@ -932,9 +941,12 @@ static int ov10823_fuse_id_setup(struct ov10823 *priv)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < OV10823_FUSE_ID_SIZE; i++)
-		sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+	for (i = 0; i < OV10823_FUSE_ID_SIZE; i++) {
+		ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 			fuse_id[i]);
+		if (ret < 0)
+			return -EINVAL;
+	}
 	ctrl->p_cur.p_char = ctrl->p_new.p_char;
 
 	return 0;

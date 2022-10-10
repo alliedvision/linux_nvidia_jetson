@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -71,6 +71,8 @@ int gk20a_fifo_is_preempt_pending(struct gk20a *g, u32 id,
 	struct nvgpu_timeout timeout;
 	u32 delay = POLL_DELAY_MIN_US;
 	int ret;
+
+	(void)preempt_retries_left;
 
 	nvgpu_timeout_init_cpu_timer(g, &timeout, nvgpu_preempt_get_timeout(g));
 

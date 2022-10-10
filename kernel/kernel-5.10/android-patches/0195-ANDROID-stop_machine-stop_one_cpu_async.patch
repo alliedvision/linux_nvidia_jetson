@@ -1,0 +1,132 @@
+From b91edb5f06a7f562da95dd452bbb085118de8b6f Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Tue, 3 Nov 2020 11:47:46 +0000
+Subject: [PATCH 195/830] ANDROID: stop_machine: stop_one_cpu_async
+X-NVConfidentiality: public
+
+This new interface allows to trigger a stopper on a given CPU and wait
+for the end of the work in a separated function cpu_stop_work_wait().
+
+This differs from stop_one_cpu_nowait() by allowing the usage of the
+cpu_stop completion mechanism.
+
+Bug: 161210528
+Change-Id: Ida51371e32897d008ece0639190fc21feabb0f28
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ include/linux/stop_machine.h | 14 +++++++++
+ kernel/stop_machine.c        | 59 ++++++++++++++++++++++++++++++------
+ 2 files changed, 63 insertions(+), 10 deletions(-)
+
+diff --git a/include/linux/stop_machine.h b/include/linux/stop_machine.h
+index 63ea9aff368f..ddafb3cf4f48 100644
+--- a/include/linux/stop_machine.h
++++ b/include/linux/stop_machine.h
+@@ -28,6 +28,16 @@ struct cpu_stop_work {
+ 	struct cpu_stop_done	*done;
+ };
+ 
++/*
++ * Structure to determine completion condition and record errors.  May
++ * be shared by works on different cpus.
++ */
++struct cpu_stop_done {
++	atomic_t		nr_todo;	/* nr left to execute */
++	int			ret;		/* collected return value */
++	struct completion	completion;	/* fired if nr_todo reaches 0 */
++};
++
+ int stop_one_cpu(unsigned int cpu, cpu_stop_fn_t fn, void *arg);
+ int stop_two_cpus(unsigned int cpu1, unsigned int cpu2, cpu_stop_fn_t fn, void *arg);
+ bool stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
+@@ -35,6 +45,10 @@ bool stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
+ void stop_machine_park(int cpu);
+ void stop_machine_unpark(int cpu);
+ void stop_machine_yield(const struct cpumask *cpumask);
++int stop_one_cpu_async(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
++		       struct cpu_stop_work *work_buf,
++		       struct cpu_stop_done *done);
++void cpu_stop_work_wait(struct cpu_stop_work *work_buf);
+ 
+ #else	/* CONFIG_SMP */
+ 
+diff --git a/kernel/stop_machine.c b/kernel/stop_machine.c
+index f3c54c96a7b4..c65cfb7f7573 100644
+--- a/kernel/stop_machine.c
++++ b/kernel/stop_machine.c
+@@ -22,16 +22,7 @@
+ #include <linux/atomic.h>
+ #include <linux/nmi.h>
+ #include <linux/sched/wake_q.h>
+-
+-/*
+- * Structure to determine completion condition and record errors.  May
+- * be shared by works on different cpus.
+- */
+-struct cpu_stop_done {
+-	atomic_t		nr_todo;	/* nr left to execute */
+-	int			ret;		/* collected return value */
+-	struct completion	completion;	/* fired if nr_todo reaches 0 */
+-};
++#include <linux/slab.h>
+ 
+ /* the actual stopper, one per every possible cpu, enabled on online cpus */
+ struct cpu_stopper {
+@@ -372,6 +363,54 @@ bool stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
+ }
+ EXPORT_SYMBOL_GPL(stop_one_cpu_nowait);
+ 
++/**
++ * stop_one_cpu_async - stop a cpu and wait for completion in a separated
++ *			function: stop_wait_work()
++ * @cpu: cpu to stop
++ * @fn: function to execute
++ * @arg: argument to @fn
++ * @work_buf: pointer to cpu_stop_work structure
++ *
++ * CONTEXT:
++ * Might sleep.
++ *
++ * RETURNS:
++ * 0 if cpu_stop_work was queued successfully and @fn will be called.
++ * ENOENT if @fn(@arg) was not executed because @cpu was offline.
++ */
++int stop_one_cpu_async(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
++		       struct cpu_stop_work *work_buf,
++		       struct cpu_stop_done *done)
++{
++	cpu_stop_init_done(done, 1);
++
++	work_buf->done = done;
++	work_buf->fn = fn;
++	work_buf->arg = arg;
++
++	if (cpu_stop_queue_work(cpu, work_buf))
++		return 0;
++
++	work_buf->done = NULL;
++
++	return -ENOENT;
++}
++
++/**
++ * cpu_stop_work_wait - wait for a stop initiated by stop_one_cpu_async().
++ * @work_buf: pointer to cpu_stop_work structure
++ *
++ * CONTEXT:
++ * Might sleep.
++ */
++void cpu_stop_work_wait(struct cpu_stop_work *work_buf)
++{
++	struct cpu_stop_done *done = work_buf->done;
++
++	wait_for_completion(&done->completion);
++	work_buf->done = NULL;
++}
++
+ static bool queue_stop_cpus_work(const struct cpumask *cpumask,
+ 				 cpu_stop_fn_t fn, void *arg,
+ 				 struct cpu_stop_done *done)
+-- 
+2.17.1
+

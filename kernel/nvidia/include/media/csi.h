@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra CSI Device Header
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -161,6 +161,10 @@ int tegra_csi_media_controller_remove(struct tegra_csi_device *csi);
 struct tegra_csi_device *tegra_get_mc_csi(void);
 int tpg_csi_media_controller_init(struct tegra_csi_device *csi, int pg_mode);
 void tpg_csi_media_controller_cleanup(struct tegra_csi_device *csi);
+int tegra_csi_power(struct tegra_csi_device *csi,
+			struct tegra_csi_channel *chan, int enable);
+int tegra_csi_error_recovery(struct tegra_channel *chan,
+	struct tegra_csi_device *csi, struct tegra_csi_channel *csi_chan);
 
 /* helper functions to calculate clock setting times */
 unsigned int tegra_csi_clk_settling_time(

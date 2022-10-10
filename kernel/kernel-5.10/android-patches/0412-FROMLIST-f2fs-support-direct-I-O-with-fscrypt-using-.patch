@@ -1,0 +1,39 @@
+From 1a4a2bc043ba92d491faaf45a5293c5af35aac21 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 9 Jul 2020 19:47:51 +0000
+Subject: [PATCH 412/830] FROMLIST: f2fs: support direct I/O with fscrypt using
+ blk-crypto
+X-NVConfidentiality: public
+
+Wire up f2fs with fscrypt direct I/O support.
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+Signed-off-by: Satya Tangirala <satyat@google.com>
+
+Bug: 137270441
+Bug: 144046242
+Bug: 162255927
+Link: https://lore.kernel.org/r/20200709194751.2579207-6-satyat@google.com
+Change-Id: Ice27ed87c732c4a83a71297f38364f312fb9b3d8
+---
+ fs/f2fs/f2fs.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fs/f2fs/f2fs.h b/fs/f2fs/f2fs.h
+index 1050f9869ffe..a01d4cfdb00e 100644
+--- a/fs/f2fs/f2fs.h
++++ b/fs/f2fs/f2fs.h
+@@ -4062,7 +4062,9 @@ static inline bool f2fs_force_buffered_io(struct inode *inode,
+ 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+ 	int rw = iov_iter_rw(iter);
+ 
+-	if (f2fs_post_read_required(inode))
++	if (!fscrypt_dio_supported(iocb, iter))
++		return true;
++	if (fsverity_active(inode))
+ 		return true;
+ 	if (f2fs_is_multi_device(sbi))
+ 		return true;
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -249,7 +249,12 @@ static int ether_test_loopback(struct ether_priv_data *pdata,
 	if (ret)
 		goto cleanup;
 
-	wait_for_completion_timeout(&tpdata->comp, msecs_to_jiffies(200));
+	if (!wait_for_completion_timeout(&tpdata->comp,
+					 msecs_to_jiffies(200))) {
+		ret = -ETIMEDOUT;
+		goto cleanup;
+	}
+
 	ret = !tpdata->completed;
 cleanup:
 	dev_remove_pack(&tpdata->pt);

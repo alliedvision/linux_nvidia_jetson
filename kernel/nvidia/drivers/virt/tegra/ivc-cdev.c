@@ -1,7 +1,7 @@
 /*
  * IVC character device driver
  *
- * Copyright (C) 2014-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -154,11 +154,19 @@ static ssize_t ivc_dev_write(struct file *filp, const char __user *buf,
 	return -EPERM;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static unsigned int ivc_dev_poll(struct file *filp, poll_table *wait)
+#else
+static __poll_t ivc_dev_poll(struct file *filp, poll_table *wait)
+#endif
 {
 	struct ivc_dev *ivcd = filp->private_data;
 	struct ivc *ivc;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	int mask = 0;
+#else
+	__poll_t mask = 0;
+#endif
 
 	WARN_ON(!ivcd);
 	ivc = tegra_hv_ivc_convert_cookie(ivcd->ivck);
@@ -209,7 +217,7 @@ static int ivc_dev_mmap(struct file *filp, struct vm_area_struct *vma)
 #ifdef SUPPORTS_TRAP_MSI_NOTIFICATION
 	} else if ((vma->vm_pgoff == (ivc_area_size >> PAGE_SHIFT)) &&
 			(map_region_sz <= PAGE_SIZE)) {
-		uint64_t noti_ipa;
+		uint64_t noti_ipa = 0;
 
 		if (ivcd->qd->msi_ipa != 0)
 			noti_ipa = ivcd->qd->msi_ipa;
@@ -389,7 +397,7 @@ static DEVICE_ATTR_RO(nframes);
 static DEVICE_ATTR_RO(reserved);
 static DEVICE_ATTR_RO(peer);
 
-struct attribute *ivc_attrs[] = {
+static struct attribute *ivc_attrs[] = {
 	&dev_attr_id.attr,
 	&dev_attr_frame_size.attr,
 	&dev_attr_nframes.attr,
@@ -415,7 +423,12 @@ static int __init add_ivc(int i)
 	ivc->qd = qd;
 
 	cdev_init(&ivc->cdev, &ivc_fops);
-	snprintf(ivc->name, sizeof(ivc->name) - 1, "ivc%d", qd->id);
+	ret = snprintf(ivc->name, sizeof(ivc->name) - 1, "ivc%d", qd->id);
+	if (ret < 0) {
+		ERR("snprintf() failed\n");
+		return ret;
+	}
+
 	ret = cdev_add(&ivc->cdev, ivc->dev, 1);
 	if (ret != 0) {
 		ERR("cdev_add() failed\n");

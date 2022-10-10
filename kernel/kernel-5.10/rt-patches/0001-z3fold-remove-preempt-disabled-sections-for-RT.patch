@@ -1,7 +1,7 @@
-From f63b189051ea020fd05cda21481c3bc3823d873b Mon Sep 17 00:00:00 2001
+From 7c38b5f77ab16706f8a6aa5ac18339b423e794ed Mon Sep 17 00:00:00 2001
 From: Vitaly Wool <vitaly.wool@konsulko.com>
 Date: Mon, 14 Dec 2020 19:12:36 -0800
-Subject: [PATCH 001/304] z3fold: remove preempt disabled sections for RT
+Subject: [PATCH 001/318] z3fold: remove preempt disabled sections for RT
 
 Replace get_cpu_ptr() with migrate_disable()+this_cpu_ptr() so RT can take
 spinlocks that become sleeping locks.
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 10 insertions(+), 7 deletions(-)
 
 diff --git a/mm/z3fold.c b/mm/z3fold.c
-index 912ac9a..f3d875f 100644
+index 912ac9a64a15..f3d875fcaeb7 100644
 --- a/mm/z3fold.c
 +++ b/mm/z3fold.c
 @@ -623,14 +623,16 @@ static inline void add_to_unbuddied(struct z3fold_pool *pool,
@@ -81,5 +81,5 @@ index 912ac9a..f3d875f 100644
  	if (!zhdr) {
  		int cpu;
 -- 
-2.7.4
+2.17.1
 

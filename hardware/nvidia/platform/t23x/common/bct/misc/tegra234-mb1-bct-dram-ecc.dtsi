@@ -1,0 +1,229 @@
+/ {
+    misc {
+#ifdef ENABLE_DRAM_ECC_ERROR_INJECT
+        enable_dram_error_injection = <1>;
+#else
+        enable_dram_error_injection = <0>;
+#endif
+
+
+        carveout {
+            aux_info@CARVEOUT_NVDEC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_WPR1 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_WPR2 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TSEC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_XUSB {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_APE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_SPE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_SCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_APR {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_DCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UNUSED3 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_RCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_MCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_ETR {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_SPE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_RCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_CPUTZ {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UNUSED1 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_DCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_PSC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_PSC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_NV_SC7 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_CAMERA_TASKLIST {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_SCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_CV_GOS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_PSC_TSEC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_CCPLEX_INTERWORLD_SHMEM {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_FSI {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_MCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_CCPLEX_IST {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TSEC_HOST1X {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_PSC_TZ {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_SCE_CPU_NS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_OEM_SC7 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_SYNCPT_IGPU_RO {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_SYNCPT_IGPU_NA {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_VM_ENCRYPT {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_CCPLEX_SMMU_PTW {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_BPMP_CPU_NS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_FSI_CPU_NS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TSEC_DCE {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TZDRAM {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_VPR {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_MTS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_RCM_BLOB {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UEFI {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UEFI_MM_IPC {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_DRAM_ECC_TEST {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_PROFILING {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_OS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_FSI_KEY_BLOB {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2RF {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_LOAD {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_PARAMS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_IO_BUFFERS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2RF_DATA {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_SYSRAM_DATA {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TSEC_CCPLEX {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_APLT_LOAD {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_APLT_PARAMS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_APLT_IO_BUFFERS {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_MB2_APLT_SYSRAM_DATA {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_GR {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_QB_DATA {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_TEMP_QB_IO_BUFFER {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_ATF_FSI {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_OPTEE_DTB {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UNUSED2 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_UNUSED4 {
+                ecc_protected = <1>;
+            };
+            aux_info@CARVEOUT_RAM_OOPS {
+                ecc_protected = <1>;
+            };
+        };
+    };
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -51,14 +51,18 @@
 			/*
 			 * count_weight(W) = no of dram clks needed to access N atoms
 			 * N = atoms per dvfs pulse = (2^7+1) = 256 atoms
-			 * 1 atom = 64bytes
-			 * t194 has 256 max dram width (16 channels x 16 bits per channel)
+			 *
+			 * t234 has 256 max dram width (16 channels x 16 bits per channel)
 			 * 1 dram clock cycle provides 256*2 bits = 64bytes
-			 * (i.e) 1 dram clock provides 1 atom
-			 * so 256 dram clocks needed for 256 atoms
-			 * W = 256
+			 *
+			 * In t234, though 1 dram clock can read/write 64 bytes, row-sorter
+			 * will split the 64-bytes request into two 32-bytes requests, which
+			 * contributes two atoms in the MSS.
+			 *
+			 * Therefore we need to divide the N value by 2 to get the
+			 * correct count_weight value. (W = 128)
 			 */
-			nvidia,count_weight = <0x100>;
+			nvidia,count_weight = <0x80>;
 			nvidia,max_dram_channels = /bits/ 8 <16>;
 			nvidia,type = <1>;
 			clocks = <&bpmp_clks TEGRA234_CLK_EMC>;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -319,6 +319,8 @@ u32 nvgpu_device_get_copies(struct gk20a *g,
  */
 bool nvgpu_device_is_ce(struct gk20a *g, const struct nvgpu_device *dev)
 {
+	(void)g;
+
 	if (dev->type == NVGPU_DEVTYPE_COPY0 ||
 	    dev->type == NVGPU_DEVTYPE_COPY1 ||
 	    dev->type == NVGPU_DEVTYPE_COPY2 ||
@@ -331,5 +333,7 @@ bool nvgpu_device_is_ce(struct gk20a *g, const struct nvgpu_device *dev)
 
 bool nvgpu_device_is_graphics(struct gk20a *g, const struct nvgpu_device *dev)
 {
+	(void)g;
+
 	return dev->type == NVGPU_DEVTYPE_GRAPHICS;
 }

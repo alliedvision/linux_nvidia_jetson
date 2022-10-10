@@ -1,0 +1,32 @@
+From e14ddc0191a38ed83fe015034998b525d93fdeef Mon Sep 17 00:00:00 2001
+From: Peter Collingbourne <pcc@google.com>
+Date: Sat, 9 Nov 2019 11:48:31 -0800
+Subject: [PATCH 585/830] ANDROID: build kernels with llvm-nm and llvm-objcopy
+X-NVConfidentiality: public
+
+Causes CONFIG_RELR to be enabled, resulting in a gki_defconfig image size
+decrease of 2.2MB/10.3% uncompressed or 170KB/2.0% compressed.
+
+Bug: 137200966
+Change-Id: I85d36e346ca54bfc50aaca6804684b9bf16c47f0
+Signed-off-by: Peter Collingbourne <pcc@google.com>
+---
+ build.config.common | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/build.config.common b/build.config.common
+index decd1a3a73fe..f3370bcccb55 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -3,6 +3,8 @@ KERNEL_DIR=common
+ 
+ CC=clang
+ LD=ld.lld
++NM=llvm-nm
++OBJCOPY=llvm-objcopy
+ CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r370808/bin
+ BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+ 
+-- 
+2.17.1
+

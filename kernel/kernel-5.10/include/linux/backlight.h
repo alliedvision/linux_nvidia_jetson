@@ -4,6 +4,8 @@
  *
  * Copyright (C) 2003,2004 Hewlett-Packard Company
  *
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
  */
 
 #ifndef _LINUX_BACKLIGHT_H
@@ -373,7 +375,7 @@ static inline int backlight_update_status(struct backlight_device *bd)
 
 	return ret;
 }
-extern struct backlight_device *get_backlight_device_by_name(char *name);
+extern struct backlight_device *get_backlight_device_by_name(const char *name);
 extern struct backlight_device *get_backlight_device_by_node(
 		struct device_node *np);
 

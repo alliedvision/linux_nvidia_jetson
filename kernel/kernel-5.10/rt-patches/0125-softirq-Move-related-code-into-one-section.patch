@@ -1,7 +1,7 @@
-From 00671b23a59ec2dbfd9dedb4f56d9ddaadebdbef Mon Sep 17 00:00:00 2001
+From be45254f4a91458e9b90a952ed68352c83e4e626 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:18 +0100
-Subject: [PATCH 125/304] softirq: Move related code into one section
+Subject: [PATCH 125/318] softirq: Move related code into one section
 
 To prepare for adding a RT aware variant of softirq serialization and
 processing move related code into one section so the necessary #ifdeffery
@@ -12,11 +12,11 @@ Reviewed-by: Frederic Weisbecker <frederic@kernel.org>
 Link: https://lore.kernel.org/r/20201113141733.974214480@linutronix.de
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- kernel/softirq.c | 107 ++++++++++++++++++++++++++++---------------------------
+ kernel/softirq.c | 107 ++++++++++++++++++++++++-----------------------
  1 file changed, 54 insertions(+), 53 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 09229ad..617009c 100644
+index 09229ad82209..617009ccd82c 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -92,6 +92,13 @@ static bool ksoftirqd_running(unsigned long pending)
@@ -164,5 +164,5 @@ index 09229ad..617009c 100644
  {
  #ifdef CONFIG_NO_HZ_COMMON
 -- 
-2.7.4
+2.17.1
 

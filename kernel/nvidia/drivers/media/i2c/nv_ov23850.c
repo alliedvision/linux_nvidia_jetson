@@ -1,7 +1,7 @@
 /*
  * ov23850.c - ov23850 sensor driver
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -490,6 +490,10 @@ static int ov23850_s_stream(struct v4l2_subdev *sd, int enable)
 	err = ov23850_write_table(priv, mode_table[OV23850_MODE_COMMON]);
 	if (err)
 		goto exit;
+
+	if (s_data->mode < 0)
+		return -EINVAL;
+
 	err = ov23850_write_table(priv, mode_table[s_data->mode]);
 	if (err)
 		goto exit;

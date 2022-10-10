@@ -1,7 +1,7 @@
-From 2ed2489aa846e62079c805862692cc5bcdb69ee5 Mon Sep 17 00:00:00 2001
+From 0180f25f6221f815ae1671b456bd7ea65204ca9a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:11 +0100
-Subject: [PATCH 118/304] um/irqstat: Get rid of the duplicated declarations
+Subject: [PATCH 118/318] um/irqstat: Get rid of the duplicated declarations
 
 irq_cpustat_t and ack_bad_irq() are exactly the same as the asm-generic
 ones.
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 16 deletions(-)
 
 diff --git a/arch/um/include/asm/hardirq.h b/arch/um/include/asm/hardirq.h
-index b426796..52e2c36 100644
+index b426796d26fd..52e2c36267a9 100644
 --- a/arch/um/include/asm/hardirq.h
 +++ b/arch/um/include/asm/hardirq.h
 @@ -2,22 +2,7 @@
@@ -43,5 +43,5 @@ index b426796..52e2c36 100644
  #define __ARCH_IRQ_EXIT_IRQS_DISABLED 1
  
 -- 
-2.7.4
+2.17.1
 

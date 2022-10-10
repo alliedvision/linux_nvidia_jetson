@@ -1,0 +1,48 @@
+From ad7286e54c2bcb19ccec536fa44698e14f07d150 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@kernel.org>
+Date: Thu, 15 Oct 2020 22:57:41 -0700
+Subject: [PATCH 375/830] FROMLIST: scsi: ufs: fix clkgating on/off correctly
+X-NVConfidentiality: public
+
+The below call stack prevents clk_gating at every IO completion.
+We can remove the condition, ufshcd_any_tag_in_use(), since clkgating_work
+will check it again.
+
+ufshcd_complete_requests(struct ufs_hba *hba)
+  ufshcd_transfer_req_compl()
+    __ufshcd_transfer_req_compl()
+      __ufshcd_release(hba)
+        if (ufshcd_any_tag_in_use() == 1)
+           return;
+  ufshcd_tmc_handler(hba);
+    blk_mq_tagset_busy_iter();
+
+Note that, this still requires a work to deal with a potential racy condition
+when user sets clkgating.delay_ms to very small value. That can cause preventing
+clkgating by the check of ufshcd_any_tag_in_use() in gate_work.
+
+Link: https://lore.kernel.org/linux-scsi/20201028194352.GA3060274@google.com/T/#m3485ba8df14e4ad5cf0aa5b314ffe1cb90d90105
+Fixes: 7252a3603015 ("scsi: ufs: Avoid busy-waiting by eliminating tag conflicts")
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+Reviewed-by: Asutosh Das <asutoshd@codeaurora.org>
+Change-Id: I9b56725b26e1be8b1da55ae1db7322ab00fc5298
+---
+ drivers/scsi/ufs/ufshcd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 4ac8e01862d9..1d9fecb6d438 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1765,7 +1765,7 @@ static void __ufshcd_release(struct ufs_hba *hba)
+ 
+ 	if (hba->clk_gating.active_reqs || hba->clk_gating.is_suspended ||
+ 	    hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL ||
+-	    ufshcd_any_tag_in_use(hba) || hba->outstanding_tasks ||
++	    hba->outstanding_tasks ||
+ 	    hba->active_uic_cmd || hba->uic_async_done ||
+ 	    hba->clk_gating.state == CLKS_OFF)
+ 		return;
+-- 
+2.17.1
+

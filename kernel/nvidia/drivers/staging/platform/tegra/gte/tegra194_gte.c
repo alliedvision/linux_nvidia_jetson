@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License version 2
@@ -442,7 +442,7 @@ static struct tegra_gte_ev_desc *__gte_register_event(u32 eid,
 						struct tegra_gte_dev *gte_dev)
 {
 	u32 slice, sl_bit_shift, ev_bit, offset, val, reg;
-	int ret, sysfs_created;
+	int ret, sysfs_created = 0;
 	struct tegra_gte_event_info *ev;
 
 	sl_bit_shift = __builtin_ctz(GTE_SLICE_SIZE);
@@ -930,8 +930,6 @@ static int gte_chrdev_open(struct inode *inode, struct file *filp)
 						  struct tegra_gte_dev,
 						  chrdev);
 
-	if (!gdev)
-		return -ENODEV;
 	get_device(&gdev->c_dev);
 	filp->private_data = gdev;
 

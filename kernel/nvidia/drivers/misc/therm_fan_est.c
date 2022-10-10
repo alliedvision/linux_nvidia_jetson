@@ -1,7 +1,7 @@
 /*
  * drivers/misc/therm_fan_est.c
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -99,20 +99,21 @@ static void therm_fan_est_work_func(struct work_struct *work)
 			/* temperature is rising */
 			read_lock(&est->state_lock);
 			for (trip_index = 0;
-				trip_index < (MAX_ACTIVE_STATES + 1); trip_index++) {
+				trip_index < MAX_ACTIVE_STATES; trip_index++) {
 				if (est->cur_temp < est->active_trip_temps[trip_index])
 					break;
 			}
 			read_unlock(&est->state_lock);
 
 			if (est->current_trip_level < trip_index
-				&& est->current_trip_level != (trip_index - 1))
+				&& est->current_trip_level != (trip_index - 1)
+				&& trip_index != MAX_ACTIVE_STATES)
 				update_flag = true;
 		} else if (est->cur_temp < est->pre_temp) {
 			/* temperature is cooling */
 			read_lock(&est->state_lock);
 			for (trip_index = 1;
-				trip_index < (MAX_ACTIVE_STATES + 1); trip_index++) {
+				trip_index < MAX_ACTIVE_STATES; trip_index++) {
 				if (est->cur_temp < (est->active_trip_temps[trip_index]
 					- est->active_hysteresis[trip_index]))
 					break;
@@ -121,7 +122,7 @@ static void therm_fan_est_work_func(struct work_struct *work)
 
 			if (est->current_trip_level >= trip_index
 				&& est->current_trip_level != (trip_index - 1)
-				&& trip_index != (MAX_ACTIVE_STATES + 1))
+				&& trip_index != MAX_ACTIVE_STATES)
 				update_flag = true;
 		}
 
@@ -164,7 +165,7 @@ next_work:
 /*function defined in continu_thermal_gov.c*/
 void register_fetch_pwm_func(int (*func)(struct thermal_cooling_device *cdev, int trip));
 
-/*fetch pwm table for continuous_therm_gov and then caculate the slope*/
+/*fetch pwm table for cont_therm_gov and then caculate the slope*/
 static int fetch_trip_pwm(struct thermal_cooling_device *cdev, int trip)
 {
 	struct fan_dev_data *fan_data = cdev->devdata;
@@ -872,7 +873,7 @@ static int therm_fan_est_probe(struct platform_device *pdev)
 		err = -EINVAL;
 		goto free_tzp;
 	}
-	strcpy(tzp->governor_name, gov_name);
+	strncpy(tzp->governor_name, gov_name, THERMAL_NAME_LENGTH - 1);
 	pr_debug("THERMAL EST governor name: %s\n", tzp->governor_name);
 	if (!strncmp(tzp->governor_name,
 			THERMAL_GOV_PID, strlen(THERMAL_GOV_PID)))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,6 +28,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
 #include <linux/cred.h>
+#include <linux/of.h>
 
 #include <linux/version.h>
 #ifdef CONFIG_TEGRA_VIRTUALIZATION
@@ -50,9 +51,18 @@
 #define NVSCIIPC_VUID_SOCID_SHIFT 28
 #define NVSCIIPC_VUID_SOCID_MASK ((1<<4)-1)
 
+/* Use temporarily until the userspace migrates to use new ioctl id */
+#define NVSCIIPC_IOCTL_GET_VUID_LEGACY 0xc028c302
+#define NVSCIIPC_MAX_EP_NAME_LEGACY    32
+struct nvsciipc_get_vuid_legacy {
+	char ep_name[NVSCIIPC_MAX_EP_NAME_LEGACY];
+	uint64_t vuid;
+};
+
 DEFINE_MUTEX(nvsciipc_mutex);
 
-struct nvsciipc *ctx;
+static struct platform_device *nvsciipc_pdev;
+static struct nvsciipc *ctx;
 
 NvSciError NvSciIpcEndpointGetAuthToken(NvSciIpcEndpoint handle,
 		NvSciIpcEndpointAuthToken *authToken)
@@ -223,6 +233,45 @@ static int nvsciipc_ioctl_get_vuid(struct nvsciipc *ctx, unsigned int cmd,
 	return 0;
 }
 
+/* To support legacy - max ep name size 32 bytes.
+ *  will be removed once userspace is updated to use 64 bytes
+ */
+static int nvsciipc_ioctl_get_vuid_legacy(struct nvsciipc *ctx, unsigned int cmd,
+				   unsigned long arg)
+{
+	struct nvsciipc_get_vuid_legacy get_vuid;
+	int i;
+
+	if (copy_from_user(&get_vuid, (void __user *)arg, _IOC_SIZE(cmd))) {
+		ERR("%s : copy_from_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	if (ctx->num_eps == 0) {
+		ERR("need to set endpoint database first\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < ctx->num_eps; i++) {
+		if (!strncmp(get_vuid.ep_name, ctx->db[i]->ep_name,
+			NVSCIIPC_MAX_EP_NAME_LEGACY)) {
+			get_vuid.vuid = ctx->db[i]->vuid;
+			break;
+		}
+	}
+
+	if (i == ctx->num_eps) {
+		ERR("wrong endpoint name passed\n");
+		return -EINVAL;
+	} else if (copy_to_user((void __user *)arg, &get_vuid,
+				_IOC_SIZE(cmd))) {
+		ERR("%s : copy_to_user failed\n", __func__);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int nvsciipc_ioctl_set_db(struct nvsciipc *ctx, unsigned int cmd,
 				 unsigned long arg)
 {
@@ -303,8 +352,13 @@ static int nvsciipc_ioctl_set_db(struct nvsciipc *ctx, unsigned int cmd,
 	}
 
 #ifdef CONFIG_TEGRA_VIRTUALIZATION
-	if (is_tegra_hypervisor_mode())
-		hyp_read_gid(&vmid);
+	if (is_tegra_hypervisor_mode()) {
+		ret = hyp_read_gid(&vmid);
+		if (ret != 0) {
+			ERR("Failed to read guest id\n");
+			goto ptr_error;
+		}
+	}
 #endif
 
 	for (i = 0; i < ctx->num_eps; i++) {
@@ -361,6 +415,11 @@ static long nvsciipc_dev_ioctl(struct file *filp, unsigned int cmd,
 	case NVSCIIPC_IOCTL_GET_VUID:
 		mutex_lock(&nvsciipc_mutex);
 		ret = nvsciipc_ioctl_get_vuid(ctx, cmd, arg);
+		mutex_unlock(&nvsciipc_mutex);
+		break;
+	case NVSCIIPC_IOCTL_GET_VUID_LEGACY:
+		mutex_lock(&nvsciipc_mutex);
+		ret = nvsciipc_ioctl_get_vuid_legacy(ctx, cmd, arg);
 		mutex_unlock(&nvsciipc_mutex);
 		break;
 	default:
@@ -423,7 +482,12 @@ static int nvsciipc_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	snprintf(ctx->device_name, (MAX_NAME_SIZE - 1), "%s", MODULE_NAME);
+	if (snprintf(ctx->device_name, (MAX_NAME_SIZE - 1), "%s", MODULE_NAME) < 0) {
+		pr_err("snprintf() failed\n");
+		ret = -ENOMEM;
+		goto error;
+	}
+
 	ctx->device = device_create(ctx->nvsciipc_class, NULL,
 			ctx->dev_t, ctx,
 			ctx->device_name);
@@ -491,29 +555,39 @@ exit:
 	return 0;
 }
 
-static const struct of_device_id nvsciipc_of_match[] = {
-	{ .compatible = "nvidia,nvsciipc", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, nvsciipc_of_match);
-
 static struct platform_driver nvsciipc_driver = {
 	.probe  = nvsciipc_probe,
 	.remove = nvsciipc_remove,
 	.driver = {
 		.name = MODULE_NAME,
-		.of_match_table = nvsciipc_of_match,
 	},
 };
 
 static int __init nvsciipc_module_init(void)
 {
-	return platform_driver_register(&(nvsciipc_driver));
+	int ret;
+
+	if (!(of_machine_is_compatible("nvidia,tegra194") ||
+	      of_machine_is_compatible("nvidia,tegra234")))
+		return -ENODEV;
+
+	ret = platform_driver_register(&nvsciipc_driver);
+	if (ret)
+		return ret;
+
+	nvsciipc_pdev = platform_device_register_simple(MODULE_NAME, -1,
+							NULL, 0);
+	if (IS_ERR(nvsciipc_pdev)) {
+		platform_driver_unregister(&nvsciipc_driver);
+		return PTR_ERR(nvsciipc_pdev);
+	}
+
+	return 0;
 }
 
 static void __exit nvsciipc_module_deinit(void)
 {
-	platform_driver_unregister(&(nvsciipc_driver));
+	platform_device_unregister(nvsciipc_pdev);
 }
 
 module_init(nvsciipc_module_init);

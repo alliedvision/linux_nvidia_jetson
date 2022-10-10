@@ -1,7 +1,7 @@
 /*
  * tegra_dc_ext_priv.h: Declarations for tegradc ext interface.
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  *
@@ -145,7 +145,7 @@ struct tegra_dc_ext_control {
 extern dev_t tegra_dc_ext_devno;
 extern struct class *tegra_dc_ext_class;
 
-extern int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 id,
+extern int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, s32 id,
 				   struct tegra_dc_dmabuf **handle,
 				   dma_addr_t *phys_addr);
 

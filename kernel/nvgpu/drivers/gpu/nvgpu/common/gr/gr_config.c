@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -90,6 +90,231 @@ skip_mask_end:
 	config->gpc_skip_mask[gpc_index] = gpc_new_skip_mask;
 }
 
+static int gr_config_init_gpc_rop_config(struct gk20a *g,
+		struct nvgpu_gr_config *config)
+{
+	u32 rop_cnt = 0U;
+	u32 max_rop_per_gpc_size;
+	int err = 0;
+	u32 gpc_index = 0U, rop_index = 0U, i = 0U;
+	u32 gpc_phys_id;
+	u32 cur_gr_instance = nvgpu_gr_get_cur_instance_id(g);
+
+	/*
+	 * Allocate memory to store the per GPC ROP mask. The ROP masks will
+	 * be indexed using logical gpc id, so allocate memory based on the
+	 * number of non-FSed GPCs, which is config->gpc_count.
+	 */
+	config->gpc_rop_mask = nvgpu_kzalloc(g,
+			nvgpu_safe_mult_u64((size_t)config->gpc_count,
+				sizeof(u32)));
+	if (config->gpc_rop_mask == NULL) {
+		nvgpu_err(g, "alloc gpc_rop_mask failed");
+		err = -ENOMEM;
+		goto rop_mask_alloc_fail;
+	}
+	/*
+	 * This structure holds the logical id for a ROP chiplet within a
+	 * GPC. The GPC is indexed using logical id and the ROP is indexed using
+	 * physical id.
+	 */
+	config->gpc_rop_logical_id_map = nvgpu_kzalloc(g,
+			nvgpu_safe_mult_u64((size_t)config->gpc_count,
+				sizeof(u32 *)));
+	if (config->gpc_rop_logical_id_map == NULL) {
+		nvgpu_err(g, "alloc gpc_rop_logical_id_map failed");
+		err = -ENOMEM;
+		goto rop_logical_id_map_alloc_fail;
+	}
+
+	config->max_rop_per_gpc_count = g->ops.top.get_max_rop_per_gpc(g);
+	max_rop_per_gpc_size = nvgpu_safe_mult_u32(
+			(size_t)config->max_rop_per_gpc_count, sizeof(u32));
+
+	for (gpc_index = 0; gpc_index < config->gpc_count; gpc_index++) {
+		config->gpc_rop_logical_id_map[gpc_index] =
+			nvgpu_kzalloc(g, max_rop_per_gpc_size);
+		if (config->gpc_rop_logical_id_map[gpc_index] == NULL) {
+			nvgpu_err(g, "alloc rop_logical_id_map(%u) failed",
+					gpc_index);
+			err = -ENOMEM;
+			goto rop_logical_id_map_alloc_fail;
+		}
+		/*
+		 * Fuse registers must be queried with physical gpc-id and not
+		 * the logical ones. For tu104 and before chips logical gpc-id
+		 * is same as physical gpc-id for non-floorswept config but for
+		 * chips after tu104 it may not be true.
+		 */
+		gpc_phys_id = nvgpu_grmgr_get_gr_gpc_phys_id(g,
+				cur_gr_instance, (u32)gpc_index);
+		config->gpc_rop_mask[gpc_index] =
+			g->ops.gr.config.get_gpc_rop_mask(g, config,
+					gpc_phys_id);
+		rop_cnt = 0U;
+		for (rop_index = 0; rop_index < config->max_rop_per_gpc_count;
+				rop_index++) {
+			/*
+			 * The gpc_rop_logical_id_map will be intiailized to
+			 * UINT_MAX and this is considered to be an invalid
+			 * entry, the actual logical_id will be updated based
+			 * on the floorsweeping status of the chiplet. So, a
+			 * FSed chiplet will have the logical_id_map set to
+			 * UINT_MAX.
+			 */
+			config->gpc_rop_logical_id_map[gpc_index][rop_index] =
+				UINT_MAX;
+			if (config->gpc_rop_mask[gpc_index] & BIT(rop_index)) {
+				config->gpc_rop_logical_id_map[gpc_index][rop_index] =
+					rop_cnt++;
+			}
+		}
+	}
+
+	return err;
+
+rop_logical_id_map_alloc_fail:
+	for (i = 0; i < gpc_index; i++) {
+		nvgpu_kfree(g, config->gpc_rop_logical_id_map[i]);
+	}
+	nvgpu_kfree(g, config->gpc_rop_logical_id_map);
+	nvgpu_kfree(g, config->gpc_rop_mask);
+rop_mask_alloc_fail:
+	return err;
+}
+
+static void gr_config_free_gpc_rop_config(struct gk20a *g,
+		struct nvgpu_gr_config *config)
+{
+	u32 i;
+
+	for (i = 0; i < config->gpc_count; i++) {
+		nvgpu_kfree(g, config->gpc_rop_logical_id_map[i]);
+	}
+	nvgpu_kfree(g, config->gpc_rop_logical_id_map);
+	nvgpu_kfree(g, config->gpc_rop_mask);
+}
+
+const u32 *gr_config_get_gpc_rop_logical_id_map(struct nvgpu_gr_config *config,
+		u32 gpc)
+{
+	nvgpu_assert(gpc < config->gpc_count);
+	return config->gpc_rop_logical_id_map[gpc];
+}
+
+static int gr_config_init_gpc_pes_config(struct gk20a *g,
+		struct nvgpu_gr_config *config)
+{
+	u32 pes_cnt = 0U;
+	u32 max_pes_per_gpc_size;
+	int err = 0;
+	u32 gpc_index = 0U, pes_index = 0U, i = 0U;
+	u32 gpc_phys_id;
+	u32 cur_gr_instance = nvgpu_gr_get_cur_instance_id(g);
+
+	/*
+	 * Allocate memory to store the per GPC PES mask. The PES masks will
+	 * be indexed using logical gpc id, so allocate memory based on the
+	 * number of non-FSed GPCs, which is config->gpc_count.
+	 */
+	config->gpc_pes_mask = nvgpu_kzalloc(g,
+			nvgpu_safe_mult_u64((size_t)config->gpc_count,
+				sizeof(u32)));
+	if (config->gpc_pes_mask == NULL) {
+		nvgpu_err(g, "alloc gpc_pes_mask failed");
+		err = -ENOMEM;
+		goto pes_mask_alloc_fail;
+	}
+	/*
+	 * This structure holds the logical id for a PES chiplet within a
+	 * GPC. The GPC is indexed using logical id and the PES is indexed using
+	 * physical id.
+	 */
+	config->gpc_pes_logical_id_map = nvgpu_kzalloc(g,
+			nvgpu_safe_mult_u64((size_t)config->gpc_count,
+				sizeof(u32 *)));
+	if (config->gpc_pes_logical_id_map == NULL) {
+		nvgpu_err(g, "alloc gpc_pes_logical_id_map failed");
+		err = -ENOMEM;
+		goto pes_logical_id_map_alloc_fail;
+	}
+
+	config->max_pes_per_gpc_count = g->ops.top.get_max_pes_per_gpc(g);
+	max_pes_per_gpc_size = nvgpu_safe_mult_u32(
+			(size_t)config->max_pes_per_gpc_count, sizeof(u32));
+
+	for (gpc_index = 0; gpc_index < config->gpc_count; gpc_index++) {
+		config->gpc_pes_logical_id_map[gpc_index] =
+			nvgpu_kzalloc(g, max_pes_per_gpc_size);
+		if (config->gpc_pes_logical_id_map[gpc_index] == NULL) {
+			nvgpu_err(g, "alloc pes_logical_id_map(%u) failed",
+					gpc_index);
+			err = -ENOMEM;
+			goto pes_logical_id_map_alloc_fail;
+		}
+
+		/*
+		 * Fuse registers must be queried with physical gpc-id and not
+		 * the logical ones. For tu104 and before chips logical gpc-id
+		 * is same as physical gpc-id for non-floorswept config but for
+		 * chips after tu104 it may not be true.
+		 */
+		gpc_phys_id = nvgpu_grmgr_get_gr_gpc_phys_id(g,
+				cur_gr_instance, (u32)gpc_index);
+		config->gpc_pes_mask[gpc_index] =
+			g->ops.gr.config.get_gpc_pes_mask(g, config,
+					gpc_phys_id);
+		pes_cnt = 0U;
+		for (pes_index = 0; pes_index < config->max_pes_per_gpc_count;
+				pes_index++) {
+			/*
+			 * The gpc_pes_logical_id_map will be intiailized to
+			 * UINT_MAX and this is considered to be an invalid
+			 * entry, the actual logical_id will be updated based
+			 * on the floorsweeping status of the chiplet. So, a
+			 * FSed chiplet will have the logical_id_map set to
+			 * UINT_MAX.
+			 */
+			config->gpc_pes_logical_id_map[gpc_index][pes_index] =
+				UINT_MAX;
+			if (config->gpc_pes_mask[gpc_index] & BIT(pes_index)) {
+				config->gpc_pes_logical_id_map[gpc_index][pes_index] =
+					pes_cnt++;
+			}
+		}
+	}
+
+	return err;
+
+pes_logical_id_map_alloc_fail:
+	for (i = 0; i < gpc_index; i++) {
+		nvgpu_kfree(g, config->gpc_pes_logical_id_map[i]);
+	}
+	nvgpu_kfree(g, config->gpc_pes_logical_id_map);
+	nvgpu_kfree(g, config->gpc_pes_mask);
+pes_mask_alloc_fail:
+	return err;
+}
+
+static void gr_config_free_gpc_pes_config(struct gk20a *g,
+		struct nvgpu_gr_config *config)
+{
+	u32 i;
+
+	for (i = 0; i < config->gpc_count; i++) {
+		nvgpu_kfree(g, config->gpc_pes_logical_id_map[i]);
+	}
+	nvgpu_kfree(g, config->gpc_pes_logical_id_map);
+	nvgpu_kfree(g, config->gpc_pes_mask);
+}
+
+const u32 *gr_config_get_gpc_pes_logical_id_map(struct nvgpu_gr_config *config,
+		u32 gpc)
+{
+	nvgpu_assert(gpc < config->gpc_count);
+	return config->gpc_pes_logical_id_map[gpc];
+}
+
 static void gr_config_log_info(struct gk20a *g,
 					struct nvgpu_gr_config *config)
 {
@@ -159,6 +384,8 @@ static void gr_config_set_gpc_mask(struct gk20a *g,
 	if (g->ops.gr.config.get_gpc_mask != NULL) {
 		config->gpc_mask = g->ops.gr.config.get_gpc_mask(g);
 	} else
+#else
+	(void)g;
 #endif
 	{
 		config->gpc_mask = nvgpu_safe_sub_u32(BIT32(config->gpc_count),
@@ -329,7 +556,6 @@ struct nvgpu_gr_config *nvgpu_gr_config_init(struct gk20a *g)
 	u32 cur_gr_instance = nvgpu_gr_get_cur_instance_id(g);
 	u32 gpc_index;
 	u32 gpc_phys_id;
-	u32 gpc_id;
 	int err;
 
 	config = nvgpu_kzalloc(g, sizeof(*config));
@@ -375,8 +601,22 @@ struct nvgpu_gr_config *nvgpu_gr_config_init(struct gk20a *g)
 		goto clean_up_init;
 	}
 
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_PES_FS)) {
+		err = gr_config_init_gpc_pes_config(g, config);
+		if (err < 0) {
+			goto clean_up_init;
+		}
+	}
+
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_ROP_IN_GPC)) {
+		err = gr_config_init_gpc_rop_config(g, config);
+		if (err < 0) {
+			goto clean_up_gpc_pes_config;
+		}
+	}
+
 	if (gr_config_alloc_struct_mem(g, config) == false) {
-		goto clean_up_init;
+		goto clean_up_gpc_rop_config;
 	}
 
 	for (gpc_index = 0; gpc_index < config->gpc_count; gpc_index++) {
@@ -389,19 +629,9 @@ struct nvgpu_gr_config *nvgpu_gr_config_init(struct gk20a *g)
 		gpc_phys_id = nvgpu_grmgr_get_gr_gpc_phys_id(g,
 				cur_gr_instance, gpc_index);
 
-		/*
-		 * The gpc_tpc_mask_physical masks are ordered by gpc_id.
-		 * Where gpc_id = gpc_logical_id when MIG=true, else
-		 *                gpc_physical_id.
-		 */
-		gpc_id = gpc_phys_id;
-		if (nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG)) {
-			gpc_id = nvgpu_grmgr_get_gr_gpc_logical_id(g,
-					cur_gr_instance, gpc_index);
-		}
 		config->gpc_tpc_mask[gpc_index] =
 		     g->ops.gr.config.get_gpc_tpc_mask(g, config, gpc_phys_id);
-		config->gpc_tpc_mask_physical[gpc_id] =
+		config->gpc_tpc_mask_physical[gpc_phys_id] =
 		     g->ops.gr.config.get_gpc_tpc_mask(g, config, gpc_phys_id);
 	}
 
@@ -438,6 +668,14 @@ struct nvgpu_gr_config *nvgpu_gr_config_init(struct gk20a *g)
 	gr_config_log_info(g, config);
 	return config;
 
+clean_up_gpc_rop_config:
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_ROP_IN_GPC)) {
+		gr_config_free_gpc_rop_config(g, config);
+	}
+clean_up_gpc_pes_config:
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_PES_FS)) {
+		gr_config_free_gpc_pes_config(g, config);
+	}
 clean_up_init:
 	nvgpu_kfree(g, config);
 	return NULL;
@@ -688,6 +926,12 @@ void nvgpu_gr_config_deinit(struct gk20a *g, struct nvgpu_gr_config *config)
 		return;
 	}
 
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_PES_FS)) {
+		gr_config_free_gpc_pes_config(g, config);
+	}
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_ROP_IN_GPC)) {
+		gr_config_free_gpc_rop_config(g, config);
+	}
 	gr_config_free_mem(g, config);
 #ifdef CONFIG_NVGPU_GRAPHICS
 	nvgpu_kfree(g, config->map_tiles);
@@ -712,6 +956,16 @@ u32 nvgpu_gr_config_get_max_gpc_count(struct nvgpu_gr_config *config)
 u32 nvgpu_gr_config_get_max_tpc_per_gpc_count(struct nvgpu_gr_config *config)
 {
 	return config->max_tpc_per_gpc_count;
+}
+
+u32 nvgpu_gr_config_get_max_pes_per_gpc_count(struct nvgpu_gr_config *config)
+{
+	return config->max_pes_per_gpc_count;
+}
+
+u32 nvgpu_gr_config_get_max_rop_per_gpc_count(struct nvgpu_gr_config *config)
+{
+	return config->max_rop_per_gpc_count;
 }
 
 u32 nvgpu_gr_config_get_max_tpc_count(struct nvgpu_gr_config *config)

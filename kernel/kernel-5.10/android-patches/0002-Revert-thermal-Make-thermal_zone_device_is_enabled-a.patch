@@ -1,0 +1,73 @@
+From 3404f5ff09bb0621de243b5d2311e857738a6147 Mon Sep 17 00:00:00 2001
+From: Giuliano Procida <gprocida@google.com>
+Date: Fri, 2 Oct 2020 15:12:08 +0100
+Subject: [PATCH 002/830] Revert "thermal: Make
+ thermal_zone_device_is_enabled() available to core only"
+X-NVConfidentiality: public
+
+thermal_zone_device_is_enabled may be needed by vendor drivers which
+GKI require be loadable modules.
+
+This reverts commit 514acd00f957afa9b2a1fd521b2f180a950ee5e3.
+
+Change-Id: I9c65766c4769fc12376b932d561d45e2f5662948
+Signed-off-by: Giuliano Procida <gprocida@google.com>
+(cherry picked from commit d0095fb25f76c6b474bd96c5737e1bdc33ba2c6c)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 8c0a37fe4521a2ce2116d2efa76fb524a450a9b3)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ drivers/thermal/thermal_core.c | 1 +
+ drivers/thermal/thermal_core.h | 2 --
+ include/linux/thermal.h        | 5 +++++
+ 3 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+index 0bc911c8c8c1..c8c8a22a5d3a 100644
+--- a/drivers/thermal/thermal_core.c
++++ b/drivers/thermal/thermal_core.c
+@@ -546,6 +546,7 @@ int thermal_zone_device_is_enabled(struct thermal_zone_device *tz)
+ 
+ 	return mode == THERMAL_DEVICE_ENABLED;
+ }
++EXPORT_SYMBOL_GPL(thermal_zone_device_is_enabled);
+ 
+ void thermal_zone_device_update(struct thermal_zone_device *tz,
+ 				enum thermal_notify_event event)
+diff --git a/drivers/thermal/thermal_core.h b/drivers/thermal/thermal_core.h
+index fd42b87e9365..821b55699a9b 100644
+--- a/drivers/thermal/thermal_core.h
++++ b/drivers/thermal/thermal_core.h
+@@ -182,6 +182,4 @@ of_thermal_get_trip_points(struct thermal_zone_device *tz)
+ }
+ #endif
+ 
+-int thermal_zone_device_is_enabled(struct thermal_zone_device *tz);
+-
+ #endif /* __THERMAL_CORE_H__ */
+diff --git a/include/linux/thermal.h b/include/linux/thermal.h
+index a5a57785ba07..0be11586da68 100644
+--- a/include/linux/thermal.h
++++ b/include/linux/thermal.h
+@@ -404,6 +404,7 @@ void thermal_cdev_update(struct thermal_cooling_device *);
+ void thermal_notify_framework(struct thermal_zone_device *, int);
+ int thermal_zone_device_enable(struct thermal_zone_device *tz);
+ int thermal_zone_device_disable(struct thermal_zone_device *tz);
++int thermal_zone_device_is_enabled(struct thermal_zone_device *tz);
+ #else
+ static inline struct thermal_zone_device *thermal_zone_device_register(
+ 	const char *type, int trips, u64 mask, void *devdata,
+@@ -461,6 +462,10 @@ static inline int thermal_zone_device_enable(struct thermal_zone_device *tz)
+ 
+ static inline int thermal_zone_device_disable(struct thermal_zone_device *tz)
+ { return -ENODEV; }
++
++static inline int
++thermal_zone_device_is_enabled(struct thermal_zone_device *tz)
++{ return -ENODEV; }
+ #endif /* CONFIG_THERMAL */
+ 
+ #endif /* __THERMAL_H__ */
+-- 
+2.17.1
+

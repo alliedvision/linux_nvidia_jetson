@@ -1,7 +1,7 @@
-From 042d5114f8ee74b616bbe75af2499af2be266254 Mon Sep 17 00:00:00 2001
+From 038b982b3c885e0b15e124a3f60e52ed8e2942c2 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:08 +0200
-Subject: [PATCH 011/304] sched: Fix migrate_disable() vs
+Subject: [PATCH 011/318] sched: Fix migrate_disable() vs
  set_cpus_allowed_ptr()
 
 Concurrent migrate_disable() and set_cpus_allowed_ptr() has
@@ -39,11 +39,11 @@ Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/sched.h |   1 +
- kernel/sched/core.c   | 234 +++++++++++++++++++++++++++++++++++++++++++-------
+ kernel/sched/core.c   | 234 ++++++++++++++++++++++++++++++++++++------
  2 files changed, 205 insertions(+), 30 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 30857da..9f2ee71 100644
+index f7cd444b69d9..0cd5eded1fc3 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -730,6 +730,7 @@ struct task_struct {
@@ -55,7 +55,7 @@ index 30857da..9f2ee71 100644
  	int				migration_disabled;
  #endif
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index b19849c..5b33318 100644
+index 22c0c07f3c7f..b99c1913e417 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1741,15 +1741,26 @@ void migrate_enable(void)
@@ -220,10 +220,11 @@ index b19849c..5b33318 100644
  	return 0;
  }
  
-@@ -1950,6 +2034,110 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
+@@ -1949,6 +2033,110 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
+ 	__do_set_cpus_allowed(p, new_mask, 0);
  }
  
- /*
++/*
 + * This function is wildly self concurrent, consider at least 3 times.
 + */
 +static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flags *rf,
@@ -327,10 +328,9 @@ index b19849c..5b33318 100644
 +	return 0;
 +}
 +
-+/*
+ /*
   * Change a given task's CPU affinity. Migrate the thread to a
   * proper CPU and schedule it away if the CPU it's executing on
-  * is removed from the allowed bitmask.
 @@ -2018,23 +2206,8 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
  			p->nr_cpus_allowed != 1);
  	}
@@ -356,7 +356,7 @@ index b19849c..5b33318 100644
  out:
  	task_rq_unlock(rq, p, &rf);
  
-@@ -3218,6 +3391,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
+@@ -3221,6 +3394,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
  	init_numa_balancing(clone_flags, p);
  #ifdef CONFIG_SMP
  	p->wake_entry.u_flags = CSD_TYPE_TTWU;
@@ -365,5 +365,5 @@ index b19849c..5b33318 100644
  }
  
 -- 
-2.7.4
+2.17.1
 

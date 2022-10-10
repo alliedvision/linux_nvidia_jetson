@@ -1,7 +1,7 @@
 /*
  * GK20A sema cmdbuf
  *
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -89,7 +89,7 @@ void gk20a_sema_add_incr_cmd(struct gk20a *g,
 		/* semaphore_d */
 		0x20010007U,
 		/* operation: release, wfi */
-		0x2UL | ((wfi ? 0x0UL : 0x1UL) << 20),
+		0x2UL | (u32)((wfi ? 0x0UL : 0x1UL) << 20),
 		/* non_stall_int */
 		0x20010008U,
 		/* ignored */

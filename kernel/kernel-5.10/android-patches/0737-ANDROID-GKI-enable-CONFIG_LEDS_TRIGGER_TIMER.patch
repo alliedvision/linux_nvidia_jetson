@@ -1,0 +1,46 @@
+From d3e24d2274af7107a109cce7c0437d3c66177e4a Mon Sep 17 00:00:00 2001
+From: Guru Das Srinagesh <gurus@codeaurora.org>
+Date: Wed, 12 Aug 2020 14:33:34 -0700
+Subject: [PATCH 737/830] ANDROID: GKI: enable CONFIG_LEDS_TRIGGER_TIMER
+X-NVConfidentiality: public
+
+Set CONFIG_LEDS_TRIGGER_TIMER=y to enable the "timer" trigger for the
+LED subsystem. This creates the sysfs parameters "delay_on" and
+"delay_off" for LEDs, which can then be used to specify a blinking
+pattern for them.
+
+Bug: 163765274
+Change-Id: I66ada688aa5026253e76588ae1d6d85eb4cd8536
+Signed-off-by: Guru Das Srinagesh <gurus@codeaurora.org>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 48608ca2c25a..976dd57d6198 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -369,6 +369,7 @@ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
++CONFIG_LEDS_TRIGGER_TIMER=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PL030=y
+ CONFIG_RTC_DRV_PL031=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 239d5864412e..354516b21bfa 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -328,6 +328,7 @@ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
++CONFIG_LEDS_TRIGGER_TIMER=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_DMABUF_HEAPS=y
+ CONFIG_DMABUF_HEAPS_SYSTEM=y
+-- 
+2.17.1
+

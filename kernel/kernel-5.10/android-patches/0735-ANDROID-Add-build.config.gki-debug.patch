@@ -1,0 +1,40 @@
+From 037456b2dc54551176368cf5b448329ecdabae23 Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Mon, 10 Aug 2020 14:41:38 -0700
+Subject: [PATCH 735/830] ANDROID: Add build.config.gki-debug.*
+X-NVConfidentiality: public
+
+Add gki-debug build.config files which disable whitelisting trimming.
+This is intended to ease GKI development.
+
+Bug: 163360978
+Signed-off-by: Steve Muckle <smuckle@google.com>
+Change-Id: I384c91b854ffb0752c625b7aff55a1e2b2304b3a
+---
+ build.config.gki-debug.aarch64 | 3 +++
+ build.config.gki-debug.x86_64  | 3 +++
+ 2 files changed, 6 insertions(+)
+ create mode 100644 build.config.gki-debug.aarch64
+ create mode 100644 build.config.gki-debug.x86_64
+
+diff --git a/build.config.gki-debug.aarch64 b/build.config.gki-debug.aarch64
+new file mode 100644
+index 000000000000..58cee7a6362b
+--- /dev/null
++++ b/build.config.gki-debug.aarch64
+@@ -0,0 +1,3 @@
++. ${ROOT_DIR}/common/build.config.gki.aarch64
++TRIM_NONLISTED_KMI=""
++KMI_SYMBOL_LIST_STRICT_MODE=""
+diff --git a/build.config.gki-debug.x86_64 b/build.config.gki-debug.x86_64
+new file mode 100644
+index 000000000000..9ee51e7de18c
+--- /dev/null
++++ b/build.config.gki-debug.x86_64
+@@ -0,0 +1,3 @@
++. ${ROOT_DIR}/common/build.config.gki.x86_64
++TRIM_NONLISTED_KMI=""
++KMI_SYMBOL_LIST_STRICT_MODE=""
+-- 
+2.17.1
+

@@ -23,10 +23,14 @@
 #ifndef NVGPU_IPAPACACHE_H
 #define NVGPU_IPAPACACHE_H
 
-#ifdef CONFIG_TEGRA_HV_MANAGER
 #include <nvgpu/rwsem.h>
 
-struct hyp_ipa_pa_info;
+struct nvgpu_hyp_ipa_pa_info {
+	u64 base;
+	u64 offset;
+	u64 size;
+};
+
 struct gk20a;
 
 #define MAX_IPA_PA_CACHE 256U
@@ -47,6 +51,5 @@ u64 nvgpu_ipa_to_pa_cache_lookup_locked(struct gk20a *g, u64 ipa,
 		u64 *pa_len);
 
 void nvgpu_ipa_to_pa_add_to_cache(struct gk20a *g, u64 ipa,
-		u64 pa, struct hyp_ipa_pa_info *info);
-#endif
+		u64 pa, struct nvgpu_hyp_ipa_pa_info *info);
 #endif /* NVGPU_IPAPACACHE_H */

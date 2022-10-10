@@ -18,7 +18,7 @@
 
 / {
 	overlay-name = "Jetson Camera IMX390";
-	jetson-header-name = "Jetson AGX Orin CSI Connector";
+	jetson-header-name = "Jetson AGX CSI Connector";
 	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
 
 	/* IMX390 module using ids */

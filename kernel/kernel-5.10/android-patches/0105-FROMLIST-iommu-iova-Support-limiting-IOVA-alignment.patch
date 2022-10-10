@@ -1,0 +1,124 @@
+From 6e4fcf11f35ca7083339f3b9c839e8ce7823ad12 Mon Sep 17 00:00:00 2001
+From: Liam Mark <lmark@codeaurora.org>
+Date: Wed, 26 Feb 2020 14:23:41 -0800
+Subject: [PATCH 105/830] FROMLIST: iommu/iova: Support limiting IOVA alignment
+X-NVConfidentiality: public
+
+When the IOVA framework applies IOVA alignment it aligns all
+IOVAs to the smallest PAGE_SIZE order which is greater than or
+equal to the requested IOVA size.
+
+We support use cases that requires large buffers (> 64 MB in
+size) to be allocated and mapped in their stage 1 page tables.
+However, with this alignment scheme we find ourselves running
+out of IOVA space for 32 bit devices, so we are proposing this
+config, along the similar vein as CONFIG_CMA_ALIGNMENT for CMA
+allocations.
+
+Add CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT to limit the alignment of
+IOVAs to some desired PAGE_SIZE order, specified by
+CONFIG_IOMMU_IOVA_ALIGNMENT. This helps reduce the impact of
+fragmentation caused by the current IOVA alignment scheme, and
+gives better IOVA space utilization.
+
+Bug: 148141615
+Link: https://lore.kernel.org/lkml/alpine.DEB.2.10.2002141223510.27047@lmark-linux.qualcomm.com/
+Change-Id: I511ac685d5855e1b9feb5025e025ebbebee7f40d
+Signed-off-by: Liam Mark <lmark@codeaurora.org>
+Signed-off-by: Chris Goldsworthy <cgoldswo@codeaurora.org>
+---
+ drivers/iommu/Kconfig | 30 ++++++++++++++++++++++++++++++
+ drivers/iommu/iova.c  | 22 ++++++++++++++++++++--
+ 2 files changed, 50 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index cc804a25e82a..3b0a2e94f410 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -11,6 +11,36 @@ config IOASID
+ config IOMMU_API
+ 	bool
+ 
++if IOMMU_IOVA
++
++config IOMMU_LIMIT_IOVA_ALIGNMENT
++	bool "Limit IOVA alignment"
++	help
++	  When the IOVA framework applies IOVA alignment it aligns all
++	  IOVAs to the smallest PAGE_SIZE order which is greater than or
++	  equal to the requested IOVA size. This works fine for sizes up
++	  to several MiB, but for larger sizes it results in address
++	  space wastage and fragmentation. For example drivers with a 4
++	  GiB IOVA space might run out of IOVA space when allocating
++	  buffers great than 64 MiB.
++
++	  Enable this option to impose a limit on the alignment of IOVAs.
++
++	  If unsure, say N.
++
++config IOMMU_IOVA_ALIGNMENT
++	int "Maximum PAGE_SIZE order of alignment for IOVAs"
++	depends on IOMMU_LIMIT_IOVA_ALIGNMENT
++	range 4 9
++	default 9
++	help
++	  With this parameter you can specify the maximum PAGE_SIZE order for
++	  IOVAs. Larger IOVAs will be aligned only to this specified order.
++	  The order is expressed a power of two multiplied by the PAGE_SIZE.
++
++	  If unsure, leave the default value "9".
++endif
++
+ menuconfig IOMMU_SUPPORT
+ 	bool "IOMMU Hardware Support"
+ 	depends on MMU
+diff --git a/drivers/iommu/iova.c b/drivers/iommu/iova.c
+index 3acdaeb42381..6de7783889ae 100644
+--- a/drivers/iommu/iova.c
++++ b/drivers/iommu/iova.c
+@@ -177,6 +177,24 @@ iova_insert_rbtree(struct rb_root *root, struct iova *iova,
+ 	rb_insert_color(&iova->node, root);
+ }
+ 
++#ifdef CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT
++static unsigned long limit_align_shift(struct iova_domain *iovad,
++				       unsigned long shift)
++{
++	unsigned long max_align_shift;
++
++	max_align_shift = CONFIG_IOMMU_IOVA_ALIGNMENT + PAGE_SHIFT
++		- iova_shift(iovad);
++	return min_t(unsigned long, max_align_shift, shift);
++}
++#else
++static unsigned long limit_align_shift(struct iova_domain *iovad,
++				       unsigned long shift)
++{
++	return shift;
++}
++#endif
++
+ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
+ 		unsigned long size, unsigned long limit_pfn,
+ 			struct iova *new, bool size_aligned)
+@@ -188,7 +206,7 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
+ 	unsigned long align_mask = ~0UL;
+ 
+ 	if (size_aligned)
+-		align_mask <<= fls_long(size - 1);
++		align_mask <<= limit_align_shift(iovad, fls_long(size - 1));
+ 
+ 	/* Walk the tree backwards */
+ 	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
+@@ -241,7 +259,7 @@ static int __alloc_and_insert_iova_best_fit(struct iova_domain *iovad,
+ 	unsigned long gap, candidate_gap = ~0UL;
+ 
+ 	if (size_aligned)
+-		align_mask <<= limit_align(iovad, fls_long(size - 1));
++		align_mask <<= limit_align_shift(iovad, fls_long(size - 1));
+ 
+ 	/* Walk the tree backwards */
+ 	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
+-- 
+2.17.1
+

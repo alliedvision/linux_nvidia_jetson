@@ -64,6 +64,7 @@
 
 #include "tegra234-soc-coresight.dtsi"
 #include "tegra234-soc-fsicom.dtsi"
+#include "tegra234-safetyservice.dtsi"
 
 / {
 	aliases {
@@ -200,7 +201,7 @@
 	};
 
 	hsp_top2: tegra-hsp@1600000 {
-		compatible = "nvidia,tegra186-hsp";
+		compatible = "nvidia,tegra234-hsp","nvidia,tegra186-hsp";
 		reg = <0x0 0x01600000 0x0 0x00090000>;
 		interrupts = <0 265 0x4>, <0 266 0x4>, <0 267 0x4>,
         <0 268 0x4>, <0 269 0x4>, <0 270 0x4>, <0 271 0x4>, <0 272 0x4>;
@@ -266,14 +267,13 @@
 #endif
 
 #if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
-	/* TODO: current version of pre-silicon platforms use still sysram for messaging
-	* between BPMP and kernel. In future, this will need to move. */
 	sysram@40000000 {
 		compatible = "nvidia,tegra194-sysram", "mmio-sram";
 		reg = <0x0 0x40000000 0x0 0x72000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40000000 0x72000>;
+		no-memory-wc;
 
 		cpu_bpmp_tx: shmem@70000 {
 			compatible = "nvidia,tegra194-bpmp-shmem";
@@ -418,6 +418,9 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		gpio-ranges =
+			<&tegra_pinctrl TEGRA234_MAIN_GPIO_OFFSET TEGRA234_MAIN_PINCTRL_OFFSET_A TEGRA234_MAIN_PINS_A_TO_Z>,
+			<&tegra_pinctrl TEGRA234_MAIN_PINS_A_TO_Z TEGRA234_MAIN_PINCTRL_OFFSET_AC TEGRA234_MAIN_PINS_AC_TO_AG>;
 		status = "disabled";
 	};
 
@@ -435,6 +438,9 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		gpio-ranges =
+			<&tegra_pinctrl TEGRA234_MAIN_GPIO_OFFSET TEGRA234_MAIN_PINS_A_TO_Z TEGRA234_AON_PINS_AA>,
+			<&tegra_pinctrl TEGRA234_AON_PINS_AA TEGRA234_AON_PINCTRL_OFFSET_BB TEGRA234_AON_PINS_BB_TO_GG>;
 		status = "disabled";
 	};
 
@@ -485,7 +491,7 @@
 		status = "disabled";
 	};
 
-	tegra_tachometer: tachometer@39c0000 {
+	tegra_tachometer0: tachometer@39c0000 {
 		compatible = "nvidia,pwm-tegra234-tachometer";
 		reg = <0x0 0x039c0000 0x0 0x10>;
 		#pwm-cells = <2>;
@@ -512,18 +518,6 @@
 		pulse-per-rev = <2>;
 		capture-window-length = <2>;
 		disable-clk-gate;
-		status = "disabled";
-	};
-
-	generic_pwm_tachometer {
-		compatible = "generic-pwm-tachometer";
-		pwms = <&tegra_tachometer 0 1000000>;
-		status = "disabled";
-	};
-
-	generic_pwm_tachometer1 {
-		compatible = "generic-pwm-tachometer";
-		pwms = <&tegra_tachometer1 0 1000000>;
 		status = "disabled";
 	};
 
@@ -670,7 +664,23 @@
 			<0x0 0x03520000 0x0 0x20000>,
 			<0x0 0x03540000 0x0 0x10000>;
 		reg-names = "base", "fpci", "bar2", "padctl", "ao";
-		interrupts = <0 163 0x4>, <0 164 0x4>, <0 167 0x4>;
+		interrupts-extended = <&intc 0 163 0x4>,
+				      <&intc 0 164 0x4>,
+				      <&intc 0 167 0x4>,
+				      <&tegra_pmc 76 0x4>,
+				      <&tegra_pmc 77 0x4>,
+				      <&tegra_pmc 78 0x4>,
+				      <&tegra_pmc 79 0x4>,
+				      <&tegra_pmc 80 0x4>,
+				      <&tegra_pmc 81 0x4>,
+				      <&tegra_pmc 82 0x4>;
+		/*
+                   wake0, wake1, wake2 are for USB3.0 ports
+                   wake3, wake4, wake5, wake6 are for USB2.0 ports
+		*/
+		interrupt-names = "xhci", "mbox", "padctl",
+				  "wake0", "wake1", "wake2", "wake3",
+				  "wake4", "wake5", "wake6";
 
 		clocks = <&bpmp_clks TEGRA234_CLK_XUSB_CORE_MUX>,
 			<&bpmp_clks TEGRA234_CLK_XUSB_CORE_HOST>,
@@ -812,9 +822,6 @@
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
-		cpu_off = <0x84000002>;
-		cpu_on = <0xC4000003>;
-		cpu_suspend = <0xC4000001>;
 		status = "okay";
 	};
 
@@ -838,57 +845,22 @@
 		compatible = "nvidia,t234-cpufreq";
 		nvidia,bpmp = <&bpmp>;
 		reg = <0x0 0x0e000000 0x0 0x5ffff>; /* MMCRAB base */
-		status = "okay";
+		status = "disabled";
 		cpu_emc_map = <1500000 800000>,
 				<900000  665000>,
 				<550000  533000>,
 				<340000  204000>;
 	};
 
-	cbb-noc@2300000 {
-		compatible = "nvidia,tegra194-CBB-NOC";
-		reg = <0x0 0x02300000 0x0 0x1000>;
-		interrupts = <0 230 4>, <0 231 4>;
+	ccplex@e000000 {
+		compatible = "nvidia,tegra234-ccplex-cluster";
+		reg = <0x0 0x0e000000 0x0 0x5ffff>;
+		nvidia,bpmp = <&bpmp>;
 		status = "disabled";
-	};
-
-	aon-noc@C600000 {
-		compatible = "nvidia,tegra194-AON-NOC";
-		reg = <0x0 0xC600000 0x0 0x1000>;
-		interrupts = <0 260 4>, <0 172 4>;
-		status = "disabled";
-	};
-
-	bpmp-noc@D600000 {
-		compatible = "nvidia,tegra194-BPMP-NOC";
-		reg = <0x0 0xD600000 0x0 0x1000>;
-		interrupts = <0 262 4>, <0 174 4>;
-		status = "disabled";
-	};
-
-	rce-noc@BE00000 {
-		compatible = "nvidia,tegra194-RCE-NOC";
-		reg = <0x0 0xBE00000 0x0 0x1000>;
-		interrupts = <0 259 4>, <0 175 4>;
-		status = "disabled";
-	};
-
-	sce-noc@B600000 {
-		compatible = "nvidia,tegra194-SCE-NOC";
-		reg = <0x0 0xB600000 0x0 0x1000>;
-		interrupts = <0 261 4>, <0 173 4>;
-		status = "disabled";
-	};
-
-	axi2apb@2390000 {
-		compatible = "nvidia,tegra194-AXI2APB-bridge";
-		reg = <0x0 0x02390000 0x0 0x1000>,
-		    <0x0 0x023A0000 0x0 0x1000>,
-		    <0x0 0x023B0000 0x0 0x1000>,
-		    <0x0 0x023C0000 0x0 0x1000>,
-		    <0x0 0x023D0000 0x0 0x1000>,
-		    <0x0 0x023E0000 0x0 0x1000>;
-		status = "disabled";
+		cpu_emc_map = <1500000 800000>,
+				<900000  665000>,
+				<550000  533000>,
+				<340000  204000>;
 	};
 
 	mipical@3990000{
@@ -1019,7 +991,8 @@
 			 <&bpmp_clks TEGRA234_CLK_AZA_2XBIT>,
 			 <&bpmp_clks TEGRA234_CLK_AZA_BIT>,
 			 <&bpmp_clks TEGRA234_CLK_MIPI_CAL>,
-			 <&bpmp_clks TEGRA234_CLK_UART_FST_MIPI_CAL>;
+			 <&bpmp_clks TEGRA234_CLK_UART_FST_MIPI_CAL>,
+			 <&bpmp_clks TEGRA234_CLK_SOR0_DIV>;
 		clock-names = "nvdisplayhub_clk",
 			      "nvdisplay_disp_clk",
 			      "nvdisplay_p0_clk",
@@ -1080,18 +1053,18 @@
 			      "aza_2xbit_clk",
 			      "aza_bit_clk",
 			      "mipi_cal_clk",
-			      "uart_fst_mipi_cal_clk";
+			      "uart_fst_mipi_cal_clk",
+			      "sor0_div_clk";
 		resets = <&bpmp_resets TEGRA234_RESET_NVDISPLAY>,
 			 <&bpmp_resets TEGRA234_RESET_DPAUX>,
-			 <&bpmp_resets TEGRA234_RESET_HDACODEC>,
 			 <&bpmp_resets TEGRA234_RESET_DSI_CORE>,
 			 <&bpmp_resets TEGRA234_RESET_MIPI_CAL>;
 		reset-names = "nvdisplay_reset",
 			      "dpaux0_reset",
-			      "hdacodec_reset",
 			      "dsi_core_reset",
 			      "mipi_cal_reset";
 		status = "disabled";
+		nvidia,disp-sw-soc-chip-id = <0x2350>;
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_NVDISPLAYR>,
 			        <&mc TEGRA234_MEMORY_CLIENT_NVDISPLAYR1>;
@@ -1147,6 +1120,15 @@
 		interrupt-names = "wdt-remote",
 			"dce-sm0";
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_DCE>;
+		status = "disabled";
+	};
+
+	tegra_cec: tegra_cec {
+		compatible = "nvidia,tegra234-cec";
+		reg = <0x0 0x0c3e0000 0x0 0x00001000>;
+		interrupts = <0 279 0x04>;
+		resets = <&bpmp_resets TEGRA234_RESET_CEC>;
+		reset-names = "cec";
 		status = "disabled";
 	};
 };

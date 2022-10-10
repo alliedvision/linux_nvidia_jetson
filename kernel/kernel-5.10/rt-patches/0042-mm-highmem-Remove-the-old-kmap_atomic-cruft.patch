@@ -1,19 +1,19 @@
-From 882125f2d95c9df1a22a3c5f6f144c2541555da2 Mon Sep 17 00:00:00 2001
+From 5c2bdf7660a310226d1028ecff3ad982d8c8045a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:31 +0100
-Subject: [PATCH 042/304] mm/highmem: Remove the old kmap_atomic cruft
+Subject: [PATCH 042/318] mm/highmem: Remove the old kmap_atomic cruft
 
 All users gone.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/highmem.h | 63 ++++---------------------------------------------
- mm/highmem.c            |  7 +-----
+ include/linux/highmem.h | 63 +++--------------------------------------
+ mm/highmem.c            |  7 +----
  2 files changed, 5 insertions(+), 65 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index de78869..3180a8f 100644
+index de78869454b1..3180a8f7307f 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -86,31 +86,16 @@ static inline void kunmap(struct page *page)
@@ -109,7 +109,7 @@ index de78869..3180a8f 100644
  /*
   * Prevent people trying to call kunmap_atomic() as if it were kunmap()
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 77677c6..499dfaf 100644
+index 77677c6844f7..499dfafd36b7 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -31,12 +31,6 @@
@@ -134,5 +134,5 @@ index 77677c6..499dfaf 100644
  # define arch_kmap_local_pre_unmap(vaddr)		do { } while (0)
  #endif
 -- 
-2.7.4
+2.17.1
 

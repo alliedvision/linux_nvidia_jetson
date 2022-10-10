@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1143,7 +1143,6 @@ static int tvnet_ep_alloc_multi_page_bar0_mem(struct pci_epf *epf,
 		ret = -ENOMEM;
 		goto fail_free_pages;
 	}
-	kfree(map);
 
 	ret = iommu_map(domain, amap->iova, page_to_phys(amap->page),
 			amap->size, IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
@@ -1153,6 +1152,7 @@ static int tvnet_ep_alloc_multi_page_bar0_mem(struct pci_epf *epf,
 		goto fail_vunmap;
 	}
 
+	kfree(map);
 	return 0;
 
 fail_vunmap:
@@ -1651,7 +1651,7 @@ static const struct pci_epf_device_id tvnet_ep_epf_tvnet_ids[] = {
 	{ },
 };
 
-int tvnet_ep_epf_tvnet_probe(struct pci_epf *epf)
+static int tvnet_ep_epf_tvnet_probe(struct pci_epf *epf)
 {
 	struct device *fdev = &epf->dev;
 	struct pci_epf_tvnet *tvnet;

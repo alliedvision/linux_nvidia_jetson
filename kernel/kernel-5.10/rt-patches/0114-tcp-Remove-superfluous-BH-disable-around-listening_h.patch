@@ -1,7 +1,7 @@
-From 30ebef92e6e839d5819c8cbab27a966884f6e12f Mon Sep 17 00:00:00 2001
+From 838c827db55709b60071a08f4e86eb9ca972ef6a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 12 Oct 2020 17:33:54 +0200
-Subject: [PATCH 114/304] tcp: Remove superfluous BH-disable around
+Subject: [PATCH 114/318] tcp: Remove superfluous BH-disable around
  listening_hash
 
 Commit
@@ -25,10 +25,10 @@ Link: https://lkml.kernel.org/r/X9CheYjuXWc75Spa@hirez.programming.kicks-ass.net
  2 files changed, 13 insertions(+), 11 deletions(-)
 
 diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 45fb450..5fb9503 100644
+index e093847c334d..b8369afec849 100644
 --- a/net/ipv4/inet_hashtables.c
 +++ b/net/ipv4/inet_hashtables.c
-@@ -635,7 +635,9 @@ int __inet_hash(struct sock *sk, struct sock *osk)
+@@ -637,7 +637,9 @@ int __inet_hash(struct sock *sk, struct sock *osk)
  	int err = 0;
  
  	if (sk->sk_state != TCP_LISTEN) {
@@ -38,7 +38,7 @@ index 45fb450..5fb9503 100644
  		return 0;
  	}
  	WARN_ON(!sk_unhashed(sk));
-@@ -667,11 +669,8 @@ int inet_hash(struct sock *sk)
+@@ -669,11 +671,8 @@ int inet_hash(struct sock *sk)
  {
  	int err = 0;
  
@@ -51,7 +51,7 @@ index 45fb450..5fb9503 100644
  
  	return err;
  }
-@@ -682,17 +681,20 @@ void inet_unhash(struct sock *sk)
+@@ -684,17 +683,20 @@ void inet_unhash(struct sock *sk)
  	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
  	struct inet_listen_hashbucket *ilb = NULL;
  	spinlock_t *lock;
@@ -74,7 +74,7 @@ index 45fb450..5fb9503 100644
  	if (sk_unhashed(sk))
  		goto unlock;
  
-@@ -705,7 +707,10 @@ void inet_unhash(struct sock *sk)
+@@ -707,7 +709,10 @@ void inet_unhash(struct sock *sk)
  	__sk_nulls_del_node_init_rcu(sk);
  	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
  unlock:
@@ -87,7 +87,7 @@ index 45fb450..5fb9503 100644
  EXPORT_SYMBOL_GPL(inet_unhash);
  
 diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 55c290d5..9bad345 100644
+index 67c9114835c8..0a2e7f228391 100644
 --- a/net/ipv6/inet6_hashtables.c
 +++ b/net/ipv6/inet6_hashtables.c
 @@ -333,11 +333,8 @@ int inet6_hash(struct sock *sk)
@@ -104,5 +104,5 @@ index 55c290d5..9bad345 100644
  	return err;
  }
 -- 
-2.7.4
+2.17.1
 

@@ -1,7 +1,7 @@
 /*
  * pwm_fan.c fan driver that is controlled by pwm
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Anshul Jain <anshulj@nvidia.com>
  *
@@ -355,7 +355,7 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 	}
 
 	if (fan_data->continuous_gov) {
-		/* "continuous_therm_gov" used, "cur_state" indicate target pwm
+		/* "cont_therm_gov" used, "cur_state" indicate target pwm
 		 * value
 		 */
 		target_pwm = min(fan_data->fan_cap_pwm, (int)cur_state);
@@ -636,21 +636,27 @@ static ssize_t fan_available_profiles_show(struct device *dev,
 {
 	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
 	int i;
-	ssize_t count = 0;
+	ssize_t count = 0, total_count = 0;
 
 	if (!fan_data)
 		return -EINVAL;
 	if (fan_data->num_profiles > 0) {
 		for (i = 0; i < fan_data->num_profiles; ++i) {
-			count += sprintf(&buf[count], "%s ",
+			count = sprintf(&buf[total_count], "%s ",
 				fan_data->fan_profile_names[i]);
+			if (count < 0)
+				return -EINVAL;
+			total_count += count;
 		}
 
 		/* Truncate the trailing space */
-		if (count)
-			count--;
+		if (total_count)
+			total_count--;
 
-		count += sprintf(&buf[count], "\n");
+		count = sprintf(&buf[total_count], "\n");
+		if (count < 0)
+			return -EINVAL;
+		total_count += count;
 	} else {
 		count = sprintf(buf, "N/A\n");
 	}

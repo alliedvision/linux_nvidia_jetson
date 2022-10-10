@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2020-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -181,8 +181,13 @@ static void debugfs_create_smmu_cb(struct smmu_debugfs_info *smmu_dfs, u8 cbndx)
 	struct dentry *dent;
 	char name[] = "cb000";
 	struct debugfs_regset32 *cb;
+	int err;
 
-	sprintf(name, "cb%03d", cbndx);
+	err = sprintf(name, "cb%03d", cbndx);
+	if (err < 0) {
+		pr_err("%s: %d: sprintf failed to write\n", __func__, __LINE__);
+		return;
+	}
 	dent = debugfs_create_dir(name, smmu_dfs->debugfs_root);
 	if (!dent)
 		return;
@@ -252,7 +257,7 @@ DEFINE_SIMPLE_ATTRIBUTE(smmu_perf_regset_debugfs_fops,
 			smmu_perf_regset_debugfs_get,
 			smmu_perf_regset_debugfs_set, "%08llx\n");
 
-void arm_smmu_regs_debugfs_delete(struct smmu_debugfs_info *smmu_dfs)
+static void arm_smmu_regs_debugfs_delete(struct smmu_debugfs_info *smmu_dfs)
 {
 	int i;
 
@@ -285,7 +290,7 @@ static int debug_smmu_id_debugfs_set(void *data, u64 val)
 {
 	struct smmu_debugfs_info *smmu_dfs = (struct smmu_debugfs_info *)data;
 
-	if (val < 0 || val >= smmu_dfs->num_smmus)
+	if (val >= smmu_dfs->num_smmus)
 		return -EINVAL;
 
 	smmu_dfs->debug_smmu_id = (u8)val;
@@ -572,6 +577,9 @@ static int smmu_master_show(struct seq_file *s, void *unused)
 	struct smmu_debugfs_master *master = s->private;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(master->dev);
 
+	if (!fwspec)
+		return -ENODEV;
+
 	for (i = 0; i < fwspec->num_ids; i++) {
 		seq_printf(s, "streamids: % 3d ",
 				fwspec->ids[i] & master->streamid_mask);
@@ -605,6 +613,7 @@ void arm_smmu_debugfs_add_master(struct device *dev,
 	struct dentry *dent = NULL;
 	char name[] = "cb000";
 	char target[] = "../../cb000";
+	int err;
 
 	if (smmu_dfs == NULL) {
 		pr_warn("Debugfs setup not complete\n");
@@ -634,8 +643,20 @@ void arm_smmu_debugfs_add_master(struct device *dev,
 	debugfs_create_file("streamids", 0444, dent, master,
 							&smmu_master_fops);
 	debugfs_create_u8("cbndx", 0444, dent, cbndx);
-	sprintf(name, "cb%03d", *cbndx);
-	sprintf(target, "../../cb%03d", *cbndx);
+	err = sprintf(name, "cb%03d", *cbndx);
+	if (err < 0) {
+		pr_err("%s: %d: sprintf failed to write\n", __func__, __LINE__);
+		debugfs_remove_recursive(master->dent);
+		kfree(master);
+		return;
+	}
+	err = sprintf(target, "../../cb%03d", *cbndx);
+	if (err < 0) {
+		pr_err("%s: %d: sprintf failed to write\n", __func__, __LINE__);
+		debugfs_remove_recursive(master->dent);
+		kfree(master);
+		return;
+	}
 	debugfs_create_symlink(name, dent, target);
 
 	list_add_tail(&master->node, &smmu_dfs->masters_list);

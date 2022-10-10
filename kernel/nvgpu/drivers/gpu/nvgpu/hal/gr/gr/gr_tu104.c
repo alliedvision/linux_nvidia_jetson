@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -107,6 +107,7 @@ void gr_tu104_get_sm_dsm_perf_ctrl_regs(struct gk20a *g,
 				        u32 **sm_dsm_perf_ctrl_regs,
 				        u32 *ctrl_register_stride)
 {
+	(void)g;
 	*num_sm_dsm_perf_ctrl_regs = 0;
 	*sm_dsm_perf_ctrl_regs = NULL;
 	*ctrl_register_stride = 0;

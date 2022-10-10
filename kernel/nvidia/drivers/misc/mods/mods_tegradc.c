@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_tegradc.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -88,7 +88,15 @@ int esc_mods_tegra_dc_config_possible(struct mods_client *client,
 	}
 
 	for (i = 0; i < args->win_num; i++) {
-		int idx = args->windows[i].index;
+		unsigned int idx;
+
+		if (args->windows[i].index < 0) {
+			cl_debug(DEBUG_TEGRADC,
+				 "invalid index %d for win %d\n",
+				 i, args->windows[i].index);
+			return -EINVAL;
+		}
+		idx = (unsigned int)args->windows[i].index;
 
 		if (args->windows[i].flags &
 			MODS_TEGRA_DC_WINDOW_FLAG_ENABLED) {
@@ -144,9 +152,3 @@ int esc_mods_tegra_dc_config_possible(struct mods_client *client,
 	LOG_EXT();
 	return 0;
 }
-
-int mods_init_tegradc(void)
-{
-	return 0;
-}
-

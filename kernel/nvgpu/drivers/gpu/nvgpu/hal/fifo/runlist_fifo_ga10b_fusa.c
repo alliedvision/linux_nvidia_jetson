@@ -1,7 +1,7 @@
 /*
  * GA10B Runlist
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,12 +39,14 @@
 
 u32 ga10b_runlist_count_max(struct gk20a *g)
 {
+	(void)g;
 	/* TODO Needs to be read from litter values */
 	return 4U;
 }
 
 u32 ga10b_runlist_length_max(struct gk20a *g)
 {
+	(void)g;
 	return runlist_submit_length_max_v();
 }
 
@@ -99,6 +101,14 @@ int ga10b_runlist_wait_pending(struct gk20a *g, struct nvgpu_runlist *runlist)
 	return ret;
 }
 
+u32 ga10b_get_runlist_aperture(struct gk20a *g, struct nvgpu_runlist *runlist)
+{
+	return nvgpu_aperture_mask(g, &runlist->domain->mem_hw->mem,
+			runlist_submit_base_lo_target_sys_mem_noncoherent_f(),
+			runlist_submit_base_lo_target_sys_mem_coherent_f(),
+			runlist_submit_base_lo_target_vid_mem_f());
+}
+
 void ga10b_runlist_write_state(struct gk20a *g, u32 runlists_mask,
 						u32 runlist_state)
 {
@@ -112,7 +122,7 @@ void ga10b_runlist_write_state(struct gk20a *g, u32 runlists_mask,
 		reg_val = runlist_sched_disable_runlist_enabled_v();
 	}
 
-	while (runlists_mask != 0U) {
+	while (runlists_mask != 0U && (runlist_id < g->fifo.max_runlists)) {
 		if ((runlists_mask & BIT32(runlist_id)) != 0U) {
 			runlist = g->fifo.runlists[runlist_id];
 			nvgpu_runlist_writel(g, runlist,

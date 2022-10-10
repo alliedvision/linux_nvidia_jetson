@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -460,7 +460,7 @@ static netdev_tx_t tvnet_host_start_xmit(struct sk_buff *skb,
 	rd_idx = tvnet_ivc_get_rd_cnt(&tvnet->h2ep_empty) %
 				RING_COUNT;
 	dst_iova = h2ep_empty_msg[rd_idx].u.empty_buffer.pcie_address;
-	dst_virt = tvnet->mmio_base + (dst_iova - tvnet->bar_md->bar0_base_phy);
+	dst_virt = (__force void *)tvnet->mmio_base + (dst_iova - tvnet->bar_md->bar0_base_phy);
 	/* Advance read count after all failure cases complated, to avoid
 	 * dangling buffer at endpoint.
 	 */
@@ -566,27 +566,27 @@ static void tvnet_host_setup_bar0_md(struct tvnet_priv *tvnet)
 	struct ep_ring_buf *ep_mem = &tvnet->ep_mem;
 	struct host_ring_buf *host_mem = &tvnet->host_mem;
 
-	tvnet->bar_md = (struct bar_md *)tvnet->mmio_base;
+	tvnet->bar_md = (__force struct bar_md *)tvnet->mmio_base;
 
-	ep_mem->ep_cnt = (struct ep_own_cnt *)(tvnet->mmio_base +
+	ep_mem->ep_cnt = (__force struct ep_own_cnt *)(tvnet->mmio_base +
 					tvnet->bar_md->ep_own_cnt_offset);
-	ep_mem->ep2h_ctrl_msgs = (struct ctrl_msg *)(tvnet->mmio_base +
+	ep_mem->ep2h_ctrl_msgs = (__force struct ctrl_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->ctrl_md.ep2h_offset);
-	ep_mem->ep2h_full_msgs = (struct data_msg *)(tvnet->mmio_base +
+	ep_mem->ep2h_full_msgs = (__force struct data_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->ep2h_md.ep2h_offset);
-	ep_mem->h2ep_empty_msgs = (struct data_msg *)(tvnet->mmio_base +
+	ep_mem->h2ep_empty_msgs = (__force struct data_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->h2ep_md.ep2h_offset);
 
-	host_mem->host_cnt = (struct host_own_cnt *)(tvnet->mmio_base +
+	host_mem->host_cnt = (__force struct host_own_cnt *)(tvnet->mmio_base +
 					tvnet->bar_md->host_own_cnt_offset);
-	host_mem->h2ep_ctrl_msgs = (struct ctrl_msg *)(tvnet->mmio_base +
+	host_mem->h2ep_ctrl_msgs = (__force struct ctrl_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->ctrl_md.h2ep_offset);
-	host_mem->ep2h_empty_msgs = (struct data_msg *)(tvnet->mmio_base +
+	host_mem->ep2h_empty_msgs = (__force struct data_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->ep2h_md.h2ep_offset);
-	host_mem->h2ep_full_msgs = (struct data_msg *)(tvnet->mmio_base +
+	host_mem->h2ep_full_msgs = (__force struct data_msg *)(tvnet->mmio_base +
 					tvnet->bar_md->h2ep_md.h2ep_offset);
 
-	tvnet->dma_desc = (struct tvnet_dma_desc *)(tvnet->mmio_base +
+	tvnet->dma_desc = (__force struct tvnet_dma_desc *)(tvnet->mmio_base +
 					tvnet->bar_md->host_dma_offset);
 
 	tvnet->h2ep_ctrl.rd = &ep_mem->ep_cnt->h2ep_ctrl_rd_cnt;

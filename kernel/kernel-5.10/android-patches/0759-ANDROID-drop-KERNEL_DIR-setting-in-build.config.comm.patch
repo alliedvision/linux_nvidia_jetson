@@ -1,0 +1,176 @@
+From 9a6a50d659ce778e6ce41cea5af6ba86697143e5 Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Mon, 3 Aug 2020 16:18:08 -0700
+Subject: [PATCH 759/830] ANDROID: drop KERNEL_DIR setting in
+ build.config.common
+X-NVConfidentiality: public
+
+And replace many references of ${ROOT_DIR}/common with
+${ROOT_DIR}/${KERNEL_DIR}, which makes it a lot easier
+to branch off of ACK and update the KERNEL_DIR.
+
+The variable of KERNEL_DIR will be set in build/_setup_env.sh
+to the directory of the build config file by default if it's
+not set explicitly in the build config file or in environment.
+
+Test: build test with following configs
+        common/build.config.gki.aarch64
+        common/build.config.db845c
+        common/build.config.hikey960
+        cuttlefish-modules/build.config.cuttlefish.aarch64
+
+Bug: 162785964
+Change-Id: I790ac0ded10bd790484f14c6f93d53e06c38b830
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Yongqin Liu <yongqin.liu@linaro.org>
+(cherry picked from commit 931718fa65fe5e34d143250c048f591a7d74e5f8)
+[elavila: resolve conflicts]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ build.config.allmodconfig.aarch64 | 6 +++---
+ build.config.allmodconfig.arm     | 6 +++---
+ build.config.allmodconfig.x86_64  | 6 +++---
+ build.config.common               | 1 -
+ build.config.db845c               | 8 ++++----
+ build.config.gki-debug.aarch64    | 2 +-
+ build.config.gki-debug.x86_64     | 2 +-
+ build.config.gki.aarch64          | 6 +++---
+ build.config.gki.x86_64           | 6 +++---
+ build.config.gki_kasan.aarch64    | 6 +++---
+ build.config.gki_kasan.x86_64     | 6 +++---
+ 11 files changed, 27 insertions(+), 28 deletions(-)
+
+diff --git a/build.config.allmodconfig.aarch64 b/build.config.allmodconfig.aarch64
+index 863ab1caddab..2fbe380e030a 100644
+--- a/build.config.allmodconfig.aarch64
++++ b/build.config.allmodconfig.aarch64
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.aarch64
+-. ${ROOT_DIR}/common/build.config.allmodconfig
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.allmodconfig
+ 
+diff --git a/build.config.allmodconfig.arm b/build.config.allmodconfig.arm
+index 5dd94819c871..e92744a9b518 100644
+--- a/build.config.allmodconfig.arm
++++ b/build.config.allmodconfig.arm
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.arm
+-. ${ROOT_DIR}/common/build.config.allmodconfig
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.arm
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.allmodconfig
+ 
+diff --git a/build.config.allmodconfig.x86_64 b/build.config.allmodconfig.x86_64
+index bedb3869d99b..f06b30c8426f 100644
+--- a/build.config.allmodconfig.x86_64
++++ b/build.config.allmodconfig.x86_64
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.x86_64
+-. ${ROOT_DIR}/common/build.config.allmodconfig
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.allmodconfig
+ 
+diff --git a/build.config.common b/build.config.common
+index 0ca65cf86544..faf89e27399a 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -1,6 +1,5 @@
+ BRANCH=android-mainline
+ KMI_GENERATION=0
+-KERNEL_DIR=common
+ 
+ CC=clang
+ LD=ld.lld
+diff --git a/build.config.db845c b/build.config.db845c
+index d0b11bb07255..03351b8d8149 100644
+--- a/build.config.db845c
++++ b/build.config.db845c
+@@ -1,10 +1,10 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.aarch64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
+ 
+ BUILD_INITRAMFS=1
+ DEFCONFIG=db845c_gki_defconfig
+-PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/common/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/common/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/common/arch/arm64/configs/db845c_gki.fragment"
+-POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG}"
++PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/db845c_gki.fragment"
++POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG}"
+ 
+ MAKE_GOALS="${MAKE_GOALS}
+ qcom/sdm845-db845c.dtb
+diff --git a/build.config.gki-debug.aarch64 b/build.config.gki-debug.aarch64
+index 58cee7a6362b..c1fe2f03a279 100644
+--- a/build.config.gki-debug.aarch64
++++ b/build.config.gki-debug.aarch64
+@@ -1,3 +1,3 @@
+-. ${ROOT_DIR}/common/build.config.gki.aarch64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki.aarch64
+ TRIM_NONLISTED_KMI=""
+ KMI_SYMBOL_LIST_STRICT_MODE=""
+diff --git a/build.config.gki-debug.x86_64 b/build.config.gki-debug.x86_64
+index 9ee51e7de18c..d89b7ad4e804 100644
+--- a/build.config.gki-debug.x86_64
++++ b/build.config.gki-debug.x86_64
+@@ -1,3 +1,3 @@
+-. ${ROOT_DIR}/common/build.config.gki.x86_64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki.x86_64
+ TRIM_NONLISTED_KMI=""
+ KMI_SYMBOL_LIST_STRICT_MODE=""
+diff --git a/build.config.gki.aarch64 b/build.config.gki.aarch64
+index 78d11f3db888..8f0dcdb3bd2b 100644
+--- a/build.config.gki.aarch64
++++ b/build.config.gki.aarch64
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.aarch64
+-. ${ROOT_DIR}/common/build.config.gki
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+ 
+diff --git a/build.config.gki.x86_64 b/build.config.gki.x86_64
+index 627d1e1c27ab..0e04fc692df2 100644
+--- a/build.config.gki.x86_64
++++ b/build.config.gki.x86_64
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.x86_64
+-. ${ROOT_DIR}/common/build.config.gki
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+ 
+diff --git a/build.config.gki_kasan.aarch64 b/build.config.gki_kasan.aarch64
+index 3ce42b72ffd2..9fd2560c45e8 100644
+--- a/build.config.gki_kasan.aarch64
++++ b/build.config.gki_kasan.aarch64
+@@ -1,3 +1,3 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.aarch64
+-. ${ROOT_DIR}/common/build.config.gki_kasan
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki_kasan
+diff --git a/build.config.gki_kasan.x86_64 b/build.config.gki_kasan.x86_64
+index 6a379eceeb31..eec645805f39 100644
+--- a/build.config.gki_kasan.x86_64
++++ b/build.config.gki_kasan.x86_64
+@@ -1,4 +1,4 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.x86_64
+-. ${ROOT_DIR}/common/build.config.gki_kasan
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
++. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki_kasan
+ 
+-- 
+2.17.1
+

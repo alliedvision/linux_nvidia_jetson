@@ -1,0 +1,45 @@
+From 90884e91ee49bd8757b528e674c3c7529e51ad9a Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Wed, 11 Dec 2019 09:39:14 -0800
+Subject: [PATCH 597/830] ANDROID: gki_defconfig: enable HID configs
+X-NVConfidentiality: public
+
+Enable CONFIG_HID_SONY and CONFIG_HID_PLANTRONICS for GKI
+
+Bug: 145847133
+Change-Id: I44437f67427021186aeac14d1771dcdee69c4022
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index ef28047456ba..0d2970af7591 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -331,6 +331,8 @@ CONFIG_HID_ELECOM=y
+ CONFIG_HID_MAGICMOUSE=y
+ CONFIG_HID_MICROSOFT=y
+ CONFIG_HID_MULTITOUCH=y
++CONFIG_HID_PLANTRONICS=y
++CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB=y
+ CONFIG_USB_OTG=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index dff2f3203603..b5ed0ed82e84 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -289,6 +289,8 @@ CONFIG_HID_ELECOM=y
+ CONFIG_HID_MAGICMOUSE=y
+ CONFIG_HID_MICROSOFT=y
+ CONFIG_HID_MULTITOUCH=y
++CONFIG_HID_PLANTRONICS=y
++CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB=y
+ CONFIG_USB_GADGET=y
+-- 
+2.17.1
+

@@ -25,12 +25,13 @@
 
 	sce@b000000 {
 		status = "okay";
-		hsp {
-			nvidia,hsp-shared-mailbox = <&sce_hsp 0>;
-		};
+		mboxes = <&sce_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(1)>,
+			<&sce_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(0)>;
+		mbox-names = "tx", "rx";
 	};
 
 	tegra-hsp@b150000 {
+		#mbox-cells = <2>;
 		status = "okay";
 	};
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,7 +35,7 @@
 #include <nvgpu/gr/fecs_trace.h>
 #include <nvgpu/gr/gr_utils.h>
 
-static int nvgpu_gr_fecs_trace_periodic_polling(void *arg);
+static void nvgpu_gr_fecs_trace_periodic_polling(void *arg);
 
 int nvgpu_gr_fecs_trace_add_context(struct gk20a *g, u32 context_ptr,
 	pid_t pid, u32 vmid, struct nvgpu_list_node *list)
@@ -134,8 +134,9 @@ void nvgpu_gr_fecs_trace_find_pid(struct gk20a *g, u32 context_ptr,
 int nvgpu_gr_fecs_trace_init(struct gk20a *g)
 {
 	struct nvgpu_gr_fecs_trace *trace;
+	int err;
 
-	if (!is_power_of_2(GK20A_FECS_TRACE_NUM_RECORDS)) {
+	if (!is_power_of_2((u32)GK20A_FECS_TRACE_NUM_RECORDS)) {
 		nvgpu_err(g, "invalid NUM_RECORDS chosen");
 		nvgpu_set_enabled(g, NVGPU_SUPPORT_FECS_CTXSW_TRACE, false);
 		return -EINVAL;
@@ -157,7 +158,13 @@ int nvgpu_gr_fecs_trace_init(struct gk20a *g)
 
 	trace->enable_count = 0;
 
-	return 0;
+	err = nvgpu_periodic_timer_init(&trace->poll_timer,
+			nvgpu_gr_fecs_trace_periodic_polling, g);
+	if (err != 0) {
+		nvgpu_err(g, "failed to create fecs_trace timer err=%d", err);
+	}
+
+	return err;
 }
 
 int nvgpu_gr_fecs_trace_deinit(struct gk20a *g)
@@ -170,11 +177,12 @@ int nvgpu_gr_fecs_trace_deinit(struct gk20a *g)
 
 	/*
 	 * Check if tracer was enabled before attempting to stop the
-	 * tracer thread.
+	 * tracer timer.
 	 */
 	if (trace->enable_count > 0) {
-		nvgpu_thread_stop(&trace->poll_task);
+		nvgpu_periodic_timer_stop(&trace->poll_timer);
 	}
+	nvgpu_periodic_timer_destroy(&trace->poll_timer);
 
 	nvgpu_gr_fecs_trace_remove_contexts(g, &trace->context_list);
 
@@ -189,8 +197,8 @@ int nvgpu_gr_fecs_trace_deinit(struct gk20a *g)
 
 int nvgpu_gr_fecs_trace_num_ts(struct gk20a *g)
 {
-	return (g->ops.gr.ctxsw_prog.hw_get_ts_record_size_in_bytes()
-		- sizeof(struct nvgpu_fecs_trace_record)) / sizeof(u64);
+	return (int)((g->ops.gr.ctxsw_prog.hw_get_ts_record_size_in_bytes()
+		- sizeof(struct nvgpu_fecs_trace_record)) / sizeof(u64));
 }
 
 struct nvgpu_fecs_trace_record *nvgpu_gr_fecs_trace_get_record(
@@ -207,7 +215,7 @@ struct nvgpu_fecs_trace_record *nvgpu_gr_fecs_trace_get_record(
 
 	return (struct nvgpu_fecs_trace_record *)
 		((u8 *) mem->cpu_va +
-		(idx * g->ops.gr.ctxsw_prog.hw_get_ts_record_size_in_bytes()));
+		((u32)idx * g->ops.gr.ctxsw_prog.hw_get_ts_record_size_in_bytes()));
 }
 
 bool nvgpu_gr_fecs_trace_is_valid_record(struct gk20a *g,
@@ -262,8 +270,8 @@ int nvgpu_gr_fecs_trace_enable(struct gk20a *g)
 			 * (Bit 31:31) should be set to 1. Bits 30:0 represents
 			 * actual pointer value.
 			 */
-			write = write |
-				(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT));
+			write = (int)((u32)write |
+				(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT)));
 		}
 
 		g->ops.gr.fecs_trace.set_read_index(g, write);
@@ -280,10 +288,10 @@ int nvgpu_gr_fecs_trace_enable(struct gk20a *g)
 			g->ops.gr.fecs_trace.set_read_index(g, write);
 		}
 
-		err = nvgpu_thread_create(&trace->poll_task, g,
-				nvgpu_gr_fecs_trace_periodic_polling, __func__);
+		err = nvgpu_periodic_timer_start(&trace->poll_timer,
+				GK20A_FECS_TRACE_FRAME_PERIOD_NS);
 		if (err != 0) {
-			nvgpu_warn(g, "failed to create FECS polling task");
+			nvgpu_warn(g, "failed to start FECS polling timer");
 			goto done;
 		}
 	}
@@ -315,8 +323,8 @@ int nvgpu_gr_fecs_trace_disable(struct gk20a *g)
 			 * For disabling FECS trace support, MAILBOX1's MSB
 			 * (Bit 31:31) should be set to 0.
 			 */
-			read = g->ops.gr.fecs_trace.get_read_index(g) &
-				(~(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT)));
+			read = (int)((u32)(g->ops.gr.fecs_trace.get_read_index(g)) &
+				(~(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT))));
 
 			g->ops.gr.fecs_trace.set_read_index(g, read);
 
@@ -333,7 +341,7 @@ int nvgpu_gr_fecs_trace_disable(struct gk20a *g)
 				g->ops.gr.fecs_trace.set_read_index(g, read);
 			}
 		}
-		nvgpu_thread_stop(&trace->poll_task);
+		nvgpu_periodic_timer_stop(&trace->poll_timer);
 	}
 	nvgpu_mutex_release(&trace->enable_lock);
 
@@ -420,7 +428,7 @@ int nvgpu_gr_fecs_trace_ring_read(struct gk20a *g, int index,
 	/* break out FECS record into trace events */
 	for (i = 0; i < nvgpu_gr_fecs_trace_num_ts(g); i++) {
 
-		entry.tag = g->ops.gr.ctxsw_prog.hw_get_ts_tag(r->ts[i]);
+		entry.tag = (u8)g->ops.gr.ctxsw_prog.hw_get_ts_tag(r->ts[i]);
 		entry.timestamp =
 			g->ops.gr.ctxsw_prog.hw_record_ts_timestamp(r->ts[i]);
 		entry.timestamp <<= GK20A_FECS_TRACE_PTIMER_SHIFT;
@@ -434,8 +442,8 @@ int nvgpu_gr_fecs_trace_ring_read(struct gk20a *g, int index,
 		case NVGPU_GPU_CTXSW_TAG_RESTORE_START:
 		case NVGPU_GPU_CTXSW_TAG_CONTEXT_START:
 			entry.context_id = r->new_context_id;
-			entry.pid = new_pid;
-			entry.vmid = new_vmid;
+			entry.pid = (u64)new_pid;
+			entry.vmid = (u8)new_vmid;
 			break;
 
 		case NVGPU_GPU_CTXSW_TAG_CTXSW_REQ_BY_HOST:
@@ -446,8 +454,8 @@ int nvgpu_gr_fecs_trace_ring_read(struct gk20a *g, int index,
 		case NVGPU_GPU_CTXSW_TAG_FE_ACK_CILP:
 		case NVGPU_GPU_CTXSW_TAG_SAVE_END:
 			entry.context_id = r->context_id;
-			entry.pid = cur_pid;
-			entry.vmid = cur_vmid;
+			entry.pid = (u64)cur_pid;
+			entry.vmid = (u8)cur_vmid;
 			break;
 
 		default:
@@ -474,7 +482,7 @@ int nvgpu_gr_fecs_trace_ring_read(struct gk20a *g, int index,
 		count++;
 	}
 
-	nvgpu_gr_fecs_trace_wake_up(g, vmid);
+	nvgpu_gr_fecs_trace_wake_up(g, (int)vmid);
 	return count;
 }
 
@@ -507,7 +515,7 @@ int nvgpu_gr_fecs_trace_poll(struct gk20a *g)
 
 	read = g->ops.gr.fecs_trace.get_read_index(g);
 
-	cnt = CIRC_CNT(write, read, GK20A_FECS_TRACE_NUM_RECORDS);
+	cnt = CIRC_CNT((u32)write, (u32)read, GK20A_FECS_TRACE_NUM_RECORDS);
 	if (!cnt)
 		goto done;
 
@@ -524,7 +532,7 @@ int nvgpu_gr_fecs_trace_poll(struct gk20a *g)
 
 	if (nvgpu_is_enabled(g, NVGPU_FECS_TRACE_FEATURE_CONTROL)) {
 		/* Bits 30:0 of MAILBOX1 represents actual read pointer value */
-		read = read & (~(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT)));
+		read = ((u32)read) & (~(BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT)));
 	}
 
 	while (read != write) {
@@ -543,7 +551,7 @@ int nvgpu_gr_fecs_trace_poll(struct gk20a *g)
 		 * So, MSB of read pointer should be set back to 1. This will
 		 * keep FECS trace enabled.
 		 */
-		read = read | (BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT));
+		read = (int)(((u32)read) | (BIT32(NVGPU_FECS_TRACE_FEATURE_CONTROL_BIT)));
 	}
 
 	/* ensure FECS records has been updated before incrementing read index */
@@ -572,23 +580,14 @@ done_unlock:
 	return err;
 }
 
-static int nvgpu_gr_fecs_trace_periodic_polling(void *arg)
+static void nvgpu_gr_fecs_trace_periodic_polling(void *arg)
 {
 	struct gk20a *g = (struct gk20a *)arg;
 	struct nvgpu_gr_fecs_trace *trace = g->fecs_trace;
 
-	nvgpu_log(g, gpu_dbg_ctxsw, "thread running");
-
-	while (!nvgpu_thread_should_stop(&trace->poll_task) &&
-			trace->enable_count > 0U) {
-
-		nvgpu_usleep_range(GK20A_FECS_TRACE_FRAME_PERIOD_US,
-				   GK20A_FECS_TRACE_FRAME_PERIOD_US * 2U);
-
+	if (trace->enable_count > 0U) {
 		nvgpu_gr_fecs_trace_poll(g);
 	}
-
-	return 0;
 }
 
 int nvgpu_gr_fecs_trace_reset(struct gk20a *g)

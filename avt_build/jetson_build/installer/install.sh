@@ -30,8 +30,9 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson"
-REQ_KERNEL="5.10.65"
+REQ_KERNEL="5.10.104"
 DEST="/boot"
+
 
 echo -e ${RED}"Allied Vision"${NC}" MIPI CSI-2 camera driver for "${GREEN}${REQ_MACHINE}${NC}" (kernel "${REQ_KERNEL}")"
 
@@ -47,6 +48,8 @@ usage() {
 inst() {
   sudo modprobe mtd_blkdevs
   sudo modprobe mtdblock
+
+  set -e
 
   echo "Extracting repository:"
 

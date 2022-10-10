@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,7 +36,7 @@
 #include <hal/bus/bus_gm20b.h>
 #include <hal/bus/bus_gp10b.h>
 #include <hal/bus/bus_gv11b.h>
-#include <hal/cic/mon/cic_gv11b.h>
+#include <hal/cic/mon/cic_ga10b.h>
 
 #include <nvgpu/hw/gv11b/hw_mc_gv11b.h>
 #include <nvgpu/hw/gv11b/hw_bus_gv11b.h>
@@ -130,8 +130,7 @@ int test_bus_setup(struct unit_module *m, struct gk20a *g, void *args)
 	g->ops.mc.intr_nonstall_unit_config =
 					mc_gp10b_intr_nonstall_unit_config;
 	g->ops.ptimer.isr = gk20a_ptimer_isr;
-	g->ops.cic_mon.init = gv11b_cic_mon_init;
-	g->ops.cic_mon.report_err = nvgpu_cic_mon_report_err_safety_services;
+	g->ops.cic_mon.init = ga10b_cic_mon_init;
 
 	/* Map register space NV_PRIV_MASTER */
 	if (nvgpu_posix_io_add_reg_space(g, NV_PBUS_START, NV_PBUS_SIZE) != 0) {

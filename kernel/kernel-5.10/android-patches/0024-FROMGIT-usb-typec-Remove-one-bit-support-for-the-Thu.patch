@@ -1,0 +1,45 @@
+From 15a309efe761f56fb937b0b7f4a11de3e2c5fe61 Mon Sep 17 00:00:00 2001
+From: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Date: Fri, 13 Nov 2020 12:24:59 -0800
+Subject: [PATCH 024/830] FROMGIT: usb: typec: Remove one bit support for the
+ Thunderbolt rounded/non-rounded cable
+X-NVConfidentiality: public
+
+Two bits support for the Thunderbolt rounded/non-rounded cable has been
+added to the header file.
+Hence, removing unused TBT_CABLE_ROUNDED definition from the header file.
+
+Bug: 174347172
+Signed-off-by: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+--
+changes in v2:
+- Removed the fixes tag as there is no functional implication.
+--
+Link: https://lore.kernel.org/r/20201113202503.6559-5-utkarsh.h.patel@intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 523a97aa3b756c1e0efe33ae48d450f8b0052073
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Cc: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I234173609f3fd9a7880f712d6e5c2d14721a7534
+---
+ include/linux/usb/typec_tbt.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/include/linux/usb/typec_tbt.h b/include/linux/usb/typec_tbt.h
+index aad648d14bb3..63dd44b72e0c 100644
+--- a/include/linux/usb/typec_tbt.h
++++ b/include/linux/usb/typec_tbt.h
+@@ -39,7 +39,6 @@ struct typec_thunderbolt_data {
+ #define   TBT_CABLE_USB3_GEN1		1
+ #define   TBT_CABLE_USB3_PASSIVE	2
+ #define   TBT_CABLE_10_AND_20GBPS	3
+-#define TBT_CABLE_ROUNDED		BIT(19)
+ #define TBT_CABLE_ROUNDED_SUPPORT(_vdo_) \
+ 					(((_vdo_) & GENMASK(20, 19)) >> 19)
+ #define   TBT_GEN3_NON_ROUNDED                 0
+-- 
+2.17.1
+

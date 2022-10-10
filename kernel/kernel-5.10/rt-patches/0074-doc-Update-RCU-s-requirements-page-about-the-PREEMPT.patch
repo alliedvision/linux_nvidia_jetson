@@ -1,7 +1,7 @@
-From dc9eb6094cde8f6483ca69806ce5640237ca242a Mon Sep 17 00:00:00 2001
+From f4d01f55f6a2f415cfe94d827f1f682353d5962e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:48 +0100
-Subject: [PATCH 074/304] doc: Update RCU's requirements page about the
+Subject: [PATCH 074/318] doc: Update RCU's requirements page about the
  PREEMPT_RT wiki.
 
 The PREEMPT_RT wiki moved from kernel.org to the Linux Foundation wiki.
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Documentation/RCU/Design/Requirements/Requirements.rst b/Documentation/RCU/Design/Requirements/Requirements.rst
-index 1ae79a1..0f7e023 100644
+index 1ae79a10a8de..0f7e0237ea14 100644
 --- a/Documentation/RCU/Design/Requirements/Requirements.rst
 +++ b/Documentation/RCU/Design/Requirements/Requirements.rst
 @@ -2289,7 +2289,7 @@ decides to throw at it.
@@ -30,5 +30,5 @@ index 1ae79a1..0f7e023 100644
  approach of disabling preemption across RCU read-side critical sections
  is inappropriate. Kernels built with ``CONFIG_PREEMPT=y`` therefore use
 -- 
-2.7.4
+2.17.1
 

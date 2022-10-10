@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
 
 bitmap_find_next_zero_area
 fb_gv11b_write_mmu_fault_buffer_get
@@ -81,7 +81,6 @@ gm20b_gr_falcon_submit_fecs_method_op
 gm20b_gr_falcon_ctrl_ctxsw
 gm20b_bus_bar1_bind
 gp10b_bus_bar2_bind
-gp10b_ce_nonstall_isr
 gp10b_get_max_page_table_levels
 gp10b_mm_get_default_va_sizes
 gp10b_mm_get_iommu_bit
@@ -99,8 +98,8 @@ gv100_dump_engine_status
 gv100_read_engine_status_info
 gv11b_ce_get_num_pce
 gv11b_ce_init_prod_values
-gv11b_ce_mthd_buffer_fault_in_bar2_fault
 gv11b_ce_stall_isr
+gv11b_ce_get_inst_ptr_from_lce
 gv11b_channel_count
 gv11b_channel_read_state
 gv11b_channel_reset_faulted
@@ -276,12 +275,15 @@ nvgpu_bug_unregister_cb
 nvgpu_can_busy
 nvgpu_ce_engine_interrupt_mask
 nvgpu_ce_init_support
-nvgpu_cg_blcg_fb_ltc_load_enable
+nvgpu_ce_stall_isr
+nvgpu_cg_blcg_fb_load_enable
+nvgpu_cg_blcg_ltc_load_enable
 nvgpu_cg_blcg_fifo_load_enable
 nvgpu_cg_blcg_pmu_load_enable
 nvgpu_cg_blcg_ce_load_enable
 nvgpu_cg_blcg_gr_load_enable
-nvgpu_cg_slcg_fb_ltc_load_enable
+nvgpu_cg_slcg_fb_load_enable
+nvgpu_cg_slcg_ltc_load_enable
 nvgpu_cg_slcg_priring_load_enable
 nvgpu_cg_slcg_fifo_load_enable
 nvgpu_cg_slcg_pmu_load_enable
@@ -526,13 +528,9 @@ nvgpu_ltc_get_cacheline_size
 nvgpu_ltc_get_ltc_count
 nvgpu_ltc_get_slices_per_ltc
 nvgpu_ltc_remove_support
-nvgpu_ltc_sync_enabled
 nvgpu_local_golden_image_get_fault_injection
 nvgpu_log_msg_impl
 nvgpu_cic_mon_intr_mask
-nvgpu_cic_mon_intr_nonstall_pause
-nvgpu_cic_mon_intr_nonstall_resume
-nvgpu_cic_mon_intr_nonstall_unit_config
 nvgpu_cic_mon_intr_stall_pause
 nvgpu_cic_mon_intr_stall_resume
 nvgpu_cic_mon_intr_stall_unit_config
@@ -703,7 +701,7 @@ nvgpu_tsg_reset_faulted_eng_pbdma
 nvgpu_tsg_set_ctx_mmu_error
 nvgpu_tsg_set_error_notifier
 nvgpu_tsg_setup_sw
-nvgpu_tsg_force_unbind_channel
+nvgpu_tsg_unbind_channel
 nvgpu_tsg_unbind_channel_check_hw_state
 nvgpu_tsg_unbind_channel_check_ctx_reload
 nvgpu_set_bit
@@ -795,6 +793,7 @@ nvgpu_rc_gr_fault
 nvgpu_rc_sched_error_bad_tsg
 nvgpu_rc_tsg_and_related_engines
 nvgpu_rc_mmu_fault
+nvgpu_rc_ce_fault
 nvgpu_init_pramin
 gk20a_bus_set_bar0_window
 nvgpu_pramin_ops_init

@@ -1,0 +1,219 @@
+From 1a9dbd25164712d6a16901dfe46bbba2a57bf61e Mon Sep 17 00:00:00 2001
+From: Jimmy Shiu <jimmyshiu@google.com>
+Date: Tue, 3 Nov 2020 00:16:37 +0800
+Subject: [PATCH 183/830] ANDROID: attribute page lock and waitqueue functions
+ as sched
+X-NVConfidentiality: public
+
+trace_sched_blocked_trace in CFS is really useful for debugging via
+trace because it tell where the process was stuck on callstack.
+
+For example,
+           <...>-6143  ( 6136) [005] d..2    50.278987: sched_blocked_reason: pid=6136 iowait=0 caller=SyS_mprotect+0x88/0x208
+           <...>-6136  ( 6136) [005] d..2    50.278990: sched_blocked_reason: pid=6142 iowait=0 caller=do_page_fault+0x1f4/0x3b0
+           <...>-6142  ( 6136) [006] d..2    50.278996: sched_blocked_reason: pid=6144 iowait=0 caller=SyS_prctl+0x52c/0xb58
+           <...>-6144  ( 6136) [006] d..2    50.279007: sched_blocked_reason: pid=6136 iowait=0 caller=vm_mmap_pgoff+0x74/0x104
+
+However, sometime it gives pointless information like this.
+    RenderThread-2322  ( 1805) [006] d.s3    50.319046: sched_blocked_reason: pid=6136 iowait=1 caller=__lock_page_killable+0x17c/0x220
+     logd.writer-594   (  587) [002] d.s3    50.334011: sched_blocked_reason: pid=6126 iowait=1 caller=wait_on_page_bit+0x194/0x208
+  kworker/u16:13-333   (  333) [007] d.s4    50.343161: sched_blocked_reason: pid=6136 iowait=1 caller=__lock_page_killable+0x17c/0x220
+
+Such wait_on_page_bit, __lock_page_killable are pointless because it doesn't
+carry on higher information to identify the callstack.
+
+The reason is page_lock and waitqueue are special synchronization method unlike
+other normal locks(mutex, spinlock).
+Let's mark them as "__sched" so get_wchan which used in trace_sched_blocked_trace
+could detect it and skip them. It will produce more meaningful callstack
+function like this.
+
+           <...>-2867  ( 1068) [002] d.h4   124.209701: sched_blocked_reason: pid=329 iowait=0 caller=worker_thread+0x378/0x470
+           <...>-2867  ( 1068) [002] d.s3   124.209763: sched_blocked_reason: pid=8454 iowait=1 caller=__filemap_fdatawait_range+0xa0/0x104
+           <...>-2867  ( 1068) [002] d.s4   124.209803: sched_blocked_reason: pid=869 iowait=0 caller=worker_thread+0x378/0x470
+ ScreenDecoratio-2364  ( 1867) [002] d.s3   124.209973: sched_blocked_reason: pid=8454 iowait=1 caller=f2fs_wait_on_page_writeback+0x84/0xcc
+ ScreenDecoratio-2364  ( 1867) [002] d.s4   124.209986: sched_blocked_reason: pid=869 iowait=0 caller=worker_thread+0x378/0x470
+           <...>-329   (  329) [000] d..3   124.210435: sched_blocked_reason: pid=538 iowait=0 caller=worker_thread+0x378/0x470
+  kworker/u16:13-538   (  538) [007] d..3   124.210450: sched_blocked_reason: pid=6 iowait=0 caller=worker_thread+0x378/0x470
+
+Test: build pass and boot to home.
+Bug: 144961676
+Bug: 144713689
+Bug: 172212772
+Signed-off-by: Minchan Kim <minchan@google.com>
+Signed-off-by: Jimmy Shiu <jimmyshiu@google.com>
+Change-Id: I9c738802a16941ca767dcc37ae4463070b3fabf4
+(cherry picked from commit 1e4de875d9e0cfaccf5131bcc709ae8646cdc168)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ include/linux/pagemap.h | 13 +++++++------
+ kernel/sched/wait.c     |  8 +++++---
+ mm/filemap.c            | 14 +++++++-------
+ 3 files changed, 19 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
+index fcb3f040102a..d4f2c8d8322c 100644
+--- a/include/linux/pagemap.h
++++ b/include/linux/pagemap.h
+@@ -15,6 +15,7 @@
+ #include <linux/bitops.h>
+ #include <linux/hardirq.h> /* for in_interrupt() */
+ #include <linux/hugetlb_inline.h>
++#include <linux/sched/debug.h>
+ 
+ struct pagevec;
+ 
+@@ -604,7 +605,7 @@ static inline int trylock_page(struct page *page)
+ /*
+  * lock_page may only be called if we have the page's inode pinned.
+  */
+-static inline void lock_page(struct page *page)
++static inline __sched void lock_page(struct page *page)
+ {
+ 	might_sleep();
+ 	if (!trylock_page(page))
+@@ -616,7 +617,7 @@ static inline void lock_page(struct page *page)
+  * signals.  It returns 0 if it locked the page and -EINTR if it was
+  * killed while waiting.
+  */
+-static inline int lock_page_killable(struct page *page)
++static inline __sched int lock_page_killable(struct page *page)
+ {
+ 	might_sleep();
+ 	if (!trylock_page(page))
+@@ -632,7 +633,7 @@ static inline int lock_page_killable(struct page *page)
+  * Returns 0 if the page is locked successfully, or -EIOCBQUEUED if the page
+  * was already locked and the callback defined in 'wait' was queued.
+  */
+-static inline int lock_page_async(struct page *page,
++static inline __sched int lock_page_async(struct page *page,
+ 				  struct wait_page_queue *wait)
+ {
+ 	if (!trylock_page(page))
+@@ -647,7 +648,7 @@ static inline int lock_page_async(struct page *page,
+  * Return value and mmap_lock implications depend on flags; see
+  * __lock_page_or_retry().
+  */
+-static inline int lock_page_or_retry(struct page *page, struct mm_struct *mm,
++static inline __sched int lock_page_or_retry(struct page *page, struct mm_struct *mm,
+ 				     unsigned int flags)
+ {
+ 	might_sleep();
+@@ -668,13 +669,13 @@ extern int wait_on_page_bit_killable(struct page *page, int bit_nr);
+  * ie with increased "page->count" so that the page won't
+  * go away during the wait..
+  */
+-static inline void wait_on_page_locked(struct page *page)
++static inline __sched void wait_on_page_locked(struct page *page)
+ {
+ 	if (PageLocked(page))
+ 		wait_on_page_bit(compound_head(page), PG_locked);
+ }
+ 
+-static inline int wait_on_page_locked_killable(struct page *page)
++static inline __sched int wait_on_page_locked_killable(struct page *page)
+ {
+ 	if (!PageLocked(page))
+ 		return 0;
+diff --git a/kernel/sched/wait.c b/kernel/sched/wait.c
+index a55642aa3f68..6911bbca018c 100644
+--- a/kernel/sched/wait.c
++++ b/kernel/sched/wait.c
+@@ -396,7 +396,8 @@ void finish_wait(struct wait_queue_head *wq_head, struct wait_queue_entry *wq_en
+ }
+ EXPORT_SYMBOL(finish_wait);
+ 
+-int autoremove_wake_function(struct wait_queue_entry *wq_entry, unsigned mode, int sync, void *key)
++__sched int autoremove_wake_function(struct wait_queue_entry *wq_entry, unsigned int mode,
++				     int sync, void *key)
+ {
+ 	int ret = default_wake_function(wq_entry, mode, sync, key);
+ 
+@@ -432,7 +433,7 @@ static inline bool is_kthread_should_stop(void)
+  * }						smp_mb(); // C
+  * remove_wait_queue(&wq_head, &wait);		wq_entry->flags |= WQ_FLAG_WOKEN;
+  */
+-long wait_woken(struct wait_queue_entry *wq_entry, unsigned mode, long timeout)
++__sched long wait_woken(struct wait_queue_entry *wq_entry, unsigned int mode, long timeout)
+ {
+ 	/*
+ 	 * The below executes an smp_mb(), which matches with the full barrier
+@@ -457,7 +458,8 @@ long wait_woken(struct wait_queue_entry *wq_entry, unsigned mode, long timeout)
+ }
+ EXPORT_SYMBOL(wait_woken);
+ 
+-int woken_wake_function(struct wait_queue_entry *wq_entry, unsigned mode, int sync, void *key)
++__sched int woken_wake_function(struct wait_queue_entry *wq_entry, unsigned int mode,
++				int sync, void *key)
+ {
+ 	/* Pairs with the smp_store_mb() in wait_woken(). */
+ 	smp_mb(); /* C */
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 125b69f59caa..4decaa47144d 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -1193,7 +1193,7 @@ static inline bool trylock_page_bit_common(struct page *page, int bit_nr,
+ /* How many times do we accept lock stealing from under a waiter? */
+ int sysctl_page_lock_unfairness = 5;
+ 
+-static inline int wait_on_page_bit_common(wait_queue_head_t *q,
++static inline __sched int wait_on_page_bit_common(wait_queue_head_t *q,
+ 	struct page *page, int bit_nr, int state, enum behavior behavior)
+ {
+ 	int unfairness = sysctl_page_lock_unfairness;
+@@ -1332,14 +1332,14 @@ static inline int wait_on_page_bit_common(wait_queue_head_t *q,
+ 	return wait->flags & WQ_FLAG_WOKEN ? 0 : -EINTR;
+ }
+ 
+-void wait_on_page_bit(struct page *page, int bit_nr)
++__sched void wait_on_page_bit(struct page *page, int bit_nr)
+ {
+ 	wait_queue_head_t *q = page_waitqueue(page);
+ 	wait_on_page_bit_common(q, page, bit_nr, TASK_UNINTERRUPTIBLE, SHARED);
+ }
+ EXPORT_SYMBOL(wait_on_page_bit);
+ 
+-int wait_on_page_bit_killable(struct page *page, int bit_nr)
++__sched int wait_on_page_bit_killable(struct page *page, int bit_nr)
+ {
+ 	wait_queue_head_t *q = page_waitqueue(page);
+ 	return wait_on_page_bit_common(q, page, bit_nr, TASK_KILLABLE, SHARED);
+@@ -1536,7 +1536,7 @@ EXPORT_SYMBOL_GPL(page_endio);
+  * __lock_page - get a lock on the page, assuming we need to sleep to get it
+  * @__page: the page to lock
+  */
+-void __lock_page(struct page *__page)
++__sched void __lock_page(struct page *__page)
+ {
+ 	struct page *page = compound_head(__page);
+ 	wait_queue_head_t *q = page_waitqueue(page);
+@@ -1545,7 +1545,7 @@ void __lock_page(struct page *__page)
+ }
+ EXPORT_SYMBOL(__lock_page);
+ 
+-int __lock_page_killable(struct page *__page)
++__sched int __lock_page_killable(struct page *__page)
+ {
+ 	struct page *page = compound_head(__page);
+ 	wait_queue_head_t *q = page_waitqueue(page);
+@@ -1554,7 +1554,7 @@ int __lock_page_killable(struct page *__page)
+ }
+ EXPORT_SYMBOL_GPL(__lock_page_killable);
+ 
+-int __lock_page_async(struct page *page, struct wait_page_queue *wait)
++__sched int __lock_page_async(struct page *page, struct wait_page_queue *wait)
+ {
+ 	return __wait_on_page_locked_async(page, wait, true);
+ }
+@@ -1570,7 +1570,7 @@ int __lock_page_async(struct page *page, struct wait_page_queue *wait)
+  * If neither ALLOW_RETRY nor KILLABLE are set, will always return 1
+  * with the page locked and the mmap_lock unperturbed.
+  */
+-int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
++__sched int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
+ 			 unsigned int flags)
+ {
+ 	if (fault_flag_allow_retry_first(flags)) {
+-- 
+2.17.1
+

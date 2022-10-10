@@ -1,19 +1,12 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- */
-
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Audio DT overlay to enable onboard rt5658 audio codec on Concord
  *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+/*
  * Note: This overlay is necessary because some of the boards may not have
  * rt5658 codec populated due to shortage of parts. Default assumption of
  * codec presence will result in sound card registration failure and audio
@@ -63,6 +56,13 @@
 
 				status = "okay";
 
+				port {
+					rt5658_ep: endpoint {
+						remote-endpoint = <&i2s1_dap_ep>;
+						mclk-fs = <256>;
+						link-name = "rt565x-playback";
+					};
+				};
 			};
 		};
 	};
@@ -101,6 +101,42 @@
 				sound-dai = <&rt5658 0>;
 				prefix = "CVB-RT";
 			};
+		};
+	};
+
+	fragment@3 {
+		target = <&tegra_sound_graph>;
+
+		__overlay__ {
+			widgets = "Headphone",    "CVB-RT Headphone Jack",
+				  "Microphone",   "CVB-RT Mic Jack",
+				  "Speaker",      "CVB-RT Int Spk",
+				  "Microphone",   "CVB-RT Int Mic";
+
+			routing = "CVB-RT Headphone Jack",     "CVB-RT HPO L Playback",
+				  "CVB-RT Headphone Jack",     "CVB-RT HPO R Playback",
+				  "CVB-RT IN1P",               "CVB-RT Mic Jack",
+				  "CVB-RT IN2P",               "CVB-RT Mic Jack",
+				  "CVB-RT Int Spk",            "CVB-RT SPO Playback",
+				  "CVB-RT DMIC L1",            "CVB-RT Int Mic",
+				  "CVB-RT DMIC L2",            "CVB-RT Int Mic",
+				  "CVB-RT DMIC R1",            "CVB-RT Int Mic",
+				  "CVB-RT DMIC R2",            "CVB-RT Int Mic";
+
+			/*
+			 * For codec2codec based DAI link design this is required.
+			 * For DPCM based design, this is optional and instead
+			 * it will be picked from codec port node.
+			 */
+			mclk-fs = <256>;
+		};
+	};
+
+	fragment@4 {
+		target = <&i2s1_dap_ep>;
+
+		__overlay__ {
+			remote-endpoint = <&rt5658_ep>;
 		};
 	};
 };

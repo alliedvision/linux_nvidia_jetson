@@ -1,7 +1,7 @@
-From f7eabb34e5914192d3fa6e32e93f62f69631695e Mon Sep 17 00:00:00 2001
+From 07633f71b38a169bfce70ac38c4fe6ccec8267e1 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 11 Feb 2019 10:40:46 +0100
-Subject: [PATCH 110/304] mm: workingset: replace IRQ-off check with a lockdep
+Subject: [PATCH 110/318] mm: workingset: replace IRQ-off check with a lockdep
  assert.
 
 Commit
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/mm/workingset.c b/mm/workingset.c
-index 975a4d2..c3d098c 100644
+index 975a4d2dd02e..c3d098c01052 100644
 --- a/mm/workingset.c
 +++ b/mm/workingset.c
 @@ -432,6 +432,8 @@ static struct list_lru shadow_nodes;
@@ -44,5 +44,5 @@ index 975a4d2..c3d098c 100644
  	if (node->count && node->count == node->nr_values) {
  		if (list_empty(&node->private_list)) {
 -- 
-2.7.4
+2.17.1
 

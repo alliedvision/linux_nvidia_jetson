@@ -23,6 +23,13 @@ bl_update_payload="bl_update_payload"
 bl_only_payload="bl_only_payload"
 use_war="true"
 
+if [[ -v DEBCONF_RECONFIGURE ]]; then
+  if [ "$DEBCONF_RECONFIGURE" -eq 1 ]; then
+    sudo modprobe mtd_blkdevs
+    sudo modprobe mtdblock
+  fi
+fi
+
 if [ -e "/opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall" ]; then
     echo "Pre-installing bootloader package, skip flashing"
     exit 0

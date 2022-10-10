@@ -2,7 +2,7 @@
  * edid_display_id_ext.c: Functions to parse E-EDID extension blocks encoded
  *                        in display ID format
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,7 +35,11 @@ static int disp_id_add_modes(struct fb_videomode *new_modes,
 	unsigned int num_modes_current, num_modes_total;
 	struct fb_videomode *new_modedb;
 
-	num_modes_current = specs->modedb_len;
+	if (specs->modedb == NULL)
+		num_modes_current = 0;
+	else
+		num_modes_current = specs->modedb_len;
+
 	num_modes_total = num_modes_current + num_modes_new;
 
 	new_modedb = kcalloc(num_modes_total, sizeof(*new_modes), GFP_KERNEL);
@@ -126,7 +130,7 @@ static void disp_id_timing1_fill_fb_mode(const struct disp_id_timing1_desc *t,
 	 * t is coming from edid->dc->vedid_data.
 	 * edid->dc->vedid_data is being populated through debugfs(edid_fops).
 	 */
-	speculation_barrier();
+	spec_bar();
 }
 
 static int disp_id_timing1_parse(const u8 *data, struct fb_monspecs *specs)

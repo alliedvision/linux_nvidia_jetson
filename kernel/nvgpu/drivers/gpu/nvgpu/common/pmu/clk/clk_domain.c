@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -606,7 +606,7 @@ static int devinit_get_clocks_table_35(struct gk20a *g,
 		}
 		status = boardobjgrp_objinsert(&pclkdomainobjs->super.super,
 				(struct pmu_board_obj *)(void *)
-				pclkdomain_dev, index);
+				pclkdomain_dev, (u8)index);
 		if (status != 0) {
 			nvgpu_err(g,
 			"unable to insert clock domain boardobj for %d", index);
@@ -1233,6 +1233,8 @@ static int clkdomainclkproglink_fixed(struct gk20a *g,
 				      struct nvgpu_clk_pmupstate *pclk,
 				      struct nvgpu_clk_domain *pdomain)
 {
+	(void)pclk;
+	(void)pdomain;
 	nvgpu_log_info(g, " ");
 	return 0;
 }
@@ -1650,7 +1652,7 @@ int nvgpu_pmu_clk_domain_get_from_index(struct gk20a *g, u32 *domain, u32 index)
 	struct nvgpu_clk_domain *clk_domain;
 
 	clk_domain = (struct nvgpu_clk_domain *) BOARDOBJGRP_OBJ_GET_BY_IDX(
-		&g->pmu->clk_pmu->clk_domainobjs->super.super, index);
+		&g->pmu->clk_pmu->clk_domainobjs->super.super, (u8)index);
 	if (clk_domain == NULL) {
 		return -EINVAL;
 	}
@@ -1729,6 +1731,9 @@ int nvgpu_pmu_clk_domain_freq_to_volt(struct gk20a *g, u8 clkdomain_idx,
 	int status = -EINVAL;
 	struct clk_vf_point *pclk_vf_point;
 	u8 index;
+
+	(void)clkdomain_idx;
+	(void)railidx;
 
 	nvgpu_log_info(g, " ");
 	pclk_vf_points = g->pmu->clk_pmu->clk_vf_pointobjs;

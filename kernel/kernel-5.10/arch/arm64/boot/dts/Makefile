@@ -36,6 +36,7 @@ endif
 ifeq ($(CONFIG_ARCH_TEGRA_239_SOC),y)
 DTC_INCLUDE += $(tegra-dtstree)/soc/t239/kernel-include
 DTC_INCLUDE += $(tegra-dtstree)/soc/t239/kernel-dts
+DTC_INCLUDE += $(tegra-dtstree)/platform/t239/common/kernel-dts
 endif
 
 DTB_LIST := $(dtb-y)

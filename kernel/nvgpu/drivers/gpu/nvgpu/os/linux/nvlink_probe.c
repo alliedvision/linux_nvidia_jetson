@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,25 +37,48 @@ int nvgpu_nvlink_read_dt_props(struct gk20a *g)
 	u32 remote_dev_id;
 	u32 remote_link_id;
 	bool is_master;
+	int err = 0;
 
 	/* Parse DT */
 	np = nvgpu_get_node(g);
-	if (!np)
+	if (!np) {
+		err = -ENODEV;
 		goto fail;
+	}
 
 	np = of_get_child_by_name(np, "nvidia,nvlink");
-	if (!np)
+	if (!np) {
+		err = -ENODEV;
 		goto fail;
+	}
 
 	np = of_get_child_by_name(np, "endpoint");
-	if (!np)
+	if (!np) {
+		err = -ENODEV;
 		goto fail;
+	}
 
 	/* Parse DT structure to detect endpoint topology */
-	of_property_read_u32(np, "local_dev_id", &local_dev_id);
-	of_property_read_u32(np, "local_link_id", &local_link_id);
-	of_property_read_u32(np, "remote_dev_id", &remote_dev_id);
-	of_property_read_u32(np, "remote_link_id", &remote_link_id);
+	err = of_property_read_u32(np, "local_dev_id", &local_dev_id);
+	if (err != 0) {
+		goto fail;
+	}
+
+	err = of_property_read_u32(np, "local_link_id", &local_link_id);
+	if (err != 0) {
+		goto fail;
+	}
+
+	err = of_property_read_u32(np, "remote_dev_id", &remote_dev_id);
+	if (err != 0) {
+		goto fail;
+	}
+
+	err = of_property_read_u32(np, "remote_link_id", &remote_link_id);
+	if (err != 0) {
+		goto fail;
+	}
+
 	is_master = of_property_read_bool(np, "is_master");
 
 	/* Check that we are in dGPU mode */
@@ -74,7 +97,7 @@ int nvgpu_nvlink_read_dt_props(struct gk20a *g)
 
 fail:
 	nvgpu_info(g, "nvlink endpoint not found or invaling in DT");
-	return -ENODEV;
+	return err;
 }
 
 static int nvgpu_nvlink_ops_early_init(struct nvlink_device *ndev)

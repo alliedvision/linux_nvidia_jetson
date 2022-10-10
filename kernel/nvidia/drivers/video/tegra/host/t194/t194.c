@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Init for T194 Architecture Chips
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,7 +32,6 @@
 #include "class_ids_t194.h"
 
 #include "nvhost_syncpt_unit_interface.h"
-#include "nvhost_gos.h"
 #include "t194.h"
 #include "host1x/host1x.h"
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_ISP)
@@ -48,13 +47,7 @@
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDEC)
 #include "nvdec/nvdec.h"
 #endif
-#if IS_ENABLED(CONFIG_TEGRA_GRHOST_PVA)
-#include "pva/pva_nvhost.h"
-#endif
 #include "hardware_t194.h"
-#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDLA)
-#include "nvdla/nvdla.h"
-#endif
 
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_SLVSEC)
 #include "slvsec/slvsec.h"
@@ -71,8 +64,7 @@
 #include "cg_regs.c"
 #include "actmon_regs.c"
 
-static dma_addr_t nvhost_t194_get_reloc_phys_addr(dma_addr_t phys_addr,
-						  u32 reloc_type)
+dma_addr_t nvhost_t194_get_reloc_phys_addr(dma_addr_t phys_addr, u32 reloc_type)
 {
 	if (reloc_type == NVHOST_RELOC_TYPE_BLOCK_LINEAR)
 		phys_addr += BIT(39);
@@ -218,7 +210,7 @@ struct nvhost_device_data t19_msenc_info = {
 		 TEGRA_SET_EMC_SHARED_BW}
 	},
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_flcn_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_flcn_finalize_poweron_t194,
 	.moduleid		= NVHOST_MODULE_MSENC,
 	.num_channels		= 1,
 	.firmware_name		= "nvhost_nvenc070.fw",
@@ -261,7 +253,7 @@ struct nvhost_device_data t19_nvenc1_info = {
 		 TEGRA_SET_EMC_SHARED_BW}
 	},
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_flcn_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_flcn_finalize_poweron_t194,
 	.moduleid		= NVHOST_MODULE_NVENC1,
 	.num_channels		= 1,
 	.firmware_name		= "nvhost_nvenc070.fw",
@@ -308,8 +300,8 @@ struct nvhost_device_data t19_nvdec_info = {
 		 TEGRA_SET_EMC_FLOOR}
 	},
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_nvdec_finalize_poweron_t186,
-	.prepare_poweroff	= nvhost_nvdec_prepare_poweroff_t186,
+	.finalize_poweron	= nvhost_nvdec_finalize_poweron_t194,
+	.prepare_poweroff	= nvhost_nvdec_prepare_poweroff_t194,
 	.moduleid		= NVHOST_MODULE_NVDEC,
 	.ctrl_ops		= &tegra_nvdec_ctrl_ops,
 	.num_channels		= 1,
@@ -353,8 +345,8 @@ struct nvhost_device_data t19_nvdec1_info = {
 		 TEGRA_SET_EMC_FLOOR}
 	},
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_nvdec_finalize_poweron_t186,
-	.prepare_poweroff	= nvhost_nvdec_prepare_poweroff_t186,
+	.finalize_poweron	= nvhost_nvdec_finalize_poweron_t194,
+	.prepare_poweroff	= nvhost_nvdec_prepare_poweroff_t194,
 	.moduleid		= NVHOST_MODULE_NVDEC1,
 	.ctrl_ops		= &tegra_nvdec_ctrl_ops,
 	.num_channels		= 1,
@@ -398,7 +390,7 @@ struct nvhost_device_data t19_nvjpg_info = {
 		 TEGRA_SET_EMC_SHARED_BW}
 	},
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_flcn_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_flcn_finalize_poweron_t194,
 	.moduleid		= NVHOST_MODULE_NVJPG,
 	.num_channels		= 1,
 	.firmware_name		= "nvhost_nvjpg012.fw",
@@ -434,7 +426,7 @@ struct nvhost_device_data t19_tsec_info = {
 	.keepalive		= true,
 	.moduleid		= NVHOST_MODULE_TSEC,
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_tsec_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_tsec_finalize_poweron_t194,
 	.prepare_poweroff	= nvhost_tsec_prepare_poweroff,
 	.serialize		= true,
 	.push_work_done		= true,
@@ -463,7 +455,7 @@ struct nvhost_device_data t19_tsecb_info = {
 	.keepalive		= true,
 	.moduleid               = NVHOST_MODULE_TSECB,
 	.poweron_reset		= true,
-	.finalize_poweron	= nvhost_tsec_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_tsec_finalize_poweron_t194,
 	.prepare_poweroff	= nvhost_tsec_prepare_poweroff,
 	.serialize		= true,
 	.push_work_done		= true,
@@ -491,7 +483,7 @@ struct nvhost_device_data t19_vic_info = {
 	.poweron_reset		= true,
 	.modulemutexes		= {NV_HOST1X_MLOCK_ID_VIC},
 	.class			= NV_GRAPHICS_VIC_CLASS_ID,
-	.finalize_poweron	= nvhost_flcn_finalize_poweron_t186,
+	.finalize_poweron	= nvhost_flcn_finalize_poweron_t194,
 	.prepare_poweroff	= nvhost_flcn_prepare_poweroff,
 	.flcn_isr		= nvhost_flcn_common_isr,
 	.firmware_name		= "nvhost_vic042.fw",
@@ -522,137 +514,6 @@ struct nvhost_device_data t19_vic_info = {
 };
 #endif
 
-#if IS_ENABLED(CONFIG_TEGRA_GRHOST_PVA)
-struct nvhost_device_data t19_pva1_info = {
-	.num_channels		= 1,
-	.clocks			= {
-		{"nafll_pva_vps", UINT_MAX,},
-		{"nafll_pva_core", UINT_MAX,},
-		{"axi", UINT_MAX,},
-		{"vps0", UINT_MAX,},
-		{"vps1", UINT_MAX,},
-	},
-	.ctrl_ops		= &tegra_pva_ctrl_ops,
-	.devfs_name_family	= "pva",
-	.class			= NV_PVA1_CLASS_ID,
-	.autosuspend_delay      = 500,
-	.finalize_poweron	= pva_finalize_poweron,
-	.prepare_poweroff	= pva_prepare_poweroff,
-	.firmware_name		= "nvhost_pva010.fw",
-	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
-	.vm_regs		= {
-		{0x70000, true, 0},
-		{0x80000, false, 0},
-		{0x80000, false, 8} },
-	.poweron_reset		= true,
-	.serialize		= true,
-	.push_work_done		= true,
-	.get_reloc_phys_addr	= nvhost_t194_get_reloc_phys_addr,
-	.can_powergate		= true,
-};
-
-struct nvhost_device_data t19_pva0_info = {
-	.num_channels		= 1,
-	.clocks			= {
-		{"nafll_pva_vps", UINT_MAX,},
-		{"nafll_pva_core", UINT_MAX,},
-		{"axi", UINT_MAX,},
-		{"vps0", UINT_MAX,},
-		{"vps1", UINT_MAX,},
-	},
-	.ctrl_ops		= &tegra_pva_ctrl_ops,
-	.devfs_name_family	= "pva",
-	.class			= NV_PVA0_CLASS_ID,
-	.autosuspend_delay      = 500,
-	.finalize_poweron	= pva_finalize_poweron,
-	.prepare_poweroff	= pva_prepare_poweroff,
-	.firmware_name		= "nvhost_pva010.fw",
-	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
-	.vm_regs		= {
-		{0x70000, true, 0},
-		{0x80000, false, 0},
-		{0x80000, false, 8} },
-	.poweron_reset		= true,
-	.serialize		= true,
-	.get_reloc_phys_addr	= nvhost_t194_get_reloc_phys_addr,
-	.can_powergate		= true,
-};
-#endif
-
-#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDLA)
-struct nvhost_device_data t19_nvdla0_info = {
-	.devfs_name_family	= "nvdla",
-	.class			= NV_DLA0_CLASS_ID,
-	.clocks			= {
-		{"nafll_dla", UINT_MAX},
-		{"nafll_dla_falcon", UINT_MAX},
-		{"nvdla0", UINT_MAX},
-		{"nvdla0_flcn", UINT_MAX},
-		{"emc", 0,
-		 NVHOST_MODULE_ID_EXTERNAL_MEMORY_CONTROLLER,
-		 TEGRA_SET_EMC_FLOOR}
-	},
-	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
-	.finalize_poweron	= nvhost_nvdla_finalize_poweron,
-	.prepare_poweroff	= nvhost_nvdla_prepare_poweroff,
-	.flcn_isr               = nvhost_nvdla_flcn_isr,
-	.self_config_flcn_isr	= true,
-	.vm_regs		= {{0x30, true}, {0x34, false} },
-	.firmware_name		= "nvhost_nvdla010.fw",
-	.version		= FIRMWARE_ENCODE_VERSION(T19X),
-	.autosuspend_delay      = 500,
-	.keepalive		= true,
-	.poweron_reset		= true,
-	.serialize		= true,
-	.ctrl_ops		= &tegra_nvdla_ctrl_ops,
-	.get_reloc_phys_addr	= nvhost_t194_get_reloc_phys_addr,
-	.module_irq		= 1,
-	.engine_cg_regs		= t19x_nvdla_gating_registers,
-	.engine_can_cg		= true,
-	.can_powergate		= true,
-	.bwmgr_client_id	= TEGRA_BWMGR_CLIENT_DLA0,
-	.transcfg_addr		= 0x0444,
-	.transcfg_val		= 0x20,
-	.firmware_not_in_subdir = true,
-};
-
-struct nvhost_device_data t19_nvdla1_info = {
-	.devfs_name_family	= "nvdla",
-	.class			= NV_DLA1_CLASS_ID,
-	.clocks			= {
-		{"nafll_dla", UINT_MAX},
-		{"nafll_dla_falcon", UINT_MAX},
-		{"nvdla1", UINT_MAX},
-		{"nvdla1_flcn", UINT_MAX},
-		{"emc", 0,
-		 NVHOST_MODULE_ID_EXTERNAL_MEMORY_CONTROLLER,
-		 TEGRA_SET_EMC_FLOOR}
-	},
-	.resource_policy	= RESOURCE_PER_CHANNEL_INSTANCE,
-	.finalize_poweron	= nvhost_nvdla_finalize_poweron,
-	.prepare_poweroff	= nvhost_nvdla_prepare_poweroff,
-	.flcn_isr               = nvhost_nvdla_flcn_isr,
-	.self_config_flcn_isr	= true,
-	.vm_regs		= {{0x30, true}, {0x34, false} },
-	.firmware_name		= "nvhost_nvdla010.fw",
-	.version		= FIRMWARE_ENCODE_VERSION(T19X),
-	.autosuspend_delay      = 500,
-	.keepalive		= true,
-	.poweron_reset		= true,
-	.serialize		= true,
-	.ctrl_ops		= &tegra_nvdla_ctrl_ops,
-	.get_reloc_phys_addr	= nvhost_t194_get_reloc_phys_addr,
-	.module_irq		= 1,
-	.engine_cg_regs		= t19x_nvdla_gating_registers,
-	.engine_can_cg		= true,
-	.can_powergate		= true,
-	.bwmgr_client_id	= TEGRA_BWMGR_CLIENT_DLA1,
-	.transcfg_addr		= 0x0444,
-	.transcfg_val		= 0x20,
-	.firmware_not_in_subdir = true,
-};
-#endif
-
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_SLVSEC)
 struct nvhost_device_data t19_slvsec_info = {
 	.num_channels		= 1,
@@ -673,7 +534,7 @@ struct nvhost_device_data t19_slvsec_info = {
 };
 #endif
 
-#include "host1x/host1x_channel_t186.c"
+#include "host1x/host1x_channel_t194.c"
 
 static void t194_set_nvhost_chanops(struct nvhost_channel *ch)
 {
@@ -769,14 +630,14 @@ static void t194_init_regs(struct platform_device *pdev, bool prod)
 	}
 }
 
-#include "host1x/host1x_cdma_t186.c"
+#include "host1x/host1x_cdma_t194.c"
 #include "host1x/host1x_syncpt.c"
-#include "host1x/host1x_syncpt_prot_t186.c"
-#include "host1x/host1x_intr_t186.c"
-#include "host1x/host1x_debug_t186.c"
-#include "host1x/host1x_vm_t186.c"
+#include "host1x/host1x_syncpt_prot_t194.c"
+#include "host1x/host1x_intr_t194.c"
+#include "host1x/host1x_debug_t194.c"
+#include "host1x/host1x_vm_t194.c"
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_SCALE)
-#include "host1x/host1x_actmon_t186.c"
+#include "host1x/host1x_actmon_t194.c"
 #endif
 
 int nvhost_init_t194_support(struct nvhost_master *host,
@@ -805,18 +666,15 @@ int nvhost_init_t194_support(struct nvhost_master *host,
 #endif
 	op->nvhost_dev.load_gating_regs = t194_init_regs;
 
-	op->syncpt.alloc = nvhost_syncpt_alloc_gos_backing;
-	op->syncpt.release = nvhost_syncpt_release_gos_backing;
-
 	/* WAR to bugs 200094901 and 200082771: enable protection
 	 * only on silicon/emulation */
 
 	if (!tegra_platform_is_vdk()) {
-		op->syncpt.reset = t186_syncpt_reset;
-		op->syncpt.mark_used = t186_syncpt_mark_used;
-		op->syncpt.mark_unused = t186_syncpt_mark_unused;
+		op->syncpt.reset = t194_syncpt_reset;
+		op->syncpt.mark_used = t194_syncpt_mark_used;
+		op->syncpt.mark_unused = t194_syncpt_mark_unused;
 	}
-	op->syncpt.mutex_owner = t186_syncpt_mutex_owner;
+	op->syncpt.mutex_owner = t194_syncpt_mutex_owner;
 
 	op->remove_support = t194_remove_support;
 

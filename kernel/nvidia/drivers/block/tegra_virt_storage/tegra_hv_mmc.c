@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -63,10 +63,10 @@ int vblk_prep_mmc_multi_ioc(struct vblk_dev *vblkdev,
 			goto free_ioc_buf;
 		}
 
-		usr_ptr = (void * __user)&user_cmd->cmds;
+		usr_ptr = (void __user *)&user_cmd->cmds;
 	} else {
 		num_cmd = 1;
-		usr_ptr = (void * __user)user;
+		usr_ptr = (void __user *)user;
 	}
 	combo_info->count = num_cmd;
 
@@ -172,9 +172,9 @@ int vblk_complete_mmc_multi_ioc(struct vblk_dev *vblkdev,
 			goto free_ioc_buf;
 		}
 
-		usr_ptr = (void * __user)&user_cmd->cmds;
+		usr_ptr = (void __user *)&user_cmd->cmds;
 	} else {
-		usr_ptr = (void * __user)user;
+		usr_ptr = (void __user *)user;
 		num_cmd = 1;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -509,10 +509,6 @@ void nvgpu_engine_reset(struct gk20a *g, u32 engine_id)
 
 	nvgpu_log_fn(g, " ");
 
-	if (g == NULL) {
-		return;
-	}
-
 	nvgpu_swprofile_begin_sample(prof);
 
 	dev = nvgpu_engine_get_active_eng_info(g, engine_id);
@@ -531,6 +527,9 @@ void nvgpu_engine_reset(struct gk20a *g, u32 engine_id)
 	 * Simple case first: reset a copy engine.
 	 */
 	if (nvgpu_device_is_ce(g, dev)) {
+		if (g->ops.ce.halt_engine != NULL) {
+			g->ops.ce.halt_engine(g, dev);
+		}
 		err = nvgpu_mc_reset_dev(g, dev);
 		if (g->ops.ce.request_idle != NULL) {
 			/*

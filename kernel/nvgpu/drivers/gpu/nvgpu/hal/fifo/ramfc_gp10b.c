@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,8 @@ int gp10b_ramfc_setup(struct nvgpu_channel *ch, u64 gpfifo_base,
 {
 	struct gk20a *g = ch->g;
 	struct nvgpu_mem *mem = &ch->inst_block;
+
+	(void)flags;
 
 	nvgpu_log_fn(g, " ");
 

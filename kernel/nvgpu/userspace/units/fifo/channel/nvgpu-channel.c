@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -158,12 +158,20 @@ done:
 #define F_CHANNEL_OPEN_ALLOC_CH_FAIL		BIT(2)
 #define F_CHANNEL_OPEN_ALLOC_CH_WARN0		BIT(3)
 #define F_CHANNEL_OPEN_ALLOC_CH_WARN1		BIT(4)
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 #define F_CHANNEL_OPEN_ALLOC_CH_AGGRESSIVE	BIT(5)
 #define F_CHANNEL_OPEN_BUG_ON			BIT(6)
 #define F_CHANNEL_OPEN_ALLOC_INST_FAIL		BIT(7)
 #define F_CHANNEL_OPEN_NOTIFIER_WQ_INIT_FAIL	BIT(8)
 #define F_CHANNEL_OPEN_SEMAPHORE_WQ_INIT_FAIL	BIT(9)
 #define F_CHANNEL_OPEN_LAST			BIT(10)
+#else
+#define F_CHANNEL_OPEN_BUG_ON			BIT(5)
+#define F_CHANNEL_OPEN_ALLOC_INST_FAIL		BIT(6)
+#define F_CHANNEL_OPEN_NOTIFIER_WQ_INIT_FAIL	BIT(7)
+#define F_CHANNEL_OPEN_SEMAPHORE_WQ_INIT_FAIL	BIT(8)
+#define F_CHANNEL_OPEN_LAST			BIT(9)
+#endif
 
 
 static const char *f_channel_open[] = {
@@ -278,8 +286,10 @@ int test_channel_open(struct unit_module *m, struct gk20a *g, void *vargs)
 	u32 runlist_id;
 	bool privileged;
 	int err;
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	void (*os_channel_open)(struct nvgpu_channel *ch) =
 		g->os_channel.open;
+#endif
 
 	l_cond_fi = nvgpu_cond_get_fault_injection();
 
@@ -320,10 +330,12 @@ int test_channel_open(struct unit_module *m, struct gk20a *g, void *vargs)
 			next_ch->referenceable = false;
 		}
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		if (branches & F_CHANNEL_OPEN_ALLOC_CH_AGGRESSIVE) {
 			g->aggressive_sync_destroy_thresh += 1U;
 			f->used_channels += 2U;
 		}
+#endif
 
 		if (branches & F_CHANNEL_OPEN_NOTIFIER_WQ_INIT_FAIL) {
 			nvgpu_posix_enable_fault_injection(l_cond_fi, true, 0);
@@ -361,12 +373,14 @@ int test_channel_open(struct unit_module *m, struct gk20a *g, void *vargs)
 			next_ch->referenceable = true;
 		}
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		if (branches & F_CHANNEL_OPEN_ALLOC_CH_AGGRESSIVE) {
 			g->aggressive_sync_destroy_thresh -= 1U;
 			f->used_channels -= 2U;
 			unit_assert(g->aggressive_sync_destroy, goto done);
 			g->aggressive_sync_destroy = false;
 		}
+#endif
 
 		if (branches & fail) {
 			nvgpu_posix_enable_fault_injection(l_cond_fi, false, 0);
@@ -402,7 +416,9 @@ done:
 		nvgpu_channel_close(ch);
 	}
 	g->ops = gops;
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	g->os_channel.open = os_channel_open;
+#endif
 	return ret;
 }
 
@@ -422,8 +438,6 @@ done:
 #define F_CHANNEL_WAIT_UNTIL_COUNTER			BIT(13)
 #define F_CHANNEL_CLOSE_AS_BOUND			BIT(14)
 #define F_CHANNEL_CLOSE_LAST				BIT(15)
-
-/* nvgpu_tsg_force_unbind_channel always return 0 */
 
 static const char *f_channel_close[] = {
 	"already_freed",
@@ -469,7 +483,6 @@ static bool channel_close_pruned(u32 branches, u32 final)
 		return true;
 	}
 
-	/* TODO: nvgpu_tsg_force_unbind_channel always returns 0 */
 	branches &= ~F_CHANNEL_CLOSE_TSG_UNBIND_FAIL;
 
 
@@ -537,11 +550,13 @@ int test_channel_close(struct unit_module *m, struct gk20a *g, void *vargs)
 		g->os_channel.close = branches & F_CHANNEL_CLOSE_OS_CLOSE ?
 			stub_os_channel_close : NULL;
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		g->aggressive_sync_destroy_thresh =
 			branches & F_CHANNEL_CLOSE_NONZERO_DESTROY_THRESH_64 ?
 			64U :
 			(branches & F_CHANNEL_CLOSE_NONZERO_DESTROY_THRESH_1) ?
 			1U : 0U;
+#endif
 
 		if (branches & F_CHANNEL_CLOSE_TSG_BOUND) {
 			err = nvgpu_tsg_bind_channel(tsg, ch);
@@ -1209,7 +1224,7 @@ int test_channel_enable_disable_tsg(struct unit_module *m,
 
 	subtest_setup(branches);
 
-	err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	unit_assert(err == 0, goto done);
 
 	err = nvgpu_channel_enable_tsg(g, ch);
@@ -1508,8 +1523,12 @@ done:
 
 #define F_CHANNEL_SUSPEND_RESUME_UNSERVICEABLE_CH		BIT(0)
 #define F_CHANNEL_SUSPEND_RESUME_INVALID_TSGID			BIT(1)
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 #define F_CHANNEL_SUSPEND_RESUME_CH_WRK_CMPL_CNCL_SYNC		BIT(2)
 #define F_CHANNEL_SUSPEND_RESUME_CHS_LAST			BIT(3)
+#else
+#define F_CHANNEL_SUSPEND_RESUME_CHS_LAST			BIT(2)
+#endif
 
 static const char *f_channel_suspend_resume[] = {
 	"suspend_resume_unserviceable_channels",
@@ -1536,10 +1555,12 @@ static int stub_runlist_reload(struct gk20a *g, struct nvgpu_runlist *rl,
 	return 0;
 }
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 static void stub_channel_work_completion_cancel_sync(struct nvgpu_channel *ch)
 {
 
 }
+#endif
 
 int test_channel_suspend_resume_serviceable_chs(struct unit_module *m,
 						struct gk20a *g, void *vargs)
@@ -1551,9 +1572,14 @@ int test_channel_suspend_resume_serviceable_chs(struct unit_module *m,
 	bool err;
 	u32 orig_ch_tsgid;
 	u32 branches = 0U;
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	u32 prune = F_CHANNEL_SUSPEND_RESUME_UNSERVICEABLE_CH |
 			F_CHANNEL_SUSPEND_RESUME_INVALID_TSGID |
 			F_CHANNEL_SUSPEND_RESUME_CH_WRK_CMPL_CNCL_SYNC;
+#else
+	u32 prune = F_CHANNEL_SUSPEND_RESUME_UNSERVICEABLE_CH |
+			F_CHANNEL_SUSPEND_RESUME_INVALID_TSGID;
+#endif
 	int ret = UNIT_FAIL;
 
 	tsg = nvgpu_tsg_open(g, getpid());
@@ -1588,10 +1614,11 @@ int test_channel_suspend_resume_serviceable_chs(struct unit_module *m,
 		} else {
 			ch->unserviceable = false;
 		}
-
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		g->os_channel.work_completion_cancel_sync = branches &
 			F_CHANNEL_SUSPEND_RESUME_CH_WRK_CMPL_CNCL_SYNC ?
 			stub_channel_work_completion_cancel_sync : NULL;
+#endif
 
 		ch->tsgid = branches & F_CHANNEL_SUSPEND_RESUME_INVALID_TSGID ?
 				NVGPU_INVALID_TSG_ID : orig_ch_tsgid;
@@ -1618,7 +1645,7 @@ done:
 					f_channel_suspend_resume));
 	}
 	if (ch != NULL) {
-		nvgpu_tsg_force_unbind_channel(tsg, ch);
+		nvgpu_tsg_unbind_channel(tsg, ch, true);
 		nvgpu_channel_close(ch);
 	}
 	if (tsg != NULL) {
@@ -1717,7 +1744,7 @@ done:
 			branches_str(branches, f_channel_debug_dump));
 	}
 	if (ch != NULL) {
-		nvgpu_tsg_force_unbind_channel(tsg, ch);
+		nvgpu_tsg_unbind_channel(tsg, ch, true);
 		nvgpu_channel_close(ch);
 	}
 	if (tsg != NULL) {
@@ -2061,7 +2088,7 @@ int test_channel_abort_cleanup(struct unit_module *m, struct gk20a *g,
 	err = nvgpu_tsg_bind_channel(tsg, ch);
 	unit_assert(err == 0, goto done);
 
-	err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	unit_assert(err == 0, goto done);
 
 	nvgpu_channel_close(ch);

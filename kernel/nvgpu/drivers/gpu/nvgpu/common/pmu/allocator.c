@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -70,6 +70,7 @@ void nvgpu_pmu_allocator_surface_free(struct gk20a *g, struct nvgpu_mem *mem)
 void nvgpu_pmu_allocator_surface_describe(struct gk20a *g, struct nvgpu_mem *mem,
 		struct flcn_mem_desc_v0 *fb)
 {
+	(void)g;
 	fb->address.lo = u64_lo32(mem->gpu_va);
 	fb->address.hi = u64_hi32(mem->gpu_va);
 	fb->params = ((u32)mem->size & 0xFFFFFFU);

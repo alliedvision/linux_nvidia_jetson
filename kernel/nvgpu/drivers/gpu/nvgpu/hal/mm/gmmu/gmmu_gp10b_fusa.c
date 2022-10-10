@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@
 
 u32 gp10b_mm_get_iommu_bit(struct gk20a *g)
 {
+	(void)g;
 	return GP10B_MM_IOMMU_BIT;
 }
 
@@ -346,10 +347,13 @@ static const struct gk20a_mmu_level gp10b_mm_levels[] = {
 const struct gk20a_mmu_level *gp10b_mm_get_mmu_levels(struct gk20a *g,
 	u64 big_page_size)
 {
+	(void)g;
+	(void)big_page_size;
 	return gp10b_mm_levels;
 }
 
 u32 gp10b_get_max_page_table_levels(struct gk20a *g)
 {
+	(void)g;
 	return 5U;
 }

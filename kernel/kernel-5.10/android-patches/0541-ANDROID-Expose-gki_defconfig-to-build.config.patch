@@ -1,0 +1,125 @@
+From 56425e18ab3cbb484d14c2f3c69cee924942e5e5 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Thu, 7 Nov 2019 22:55:05 +0000
+Subject: [PATCH 541/830] ANDROID: Expose gki_defconfig to build.config
+X-NVConfidentiality: public
+
+With this in place, the gki_defconfig can be build with build.sh
+machinery.
+
+Bug: 132113225
+Change-Id: I4c623a866cd41aa4587e4fab1c4e5254f6680542
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ build.config.aarch64     | 11 +++++++++++
+ build.config.common      | 10 ++++++++++
+ build.config.gki         |  4 ++++
+ build.config.gki.aarch64 | 19 +++++++++++++++++++
+ build.config.gki.x86_64  |  4 ++++
+ build.config.x86_64      | 11 +++++++++++
+ 6 files changed, 59 insertions(+)
+ create mode 100644 build.config.aarch64
+ create mode 100644 build.config.common
+ create mode 100644 build.config.gki
+ create mode 100644 build.config.gki.aarch64
+ create mode 100644 build.config.gki.x86_64
+ create mode 100644 build.config.x86_64
+
+diff --git a/build.config.aarch64 b/build.config.aarch64
+new file mode 100644
+index 000000000000..523bbc0449f7
+--- /dev/null
++++ b/build.config.aarch64
+@@ -0,0 +1,11 @@
++ARCH=arm64
++
++CLANG_TRIPLE=aarch64-linux-gnu-
++CROSS_COMPILE=aarch64-linux-androidkernel-
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
++
++FILES="
++arch/arm64/boot/Image.gz
++vmlinux
++System.map
++"
+diff --git a/build.config.common b/build.config.common
+new file mode 100644
+index 000000000000..decd1a3a73fe
+--- /dev/null
++++ b/build.config.common
+@@ -0,0 +1,10 @@
++BRANCH=android-mainline
++KERNEL_DIR=common
++
++CC=clang
++LD=ld.lld
++CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r370808/bin
++BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
++
++EXTRA_CMDS=''
++STOP_SHIP_TRACEPRINTK=1
+diff --git a/build.config.gki b/build.config.gki
+new file mode 100644
+index 000000000000..66f6eb8baadb
+--- /dev/null
++++ b/build.config.gki
+@@ -0,0 +1,4 @@
++DEFCONFIG=gki_defconfig
++POST_DEFCONFIG_CMDS="check_defconfig"
++BUILD_INITRAMFS=1
++
+diff --git a/build.config.gki.aarch64 b/build.config.gki.aarch64
+new file mode 100644
+index 000000000000..653e82bf1965
+--- /dev/null
++++ b/build.config.gki.aarch64
+@@ -0,0 +1,19 @@
++ARCH=arm64
++BRANCH=android-mainline
++CLANG_TRIPLE=aarch64-linux-gnu-
++CROSS_COMPILE=aarch64-linux-androidkernel-
++CC=clang
++DEFCONFIG=gki_defconfig
++EXTRA_CMDS=''
++KERNEL_DIR=common
++POST_DEFCONFIG_CMDS="check_defconfig"
++CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r353983c/bin
++BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
++FILES="
++arch/arm64/boot/Image.gz
++vmlinux
++System.map
++"
++STOP_SHIP_TRACEPRINTK=1
++BUILD_INITRAMFS=1
+diff --git a/build.config.gki.x86_64 b/build.config.gki.x86_64
+new file mode 100644
+index 000000000000..627d1e1c27ab
+--- /dev/null
++++ b/build.config.gki.x86_64
+@@ -0,0 +1,4 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.x86_64
++. ${ROOT_DIR}/common/build.config.gki
++
+diff --git a/build.config.x86_64 b/build.config.x86_64
+new file mode 100644
+index 000000000000..df73a47e7220
+--- /dev/null
++++ b/build.config.x86_64
+@@ -0,0 +1,11 @@
++ARCH=x86_64
++
++CLANG_TRIPLE=x86_64-linux-gnu-
++CROSS_COMPILE=x86_64-linux-androidkernel-
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin
++
++FILES="
++arch/x86/boot/bzImage
++vmlinux
++System.map
++"
+-- 
+2.17.1
+

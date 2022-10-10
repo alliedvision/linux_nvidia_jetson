@@ -3,7 +3,7 @@
  *
  * place to add wrapper function to drop kasan scan
  *
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,6 +17,8 @@
 #include <linux/export.h>
 #include <linux/types.h>
 #include <linux/io.h>
+#include "nvmap_ioctl.h"
+
 void kasan_memcpy_toio(void __iomem *to,
 			const void *from, size_t count)
 {

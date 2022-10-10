@@ -1,0 +1,206 @@
+From aa690e498b5f2f2f8d9beecb54979af71b06b810 Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Fri, 13 Sep 2019 15:59:15 -0600
+Subject: [PATCH 297/830] FROMLIST: drivers: irqchip: pdc: additionally set
+ type in SPI config registers
+X-NVConfidentiality: public
+
+GPIOs that can be configured as wakeup are routed to the PDC wakeup
+interrupt controller and from there to the GIC interrupt controller. On
+some QCOM SoCs, the interface to the GIC for wakeup capable GPIOs have
+additional hardware registers that need to be configured as well to
+match the trigger type of the GPIO. This register interfaces the PDC to
+the GIC and therefore updated from the PDC driver.
+
+Typically, the firmware intializes the interface registers for the
+wakeup capable GPIOs with commonly used GPIO trigger type, but it is
+possible that a platform may want to use the GPIO differently. So, in
+addition to configuring the PDC, configure the interface registers as
+well.
+
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+
+BUG: 141169320
+TEST: Build and boot
+
+Change-Id: I73250a04f67549dbf75c40b3672b6b1b78ff8adb
+Signed-off-by: Maulik Shah <mkshah@codeaurora.org>
+Link: https://patchwork.kernel.org/patch/11145353
+---
+ drivers/irqchip/qcom-pdc.c | 104 ++++++++++++++++++++++++++++++++-----
+ 1 file changed, 90 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/irqchip/qcom-pdc.c b/drivers/irqchip/qcom-pdc.c
+index 5dc63c20b67e..30e2a85a0517 100644
+--- a/drivers/irqchip/qcom-pdc.c
++++ b/drivers/irqchip/qcom-pdc.c
+@@ -19,6 +19,8 @@
+ #include <linux/slab.h>
+ #include <linux/types.h>
+ 
++#include <linux/qcom_scm.h>
++
+ #define PDC_MAX_IRQS		168
+ #define PDC_MAX_GPIO_IRQS	256
+ 
+@@ -36,10 +38,20 @@ struct pdc_pin_region {
+ 	u32 cnt;
+ };
+ 
++struct spi_cfg_regs {
++	union {
++		u64 start;
++		void __iomem *base;
++	};
++	resource_size_t size;
++	bool scm_io;
++};
++
+ static DEFINE_RAW_SPINLOCK(pdc_lock);
+ static void __iomem *pdc_base;
+ static struct pdc_pin_region *pdc_region;
+ static int pdc_region_cnt;
++static struct spi_cfg_regs *spi_cfg;
+ 
+ static void pdc_reg_write(int reg, u32 i, u32 val)
+ {
+@@ -121,6 +133,57 @@ static void qcom_pdc_gic_unmask(struct irq_data *d)
+ 	irq_chip_unmask_parent(d);
+ }
+ 
++static u32 __spi_pin_read(unsigned int pin)
++{
++	void __iomem *cfg_reg = spi_cfg->base + pin * 4;
++	u64 scm_cfg_reg = spi_cfg->start + pin * 4;
++
++	if (spi_cfg->scm_io) {
++		unsigned int val;
++
++		qcom_scm_io_readl(scm_cfg_reg, &val);
++		return val;
++	} else {
++		return readl(cfg_reg);
++	}
++}
++
++static void __spi_pin_write(unsigned int pin, unsigned int val)
++{
++	void __iomem *cfg_reg = spi_cfg->base + pin * 4;
++	u64 scm_cfg_reg = spi_cfg->start + pin * 4;
++
++	if (spi_cfg->scm_io)
++		qcom_scm_io_writel(scm_cfg_reg, val);
++	else
++		writel(val, cfg_reg);
++}
++
++static int spi_configure_type(irq_hw_number_t hwirq, unsigned int type)
++{
++	int spi = hwirq - 32;
++	u32 pin = spi / 32;
++	u32 mask = BIT(spi % 32);
++	u32 val;
++	unsigned long flags;
++
++	if (!spi_cfg)
++		return 0;
++
++	if (pin * 4 > spi_cfg->size)
++		return -EFAULT;
++
++	raw_spin_lock_irqsave(&pdc_lock, flags);
++	val = __spi_pin_read(pin);
++	val &= ~mask;
++	if (type & IRQ_TYPE_LEVEL_MASK)
++		val |= mask;
++	__spi_pin_write(pin, val);
++	raw_spin_unlock_irqrestore(&pdc_lock, flags);
++
++	return 0;
++}
++
+ /*
+  * GIC does not handle falling edge or active low. To allow falling edge and
+  * active low interrupts to be handled at GIC, PDC has an inverter that inverts
+@@ -158,6 +221,7 @@ enum pdc_irq_config_bits {
+ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
+ {
+ 	int pin_out = d->hwirq;
++	int parent_hwirq = d->parent_data->hwirq;
+ 	enum pdc_irq_config_bits pdc_type;
+ 	enum pdc_irq_config_bits old_pdc_type;
+ 	int ret;
+@@ -192,23 +256,12 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
+ 	old_pdc_type = pdc_reg_read(IRQ_i_CFG, pin_out);
+ 	pdc_reg_write(IRQ_i_CFG, pin_out, pdc_type);
+ 
+-	ret = irq_chip_set_type_parent(d, type);
++	/* Additionally, configure (only) the GPIO in the f/w */
++	ret = spi_configure_type(parent_hwirq, type);
+ 	if (ret)
+ 		return ret;
+ 
+-	/*
+-	 * When we change types the PDC can give a phantom interrupt.
+-	 * Clear it.  Specifically the phantom shows up when reconfiguring
+-	 * polarity of interrupt without changing the state of the signal
+-	 * but let's be consistent and clear it always.
+-	 *
+-	 * Doing this works because we have IRQCHIP_SET_TYPE_MASKED so the
+-	 * interrupt will be cleared before the rest of the system sees it.
+-	 */
+-	if (old_pdc_type != pdc_type)
+-		irq_chip_set_parent_state(d, IRQCHIP_STATE_PENDING, false);
+-
+-	return 0;
++	return irq_chip_set_type_parent(d, type);
+ }
+ 
+ static struct irq_chip qcom_pdc_gic_chip = {
+@@ -406,6 +459,7 @@ static int pdc_setup_pin_mapping(struct device_node *np)
+ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
+ {
+ 	struct irq_domain *parent_domain, *pdc_domain, *pdc_gpio_domain;
++	struct resource res;
+ 	int ret;
+ 
+ 	pdc_base = of_iomap(node, 0);
+@@ -436,6 +490,27 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
+ 		goto fail;
+ 	}
+ 
++	ret = of_address_to_resource(node, 1, &res);
++	if (!ret) {
++		spi_cfg = kcalloc(1, sizeof(*spi_cfg), GFP_KERNEL);
++		if (!spi_cfg) {
++			ret = -ENOMEM;
++			goto remove;
++		}
++		spi_cfg->scm_io = of_find_property(node,
++						   "qcom,scm-spi-cfg", NULL);
++		spi_cfg->size = resource_size(&res);
++		if (spi_cfg->scm_io) {
++			spi_cfg->start = res.start;
++		} else {
++			spi_cfg->base = ioremap(res.start, spi_cfg->size);
++			if (!spi_cfg->base) {
++				ret = -ENOMEM;
++				goto remove;
++			}
++		}
++	}
++
+ 	pdc_gpio_domain = irq_domain_create_hierarchy(parent_domain,
+ 					IRQ_DOMAIN_FLAG_QCOM_PDC_WAKEUP,
+ 					PDC_MAX_GPIO_IRQS,
+@@ -453,6 +528,7 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
+ 
+ remove:
+ 	irq_domain_remove(pdc_domain);
++	kfree(spi_cfg);
+ fail:
+ 	kfree(pdc_region);
+ 	iounmap(pdc_base);
+-- 
+2.17.1
+

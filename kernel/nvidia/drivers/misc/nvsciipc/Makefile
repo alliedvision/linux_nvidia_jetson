@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -14,6 +14,8 @@
 #
 
 ccflags-y += -Werror
+ccflags-y += -I$(srctree.nvidia)/include/
+
 
 obj-$(CONFIG_NVSCIIPC) := nvsciipc.o
 

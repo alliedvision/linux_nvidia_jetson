@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,7 +61,7 @@
 #include "hal/mm/gmmu/gmmu_gv11b.h"
 #include "hal/mm/mm_gp10b.h"
 #include "hal/mm/mm_gv11b.h"
-#include "hal/cic/mon/cic_gv11b.h"
+#include "hal/cic/mon/cic_ga10b.h"
 
 #include "hal/mm/mmu_fault/mmu_fault_gv11b.h"
 #include "mmu-fault-gv11b-fusa.h"
@@ -222,8 +222,7 @@ int test_env_init_mm_mmu_fault_gv11b_fusa(struct unit_module *m,
 		unit_return_fail(m, "nvgpu_init_mm_support failed\n");
 	}
 
-	g->ops.cic_mon.init = gv11b_cic_mon_init;
-	g->ops.cic_mon.report_err = nvgpu_cic_mon_report_err_safety_services;
+	g->ops.cic_mon.init = ga10b_cic_mon_init;
 
 	if (nvgpu_cic_mon_setup(g) != 0) {
 		unit_return_fail(m, "Failed to initialize CIC\n");
@@ -399,10 +398,6 @@ static const char *f_mmu_fault_notify[] = {
 	"mmu_fault_notify_eng_id_physical",
 };
 
-static void stub_ce_mthd_buffer_fault_in_bar2_fault(struct gk20a *g)
-{
-}
-
 static int stub_bus_bar2_bind(struct gk20a *g, struct nvgpu_mem *bar2_inst)
 {
 	return 0;
@@ -428,8 +423,6 @@ int test_gv11b_mm_mmu_fault_handle_other_fault_notify(struct unit_module *m,
 					gv11b_fb_read_mmu_fault_addr_lo_hi;
 	g->ops.fb.read_mmu_fault_info = gv11b_fb_read_mmu_fault_info;
 	g->ops.fb.write_mmu_fault_status = gv11b_fb_write_mmu_fault_status;
-	g->ops.ce.mthd_buffer_fault_in_bar2_fault =
-					stub_ce_mthd_buffer_fault_in_bar2_fault;
 	g->ops.bus.bar2_bind = stub_bus_bar2_bind;
 	g->ops.fifo.mmu_fault_id_to_pbdma_id =
 					stub_fifo_mmu_fault_id_to_pbdma_id;
@@ -669,7 +662,9 @@ int test_handle_mmu_fault_common(struct unit_module *m,
 		g->ops.channel.free_inst = nvgpu_channel_free_inst;
 		g->ops.tsg.disable = nvgpu_tsg_disable;
 		g->ops.fifo.preempt_tsg = nvgpu_fifo_preempt_tsg;
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		g->aggressive_sync_destroy_thresh = 0U;
+#endif
 
 		g->fifo.g = g;
 

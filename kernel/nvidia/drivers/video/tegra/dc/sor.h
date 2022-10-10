@@ -1,7 +1,7 @@
 /*
  * sor.h: tegra dc sor structue and function declarations.
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -555,24 +555,14 @@ static inline void tegra_sor_clk_disable(struct tegra_dc_sor_data *sor)
 
 static inline void tegra_sor_safe_clk_enable(struct tegra_dc_sor_data *sor)
 {
-	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon())
-			clk_prepare_enable(sor->safe_clk);
-	} else {
-		if (tegra_platform_is_silicon())
-			clk_prepare_enable(sor->safe_clk);
-	}
+	if (tegra_platform_is_silicon())
+		clk_prepare_enable(sor->safe_clk);
 }
 
 static inline void tegra_sor_safe_clk_disable(struct tegra_dc_sor_data *sor)
 {
-	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon())
-			clk_disable_unprepare(sor->safe_clk);
-	} else {
-		if (tegra_platform_is_silicon())
-			clk_disable_unprepare(sor->safe_clk);
-	}
+	if (tegra_platform_is_silicon())
+		clk_disable_unprepare(sor->safe_clk);
 }
 
 static inline int tegra_get_sor_reset_ctrl(struct tegra_dc_sor_data *sor,

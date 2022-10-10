@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -566,7 +566,7 @@ int ttcan_tx_fifo_full(struct ttcan_controller *ttcan)
 
 static int process_rx_mesg(struct ttcan_controller *ttcan, u32 addr)
 {
-	struct ttcanfd_frame ttcanfd;
+	struct ttcanfd_frame ttcanfd = {0};
 	ttcan_read_rx_msg_ram(ttcan, addr, &ttcanfd);
 	return add_msg_controller_list(ttcan, &ttcanfd, &ttcan->rx_b, BUFFER);
 }
@@ -655,7 +655,7 @@ unsigned int ttcan_read_txevt_fifo(struct ttcan_controller *ttcan)
 unsigned int ttcan_read_rx_fifo0(struct ttcan_controller *ttcan)
 {
 	u32 rxf0s_reg;
-	struct ttcanfd_frame ttcanfd;
+	struct ttcanfd_frame ttcanfd = {0};
 	u32 read_addr;
 	int q_read = 0;
 	unsigned int msgs_read = 0;
@@ -702,7 +702,7 @@ unsigned int ttcan_read_rx_fifo0(struct ttcan_controller *ttcan)
 unsigned int ttcan_read_rx_fifo1(struct ttcan_controller *ttcan)
 {
 	u32 rxf1s_reg;
-	struct ttcanfd_frame ttcanfd;
+	struct ttcanfd_frame ttcanfd = {0};
 	u32 read_addr;
 	int q_read = 0;
 	int msgs_read = 0;

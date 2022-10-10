@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -228,7 +228,7 @@ nve32_t osi_process_rx_completions(struct osi_dma_priv_data *osi_dma,
 				 */
 				rx_pkt_cx->flags &= ~OSI_PKT_CX_VALID;
 				d_ops[ip_type].update_rx_err_stats(rx_desc,
-						osi_dma->pkt_err_stats);
+						&osi_dma->pkt_err_stats);
 			}
 
 			/* Check if COE Rx checksum is valid */
@@ -656,9 +656,7 @@ int osi_process_tx_completions(struct osi_dma_priv_data *osi_dma,
 				tx_swcx->len = 0;
 			}
 			osi_dma->osd_ops.transmit_complete(osi_dma->osd,
-						       tx_swcx->buf_virt_addr,
-						       tx_swcx->buf_phy_addr,
-						       tx_swcx->len,
+						       tx_swcx,
 						       txdone_pkt_cx);
 		} else {
 			OSI_DMA_ERR(OSI_NULL, OSI_LOG_ARG_INVALID,
@@ -901,7 +899,7 @@ static inline void fill_first_desc(struct osi_tx_ring *tx_ring,
  */
 static inline void dmb_oshst(void)
 {
-	asm volatile("dmb oshst" : : : "memory");
+	__sync_synchronize();
 }
 
 /**

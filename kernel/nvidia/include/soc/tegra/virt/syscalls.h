@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Hypervisor interfaces
  *
@@ -316,7 +316,7 @@ static inline int hyp_guest_reset(unsigned int id,
 		: "i"(HVC_NR_GUEST_RESET)
 		: _X4_X17);
 
-	if (out != 0) {
+	if (out != NULL) {
 		out->sys_transition_mask = (uint32_t)r1;
 		out->vm_shutdown_mask = (uint32_t)r2;
 		out->vm_reboot_mask = (uint32_t)r3;
@@ -347,7 +347,7 @@ static inline int hyp_read_freq_feedback(uint64_t *value)
 		:
 		: "x2", "x3", _X4_X17);
 
-	if (r0 == 1 &&  value != 0)
+	if (r0 == 1 &&  value != NULL)
 		*value = r1;
 
 	return (int16_t)r0;

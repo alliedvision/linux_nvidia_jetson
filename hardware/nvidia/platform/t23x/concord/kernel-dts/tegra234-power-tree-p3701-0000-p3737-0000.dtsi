@@ -26,7 +26,7 @@
 		vpcie12v-supply = <&p3737_vdd_12v_pcie>;
 	};
 
-	sdhci@3440000 {
+	sdhci@3400000 {
 		/*
 		 * Both 3.3V and 1.8V vqmmc/IO supplies are always provided
 		 * and enabling either of the supplies is controller by
@@ -34,5 +34,4 @@
 		 */
 		vmmc-supply = <&p3737_vdd_3v3_sd>;
 	};
-
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -88,10 +88,13 @@ void gk20a_falcon_set_irq(struct nvgpu_falcon *flcn, bool enable,
 void gk20a_falcon_dump_stats(struct nvgpu_falcon *flcn);
 #endif
 
-#ifdef CONFIG_NVGPU_FALCON_NON_FUSA
-bool gk20a_falcon_clear_halt_interrupt_status(struct nvgpu_falcon *flcn);
+#if defined(CONFIG_NVGPU_FALCON_DEBUG) || defined(CONFIG_NVGPU_FALCON_NON_FUSA)
 int gk20a_falcon_copy_from_dmem(struct nvgpu_falcon *flcn,
 		u32 src, u8 *dst, u32 size, u8 port);
+#endif
+
+#ifdef CONFIG_NVGPU_FALCON_NON_FUSA
+bool gk20a_falcon_clear_halt_interrupt_status(struct nvgpu_falcon *flcn);
 int gk20a_falcon_copy_from_imem(struct nvgpu_falcon *flcn, u32 src,
 	u8 *dst, u32 size, u8 port);
 void gk20a_falcon_get_ctls(struct nvgpu_falcon *flcn, u32 *sctl,

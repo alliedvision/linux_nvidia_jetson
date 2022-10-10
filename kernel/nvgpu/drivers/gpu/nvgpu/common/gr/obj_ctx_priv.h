@@ -29,6 +29,19 @@
 struct nvgpu_gr_global_ctx_local_golden_image;
 
 /**
+ * Graphics specific context register values structure.
+ *
+ * This structure stores init values for some of the registers that need to be
+ * configured differently for Graphics contexts.
+ */
+struct nvgpu_gr_obj_ctx_gfx_regs {
+	u32 reg_sm_disp_ctrl;
+	u32 reg_gpcs_setup_debug;
+	u32 reg_tex_lod_dbg;
+	u32 reg_hww_warp_esr_report_mask;
+};
+
+/**
  * Golden context image descriptor structure.
  *
  * This structure stores details of the Golden context image.
@@ -53,6 +66,11 @@ struct nvgpu_gr_obj_ctx_golden_image {
 	 * Pointer to local Golden context image struct.
 	 */
 	struct nvgpu_gr_global_ctx_local_golden_image *local_golden_image;
+
+	/**
+	 * Init values for graphics specific registers.
+	 */
+	struct nvgpu_gr_obj_ctx_gfx_regs gfx_regs;
 
 #ifdef CONFIG_NVGPU_GR_GOLDEN_CTX_VERIFICATION
 	/**

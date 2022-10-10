@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -14,6 +14,7 @@
 #include <nvgpu/fuse.h>
 
 #include <nvgpu/linux/soc_fuse.h>
+#include <nvgpu/linux/nvmem.h>
 
 #include <soc/tegra/fuse.h>
 
@@ -26,12 +27,20 @@ int nvgpu_tegra_get_gpu_speedo_id(struct gk20a *g, int *id)
 
 int nvgpu_tegra_fuse_read_reserved_calib(struct gk20a *g, u32 *val)
 {
+#ifdef CONFIG_NVGPU_NVMEM_FUSE
+	return nvgpu_tegra_nvmem_read_reserved_calib(g, val);
+#else
 	return tegra_fuse_readl(FUSE_RESERVED_CALIB0_0, val);
+#endif
 }
 
 int nvgpu_tegra_fuse_read_gcplex_config_fuse(struct gk20a *g, u32 *val)
 {
+#ifdef CONFIG_NVGPU_NVMEM_FUSE
+	return nvgpu_tegra_nvmem_read_gcplex_config_fuse(g, val);
+#else
 	return tegra_fuse_readl(FUSE_GCPLEX_CONFIG_FUSE_0, val);
+#endif
 }
 
 int nvgpu_tegra_fuse_read_opt_gpc_disable(struct gk20a *g, u32 *val)
@@ -41,6 +50,9 @@ int nvgpu_tegra_fuse_read_opt_gpc_disable(struct gk20a *g, u32 *val)
 
 int nvgpu_tegra_fuse_read_per_device_identifier(struct gk20a *g, u64 *pdi)
 {
+#ifdef CONFIG_NVGPU_NVMEM_FUSE
+	return nvgpu_tegra_nvmem_read_per_device_identifier(g, pdi);
+#else
 	u32 lo = 0U;
 	u32 hi = 0U;
 	int err;
@@ -56,6 +68,7 @@ int nvgpu_tegra_fuse_read_per_device_identifier(struct gk20a *g, u64 *pdi)
 	*pdi = ((u64)lo) | (((u64)hi) << 32);
 
 	return 0;
+#endif
 }
 
 #ifdef CONFIG_NVGPU_TEGRA_FUSE

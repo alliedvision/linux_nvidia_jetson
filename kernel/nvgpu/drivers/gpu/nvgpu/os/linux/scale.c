@@ -1,7 +1,7 @@
 /*
  * gk20a clock scaling profile
  *
- * Copyright (c) 2013-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,10 +21,14 @@
 #include <linux/devfreq_cooling.h>
 #endif
 #include <linux/export.h>
+#ifdef CONFIG_GK20A_PM_QOS
 #include <linux/pm_qos.h>
+#endif
 #include <linux/version.h>
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4, 14, 0)
 #include <governor.h>
+#endif
 
 #include <nvgpu/kmem.h>
 #include <nvgpu/log.h>
@@ -403,7 +407,9 @@ void gk20a_scale_init(struct device *dev)
 		return;
 
 	profile->dev = dev;
+#ifdef CONFIG_GK20A_PM_QOS
 	profile->dev_stat.busy = false;
+#endif
 
 	/* Create frequency table */
 	err = gk20a_scale_make_freq_table(profile);

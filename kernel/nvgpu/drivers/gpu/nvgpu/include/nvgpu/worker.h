@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -309,7 +309,7 @@ void nvgpu_worker_init_name(struct nvgpu_worker *worker,
  * start routine provided for thread creation.
  */
 int nvgpu_worker_init(struct gk20a *g, struct nvgpu_worker *worker,
-		const struct nvgpu_worker_ops *ops);
+		const struct nvgpu_worker_ops *worker_ops);
 
 /**
  * @brief Stop the background thread associated with the worker.

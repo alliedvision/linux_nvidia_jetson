@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 NVIDIA Corporation
+ * Copyright (c) 2021-2022 NVIDIA Corporation
  */
 
 #include <linux/xarray.h>
 #include <linux/dma-buf.h>
+#include "nvmap_priv.h"
 
+#define XA_START (U32_MAX / 2)
 /*
  * Initialize xarray mapping
  */
@@ -25,19 +27,19 @@ void nvmap_id_array_exit(struct xarray *id_arr)
 /*
  * Create mapping between the id(NvRmMemHandle) and dma_buf
  */
-int nvmap_id_array_id_alloc(struct xarray *id_arr, int *id, struct dma_buf *dmabuf)
+int nvmap_id_array_id_alloc(struct xarray *id_arr, u32 *id, struct dma_buf *dmabuf)
 {
 	if (!id_arr || !dmabuf)
 		return -EINVAL;
 
 	return xa_alloc(id_arr, id, dmabuf,
-		       XA_LIMIT(1024, U32_MAX), GFP_KERNEL);
+		       XA_LIMIT(XA_START, U32_MAX), GFP_KERNEL);
 }
 
 /*
  * Clear mapping between the id(NvRmMemHandle) and dma_buf
  */
-struct dma_buf *nvmap_id_array_id_release(struct xarray *id_arr, int id)
+struct dma_buf *nvmap_id_array_id_release(struct xarray *id_arr, u32 id)
 {
 	if (!id_arr || !id)
 		return NULL;
@@ -48,7 +50,7 @@ struct dma_buf *nvmap_id_array_id_release(struct xarray *id_arr, int id)
 /*
  * Return dma_buf from the id.
  */
-struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *id_arr, int id)
+struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *id_arr, u32 id)
 {
 	struct dma_buf *dmabuf;
 

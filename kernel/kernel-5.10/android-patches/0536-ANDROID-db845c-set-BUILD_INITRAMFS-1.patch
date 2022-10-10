@@ -1,0 +1,31 @@
+From 6bc0bfbe967b722776919643e879e532030b4b71 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 14 Aug 2020 17:28:20 -0700
+Subject: [PATCH 536/830] ANDROID: db845c: set BUILD_INITRAMFS=1
+X-NVConfidentiality: public
+
+To create boot images for multiple kernels for CI testing, we
+need the initramfs image.
+
+Bug: 162034308
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I08fc4a45402dfff78da4d322ee70c2f63a262468
+---
+ build.config.db845c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.db845c b/build.config.db845c
+index 65b768fb1fb3..98171a93ef7a 100644
+--- a/build.config.db845c
++++ b/build.config.db845c
+@@ -1,6 +1,7 @@
+ . ${ROOT_DIR}/common/build.config.common
+ . ${ROOT_DIR}/common/build.config.aarch64
+ 
++BUILD_INITRAMFS=1
+ DEFCONFIG=db845c_gki_defconfig
+ PRE_DEFCONFIG_CMDS="cat ./common/arch/arm64/configs/gki_defconfig ./common/arch/arm64/configs/db845c_gki.fragment > ./common/arch/arm64/configs/${DEFCONFIG};"
+ POST_DEFCONFIG_CMDS="rm ./common/arch/arm64/configs/${DEFCONFIG}"
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,8 @@
 
 #include <nvgpu/hw/ga100/hw_ctxsw_prog_ga100.h>
 #include <nvgpu/hw/ga100/hw_xbar_ga100.h>
+
+#include "ctxsw_prog_ga100.h"
 
 #ifdef CONFIG_DEBUG_FS
 void ga100_ctxsw_prog_dump_ctxsw_stats(struct gk20a *g,
@@ -86,6 +88,7 @@ void ga100_ctxsw_prog_dump_ctxsw_stats(struct gk20a *g,
 #ifdef CONFIG_NVGPU_DEBUGGER
 u32 ga100_ctxsw_prog_hw_get_pm_gpc_gnic_stride(struct gk20a *g)
 {
+	(void)g;
 	return (xbar_mxbar_pri_gpc1_gnic0_preg_pm_ctrl_r() -
 			xbar_mxbar_pri_gpc0_gnic0_preg_pm_ctrl_r());
 }

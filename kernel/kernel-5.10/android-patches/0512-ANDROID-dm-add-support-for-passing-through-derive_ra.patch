@@ -1,0 +1,114 @@
+From 6b6c905b89ef76ecac1ae6ff75c00defe5bbd904 Mon Sep 17 00:00:00 2001
+From: Barani Muthukumaran <bmuthuku@codeaurora.org>
+Date: Thu, 6 Feb 2020 18:01:29 -0800
+Subject: [PATCH 512/830] ANDROID: dm: add support for passing through
+ derive_raw_secret
+X-NVConfidentiality: public
+
+Update the device-mapper core to support exposing the inline crypto
+support of wrapped keys through the device-mapper device.
+
+derive_raw_secret in keyslot manager is used to derive the software
+raw secret from the given wrapped keyblob using the underlying blk
+device. Given that the raw_secret is the same for a given wrapped
+keyblob the call exits when the first underlying blk-device suceeds.
+
+Bug: 147209885
+Bug: 160883801
+
+Test: Validated FBE with wrappedkey_v0 when /data is mounted on a
+      dm device.
+
+Change-Id: Ia49ed61613607f8b82f2be0615e5b6d2f7533859
+Signed-off-by: Barani Muthukumaran <bmuthuku@codeaurora.org>
+---
+ drivers/md/dm.c | 71 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index 99db3ebfdda3..4b77d8c6a5fd 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -2207,8 +2207,79 @@ static int dm_keyslot_evict(struct blk_keyslot_manager *ksm,
+ 	return args.err;
+ }
+ 
++struct dm_derive_raw_secret_args {
++	const u8 *wrapped_key;
++	unsigned int wrapped_key_size;
++	u8 *secret;
++	unsigned int secret_size;
++	int err;
++};
++
++static int dm_derive_raw_secret_callback(struct dm_target *ti,
++					 struct dm_dev *dev, sector_t start,
++					 sector_t len, void *data)
++{
++	struct dm_derive_raw_secret_args *args = data;
++	struct request_queue *q = bdev_get_queue(dev->bdev);
++
++	if (!args->err)
++		return 0;
++
++	if (!q->ksm) {
++		args->err = -EOPNOTSUPP;
++		return 0;
++	}
++
++	args->err = blk_ksm_derive_raw_secret(q->ksm, args->wrapped_key,
++					      args->wrapped_key_size,
++					      args->secret,
++					      args->secret_size);
++	/* Try another device in case this fails. */
++	return 0;
++}
++
++/*
++ * Retrieve the raw_secret from the underlying device. Given that
++ * only only one raw_secret can exist for a particular wrappedkey,
++ * retrieve it only from the first device that supports derive_raw_secret()
++ */
++static int dm_derive_raw_secret(struct blk_keyslot_manager *ksm,
++				const u8 *wrapped_key,
++				unsigned int wrapped_key_size,
++				u8 *secret, unsigned int secret_size)
++{
++	struct mapped_device *md = container_of(ksm, struct mapped_device, ksm);
++	struct dm_derive_raw_secret_args args = {
++		.wrapped_key = wrapped_key,
++		.wrapped_key_size = wrapped_key_size,
++		.secret = secret,
++		.secret_size = secret_size,
++		.err = -EOPNOTSUPP,
++	};
++	struct dm_table *t;
++	int srcu_idx;
++	int i;
++	struct dm_target *ti;
++
++	t = dm_get_live_table(md, &srcu_idx);
++	if (!t)
++		return -EOPNOTSUPP;
++	for (i = 0; i < dm_table_get_num_targets(t); i++) {
++		ti = dm_table_get_target(t, i);
++		if (!ti->type->iterate_devices)
++			continue;
++		ti->type->iterate_devices(ti, dm_derive_raw_secret_callback,
++					  &args);
++		if (!args.err)
++			break;
++	}
++	dm_put_live_table(md, srcu_idx);
++	return args.err;
++}
++
+ static struct blk_ksm_ll_ops dm_ksm_ll_ops = {
+ 	.keyslot_evict = dm_keyslot_evict,
++	.derive_raw_secret = dm_derive_raw_secret,
+ };
+ 
+ static void dm_init_inline_encryption(struct mapped_device *md)
+-- 
+2.17.1
+

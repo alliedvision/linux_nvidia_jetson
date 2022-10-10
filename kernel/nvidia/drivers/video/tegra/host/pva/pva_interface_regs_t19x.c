@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,9 +25,7 @@
 #include <soc/tegra/fuse.h>
 #endif
 #include <linux/platform_device.h>
-
-#include "nvhost_acm.h"
-#include "dev.h"
+#include <linux/nvhost.h>
 
 #include "pva.h"
 #include "pva_mailbox.h"

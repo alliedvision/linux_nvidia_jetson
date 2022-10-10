@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,25 @@
 #include <ivc_core.h>
 #include "core_local.h"
 #include "../osi/common/common.h"
+
+#ifdef HSI_SUPPORT
+/**
+ * @brief hsi_err_code - Arry of error code and reporter ID to be use by
+ * each Ethernet controller instance
+ * a condition is met or a timeout occurs
+ * Below is the data:
+ * uncorrectable_error_code, correctable_error_code, reporter ID
+ * hsi_err_code[0] to hsi_err_code[3] for MGBE instance
+ * hsi_err_code[4] is for EQOS
+ */
+nveu32_t hsi_err_code[][3] = {
+	{0x2A00, 0x2E08, 0x8019},
+	{0x2A01, 0x2E09, 0x801A},
+	{0x2A02, 0x2E0A, 0x801B},
+	{0x2A03, 0x2E0B, 0x801C},
+	{0x28AD, 0x2DE6, 0x8009},
+};
+#endif
 
 /**
  * @brief g_core - Static core local data array
@@ -124,6 +143,7 @@ struct osi_core_priv_data *osi_get_core(void)
 
 	g_core[i].tx_ts_head.prev = &g_core[i].tx_ts_head;
 	g_core[i].tx_ts_head.next = &g_core[i].tx_ts_head;
+	g_core[i].pps_freq = OSI_DISABLE;
 
 	return &g_core[i].osi_core;
 }
@@ -192,6 +212,9 @@ nve32_t osi_init_core_ops(struct osi_core_priv_data *const osi_core)
 	l_core->serv.drift = 0;
 	l_core->serv.last_ppb = 0;
 	osi_lock_init(&l_core->serv.m2m_lock);
+#ifdef MACSEC_SUPPORT
+	osi_lock_init(&osi_core->macsec_fpe_lock);
+#endif /* MACSEC_SUPPORT */
 	l_core->hw_init_successful = OSI_DISABLE;
 	l_core->m2m_tsync = OSI_DISABLE;
 	l_core->if_init_done = OSI_ENABLE;
@@ -200,6 +223,14 @@ nve32_t osi_init_core_ops(struct osi_core_priv_data *const osi_core)
 		l_core->m2m_tsync = OSI_ENABLE;
 	} else {
 		l_core->m2m_tsync = OSI_DISABLE;
+	}
+
+	if (osi_core->pps_frq <= OSI_ENABLE) {
+		l_core->pps_freq = osi_core->pps_frq;
+	} else {
+		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_INVALID,
+			     "invalid pps_frq\n", (nveu64_t)osi_core->pps_frq);
+		ret = -1;
 	}
 
 	return ret;

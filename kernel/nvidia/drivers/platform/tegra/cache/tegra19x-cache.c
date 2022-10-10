@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,7 +54,7 @@ struct cache_drv_data {
 static struct cache_drv_data *cache_data;
 
 
-int tegra19x_hw_flush_cache_all(void)
+static int tegra19x_hw_flush_cache_all(void)
 {
 	u64 id_afr0;
 	u64 ret;
@@ -140,7 +140,7 @@ static int __tegra19x_hw_flush_dcache_all(void)
 }
 #endif
 
-int tegra19x_hw_flush_dcache_all(void)
+static int tegra19x_hw_flush_dcache_all(void)
 {
 #if PROFILE_DCACHE_FLUSH
 	return __tegra19x_hw_flush_dcache_all();
@@ -172,7 +172,7 @@ int tegra19x_hw_flush_dcache_all(void)
 #endif
 }
 
-int tegra19x_hw_clean_dcache_all(void)
+static int tegra19x_hw_clean_dcache_all(void)
 {
 	u64 id_afr0;
 	u64 ret;
@@ -819,8 +819,9 @@ static int __exit t19x_cache_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_OF
-__attribute__((weak)) struct of_device_id cache_of_match[] = {
+static const struct of_device_id cache_of_match[] = {
 	{ .compatible = "nvidia,t19x-cache", .data = NULL, },
+	{ .compatible = "nvidia,t23x-cache", .data = NULL, },
 	{},
 };
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All Rights Reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +31,9 @@
 #define TEGRA_NVVSE_CMDID_UPDATE_SHA			6
 #define TEGRA_NVVSE_CMDID_FINAL_SHA			7
 #define TEGRA_NVVSE_CMDID_AES_DRNG			8
+#define TEGRA_NVVSE_CMDID_AES_GMAC_INIT			9
+#define TEGRA_NVVSE_CMDID_AES_GMAC_SIGN_VERIFY		10
+#define TEGRA_NVVSE_CMDID_AES_CMAC_SIGN_VERIFY		11
 
 /** Defines the length of the AES-CBC Initial Vector */
 #define TEGRA_NVVSE_AES_IV_LEN				16U
@@ -40,6 +43,8 @@
 #define TEGRA_NVVSE_AES_GCM_IV_LEN			12U
 /** Defines the length of the AES-GCM Tag buffer */
 #define TEGRA_NVVSE_AES_GCM_TAG_SIZE			16U
+/** Defines the length of the AES-CMAC */
+#define TEGRA_NVVSE_AES_CMAC_LEN			16U
 /** Defines the counter offset byte in the AES Initial counter*/
 #define TEGRA_COUNTER_OFFSET				12U
 
@@ -84,6 +89,26 @@ enum tegra_nvvse_aes_mode {
 };
 
 /**
+ * \brief Defines AES GMAC type.
+ */
+enum tegra_nvvse_gmac_type {
+	/** Defines AES GMAC Sign */
+	TEGRA_NVVSE_AES_GMAC_SIGN = 0u,
+	/** Defines AES GMAC Verify */
+	TEGRA_NVVSE_AES_GMAC_VERIFY,
+};
+
+/**
+ * \brief Defines AES CMAC type.
+ */
+enum tegra_nvvse_cmac_type {
+	/** Defines AES CMAC Sign */
+	TEGRA_NVVSE_AES_CMAC_SIGN = 0u,
+	/** Defines AES CMAC Verify */
+	TEGRA_NVVSE_AES_CMAC_VERIFY,
+};
+
+/**
   * \brief Holds SHA Init Header Params
   */
 struct tegra_nvvse_sha_init_ctl {
@@ -121,22 +146,6 @@ struct tegra_nvvse_sha_final_ctl {
 };
 #define NVVSE_IOCTL_CMDID_FINAL_SHA _IOWR(TEGRA_NVVSE_IOC_MAGIC, TEGRA_NVVSE_CMDID_FINAL_SHA, \
 						struct tegra_nvvse_sha_final_ctl)
-
-/**
-  * \brief Holds AES Set Key Header Params
-  */
-struct tegra_nvvse_aes_set_key_ctl {
-	/** Holds the pointer of the key data buffer */
-	uint8_t		*key_data;
-	/** Holds the key slot number */
-	uint32_t	key_slot_number;
-	/** Holds the length of key */
-	uint32_t	key_length;
-	/** Indicates the key is CMAC or not */
-	uint8_t		is_cmac;
-};
-#define NVVSE_IOCTL_CMDID_AES_SET_KEY _IOW(TEGRA_NVVSE_IOC_MAGIC, TEGRA_NVVSE_CMDID_AES_SET_KEY, \
-						struct tegra_nvvse_aes_set_key_ctl)
 
 /**
   *  \brief Holds AES encrypt/decrypt parameters for IO Control.
@@ -217,29 +226,143 @@ struct  tegra_nvvse_aes_enc_dec_ctl {
 						struct  tegra_nvvse_aes_enc_dec_ctl)
 
 /**
-  *  \brief Holds AES CMAC parameters.
-  */
-struct tegra_nvvse_aes_cmac_ctl {
+ * \brief Holds AES GMAC Init parameters
+ */
+struct tegra_nvvse_aes_gmac_init_ctl {
 	/** [in] Holds a keyslot number */
-	uint32_t	key_slot;
+	uint32_t   key_slot;
 	/** [in] Holds the Key length */
-	/** Supported keylength is only 16 bytes */
-	uint8_t		key_length;
-	/** [in] Length of the input buffer.
-	  * Range supported for data length is 0 to (16MB - 16) bytes.
-	  * uDataLength shall not be more than the size configured through "-aes_ip_max"
-	  * option during launch of driver (devc-nvvse-safety).
-	  */
-	uint32_t	data_length;
-	/** [in] Holds a pointer to the input buffer for which
-	  * AES CMAC is to be calculated.
-	  */
-	uint8_t		*src_buffer;
-	/** [inout] Holds a pointer the AES CMAC signature. */
-	uint8_t		*dest_buffer;
+	/** Supported keylengths are 16 and 32 bytes */
+	uint8_t   key_length;
+	/** [out] Initial Vector (IV) used for GMAC Sign and Verify */
+	uint8_t   IV[TEGRA_NVVSE_AES_GCM_IV_LEN];
 };
-#define NVVSE_IOCTL_CMDID_AES_CMAC _IOWR(TEGRA_NVVSE_IOC_MAGIC, TEGRA_NVVSE_CMDID_AES_CMAC, \
-						struct tegra_nvvse_aes_cmac_ctl)
+#define NVVSE_IOCTL_CMDID_AES_GMAC_INIT _IOW(TEGRA_NVVSE_IOC_MAGIC, \
+						TEGRA_NVVSE_CMDID_AES_GMAC_INIT, \
+						struct tegra_nvvse_aes_gmac_init_ctl)
+
+/**
+ * \brief Holds AES GMAC parameters
+ */
+struct tegra_nvvse_aes_gmac_sign_verify_ctl {
+	/** [in] Holds the enum which indicates AES GMAC Sign or Verify */
+	enum  tegra_nvvse_gmac_type gmac_type;
+	/** [in] Holds a Boolean that specifies whether this is first
+	 * chunk of message for GMAC Signing/Verifying.
+	 * '0' value indicates it is not First call and
+	 * Non zero value indicates it is the first call.
+	 */
+	uint8_t  is_first;
+	/** [in] Holds a Boolean that specifies whether this is last
+	 * chunk of message for GMAC Signing/Verifying.
+	 * '0' value indicates it is not Last call and
+	 *  Non zero value indicates it is the Last call.
+	 */
+	uint8_t  is_last;
+	/** [in] Holds a keyslot handle which is used for GMAC operation */
+	uint32_t  key_slot;
+	/** [in] Holds the Key length
+	 * Supported keylength is only 16 bytes and 32 bytes
+	 */
+	uint8_t  key_length;
+	/** [in] Holds the Length of the input source buffer.
+	 * data_length shall not be "0" supported for single part sign and verify
+	 * data_length shall be multiple of 16 bytes if it is not the last chunk
+	 * i.e when is_last is "0"
+	 */
+	uint32_t data_length;
+	/** [in] Holds a pointer to the input source buffer for which
+	 *  AES GMAC is to be calculated/verified.
+	 */
+	uint8_t *src_buffer;
+	/** [in] Initial Vector (IV) used for AES GMAC.
+	 * For AES-GMAC iv size is 96 bits.
+	 * Application will pass this IV for verification.
+	 */
+	uint8_t initial_vector[TEGRA_NVVSE_AES_GCM_IV_LEN];
+	/** [in] Holds the length of tag for GMAC. */
+	uint32_t tag_length;
+	/** [inout] Holds a pointer to the AES GMAC signature.
+	 * GMAC signature will updated by Virtual SE Driver when gmac_type is
+	 * TEGRA_NVVSE_AES_GMAC_SIGN and when the last chunk of the message is sent i.e when
+	 * is_last is non zero.
+	 * GMAC signature should be provided by client when gmac_type is
+	 * TEGRA_NVVSE_AES_GMAC_VERIFY and the last chunk of the message is sent i.e when is_last
+	 * is non zero.
+	 * The AES GMAC signature length supported is 16 bytes. Hence this buffer must be 16 bytes
+	 * length.
+	 */
+	uint8_t *tag_buffer;
+	/** [out] Holds GMAC verification result, which the driver updates.
+	 * Valid only when gmac_type is TEGRA_NVVSE_AES_GMAC_VERIFY.
+	 * Result values are:
+	 * - '0' indicates GMAC verification success.
+	 * - Non-zero value indicates GMAC verification failure.
+	 */
+	uint8_t  result;
+};
+#define NVVSE_IOCTL_CMDID_AES_GMAC_SIGN_VERIFY _IOWR(TEGRA_NVVSE_IOC_MAGIC, \
+						TEGRA_NVVSE_CMDID_AES_GMAC_SIGN_VERIFY, \
+						struct  tegra_nvvse_aes_gmac_sign_verify_ctl)
+
+/**
+ * \brief Holds AES CMAC parameters
+ */
+struct tegra_nvvse_aes_cmac_sign_verify_ctl {
+	/** [in] Holds the enum which indicates AES CMAC Sign or Verify */
+	enum  tegra_nvvse_cmac_type cmac_type;
+	/** [in] Holds a Boolean that specifies whether this is first
+	 * chunk of message for CMAC Signing/Verifying.
+	 * '0' value indicates it is not First call and
+	 * Non zero value indicates it is the first call.
+	 */
+	uint8_t  is_first;
+	/** [in] Holds a Boolean that specifies whether this is last
+	 * chunk of message for CMAC Signing/Verifying.
+	 * '0' value indicates it is not Last call and
+	 *  Non zero value indicates it is the Last call.
+	 */
+	uint8_t  is_last;
+	/** [in] Holds a keyslot handle which is used for CMAC operation */
+	uint32_t  key_slot;
+	/** [in] Holds the Key length
+	 * Supported keylength is only 16 bytes and 32 bytes
+	 */
+	uint8_t  key_length;
+	/** [in] Holds the Length of the input source buffer.
+	 * data_length shall not be "0" supported for single part sign and verify
+	 * data_length shall be multiple of 16 bytes if it is not the last chunk
+	 * i.e when is_last is "0"
+	 */
+	uint32_t data_length;
+	/** [in] Holds a pointer to the input source buffer for which
+	 *  AES CMAC is to be calculated/verified.
+	 */
+	uint8_t *src_buffer;
+	/** [in] Holds the length of tag for CMAC. */
+	uint32_t cmac_length;
+	/** [inout] Holds a pointer to the AES CMAC signature.
+	 * CMAC signature will updated by Virtual SE Driver when gmac_type is
+	 * TEGRA_NVVSE_AES_CMAC_SIGN and when the last chunk of the message is sent i.e when
+	 * is_last is non zero.
+	 * CMAC signature should be provided by client when gmac_type is
+	 * TEGRA_NVVSE_AES_CMAC_VERIFY and the last chunk of the message is sent i.e when is_last
+	 * is non zero.
+	 * The AES CMAC signature length supported is 16 bytes. Hence this buffer must be 16 bytes
+	 * length.
+	 */
+	uint8_t *cmac_buffer;
+	/** [out] Holds CMAC verification result, which the driver updates.
+	 * Valid only when gmac_type is TEGRA_NVVSE_AES_CMAC_VERIFY.
+	 * Result values are:
+	 * - '0' indicates CMAC verification success.
+	 * - Non-zero value indicates CMAC verification failure.
+	 */
+	uint8_t  result;
+};
+#define NVVSE_IOCTL_CMDID_AES_CMAC_SIGN_VERIFY _IOWR(TEGRA_NVVSE_IOC_MAGIC, \
+						TEGRA_NVVSE_CMDID_AES_CMAC_SIGN_VERIFY, \
+						struct  tegra_nvvse_aes_cmac_sign_verify_ctl)
 
 /**
   * \brief Holds AES generated RNG IO control params

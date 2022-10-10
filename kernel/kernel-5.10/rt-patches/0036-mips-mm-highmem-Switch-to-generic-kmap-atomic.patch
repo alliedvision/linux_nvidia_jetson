@@ -1,7 +1,7 @@
-From a5880be177a7c903703c8e1ea3d819587285509c Mon Sep 17 00:00:00 2001
+From 348f52da61383a0904d72289ddd8546f03ae49d5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:25 +0100
-Subject: [PATCH 036/304] mips/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 036/318] mips/mm/highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture
 
@@ -13,17 +13,17 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  arch/mips/Kconfig                  |  1 +
  arch/mips/include/asm/fixmap.h     |  4 +-
  arch/mips/include/asm/highmem.h    |  6 +--
- arch/mips/include/asm/kmap_types.h | 13 -------
- arch/mips/mm/highmem.c             | 77 --------------------------------------
+ arch/mips/include/asm/kmap_types.h | 13 -----
+ arch/mips/mm/highmem.c             | 77 ------------------------------
  arch/mips/mm/init.c                |  4 --
  6 files changed, 6 insertions(+), 99 deletions(-)
  delete mode 100644 arch/mips/include/asm/kmap_types.h
 
 diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index 1a63f59..336ebd5 100644
+index 3442bdd4314c..30622f2e286a 100644
 --- a/arch/mips/Kconfig
 +++ b/arch/mips/Kconfig
-@@ -2722,6 +2722,7 @@ config WAR_MIPS34K_MISSED_ITLB
+@@ -2730,6 +2730,7 @@ config WAR_MIPS34K_MISSED_ITLB
  config HIGHMEM
  	bool "High Memory Support"
  	depends on 32BIT && CPU_SUPPORTS_HIGHMEM && SYS_SUPPORTS_HIGHMEM && !CPU_MIPS32_3_5_EVA
@@ -32,7 +32,7 @@ index 1a63f59..336ebd5 100644
  config CPU_SUPPORTS_HIGHMEM
  	bool
 diff --git a/arch/mips/include/asm/fixmap.h b/arch/mips/include/asm/fixmap.h
-index 743535b..beea1476 100644
+index 743535be7528..beea14761cef 100644
 --- a/arch/mips/include/asm/fixmap.h
 +++ b/arch/mips/include/asm/fixmap.h
 @@ -17,7 +17,7 @@
@@ -54,7 +54,7 @@ index 743535b..beea1476 100644
  	__end_of_fixed_addresses
  };
 diff --git a/arch/mips/include/asm/highmem.h b/arch/mips/include/asm/highmem.h
-index 9f021cf..1716181e 100644
+index 9f021cf51aa7..1716181ea66d 100644
 --- a/arch/mips/include/asm/highmem.h
 +++ b/arch/mips/include/asm/highmem.h
 @@ -24,7 +24,7 @@
@@ -82,7 +82,7 @@ index 9f021cf..1716181e 100644
  
 diff --git a/arch/mips/include/asm/kmap_types.h b/arch/mips/include/asm/kmap_types.h
 deleted file mode 100644
-index 16665dc2..00000000
+index 16665dc2431b..000000000000
 --- a/arch/mips/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -100,7 +100,7 @@ index 16665dc2..00000000
 -
 -#endif
 diff --git a/arch/mips/mm/highmem.c b/arch/mips/mm/highmem.c
-index 5fec7f4..57e2f08 100644
+index 5fec7f45d79a..57e2f08f00d0 100644
 --- a/arch/mips/mm/highmem.c
 +++ b/arch/mips/mm/highmem.c
 @@ -8,8 +8,6 @@
@@ -192,7 +192,7 @@ index 5fec7f4..57e2f08 100644
 -	kmap_pte = virt_to_kpte(kmap_vstart);
 -}
 diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
-index 07e84a7..bc80893 100644
+index 07e84a774938..bc80893e5c0f 100644
 --- a/arch/mips/mm/init.c
 +++ b/arch/mips/mm/init.c
 @@ -36,7 +36,6 @@
@@ -214,5 +214,5 @@ index 07e84a7..bc80893 100644
  	max_zone_pfns[ZONE_DMA] = MAX_DMA_PFN;
  #endif
 -- 
-2.7.4
+2.17.1
 

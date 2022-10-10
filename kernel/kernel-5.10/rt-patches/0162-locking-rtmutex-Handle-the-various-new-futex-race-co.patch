@@ -1,7 +1,7 @@
-From af79c856171b8167d743612bcf03a4c4597c7dcc Mon Sep 17 00:00:00 2001
+From 0172e55fb4a0436e2765e1ed8a7b8ffcf8641d73 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 10 Jun 2011 11:04:15 +0200
-Subject: [PATCH 162/304] locking/rtmutex: Handle the various new futex race
+Subject: [PATCH 162/318] locking/rtmutex: Handle the various new futex race
  conditions
 
 RT opens a few new interesting race conditions in the rtmutex/futex
@@ -10,13 +10,13 @@ therefor not disabling preemption.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- kernel/futex.c                  | 77 +++++++++++++++++++++++++++++++++--------
- kernel/locking/rtmutex.c        | 36 +++++++++++++++----
- kernel/locking/rtmutex_common.h |  2 ++
+ kernel/futex.c                  | 77 ++++++++++++++++++++++++++-------
+ kernel/locking/rtmutex.c        | 36 ++++++++++++---
+ kernel/locking/rtmutex_common.h |  2 +
  3 files changed, 94 insertions(+), 21 deletions(-)
 
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 98a6e1b..c2fe58c 100644
+index 98a6e1b80bfe..c2fe58c34409 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -2155,6 +2155,16 @@ static int futex_requeue(u32 __user *uaddr1, unsigned int flags,
@@ -141,7 +141,7 @@ index 98a6e1b..c2fe58c 100644
  			ret = 0;
  
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 1d0e9bf..97a5fb1 100644
+index b5d5c570a8ac..2ef5a6eb95da 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -136,6 +136,11 @@ static void fixup_rt_mutex_waiters(struct rt_mutex *lock)
@@ -237,7 +237,7 @@ index 1d0e9bf..97a5fb1 100644
  		return;
  	}
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index b1455dc..096b16c 100644
+index b1455dc2366f..096b16cfb096 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -125,6 +125,8 @@ enum rtmutex_chainwalk {
@@ -250,5 +250,5 @@ index b1455dc..096b16c 100644
  extern void rt_mutex_init_proxy_locked(struct rt_mutex *lock,
  				       struct task_struct *proxy_owner);
 -- 
-2.7.4
+2.17.1
 

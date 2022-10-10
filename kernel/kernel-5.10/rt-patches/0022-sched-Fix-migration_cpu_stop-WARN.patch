@@ -1,7 +1,7 @@
-From cff5df8c7efe04b06845b92c39429e4dba86cc2b Mon Sep 17 00:00:00 2001
+From 318446270d59be82bc5e43744b4c98ba079b3d4e Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 17 Nov 2020 12:14:51 +0100
-Subject: [PATCH 022/304] sched: Fix migration_cpu_stop() WARN
+Subject: [PATCH 022/318] sched: Fix migration_cpu_stop() WARN
 
 Oleksandr reported hitting the WARN in the 'task_rq(p) != rq' branch
 of migration_cpu_stop(). Valentin noted that using cpu_of(rq) in that
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index ee756e3..4276eb7 100644
+index 009b7cee301d..82b9887b1664 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1924,7 +1924,7 @@ static int migration_cpu_stop(void *data)
@@ -42,5 +42,5 @@ index ee756e3..4276eb7 100644
  		}
  
 -- 
-2.7.4
+2.17.1
 

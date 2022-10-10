@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_tegraprod.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -663,15 +663,17 @@ static int tegra_pcie_bpmp_set_ctrl_state(struct mods_smmu_dev *pcie_dev,
 	return tegra_bpmp_transfer(pcie_dev->bpmp, &msg);
 }
 
-int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
+static int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
 {
 	#define MAX_DEV_NAME_LEN 32
 	char dev_name[MAX_DEV_NAME_LEN];
 	struct mods_smmu_dev *smmu_pdev = NULL;
-	int smmudev_idx;
+	int smmudev_idx, n;
 
 	memset(dev_name, 0, MAX_DEV_NAME_LEN);
-	snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	n = snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	if (n < 0 || n >= MAX_DEV_NAME_LEN)
+		return -EINVAL;
 	smmudev_idx = get_mods_smmu_device_index(dev_name);
 	if (smmudev_idx >= 0)
 		smmu_pdev = get_mods_smmu_device(smmudev_idx);
@@ -684,7 +686,7 @@ int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
 }
 #else
 
-int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
+static int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
 {
 	mods_error_printk("bpmp mrq api is not supported\n");
 	return -ENODEV;
@@ -729,15 +731,17 @@ static int tegra_pcie_bpmp_set_pll_state(struct mods_smmu_dev *pcie_dev,
 	return tegra_bpmp_transfer(pcie_dev->bpmp, &msg);
 }
 
-int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
+static int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
 {
 	#define MAX_DEV_NAME_LEN 32
 	char dev_name[MAX_DEV_NAME_LEN];
 	struct mods_smmu_dev *smmu_pdev = NULL;
-	int smmudev_idx;
+	int smmudev_idx, n;
 
 	memset(dev_name, 0, MAX_DEV_NAME_LEN);
-	snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	n = snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	if (n < 0 || n >= MAX_DEV_NAME_LEN)
+		return -EINVAL;
 	smmudev_idx = get_mods_smmu_device_index(dev_name);
 	if (smmudev_idx >= 0)
 		smmu_pdev = get_mods_smmu_device(smmudev_idx);
@@ -750,7 +754,7 @@ int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
 }
 #else
 
-int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
+static int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
 {
 	mods_error_printk("bpmp mrq api is not supported\n");
 	return -ENODEV;

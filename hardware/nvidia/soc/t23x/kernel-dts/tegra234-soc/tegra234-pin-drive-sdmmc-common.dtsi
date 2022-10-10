@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,7 @@
  */
 
 #include <dt-bindings/pinctrl/pinctrl-tegra-io-pad.h>
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
 
 / {
 	pmc@c360000 {
@@ -65,6 +66,53 @@
 			sdmmc3 {
 				pins = "sdmmc3-hv";
 				nvidia,power-source-voltage = <TEGRA_IO_PAD_VOLTAGE_1800000UV>;
+			};
+		};
+	};
+
+	pinmux@2430000 {
+		sdmmc1_sdexp_disable: sdmmc1_sdexp_disable {
+			sdmmc1_dat0 {
+				nvidia,pins = "sdmmc1_dat0_pj2";
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+
+			sdmmc1_dat1 {
+				nvidia,pins = "sdmmc1_dat1_pj3";
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+
+			sdmmc1_dat2 {
+				nvidia,pins = "sdmmc1_dat2_pj4";
+				nvidia,function = "sdmmc1";
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+
+			sdmmc1_dat3 {
+				nvidia,pins = "sdmmc1_dat3_pj5";
+				nvidia,function = "sdmmc1";
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+		};
+		sdmmc1_sdexp_enable: sdmmc1_sdexp_enable {
+			sdmmc1_dat0 {
+				nvidia,pins = "sdmmc1_dat0_pj2";
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+			sdmmc1_dat1 {
+				nvidia,pins = "sdmmc1_dat1_pj3";
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+
+			sdmmc1_dat2 {
+				nvidia,pins = "sdmmc1_dat2_pj4";
+				nvidia,function = "rsvd1";
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+			sdmmc1_dat3 {
+				nvidia,pins = "sdmmc1_dat3_pj5";
+				nvidia,function = "rsvd1";
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
 			};
 		};
 	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,21 @@ typedef my_uint16_t		nveu16_t;
 /** typedef equivalent to long long */
 typedef my_lint_64		nvel64_t;
 /** @} */
+
+#ifdef MACSEC_SUPPORT
+/**
+ * @addtogroup MACSEC related helper MACROs
+ *
+ * @brief MACSEC generic helper MACROs
+ * @{
+ */
+#define OSI_MAX_NUM_SC                  8U
+#define OSI_SCI_LEN			8U
+#define OSI_KEY_LEN_128			16U
+#define OSI_KEY_LEN_256			32U
+#define OSI_NUM_CTLR			2U
+/** @} */
+#endif /* MACSEC_SUPPORT */
 
 /**
  * @addtogroup PTP PTP related information
@@ -161,10 +176,10 @@ typedef my_lint_64		nvel64_t;
 /**
  * @brief Ethernet PHY Interface Modes
  */
-#define OSI_XFI_MODE_10G	0
-#define OSI_XFI_MODE_5G		1
-#define OSI_USXGMII_MODE_10G	2
-#define OSI_USXGMII_MODE_5G	3
+#define OSI_XFI_MODE_10G	0U
+#define OSI_XFI_MODE_5G		1U
+#define OSI_USXGMII_MODE_10G	2U
+#define OSI_USXGMII_MODE_5G	3U
 
 /**
  * @addtogroup PTP-offload PTP offload defines
@@ -232,6 +247,13 @@ typedef my_lint_64		nvel64_t;
 #define OSI_CMD_CAP_TSC_PTP		46U
 #define OSI_CMD_MAC_MTU			47U
 #define OSI_CMD_CONF_M2M_TS		48U
+#ifdef MACSEC_SUPPORT
+#define OSI_CMD_READ_MACSEC_REG		49U
+#define OSI_CMD_WRITE_MACSEC_REG	50U
+#endif /* MACSEC_SUPPORT */
+#ifdef HSI_SUPPORT
+#define OSI_CMD_HSI_CONFIGURE		51U
+#endif
 /** @} */
 
 /**
@@ -324,6 +346,72 @@ typedef my_lint_64		nvel64_t;
 #define OSI_FRP_MATCH_VLAN		9U
 #define OSI_FRP_MATCH_MAX		10U
 /** @} */
+
+#ifdef HSI_SUPPORT
+/**
+ * @addtogroup hsi_err_code_idx
+ *
+ * @brief data index for hsi_err_code array
+ * @{
+ */
+#define REPORTER_IDX		2U
+
+#define UE_IDX			0U
+#define CE_IDX			1U
+#define RX_CRC_ERR_IDX		2U
+#define TX_FRAME_ERR_IDX	3U
+#define RX_CSUM_ERR_IDX		4U
+#define AUTONEG_ERR_IDX		5U
+
+#define MACSEC_RX_CRC_ERR_IDX	0U
+#define MACSEC_TX_CRC_ERR_IDX	1U
+#define MACSEC_RX_ICV_ERR_IDX	2U
+/** @} */
+
+extern nveu32_t hsi_err_code[][3];
+
+/**
+ * @addtogroup HSI_TIME_THRESHOLD
+ *
+ * @brief HSI time threshold to report error in ms
+ * @{
+ */
+#define OSI_HSI_ERR_TIME_THRESHOLD_DEFAULT	3000U
+#define OSI_HSI_ERR_TIME_THRESHOLD_MIN		1000U
+#define OSI_HSI_ERR_TIME_THRESHOLD_MAX		60000U
+/** @} */
+
+/**
+ * @brief HSI error count threshold to report error
+ */
+#define OSI_HSI_ERR_COUNT_THRESHOLD		1000U
+
+/**
+ * @brief Maximum number of different mac error code
+ */
+#define HSI_MAX_MAC_ERROR_CODE		6U
+
+/**
+ * @brief Maximum number of different macsec error code
+ */
+#define HSI_MAX_MACSEC_ERROR_CODE	3U
+
+/**
+ * @addtogroup HSI_SW_ERR_CODE
+ *
+ * @brief software defined error code
+ * @{
+ */
+#define OSI_INBOUND_BUS_CRC_ERR		0x1001U
+#define OSI_TX_FRAME_ERR		0x1002U
+#define OSI_RECEIVE_CHECKSUM_ERR	0x1003U
+#define OSI_PCS_AUTONEG_ERR		0x1004U
+#define OSI_MACSEC_RX_CRC_ERR		0x1005U
+#define OSI_MACSEC_TX_CRC_ERR		0x1006U
+#define OSI_MACSEC_RX_ICV_ERR		0x1007U
+
+/** @} */
+#endif
 
 struct osi_core_priv_data;
 
@@ -1032,6 +1120,46 @@ struct osd_core_ops {
 
 #ifdef MACSEC_SUPPORT
 /**
+ * @brief MACSEC secure channel basic information
+ */
+struct osi_macsec_sc_info {
+	/** Secure channel identifier */
+	nveu8_t sci[OSI_SCI_LEN];
+	/** Secure association key */
+	nveu8_t sak[OSI_KEY_LEN_128];
+#ifdef MACSEC_KEY_PROGRAM
+	/** Secure association key */
+	nveu8_t hkey[OSI_KEY_LEN_128];
+#endif /* MACSEC_KEY_PROGRAM */
+	/** current AN */
+	nveu8_t curr_an;
+	/** Next PN to use for the current AN */
+	nveu32_t next_pn;
+	/** Lowest PN to use for the current AN */
+	nveu32_t lowest_pn;
+	/** bitmap of valid AN */
+	nveu32_t an_valid;
+	/** PN window */
+	nveu32_t pn_window;
+	/** SC LUT index */
+	nveu32_t sc_idx_start;
+	/** flags - encoding various states of SA */
+	nveu32_t flags;
+};
+
+/**
+ * @brief MACSEC HW controller LUT's global status
+ */
+struct osi_macsec_lut_status {
+	/** List of max SC's supported */
+	struct osi_macsec_sc_info sc_info[OSI_MAX_NUM_SC];
+	/** next available BYP LUT index */
+	nveu16_t next_byp_idx;
+	/** number of active SCs */
+	nveu32_t num_of_sc_used;
+};
+
+/**
  * @brief MACsec interrupt stats structure.
  */
 struct osi_macsec_irq_stats {
@@ -1182,6 +1310,52 @@ struct osi_core_pkt_err_stats {
 	nveu64_t mgbe_tx_underflow_err;
 };
 
+#ifdef HSI_SUPPORT
+/**
+ * @brief The OSI Core HSI private data structure.
+ */
+struct osi_hsi_data {
+	/** Indicates if HSI feature is enabled */
+	nveu32_t enabled;
+	/** time threshold to report error */
+	nveu32_t err_time_threshold;
+	/** error count threshold to report error  */
+	nveu32_t err_count_threshold;
+	/** HSI reporter ID */
+	nveu32_t reporter_id;
+	/** HSI error codes */
+	nveu32_t err_code[HSI_MAX_MAC_ERROR_CODE];
+	/** HSI MAC report count threshold based error */
+	nveu32_t report_count_err[HSI_MAX_MAC_ERROR_CODE];
+	/** Indicates if error reporting to FSI is pending */
+	nveu32_t report_err;
+	/** HSI MACSEC error codes */
+	nveu32_t macsec_err_code[HSI_MAX_MACSEC_ERROR_CODE];
+	/** HSI MACSEC report error based on count threshold */
+	nveu32_t macsec_report_count_err[HSI_MAX_MACSEC_ERROR_CODE];
+	/** Indicates if error report to FSI is pending for MACSEC*/
+	nveu32_t macsec_report_err;
+	/** RX CRC error report count */
+	nveu64_t rx_crc_err_count;
+	/** RX Checksum error report count */
+	nveu64_t rx_checksum_err_count;
+	/** MACSEC RX CRC error report count */
+	nveu64_t macsec_rx_crc_err_count;
+	/** MACSEC TX CRC error report count */
+	nveu64_t macsec_tx_crc_err_count;
+	/** MACSEC RX ICV error report count */
+	nveu64_t macsec_rx_icv_err_count;
+	/** HW correctable error count */
+	nveu64_t ce_count;
+	/** HW correctable error count hit threshold limit */
+	nveu64_t ce_count_threshold;
+	/** tx frame error count */
+	nveu64_t tx_frame_err_count;
+	/** tx frame error count threshold hit */
+	nveu64_t tx_frame_err_threshold;
+};
+#endif
+
 /**
  * @brief The OSI Core (MAC & MTL) private data structure.
  */
@@ -1194,9 +1368,9 @@ struct osi_core_priv_data {
 	void *dma_base;
 	/** Memory mapped base address of XPCS IP */
 	void *xpcs_base;
-#ifdef MACSEC_SUPPORT
 	/** Memory mapped base address of MACsec IP */
 	void *macsec_base;
+#ifdef MACSEC_SUPPORT
 	/** Memory mapped base address of MACsec TZ page */
 	void *tz_base;
 	/** Address of MACsec HW operations structure */
@@ -1204,9 +1378,18 @@ struct osi_core_priv_data {
 	/** Instance of macsec interrupt stats structure */
 	struct osi_macsec_irq_stats macsec_irq_stats;
 	/** Instance of macsec HW controller Tx/Rx LUT status */
-	struct osi_macsec_lut_status *macsec_lut_status;
+	struct osi_macsec_lut_status macsec_lut_status[OSI_NUM_CTLR];
 	/** macsec mmc counters */
 	struct osi_macsec_mmc_counters macsec_mmc;
+	/** MACSEC enabled state */
+	nveu32_t is_macsec_enabled;
+	/** macsec_fpe_lock used to exclusively configure either macsec
+	 * or fpe config due to bug 3484034 */
+	nveu32_t macsec_fpe_lock;
+	/** FPE HW configuration initited to enable/disable
+	 * 1- FPE HW configuration initiated to enable
+	 * 0- FPE HW configuration initiated to disable */
+	unsigned int is_fpe_enabled;
 #endif /* MACSEC_SUPPORT */
 	/** Pointer to OSD private data structure */
 	void *osd;
@@ -1309,6 +1492,12 @@ struct osi_core_priv_data {
 	 * 1 - Primary interface, 2 - secondary interface, 0 - inactive interface
 	 */
 	nveu32_t m2m_role;
+	/** control pps output signal
+	 */
+	nveu32_t pps_frq;
+#ifdef HSI_SUPPORT
+	struct osi_hsi_data hsi;
+#endif
 };
 
 /**
@@ -1327,18 +1516,17 @@ struct osi_core_priv_data {
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_004
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1369,18 +1557,17 @@ nve32_t osi_poll_for_mac_reset_complete(
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_006
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1403,18 +1590,17 @@ nve32_t osi_hw_core_init(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_007
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: No
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: No
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1437,18 +1623,17 @@ nve32_t osi_hw_core_deinit(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_008
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1470,18 +1655,17 @@ nve32_t osi_start_mac(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_009
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: No
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: No
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1504,18 +1688,17 @@ nve32_t osi_stop_mac(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_010
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1538,18 +1721,17 @@ nve32_t osi_common_isr(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_011
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1574,18 +1756,17 @@ nve32_t osi_set_mode(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_012
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1610,18 +1791,17 @@ nve32_t osi_set_speed(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_013
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 value on failure or pad calibration is disabled
@@ -1646,18 +1826,17 @@ nve32_t osi_pad_calibrate(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_020
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1681,18 +1860,17 @@ nve32_t osi_config_fw_err_pkts(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_017
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1719,18 +1897,17 @@ nve32_t osi_config_rxcsum_offload(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_018
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1763,18 +1940,17 @@ nve32_t osi_l2_filter(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_002
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1802,18 +1978,17 @@ nve32_t osi_write_phy_reg(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_014
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1844,18 +2019,17 @@ nve32_t osi_read_mmc(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_003
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval data from PHY register on success
  * @retval -1 on failure
@@ -1876,18 +2050,17 @@ nve32_t osi_read_phy_reg(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_001
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  */
 nve32_t osi_init_core_ops(struct osi_core_priv_data *const osi_core);
@@ -1909,18 +2082,17 @@ nve32_t osi_init_core_ops(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_005
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1946,18 +2118,17 @@ nve32_t osi_set_systime_to_mac(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_023
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1983,18 +2154,17 @@ nve32_t osi_adjust_freq(struct osi_core_priv_data *const osi_core, nve32_t ppb);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_022
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2029,18 +2199,17 @@ nve32_t osi_adjust_time(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_021
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2087,18 +2256,17 @@ void *eqos_get_core_safety_config(void);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_019
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2126,18 +2294,17 @@ nve32_t osi_l3l4_filter(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_015
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2157,18 +2324,17 @@ nve32_t osi_get_mac_version(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_016
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2326,18 +2492,17 @@ nve32_t osi_get_hw_features(struct osi_core_priv_data *const osi_core,
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2358,18 +2523,17 @@ nve32_t osi_handle_ioctl(struct osi_core_priv_data *osi_core,
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval valid and unique osi_core pointer on success
  * @retval NULL on failure.
@@ -2526,18 +2690,17 @@ struct osi_core_priv_data *osi_get_core(void);
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2567,18 +2730,17 @@ nve32_t osi_hal_handle_ioctl(struct osi_core_priv_data *osi_core,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETRM_006
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2601,18 +2763,17 @@ nve32_t osi_hal_hw_core_init(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: TODO
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: No
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: No
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2645,18 +2806,17 @@ nve32_t osi_hal_hw_core_deinit(struct osi_core_priv_data *const osi_core);
  * Traceability Details:
  * - SWUD_ID: TODO
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -2690,18 +2850,17 @@ nve32_t osi_hal_write_phy_reg(struct osi_core_priv_data *const osi_core,
  * Traceability Details:
  * - SWUD_ID: TODO
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval data from PHY register on success
  * @retval -1 on failure
@@ -2709,3 +2868,4 @@ nve32_t osi_hal_write_phy_reg(struct osi_core_priv_data *const osi_core,
 nve32_t osi_hal_read_phy_reg(struct osi_core_priv_data *const osi_core,
 			     const nveu32_t phyaddr, const nveu32_t phyreg);
 #endif /* INCLUDED_OSI_CORE_H */
+

@@ -1,0 +1,47 @@
+From 1c2f5fee54279a7dd8431974e56cac1f5febb371 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Tue, 27 Oct 2020 13:13:20 +0100
+Subject: [PATCH 001/830] Revert "arm64: dts: qcom: sdm845-db845c: Fix hdmi
+ nodes"
+X-NVConfidentiality: public
+
+This reverts commit bca4339bda0989e49189c164795b120eb261970c.
+
+It causes build breakage in the db845c_gki_defconfig
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I4c73e66f0a89cf3ed96fd67b49c9103f35db0e8a
+---
+ arch/arm64/boot/dts/qcom/sdm845-db845c.dts | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+index 96d36b38f269..f926b5517dba 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
++++ b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+@@ -453,16 +453,16 @@
+ 			port@0 {
+ 				reg = <0>;
+ 
+-				lt9611_a: endpoint {
+-					remote-endpoint = <&dsi0_out>;
++				lt9611_out: endpoint {
++					remote-endpoint = <&hdmi_con>;
+ 				};
+ 			};
+ 
+-			port@2 {
+-				reg = <2>;
++			port@1 {
++				reg = <1>;
+ 
+-				lt9611_out: endpoint {
+-					remote-endpoint = <&hdmi_con>;
++				lt9611_a: endpoint {
++					remote-endpoint = <&dsi0_out>;
+ 				};
+ 			};
+ 		};
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
-From 5fb5466c1ddae1f0f568e7f6a5d93dc372001e1a Mon Sep 17 00:00:00 2001
+From 4ccd377cce816c3df5e7a639d91b80c31ee91f1c Mon Sep 17 00:00:00 2001
 From: Yang Shi <yang.shi@windriver.com>
 Date: Wed, 30 Oct 2013 11:48:33 -0700
-Subject: [PATCH 210/304] mm/memcontrol: Don't call schedule_work_on in
+Subject: [PATCH 210/318] mm/memcontrol: Don't call schedule_work_on in
  preemption disabled context
 
 The following trace is triggered when running ltp oom test cases:
@@ -48,7 +48,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index c7cdcbb..802aa08 100644
+index a6669f8b0ccf..c7b3715befbb 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
 @@ -2349,7 +2349,7 @@ static void drain_all_stock(struct mem_cgroup *root_memcg)
@@ -70,5 +70,5 @@ index c7cdcbb..802aa08 100644
  }
  
 -- 
-2.7.4
+2.17.1
 

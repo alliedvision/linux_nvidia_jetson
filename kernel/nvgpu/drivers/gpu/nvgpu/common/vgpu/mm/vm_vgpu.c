@@ -1,7 +1,7 @@
 /*
  * Virtualized GPU VM
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,7 +48,7 @@ int vgpu_vm_as_alloc_share(struct gk20a *g, struct vm_gk20a *vm)
 
 	msg.cmd = TEGRA_VGPU_CMD_AS_ALLOC_SHARE;
 	msg.handle = vgpu_get_handle(g);
-	p->va_start = vm->va_start;
+	p->va_start = vm->virtaddr_start;
 	p->va_limit = vm->va_limit;
 	p->big_page_size = vm->big_page_size;
 

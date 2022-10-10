@@ -1,0 +1,206 @@
+From 43f3811384d38a37bf88d71ae4d4d866c16e7f0c Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:35 -0700
+Subject: [PATCH 013/830] FROMGIT: usb: typec: tcpm: Implement enabling Auto
+ Discharge disconnect support
+X-NVConfidentiality: public
+
+TCPCI spec allows TCPC hardware to autonomously discharge the vbus
+capacitance upon disconnect. The expectation is that the TCPM enables
+AutoDischargeDisconnect while entering SNK/SRC_ATTACHED states. Hardware
+then automously discharges vbus when the vbus falls below a certain
+threshold i.e. VBUS_SINK_DISCONNECT_THRESHOLD.
+
+Apart from enabling the vbus discharge circuit, AutoDischargeDisconnect
+is also used a flag to move TCPCI based TCPC implementations into
+Attached.Snk/Attached.Src state as mentioned in
+Figure 4-15. TCPC State Diagram before a Connection of the
+USB Type-C Port Controller Interface Specification.
+In such TCPC implementations, setting AutoDischargeDisconnect would
+prevent TCPC into entering "Connection_Invalid" state as well.
+
+Bug: 168555244
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-8-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit f321a02caebdd0c56e167610cda2fa148cd96e8b
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+(cherry picked from commit e9a276bd2a70537eab1b4162cca9b7eeb0f1514a)
+(cherry picked from commit a53a13168af75458cc57fe1e7a0e1129562fcd1a)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 303a32911f5aca961031f4c1d57ee9c713f9e6cb)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Change-Id: I3e25e9045c335b48cefaddb70329dd4df7e0fd94
+---
+ drivers/usb/typec/tcpm/tcpm.c | 60 ++++++++++++++++++++++++++++++++---
+ include/linux/usb/tcpm.h      | 15 +++++++++
+ 2 files changed, 71 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index e2642c65bdbb..08275a1428fe 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -1725,6 +1725,24 @@ static void tcpm_handle_alert(struct tcpm_port *port, const __le32 *payload,
+ 	}
+ }
+ 
++static int tcpm_set_auto_vbus_discharge_threshold(struct tcpm_port *port,
++						  enum typec_pwr_opmode mode, bool pps_active,
++						  u32 requested_vbus_voltage)
++{
++	int ret;
++
++	if (!port->tcpc->set_auto_vbus_discharge_threshold)
++		return 0;
++
++	ret = port->tcpc->set_auto_vbus_discharge_threshold(port->tcpc, mode, pps_active,
++							    requested_vbus_voltage);
++	tcpm_log_force(port,
++		       "set_auto_vbus_discharge_threshold mode:%d pps_active:%c vbus:%u ret:%d",
++		       mode, pps_active ? 'y' : 'n', requested_vbus_voltage, ret);
++
++	return ret;
++}
++
+ static void tcpm_pd_data_request(struct tcpm_port *port,
+ 				 const struct pd_message *msg)
+ {
+@@ -1895,6 +1913,10 @@ static void tcpm_pd_ctrl_request(struct tcpm_port *port,
+ 						       port->req_current_limit,
+ 						       port->req_supply_voltage);
+ 				port->explicit_contract = true;
++				tcpm_set_auto_vbus_discharge_threshold(port,
++								       TYPEC_PWR_MODE_PD,
++								       port->pps_data.active,
++								       port->supply_voltage);
+ 				tcpm_set_state(port, SNK_READY, 0);
+ 			} else {
+ 				/*
+@@ -2816,8 +2838,12 @@ static int tcpm_src_attach(struct tcpm_port *port)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = tcpm_set_roles(port, true, TYPEC_SOURCE,
+-			     tcpm_data_role_for_source(port));
++	if (port->tcpc->enable_auto_vbus_discharge) {
++		ret = port->tcpc->enable_auto_vbus_discharge(port->tcpc, true);
++		tcpm_log_force(port, "enable vbus discharge ret:%d", ret);
++	}
++
++	ret = tcpm_set_roles(port, true, TYPEC_SOURCE, tcpm_data_role_for_source(port));
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -2884,6 +2910,12 @@ static void tcpm_unregister_altmodes(struct tcpm_port *port)
+ 
+ static void tcpm_reset_port(struct tcpm_port *port)
+ {
++	int ret;
++
++	if (port->tcpc->enable_auto_vbus_discharge) {
++		ret = port->tcpc->enable_auto_vbus_discharge(port->tcpc, false);
++		tcpm_log_force(port, "Disable vbus discharge ret:%d", ret);
++	}
+ 	tcpm_unregister_altmodes(port);
+ 	tcpm_typec_disconnect(port);
+ 	port->attached = false;
+@@ -2947,8 +2979,13 @@ static int tcpm_snk_attach(struct tcpm_port *port)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = tcpm_set_roles(port, true, TYPEC_SINK,
+-			     tcpm_data_role_for_sink(port));
++	if (port->tcpc->enable_auto_vbus_discharge) {
++		tcpm_set_auto_vbus_discharge_threshold(port, TYPEC_PWR_MODE_USB, false, VSAFE5V);
++		ret = port->tcpc->enable_auto_vbus_discharge(port->tcpc, true);
++		tcpm_log_force(port, "enable vbus discharge ret:%d", ret);
++	}
++
++	ret = tcpm_set_roles(port, true, TYPEC_SINK, tcpm_data_role_for_sink(port));
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -3528,6 +3565,8 @@ static void run_state_machine(struct tcpm_port *port)
+ 		tcpm_set_state(port, SRC_UNATTACHED, PD_T_PS_SOURCE_ON);
+ 		break;
+ 	case SNK_HARD_RESET_SINK_OFF:
++		/* Do not discharge/disconnect during hard reseet */
++		tcpm_set_auto_vbus_discharge_threshold(port, TYPEC_PWR_MODE_USB, false, 0);
+ 		memset(&port->pps_data, 0, sizeof(port->pps_data));
+ 		tcpm_set_vconn(port, false);
+ 		if (port->pd_capable)
+@@ -3570,6 +3609,7 @@ static void run_state_machine(struct tcpm_port *port)
+ 			tcpm_set_charge(port, true);
+ 		}
+ 		tcpm_set_attached_state(port, true);
++		tcpm_set_auto_vbus_discharge_threshold(port, TYPEC_PWR_MODE_USB, false, VSAFE5V);
+ 		tcpm_set_state(port, SNK_STARTUP, 0);
+ 		break;
+ 
+@@ -3671,6 +3711,10 @@ static void run_state_machine(struct tcpm_port *port)
+ 			tcpm_set_state(port, PR_SWAP_SNK_SRC_SINK_OFF, 0);
+ 		break;
+ 	case PR_SWAP_SRC_SNK_TRANSITION_OFF:
++		/*
++		 * Prevent vbus discharge circuit from turning on during PR_SWAP
++		 * as this is not a disconnect.
++		 */
+ 		tcpm_set_vbus(port, false);
+ 		port->explicit_contract = false;
+ 		/* allow time for Vbus discharge, must be < tSrcSwapStdby */
+@@ -3699,9 +3743,17 @@ static void run_state_machine(struct tcpm_port *port)
+ 		tcpm_set_state_cond(port, SNK_UNATTACHED, PD_T_PS_SOURCE_ON);
+ 		break;
+ 	case PR_SWAP_SRC_SNK_SINK_ON:
++		/* Set the vbus disconnect threshold for implicit contract */
++		tcpm_set_auto_vbus_discharge_threshold(port, TYPEC_PWR_MODE_USB, false, VSAFE5V);
+ 		tcpm_set_state(port, SNK_STARTUP, 0);
+ 		break;
+ 	case PR_SWAP_SNK_SRC_SINK_OFF:
++		/*
++		 * Prevent vbus discharge circuit from turning on during PR_SWAP
++		 * as this is not a disconnect.
++		 */
++		tcpm_set_auto_vbus_discharge_threshold(port, TYPEC_PWR_MODE_USB,
++						       port->pps_data.active, 0);
+ 		tcpm_set_charge(port, false);
+ 		tcpm_set_state(port, hard_reset_state(port),
+ 			       PD_T_PS_SOURCE_OFF);
+diff --git a/include/linux/usb/tcpm.h b/include/linux/usb/tcpm.h
+index 7303f518ba49..e68aaa12886f 100644
+--- a/include/linux/usb/tcpm.h
++++ b/include/linux/usb/tcpm.h
+@@ -86,6 +86,18 @@ enum tcpm_transmit_type {
+  * @frs_sourcing_vbus:
+  *		Optional; Called to notify that vbus is now being sourced.
+  *		Low level drivers can perform chip specific operations, if any.
++ * @enable_auto_vbus_discharge:
++ *		Optional; TCPCI spec based TCPC implementations can optionally
++ *		support hardware to autonomously dischrge vbus upon disconnecting
++ *		as sink or source. TCPM signals TCPC to enable the mechanism upon
++ *		entering connected state and signals disabling upon disconnect.
++ * @set_auto_vbus_discharge_threshold:
++ *		Mandatory when enable_auto_vbus_discharge is implemented. TCPM
++ *		calls this function to allow lower levels drivers to program the
++ *		vbus threshold voltage below which the vbus discharge circuit
++ *		will be turned on. requested_vbus_voltage is set to 0 when vbus
++ *		is going to disappear knowingly i.e. during PR_SWAP and
++ *		HARD_RESET etc.
+  */
+ struct tcpc_dev {
+ 	struct fwnode_handle *fwnode;
+@@ -113,6 +125,9 @@ struct tcpc_dev {
+ 	int (*set_bist_data)(struct tcpc_dev *dev, bool on);
+ 	int (*enable_frs)(struct tcpc_dev *dev, bool enable);
+ 	void (*frs_sourcing_vbus)(struct tcpc_dev *dev);
++	int (*enable_auto_vbus_discharge)(struct tcpc_dev *dev, bool enable);
++	int (*set_auto_vbus_discharge_threshold)(struct tcpc_dev *dev, enum typec_pwr_opmode mode,
++						 bool pps_active, u32 requested_vbus_voltage);
+ };
+ 
+ struct tcpm_port;
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,9 +23,9 @@
  */
 struct nvgpu_nvs_ioctl_domain {
 	/*
-	 * Human readable name for this domain.
+	 * Human readable null-terminated name for this domain.
 	 */
-	char		 name[32];
+	char name[32];
 
 	/*
 	 * Scheduling parameters: specify how long this domain should be scheduled
@@ -33,15 +33,15 @@ struct nvgpu_nvs_ioctl_domain {
 	 * preempting. A value of zero is treated as an infinite timeslice or an
 	 * infinite grace period, respectively.
 	 */
-	__u32		 timeslice_us;
-	__u32		 preempt_grace_us;
+	__u64 timeslice_ns;
+	__u64 preempt_grace_ns;
 
 	/*
 	 * Pick which subscheduler to use. These will be implemented by the kernel
 	 * as needed. There'll always be at least one, which is the host HW built in
 	 * round-robin scheduler.
 	 */
-	__u32		 subscheduler;
+	__u32 subscheduler;
 
 /*
  * GPU host hardware round-robin.
@@ -50,19 +50,21 @@ struct nvgpu_nvs_ioctl_domain {
 
 	/*
 	 * Populated by the IOCTL when created: unique identifier. User space
-	 * should never set this variable.
+	 * must set this to 0.
 	 */
-	__u64		 dom_id;
+	__u64 dom_id;
 
-	__u64		 reserved1;
-	__u64		 reserved2;
+	/* Must be 0. */
+	__u64 reserved1;
+	/* Must be 0. */
+	__u64 reserved2;
 };
 
 /**
  * NVGPU_NVS_IOCTL_CREATE_DOMAIN
  *
  * Create a domain - essentially a group of GPU contexts. Applications
- * cacan be bound into this domain on request for each TSG.
+ * can be bound into this domain on request for each TSG.
  *
  * The domain ID is returned in dom_id; this id is _not_ secure. The
  * nvsched device needs to have restricted permissions such that only a
@@ -81,16 +83,26 @@ struct nvgpu_nvs_ioctl_create_domain {
 	 */
 	struct nvgpu_nvs_ioctl_domain domain_params;
 
-	__u64		reserved1;
+	/* Must be 0. */
+	__u64 reserved1;
 };
 
+/**
+ * NVGPU_NVS_IOCTL_REMOVE_DOMAIN
+ *
+ * Remove a domain that has been previously created.
+ *
+ * The domain must be empty; it must have no TSGs bound to it. The domain's
+ * device node must not be open by anyone.
+ */
 struct nvgpu_nvs_ioctl_remove_domain {
 	/*
 	 * In: a domain_id to remove.
 	 */
-	__u64		dom_id;
+	__u64 dom_id;
 
-	__u64		reserved1;
+	/* Must be 0. */
+	__u64 reserved1;
 };
 
 /**
@@ -99,26 +111,32 @@ struct nvgpu_nvs_ioctl_remove_domain {
  * Query the current list of domains in the scheduler. This is a two
  * part IOCTL.
  *
- * If domains is NULL, then this IOCTL will populate nr with the number
+ * If domains is 0, then this IOCTL will populate nr with the number
  * of present domains.
  *
- * If domains is not NULL, then this IOCTL will treat domains as an
- * array with nr elements and write up to nr domains into that array.
+ * If domains is nonzero, then this IOCTL will treat domains as a pointer to an
+ * array of nvgpu_nvs_ioctl_domain and will write up to nr domains into that
+ * array. The nr field will be updated with the number of present domains,
+ * which may be more than the number of entries written.
  */
 struct nvgpu_nvs_ioctl_query_domains {
 	/*
-	 * In/Out: If NULL, leave untouched. If not NULL, then write
-	 * up to nr domains into the domain elements pointed to by
-	 * domains.
+	 * In/Out: If 0, leave untouched. If nonzero, then write up to nr
+	 * elements of nvgpu_nvs_ioctl_domain into where domains points to.
 	 */
 	__u64 domains;
 
 	/*
-	 * In/Out: If domains is NULL, then populate with the number
-	 * of domains present. Otherwise nr specifies the capacity of
-	 * the domains array pointed to by domains.
+	 * - In: the capacity of the domains array if domais is not 0.
+	 * - Out: populate with the number of domains present.
 	 */
-	__u32		nr;
+	__u32 nr;
+
+	/* Must be 0. */
+	__u32 reserved0;
+
+	/* Must be 0. */
+	__u64 reserved1;
 };
 
 #define NVGPU_NVS_IOCTL_CREATE_DOMAIN			\

@@ -1,0 +1,30 @@
+From e952f7a8b8b372f6b05469ecd8f52645bfcb3a66 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Wed, 24 Jun 2020 15:27:38 -0700
+Subject: [PATCH 716/830] ANDROID: GKI: Enable INTERVAL_TREE
+X-NVConfidentiality: public
+
+Needed by some GPU/DRM drivers that are built out-of-tree
+
+Bug: 159733980
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: Ia156d1b0a74c82d9f15b144131aff2ddeead0672
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 69a9f2068f1b..5bd056e33337 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -8,6 +8,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_TTM if (HAS_IOMEM && DRM)
+ 	select VIDEOMODE_HELPERS
+ 	select WANT_DEV_COREDUMP
++	select INTERVAL_TREE
+ 	help
+ 	  Dummy config option used to enable hidden DRM configs.
+ 	  These are normally selected implicitly when including a
+-- 
+2.17.1
+

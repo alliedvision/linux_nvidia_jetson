@@ -1,0 +1,75 @@
+From 562687476a7ebbd6e4a2b38849000c9d527cfabc Mon Sep 17 00:00:00 2001
+From: JianMin Liu <jian-min.liu@mediatek.com>
+Date: Thu, 20 Aug 2020 23:33:30 +0800
+Subject: [PATCH 152/830] ANDROID: sched: Use normal vendor hook in scheduler
+ tick
+X-NVConfidentiality: public
+
+  The hooks function of scheduler tick will need to
+  insert multiple instances, so that use vendor hook
+  instead of restricted vendor hook.
+
+Bug: 165787557
+
+Signed-off-by: JianMin Liu <jian-min.liu@mediatek.com>
+Change-Id: I750da26452c657d83d5f8c520bf7008693c43a6b
+---
+ drivers/android/vendor_hooks.c | 2 +-
+ include/trace/hooks/sched.h    | 6 +++---
+ kernel/sched/core.c            | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 957eea13ab00..7b16c8381931 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -26,7 +26,7 @@
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_select_task_rq_fair);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_select_task_rq_rt);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_select_fallback_rq);
+-EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_scheduler_tick);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_scheduler_tick);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_enqueue_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dequeue_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_can_migrate_task);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 101b6098d24e..6ac7dd6f97b7 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -25,9 +25,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_select_fallback_rq,
+ 	TP_ARGS(cpu, p, new_cpu), 1);
+ 
+ struct rq;
+-DECLARE_RESTRICTED_HOOK(android_rvh_scheduler_tick,
++DECLARE_HOOK(android_vh_scheduler_tick,
+ 	TP_PROTO(struct rq *rq),
+-	TP_ARGS(rq), 1);
++	TP_ARGS(rq));
+ 
+ DECLARE_RESTRICTED_HOOK(android_rvh_enqueue_task,
+ 	TP_PROTO(struct rq *rq, struct task_struct *p),
+@@ -69,7 +69,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_fallback_rq(cpu, p, dest_cpu)
+-#define trace_android_rvh_scheduler_tick(rq)
++#define trace_android_vh_scheduler_tick(rq)
+ #define trace_android_rvh_enqueue_task(rq, p)
+ #define trace_android_rvh_dequeue_task(rq, p)
+ #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index f0525af80b1c..b45ff1c4fe68 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4041,7 +4041,7 @@ void scheduler_tick(void)
+ 	trigger_load_balance(rq);
+ #endif
+ 
+-	trace_android_rvh_scheduler_tick(rq);
++	trace_android_vh_scheduler_tick(rq);
+ }
+ 
+ #ifdef CONFIG_NO_HZ_FULL
+-- 
+2.17.1
+

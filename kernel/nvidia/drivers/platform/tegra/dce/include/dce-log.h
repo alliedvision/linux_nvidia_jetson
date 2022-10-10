@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,7 @@ enum dce_log_type {
 	DCE_ERROR,
 	DCE_WARNING,
 	DCE_INFO,
+	DCE_DEBUG,
 };
 
 /*
@@ -65,5 +66,17 @@ void dce_log_msg(struct tegra_dce *d, const char *func_name, int line,
  */
 #define dce_info(d, fmt, arg...)					\
 	dce_log_msg(d, __func__, __LINE__, DCE_INFO, fmt, ##arg)
+
+/**
+ * dce_debug - Print a debug message
+ *
+ * @d        - Pointer to tegra_dce.
+ * @fmt      - A format string (printf style).
+ * @arg...   - Arguments for the format string.
+ *
+ * print a debug message.
+ */
+#define dce_debug(d, fmt, arg...)					\
+	dce_log_msg(d, __func__, __LINE__, DCE_DEBUG, fmt, ##arg)
 
 #endif

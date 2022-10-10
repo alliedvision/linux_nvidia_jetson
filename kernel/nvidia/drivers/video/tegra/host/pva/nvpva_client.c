@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,10 +15,13 @@
  */
 
 #include <linux/mutex.h>
-#include "nvhost_buffer.h"
-#include "pva.h"
-#include "nvpva_client.h"
 #include <linux/slab.h>
+
+#include "pva.h"
+#include "nvpva_buffer.h"
+#include "nvpva_client.h"
+#include "pva_iommu_context_dev.h"
+
 /* Maximum contexts KMD creates per engine */
 #define NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG (MAX_PVA_CLIENTS)
 
@@ -28,36 +31,54 @@
  * 2. Also tracks the first free client in the array
  */
 static struct nvpva_client_context *
-client_context_search_locked(struct pva *dev, pid_t pid)
+client_context_search_locked(struct platform_device *pdev,
+			     struct pva *dev,
+			     pid_t pid)
 {
 	struct nvpva_client_context *c_node = NULL;
-	struct nvpva_client_context *c_free = NULL;
 	uint32_t i;
 
 	for (i = 0U; i < NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG; i++) {
 		c_node = &dev->clients[i];
-		if (c_node->ref_count != 0U) { /* In use */
-			if (c_node->pid == pid)
-				break;
-		} else {
-			if (c_free == NULL) {
-				c_free = c_node;
-				c_free->pid = pid;
-				c_free->pva = dev;
-				c_free->curr_sema_value = 0;
-				mutex_init(&c_free->sema_val_lock);
-				c_free->buffers = nvhost_buffer_init(dev->pdev);
-				if (IS_ERR(c_free->buffers)) {
-					dev_err(&dev->pdev->dev,
-						"failed to init nvhost buffer for client:%lu",
-						PTR_ERR(c_free->buffers));
-					return NULL;
-				}
-			}
-		}
+		if ((c_node->ref_count != 0U) && (c_node->pid == pid))
+			return c_node;
+	}
+
+	for (i = 0U; i < NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG; i++) {
+		c_node = &dev->clients[i];
+		if (c_node->ref_count == 0U)
+			break;
+	}
+
+	if (i >= NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG)
+		return NULL;
+
+	c_node->pid = pid;
+	c_node->pva = dev;
+	c_node->curr_sema_value = 0;
+	mutex_init(&c_node->sema_val_lock);
+	if (dev->version == PVA_HW_GEN2) {
+		c_node->cntxt_dev = nvpva_iommu_context_dev_allocate();
+
+		if (c_node->cntxt_dev == NULL)
+			return NULL;
+
+		c_node->sid_index = nvpva_get_id_idx(dev, c_node->cntxt_dev) - 1;
+	} else {
+		c_node->cntxt_dev = NULL;
+		c_node->sid_index = 0;
+	}
+
+	c_node->buffers = nvpva_buffer_init(dev->pdev, c_node->cntxt_dev);
+	if (IS_ERR(c_node->buffers)) {
+		dev_err(&dev->pdev->dev,
+			"failed to init nvhost buffer for client:%lu",
+			PTR_ERR(c_node->buffers));
+		nvpva_iommu_context_dev_release(c_node->cntxt_dev);
 		c_node = NULL;
 	}
-	return (c_node != NULL) ? c_node : c_free;
+
+	return c_node;
 }
 
 /* Allocate a client context from the client array
@@ -65,16 +86,18 @@ client_context_search_locked(struct pva *dev, pid_t pid)
  * 1. Search for an existing client context, if not found then a free client
  * 2. Allocate a buffer pool if needed
  */
-struct nvpva_client_context *nvpva_client_context_alloc(struct pva *dev,
-							pid_t pid)
+struct nvpva_client_context
+*nvpva_client_context_alloc(struct platform_device *pdev,
+			    struct pva *dev,
+			    pid_t pid)
 {
 	struct nvpva_client_context *client = NULL;
 
 	mutex_lock(&dev->clients_lock);
-	client = client_context_search_locked(dev, pid);
-	if (client != NULL) {
+	client = client_context_search_locked(pdev, dev, pid);
+	if (client != NULL)
 		client->ref_count += 1;
-	}
+
 	mutex_unlock(&dev->clients_lock);
 
 	return client;
@@ -93,7 +116,8 @@ void nvpva_client_context_get(struct nvpva_client_context *client)
 static void
 nvpva_client_context_free_locked(struct nvpva_client_context *client)
 {
-	nvhost_buffer_release(client->buffers);
+	nvpva_buffer_release(client->buffers);
+	nvpva_iommu_context_dev_release(client->cntxt_dev);
 	mutex_destroy(&client->sema_val_lock);
 	client->buffers = NULL;
 	client->pva = NULL;

@@ -1,0 +1,117 @@
+From 6b40c3c3431c595028544913cc9af2b51784fc48 Mon Sep 17 00:00:00 2001
+From: Neeraj Upadhyay <neeraju@codeaurora.org>
+Date: Fri, 6 Nov 2020 16:32:22 +0530
+Subject: [PATCH 324/830] ANDROID: gic-v3: Add vendor hook to GIC v3
+X-NVConfidentiality: public
+
+Add vendor hook for affinity settings to GIC v3 irqchip
+driver.
+
+Bug: 172637074
+Change-Id: I65ec8bedcb88c680ba1d6fcd2ffc5944c5a8a89c
+Signed-off-by: Neeraj Upadhyay <neeraju@codeaurora.org>
+Signed-off-by: Prasad Sodagudi <psodagud@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c |  3 +++
+ drivers/irqchip/irq-gic-v3.c   | 10 ++++++++--
+ include/trace/hooks/gic_v3.h   | 29 +++++++++++++++++++++++++++++
+ 3 files changed, 40 insertions(+), 2 deletions(-)
+ create mode 100644 include/trace/hooks/gic_v3.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 85081a15febf..e5d54fb5613e 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -22,6 +22,7 @@
+ #include <trace/hooks/debug.h>
+ #include <trace/hooks/sysrqcrash.h>
+ #include <trace/hooks/printk.h>
++#include <trace/hooks/gic_v3.h>
+ #include <trace/hooks/epoch.h>
+ #include <trace/hooks/cpufreq.h>
+ #include <trace/hooks/mm.h>
+@@ -73,6 +74,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sysrq_crash);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_throttled_rt_tasks);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_hotplug);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_jiffies_update);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gic_v3_set_affinity);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gic_v3_affinity_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_suspend_epoch_val);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_resume_epoch_val);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_max_freq);
+diff --git a/drivers/irqchip/irq-gic-v3.c b/drivers/irqchip/irq-gic-v3.c
+index e6002edc5f99..c541fff489c4 100644
+--- a/drivers/irqchip/irq-gic-v3.c
++++ b/drivers/irqchip/irq-gic-v3.c
+@@ -20,6 +20,7 @@
+ #include <linux/slab.h>
+ #include <linux/syscore_ops.h>
+ #include <linux/wakeup_reason.h>
++#include <trace/hooks/gic_v3.h>
+ 
+ 
+ #include <linux/irqchip.h>
+@@ -825,11 +826,15 @@ static void __init gic_dist_init(void)
+ 	 * enabled.
+ 	 */
+ 	affinity = gic_mpidr_to_affinity(cpu_logical_map(smp_processor_id()));
+-	for (i = 32; i < GIC_LINE_NR; i++)
++	for (i = 32; i < GIC_LINE_NR; i++) {
++		trace_android_vh_gic_v3_affinity_init(i, GICD_IROUTER, &affinity);
+ 		gic_write_irouter(affinity, base + GICD_IROUTER + i * 8);
++	}
+ 
+-	for (i = 0; i < GIC_ESPI_NR; i++)
++	for (i = 0; i < GIC_ESPI_NR; i++) {
++		trace_android_vh_gic_v3_affinity_init(i, GICD_IROUTERnE, &affinity);
+ 		gic_write_irouter(affinity, base + GICD_IROUTERnE + i * 8);
++	}
+ }
+ 
+ static int gic_iterate_rdists(int (*fn)(struct redist_region *, void __iomem *))
+@@ -1277,6 +1282,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
+ 	reg = gic_dist_base(d) + offset + (index * 8);
+ 	val = gic_mpidr_to_affinity(cpu_logical_map(cpu));
+ 
++	trace_android_vh_gic_v3_set_affinity(d, mask_val, &val);
+ 	gic_write_irouter(val, reg);
+ 
+ 	/*
+diff --git a/include/trace/hooks/gic_v3.h b/include/trace/hooks/gic_v3.h
+new file mode 100644
+index 000000000000..8cf67e51f79e
+--- /dev/null
++++ b/include/trace/hooks/gic_v3.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM gic_v3
++#define TRACE_INCLUDE_PATH trace/hooks
++#if !defined(_TRACE_HOOK_GIC_V3_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_GIC_V3_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct irq_data;
++struct cpumask;
++DECLARE_HOOK(android_vh_gic_v3_affinity_init,
++	TP_PROTO(int irq, u32 offset, u64 *affinity),
++	TP_ARGS(irq, offset, affinity));
++DECLARE_HOOK(android_vh_gic_v3_set_affinity,
++	TP_PROTO(struct irq_data *d, const struct cpumask *mask_val,
++		 u64 *affinity),
++	TP_ARGS(d, mask_val, affinity));
++#else
++#define trace_android_vh_gic_v3_affinity_init(irq, offset, affinity)
++#define trace_android_vh_gic_v3_set_affinity(d, mask_val, affinity)
++#endif
++#endif /* _TRACE_HOOK_GIC_V3_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

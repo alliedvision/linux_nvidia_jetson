@@ -1,7 +1,7 @@
 /*
  * max9295.c - max9295 GMSL Serializer driver
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -539,7 +539,7 @@ static const struct i2c_device_id max9295_id[] = {
 	{ },
 };
 
-const struct of_device_id max9295_of_match[] = {
+static const struct of_device_id max9295_of_match[] = {
 	{ .compatible = "maxim,max9295", },
 	{ },
 };

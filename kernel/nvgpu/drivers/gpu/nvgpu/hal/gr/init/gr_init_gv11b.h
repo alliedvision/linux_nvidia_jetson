@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,6 +35,7 @@ struct gk20a;
 struct nvgpu_gr_config;
 struct nvgpu_gr_ctx;
 struct netlist_av_list;
+struct nvgpu_gr_obj_ctx_gfx_regs;
 
 u32 gv11b_gr_init_get_nonpes_aware_tpc(struct gk20a *g, u32 gpc, u32 tpc,
 				       struct nvgpu_gr_config *gr_config);
@@ -86,6 +87,10 @@ u32 gv11b_gr_init_get_max_subctx_count(void);
 u32 gv11b_gr_init_get_patch_slots(struct gk20a *g,
 	struct nvgpu_gr_config *config);
 void gv11b_gr_init_detect_sm_arch(struct gk20a *g);
+
+void gv11b_gr_init_capture_gfx_regs(struct gk20a *g, struct nvgpu_gr_obj_ctx_gfx_regs *gfx_regs);
+void gv11b_gr_init_set_default_gfx_regs(struct gk20a *g, struct nvgpu_gr_ctx *gr_ctx,
+		struct nvgpu_gr_obj_ctx_gfx_regs *gfx_regs);
 
 #ifndef CONFIG_NVGPU_NON_FUSA
 void gv11b_gr_init_set_default_compute_regs(struct gk20a *g,

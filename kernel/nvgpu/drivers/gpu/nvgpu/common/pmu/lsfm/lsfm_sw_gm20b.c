@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 #include <nvgpu/pmu.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/bug.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/cmd.h>
 #include <nvgpu/pmu/lsfm.h>
 #include <nvgpu/pmu/fw.h>
@@ -35,6 +36,9 @@ static void lsfm_handle_acr_init_wpr_region_msg(struct gk20a *g,
 	struct pmu_msg *msg, void *param, u32 status)
 {
 	struct nvgpu_pmu *pmu = g->pmu;
+
+	(void)param;
+	(void)status;
 
 	nvgpu_log_fn(g, " ");
 
@@ -75,6 +79,9 @@ void gm20b_pmu_lsfm_handle_bootstrap_falcon_msg(struct gk20a *g,
 	struct pmu_msg *msg, void *param, u32 status)
 {
 	struct nvgpu_pmu *pmu = g->pmu;
+
+	(void)param;
+	(void)status;
 
 	nvgpu_log_fn(g, " ");
 
@@ -163,7 +170,7 @@ int gm20b_pmu_lsfm_pmu_cmd_line_args_copy(struct gk20a *g,
 
 	/* Copying pmu cmdline args */
 	pmu->fw->ops.set_cmd_line_args_cpu_freq(pmu,
-		g->ops.clk.get_rate(g, CTRL_CLK_DOMAIN_PWRCLK));
+		(u32)g->ops.clk.get_rate(g, CTRL_CLK_DOMAIN_PWRCLK));
 	pmu->fw->ops.set_cmd_line_args_secure_mode(pmu, 1U);
 	pmu->fw->ops.set_cmd_line_args_trace_size(
 		pmu, PMU_RTOS_TRACE_BUFSIZE);

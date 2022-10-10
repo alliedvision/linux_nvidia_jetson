@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,10 @@
 #include <nvgpu/pmu/allocator.h>
 #include <nvgpu/pmu/fw.h>
 #include <nvgpu/pmu/pmu_pg.h>
+
+#if defined(CONFIG_NVGPU_NON_FUSA) && defined(CONFIG_NVGPU_NEXT)
+#include <nvgpu_next_fw.h>
+#endif
 
 /* PMU UCODE IMG */
 #define NVGPU_PMU_UCODE_IMAGE "gpmu_ucode_image.bin"
@@ -84,6 +88,9 @@ void nvgpu_pmu_fw_state_change(struct gk20a *g, struct nvgpu_pmu *pmu,
 u32 nvgpu_pmu_get_fw_state(struct gk20a *g, struct nvgpu_pmu *pmu)
 {
 	u32 state = pmu->fw->state;
+
+	(void)g;
+
 	nvgpu_smp_rmb();
 
 	return state;
@@ -92,6 +99,7 @@ u32 nvgpu_pmu_get_fw_state(struct gk20a *g, struct nvgpu_pmu *pmu)
 void nvgpu_pmu_set_fw_ready(struct gk20a *g, struct nvgpu_pmu *pmu,
 	bool status)
 {
+	(void)g;
 	nvgpu_smp_wmb();
 	pmu->fw->ready = status;
 }
@@ -99,6 +107,9 @@ void nvgpu_pmu_set_fw_ready(struct gk20a *g, struct nvgpu_pmu *pmu,
 bool nvgpu_pmu_get_fw_ready(struct gk20a *g, struct nvgpu_pmu *pmu)
 {
 	bool state = pmu->fw->ready;
+
+	(void)g;
+
 	nvgpu_smp_rmb();
 
 	return state;
@@ -166,6 +177,10 @@ static void pmu_fw_release(struct gk20a *g, struct pmu_rtos_fw *rtos_fw)
 
 	nvgpu_log_fn(g, " ");
 
+	if (rtos_fw == NULL) {
+		return;
+	}
+
 	if (rtos_fw->fw_sig != NULL) {
 		nvgpu_release_firmware(g, rtos_fw->fw_sig);
 	}
@@ -194,18 +209,21 @@ static void pmu_fw_release(struct gk20a *g, struct pmu_rtos_fw *rtos_fw)
 struct nvgpu_firmware *nvgpu_pmu_fw_sig_desc(struct gk20a *g,
 	struct nvgpu_pmu *pmu)
 {
+	(void)g;
 	return pmu->fw->fw_sig;
 }
 
 struct nvgpu_firmware *nvgpu_pmu_fw_desc_desc(struct gk20a *g,
 	struct nvgpu_pmu *pmu)
 {
+	(void)g;
 	return pmu->fw->fw_desc;
 }
 
 struct nvgpu_firmware *nvgpu_pmu_fw_image_desc(struct gk20a *g,
 	struct nvgpu_pmu *pmu)
 {
+	(void)g;
 	return pmu->fw->fw_image;
 }
 
@@ -311,10 +329,14 @@ int nvgpu_pmu_init_pmu_fw(struct gk20a *g, struct nvgpu_pmu *pmu,
 					NVGPU_PMU_UCODE_NEXT_SIG);
 		} else {
 			nvgpu_pmu_dbg(g, "FW read for PROD RISCV/PKC");
+#if defined(CONFIG_NVGPU_NON_FUSA) && defined(CONFIG_NVGPU_NEXT)
+			err = nvgpu_next_pmu_load_fw(g);
+#else
 			err = pmu_fw_read(g,
 					NVGPU_PMU_UCODE_NEXT_PROD_IMAGE,
 					NVGPU_PMU_UCODE_NEXT_PROD_DESC,
 					NVGPU_PMU_UCODE_NEXT_PROD_SIG);
+#endif
 		}
 	} else {
 		nvgpu_pmu_dbg(g, "FW read for Falcon/AES\n");
@@ -339,6 +361,8 @@ exit:
 void nvgpu_pmu_fw_deinit(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct pmu_rtos_fw *rtos_fw)
 {
+	(void)pmu;
+
 	nvgpu_log_fn(g, " ");
 
 	if (rtos_fw == NULL) {

@@ -107,8 +107,9 @@ void eqos_reset_mmc(struct osi_core_priv_data *const osi_core)
  *
  * @note
  * Algorithm:
- *  - Pass register offset and old value to helper function and
- *    update structure.
+ *  - Read corresponding register value of #osi_core_priv_data->mmc(#osi_mmc_counters)
+ *    member and increment its value.
+ *  - If any counter overflows, reset all Sw counters and reset HW counter register.
  *
  * @param[in, out] osi_core: OSI core private data structure.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 
 int nvgpu_current_pid(struct gk20a *g)
 {
+	(void)g;
 	/*
 	 * In the kernel this gets us the PID of the calling process for IOCTLs.
 	 * But since we are in userspace this doesn't quite mean the same thing.
@@ -39,6 +40,7 @@ int nvgpu_current_pid(struct gk20a *g)
 
 int nvgpu_current_tid(struct gk20a *g)
 {
+	(void)g;
 	/*
 	 * In POSIX thread ID is not the same as a process ID. In Linux threads
 	 * and processes are represented by the same thing, but userspace can't
@@ -54,6 +56,9 @@ int nvgpu_current_tid(struct gk20a *g)
 void nvgpu_print_current_impl(struct gk20a *g, const char *func_name, int line,
 		void *ctx, enum nvgpu_log_type type)
 {
+	(void)func_name;
+	(void)line;
+	(void)ctx;
 	const char *log_message = "(unknown process)";
 
 #if defined(__NVGPU_POSIX__)

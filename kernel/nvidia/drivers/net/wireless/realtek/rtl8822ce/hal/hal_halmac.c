@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2015 - 2019 Realtek Corporation.
+ * Copyright(c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -627,8 +628,11 @@ static inline u8 is_valid_id_status(enum halmac_feature_id id, enum halmac_cmd_p
 	case HALMAC_FEATURE_DPK:
 		if (status == HALMAC_CMD_PROCESS_RCVD)
 			return _FALSE;
-		if ((status != HALMAC_CMD_PROCESS_DONE)
-		    || (status != HALMAC_CMD_PROCESS_ERROR))
+		if (status != HALMAC_CMD_PROCESS_DONE)
+			RTW_WARN("%s: %s unexpected status(0x%x)!\n",
+				 __FUNCTION__, RTW_HALMAC_FEATURE_NAME[id],
+				 status);
+		if (status != HALMAC_CMD_PROCESS_ERROR)
 			RTW_WARN("%s: %s unexpected status(0x%x)!\n",
 				 __FUNCTION__, RTW_HALMAC_FEATURE_NAME[id],
 				 status);

@@ -1,0 +1,46 @@
+From b938046b25803919b94b784242730fb309e89df5 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Mon, 13 Jul 2020 17:41:01 +0000
+Subject: [PATCH 721/830] ANDROID: GKI: set CONFIG_STATIC_USERMODEHELPER_PATH
+X-NVConfidentiality: public
+
+The android.security.cts.KernelConfigTest#testConfigDisableUsermodehelper
+test is failing because CONFIG_STATIC_USERMODEHELPER_PATH is set to
+an invalid value ("/sbin/usermode-helper") for the test. Setting to ""
+instead.
+
+Bug: 160949257
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I1d9f003c15a6b1d9a7f47804e50661a44a0725d5
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index f4476e347d13..043cc30b3bdb 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -475,6 +475,7 @@ CONFIG_HARDENED_USERCOPY=y
+ # CONFIG_HARDENED_USERCOPY_FALLBACK is not set
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
++CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 6546b7b264a6..1c7d94422f9e 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -422,6 +422,7 @@ CONFIG_HARDENED_USERCOPY=y
+ # CONFIG_HARDENED_USERCOPY_FALLBACK is not set
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
++CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+-- 
+2.17.1
+

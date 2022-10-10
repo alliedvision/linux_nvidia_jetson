@@ -1,0 +1,53 @@
+From df8134175bc1507df4e8d81634ec84047708b99d Mon Sep 17 00:00:00 2001
+From: Alexander Potapenko <glider@google.com>
+Date: Thu, 13 Feb 2020 19:45:56 +0100
+Subject: [PATCH 632/830] ANDROID: gki_defconfig: enable heap and stack
+ initialization.
+X-NVConfidentiality: public
+
+This patch enables CONFIG_INIT_STACK_ALL=y and
+CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y, effectively turning on stack and heap
+initialization in GKI kernels.
+
+Doing so will help us mitigate information leaks and make code that
+depends on uninitialized memory execute deterministically. We'll also
+get coverage for the initialization features on the existing kernel
+tests.
+
+Bug: 144999193
+Change-Id: I40ad526b2e595c84b122b0308d967a3874564252
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index f76d3bc6e778..b06cd8997771 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -451,6 +451,8 @@ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_SECURITY_SELINUX=y
++CONFIG_INIT_STACK_ALL=y
++CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_ADIANTUM=y
+ CONFIG_CRYPTO_MD4=y
+ CONFIG_CRYPTO_LZ4=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index c8f28446c990..09c909b293c0 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -390,6 +390,8 @@ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_SECURITY_SELINUX=y
++CONFIG_INIT_STACK_ALL=y
++CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_ADIANTUM=y
+ CONFIG_CRYPTO_SHA256_SSSE3=y
+ CONFIG_CRYPTO_AES_NI_INTEL=y
+-- 
+2.17.1
+

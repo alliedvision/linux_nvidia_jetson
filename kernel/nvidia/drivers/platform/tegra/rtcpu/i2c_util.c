@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -58,10 +58,10 @@ struct error_check {
 	char error_message[ERR_MSG_MAX_LEN];
 };
 
-int bus_device_register_arr[NUMBER_BUS][NUMBER_DEVICE][NUMBER_REGISTER];
-struct i2c_data i2c_data_main;
-struct error_check error_check_data;
-dev_t i2c_util_dev;
+static int bus_device_register_arr[NUMBER_BUS][NUMBER_DEVICE][NUMBER_REGISTER];
+static struct i2c_data i2c_data_main;
+static struct error_check error_check_data;
+static dev_t i2c_util_dev;
 static struct class *i2c_util_dev_class;
 static struct cdev i2c_util_cdev;
 
@@ -72,15 +72,15 @@ static int i2c_util_standard_release(struct inode *inode,
 	struct file *file);
 static ssize_t i2c_util_standard_read(struct file *filp, char __user *buf,
 	size_t len, loff_t *off);
-static ssize_t i2c_util_standard_write(struct file *filp, const char *buf,
+static ssize_t i2c_util_standard_write(struct file *filp, const char __user *buf,
 	size_t len, loff_t *off);
 static long i2c_util_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg);
 static int i2c_util_write_to_memory(void);
 static int i2c_util_read_from_memory(void);
-static void i2c_util_write(struct i2c_data *arg);
-static void i2c_util_read(struct i2c_data *arg);
-static void i2c_util_error_check(struct error_check *arg);
+static void i2c_util_write(const struct i2c_data __user *arg);
+static void i2c_util_read(struct i2c_data __user *arg);
+static void i2c_util_error_check(struct error_check __user *arg);
 
 static const struct file_operations i2c_util_fops = {
 	.owner = THIS_MODULE,
@@ -91,7 +91,7 @@ static const struct file_operations i2c_util_fops = {
 	.unlocked_ioctl = i2c_util_ioctl,
 };
 
-void i2c_util_printStruct(struct i2c_data *i2c_data_sec)
+static void i2c_util_printStruct(struct i2c_data *i2c_data_sec)
 {
 	int start_index = i2c_data_sec->register_start_address;
 	int end_index = i2c_data_sec->register_start_address +
@@ -198,7 +198,7 @@ static int i2c_util_read_from_memory(void)
 	return 1;
 }
 
-static void i2c_util_write(struct i2c_data *arg)
+static void i2c_util_write(const struct i2c_data __user *arg)
 {
 	if (copy_from_user(&i2c_data_main, arg, sizeof(i2c_data_main))) {
 		error_check_data.success = 0;
@@ -217,7 +217,7 @@ static void i2c_util_write(struct i2c_data *arg)
 	i2c_util_printStruct(&i2c_data_main);
 }
 
-static void i2c_util_read(struct i2c_data *arg)
+static void i2c_util_read(struct i2c_data __user *arg)
 {
 	if (copy_from_user(&i2c_data_main, arg, sizeof(i2c_data_main))) {
 		error_check_data.success = 0;
@@ -244,7 +244,7 @@ static void i2c_util_read(struct i2c_data *arg)
 	i2c_util_printStruct(&i2c_data_main);
 }
 
-static void i2c_util_error_check(struct error_check *arg)
+static void i2c_util_error_check(struct error_check __user *arg)
 {
 	if (copy_to_user(arg, &error_check_data, sizeof(error_check_data))) {
 		error_check_data.success = 0;
@@ -261,15 +261,15 @@ static long i2c_util_ioctl(struct file *file, unsigned int cmd,
 {
 	switch (cmd) {
 	case WR_VALUE:
-		i2c_util_write((struct i2c_data *) arg);
+		i2c_util_write((const struct i2c_data __user *) arg);
 		break;
 
 	case RD_VALUE:
-		i2c_util_read((struct i2c_data *) arg);
+		i2c_util_read((struct i2c_data __user *) arg);
 		break;
 
 	case ERROR_CHECK:
-		i2c_util_error_check((struct error_check *) arg);
+		i2c_util_error_check((struct error_check __user *) arg);
 		break;
 
 	default:

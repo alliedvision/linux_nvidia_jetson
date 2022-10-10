@@ -3,6 +3,8 @@
  * LP855x Backlight Driver
  *
  *			Copyright (C) 2011 Texas Instruments
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #ifndef _LP855X_H
@@ -144,6 +146,7 @@ struct lp855x_platform_data {
 	struct lp855x_rom_data *rom_data;
 	u8 *bl_measured;
 	u8 *bl_curve;
+	bool skip_i2c_configuration;
 };
 
 enum lp855x_brightness_ctrl_mode {

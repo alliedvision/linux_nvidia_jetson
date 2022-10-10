@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -108,12 +108,14 @@
  *   + nvgpu_cg_init_gr_load_gating_prod()
  *   + nvgpu_cg_elcg_enable_no_wait()
  *   + nvgpu_cg_elcg_disable_no_wait()
- *   + nvgpu_cg_blcg_fb_ltc_load_enable()
+ *   + nvgpu_cg_blcg_fb_load_enable()
+ *   + nvgpu_cg_blcg_ltc_load_enable()
  *   + nvgpu_cg_blcg_fifo_load_enable()
  *   + nvgpu_cg_blcg_pmu_load_enable()
  *   + nvgpu_cg_blcg_ce_load_enable()
  *   + nvgpu_cg_blcg_gr_load_enable()
- *   + nvgpu_cg_slcg_fb_ltc_load_enable()
+ *   + nvgpu_cg_slcg_fb_load_enable()
+ *   + nvgpu_cg_slcg_ltc_load_enable()
  *   + nvgpu_cg_slcg_priring_load_enable()
  *   + nvgpu_cg_slcg_fifo_load_enable()
  *   + nvgpu_cg_slcg_pmu_load_enable()
@@ -256,21 +258,39 @@ void nvgpu_cg_elcg_disable_no_wait(struct gk20a *g);
 /**
  * @brief During nvgpu power-on, as part of MM initialization,
  *        this function is called to load register configuration
- *        for BLCG for FB and LTC.
+ *        for BLCG for FB.
  *
  * @param g [in] The GPU driver struct.
  *
  * Checks the platform software capability blcg_enabled and programs registers
- * for configuring production gating values for BLCG for FB and LTC. This is
+ * for configuring production gating values for BLCG for FB. This is
  * called in #nvgpu_init_mm_support.
  *
  * Steps:
  * - Acquire the mutex #cg_pg_lock.
  * - Check if #blcg_enabled is set, else skip BLCG programming.
- * - Load BLCG prod settings for fb and ltc.
+ * - Load BLCG prod settings for fb.
  * - Release the mutex #cg_pg_lock.
  */
-void nvgpu_cg_blcg_fb_ltc_load_enable(struct gk20a *g);
+void nvgpu_cg_blcg_fb_load_enable(struct gk20a *g);
+
+/**
+ * @brief During nvgpu power-on, as part of initialization,
+ *        this function is called to load register configuration
+ *        for BLCG for LTC.
+ *
+ * @param g [in] The GPU driver struct.
+ *
+ * Checks the platform software capability blcg_enabled and programs registers
+ * for configuring production gating values for BLCG for LTC.
+ *
+ * Steps:
+ * - Acquire the mutex #cg_pg_lock.
+ * - Check if #blcg_enabled is set, else skip BLCG programming.
+ * - Load BLCG prod settings for ltc.
+ * - Release the mutex #cg_pg_lock.
+ */
+void nvgpu_cg_blcg_ltc_load_enable(struct gk20a *g);
 
 /**
  * @brief During nvgpu power-on, while enabling FIFO, hardware
@@ -349,21 +369,39 @@ void nvgpu_cg_blcg_gr_load_enable(struct gk20a *g);
 /**
  * @brief During nvgpu power-on, as part of MM initialization,
  *        this function is called to load register configuration
- *        for SLCG for FB and LTC.
+ *        for SLCG for FB.
  *
  * @param g [in] The GPU driver struct.
  *
  * Checks the platform software capability slcg_enabled and programs registers
- * for configuring production gating values for SLCG for FB and LTC. This is
+ * for configuring production gating values for SLCG for FB. This is
  * called in #nvgpu_init_mm_support.
  *
  * Steps:
  * - Acquire the mutex #cg_pg_lock.
  * - Check if #slcg_enabled is set, else skip SLCG programming.
- * - Load SLCG prod settings for fb and ltc.
+ * - Load SLCG prod settings for fb.
  * - Release the mutex #cg_pg_lock.
  */
-void nvgpu_cg_slcg_fb_ltc_load_enable(struct gk20a *g);
+void nvgpu_cg_slcg_fb_load_enable(struct gk20a *g);
+
+/**
+ * @brief During nvgpu power-on, as part of initialization,
+ *        this function is called to load register configuration
+ *        for SLCG for LTC.
+ *
+ * @param g [in] The GPU driver struct.
+ *
+ * Checks the platform software capability slcg_enabled and programs registers
+ * for configuring production gating values for SLCG for LTC. This is
+ *
+ * Steps:
+ * - Acquire the mutex #cg_pg_lock.
+ * - Check if #slcg_enabled is set, else skip SLCG programming.
+ * - Load SLCG prod settings for ltc.
+ * - Release the mutex #cg_pg_lock.
+ */
+void nvgpu_cg_slcg_ltc_load_enable(struct gk20a *g);
 
 /**
  * @brief To enable privilege ring (PRI) to access h/w functionality,
@@ -476,6 +514,43 @@ void nvgpu_cg_slcg_ce2_load_enable(struct gk20a *g);
  * - Release the mutex #cg_pg_lock.
  */
 void nvgpu_cg_elcg_ce_load_enable(struct gk20a *g);
+
+/**
+ * @brief During nvgpu power-on, as part of GSP initialization,
+ *        this function is called to load register configuration
+ *        for SLCG for GSP.
+ *
+ * @param g [in] The GPU driver struct.
+ *
+ * Checks the platform software capability slcg_enabled and programs registers
+ * for configuring production gating values for SLCG for GSP. This is called
+ * in #nvgpu_gsp_sched_bootstrap_ns.
+ *
+ * Steps:
+ * - Acquire the mutex #cg_pg_lock.
+ * - Check if #slcg_enabled is set, else skip SLCG programming.
+ * - Load SLCG prod settings for GSP.
+ * - Release the mutex #cg_pg_lock.
+ */
+void nvgpu_cg_slcg_gsp_load_enable(struct gk20a *g, bool enable);
+
+/**
+ * @brief During nvgpu power-on, as part of GSP initialization,
+ *        this function is called to load register configuration
+ *        for SLCG for CTRL unit.
+ *
+ * @param g [in] The GPU driver struct.
+ *
+ * Checks the platform software capability slcg_enabled and programs registers
+ * for configuring production gating values for SLCG for CTRL.
+ *
+ * Steps:
+ * - Acquire the mutex #cg_pg_lock.
+ * - Check if #slcg_enabled is set, else skip SLCG programming.
+ * - Load SLCG prod settings for CTRL.
+ * - Release the mutex #cg_pg_lock.
+ */
+void nvgpu_cg_slcg_ctrl_load_enable(struct gk20a *g, bool enable);
 
 #ifdef CONFIG_NVGPU_NON_FUSA
 

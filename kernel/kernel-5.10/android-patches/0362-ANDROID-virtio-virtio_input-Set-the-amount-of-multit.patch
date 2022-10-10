@@ -1,0 +1,46 @@
+From 1d68cbbef067ab833c70aa9a0e1de53d1422e65b Mon Sep 17 00:00:00 2001
+From: Roman Kiryanov <rkir@google.com>
+Date: Mon, 28 Oct 2019 14:34:48 -0700
+Subject: [PATCH 362/830] ANDROID: virtio: virtio_input: Set the amount of
+ multitouch slots in virtio input
+X-NVConfidentiality: public
+
+Virtio input was missing the the amount of multitouch
+slots and kernel was filtering out ABS_MT_SLOT events
+for a screen is touched in more than one place.
+
+Bug: 143488374
+Signed-off-by: Roman Kiryanov <rkir@google.com>
+Change-Id: I617099435af311e6b0ee127b76eafe13834ea8f8
+---
+ drivers/virtio/virtio_input.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/virtio/virtio_input.c b/drivers/virtio/virtio_input.c
+index f1f6208edcf5..ba2998f02d47 100644
+--- a/drivers/virtio/virtio_input.c
++++ b/drivers/virtio/virtio_input.c
+@@ -4,6 +4,7 @@
+ #include <linux/virtio_config.h>
+ #include <linux/input.h>
+ #include <linux/slab.h>
++#include <linux/input/mt.h>
+ 
+ #include <uapi/linux/virtio_ids.h>
+ #include <uapi/linux/virtio_input.h>
+@@ -165,6 +166,12 @@ static void virtinput_cfg_abs(struct virtio_input *vi, int abs)
+ 	virtio_cread_le(vi->vdev, struct virtio_input_config, u.abs.flat, &fl);
+ 	input_set_abs_params(vi->idev, abs, mi, ma, fu, fl);
+ 	input_abs_set_res(vi->idev, abs, re);
++	if (abs == ABS_MT_TRACKING_ID)
++		input_mt_init_slots(vi->idev,
++				    ma, /* input max finger */
++				    INPUT_MT_DIRECT
++					| INPUT_MT_DROP_UNUSED
++					| INPUT_MT_TRACK);
+ }
+ 
+ static int virtinput_init_vqs(struct virtio_input *vi)
+-- 
+2.17.1
+

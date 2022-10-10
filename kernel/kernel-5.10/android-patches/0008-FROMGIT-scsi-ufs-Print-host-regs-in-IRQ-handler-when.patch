@@ -1,0 +1,44 @@
+From 320057f38a1410b30b72c3bc12e4701519257c61 Mon Sep 17 00:00:00 2001
+From: Can Guo <cang@codeaurora.org>
+Date: Wed, 2 Dec 2020 04:04:03 -0800
+Subject: [PATCH 008/830] FROMGIT: scsi: ufs: Print host regs in IRQ handler
+ when AH8 error happens
+X-NVConfidentiality: public
+
+Dump registers and states prior to leaving IRQ handler when an AH8 error
+occurs.
+
+Link: https://lore.kernel.org/r/1606910644-21185-4-git-send-email-cang@codeaurora.org
+Reviewed-by: Stanley Chu <stanley.chu@mediatek.com>
+Reviewed-by: Bao D. Nguyen <nguyenb@codeaurora.org>
+Reviewed-by: Asutosh Das <asutoshd@codeaurora.org>
+Reviewed-by: Hongwu Su <hongwus@codeaurora.org>
+Signed-off-by: Can Guo <cang@codeaurora.org>
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+
+Bug: 174590161
+Change-Id: I938c89675f8aea312ca12712d40d8761355575fa
+(cherry picked from commit ace3804b69afa39d9445544843506eca59f3b4b2
+ git://git.kernel.org/pub/scm/linux/kernel/git/mkp/scsi.git 5.11/scsi-staging)
+Signed-off-by: Can Guo <cang@codeaurora.org>
+---
+ drivers/scsi/ufs/ufshcd.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 95edcfaa4472..49f5cc932bff 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -6266,7 +6266,8 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba)
+ 		hba->saved_uic_err |= hba->uic_error;
+ 
+ 		/* dump controller state before resetting */
+-		if ((hba->saved_err & (INT_FATAL_ERRORS)) ||
++		if ((hba->saved_err &
++		     (INT_FATAL_ERRORS | UFSHCD_UIC_HIBERN8_MASK)) ||
+ 		    (hba->saved_uic_err &&
+ 		     (hba->saved_uic_err != UFSHCD_UIC_PA_GENERIC_ERROR))) {
+ 			dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x\n",
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -412,6 +412,8 @@ static void nvgpu_gr_zbc_load_default_sw_stencil_table(struct gk20a *g,
 {
 	u32 index = zbc->min_stencil_index;
 
+	(void)g;
+
 	zbc->zbc_s_tbl[index].stencil = 0x0;
 	zbc->zbc_s_tbl[index].format = GR_ZBC_STENCIL_CLEAR_FMT_U8;
 	zbc->zbc_s_tbl[index].ref_cnt =
@@ -437,6 +439,8 @@ static void nvgpu_gr_zbc_load_default_sw_depth_table(struct gk20a *g,
 {
 	u32 index = zbc->min_depth_index;
 
+	(void)g;
+
 	zbc->zbc_dep_tbl[index].format = GR_ZBC_Z_FMT_VAL_FP32;
 	zbc->zbc_dep_tbl[index].depth = 0x3f800000;
 	zbc->zbc_dep_tbl[index].ref_cnt =
@@ -456,6 +460,8 @@ static void nvgpu_gr_zbc_load_default_sw_color_table(struct gk20a *g,
 {
 	u32 i;
 	u32 index = zbc->min_color_index;
+
+	(void)g;
 
 	/* Opaque black (i.e. solid black, fmt 0x28 = A8B8G8R8) */
 	zbc->zbc_col_tbl[index].format = GR_ZBC_SOLID_BLACK_COLOR_FMT;

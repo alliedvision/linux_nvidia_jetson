@@ -70,7 +70,7 @@
 	};
 
 	tegra-cvnas {
-		compatible = "nvidia,tegra-cvnas";
+		compatible = "nvidia,tegra194-cvnas", "nvidia,tegra-cvnas";
 		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_CV>;
 		reg = <0x0 0x14000000 0x0 0x20000>, /* CV0_REG0_BASE */
 		      <0x0 0x14020000 0x0 0x10000>, /* CV0_SRAM_BASE */
@@ -197,7 +197,7 @@
 		status = "disabled";
 	};
 
-	miscreg@00100000 {
+	apbmisc: miscreg@00100000 {
 		compatible = "nvidia,tegra194-misc", "nvidia,tegra186-miscreg";
 		reg = <0x0 0x00100000 0x0 0xf000>, /* Chipid */
 		    <0x0 0x0010f000 0x0 0x1000>; /* Straps */
@@ -633,11 +633,9 @@
 			interrupts = <0 237 0x04>;
 
 			resets = <&bpmp_resets TEGRA194_RESET_DLA1>;
-			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_DLA>,
-				 <&bpmp_clks TEGRA194_CLK_NAFLL_DLA_FALCON>,
-				 <&bpmp_clks TEGRA194_CLK_DLA1_CORE>,
+			clocks = <&bpmp_clks TEGRA194_CLK_DLA1_CORE>,
 				 <&bpmp_clks TEGRA194_CLK_DLA1_FALCON>;
-			clock-names = "nafll_dla", "nafll_dla_falcon", "nvdla1", "nvdla1_flcn";
+			clock-names = "nvdla1", "nvdla1_flcn";
 
 			iommus = <&smmu TEGRA_SID_NVDLA1>;
 			dma-coherent;
@@ -659,12 +657,7 @@
 				compatible = "nvidia,tegra194-dc";
 				reg = <0x0 0x15200000 0x0 0x10000>;
 				interrupts = <0 153 4>;
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
-#else
-				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
-				iso-smmu;
-#endif
 
 				non-coherent;
 
@@ -739,12 +732,7 @@
 				reg = <0x0 0x15210000 0x0 0x10000>;
 				interrupts = <0 154 4>;
 
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
-#else
-				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
-				iso-smmu;
-#endif
 
 				non-coherent;
 
@@ -818,12 +806,7 @@
 				compatible = "nvidia,tegra194-dc";
 				reg = <0x0 0x15220000 0x0 0x10000>;
 				interrupts = <0 155 4>;
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
-#else
-				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
-				iso-smmu;
-#endif
 
 				non-coherent;
 
@@ -897,12 +880,7 @@
 				compatible = "nvidia,tegra194-dc";
 				reg = <0x0 0x15230000 0x0 0x10000>;
 				interrupts = <0 242 4>;
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 				iommus = <&smmu_iso TEGRA_SID_NVDISPLAY>;
-#else
-				iommus = <&smmu TEGRA_SID_NVDISPLAY>;
-				iso-smmu;
-#endif
 
 				non-coherent;
 
@@ -1210,12 +1188,7 @@
 
 			nvidia,vi-falcon-device = <&vi_thi>;
 
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 			iommus = <&smmu_iso TEGRA_SID_VI>;
-#else
-			iommus = <&smmu TEGRA_SID_VI>;
-			iso-smmu;
-#endif
 			non-coherent;
 		};
 
@@ -1270,7 +1243,8 @@
 		pva0: pva0 {
 			compatible = "nvidia,tegra194-pva";
 			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_PVAA>;
-			reg = <0x0 0x16000000 0x0 0x800000>;
+			reg = <0x0 0x16000000 0x0 0x800000>,
+			      <0x0 0x24f00000 0x0 0x080000>;
 			interrupts = <0 234 0x04>;
 
 			resets = <&bpmp_resets TEGRA194_RESET_PVA0_ALL>;
@@ -1288,16 +1262,15 @@
 		pva1: pva1 {
 			compatible = "nvidia,tegra194-pva";
 			power-domains = <&bpmp TEGRA194_POWER_DOMAIN_PVAB>;
-			reg = <0x0 0x16800000 0x0 0x800000>;
+			reg = <0x0 0x16800000 0x0 0x800000>,
+			      <0x0 0x24f80000 0x0 0x080000>;
 			interrupts = <0 235 0x04>;
 
 			resets = <&bpmp_resets TEGRA194_RESET_PVA1_ALL>;
-			clocks = <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_VPS>,
-				 <&bpmp_clks TEGRA194_CLK_NAFLL_PVA_CORE>,
-				 <&bpmp_clks TEGRA194_CLK_PVA1_AXI>,
+			clocks = <&bpmp_clks TEGRA194_CLK_PVA1_AXI>,
 				 <&bpmp_clks TEGRA194_CLK_PVA1_VPS0>,
 				 <&bpmp_clks TEGRA194_CLK_PVA1_VPS1>;
-			clock-names = "nafll_pva_vps", "nafll_pva_core", "axi", "vps0", "vps1";
+			clock-names = "axi", "vps0", "vps1";
 
 			iommus = <&smmu TEGRA_SID_PVA1>;
 			dma-coherent;
@@ -1537,11 +1510,9 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-#if TEGRA_GPIO_DT_VERSION < DT_VERSION_2
 		gpio-ranges =
-			<&tegra_pinctrl TEGRA194_MAIN_GPIO_BASE(A) TEGRA_PIN_BASE(A) TEGRA194_MAIN_GPIO_RANGE(A, Z) >,
-			<&tegra_pinctrl TEGRA194_MAIN_GPIO_BASE(FF) TEGRA_PIN_BASE(FF) TEGRA194_MAIN_GPIO_RANGE(FF, GG) >;
-#endif
+			<&tegra_pinctrl TEGRA194_MAIN_GPIO_OFFSET TEGRA194_MAIN_PINCTRL_OFFSET_A TEGRA194_MAIN_PINS_A_TO_Z>,
+			<&tegra_pinctrl TEGRA194_MAIN_PINS_A_TO_Z TEGRA194_MAIN_PINCTRL_OFFSET_FF TEGRA194_MAIN_PINS_FF_TO_GG>;
 		status = "disabled";
 	};
 
@@ -1561,10 +1532,8 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-#if TEGRA_GPIO_DT_VERSION < DT_VERSION_2
 		gpio-ranges =
-			<&tegra_pinctrl TEGRA194_AON_GPIO_BASE(AA) TEGRA_PIN_BASE(AA) TEGRA194_AON_GPIO_RANGE(AA, EE) >;
-#endif
+			<&tegra_pinctrl TEGRA194_MAIN_GPIO_OFFSET TEGRA194_MAIN_PINS_A_TO_Z TEGRA194_AON_PINS_AA_TO_EE>;
 	};
 
 	tegra_gte_lic: gte@3aa0000 {
@@ -1626,12 +1595,6 @@
 		pulse-per-rev = <2>;
 		capture-window-length = <2>;
 		disable-clk-gate;
-		status = "disabled";
-	};
-
-	generic_pwm_tachometer {
-		compatible = "generic-pwm-tachometer";
-		pwms = <&tegra_tachometer 0 1000000>;
 		status = "disabled";
 	};
 
@@ -1872,7 +1835,20 @@
 			<0x0 0x03600000 0x0 0x10000>;
 		reg-names = "base", "fpci";
 
-		interrupts = <0 163 0x4>, <0 164 0x4>, <0 167 0x4>;
+		interrupts-extended = <&intc 0 163 0x4>,
+				      <&intc 0 164 0x4>,
+				      <&intc 0 167 0x4>,
+				      <&tegra_pmc 76 0x4>,
+				      <&tegra_pmc 77 0x4>,
+				      <&tegra_pmc 78 0x4>,
+				      <&tegra_pmc 79 0x4>,
+				      <&tegra_pmc 80 0x4>,
+				      <&tegra_pmc 81 0x4>,
+				      <&tegra_pmc 82 0x4>;
+		interrupt-names = "xhci", "mbox", "padctl",
+				  "wake0", "wake1", "wake2", "wake3",
+				  "wake4", "wake5", "wake6";
+
 #if defined(LINUX_VERSION) && LINUX_VERSION <= 414
 		interrupt-parent = <&tegra_pm_irq>;
 #endif

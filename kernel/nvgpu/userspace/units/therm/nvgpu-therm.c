@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -75,7 +75,7 @@ static int mock_hal_fail(struct gk20a *g)
 	return -1;
 }
 
-int test_setup_env(struct unit_module *m,
+int therm_test_setup_env(struct unit_module *m,
 			  struct gk20a *g, void *args)
 {
 	/* Create therm register space */
@@ -90,7 +90,7 @@ int test_setup_env(struct unit_module *m,
 	return UNIT_SUCCESS;
 }
 
-int test_free_env(struct unit_module *m, struct gk20a *g, void *args)
+int therm_test_free_env(struct unit_module *m, struct gk20a *g, void *args)
 {
 	nvgpu_posix_io_delete_reg_space(g, THERM_ADDR_SPACE_START);
 
@@ -132,11 +132,11 @@ done:
 }
 
 struct unit_module_test therm_tests[] = {
-	UNIT_TEST(therm_setup_env,		test_setup_env,				NULL, 0),
+	UNIT_TEST(therm_setup_env,		therm_test_setup_env,			NULL, 0),
 	UNIT_TEST(therm_init_support,		test_therm_init_support,		NULL, 0),
 	UNIT_TEST(gv11b_therm_init_elcg_mode,	test_therm_init_elcg_mode,		NULL, 0),
 	UNIT_TEST(gv11b_elcg_init_idle_filters,	test_elcg_init_idle_filters,		NULL, 0),
-	UNIT_TEST(therm_free_env,		test_free_env,				NULL, 0),
+	UNIT_TEST(therm_free_env,		therm_test_free_env,			NULL, 0),
 };
 
 UNIT_MODULE(therm, therm_tests, UNIT_PRIO_NVGPU_TEST);

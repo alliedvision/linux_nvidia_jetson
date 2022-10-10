@@ -1,7 +1,7 @@
 /*
  * util.c: Utility functions for tegradc ext interface.
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  *
@@ -25,7 +25,7 @@
 #include "../dc_priv.h"
 #include "tegra_dc_ext_priv.h"
 
-int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 fd,
+int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, s32 fd,
 			    struct tegra_dc_dmabuf **dc_buf,
 			    dma_addr_t *phys_addr)
 {
@@ -36,7 +36,7 @@ int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 fd,
 
 	*dc_buf = NULL;
 	*phys_addr = -1;
-	if (!fd)
+	if (fd < 0)
 		return 0;
 
 	dc_dmabuf = kzalloc(sizeof(*dc_dmabuf), GFP_KERNEL);

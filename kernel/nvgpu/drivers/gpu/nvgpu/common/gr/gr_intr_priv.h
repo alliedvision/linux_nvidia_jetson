@@ -42,6 +42,7 @@ struct nvgpu_channel;
  * This structure maintains information on pending GR engine interrupts.
  */
 struct nvgpu_gr_intr_info {
+#ifdef CONFIG_NVGPU_NON_FUSA
 	/**
 	 * This value is set in case notification interrupt is pending.
 	 * Same value is used to clear the interrupt.
@@ -52,6 +53,20 @@ struct nvgpu_gr_intr_info {
 	 * Same value is used to clear the interrupt.
 	 */
 	u32 semaphore;
+	/*
+	 * This value is set when the FE receives a valid method and it
+	 * matches with the value configured in PRI_FE_DEBUG_METHOD_* pri
+	 * registers; In case of a match, FE proceeds to drop that method.
+	 * This provides a way to the SW to turn off HW decoding of this
+	 * method and convert it to a SW method.
+	 */
+	u32 debug_method;
+	/*
+	 * This value is set on the completion of a LaunchDma method with
+	 * InterruptType field configured to INTERRUPT.
+	 */
+	u32 buffer_notify;
+#endif
 	/**
 	 * This value is set in case illegal notify interrupt is pending.
 	 * Same value is used to clear the interrupt.
@@ -87,19 +102,6 @@ struct nvgpu_gr_intr_info {
 	 * Same value is used to clear the interrupt.
 	 */
 	u32 exception;
-	/*
-	 * This value is set when the FE receives a valid method and it
-	 * matches with the value configured in PRI_FE_DEBUG_METHOD_* pri
-	 * registers; In case of a match, FE proceeds to drop that method.
-	 * This provides a way to the SW to turn off HW decoding of this
-	 * method and convert it to a SW method.
-	 */
-	u32 debug_method;
-	/*
-	 * This value is set on the completion of a LaunchDma method with
-	 * InterruptType field configured to INTERRUPT.
-	 */
-	u32 buffer_notify;
 };
 
 /**

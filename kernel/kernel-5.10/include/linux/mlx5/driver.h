@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2021, Mellanox Technologies. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -130,6 +130,7 @@ enum {
 	MLX5_REG_PCAM		 = 0x507f,
 	MLX5_REG_NODE_DESC	 = 0x6001,
 	MLX5_REG_HOST_ENDIANNESS = 0x7004,
+	MLX5_REG_MTMP		 = 0x900A,
 	MLX5_REG_MCIA		 = 0x9014,
 	MLX5_REG_MFRL		 = 0x9028,
 	MLX5_REG_MLCR		 = 0x902b,
@@ -664,6 +665,7 @@ struct mlx5_fw_tracer;
 struct mlx5_vxlan;
 struct mlx5_geneve;
 struct mlx5_hv_vhca;
+struct mlx5_thermal;
 
 #define MLX5_LOG_SW_ICM_BLOCK_SIZE(dev) (MLX5_CAP_DEV_MEM(dev, log_sw_icm_alloc_granularity))
 #define MLX5_SW_ICM_BLOCK_SIZE(dev) (1 << MLX5_LOG_SW_ICM_BLOCK_SIZE(dev))
@@ -719,6 +721,7 @@ struct mlx5_core_dev {
 	struct mlx5_rsc_dump    *rsc_dump;
 	u32                      vsc_addr;
 	struct mlx5_hv_vhca	*hv_vhca;
+	struct mlx5_thermal	*thermal;
 };
 
 struct mlx5_db {
@@ -1212,5 +1215,10 @@ static inline bool mlx5_is_roce_enabled(struct mlx5_core_dev *dev)
 					   &val);
 	return val.vbool;
 }
+
+struct mlx5_thermal {
+	struct mlx5_core_dev *core;
+	struct thermal_zone_device *tzdev;
+};
 
 #endif /* MLX5_DRIVER_H */

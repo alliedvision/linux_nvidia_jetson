@@ -47,27 +47,57 @@ static void trace_write_gather(struct host1x_cdma *cdma, struct host1x_bo *bo,
 	}
 }
 
-static void submit_gathers(struct host1x_job *job)
+static void submit_wait(struct host1x_cdma *cdma, u32 id, u32 threshold,
+			u32 next_class)
+{
+#if HOST1X_HW >= 2
+	host1x_cdma_push_wide(cdma,
+		host1x_opcode_setclass(
+			HOST1X_CLASS_HOST1X,
+			HOST1X_UCLASS_LOAD_SYNCPT_PAYLOAD_32,
+			/* WAIT_SYNCPT_32 is at SYNCPT_PAYLOAD_32+2 */
+			BIT(0) | BIT(2)
+		),
+		threshold,
+		id,
+		host1x_opcode_setclass(next_class, 0, 0)
+	);
+#else
+	/* TODO add waitchk or use waitbases or other mitigation */
+	host1x_cdma_push(cdma,
+		host1x_opcode_setclass(
+			HOST1X_CLASS_HOST1X,
+			host1x_uclass_wait_syncpt_r(),
+			BIT(0)
+		),
+		host1x_class_host_wait_syncpt(id, threshold)
+	);
+	host1x_cdma_push(cdma,
+		host1x_opcode_setclass(next_class, 0, 0),
+		HOST1X_OPCODE_NOP
+	);
+#endif
+}
+
+static void submit_gathers(struct host1x_job *job, u32 job_syncpt_base)
 {
 	struct host1x_cdma *cdma = &job->channel->cdma;
 #if HOST1X_HW < 6
 	struct device *dev = job->channel->dev;
 #endif
 	unsigned int i;
+	u32 threshold;
 
 	for (i = 0; i < job->num_cmds; i++) {
 		struct host1x_job_cmd *cmd = &job->cmds[i];
 
 		if (cmd->is_wait) {
-			/* TODO use modern wait */
-			host1x_cdma_push(cdma,
-				 host1x_opcode_setclass(HOST1X_CLASS_HOST1X,
-					host1x_uclass_wait_syncpt_r(), 1),
-				 host1x_class_host_wait_syncpt(cmd->wait.id,
-					cmd->wait.threshold));
-			host1x_cdma_push(
-				cdma, host1x_opcode_setclass(job->class, 0, 0),
-				HOST1X_OPCODE_NOP);
+			if (cmd->wait.relative)
+				threshold = job_syncpt_base + cmd->wait.threshold;
+			else
+				threshold = cmd->wait.threshold;
+
+			submit_wait(cdma, cmd->wait.id, threshold, cmd->wait.next_class);
 		} else {
 			struct host1x_job_gather *g = &cmd->gather;
 
@@ -196,7 +226,7 @@ static int channel_submit(struct host1x_job *job)
 				 host1x_opcode_setclass(job->class, 0, 0),
 				 HOST1X_OPCODE_NOP);
 
-	submit_gathers(job);
+	submit_gathers(job, syncval - user_syncpt_incrs);
 
 	/* end CDMA submit & stash pinned hMems into sync queue */
 	host1x_cdma_end(&ch->cdma, job);

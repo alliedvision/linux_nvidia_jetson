@@ -1,7 +1,7 @@
 /*
  * PVA Command Queue Interface handling
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,11 +28,11 @@
 #include <soc/tegra/fuse.h>
 #endif
 
-#include "dev.h"
 #include "pva.h"
 #include "pva_ccq_t19x.h"
 
 #include "pva_regs.h"
+#include "pva-interface.h"
 
 #define MAX_CCQ_ELEMENTS 6
 
@@ -62,12 +62,9 @@ int pva_ccq_send_task_t19x(struct pva *pva, u32 queue_id, dma_addr_t task_addr,
 			   u8 batchsize, u32 flags)
 {
 	int err = 0;
-	u64 cmd;
+	struct pva_cmd_s cmd = {0};
 
-	/* Convert from mailbox to fifo flags */
-	flags >>= PVA_CMD_MBOX_TO_FIFO_FLAG_SHIFT;
-
-	cmd = pva_fifo_submit_batch(queue_id, task_addr, batchsize, flags);
+	(void)pva_cmd_submit_batch(&cmd, queue_id, task_addr, batchsize, flags);
 
 	mutex_lock(&pva->ccq_mutex);
 	err = pva_ccq_wait(pva, 100);
@@ -75,8 +72,8 @@ int pva_ccq_send_task_t19x(struct pva *pva, u32 queue_id, dma_addr_t task_addr,
 		goto err_wait_ccq;
 
 	/* Make the writes to CCQ */
-	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, 0), PVA_HI32(cmd));
-	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, 0), PVA_LOW32(cmd));
+	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, 0), cmd.cmd_field[1]);
+	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, 0), cmd.cmd_field[0]);
 
 	mutex_unlock(&pva->ccq_mutex);
 

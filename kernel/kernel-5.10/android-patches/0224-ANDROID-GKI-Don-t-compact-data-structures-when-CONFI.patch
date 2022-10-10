@@ -1,0 +1,50 @@
+From 9430d1b0a219d98237101a6567aeac4ca2c9af31 Mon Sep 17 00:00:00 2001
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Thu, 23 Jul 2020 14:26:13 +0000
+Subject: [PATCH 224/830] ANDROID: GKI: Don't compact data structures when
+ CONFIG_ZSMALLOC=n
+X-NVConfidentiality: public
+
+In order to keep abi compatibility for vendor zsmalloc module, ensure
+data structures are not compacted even if zsmalloc is disabled.
+
+Bug: 150917000
+Change-Id: I8d5d85e50fa34204a48db67f2ae69eed591e8345
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+(cherry picked from commit caed3ce0f7ff8e031e5c9600a16c8fcc04c40ae7)
+---
+ include/linux/mmzone.h | 2 --
+ mm/vmstat.c            | 2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index c142a152d6a4..e6da7f01e16c 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -155,9 +155,7 @@ enum zone_stat_item {
+ 	NR_PAGETABLE,		/* used for pagetables */
+ 	/* Second 128 byte cacheline */
+ 	NR_BOUNCE,
+-#if IS_ENABLED(CONFIG_ZSMALLOC)
+ 	NR_ZSPAGES,		/* allocated in zsmalloc */
+-#endif
+ 	NR_FREE_CMA_PAGES,
+ 	NR_VM_ZONE_STAT_ITEMS };
+ 
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index 698bc0bc18d1..cf8df279a7c6 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -1159,9 +1159,7 @@ const char * const vmstat_text[] = {
+ 	"nr_mlock",
+ 	"nr_page_table_pages",
+ 	"nr_bounce",
+-#if IS_ENABLED(CONFIG_ZSMALLOC)
+ 	"nr_zspages",
+-#endif
+ 	"nr_free_cma",
+ 
+ 	/* enum numa_stat_item counters */
+-- 
+2.17.1
+

@@ -1,0 +1,44 @@
+From f1e9fed1bff46253dbdfca7696ae726f7c05b85d Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Tue, 4 Feb 2020 14:10:24 -0800
+Subject: [PATCH 628/830] ANDROID: gki_defconfig: Set CONFIG_ANDROID_BINDERFS=y
+X-NVConfidentiality: public
+
+Enable binderfs.
+
+Bug: 136497735
+Test: build, boot, binder devices created in /dev/binderfs
+Change-Id: I551ed59e108f49dc0a198fbfd453cde6a2eea0fd
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 8c7832d80d69..b4c6b5fb8b38 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -374,6 +374,7 @@ CONFIG_QCOM_PDC=y
+ CONFIG_GENERIC_PHY=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDERFS=y
+ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b0bca7278231..bee96ab66ebd 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -309,6 +309,7 @@ CONFIG_PM_DEVFREQ=y
+ CONFIG_IIO=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_ANDROID_BINDERFS=y
+ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+-- 
+2.17.1
+

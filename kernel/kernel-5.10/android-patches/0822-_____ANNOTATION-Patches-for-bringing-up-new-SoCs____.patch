@@ -1,0 +1,28 @@
+From 3c1c456fbb31b3430b5c17d2aadf003b528de634 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Thu, 8 Oct 2020 09:36:14 +0100
+Subject: [PATCH 822/830] _____ANNOTATION: Patches for bringing up new
+ SoCs_____
+X-NVConfidentiality: public
+
+Patches that are only needed during device bringup. They will likely be
+dropped before production release of any kernel based on this.
+
+Signed-off-by: Matthias Maennich <maennich@google.com>
+Change-Id: I6f339136f41edea7a9d6bf16c9847f52d6977628
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index c01635f7d69e..d1353a38dcb9 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -30,3 +30,4 @@ networking changes
+ hardware-wrapped key support
+ db845c (DragonBoard 845c) support
+ Android kconfigs and build scripts
++Bringup patches
+-- 
+2.17.1
+

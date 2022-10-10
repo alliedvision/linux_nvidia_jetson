@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -124,7 +124,7 @@ void nvgpu_log_dbg_impl(struct gk20a *g, u64 log_mask,
 	(void) vsnprintf(log, LOG_BUFFER_LENGTH, fmt, args);
 	va_end(args);
 
-	__nvgpu_really_print_log(g->log_trace, g ? nvgpu_log_name(g) : "",
+	__nvgpu_really_print_log(g->log_trace, nvgpu_log_name(g),
 				 func_name, line, NVGPU_DEBUG, log);
 }
 

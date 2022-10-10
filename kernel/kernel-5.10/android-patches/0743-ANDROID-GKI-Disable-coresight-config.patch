@@ -1,0 +1,31 @@
+From 823947a0e2818af967175d1b927e73185462570f Mon Sep 17 00:00:00 2001
+From: Tingwei Zhang <tingwei@codeaurora.org>
+Date: Sat, 15 Aug 2020 09:40:25 +0800
+Subject: [PATCH 743/830] ANDROID: GKI: Disable coresight config
+X-NVConfidentiality: public
+
+Coresight driver will support to be built as Kernel module.
+Disable the builtin configuration in gki_defconfig. It can
+be enabled by vendor as Kernel module.
+
+Bug: 160464759
+Signed-off-by: Tingwei Zhang <tingwei@codeaurora.org>
+Change-Id: I6de8d6778703cb1db58e4343b31c06d5481b57c3
+---
+ arch/arm64/configs/gki_defconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 023b707d8693..cc02b2669db0 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -515,6 +515,4 @@ CONFIG_WQ_WATCHDOG=y
+ CONFIG_SCHEDSTATS=y
+ # CONFIG_DEBUG_PREEMPT is not set
+ CONFIG_BUG_ON_DATA_CORRUPTION=y
+-CONFIG_CORESIGHT=y
+-CONFIG_CORESIGHT_STM=y
+ # CONFIG_RUNTIME_TESTING_MENU is not set
+-- 
+2.17.1
+

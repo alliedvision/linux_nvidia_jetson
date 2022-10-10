@@ -1,0 +1,148 @@
+From 242517b17d5d53ccaf02bbb81b506efbc5967f85 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Tue, 1 Dec 2020 20:08:39 -0800
+Subject: [PATCH 037/830] FROMGIT: usb: typec: tcpci: Add support to report
+ vSafe0V
+X-NVConfidentiality: public
+
+This change adds vbus_vsafe0v which when set, makes TCPM
+query for VSAFE0V by assigning the tcpc.is_vbus_vsafe0v callback.
+Also enables ALERT.ExtendedStatus which is triggered when
+status of EXTENDED_STATUS.vSafe0V changes.
+EXTENDED_STATUS.vSafe0V is set when vbus is at vSafe0V and
+cleared otherwise.
+
+Bug: 173747861
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201202040840.663578-2-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 766c485b86ef52765926b69a1145cadcf2db1e7d usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I970d0be609b80cb2ae934d09cbbf6cc480e67294
+---
+ drivers/usb/typec/tcpm/tcpci.c | 39 +++++++++++++++++++++++++++++-----
+ drivers/usb/typec/tcpm/tcpci.h |  6 ++++++
+ 2 files changed, 40 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci.c b/drivers/usb/typec/tcpm/tcpci.c
+index e20f1f25a227..ea3451c2f115 100644
+--- a/drivers/usb/typec/tcpm/tcpci.c
++++ b/drivers/usb/typec/tcpm/tcpci.c
+@@ -418,6 +418,19 @@ static int tcpci_get_vbus(struct tcpc_dev *tcpc)
+ 	return !!(reg & TCPC_POWER_STATUS_VBUS_PRES);
+ }
+ 
++static bool tcpci_is_vbus_vsafe0v(struct tcpc_dev *tcpc)
++{
++	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
++	unsigned int reg;
++	int ret;
++
++	ret = regmap_read(tcpci->regmap, TCPC_EXTENDED_STATUS, &reg);
++	if (ret < 0)
++		return false;
++
++	return !!(reg & TCPC_EXTENDED_STATUS_VSAFE0V);
++}
++
+ static int tcpci_set_vbus(struct tcpc_dev *tcpc, bool source, bool sink)
+ {
+ 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+@@ -571,12 +584,22 @@ static int tcpci_init(struct tcpc_dev *tcpc)
+ 		TCPC_ALERT_RX_HARD_RST | TCPC_ALERT_CC_STATUS;
+ 	if (tcpci->controls_vbus)
+ 		reg |= TCPC_ALERT_POWER_STATUS;
++	/* Enable VSAFE0V status interrupt when detecting VSAFE0V is supported */
++	if (tcpci->data->vbus_vsafe0v) {
++		reg |= TCPC_ALERT_EXTENDED_STATUS;
++		ret = regmap_write(tcpci->regmap, TCPC_EXTENDED_STATUS_MASK,
++				   TCPC_EXTENDED_STATUS_VSAFE0V);
++		if (ret < 0)
++			return ret;
++	}
+ 	return tcpci_write16(tcpci, TCPC_ALERT_MASK, reg);
+ }
+ 
+ irqreturn_t tcpci_irq(struct tcpci *tcpci)
+ {
+ 	u16 status;
++	int ret;
++	unsigned int raw;
+ 
+ 	tcpci_read16(tcpci, TCPC_ALERT, &status);
+ 
+@@ -592,15 +615,12 @@ irqreturn_t tcpci_irq(struct tcpci *tcpci)
+ 		tcpm_cc_change(tcpci->port);
+ 
+ 	if (status & TCPC_ALERT_POWER_STATUS) {
+-		unsigned int reg;
+-
+-		regmap_read(tcpci->regmap, TCPC_POWER_STATUS_MASK, &reg);
+-
++		regmap_read(tcpci->regmap, TCPC_POWER_STATUS_MASK, &raw);
+ 		/*
+ 		 * If power status mask has been reset, then the TCPC
+ 		 * has reset.
+ 		 */
+-		if (reg == 0xff)
++		if (raw == 0xff)
+ 			tcpm_tcpc_reset(tcpci->port);
+ 		else
+ 			tcpm_vbus_change(tcpci->port);
+@@ -639,6 +659,12 @@ irqreturn_t tcpci_irq(struct tcpci *tcpci)
+ 		tcpm_pd_receive(tcpci->port, &msg);
+ 	}
+ 
++	if (status & TCPC_ALERT_EXTENDED_STATUS) {
++		ret = regmap_read(tcpci->regmap, TCPC_EXTENDED_STATUS, &raw);
++		if (!ret && (raw & TCPC_EXTENDED_STATUS_VSAFE0V))
++			tcpm_vbus_change(tcpci->port);
++	}
++
+ 	if (status & TCPC_ALERT_RX_HARD_RST)
+ 		tcpm_pd_hard_reset(tcpci->port);
+ 
+@@ -716,6 +742,9 @@ struct tcpci *tcpci_register_port(struct device *dev, struct tcpci_data *data)
+ 			tcpci_set_auto_vbus_discharge_threshold;
+ 	}
+ 
++	if (tcpci->data->vbus_vsafe0v)
++		tcpci->tcpc.is_vbus_vsafe0v = tcpci_is_vbus_vsafe0v;
++
+ 	err = tcpci_parse_config(tcpci);
+ 	if (err < 0)
+ 		return ERR_PTR(err);
+diff --git a/drivers/usb/typec/tcpm/tcpci.h b/drivers/usb/typec/tcpm/tcpci.h
+index 3fe313655f0c..116a69c85e38 100644
+--- a/drivers/usb/typec/tcpm/tcpci.h
++++ b/drivers/usb/typec/tcpm/tcpci.h
+@@ -49,6 +49,9 @@
+ #define TCPC_TCPC_CTRL_ORIENTATION	BIT(0)
+ #define TCPC_TCPC_CTRL_BIST_TM		BIT(1)
+ 
++#define TCPC_EXTENDED_STATUS		0x20
++#define TCPC_EXTENDED_STATUS_VSAFE0V	BIT(0)
++
+ #define TCPC_ROLE_CTRL			0x1a
+ #define TCPC_ROLE_CTRL_DRP		BIT(6)
+ #define TCPC_ROLE_CTRL_RP_VAL_SHIFT	4
+@@ -155,11 +158,14 @@ struct tcpci;
+  *		is sourcing vbus.
+  * @auto_discharge_disconnect:
+  *		Optional; Enables TCPC to autonously discharge vbus on disconnect.
++ * @vbus_vsafe0v:
++ *		optional; Set when TCPC can detect whether vbus is at VSAFE0V.
+  */
+ struct tcpci_data {
+ 	struct regmap *regmap;
+ 	unsigned char TX_BUF_BYTE_x_hidden:1;
+ 	unsigned char auto_discharge_disconnect:1;
++	unsigned char vbus_vsafe0v:1;
+ 
+ 	int (*init)(struct tcpci *tcpci, struct tcpci_data *data);
+ 	int (*set_vconn)(struct tcpci *tcpci, struct tcpci_data *data,
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -86,6 +86,7 @@ static u32 gv11b_fifo_intr_0_en_mask(struct gk20a *g)
 {
 	u32 intr_0_en_mask = fifo_intr_0_err_mask();
 
+	(void)g;
 	intr_0_en_mask |= fifo_intr_0_pbdma_intr_pending_f() |
 				 fifo_intr_0_ctxsw_timeout_pending_f();
 
@@ -131,9 +132,6 @@ bool gv11b_fifo_handle_sched_error(struct gk20a *g)
 		nvgpu_err(g, "fifo sched error code not supported");
 	}
 
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-			0, GPU_HOST_PFIFO_SCHED_ERROR, sched_error);
-
 	if (sched_error == SCHED_ERROR_CODE_BAD_TSG) {
 		/* id is unknown, preempt all runlists and do recovery */
 		nvgpu_rc_sched_error_bad_tsg(g);
@@ -150,8 +148,8 @@ static u32 gv11b_fifo_intr_handle_errors(struct gk20a *g, u32 fifo_intr)
 
 	if ((fifo_intr & fifo_intr_0_bind_error_pending_f()) != 0U) {
 		u32 bind_error = nvgpu_readl(g, fifo_intr_bind_error_r());
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, 0,
-				GPU_HOST_PFIFO_BIND_ERROR, bind_error);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+				GPU_HOST_PFIFO_BIND_ERROR);
 		nvgpu_err(g, "fifo bind error: 0x%08x", bind_error);
 		handled |= fifo_intr_0_bind_error_pending_f();
 	}
@@ -162,17 +160,15 @@ static u32 gv11b_fifo_intr_handle_errors(struct gk20a *g, u32 fifo_intr)
 	}
 
 	if ((fifo_intr & fifo_intr_0_memop_timeout_pending_f()) != 0U) {
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, 0,
-				GPU_HOST_PFIFO_MEMOP_TIMEOUT_ERROR, 0);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+				GPU_HOST_PFIFO_MEMOP_TIMEOUT_ERROR);
 		nvgpu_err(g, "fifo memop timeout error");
 		handled |= fifo_intr_0_memop_timeout_pending_f();
 	}
 
 	if ((fifo_intr & fifo_intr_0_lb_error_pending_f()) != 0U) {
-		u32 lb_error = nvgpu_readl(g, fifo_intr_lb_error_r());
-
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, 0,
-				GPU_HOST_PFIFO_LB_ERROR, lb_error);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+				GPU_HOST_PFIFO_LB_ERROR);
 		nvgpu_err(g, "fifo lb error");
 		handled |= fifo_intr_0_lb_error_pending_f();
 	}

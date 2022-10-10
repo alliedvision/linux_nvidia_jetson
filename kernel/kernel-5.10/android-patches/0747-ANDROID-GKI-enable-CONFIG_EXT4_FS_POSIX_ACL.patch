@@ -1,0 +1,46 @@
+From 172fc29bc35b42f2c7361d6a82a15c860457d562 Mon Sep 17 00:00:00 2001
+From: Martijn Coenen <maco@google.com>
+Date: Mon, 15 Jun 2020 22:06:36 +0200
+Subject: [PATCH 747/830] ANDROID: GKI: enable CONFIG_EXT4_FS_POSIX_ACL.
+X-NVConfidentiality: public
+
+This is required on devices without sdcardfs.
+
+Bug: 158733532
+Bug: 162909109
+Test: manual
+Change-Id: I21d6ee488b7e4a094260cffc654a4c9dc3392081
+Signed-off-by: Martijn Coenen <maco@google.com>
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index b4f60cac5132..0e3546677e0a 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -412,6 +412,7 @@ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+ CONFIG_EXT4_FS=y
++CONFIG_EXT4_FS_POSIX_ACL=y
+ CONFIG_EXT4_FS_SECURITY=y
+ CONFIG_F2FS_FS=y
+ CONFIG_F2FS_FS_SECURITY=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index d25fc74db047..bfc29e3ab581 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -359,6 +359,7 @@ CONFIG_LIBNVDIMM=y
+ # CONFIG_ND_BLK is not set
+ CONFIG_INTERCONNECT=y
+ CONFIG_EXT4_FS=y
++CONFIG_EXT4_FS_POSIX_ACL=y
+ CONFIG_EXT4_FS_SECURITY=y
+ CONFIG_F2FS_FS=y
+ CONFIG_F2FS_FS_SECURITY=y
+-- 
+2.17.1
+

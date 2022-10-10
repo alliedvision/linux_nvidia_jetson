@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
-*/
+ */
 
 #include <dt-bindings/gpio/tegra234-gpio.h>
 #include <dt-bindings/sound/tegra-asoc-dais.h>
@@ -170,6 +170,66 @@
 			codec {
 				sound-dai = <&tegra_i2s1 I2S_DUMMY>;
 			};
+		};
+	};
+
+	fragment@12 {
+		target = <&hdr40_snd_i2s_dap_ep>;
+
+		board_config {
+			ids = "2614-0000-000";
+		};
+
+		__overlay__ {
+			remote-endpoint = <&e2614_rt5658_ep>;
+		};
+	};
+
+	fragment@13 {
+		target = <&hdr40_snd_i2s_dap_ep>;
+
+		board_config {
+			ids = "2614-0000-100";
+		};
+
+		__overlay__ {
+			remote-endpoint = <&e2614_rt5658_i2c3_ep>;
+		};
+	};
+
+	fragment@14 {
+		target = <&tegra_sound_graph>;
+
+		board_config {
+			ids = "2614-0000-*";
+		};
+
+		__overlay__ {
+			widgets = "Headphone",    "H40-RT Headphone",
+				  "Microphone",   "H40-RT Mic";
+
+			routing = "H40-RT Headphone",             "H40-RT HPO L Playback",
+				  "H40-RT Headphone",             "H40-RT HPO R Playback",
+				  "H40-RT IN1P",                  "H40-RT Mic";
+
+			/*
+			 * For codec2codec based DAI link design this is required.
+			 * For DPCM based design, this is optional and instead
+			 * it will be picked from codec port node.
+			 */
+			mclk-fs = <256>;
+		};
+	};
+
+	fragment@15 {
+		target = <&i2s1_dap_ep>;
+
+		board_config {
+			ids = "2614-0000-*";
+		};
+
+		__overlay__ {
+			remote-endpoint = <&i2s1_dummy_ep>;
 		};
 	};
 };

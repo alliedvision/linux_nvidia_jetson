@@ -2,7 +2,7 @@
 /*
  * PCIe driver to enumerate PCIe virtual functions in VM.
  *
- * Copyright (C) 2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2021-2022, NVIDIA Corporation. All rights reserved.
  *
  */
 
@@ -70,7 +70,7 @@ static int pci_tegra_vf_claim_resource(struct pci_dev *dev, void *data)
 	return 0;
 }
 
-int pci_tegra_vf_probe(struct platform_device *pdev)
+static int pci_tegra_vf_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct pci_host_bridge *bridge;
@@ -124,7 +124,7 @@ int pci_tegra_vf_probe(struct platform_device *pdev)
 	return 0;
 }
 
-int pci_tegra_vf_remove(struct platform_device *pdev)
+static int pci_tegra_vf_remove(struct platform_device *pdev)
 {
 	struct pci_host_bridge *bridge = platform_get_drvdata(pdev);
 

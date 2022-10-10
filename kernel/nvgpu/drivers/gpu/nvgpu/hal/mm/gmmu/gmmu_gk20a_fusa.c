@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,10 @@
 u32 gk20a_get_pde_pgsz(struct gk20a *g, const struct gk20a_mmu_level *l,
 				struct nvgpu_gmmu_pd *pd, u32 pd_idx)
 {
+	(void)g;
+	(void)l;
+	(void)pd;
+	(void)pd_idx;
 	/*
 	 * big and small page sizes are the same
 	 */
@@ -37,6 +41,10 @@ u32 gk20a_get_pde_pgsz(struct gk20a *g, const struct gk20a_mmu_level *l,
 u32 gk20a_get_pte_pgsz(struct gk20a *g, const struct gk20a_mmu_level *l,
 				struct nvgpu_gmmu_pd *pd, u32 pd_idx)
 {
+	(void)g;
+	(void)l;
+	(void)pd;
+	(void)pd_idx;
 	/*
 	 * return invalid
 	 */

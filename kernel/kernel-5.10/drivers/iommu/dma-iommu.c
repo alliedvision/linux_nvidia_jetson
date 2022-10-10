@@ -2,7 +2,7 @@
 /*
  * A fairly generic DMA-API to IOMMU-API glue layer.
  *
- * Copyright (c) 2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022 NVIDIA CORPORATION.  All rights reserved.
  * Copyright (C) 2014-2015 ARM Ltd.
  *
  * based in part on arch/arm/mm/dma-mapping.c:
@@ -49,6 +49,7 @@ struct iommu_dma_cookie {
 
 	/* Domain for flush queue callback; NULL if flush queue not in use */
 	struct iommu_domain		*fq_domain;
+	struct mutex			mutex;
 };
 
 static inline size_t cookie_msi_granule(struct iommu_dma_cookie *cookie)
@@ -86,6 +87,7 @@ int iommu_get_dma_cookie(struct iommu_domain *domain)
 	if (!domain->iova_cookie)
 		return -ENOMEM;
 
+	mutex_init(&((struct iommu_dma_cookie*)(domain->iova_cookie))->mutex);
 	return 0;
 }
 EXPORT_SYMBOL(iommu_get_dma_cookie);
@@ -311,6 +313,7 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 	unsigned long order, base_pfn;
 	struct iova_domain *iovad;
 	int attr;
+	int ret;
 
 	if (!cookie || cookie->type != IOMMU_DMA_IOVA_COOKIE)
 		return -EINVAL;
@@ -334,14 +337,17 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 	}
 
 	/* start_pfn is always nonzero for an already-initialised domain */
+	mutex_lock(&cookie->mutex);
 	if (iovad->start_pfn) {
 		if (1UL << order != iovad->granule ||
 		    base_pfn != iovad->start_pfn) {
 			pr_warn("Incompatible range for DMA domain\n");
-			return -EFAULT;
+			ret = -EFAULT;
+			goto done_unlock;
 		}
 
-		return 0;
+		ret = 0;
+		goto done_unlock;
 	}
 
 	init_iova_domain(iovad, 1UL << order, base_pfn);
@@ -355,10 +361,16 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 			cookie->fq_domain = domain;
 	}
 
-	if (!dev)
-		return 0;
+	if (!dev) {
+		ret = 0;
+		goto done_unlock;
+	}
 
-	return iova_reserve_iommu_regions(dev, domain);
+	ret = iova_reserve_iommu_regions(dev, domain);
+
+done_unlock:
+	mutex_unlock(&cookie->mutex);
+	return ret;
 }
 
 static int iommu_dma_deferred_attach(struct device *dev,

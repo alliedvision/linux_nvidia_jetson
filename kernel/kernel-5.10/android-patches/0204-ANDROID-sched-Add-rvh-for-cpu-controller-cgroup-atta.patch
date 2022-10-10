@@ -1,0 +1,68 @@
+From 56f1f3a4e6e3fde745aee8edacb5241af85bc00d Mon Sep 17 00:00:00 2001
+From: Abhijeet Dharmapurikar <adharmap@codeaurora.org>
+Date: Mon, 7 Dec 2020 13:58:00 -0800
+Subject: [PATCH 204/830] ANDROID: sched: Add rvh for cpu controller cgroup
+ attach
+X-NVConfidentiality: public
+
+Add a restricted vendor hook when a set of tasks change the cgroups in
+the cpu controller. This facilitates various scheduler value adds.
+
+Bug: 175045928
+Change-Id: I544046d631f4d6c9bc2b999e054b5a296ec31a81
+Signed-off-by: Abhijeet Dharmapurikar <adharmap@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/sched.h    | 6 ++++++
+ kernel/sched/core.c            | 2 ++
+ 3 files changed, 9 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index be760d916ca5..e82e42a41d8a 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -93,3 +93,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_account_irq);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_place_entity);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpu_capacity);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_misfit_status);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpu_cgroup_attach);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index c602a1a24e93..f5c07afdbbcb 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -189,6 +189,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_cpu_capacity,
+ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
+ 	TP_PROTO(struct task_struct *p, struct rq *rq, bool *need_update),
+ 	TP_ARGS(p, rq, need_update), 1);
++
++struct cgroup_taskset;
++DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
++	TP_PROTO(struct cgroup_taskset *tset),
++	TP_ARGS(tset), 1);
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -232,6 +237,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
+ #define trace_android_rvh_place_entity(se, vruntime)
+ #define trace_android_rvh_update_cpu_capacity(cpu, capacity)
+ #define trace_android_rvh_update_misfit_status(p, rq, need_update)
++#define trace_android_rvh_cpu_cgroup_attach(tset)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 683ec572677c..9e12e90a335d 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7847,6 +7847,8 @@ static void cpu_cgroup_attach(struct cgroup_taskset *tset)
+ 
+ 	cgroup_taskset_for_each(task, css, tset)
+ 		sched_move_task(task);
++
++	trace_android_rvh_cpu_cgroup_attach(tset);
+ }
+ 
+ #ifdef CONFIG_UCLAMP_TASK_GROUP
+-- 
+2.17.1
+

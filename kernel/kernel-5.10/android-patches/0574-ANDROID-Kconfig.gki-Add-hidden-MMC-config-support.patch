@@ -1,0 +1,45 @@
+From 063d11cefb2088c75a112b51b7bca3adb40980c3 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 9 Oct 2019 23:16:45 +0000
+Subject: [PATCH 574/830] ANDROID: Kconfig.gki: Add hidden MMC config support
+X-NVConfidentiality: public
+
+Enable hidden MMC configs via CONFIG_GKI_HACKS_TO_FIX
+
+Bug: 142268770
+Change-Id: Ibaba180c46708f1213055f44523b9e7b45eefee6
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 85036c08fb7b..4db995c2fe92 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -28,6 +28,14 @@ config GKI_HIDDEN_SND_SOC_CONFIGS
+ 	  These are normally selected implicitely when a module
+ 	  that relies on it is configured.
+ 
++config GKI_HIDDEN_MMC_CONFIGS
++	bool "Hidden MMC configs needed for GKI"
++	select MMC_SDHCI_IO_ACCESSORS if (MMC_SDHCI)
++	help
++	  Dummy config option used to enable hidden MMC configs.
++	  These are normally selected implicitely when a module
++	  that relies on it is configured.
++
+ config GKI_HIDDEN_GPIO_CONFIGS
+ 	bool "Hidden GPIO configs needed for GKI"
+ 	select PINCTRL_SINGLE if (PINCTRL && OF && HAS_IOMEM)
+@@ -77,6 +85,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_DRM_CONFIGS
+ 	select GKI_HIDDEN_REGMAP_CONFIGS
+ 	select GKI_HIDDEN_SND_SOC_CONFIGS
++	select GKI_HIDDEN_MMC_CONFIGS
+ 	select GKI_HIDDEN_GPIO_CONFIGS
+ 	select GKI_HIDDEN_QCOM_CONFIGS
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+-- 
+2.17.1
+

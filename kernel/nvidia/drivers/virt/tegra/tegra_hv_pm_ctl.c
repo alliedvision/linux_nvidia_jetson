@@ -322,15 +322,27 @@ static ssize_t tegra_hv_pm_ctl_write(struct file *filp, const char __user *buf,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static unsigned int tegra_hv_pm_ctl_poll(struct file *filp,
 					 struct poll_table_struct *table)
+#else
+static __poll_t tegra_hv_pm_ctl_poll(struct file *filp,
+					 struct poll_table_struct *table)
+#endif
 {
 	struct tegra_hv_pm_ctl *data = filp->private_data;
 	struct ivc *ivc = tegra_hv_ivc_convert_cookie(data->ivck);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	unsigned long req_events = poll_requested_events(table);
 	unsigned int read_mask = POLLIN | POLLRDNORM;
 	unsigned int write_mask = POLLOUT | POLLWRNORM;
 	unsigned int mask = 0;
+#else
+	__poll_t req_events = poll_requested_events(table);
+	__poll_t read_mask = POLLIN | POLLRDNORM;
+	__poll_t write_mask = POLLOUT | POLLWRNORM;
+	__poll_t mask = 0;
+#endif
 
 	mutex_lock(&data->mutex_lock);
 	if (!tegra_ivc_can_read(ivc) && (req_events & read_mask)) {

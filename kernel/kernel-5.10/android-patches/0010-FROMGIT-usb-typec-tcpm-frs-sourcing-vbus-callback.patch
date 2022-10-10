@@ -1,0 +1,70 @@
+From 12f876e35f79bb051de04d2945c13a10787e1d00 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:32 -0700
+Subject: [PATCH 010/830] FROMGIT: usb: typec: tcpm: frs sourcing vbus callback
+X-NVConfidentiality: public
+
+During FRS hardware autonomously starts to source vbus. Provide
+callback to perform chip specific operations.
+
+Bug: 168158832
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-5-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit a30a00e37ceb094f949e4d96c2c586e6503b5d1d
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I1aa27bf1b486bdeb3f104e4b7871b1c0238abc04
+---
+ drivers/usb/typec/tcpm/tcpm.c | 9 +++++++++
+ include/linux/usb/tcpm.h      | 4 ++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index 2bea74742651..e2642c65bdbb 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -4113,7 +4113,16 @@ static void _tcpm_pd_vbus_on(struct tcpm_port *port)
+ 	case SRC_TRY_DEBOUNCE:
+ 		/* Do nothing, waiting for sink detection */
+ 		break;
++	case FR_SWAP_SEND:
++	case FR_SWAP_SEND_TIMEOUT:
++	case FR_SWAP_SNK_SRC_TRANSITION_TO_OFF:
++	case FR_SWAP_SNK_SRC_SOURCE_VBUS_APPLIED:
++		if (port->tcpc->frs_sourcing_vbus)
++			port->tcpc->frs_sourcing_vbus(port->tcpc);
++		break;
+ 	case FR_SWAP_SNK_SRC_NEW_SINK_READY:
++		if (port->tcpc->frs_sourcing_vbus)
++			port->tcpc->frs_sourcing_vbus(port->tcpc);
+ 		tcpm_set_state(port, FR_SWAP_SNK_SRC_SOURCE_VBUS_APPLIED, 0);
+ 		break;
+ 
+diff --git a/include/linux/usb/tcpm.h b/include/linux/usb/tcpm.h
+index 09762d26fa0c..7303f518ba49 100644
+--- a/include/linux/usb/tcpm.h
++++ b/include/linux/usb/tcpm.h
+@@ -83,6 +83,9 @@ enum tcpm_transmit_type {
+  *		Optional; Called to enable/disable PD 3.0 fast role swap.
+  *		Enabling frs is accessory dependent as not all PD3.0
+  *		accessories support fast role swap.
++ * @frs_sourcing_vbus:
++ *		Optional; Called to notify that vbus is now being sourced.
++ *		Low level drivers can perform chip specific operations, if any.
+  */
+ struct tcpc_dev {
+ 	struct fwnode_handle *fwnode;
+@@ -109,6 +112,7 @@ struct tcpc_dev {
+ 			   const struct pd_message *msg);
+ 	int (*set_bist_data)(struct tcpc_dev *dev, bool on);
+ 	int (*enable_frs)(struct tcpc_dev *dev, bool enable);
++	void (*frs_sourcing_vbus)(struct tcpc_dev *dev);
+ };
+ 
+ struct tcpm_port;
+-- 
+2.17.1
+

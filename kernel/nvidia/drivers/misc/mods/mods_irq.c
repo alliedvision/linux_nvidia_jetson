@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_irq.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -152,9 +152,42 @@ static unsigned int get_cur_time(void)
 	return jiffies_to_usecs(jiffies);
 }
 
-static inline int mods_check_interrupt(struct dev_irq_map *t)
+static u64 irq_reg_read(const struct irq_mask_info *m, void __iomem *reg)
 {
-	int ii = 0;
+	if (m->mask_type == MODS_MASK_TYPE_IRQ_DISABLE64)
+		return readq(reg);
+	else
+		return readl(reg);
+}
+
+static void irq_reg_write(const struct irq_mask_info *m,
+			  u64                         value,
+			  void               __iomem *reg)
+{
+	if (m->mask_type == MODS_MASK_TYPE_IRQ_DISABLE64)
+		writeq(value, reg);
+	else
+		writel((u32)value, reg);
+}
+
+static u64 read_irq_state(const struct irq_mask_info *m)
+{
+	return irq_reg_read(m, m->dev_irq_state);
+}
+
+static u64 read_irq_mask(const struct irq_mask_info *m)
+{
+	return irq_reg_read(m, m->dev_irq_mask_reg);
+}
+
+static void write_irq_disable(u64 value, const struct irq_mask_info *m)
+{
+	irq_reg_write(m, value, m->dev_irq_disable_reg);
+}
+
+static int mods_check_interrupt(struct dev_irq_map *t)
+{
+	int ii    = 0;
 	int valid = 0;
 
 	/* For MSI - we always treat it as pending (must rearm later). */
@@ -163,18 +196,15 @@ static inline int mods_check_interrupt(struct dev_irq_map *t)
 		return true;
 
 	for (ii = 0; ii < t->mask_info_cnt; ii++) {
-		if (!t->mask_info[ii].dev_irq_state ||
-		    !t->mask_info[ii].dev_irq_mask_reg)
+		const struct irq_mask_info *const m = &t->mask_info[ii];
+
+		if (!m->dev_irq_state || !m->dev_irq_mask_reg)
 			continue;
 
 		/* GPU device */
-		if (t->mask_info[ii].mask_type == MODS_MASK_TYPE_IRQ_DISABLE64)
-			valid |= ((*(u64 *)t->mask_info[ii].dev_irq_state &&
-			*(u64 *)t->mask_info[ii].dev_irq_mask_reg) != 0);
-		else
-			valid |= ((*t->mask_info[ii].dev_irq_state &&
-			     *t->mask_info[ii].dev_irq_mask_reg) != 0);
+		valid |= (read_irq_state(m) && read_irq_mask(m)) != 0;
 	}
+
 	return valid;
 }
 
@@ -183,28 +213,23 @@ static void mods_disable_interrupts(struct dev_irq_map *t)
 	u32 ii = 0;
 
 	for (ii = 0; ii < t->mask_info_cnt; ii++) {
-		if (t->mask_info[ii].dev_irq_disable_reg &&
-		   t->mask_info[ii].mask_type == MODS_MASK_TYPE_IRQ_DISABLE64) {
-			if (t->mask_info[ii].irq_and_mask == 0)
-				*(u64 *)t->mask_info[ii].dev_irq_disable_reg =
-				t->mask_info[ii].irq_or_mask;
-			else
-				*(u64 *)t->mask_info[ii].dev_irq_disable_reg =
-				(*(u64 *)t->mask_info[ii].dev_irq_mask_reg &
-				t->mask_info[ii].irq_and_mask) |
-				t->mask_info[ii].irq_or_mask;
-		} else if (t->mask_info[ii].dev_irq_disable_reg) {
-			if (t->mask_info[ii].irq_and_mask == 0) {
-				*t->mask_info[ii].dev_irq_disable_reg =
-				t->mask_info[ii].irq_or_mask;
-			} else {
-				*t->mask_info[ii].dev_irq_disable_reg =
-				(*t->mask_info[ii].dev_irq_mask_reg &
-				t->mask_info[ii].irq_and_mask) |
-				t->mask_info[ii].irq_or_mask;
-			}
+		const struct irq_mask_info *const m = &t->mask_info[ii];
+		u64 cur_mask = 0;
+
+		if (!m->dev_irq_disable_reg)
+			continue;
+
+		if (m->irq_and_mask == 0) {
+			write_irq_disable(m->irq_or_mask, m);
+			continue;
 		}
+
+		cur_mask = read_irq_mask(m);
+		cur_mask &= m->irq_and_mask;
+		cur_mask |= m->irq_or_mask;
+		write_irq_disable(cur_mask, m);
 	}
+
 	if ((ii == 0) && t->type == MODS_IRQ_TYPE_CPU) {
 		mods_debug_printk(DEBUG_ISR,
 				  "disable_irq_nosync %u",
@@ -390,38 +415,43 @@ static int is_nvidia_gpu(struct pci_dev *dev)
 	}
 	return false;
 }
-#endif
 
-#ifdef CONFIG_PCI
 static void setup_mask_info(struct dev_irq_map *newmap,
 			    struct MODS_REGISTER_IRQ_4 *p,
 			    struct pci_dev *dev)
 {
 	/* account for legacy adapters */
-	char *bar = newmap->dev_irq_aperture;
-	u32 ii = 0;
+	u8 __iomem *bar = newmap->dev_irq_aperture;
+	u32         ii  = 0;
 
 	if ((p->mask_info_cnt == 0) && is_nvidia_gpu(dev)) {
+		struct irq_mask_info *const m = &newmap->mask_info[0];
+
 		newmap->mask_info_cnt = 1;
-		newmap->mask_info[0].dev_irq_mask_reg = (u32 *)(bar+0x140);
-		newmap->mask_info[0].dev_irq_disable_reg = (u32 *)(bar+0x140);
-		newmap->mask_info[0].dev_irq_state = (u32 *)(bar+0x100);
-		newmap->mask_info[0].irq_and_mask = 0;
-		newmap->mask_info[0].irq_or_mask = 0;
+		m->dev_irq_mask_reg    = (void __iomem *)(bar + 0x140);
+		m->dev_irq_disable_reg = (void __iomem *)(bar + 0x140);
+		m->dev_irq_state       = (void __iomem *)(bar + 0x100);
+		m->irq_and_mask        = 0;
+		m->irq_or_mask         = 0;
 		return;
 	}
+
 	/* setup for new adapters */
 	newmap->mask_info_cnt = p->mask_info_cnt;
 	for (ii = 0; ii < p->mask_info_cnt; ii++) {
-		newmap->mask_info[ii].dev_irq_state =
-		    (u32 *)(bar + p->mask_info[ii].irq_pending_offset);
-		newmap->mask_info[ii].dev_irq_mask_reg =
-		    (u32 *)(bar + p->mask_info[ii].irq_enabled_offset);
-		newmap->mask_info[ii].dev_irq_disable_reg =
-		    (u32 *)(bar + p->mask_info[ii].irq_disable_offset);
-		newmap->mask_info[ii].irq_and_mask = p->mask_info[ii].and_mask;
-		newmap->mask_info[ii].irq_or_mask = p->mask_info[ii].or_mask;
-		newmap->mask_info[ii].mask_type = p->mask_info[ii].mask_type;
+		struct irq_mask_info         *const m = &newmap->mask_info[ii];
+		const struct mods_mask_info2 *const in_m = &p->mask_info[ii];
+
+		const u32 pend_offs = in_m->irq_pending_offset;
+		const u32 stat_offs = in_m->irq_enabled_offset;
+		const u32 dis_offs  = in_m->irq_disable_offset;
+
+		m->dev_irq_state       = (void __iomem *)(bar + pend_offs);
+		m->dev_irq_mask_reg    = (void __iomem *)(bar + stat_offs);
+		m->dev_irq_disable_reg = (void __iomem *)(bar + dis_offs);
+		m->irq_and_mask        = in_m->and_mask;
+		m->irq_or_mask         = in_m->or_mask;
+		m->mask_type           = in_m->mask_type;
 	}
 }
 #endif
@@ -475,7 +505,7 @@ static int add_irq_map(struct mods_client         *client,
 	newmap->apic_irq         = irq;
 	newmap->dev              = dev;
 	newmap->client_id        = client->client_id;
-	newmap->dev_irq_aperture = 0;
+	newmap->dev_irq_aperture = NULL;
 	newmap->mask_info_cnt    = 0;
 	newmap->type             = irq_type;
 	newmap->entry            = entry;
@@ -503,7 +533,7 @@ static int add_irq_map(struct mods_client         *client,
 	if ((irq_type == MODS_IRQ_TYPE_INT) &&
 	    (p->aperture_addr != 0) &&
 	    (p->aperture_size != 0)) {
-		char *bar = ioremap(p->aperture_addr, p->aperture_size);
+		u8 __iomem *bar = ioremap(p->aperture_addr, p->aperture_size);
 
 		if (!bar) {
 			cl_debug(DEBUG_ISR,
@@ -534,10 +564,10 @@ static int add_irq_map(struct mods_client         *client,
 		 (irq_type == MODS_IRQ_TYPE_MSIX)) {
 		cl_debug(DEBUG_ISR,
 			 "dev %04x:%02x:%02x.%x registered %s IRQ 0x%x\n",
-			 pci_domain_nr(dev->bus),
-			 dev->bus->number,
-			 PCI_SLOT(dev->devfn),
-			 PCI_FUNC(dev->devfn),
+			 dev ? pci_domain_nr(dev->bus) : 0U,
+			 dev ? dev->bus->number : 0U,
+			 dev ? PCI_SLOT(dev->devfn) : 0U,
+			 dev ? PCI_FUNC(dev->devfn) : 0U,
 			 mods_irq_type_name(irq_type),
 			 irq);
 	}
@@ -635,7 +665,7 @@ void mods_cleanup_irq(void)
 	LOG_EXT();
 }
 
-int mods_irq_event_check(u8 client_id)
+POLL_TYPE mods_irq_event_check(u8 client_id)
 {
 	struct irq_q_info *q = &client_from_id(client_id)->irq_queue;
 	unsigned int pos = (1 << (client_id - 1));
@@ -772,7 +802,7 @@ static int mods_free_irqs(struct mods_client *client,
 		kfree(dpriv->msix_entries);
 		if (dpriv->msix_entries)
 			atomic_dec(&client->num_allocs);
-		dpriv->msix_entries = 0;
+		dpriv->msix_entries = NULL;
 	} else if (irq_type == MODS_IRQ_TYPE_MSI) {
 		pci_disable_msi(dev);
 	}
@@ -1125,7 +1155,7 @@ static int mods_register_cpu_irq(struct mods_client         *client,
 	}
 
 	/* Register interrupt */
-	err = add_irq_map(client, 0, p, irq, 0);
+	err = add_irq_map(client, NULL, p, irq, 0);
 
 	mutex_unlock(&mp.mtx);
 	LOG_EXT();
@@ -1182,7 +1212,7 @@ static int mods_unregister_cpu_irq(struct mods_client *client,
 
 	/* Delete device interrupt from the list */
 	list_for_each_entry_safe(del, next, &client->irq_list, list) {
-		if ((irq == del->apic_irq) && (del->dev == 0)) {
+		if ((irq == del->apic_irq) && (del->dev == NULL)) {
 			if (del->type != p->type) {
 				cl_error("wrong IRQ type passed\n");
 				mutex_unlock(&mp.mtx);
@@ -1526,21 +1556,29 @@ int esc_mods_map_irq(struct mods_client  *client,
 	}
 
 	hwirq = oirq.args[1];
+
 	/* Get the platform device handle */
 	pdev = of_find_device_by_node(np);
 
 	if (of_node_cmp(p->dt_name, "watchdog") == 0) {
 		/* Enable and unmask interrupt for watchdog */
-		struct resource *res_src = platform_get_resource(pdev,
-		IORESOURCE_MEM, 0);
-		struct resource *res_tke = platform_get_resource(pdev,
-		IORESOURCE_MEM, 2);
-		void __iomem *wdt_tke = devm_ioremap(&pdev->dev,
-		res_tke->start, resource_size(res_tke));
-		int wdt_index = ((res_src->start >> 16) & 0xF) - 0xc;
+		struct resource *res_src =
+			platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		struct resource *res_tke =
+			platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		void __iomem    *wdt_tke = NULL;
+		int              wdt_index;
 
-		writel(TOP_TKE_TKEIE_WDT_MASK(wdt_index), wdt_tke +
-		TOP_TKE_TKEIE(hwirq));
+		if (res_tke && res_src) {
+			wdt_tke = devm_ioremap(&pdev->dev, res_tke->start,
+					       resource_size(res_tke));
+			wdt_index = ((res_src->start >> 16) & 0xF) - 0xc;
+		}
+
+		if (wdt_tke) {
+			writel(TOP_TKE_TKEIE_WDT_MASK(wdt_index),
+			       wdt_tke + TOP_TKE_TKEIE(hwirq));
+		}
 	}
 
 error:

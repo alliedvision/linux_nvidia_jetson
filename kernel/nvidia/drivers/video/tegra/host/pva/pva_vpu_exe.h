@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -90,18 +90,19 @@ struct pva_elf_buffer {
  * Store elf symbols information
  */
 struct pva_elf_symbol {
+	char *symbol_name;
+	/**<IOVA address offset in symbol buffer */
+	uint64_t offset;
 	/**< Type of symbol */
 	uint32_t type;
-	/**< Symbol name */
-	char *symbol_name;
-	/**< Symbol ID */
-	uint16_t symbolID;
 	/**< Symbol Size */
 	uint32_t size;
 	/**< VMEM address of Symbol */
 	uint32_t addr;
-	/**<IOVA address offset in symbol buffer */
-	uint64_t offset;
+	/**< Symbol ID */
+	uint16_t symbolID;
+	/**< Symbol name */
+	bool is_sys;
 };
 
 /**
@@ -112,7 +113,8 @@ struct pva_elf_image {
 	struct pva_elf_buffer vpu_bin_buffer;
 	/**< Buffers containing information about vpu segments */
 	struct pva_elf_buffer vpu_segments_buffer[PVA_SEG_VPU_MAX_TYPE];
-	/**<ID of the VPU app */
+	/** Buffers containing data segment info */
+	struct pva_elf_buffer vpu_data_segment_info;
 	uint16_t elf_id;
 	/**<True if user has successfully registered a VPU ELF */
 	bool user_registered;
@@ -121,6 +123,7 @@ struct pva_elf_image {
 	atomic_t submit_refcount;
 	/**< Number of symbols in the VPU app */
 	uint32_t num_symbols;
+	uint32_t num_sys_symbols;
 	/**< Stores symbol information */
 	struct pva_elf_symbol sym[NVPVA_TASK_MAX_SYMBOLS];
 	/**< Total size of all the symbols in VPU app */
@@ -158,7 +161,7 @@ struct nvpva_elf_context {
  * @param *sym_name	String containing Name of the symbol
  * @param *symbol	symbol information
 
- * @return		EOK for symbol found. -EINVAL for symbol not found
+ * @return		0 for symbol found. -EINVAL for symbol not found
  *			When -EINVAL is returned, ignore values in id and
  *			sym_size
  */
@@ -186,7 +189,7 @@ dma_addr_t phys_get_bin_info(struct nvpva_elf_context *d, uint16_t exe_id);
  * @param *exe_id	Unique ID assigned to VPU APP.
  *			Filled by this function
  *
- * @return		EOK if valid ID is assigned else ERROR
+ * @return		0 if valid ID is assigned else ERROR
  */
 int32_t pva_get_vpu_exe_id(struct nvpva_elf_context *d, uint16_t *exe_id);
 
@@ -199,7 +202,7 @@ int32_t pva_get_vpu_exe_id(struct nvpva_elf_context *d, uint16_t *exe_id);
  * @param addr		Symbol offset
  * @param size		Symbol size
  *
- * @return		EOK if valid offset is found else ERROR
+ * @return		0 if valid offset is found else ERROR
  *
  * Must be called with registered exe_id or exe_id = NVPVA_NOOP_EXE_ID
  */
@@ -250,7 +253,7 @@ struct pva_elf_image *get_elf_image(struct nvpva_elf_context *d,
  * @param hwid		HWID associated with the VPU APP used for
  *			allocation
  *
- * @return		EOK if everything is valid and VPU APP is
+ * @return		0 if everything is valid and VPU APP is
  *			loaded successfully
  */
 int32_t
@@ -264,7 +267,7 @@ pva_load_vpu_app(struct nvpva_elf_context *d, uint8_t *buffer,
  * @param d		Pointer to the Elf Context
  * @param exe_id	Unique ID of VPU APP to be unloaded
  *
- * @return		EOK if successful
+ * @return		0 if successful
  */
 int32_t
 pva_unload_vpu_app(struct nvpva_elf_context *d, uint16_t exe_id, bool locked);
@@ -283,7 +286,7 @@ void pva_unload_all_apps(struct nvpva_elf_context *d);
  * @param d		Pointer to the Elf Context
  * @param exe_id	Unique ID of VPU APP to be referenced
  *
- * @return		EOK if successful
+ * @return		0 if successful
  */
 int32_t pva_task_acquire_ref_vpu_app(struct nvpva_elf_context *d,
 				     uint16_t exe_id);
@@ -294,7 +297,7 @@ int32_t pva_task_acquire_ref_vpu_app(struct nvpva_elf_context *d,
  * @param d		Pointer to the Elf Context
  * @param exe_id	Unique ID of VPU APP to be unreferenced
  *
- * @return		EOK if successful
+ * @return		0 if successful
  */
 int32_t
 pva_release_vpu_app(struct nvpva_elf_context *d, uint16_t exe_id, bool locked);
@@ -305,7 +308,7 @@ pva_release_vpu_app(struct nvpva_elf_context *d, uint16_t exe_id, bool locked);
  * @param d		Pointer to the Elf Context
  * @param exe_id	Unique ID of VPU APP to be unreferenced
  *
- * @return		EOK if successful
+ * @return		0 if successful
  */
 int32_t pva_task_release_ref_vpu_app(struct nvpva_elf_context *d,
 				     uint16_t exe_id);
@@ -324,7 +327,7 @@ void pva_vpu_deinit(struct nvpva_elf_context *d);
  *
  * @param		Pointer to the Elf Context
  *
- * @return		EOK if no errors encountered
+ * @return		0 if no errors encountered
  */
 int32_t pva_vpu_init(struct pva *dev, struct nvpva_elf_context *d);
 
@@ -334,4 +337,12 @@ int32_t
 nvpva_validate_vmem_offset(const uint32_t vmem_offset,
 			   const uint32_t size,
 			   const int hw_gen);
+int32_t
+pva_get_sym_tab_size(struct nvpva_elf_context *d,
+		     uint16_t exe_id,
+		     u64 *tab_size);
+int32_t
+pva_get_sym_tab(struct nvpva_elf_context *d,
+	    uint16_t exe_id,
+	    struct nvpva_sym_info *sym_tab);
 #endif

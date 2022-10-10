@@ -1,0 +1,78 @@
+From d6950e8c37639bb650c4418d776e7f3145ab26a9 Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Wed, 25 Nov 2020 05:17:58 -0800
+Subject: [PATCH 237/830] ANDROID: binder: Add vendor hooks
+X-NVConfidentiality: public
+
+Add below vendor hooks to make vendor extensions possible.
+	1. android_vh_binder_wakeup_poll_threads_ilocked
+	2. android_vh_binder_wakeup_thread_ilocked
+
+Bug: 174219217
+Change-Id: I9f55ca4427583bbfb29a6808280a7d09e1fc22ee
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ drivers/android/binder.c       | 2 ++
+ drivers/android/vendor_hooks.c | 2 ++
+ include/trace/hooks/binder.h   | 8 ++++++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/drivers/android/binder.c b/drivers/android/binder.c
+index 1aa01163a57f..e0384a966961 100644
+--- a/drivers/android/binder.c
++++ b/drivers/android/binder.c
+@@ -961,6 +961,7 @@ static void binder_wakeup_poll_threads_ilocked(struct binder_proc *proc,
+ 		thread = rb_entry(n, struct binder_thread, rb_node);
+ 		if (thread->looper & BINDER_LOOPER_STATE_POLL &&
+ 		    binder_available_for_proc_work_ilocked(thread)) {
++			trace_android_vh_binder_wakeup_poll_threads_ilocked(thread->task);
+ 			if (sync)
+ 				wake_up_interruptible_sync(&thread->wait);
+ 			else
+@@ -1020,6 +1021,7 @@ static void binder_wakeup_thread_ilocked(struct binder_proc *proc,
+ 	assert_spin_locked(&proc->inner_lock);
+ 
+ 	if (thread) {
++		trace_android_vh_binder_wakeup_thread_ilocked(thread->task);
+ 		if (sync)
+ 			wake_up_interruptible_sync(&thread->wait);
+ 		else
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 46f109c5a7dc..0ec72dff275e 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -46,6 +46,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_transaction_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_set_priority);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_restore_priority);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wakeup_poll_threads_ilocked);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wakeup_thread_ilocked);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
+diff --git a/include/trace/hooks/binder.h b/include/trace/hooks/binder.h
+index 48ef1ebb65ba..ffd9adb903c4 100644
+--- a/include/trace/hooks/binder.h
++++ b/include/trace/hooks/binder.h
+@@ -23,10 +23,18 @@ DECLARE_HOOK(android_vh_binder_set_priority,
+ DECLARE_HOOK(android_vh_binder_restore_priority,
+ 	TP_PROTO(struct binder_transaction *t, struct task_struct *task),
+ 	TP_ARGS(t, task));
++DECLARE_HOOK(android_vh_binder_wakeup_poll_threads_ilocked,
++	TP_PROTO(struct task_struct *task),
++	TP_ARGS(task));
++DECLARE_HOOK(android_vh_binder_wakeup_thread_ilocked,
++	TP_PROTO(struct task_struct *task),
++	TP_ARGS(task));
+ #else
+ #define trace_android_vh_binder_transaction_init(t)
+ #define trace_android_vh_binder_set_priority(t, task)
+ #define trace_android_vh_binder_restore_priority(t, task)
++#define trace_android_vh_binder_wakeup_poll_threads_ilocked(task)
++#define trace_android_vh_binder_wakeup_thread_ilocked(task)
+ #endif
+ #endif /* _TRACE_HOOK_BINDER_H */
+ /* This part must be outside protection */
+-- 
+2.17.1
+

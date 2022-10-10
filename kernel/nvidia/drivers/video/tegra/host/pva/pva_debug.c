@@ -1,7 +1,7 @@
 /*
  * PVA Debug Information file
  *
- * Copyright (c) 2017-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,8 +20,12 @@
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/platform_device.h>
-#include "dev.h"
+#include <linux/interrupt.h>
+#include <linux/nvhost.h>
+#include <linux/uaccess.h>
 #include "pva.h"
+#include <uapi/linux/nvpva_ioctl.h>
+#include "pva_vpu_ocd.h"
 
 static void pva_read_crashdump(struct seq_file *s, struct pva_seg_info *seg_info)
 {
@@ -48,7 +52,7 @@ static int pva_crashdump(struct seq_file *s, void *data)
 
 	err = nvhost_module_busy(pva->pdev);
 	if (err) {
-		nvhost_dbg_info("err in powering up pva\n");
+		nvpva_dbg_info(pva, "err in powering up pva\n");
 		goto err_poweron;
 	}
 
@@ -146,11 +150,79 @@ static int set_log_level(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(log_level_fops, get_log_level, set_log_level, "%llu");
 
+static int get_authentication(void *data, u64 *val)
+{
+	struct pva *pva = (struct pva *) data;
+
+	*val = pva->pva_auth.pva_auth_enable ? 1 : 0;
+
+	return 0;
+}
+
+static int set_authentication(void *data, u64 val)
+{
+	struct pva *pva = (struct pva *) data;
+
+	pva->pva_auth.pva_auth_enable = (val == 1) ? true : false;
+
+	if (pva->pva_auth.pva_auth_enable)
+		pva->pva_auth.pva_auth_allow_list_parsed = false;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(pva_auth_fops, get_authentication, set_authentication, "%llu");
+
+static long vpu_ocd_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
+{
+	struct pva_vpu_dbg_block *dbg_block = f->f_inode->i_private;
+	int err = 0;
+
+	switch (cmd) {
+	case PVA_OCD_IOCTL_VPU_IO: {
+		struct pva_ocd_ioctl_vpu_io_param io_param;
+
+		if (copy_from_user(&io_param, (void __user *)arg,
+				   sizeof(io_param))) {
+			pr_err("failed copy ioctl buffer from user; size: %u",
+			       _IOC_SIZE(cmd));
+			err = -EFAULT;
+			goto out;
+		}
+		err = pva_vpu_ocd_io(dbg_block, io_param.instr,
+				     &io_param.data[0], io_param.n_write,
+				     &io_param.data[0], io_param.n_read);
+		if (err)
+			goto out;
+
+		err = copy_to_user((void __user *)arg, &io_param,
+				   sizeof(io_param));
+		if (err)
+			goto out;
+
+		break;
+	}
+	default:
+		err = -ENOIOCTLCMD;
+		break;
+	}
+
+out:
+	return err;
+}
+
+static const struct file_operations pva_vpu_ocd_fops = {
+	.unlocked_ioctl = vpu_ocd_ioctl
+};
+
 void pva_debugfs_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct pva *pva = pdata->private_data;
 	struct dentry *de = pdata->debugfs;
+	static const char *vpu_ocd_names[NUM_VPU_BLOCKS] = { "ocd_vpu0",
+							     "ocd_vpu1" };
+	int i, err;
 
 	if (!de)
 		return;
@@ -176,8 +248,19 @@ void pva_debugfs_init(struct platform_device *pdev)
 	debugfs_create_file("firmware_version", S_IRUGO, de, pva,
 			    &print_version_fops);
 	debugfs_create_u32("cg_disable", 0644, de, &pva->slcg_disable);
-	debugfs_create_bool("vpu_perf_counters_enable", 0644, de,
-			    &pva->vpu_perf_counters_enable);
-	debugfs_create_file("log_level", 0644, de, pva,
-			    &log_level_fops);
+	debugfs_create_bool("vpu_printf_enabled", 0644, de,
+			    &pva->vpu_printf_enabled);
+	debugfs_create_file("fw_log_level", 0644, de, pva, &log_level_fops);
+	debugfs_create_u32("driver_log_mask", 0644, de, &pva->driver_log_mask);
+	debugfs_create_file("vpu_app_authentication", 0644, de, pva,
+			    &pva_auth_fops);
+	err = pva_vpu_ocd_init(pva);
+	if (err == 0) {
+		for (i = 0; i < NUM_VPU_BLOCKS; i++)
+			debugfs_create_file(vpu_ocd_names[i], 0644, de,
+					    &pva->vpu_dbg_blocks[i],
+					    &pva_vpu_ocd_fops);
+	} else {
+		dev_err(&pva->pdev->dev, "VPU OCD initialization failed\n");
+	}
 }

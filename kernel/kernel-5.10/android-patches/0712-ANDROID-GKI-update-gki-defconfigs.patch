@@ -1,0 +1,68 @@
+From 0821d8e8c7d54fde34f4249dfd7f277ba74898b9 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 22 Jun 2020 15:45:56 +0200
+Subject: [PATCH 712/830] ANDROID: GKI: update gki defconfigs
+X-NVConfidentiality: public
+
+Update the gki defconfig files based on upstream changes causing some
+symbols to no longer be needed in the defconfig files.
+
+This means the following symbols are removed for x86 and arm64 gki
+defconfigs:
+	CONFIG_MEMCG_SWAP=y
+	CONFIG_MEDIA_CAMERA_SUPPORT=y
+
+And the following only for arm64:
+	CONFIG_MEDIA_CONTROLLER=y
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ie1fac5c6c873bea04f199a2b7df33d56ee3f246f
+---
+ arch/arm64/configs/gki_defconfig | 3 ---
+ arch/x86/configs/gki_defconfig   | 2 --
+ 2 files changed, 5 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a91b1ddb1543..3b67b1b0231b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -15,7 +15,6 @@ CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_CGROUPS=y
+ CONFIG_MEMCG=y
+-CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
+ CONFIG_CGROUP_SCHED=y
+ # CONFIG_FAIR_GROUP_SCHED is not set
+@@ -320,8 +319,6 @@ CONFIG_MFD_ACT8945A=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-CONFIG_MEDIA_CAMERA_SUPPORT=y
+-CONFIG_MEDIA_CONTROLLER=y
+ # CONFIG_VGA_ARB is not set
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index adc3858ba7e7..faedb2dd3b6a 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -16,7 +16,6 @@ CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_CGROUPS=y
+ CONFIG_MEMCG=y
+-CONFIG_MEMCG_SWAP=y
+ CONFIG_CGROUP_SCHED=y
+ # CONFIG_FAIR_GROUP_SCHED is not set
+ CONFIG_UCLAMP_TASK_GROUP=y
+@@ -280,7 +279,6 @@ CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+-- 
+2.17.1
+

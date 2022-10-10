@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -272,8 +272,9 @@ void ga10b_fifo_ctxsw_timeout_isr(struct gk20a *g,
 			continue;
 		}
 
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-				0, GPU_HOST_PFIFO_CTXSW_TIMEOUT_ERROR, tsgid);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+				GPU_HOST_PFIFO_CTXSW_TIMEOUT_ERROR);
+		nvgpu_err (g, "Host pfifo ctxsw timeout error");
 
 #ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 		recover = g->ops.tsg.check_ctxsw_timeout(tsg, &debug_dump, &ms);

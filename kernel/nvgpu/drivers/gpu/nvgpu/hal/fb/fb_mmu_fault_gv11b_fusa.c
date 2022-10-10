@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@
 #include <nvgpu/nvgpu_err.h>
 #include <nvgpu/ltc.h>
 #include <nvgpu/rc.h>
+#include <nvgpu/string.h>
 
 #include "hal/fb/fb_mmu_fault_gv11b.h"
 #include "hal/mm/mmu_fault/mmu_fault_gv11b.h"
@@ -468,8 +469,9 @@ void gv11b_fb_handle_bar2_fault(struct gk20a *g,
 		}
 	}
 #endif
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	g->ops.ce.mthd_buffer_fault_in_bar2_fault(g);
-
+#endif
 	err = g->ops.bus.bar2_bind(g, &g->mm.bar2.inst_block);
 	if (err != 0) {
 		nvgpu_err(g, "bar2_bind failed!");
@@ -510,11 +512,11 @@ void gv11b_fb_handle_mmu_fault(struct gk20a *g, u32 niso_intr)
 	if ((niso_intr &
 	     fb_niso_intr_mmu_other_fault_notify_m()) != 0U) {
 
-		nvgpu_report_mmu_err(g, NVGPU_ERR_MODULE_HUBMMU,
-			GPU_HUBMMU_PAGE_FAULT_ERROR,
-			NULL,
-			fault_status,
-			GPU_HUBMMU_OTHER_FAULT_NOTIFY);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_PAGE_FAULT_OTHER_FAULT_NOTIFY_ERROR);
+		nvgpu_err(g, "GPU_HUBMMU_PAGE_FAULT_ERROR. "
+				"sub-err: OTHER_FAULT_NOTIFY. "
+				"fault_status(0x%x)", fault_status);
 
 		gv11b_fb_handle_dropped_mmu_fault(g, fault_status);
 
@@ -539,11 +541,11 @@ void gv11b_fb_handle_mmu_fault(struct gk20a *g, u32 niso_intr)
 		if ((niso_intr &
 		     fb_niso_intr_mmu_nonreplayable_fault_overflow_m()) != 0U) {
 
-			nvgpu_report_mmu_err(g, NVGPU_ERR_MODULE_HUBMMU,
-				GPU_HUBMMU_PAGE_FAULT_ERROR,
-				NULL,
-				fault_status,
-				GPU_HUBMMU_NONREPLAYABLE_FAULT_OVERFLOW);
+			nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_PAGE_FAULT_NONREPLAYABLE_FAULT_OVERFLOW_ERROR);
+			nvgpu_err(g, "GPU_HUBMMU_PAGE_FAULT_ERROR. "
+				"sub-err: NONREPLAYABLE_FAULT_OVERFLOW. "
+				"fault_status(0x%x)", fault_status);
 
 			gv11b_fb_handle_nonreplay_fault_overflow(g,
 				 fault_status);
@@ -564,11 +566,11 @@ void gv11b_fb_handle_mmu_fault(struct gk20a *g, u32 niso_intr)
 		if ((niso_intr &
 		     fb_niso_intr_mmu_replayable_fault_overflow_m()) != 0U) {
 
-			nvgpu_report_mmu_err(g, NVGPU_ERR_MODULE_HUBMMU,
-				GPU_HUBMMU_PAGE_FAULT_ERROR,
-				NULL,
-				fault_status,
-				GPU_HUBMMU_REPLAYABLE_FAULT_OVERFLOW);
+			nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_PAGE_FAULT_REPLAYABLE_FAULT_OVERFLOW_ERROR);
+			nvgpu_err(g, "GPU_HUBMMU_PAGE_FAULT_ERROR. "
+				"sub-err: REPLAYABLE_FAULT_OVERFLOW. "
+				"fault_status(0x%x)", fault_status);
 
 			gv11b_fb_handle_replay_fault_overflow(g,
 				 fault_status);

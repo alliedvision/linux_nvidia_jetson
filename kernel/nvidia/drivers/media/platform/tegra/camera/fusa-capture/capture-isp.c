@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -415,7 +415,7 @@ static int isp_capture_setup_inputfences(
 			goto fail;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 fail:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
@@ -498,7 +498,7 @@ static int isp_capture_setup_prefences(
 			goto fail;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 fail:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
@@ -608,7 +608,7 @@ static int isp_capture_program_prepare(
 		return -EINVAL;
 	}
 
-	speculation_barrier();
+	spec_bar();
 
 	mutex_lock(&capture->reset_lock);
 	if (capture->reset_capture_program_flag) {
@@ -1229,7 +1229,8 @@ int isp_capture_setup(
 	return 0;
 
 cb_fail:
-	isp_capture_release(chan, CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
+	if (isp_capture_release(chan, CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE))
+		destroy_buffer_table(buffer_ctx);
 	return err;
 submit_fail:
 	tegra_capture_ivc_unregister_control_cb(transaction);
@@ -1335,7 +1336,7 @@ int isp_capture_release(
 		complete(&capture->capture_resp);
 		isp_capture_request_unpin(chan, i);
 	}
-	speculation_barrier();
+	spec_bar();
 
 	isp_capture_release_syncpts(chan);
 
@@ -1453,13 +1454,13 @@ int isp_capture_reset(
 		isp_capture_program_request_unpin(chan, i);
 		complete(&capture->capture_program_resp);
 	}
-	speculation_barrier();
+	spec_bar();
 
 	for (i = 0; i < capture->capture_desc_ctx.queue_depth; i++) {
 		isp_capture_request_unpin(chan, i);
 		complete(&capture->capture_resp);
 	}
-	speculation_barrier();
+	spec_bar();
 
 	err = 0;
 
@@ -1681,7 +1682,7 @@ int isp_capture_request(
 		return -EINVAL;
 	}
 
-	speculation_barrier();
+	spec_bar();
 
 	mutex_lock(&capture->reset_lock);
 	if (capture->reset_capture_flag) {

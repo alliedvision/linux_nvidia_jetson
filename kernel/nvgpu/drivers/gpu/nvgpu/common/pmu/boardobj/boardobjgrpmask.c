@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -80,7 +80,7 @@ int nvgpu_boardobjgrpmask_init(struct boardobjgrpmask *mask, u8 bitsize,
 	}
 
 	mask->bitcount = bitsize;
-	mask->maskdatacount = CTRL_BOARDOBJGRP_MASK_DATA_SIZE(bitsize);
+	mask->maskdatacount = (u8)CTRL_BOARDOBJGRP_MASK_DATA_SIZE(bitsize);
 	mask->lastmaskfilter = U32(bitsize) %
 		CTRL_BOARDOBJGRP_MASK_MASK_ELEMENT_BIT_SIZE;
 
@@ -145,7 +145,7 @@ u8 nvgpu_boardobjgrpmask_bit_set_count(struct boardobjgrpmask *mask)
 		u32 m = mask->data[index];
 
 		NUMSETBITS_32(m);
-		result += (u8)m;
+		result = (u8)(result + m);
 	}
 
 	return result;
@@ -165,8 +165,8 @@ u8 nvgpu_boardobjgrpmask_bit_idx_highest(struct boardobjgrpmask *mask)
 
 		if (m != 0U) {
 			HIGHESTBITIDX_32(m);
-			result = (u8)m + index *
-			CTRL_BOARDOBJGRP_MASK_MASK_ELEMENT_BIT_SIZE;
+			result = (u8)(m + index *
+				CTRL_BOARDOBJGRP_MASK_MASK_ELEMENT_BIT_SIZE);
 			break;
 		}
 	}

@@ -12,7 +12,7 @@
 
 / {
 	overlay-name = "Jetson Camera Dual-IMX274";
-	jetson-header-name = "Jetson AGX Orin CSI Connector";
+	jetson-header-name = "Jetson AGX CSI Connector";
 	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
 
 	fragment@0 {

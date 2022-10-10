@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -296,7 +296,7 @@ done:
 	}
 	g->ops.fifo.is_preempt_pending =
 			stub_fifo_is_preempt_pending_pass;
-	err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	if (err != 0) {
 		unit_err(m, "Cannot unbind channel\n");
 	}
@@ -495,7 +495,7 @@ done:
 	}
 	g->ops.fifo.is_preempt_pending =
 			stub_fifo_is_preempt_pending_pass;
-	err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	if (err != 0) {
 		unit_err(m, "Cannot unbind channel\n");
 	}

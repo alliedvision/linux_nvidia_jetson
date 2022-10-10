@@ -1,0 +1,44 @@
+From 2718b81469bc2f5e5b31f0c03ca6146a49f7df0b Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 19 Mar 2020 07:43:40 -0700
+Subject: [PATCH 437/830] ANDROID: Incremental fs: Fix two typos
+X-NVConfidentiality: public
+
+Test: incfs_test passes
+Bug: 151240628
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I627e683b562329fd57aedc8393e22449ff09ee1f
+---
+ fs/incfs/data_mgmt.c | 2 +-
+ fs/incfs/integrity.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 4a3da8523e8e..0fc9505d9373 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -796,7 +796,7 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
+ 	int error = 0;
+ 	struct incfs_df_signature *signature =
+ 		kzalloc(sizeof(*signature), GFP_NOFS);
+-	void *buf = 0;
++	void *buf = NULL;
+ 	ssize_t read;
+ 
+ 	if (!df || !df->df_backing_file_context ||
+diff --git a/fs/incfs/integrity.c b/fs/incfs/integrity.c
+index f8af9a83ea8a..96e016a91542 100644
+--- a/fs/incfs/integrity.c
++++ b/fs/incfs/integrity.c
+@@ -57,7 +57,7 @@ struct signature_info {
+ 	struct mem_range root_hash;
+ };
+ 
+-static u32 read_u32(u8 **p, u8 *top, u32 *result)
++static bool read_u32(u8 **p, u8 *top, u32 *result)
+ {
+ 	if (*p + sizeof(u32) > top)
+ 		return false;
+-- 
+2.17.1
+

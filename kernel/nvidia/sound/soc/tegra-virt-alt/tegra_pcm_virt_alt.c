@@ -1,15 +1,7 @@
 /*
  * tegra_alt_pcm.c - Tegra PCM driver
  *
- * Author: Stephen Warren <swarren@nvidia.com>
- * Copyright (c) 2011-2021 NVIDIA CORPORATION.  All rights reserved.
- *
- * Based on code copyright/by:
- *
- * Copyright (c) 2009-2010, NVIDIA Corporation.
- * Scott Peterson <speterson@nvidia.com>
- * Vijay Mali <vmali@nvidia.com>
- *
+ * Copyright (c) 2011-2022 NVIDIA CORPORATION.  All rights reserved.
  * Copyright (C) 2010 Google, Inc.
  * Iliyan Malchev <malchev@google.com>
  *
@@ -28,6 +20,7 @@
  * 02110-1301 USA
  *
  */
+
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <sound/pcm.h>
@@ -227,7 +220,7 @@ static snd_pcm_uframes_t tegra_alt_pcm_pointer
 }
 
 static int tegra_alt_pcm_preallocate_dma_buffer(struct snd_pcm *pcm,
-				int stream , size_t size)
+				unsigned int stream, size_t size)
 {
 	struct snd_pcm_substream *substream = pcm->streams[stream].substream;
 	struct snd_dma_buffer *buf = &substream->dma_buffer;
@@ -243,7 +236,7 @@ static int tegra_alt_pcm_preallocate_dma_buffer(struct snd_pcm *pcm,
 	return 0;
 }
 
-static void tegra_alt_pcm_deallocate_dma_buffer(struct snd_pcm *pcm, int stream)
+static void tegra_alt_pcm_deallocate_dma_buffer(struct snd_pcm *pcm, unsigned int stream)
 {
 	struct snd_pcm_substream *substream;
 	struct snd_dma_buffer *buf;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,8 +27,8 @@
 
 struct gk20a;
 
-/* NVGPU_NETLIST_IMAGE_A is FNL for ga10b */
-#define GA10B_NETLIST_IMAGE_FW_NAME NVGPU_NETLIST_IMAGE_A
+/* NVGPU_NETLIST_IMAGE_C is FNL for ga10b */
+#define GA10B_NETLIST_IMAGE_FW_NAME NVGPU_NETLIST_IMAGE_C
 
 int ga10b_netlist_get_name(struct gk20a *g, int index, char *name);
 bool ga10b_netlist_is_firmware_defined(void);

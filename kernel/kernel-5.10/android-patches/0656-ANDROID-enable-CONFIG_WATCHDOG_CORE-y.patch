@@ -1,0 +1,45 @@
+From 5d37617c0cd1fc7f4fd1f2a79a52d612b90d2890 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Tue, 10 Mar 2020 13:58:46 +0100
+Subject: [PATCH 656/830] ANDROID: enable CONFIG_WATCHDOG_CORE=y
+X-NVConfidentiality: public
+
+WATCHDOG was enabled, but we forgot about the watchdog core code, so
+turn it on as well so that all vendors do not have to enable it in their
+configs.
+
+Reported-by: Orson Zhai <orsonzhai@gmail.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Iac14e304b15f774d52fb07aa65df86f3dd71797f
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index d3be29f9eada..96718aa53253 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -300,6 +300,7 @@ CONFIG_THERMAL_GOV_USER_SPACE=y
+ CONFIG_CPU_THERMAL=y
+ CONFIG_DEVFREQ_THERMAL=y
+ CONFIG_WATCHDOG=y
++CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_ACT8945A=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index ab011c6b1c8f..f2fd8d0d9038 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -263,6 +263,7 @@ CONFIG_GPIOLIB=y
+ CONFIG_DEVFREQ_THERMAL=y
+ # CONFIG_X86_PKG_TEMP_THERMAL is not set
+ CONFIG_WATCHDOG=y
++CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -111,6 +111,8 @@ static int _clk_vf_points_pmustatus_instget(struct gk20a *g,
 	*pgrp_get_status =
 		(struct nv_pmu_clk_clk_vf_point_boardobj_grp_get_status *)
 		pboardobjgrppmu;
+
+	(void)g;
 
 	/*check whether pmuboardobjgrp has a valid boardobj in index*/
 	if (idx >= CTRL_BOARDOBJGRP_E255_MAX_OBJECTS) {

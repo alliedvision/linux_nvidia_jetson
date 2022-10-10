@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -308,6 +308,7 @@ static int volt_rail_devgrp_pmustatus_instget(struct gk20a *g,
 		(struct nv_pmu_volt_volt_rail_boardobj_grp_get_status *)
 		pboardobjgrppmu;
 
+	(void)g;
 	/*check whether pmuboardobjgrp has a valid boardobj in index*/
 	if (((u32)BIT(idx) &
 		pgrp_get_status->hdr.data.super.obj_mask.super.data[0]) == 0U) {
@@ -479,6 +480,7 @@ int volt_rail_pmu_setup(struct gk20a *g)
 u8 volt_rail_vbios_volt_domain_convert_to_internal(struct gk20a *g,
 	u8 vbios_volt_domain)
 {
+	(void)vbios_volt_domain;
 	if (g->pmu->volt->volt_metadata->volt_rail_metadata.volt_domain_hal ==
 			CTRL_VOLT_DOMAIN_HAL_GP10X_SINGLE_RAIL) {
 		return CTRL_VOLT_DOMAIN_LOGIC;
@@ -534,6 +536,7 @@ exit:
 
 u8 nvgpu_pmu_volt_rail_volt_domain_convert_to_idx(struct gk20a *g, u8 volt_domain)
 {
+	(void)volt_domain;
 	if (g->pmu->volt->volt_metadata->volt_rail_metadata.volt_domain_hal ==
 			CTRL_VOLT_DOMAIN_HAL_GP10X_SINGLE_RAIL) {
 		return 0U;

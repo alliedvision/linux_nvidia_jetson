@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,7 +73,11 @@ struct nvgpu_kmem_cache *nvgpu_kmem_cache_create(struct gk20a *g, size_t size)
 		return NULL;
 	}
 #endif
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
 	cache = malloc(sizeof(struct nvgpu_kmem_cache));
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
 
 	if (cache == NULL) {
 		return NULL;
@@ -93,6 +97,7 @@ struct nvgpu_kmem_cache *nvgpu_kmem_cache_create(struct gk20a *g, size_t size)
 
 void nvgpu_kmem_cache_destroy(struct nvgpu_kmem_cache *cache)
 {
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(cache);
 }
 
@@ -106,7 +111,11 @@ void *nvgpu_kmem_cache_alloc(struct nvgpu_kmem_cache *cache)
 		return NULL;
 	}
 #endif
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
 	ptr = malloc(cache->size);
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
 
 	if (ptr == NULL) {
 		nvgpu_warn(NULL, "malloc returns NULL");
@@ -118,12 +127,17 @@ void *nvgpu_kmem_cache_alloc(struct nvgpu_kmem_cache *cache)
 
 void nvgpu_kmem_cache_free(struct nvgpu_kmem_cache *cache, void *ptr)
 {
+	(void)cache;
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(ptr);
 }
 
 void *nvgpu_kmalloc_impl(struct gk20a *g, size_t size, void *ip)
 {
 	void *ptr;
+
+	(void)g;
+	(void)ip;
 
 #ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 	if (nvgpu_posix_fault_injection_handle_call(
@@ -138,7 +152,11 @@ void *nvgpu_kmalloc_impl(struct gk20a *g, size_t size, void *ip)
 	 * nvmap_page_alloc in qnx (i.e. using shm_open/shm_ctl_special/mmap
 	 * calls).
 	 */
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
 	ptr = malloc(size);
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
 
 	if (ptr == NULL) {
 		nvgpu_warn(NULL, "malloc returns NULL");
@@ -153,12 +171,16 @@ void *nvgpu_kzalloc_impl(struct gk20a *g, size_t size, void *ip)
 	void *ptr;
 	const size_t num = 1;
 
+	(void)g;
+	(void)ip;
+
 #ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 	if (nvgpu_posix_fault_injection_handle_call(
 					nvgpu_kmem_get_fault_injection())) {
 		return NULL;
 	}
 #endif
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	ptr = calloc(num, size);
 
 	if (ptr == NULL) {
@@ -174,12 +196,16 @@ void *nvgpu_kcalloc_impl(struct gk20a *g, size_t n, size_t size, void *ip)
 	void *ptr;
 	const size_t num = 1;
 
+	(void)g;
+	(void)ip;
+
 #ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 	if (nvgpu_posix_fault_injection_handle_call(
 					nvgpu_kmem_get_fault_injection())) {
 		return NULL;
 	}
 #endif
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	ptr = calloc(num, (nvgpu_safe_mult_u64(n, size)));
 
 	if (ptr == NULL) {
@@ -202,6 +228,8 @@ void *nvgpu_vzalloc_impl(struct gk20a *g, unsigned long size, void *ip)
 
 void nvgpu_kfree_impl(struct gk20a *g, void *addr)
 {
+	(void)g;
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(addr);
 }
 
@@ -226,6 +254,7 @@ void nvgpu_big_free(struct gk20a *g, void *p)
 
 int nvgpu_kmem_init(struct gk20a *g)
 {
+	(void)g;
 #ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 	if (nvgpu_posix_fault_injection_handle_call(
 					nvgpu_kmem_get_fault_injection())) {
@@ -238,4 +267,6 @@ int nvgpu_kmem_init(struct gk20a *g)
 
 void nvgpu_kmem_fini(struct gk20a *g, int flags)
 {
+	(void)g;
+	(void)flags;
 }

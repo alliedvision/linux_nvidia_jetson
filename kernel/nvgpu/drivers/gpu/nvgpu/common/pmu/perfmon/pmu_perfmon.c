@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,6 +33,7 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/pmu/pmuif/nvgpu_cmdif.h>
 #include <nvgpu/kmem.h>
+#include <nvgpu/string.h>
 
 #include "pmu_perfmon_sw_gm20b.h"
 #include "pmu_perfmon_sw_gv11b.h"
@@ -121,6 +122,8 @@ int nvgpu_pmu_initialize_perfmon(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct nvgpu_pmu_perfmon *perfmon;
 	int err = 0;
 	u32 ver = g->params.gpu_arch + g->params.gpu_impl;
+
+	(void)pmu;
 
 	if (*perfmon_ptr != NULL) {
 		/* Not to allocate a new buffer after railgating
@@ -705,27 +708,28 @@ u32 nvgpu_pmu_perfmon_get_load_avg(struct nvgpu_pmu *pmu)
 int nvgpu_pmu_perfmon_initialization(struct gk20a *g,
 	struct nvgpu_pmu *pmu, struct nvgpu_pmu_perfmon *perfmon)
 {
+	(void)g;
 	return perfmon->init_perfmon(pmu);
 }
 
 int nvgpu_pmu_perfmon_start_sample(struct gk20a *g,
 	struct nvgpu_pmu *pmu, struct nvgpu_pmu_perfmon *perfmon)
 {
-
+	(void)g;
 	return perfmon->start_sampling(pmu);
 }
 
 int nvgpu_pmu_perfmon_stop_sample(struct gk20a *g,
 	struct nvgpu_pmu *pmu, struct nvgpu_pmu_perfmon *perfmon)
 {
-
+	(void)g;
 	return perfmon->stop_sampling(pmu);
 }
 
 int nvgpu_pmu_perfmon_get_sample(struct gk20a *g,
 	struct nvgpu_pmu *pmu, struct nvgpu_pmu_perfmon *perfmon)
 {
-
+	(void)g;
 	return perfmon->get_samples_rpc(pmu);
 }
 

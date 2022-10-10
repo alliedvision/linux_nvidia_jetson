@@ -1,0 +1,44 @@
+From fd29e629971165c1cc9b7dd394501394218c4103 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Tue, 27 Oct 2020 07:43:06 -0700
+Subject: [PATCH 490/830] ANDROID: Incremental fs: Initialize mount options
+ correctly
+X-NVConfidentiality: public
+
+report_uid was not being initialized, leading to random behavior
+
+Bug: 172480517
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ib121136d6f570f99e9060bdde9aa43ff2995514e
+---
+ fs/incfs/vfs.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index c0a5181cd3ef..e794b73a1553 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -181,12 +181,13 @@ static int parse_options(struct mount_options *opts, char *str)
+ 	if (opts == NULL)
+ 		return -EFAULT;
+ 
+-	opts->read_timeout_ms = 1000; /* Default: 1s */
+-	opts->readahead_pages = 10;
+-	opts->read_log_pages = 2;
+-	opts->read_log_wakeup_count = 10;
+-	opts->no_backing_file_cache = false;
+-	opts->no_backing_file_readahead = false;
++	*opts = (struct mount_options) {
++		.read_timeout_ms = 1000, /* Default: 1s */
++		.readahead_pages = 10,
++		.read_log_pages = 2,
++		.read_log_wakeup_count = 10,
++	};
++
+ 	if (str == NULL || *str == 0)
+ 		return 0;
+ 
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -175,6 +175,10 @@ struct nvgpu_gmmu_attrs {
 	 * True if l3_alloc flag is valid.
 	 */
 	bool			l3_alloc;
+	/**
+	 * True if tegra_raw flag is valid.
+	 */
+	bool			tegra_raw;
 	/**
 	 * True if platform_atomic flag is valid.
 	 */

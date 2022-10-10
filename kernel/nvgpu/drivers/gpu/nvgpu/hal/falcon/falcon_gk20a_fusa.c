@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,6 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 #include <nvgpu/gk20a.h>
+#include <nvgpu/io.h>
 #include <nvgpu/falcon.h>
 #include <nvgpu/string.h>
 #include <nvgpu/static_analysis.h>
@@ -390,6 +391,43 @@ void gk20a_falcon_set_irq(struct nvgpu_falcon *flcn, bool enable,
 				    0xffffffffU);
 	}
 }
+
+#if defined(CONFIG_NVGPU_FALCON_DEBUG) || defined(CONFIG_NVGPU_FALCON_NON_FUSA)
+int gk20a_falcon_copy_from_dmem(struct nvgpu_falcon *flcn,
+		u32 src, u8 *dst, u32 size, u8 port)
+{
+	struct gk20a *g = flcn->g;
+	u32 base_addr = flcn->flcn_base;
+	u32 i, words, bytes;
+	u32 data, addr_mask;
+	u32 *dst_u32 = (u32 *)dst;
+
+	nvgpu_log_fn(g, " src dmem offset - %x, size - %x", src, size);
+
+	words = size >> 2U;
+	bytes = size & 0x3U;
+
+	addr_mask = falcon_falcon_dmemc_offs_m() |
+				g->ops.falcon.dmemc_blk_mask();
+
+	src &= addr_mask;
+
+	nvgpu_writel(g, base_addr + falcon_falcon_dmemc_r(port),
+		src | falcon_falcon_dmemc_aincr_f(1));
+
+	for (i = 0; i < words; i++) {
+		dst_u32[i] = nvgpu_readl(g,
+			base_addr + falcon_falcon_dmemd_r(port));
+	}
+
+	if (bytes > 0U) {
+		data = nvgpu_readl(g, base_addr + falcon_falcon_dmemd_r(port));
+		nvgpu_memcpy(&dst[words << 2U], (u8 *)&data, bytes);
+	}
+
+	return 0;
+}
+#endif
 
 #ifdef CONFIG_NVGPU_FALCON_DEBUG
 static void gk20a_falcon_dump_imblk(struct nvgpu_falcon *flcn)

@@ -1,7 +1,7 @@
-From e5b2e99e43e77a18e03540fd974643465796cbc3 Mon Sep 17 00:00:00 2001
+From 8c9ad03e51550ab607514a31beaba064130cd51e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 2 Jul 2020 14:27:23 +0200
-Subject: [PATCH 204/304] mm/page_alloc: Use migrate_disable() in
+Subject: [PATCH 204/318] mm/page_alloc: Use migrate_disable() in
  drain_local_pages_wq()
 
 drain_local_pages_wq() disables preemption to avoid CPU migration during
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index d099be9..1099910 100644
+index 9a7e43008dd2..f69c926d3e05 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -3048,9 +3048,9 @@ static void drain_local_pages_wq(struct work_struct *work)
@@ -34,5 +34,5 @@ index d099be9..1099910 100644
  
  /*
 -- 
-2.7.4
+2.17.1
 

@@ -96,6 +96,11 @@
 			      "eqos_rx_m", "eqos_rx_input",
 			      "eqos_macsec_tx", "eqos_tx_divider",
 			      "eqos_macsec_rx";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA234_MEMORY_CLIENT_EQOSR>,
+				<&mc TEGRA234_MEMORY_CLIENT_EQOSW>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
 		iommus = <&smmu_niso1 TEGRA_SID_NISO1_EQOS>;
 		nvidia,num-dma-chans = <8>;
 		nvidia,num-mtl-queues = <8>;

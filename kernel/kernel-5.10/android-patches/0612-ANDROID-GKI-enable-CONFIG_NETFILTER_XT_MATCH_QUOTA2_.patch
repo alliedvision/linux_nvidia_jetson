@@ -1,0 +1,47 @@
+From 42e3cf8beeed15e03e08992d8f06e861980ea2cb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Date: Mon, 13 Jan 2020 23:52:14 -0800
+Subject: [PATCH 612/830] ANDROID: GKI: enable
+ CONFIG_NETFILTER_XT_MATCH_QUOTA2_LOG=y
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+Quota logging is needed to enable data metering.
+
+Bug: 147203196
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+Change-Id: I7219a3abd922b31249a3bccb94bc0dcff197788e
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e6f14b50a761..084563e2f353 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -154,6 +154,7 @@ CONFIG_NETFILTER_XT_MATCH_POLICY=y
+ CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y
+ CONFIG_NETFILTER_XT_MATCH_QUOTA=y
+ CONFIG_NETFILTER_XT_MATCH_QUOTA2=y
++CONFIG_NETFILTER_XT_MATCH_QUOTA2_LOG=y
+ CONFIG_NETFILTER_XT_MATCH_SOCKET=y
+ CONFIG_NETFILTER_XT_MATCH_STATE=y
+ CONFIG_NETFILTER_XT_MATCH_STATISTIC=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index fc0fa321cab9..e4b5f68f1dfd 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -130,6 +130,7 @@ CONFIG_NETFILTER_XT_MATCH_POLICY=y
+ CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y
+ CONFIG_NETFILTER_XT_MATCH_QUOTA=y
+ CONFIG_NETFILTER_XT_MATCH_QUOTA2=y
++CONFIG_NETFILTER_XT_MATCH_QUOTA2_LOG=y
+ CONFIG_NETFILTER_XT_MATCH_SOCKET=y
+ CONFIG_NETFILTER_XT_MATCH_STATE=y
+ CONFIG_NETFILTER_XT_MATCH_STATISTIC=y
+-- 
+2.17.1
+

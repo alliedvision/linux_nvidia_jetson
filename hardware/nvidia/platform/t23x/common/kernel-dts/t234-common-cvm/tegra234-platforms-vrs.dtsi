@@ -25,15 +25,15 @@
 			vrs@3c {
 				compatible = "nvidia,vrs-pseq";
 				reg = <0x3c>;
-				interrupt-parent = <&intc>;
-				/* IRQ is active-low but pmc inverts the signal */
-				interrupts = <GIC_SPI TEGRA234_IRQ_PMIC_EXT_INTR IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-parent = <&tegra_pmc>;
+				/* VRS Wake ID is 24 */
+				interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
-				status = "disabled";
+				#interrupt-cells = <2>;
+				status = "okay";
 
 				vrs_rtc: rtc {
-					status = "disabled";
+					status = "okay";
 				};
 			};
 		};

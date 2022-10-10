@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,6 +32,7 @@
 #include <nvgpu/tsg.h>
 #include <nvgpu/fb.h>
 
+#include "dmabuf_priv.h"
 #include "platform_gk20a.h"
 #include "os_linux.h"
 #include "ioctl_prof.h"
@@ -267,6 +268,9 @@ static int nvgpu_prof_ioctl_get_pm_resource_type(u32 resource,
 	case NVGPU_PROFILER_PM_RESOURCE_ARG_SMPC:
 		*pm_resource = NVGPU_PROFILER_PM_RESOURCE_TYPE_SMPC;
 		return 0;
+	case NVGPU_PROFILER_PM_RESOURCE_ARG_PC_SAMPLER:
+		*pm_resource = NVGPU_PROFILER_PM_RESOURCE_TYPE_PC_SAMPLER;
+		return 0;
 	default:
 		break;
 	}
@@ -305,6 +309,17 @@ static int nvgpu_prof_ioctl_reserve_pm_resource(struct nvgpu_profiler_object *pr
 		if (!flag_ctxsw	&& (pm_resource == NVGPU_PROFILER_PM_RESOURCE_TYPE_SMPC)
 				&& !nvgpu_is_enabled(g, NVGPU_SUPPORT_SMPC_GLOBAL_MODE)) {
 			nvgpu_err(g, "SMPC global mode not supported");
+			return -EINVAL;
+		}
+		/*
+		 * PC_SAMPLER resources are always context switched with a GR
+		 * context, so reservation scope is always context. This
+		 * requires that profiler object is instantiated with a valid
+		 * GR context.
+		 */
+		if ((pm_resource == NVGPU_PROFILER_PM_RESOURCE_TYPE_PC_SAMPLER)
+				&& (prof->tsg == NULL)) {
+			nvgpu_err(g, "PC_SAMPLER reservation is only allowed wth context bound");
 			return -EINVAL;
 		}
 		if (flag_ctxsw) {
@@ -363,11 +378,9 @@ static int nvgpu_prof_ioctl_alloc_pma_stream(struct nvgpu_profiler_object_priv *
 	struct gk20a *g = prof->g;
 	struct mm_gk20a *mm = &g->mm;
 	u64 pma_bytes_available_buffer_offset;
+	u64 pma_buffer_offset;
 	struct dma_buf *pma_dmabuf;
 	struct dma_buf *pma_bytes_available_dmabuf;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 	void *cpuva;
 	u32 pma_buffer_size;
 	int err;
@@ -386,27 +399,20 @@ static int nvgpu_prof_ioctl_alloc_pma_stream(struct nvgpu_profiler_object_priv *
 		return err;
 	}
 
-	/*
-	 * PMA available byte buffer GPU_VA needs to fit in 32 bit
-	 * register, hence use a fixed GPU_VA to map it.
-	 */
 	pma_bytes_available_buffer_offset = mm->perfbuf.pma_bytes_available_buffer_gpu_va;
 
-	err = nvgpu_vm_map_buffer(mm->perfbuf.vm, args->pma_bytes_available_buffer_fd,
+	err = nvgpu_vm_map_buffer(mm->perfbuf.vm,
+			args->pma_bytes_available_buffer_fd,
 			&pma_bytes_available_buffer_offset,
 			NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET, SZ_4K, 0, 0,
-			0, 0, NULL);
+			0, PMA_BYTES_AVAILABLE_BUFFER_SIZE, NULL);
 	if (err != 0) {
 		nvgpu_err(g, "failed to map available bytes buffer");
 		goto err_put_vm;
 	}
 
-	/*
-	 * Size register is 32-bit in HW, ensure requested size does
-	 * not violate that.
-	 */
-	if (args->pma_buffer_map_size >= (1ULL << 32U)) {
-		nvgpu_err(g, "pma_buffer_map_size does not fit in 32 bits");
+	if (args->pma_buffer_map_size > PERFBUF_PMA_BUF_MAX_SIZE) {
+		nvgpu_err(g, "pma_buffer_map_size exceeds max size");
 		goto err_unmap_bytes_available;
 	}
 	pma_buffer_size = nvgpu_safe_cast_u64_to_u32(args->pma_buffer_map_size);
@@ -426,9 +432,12 @@ static int nvgpu_prof_ioctl_alloc_pma_stream(struct nvgpu_profiler_object_priv *
 		goto err_dma_buf_put_pma;
 	}
 
+	pma_buffer_offset = mm->perfbuf.pma_buffer_gpu_va;
 	err = nvgpu_vm_map_buffer(mm->perfbuf.vm, args->pma_buffer_fd,
-			&args->pma_buffer_offset, 0, SZ_4K, 0, 0,
-			0, 0, NULL);
+			&pma_buffer_offset,
+			NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET, SZ_4K, 0, 0,
+			args->pma_buffer_offset,
+			args->pma_buffer_map_size, NULL);
 	if (err != 0) {
 		nvgpu_err(g, "failed to map PMA buffer");
 		goto err_dma_buf_put_pma;
@@ -441,19 +450,14 @@ static int nvgpu_prof_ioctl_alloc_pma_stream(struct nvgpu_profiler_object_priv *
 		goto err_unmap_pma;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	err = dma_buf_vmap(pma_bytes_available_dmabuf, &map);
-	cpuva = err ? NULL : map.vaddr;
-#else
-	cpuva = dma_buf_vmap(pma_bytes_available_dmabuf);
-#endif
+	cpuva = gk20a_dmabuf_vmap(pma_bytes_available_dmabuf);
 	if (cpuva == NULL) {
 		err = -ENOMEM;
 		nvgpu_err(g, "failed to vmap available bytes buffer FD");
 		goto err_dma_buf_put_pma_bytes_available;
 	}
 
-	prof->pma_buffer_va = args->pma_buffer_offset;
+	prof->pma_buffer_va = pma_buffer_offset;
 	prof->pma_buffer_size = pma_buffer_size;
 	prof->pma_bytes_available_buffer_va = pma_bytes_available_buffer_offset;
 	prof->pma_bytes_available_buffer_cpuva = cpuva;
@@ -463,7 +467,7 @@ static int nvgpu_prof_ioctl_alloc_pma_stream(struct nvgpu_profiler_object_priv *
 		prof->prof_handle, prof->pma_buffer_va, prof->pma_buffer_size,
 		prof->pma_bytes_available_buffer_va);
 
-	args->pma_buffer_va = args->pma_buffer_offset;
+	args->pma_buffer_va = pma_buffer_offset;
 
 	/* Decrement pma_dmabuf ref count as we already mapped it. */
 	dma_buf_put(pma_dmabuf);
@@ -490,9 +494,6 @@ static void nvgpu_prof_free_pma_stream_priv_data(struct nvgpu_profiler_object_pr
 	struct nvgpu_profiler_object *prof = priv->prof;
 	struct gk20a *g = prof->g;
 	struct mm_gk20a *mm = &g->mm;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 
 	if (priv->pma_bytes_available_buffer_dmabuf == NULL) {
 		return;
@@ -505,13 +506,8 @@ static void nvgpu_prof_free_pma_stream_priv_data(struct nvgpu_profiler_object_pr
 	prof->pma_buffer_va = 0U;
 	prof->pma_buffer_size = 0U;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	dma_buf_map_set_vaddr(&map, prof->pma_bytes_available_buffer_cpuva);
-	dma_buf_vunmap(priv->pma_bytes_available_buffer_dmabuf, &map);
-#else
-	dma_buf_vunmap(priv->pma_bytes_available_buffer_dmabuf,
+	gk20a_dmabuf_vunmap(priv->pma_bytes_available_buffer_dmabuf,
 		prof->pma_bytes_available_buffer_cpuva);
-#endif
 	dma_buf_put(priv->pma_bytes_available_buffer_dmabuf);
 	priv->pma_bytes_available_buffer_dmabuf = NULL;
 	prof->pma_bytes_available_buffer_cpuva = NULL;
@@ -521,6 +517,7 @@ static int nvgpu_prof_ioctl_free_pma_stream(struct nvgpu_profiler_object_priv *p
 {
 	struct nvgpu_profiler_object *prof = priv->prof;
 	struct gk20a *g = prof->g;
+	int err;
 
 	nvgpu_log(g, gpu_dbg_prof, "Request to free PMA stream for handle %u",
 		prof->prof_handle);
@@ -531,8 +528,15 @@ static int nvgpu_prof_ioctl_free_pma_stream(struct nvgpu_profiler_object_priv *p
 	}
 
 	if (prof->bound) {
-		nvgpu_err(g, "PM resources are bound, cannot free PMA");
-		return -EINVAL;
+		nvgpu_log(g, gpu_dbg_prof, "PM resources already bound with"
+				" profiler handle %u, implicity unbinding for"
+				" freeing PMA stream", prof->prof_handle);
+		err = nvgpu_profiler_unbind_pm_resources(prof);
+		if (err != 0) {
+			nvgpu_err(g, "Profiler handle %u failed to unbind,"
+					" err %d", prof->prof_handle, err);
+			return err;
+		}
 	}
 
 	nvgpu_prof_free_pma_stream_priv_data(priv);
@@ -734,14 +738,23 @@ static int nvgpu_prof_ioctl_pma_stream_update_get_put(struct nvgpu_profiler_obje
 		return -EINVAL;
 	}
 
+	err = gk20a_busy(g);
+	if (err != 0) {
+		nvgpu_err(g, "failed to poweron");
+		return -EINVAL;
+	}
+
 	err = nvgpu_perfbuf_update_get_put(prof->g, args->bytes_consumed,
 			update_bytes_available ? &args->bytes_available : NULL,
 			prof->pma_bytes_available_buffer_cpuva, wait,
 			update_put_ptr ? &args->put_ptr : NULL,
 			&overflowed);
 	if (err != 0) {
+		gk20a_idle(g);
 		return err;
 	}
+
+	gk20a_idle(g);
 
 	if (overflowed) {
 		args->flags |=
@@ -789,17 +802,27 @@ static int nvgpu_prof_ioctl_vab_reserve(struct nvgpu_profiler_object *prof,
 		return -EINVAL;
 	}
 
+	err = gk20a_busy(g);
+	if (err != 0) {
+		nvgpu_err(g, "failed to poweron");
+		return -EINVAL;
+	}
+
 	ckr = nvgpu_kzalloc(g, sizeof(struct nvgpu_vab_range_checker) *
 		arg->num_range_checkers);
 	if (copy_from_user(ckr, user_ckr,
 		sizeof(struct nvgpu_vab_range_checker) *
 		arg->num_range_checkers)) {
+		gk20a_idle(g);
+		nvgpu_kfree(g, ckr);
 		return -EFAULT;
 	}
 
 	err = g->ops.fb.vab.reserve(g, vab_mode, arg->num_range_checkers, ckr);
 
 	nvgpu_kfree(g, ckr);
+
+	gk20a_idle(g);
 
 	return err;
 }
@@ -809,7 +832,14 @@ static int nvgpu_prof_ioctl_vab_flush(struct nvgpu_profiler_object *prof,
 {
 	int err;
 	struct gk20a *g = prof->g;
-	u64 *user_data = nvgpu_kzalloc(g, arg->buffer_size);
+	u8 *user_data = nvgpu_kzalloc(g, arg->buffer_size);
+
+	err = gk20a_busy(g);
+	if (err != 0) {
+		nvgpu_kfree(g, user_data);
+		nvgpu_err(g, "failed to poweron");
+		return -EINVAL;
+	}
 
 	err = g->ops.fb.vab.dump_and_clear(g, user_data, arg->buffer_size);
 	if (err < 0) {
@@ -824,6 +854,7 @@ static int nvgpu_prof_ioctl_vab_flush(struct nvgpu_profiler_object *prof,
 
 fail:
 	nvgpu_kfree(g, user_data);
+	gk20a_idle(g);
 	return err;
 }
 #endif
@@ -862,6 +893,14 @@ long nvgpu_prof_fops_ioctl(struct file *filp, unsigned int cmd,
 
 	nvgpu_log(g, gpu_dbg_prof, "Profiler handle %u received IOCTL cmd %u",
 		prof->prof_handle, cmd);
+
+#ifdef CONFIG_NVGPU_DEBUGGER
+	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
+	if (g->dbg_powergating_disabled_refcount == 0) {
+		nvgpu_err(g, "powergate is not disabled");
+	}
+	nvgpu_mutex_release(&g->dbg_sessions_lock);
+#endif
 
 	nvgpu_mutex_acquire(&prof->ioctl_lock);
 

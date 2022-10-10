@@ -25,7 +25,6 @@ struct nvdec_config {
 	const char *firmware;
 	unsigned int version;
 	bool supports_sid;
-	unsigned int num_instances;
 };
 
 struct nvdec {
@@ -314,7 +313,6 @@ static const struct nvdec_config nvdec_t210_config = {
 	.firmware = NVIDIA_TEGRA_210_NVDEC_FIRMWARE,
 	.version = 0x21,
 	.supports_sid = false,
-	.num_instances = 1,
 };
 
 #define NVIDIA_TEGRA_186_NVDEC_FIRMWARE "nvidia/tegra186/nvdec.bin"
@@ -323,7 +321,6 @@ static const struct nvdec_config nvdec_t186_config = {
 	.firmware = NVIDIA_TEGRA_186_NVDEC_FIRMWARE,
 	.version = 0x18,
 	.supports_sid = true,
-	.num_instances = 1,
 };
 
 #define NVIDIA_TEGRA_194_NVDEC_FIRMWARE "nvidia/tegra194/nvdec.bin"
@@ -332,7 +329,6 @@ static const struct nvdec_config nvdec_t194_config = {
 	.firmware = NVIDIA_TEGRA_194_NVDEC_FIRMWARE,
 	.version = 0x19,
 	.supports_sid = true,
-	.num_instances = 2,
 };
 
 static const struct of_device_id tegra_nvdec_of_match[] = {
@@ -384,8 +380,7 @@ static int nvdec_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	err = of_property_read_u32(dev->of_node, "nvidia,host1x-class",
-				   &host_class);
+	err = of_property_read_u32(dev->of_node, "nvidia,host1x-class", &host_class);
 	if (err < 0)
 		host_class = HOST1X_CLASS_NVDEC;
 

@@ -22,3 +22,4 @@ __pycache__
 .*.swo
 avt_build/work
 avt_build/.dlcache
+avt_build/build.log

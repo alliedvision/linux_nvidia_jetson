@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -283,8 +283,10 @@
 #define TEGRA234_CLK_PRE_SOR1_REF		130U
 /** @brief output of gate CLK_ENB_SOR_SAFE */
 #define TEGRA234_CLK_SOR_SAFE			131U
+/** @brief SOR_CLK_CTRL__0_DIV divider output */
+#define TEGRA234_CLK_SOR0_DIV			132U
 
-/* free 132:133 */
+/* free 133 */
 
 /** @brief output of mux controlled by CLK_RST_CONTROLLER_CLK_SOURCE_DMIC5 */
 #define TEGRA234_CLK_DMIC5			134U
@@ -419,7 +421,7 @@
 /** @brief NAFLL clock source for TSEC */
 #define TEGRA234_CLK_NAFLL_TSEC			201U
 
-/* free 202 */
+/* RESERVED 202 */
 
 /** @brief NAFLL clock source for VI */
 #define TEGRA234_CLK_NAFLL_VI			203U

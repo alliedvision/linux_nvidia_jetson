@@ -1,0 +1,32 @@
+From 9f77b70e550c9e00d5b7279f8c7cba033cbce0bb Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Wed, 12 Aug 2020 15:42:57 -0700
+Subject: [PATCH 317/830] Revert "Revert "tty: serial: samsung_tty: build it
+ for any platform""
+X-NVConfidentiality: public
+
+This reverts commit 7e13d0a6b189169d9339a6ef96383cd6f0e00b2c. We want to
+include these earlycon drivers for GKI.
+
+Bug: 142159113
+Change-Id: I81443b7a743f4155f114d197c7f7299c9f348dad
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ drivers/tty/serial/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/tty/serial/Kconfig b/drivers/tty/serial/Kconfig
+index 28f22e58639c..296646a3732d 100644
+--- a/drivers/tty/serial/Kconfig
++++ b/drivers/tty/serial/Kconfig
+@@ -236,7 +236,6 @@ config SERIAL_CLPS711X_CONSOLE
+ 
+ config SERIAL_SAMSUNG
+ 	tristate "Samsung SoC serial support"
+-	depends on PLAT_SAMSUNG || ARCH_S5PV210 || ARCH_EXYNOS || COMPILE_TEST
+ 	select SERIAL_CORE
+ 	help
+ 	  Support for the on-chip UARTs on the Samsung S3C24XX series CPUs,
+-- 
+2.17.1
+

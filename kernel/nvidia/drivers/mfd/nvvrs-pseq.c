@@ -2,7 +2,7 @@
 /*
  * Voltage Regulator Specification: Power Sequencer MFD Driver
  *
- * Copyright (C) 2020 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2020-2022 NVIDIA CORPORATION. All rights reserved.
  */
 
 #include <linux/i2c.h>
@@ -99,7 +99,7 @@ static int nvvrs_pseq_irq_clear(void *irq_drv_data)
 	struct nvvrs_pseq_chip *chip = (struct nvvrs_pseq_chip *)irq_drv_data;
 	struct i2c_client *client = chip->client;
 	unsigned int reg, val;
-	int ret, i;
+	int ret = 0, i;
 
 	/* Write 1 to clear the interrupt bit in the Interrupt
 	 * Source Register, writing 0 has no effect, writing 1 to a bit
@@ -108,14 +108,13 @@ static int nvvrs_pseq_irq_clear(void *irq_drv_data)
 
 	for (i = 0; i < chip->irq_chip->num_regs; i++) {
 		reg = chip->irq_chip->status_base + i;
-		val = i2c_smbus_read_byte_data(client, reg);
-		if (val < 0) {
+		ret = i2c_smbus_read_byte_data(client, reg);
+		if (ret < 0) {
 			dev_err(chip->dev, "Failed to read interrupt register: %u, \
-				ret=%d\n", reg, val);
+				ret=%d\n", reg, ret);
 			return -EINVAL;
-		}
-
-		if (val > 0) {
+		} else if (ret > 0) {
+			val = (unsigned int)ret;
 			dev_info(chip->dev, "CAUTION: interrupt status reg:0x%x set to 0x%x\n", \
 				reg, val);
 			dev_info(chip->dev, "Clearing interrupts\n");
@@ -154,18 +153,28 @@ static int nvvrs_pseq_vendor_info(struct nvvrs_pseq_chip *chip)
 {
 	struct i2c_client *client = chip->client;
 	unsigned int vendor_id, model_rev;
+	int ret;
 
-	vendor_id = i2c_smbus_read_byte_data(client, NVVRS_PSEQ_REG_VENDOR_ID);
-	if (vendor_id < 0) {
-		dev_err(chip->dev, "Failed to read Vendor ID: %d\n", vendor_id);
+	ret = i2c_smbus_read_byte_data(client, NVVRS_PSEQ_REG_VENDOR_ID);
+	if (ret < 0) {
+		dev_err(chip->dev, "Failed to read Vendor ID: %d\n", ret);
 		return -EINVAL;
 	}
 
+	vendor_id = (unsigned int)ret;
 	dev_info(chip->dev, "NVVRS Vendor ID: 0x%X \n", vendor_id);
 
-	model_rev = i2c_smbus_read_byte_data(client, NVVRS_PSEQ_REG_MODEL_REV);
-	if (model_rev < 0) {
-		dev_err(chip->dev, "Failed to read Model Rev: %d\n", model_rev);
+	ret = i2c_smbus_read_byte_data(client, NVVRS_PSEQ_REG_MODEL_REV);
+	if (ret < 0) {
+		dev_err(chip->dev, "Failed to read Model Rev: %d\n", ret);
+		return -EINVAL;
+	}
+
+	model_rev = (unsigned int)ret;
+
+	if (model_rev < 0x40) {
+		dev_info(chip->dev, "NVVRS Chip Rev: 0x%X which is < 0x40\n", model_rev);
+		dev_info(chip->dev, "Silicon issues thus exiting...\n");
 		return -EINVAL;
 	}
 
@@ -206,6 +215,12 @@ static int nvvrs_pseq_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	ret = nvvrs_pseq_vendor_info(nvvrs_chip);
+	if (ret < 0) {
+		dev_err(nvvrs_chip->dev, "Invalid vendor info: %d\n", ret);
+		return ret;
+	}
+
 	nvvrs_pseq_irq_chip.irq_drv_data = nvvrs_chip;
 	ret = devm_regmap_add_irq_chip(nvvrs_chip->dev, nvvrs_chip->rmap, client->irq,
 				       IRQF_ONESHOT | IRQF_SHARED, 0,
@@ -225,12 +240,6 @@ static int nvvrs_pseq_probe(struct i2c_client *client,
 				    regmap_irq_get_domain(nvvrs_chip->irq_data));
 	if (ret < 0) {
 		dev_err(nvvrs_chip->dev, "Failed to add MFD children: %d\n", ret);
-		return ret;
-	}
-
-	ret = nvvrs_pseq_vendor_info(nvvrs_chip);
-	if (ret < 0) {
-		dev_err(nvvrs_chip->dev, "Failed to read vendor info: %d\n", ret);
 		return ret;
 	}
 

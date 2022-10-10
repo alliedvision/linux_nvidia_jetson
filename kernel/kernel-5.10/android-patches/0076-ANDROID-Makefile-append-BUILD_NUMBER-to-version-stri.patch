@@ -1,0 +1,57 @@
+From 4df7b33c08bf93c61952c77c3c4a41a35d58315e Mon Sep 17 00:00:00 2001
+From: Alex Hong <rurumihong@google.com>
+Date: Fri, 19 Jul 2019 16:37:33 +0800
+Subject: [PATCH 076/830] ANDROID: Makefile: append BUILD_NUMBER to version
+ string when defined
+X-NVConfidentiality: public
+
+In current implementation the Linux version string that is attached to
+the kernel linux image as well as the all kernel modules includes the
+sha1 of the main git project for the kernel.
+
+This Commit adds the BUILD_NUMBER env variable with an 'ab' prefix to
+the Linux version string. This maps to both the Linux Image and all
+kernel modules version strings.
+
+Bug: 159842160
+Bug: 137521202
+Test: Build the kernel and test the version string
+Change-Id: I4795955f36f477b257ca86495726e24d6b196d05
+Signed-off-by: Alex Hong <rurumihong@google.com>
+(cherry picked from commit e60f995403c9799dd0dc14d62d77d6698a8a7126)
+[willmcvicker: fix uts_len check to include -ab$(BUILD_NUMBER)]
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ Makefile | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 881d83f7e698..0208ffca8665 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1322,12 +1322,17 @@ endif
+ # needs to be updated, so this check is forced on all builds
+ 
+ uts_len := 64
++ifneq (,$(BUILD_NUMBER))
++	UTS_RELEASE=$(KERNELRELEASE)-ab$(BUILD_NUMBER)
++else
++	UTS_RELEASE=$(KERNELRELEASE)
++endif
+ define filechk_utsrelease.h
+-	if [ `echo -n "$(KERNELRELEASE)" | wc -c ` -gt $(uts_len) ]; then \
+-	  echo '"$(KERNELRELEASE)" exceeds $(uts_len) characters' >&2;    \
+-	  exit 1;                                                         \
+-	fi;                                                               \
+-	echo \#define UTS_RELEASE \"$(KERNELRELEASE)\"
++	if [ `echo -n "$(UTS_RELEASE)" | wc -c ` -gt $(uts_len) ]; then \
++		echo '"$(UTS_RELEASE)" exceeds $(uts_len) characters' >&2;    \
++		exit 1;                                                       \
++	fi;                                                             \
++	echo \#define UTS_RELEASE \"$(UTS_RELEASE)\"
+ endef
+ 
+ define filechk_version.h
+-- 
+2.17.1
+

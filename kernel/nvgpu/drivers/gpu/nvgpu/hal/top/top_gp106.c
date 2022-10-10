@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,5 +33,6 @@ u32 gp106_top_read_scratch1_reg(struct gk20a *g)
 
 u32 gp106_top_scratch1_devinit_completed(struct gk20a *g, u32 value)
 {
+	(void)g;
 	return top_scratch1_devinit_completed_v(value);
 }

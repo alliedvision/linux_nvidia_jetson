@@ -1,7 +1,7 @@
-From 216b2e3c00379a387c3290b68d9bc4abd628fdd2 Mon Sep 17 00:00:00 2001
+From 8a89b7d3de3d594912759db84ac13473fc49369d Mon Sep 17 00:00:00 2001
 From: Geert Uytterhoeven <geert+renesas@glider.be>
 Date: Tue, 24 Nov 2020 14:06:56 +0100
-Subject: [PATCH 126/304] sh/irq: Add missing closing parentheses in
+Subject: [PATCH 126/318] sh/irq: Add missing closing parentheses in
  arch_show_interrupts()
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/sh/kernel/irq.c b/arch/sh/kernel/irq.c
-index 5addcb2c2..ab5f790 100644
+index 5addcb2c2da0..ab5f790b0cd2 100644
 --- a/arch/sh/kernel/irq.c
 +++ b/arch/sh/kernel/irq.c
 @@ -44,7 +44,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
@@ -35,5 +35,5 @@ index 5addcb2c2..ab5f790 100644
  
  	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
 -- 
-2.7.4
+2.17.1
 

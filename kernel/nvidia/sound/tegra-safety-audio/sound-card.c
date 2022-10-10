@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #define pr_fmt(msg) "Safety I2S: " msg
@@ -43,8 +43,9 @@ static const char * const reset_names[] = {
 };
 
 //TODO: Either encapsulate it or allocate dynamically
-struct i2s_dev i2s[NUM_SAFETY_I2S_INST];
-struct safety_audio_priv *priv;
+static struct i2s_dev i2s[NUM_SAFETY_I2S_INST];
+static unsigned int enabled_i2s_mask[NUM_SAFETY_I2S_INST];
+static struct safety_audio_priv *priv;
 
 static const struct snd_pcm_hardware t234_pcm_hardware = {
 	.rates =	    SNDRV_PCM_RATE_48000,
@@ -138,7 +139,7 @@ static int safety_i2s_add_kcontrols(struct snd_card *card, int id)
 	return snd_ctl_add(card, snd_ctl_new1(&controls[id], i2s));
 }
 
-static int prealloc_dma_buff(struct snd_pcm *pcm, int stream, size_t size)
+static int prealloc_dma_buff(struct snd_pcm *pcm, unsigned int stream, size_t size)
 {
 	struct snd_pcm_substream *substream = pcm->streams[stream].substream;
 	struct snd_dma_buffer *buff = &substream->dma_buffer;
@@ -166,7 +167,7 @@ static int setup_plls(struct device *dev)
 	return 0;
 }
 
-static int i2s_reset_init_and_deassert(struct device *dev, int id)
+static int i2s_reset_init_and_deassert(struct device *dev, unsigned int id)
 {
 	struct reset_control *reset;
 	int ret;
@@ -188,7 +189,7 @@ static int i2s_reset_init_and_deassert(struct device *dev, int id)
 	return ret;
 }
 
-static int i2s_clock_init(struct device *dev, int id)
+static int i2s_clock_init(struct device *dev, unsigned int id)
 {
 	i2s[id].audio_sync_input = devm_clk_get(dev,
 		clk_names[id * CLK_NUM_ENTRIES + CLK_AUDIO_INPUT_SYNC]);
@@ -277,7 +278,7 @@ static void dump_config(struct i2s_config *config)
 }
 #endif
 
-static int i2s_parse_dt(struct device *dev, int id)
+static int i2s_parse_dt(struct device *dev, unsigned int id)
 {
 	char name[5];
 	struct device_node *i2s_node;
@@ -285,11 +286,16 @@ static int i2s_parse_dt(struct device *dev, int id)
 	struct i2s_config *i2s_config;
 
 	const void *prop;
+	int ret = 0;
 
-	sprintf(name, I2S_DT_NODE, I2S_NODE_START_INDEX + id);
+	ret = sprintf(name, I2S_DT_NODE, I2S_NODE_START_INDEX + id);
+	if (ret < 0)
+		return -EINVAL;
 
 	i2s_config = &i2s[id].config;
 	memcpy(i2s_config, &i2s_defaults, sizeof(i2s_config[0]));
+
+	i2s_config->clock_polarity = 1;
 
 	i2s_node = of_get_child_by_name(dev->of_node, name);
 	if (i2s_node == NULL) {
@@ -300,11 +306,18 @@ static int i2s_parse_dt(struct device *dev, int id)
 	if (of_find_property(i2s_node, "frame-slave", NULL))
 		i2s_config->clock_mode = 1;
 
+	prop = of_get_property(i2s_node, "format", NULL);
+	if (prop != NULL) {
+		i2s_get_mode(prop, &i2s_config->mode, &i2s_config->offset);
+		if (strcmp("i2s", prop) == 0)
+			i2s_config->clock_polarity = 0;
+	}
+
 	if (of_find_property(i2s_node, "bitclock-inversion", NULL))
 		i2s_config->edge_ctrl = 1;
 
 	if (of_find_property(i2s_node, "frame-inversion", NULL))
-		i2s_config->clock_polarity = 1;
+		i2s_config->clock_polarity = !i2s_config->clock_polarity;
 
 	prop = of_get_property(i2s_node, "tx-mask", NULL);
 	if (prop != NULL)
@@ -318,13 +331,21 @@ static int i2s_parse_dt(struct device *dev, int id)
 	if (prop != NULL)
 		i2s_config->clock_trim = be32_to_cpup(prop);
 
-	prop = of_get_property(i2s_node, "format", NULL);
-	if (prop != NULL)
-		i2s_get_mode(prop, &i2s_config->mode, &i2s_config->offset);
-
 	prop = of_get_property(i2s_node, "fsync-width", NULL);
 	if (prop != NULL)
 		i2s_config->fsync_width = be32_to_cpup(prop);
+
+	prop = of_get_property(i2s_node, "srate", NULL);
+	if (prop != NULL)
+		i2s_config->srate = be32_to_cpup(prop);
+
+	prop = of_get_property(i2s_node, "num-channel", NULL);
+	if (prop != NULL)
+		i2s_config->channels = be32_to_cpup(prop);
+
+	prop = of_get_property(i2s_node, "bit-format", NULL);
+	if (prop != NULL)
+		i2s_config->bit_size = be32_to_cpup(prop);
 
 #ifdef SAFETY_I2S_DEBUG
 	dump_config(i2s_config);
@@ -337,7 +358,7 @@ static int is_supported_rate(int rate)
 	return 1;
 }
 
-static int i2s_set_rate(int id, int rate)
+static int i2s_set_rate(unsigned int id, int rate)
 {
 	unsigned long i2s_clk_freq;
 
@@ -365,7 +386,7 @@ static int i2s_set_rate(int id, int rate)
 	return 0;
 }
 
-static void i2s_setup(int id)
+static void i2s_setup(unsigned int id)
 {
 	i2s_set_rate(id, i2s[id].config.srate);
 
@@ -419,7 +440,9 @@ static int gpcdma_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		slave_config.dst_addr_width = (dma_data->width == 16) ?
+						DMA_SLAVE_BUSWIDTH_2_BYTES :
+						DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.dst_addr = dma_data->addr;
 		/* MC burst should be multiple of this for proper
 		 * stopping of GPCDMA during CYCLIC transfer.
@@ -428,7 +451,9 @@ static int gpcdma_hw_params(struct snd_pcm_substream *substream,
 		 */
 		slave_config.dst_maxburst = 2;
 	} else {
-		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		slave_config.src_addr_width = (dma_data->width == 16) ?
+						DMA_SLAVE_BUSWIDTH_2_BYTES :
+						DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.src_addr = dma_data->addr;
 		slave_config.src_maxburst = 2;
 	}
@@ -452,7 +477,7 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int safety_i2s_probe(struct device *dev, int id)
+static int safety_i2s_probe(struct device *dev, unsigned int id)
 {
 	i2s_parse_dt(dev, id);
 	setup_plls(dev);
@@ -587,12 +612,33 @@ static const struct of_device_id match_table[] = {
 	{}
 };
 
+static unsigned int parse_enabled_i2s_mask(struct device *dev)
+{
+	unsigned int num_enabled = 0;
+	int i;
+
+	i = of_property_read_variable_u32_array(dev->of_node,
+				"enabled-i2s-mask", enabled_i2s_mask,
+						NUM_SAFETY_I2S_INST, 0);
+	WARN_ON(i != NUM_SAFETY_I2S_INST);
+	for (i = 0; i < NUM_SAFETY_I2S_INST; i++)
+		num_enabled += !!(enabled_i2s_mask[i]);
+
+	return num_enabled;
+}
+
 static int t234_safety_audio_probe(struct platform_device *pdev)
 {
 	struct snd_card *card;
-	int ret, i;
+	int ret, pcm_instance = 0;
+	unsigned int i = 0;
 	struct snd_pcm *pcm;
 	char name[5] = {0};
+
+	if (parse_enabled_i2s_mask(&pdev->dev) == 0) {
+		pr_err("No safety-i2s interfaces are available on this board\n");
+		return -ENODEV;
+	}
 
 	ret = snd_card_new(&pdev->dev, -1, "Safety I2S sound card",
 					THIS_MODULE, sizeof(*priv), &card);
@@ -605,9 +651,14 @@ static int t234_safety_audio_probe(struct platform_device *pdev)
 	for (i = 0; i < NUM_SAFETY_I2S_INST; i++) {
 		struct resource *r;
 		size_t buffer_size = t234_pcm_hardware.buffer_bytes_max;
+		void __iomem *base;
 
-		sprintf(name, I2S_DT_NODE, I2S_NODE_START_INDEX + i);
-		ret = snd_pcm_new(card, name, i, 1, 1, &pcm);
+		if (!enabled_i2s_mask[i])
+			continue;
+
+		if ((sprintf(name, I2S_DT_NODE, I2S_NODE_START_INDEX + i)) < 0)
+			return -EINVAL;
+		ret = snd_pcm_new(card, name, pcm_instance++, 1, 1, &pcm);
 		if (ret < 0) {
 			pr_alert("Could not register i2s pcm, ret: %d\n", ret);
 			return ret;
@@ -616,18 +667,20 @@ static int t234_safety_audio_probe(struct platform_device *pdev)
 		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &playback_ops);
 		snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &playback_ops);
 
-		i2s[i].base =
-			devm_platform_get_and_ioremap_resource(pdev, i, &r);
-
-		if (i2s[i].base == NULL) {
+		base = devm_platform_get_and_ioremap_resource(pdev, i, &r);
+		if (IS_ERR(base)) {
 			pr_alert("could not remap base\n");
 			return -EINVAL;
 		}
 
+		i2s[i].base = base;
+
+		safety_i2s_probe(&pdev->dev, i);
+
 		i2s[i].capture_data.addr = r->start + 0x20;
 		//TODO: Read from DT later on
 		i2s[i].capture_data.size = buffer_size;
-		i2s[i].capture_data.width = 32;
+		i2s[i].capture_data.width = i2s[i].config.bit_size;
 		i2s[i].capture_data.req_sel = i + 1;
 		i2s[i].capture_data.dma_chan_name =
 					(i ? "i2s8-rx" : "i2s7-rx");
@@ -635,11 +688,10 @@ static int t234_safety_audio_probe(struct platform_device *pdev)
 		i2s[i].playback_data.addr = r->start + 0xa0;
 		//TODO: Read from DT later on
 		i2s[i].playback_data.size = buffer_size;
-		i2s[i].playback_data.width = 32;
+		i2s[i].playback_data.width = i2s[i].config.bit_size;
 		i2s[i].playback_data.req_sel = i + 1;
 		i2s[i].playback_data.dma_chan_name =
 					(i ? "i2s8-tx" : "i2s7-tx");
-		safety_i2s_probe(&pdev->dev, i);
 
 		pcm->private_data = &i2s[i];
 

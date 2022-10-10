@@ -190,7 +190,7 @@ static int tegra_aon_parse_channel(struct tegra_aon *aon,
 				struct device_node *ch_node,
 				int chan_id)
 {
-	struct device *dev = aon->dev;
+	struct device *dev;
 	struct tegra_aon_ivc_chan *ivc_chan;
 	struct {
 		u32 rx, tx;
@@ -199,8 +199,10 @@ static int tegra_aon_parse_channel(struct tegra_aon *aon,
 	int ret = 0;
 
 	/* Sanity check */
-	if (!mbox_chan || !ch_node || !dev || !aon)
+	if (!mbox_chan || !ch_node || !aon)
 		return -EINVAL;
+
+	dev = aon->dev;
 
 	ret = of_property_read_u32_array(ch_node, "reg", &start.rx, 2);
 	if (ret) {

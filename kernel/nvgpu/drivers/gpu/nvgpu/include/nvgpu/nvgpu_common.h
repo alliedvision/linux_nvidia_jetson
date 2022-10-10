@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
  * @{
  */
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 /**
  * @brief Restart driver as implemented for OS.
  *
@@ -42,6 +43,7 @@
  * - On QNX, this simply calls BUG() which will restart the driver.
  */
 void nvgpu_kernel_restart(void *cmd);
+#endif
 
 #ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 struct nvgpu_posix_fault_inj *nvgpu_nvgpu_get_fault_injection(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -381,6 +381,7 @@ int test_falcon_sw_init_free(struct unit_module *m, struct gk20a *g,
 		unit_return_fail(m, "FECS falcon sw not initialized\n");
 	}
 
+#ifdef CONFIG_NVGPU_DGPU
 	err = verify_valid_falcon_sw_init(m, g, FALCON_ID_GSPLITE);
 	if (err != 0) {
 		unit_return_fail(m, "GSPLITE falcon sw not initialized\n");
@@ -400,6 +401,7 @@ int test_falcon_sw_init_free(struct unit_module *m, struct gk20a *g,
 	if (err != 0) {
 		unit_return_fail(m, "MINION falcon sw not initialized\n");
 	}
+#endif
 
 
 	return UNIT_SUCCESS;

@@ -1,0 +1,36 @@
+From 03d5a1074ad9a133220b563ad10727f19b71d217 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 30 Oct 2020 06:49:41 +0000
+Subject: [PATCH 282/830] ANDROID: dma: Rework so dev_get_cma_area() can be
+ called from a module
+X-NVConfidentiality: public
+
+Export dma_contiguous_default_area so dev_get_cma_area() can be called
+from a module.
+
+This allows the CMA dma-buf heap to be configured and built as a module.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I8ae944c147ff83dcd8d42a39efa6769dae4039b7
+Bug: 155218010
+Link: https://lore.kernel.org/lkml/20191025234834.28214-2-john.stultz@linaro.org/
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ kernel/dma/contiguous.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/dma/contiguous.c b/kernel/dma/contiguous.c
+index 16b95ff12e4d..b83676826038 100644
+--- a/kernel/dma/contiguous.c
++++ b/kernel/dma/contiguous.c
+@@ -58,6 +58,7 @@
+ #endif
+ 
+ struct cma *dma_contiguous_default_area;
++EXPORT_SYMBOL_GPL(dma_contiguous_default_area);
+ 
+ /*
+  * Default global CMA area size can be defined in kernel's .config.
+-- 
+2.17.1
+

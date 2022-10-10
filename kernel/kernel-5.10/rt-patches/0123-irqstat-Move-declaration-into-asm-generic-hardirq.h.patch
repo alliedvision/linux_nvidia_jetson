@@ -1,7 +1,7 @@
-From 2332aea360c4aed333fbbc5e24b1bc0fa2fbb5ae Mon Sep 17 00:00:00 2001
+From 6c1fb6dbb0c3a1c83789fdc108c252cb2acc61e3 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:16 +0100
-Subject: [PATCH 123/304] irqstat: Move declaration into asm-generic/hardirq.h
+Subject: [PATCH 123/318] irqstat: Move declaration into asm-generic/hardirq.h
 
 Move the declaration of the irq_cpustat per cpu variable to
 asm-generic/hardirq.h and remove the now empty linux/irq_cpustat.h header.
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 include/linux/irq_cpustat.h
 
 diff --git a/include/asm-generic/hardirq.h b/include/asm-generic/hardirq.h
-index f5dd997..7317e82 100644
+index f5dd99781e3c..7317e8258b48 100644
 --- a/include/asm-generic/hardirq.h
 +++ b/include/asm-generic/hardirq.h
 @@ -12,7 +12,8 @@ typedef struct {
@@ -32,7 +32,7 @@ index f5dd997..7317e82 100644
  #ifndef ack_bad_irq
 diff --git a/include/linux/irq_cpustat.h b/include/linux/irq_cpustat.h
 deleted file mode 100644
-index 78fb2de3..00000000
+index 78fb2de3ea4d..000000000000
 --- a/include/linux/irq_cpustat.h
 +++ /dev/null
 @@ -1,24 +0,0 @@
@@ -61,5 +61,5 @@ index 78fb2de3..00000000
 -
 -#endif	/* __irq_cpustat_h */
 -- 
-2.7.4
+2.17.1
 

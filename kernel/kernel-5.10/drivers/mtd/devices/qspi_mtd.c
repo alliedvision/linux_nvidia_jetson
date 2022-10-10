@@ -3,7 +3,7 @@
  *
  * Author: Mike Lavender, mike@steroidmicros.com
  * Copyright (c) 2005, Intec Automation Inc.
- * Copyright (c) 2013-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1459,8 +1459,7 @@ static int qspi_read(struct mtd_info *mtd, loff_t from, size_t len,
 		spi_message_add_tail(&t[2], &m);
 	}
 
-	if (flash->flash_info->jedec_id == JEDEC_ID_MX25U51279G ||
-		flash->flash_info->jedec_id == JEDEC_ID_MX25U3235F) {
+	if (flash->flash_info->jedec_id == JEDEC_ID_MX25U3235F) {
 		max_dummy_cyle_set(flash,
 				flash->cmd_table.qcmd.op_code,
 				flash->cmd_table.qaddr.dummy_cycles);
@@ -1813,6 +1812,7 @@ static int qspi_init(struct qspi *flash)
 	struct spi_device *spi = flash->spi;
 	const struct spi_device_id	*id = spi_get_device_id(spi);
 	struct flash_info *info =  (void *)id->driver_data;
+	uint8_t my_status = 0, my_cfg = 0;
 
 	dev_dbg(&spi->dev, "%s ENTRY\n", __func__);
 
@@ -1824,16 +1824,29 @@ static int qspi_init(struct qspi *flash)
 	 * FIXME: Unlock the flash if locked. It is WAR to unlock the flash
 	 *	  as locked bit is setting unexpectedly
 	 */
-	ret = qspi_read_any_reg(flash, RWAR_SR1NV, &regval);
+	ret = read_sr1_reg(flash, &my_status);
 	if (ret) {
 		dev_err(&spi->dev,
-			"error: %s RWAR_CR2V read failed: Status: x%x ",
+			"error: %s RSR1 read failed: Status: x%x ",
 			__func__, ret);
 		return ret;
 	}
-	if (regval & (SR1NV_WRITE_DIS | SR1NV_BLOCK_PROT)) {
-		regval = regval & ~(SR1NV_WRITE_DIS | SR1NV_BLOCK_PROT);
-		qspi_write_any_reg(flash, RWAR_SR1NV, regval);
+
+	/* TODO: move cfg read info into flash cmd table */
+	if (flash->flash_info->jedec_id == JEDEC_ID_MX25U51279G)
+		ret = read_max_cfg_reg(flash, &my_cfg);
+	else if (flash->flash_info->jedec_id != JEDEC_ID_MX25U3235F)
+		ret = qspi_read_any_reg(flash, RWAR_CR1V, &my_cfg);
+	if (ret) {
+		dev_err(&spi->dev,
+			"error: %s RCR1 read failed: CFG: x%x ",
+			__func__, ret);
+		return ret;
+	}
+	if (my_status & (SR1NV_WRITE_DIS | STATUS_BLOCK_PROT)) {
+		my_status = my_status & ~(SR1NV_WRITE_DIS | STATUS_BLOCK_PROT);
+		dev_warn(&spi->dev, "clearing block protect");
+		qspi_write_status_reg(flash, my_status, my_cfg);
 		wait_till_ready(flash, FALSE);
 	}
 	/* Set 512 page size when s25fx512s */
@@ -2052,7 +2065,8 @@ static int qspi_suspend(struct device *dev)
 	dev_dbg(dev, "%s ENTRY\n", __func__);
 
 	/* configuration registers are not supported by macronix */
-	if (info->jedec_id == JEDEC_ID_MX25U3235F)
+	if (info->jedec_id == JEDEC_ID_MX25U3235F ||
+	    info->jedec_id == JEDEC_ID_MX25U51279G)
 		return 0;
 
 	ret = qspi_read_any_reg(flash, RWAR_CR1V, &regval);

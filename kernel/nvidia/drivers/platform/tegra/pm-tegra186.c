@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -79,7 +79,7 @@ int send_smc(u32 smc_func, struct pm_regs *regs)
  * @shutdown_state:	Specific shutdown state to set
  *
  */
-static int tegra_set_shutdown_mode(u32 shutdown_state)
+int tegra_set_shutdown_mode(u32 shutdown_state)
 {
 	struct pm_regs regs;
 	u32 smc_func = SMC_PM_FUNC | (SMC_SET_SHUTDOWN_MODE & SMC_ENUM_MAX);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,18 +40,36 @@ void nvgpu_trace_intr_thread_stall_done(struct gk20a *g);
 #ifdef CONFIG_NVGPU_TRACE
 #include <nvgpu/posix/trace_gk20a.h>
 #endif /* CONFIG_NVGPU_TRACE */
-static inline void nvgpu_trace_intr_stall_start(struct gk20a *g) {}
-static inline void nvgpu_trace_intr_stall_done(struct gk20a *g) {}
-static inline void nvgpu_trace_intr_thread_stall_start(struct gk20a *g) {}
-static inline void nvgpu_trace_intr_thread_stall_done(struct gk20a *g) {}
+static inline void nvgpu_trace_intr_stall_start(struct gk20a *g)
+{
+	(void)g;
+}
+static inline void nvgpu_trace_intr_stall_done(struct gk20a *g)
+{
+	(void)g;
+}
+static inline void nvgpu_trace_intr_thread_stall_start(struct gk20a *g)
+{
+	(void)g;
+}
+static inline void nvgpu_trace_intr_thread_stall_done(struct gk20a *g)
+{
+	(void)g;
+}
 
 #else
 
 #ifdef CONFIG_NVGPU_TRACE
 #include <nvgpu/posix/trace_gk20a.h>
 #endif
-static inline void nvgpu_trace_intr_stall_start(struct gk20a *g) {}
-static inline void nvgpu_trace_intr_stall_done(struct gk20a *g) {}
+static inline void nvgpu_trace_intr_stall_start(struct gk20a *g)
+{
+	(void)g;
+}
+static inline void nvgpu_trace_intr_stall_done(struct gk20a *g)
+{
+	(void)g;
+}
 void nvgpu_trace_intr_thread_stall_start(struct gk20a *g);
 void nvgpu_trace_intr_thread_stall_done(struct gk20a *g);
 

@@ -1,0 +1,116 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/usb/role.h>
+
+/ {
+
+	xusb_padctl: xusb_padctl@3520000 {
+		     status = "okay";
+		     pads {
+			     usb2 {
+				     lanes {
+					     usb2-0 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+					     usb2-1 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+					     usb2-2 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+					     usb2-3 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+				     };
+			     };
+			     usb3 {
+				     lanes {
+					     usb3-1 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+					     usb3-2 {
+						     nvidia,function = "xusb";
+						     status = "okay";
+					     };
+				     };
+			     };
+		     };
+
+		     ports {
+			     usb2-0 {
+				     mode = "peripheral";
+				     status = "okay";
+				     vbus-supply = <&p3711_vdd_usbc>;
+				     usb-role-switch;
+				     /* The port only works on device mode and needs to be default on.
+				      * We do not have any singal from STM which indicate the cable
+				      * connected now.
+				      */
+				     connector {
+					     compatible = "usb-b-connector", "gpio-usb-b-connector";
+					     label = "micro-USB";
+					     type = "micro";
+					     cable-connected-on-boot = <USB_ROLE_DEVICE>;
+				     };
+			     };
+			     usb2-1 {
+				     mode = "host";
+				     status = "okay";
+				     vbus-supply = <&p3711_vdd_usbc>;
+			     };
+			     usb2-2 {
+				     mode = "host";
+				     status = "okay";
+				     vbus-supply = <&p3711_usb2_vbus>;
+			     };
+			     usb2-3 {
+				     mode = "host";
+				     status = "okay";
+				     vbus-supply = <&p3711_usb2_vbus>;
+			     };
+			     usb3-1 {
+				     nvidia,usb2-companion = <0>;
+				     status = "okay";
+			     };
+			     usb3-2 {
+				     nvidia,usb2-companion = <1>;
+				     status = "okay";
+			     };
+		     };
+	     };
+
+	tegra_xudc: xudc@3550000 {
+		    status = "okay";
+		    phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			 <&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-1}>;
+		    phy-names = "usb2-0", "usb3-1";
+		    nvidia,xusb-padctl = <&xusb_padctl>;
+		    nvidia,boost_cpu_freq = <1200>;
+	    };
+
+	tegra_xhci: xhci@3610000 {
+		    status = "okay";
+		    phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			 <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
+			 <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-3}>,
+			 <&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-2}>;
+		    phy-names = "usb2-1", "usb2-2", "usb2-3", "usb3-2";
+		    nvidia,xusb-padctl = <&xusb_padctl>;
+	    };
+};

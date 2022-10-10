@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/disassembler.c
  *
- * Copyright (c) 2015-2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -42,13 +42,17 @@ quadd_stack_found(struct quadd_disasm_data *qd)
 	return qd->stackreg != -1 || qd->stacksize != 0;
 }
 
-static void
+static int
 quadd_print_reg(char *buf, size_t size, int reg)
 {
+	int n;
+
 	if (reg != -1)
-		snprintf(buf, size, "r%d", reg);
+		n = snprintf(buf, size, "r%d", reg);
 	else
-		snprintf(buf, size, "<unused>");
+		n = snprintf(buf, size, "<unused>");
+
+	return n < 0 || n >= size;
 }
 
 /* Search interesting ARM insns in [qd->min...qd->max),

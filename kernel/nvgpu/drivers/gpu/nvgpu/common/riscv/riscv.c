@@ -84,7 +84,7 @@ int nvgpu_riscv_hs_ucode_load_bootstrap(struct nvgpu_falcon *flcn,
 	g->ops.falcon.set_bcr(flcn);
 	err = nvgpu_falcon_get_mem_size(flcn, MEM_DMEM, &dmem_size);
 	err = nvgpu_falcon_copy_to_imem(flcn, 0x0, code_fw->data,
-					code_fw->size, 0, true, 0x0);
+					(u32)code_fw->size, 0, true, 0x0);
 
 	if (err != 0) {
 		nvgpu_err(g, "RISCV code copy to IMEM failed");
@@ -92,14 +92,14 @@ int nvgpu_riscv_hs_ucode_load_bootstrap(struct nvgpu_falcon *flcn,
 	}
 
 	err = nvgpu_falcon_copy_to_dmem(flcn, 0x0, data_fw->data,
-					data_fw->size, 0x0);
+					(u32)data_fw->size, 0x0);
 	if (err != 0) {
 		nvgpu_err(g, "RISCV data copy to DMEM failed");
 		goto exit;
 	}
 
-	err = nvgpu_falcon_copy_to_dmem(flcn, dmem_size - manifest_fw->size,
-				manifest_fw->data, manifest_fw->size, 0x0);
+	err = nvgpu_falcon_copy_to_dmem(flcn, (u32)(dmem_size - manifest_fw->size),
+				manifest_fw->data, (u32)manifest_fw->size, 0x0);
 	if (err != 0) {
 		nvgpu_err(g, "RISCV manifest copy to DMEM failed");
 		goto exit;

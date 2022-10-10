@@ -1,0 +1,36 @@
+From 660d4d1815684126dc9390480445d7f955c7246f Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Thu, 9 Jul 2020 15:33:45 -0700
+Subject: [PATCH 726/830] ANDROID: GKI: set KMI_GENERATION=0 to enable new
+ kernel release format
+X-NVConfidentiality: public
+
+Enable the new kernel release format: w.x.y-zz-k where,
+  w.x.y are the current values
+  zzz is the Android Release value
+  k is the KMI Generation number
+
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Bug: 159842160
+Change-Id: I4e3c2dd49af9933a090c07cc076f19f6d9b4b89d
+[ebiggers: split this out from "ANDROID: update the kernel release
+           format for GKI" so that changes to upstream files are kept
+           separate from Android-specific build files.]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ build.config.common | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.common b/build.config.common
+index 2aa83074ab1b..74f15aaca731 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -1,4 +1,5 @@
+ BRANCH=android-mainline
++KMI_GENERATION=0
+ KERNEL_DIR=common
+ 
+ CC=clang
+-- 
+2.17.1
+

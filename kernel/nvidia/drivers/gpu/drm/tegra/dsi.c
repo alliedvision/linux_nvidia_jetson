@@ -14,6 +14,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
+#include <linux/version.h>
 
 #include <video/mipi_display.h>
 
@@ -1107,8 +1108,14 @@ static int tegra_dsi_runtime_resume(struct host1x_client *client)
 	struct device *dev = client->dev;
 	int err;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	err = pm_runtime_resume_and_get(dev);
+	if (err < 0) {
+#else
 	err = pm_runtime_get_sync(dev);
 	if (err < 0) {
+		pm_runtime_put_noidle(dev);
+#endif
 		dev_err(dev, "failed to get runtime PM: %d\n", err);
 		return err;
 	}

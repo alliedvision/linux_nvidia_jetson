@@ -1,0 +1,34 @@
+From d972a9ac987d5f83fe8e6f11ff78ec8cc40173c4 Mon Sep 17 00:00:00 2001
+From: Chun-Hung Wu <chun-hung.wu@mediatek.com>
+Date: Tue, 25 Aug 2020 15:48:16 +0800
+Subject: [PATCH 054/830] FROMLIST: clk: Export clk_register_composite
+X-NVConfidentiality: public
+
+clk_register_composite() will be used in mediatek's
+clock kernel module, so export it to GPL modules.
+
+Bug: 154743265
+Link: https://lore.kernel.org/lkml/1595493126-21611-1-git-send-email-wendell.lin@mediatek.com/
+Change-Id: I658a5073b9d6b33ff898f87133c5fbeb693ac6f9
+Signed-off-by: Wendell Lin <wendell.lin@mediatek.com>
+Signed-off-by: Chun-Hung Wu <chun-hung.wu@mediatek.com>
+(cherry picked from commit a254a08c1327bfd8c35b7d1d904d015ca3ab674f)
+---
+ drivers/clk/clk-composite.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/clk-composite.c b/drivers/clk/clk-composite.c
+index 2ddb54f7d3ab..2e7fedff527b 100644
+--- a/drivers/clk/clk-composite.c
++++ b/drivers/clk/clk-composite.c
+@@ -361,6 +361,7 @@ struct clk *clk_register_composite(struct device *dev, const char *name,
+ 		return ERR_CAST(hw);
+ 	return hw->clk;
+ }
++EXPORT_SYMBOL_GPL(clk_register_composite);
+ 
+ struct clk *clk_register_composite_pdata(struct device *dev, const char *name,
+ 			const struct clk_parent_data *parent_data,
+-- 
+2.17.1
+

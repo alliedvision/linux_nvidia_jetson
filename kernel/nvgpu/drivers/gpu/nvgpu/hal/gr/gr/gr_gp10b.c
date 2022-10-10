@@ -1,7 +1,7 @@
 /*
  * GP10B GPU GR
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -86,11 +86,11 @@ void gr_gp10b_set_bes_crop_debug4(struct gk20a *g, u32 data)
 	nvgpu_log_fn(g, " ");
 
 	val = gk20a_readl(g, gr_bes_crop_debug4_r());
-	if ((data & NVC097_BES_CROP_DEBUG4_CLAMP_FP_BLEND_TO_MAXVAL) != 0U) {
+	if ((data & 0x1U) == NVC097_BES_CROP_DEBUG4_CLAMP_FP_BLEND_TO_MAXVAL) {
 		val = set_field(val,
 			gr_bes_crop_debug4_clamp_fp_blend_m(),
 			gr_bes_crop_debug4_clamp_fp_blend_to_maxval_f());
-	} else if ((data & NVC097_BES_CROP_DEBUG4_CLAMP_FP_BLEND_TO_INF) != 0U) {
+	} else if ((data & 0x1U) == NVC097_BES_CROP_DEBUG4_CLAMP_FP_BLEND_TO_INF) {
 		val = set_field(val,
 			gr_bes_crop_debug4_clamp_fp_blend_m(),
 			gr_bes_crop_debug4_clamp_fp_blend_to_inf_f());
@@ -607,6 +607,8 @@ u32 gp10b_gr_get_sm_hww_warp_esr(struct gk20a *g,
 	u32 offset = nvgpu_gr_gpc_offset(g, gpc) + nvgpu_gr_tpc_offset(g, tpc);
 	u32 hww_warp_esr = gk20a_readl(g,
 			 gr_gpc0_tpc0_sm_hww_warp_esr_r() + offset);
+
+	(void)sm;
 
 	if ((hww_warp_esr & gr_gpc0_tpc0_sm_hww_warp_esr_addr_valid_m()) == 0U) {
 		hww_warp_esr = set_field(hww_warp_esr,

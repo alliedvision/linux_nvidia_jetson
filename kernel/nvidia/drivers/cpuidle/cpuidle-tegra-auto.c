@@ -28,15 +28,47 @@
 #include <linux/platform_device.h>
 #include <asm/cpuidle.h>
 #include <linux/suspend.h>
+#include <linux/wait.h>
 #include <soc/tegra/virt/syscalls.h>
 #include <soc/tegra/virt/tegra_hv_sysmgr.h>
+#include "../../kernel/irq/internals.h"
 
+static struct cpumask cpumask;
+
+static void suspend_all_device_irqs(void)
+{
+	struct irq_desc *desc;
+	int irq;
+
+	for_each_irq_desc(irq, desc) {
+		unsigned long flags;
+
+		raw_spin_lock_irqsave(&desc->lock, flags);
+		__disable_irq(desc);
+		raw_spin_unlock_irqrestore(&desc->lock, flags);
+	}
+}
+
+static void resume_all_device_irqs(void)
+{
+	struct irq_desc *desc;
+	int irq;
+
+	for_each_irq_desc(irq, desc) {
+		unsigned long flags;
+
+		raw_spin_lock_irqsave(&desc->lock, flags);
+		__enable_irq(desc);
+		raw_spin_unlock_irqrestore(&desc->lock, flags);
+	}
+}
 
 static int tegra_auto_suspend_notify_callback(struct notifier_block *nb,
 	unsigned long action, void *pcpu)
 {
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
+		cpumask_clear(&cpumask);
 		break;
 	case PM_POST_SUSPEND:
 		break;
@@ -61,11 +93,23 @@ static struct notifier_block suspend_notifier = {
 static int tegra_auto_enter_idle_state(struct cpuidle_device *dev,
 				struct cpuidle_driver *drv, int idx)
 {
-	if (idle_should_enter_s2idle()) {
+	if (idle_should_enter_s2idle() == true) {
 		int cpu_id = smp_processor_id();
 		int boot_cpu_id = get_boot_cpu_id();
+
 		if (cpu_id == boot_cpu_id) {
 			int error = 0;
+			int cpu_number = 0;
+
+			suspend_all_device_irqs();
+
+			for_each_online_cpu(cpu_number) {
+				if (cpu_number == boot_cpu_id)
+					continue;
+				while (!cpumask_test_cpu(cpu_number,
+					(const struct cpumask *)&cpumask))
+					udelay(10);
+			}
 
 			/*
 			 * Causes the linux guest VM to suspend. After SC7
@@ -75,10 +119,23 @@ static int tegra_auto_enter_idle_state(struct cpuidle_device *dev,
 			if (error < 0)
 				pr_err("%s: Failed to trigger suspend, %d\n",
 						__func__, error);
+
+			resume_all_device_irqs();
+
 			pm_system_wakeup();
 
 		} else {
-			asm volatile("wfi\n");
+			preempt_disable();
+			local_irq_disable();
+
+			cpumask_test_and_set_cpu(cpu_id, &cpumask);
+
+			do {
+				asm volatile("wfi\n");
+			} while (idle_should_enter_s2idle() == true);
+
+			local_irq_enable();
+			preempt_enable_no_resched();
 		}
 
 	} else {

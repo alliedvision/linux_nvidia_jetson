@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -162,12 +162,16 @@ static int vi_open(struct inode *inode, struct file *file)
 
 	pdata = container_of(inode->i_cdev,
 		struct nvhost_device_data, ctrl_cdev);
-	if (WARN_ONCE(pdata == NULL, "pdata not found, %s failed\n", __func__))
+	if (unlikely(pdata == NULL)) {
+		dev_err(&pdata->pdev->dev, "pdata not found, %s failed\n", __func__);
 		return -ENODEV;
+	};
 
 	vi = (struct vi *)pdata->private_data;
-	if (WARN_ONCE(vi == NULL, "vi not found, %s failed\n", __func__))
+	if (unlikely(vi == NULL)) {
+		dev_err(&pdata->pdev->dev, "vi not found, %s failed\n", __func__);
 		return -ENODEV;
+	}
 
 	file->private_data = vi;
 

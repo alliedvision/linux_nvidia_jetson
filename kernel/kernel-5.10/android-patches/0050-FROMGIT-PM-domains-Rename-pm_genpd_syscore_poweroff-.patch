@@ -1,0 +1,207 @@
+From da5678241133ac6ecdb5728520f46ec992a9745f Mon Sep 17 00:00:00 2001
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Date: Tue, 3 Nov 2020 16:06:25 +0100
+Subject: [PATCH 050/830] FROMGIT: PM: domains: Rename
+ pm_genpd_syscore_poweroff|poweron()
+X-NVConfidentiality: public
+
+To better describe what the pm_genpd_syscore_poweroff|poweron() functions
+actually do, let's rename them to dev_pm_genpd_suspend|resume() and update
+the rather few callers of them accordingly (a couple of clocksource
+drivers).
+
+Moreover, let's take the opportunity to add some documentation of these
+exported functions, as that is currently missing.
+
+Cc: Daniel Lezcano <daniel.lezcano@linaro.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+(cherry picked from commit fc51989062138744b56e47190915ce68484e73f3 git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm.git)
+Bug: 175076037
+Change-Id: I8b59f0ca12e63b39f2a39528eb566232c78172c9
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+---
+ drivers/base/power/domain.c   | 35 +++++++++++++++++++++--------------
+ drivers/clocksource/sh_cmt.c  |  8 ++++----
+ drivers/clocksource/sh_mtu2.c |  4 ++--
+ drivers/clocksource/sh_tmu.c  |  8 ++++----
+ include/linux/pm_domain.h     |  8 ++++----
+ 5 files changed, 35 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/base/power/domain.c b/drivers/base/power/domain.c
+index 743268996336..9b4881b67683 100644
+--- a/drivers/base/power/domain.c
++++ b/drivers/base/power/domain.c
+@@ -1363,14 +1363,7 @@ static void genpd_complete(struct device *dev)
+ 	genpd_unlock(genpd);
+ }
+ 
+-/**
+- * genpd_syscore_switch - Switch power during system core suspend or resume.
+- * @dev: Device that normally is marked as "always on" to switch power for.
+- *
+- * This routine may only be called during the system core (syscore) suspend or
+- * resume phase for devices whose "always on" flags are set.
+- */
+-static void genpd_syscore_switch(struct device *dev, bool suspend)
++static void genpd_switch_state(struct device *dev, bool suspend)
+ {
+ 	struct generic_pm_domain *genpd;
+ 
+@@ -1387,17 +1380,31 @@ static void genpd_syscore_switch(struct device *dev, bool suspend)
+ 	}
+ }
+ 
+-void pm_genpd_syscore_poweroff(struct device *dev)
++/**
++ * dev_pm_genpd_suspend - Synchronously try to suspend the genpd for @dev
++ * @dev: The device that is attached to the genpd, that can be suspended.
++ *
++ * This routine should typically be called for a device that needs to be
++ * suspended during the syscore suspend phase.
++ */
++void dev_pm_genpd_suspend(struct device *dev)
+ {
+-	genpd_syscore_switch(dev, true);
++	genpd_switch_state(dev, true);
+ }
+-EXPORT_SYMBOL_GPL(pm_genpd_syscore_poweroff);
++EXPORT_SYMBOL_GPL(dev_pm_genpd_suspend);
+ 
+-void pm_genpd_syscore_poweron(struct device *dev)
++/**
++ * dev_pm_genpd_resume - Synchronously try to resume the genpd for @dev
++ * @dev: The device that is attached to the genpd, which needs to be resumed.
++ *
++ * This routine should typically be called for a device that needs to be resumed
++ * during the syscore resume phase.
++ */
++void dev_pm_genpd_resume(struct device *dev)
+ {
+-	genpd_syscore_switch(dev, false);
++	genpd_switch_state(dev, false);
+ }
+-EXPORT_SYMBOL_GPL(pm_genpd_syscore_poweron);
++EXPORT_SYMBOL_GPL(dev_pm_genpd_resume);
+ 
+ #else /* !CONFIG_PM_SLEEP */
+ 
+diff --git a/drivers/clocksource/sh_cmt.c b/drivers/clocksource/sh_cmt.c
+index 2acfcc966bb5..09be5481facd 100644
+--- a/drivers/clocksource/sh_cmt.c
++++ b/drivers/clocksource/sh_cmt.c
+@@ -664,7 +664,7 @@ static void sh_cmt_clocksource_suspend(struct clocksource *cs)
+ 		return;
+ 
+ 	sh_cmt_stop(ch, FLAG_CLOCKSOURCE);
+-	pm_genpd_syscore_poweroff(&ch->cmt->pdev->dev);
++	dev_pm_genpd_suspend(&ch->cmt->pdev->dev);
+ }
+ 
+ static void sh_cmt_clocksource_resume(struct clocksource *cs)
+@@ -674,7 +674,7 @@ static void sh_cmt_clocksource_resume(struct clocksource *cs)
+ 	if (!ch->cs_enabled)
+ 		return;
+ 
+-	pm_genpd_syscore_poweron(&ch->cmt->pdev->dev);
++	dev_pm_genpd_resume(&ch->cmt->pdev->dev);
+ 	sh_cmt_start(ch, FLAG_CLOCKSOURCE);
+ }
+ 
+@@ -766,7 +766,7 @@ static void sh_cmt_clock_event_suspend(struct clock_event_device *ced)
+ {
+ 	struct sh_cmt_channel *ch = ced_to_sh_cmt(ced);
+ 
+-	pm_genpd_syscore_poweroff(&ch->cmt->pdev->dev);
++	dev_pm_genpd_suspend(&ch->cmt->pdev->dev);
+ 	clk_unprepare(ch->cmt->clk);
+ }
+ 
+@@ -775,7 +775,7 @@ static void sh_cmt_clock_event_resume(struct clock_event_device *ced)
+ 	struct sh_cmt_channel *ch = ced_to_sh_cmt(ced);
+ 
+ 	clk_prepare(ch->cmt->clk);
+-	pm_genpd_syscore_poweron(&ch->cmt->pdev->dev);
++	dev_pm_genpd_resume(&ch->cmt->pdev->dev);
+ }
+ 
+ static int sh_cmt_register_clockevent(struct sh_cmt_channel *ch,
+diff --git a/drivers/clocksource/sh_mtu2.c b/drivers/clocksource/sh_mtu2.c
+index bfccb31e94ad..169a1fccc497 100644
+--- a/drivers/clocksource/sh_mtu2.c
++++ b/drivers/clocksource/sh_mtu2.c
+@@ -297,12 +297,12 @@ static int sh_mtu2_clock_event_set_periodic(struct clock_event_device *ced)
+ 
+ static void sh_mtu2_clock_event_suspend(struct clock_event_device *ced)
+ {
+-	pm_genpd_syscore_poweroff(&ced_to_sh_mtu2(ced)->mtu->pdev->dev);
++	dev_pm_genpd_suspend(&ced_to_sh_mtu2(ced)->mtu->pdev->dev);
+ }
+ 
+ static void sh_mtu2_clock_event_resume(struct clock_event_device *ced)
+ {
+-	pm_genpd_syscore_poweron(&ced_to_sh_mtu2(ced)->mtu->pdev->dev);
++	dev_pm_genpd_resume(&ced_to_sh_mtu2(ced)->mtu->pdev->dev);
+ }
+ 
+ static void sh_mtu2_register_clockevent(struct sh_mtu2_channel *ch,
+diff --git a/drivers/clocksource/sh_tmu.c b/drivers/clocksource/sh_tmu.c
+index d41df9ba3725..b00dec0655cb 100644
+--- a/drivers/clocksource/sh_tmu.c
++++ b/drivers/clocksource/sh_tmu.c
+@@ -292,7 +292,7 @@ static void sh_tmu_clocksource_suspend(struct clocksource *cs)
+ 
+ 	if (--ch->enable_count == 0) {
+ 		__sh_tmu_disable(ch);
+-		pm_genpd_syscore_poweroff(&ch->tmu->pdev->dev);
++		dev_pm_genpd_suspend(&ch->tmu->pdev->dev);
+ 	}
+ }
+ 
+@@ -304,7 +304,7 @@ static void sh_tmu_clocksource_resume(struct clocksource *cs)
+ 		return;
+ 
+ 	if (ch->enable_count++ == 0) {
+-		pm_genpd_syscore_poweron(&ch->tmu->pdev->dev);
++		dev_pm_genpd_resume(&ch->tmu->pdev->dev);
+ 		__sh_tmu_enable(ch);
+ 	}
+ }
+@@ -394,12 +394,12 @@ static int sh_tmu_clock_event_next(unsigned long delta,
+ 
+ static void sh_tmu_clock_event_suspend(struct clock_event_device *ced)
+ {
+-	pm_genpd_syscore_poweroff(&ced_to_sh_tmu(ced)->tmu->pdev->dev);
++	dev_pm_genpd_suspend(&ced_to_sh_tmu(ced)->tmu->pdev->dev);
+ }
+ 
+ static void sh_tmu_clock_event_resume(struct clock_event_device *ced)
+ {
+-	pm_genpd_syscore_poweron(&ced_to_sh_tmu(ced)->tmu->pdev->dev);
++	dev_pm_genpd_resume(&ced_to_sh_tmu(ced)->tmu->pdev->dev);
+ }
+ 
+ static void sh_tmu_register_clockevent(struct sh_tmu_channel *ch,
+diff --git a/include/linux/pm_domain.h b/include/linux/pm_domain.h
+index 1ad0ec481416..a8f93328daec 100644
+--- a/include/linux/pm_domain.h
++++ b/include/linux/pm_domain.h
+@@ -280,11 +280,11 @@ static inline int dev_pm_genpd_remove_notifier(struct device *dev)
+ #endif
+ 
+ #ifdef CONFIG_PM_GENERIC_DOMAINS_SLEEP
+-void pm_genpd_syscore_poweroff(struct device *dev);
+-void pm_genpd_syscore_poweron(struct device *dev);
++void dev_pm_genpd_suspend(struct device *dev);
++void dev_pm_genpd_resume(struct device *dev);
+ #else
+-static inline void pm_genpd_syscore_poweroff(struct device *dev) {}
+-static inline void pm_genpd_syscore_poweron(struct device *dev) {}
++static inline void dev_pm_genpd_suspend(struct device *dev) {}
++static inline void dev_pm_genpd_resume(struct device *dev) {}
+ #endif
+ 
+ /* OF PM domain providers */
+-- 
+2.17.1
+

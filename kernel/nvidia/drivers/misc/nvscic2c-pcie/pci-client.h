@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +18,7 @@
 #include <uapi/misc/nvscic2c-pcie-ioctl.h>
 
 #include "common.h"
+#include "module.h"
 
 /* forward declaration.*/
 struct vm_area_struct;
@@ -102,4 +103,34 @@ pci_client_mmap_link_mem(void *pci_client_h, struct vm_area_struct *vma);
 /* Query PCI link status. */
 enum nvscic2c_pcie_link
 pci_client_query_link_status(void *pci_client_h);
+
+/*
+ * Helper functions to set and set driver context from pci_client_h
+ */
+
+/* Save driver context of DRV_MODE_EPF or DRV_MODE_EPC */
+int
+pci_client_save_driver_ctx(void *pci_client_h, struct driver_ctx_t *drv_ctx);
+
+/* Getter driver context of DRV_MODE_EPF or DRV_MODE_EPC */
+struct driver_ctx_t *
+pci_client_get_driver_ctx(void *pci_client_h);
+/*getter drv mode   */
+enum drv_mode_t
+pci_client_get_drv_mode(void *pci_client_h);
+/* save peer cpu sent by boottrap msg  */
+int
+pci_client_save_peer_cpu(void *pci_client_h, enum peer_cpu_t peer_cpu);
+
+/* Getter the soc/arch of rp */
+enum peer_cpu_t
+pci_client_get_peer_cpu(void *pci_client_h);
+
+/* Get allocated edma rx desc iova  */
+dma_addr_t
+pci_client_get_edma_rx_desc_iova(void *pci_client_h);
+
+/* pci client raise irq to rp */
+int
+pci_client_raise_irq(void *pci_client_h, enum pci_epc_irq_type type, u16 num);
 #endif // __PCI_CLIENT_H__

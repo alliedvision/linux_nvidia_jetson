@@ -1,0 +1,46 @@
+From d121b912308c50c263ffb3cd5268f36d2e06fd3e Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Wed, 7 Oct 2020 14:07:35 -0600
+Subject: [PATCH 056/830] FROMLIST: soc: qcom: Kconfig: make RPMH match Command
+ DB setting
+X-NVConfidentiality: public
+
+RPMH and drivers that use RPMH APIs need Command DB API to find the
+dynamic resource information. Let's match the RPMH to match the Command
+DB configuration.
+
+This should fix undefined symbol references reported by CI :
+
+   aarch64-linux-ld: drivers/clk/qcom/clk-rpmh.o: in function `clk_rpmh_probe':
+>> clk-rpmh.c:(.text+0xac): undefined reference to `cmd_db_read_addr'
+>> aarch64-linux-ld: clk-rpmh.c:(.text+0xc0): undefined reference to `cmd_db_read_aux_data'
+   aarch64-linux-ld: drivers/soc/qcom/rpmh-rsc.o: in function `rpmh_rsc_probe':
+>> rpmh-rsc.c:(.text+0x42c): undefined reference to `cmd_db_ready'
+   aarch64-linux-ld: drivers/regulator/qcom-rpmh-regulator.o: in function `rpmh_regulator_probe':
+>> qcom-rpmh-regulator.c:(.text+0x3e0): undefined reference to `cmd_db_read_addr'
+
+Bug: 169259846
+Fixes: d47a4b6ba183 ("FROMLIST: soc: qcom: cmd-db: allow loading as a module")
+Link: https://lore.kernel.org/linux-arm-msm/20201008040907.7036-1-ilina@codeaurora.org/T/#u
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: I3f95d6c8c2e86a810fd6334d5e7e2ec1d8f684fa
+---
+ drivers/soc/qcom/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 6a3b69b43ad5..340ff7e98d1c 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -110,6 +110,7 @@ config QCOM_RMTFS_MEM
+ config QCOM_RPMH
+ 	bool "Qualcomm RPM-Hardened (RPMH) Communication"
+ 	depends on ARCH_QCOM || COMPILE_TEST
++	depends on (QCOM_COMMAND_DB || !QCOM_COMMAND_DB)
+ 	help
+ 	  Support for communication with the hardened-RPM blocks in
+ 	  Qualcomm Technologies Inc (QTI) SoCs. RPMH communication uses an
+-- 
+2.17.1
+

@@ -1,0 +1,38 @@
+From a001094c1792df1f293cab389c142f52a81d5b49 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 14 Apr 2020 14:37:59 +0100
+Subject: [PATCH 685/830] ANDROID: Re-enable CONFIG_STM for allmodconfig
+X-NVConfidentiality: public
+
+It was disabled due to ld.lld discarding the __memcat_p symbol even
+though it was exported -- see [1]. However, this issue has now been
+fixed upstream in 7273ad2b08f8 ("kbuild: link lib-y objects to
+vmlinux forcibly when CONFIG_MODULES=y"), so CONFIG_STM can now be
+enabled safely.
+
+[1] https://github.com/ClangBuiltLinux/linux/issues/515
+
+Bug: 140224784
+Fixes: dd88a4a1d578 ("ANDROID: Fix x86_64 allmodconfig build")
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: Ic0dede721f67a0f2ff80ba27cb2a2aa9c7c03db3
+---
+ build.config.allmodconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index d318971fb9b3..9e39960c6a80 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -6,8 +6,6 @@ function update_config() {
+     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+          -d TEST_KMOD  \
+          -d CPU_BIG_ENDIAN \
+-         -d STM \
+-         -d TEST_MEMCAT_P \
+          -e UNWINDER_FRAME_POINTER \
+ 
+     (cd ${OUT_DIR} && \
+-- 
+2.17.1
+

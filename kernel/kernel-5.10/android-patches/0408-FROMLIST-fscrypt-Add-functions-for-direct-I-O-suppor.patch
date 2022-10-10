@@ -1,0 +1,185 @@
+From 9ded04147031e0157599253213144cae88c5866e Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 9 Jul 2020 19:47:47 +0000
+Subject: [PATCH 408/830] FROMLIST: fscrypt: Add functions for direct I/O
+ support
+X-NVConfidentiality: public
+
+Introduce fscrypt_dio_supported() to check whether a direct I/O request
+is unsupported due to encryption constraints, and
+fscrypt_limit_dio_pages() to check how many pages may be added to a bio
+being prepared for direct I/O.
+
+The IV_INO_LBLK_32 fscrypt policy introduces the possibility that DUNs
+in logically continuous file blocks might wrap from 0xffffffff to 0.
+Bios in which the DUN wraps around like this cannot be submitted. This
+is especially difficult to handle when block_size != PAGE_SIZE, since in
+that case the DUN can wrap in the middle of a page.
+
+For now, we add direct I/O support while using IV_INO_LBLK_32 policies
+only for the case when block_size == PAGE_SIZE. When IV_INO_LBLK_32
+policy is used, fscrypt_dio_supported() rejects the bio when
+block_size != PAGE_SIZE. fscrypt_limit_dio_pages() returns the number of
+pages that may be added to the bio without causing the DUN to wrap
+around within the bio.
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+Signed-off-by: Satya Tangirala <satyat@google.com>
+
+Bug: 137270441
+Bug: 144046242
+Bug: 162255927
+Link: https://lore.kernel.org/r/20200709194751.2579207-2-satyat@google.com
+Change-Id: Ib9e77373e3967a6509802b594b4dc5731154ecbc
+---
+ fs/crypto/crypto.c       |  8 +++++
+ fs/crypto/inline_crypt.c | 72 ++++++++++++++++++++++++++++++++++++++++
+ include/linux/fscrypt.h  | 19 +++++++++++
+ 3 files changed, 99 insertions(+)
+
+diff --git a/fs/crypto/crypto.c b/fs/crypto/crypto.c
+index 4ef3f714046a..171500f51a49 100644
+--- a/fs/crypto/crypto.c
++++ b/fs/crypto/crypto.c
+@@ -69,6 +69,14 @@ void fscrypt_free_bounce_page(struct page *bounce_page)
+ }
+ EXPORT_SYMBOL(fscrypt_free_bounce_page);
+ 
++/*
++ * Generate the IV for the given logical block number within the given file.
++ * For filenames encryption, lblk_num == 0.
++ *
++ * Keep this in sync with fscrypt_limit_dio_pages().  fscrypt_limit_dio_pages()
++ * needs to know about any IV generation methods where the low bits of IV don't
++ * simply contain the lblk_num (e.g., IV_INO_LBLK_32).
++ */
+ void fscrypt_generate_iv(union fscrypt_iv *iv, u64 lblk_num,
+ 			 const struct fscrypt_info *ci)
+ {
+diff --git a/fs/crypto/inline_crypt.c b/fs/crypto/inline_crypt.c
+index 59358084cba6..aa61b3c5933a 100644
+--- a/fs/crypto/inline_crypt.c
++++ b/fs/crypto/inline_crypt.c
+@@ -17,6 +17,7 @@
+ #include <linux/buffer_head.h>
+ #include <linux/sched/mm.h>
+ #include <linux/slab.h>
++#include <linux/uio.h>
+ 
+ #include "fscrypt_private.h"
+ 
+@@ -375,3 +376,74 @@ bool fscrypt_mergeable_bio_bh(struct bio *bio,
+ 	return fscrypt_mergeable_bio(bio, inode, next_lblk);
+ }
+ EXPORT_SYMBOL_GPL(fscrypt_mergeable_bio_bh);
++
++/**
++ * fscrypt_dio_supported() - check whether a direct I/O request is unsupported
++ *			     due to encryption constraints
++ * @iocb: the file and position the I/O is targeting
++ * @iter: the I/O data segment(s)
++ *
++ * Return: true if direct I/O is supported
++ */
++bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter)
++{
++	const struct inode *inode = file_inode(iocb->ki_filp);
++	const unsigned int blocksize = i_blocksize(inode);
++
++	/* If the file is unencrypted, no veto from us. */
++	if (!fscrypt_needs_contents_encryption(inode))
++		return true;
++
++	/* We only support direct I/O with inline crypto, not fs-layer crypto */
++	if (!fscrypt_inode_uses_inline_crypto(inode))
++		return false;
++
++	/*
++	 * Since the granularity of encryption is filesystem blocks, the I/O
++	 * must be block aligned -- not just disk sector aligned.
++	 */
++	if (!IS_ALIGNED(iocb->ki_pos | iov_iter_alignment(iter), blocksize))
++		return false;
++
++	return true;
++}
++EXPORT_SYMBOL_GPL(fscrypt_dio_supported);
++
++/**
++ * fscrypt_limit_dio_pages() - limit I/O pages to avoid discontiguous DUNs
++ * @inode: the file on which I/O is being done
++ * @pos: the file position (in bytes) at which the I/O is being done
++ * @nr_pages: the number of pages we want to submit starting at @pos
++ *
++ * For direct I/O: limit the number of pages that will be submitted in the bio
++ * targeting @pos, in order to avoid crossing a data unit number (DUN)
++ * discontinuity.  This is only needed for certain IV generation methods.
++ *
++ * This assumes block_size == PAGE_SIZE; see fscrypt_dio_supported().
++ *
++ * Return: the actual number of pages that can be submitted
++ */
++int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos, int nr_pages)
++{
++	const struct fscrypt_info *ci = inode->i_crypt_info;
++	u32 dun;
++
++	if (!fscrypt_inode_uses_inline_crypto(inode))
++		return nr_pages;
++
++	if (nr_pages <= 1)
++		return nr_pages;
++
++	if (!(fscrypt_policy_flags(&ci->ci_policy) &
++	      FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
++		return nr_pages;
++
++	if (WARN_ON_ONCE(i_blocksize(inode) != PAGE_SIZE))
++		return 1;
++
++	/* With IV_INO_LBLK_32, the DUN can wrap around from U32_MAX to 0. */
++
++	dun = ci->ci_hashed_ino + (pos >> inode->i_blkbits);
++
++	return min_t(u64, nr_pages, (u64)U32_MAX + 1 - dun);
++}
+diff --git a/include/linux/fscrypt.h b/include/linux/fscrypt.h
+index aed4a4709af5..8cf9c129c6f1 100644
+--- a/include/linux/fscrypt.h
++++ b/include/linux/fscrypt.h
+@@ -608,6 +608,11 @@ bool fscrypt_mergeable_bio(struct bio *bio, const struct inode *inode,
+ bool fscrypt_mergeable_bio_bh(struct bio *bio,
+ 			      const struct buffer_head *next_bh);
+ 
++bool fscrypt_dio_supported(struct kiocb *iocb, struct iov_iter *iter);
++
++int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos,
++			    int nr_pages);
++
+ #else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
+ 
+ static inline bool __fscrypt_inode_uses_inline_crypto(const struct inode *inode)
+@@ -636,6 +641,20 @@ static inline bool fscrypt_mergeable_bio_bh(struct bio *bio,
+ {
+ 	return true;
+ }
++
++static inline bool fscrypt_dio_supported(struct kiocb *iocb,
++					 struct iov_iter *iter)
++{
++	const struct inode *inode = file_inode(iocb->ki_filp);
++
++	return !fscrypt_needs_contents_encryption(inode);
++}
++
++static inline int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos,
++					  int nr_pages)
++{
++	return nr_pages;
++}
+ #endif /* !CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
+ 
+ #if IS_ENABLED(CONFIG_FS_ENCRYPTION) && IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
+-- 
+2.17.1
+

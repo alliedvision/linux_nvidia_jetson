@@ -1,7 +1,7 @@
 /*
  * Tegra 19x SoC-specific mcerr code.
  *
- * Copyright (c) 2017, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -290,6 +290,9 @@ static struct mc_client mc_clients[] = {
 static int mc_client_last = ARRAY_SIZE(mc_clients) - 1;
 /*** Done. ***/
 
+static u32 global_intstatus;
+static u32 global_intstatus_1;
+
 static const char *intr_info[] = {
 	NULL,		/* Bit 0 */
 	NULL,
@@ -477,12 +480,19 @@ static const struct mc_error sbs_mc_errors[] = {
 	MC_ERR(0, NULL, 0, 0, 0),
 };
 
-static void clear_interrupt(unsigned int irq)
+static void set_intstatus(unsigned int irq)
 {
-	/* The mcerr throttling mechanism would call clear interrupt.
-	 * clear interrupt recovers the system from continuous mc error
-	 * interrupt as well in case an error is not handled right.
-	 */
+}
+
+static void save_intstatus(unsigned int irq)
+{
+	global_intstatus = mc_readl(MC_GLOBAL_INTSTATUS);
+	global_intstatus_1 = mc_readl(MC_GLOBAL_INTSTATUS_1);
+}
+
+static void clear_intstatus(unsigned int irq)
+{
+	/* Clear int status to clear MSS to GIC interrupts */
 	mc_writel(INTSTATUS_CLEAR, MC_INTSTATUS);
 	mc_writel(HUBC_INTSTATUS_CLEAR, MC_HUBC_INTSTATUS);
 	mc_writel(HUB_INTSTATUS_CLEAR, MC_HUB_INTSTATUS);
@@ -573,8 +583,8 @@ static void log_mcerr_fault(unsigned int irq)
 	int mc_channel = MC_BROADCAST_CHANNEL;
 	u32 slice_int_status, ch_int_status, hubc_int_status;
 	u32 sbs_int_status, hub_int_status;
-	u32 g_intstatus = mc_readl(MC_GLOBAL_INTSTATUS);
-	u32 g_intstatus_1 = mc_readl(MC_GLOBAL_INTSTATUS_1);
+	u32 g_intstatus = global_intstatus;
+	u32 g_intstatus_1 = global_intstatus_1;
 
 	/*
 	 * If multiple interrupts come in just handle the first one we see. The
@@ -629,7 +639,9 @@ static void log_mcerr_fault(unsigned int irq)
 static struct mcerr_ops mcerr_ops = {
 	.nr_clients = ARRAY_SIZE(mc_clients),
 	.intr_descriptions = intr_info,
-	.clear_interrupt = clear_interrupt,
+	.set_intstatus = set_intstatus,
+	.clear_intstatus = clear_intstatus,
+	.save_intstatus = save_intstatus,
 	.log_mcerr_fault = log_mcerr_fault,
 	.mc_clients = mc_clients,
 };

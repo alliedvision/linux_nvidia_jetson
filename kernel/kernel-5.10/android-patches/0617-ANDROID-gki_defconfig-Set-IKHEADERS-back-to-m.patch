@@ -1,0 +1,50 @@
+From 51bfefd090270643d99277949a1f35f730ac5f30 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Sun, 26 Jan 2020 14:51:11 -0800
+Subject: [PATCH 617/830] ANDROID: gki_defconfig: Set IKHEADERS back to =m
+X-NVConfidentiality: public
+
+This partially reverts I56e59e1a6232dada090d720f43e0d1036f43d064.
+
+The build/runtime vintf check validates that CONFIG_IKHEADERS=m, it is
+not allowed to be set to =y. While we figure out what the right course
+of action is here, modify it back to =m.
+
+Bug: 139431025
+Test: TreeHugger
+Change-Id: I3624fa4eb40a8aa726275027aa2b2d5bd635ceda
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 +-
+ arch/x86/configs/gki_defconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index d132bb0be606..ebfe18c5950b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -9,7 +9,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+-CONFIG_IKHEADERS=y
++CONFIG_IKHEADERS=m
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 9e02cfd36b83..a0a6978c1dd9 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -10,7 +10,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+-CONFIG_IKHEADERS=y
++CONFIG_IKHEADERS=m
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+-- 
+2.17.1
+

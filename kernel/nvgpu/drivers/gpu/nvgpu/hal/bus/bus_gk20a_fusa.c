@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,7 +39,9 @@ int gk20a_bus_init_hw(struct gk20a *g)
 {
 	u32 intr_en_mask = 0U;
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_BUS, NVGPU_CIC_INTR_ENABLE);
+#endif
 
 	/*
 	 * Note: bus_intr_en_0 is for routing intr to stall tree (mc_intr_0)
@@ -72,12 +74,15 @@ void gk20a_bus_isr(struct gk20a *g)
 			bus_intr_0_pri_timeout_m())) != 0U) {
 		if ((val & bus_intr_0_pri_squash_m()) != 0U) {
 			err_type = GPU_HOST_PBUS_SQUASH_ERROR;
+			nvgpu_err (g, "host pbus squash error");
 		}
 		if ((val & bus_intr_0_pri_fecserr_m()) != 0U) {
 			err_type = GPU_HOST_PBUS_FECS_ERROR;
+			nvgpu_err (g, "host pbus fecs error");
 		}
 		if ((val & bus_intr_0_pri_timeout_m()) != 0U) {
 			err_type = GPU_HOST_PBUS_TIMEOUT_ERROR;
+			nvgpu_err (g, "host pbus timeout error");
 		}
 		g->ops.ptimer.isr(g);
 	} else {
@@ -89,7 +94,6 @@ void gk20a_bus_isr(struct gk20a *g)
 		 */
 		err_type = GPU_HOST_PBUS_TIMEOUT_ERROR;
 	}
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-			0, err_type, val);
+	nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST, err_type);
 	nvgpu_writel(g, bus_intr_0_r(), val);
 }

@@ -1,7 +1,7 @@
 /*
  * Tegra Video Input 5 device common APIs
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frank@nvidia.com>
  *
@@ -84,8 +84,15 @@ static int tegra_vi5_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_subdev *sd = chan->subdev_on_csi;
 	struct camera_common_data *s_data =
 				to_camera_common_data(sd->dev);
-	struct tegracam_ctrl_handler *handler = s_data->tegracam_ctrl_hdl;
-	struct tegracam_sensor_data *sensor_data = &handler->sensor_data;
+	struct tegracam_ctrl_handler *handler;
+	struct tegracam_sensor_data *sensor_data;
+
+	if (!s_data)
+		return -EINVAL;
+	handler = s_data->tegracam_ctrl_hdl;
+	if (!handler)
+		return -EINVAL;
+	sensor_data = &handler->sensor_data;
 
 	/* TODO: Support reading blobs for multiple devices */
 	switch (ctrl->id) {
@@ -270,7 +277,7 @@ static struct tegra_csi_channel *find_linked_csi_channel(
 	return csi_chan;
 }
 
-static int tegra_channel_capture_setup(struct tegra_channel *chan)
+static int tegra_channel_capture_setup(struct tegra_channel *chan, unsigned int vi_port)
 {
 	struct vi_capture_setup setup = default_setup;
 	long err;
@@ -278,10 +285,11 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan)
 	setup.queue_depth = chan->capture_queue_depth;
 
 	trace_tegra_channel_capture_setup(chan, 0);
-	chan->request = dma_alloc_coherent(chan->tegra_vi_channel->rtcpu_dev,
+
+	chan->request[vi_port] = dma_alloc_coherent(chan->tegra_vi_channel[vi_port]->rtcpu_dev,
 					setup.queue_depth * setup.request_size,
 					&setup.iova, GFP_KERNEL);
-	if (chan->request == NULL) {
+	if (chan->request[vi_port] == NULL) {
 		dev_err(chan->vi->dev, "dma_alloc_coherent failed\n");
 		return -ENOMEM;
 	}
@@ -293,7 +301,7 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan)
 	}
 
 	/* Set the NVCSI PixelParser index (Stream ID) and VC ID*/
-	setup.csi_stream_id = chan->port[0];
+	setup.csi_stream_id = chan->port[vi_port];
 	setup.virtual_channel_id = chan->virtual_channel;
 	/* Set CSI port info */
 	if (chan->pg_mode) {
@@ -307,13 +315,13 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan)
 			return -EINVAL;
 		}
 
-		setup.csi_port = csi_chan->ports->csi_port;
+		setup.csi_port = csi_chan->ports[vi_port].csi_port;
 	}
 
-	err = vi_capture_setup(chan->tegra_vi_channel, &setup);
+	err = vi_capture_setup(chan->tegra_vi_channel[vi_port], &setup);
 	if (err) {
 		dev_err(chan->vi->dev, "vi capture setup failed\n");
-		dma_free_coherent(chan->tegra_vi_channel->rtcpu_dev,
+		dma_free_coherent(chan->tegra_vi_channel[vi_port]->rtcpu_dev,
 				setup.queue_depth * setup.request_size,
 				chan->request, setup.iova);
 		return err;
@@ -323,23 +331,31 @@ static int tegra_channel_capture_setup(struct tegra_channel *chan)
 }
 
 static void vi5_setup_surface(struct tegra_channel *chan,
-	struct tegra_channel_buffer *buf, unsigned int descr_index)
+	struct tegra_channel_buffer *buf, unsigned int descr_index, unsigned int vi_port)
 {
-	dma_addr_t offset = buf->addr + chan->buffer_offset[0];
+	dma_addr_t offset = buf->addr + chan->buffer_offset[vi_port];
 	u32 height = chan->format.height;
 	u32 width = chan->format.width;
 	u32 format = chan->fmtinfo->img_fmt;
-	u32 csi_port = chan->port[0];
-	struct capture_descriptor *desc = &chan->request[descr_index];
+	u32 bpl = chan->format.bytesperline;
+
+	u32 nvcsi_stream = chan->port[vi_port];
 	struct capture_descriptor_memoryinfo *desc_memoryinfo =
-		&chan->tegra_vi_channel->
+		&chan->tegra_vi_channel[vi_port]->
 		capture_data->requests_memoryinfo[descr_index];
+	struct capture_descriptor *desc = &chan->request[vi_port][descr_index];
+
+	if (chan->valid_ports > NVCSI_STREAM_1) {
+		height = chan->gang_height;
+		width = chan->gang_width;
+		offset = buf->addr + chan->buffer_offset[1 - vi_port];
+	}
 
 	memcpy(desc, &capture_template, sizeof(capture_template));
 	memset(desc_memoryinfo, 0, sizeof(*desc_memoryinfo));
 
 	desc->sequence = chan->capture_descr_sequence;
-	desc->ch_cfg.match.stream = (1u << csi_port); /* one-hot bit encoding */
+	desc->ch_cfg.match.stream = (1u << nvcsi_stream); /* one-hot bit encoding */
 	desc->ch_cfg.match.vc = (1u << chan->virtual_channel); /* one-hot bit encoding */
 	desc->ch_cfg.frame.frame_x = width;
 	desc->ch_cfg.frame.frame_y = height;
@@ -350,7 +366,7 @@ static void vi5_setup_surface(struct tegra_channel *chan,
 
 	desc_memoryinfo->surface[0].base_address = offset;
 	desc_memoryinfo->surface[0].size = chan->format.bytesperline * height;
-	desc->ch_cfg.atomp.surface_stride[0] = chan->format.bytesperline;
+	desc->ch_cfg.atomp.surface_stride[0] = bpl;
 
 	if (chan->embedded_data_height > 0) {
 		desc->ch_cfg.embdata_enable = 1;
@@ -385,36 +401,37 @@ static void vi5_capture_enqueue(struct tegra_channel *chan,
 	struct tegra_channel_buffer *buf)
 {
 	int err = 0;
+	int vi_port;
 	unsigned long flags;
 	struct tegra_mc_vi *vi = chan->vi;
-	struct vi_capture_req request = {
+	struct vi_capture_req request[2] = {{
 		.buffer_index = 0,
-	};
+	}, {
+		.buffer_index = 0,
+	}};
 
-	/* Set up buffer and dispatch capture request */
-	vi5_setup_surface(chan, buf, chan->capture_descr_index);
+	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+		vi5_setup_surface(chan, buf, chan->capture_descr_index, vi_port);
+		request[vi_port].buffer_index = chan->capture_descr_index;
 
-	request.buffer_index = chan->capture_descr_index;
+		err = vi_capture_request(chan->tegra_vi_channel[vi_port], &request[vi_port]);
 
-	err = vi_capture_request(chan->tegra_vi_channel, &request);
-	if (err) {
-		dev_err(vi->dev, "uncorr_err: request dispatch err %d\n", err);
-		goto uncorr_err;
+		if (err) {
+			dev_err(vi->dev, "uncorr_err: request dispatch err %d\n", err);
+			goto uncorr_err;
+		}
+
+		spin_lock_irqsave(&chan->capture_state_lock, flags);
+		if (chan->capture_state != CAPTURE_ERROR) {
+			chan->capture_state = CAPTURE_GOOD;
+			chan->capture_reqs_enqueued += 1;
+		}
+		spin_unlock_irqrestore(&chan->capture_state_lock, flags);
+		buf->capture_descr_index[vi_port] = chan->capture_descr_index;
 	}
-
-	spin_lock_irqsave(&chan->capture_state_lock, flags);
-	if (chan->capture_state != CAPTURE_ERROR) {
-		chan->capture_state = CAPTURE_GOOD;
-		chan->capture_reqs_enqueued += 1;
-	}
-	spin_unlock_irqrestore(&chan->capture_state_lock, flags);
-
-	buf->capture_descr_index = chan->capture_descr_index;
-
 	chan->capture_descr_index = ((chan->capture_descr_index + 1)
-		% chan->capture_queue_depth);
+					% (chan->capture_queue_depth));
 
-	/* Move buffer into dequeue queue */
 	spin_lock(&chan->dequeue_lock);
 	list_add_tail(&buf->queue, &chan->dequeue);
 	spin_unlock(&chan->dequeue_lock);
@@ -433,55 +450,73 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 	struct tegra_channel_buffer *buf)
 {
 	int err = 0;
+	int vi_port = 0;
+	int gang_prev_frame_id = 0;
 	unsigned long flags;
 	struct tegra_mc_vi *vi = chan->vi;
 	struct vb2_v4l2_buffer *vb = &buf->buf;
+
 #if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
 #else
 	struct timespec64 ts;
 #endif
-	struct capture_descriptor *descr =
-		&chan->request[buf->capture_descr_index];
 
-	if (buf->vb2_state != VB2_BUF_STATE_ACTIVE)
-		goto rel_buf;
+	struct capture_descriptor *descr = NULL;
 
-	/* Dequeue a frame and check its capture status */
-	err = vi_capture_status(chan->tegra_vi_channel, jiffies_to_msecs(chan->timeout));
-	if (err) {
-		if (err == -ETIMEDOUT) {
-			dev_err(vi->dev,
-				"uncorr_err: request timed out after %d ms\n",
-				jiffies_to_msecs(chan->timeout));
-		} else {
-			dev_err(vi->dev, "uncorr_err: request err %d\n", err);
-		}
-		goto uncorr_err;
-	} else if (descr->status.status != CAPTURE_STATUS_SUCCESS) {
-		if ((descr->status.flags
-				& CAPTURE_STATUS_FLAG_CHANNEL_IN_ERROR) != 0) {
-			chan->queue_error = true;
-			dev_err(vi->dev, "uncorr_err: flags %d, err_data %d\n",
-				descr->status.flags, descr->status.err_data);
-		} else {
-			dev_warn(vi->dev,
-				"corr_err: discarding frame %d, flags: %d, "
-				"err_data %d\n",
-				descr->status.frame_id, descr->status.flags,
-				descr->status.err_data);
+	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+		descr = &chan->request[vi_port][buf->capture_descr_index[vi_port]];
 
+		if (buf->vb2_state != VB2_BUF_STATE_ACTIVE)
+			goto rel_buf;
+
+		/* Dequeue a frame and check its capture status */
+		err = vi_capture_status(chan->tegra_vi_channel[vi_port], jiffies_to_msecs(chan->timeout));
+		if (err) {
+			if (err == -ETIMEDOUT) {
+				dev_err(vi->dev,
+					"uncorr_err: request timed out after %d ms\n",
+					jiffies_to_msecs(chan->timeout));
+			} else {
+				dev_err(vi->dev, "uncorr_err: request err %d\n", err);
+			}
+			goto uncorr_err;
+		} else if (descr->status.status != CAPTURE_STATUS_SUCCESS) {
+			if ((descr->status.flags
+					& CAPTURE_STATUS_FLAG_CHANNEL_IN_ERROR) != 0) {
+				chan->queue_error = true;
+				dev_err(vi->dev, "uncorr_err: flags %d, err_data %d\n",
+					descr->status.flags, descr->status.err_data);
+			} else {
+				dev_warn(vi->dev,
+					"corr_err: discarding frame %d, flags: %d, "
+					"err_data %d\n",
+					descr->status.frame_id, descr->status.flags,
+					descr->status.err_data);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
-			buf->vb2_state = VB2_BUF_STATE_REQUEUEING;
+					buf->vb2_state = VB2_BUF_STATE_REQUEUEING;
 #else
-			buf->vb2_state = VB2_BUF_STATE_ERROR;
+					buf->vb2_state = VB2_BUF_STATE_ERROR;
 #endif
 			goto done;
+			}
+		} else if (!vi_port) {
+			gang_prev_frame_id = descr->status.frame_id;
+		} else if (descr->status.frame_id != gang_prev_frame_id) {
+			dev_err(vi->dev, "frame_id out of sync: ch2 %d vs ch1 %d\n",
+					gang_prev_frame_id, descr->status.frame_id);
+			goto uncorr_err;
 		}
+
+		spin_lock_irqsave(&chan->capture_state_lock, flags);
+		if (chan->capture_state != CAPTURE_ERROR) {
+			chan->capture_reqs_enqueued -= 1;
+			chan->capture_state = CAPTURE_GOOD;
+		}
+		spin_unlock_irqrestore(&chan->capture_state_lock, flags);
 	}
 
-	buf->vb2_state = VB2_BUF_STATE_DONE;
-
+	wake_up_interruptible(&chan->start_wait);
 	/* Read SOF from capture descriptor */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	ts = ns_to_timespec((s64)descr->status.sof_timestamp);
@@ -495,6 +530,7 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 #endif
 	vb->vb2_buf.timestamp = descr->status.sof_timestamp;
 
+	buf->vb2_state = VB2_BUF_STATE_DONE;
 	/* Read EOF from capture descriptor */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	ts = ns_to_timespec((s64)descr->status.eof_timestamp);
@@ -508,15 +544,6 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 #endif
 
 done:
-	spin_lock_irqsave(&chan->capture_state_lock, flags);
-	if (chan->capture_state != CAPTURE_ERROR) {
-		chan->capture_reqs_enqueued -= 1;
-		chan->capture_state = CAPTURE_GOOD;
-	}
-	spin_unlock_irqrestore(&chan->capture_state_lock, flags);
-
-	wake_up_interruptible(&chan->start_wait);
-
 	goto rel_buf;
 
 uncorr_err:
@@ -535,20 +562,23 @@ static int vi5_channel_error_recover(struct tegra_channel *chan,
 	bool queue_error)
 {
 	int err = 0;
+	int vi_port = 0;
 	struct tegra_channel_buffer *buf;
 	struct tegra_mc_vi *vi = chan->vi;
 	struct v4l2_subdev *csi_subdev;
 
 	/* stop vi channel */
-	err = vi_capture_release(chan->tegra_vi_channel,
-		CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
-	if (err) {
-		dev_err(&chan->video->dev, "vi capture release failed\n");
-		goto done;
+	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+		err = vi_capture_release(chan->tegra_vi_channel[vi_port],
+			CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
+		if (err) {
+			dev_err(&chan->video->dev, "vi capture release failed\n");
+			goto done;
+		}
+		vi_channel_close_ex(chan->id, chan->tegra_vi_channel[vi_port]);
+		chan->tegra_vi_channel[vi_port] = NULL;
 	}
 
-	vi_channel_close_ex(chan->id, chan->tegra_vi_channel);
-	chan->tegra_vi_channel = NULL;
 
 	/* release all previously-enqueued capture buffers to v4l2 */
 	while (!list_empty(&chan->capture)) {
@@ -581,15 +611,16 @@ static int vi5_channel_error_recover(struct tegra_channel *chan,
 		V4L2_SYNC_EVENT_SUBDEV_ERROR_RECOVER);
 
 	/* restart vi channel */
-	chan->tegra_vi_channel = vi_channel_open_ex(chan->id, false);
-	if (IS_ERR(chan->tegra_vi_channel)) {
-		err = PTR_ERR(chan);
-		goto done;
+	for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+		chan->tegra_vi_channel[vi_port] = vi_channel_open_ex(chan->id + vi_port, false);
+		if (IS_ERR(chan->tegra_vi_channel[vi_port])) {
+			err = PTR_ERR(chan);
+			goto done;
+		}
+		err = tegra_channel_capture_setup(chan, vi_port);
+		if (err < 0)
+			goto done;
 	}
-
-	err = tegra_channel_capture_setup(chan);
-	if (err < 0)
-		goto done;
 
 	chan->sequence = 0;
 	tegra_channel_init_ring_buffer(chan);
@@ -608,7 +639,6 @@ static int tegra_channel_kthread_capture_enqueue(void *data)
 	struct tegra_channel *chan = data;
 	struct tegra_channel_buffer *buf;
 	unsigned long flags;
-
 	set_freezable();
 
 	while (1) {
@@ -621,7 +651,7 @@ static int tegra_channel_kthread_capture_enqueue(void *data)
 			spin_lock_irqsave(&chan->capture_state_lock, flags);
 			if ((chan->capture_state == CAPTURE_ERROR)
 					|| !(chan->capture_reqs_enqueued
-					< chan->capture_queue_depth)) {
+					< (chan->capture_queue_depth * chan->valid_ports))) {
 				spin_unlock_irqrestore(
 					&chan->capture_state_lock, flags);
 				break;
@@ -764,6 +794,7 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 	/* WAR: With newer version pipe init has some race condition */
 	/* TODO: resolve this issue to block userspace not to cleanup media */
 	int ret = 0;
+	int vi_port = 0;
 	unsigned long flags;
 	struct v4l2_subdev *sd;
 	struct device_node *node;
@@ -773,85 +804,86 @@ static int vi5_channel_start_streaming(struct vb2_queue *vq, u32 count)
 
 	/* Skip in bypass mode */
 	if (!chan->bypass) {
-		chan->tegra_vi_channel = vi_channel_open_ex(chan->id, false);
-		if (IS_ERR(chan->tegra_vi_channel)) {
-			ret = PTR_ERR(chan);
-			goto err_open_ex;
-		}
-
-		spin_lock_irqsave(&chan->capture_state_lock, flags);
-		chan->capture_state = CAPTURE_IDLE;
-		spin_unlock_irqrestore(&chan->capture_state_lock, flags);
-
-		if (!chan->pg_mode) {
-			sd = chan->subdev_on_csi;
-			node = sd->dev->of_node;
-			s_data = to_camera_common_data(sd->dev);
-
-			/* get sensor properties from DT */
-			if (s_data != NULL && node != NULL) {
-				int idx = s_data->mode_prop_idx;
-
-				emb_buf_size = 0;
-				if (idx < s_data->sensor_props.num_modes) {
-					sensor_mode =
-						&s_data->sensor_props.\
-						sensor_modes[idx];
-
-					chan->embedded_data_width =
-						sensor_mode->image_properties.\
-						width;
-					chan->embedded_data_height =
-						sensor_mode->image_properties.\
-						embedded_metadata_height;
-					/* rounding up to page size */
-					emb_buf_size =
-						round_up(chan->\
-						embedded_data_width *
-							chan->\
-							embedded_data_height *
-							BPP_MEM,
-							PAGE_SIZE);
-				}
+		for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+			chan->tegra_vi_channel[vi_port] =
+					vi_channel_open_ex(chan->id + vi_port, false);
+			if (IS_ERR(chan->tegra_vi_channel[vi_port])) {
+				ret = PTR_ERR(chan);
+				goto err_open_ex;
 			}
+			spin_lock_irqsave(&chan->capture_state_lock, flags);
+			chan->capture_state = CAPTURE_IDLE;
+			spin_unlock_irqrestore(&chan->capture_state_lock, flags);
 
-			/* Allocate buffer for Embedded Data if need to*/
-			if (emb_buf_size > chan->emb_buf_size) {
-				struct device *vi_unit_dev;
+			if (!chan->pg_mode) {
+				sd = chan->subdev_on_csi;
+				node = sd->dev->of_node;
+				s_data = to_camera_common_data(sd->dev);
 
-				vi5_unit_get_device_handle(chan->vi->ndev,
-					chan->port[0], &vi_unit_dev);
+				/* get sensor properties from DT */
+				if (s_data != NULL && node != NULL) {
+					int idx = s_data->mode_prop_idx;
+
+					emb_buf_size = 0;
+					if (idx < s_data->sensor_props.\
+								num_modes) {
+						sensor_mode =
+							&s_data->sensor_props.\
+							sensor_modes[idx];
+
+						chan->embedded_data_width =
+							sensor_mode->\
+							image_properties.width;
+						chan->embedded_data_height =
+							sensor_mode->\
+							 image_properties.\
+						      embedded_metadata_height;
+						/* rounding up to page size */
+						emb_buf_size =
+							round_up(chan->\
+							embedded_data_width *
+								chan->\
+							embedded_data_height *
+							BPP_MEM, PAGE_SIZE);
+					}
+				}
+				/* Allocate buffer for Embedded Data if need to*/
+				if (emb_buf_size > chan->emb_buf_size) {
+					struct device *vi_unit_dev;
+
+					vi5_unit_get_device_handle(\
+						chan->vi->ndev, chan->port[0],\
+						&vi_unit_dev);
 				/*
 				 * if old buffer is smaller than what we need,
 				 * release the old buffer and re-allocate a
 				 * bigger one below.
 				 */
-				if (chan->emb_buf_size > 0) {
-					dma_free_coherent(vi_unit_dev,
-						chan->emb_buf_size,
-						chan->emb_buf_addr,
-						chan->emb_buf);
-					chan->emb_buf_size = 0;
-				}
+					if (chan->emb_buf_size > 0) {
+						dma_free_coherent(vi_unit_dev,
+							chan->emb_buf_size,
+							chan->emb_buf_addr,
+							chan->emb_buf);
+						chan->emb_buf_size = 0;
+					}
 
-				chan->emb_buf_addr =
-					dma_alloc_coherent(vi_unit_dev,
-						emb_buf_size,
+					chan->emb_buf_addr =
+						dma_alloc_coherent(vi_unit_dev,
+							emb_buf_size,
 						&chan->emb_buf, GFP_KERNEL);
-				if (!chan->emb_buf_addr) {
-					dev_err(&chan->video->dev,
+					if (!chan->emb_buf_addr) {
+						dev_err(&chan->video->dev,
 							"Can't allocate memory"
 							"for embedded data\n");
-					goto err_setup;
+						goto err_setup;
+					}
+					chan->emb_buf_size = emb_buf_size;
 				}
-				chan->emb_buf_size = emb_buf_size;
 			}
+			ret = tegra_channel_capture_setup(chan, vi_port);
+			if (ret < 0)
+				goto err_setup;
 		}
-
-		ret = tegra_channel_capture_setup(chan);
-		if (ret < 0)
-			goto err_setup;
-
 		chan->sequence = 0;
 		tegra_channel_init_ring_buffer(chan);
 
@@ -880,14 +912,16 @@ err_set_stream:
 
 err_start_kthreads:
 	if (!chan->bypass)
-		vi_capture_release(chan->tegra_vi_channel,
-			CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
+		for (vi_port = 0; vi_port < chan->valid_ports; vi_port++)
+			vi_capture_release(chan->tegra_vi_channel[vi_port],
+				CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
 
 err_setup:
-	if (!chan->bypass) {
-		vi_channel_close_ex(chan->id, chan->tegra_vi_channel);
-		chan->tegra_vi_channel = NULL;
-	}
+	if (!chan->bypass)
+		for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+			vi_channel_close_ex(chan->id, chan->tegra_vi_channel[vi_port]);
+			chan->tegra_vi_channel[vi_port] = NULL;
+		}
 
 err_open_ex:
 	vq->start_streaming_called = 0;
@@ -900,9 +934,12 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 {
 	struct tegra_channel *chan = vb2_get_drv_priv(vq);
 	long err;
+	int vi_port = 0;
 
 	if (!chan->bypass) {
-        vi_stop_waiting(chan->tegra_vi_channel);
+        for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+            vi_stop_waiting(chan->tegra_vi_channel[vi_port]);
+        }
         vi5_channel_stop_kthreads(chan);
     }
 
@@ -910,14 +947,17 @@ static int vi5_channel_stop_streaming(struct vb2_queue *vq)
 	tegra_channel_set_stream(chan, false);
 
 	if (!chan->bypass) {
-		err = vi_capture_release(chan->tegra_vi_channel,
-			CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
-		if (err)
-			dev_err(&chan->video->dev,
-				"vi capture release failed\n");
+		for (vi_port = 0; vi_port < chan->valid_ports; vi_port++) {
+			err = vi_capture_release(chan->tegra_vi_channel[vi_port],
+				CAPTURE_CHANNEL_RESET_FLAG_IMMEDIATE);
 
-		vi_channel_close_ex(chan->id, chan->tegra_vi_channel);
-		chan->tegra_vi_channel = NULL;
+			if (err)
+				dev_err(&chan->video->dev,
+					"vi capture release failed\n");
+
+			vi_channel_close_ex(chan->id + vi_port, chan->tegra_vi_channel[vi_port]);
+			chan->tegra_vi_channel[vi_port] = NULL;
+		}
 
 		/* release all remaining buffers to v4l2 */
 		tegra_channel_queued_buf_done(chan, VB2_BUF_STATE_ERROR, false);

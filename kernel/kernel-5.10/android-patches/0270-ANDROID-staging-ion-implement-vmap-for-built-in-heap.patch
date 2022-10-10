@@ -1,0 +1,69 @@
+From 80acc9be329d5205a911e2f89707982916829bf4 Mon Sep 17 00:00:00 2001
+From: Hyesoo Yu <hyesoo.yu@samsung.com>
+Date: Tue, 3 Mar 2020 17:54:36 +0900
+Subject: [PATCH 270/830] ANDROID: staging: ion: implement vmap for built-in
+ heaps
+X-NVConfidentiality: public
+
+dma_buf_vmap() on ION buffers returns -EOPNOTSUPP
+if the heap of ION buffer does not implement its own
+vmap callback. Even the default system heap does not
+implement vmap callback, so vmap attempt of ION buffer
+will always fail. However vmap of ION buffer is much
+more reasonable to be supported by default than errors,
+so this patch implements vmap callback.
+
+Bug: 150258007
+
+Signed-off-by: Hyesoo Yu <hyesoo.yu@samsung.com>
+Change-Id: I243eb7ded49843e719532ad1b1cb7ab37e84460d
+(cherry picked from commit 2a84b66a5d223bea26fb4680d162f039ff0560a0)
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 284abb58a719..1e1236155dea 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -265,11 +265,16 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
+ {
+ 	struct ion_buffer *buffer = dmabuf->priv;
+ 	struct ion_heap *heap = buffer->heap;
++	void *vaddr;
++
++	if (heap->buf_ops.vmap)
++		return heap->buf_ops.vmap(dmabuf);
+ 
+-	if (!heap->buf_ops.vmap)
+-		return ERR_PTR(-EOPNOTSUPP);
++	mutex_lock(&buffer->lock);
++	vaddr = ion_buffer_kmap_get(buffer);
++	mutex_unlock(&buffer->lock);
+ 
+-	return heap->buf_ops.vmap(dmabuf);
++	return vaddr;
+ }
+ 
+ static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+@@ -277,10 +282,14 @@ static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+ 	struct ion_buffer *buffer = dmabuf->priv;
+ 	struct ion_heap *heap = buffer->heap;
+ 
+-	if (!heap->buf_ops.vunmap)
++	if (heap->buf_ops.vunmap) {
++		heap->buf_ops.vunmap(dmabuf, vaddr);
+ 		return;
++	}
+ 
+-	return heap->buf_ops.vunmap(dmabuf, vaddr);
++	mutex_lock(&buffer->lock);
++	ion_buffer_kmap_put(buffer);
++	mutex_unlock(&buffer->lock);
+ }
+ 
+ static int ion_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+-- 
+2.17.1
+

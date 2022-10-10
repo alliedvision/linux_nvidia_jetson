@@ -2,7 +2,7 @@
  * MC error interrupt handling header file. Various defines and declarations
  * across tegra chips.
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -109,7 +109,19 @@ struct mcerr_ops {
 	 *
 	 * Called from soft irq context during MC Error print throttle.
 	 */
-	void (*clear_interrupt)(unsigned int irq);
+	void (*clear_intstatus)(unsigned int irq);
+
+	/* Save MC Error interrupt.
+	 *
+	 * Called from soft irq context during MC Error print throttle.
+	 */
+	void (*save_intstatus)(unsigned int irq);
+
+	/* Set MC Error interrupt.
+	 *
+	 * Called from soft irq context during MC Error print throttle.
+	 */
+	void (*set_intstatus)(unsigned int irq);
 
 	/* Log MC Error fault and clear interrupt source
 	 *

@@ -1,0 +1,36 @@
+From 4e174a4a2bd2806aa001817020b8faee70ab3549 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Tue, 31 Mar 2020 17:11:04 -0700
+Subject: [PATCH 679/830] ANDROID: db845c build: Use merge_configs
+X-NVConfidentiality: public
+
+Previously the db845c build was cat'ng the db845c_gki.fragment
+with the gki_defconfig. The correct way to merge fragments is to use
+the merge_configs script.
+
+Bug: 152231482
+Test: Treehugger
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I32d5d6576bb4bdc115b32e7e7ef3ef1e9daa2323
+---
+ build.config.db845c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/build.config.db845c b/build.config.db845c
+index 3146200719f1..d0b11bb07255 100644
+--- a/build.config.db845c
++++ b/build.config.db845c
+@@ -3,8 +3,8 @@
+ 
+ BUILD_INITRAMFS=1
+ DEFCONFIG=db845c_gki_defconfig
+-PRE_DEFCONFIG_CMDS="cat ./common/arch/arm64/configs/gki_defconfig ./common/arch/arm64/configs/db845c_gki.fragment > ./common/arch/arm64/configs/${DEFCONFIG};"
+-POST_DEFCONFIG_CMDS="rm ./common/arch/arm64/configs/${DEFCONFIG}"
++PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/common/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/common/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/common/arch/arm64/configs/db845c_gki.fragment"
++POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG}"
+ 
+ MAKE_GOALS="${MAKE_GOALS}
+ qcom/sdm845-db845c.dtb
+-- 
+2.17.1
+

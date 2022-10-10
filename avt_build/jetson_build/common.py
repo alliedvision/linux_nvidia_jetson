@@ -8,7 +8,7 @@ from . import build
 CommonFiles = namedtuple('CommonFiles', ['gcc'])
 
 def get_gcc_upstream_file(UpstreamFile):
-  f = UpstreamFile("https://developer.nvidia.com/embedded/jetson-linux/bootlin-toolchain-gcc-93", "dc038af2769059e15cf8767ca2adc3f830a139d25f67eb19bcd7bbb0539d9988")
+  f = UpstreamFile("https://developer.nvidia.com/embedded/jetson-linux/bootlin-toolchain-gcc-93", "7725b4603193a9d3751d2715ef242bd16ded46b4e0610c83e76d8891cf580975")
   f.local_file = f.local_file.parent / (f.local_file.name + '.tar.gz')
   return f
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 void gv11b_gr_intr_inject_fecs_ecc_error(struct gk20a *g,
 		struct nvgpu_hw_err_inject_info *err, u32 error_info)
 {
+	(void)error_info;
 	nvgpu_info(g, "Injecting FECS fault %s", err->name);
 	nvgpu_writel(g, err->get_reg_addr(), err->get_reg_val(1U));
 }
@@ -123,6 +124,7 @@ static struct nvgpu_hw_err_inject_info_desc fecs_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_gr_intr_get_fecs_err_desc(struct gk20a *g)
 {
+	(void)g;
 	fecs_err_desc.info_ptr = fecs_ecc_err_desc;
 	fecs_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(fecs_ecc_err_desc) /
@@ -162,6 +164,7 @@ static struct nvgpu_hw_err_inject_info_desc gpccs_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_gr_intr_get_gpccs_err_desc(struct gk20a *g)
 {
+	(void)g;
 	gpccs_err_desc.info_ptr = gpccs_ecc_err_desc;
 	gpccs_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(gpccs_ecc_err_desc) /
@@ -277,6 +280,7 @@ static struct nvgpu_hw_err_inject_info_desc sm_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_gr_intr_get_sm_err_desc(struct gk20a *g)
 {
+	(void)g;
 	sm_err_desc.info_ptr = sm_ecc_err_desc;
 	sm_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(sm_ecc_err_desc) /
@@ -297,6 +301,7 @@ static struct nvgpu_hw_err_inject_info_desc mmu_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_gr_intr_get_mmu_err_desc(struct gk20a *g)
 {
+	(void)g;
 	mmu_err_desc.info_ptr = mmu_ecc_err_desc;
 	mmu_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(mmu_ecc_err_desc) /
@@ -317,6 +322,7 @@ static struct nvgpu_hw_err_inject_info_desc gcc_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_gr_intr_get_gcc_err_desc(struct gk20a *g)
 {
+	(void)g;
 	gcc_err_desc.info_ptr = gcc_ecc_err_desc;
 	gcc_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(gcc_ecc_err_desc) /

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -198,7 +198,9 @@ static const struct gops_bios vgpu_gv11b_ops_bios = {
 static const struct gops_ltc_intr vgpu_gv11b_ops_ltc_intr = {
 	.configure = NULL,
 	.isr = NULL,
+#ifdef CONFIG_NVGPU_NON_FUSA
 	.en_illegal_compstat = NULL,
+#endif
 };
 
 static const struct gops_ltc vgpu_gv11b_ops_ltc = {
@@ -207,7 +209,9 @@ static const struct gops_ltc vgpu_gv11b_ops_ltc = {
 	.determine_L2_size_bytes = vgpu_determine_L2_size_bytes,
 	.init_fs_state = vgpu_ltc_init_fs_state,
 	.flush = NULL,
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 	.set_enabled = NULL,
+#endif
 #ifdef CONFIG_NVGPU_GRAPHICS
 	.set_zbc_s_entry = NULL,
 	.set_zbc_color_entry = NULL,
@@ -240,7 +244,9 @@ static const struct gops_ce vgpu_gv11b_ops_ce = {
 	.ce_app_destroy = NULL,
 #endif
 	.isr_stall = NULL,
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	.isr_nonstall = NULL,
+#endif
 	.get_num_pce = vgpu_ce_get_num_pce,
 };
 
@@ -868,6 +874,7 @@ static const struct gops_regops vgpu_gv11b_ops_regops = {
 	.get_hwpm_pma_channel_register_ranges = gv11b_get_hwpm_pma_channel_register_ranges,
 	.get_hwpm_pma_trigger_register_ranges = gv11b_get_hwpm_pma_trigger_register_ranges,
 	.get_smpc_register_ranges = gv11b_get_smpc_register_ranges,
+	.get_hwpm_pc_sampler_register_ranges = gv11b_get_hwpm_pc_sampler_register_ranges,
 	.get_cau_register_ranges = NULL,
 	.get_hwpm_perfmux_register_ranges = gv11b_get_hwpm_perfmux_register_ranges,
 };

@@ -21,6 +21,7 @@
 #define pr_fmt(fmt) "cvnas: %s,%d" fmt, __func__, __LINE__
 
 #include <linux/compiler.h>
+#include <linux/cvnas.h>
 #include <linux/reset.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
@@ -39,7 +40,7 @@
 #if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
 #endif
-#include <soc/tegra/fuse.h>
+#include <soc/tegra/fuse-helper.h>
 #include <linux/clk-provider.h>
 
 static int cvnas_debug;
@@ -533,8 +534,8 @@ static ssize_t clk_cap_show(struct device *dev,
 }
 
 static const struct of_device_id nvcvnas_of_ids[] = {
-	{ .compatible = "nvidia,tegra-cvnas", .data = (void *)false, },
-	{ .compatible = "nvidia,tegra-cvnas-hv", .data = (void *)true, },
+	{ .compatible = "nvidia,tegra194-cvnas", },
+	{ .compatible = "nvidia,tegra-cvnas-hv", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, nvcvnas_of_ids);
@@ -545,14 +546,8 @@ static int nvcvnas_probe(struct platform_device *pdev)
 	int ret;
 	u32 cvsram_slice_data[2];
 	u32 cvsram_reg_data[4];
-	const struct of_device_id *match;
 
-#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
-	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA19 &&
-#else
-	if (tegra_get_chip_id() == TEGRA194 &&
-#endif
-		tegra_get_sku_id() == 0x9E) {
+	if (tegra_get_sku_id() == 0x9E) {
 		dev_err(&pdev->dev, "CVNAS IP is disabled in SKU.\n");
 		return -ENODEV;
 	}
@@ -583,9 +578,8 @@ static int nvcvnas_probe(struct platform_device *pdev)
 		goto err_device_create_file;
 	}
 
-	match = of_match_device(nvcvnas_of_ids, &pdev->dev);
-	if (match)
-		cvnas_dev->virt = (bool)match->data;
+	if (of_device_is_compatible(pdev->dev.of_node, "nvidia,tegra-cvnas-hv"))
+		cvnas_dev->virt = true;
 
 	cvnas_dev->cvreg_iobase = of_iomap(pdev->dev.of_node, 0);
 	if (!cvnas_dev->cvreg_iobase) {
@@ -660,6 +654,7 @@ static int nvcvnas_probe(struct platform_device *pdev)
 	cvnas_dev->pmops_busy = nvcvnas_busy;
 	cvnas_dev->pmops_idle = nvcvnas_idle;
 
+#ifdef CVNAS_MODULE
 	ret = nvmap_register_cvsram_carveout(&cvnas_dev->dma_dev,
 			cvnas_dev->cvsram_base, cvnas_dev->cvsram_size,
 			cvnas_dev->pmops_busy, cvnas_dev->pmops_idle);
@@ -668,14 +663,16 @@ static int nvcvnas_probe(struct platform_device *pdev)
 			"nvmap cvsram register failed. ret=%d\n", ret);
 		goto err_cvsram_nvmap_heap_register;
 	}
-
+#endif /* CVNAS_MODULE */
 	dev_set_drvdata(&pdev->dev, cvnas_dev);
 
 	/* TODO: Add interrupt handler */
 
 	return 0;
+#ifdef CVNAS_MODULE
 err_cvsram_nvmap_heap_register:
 	debugfs_remove(cvnas_dev->debugfs_root);
+#endif /* CVNAS_MODULE */
 err_cvnas_debugfs_init:
 err_get_reset_fcm:
 err_get_reset:
@@ -804,7 +801,7 @@ EXPORT_SYMBOL(nvcvnas_busy_no_rpm);
 /*
  * Function to suspend CV without using runtime pm.
  */
-int nvcvnas_idle_no_rpm(struct device *dev)
+int nvcvnas_idle_no_rpm(void)
 {
 #ifdef CONFIG_PM_SLEEP
 	if (cvnas_plat_dev && dev_get_drvdata(&cvnas_plat_dev->dev))

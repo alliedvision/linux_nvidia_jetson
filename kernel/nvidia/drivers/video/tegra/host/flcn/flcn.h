@@ -1,7 +1,7 @@
 /*
  * Tegra flcn common Module Support
  *
- * Copyright (c) 2011-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -85,15 +85,13 @@ int flcn_setup_ucode_image(struct platform_device *dev,
 			   struct ucode_v1_flcn *ucode);
 int nvhost_vic_prepare_poweroff(struct platform_device *);
 void flcn_enable_thi_sec(struct platform_device *);
-int nvhost_flcn_finalize_poweron_t186(struct platform_device *);
-int nvhost_flcn_finalize_poweron(struct platform_device *);
-int nvhost_vic_finalize_poweron(struct platform_device *);
+int nvhost_flcn_finalize_poweron_t194(struct platform_device *device);
+int nvhost_vic_finalize_poweron(struct platform_device *device);
 int nvhost_vic_init_context(struct platform_device *pdev,
 			    struct nvhost_cdma *cdma);
 void flcn_enable_timestamps(struct platform_device *pdev,
 				struct nvhost_cdma *cdma,
 				dma_addr_t timestamp_addr);
-int nvhost_flcn_prepare_poweroff(struct platform_device *);
 int nvhost_flcn_common_isr(struct platform_device *);
 
 int nvhost_vic_aggregate_constraints(struct platform_device *dev,
@@ -103,8 +101,6 @@ int nvhost_vic_aggregate_constraints(struct platform_device *dev,
 				     unsigned long bw_constraint);
 
 int nvhost_flcn_wait_mem_scrubbing(struct platform_device *dev);
-int flcn_intr_init(struct platform_device *pdev);
-int flcn_reload_fw(struct platform_device *pdev);
 int nvhost_flcn_load_image(struct platform_device *pdev,
 			   dma_addr_t dma_addr,
 			   struct flcn_os_image *os,

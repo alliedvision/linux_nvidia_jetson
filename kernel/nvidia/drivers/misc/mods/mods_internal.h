@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * mods_internal.h - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -38,8 +38,7 @@
 #include <linux/set_memory.h>
 #endif
 
-#if KERNEL_VERSION(5, 1, 0) <= LINUX_VERSION_CODE
-#define MODS_ENABLE_BPMP_MRQ_API
+#ifdef MODS_ENABLE_BPMP_MRQ_API
 #include <soc/tegra/bpmp.h>
 #endif
 
@@ -307,24 +306,24 @@ struct NVL_TRAINED {
 	pr_notice("mods [%u] warning: " fmt, client->client_id, ##args)
 
 struct irq_mask_info {
-	u32	*dev_irq_mask_reg;  /*IRQ mask register, read-only reg*/
-	u32	*dev_irq_state;     /* IRQ status register*/
-	u32 *dev_irq_disable_reg; /* potentionally a write-only reg*/
-	u64	irq_and_mask;
-	u64	 irq_or_mask;
-	u8	 mask_type;
+	void __iomem *dev_irq_mask_reg;    /*IRQ mask register, read-only reg*/
+	void __iomem *dev_irq_state;       /* IRQ status register*/
+	void __iomem *dev_irq_disable_reg; /* potentionally a write-only reg*/
+	u64           irq_and_mask;
+	u64           irq_or_mask;
+	u8            mask_type;
 };
 
 struct dev_irq_map {
-	void	*dev_irq_aperture;
-	u32	apic_irq;
-	u32	entry;
-	u8	type;
-	u8	client_id;
-	u8	mask_info_cnt;
-	struct	irq_mask_info mask_info[MODS_IRQ_MAX_MASKS];
-	struct	pci_dev      *dev;
-	struct	list_head     list;
+	u8          __iomem *dev_irq_aperture;
+	u32                  apic_irq;
+	u32                  entry;
+	u8                   type;
+	u8                   client_id;
+	u8                   mask_info_cnt;
+	struct irq_mask_info mask_info[MODS_IRQ_MAX_MASKS];
+	struct pci_dev      *dev;
+	struct list_head     list;
 };
 
 struct mods_priv {
@@ -337,6 +336,12 @@ struct mods_priv {
 	/* Mutex for guarding interrupt logic and PCI device enablement */
 	struct mutex       mtx;
 };
+
+#ifdef MODS_HAS_POLL_T
+#	define POLL_TYPE __poll_t
+#else
+#	define POLL_TYPE unsigned int
+#endif
 
 #if ((defined(CONFIG_ARM) || defined(CONFIG_ARM64)) && \
 	  !defined(CONFIG_CPA)) || defined(CONFIG_PPC64)
@@ -398,7 +403,7 @@ struct mutex *mods_get_irq_mutex(void);
 struct mods_client *mods_alloc_client(void);
 void mods_free_client_interrupts(struct mods_client *client);
 void mods_free_client(u8 client_id);
-int mods_irq_event_check(u8 client_id);
+POLL_TYPE mods_irq_event_check(u8 client_id);
 
 /* mem */
 const char *mods_get_prot_str(u8 mem_type);
@@ -515,6 +520,8 @@ int esc_mods_acpi_get_ddc(struct mods_client       *client,
 			  struct MODS_ACPI_GET_DDC *p);
 int esc_mods_acpi_get_ddc_2(struct mods_client         *client,
 			    struct MODS_ACPI_GET_DDC_2 *p);
+int esc_mods_get_acpi_dev_children(struct mods_client    *client,
+				   struct MODS_GET_ACPI_DEV_CHILDREN *p);
 #endif
 /* pci */
 #ifdef CONFIG_PCI
@@ -637,7 +644,13 @@ int esc_mods_dma_free_coherent(struct mods_client                  *client,
 int esc_mods_dma_copy_to_user(struct mods_client           *client,
 			      struct MODS_DMA_COPY_TO_USER *p);
 
+/* oist */
+int esc_mods_oist_status(struct mods_client             *client,
+			     struct MODS_TEGRA_OIST_STATUS  *p);
+
 #ifdef CONFIG_DMA_ENGINE
+void mods_init_dma(void);
+void mods_exit_dma(void);
 int esc_mods_dma_request_channel(struct mods_client     *client,
 				 struct MODS_DMA_HANDLE *p);
 int esc_mods_dma_release_channel(struct mods_client     *client,
@@ -693,9 +706,11 @@ int esc_mods_tegra_prod_set_prod_by_name(struct mods_client *client,
 int esc_mods_tegra_prod_set_prod_exact(struct mods_client *client,
 	struct MODS_TEGRA_PROD_SET_TUPLE *tuple);
 
+#ifdef CONFIG_TRUSTY
 /* trustzone app call */
 int esc_mods_send_trustzone_msg(struct mods_client         *client,
 	struct MODS_TZ_PARAMS      *p);
+#endif
 #endif
 
 #ifdef CONFIG_DEBUG_FS

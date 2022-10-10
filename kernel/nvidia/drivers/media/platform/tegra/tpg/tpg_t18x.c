@@ -3,7 +3,7 @@
  *
  * Tegra VI test pattern generator driver
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -34,7 +34,7 @@
  * ((clks_per_line + hblank) * height + vblank) * fps * lanes = nvcsi_clk_freq
  *
  */
-const struct tpg_frmfmt tegra18x_csi_tpg_frmfmt[] = {
+static const struct tpg_frmfmt tegra18x_csi_tpg_frmfmt[] = {
 	{{1280, 720}, V4L2_PIX_FMT_SRGGB10, 120, 180, 100},
 	{{1920, 1080}, V4L2_PIX_FMT_SRGGB10, 60, 180, 100},
 	{{3840, 2160}, V4L2_PIX_FMT_SRGGB10, 20,  90, 100},

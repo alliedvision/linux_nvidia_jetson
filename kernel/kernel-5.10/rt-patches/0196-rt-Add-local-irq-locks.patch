@@ -1,7 +1,7 @@
-From 2e4fe407c40ef81ad6ab7d038d0341d3ce545c51 Mon Sep 17 00:00:00 2001
+From 11a6bd232b17e1f6f564f0af1659f5ad2924b93d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 20 Jun 2011 09:03:47 +0200
-Subject: [PATCH 196/304] rt: Add local irq locks
+Subject: [PATCH 196/318] rt: Add local irq locks
 
 Introduce locallock. For !RT this maps to preempt_disable()/
 local_irq_disable() so there is not much that changes. For RT this will
@@ -13,11 +13,11 @@ is held and the owner is preempted.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- include/linux/local_lock_internal.h | 111 +++++++++++++++++++++++++++++++++---
+ include/linux/local_lock_internal.h | 111 ++++++++++++++++++++++++++--
  1 file changed, 103 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/local_lock_internal.h b/include/linux/local_lock_internal.h
-index 3f02b81..1b8ae03 100644
+index 3f02b818625e..1b8ae034946f 100644
 --- a/include/linux/local_lock_internal.h
 +++ b/include/linux/local_lock_internal.h
 @@ -7,13 +7,39 @@
@@ -62,7 +62,7 @@ index 3f02b81..1b8ae03 100644
  # define LOCAL_LOCK_DEBUG_INIT(lockname)		\
  	.dep_map = {					\
  		.name = #lockname,			\
-@@ -21,9 +47,35 @@ typedef struct {
+@@ -21,7 +47,33 @@ typedef struct {
  		.lock_type = LD_LOCK_PERCPU,		\
  	},						\
  	.owner = NULL,
@@ -70,8 +70,8 @@ index 3f02b81..1b8ae03 100644
 +
 +#ifdef CONFIG_PREEMPT_RT
  
- static inline void local_lock_acquire(local_lock_t *l)
- {
++static inline void local_lock_acquire(local_lock_t *l)
++{
 +	if (l->owner != current) {
 +		spin_lock(&l->lock);
 +		DEBUG_LOCKS_WARN_ON(l->owner);
@@ -93,11 +93,9 @@ index 3f02b81..1b8ae03 100644
 +}
 +
 +#elif defined(CONFIG_DEBUG_LOCK_ALLOC)
-+static inline void local_lock_acquire(local_lock_t *l)
-+{
+ static inline void local_lock_acquire(local_lock_t *l)
+ {
  	lock_map_acquire(&l->dep_map);
- 	DEBUG_LOCKS_WARN_ON(l->owner);
- 	l->owner = current;
 @@ -47,6 +99,47 @@ static inline void local_lock_release(local_lock_t *l) { }
  static inline void local_lock_debug_init(local_lock_t *l) { }
  #endif /* !CONFIG_DEBUG_LOCK_ALLOC */
@@ -179,5 +177,5 @@ index 3f02b81..1b8ae03 100644
 +
 +#endif
 -- 
-2.7.4
+2.17.1
 

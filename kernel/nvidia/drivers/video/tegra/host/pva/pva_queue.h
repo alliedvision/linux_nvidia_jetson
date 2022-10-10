@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,7 +19,7 @@
 
 #include <uapi/linux/nvpva_ioctl.h>
 #include "nvpva_queue.h"
-#include "nvhost_buffer.h"
+#include "nvpva_buffer.h"
 #include "pva-sys-params.h"
 #include "pva-interface.h"
 #include "pva-task.h"
@@ -30,11 +29,24 @@ struct dma_buf;
 extern struct nvpva_queue_ops pva_queue_ops;
 
 struct pva_pinned_memory {
-	int fd;
+	int id;
 	dma_addr_t dma_addr;
 	size_t size;
 	struct dma_buf *dmabuf;
-	enum nvhost_buffers_heap heap;
+	enum nvpva_buffers_heap heap;
+};
+
+struct pva_cb {
+	dma_addr_t head_addr;
+	uint32_t *head_va;
+	dma_addr_t tail_addr;
+	uint32_t *tail_va;
+	dma_addr_t err_addr;
+	uint32_t *err_va;
+	dma_addr_t buffer_addr;
+	uint8_t *buffer_va;
+	uint32_t tail;
+	uint32_t size;
 };
 
 /**
@@ -44,7 +56,7 @@ struct pva_pinned_memory {
  * pointers refer to kernel memory.
  *
  * pva				Pointer to struct pva
- * buffers			Pointer to struct nvhost_buffers
+ * buffers			Pointer to struct nvpva_buffers
  * queue			Pointer to struct nvpva_queue
  * node				Used to build queue task list
  * kref				Used to manage allocation and freeing
@@ -87,6 +99,7 @@ struct pva_submit_task {
 	u32 exe_id;
 
 	u32 l2_alloc_size; /* Not applicable for Xavier */
+	struct pva_cb *stdout;
 	u32 symbol_payload_size;
 
 	u32 flags;
@@ -131,6 +144,7 @@ struct pva_submit_task {
 	u64 src_surf_base_addr;
 	u64 dst_surf_base_addr;
 	bool is_system_app;
+	bool pinned_hwseq_config;
 	u8   special_access;
 };
 
@@ -232,9 +246,11 @@ struct pva_hw_task {
 	struct pva_dma_info_s dma_info;
 	struct pva_dma_misr_config_s dma_misr_config;
 	struct pva_dtd_s dma_desc[NVPVA_TASK_MAX_DMA_DESCRIPTORS];
+	struct pva_vpu_parameter_info_s param_info;
 	struct pva_vpu_parameters_s param_list[NVPVA_TASK_MAX_SYMBOLS];
 	u8 sym_payload[NVPVA_TASK_MAX_PAYLOAD_SIZE];
 	struct pva_task_statistics_s statistics;
+	struct pva_circular_buffer_info_s stdout_cb_info;
 };
 
 void pva_task_remove(struct pva_submit_task *task);
@@ -243,7 +259,8 @@ void pva_task_free(struct kref *ref);
 void pva_task_update(struct work_struct *work);
 
 struct pva_pinned_memory *pva_task_pin_mem(struct pva_submit_task *task,
-					   u32 dmafd);
+					   u32 id,
+					   bool is_cntxt);
 
 #define task_err(task, fmt, ...)                                               \
 	dev_err(&task->pva->pdev->dev, fmt, ##__VA_ARGS__)

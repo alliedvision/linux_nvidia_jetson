@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,7 +61,6 @@
 
 #define pgsp_falcon2_gsp_base_r()                                  (0x00111000U)
 #define pgsp_falcon_irqsset_r()                                    (0x00110000U)
-#define pgsp_falcon_irqsclr_r()                                    (0x00110004U)
 #define pgsp_falcon_engine_r()                                     (0x001103c0U)
 #define pgsp_falcon_engine_reset_true_f()                                 (0x1U)
 #define pgsp_falcon_engine_reset_false_f()                                (0x0U)
@@ -167,4 +166,10 @@
 #define pgsp_falcon_exterrstat_valid_m()                      (U32(0x1U) << 31U)
 #define pgsp_falcon_exterrstat_valid_v(r)                  (((r) >> 31U) & 0x1U)
 #define pgsp_falcon_exterrstat_valid_true_v()                      (0x00000001U)
+#define pgsp_falcon_ecc_status_r()                                 (0x00110878U)
+#define pgsp_falcon_ecc_status_uncorrected_err_imem_m()        (U32(0x1U) << 8U)
+#define pgsp_falcon_ecc_status_uncorrected_err_dmem_m()        (U32(0x1U) << 9U)
+#define pgsp_falcon_ecc_status_uncorrected_err_emem_m()       (U32(0x1U) << 13U)
+#define pgsp_falcon_ecc_status_uncorrected_err_dcls_m()       (U32(0x1U) << 11U)
+#define pgsp_falcon_ecc_status_uncorrected_err_reg_m()        (U32(0x1U) << 12U)
 #endif

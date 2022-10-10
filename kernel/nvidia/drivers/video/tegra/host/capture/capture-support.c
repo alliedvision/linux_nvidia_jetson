@@ -1,7 +1,7 @@
 /*
  * Capture support for syncpoint and GoS management
  *
- * Copyright (c) 2017-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -39,17 +39,11 @@
 #include "bus_client.h"
 #include "nvhost_acm.h"
 #include "nvhost_syncpt_unit_interface.h"
-#include "nvhost_gos.h"
 #include "t194/t194.h"
 #if IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
 #include "t23x/t23x.h"
 #endif
 #include "linux/nvmap_t19x.h"
-
-static inline bool t194_gos_is_enabled(struct platform_device *pdev)
-{
-	return nvmap_fetch_cv_dev_info(&pdev->dev) != NULL;
-}
 
 int capture_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
@@ -88,11 +82,6 @@ void capture_get_gos_table(struct platform_device *pdev,
 	int count = 0;
 	dma_addr_t *table = NULL;
 
-	if (t194_gos_is_enabled(pdev))
-		/* Ignore error, the return values are zeroed in any case */
-		(void)nvhost_syncpt_get_cv_dev_address_table(
-			pdev, &count, &table);
-
 	*gos_count = count;
 	*gos_table = table;
 }
@@ -107,7 +96,6 @@ int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 	uint32_t index = GOS_INDEX_INVALID;
 	uint32_t offset = 0;
 	dma_addr_t addr;
-	int err = 0;
 
 	if (id == 0) {
 		dev_err(&pdev->dev, "%s: syncpt id is invalid\n", __func__);
@@ -120,11 +108,6 @@ int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 	}
 
 	addr = nvhost_syncpt_address(pdev, id);
-	err = nvhost_syncpt_get_gos(pdev, id, &index, &offset);
-	if (err < 0) {
-		dev_dbg(&pdev->dev, "%s: failed to get GoS backing: %d\n",
-			__func__, err);
-	}
 
 	*syncpt_addr = addr;
 	*gos_index = index;
@@ -170,9 +153,6 @@ static int capture_support_probe(struct platform_device *pdev)
 	err = nvhost_syncpt_unit_interface_init(pdev);
 	if (err)
 		goto device_release;
-
-	if (!t194_gos_is_enabled(pdev))
-		dev_info(&pdev->dev, "grid-of-semaphores not supported");
 
 	return 0;
 

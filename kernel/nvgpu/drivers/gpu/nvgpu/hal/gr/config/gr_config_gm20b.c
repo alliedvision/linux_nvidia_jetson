@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,8 @@ int gm20b_gr_config_init_sm_id_table(struct gk20a *g,
 	num_sm = nvgpu_safe_mult_u32(nvgpu_gr_config_get_tpc_count(gr_config),
 				     nvgpu_gr_config_get_sm_count_per_tpc(gr_config));
 	nvgpu_gr_config_set_no_of_sm(gr_config, num_sm);
+
+	(void)g;
 
 	for (tpc = 0;
 	     tpc < nvgpu_gr_config_get_max_tpc_per_gpc_count(gr_config);

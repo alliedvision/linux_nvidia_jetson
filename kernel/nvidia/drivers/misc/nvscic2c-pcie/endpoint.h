@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,4 +33,10 @@ endpoints_setup(struct driver_ctx_t *drv_ctx, void **endpoints_h);
 int
 endpoints_release(void **endpoints_h);
 
-#endif //__ENDPOINT_H__
+/*
+ * Wait for ack from user space process for PCIe link status change.
+ * Deinit edma handle with stream-extension.
+ */
+int
+endpoints_core_deinit(void *endpoints_h);
+#endif /*__ENDPOINT_H__ */

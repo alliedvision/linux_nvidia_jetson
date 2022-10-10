@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,84 @@
  */
 
 #include "ether_linux.h"
+
+/**
+ * @brief ether_get_free_tx_ts_node - get free node for pending SKB
+ *
+ * Algorithm:
+ *  - Find index of statically allocayted free memory for pending SKB
+ *
+ * @param[in] pdata: OSD private data structure.
+ *
+ * @retval index number
+ */
+static inline unsigned int ether_get_free_tx_ts_node(struct ether_priv_data *pdata)
+{
+	unsigned int i;
+
+	for (i = 0; i < ETHER_MAX_PENDING_SKB_CNT; i++) {
+		if (pdata->tx_ts_skb[i].in_use == OSI_NONE) {
+			break;
+		}
+	}
+
+	return i;
+}
+
+static inline void add_skb_node(struct ether_priv_data *pdata, struct sk_buff *skb,
+				unsigned int pktid) {
+	struct list_head *head_node, *temp_head_node;
+	struct ether_tx_ts_skb_list *pnode = NULL;
+	unsigned int idx;
+	unsigned long flags;
+	unsigned long now_jiffies = jiffies;
+
+	if (list_empty(&pdata->tx_ts_skb_head)) {
+		goto empty;
+	}
+
+	raw_spin_lock_irqsave(&pdata->txts_lock, flags);
+	list_for_each_safe(head_node, temp_head_node,
+			   &pdata->tx_ts_skb_head) {
+		pnode = list_entry(head_node,
+				   struct ether_tx_ts_skb_list,
+				   list_head);
+
+		if ((jiffies_to_msecs(now_jiffies) - jiffies_to_msecs(pnode->pkt_jiffies))
+		     >= ETHER_SECTOMSEC) {
+			dev_dbg(pdata->dev, "%s() skb %p deleting for pktid = %x time=%lu\n",
+				__func__, pnode->skb, pnode->pktid, pnode->pkt_jiffies);
+			if (pnode->skb != NULL) {
+				dev_consume_skb_any(pnode->skb);
+			}
+			list_del(head_node);
+			pnode->in_use = OSI_DISABLE;
+		}
+	}
+	raw_spin_unlock_irqrestore(&pdata->txts_lock, flags);
+empty:
+	raw_spin_lock_irqsave(&pdata->txts_lock, flags);
+	idx = ether_get_free_tx_ts_node(pdata);
+	if (idx == ETHER_MAX_PENDING_SKB_CNT) {
+		dev_dbg(pdata->dev,
+			"No free node to store pending SKB\n");
+		dev_consume_skb_any(skb);
+		raw_spin_unlock_irqrestore(&pdata->txts_lock, flags);
+		return;
+	}
+
+	pdata->tx_ts_skb[idx].in_use = OSI_ENABLE;
+	pnode = &pdata->tx_ts_skb[idx];
+	pnode->skb = skb;
+	pnode->pktid = pktid;
+	pnode->pkt_jiffies = now_jiffies;
+
+	dev_dbg(pdata->dev, "%s() SKB %p added for pktid = %x time=%lu\n",
+		__func__, skb, pktid, pnode->pkt_jiffies);
+	list_add_tail(&pnode->list_head,
+		      &pdata->tx_ts_skb_head);
+	raw_spin_unlock_irqrestore(&pdata->txts_lock, flags);
+}
 
 /**
  * @brief Adds delay in micro seconds.
@@ -537,10 +615,10 @@ exit:
  *
  * @note Rx completion need to make sure that Rx descriptors processed properly.
  */
-void osd_receive_packet(void *priv, struct osi_rx_ring *rx_ring,
-			unsigned int chan, unsigned int dma_buf_len,
-			const struct osi_rx_pkt_cx *rx_pkt_cx,
-			struct osi_rx_swcx *rx_swcx)
+static void osd_receive_packet(void *priv, struct osi_rx_ring *rx_ring,
+			       unsigned int chan, unsigned int dma_buf_len,
+			       const struct osi_rx_pkt_cx *rx_pkt_cx,
+			       struct osi_rx_swcx *rx_swcx)
 {
 	struct ether_priv_data *pdata = (struct ether_priv_data *)priv;
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -651,29 +729,6 @@ done:
 }
 
 /**
- * @brief ether_get_free_tx_ts_node - get free node for pending SKB
- *
- * Algorithm:
- *  - Find index of statically allocayted free memory for pending SKB
- *
- * @param[in] pdata: OSD private data structure.
- *
- * @retval index number
- */
-static inline unsigned int ether_get_free_tx_ts_node(struct ether_priv_data *pdata)
-{
-	unsigned int i;
-
-	for (i = 0; i < ETHER_MAX_PENDING_SKB_CNT; i++) {
-		if (pdata->tx_ts_skb[i].in_use == OSI_NONE) {
-			break;
-		}
-	}
-
-	return i;
-}
-
-/**
  * @brief osd_transmit_complete - Transmit completion routine.
  *
  * Algorithm:
@@ -682,30 +737,27 @@ static inline unsigned int ether_get_free_tx_ts_node(struct ether_priv_data *pda
  * 3) Time stamp will be update to stack if available.
  *
  * @param[in] priv: OSD private data structure.
- * @param[in] buffer: Buffer address to free.
- * @param[in] dmaaddr: DMA address to unmap.
- * @param[in] len: Length of data.
+ * @param[in] swcx: Pointer to swcx
  * @param[in] txdone_pkt_cx: Pointer to struct which has tx done status info.
  * This struct has flags to indicate tx error, whether DMA address
  * is mapped from paged/linear buffer.
  *
  * @note Tx completion need to make sure that Tx descriptors processed properly.
  */
-static void osd_transmit_complete(void *priv, void *buffer, unsigned long dmaaddr,
-				  unsigned int len,
+static void osd_transmit_complete(void *priv, const struct osi_tx_swcx *swcx,
 				  const struct osi_txdone_pkt_cx
 				  *txdone_pkt_cx)
 {
 	struct ether_priv_data *pdata = (struct ether_priv_data *)priv;
 	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
-	struct sk_buff *skb = (struct sk_buff *)buffer;
-	dma_addr_t dma_addr = (dma_addr_t)dmaaddr;
+	struct sk_buff *skb = (struct sk_buff *)swcx->buf_virt_addr;
+	unsigned long dmaaddr = swcx->buf_phy_addr;
 	struct skb_shared_hwtstamps shhwtstamp;
 	struct net_device *ndev = pdata->ndev;
 	struct osi_tx_ring *tx_ring;
 	struct netdev_queue *txq;
 	unsigned int chan, qinx;
-	unsigned int idx;
+	unsigned int len = swcx->len;
 
 	ndev->stats.tx_bytes += len;
 
@@ -716,7 +768,7 @@ static void osd_transmit_complete(void *priv, void *buffer, unsigned long dmaadd
 		skb_tstamp_tx(skb, &shhwtstamp);
 	}
 
-	if (dma_addr) {
+	if (dmaaddr != 0UL) {
 		if ((txdone_pkt_cx->flags & OSI_TXDONE_CX_PAGED_BUF) ==
 		    OSI_TXDONE_CX_PAGED_BUF) {
 			dma_unmap_page(pdata->dev, dmaaddr,
@@ -746,27 +798,12 @@ static void osd_transmit_complete(void *priv, void *buffer, unsigned long dmaadd
 		ndev->stats.tx_packets++;
 		if ((txdone_pkt_cx->flags & OSI_TXDONE_CX_TS_DELAYED) ==
 		    OSI_TXDONE_CX_TS_DELAYED) {
-			struct ether_tx_ts_skb_list *pnode = NULL;
+			add_skb_node(pdata, skb, txdone_pkt_cx->pktid);
+			/* Consume the timestamp immediately if already available */
+			if (ether_get_tx_ts(pdata) < 0)
+				schedule_delayed_work(&pdata->tx_ts_work,
+						      msecs_to_jiffies(ETHER_TS_MS_TIMER));
 
-			idx = ether_get_free_tx_ts_node(pdata);
-			if (idx == ETHER_MAX_PENDING_SKB_CNT) {
-				dev_dbg(pdata->dev,
-					"No free node to store pending SKB\n");
-				dev_consume_skb_any(skb);
-				return;
-			}
-
-			pdata->tx_ts_skb[idx].in_use = OSI_ENABLE;
-			pnode = &pdata->tx_ts_skb[idx];
-			pnode->skb = skb;
-			pnode->pktid = txdone_pkt_cx->pktid;
-
-			dev_dbg(pdata->dev, "SKB %p added for pktid = %d\n",
-				skb, txdone_pkt_cx->pktid);
-			list_add_tail(&pnode->list_head,
-				      &pdata->tx_ts_skb_head);
-			schedule_delayed_work(&pdata->tx_ts_work,
-					      msecs_to_jiffies(ETHER_TS_MS_TIMER));
 		} else {
 			dev_consume_skb_any(skb);
 		}
@@ -922,7 +959,12 @@ int osd_ivc_send_cmd(void *priv, ivc_msg_common_t *ivc_buf, unsigned int len)
 
 	dcnt = IVC_READ_TIMEOUT_CNT;
 	while ((!tegra_hv_ivc_can_read(ictxt->ivck))) {
-		wait_for_completion_timeout(&ictxt->msg_complete, IVC_WAIT_TIMEOUT);
+		if (!wait_for_completion_timeout(&ictxt->msg_complete,
+						 IVC_WAIT_TIMEOUT)) {
+			ret = -ETIMEDOUT;
+			goto fail;
+		}
+
 		dcnt--;
 		if (!dcnt) {
 			dev_err(pdata->dev, "IVC read timeout\n");

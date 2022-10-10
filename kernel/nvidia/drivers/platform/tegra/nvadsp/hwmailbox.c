@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -188,6 +188,9 @@ static irqreturn_t hwmbox_send_empty_int_handler(int irq, void *devid)
 	uint32_t data;
 	int ret;
 
+	if (!is_hwmbox_busy)
+		return IRQ_HANDLED;
+
 	spin_lock_irqsave(lock, lockflags);
 
 	data = hwmbox_readl(send_hwmbox());
@@ -283,6 +286,7 @@ int nvadsp_setup_hwmbox_interrupts(struct platform_device *pdev)
 {
 	struct nvadsp_drv_data *drv = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
+	u32 empty_int_ie = drv->chip_data->hwmb.empty_int_ie;
 	int recv_virq, send_virq;
 	int ret;
 
@@ -294,9 +298,13 @@ int nvadsp_setup_hwmbox_interrupts(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	if (empty_int_ie)
+		hwmbox_writel(0x0, send_hwmbox() + empty_int_ie);
 	ret = devm_request_irq(dev, send_virq, hwmbox_send_empty_int_handler,
 			  IRQF_TRIGGER_RISING,
 			  "hwmbox1_send_empty", pdev);
+	if (empty_int_ie)
+		hwmbox_writel(0x1, send_hwmbox() + empty_int_ie);
 	if (ret)
 		goto free_interrupts;
 

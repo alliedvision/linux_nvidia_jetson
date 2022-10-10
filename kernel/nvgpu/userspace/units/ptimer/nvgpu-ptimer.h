@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@ struct unit_module;
  */
 
 /**
- * Test specification for: test_setup_env
+ * Test specification for: ptimer_test_setup_env
  *
  * Description: Setup prerequisites for tests.
  *
@@ -49,17 +49,17 @@ struct unit_module;
  * - UNIT_FAIL if encounters an error creating reg space
  * - UNIT_SUCCESS otherwise
  */
-int test_setup_env(struct unit_module *m,
+int ptimer_test_setup_env(struct unit_module *m,
 			struct gk20a *g, void *args);
 
 /**
- * Test specification for: test_free_env
+ * Test specification for: ptimer_test_free_env
  *
- * Description: Release resources from test_setup_env()
+ * Description: Release resources from ptimer_test_setup_env()
  *
  * Test Type: Other (setup)
  *
- * Input: test_setup_env() has been executed.
+ * Input: ptimer_test_setup_env() has been executed.
  *
  * Steps:
  * - Delete ptimer register space from mockio.
@@ -68,7 +68,7 @@ int test_setup_env(struct unit_module *m,
  * - UNIT_FAIL if encounters an error creating reg space
  * - UNIT_SUCCESS otherwise
  */
-int test_free_env(struct unit_module *m,
+int ptimer_test_free_env(struct unit_module *m,
 			struct gk20a *g, void *args);
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -108,7 +108,7 @@ int dce_ipc_init_signaling(struct tegra_dce *d, struct dce_ipc_channel *ch)
 
 	if (from_d->type == DCE_IPC_SIGNAL_MAILBOX) {
 		if ((from_d->next != NULL)
-				|| (from_mbox > DCE_NUM_MBOX_REGS)) {
+				|| (from_mbox >= DCE_NUM_MBOX_REGS)) {
 			dce_err(d, "Invalid Signal Instance");
 			ret = -1;
 			goto out;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_dma.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -35,7 +35,7 @@ static DECLARE_BITMAP(dma_info_mask, MODS_DMA_MAX_CHANNEL);
 static struct mods_dma_chan_info dma_info_chan_list[MODS_DMA_MAX_CHANNEL];
 static DEFINE_SPINLOCK(dma_info_lock);
 
-int mods_get_dma_id(u32 *p_id)
+static int mods_get_dma_id(u32 *p_id)
 {
 	u32 id;
 
@@ -52,14 +52,14 @@ int mods_get_dma_id(u32 *p_id)
 	return OK;
 }
 
-void mods_release_dma_id(u32 id)
+static void mods_release_dma_id(u32 id)
 {
 	spin_lock(&dma_info_lock);
 	clear_bit(id, dma_info_mask);
 	spin_unlock(&dma_info_lock);
 }
 
-int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
+static int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
 {
 	if (id > MODS_DMA_MAX_CHANNEL)
 		return	-ERANGE;
@@ -69,7 +69,7 @@ int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
 	return OK;
 }
 
-int mods_init_dma(void)
+void mods_init_dma(void)
 {
 	struct mods_dma_chan_info *p_chan_info;
 	int i;
@@ -79,14 +79,12 @@ int mods_init_dma(void)
 		rwlock_init(&(p_chan_info->lock));
 		p_chan_info->in_use = false;
 	}
-
-	return OK;
 }
 
-void mods_release_channel(u32 id)
+static void mods_release_channel(u32 id)
 {
 	struct mods_dma_chan_info *p_mods_chan;
-	struct dma_chan *pch = 0;
+	struct dma_chan *pch = NULL;
 
 	if (mods_get_chan_by_id(id, &p_mods_chan) != OK) {
 		mods_error_printk("get dma channel failed, id %d\n", id);
@@ -117,7 +115,7 @@ void mods_exit_dma(void)
 		mods_release_channel(i);
 }
 
-bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
+static bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
 {
 	bool in_use = false;
 
@@ -129,8 +127,8 @@ bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
 	return in_use;
 }
 
-int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
-				  struct mods_dma_chan_info **p_mods_chan)
+static int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
+					 struct mods_dma_chan_info **p_mods_chan)
 {
 	int ret;
 	bool in_use;
@@ -153,8 +151,8 @@ int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
 	return OK;
 }
 
-int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
-		       mods_dma_cookie_t cookie)
+static int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
+			      mods_dma_cookie_t cookie)
 {
 	int ret = OK;
 	struct mods_dma_chan_info *p_mods_chan;
@@ -173,9 +171,9 @@ int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
 	return ret;
 }
 
-int mods_dma_async_is_tx_complete(struct MODS_DMA_HANDLE *p_handle,
-				  mods_dma_cookie_t cookie,
-				  __u32 *p_is_complete)
+static int mods_dma_async_is_tx_complete(struct MODS_DMA_HANDLE *p_handle,
+					 mods_dma_cookie_t cookie,
+					 __u32 *p_is_complete)
 {
 	int ret = OK;
 	struct mods_dma_chan_info *p_mods_chan;
@@ -486,9 +484,9 @@ int esc_mods_dma_copy_to_user(struct mods_client *client,
 		 (void *)(p->memory_handle_src),
 		 p->num_bytes);
 
-	retval = copy_to_user((void *)(p->memory_handle_dst),
-				(void *)(p->memory_handle_src),
-				p->num_bytes);
+	retval = copy_to_user((void __user *)p->memory_handle_dst,
+			      (void *)p->memory_handle_src,
+			      p->num_bytes);
 
 	LOG_EXT();
 

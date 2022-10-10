@@ -1,0 +1,30 @@
+From 50562b6146c582b0cfad23754112c8de36ecfded Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Mon, 28 Oct 2019 12:48:06 -0700
+Subject: [PATCH 580/830] ANDROID: gki_defconfig: enable
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE
+X-NVConfidentiality: public
+
+Bug: 135217602
+Test: local boot on cuttlefish
+Change-Id: Icd2afaea9e1231735d2ab4f9588a44f7cbc584a5
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/x86/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b1535ba3b397..e3aa956e5817 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -46,6 +46,7 @@ CONFIG_PM_WAKELOCKS_LIMIT=0
+ # CONFIG_PM_WAKELOCKS_GC is not set
+ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
++CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+ CONFIG_CPUFREQ_DUMMY=m
+ CONFIG_IA32_EMULATION=y
+ CONFIG_KPROBES=y
+-- 
+2.17.1
+

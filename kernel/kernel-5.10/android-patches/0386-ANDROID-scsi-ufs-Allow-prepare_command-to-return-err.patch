@@ -1,0 +1,70 @@
+From da680d499c59772a172e2fdbc8eb4fec991dcf0f Mon Sep 17 00:00:00 2001
+From: Stanley Chu <stanley.chu@mediatek.com>
+Date: Tue, 10 Nov 2020 16:16:18 +0800
+Subject: [PATCH 386/830] ANDROID: scsi: ufs: Allow prepare_command to return
+ error code
+X-NVConfidentiality: public
+
+Allow variant function "prepare_command" to return error
+code. This is useful for vendors to halt or retry command
+execution if needed.
+
+Signed-off-by: Stanley Chu <Stanley.Chu@mediatek.com>
+
+Bug: 172874931
+Change-Id: Ibe327ab39b83644a1c5a29d821f01c08eb7ea6f1
+Signed-off-by: Stanley Chu <stanley.chu@mediatek.com>
+---
+ drivers/scsi/ufs/ufshcd.c | 7 ++++++-
+ drivers/scsi/ufs/ufshcd.h | 7 ++++---
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index b5ef61c3a10c..b3ee1defdf00 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -2597,7 +2597,12 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
+ 	lrbp->lun = ufshcd_scsi_to_upiu_lun(cmd->device->lun);
+ 	lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
+ 
+-	ufshcd_vops_prepare_command(hba, cmd->request, lrbp);
++	err = ufshcd_vops_prepare_command(hba, cmd->request, lrbp);
++	if (err) {
++		lrbp->cmd = NULL;
++		ufshcd_release(hba);
++		goto out;
++	}
+ 
+ 	ufshcd_prepare_lrbp_crypto(cmd->request, lrbp);
+ 
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 90944b63e673..9dfa75deaa36 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -344,7 +344,7 @@ struct ufs_hba_variant_ops {
+ 			       const union ufs_crypto_cfg_entry *cfg, int slot);
+ 	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
+ 			     unsigned int segments);
+-	void    (*prepare_command)(struct ufs_hba *hba,
++	int	(*prepare_command)(struct ufs_hba *hba,
+ 				struct request *rq, struct ufshcd_lrb *lrbp);
+ 	int     (*update_sysfs)(struct ufs_hba *hba);
+ 	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+@@ -1339,11 +1339,12 @@ static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
+ 	return 0;
+ }
+ 
+-static inline void ufshcd_vops_prepare_command(struct ufs_hba *hba,
++static inline int ufshcd_vops_prepare_command(struct ufs_hba *hba,
+ 		struct request *rq, struct ufshcd_lrb *lrbp)
+ {
+ 	if (hba->vops && hba->vops->prepare_command)
+-		hba->vops->prepare_command(hba, rq, lrbp);
++		return hba->vops->prepare_command(hba, rq, lrbp);
++	return 0;
+ }
+ 
+ static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
+-- 
+2.17.1
+

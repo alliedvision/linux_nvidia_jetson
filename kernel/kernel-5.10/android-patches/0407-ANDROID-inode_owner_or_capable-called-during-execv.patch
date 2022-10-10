@@ -1,0 +1,35 @@
+From c9688011fc9421a4b0ed614f23b9e55d32c22e15 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 7 Oct 2020 06:08:59 +0000
+Subject: [PATCH 407/830] ANDROID: inode_owner_or_capable called during execv
+X-NVConfidentiality: public
+
+Using old_creds as an indication that we are not overriding the
+credentials, bypass call to inode_owner_or_capable.
+
+Signed-off-by: Mark Salyzyn <salyzyn@google.com>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Bug: 169988379
+Fixes: 05acefb4872da ("ovl: check permission to open real file")
+Fixes: 6120a4d78045c ("FROMLIST: overlayfs: override_creds=off option bypass creator_cred")
+Change-Id: I6e8630de7367c93553e13a5c39c8e7011e90880a
+---
+ fs/overlayfs/file.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/overlayfs/file.c b/fs/overlayfs/file.c
+index e0c300dda0f6..5082579e9134 100644
+--- a/fs/overlayfs/file.c
++++ b/fs/overlayfs/file.c
+@@ -54,7 +54,7 @@ static struct file *ovl_open_realfile(const struct file *file,
+ 	err = inode_permission(realinode, MAY_OPEN | acc_mode);
+ 	if (err) {
+ 		realfile = ERR_PTR(err);
+-	} else if (!inode_owner_or_capable(realinode)) {
++	} else if (old_cred && !inode_owner_or_capable(realinode)) {
+ 		realfile = ERR_PTR(-EPERM);
+ 	} else {
+ 		realfile = open_with_fake_path(&file->f_path, flags, realinode,
+-- 
+2.17.1
+

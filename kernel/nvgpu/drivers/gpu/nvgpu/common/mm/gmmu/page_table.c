@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -940,6 +940,15 @@ static void nvgpu_gmmu_update_page_table_dbg_print(struct gk20a *g,
 		attrs->priv      ? 'P' : '-',
 		attrs->valid     ? 'V' : '-',
 		attrs->platform_atomic ? 'A' : '-');
+#else
+	(void)g;
+	(void)attrs;
+	(void)vm;
+	(void)sgt;
+	(void)space_to_skip;
+	(void)virt_addr;
+	(void)length;
+	(void)page_size;
 #endif /* CONFIG_NVGPU_TRACE */
 }
 
@@ -1053,22 +1062,32 @@ u64 nvgpu_gmmu_map_locked(struct vm_gk20a *vm,
 				buffer_offset & (ctag_granularity - U64(1)));
 	}
 
-#if defined(CONFIG_NVGPU_NON_FUSA)
 	attrs.cbc_comptagline_mode =
 		g->ops.fb.is_comptagline_mode_enabled != NULL ?
 			g->ops.fb.is_comptagline_mode_enabled(g) : true;
 #endif
-#endif
 
-	attrs.l3_alloc = ((flags & NVGPU_VM_MAP_L3_ALLOC) != 0U);
+	attrs.l3_alloc  = ((flags & NVGPU_VM_MAP_L3_ALLOC)  != 0U);
+
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_TEGRA_RAW)) {
+#ifdef CONFIG_NVGPU_TRACE
+		nvgpu_gmmu_dbg_v(g, &attrs,
+			"TEGRA_RAW format is requested");
+#endif /* CONFIG_NVGPU_TRACE */
+		attrs.tegra_raw = ((flags & NVGPU_VM_MAP_TEGRA_RAW) != 0U);
+	}
 #if defined(CONFIG_NVGPU_NON_FUSA)
 	if (nvgpu_is_errata_present(g, NVGPU_ERRATA_3288192) &&
 							(attrs.l3_alloc)) {
+#ifdef CONFIG_NVGPU_TRACE
 		nvgpu_gmmu_dbg_v(g, &attrs,
 			"L3 alloc is requested when L3 cache is not supported");
+#endif
 		attrs.l3_alloc = false;
 	}
 #endif
+	(void)clear_ctags;
+	(void)ctag_offset;
 
 	/*
 	 * Only allocate a new GPU VA range if we haven't already been passed a
@@ -1162,6 +1181,8 @@ void nvgpu_gmmu_unmap_locked(struct vm_gk20a *vm,
 	int err = 0;
 	struct gk20a *g = gk20a_from_vm(vm);
 	struct nvgpu_gmmu_attrs attrs = gmmu_unmap_attrs(pgsz_idx);
+
+	(void)rw_flag;
 
 	attrs.sparse = sparse;
 

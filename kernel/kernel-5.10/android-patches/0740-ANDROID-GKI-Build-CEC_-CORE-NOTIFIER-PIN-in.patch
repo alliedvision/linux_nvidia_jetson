@@ -1,0 +1,35 @@
+From f63ebd2d35f3b1ba558bd013c269d76f2724b203 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 17 Aug 2020 09:39:47 -0700
+Subject: [PATCH 740/830] ANDROID: GKI: Build CEC_{CORE,NOTIFIER,PIN} in
+X-NVConfidentiality: public
+
+CEC_{CORE,NOTIFIER,PIN} are hidden options which are selected by
+drivers. Select them here so the ABI surface is available to
+modules.
+
+Bug: 162507365
+Bug: 164180803
+Change-Id: Idf8d072388b387442d967bf1c6d3be1f9a734ab6
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ init/Kconfig.gki | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index db2a9b940f40..97d826d374cb 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -86,6 +86,9 @@ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	select VIDEOBUF2_CORE
+ 	select MEDIA_SUPPORT
+ 	select FRAME_VECTOR
++	select CEC_CORE
++	select CEC_NOTIFIER
++	select CEC_PIN
+ 	help
+ 	  Dummy config option used to enable hidden media configs.
+ 	  These are normally selected implicitly when a module
+-- 
+2.17.1
+

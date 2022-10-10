@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -165,6 +165,7 @@ u32 ga100_get_litter_value(struct gk20a *g, int value)
 	case GPU_LIT_GPC_PRIV_STRIDE:
 		ret = proj_gpc_priv_stride_v();
 		break;
+#ifdef CONFIG_NVGPU_DEBUGGER
 	case GPU_LIT_PERFMON_PMMGPCTPCA_DOMAIN_START:
 		ret = 2;
 		break;
@@ -186,6 +187,7 @@ u32 ga100_get_litter_value(struct gk20a *g, int value)
 	case GPU_LIT_PERFMON_PMMFBP_ROP_DOMAIN_COUNT:
 		ret = 2;
 		break;
+#endif
 	case GPU_LIT_MAX_RUNLISTS_SUPPORTED:
 		ret = 24U;
 		break;

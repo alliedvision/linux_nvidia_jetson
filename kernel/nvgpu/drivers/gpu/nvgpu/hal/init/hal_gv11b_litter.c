@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -167,6 +167,7 @@ u32 gv11b_get_litter_value(struct gk20a *g, int value)
 	case GPU_LIT_GPC_PRIV_STRIDE:
 		ret = proj_gpc_priv_stride_v();
 		break;
+#ifdef CONFIG_NVGPU_DEBUGGER
 	case GPU_LIT_PERFMON_PMMGPCTPCA_DOMAIN_START:
 		ret = 2;
 		break;
@@ -188,6 +189,7 @@ u32 gv11b_get_litter_value(struct gk20a *g, int value)
 	case GPU_LIT_PERFMON_PMMFBP_ROP_DOMAIN_COUNT:
 		ret = 2;
 		break;
+#endif
 	default:
 		nvgpu_err(g, "Missing definition %d", value);
 		BUG();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -240,7 +240,7 @@ struct vm_gk20a {
 	char name[NVGPU_VM_NAME_LEN];
 
 	/** Start GPU address of the context. */
-	u64 va_start;
+	u64 virtaddr_start;
 	/** End GPU address of the context. */
 	u64 va_limit;
 
@@ -350,6 +350,7 @@ struct vm_gk20a {
 #define NVGPU_VM_MAP_DIRECT_KIND_CTRL			BIT32(4)
 #define NVGPU_VM_MAP_L3_ALLOC				BIT32(5)
 #define NVGPU_VM_MAP_PLATFORM_ATOMIC			BIT32(6)
+#define NVGPU_VM_MAP_TEGRA_RAW				BIT32(7)
 
 #define NVGPU_VM_MAP_ACCESS_DEFAULT			0U
 #define NVGPU_VM_MAP_ACCESS_READ_ONLY			1U

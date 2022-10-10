@@ -1,7 +1,7 @@
 /*
  * cdi_dev.c - CDI generic i2c driver.
  *
- * Copyright (c) 2015-2021, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2015-2022, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -579,11 +579,19 @@ static int cdi_dev_probe(struct i2c_client *client,
 	info->dev = &client->dev;
 
 	if (info->pdata)
-		snprintf(info->devname, sizeof(info->devname),
-			"%s", info->pdata->drv_name);
+		err = snprintf(info->devname, sizeof(info->devname),
+			       "%s", info->pdata->drv_name);
 	else
-		snprintf(info->devname, sizeof(info->devname),
-			"cdi-dev.%u.%02x", client->adapter->nr, client->addr);
+		err = snprintf(info->devname, sizeof(info->devname),
+			       "cdi-dev.%u.%02x", client->adapter->nr,
+			       client->addr);
+
+	if (err < 0) {
+		dev_err(&client->dev,
+			"encoding error: %d\n", err);
+		devm_kfree(&client->dev, info);
+		return err;
+	}
 
 	if (info->pdata->pdev == NULL)
 		return -ENODEV;

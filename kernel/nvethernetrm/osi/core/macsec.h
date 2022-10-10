@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,25 @@
 #ifndef INCLUDED_MACSEC_H
 #define INCLUDED_MACSEC_H
 
+#ifdef DEBUG_MACSEC
+#define HKEY2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5], (a)[6], (a)[7], (a)[8], (a)[9], (a)[10], (a)[11], (a)[12], (a)[13], (a)[14], (a)[15]
+#define HKEYSTR "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
+
+#define KEY2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5], (a)[6], (a)[7], (a)[8], (a)[9], (a)[10], (a)[11], (a)[12], (a)[13], (a)[14], (a)[15]
+#define KEYSTR "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
+#endif /* DEBUG_MACSEC */
+
+#define MAX_U64_VAL			0xFFFFFFFFFFFFFFFFU
+
+#define CERT_C__POST_INC__U64(a)\
+	{\
+		if ((a) < MAX_U64_VAL) {\
+			(a)++;\
+		} else {\
+			(a) = 0;\
+		} \
+	} \
+
 /**
  * @addtogroup MACsec AMAP
  *
@@ -30,14 +49,13 @@
  * @{
  */
 #define MACSEC_GCM_KEYTABLE_CONFIG		0x0000
-#define MACSEC_GCM_KEYTABLE_DATA(x)		(0x0004 + (x * 4))
-#define MACSEC_RX_ICV_ERR_CNTRL 		0x4000
+#define MACSEC_GCM_KEYTABLE_DATA(x)		((0x0004U) + ((x) * 4U))
+#define MACSEC_RX_ICV_ERR_CNTRL			0x4000
 #define MACSEC_INTERRUPT_COMMON_SR		0x4004
 #define MACSEC_TX_IMR				0x4008
 #define MACSEC_TX_ISR				0x400C
 #define MACSEC_RX_IMR				0x4048
 #define MACSEC_RX_ISR				0x404C
-#define MACSEC_INTERRUPT_MASK1_0		0x40A0
 #define MACSEC_TX_SC_PN_THRESHOLD_STATUS0_0	0x4018
 #define MACSEC_TX_SC_PN_THRESHOLD_STATUS1_0	0x401C
 #define MACSEC_TX_SC_PN_EXHAUSTED_STATUS0_0	0x4024
@@ -47,45 +65,26 @@
 #define MACSEC_RX_SC_PN_EXHAUSTED_STATUS1_0	0x4060
 #define MACSEC_RX_SC_REPLAY_ERROR_STATUS0_0	0x4090
 #define MACSEC_RX_SC_REPLAY_ERROR_STATUS1_0	0x4094
-#define MACSEC_STATS_CONFIG			0x9000
 #define MACSEC_STATS_CONTROL_0			0x900C
 #define MACSEC_TX_PKTS_UNTG_LO_0		0x9010
-#define MACSEC_TX_PKTS_UNTG_HI_0		0x9014
 #define MACSEC_TX_OCTETS_PRTCTD_LO_0		0x9018
-#define MACSEC_TX_OCTETS_PRTCTD_HI_0		0x901C
 #define MACSEC_TX_PKTS_TOO_LONG_LO_0		0x9020
-#define MACSEC_TX_PKTS_TOO_LONG_HI_0		0x9024
-#define MACSEC_TX_PKTS_PROTECTED_SCx_LO_0(x)	(0x9028 + (x * 8))
-#define MACSEC_TX_PKTS_PROTECTED_SCx_HI_0(x)	(0x902C  + (x * 8))
+#define MACSEC_TX_PKTS_PROTECTED_SCx_LO_0(x)	((0x9028UL) + ((x) * 8UL))
 #define MACSEC_RX_PKTS_NOTG_LO_0		0x90B0
-#define MACSEC_RX_PKTS_NOTG_HI_0		0x90B4
 #define MACSEC_RX_PKTS_UNTG_LO_0		0x90A8
-#define MACSEC_RX_PKTS_UNTG_HI_0		0x90AC
 #define MACSEC_RX_PKTS_BADTAG_LO_0		0x90B8
-#define MACSEC_RX_PKTS_BADTAG_HI_0		0x90BC
 #define MACSEC_RX_PKTS_NOSA_LO_0		0x90C0
-#define MACSEC_RX_PKTS_NOSA_HI_0		0x90C4
 #define MACSEC_RX_PKTS_NOSAERROR_LO_0		0x90C8
-#define MACSEC_RX_PKTS_NOSAERROR_HI_0		0x90CC
 #define MACSEC_RX_PKTS_OVRRUN_LO_0		0x90D0
-#define MACSEC_RX_PKTS_OVRRUN_HI_0		0x90D4
 #define MACSEC_RX_OCTETS_VLDTD_LO_0		0x90D8
-#define MACSEC_RX_OCTETS_VLDTD_HI_0		0x90DC
-#define MACSEC_RX_PKTS_LATE_SCx_LO_0(x) 	(0x90E0 + (x * 8))
-#define MACSEC_RX_PKTS_LATE_SCx_HI_0(x) 	(0x90E4 + (x * 8))
-#define MACSEC_RX_PKTS_NOTVALID_SCx_LO_0(x)	(0x9160 + (x * 8))
-#define MACSEC_RX_PKTS_NOTVALID_SCx_HI_0(x)	(0x9164 + (x * 8))
-#define MACSEC_RX_PKTS_OK_SCx_LO_0(x)		(0x91E0 + (x * 8))
-#define MACSEC_RX_PKTS_OK_SCx_HI_0(x)		(0x91E4 + (x * 8))
+#define MACSEC_RX_PKTS_LATE_SCx_LO_0(x) 	((0x90E0UL) + ((x) * 8UL))
+#define MACSEC_RX_PKTS_NOTVALID_SCx_LO_0(x)	((0x9160UL) + ((x) * 8UL))
+#define MACSEC_RX_PKTS_OK_SCx_LO_0(x)		((0x91E0UL) + ((x) * 8UL))
 
-#define MACSEC_TX_INPKTS_CRCIN_NOTVALID_LO_0	0x9260
-#define MACSEC_TX_INPKTS_CRCIN_NOTVALID_HI_0	0x9264
-#define MACSEC_RX_INPKTS_CRCIN_NOTVALID_LO_0	0x9268
-#define MACSEC_RX_INPKTS_CRCIN_NOTVALID_HI_0	0x926C
 
 #define MACSEC_CONTROL0 		0xD000
 #define MACSEC_LUT_CONFIG		0xD004
-#define MACSEC_LUT_DATA(x)		(0xD008 + (x * 4))
+#define MACSEC_LUT_DATA(x)		((0xD008U) + ((x) * 4U))
 #define MACSEC_TX_BYP_LUT_VALID 	0xD024
 #define MACSEC_TX_SCI_LUT_VALID 	0xD028
 #define MACSEC_RX_BYP_LUT_VALID 	0xD02C
@@ -102,7 +101,7 @@
 #define MACSEC_TX_DEBUG_TRIGGER_EN_0	0xD09C
 #define MACSEC_TX_DEBUG_STATUS_0	0xD0C4
 #define MACSEC_DEBUG_BUF_CONFIG_0	0xD0C8
-#define MACSEC_DEBUG_BUF_DATA_0(x)	(0xD0CC + (x * 4))
+#define MACSEC_DEBUG_BUF_DATA_0(x)	((0xD0CCU) + ((x) * 4U))
 #define MACSEC_RX_DEBUG_CONTROL_0	0xD0DC
 #define MACSEC_RX_DEBUG_TRIGGER_EN_0	0xD0E0
 #define MACSEC_RX_DEBUG_STATUS_0	0xD0F8
@@ -113,8 +112,6 @@
 #define MACSEC_TX_SOT_DELAY		0xE010
 #define MACSEC_RX_MTU_LEN		0xE014
 #define MACSEC_RX_SOT_DELAY		0xE01C
-#define MACSEC_TX_DVLAN_CONTROL_0	0xE00C
-#define MACSEC_RX_DVLAN_CONTROL_0	0xE018
 /** @} */
 
 /**
@@ -137,9 +134,9 @@
  * @brief Bit definitions of MACSEC_GCM_KEYTABLE_DATA register & helpful macros
  * @{
  */
-#define MACSEC_KT_DATA_REG_CNT		13
-#define MACSEC_KT_DATA_REG_SAK_CNT	8
-#define MACSEC_KT_DATA_REG_H_CNT	4
+#define MACSEC_KT_DATA_REG_CNT		13U
+#define MACSEC_KT_DATA_REG_SAK_CNT	8U
+#define MACSEC_KT_DATA_REG_H_CNT	4U
 /** @} */
 
 /**
@@ -177,9 +174,7 @@
 #define MACSEC_TX_LKUP_MISS_NS_INTR		OSI_BIT(24)
 #define MACSEC_RX_LKUP_MISS_NS_INTR		OSI_BIT(23)
 #define MACSEC_VALIDATE_FRAMES_MASK		(OSI_BIT(22) | OSI_BIT(21))
-#define MACSEC_VALIDATE_FRAMES_DIS		0x0
 #define MACSEC_VALIDATE_FRAMES_STRICT		OSI_BIT(22)
-#define MACSEC_VALIDATE_FRAMES_CHECK		OSI_BIT(21)
 #define MACSEC_RX_REPLAY_PROT_EN		OSI_BIT(20)
 #define MACSEC_RX_LKUP_MISS_BYPASS		OSI_BIT(19)
 #define MACSEC_RX_EN				OSI_BIT(16)
@@ -206,10 +201,10 @@
  * @{
  */
 #define MACSEC_RX_AES_MODE_MASK 	(OSI_BIT(17) | OSI_BIT(16))
-#define MACSEC_RX_AES_MODE_AES128	0x0
+#define MACSEC_RX_AES_MODE_AES128	0x0U
 #define MACSEC_RX_AES_MODE_AES256	OSI_BIT(17)
 #define MACSEC_TX_AES_MODE_MASK 	(OSI_BIT(1) | OSI_BIT(0))
-#define MACSEC_TX_AES_MODE_AES128	0x0
+#define MACSEC_TX_AES_MODE_AES128	0x0U
 #define MACSEC_TX_AES_MODE_AES256	OSI_BIT(1)
 /** @} */
 
@@ -254,15 +249,6 @@
 #define MACSEC_RX_AES_GCM_BUF_OVF_INT_EN	OSI_BIT(18)
 #define MACSEC_RX_MAC_CRC_ERROR_INT_EN		OSI_BIT(16)
 #define MACSEC_RX_PN_EXHAUSTED_INT_EN		OSI_BIT(1)
-/** @} */
-
-/**
- * @addtogroup MACSEC_INTERRUPT_MASK1_0 register
- *
- * @brief Bit definitions of MACSEC_INTERRUPT_MASK1_0 register
- * @{
- */
-#define MACSEC_SFTY_ERR_UNCORR_INT_EN		OSI_BIT(0)
 /** @} */
 
 /**
@@ -314,10 +300,7 @@
  * @brief Bit definitions of MACSEC_STATS_CONTROL_0 register
  * @{
  */
-#define MACSEC_STATS_CONTROL0_RD_CPY			OSI_BIT(3)
-#define MACSEC_STATS_CONTROL0_TK_CPY			OSI_BIT(2)
 #define MACSEC_STATS_CONTROL0_CNT_RL_OVR_CPY		OSI_BIT(1)
-#define MACSEC_STATS_CONTROL0_CNT_CLR			OSI_BIT(0)
 /** @} */
 
 /**
@@ -342,33 +325,9 @@
 #define MACSEC_TX_DBG_CAPTURE		OSI_BIT(10)
 #define MACSEC_TX_DBG_ICV_CORRUPT	OSI_BIT(9)
 #define MACSEC_TX_DBG_CRC_CORRUPT	OSI_BIT(8)
-#define MACSEC_TX_DBG_DATA_MATCH	OSI_BIT(7)
-#define MACSEC_TX_DBG_LKUP_MATCH	OSI_BIT(6)
-#define MACSEC_TX_DBG_CRCOUT_MATCH	OSI_BIT(5)
-#define MACSEC_TX_DBG_CRCIN_MATCH	OSI_BIT(4)
-#define MACSEC_TX_DBG_ICV_MATCH 	OSI_BIT(3)
 #define MACSEC_TX_DBG_KEY_NOT_VALID	OSI_BIT(2)
 #define MACSEC_TX_DBG_AN_NOT_VALID	OSI_BIT(1)
 #define MACSEC_TX_DBG_LKUP_MISS 	OSI_BIT(0)
-/** @} */
-
-/**
- * @addtogroup MACSEC_TX_DEBUG_STATUS_0 register
- *
- * @brief Bit definitions of MACSEC_TX_DEBUG_STATUS_0 register
- * @{
- */
-#define MACSEC_TX_DBG_STS_CAPTURE		OSI_BIT(10)
-#define MACSEC_TX_DBG_STS_ICV_CORRUPT		OSI_BIT(9)
-#define MACSEC_TX_DBG_STS_CRC_CORRUPT		OSI_BIT(8)
-#define MACSEC_TX_DBG_STS_DATA_MATCH		OSI_BIT(7)
-#define MACSEC_TX_DBG_STS_LKUP_MATCH		OSI_BIT(6)
-#define MACSEC_TX_DBG_STS_CRCOUT_MATCH		OSI_BIT(5)
-#define MACSEC_TX_DBG_STS_CRCIN_MATCH		OSI_BIT(4)
-#define MACSEC_TX_DBG_STS_ICV_MATCH		OSI_BIT(3)
-#define MACSEC_TX_DBG_STS_KEY_NOT_VALID 	OSI_BIT(2)
-#define MACSEC_TX_DBG_STS_AN_NOT_VALID		OSI_BIT(1)
-#define MACSEC_TX_DBG_STS_LKUP_MISS		OSI_BIT(0)
 /** @} */
 
 /**
@@ -380,31 +339,9 @@
 #define MACSEC_RX_DBG_CAPTURE		OSI_BIT(10)
 #define MACSEC_RX_DBG_ICV_ERROR 	OSI_BIT(9)
 #define MACSEC_RX_DBG_CRC_CORRUPT	OSI_BIT(8)
-#define MACSEC_RX_DBG_DATA_MATCH	OSI_BIT(7)
-#define MACSEC_RX_DBG_BYP_LKUP_MATCH	OSI_BIT(6)
-#define MACSEC_RX_DBG_CRCOUT_MATCH	OSI_BIT(5)
-#define MACSEC_RX_DBG_CRCIN_MATCH	OSI_BIT(4)
 #define MACSEC_RX_DBG_REPLAY_ERR	OSI_BIT(3)
 #define MACSEC_RX_DBG_KEY_NOT_VALID	OSI_BIT(2)
 #define MACSEC_RX_DBG_LKUP_MISS 	OSI_BIT(0)
-/** @} */
-
-/**
- * @addtogroup MACSEC_RX_DEBUG_STATUS_0 register
- *
- * @brief Bit definitions of MACSEC_RX_DEBUG_STATUS_0 register
- * @{
- */
-#define MACSEC_RX_DBG_STS_CAPTURE		OSI_BIT(10)
-#define MACSEC_RX_DBG_STS_ICV_ERROR		OSI_BIT(9)
-#define MACSEC_RX_DBG_STS_CRC_CORRUPT		OSI_BIT(8)
-#define MACSEC_RX_DBG_STS_DATA_MATCH		OSI_BIT(7)
-#define MACSEC_RX_DBG_STS_BYP_LKUP_MATCH	OSI_BIT(6)
-#define MACSEC_RX_DBG_STS_CRCOUT_MATCH		OSI_BIT(5)
-#define MACSEC_RX_DBG_STS_CRCIN_MATCH		OSI_BIT(4)
-#define MACSEC_RX_DBG_STS_REPLAY_ERR		OSI_BIT(3)
-#define MACSEC_RX_DBG_STS_KEY_NOT_VALID 	OSI_BIT(2)
-#define MACSEC_RX_DBG_STS_LKUP_MISS		OSI_BIT(0)
 /** @} */
 
 /**
@@ -425,11 +362,9 @@
 #define MACSEC_RX_DEBUG_CONTROL_0_START_CAP	OSI_BIT(31)
 /** @} */
 
-#define MTU_LENGTH_MASK			0xFFFF
-#define MTU_ADDONS			(8 + 14 + 4)
-#define DVLAN_TAG_ETHERTYPE	0x88A8
-#define SOT_LENGTH_MASK		0xFF
-#define EQOS_MACSEC_SOT_DELAY	0x4E
+#define MTU_LENGTH_MASK		0xFFFFU
+#define SOT_LENGTH_MASK		0xFFU
+#define EQOS_MACSEC_SOT_DELAY	0x4EU
 
 /**
  * @addtogroup TX/RX_BYP/SCI_LUT_VALID register
@@ -437,14 +372,6 @@
  * @brief Bit definitions of LUT_VALID registers
  * @{
  */
-#define MACSEC_TX_BYP_LUT_VALID_ENTRY(x)	OSI_BIT(x)
-#define MACSEC_TX_BYP_LUT_VALID_NONE		0x0
-#define MACSEC_TX_SCI_LUT_VALID_ENTRY(x)	OSI_BIT(x)
-#define MACSEC_TX_SCI_LUT_VALID_NONE		0x0
-#define MACSEC_RX_BYP_LUT_VALID_ENTRY(x)	OSI_BIT(x)
-#define MACSEC_RX_BYP_LUT_VALID_NONE		0x0
-#define MACSEC_RX_SCI_LUT_VALID_ENTRY(x)	OSI_BIT(x)
-#define MACSEC_RX_SCI_LUT_VALID_NONE		0x0
 /** @} */
 
 /**
@@ -453,7 +380,7 @@
  * @brief Helper macros for LUT data programming
  * @{
  */
-#define MACSEC_LUT_DATA_REG_CNT		7
+#define MACSEC_LUT_DATA_REG_CNT		7U
 /* Bit Offsets for LUT DATA[x] registers for various lookup field masks */
 /* DA mask bits in LUT_DATA[1] register */
 #define MACSEC_LUT_DA_BYTE0_INACTIVE		OSI_BIT(16)

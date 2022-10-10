@@ -1,0 +1,36 @@
+From 1e70b8b63685588446149a98b3046b8f834692f2 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 9 Jan 2020 19:12:25 +0000
+Subject: [PATCH 611/830] ANDROID: Kconfig.gki: Add QCOM_SCM to QCOM Hidden
+ configs
+X-NVConfidentiality: public
+
+QCOM_SCM is needed to be able to boot on db845c and is normally
+selected by modules such as QCOM_RMTFS_MEM.
+
+This dependency got accidentally dropped before the holidays
+when I moved the QCOM_RMTFS_MEM to a module instead of a gki
+built in.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Bug: 146449535
+Change-Id: Icf9b6fec1d45247ee67e50d6c13c6e410e3d8c12
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 282c1c35b963..763ce5479359 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -51,6 +51,7 @@ config GKI_HIDDEN_GPIO_CONFIGS
+ config GKI_HIDDEN_QCOM_CONFIGS
+ 	bool "Hidden QCOM configs needed for GKI"
+ 	select QCOM_SMEM_STATE
++	select QCOM_SCM if (ARM64)
+ 	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
+ 	help
+ 	  Dummy config option used to enable hidden QCOM configs.
+-- 
+2.17.1
+

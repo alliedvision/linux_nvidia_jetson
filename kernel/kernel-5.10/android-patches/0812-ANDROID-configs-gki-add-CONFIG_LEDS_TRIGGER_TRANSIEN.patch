@@ -1,0 +1,45 @@
+From 513dbe784671bd2be593198b78191166d9951305 Mon Sep 17 00:00:00 2001
+From: Harpreet Eli Sangha <eliptus@google.com>
+Date: Thu, 8 Oct 2020 11:33:26 +0900
+Subject: [PATCH 812/830] ANDROID: configs: gki: add
+ CONFIG_LEDS_TRIGGER_TRANSIENT
+X-NVConfidentiality: public
+
+Userspace leverages the transient trigger for vibrators.
+
+Signed-off-by: Harpreet Eli Sangha <eliptus@google.com>
+Change-Id: Iff727bb955c690f0e195efd476fa9801678d49b8
+(cherry picked from commit b01bffe951bf7376a6c661ede682e7c7709f78cd)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index cd98777fd6e7..6af07796a89e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -444,6 +444,7 @@ CONFIG_MMC_SDHCI=y
+ CONFIG_MMC_SDHCI_PLTFM=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGER_TIMER=y
++CONFIG_LEDS_TRIGGER_TRANSIENT=y
+ CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PL030=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 8af3e7a91bad..ec0e232ca7eb 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -398,6 +398,7 @@ CONFIG_MMC_SDHCI=y
+ CONFIG_MMC_SDHCI_PLTFM=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGER_TIMER=y
++CONFIG_LEDS_TRIGGER_TRANSIENT=y
+ CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_DMABUF_HEAPS=y
+-- 
+2.17.1
+

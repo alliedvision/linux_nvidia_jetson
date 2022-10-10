@@ -74,13 +74,6 @@ config TEGRA_GRHOST_LEGACY_PD
 	  Enables support for Tegra legacy power domain API
 	  Say Y if using kernel version 4.9 or earlier
 
-config TEGRA_GRHOST_GOS
-	bool "Grid of Semaphores support"
-	depends on TEGRA_GRHOST
-	default y
-	help
-	  Grid of Semaphores management support.
-
 source "drivers/video/tegra/host/pva/Kconfig"
 
 endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -337,7 +337,7 @@ static int gr_test_intr_allocate_ch_tsg(struct unit_module *m,
 	ch->notifier_wq.initialized = notify_init;
 
 tsg_unbind:
-	err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	if (err != 0) {
 		unit_err(m, "failed tsg channel unbind\n");
 	}

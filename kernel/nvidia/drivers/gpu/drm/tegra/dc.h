@@ -8,12 +8,15 @@
 #define TEGRA_DC_H 1
 
 #include <linux/host1x-next.h>
+#include <linux/version.h>
 
 #include <drm/drm_crtc.h>
 
 #include "drm.h"
 
 struct tegra_output;
+
+#define TEGRA_DC_LEGACY_PLANES_NUM	7
 
 struct tegra_dc_state {
 	struct drm_crtc_state base;
@@ -33,11 +36,22 @@ static inline struct tegra_dc_state *to_dc_state(struct drm_crtc_state *state)
 	return NULL;
 }
 
+static inline const struct tegra_dc_state *
+to_const_dc_state(const struct drm_crtc_state *state)
+{
+	return to_dc_state((struct drm_crtc_state *)state);
+}
+
 struct tegra_dc_stats {
 	unsigned long frames;
 	unsigned long vblank;
 	unsigned long underflow;
 	unsigned long overflow;
+
+	unsigned long frames_total;
+	unsigned long vblank_total;
+	unsigned long underflow_total;
+	unsigned long overflow_total;
 };
 
 struct tegra_windowgroup_soc {
@@ -66,7 +80,9 @@ struct tegra_dc_soc_info {
 	unsigned int num_overlay_formats;
 	const u64 *modifiers;
 	bool has_win_a_without_filters;
+	bool has_win_b_vfilter_mem_client;
 	bool has_win_c_without_vert_filter;
+	bool plane_tiled_memory_bandwidth_x2;
 };
 
 struct tegra_dc {
@@ -149,6 +165,10 @@ int tegra_dc_state_setup_clock(struct tegra_dc *dc,
 			       struct drm_crtc_state *crtc_state,
 			       struct clk *clk, unsigned long pclk,
 			       unsigned int div);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+void tegra_crtc_atomic_post_commit(struct drm_crtc *crtc,
+				   struct drm_atomic_state *state);
+#endif
 
 /* from rgb.c */
 int tegra_dc_rgb_probe(struct tegra_dc *dc);

@@ -1,7 +1,7 @@
 /*
  * ov9281.c - ov9281 sensor driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -629,8 +629,11 @@ static int ov9281_otp_setup(struct ov9281 *priv)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < OV9281_OTP_BUFFER_SIZE; i++)
-		sprintf(&ctrl->p_new.p_char[i*2], "%02x", otp_buf[i]);
+	for (i = 0; i < OV9281_OTP_BUFFER_SIZE; i++) {
+		err = sprintf(&ctrl->p_new.p_char[i*2], "%02x", otp_buf[i]);
+		if (err < 0)
+			return -EINVAL;
+	}
 	ctrl->p_cur.p_char = ctrl->p_new.p_char;
 
 	return 0;
@@ -655,8 +658,11 @@ static int ov9281_fuse_id_setup(struct ov9281 *priv)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < OV9281_FUSE_ID_OTP_BUFFER_SIZE; i++)
-		sprintf(&ctrl->p_new.p_char[i*2], "%02x", fuse_id[i]);
+	for (i = 0; i < OV9281_FUSE_ID_OTP_BUFFER_SIZE; i++) {
+		err = sprintf(&ctrl->p_new.p_char[i*2], "%02x", fuse_id[i]);
+		if (err < 0)
+			return -EINVAL;
+	}
 	ctrl->p_cur.p_char = ctrl->p_new.p_char;
 
 	return 0;
@@ -678,10 +684,16 @@ static int ov9281_s_stream(struct v4l2_subdev *sd, int enable)
 			ov9281_mode_table[OV9281_MODE_STOP_STREAM]);
 	}
 
+	if (s_data->mode < 0)
+		return -EINVAL;
+
 	dev_dbg(dev, "%s: write mode table %d\n", __func__, s_data->mode);
 	err = ov9281_write_table(priv, ov9281_mode_table[s_data->mode]);
 	if (err)
 		goto exit;
+
+	if (priv->fsync < 0 || priv->fsync > OV9281_FSYNC_SLAVE)
+		return -EINVAL;
 
 	if (ov9281_fsync_table[priv->fsync]) {
 		dev_dbg(dev, "%s: write fsync table %d\n", __func__,

@@ -3,7 +3,7 @@
  *
  * mapping between nvmap_hnadle and sci_ipc entery
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,7 +26,9 @@
 #include <linux/nvscierror.h>
 #include <linux/nvsciipc_interface.h>
 
+#include <trace/events/nvmap.h>
 #include "nvmap_priv.h"
+#include "nvmap_sci_ipc.h"
 
 struct nvmap_sci_ipc {
 	struct rb_root entries;
@@ -217,10 +219,11 @@ found:
 int nvmap_get_handle_from_sci_ipc_id(struct nvmap_client *client, u32 flags,
 		u32 sci_ipc_id, NvSciIpcEndpointVuid localu_vuid, u32 *handle)
 {
+	bool is_ro = (flags == PROT_READ) ? true : false, dmabuf_created = false;
 	struct nvmap_handle_ref *ref = NULL;
 	struct nvmap_sci_ipc_entry *entry;
+	struct dma_buf *dmabuf = NULL;
 	struct nvmap_handle *h;
-	bool is_ro = (flags == PROT_READ) ? true : false, dmabuf_created = false;
 	int ret = 0;
 	int fd;
 
@@ -233,7 +236,7 @@ int nvmap_get_handle_from_sci_ipc_id(struct nvmap_client *client, u32 flags,
 	if ((entry == NULL) || (entry->handle == NULL) ||
 		(entry->peer_vuid != localu_vuid) || (entry->flags != flags)) {
 
-		pr_err("%d: No matching Sci_Ipc_Id %d found\n",
+		pr_debug("%d: No matching Sci_Ipc_Id %d found\n",
 		__LINE__, sci_ipc_id);
 
 		ret = -EINVAL;
@@ -264,11 +267,35 @@ int nvmap_get_handle_from_sci_ipc_id(struct nvmap_client *client, u32 flags,
 	 */
 	if (dmabuf_created)
 		dma_buf_put(h->dmabuf_ro);
+	if (!IS_ERR(ref)) {
+		u32 id = 0;
 
-	fd = nvmap_get_dmabuf_fd(client, h, is_ro);
-	*handle = fd;
-	fd_install(fd, is_ro ? h->dmabuf_ro->file : h->dmabuf->file);
-
+		dmabuf = is_ro ? h->dmabuf_ro : h->dmabuf;
+		if (client->ida) {
+			if (nvmap_id_array_id_alloc(client->ida, &id, dmabuf) < 0) {
+				if (dmabuf)
+					dma_buf_put(dmabuf);
+				nvmap_free_handle(client, h, is_ro);
+				ret = -ENOMEM;
+				goto unlock;
+			}
+			if (!id)
+				*handle = 0;
+			else
+				*handle = id;
+		} else {
+			fd = nvmap_get_dmabuf_fd(client, h, is_ro);
+			if (IS_ERR_VALUE((uintptr_t)fd)) {
+				if (dmabuf)
+					dma_buf_put(dmabuf);
+				nvmap_free_handle(client, h, is_ro);
+				ret = -EINVAL;
+				goto unlock;
+			}
+			*handle = fd;
+			fd_install(fd, dmabuf->file);
+		}
+	}
 	entry->refcount--;
 	if (entry->refcount == 0U) {
 		struct free_sid_node *free_node;
@@ -286,6 +313,19 @@ int nvmap_get_handle_from_sci_ipc_id(struct nvmap_client *client, u32 flags,
 	}
 unlock:
 	mutex_unlock(&nvmapsciipc->mlock);
+
+	if (!ret) {
+		if (!client->ida)
+			trace_refcount_create_handle_from_sci_ipc_id(h, dmabuf,
+				atomic_read(&h->ref),
+				atomic_long_read(&dmabuf->file->f_count),
+				is_ro ? "RO" : "RW");
+		else
+			trace_refcount_get_handle_from_sci_ipc_id(h, dmabuf,
+				atomic_read(&h->ref),
+				is_ro ? "RO" : "RW");
+	}
+
 	return ret;
 }
 
@@ -304,7 +344,7 @@ int nvmap_sci_ipc_init(void)
 void nvmap_sci_ipc_exit(void)
 {
 	struct nvmap_sci_ipc_entry *e;
-	struct free_sid_node *fnode;
+	struct free_sid_node *fnode, *temp;
 	struct rb_node *n;
 
 	mutex_lock(&nvmapsciipc->mlock);
@@ -314,7 +354,7 @@ void nvmap_sci_ipc_exit(void)
 		kfree(e);
 	}
 
-	list_for_each_entry(fnode, &nvmapsciipc->free_sid_list, list) {
+	list_for_each_entry_safe(fnode, temp, &nvmapsciipc->free_sid_list, list) {
 		list_del(&fnode->list);
 		kfree(fnode);
 	}

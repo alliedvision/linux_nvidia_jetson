@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #include <nvgpu/gr/config.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/utils.h>
 
 #include "perf_ga10b.h"
 
@@ -369,7 +370,7 @@ void ga10b_perf_enable_membuf(struct gk20a *g, u32 size, u64 buf_addr)
 
 void ga10b_perf_disable_membuf(struct gk20a *g)
 {
-	int zero_value = 0;
+	u32 zero_value = 0U;
 	u32 i;
 
 	nvgpu_assert(perf_pmasys_channel_outbase__size_1_v() ==
@@ -401,6 +402,12 @@ void ga10b_perf_bind_mem_bytes_buffer_addr(struct gk20a *g, u64 buf_addr)
 	nvgpu_assert(perf_pmasys_channel_mem_bytes_addr__size_1_v() ==
 				pmasys_channel_instance_max_size);
 
+	/*
+	 * For mem bytes addr, the upper 8 bits of the 40bit VA is taken
+	 * from perf_pmasys_channel_outbaseupper_r(), so only consider
+	 * the lower 32bits in the buf_addr and discard the rest.
+	 */
+	buf_addr = u64_lo32(buf_addr);
 	buf_addr = buf_addr >> perf_pmasys_channel_mem_bytes_addr_ptr_b();
 	addr_lo = nvgpu_safe_cast_u64_to_u32(buf_addr);
 
@@ -471,6 +478,18 @@ u32 ga10b_perf_get_pmmgpc_per_chiplet_offset(void)
 	return (perf_pmmgpc_extent_v() - perf_pmmgpc_base_v() + reg_offset);
 }
 
+u32 ga10b_perf_get_pmmgpcrouter_per_chiplet_offset(void)
+{
+	/*
+	 * No register to find the offset of pmmgpc register.
+	 * Difference of pmmgpc register address ranges plus 1 will provide
+	 * the offset
+	 */
+	u32 reg_offset = 1U;
+
+	return (perf_pmmgpcrouter_extent_v() - perf_pmmgpcrouter_base_v() + reg_offset);
+}
+
 u32 ga10b_perf_get_pmmfbp_per_chiplet_offset(void)
 {
 	/*
@@ -481,6 +500,41 @@ u32 ga10b_perf_get_pmmfbp_per_chiplet_offset(void)
 	u32 reg_offset = 1U;
 
 	return (perf_pmmfbp_extent_v() - perf_pmmfbp_base_v() + reg_offset);
+}
+
+u32 ga10b_perf_get_pmmfbprouter_per_chiplet_offset(void)
+{
+	/*
+	 * No register to find the offset of pmmgpc register.
+	 * Difference of pmmgpc register address ranges plus 1 will provide
+	 * the offset
+	 */
+	u32 reg_offset = 1U;
+
+	return (perf_pmmfbprouter_extent_v() - perf_pmmfbprouter_base_v() + reg_offset);
+}
+
+u32 ga10b_get_hwpm_fbp_perfmon_regs_base(struct gk20a *g)
+{
+	(void)g;
+	return perf_pmmfbp_base_v();
+}
+u32 ga10b_get_hwpm_gpc_perfmon_regs_base(struct gk20a *g)
+{
+	(void)g;
+	return perf_pmmgpc_base_v();
+}
+
+u32 ga10b_get_hwpm_fbprouter_perfmon_regs_base(struct gk20a *g)
+{
+	(void)g;
+	return perf_pmmfbprouter_base_v();
+}
+
+u32 ga10b_get_hwpm_gpcrouter_perfmon_regs_base(struct gk20a *g)
+{
+	(void)g;
+	return perf_pmmgpcrouter_base_v();
 }
 
 void ga10b_perf_get_num_hwpm_perfmon(struct gk20a *g, u32 *num_sys_perfmon,
@@ -616,7 +670,7 @@ int ga10b_perf_update_get_put(struct gk20a *g, u64 bytes_consumed,
 
 
 	if (bytes_consumed != 0U) {
-		nvgpu_writel(g, perf_pmasys_channel_mem_bump_r(inst_zero), bytes_consumed);
+		nvgpu_writel(g, perf_pmasys_channel_mem_bump_r(inst_zero), (u32)bytes_consumed);
 	}
 
 	if (update_available_bytes) {

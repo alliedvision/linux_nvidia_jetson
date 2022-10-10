@@ -263,6 +263,7 @@
 #define fb_mmu_fault_status_replayable_getptr_corrupted_m()   (U32(0x1U) << 14U)
 #define fb_mmu_fault_status_non_replayable_getptr_corrupted_m()\
 				(U32(0x1U) << 15U)
+#define fb_mmu_fault_status_vab_error_m()                     (U32(0x1U) << 16U)
 #define fb_mmu_fault_status_busy_true_f()                          (0x40000000U)
 #define fb_mmu_fault_status_valid_m()                         (U32(0x1U) << 31U)
 #define fb_mmu_fault_status_valid_set_f()                          (0x80000000U)

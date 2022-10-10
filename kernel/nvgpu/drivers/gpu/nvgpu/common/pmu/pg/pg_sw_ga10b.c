@@ -21,6 +21,7 @@
  */
 
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu.h>
 #include <nvgpu/pmu/pmu_pg.h>
 #include <nvgpu/pmu/pmuif/pg.h>
@@ -361,7 +362,7 @@ static int ga10b_pmu_elpg_statistics(struct gk20a *g, u32 pg_engine_id,
 	(void) memset(&rpc, 0,
 			sizeof(struct pmu_rpc_struct_lpwr_pg_ctrl_stats_get));
 
-	rpc.ctrl_id = (u32)pg_engine_id;
+	rpc.ctrl_id = (u8)pg_engine_id;
 	PMU_RPC_EXECUTE_CPB(status, g->pmu, PG, PG_CTRL_STATS_GET, &rpc, 0);
 
 	if (status != 0) {
@@ -433,7 +434,7 @@ static int ga10b_pmu_pg_handle_idle_snap_rpc(struct gk20a *g,
 	return err;
 }
 
-static int ga10b_pmu_pg_process_rpc_event(struct gk20a *g, void *pmumsg)
+static int ga10b_pmu_pg_process_pg_event(struct gk20a *g, void *pmumsg)
 {
 	int err = 0;
 	struct pmu_nv_rpc_struct_lpwr_pg_async_cmd_resp *async_cmd;
@@ -483,5 +484,5 @@ void nvgpu_ga10b_pg_sw_init(struct gk20a *g,
 	pg->hw_load_zbc = NULL;
 	pg->rpc_handler = ga10b_pg_rpc_handler;
 	pg->init_send = ga10b_pmu_pg_init_send;
-	pg->process_rpc_event = ga10b_pmu_pg_process_rpc_event;
+	pg->process_pg_event = ga10b_pmu_pg_process_pg_event;
 }

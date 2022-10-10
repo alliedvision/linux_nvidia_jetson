@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,12 +37,13 @@ struct unit_module;
  *
  * Test Type: Feature
  *
- * Targets: nvgpu_cg_blcg_fb_ltc_load_enable, nvgpu_cg_blcg_fifo_load_enable,
+ * Targets: nvgpu_cg_blcg_fb_load_enable, nvgpu_cg_blcg_fifo_load_enable,
  *          nvgpu_cg_blcg_ce_load_enable, nvgpu_cg_blcg_pmu_load_enable,
- *	    nvgpu_cg_blcg_gr_load_enable, nvgpu_cg_slcg_fb_ltc_load_enable,
+ *	    nvgpu_cg_blcg_gr_load_enable, nvgpu_cg_slcg_fb_load_enable,
  *	    nvgpu_cg_slcg_priring_load_enable, nvgpu_cg_slcg_fifo_load_enable,
  *	    nvgpu_cg_slcg_pmu_load_enable, nvgpu_cg_slcg_therm_load_enable,
- *	    nvgpu_cg_slcg_ce2_load_enable, nvgpu_cg_init_gr_load_gating_prod
+ *	    nvgpu_cg_slcg_ce2_load_enable, nvgpu_cg_init_gr_load_gating_prod,
+ *          nvgpu_cg_blcg_ltc_load_enable, nvgpu_cg_slcg_ltc_load_enable
  *
  * Input: The struct specifying type of clock gating, target nvgpu routine
  * that handles the setup, clock gating domain descriptors.

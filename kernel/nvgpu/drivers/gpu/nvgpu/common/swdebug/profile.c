@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -188,7 +188,7 @@ void nvgpu_swprofile_snapshot(struct nvgpu_swprofiler *p, u32 idx)
 	 */
 	index = matrix_to_linear_index(p, p->sample_index, idx);
 
-	p->samples[index] = nvgpu_current_time_ns();
+	p->samples[index] = (u64)nvgpu_current_time_ns();
 }
 
 void nvgpu_swprofile_begin_sample(struct nvgpu_swprofiler *p)
@@ -210,14 +210,14 @@ void nvgpu_swprofile_begin_sample(struct nvgpu_swprofiler *p)
 	/*
 	 * Reference time for subsequent subsamples in this sample.
 	 */
-	p->samples_start[p->sample_index] = nvgpu_current_time_ns();
+	p->samples_start[p->sample_index] = (u64)nvgpu_current_time_ns();
 
 	nvgpu_mutex_release(&p->lock);
 }
 
 static int profile_cmp(const void *a, const void *b)
 {
-	return *((const u64 *) a) - *((const u64 *) b);
+	return (int)(*((const u64 *) a) - *((const u64 *) b));
 }
 
 #define PERCENTILE_WIDTH	5
@@ -350,6 +350,8 @@ void nvgpu_swprofile_print_raw_data(struct gk20a *g,
 {
 	u32 i, j;
 
+	(void)g;
+
 	nvgpu_mutex_acquire(&p->lock);
 
 	if (p->samples == NULL) {
@@ -408,6 +410,8 @@ static u32 nvgpu_swprofile_subsample_basic_stats(struct gk20a *g,
 	u64 sigma_2 = 0U;
 	u32 i;
 
+	(void)g;
+
 	/*
 	 * First, let's work out min, max, sum, and number of samples of data. With this we
 	 * can then get the mean, median, and sigma^2.
@@ -443,17 +447,33 @@ static u32 nvgpu_swprofile_subsample_basic_stats(struct gk20a *g,
 	/* With the sorted list of samples we can easily compute the median. */
 	sort(storage, samples, sizeof(u64), profile_cmp, NULL);
 
+	if (samples == 0U) {
+		return 0U;
+	}
+
 	mean = sum / samples;
 	median = storage[samples / 2];
 
-	/* Compute the sample variance (i.e sigma squared). */
-	for (i = 0U; i < samples; i++) {
-		sigma_2 += storage[i] * storage[i];
-	}
+	/*
+	 * If only 1 sample is found, the min, max, median and mean would be
+	 * the value of that one observation (storage[0]). The variance in this
+	 * case would be 0.
+	 * The need for this special case is because in the original implementation,
+	 * sigma_2 is divided by samples-1 which is 0 in our case, causing a divide
+	 * by zero error.
+	 */
+	if (samples == 1U) {
+		sigma_2 = 0U;
+	} else {
+		/* Compute the sample variance (i.e sigma squared). */
+		for (i = 0U; i < samples; i++) {
+			sigma_2 += storage[i] * storage[i];
+		}
 
-	/* Remember: _sample_ variance. */
-	sigma_2 /= (samples - 1U);
-	sigma_2 -= (mean * mean);
+		/* Remember: _sample_ variance. */
+		sigma_2 /= (samples - 1U);
+		sigma_2 -= (mean * mean);
+	}
 
 	results[0] = min;
 	results[1] = max;
@@ -461,7 +481,7 @@ static u32 nvgpu_swprofile_subsample_basic_stats(struct gk20a *g,
 	results[3] = median;
 	results[4] = sigma_2;
 
-	return samples;
+	return (u32)samples;
 }
 
 /*
@@ -505,9 +525,12 @@ void nvgpu_swprofile_print_basic_stats(struct gk20a *g,
 		samples = nvgpu_swprofile_subsample_basic_stats(g, p, i,
 								results, storage);
 
+		if (samples == 0U) {
+			continue;
+		}
 		gk20a_debug_output(o, fmt_output, p->col_names[i],
-				   results[0], results[1],
-				   results[2], results[3], results[4]);
+				results[0], results[1],
+				results[2], results[3], results[4]);
 	}
 
 	gk20a_debug_output(o, "Number of samples: %u\n", samples);

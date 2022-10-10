@@ -1,0 +1,29 @@
+From c76219cd5b6a04e65b94a236fc5810d57e5d4391 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Wed, 20 Nov 2019 15:49:05 +0000
+Subject: [PATCH 586/830] ANDROID: add unstripped modules to the distribution
+X-NVConfidentiality: public
+
+The kernel ABI is determined by what vmlinux and the kernel modules are
+exposing in their distribution. Hence, add IN_KERNEL_MODULES to the
+distribution and ensure they have proper debug information.
+
+Change-Id: Ia0ac6b8aa98fa28690acc1469c92c92e01f0fcbd
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ build.config.common | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/build.config.common b/build.config.common
+index f3370bcccb55..ba411b0f24c0 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -10,3 +10,5 @@ BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+ 
+ EXTRA_CMDS=''
+ STOP_SHIP_TRACEPRINTK=1
++IN_KERNEL_MODULES=1
++DO_NOT_STRIP_MODULES=1
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,7 @@
  * CE HAL interface.
  */
 struct gk20a;
-
+struct nvgpu_device;
 /**
  * CE HAL operations.
  *
@@ -40,9 +40,13 @@ struct gops_ce {
 	/**
 	 * @brief Handler for CE stalling interrupts.
 	 *
-	 * @param g [in]	The GPU driver struct.
-	 * @param inst_id [in]	Copy engine instance id.
-	 * @param pri_base [in]	Start of h/w register address space.
+	 * @param g [in]	       The GPU driver struct.
+	 * @param inst_id [in]	       Copy engine instance id.
+	 * @param pri_base [in]	       Start of h/w register address space.
+	 * @param needs_rc [out]       Flag indicating if recovery should be
+	 *                             triggered as part of CE error handling.
+	 * @param needs_quiesce [out]  Flag indicating if SW quiesce should be
+	 *                             triggered as part of CE error handling.
 	 *
 	 * This function is invoked by MC stalling isr handler to handle
 	 * the CE stalling interrupt.
@@ -56,10 +60,13 @@ struct gops_ce {
 	 *   - Method buffer fault interrupt.
 	 *   - Blocking pipe interrupt.
 	 *   - Launch error interrupt.
+	 * - Sets needs_rc / needs_quiesce based on error handling policy.
 	 * - Clear the handled interrupts by writing to ce_intr_status_r.
 	 */
-	void (*isr_stall)(struct gk20a *g, u32 inst_id, u32 pri_base);
+	void (*isr_stall)(struct gk20a *g, u32 inst_id, u32 pri_base,
+				bool *needs_rc, bool *needs_quiesce);
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	/**
 	 * @brief Handler for CE non-stalling interrupts.
 	 *
@@ -82,6 +89,19 @@ struct gops_ce {
 	 */
 	u32 (*isr_nonstall)(struct gk20a *g, u32 inst_id, u32 pri_base);
 
+	/*
+	 * @brief Get non-stall vectors from hw.
+	 *
+	 * @param g [in]	The GPU driver struct.
+	 *
+	 * Steps:
+	 * - Get a list of non-stall vectors used by the engine
+	 *   from the hw register POR values.
+	 */
+	void (*init_hw)(struct gk20a *g);
+
+#endif
+
 	/**
 	 * @brief Get number of PCEs (Physical Copy Engines).
 	 *
@@ -99,6 +119,7 @@ struct gops_ce {
 	 */
 	u32 (*get_num_pce)(struct gk20a *g);
 
+#ifdef CONFIG_NVGPU_HAL_NON_FUSA
 	/**
 	 * @brief Handler for method buffer fault in BAR2.
 	 *
@@ -112,24 +133,15 @@ struct gops_ce {
 	 *   clear if pending.
 	 */
 	void (*mthd_buffer_fault_in_bar2_fault)(struct gk20a *g);
+#endif
 
 	/** @cond DOXYGEN_SHOULD_SKIP_THIS */
 
 	int (*ce_init_support)(struct gk20a *g);
 	void (*set_pce2lce_mapping)(struct gk20a *g);
 	void (*init_prod_values)(struct gk20a *g);
+	void (*halt_engine)(struct gk20a *g, const struct nvgpu_device *dev);
 	void (*request_idle)(struct gk20a *g);
-
-	/*
-	 * @brief Get non-stall vectors from hw.
-	 *
-	 * @param g [in]	The GPU driver struct.
-	 *
-	 * Steps:
-	 * - Get a list of non-stall vectors used by the engine
-	 *   from the hw register POR values.
-	 */
-	void (*init_hw)(struct gk20a *g);
 
 	/*
 	 * @brief Enable/disable ce interrupts.
@@ -143,6 +155,7 @@ struct gops_ce {
 
 	void (*intr_retrigger)(struct gk20a *g, u32 inst_id);
 
+	u64 (*get_inst_ptr_from_lce)(struct gk20a *g, u32 inst_id);
 #ifdef CONFIG_NVGPU_DGPU
 	int (*ce_app_init_support)(struct gk20a *g);
 	void (*ce_app_suspend)(struct gk20a *g);

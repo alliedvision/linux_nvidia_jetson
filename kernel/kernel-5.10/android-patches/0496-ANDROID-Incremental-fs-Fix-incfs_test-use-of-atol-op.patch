@@ -1,0 +1,70 @@
+From 99a39d557f5c33a1db95fc84e8eacad38fb15e98 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Mon, 30 Nov 2020 14:44:00 -0800
+Subject: [PATCH 496/830] ANDROID: Incremental fs: Fix incfs_test use of atol,
+ open
+X-NVConfidentiality: public
+
+Reported when cross compiled for Android
+
+Bug: 174512003
+Test: incfs_test passes, cross compiles for Android
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I043657192415e01293fe983e059a13fa12ae1f60
+---
+ .../testing/selftests/filesystems/incfs/incfs_test.c  | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 70ac2589c77a..6db093562e6c 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2293,7 +2293,7 @@ static int emit_partial_test_file_data(const char *mount_dir,
+ 	}
+ 
+ 	buffer[result] = 0;
+-	blocks_written_total = atol(buffer);
++	blocks_written_total = strtol(buffer, NULL, 10);
+ 	result = 0;
+ 
+ 	pollfd = (struct pollfd) {
+@@ -2335,7 +2335,7 @@ static int emit_partial_test_file_data(const char *mount_dir,
+ 
+ 		result = read(bw_fd, buffer, sizeof(buffer));
+ 		buffer[result] = 0;
+-		blocks_written_new_total = atol(buffer);
++		blocks_written_new_total = strtol(buffer, NULL, 10);
+ 
+ 		if (blocks_written_new_total - blocks_written_total
+ 		    != blocks_written) {
+@@ -2998,7 +2998,8 @@ static int compatibility_test(const char *mount_dir)
+ 
+ 	TEST(backing_dir = create_backing_dir(mount_dir), backing_dir);
+ 	TEST(filename = concat_file_name(backing_dir, name), filename);
+-	TEST(fd = open(filename, O_CREAT | O_WRONLY | O_CLOEXEC), fd != -1);
++	TEST(fd = open(filename, O_CREAT | O_WRONLY | O_CLOEXEC, 0777),
++	     fd != -1);
+ 	TESTEQUAL(write(fd, v1_file, sizeof(v1_file)), sizeof(v1_file));
+ 	TESTEQUAL(fsetxattr(fd, INCFS_XATTR_SIZE_NAME, &size, sizeof(size), 0),
+ 		  0);
+@@ -3006,7 +3007,7 @@ static int compatibility_test(const char *mount_dir)
+ 	free(filename);
+ 	TEST(filename = concat_file_name(mount_dir, name), filename);
+ 	close(fd);
+-	TEST(fd = open(filename, O_RDONLY), fd != -1);
++	TEST(fd = open(filename, O_RDONLY | O_CLOEXEC), fd != -1);
+ 
+ 	result = TEST_SUCCESS;
+ out:
+@@ -3344,7 +3345,7 @@ static int per_uid_read_timeouts_test(const char *mount_dir)
+ 
+ 	int result = TEST_FAILURE;
+ 	char *backing_dir = NULL;
+-	int pid;
++	int pid = -1;
+ 	int cmd_fd = -1;
+ 	char *filename = NULL;
+ 	int fd = -1;
+-- 
+2.17.1
+

@@ -249,7 +249,7 @@ void nvgpu_pmu_rtos_cmdline_args_init(struct gk20a *g, struct nvgpu_pmu *pmu)
 		pmu, GK20A_PMU_DMAIDX_VIRT);
 
 	pmu->fw->ops.set_cmd_line_args_cpu_freq(pmu,
-		g->ops.clk.get_rate(g, CTRL_CLK_DOMAIN_PWRCLK));
+		(u32)g->ops.clk.get_rate(g, CTRL_CLK_DOMAIN_PWRCLK));
 
 	if (pmu->fw->ops.config_cmd_line_args_super_surface != NULL) {
 		pmu->fw->ops.config_cmd_line_args_super_surface(pmu);
@@ -471,11 +471,19 @@ int nvgpu_pmu_rtos_init(struct gk20a *g)
 	nvgpu_pmu_fw_state_change(g, g->pmu, PMU_FW_STATE_STARTING, false);
 #if defined(CONFIG_NVGPU_NON_FUSA)
 	if (nvgpu_is_enabled(g, NVGPU_PMU_NEXT_CORE_ENABLED)) {
+
+		err = nvgpu_falcon_wait_for_nvriscv_brom_completion(g->pmu->flcn);
+		if (err != 0) {
+			nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_NVRISCV_BROM_FAILURE);
+			nvgpu_err(g, "PMU NVRISCV BROM FAILURE");
+			goto exit;
+		}
+
 		err = nvgpu_pmu_wait_for_priv_lockdown_release(g,
 				g->pmu->flcn, nvgpu_get_poll_timeout(g));
 		if(err != 0) {
 			nvgpu_err(g, "PRIV lockdown polling failed");
-			nvgpu_riscv_dump_brom_stats(g->pmu->flcn);
 			return err;
 		}
 	}

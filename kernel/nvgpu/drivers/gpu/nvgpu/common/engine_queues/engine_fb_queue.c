@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -70,6 +70,8 @@ static bool engine_fb_queue_has_room(struct nvgpu_engine_fb_queue *queue,
 	u32 next_head = 0;
 	int err = 0;
 
+	(void)size;
+
 	err = queue->head(queue, &head, QUEUE_GET);
 	if (err != 0) {
 		nvgpu_err(queue->g, "queue head GET failed");
@@ -96,6 +98,9 @@ static int engine_fb_queue_write(struct nvgpu_engine_fb_queue *queue,
 		(void *)queue->fbq.work_buffer;
 	u32 entry_offset = 0U;
 	int err = 0;
+
+	(void)src;
+	(void)size;
 
 	if (queue->fbq.work_buffer == NULL) {
 		nvgpu_err(g, "Invalid/Unallocated work buffer");

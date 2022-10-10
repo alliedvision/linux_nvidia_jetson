@@ -1,7 +1,7 @@
 /*
  * GV11B master
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,6 +35,7 @@
 
 bool gv11b_mc_is_intr_hub_pending(struct gk20a *g, u32 mc_intr_0)
 {
+	(void)g;
 	return ((mc_intr_0 & mc_intr_hub_pending_f()) != 0U);
 }
 

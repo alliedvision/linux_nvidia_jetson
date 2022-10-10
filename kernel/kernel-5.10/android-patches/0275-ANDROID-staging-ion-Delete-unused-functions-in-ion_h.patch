@@ -1,0 +1,76 @@
+From 1de8a7048e95682153c0972db62f26658a48ce71 Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Sun, 2 Aug 2020 22:55:53 -0700
+Subject: [PATCH 275/830] ANDROID: staging: ion: Delete unused functions in
+ ion_heap.c
+X-NVConfidentiality: public
+
+They were deleted in 5d41593935d9(staging: ion: refactor ion's heap
+manipulators into a separate file) but was accidentally added back in
+a64320f5b8e4(Merge 94709049fb84).
+
+Fixes: a64320f5b8e4 ("Merge 94709049fb84 ("Merge branch 'akpm' (patches from Andrew)") into android-mainline")
+
+Change-Id: I757bd09a26eda06317ce467dff9c3f275204723c
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/ion_heap.c | 43 --------------------------
+ 1 file changed, 43 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_heap.c b/drivers/staging/android/ion/ion_heap.c
+index 90e7b857c98b..aa29a4ee48a3 100644
+--- a/drivers/staging/android/ion/ion_heap.c
++++ b/drivers/staging/android/ion/ion_heap.c
+@@ -205,49 +205,6 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
+ }
+ EXPORT_SYMBOL_GPL(ion_heap_map_user);
+ 
+-static int ion_heap_clear_pages(struct page **pages, int num, pgprot_t pgprot)
+-{
+-	void *addr = vmap(pages, num, VM_MAP, pgprot);
+-
+-	if (!addr)
+-		return -ENOMEM;
+-	memset(addr, 0, PAGE_SIZE * num);
+-	vunmap(addr);
+-
+-	return 0;
+-}
+-
+-static int ion_heap_sglist_zero(struct sg_table *sgt, pgprot_t pgprot)
+-{
+-	int p = 0;
+-	int ret = 0;
+-	struct sg_page_iter piter;
+-	struct page *pages[32];
+-
+-	for_each_sgtable_page(sgt, &piter, 0) {
+-		pages[p++] = sg_page_iter_page(&piter);
+-		if (p == ARRAY_SIZE(pages)) {
+-			ret = ion_heap_clear_pages(pages, p, pgprot);
+-			if (ret)
+-				return ret;
+-			p = 0;
+-		}
+-	}
+-	if (p)
+-		ret = ion_heap_clear_pages(pages, p, pgprot);
+-
+-	return ret;
+-}
+-
+-int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot)
+-{
+-	struct scatterlist sg;
+-
+-	sg_init_table(&sg, 1);
+-	sg_set_page(&sg, page, size, 0);
+-	return ion_heap_sglist_zero(&sg, 1, pgprot);
+-}
+-
+ void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
+ {
+ 	spin_lock(&heap->free_lock);
+-- 
+2.17.1
+

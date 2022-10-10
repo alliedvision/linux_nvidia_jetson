@@ -1,0 +1,66 @@
+From f51d6cd0a0c922d561ebce7752b953a74ee2b764 Mon Sep 17 00:00:00 2001
+From: Siarhei Vishniakou <svv@google.com>
+Date: Wed, 8 Jan 2020 18:19:25 -0800
+Subject: [PATCH 745/830] ANDROID: Enable HID_STEAM and JOYSTICK_XPAD as y
+X-NVConfidentiality: public
+
+These configs will now be required in aosp/1204022.
+
+Change-Id: Ib2961a9abf545f483cd5691f04b93cffd011ec82
+Signed-off-by: Siarhei Vishniakou <svv@google.com>
+Bug: 136263708
+Test: none
+Bug: 162909109
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 3 ++-
+ arch/x86/configs/gki_defconfig   | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 82881a9b6325..34244fa08f97 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -281,6 +281,7 @@ CONFIG_INPUT_EVDEV=y
+ CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ CONFIG_INPUT_JOYSTICK=y
++CONFIG_JOYSTICK_XPAD=y
+ CONFIG_INPUT_TOUCHSCREEN=y
+ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_UINPUT=y
+@@ -348,8 +349,8 @@ CONFIG_HID_MULTITOUCH=y
+ CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
++CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
+-CONFIG_USB=y
+ CONFIG_USB_OTG=y
+ CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 536cde9f3d36..ec1d7bd13c20 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -255,6 +255,7 @@ CONFIG_INPUT_EVDEV=y
+ CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ CONFIG_INPUT_JOYSTICK=y
++CONFIG_JOYSTICK_XPAD=y
+ CONFIG_INPUT_TOUCHSCREEN=y
+ CONFIG_INPUT_MISC=y
+ CONFIG_INPUT_UINPUT=y
+@@ -310,8 +311,8 @@ CONFIG_HID_MULTITOUCH=y
+ CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
++CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
+-CONFIG_USB=y
+ CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+-- 
+2.17.1
+

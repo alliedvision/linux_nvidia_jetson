@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -123,14 +123,14 @@
 		nvidia,pad-autocal-pull-down-offset-sdr104 = <0x00>;
 		nvidia,default-tap = <14>;
 		nvidia,default-trim = <0x8>;
-		pinctrl-names = "sdmmc-3v3", "sdmmc-1v8";
+		pinctrl-names = "sdmmc-3v3", "sdmmc-1v8", "sdmmc-sdexp-enable", "sdmmc-sdexp-disable";
 		pinctrl-0 = <&sdmmc1_3v3>;
 		pinctrl-1 = <&sdmmc1_1v8>;
-		assigned-clocks = <&bpmp TEGRA234_CLK_SDMMC1>,
-				  <&bpmp TEGRA234_CLK_PLLC4_MUXED>;
+		pinctrl-2 = <&sdmmc1_sdexp_enable>;
+		pinctrl-3 = <&sdmmc1_sdexp_disable>;
+		assigned-clocks = <&bpmp TEGRA234_CLK_SDMMC1>;
 		assigned-clock-parents =
-				  <&bpmp TEGRA234_CLK_PLLC4_MUXED>,
-				  <&bpmp TEGRA234_CLK_PLLC4_VCO_DIV2>;
+				  <&bpmp TEGRA234_CLK_PLLC4_MUXED>;
 #else
 
 		pinctrl-names = "sdmmc_e_33v_enable", "sdmmc_e_33v_disable";

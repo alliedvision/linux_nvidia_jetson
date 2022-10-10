@@ -2490,13 +2490,18 @@ static int parse_imp_cursor_values(struct device_node *settings_np,
 			struct tegra_nvdisp_imp_settings *imp_settings,
 			int num_entries)
 {
-	u32 max_heads = tegra_dc_get_numof_dispheads();
+	u32 max_heads;
 	u8 *ctrl_num_arr = NULL;
 	u16 *fetch_slots_arr = NULL;
 	u32 *pipe_meter_arr = NULL;
 	u64 *dvfs_watermark_arr = NULL;
 	u64 *mempool_entries_arr = NULL;
 	int ret = 0, i;
+
+	ret = tegra_dc_get_numof_dispheads();
+	if (ret < 0)
+		return ret;
+	max_heads = ret;
 
 	ctrl_num_arr = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
 	if (!ctrl_num_arr) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,5 +35,6 @@
 
 u32 gm20b_channel_count(struct gk20a *g)
 {
+	(void)g;
 	return ccsr_channel__size_1_v();
 }

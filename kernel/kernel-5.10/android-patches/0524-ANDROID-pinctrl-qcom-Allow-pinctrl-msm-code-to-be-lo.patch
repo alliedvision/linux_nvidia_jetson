@@ -1,0 +1,46 @@
+From e77291fc1e8c267148a61801bade8b93b95c15eb Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 16 Apr 2020 05:37:43 +0000
+Subject: [PATCH 524/830] ANDROID: pinctrl: qcom: Allow pinctrl-msm code to be
+ loadable as a module
+X-NVConfidentiality: public
+
+Tweaks to allow pinctrl-msm code to be loadable as a module.
+This is needed in order to support having the qcom-scm driver,
+which pinctrl-msm calls into, configured as a module.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Bug: 153049053
+Change-Id: I11a6e20b66456cecfecc0610f3746047d33053e1
+---
+ drivers/pinctrl/qcom/Kconfig       | 2 +-
+ drivers/pinctrl/qcom/pinctrl-msm.c | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/pinctrl/qcom/Kconfig b/drivers/pinctrl/qcom/Kconfig
+index 5fe7b8aaf69d..11073f94b599 100644
+--- a/drivers/pinctrl/qcom/Kconfig
++++ b/drivers/pinctrl/qcom/Kconfig
+@@ -2,7 +2,7 @@
+ if (ARCH_QCOM || COMPILE_TEST)
+ 
+ config PINCTRL_MSM
+-	bool
++	tristate
+ 	select PINMUX
+ 	select PINCONF
+ 	select GENERIC_PINCONF
+diff --git a/drivers/pinctrl/qcom/pinctrl-msm.c b/drivers/pinctrl/qcom/pinctrl-msm.c
+index 37526aa1fb2c..a3cef80a789b 100644
+--- a/drivers/pinctrl/qcom/pinctrl-msm.c
++++ b/drivers/pinctrl/qcom/pinctrl-msm.c
+@@ -1473,3 +1473,6 @@ int msm_pinctrl_remove(struct platform_device *pdev)
+ }
+ EXPORT_SYMBOL(msm_pinctrl_remove);
+ 
++MODULE_DESCRIPTION("Qualcomm Technologies, Inc. pinctrl-msm driver");
++MODULE_LICENSE("GPL v2");
++
+-- 
+2.17.1
+

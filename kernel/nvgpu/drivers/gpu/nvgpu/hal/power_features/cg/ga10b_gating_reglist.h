@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -129,6 +129,16 @@ void ga10b_slcg_hshub_load_gating_prod(struct gk20a *g,
 	bool prod);
 u32 ga10b_slcg_hshub_gating_prod_size(void);
 const struct gating_desc *ga10b_slcg_hshub_get_gating_prod(void);
+
+void ga10b_slcg_ctrl_load_gating_prod(struct gk20a *g,
+	bool prod);
+u32 ga10b_slcg_ctrl_gating_prod_size(void);
+const struct gating_desc *ga10b_slcg_ctrl_get_gating_prod(void);
+
+void ga10b_slcg_gsp_load_gating_prod(struct gk20a *g,
+	bool prod);
+u32 ga10b_slcg_gsp_gating_prod_size(void);
+const struct gating_desc *ga10b_slcg_gsp_get_gating_prod(void);
 
 void ga10b_blcg_bus_load_gating_prod(struct gk20a *g,
 	bool prod);

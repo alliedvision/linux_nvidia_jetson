@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,12 +21,15 @@
  */
 
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
 
 #include "netlist_ga10b.h"
 
 int ga10b_netlist_get_name(struct gk20a *g, int index, char *name)
 {
 	int ret = 0;
+
+	(void)g;
 
 	switch (index) {
 #ifdef GA10B_NETLIST_IMAGE_FW_NAME

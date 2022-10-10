@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -114,59 +114,6 @@ int test_ce_init_support(struct unit_module *m, struct gk20a *g, void *args);
  * Output: Returns PASS if expected result is met, FAIL otherwise.
  */
 int test_ce_stall_isr(struct unit_module *m, struct gk20a *g, void *args);
-
-/**
- * Test specification for: test_ce_nonstall_isr
- *
- * Description: Validate nonstall interrupt handler functionality.
- *
- * Test Type: Feature
- *
- * Targets: gops_ce.isr_nonstall, gp10b_ce_nonstall_isr
- *
- * Input: test_ce_setup_env must have been run.
- *
- * Steps:
- * - Set all CE interrupt sources pending in the interrupt status reg for each
- *   instance.
- * - Call gops_ce.isr_nonstall.
- * - Verify only the nonstall interrupt is cleared and the expected ops are
- *   returned.
- * - Set no CE interrupt sources pending in the interrupt status reg for each
- *   instance.
- * - Call gops_ce.isr_nonstall.
- * - Verify no interrupts are cleared and no ops are returned.
- *
- * Output: Returns PASS if expected result is met, FAIL otherwise.
- */
-int test_ce_nonstall_isr(struct unit_module *m, struct gk20a *g, void *args);
-
-/**
- * Test specification for: test_mthd_buffer_fault_in_bar2_fault
- *
- * Description: Validate method buffer interrupt functionality.
- *
- * Test Type: Feature
- *
- * Targets: gops_ce.mthd_buffer_fault_in_bar2_fault,
- *          gv11b_ce_mthd_buffer_fault_in_bar2_fault
- *
- * Input: test_ce_setup_env must have been run.
- *
- * Steps:
- * - Set all CE interrupt sources pending in the interrupt status reg for each
- *   instance.
- * - Call gops_ce.mthd_buffer_fault_in_bar2_fault.
- * - Verify only the correct interrupt is cleared.
- * - Set no CE interrupt sources pending in the interrupt status reg for each
- *   instance.
- * - Call gops_ce.mthd_buffer_fault_in_bar2_fault.
- * - Verify no interrupts are cleared.
- *
- * Output: Returns PASS if expected result is met, FAIL otherwise.
- */
-int test_mthd_buffer_fault_in_bar2_fault(struct unit_module *m, struct gk20a *g,
-					void *args);
 
 /**
  * Test specification for: test_get_num_pce

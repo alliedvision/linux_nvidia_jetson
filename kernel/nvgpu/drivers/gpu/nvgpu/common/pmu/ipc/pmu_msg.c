@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -202,8 +202,8 @@ static int pmu_handle_event(struct nvgpu_pmu *pmu, struct pmu_msg *msg)
 		}
 		break;
 	case PMU_UNIT_PG:
-		if (pmu->pg->process_rpc_event != NULL) {
-			err = pmu->pg->process_rpc_event(g, (void *)&msg->hdr);
+		if (pmu->pg->process_pg_event != NULL) {
+			err = pmu->pg->process_pg_event(g, (void *)&msg->hdr);
 		}
 		break;
 	default:
@@ -545,7 +545,7 @@ int nvgpu_pmu_process_message(struct nvgpu_pmu *pmu)
 		nvgpu_pmu_dbg(g, "ctrl_flags = 0x%08x, seq_id = 0x%08x",
 			msg.hdr.ctrl_flags, msg.hdr.seq_id);
 
-		msg.hdr.ctrl_flags &= ~PMU_CMD_FLAGS_PMU_MASK;
+		msg.hdr.ctrl_flags &= (u8)(~PMU_CMD_FLAGS_PMU_MASK);
 
 		if ((msg.hdr.ctrl_flags == PMU_CMD_FLAGS_EVENT) ||
 			(msg.hdr.ctrl_flags == PMU_CMD_FLAGS_RPC_EVENT)) {
@@ -611,6 +611,8 @@ void nvgpu_pmu_rpc_handler(struct gk20a *g, struct pmu_msg *msg,
 	struct nv_pmu_rpc_header rpc;
 	struct rpc_handler_payload *rpc_payload =
 		(struct rpc_handler_payload *)param;
+
+	(void)status;
 
 	if (nvgpu_can_busy(g) == 0) {
 		return;

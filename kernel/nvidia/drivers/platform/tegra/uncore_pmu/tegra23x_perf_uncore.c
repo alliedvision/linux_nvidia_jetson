@@ -1,7 +1,7 @@
 /*
  * T23x SCF Uncore PMU support
  *
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -316,6 +316,9 @@ static void scf_uncore_event_start(struct perf_event *event, int flags) {
 	uncore_pmu = to_uncore_pmu(event->pmu);
 	uncore_unit = get_unit(uncore_pmu, unit_id);
 
+	if (unlikely(uncore_unit == NULL))
+		return;
+
 	hwc->state = 0;
 
 	scf_uncore_event_set_period(uncore_unit, event);
@@ -370,6 +373,9 @@ static void scf_uncore_event_stop(struct perf_event *event, int flags)
 	unit_id = CONFIG_UNIT(event->attr.config);
 	uncore_pmu = to_uncore_pmu(event->pmu);
 	uncore_unit = get_unit(uncore_pmu, unit_id);
+
+	if (unlikely(uncore_unit == NULL))
+		return;
 
 	/* Stop counter and disable interrupt */
 	mce_perfmon_write(uncore_unit, NV_PMCNTENCLR, 0, BIT(idx));
@@ -441,6 +447,9 @@ static void scf_uncore_event_del(struct perf_event *event, int flags)
 	uncore_pmu = to_uncore_pmu(event->pmu);
 	uncore_unit = get_unit(uncore_pmu, unit_id);
 
+	if (unlikely(uncore_unit == NULL))
+		return;
+
 	scf_uncore_event_stop(event, flags | PERF_EF_UPDATE);
 
 	clear_bit(idx, uncore_unit->used_ctrs);
@@ -462,6 +471,9 @@ static void scf_uncore_event_read(struct perf_event *event)
 	unit_id = CONFIG_UNIT(event->attr.config);
 	uncore_pmu = to_uncore_pmu(event->pmu);
 	uncore_unit = get_unit(uncore_pmu, unit_id);
+
+	if (unlikely(uncore_unit == NULL))
+		return;
 
 	scf_uncore_event_update(uncore_unit, event, false);
 }

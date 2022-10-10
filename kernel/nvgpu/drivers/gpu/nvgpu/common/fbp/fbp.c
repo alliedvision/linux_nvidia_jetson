@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -84,7 +84,7 @@ int nvgpu_fbp_init_support(struct gk20a *g)
 
 	/* get active L2 mask per FBP */
 	for_each_set_bit(i, &fbp_en_mask_tmp, fbp->max_fbps_count) {
-		tmp = g->ops.fuse.fuse_status_opt_l2_fbp(g, i);
+		tmp = g->ops.fuse.fuse_status_opt_l2_fbp(g, (u32)i);
 		fbp->fbp_l2_en_mask[i] = l2_all_en_mask ^ tmp;
 	}
 #endif

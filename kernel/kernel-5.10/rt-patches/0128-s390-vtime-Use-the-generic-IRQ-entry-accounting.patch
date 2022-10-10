@@ -1,7 +1,7 @@
-From d8b582a5b331f236b059c098e81974aad5363fc9 Mon Sep 17 00:00:00 2001
+From da7c7f3cad79218b6fef079b16b5f3dbcfca12e4 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:29 +0100
-Subject: [PATCH 128/304] s390/vtime: Use the generic IRQ entry accounting
+Subject: [PATCH 128/318] s390/vtime: Use the generic IRQ entry accounting
 
 s390 has its own version of IRQ entry accounting because it doesn't
 account the idle time the same way the other architectures do. Only
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  5 files changed, 9 insertions(+), 17 deletions(-)
 
 diff --git a/arch/Kconfig b/arch/Kconfig
-index 69fe713..3a03601 100644
+index 632d60e13494..ec39d2aeccf5 100644
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
 @@ -643,6 +643,12 @@ config HAVE_TIF_NOHZ
@@ -52,7 +52,7 @@ index 69fe713..3a03601 100644
  	bool
  	help
 diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index 896b68e..54a4e77 100644
+index 896b68e541b2..54a4e77f2d2a 100644
 --- a/arch/s390/Kconfig
 +++ b/arch/s390/Kconfig
 @@ -183,6 +183,7 @@ config S390
@@ -64,7 +64,7 @@ index 896b68e..54a4e77 100644
  	select IOMMU_SUPPORT		if PCI
  	select MODULES_USE_ELF_RELA
 diff --git a/arch/s390/include/asm/vtime.h b/arch/s390/include/asm/vtime.h
-index 3622d4e..fac6a67 100644
+index 3622d4ebc73a..fac6a67988eb 100644
 --- a/arch/s390/include/asm/vtime.h
 +++ b/arch/s390/include/asm/vtime.h
 @@ -2,7 +2,6 @@
@@ -76,7 +76,7 @@ index 3622d4e..fac6a67 100644
  
  #endif /* _S390_VTIME_H */
 diff --git a/arch/s390/kernel/vtime.c b/arch/s390/kernel/vtime.c
-index 7101359..18a9763 100644
+index 710135905deb..18a97631af43 100644
 --- a/arch/s390/kernel/vtime.c
 +++ b/arch/s390/kernel/vtime.c
 @@ -248,10 +248,6 @@ void vtime_account_kernel(struct task_struct *tsk)
@@ -91,7 +91,7 @@ index 7101359..18a9763 100644
   * Sorted add to a list. List is linear searched until first bigger
   * element is found.
 diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-index 61ce9f9..27831625 100644
+index e03568c5f584..1d78b835ec8b 100644
 --- a/kernel/sched/cputime.c
 +++ b/kernel/sched/cputime.c
 @@ -417,23 +417,14 @@ void vtime_task_switch(struct task_struct *prev)
@@ -121,5 +121,5 @@ index 61ce9f9..27831625 100644
  void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
  		    u64 *ut, u64 *st)
 -- 
-2.7.4
+2.17.1
 

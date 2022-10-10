@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -381,7 +381,20 @@ int nvgpu_tsg_bind_channel(struct nvgpu_tsg *tsg,
 			struct nvgpu_channel *ch);
 
 #ifdef CONFIG_NVS_PRESENT
-int nvgpu_tsg_bind_domain(struct nvgpu_tsg *tsg, const char *domain_name);
+/**
+ * @brief Bind a TSG to a domain.
+ *
+ * @param tsg [in]		Pointer to TSG struct.
+ * @param nnvs_domain [in]	Pointer to nvgpu nvs domain.
+ *
+ * Make this TSG participate in the given domain, such that it can only be
+ * seen by runlist HW when the domain has been scheduled in.
+ *
+ * The TSG must have no channels at this point.
+ *
+ * @return 0 for successful bind, < 0 for failure.
+ */
+int nvgpu_tsg_bind_domain(struct nvgpu_tsg *tsg, struct nvgpu_nvs_domain *nnvs_domain);
 #endif
 
 /**
@@ -453,21 +466,6 @@ struct nvgpu_tsg *nvgpu_tsg_check_and_get_from_id(struct gk20a *g, u32 tsgid);
  */
 int nvgpu_tsg_unbind_channel(struct nvgpu_tsg *tsg, struct nvgpu_channel *ch,
 			     bool force);
-
-
-/**
- * @brief Unbind a channel from the TSG it is bound to.
- *
- * @param tsg [in]			Pointer to TSG struct.
- * @param ch [in]			Pointer to Channel struct.
- *
- * Call #nvgpu_tsg_unbind_channel with argument force set. Thus, if the
- * channel has work, it still gets unbound.
- *
- * @return return value by #nvgpu_tsg_unbind_channel
- */
-int nvgpu_tsg_force_unbind_channel(struct nvgpu_tsg *tsg,
-				   struct nvgpu_channel *ch);
 
 /**
  * @brief Check h/w channel status before unbinding Channel.

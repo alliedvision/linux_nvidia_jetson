@@ -25,7 +25,7 @@
 #include <dt-common/jetson/tegra234-p3737-0000-p3701-0000.h>
 
 / {
-	overlay-name = "Jetson AGX Xavier CSI Connector";
+	overlay-name = "Jetson AGX CSI Connector";
 	compatible = JETSON_COMPATIBLE;
 
 	fragment@0 {

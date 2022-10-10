@@ -1,0 +1,126 @@
+From ac25871dd9035a4b1a6f428d41763bf3b40736b1 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 5 May 2020 18:40:52 +0000
+Subject: [PATCH 280/830] ANDROID: dma-heap: Provide accessors so that
+ in-kernel drivers can allocate dmabufs from specific heaps
+X-NVConfidentiality: public
+
+This allows drivers who don't want to create their own
+DMA-BUF exporter to be able to allocate DMA-BUFs directly
+from existing DMA-BUF Heaps.
+
+There is some concern that the premise of DMA-BUF heaps is
+that userland knows better about what type of heap memory
+is needed for a pipeline, so it would likely be best for
+drivers to import and fill DMA-BUFs allocated by userland
+instead of allocating one themselves, but this is still
+up for debate.
+
+Unfortunately we don't have any public users of this, so
+we cannot push it upstream. However, vendors have asked
+for this, so I'm submitting it to Andorid Common in the
+hopes that we can eventually find what vendors are doing.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I7b5ef690cefd2bfbbc2e01220ada49e44ef4fa04
+Bug: 154341375
+---
+ drivers/dma-buf/dma-heap.c |  7 ++++++-
+ include/linux/dma-heap.h   | 39 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/dma-buf/dma-heap.c b/drivers/dma-buf/dma-heap.c
+index a8a90722b08d..aedca76f929d 100644
+--- a/drivers/dma-buf/dma-heap.c
++++ b/drivers/dma-buf/dma-heap.c
+@@ -51,7 +51,7 @@ static dev_t dma_heap_devt;
+ static struct class *dma_heap_class;
+ static DEFINE_XARRAY_ALLOC(dma_heap_minors);
+ 
+-static struct dma_heap *dma_heap_find(const char *name)
++struct dma_heap *dma_heap_find(const char *name)
+ {
+ 	struct dma_heap *h;
+ 
+@@ -66,11 +66,14 @@ static struct dma_heap *dma_heap_find(const char *name)
+ 	mutex_unlock(&heap_list_lock);
+ 	return NULL;
+ }
++EXPORT_SYMBOL_GPL(dma_heap_find);
++
+ 
+ void dma_heap_buffer_free(struct dma_buf *dmabuf)
+ {
+ 	dma_buf_put(dmabuf);
+ }
++EXPORT_SYMBOL_GPL(dma_heap_buffer_free);
+ 
+ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
+ 				      unsigned int fd_flags,
+@@ -91,6 +94,7 @@ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
+ 
+ 	return heap->ops->allocate(heap, len, fd_flags, heap_flags);
+ }
++EXPORT_SYMBOL_GPL(dma_heap_buffer_alloc);
+ 
+ int dma_heap_bufferfd_alloc(struct dma_heap *heap, size_t len,
+ 			    unsigned int fd_flags,
+@@ -112,6 +116,7 @@ int dma_heap_bufferfd_alloc(struct dma_heap *heap, size_t len,
+ 	return fd;
+ 
+ }
++EXPORT_SYMBOL_GPL(dma_heap_bufferfd_alloc);
+ 
+ static int dma_heap_open(struct inode *inode, struct file *file)
+ {
+diff --git a/include/linux/dma-heap.h b/include/linux/dma-heap.h
+index 838e37736ae7..35dbdd8c28cc 100644
+--- a/include/linux/dma-heap.h
++++ b/include/linux/dma-heap.h
+@@ -62,4 +62,43 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info);
+  */
+ void dma_heap_put(struct dma_heap *heap);
+ 
++/**
++ * dma_heap_find - Returns the registered dma_heap with the specified name
++ * @name: Name of the heap to find
++ *
++ * NOTE: dma_heaps returned from this function MUST be released
++ * using dma_heap_put() when the user is done.
++ */
++struct dma_heap *dma_heap_find(const char *name);
++
++/**
++ * dma_heap_buffer_alloc - Allocate dma-buf from a dma_heap
++ * @heap:	dma_heap to allocate from
++ * @len:	size to allocate
++ * @fd_flags:	flags to set on returned dma-buf fd
++ * @heap_flags:	flags to pass to the dma heap
++ *
++ * This is for internal dma-buf allocations only.
++ */
++struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
++				      unsigned int fd_flags,
++				      unsigned int heap_flags);
++
++/** dma_heap_buffer_free - Free dma_buf allocated by dma_heap_buffer_alloc
++ * @dma_buf:	dma_buf to free
++ *
++ * This is really only a simple wrapper to dma_buf_put()
++ */
++void dma_heap_buffer_free(struct dma_buf *);
++
++/**
++ * dma_heap_bufferfd_alloc - Allocate dma-buf fd from a dma_heap
++ * @heap:	dma_heap to allocate from
++ * @len:	size to allocate
++ * @fd_flags:	flags to set on returned dma-buf fd
++ * @heap_flags:	flags to pass to the dma heap
++ */
++int dma_heap_bufferfd_alloc(struct dma_heap *heap, size_t len,
++			    unsigned int fd_flags,
++			    unsigned int heap_flags);
+ #endif /* _DMA_HEAPS_H */
+-- 
+2.17.1
+

@@ -33,14 +33,12 @@
 #define PVA_UCODE_SEG_NONE 0 /* not a segment */
 #define PVA_UCODE_SEG_EVP 1 /* EVP information */
 #define PVA_UCODE_SEG_R5 2 /* R5 code/data */
-#define PVA_UCODE_SEG_R5_OVERLAY 3 /* space for overlays */
-#define PVA_UCODE_SEG_CRASHDUMP 4 /* space for crash dump */
-#define PVA_UCODE_SEG_TRACE_LOG 5 /* space for PVA trace logs */
-#define PVA_UCODE_SEG_DRAM_CACHED 6 /* cachable DRAM area */
-#define PVA_UCODE_SEG_DRAM_UNCACHED 7 /* uncached DRAM area */
-#define PVA_UCODE_SEG_CODE_COVERAGE 8 /* space for PVA FW code coverage */
-#define PVA_UCODE_SEG_DEBUG_LOG 9 /* space for PVA debug logs */
-#define PVA_UCODE_SEG_NEXT 10 /* must be last */
+#define PVA_UCODE_SEG_CRASHDUMP 3 /* space for crash dump */
+#define PVA_UCODE_SEG_TRACE_LOG 4 /* space for PVA trace logs */
+#define PVA_UCODE_SEG_DRAM_CACHED 5 /* cachable DRAM area */
+#define PVA_UCODE_SEG_CODE_COVERAGE 6 /* space for PVA FW code coverage */
+#define PVA_UCODE_SEG_DEBUG_LOG 7 /* space for PVA debug logs */
+#define PVA_UCODE_SEG_NEXT 8 /* must be last */
 
 /* PVA FW binary max segment size used for section alignment */
 #define PVA_BIN_MAX_HEADER_SIZE 0x1000

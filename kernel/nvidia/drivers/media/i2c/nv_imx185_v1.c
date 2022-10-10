@@ -1,7 +1,7 @@
 /*
  * imx185.c - imx185 sensor driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -246,7 +246,7 @@ static inline int imx185_read_reg(struct camera_common_data *s_data,
 static int imx185_write_reg(struct camera_common_data *s_data,
 				u16 addr, u8 val)
 {
-	int err;
+	int err = 0;
 	struct imx185 *priv = (struct imx185 *)s_data->priv;
 	struct device *dev = &priv->i2c_client->dev;
 
@@ -369,7 +369,7 @@ static int imx185_s_stream(struct v4l2_subdev *sd, int enable)
 	struct imx185 *priv = (struct imx185 *)s_data->priv;
 	struct v4l2_ext_controls ctrls;
 	struct v4l2_ext_control control[3];
-	int err;
+	int err = 0;
 
 	dev_dbg(dev, "%s++ enable %d\n", __func__, enable);
 
@@ -381,7 +381,11 @@ static int imx185_s_stream(struct v4l2_subdev *sd, int enable)
 			return err;
 
 		/* SW_RESET will have no ACK */
-		regmap_write(priv->regmap, IMX185_SW_RESET_ADDR, 0x01);
+		err = regmap_write(priv->regmap, IMX185_SW_RESET_ADDR, 0x01);
+		if (err) {
+			dev_err(dev, "%s: SW_RESET failed\n", __func__);
+			return err;
+		}
 
 		/* Wait for one frame to make sure sensor is set to
 		 * software standby in V-blank
@@ -392,6 +396,8 @@ static int imx185_s_stream(struct v4l2_subdev *sd, int enable)
 			priv->frame_length * 10 + 1000);
 		return 0;
 	}
+	if (s_data->mode < 0)
+		return -EINVAL;
 	err = imx185_write_table(priv, mode_table[s_data->mode]);
 	if (err)
 		goto exit;
@@ -490,7 +496,7 @@ static int imx185_set_fmt(struct v4l2_subdev *sd,
 		struct v4l2_subdev_pad_config *cfg,
 	struct v4l2_subdev_format *format)
 {
-	int ret;
+	int ret = 0;
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
 		ret = camera_common_try_fmt(sd, &format->format);
@@ -532,7 +538,7 @@ static struct camera_common_sensor_ops imx185_common_ops = {
 static int imx185_set_group_hold(struct imx185 *priv, s32 val)
 {
 	struct device *dev = &priv->i2c_client->dev;
-	int err;
+	int err = 0;
 	int gh_en = switch_ctrl_qmenu[val];
 
 	priv->group_hold_prev = val;
@@ -558,7 +564,7 @@ static int imx185_set_gain(struct imx185 *priv, s64 val)
 {
 	struct device *dev = &priv->i2c_client->dev;
 	imx185_reg reg_list[1];
-	int err;
+	int err = 0;
 	u8 gain;
 
 	/* translate value */
@@ -583,7 +589,7 @@ static int imx185_set_frame_rate(struct imx185 *priv, s64 val)
 {
 	struct device *dev = &priv->i2c_client->dev;
 	imx185_reg reg_list[3];
-	int err;
+	int err = 0;
 	u32 frame_length;
 	struct camera_common_data *s_data = priv->s_data;
 	const struct sensor_mode_properties *mode =
@@ -638,7 +644,7 @@ fail:
 static int imx185_set_exposure(struct imx185 *priv, s64 val)
 {
 	struct device *dev = &priv->i2c_client->dev;
-	int err;
+	int err = 0;
 	struct v4l2_control control;
 	int hdr_en;
 
@@ -674,7 +680,7 @@ static int imx185_set_coarse_time(struct imx185 *priv, s64 val)
 		&s_data->sensor_props.sensor_modes[s_data->mode];
 	struct device *dev = &priv->i2c_client->dev;
 	imx185_reg reg_list[3];
-	int err;
+	int err = 0;
 	u32 coarse_time_shs1;
 	u32 reg_shs1;
 	int i = 0;
@@ -719,7 +725,7 @@ static int imx185_set_coarse_time_hdr(struct imx185 *priv, s64 val)
 	u32 coarse_time_shs2;
 	u32 reg_shs1;
 	u32 reg_shs2;
-	int err;
+	int err = 0;
 	int i = 0;
 
 	if (priv->frame_length == 0)
@@ -772,7 +778,7 @@ fail:
 
 static int imx185_fuse_id_setup(struct imx185 *priv)
 {
-	int err;
+	int err = 0;
 	int i;
 	struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
 	struct device *dev = &client->dev;
@@ -802,9 +808,12 @@ static int imx185_fuse_id_setup(struct imx185 *priv)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < IMX185_FUSE_ID_SIZE; i++)
-		sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+	for (i = 0; i < IMX185_FUSE_ID_SIZE; i++) {
+		err = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 			fuse_id[i]);
+		if (err < 0)
+			return -EINVAL;
+	}
 	ctrl->p_cur.p_char = ctrl->p_new.p_char;
 	dev_info(dev, "%s, fuse id: %s\n", __func__, ctrl->p_cur.p_char);
 
@@ -877,7 +886,7 @@ static int imx185_ctrls_init(struct imx185 *priv)
 	struct i2c_client *client = priv->i2c_client;
 	struct v4l2_ctrl *ctrl;
 	int num_ctrls;
-	int err;
+	int err = 0;
 	int i;
 
 	dev_dbg(&client->dev, "%s++\n", __func__);
@@ -940,7 +949,7 @@ static struct camera_common_pdata *imx185_parse_dt(struct i2c_client *client,
 	struct device_node *np = client->dev.of_node;
 	struct camera_common_pdata *board_priv_pdata;
 	const struct of_device_id *match;
-	int err;
+	int err = 0;
 	int gpio;
 	const char *str;
 
@@ -1000,7 +1009,7 @@ static int imx185_probe(struct i2c_client *client,
 {
 	struct camera_common_data *common_data;
 	struct imx185 *priv;
-	int err;
+	int err = 0;
 
 	dev_info(&client->dev, "probing imx185_v1 v4l2 sensor\n");
 

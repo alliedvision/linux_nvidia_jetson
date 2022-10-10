@@ -69,6 +69,8 @@
 #include <nvgpu/cic_mon.h>
 #include <nvgpu/cic_rm.h>
 #include <nvgpu/fb.h>
+#include <nvgpu/nvs.h>
+#include <nvgpu/l1ss_err_reporting.h>
 
 #include "platform_gk20a.h"
 #include "sysfs.h"
@@ -92,6 +94,10 @@
 
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
 #include "nvgpu/gsp.h"
+#include "nvgpu/gsp_sched.h"
+#endif
+#ifdef CONFIG_NVGPU_GSP_STRESS_TEST
+#include "nvgpu/gsp/gsp_test.h"
 #endif
 
 #ifdef CONFIG_NVGPU_SUPPORT_CDE
@@ -446,6 +452,10 @@ int gk20a_pm_finalize_poweron(struct device *dev)
 			goto done;
 		}
 	}
+
+#ifdef CONFIG_NVGPU_ENABLE_MISC_EC
+	g->enable_polling = false;
+#endif
 
 	err = gk20a_restore_registers(g);
 	if (err)
@@ -1007,6 +1017,10 @@ void gk20a_remove_support(struct gk20a *g)
 	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 	struct sim_nvgpu_linux *sim_linux;
 
+#ifdef CONFIG_TEGRA_L1SS_SUPPORT
+	nvgpu_l1ss_deinit_reporting(g);
+#endif
+
 #if NVGPU_VPR_RESIZE_SUPPORTED
 	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_VPR)) {
 		tegra_unregister_idle_unidle(gk20a_do_idle);
@@ -1029,6 +1043,8 @@ void gk20a_remove_support(struct gk20a *g)
 	if (g->mm.remove_ce_support)
 		g->mm.remove_ce_support(&g->mm);
 #endif
+
+	nvgpu_nvs_remove_support(g);
 
 	if (g->fifo.remove_support)
 		g->fifo.remove_support(&g->fifo);
@@ -1060,8 +1076,13 @@ void gk20a_remove_support(struct gk20a *g)
 	nvgpu_free_cyclestats_snapshot_data(g);
 #endif
 
+#ifndef CONFIG_NVGPU_DGPU
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
-	nvgpu_gsp_sw_deinit(g);
+	nvgpu_gsp_sched_sw_deinit(g);
+#endif
+#ifdef CONFIG_NVGPU_GSP_STRESS_TEST
+	nvgpu_gsp_test_sw_deinit(g);
+#endif
 #endif
 
 	nvgpu_fbp_remove_support(g);
@@ -1161,11 +1182,16 @@ static int gk20a_pm_railgate(struct device *dev)
 					g->pstats.last_rail_ungate_complete);
 #endif
 
+	nvgpu_mutex_acquire(&g->static_pg_lock);
+
 	ret = platform->railgate(dev);
 	if (ret) {
 		nvgpu_err(g, "failed to railgate platform, err=%d", ret);
+		nvgpu_mutex_release(&g->static_pg_lock);
 		return ret;
 	}
+
+	nvgpu_mutex_release(&g->static_pg_lock);
 
 #ifdef CONFIG_DEBUG_FS
 	g->pstats.last_rail_gate_complete = jiffies;
@@ -1420,6 +1446,16 @@ static int gk20a_pm_suspend(struct device *dev)
 		goto fail_idle;
 	}
 
+	/* For cases where we don't have railgate enabled,
+	 * we acquire an extra refcount in PM framework.
+	 *
+	 * Release it here to unblock device suspend.
+	 * The below method releases the extra refcount taken
+	 * above and disables auto suspend.
+	 */
+	if (!nvgpu_is_enabled(g, NVGPU_CAN_RAILGATE))
+		pm_runtime_dont_use_autosuspend(dev);
+
 	ret = gk20a_pm_runtime_suspend(dev);
 	if (ret)
 		goto fail_idle;
@@ -1466,6 +1502,15 @@ static int gk20a_pm_resume(struct device *dev)
 	ret = gk20a_pm_runtime_resume(dev);
 	if (ret)
 		return ret;
+
+	/* For cases where we don't have railgate enabled,
+	 * acquire extra reference in PM framework to prevent
+	 * runtime suspend/resume.
+	 */
+	if (!nvgpu_is_enabled(g, NVGPU_CAN_RAILGATE)) {
+		pm_runtime_set_autosuspend_delay(dev, -1);
+		pm_runtime_use_autosuspend(dev);
+	}
 
 	g->suspended = false;
 
@@ -1825,6 +1870,10 @@ static int gk20a_probe(struct platform_device *dev)
 	if (err)
 		goto return_err;
 
+#ifdef CONFIG_TEGRA_L1SS_SUPPORT
+	nvgpu_l1ss_init_reporting(gk20a);
+#endif
+
 	nvgpu_mutex_init(&l->dmabuf_priv_list_lock);
 	nvgpu_init_list_node(&l->dmabuf_priv_list);
 
@@ -1928,8 +1977,6 @@ int nvgpu_remove(struct device *dev)
 	gk20a_user_nodes_deinit(dev_from_gk20a(g));
 
 	gk20a_power_node_deinit(dev_from_gk20a(g));
-
-	gk20a_debug_deinit(g);
 
 	nvgpu_remove_sysfs(dev);
 

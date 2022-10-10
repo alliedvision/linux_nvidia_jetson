@@ -1,7 +1,7 @@
-From 81ea9e35da81fd301fb7876f9097cd56e48c8e6b Mon Sep 17 00:00:00 2001
+From 7fca695739330396d1738a324cc85d7a1a4bd2e6 Mon Sep 17 00:00:00 2001
 From: Scott Wood <swood@redhat.com>
 Date: Tue, 15 Dec 2020 15:16:46 +0100
-Subject: [PATCH 072/304] rcu: Unconditionally use rcuc threads on PREEMPT_RT
+Subject: [PATCH 072/318] rcu: Unconditionally use rcuc threads on PREEMPT_RT
 
 PREEMPT_RT systems have long used the rcutree.use_softirq kernel
 boot parameter to avoid use of RCU_SOFTIRQ handlers, which can disrupt
@@ -30,10 +30,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index f103667..181cebf 100644
+index d00618967854..e7b4a776210e 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4091,6 +4091,10 @@
+@@ -4097,6 +4097,10 @@
  			value, meaning that RCU_SOFTIRQ is used by default.
  			Specify rcutree.use_softirq=0 to use rcuc kthreads.
  
@@ -45,7 +45,7 @@ index f103667..181cebf 100644
  			Disable autobalancing of the rcu_node combining
  			tree.  This is used by rcutorture, and might
 diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
-index 8c81c05..4cc5af7 100644
+index 844c35803739..5deac4eda641 100644
 --- a/kernel/rcu/tree.c
 +++ b/kernel/rcu/tree.c
 @@ -100,8 +100,10 @@ static struct rcu_state rcu_state = {
@@ -61,5 +61,5 @@ index 8c81c05..4cc5af7 100644
  static bool rcu_fanout_exact;
  module_param(rcu_fanout_exact, bool, 0444);
 -- 
-2.7.4
+2.17.1
 

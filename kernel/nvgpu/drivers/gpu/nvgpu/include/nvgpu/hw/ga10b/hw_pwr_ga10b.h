@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -64,11 +64,14 @@
 #define pwr_falcon_irqsset_swgen0_set_f()                                (0x40U)
 #define pwr_falcon_irqsclr_r()                                     (0x0010a004U)
 #define pwr_falcon_irqstat_r()                                     (0x0010a008U)
+#define pwr_falcon_irqstat_wdt_true_f()                                   (0x2U)
 #define pwr_falcon_irqstat_halt_true_f()                                 (0x10U)
 #define pwr_falcon_irqstat_exterr_true_f()                               (0x20U)
 #define pwr_falcon_irqstat_swgen0_true_f()                               (0x40U)
 #define pwr_falcon_irqstat_ext_ecc_parity_true_f()                      (0x400U)
 #define pwr_falcon_irqstat_swgen1_true_f()                               (0x80U)
+#define pwr_falcon_irqstat_memerr_true_f()                            (0x40000U)
+#define pwr_falcon_irqstat_iopmp_true_f()                            (0x800000U)
 #define pwr_pmu_ecc_intr_status_r()                                (0x0010abfcU)
 #define pwr_pmu_ecc_intr_status_corrected_m()                  (U32(0x1U) << 0U)
 #define pwr_pmu_ecc_intr_status_uncorrected_m()                (U32(0x1U) << 1U)
@@ -233,6 +236,9 @@
 #define pwr_pmu_falcon_ecc_status_corrected_err_dmem_m()       (U32(0x1U) << 1U)
 #define pwr_pmu_falcon_ecc_status_uncorrected_err_imem_m()     (U32(0x1U) << 8U)
 #define pwr_pmu_falcon_ecc_status_uncorrected_err_dmem_m()     (U32(0x1U) << 9U)
+#define pwr_pmu_falcon_ecc_status_uncorrected_err_mpu_ram_m() (U32(0x1U) << 10U)
+#define pwr_pmu_falcon_ecc_status_uncorrected_err_dcls_m()    (U32(0x1U) << 11U)
+#define pwr_pmu_falcon_ecc_status_uncorrected_err_reg_m()     (U32(0x1U) << 12U)
 #define pwr_pmu_falcon_ecc_status_corrected_err_total_counter_overflow_m()\
 				(U32(0x1U) << 16U)
 #define pwr_pmu_falcon_ecc_status_uncorrected_err_total_counter_overflow_m()\

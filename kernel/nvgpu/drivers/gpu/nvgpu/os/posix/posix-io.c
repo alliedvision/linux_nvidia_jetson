@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -245,6 +245,7 @@ int nvgpu_posix_io_register_reg_space(struct gk20a *g,
 void nvgpu_posix_io_unregister_reg_space(struct gk20a *g,
 		struct nvgpu_posix_io_reg_space *reg_space)
 {
+	(void)g;
 	nvgpu_list_del(&reg_space->link);
 }
 

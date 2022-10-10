@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -207,7 +207,7 @@
 
 		nvjpg@15380000 {
 			compatible = "nvidia,tegra234-nvjpg";
-			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVJPG>;
+			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVJPGA>;
 			reg = <0x0 0x15380000 0x0 0x00040000>;
 			resets = <&bpmp_resets TEGRA234_RESET_NVJPG>;
 			clocks = <&bpmp_clks TEGRA234_CLK_NVJPG>;
@@ -248,7 +248,7 @@
 
 		nvdec@15480000 {
 			compatible = "nvidia,tegra234-nvdec";
-			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVDECA>;
+			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVDEC>;
 			reg = <0x0 0x15480000 0x0 0x00040000>;
 			resets = <&bpmp_resets TEGRA234_RESET_NVDEC>;
 			clocks = <&bpmp_clks TEGRA234_CLK_NVDEC>,
@@ -264,7 +264,7 @@
 
 		nvenc@154c0000 {
 			compatible = "nvidia,tegra234-nvenc";
-			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVENCA>;
+			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_NVENC>;
 			reg = <0x0 0x154c0000 0x0 0x00040000>;
 			resets = <&bpmp_resets TEGRA234_RESET_NVENC>;
 			clocks = <&bpmp_clks TEGRA234_CLK_NVENC>;
@@ -349,9 +349,10 @@
 		};
 
 		pva0: pva0 {
-			compatible = "nvidia,tegra234-pva";
-			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_PVAA>;
-			reg = <0x0 0x16000000 0x0 0x800000>;
+			compatible = "nvidia,tegra234-pva", "simple-bus";
+			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_PVA>;
+			reg = <0x0 0x16000000 0x0 0x800000>,
+			      <0x0 0x24700000 0x0 0x080000>;
 			interrupts = <0 234 0x04>,
 				     <0 432 0x04>,
 				     <0 433 0x04>,
@@ -367,17 +368,65 @@
 				 <&bpmp_clks TEGRA234_CLK_PVA0_VPS>;
 			clock-names = "axi", "vps0", "vps1";
 
-			iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM0>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM1>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM2>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM3>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM4>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM5>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM6>,
-			         <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM7>;
+			iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0>;
 			dma-coherent;
 			status = "okay";
+
+			pva0_ctx0n1: pva0_niso1_ctx0 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM0>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx1n1: pva0_niso1_ctx1 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM1>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx2n1: pva0_niso1_ctx2 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM2>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx3n1: pva0_niso1_ctx3 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM3>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx4n1: pva0_niso1_ctx4 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM4>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx5n1: pva0_niso1_ctx5 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM5>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx6n1: pva0_niso1_ctx6 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM6>;
+				dma-coherent;
+				status = "okay";
+			};
+
+			pva0_ctx7n1: pva0_niso1_ctx7 {
+				compatible = "nvidia,pva-tegra186-iommu-context";
+				iommus = <&smmu_niso1 TEGRA_SID_NISO1_PVA0_VM7>;
+				dma-coherent;
+				status = "okay";
+			};
 		};
 
 		nvdla0: nvdla0@15880000 {
@@ -418,7 +467,6 @@
 			supported-algos = "drbg";
 			nvidia,io-coherent;
 			opcode_addr = <0x1004>;
-			resets = <&bpmp_resets TEGRA234_RESET_SE>;
 			clocks = <&bpmp_clks TEGRA234_CLK_SE>;
 			clock-names = "se";
 
@@ -434,7 +482,6 @@
 			supported-algos = "aes", "cmac", "xts", "aead";
 			nvidia,io-coherent;
 			opcode_addr = <0x2004>;
-			resets = <&bpmp_resets TEGRA234_RESET_SE>;
 			clocks = <&bpmp_clks TEGRA234_CLK_SE>;
 			clock-names = "se";
 
@@ -450,7 +497,6 @@
 			supported-algos = "sha", "sha3", "hmac";
 			nvidia,io-coherent;
 			opcode_addr = <0x4004>;
-			resets = <&bpmp_resets TEGRA234_RESET_SE>;
 			clocks = <&bpmp_clks TEGRA234_CLK_SE>;
 			clock-names = "se";
 

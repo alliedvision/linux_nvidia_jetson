@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -125,12 +125,9 @@ static void update_pte(struct vm_gk20a *vm,
 	u64 compression_page_size;
 
 	compression_page_size = g->ops.fb.compression_page_size(g);
+	nvgpu_assert(compression_page_size > 0ULL);
 
-	if (compression_page_size == 0ULL) {
-		nvgpu_err(g, "compression_page_size is 0");
-	} else {
-		ctag_shift = (u32)ilog2(compression_page_size);
-	}
+	ctag_shift = (u32)nvgpu_ilog2(compression_page_size);
 #endif
 
 	pte_w[0] = pte_valid | addr;
@@ -192,12 +189,9 @@ static void update_gmmu_pte_locked(struct vm_gk20a *vm,
 	u32 ctag_shift = 0;
 
 	compression_page_size = g->ops.fb.compression_page_size(g);
+	nvgpu_assert(compression_page_size > 0ULL);
 
-	if (compression_page_size == 0ULL) {
-		nvgpu_err(g, "compression_page_size is 0");
-	} else {
-		ctag_shift = (u32)ilog2(compression_page_size);
-	}
+	ctag_shift = (u32)nvgpu_ilog2(compression_page_size);
 #endif
 
 	if (phys_addr != 0ULL) {
@@ -266,16 +260,19 @@ const struct gk20a_mmu_level gk20a_mm_levels_128k[] = {
 const struct gk20a_mmu_level *gk20a_mm_get_mmu_levels(struct gk20a *g,
 						      u64 big_page_size)
 {
+	(void)g;
 	return (big_page_size == SZ_64K) ?
 		 gk20a_mm_levels_64k : gk20a_mm_levels_128k;
 }
 
 u32 gk20a_get_max_page_table_levels(struct gk20a *g)
 {
+	(void)g;
 	return 2U;
 }
 
 u32 gk20a_mm_get_iommu_bit(struct gk20a *g)
 {
+	(void)g;
 	return 34;
 }

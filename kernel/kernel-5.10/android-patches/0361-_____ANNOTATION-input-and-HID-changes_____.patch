@@ -1,0 +1,23 @@
+From eebdf8a841e125b5410146c93a2e9a0215fbd923 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 13:59:56 -0700
+Subject: [PATCH 361/830] _____ANNOTATION: input and HID changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index 3f0c9df8c374..0e14d38e8614 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -19,3 +19,4 @@ USB changes
+ graphics changes
+ sound changes
+ media changes
++input and HID changes
+-- 
+2.17.1
+

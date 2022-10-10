@@ -1,0 +1,49 @@
+From be47b1940e99d4d84826c3ecbb4754594ce4ddb9 Mon Sep 17 00:00:00 2001
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Mon, 20 Jul 2020 14:39:49 +0000
+Subject: [PATCH 724/830] ANDROID: GKI defconfig: Remove ZRAM from gki
+ defconfig
+X-NVConfidentiality: public
+
+Allow vendors to provide zram module in vendor fragment
+for GKI 2.0 since modules can't be overridden
+
+Bug: 150917000
+Test: boot check for swap (expected none).
+      adb shell cat /proc/swaps
+      adb shell grep Swap /proc/meminfo
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+Change-Id: Ic346c6e4a1cdd975fa0c51bde9282ef0e32963f1
+(cherry picked from commit 2f90f81ed2e1bacfe33f22d0f508c0c7b2d0bd7e)
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 349206f231cb..7be2e5d82e1e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -217,7 +217,6 @@ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_GNSS=y
+-CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_LOOP_MIN_COUNT=16
+ CONFIG_BLK_DEV_RAM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index f95e8428ea81..0b830627cb65 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -193,7 +193,6 @@ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_GNSS=y
+ CONFIG_OF=y
+-CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_LOOP_MIN_COUNT=16
+ CONFIG_BLK_DEV_RAM=y
+-- 
+2.17.1
+

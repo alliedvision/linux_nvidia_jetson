@@ -1,0 +1,65 @@
+From b86ce805ff32738ad6643aef37bbcd8baa59c0cc Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Mon, 11 May 2020 13:27:22 -0700
+Subject: [PATCH 069/830] ANDROID: GKI: add android_vendor.h
+X-NVConfidentiality: public
+
+This header file is to be used for various macros to help add
+vendor specific fields to kernel data structures to enable
+value-added features implemented in vendor modules.
+
+They are to be used before the freeze (to anticipate places where
+vendor-specific data is required).
+
+Bug: 156285741
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: Ic23b2760ece93facdc51cc35718a4154aba810f9
+[ebiggers: folded in fix from commit dc419bab7424
+           ("ANDROID: fix copyright notice")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ include/linux/android_vendor.h | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+ create mode 100644 include/linux/android_vendor.h
+
+diff --git a/include/linux/android_vendor.h b/include/linux/android_vendor.h
+new file mode 100644
+index 000000000000..c0d3abb54037
+--- /dev/null
++++ b/include/linux/android_vendor.h
+@@ -0,0 +1,32 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * android_vendor.h - Android vendor data
++ *
++ * Copyright 2020 Google LLC
++ *
++ * These macros are to be used to reserve space in kernel data structures
++ * for use by vendor modules.
++ *
++ * These macros should be used before the kernel abi is "frozen".
++ * Fields can be added to various kernel structures that need space
++ * for functionality implemented in vendor modules. The use of
++ * these fields is vendor specific.
++ */
++#ifndef _ANDROID_VENDOR_H
++#define _ANDROID_VENDOR_H
++
++/*
++ * ANDROID_VENDOR_DATA
++ *   Reserve some "padding" in a structure for potential future use.
++ *   This normally placed at the end of a structure.
++ *   number: the "number" of the padding variable in the structure.  Start with
++ *   1 and go up.
++ *
++ * ANDROID_VENDOR_DATA_ARRAY
++ *   Same as ANDROID_VENDOR_DATA but allocates an array of u64 with
++ *   the specified size
++ */
++#define ANDROID_VENDOR_DATA(n)		u64 android_vendor_data##n
++#define ANDROID_VENDOR_DATA_ARRAY(n, s)	u64 android_vendor_data##n[s]
++
++#endif /* _ANDROID_VENDOR_H */
+-- 
+2.17.1
+

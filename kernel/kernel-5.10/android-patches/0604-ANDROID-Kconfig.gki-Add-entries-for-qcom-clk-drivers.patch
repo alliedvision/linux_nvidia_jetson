@@ -1,0 +1,66 @@
+From 69fed56ec215a8d4e2fb10677c154e4fef7ea725 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 17 Dec 2019 19:58:47 +0000
+Subject: [PATCH 604/830] ANDROID: Kconfig.gki: Add entries for qcom clk
+ drivers
+X-NVConfidentiality: public
+
+Add a Kconfig.gki option to enable qcom clk drivers.
+
+This is needed as the qcom clk drivers are also used as power
+domain sources. Unfortunately the powerdomain logic stops
+returning EPROBE_DEFER when initcall_done is true (after
+initcalls, but before modules load). This results in the drivers
+(in our case, the smmu which is built in) that depend on the clk
+provided power-domain to fail to load.
+
+This issue seems to be due to the following commit, which when
+reverted resolve the problem and allows dependent drivers to
+still load once the clk modules are loaded:
+ https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e01afc32502555beb2057ddd74401be38475d851
+
+I'm working with the patch author and Bjorn to try to find
+a good upstream solution, but in the meantime, set the qcom
+clks to =y for now.
+
+Bug: 146449535
+Change-Id: Iaf6655a22243335083c0f7b3a673e795cea68021
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index be475727cef2..2c6f92b15ea3 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -56,6 +56,18 @@ config GKI_HIDDEN_QCOM_CONFIGS
+ 	  These are normally selected implicitely when a module
+ 	  that relies on it is configured.
+ 
++config GKI_QCOM_CLKS_CONFIGS
++	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
++	select COMMON_CLK_QCOM	if (ARCH_QCOM)
++	select QCOM_CLK_RPMH	if (ARCH_QCOM)
++	select SDM_GPUCC_845	if (ARCH_QCOM)
++	select QCOM_RPMHPD	if (ARCH_QCOM)
++	help
++	  This config option selects various QCOM clk drivers that
++	  cannot be built as a module currently due to power-domain
++	  deferred probing limitations.
++	  See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e01afc32502555beb2057ddd74401be38475d851
++
+ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	bool "Hidden Media configs needed for GKI"
+ 	select VIDEOBUF2_CORE
+@@ -101,6 +113,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_QCOM_CONFIGS
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+ 	select GKI_HIDDEN_MEDIA_CONFIGS
++	select GKI_QCOM_CLKS_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+ 	  modules that may not be selectable in this config.
+-- 
+2.17.1
+

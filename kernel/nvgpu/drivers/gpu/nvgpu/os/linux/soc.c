@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -71,6 +71,7 @@ static u64 nvgpu_tegra_hv_ipa_pa(struct gk20a *g, u64 ipa, u64 *pa_len)
 	struct device *dev = dev_from_gk20a(g);
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct hyp_ipa_pa_info info;
+	struct nvgpu_hyp_ipa_pa_info nvgpu_ipapainfo;
 	int err;
 	u64 pa = 0ULL;
 
@@ -100,7 +101,11 @@ static u64 nvgpu_tegra_hv_ipa_pa(struct gk20a *g, u64 ipa, u64 *pa_len)
 	}
 
 	if (pa != 0U) {
-		nvgpu_ipa_to_pa_add_to_cache(g, ipa, pa, &info);
+		nvgpu_ipapainfo.base = info.base;
+		nvgpu_ipapainfo.offset = info.offset;
+		nvgpu_ipapainfo.size = info.size;
+		nvgpu_ipa_to_pa_add_to_cache(g, ipa, pa,
+				&nvgpu_ipapainfo);
 	}
 
 	return pa;
@@ -124,4 +129,16 @@ int nvgpu_init_soc_vars(struct gk20a *g)
 	}
 #endif
 	return 0;
+}
+
+u64 nvgpu_get_pa_from_ipa(struct gk20a *g, u64 ipa)
+{
+	struct device *dev = dev_from_gk20a(g);
+	struct gk20a_platform *platform = gk20a_get_platform(dev);
+	u64 pa_len = 0U;
+
+	if (platform->phys_addr) {
+		return platform->phys_addr(g, ipa, &pa_len);
+	}
+	return ipa;
 }

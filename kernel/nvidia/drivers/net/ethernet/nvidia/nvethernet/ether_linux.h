@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -74,6 +74,13 @@
 #endif /* ETHER_NVGRO */
 
 /**
+ * @brief Constant for CBS value calculate
+ */
+#define ETH_1K				1000
+#define MULTIPLIER_32			32
+#define MULTIPLIER_8			8
+#define MULTIPLIER_4			4
+/**
  * @brief Max number of Ethernet IRQs supported in HW
  */
 #define ETHER_MAX_IRQS			4
@@ -119,9 +126,9 @@
 #define ETHER_DEFAULT_PTP_QUEUE		3U
 
 /**
- * @brief  TX timestamp miss threshold
+ * @brief SEC to MSEC converter
  */
-#define TS_MISS_THRESHOLD		200U
+#define ETHER_SECTOMSEC			1000U
 
 /**
  * @brief Ethernet clk rates
@@ -218,7 +225,7 @@
 /**
  * @brief Broadcast and MAC address macros
  */
-#define ETHER_MAC_ADDRESS_INDEX		1
+#define ETHER_MAC_ADDRESS_INDEX		1U
 #define ETHER_BC_ADDRESS_INDEX		0
 #define ETHER_ADDRESS_MAC		1
 #define ETHER_ADDRESS_BC		0
@@ -293,7 +300,7 @@ static inline int ether_avail_txdesc_cnt(struct osi_tx_ring *tx_ring)
  * and store locally. If data is at line rate, 2^32 entry get will filled in
  * 36 second for 1 G interface and 3.6 sec for 10 G interface.
  */
-#define ETHER_STATS_TIMER		3U
+#define ETHER_STATS_TIMER		3000U
 
 /**
  * @brief Timer to trigger Work queue periodically which read TX timestamp
@@ -361,17 +368,11 @@ struct ether_ivc_ctxt {
 /**
  * @brief local L2 filter table structure
  */
-struct ether_mac_addr_list {
-	/** Link list node head */
-	struct list_head list_head;
+struct ether_mac_addr {
 	/** L2 address */
 	unsigned char addr[ETH_ALEN];
-	/** Flag represent is address valid(1) or not (0) */
-	char is_valid_addr;
 	/** DMA channel to route packets */
 	unsigned int dma_chan;
-	/** index number at the time of add */
-	unsigned int index;
 };
 
 /**
@@ -386,6 +387,8 @@ struct ether_tx_ts_skb_list {
 	struct sk_buff *skb;
 	/** packet id to identify timestamp */
 	unsigned int pktid;
+	/** SKB jiffies to find time */
+	unsigned long pkt_jiffies;
 };
 
 /**
@@ -496,7 +499,7 @@ struct ether_priv_data {
 	/** max address register count, 2*mac_addr64_sel */
 	int num_mac_addr_regs;
 	/** Last address reg filter index added in last call*/
-	int last_filter_index;
+	unsigned int last_filter_index;
 	/** vlan hash filter 1: hash, 0: perfect */
 	unsigned int vlan_hash_filtering;
 	/** L2 filter mode */
@@ -558,7 +561,7 @@ struct ether_priv_data {
 	struct macsec_priv_data *macsec_pdata;
 #endif /* MACSEC_SUPPORT */
 	/** local L2 filter address list head pointer */
-	struct list_head mac_addr_list_head;
+	struct ether_mac_addr mac_addr[ETHER_ADDR_REG_CNT_128];
 	/** skb tx timestamp update work queue */
 	struct delayed_work tx_ts_work;
 	/** local skb list head */
@@ -603,6 +606,22 @@ struct ether_priv_data {
 	unsigned int skip_mac_reset;
 	/** Fixed link enable/disable */
 	unsigned int fixed_link;
+	/** Flag to represent rx_m clk enabled or not */
+	bool rx_m_enabled;
+	/** Flag to represent rx_pcs_m clk enabled or not */
+	bool rx_pcs_m_enabled;
+	/* Timer value in msec for ether_stats_work thread */
+	unsigned int stats_timer;
+#ifdef HSI_SUPPORT
+	/** Delayed work queue for error reporting */
+	struct delayed_work ether_hsi_work;
+	/** HSI lock */
+	struct mutex hsi_lock;
+#endif
+	/** Protect critical section of TX TS SKB list */
+	raw_spinlock_t txts_lock;
+	/** Ref count for ether_get_tx_ts_func */
+	atomic_t tx_ts_ref_cnt;
 };
 
 /**
@@ -758,7 +777,37 @@ void ether_set_rx_mode(struct net_device *dev);
  */
 int ether_tc_setup_taprio(struct ether_priv_data *pdata,
 			  struct tc_taprio_qopt_offload *qopt);
+
+/**
+ * @brief Function to configure credit base shapper
+ *
+ * Algorithm: This function is used to handle the hardware CBS
+ * settings.
+ *
+ * @param[in] pdata: Pointer to private data structure.
+ * @param[in] qopt:  Pointer to qdisc taprio offload data.
+ *
+ * @note MAC interface should be up.
+ *
+ * @retval 0 on success
+ * @retval "negative value" on Failure
+ */
+int ether_tc_setup_cbs(struct ether_priv_data *pdata,
+		       struct tc_cbs_qopt_offload *qopt);
+
 #endif
+
+/**
+ * @brief Get Tx done timestamp from OSI and update in skb
+ *
+ * @param[in] pdata: Pointer to private data structure.
+ *
+ * @note Network interface should be up
+ *
+ * @retval 0 on success
+ * @retval EAGAIN on Failure
+ */
+int ether_get_tx_ts(struct ether_priv_data *pdata);
 #ifdef ETHER_NVGRO
 void ether_nvgro_purge_timer(struct timer_list *t);
 #endif /* ETHER_NVGRO */

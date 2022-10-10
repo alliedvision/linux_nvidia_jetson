@@ -36,8 +36,20 @@
 
 bool ga10b_is_pmu_supported(struct gk20a *g)
 {
+	(void)g;
 #ifdef CONFIG_NVGPU_LS_PMU
-	return nvgpu_platform_is_simulation(g) ? false : true;
+	if (nvgpu_platform_is_silicon(g)) {
+		return true;
+	} else {
+		/* Pre-Si platforms */
+		if (nvgpu_is_enabled(g, NVGPU_SEC_PRIVSECURITY)) {
+			/* Security is enabled - PMU is supported. */
+			return true;
+		} else {
+			/* NS PMU is not supported */
+			return false;
+		}
+	}
 #else
 	/* set to false to disable LS PMU ucode support */
 	return false;
@@ -75,8 +87,9 @@ static int ga10b_pmu_ns_falcon_bootstrap(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct pmu_ucode_desc_v1 *desc = NULL;
 	u32 addr_code_lo, addr_data_lo, addr_load_lo;
 	u32 addr_code_hi, addr_data_hi;
-	u32  blocks, i, err;
+	u32  blocks, i;
 	u32 inst_block_ptr;
+	int err;
 
 	nvgpu_log_fn(g, " ");
 
@@ -142,7 +155,7 @@ static int ga10b_pmu_ns_falcon_bootstrap(struct gk20a *g, struct nvgpu_pmu *pmu,
 		addr_load_lo -
 		(right_shift_8bits(desc->bootloader_imem_offset)));
 
-	blocks = right_shift_8bits(((desc->bootloader_size + U8_MAX) & ~U8_MAX));
+	blocks = right_shift_8bits(((desc->bootloader_size + U8_MAX) & ~(u32)U8_MAX));
 
 	for (i = DMA_OFFSET_START; i < blocks; i++) {
 		nvgpu_writel(g, pwr_falcon_dmatrfmoffs_r(),
@@ -184,6 +197,8 @@ static int ga10b_pmu_ns_nvriscv_bootstrap(struct gk20a *g,  struct nvgpu_pmu *pm
 	u64 fmc_code_addr = 0;
 	u64 fmc_data_addr = 0;
 	u64 manifest_addr = 0;
+
+	(void)args_offset;
 
 	desc = (struct falcon_next_core_ucode_desc *)(void *)
 			rtos_fw->fw_desc->data;
@@ -367,6 +382,8 @@ void ga10b_pmu_handle_swgen1_irq(struct gk20a *g, u32 intr)
 		}
 	}
 #endif
+	(void)g;
+	(void)intr;
 }
 
 /*
@@ -387,18 +404,9 @@ bool ga10b_pmu_is_interrupted(struct nvgpu_pmu *pmu)
 #endif
 
 /*
- * GA10B PMU IRQ registers are not accessible when NVRISCV PRIV lockdown is
- * engaged, so need to skip modifying/configuring IRQ registers.
- *
- * HAL checks for PRIV lockdown and if enabled then just enable PMU interrupt
- * from MC, if not enabled then follows legacy chip method to configure
- * the PMU interrupt.
  *
  * Interrupts required for LS-PMU are configured by LS-PMU ucode as part of
- * LS-PMU init code.
- *
- * Legacy chip path helps to configure interrupt required of non LS-PMU ucode
- * or power-off path to clear interrupt.
+ * LS-PMU init code, so just enable/disable PMU interrupt from MC.
  *
  */
 void ga10b_pmu_enable_irq(struct nvgpu_pmu *pmu, bool enable)
@@ -407,11 +415,91 @@ void ga10b_pmu_enable_irq(struct nvgpu_pmu *pmu, bool enable)
 
 	nvgpu_log_fn(g, " ");
 
-	if (g->ops.falcon.is_priv_lockdown(pmu->flcn)) {
-		nvgpu_cic_mon_intr_stall_unit_config(g,
+	nvgpu_cic_mon_intr_stall_unit_config(g,
 				NVGPU_CIC_INTR_UNIT_PMU,
 				enable);
-	} else {
-		gv11b_pmu_enable_irq(pmu, enable);
+}
+
+static int ga10b_pmu_handle_ecc(struct gk20a *g)
+{
+	int ret = 0;
+	u32 ecc_status = 0;
+
+	ecc_status = nvgpu_readl(g, pwr_pmu_falcon_ecc_status_r());
+
+	if ((ecc_status &
+		pwr_pmu_falcon_ecc_status_uncorrected_err_imem_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_IMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "imem ecc error uncorrected ");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pwr_pmu_falcon_ecc_status_uncorrected_err_dmem_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_DMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "dmem ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pwr_pmu_falcon_ecc_status_uncorrected_err_dcls_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_DCLS_UNCORRECTED);
+		nvgpu_err(g, "dcls ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pwr_pmu_falcon_ecc_status_uncorrected_err_reg_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_REG_ECC_UNCORRECTED);
+		nvgpu_err(g, "reg ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pwr_pmu_falcon_ecc_status_uncorrected_err_mpu_ram_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+					GPU_PMU_MPU_ECC_UNCORRECTED);
+		nvgpu_err(g, "mpu ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if (ret != 0) {
+		nvgpu_err(g, "ecc_addr(0x%x)",
+			nvgpu_readl(g, pwr_pmu_falcon_ecc_address_r()));
+	}
+
+	return ret;
+}
+
+void ga10b_pmu_handle_ext_irq(struct gk20a *g, u32 intr0)
+{
+	/* handle the ECC interrupt */
+	if ((intr0 & pwr_falcon_irqstat_ext_ecc_parity_true_f()) != 0U) {
+		ga10b_pmu_handle_ecc(g);
+	}
+
+	/* handle the MEMERR interrupt */
+	if ((intr0 & pwr_falcon_irqstat_memerr_true_f()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+				GPU_PMU_ACCESS_TIMEOUT_UNCORRECTED);
+		nvgpu_err(g, "memerr/access timeout error uncorrected");
+	}
+
+	/* handle the IOPMP interrupt */
+	if ((intr0 & pwr_falcon_irqstat_iopmp_true_f()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+				GPU_PMU_ILLEGAL_ACCESS_UNCORRECTED);
+		nvgpu_err(g, "iopmp/illegal access error uncorrected");
+	}
+
+	/* handle the WDT interrupt */
+	if ((intr0 & pwr_falcon_irqstat_wdt_true_f()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+				GPU_PMU_WDT_UNCORRECTED);
+		nvgpu_err(g, "wdt error uncorrected");
 	}
 }

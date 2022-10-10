@@ -1,0 +1,118 @@
+From 0e950bcac69db7685232b42499057988e0bff9d7 Mon Sep 17 00:00:00 2001
+From: JianMin Liu <jian-min.liu@mediatek.com>
+Date: Mon, 10 Aug 2020 23:15:09 +0800
+Subject: [PATCH 149/830] ANDROID: sched: add vendor hooks to handle scheduling
+ priority
+X-NVConfidentiality: public
+
+Add hooks to collect scheduling information and apply vendor's
+tuning when task's scheduling priority is changed
+
+Bug: 163431711
+
+Signed-off-by: JianMin Liu <jian-min.liu@mediatek.com>
+Change-Id: Ic85835852690d0060666107d9108560f5023496b
+---
+ drivers/android/vendor_hooks.c |  5 +++++
+ include/trace/hooks/sched.h    | 25 +++++++++++++++++++++++++
+ kernel/sched/core.c            |  4 ++++
+ 3 files changed, 34 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 6264c5977885..6d303bf48ccc 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -29,6 +29,11 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_enqueue_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dequeue_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_can_migrate_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_lowest_rq);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_rtmutex_prepare_setprio);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_prepare_prio_fork);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_finish_prio_fork);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_user_nice);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_setscheduler);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 514494ee3ad3..101b6098d24e 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -45,6 +45,26 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_lowest_rq,
+ 	TP_PROTO(struct task_struct *p, struct cpumask *local_cpu_mask,
+ 			int *lowest_cpu),
+ 	TP_ARGS(p, local_cpu_mask, lowest_cpu), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_prepare_prio_fork,
++	TP_PROTO(struct task_struct *p),
++	TP_ARGS(p), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_finish_prio_fork,
++	TP_PROTO(struct task_struct *p),
++	TP_ARGS(p), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_rtmutex_prepare_setprio,
++	TP_PROTO(struct task_struct *p, struct task_struct *pi_task),
++	TP_ARGS(p, pi_task), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_set_user_nice,
++	TP_PROTO(struct task_struct *p, long *nice),
++	TP_ARGS(p, nice), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
++	TP_PROTO(struct task_struct *p),
++	TP_ARGS(p), 1);
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -54,6 +74,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_lowest_rq,
+ #define trace_android_rvh_dequeue_task(rq, p)
+ #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
+ #define trace_android_rvh_find_lowest_rq(p, local_cpu_mask, lowest_cpu)
++#define trace_android_rvh_prepare_prio_fork(p)
++#define trace_android_rvh_finish_prio_fork(p)
++#define trace_android_rvh_rtmutex_prepare_setprio(p, pi_task)
++#define trace_android_rvh_set_user_nice(p, nice)
++#define trace_android_rvh_setscheduler(p)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index be5ad09a6e0a..260a9e90a434 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3260,6 +3260,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
+ 	 * Make sure we do not leak PI boosting priority to the child.
+ 	 */
+ 	p->prio = current->normal_prio;
++	trace_android_rvh_prepare_prio_fork(p);
+ 
+ 	uclamp_fork(p);
+ 
+@@ -3292,6 +3293,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
+ 		p->sched_class = &fair_sched_class;
+ 
+ 	init_entity_runnable_average(&p->se);
++	trace_android_rvh_finish_prio_fork(p);
+ 
+ #ifdef CONFIG_SCHED_INFO
+ 	if (likely(sched_info_on()))
+@@ -4880,6 +4882,7 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
+ 	struct rq_flags rf;
+ 	struct rq *rq;
+ 
++	trace_android_rvh_rtmutex_prepare_setprio(p, pi_task);
+ 	/* XXX used to be waiter->prio, not waiter->task->prio */
+ 	prio = __rt_effective_prio(pi_task, p->normal_prio);
+ 
+@@ -5009,6 +5012,7 @@ void set_user_nice(struct task_struct *p, long nice)
+ 	 */
+ 	rq = task_rq_lock(p, &rf);
+ 	update_rq_clock(rq);
++	trace_android_rvh_set_user_nice(p, &nice);
+ 
+ 	/*
+ 	 * The RT priorities are set via sched_setscheduler(), but we still
+-- 
+2.17.1
+

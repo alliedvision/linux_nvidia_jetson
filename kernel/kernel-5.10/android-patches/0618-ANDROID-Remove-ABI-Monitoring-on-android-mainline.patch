@@ -1,0 +1,32 @@
+From 31d2a9c1934a4637b0377e1d3db87af0efc9285d Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Mon, 27 Jan 2020 10:03:47 +0000
+Subject: [PATCH 618/830] ANDROID: Remove ABI Monitoring on android-mainline
+X-NVConfidentiality: public
+
+We stabilized the ABI tooling on the GKI branches by now. There is no
+need anymore to keep the ABI Monitoring alive on this branch. It rather
+causes friction as the ABI changes all the time and the purpose of
+battletesting the tooling is not as valid anymore as before.
+(Also, the representation diffs slowly blow up the repository.)
+
+Bug: 111449103
+Change-Id: I86f0baf48f2f183f25aa63e1f560e8b767e7e03f
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ build.config.gki.aarch64 | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/build.config.gki.aarch64 b/build.config.gki.aarch64
+index dade4408295e..78d11f3db888 100644
+--- a/build.config.gki.aarch64
++++ b/build.config.gki.aarch64
+@@ -2,5 +2,3 @@
+ . ${ROOT_DIR}/common/build.config.aarch64
+ . ${ROOT_DIR}/common/build.config.gki
+ 
+-ABI_DEFINITION=abi_gki_aarch64.xml
+-KMI_WHITELIST=abi_gki_aarch64_whitelist
+-- 
+2.17.1
+

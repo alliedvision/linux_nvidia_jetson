@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,8 @@
 
 #include <nvgpu/atomic.h>
 #include <nvgpu/lock.h>
+#include <nvgpu/worker.h>
+#include <nvgpu/timers.h>
 
 /*
  * Max size we'll parse from an NVS log entry.
@@ -36,6 +38,7 @@
 #define NVS_LOG_BUF_SIZE	128
 
 struct gk20a;
+struct nvgpu_nvs_domain_ioctl;
 
 /*
  * NvGPU KMD domain implementation details for nvsched.
@@ -63,28 +66,44 @@ struct nvgpu_nvs_domain {
 	 * ioctl layer and a TSG putting a ref does not result in domain deletion.
 	 */
 	u32 ref;
+
+	/*
+	 * Userspace API on the device nodes.
+	 */
+	struct nvgpu_nvs_domain_ioctl *ioctl;
+};
+
+struct nvgpu_nvs_worker {
+	struct nvgpu_worker worker;
+	struct nvgpu_timeout timeout;
+	u32 current_timeout;
 };
 
 struct nvgpu_nvs_scheduler {
 	struct nvs_sched *sched;
 	nvgpu_atomic64_t id_counter;
+	struct nvgpu_nvs_worker worker;
+	struct nvgpu_nvs_domain *active_domain;
 };
 
 #ifdef CONFIG_NVS_PRESENT
 int nvgpu_nvs_init(struct gk20a *g);
 int nvgpu_nvs_open(struct gk20a *g);
+void nvgpu_nvs_remove_support(struct gk20a *g);
 void nvgpu_nvs_get_log(struct gk20a *g, s64 *timestamp, const char **msg);
 u32 nvgpu_nvs_domain_count(struct gk20a *g);
 int nvgpu_nvs_del_domain(struct gk20a *g, u64 dom_id);
-int nvgpu_nvs_add_domain(struct gk20a *g, const char *name, u32 timeslice,
-			 u32 preempt_grace, struct nvgpu_nvs_domain **pdomain);
-struct nvgpu_nvs_domain *
-nvgpu_nvs_get_dom_by_id(struct gk20a *g, struct nvs_sched *sched, u64 dom_id);
+int nvgpu_nvs_add_domain(struct gk20a *g, const char *name, u64 timeslice,
+			 u64 preempt_grace, struct nvgpu_nvs_domain **pdomain);
 void nvgpu_nvs_print_domain(struct gk20a *g, struct nvgpu_nvs_domain *domain);
 
 struct nvgpu_nvs_domain *
-nvgpu_nvs_domain_get(struct gk20a *g, const char *name);
+nvgpu_nvs_domain_by_id(struct gk20a *g, u64 domain_id);
+struct nvgpu_nvs_domain *
+nvgpu_nvs_domain_by_name(struct gk20a *g, const char *name);
+void nvgpu_nvs_domain_get(struct gk20a *g, struct nvgpu_nvs_domain *dom);
 void nvgpu_nvs_domain_put(struct gk20a *g, struct nvgpu_nvs_domain *dom);
+const char *nvgpu_nvs_domain_get_name(struct nvgpu_nvs_domain *dom);
 /*
  * Debug wrapper for NVS code.
  */
@@ -94,15 +113,33 @@ void nvgpu_nvs_domain_put(struct gk20a *g, struct nvgpu_nvs_domain *dom);
 #else
 static inline int nvgpu_nvs_init(struct gk20a *g)
 {
+	(void)g;
 	return 0;
 }
-static inline struct nvgpu_nvs_domain *
-nvgpu_nvs_domain_get(struct gk20a *g, const char *name)
+
+static inline void nvgpu_nvs_remove_support(struct gk20a *g)
 {
+	(void)g;
+}
+
+static inline struct nvgpu_nvs_domain *
+nvgpu_nvs_domain_by_name(struct gk20a *g, const char *name)
+{
+	(void)g;
+	(void)name;
 	return NULL;
 }
+
 static inline void nvgpu_nvs_domain_put(struct gk20a *g, struct nvgpu_nvs_domain *dom)
 {
+	(void)g;
+	(void)dom;
+}
+
+static inline const char *nvgpu_nvs_domain_get_name(struct nvgpu_nvs_domain *dom)
+{
+	(void)dom;
+	return NULL;
 }
 #endif
 

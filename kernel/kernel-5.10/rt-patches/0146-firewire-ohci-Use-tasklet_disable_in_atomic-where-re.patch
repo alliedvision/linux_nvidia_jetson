@@ -1,7 +1,7 @@
-From 8fd6c35bc6fc04326af4eb68ae29fc38f8b6b677 Mon Sep 17 00:00:00 2001
+From 6cc6b100b0f1a5b472cd9c1cc647479399ff341f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:16 +0100
-Subject: [PATCH 146/304] firewire: ohci: Use tasklet_disable_in_atomic() where
+Subject: [PATCH 146/318] firewire: ohci: Use tasklet_disable_in_atomic() where
  required
 
 tasklet_disable() is invoked in several places. Some of them are in atomic
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/firewire/ohci.c b/drivers/firewire/ohci.c
-index 9811c40..17c9d82 100644
+index 9811c40956e5..17c9d825188b 100644
 --- a/drivers/firewire/ohci.c
 +++ b/drivers/firewire/ohci.c
 @@ -2545,7 +2545,7 @@ static int ohci_cancel_packet(struct fw_card *card, struct fw_packet *packet)
@@ -56,5 +56,5 @@ index 9811c40..17c9d82 100644
  	if (!test_and_set_bit_lock(0, &ctx->flushing_completions)) {
  		context_tasklet((unsigned long)&ctx->context);
 -- 
-2.7.4
+2.17.1
 

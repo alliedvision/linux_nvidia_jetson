@@ -1,0 +1,74 @@
+From 23f36b12c5f10f25d28bcec9912346999137cd0d Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Thu, 6 Feb 2020 19:17:55 +0100
+Subject: [PATCH 265/830] ANDROID: remove map/unmap from ion_dma.c
+X-NVConfidentiality: public
+
+map/unmap is now gone from dma buf operations.  I commented out these
+things in the big dma-buf merge point for 5.6-rc1, but to call it out
+specifically I am removing it here so that everyone can notice what just
+happened.
+
+And if this is an issue, they can fix it up properly :)
+
+Bug: 133508579
+Cc: Isaac J. Manjarres <isaacm@codeaurora.org>
+Cc: Sandeep Patil <sspatil@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I22dd274529cf5b527ab77eac2a4113baa20693c1
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 24 -----------------------
+ 1 file changed, 24 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 7ded926f52d4..6b77a2fbb67a 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -234,17 +234,6 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
+ 						    len);
+ }
+ 
+-static void *ion_dma_buf_map(struct dma_buf *dmabuf, unsigned long offset)
+-{
+-	struct ion_buffer *buffer = dmabuf->priv;
+-	struct ion_heap *heap = buffer->heap;
+-
+-	if (heap->buf_ops.map)
+-		return heap->buf_ops.map(dmabuf, offset);
+-
+-	return ion_buffer_kmap_get(buffer) + offset * PAGE_SIZE;
+-}
+-
+ static int ion_dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+ {
+ 	struct ion_buffer *buffer = dmabuf->priv;
+@@ -270,17 +259,6 @@ static int ion_dma_buf_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+ 	return ret;
+ }
+ 
+-static void ion_dma_buf_unmap(struct dma_buf *dmabuf, unsigned long offset,
+-			      void *addr)
+-{
+-	struct ion_buffer *buffer = dmabuf->priv;
+-	struct ion_heap *heap = buffer->heap;
+-
+-	if (!heap->buf_ops.unmap)
+-		return;
+-	heap->buf_ops.unmap(dmabuf, offset, addr);
+-}
+-
+ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
+ {
+ 	struct ion_buffer *buffer = dmabuf->priv;
+@@ -325,8 +303,6 @@ static const struct dma_buf_ops dma_buf_ops = {
+ 	.end_cpu_access = ion_dma_buf_end_cpu_access,
+ 	.end_cpu_access_partial = ion_dma_buf_end_cpu_access_partial,
+ 	.mmap = ion_dma_buf_mmap,
+-	.map = ion_dma_buf_map,
+-	.unmap = ion_dma_buf_unmap,
+ 	.vmap = ion_dma_buf_vmap,
+ 	.vunmap = ion_dma_buf_vunmap,
+ 	.get_flags = ion_dma_buf_get_flags,
+-- 
+2.17.1
+

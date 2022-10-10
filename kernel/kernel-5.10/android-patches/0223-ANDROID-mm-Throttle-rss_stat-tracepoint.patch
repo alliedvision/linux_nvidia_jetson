@@ -1,0 +1,90 @@
+From bd3c91cdcbdcbbf62c82f459b57522668e4b8c17 Mon Sep 17 00:00:00 2001
+From: Joel Fernandes <joelaf@google.com>
+Date: Tue, 10 Dec 2019 10:45:34 -0500
+Subject: [PATCH 223/830] ANDROID: mm: Throttle rss_stat tracepoint
+X-NVConfidentiality: public
+
+Previously we were throttling rss_stat tracepoint by checking for 512KB
+boundary cross over. We removed that because upstream suggested eBPF or
+other ways. However right now, we don't have support for those. Let us
+re introduce the patch to throttle and avoid large number of events
+which are causing data loss.
+
+Bug: 145972256
+
+Change-Id: I4132133aa36163430069b3ca2f57443940fb90b3
+Signed-off-by: Joel Fernandes <joelaf@google.com>
+(cherry picked from commit b3ddf584b0d6042bb355969ec0f3fa6a2a6117f6)
+---
+ include/linux/mm.h |  9 +++++----
+ mm/memory.c        | 16 ++++++++++++++--
+ 2 files changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 576c7a795e25..5f12bfcfb767 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1901,27 +1901,28 @@ static inline unsigned long get_mm_counter(struct mm_struct *mm, int member)
+ 	return (unsigned long)val;
+ }
+ 
+-void mm_trace_rss_stat(struct mm_struct *mm, int member, long count);
++void mm_trace_rss_stat(struct mm_struct *mm, int member, long count,
++		       long value);
+ 
+ static inline void add_mm_counter(struct mm_struct *mm, int member, long value)
+ {
+ 	long count = atomic_long_add_return(value, &mm->rss_stat.count[member]);
+ 
+-	mm_trace_rss_stat(mm, member, count);
++	mm_trace_rss_stat(mm, member, count, value);
+ }
+ 
+ static inline void inc_mm_counter(struct mm_struct *mm, int member)
+ {
+ 	long count = atomic_long_inc_return(&mm->rss_stat.count[member]);
+ 
+-	mm_trace_rss_stat(mm, member, count);
++	mm_trace_rss_stat(mm, member, count, 1);
+ }
+ 
+ static inline void dec_mm_counter(struct mm_struct *mm, int member)
+ {
+ 	long count = atomic_long_dec_return(&mm->rss_stat.count[member]);
+ 
+-	mm_trace_rss_stat(mm, member, count);
++	mm_trace_rss_stat(mm, member, count, -1);
+ }
+ 
+ /* Optimized variant when page is already known not to be PageAnon */
+diff --git a/mm/memory.c b/mm/memory.c
+index 318d094b296e..1be0b9bd47e5 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -156,9 +156,21 @@ static int __init init_zero_pfn(void)
+ }
+ early_initcall(init_zero_pfn);
+ 
+-void mm_trace_rss_stat(struct mm_struct *mm, int member, long count)
++/*
++ * Only trace rss_stat when there is a 512kb cross over.
++ * Smaller changes may be lost unless every small change is
++ * crossing into or returning to a 512kb boundary.
++ */
++#define TRACE_MM_COUNTER_THRESHOLD 128
++
++void mm_trace_rss_stat(struct mm_struct *mm, int member, long count,
++		       long value)
+ {
+-	trace_rss_stat(mm, member, count);
++	long thresh_mask = ~(TRACE_MM_COUNTER_THRESHOLD - 1);
++
++	/* Threshold roll-over, trace it */
++	if ((count & thresh_mask) != ((count - value) & thresh_mask))
++		trace_rss_stat(mm, member, count);
+ }
+ EXPORT_SYMBOL_GPL(mm_trace_rss_stat);
+ 
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -174,7 +174,7 @@ int vblk_prep_ufs_combo_ioc(struct vblk_dev *vblkdev,
 		goto free_ioc_buf;
 	}
 
-	usr_ptr = (void * __user)cc.query;
+	usr_ptr = (void __user *)cc.query;
 	combo_info->count = num_cmd;
 	combo_info->need_cq_empty = cc.need_cq_empty;
 	combo_cmd = (struct vblk_ufs_ioc_query_req *)(ioctl_buf +
@@ -296,7 +296,7 @@ int vblk_complete_ufs_combo_ioc(struct vblk_dev *vblkdev,
 		goto free_ioc_buf;
 	}
 
-	usr_ptr = (void * __user)cc.query;
+	usr_ptr = (void __user *)cc.query;
 
 	combo_cmd = (struct vblk_ufs_ioc_query_req *)(ioctl_buf +
 			sizeof(struct vblk_ufs_combo_info));

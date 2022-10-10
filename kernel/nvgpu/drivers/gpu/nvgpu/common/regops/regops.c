@@ -1,7 +1,7 @@
 /*
  * Tegra GK20A GPU Debugger Driver Register Ops
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,8 +28,10 @@
 #include <nvgpu/io.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/regops.h>
+#include <nvgpu/gr/gr_instances.h>
 #include <nvgpu/gr/obj_ctx.h>
 #include <nvgpu/gr/gr_utils.h>
+#include <nvgpu/grmgr.h>
 #include <nvgpu/profiler.h>
 
 /* Access ctx buffer offset functions in gr_gk20a.h */
@@ -216,6 +218,193 @@ int exec_regops_gk20a(struct gk20a *g,
 
 }
 
+#ifdef CONFIG_NVGPU_MIG
+static int calculate_new_offsets_for_perf_fbp_chiplets(struct gk20a *g,
+	struct nvgpu_dbg_reg_op *op, u32 reg_chiplet_base, u32 chiplet_offset)
+{
+	int ret = 0;
+	u32 fbp_local_index, fbp_logical_index;
+	u32 gr_instance_id;
+	u32 new_offset;
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, " ");
+
+	gr_instance_id = nvgpu_gr_get_cur_instance_id(g);
+
+	if (chiplet_offset == 0U) {
+		nvgpu_err(g, "Invalid chiplet offsets");
+		return -EINVAL;
+	}
+
+	fbp_local_index = nvgpu_safe_sub_u32(op->offset, reg_chiplet_base)/chiplet_offset;
+	/*
+	 * Validate fbp_local_index for current MIG Instance.
+	 * Substitute local indexes with logical indexes.
+	 * Obtain new offset.
+	 */
+
+	if (fbp_local_index >= nvgpu_grmgr_get_gr_num_fbps(g, gr_instance_id)) {
+		ret = -EINVAL;
+		nvgpu_err(g, "Invalid FBP Index");
+		return ret;
+	}
+
+	/* At present, FBP indexes doesn't need conversion */
+	if (nvgpu_grmgr_get_memory_partition_support_status(g, gr_instance_id)) {
+		fbp_logical_index = nvgpu_grmgr_get_fbp_logical_id(g,
+			gr_instance_id, fbp_local_index);
+
+		new_offset = nvgpu_safe_sub_u32(op->offset,
+			nvgpu_safe_mult_u32(fbp_local_index, chiplet_offset));
+
+		new_offset = nvgpu_safe_add_u32(new_offset,
+			nvgpu_safe_mult_u32(fbp_logical_index, chiplet_offset));
+
+		nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg,
+			"old offset: 0x%08x, new offset = 0x%08x, Local index = %u, logical index = %u",
+			op->offset, new_offset, fbp_local_index, fbp_logical_index);
+
+		op->offset = new_offset;
+	}
+
+	return 0;
+}
+
+static int calculate_new_offsets_for_perf_gpc_chiplets(struct gk20a *g,
+	struct nvgpu_dbg_reg_op *op, u32 reg_chiplet_base, u32 chiplet_offset)
+{
+	int ret = 0;
+	u32 gr_instance_id;
+	u32 gpc_local_index;
+	u32 gpc_logical_index, new_offset;
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, " ");
+
+	gr_instance_id = nvgpu_gr_get_cur_instance_id(g);
+
+	if (chiplet_offset == 0U) {
+		nvgpu_err(g, "Invalid chiplet offsets");
+		return -EINVAL;
+	}
+
+	gpc_local_index = nvgpu_safe_sub_u32(op->offset, reg_chiplet_base)/chiplet_offset;
+	/*
+	 * Validate gpc_local_index for current MIG Instance.
+	 * Substitute local indexes with logical indexes.
+	 * Obtain new offset.
+	 */
+
+	/* Validate whether gpc_local_index value is within the partition limits */
+	if (gpc_local_index >= nvgpu_grmgr_get_gr_num_gpcs(g, gr_instance_id)) {
+		ret = -EINVAL;
+		nvgpu_err(g, "Invalid GPC Index");
+		return ret;
+	}
+
+	gpc_logical_index = nvgpu_grmgr_get_gr_gpc_logical_id(g,
+		gr_instance_id, gpc_local_index);
+
+	new_offset = nvgpu_safe_sub_u32(op->offset,
+		nvgpu_safe_mult_u32(gpc_local_index, chiplet_offset));
+
+	new_offset = nvgpu_safe_add_u32(new_offset,
+		nvgpu_safe_mult_u32(gpc_logical_index, chiplet_offset));
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg,
+		"old Offset: 0x%08x, new Offset = 0x%08x, local index = %u, logical index = %u, physical index = %u",
+		op->offset, new_offset, gpc_local_index, gpc_logical_index,
+		nvgpu_grmgr_get_gr_gpc_phys_id(g, gr_instance_id, gpc_local_index));
+
+	op->offset = new_offset;
+
+	return 0;
+}
+
+static int translate_regops_for_profiler(struct gk20a *g,
+	struct nvgpu_profiler_object *prof,
+	struct nvgpu_dbg_reg_op *op,
+	struct nvgpu_pm_resource_register_range_map *entry)
+{
+	int ret = 0;
+	u32 chiplet_offset;
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, " ");
+
+	if ((entry->type != NVGPU_HWPM_REGISTER_TYPE_HWPM_PERFMON) &&
+			(entry->type != NVGPU_HWPM_REGISTER_TYPE_HWPM_ROUTER)) {
+		return 0;
+	}
+
+	if (entry->start == g->ops.perf.get_hwpm_gpc_perfmon_regs_base(g)) {
+		chiplet_offset = g->ops.perf.get_pmmgpc_per_chiplet_offset();
+		ret = calculate_new_offsets_for_perf_gpc_chiplets(g,
+			op, entry->start, chiplet_offset);
+	} else if (entry->start == g->ops.perf.get_hwpm_gpcrouter_perfmon_regs_base(g)) {
+		chiplet_offset = g->ops.perf.get_pmmgpcrouter_per_chiplet_offset();
+		ret = calculate_new_offsets_for_perf_gpc_chiplets(g,
+			op, entry->start, chiplet_offset);
+	} else if (entry->start == g->ops.perf.get_hwpm_fbp_perfmon_regs_base(g)) {
+		chiplet_offset = g->ops.perf.get_pmmfbp_per_chiplet_offset();
+		ret = calculate_new_offsets_for_perf_fbp_chiplets(g, op,
+			entry->start, chiplet_offset);
+	} else if (entry->start == g->ops.perf.get_hwpm_fbprouter_perfmon_regs_base(g)) {
+		chiplet_offset = g->ops.perf.get_pmmfbprouter_per_chiplet_offset();
+		ret = calculate_new_offsets_for_perf_fbp_chiplets(g, op,
+			entry->start, chiplet_offset);
+	}
+
+	return ret;
+}
+
+static int translate_regops_without_profiler(struct gk20a *g,
+	struct nvgpu_dbg_reg_op *op)
+{
+	struct nvgpu_pm_resource_register_range_map entry = {0};
+
+	u32 gpc_reg_begin = g->ops.perf.get_hwpm_gpc_perfmon_regs_base(g);
+	u32 gpc_reg_end = nvgpu_safe_add_u32(gpc_reg_begin,
+		nvgpu_safe_mult_u32(nvgpu_get_litter_value(g, GPU_LIT_NUM_GPCS),
+			g->ops.perf.get_pmmgpc_per_chiplet_offset()));
+	u32 gpcrouter_reg_begin = g->ops.perf.get_hwpm_gpcrouter_perfmon_regs_base(g);
+	u32 gpcrouter_reg_end = nvgpu_safe_add_u32(gpcrouter_reg_begin,
+		nvgpu_safe_mult_u32(nvgpu_get_litter_value(g, GPU_LIT_NUM_GPCS),
+			g->ops.perf.get_pmmgpcrouter_per_chiplet_offset()));
+	u32 fbp_reg_begin = g->ops.perf.get_hwpm_fbp_perfmon_regs_base(g);
+	u32 fbp_reg_end = nvgpu_safe_add_u32(fbp_reg_begin,
+		nvgpu_safe_mult_u32(nvgpu_get_litter_value(g, GPU_LIT_NUM_FBPS),
+			g->ops.perf.get_pmmfbp_per_chiplet_offset()));
+	u32 fbprouter_reg_begin = g->ops.perf.get_hwpm_fbprouter_perfmon_regs_base(g);
+	u32 fbprouter_reg_end = nvgpu_safe_add_u32(fbprouter_reg_begin,
+		nvgpu_safe_mult_u32(nvgpu_get_litter_value(g, GPU_LIT_NUM_FBPS),
+			g->ops.perf.get_pmmfbprouter_per_chiplet_offset()));
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, " ");
+
+	if (op->offset >= gpc_reg_begin && op->offset < gpc_reg_end) {
+		entry.start = gpc_reg_begin;
+		entry.end = gpc_reg_end;
+		entry.type = NVGPU_HWPM_REGISTER_TYPE_HWPM_PERFMON;
+	} else if (op->offset >= gpcrouter_reg_begin && op->offset < gpcrouter_reg_end) {
+		entry.start = gpcrouter_reg_begin;
+		entry.end = gpcrouter_reg_end;
+		entry.type = NVGPU_HWPM_REGISTER_TYPE_HWPM_ROUTER;
+	} else if (op->offset >= fbp_reg_begin && op->offset < fbp_reg_end) {
+		entry.start = fbp_reg_begin;
+		entry.end = fbp_reg_end;
+		entry.type = NVGPU_HWPM_REGISTER_TYPE_HWPM_PERFMON;
+	} else if (op->offset >= fbprouter_reg_begin && op->offset < fbprouter_reg_end) {
+		entry.start = fbprouter_reg_begin;
+		entry.end = fbprouter_reg_end;
+		entry.type = NVGPU_HWPM_REGISTER_TYPE_HWPM_ROUTER;
+	} else {
+		return 0;
+	}
+
+	return translate_regops_for_profiler(g, NULL, op, &entry);
+}
+
+#endif /* CONFIG_NVGPU_MIG */
+
 int nvgpu_regops_exec(struct gk20a *g,
 		struct nvgpu_tsg *tsg,
 		struct nvgpu_profiler_object *prof,
@@ -343,7 +532,8 @@ static int profiler_obj_validate_reg_op_offset(struct nvgpu_profiler_object *pro
 	struct gk20a *g = prof->g;
 	bool valid = false;
 	u32 offset;
-	enum nvgpu_pm_resource_hwpm_register_type type, type64;
+	int ret = 0;
+	struct nvgpu_pm_resource_register_range_map entry, entry64 = {0};
 
 	offset = op->offset;
 
@@ -354,23 +544,38 @@ static int profiler_obj_validate_reg_op_offset(struct nvgpu_profiler_object *pro
 		return -EINVAL;
 	}
 
-	valid = nvgpu_profiler_validate_regops_allowlist(prof, offset, &type);
+	valid = nvgpu_profiler_allowlist_range_search(g, prof->map,
+		prof->map_count, offset, &entry);
 	if ((op->op == REGOP(READ_64) || op->op == REGOP(WRITE_64)) && valid) {
-		valid = nvgpu_profiler_validate_regops_allowlist(prof, offset + 4U, &type64);
+		valid = nvgpu_profiler_allowlist_range_search(g, prof->map,
+					prof->map_count, offset + 4U, &entry64);
 	}
 
 	if (!valid) {
-		op->status |= REGOP(STATUS_INVALID_OFFSET);
-		return -EINVAL;
+		goto error;
 	}
 
 	if (op->op == REGOP(READ_64) || op->op == REGOP(WRITE_64)) {
-		nvgpu_assert(type == type64);
+		nvgpu_assert(entry.type == entry64.type);
 	}
 
-	op->type = prof->reg_op_type[type];
+#ifdef CONFIG_NVGPU_MIG
+	/* Validate input register offset first and then translate */
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG)) {
+		ret = translate_regops_for_profiler(g, prof, op, &entry);
+		if (ret != 0) {
+			goto error;
+		}
+	}
+#endif
+
+	op->type = (u8)prof->reg_op_type[entry.type];
 
 	return 0;
+error:
+	op->status |= REGOP(STATUS_INVALID_OFFSET);
+	(void)ret;
+	return -EINVAL;
 }
 
 /* note: the op here has already been through validate_reg_op_info */
@@ -378,6 +583,7 @@ static int validate_reg_op_offset(struct gk20a *g,
 				  struct nvgpu_dbg_reg_op *op,
 				  bool valid_ctx)
 {
+	int ret = 0;
 	u32 offset;
 	bool valid = false;
 
@@ -401,6 +607,16 @@ static int validate_reg_op_offset(struct gk20a *g,
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_NVGPU_MIG
+	/* Validate input register offset first and then translate */
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG)) {
+		ret = translate_regops_without_profiler(g, op);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+#endif
+	(void)ret;
 	return 0;
 }
 

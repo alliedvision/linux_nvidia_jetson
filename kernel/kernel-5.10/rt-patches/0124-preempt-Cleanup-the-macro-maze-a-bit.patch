@@ -1,7 +1,7 @@
-From d8db412e54be62d32eb32332e13feff4533daf15 Mon Sep 17 00:00:00 2001
+From c8e143c9be1c5e5ffa87944fde0ed92441c5ca22 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:17 +0100
-Subject: [PATCH 124/304] preempt: Cleanup the macro maze a bit
+Subject: [PATCH 124/318] preempt: Cleanup the macro maze a bit
 
 Make the macro maze consistent and prepare it for adding the RT variant for
 BH accounting.
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 16 insertions(+), 14 deletions(-)
 
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 6df63cbe..69cc8b6 100644
+index 6df63cbe8bb0..69cc8b64aa3a 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -77,31 +77,33 @@
@@ -73,5 +73,5 @@ index 6df63cbe..69cc8b6 100644
  /*
   * The preempt_count offset after preempt_disable();
 -- 
-2.7.4
+2.17.1
 

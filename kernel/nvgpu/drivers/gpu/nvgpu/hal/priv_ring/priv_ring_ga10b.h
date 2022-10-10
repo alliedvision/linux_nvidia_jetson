@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,36 @@
 #define NVGPU_PRIV_RING_GA10B_H
 
 #include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+/*
+ * Helper macros for decoding host pri error of pattern:
+ * BAD001xx - HOST_PRI_TIMEOUT.
+ * BAD002xx - HOST_PRI_DECODE.
+ * BAD0DAxx - HOST_PRI_SQUASH.
+ * Where xx is interpreted as follows:
+ * bits [7:0] = subid.
+ */
+#define HOST_PRIV_SUBID_MSK_VAL(x) \
+	 ((x) & (nvgpu_safe_sub_u32(BIT32(8U), 1U)))
+
+/*
+ * Helper macros for decoding fecs pri floorsweep error of pattern:
+ * BADF13xx - FECS_PRI_FLOORSWEEP.
+ * Where xx is interpreted as follows:
+ * bits [4:0] = source id.
+ */
+#define FECS_PRIV_SOURCEID_MSK_VAL(x) \
+	 ((x) & (nvgpu_safe_sub_u32(BIT32(5U), 1U)))
+
+/*
+ * Helper macros for decoding fecs pri orphan error of pattern:
+ * BADF20xx - FECS_PRI_FLOORSWEEP.
+ * Where xx is interpreted as follows:
+ * bits [7:0] = target ringstation.
+ */
+#define FECS_PRIV_ORPHAN_TARGET_RINGSTN_MSK_VAL(x) \
+	 ((x) & (nvgpu_safe_sub_u32(BIT32(8U), 1U)))
 
 /*
  * Helper macros for decoding falcon mem access violation of pattern:
@@ -33,7 +63,8 @@
  * bits [5:4] = access level.
  * bits [3:0] = existing priv level mask.
  */
-#define FALCON_DMEM_VIOLATION_MSK()	BIT32(7U)
+#define FALCON_DMEM_VIOLATION_MSK()		BIT32(7U)
+#define FALCON_MEM_VIOLATION_MSK_VIOLATION()	BIT32(6U)
 #define FALCON_MEM_VIOLATION_PRIVLEVEL_ACCESS_VAL(x) \
 	(((x) & (BIT32(5U) | BIT32(4U))) >> 4U)
 #define FALCON_MEM_VIOLATION_PRIVLEVEL_MSK_VAL(x) \
@@ -58,7 +89,7 @@
 
 /*
  * Helper macros for decoding PRI access violation error of pattern:
- * BADF51xx, BADF52xx - direct/indirect PRIV_LEVEL_VIOLATION.
+ * BADF51xx - direct PRIV_LEVEL_VIOLATION.
  * Where xx is interpreted as follows:
  * bits [7:6] = b'00
  * bits [5:4] = request_priv_level
@@ -68,6 +99,20 @@
 	(((x) & (BIT32(3U) | BIT32(2U) | BIT32(1U) | BIT32(0U))))
 #define PRI_ACCESS_VIOLATON_LEVEL_VAL(x) \
 	(((x) & (BIT32(5U) | BIT32(4U))) >> 4U)
+
+/*
+ * Helper macros for decoding PRI access violation error of pattern:
+ * BADF52xx - indirect PRIV_LEVEL_VIOLATION.
+ * Where xx is interpreted as follows:
+ * bits [7:6] = b'00
+ * bits [5:4] = current_request_priv_level
+ * bits [3:2] = b'00
+ * bits [1:0] = orig_request_priv_level
+ */
+#define PRI_ACCESS_VIOLATION_CUR_REQPL_VAL(x) \
+	(((x) & (BIT32(5U) | BIT32(4U))) >> 4U)
+#define PRI_ACCESS_VIOLATION_ORIG_REQPL_VAL(x) \
+	((x) & (BIT32(1U) | BIT32(0U)))
 
 /*
  * Helper macros for decoding source enable violations of pattern:
@@ -82,6 +127,25 @@
 	(((x) & (BIT32(7U) | BIT32(6U))) >> 6U)
 #define SRC_EN_VIOLATION_SRCID_VAL(x) \
 	((x) & (BIT32(4U) | BIT32(3U) | BIT32(2U) | BIT32(1U) | BIT32(0U)))
+
+/*
+ * Helper macros for decoding pri lock from security sensor of pattern:
+ * BADF60xx - pri lock due to security sensor.
+ * Where xx is interpreted as follows:
+ * bits [7:6] = b'00
+ * bits [5] = pmu_dcls
+ * bits [4] = gsp_dcls
+ * bits [3] = sec2_dcls
+ * bits [2] = nvdclk_scpm
+ * bits [1] = fuse_scm
+ * bits [0] = fuse_prod
+ */
+#define PRI_LOCK_SEC_SENSOR_PMU_MSK()		BIT32(5U)
+#define PRI_LOCK_SEC_SENSOR_GSP_MSK()		BIT32(4U)
+#define PRI_LOCK_SEC_SENSOR_SEC2_MSK()		BIT32(3U)
+#define PRI_LOCK_SEC_SENSOR_NVDCLK_MSK()	BIT32(2U)
+#define PRI_LOCK_SEC_SENSOR_FUSE_SCM_MSK()	BIT32(1U)
+#define PRI_LOCK_SEC_SENSOR_FUSE_PROD_MSK()	BIT32(0U)
 
 /*
  * Helper macros for decoding local priv ring errors of pattern:

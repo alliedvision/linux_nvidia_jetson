@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -92,6 +92,10 @@ static void nvgpu_channel_wdt_init(struct nvgpu_channel_wdt *wdt,
 {
 	struct gk20a *g = wdt->g;
 
+	/*
+	 * Note: this is intentionally not the sw kind of timer to avoid false
+	 * triggers in pre-si environments that tend to run slow.
+	 */
 	nvgpu_timeout_init_cpu_timer(g, &wdt->timer, wdt->limit_ms);
 
 	wdt->ch_state = *state;

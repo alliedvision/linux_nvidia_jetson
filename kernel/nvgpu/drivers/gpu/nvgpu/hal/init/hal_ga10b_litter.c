@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -167,6 +167,7 @@ u32 ga10b_get_litter_value(struct gk20a *g, int value)
 	 * The perfmon start, count for various chiplets are taken
 	 * from the PM programming guide.
 	 */
+#ifdef CONFIG_NVGPU_DEBUGGER
 	case GPU_LIT_PERFMON_PMMGPCTPCA_DOMAIN_START:
 		ret = 2;
 		break;
@@ -188,6 +189,7 @@ u32 ga10b_get_litter_value(struct gk20a *g, int value)
 	case GPU_LIT_PERFMON_PMMGPC_ROP_DOMAIN_COUNT:
 		ret = 2;
 		break;
+#endif
 	case GPU_LIT_ROP_IN_GPC_BASE:
 		ret = proj_rop_in_gpc_base_v();
 		break;

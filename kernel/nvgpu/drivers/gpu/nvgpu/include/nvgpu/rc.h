@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -76,6 +76,10 @@
  * Scheduler error recovery.
  */
 #define RC_TYPE_SCHED_ERR		8U
+/**
+ * Copy-engine error recovery.
+ */
+#define RC_TYPE_CE_FAULT		9U
 
 /**
  * Invalid recovery id.
@@ -131,6 +135,9 @@ static inline const char *nvgpu_rc_type_to_str(unsigned int rc_type)
 		break;
 	case RC_TYPE_SCHED_ERR:
 		str = "Sched err";
+		break;
+	case RC_TYPE_CE_FAULT:
+		str = "Copy engine err";
 		break;
 	default:
 		str = "Unknown";
@@ -272,4 +279,6 @@ void nvgpu_rc_fifo_recover(struct gk20a *g,
 			bool id_is_tsg, /* ignored if hw_id == ~0 */
 			bool id_is_known, bool debug_dump, u32 rc_type);
 
+
+void nvgpu_rc_ce_fault(struct gk20a *g, u32 inst_id);
 #endif /* NVGPU_RC_H */

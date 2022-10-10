@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -304,12 +304,6 @@ void gp10b_clk_arb_run_arbiter_cb(struct nvgpu_clk_arb *arb)
 	}
 
 	gpc2clk_session_target = gpc2clk_target;
-
-	if (arb->actual->gpc2clk == gpc2clk_target) {
-		nvgpu_atomic_inc(&arb->req_nr);
-		nvgpu_cond_signal_interruptible(&arb->request_wq);
-		goto exit_arb;
-	}
 
 	nvgpu_mutex_acquire(&arb->pstate_lock);
 

@@ -1,0 +1,23 @@
+From 8abb01a5111a945e56155598931be7c24e3cdc68 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:00:30 -0700
+Subject: [PATCH 387/830] _____ANNOTATION: MMC driver changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index ced18a9a453f..ac8a0b726ab0 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -21,3 +21,4 @@ sound changes
+ media changes
+ input and HID changes
+ UFS driver changes
++MMC driver changes
+-- 
+2.17.1
+

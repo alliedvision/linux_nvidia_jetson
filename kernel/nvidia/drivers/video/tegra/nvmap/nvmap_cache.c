@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/nvmap/nvmap_cache.c
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -158,7 +158,7 @@ int nvmap_cache_maint_phys_range(unsigned int op, phys_addr_t pstart,
 		io_addr = __ioremap(loop, PAGE_SIZE, PG_PROT_KERNEL);
 		if (io_addr == NULL)
 			return -ENOMEM;
-		base = (void *)io_addr + (loop & ~PAGE_MASK);
+		base = (__force void *)io_addr + (loop & ~PAGE_MASK);
 		inner_cache_maint(op, base, next - loop);
 		iounmap(io_addr);
 		loop = next;

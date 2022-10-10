@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -102,14 +102,15 @@ struct nvgpu_as_bind_channel_args {
  * chosen will be returned back to the caller in the 'page_size' parameter in
  * that case.
  */
-#define NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET	    (1 << 0)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_CACHEABLE	    (1 << 2)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_IO_COHERENT	    (1 << 4)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_UNMAPPED_PTE	    (1 << 5)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_MAPPABLE_COMPBITS (1 << 6)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_L3_ALLOC          (1 << 7)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL  (1 << 8)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_PLATFORM_ATOMIC   (1 << 9)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET		(1 << 0)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_CACHEABLE		(1 << 2)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_IO_COHERENT		(1 << 4)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_UNMAPPED_PTE		(1 << 5)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_MAPPABLE_COMPBITS	(1 << 6)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_L3_ALLOC		(1 << 7)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL	(1 << 8)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_PLATFORM_ATOMIC	(1 << 9)
+#define NVGPU_AS_MAP_BUFFER_FLAGS_TEGRA_RAW		(1 << 12)
 
 #define NVGPU_AS_MAP_BUFFER_FLAGS_ACCESS_BITMASK_OFFSET    10U
 #define NVGPU_AS_MAP_BUFFER_FLAGS_ACCESS_BITMASK_SIZE      2U
@@ -453,7 +454,14 @@ struct nvgpu_as_mapping_modify_args {
  *       must be set if the physical memory buffer represented by @mem_handle
  *       is mapped read-only.
  *
- *   This field must be zero for unmap operations.
+ *     %NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_4K
+ *     %NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_64K
+ *     %NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_128K
+ *
+ *       One, and only one, of these flags must be set for both map/unmap
+ *       ops and indicates the assumed page size of the mem_offset_in_pages
+ *       and virt_offset_in_pages. This value is also verified against the
+ *       page size of the address space.
  *
  * @compr_kind  [IN/OUT]
  * @incompr_kind  [IN/OUT]
@@ -478,16 +486,14 @@ struct nvgpu_as_mapping_modify_args {
  *
  * @mem_offset_in_pages [IN]
  *
- *   Specify an offset into the physical buffer associated with mem_handle at
- *   which to start the mapping.  This value is in pages and the page size
- *   is the big page size in the associated sparse address space.  This value
- *   must be zero for unmap operations.
+ *   Specify an offset (in pages) into the physical buffer associated with
+ *   mem_handle at which to start the mapping.  This value must be zero for
+ *   unmap operations.
  *
  * @virt_offset_in_pages [IN]
  *
- *   Specify the virtual memory start offset of the region to map or unmap.
- *   This value is in pages and the page size is the big page size in the
- *   associated sparse address space.
+ *   Specify the virtual memory start offset (in pages) of the region to map
+ *   or unmap.
  *
  * @num_pages [IN]
  *   Specify the number of pages to map or unmap.
@@ -495,14 +501,17 @@ struct nvgpu_as_mapping_modify_args {
 struct nvgpu_as_remap_op {
 #define NVGPU_AS_REMAP_OP_FLAGS_CACHEABLE               (1 << 2)
 #define NVGPU_AS_REMAP_OP_FLAGS_ACCESS_NO_WRITE         (1 << 10)
+#define NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_4K             (1 << 15)
+#define NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_64K            (1 << 16)
+#define NVGPU_AS_REMAP_OP_FLAGS_PAGESIZE_128K           (1 << 17)
 
-	/* in: For map operations, this field specifies the mask of
-         * NVGPU_AS_REMAP flags to use for the mapping.  For unmap operations
-         * this field must be zero */
+	/* in: For map and unmap (one and only one) of the _PAGESIZE_ flags is
+     * required to interpret the mem_offset_in_pages and virt_offset_in_pages
+     * correctly. The other flags are used only with map operations. */
 	__u32 flags;
 
 	/* in: For map operations, this field specifies the desired
-         * compressible kind.  For unmap operations this field must be set
+	 * compressible kind.  For unmap operations this field must be set
 	 * to NV_KIND_INVALID.
 	 * out: For map operations this field returns the actual kind used
 	 * for the mapping.  This can be useful for detecting if a compressed
@@ -549,7 +558,7 @@ struct nvgpu_as_remap_op {
  * that have been allocated with NVGPU_AS_ALLOC_SPACE_FLAGS_SPARSE.
  * Validation of remap operations is performed before any changes are made
  * to the associated sparse address space so either all map and/or unmap
- * operations are performed or none of them area.
+ * operations are performed or none of them are.
  */
 struct nvgpu_as_remap_args {
 	/* in: This field specifies a pointer into the caller's address space

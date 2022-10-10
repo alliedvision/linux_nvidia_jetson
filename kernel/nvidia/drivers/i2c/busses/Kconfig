@@ -25,6 +25,15 @@ config I2C_BPMP_TEGRA
 	  This driver is a downstream version and there is a newer variant
 	  available in modern kernels.
 
+config I2C_NVVRS11
+	tristate "Nvidia's VRS11: High Current Voltage Regulator"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+		Say yes to add Linux userspace sysfs nodes to read CPU/GPU/CV/SOC
+		High Current Voltage regulators (VRS11) voltage, current and power.
+
 config I2C_TEGRA_CAMRTC
         bool "Tegra I2C Camera RTCPU driver"
         depends on TEGRA_CAMERA_RTCPU

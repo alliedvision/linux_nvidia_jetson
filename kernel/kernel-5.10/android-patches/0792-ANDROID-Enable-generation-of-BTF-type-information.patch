@@ -1,0 +1,28 @@
+From 2902db4e715fa49e9db00a8d9001cf41b404e4eb Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Wed, 30 Sep 2020 12:04:36 +0100
+Subject: [PATCH 792/830] ANDROID: Enable generation of BTF type information
+X-NVConfidentiality: public
+
+Enable building vmlinux.btf (in addition to vmlinux). The original
+binaries are not affected.
+
+Bug: 157508131
+Signed-off-by: Matthias Maennich <maennich@google.com>
+Change-Id: I37e95edacf2df62d5b9680296e797a1e0949bfb3
+---
+ build.config.gki.aarch64 | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.gki.aarch64 b/build.config.gki.aarch64
+index 8f0dcdb3bd2b..0dd6e4421a15 100644
+--- a/build.config.gki.aarch64
++++ b/build.config.gki.aarch64
+@@ -2,3 +2,4 @@
+ . ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
+ . ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+ 
++GENERATE_VMLINUX_BTF=1
+-- 
+2.17.1
+

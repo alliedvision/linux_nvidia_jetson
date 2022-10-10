@@ -1,7 +1,7 @@
 /*
  * GV11B syncpt cmdbuf
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -98,6 +98,8 @@ void gv11b_syncpt_add_incr_cmd(struct gk20a *g,
 		(0x1U | ((u32)(wfi ? 0x1U : 0x0U) << 20U)),
 	};
 
+	(void)id;
+
 	nvgpu_log_fn(g, " ");
 
 	nvgpu_priv_cmdbuf_append(g, cmd, data, ARRAY_SIZE(data));
@@ -105,6 +107,7 @@ void gv11b_syncpt_add_incr_cmd(struct gk20a *g,
 
 u32 gv11b_syncpt_get_incr_cmd_size(bool wfi_cmd)
 {
+	(void)wfi_cmd;
 	return 10U;
 }
 #endif

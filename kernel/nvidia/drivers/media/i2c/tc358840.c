@@ -2,7 +2,7 @@
  * tc358840.c - Toshiba UH2C/D HDMI-CSI bridge driver
  *
  * Copyright (c) 2015, Armin Weiss <weii@zhaw.ch>
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is based on the tc358840 - Toshiba HDMI to CSI-2 bridge driver
  * from Cisco Systems, Inc.
@@ -1832,6 +1832,8 @@ static int tc358840_log_status(struct v4l2_subdev *sd)
 		"RGB", "YCbCr 601", "Adobe RGB", "YCbCr 709", "NA (4)",
 		"xvYCC 601", "NA(6)", "xvYCC 709", "NA(8)", "sYCC601",
 		"NA(10)", "NA(11)", "NA(12)", "Adobe YCC 601"};
+	u8 num_color_space = sizeof(input_color_space) / sizeof(input_color_space[0]);
+	u8 color_space_index = 0;
 
 	v4l2_ctrl_subdev_log_status(sd);
 	v4l2_info(sd, "-----Chip status-----\n");
@@ -1903,9 +1905,11 @@ static int tc358840_log_status(struct v4l2_subdev *sd)
 	v4l2_info(sd, "-----%s status-----\n", is_hdmi(sd) ? "HDMI" : "DVI-D");
 	v4l2_info(sd, "HDCP encrypted content: %s\n",
 			hdmi_sys_status & MASK_S_HDCP ? "yes" : "no");
-	v4l2_info(sd, "Input color space: %s %s range\n",
-			input_color_space[(vi_status3 & MASK_S_V_COLOR) >> 1],
-			(vi_status3 & MASK_LIMITED) ? "limited" : "full");
+	color_space_index = (vi_status3 & MASK_S_V_COLOR) >> 1;
+	if (color_space_index < num_color_space)
+		v4l2_info(sd, "Input color space: %s %s range\n",
+				input_color_space[color_space_index],
+				(vi_status3 & MASK_LIMITED) ? "limited" : "full");
 	if (!is_hdmi(sd))
 		return 0;
 	v4l2_info(sd, "AV Mute: %s\n", hdmi_sys_status & MASK_S_AVMUTE ? "on" :
@@ -2094,7 +2098,7 @@ static bool tc358840_parse_dt(struct tc358840_platform_data *pdata,
 		struct i2c_client *client)
 {
 	struct device_node *node = client->dev.of_node;
-	const u32 *property;
+	const void *property;
 
 	v4l_dbg(1, debug, client, "Device Tree Parameters:\n");
 
@@ -2430,7 +2434,11 @@ static int tc358840_probe(struct i2c_client *client, const struct i2c_device_id 
 #endif
 	i2c_wr16(sd, INTMASK, ~(MASK_HDMI_INT) & 0xFFFF);
 
-	v4l2_ctrl_handler_setup(sd->ctrl_handler);
+	err = v4l2_ctrl_handler_setup(sd->ctrl_handler);
+	if (err) {
+		v4l2_err(sd, "Error %d setting default controls\n", err);
+		goto err_hdl;
+	}
 
 	v4l2_info(sd, "%s found @ 7h%02X (%s)\n", client->name,
 		  client->addr, client->adapter->name);

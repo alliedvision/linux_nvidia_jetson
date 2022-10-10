@@ -1,0 +1,86 @@
+From 1bcc7529aa7e52781e125ff3f8afb38199050afd Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Mon, 30 Mar 2020 22:03:34 -0700
+Subject: [PATCH 676/830] ANDROID: GKI: Removed cuttlefish configs
+X-NVConfidentiality: public
+
+Configs were moved to repo cuttlefish-modules.
+
+Bug: 151981046
+Test: Treehugger
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Change-Id: I217422c401c6ea183ce974c1d156abd4d9e209a6
+---
+ build.config.cuttlefish.aarch64 | 11 -----------
+ build.config.cuttlefish.x86_64  | 11 -----------
+ cuttlefish.fragment             | 22 ----------------------
+ 3 files changed, 44 deletions(-)
+ delete mode 100644 build.config.cuttlefish.aarch64
+ delete mode 100644 build.config.cuttlefish.x86_64
+ delete mode 100644 cuttlefish.fragment
+
+diff --git a/build.config.cuttlefish.aarch64 b/build.config.cuttlefish.aarch64
+deleted file mode 100644
+index 9a685095e934..000000000000
+--- a/build.config.cuttlefish.aarch64
++++ /dev/null
+@@ -1,11 +0,0 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.aarch64
+-. ${ROOT_DIR}/common/build.config.gki
+-
+-BUILD_INITRAMFS=1
+-DEFCONFIG=cf_aarch_64_gki_defconfig
+-PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/common/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/common/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/common/cuttlefish.fragment"
+-POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/common/arch/arm64/configs/${DEFCONFIG}"
+-
+-# Not saving any kernel images. This build step is meant purely to generate the .kos.
+-FILES=""
+diff --git a/build.config.cuttlefish.x86_64 b/build.config.cuttlefish.x86_64
+deleted file mode 100644
+index d6ce5c3a7306..000000000000
+--- a/build.config.cuttlefish.x86_64
++++ /dev/null
+@@ -1,11 +0,0 @@
+-. ${ROOT_DIR}/common/build.config.common
+-. ${ROOT_DIR}/common/build.config.x86_64
+-. ${ROOT_DIR}/common/build.config.gki
+-
+-BUILD_INITRAMFS=1
+-DEFCONFIG=cf_x86_64_gki_defconfig
+-PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/common/arch/x86/configs/${DEFCONFIG} ${ROOT_DIR}/common/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/common/arch/x86/configs/gki_defconfig ${ROOT_DIR}/common/cuttlefish.fragment"
+-POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/common/arch/x86/configs/${DEFCONFIG}"
+-
+-# Not saving any kernel images. This build step is meant purely to generate the .kos.
+-FILES=""
+diff --git a/cuttlefish.fragment b/cuttlefish.fragment
+deleted file mode 100644
+index c931d7791ab6..000000000000
+--- a/cuttlefish.fragment
++++ /dev/null
+@@ -1,22 +0,0 @@
+-CONFIG_CPUFREQ_DUMMY=m
+-CONFIG_VSOCKETS=m
+-CONFIG_VIRTIO_VSOCKETS=m
+-CONFIG_GNSS_CMDLINE_SERIAL=m
+-CONFIG_VIRTIO_BLK=m
+-CONFIG_VIRTIO_NET=m
+-CONFIG_VIRT_WIFI=m
+-CONFIG_HW_RANDOM_VIRTIO=m
+-CONFIG_DRM_VIRTIO_GPU=m
+-CONFIG_SND_INTEL8X0=m
+-CONFIG_USB_DUMMY_HCD=m
+-CONFIG_RTC_DRV_TEST=m
+-CONFIG_VIRTIO_PCI=m
+-CONFIG_VIRTIO_PMEM=m
+-CONFIG_VIRTIO_INPUT=m
+-CONFIG_VIRTIO_MMIO=m
+-CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+-CONFIG_INCREMENTAL_FS=m
+-CONFIG_TEST_STACKINIT=m
+-CONFIG_TEST_MEMINIT=m
+-CONFIG_TCG_TPM=m
+-CONFIG_TCG_VTPM_PROXY=m
+-- 
+2.17.1
+

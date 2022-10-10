@@ -6,12 +6,13 @@
  * Author: Johnson Leung <r58129@freescale.com>
  *
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  */
 #include <linux/bitops.h>
 #include <linux/phy.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/netdevice.h>
 
 #define RTL821x_PHYSR				0x11
 #define RTL821x_PHYSR_DUPLEX			BIT(13)
@@ -70,9 +71,64 @@
 #define RTL8211F_PAGE_LCR_LED_CONTROL		0x10
 #define RTL8211F_PAGE_EEE_LED_CONTROL		0x11
 
+#define RTL8211F_INTERRUPT_SELECT_PAGE	0xd40
+#define RTL8211F_WOL_FRAME_SELECT_PAGE	0xd80
+#define RTL8211F_WOL_MAC_PAGE		0xd8c
+#define RTL8211F_WOL_SETTING_PAGE	0xd8a
+
+#define RTL8211F_INTERRUPT_SELECT_REG	0x16
+#define RTL8211F_WOL_REG_MAC_WORD_0	0x10
+#define RTL8211F_WOL_REG_MAC_WORD_1	0x11
+#define RTL8211F_WOL_REG_MAC_WORD_2	0x12
+#define RTL8211F_WOL_REG_PACKET_LEN	0x11
+#define RTL8211F_WOL_REG_FRAME_EVENT	0x10
+
+#define RTL8211F_WOL_PACKET_LEN		0x1fff
+#define RTL8211F_WOL_SET_PACKET_LEN		BIT(15)
+#define RTL8211F_WOL_ENABLE_MAGIC_PACKET	BIT(12)
+#define RTL8211F_WOL_ENABLE_PMEB_EVENT		BIT(7)
+
+#define BIT_SHIFT_8 8
+#define MAC_ADDRESS_BYTE_0 0
+#define MAC_ADDRESS_BYTE_1 1
+#define MAC_ADDRESS_BYTE_2 2
+#define MAC_ADDRESS_BYTE_3 3
+#define MAC_ADDRESS_BYTE_4 4
+#define MAC_ADDRESS_BYTE_5 5
+
 MODULE_DESCRIPTION("Realtek PHY driver");
 MODULE_AUTHOR("Johnson Leung");
 MODULE_LICENSE("GPL");
+
+static int rtl8211f_wol_settings(struct phy_device *phydev, bool enable)
+{
+	int ret;
+
+	/* Set WoL events and packet length */
+
+	if (enable) {
+		ret = phy_write_paged(phydev, RTL8211F_WOL_SETTING_PAGE, RTL8211F_WOL_REG_PACKET_LEN,
+				(RTL8211F_WOL_PACKET_LEN |
+				RTL8211F_WOL_SET_PACKET_LEN));
+		if (ret < 0)
+			return ret;
+
+		ret = phy_write_paged(phydev, RTL8211F_WOL_SETTING_PAGE, RTL8211F_WOL_REG_FRAME_EVENT,
+				RTL8211F_WOL_ENABLE_MAGIC_PACKET);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = phy_write_paged(phydev, RTL8211F_WOL_SETTING_PAGE, RTL8211F_WOL_REG_PACKET_LEN,
+				RTL8211F_WOL_PACKET_LEN);
+		if (ret < 0)
+			return ret;
+
+		ret = phy_write_paged(phydev, RTL8211F_WOL_SETTING_PAGE, RTL8211F_WOL_REG_FRAME_EVENT, 0x0);
+		if (ret < 0)
+			return ret;
+	}
+	return 0;
+}
 
 static int rtl821x_read_page(struct phy_device *phydev)
 {
@@ -104,9 +160,25 @@ static int rtl821x_ack_interrupt(struct phy_device *phydev)
 
 static int rtl8211f_ack_interrupt(struct phy_device *phydev)
 {
-	int err;
+	int err, ret;
 
 	err = phy_read_paged(phydev, 0xa43, RTL8211F_INSR);
+
+	/* ack the WOL interrupt and toggle the WOL specific registers
+	 * to enable PME pin for WOL trigger events for next time
+	 * until disabled from ethtool ioctl
+	 */
+	if (err & RTL8211F_WOL_ENABLE_PMEB_EVENT) {
+		ret = rtl8211f_wol_settings(phydev, false);
+		if (ret < 0)
+			return ret;
+
+		ret = rtl8211f_wol_settings(phydev, true);
+		if (ret < 0)
+			return ret;
+
+		return 0;
+	}
 
 	return (err < 0) ? err : 0;
 }
@@ -154,7 +226,7 @@ static int rtl8211f_config_intr(struct phy_device *phydev)
 	u16 val;
 
 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-		val = RTL8211F_INER_LINK_STATUS;
+		val = (RTL8211F_INER_LINK_STATUS | RTL8211F_WOL_ENABLE_PMEB_EVENT);
 	else
 		val = 0;
 
@@ -201,7 +273,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	phy_modify_paged_changed(phydev, 0xa43, RTL8211F_PHYCR1, val, val);
 
 	val = phy_read_paged(phydev, 0xa43, RTL8211F_PHYCR2);
-	phy_modify_paged_changed(phydev, 0xa43, RTL8211F_PHYCR2, 0, (val & ~BIT(0)));
+	phy_modify_paged_changed(phydev, 0xa43, RTL8211F_PHYCR2, BIT(0), (val & ~BIT(0)));
 
 	switch (phydev->interface) {
 	case PHY_INTERFACE_MODE_RGMII:
@@ -280,6 +352,27 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 	linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT, phydev->supported);
 	linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, phydev->supported);
 	linkmode_copy(phydev->advertising, phydev->supported);
+
+	ret = phy_modify_paged_changed(phydev, RTL8211F_WOL_MAC_PAGE, RTL8211F_WOL_REG_MAC_WORD_0, 0x0,
+			phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_0] |
+			(phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_1]
+			<< BIT_SHIFT_8));
+	if (ret < 0)
+		return ret;
+
+	ret = phy_modify_paged_changed(phydev, RTL8211F_WOL_MAC_PAGE, RTL8211F_WOL_REG_MAC_WORD_1, 0x0,
+			phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_2] |
+			(phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_3]
+			<< BIT_SHIFT_8));
+	if (ret < 0)
+		return ret;
+
+	ret = phy_modify_paged_changed(phydev, RTL8211F_WOL_MAC_PAGE, RTL8211F_WOL_REG_MAC_WORD_2, 0x0,
+			phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_4] |
+			(phydev->attached_dev->dev_addr[MAC_ADDRESS_BYTE_5]
+			<< BIT_SHIFT_8));
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -598,6 +691,40 @@ static int rtlgen_resume(struct phy_device *phydev)
 	return ret;
 }
 
+static void rtl8211f_get_wol(struct phy_device *phydev,
+			     struct ethtool_wolinfo *wol)
+{
+	u32 value;
+
+	/* For RTL 8211F Magic packet WoL is enabled by default */
+	wol->supported = WAKE_MAGIC;
+
+	value = phy_read_paged(phydev, RTL8211F_WOL_SETTING_PAGE, RTL8211F_WOL_REG_FRAME_EVENT);
+	if (value < 0)
+		return;
+
+	if (value & RTL8211F_WOL_ENABLE_MAGIC_PACKET)
+		wol->wolopts = WAKE_MAGIC;
+}
+
+static int rtl8211f_set_wol(struct phy_device *phydev,
+			    struct ethtool_wolinfo *wol)
+{
+	int ret;
+
+	if (wol->wolopts & WAKE_MAGIC) {
+		ret = rtl8211f_wol_settings(phydev, true);
+		if (ret < 0)
+			return ret;
+	} else {
+		ret = rtl8211f_wol_settings(phydev, false);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
 static struct phy_driver realtek_drvs[] = {
 	{
 		PHY_ID_MATCH_EXACT(0x00008201),
@@ -674,6 +801,8 @@ static struct phy_driver realtek_drvs[] = {
 		.config_init	= &rtl8211f_config_init,
 		.ack_interrupt	= &rtl8211f_ack_interrupt,
 		.config_intr	= &rtl8211f_config_intr,
+		.get_wol	= &rtl8211f_get_wol,
+		.set_wol	= &rtl8211f_set_wol,
 		.suspend	= genphy_suspend,
 		.resume		= rtl821x_resume,
 		.read_page	= rtl821x_read_page,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -746,6 +746,9 @@ struct flcn_acr_desc {
 /* MIG mode selection*/
 #define MIG_MODE                      BIT(8U)
 
+/* Let ACR know when in simulation*/
+#define ACR_SIMULATION_MODE           BIT(16U)
+
 struct flcn2_acr_desc {
 	/**
 	 * WPR Region ID holding the WPR header and its details
@@ -781,8 +784,9 @@ struct flcn2_acr_desc {
 
 	/**
 	 * stores flag value to enable:
-	 * emulate_mode       7:0 bit
-	 * MIG mode          15:8 bit
+	 * emulate_mode       7:0  bit
+	 * MIG mode          15:8  bit
+	 * Simulation mode   23:16 bit
 	 */
 	u32 gpu_mode;
 };

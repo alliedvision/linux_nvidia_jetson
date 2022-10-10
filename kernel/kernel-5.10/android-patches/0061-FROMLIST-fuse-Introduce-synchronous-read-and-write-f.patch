@@ -1,0 +1,164 @@
+From c93bb8df717d68c8d3f79a41dbb702fcb713a688 Mon Sep 17 00:00:00 2001
+From: Alessio Balsini <balsini@android.com>
+Date: Thu, 10 Sep 2020 18:36:29 +0100
+Subject: [PATCH 061/830] FROMLIST: fuse: Introduce synchronous read and write
+ for passthrough
+X-NVConfidentiality: public
+
+All the read and write operations performed on fuse_files which have the
+passthrough feature enabled are forwarded to the associated lower file
+system file via VFS.
+
+Sending the request directly to the lower file system avoids the userspace
+round-trip that, because of possible context switches and additional
+operations might reduce the overall performance, especially in those cases
+where caching doesn't help, for example in reads at random offsets.
+
+Verifying if a fuse_file has a lower file system file associated with can
+be done by checking the validity of its passthrough_filp pointer. This
+pointer is not NULL only if passthrough has been successfully enabled via
+the appropriate ioctl().
+When a read/write operation is requested for a FUSE file with passthrough
+enabled, a new equivalent VFS request is generated, which instead targets
+the lower file system file.
+The VFS layer performs additional checks that allow for safer operations
+but may cause the operation to fail if the process accessing the FUSE file
+system does not have access to the lower file system.
+
+This change only implements synchronous requests in passthrough, returning
+an error in the case of asynchronous operations, yet covering the majority
+of the use cases.
+
+Bug: 168023149
+Link: https://lore.kernel.org/lkml/20201026125016.1905945-4-balsini@android.com/
+Signed-off-by: Alessio Balsini <balsini@android.com>
+Signed-off-by: Alessio Balsini <balsini@google.com>
+Change-Id: If76bb8725e1ac567f9dbe3edb79ebb4d43d77dfb
+---
+ fs/fuse/file.c        |  8 +++--
+ fs/fuse/fuse_i.h      |  2 ++
+ fs/fuse/passthrough.c | 70 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 78 insertions(+), 2 deletions(-)
+
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index feb614114fad..d8fc98baa929 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -1586,7 +1586,9 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ 	if (FUSE_IS_DAX(inode))
+ 		return fuse_dax_read_iter(iocb, to);
+ 
+-	if (!(ff->open_flags & FOPEN_DIRECT_IO))
++	if (ff->passthrough.filp)
++		return fuse_passthrough_read_iter(iocb, to);
++	else if (!(ff->open_flags & FOPEN_DIRECT_IO))
+ 		return fuse_cache_read_iter(iocb, to);
+ 	else
+ 		return fuse_direct_read_iter(iocb, to);
+@@ -1604,7 +1606,9 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ 	if (FUSE_IS_DAX(inode))
+ 		return fuse_dax_write_iter(iocb, from);
+ 
+-	if (!(ff->open_flags & FOPEN_DIRECT_IO))
++	if (ff->passthrough.filp)
++		return fuse_passthrough_write_iter(iocb, from);
++	else if (!(ff->open_flags & FOPEN_DIRECT_IO))
+ 		return fuse_cache_write_iter(iocb, from);
+ 	else
+ 		return fuse_direct_write_iter(iocb, from);
+diff --git a/fs/fuse/fuse_i.h b/fs/fuse/fuse_i.h
+index 2da90538ad85..3d9bb9c45127 100644
+--- a/fs/fuse/fuse_i.h
++++ b/fs/fuse/fuse_i.h
+@@ -1257,5 +1257,7 @@ int fuse_passthrough_open(struct fuse_dev *fud,
+ int fuse_passthrough_setup(struct fuse_conn *fc, struct fuse_file *ff,
+ 			   struct fuse_open_out *openarg);
+ void fuse_passthrough_release(struct fuse_passthrough *passthrough);
++ssize_t fuse_passthrough_read_iter(struct kiocb *iocb, struct iov_iter *to);
++ssize_t fuse_passthrough_write_iter(struct kiocb *iocb, struct iov_iter *from);
+ 
+ #endif /* _FS_FUSE_I_H */
+diff --git a/fs/fuse/passthrough.c b/fs/fuse/passthrough.c
+index a135c955cc33..5a78cb336db4 100644
+--- a/fs/fuse/passthrough.c
++++ b/fs/fuse/passthrough.c
+@@ -4,6 +4,76 @@
+ 
+ #include <linux/fuse.h>
+ #include <linux/idr.h>
++#include <linux/uio.h>
++
++static void fuse_copyattr(struct file *dst_file, struct file *src_file)
++{
++	struct inode *dst = file_inode(dst_file);
++	struct inode *src = file_inode(src_file);
++
++	i_size_write(dst, i_size_read(src));
++}
++
++static inline rwf_t iocb_to_rw_flags(int ifl)
++{
++	rwf_t flags = 0;
++
++	if (ifl & IOCB_APPEND)
++		flags |= RWF_APPEND;
++	if (ifl & IOCB_DSYNC)
++		flags |= RWF_DSYNC;
++	if (ifl & IOCB_HIPRI)
++		flags |= RWF_HIPRI;
++	if (ifl & IOCB_NOWAIT)
++		flags |= RWF_NOWAIT;
++	if (ifl & IOCB_SYNC)
++		flags |= RWF_SYNC;
++
++	return flags;
++}
++
++ssize_t fuse_passthrough_read_iter(struct kiocb *iocb_fuse,
++				   struct iov_iter *iter)
++{
++	ssize_t ret;
++	struct file *fuse_filp = iocb_fuse->ki_filp;
++	struct fuse_file *ff = fuse_filp->private_data;
++	struct file *passthrough_filp = ff->passthrough.filp;
++
++	if (!iov_iter_count(iter))
++		return 0;
++
++	ret = vfs_iter_read(passthrough_filp, iter, &iocb_fuse->ki_pos,
++			    iocb_to_rw_flags(iocb_fuse->ki_flags));
++
++	return ret;
++}
++
++ssize_t fuse_passthrough_write_iter(struct kiocb *iocb_fuse,
++				    struct iov_iter *iter)
++{
++	ssize_t ret;
++	struct file *fuse_filp = iocb_fuse->ki_filp;
++	struct fuse_file *ff = fuse_filp->private_data;
++	struct inode *fuse_inode = file_inode(fuse_filp);
++	struct file *passthrough_filp = ff->passthrough.filp;
++
++	if (!iov_iter_count(iter))
++		return 0;
++
++	inode_lock(fuse_inode);
++
++	file_start_write(passthrough_filp);
++	ret = vfs_iter_write(passthrough_filp, iter, &iocb_fuse->ki_pos,
++			     iocb_to_rw_flags(iocb_fuse->ki_flags));
++	file_end_write(passthrough_filp);
++	if (ret > 0)
++		fuse_copyattr(fuse_filp, passthrough_filp);
++
++	inode_unlock(fuse_inode);
++
++	return ret;
++}
+ 
+ int fuse_passthrough_open(struct fuse_dev *fud,
+ 			  struct fuse_passthrough_out *pto)
+-- 
+2.17.1
+

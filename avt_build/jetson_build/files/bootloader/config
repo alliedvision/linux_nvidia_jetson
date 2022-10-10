@@ -69,9 +69,11 @@ agx_devkit = BoardDefinition('Jetson AGX Xavier devkit', '0x19', '2888', [
 ])
 
 agx_orin_devkit = BoardDefinition('Jetson AGX Orin devkit', '0x23', '3701', [
-    Configuration('14375: 2 cameras', 'tegra234-p3701-0000-p3737-0000-avt-14375-2cam.dtb', '0000'),
+    Configuration('2 cameras', 'tegra234-p3701-0000-p3737-0000-avt-14375-2cam.dtb', '0000'),
+    Configuration('2 cameras', 'tegra234-p3701-0004-p3737-0000-avt-14375-2cam.dtb', '0004'),
 
     Configuration('None', 'tegra234-p3701-0000-p3737-0000.dtb', '0000'),
+    Configuration('None', 'tegra234-p3701-0004-p3737-0000.dtb', '0004'),
 ])
 
 nx_devkit = BoardDefinition('Jetson Xavier NX devkit', '0x19', '3668', [
@@ -269,6 +271,12 @@ def main():
     config_list = [c.name for c in active_board.configurations()]
 
     db = debconf.Debconf(run_frontend=True)
+
+    if not config_list:
+        db.forceInput(debconf.HIGH, 'avt-nvidia-l4t-bootloader/no-board-error')
+        db.command('GO')
+        exit(1)
+
     db.subst('avt-nvidia-l4t-bootloader/target-board', 'board-configurations', ', '.join(config_list))
     db.subst('avt-nvidia-l4t-bootloader/target-board', 'default-board-configuration', config_list[0])
     db.forceInput(debconf.HIGH, 'avt-nvidia-l4t-bootloader/target-board')

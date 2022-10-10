@@ -1,0 +1,33 @@
+From 40848d72057f5e764b4fd93e9c67fcdad34b222d Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 31 Jan 2020 23:57:13 +0000
+Subject: [PATCH 523/830] ANDROID: db845c: Update db845c_gki.fragment to add
+ support for bluetooth modules
+X-NVConfidentiality: public
+
+Finally got bluetooth working, so add the modules to
+the db845c gki fragment
+
+Bug: 146449535
+Change-Id: I0e987fcae3b3c0bff7e6846ab61477d5707c7a5d
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ arch/arm64/configs/db845c_gki.fragment | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index a90c573de4f9..c8b7fc3c3cd1 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -20,6 +20,8 @@ CONFIG_MFD_SPMI_PMIC=m
+ CONFIG_SPMI_MSM_PMIC_ARB=m
+ CONFIG_REGULATOR_QCOM_RPMH=m
+ CONFIG_REGULATOR_QCOM_SPMI=m
++CONFIG_BT_HCIUART=m
++CONFIG_BT_HCIUART_QCA=y
+ CONFIG_DRM_MSM=m
+ # CONFIG_DRM_MSM_DSI_28NM_PHY is not set
+ # CONFIG_DRM_MSM_DSI_20NM_PHY is not set
+-- 
+2.17.1
+

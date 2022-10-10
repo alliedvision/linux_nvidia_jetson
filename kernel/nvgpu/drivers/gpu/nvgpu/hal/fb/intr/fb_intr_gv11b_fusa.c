@@ -1,7 +1,7 @@
 /*
  * GV11B FB
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -74,6 +74,8 @@ void gv11b_fb_intr_disable(struct gk20a *g)
 void gv11b_fb_intr_isr(struct gk20a *g, u32 intr_unit_bitmask)
 {
 	u32 niso_intr;
+
+	(void)intr_unit_bitmask;
 
 	nvgpu_mutex_acquire(&g->mm.hub_isr_mutex);
 

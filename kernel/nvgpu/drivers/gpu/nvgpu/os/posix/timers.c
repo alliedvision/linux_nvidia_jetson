@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -82,6 +82,7 @@ s64 nvgpu_current_time_us(void)
 #ifdef __NVGPU_POSIX__
 void nvgpu_delay_usecs(unsigned int usecs)
 {
+	(void)usecs;
 }
 
 #ifdef CONFIG_NVGPU_NON_FUSA
@@ -122,24 +123,6 @@ static bool time_after(s64 a, s64 b)
 	return (nvgpu_safe_sub_s64(a, b) > 0);
 }
 
-void nvgpu_timeout_init_cpu_timer(struct gk20a *g, struct nvgpu_timeout *timeout,
-		       u32 duration_ms)
-{
-	int err = nvgpu_timeout_init_flags(g, timeout, duration_ms,
-					   NVGPU_TIMER_CPU_TIMER);
-
-	nvgpu_assert(err == 0);
-}
-
-void nvgpu_timeout_init_retry(struct gk20a *g, struct nvgpu_timeout *timeout,
-		       u32 duration_count)
-{
-	int err = nvgpu_timeout_init_flags(g, timeout, duration_count,
-					   NVGPU_TIMER_RETRY_TIMER);
-
-	nvgpu_assert(err == 0);
-}
-
 int nvgpu_timeout_init_flags(struct gk20a *g, struct nvgpu_timeout *timeout,
 		       u32 duration, unsigned long flags)
 {
@@ -166,7 +149,7 @@ int nvgpu_timeout_init_flags(struct gk20a *g, struct nvgpu_timeout *timeout,
 	} else {
 		duration_ns = (s64)duration;
 		duration_ns = nvgpu_safe_mult_s64(duration_ns, NSEC_PER_MSEC);
-		timeout->time = nvgpu_safe_add_s64(nvgpu_current_time_ns(),
+		timeout->time_duration = nvgpu_safe_add_s64(nvgpu_current_time_ns(),
 								duration_ns);
 	}
 
@@ -179,7 +162,7 @@ bool nvgpu_timeout_peek_expired(struct nvgpu_timeout *timeout)
 		return (timeout->retries.attempted >=
 			timeout->retries.max_attempts);
 	} else {
-		return time_after(get_time_ns(), timeout->time);
+		return time_after(get_time_ns(), timeout->time_duration);
 	}
 }
 
@@ -199,7 +182,7 @@ static void nvgpu_usleep(unsigned int usecs)
 
 NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 10_3), "SWE-NVGPU-204-SWSADR.docx")
 NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_CERT(INT31_C), "SWE-NVGPU-209-SWSADR.docx")
-	ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rqtp, NULL);
+	ret = clock_nanosleep(CLOCK_MONOTONIC, (int)TIMER_ABSTIME, &rqtp, NULL);
 NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_CERT(INT31_C))
 NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
 	if (ret != 0) {
@@ -218,6 +201,7 @@ void nvgpu_udelay(unsigned int usecs)
 
 void nvgpu_usleep_range(unsigned int min_us, unsigned int max_us)
 {
+	(void)max_us;
 	nvgpu_udelay(min_us);
 }
 
@@ -238,7 +222,7 @@ void nvgpu_msleep(unsigned int msecs)
 
 NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 10_3), "SWE-NVGPU-204-SWSADR.docx")
 NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_CERT(INT31_C), "SWE-NVGPU-209-SWSADR.docx")
-	ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &rqtp, NULL);
+	ret = clock_nanosleep(CLOCK_MONOTONIC, (int)TIMER_ABSTIME, &rqtp, NULL);
 NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
 NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_CERT(INT31_C))
 	if (ret != 0) {

@@ -138,11 +138,23 @@
 			cooling-maps {
 				map0 {
 					trip = <&cpu_sw_throttle>;
-					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map4 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -180,11 +192,23 @@
 			cooling-maps {
 				map0 {
 					trip = <&aux_sw_throttle>;
-					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>,
-					<&cl1_0 THERMAL_NO_LIMIT 14>,
-					<&cl2_0 THERMAL_NO_LIMIT 14>,
-					<&cl3_0 THERMAL_NO_LIMIT 14>,
-					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>;
+				};
+				map1 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 14>;
+				};
+				map2 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 14>;
+				};
+				map3 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 14>;
+				};
+				map4 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -222,11 +246,23 @@
 			cooling-maps {
 				map0 {
 					trip = <&gpu_sw_throttle>;
-					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>,
-					<&cl1_0 THERMAL_NO_LIMIT 14>,
-					<&cl2_0 THERMAL_NO_LIMIT 14>,
-					<&cl3_0 THERMAL_NO_LIMIT 14>,
-					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>;
+				};
+				map1 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 14>;
+				};
+				map2 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 14>;
+				};
+				map3 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 14>;
+				};
+				map4 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};

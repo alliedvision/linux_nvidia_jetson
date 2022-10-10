@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,11 @@
 		#size-cells = <2>;
 		ranges;
 
+		vpr: vpr-carveout {
+			compatible = "nvidia,vpr-carveout";
+			status = "disabled";
+		};
+
 		generic_reserved: generic_carveout {
 			compatible = "nvidia,generic_carveout";
 			size = <0 0>;
@@ -39,8 +44,10 @@
 		};
 
 		ramoops_reserved: ramoops_carveout {
-			compatible = "nvidia,ramoops";
+			compatible = "ramoops";
 			size = <0x0 0x200000>;
+			record-size = <0x00010000>;
+			console-size = <0x00080000>;
 			alignment = <0x0 0x10000>;
 			alloc-ranges = <0x0 0x0 0x1 0x0>;
 			no-map;
@@ -75,13 +82,7 @@
 
 	tegra-carveouts {
 		compatible = "nvidia,carveouts-t19x";
-                /* *************Note**************
-		 * Zero sized memory regions has to be kept at the end of "memory-region"
-		 * array. "memory-region" parser stops parsing other regions in the array
-                 * once it finds Zero size "memory-region". Hence keep non zero sized
-		 * "memory-region" before the zero sized ones.
-		 */
-		memory-region = <&gos_reserved &generic_reserved>;
+		memory-region = <&generic_reserved &vpr>;
 		status = "disabled";
 	};
 
@@ -178,7 +179,6 @@
 		reg = <0x0 0x02c00000 0x0 0x00010000>; /* MC_SID_BASE */
 	};
 
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 	smmu_suspend {
 		compatible = "nvidia,smmu_suspend";
 		reg = <0 0x12000000 0 0x800000>,
@@ -337,278 +337,8 @@
 		#iommu-cells = <1>;
 		status = "disabled";
 
-#else
-	smmu: iommu@12000000{
-		compatible = "t19x,arm,mmu-500";
-		reg = <0x0 0x12000000 0x0 0x01000000>, /* SMMU0 16MB */
-		      <0x0 0x11000000 0x0 0x01000000>, /* SMMU1 16MB */
-		      <0x0 0x10000000 0x0 0x01000000>; /* SMMU2 16MB */
-
-		#global-interrupts = <6>;
-		interrupts = <0 170 4>,
-			     <0 171 4>,
-			     <0 232 4>,
-			     <0 233 4>,
-			     <0 240 4>,
-			     <0 241 4>;
-		iso-smmu-id = <2>;
-		status = "disabled";
-		#iommu-cells = <1>;
-#endif
 		suspend-save-reg = <0x0c3902ac>; /* SCRATCH_SECURE_RSV73_SCRATCH_0 */
 
-		/* Note: Keep domain and address space in alphabetical order */
-		domains {
-			aon_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_AON>;
-			};
-			ape_domain {
-				address-space = <&ape_as>;
-				sid-list = <TEGRA_SID(APE)
-					    TEGRA_SID(EQOS)>;
-			};
-			bpmp_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_BPMP>;
-			};
-			gpcdma_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_GPCDMA_0>;
-			};
-			hda_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_HDA>;
-			};
-			host1x_domain {
-				address-space = <&host1x_as>;
-				sid-list = <TEGRA_SID(HC)>;
-			};
-			host1x_client_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID(VIC)
-					    TEGRA_SID(NVDEC)
-					    TEGRA_SID(NVENC)
-					    TEGRA_SID(NVJPG)
-					    TEGRA_SID(NVDLA0)
-					    TEGRA_SID(NVDLA1)
-					    TEGRA_SID(NVENC1)
-					    TEGRA_SID(NVDEC1)
-					    TEGRA_SID(TSEC)
-					    TEGRA_SID(TSECB)>;
-			};
-			host1x0_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX0>;
-			};
-			host1x1_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX1>;
-			};
-			host1x2_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX2>;
-			};
-			host1x3_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX3>;
-			};
-			host1x4_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX4>;
-			};
-			host1x5_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX5>;
-			};
-			host1x6_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX6>;
-			};
-			host1x7_domain {
-				address-space = <&host1x_client_as>;
-				sid-list = <TEGRA_SID_HOST1X_CTX7>;
-			};
-			isp_domain {
-				address-space = <&pixel_as>;
-				sid-list = <TEGRA_SID_ISP>;
-			};
-			nvdisplay_domain {
-				address-space = <&nvdisplay_as>;
-				sid-list = <TEGRA_SID(NVDISPLAY)>;
-			};
-			pcie0_domain {
-				address-space = <&pcie0_as>;
-				sid-list = <TEGRA_SID_PCIE0>;
-			};
-			pcie1_domain {
-				address-space = <&pcie1_as>;
-				sid-list = <TEGRA_SID_PCIE1>;
-			};
-			pcie2_domain {
-				address-space = <&pcie2_as>;
-				sid-list = <TEGRA_SID_PCIE2>;
-			};
-			pcie3_domain {
-				address-space = <&pcie3_as>;
-				sid-list = <TEGRA_SID_PCIE3>;
-			};
-			pcie4_domain {
-				address-space = <&pcie4_as>;
-				sid-list = <TEGRA_SID_PCIE4>;
-			};
-			pcie5_domain {
-				address-space = <&pcie5_as>;
-				sid-list = <TEGRA_SID_PCIE5>;
-			};
-			pva0_domain {
-				address-space = <&pva_as>;
-				sid-list = <TEGRA_SID(PVA0)>;
-			};
-			pva1_domain {
-				address-space = <&pva_as>;
-				sid-list = <TEGRA_SID(PVA1)>;
-			};
-			sce_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SCE>;
-			};
-			rce_domain {
-				address-space = <&camera_vm1_as>;
-				sid-list = <TEGRA_SID_RCE>;
-			};
-			sata2_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SATA2>;
-			};
-			sdmmc1a_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SDMMC1A>;
-			};
-			sdmmc3a_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SDMMC3A>;
-			};
-			sdmmc4a_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SDMMC4A>;
-			};
-			se_domain {
-				address-space = <&se_client_as>;
-				sid-list = <TEGRA_SID(SE)
-					    TEGRA_SID(SE1)
-					    TEGRA_SID(SE2)
-					    TEGRA_SID(SE3)>;
-			};
-			smmu_test_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_SMMU_TEST>;
-			};
-			ufshci_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_UFSHC>;
-			};
-			vi_domain {
-				address-space = <&pixel_as>;
-				sid-list = <TEGRA_SID_VI>;
-			};
-			xusb_dev_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_DEV>;
-			};
-			xusb_host_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_HOST>;
-			};
-			xusb_host_vf0_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_VF0>;
-			};
-			xusb_host_vf1_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_VF1>;
-			};
-			xusb_host_vf2_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_VF2>;
-			};
-			xusb_host_vf3_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_XUSB_VF3>;
-			};
-			eqos_vf1_domain {
-				address-space = <&common_as>;
-				sid-list = <TEGRA_SID_EQOS_VF1>;
-			};
-		};
-
-		address-space-prop {
-			ape_as: ape {
-				iova-start = <0x0 0x40000000>;
-				iova-size = <0x0 0x20000000>;
-			};
-			camera_vm0_as: camera_vm0 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x0 0x20000000>;
-			};
-			camera_vm1_as: camera_vm1 {
-				iova-start = <0x0 0xA0000000>;
-				iova-size = <0x0 0x20000000>;
-			};
-			common_as: common {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x0 0x7FF00000>;
-			};
-			host1x_as: host1x {
-				iova-start = <0x0 0x1000>;
-				iova-size = <0x0 0xFFFFEFFF>;
-			};
-			host1x_client_as: host1x_client {
-				iova-start = <0x0 0x1000>;
-				iova-size = <0x1F 0xFFFFF000>;
-			};
-			nvdisplay_as: nvdisplay {
-				iova-start = <0x0 0x1000>;
-				iova-size = <0x0 0xFFFFEFFF>;
-			};
-			pcie0_as: pcie0 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x4 0x7FFFFFFF>;
-			};
-			pcie1_as: pcie1 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x1F 0x7FFFFFFF>;
-			};
-			pcie2_as: pcie2 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x0 0xFFFFFFFF>;
-			};
-			pcie3_as: pcie3 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x0 0xFFFFFFFF>;
-			};
-			pcie4_as: pcie4 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x4 0x7FFFFFFF>;
-			};
-			pcie5_as: pcie5 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x4 0x7FFFFFFF>;
-			};
-			pixel_as: pixel {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x4 0x3FFFFFFF>; /* 8 Gigs is enough for everyone */
-			};
-			/* Modify pva kernel code for any iova-start change*/
-			pva_as: pva0 {
-				iova-start = <0x0 0x80000000>;
-				iova-size = <0x0 0x7FFFFFFF>;
-			};
-			se_client_as: se {
-				iova-start = <0x0 0x1000>;
-				iova-size = <0x0 0xFFFFEFFF>;
-			};
-		};
 	};
 
 	smmu_test: smmu_test {
@@ -630,12 +360,7 @@
 
 	mods_iso_smmu: mods_iso_smmu {
 		compatible = "nvidia,mods_smmu";
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		iommus = <&smmu_iso TEGRA_SID_SMMU_TEST>;
-#else
-		iommus = <&smmu TEGRA_SID_SMMU_TEST>;
-		iso-smmu;
-#endif
 		non-coherent;
 		dev-names = "mods_iso_smmu";
 		status = "disabled";

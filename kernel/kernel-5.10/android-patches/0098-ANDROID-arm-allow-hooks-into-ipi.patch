@@ -1,0 +1,34 @@
+From 8a5cd1bb8b25499c29c30f3f6676e4e509a7c246 Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Thu, 5 Nov 2020 13:41:07 -0700
+Subject: [PATCH 098/830] ANDROID: arm: allow hooks into ipi
+X-NVConfidentiality: public
+
+Allow drivers to register hooks when IPIs are sent and handled. The
+statistics of these IPIs are helpful in predicting CPU idle states.
+
+Bug: 172588415
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: I3706743ee4077157f8205870cecfff92841f40ce
+---
+ arch/arm/kernel/smp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
+index 8aa7fa949c23..fc393afc4759 100644
+--- a/arch/arm/kernel/smp.c
++++ b/arch/arm/kernel/smp.c
+@@ -51,6 +51,10 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/ipi.h>
+ 
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_raise);
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_entry);
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_exit);
++
+ /*
+  * as from 2.5, kernels no longer have an init_tasks structure
+  * so we need some other way of telling a new secondary core
+-- 
+2.17.1
+

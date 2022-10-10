@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/timers.h>
 #include <nvgpu/boardobjgrp_e32.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/clk/clk.h>
 #include <nvgpu/pmu/perf.h>
 #include <nvgpu/pmu/cmd.h>
@@ -134,7 +135,7 @@ static void build_change_seq_boot (struct gk20a *g)
 
 	/* Assume everything is P0 - Need to find the index for P0  */
 	script_last->buf.change.data.pstate_index =
-			perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
+			(u32)perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
 
 	nvgpu_mem_wr_n(g, nvgpu_pmu_super_surface_mem(g,
 		pmu, pmu->super_surface),
@@ -213,7 +214,7 @@ int perf_change_seq_pmu_setup(struct gk20a *g)
 
 	/* Assume everything is P0 - Need to find the index for P0  */
 	perf_change_seq_pmu->script_last.buf.change.data.pstate_index =
-			perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);;
+			(u32)perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
 
 	nvgpu_mem_wr_n(g, nvgpu_pmu_super_surface_mem(g,
 		pmu, pmu->super_surface),
@@ -254,7 +255,7 @@ int nvgpu_pmu_perf_changeseq_set_clks(struct gk20a *g,
 			vf_point, &change_input.clk);
 
 	change_input.pstate_index =
-			perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
+			(u32)perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
 	change_input.flags = (u32)CTRL_PERF_CHANGE_SEQ_CHANGE_FORCE;
 	change_input.vf_points_cache_counter = 0xFFFFFFFFU;
 
@@ -299,7 +300,7 @@ int nvgpu_pmu_perf_changeseq_set_clks(struct gk20a *g,
 			sizeof(struct nv_pmu_rpc_perf_change_seq_queue_change));
 	rpc.change = change_input;
 	rpc.change.pstate_index =
-			perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
+			(u32)perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
 	change_seq_pmu->change_state = 0U;
 	change_seq_pmu->start_time = nvgpu_current_time_us();
 	PMU_RPC_EXECUTE_CPB(status, pmu, PERF,

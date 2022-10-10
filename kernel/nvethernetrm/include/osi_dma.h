@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -248,6 +248,11 @@
 /** @} */
 
 /**
+ * @brief Maximum buffer length per DMA descriptor (16KB - 1).
+ */
+#define OSI_TX_MAX_BUFF_SIZE		0x3FFFU
+
+/**
  * @brief OSI packet error stats
  */
 struct osi_pkt_err_stats {
@@ -379,6 +384,12 @@ struct osi_tx_swcx {
 	unsigned int flags;
 	/** Packet id of packet for which TX timestamp needed */
 	unsigned int pktid;
+	/** dma channel number for osd use */
+	nveu32_t chan;
+	/** reserved field 1 for future use */
+	nveu64_t rsvd1;
+	/** reserved field 2 for future use */
+	nveu64_t rsvd2;
 };
 
 /**
@@ -486,8 +497,7 @@ struct osi_dma_priv_data;
  */
 struct osd_dma_ops {
 	/** DMA transmit complete callback */
-	void (*transmit_complete)(void *priv, void *buffer,
-				  nveu64_t dmaaddr, nveu32_t len,
+	void (*transmit_complete)(void *priv, const struct osi_tx_swcx *swcx,
 				  const struct osi_txdone_pkt_cx
 				  *txdone_pkt_cx);
 	/** DMA receive packet callback */
@@ -592,6 +602,8 @@ struct osi_dma_priv_data {
 	/** Flag to enable/disable descriptor dump */
 	nveu32_t enable_desc_dump;
 #endif /* OSI_DEBUG */
+	/** Flag which checks is ethernet server enabled(1) or disabled(0) */
+	nveu32_t is_ethernet_server;
 };
 
 /**
@@ -614,18 +626,17 @@ struct osi_dma_priv_data {
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_001
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -653,18 +664,17 @@ nve32_t osi_disable_chan_tx_intr(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_002
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -692,18 +702,17 @@ nve32_t osi_enable_chan_tx_intr(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_003
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -731,18 +740,17 @@ nve32_t osi_disable_chan_rx_intr(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_004
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -821,18 +829,17 @@ nve32_t osi_clear_vm_rx_intr(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_005
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -857,18 +864,17 @@ nve32_t osi_start_dma(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_006
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: No
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: No
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -889,18 +895,17 @@ nve32_t osi_stop_dma(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_007
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval "Number of available free descriptors."
  */
@@ -926,18 +931,17 @@ nveu32_t osi_get_refill_rx_desc_cnt(struct osi_rx_ring *rx_ring);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_008
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -959,18 +963,17 @@ nve32_t osi_rx_dma_desc_init(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_009
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1009,18 +1012,17 @@ nve32_t osi_set_rx_buf_len(struct osi_dma_priv_data *osi_dma);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_010
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1052,20 +1054,19 @@ nve32_t osi_hw_transmit(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_011
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
- *
- * @returns Number of descriptors (buffers) processed.
+ * @returns Number of descriptors (buffers) processed on success else -1.
  */
 nve32_t osi_process_tx_completions(struct osi_dma_priv_data *osi_dma,
 				   nveu32_t chan, nve32_t budget);
@@ -1100,20 +1101,19 @@ nve32_t osi_process_tx_completions(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_012
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
- *
- * @returns Number of descriptors (buffers) processed.
+ * @returns Number of descriptors (buffers) processed on success else -1.
  */
 nve32_t osi_process_rx_completions(struct osi_dma_priv_data *osi_dma,
 				   nveu32_t chan, nve32_t budget,
@@ -1156,18 +1156,17 @@ nve32_t osi_process_rx_completions(struct osi_dma_priv_data *osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_013
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1191,18 +1190,17 @@ nve32_t osi_hw_dma_init(struct osi_dma_priv_data *osi_dma);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_014
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: No
- * - De-initialization: Yes
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: No
+ *  - De-initialization: Yes
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1218,18 +1216,17 @@ nve32_t osi_hw_dma_deinit(struct osi_dma_priv_data *osi_dma);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_015
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  *
  * @retval 0 on success
@@ -1254,18 +1251,17 @@ nve32_t osi_init_dma_ops(struct osi_dma_priv_data *osi_dma);
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_016
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1288,18 +1284,17 @@ nve32_t osi_dma_get_systime_from_mac(struct osi_dma_priv_data *const osi_dma,
  * Traceability Details:
  * - SWUD_ID: ETHERNET_NVETHERNETCL_017
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval OSI_ENABLE if MAC enabled.
  * @retval OSI_DISABLE otherwise.
@@ -1331,18 +1326,17 @@ nveu32_t osi_is_mac_enabled(struct osi_dma_priv_data *const osi_dma);
  * @note
  * Traceability Details: TBD
  *
- * @note
- * Classification:
- * - Interrupt: Yes
- * - Signal handler: Yes
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: Yes
+ *  - Signal handler: Yes
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1357,9 +1351,7 @@ nve32_t osi_handle_dma_intr(struct osi_dma_priv_data *osi_dma,
  *
  * @note
  * Traceability Details: TBD
- *
- * @note
- * API Group:
+ * - API Group:
  * - Initialization: Yes
  * - Run time: Yes
  * - De-initialization: No
@@ -1389,18 +1381,17 @@ nve32_t osi_dma_ioctl(struct osi_dma_priv_data *osi_dma);
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1424,18 +1415,17 @@ nve32_t osi_validate_dma_regs(struct osi_dma_priv_data *osi_dma);
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: No
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: No
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1457,18 +1447,17 @@ nve32_t osi_clear_tx_pkt_err_stats(struct osi_dma_priv_data *osi_dma);
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: Yes
+ *  - De-initialization: No
  *
  * @retval 0 on success
  * @retval -1 on failure.
@@ -1489,9 +1478,7 @@ nve32_t osi_config_slot_function(struct osi_dma_priv_data *osi_dma,
  * @pre
  *  - MAC needs to be out of reset and proper clocks need to be configured.
  *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *
- * @note
- * API Group:
+ * - API Group:
  * - Initialization: No
  * - Run time: Yes
  * - De-initialization: No
@@ -1515,9 +1502,7 @@ nve32_t osi_clear_rx_pkt_err_stats(struct osi_dma_priv_data *osi_dma);
  * @pre
  *  - MAC needs to be out of reset and proper clocks need to be configured.
  *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *
- * @note
- * API Group:
+ * - API Group:
  * - Initialization: No
  * - Run time: Yes
  * - De-initialization: No
@@ -1541,18 +1526,17 @@ nve32_t osi_txring_empty(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
  * @note
  * Traceability Details:
  *
- * @note
- * Classification:
- * - Interrupt: No
- * - Signal handler: No
- * - Thread safe: No
- * - Required Privileges: None
- *
- * @note
- * API Group:
- * - Initialization: Yes
- * - Run time: No
- * - De-initialization: No
+ * @usage
+ * - Allowed context for the API call
+ *  - Interrupt handler: No
+ *  - Signal handler: No
+ *  - Thread safe: No
+ *  - Async/Sync: Sync
+ *  - Required Privileges: None
+ * - API Group:
+ *  - Initialization: Yes
+ *  - Run time: No
+ *  - De-initialization: No
  *
  * @retval valid and unique osi_dma pointer on success
  * @retval NULL on failure.

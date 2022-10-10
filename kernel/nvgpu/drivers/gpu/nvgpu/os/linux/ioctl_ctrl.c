@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -364,6 +364,8 @@ static long gk20a_ctrl_ioctl_gpu_characteristics(
 	long err = 0;
 	struct nvgpu_gpu_instance *gpu_instance;
 
+	u32 gr_instance_id = nvgpu_grmgr_get_gr_instance_id(g, gpu_instance_id);
+
 	if (gk20a_busy(g)) {
 		nvgpu_err(g, "failed to power on gpu");
 		return -EINVAL;
@@ -377,7 +379,13 @@ static long gk20a_ctrl_ioctl_gpu_characteristics(
 
 	gpu.num_gpc = nvgpu_gr_config_get_gpc_count(gr_config);
 	gpu.max_gpc_count = nvgpu_gr_config_get_max_gpc_count(gr_config);
-	gpu.gpc_mask = nvgpu_gr_config_get_gpc_mask(gr_config);
+	/* Convert logical to physical masks */
+	gpu.gpc_mask = nvgpu_grmgr_get_gr_physical_gpc_mask(g, gr_instance_id);
+
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg,
+		"GR Instance ID = %u, physical gpc_mask = 0x%08X, logical gpc_mask = 0x%08X",
+		gr_instance_id, gpu.gpc_mask, nvgpu_grmgr_get_gr_logical_gpc_mask(g,
+			gr_instance_id));
 
 	gpu.num_tpc_per_gpc = nvgpu_gr_config_get_max_tpc_per_gpc_count(gr_config);
 
@@ -389,11 +397,13 @@ static long gk20a_ctrl_ioctl_gpu_characteristics(
 	gpu.bus_type = NVGPU_GPU_BUS_TYPE_AXI; /* always AXI for now */
 
 #ifdef CONFIG_NVGPU_COMPRESSION
-	gpu.compression_page_size = g->ops.fb.compression_page_size(g);
-	gpu.gr_compbit_store_base_hw = g->cbc->compbit_store.base_hw;
-	gpu.gr_gobs_per_comptagline_per_slice =
-		g->cbc->gobs_per_comptagline_per_slice;
-	gpu.cbc_comptags_per_line = g->cbc->comptags_per_cacheline;
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION)) {
+		gpu.compression_page_size = g->ops.fb.compression_page_size(g);
+		gpu.gr_compbit_store_base_hw = g->cbc->compbit_store.base_hw;
+		gpu.gr_gobs_per_comptagline_per_slice =
+			g->cbc->gobs_per_comptagline_per_slice;
+		gpu.cbc_comptags_per_line = g->cbc->comptags_per_cacheline;
+	}
 #endif
 
 	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG) ||
@@ -565,7 +575,7 @@ static int gk20a_ctrl_prepare_compressible_read(
 	/* Try and allocate an fd here*/
 	if ((submit_flags & NVGPU_SUBMIT_FLAGS_FENCE_GET)
 		&& (submit_flags & NVGPU_SUBMIT_FLAGS_SYNC_FENCE)) {
-			fd = get_unused_fd_flags(O_RDWR);
+			fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 			if (fd < 0)
 				return fd;
 	}
@@ -638,7 +648,7 @@ static int gk20a_ctrl_alloc_as(
 	struct file *file;
 	char name[64];
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		return err;
 	fd = err;
@@ -681,7 +691,7 @@ static int gk20a_ctrl_open_tsg(struct gk20a *g, struct nvgpu_cdev *cdev,
 	struct file *file;
 	char name[64];
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		return err;
 	fd = err;
@@ -994,7 +1004,8 @@ static int nvgpu_gpu_ioctl_has_any_exception(
 	}
 
 	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
-	tpc_exception_en = g->ops.gr.intr.tpc_enabled_exceptions(g);
+	tpc_exception_en = nvgpu_pg_elpg_protected_call(g,
+				g->ops.gr.intr.tpc_enabled_exceptions(g));
 	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
 	args->tpc_exception_en_sm_mask = tpc_exception_en;
@@ -1479,8 +1490,9 @@ static int nvgpu_gpu_clk_set_info(struct gk20a *g,
 
 	int fd;
 	u32 clk_domains = 0;
+	u32 num_domains;
 	u16 freq_mhz;
-	int i;
+	u32 i;
 	int ret;
 
 	nvgpu_log_fn(g, " ");
@@ -1491,6 +1503,13 @@ static int nvgpu_gpu_clk_set_info(struct gk20a *g,
 	clk_domains = nvgpu_clk_arb_get_arbiter_clk_domains(g);
 	if (!clk_domains)
 		return -EINVAL;
+
+	num_domains = hweight_long(clk_domains);
+
+	if ((args->num_entries == 0) || (args->num_entries > num_domains)) {
+		nvgpu_err(g, "invalid num_entries %u", args->num_entries);
+		return -EINVAL;
+	}
 
 	entry = (struct nvgpu_gpu_clk_info __user *)
 			(uintptr_t)args->clk_info_entries;

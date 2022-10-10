@@ -1,0 +1,31 @@
+From 425648bb33a1b54181421c7b5a94a7cd32227e90 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Tue, 28 Jan 2020 15:22:48 -0800
+Subject: [PATCH 620/830] ANDROID: gki_defconfig: Remove SND_8X0
+X-NVConfidentiality: public
+
+SND_8X0 and AC_97 should not be part of GKI.
+
+Test: Treehugger
+Bug: 139431025
+Change-Id: I26fafd66abf639415ec8666cefd61db58b38578d
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 145eaa767d86..7b1da6c7b7c0 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -328,7 +328,6 @@ CONFIG_SND_DYNAMIC_MINORS=y
+ # CONFIG_SND_SUPPORT_OLD_API is not set
+ # CONFIG_SND_VERBOSE_PROCFS is not set
+ # CONFIG_SND_DRIVERS is not set
+-CONFIG_SND_INTEL8X0=y
+ CONFIG_SND_USB_AUDIO=y
+ CONFIG_SND_SOC=y
+ CONFIG_HIDRAW=y
+-- 
+2.17.1
+

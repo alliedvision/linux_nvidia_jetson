@@ -1,7 +1,7 @@
-From bbe07fd861819e773c5b45545059d4cd6d5b945f Mon Sep 17 00:00:00 2001
+From 81143c19baa55b58d0b33738005c6775e30fc00d Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:41:56 +0106
-Subject: [PATCH 084/304] printk: refactor kmsg_dump_get_buffer()
+Subject: [PATCH 084/318] printk: refactor kmsg_dump_get_buffer()
 
 kmsg_dump_get_buffer() requires nearly the same logic as
 syslog_print_all(), but uses different variable names and
@@ -17,11 +17,11 @@ Reviewed-by: Petr Mladek <pmladek@suse.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  include/linux/kmsg_dump.h |  2 +-
- kernel/printk/printk.c    | 60 +++++++++++++++++++++++++----------------------
+ kernel/printk/printk.c    | 60 +++++++++++++++++++++------------------
  2 files changed, 33 insertions(+), 29 deletions(-)
 
 diff --git a/include/linux/kmsg_dump.h b/include/linux/kmsg_dump.h
-index 235c509..4095a34 100644
+index 235c50982c2d..4095a34db0fa 100644
 --- a/include/linux/kmsg_dump.h
 +++ b/include/linux/kmsg_dump.h
 @@ -62,7 +62,7 @@ bool kmsg_dump_get_line(struct kmsg_dumper *dumper, bool syslog,
@@ -34,10 +34,10 @@ index 235c509..4095a34 100644
  void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper);
  
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 411787b..b4f72b5 100644
+index d380a579e0a2..0a5e8db02822 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3420,7 +3420,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3427,7 +3427,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
   * read.
   */
  bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
@@ -46,7 +46,7 @@ index 411787b..b4f72b5 100644
  {
  	struct printk_info info;
  	unsigned int line_count;
-@@ -3428,12 +3428,10 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3435,12 +3435,10 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	unsigned long flags;
  	u64 seq;
  	u64 next_seq;
@@ -60,7 +60,7 @@ index 411787b..b4f72b5 100644
  	if (!dumper->active || !buf || !size)
  		goto out;
  
-@@ -3451,48 +3449,54 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3458,48 +3456,54 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  		goto out;
  	}
  
@@ -140,5 +140,5 @@ index 411787b..b4f72b5 100644
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
 -- 
-2.7.4
+2.17.1
 

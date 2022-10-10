@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,10 +49,16 @@ struct cg_test_data {
 	u32 domain_desc_sizes[16];
 };
 
-static struct cg_test_data blcg_fb_ltc = {
+static struct cg_test_data blcg_fb = {
 	.cg_type = NVGPU_GPU_CAN_BLCG,
-	.load_enable = nvgpu_cg_blcg_fb_ltc_load_enable,
-	.domain_count = 2,
+	.load_enable = nvgpu_cg_blcg_fb_load_enable,
+	.domain_count = 1,
+};
+
+static struct cg_test_data blcg_ltc = {
+	.cg_type = NVGPU_GPU_CAN_BLCG,
+	.load_enable = nvgpu_cg_blcg_ltc_load_enable,
+	.domain_count = 1,
 };
 
 static struct cg_test_data blcg_fifo = {
@@ -79,10 +85,16 @@ static struct cg_test_data blcg_gr = {
 	.domain_count = 1,
 };
 
-static struct cg_test_data slcg_fb_ltc = {
+static struct cg_test_data slcg_fb = {
 	.cg_type = NVGPU_GPU_CAN_SLCG,
-	.load_enable = nvgpu_cg_slcg_fb_ltc_load_enable,
-	.domain_count = 2,
+	.load_enable = nvgpu_cg_slcg_fb_load_enable,
+	.domain_count = 1,
+};
+
+static struct cg_test_data slcg_ltc = {
+	.cg_type = NVGPU_GPU_CAN_SLCG,
+	.load_enable = nvgpu_cg_slcg_ltc_load_enable,
+	.domain_count = 1,
 };
 
 static struct cg_test_data slcg_priring = {
@@ -134,14 +146,14 @@ struct cg_test_data blcg_gr_load_gating_prod = {
 	tmp->domain_desc_sizes[0] = gv11b_blcg_##param##_gating_prod_size(); \
 	})
 
-static void init_blcg_fb_ltc_data(struct gk20a *g)
+static void init_blcg_fb_data(struct gk20a *g)
 {
-	blcg_fb_ltc.domain_descs[0] = gv11b_blcg_fb_get_gating_prod();
-	blcg_fb_ltc.gating_funcs[0] = g->ops.cg.blcg_fb_load_gating_prod;
-	blcg_fb_ltc.domain_desc_sizes[0] = gv11b_blcg_fb_gating_prod_size();
-	blcg_fb_ltc.domain_descs[1] = gv11b_blcg_ltc_get_gating_prod();
-	blcg_fb_ltc.gating_funcs[1] = g->ops.cg.blcg_ltc_load_gating_prod;
-	blcg_fb_ltc.domain_desc_sizes[1] = gv11b_blcg_ltc_gating_prod_size();
+	INIT_BLCG_DOMAIN_TEST_DATA(fb);
+}
+
+static void init_blcg_ltc_data(struct gk20a *g)
+{
+	INIT_BLCG_DOMAIN_TEST_DATA(ltc);
 }
 
 static void init_blcg_fifo_data(struct gk20a *g)
@@ -199,14 +211,14 @@ static void init_blcg_gr_load_gating_data(struct gk20a *g)
 	tmp->domain_desc_sizes[0] = gv11b_slcg_##param##_gating_prod_size(); \
 	})
 
-static void init_slcg_fb_ltc_data(struct gk20a *g)
+static void init_slcg_fb_data(struct gk20a *g)
 {
-	slcg_fb_ltc.domain_descs[0] = gv11b_slcg_fb_get_gating_prod();
-	slcg_fb_ltc.gating_funcs[0] = g->ops.cg.slcg_fb_load_gating_prod;
-	slcg_fb_ltc.domain_desc_sizes[0] = gv11b_slcg_fb_gating_prod_size();
-	slcg_fb_ltc.domain_descs[1] = gv11b_slcg_ltc_get_gating_prod();
-	slcg_fb_ltc.gating_funcs[1] = g->ops.cg.slcg_ltc_load_gating_prod;
-	slcg_fb_ltc.domain_desc_sizes[1] = gv11b_slcg_ltc_gating_prod_size();
+	INIT_SLCG_DOMAIN_TEST_DATA(fb);
+}
+
+static void init_slcg_ltc_data(struct gk20a *g)
+{
+	INIT_SLCG_DOMAIN_TEST_DATA(ltc);
 }
 
 static void init_slcg_priring_data(struct gk20a *g)
@@ -341,14 +353,16 @@ static int init_test_env(struct unit_module *m, struct gk20a *g, void *args)
 
 	gv11b_init_hal(g);
 
-	init_blcg_fb_ltc_data(g);
+	init_blcg_fb_data(g);
+	init_blcg_ltc_data(g);
 	init_blcg_fifo_data(g);
 	init_blcg_pmu_data(g);
 	init_blcg_ce_data(g);
 	init_blcg_gr_data(g);
 	init_blcg_gr_load_gating_data(g);
 
-	init_slcg_fb_ltc_data(g);
+	init_slcg_fb_data(g);
+	init_slcg_ltc_data(g);
 	init_slcg_priring_data(g);
 	init_slcg_fifo_data(g);
 	init_slcg_pmu_data(g);
@@ -686,13 +700,15 @@ int test_elcg(struct unit_module *m, struct gk20a *g, void *args)
 struct unit_module_test cg_tests[] = {
 	UNIT_TEST(init, init_test_env, NULL, 0),
 
-	UNIT_TEST(blcg_fb_ltc, test_cg, &blcg_fb_ltc, 0),
+	UNIT_TEST(blcg_fb,     test_cg, &blcg_fb, 0),
+	UNIT_TEST(blcg_ltc,    test_cg, &blcg_ltc, 0),
 	UNIT_TEST(blcg_fifo,   test_cg, &blcg_fifo, 0),
 	UNIT_TEST(blcg_ce,     test_cg, &blcg_ce, 0),
 	UNIT_TEST(blcg_pmu,    test_cg, &blcg_pmu, 0),
 	UNIT_TEST(blcg_gr,     test_cg, &blcg_gr, 0),
 
-	UNIT_TEST(slcg_fb_ltc,  test_cg, &slcg_fb_ltc, 0),
+	UNIT_TEST(slcg_fb,      test_cg, &slcg_fb, 0),
+	UNIT_TEST(slcg_ltc,     test_cg, &slcg_ltc, 0),
 	UNIT_TEST(slcg_priring, test_cg, &slcg_priring, 0),
 	UNIT_TEST(slcg_fifo,    test_cg, &slcg_fifo, 0),
 	UNIT_TEST(slcg_pmu,     test_cg, &slcg_pmu, 0),

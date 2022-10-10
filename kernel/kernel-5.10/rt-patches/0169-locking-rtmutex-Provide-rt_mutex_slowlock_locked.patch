@@ -1,19 +1,19 @@
-From 47a2dfc16d20517fee7edeab73595fe2a4a132af Mon Sep 17 00:00:00 2001
+From 63a50d1945022cb441ec6591e5721e2cce947c93 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 16:14:22 +0200
-Subject: [PATCH 169/304] locking/rtmutex: Provide rt_mutex_slowlock_locked()
+Subject: [PATCH 169/318] locking/rtmutex: Provide rt_mutex_slowlock_locked()
 
 This is the inner-part of rt_mutex_slowlock(), required for rwsem-rt.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- kernel/locking/rtmutex.c        | 67 +++++++++++++++++++++++------------------
- kernel/locking/rtmutex_common.h |  7 +++++
+ kernel/locking/rtmutex.c        | 67 +++++++++++++++++++--------------
+ kernel/locking/rtmutex_common.h |  7 ++++
  2 files changed, 45 insertions(+), 29 deletions(-)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 5148a2b..e7645a0 100644
+index c3f3c23fefef..395a3e8b2463 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1234,35 +1234,16 @@ static void rt_mutex_handle_deadlock(int res, int detect_deadlock,
@@ -115,7 +115,7 @@ index 5148a2b..e7645a0 100644
  	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
  
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index 37cd6b3..b5a2aff 100644
+index 37cd6b3bf6f4..b5a2affa59d5 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -15,6 +15,7 @@
@@ -140,5 +140,5 @@ index 37cd6b3..b5a2aff 100644
  #ifdef CONFIG_DEBUG_RT_MUTEXES
  # include "rtmutex-debug.h"
 -- 
-2.7.4
+2.17.1
 

@@ -1,0 +1,45 @@
+From d75d46596b4796664a6c8d2f2f9ffe2cddf2bf2b Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Thu, 31 Oct 2019 15:38:06 -0700
+Subject: [PATCH 582/830] ANDROID: gki_defconfig: enable CONFIG_KEYBOARD_GPIO
+X-NVConfidentiality: public
+
+This driver is very commonly used in Android. Statically compile it into
+the GKI.
+
+Bug: 143314501
+Change-Id: I12e2dd04bdde2affef1f6be9f33033d87096ec89
+Signed-off-by: Steve Muckle <smuckle@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a21a3ece3296..2d48aea50e83 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -261,6 +261,7 @@ CONFIG_USB_USBNET=y
+ # CONFIG_WLAN_VENDOR_QUANTENNA is not set
+ CONFIG_VIRT_WIFI=y
+ CONFIG_INPUT_EVDEV=y
++CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ CONFIG_INPUT_JOYSTICK=y
+ CONFIG_INPUT_MISC=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a03e0394f900..a3a1138f3278 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -236,7 +236,7 @@ CONFIG_USB_USBNET=y
+ # CONFIG_WLAN_VENDOR_QUANTENNA is not set
+ CONFIG_VIRT_WIFI=m
+ CONFIG_INPUT_EVDEV=y
+-# CONFIG_INPUT_KEYBOARD is not set
++CONFIG_KEYBOARD_GPIO=y
+ # CONFIG_INPUT_MOUSE is not set
+ CONFIG_INPUT_JOYSTICK=y
+ CONFIG_INPUT_MISC=y
+-- 
+2.17.1
+

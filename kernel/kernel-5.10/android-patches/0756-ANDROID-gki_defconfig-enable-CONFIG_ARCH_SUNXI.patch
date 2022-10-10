@@ -1,0 +1,63 @@
+From 19a93ad2f9e407698a13f4f51387556ed90d640c Mon Sep 17 00:00:00 2001
+From: huangshuosheng <huangshuosheng@allwinnertech.com>
+Date: Fri, 28 Aug 2020 11:23:16 +0800
+Subject: [PATCH 756/830] ANDROID: gki_defconfig: enable CONFIG_ARCH_SUNXI.
+X-NVConfidentiality: public
+
+CONFIG_ARCH_SUNXI is a dependency of sunxi devices.
+
+Bug: 154880035
+Change-Id: I476ec035f144ecc7c93f6b157779e445b16e926a
+Signed-off-by: huangshuosheng <huangshuosheng@allwinnertech.com>
+---
+ arch/arm64/configs/gki_defconfig | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 581242fc55cf..33d82afd229c 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -45,6 +45,7 @@ CONFIG_SLAB_FREELIST_RANDOM=y
+ CONFIG_SLAB_FREELIST_HARDENED=y
+ CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
+ CONFIG_PROFILING=y
++CONFIG_ARCH_SUNXI=y
+ CONFIG_ARCH_HISI=y
+ CONFIG_ARCH_QCOM=y
+ CONFIG_SCHED_MC=y
+@@ -217,6 +218,8 @@ CONFIG_FW_LOADER_USER_HELPER=y
+ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
++# CONFIG_SUN50I_DE2_BUS is not set
++# CONFIG_SUNXI_RSB is not set
+ CONFIG_GNSS=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_LOOP_MIN_COUNT=16
+@@ -310,6 +313,12 @@ CONFIG_HW_RANDOM=y
+ CONFIG_SPI=y
+ CONFIG_SPMI=y
+ # CONFIG_SPMI_MSM_PMIC_ARB is not set
++# CONFIG_PINCTRL_SUN8I_H3_R is not set
++# CONFIG_PINCTRL_SUN50I_A64 is not set
++# CONFIG_PINCTRL_SUN50I_A64_R is not set
++# CONFIG_PINCTRL_SUN50I_H5 is not set
++# CONFIG_PINCTRL_SUN50I_H6 is not set
++# CONFIG_PINCTRL_SUN50I_H6_R is not set
+ CONFIG_POWER_RESET_HISI=y
+ # CONFIG_HWMON is not set
+ CONFIG_THERMAL=y
+@@ -397,7 +406,10 @@ CONFIG_ASHMEM=y
+ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+ CONFIG_COMMON_CLK_SCPI=y
++# CONFIG_CLK_SUNXI is not set
++# CONFIG_SUNXI_CCU is not set
+ CONFIG_HWSPINLOCK=y
++# CONFIG_SUN50I_ERRATUM_UNKNOWN1 is not set
+ CONFIG_MAILBOX=y
+ CONFIG_REMOTEPROC=y
+ CONFIG_RPMSG_CHAR=y
+-- 
+2.17.1
+

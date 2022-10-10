@@ -1,7 +1,7 @@
 /*
  * Engine side synchronization support
  *
- * Copyright (c) 2016-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,6 +56,10 @@ int nvhost_syncpt_unit_interface_get_aperture(
 
 	res = platform_get_resource_byname(host_pdev, IORESOURCE_MEM,
 					   "sem-syncpt-shim");
+	if (!res) {
+		dev_err(&host_pdev->dev, "failed to get syncpt aperture info");
+		return -ENXIO;
+	}
 
 	*base = (phys_addr_t)res->start;
 	*size = (size_t)res->end - (size_t)res->start + 1;

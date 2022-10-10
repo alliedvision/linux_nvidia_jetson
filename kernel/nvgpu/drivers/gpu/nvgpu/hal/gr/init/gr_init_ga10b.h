@@ -78,6 +78,10 @@ int ga10b_gr_init_wait_idle(struct gk20a *g);
 void ga10b_gr_init_eng_config(struct gk20a *g);
 int ga10b_gr_init_reset_gpcs(struct gk20a *g);
 int ga10b_gr_init_wait_empty(struct gk20a *g);
+#ifndef CONFIG_NVGPU_NON_FUSA
+void ga10b_gr_init_set_default_compute_regs(struct gk20a *g,
+		struct nvgpu_gr_ctx *gr_ctx);
+#endif
 #ifdef CONFIG_NVGPU_MIG
 bool ga10b_gr_init_is_allowed_reg(struct gk20a *g, u32 addr);
 #endif

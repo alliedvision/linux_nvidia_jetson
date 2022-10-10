@@ -1,7 +1,7 @@
-From 9f6b502fc474ba857a286a11d3cbfb15359dd276 Mon Sep 17 00:00:00 2001
+From 76790a7c4760b92f4b4d7dc7e4774f08609fd6d3 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 17:08:41 +0200
-Subject: [PATCH 168/304] locking: split out the rbtree definition
+Subject: [PATCH 168/318] locking: split out the rbtree definition
 
 rtmutex.h needs the definition for rb_root_cached. By including kernel.h
 we will get to spinlock.h which requires rtmutex.h again.
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  create mode 100644 include/linux/rbtree_type.h
 
 diff --git a/include/linux/rbtree.h b/include/linux/rbtree.h
-index d7db179..c33b0e16 100644
+index d7db17996322..c33b0e16d04b 100644
 --- a/include/linux/rbtree.h
 +++ b/include/linux/rbtree.h
 @@ -19,19 +19,9 @@
@@ -66,7 +66,7 @@ index d7db179..c33b0e16 100644
  /* Same as rb_first(), but O(1) */
 diff --git a/include/linux/rbtree_type.h b/include/linux/rbtree_type.h
 new file mode 100644
-index 00000000..77a89dd
+index 000000000000..77a89dd2c7c6
 --- /dev/null
 +++ b/include/linux/rbtree_type.h
 @@ -0,0 +1,31 @@
@@ -102,7 +102,7 @@ index 00000000..77a89dd
 +
 +#endif
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index add1dab..b828b93 100644
+index add1dab27df5..b828b938c876 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -14,7 +14,7 @@
@@ -115,5 +115,5 @@ index add1dab..b828b93 100644
  
  extern int max_lock_depth; /* for sysctl */
 -- 
-2.7.4
+2.17.1
 

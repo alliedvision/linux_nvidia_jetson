@@ -21,13 +21,14 @@
 #include <tegra234-soc/mods-simple-bus.dtsi>
 #include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
 #include <t234-common-cvm/tegra234-thermal.dtsi>
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
 
 / {
 	nvidia,dtsfilename = __FILE__;
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 
 	compatible = "nvidia,p3737-0000+p3701-0000-as-p3767-0000", "nvidia,tegra234", "nvidia,tegra23x";
-	model = "NVIDIA Orin Jetson-Small Developer Kit as NX-16GB";
+	model = "Jetson AGX Orin as NX-16GB";
 
 	display@13800000 {
 		status = "okay";

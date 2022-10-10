@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -141,5 +141,15 @@ static inline int nvgpu_init_soc_vars(struct gk20a *g)
 	return 0;
 }
 #endif /* CONFIG_NVGPU_TEGRA_FUSE */
+
+/**
+ * @brief Get the physical address from the given intermediate physical address.
+ *
+ * @param[in]  g	Pointer to GPU structure.
+ * @param[in]  ipa	Intermediate physical address.
+ *
+ * @return translated physical address.
+ */
+u64 nvgpu_get_pa_from_ipa(struct gk20a *g, u64 ipa);
 
 #endif /* NVGPU_SOC_H */

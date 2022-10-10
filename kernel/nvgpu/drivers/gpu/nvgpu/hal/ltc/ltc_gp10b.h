@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef LTC_GP10B_H
-#define LTC_GP10B_H
+#ifndef NVGPU_LTC_GP10B_H
+#define NVGPU_LTC_GP10B_H
 struct gk20a;
 
 u64 gp10b_determine_L2_size_bytes(struct gk20a *g);

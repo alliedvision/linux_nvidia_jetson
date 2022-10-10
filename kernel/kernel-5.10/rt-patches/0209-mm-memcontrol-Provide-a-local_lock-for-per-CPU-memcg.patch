@@ -1,7 +1,7 @@
-From f200f85d533e88fb45871435741937c6fc7f4a4f Mon Sep 17 00:00:00 2001
+From f7e5f857927e929642666a2586aefb87b04763b5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 18 Aug 2020 10:30:00 +0200
-Subject: [PATCH 209/304] mm: memcontrol: Provide a local_lock for per-CPU
+Subject: [PATCH 209/318] mm: memcontrol: Provide a local_lock for per-CPU
  memcg_stock
 
 The interrupts are disabled to ensure CPU-local access to the per-CPU
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 18 insertions(+), 13 deletions(-)
 
 diff --git a/mm/memcontrol.c b/mm/memcontrol.c
-index 4fae1b7..c7cdcbb 100644
+index 525999a5c53d..a6669f8b0ccf 100644
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
 @@ -2202,6 +2202,7 @@ void unlock_page_memcg(struct page *page)
@@ -85,7 +85,7 @@ index 4fae1b7..c7cdcbb 100644
  }
  
  /*
-@@ -3147,7 +3148,7 @@ static bool consume_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
+@@ -3136,7 +3137,7 @@ static bool consume_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
  	unsigned long flags;
  	bool ret = false;
  
@@ -94,7 +94,7 @@ index 4fae1b7..c7cdcbb 100644
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (objcg == stock->cached_objcg && stock->nr_bytes >= nr_bytes) {
-@@ -3155,7 +3156,7 @@ static bool consume_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
+@@ -3144,7 +3145,7 @@ static bool consume_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
  		ret = true;
  	}
  
@@ -103,7 +103,7 @@ index 4fae1b7..c7cdcbb 100644
  
  	return ret;
  }
-@@ -3222,7 +3223,7 @@ static void refill_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
+@@ -3211,7 +3212,7 @@ static void refill_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
  	struct memcg_stock_pcp *stock;
  	unsigned long flags;
  
@@ -112,7 +112,7 @@ index 4fae1b7..c7cdcbb 100644
  
  	stock = this_cpu_ptr(&memcg_stock);
  	if (stock->cached_objcg != objcg) { /* reset if necessary */
-@@ -3236,7 +3237,7 @@ static void refill_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
+@@ -3225,7 +3226,7 @@ static void refill_obj_stock(struct obj_cgroup *objcg, unsigned int nr_bytes)
  	if (stock->nr_bytes > PAGE_SIZE)
  		drain_obj_stock(stock);
  
@@ -121,7 +121,7 @@ index 4fae1b7..c7cdcbb 100644
  }
  
  int obj_cgroup_charge(struct obj_cgroup *objcg, gfp_t gfp, size_t size)
-@@ -7156,9 +7157,13 @@ static int __init mem_cgroup_init(void)
+@@ -7145,9 +7146,13 @@ static int __init mem_cgroup_init(void)
  	cpuhp_setup_state_nocalls(CPUHP_MM_MEMCQ_DEAD, "mm/memctrl:dead", NULL,
  				  memcg_hotplug_cpu_dead);
  
@@ -139,5 +139,5 @@ index 4fae1b7..c7cdcbb 100644
  	for_each_node(node) {
  		struct mem_cgroup_tree_per_node *rtpn;
 -- 
-2.7.4
+2.17.1
 

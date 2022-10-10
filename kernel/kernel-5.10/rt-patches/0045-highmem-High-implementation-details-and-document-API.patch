@@ -1,7 +1,7 @@
-From 2b9e3cc092d6c4623674164983c437553549307c Mon Sep 17 00:00:00 2001
+From 2088478f9886fe4c5cfbc33ed0ad18c9ebc363ef Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:34 +0100
-Subject: [PATCH 045/304] highmem: High implementation details and document API
+Subject: [PATCH 045/318] highmem: High implementation details and document API
 
 Move the gory details of kmap & al into a private header and only document
 the interfaces which are usable by drivers.
@@ -9,15 +9,15 @@ the interfaces which are usable by drivers.
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/highmem-internal.h | 174 +++++++++++++++++++++++++
- include/linux/highmem.h          | 266 ++++++++++++++-------------------------
+ include/linux/highmem-internal.h | 174 ++++++++++++++++++++
+ include/linux/highmem.h          | 266 +++++++++++--------------------
  mm/highmem.c                     |  11 +-
  3 files changed, 274 insertions(+), 177 deletions(-)
  create mode 100644 include/linux/highmem-internal.h
 
 diff --git a/include/linux/highmem-internal.h b/include/linux/highmem-internal.h
 new file mode 100644
-index 00000000..6ceed90
+index 000000000000..6ceed907b14e
 --- /dev/null
 +++ b/include/linux/highmem-internal.h
 @@ -0,0 +1,174 @@
@@ -196,7 +196,7 @@ index 00000000..6ceed90
 +
 +#endif
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 3180a8f..7d098bd 100644
+index 3180a8f7307f..7d098bd621f6 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -11,199 +11,125 @@
@@ -496,7 +496,7 @@ index 3180a8f..7d098bd 100644
  /* when CONFIG_HIGHMEM is not set these will be plain clear/copy_page */
  #ifndef clear_user_highpage
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 499dfaf..54bd233 100644
+index 499dfafd36b7..54bd233846c9 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -104,7 +104,7 @@ static inline wait_queue_head_t *get_pkmap_wait_queue_head(unsigned int color)
@@ -539,5 +539,5 @@ index 499dfaf..54bd233 100644
  	lock_kmap();
  	flush_all_zero_pkmaps();
 -- 
-2.7.4
+2.17.1
 

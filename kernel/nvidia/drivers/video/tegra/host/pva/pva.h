@@ -3,7 +3,7 @@
  *
  * Tegra PVA header
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,14 +21,28 @@
 #ifndef __NVHOST_PVA_H__
 #define __NVHOST_PVA_H__
 
-#include <linux/workqueue.h>
+#include <linux/firmware.h>
 #include <linux/mutex.h>
 #include <linux/version.h>
+#include <linux/workqueue.h>
 
 #include "nvpva_queue.h"
 #include "pva_regs.h"
 #include "pva_nvhost.h"
 #include "pva-ucode-header.h"
+#include "pva_vpu_app_auth.h"
+
+#ifdef CONFIG_TEGRA_SOC_HWPM
+#include <uapi/linux/tegra-soc-hwpm-uapi.h>
+#endif
+
+/**
+ * PVA Host1x class IDs
+ */
+enum {
+	NV_PVA0_CLASS_ID	= 0xF1,
+	NV_PVA1_CLASS_ID	= 0xF2,
+};
 
 struct nvpva_client_context;
 
@@ -49,12 +63,17 @@ struct pva_version_info {
  */
 #define MAX_PVA_QUEUE_COUNT 8
 #define MAX_PVA_CLIENTS 8
-#define MAX_PVA_TASK_COUNT_PER_QUEUE	128
+#define MAX_PVA_TASK_COUNT_PER_QUEUE		256U
+#define MAX_PVA_SEG_COUNT_PER_QUEUE		4U
+#define MAX_PVA_TASK_COUNT_PER_QUEUE_SEG	\
+	(MAX_PVA_TASK_COUNT_PER_QUEUE/MAX_PVA_SEG_COUNT_PER_QUEUE)
+
+#define NVPVA_USER_VM_COUNT	MAX_PVA_CLIENTS
 
 /**
  * Maximum task count that a PVA engine can support
  */
-#define MAX_PVA_TASK_COUNT                                                     \
+#define MAX_PVA_TASK_COUNT					\
 	((MAX_PVA_QUEUE_COUNT) * (MAX_PVA_TASK_COUNT_PER_QUEUE))
 
 /**
@@ -77,6 +96,70 @@ struct pva_version_info {
 #define PVA_CCQ5_INDEX 6
 #define PVA_CCQ6_INDEX 7
 #define PVA_CCQ7_INDEX 8
+
+
+/**
+ * Number of VPUs for each PVA
+ */
+#define NUM_VPU_BLOCKS 2
+
+/**
+ * nvpva_dbg_* macros provide wrappers around kernel print functions
+ * that use a debug mask configurable at runtime to provide control over
+ * the level of detail that gets printed.
+ */
+#ifdef CONFIG_DEBUG_FS
+    /* debug info, default is compiled-in but effectively disabled (0 mask) */
+    #define NVPVA_DEBUG
+    /*e.g: echo 1 > /d/pva0/driver_dbg_mask */
+    #define NVPVA_DEFAULT_DBG_MASK 0
+#else
+    /* manually enable and turn on the mask */
+    #define NVPVA_DEFAULT_DBG_MASK (pva_dbg_info)
+#endif
+
+enum nvpva_dbg_categories {
+	pva_dbg_info    = BIT(0),  /* slightly verbose info */
+	pva_dbg_fn      = BIT(2),  /* fn name tracing */
+	pva_dbg_reg     = BIT(3),  /* register accesses, very verbose */
+	pva_dbg_clk     = BIT(7),  /* nvhost clk */
+	pva_dbg_mem     = BIT(31), /* memory accesses, very verbose */
+};
+
+#if defined(NVPVA_DEBUG)
+#define nvpva_dbg(pva, dbg_mask, format, arg...)                               \
+	do {                                                                   \
+		if (unlikely((dbg_mask)&pva->driver_log_mask)) {               \
+			pr_info("nvpva %s: " format "\n", __func__, ##arg);    \
+		}                                                              \
+	} while (0)
+
+#else /* NVPVA_DEBUG */
+#define nvpva_dbg(pva, dbg_mask, format, arg...)                               \
+	do {                                                                   \
+		if (0) {                                                       \
+			(void) pva; /* unused variable */                      \
+			pr_info("nvhost %s: " format "\n", __func__, ##arg);   \
+		}                                                              \
+	} while (0)
+
+#endif
+
+/* convenience,shorter err/fn/dbg_info */
+#define nvpva_err(d, fmt, arg...) \
+	dev_err(d, "%s: " fmt "\n", __func__, ##arg)
+
+#define nvpva_err_ratelimited(d, fmt, arg...) \
+	dev_err_ratelimited(d, "%s: " fmt "\n", __func__, ##arg)
+
+#define nvpva_warn(d, fmt, arg...) \
+	dev_warn(d, "%s: " fmt "\n", __func__, ##arg)
+
+#define nvpva_dbg_fn(pva, fmt, arg...) \
+	nvpva_dbg(pva, pva_dbg_fn, fmt, ##arg)
+
+#define nvpva_dbg_info(pva, fmt, arg...) \
+	nvpva_dbg(pva, pva_dbg_info, fmt, ##arg)
 
 /**
  * @brief		struct to hold the segment details
@@ -210,6 +293,14 @@ struct pva_version_config {
 };
 
 /**
+ * @brief		Describe a VPU hardware debug block
+ * vbase		Address mapped to virtual space
+ */
+struct pva_vpu_dbg_block {
+	void __iomem *vbase;
+};
+
+/**
  * @brief		Driver private data, shared with all applications
  *
  * version		pva version; 1 or 2
@@ -234,16 +325,23 @@ struct pva_version_config {
  * r5_dbg_wait		Set the r5 debugger to wait
  * timeout_enabled	Set pva timeout enabled based on debug
  * slcg_disable		Second level Clock Gating control variable
- *
- */
+ * log_level		controls the level of detail printed by FW
+ *			debug statements
+ * driver_log_mask	controls the level of detail printed by kernel
+ *			debug statements
+ **/
 struct pva {
 	int version;
 	struct pva_version_config *version_config;
 	struct platform_device *pdev;
 	struct nvpva_queue_pool *pool;
 	struct pva_fw fw_info;
+	struct pva_vpu_auth_s pva_auth;
+	struct pva_vpu_auth_s pva_auth_sys;
 
 	int irq[MAX_PVA_IRQS];
+	s32 sids[16];
+	u32 sid_count;
 
 	wait_queue_head_t cmd_waitqueue[MAX_PVA_INTERFACE];
 	struct pva_cmd_status_regs cmd_status_regs[MAX_PVA_INTERFACE];
@@ -276,16 +374,22 @@ struct pva {
 	bool timeout_enabled;
 	u32 slcg_disable;
 	u32 vmem_war_disable;
-	bool vpu_perf_counters_enable;
+	bool vpu_printf_enabled;
 	bool vpu_debug_enabled;
 
 	struct work_struct pva_abort_handler_work;
 	bool booted;
-
 	u32 log_level;
+	u32 driver_log_mask;
 
 	struct nvpva_client_context *clients;
 	struct mutex clients_lock;
+
+	struct pva_vpu_dbg_block vpu_dbg_blocks[NUM_VPU_BLOCKS];
+
+#ifdef CONFIG_TEGRA_SOC_HWPM
+	struct tegra_soc_hwpm_ip_ops hwpm_ip_ops;
+#endif
 };
 
 /**
@@ -411,4 +515,12 @@ int pva_get_firmware_version(struct pva *pva, struct pva_version_info *info);
 int pva_boot_kpi(struct pva *pva, u64 *r5_boot_time);
 
 int pva_set_log_level(struct pva *pva, u32 log_level, bool mailbox_locked);
+
+int nvpva_request_firmware(struct platform_device *pdev, const char *fw_name,
+			   const struct firmware **ucode_fw);
+
+int nvpva_get_device_hwid(struct platform_device *pdev,
+			  unsigned int id);
+
+u32 nvpva_get_id_idx(struct pva *dev, struct platform_device *pdev);
 #endif

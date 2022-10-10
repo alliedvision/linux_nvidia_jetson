@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,11 +44,11 @@ static inline unsigned int get_vlan_filter_idx(
 	unsigned long temp = 0U;
 
 	while (bitmap != 0U) {
-		temp = __builtin_ctzl(bitmap);
+		temp = (unsigned long) __builtin_ctzl(bitmap);
 
 		if (osi_core->vid[temp] == vlan_id) {
 			/* vlan ID match found */
-			vid_idx = temp;
+			vid_idx = (unsigned int)temp;
 			break;
 		}
 
@@ -84,7 +84,7 @@ static inline int allow_all_vid_tags(unsigned char *base,
 		hash_filter_reg |= VLAN_HASH_ALLOW_ALL;
 	} else {
 		vlan_tag_reg &= ~MAC_VLAN_TAG_CTRL_VHTM;
-		hash_filter_reg &= ~VLAN_HASH_ALLOW_ALL;
+		hash_filter_reg &= (unsigned int) ~VLAN_HASH_ALLOW_ALL;
 	}
 
 	osi_writel(vlan_tag_reg, base + MAC_VLAN_TAG_CTRL);
@@ -232,7 +232,7 @@ static inline int update_vlan_filters(struct osi_core_priv_data *osi_core,
 	osi_writel(val, base + MAC_VLAN_TAG_DATA);
 
 	val = osi_readl(base + MAC_VLAN_TAG_CTRL);
-	val &= ~MAC_VLAN_TAG_CTRL_OFS_MASK;
+	val &= (unsigned int) ~MAC_VLAN_TAG_CTRL_OFS_MASK;
 	val |= vid_idx << MAC_VLAN_TAG_CTRL_OFS_SHIFT;
 	val &= ~MAC_VLAN_TAG_CTRL_CT;
 	val |= MAC_VLAN_TAG_CTRL_OB;
@@ -277,7 +277,7 @@ static inline int add_vlan_id(struct osi_core_priv_data *osi_core,
 	}
 
 	/* Get free index to add the VID */
-	vid_idx = __builtin_ctzl(~osi_core->vf_bitmap);
+	vid_idx = (unsigned int) __builtin_ctzl(~osi_core->vf_bitmap);
 	/* If there is no free filter index add into SW VLAN filter queue to store */
 	if (vid_idx == VLAN_HW_FILTER_FULL_IDX) {
 		/* Add VLAN ID to SW queue */
@@ -306,7 +306,7 @@ static inline int add_vlan_id(struct osi_core_priv_data *osi_core,
 	}
 
 	val = osi_readl((unsigned char *)osi_core->base + MAC_VLAN_TAG_DATA);
-	val &= ~VLAN_VID_MASK;
+	val &= (unsigned int) ~VLAN_VID_MASK;
 	val |= (vlan_id | MAC_VLAN_TAG_DATA_ETV | MAC_VLAN_TAG_DATA_VEN);
 
 	return update_vlan_filters(osi_core, vid_idx, val);
@@ -326,7 +326,7 @@ static inline int add_vlan_id(struct osi_core_priv_data *osi_core,
  * @return -1 on failure.
  */
 static inline int dequeue_vlan_id(struct osi_core_priv_data *osi_core,
-				  unsigned short idx)
+				  unsigned int idx)
 {
 	unsigned int i;
 
@@ -381,7 +381,7 @@ static inline int dequeue_vid_to_add_filter_reg(
 	osi_core->vid[vid_idx] = vlan_id;
 
 	val = osi_readl((unsigned char *)osi_core->base + MAC_VLAN_TAG_DATA);
-	val &= ~VLAN_VID_MASK;
+	val &= (unsigned int) ~VLAN_VID_MASK;
 	val |= (vlan_id | MAC_VLAN_TAG_DATA_ETV | MAC_VLAN_TAG_DATA_VEN);
 
 	ret = update_vlan_filters(osi_core, vid_idx, val);
@@ -422,10 +422,11 @@ static inline int del_vlan_id(struct osi_core_priv_data *osi_core,
 	vid_idx = get_vlan_filter_idx(osi_core, vlan_id);
 	if (vid_idx == VLAN_HW_FILTER_FULL_IDX) {
 		ret = is_vlan_id_enqueued(osi_core, vlan_id, &idx);
-		if (ret == 0) {
-			/* VID found to be deleted in SW queue */
-			return dequeue_vlan_id(osi_core, idx);
+		if (ret != 0) {
+			/* VID not found in HW/SW filter list */
+			return -1;
 		}
+		return dequeue_vlan_id(osi_core, idx);
 	}
 
 	osi_core->vf_bitmap &= ~OSI_BIT(vid_idx);

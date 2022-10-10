@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@
  *
  * @return Count of elements in the buffer.
  */
-#define CIRC_CNT(head, tail, size) (((head) - (tail)) & ((size)-1U))
+#define CIRC_CNT(head, tail, size) ((__typeof(head))(((head) - (tail))) & ((size)-1U))
 
 /**
  * @brief Return space in buffer.

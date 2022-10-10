@@ -1,0 +1,38 @@
+From 0da22fe189c923ac8929f201fadaab0a32a43788 Mon Sep 17 00:00:00 2001
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Date: Mon, 19 Aug 2019 21:51:48 -0700
+Subject: [PATCH 302/830] ANDROID: PCI: qcom: Fix the fixup of
+ PCI_VENDOR_ID_QCOM
+X-NVConfidentiality: public
+
+There exists non-bridge PCIe devices with PCI_VENDOR_ID_QCOM, so limit
+the fixup to only affect the PCIe 2.0 (0x106) and PCIe 3.0 (0x107)
+bridges.
+
+Bug: 146449535
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+(cherry picked from commit 5ed49c7a1ca12470415229233a3e6b4216a76c62
+https://git.linaro.org/landing-teams/working/qualcomm/kernel.git
+qclt/integration-linux-qcomlt  - An unstable rebased branch)
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: Ibfd2b2dd41f6a22c832afb3d8e805c3602acba95
+---
+ include/linux/pci_ids.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 4ff680e22cc3..cef06795cd80 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2427,6 +2427,8 @@
+ #define PCI_VENDOR_ID_LENOVO		0x17aa
+ 
+ #define PCI_VENDOR_ID_QCOM		0x17cb
++#define PCIE_DEVICE_ID_QCOM_PCIE20	0x0106
++#define PCIE_DEVICE_ID_QCOM_PCIE30	0x0107
+ 
+ #define PCI_VENDOR_ID_CDNS		0x17cd
+ 
+-- 
+2.17.1
+

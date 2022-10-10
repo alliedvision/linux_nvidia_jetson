@@ -1,0 +1,35 @@
+From 312334e465ed8b87e55b1f13c4fe6ccf1702cbef Mon Sep 17 00:00:00 2001
+From: Cheng Jui Wang <cheng-jui.wang@mediatek.com>
+Date: Tue, 27 Oct 2020 14:35:10 +0800
+Subject: [PATCH 096/830] ANDROID: arm64: smp: fix Lockdep warning: RCU used
+ illegally from idle CPU.
+X-NVConfidentiality: public
+
+This problem will happened if handle_IPI is called from idle CPU.
+Use trace_android_vh_ipi_stop_rcuidle() to fix this issue
+
+Bug: 171683158
+Change-Id: Ic49fc1ddc19a54415dec3f28b68f42fa258ffeea
+Signed-off-by: Cheng Jui Wang <cheng-jui.wang@mediatek.com>
+Signed-off-by: Chun-Hung Wu <chun-hung.wu@mediatek.com>
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ arch/arm64/kernel/smp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index f0ef91d1e035..3838e3ef5541 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -916,7 +916,7 @@ static void do_handle_IPI(int ipinr)
+ 		break;
+ 
+ 	case IPI_CPU_STOP:
+-		trace_android_vh_ipi_stop(get_irq_regs());
++		trace_android_vh_ipi_stop_rcuidle(get_irq_regs());
+ 		local_cpu_stop();
+ 		break;
+ 
+-- 
+2.17.1
+

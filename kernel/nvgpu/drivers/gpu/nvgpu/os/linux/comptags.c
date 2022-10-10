@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -72,8 +72,9 @@ int gk20a_alloc_comptags(struct gk20a *g, struct nvgpu_os_buffer *buf,
 		lines = 0;
 	}
 
-	/* Note that privdata is not validated here as it is available here. */
 	priv = gk20a_dma_buf_get_drvdata(buf->dmabuf, buf->dev);
+
+	nvgpu_assert(priv != NULL);
 
 	/* store the allocator so we can use it when we free the ctags */
 	priv->comptag_allocator = allocator;

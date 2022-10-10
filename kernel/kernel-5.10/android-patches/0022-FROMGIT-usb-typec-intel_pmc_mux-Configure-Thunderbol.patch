@@ -1,0 +1,54 @@
+From 4f01d7a443d802dc337a2ae747a8d5249345b8e4 Mon Sep 17 00:00:00 2001
+From: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Date: Fri, 13 Nov 2020 12:24:58 -0800
+Subject: [PATCH 022/830] FROMGIT: usb: typec: intel_pmc_mux: Configure
+ Thunderbolt cable generation bits
+X-NVConfidentiality: public
+
+Thunderbolt cable generation bits received as a part of Thunderbolt 3 cable
+discover mode VDO needs to be configured for Thunderbolt rounded and
+non-rounded cable support in the Thunderbolt alternate mode.
+
+Bug: 174347172
+Signed-off-by: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+--
+Changes in v2:
+- No change.
+--
+Link: https://lore.kernel.org/r/20201113202503.6559-4-utkarsh.h.patel@intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit c4f81392d5a6833a63ec5809e8bc5c2d0da565d8
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Cc: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: If85d2030e314688e4c0656c621196e022ad89c9b
+---
+ drivers/usb/typec/mux/intel_pmc_mux.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/usb/typec/mux/intel_pmc_mux.c b/drivers/usb/typec/mux/intel_pmc_mux.c
+index acdef6fbb85e..144d80078bb8 100644
+--- a/drivers/usb/typec/mux/intel_pmc_mux.c
++++ b/drivers/usb/typec/mux/intel_pmc_mux.c
+@@ -267,6 +267,7 @@ static int
+ pmc_usb_mux_tbt(struct pmc_usb_port *port, struct typec_mux_state *state)
+ {
+ 	struct typec_thunderbolt_data *data = state->data;
++	u8 cable_rounded = TBT_CABLE_ROUNDED_SUPPORT(data->cable_mode);
+ 	u8 cable_speed = TBT_CABLE_SPEED(data->cable_mode);
+ 	struct altmode_req req = { };
+ 
+@@ -295,6 +296,8 @@ pmc_usb_mux_tbt(struct pmc_usb_port *port, struct typec_mux_state *state)
+ 
+ 	req.mode_data |= PMC_USB_ALTMODE_CABLE_SPD(cable_speed);
+ 
++	req.mode_data |= PMC_USB_ALTMODE_TBT_GEN(cable_rounded);
++
+ 	return pmc_usb_command(port, (void *)&req, sizeof(req));
+ }
+ 
+-- 
+2.17.1
+

@@ -26,6 +26,7 @@ nvhost-y += \
 	chip_support.o \
 	nvhost_vm.o \
 	syncpt_fd.o \
+	nvhost_syncpt_dmabuf.o \
 	interrupt_syncpt.o \
 	iommu_context_dev.o \
 	nvhost_syncpt_unit_interface.o \
@@ -33,7 +34,6 @@ nvhost-y += \
 	flcn/flcn.o \
 	riscv/riscv.o \
 	t210/t210.o \
-	t186/t186.o \
 	t194/t194.o \
 	t23x/t23x.o
 
@@ -55,7 +55,6 @@ else
 nvhost-$(CONFIG_TEGRA_GRHOST_SYNC) += nvhost_sync_v2.o nvhost_sync_compat.o
 endif
 
-nvhost-$(CONFIG_TEGRA_GRHOST_GOS) += nvhost_gos.o
 nvhost-$(CONFIG_TEGRA_GRHOST_SCALE) += scale_emc.o nvhost_scale.o
 nvhost-$(CONFIG_TEGRA_GRHOST_VHOST) += vhost/vhost.o vhost/vhost_client.o
 

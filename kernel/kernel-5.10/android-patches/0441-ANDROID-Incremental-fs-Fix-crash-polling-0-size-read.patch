@@ -1,0 +1,154 @@
+From f0d84f32d8a51353ec1d36db1078066095505948 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Tue, 31 Mar 2020 15:05:33 -0700
+Subject: [PATCH 441/830] ANDROID: Incremental fs: Fix crash polling 0 size
+ read_log
+X-NVConfidentiality: public
+
+When read log is 0 sized, we still need to init the wait queue to avoid
+kernel panics if someone does decide to poll on the read log.
+
+Test: Added test for this condition, incfs_test crashes
+	With fix, incfs_test doesn't crash
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Bug: 152909243
+Change-Id: Ic3250523bb7ddb1839f8e95852c17103e5ffb782
+---
+ fs/incfs/data_mgmt.c                          |  2 +-
+ .../selftests/filesystems/incfs/incfs_test.c  | 55 ++++++++++++++++---
+ 2 files changed, 49 insertions(+), 8 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 15462b452d59..bf509e2b0314 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -34,13 +34,13 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
+ 	mutex_init(&mi->mi_dir_struct_mutex);
+ 	mutex_init(&mi->mi_pending_reads_mutex);
+ 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
++	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+ 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
+ 
+ 	if (options->read_log_pages != 0) {
+ 		size_t buf_size = PAGE_SIZE * options->read_log_pages;
+ 
+ 		spin_lock_init(&mi->mi_log.rl_writer_lock);
+-		init_waitqueue_head(&mi->mi_log.ml_notif_wq);
+ 
+ 		mi->mi_log.rl_size = buf_size / sizeof(*mi->mi_log.rl_ring_buf);
+ 		mi->mi_log.rl_ring_buf = kzalloc(buf_size, GFP_NOFS);
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 723f9cbd15bc..3137dad14615 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -1930,7 +1930,8 @@ static int hash_tree_test(char *mount_dir)
+ 	return TEST_FAILURE;
+ }
+ 
+-static int validate_logs(char *mount_dir, int log_fd, struct test_file *file)
++static int validate_logs(char *mount_dir, int log_fd, struct test_file *file,
++			 bool no_rlog)
+ {
+ 	uint8_t data[INCFS_DATA_FILE_BLOCK_SIZE];
+ 	struct incfs_pending_read_info prs[100] = {};
+@@ -1957,7 +1958,19 @@ static int validate_logs(char *mount_dir, int log_fd, struct test_file *file)
+ 			goto failure;
+ 	}
+ 
+-	read_count = wait_for_pending_reads(log_fd, 0, prs, prs_size);
++	read_count =
++		wait_for_pending_reads(log_fd, no_rlog ? 10 : 0, prs, prs_size);
++	if (no_rlog) {
++		if (read_count == 0)
++			goto success;
++		if (read_count < 0)
++			ksft_print_msg("Error reading logged reads %s.\n",
++				       strerror(-read_count));
++		else
++			ksft_print_msg("Somehow read empty logs.\n");
++		goto failure;
++	}
++
+ 	if (read_count < 0) {
+ 		ksft_print_msg("Error reading logged reads %s.\n",
+ 			       strerror(-read_count));
+@@ -2001,6 +2014,8 @@ static int validate_logs(char *mount_dir, int log_fd, struct test_file *file)
+ 			goto failure;
+ 		}
+ 	}
++
++success:
+ 	close(fd);
+ 	return TEST_SUCCESS;
+ 
+@@ -2029,7 +2044,7 @@ static int read_log_test(char *mount_dir)
+ 		goto failure;
+ 
+ 	log_fd = open_log_file(mount_dir);
+-	if (cmd_fd < 0)
++	if (log_fd < 0)
+ 		ksft_print_msg("Can't open log file.\n");
+ 
+ 	/* Write data. */
+@@ -2048,7 +2063,7 @@ static int read_log_test(char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file))
++		if (validate_logs(mount_dir, log_fd, file, false))
+ 			goto failure;
+ 	}
+ 
+@@ -2069,20 +2084,46 @@ static int read_log_test(char *mount_dir)
+ 		goto failure;
+ 
+ 	log_fd = open_log_file(mount_dir);
+-	if (cmd_fd < 0)
++	if (log_fd < 0)
+ 		ksft_print_msg("Can't open log file.\n");
+ 
+ 	/* Validate data again */
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file))
++		if (validate_logs(mount_dir, log_fd, file, false))
+ 			goto failure;
+ 	}
+ 
+-	/* Final unmount */
++	/*
++	 * Unmount and mount again with no read log to make sure poll
++	 * doesn't crash
++	 */
+ 	close(cmd_fd);
+ 	close(log_fd);
++	if (umount(mount_dir) != 0) {
++		print_error("Can't unmout FS");
++		goto failure;
++	}
++
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=0") !=
++	    0)
++		goto failure;
++
++	log_fd = open_log_file(mount_dir);
++	if (log_fd < 0)
++		ksft_print_msg("Can't open log file.\n");
++
++	/* Validate data again - note should fail this time */
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (validate_logs(mount_dir, log_fd, file, true))
++			goto failure;
++	}
++
++	/* Final unmount */
++	close(log_fd);
+ 	free(backing_dir);
+ 	if (umount(mount_dir) != 0) {
+ 		print_error("Can't unmout FS");
+-- 
+2.17.1
+

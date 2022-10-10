@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,6 +31,8 @@
 void gm20b_gr_zbc_init_table_indices(struct gk20a *g,
 			struct nvgpu_gr_zbc_table_indices *zbc_indices)
 {
+	(void)g;
+
 	/* Color indices */
 	zbc_indices->min_color_index = NVGPU_GR_ZBC_STARTOF_TABLE;
 	zbc_indices->max_color_index = 15U;

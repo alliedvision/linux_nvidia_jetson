@@ -106,6 +106,7 @@ static const struct cfg_param {
 	{"nvidia,drive-type",		TEGRA_PINCONF_PARAM_DRIVE_TYPE},
 	{"nvidia,func",			TEGRA_PINCONF_PARAM_FUNCTION},
 	{"nvidia,pad-power",		TEGRA_PINCONF_PARAM_PAD_POWER},
+	{"nvidia,lpdr",			TEGRA_PINCONF_PARAM_LPDR},
 };
 
 static int tegra_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
@@ -350,6 +351,29 @@ static int tegra_pinctrl_gpio_restore_config(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static const struct tegra_pingroup *tegra_pinctrl_get_group(struct pinctrl_dev *pctldev,
+                                       unsigned int offset)
+{
+       struct tegra_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
+       unsigned int group, num_pins, j;
+       const unsigned int *pins;
+       int ret;
+
+       for (group = 0; group < pmx->soc->ngroups; ++group) {
+               ret = tegra_pinctrl_get_group_pins(pctldev, group, &pins, &num_pins);
+               if (ret < 0)
+                       continue;
+               for (j = 0; j < num_pins; j++) {
+                       if (offset == pins[j])
+                               return &pmx->soc->groups[group];
+               }
+       }
+
+       dev_err(pctldev->dev, "Pingroup not found for pin %u\n", offset);
+       return NULL;
+}
+
+
 static int tegra_pinctrl_gpio_request_enable(struct pinctrl_dev *pctldev,
 					     struct pinctrl_gpio_range *range,
 					     unsigned int offset)
@@ -396,6 +420,76 @@ static void tegra_pinctrl_gpio_disable_free(struct pinctrl_dev *pctldev,
 	tegra_pinctrl_gpio_restore_config(pctldev, range, offset);
 }
 
+static int tegra_pinctrl_gpio_set_input(struct tegra_pmx *pmx,
+					const struct tegra_pingroup *group,
+					bool enable)
+{
+	u32 value;
+
+	if (group->einput_bit < 0)
+		return 0;
+
+	if (group->mux_bank < 0 || group->mux_reg < 0)
+		return -EINVAL;
+
+	value = pmx_readl(pmx, group->mux_bank, group->mux_reg);
+
+	if (enable)
+		value |= BIT(group->einput_bit);
+	else
+		value &= ~BIT(group->einput_bit);
+
+	pmx_writel(pmx, value, group->mux_bank, group->mux_reg);
+
+	return 0;
+}
+
+static int tegra_pinctrl_gpio_set_tristate(struct tegra_pmx *pmx,
+					 const struct tegra_pingroup *group,
+					 bool enable)
+{
+	u32 value;
+
+	if (group->tri_bank < 0 || group->tri_reg < 0 || group->tri_bit < 0)
+		return -EINVAL;
+
+	value = pmx_readl(pmx, group->tri_bank, group->tri_reg);
+
+	if (enable)
+		value |= BIT(group->tri_bit);
+	else
+		value &= ~BIT(group->tri_bit);
+
+	pmx_writel(pmx, value, group->tri_bank, group->tri_reg);
+
+	return 0;
+}
+
+static int tegra_pinctrl_gpio_set_direction(struct pinctrl_dev *pctldev,
+					    struct pinctrl_gpio_range *range,
+					    unsigned offset, bool input)
+{
+	struct tegra_pmx *pmx = pinctrl_dev_get_drvdata(pctldev);
+	const struct tegra_pingroup *group;
+	int ret;
+
+	group = tegra_pinctrl_get_group(pctldev, offset);
+	if (!group)
+		return -EINVAL;
+
+	if (group->npins != 1) {
+		dev_dbg(pctldev->dev,
+			"unable to configure direction for pingroup\n");
+		return 0;
+	}
+
+	ret = tegra_pinctrl_gpio_set_input(pmx, group, input);
+	if (ret < 0)
+		return ret;
+
+	return tegra_pinctrl_gpio_set_tristate(pmx, group, input);
+}
+
 static const struct pinmux_ops tegra_pinmux_ops = {
 	.get_functions_count = tegra_pinctrl_get_funcs_count,
 	.get_function_name = tegra_pinctrl_get_func_name,
@@ -403,6 +497,7 @@ static const struct pinmux_ops tegra_pinmux_ops = {
 	.set_mux = tegra_pinctrl_set_mux,
 	.gpio_request_enable = tegra_pinctrl_gpio_request_enable,
 	.gpio_disable_free = tegra_pinctrl_gpio_disable_free,
+	.gpio_set_direction = tegra_pinctrl_gpio_set_direction,
 	.gpio_save_config = tegra_pinctrl_gpio_save_config,
 	.gpio_restore_config = tegra_pinctrl_gpio_restore_config,
 };
@@ -535,6 +630,12 @@ static int tegra_pinconf_reg(struct tegra_pmx *pmx,
 		*bank = g->pad_bank;
 		*reg = g->pad_reg;
 		*bit = g->pad_bit;
+		*width = 1;
+		break;
+	case TEGRA_PINCONF_PARAM_LPDR:
+		*bank = g->mux_bank;
+		*reg = g->mux_reg;
+		*bit = g->lpdr_bit;
 		*width = 1;
 		break;
 	default:

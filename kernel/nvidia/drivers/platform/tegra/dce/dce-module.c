@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,17 +25,17 @@
  * booting of dce.
  */
 static const struct dce_platform_data t234_dce_platform_data = {
-	.dce_stream_id = 0x08,
+	.stream_id = 0x08,
 	.phys_stream_id = 0x7f,
 	.fw_carveout_id = 9,
 	.fw_vmindex = 0,
-	.fw_name = "dce.bin",
+	.fw_name = "display-t234-dce.bin",
 	.fw_dce_addr = 0x40000000,
 	.fw_info_valid = true,
 	.use_physical_id = false,
 };
 
-static const struct of_device_id tegra_dce_of_match[] = {
+__weak const struct of_device_id tegra_dce_of_match[] = {
 	{
 		.compatible = "nvidia,tegra234-dce",
 		.data = (struct dce_platform_data *)&t234_dce_platform_data
@@ -189,6 +189,11 @@ static int tegra_dce_probe(struct platform_device *pdev)
 	const struct of_device_id *match = NULL;
 
 	match = of_match_device(tegra_dce_of_match, dev);
+	if (!match) {
+		dev_info(dev, "no device match found\n");
+		return -ENODEV;
+	}
+
 	pdata = (struct dce_platform_data *)match->data;
 
 	WARN_ON(!pdata);
@@ -226,6 +231,12 @@ static int tegra_dce_probe(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	dce_init_debug(d);
 #endif
+
+	/**
+	 * TODO: Move dce_fsm_start to driver_init
+	 */
+	dce_fsm_start(d);
+
 	return 0;
 
 req_intr_err:
@@ -245,11 +256,18 @@ static int tegra_dce_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+extern const struct dev_pm_ops dce_pm_ops;
+#endif
+
 static struct platform_driver tegra_dce_driver = {
 	.driver = {
 		.name   = "tegra-dce",
 		.of_match_table =
 			of_match_ptr(tegra_dce_of_match),
+#ifdef CONFIG_PM
+		.pm	= &dce_pm_ops,
+#endif
 	},
 	.probe = tegra_dce_probe,
 	.remove = tegra_dce_remove,

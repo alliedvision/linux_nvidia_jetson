@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -46,6 +46,9 @@
 
 /** Maximum number of GPC count. */
 #define NVGPU_MIG_MAX_GPCS				32U
+
+/** Maximum number of FBP count. */
+#define NVGPU_MIG_MAX_FBPS				12U
 
 /** Enumerated type used to identify various gpu instance types */
 enum nvgpu_mig_gpu_instance_type {
@@ -115,16 +118,23 @@ struct nvgpu_gpu_instance {
 	/**
 	 * Mask of FBPs. A set bit indicates FBP is available, otherwise
 	 * it is not available.
-	 * For Legacy, it is represent physical FBP mask.
-	 * For MIG, it is represent logical FBP mask.
+	 * For Legacy and MIG, it currently represents physical FBP mask.
+	 * [TODO]: When SMC memory partition will be enabled, a mapping should
+	 * be created for local to physical.
 	 */
 	u32 fbp_en_mask;
 	/**
 	 * Array to hold physical masks of LTCs per FBP.
-	 * For Legacy, array is indexed by FBP physical index.
-	 * For MIG, array is indexed by FBP logical index.
+	 * For Legacy and MIG, array is currently indexed by FBP physical index.
+	 * [TODO]: When SMC memory partition will be enabled, a mapping should
+	 * be created for local to {logical, physical}.
 	 */
 	u32 *fbp_l2_en_mask;
+
+	/* Array to hold the logical Ids of the fbp corresponding to the local Ids
+	 */
+	u32 fbp_mappings[NVGPU_MIG_MAX_FBPS];
+
 	/** Memory area to store h/w CE engine ids. */
 	const struct nvgpu_device *lce_devs[NVGPU_MIG_MAX_ENGINES];
 	/* Flag to indicate whether memory partition is supported or not. */

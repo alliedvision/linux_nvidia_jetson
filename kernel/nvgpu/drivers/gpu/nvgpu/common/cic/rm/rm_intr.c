@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,13 +27,15 @@
 
 void nvgpu_cic_rm_set_irq_stall(struct gk20a *g, u32 value)
 {
-	nvgpu_atomic_set(&g->cic_rm->sw_irq_stall_pending, value);
+	nvgpu_atomic_set(&g->cic_rm->sw_irq_stall_pending, (int)value);
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 void nvgpu_cic_rm_set_irq_nonstall(struct gk20a *g, u32 value)
 {
-	nvgpu_atomic_set(&g->cic_rm->sw_irq_nonstall_pending, value);
+	nvgpu_atomic_set(&g->cic_rm->sw_irq_nonstall_pending, (int)value);
 }
+#endif
 
 int nvgpu_cic_rm_broadcast_last_irq_stall(struct gk20a *g)
 {
@@ -50,6 +52,7 @@ int nvgpu_cic_rm_broadcast_last_irq_stall(struct gk20a *g)
 	return err;
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 int nvgpu_cic_rm_broadcast_last_irq_nonstall(struct gk20a *g)
 {
 	int err = 0;
@@ -64,6 +67,7 @@ int nvgpu_cic_rm_broadcast_last_irq_nonstall(struct gk20a *g)
 
 	return err;
 }
+#endif
 
 int nvgpu_cic_rm_wait_for_stall_interrupts(struct gk20a *g, u32 timeout)
 {
@@ -73,6 +77,7 @@ int nvgpu_cic_rm_wait_for_stall_interrupts(struct gk20a *g, u32 timeout)
 			timeout);
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 int nvgpu_cic_rm_wait_for_nonstall_interrupts(struct gk20a *g, u32 timeout)
 {
 	/* wait until all non-stalling irqs are handled */
@@ -80,6 +85,7 @@ int nvgpu_cic_rm_wait_for_nonstall_interrupts(struct gk20a *g, u32 timeout)
 			nvgpu_atomic_read(&g->cic_rm->sw_irq_nonstall_pending) == 0,
 			timeout);
 }
+#endif
 
 void nvgpu_cic_rm_wait_for_deferred_interrupts(struct gk20a *g)
 {
@@ -90,10 +96,12 @@ void nvgpu_cic_rm_wait_for_deferred_interrupts(struct gk20a *g)
 		nvgpu_err(g, "wait for stall interrupts failed %d", ret);
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	ret = nvgpu_cic_rm_wait_for_nonstall_interrupts(g, 0U);
 	if (ret != 0) {
 		nvgpu_err(g, "wait for nonstall interrupts failed %d", ret);
 	}
+#endif
 }
 
 #ifdef CONFIG_NVGPU_NON_FUSA

@@ -1,7 +1,7 @@
-From bb09212b8ed42ae4e286c402fcc1da5e2e6bdaba Mon Sep 17 00:00:00 2001
+From bdf1a56ba2b7a212b88bf5688cece45ec7e3ece5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 2 Feb 2021 18:01:04 +0100
-Subject: [PATCH 155/304] chelsio: cxgb: Disable the card on error in threaded
+Subject: [PATCH 155/318] chelsio: cxgb: Disable the card on error in threaded
  interrupt
 
 t1_fatal_err() is invoked from the interrupt handler. The bad part is
@@ -18,14 +18,14 @@ card via t1_sge_stop() and not re-enable the interrupts again.
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  drivers/net/ethernet/chelsio/cxgb/common.h |  1 -
- drivers/net/ethernet/chelsio/cxgb/cxgb2.c  | 10 --------
- drivers/net/ethernet/chelsio/cxgb/sge.c    | 20 ++++++++++++----
+ drivers/net/ethernet/chelsio/cxgb/cxgb2.c  | 10 ------
+ drivers/net/ethernet/chelsio/cxgb/sge.c    | 20 +++++++++---
  drivers/net/ethernet/chelsio/cxgb/sge.h    |  2 +-
- drivers/net/ethernet/chelsio/cxgb/subr.c   | 38 +++++++++++++++++++++---------
+ drivers/net/ethernet/chelsio/cxgb/subr.c   | 38 +++++++++++++++-------
  5 files changed, 44 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb/common.h b/drivers/net/ethernet/chelsio/cxgb/common.h
-index e999a9b..0321be7 100644
+index e999a9b9fe6c..0321be77366c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/common.h
 +++ b/drivers/net/ethernet/chelsio/cxgb/common.h
 @@ -346,7 +346,6 @@ int t1_get_board_rev(adapter_t *adapter, const struct board_info *bi,
@@ -37,7 +37,7 @@ index e999a9b..0321be7 100644
  void t1_link_negotiated(adapter_t *adapter, int port_id, int link_stat,
  			    int speed, int duplex, int pause);
 diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-index bd6f3c5..512da98 100644
+index 737c24136e2f..2a28a38da036 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
 @@ -917,16 +917,6 @@ static void mac_stats_task(struct work_struct *work)
@@ -58,7 +58,7 @@ index bd6f3c5..512da98 100644
  	.ndo_open		= cxgb_open,
  	.ndo_stop		= cxgb_close,
 diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 5aef9ae..cda01f2 100644
+index 5aef9ae1ecfe..cda01f22c71c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
 @@ -940,10 +940,11 @@ void t1_sge_intr_clear(struct sge *sge)
@@ -108,7 +108,7 @@ index 5aef9ae..cda01f2 100644
  	adapter->slow_intr_mask |= F_PL_INTR_EXT;
  
 diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.h b/drivers/net/ethernet/chelsio/cxgb/sge.h
-index 76516d2..716705b 100644
+index 76516d2a8aa9..716705b96f26 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/sge.h
 +++ b/drivers/net/ethernet/chelsio/cxgb/sge.h
 @@ -82,7 +82,7 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev);
@@ -121,7 +121,7 @@ index 76516d2..716705b 100644
  void t1_sge_intr_disable(struct sge *);
  void t1_sge_intr_clear(struct sge *);
 diff --git a/drivers/net/ethernet/chelsio/cxgb/subr.c b/drivers/net/ethernet/chelsio/cxgb/subr.c
-index d90ad07..310add2 100644
+index d90ad07ff1a4..310add28fcf5 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/subr.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/subr.c
 @@ -170,7 +170,7 @@ void t1_link_changed(adapter_t *adapter, int port_id)
@@ -210,5 +210,5 @@ index d90ad07..310add2 100644
  		/* Wake the threaded interrupt to handle external interrupts as
  		 * we require a process context. We disable EXT interrupts in
 -- 
-2.7.4
+2.17.1
 

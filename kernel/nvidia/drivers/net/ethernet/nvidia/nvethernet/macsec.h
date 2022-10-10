@@ -52,6 +52,12 @@
 #define MACSEC_SIZE 0x10000U
 #endif
 
+#define KEY2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5],\
+		   (a)[6], (a)[7], (a)[8], (a)[9], (a)[10], (a)[11],\
+		   (a)[12], (a)[13], (a)[14], (a)[15]
+#define KEYSTR "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x \
+%02x %02x %02x %02x %02x %02x"
+
 /* keep the same enum definition in nv macsec supplicant driver */
 enum nv_macsec_sa_attrs {
 	NV_MACSEC_SA_ATTR_UNSPEC,
@@ -144,8 +150,10 @@ enum nv_macsec_nl_commands {
 	NV_MACSEC_CMD_SET_REPLAY_PROT,
 	NV_MACSEC_CMD_SET_CIPHER,
 	NV_MACSEC_CMD_SET_CONTROLLED_PORT,
+	NV_MACSEC_CMD_CREATE_TX_SA,
 	NV_MACSEC_CMD_EN_TX_SA,
 	NV_MACSEC_CMD_DIS_TX_SA,
+	NV_MACSEC_CMD_CREATE_RX_SA,
 	NV_MACSEC_CMD_EN_RX_SA,
 	NV_MACSEC_CMD_DIS_RX_SA,
 	NV_MACSEC_CMD_TZ_CONFIG,
@@ -199,6 +207,8 @@ struct macsec_priv_data {
 	unsigned int protect_frames;
 	/** MACsec enabled flags for Tx/Rx controller status */
 	unsigned int enabled;
+	/** MACsec enabled flags for Tx/Rx controller status before Suspend */
+	unsigned int enabled_before_suspend;
 	/** MACsec Rx PN Window */
 	unsigned int pn_window;
 	/** MACsec controller init reference count */
@@ -218,6 +228,8 @@ void macsec_remove(struct ether_priv_data *pdata);
 int macsec_open(struct macsec_priv_data *macsec_pdata,
 		void *const genl_info);
 int macsec_close(struct macsec_priv_data *macsec_pdata);
+int macsec_suspend(struct macsec_priv_data *macsec_pdata);
+int macsec_resume(struct macsec_priv_data *macsec_pdata);
 
 #ifdef MACSEC_DEBUG
 #define PRINT_ENTRY()	(printk(KERN_DEBUG "-->%s()\n", __func__))

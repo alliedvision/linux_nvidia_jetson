@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -351,6 +351,17 @@ struct gops_mm_gmmu {
 	 * @return iommu physical bit position.
 	 */
 	u32 (*get_iommu_bit)(struct gk20a *g);
+
+	/**
+	 * @brief HAL to get the tegra_raw physical bit position.
+	 *
+	 * @param g [in]	The GPU.
+	 *
+	 * This HAL is used to get the tegra_raw physical bit position.
+	 *
+	 * @return tegra_raw physical bit position.
+	 */
+	u32 (*get_gpu_phys_tegra_raw_bit)(struct gk20a *g);
 
 	/**
 	 * @brief HAL to convert from tegra_phys to gpu_phys.

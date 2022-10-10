@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -59,9 +59,10 @@ edma_module_init(struct driver_ctx_t *drv_ctx)
 	memset(&info, 0x0, sizeof(info));
 	info.np = drv_ctx->drv_param.edma_np;
 	info.edma_remote = NULL;
-	for (i = 0; i < DMA_WR_CHNL_NUM; i++)
+	for (i = 0; i < DMA_WR_CHNL_NUM; i++) {
 		info.tx[i].ch_type = EDMA_CHAN_XFER_ASYNC;
-
+		info.tx[i].num_descriptors = NUM_EDMA_DESC;
+	}
 	/*No use-case for RD channels.*/
 
 	drv_ctx->edma_h = tegra_pcie_edma_initialize(&info);
@@ -170,8 +171,9 @@ nvscic2c_pcie_epc_remove(struct pci_dev *pdev)
 
 	pci_client_change_link_status(drv_ctx->pci_client_h,
 				      NVSCIC2C_PCIE_LINK_DOWN);
-	endpoints_release(&drv_ctx->endpoints_h);
+	endpoints_core_deinit(drv_ctx->endpoints_h);
 	edma_module_deinit(drv_ctx);
+	endpoints_release(&drv_ctx->endpoints_h);
 	vmap_deinit(&drv_ctx->vmap_h);
 	comm_channel_deinit(&drv_ctx->comm_channel_h);
 	pci_client_deinit(&drv_ctx->pci_client_h);
@@ -245,6 +247,8 @@ nvscic2c_pcie_epc_probe(struct pci_dev *pdev,
 		pr_err("pci_client_init() failed\n");
 		goto err_pci_client;
 	}
+	pci_client_save_driver_ctx(drv_ctx->pci_client_h, drv_ctx);
+	pci_client_save_peer_cpu(drv_ctx->pci_client_h, NVCPU_ORIN);
 
 	ret = comm_channel_init(drv_ctx, &drv_ctx->comm_channel_h);
 	if (ret) {
@@ -289,6 +293,7 @@ nvscic2c_pcie_epc_probe(struct pci_dev *pdev,
 	 */
 	msg.type = COMM_MSG_TYPE_BOOTSTRAP;
 	msg.u.bootstrap.iova = drv_ctx->self_mem.dma_handle;
+	msg.u.bootstrap.peer_cpu = NVCPU_ORIN;
 	ret = comm_channel_bootstrap_msg_send(drv_ctx->comm_channel_h, &msg);
 	if (ret) {
 		pr_err("Failed to send comm bootstrap message\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -94,6 +94,23 @@ int nvgpu_gr_setup_bind_ctxsw_zcull(struct gk20a *g, struct nvgpu_channel *c,
 	}
 
 	gr_ctx = tsg->gr_ctx;
+
+	/*
+	 * Each TSG shares same context with all the channels in the tsg
+	 * and zcull cannot be set per channel. If any channel tries
+	 * to add a second zcull buffer, it will be ignored.
+	 * See Bug 3364302.
+	 * TODO - https://jirasw.nvidia.com/browse/NVGPU-451
+	 * When full subcontext(multiple VA) is supported by TSG
+	 * then each channel can have separate VA address for same
+	 * physical zcull buffer but then zcull va ptr cannot be stored
+	 * at gr_ctx level and current design needs to be re-worked.
+	 */
+	if (nvgpu_gr_ctx_get_zcull_ctx_va(gr_ctx) != 0ULL) {
+		nvgpu_log(g, gpu_dbg_info,
+			"zcull bind is ignored for already bound ctx");
+		return 0;
+	}
 	nvgpu_gr_ctx_set_zcull_ctx(g, gr_ctx, mode, zcull_va);
 
 	return nvgpu_gr_setup_zcull(g, c, gr_ctx);

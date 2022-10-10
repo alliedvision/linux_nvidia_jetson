@@ -50,4 +50,23 @@
 		status = "disabled";
 		secure-status = "okay";
 	};
+
+	stmm-device-mappings {
+		uuid = <0xed32d533 0x99e64209 0x9cc02d72 0xcdd998a7>;
+		description = "UEFI-mm";
+
+		device-regions {
+			combuart-t194 {
+				base-address = <0x00000000 0x0c198000>;
+				pages-count = <0x1>;
+				attributes = <0x3>; /* read-write */
+			};
+
+			qspi0-t194 {
+				base-address = <0x00000000 0x03270000>;
+				pages-count = <0x10>;
+				attributes = <0x3>; /* read-write */
+			};
+		};
+	};
 };

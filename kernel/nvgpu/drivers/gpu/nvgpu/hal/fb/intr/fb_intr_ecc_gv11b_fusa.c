@@ -1,7 +1,7 @@
 /*
  * GV11B ECC INTR
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,11 +49,10 @@ static void gv11b_fb_intr_handle_ecc_l2tlb_errs(struct gk20a *g,
 		BUG();
 	}
 	if ((ecc_status & uncorrected_error_mask) != 0U) {
-		nvgpu_report_fb_ecc_err(g,
-			GPU_HUBMMU_L2TLB_SA_DATA_ECC_UNCORRECTED,
-			ecc_addr,
-			g->ecc.fb.mmu_l2tlb_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "uncorrected ecc sa data error");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_L2TLB_SA_DATA_ECC_UNCORRECTED);
+		nvgpu_err(g, "uncorrected ecc sa data error. "
+				"ecc_addr(0x%x)", ecc_addr);
 	}
 }
 
@@ -137,11 +136,10 @@ static void gv11b_fb_intr_handle_ecc_hubtlb_errs(struct gk20a *g,
 	}
 	if ((ecc_status &
 	     fb_mmu_hubtlb_ecc_status_uncorrected_err_sa_data_m()) != 0U) {
-		nvgpu_report_fb_ecc_err(g,
-				GPU_HUBMMU_TLB_SA_DATA_ECC_UNCORRECTED,
-				ecc_addr,
-				g->ecc.fb.mmu_hubtlb_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "uncorrected ecc sa data error");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_TLB_SA_DATA_ECC_UNCORRECTED);
+		nvgpu_err(g, "uncorrected ecc sa data error. "
+				"ecc_addr(0x%x)", ecc_addr);
 	}
 
 }
@@ -228,15 +226,15 @@ static void gv11b_fb_intr_handle_ecc_fillunit_errors(struct gk20a *g,
 	if ((ecc_status &
 		fb_mmu_fillunit_ecc_status_uncorrected_err_pte_data_m())
 									!= 0U) {
-		nvgpu_report_fb_ecc_err(g,
-			GPU_HUBMMU_PTE_DATA_ECC_UNCORRECTED,
-			ecc_addr,
-			g->ecc.fb.mmu_fillunit_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "uncorrected ecc pte data error");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_PTE_DATA_ECC_UNCORRECTED);
+		nvgpu_err(g, "uncorrected ecc pte data error. "
+				"ecc_addr(0x%x)", ecc_addr);
 	}
 	if ((ecc_status &
 		fb_mmu_fillunit_ecc_status_corrected_err_pde0_data_m()) != 0U) {
-		nvgpu_log(g, gpu_dbg_intr, "corrected ecc pde0 data error");
+		nvgpu_log(g, gpu_dbg_intr, "corrected ecc pde0 data error"
+				"ecc_addr(0x%x)", ecc_addr);
 		/* This error is not expected to occur in gv11b and hence,
 		 * this scenario is considered as a fatal error.
 		 */
@@ -246,11 +244,10 @@ static void gv11b_fb_intr_handle_ecc_fillunit_errors(struct gk20a *g,
 	if ((ecc_status &
 		fb_mmu_fillunit_ecc_status_uncorrected_err_pde0_data_m())
 									!= 0U) {
-		nvgpu_report_fb_ecc_err(g,
-			GPU_HUBMMU_PDE0_DATA_ECC_UNCORRECTED,
-			ecc_addr,
-			g->ecc.fb.mmu_fillunit_ecc_uncorrected_err_count[0].counter);
-		nvgpu_log(g, gpu_dbg_intr, "uncorrected ecc pde0 data error");
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HUBMMU,
+				GPU_HUBMMU_PDE0_DATA_ECC_UNCORRECTED);
+		nvgpu_err(g, "uncorrected ecc pde0 data error. "
+				"ecc_addr(0x%x)", ecc_addr);
 	}
 }
 

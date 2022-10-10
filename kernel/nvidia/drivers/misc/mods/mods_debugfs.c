@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_debugfs.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -367,6 +367,8 @@ static ssize_t mods_dc_oc_write(struct file *file, const char __user *user_buf,
 	int buf_size;
 
 	buf_size = min(size, (sizeof(buf) - 1));
+	if (unlikely(buf_size < 0))
+		return -EFAULT;
 	if (strncpy_from_user(buf, user_buf, buf_size) < 0)
 		return -EFAULT;
 	buf[buf_size] = 0;
@@ -604,14 +606,14 @@ int mods_create_debugfs(struct miscdevice *modsdev)
 #endif
 
 	retval = debugfs_create_file("debug", 0644,
-		mods_debugfs_dir, 0, &mods_debug_fops);
+		mods_debugfs_dir, NULL, &mods_debug_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
 	}
 
 	retval = debugfs_create_file("multi_instance", 0644,
-		mods_debugfs_dir, 0, &mods_mi_fops);
+		mods_debugfs_dir, NULL, &mods_mi_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
@@ -619,7 +621,7 @@ int mods_create_debugfs(struct miscdevice *modsdev)
 
 #if defined(MODS_HAS_TEGRA) && defined(CONFIG_TEGRA_KFUSE)
 	retval = debugfs_create_file("kfuse_data", 0444,
-		mods_debugfs_dir, 0, &mods_kfuse_fops);
+		mods_debugfs_dir, NULL, &mods_kfuse_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
@@ -632,12 +634,15 @@ int mods_create_debugfs(struct miscdevice *modsdev)
 			struct dentry *dc_debugfs_dir;
 			char devname[16];
 			struct tegra_dc *dc = tegra_dc_get_dc(dc_idx);
+			int devname_size;
 
 			if (!dc)
 				continue;
 
-			snprintf(devname, sizeof(devname), "tegradc.%d",
-				 dc->ctrl_num);
+			devname_size = snprintf(devname, sizeof(devname), "tegradc.%d",
+					dc->ctrl_num);
+			if (unlikely(devname_size < 0))
+				continue;
 			dc_debugfs_dir = debugfs_create_dir(devname,
 					mods_debugfs_dir);
 

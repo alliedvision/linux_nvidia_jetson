@@ -1,7 +1,7 @@
-From 2f6d71f8406a0dcf655c590e129d7c974047256f Mon Sep 17 00:00:00 2001
+From b5394f039b1bf8d6d8e4d82d339cda990de9b5e4 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:15 +0100
-Subject: [PATCH 122/304] sh: irqstat: Use the generic irq_cpustat_t
+Subject: [PATCH 122/318] sh: irqstat: Use the generic irq_cpustat_t
 
 SH can now use the generic irq_cpustat_t. Define ack_bad_irq so the generic
 header does not emit the generic version of it.
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+), 10 deletions(-)
 
 diff --git a/arch/sh/include/asm/hardirq.h b/arch/sh/include/asm/hardirq.h
-index edaea35..9fe4495 100644
+index edaea3559a23..9fe4495a8e90 100644
 --- a/arch/sh/include/asm/hardirq.h
 +++ b/arch/sh/include/asm/hardirq.h
 @@ -2,16 +2,10 @@
@@ -40,5 +40,5 @@ index edaea35..9fe4495 100644
  
  #endif /* __ASM_SH_HARDIRQ_H */
 -- 
-2.7.4
+2.17.1
 

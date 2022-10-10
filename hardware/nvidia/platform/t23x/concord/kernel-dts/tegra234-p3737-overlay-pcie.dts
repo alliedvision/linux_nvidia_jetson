@@ -14,6 +14,8 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
 / {
 	overlay-name = "Add PCIe C5 dual mode support";
 	compatible = "nvidia,tegra23x";
@@ -48,6 +50,26 @@
 			};
 			pcie_ep@141a0000 {
 				status = "okay";
+			};
+		};
+	};
+
+	/* PCIe changes for >= P3737-A04 revision. */
+	fragment@2 {
+		target-path = "/";
+		board_config {
+			ids = ">=3737-0000-TS4","3737-0000-RC1","3737-0000-400","3737-0000-500","3737-0000-600","3737-0000-700","3737-0000-800","3737-0000-900";
+		};
+		__overlay__ {
+			pcie_ep@141a0000 {
+				nvidia,refclk-select-gpios = <&tegra_main_gpio
+							      TEGRA234_MAIN_GPIO(Q, 4)
+							      GPIO_ACTIVE_HIGH>;
+			};
+			fixed-regulators {
+				regulator@105 {
+					gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(H, 4) 0>;
+				};
 			};
 		};
 	};

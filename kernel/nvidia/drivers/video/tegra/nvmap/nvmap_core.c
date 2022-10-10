@@ -3,7 +3,7 @@
  *
  * Memory manager for Tegra GPU
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -121,7 +121,7 @@ void __nvmap_kunmap(struct nvmap_handle *h, unsigned int pagenum,
 		__dma_flush_area(addr, PAGE_SIZE);
 		outer_flush_range(paddr, paddr + PAGE_SIZE); /* FIXME */
 	}
-	iounmap(addr);
+	iounmap((void __iomem *)addr);
 out:
 	nvmap_kmaps_dec(h);
 	nvmap_handle_put(h);
@@ -167,9 +167,9 @@ void *__nvmap_mmap(struct nvmap_handle *h)
 			goto out;
 
 		vaddr = vmap(pages, h->size >> PAGE_SHIFT, VM_MAP, prot);
-		nvmap_altfree(pages, (h->size >> PAGE_SHIFT) * sizeof(*pages));
 		if (!vaddr && !h->vaddr)
 			goto out;
+		nvmap_altfree(pages, (h->size >> PAGE_SHIFT) * sizeof(*pages));
 
 		if (vaddr && atomic_long_cmpxchg((atomic_long_t *)&h->vaddr, 0, (long)vaddr)) {
 			nvmap_kmaps_dec(h);
@@ -201,7 +201,7 @@ void *__nvmap_mmap(struct nvmap_handle *h)
 
 		vaddr = vmap(pages, nr_pages, VM_MAP, prot);
 	} else {
-		vaddr = (void *)__ioremap(h->carveout->base, adj_size,
+		vaddr = (__force void *)__ioremap(h->carveout->base, adj_size,
 			 prot);
 	}
 	if (vaddr == NULL)
@@ -214,7 +214,7 @@ void *__nvmap_mmap(struct nvmap_handle *h)
 		 * iounmap calls vunmap for vmalloced address, hence
 		 * takes care of vmap/__ioremap freeing part.
 		 */
-		iounmap(vaddr);
+		iounmap((void __iomem *)vaddr);
 		nvmap_kmaps_dec(h);
 	}
 
@@ -245,6 +245,33 @@ void __nvmap_munmap(struct nvmap_handle *h, void *addr)
 	nvmap_handle_put(h);
 }
 
+/*
+ * NOTE: this does not ensure the continued existence of the underlying
+ * dma_buf. If you want ensure the existence of the dma_buf you must get an
+ * nvmap_handle_ref as that is what tracks the dma_buf refs.
+ */
+struct nvmap_handle *nvmap_handle_get(struct nvmap_handle *h)
+{
+	int cnt;
+
+	if (WARN_ON(!virt_addr_valid(h))) {
+		pr_err("%s: invalid handle\n", current->group_leader->comm);
+		return NULL;
+	}
+
+	cnt = atomic_inc_return(&h->ref);
+	NVMAP_TAG_TRACE(trace_nvmap_handle_get, h, cnt);
+
+	if (unlikely(cnt <= 1)) {
+		pr_err("%s: %s attempt to get a freed handle\n",
+			__func__, current->group_leader->comm);
+		atomic_dec(&h->ref);
+		return NULL;
+	}
+
+	return h;
+}
+
 void nvmap_handle_put(struct nvmap_handle *h)
 {
 	int cnt;
@@ -252,6 +279,7 @@ void nvmap_handle_put(struct nvmap_handle *h)
 	if (WARN_ON(!virt_addr_valid(h)))
 		return;
 	cnt = atomic_dec_return(&h->ref);
+	NVMAP_TAG_TRACE(trace_nvmap_handle_put, h, cnt);
 
 	if (WARN_ON(cnt < 0)) {
 		pr_err("%s: %s put to negative references\n",

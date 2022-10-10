@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 #include <nvgpu/log.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/worker.h>
+#include <nvgpu/string.h>
 
 static void nvgpu_worker_pre_process(struct nvgpu_worker *worker)
 {
@@ -199,6 +200,11 @@ static int nvgpu_worker_start(struct nvgpu_worker *worker)
 
 	err = nvgpu_thread_create(&worker->poll_task, worker,
 			nvgpu_worker_poll_work, worker->thread_name);
+	if (err != 0) {
+		nvgpu_err(worker->g,
+			  "failed to create worker poller thread %s err %d",
+			  worker->thread_name, err);
+	}
 
 	nvgpu_mutex_release(&worker->start_lock);
 	return err;
@@ -269,7 +275,7 @@ void nvgpu_worker_init_name(struct nvgpu_worker *worker,
 }
 
 int nvgpu_worker_init(struct gk20a *g, struct nvgpu_worker *worker,
-	const struct nvgpu_worker_ops *ops)
+	const struct nvgpu_worker_ops *worker_ops)
 {
 	int err;
 
@@ -280,7 +286,7 @@ int nvgpu_worker_init(struct gk20a *g, struct nvgpu_worker *worker,
 	nvgpu_spinlock_init(&worker->items_lock);
 	nvgpu_mutex_init(&worker->start_lock);
 
-	worker->ops = ops;
+	worker->ops = worker_ops;
 
 	err = nvgpu_worker_start(worker);
 	if (err != 0) {

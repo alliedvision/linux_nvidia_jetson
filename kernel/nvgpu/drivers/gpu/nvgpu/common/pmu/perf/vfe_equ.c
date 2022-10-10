@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,7 +41,7 @@ static int vfe_equ_node_depending_mask_combine(struct gk20a *g,
 		struct boardobjgrp *pboardobjgrp, u8 equ_idx,
 		struct boardobjgrpmask *pmask_dst)
 {
-	int status;
+	int status = 0;
 	struct vfe_equ *tmp_vfe_equ;
 
 	while (equ_idx != CTRL_BOARDOBJ_IDX_INVALID) {
@@ -145,6 +145,7 @@ static int vfe_equ_build_depending_mask_quad(struct gk20a *g,
 		struct boardobjgrp *pboardobjgrp,
 		struct vfe_equ *pvfe_equ)
 {
+	(void)pboardobjgrp;
 	return vfe_equ_build_depending_mask_super(g, pvfe_equ);
 }
 
@@ -176,7 +177,7 @@ static int vfe_equ_build_depending_mask_equ_scalar(struct gk20a *g,
 static int vfe_equ_dependency_mask_build(struct gk20a *g,
 		struct vfe_equs *pvfe_equs, struct vfe_vars *pvfe_vars)
 {
-	int status;
+	int status = 0;
 	struct vfe_equ *tmp_vfe_equ;
 	struct vfe_var *tmp_vfe_var;
 	u8 index_1, index_2;
@@ -839,7 +840,7 @@ static int devinit_get_vfe_equ_table(struct gk20a *g,
 		}
 
 		status = boardobjgrp_objinsert(&pvfeequobjs->super.super,
-					       (struct pmu_board_obj *)pequ, index);
+					       (struct pmu_board_obj *)pequ, (u8)index);
 		if (status != 0) {
 			nvgpu_err(g, "error adding vfe_equ boardobj %d", index);
 			status = -EINVAL;

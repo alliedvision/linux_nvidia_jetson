@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/dc_common.c
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Arun Swain <arswain@nvidia.com>
  *
@@ -1051,6 +1051,54 @@ static int tegra_dc_common_assign_head_offset(void)
 	return ret;
 }
 
+/**
+ * tegra_dc_common_identify_dc_dt_seq - Parse the sequence of DCs in
+ * device tree, and set the count of DCs to be probed before each DC.
+ */
+static void tegra_dc_common_identify_dc_dt_seq(struct device_node *np,
+				struct tegra_dc_common *dc_common)
+{
+	struct device_node *child_disp;
+	u32 temp;
+	u8 index = 0;
+
+	for_each_available_child_of_node(np, child_disp) {
+		if (!of_property_read_u32(child_disp,
+				"nvidia,dc-ctrlnum", &temp)) {
+			dc_common->dc_dt_seq.dc_probe_seq[temp] = index;
+			index++;
+		}
+	}
+
+	dc_common->dc_dt_seq.probed_dc_count = 0;
+}
+
+/**
+ * tegra_dc_common_check_dc_probe_seq - Checks if disp heads are being
+ * probed in the order specified in device tree.
+ */
+bool tegra_dc_common_check_dc_probe_seq(u8 dc_ctrl_num)
+{
+	if (!dc_common)
+		return false;
+
+	if (dc_common->dc_dt_seq.dc_probe_seq[dc_ctrl_num] ==
+				dc_common->dc_dt_seq.probed_dc_count) {
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * tegra_dc_common_increment_probed_dc_count - Increment the count of DCs
+ * that have been probed.
+ */
+void tegra_dc_common_increment_probed_dc_count(void)
+{
+	dc_common->dc_dt_seq.probed_dc_count++;
+}
+
 static int tegra_dc_common_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1170,6 +1218,8 @@ static int tegra_dc_common_probe(struct platform_device *pdev)
 	}
 
 	tegra_dc_common_create_debugfs(dc_common);
+
+	tegra_dc_common_identify_dc_dt_seq(np, dc_common);
 
 	probe_success = true;
 

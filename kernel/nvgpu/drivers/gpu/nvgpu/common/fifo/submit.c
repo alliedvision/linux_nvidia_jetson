@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -284,11 +284,11 @@ static int nvgpu_submit_append_gpfifo(struct nvgpu_channel *c,
 {
 	int err;
 
-	if ((kern_gpfifo == NULL)
 #ifdef CONFIG_NVGPU_DGPU
-	    && (c->gpfifo.pipe == NULL)
+	if ((kern_gpfifo == NULL) && (c->gpfifo.pipe == NULL)) {
+#else
+	if (kern_gpfifo == NULL) {
 #endif
-	   ) {
 		/*
 		 * This path (from userspace to sysmem) is special in order to
 		 * avoid two copies unnecessarily (from user to pipe, then from

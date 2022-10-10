@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -35,24 +35,6 @@
 #include <media/fusa-capture/capture-vi.h>
 
 #include <media/fusa-capture/capture-vi-channel.h>
-
-/**
- * @brief VI channel character device driver context.
- */
-struct vi_channel_drv {
-	struct platform_device *vi_capture_pdev;
-		/**< Capture VI driver platform device */
-	bool use_legacy_path;
-		/**< Flag to maintain backward-compatibility for T186 */
-	struct device *dev; /**< VI kernel @em device */
-	struct platform_device *ndev; /**< VI kernel @em platform_device */
-	struct mutex lock; /**< VI channel driver context lock */
-	u8 num_channels; /**< No. of VI channel character devices */
-	const struct vi_channel_drv_ops *ops;
-		/**< VI fops for Host1x syncpt/gos allocations */
-	struct tegra_vi_channel __rcu *channels[];
-		/**< Allocated VI channel contexts */
-};
 
 /**
  * @defgroup VI_CHANNEL_IOCTLS
@@ -250,9 +232,9 @@ struct tegra_vi_channel *vi_channel_open_ex(
 	if (chan_drv->use_legacy_path) {
 		chan->dev = chan_drv->dev;
 		chan->ndev = chan_drv->ndev;
-	} else {
+	} else
 		chan->vi_capture_pdev = chan_drv->vi_capture_pdev;
-	}
+
 	chan->ops = chan_drv->ops;
 
 	err = vi_capture_init(chan, is_mem_pinned);
@@ -353,7 +335,7 @@ static int vi_channel_release(
  * Pin/map buffers and save iova boundaries into corresponding
  * memoryinfo struct.
  */
-int pin_vi_capture_request_buffers_locked(struct tegra_vi_channel *chan,
+static int pin_vi_capture_request_buffers_locked(struct tegra_vi_channel *chan,
 		struct vi_capture_req *req,
 		struct capture_common_unpins *request_unpins)
 {
@@ -571,7 +553,7 @@ static long vi_channel_ioctl(
 		}
 
 		/* Don't let to speculate with invalid buffer_index value */
-		speculation_barrier();
+		spec_bar();
 
 		if (capture->unpins_list == NULL) {
 			dev_err(chan->dev, "Channel setup incomplete\n");

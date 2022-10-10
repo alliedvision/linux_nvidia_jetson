@@ -7,7 +7,7 @@
  * Copyright (c) 2007 Nokia Siemens Networks
  * Copyright (c) 2008 Herbert Xu <herbert@gondor.apana.org.au>
  * Copyright (c) 2019 Google LLC
- * Copyright (c) 2016-2021, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation. All Rights Reserved.
  *
  * Updated RFC4106 AES-GCM testing.
  *    Authors: Aidan O'Mahony (aidan.o.mahony@intel.com)
@@ -1136,12 +1136,10 @@ static int check_hash_result(const char *type,
 	if (memcmp(result, vec->digest, digestsize) != 0) {
 		pr_err("alg: %s: %s test failed (wrong result) on test vector %s, cfg=\"%s\"\n",
 		       type, driver, vec_name, cfg->name);
-		hexdump(result, digestsize);
 		return -EINVAL;
 	} else {
 		pr_info("alg: %s: %s test passed on test vector %s, cfg=\"%s\"\n",
 		       type, driver, vec_name, cfg->name);
-		hexdump(result, digestsize);
 	}
 	if (!testmgr_is_poison(&result[digestsize], TESTMGR_POISON_LEN)) {
 		pr_err("alg: %s: %s overran result buffer on test vector %s, cfg=\"%s\"\n",

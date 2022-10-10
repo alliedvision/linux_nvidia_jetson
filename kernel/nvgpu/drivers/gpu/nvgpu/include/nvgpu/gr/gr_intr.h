@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -113,23 +113,6 @@ void nvgpu_gr_intr_handle_semaphore_pending(struct gk20a *g,
 		struct nvgpu_gr_isr_data *isr_data);
 
 /**
- * @brief Report GR exceptions to qnx.sdl unit.
- *
- * @param g [in]		Pointer to GPU driver struct.
- * @param inst [in]		Unit instance ID.
- * @param err_type [in]		Error type.
- * @param status [in]		Exception status value.
- * @param sub_err_type [in]	Sub error type.
- *
- * This function reports all GR exceptions to qnx.sdl unit.
- *
- * Other interrupt handling functions like #nvgpu_gr_intr_handle_fecs_error()
- * call this function to report exceptions to qnx.sdl.
- */
-void nvgpu_gr_intr_report_exception(struct gk20a *g, u32 inst,
-		u32 err_type, u32 status, u32 sub_err_type);
-
-/**
  * @brief Translate context to channel ID.
  *
  * @param g [in]		Pointer to GPU driver struct.
@@ -223,7 +206,6 @@ int nvgpu_gr_intr_handle_sm_exception(struct gk20a *g, u32 gpc, u32 tpc, u32 sm,
  * @see nvgpu_gr_intr_handle_notify_pending
  * @see nvgpu_gr_intr_handle_semaphore_pending
  * @see nvgpu_gr_intr_handle_sm_exception
- * @see nvgpu_gr_intr_report_exception
  * @see nvgpu_gr_intr_set_error_notifier
  */
 int nvgpu_gr_intr_stall_isr(struct gk20a *g);

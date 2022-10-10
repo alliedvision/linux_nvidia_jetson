@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/main.c
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -185,8 +185,8 @@ validate_freq(unsigned int freq)
 static int
 set_parameters_for_cpu(struct quadd_pmu_setup_for_cpu *params)
 {
-	int i, err, nr_pmu = 0;
-	int cpuid = params->cpuid;
+	unsigned int i, nr_pmu = 0;
+	int err, cpuid = params->cpuid;
 
 	struct source_info *pmu_info = &per_cpu(ctx_pmu_info, cpuid);
 	struct quadd_event pmu_events[QUADD_MAX_COUNTERS];

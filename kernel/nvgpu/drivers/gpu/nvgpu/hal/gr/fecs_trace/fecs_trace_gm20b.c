@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,20 +48,20 @@ int gm20b_fecs_trace_flush(struct gk20a *g)
 int gm20b_fecs_trace_get_read_index(struct gk20a *g)
 {
 	return nvgpu_pg_elpg_protected_call(g,
-			nvgpu_readl(g, gr_fecs_mailbox1_r()));
+			(int)nvgpu_readl(g, gr_fecs_mailbox1_r()));
 }
 
 int gm20b_fecs_trace_get_write_index(struct gk20a *g)
 {
 	return nvgpu_pg_elpg_protected_call(g,
-			nvgpu_readl(g, gr_fecs_mailbox0_r()));
+			(int)nvgpu_readl(g, gr_fecs_mailbox0_r()));
 }
 
 int gm20b_fecs_trace_set_read_index(struct gk20a *g, int index)
 {
 	nvgpu_log(g, gpu_dbg_ctxsw, "set read=%d", index);
 	return nvgpu_pg_elpg_protected_call(g,
-			(nvgpu_writel(g, gr_fecs_mailbox1_r(), index), 0));
+			(nvgpu_writel(g, gr_fecs_mailbox1_r(), (u32)index), 0));
 }
 
 u32 gm20b_fecs_trace_get_buffer_full_mailbox_val(void)

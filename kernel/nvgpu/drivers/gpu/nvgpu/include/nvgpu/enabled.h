@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -219,6 +219,12 @@ struct gk20a;
 	DEFINE_FLAG(NVGPU_SUPPORT_ROP_IN_GPC, "ROP is part of GPC"), \
 	DEFINE_FLAG(NVGPU_SUPPORT_BUFFER_METADATA, "Buffer metadata support"), \
 	DEFINE_FLAG(NVGPU_SUPPORT_NVS, "Domain scheduler support"), \
+	DEFINE_FLAG(NVGPU_SUPPORT_TEGRA_RAW, \
+			"TEGRA_RAW format support"), \
+	DEFINE_FLAG(NVGPU_SUPPORT_EMULATE_MODE, \
+			"Emulate mode support"), \
+	DEFINE_FLAG(NVGPU_SUPPORT_PES_FS, \
+			"PES Floorsweeping"), \
 	DEFINE_FLAG(NVGPU_MAX_ENABLED_BITS, "Marks max number of flags"),
 
 /**

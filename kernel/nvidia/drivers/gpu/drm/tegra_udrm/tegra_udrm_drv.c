@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -370,8 +370,13 @@ static int tegra_udrm_send_connector_status_event_ioctl(struct drm_device *drm,
 	char *envp[4] = { hotplug_str, conn_id, prop_id, NULL };
 	int ret = 0;
 
-	snprintf(conn_id, ARRAY_SIZE(conn_id), "CONNECTOR=%u", args->conn_id);
-	snprintf(prop_id, ARRAY_SIZE(prop_id), "PROPERTY=%u", args->prop_id);
+	ret = snprintf(conn_id, ARRAY_SIZE(conn_id), "CONNECTOR=%u", args->conn_id);
+	if ((ret < 0) || (ret >= sizeof(conn_id)))
+		return -EINVAL;
+
+	ret = snprintf(prop_id, ARRAY_SIZE(prop_id), "PROPERTY=%u", args->prop_id);
+	if ((ret < 0) || (ret >= sizeof(prop_id)))
+		return -EINVAL;
 
 	ret = kobject_uevent_env(&drm->primary->kdev->kobj, KOBJ_CHANGE, envp);
 	if (ret < 0)

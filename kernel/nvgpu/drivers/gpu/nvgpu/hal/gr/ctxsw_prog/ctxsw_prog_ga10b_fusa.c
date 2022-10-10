@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,14 @@ u32 ga10b_ctxsw_prog_hw_get_main_header_size(void)
 u32 ga10b_ctxsw_prog_hw_get_gpccs_header_stride(void)
 {
 	return ctxsw_prog_gpccs_header_stride_v();
+}
+
+u32 ga10b_ctxsw_prog_get_tpc_segment_pri_layout(struct gk20a *g, u32 *main_hdr)
+{
+	(void)g;
+	return ctxsw_prog_main_tpc_segment_pri_layout_v_v(
+			main_hdr[ctxsw_prog_main_tpc_segment_pri_layout_o() >>
+			BYTE_TO_DW_SHIFT]);
 }
 
 u32 ga10b_ctxsw_prog_get_compute_sysreglist_offset(u32 *fecs_hdr)

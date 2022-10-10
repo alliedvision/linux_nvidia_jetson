@@ -1,7 +1,7 @@
 /*
  * NVDLA debug utils
  *
- * Copyright (c) 2016 - 2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,13 +23,9 @@
 #include <linux/delay.h>
 #include <linux/version.h>
 
-#include "host1x/host1x.h"
-#include "flcn/flcn.h"
-#include "flcn/hw_flcn.h"
 #include "dla_os_interface.h"
-#include "nvdla/nvdla.h"
+#include "nvdla.h"
 #include "nvdla_debug.h"
-#include "nvhost_acm.h"
 
 /*
  * Header in ring buffer consist (start, end) two uint32_t values.
@@ -690,6 +686,113 @@ trace_failed:
 	debugfs_remove_recursive(fw_dir);
 }
 
+#ifdef CONFIG_PM
+static int debug_dla_pm_suspend_show(struct seq_file *s, void *data)
+{
+	int err;
+	struct nvdla_device *nvdla_dev;
+
+	if (s == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	nvdla_dev = (struct nvdla_device *) s->private;
+	if (nvdla_dev == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	seq_printf(s, "%x\n", (int) nvdla_dev->is_suspended);
+
+	return 0;
+
+fail:
+	return err;
+}
+
+static int debug_dla_pm_suspend_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debug_dla_pm_suspend_show, inode->i_private);
+}
+
+static ssize_t debug_dla_pm_suspend_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *off)
+{
+	int err;
+	struct seq_file *priv_data;
+	struct nvdla_device *nvdla_dev;
+	struct platform_device *pdev;
+	long write_value;
+
+	/* Fetch user requested write-value. */
+	err = kstrtol_from_user(buffer, count, 10, &write_value);
+	if (err < 0)
+		goto fail;
+
+	/* Trigger suspend & response */
+	priv_data = file->private_data;
+	if (priv_data == NULL)
+		goto fail;
+
+	nvdla_dev = (struct nvdla_device *) priv_data->private;
+	if (nvdla_dev == NULL)
+		goto fail;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL)
+		goto fail;
+
+	if ((write_value > 0) && (!nvdla_dev->is_suspended)) {
+		/* Trigger suspend sequence. */
+		err = nvdla_module_pm_ops.prepare(&pdev->dev);
+		if (err < 0)
+			goto fail;
+
+		err = nvdla_module_pm_ops.suspend(&pdev->dev);
+		if (err < 0) {
+			nvdla_module_pm_ops.complete(&pdev->dev);
+			goto fail;
+		}
+	} else if ((write_value == 0) && (nvdla_dev->is_suspended)) {
+		/* Trigger resume sequence. */
+		err = nvdla_module_pm_ops.resume(&pdev->dev);
+		if (err < 0)
+			goto fail;
+
+		nvdla_module_pm_ops.complete(&pdev->dev);
+	}
+
+	return count;
+
+fail:
+	return -1;
+}
+
+static const struct file_operations debug_dla_pm_suspend_fops = {
+	.open		= debug_dla_pm_suspend_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+	.write		= debug_dla_pm_suspend_write,
+};
+
+static void nvdla_pm_debugfs_init(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+	struct dentry *dla_debugfs_root = pdata->debugfs;
+
+	if (!debugfs_create_file("suspend", 0600, dla_debugfs_root,
+			nvdla_dev, &debug_dla_pm_suspend_fops)) {
+		goto fail_create_file_suspend;
+	}
+
+fail_create_file_suspend:
+	return;
+}
+#endif
+
 void nvdla_debug_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -711,6 +814,10 @@ void nvdla_debug_init(struct platform_device *pdev)
 	/* Check if isolate context enabled if submit mode is CHANNEL */
 	nvdla_dev->submit_mode = nvdla_dev->submit_mode &&
 				pdata->isolate_contexts;
+
+#ifdef CONFIG_PM
+	nvdla_pm_debugfs_init(pdev);
+#endif
 
 	dla_fw_debugfs_init(pdev);
 }

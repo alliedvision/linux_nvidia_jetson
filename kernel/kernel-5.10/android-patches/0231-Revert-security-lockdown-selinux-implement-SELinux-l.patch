@@ -1,0 +1,168 @@
+From fe9f29b171ca7c4574615bc17d49cb8201307869 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 3 Feb 2020 17:54:26 -0800
+Subject: [PATCH 231/830] Revert "security,lockdown,selinux: implement SELinux
+ lockdown"
+X-NVConfidentiality: public
+
+This reverts commit 59438b46471ae6cdfb761afc8c9beaf1e428a331.
+
+This unblocks the booting of Android on newer kernels. It is a temporary
+workaround and the correct fix is to add new core sepolicy.
+
+Bug: 148822198
+Change-Id: Ic521cb760c867c12dfcb7d2752280fbb0eddb82c
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ include/linux/lsm_audit.h    |  2 --
+ include/linux/security.h     |  2 --
+ security/lockdown/lockdown.c | 27 +++++++++++++++++++++++++++
+ security/lsm_audit.c         |  5 -----
+ security/selinux/hooks.c     | 30 ------------------------------
+ 5 files changed, 27 insertions(+), 39 deletions(-)
+
+diff --git a/include/linux/lsm_audit.h b/include/linux/lsm_audit.h
+index 28f23b341c1c..91d6990b7b40 100644
+--- a/include/linux/lsm_audit.h
++++ b/include/linux/lsm_audit.h
+@@ -74,7 +74,6 @@ struct common_audit_data {
+ #define LSM_AUDIT_DATA_FILE	12
+ #define LSM_AUDIT_DATA_IBPKEY	13
+ #define LSM_AUDIT_DATA_IBENDPORT 14
+-#define LSM_AUDIT_DATA_LOCKDOWN 15
+ #define LSM_AUDIT_DATA_NOTIFICATION 16
+ 	union 	{
+ 		struct path path;
+@@ -95,7 +94,6 @@ struct common_audit_data {
+ 		struct file *file;
+ 		struct lsm_ibpkey_audit *ibpkey;
+ 		struct lsm_ibendport_audit *ibendport;
+-		int reason;
+ 	} u;
+ 	/* this union contains LSM specific data */
+ 	union {
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 35355429648e..1428b2d09acc 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -131,8 +131,6 @@ enum lockdown_reason {
+ 	LOCKDOWN_CONFIDENTIALITY_MAX,
+ };
+ 
+-extern const char *const lockdown_reasons[LOCKDOWN_CONFIDENTIALITY_MAX+1];
+-
+ /* These functions are in security/commoncap.c */
+ extern int cap_capable(const struct cred *cred, struct user_namespace *ns,
+ 		       int cap, unsigned int opts);
+diff --git a/security/lockdown/lockdown.c b/security/lockdown/lockdown.c
+index 87cbdc64d272..3f38583bed06 100644
+--- a/security/lockdown/lockdown.c
++++ b/security/lockdown/lockdown.c
+@@ -16,6 +16,33 @@
+ 
+ static enum lockdown_reason kernel_locked_down;
+ 
++static const char *const lockdown_reasons[LOCKDOWN_CONFIDENTIALITY_MAX+1] = {
++	[LOCKDOWN_NONE] = "none",
++	[LOCKDOWN_MODULE_SIGNATURE] = "unsigned module loading",
++	[LOCKDOWN_DEV_MEM] = "/dev/mem,kmem,port",
++	[LOCKDOWN_EFI_TEST] = "/dev/efi_test access",
++	[LOCKDOWN_KEXEC] = "kexec of unsigned images",
++	[LOCKDOWN_HIBERNATION] = "hibernation",
++	[LOCKDOWN_PCI_ACCESS] = "direct PCI access",
++	[LOCKDOWN_IOPORT] = "raw io port access",
++	[LOCKDOWN_MSR] = "raw MSR access",
++	[LOCKDOWN_ACPI_TABLES] = "modifying ACPI tables",
++	[LOCKDOWN_PCMCIA_CIS] = "direct PCMCIA CIS storage",
++	[LOCKDOWN_TIOCSSERIAL] = "reconfiguration of serial port IO",
++	[LOCKDOWN_MODULE_PARAMETERS] = "unsafe module parameters",
++	[LOCKDOWN_MMIOTRACE] = "unsafe mmio",
++	[LOCKDOWN_DEBUGFS] = "debugfs access",
++	[LOCKDOWN_XMON_WR] = "xmon write access",
++	[LOCKDOWN_INTEGRITY_MAX] = "integrity",
++	[LOCKDOWN_KCORE] = "/proc/kcore access",
++	[LOCKDOWN_KPROBES] = "use of kprobes",
++	[LOCKDOWN_BPF_READ] = "use of bpf to read kernel RAM",
++	[LOCKDOWN_PERF] = "unsafe use of perf",
++	[LOCKDOWN_TRACEFS] = "use of tracefs",
++	[LOCKDOWN_XMON_RW] = "xmon read and write access",
++	[LOCKDOWN_CONFIDENTIALITY_MAX] = "confidentiality",
++};
++
+ static const enum lockdown_reason lockdown_levels[] = {LOCKDOWN_NONE,
+ 						 LOCKDOWN_INTEGRITY_MAX,
+ 						 LOCKDOWN_CONFIDENTIALITY_MAX};
+diff --git a/security/lsm_audit.c b/security/lsm_audit.c
+index 08d5ef49f2e4..6f76044b6446 100644
+--- a/security/lsm_audit.c
++++ b/security/lsm_audit.c
+@@ -27,7 +27,6 @@
+ #include <linux/dccp.h>
+ #include <linux/sctp.h>
+ #include <linux/lsm_audit.h>
+-#include <linux/security.h>
+ 
+ /**
+  * ipv4_skb_to_auditdata : fill auditdata from skb
+@@ -434,10 +433,6 @@ static void dump_common_audit_data(struct audit_buffer *ab,
+ 				 a->u.ibendport->dev_name,
+ 				 a->u.ibendport->port);
+ 		break;
+-	case LSM_AUDIT_DATA_LOCKDOWN:
+-		audit_log_format(ab, " lockdown_reason=\"%s\"",
+-				 lockdown_reasons[a->u.reason]);
+-		break;
+ 	} /* switch (a->type) */
+ }
+ 
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 86159b32921c..4c5a9808297e 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -6854,34 +6854,6 @@ static void selinux_bpf_prog_free(struct bpf_prog_aux *aux)
+ }
+ #endif
+ 
+-static int selinux_lockdown(enum lockdown_reason what)
+-{
+-	struct common_audit_data ad;
+-	u32 sid = current_sid();
+-	int invalid_reason = (what <= LOCKDOWN_NONE) ||
+-			     (what == LOCKDOWN_INTEGRITY_MAX) ||
+-			     (what >= LOCKDOWN_CONFIDENTIALITY_MAX);
+-
+-	if (WARN(invalid_reason, "Invalid lockdown reason")) {
+-		audit_log(audit_context(),
+-			  GFP_ATOMIC, AUDIT_SELINUX_ERR,
+-			  "lockdown_reason=invalid");
+-		return -EINVAL;
+-	}
+-
+-	ad.type = LSM_AUDIT_DATA_LOCKDOWN;
+-	ad.u.reason = what;
+-
+-	if (what <= LOCKDOWN_INTEGRITY_MAX)
+-		return avc_has_perm(&selinux_state,
+-				    sid, sid, SECCLASS_LOCKDOWN,
+-				    LOCKDOWN__INTEGRITY, &ad);
+-	else
+-		return avc_has_perm(&selinux_state,
+-				    sid, sid, SECCLASS_LOCKDOWN,
+-				    LOCKDOWN__CONFIDENTIALITY, &ad);
+-}
+-
+ struct lsm_blob_sizes selinux_blob_sizes __lsm_ro_after_init = {
+ 	.lbs_cred = sizeof(struct task_security_struct),
+ 	.lbs_file = sizeof(struct file_security_struct),
+@@ -7187,8 +7159,6 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
+ 	LSM_HOOK_INIT(perf_event_write, selinux_perf_event_write),
+ #endif
+ 
+-	LSM_HOOK_INIT(locked_down, selinux_lockdown),
+-
+ 	/*
+ 	 * PUT "CLONING" (ACCESSING + ALLOCATING) HOOKS HERE
+ 	 */
+-- 
+2.17.1
+

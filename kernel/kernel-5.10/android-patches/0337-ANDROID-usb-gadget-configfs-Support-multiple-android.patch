@@ -1,0 +1,146 @@
+From 55c00991e11b83555486798f40a9c6691fb067c0 Mon Sep 17 00:00:00 2001
+From: Ajay Agarwal <ajaya@codeaurora.org>
+Date: Tue, 30 May 2017 10:27:23 +0530
+Subject: [PATCH 337/830] ANDROID: usb: gadget: configfs: Support multiple
+ android instances
+X-NVConfidentiality: public
+
+Some platforms may choose to create more than one gadget ConfigFS
+instance, often due to the hardware having multiple USB gadget
+controllers which can be used simultaneously. Currently
+android_device_create() assumes only one gadget instance is ever
+created and creates a single "android0" device under the "android_usb"
+class, resulting in a crash if a second gadget is registered since the
+global android_device pointer gets overwritten with -EEXIST.
+
+Fix this by properly supporting multiple instances and naming the
+devices "android0", "android1", etc. when each instance is created
+(via mkdir). For now keep the global singleton android_device pointing
+to android0 for ease of use since f_midi and f_audio_source currently
+use create_function_device() without any context as to which gadget
+they will be bound to.
+
+Bug: 120441124
+Fixes: 429213f5d9eb ("ANDROID: usb: gadget: configfs: Add function devices to the parent")
+Change-Id: Idae6f6d0d8811f27e836f5f6399395a15fbf3c2f
+Signed-off-by: Ajay Agarwal <ajaya@codeaurora.org>
+[jackp@codeaurora.org: reworded commit text]
+Signed-off-by: Jack Pham <jackp@codeaurora.org>
+---
+ drivers/usb/gadget/configfs.c | 41 +++++++++++++++++++----------------
+ 1 file changed, 22 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index 547af48bf78f..f5ef7c3d0c34 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -23,6 +23,7 @@ void acc_disconnect(void);
+ static struct class *android_class;
+ static struct device *android_device;
+ static int index;
++static int gadget_index;
+ 
+ struct device *create_function_device(char *name)
+ {
+@@ -1488,22 +1489,19 @@ static void android_work(struct work_struct *data)
+ 	spin_unlock_irqrestore(&cdev->lock, flags);
+ 
+ 	if (status[0]) {
+-		kobject_uevent_env(&android_device->kobj,
+-					KOBJ_CHANGE, connected);
++		kobject_uevent_env(&gi->dev->kobj, KOBJ_CHANGE, connected);
+ 		pr_info("%s: sent uevent %s\n", __func__, connected[0]);
+ 		uevent_sent = true;
+ 	}
+ 
+ 	if (status[1]) {
+-		kobject_uevent_env(&android_device->kobj,
+-					KOBJ_CHANGE, configured);
++		kobject_uevent_env(&gi->dev->kobj, KOBJ_CHANGE, configured);
+ 		pr_info("%s: sent uevent %s\n", __func__, configured[0]);
+ 		uevent_sent = true;
+ 	}
+ 
+ 	if (status[2]) {
+-		kobject_uevent_env(&android_device->kobj,
+-					KOBJ_CHANGE, disconnected);
++		kobject_uevent_env(&gi->dev->kobj, KOBJ_CHANGE, disconnected);
+ 		pr_info("%s: sent uevent %s\n", __func__, disconnected[0]);
+ 		uevent_sent = true;
+ 	}
+@@ -1771,21 +1769,23 @@ static int android_device_create(struct gadget_info *gi)
+ 	struct device_attribute *attr;
+ 
+ 	INIT_WORK(&gi->work, android_work);
+-	android_device = device_create(android_class, NULL,
+-				MKDEV(0, 0), NULL, "android0");
+-	if (IS_ERR(android_device))
+-		return PTR_ERR(android_device);
++	gi->dev = device_create(android_class, NULL,
++			MKDEV(0, 0), NULL, "android%d", gadget_index++);
++	if (IS_ERR(gi->dev))
++		return PTR_ERR(gi->dev);
+ 
+-	dev_set_drvdata(android_device, gi);
++	dev_set_drvdata(gi->dev, gi);
++	if (!android_device)
++		android_device = gi->dev;
+ 
+ 	attrs = android_usb_attributes;
+ 	while ((attr = *attrs++)) {
+ 		int err;
+ 
+-		err = device_create_file(android_device, attr);
++		err = device_create_file(gi->dev, attr);
+ 		if (err) {
+-			device_destroy(android_device->class,
+-				       android_device->devt);
++			device_destroy(gi->dev->class,
++				       gi->dev->devt);
+ 			return err;
+ 		}
+ 	}
+@@ -1793,15 +1793,15 @@ static int android_device_create(struct gadget_info *gi)
+ 	return 0;
+ }
+ 
+-static void android_device_destroy(void)
++static void android_device_destroy(struct gadget_info *gi)
+ {
+ 	struct device_attribute **attrs;
+ 	struct device_attribute *attr;
+ 
+ 	attrs = android_usb_attributes;
+ 	while ((attr = *attrs++))
+-		device_remove_file(android_device, attr);
+-	device_destroy(android_device->class, android_device->devt);
++		device_remove_file(gi->dev, attr);
++	device_destroy(gi->dev->class, gi->dev->devt);
+ }
+ #else
+ static inline int android_device_create(struct gadget_info *gi)
+@@ -1809,7 +1809,7 @@ static inline int android_device_create(struct gadget_info *gi)
+ 	return 0;
+ }
+ 
+-static inline void android_device_destroy(void)
++static inline void android_device_destroy(struct gadget_info *gi)
+ {
+ }
+ #endif
+@@ -1878,8 +1878,11 @@ static struct config_group *gadgets_make(
+ 
+ static void gadgets_drop(struct config_group *group, struct config_item *item)
+ {
++	struct gadget_info *gi;
++
++	gi = container_of(to_config_group(item), struct gadget_info, group);
+ 	config_item_put(item);
+-	android_device_destroy();
++	android_device_destroy(gi);
+ }
+ 
+ static struct configfs_group_operations gadgets_ops = {
+-- 
+2.17.1
+

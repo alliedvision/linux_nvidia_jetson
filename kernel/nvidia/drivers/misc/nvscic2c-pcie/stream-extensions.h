@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -48,4 +48,7 @@ stream_extension_init(struct stream_ext_params *params, void **handle);
 
 void
 stream_extension_deinit(void **handle);
+
+void
+stream_extension_edma_deinit(void *stream_ext_h);
 #endif //__STREAM_EXTENSIONS_H__

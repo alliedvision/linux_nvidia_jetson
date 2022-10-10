@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -102,6 +102,7 @@ void ga10b_bus_isr(struct gk20a *g)
 	 */
 	if ((bus_intr_0 & bus_intr0_pri_mask()) != 0U) {
 		if ((bus_intr_0 & bus_intr_0_pri_fecserr_m()) != 0U) {
+			nvgpu_err (g, "host pbus fecs error");
 			err_type = GPU_HOST_PBUS_FECS_ERROR;
 		}
 		g->ops.ptimer.isr(g);
@@ -156,6 +157,6 @@ void ga10b_bus_isr(struct gk20a *g)
 				bus_intr_0 & ~bus_intr_0_handled);
 	}
 
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, 0, err_type, bus_intr_0);
+	nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST, err_type);
 	nvgpu_writel(g, bus_intr_0_r(), bus_intr_0);
 }

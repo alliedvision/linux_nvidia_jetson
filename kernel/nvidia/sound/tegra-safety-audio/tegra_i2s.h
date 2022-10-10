@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #ifndef _TEGRA_I2S_H_
@@ -9,8 +9,8 @@
 #define PCM_STREAM_PLAYBACK     0
 #define PCM_STREAM_CAPTURE      1
 
-#define NUM_SAFETY_I2S_INST 1
-#define I2S_DT_NODE "i2s%d"
+#define NUM_SAFETY_I2S_INST 2
+#define I2S_DT_NODE "i2s%u"
 #define I2S_NODE_START_INDEX 7
 
 enum clock_mode {
@@ -73,7 +73,7 @@ struct dma_data {
 };
 
 struct i2s_dev {
-	__iomem void *base;
+	volatile void __iomem *base;
 	struct dma_data capture_data;
 	struct dma_data playback_data;
 	struct clk *clk_i2s;
@@ -113,14 +113,14 @@ unsigned int i2s_enable_rx(unsigned int id);
 unsigned int i2s_disable_rx(unsigned int id);
 
 static inline void
-updatel(void *addr, unsigned int mask, unsigned int val)
+updatel(volatile void __iomem *addr, unsigned int mask, unsigned int val)
 {
 	unsigned int prev_val, new_val;
 
-	prev_val = *((int *)(addr));
+	prev_val = readl(addr);
 	new_val = (prev_val & (~mask)) | (val & mask);
 
-	*((int *)(addr)) = new_val;
+	writel(new_val, addr);
 }
 
 /* Enable/Disable digital loopback with I2S controller */

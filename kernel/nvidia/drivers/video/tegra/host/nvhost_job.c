@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Job
  *
- * Copyright (c) 2010-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,7 +24,6 @@
 #include <linux/vmalloc.h>
 #include <linux/sort.h>
 #include <linux/scatterlist.h>
-#include <linux/dma-override.h>
 #include <linux/version.h>
 #include <trace/events/nvhost.h>
 #include "nvhost_channel.h"

@@ -1,7 +1,7 @@
-From cce08885348f53c6ed3679b7a40fd3c3179a8960 Mon Sep 17 00:00:00 2001
+From 92f489b54b472a586252c47c7ad8674be9ab2a4f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:47 +0100
-Subject: [PATCH 058/304] drm/nouveau/device: Replace
+Subject: [PATCH 058/318] drm/nouveau/device: Replace
  io_mapping_map_atomic_wc()
 
 Neither fbmem_peek() nor fbmem_poke() require to disable pagefaults and
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h b/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
-index 6c5bbff..411f91e 100644
+index 6c5bbff12eb4..411f91ee20fa 100644
 --- a/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
 +++ b/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
 @@ -60,19 +60,19 @@ fbmem_fini(struct io_mapping *fb)
@@ -49,5 +49,5 @@ index 6c5bbff..411f91e 100644
  
  static inline bool
 -- 
-2.7.4
+2.17.1
 

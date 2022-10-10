@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,7 @@ struct netlist_av_list;
 struct nvgpu_hw_err_inject_info_desc;
 struct nvgpu_gr_sm_ecc_status;
 struct nvgpu_gr_zbc_table_indices;
+struct nvgpu_gr_obj_ctx_gfx_regs;
 
 enum nvgpu_gr_sm_ecc_error_types;
 
@@ -74,6 +75,7 @@ struct ctxsw_buf_offset_map_entry;
 enum ctxsw_addr_type;
 enum nvgpu_event_id_type;
 #endif
+struct netlist_av64_list;
 
 /**
  * This structure stores the GR engine ecc subunit hal pointers.
@@ -692,6 +694,31 @@ struct gops_gr_init {
 #endif
 
 	/**
+	 * @brief Capture graphics specific register values.
+	 *
+	 * @param g [in]	Pointer to GPU driver struct.
+	 * @param gfx_regs [in] Pointer to struct holding gfx specific register init values.
+	 *
+	 * This function captures values of some registers that need to be
+	 * configured differently only for graphics context.
+	 */
+	void (*capture_gfx_regs)(struct gk20a *g, struct nvgpu_gr_obj_ctx_gfx_regs *gfx_regs);
+
+	/**
+	 * @brief Set graphics specific register values.
+	 *
+	 * @param g [in]	Pointer to GPU driver struct.
+	 * @param gr_ctx [in]	Pointer to GR engine context image.
+	 * @param gfx_regs [in] Pointer to struct holding gfx specific register init values.
+	 *
+	 * This function sets graphics specific register values in the
+	 * patch context so that register values are set only for graphics
+	 * contexts.
+	 */
+	void (*set_default_gfx_regs)(struct gk20a *g, struct nvgpu_gr_ctx *gr_ctx,
+			struct nvgpu_gr_obj_ctx_gfx_regs *gfx_regs);
+
+	/**
 	 * @brief Get supported preemption mode flags.
 	 *
 	 * @param graphics_preemption_mode_flags [out]
@@ -909,6 +936,12 @@ struct gops_gr_config {
 	u32 (*get_gpc_tpc_mask)(struct gk20a *g,
 				struct nvgpu_gr_config *config,
 				u32 gpc_index);
+	u32 (*get_gpc_pes_mask)(struct gk20a *g,
+				struct nvgpu_gr_config *config,
+				u32 gpc_index);
+	u32 (*get_gpc_rop_mask)(struct gk20a *g,
+				struct nvgpu_gr_config *config,
+				u32 gpc_index);
 	u32 (*get_gpc_mask)(struct gk20a *g);
 	u32 (*get_tpc_count_in_gpc)(struct gk20a *g,
 				    struct nvgpu_gr_config *config,
@@ -1050,6 +1083,7 @@ struct gops_gr_ctxsw_prog {
 	u32 (*get_gfx_ppcreglist_offset)(u32 *gpccs_hdr);
 	u32 (*get_compute_etpcreglist_offset)(u32 *gpccs_hdr);
 	u32 (*get_gfx_etpcreglist_offset)(u32 *gpccs_hdr);
+	u32 (*get_tpc_segment_pri_layout)(struct gk20a *g, u32 *main_hdr);
 #endif
 #endif
 };
@@ -1365,9 +1399,9 @@ struct gops_gr {
 	struct gops_gr_zcull		zcull;
 #endif /* CONFIG_NVGPU_GRAPHICS */
 #if defined(CONFIG_NVGPU_HAL_NON_FUSA)
-	void (*vab_init)(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
+	void (*vab_reserve)(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
 	struct nvgpu_vab_range_checker *vab_range_checker);
-	void (*vab_release)(struct gk20a *g, u32 vab_reg);
+	void (*vab_configure)(struct gk20a *g, u32 vab_reg);
 #endif
 	/** @endcond */
 };

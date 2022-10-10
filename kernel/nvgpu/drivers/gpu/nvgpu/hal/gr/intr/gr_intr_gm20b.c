@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -111,6 +111,8 @@ void gm20b_gr_intr_handle_class_error(struct gk20a *g, u32 chid,
 int gm20b_gr_intr_handle_sw_method(struct gk20a *g, u32 addr,
 					  u32 class_num, u32 offset, u32 data)
 {
+	(void)addr;
+
 	nvgpu_log_fn(g, " ");
 
 #ifdef CONFIG_NVGPU_NON_FUSA
@@ -230,6 +232,7 @@ void gm20b_gr_intr_enable_exceptions(struct gk20a *g,
 {
 	u32 reg_value = (enable) ? 0xFFFFFFFFU : 0U;
 
+	(void)gr_config;
 	nvgpu_writel(g, gr_exception_en_r(), reg_value);
 	nvgpu_writel(g, gr_exception1_en_r(), reg_value);
 	nvgpu_writel(g, gr_exception2_en_r(), reg_value);
@@ -288,6 +291,9 @@ void gm20b_gr_intr_set_hww_esr_report_mask(struct gk20a *g)
 void gm20b_gr_intr_get_esr_sm_sel(struct gk20a *g, u32 gpc, u32 tpc,
 				u32 *esr_sm_sel)
 {
+	(void)g;
+	(void)gpc;
+	(void)tpc;
 	*esr_sm_sel = 1;
 }
 
@@ -296,6 +302,8 @@ void gm20b_gr_intr_clear_sm_hww(struct gk20a *g, u32 gpc, u32 tpc, u32 sm,
 {
 	u32 offset = nvgpu_safe_add_u32(nvgpu_gr_gpc_offset(g, gpc),
 					nvgpu_gr_tpc_offset(g, tpc));
+
+	(void)sm;
 
 	gk20a_writel(g, nvgpu_safe_add_u32(
 				gr_gpc0_tpc0_sm_hww_global_esr_r(), offset),
@@ -337,6 +345,8 @@ u32 gm20b_gr_intr_record_sm_error_state(struct gk20a *g, u32 gpc, u32 tpc, u32 s
 	u32 offset;
 	struct nvgpu_tsg *tsg = NULL;
 	int err = 0;
+
+	(void)sm;
 
 	offset = nvgpu_safe_add_u32(
 			nvgpu_safe_mult_u32(gpc_stride, gpc),
@@ -381,6 +391,7 @@ u32 gm20b_gr_intr_get_sm_hww_global_esr(struct gk20a *g, u32 gpc, u32 tpc,
 	u32 hww_global_esr = gk20a_readl(g, nvgpu_safe_add_u32(
 				 gr_gpc0_tpc0_sm_hww_global_esr_r(), offset));
 
+	(void)sm;
 	return hww_global_esr;
 }
 
@@ -390,6 +401,7 @@ u32 gm20b_gr_intr_get_sm_hww_warp_esr(struct gk20a *g, u32 gpc, u32 tpc, u32 sm)
 					nvgpu_gr_tpc_offset(g, tpc));
 	u32 hww_warp_esr = gk20a_readl(g, nvgpu_safe_add_u32(
 			 gr_gpc0_tpc0_sm_hww_warp_esr_r(), offset));
+	(void)sm;
 	return hww_warp_esr;
 }
 
@@ -407,6 +419,7 @@ u32 gm20b_gr_intr_get_sm_no_lock_down_hww_global_esr_mask(struct gk20a *g)
 		gr_gpc0_tpc0_sm_hww_global_esr_bpt_pause_pending_f() |
 		gr_gpc0_tpc0_sm_hww_global_esr_single_step_complete_pending_f();
 
+	(void)g;
 	return global_esr_mask;
 }
 

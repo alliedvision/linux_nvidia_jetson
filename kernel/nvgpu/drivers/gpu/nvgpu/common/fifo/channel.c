@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics channel
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -65,6 +65,8 @@
 #endif
 #include <nvgpu/job.h>
 #include <nvgpu/priv_cmdbuf.h>
+#include <nvgpu/string.h>
+#include <nvgpu/nvs.h>
 
 #include "channel_wdt.h"
 #include "channel_worker.h"
@@ -82,30 +84,28 @@ static int channel_setup_ramfc(struct nvgpu_channel *c,
 static struct nvgpu_channel *allocate_channel(struct nvgpu_fifo *f)
 {
 	struct nvgpu_channel *ch = NULL;
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	struct gk20a *g = f->g;
+#endif
 
 	nvgpu_mutex_acquire(&f->free_chs_mutex);
 	if (!nvgpu_list_empty(&f->free_chs)) {
 		ch = nvgpu_list_first_entry(&f->free_chs, nvgpu_channel,
 							  free_chs);
 		nvgpu_list_del(&ch->free_chs);
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(nvgpu_atomic_read(&ch->ref_count) != 0);
 		WARN_ON(ch->referenceable);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		f->used_channels = nvgpu_safe_add_u32(f->used_channels, 1U);
 	}
 	nvgpu_mutex_release(&f->free_chs_mutex);
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	if ((g->aggressive_sync_destroy_thresh != 0U) &&
 			(f->used_channels >
 			 g->aggressive_sync_destroy_thresh)) {
 		g->aggressive_sync_destroy = true;
 	}
+#endif
 
 	return ch;
 }
@@ -113,7 +113,9 @@ NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 static void free_channel(struct nvgpu_fifo *f,
 		struct nvgpu_channel *ch)
 {
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	struct gk20a *g = f->g;
+#endif
 
 #ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_release_used_channel(ch->chid);
@@ -129,6 +131,7 @@ static void free_channel(struct nvgpu_fifo *f,
 	 * On teardown it is not possible to dereference platform, but ignoring
 	 * this is fine then because no new channels would be created.
 	 */
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 	if (!nvgpu_is_enabled(g, NVGPU_DRIVER_IS_DYING)) {
 		if ((g->aggressive_sync_destroy_thresh != 0U) &&
 			(f->used_channels <
@@ -136,6 +139,7 @@ static void free_channel(struct nvgpu_fifo *f,
 			g->aggressive_sync_destroy = false;
 		}
 	}
+#endif
 }
 
 void nvgpu_channel_commit_va(struct nvgpu_channel *c)
@@ -474,26 +478,16 @@ int nvgpu_channel_add_job(struct nvgpu_channel *c,
 		}
 	}
 
-	if (c != NULL) {
-		job->num_mapped_buffers = num_mapped_buffers;
-		job->mapped_buffers = mapped_buffers;
+	job->num_mapped_buffers = num_mapped_buffers;
+	job->mapped_buffers = mapped_buffers;
 
-		nvgpu_channel_launch_wdt(c);
+	nvgpu_channel_launch_wdt(c);
 
-		nvgpu_channel_joblist_lock(c);
-		nvgpu_channel_joblist_add(c, job);
-		nvgpu_channel_joblist_unlock(c);
-	} else {
-		err = -ETIMEDOUT;
-		goto err_put_buffers;
-	}
+	nvgpu_channel_joblist_lock(c);
+	nvgpu_channel_joblist_add(c, job);
+	nvgpu_channel_joblist_unlock(c);
 
 	return 0;
-
-err_put_buffers:
-	nvgpu_vm_put_buffers(vm, mapped_buffers, num_mapped_buffers);
-
-	return err;
 }
 
 /**
@@ -792,7 +786,7 @@ static void channel_free_invoke_unbind(struct nvgpu_channel *ch)
 			 * have an open channel fd anymore to use for the unbind
 			 * ioctl.
 			 */
-			err = nvgpu_tsg_force_unbind_channel(tsg, ch);
+			err = nvgpu_tsg_unbind_channel(tsg, ch, true);
 			if (err != 0) {
 				nvgpu_err(g,
 					"failed to unbind channel %d from TSG",
@@ -829,6 +823,8 @@ static void channel_free_invoke_deferred_engine_reset(struct nvgpu_channel *ch)
 
 		nvgpu_mutex_release(&g->fifo.engines_reset_mutex);
 	}
+#else
+	(void)ch;
 #endif
 }
 
@@ -848,6 +844,8 @@ static void channel_free_invoke_sync_destroy(struct nvgpu_channel *ch)
 		ch->user_sync = NULL;
 	}
 	nvgpu_mutex_release(&ch->sync_lock);
+#else
+	(void)ch;
 #endif
 }
 
@@ -881,6 +879,8 @@ static void channel_free_unlink_debug_session(struct nvgpu_channel *ch)
 	}
 
 	nvgpu_mutex_release(&g->dbg_sessions_lock);
+#else
+	(void)ch;
 #endif
 }
 
@@ -946,7 +946,7 @@ static void channel_free(struct nvgpu_channel *ch, bool force)
 
 	/*
 	 * OS channel close may require that syncpoint should be set to some
-	 * safe value before it is called. nvgpu_tsg_force_unbind_channel(above)
+	 * safe value before it is called. nvgpu_tsg_unbind_channel(above)
 	 * is internally doing that by calling nvgpu_nvhost_syncpt_set_safe_-
 	 * state deep down in the stack. Otherwise os_channel close may block if
 	 * the app is killed abruptly (which was going to do the syncpoint
@@ -1097,6 +1097,8 @@ static void channel_dump_ref_actions(struct nvgpu_channel *ch)
 	}
 
 	nvgpu_spinlock_release(&ch->ref_actions_lock);
+#else
+	(void)ch;
 #endif
 }
 
@@ -1158,6 +1160,8 @@ struct nvgpu_channel *nvgpu_channel_get__func(struct nvgpu_channel *ch,
 	if (ret != NULL) {
 		trace_nvgpu_channel_get(ch->chid, caller);
 	}
+#else
+	(void)caller;
 #endif
 
 	return ret;
@@ -1170,6 +1174,8 @@ void nvgpu_channel_put__func(struct nvgpu_channel *ch, const char *caller)
 #endif
 #ifdef CONFIG_NVGPU_TRACE
 	trace_nvgpu_channel_put(ch->chid, caller);
+#else
+	(void)caller;
 #endif
 	nvgpu_atomic_dec(&ch->ref_count);
 	if (nvgpu_cond_broadcast(&ch->ref_count_dec_wq) != 0) {
@@ -1178,18 +1184,12 @@ void nvgpu_channel_put__func(struct nvgpu_channel *ch, const char *caller)
 
 	/* More puts than gets. Channel is probably going to get
 	 * stuck. */
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON(nvgpu_atomic_read(&ch->ref_count) < 0);
 
 	/* Also, more puts than gets. ref_count can go to 0 only if
 	 * the channel is closing. Channel is probably going to get
 	 * stuck. */
 	WARN_ON((nvgpu_atomic_read(&ch->ref_count) == 0) && ch->referenceable);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 }
 
 struct nvgpu_channel *nvgpu_channel_from_id__func(struct gk20a *g,
@@ -1243,11 +1243,7 @@ struct nvgpu_channel *nvgpu_channel_open_new(struct gk20a *g,
 	trace_nvgpu_channel_open_new(ch->chid);
 #endif
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	BUG_ON(ch->g != NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 	ch->g = g;
 
 	/* Runlist for the channel */
@@ -1896,10 +1892,12 @@ int nvgpu_channel_suspend_all_serviceable_ch(struct gk20a *g)
 			if (err != 0) {
 				nvgpu_err(g, "failed to preempt channel/TSG");
 			}
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 			/* wait for channel update notifiers */
 			if (g->os_channel.work_completion_cancel_sync != NULL) {
 				g->os_channel.work_completion_cancel_sync(ch);
 			}
+#endif
 
 			g->ops.channel.unbind(ch);
 
@@ -1961,6 +1959,8 @@ static void nvgpu_channel_semaphore_signal(struct nvgpu_channel *c,
 		bool post_events)
 {
 	struct gk20a *g = c->g;
+
+	(void)post_events;
 
 	if (nvgpu_cond_broadcast_interruptible( &c->semaphore_wq) != 0) {
 		nvgpu_warn(g, "failed to broadcast");
@@ -2091,6 +2091,10 @@ static void nvgpu_channel_sync_debug_dump(struct gk20a *g,
 			info->inst.semaphored);
 
 	g->ops.pbdma.syncpt_debug_dump(g, o, info);
+#else
+	(void)g;
+	(void)o;
+	(void)info;
 #endif
 }
 
@@ -2106,13 +2110,14 @@ static void nvgpu_channel_info_debug_dump(struct gk20a *g,
 	 */
 	u32 ver = nvgpu_safe_add_u32(g->params.gpu_arch, g->params.gpu_impl);
 
-	gk20a_debug_output(o, "%d-%s, TSG: %u, pid %d, refs: %d%s: ",
+	gk20a_debug_output(o, "%d-%s, TSG: %u, pid %d, refs: %d, deterministic: %s, domain name: %s",
 			info->chid,
 			g->name,
 			info->tsgid,
 			info->pid,
 			info->refs,
-			info->deterministic ? ", deterministic" : "");
+			info->deterministic ? "yes" : "no",
+			info->nvs_domain_name);
 	gk20a_debug_output(o, "channel status: %s in use %s %s",
 			info->hw_state.enabled ? "" : "not",
 			info->hw_state.status_string,
@@ -2185,6 +2190,8 @@ void nvgpu_channel_debug_dump_all(struct gk20a *g,
 	for (chid = 0U; chid < f->num_channels; chid++) {
 		struct nvgpu_channel *ch = &f->channel[chid];
 		struct nvgpu_channel_dump_info *info = infos[chid];
+		struct nvgpu_tsg *tsg;
+		const char *domain_name;
 #ifdef CONFIG_NVGPU_SW_SEMAPHORE
 		struct nvgpu_channel_sync_semaphore *sync_sema;
 		struct nvgpu_hw_semaphore *hw_sema = NULL;
@@ -2203,11 +2210,23 @@ void nvgpu_channel_debug_dump_all(struct gk20a *g,
 			continue;
 		}
 
+		tsg = nvgpu_tsg_from_ch(ch);
 		info->chid = ch->chid;
 		info->tsgid = ch->tsgid;
 		info->pid = ch->pid;
 		info->refs = nvgpu_atomic_read(&ch->ref_count);
 		info->deterministic = nvgpu_channel_is_deterministic(ch);
+		if (tsg) {
+			if (tsg->nvs_domain) {
+				domain_name = nvgpu_nvs_domain_get_name(tsg->nvs_domain);
+			} else {
+				domain_name = "(no domain)";
+			}
+		} else {
+			domain_name = "(no tsg)";
+		}
+		(void)strncpy(info->nvs_domain_name, domain_name,
+				sizeof(info->nvs_domain_name) - 1U);
 
 #ifdef CONFIG_NVGPU_SW_SEMAPHORE
 		if (hw_sema != NULL) {

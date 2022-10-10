@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -219,15 +219,23 @@ int nvgpu_nvlink_minion_load_ucode(struct gk20a *g,
 		"  - Ucode Data Size = %u", minion_hdr->ucode_data_size);
 
 	/* Copy Non Secure IMEM code */
-	nvgpu_falcon_copy_to_imem(&g->minion_flcn, 0,
+	err = nvgpu_falcon_copy_to_imem(&g->minion_flcn, 0,
 		(u8 *)&ndev->minion_img[minion_hdr->os_code_offset],
 		minion_hdr->os_code_size, 0, false,
 		GET_IMEM_TAG(minion_hdr->os_code_offset));
 
+	if (err != 0) {
+		goto exit;
+	}
+
 	/* Copy Non Secure DMEM code */
-	nvgpu_falcon_copy_to_dmem(&g->minion_flcn, 0,
+	err = nvgpu_falcon_copy_to_dmem(&g->minion_flcn, 0,
 		(u8 *)&ndev->minion_img[minion_hdr->os_data_offset],
 		minion_hdr->os_data_size, 0);
+
+	if (err != 0) {
+		goto exit;
+	}
 
 	/* Load the apps securely */
 	for (app = 0; app < minion_hdr->num_apps; app++) {
@@ -236,20 +244,31 @@ int nvgpu_nvlink_minion_load_ucode(struct gk20a *g,
 		u32 app_data_start = minion_hdr->app_data_offsets[app];
 		u32 app_data_size = minion_hdr->app_data_sizes[app];
 
-		if (app_code_size)
-			nvgpu_falcon_copy_to_imem(&g->minion_flcn,
+		if (app_code_size) {
+			err = nvgpu_falcon_copy_to_imem(&g->minion_flcn,
 				app_code_start,
 				(u8 *)&ndev->minion_img[app_code_start],
 				app_code_size, 0, true,
 				GET_IMEM_TAG(app_code_start));
 
-		if (app_data_size)
-			nvgpu_falcon_copy_to_dmem(&g->minion_flcn,
+			if (err != 0) {
+				goto exit;
+			}
+		}
+
+		if (app_data_size) {
+			err = nvgpu_falcon_copy_to_dmem(&g->minion_flcn,
 				app_data_start,
 				(u8 *)&ndev->minion_img[app_data_start],
 				app_data_size, 0);
+
+			if (err != 0) {
+				goto exit;
+			}
+		}
 	}
 
+exit:
 	return err;
 }
 

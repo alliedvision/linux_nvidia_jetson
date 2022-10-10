@@ -1,0 +1,205 @@
+From 39a37f1b5bc778f556ad1f18bbdda0dae450c875 Mon Sep 17 00:00:00 2001
+From: Chris Lew <clew@codeaurora.org>
+Date: Tue, 14 Jul 2020 17:18:30 -0700
+Subject: [PATCH 312/830] ANDROID: rpmsg: core: Add signal API support
+X-NVConfidentiality: public
+
+RPMSG unifies various transports that provide IPC to a remote proc.
+Some of these transports require some set of side band signalling in
+order to meet the specifications of the protocol they implement.
+
+The GLINK native transport supports the tty serial signals to start
+communication with modems that expect to receive the DTR serial signal.
+
+Extend the rpmsg core with an interface to send and receive sideband
+signals for the transports that need it.
+
+Bug: 161128971
+Link: https://lore.kernel.org/lkml/1593182819-30747-2-git-send-email-deesin@codeaurora.org/
+Change-Id: I54539d8ddce1bfaec9016c2bec9b5a1372601995
+Signed-off-by: Chris Lew <clew@codeaurora.org>
+(cherry picked from commit 6839fc80fe1f6564eb6a0fc0fd081d459ec6c61b)
+---
+ drivers/rpmsg/rpmsg_core.c     | 40 ++++++++++++++++++++++++++++++++++
+ drivers/rpmsg/rpmsg_internal.h |  5 +++++
+ include/linux/rpmsg.h          | 27 +++++++++++++++++++++++
+ 3 files changed, 72 insertions(+)
+
+diff --git a/drivers/rpmsg/rpmsg_core.c b/drivers/rpmsg/rpmsg_core.c
+index 028ca5961bc2..2037a4692b84 100644
+--- a/drivers/rpmsg/rpmsg_core.c
++++ b/drivers/rpmsg/rpmsg_core.c
+@@ -283,6 +283,42 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
+ }
+ EXPORT_SYMBOL(rpmsg_trysend_offchannel);
+ 
++/**
++ * rpmsg_get_signals() - get the signals for this endpoint
++ * @ept:	the rpmsg endpoint
++ *
++ * Returns signal bits on success and an appropriate error value on failure.
++ */
++int rpmsg_get_signals(struct rpmsg_endpoint *ept)
++{
++	if (WARN_ON(!ept))
++		return -EINVAL;
++	if (!ept->ops->get_signals)
++		return -ENXIO;
++
++	return ept->ops->get_signals(ept);
++}
++EXPORT_SYMBOL(rpmsg_get_signals);
++
++/**
++ * rpmsg_set_signals() - set the remote signals for this endpoint
++ * @ept:	the rpmsg endpoint
++ * @set:	set mask for signals
++ * @clear:	clear mask for signals
++ *
++ * Returns 0 on success and an appropriate error value on failure.
++ */
++int rpmsg_set_signals(struct rpmsg_endpoint *ept, u32 set, u32 clear)
++{
++	if (WARN_ON(!ept))
++		return -EINVAL;
++	if (!ept->ops->set_signals)
++		return -ENXIO;
++
++	return ept->ops->set_signals(ept, set, clear);
++}
++EXPORT_SYMBOL(rpmsg_set_signals);
++
+ /*
+  * match a rpmsg channel with a channel info struct.
+  * this is used to make sure we're not creating rpmsg devices for channels
+@@ -468,6 +504,10 @@ static int rpmsg_dev_probe(struct device *dev)
+ 
+ 		rpdev->ept = ept;
+ 		rpdev->src = ept->addr;
++
++		if (rpdrv->signals)
++			ept->sig_cb = rpdrv->signals;
++
+ 	}
+ 
+ 	err = rpdrv->probe(rpdev);
+diff --git a/drivers/rpmsg/rpmsg_internal.h b/drivers/rpmsg/rpmsg_internal.h
+index 3fc83cd50e98..03356e883b27 100644
+--- a/drivers/rpmsg/rpmsg_internal.h
++++ b/drivers/rpmsg/rpmsg_internal.h
+@@ -2,6 +2,7 @@
+ /*
+  * remote processor messaging bus internals
+  *
++ * Copyright (c) 2020 The Linux Foundation.
+  * Copyright (C) 2011 Texas Instruments, Inc.
+  * Copyright (C) 2011 Google, Inc.
+  *
+@@ -47,6 +48,8 @@ struct rpmsg_device_ops {
+  * @trysendto:		see @rpmsg_trysendto(), optional
+  * @trysend_offchannel:	see @rpmsg_trysend_offchannel(), optional
+  * @poll:		see @rpmsg_poll(), optional
++ * @get_signals:	see @rpmsg_get_signals(), optional
++ * @set_signals:	see @rpmsg_set_signals(), optional
+  *
+  * Indirection table for the operations that a rpmsg backend should implement.
+  * In addition to @destroy_ept, the backend must at least implement @send and
+@@ -66,6 +69,8 @@ struct rpmsg_endpoint_ops {
+ 			     void *data, int len);
+ 	__poll_t (*poll)(struct rpmsg_endpoint *ept, struct file *filp,
+ 			     poll_table *wait);
++	int (*get_signals)(struct rpmsg_endpoint *ept);
++	int (*set_signals)(struct rpmsg_endpoint *ept, u32 set, u32 clear);
+ };
+ 
+ int rpmsg_register_device(struct rpmsg_device *rpdev);
+diff --git a/include/linux/rpmsg.h b/include/linux/rpmsg.h
+index a68972b097b7..7cbb0fbf7d8f 100644
+--- a/include/linux/rpmsg.h
++++ b/include/linux/rpmsg.h
+@@ -2,6 +2,7 @@
+ /*
+  * Remote processor messaging
+  *
++ * Copyright (c) 2020 The Linux Foundation.
+  * Copyright (C) 2011 Texas Instruments, Inc.
+  * Copyright (C) 2011 Google, Inc.
+  * All rights reserved.
+@@ -60,6 +61,7 @@ struct rpmsg_device {
+ };
+ 
+ typedef int (*rpmsg_rx_cb_t)(struct rpmsg_device *, void *, int, void *, u32);
++typedef int (*rpmsg_rx_sig_t)(struct rpmsg_device *, void *, u32, u32);
+ 
+ /**
+  * struct rpmsg_endpoint - binds a local rpmsg address to its user
+@@ -67,6 +69,7 @@ typedef int (*rpmsg_rx_cb_t)(struct rpmsg_device *, void *, int, void *, u32);
+  * @refcount: when this drops to zero, the ept is deallocated
+  * @cb: rx callback handler
+  * @cb_lock: must be taken before accessing/changing @cb
++ * @sig_cb: rx serial signal handler
+  * @addr: local rpmsg address
+  * @priv: private data for the driver's use
+  *
+@@ -89,6 +92,7 @@ struct rpmsg_endpoint {
+ 	struct kref refcount;
+ 	rpmsg_rx_cb_t cb;
+ 	struct mutex cb_lock;
++	rpmsg_rx_sig_t sig_cb;
+ 	u32 addr;
+ 	void *priv;
+ 
+@@ -102,6 +106,7 @@ struct rpmsg_endpoint {
+  * @probe: invoked when a matching rpmsg channel (i.e. device) is found
+  * @remove: invoked when the rpmsg channel is removed
+  * @callback: invoked when an inbound message is received on the channel
++ * @signals: invoked when a serial signal change is received on the channel
+  */
+ struct rpmsg_driver {
+ 	struct device_driver drv;
+@@ -109,6 +114,8 @@ struct rpmsg_driver {
+ 	int (*probe)(struct rpmsg_device *dev);
+ 	void (*remove)(struct rpmsg_device *dev);
+ 	int (*callback)(struct rpmsg_device *, void *, int, void *, u32);
++	int (*signals)(struct rpmsg_device *rpdev,
++		       void *priv, u32 old, u32 new);
+ };
+ 
+ #if IS_ENABLED(CONFIG_RPMSG)
+@@ -135,6 +142,9 @@ int rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src, u32 dst,
+ __poll_t rpmsg_poll(struct rpmsg_endpoint *ept, struct file *filp,
+ 			poll_table *wait);
+ 
++int rpmsg_get_signals(struct rpmsg_endpoint *ept);
++int rpmsg_set_signals(struct rpmsg_endpoint *ept, u32 set, u32 clear);
++
+ #else
+ 
+ static inline int register_rpmsg_device(struct rpmsg_device *dev)
+@@ -242,6 +252,23 @@ static inline __poll_t rpmsg_poll(struct rpmsg_endpoint *ept,
+ 	return 0;
+ }
+ 
++static inline int rpmsg_get_signals(struct rpmsg_endpoint *ept)
++{
++	/* This shouldn't be possible */
++	WARN_ON(1);
++
++	return -ENXIO;
++}
++
++static inline int rpmsg_set_signals(struct rpmsg_endpoint *ept,
++				    u32 set, u32 clear)
++{
++	/* This shouldn't be possible */
++	WARN_ON(1);
++
++	return -ENXIO;
++}
++
+ #endif /* IS_ENABLED(CONFIG_RPMSG) */
+ 
+ /* use a macro to avoid include chaining to get THIS_MODULE */
+-- 
+2.17.1
+

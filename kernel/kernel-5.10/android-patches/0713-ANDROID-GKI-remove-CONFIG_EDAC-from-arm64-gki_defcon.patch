@@ -1,0 +1,31 @@
+From ce4f30bc3167a4678ad8b3204a54a5b2aaf361ce Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Wed, 24 Jun 2020 14:28:11 +0200
+Subject: [PATCH 713/830] ANDROID: GKI: remove CONFIG_EDAC from arm64
+ gki_defconfig
+X-NVConfidentiality: public
+
+It's no longer a needed option due to upstream changes so remove it from
+the defconfig for arm64.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Id1723b7b5a59c53671df19dddbd07f16d13da16f
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 3b67b1b0231b..ba6efe812db8 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -367,7 +367,6 @@ CONFIG_MMC_SDHCI_PLTFM=y
+ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_TRIGGERS=y
+-CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PL030=y
+ CONFIG_RTC_DRV_PL031=y
+-- 
+2.17.1
+

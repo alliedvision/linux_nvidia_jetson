@@ -193,6 +193,18 @@ static const struct host1x_sid_entry tegra194_sid_table[] = {
 		.limit = 0x34
 	},
 	{
+		/* NVDLA */
+		.base = 0x1ba8,
+		.offset = 0x30,
+		.limit = 0x34
+	},
+	{
+		/* NVDLA1 */
+		.base = 0x1bb0,
+		.offset = 0x30,
+		.limit = 0x34
+	},
+	{
 		/* NVENC1 */
 		.base = 0x1bb8,
 		.offset = 0x30,
@@ -516,12 +528,6 @@ static int host1x_probe(struct platform_device *pdev)
 		goto deinit_syncpt;
 	}
 
-	err = host1x_uapi_init(&host->uapi, host);
-	if (err) {
-		dev_err(&pdev->dev, "failed to initialize uapi\n");
-		goto deinit_intr;
-	}
-
 	host1x_debug_init(host);
 
 	if (host->info->has_hypervisor)
@@ -541,8 +547,6 @@ unregister:
 	host1x_unregister(host);
 deinit_debugfs:
 	host1x_debug_deinit(host);
-	host1x_uapi_deinit(&host->uapi);
-deinit_intr:
 	host1x_intr_deinit(host);
 deinit_syncpt:
 	host1x_syncpt_deinit(host);
@@ -564,7 +568,6 @@ static int host1x_remove(struct platform_device *pdev)
 
 	host1x_unregister(host);
 	host1x_debug_deinit(host);
-	host1x_uapi_deinit(&host->uapi);
 	host1x_intr_deinit(host);
 	host1x_syncpt_deinit(host);
 	reset_control_assert(host->rst);

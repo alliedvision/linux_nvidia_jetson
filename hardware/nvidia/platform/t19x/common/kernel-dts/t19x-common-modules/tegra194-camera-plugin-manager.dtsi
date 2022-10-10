@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -297,7 +297,7 @@
 				_overlay_ {
 					status = "okay";
 					port-index = <0>;
-					bus-width = <4>;
+					bus-width = <8>;
 					remote-endpoint = <&e2832_csi_out0>;
 				};
 			};
@@ -325,7 +325,7 @@
 				_overlay_ {
 					status = "okay";
 					port-index = <0>;
-					bus-width = <4>;
+					bus-width = <8>;
 					remote-endpoint = <&e2832_out0>;
 				};
 			};
@@ -346,7 +346,7 @@
 			override@13 {
 				target = <&tcp>;
 				_overlay_ {
-					num_csi_lanes = <4>;
+					num_csi_lanes = <8>;
 					max_lane_speed = <1500000>;
 					min_bits_per_pixel = <10>;
 					vi_peak_byte_per_pixel = <2>;

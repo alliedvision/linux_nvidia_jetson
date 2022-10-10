@@ -19,6 +19,20 @@ config TEGRA_COMBINED_UART
 	  Combined-uart uses 'ctrl /' as break-signal for SysRq, for example:
 	  'ctrl / + h' for sysrq-help.
 
+config TEGRA_COMBINED_UART_EARLY
+	bool "Tegra combined UART early printk driver"
+	depends on ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC
+	default n
+	help
+	  Tegra combined UART is a client-server model which allows a server
+	  running on SPE to multiplex a single UART controller amongst multiple
+	  UART clients.
+
+	  This config enables the Linux client driver. With
+	  this driver we are adding support for early printk
+	  so that we can get early boot logs of kernel even before
+	  initialization of serial driver itself.
+
 config TEGRA_HV_COMM
 	tristate "Tegra Hypervisor Communication"
 	depends on TEGRA_HV_MANAGER

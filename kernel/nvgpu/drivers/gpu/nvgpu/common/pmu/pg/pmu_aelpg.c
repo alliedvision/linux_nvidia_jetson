@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -75,6 +75,8 @@ static void ap_callback_init_and_enable_ctrl(
 		struct gk20a *g, struct pmu_msg *msg,
 		void *param, u32 status)
 {
+	(void)param;
+
 	WARN_ON(msg == NULL);
 
 	if (status == 0U) {
@@ -100,6 +102,8 @@ int nvgpu_pmu_ap_send_command(struct gk20a *g,
 	struct pmu_cmd cmd;
 	pmu_callback p_callback = NULL;
 	u64 tmp;
+
+	(void)b_block;
 
 	(void) memset(&cmd, 0, sizeof(struct pmu_cmd));
 

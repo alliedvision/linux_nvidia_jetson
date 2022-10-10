@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -38,6 +38,11 @@
 #include <linux/wait.h>
 #include <asm/ioctls.h>
 #include <asm/uaccess.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
+#include <uapi/linux/eventpoll.h>
+typedef unsigned int __poll_t;
+#endif
 
 #define CCIOGNFRAMES _IOR('c', 1, int)
 #define CCIOGNBYTES _IOR('c', 2, int)
@@ -90,9 +95,9 @@ static int tegra_camchar_release(struct inode *in, struct file *fp)
 	return 0;
 }
 
-static unsigned int tegra_camchar_poll(struct file *fp, poll_table *pt)
+static __poll_t tegra_camchar_poll(struct file *fp, struct poll_table_struct *pt)
 {
-	unsigned int ret = 0;
+	__poll_t ret = 0;
 	struct tegra_ivc_channel *ch = fp->private_data;
 	struct tegra_camchar_data *dev_data = tegra_ivc_channel_get_drvdata(ch);
 
@@ -100,9 +105,9 @@ static unsigned int tegra_camchar_poll(struct file *fp, poll_table *pt)
 
 	mutex_lock(&dev_data->io_lock);
 	if (tegra_ivc_can_read(&ch->ivc))
-		ret |= (POLLIN | POLLRDNORM);
+		ret |= (EPOLLIN | EPOLLRDNORM);
 	if (tegra_ivc_can_write(&ch->ivc))
-		ret |= (POLLOUT | POLLWRNORM);
+		ret |= (EPOLLOUT | EPOLLWRNORM);
 	mutex_unlock(&dev_data->io_lock);
 
 	return ret;

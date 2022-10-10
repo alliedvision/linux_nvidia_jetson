@@ -1,0 +1,48 @@
+From 621163106d3c4ffb8646a4d0b1263499b79581e5 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Tue, 28 Jan 2020 14:10:57 -0800
+Subject: [PATCH 623/830] ANDROID: gki_defconfig: Set IKHEADERS back to =y
+X-NVConfidentiality: public
+
+This reverts I3624fa4eb40a8aa726275027aa2b2d5bd635ceda
+The build time vintf check has been updated to expect IKHEADERS=y.
+
+Bug: 139431025
+Bug: 143488798
+Test: TreeHugger
+Change-Id: I60ede1c1fde3b8e011450a94d467f6c393613a7a
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 +-
+ arch/x86/configs/gki_defconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 7b1da6c7b7c0..0601d0bd72aa 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -9,7 +9,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+-CONFIG_IKHEADERS=m
++CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index fbe5425bcc32..8c20e380d551 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -10,7 +10,7 @@ CONFIG_TASK_IO_ACCOUNTING=y
+ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+-CONFIG_IKHEADERS=m
++CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+-- 
+2.17.1
+

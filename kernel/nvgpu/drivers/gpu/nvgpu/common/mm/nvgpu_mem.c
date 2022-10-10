@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,19 +41,6 @@ u32 nvgpu_aperture_mask_raw(struct gk20a *g, enum nvgpu_aperture aperture,
 {
 	u32 ret_mask = 0;
 
-	if ((aperture == APERTURE_INVALID) || (aperture >= APERTURE_MAX_ENUM)) {
-		nvgpu_do_assert_print(g, "Bad aperture");
-		return 0;
-	}
-
-	/*
-	 * Some iGPUs treat sysmem (i.e SoC DRAM) as vidmem. In these cases the
-	 * "sysmem" aperture should really be translated to VIDMEM.
-	 */
-	if (!nvgpu_is_enabled(g, NVGPU_MM_HONORS_APERTURE)) {
-		aperture = APERTURE_VIDMEM;
-	}
-
 	switch (aperture) {
 	case APERTURE_SYSMEM_COH:
 		ret_mask = sysmem_coh_mask;
@@ -69,6 +56,15 @@ u32 nvgpu_aperture_mask_raw(struct gk20a *g, enum nvgpu_aperture aperture,
 		ret_mask = 0;
 		break;
 	}
+
+	/*
+	 * Some iGPUs treat sysmem (i.e SoC DRAM) as vidmem. In these cases the
+	 * "sysmem" aperture should really be translated to VIDMEM.
+	 */
+	if (!nvgpu_is_enabled(g, NVGPU_MM_HONORS_APERTURE) && ret_mask != 0) {
+		ret_mask = vidmem_mask;
+	}
+
 	return ret_mask;
 }
 
@@ -114,13 +110,7 @@ u32 nvgpu_mem_rd32(struct gk20a *g, struct nvgpu_mem *mem, u64 w)
 	if (mem->aperture == APERTURE_SYSMEM) {
 		u32 *ptr = mem->cpu_va;
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(ptr == NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		data = ptr[w];
 	}
 #ifdef CONFIG_NVGPU_DGPU
@@ -146,38 +136,20 @@ u64 nvgpu_mem_rd32_pair(struct gk20a *g, struct nvgpu_mem *mem, u32 lo, u32 hi)
 
 u32 nvgpu_mem_rd(struct gk20a *g, struct nvgpu_mem *mem, u64 offset)
 {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON((offset & 3ULL) != 0ULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 	return nvgpu_mem_rd32(g, mem, offset / (u64)sizeof(u32));
 }
 
 void nvgpu_mem_rd_n(struct gk20a *g, struct nvgpu_mem *mem,
 		u64 offset, void *dest, u64 size)
 {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON((offset & 3ULL) != 0ULL);
 	WARN_ON((size & 3ULL) != 0ULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	if (mem->aperture == APERTURE_SYSMEM) {
 		u8 *src = (u8 *)mem->cpu_va + offset;
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(mem->cpu_va == NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		nvgpu_memcpy((u8 *)dest, src, size);
 	}
 #ifdef CONFIG_NVGPU_DGPU
@@ -195,13 +167,7 @@ void nvgpu_mem_wr32(struct gk20a *g, struct nvgpu_mem *mem, u64 w, u32 data)
 	if (mem->aperture == APERTURE_SYSMEM) {
 		u32 *ptr = mem->cpu_va;
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(ptr == NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		ptr[w] = data;
 	}
 #ifdef CONFIG_NVGPU_DGPU
@@ -221,38 +187,20 @@ NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 void nvgpu_mem_wr(struct gk20a *g, struct nvgpu_mem *mem, u64 offset, u32 data)
 {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON((offset & 3ULL) != 0ULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 	nvgpu_mem_wr32(g, mem, offset / (u64)sizeof(u32), data);
 }
 
 void nvgpu_mem_wr_n(struct gk20a *g, struct nvgpu_mem *mem, u64 offset,
 		void *src, u64 size)
 {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 2, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON((offset & 3ULL) != 0ULL);
 	WARN_ON((size & 3ULL) != 0ULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	if (mem->aperture == APERTURE_SYSMEM) {
 		u8 *dest = (u8 *)mem->cpu_va + offset;
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(mem->cpu_va == NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		nvgpu_memcpy(dest, (u8 *)src, size);
 	}
 #ifdef CONFIG_NVGPU_DGPU
@@ -271,28 +219,16 @@ NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 void nvgpu_memset(struct gk20a *g, struct nvgpu_mem *mem, u64 offset,
 		u32 c, u64 size)
 {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 3, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 3, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 3, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON((offset & 3ULL) != 0ULL);
 	WARN_ON((size & 3ULL) != 0ULL);
 	WARN_ON((c & ~0xffU) != 0U);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	c &= 0xffU;
 
 	if (mem->aperture == APERTURE_SYSMEM) {
 		u8 *dest = (u8 *)mem->cpu_va + offset;
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		WARN_ON(mem->cpu_va == NULL);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 		(void) memset(dest, (int)c, size);
 	}
 #ifdef CONFIG_NVGPU_DGPU
@@ -332,12 +268,16 @@ static u64 nvgpu_mem_phys_sgl_phys(struct gk20a *g, void *sgl)
 {
 	struct nvgpu_mem_sgl *sgl_impl = (struct nvgpu_mem_sgl *)sgl;
 
+	(void)g;
 	return sgl_impl->phys;
 }
 
 static u64 nvgpu_mem_phys_sgl_ipa_to_pa(struct gk20a *g,
 		void *sgl, u64 ipa, u64 *pa_len)
 {
+	(void)g;
+	(void)sgl;
+	(void)pa_len;
 	return ipa;
 }
 
@@ -353,19 +293,21 @@ static u64 nvgpu_mem_phys_sgl_gpu_addr(struct gk20a *g, void *sgl,
 {
 	struct nvgpu_mem_sgl *sgl_impl = (struct nvgpu_mem_sgl *)sgl;
 
+	(void)g;
+	(void)attrs;
 	return sgl_impl->phys;
 }
 
 static void nvgpu_mem_phys_sgt_free(struct gk20a *g, struct nvgpu_sgt *sgt)
 {
+	(void)g;
+	(void)sgt;
 	/*
 	 * No-op here. The free is handled by freeing the nvgpu_mem itself.
 	 */
 }
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 8_7), "Bug 2823817")
 static const struct nvgpu_sgt_ops nvgpu_mem_phys_ops = {
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 8_7))
 	.sgl_next      = nvgpu_mem_phys_sgl_next,
 	.sgl_dma       = nvgpu_mem_phys_sgl_dma,
 	.sgl_phys      = nvgpu_mem_phys_sgl_phys,
@@ -415,4 +357,13 @@ int nvgpu_mem_create_from_phys(struct gk20a *g, struct nvgpu_mem *dest,
 	sgt->ops    = &nvgpu_mem_phys_ops;
 
 	return ret;
+}
+
+u64 nvgpu_mem_phys_get_addr(struct gk20a *g, struct nvgpu_mem *mem)
+{
+	struct nvgpu_mem_sgl *sgl_impl;
+
+	(void)g;
+	sgl_impl = (struct nvgpu_mem_sgl *)(mem->phys_sgt->sgl);
+	return sgl_impl->phys;
 }

@@ -1,0 +1,42 @@
+From 55fa840a9127029aac190a7243efebf91b80ff1f Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 30 Dec 2019 13:29:11 +0100
+Subject: [PATCH 609/830] ANDROID: update defconfig for 5.5-rc3
+X-NVConfidentiality: public
+
+The order where CONFIG_RUNTIME_TESTING_MENU goes changed, no real
+configuration change happened here at all.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I379958ed77e1b503a62ce58549f5d514cd9e6ff4
+---
+ arch/arm64/configs/gki_defconfig | 2 +-
+ arch/x86/configs/gki_defconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index ca3ace1f559a..e6f14b50a761 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -487,6 +487,6 @@ CONFIG_PANIC_TIMEOUT=5
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+ # CONFIG_DETECT_HUNG_TASK is not set
+ CONFIG_SCHEDSTATS=y
+-# CONFIG_RUNTIME_TESTING_MENU is not set
+ CONFIG_CORESIGHT=y
+ CONFIG_CORESIGHT_STM=y
++# CONFIG_RUNTIME_TESTING_MENU is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 05ea182a15b4..fc0fa321cab9 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -423,5 +423,5 @@ CONFIG_PANIC_TIMEOUT=5
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+ # CONFIG_DETECT_HUNG_TASK is not set
+ CONFIG_SCHEDSTATS=y
+-# CONFIG_RUNTIME_TESTING_MENU is not set
+ CONFIG_UNWINDER_FRAME_POINTER=y
++# CONFIG_RUNTIME_TESTING_MENU is not set
+-- 
+2.17.1
+

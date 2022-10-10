@@ -1,7 +1,7 @@
 /*
  * GV11B L2 INTR
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,18 +31,21 @@ struct gk20a;
 
 void gv11b_ltc_intr_configure(struct gk20a *g);
 void gv11b_ltc_intr_isr(struct gk20a *g, u32 ltc);
+#ifdef CONFIG_NVGPU_NON_FUSA
 void gv11b_ltc_intr_en_illegal_compstat(struct gk20a *g, bool enable);
+#endif
 
 void gv11b_ltc_intr_init_counters(struct gk20a *g,
-			u32 corrected_delta, u32 corrected_overflow,
 			u32 uncorrected_delta, u32 uncorrected_overflow,
 			u32 offset);
 void gv11b_ltc_intr_handle_rstg_ecc_interrupts(struct gk20a *g,
-			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr);
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 uncorrected_delta);
 void gv11b_ltc_intr_handle_tstg_ecc_interrupts(struct gk20a *g,
-			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr);
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 uncorrected_delta);
 void gv11b_ltc_intr_handle_dstg_ecc_interrupts(struct gk20a *g,
-			u32 ltc, u32 slice, u32 ecc_status, u32 dstg_ecc_addr,
-			u32 ecc_addr);
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 uncorrected_delta);
 
 #endif

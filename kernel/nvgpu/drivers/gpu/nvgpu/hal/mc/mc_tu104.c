@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -155,6 +155,14 @@ static void intr_tu104_nonstall_enable(struct gk20a *g)
 	 */
 	nonstall_intr_base = nvgpu_readl(g,
 		ctrl_legacy_engine_nonstall_intr_base_vectorid_r());
+	/*
+	 * FIXME: ctrl_legacy_engine_nonstall_intr_base_vectorid_r() has a range of 0-4095,
+	 *        but bit shifting is currently using u64 variables (after typecast).
+	 */
+	if (nonstall_intr_base > 63U) {
+		nvgpu_err(g, "Invalid nostall_intr_base, %u", nonstall_intr_base);
+		return;
+	}
 
 	for (i = 0; i < g->fifo.num_engines; i++) {
 		const struct nvgpu_device *dev = g->fifo.active_engines[i];
@@ -243,6 +251,8 @@ void intr_tu104_stall_unit_config(struct gk20a *g, u32 unit, bool enable)
 
 void intr_tu104_nonstall_unit_config(struct gk20a *g, u32 unit, bool enable)
 {
+	(void)unit;
+	(void)enable;
 	intr_tu104_nonstall_enable(g);
 }
 
@@ -323,9 +333,17 @@ u32 intr_tu104_isr_nonstall(struct gk20a *g)
 			func_priv_cpu_intr_leaf_r(
 				NV_CPU_INTR_SUBTREE_TO_LEAF_REG1(
 					NV_CPU_INTR_TOP_NONSTALL_SUBTREE)));
-
+	/*
+	 * FIXME: ctrl_legacy_engine_nonstall_intr_base_vectorid_r() has a range of 0-4095,
+	 *        but bit shifting is currently using u64 variables (after typecast).
+	 */
 	nonstall_intr_base = nvgpu_readl(g,
 		ctrl_legacy_engine_nonstall_intr_base_vectorid_r());
+
+	if (nonstall_intr_base > 63U) {
+		nvgpu_err(g, "Invalid nostall_intr_base, %u", nonstall_intr_base);
+		return ops;
+	}
 
 	for (i = 0U; i < g->fifo.num_engines; i++) {
 		const struct nvgpu_device *dev = g->fifo.active_engines[i];
@@ -386,6 +404,7 @@ u32 intr_tu104_stall(struct gk20a *g)
 /* Return true if HUB interrupt is pending */
 bool intr_tu104_is_intr_hub_pending(struct gk20a *g, u32 mc_intr_0)
 {
+	(void)mc_intr_0;
 	return g->ops.mc.is_mmu_fault_pending(g);
 }
 

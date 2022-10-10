@@ -1,0 +1,88 @@
+From 4950c9e3f03c574c9e48c7505113d650248c65e8 Mon Sep 17 00:00:00 2001
+From: Choonghoon Park <choong.park@samsung.com>
+Date: Mon, 27 Jul 2020 13:34:32 +0900
+Subject: [PATCH 148/830] ANDROID: Export some scheduler APIs for vendor
+ modules
+X-NVConfidentiality: public
+
+Make some scheduler APIs exports to allow vendor
+modules to use them. It is necessary for the modules
+to migrate tasks as they want.
+
+  activate_task:
+    To make an inactive and migrated task runnable.
+
+  deactivate_task:
+    To make an active task migratible.
+
+  check_preempt_curr:
+    To check whether a migrated task needs to preempt
+    current task and if so, to do it.
+
+  set_task_cpu:
+    To set a cpu for a migratible task and force
+    the task to be migrated.
+
+  stop_one_cpu_nowait:
+    To move a queued task, stopper should be used.
+
+Bug: 155241766
+
+Signed-off-by: Choonghoon Park <choong.park@samsung.com>
+Change-Id: Ied940640525101efbbcef6eca0c39f15eb580007
+---
+ kernel/sched/core.c   | 4 ++++
+ kernel/stop_machine.c | 1 +
+ 2 files changed, 5 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index a8e5726290d3..be5ad09a6e0a 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -1609,6 +1609,7 @@ void activate_task(struct rq *rq, struct task_struct *p, int flags)
+ 
+ 	p->on_rq = TASK_ON_RQ_QUEUED;
+ }
++EXPORT_SYMBOL_GPL(activate_task);
+ 
+ void deactivate_task(struct rq *rq, struct task_struct *p, int flags)
+ {
+@@ -1616,6 +1617,7 @@ void deactivate_task(struct rq *rq, struct task_struct *p, int flags)
+ 
+ 	dequeue_task(rq, p, flags);
+ }
++EXPORT_SYMBOL_GPL(deactivate_task);
+ 
+ static inline int __normal_prio(int policy, int rt_prio, int nice)
+ {
+@@ -1708,6 +1710,7 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
+ 	if (task_on_rq_queued(rq->curr) && test_tsk_need_resched(rq->curr))
+ 		rq_clock_skip_update(rq);
+ }
++EXPORT_SYMBOL_GPL(check_preempt_curr);
+ 
+ #ifdef CONFIG_SMP
+ 
+@@ -2017,6 +2020,7 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
+ 
+ 	__set_task_cpu(p, new_cpu);
+ }
++EXPORT_SYMBOL_GPL(set_task_cpu);
+ 
+ #ifdef CONFIG_NUMA_BALANCING
+ static void __migrate_swap_task(struct task_struct *p, int cpu)
+diff --git a/kernel/stop_machine.c b/kernel/stop_machine.c
+index 890b79cf0e7c..f3c54c96a7b4 100644
+--- a/kernel/stop_machine.c
++++ b/kernel/stop_machine.c
+@@ -370,6 +370,7 @@ bool stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
+ 	*work_buf = (struct cpu_stop_work){ .fn = fn, .arg = arg, };
+ 	return cpu_stop_queue_work(cpu, work_buf);
+ }
++EXPORT_SYMBOL_GPL(stop_one_cpu_nowait);
+ 
+ static bool queue_stop_cpus_work(const struct cpumask *cpumask,
+ 				 cpu_stop_fn_t fn, void *arg,
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -87,6 +87,11 @@
 #define ctxsw_prog_main_image_num_gfxp_save_ops_o()                (0x000000d8U)
 #define ctxsw_prog_main_image_num_cilp_save_ops_o()                (0x000000dcU)
 #define ctxsw_prog_main_image_num_restore_ops_o()                  (0x000000f8U)
+#define ctxsw_prog_main_tpc_segment_pri_layout_o()                 (0x000000e4U)
+#define ctxsw_prog_main_tpc_segment_pri_layout_v_v(r)\
+				(((r) >> 0U) & 0xffffffffU)
+#define ctxsw_prog_main_tpc_segment_pri_layout_v_invalid_v()       (0x00000000U)
+#define ctxsw_prog_main_tpc_segment_pri_layout_v_interleaved_v()   (0x00000002U)
 #define ctxsw_prog_main_image_magic_value_1_o()                    (0x000000fcU)
 #define ctxsw_prog_main_image_magic_value_1_v_value_v()            (0x600dc0deU)
 #define ctxsw_prog_main_image_magic_value_2_o()                    (0x00000100U)

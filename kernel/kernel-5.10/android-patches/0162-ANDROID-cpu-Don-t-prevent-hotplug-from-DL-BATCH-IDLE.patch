@@ -1,0 +1,54 @@
+From 09fa243d1c674ab2bd78e718a7f43844d7adf009 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Mon, 26 Oct 2020 17:00:34 +0000
+Subject: [PATCH 162/830] ANDROID: cpu: Don't prevent hotplug from
+ DL/BATCH/IDLE
+X-NVConfidentiality: public
+
+Commit c6e5f9d7cf2f ("ANDROID: cpu-hotplug: Always use real time
+scheduling when hotplugging a CPU") tried to speed-up hotplug of
+SCHED_NORMAL tasks by temporarily elevating them to SCHED_FIFO. But
+while at it, it also prevented hotplug from SCHED_IDLE, SCHED_BATCH or
+SCHED_DEADLINE for no apparent reason.
+
+Since this is a userspace-visible change, and is unlikely to actually be
+needed, change the patch logic to only optimize for SCHED_NORMAL tasks
+and leave the others untouched.
+
+Bug: 169238689
+Fixes: c6e5f9d7cf2f ("ANDROID: cpu-hotplug: Always use real time
+scheduling when hotplugging a CPU")
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I4d9e88b15fee56e7d234826e2eaea306a69328bb
+---
+ kernel/cpu.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index c07ca0fd9119..20ee5aa6523a 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1254,10 +1254,8 @@ static int switch_to_rt_policy(void)
+ 	if (policy == SCHED_NORMAL)
+ 		/* Switch to SCHED_FIFO from SCHED_NORMAL. */
+ 		return sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
+-	else if (policy == SCHED_FIFO || policy == SCHED_RR)
+-		return 1;
+ 	else
+-		return -EPERM;
++		return 1;
+ }
+ 
+ static int switch_to_fair_policy(void)
+@@ -1353,8 +1351,6 @@ static int cpu_up(unsigned int cpu, enum cpuhp_state target)
+ 	 */
+ 
+ 	switch_err = switch_to_rt_policy();
+-	if (switch_err < 0)
+-		return switch_err;
+ 
+ 	err = try_online_node(cpu_to_node(cpu));
+ 	if (err)
+-- 
+2.17.1
+

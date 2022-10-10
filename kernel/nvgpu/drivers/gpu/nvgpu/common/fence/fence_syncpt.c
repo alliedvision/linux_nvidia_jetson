@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -65,6 +65,7 @@ static bool nvgpu_fence_syncpt_is_expired(struct nvgpu_fence_type *f)
 
 static void nvgpu_fence_syncpt_release(struct nvgpu_fence_type *f)
 {
+	(void)f;
 }
 
 static const struct nvgpu_fence_ops nvgpu_fence_syncpt_ops = {

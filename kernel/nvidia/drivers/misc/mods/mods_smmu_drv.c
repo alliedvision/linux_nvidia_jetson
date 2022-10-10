@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * mods_dma_mapping.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -72,12 +73,11 @@ static int mods_smmu_driver_probe(struct platform_device *pdev)
 	err = of_property_read_string(node, "dev-names", &dev_name);
 	if (err < 0) {
 		mods_error_printk(
-		  "mods_smmu_driver_probe failed to read dev-names, ret=%d\n",
-		  err);
+			"smmu probe failed to read dev-names, ret=%d\n", err);
 		LOG_EXT();
 		return err;
 	}
-	mods_debug_printk(DEBUG_MEM, "mods_smmu_driver_probe: dev-names=%s, dev_idx=%d\n",
+	mods_debug_printk(DEBUG_MEM, "smmu probe: dev-names=%s, dev_idx=%d\n",
 			  dev_name,
 			  mods_smmu_dev_num);
 	if (mods_smmu_dev_num < MODS_MAX_SMMU_DEVICES) {

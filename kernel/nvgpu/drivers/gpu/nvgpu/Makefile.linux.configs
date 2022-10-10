@@ -41,6 +41,15 @@ CONFIG_NVGPU_COMPRESSION := y
 # Enable MIG Support
 CONFIG_NVGPU_MIG := y
 
+# Enable gv11b support
+CONFIG_NVGPU_SUPPORT_GV11B := y
+
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_TEGRA_HOST1X_NEXT := m
+CONFIG_TEGRA_NVMAP_NEXT := m
+endif
+
 # Enable support for extraction of comptags for CDE.
 ifeq ($(CONFIG_NVGPU_COMPRESSION),y)
 CONFIG_NVGPU_SUPPORT_CDE := y
@@ -98,6 +107,37 @@ ifdef CONFIG_TEGRA_NVMAP_NEXT
 CONFIG_NVGPU_NVMAP_NEXT := y
 endif
 
+CONFIG_NVGPU_ENABLE_MISC_EC := n
+ifdef CONFIG_TEGRA_EPL
+CONFIG_NVGPU_ENABLE_MISC_EC := y
+endif
+
+CONFIG_TEGRA_L1SS_SUPPORT := n
+ifdef CONFIG_TEGRA_SAFETY
+CONFIG_TEGRA_L1SS_SUPPORT := y
+endif
+
+CONFIG_NVGPU_NVMEM_FUSE := n
+
+CONFIG_NVGPU_NVMAP_NEXT := y
+CONFIG_NVGPU_NVMEM_FUSE := y
+
+ifneq ($(findstring stable,$(NV_BUILD_KERNEL_OPTIONS)),)
+CONFIG_NVGPU_NVMEM_FUSE := y
+endif
+
+# Set CONFIG_NVGPU_IVM_BUILD for non-stable and non-oot build
+ifeq ($(findstring stable,$(NV_BUILD_KERNEL_OPTIONS)),)
+ifneq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_NVGPU_IVM_BUILD := y
+endif
+endif
+
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_NVGPU_NVMEM_FUSE := y
+endif
+
 # Enable support for GPUs on PCIe bus.
 ifeq ($(CONFIG_PCI),y)
 # Support for NVGPU DGPU
@@ -116,6 +156,8 @@ endif
 ifeq ($(CONFIG_NV_TEGRA_MC),y)
 CONFIG_NVGPU_USE_TEGRA_ALLOC_FD := y
 endif
+
+CONFIG_TEGRA_NVLINK := n
 
 # Support Nvlink
 ifeq ($(CONFIG_TEGRA_NVLINK),y)
@@ -163,6 +205,12 @@ endif
 
 endif
 
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_GK20A_DEVFREQ := y
+CONFIG_GK20A_PM_QOS := n
+endif
+
 ifeq ($(CONFIG_GK20A_PMU),y)
 ccflags-y += -DCONFIG_GK20A_PMU
 endif
@@ -193,6 +241,9 @@ endif
 ifeq ($(CONFIG_NVGPU_COMPRESSION),y)
 ccflags-y += -DCONFIG_NVGPU_COMPRESSION
 endif
+ifeq ($(CONFIG_NVGPU_SUPPORT_GV11B),y)
+ccflags-y += -DCONFIG_NVGPU_SUPPORT_GV11B
+endif
 ifeq ($(CONFIG_NVGPU_REMAP),y)
 ccflags-y += -DCONFIG_NVGPU_REMAP
 endif
@@ -219,6 +270,9 @@ ccflags-y += -DCONFIG_TEGRA_GK20A_NVHOST
 endif
 ifeq ($(CONFIG_TEGRA_GK20A_NVHOST_HOST1X),y)
 ccflags-y += -DCONFIG_TEGRA_GK20A_NVHOST_HOST1X
+endif
+ifeq ($(CONFIG_NVGPU_NVMEM_FUSE),y)
+ccflags-y += -DCONFIG_NVGPU_NVMEM_FUSE
 endif
 ifeq ($(CONFIG_NVGPU_NVMAP_NEXT),y)
 ccflags-y += -DCONFIG_NVGPU_NVMAP_NEXT
@@ -261,4 +315,10 @@ ccflags-y += -DCONFIG_NVGPU_GSP_STRESS_TEST
 endif
 ifeq ($(CONFIG_NVS_PRESENT),y)
 ccflags-y += -DCONFIG_NVS_PRESENT
+endif
+ifeq ($(CONFIG_NVGPU_IVM_BUILD),y)
+ccflags-y += -DCONFIG_NVGPU_IVM_BUILD
+endif
+ifeq ($(CONFIG_NVGPU_ENABLE_MISC_EC),y)
+ccflags-y += -DCONFIG_NVGPU_ENABLE_MISC_EC
 endif

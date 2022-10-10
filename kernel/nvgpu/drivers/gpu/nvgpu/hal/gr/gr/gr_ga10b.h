@@ -1,7 +1,7 @@
 /*
  * GA10B GPU GR
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,9 +41,9 @@ int gr_ga10b_dump_gr_status_regs(struct gk20a *g,
 void gr_ga10b_set_circular_buffer_size(struct gk20a *g, u32 data);
 void ga10b_gr_set_gpcs_rops_crop_debug4(struct gk20a *g, u32 data);
 #ifdef CONFIG_NVGPU_HAL_NON_FUSA
-void ga10b_gr_vab_init(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
+void ga10b_gr_vab_reserve(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
 	struct nvgpu_vab_range_checker *vab_range_checker);
-void ga10b_gr_vab_release(struct gk20a *g, u32 vab_reg);
+void ga10b_gr_vab_configure(struct gk20a *g, u32 vab_reg);
 #endif /* CONFIG_NVGPU_HAL_NON_FUSA */
 
 #ifdef CONFIG_NVGPU_DEBUGGER

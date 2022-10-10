@@ -273,7 +273,7 @@ void host1x_intr_put_ref(struct host1x *host, unsigned int id, void *ref,
 	if (flush) {
 		/* Wait until any concurrently executing handler has finished. */
 		while (atomic_read(&waiter->state) != WLS_HANDLED)
-			cpu_relax();
+			schedule();
 	}
 
 	kref_put(&waiter->refcount, waiter_release);

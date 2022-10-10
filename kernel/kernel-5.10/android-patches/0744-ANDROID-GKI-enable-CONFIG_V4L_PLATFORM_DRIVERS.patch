@@ -1,0 +1,52 @@
+From 32a3bcfe8b28a2049a574df6a0e66fa1b7ca8a1d Mon Sep 17 00:00:00 2001
+From: zhang sanshan <pete.zhang@nxp.com>
+Date: Tue, 30 Jun 2020 16:51:27 +0800
+Subject: [PATCH 744/830] ANDROID: GKI: enable CONFIG_V4L_PLATFORM_DRIVERS
+X-NVConfidentiality: public
+
+the sensor/csi/mipi driver are in drivers/media/platform/.
+need enable V4L_PLATFORM_DRIVERS by default to support camera
+which is need by soc vendor.
+
+Bug: 160192055
+Signed-off-by: zhang sanshan <pete.zhang@nxp.com>
+Change-Id: I38ef6c1d1dcc2101216a50ad32f7fff96fe7ea65
+(cherry picked from commit 7c8a73f320ef73b7ec8d9ac87f6696ef8997436a)
+[salyzyn added CONFIG_MEDIA_PLATFORM_SUPPORT as well]
+Signed-off-by: Mark Salyzyn <salyzyn@google.com>
+Fixes: 06b93644f4d102bd ("media: Kconfig: add an option to filter in/out platform drivers")
+Bug: 165592876
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index cc02b2669db0..82881a9b6325 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -322,6 +322,8 @@ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_MEDIA_CEC_SUPPORT=y
+ CONFIG_MEDIA_SUPPORT_FILTER=y
++CONFIG_MEDIA_PLATFORM_SUPPORT=y
++CONFIG_V4L_PLATFORM_DRIVERS=y
+ # CONFIG_VGA_ARB is not set
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 59a19df132d4..536cde9f3d36 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -285,6 +285,8 @@ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_MEDIA_CEC_SUPPORT=y
+ CONFIG_MEDIA_SUPPORT_FILTER=y
++CONFIG_MEDIA_PLATFORM_SUPPORT=y
++CONFIG_V4L_PLATFORM_DRIVERS=y
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+-- 
+2.17.1
+

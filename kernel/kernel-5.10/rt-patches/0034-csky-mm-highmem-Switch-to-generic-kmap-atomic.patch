@@ -1,7 +1,7 @@
-From ae7686aaf29dc8e94c95ce5437a85a26a3a60711 Mon Sep 17 00:00:00 2001
+From 3da55bbfebca651eba10291b500e4dc6752212e5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:23 +0100
-Subject: [PATCH 034/304] csky/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 034/318] csky/mm/highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture.
 
@@ -10,13 +10,13 @@ Cc: linux-csky@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/csky/Kconfig               |  1 +
- arch/csky/include/asm/fixmap.h  |  4 +--
- arch/csky/include/asm/highmem.h |  6 ++--
- arch/csky/mm/highmem.c          | 75 +----------------------------------------
+ arch/csky/include/asm/fixmap.h  |  4 +-
+ arch/csky/include/asm/highmem.h |  6 ++-
+ arch/csky/mm/highmem.c          | 75 +--------------------------------
  4 files changed, 8 insertions(+), 78 deletions(-)
 
 diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-index 7bf0a617..c9f2533 100644
+index 7bf0a617e94c..c9f2533cc53d 100644
 --- a/arch/csky/Kconfig
 +++ b/arch/csky/Kconfig
 @@ -286,6 +286,7 @@ config NR_CPUS
@@ -28,7 +28,7 @@ index 7bf0a617..c9f2533 100644
  
  config FORCE_MAX_ZONEORDER
 diff --git a/arch/csky/include/asm/fixmap.h b/arch/csky/include/asm/fixmap.h
-index 81f9477..4b589cc 100644
+index 81f9477d5330..4b589cc20900 100644
 --- a/arch/csky/include/asm/fixmap.h
 +++ b/arch/csky/include/asm/fixmap.h
 @@ -8,7 +8,7 @@
@@ -50,7 +50,7 @@ index 81f9477..4b589cc 100644
  	__end_of_fixed_addresses
  };
 diff --git a/arch/csky/include/asm/highmem.h b/arch/csky/include/asm/highmem.h
-index 14645e3..1f4ed3f 100644
+index 14645e3d5cd5..1f4ed3f4c0d9 100644
 --- a/arch/csky/include/asm/highmem.h
 +++ b/arch/csky/include/asm/highmem.h
 @@ -9,7 +9,7 @@
@@ -77,7 +77,7 @@ index 14645e3..1f4ed3f 100644
  
  #endif /* __KERNEL__ */
 diff --git a/arch/csky/mm/highmem.c b/arch/csky/mm/highmem.c
-index 89c1080..4161df3 100644
+index 89c10800a002..4161df3c6c15 100644
 --- a/arch/csky/mm/highmem.c
 +++ b/arch/csky/mm/highmem.c
 @@ -9,8 +9,6 @@
@@ -174,5 +174,5 @@ index 89c1080..4161df3 100644
 -	kmap_pte = pte_offset_kernel((pmd_t *)pgd_offset_k(vaddr), vaddr);
 -}
 -- 
-2.7.4
+2.17.1
 

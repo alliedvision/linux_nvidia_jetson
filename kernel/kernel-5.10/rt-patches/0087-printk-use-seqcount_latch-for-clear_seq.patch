@@ -1,7 +1,7 @@
-From 4c2b0341321c19dec31b12eb3d5a42a02a2a3695 Mon Sep 17 00:00:00 2001
+From a8bd2c1339ead8c54136d66765b2f8ac1121e92b Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:41:58 +0106
-Subject: [PATCH 087/304] printk: use seqcount_latch for clear_seq
+Subject: [PATCH 087/318] printk: use seqcount_latch for clear_seq
 
 kmsg_dump_rewind_nolock() locklessly reads @clear_seq. However,
 this is not done atomically. Since @clear_seq is 64-bit, this
@@ -13,11 +13,11 @@ Signed-off-by: John Ogness <john.ogness@linutronix.de>
 Reviewed-by: Petr Mladek <pmladek@suse.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- kernel/printk/printk.c | 58 +++++++++++++++++++++++++++++++++++++++++++-------
+ kernel/printk/printk.c | 58 ++++++++++++++++++++++++++++++++++++------
  1 file changed, 50 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index f79e751..a71e0d4 100644
+index f362b096d476..0c10ee97995e 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -402,8 +402,21 @@ static u64 console_seq;
@@ -123,7 +123,7 @@ index f79e751..a71e0d4 100644
  	logbuf_unlock_irq();
  }
  
-@@ -3332,7 +3374,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3339,7 +3381,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  		dumper->active = true;
  
  		logbuf_lock_irqsave(flags);
@@ -132,7 +132,7 @@ index f79e751..a71e0d4 100644
  		dumper->next_seq = prb_next_seq(prb);
  		logbuf_unlock_irqrestore(flags);
  
-@@ -3530,7 +3572,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3537,7 +3579,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
   */
  void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper)
  {
@@ -142,5 +142,5 @@ index f79e751..a71e0d4 100644
  }
  
 -- 
-2.7.4
+2.17.1
 

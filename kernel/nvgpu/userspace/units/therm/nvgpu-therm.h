@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@ struct unit_module;
  */
 
 /**
- * Test specification for: test_setup_env
+ * Test specification for: therm_test_setup_env
  *
  * Description: Do basic setup before starting other tests.
  *
@@ -49,24 +49,24 @@ struct unit_module;
  * - UNIT_FAIL if encounters an error creating reg space
  * - UNIT_SUCCESS otherwise
  */
-int test_setup_env(struct unit_module *m,
+int therm_test_setup_env(struct unit_module *m,
 			  struct gk20a *g, void *args);
 
 /**
- * Test specification for: test_free_env
+ * Test specification for: therm_test_free_env
  *
- * Description: Cleanup resources allocated in test_setup_env
+ * Description: Cleanup resources allocated in therm_test_setup_env
  *
  * Test Type: Other (setup)
  *
- * Input: test_setup_env has run.
+ * Input: therm_test_setup_env has run.
  *
  * Steps:
  * - Free reg spaces.
  *
  * Output: UNIT_SUCCESS always.
  */
-int test_free_env(struct unit_module *m, struct gk20a *g, void *args);
+int therm_test_free_env(struct unit_module *m, struct gk20a *g, void *args);
 
 /**
  * Test specification for: test_therm_init_support
@@ -78,7 +78,7 @@ int test_free_env(struct unit_module *m, struct gk20a *g, void *args);
  * Targets: gops_therm.init_therm_support, gops_therm.init_therm_setup_hw,
  *          nvgpu_init_therm_support, gv11b_init_therm_setup_hw
  *
- * Input: test_setup_env has run.
+ * Input: therm_test_setup_env has run.
  *
  * Steps:
  * - Call API gops_therm.init_therm_support and verify it returns success.
@@ -129,7 +129,7 @@ int test_therm_init_elcg_mode(struct unit_module *m, struct gk20a *g,
  *
  * Targets: gops_therm.elcg_init_idle_filters, gv11b_elcg_init_idle_filters
  *
- * Input: test_setup_env has run.
+ * Input: therm_test_setup_env has run.
  *
  * Steps:
  * - Setup FIFO in gk20a struct for 2 active engines.

@@ -1,0 +1,47 @@
+From ecd587179bf3a066f85209532ffbdf40eaac0219 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Tue, 3 Mar 2020 13:30:16 -0800
+Subject: [PATCH 650/830] ANDROID: GKI: build in HVC_DRIVER
+X-NVConfidentiality: public
+
+Cuttlefish and Goldfish both rely on the virtio console and
+HVC_DRIVER is a binary config which is a dep for that driver.
+
+Bug: 150620456
+Test: Treehugger
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Change-Id: I54e7d95da4fcddd534d0f0f48b5c546cd2f2718d
+---
+ init/Kconfig.gki | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 572499005bf6..82afdddd28d1 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -97,6 +97,14 @@ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	  These are normally selected implicitly when a module
+ 	  that relies on it is configured.
+ 
++config GKI_HIDDEN_VIRTUAL_CONFIGS
++	bool "Hidden Virtual configs needed for GKI"
++	select HVC_DRIVER
++	help
++	  Dummy config option used to enable hidden virtual device configs.
++	  These are normally selected implicitly when a module
++	  that relies on it is configured.
++
+ # LEGACY_WEXT_ALLCONFIG Discussed upstream, soundly rejected as a unique
+ # problem for GKI to solve.  It should be noted that these extensions are
+ # in-effect deprecated and generally unsupported and we should pressure
+@@ -135,6 +143,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_QCOM_CONFIGS
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+ 	select GKI_HIDDEN_MEDIA_CONFIGS
++	select GKI_HIDDEN_VIRTUAL_CONFIGS
+ 	select GKI_QCOM_CLKS_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+-- 
+2.17.1
+

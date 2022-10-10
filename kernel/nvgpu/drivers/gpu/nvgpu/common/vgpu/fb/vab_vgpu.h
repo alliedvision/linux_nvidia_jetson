@@ -22,6 +22,6 @@
 
 int vgpu_fb_vab_reserve(struct gk20a *g, u32 vab_mode, u32 num_range_checkers,
 			struct nvgpu_vab_range_checker *vab_range_checker);
-int vgpu_fb_vab_dump_and_clear(struct gk20a *g, u64 *user_buf,
+int vgpu_fb_vab_dump_and_clear(struct gk20a *g, u8 *user_buf,
 				u64 user_buf_size);
 int vgpu_fb_vab_release(struct gk20a *g);

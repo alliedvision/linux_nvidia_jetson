@@ -549,6 +549,11 @@ static int __init tegra_actmon_probe(struct platform_device *pdev)
 	struct actmon_drv_data *actmon;
 
 	of_id = of_match_node(tegra_actmon_of_match, pdev->dev.of_node);
+	if (of_id == NULL) {
+		pr_err("No matching of node\n");
+		ret = -ENODATA;
+		return ret;
+	}
 	actmon = (struct actmon_drv_data *)of_id->data;
 	platform_set_drvdata(pdev, actmon);
 	actmon->pdev = pdev;

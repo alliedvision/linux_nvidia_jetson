@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -217,7 +217,6 @@ static void nvgpu_ce_delete_gpu_context_locked(struct nvgpu_ce_gpu_ctx *ce_ctx)
 	struct nvgpu_list_node *list = &ce_ctx->list;
 
 	ce_ctx->gpu_ctx_state = NVGPU_CE_GPU_CTX_DELETED;
-	ce_ctx->tsg->abortable = true;
 
 	nvgpu_mutex_acquire(&ce_ctx->gpu_ctx_mutex);
 
@@ -230,8 +229,14 @@ static void nvgpu_ce_delete_gpu_context_locked(struct nvgpu_ce_gpu_ctx *ce_ctx)
 	 * free the channel
 	 * nvgpu_channel_close() will also unbind the channel from TSG
 	 */
-	nvgpu_channel_close(ce_ctx->ch);
-	nvgpu_ref_put(&ce_ctx->tsg->refcount, nvgpu_tsg_release);
+	if (ce_ctx->ch != NULL) {
+		nvgpu_channel_close(ce_ctx->ch);
+	}
+
+	if (ce_ctx->tsg != NULL) {
+		ce_ctx->tsg->abortable = true;
+		nvgpu_ref_put(&ce_ctx->tsg->refcount, nvgpu_tsg_release);
+	}
 
 	/* housekeeping on app */
 	if ((list->prev != NULL) && (list->next != NULL)) {

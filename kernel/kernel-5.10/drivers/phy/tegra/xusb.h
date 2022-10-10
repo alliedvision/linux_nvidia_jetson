@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (c) 2015, Google Inc.
  */
 
@@ -522,6 +522,9 @@ extern const struct tegra_xusb_padctl_soc tegra194_xusb_padctl_soc;
 #endif
 #if defined(CONFIG_ARCH_TEGRA_234_SOC)
 extern const struct tegra_xusb_padctl_soc tegra234_xusb_padctl_soc;
+#endif
+#if defined(CONFIG_ARCH_TEGRA_239_SOC)
+extern const struct tegra_xusb_padctl_soc tegra239_xusb_padctl_soc;
 #endif
 
 #endif /* __PHY_TEGRA_XUSB_H */

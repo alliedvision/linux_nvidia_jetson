@@ -1,0 +1,80 @@
+NVIDIA Tegra Consumer Electronics Control
+
+The Tegra Consumer Electronics Control (CEC) provides an engine for programming
+CEC protocol so that CEC data can be transmitted and received to connected HDMI monitor.
+
+This document describes the device tree bindings for the CEC hardware.
+
+Required properties:
+- status: Should be "disabled" in SoC and "okay" in Board DTSI.
+- compatible: Must be "nvidia,tegra234-cec".
+- reg: A list of physical base address and length of CEC's registers.
+- interrupts: The interrupt IRQ info for the CEC hardware.
+- reset-names: Must include the following entries:
+  "TEGRA234_RESET_CEC"
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+
+In order to enable CEC on a specific board, Board DTSI should be used.
+The Pinmux settings should be also changed in Board Pinmux DTSI file as given
+below. Only change pinmux settings if CEC functionality is needed. Otherwise
+it will draw more power as PAD is always powered on due to below settings.
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+tegra_cec: tegra_cec {
+	compatible = "nvidia,tegra234-cec";
+	reg = <0x0 0x0c3e0000 0x0 0x00001000>;
+	interrupts = <0 279 0x04>;
+	resets = <&bpmp_resets TEGRA234_RESET_CEC>;
+	reset-names = "cec";
+	status = "disabled";
+};
+
+Board DTSI:
+----------
+
+tegra_cec: tegra_cec {
+	status = "okay";
+};
+
+Pinmux DTSI:
+-----------
+
+Required properties:
+- nvidia,pins : String contains the name of a pin on which CEC is connected.
+    This must be set as per board schematic.
+- nvidia,function: A string containing the name of the function to mux to the
+    pin. Must be set to "hdmi".
+- nvidia,pull: Integer, representing the pull-down/up to apply to the pin.
+    0: none, 1: down, 2: up. Must be set to "TEGRA_PIN_PULL_UP"
+- nvidia,tristate: Integer.
+    0: passthrough, 1: tristate. Must be set to TEGRA_PIN_PASSTHROUGH/DISABLE
+- nvidia,enable-input: Integer. Enable the pin's input path.
+    enable :TEGRA_PIN_ENABLE0 and
+    disable or output only: TEGRA_PIN_DISABLE. Must be set to ""
+- nvidia,io-high-voltage: input/output voltage.
+    enable: TEGRA_PIN_ENABLE.
+    disable: TEGRA_PIN_DISABLE. Must be set to "TEGRA_PIN_ENABLE". This will
+    drain more power as PAD is set to high voltage on always.
+- nvidia,io-high-voltage: LPDR settings
+    enable: TEGRA_PIN_ENABLE.
+    disable: TEGRA_PIN_DISABLE. Must be set to "TEGRA_PIN_DISABLE".
+
+Example:
+=======
+
+hdmi_cec_pgg0 {
+	nvidia,pins = "hdmi_cec_pgg0";
+	nvidia,function = "hdmi";
+	nvidia,pull = <TEGRA_PIN_PULL_UP>;
+	nvidia,tristate = <TEGRA_PIN_DISABLE>;
+	nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+	nvidia,io-high-voltage = <TEGRA_PIN_ENABLE>;
+	nvidia,lpdr = <TEGRA_PIN_DISABLE>;
+};
+

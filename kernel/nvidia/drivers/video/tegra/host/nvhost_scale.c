@@ -669,10 +669,14 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct host1x_actmon *actmon = s->private;
 	char buffer[40];
-	int buf_size;
+	unsigned int buf_size;
 	unsigned long period;
 
-	memset(buffer, 0, sizeof(buffer));
+	if (count >= sizeof(buffer))
+		nvhost_warn(NULL, "%s: value too big!" \
+			"only first %ld characters will be written",
+			__func__, sizeof(buffer) - 1);
+
 	buf_size = min(count, (sizeof(buffer)-1));
 
 	if (copy_from_user(buffer, user_buf, buf_size)) {
@@ -680,11 +684,7 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 			   user_buf);
 		return -EFAULT;
 	}
-
-	if (strlen(buffer) > buf_size) {
-		nvhost_err(NULL, "buffer too large (>%d)", buf_size);
-		return -EFAULT;
-	}
+	buffer[buf_size] = '\0';
 
 	if (kstrtoul(buffer, 10, &period)) {
 		nvhost_err(NULL, "failed to convert %s to ul", buffer);
@@ -693,7 +693,7 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 
 	actmon_op().set_sample_period_norm(actmon, period);
 
-	return count;
+	return buf_size;
 }
 
 static const struct file_operations actmon_sample_period_norm_fops = {
@@ -744,10 +744,14 @@ static ssize_t actmon_k_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct host1x_actmon *actmon = s->private;
 	char buffer[40];
-	int buf_size;
+	unsigned int buf_size;
 	unsigned long k;
 
-	memset(buffer, 0, sizeof(buffer));
+	if (count >= sizeof(buffer))
+		nvhost_warn(NULL, "%s: value too big!" \
+			"only first %ld characters will be written",
+			__func__, sizeof(buffer) - 1);
+
 	buf_size = min(count, (sizeof(buffer)-1));
 
 	if (copy_from_user(buffer, user_buf, buf_size)) {
@@ -755,6 +759,7 @@ static ssize_t actmon_k_write(struct file *file,
 			   "failed to copy from user user_buf=%px", user_buf);
 		return -EFAULT;
 	}
+	buffer[buf_size] = '\0';
 
 	if (strlen(buffer) > buf_size) {
 		nvhost_err(NULL, "buffer too large (>%d)", buf_size);
@@ -768,7 +773,7 @@ static ssize_t actmon_k_write(struct file *file,
 
 	actmon_op().set_k(actmon, k);
 
-	return count;
+	return buf_size;
 }
 
 static const struct file_operations actmon_k_fops = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,7 +25,7 @@
 
 #define TEGRA_SOC_HWPM_DEV_NODE		"/dev/tegra-soc-hwpm"
 
-/* The IPs which can be profiled */
+/* IPs supported for HW configurations queries */
 enum tegra_soc_hwpm_ip {
 	TEGRA_SOC_HWPM_IP_VI,
 	TEGRA_SOC_HWPM_IP_ISP,
@@ -43,7 +43,6 @@ enum tegra_soc_hwpm_ip {
 	TEGRA_SOC_HWPM_IP_MSS_GPU_HUB,
 	TEGRA_SOC_HWPM_IP_MSS_ISO_NISO_HUBS,
 	TEGRA_SOC_HWPM_IP_MSS_MCF,
-	TEGRA_SOC_HWPM_IP_MSS_NVLINK,
 	TERGA_SOC_HWPM_NUM_IPS
 };
 
@@ -55,48 +54,28 @@ struct tegra_soc_hwpm_device_info {
 	__u32 platform;	/* Eg. Pre-Si, Si */
 };
 
+/* TEGRA_CTRL_CMD_SOC_HWPM_IP_FLOORSWEEP_INFO IOCTL */
 struct tegra_soc_hwpm_ip_floorsweep_info_query {
 	/* input */
-	__u16 ip_type;		/* enum tegra_soc_hwpm_ip */
+	__u16 ip;		/* enum tegra_soc_hwpm_ip */
 	/* output */
 #define TEGRA_SOC_HWPM_IP_STATUS_VALID		0
 #define TEGRA_SOC_HWPM_IP_STATUS_INVALID	1
 	__u8 status;		/* IP status */
 	__u8 reserved1;
 	__u32 reserved2;
-	__u64 ip_inst_mask;	/* each set bit corresponds to an IP instance */
+	/*
+	 * flattened availability mask of IP elements.
+	 * Each set bit corresponds to available IP element.
+	 */
+	__u64 ip_inst_mask;
 };
 
 #define TEGRA_SOC_HWPM_IP_QUERIES_MAX	32
-/* TEGRA_CTRL_CMD_SOC_HWPM_IP_FLOORSWEEP_INFO IOCTL */
 struct tegra_soc_hwpm_ip_floorsweep_info {
 	/* Holds queries */
 	struct tegra_soc_hwpm_ip_floorsweep_info_query ip_fsinfo[TEGRA_SOC_HWPM_IP_QUERIES_MAX];
 	__u32 num_queries;
-};
-
-enum tegra_soc_hwpm_timer_relation_cpu_clk {
-	TEGRA_SOC_HWPM_TIMER_RELATION_CPU_CLK_OSTIME, /* FIXME: Is this needed? */
-	TEGRA_SOC_HWPM_TIMER_RELATION_CPU_CLK_PLAT_API,
-	TEGRA_SOC_HWPM_TIMER_RELATION_CPU_CLK_TSC /* FIXME: Is this needed? */
-};
-
-struct tegra_soc_hwpm_timer_relation_sample {
-	__u64 cpu_time;
-	__u64 gpu_time;
-};
-
-/* TEGRA_CTRL_CMD_SOC_HWPM_GET_GPU_CPU_TIME_CORRELATION_INFO IOCTL */
-struct tegra_soc_hwpm_timer_relation {
-	/*
-	 * Inputs
-	 */
-	enum tegra_soc_hwpm_timer_relation_cpu_clk cpu_clk;
-
-	/*
-	 * Outputs
-	 */
-	struct tegra_soc_hwpm_timer_relation_sample sample;
 };
 
 /* The resources which can be reserved for profiling */
@@ -117,7 +96,6 @@ enum tegra_soc_hwpm_resource {
 	TEGRA_SOC_HWPM_RESOURCE_MSS_GPU_HUB,
 	TEGRA_SOC_HWPM_RESOURCE_MSS_ISO_NISO_HUBS,
 	TEGRA_SOC_HWPM_RESOURCE_MSS_MCF,
-	TEGRA_SOC_HWPM_RESOURCE_MSS_NVLINK,
 
 	/*
 	 * - SYS0 PERMON in RPG_PMG
@@ -132,6 +110,26 @@ enum tegra_soc_hwpm_resource {
 	TEGRA_SOC_HWPM_RESOURCE_CMD_SLICE_RTR,
 
 	TERGA_SOC_HWPM_NUM_RESOURCES
+};
+
+/* TEGRA_CTRL_CMD_SOC_HWPM_RESOURCE_INFO IOCTL */
+struct tegra_soc_hwpm_resource_info_query {
+	/* input */
+	__u16 resource;		/* enum tegra_soc_hwpm_resource */
+	/* output */
+#define TEGRA_SOC_HWPM_RESOURCE_STATUS_INVALID		0
+#define TEGRA_SOC_HWPM_RESOURCE_STATUS_VALID		1
+	__u8 status;		/* Resource status */
+	__u8 reserved1;
+	__u32 reserved2;
+};
+
+#define TEGRA_SOC_HWPM_RESOURCE_QUERIES_MAX	32
+struct tegra_soc_hwpm_resource_info {
+	/* Holds queries */
+	struct tegra_soc_hwpm_resource_info_query resource_info[
+		TEGRA_SOC_HWPM_RESOURCE_QUERIES_MAX];
+	__u32 num_queries;
 };
 
 /* TEGRA_CTRL_CMD_SOC_HWPM_RESERVE_RESOURCE IOCTL */
@@ -227,6 +225,7 @@ struct tegra_soc_hwpm_reg_op {
  /* not in allowlist */
 #define TEGRA_SOC_HWPM_REG_OP_STATUS_INSUFFICIENT_PERMISSIONS	3
 #define TEGRA_SOC_HWPM_REG_OP_STATUS_WR_FAILED			4
+#define TEGRA_SOC_HWPM_REG_OP_STATUS_RD_FAILED			5
 	__u8 status;
 
 	/* Explicit padding for 8 Byte alignment */
@@ -288,89 +287,11 @@ struct tegra_soc_hwpm_update_get_put {
 	__u8 b_overflowed;
 };
 
-/* Interface for IP driver communication */
-
-/*
- * Enums for IP register read/write, to make things simple
- * from SOC HWPM driver, read or write of only 32 bit data
- * requested at a time.
- */
-enum tegra_soc_hwpm_ip_reg_op {
-	TEGRA_SOC_HWPM_IP_REG_OP_INVALID,
-	TEGRA_SOC_HWPM_IP_REG_OP_READ,
-	TEGRA_SOC_HWPM_IP_REG_OP_WRITE
-};
-
-/*
- * Structure describing hwpm ip ops. Once IP driver is ready
- * it will register with SOC HWPM driver with data and callback
- * functions listed here. On IP driver removal, un-register with
- * SOC HWPM driver.
- */
-struct tegra_soc_hwpm_ip_ops {
-	/*
-	 * IP driver identfiier for SOC HWPM usage. Example: Unique
-	 * device/platform name created using IP device tree entry.
-	 * SOC HWPM should be able to map this identifier to one
-	 * of supported IP aperture.
-	 */
-	__u64 ip_base_address;
-
-	/*
-	 * Opaque ip device handle used for callback from
-	 * SOC HWPM driver to IP drivers. This handle can be used
-	 * to access IP driver functionality with the callbacks.
-	 */
-	void *ip_dev;
-	/*
-	 * hwpm_ip_pm is callback function to disable/enable
-	 * IP driver power management. Before SOC HWPM doing
-	 * perf measuremnts, this callback is called with
-	 * "disable = true ", so that IP driver will disable IP specific
-	 * power management to keep IP driver responsive. Once SOC HWPM is
-	 * done with perf measurement, this callaback is called
-	 * with "disable = true", so that IP driver can restore back
-	 * it's orignal power management.
-	 */
-	int (*hwpm_ip_pm)(void *dev, bool disable);
-	/*
-	 * hwpm_ip_reg_op is callback function to do IP
-	 * register 32 bit read or write.
-	 * For read:
-	 *      input : dev - IP device handle
-	 *      input : reg_op - TEGRA_SOC_HWPM_IP_REG_OP_READ
-	 *      input : reg_offset - register offset
-	 *      output: reg_data - u32 read value
-	 * For write:
-	 *      input : dev - IP device handle
-	 *      input : reg_op - TEGRA_SOC_HWPM_IP_REG_OP_WRITE
-	 *      input : reg_offset - register offset
-	 *      output: reg_data -  u32 write value
-	 * Return:
-	 *      reg_op success / failure
-	 */
-	int (*hwpm_ip_reg_op)(void *dev,
-				enum tegra_soc_hwpm_ip_reg_op reg_op,
-				__u64 reg_offset, __u32 *reg_data);
-
-};
-
-/*
- * tegra_soc_hwpm_ip_register: IP driver will call this function to register
- * with SOC HWPM driver with it's data and callbacks
- */
-void tegra_soc_hwpm_ip_register(struct tegra_soc_hwpm_ip_ops *hwpm_ip_ops);
-/*
- * tegra_soc_hwpm_ip_unregister: IP driver will call this function to unregister
- * with SOC HWPM driver.
- */
-void tegra_soc_hwpm_ip_unregister(struct tegra_soc_hwpm_ip_ops *hwpm_ip_ops);
-
 /* IOCTL enum */
 enum tegra_soc_hwpm_ioctl_num {
 	TEGRA_SOC_HWPM_IOCTL_DEVICE_INFO,
 	TEGRA_SOC_HWPM_IOCTL_FLOORSWEEP_INFO,
-	TEGRA_SOC_HWPM_IOCTL_GET_GPU_CPU_TIME_CORRELATION_INFO,
+	TEGRA_SOC_HWPM_IOCTL_RESOURCE_INFO,
 	TEGRA_SOC_HWPM_IOCTL_RESERVE_RESOURCE,
 	TEGRA_SOC_HWPM_IOCTL_ALLOC_PMA_STREAM,
 	TEGRA_SOC_HWPM_IOCTL_BIND,
@@ -394,12 +315,20 @@ enum tegra_soc_hwpm_ioctl_num {
 			struct tegra_soc_hwpm_device_info)
 
 /*
- * IOCTL for finding the relationship between the CPU and GPU timers
+ * IOCTL for querying IP instance info
  */
-#define	TEGRA_CTRL_CMD_SOC_HWPM_GET_GPU_CPU_TIME_CORRELATION_INFO		\
-		_IOWR(TEGRA_SOC_HWPM_IOC_MAGIC,					\
-			TEGRA_SOC_HWPM_IOCTL_GET_GPU_CPU_TIME_CORRELATION_INFO,	\
-			struct tegra_soc_hwpm_timer_relation)
+#define TEGRA_CTRL_CMD_SOC_HWPM_IP_FLOORSWEEP_INFO		\
+		_IOWR(TEGRA_SOC_HWPM_IOC_MAGIC,			\
+			TEGRA_SOC_HWPM_IOCTL_FLOORSWEEP_INFO,	\
+			struct tegra_soc_hwpm_ip_floorsweep_info)
+
+/*
+ * IOCTL for resource status
+ */
+#define	TEGRA_CTRL_CMD_SOC_HWPM_RESOURCE_INFO			\
+		_IOWR(TEGRA_SOC_HWPM_IOC_MAGIC,			\
+			TEGRA_SOC_HWPM_IOCTL_RESOURCE_INFO,	\
+			struct tegra_soc_hwpm_resource_info)
 
 /*
  * IOCTL for reserving a resource for profiling
@@ -473,12 +402,93 @@ enum tegra_soc_hwpm_ioctl_num {
 				TEGRA_SOC_HWPM_IOCTL_UPDATE_GET_PUT,	\
 				struct tegra_soc_hwpm_update_get_put)
 
+
+/* Interface for IP driver communication */
+
 /*
- * IOCTL for querying IP instance info
+ * Enums for IP register read/write, to make things simple
+ * from SOC HWPM driver, read or write of only 32 bit data
+ * requested at a time.
  */
-#define TEGRA_CTRL_CMD_SOC_HWPM_IP_FLOORSWEEP_INFO		\
-		_IOWR(TEGRA_SOC_HWPM_IOC_MAGIC,			\
-			TEGRA_SOC_HWPM_IOCTL_FLOORSWEEP_INFO,	\
-			struct tegra_soc_hwpm_ip_floorsweep_info)
+enum tegra_soc_hwpm_ip_reg_op {
+	TEGRA_SOC_HWPM_IP_REG_OP_INVALID,
+	TEGRA_SOC_HWPM_IP_REG_OP_READ,
+	TEGRA_SOC_HWPM_IP_REG_OP_WRITE
+};
+
+/*
+ * Structure describing hwpm ip ops. Once IP driver is ready
+ * it will register with SOC HWPM driver with data and callback
+ * functions listed here. On IP driver removal, un-register with
+ * SOC HWPM driver.
+ */
+struct tegra_soc_hwpm_ip_ops {
+	/*
+	 * IP instance identfier for SOC HWPM usage. This is base
+	 * address of IP instance included in device tree entry.
+	 * SOC HWPM should be able to map this to one instance in
+	 * supported IP aperture.
+	 */
+	__u64 ip_base_address;
+
+	/*
+	 * IP is a resource from HWPM perspective. Pass IP driver enum respect
+	 * to enum tegra_soc_hwpm_resource for HWPM usage. SOC HWPM should be
+	 *  ableto map this identifier to one of supported resource structures.
+	 */
+	__u32 resource_enum;
+
+	/*
+	 * Opaque ip device handle used for callback from
+	 * SOC HWPM driver to IP drivers. This handle can be used
+	 * to access IP driver functionality with the callbacks.
+	 */
+	void *ip_dev;
+	/*
+	 * hwpm_ip_pm is callback function to disable/enable
+	 * IP driver power management. Before SOC HWPM doing
+	 * perf measuremnts, this callback is called with
+	 * "disable = true ", so that IP driver will disable IP specific
+	 * power management to keep IP driver responsive. Once SOC HWPM is
+	 * done with perf measurement, this callaback is called
+	 * with "disable = true", so that IP driver can restore back
+	 * it's orignal power management.
+	 */
+	int (*hwpm_ip_pm)(void *dev, bool disable);
+	/*
+	 * hwpm_ip_reg_op is callback function to do IP
+	 * register 32 bit read or write.
+	 * For read:
+	 *      input : dev - IP device handle
+	 *      input : reg_op - TEGRA_SOC_HWPM_IP_REG_OP_READ
+	 *      input : inst_element_index - element index within IP instance
+	 *      input : reg_offset - register offset
+	 *      output: reg_data - u32 read value
+	 * For write:
+	 *      input : dev - IP device handle
+	 *      input : reg_op - TEGRA_SOC_HWPM_IP_REG_OP_WRITE
+	 *      input : inst_element_index - element index within IP instance
+	 *      input : reg_offset - register offset
+	 *      output: reg_data -  u32 write value
+	 * Return:
+	 *      reg_op success / failure
+	 */
+	int (*hwpm_ip_reg_op)(void *dev,
+				enum tegra_soc_hwpm_ip_reg_op reg_op,
+				__u32 inst_element_index,
+				__u64 reg_offset, __u32 *reg_data);
+
+};
+
+/*
+ * tegra_soc_hwpm_ip_register: IP driver will call this function to register
+ * with SOC HWPM driver with it's data and callbacks
+ */
+void tegra_soc_hwpm_ip_register(struct tegra_soc_hwpm_ip_ops *hwpm_ip_ops);
+/*
+ * tegra_soc_hwpm_ip_unregister: IP driver will call this function to unregister
+ * with SOC HWPM driver.
+ */
+void tegra_soc_hwpm_ip_unregister(struct tegra_soc_hwpm_ip_ops *hwpm_ip_ops);
 
 #endif /* TEGRA_SOC_HWPM_UAPI_H */

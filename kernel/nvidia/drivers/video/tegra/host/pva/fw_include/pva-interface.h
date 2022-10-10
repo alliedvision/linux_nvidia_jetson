@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -157,16 +157,40 @@ typedef uint8_t pva_status_cmds_t;
 #define GET_STATUS_NEXT 23U
 
 /*
- * CCQ FIFO interface definition
+ * CCQ FIFO SUBMIT interface definition
  */
-#define PVA_CCQ_CMD_MSB 63
-#define PVA_CCQ_CMD_LSB 56
-#define PVA_CCQ_ADDR_MSB 39
-#define PVA_CCQ_ADDR_LSB 0
-#define PVA_CCQ_QUEUE_ID_MSB 47
-#define PVA_CCQ_QUEUE_ID_LSB 40
-#define PVA_CCQ_BATCH_SIZE_MSB 55
-#define PVA_CCQ_BATCH_SIZE_LSB 48
+#define PVA_ADDR_LOWER_32BITS_MSB       (63U)
+#define PVA_ADDR_LOWER_32BITS_LSB       (32U)
+#define PVA_QUEUE_ID_MSB                (28U)
+#define PVA_QUEUE_ID_LSB                (24U)
+#define PVA_BATCH_SIZE_MSB              (23U)
+#define PVA_BATCH_SIZE_LSB              (16U)
+#define PVA_ADDR_HIGHER_8BITS_MSB       (15U)
+#define PVA_ADDR_HIGHER_8BITS_LSB       (8U)
+#define PVA_CMD_ID_MSB                  (7U)
+#define PVA_CMD_ID_LSB                  (0U)
+
+/*
+ * Macros to indicate LSB and MSB of SUBCOMMAND field in a command
+ */
+#define PVA_SUB_CMD_ID_MSB                  (15U)
+#define PVA_SUB_CMD_ID_LSB                  (8U)
+/*
+ * Defenitions used in CMD_SET_STATUS_BUFFER
+ */
+#define PVA_CMD_STATUS_BUFFER_LENGTH_MSB   (27U)
+#define PVA_CMD_STATUS_BUFFER_LENGTH_LSB   (16U)
+
+/*
+ * Macro used to indicate the most significant
+ * bit to extract higher 8 bits of the 40 bit address
+ */
+#define PVA_EXTRACT_ADDR_HIGHER_8BITS_MSB		39U
+/*
+ * Macro used to indicate the least significant
+ * bit to extract higher 8 bits of the 40 bit address
+ */
+#define PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB		32U
 
 /*
  * SW Bist subcommands
@@ -181,12 +205,12 @@ typedef uint8_t pva_status_cmds_t;
  */
 #define PVA_CMD_INT_ON_ERR PVA_BIT(30U)
 #define PVA_CMD_INT_ON_COMPLETE PVA_BIT(29U)
-#define PVA_GET_BATCH_SIZE(_c_, _t_) PVA_EXTRACT(_c_, 7U, 0U, _t_)
-#define PVA_SET_BATCH_SIZE(_c_) PVA_INSERT(_c_, 7U, 0U)
-#define PVA_GET_SUBCOMMAND(_c_, _t_) PVA_EXTRACT(_c_, 15U, 8U, _t_)
-#define PVA_SET_SUBCOMMAND(_c_) PVA_INSERT(_c_, 15U, 8U)
-#define PVA_GET_COMMAND(_c_) PVA_EXTRACT(_c_, 7U, 0U, pva_cmds_t)
-#define PVA_SET_COMMAND(_c_) PVA_INSERT(_c_, 7U, 0U)
+#define PVA_GET_BATCH_SIZE(_c_, _t_) PVA_EXTRACT(_c_, PVA_BATCH_SIZE_MSB, PVA_BATCH_SIZE_LSB, _t_)
+#define PVA_SET_BATCH_SIZE(_c_) PVA_INSERT(_c_, PVA_BATCH_SIZE_MSB, PVA_BATCH_SIZE_LSB)
+#define PVA_GET_SUBCOMMAND(_c_, _t_) PVA_EXTRACT(_c_, PVA_SUB_CMD_ID_MSB, PVA_SUB_CMD_ID_LSB, _t_)
+#define PVA_SET_SUBCOMMAND(_c_) PVA_INSERT(_c_, PVA_SUB_CMD_ID_MSB, PVA_SUB_CMD_ID_LSB)
+#define PVA_GET_COMMAND(_c_) PVA_EXTRACT(_c_, PVA_CMD_ID_MSB, PVA_CMD_ID_LSB, pva_cmds_t)
+#define PVA_SET_COMMAND(_c_) PVA_INSERT(_c_, PVA_CMD_ID_MSB, PVA_CMD_ID_LSB)
 
 /*
  * Generic fields in a command sent through the command FIFO interface.
@@ -225,7 +249,7 @@ typedef uint8_t pva_status_cmds_t;
  * Structure for managing commands through PVA_SHRD_MBOX*
  */
 struct pva_cmd_s {
-	uint32_t mbox[4];
+	uint32_t cmd_field[4];
 };
 
 /*
@@ -239,9 +263,9 @@ static inline uint32_t pva_cmd_noop(struct pva_cmd_s *const cmd,
 				    const uint32_t status_reg,
 				    const uint32_t flags)
 {
-	cmd->mbox[0] = flags | PVA_SET_SUBCOMMAND(status_reg) |
+	cmd->cmd_field[0] = flags | PVA_SET_SUBCOMMAND(status_reg) |
 		       PVA_SET_COMMAND(CMD_NOOP);
-	cmd->mbox[1] = echo_data;
+	cmd->cmd_field[1] = echo_data;
 
 	return 2U;
 }
@@ -270,7 +294,7 @@ struct pva_status_R5_version_s {
 static inline uint32_t pva_cmd_R5_version(struct pva_cmd_s *const cmd,
 					  const uint32_t flags)
 {
-	cmd->mbox[0] = pva_cmd_get_status(R5_VERSION, flags);
+	cmd->cmd_field[0] = pva_cmd_get_status(R5_VERSION, flags);
 	return 1U;
 }
 
@@ -286,7 +310,7 @@ static inline uint32_t pva_cmd_running_tasks(struct pva_cmd_s *const cmd,
 					     const pva_vpu_id_t vpu,
 					     const uint32_t flags)
 {
-	cmd->mbox[0] = pva_cmd_get_status(RUNNING_TASKS, flags) |
+	cmd->cmd_field[0] = pva_cmd_get_status(RUNNING_TASKS, flags) |
 		       PVA_INSERT(vpu, 23U, 16U);
 	return 1U;
 }
@@ -305,8 +329,8 @@ static inline uint32_t pva_cmd_pva_uptime(struct pva_cmd_s *const cmd,
 					  const pva_vpu_id_t vpu,
 					  const uint32_t flags)
 {
-	cmd->mbox[0] = pva_cmd_get_status(PVA_UPTIME, flags) |
-		       PVA_INSERT(vpu, 23U, 16U);
+	(void) vpu; /*For Future use*/
+	cmd->cmd_field[0] = pva_cmd_get_status(PVA_UPTIME, flags);
 	return 1U;
 }
 
@@ -323,7 +347,7 @@ struct pva_status_completed_task_s {
 static inline uint32_t pva_cmd_completed_task(struct pva_cmd_s *const cmd,
 					      const uint32_t flags)
 {
-	cmd->mbox[0] = pva_cmd_get_status(COMPLETED_TASK, flags);
+	cmd->cmd_field[0] = pva_cmd_get_status(COMPLETED_TASK, flags);
 	return 1U;
 }
 
@@ -346,33 +370,9 @@ static inline uint32_t pva_cmd_set_logging_level(struct pva_cmd_s *const cmd,
 						 const uint32_t pva_log_level,
 						 const uint32_t flags)
 {
-	cmd->mbox[0] = flags | PVA_SET_COMMAND(CMD_SET_LOGGING);
-	cmd->mbox[1] = PVA_INSERT(pva_log_level, 31U, 0U);
+	cmd->cmd_field[0] = flags | PVA_SET_COMMAND(CMD_SET_LOGGING);
+	cmd->cmd_field[1] = PVA_INSERT(pva_log_level, 31U, 0U);
 	return 2U;
-}
-
-/*
- * CMD_FIFO_SUBMIT (batch mode)
- */
-static inline uint64_t pva_fifo_submit_batch(const uint8_t queue_id,
-					     const uint64_t addr,
-					     const uint8_t batch_size,
-					     const uint64_t flags)
-{
-	return PVA_INSERT64_RANGE(CMD_SUBMIT, PVA_CCQ_CMD) |
-	       PVA_INSERT64_RANGE(addr, PVA_CCQ_ADDR) |
-	       PVA_INSERT64_RANGE(queue_id, PVA_CCQ_QUEUE_ID) |
-	       PVA_INSERT64_RANGE(batch_size, PVA_CCQ_BATCH_SIZE) | flags;
-}
-
-/*
- * CMD_FIFO_SUBMIT (single task)
- */
-static inline uint64_t pva_fifo_submit(const uint8_t queue_id,
-				       const uint64_t addr,
-				       const uint64_t flags)
-{
-	return pva_fifo_submit_batch(queue_id, addr, 0U, flags);
 }
 
 /*
@@ -384,14 +384,15 @@ static inline uint32_t pva_cmd_submit_batch(struct pva_cmd_s *const cmd,
 					    const uint8_t batch_size,
 					    const uint32_t flags)
 {
-	cmd->mbox[0] =
+	cmd->cmd_field[0] =
 		flags | PVA_SET_COMMAND(CMD_SUBMIT) |
-		PVA_INSERT(queue_id, 15U, 8U) |
-		PVA_INSERT(PVA_EXTRACT64(addr, 39U, 32U, uint32_t),
-		23U, 16U);
-	cmd->mbox[1] = PVA_LOW32(addr);
-	cmd->mbox[2] = PVA_SET_BATCH_SIZE(batch_size);
-	return 3U;
+		PVA_INSERT(batch_size, PVA_BATCH_SIZE_MSB, PVA_BATCH_SIZE_LSB) |
+		PVA_INSERT(PVA_EXTRACT64(addr, PVA_EXTRACT_ADDR_HIGHER_8BITS_MSB,
+					PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB, uint32_t),
+					PVA_ADDR_HIGHER_8BITS_MSB, PVA_ADDR_HIGHER_8BITS_LSB) |
+		PVA_INSERT(queue_id, PVA_QUEUE_ID_MSB, PVA_QUEUE_ID_LSB);
+	cmd->cmd_field[1] = PVA_LOW32(addr);
+	return 2U;
 }
 
 /*
@@ -412,9 +413,9 @@ static inline uint32_t pva_cmd_sw_bist(struct pva_cmd_s *const cmd,
 				       const uint32_t inject_error,
 				       const uint32_t flags)
 {
-	cmd->mbox[0] = flags | PVA_SET_COMMAND(CMD_SW_BIST) |
+	cmd->cmd_field[0] = flags | PVA_SET_COMMAND(CMD_SW_BIST) |
 		       PVA_SET_SUBCOMMAND(bist_cmd);
-	cmd->mbox[1] = (inject_error == 1) ? 0xAAAAAAAA : 0xBBBBBBBB;
+	cmd->cmd_field[1] = (inject_error == 1) ? 0xAAAAAAAA : 0xBBBBBBBB;
 	return 2U;
 }
 
@@ -425,7 +426,7 @@ static inline uint32_t pva_cmd_abort_task(struct pva_cmd_s *const cmd,
 					  const uint8_t queue_id,
 					  const uint32_t flags)
 {
-	cmd->mbox[0] = flags | PVA_SET_COMMAND(CMD_ABORT_QUEUE) |
+	cmd->cmd_field[0] = flags | PVA_SET_COMMAND(CMD_ABORT_QUEUE) |
 		       PVA_SET_SUBCOMMAND(queue_id);
 	return 1U;
 }
@@ -438,12 +439,15 @@ static inline uint32_t pva_cmd_set_status_buffer(struct pva_cmd_s *const cmd,
 						 const uint32_t size,
 						 const uint32_t flags)
 {
-	cmd->mbox[0] =
+	cmd->cmd_field[0] =
 		flags | PVA_SET_COMMAND(CMD_SET_STATUS_BUFFER) |
-		PVA_INSERT(PVA_EXTRACT64(addr, 39U, 32U, uint32_t), 23U, 16U);
-	cmd->mbox[1] = PVA_LOW32(addr);
-	cmd->mbox[2] = size;
+		PVA_INSERT(PVA_EXTRACT64(addr, PVA_EXTRACT_ADDR_HIGHER_8BITS_MSB,
+					PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB, uint32_t),
+					PVA_ADDR_HIGHER_8BITS_MSB, PVA_ADDR_HIGHER_8BITS_LSB) |
+		PVA_INSERT(size, PVA_CMD_STATUS_BUFFER_LENGTH_MSB,
+		PVA_CMD_STATUS_BUFFER_LENGTH_LSB);
+	cmd->cmd_field[1] = PVA_LOW32(addr);
 
-	return 3U;
+	return 2U;
 }
 #endif

@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_util_virt_alt.h - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,7 +20,6 @@
 #define __LINUX_VIRT_UTIL_H
 
 #include <sound/soc.h>
-#include "tegra_asoc_metadata_util_alt.h"
 
 #define MIXER_CONFIG_SHIFT_VALUE 16
 #define STREAM_ID_SHIFT_VALUE    16
@@ -181,7 +180,6 @@
 	tegra_virt_i2s_get_rate,	\
 	tegra_virt_i2s_set_rate)
 
-
 #define MIXER_SET_FADE(xname, xbase) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,	\
 	.info =  tegra_virt_t210mixer_param_info,	\
@@ -217,17 +215,6 @@
 	0, 1, 0,	\
 	tegra_virt_t210adma_get_regdump, \
 	tegra_virt_t210adma_set_regdump)
-
-#define METADATA_CTRL_DECL(ename) \
-	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER, \
-	.name = ename, .info = tegra_bytes_info, \
-	.get = tegra_virt_get_metadata, \
-	.put = tegra_virt_set_metadata, \
-	.private_value = ((unsigned long)&(struct soc_bytes) \
-		{.base = 1, .mask = SNDRV_CTL_ELEM_TYPE_BYTES, \
-		.num_regs = (sizeof(uint16_t) * \
-		(TEGRA_AUDIO_METADATA_HDR_LENGTH + 1)), \
-		 })}
 
 #define ADDER_CTRL_DECL(name, id)	\
 	static const struct snd_kcontrol_new name[] = {	\
@@ -427,27 +414,6 @@ int tegra_virt_t210mixer_get_fade(
 	struct snd_ctl_elem_value *ucontrol);
 int tegra_virt_t210mixer_param_info(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_info *uinfo);
-int tegra_metadata_get_init(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int tegra_metadata_set_init(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int tegra_metadata_get_enable(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int tegra_metadata_set_enable(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int tegra_metadata_setup(struct platform_device *pdev,
-	struct tegra_audio_metadata_cntx *psad,	struct snd_soc_card *card);
-int tegra_virt_set_metadata(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-int tegra_virt_get_metadata(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-
 int tegra_virt_t210ahub_get_regdump(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);

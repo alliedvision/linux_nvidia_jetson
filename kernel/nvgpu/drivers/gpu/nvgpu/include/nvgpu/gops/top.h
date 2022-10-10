@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -156,6 +156,34 @@ struct gops_top {
 	 *	HW register.
 	 */
 	u32 (*get_max_lts_per_ltc)(struct gk20a *g);
+
+
+	/**
+	 * @brief Gets the maximum number of PESs per GPC in a GPU as programmed
+	 * 	in HW.
+	 *
+	 * @param g [in]		GPU device struct pointer
+	 *
+	 * This HAL reads the NV_PTOP_SCAL_NUM_PES_PER_GPC HW register,
+	 *
+	 * @return The number of PES per GPC as read from the above mentioned
+	 *	HW register.
+	 */
+	u32 (*get_max_pes_per_gpc)(struct gk20a *g);
+
+	/**
+	 * @brief Gets the maximum number of ROPs per GPC in a GPU as programmed
+	 * 	in HW.
+	 *
+	 * @param g [in]		GPU device struct pointer
+	 *
+	 * This HAL reads the NV_PTOP_SCAL_NUM_ROP_PER_GPC HW register,
+	 *
+	 * @return The number of ROP per GPC as read from the above mentioned
+	 *	HW register.
+	 */
+	u32 (*get_max_rop_per_gpc)(struct gk20a *g);
+
 
 	/** @cond DOXYGEN_SHOULD_SKIP_THIS */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,5 +24,6 @@
 
 u32 nvgpu_channel_get_max_subctx_count(struct nvgpu_channel *ch)
 {
+	(void)ch;
 	return 64;
 }

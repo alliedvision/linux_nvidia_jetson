@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -218,6 +218,7 @@ struct nvgpu_channel_dump_info {
 		u32 next;
 		u64 addr;
 	} sema;
+	char nvs_domain_name[32];
 };
 
 /**
@@ -591,6 +592,7 @@ static inline bool nvgpu_channel_is_deterministic(struct nvgpu_channel *c)
 #ifdef CONFIG_NVGPU_DETERMINISTIC_CHANNELS
 	return c->deterministic;
 #else
+	(void)c;
 	return false;
 #endif
 }
@@ -1040,6 +1042,8 @@ void trace_write_pushbuffers(struct nvgpu_channel *c, u32 count);
 #else
 static inline void trace_write_pushbuffers(struct nvgpu_channel *c, u32 count)
 {
+	(void)c;
+	(void)count;
 }
 #endif
 
@@ -1191,9 +1195,16 @@ void nvgpu_channel_restart_all_wdts(struct gk20a *g);
  */
 void nvgpu_channel_set_wdt_debug_dump(struct nvgpu_channel *ch, bool dump);
 #else
-static inline void nvgpu_channel_restart_all_wdts(struct gk20a *g) {}
+static inline void nvgpu_channel_restart_all_wdts(struct gk20a *g)
+{
+	(void)g;
+}
 static inline void nvgpu_channel_set_wdt_debug_dump(struct nvgpu_channel *ch,
-		bool dump) {}
+		bool dump)
+{
+	(void)ch;
+	(void)dump;
+}
 #endif
 
 /**

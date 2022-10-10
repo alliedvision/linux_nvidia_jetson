@@ -1,7 +1,7 @@
 /*
  * imx185.c - imx185 sensor driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -161,7 +161,7 @@ static inline int imx185_read_reg(struct camera_common_data *s_data,
 static int imx185_write_reg(struct camera_common_data *s_data,
 				u16 addr, u8 val)
 {
-	int err;
+	int err = 0;
 	struct device *dev = s_data->dev;
 
 	err = regmap_write(s_data->regmap, addr, val);
@@ -188,7 +188,7 @@ static int imx185_set_group_hold(struct tegracam_device *tc_dev, bool val)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct device *dev = tc_dev->dev;
-	int err;
+	int err = 0;
 
 	err = imx185_write_reg(s_data,
 				IMX185_GROUP_HOLD_ADDR, val);
@@ -209,7 +209,7 @@ static int imx185_set_gain(struct tegracam_device *tc_dev, s64 val)
 	const struct sensor_mode_properties *mode =
 		&s_data->sensor_props.sensor_modes[s_data->mode_prop_idx];
 	imx185_reg reg_list[1];
-	int err;
+	int err = 0;
 	u8 gain;
 
 	/* translate value */
@@ -237,7 +237,7 @@ static int imx185_set_coarse_time(struct imx185 *priv, s64 val)
 		&s_data->sensor_props.sensor_modes[s_data->mode];
 	struct device *dev = &priv->i2c_client->dev;
 	imx185_reg reg_list[3];
-	int err;
+	int err = 0;
 	u32 coarse_time_shs1;
 	u32 reg_shs1;
 	int i = 0;
@@ -282,7 +282,7 @@ static int imx185_set_coarse_time_hdr(struct imx185 *priv, s64 val)
 	u32 coarse_time_shs2;
 	u32 reg_shs1;
 	u32 reg_shs2;
-	int err;
+	int err = 0;
 	int i = 0;
 
 	if (priv->frame_length == 0)
@@ -339,7 +339,7 @@ static int imx185_set_frame_rate(struct tegracam_device *tc_dev, s64 val)
 	struct imx185 *priv = (struct imx185 *)tc_dev->priv;
 	struct device *dev = tc_dev->dev;
 	imx185_reg reg_list[3];
-	int err;
+	int err = 0;
 	u32 frame_length;
 	const struct sensor_mode_properties *mode =
 		&s_data->sensor_props.sensor_modes[s_data->mode_prop_idx];
@@ -395,7 +395,7 @@ static int imx185_set_exposure(struct tegracam_device *tc_dev, s64 val)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct imx185 *priv = (struct imx185 *)tc_dev->priv;
 	struct device *dev = tc_dev->dev;
-	int err;
+	int err = 0;
 	struct v4l2_control control;
 	int hdr_en;
 
@@ -429,13 +429,16 @@ static int imx185_fill_string_ctrl(struct tegracam_device *tc_dev,
 				struct v4l2_ctrl *ctrl)
 {
 	struct imx185 *priv = tc_dev->priv;
-	int i;
+	int i, ret;
 
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_FUSE_ID:
-		for (i = 0; i < IMX185_FUSE_ID_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < IMX185_FUSE_ID_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->fuse_id[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -563,7 +566,7 @@ static struct camera_common_pdata *imx185_parse_dt(struct tegracam_device *tc_de
 	struct camera_common_pdata *board_priv_pdata;
 	const struct of_device_id *match;
 	struct camera_common_pdata *ret = NULL;
-	int err;
+	int err = 0;
 	int gpio;
 
 	if (!np)
@@ -609,7 +612,7 @@ static int imx185_set_mode(struct tegracam_device *tc_dev)
 	struct device_node *np = dev->of_node;
 	bool limit_analog_gain = false;
 	const struct of_device_id *match;
-	int err;
+	int err = 0;
 
 	match = of_match_device(imx185_of_match, dev);
 	if (!match) {
@@ -619,6 +622,8 @@ static int imx185_set_mode(struct tegracam_device *tc_dev)
 
 	limit_analog_gain = of_property_read_bool(np, "limit_analog_gain");
 
+	if (s_data->mode_prop_idx < 0)
+		return -EINVAL;
 	err = imx185_write_table(priv, mode_table[s_data->mode_prop_idx]);
 	if (err)
 		return err;
@@ -637,7 +642,7 @@ static int imx185_set_mode(struct tegracam_device *tc_dev)
 static int imx185_start_streaming(struct tegracam_device *tc_dev)
 {
 	struct imx185 *priv = (struct imx185 *)tegracam_get_privdata(tc_dev);
-	int err;
+	int err = 0;
 
 	if (test_mode) {
 		err = imx185_write_table(priv,
@@ -658,7 +663,7 @@ static int imx185_stop_streaming(struct tegracam_device *tc_dev)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct imx185 *priv = (struct imx185 *)tegracam_get_privdata(tc_dev);
-	int err;
+	int err = 0;
 
 	err = imx185_write_table(priv, mode_table[IMX185_MODE_STOP_STREAM]);
 	if (err)
@@ -696,7 +701,7 @@ static struct camera_common_sensor_ops imx185_common_ops = {
 
 static int imx185_fuse_id_setup(struct imx185 *priv)
 {
-	int err;
+	int err = 0;
 	int i;
 	struct camera_common_data *s_data = priv->s_data;
 	struct device *dev = s_data->dev;
@@ -770,7 +775,7 @@ static int imx185_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct tegracam_device *tc_dev;
 	struct imx185 *priv;
-	int err;
+	int err = 0;
 
 	dev_info(dev, "probing v4l2 sensor\n");
 

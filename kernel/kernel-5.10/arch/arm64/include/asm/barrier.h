@@ -185,10 +185,6 @@ do {									\
 	(typeof(*ptr))VAL;						\
 })
 
-#define speculation_barrier()						\
-	asm volatile(   "dsb sy\n"					\
-			"isb\n" : : : "memory")
-
 #include <asm-generic/barrier.h>
 
 #endif	/* __ASSEMBLY__ */

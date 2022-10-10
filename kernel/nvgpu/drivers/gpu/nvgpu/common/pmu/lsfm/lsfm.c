@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,6 +41,7 @@
 static bool is_lsfm_supported(struct gk20a *g,
 	struct nvgpu_pmu *pmu, struct nvgpu_pmu_lsfm *lsfm)
 {
+	(void)pmu;
 	/*
 	 * Low secure falcon manager is a secure iGPU functionality to support
 	 * Lazy bootstrap feature. Enabling lsfm will allow nvgpu to send cmds

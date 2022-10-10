@@ -1,0 +1,132 @@
+From 18ae3151408e1e45f4ee8ad73297184d990901ed Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Mon, 14 Sep 2020 15:35:41 -0700
+Subject: [PATCH 311/830] ANDROID: gic: Add vendor hook for gic-v3 resume
+X-NVConfidentiality: public
+
+Add vendor hook for gic-v3 resume to allow vendor GIC enhancement.
+
+Bug: 168730134
+Change-Id: Id3298715355c8f592f58393db6aa903b18dd812c
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ drivers/irqchip/irq-gic-v3.c   | 24 ++++++++++++++++++++++++
+ include/trace/hooks/gic.h      | 29 +++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+)
+ create mode 100644 include/trace/hooks/gic.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 0ec72dff275e..1b8de3e12235 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -17,6 +17,7 @@
+ #include <trace/hooks/cpuidle.h>
+ #include <trace/hooks/topology.h>
+ #include <trace/hooks/mpam.h>
++#include <trace/hooks/gic.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+ #include <trace/hooks/printk.h>
+@@ -63,6 +64,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_show_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_idle);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gic_resume);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_throttled_rt_tasks);
+diff --git a/drivers/irqchip/irq-gic-v3.c b/drivers/irqchip/irq-gic-v3.c
+index ae546f37741f..e6002edc5f99 100644
+--- a/drivers/irqchip/irq-gic-v3.c
++++ b/drivers/irqchip/irq-gic-v3.c
+@@ -18,6 +18,7 @@
+ #include <linux/percpu.h>
+ #include <linux/refcount.h>
+ #include <linux/slab.h>
++#include <linux/syscore_ops.h>
+ #include <linux/wakeup_reason.h>
+ 
+ 
+@@ -31,6 +32,8 @@
+ #include <asm/smp_plat.h>
+ #include <asm/virt.h>
+ 
++#include <trace/hooks/gic.h>
++
+ #include "irq-gic-common.h"
+ 
+ #define GICD_INT_NMI_PRI	(GICD_INT_DEF_PRI & ~0x80)
+@@ -1328,6 +1331,26 @@ static void gic_cpu_pm_init(void)
+ static inline void gic_cpu_pm_init(void) { }
+ #endif /* CONFIG_CPU_PM */
+ 
++#ifdef CONFIG_PM
++static void gic_resume(void)
++{
++	trace_android_vh_gic_resume(gic_data.domain, gic_data.dist_base);
++}
++
++static struct syscore_ops gic_syscore_ops = {
++	.resume = gic_resume,
++};
++
++static void gic_syscore_init(void)
++{
++	register_syscore_ops(&gic_syscore_ops);
++}
++
++#else
++static inline void gic_syscore_init(void) { }
++#endif
++
++
+ static struct irq_chip gic_chip = {
+ 	.name			= "GICv3",
+ 	.irq_mask		= gic_mask_irq,
+@@ -1784,6 +1807,7 @@ static int __init gic_init_bases(void __iomem *dist_base,
+ 	gic_cpu_init();
+ 	gic_smp_init();
+ 	gic_cpu_pm_init();
++	gic_syscore_init();
+ 
+ 	if (gic_dist_supports_lpis()) {
+ 		its_init(handle, &gic_data.rdists, gic_data.domain);
+diff --git a/include/trace/hooks/gic.h b/include/trace/hooks/gic.h
+new file mode 100644
+index 000000000000..bdc923552809
+--- /dev/null
++++ b/include/trace/hooks/gic.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM gic
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_GIC_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_GIC_H
++
++#include <linux/irqdomain.h>
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++
++DECLARE_HOOK(android_vh_gic_resume,
++	TP_PROTO(struct irq_domain *domain, void __iomem *dist_base),
++	TP_ARGS(domain, dist_base));
++
++#else
++
++#define trace_android_vh_gic_resume(domain, dist_base)
++
++#endif
++
++#endif /* _TRACE_HOOK_GIC_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

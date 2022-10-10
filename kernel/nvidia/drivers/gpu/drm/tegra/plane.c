@@ -4,6 +4,7 @@
  */
 
 #include <linux/iommu.h>
+#include <linux/interconnect.h>
 #include <linux/version.h>
 
 #include <drm/drm_atomic.h>
@@ -69,6 +70,9 @@ tegra_plane_atomic_duplicate_state(struct drm_plane *plane)
 	copy->reflect_x = state->reflect_x;
 	copy->reflect_y = state->reflect_y;
 	copy->opaque = state->opaque;
+	copy->total_peak_memory_bandwidth = state->total_peak_memory_bandwidth;
+	copy->peak_memory_bandwidth = state->peak_memory_bandwidth;
+	copy->avg_memory_bandwidth = state->avg_memory_bandwidth;
 
 	for (i = 0; i < 2; i++)
 		copy->blending[i] = state->blending[i];
@@ -201,15 +205,18 @@ int tegra_plane_prepare_fb(struct drm_plane *plane,
 			   struct drm_plane_state *state)
 {
 	struct tegra_dc *dc = to_tegra_dc(state->crtc);
+	int err;
 
 	if (!state->fb)
 		return 0;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
-	drm_gem_plane_helper_prepare_fb(plane, state);
+	err = drm_gem_plane_helper_prepare_fb(plane, state);
 #else
-	drm_gem_fb_prepare_fb(plane, state);
+	err = drm_gem_fb_prepare_fb(plane, state);
 #endif
+	if (err < 0)
+		return err;
 
 	return tegra_dc_pin(dc, to_tegra_plane_state(state));
 }
@@ -221,6 +228,78 @@ void tegra_plane_cleanup_fb(struct drm_plane *plane,
 
 	if (dc)
 		tegra_dc_unpin(dc, to_tegra_plane_state(state));
+}
+
+static int tegra_plane_calculate_memory_bandwidth(struct drm_plane_state *state)
+{
+	struct tegra_plane_state *tegra_state = to_tegra_plane_state(state);
+	unsigned int i, bpp, dst_w, dst_h, src_w, src_h, mul;
+	const struct tegra_dc_soc_info *soc;
+	const struct drm_format_info *fmt;
+	struct drm_crtc_state *crtc_state;
+	u64 avg_bandwidth, peak_bandwidth;
+
+	if (!state->visible)
+		return 0;
+
+	crtc_state = drm_atomic_get_new_crtc_state(state->state, state->crtc);
+	if (!crtc_state)
+		return -EINVAL;
+
+	src_w = drm_rect_width(&state->src) >> 16;
+	src_h = drm_rect_height(&state->src) >> 16;
+	dst_w = drm_rect_width(&state->dst);
+	dst_h = drm_rect_height(&state->dst);
+
+	fmt = state->fb->format;
+	soc = to_tegra_dc(state->crtc)->soc;
+
+	/*
+	 * Note that real memory bandwidth vary depending on format and
+	 * memory layout, we are not taking that into account because small
+	 * estimation error isn't important since bandwidth is rounded up
+	 * anyway.
+	 */
+	for (i = 0, bpp = 0; i < fmt->num_planes; i++) {
+		unsigned int bpp_plane = fmt->cpp[i] * 8;
+
+		/*
+		 * Sub-sampling is relevant for chroma planes only and vertical
+		 * readouts are not cached, hence only horizontal sub-sampling
+		 * matters.
+		 */
+		if (i > 0)
+			bpp_plane /= fmt->hsub;
+
+		bpp += bpp_plane;
+	}
+
+	/* average bandwidth in kbytes/sec */
+	avg_bandwidth  = min(src_w, dst_w) * min(src_h, dst_h);
+	avg_bandwidth *= drm_mode_vrefresh(&crtc_state->adjusted_mode);
+	avg_bandwidth  = DIV_ROUND_UP(avg_bandwidth * bpp, 8) + 999;
+	do_div(avg_bandwidth, 1000);
+
+	/* mode.clock in kHz, peak bandwidth in kbytes/sec */
+	peak_bandwidth = DIV_ROUND_UP(crtc_state->adjusted_mode.clock * bpp, 8);
+
+	/*
+	 * Tegra30/114 Memory Controller can't interleave DC memory requests
+	 * for the tiled windows because DC uses 16-bytes atom, while DDR3
+	 * uses 32-bytes atom.  Hence there is x2 memory overfetch for tiled
+	 * framebuffer and DDR3 on these SoCs.
+	 */
+	if (soc->plane_tiled_memory_bandwidth_x2 &&
+	    tegra_state->tiling.mode == TEGRA_BO_TILING_MODE_TILED)
+		mul = 2;
+	else
+		mul = 1;
+
+	/* ICC bandwidth in kbytes/sec */
+	tegra_state->peak_memory_bandwidth = kBps_to_icc(peak_bandwidth) * mul;
+	tegra_state->avg_memory_bandwidth  = kBps_to_icc(avg_bandwidth)  * mul;
+
+	return 0;
 }
 
 int tegra_plane_state_add(struct tegra_plane *plane,
@@ -238,6 +317,10 @@ int tegra_plane_state_add(struct tegra_plane *plane,
 	/* Check plane state for visibility and calculate clipping bounds */
 	err = drm_atomic_helper_check_plane_state(state, crtc_state,
 						  0, INT_MAX, true, true);
+	if (err < 0)
+		return err;
+
+	err = tegra_plane_calculate_memory_bandwidth(state);
 	if (err < 0)
 		return err;
 
@@ -622,6 +705,45 @@ int tegra_plane_setup_legacy_state(struct tegra_plane *tegra,
 	err = tegra_plane_setup_transparency(tegra, state);
 	if (err < 0)
 		return err;
+
+	return 0;
+}
+
+static const char * const tegra_plane_icc_names[TEGRA_DC_LEGACY_PLANES_NUM] = {
+	"wina", "winb", "winc", NULL, NULL, NULL, "cursor",
+};
+
+int tegra_plane_interconnect_init(struct tegra_plane *plane)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+	const char *icc_name = tegra_plane_icc_names[plane->index];
+	struct device *dev = plane->dc->dev;
+	struct tegra_dc *dc = plane->dc;
+	int err;
+
+	if (WARN_ON(plane->index >= TEGRA_DC_LEGACY_PLANES_NUM) ||
+	    WARN_ON(!tegra_plane_icc_names[plane->index]))
+		return -EINVAL;
+
+	plane->icc_mem = devm_of_icc_get(dev, icc_name);
+	err = PTR_ERR_OR_ZERO(plane->icc_mem);
+	if (err) {
+		dev_err_probe(dev, err, "failed to get %s interconnect\n",
+			      icc_name);
+		return err;
+	}
+
+	/* plane B on T20/30 has a dedicated memory client for a 6-tap vertical filter */
+	if (plane->index == 1 && dc->soc->has_win_b_vfilter_mem_client) {
+		plane->icc_mem_vfilter = devm_of_icc_get(dev, "winb-vfilter");
+		err = PTR_ERR_OR_ZERO(plane->icc_mem_vfilter);
+		if (err) {
+			dev_err_probe(dev, err, "failed to get %s interconnect\n",
+				      "winb-vfilter");
+			return err;
+		}
+	}
+#endif
 
 	return 0;
 }

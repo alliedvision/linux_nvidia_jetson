@@ -1,0 +1,51 @@
+From d83b385081c05133509bf7c002f225d6aab68e0a Mon Sep 17 00:00:00 2001
+From: Jordan Crouse <jcrouse@codeaurora.org>
+Date: Tue, 9 Jun 2020 12:05:16 -0600
+Subject: [PATCH 101/830] FROMGIT: iommu/arm-smmu: Don't bypass pinned stream
+ mappings
+X-NVConfidentiality: public
+
+Commit 0e764a01015d ("iommu/arm-smmu: Allow client devices to select
+direct mapping") sets the initial domain type to SMMU_DOMAIN_IDENTITY
+for devices that select direct mapping. This ends up setting the domain
+as ARM_SMMU_DOMAIN_BYPASS which causes the stream ID mappings
+for the device to be programmed to S2CR_TYPE_BYPASS.
+
+This causes a problem for stream mappings that are inherited from
+the bootloader since rewriting the stream to BYPASS will disrupt the
+display controller access to DDR.
+
+This is an extension to ("iommu/arm-smmu: Allow inheriting stream mapping
+from bootloader") [1] that identifies streams that are already configured
+ and marked them as pinned. This patch extends that to not re-write pinned
+stream mappings for ARM_SMMU_DOMAIN_BYPASS domains.
+
+[1] https://lore.kernel.org/r/20191226221709.3844244-4-bjorn.andersson@linaro.org
+
+Signed-off-by: Jordan Crouse <jcrouse@codeaurora.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+(cherry picked from commit 7ea70cbadd53c199b36f6d2433183dfcb9b1fbdb
+ https://github.com/freedreno/kernel-msm.git wip/c630-5.8-rc1)
+Change-Id: Iecc6e3d1feedee178e04f7da8f601ee12bd5ae3b
+---
+ drivers/iommu/arm/arm-smmu/arm-smmu.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu.c b/drivers/iommu/arm/arm-smmu/arm-smmu.c
+index ffa8f14eddee..c6bf7271949c 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu.c
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu.c
+@@ -1215,6 +1215,10 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
+ 		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
+ 			continue;
+ 
++		/* Don't bypasss pinned streams; leave them as they are */
++		if (type == S2CR_TYPE_BYPASS && s2cr[idx].pinned)
++			continue;
++
+ 		s2cr[idx].type = type;
+ 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
+ 		s2cr[idx].cbndx = cbndx;
+-- 
+2.17.1
+

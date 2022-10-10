@@ -1,7 +1,7 @@
 /*
  * Eventlib interface for PVA
  *
- * Copyright (c) 2016-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -138,8 +138,14 @@ struct nvhost_pva_task_state {
 	/* Threshold for task completion */
 	__u32 syncpt_thresh;
 
+	/** ID of the VPU on which task was run. 0 or 1 */
+	__u8 vpu_id;
+
+	/** ID of the FW Queue on which the task was run. [0, 7] */
+	__u8 queue_id;
+
 	/* Identifier for the R5/VPU algorithm executed */
-	__u32 operation;
+	__u64 iova;
 } __packed;
 
 
@@ -199,9 +205,6 @@ struct nv_camera_task_log {
 	/* TID */
 	__u32 tid;
 } __packed;
-
-
-
 
 enum {
 	/* struct nvhost_task_submit */

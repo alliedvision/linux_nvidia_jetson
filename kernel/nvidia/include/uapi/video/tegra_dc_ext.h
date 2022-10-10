@@ -3,7 +3,7 @@
  *
  * tegra_dc_ext.h: tegra dc ext interface.
  *
- * Copyright (C) 2016-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  * Some code based on fbdev extensions written by:
@@ -237,7 +237,7 @@ struct tegra_timespec {
  */
 struct tegra_dc_ext_flip_windowattr {
 	__s32	index;
-	__u32	buff_id;
+	__s32	buff_id;
 	__u32	blend;
 	__u32	offset;
 	__u32	offset_u;
@@ -267,9 +267,9 @@ struct tegra_dc_ext_flip_windowattr {
 		};
 		__s32 pre_syncpt_fd;
 	};
-	/* These two are optional; if zero, U and V are taken from buff_id */
-	__u32	buff_id_u;
-	__u32	buff_id_v;
+	/* These two are optional; if negative, U and V are taken from buff_id */
+	__s32	buff_id_u;
+	__s32	buff_id_v;
 	__u32	flags;
 	__u8	global_alpha; /* requires TEGRA_DC_EXT_FLIP_FLAG_GLOBAL_ALPHA */
 	/* log2(blockheight) for blocklinear format */
@@ -284,7 +284,7 @@ struct tegra_dc_ext_flip_windowattr {
 			__u32   pad2[1];
 		};
 		struct { /* used if TEGRA_DC_EXT_FLIP_FLAG_COMPRESSED set */
-			__u32	buff_id; /* take from buff_id if zero */
+			__s32	buff_id; /* take from buff_id if negative */
 			__u32	offset; /* added to base */
 			__u16	offset_x;
 			__u16	offset_y;
@@ -1194,7 +1194,7 @@ struct tegra_dc_ext_cursor_image {
 		__u8	g;
 		__u8	b;
 	} foreground, background;
-	__u32	buff_id;
+	__s32	buff_id;
 	__u32	flags;
 	__s16	x;
 	__s16	y;

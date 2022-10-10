@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2010 Google, Inc.
  * Author: Colin Cross <ccross@google.com>
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -26,11 +26,11 @@
 #include <soc/tegra/tegra-dfll.h>
 #include <soc/tegra/tegra-dvfs.h>
 
-struct dvfs_rail *tegra_cpu_rail;
-struct dvfs_rail *tegra_core_rail;
+static struct dvfs_rail *tegra_cpu_rail;
+static struct dvfs_rail *tegra_core_rail;
 static struct dvfs_rail *tegra_gpu_rail;
 
-bool core_dvfs_started;
+static bool core_dvfs_started;
 
 static LIST_HEAD(dvfs_rail_list);
 static DEFINE_MUTEX(dvfs_lock);
@@ -668,8 +668,8 @@ static int predict_mv_at_hz_cur_tfloor(struct dvfs *d, unsigned long rate)
 	return max(mv, dvfs_rail_get_thermal_floor(d->dvfs_rail));
 }
 
-int opp_millivolts[MAX_DVFS_FREQS];
-unsigned long opp_frequencies[MAX_DVFS_FREQS];
+static int opp_millivolts[MAX_DVFS_FREQS];
+static unsigned long opp_frequencies[MAX_DVFS_FREQS];
 
 /**
  * tegra_get_cpu_fv_table - get CPU frequencies/voltages table

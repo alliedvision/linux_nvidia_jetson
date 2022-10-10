@@ -1,0 +1,190 @@
+From ec973f4ee68ee1a79fd8aef8071dcee5cb145d45 Mon Sep 17 00:00:00 2001
+From: Patrick Daly <pdaly@codeaurora.org>
+Date: Wed, 26 Feb 2020 14:16:19 -0800
+Subject: [PATCH 104/830] FROMLIST: iommu/iova: Add a best-fit algorithm
+X-NVConfidentiality: public
+
+Using the best-fit algorithm, instead of the first-fit
+algorithm, may reduce fragmentation when allocating
+IOVAs.
+
+Bug: 149544392
+Link: https://lore.kernel.org/lkml/7239ddd532e94a4371289f3be23c66a3@codeaurora.org/
+Change-Id: Icfbac0cc7be972a092915335508cbc73c47471cf
+Signed-off-by: Patrick Daly <pdaly@codeaurora.org>
+Signed-off-by: Isaac J. Manjarres <isaacm@codeaurora.org>
+Signed-off-by: Chris Goldsworthy <cgoldswo@codeaurora.org>
+---
+ drivers/iommu/dma-iommu.c | 18 ++++++++++
+ drivers/iommu/iova.c      | 74 +++++++++++++++++++++++++++++++++++++--
+ include/linux/dma-iommu.h |  7 ++++
+ include/linux/iova.h      |  1 +
+ 4 files changed, 98 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
+index 85a7943daf29..2667e385d5dd 100644
+--- a/drivers/iommu/dma-iommu.c
++++ b/drivers/iommu/dma-iommu.c
+@@ -404,6 +404,24 @@ int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+ }
+ EXPORT_SYMBOL(iommu_dma_reserve_iova);
+ 
++/*
++ * Should be called prior to using dma-apis.
++ */
++int iommu_dma_enable_best_fit_algo(struct device *dev)
++{
++	struct iommu_domain *domain;
++	struct iova_domain *iovad;
++
++	domain = iommu_get_domain_for_dev(dev);
++	if (!domain || !domain->iova_cookie)
++		return -EINVAL;
++
++	iovad = &((struct iommu_dma_cookie *)domain->iova_cookie)->iovad;
++	iovad->best_fit = true;
++	return 0;
++}
++EXPORT_SYMBOL(iommu_dma_enable_best_fit_algo);
++
+ /**
+  * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
+  *                    page flags.
+diff --git a/drivers/iommu/iova.c b/drivers/iommu/iova.c
+index 1164d1a42cbc..3acdaeb42381 100644
+--- a/drivers/iommu/iova.c
++++ b/drivers/iommu/iova.c
+@@ -50,6 +50,7 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,
+ 	iovad->anchor.pfn_lo = iovad->anchor.pfn_hi = IOVA_ANCHOR;
+ 	rb_link_node(&iovad->anchor.node, NULL, &iovad->rbroot.rb_node);
+ 	rb_insert_color(&iovad->anchor.node, &iovad->rbroot);
++	iovad->best_fit = false;
+ 	init_iova_rcaches(iovad);
+ }
+ EXPORT_SYMBOL_GPL(init_iova_domain);
+@@ -226,6 +227,70 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
+ 	return -ENOMEM;
+ }
+ 
++static int __alloc_and_insert_iova_best_fit(struct iova_domain *iovad,
++					    unsigned long size,
++					    unsigned long limit_pfn,
++					    struct iova *new, bool size_aligned)
++{
++	struct rb_node *curr, *prev;
++	struct iova *curr_iova, *prev_iova;
++	unsigned long flags;
++	unsigned long align_mask = ~0UL;
++	struct rb_node *candidate_rb_parent;
++	unsigned long new_pfn, candidate_pfn = ~0UL;
++	unsigned long gap, candidate_gap = ~0UL;
++
++	if (size_aligned)
++		align_mask <<= limit_align(iovad, fls_long(size - 1));
++
++	/* Walk the tree backwards */
++	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
++	curr = &iovad->anchor.node;
++	prev = rb_prev(curr);
++	for (; prev; curr = prev, prev = rb_prev(curr)) {
++		curr_iova = rb_entry(curr, struct iova, node);
++		prev_iova = rb_entry(prev, struct iova, node);
++
++		limit_pfn = min(limit_pfn, curr_iova->pfn_lo);
++		new_pfn = (limit_pfn - size) & align_mask;
++		gap = curr_iova->pfn_lo - prev_iova->pfn_hi - 1;
++		if ((limit_pfn >= size) && (new_pfn > prev_iova->pfn_hi)
++				&& (gap < candidate_gap)) {
++			candidate_gap = gap;
++			candidate_pfn = new_pfn;
++			candidate_rb_parent = curr;
++			if (gap == size)
++				goto insert;
++		}
++	}
++
++	curr_iova = rb_entry(curr, struct iova, node);
++	limit_pfn = min(limit_pfn, curr_iova->pfn_lo);
++	new_pfn = (limit_pfn - size) & align_mask;
++	gap = curr_iova->pfn_lo - iovad->start_pfn;
++	if (limit_pfn >= size && new_pfn >= iovad->start_pfn &&
++			gap < candidate_gap) {
++		candidate_gap = gap;
++		candidate_pfn = new_pfn;
++		candidate_rb_parent = curr;
++	}
++
++insert:
++	if (candidate_pfn == ~0UL) {
++		spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
++		return -ENOMEM;
++	}
++
++	/* pfn_lo will point to size aligned address if size_aligned is set */
++	new->pfn_lo = candidate_pfn;
++	new->pfn_hi = new->pfn_lo + size - 1;
++
++	/* If we have 'prev', it's a valid place to start the insertion. */
++	iova_insert_rbtree(&iovad->rbroot, new, candidate_rb_parent);
++	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
++	return 0;
++}
++
+ static struct kmem_cache *iova_cache;
+ static unsigned int iova_cache_users;
+ static DEFINE_MUTEX(iova_cache_mutex);
+@@ -301,8 +366,13 @@ alloc_iova(struct iova_domain *iovad, unsigned long size,
+ 	if (!new_iova)
+ 		return NULL;
+ 
+-	ret = __alloc_and_insert_iova_range(iovad, size, limit_pfn + 1,
+-			new_iova, size_aligned);
++	if (iovad->best_fit) {
++		ret = __alloc_and_insert_iova_best_fit(iovad, size,
++				limit_pfn + 1, new_iova, size_aligned);
++	} else {
++		ret = __alloc_and_insert_iova_range(iovad, size, limit_pfn + 1,
++				new_iova, size_aligned);
++	}
+ 
+ 	if (ret) {
+ 		free_iova_mem(new_iova);
+diff --git a/include/linux/dma-iommu.h b/include/linux/dma-iommu.h
+index 2e36760d7531..eae21ef9c009 100644
+--- a/include/linux/dma-iommu.h
++++ b/include/linux/dma-iommu.h
+@@ -47,6 +47,8 @@ void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);
+ int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+ 			   u64 size);
+ 
++int iommu_dma_enable_best_fit_algo(struct device *dev);
++
+ #else /* CONFIG_IOMMU_DMA */
+ 
+ struct iommu_domain;
+@@ -113,5 +115,10 @@ static inline int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
+ 	return -ENODEV;
+ }
+ 
++static inline int iommu_dma_enable_best_fit_algo(struct device *dev)
++{
++	return -ENODEV;
++}
++
+ #endif	/* CONFIG_IOMMU_DMA */
+ #endif	/* __DMA_IOMMU_H */
+diff --git a/include/linux/iova.h b/include/linux/iova.h
+index a0637abffee8..58713bb72a48 100644
+--- a/include/linux/iova.h
++++ b/include/linux/iova.h
+@@ -95,6 +95,7 @@ struct iova_domain {
+ 						   flush-queues */
+ 	atomic_t fq_timer_on;			/* 1 when timer is active, 0
+ 						   when not */
++	bool best_fit;
+ };
+ 
+ static inline unsigned long iova_size(struct iova *iova)
+-- 
+2.17.1
+

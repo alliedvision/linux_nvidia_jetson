@@ -1,0 +1,46 @@
+From 37c9aae026765d1ccbf142c9d4252c7a1833e9d5 Mon Sep 17 00:00:00 2001
+From: Donghoon Yu <hoony.yu@samsung.com>
+Date: Mon, 17 Feb 2020 20:49:11 +0900
+Subject: [PATCH 738/830] ANDROID: gki: Set CONFIG_SERIAL_SAMSUNG for early
+ con.
+X-NVConfidentiality: public
+
+Bug: 142159113
+Change-Id: I89174bdba73176b017c489f4044ed90882a8f99f
+Signed-off-by: Donghoon Yu <hoony.yu@samsung.com>
+[willmcvicker: added to x86 gki_defconfig too]
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 976dd57d6198..0737ba3db1e2 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -293,6 +293,8 @@ CONFIG_SERIAL_8250_CONSOLE=y
+ CONFIG_SERIAL_OF_PLATFORM=y
+ CONFIG_SERIAL_AMBA_PL011=y
+ CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
++CONFIG_SERIAL_SAMSUNG=y
++CONFIG_SERIAL_SAMSUNG_CONSOLE=y
+ CONFIG_SERIAL_SPRD=y
+ CONFIG_SERIAL_SPRD_CONSOLE=y
+ CONFIG_SERIAL_DEV_BUS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 354516b21bfa..de0d36bda4d4 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -264,6 +264,8 @@ CONFIG_SERIAL_8250=y
+ # CONFIG_SERIAL_8250_DEPRECATED_OPTIONS is not set
+ CONFIG_SERIAL_8250_CONSOLE=y
+ CONFIG_SERIAL_OF_PLATFORM=y
++CONFIG_SERIAL_SAMSUNG=y
++CONFIG_SERIAL_SAMSUNG_CONSOLE=y
+ CONFIG_SERIAL_DEV_BUS=y
+ CONFIG_HW_RANDOM=y
+ # CONFIG_DEVMEM is not set
+-- 
+2.17.1
+

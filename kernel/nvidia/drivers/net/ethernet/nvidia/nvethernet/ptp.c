@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,31 +30,69 @@ static DEFINE_RAW_SPINLOCK(ether_ts_lock);
  *
  * @retval "nano seconds" of MAC system time
  */
-static inline u64 ether_get_ptptime(void *data)
+static inline int ether_get_hw_time(struct net_device *dev,
+				    void *ts, int ts_type)
 {
-	struct ether_priv_data *pdata = data;
-	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
+	struct ether_priv_data *pdata;
+	struct osi_dma_priv_data *osi_dma;
+	struct osi_core_priv_data *osi_core;
+	struct osi_ioctl ioctl_data = {};
 	unsigned long flags;
-	unsigned long long ns;
 	unsigned int sec, nsec;
+	struct osi_core_ptp_tsc_data local_ts;
 	int ret = -1;
 
-	raw_spin_lock_irqsave(&pdata->ptp_lock, flags);
+	pdata = netdev_priv(dev);
+	osi_dma = pdata->osi_dma;
+	osi_core = pdata->osi_core;
 
-	ret = osi_dma_get_systime_from_mac(osi_dma, &sec, &nsec);
-	if (ret != 0) {
-		dev_err(pdata->dev, "%s: Failed to read systime from MAC %d\n",
-			__func__, ret);
+	switch (ts_type) {
+	case PTP_HWTIME:
+		raw_spin_lock_irqsave(&pdata->ptp_lock, flags);
+
+		ret = osi_dma_get_systime_from_mac(osi_dma, &sec, &nsec);
+		if (ret != 0) {
+			dev_err(pdata->dev, "%s: Failed to read systime from MAC %d\n",
+				__func__, ret);
+			raw_spin_unlock_irqrestore(&pdata->ptp_lock, flags);
+			return ret;
+		}
+
+		*((u64 *)ts) = nsec + (sec * OSI_NSEC_PER_SEC);
+
 		raw_spin_unlock_irqrestore(&pdata->ptp_lock, flags);
-		return ret;
+		break;
+
+	case PTP_TSC_HWTIME:
+		raw_spin_lock_irqsave(&pdata->ptp_lock, flags);
+
+		ioctl_data.cmd = OSI_CMD_CAP_TSC_PTP;
+		ret = osi_handle_ioctl(osi_core, &ioctl_data);
+		if (ret != 0) {
+			dev_err(pdata->dev,
+				"Failed to get TSC Struct info from registers\n");
+			raw_spin_unlock_irqrestore(&pdata->ptp_lock, flags);
+			return ret;
+		}
+		memcpy(&local_ts, &ioctl_data.ptp_tsc,
+		       sizeof(struct osi_core_ptp_tsc_data));
+
+		((struct ptp_tsc_data *)ts)->ptp_ts = local_ts.ptp_low_bits +
+						      (local_ts.ptp_high_bits * OSI_NSEC_PER_SEC);
+		((struct ptp_tsc_data *)ts)->tsc_ts = ((u64)local_ts.tsc_high_bits <<
+						       TSC_HIGH_SHIFT) |
+						       local_ts.tsc_low_bits;
+
+		raw_spin_unlock_irqrestore(&pdata->ptp_lock, flags);
+		break;
+
+	default:
+		dev_err(pdata->dev, "Invalid time stamp requested\n");
+		return -EINVAL;
 	}
-
-	ns = nsec + (sec * OSI_NSEC_PER_SEC);
-
-	raw_spin_unlock_irqrestore(&pdata->ptp_lock, flags);
-
-	return ns;
+	return 0;
 }
+
 #endif
 
 /**
@@ -229,7 +267,7 @@ static struct ptp_clock_info ether_ptp_clock_ops = {
 	.settime64 = ether_set_time,
 };
 
-int ether_early_ptp_init(struct ether_priv_data *pdata)
+static int ether_early_ptp_init(struct ether_priv_data *pdata)
 {
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct osi_ioctl ioctl_data = {};
@@ -364,6 +402,7 @@ int ether_handle_hwtstamp_ioctl(struct ether_priv_data *pdata,
 {
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
+	struct net_device *ndev = pdata->ndev;
 	struct osi_ioctl ioctl_data = {};
 	struct hwtstamp_config config;
 	unsigned int hwts_rx_en = 1;
@@ -552,7 +591,7 @@ int ether_handle_hwtstamp_ioctl(struct ether_priv_data *pdata,
 		}
 #ifdef CONFIG_TEGRA_PTP_NOTIFIER
 		/* Register broadcasting MAC timestamp to clients */
-		tegra_register_hwtime_source(ether_get_ptptime, pdata);
+		tegra_register_hwtime_source(ether_get_hw_time, ndev);
 #endif
 		ether_config_slot_function(pdata, OSI_ENABLE);
 	}

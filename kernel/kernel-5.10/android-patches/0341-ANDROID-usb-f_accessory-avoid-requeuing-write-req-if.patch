@@ -1,0 +1,59 @@
+From a32fd003057b9b03a18c5fa399e96fab7a37d9e4 Mon Sep 17 00:00:00 2001
+From: Jack Pham <jackp@codeaurora.org>
+Date: Fri, 20 Nov 2020 09:53:21 -0800
+Subject: [PATCH 341/830] ANDROID: usb: f_accessory: avoid requeuing write req
+ if disconnected
+X-NVConfidentiality: public
+
+There is a race condition when a write operation is blocked
+waiting for an available request and the function is disabled
+due to disconnection or reset. usb_ep_disable() is called from
+acc_function_disable() and causes the UDC to call the pending
+requests' completions, which will wake up the writer thread and
+proceed to call usb_ep_queue() before the endpoint is fully
+disabled. The UDC driver may not handle this and could allow
+the request to be requeued inadvertently. In DWC3's case, this
+allows the HW to attempt a transfer with stale TRBs that point
+to invalid DMA buffers.
+
+Let's ensure the function driver acts as a good citizen and handle
+it by adding another check for (!dev->offline || dev->disconnected)
+after the wait_event to make sure the endpoint is enabled before
+attempting to queue another request.
+
+Bug: 173774644
+Change-Id: I1aa005e0c1e3ed1e1d814ff79496b70fdb401571
+Signed-off-by: Jack Pham <jackp@codeaurora.org>
+---
+ drivers/usb/gadget/function/f_accessory.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/gadget/function/f_accessory.c b/drivers/usb/gadget/function/f_accessory.c
+index 9260b89fe768..1a517662bada 100644
+--- a/drivers/usb/gadget/function/f_accessory.c
++++ b/drivers/usb/gadget/function/f_accessory.c
+@@ -739,16 +739,16 @@ static ssize_t acc_write(struct file *fp, const char __user *buf,
+ 	}
+ 
+ 	while (count > 0) {
+-		if (!dev->online) {
++		/* get an idle tx request to use */
++		req = 0;
++		ret = wait_event_interruptible(dev->write_wq,
++			((req = req_get(dev, &dev->tx_idle)) || !dev->online));
++		if (!dev->online || dev->disconnected) {
+ 			pr_debug("acc_write dev->error\n");
+ 			r = -EIO;
+ 			break;
+ 		}
+ 
+-		/* get an idle tx request to use */
+-		req = 0;
+-		ret = wait_event_interruptible(dev->write_wq,
+-			((req = req_get(dev, &dev->tx_idle)) || !dev->online));
+ 		if (!req) {
+ 			r = ret;
+ 			break;
+-- 
+2.17.1
+

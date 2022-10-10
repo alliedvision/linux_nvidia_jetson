@@ -1,21 +1,9 @@
-/*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * T194 p2822-0000 audio common DTSI file.
+ *
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
  */
 
 #include <audio/tegra-platforms-audio-dai-links.dtsi>
@@ -123,7 +111,7 @@
 		nvidia-audio-card,mclk-fs = <256>;
 	};
 
-	sound_graph {
+	tegra_sound_graph: sound_graph {
 		compatible = "nvidia,tegra186-audio-graph-card";
 
 		/*
@@ -276,6 +264,13 @@
 			  "CVB-RT DMIC L2",	   "CVB-RT Int Mic",
 			  "CVB-RT DMIC R1",	   "CVB-RT Int Mic",
 			  "CVB-RT DMIC R2",	   "CVB-RT Int Mic";
+
+		/*
+		 * For codec2codec based DAI link design this is required.
+		 * For DPCM based design, this is optional and instead
+		 * it will be picked from codec port node.
+		 */
+		mclk-fs = <256>;
 	};
 };
 
@@ -313,3 +308,5 @@ hdr40_snd_link_i2s: &i2s2_to_codec { };
 	dai-format = "dsp_a";
 	bitclock-inversion;
 };
+
+hdr40_snd_i2s_dap_ep: &i2s2_dap_ep { };

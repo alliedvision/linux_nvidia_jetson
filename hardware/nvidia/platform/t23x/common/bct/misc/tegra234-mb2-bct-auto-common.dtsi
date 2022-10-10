@@ -7,11 +7,25 @@
 #else
         enable_xusb_fw = <0>;
 #endif
+#ifdef DISABLE_UART_MB1_MB2
+        enable_combined_uart = <0>;
+#else
         enable_combined_uart = <1>;
+#endif
         spe_uart_instance = <2>;
         cpubl_load_offset = <0xC00000>;
         enable_eks = <0>;
+#ifdef ENABLE_SECURE_NOR_PROVISIONING
         disable_snor_provisioning = <0>;
+#else
+        disable_snor_provisioning = <1>;
+#endif
+
+        coresight {
+            cfg_cbdcr_swd_jtag_cfg = <0>;
+            cfg_cbdcr_swd_port_sel = <0>;
+            cfg_cbdcr_swddfd_nvdbgsel_en = <1>;
+        };
 
         mss_perf {
             mss_pm_disable = <0>;
@@ -53,9 +67,15 @@
 
         /* Control fields for SPE cluster. */
         auxp_controls@0 {
+#ifdef DISABLE_UART_MB1_MB2
+            enable_init = <0>;
+            enable_fw_load = <0>;
+            enable_unhalt = <0>;
+#else
             enable_init = <1>;
             enable_fw_load = <1>;
             enable_unhalt = <1>;
+#endif
         };
         /* Control fields for SCE cluster. */
         auxp_controls@1 {
@@ -640,6 +660,39 @@
                 pa = <0xf0000000>;
                 size = <0x01000000>;
             };
+#ifdef ENABLE_DRAM_ECC_ERROR_INJECT
+           ast_region@2 {
+                enable = <0x1>;
+                /* SW carveout for DRAM ECC error injection */
+                carveout = <0x31>;
+                /* FIXME change to correct VA as used in FSI FW */
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x31>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
+#endif /* ENABLE_DRAM_ECC_ERROR_INJECT */
+            ast_region@3 {
+                enable = <0x1>;
+                /* GSCITE34(ATF_FSI) carveout */
+                carveout = <0x44>;
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x44>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
         };
         /* Configuration fields for FSI CPU1 AST. */
         auxp_ast_config@11 {
@@ -683,6 +736,21 @@
                 /* IOVA range */
                 pa = <0xf0000000>;
                 size = <0x01000000>;
+            };
+            ast_region@2 {
+                enable = <0x1>;
+                /* GSCITE34(ATF_FSI) carveout */
+                carveout = <0x44>;
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x44>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
             };
         };
         /* Configuration fields for FSI CPU2 AST. */
@@ -728,6 +796,21 @@
                 pa = <0xf0000000>;
                 size = <0x01000000>;
             };
+            ast_region@2 {
+                enable = <0x1>;
+                /* GSCITE34(ATF_FSI) carveout */
+                carveout = <0x44>;
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x44>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
         };
         /* Configuration fields for FSI CPU3 AST. */
         auxp_ast_config@13 {
@@ -772,6 +855,21 @@
                 pa = <0xf0000000>;
                 size = <0x01000000>;
             };
+            ast_region@2 {
+                enable = <0x1>;
+                /* GSCITE34(ATF_FSI) carveout */
+                carveout = <0x44>;
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x44>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
+            };
         };
         /* Configuration fields for FSI CHSM AST. */
         auxp_ast_config@14 {
@@ -815,6 +913,21 @@
                 /* IOVA range */
                 pa = <0xf0000000>;
                 size = <0x01000000>;
+            };
+            ast_region@2 {
+                enable = <0x0>;
+                /* GSCITE34(ATF_FSI) carveout */
+                carveout = <0x44>;
+                va = <0x00000000 0x50000000>;
+                /* bypass SMMU */
+                physical = <0x1>;
+                /* use bypass StreamID*/
+                vm_index = <0x0>;
+                aperture_id = <0x44>;
+                snoop = <0x0>;
+                /* pa and size used is as configured by mb2 */
+                pa = <0xffffffff>;
+                size = <0x0>;
             };
         };
         /* CBB PCIE AMAP regions */

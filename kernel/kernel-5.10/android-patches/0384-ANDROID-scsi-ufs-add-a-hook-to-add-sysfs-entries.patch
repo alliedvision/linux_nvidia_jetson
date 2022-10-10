@@ -1,0 +1,125 @@
+From b429defd10dc037536221a28ed6a861ee2ad6a18 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Sun, 13 Sep 2020 22:17:05 -0700
+Subject: [PATCH 384/830] ANDROID: scsi: ufs: add a hook to add sysfs entries
+X-NVConfidentiality: public
+
+This patch adds a variant in UFS driver:
+
+int     (*update_sysfs)(struct ufs_hba *hba);
+ -> called after creating sysfs for vendor to add more sysfs entries
+
+Bug: 158050260
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: Id8c1197ec704e998e89dc25cc69b0f6a1b86e978
+---
+ drivers/scsi/ufs/ufs-sysfs.c | 16 ++++++++++++----
+ drivers/scsi/ufs/ufs-sysfs.h |  2 +-
+ drivers/scsi/ufs/ufshcd.c    |  4 ++--
+ drivers/scsi/ufs/ufshcd.h    |  9 +++++++++
+ 4 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufs-sysfs.c b/drivers/scsi/ufs/ufs-sysfs.c
+index 34b424ad96a2..97dcd9c3befa 100644
+--- a/drivers/scsi/ufs/ufs-sysfs.c
++++ b/drivers/scsi/ufs/ufs-sysfs.c
+@@ -863,15 +863,23 @@ const struct attribute_group ufs_sysfs_lun_attributes_group = {
+ 	.attrs = ufs_sysfs_lun_attributes,
+ };
+ 
+-void ufs_sysfs_add_nodes(struct device *dev)
++void ufs_sysfs_add_nodes(struct ufs_hba *hba)
+ {
+ 	int ret;
+ 
+-	ret = sysfs_create_groups(&dev->kobj, ufs_sysfs_groups);
+-	if (ret)
+-		dev_err(dev,
++	ret = sysfs_create_groups(&hba->dev->kobj, ufs_sysfs_groups);
++	if (ret) {
++		dev_err(hba->dev,
+ 			"%s: sysfs groups creation failed (err = %d)\n",
+ 			__func__, ret);
++		return;
++	}
++
++	ret = ufshcd_vops_update_sysfs(hba);
++	if (ret)
++		dev_err(hba->dev,
++			"%s: vops sysfs groups update failed (err = %d)\n",
++			__func__, ret);
+ }
+ 
+ void ufs_sysfs_remove_nodes(struct device *dev)
+diff --git a/drivers/scsi/ufs/ufs-sysfs.h b/drivers/scsi/ufs/ufs-sysfs.h
+index 0f4e750a6748..ec7b0c898bef 100644
+--- a/drivers/scsi/ufs/ufs-sysfs.h
++++ b/drivers/scsi/ufs/ufs-sysfs.h
+@@ -9,7 +9,7 @@
+ 
+ #include "ufshcd.h"
+ 
+-void ufs_sysfs_add_nodes(struct device *dev);
++void ufs_sysfs_add_nodes(struct ufs_hba *hba);
+ void ufs_sysfs_remove_nodes(struct device *dev);
+ 
+ extern const struct attribute_group ufs_sysfs_unit_descriptor_group;
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 14848996eeff..898ade7bdc05 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -8077,7 +8077,7 @@ int ufshcd_rescan(struct ufs_hba *hba)
+ 		if (ufshcd_is_clkscaling_supported(hba))
+ 			ufshcd_clkscaling_init_sysfs(hba);
+ 
+-		ufs_sysfs_add_nodes(hba->dev);
++		ufs_sysfs_add_nodes(hba);
+ 		hba->card_enumerated = 1;
+ 	} else {
+ 		if (!hba->card_enumerated) {
+@@ -9999,7 +9999,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
+ 	ufshcd_set_ufs_dev_active(hba);
+ 
+ 	async_schedule(ufshcd_async_scan, hba);
+-	ufs_sysfs_add_nodes(hba->dev);
++	ufs_sysfs_add_nodes(hba);
+ 	hba->card_enumerated = 1;
+ 
+ 	return 0;
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 9b97038dc9cc..dfcaa1569b21 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -300,6 +300,7 @@ struct ufs_pwr_mode_info {
+  * @fill_prdt: called after initializing the standard PRDT fields so that any
+  *	       variant-specific PRDT fields can be initialized too
+  * @prepare_command: called when receiving a request in the first place
++ * @update_sysfs: adds vendor-specific sysfs entries
+  */
+ struct ufs_hba_variant_ops {
+ 	const char *name;
+@@ -343,6 +344,7 @@ struct ufs_hba_variant_ops {
+ 			     unsigned int segments);
+ 	void    (*prepare_command)(struct ufs_hba *hba,
+ 				struct request *rq, struct ufshcd_lrb *lrbp);
++	int     (*update_sysfs)(struct ufs_hba *hba);
+ };
+ 
+ /* clock gating state  */
+@@ -1340,6 +1342,13 @@ static inline void ufshcd_vops_prepare_command(struct ufs_hba *hba,
+ 		hba->vops->prepare_command(hba, rq, lrbp);
+ }
+ 
++static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
++{
++	if (hba->vops && hba->vops->update_sysfs)
++		return hba->vops->update_sysfs(hba);
++	return 0;
++}
++
+ extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
+ 
+ /*
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -217,7 +217,7 @@ void ga10b_channel_read_state(struct gk20a *g, struct nvgpu_channel *ch,
 	 * Status is true if the corresponding bit is set.
 	 * Go through each set bit and copy status string to status string list.
 	 */
-	for_each_set_bit(bit, &status_str_bits, ilog2(U32_MAX)) {
+	for_each_set_bit(bit, &status_str_bits, nvgpu_ilog2(U32_MAX)) {
 		chram_status_list[status_str_count] =
 					chram_status_str[BIT32(bit)];
 		status_str_count = nvgpu_safe_add_u32(status_str_count, 1UL);

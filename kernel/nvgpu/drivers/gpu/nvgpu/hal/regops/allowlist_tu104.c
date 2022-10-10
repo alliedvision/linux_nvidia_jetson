@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -327,7 +327,7 @@ static const u32 tu104_cau_register_offset_allowlist[] = {
 	0x00000024,
 };
 
-const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmon_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmon_register_ranges[] = {
 	{0x00180000, 0x00197ffc},
 	{0x00250040, 0x00250124},
 	{0x00250240, 0x00250324},
@@ -341,7 +341,7 @@ const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmon_register_ranges
 	{0x00251240, 0x00251324},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_hwpm_router_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_router_register_ranges[] = {
 	{0x00244000, 0x00244bfc},
 	{0x00246000, 0x00246ffc},
 	{0x00248000, 0x002481fc},
@@ -349,21 +349,21 @@ const struct nvgpu_pm_resource_register_range tu104_hwpm_router_register_ranges[
 	{0x00251a00, 0x00251a14},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_hwpm_pma_channel_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_pma_channel_register_ranges[] = {
 	{0x0024a070, 0x0024a08c},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_hwpm_pma_trigger_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_pma_trigger_register_ranges[] = {
 	{0x0024a000, 0x0024a06c},
 	{0x0024a090, 0x0024bffb},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_smpc_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_smpc_register_ranges[] = {
 	{0x00580000, 0x005afffc},
 	{0x00480000, 0x004afffc},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmux_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmux_register_ranges[] = {
 	{0x000004f0, 0x000004f0},
 	{0x000010c0, 0x000010c0},
 	{0x00001a00, 0x00001a00},
@@ -1117,7 +1117,47 @@ const struct nvgpu_pm_resource_register_range tu104_hwpm_perfmux_register_ranges
 	{0x00a1ec70, 0x00a1ec74},
 };
 
-const struct nvgpu_pm_resource_register_range tu104_cau_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range tu104_hwpm_pc_sampler_register_ranges[] = {
+	{0x005043dc, 0x005043dc},
+	{0x00504bdc, 0x00504bdc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x005063dc, 0x005063dc},
+	{0x00506bdc, 0x00506bdc},
+	{0x00504bdc, 0x00504bdc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x005063dc, 0x005063dc},
+	{0x00506bdc, 0x00506bdc},
+	{0x005073dc, 0x005073dc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x005063dc, 0x005063dc},
+	{0x00506bdc, 0x00506bdc},
+	{0x005073dc, 0x005073dc},
+	{0x00507bdc, 0x00507bdc},
+	{0x00505bdc, 0x00505bdc},
+	{0x005063dc, 0x005063dc},
+	{0x00506bdc, 0x00506bdc},
+	{0x005073dc, 0x005073dc},
+	{0x00507bdc, 0x00507bdc},
+	{0x005083dc, 0x005083dc},
+	{0x005063dc, 0x005063dc},
+	{0x00506bdc, 0x00506bdc},
+	{0x005073dc, 0x005073dc},
+	{0x00507bdc, 0x00507bdc},
+	{0x005083dc, 0x005083dc},
+	{0x00508bdc, 0x00508bdc},
+	{0x00506bdc, 0x00506bdc},
+	{0x005073dc, 0x005073dc},
+	{0x00507bdc, 0x00507bdc},
+	{0x005083dc, 0x005083dc},
+	{0x00508bdc, 0x00508bdc},
+	{0x005093dc, 0x005093dc},
+	{0x00419bdc, 0x00419bdc},
+};
+
+static const struct nvgpu_pm_resource_register_range tu104_cau_register_ranges[] = {
 	{0x00419980, 0x004199b4},
 	{0x004199c0, 0x004199f4},
 	{0x0041c180, 0x0041c1b4},
@@ -1336,6 +1376,14 @@ const struct nvgpu_pm_resource_register_range
 	*count = (u32)(sizeof(tu104_hwpm_perfmux_register_ranges) /
 		sizeof(tu104_hwpm_perfmux_register_ranges[0]));
 	return tu104_hwpm_perfmux_register_ranges;
+}
+
+const struct nvgpu_pm_resource_register_range
+		*tu104_get_hwpm_pc_sampler_register_ranges(u32 *count)
+{
+	*count = (u32)(sizeof(tu104_hwpm_pc_sampler_register_ranges) /
+		sizeof(tu104_hwpm_pc_sampler_register_ranges[0]));
+	return tu104_hwpm_pc_sampler_register_ranges;
 }
 
 const struct nvgpu_pm_resource_register_range

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2019-2022 NVIDIA CORPORATION.  All Rights Reserved.
 #
 # Linux elements and units in nvgpu.
 #
@@ -100,6 +100,9 @@ firmware:
 
 fuse:
   sources: [ os/linux/fuse.c ]
+
+nvmem:
+  sources: [ os/linux/nvmem.c ]
 
 intr:
   sources: [ os/linux/intr.c ]
@@ -217,7 +220,8 @@ thread:
   sources: [ os/linux/thread.c ]
 
 timers:
-  sources: [ os/linux/timers.c ]
+  sources: [ os/linux/timers.c,
+             os/linux/periodic_timer.c ]
 
 vgpu:
   sources: [ os/linux/vgpu/fecs_trace_vgpu_linux.c,
@@ -228,16 +232,17 @@ vgpu:
              os/linux/vgpu/platform_vgpu_tegra.h,
              os/linux/vgpu/sysfs_vgpu.c,
              os/linux/vgpu/vgpu_ivc.c,
-             os/linux/vgpu/vgpu_ivm.c,
              os/linux/vgpu/vgpu_linux.c,
              os/linux/vgpu/vgpu_linux.h ]
 
 vm:
   sources: [ os/linux/vm.c,
-             os/linux/vm_remap.c ]
+             os/linux/vm_remap.c,
+             os/linux/nvgpu_ivm.c ]
 
 cic:
-  sources: [ os/linux/cic/cic_stub.c ]
+  sources: [ os/linux/cic/cic_report_err.c,
+             os/linux/cic/l1ss_report_err.c ]
 
 # Group all the Linux headers for now.
 headers:
@@ -251,12 +256,15 @@ headers:
              include/nvgpu/linux/nvgpu_mem.h,
              include/nvgpu/linux/os_fence_android.h,
              include/nvgpu/linux/os_fence_dma.h,
+             include/nvgpu/linux/periodic_timer.h,
              include/nvgpu/linux/rwsem.h,
+             include/nvgpu/linux/nvmem.h,
              include/nvgpu/linux/sim.h,
              include/nvgpu/linux/sim_pci.h,
              include/nvgpu/linux/soc_fuse.h,
              include/nvgpu/linux/thread.h,
              include/nvgpu/linux/log.h,
+             include/nvgpu/linux/log2.h,
              include/nvgpu/linux/utils.h,
              include/nvgpu/linux/vm.h,
              include/nvgpu/linux/vm_remap.h ]

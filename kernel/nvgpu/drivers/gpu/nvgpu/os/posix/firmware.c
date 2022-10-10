@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -115,6 +115,8 @@ struct nvgpu_firmware *nvgpu_request_firmware(struct gk20a *g,
 	char full_path[FW_MAX_PATH_SIZE] = "";
 	int ret;
 	size_t full_path_len;
+
+	(void)flags;
 
 	if (fw_name == NULL) {
 		return NULL;

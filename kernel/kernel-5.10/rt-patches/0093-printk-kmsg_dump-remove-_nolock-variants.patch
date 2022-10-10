@@ -1,7 +1,7 @@
-From e1c928cbb40b5815440819d328b6bb3830561d4b Mon Sep 17 00:00:00 2001
+From fad3edccdaac92055ac77058bf42daf4f80daa06 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 10:27:58 +0106
-Subject: [PATCH 093/304] printk: kmsg_dump: remove _nolock() variants
+Subject: [PATCH 093/318] printk: kmsg_dump: remove _nolock() variants
 
 kmsg_dump_rewind() and kmsg_dump_get_line() are lockless, so there is
 no need for _nolock() variants. Remove these functions and switch all
@@ -13,13 +13,13 @@ exported to kernel modules.
 Signed-off-by: John Ogness <john.ogness@linutronix.de>
 ---
  arch/powerpc/xmon/xmon.c    |  4 +--
- include/linux/kmsg_dump.h   | 18 +-------------
- kernel/debug/kdb/kdb_main.c |  8 +++---
- kernel/printk/printk.c      | 60 ++++++---------------------------------------
+ include/linux/kmsg_dump.h   | 18 +----------
+ kernel/debug/kdb/kdb_main.c |  8 ++---
+ kernel/printk/printk.c      | 60 +++++--------------------------------
  4 files changed, 15 insertions(+), 75 deletions(-)
 
 diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
-index b71690e..d62b8e0 100644
+index b71690e8245b..d62b8e053d4c 100644
 --- a/arch/powerpc/xmon/xmon.c
 +++ b/arch/powerpc/xmon/xmon.c
 @@ -3017,9 +3017,9 @@ dump_log_buf(void)
@@ -35,7 +35,7 @@ index b71690e..d62b8e0 100644
  		printf("%s", buf);
  	}
 diff --git a/include/linux/kmsg_dump.h b/include/linux/kmsg_dump.h
-index 2fdb10a..8667393 100644
+index 2fdb10ab1799..86673930c8ea 100644
 --- a/include/linux/kmsg_dump.h
 +++ b/include/linux/kmsg_dump.h
 @@ -60,18 +60,13 @@ struct kmsg_dumper {
@@ -84,7 +84,7 @@ index 2fdb10a..8667393 100644
  {
  }
 diff --git a/kernel/debug/kdb/kdb_main.c b/kernel/debug/kdb/kdb_main.c
-index 7ae9da2..dbf1d12 100644
+index 7ae9da245e4b..dbf1d126ac5e 100644
 --- a/kernel/debug/kdb/kdb_main.c
 +++ b/kernel/debug/kdb/kdb_main.c
 @@ -2126,8 +2126,8 @@ static int kdb_dmesg(int argc, const char **argv)
@@ -110,10 +110,10 @@ index 7ae9da2..dbf1d12 100644
  			skip--;
  			continue;
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index d4e3111..d5931e8 100644
+index 0b679290f693..166caf61ee27 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3378,7 +3378,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3385,7 +3385,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  }
  
  /**
@@ -122,7 +122,7 @@ index d4e3111..d5931e8 100644
   * @iter: kmsg dumper iterator
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
-@@ -3393,18 +3393,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3400,18 +3400,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
   *
   * A return value of FALSE indicates that there are no more records to
   * read.
@@ -145,7 +145,7 @@ index d4e3111..d5931e8 100644
  	prb_rec_init_rd(&r, &info, line, size);
  
  	if (!iter->active)
-@@ -3428,40 +3428,11 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper_iter *iter, bool syslog,
+@@ -3435,40 +3435,11 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper_iter *iter, bool syslog,
  	iter->cur_seq = r.info->seq + 1;
  	ret = true;
  out:
@@ -187,10 +187,11 @@ index d4e3111..d5931e8 100644
  EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  
  /**
-@@ -3551,22 +3522,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper_iter *iter, bool syslog,
+@@ -3557,22 +3528,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper_iter *iter, bool syslog,
+ }
  EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
- /**
+-/**
 - * kmsg_dump_rewind_nolock - reset the iterator (unlocked version)
 - * @iter: kmsg dumper iterator
 - *
@@ -206,11 +207,10 @@ index d4e3111..d5931e8 100644
 -	iter->next_seq = prb_next_seq(prb);
 -}
 -
--/**
+ /**
   * kmsg_dump_rewind - reset the iterator
   * @iter: kmsg dumper iterator
-  *
-@@ -3579,7 +3534,8 @@ void kmsg_dump_rewind(struct kmsg_dumper_iter *iter)
+@@ -3586,7 +3541,8 @@ void kmsg_dump_rewind(struct kmsg_dumper_iter *iter)
  	unsigned long flags;
  
  	printk_safe_enter_irqsave(flags);
@@ -221,5 +221,5 @@ index d4e3111..d5931e8 100644
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_rewind);
 -- 
-2.7.4
+2.17.1
 

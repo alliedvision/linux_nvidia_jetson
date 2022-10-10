@@ -1,0 +1,55 @@
+From 19fc795b2e48262366f8c3c5b89c6991b9e3b536 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Wed, 19 Aug 2020 15:33:15 +0100
+Subject: [PATCH 198/830] ANDROID: cgroup/cpuset: rely on active_mask for
+ guaranteed online CPU
+X-NVConfidentiality: public
+
+In the event of a partial hotunplug, a stable state with a CPU set in the
+online_mask and cleared from active_mask can happen. An online CPU, from a
+scheduler point of view, should be part of the cpu_active_mask.
+
+Bug: 161210528
+Change-Id: I0d0aa6fca4c6dc145634c4aad6519045e0afc8e2
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ kernel/cgroup/cpuset.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/cgroup/cpuset.c b/kernel/cgroup/cpuset.c
+index a7e55e16d595..b28691cef8a3 100644
+--- a/kernel/cgroup/cpuset.c
++++ b/kernel/cgroup/cpuset.c
+@@ -369,13 +369,13 @@ static inline bool is_in_v2_mode(void)
+  * until we find one that does have some online cpus.
+  *
+  * One way or another, we guarantee to return some non-empty subset
+- * of cpu_online_mask.
++ * of cpu_active_mask.
+  *
+  * Call with callback_lock or cpuset_mutex held.
+  */
+ static void guarantee_online_cpus(struct cpuset *cs, struct cpumask *pmask)
+ {
+-	while (!cpumask_intersects(cs->effective_cpus, cpu_online_mask)) {
++	while (!cpumask_intersects(cs->effective_cpus, cpu_active_mask)) {
+ 		cs = parent_cs(cs);
+ 		if (unlikely(!cs)) {
+ 			/*
+@@ -385,11 +385,11 @@ static void guarantee_online_cpus(struct cpuset *cs, struct cpumask *pmask)
+ 			 * cpuset's effective_cpus is on its way to be
+ 			 * identical to cpu_online_mask.
+ 			 */
+-			cpumask_copy(pmask, cpu_online_mask);
++			cpumask_copy(pmask, cpu_active_mask);
+ 			return;
+ 		}
+ 	}
+-	cpumask_and(pmask, cs->effective_cpus, cpu_online_mask);
++	cpumask_and(pmask, cs->effective_cpus, cpu_active_mask);
+ }
+ 
+ /*
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
-From 2ba388cfb14b30048ce78334f426895aabe0e9a0 Mon Sep 17 00:00:00 2001
+From fd80550f2842998205d81e9442035376ea19a259 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:44 +0100
-Subject: [PATCH 055/304] drm/vmgfx: Replace kmap_atomic()
+Subject: [PATCH 055/318] drm/vmgfx: Replace kmap_atomic()
 
 There is no reason to disable pagefaults and preemption as a side effect of
 kmap_atomic_prot().
@@ -21,11 +21,11 @@ Cc: Daniel Vetter <daniel@ffwll.ch>
 Cc: dri-devel@lists.freedesktop.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/gpu/drm/vmwgfx/vmwgfx_blit.c | 30 ++++++++++++------------------
+ drivers/gpu/drm/vmwgfx/vmwgfx_blit.c | 30 +++++++++++-----------------
  1 file changed, 12 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/gpu/drm/vmwgfx/vmwgfx_blit.c b/drivers/gpu/drm/vmwgfx/vmwgfx_blit.c
-index e8d66182..71dba22 100644
+index e8d66182cd7b..71dba228f68e 100644
 --- a/drivers/gpu/drm/vmwgfx/vmwgfx_blit.c
 +++ b/drivers/gpu/drm/vmwgfx/vmwgfx_blit.c
 @@ -375,12 +375,12 @@ static int vmw_bo_cpu_blit_line(struct vmw_bo_blit_line_data *d,
@@ -99,5 +99,5 @@ index e8d66182..71dba22 100644
  	return ret;
  }
 -- 
-2.7.4
+2.17.1
 

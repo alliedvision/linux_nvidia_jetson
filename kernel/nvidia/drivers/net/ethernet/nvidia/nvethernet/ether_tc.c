@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -169,5 +169,85 @@ disable:
 
 done:
 	return ret;
+}
+
+int ether_tc_setup_cbs(struct ether_priv_data *pdata,
+		       struct tc_cbs_qopt_offload *qopt)
+{
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+	struct phy_device *phydev = pdata->phydev;
+	struct osi_ioctl ioctl_data = {};
+	int queue = qopt->queue;
+	unsigned int multiplier, speed_div;
+	unsigned long  value;
+	int speed;
+
+	/* Queue 0 is not AVB capable */
+	if (queue <= 0) {
+		netdev_err(pdata->ndev, "%s() invalid queue\n", __func__);
+		return -EINVAL;
+	}
+
+	if (phydev != NULL) {
+		speed = phydev->speed;
+	} else {
+		speed = pdata->speed;
+	}
+
+	switch (speed) {
+	case OSI_SPEED_10000:
+		multiplier = MULTIPLIER_32;
+		speed_div = OSI_SPEED_10000 * ETH_1K;
+		break;
+	case OSI_SPEED_5000:
+		multiplier = MULTIPLIER_32;
+		speed_div = OSI_SPEED_5000 * ETH_1K;
+		break;
+	case OSI_SPEED_2500:
+		multiplier = MULTIPLIER_8;
+		speed_div = OSI_SPEED_2500 * ETH_1K;
+		break;
+	case OSI_SPEED_1000:
+		multiplier = MULTIPLIER_8;
+		speed_div = OSI_SPEED_1000 * ETH_1K;
+		break;
+	case OSI_SPEED_100:
+		multiplier = MULTIPLIER_4;
+		speed_div = OSI_SPEED_100 * ETH_1K;
+		break;
+	default:
+		netdev_err(pdata->ndev, "invalid speed\n");
+		return -EINVAL;
+	}
+
+	ioctl_data.avb.qindex = (unsigned int)queue;
+	ioctl_data.avb.tcindex = (unsigned int)queue;
+
+	if (qopt->enable) {
+		ioctl_data.avb.algo = OSI_MTL_TXQ_AVALG_CBS;
+		ioctl_data.avb.oper_mode = OSI_MTL_QUEUE_AVB;
+		ioctl_data.avb.credit_control = OSI_ENABLE;
+	} else {
+		ioctl_data.avb.algo = OSI_MTL_TXQ_AVALG_SP;
+		ioctl_data.avb.oper_mode = OSI_MTL_QUEUE_ENABLE;
+		ioctl_data.avb.credit_control = OSI_DISABLE;
+	}
+
+	/* Final adjustments for HW */
+	value = div_s64(qopt->idleslope * 1024ll * multiplier, speed_div);
+	ioctl_data.avb.idle_slope = (unsigned long)value;
+
+	value = div_s64(-qopt->sendslope * 1024ll * multiplier, speed_div);
+	ioctl_data.avb.send_slope = (unsigned long)value;
+
+	value = qopt->hicredit * 1024ll * 8;
+	ioctl_data.avb.hi_credit = (unsigned long)value;
+
+	value = qopt->locredit * 1024ll * 8;
+	ioctl_data.avb.low_credit = (unsigned long)value;
+
+	ioctl_data.cmd = OSI_CMD_SET_AVB;
+
+	return osi_handle_ioctl(osi_core, &ioctl_data);
 }
 #endif

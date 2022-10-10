@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 
 bool gm20b_is_fault_engine_subid_gpc(struct gk20a *g, u32 engine_subid)
 {
+	(void)g;
 	return (engine_subid == fifo_intr_mmu_fault_info_engine_subid_gpc_v());
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,8 @@ static int gv11b_bootstrap_hs_acr(struct gk20a *g, struct nvgpu_acr *acr)
 {
 	int err = 0;
 
+	(void)acr;
+
 	nvgpu_log_fn(g, " ");
 
 	err = nvgpu_acr_bootstrap_hs_ucode(g, g->acr, &g->acr->acr);
@@ -63,6 +65,9 @@ static int gv11b_acr_patch_wpr_info_to_ucode(struct gk20a *g,
 	u32 *acr_ucode_header = NULL;
 	u32 *acr_ucode_data = NULL;
 	const u32 acr_desc_offset = 2U;
+
+	(void)acr;
+	(void)is_recovery;
 
 	nvgpu_log_fn(g, " ");
 #ifdef CONFIG_NVGPU_NON_FUSA

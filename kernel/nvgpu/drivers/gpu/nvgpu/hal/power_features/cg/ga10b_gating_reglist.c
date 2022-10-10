@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,6 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/fifo.h>
 #include <nvgpu/runlist.h>
-
 #include "hal/power_features/cg/gating_reglist.h"
 #include "ga10b_gating_reglist.h"
 
@@ -123,6 +122,8 @@ static const struct gating_desc ga10b_slcg_gr[] = {
 
 /* slcg ltc */
 static const struct gating_desc ga10b_slcg_ltc[] = {
+	{.addr = 0x0017e050U, .prod = 0x00000000U, .disable = 0xfffffffeU},
+	{.addr = 0x0017e35cU, .prod = 0x00000000U, .disable = 0xfffffffeU},
 };
 
 /* slcg perf */
@@ -164,6 +165,19 @@ static const struct gating_desc ga10b_slcg_hshub[] = {
 	{.addr = 0x000043f4U, .prod = 0x00000000U, .disable = 0xfffffffeU},
 	{.addr = 0x000047f4U, .prod = 0x00000000U, .disable = 0xfffffffeU},
 	{.addr = 0x00004bf4U, .prod = 0x00000000U, .disable = 0xfffffffeU},
+};
+
+/* slcg Ctrl */
+static const struct gating_desc ga10b_slcg_ctrl[] = {
+	{.addr = 0x00b66a00U, .prod = 0x00000000U, .disable = 0x00000006U},
+};
+
+/* slcg GSP */
+static const struct gating_desc ga10b_slcg_gsp[] = {
+	{.addr = 0x00110134U, .prod = 0x00040140U, .disable = 0x0003fffeU},
+	{.addr = 0x00110674U, .prod = 0x00000000U, .disable = 0x0000000fU},
+	{.addr = 0x00110e28U, .prod = 0x00000000U, .disable = 0x00000001U},
+	{.addr = 0x0011083cU, .prod = 0x000000feU, .disable = 0x800000ffU},
 };
 
 /* slcg timer */
@@ -286,6 +300,10 @@ static const struct gating_desc ga10b_blcg_gr[] = {
 
 /* blcg ltc */
 static const struct gating_desc ga10b_blcg_ltc[] = {
+	{.addr = 0x0017e030U, .prod = 0x00000044U, .disable = 0x00000000U},
+	{.addr = 0x0017e040U, .prod = 0x00000044U, .disable = 0x00000000U},
+	{.addr = 0x0017e3e0U, .prod = 0x00000044U, .disable = 0x00000000U},
+	{.addr = 0x0017e3c8U, .prod = 0x00000044U, .disable = 0x00000000U},
 };
 
 /* blcg pmu */
@@ -873,6 +891,60 @@ u32 ga10b_slcg_hshub_gating_prod_size(void)
 const struct gating_desc *ga10b_slcg_hshub_get_gating_prod(void)
 {
 	return ga10b_slcg_hshub;
+}
+
+void ga10b_slcg_ctrl_load_gating_prod(struct gk20a *g,
+	bool prod)
+{
+	u32 i;
+	u32 size = nvgpu_safe_cast_u64_to_u32(sizeof(ga10b_slcg_ctrl)
+							/ GATING_DESC_SIZE);
+
+	if (nvgpu_is_enabled(g, NVGPU_GPU_CAN_SLCG)) {
+		for (i = 0U; i < size; i++) {
+			u32 reg = ga10b_slcg_ctrl[i].addr;
+			u32 val = prod ? ga10b_slcg_ctrl[i].prod :
+					 ga10b_slcg_ctrl[i].disable;
+			nvgpu_writel(g, reg, val);
+		}
+	}
+}
+
+u32 ga10b_slcg_ctrl_gating_prod_size(void)
+{
+	return nvgpu_safe_cast_u64_to_u32(ARRAY_SIZE(ga10b_slcg_ctrl));
+}
+
+const struct gating_desc *ga10b_slcg_ctrl_get_gating_prod(void)
+{
+	return ga10b_slcg_ctrl;
+}
+
+void ga10b_slcg_gsp_load_gating_prod(struct gk20a *g,
+	bool prod)
+{
+	u32 i;
+	u32 size = nvgpu_safe_cast_u64_to_u32(sizeof(ga10b_slcg_gsp)
+							/ GATING_DESC_SIZE);
+
+	if (nvgpu_is_enabled(g, NVGPU_GPU_CAN_SLCG)) {
+		for (i = 0U; i < size; i++) {
+			u32 reg = ga10b_slcg_gsp[i].addr;
+			u32 val = prod ? ga10b_slcg_gsp[i].prod :
+					 ga10b_slcg_gsp[i].disable;
+			nvgpu_writel(g, reg, val);
+		}
+	}
+}
+
+u32 ga10b_slcg_gsp_gating_prod_size(void)
+{
+	return nvgpu_safe_cast_u64_to_u32(ARRAY_SIZE(ga10b_slcg_gsp));
+}
+
+const struct gating_desc *ga10b_slcg_gsp_get_gating_prod(void)
+{
+	return ga10b_slcg_gsp;
 }
 
 void ga10b_blcg_bus_load_gating_prod(struct gk20a *g,

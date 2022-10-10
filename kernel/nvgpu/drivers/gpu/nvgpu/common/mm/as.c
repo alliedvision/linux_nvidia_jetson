@@ -78,7 +78,7 @@ static int gk20a_vm_alloc_share(struct gk20a_as_share *as_share,
 		big_pages = false;
 		big_page_size = g->ops.mm.gmmu.get_default_big_page_size();
 	} else {
-		if (!is_power_of_2(big_page_size)) {
+		if (is_power_of_2(big_page_size) == false) {
 			return -EINVAL;
 		}
 

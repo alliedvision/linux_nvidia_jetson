@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
 #
 # OS interface units and utilities. Often represented by simply a header file.
 #
@@ -109,7 +109,8 @@ thread:
 
 timers:
   safe: yes
-  sources: [ include/nvgpu/timers.h ]
+  sources: [ include/nvgpu/timers.h,
+             include/nvgpu/periodic_timer.h ]
 
 types:
   safe: yes

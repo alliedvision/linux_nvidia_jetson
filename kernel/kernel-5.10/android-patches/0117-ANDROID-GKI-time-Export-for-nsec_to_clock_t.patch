@@ -1,0 +1,34 @@
+From aa489e1e493fc0bee393e03bb7e452d8a7dd403b Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:45:19 +0530
+Subject: [PATCH 117/830] ANDROID: GKI: time: Export for nsec_to_clock_t
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for nsec_to_clock_t() so that drivers
+    be loadable as a module.
+
+    - This API is required by loadable driver module from samsung to
+    fetch process uptime based on CPU clock ticks to get the exact time
+    during which app is scheduled in user mode.
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Bug: 158067689
+Change-Id: I45be5fd7873dc7c21aa583313499f48f8b10bb1b
+---
+ kernel/time/time.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/time/time.c b/kernel/time/time.c
+index 3985b2b32d08..5fe2cc0f4f3b 100644
+--- a/kernel/time/time.c
++++ b/kernel/time/time.c
+@@ -686,6 +686,7 @@ u64 nsec_to_clock_t(u64 x)
+ 	return div_u64(x * 9, (9ull * NSEC_PER_SEC + (USER_HZ / 2)) / USER_HZ);
+ #endif
+ }
++EXPORT_SYMBOL_GPL(nsec_to_clock_t);
+ 
+ u64 jiffies64_to_nsecs(u64 j)
+ {
+-- 
+2.17.1
+

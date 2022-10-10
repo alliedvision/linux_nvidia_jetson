@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,16 +66,20 @@ int nvgpu_cic_rm_init_vars(struct gk20a *g)
 		goto cleanup;
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	err = nvgpu_cond_init(&cic_rm->sw_irq_nonstall_last_handled_cond);
 	if (err != 0) {
 		nvgpu_err(g, "sw irq nonstall cond init failed\n");
 		goto cleanup_cond;
 	}
+#endif
 
 	return 0;
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 cleanup_cond:
 	nvgpu_cond_destroy(&cic_rm->sw_irq_stall_last_handled_cond);
+#endif
 cleanup:
 	return err;
 }
@@ -92,7 +96,9 @@ int nvgpu_cic_rm_deinit_vars(struct gk20a *g)
 	}
 
 	nvgpu_cond_destroy(&cic_rm->sw_irq_stall_last_handled_cond);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cond_destroy(&cic_rm->sw_irq_nonstall_last_handled_cond);
+#endif
 
 	return 0;
 }

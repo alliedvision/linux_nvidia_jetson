@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,6 +67,10 @@
 #define perf_pmmsys_extent_v()                                     (0x00263fffU)
 #define perf_pmmfbp_base_v()                                       (0x00200000U)
 #define perf_pmmfbp_extent_v()                                     (0x00203fffU)
+#define perf_pmmfbprouter_base_v()                                 (0x00246000U)
+#define perf_pmmfbprouter_extent_v()                               (0x002461ffU)
+#define perf_pmmgpcrouter_base_v()                                 (0x00244000U)
+#define perf_pmmgpcrouter_extent_v()                               (0x002441ffU)
 #define perf_pmasys_control_r()                                    (0x0024a000U)
 #define perf_pmasys_channel_control_user_r(i)\
 		(nvgpu_safe_add_u32(0x0024a620U, nvgpu_safe_mult_u32((i), 384U)))

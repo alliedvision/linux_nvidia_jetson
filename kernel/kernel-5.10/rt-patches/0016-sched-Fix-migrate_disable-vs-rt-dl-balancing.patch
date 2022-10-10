@@ -1,7 +1,7 @@
-From b1fb370ad92270ca17e3a457afea53849e7eae5e Mon Sep 17 00:00:00 2001
+From ef826f6c686eb9bc0ff57aab5bc0b2c4c108784a Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:13 +0200
-Subject: [PATCH 016/304] sched: Fix migrate_disable() vs rt/dl balancing
+Subject: [PATCH 016/318] sched: Fix migrate_disable() vs rt/dl balancing
 
 In order to minimize the interference of migrate_disable() on lower
 priority tasks, which can be deprived of runtime due to being stuck
@@ -25,16 +25,16 @@ interference equivalent to the worst case migrate_disable() section.
 Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/preempt.h | 40 ++++++++++++++++-------------
- include/linux/sched.h   |  3 ++-
- kernel/sched/core.c     | 67 +++++++++++++++++++++++++++++++++++++++++--------
- kernel/sched/deadline.c | 29 +++++++++++++++------
- kernel/sched/rt.c       | 63 +++++++++++++++++++++++++++++++++++++---------
- kernel/sched/sched.h    | 32 +++++++++++++++++++++++
+ include/linux/preempt.h | 40 +++++++++++++-----------
+ include/linux/sched.h   |  3 +-
+ kernel/sched/core.c     | 67 +++++++++++++++++++++++++++++++++++------
+ kernel/sched/deadline.c | 29 +++++++++++++-----
+ kernel/sched/rt.c       | 63 ++++++++++++++++++++++++++++++--------
+ kernel/sched/sched.h    | 32 ++++++++++++++++++++
  6 files changed, 186 insertions(+), 48 deletions(-)
 
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 97ba7c9..8b43922 100644
+index 97ba7c920653..8b43922e65df 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -325,24 +325,28 @@ static inline void preempt_notifier_init(struct preempt_notifier *notifier,
@@ -85,7 +85,7 @@ index 97ba7c9..8b43922 100644
   *
   * The reason we have it anyway.
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 9f2ee71..a7020a5 100644
+index 0cd5eded1fc3..6363ecb01f0e 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -732,8 +732,9 @@ struct task_struct {
@@ -100,7 +100,7 @@ index 9f2ee71..a7020a5 100644
  #ifdef CONFIG_PREEMPT_RCU
  	int				rcu_read_lock_nesting;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index f7a1154..261b92a 100644
+index b311bf973339..9313a1e92554 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1772,11 +1772,6 @@ void migrate_enable(void)
@@ -213,7 +213,7 @@ index f7a1154..261b92a 100644
  {
  	return false;
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index 7ffbd00..d6153fa 100644
+index 7ffbd00d424a..d6153fa4eeb2 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
 @@ -2136,6 +2136,9 @@ static int push_dl_task(struct rq *rq)
@@ -286,10 +286,10 @@ index 7ffbd00..d6153fa 100644
  
  	.task_tick		= task_tick_dl,
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 37a6758..d7b3393 100644
+index c52976663131..0282398fc052 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1859,7 +1859,7 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
+@@ -1868,7 +1868,7 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
   * running task can migrate over to a CPU that is running a task
   * of lesser priority.
   */
@@ -298,7 +298,7 @@ index 37a6758..d7b3393 100644
  {
  	struct task_struct *next_task;
  	struct rq *lowest_rq;
-@@ -1873,6 +1873,34 @@ static int push_rt_task(struct rq *rq)
+@@ -1882,6 +1882,34 @@ static int push_rt_task(struct rq *rq)
  		return 0;
  
  retry:
@@ -333,7 +333,7 @@ index 37a6758..d7b3393 100644
  	if (WARN_ON(next_task == rq->curr))
  		return 0;
  
-@@ -1927,12 +1955,10 @@ static int push_rt_task(struct rq *rq)
+@@ -1936,12 +1964,10 @@ static int push_rt_task(struct rq *rq)
  	deactivate_task(rq, next_task, 0);
  	set_task_cpu(next_task, lowest_rq->cpu);
  	activate_task(lowest_rq, next_task, 0);
@@ -347,7 +347,7 @@ index 37a6758..d7b3393 100644
  out:
  	put_task_struct(next_task);
  
-@@ -1942,7 +1968,7 @@ static int push_rt_task(struct rq *rq)
+@@ -1951,7 +1977,7 @@ static int push_rt_task(struct rq *rq)
  static void push_rt_tasks(struct rq *rq)
  {
  	/* push_rt_task will return true if it moved an RT */
@@ -356,7 +356,7 @@ index 37a6758..d7b3393 100644
  		;
  }
  
-@@ -2095,7 +2121,8 @@ void rto_push_irq_work_func(struct irq_work *work)
+@@ -2104,7 +2130,8 @@ void rto_push_irq_work_func(struct irq_work *work)
  	 */
  	if (has_pushable_tasks(rq)) {
  		raw_spin_lock(&rq->lock);
@@ -366,7 +366,7 @@ index 37a6758..d7b3393 100644
  		raw_spin_unlock(&rq->lock);
  	}
  
-@@ -2120,7 +2147,7 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2129,7 +2156,7 @@ static void pull_rt_task(struct rq *this_rq)
  {
  	int this_cpu = this_rq->cpu, cpu;
  	bool resched = false;
@@ -375,7 +375,7 @@ index 37a6758..d7b3393 100644
  	struct rq *src_rq;
  	int rt_overload_count = rt_overloaded(this_rq);
  
-@@ -2167,6 +2194,7 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2176,6 +2203,7 @@ static void pull_rt_task(struct rq *this_rq)
  		 * double_lock_balance, and another CPU could
  		 * alter this_rq
  		 */
@@ -383,7 +383,7 @@ index 37a6758..d7b3393 100644
  		double_lock_balance(this_rq, src_rq);
  
  		/*
-@@ -2194,11 +2222,14 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2203,11 +2231,14 @@ static void pull_rt_task(struct rq *this_rq)
  			if (p->prio < src_rq->curr->prio)
  				goto skip;
  
@@ -403,7 +403,7 @@ index 37a6758..d7b3393 100644
  			/*
  			 * We continue with the search, just in
  			 * case there's an even higher prio task
-@@ -2208,6 +2239,13 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2217,6 +2248,13 @@ static void pull_rt_task(struct rq *this_rq)
  		}
  skip:
  		double_unlock_balance(this_rq, src_rq);
@@ -417,7 +417,7 @@ index 37a6758..d7b3393 100644
  	}
  
  	if (resched)
-@@ -2456,6 +2494,7 @@ const struct sched_class rt_sched_class
+@@ -2465,6 +2503,7 @@ const struct sched_class rt_sched_class
  	.rq_offline             = rq_offline_rt,
  	.task_woken		= task_woken_rt,
  	.switched_from		= switched_from_rt,
@@ -426,7 +426,7 @@ index 37a6758..d7b3393 100644
  
  	.task_tick		= task_tick_rt,
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 589d8b1..03b76f2 100644
+index 589d8b1960ba..03b76f2c85bc 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1062,6 +1062,8 @@ struct rq {
@@ -490,5 +490,5 @@ index 589d8b1..03b76f2 100644
  
  #ifdef CONFIG_CPU_IDLE
 -- 
-2.7.4
+2.17.1
 

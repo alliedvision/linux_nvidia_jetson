@@ -1,7 +1,7 @@
-From cf7cb16b15b86d767dc61f989e174f24216e5d39 Mon Sep 17 00:00:00 2001
+From 737511e69f80928e3a5ce1fad28efe3a4287ece0 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:26 +0100
-Subject: [PATCH 037/304] nds32/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 037/318] nds32/mm/highmem: Switch to generic kmap atomic
 
 The mapping code is odd and looks broken. See FIXME in the comment.
 
@@ -14,15 +14,15 @@ Cc: Vincent Chen <deanbo422@gmail.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/nds32/Kconfig.cpu           |  1 +
- arch/nds32/include/asm/fixmap.h  |  4 ++--
- arch/nds32/include/asm/highmem.h | 22 +++++++++++++-----
+ arch/nds32/include/asm/fixmap.h  |  4 +--
+ arch/nds32/include/asm/highmem.h | 22 +++++++++++----
  arch/nds32/mm/Makefile           |  1 -
- arch/nds32/mm/highmem.c          | 48 ----------------------------------------
+ arch/nds32/mm/highmem.c          | 48 --------------------------------
  5 files changed, 19 insertions(+), 57 deletions(-)
  delete mode 100644 arch/nds32/mm/highmem.c
 
 diff --git a/arch/nds32/Kconfig.cpu b/arch/nds32/Kconfig.cpu
-index f88a12f..c107599 100644
+index f88a12fdf0f3..c10759952485 100644
 --- a/arch/nds32/Kconfig.cpu
 +++ b/arch/nds32/Kconfig.cpu
 @@ -157,6 +157,7 @@ config HW_SUPPORT_UNALIGNMENT_ACCESS
@@ -34,7 +34,7 @@ index f88a12f..c107599 100644
  	  The address space of Andes processors is only 4 Gigabytes large
  	  and it has to accommodate user address space, kernel address
 diff --git a/arch/nds32/include/asm/fixmap.h b/arch/nds32/include/asm/fixmap.h
-index 5a4bf11..2fa09a2 100644
+index 5a4bf11e5800..2fa09a2de428 100644
 --- a/arch/nds32/include/asm/fixmap.h
 +++ b/arch/nds32/include/asm/fixmap.h
 @@ -6,7 +6,7 @@
@@ -56,7 +56,7 @@ index 5a4bf11..2fa09a2 100644
  	FIX_EARLYCON_MEM_BASE,
  	__end_of_fixed_addresses
 diff --git a/arch/nds32/include/asm/highmem.h b/arch/nds32/include/asm/highmem.h
-index fe986d0..16159a8 100644
+index fe986d0e6e3f..16159a8716f2 100644
 --- a/arch/nds32/include/asm/highmem.h
 +++ b/arch/nds32/include/asm/highmem.h
 @@ -5,7 +5,6 @@
@@ -96,7 +96,7 @@ index fe986d0..16159a8 100644
  
  #endif
 diff --git a/arch/nds32/mm/Makefile b/arch/nds32/mm/Makefile
-index 897ecaf..14fb2e8 100644
+index 897ecaf5cf54..14fb2e8eb036 100644
 --- a/arch/nds32/mm/Makefile
 +++ b/arch/nds32/mm/Makefile
 @@ -3,7 +3,6 @@ obj-y				:= extable.o tlb.o fault.o init.o mmap.o \
@@ -109,7 +109,7 @@ index 897ecaf..14fb2e8 100644
  CFLAGS_REMOVE_proc.o     = $(CC_FLAGS_FTRACE)
 diff --git a/arch/nds32/mm/highmem.c b/arch/nds32/mm/highmem.c
 deleted file mode 100644
-index 4284cd5..00000000
+index 4284cd59e21a..000000000000
 --- a/arch/nds32/mm/highmem.c
 +++ /dev/null
 @@ -1,48 +0,0 @@
@@ -162,5 +162,5 @@ index 4284cd5..00000000
 -}
 -EXPORT_SYMBOL(kunmap_atomic_high);
 -- 
-2.7.4
+2.17.1
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-21, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -100,7 +100,7 @@ static int calculate_la_ptsa(int id, uint32_t bw, uint32_t init_bw_floor,
 	int ret;
 
 	req.cmd = CMD_ISO_CLIENT_CALCULATE_LA;
-	req.calculate_la_req.id = id;
+	req.calculate_la_req.id = (uint32_t)id;
 	req.calculate_la_req.bw = bw;
 	req.calculate_la_req.init_bw_floor = init_bw_floor;
 
@@ -129,7 +129,7 @@ static int set_la_ptsa(int id, uint32_t bw,
 	int ret;
 
 	req.cmd = CMD_ISO_CLIENT_SET_LA;
-	req.set_la_req.id = id;
+	req.set_la_req.id = (uint32_t)id;
 	req.set_la_req.bw = bw;
 	req.set_la_req.final_bw_floor = final_bw_floor;
 
@@ -151,22 +151,25 @@ static int set_la_ptsa(int id, uint32_t bw,
 	return ret;
 }
 
-static long determine_rate(struct mrq_bwmgr_response *br,
+static unsigned long determine_rate(struct mrq_bwmgr_response *br,
 	struct mrq_iso_client_response *ir, struct tegra_icc_provider *tp,
 	uint32_t max_floor_kbps)
 {
-	long clk_rate = tp->min_rate / HZ_TO_KHZ_MULT;
-	uint32_t max_floor_khz = 0;
+	unsigned long clk_rate = tp->min_rate / HZ_TO_KHZ_MULT;
+	unsigned long max_floor_khz = 0;
 
 	/* units kHz */
-	clk_rate = max(clk_rate, (long)br->bwmgr_rate_resp.iso_rate_min);
-	clk_rate = max(clk_rate, (long)br->bwmgr_rate_resp.total_rate_min);
-	clk_rate = max(clk_rate, (long)ir->calculate_la_resp.la_rate_floor);
-	clk_rate = max(clk_rate,
-			(long)ir->calculate_la_resp.iso_client_only_rate);
+	clk_rate = max_t(unsigned long, clk_rate,
+				br->bwmgr_rate_resp.iso_rate_min);
+	clk_rate = max_t(unsigned long, clk_rate,
+				br->bwmgr_rate_resp.total_rate_min);
+	clk_rate = max_t(unsigned long, clk_rate,
+				ir->calculate_la_resp.la_rate_floor);
+	clk_rate = max_t(unsigned long, clk_rate,
+			ir->calculate_la_resp.iso_client_only_rate);
 	max_floor_khz = emc_bw_to_freq(max_floor_kbps);
-	max_floor_khz = min((long)max_floor_khz, tp->max_rate / HZ_TO_KHZ_MULT);
-	clk_rate = max(clk_rate, (long)max_floor_khz);
+	max_floor_khz = min(max_floor_khz, tp->max_rate / HZ_TO_KHZ_MULT);
+	clk_rate = max(clk_rate, max_floor_khz);
 	clk_rate = min(clk_rate, tp->max_rate / HZ_TO_KHZ_MULT);
 	clk_rate = min(clk_rate, tp->cap_rate / HZ_TO_KHZ_MULT);
 	clk_rate *= HZ_TO_KHZ_MULT; /* kHz to Hz*/
@@ -185,12 +188,12 @@ static int tegra23x_icc_set(struct icc_node *src, struct icc_node *dst)
 	uint32_t init_bw_floor = 0; /* used for display */
 	uint32_t final_bw_floor = 0; /* used for display */
 	struct mrq_iso_client_response iso_client_resp = {0};
-	long clk_rate = 0;
+	unsigned long clk_rate = 0;
 	struct tegra_icc_node *tn = src->data;
 	uint32_t iso_bw_disp = 0;
 	uint32_t sum_bw = 0;
-	uint32_t cap_req = 0;
-	uint32_t cap_khz = tp->cap_rate / HZ_TO_KHZ_MULT;
+	unsigned long cap_req = 0;
+	unsigned long cap_khz = tp->cap_rate / HZ_TO_KHZ_MULT;
 
 	if (!tegra_platform_is_silicon())
 		return 0;
@@ -272,7 +275,7 @@ static int tegra23x_icc_set(struct icc_node *src, struct icc_node *dst)
 		(iso_client_resp.calculate_la_resp.la_rate_floor > cap_khz) ||
 		(iso_client_resp.calculate_la_resp.iso_client_only_rate >
 		cap_khz))) {
-		pr_err("iso req failed due to emc_cap %d\n", cap_khz);
+		pr_err("iso req failed due to emc_cap %lu\n", cap_khz);
 		return -EINVAL;
 	}
 

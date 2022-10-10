@@ -1,7 +1,7 @@
-From bcd29cb8a20d0979c062b002dcd3c3f4faaf4833 Mon Sep 17 00:00:00 2001
+From 4eadd9e9a1ec0a732abec198b77745ce6c45b2d1 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 27 Oct 2020 11:09:50 +0100
-Subject: [PATCH 156/304] x86/fpu: Simplify fpregs_[un]lock()
+Subject: [PATCH 156/318] x86/fpu: Simplify fpregs_[un]lock()
 
 There is no point in disabling preemption and then disabling bottom
 halfs.
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/arch/x86/include/asm/fpu/api.h b/arch/x86/include/asm/fpu/api.h
-index 8b9bfaa..5174c0a 100644
+index 8b9bfaad6e66..5174c0a640ef 100644
 --- a/arch/x86/include/asm/fpu/api.h
 +++ b/arch/x86/include/asm/fpu/api.h
 @@ -40,17 +40,18 @@ static inline void kernel_fpu_begin(void)
@@ -42,5 +42,5 @@ index 8b9bfaa..5174c0a 100644
  
  #ifdef CONFIG_X86_DEBUG_FPU
 -- 
-2.7.4
+2.17.1
 

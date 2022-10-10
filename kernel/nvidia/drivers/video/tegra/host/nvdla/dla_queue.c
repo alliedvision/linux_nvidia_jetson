@@ -1,7 +1,7 @@
 /*
  * NVDLA queue management
  *
- * Copyright (c) 2019-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/arm64-barrier.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -25,11 +26,13 @@
 
 #include <linux/nvhost.h>
 
-#include "nvhost_vm.h"
-#include "nvhost_channel.h"
+#if IS_ENABLED(CONFIG_TEGRA_NVDLA_CHANNEL)
 #include "nvhost_job.h"
+#endif
+
+#include "dla_channel.h"
 #include "dla_queue.h"
-#include "dev.h"
+#include "nvdla_debug.h"
 
 #define CMDBUF_SIZE	4096
 
@@ -77,8 +80,8 @@ static int nvdla_queue_task_pool_alloc(struct platform_device *pdev,
 		size_t kmem_pool_size = num_tasks * queue->task_kmem_size;
 		task_pool->kmem_addr = vzalloc(kmem_pool_size);
 		if (!task_pool->kmem_addr) {
-			nvhost_err(&pdev->dev,
-				   "failed to allocate task_pool->kmem_addr");
+			dev_err(&pdev->dev,
+				"failed to allocate task_pool->kmem_addr\n");
 			err = -ENOMEM;
 			goto err_alloc_task_kmem;
 		}
@@ -91,7 +94,7 @@ static int nvdla_queue_task_pool_alloc(struct platform_device *pdev,
 				0);
 
 	if (task_pool->va == NULL) {
-		nvhost_err(&pdev->dev, "failed to allocate task_pool->va");
+		dev_err(&pdev->dev, "failed to allocate task_pool->va\n");
 		err = -ENOMEM;
 		goto err_alloc_task_pool;
 	}
@@ -175,14 +178,14 @@ struct nvdla_queue_pool *nvdla_queue_init(struct platform_device *pdev,
 
 	pool = kzalloc(sizeof(struct nvdla_queue_pool), GFP_KERNEL);
 	if (pool == NULL) {
-		nvhost_err(&pdev->dev, "failed to allocate queue pool");
+		dev_err(&pdev->dev, "failed to allocate queue pool\n");
 		err = -ENOMEM;
 		goto fail_alloc_pool;
 	}
 
 	queues = kcalloc(num_queues, sizeof(struct nvdla_queue), GFP_KERNEL);
 	if (queues == NULL) {
-		nvhost_err(&pdev->dev, "failed to allocate queues");
+		dev_err(&pdev->dev, "failed to allocate queues\n");
 		err = -ENOMEM;
 		goto fail_alloc_queues;
 	}
@@ -190,7 +193,7 @@ struct nvdla_queue_pool *nvdla_queue_init(struct platform_device *pdev,
 	task_pool = kcalloc(num_queues,
 			sizeof(struct nvdla_queue_task_pool), GFP_KERNEL);
 	if (task_pool == NULL) {
-		nvhost_err(&pdev->dev, "failed to allocate task_pool");
+		dev_err(&pdev->dev, "failed to allocate task_pool\n");
 		err = -ENOMEM;
 		goto fail_alloc_task_pool;
 	}
@@ -218,7 +221,7 @@ struct nvdla_queue_pool *nvdla_queue_init(struct platform_device *pdev,
 		queue->task_pool = (void *)&task_pool[i];
 		nvdla_queue_get_task_size(queue);
 	}
-	speculation_barrier(); /* break_spec_p#5_1 */
+	spec_bar(); /* break_spec_p#5_1 */
 
 	return pool;
 
@@ -241,6 +244,36 @@ void nvdla_queue_deinit(struct nvdla_queue_pool *pool)
 	pool = NULL;
 }
 
+#ifdef CONFIG_PM
+int nvdla_queue_pool_prepare_suspend(struct nvdla_queue_pool *qpool)
+{
+	int err = 0;
+	unsigned int queue_id;
+
+	mutex_lock(&qpool->queue_lock);
+
+	/* For each active queues, ensure there are no outstanding tasks. */
+	for_each_set_bit(queue_id, &qpool->alloc_table, qpool->max_queue_cnt) {
+		struct nvdla_queue *queue = &qpool->queues[queue_id];
+		struct nvdla_queue_task_pool *tpool = queue->task_pool;
+		bool nvdla_queue_is_idle;
+
+		mutex_lock(&tpool->lock);
+		nvdla_queue_is_idle = (tpool->alloc_table == 0ULL);
+		mutex_unlock(&tpool->lock);
+
+		if (!nvdla_queue_is_idle) {
+			err = -EBUSY;
+			goto fail_busy;
+		}
+	}
+
+fail_busy:
+	mutex_unlock(&qpool->queue_lock);
+	return err;
+}
+#endif /* CONFIG_PM */
+
 void nvdla_queue_abort_all(struct nvdla_queue_pool *pool)
 {
 	u32 id;
@@ -257,10 +290,10 @@ static void nvdla_queue_release(struct kref *ref)
 						kref);
 	struct nvdla_queue_pool *pool = queue->pool;
 
-	nvhost_dbg_fn("");
+	nvdla_dbg_fn(pool->pdev, "%s\n", __func__);
 
 	if (queue->use_channel)
-		nvhost_putchannel(queue->channel, 1);
+		nvdla_putchannel(queue);
 
 	/* release allocated resources */
 	nvhost_syncpt_put_ref_ext(pool->pdev, queue->syncpt_id);
@@ -277,13 +310,13 @@ static void nvdla_queue_release(struct kref *ref)
 
 void nvdla_queue_put(struct nvdla_queue *queue)
 {
-	nvhost_dbg_fn("");
+	nvdla_dbg_fn(queue->pool->pdev, "%s\n", __func__);
 	kref_put(&queue->kref, nvdla_queue_release);
 }
 
 void nvdla_queue_get(struct nvdla_queue *queue)
 {
-	nvhost_dbg_fn("");
+	nvdla_dbg_fn(queue->pool->pdev, "%s\n", __func__);
 	kref_get(&queue->kref);
 }
 
@@ -292,7 +325,6 @@ struct nvdla_queue *nvdla_queue_alloc(struct nvdla_queue_pool *pool,
 					bool use_channel)
 {
 	struct platform_device *pdev = pool->pdev;
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct nvdla_queue *queues = pool->queues;
 	struct nvdla_queue *queue;
 	int index = 0;
@@ -309,7 +341,7 @@ struct nvdla_queue *nvdla_queue_alloc(struct nvdla_queue_pool *pool,
 		err = -ENOMEM;
 		goto err_alloc_queue;
 	}
-	speculation_barrier(); /* break_spec_p#1 */
+	spec_bar(); /* break_spec_p#1 */
 
 	/* reserve the queue */
 	queue = &queues[index];
@@ -340,11 +372,9 @@ struct nvdla_queue *nvdla_queue_alloc(struct nvdla_queue_pool *pool,
 
 	/* Check if the queue should allocate a channel */
 	if (use_channel) {
-		err = nvhost_channel_map(pdata, &queue->channel, queue);
-		if (err < 0)
+		queue->vm_pdev = nvdla_channel_map(pdev, queue);
+		if (!queue->vm_pdev)
 			goto err_alloc_channel;
-
-		queue->vm_pdev = queue->channel->vm->pdev;
 	} else {
 		queue->vm_pdev = pdev;
 	}
@@ -361,7 +391,7 @@ struct nvdla_queue *nvdla_queue_alloc(struct nvdla_queue_pool *pool,
 
 err_alloc_task_pool:
 	if (use_channel)
-		nvhost_putchannel(queue->channel, 1);
+		nvdla_putchannel(queue);
 err_alloc_channel:
 	mutex_lock(&pool->queue_lock);
 	nvhost_syncpt_put_ref_ext(pdev, queue->syncpt_id);
@@ -411,6 +441,7 @@ struct nvdla_queue_task {
 	u32 *cpu_addr;
 };
 
+#if IS_ENABLED(CONFIG_TEGRA_NVDLA_CHANNEL)
 static void queue_task_update(void *priv, int nr_completed)
 {
 	struct nvdla_queue_task *task = priv;
@@ -448,7 +479,7 @@ int nvdla_queue_submit_to_host1x(struct nvdla_queue *queue,
 	/* Allocate memory for the task and task command buffer */
 	task = kzalloc(sizeof(*task), GFP_KERNEL);
 	if (task == NULL) {
-		nvhost_err(&client_pdev->dev, "failed to allocate task");
+		dev_err(&client_pdev->dev, "failed to allocate task\n");
 		goto err_alloc_task;
 	}
 
@@ -457,7 +488,7 @@ int nvdla_queue_submit_to_host1x(struct nvdla_queue *queue,
 						&task->dma_addr,
 						GFP_KERNEL);
 	if (task->cpu_addr == NULL) {
-		nvhost_err(&client_pdev->dev, "failed to allocate task");
+		dev_err(&client_pdev->dev, "failed to allocate task\n");
 		err = -ENOMEM;
 		goto err_alloc_cmdbuf;
 	}
@@ -485,7 +516,7 @@ int nvdla_queue_submit_to_host1x(struct nvdla_queue *queue,
 		job->waitchk[i].thresh = wait_syncpt_thresholds[i];
 		job->waitchk[i].mem = 0;
 	}
-	speculation_barrier(); /* break_spec_p#5_1 */
+	spec_bar(); /* break_spec_p#5_1 */
 
 	/* Initialize syncpoint increments */
 	job->sp->id = queue->syncpt_id;
@@ -512,9 +543,8 @@ int nvdla_queue_submit_to_host1x(struct nvdla_queue *queue,
 					    job->sp->fence,
 					    queue_task_update, task);
 	if (err < 0) {
-		nvhost_err(&client_pdev->dev,
-			   "failed to register notifier err=%d",
-			   err);
+		dev_err(&client_pdev->dev, "failed to register notifier err=%d",
+			err);
 		goto err_register_notifier;
 	}
 
@@ -536,6 +566,7 @@ err_alloc_cmdbuf:
 err_alloc_task:
 	return err;
 }
+#endif
 
 int nvdla_queue_get_task_size(struct nvdla_queue *queue)
 {

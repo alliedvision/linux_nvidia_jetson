@@ -1,0 +1,165 @@
+From 73c03d751a500b395dc6833846b8b6f8705ccda5 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 13 Dec 2019 13:56:42 -0800
+Subject: [PATCH 319/830] ANDROID: serdev: add platform device support
+X-NVConfidentiality: public
+
+Enables devices on a platform bus, such as serial8250 on the ISA bus, to
+be enumerated by the serdev subsystem. This enables further layering by
+e.g. the gnss subsystem.
+
+With this in change, these devices can now register with the serdev core
+and show up as serdev tty ports (serialX) and child devices (serialX-Y).
+
+serial8250: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a U6_16550A
+serial serial0: tty port ttyS0 registered
+serial8250: ttyS1 at I/O 0x2f8 (irq = 3, base_baud = 115200) is a U6_16550A
+serial serial1: tty port ttyS1 registered
+serial8250: ttyS2 at I/O 0x3e8 (irq = 4, base_baud = 115200) is a U6_16550A
+serial serial2: tty port ttyS2 registered
+serial8250: ttyS3 at I/O 0x2e8 (irq = 3, base_baud = 115200) is a U6_16550A
+serial serial3: tty port ttyS3 registered
+
+The modalias shows up like this:
+
+  # cat /sys/bus/serial/devices/serial0-0/modalias
+  platform:serial8250
+
+Bug: 146517987
+Change-Id: I3711c9d9ecd66fad638a45a8745e97569ae01791
+Signed-off-by: Alistair Delva <adelva@google.com>
+[ebiggers: Folded in the following commit:
+           9b460a068c2b ("ANDROID: serdev: Fix platform device support")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/tty/serdev/core.c | 72 +++++++++++++++++++++++++++++++++------
+ 1 file changed, 62 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/tty/serdev/core.c b/drivers/tty/serdev/core.c
+index c5f0d936b003..501631c188d7 100644
+--- a/drivers/tty/serdev/core.c
++++ b/drivers/tty/serdev/core.c
+@@ -32,7 +32,18 @@ static ssize_t modalias_show(struct device *dev,
+ 	if (len != -ENODEV)
+ 		return len;
+ 
+-	return of_device_modalias(dev, buf, PAGE_SIZE);
++	len = of_device_modalias(dev, buf, PAGE_SIZE);
++	if (len != -ENODEV)
++		return len;
++
++	if (dev->parent->parent->bus == &platform_bus_type) {
++		struct platform_device *pdev =
++			to_platform_device(dev->parent->parent);
++
++		len = snprintf(buf, PAGE_SIZE, "platform:%s\n", pdev->name);
++	}
++
++	return len;
+ }
+ static DEVICE_ATTR_RO(modalias);
+ 
+@@ -46,13 +57,18 @@ static int serdev_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+ {
+ 	int rc;
+ 
+-	/* TODO: platform modalias */
+-
+ 	rc = acpi_device_uevent_modalias(dev, env);
+ 	if (rc != -ENODEV)
+ 		return rc;
+ 
+-	return of_device_uevent_modalias(dev, env);
++	rc = of_device_uevent_modalias(dev, env);
++	if (rc != -ENODEV)
++		return rc;
++
++	if (dev->parent->parent->bus == &platform_bus_type)
++		rc = dev->parent->parent->bus->uevent(dev->parent->parent, env);
++
++	return rc;
+ }
+ 
+ static void serdev_device_release(struct device *dev)
+@@ -88,11 +104,17 @@ static int serdev_device_match(struct device *dev, struct device_driver *drv)
+ 	if (!is_serdev_device(dev))
+ 		return 0;
+ 
+-	/* TODO: platform matching */
+ 	if (acpi_driver_match_device(dev, drv))
+ 		return 1;
+ 
+-	return of_driver_match_device(dev, drv);
++	if (of_driver_match_device(dev, drv))
++		return 1;
++
++	if (dev->parent->parent->bus == &platform_bus_type &&
++	    dev->parent->parent->bus->match(dev->parent->parent, drv))
++		return 1;
++
++	return 0;
+ }
+ 
+ /**
+@@ -729,6 +751,33 @@ static inline int acpi_serdev_register_devices(struct serdev_controller *ctrl)
+ }
+ #endif /* CONFIG_ACPI */
+ 
++static int platform_serdev_register_devices(struct serdev_controller *ctrl)
++{
++	struct serdev_device *serdev;
++	int err;
++
++	if (ctrl->dev.parent->bus != &platform_bus_type)
++		return -ENODEV;
++
++	serdev = serdev_device_alloc(ctrl);
++	if (!serdev) {
++		dev_err(&ctrl->dev, "failed to allocate serdev device for %s\n",
++				    dev_name(ctrl->dev.parent));
++		return -ENOMEM;
++	}
++
++	pm_runtime_no_callbacks(&serdev->dev);
++
++	err = serdev_device_add(serdev);
++	if (err) {
++		dev_err(&serdev->dev,
++			"failure adding device. status %d\n", err);
++		serdev_device_put(serdev);
++	}
++
++	return err;
++}
++
+ /**
+  * serdev_controller_add() - Add an serdev controller
+  * @ctrl:	controller to be registered.
+@@ -738,7 +787,7 @@ static inline int acpi_serdev_register_devices(struct serdev_controller *ctrl)
+  */
+ int serdev_controller_add(struct serdev_controller *ctrl)
+ {
+-	int ret_of, ret_acpi, ret;
++	int ret_of, ret_acpi, ret_platform, ret;
+ 
+ 	/* Can't register until after driver model init */
+ 	if (WARN_ON(!is_registered))
+@@ -752,9 +801,12 @@ int serdev_controller_add(struct serdev_controller *ctrl)
+ 
+ 	ret_of = of_serdev_register_devices(ctrl);
+ 	ret_acpi = acpi_serdev_register_devices(ctrl);
+-	if (ret_of && ret_acpi) {
+-		dev_dbg(&ctrl->dev, "no devices registered: of:%pe acpi:%pe\n",
+-			ERR_PTR(ret_of), ERR_PTR(ret_acpi));
++	ret_platform = platform_serdev_register_devices(ctrl);
++	if (ret_of && ret_acpi && ret_platform) {
++		dev_dbg(&ctrl->dev,
++			"no devices registered: of:%pe acpi:%pe platform:%pe\n",
++			ERR_PTR(ret_of), ERR_PTR(ret_acpi),
++			ERR_PTR(ret_platform));
+ 		ret = -ENODEV;
+ 		goto err_rpm_disable;
+ 	}
+-- 
+2.17.1
+

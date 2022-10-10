@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,14 @@
 #define NVGPU_PERFBUF
 
 #ifdef CONFIG_NVGPU_DEBUGGER
+
+/*
+ * Size of the GPU VA window within which the PMA unit is allowed to
+ * access.
+ */
+#define PERFBUF_PMA_MEM_WINDOW_SIZE	SZ_4G
+#define PERFBUF_PMA_BUF_MAX_SIZE	0xFFE00000ULL
+#define PMA_BYTES_AVAILABLE_BUFFER_SIZE	SZ_4K
 
 #include <nvgpu/types.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1389,7 +1389,9 @@ static int camrtc_falcon_coverage_enable(struct camrtc_falcon_coverage *cov)
 	}
 
 	/* Keep rtcpu alive when falcon coverage is in use. */
-	tegra_ivc_channel_runtime_get(ch);
+	ret = tegra_ivc_channel_runtime_get(ch);
+	if (ret < 0)
+		goto clean_mem;
 
 	cov->enabled = true;
 
@@ -1728,10 +1730,10 @@ static int camrtc_debug_populate(struct tegra_ivc_channel *ch)
 	if (coverage == NULL)
 		goto error;
 	vi = debugfs_create_dir("vi", coverage);
-	if (coverage == NULL)
+	if (vi == NULL)
 		goto error;
 	isp = debugfs_create_dir("isp", coverage);
-	if (coverage == NULL)
+	if (isp == NULL)
 		goto error;
 	if (!debugfs_create_file("data", 0600, vi,
 			&crd->vi_falc_coverage,

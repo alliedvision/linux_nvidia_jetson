@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,9 +31,9 @@
 
 #define NV_NVRISCV_DEBUG_BUFFER_MAGIC   0xf007ba11
 
-#define FLCN_DMEM_ACCESS_ALIGNMENT    (4)
+#define FLCN_DMEM_ACCESS_ALIGNMENT    (4U)
 
-#define NV_ALIGN_DOWN(v, g) ((v) & ~((g) - 1))
+#define NV_ALIGN_DOWN(v, g) ((v) & ~((g) - 1U))
 
 #define NV_IS_ALIGNED(addr, align)	((addr & (align - 1U)) == 0U)
 
@@ -98,7 +98,7 @@ int nvgpu_falcon_dbg_buf_init(struct nvgpu_falcon *flcn,
 	 * at the end of the buffer.
 	 */
 	debug_buffer->dmem_offset = g->ops.falcon.get_mem_size(flcn, MEM_DMEM) -
-		sizeof(struct nvgpu_falcon_dbg_buf_metadata);
+		(u32)(sizeof(struct nvgpu_falcon_dbg_buf_metadata));
 
 	/* The DMEM offset must be 4-byte aligned */
 	if (!NV_IS_ALIGNED(debug_buffer->dmem_offset, FLCN_DMEM_ACCESS_ALIGNMENT)) {
@@ -197,7 +197,7 @@ static int falcon_update_debug_buffer_from_dmem(struct nvgpu_falcon *flcn,
 	}
 
 	if (first_read_size == 0 && second_read_size == 0) {
-		nvgpu_err(g, "Debug buffer empty, can't read any data!");
+		nvgpu_falcon_dbg(g, "Debug buffer empty, can't read any data!");
 		return -EINVAL;
 	}
 
@@ -300,8 +300,9 @@ int nvgpu_falcon_dbg_buf_display(struct nvgpu_falcon *flcn)
 	}
 
 	if (falcon_update_debug_buffer_from_dmem(flcn, write_offset) != 0) {
-		nvgpu_err(g, "Failed to fetch debug buffer contents");
-		return -EINVAL;
+		nvgpu_falcon_dbg(g, "Failed to fetch debug buffer contents");
+		// Return error once Bug 3623500 issue is fixed
+		return 0;
 	}
 
 	/* Buffer is empty when read_offset == write_offset */
@@ -320,9 +321,9 @@ int nvgpu_falcon_dbg_buf_display(struct nvgpu_falcon *flcn)
 
 			if (is_line_split) {
 				/* Logic to concat the split line into a temp buffer */
-				u32 first_chunk_len  =
+				u32 first_chunk_len  = (u32)
 					strlen((char *)&buffer_data[debug_buffer->read_offset]);
-				u32 second_chunk_len = strlen((char *)&buffer_data[0]);
+				u32 second_chunk_len = (u32)strlen((char *)&buffer_data[0]);
 
 				buf_size = first_chunk_len + second_chunk_len + 1;
 				tmp_buf  = nvgpu_kzalloc(g, buf_size);
@@ -345,21 +346,11 @@ int nvgpu_falcon_dbg_buf_display(struct nvgpu_falcon *flcn)
 				/* Reset line-split flag */
 				is_line_split = false;
 			} else {
-				buf_size =
+				buf_size = (u32)
 					strlen((char *)&buffer_data[debug_buffer->read_offset]) + 1;
 
 				/* Set the byte array that gets printed as a string */
 				curr_data = &buffer_data[debug_buffer->read_offset];
-			}
-
-			if (curr_data == NULL) {
-				status = -EINVAL;
-				nvgpu_err(g, "Debug buffer - no data to print %d", status);
-
-				if (tmp_buf != NULL) {
-					nvgpu_kfree(g, tmp_buf);
-				}
-				return status;
 			}
 
 			/*

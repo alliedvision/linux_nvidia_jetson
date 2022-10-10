@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -78,7 +78,7 @@ int ga10b_fifo_reschedule_preempt_next(struct nvgpu_channel *ch,
 	fecsstat0 = g->ops.gr.falcon.read_fecs_ctxsw_mailbox(g,
 			NVGPU_GR_FALCON_FECS_CTXSW_MAILBOX0);
 	g->ops.engine_status.read_engine_status_info(g, nvgpu_safe_sub_u32(
-		nvgpu_ffs(runlist->eng_bitmask & eng_bitmask), 1U),
+		(u32)nvgpu_ffs(runlist->eng_bitmask & eng_bitmask), 1U),
 		&engine_status);
 	if (nvgpu_engine_status_is_ctxsw_switch(&engine_status)) {
 		nvgpu_engine_status_get_next_ctx_id_type(&engine_status,

@@ -8,3 +8,7 @@ Template: avt-nvidia-l4t-bootloader/beta-warning
 Type: note
 Description: WARNING: beta configuration selected!
  The selected configuration is in beta state and not validated.
+
+Template: avt-nvidia-l4t-bootloader/no-board-error
+Type: note
+Description: ERROR: Board not supported! No suitable configuration found!

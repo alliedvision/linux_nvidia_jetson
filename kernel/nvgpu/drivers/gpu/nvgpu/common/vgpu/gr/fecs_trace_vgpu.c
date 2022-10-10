@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,7 +25,7 @@
 #include <nvgpu/enabled.h>
 #include <nvgpu/gr/fecs_trace.h>
 #include <nvgpu/dt.h>
-#include <nvgpu/vgpu/vgpu_ivm.h>
+#include <nvgpu/nvgpu_ivm.h>
 #include <nvgpu/vgpu/tegra_vgpu.h>
 #include <nvgpu/vgpu/vgpu.h>
 #include <nvgpu/gk20a.h>
@@ -59,7 +59,7 @@ int vgpu_fecs_trace_init(struct gk20a *g)
 		goto fail;
 	}
 
-	vcst->cookie = vgpu_ivm_mempool_reserve(mempool);
+	vcst->cookie = nvgpu_ivm_mempool_reserve(mempool);
 	if ((vcst->cookie == NULL) ||
 		((unsigned long)vcst->cookie >= (unsigned long)-MAX_ERRNO)) {
 		nvgpu_info(g,
@@ -69,7 +69,7 @@ int vgpu_fecs_trace_init(struct gk20a *g)
 		goto fail;
 	}
 
-	vcst->buf = vgpu_ivm_mempool_map(vcst->cookie);
+	vcst->buf = nvgpu_ivm_mempool_map(vcst->cookie);
 	if (!vcst->buf) {
 		nvgpu_info(g, "ioremap_cache failed");
 		err = -EINVAL;
@@ -88,10 +88,10 @@ int vgpu_fecs_trace_init(struct gk20a *g)
 	return 0;
 fail:
 	if (vcst->cookie != NULL && vcst->buf != NULL) {
-		vgpu_ivm_mempool_unmap(vcst->cookie, vcst->buf);
+		nvgpu_ivm_mempool_unmap(vcst->cookie, vcst->buf);
 	}
 	if (vcst->cookie) {
-		vgpu_ivm_mempool_unreserve(vcst->cookie);
+		nvgpu_ivm_mempool_unreserve(vcst->cookie);
 	}
 	nvgpu_kfree(g, vcst);
 	return err;
@@ -101,8 +101,8 @@ int vgpu_fecs_trace_deinit(struct gk20a *g)
 {
 	struct vgpu_fecs_trace *vcst = (struct vgpu_fecs_trace *)g->fecs_trace;
 
-	vgpu_ivm_mempool_unmap(vcst->cookie, vcst->buf);
-	vgpu_ivm_mempool_unreserve(vcst->cookie);
+	nvgpu_ivm_mempool_unmap(vcst->cookie, vcst->buf);
+	nvgpu_ivm_mempool_unreserve(vcst->cookie);
 	nvgpu_kfree(g, vcst);
 	return 0;
 }

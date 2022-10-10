@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,7 +23,9 @@
 #include <linux/reset.h>
 #include <linux/of_device.h>
 #include <linux/io.h>
-#define DRIVER_NAME "pwm-tach"
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
+#define DRIVER_NAME "pwm_tach"
 
 /* Since oscillator clock (38.4MHz) serves as a clock source for
  * the tach input controller, 1.0105263MHz (i.e. 38.4/38) has to be
@@ -101,6 +103,37 @@ struct pwm_tegra_tach {
 	struct pwm_chip		chip;
 	const struct pwm_tegra_tach_soc_data	*soc_data;
 };
+
+static ssize_t rpm_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct pwm_tegra_tach *ptt = dev_get_drvdata(dev);
+	struct pwm_device *pwm = &ptt->chip.pwms[0];
+	struct pwm_capture result;
+	unsigned int rpm = 0;
+	int ret;
+
+	ret = pwm_capture(pwm, &result, 0);
+	if (ret < 0) {
+		dev_err(ptt->dev, "Failed to capture PWM: %d\n", ret);
+		return ret;
+	}
+
+	if (result.period)
+		rpm = DIV_ROUND_CLOSEST_ULL(60ULL * NSEC_PER_SEC,
+					    result.period);
+
+	return sprintf(buf, "%u\n", rpm);
+}
+
+static DEVICE_ATTR_RO(rpm);
+
+static struct attribute *pwm_tach_attrs[] = {
+	&dev_attr_rpm.attr,
+	NULL,
+};
+
+ATTRIBUTE_GROUPS(pwm_tach);
 
 static struct pwm_tegra_tach *to_tegra_pwm_chip(struct pwm_chip *chip)
 {
@@ -311,6 +344,7 @@ static int pwm_tegra_tach_probe(struct platform_device *pdev)
 {
 	struct pwm_tegra_tach *ptt;
 	struct pwm_device *pwm;
+	struct device *hwmon;
 	struct resource *r;
 	int ret;
 
@@ -428,6 +462,12 @@ static int pwm_tegra_tach_probe(struct platform_device *pdev)
 				TACH_FAN_ENABLE_INTERRUPT_MASK,
 				TACH_FAN_ENABLE_INTERRUPT_SHIFT);
 
+	}
+
+	hwmon = devm_hwmon_device_register_with_groups(&pdev->dev, DRIVER_NAME, ptt, pwm_tach_groups);
+	if (IS_ERR(hwmon)) {
+		dev_warn(&pdev->dev, "Failed to register hwmon device: %d\n", PTR_ERR_OR_ZERO(hwmon));
+		dev_warn(&pdev->dev, "Tegra Tachometer got registered witout hwmon sysfs support\n");
 	}
 
 	return 0;

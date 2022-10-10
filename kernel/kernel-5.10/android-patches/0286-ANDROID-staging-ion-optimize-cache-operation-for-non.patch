@@ -1,0 +1,109 @@
+From 619a7adffe3073a7b6424f7ce549f3985b84567e Mon Sep 17 00:00:00 2001
+From: Hyesoo Yu <hyesoo.yu@samsung.com>
+Date: Fri, 20 Mar 2020 18:54:00 +0900
+Subject: [PATCH 286/830] ANDROID: staging: ion: optimize cache operation for
+ non-cached buffer
+X-NVConfidentiality: public
+
+The non-cached ion buffer is flushed when allocated.
+And then, that is is always mapped as non-cached after allocation.
+In the absence of caching, cache maintenance operations
+become unnecessary. However dma_buf_ops tries to maintain
+cache coherency for non-cached buffer on begin[end]_cpu_access
+and map[unmap]_dma_buf functions.
+
+It creates unnecessary overhead, so let's remove it.
+
+Bug: 151775080
+Bug: 170264063
+Signed-off-by: Hyesoo Yu <hyesoo.yu@samsung.com>
+Change-Id: I168117c7002aec7930c84168d15816a09750b7d8
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+(cherry picked from commit 2c3b4cba8ab38d7eb9f474c78f9b4c70867bf71d)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit 70c2ed5eefe64293a100a2c1c07445a708dde15c)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 4f71346c250416c3a6799458d773c4525a3d2ed6)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index f2fd58da1a89..29f05b8cd5ef 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -105,6 +105,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
+ 	struct ion_heap *heap = buffer->heap;
+ 	struct ion_dma_buf_attachment *a;
+ 	struct sg_table *table;
++	unsigned long attrs = attachment->dma_map_attrs;
+ 
+ 	if (heap->buf_ops.map_dma_buf)
+ 		return heap->buf_ops.map_dma_buf(attachment, direction);
+@@ -112,8 +113,11 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
+ 	a = attachment->priv;
+ 	table = a->table;
+ 
++	if (!(buffer->flags & ION_FLAG_CACHED))
++		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
++
+ 	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
+-			      direction, attachment->dma_map_attrs))
++			      direction, attrs))
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	a->mapped = true;
+@@ -128,6 +132,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 	struct ion_buffer *buffer = attachment->dmabuf->priv;
+ 	struct ion_heap *heap = buffer->heap;
+ 	struct ion_dma_buf_attachment *a = attachment->priv;
++	unsigned long attrs = attachment->dma_map_attrs;
+ 
+ 	a->mapped = false;
+ 
+@@ -135,8 +140,11 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 		return heap->buf_ops.unmap_dma_buf(attachment, table,
+ 						   direction);
+ 
++	if (!(buffer->flags & ION_FLAG_CACHED))
++		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
++
+ 	dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
+-			   direction, attachment->dma_map_attrs);
++			   direction, attrs);
+ }
+ 
+ static void ion_dma_buf_release(struct dma_buf *dmabuf)
+@@ -174,6 +182,9 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+ 		goto unlock;
+ 	}
+ 
++	if (!(buffer->flags & ION_FLAG_CACHED))
++		goto unlock;
++
+ 	list_for_each_entry(a, &buffer->attachments, list) {
+ 		if (!a->mapped)
+ 			continue;
+@@ -218,12 +229,17 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+ 	mutex_lock(&buffer->lock);
+ 
+ 	ion_buffer_kmap_put(buffer);
++
++	if (!(buffer->flags & ION_FLAG_CACHED))
++		goto unlock;
++
+ 	list_for_each_entry(a, &buffer->attachments, list) {
+ 		if (!a->mapped)
+ 			continue;
+ 		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
+ 				       direction);
+ 	}
++unlock:
+ 	mutex_unlock(&buffer->lock);
+ 
+ 	return 0;
+-- 
+2.17.1
+

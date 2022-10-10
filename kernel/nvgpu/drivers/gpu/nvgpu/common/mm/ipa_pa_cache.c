@@ -19,11 +19,9 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#ifdef CONFIG_TEGRA_HV_MANAGER
 #include <nvgpu/gk20a.h>
 #include <nvgpu/timers.h>
 #include <nvgpu/ipa_pa_cache.h>
-#include <soc/tegra/virt/syscalls.h>
 
 static u64 nvgpu_ipa_to_pa_cache_lookup(struct gk20a *g, u64 ipa,
 				u64 *pa_len)
@@ -65,7 +63,7 @@ u64 nvgpu_ipa_to_pa_cache_lookup_locked(struct gk20a *g, u64 ipa,
 }
 
 void nvgpu_ipa_to_pa_add_to_cache(struct gk20a *g, u64 ipa, u64 pa,
-				struct hyp_ipa_pa_info *info)
+				struct nvgpu_hyp_ipa_pa_info *info)
 {
 	struct nvgpu_ipa_pa_cache *ipa_cache;
 	struct nvgpu_ipa_desc *desc = NULL;
@@ -96,4 +94,3 @@ void nvgpu_ipa_to_pa_add_to_cache(struct gk20a *g, u64 ipa, u64 pa,
 	nvgpu_rwsem_up_write(&(ipa_cache->ipa_pa_rw_lock));
 
 }
-#endif

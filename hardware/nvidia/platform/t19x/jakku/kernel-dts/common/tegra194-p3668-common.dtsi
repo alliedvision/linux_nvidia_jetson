@@ -1,7 +1,7 @@
 /*
  * Common include DTS file for CVM:P3668-0001 and CVB:P3449-0000 variants.
  *
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,8 +24,6 @@
 #include "tegra194-power-tree-p3668.dtsi"
 #include "tegra194-thermal-p3668.dtsi"
 #include <t19x-common-platforms/tegra194-no-pll-aon-clock.dtsi>
-#include "tegra194-p3668-pcie-plugin-manager.dtsi"
-#include "tegra194-plugin-manager-p3668.dtsi"
 
 / {
 	nvidia,fastboot-usb-vid = <0x0955>;
@@ -38,13 +36,19 @@
 		nvidia,tegra-joint_xpu_rail;
 	};
 
+	nvsciipc-kernel {
+		compatible = "nvidia,nvsciipc";
+		status = "okay";
+	};
+
 	cpufreq {
 		compatible = "nvidia,tegra194-cpufreq";
 		status = "okay";
 		cpu_emc_map = <1907200 1600000>,
 			    <1881600 800000>,
 			    <1574400 665000>,
-			    <1267200 408000>;
+			    <1267200 408000>,
+			    <115200 204000>;
 	};
 #if defined(LINUX_VERSION) && LINUX_VERSION > 414
 	ccplex {
@@ -52,7 +56,8 @@
 		cpu_emc_map = <1907200 1600000>,
 			    <1881600 800000>,
 			    <1574400 665000>,
-			    <1267200 408000>;
+			    <1267200 408000>,
+			    <115200 204000>;
 	};
 #endif
 

@@ -3,7 +3,7 @@
  *
  * Interface with nvmap carveouts
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,15 +37,21 @@ int nvmap_create_carveout(const struct nvmap_platform_carveout *co)
 
 	mutex_lock(&nvmap_dev->carveout_lock);
 	if (!nvmap_dev->heaps) {
+		int nr_heaps;
+
 		nvmap_dev->nr_carveouts = 0;
-		nvmap_dev->nr_heaps = nvmap_dev->plat->nr_carveouts + 1;
+		if (nvmap_dev->plat)
+			nr_heaps = nvmap_dev->plat->nr_carveouts + 1;
+		else
+			nr_heaps = 1;
 		nvmap_dev->heaps = kzalloc(sizeof(struct nvmap_carveout_node) *
-				     nvmap_dev->nr_heaps, GFP_KERNEL);
+				     nr_heaps, GFP_KERNEL);
 		if (!nvmap_dev->heaps) {
 			err = -ENOMEM;
 			pr_err("couldn't allocate carveout memory\n");
 			goto out;
 		}
+		nvmap_dev->nr_heaps = nr_heaps;
 	} else if (nvmap_dev->nr_carveouts >= nvmap_dev->nr_heaps) {
 		node = krealloc(nvmap_dev->heaps,
 				sizeof(*node) * (nvmap_dev->nr_carveouts + 1),

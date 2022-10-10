@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -140,5 +140,5 @@ void dce_ss_clear(struct tegra_dce *d, u8 bpos, u8 id)
 
 	dce_bitmap_set(&val, bpos, 1);
 
-	dce_writel(d, ss_set_regs[id](), val);
+	dce_writel(d, ss_clear_regs[id](), val);
 }

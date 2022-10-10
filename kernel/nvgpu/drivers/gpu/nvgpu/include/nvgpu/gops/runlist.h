@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -102,6 +102,7 @@ struct gops_runlist {
 	void (*init_enginfo)(struct gk20a *g, struct nvgpu_fifo *f);
 	u32 (*get_tsg_max_timeslice)(void);
 	u32 (*get_runlist_id)(struct gk20a *g, u32 runlist_pri_base);
+	u32 (*get_runlist_aperture)(struct gk20a *g, struct nvgpu_runlist *runlist);
 	u32 (*get_engine_id_from_rleng_id)(struct gk20a *g,
 				u32 rleng_id, u32 runlist_pri_base);
 	u32 (*get_chram_bar0_offset)(struct gk20a *g, u32 runlist_pri_base);

@@ -36,13 +36,13 @@ def build_kernel_deb(args, board):
   if 't19x' in board.bups:
     logging.info("Signing kernel image for t19x")
     shutil.copy(board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/Image", board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/Image.t19x")
-    t.execute([board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file','Image.t19x','--chip','0x19','--type','kernel'],cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/")
+    t.execute(['sudo',board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file','Image.t19x','--chip','0x19','--type','kernel'],cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/")
 
   if 't23x' in board.bups:
     logging.info("Adding display drivers")
     os.makedirs(board.build_dir / "Linux_for_Tegra/kernel/origin/display", exist_ok=True)
     t.execute(["tar","xf",board.build_dir / "Linux_for_Tegra/kernel/kernel_display_supplements.tbz2","-C",board.build_dir / "Linux_for_Tegra/kernel/origin/display"])
-    shutil.copytree(board.build_dir / "Linux_for_Tegra/kernel/origin/display/lib/modules/5.10.65-tegra/extra",board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra")
+    shutil.copytree(board.build_dir / f"Linux_for_Tegra/kernel/origin/display/lib/modules/{KERNEL_RELEASE}/extra",board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra")
 
 
   for ef in board.kernel_extra_files:

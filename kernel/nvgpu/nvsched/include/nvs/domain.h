@@ -48,8 +48,8 @@ struct nvs_domain {
 	 * preempting. A value of zero is treated as an infinite timeslice or an
 	 * infinite grace period.
 	 */
-	u32			 timeslice_us;
-	u32			 preempt_grace_us;
+	u64			 timeslice_ns;
+	u64			 preempt_grace_ns;
 
 	/*
 	 * Priv pointer for downstream use.
@@ -66,7 +66,7 @@ struct nvs_domain {
 	     (domain_ptr) = (domain_ptr)->next)
 
 struct nvs_domain *nvs_domain_create(struct nvs_sched *sched,
-		  const char *name, u32 timeslice, u32 preempt_grace,
+		  const char *name, u64 timeslice, u64 preempt_grace,
 		  void *priv);
 void nvs_domain_destroy(struct nvs_sched *sched, struct nvs_domain *dom);
 void nvs_domain_clear_all(struct nvs_sched *sched);

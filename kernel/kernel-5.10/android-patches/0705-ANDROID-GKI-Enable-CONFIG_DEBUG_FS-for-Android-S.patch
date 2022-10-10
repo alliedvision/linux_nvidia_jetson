@@ -1,0 +1,46 @@
+From 5554c2b7b6f8b4ad37067bdc383aa233e58da808 Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Fri, 5 Jun 2020 16:09:50 -0700
+Subject: [PATCH 705/830] ANDROID: GKI: Enable CONFIG_DEBUG_FS for Android S
+X-NVConfidentiality: public
+
+This will allow userdebug/eng builds to access debugfs without
+needing to build a separate debug kernel.
+
+Test: build
+Bug: 153634660
+Change-Id: I0617afea02ceab0a8f2ca4da3abf9bb270682de9
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+(cherry picked from commit 4123e4a204947b5dc3fbb3234cd1ba8ad52b33d5)
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 18576d27b961..5d5758a7ee69 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -488,6 +488,7 @@ CONFIG_DEBUG_INFO=y
+ CONFIG_HEADERS_INSTALL=y
+ # CONFIG_SECTION_MISMATCH_WARN_ONLY is not set
+ CONFIG_MAGIC_SYSRQ=y
++CONFIG_DEBUG_FS=y
+ CONFIG_DEBUG_STACK_USAGE=y
+ CONFIG_DEBUG_MEMORY_INIT=y
+ CONFIG_PANIC_ON_OOPS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index dd28c15cb643..a9fafee500ce 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -434,6 +434,7 @@ CONFIG_DEBUG_INFO=y
+ CONFIG_HEADERS_INSTALL=y
+ # CONFIG_SECTION_MISMATCH_WARN_ONLY is not set
+ CONFIG_MAGIC_SYSRQ=y
++CONFIG_DEBUG_FS=y
+ CONFIG_DEBUG_STACK_USAGE=y
+ CONFIG_DEBUG_MEMORY_INIT=y
+ CONFIG_PANIC_ON_OOPS=y
+-- 
+2.17.1
+

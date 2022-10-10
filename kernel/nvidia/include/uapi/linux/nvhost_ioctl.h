@@ -3,7 +3,7 @@
  *
  * Tegra graphics host driver
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -475,6 +475,15 @@ struct nvhost_ctrl_sync_file_extract {
 	__u64 fences_ptr;
 };
 
+struct nvhost_ctrl_syncpt_dmabuf_args {
+	__s32 syncpt_fd;
+	__s32 dmabuf_fd;
+	__u32 is_full_shim;
+	__u32 nb_syncpts;
+	__u32 syncpt_page_size;
+	__u32 padding;
+};
+
 #define NVHOST_IOCTL_CTRL_SYNCPT_READ		\
 	_IOWR(NVHOST_IOCTL_MAGIC, 1, struct nvhost_ctrl_syncpt_read_args)
 #define NVHOST_IOCTL_CTRL_SYNCPT_INCR		\
@@ -521,8 +530,11 @@ struct nvhost_ctrl_sync_file_extract {
 #define NVHOST_IOCTL_CTRL_SYNC_FILE_EXTRACT     \
 	_IOWR(NVHOST_IOCTL_MAGIC, 19, struct nvhost_ctrl_sync_file_extract)
 
+#define NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD     \
+	_IOWR(NVHOST_IOCTL_MAGIC, 20, struct nvhost_ctrl_syncpt_dmabuf_args)
+
 #define NVHOST_IOCTL_CTRL_LAST			\
-	_IOC_NR(NVHOST_IOCTL_CTRL_SYNC_FILE_EXTRACT)
+	_IOC_NR(NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD)
 #define NVHOST_IOCTL_CTRL_MAX_ARG_SIZE	\
 	sizeof(struct nvhost_ctrl_syncpt_waitmex_args)
 

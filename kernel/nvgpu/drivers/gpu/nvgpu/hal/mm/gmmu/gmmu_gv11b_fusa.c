@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,17 +25,27 @@
 
 #include "gmmu_gv11b.h"
 
-/*
- * On Volta the GPU determines whether to do L3 allocation for a mapping by
- * checking the l3 alloc bit (bit number depends on soc) of the physical address.
- * So if a mapping should allocate lines in the L3 this bit must be set.
+/**
+ * The GPU determines whether to do specific action by checking
+ * the specific bit (bit number depends on soc) of the physical address.
+ *
+ * L3 alloc bit is used to allocate lines in L3.
+ * TEGRA_RAW bit is used to read buffers in TEGRA_RAW format.
  */
 u64 gv11b_gpu_phys_addr(struct gk20a *g,
 			struct nvgpu_gmmu_attrs *attrs, u64 phys)
 {
-	if ((attrs != NULL) && attrs->l3_alloc &&
-			(g->ops.mm.gmmu.get_iommu_bit != NULL)) {
-		return phys | BIT64(g->ops.mm.gmmu.get_iommu_bit(g));
+	if (attrs == NULL) {
+		return phys;
+	}
+
+	if (attrs->l3_alloc && (g->ops.mm.gmmu.get_iommu_bit != NULL)) {
+		phys |= BIT64(g->ops.mm.gmmu.get_iommu_bit(g));
+	}
+
+	if (attrs->tegra_raw &&
+		(g->ops.mm.gmmu.get_gpu_phys_tegra_raw_bit != NULL)) {
+		phys |= BIT64(g->ops.mm.gmmu.get_gpu_phys_tegra_raw_bit(g));
 	}
 
 	return phys;

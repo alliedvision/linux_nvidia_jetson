@@ -1,0 +1,238 @@
+From 6b65cef8f21548f3947fd0da895e890cd3bd8f89 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 1 Apr 2020 16:04:39 -0700
+Subject: [PATCH 443/830] ANDROID: Incremental fs: Fix remount
+X-NVConfidentiality: public
+
+Bug: 153017385
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I13f3a3c91d746d725e0e21b1e2bcfe0a64a13716
+---
+ fs/incfs/data_mgmt.c                          | 35 ++++++++++++------
+ fs/incfs/data_mgmt.h                          |  3 ++
+ fs/incfs/vfs.c                                |  7 ++--
+ .../selftests/filesystems/incfs/incfs_test.c  | 37 +++++++++++++++----
+ .../selftests/filesystems/incfs/utils.c       |  5 ++-
+ .../selftests/filesystems/incfs/utils.h       |  2 +-
+ 6 files changed, 63 insertions(+), 26 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index c0248de8949b..91541b46f771 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -27,7 +27,6 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	mi->mi_sb = sb;
+-	mi->mi_options = *options;
+ 	mi->mi_backing_dir_path = *backing_dir_path;
+ 	mi->mi_owner = get_current_cred();
+ 	path_get(&mi->mi_backing_dir_path);
+@@ -35,26 +34,38 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
+ 	mutex_init(&mi->mi_pending_reads_mutex);
+ 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
+ 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
++	spin_lock_init(&mi->mi_log.rl_writer_lock);
+ 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
+ 
++	error = incfs_realloc_mount_info(mi, options);
++	if (error)
++		goto err;
++
++	return mi;
++
++err:
++	incfs_free_mount_info(mi);
++	return ERR_PTR(error);
++}
++
++int incfs_realloc_mount_info(struct mount_info *mi,
++			     struct mount_options *options)
++{
++	kfree(mi->mi_log.rl_ring_buf);
++	mi->mi_log.rl_ring_buf = NULL;
++	mi->mi_log.rl_size = 0;
++
++	mi->mi_options = *options;
+ 	if (options->read_log_pages != 0) {
+ 		size_t buf_size = PAGE_SIZE * options->read_log_pages;
+ 
+-		spin_lock_init(&mi->mi_log.rl_writer_lock);
+-
+ 		mi->mi_log.rl_size = buf_size / sizeof(*mi->mi_log.rl_ring_buf);
+ 		mi->mi_log.rl_ring_buf = kzalloc(buf_size, GFP_NOFS);
+-		if (!mi->mi_log.rl_ring_buf) {
+-			error = -ENOMEM;
+-			goto err;
+-		}
++		if (!mi->mi_log.rl_ring_buf)
++			return -ENOMEM;
+ 	}
+ 
+-	return mi;
+-
+-err:
+-	incfs_free_mount_info(mi);
+-	return ERR_PTR(error);
++	return 0;
+ }
+ 
+ void incfs_free_mount_info(struct mount_info *mi)
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index bd9b63af920e..e8f2154c80d9 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -223,6 +223,9 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
+ 					  struct mount_options *options,
+ 					  struct path *backing_dir_path);
+ 
++int incfs_realloc_mount_info(struct mount_info *mi,
++			     struct mount_options *options);
++
+ void incfs_free_mount_info(struct mount_info *mi);
+ 
+ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 97b690182c69..51351df5a68e 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -2216,10 +2216,9 @@ static int incfs_remount_fs(struct super_block *sb, int *flags, char *data)
+ 	if (err)
+ 		return err;
+ 
+-	if (mi->mi_options.read_timeout_ms != options.read_timeout_ms) {
+-		mi->mi_options.read_timeout_ms = options.read_timeout_ms;
+-		pr_debug("incfs: new timeout_ms=%d", options.read_timeout_ms);
+-	}
++	err = incfs_realloc_mount_info(mi, &options);
++	if (err)
++		return err;
+ 
+ 	pr_debug("incfs: remount\n");
+ 	return 0;
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 15a34a8469ba..3ba41bd75efe 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2029,14 +2029,14 @@ static int read_log_test(char *mount_dir)
+ 	struct test_files_set test = get_test_files_set();
+ 	const int file_num = test.files_count;
+ 	int i = 0;
+-	int cmd_fd = -1, log_fd = -1;
++	int cmd_fd = -1, log_fd = -1, drop_caches = -1;
+ 	char *backing_dir;
+ 
+ 	backing_dir = create_backing_dir(mount_dir);
+ 	if (!backing_dir)
+ 		goto failure;
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+@@ -2076,7 +2076,7 @@ static int read_log_test(char *mount_dir)
+ 		goto failure;
+ 	}
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+@@ -2106,8 +2106,8 @@ static int read_log_test(char *mount_dir)
+ 		goto failure;
+ 	}
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=0") !=
+-	    0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=0",
++			 false) != 0)
+ 		goto failure;
+ 
+ 	log_fd = open_log_file(mount_dir);
+@@ -2122,6 +2122,29 @@ static int read_log_test(char *mount_dir)
+ 			goto failure;
+ 	}
+ 
++	/*
++	 * Remount and check that logs start working again
++	 */
++	drop_caches = open("/proc/sys/vm/drop_caches", O_WRONLY);
++	if (drop_caches == -1)
++		goto failure;
++	i = write(drop_caches, "3", 1);
++	close(drop_caches);
++	if (i != 1)
++		goto failure;
++
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=4",
++			 true) != 0)
++		goto failure;
++
++	/* Validate data again */
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (validate_logs(mount_dir, log_fd, file, false))
++			goto failure;
++	}
++
+ 	/* Final unmount */
+ 	close(log_fd);
+ 	free(backing_dir);
+@@ -2320,7 +2343,7 @@ static int get_blocks_test(char *mount_dir)
+ 	if (!backing_dir)
+ 		goto failure;
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+@@ -2495,7 +2518,7 @@ static int get_hash_blocks_test(char *mount_dir)
+ 	if (!backing_dir)
+ 		goto failure;
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.c b/tools/testing/selftests/filesystems/incfs/utils.c
+index 3a72fa5d5e9a..545497685d14 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.c
++++ b/tools/testing/selftests/filesystems/incfs/utils.c
+@@ -41,12 +41,13 @@ int mount_fs(const char *mount_dir, const char *backing_dir,
+ }
+ 
+ int mount_fs_opt(const char *mount_dir, const char *backing_dir,
+-		 const char *opt)
++		 const char *opt, bool remount)
+ {
+ 	static const char fs_name[] = INCFS_NAME;
+ 	int result;
+ 
+-	result = mount(backing_dir, mount_dir, fs_name, 0, opt);
++	result = mount(backing_dir, mount_dir, fs_name,
++		       remount ? MS_REMOUNT : 0, opt);
+ 	if (result != 0)
+ 		perror("Error mounting fs.");
+ 	return result;
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.h b/tools/testing/selftests/filesystems/incfs/utils.h
+index 23c8a099662a..24b43287fcdd 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.h
++++ b/tools/testing/selftests/filesystems/incfs/utils.h
+@@ -23,7 +23,7 @@ int mount_fs(const char *mount_dir, const char *backing_dir,
+ 	     int read_timeout_ms);
+ 
+ int mount_fs_opt(const char *mount_dir, const char *backing_dir,
+-		 const char *opt);
++		 const char *opt, bool remount);
+ 
+ int get_file_bmap(int cmd_fd, int ino, unsigned char *buf, int buf_size);
+ 
+-- 
+2.17.1
+

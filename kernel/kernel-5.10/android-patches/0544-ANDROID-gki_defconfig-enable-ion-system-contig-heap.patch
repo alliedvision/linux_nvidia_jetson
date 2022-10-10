@@ -1,0 +1,50 @@
+From 1fbc6503c4f91a4ae657bb875c1989dd077d2414 Mon Sep 17 00:00:00 2001
+From: Sandeep Patil <sspatil@google.com>
+Date: Thu, 8 Aug 2019 08:50:56 -0700
+Subject: [PATCH 544/830] ANDROID: gki_defconfig: enable ion system-contig heap
+X-NVConfidentiality: public
+
+Enable CONFIG_ION_SYSTEM_HEAP=y and CONFIG_ION_SYSTEM_CONTIG_HEAP=y.
+
+Bug: 133508579
+Test: ion-unit-tests
+
+Signed-off-by: Sandeep Patil <sspatil@google.com>
+Change-Id: I1258ccbe22ce83703405222385b673d5945011fe
+[ebiggers: split this out from "ANDROID: staging: ion: split system and
+           system-contig heaps"]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e3bb99c85dd3..1cbc3a53e419 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -345,6 +345,8 @@ CONFIG_STAGING=y
+ CONFIG_ASHMEM=y
+ CONFIG_ANDROID_VSOC=y
+ CONFIG_ION=y
++CONFIG_ION_SYSTEM_HEAP=y
++CONFIG_ION_SYSTEM_CONTIG_HEAP=y
+ CONFIG_COMMON_CLK_SCPI=y
+ CONFIG_HWSPINLOCK=y
+ CONFIG_MAILBOX=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b41991706f0d..e3537416896c 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -295,6 +295,8 @@ CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+ CONFIG_STAGING=y
+ CONFIG_ASHMEM=y
+ CONFIG_ION=y
++CONFIG_ION_SYSTEM_HEAP=y
++CONFIG_ION_SYSTEM_CONTIG_HEAP=y
+ CONFIG_PM_DEVFREQ=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+-- 
+2.17.1
+

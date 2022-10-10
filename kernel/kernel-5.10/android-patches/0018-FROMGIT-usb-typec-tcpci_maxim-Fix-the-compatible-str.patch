@@ -1,0 +1,37 @@
+From dd39c08437822abc6eaa94d3fbfe281a414004f6 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:30 -0700
+Subject: [PATCH 018/830] FROMGIT: usb: typec: tcpci_maxim: Fix the compatible
+ string
+X-NVConfidentiality: public
+
+Changing compatible string to include the part number.
+
+Bug: 168555244
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-3-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit a07c81ac5015ac5cbcf1f8e20b9ca2974d276b87
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Iac123d339c42c9d29fb5afc1f291d1fb52e1469e
+---
+ drivers/usb/typec/tcpm/tcpci_maxim.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci_maxim.c b/drivers/usb/typec/tcpm/tcpci_maxim.c
+index 3b3d36f94709..c1797239bf08 100644
+--- a/drivers/usb/typec/tcpm/tcpci_maxim.c
++++ b/drivers/usb/typec/tcpm/tcpci_maxim.c
+@@ -482,7 +482,7 @@ MODULE_DEVICE_TABLE(i2c, max_tcpci_id);
+ 
+ #ifdef CONFIG_OF
+ static const struct of_device_id max_tcpci_of_match[] = {
+-	{ .compatible = "maxim,tcpc", },
++	{ .compatible = "maxim,max33359", },
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, max_tcpci_of_match);
+-- 
+2.17.1
+

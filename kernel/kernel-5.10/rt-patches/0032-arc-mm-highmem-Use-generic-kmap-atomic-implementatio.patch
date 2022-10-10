@@ -1,7 +1,7 @@
-From 8ce00eb5f2c2164bf10c8ab5b85d95ecb45148fc Mon Sep 17 00:00:00 2001
+From 4531695b09abd8700d8228cc72472828a32d35ca Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:21 +0100
-Subject: [PATCH 032/304] arc/mm/highmem: Use generic kmap atomic
+Subject: [PATCH 032/318] arc/mm/highmem: Use generic kmap atomic
  implementation
 
 Adopt the map ordering to match the other architectures and the generic
@@ -35,14 +35,14 @@ Cc: linux-snps-arc@lists.infradead.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/arc/Kconfig                  |  1 +
- arch/arc/include/asm/highmem.h    | 26 ++++++++++++++-----
- arch/arc/include/asm/kmap_types.h | 14 ----------
- arch/arc/mm/highmem.c             | 54 ++++-----------------------------------
+ arch/arc/include/asm/highmem.h    | 26 +++++++++++----
+ arch/arc/include/asm/kmap_types.h | 14 --------
+ arch/arc/mm/highmem.c             | 54 +++----------------------------
  4 files changed, 26 insertions(+), 69 deletions(-)
  delete mode 100644 arch/arc/include/asm/kmap_types.h
 
 diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 0a89cc9..d880400 100644
+index 0a89cc9def65..d8804001d550 100644
 --- a/arch/arc/Kconfig
 +++ b/arch/arc/Kconfig
 @@ -507,6 +507,7 @@ config LINUX_RAM_BASE
@@ -54,7 +54,7 @@ index 0a89cc9..d880400 100644
  	  With ARC 2G:2G address split, only upper 2G is directly addressable by
  	  kernel. Enable this to potentially allow access to rest of 2G and PAE
 diff --git a/arch/arc/include/asm/highmem.h b/arch/arc/include/asm/highmem.h
-index 6e5eafb..a6b8e2c 100644
+index 6e5eafb3afdd..a6b8e2c352c4 100644
 --- a/arch/arc/include/asm/highmem.h
 +++ b/arch/arc/include/asm/highmem.h
 @@ -9,17 +9,29 @@
@@ -109,7 +109,7 @@ index 6e5eafb..a6b8e2c 100644
  #endif
 diff --git a/arch/arc/include/asm/kmap_types.h b/arch/arc/include/asm/kmap_types.h
 deleted file mode 100644
-index fecf785..00000000
+index fecf7851ec32..000000000000
 --- a/arch/arc/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,14 +0,0 @@
@@ -128,7 +128,7 @@ index fecf785..00000000
 - */
 -#endif
 diff --git a/arch/arc/mm/highmem.c b/arch/arc/mm/highmem.c
-index 1b9f473..c79912a 100644
+index 1b9f473c6369..c79912a6b196 100644
 --- a/arch/arc/mm/highmem.c
 +++ b/arch/arc/mm/highmem.c
 @@ -36,9 +36,8 @@
@@ -207,5 +207,5 @@ index 1b9f473..c79912a 100644
 +	alloc_kmap_pgtable(FIXMAP_BASE);
  }
 -- 
-2.7.4
+2.17.1
 

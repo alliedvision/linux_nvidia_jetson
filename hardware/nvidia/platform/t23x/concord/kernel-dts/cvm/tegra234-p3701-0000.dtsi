@@ -22,7 +22,7 @@
 / {
 	nvidia,fastboot-usb-vid = <0x0955>;
 	nvidia,fastboot-usb-pid = <0xee1e>;
-	model = "NVIDIA Orin Jetson-Small Developer Kit";
+	model = "Jetson AGX Orin";
 
 	actmon@d230000 {
 		status = "okay";

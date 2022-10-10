@@ -19,7 +19,13 @@
 #include <linux/version.h>
 #include <linux/workqueue.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
+#include <drm/display/drm_dp_helper.h>
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+#include <drm/dp/drm_dp_helper.h>
+#else
 #include <drm/drm_dp_helper.h>
+#endif
 #include <drm/drm_panel.h>
 
 #include "dp.h"
@@ -464,10 +470,8 @@ static int tegra_dpaux_probe(struct platform_device *pdev)
 		return PTR_ERR(dpaux->regs);
 
 	dpaux->irq = platform_get_irq(pdev, 0);
-	if (dpaux->irq < 0) {
-		dev_err(&pdev->dev, "failed to get IRQ\n");
+	if (dpaux->irq < 0)
 		return -ENXIO;
-	}
 
 	if (!pdev->dev.pm_domain) {
 		dpaux->rst = devm_reset_control_get(&pdev->dev, "dpaux");

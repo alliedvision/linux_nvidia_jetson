@@ -1,6 +1,6 @@
 # -*- mode: makefile -*-
 #
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,8 @@ srcs +=	os/posix/nvgpu.c \
 	os/posix/posix-nvhost.c \
 	os/posix/posix-vgpu.c \
 	os/posix/posix-dt.c \
-	os/posix/fuse.c
+	os/posix/fuse.c \
+        os/posix/contig_pool.c
 
 ifdef CONFIG_NVGPU_VPR
 srcs += os/posix/posix-vpr.c
@@ -77,6 +78,7 @@ endif
 srcs += os/posix/bug.c \
 	os/posix/rwsem.c \
 	os/posix/timers.c \
+	os/posix/periodic_timer.c \
 	os/posix/cond.c \
 	os/posix/lock.c \
 	os/posix/thread.c \
@@ -96,6 +98,7 @@ srcs +=	common/device.c \
 	common/utils/rbtree.c \
 	common/utils/string.c \
 	common/utils/worker.c \
+	common/timers_common.c \
 	common/swdebug/profile.c \
 	common/init/nvgpu_init.c \
 	common/mm/allocators/nvgpu_allocator.c \
@@ -159,18 +162,9 @@ srcs +=	common/device.c \
 	common/cic/mon/mon_init.c \
 	common/cic/mon/mon_lut.c \
 	common/cic/mon/mon_intr.c \
-	common/cic/mon/mon_ce.c \
-	common/cic/mon/mon_ctxsw.c \
-	common/cic/mon/mon_msg.c \
-	common/cic/mon/mon_ecc.c \
-	common/cic/mon/mon_host.c \
-	common/cic/mon/mon_gr.c \
-	common/cic/mon/mon_pri.c \
-	common/cic/mon/mon_pmu.c \
-	common/cic/mon/mon_mmu.c \
+	common/cic/mon/mon_report_err.c \
 	common/cic/rm/rm_init.c \
 	common/cic/rm/rm_intr.c \
-	hal/init/hal_gv11b.c \
 	hal/init/hal_gv11b_litter.c \
 	hal/init/hal_init.c \
 	hal/power_features/cg/gv11b_gating_reglist.c \
@@ -178,13 +172,31 @@ srcs +=	common/device.c \
 	hal/fifo/userd_gk20a.c \
 	hal/sync/syncpt_cmdbuf_gv11b.c
 
+ifeq ($(CONFIG_NVGPU_INTR_DEBUG),1)
+srcs += common/cic/mon/mon_ce.c \
+	common/cic/mon/mon_ctxsw.c \
+	common/cic/mon/mon_msg.c \
+	common/cic/mon/mon_ecc.c \
+	common/cic/mon/mon_host.c \
+	common/cic/mon/mon_gr.c \
+	common/cic/mon/mon_pri.c \
+	common/cic/mon/mon_pmu.c \
+	common/cic/mon/mon_mmu.c
+endif
+
 ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),1)
 srcs += common/gsp/gsp_init.c \
 	common/gsp/gsp_bootstrap.c \
-	common/gsp/ipc/gsp_seq.c \
-	common/gsp/ipc/gsp_queue.c \
-	common/gsp/ipc/gsp_cmd.c \
-	common/gsp/ipc/gsp_msg.c
+	common/gsp_scheduler/ipc/gsp_seq.c \
+	common/gsp_scheduler/ipc/gsp_queue.c \
+	common/gsp_scheduler/ipc/gsp_cmd.c \
+	common/gsp_scheduler/ipc/gsp_msg.c \
+	common/gsp_scheduler/gsp_scheduler.c \
+	common/gsp_scheduler/gsp_runlist.c
+endif
+
+ifeq ($(CONFIG_NVGPU_GSP_STRESS_TEST),1)
+srcs += common/gsp_test/gsp_test.c
 endif
 
 # Source files below are functionaly safe (FuSa) and must always be included.
@@ -209,6 +221,8 @@ srcs += hal/mm/mm_gv11b_fusa.c \
 	hal/falcon/falcon_gk20a_fusa.c \
 	hal/fb/fb_gm20b_fusa.c \
 	hal/fb/fb_gv11b_fusa.c \
+	hal/fb/fb_gp10b_fusa.c \
+	hal/fb/fb_tu104_fusa.c \
 	hal/fb/fb_mmu_fault_gv11b_fusa.c \
 	hal/fb/ecc/fb_ecc_gv11b_fusa.c \
 	hal/fb/intr/fb_intr_ecc_gv11b_fusa.c \
@@ -243,8 +257,11 @@ srcs += hal/mm/mm_gv11b_fusa.c \
 	hal/fifo/usermode_gv11b_fusa.c \
 	hal/fuse/fuse_gm20b_fusa.c \
 	hal/fuse/fuse_gp10b_fusa.c \
+	hal/fuse/fuse_gv11b_fusa.c \
 	hal/gr/config/gr_config_gm20b_fusa.c \
 	hal/gr/config/gr_config_gv100_fusa.c \
+	hal/gr/config/gr_config_gv11b_fusa.c \
+	hal/gr/config/gr_config_ga10b_fusa.c \
 	hal/gr/ctxsw_prog/ctxsw_prog_gm20b_fusa.c \
 	hal/gr/ctxsw_prog/ctxsw_prog_gp10b_fusa.c \
 	hal/gr/ctxsw_prog/ctxsw_prog_gv11b_fusa.c \
@@ -274,15 +291,22 @@ srcs += hal/mm/mm_gv11b_fusa.c \
 	hal/therm/therm_gv11b_fusa.c \
 	hal/top/top_gm20b_fusa.c \
 	hal/top/top_gv11b_fusa.c \
-	hal/cic/mon/init_gv11b_fusa.c \
-	hal/cic/mon/lut_gv11b_fusa.c
+	hal/cic/mon/init_ga10b_fusa.c \
+	hal/cic/mon/lut_ga10b_fusa.c
+
+ifeq ($(CONFIG_NVGPU_COMPRESSION),1)
+srcs += hal/cbc/cbc_tu104.c
+endif
+
+ifeq ($(CONFIG_NVGPU_SUPPORT_GV11B),1)
+srcs += hal/init/hal_gv11b.c
+endif
 
 # Source files below are not guaranteed to be functionaly safe (FuSa) and are
 # only included in the normal build.
 ifeq ($(CONFIG_NVGPU_HAL_NON_FUSA),1)
 srcs += hal/init/hal_gm20b.c \
 	hal/init/hal_gm20b_litter.c \
-	hal/mm/cache/flush_gk20a.c \
 	hal/mm/mm_gm20b.c \
 	hal/mm/mm_gk20a.c \
 	hal/mm/gmmu/gmmu_gk20a.c \
@@ -305,16 +329,15 @@ srcs += hal/init/hal_gm20b.c \
 	hal/priv_ring/priv_ring_gm20b.c \
 	hal/power_features/cg/gm20b_gating_reglist.c \
 	hal/ce/ce2_gk20a.c \
+	hal/ce/ce_gp10b.c \
 	hal/therm/therm_gm20b.c \
 	hal/therm/therm_gp10b.c \
 	hal/ltc/ltc_gm20b.c \
 	hal/ltc/ltc_gp10b.c \
 	hal/ltc/intr/ltc_intr_gm20b.c \
 	hal/ltc/intr/ltc_intr_gp10b.c \
-	hal/fb/fb_gp10b.c \
 	hal/fb/fb_gp106.c \
 	hal/fb/fb_gm20b.c \
-	hal/fb/fb_gv11b.c \
 	hal/fb/intr/fb_intr_ecc_gv11b.c \
 	hal/fuse/fuse_gm20b.c \
 	hal/fifo/fifo_gk20a.c \
@@ -501,6 +524,7 @@ endif
 
 ifeq ($(CONFIG_NVGPU_LS_PMU),1)
 # Add LS PMU files which are required for normal build
+ifeq ($(CONFIG_NVGPU_DGPU),1)
 srcs += \
 	common/pmu/boardobj/boardobj.c \
 	common/pmu/boardobj/boardobjgrp.c \
@@ -514,6 +538,24 @@ srcs += \
 	common/pmu/clk/clk_prog.c \
 	common/pmu/clk/clk_vf_point.c \
 	common/pmu/clk/clk_vin.c \
+	common/pmu/perf/vfe_equ.c \
+	common/pmu/perf/vfe_var.c \
+	common/pmu/perf/perf.c \
+	common/pmu/perf/pstate.c \
+	common/pmu/perf/change_seq.c \
+	common/pmu/pmgr/pmgr.c \
+	common/pmu/pmgr/pmgrpmu.c \
+	common/pmu/pmgr/pwrdev.c \
+	common/pmu/pmgr/pwrmonitor.c \
+	common/pmu/pmgr/pwrpolicy.c \
+	common/pmu/therm/thrm.c \
+	common/pmu/therm/therm_channel.c \
+	common/pmu/therm/therm_dev.c \
+	common/pmu/volt/volt_dev.c \
+	common/pmu/volt/volt_policy.c \
+	common/pmu/volt/volt_rail.c
+endif
+srcs += \
 	common/pmu/fw/fw.c \
 	common/pmu/fw/fw_ver_ops.c \
 	common/pmu/fw/fw_ns_bootstrap.c \
@@ -527,27 +569,11 @@ srcs += \
 	common/pmu/lsfm/lsfm_sw_gp10b.c \
 	common/pmu/lsfm/lsfm_sw_gv100.c \
 	common/pmu/lsfm/lsfm_sw_tu104.c \
-	common/pmu/perf/vfe_equ.c \
-	common/pmu/perf/vfe_var.c \
-	common/pmu/perf/perf.c \
-	common/pmu/perf/pstate.c \
-	common/pmu/perf/change_seq.c \
 	common/pmu/perfmon/pmu_perfmon.c \
 	common/pmu/perfmon/pmu_perfmon_sw_gm20b.c \
 	common/pmu/perfmon/pmu_perfmon_sw_gv11b.c \
 	common/pmu/perfmon/pmu_perfmon_sw_ga10b.c \
-	common/pmu/pmgr/pmgr.c \
-	common/pmu/pmgr/pmgrpmu.c \
-	common/pmu/pmgr/pwrdev.c \
-	common/pmu/pmgr/pwrmonitor.c \
-	common/pmu/pmgr/pwrpolicy.c \
 	common/pmu/super_surface/super_surface.c \
-	common/pmu/therm/thrm.c \
-	common/pmu/therm/therm_channel.c \
-	common/pmu/therm/therm_dev.c \
-	common/pmu/volt/volt_dev.c \
-	common/pmu/volt/volt_policy.c \
-	common/pmu/volt/volt_rail.c \
 	common/pmu/allocator.c \
 	common/pmu/pmu_debug.c \
 	common/pmu/pmu_mutex.c \
@@ -626,6 +652,11 @@ srcs += common/mm/comptags.c \
 	hal/cbc/cbc_gm20b.c \
 	hal/cbc/cbc_gp10b.c \
 	hal/cbc/cbc_gv11b.c
+ifeq ($(CONFIG_NVGPU_IVM_BUILD),1)
+ifndef NVGPU_POSIX
+srcs += common/cbc/contig_pool.c
+endif
+endif
 endif
 
 ifeq ($(CONFIG_NVGPU_REMAP),1)
@@ -681,7 +712,6 @@ srcs += common/sec2/sec2.c \
 	hal/init/hal_tu104.c \
 	hal/init/hal_tu104_litter.c \
 	hal/power_features/cg/tu104_gating_reglist.c \
-	hal/ltc/ltc_tu104.c \
 	hal/fb/fb_gv100.c \
 	hal/fb/fb_tu104.c \
 	hal/fb/fb_mmu_fault_tu104.c \
@@ -713,10 +743,6 @@ srcs += common/sec2/sec2.c \
 	hal/top/top_gv100.c \
 	hal/xve/xve_gp106.c \
 	hal/xve/xve_tu104.c
-
-ifeq ($(CONFIG_NVGPU_COMPRESSION),1)
-srcs +=	hal/cbc/cbc_tu104.c
-endif
 endif
 
 srcs += hal/gr/init/gr_init_tu104.c \
@@ -724,6 +750,7 @@ srcs += hal/gr/init/gr_init_tu104.c \
 	hal/mc/mc_tu104.c  \
 	hal/fifo/usermode_tu104.c \
 	hal/gr/falcon/gr_falcon_tu104.c \
+	hal/ltc/ltc_tu104.c \
 
 ifeq ($(CONFIG_NVGPU_SIM),1)
 srcs += common/sim/sim.c \

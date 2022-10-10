@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -306,10 +306,8 @@
 #define ALIGN_MASK(x, mask)						\
 	__builtin_choose_expr(						\
 		(IS_UNSIGNED_TYPE(x) && IS_UNSIGNED_TYPE(mask)),	\
-		__builtin_choose_expr(					\
-			IS_UNSIGNED_LONG_TYPE(x),			\
-			(nvgpu_safe_add_u64((x), (mask)) & ~(mask)),	\
-			(nvgpu_safe_add_u32((x), (mask)) & ~(mask))),	\
+		(NVGPU_SAFE_ADD_UNSIGNED((x), (mask)) &			\
+			~(typeof(x))(mask)),				\
 		/* Results in build error. Make x/mask type unsigned */ \
 		(void)0)
 
@@ -326,17 +324,12 @@
  *
  * @return Returns \a x aligned with the value mentioned in \a a.
  */
-#define NVGPU_ALIGN(x, a)							\
+#define NVGPU_ALIGN(x, a)						\
 	__builtin_choose_expr(						\
 		(IS_UNSIGNED_TYPE(x) && IS_UNSIGNED_TYPE(a)),		\
-		__builtin_choose_expr(					\
-			IS_UNSIGNED_LONG_TYPE(x),			\
-				ALIGN_MASK((x),				\
-				(nvgpu_safe_sub_u64((typeof(x))(a), 1))), \
-				ALIGN_MASK((x),				\
-				(nvgpu_safe_sub_u32((typeof(x))(a), 1)))), \
-			/* Results in build error. Make x/a type unsigned */ \
-			(void)0)
+		ALIGN_MASK((x), NVGPU_SAFE_SUB_UNSIGNED(a, 1)),		\
+		/* Results in build error. Make x/a type unsigned */	\
+		(void)0)
 
 /**
  * @brief Align with #PAGE_SIZE.
@@ -479,7 +472,7 @@ static inline unsigned int nvgpu_posix_hweight8(uint8_t x)
 
 	result = nvgpu_safe_sub_u8(x, result);
 
-	result = (result & mask2) + ((result >> shift2) & mask2);
+	result = (u8)((result & mask2) + ((result >> shift2) & mask2));
 	result = (result + (result >> shift4)) & mask3;
 	ret = (unsigned int)result;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 #include <nvgpu/regops_allowlist.h>
 #include "allowlist_gv11b.h"
 
-u32 gv11b_hwpm_perfmon_register_offset_allowlist[] = {
+static const u32 gv11b_hwpm_perfmon_register_offset_allowlist[] = {
 	0x00000040,
 	0x00000044,
 	0x00000048,
@@ -80,19 +80,19 @@ u32 gv11b_hwpm_perfmon_register_offset_allowlist[] = {
 	0x00000124,
 };
 
-u32 gv11b_hwpm_router_register_offset_allowlist[] = {
+static const u32 gv11b_hwpm_router_register_offset_allowlist[] = {
 	0x00000000,
 	0x00000008,
 	0x00000010,
 	0x00000014,
 };
 
-u32 gv11b_hwpm_pma_channel_register_offset_allowlist[] = {
+static const u32 gv11b_hwpm_pma_channel_register_offset_allowlist[] = {
 	0x00000080,
 	0x00000084,
 };
 
-u32 gv11b_hwpm_pma_trigger_register_offset_allowlist[] = {
+static const u32 gv11b_hwpm_pma_trigger_register_offset_allowlist[] = {
 	0x00000000,
 	0x00000008,
 	0x00000010,
@@ -131,7 +131,7 @@ u32 gv11b_hwpm_pma_trigger_register_offset_allowlist[] = {
 	0x00000608,
 };
 
-u32 gv11b_smpc_register_offset_allowlist[] = {
+static const u32 gv11b_smpc_register_offset_allowlist[] = {
 	0x00000200,
 	0x00000204,
 	0x00000208,
@@ -303,7 +303,7 @@ u32 gv11b_smpc_register_offset_allowlist[] = {
 	0x000007c4,
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmon_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmon_register_ranges[] = {
 	{0x00180000, 0x00183ffc},
 	{0x00250040, 0x00250124},
 	{0x00250240, 0x00250324},
@@ -315,7 +315,7 @@ const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmon_register_ranges
 	{0x00240000, 0x00243ffc},
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_hwpm_router_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_router_register_ranges[] = {
 	{0x00244000, 0x002441fc},
 	{0x00246000, 0x002461fc},
 	{0x00248000, 0x002481fc},
@@ -323,21 +323,21 @@ const struct nvgpu_pm_resource_register_range gv11b_hwpm_router_register_ranges[
 	{0x00251a00, 0x00251a14},
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_hwpm_pma_channel_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_pma_channel_register_ranges[] = {
 	{0x0024a070, 0x0024a08c},
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_hwpm_pma_trigger_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_pma_trigger_register_ranges[] = {
 	{0x0024a000, 0x0024a06c},
 	{0x0024a090, 0x0024bffb},
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_smpc_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_smpc_register_ranges[] = {
 	{0x00580000, 0x00587ffc},
 	{0x00480000, 0x00487ffc},
 };
 
-const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmux_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmux_register_ranges[] = {
 	{0x000004f0, 0x000004f0},
 	{0x00001a00, 0x00001a00},
 	{0x000884e0, 0x000884e0},
@@ -496,6 +496,14 @@ const struct nvgpu_pm_resource_register_range gv11b_hwpm_perfmux_register_ranges
 	{0x00900100, 0x00900100},
 };
 
+static const struct nvgpu_pm_resource_register_range gv11b_hwpm_pc_sampler_register_ranges[] = {
+	{0x005043dc, 0x005043dc},
+	{0x00504bdc, 0x00504bdc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x00419bdc, 0x00419bdc},
+};
+
 u32 gv11b_get_hwpm_perfmon_register_stride(void)
 {
 	return 0x00000200;
@@ -602,5 +610,13 @@ const struct nvgpu_pm_resource_register_range
 	*count = (u32)(sizeof(gv11b_hwpm_perfmux_register_ranges) /
 		sizeof(gv11b_hwpm_perfmux_register_ranges[0]));
 	return gv11b_hwpm_perfmux_register_ranges;
+}
+
+const struct nvgpu_pm_resource_register_range
+		*gv11b_get_hwpm_pc_sampler_register_ranges(u32 *count)
+{
+	*count = (u32)(sizeof(gv11b_hwpm_pc_sampler_register_ranges) /
+		sizeof(gv11b_hwpm_pc_sampler_register_ranges[0]));
+	return gv11b_hwpm_pc_sampler_register_ranges;
 }
 

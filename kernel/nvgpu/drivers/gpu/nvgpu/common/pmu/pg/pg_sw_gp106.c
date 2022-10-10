@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/pmu/cmd.h>
 #include <nvgpu/clk_arb.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/pmu_pg.h>
 
 #include "pg_sw_gp106.h"
@@ -33,6 +34,8 @@
 static void pmu_handle_param_msg(struct gk20a *g, struct pmu_msg *msg,
 			void *param, u32 status)
 {
+	(void)param;
+
 	nvgpu_log_fn(g, " ");
 
 	if (status != 0U) {
@@ -125,12 +128,15 @@ int gp106_pmu_elpg_statistics(struct gk20a *g, u32 pg_engine_id,
 
 u32 gp106_pmu_pg_engines_list(struct gk20a *g)
 {
+	(void)g;
 	return BIT32(PMU_PG_ELPG_ENGINE_ID_GRAPHICS) |
 		BIT32(PMU_PG_ELPG_ENGINE_ID_MS);
 }
 
 u32 gp106_pmu_pg_feature_list(struct gk20a *g, u32 pg_engine_id)
 {
+	(void)g;
+
 	if (pg_engine_id == PMU_PG_ELPG_ENGINE_ID_GRAPHICS) {
 		return NVGPU_PMU_GR_FEATURE_MASK_RPPG;
 	}
@@ -144,5 +150,7 @@ u32 gp106_pmu_pg_feature_list(struct gk20a *g, u32 pg_engine_id)
 
 bool gp106_pmu_is_lpwr_feature_supported(struct gk20a *g, u32 feature_id)
 {
+	(void)g;
+	(void)feature_id;
 	return false;
 }

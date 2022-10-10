@@ -1,0 +1,140 @@
+From 7038566f6f9c0305a1a8b6c5f50315e530cf0406 Mon Sep 17 00:00:00 2001
+From: Pavankumar Kondeti <pkondeti@codeaurora.org>
+Date: Wed, 28 Jun 2017 12:00:31 +0530
+Subject: [PATCH 167/830] ANDROID: softirq: defer softirq processing to
+ ksoftirqd if CPU is busy with RT
+X-NVConfidentiality: public
+
+Defer the softirq processing to ksoftirqd if a RT task is running
+or queued on the current CPU. This complements the RT task placement
+algorithm which tries to find a CPU that is not currently busy with
+softirqs.
+
+Currently NET_TX, NET_RX, BLOCK and TASKLET softirqs are only deferred
+as they can potentially run for long time.
+
+Bug: 168521633
+Change-Id: Id7665244af6bbd5a96d9e591cf26154e9eaa860c
+Signed-off-by: Pavankumar Kondeti <pkondeti@codeaurora.org>
+[satyap@codeaurora.org: trivial merge conflict resolution.]
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+[elavila: Port to mainline, squash with bugfix]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ include/linux/sched.h | 10 ++++++++++
+ kernel/sched/cpupri.c | 13 +++++++++++++
+ kernel/softirq.c      | 23 +++++++++++++++++++----
+ 3 files changed, 42 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 04c7cf39d3a3..d5173721ea53 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1660,6 +1660,16 @@ current_restore_flags(unsigned long orig_flags, unsigned long flags)
+ 
+ extern int cpuset_cpumask_can_shrink(const struct cpumask *cur, const struct cpumask *trial);
+ extern int task_can_attach(struct task_struct *p, const struct cpumask *cs_cpus_allowed);
++
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++extern bool cpupri_check_rt(void);
++#else
++static inline bool cpupri_check_rt(void)
++{
++	return false;
++}
++#endif
++
+ #ifdef CONFIG_SMP
+ extern void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask);
+ extern int set_cpus_allowed_ptr(struct task_struct *p, const struct cpumask *new_mask);
+diff --git a/kernel/sched/cpupri.c b/kernel/sched/cpupri.c
+index daa771f74620..051df5be7d44 100644
+--- a/kernel/sched/cpupri.c
++++ b/kernel/sched/cpupri.c
+@@ -331,3 +331,16 @@ void cpupri_cleanup(struct cpupri *cp)
+ 	for (i = 0; i < CPUPRI_NR_PRIORITIES; i++)
+ 		free_cpumask_var(cp->pri_to_cpu[i].mask);
+ }
++
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++/*
++ * cpupri_check_rt - check if CPU has a RT task
++ * should be called from rcu-sched read section.
++ */
++bool cpupri_check_rt(void)
++{
++	int cpu = raw_smp_processor_id();
++
++	return cpu_rq(cpu)->rd->cpupri.cpu_to_pri[cpu] > CPUPRI_NORMAL;
++}
++#endif
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 0a7cd1f1b4e0..7d210a5f2bfb 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -259,6 +259,16 @@ static inline bool lockdep_softirq_start(void) { return false; }
+ static inline void lockdep_softirq_end(bool in_hardirq) { }
+ #endif
+ 
++#define softirq_deferred_for_rt(pending)		\
++({							\
++	__u32 deferred = 0;				\
++	if (cpupri_check_rt()) {			\
++		deferred = pending & LONG_SOFTIRQ_MASK; \
++		pending &= ~LONG_SOFTIRQ_MASK;		\
++	}						\
++	deferred;					\
++})
++
+ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ {
+ 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
+@@ -266,6 +276,7 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ 	int max_restart = MAX_SOFTIRQ_RESTART;
+ 	struct softirq_action *h;
+ 	bool in_hardirq;
++	__u32 deferred;
+ 	__u32 pending;
+ 	int softirq_bit;
+ 
+@@ -277,14 +288,14 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ 	current->flags &= ~PF_MEMALLOC;
+ 
+ 	pending = local_softirq_pending();
++	deferred = softirq_deferred_for_rt(pending);
+ 	account_irq_enter_time(current);
+-
+ 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_OFFSET);
+ 	in_hardirq = lockdep_softirq_start();
+ 
+ restart:
+ 	/* Reset the pending bitmask before enabling irqs */
+-	set_softirq_pending(0);
++	set_softirq_pending(deferred);
+ 	__this_cpu_write(active_softirqs, pending);
+ 
+ 	local_irq_enable();
+@@ -321,14 +332,18 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ 	local_irq_disable();
+ 
+ 	pending = local_softirq_pending();
++	deferred = softirq_deferred_for_rt(pending);
++
+ 	if (pending) {
+ 		if (time_before(jiffies, end) && !need_resched() &&
+ 		    --max_restart)
+ 			goto restart;
+-
+-		wakeup_softirqd();
+ 	}
+ 
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++	if (pending | deferred)
++		wakeup_softirqd();
++#endif
+ 	lockdep_softirq_end(in_hardirq);
+ 	account_irq_exit_time(current);
+ 	__local_bh_enable(SOFTIRQ_OFFSET);
+-- 
+2.17.1
+

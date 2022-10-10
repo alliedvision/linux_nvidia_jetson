@@ -1,0 +1,31 @@
+From c48e1e20ceb463aa1e2788e70e3208fb4f9d7531 Mon Sep 17 00:00:00 2001
+From: Nathan Chancellor <natechancellor@gmail.com>
+Date: Thu, 16 Apr 2020 16:15:58 -0700
+Subject: [PATCH 689/830] ANDROID: build.config.allmodconfig: Remove outdated
+ XFS_FS comment
+X-NVConfidentiality: public
+
+CONFIG_XFS_FS was re-enabled after upgrading to clang-10 but the comment
+was not removed.
+
+Change-Id: Ia34387e67e6948945072fc9b8af8b2b6363d6141
+Fixes: 8c8c5eea927b ("ANDROID: build.config.allmodconfig: Re-enable XFS_FS")
+Signed-off-by: Nathan Chancellor <natechancellor@gmail.com>
+---
+ build.config.allmodconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index 941ea3bdbfa2..56e4d2d29dc0 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -1,6 +1,5 @@
+ DEFCONFIG=allmodconfig
+ 
+-# XFS_FS is currently broken on this branch with clang-9
+ POST_DEFCONFIG_CMDS="update_config"
+ function update_config() {
+     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+-- 
+2.17.1
+

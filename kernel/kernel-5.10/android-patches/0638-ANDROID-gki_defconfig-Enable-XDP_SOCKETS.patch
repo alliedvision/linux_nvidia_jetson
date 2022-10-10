@@ -1,0 +1,46 @@
+From 2c10fd0bc366de465d2463e18bfd4bb54addb630 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 18 Feb 2020 22:47:34 -0800
+Subject: [PATCH 638/830] ANDROID: gki_defconfig: Enable XDP_SOCKETS
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+Bug: 145685190
+Bug: 144061615
+Change-Id: I8f2fdf61473916e5e8dbb15e12d49cb0777cb42e
+Signed-off-by: Alistair Delva <adelva@google.com>
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 117a7376313b..658e7ee86645 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -92,6 +92,7 @@ CONFIG_XFRM_USER=y
+ CONFIG_XFRM_INTERFACE=y
+ CONFIG_XFRM_STATISTICS=y
+ CONFIG_NET_KEY=y
++CONFIG_XDP_SOCKETS=y
+ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+ CONFIG_IP_ADVANCED_ROUTER=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 3d3a8147f250..735e1b9d43dc 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -69,6 +69,7 @@ CONFIG_XFRM_USER=y
+ CONFIG_XFRM_INTERFACE=y
+ CONFIG_XFRM_STATISTICS=y
+ CONFIG_NET_KEY=y
++CONFIG_XDP_SOCKETS=y
+ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+ CONFIG_IP_ADVANCED_ROUTER=y
+-- 
+2.17.1
+

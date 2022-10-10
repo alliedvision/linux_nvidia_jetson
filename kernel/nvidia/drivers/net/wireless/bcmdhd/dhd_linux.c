@@ -5,7 +5,7 @@
  * Copyright (C) 1999-2015, Broadcom Corporation
  *
  * Portions contributed by Nvidia
- * Copyright (C) 2015-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2022, NVIDIA Corporation. All rights reserved.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -1900,7 +1900,7 @@ struct net_device * dhd_idx2net(void *pub, int ifidx)
 
 	if (!dhd_pub || ifidx < 0 || ifidx >= DHD_MAX_IFS)
 		return NULL;
-	speculation_barrier();
+	spec_bar();
 	dhd_info = dhd_pub->info;
 	if (dhd_info && dhd_info->iflist[ifidx])
 		return dhd_info->iflist[ifidx]->net;
@@ -4373,7 +4373,7 @@ dhd_open(struct net_device *net)
 		ret = -1;
 		goto exit;
 	}
-	speculation_barrier();
+	spec_bar();
 	if (!dhd->iflist[ifidx]) {
 		DHD_ERROR(("%s: Error: called when IF already deleted\n", __FUNCTION__));
 		ret = -1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -53,6 +53,8 @@ struct mmu_fault_info;
 #define NVGPU_ERR_MODULE_HUBMMU		(9U)
 #define NVGPU_ERR_MODULE_PRI		(10U)
 #define NVGPU_ERR_MODULE_CE		(11U)
+#define NVGPU_ERR_MODULE_GSP_ACR	(12U)
+#define NVGPU_ERR_MODULE_GSP_SCHED	(13U)
 /**
  * @}
  */
@@ -76,10 +78,9 @@ struct mmu_fault_info;
 #define GPU_HOST_PBDMA_METHOD_ERROR		(11U)
 #define GPU_HOST_PBDMA_SIGNATURE_ERROR		(12U)
 #define GPU_HOST_PBDMA_HCE_ERROR		(13U)
-#define GPU_HOST_PBDMA_PREEMPT_ERROR		(14U)
-#define GPU_HOST_PFIFO_CTXSW_TIMEOUT_ERROR	(15U)
-#define GPU_HOST_PFIFO_FB_FLUSH_TIMEOUT_ERROR	(16U)
-#define GPU_HOST_INVALID_ERROR			(17U)
+#define GPU_HOST_PFIFO_CTXSW_TIMEOUT_ERROR	(14U)
+#define GPU_HOST_PFIFO_FB_FLUSH_TIMEOUT_ERROR	(15U)
+#define GPU_HOST_INVALID_ERROR			(16U)
 /**
  * @}
  */
@@ -89,47 +90,23 @@ struct mmu_fault_info;
  * Macros used to assign unique index to errors reported from the SM unit.
  * @{
  */
-#define GPU_SM_L1_TAG_ECC_CORRECTED			(0U)
-#define GPU_SM_L1_TAG_ECC_UNCORRECTED			(1U)
-#define GPU_SM_CBU_ECC_UNCORRECTED			(3U)
-#define GPU_SM_LRF_ECC_UNCORRECTED			(5U)
-#define GPU_SM_L1_DATA_ECC_UNCORRECTED			(7U)
-#define GPU_SM_ICACHE_L0_DATA_ECC_UNCORRECTED		(9U)
-#define GPU_SM_ICACHE_L1_DATA_ECC_UNCORRECTED		(11U)
-#define GPU_SM_ICACHE_L0_PREDECODE_ECC_UNCORRECTED	(13U)
-#define GPU_SM_L1_TAG_MISS_FIFO_ECC_UNCORRECTED		(15U)
-#define GPU_SM_L1_TAG_S2R_PIXPRF_ECC_UNCORRECTED	(17U)
-#define GPU_SM_MACHINE_CHECK_ERROR			(18U)
-#define GPU_SM_ICACHE_L1_PREDECODE_ECC_UNCORRECTED	(20U)
-#define GPU_SM_RAMS_ECC_CORRECTED			(21U)
-#define GPU_SM_RAMS_ECC_UNCORRECTED			(22U)
+#define GPU_SM_L1_TAG_ECC_CORRECTED			(0x0U)
+#define GPU_SM_L1_TAG_ECC_UNCORRECTED			(0x1U)
+#define GPU_SM_CBU_ECC_UNCORRECTED			(0x2U)
+#define GPU_SM_LRF_ECC_UNCORRECTED			(0x3U)
+#define GPU_SM_L1_DATA_ECC_UNCORRECTED			(0x4U)
+#define GPU_SM_ICACHE_L0_DATA_ECC_UNCORRECTED		(0x5U)
+#define GPU_SM_ICACHE_L1_DATA_ECC_UNCORRECTED		(0x6U)
+#define GPU_SM_ICACHE_L0_PREDECODE_ECC_UNCORRECTED	(0x7U)
+#define GPU_SM_L1_TAG_MISS_FIFO_ECC_UNCORRECTED		(0x8U)
+#define GPU_SM_L1_TAG_S2R_PIXPRF_ECC_UNCORRECTED	(0x9U)
+#define GPU_SM_MACHINE_CHECK_ERROR			(0xAU)
+#define GPU_SM_RAMS_URF_ECC_UNCORRECTED			(0xBU)
 
 /**
  * @}
  */
 
-/**
- * This structure is used to store SM machine check related information.
- */
-struct gr_sm_mcerr_info {
-	/** PC which triggered the machine check error. */
-	u64 hww_warp_esr_pc;
-
-	/** Error status register. */
-	u32 hww_warp_esr_status;
-
-	/** GR engine context of the faulted channel. */
-	u32 curr_ctx;
-
-	/** Channel to which the context belongs. */
-	u32 chid;
-
-	/** TSG to which the channel is bound. */
-	u32 tsgid;
-
-	/** IDs of TPC, GPC, and SM. */
-	u32 tpc, gpc, sm;
-};
 
 /**
  * @defgroup LIST_OF_ERRORS_REPORTED_FROM_FECS
@@ -138,40 +115,14 @@ struct gr_sm_mcerr_info {
  */
 #define GPU_FECS_FALCON_IMEM_ECC_CORRECTED	(0U)
 #define GPU_FECS_FALCON_IMEM_ECC_UNCORRECTED	(1U)
-#define GPU_FECS_FALCON_DMEM_ECC_UNCORRECTED	(3U)
-#define GPU_FECS_CTXSW_WATCHDOG_TIMEOUT		(4U)
-#define GPU_FECS_CTXSW_CRC_MISMATCH		(5U)
-#define GPU_FECS_FAULT_DURING_CTXSW		(6U)
-#define GPU_FECS_CTXSW_INIT_ERROR		(7U)
+#define GPU_FECS_FALCON_DMEM_ECC_UNCORRECTED	(2U)
+#define GPU_FECS_CTXSW_WATCHDOG_TIMEOUT		(3U)
+#define GPU_FECS_CTXSW_CRC_MISMATCH		(4U)
+#define GPU_FECS_FAULT_DURING_CTXSW		(5U)
+#define GPU_FECS_CTXSW_INIT_ERROR		(6U)
 /**
  * @}
  */
-
-/**
- * This structure is used to store CTXSW error related information.
- */
-struct ctxsw_err_info {
-
-	/** GR engine context of the faulted channel. */
-	u32 curr_ctx;
-
-	/** Context-switch status register-0. */
-	u32 ctxsw_status0;
-
-	/** Context-switch status register-1. */
-	u32 ctxsw_status1;
-
-	/** Channel to which the context belongs. */
-	u32 chid;
-
-	/**
-	 * In case of any fault during context-switch transaction,
-	 * context-switch error interrupt is set and the FECS firmware
-	 * writes error code into FECS mailbox 6. This exception
-	 * is handled at GR unit.
-	 */
-	u32 mailbox_value;
-};
 
 /**
  * @defgroup LIST_OF_ERRORS_REPORTED_FROM_GPCCS
@@ -180,7 +131,7 @@ struct ctxsw_err_info {
  */
 #define GPU_GPCCS_FALCON_IMEM_ECC_CORRECTED	(0U)
 #define GPU_GPCCS_FALCON_IMEM_ECC_UNCORRECTED	(1U)
-#define GPU_GPCCS_FALCON_DMEM_ECC_UNCORRECTED	(3U)
+#define GPU_GPCCS_FALCON_DMEM_ECC_UNCORRECTED	(2U)
 /**
  * @}
  */
@@ -190,8 +141,8 @@ struct ctxsw_err_info {
  * Macros used to assign unique index to errors reported from the MMU unit.
  * @{
  */
-#define GPU_MMU_L1TLB_SA_DATA_ECC_UNCORRECTED	(1U)
-#define GPU_MMU_L1TLB_FA_DATA_ECC_UNCORRECTED	(3U)
+#define GPU_MMU_L1TLB_SA_DATA_ECC_UNCORRECTED	(0U)
+#define GPU_MMU_L1TLB_FA_DATA_ECC_UNCORRECTED	(1U)
 /**
  * @}
  */
@@ -201,7 +152,7 @@ struct ctxsw_err_info {
  * Macros used to assign unique index to errors reported from the GCC unit.
  * @{
  */
-#define GPU_GCC_L15_ECC_UNCORRECTED		(1U)
+#define GPU_GCC_L15_ECC_UNCORRECTED		(0U)
 /**
  * @}
  */
@@ -211,10 +162,55 @@ struct ctxsw_err_info {
  * Macros used to assign unique index to errors reported from the PMU unit.
  * @{
  */
-#define GPU_PMU_FALCON_IMEM_ECC_CORRECTED	(0U)
-#define GPU_PMU_FALCON_IMEM_ECC_UNCORRECTED	(1U)
-#define GPU_PMU_FALCON_DMEM_ECC_UNCORRECTED	(3U)
-#define GPU_PMU_BAR0_ERROR_TIMEOUT		(4U)
+#define GPU_PMU_NVRISCV_BROM_FAILURE		(0U)
+#define GPU_PMU_ACCESS_TIMEOUT_UNCORRECTED	(1U)
+#define GPU_PMU_MPU_ECC_UNCORRECTED		(2U)
+#define GPU_PMU_ILLEGAL_ACCESS_UNCORRECTED	(3U)
+#define GPU_PMU_IMEM_ECC_UNCORRECTED		(4U)
+#define GPU_PMU_DCLS_UNCORRECTED		(5U)
+#define GPU_PMU_DMEM_ECC_UNCORRECTED		(6U)
+#define GPU_PMU_WDT_UNCORRECTED			(7U)
+#define GPU_PMU_REG_ECC_UNCORRECTED		(8U)
+#define GPU_PMU_BAR0_ERROR_TIMEOUT		(9U)
+/**
+ * @}
+ */
+
+/**
+ * @defgroup LIST_OF_ERRORS_REPORTED_FROM_GSP_ACR
+ * Macros used to assign unique index to errors reported from the GSP ACR unit.
+ * @{
+ */
+#define GPU_GSP_ACR_NVRISCV_BROM_FAILURE		(0U)
+#define GPU_GSP_ACR_EMEM_ECC_UNCORRECTED		(1U)
+#define GPU_GSP_ACR_REG_ACCESS_TIMEOUT_UNCORRECTED	(2U)
+#define GPU_GSP_ACR_ILLEGAL_ACCESS_UNCORRECTED		(3U)
+#define GPU_GSP_ACR_IMEM_ECC_UNCORRECTED		(4U)
+#define GPU_GSP_ACR_DCLS_UNCORRECTED			(5U)
+#define GPU_GSP_ACR_DMEM_ECC_UNCORRECTED		(6U)
+#define GPU_GSP_ACR_WDT_UNCORRECTED			(7U)
+#define GPU_GSP_ACR_REG_ECC_UNCORRECTED			(8U)
+#define GPU_GSP_ACR_FECS_PKC_LSSIG_FAILURE		(9U)
+#define GPU_GSP_ACR_GPCCS_PKC_LSSIG_FAILURE		(10U)
+#define GPU_GSP_ACR_LSPMU_PKC_LSSIG_FAILURE		(11U)
+/**
+ * @}
+ */
+
+/**
+ * @defgroup LIST_OF_ERRORS_REPORTED_FROM_GSP_SCHED
+ * Macros used to assign unique index to errors reported from the GSP SCHED unit.
+ * @{
+ */
+#define GPU_GSP_SCHED_NVRISCV_BROM_FAILURE		(0U)
+#define GPU_GSP_SCHED_EMEM_ECC_UNCORRECTED		(1U)
+#define GPU_GSP_SCHED_REG_ACCESS_TIMEOUT_UNCORRECTED	(2U)
+#define GPU_GSP_SCHED_ILLEGAL_ACCESS_UNCORRECTED	(3U)
+#define GPU_GSP_SCHED_IMEM_ECC_UNCORRECTED		(4U)
+#define GPU_GSP_SCHED_DCLS_UNCORRECTED			(5U)
+#define GPU_GSP_SCHED_DMEM_ECC_UNCORRECTED		(6U)
+#define GPU_GSP_SCHED_WDT_UNCORRECTED			(7U)
+#define GPU_GSP_SCHED_REG_ECC_UNCORRECTED		(8U)
 /**
  * @}
  */
@@ -232,58 +228,22 @@ struct ctxsw_err_info {
 #define GPU_PGRAPH_SSYNC_EXCEPTION		(5U)
 #define GPU_PGRAPH_MME_EXCEPTION		(6U)
 #define GPU_PGRAPH_SKED_EXCEPTION		(7U)
-#define GPU_PGRAPH_BE_EXCEPTION			(8U)
-#define GPU_PGRAPH_MPC_EXCEPTION		(9U)
-#define GPU_PGRAPH_ILLEGAL_ERROR		(10U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION		(11U)
-#define GPU_PGRAPH_MME_FE1_EXCEPTION		(12U)
+#define GPU_PGRAPH_BE_CROP_EXCEPTION		(8U)
+#define GPU_PGRAPH_BE_ZROP_EXCEPTION		(9U)
+#define GPU_PGRAPH_MPC_EXCEPTION		(10U)
+#define GPU_PGRAPH_ILLEGAL_NOTIFY_ERROR		(11U)
+#define GPU_PGRAPH_ILLEGAL_METHOD_ERROR		(12U)
+#define GPU_PGRAPH_ILLEGAL_CLASS_ERROR		(13U)
+#define GPU_PGRAPH_CLASS_ERROR			(14U)
+#define GPU_PGRAPH_GPC_GFX_PROP_EXCEPTION	(15U)
+#define GPU_PGRAPH_GPC_GFX_ZCULL_EXCEPTION	(16U)
+#define GPU_PGRAPH_GPC_GFX_SETUP_EXCEPTION	(17U)
+#define GPU_PGRAPH_GPC_GFX_PES_EXCEPTION	(18U)
+#define GPU_PGRAPH_GPC_GFX_TPC_PE_EXCEPTION	(19U)
+#define GPU_PGRAPH_MME_FE1_EXCEPTION		(20U)
 /**
  * @}
  */
-
-/**
- * This assigns an unique index for sub-errors
- * in GPU_PGRAPH_BE_EXCEPTION.
- */
-#define GPU_PGRAPH_BE_EXCEPTION_CROP		(0U)
-#define GPU_PGRAPH_BE_EXCEPTION_ZROP		(1U)
-
-/**
- * This assigns an unique index for sub-errors
- * in GPU_PGRAPH_GPC_GFX_EXCEPTION.
- */
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_PROP	(0U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_ZCULL	(1U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_SETUP	(2U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_PES0	(3U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_PES1	(4U)
-#define GPU_PGRAPH_GPC_GFX_EXCEPTION_TPC_PE	(5U)
-
-/**
- * This assigns an unique index for sub-errors
- * in GPU_PGRAPH_ILLEGAL_ERROR.
- */
-#define GPU_PGRAPH_ILLEGAL_NOTIFY		(0U)
-#define GPU_PGRAPH_ILLEGAL_METHOD		(1U)
-#define GPU_PGRAPH_ILLEGAL_CLASS		(2U)
-#define GPU_PGRAPH_CLASS_ERROR			(3U)
-
-/**
- * This structure is used to store GR exception related information.
- */
-struct gr_exception_info {
-	/** GR engine context of the faulted channel. */
-	u32 curr_ctx;
-
-	/** Channel bound to the context. */
-	u32 chid;
-
-	/** TSG to which the channel is bound. */
-	u32 tsgid;
-
-	/** GR interrupt status. */
-	u32 status;
-};
 
 /**
  * @defgroup LIST_OF_ERRORS_REPORTED_FROM_LTC
@@ -292,8 +252,8 @@ struct gr_exception_info {
  */
 #define GPU_LTC_CACHE_DSTG_ECC_CORRECTED	(0U)
 #define GPU_LTC_CACHE_DSTG_ECC_UNCORRECTED	(1U)
-#define GPU_LTC_CACHE_TSTG_ECC_UNCORRECTED	(3U)
-#define GPU_LTC_CACHE_DSTG_BE_ECC_UNCORRECTED	(7U)
+#define GPU_LTC_CACHE_TSTG_ECC_UNCORRECTED	(2U)
+#define GPU_LTC_CACHE_RSTG_CBC_ECC_UNCORRECTED	(3U)
 /**
  * @}
  */
@@ -303,24 +263,18 @@ struct gr_exception_info {
  * Macros used to assign unique index to errors reported from the HUBMMU unit.
  * @{
  */
-#define GPU_HUBMMU_L2TLB_SA_DATA_ECC_UNCORRECTED	(1U)
-#define GPU_HUBMMU_TLB_SA_DATA_ECC_UNCORRECTED		(3U)
-#define GPU_HUBMMU_PTE_DATA_ECC_UNCORRECTED		(5U)
-#define GPU_HUBMMU_PDE0_DATA_ECC_UNCORRECTED		(7U)
-#define GPU_HUBMMU_PAGE_FAULT_ERROR			(8U)
+#define GPU_HUBMMU_L2TLB_SA_DATA_ECC_UNCORRECTED			(0U)
+#define GPU_HUBMMU_TLB_SA_DATA_ECC_UNCORRECTED				(1U)
+#define GPU_HUBMMU_PTE_DATA_ECC_UNCORRECTED				(2U)
+#define GPU_HUBMMU_PDE0_DATA_ECC_UNCORRECTED				(3U)
+#define GPU_HUBMMU_PAGE_FAULT_OTHER_FAULT_NOTIFY_ERROR			(4U)
+#define GPU_HUBMMU_PAGE_FAULT_NONREPLAYABLE_FAULT_OVERFLOW_ERROR	(5U)
+#define GPU_HUBMMU_PAGE_FAULT_REPLAYABLE_FAULT_OVERFLOW_ERROR		(6U)
+#define GPU_HUBMMU_PAGE_FAULT_REPLAYABLE_FAULT_NOTIFY_ERROR		(7U)
+#define GPU_HUBMMU_PAGE_FAULT_NONREPLAYABLE_FAULT_NOTIFY_ERROR		(8U)
 /**
  * @}
  */
-
-/**
- * This assigns an unique index for sub-errors
- * in GPU_HUBMMU_PAGE_FAULT_ERROR.
- */
-#define GPU_HUBMMU_REPLAYABLE_FAULT_OVERFLOW		(0U)
-#define GPU_HUBMMU_REPLAYABLE_FAULT_NOTIFY		(1U)
-#define GPU_HUBMMU_NONREPLAYABLE_FAULT_OVERFLOW		(2U)
-#define GPU_HUBMMU_NONREPLAYABLE_FAULT_NOTIFY		(3U)
-#define GPU_HUBMMU_OTHER_FAULT_NOTIFY			(4U)
 
 /**
  * @defgroup LIST_OF_ERRORS_REPORTED_FROM_PRI
@@ -338,24 +292,16 @@ struct gr_exception_info {
  * Macros used to assign unique index to errors reported from the CE unit.
  * @{
  */
-#define GPU_CE_LAUNCH_ERROR			(0U)
-#define GPU_CE_BLOCK_PIPE			(1U)
-#define GPU_CE_INVALID_CONFIG			(3U)
-#define GPU_CE_METHOD_BUFFER_FAULT		(4U)
+#define GPU_CE_LAUNCH_ERROR			(0x0)
+#ifdef CONFIG_NVGPU_NON_FUSA
+#define GPU_CE_METHOD_BUFFER_FAULT		(0x1)
+#define GPU_CE_FBUF_CRC_FAIL			(0x2)
+#define GPU_CE_FBUF_MAGIC_CHK_FAIL		(0x3)
+#define GPU_CE_INVALID_CONFIG			(0x4)
+#endif
 /**
  * @}
  */
-
-/**
- * This structure is used to store GR error related information.
- */
-struct gr_err_info {
-	/** SM machine check error information. */
-	struct gr_sm_mcerr_info *sm_mcerr_info;
-
-	/** GR exception related information. */
-	struct gr_exception_info *exception_info;
-};
 
 /**
  * This macro is used to initialize the members of nvgpu_hw_err_inject_info
@@ -389,6 +335,85 @@ struct nvgpu_hw_err_inject_info {
 struct nvgpu_hw_err_inject_info_desc {
 	struct nvgpu_hw_err_inject_info *info_ptr;
 	u32 info_size;
+};
+
+#ifdef CONFIG_NVGPU_INTR_DEBUG
+
+/**
+ * This structure is used to store SM machine check related information.
+ */
+struct gr_sm_mcerr_info {
+	/** PC which triggered the machine check error. */
+	u64 hww_warp_esr_pc;
+
+	/** Error status register. */
+	u32 hww_warp_esr_status;
+
+	/** GR engine context of the faulted channel. */
+	u32 curr_ctx;
+
+	/** Channel to which the context belongs. */
+	u32 chid;
+
+	/** TSG to which the channel is bound. */
+	u32 tsgid;
+
+	/** IDs of TPC, GPC, and SM. */
+	u32 tpc, gpc, sm;
+};
+
+/**
+ * This structure is used to store CTXSW error related information.
+ */
+struct ctxsw_err_info {
+
+	/** GR engine context of the faulted channel. */
+	u32 curr_ctx;
+
+	/** Context-switch status register-0. */
+	u32 ctxsw_status0;
+
+	/** Context-switch status register-1. */
+	u32 ctxsw_status1;
+
+	/** Channel to which the context belongs. */
+	u32 chid;
+
+	/**
+	 * In case of any fault during context-switch transaction,
+	 * context-switch error interrupt is set and the FECS firmware
+	 * writes error code into FECS mailbox 6. This exception
+	 * is handled at GR unit.
+	 */
+	u32 mailbox_value;
+};
+
+/**
+ * This structure is used to store GR exception related information.
+ */
+struct gr_exception_info {
+	/** GR engine context of the faulted channel. */
+	u32 curr_ctx;
+
+	/** Channel bound to the context. */
+	u32 chid;
+
+	/** TSG to which the channel is bound. */
+	u32 tsgid;
+
+	/** GR interrupt status. */
+	u32 status;
+};
+
+/**
+ * This structure is used to store GR error related information.
+ */
+struct gr_err_info {
+	/** SM machine check error information. */
+	struct gr_sm_mcerr_info *sm_mcerr_info;
+
+	/** GR exception related information. */
+	struct gr_exception_info *exception_info;
 };
 
 /**
@@ -1193,5 +1218,19 @@ void nvgpu_report_mmu_err(struct gk20a *g, u32 hw_unit,
  */
 void gr_intr_report_ctxsw_error(struct gk20a *g, u32 err_type, u32 chid,
 		u32 mailbox_value);
+#endif /* CONFIG_NVGPU_INTR_DEBUG */
+
+/**
+ * @brief This is a wrapper function to report ECC errors from HUBMMU to SDL.
+ *
+ * @param g [in]		- The GPU driver struct.
+ * @param hw_unit_id [in]	- HW Unit ID.
+ * @param err_id [in]		- Error ID.
+ *
+ * Calls nvgpu_report_err_to_ss to report errors to Safety_Services.
+ *
+ * @return	None
+ */
+void nvgpu_report_err_to_sdl(struct gk20a *g, u32 hw_unit_id, u32 err_id);
 
 #endif /* NVGPU_NVGPU_ERR_H */

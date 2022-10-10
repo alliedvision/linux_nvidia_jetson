@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -487,5 +487,19 @@ u32 nvgpu_aperture_mask(struct gk20a *g, struct nvgpu_mem *mem,
  * address otherwise.
  */
 u64 nvgpu_mem_iommu_translate(struct gk20a *g, u64 phys);
+
+/**
+ * @brief Get the physical address associated with the physical nvgpu_mem.
+ *
+ * @param[in]  g	Pointer to GPU structure.
+ * @param[in]  mem	Pointer to nvgpu_mem structure holds the physical
+ * 			scatter gather table.
+ *
+ * This fuction should not be used for normal nvgpumem that holds
+ * the sgt of intermediate or iova addresses.
+ *
+ * @return translated physical address.
+ */
+u64 nvgpu_mem_phys_get_addr(struct gk20a *g, struct nvgpu_mem *mem);
 
 #endif /* NVGPU_MEM_H */

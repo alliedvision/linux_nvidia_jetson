@@ -29,10 +29,10 @@ struct tegra_icc_provider {
 	struct icc_provider provider;
 	struct device *dev;
 	struct clk *dram_clk;
-	long rate;
-	long max_rate;
-	long min_rate;
-	long cap_rate;
+	unsigned long rate;
+	unsigned long max_rate;
+	unsigned long min_rate;
+	unsigned long cap_rate;
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	struct tegra_bpmp *bpmp_dev;
 	struct tegra_bpmp_message msg;

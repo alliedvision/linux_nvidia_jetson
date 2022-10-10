@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -101,18 +101,9 @@ struct PVA_PACKED pva_task_statistics_s {
 	uint64_t vpu_complete_time; /* when execution completed */
 	uint64_t complete_time; /* when task considered complete */
 	uint8_t vpu_assigned; /* which VPU task was assigned */
-	uint8_t reserved[7];
+	uint8_t	queue_id; /* ID of the queue the task was submitted on*/
+	uint8_t reserved[6];
 };
-
-/** @defgroup PVA_TASK_FL Flags in PVA runlist */
-/** @{ */
-#define PVA_TASK_FL_ATOMIC PVA_BIT(0U)
-#define PVA_TASK_FL_CV_RD_SCALARS PVA_BIT(1U)
-#define PVA_TASK_FL_CV_WR_SCALARS PVA_BIT(2U)
-#define PVA_TASK_FL_CV_WR_ROI PVA_BIT(3U)
-#define PVA_TASK_FL_VPU_DEBUG PVA_BIT(4U)
-#define PVA_TASK_FL_VPU_CRASH_DUMP PVA_BIT(5U)
-/** @} */
 
 enum pva_task_parameter_type_e {
 	PVA_PARAM_FIRST = 0U, /* must match first type */
@@ -215,11 +206,16 @@ struct PVA_PACKED pva_td_s {
 	/** Number of parameters in parameter_base array */
 	uint16_t num_parameters;
 	/** IOVA pointer to an array of struct pva_vpu_parameter_s */
+	/* TODO : Remove once KMD migrates to new format */
 	pva_iova parameter_base;
+	/** IOVA pointer to an instance of pva_vpu_parameter_info_t */
+	pva_iova parameter_info_base;
 	/** IOVA pointer to a struct pva_bin_info_s structure */
 	pva_iova bin_info;
 	/** IOVA pointer to a struct pva_dma_info_s structure */
 	pva_iova dma_info;
+	/** IOVA pointer to a pva_circular_info_t structure */
+	pva_iova stdout_info;
 
 	/** Number of pre-actions */
 	uint8_t num_preactions;
@@ -236,6 +232,17 @@ struct PVA_PACKED pva_td_s {
 	uint32_t l2sram_size;
 	/** Index of the stream ID assigned to this task */
 	uint32_t sid_index;
+	//! @endcond
+	/** @brief padding */
+	uint8_t pad0[2];
+	/** Number of total tasks with timer resource utilization */
+	uint16_t timer_ref_cnt;
+	/** Number of total tasks with L2SRAM resource utilization */
+	uint16_t l2sram_ref_cnt;
+	/** Additional padding to maintain alignement */
+	uint8_t pad1[4];
+	/** @brief An area reserved for Cortex R5 firmware usage.
+	 * This area may be modified by the R5 during the task */
 	uint8_t r5_reserved[32] __aligned(8);
 };
 
@@ -245,6 +252,9 @@ struct PVA_PACKED pva_td_s {
 /** @addtogroup PVA_TASK_FL
  * @{
  */
+
+/** Flag to allow VPU debugger attach for the task */
+#define PVA_TASK_FL_VPU_DEBUG		PVA_BIT(0U)
 
 /** Flag to request masking of illegal instruction error for the task */
 #define PVA_TASK_FL_ERR_MASK_ILLEGAL_INSTR	PVA_BIT(1U)
@@ -267,20 +277,15 @@ struct PVA_PACKED pva_td_s {
  */
 #define PVA_TASK_FL_HOT_VPU PVA_BIT(10U)
 
-/** Pass L2RAM allocation to the next task in list.
- *
- * Not allowed in the last task of batch list.
+/** @brief Flag to identify a barrier task */
+#define PVA_TASK_FL_SYNC_TASKS PVA_BIT(11U)
+
+/** @brief Flag to identify L2SRAM is being utilized for
+ * the task and to decrement l2sram_ref_count after task is done
  */
-#define PVA_TASK_FL_KEEP_L2RAM PVA_BIT(11U)
+#define PVA_TASK_FL_DEC_L2SRAM PVA_BIT(12U)
 
-/** Flag to identify a barrier task */
-#define PVA_TASK_FL_SYNC_TASKS PVA_BIT(12U)
-
-/** Flag to indicate timer start */
-#define PVA_TASK_FL_TIMER_START PVA_BIT(13U)
-
-/** Flag to indicate timer stop */
-#define PVA_TASK_FL_TIMER_STOP PVA_BIT(14U)
+#define PVA_TASK_FL_DEC_TIMER PVA_BIT(13U)
 
 /** Flag to indicate specail access needed by task */
 #define PVA_TASK_FL_SPECIAL_ACCESS PVA_BIT(15U)
@@ -289,7 +294,6 @@ struct PVA_PACKED pva_td_s {
 
 /** Version of the binary info */
 #define PVA_BIN_INFO_VERSION_ID (0x01U)
-#define PVA_MAX_VPU_DATA_SECTION (8U)
 #define PVA_MAX_VPU_METADATA (4U)
 
 #define PVA_CODE_SEC_BASE_ADDR_ALIGN (128ULL)
@@ -329,9 +333,15 @@ struct PVA_PACKED pva_bin_info_s {
 	/** Base address of the code. Should be aligned at 128.  */
 	pva_iova code_base;
 
-	/** Data sections */
-	struct pva_vpu_data_section_s data[PVA_MAX_VPU_DATA_SECTION];
 	/** Base address of the data. Should be aligned at 64. */
+	/** @brief Holds address of data section info of type
+	 * @ref pva_vpu_data_section_t
+	 */
+	pva_iova data_sec_base;
+
+	/** @brief Number of data section info stored @ref data_sec_base */
+	uint32_t data_sec_count;
+
 	pva_iova data_base;
 };
 
@@ -354,4 +364,15 @@ struct PVA_PACKED pva_task_error_s {
 	/* Queue to which the task belongs */
 	uint8_t queue;
 };
+
+
+struct PVA_PACKED pva_circular_buffer_info_s {
+	pva_iova head;
+	pva_iova tail;
+	pva_iova err;
+	pva_iova buffer;
+	uint32_t buffer_size;
+};
+
+
 #endif

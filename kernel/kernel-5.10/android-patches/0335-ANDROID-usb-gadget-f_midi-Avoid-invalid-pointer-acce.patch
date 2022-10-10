@@ -1,0 +1,37 @@
+From 136c5230760c4ade7e244d2c4628017fe51548fd Mon Sep 17 00:00:00 2001
+From: Pratham Pratap <prathampratap@codeaurora.org>
+Date: Tue, 17 Dec 2019 11:43:27 +0530
+Subject: [PATCH 335/830] ANDROID: usb: gadget: f_midi: Avoid invalid pointer
+ access
+X-NVConfidentiality: public
+
+Currently f_midi function driver is marking the f_midi->card
+NULL when the card is unregistered. There is a possibility that
+alsa_show is called after the card is unregistered which can lead
+to page fault since midi->card is assigned to rmidi->card. Avoid
+this by adding midi->card pointer check in alsa_show.
+
+Fixes: 14948a5ac30e ("ANDROID: usb: gadget: f_midi: create F_midi device")
+Change-Id: I24fd35fb9cd35fcd5d8698b808459310b09675f9
+Signed-off-by: Pratham Pratap <prathampratap@codeaurora.org>
+Signed-off-by: Jack Pham <jackp@codeaurora.org>
+---
+ drivers/usb/gadget/function/f_midi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/function/f_midi.c b/drivers/usb/gadget/function/f_midi.c
+index 1285d2203d8f..566531bf6cab 100644
+--- a/drivers/usb/gadget/function/f_midi.c
++++ b/drivers/usb/gadget/function/f_midi.c
+@@ -1235,7 +1235,7 @@ static ssize_t alsa_show(struct device *dev,
+ 
+ 	if (fi_midi && fi_midi->f) {
+ 		midi = func_to_midi(fi_midi->f);
+-		if (midi->rmidi && midi->rmidi->card)
++		if (midi->rmidi && midi->card && midi->rmidi->card)
+ 			return sprintf(buf, "%d %d\n",
+ 			midi->rmidi->card->number, midi->rmidi->device);
+ 	}
+-- 
+2.17.1
+

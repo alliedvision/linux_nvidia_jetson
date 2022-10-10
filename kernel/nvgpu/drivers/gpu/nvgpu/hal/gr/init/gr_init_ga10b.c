@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 #include <nvgpu/log.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/gr/ctx.h>
+#include <nvgpu/enabled.h>
 #include <nvgpu/static_analysis.h>
 
 #include "gr_init_ga10b.h"
@@ -35,16 +36,19 @@
 #ifdef CONFIG_NVGPU_GRAPHICS
 u32 ga10b_gr_init_get_attrib_cb_gfxp_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_gpc0_ppc0_cbm_beta_cb_size_v_gfxp_v();
 }
 
 u32 ga10b_gr_init_get_attrib_cb_gfxp_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_gpc0_ppc0_cbm_beta_cb_size_v_gfxp_v();
 }
 
 u32 ga10b_gr_init_get_ctx_spill_size(struct gk20a *g)
 {
+	(void)g;
 	return  nvgpu_safe_mult_u32(
 		  gr_gpc0_swdx_rm_spill_buffer_size_256b_default_v(),
 		  gr_gpc0_swdx_rm_spill_buffer_size_256b_byte_granularity_v());
@@ -62,7 +66,8 @@ u32 ga10b_gr_init_get_ctx_betacb_size(struct gk20a *g)
 void ga10b_gr_init_commit_rops_crop_override(struct gk20a *g,
 				struct nvgpu_gr_ctx *gr_ctx, bool patch)
 {
-	if (g->emulate_mode) {
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_EMULATE_MODE) &&
+			(g->emulate_mode > 0U)) {
 		u32 data = 0U;
 		data = nvgpu_readl(g, gr_pri_gpcs_rops_crop_debug1_r());
 		data = set_field(data,
@@ -115,6 +120,7 @@ void ga10b_gr_init_get_access_map(struct gk20a *g,
 	};
 	size_t array_size;
 
+	(void)g;
 	*whitelist = wl_addr_ga10b;
 	array_size = ARRAY_SIZE(wl_addr_ga10b);
 	*num_entries = nvgpu_safe_cast_u64_to_u32(array_size);

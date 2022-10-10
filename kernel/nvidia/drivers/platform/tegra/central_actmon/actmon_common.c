@@ -499,7 +499,7 @@ static int actmon_debugfs_create_dev(struct actmon_dev *dev)
 	return 0;
 }
 
-static int __init actmon_debugfs_init(void)
+static int actmon_debugfs_init(void)
 {
 	int ret = -ENOMEM;
 	struct dentry *d = NULL;
@@ -965,7 +965,7 @@ static int actmon_clock_enable(struct platform_device *pdev)
 
 	return ret;
 }
-static int __init actmon_map_resource(struct platform_device *pdev)
+static int actmon_map_resource(struct platform_device *pdev)
 {
 	struct resource *res = NULL;
 	int ret = 0;

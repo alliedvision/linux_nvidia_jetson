@@ -37,6 +37,8 @@
 void ga10b_gr_zbc_init_table_indices(struct gk20a *g,
 			struct nvgpu_gr_zbc_table_indices *zbc_indices)
 {
+	(void)g;
+
 	/* Color indices */
 	zbc_indices->min_color_index =
 		gr_pri_gpcs_rops_crop_zbc_index_address_min_v();

@@ -1,0 +1,96 @@
+From 1324cb6a625bff8355fd00e7750ba143e32968ce Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 3 Dec 2019 23:45:10 +0000
+Subject: [PATCH 305/830] ANDROID: clk: qcom: Add sync_state = clk_sync_state
+ for db845c clock providers
+X-NVConfidentiality: public
+
+In order to utilize Saravana's new clk handling code,
+we need to set the sync_state functions to be
+clk_sync_state for the clock providers on db845c.
+
+This allows display to properly come up when trying to
+load the display driver as a module.
+
+Bug: 146449535
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I722987fbaff045f80180aafb9176b75ed5f8cd03
+---
+ drivers/clk/qcom/dispcc-sdm845.c  | 2 ++
+ drivers/clk/qcom/gcc-msm8998.c    | 1 +
+ drivers/clk/qcom/gcc-sdm845.c     | 1 +
+ drivers/clk/qcom/gpucc-sdm845.c   | 1 +
+ drivers/clk/qcom/videocc-sdm845.c | 1 +
+ 5 files changed, 6 insertions(+)
+
+diff --git a/drivers/clk/qcom/dispcc-sdm845.c b/drivers/clk/qcom/dispcc-sdm845.c
+index 5c932cd17b14..11e03f7fae09 100644
+--- a/drivers/clk/qcom/dispcc-sdm845.c
++++ b/drivers/clk/qcom/dispcc-sdm845.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+@@ -878,6 +879,7 @@ static struct platform_driver disp_cc_sdm845_driver = {
+ 	.driver		= {
+ 		.name	= "disp_cc-sdm845",
+ 		.of_match_table = disp_cc_sdm845_match_table,
++		.sync_state = clk_sync_state,
+ 	},
+ };
+ 
+diff --git a/drivers/clk/qcom/gcc-msm8998.c b/drivers/clk/qcom/gcc-msm8998.c
+index b8dcfe62312b..6839358f0b9d 100644
+--- a/drivers/clk/qcom/gcc-msm8998.c
++++ b/drivers/clk/qcom/gcc-msm8998.c
+@@ -3119,6 +3119,7 @@ static struct platform_driver gcc_msm8998_driver = {
+ 	.driver		= {
+ 		.name	= "gcc-msm8998",
+ 		.of_match_table = gcc_msm8998_match_table,
++		.sync_state = clk_sync_state,
+ 	},
+ };
+ 
+diff --git a/drivers/clk/qcom/gcc-sdm845.c b/drivers/clk/qcom/gcc-sdm845.c
+index 90f7febaf528..50694f5e872d 100644
+--- a/drivers/clk/qcom/gcc-sdm845.c
++++ b/drivers/clk/qcom/gcc-sdm845.c
+@@ -3628,6 +3628,7 @@ static struct platform_driver gcc_sdm845_driver = {
+ 	.driver		= {
+ 		.name	= "gcc-sdm845",
+ 		.of_match_table = gcc_sdm845_match_table,
++		.sync_state = clk_sync_state,
+ 	},
+ };
+ 
+diff --git a/drivers/clk/qcom/gpucc-sdm845.c b/drivers/clk/qcom/gpucc-sdm845.c
+index 5663698b306b..46916a7e9322 100644
+--- a/drivers/clk/qcom/gpucc-sdm845.c
++++ b/drivers/clk/qcom/gpucc-sdm845.c
+@@ -208,6 +208,7 @@ static struct platform_driver gpu_cc_sdm845_driver = {
+ 	.driver = {
+ 		.name = "sdm845-gpucc",
+ 		.of_match_table = gpu_cc_sdm845_match_table,
++		.sync_state = clk_sync_state,
+ 	},
+ };
+ 
+diff --git a/drivers/clk/qcom/videocc-sdm845.c b/drivers/clk/qcom/videocc-sdm845.c
+index 5d6a7724a194..5822252ac1da 100644
+--- a/drivers/clk/qcom/videocc-sdm845.c
++++ b/drivers/clk/qcom/videocc-sdm845.c
+@@ -338,6 +338,7 @@ static struct platform_driver video_cc_sdm845_driver = {
+ 	.driver		= {
+ 		.name	= "sdm845-videocc",
+ 		.of_match_table = video_cc_sdm845_match_table,
++		.sync_state = clk_sync_state,
+ 	},
+ };
+ 
+-- 
+2.17.1
+

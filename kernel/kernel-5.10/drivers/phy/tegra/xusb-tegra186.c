@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -398,7 +398,8 @@ static int tegra186_utmi_enable_phy_sleepwalk(struct tegra_xusb_lane *lane,
 
 	/* enable the trigger of the sleepwalk logic */
 	value = ao_readl(priv, XUSB_AO_UTMIP_SLEEPWALK_CFG(index));
-	value |= LINEVAL_WALK_EN | WAKE_WALK_EN;
+	value |= LINEVAL_WALK_EN;
+	value &= ~WAKE_WALK_EN;
 	ao_writel(priv, value, XUSB_AO_UTMIP_SLEEPWALK_CFG(index));
 
 	/* reset the walk pointer and clear the alarm of the sleepwalk logic,
@@ -1060,6 +1061,11 @@ static int tegra186_utmi_phy_power_on(struct phy *phy)
 			dev_dbg(dev, "failed to apply prod for utmi pad%d\n",
 				index);
 		}
+
+		err = tegra_prod_set_by_name(&padctl->regs, "prod",
+					     priv->prod_list);
+		if (err)
+			dev_dbg(dev, "failed to apply prod settings\n");
 
 		err = tegra_prod_set_by_name(&padctl->regs, "prod_c_bias",
 					     priv->prod_list);
@@ -1796,12 +1802,18 @@ static const struct tegra_xusb_padctl_ops tegra186_xusb_padctl_ops = {
 	.utmi_pad_power_down = tegra_phy_xusb_utmi_pad_power_down,
 };
 
-#if IS_ENABLED(CONFIG_ARCH_TEGRA_186_SOC)
+#if IS_ENABLED(CONFIG_ARCH_TEGRA_186_SOC) || \
+	IS_ENABLED(CONFIG_ARCH_TEGRA_239_SOC)
 static const char * const tegra186_xusb_padctl_supply_names[] = {
 	"avdd-pll-erefeut",
 	"avdd-usb",
 	"vclamp-usb",
 	"vddio-hsic",
+};
+
+static const char * const tegra239_xusb_padctl_supply_names[] = {
+	"avdd-usb",
+	"vclamp-usb",
 };
 
 static const struct tegra_xusb_lane_soc tegra186_usb2_lanes[] = {
@@ -1862,6 +1874,28 @@ const struct tegra_xusb_padctl_soc tegra186_xusb_padctl_soc = {
 	.num_supplies = ARRAY_SIZE(tegra186_xusb_padctl_supply_names),
 };
 EXPORT_SYMBOL_GPL(tegra186_xusb_padctl_soc);
+
+const struct tegra_xusb_padctl_soc tegra239_xusb_padctl_soc = {
+	.num_pads = ARRAY_SIZE(tegra186_pads),
+	.pads = tegra186_pads,
+	.ports = {
+		.usb2 = {
+			.ops = &tegra186_usb2_port_ops,
+			.count = 3,
+		},
+		.usb3 = {
+			.ops = &tegra186_usb3_port_ops,
+			.count = 3,
+		},
+	},
+	.ops = &tegra186_xusb_padctl_ops,
+	.supply_names = tegra239_xusb_padctl_supply_names,
+	.num_supplies = ARRAY_SIZE(tegra239_xusb_padctl_supply_names),
+	.supports_gen2 = true,
+	.poll_trk_completed = true,
+	.trk_hw_mode = true,
+};
+EXPORT_SYMBOL_GPL(tegra239_xusb_padctl_soc);
 #endif
 
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_194_SOC) || \

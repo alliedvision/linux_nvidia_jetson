@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -340,7 +340,9 @@ static int prepare_gr_hw_sw(struct unit_module *m, struct gk20a *g)
 
 	err = nvgpu_gr_enable_hw(g);
 	if (err != 0) {
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 		nvgpu_mutex_release(&g->static_pg_lock);
+#endif
 		unit_return_fail(m, "failed to enable gr");
 	}
 
@@ -399,7 +401,9 @@ int test_acr_bootstrap_hs_acr(struct unit_module *m,
 	return -ENOMEM;
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_acquire(&g->static_pg_lock);
+#endif
 
 	/*
 	 * Prepare HW and SW setup needed
@@ -598,7 +602,9 @@ int test_acr_bootstrap_hs_acr(struct unit_module *m,
 					as expected\n");
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_release(&g->static_pg_lock);
+#endif
 
 	return UNIT_SUCCESS;
 }
@@ -619,7 +625,9 @@ int test_acr_construct_execute(struct unit_module *m,
 		unit_return_fail(m, "Test env init failed\n");
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_acquire(&g->static_pg_lock);
+#endif
 
 	/*
 	 * Prepare HW and SW setup needed for the test
@@ -693,7 +701,9 @@ int test_acr_construct_execute(struct unit_module *m,
 		unit_return_fail(m, "Bootstrap HS ACR didn't failed as \
 				expected\n");
 	}
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_release(&g->static_pg_lock);
+#endif
 
 	return UNIT_SUCCESS;
 }
@@ -712,7 +722,9 @@ int test_acr_is_lsf_lazy_bootstrap(struct unit_module *m,
 	}
 
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_acquire(&g->static_pg_lock);
+#endif
 
 	/*
 	 * Prepare HW and SW setup needed for the test
@@ -762,7 +774,9 @@ int test_acr_is_lsf_lazy_bootstrap(struct unit_module *m,
 				expected\n");
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_release(&g->static_pg_lock);
+#endif
 
 	return UNIT_SUCCESS;
 }
@@ -782,7 +796,9 @@ int test_acr_prepare_ucode_blob(struct unit_module *m,
 		unit_return_fail(m, "Test env init failed\n");
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_acquire(&g->static_pg_lock);
+#endif
 
 	/*
 	 * Prepare HW and SW setup needed for the test
@@ -882,7 +898,9 @@ int test_acr_prepare_ucode_blob(struct unit_module *m,
 		unit_return_fail(m, "prepare_ucode_blob test failed\n");
 	}
 
+#ifdef CONFIG_NVGPU_TPC_POWERGATE
 	nvgpu_mutex_release(&g->static_pg_lock);
+#endif
 
 	return UNIT_SUCCESS;
 }

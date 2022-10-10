@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,7 @@
 
 #include <nvgpu/gk20a.h>
 #include <nvgpu/boardobjgrp.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/cmd.h>
 #include <nvgpu/pmu/super_surface.h>
 #include <nvgpu/pmu/allocator.h>
@@ -31,6 +32,8 @@
 static int check_boardobjgrp_param(struct gk20a *g,
 		struct boardobjgrp *pboardobjgrp)
 {
+	(void)g;
+
 	if (pboardobjgrp == NULL) {
 		return -EINVAL;
 	}
@@ -63,13 +66,15 @@ static int
 obj_insert_final(struct boardobjgrp *pboardobjgrp,
 	struct pmu_board_obj *obj, u8 index)
 {
-	struct gk20a *g = pboardobjgrp->g;
-
-	nvgpu_log_info(g, " ");
+	struct gk20a *g;
 
 	if (pboardobjgrp == NULL) {
 		return -EINVAL;
 	}
+
+	g = pboardobjgrp->g;
+
+	nvgpu_log_info(g, " ");
 
 	if (obj == NULL) {
 		return -EINVAL;
@@ -137,7 +142,7 @@ static struct pmu_board_obj *obj_get_next_final(
 
 	/* Search from next element unless first object was requested */
 	index = (*currentindex != CTRL_BOARDOBJ_IDX_INVALID) ?
-		(*currentindex + 1U) : 0U;
+		(u8)(*currentindex + 1U) : 0U;
 
 	/* For the cases below in which we have to return NULL */
 	*currentindex = CTRL_BOARDOBJ_IDX_INVALID;
@@ -177,6 +182,9 @@ static int pmu_data_inst_get_stub(struct gk20a *g,
 	struct nv_pmu_boardobjgrp *boardobjgrppmu,
 	struct nv_pmu_boardobj **pmu_obj, u8 idx)
 {
+	(void)boardobjgrppmu;
+	(void)pmu_obj;
+	(void)idx;
 	nvgpu_log_info(g, " ");
 	return -EINVAL;
 }
@@ -186,6 +194,9 @@ static int pmu_status_inst_get_stub(struct gk20a *g,
 	void *pboardobjgrppmu,
 	struct nv_pmu_boardobj_query **obj_pmu_status, u8 idx)
 {
+	(void)pboardobjgrppmu;
+	(void)obj_pmu_status;
+	(void)idx;
 	nvgpu_log_info(g, " ");
 	return -EINVAL;
 }
@@ -301,6 +312,9 @@ static int is_pmu_cmd_id_valid(struct gk20a *g,
 		struct boardobjgrp_pmu_cmd *cmd)
 {
 	int err = 0;
+
+	(void)g;
+	(void)cmd;
 
 	if (pboardobjgrp->pmu.rpc_func_id ==
 		BOARDOBJGRP_GRP_RPC_FUNC_ID_INVALID) {
@@ -436,7 +450,7 @@ static int pmu_set_impl(struct gk20a *g,
 		return -EINVAL;
 	}
 
-	if ((pcmd->buf == NULL) &&
+	if ((pcmd->buf == NULL) ||
 		(pboardobjgrp->pmu.rpc_func_id ==
 		BOARDOBJGRP_GRP_RPC_FUNC_ID_INVALID)) {
 		return -EINVAL;
@@ -499,7 +513,7 @@ pmu_get_status_impl(struct gk20a *g, struct boardobjgrp *pboardobjgrp,
 		return -EINVAL;
 	}
 
-	if ((pcmd->buf == NULL) &&
+	if ((pcmd->buf == NULL) ||
 		(pboardobjgrp->pmu.rpc_func_id ==
 		BOARDOBJGRP_GRP_RPC_FUNC_ID_INVALID)) {
 		return -EINVAL;
@@ -608,6 +622,9 @@ int nvgpu_boardobjgrp_pmucmd_construct_impl(struct gk20a *g, struct boardobjgrp
 	*pboardobjgrp, struct boardobjgrp_pmu_cmd *cmd, u8 id, u8 msgid,
 	u16 hdrsize, u16 entrysize, u32 fbsize, u32 ss_offset, u8 rpc_func_id)
 {
+	(void)id;
+	(void)msgid;
+
 	nvgpu_log_fn(g, " ");
 
 	/* Copy the parameters into the CMD*/
@@ -624,6 +641,8 @@ int nvgpu_boardobjgrp_pmu_hdr_data_init_super(struct gk20a *g, struct boardobjgr
 	*pboardobjgrp, struct nv_pmu_boardobjgrp_super *pboardobjgrppmu,
 	struct boardobjgrpmask *mask)
 {
+	(void)mask;
+
 	nvgpu_log_info(g, " ");
 
 	if (pboardobjgrp == NULL) {

@@ -1,7 +1,7 @@
 /*
  * GP10B Platform (SoC) Interface
  *
- * Copyright (c) 2014-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,6 +24,22 @@ struct gk20a_platform_clk {
 	char *name;
 	unsigned long default_rate;
 };
+
+/* Select every GP10B_FREQ_SELECT_STEP'th frequency from h/w table */
+#define GP10B_FREQ_SELECT_STEP  8
+
+/* Max number of freq supported in h/w */
+#define GP10B_MAX_SUPPORTED_FREQS 120
+
+/* Allow limited set of frequencies to be available */
+#define GP10B_NUM_SUPPORTED_FREQS ((GP10B_MAX_SUPPORTED_FREQS) / (GP10B_FREQ_SELECT_STEP))
+
+#define TEGRA_GP10B_BW_PER_FREQ 64
+#define TEGRA_DDR4_BW_PER_FREQ 16
+
+#define EMC_BW_RATIO  (TEGRA_GP10B_BW_PER_FREQ / TEGRA_DDR4_BW_PER_FREQ)
+
+extern unsigned long gp10b_freq_table[GP10B_NUM_SUPPORTED_FREQS];
 
 void gp10b_tegra_clks_control(struct device *dev, bool enable);
 int gp10b_tegra_get_clocks(struct device *dev);

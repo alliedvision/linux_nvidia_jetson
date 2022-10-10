@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -82,6 +82,8 @@ int nvgpu_get_timestamps_zipper(struct gk20a *g,
 {
 	int err = 0;
 	unsigned int i = 0;
+
+	(void)source_id;
 
 	if (gk20a_busy(g) != 0) {
 		nvgpu_err(g, "GPU not powered on\n");

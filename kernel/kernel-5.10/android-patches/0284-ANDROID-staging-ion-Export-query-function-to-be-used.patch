@@ -1,0 +1,40 @@
+From ccf4c5e62dadf6d6800d525ff68427723c0a83f5 Mon Sep 17 00:00:00 2001
+From: Hyesoo Yu <hyesoo.yu@samsung.com>
+Date: Fri, 20 Mar 2020 16:07:53 +0900
+Subject: [PATCH 284/830] ANDROID: staging: ion: Export query function to be
+ used in modules
+X-NVConfidentiality: public
+
+Export the ion_query_heaps_kernel to allow the module
+to get the registered heap information.
+
+Bug: 149961819
+Bug: 170264063
+Signed-off-by: Hyesoo Yu <hyesoo.yu@samsung.com>
+Change-Id: I3756ef0cbd17611593c8d2f45e46476a864faaec
+(cherry picked from commit 62060692112ba17dff2757dfcb7f9d40d1cc0016)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit d19d2506e5a9aad1001a6b8e49c2ddbf9f7204cd)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 021629f579df13eece231b5c8ace30f0a5c150d5)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/ion.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index 10c33b16fef2..268c4610c25a 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -92,6 +92,7 @@ size_t ion_query_heaps_kernel(struct ion_heap_data *hdata, size_t size)
+ 	up_read(&dev->lock);
+ 	return num_heaps;
+ }
++EXPORT_SYMBOL_GPL(ion_query_heaps_kernel);
+ 
+ static int ion_query_heaps(struct ion_heap_query *query)
+ {
+-- 
+2.17.1
+

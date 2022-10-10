@@ -1,7 +1,7 @@
 /*
  * imx318.c - imx318 sensor driver
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -222,18 +222,24 @@ static int imx318_fill_string_ctrl(struct tegracam_device *tc_dev,
 				struct v4l2_ctrl *ctrl)
 {
 	struct imx318 *priv = tc_dev->priv;
-	int i;
+	int i, ret;
 
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_EEPROM_DATA:
-		for (i = 0; i < IMX318_EEPROM_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < IMX318_EEPROM_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->eeprom_buf[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	case TEGRA_CAMERA_CID_FUSE_ID:
-		for (i = 0; i < IMX318_FUSE_ID_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < IMX318_FUSE_ID_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->fuse_id[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -512,6 +518,9 @@ static int imx318_set_mode(struct tegracam_device *tc_dev)
 			mode_table[IMX318_MODE_COMMON]);
 	if (err)
 		return err;
+
+	if (s_data->mode < 0)
+		return -EINVAL;
 
 	err = imx318_write_table(priv, mode_blob,
 			mode_table[s_data->mode]);

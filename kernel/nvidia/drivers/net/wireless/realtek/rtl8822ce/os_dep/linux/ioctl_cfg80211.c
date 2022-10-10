@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -7367,6 +7368,13 @@ void rtw_pd_iface_free(struct wiphy *wiphy)
 	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
 	if (rtnl_lock_needed)
 		rtnl_lock();
+
+	if (!wiphy_data->pd_wdev) {
+		if (rtnl_lock_needed)
+			rtnl_unlock();
+		goto exit;
+	}
+
 	cfg80211_unregister_wdev(wiphy_data->pd_wdev);
 	if (rtnl_lock_needed)
 		rtnl_unlock();

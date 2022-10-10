@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,7 @@
 
 #include <linux/version.h>
 
-#include <soc/tegra/fuse.h>
+#include <soc/tegra/fuse-helper.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0)
 
@@ -57,11 +57,6 @@ static inline bool tegra_platform_is_qt(void)
 static inline bool tegra_platform_is_silicon(void)
 {
 	return true;
-}
-
-static inline u32 tegra_get_sku_id(void)
-{
-	return 0x0;
 }
 
 #endif

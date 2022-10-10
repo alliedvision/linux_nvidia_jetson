@@ -1,0 +1,38 @@
+From 89faf442e02f59e55448e113504fa76d411420c7 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Mon, 2 Mar 2020 16:51:40 -0800
+Subject: [PATCH 648/830] ANDROID: GKI: Add SND_INTEL_NHLT
+X-NVConfidentiality: public
+
+Test: Treehugger
+Bug: 150620456
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Change-Id: I64806866c8a84d8fddb7d44ebe3c9bcf572d5118
+---
+ init/Kconfig.gki | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 69e48c2feceb..ae1457d07e78 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -5,7 +5,6 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_GEM_CMA_HELPER
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
+-	select SND_PCM_ELD
+ 	select VIDEOMODE_HELPERS
+ 	select WANT_DEV_COREDUMP
+ 	help
+@@ -33,6 +32,8 @@ config GKI_HIDDEN_CRYPTO_CONFIGS
+ config GKI_HIDDEN_SND_CONFIGS
+ 	bool "Hidden SND configs needed for GKI"
+ 	select SND_VMASTER
++	select SND_PCM_ELD
++	select SND_INTEL_NHLT if (ACPI)
+ 	help
+ 	  Dummy config option used to enable hidden SND configs.
+ 	  These are normally selected implicitly when a module
+-- 
+2.17.1
+

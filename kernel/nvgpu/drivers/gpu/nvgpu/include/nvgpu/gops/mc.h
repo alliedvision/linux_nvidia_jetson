@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -98,7 +98,7 @@ struct gops_mc {
 	 * - For the FIFO engines with pending interrupt invoke corresponding
 	 *   handlers.
 	 *   - Invoke g->ops.gr.intr.stall_isr if GR interrupt is pending.
-	 *   - Invoke g->ops.ce.isr_stall if CE interrupt is pending.
+	 *   - Invoke nvgpu_ce_stall_isr if CE interrupt is pending.
 	 * - For other units with pending interrupt invoke corresponding
 	 *   handlers.
 	 *   - Invoke g->ops.fb.intr.isr if HUB interrupt is pending, determined

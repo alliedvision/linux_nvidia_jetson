@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -332,7 +332,7 @@ fail_free_dma:
 	mem->cpu_va = NULL;
 	mem->priv.sgt = NULL;
 	mem->size = 0;
-	g->dma_memory_used -= mem->aligned_size;
+	g->dma_memory_used -= size;
 print_dma_err:
 	nvgpu_dma_print_err(g, size, "sysmem", "alloc", flags);
 	return err;

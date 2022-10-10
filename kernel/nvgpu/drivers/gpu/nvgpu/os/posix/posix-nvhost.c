@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -41,12 +41,12 @@ static void allocate_new_syncpt(struct nvgpu_nvhost_dev *nvgpu_syncpt_dev)
 {
 	u32 syncpt_id, syncpt_val;
 
-	srand(time(NULL));
+	srand((unsigned int)time(NULL));
 
 	/* Limit the range between {1, NUM_HW_PTS} */
-	syncpt_id = (rand() % NUM_HW_PTS) + 1;
+	syncpt_id = ((unsigned int)rand() % NUM_HW_PTS) + 1U;
 	/* Limit the range between {1, UINT_MAX - SYNCPT_SAFE_STATE_INCR - 1} */
-	syncpt_val = (rand() % (UINT_MAX - SYNCPT_SAFE_STATE_INCR - 1));
+	syncpt_val = ((unsigned int)rand() % (UINT_MAX - SYNCPT_SAFE_STATE_INCR - 1));
 
 	nvgpu_syncpt_dev->syncpt_id = syncpt_id;
 	nvgpu_syncpt_dev->syncpt_value = syncpt_val;
@@ -99,23 +99,31 @@ int nvgpu_nvhost_get_syncpt_aperture(
 const char *nvgpu_nvhost_syncpt_get_name(
 	struct nvgpu_nvhost_dev *nvgpu_syncpt_dev, int id)
 {
+	(void)nvgpu_syncpt_dev;
+	(void)id;
 	return NULL;
 }
 
 u32 nvgpu_nvhost_syncpt_unit_interface_get_byte_offset(struct gk20a *g,
 	u32 syncpt_id)
 {
+	(void)g;
+	(void)syncpt_id;
 	return nvgpu_safe_mult_u32(syncpt_id, 0x1000U);
 }
 
 void nvgpu_nvhost_syncpt_set_minval(struct nvgpu_nvhost_dev *nvgpu_syncpt_dev,
 	u32 id, u32 val)
 {
+	(void)nvgpu_syncpt_dev;
+	(void)id;
+	(void)val;
 }
 
 void nvgpu_nvhost_syncpt_put_ref_ext(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id)
 {
+	(void)id;
 	nvhost_dev->syncpt_id = 0U;
 	nvhost_dev->syncpt_value = 0U;
 }
@@ -124,6 +132,8 @@ u32 nvgpu_nvhost_get_syncpt_client_managed(
 	struct nvgpu_nvhost_dev *nvhost_dev,
 	const char *syncpt_name)
 {
+	(void)syncpt_name;
+
 	/* Only allocate new syncpt if nothing exists already */
 	if (nvhost_dev->syncpt_id == 0U) {
 		allocate_new_syncpt(nvhost_dev);
@@ -150,12 +160,17 @@ void nvgpu_nvhost_syncpt_set_safe_state(
 bool nvgpu_nvhost_syncpt_is_expired_ext(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id, u32 thresh)
 {
+	(void)nvhost_dev;
+	(void)id;
+	(void)thresh;
 	return true;
 }
 
 bool nvgpu_nvhost_syncpt_is_valid_pt_ext(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id)
 {
+	(void)nvhost_dev;
+	(void)id;
 	return true;
 }
 
@@ -163,12 +178,20 @@ int nvgpu_nvhost_intr_register_notifier(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id, u32 thresh,
 	void (*callback)(void *, int), void *private_data)
 {
+	(void)nvhost_dev;
+	(void)id;
+	(void)thresh;
+	(void)callback;
+	(void)private_data;
 	return -ENOSYS;
 }
 
 int nvgpu_nvhost_syncpt_read_ext_check(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id, u32 *val)
 {
+	(void)nvhost_dev;
+	(void)id;
+	(void)val;
 	return -ENOSYS;
 }
 
@@ -176,5 +199,10 @@ int nvgpu_nvhost_syncpt_wait_timeout_ext(
 	struct nvgpu_nvhost_dev *nvhost_dev, u32 id,
 	u32 thresh, u32 timeout, u32 waiter_index)
 {
+	(void)nvhost_dev;
+	(void)id;
+	(void)thresh;
+	(void)timeout;
+	(void)waiter_index;
 	return -ENOSYS;
 }

@@ -2,7 +2,7 @@
 /*
  * PCIe DMA EPF test framework for Tegra PCIe
  *
- * Copyright (C) 2021 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2021-2022 NVIDIA Corporation. All rights reserved.
  */
 
 #include <linux/crc32.h>
@@ -16,12 +16,14 @@
 #include <linux/pcie_dma.h>
 #include <linux/platform_device.h>
 #include <linux/kthread.h>
+#include <linux/tegra-pcie-edma-test-common.h>
 
 static struct pcie_epf_dma *gepfnv;
 
 struct pcie_epf_dma {
 	struct pci_epf_header header;
 	struct device *fdev;
+	struct device *cdev;
 	void *bar0_virt;
 	struct dentry *debugfs;
 	void __iomem *dma_base;
@@ -39,6 +41,8 @@ struct pcie_epf_dma {
 	struct task_struct *rd1_task;
 	u8 task_done;
 	wait_queue_head_t task_wq;
+	void *cookie;
+
 	wait_queue_head_t wr_wq[DMA_WR_CHNL_NUM];
 	wait_queue_head_t rd_wq[DMA_RD_CHNL_NUM];
 	unsigned long wr_busy;
@@ -51,6 +55,13 @@ struct pcie_epf_dma {
 	u32 rd_cnt[DMA_WR_CHNL_NUM + DMA_RD_CHNL_NUM];
 	bool pcs[DMA_WR_CHNL_NUM + DMA_RD_CHNL_NUM];
 	bool async_dma;
+	ktime_t edma_start_time[DMA_WR_CHNL_NUM];
+	u64 tsz;
+	u32 edma_ch;
+	u32 prev_edma_ch;
+	u32 nents;
+	struct tegra_pcie_edma_desc *ll_desc;
+	struct edmalib_common edma;
 };
 
 struct edma_desc {
@@ -175,6 +186,11 @@ void pcie_async_dma_handler(struct pcie_epf_dma *epfnv)
 				DMA_ASYNC_LL_SIZE;
 		}
 	}
+}
+
+static irqreturn_t pcie_dma_epf_irq(int irq, void *arg)
+{
+	return IRQ_WAKE_THREAD;
 }
 
 static irqreturn_t pcie_dma_epf_irq_handler(int irq, void *arg)
@@ -864,6 +880,34 @@ fail:
 	return 0;
 }
 
+/* debugfs to perform eDMA lib transfers and do CRC check */
+static int edmalib_test(struct seq_file *s, void *data)
+{
+	struct pcie_epf_dma *epfnv = (struct pcie_epf_dma *)
+						dev_get_drvdata(s->private);
+	struct pcie_epf_bar0 *epf_bar0 = (struct pcie_epf_bar0 *)
+						epfnv->bar0_virt;
+
+	if (!epf_bar0->rp_phy_addr) {
+		dev_err(epfnv->fdev, "RP DMA address is null\n");
+		return -1;
+	}
+
+	epfnv->edma.src_dma_addr = epf_bar0->ep_phy_addr + BAR0_DMA_BUF_OFFSET;
+	epfnv->edma.dst_dma_addr = epf_bar0->rp_phy_addr + BAR0_DMA_BUF_OFFSET;
+	epfnv->edma.fdev = epfnv->fdev;
+	epfnv->edma.bar0_virt = epfnv->bar0_virt;
+	epfnv->edma.src_virt = epfnv->bar0_virt + BAR0_DMA_BUF_OFFSET;
+	epfnv->edma.dma_base = epfnv->dma_base;
+	epfnv->edma.dma_size = epfnv->dma_size;
+	epfnv->edma.stress_count = epfnv->stress_count;
+	epfnv->edma.edma_ch = epfnv->edma_ch;
+	epfnv->edma.nents = epfnv->nents;
+	epfnv->edma.of_node = epfnv->cdev->of_node;
+
+	return edmalib_common_test(&epfnv->edma);
+}
+
 /* debugfs to perform direct & LL DMA and do CRC check */
 static int sanity_test(struct seq_file *s, void *data)
 {
@@ -1308,12 +1352,31 @@ static void init_debugfs(struct pcie_epf_dma *epfnv)
 
 	debugfs_create_devm_seqfile(epfnv->fdev, "async_dma_test",
 				    epfnv->debugfs, async_dma_test);
+	debugfs_create_devm_seqfile(epfnv->fdev, "edmalib_test", epfnv->debugfs,
+				    edmalib_test);
 
 	debugfs_create_u32("dma_size", 0644, epfnv->debugfs, &epfnv->dma_size);
-	epfnv->dma_size = SZ_64K;
+	epfnv->dma_size = SZ_1M;
+	epfnv->edma.st_as_ch = -1;
+
+	debugfs_create_u32("edma_ch", 0644, epfnv->debugfs, &epfnv->edma_ch);
+	/* Enable ASYNC for ch 0 as default and other channels. Usage:
+	 * BITS 0-3 - Async mode or sync mode for corresponding WR channels
+	 * BITS 4-7 - Enable/disable corresponding WR channel
+	 * BITS 8-9 - Async mode or sync mode for corresponding RD channels
+	 * BITS 10-11 - Enable/disable or corresponding RD channels
+	 * Bit 12 - Abort testing.
+	 */
+	epfnv->edma_ch = 0xF1;
+
+	debugfs_create_u32("nents", 0644, epfnv->debugfs, &epfnv->nents);
+	/* Set DMA_LL_DEFAULT_SIZE as default nents, Max NUM_EDMA_DESC */
+	epfnv->nents = DMA_LL_DEFAULT_SIZE;
+
 	debugfs_create_u32("stress_count", 0644, epfnv->debugfs,
 			   &epfnv->stress_count);
 	epfnv->stress_count = DEFAULT_STRESS_COUNT;
+
 	debugfs_create_u32("async_count", 0644, epfnv->debugfs,
 			   &epfnv->async_count);
 	epfnv->async_count = 4096;
@@ -1354,6 +1417,12 @@ static int pcie_dma_epf_core_init(struct pci_epf *epf)
 
 	dev_info(fdev, "BAR0 phy_addr: %llx size: %lx\n",
 		 epf_bar->phys_addr, epf_bar->size);
+
+	ret = pci_epc_set_msi(epc, epf->func_no, epf->msi_interrupts);
+	if (ret) {
+		dev_err(fdev, "pci_epc_set_msi() failed: %d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -1471,11 +1540,40 @@ static int pcie_dma_epf_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int pcie_dma_epf_block_notifier(struct notifier_block *nb,
+				       unsigned long val, void *data)
+{
+	struct pci_epf *epf = container_of(nb, struct pci_epf, block_nb);
+	struct pcie_epf_dma *epfnv = epf_get_drvdata(epf);
+	void *cookie = epfnv->edma.cookie;
+	struct pcie_epf_bar0 *epf_bar0 = (struct pcie_epf_bar0 *) epfnv->bar0_virt;
+
+	switch (val) {
+	case CORE_DEINIT:
+		epfnv->edma.cookie = NULL;
+		epf_bar0->rp_phy_addr = 0;
+		tegra_pcie_edma_deinit(cookie);
+		break;
+
+	default:
+		dev_err(&epf->dev, "Invalid blocking notifier event\n");
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_OK;
+}
+
 static void pcie_dma_epf_unbind(struct pci_epf *epf)
 {
 	struct pcie_epf_dma *epfnv = epf_get_drvdata(epf);
 	struct pci_epc *epc = epf->epc;
 	struct pci_epf_bar *epf_bar = &epf->bar[BAR_0];
+	void *cookie = epfnv->edma.cookie;
+	struct pcie_epf_bar0 *epf_bar0 = (struct pcie_epf_bar0 *) epfnv->bar0_virt;
+
+	epfnv->edma.cookie = NULL;
+	epf_bar0->rp_phy_addr = 0;
+	tegra_pcie_edma_deinit(cookie);
 
 	pcie_dma_epf_msi_deinit(epf);
 	pci_epc_stop(epc);
@@ -1497,6 +1595,7 @@ static int pcie_dma_epf_bind(struct pci_epf *epf)
 	int ret, i;
 
 	epfnv->fdev = fdev;
+	epfnv->cdev = cdev;
 
 	epfnv->bar0_virt = pci_epf_alloc_space(epf, BAR0_SIZE, BAR_0, SZ_64K);
 	if (!epfnv->bar0_virt) {
@@ -1515,6 +1614,9 @@ static int pcie_dma_epf_bind(struct pci_epf *epf)
 
 	epf->nb.notifier_call = pcie_dma_epf_notifier;
 	pci_epc_register_notifier(epc, &epf->nb);
+
+	epf->block_nb.notifier_call = pcie_dma_epf_block_notifier;
+	pci_epc_register_block_notifier(epc, &epf->block_nb);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu_dma");
 	if (!res) {
@@ -1544,9 +1646,9 @@ static int pcie_dma_epf_bind(struct pci_epf *epf)
 		goto fail_atu_dma;
 	}
 
-	ret = devm_request_threaded_irq(fdev, epfnv->irq, NULL,
+	ret = devm_request_threaded_irq(fdev, epfnv->irq, pcie_dma_epf_irq,
 					pcie_dma_epf_irq_handler,
-					IRQF_SHARED | IRQF_ONESHOT,
+					IRQF_SHARED,
 					name, epfnv);
 	if (ret < 0) {
 		dev_err(fdev, "failed to request \"intr\" irq\n");
@@ -1559,11 +1661,15 @@ static int pcie_dma_epf_bind(struct pci_epf *epf)
 		goto fail_atu_dma;
 	}
 
-	for (i = 0; i < DMA_WR_CHNL_NUM; i++)
+	for (i = 0; i < DMA_WR_CHNL_NUM; i++) {
 		init_waitqueue_head(&epfnv->wr_wq[i]);
+		init_waitqueue_head(&epfnv->edma.wr_wq[i]);
+	}
 
-	for (i = 0; i < DMA_RD_CHNL_NUM; i++)
+	for (i = 0; i < DMA_RD_CHNL_NUM; i++) {
 		init_waitqueue_head(&epfnv->rd_wq[i]);
+		init_waitqueue_head(&epfnv->edma.rd_wq[i]);
+	}
 
 	epfnv->debugfs = debugfs_create_dir(name, NULL);
 	init_debugfs(epfnv);
@@ -1589,6 +1695,11 @@ static int pcie_dma_epf_probe(struct pci_epf *epf)
 	struct pcie_epf_dma *epfnv;
 
 	epfnv = devm_kzalloc(dev, sizeof(*epfnv), GFP_KERNEL);
+	if (!epfnv)
+		return -ENOMEM;
+
+	epfnv->edma.ll_desc = devm_kzalloc(dev, sizeof(*epfnv->ll_desc) * NUM_EDMA_DESC,
+					   GFP_KERNEL);
 	if (!epfnv)
 		return -ENOMEM;
 

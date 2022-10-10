@@ -1,0 +1,129 @@
+From b676c5e8585651871c487c595f681437d52e0e3d Mon Sep 17 00:00:00 2001
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Date: Thu, 14 Feb 2019 11:45:50 -0800
+Subject: [PATCH 518/830] ANDROID: arm64: dts: qcom: sdm845-db845c: Bring in
+ LT9611
+X-NVConfidentiality: public
+
+Enable MDSS and DSI and add the LT9611 HDMI bridge. DSI1 is supposedly
+needed for 4k support, but is left commented out as this is yet to be
+functional.
+
+Add LT9611 DSI to HDMI bridge driver, as well as the
+i2s initialization logic.
+
+Bug: 146449535
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I7bf2b82abeca7274f8e2dc69c592ed8303e3fbc6
+---
+ arch/arm64/boot/dts/qcom/sdm845-db845c.dts | 78 ++++++++++++++++++++--
+ 1 file changed, 74 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+index 6c3403e84284..62fa39dbe9c2 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
++++ b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+@@ -453,6 +453,66 @@
+ 	vdda-pll-supply = <&vreg_l26a_1p2>;
+ };
+ 
++&i2c10 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	lt9611_codec: hdmi-bridge@3b {
++		compatible = "lontium,lt9611";
++		reg = <0x3b>;
++		#sound-dai-cells = <1>;
++
++		interrupts-extended = <&tlmm 84 IRQ_TYPE_EDGE_FALLING>;
++
++		reset-gpios = <&tlmm 128 GPIO_ACTIVE_HIGH>;
++
++		vdd-supply = <&lt9611_1v8>;
++		vcc-supply = <&lt9611_3v3>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&lt9611_irq_pin>, <&dsi_sw_sel>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				lt9611_out: endpoint {
++					remote-endpoint = <&hdmi_con>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				lt9611_a: endpoint {
++					remote-endpoint = <&dsi0_out>;
++				};
++			};
++
++#if 0
++			port@2 {
++				reg = <2>;
++
++				lt9611_b: endpoint {
++					remote-endpoint = <&dsi1_out>;
++				};
++			};
++#endif
++		};
++	};
++};
++
++&mdss {
++	status = "okay";
++};
++
++&mdss_mdp {
++	status = "okay";
++};
++
+ &gpu {
+ 	zap-shader {
+ 		memory-region = <&gpu_mem>;
+@@ -856,6 +916,12 @@
+ 		};
+ 	};
+ 
++	lt9611_irq_pin: lt9611-irq {
++		pins = "gpio84";
++		function = "gpio";
++		bias-disable;
++	};
++
+ 	pcie0_pwren_state: pcie0-pwren {
+ 		pins = "gpio90";
+ 		function = "gpio";
+@@ -936,11 +1002,15 @@
+ 		bias-pull-down;
+ 		drive-strength = <2>;
+ 	};
+-};
+ 
+-&uart3 {
+-	label = "LS-UART0";
+-	status = "disabled";
++	dsi_sw_sel: dsi-sw-sel {
++		pins = "gpio120";
++		function = "gpio";
++
++		drive-strength = <2>;
++		bias-disable;
++		output-high;
++	};
+ };
+ 
+ &uart6 {
+-- 
+2.17.1
+

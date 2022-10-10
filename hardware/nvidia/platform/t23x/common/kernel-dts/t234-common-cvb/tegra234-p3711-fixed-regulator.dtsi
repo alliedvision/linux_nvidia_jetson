@@ -91,6 +91,7 @@
 			vin-supply = <&p3711_vdd_mv_cvm>;
 			/* DP GMSL power down GPIO */
 			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 3) GPIO_ACTIVE_HIGH>;
+			enable-active-high;
 		};
 
 		p3711_vdd_1v8_cvb: regulator@110 {
@@ -117,6 +118,8 @@
 			regulator-name = "vdd-usb2-vbus";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Z, 1) 0>;
+			enable-active-high;
 			vin-supply = <&p3711_vdd_mv_cvb>;
 		};
 
@@ -126,6 +129,8 @@
 			regulator-name = "vdd-usbc";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Z, 2) 0>;
+			enable-active-high;
 			vin-supply = <&p3711_vdd_mv_cvb>;
 		};
 

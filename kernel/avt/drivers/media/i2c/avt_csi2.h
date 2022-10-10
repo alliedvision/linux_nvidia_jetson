@@ -77,6 +77,7 @@ struct avt_csi2_priv {
 
     uint32_t csi_fixed_lanes;
     uint32_t csi_clk_freq;
+    uint32_t host_csi_clk_freq;
     int numlanes;
     struct avt_frame_param frmp;
 

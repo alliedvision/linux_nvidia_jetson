@@ -1,0 +1,46 @@
+From b0d1a3829fce104604c8f97d035aad91bf931c15 Mon Sep 17 00:00:00 2001
+From: Kalesh Singh <kaleshsingh@google.com>
+Date: Wed, 22 Jul 2020 16:07:32 +0000
+Subject: [PATCH 725/830] ANDROID: GKI defconfig: Remove ZSMALLOC from
+ gki_defconfig
+X-NVConfidentiality: public
+
+Allow vendors to provide zsmalloc module in vendor fragment
+for GKI 2.0 since modules can't be overridden
+
+Bug: 150917000
+Change-Id: Ifbef41db0ac280ed30ea1a71b7fc2581eb6a5541
+Signed-off-by: Kalesh Singh <kaleshsingh@google.com>
+(cherry picked from commit 1c77c2c81861bec6d7097b04cb3b4fa96b2d55cc)
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 7be2e5d82e1e..fc5c3c2709d3 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -90,7 +90,6 @@ CONFIG_MEMORY_HOTPLUG=y
+ CONFIG_CLEANCACHE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+-CONFIG_ZSMALLOC=y
+ CONFIG_NET=y
+ CONFIG_PACKET=y
+ CONFIG_UNIX=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 0b830627cb65..bc5cac9f674d 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -68,7 +68,6 @@ CONFIG_BINFMT_MISC=y
+ CONFIG_CLEANCACHE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+-CONFIG_ZSMALLOC=y
+ CONFIG_NET=y
+ CONFIG_PACKET=y
+ CONFIG_UNIX=y
+-- 
+2.17.1
+

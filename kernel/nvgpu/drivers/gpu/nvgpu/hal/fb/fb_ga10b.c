@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -65,7 +65,16 @@ void ga10b_fb_cbc_configure(struct gk20a *g, struct nvgpu_cbc *cbc)
 		  fb_mmu_cbc_max_comptagline_f(cbc->max_comptag_lines));
 	nvgpu_writel(g, fb_mmu_cbc_max_r(), cbc_max_rval);
 
-	compbit_store_pa = nvgpu_mem_get_addr(g, &cbc->compbit_store.mem);
+	if (nvgpu_is_hypervisor_mode(g) &&
+			(g->ops.cbc.use_contig_pool != NULL)) {
+		/*
+		 * As the nvgpu_mem in ga10b holds the physical sgt, call
+		 * nvgpu_mem_phys_get_addr to get the physical address.
+		 */
+		compbit_store_pa = nvgpu_mem_phys_get_addr(g, &cbc->compbit_store.mem);
+	} else {
+		compbit_store_pa = nvgpu_mem_get_addr(g, &cbc->compbit_store.mem);
+	}
 	/* must be a multiple of 64KB within allocated memory */
 	compbit_store_base = round_up(compbit_store_pa, SZ_64K);
 	/* Calculate post-divide cbc address */
@@ -381,7 +390,7 @@ int ga10b_fb_set_remote_swizid(struct gk20a *g, bool enable)
 		while (pbdma_id_mask != 0U) {
 			u32 fault_id;
 			u32 pbdma_id = nvgpu_safe_sub_u32(
-				nvgpu_ffs(pbdma_id_mask), 1UL);
+				(u32)nvgpu_ffs(pbdma_id_mask), 1UL);
 
 			fault_id =
 				g->ops.pbdma.get_mmu_fault_id(g, pbdma_id);

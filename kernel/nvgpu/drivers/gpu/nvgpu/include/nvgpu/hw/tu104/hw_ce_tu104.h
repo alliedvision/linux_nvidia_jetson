@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -75,6 +75,10 @@
 #define ce_lce_opt_r(i)\
 		(nvgpu_safe_add_u32(0x00104414U, nvgpu_safe_mult_u32((i), 128U)))
 #define ce_lce_opt_force_barriers_npl__prod_f()                           (0x8U)
+#define ce_lce_engctl_r(i)\
+		(nvgpu_safe_add_u32(0x0010441cU, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_engctl_stallreq_true_f()                                 (0x100U)
+#define ce_lce_engctl_stallack_true_f()                                 (0x200U)
 #define ce_grce_config_r(i)\
 		(nvgpu_safe_add_u32(0x00104034U, nvgpu_safe_mult_u32((i), 4U)))
 #define ce_grce_config__size_1_v()                                 (0x00000002U)
@@ -83,6 +87,16 @@
 #define ce_grce_config_shared_f(v)                      ((U32(v) & 0x1U) << 30U)
 #define ce_grce_config_timeslice_short_f()                                (0x0U)
 #define ce_grce_config_timeslice_long_f()                          (0x80000000U)
+#define ce_lce_bind_status_r(i)\
+		(nvgpu_safe_add_u32(0x00104404U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_bind_status_bound_v(r)                       (((r) >> 0U) & 0x1U)
+#define ce_lce_bind_status_bound_false_v()                         (0x00000000U)
+#define ce_lce_bind_status_ctx_ptr_v(r)               (((r) >> 1U) & 0xfffffffU)
+#define ce_lce_launcherr_r(i)\
+		(nvgpu_safe_add_u32(0x00104418U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_launcherr_report_v(r)                        (((r) >> 0U) & 0xfU)
+#define ce_lce_launcherr_report_invalid_config_v()                 (0x0000000dU)
+#define ce_lce_launcherr_report_method_buffer_access_fault_v()     (0x0000000eU)
 #define ce_pce2lce_config_r(i)\
 		(nvgpu_safe_add_u32(0x00104040U, nvgpu_safe_mult_u32((i), 4U)))
 #define ce_pce2lce_config__size_1_v()                              (0x00000004U)

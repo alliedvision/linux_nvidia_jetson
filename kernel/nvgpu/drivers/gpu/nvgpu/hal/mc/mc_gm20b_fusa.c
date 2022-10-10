@@ -1,7 +1,7 @@
 /*
  * GM20B Master Control
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -84,6 +84,7 @@ u32 gm20b_mc_isr_nonstall(struct gk20a *g)
 			nonstall_ops |= g->ops.gr.intr.nonstall_isr(g);
 		}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 		/* CE Engine */
 		if (nvgpu_device_is_ce(g, dev) &&
 		    (g->ops.ce.isr_nonstall != NULL)) {
@@ -91,6 +92,7 @@ u32 gm20b_mc_isr_nonstall(struct gk20a *g)
 						      dev->inst_id,
 						      dev->pri_base);
 		}
+#endif
 	}
 
 	return nonstall_ops;
@@ -144,9 +146,11 @@ static u32 gm20b_mc_unit_reset_mask(struct gk20a *g, u32 unit)
 		mask = mc_enable_pwr_enabled_f();
 		break;
 #endif
+#ifdef CONFIG_NVGPU_NVLINK
 	case NVGPU_UNIT_NVLINK:
 		mask = BIT32(g->nvlink.ioctrl_table[0].reset_enum);
 		break;
+#endif
 	case NVGPU_UNIT_CE2:
 		mask = mc_enable_ce2_enabled_f();
 		break;

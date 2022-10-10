@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@
 #include <nvgpu/mm.h>
 #include <nvgpu/vm.h>
 #include <nvgpu/static_analysis.h>
+#include <nvgpu/string.h>
 
 #include "buddy_allocator_priv.h"
 
@@ -95,7 +96,7 @@ static u32 nvgpu_balloc_page_size_to_pte_size(struct nvgpu_buddy_allocator *a,
  */
 static void balloc_compute_max_order(struct nvgpu_buddy_allocator *a)
 {
-	u64 true_max_order = ilog2(a->blks);
+	u64 true_max_order = nvgpu_ilog2(a->blks);
 
 	if (true_max_order > GPU_BALLOC_MAX_ORDER) {
 		alloc_dbg(balloc_owner(a),
@@ -112,21 +113,25 @@ static void balloc_compute_max_order(struct nvgpu_buddy_allocator *a)
  * Since we can only allocate in chucks of a->blk_size we need to trim off
  * any excess data that is not aligned to a->blk_size.
  */
-static void balloc_allocator_align(struct nvgpu_buddy_allocator *a)
+static int balloc_allocator_align(struct nvgpu_buddy_allocator *a)
 {
+	int err = 0;
+	u64 blks;
 	a->start = NVGPU_ALIGN(a->base, a->blk_size);
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON(a->start != a->base);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 	nvgpu_assert(a->blk_size > 0ULL);
 	a->end   = nvgpu_safe_add_u64(a->base, a->length) &
 						~(a->blk_size - 1U);
 	a->count = nvgpu_safe_sub_u64(a->end, a->start);
-	a->blks  = a->count >> a->blk_shift;
+	blks = a->count >> a->blk_shift;
+	if (blks == 0ULL) {
+		err = -EINVAL;
+		goto fail;
+	}
+	a->blks  = blks;
+
+fail:
+	return err;
 }
 
 /*
@@ -233,7 +238,7 @@ static u64 balloc_max_order_in(struct nvgpu_buddy_allocator *a,
 	u64 size = nvgpu_safe_sub_u64(end, start) >> a->blk_shift;
 
 	if (size > 0U) {
-		return min_t(u64, ilog2(size), a->max_order);
+		return min_t(u64, nvgpu_ilog2(size), a->max_order);
 	} else {
 		return GPU_BALLOC_MAX_ORDER;
 	}
@@ -302,9 +307,7 @@ static void nvgpu_buddy_allocator_destroy(struct nvgpu_allocator *na)
 
 	alloc_lock(na);
 
-#ifdef CONFIG_DEBUG_FS
 	nvgpu_fini_alloc_debug(na);
-#endif
 
 	/*
 	 * Free the fixed allocs first.
@@ -337,11 +340,7 @@ static void nvgpu_buddy_allocator_destroy(struct nvgpu_allocator *na)
 	 * Now clean up the unallocated buddies.
 	 */
 	for (i = 0U; i < GPU_BALLOC_ORDER_LIST_LEN; i++) {
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 		BUG_ON(a->buddy_list_alloced[i] != 0U);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 		while (!nvgpu_list_empty(balloc_get_order_list(a, i))) {
 			bud = nvgpu_list_first_entry(
@@ -795,11 +794,7 @@ static u64 balloc_do_alloc_fixed(struct nvgpu_buddy_allocator *a,
 	 * in the lists that hold buddies. This leads to some very strange
 	 * crashes.
 	 */
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	BUG_ON(pte_size == BALLOC_PTE_SIZE_INVALID);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	shifted_base = balloc_base_shift(a, base);
 	if (shifted_base == 0U) {
@@ -1366,9 +1361,7 @@ static void nvgpu_buddy_print_stats(struct nvgpu_allocator *na,
 }
 #endif
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 8_7), "Bug 2823817")
 static const struct nvgpu_allocator_ops buddy_ops = {
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 8_7))
 	.alloc		= nvgpu_buddy_balloc,
 	.alloc_pte	= nvgpu_buddy_balloc_pte,
 	.free_alloc	= nvgpu_buddy_bfree,
@@ -1523,7 +1516,10 @@ int nvgpu_buddy_allocator_init(struct gk20a *g, struct nvgpu_allocator *na,
 		goto fail;
 	}
 
-	balloc_allocator_align(a);
+	err = balloc_allocator_align(a);
+	if (err != 0) {
+		goto fail;
+	}
 	balloc_compute_max_order(a);
 
 	a->buddy_cache = nvgpu_kmem_cache_create(g, sizeof(struct nvgpu_buddy));
@@ -1543,9 +1539,7 @@ int nvgpu_buddy_allocator_init(struct gk20a *g, struct nvgpu_allocator *na,
 	nvgpu_smp_wmb();
 	a->initialized = true;
 
-#ifdef CONFIG_DEBUG_FS
 	nvgpu_init_alloc_debug(g, na);
-#endif
 	alloc_dbg(na, "New allocator: type      buddy");
 	alloc_dbg(na, "               base      0x%llx", a->base);
 	alloc_dbg(na, "               size      0x%llx", a->length);

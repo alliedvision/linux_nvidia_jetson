@@ -19,6 +19,7 @@
 #include <linux/fb.h>
 #include <linux/version.h>
 
+#include <nvgpu/enabled.h>
 #include <nvgpu/errata.h>
 #include <nvgpu/kmem.h>
 #include <nvgpu/nvhost.h>
@@ -587,7 +588,15 @@ static ssize_t mscg_enable_store(struct device *dev,
 				smp_mb();
 				g->mscg_enabled = false;
 				if (nvgpu_pg_elpg_is_enabled(g)) {
-					nvgpu_pg_elpg_enable(g);
+					err = nvgpu_pg_elpg_enable(g);
+					if (err) {
+						WRITE_ONCE(pmu->pg->mscg_stat, PMU_MSCG_ENABLED);
+						/* make status visible */
+						smp_mb();
+						g->mscg_enabled = true;
+						gk20a_idle(g);
+						return err;
+					}
 				}
 			}
 			g->mscg_enabled = false;
@@ -616,7 +625,7 @@ static ssize_t aelpg_param_store(struct device *dev,
 	struct gk20a *g = get_gk20a(dev);
 	int status = 0;
 	union pmu_ap_cmd ap_cmd;
-	int *paramlist = (int *)g->pmu->pg->aelpg_param;
+	int *paramlist = NULL;
 	u32 defaultparam[5] = {
 			APCTRL_SAMPLING_PERIOD_PG_DEFAULT_US,
 			APCTRL_MINIMUM_IDLE_FILTER_DEFAULT_US,
@@ -625,6 +634,12 @@ static ssize_t aelpg_param_store(struct device *dev,
 			APCTRL_CYCLES_PER_SAMPLE_MAX_DEFAULT
 	};
 
+	if (!g->aelpg_enabled) {
+		nvgpu_info(g, "AELPG not enabled");
+		return count;
+	}
+
+	paramlist = (int *)g->pmu->pg->aelpg_param;
 	/* Get each parameter value from input string*/
 	sscanf(buf, "%d %d %d %d %d", &paramlist[0], &paramlist[1],
 				&paramlist[2], &paramlist[3], &paramlist[4]);
@@ -658,10 +673,15 @@ static ssize_t aelpg_param_read(struct device *dev,
 {
 	struct gk20a *g = get_gk20a(dev);
 
-	return snprintf(buf, NVGPU_CPU_PAGE_SIZE,
-		"%d %d %d %d %d\n", g->pmu->pg->aelpg_param[0],
-		g->pmu->pg->aelpg_param[1], g->pmu->pg->aelpg_param[2],
-		g->pmu->pg->aelpg_param[3], g->pmu->pg->aelpg_param[4]);
+	if (g->aelpg_enabled) {
+		return snprintf(buf, NVGPU_CPU_PAGE_SIZE,
+			"%d %d %d %d %d\n", g->pmu->pg->aelpg_param[0],
+			g->pmu->pg->aelpg_param[1], g->pmu->pg->aelpg_param[2],
+			g->pmu->pg->aelpg_param[3], g->pmu->pg->aelpg_param[4]);
+	} else {
+		nvgpu_info(g, "AELPG not enabled");
+	}
+	return 0;
 }
 
 static DEVICE_ATTR(aelpg_param, ROOTRW,
@@ -678,6 +698,11 @@ static ssize_t aelpg_enable_store(struct device *dev,
 
 	if (kstrtoul(buf, 10, &val) < 0)
 		return -EINVAL;
+
+	if (!g->can_elpg) {
+		nvgpu_info(g, "Feature not supported");
+		return count;
+	}
 
 	err = gk20a_busy(g);
 	if (err) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -260,9 +260,7 @@ static int nvgpu_gr_global_ctx_buffer_sys_alloc(struct gk20a *g,
 
 	err = nvgpu_gr_global_ctx_buffer_alloc_sys(g, desc,
 		NVGPU_GR_GLOBAL_CTX_PRIV_ACCESS_MAP);
-	if (err != 0) {
-		goto fail;
-	}
+
 fail:
 	return err;
 }
@@ -390,6 +388,7 @@ void nvgpu_gr_global_ctx_init_local_golden_image(struct gk20a *g,
 		struct nvgpu_gr_global_ctx_local_golden_image *local_golden_image,
 		struct nvgpu_mem *source_mem, size_t size)
 {
+	(void)size;
 	nvgpu_mem_rd_n(g, source_mem, 0, local_golden_image->context,
 		nvgpu_safe_cast_u64_to_u32(local_golden_image->size));
 }

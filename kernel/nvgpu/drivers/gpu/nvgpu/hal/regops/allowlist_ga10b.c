@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 #include <nvgpu/regops_allowlist.h>
 #include "allowlist_ga10b.h"
 
-u32 ga10b_hwpm_perfmon_register_offset_allowlist[] = {
+static const u32 ga10b_hwpm_perfmon_register_offset_allowlist[] = {
 	0x00000000,
 	0x00000004,
 	0x00000008,
@@ -91,7 +91,7 @@ u32 ga10b_hwpm_perfmon_register_offset_allowlist[] = {
 	0x00000130,
 };
 
-u32 ga10b_hwpm_router_register_offset_allowlist[] = {
+static const u32 ga10b_hwpm_router_register_offset_allowlist[] = {
 	0x00000000,
 	0x00000008,
 	0x00000010,
@@ -99,7 +99,7 @@ u32 ga10b_hwpm_router_register_offset_allowlist[] = {
 	0x00000150,
 };
 
-u32 ga10b_hwpm_pma_channel_register_offset_allowlist[] = {
+static const u32 ga10b_hwpm_pma_channel_register_offset_allowlist[] = {
 	0x0000000c,
 	0x00000610,
 	0x00000618,
@@ -111,7 +111,7 @@ u32 ga10b_hwpm_pma_channel_register_offset_allowlist[] = {
 	0x0000075c,
 };
 
-u32 ga10b_hwpm_pma_trigger_register_offset_allowlist[] = {
+static const u32 ga10b_hwpm_pma_trigger_register_offset_allowlist[] = {
 	0x00000008,
 	0x00000600,
 	0x00000604,
@@ -174,7 +174,7 @@ u32 ga10b_hwpm_pma_trigger_register_offset_allowlist[] = {
 	0x0000075c,
 };
 
-u32 ga10b_smpc_register_offset_allowlist[] = {
+static const u32 ga10b_smpc_register_offset_allowlist[] = {
 	0x00000200,
 	0x00000204,
 	0x00000208,
@@ -346,7 +346,7 @@ u32 ga10b_smpc_register_offset_allowlist[] = {
 	0x000007c4,
 };
 
-u32 ga10b_cau_register_offset_allowlist[] = {
+static const u32 ga10b_cau_register_offset_allowlist[] = {
 	0x00000000,
 	0x00000004,
 	0x00000008,
@@ -358,7 +358,7 @@ u32 ga10b_cau_register_offset_allowlist[] = {
 	0x00000024,
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmon_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmon_register_ranges[] = {
 	{0x00180000, 0x00187ffc},
 	{0x00250040, 0x00250124},
 	{0x00250240, 0x00250324},
@@ -367,7 +367,7 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmon_register_ranges
 	{0x00260000, 0x00263ffc},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_hwpm_router_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_router_register_ranges[] = {
 	{0x00244000, 0x002443fc},
 	{0x00246000, 0x002463fc},
 	{0x00248000, 0x002481fc},
@@ -377,29 +377,30 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_router_register_ranges[
 	{0x00251b50, 0x00251b50},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_hwpm_pma_channel_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_pma_channel_register_ranges[] = {
+	{0x0024a00c, 0x0024a00c},
 	{0x0024a610, 0x0024a628},
 	{0x0024a634, 0x0024a658},
 	{0x0024a730, 0x0024a734},
+	{0x0024a75c, 0x0024a75c},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_hwpm_pma_trigger_register_ranges[] = {
-	{0x0024a000, 0x0024a60c},
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_pma_trigger_register_ranges[] = {
+	{0x0024a000, 0x0024a008},
+	{0x0024a6d0, 0x0024a60c},
 	{0x0024a62c, 0x0024a62c},
 	{0x0024a65c, 0x0024a72c},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_smpc_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range ga10b_smpc_register_ranges[] = {
 	{0x00580000, 0x0058fffc},
 	{0x00480000, 0x0048fffc},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges[] = {
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges[] = {
 	{0x00140028, 0x00140028},
 	{0x00142028, 0x00142028},
 	{0x0017e028, 0x0017e028},
-	{0x00900100, 0x00900100},
-	{0x00904100, 0x00904100},
 	{0x009a0100, 0x009a0100},
 	{0x00503814, 0x00503814},
 	{0x00503870, 0x00503870},
@@ -443,8 +444,6 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges
 	{0x0017e750, 0x0017e750},
 	{0x0017e950, 0x0017e950},
 	{0x0017eb50, 0x0017eb50},
-	{0x009001e0, 0x009001e4},
-	{0x009041e0, 0x009041e4},
 	{0x009a01e0, 0x009a01e4},
 	{0x00500384, 0x00500384},
 	{0x005004a0, 0x005004a0},
@@ -498,90 +497,92 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges
 	{0x0041a0a8, 0x0041a0a8},
 	{0x0041a8a0, 0x0041a8a8},
 	{0x00504054, 0x00504054},
+	{0x005041ac, 0x005041ac},
 	{0x005042b0, 0x005042b0},
 	{0x00504304, 0x00504304},
-	{0x005043dc, 0x005043dc},
 	{0x0050440c, 0x0050440c},
 	{0x00504664, 0x00504664},
 	{0x00504854, 0x00504854},
+	{0x005049ac, 0x005049ac},
 	{0x00504ab0, 0x00504ab0},
 	{0x00504b04, 0x00504b04},
-	{0x00504bdc, 0x00504bdc},
 	{0x00504c0c, 0x00504c0c},
 	{0x00504e64, 0x00504e64},
 	{0x00505054, 0x00505054},
+	{0x005051ac, 0x005051ac},
 	{0x005052b0, 0x005052b0},
 	{0x00505304, 0x00505304},
-	{0x005053dc, 0x005053dc},
 	{0x0050540c, 0x0050540c},
 	{0x00505664, 0x00505664},
 	{0x00505854, 0x00505854},
+	{0x005059ac, 0x005059ac},
 	{0x00505ab0, 0x00505ab0},
 	{0x00505b04, 0x00505b04},
-	{0x00505bdc, 0x00505bdc},
 	{0x00505c0c, 0x00505c0c},
 	{0x00505e64, 0x00505e64},
 	{0x0050c054, 0x0050c054},
+	{0x0050c1ac, 0x0050c1ac},
 	{0x0050c2b0, 0x0050c2b0},
 	{0x0050c304, 0x0050c304},
-	{0x0050c3dc, 0x0050c3dc},
 	{0x0050c40c, 0x0050c40c},
 	{0x0050c664, 0x0050c664},
 	{0x0050c854, 0x0050c854},
+	{0x0050c9ac, 0x0050c9ac},
 	{0x0050cab0, 0x0050cab0},
 	{0x0050cb04, 0x0050cb04},
-	{0x0050cbdc, 0x0050cbdc},
 	{0x0050cc0c, 0x0050cc0c},
 	{0x0050ce64, 0x0050ce64},
 	{0x0050d054, 0x0050d054},
+	{0x0050d1ac, 0x0050d1ac},
 	{0x0050d2b0, 0x0050d2b0},
 	{0x0050d304, 0x0050d304},
-	{0x0050d3dc, 0x0050d3dc},
 	{0x0050d40c, 0x0050d40c},
 	{0x0050d664, 0x0050d664},
 	{0x0050d854, 0x0050d854},
+	{0x0050d9ac, 0x0050d9ac},
 	{0x0050dab0, 0x0050dab0},
 	{0x0050db04, 0x0050db04},
-	{0x0050dbdc, 0x0050dbdc},
 	{0x0050dc0c, 0x0050dc0c},
 	{0x0050de64, 0x0050de64},
 	{0x00419854, 0x00419854},
+	{0x004199ac, 0x004199ac},
 	{0x00419ab0, 0x00419ab0},
 	{0x00419b04, 0x00419b04},
-	{0x00419bdc, 0x00419bdc},
 	{0x00419c0c, 0x00419c0c},
 	{0x00419e64, 0x00419e64},
 	{0x0041c054, 0x0041c054},
+	{0x0041c1ac, 0x0041c1ac},
 	{0x0041c2b0, 0x0041c2b0},
 	{0x0041c304, 0x0041c304},
-	{0x0041c3dc, 0x0041c3dc},
 	{0x0041c40c, 0x0041c40c},
 	{0x0041c664, 0x0041c664},
 	{0x0041c854, 0x0041c854},
+	{0x0041c9ac, 0x0041c9ac},
 	{0x0041cab0, 0x0041cab0},
 	{0x0041cb04, 0x0041cb04},
-	{0x0041cbdc, 0x0041cbdc},
 	{0x0041cc0c, 0x0041cc0c},
 	{0x0041ce64, 0x0041ce64},
 	{0x0041d054, 0x0041d054},
+	{0x0041d1ac, 0x0041d1ac},
 	{0x0041d2b0, 0x0041d2b0},
 	{0x0041d304, 0x0041d304},
-	{0x0041d3dc, 0x0041d3dc},
 	{0x0041d40c, 0x0041d40c},
 	{0x0041d664, 0x0041d664},
 	{0x0041d854, 0x0041d854},
+	{0x0041d9ac, 0x0041d9ac},
 	{0x0041dab0, 0x0041dab0},
 	{0x0041db04, 0x0041db04},
-	{0x0041dbdc, 0x0041dbdc},
 	{0x0041dc0c, 0x0041dc0c},
 	{0x0041de64, 0x0041de64},
 	{0x00501854, 0x00501854},
+	{0x005019ac, 0x005019ac},
 	{0x00501ab0, 0x00501ab0},
 	{0x00501b04, 0x00501b04},
 	{0x00501bdc, 0x00501bdc},
 	{0x00501c0c, 0x00501c0c},
 	{0x00501e64, 0x00501e64},
 	{0x00509854, 0x00509854},
+	{0x005099ac, 0x005099ac},
 	{0x00509ab0, 0x00509ab0},
 	{0x00509b04, 0x00509b04},
 	{0x00509bdc, 0x00509bdc},
@@ -630,10 +631,13 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges
 	{0x0008e00c, 0x0008e00c},
 	{0x00100c18, 0x00100c20},
 	{0x00100c84, 0x00100c84},
+	{0x00104030, 0x00104030},
 	{0x00105068, 0x00105068},
 	{0x00105128, 0x00105128},
 	{0x0010a0a8, 0x0010a0a8},
 	{0x0010a4f0, 0x0010a4f0},
+	{0x00122228, 0x00122228},
+	{0x00124228, 0x00124228},
 	{0x0013cc14, 0x0013cc14},
 	{0x0013cc24, 0x0013cc28},
 	{0x0013cc94, 0x0013cc94},
@@ -648,52 +652,64 @@ const struct nvgpu_pm_resource_register_range ga10b_hwpm_perfmux_register_ranges
 	{0x0013cb94, 0x0013cb94},
 };
 
-const struct nvgpu_pm_resource_register_range ga10b_cau_register_ranges[] = {
-	{0x00504180, 0x005041b8},
-	{0x005041c0, 0x005041e8},
-	{0x005041f0, 0x005041f8},
-	{0x00504980, 0x005049b8},
-	{0x005049c0, 0x005049e8},
-	{0x005049f0, 0x005049f8},
-	{0x00505180, 0x005051b8},
-	{0x005051c0, 0x005051e8},
-	{0x005051f0, 0x005051f8},
-	{0x00505980, 0x005059b8},
-	{0x005059c0, 0x005059e8},
-	{0x005059f0, 0x005059f8},
-	{0x0050c180, 0x0050c1b8},
-	{0x0050c1c0, 0x0050c1e8},
-	{0x0050c1f0, 0x0050c1f8},
-	{0x0050c980, 0x0050c9b8},
-	{0x0050c9c0, 0x0050c9e8},
-	{0x0050c9f0, 0x0050c9f8},
-	{0x0050d180, 0x0050d1b8},
-	{0x0050d1c0, 0x0050d1e8},
-	{0x0050d1f0, 0x0050d1f8},
-	{0x0050d980, 0x0050d9b8},
-	{0x0050d9c0, 0x0050d9e8},
-	{0x0050d9f0, 0x0050d9f8},
-	{0x00419980, 0x004199b8},
-	{0x004199c0, 0x004199e8},
-	{0x004199f0, 0x004199f8},
-	{0x0041c180, 0x0041c1b8},
-	{0x0041c1c0, 0x0041c1e8},
-	{0x0041c1f0, 0x0041c1f8},
-	{0x0041c980, 0x0041c9b8},
-	{0x0041c9c0, 0x0041c9e8},
-	{0x0041c9f0, 0x0041c9f8},
-	{0x0041d180, 0x0041d1b8},
-	{0x0041d1c0, 0x0041d1e8},
-	{0x0041d1f0, 0x0041d1f8},
-	{0x0041d980, 0x0041d9b8},
-	{0x0041d9c0, 0x0041d9e8},
-	{0x0041d9f0, 0x0041d9f8},
-	{0x00501980, 0x005019b8},
-	{0x005019c0, 0x005019e8},
-	{0x005019f0, 0x005019f8},
-	{0x00509980, 0x005099b8},
-	{0x005099c0, 0x005099e8},
-	{0x005099f0, 0x005099f8},
+static const struct nvgpu_pm_resource_register_range ga10b_hwpm_pc_sampler_register_ranges[] = {
+	{0x005043dc, 0x005043dc},
+	{0x00504bdc, 0x00504bdc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x00504bdc, 0x00504bdc},
+	{0x005053dc, 0x005053dc},
+	{0x00505bdc, 0x00505bdc},
+	{0x005063dc, 0x005063dc},
+	{0x00419bdc, 0x00419bdc},
+};
+
+static const struct nvgpu_pm_resource_register_range ga10b_cau_register_ranges[] = {
+	{0x00504180, 0x005041ac},
+	{0x005041b4, 0x005041e8},
+	{0x005041f4, 0x005041fc},
+	{0x00504980, 0x005049ac},
+	{0x005049b4, 0x005049e8},
+	{0x005049f4, 0x005049fc},
+	{0x00505180, 0x005051ac},
+	{0x005051b4, 0x005051e8},
+	{0x005051f4, 0x005051fc},
+	{0x00505980, 0x005059ac},
+	{0x005059b4, 0x005059e8},
+	{0x005059f4, 0x005059fc},
+	{0x0050c180, 0x0050c1ac},
+	{0x0050c1b4, 0x0050c1e8},
+	{0x0050c1f4, 0x0050c1fc},
+	{0x0050c980, 0x0050c9ac},
+	{0x0050c9b4, 0x0050c9e8},
+	{0x0050c9f4, 0x0050c9fc},
+	{0x0050d180, 0x0050d1ac},
+	{0x0050d1b4, 0x0050d1e8},
+	{0x0050d1f4, 0x0050d1fc},
+	{0x0050d980, 0x0050d9ac},
+	{0x0050d9b4, 0x0050d9e8},
+	{0x0050d9f4, 0x0050d9fc},
+	{0x00419980, 0x004199ac},
+	{0x004199b4, 0x004199e8},
+	{0x004199f4, 0x004199fc},
+	{0x0041c180, 0x0041c1ac},
+	{0x0041c1b4, 0x0041c1e8},
+	{0x0041c1f4, 0x0041c1fc},
+	{0x0041c980, 0x0041c9ac},
+	{0x0041c9b4, 0x0041c9e8},
+	{0x0041c9f4, 0x0041c9fc},
+	{0x0041d180, 0x0041d1ac},
+	{0x0041d1b4, 0x0041d1e8},
+	{0x0041d1f4, 0x0041d1fc},
+	{0x0041d980, 0x0041d9ac},
+	{0x0041d9b4, 0x0041d9e8},
+	{0x0041d9f4, 0x0041d9fc},
+	{0x00501980, 0x005019ac},
+	{0x005019b4, 0x005019e8},
+	{0x005019f4, 0x005019fc},
+	{0x00509980, 0x005099ac},
+	{0x005099b4, 0x005099e8},
+	{0x005099f4, 0x005099fc},
 };
 
 u32 ga10b_get_hwpm_perfmon_register_stride(void)
@@ -814,6 +830,14 @@ const struct nvgpu_pm_resource_register_range
 	*count = (u32)(sizeof(ga10b_hwpm_perfmux_register_ranges) /
 		sizeof(ga10b_hwpm_perfmux_register_ranges[0]));
 	return ga10b_hwpm_perfmux_register_ranges;
+}
+
+const struct nvgpu_pm_resource_register_range
+		*ga10b_get_hwpm_pc_sampler_register_ranges(u32 *count)
+{
+	*count = (u32)(sizeof(ga10b_hwpm_pc_sampler_register_ranges) /
+		sizeof(ga10b_hwpm_pc_sampler_register_ranges[0]));
+	return ga10b_hwpm_pc_sampler_register_ranges;
 }
 
 const struct nvgpu_pm_resource_register_range

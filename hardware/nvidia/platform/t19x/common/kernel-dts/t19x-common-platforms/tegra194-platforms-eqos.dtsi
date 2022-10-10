@@ -50,12 +50,8 @@
 
 			phy: phy@0 {
 				reg = <0>;
-#if TEGRA_ETHERNETPHY_DT_VERSION >= DT_VERSION_2
-				/* use phy in poll mode */
-#else
 				interrupt-parent = <&tegra_main_gpio>;
 				interrupts = <TEGRA194_MAIN_GPIO(G, 4) IRQ_TYPE_LEVEL_LOW>;
-#endif
 				marvell,copper-mode;
 				/* Setup LED[2] as interrupt pin (active low) */
 				marvell,reg-init = <0x03 0x12 0x7fff 0x880>;

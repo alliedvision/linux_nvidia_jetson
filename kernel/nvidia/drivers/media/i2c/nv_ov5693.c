@@ -1,7 +1,7 @@
 /*
  * ov5693_v4l2.c - ov5693 sensor driver
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -601,23 +601,32 @@ static int ov5693_fill_string_ctrl(struct tegracam_device *tc_dev,
 				struct v4l2_ctrl *ctrl)
 {
 	struct ov5693 *priv = tc_dev->priv;
-	int i;
+	int i, ret;
 
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_EEPROM_DATA:
-		for (i = 0; i < OV5693_EEPROM_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < OV5693_EEPROM_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->eeprom_buf[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	case TEGRA_CAMERA_CID_OTP_DATA:
-		for (i = 0; i < OV5693_OTP_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < OV5693_OTP_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->otp_buf[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	case TEGRA_CAMERA_CID_FUSE_ID:
-		for (i = 0; i < OV5693_FUSE_ID_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < OV5693_FUSE_ID_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->fuse_id[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -876,6 +885,9 @@ static int ov5693_set_mode(struct tegracam_device *tc_dev)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	int err;
 
+	if (s_data->mode_prop_idx < 0)
+		return -EINVAL;
+
 	err = ov5693_write_table(priv, mode_table[s_data->mode_prop_idx]);
 	if (err)
 		return err;
@@ -1038,7 +1050,9 @@ static int ov5693_debugfs_create(struct ov5693 *priv)
 		dev_err(&client->dev, "devnode not in DT\n");
 		return err;
 	}
-	snprintf(debugfs_dir, sizeof(debugfs_dir), "camera-%s", devnode);
+	err = snprintf(debugfs_dir, sizeof(debugfs_dir), "camera-%s", devnode);
+	if (err < 0)
+		return -EINVAL;
 
 	priv->debugfs_dir = debugfs_create_dir(debugfs_dir, NULL);
 	if (priv->debugfs_dir == NULL)

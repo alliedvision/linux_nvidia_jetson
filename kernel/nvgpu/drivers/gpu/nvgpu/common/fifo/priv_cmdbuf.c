@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/trace.h>
 #include <nvgpu/circ_buf.h>
+#include <nvgpu/string.h>
 
 struct priv_cmd_entry {
 	struct nvgpu_mem *mem;
@@ -313,6 +314,8 @@ void nvgpu_priv_cmdbuf_append_zeros(struct gk20a *g, struct priv_cmd_entry *e,
 void nvgpu_priv_cmdbuf_finish(struct gk20a *g, struct priv_cmd_entry *e,
 		u64 *gva, u32 *size)
 {
+	(void)g;
+
 	/*
 	 * The size is written to the pushbuf entry, so make sure this buffer
 	 * is complete at this point. The responsibility of the channel sync is

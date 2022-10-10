@@ -193,7 +193,7 @@ void kmem_print_mem_alloc(struct gk20a *g,
 			(void *)alloc->stack[i]);
 	__pstat(s, "\n");
 #else
-	__pstat(s, "nvgpu-alloc: addr=0x%llx size=%ld src=%pF\n",
+	__pstat(s, "nvgpu-alloc: addr=0x%llx size=%ld src=%pS\n",
 		alloc->addr, alloc->size, alloc->ip);
 #endif
 }

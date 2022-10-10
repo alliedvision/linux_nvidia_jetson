@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -63,7 +63,6 @@
 #include "hal/netlist/netlist_gv11b.h"
 #include "hal/netlist/netlist_ga10b.h"
 #include "hal/ptimer/ptimer_gv11b.h"
-#include "hal/ptimer/ptimer_ga10b.h"
 #ifdef CONFIG_NVGPU_DEBUGGER
 #include "hal/regops/regops_ga10b.h"
 #include "hal/regops/allowlist_ga10b.h"
@@ -131,6 +130,7 @@
 #include <nvgpu/clk_arb.h>
 #include <nvgpu/grmgr.h>
 #include <nvgpu/perfbuf.h>
+#include <nvgpu/soc.h>
 
 #include "common/vgpu/init/init_vgpu.h"
 #include "common/vgpu/fb/fb_vgpu.h"
@@ -234,7 +234,9 @@ static const struct gops_ltc vgpu_ga10b_ops_ltc = {
 	.determine_L2_size_bytes = vgpu_determine_L2_size_bytes,
 	.init_fs_state = vgpu_ltc_init_fs_state,
 	.flush = NULL,
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 	.set_enabled = NULL,
+#endif
 #ifdef CONFIG_NVGPU_GRAPHICS
 	.set_zbc_s_entry = NULL,
 	.set_zbc_color_entry = NULL,
@@ -270,7 +272,9 @@ static const struct gops_ce vgpu_ga10b_ops_ce = {
 	.ce_app_destroy = NULL,
 #endif
 	.isr_stall = NULL,
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	.isr_nonstall = NULL,
+#endif
 	.get_num_pce = vgpu_ce_get_num_pce,
 };
 
@@ -462,8 +466,8 @@ static const struct gops_gr_intr vgpu_ga10b_ops_gr_intr = {
 static const struct gops_gr vgpu_ga10b_ops_gr = {
 	.gr_init_support = nvgpu_gr_init_support,
 	.gr_suspend = nvgpu_gr_suspend,
-	.vab_init = NULL,
-	.vab_release = NULL,
+	.vab_reserve = NULL,
+	.vab_configure = NULL,
 #ifdef CONFIG_NVGPU_DEBUGGER
 	.set_alpha_circular_buffer_size = NULL,
 	.set_circular_buffer_size = NULL,
@@ -898,6 +902,7 @@ static const struct gops_regops vgpu_ga10b_ops_regops = {
 	.get_hwpm_perfmon_register_ranges = ga10b_get_hwpm_perfmon_register_ranges,
 	.get_hwpm_router_register_ranges = ga10b_get_hwpm_router_register_ranges,
 	.get_hwpm_pma_channel_register_ranges = ga10b_get_hwpm_pma_channel_register_ranges,
+	.get_hwpm_pc_sampler_register_ranges = ga10b_get_hwpm_pc_sampler_register_ranges,
 	.get_hwpm_pma_trigger_register_ranges = ga10b_get_hwpm_pma_trigger_register_ranges,
 	.get_smpc_register_ranges = ga10b_get_smpc_register_ranges,
 	.get_cau_register_ranges = ga10b_get_cau_register_ranges,
@@ -1055,9 +1060,11 @@ static const struct gops_grmgr vgpu_ga10b_ops_grmgr = {
 
 static const struct gops_fb_vab vgpu_ga10b_ops_fb_vab = {
 	.init = NULL,
+	.set_vab_buffer_address = NULL,
 	.reserve = vgpu_fb_vab_reserve,
 	.dump_and_clear = vgpu_fb_vab_dump_and_clear,
 	.release = vgpu_fb_vab_release,
+	.recover = NULL,
 	.teardown = NULL,
 };
 
@@ -1208,8 +1215,19 @@ int vgpu_ga10b_init_hal(struct gk20a *g)
 		priv->constants.max_sm_diversity_config_count;
 
 #ifdef CONFIG_NVGPU_COMPRESSION
-	nvgpu_set_enabled(g, NVGPU_SUPPORT_COMPRESSION, false);
-	nvgpu_set_enabled(g, NVGPU_SUPPORT_POST_L2_COMPRESSION, false);
+	if (nvgpu_platform_is_silicon(g)) {
+		nvgpu_set_enabled(g, NVGPU_SUPPORT_COMPRESSION, true);
+	} else {
+		nvgpu_set_enabled(g, NVGPU_SUPPORT_COMPRESSION, false);
+	}
+
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION)) {
+		nvgpu_set_enabled(g, NVGPU_SUPPORT_POST_L2_COMPRESSION, true);
+	} else {
+		gops->cbc.init = NULL;
+		gops->cbc.ctrl = NULL;
+		gops->cbc.alloc_comptags = NULL;
+	}
 #endif
 
 #ifdef CONFIG_NVGPU_RECOVERY

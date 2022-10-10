@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -79,10 +79,7 @@ void ga10b_falcon_bootstrap(struct nvgpu_falcon *flcn, u32 boot_vector)
 
 void ga10b_falcon_dump_brom_stats(struct nvgpu_falcon *flcn)
 {
-	u32 reg;
-
-	reg = nvgpu_riscv_readl(flcn, priscv_priscv_bcr_ctrl_r());
-	nvgpu_falcon_dbg(flcn->g, "Bootrom Configuration: 0x%08x", reg);
+	u32 reg = 0;
 
 	reg = nvgpu_falcon_readl(flcn, falcon_falcon_hwcfg2_r());
 	nvgpu_falcon_dbg(flcn->g, "HWCFG2: 0x%08x", reg);
@@ -92,6 +89,9 @@ void ga10b_falcon_dump_brom_stats(struct nvgpu_falcon *flcn)
 		nvgpu_falcon_dbg(flcn->g, "PRIV LOCKDOWN enabled");
 	} else {
 		nvgpu_falcon_dbg(flcn->g, "PRIV LOCKDOWN disabled");
+
+		reg = nvgpu_riscv_readl(flcn, priscv_priscv_bcr_ctrl_r());
+		nvgpu_falcon_dbg(flcn->g, "Bootrom Configuration: 0x%08x", reg);
 	}
 
 	reg = nvgpu_riscv_readl(flcn, priscv_priscv_br_retcode_r());

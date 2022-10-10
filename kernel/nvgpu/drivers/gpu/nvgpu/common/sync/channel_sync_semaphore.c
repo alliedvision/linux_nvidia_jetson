@@ -1,7 +1,7 @@
 /*
  * GK20A Channel Synchronization Abstraction
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -95,7 +95,7 @@ static void add_sema_incr_cmd(struct gk20a *g, struct nvgpu_channel *c,
 			 struct nvgpu_semaphore *s, struct priv_cmd_entry *cmd,
 			 bool wfi, struct nvgpu_hw_semaphore *hw_sema)
 {
-	int ch = c->chid;
+	u32 ch = c->chid;
 	u64 va;
 
 	/* release will need to write back to the semaphore memory. */
@@ -105,7 +105,7 @@ static void add_sema_incr_cmd(struct gk20a *g, struct nvgpu_channel *c,
 	nvgpu_semaphore_prepare(s, hw_sema);
 
 	g->ops.sync.sema.add_incr_cmd(g, cmd, s, va, wfi);
-	gpu_sema_verbose_dbg(g, "(R) c=%d INCR %u (%u) pool=%-3llu"
+	gpu_sema_verbose_dbg(g, "(R) c=%u INCR %u (%u) pool=%-3llu"
 			     "va=0x%llx entry=%p",
 			     ch, nvgpu_semaphore_get_value(s),
 			     nvgpu_semaphore_read(s),
@@ -170,6 +170,9 @@ cleanup:
 	struct nvgpu_channel_sync_semaphore *sema =
 		nvgpu_channel_sync_semaphore_from_base(s);
 
+	(void)fd;
+	(void)entry;
+	(void)max_wait_cmds;
 	nvgpu_err(sema->c->g,
 		  "trying to use sync fds with CONFIG_NVGPU_SYNCFD_NONE");
 	return -ENODEV;
@@ -259,6 +262,10 @@ static int channel_sync_semaphore_incr_user(
 	struct nvgpu_channel_sync_semaphore *sema =
 		nvgpu_channel_sync_semaphore_from_base(s);
 
+	(void)entry;
+	(void)fence;
+	(void)wfi;
+	(void)need_sync_fence;
 	nvgpu_err(sema->c->g,
 		  "trying to use sync fds with CONFIG_NVGPU_SYNCFD_NONE");
 	return -ENODEV;
@@ -270,6 +277,8 @@ static void channel_sync_semaphore_mark_progress(struct nvgpu_channel_sync *s,
 {
 	struct nvgpu_channel_sync_semaphore *sp =
 		nvgpu_channel_sync_semaphore_from_base(s);
+
+	(void)register_irq;
 
 	(void)nvgpu_hw_semaphore_update_next(sp->hw_sema);
 	/*

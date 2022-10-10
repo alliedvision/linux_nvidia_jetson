@@ -1,7 +1,7 @@
-From 2f06d3a283bcb5f5d1e25e6a3d96169188e43ca7 Mon Sep 17 00:00:00 2001
+From 342cf4f95c1a9979007d5c8a01f256c9d9ea9549 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:29 +0100
-Subject: [PATCH 040/304] xtensa/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 040/318] xtensa/mm/highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture
 
@@ -12,13 +12,13 @@ Cc: linux-xtensa@linux-xtensa.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/xtensa/Kconfig               |  1 +
- arch/xtensa/include/asm/fixmap.h  |  4 ++--
- arch/xtensa/include/asm/highmem.h | 12 ++++++++--
- arch/xtensa/mm/highmem.c          | 46 +++++----------------------------------
+ arch/xtensa/include/asm/fixmap.h  |  4 +--
+ arch/xtensa/include/asm/highmem.h | 12 ++++++--
+ arch/xtensa/mm/highmem.c          | 46 ++++---------------------------
  4 files changed, 18 insertions(+), 45 deletions(-)
 
 diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
-index 87e08ad..03cbf6b 100644
+index 87e08ad38ea7..03cbf6b53622 100644
 --- a/arch/xtensa/Kconfig
 +++ b/arch/xtensa/Kconfig
 @@ -666,6 +666,7 @@ endchoice
@@ -30,7 +30,7 @@ index 87e08ad..03cbf6b 100644
  	  Linux can use the full amount of RAM in the system by
  	  default. However, the default MMUv2 setup only maps the
 diff --git a/arch/xtensa/include/asm/fixmap.h b/arch/xtensa/include/asm/fixmap.h
-index a06ffb0..92049b6 100644
+index a06ffb0c61c7..92049b61c351 100644
 --- a/arch/xtensa/include/asm/fixmap.h
 +++ b/arch/xtensa/include/asm/fixmap.h
 @@ -16,7 +16,7 @@
@@ -52,7 +52,7 @@ index a06ffb0..92049b6 100644
  	__end_of_fixed_addresses
  };
 diff --git a/arch/xtensa/include/asm/highmem.h b/arch/xtensa/include/asm/highmem.h
-index eac5032..0fc3b1c 100644
+index eac503215f17..0fc3b1cebc56 100644
 --- a/arch/xtensa/include/asm/highmem.h
 +++ b/arch/xtensa/include/asm/highmem.h
 @@ -16,9 +16,8 @@
@@ -83,7 +83,7 @@ index eac5032..0fc3b1c 100644
  
  #endif
 diff --git a/arch/xtensa/mm/highmem.c b/arch/xtensa/mm/highmem.c
-index 673196f..0735ca5 100644
+index 673196fe862e..0735ca5e8f86 100644
 --- a/arch/xtensa/mm/highmem.c
 +++ b/arch/xtensa/mm/highmem.c
 @@ -12,8 +12,6 @@
@@ -161,5 +161,5 @@ index 673196f..0735ca5 100644
  	kmap_waitqueues_init();
  }
 -- 
-2.7.4
+2.17.1
 

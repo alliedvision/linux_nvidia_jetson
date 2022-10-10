@@ -98,6 +98,10 @@
 		no-mmc;
 		nvidia,boot-detect-delay = <1000>;
 		cd-gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 7) 0>;
+		assigned-clocks = <&bpmp TEGRA234_CLK_SDMMC1>,
+				  <&bpmp TEGRA234_CLK_PLLC4_MUXED>;
+		assigned-clock-parents = <&bpmp TEGRA234_CLK_PLLC4_MUXED>,
+					 <&bpmp TEGRA234_CLK_PLLC4_VCO_DIV2>;
 		status = "okay";
 	};
 
@@ -109,6 +113,8 @@
 			reg = <0x08>;
 			interrupt-parent = <&tegra_aon_gpio>;
 			interrupts = <TEGRA234_AON_GPIO(BB, 2) IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "wakeup";
+			wakeup-source;
 			ccg_typec_con0: connector@0 {
 				compatible = "usb-c-connector";
 				label = "USB-C";
@@ -124,6 +130,14 @@
 					};
 				};
 			};
+		};
+
+		ncp_12v_pcie_supply: ncp81599@74 {
+			compatible = "nvidia,ncp81599";
+			reg = <0x74>;
+			regulator-name = "ncp81599";
+			ncp81599-supply = <&p3737_vdd_5v_sys>;
+			status = "disabled";
 		};
 	};
 
@@ -227,7 +241,6 @@
 		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3",
 			"usb3-0", "usb3-1", "usb3-2";
 		nvidia,xusb-padctl = <&xusb_padctl>;
-		nvidia,boost_emc_freq = <500>;
 	};
 
 	spi@3210000{ /* SPI1 in 40 pin conn */
@@ -278,6 +291,14 @@
 		};
 	};
 
+	gte@c1e0000 {
+		status = "okay";
+	};
+
+	gpio@c2f0000 {
+		/delete-property/ use-timestamp;
+	};
+
 	mttcan@c310000 {
 		status = "okay";
 	};
@@ -294,10 +315,6 @@
 		status = "okay";
 		upper-threshold = <0xfffff>;
 		lower-threshold = <0x0>;
-	};
-
-	generic_pwm_tachometer {
-		status = "okay";
 	};
 
 	pwm@3280000 {
@@ -325,5 +342,34 @@
 
 	spi@3300000 {
 		status = "disabled";
+	};
+
+	gpio@2200000 {
+		/* gpio-name for 40-pin header, gpio-name given as COL(10) x ROW(24),
+		   Tegra-GPIO starts from 348 */
+		gpio-line-names = "",   "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "GPIO35",     "",     "",     "",
+		"",     "",     "",     "I2S2_SCLK",     "I2S2_DOUT",     "I2S2_DIN",     "I2S2_FS",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "GPIO27",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "GPIO17",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "MCLK05",     "",     "PWM01",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "SPI1_CLK",     "SPI1_MISO",     "SPI1_MOSI",     "SPI1_CS0_N",     "SPI1_CS1_N",
+		"",     "",     "",     "";
+	};
+
+	gpio@c2f0000 {
+		/* gpio-name for 40-pin header, gpio-name given as COL(10) x ROW(2),
+		   Tegra-AON-GPIO starts from 316 */
+		gpio-line-names = "CAN0_DOUT",   "CAN0_DIN",     "CAN1_DOUT",     "CAN1_DIN",     "",     "",     "",     "",     "GPIO09",     "GPIO08",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "";
 	};
 };

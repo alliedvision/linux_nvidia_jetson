@@ -1,0 +1,36 @@
+From 306ca9bd6b5552eae883e552d76255bc1329dd0a Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 10 Jun 2020 08:20:33 -0700
+Subject: [PATCH 465/830] ANDROID: Incremental fs: Remove unnecessary
+ dependencies
+X-NVConfidentiality: public
+
+Bug: 162260581
+Test: builds with defconfig
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I743fa7a989f5a464f755a22b6a03299fb462e74c
+---
+ fs/incfs/Kconfig | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/fs/incfs/Kconfig b/fs/incfs/Kconfig
+index 1ffe31a9c0ff..8c0e8ae2030f 100644
+--- a/fs/incfs/Kconfig
++++ b/fs/incfs/Kconfig
+@@ -2,13 +2,7 @@ config INCREMENTAL_FS
+ 	tristate "Incremental file system support"
+ 	depends on BLOCK
+ 	select DECOMPRESS_LZ4
+-	select CRC32
+-	select CRYPTO
+-	select CRYPTO_RSA
+ 	select CRYPTO_SHA256
+-	select X509_CERTIFICATE_PARSER
+-	select ASYMMETRIC_KEY_TYPE
+-	select ASYMMETRIC_PUBLIC_KEY_SUBTYPE
+ 	help
+ 	  Incremental FS is a read-only virtual file system that facilitates execution
+ 	  of programs while their binaries are still being lazily downloaded over the
+-- 
+2.17.1
+

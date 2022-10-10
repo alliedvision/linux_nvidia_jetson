@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,7 @@
 #include <nvgpu/cic_mon.h>
 #include <hal/ce/ce_gp10b.h>
 #include <hal/ce/ce_gv11b.h>
-#include <hal/cic/mon/cic_gv11b.h>
+#include <hal/cic/mon/cic_ga10b.h>
 #include <nvgpu/hw/gv11b/hw_ce_gv11b.h>
 
 #include "nvgpu-ce.h"
@@ -128,8 +128,8 @@ int test_ce_setup_env(struct unit_module *m,
 	g->blcg_enabled = false;
 	nvgpu_spinlock_init(&g->mc.intr_lock);
 
-	g->ops.cic_mon.init = gv11b_cic_mon_init;
-	g->ops.cic_mon.report_err = nvgpu_cic_mon_report_err_safety_services;
+	g->ops.cic_mon.init = ga10b_cic_mon_init;
+	g->ops.ce.get_inst_ptr_from_lce = gv11b_ce_get_inst_ptr_from_lce;
 
 	if (nvgpu_cic_mon_setup(g) != 0) {
 		unit_err(m, "%s: failed to initialize CIC\n",
@@ -208,10 +208,11 @@ int test_ce_stall_isr(struct unit_module *m, struct gk20a *g, void *args)
 	g->ops.ce.isr_stall = gv11b_ce_stall_isr;
 	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
 		intr_status_written[inst_id] = 0;
-		intr_val = 0x1f; /* all intr sources */
+		/* all intr sources except launcherr as they are not supported on safety */
+		intr_val = 0x4;
 		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
 						intr_val);
-		g->ops.ce.isr_stall(g, inst_id, 0);
+		nvgpu_ce_stall_isr(g, inst_id, 0);
 		if (intr_status_written[inst_id] != (intr_val &
 				 ~ce_intr_status_nonblockpipe_pending_f())) {
 			ret = UNIT_FAIL;
@@ -224,114 +225,11 @@ int test_ce_stall_isr(struct unit_module *m, struct gk20a *g, void *args)
 		intr_val = 0x0;
 		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
 						intr_val);
-		g->ops.ce.isr_stall(g, inst_id, 0);
+		nvgpu_ce_stall_isr(g, inst_id, 0);
 		if (intr_status_written[inst_id] != intr_val) {
 			ret = UNIT_FAIL;
 			unit_err(m, "intr_status not cleared, only 0x%08x\n",
 				 intr_status_written[inst_id]);
-			goto done;
-		}
-	}
-
-done:
-	return ret;
-}
-
-int test_ce_nonstall_isr(struct unit_module *m, struct gk20a *g, void *args)
-{
-	int ret = UNIT_SUCCESS;
-	int inst_id;
-	u32 intr_val;
-	u32 val;
-
-	g->ops.ce.isr_nonstall = gp10b_ce_nonstall_isr;
-	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
-		intr_status_written[inst_id] = 0;
-		intr_val = 0x1f; /* all intr sources */
-		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
-						intr_val);
-		val = g->ops.ce.isr_nonstall(g, inst_id, 0);
-		if (val != (NVGPU_CIC_NONSTALL_OPS_WAKEUP_SEMAPHORE |
-			    NVGPU_CIC_NONSTALL_OPS_POST_EVENTS)) {
-			ret = UNIT_FAIL;
-			unit_err(m, "incorrect ops returned 0x%08x\n", val);
-			goto done;
-		}
-		if (intr_status_written[inst_id] !=
-				ce_intr_status_nonblockpipe_pending_f()) {
-			ret = UNIT_FAIL;
-			unit_err(m, "intr_status not cleared properly, only 0x%08x\n",
-				 intr_status_written[inst_id]);
-			goto done;
-		}
-
-		intr_status_written[inst_id] = 0;
-		intr_val = 0x0;
-		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
-						intr_val);
-		val = g->ops.ce.isr_nonstall(g, inst_id, 0);
-		if (val != 0U) {
-			ret = UNIT_FAIL;
-			unit_err(m, "incorrect ops returned 0x%08x\n", val);
-			goto done;
-		}
-		if (intr_status_written[inst_id] != intr_val) {
-			ret = UNIT_FAIL;
-			unit_err(m, "intr_status not cleared, only 0x%08x\n",
-				 intr_status_written[inst_id]);
-			goto done;
-		}
-	}
-
-done:
-	return ret;
-}
-
-static u32 mock_get_num_lce(struct gk20a *g)
-{
-	return NUM_INST;
-}
-
-int test_mthd_buffer_fault_in_bar2_fault(struct unit_module *m, struct gk20a *g,
-					void *args)
-{
-	int ret = UNIT_SUCCESS;
-	int inst_id;
-	u32 intr_val;
-
-	g->ops.ce.mthd_buffer_fault_in_bar2_fault =
-				gv11b_ce_mthd_buffer_fault_in_bar2_fault;
-	g->ops.top.get_num_lce = mock_get_num_lce;
-
-	intr_val = 0x1f; /* all intr sources */
-	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
-		intr_status_written[inst_id] = 0;
-		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
-						intr_val);
-	}
-	g->ops.ce.mthd_buffer_fault_in_bar2_fault(g);
-	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
-		if (intr_status_written[inst_id] !=
-			ce_intr_status_mthd_buffer_fault_pending_f()) {
-			ret = UNIT_FAIL;
-			unit_err(m, "intr_status not cleared properly, only 0x%08x\n",
-					intr_status_written[inst_id]);
-			goto done;
-		}
-	}
-
-	intr_val = 0x0;
-	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
-		intr_status_written[inst_id] = 0;
-		nvgpu_posix_io_writel_reg_space(g, ce_intr_status_r(inst_id),
-						intr_val);
-	}
-	g->ops.ce.mthd_buffer_fault_in_bar2_fault(g);
-	for (inst_id = 0; inst_id < NUM_INST; inst_id++) {
-		if (intr_status_written[inst_id] != 0) {
-			ret = UNIT_FAIL;
-			unit_err(m, "intr_status not cleared properly, only 0x%08x\n",
-					intr_status_written[inst_id]);
 			goto done;
 		}
 	}
@@ -384,8 +282,6 @@ struct unit_module_test ce_tests[] = {
 	UNIT_TEST(ce_setup_env,				test_ce_setup_env,		NULL, 0),
 	UNIT_TEST(ce_init_support,			test_ce_init_support,	NULL, 0),
 	UNIT_TEST(ce_stall_isr,				test_ce_stall_isr,	NULL, 0),
-	UNIT_TEST(ce_nonstall_isr,			test_ce_nonstall_isr,	NULL, 0),
-	UNIT_TEST(mthd_buffer_fault_in_bar2_fault,	test_mthd_buffer_fault_in_bar2_fault,	NULL, 0),
 	UNIT_TEST(ce_get_num_pce,			test_get_num_pce,	NULL, 0),
 	UNIT_TEST(ce_init_prod_values,			test_init_prod_values,	NULL, 0),
 	UNIT_TEST(ce_free_env,				test_ce_free_env,		NULL, 0),

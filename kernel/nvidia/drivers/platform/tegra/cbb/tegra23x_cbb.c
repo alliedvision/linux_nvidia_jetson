@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,12 +40,14 @@
 #endif
 #include <linux/platform/tegra/tegra_cbb.h>
 #include <linux/platform/tegra/tegra23x_cbb.h>
+#include <linux/platform/tegra/tegra239_cbb.h>
 #include <linux/platform/tegra/tegra23x_cbb_reg.h>
 
 #define get_mstr_id(userbits) get_em_el_subfield(errmon->user_bits, 29, 24)
 
 #define DONOT_CLR_TIMEDOUT_SLAVE_BIT
 #define MAX_TMO_CLR_RETRY 2
+#define FABRIC_NAME_LEN 10
 
 static LIST_HEAD(cbb_errmon_list);
 static DEFINE_SPINLOCK(cbb_errmon_lock);
@@ -172,6 +174,7 @@ static void tegra234_cbb_lookup_apbslv
 	unsigned int reset_client, client_id;
 	char slv_name[40];
 	int block_num = 0;
+	int ret = 0;
 
 	tmo_status = tegra234_cbb_get_tmo_slv((void __iomem *)addr);
 	if (tmo_status)
@@ -191,14 +194,15 @@ static void tegra234_cbb_lookup_apbslv
 				while (blockno_tmo_status) {
 					if (blockno_tmo_status & 0x1) {
 						if (reset_client != 0xffffffff)
-							reset_client &=
-								client_id;
-						sprintf(slv_name,
-							"%s_BLOCK%d_TMO",
-							slave_name, block_num);
+							reset_client &= client_id;
+						ret = sprintf(slv_name, "%s_BLOCK%d_TMO",
+							      slave_name, block_num);
+						if (ret < 0) {
+							pr_err("%s: sprintf failed\n", __func__);
+							return;
+						}
 						tegra234_cbb_reset_tmo_slv
-						(file, slv_name,
-						 (void __iomem *)addr,
+						(file, slv_name, (void __iomem *)addr,
 						 reset_client);
 					}
 					blockno_tmo_status >>= 1;
@@ -237,7 +241,7 @@ static void tegra234_lookup_slave_timeout(struct seq_file *file, u8 slave_id,
 	 *	e) Goto step-a till all bits are set.
 	 */
 
-	addr = (u64)base_addr + sn_lookup[i].off_slave;
+	addr = (__force u64)base_addr + sn_lookup[i].off_slave;
 
 	if (strstr(sn_lookup[i].slave_name, "AXI2APB")) {
 
@@ -291,7 +295,7 @@ static void print_errlog_err(struct seq_file *file,
 	u8 beat_size = 0, access_type = 0, access_id = 0;
 	u8 mstr_id = 0, grpsec = 0, vqc = 0, falconsec = 0;
 	u8 slave_id = 0, fab_id = 0, burst_type = 0;
-	char fabric_name[10];
+	char fabric_name[FABRIC_NAME_LEN];
 
 	cache_type = get_em_el_subfield(errmon->attr0, 27, 24);
 	prot_type = get_em_el_subfield(errmon->attr0, 22, 20);
@@ -315,8 +319,8 @@ static void print_errlog_err(struct seq_file *file,
 
 	print_cbb_err(file, "\t  MASTER_ID\t\t: %s\n",
 					errmon->tegra_cbb_master_id[mstr_id]);
-	print_cbb_err(file, "\t  Address\t\t: 0x%llx\n",
-					(u64)errmon->addr_access);
+	print_cbb_err(file, "\t  Address\t\t: %px\n",
+					errmon->addr_access);
 
 	print_cache(file, cache_type);
 	print_prot(file, prot_type);
@@ -329,7 +333,7 @@ static void print_errlog_err(struct seq_file *file,
 	else if (fab_id == FSI_FAB_ID)
 		strcpy(fabric_name, "FSI");
 	else
-		strcpy(fabric_name, fabric_sn_map[fab_id].fab_name);
+		strncpy(fabric_name, fabric_sn_map[fab_id].fab_name, FABRIC_NAME_LEN - 1);
 
 	print_cbb_err(file, "\t  Fabric\t\t: %s\n", fabric_name);
 	print_cbb_err(file, "\t  Slave_Id\t\t: 0x%x\n", slave_id);
@@ -620,6 +624,11 @@ static struct tegra_cbb_noc_data tegra239_cbb_en_data = {
 	.tegra_cbb_noc_set_erd = tegra234_cbb_mn_mask_erd
 };
 
+static struct tegra_cbb_noc_data tegra239_ape_en_data = {
+	.name   = "APE-EN",
+	.is_clk_rst = false,
+	.erd_mask_inband_err = false
+};
 static struct tegra_cbb_noc_data tegra234_aon_en_data = {
 	.name   = "AON-EN",
 	.is_clk_rst = false,
@@ -673,6 +682,8 @@ static const struct of_device_id tegra234_cbb_match[] = {
 		.data = &tegra234_sce_en_data},
 	{.compatible    = "nvidia,tegra239-CBB-EN",
 		.data = &tegra239_cbb_en_data},
+	{.compatible    = "nvidia,tegra239-APE-EN",
+		.data = &tegra239_ape_en_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, tegra234_cbb_match);
@@ -685,7 +696,10 @@ static int tegra234_cbb_errmon_set_data(struct tegra_cbb_errmon_record *errmon)
 	if (!strcmp(errmon->name, "CBB-EN")) {
 		fabric_sn_map[CBB_FAB_ID].fab_name = "CBB";
 		fabric_sn_map[CBB_FAB_ID].fab_base_vaddr = errmon->vaddr;
-		fabric_sn_map[CBB_FAB_ID].sn_lookup = tegra23x_cbb_sn_lookup;
+		if (of_machine_is_compatible("nvidia,tegra239"))
+			fabric_sn_map[CBB_FAB_ID].sn_lookup = tegra239_cbb_sn_lookup;
+		else
+			fabric_sn_map[CBB_FAB_ID].sn_lookup = tegra23x_cbb_sn_lookup;
 	} else if (!strcmp(errmon->name, "SCE-EN")) {
 		fabric_sn_map[SCE_FAB_ID].fab_name = "SCE";
 		fabric_sn_map[SCE_FAB_ID].fab_base_vaddr = errmon->vaddr;
@@ -706,6 +720,10 @@ static int tegra234_cbb_errmon_set_data(struct tegra_cbb_errmon_record *errmon)
 		fabric_sn_map[BPMP_FAB_ID].fab_name = "BPMP";
 		fabric_sn_map[BPMP_FAB_ID].fab_base_vaddr = errmon->vaddr;
 		fabric_sn_map[BPMP_FAB_ID].sn_lookup = tegra23x_bpmp_sn_lookup;
+	} else if (!strcmp(errmon->name, "APE-EN")) {
+		fabric_sn_map[APE_FAB_ID].fab_name = "APE";
+		fabric_sn_map[APE_FAB_ID].fab_base_vaddr = errmon->vaddr;
+		fabric_sn_map[APE_FAB_ID].sn_lookup = tegra239_ape_sn_lookup;
 	} else
 		return -EINVAL;
 
@@ -779,8 +797,8 @@ static int tegra234_cbb_errmon_init(struct platform_device *pdev,
 
 	cbb_init_data->secure_irq = errmon->errmon_secure_irq;
 	cbb_init_data->nonsecure_irq = errmon->errmon_nonsecure_irq;
-	cbb_init_data->vaddr = errmon->vaddr+errmon->err_notifier_base;
-	cbb_init_data->addr_mask_erd = (u64)(errmon->vaddr)
+	cbb_init_data->vaddr = errmon->vaddr + (__force u64)(errmon->err_notifier_base);
+	cbb_init_data->addr_mask_erd = (__force u64)(errmon->vaddr)
 						+ bdata->off_mask_erd;
 
 	platform_set_drvdata(pdev, errmon);
@@ -800,7 +818,8 @@ static int tegra234_cbb_probe(struct platform_device *pdev)
 	int err = 0;
 
 	if (!of_machine_is_compatible("nvidia,tegra23x") &&
-	    !of_machine_is_compatible("nvidia,tegra234")) {
+	    !of_machine_is_compatible("nvidia,tegra234") &&
+	    !of_machine_is_compatible("nvidia,tegra239")) {
 		dev_err(&pdev->dev, "Wrong SOC\n");
 		return -EINVAL;
 	}

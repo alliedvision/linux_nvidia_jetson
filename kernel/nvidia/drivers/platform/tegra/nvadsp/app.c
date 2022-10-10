@@ -3,7 +3,7 @@
  *
  * ADSP OS App management
  *
- * Copyright (C) 2014-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -425,8 +425,13 @@ static int create_instance_memory(nvadsp_app_info_t *app,
 	char name[NVADSP_NAME_SZ];
 	void *aram_handle;
 	dma_addr_t da;
+	int ret;
 
-	snprintf(name, NVADSP_NAME_SZ, "%s:%d", app->name, app->instance_id);
+	ret = snprintf(name, NVADSP_NAME_SZ, "%s:%d", app->name, app->instance_id);
+	if (ret < 0 || ret >= NVADSP_NAME_SZ) {
+		dev_err(dev, "Invalid App name %s\n", app->name);
+		return -EINVAL;
+	}
 
 	if (sz->dram) {
 		mem->dram = nvadsp_alloc_coherent(sz->dram, &da, GFP_KERNEL);

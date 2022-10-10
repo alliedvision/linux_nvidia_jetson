@@ -1,7 +1,7 @@
-From 45faebf1d1d64b535f8574cbfb17821821904f0c Mon Sep 17 00:00:00 2001
+From a7656f8bd62d076373fbc5991488f295f914dd5f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:11:19 +0200
-Subject: [PATCH 172/304] locking/rtmutex: add sleeping lock implementation
+Subject: [PATCH 172/318] locking/rtmutex: add sleeping lock implementation
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -11,19 +11,19 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  include/linux/rtmutex.h           |  19 +-
  include/linux/sched.h             |   7 +
  include/linux/sched/wake_q.h      |  13 +-
- include/linux/spinlock_rt.h       | 155 +++++++++++++
- include/linux/spinlock_types_rt.h |  38 ++++
+ include/linux/spinlock_rt.h       | 155 +++++++++++
+ include/linux/spinlock_types_rt.h |  38 +++
  kernel/fork.c                     |   1 +
  kernel/futex.c                    |  10 +-
- kernel/locking/rtmutex.c          | 444 ++++++++++++++++++++++++++++++++++----
+ kernel/locking/rtmutex.c          | 444 +++++++++++++++++++++++++++---
  kernel/locking/rtmutex_common.h   |  14 +-
- kernel/sched/core.c               |  39 +++-
+ kernel/sched/core.c               |  39 ++-
  12 files changed, 694 insertions(+), 55 deletions(-)
  create mode 100644 include/linux/spinlock_rt.h
  create mode 100644 include/linux/spinlock_types_rt.h
 
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 665837f..2cff755 100644
+index 665837f9a831..2cff7554395d 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
 @@ -220,6 +220,10 @@ extern void __cant_migrate(const char *file, int line);
@@ -46,7 +46,7 @@ index 665837f..2cff755 100644
  # define cant_migrate()		do { } while (0)
  # define sched_annotate_sleep() do { } while (0)
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 9881eac..4d244e2 100644
+index 9881eac0698f..4d244e295e85 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -121,7 +121,11 @@
@@ -62,7 +62,7 @@ index 9881eac..4d244e2 100644
  /*
   * The preempt_count offset needed for things like:
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index b828b93..b02009f 100644
+index b828b938c876..b02009f53026 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -19,6 +19,10 @@
@@ -108,7 +108,7 @@ index b828b93..b02009f 100644
  #define DEFINE_RT_MUTEX(mutexname) \
  	struct rt_mutex mutexname = __RT_MUTEX_INITIALIZER(mutexname)
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index f8d30d5..091e439 100644
+index 69a650845970..55acf9182c6b 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -141,6 +141,9 @@ struct io_uring_task;
@@ -140,7 +140,7 @@ index f8d30d5..091e439 100644
  #ifdef CONFIG_RT_MUTEXES
  	/* PI waiters blocked on a rt_mutex held by this task: */
 diff --git a/include/linux/sched/wake_q.h b/include/linux/sched/wake_q.h
-index 26a2013..6e2dff7 100644
+index 26a2013ac39c..6e2dff721547 100644
 --- a/include/linux/sched/wake_q.h
 +++ b/include/linux/sched/wake_q.h
 @@ -58,6 +58,17 @@ static inline bool wake_q_empty(struct wake_q_head *head)
@@ -164,7 +164,7 @@ index 26a2013..6e2dff7 100644
  #endif /* _LINUX_SCHED_WAKE_Q_H */
 diff --git a/include/linux/spinlock_rt.h b/include/linux/spinlock_rt.h
 new file mode 100644
-index 00000000..3085132
+index 000000000000..3085132eae38
 --- /dev/null
 +++ b/include/linux/spinlock_rt.h
 @@ -0,0 +1,155 @@
@@ -325,7 +325,7 @@ index 00000000..3085132
 +#endif
 diff --git a/include/linux/spinlock_types_rt.h b/include/linux/spinlock_types_rt.h
 new file mode 100644
-index 00000000..446da78
+index 000000000000..446da786e5d5
 --- /dev/null
 +++ b/include/linux/spinlock_types_rt.h
 @@ -0,0 +1,38 @@
@@ -368,7 +368,7 @@ index 00000000..446da78
 +
 +#endif
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 32dfa3c..9efcb11 100644
+index 89767c29ab3d..6cd01fe5a193 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -927,6 +927,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
@@ -380,7 +380,7 @@ index 32dfa3c..9efcb11 100644
  	account_kernel_stack(tsk, 1);
  
 diff --git a/kernel/futex.c b/kernel/futex.c
-index c2fe58c..b2b275b 100644
+index c2fe58c34409..b2b275bc1958 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -1498,6 +1498,7 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_pi_state *pi_
@@ -428,7 +428,7 @@ index c2fe58c..b2b275b 100644
  	ret = get_futex_key(uaddr2, flags & FLAGS_SHARED, &key2, FUTEX_WRITE);
  	if (unlikely(ret != 0))
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index e59243a..7a38472 100644
+index 40ae934c6caa..35cdbbb5daa9 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -8,6 +8,11 @@
@@ -928,7 +928,7 @@ index e59243a..7a38472 100644
  	return true; /* call rt_mutex_postunlock() */
 @@ -1447,9 +1772,11 @@ rt_mutex_fasttrylock(struct rt_mutex *lock,
  /*
-  * Performs the wakeup of the the top-waiter and re-enables preemption.
+  * Performs the wakeup of the top-waiter and re-enables preemption.
   */
 -void rt_mutex_postunlock(struct wake_q_head *wake_q)
 +void rt_mutex_postunlock(struct wake_q_head *wake_q,
@@ -1092,7 +1092,7 @@ index e59243a..7a38472 100644
  
  	return ret;
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index 9d1e974..c1a2801 100644
+index 9d1e974ca9c3..c1a280167e3c 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -31,6 +31,7 @@ struct rt_mutex_waiter {
@@ -1139,7 +1139,7 @@ index 9d1e974..c1a2801 100644
  #ifdef CONFIG_DEBUG_RT_MUTEXES
  # include "rtmutex-debug.h"
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 53200f8..7232d05 100644
+index b4906c4727b4..1c1fa2c24ae6 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -510,9 +510,15 @@ static bool set_nr_if_polling(struct task_struct *p)
@@ -1221,5 +1221,5 @@ index 53200f8..7232d05 100644
  	}
  }
 -- 
-2.7.4
+2.17.1
 

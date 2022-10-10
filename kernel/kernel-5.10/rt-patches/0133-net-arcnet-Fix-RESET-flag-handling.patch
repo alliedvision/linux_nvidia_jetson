@@ -1,7 +1,7 @@
-From 42b7107154fbfc087c2fcf4afc84c461cce6277f Mon Sep 17 00:00:00 2001
+From c875017358ae330af7c97bbed678d25ce804a5f6 Mon Sep 17 00:00:00 2001
 From: "Ahmed S. Darwish" <a.darwish@linutronix.de>
 Date: Thu, 28 Jan 2021 20:48:02 +0100
-Subject: [PATCH 133/304] net: arcnet: Fix RESET flag handling
+Subject: [PATCH 133/318] net: arcnet: Fix RESET flag handling
 
 The main arcnet interrupt handler calls arcnet_close() then
 arcnet_open(), if the RESET status flag is encountered.
@@ -33,18 +33,18 @@ Link: https://lore.kernel.org/r/20210128194802.727770-1-a.darwish@linutronix.de
 Signed-off-by: Jakub Kicinski <kuba@kernel.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/net/arcnet/arc-rimi.c     |  4 +--
- drivers/net/arcnet/arcdevice.h    |  6 ++++
- drivers/net/arcnet/arcnet.c       | 66 ++++++++++++++++++++++++++++++++++++---
- drivers/net/arcnet/com20020-isa.c |  4 +--
+ drivers/net/arcnet/arc-rimi.c     |  4 +-
+ drivers/net/arcnet/arcdevice.h    |  6 +++
+ drivers/net/arcnet/arcnet.c       | 66 +++++++++++++++++++++++++++++--
+ drivers/net/arcnet/com20020-isa.c |  4 +-
  drivers/net/arcnet/com20020-pci.c |  2 +-
  drivers/net/arcnet/com20020_cs.c  |  2 +-
- drivers/net/arcnet/com90io.c      |  4 +--
- drivers/net/arcnet/com90xx.c      |  4 +--
+ drivers/net/arcnet/com90io.c      |  4 +-
+ drivers/net/arcnet/com90xx.c      |  4 +-
  8 files changed, 78 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/arcnet/arc-rimi.c b/drivers/net/arcnet/arc-rimi.c
-index 98df38f..12d0854 100644
+index 98df38fe553c..12d085405bd0 100644
 --- a/drivers/net/arcnet/arc-rimi.c
 +++ b/drivers/net/arcnet/arc-rimi.c
 @@ -332,7 +332,7 @@ static int __init arc_rimi_init(void)
@@ -66,7 +66,7 @@ index 98df38f..12d0854 100644
  
  #ifndef MODULE
 diff --git a/drivers/net/arcnet/arcdevice.h b/drivers/net/arcnet/arcdevice.h
-index 22a49c6..5d4a4c7 100644
+index 22a49c6d7ae6..5d4a4c7efbbf 100644
 --- a/drivers/net/arcnet/arcdevice.h
 +++ b/drivers/net/arcnet/arcdevice.h
 @@ -298,6 +298,10 @@ struct arcnet_local {
@@ -91,7 +91,7 @@ index 22a49c6..5d4a4c7 100644
  int arcnet_open(struct net_device *dev);
  int arcnet_close(struct net_device *dev);
 diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index e04efc0..d76dd7d 100644
+index e04efc0a5c97..d76dd7d14299 100644
 --- a/drivers/net/arcnet/arcnet.c
 +++ b/drivers/net/arcnet/arcnet.c
 @@ -387,10 +387,44 @@ static void arcnet_timer(struct timer_list *t)
@@ -214,7 +214,7 @@ index e04efc0..d76dd7d 100644
  	return retval;
  }
 diff --git a/drivers/net/arcnet/com20020-isa.c b/drivers/net/arcnet/com20020-isa.c
-index f983c4c..be618e4 100644
+index f983c4ce6b07..be618e4b9ed5 100644
 --- a/drivers/net/arcnet/com20020-isa.c
 +++ b/drivers/net/arcnet/com20020-isa.c
 @@ -169,7 +169,7 @@ static int __init com20020_init(void)
@@ -236,10 +236,10 @@ index f983c4c..be618e4 100644
  
  #ifndef MODULE
 diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
-index eb7f767..8bdc44b 100644
+index 9f44e2e458df..b4f8798d8c50 100644
 --- a/drivers/net/arcnet/com20020-pci.c
 +++ b/drivers/net/arcnet/com20020-pci.c
-@@ -291,7 +291,7 @@ static void com20020pci_remove(struct pci_dev *pdev)
+@@ -294,7 +294,7 @@ static void com20020pci_remove(struct pci_dev *pdev)
  
  		unregister_netdev(dev);
  		free_irq(dev->irq, dev);
@@ -249,7 +249,7 @@ index eb7f767..8bdc44b 100644
  }
  
 diff --git a/drivers/net/arcnet/com20020_cs.c b/drivers/net/arcnet/com20020_cs.c
-index cf607ff..9cc5eb6 100644
+index cf607ffcf358..9cc5eb6a8e90 100644
 --- a/drivers/net/arcnet/com20020_cs.c
 +++ b/drivers/net/arcnet/com20020_cs.c
 @@ -177,7 +177,7 @@ static void com20020_detach(struct pcmcia_device *link)
@@ -262,7 +262,7 @@ index cf607ff..9cc5eb6 100644
  		dev_dbg(&link->dev, "kfree2...\n");
  		kfree(info);
 diff --git a/drivers/net/arcnet/com90io.c b/drivers/net/arcnet/com90io.c
-index cf214b7..3856b44 100644
+index cf214b730671..3856b447d38e 100644
 --- a/drivers/net/arcnet/com90io.c
 +++ b/drivers/net/arcnet/com90io.c
 @@ -396,7 +396,7 @@ static int __init com90io_init(void)
@@ -284,7 +284,7 @@ index cf214b7..3856b44 100644
  
  module_init(com90io_init)
 diff --git a/drivers/net/arcnet/com90xx.c b/drivers/net/arcnet/com90xx.c
-index 3dc3d53..d8dfb9e 100644
+index 3dc3d533cb19..d8dfb9ea0de8 100644
 --- a/drivers/net/arcnet/com90xx.c
 +++ b/drivers/net/arcnet/com90xx.c
 @@ -554,7 +554,7 @@ static int __init com90xx_found(int ioaddr, int airq, u_long shmem,
@@ -306,5 +306,5 @@ index 3dc3d53..d8dfb9e 100644
  }
  
 -- 
-2.7.4
+2.17.1
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * mods_krnl.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -46,7 +46,7 @@
  ***********************************************************************/
 static int mods_krnl_open(struct inode *, struct file *);
 static int mods_krnl_close(struct inode *, struct file *);
-static unsigned int mods_krnl_poll(struct file *, poll_table *);
+static POLL_TYPE mods_krnl_poll(struct file *, poll_table *);
 static int mods_krnl_mmap(struct file *, struct vm_area_struct *);
 static long mods_krnl_ioctl(struct file *, unsigned int, unsigned long);
 
@@ -65,7 +65,7 @@ static const struct file_operations mods_fops = {
 
 #define DEVICE_NAME "mods"
 
-struct miscdevice mods_dev = {
+static struct miscdevice mods_dev = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name  = DEVICE_NAME,
 	.fops  = &mods_fops
@@ -77,7 +77,7 @@ static pci_ers_result_t mods_pci_error_detected(struct pci_dev *,
 static pci_ers_result_t mods_pci_mmio_enabled(struct pci_dev *);
 static void mods_pci_resume(struct pci_dev *);
 
-struct pci_error_handlers mods_pci_error_handlers = {
+static struct pci_error_handlers mods_pci_error_handlers = {
 	.error_detected	= mods_pci_error_detected,
 	.mmio_enabled	= mods_pci_mmio_enabled,
 	.resume		= mods_pci_resume,
@@ -100,6 +100,14 @@ static const struct pci_device_id mods_pci_table[] = {
 		.class		= (PCI_CLASS_DISPLAY_3D << 8),
 		.class_mask	= ~0
 	},
+	{
+		.vendor		= PCI_VENDOR_ID_NVIDIA,
+		.device		= PCI_ANY_ID,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.class		= (PCI_CLASS_BRIDGE_OTHER << 8),
+		.class_mask	= ~0
+	},
 	{ 0 }
 };
 
@@ -120,7 +128,7 @@ static int mods_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 static int mods_pci_sriov_configure(struct pci_dev *dev, int numvfs);
 #endif
 
-struct pci_driver mods_pci_driver = {
+static struct pci_driver mods_pci_driver = {
 	.name            = DEVICE_NAME,
 	.id_table        = mods_pci_table,
 	.probe           = mods_pci_probe,
@@ -459,6 +467,10 @@ static int __init mods_init_module(void)
 
 	/* tegra prod */
 	mods_tegra_prod_init(&mods_dev);
+
+#if defined(CONFIG_DMA_ENGINE)
+	mods_init_dma();
+#endif
 #endif
 
 	mods_info_printk("*** WARNING: DIAGNOSTIC DRIVER LOADED ***\n");
@@ -484,6 +496,9 @@ static void __exit mods_exit_module(void)
 	mods_cleanup_irq();
 
 #if defined(MODS_HAS_TEGRA)
+#if defined(CONFIG_DMA_ENGINE)
+	mods_exit_dma();
+#endif
 	smmu_driver_exit();
 #endif
 
@@ -1045,18 +1060,18 @@ static int mods_krnl_close(struct inode *ip, struct file *fp)
 	return final_err;
 }
 
-static unsigned int mods_krnl_poll(struct file *fp, poll_table *wait)
+static POLL_TYPE mods_krnl_poll(struct file *fp, poll_table *wait)
 {
-	unsigned int mask = 0;
 	struct mods_client *client = fp->private_data;
-	int err;
+	POLL_TYPE           mask   = 0;
+	int                 err;
 
 	if (!validate_client(client))
-		return -EINVAL;
+		return POLLERR;
 
 	err = mods_check_access_token(client);
 	if (err < 0)
-		return err;
+		return POLLERR;
 
 	if (!(fp->f_flags & O_NONBLOCK)) {
 		cl_debug(DEBUG_ISR_DETAILED, "poll wait\n");
@@ -1697,6 +1712,7 @@ static int esc_mods_write_sysfs_node(struct mods_client     *client,
 	memcpy(pdata->path, "/sys/", 5);
 	pdata->path[sizeof(pdata->path) - 1] = 0;
 
+	memset(&task, 0, sizeof(task));
 	task.path      = pdata->path;
 	task.data      = pdata->contents;
 	task.data_size = pdata->size;
@@ -1724,12 +1740,19 @@ static int esc_mods_sysctl_write_int(struct mods_client     *client,
 	data_size = snprintf(data, sizeof(data),
 			     "%lld", (long long)pdata->value);
 
+	if (unlikely(data_size < 0)) {
+		err = data_size;
+		goto error;
+	}
+
+	memset(&task, 0, sizeof(task));
 	task.path      = pdata->path;
 	task.data      = data;
 	task.data_size = data_size;
 
 	err = run_write_task(client, &task);
 
+error:
 	LOG_EXT();
 	return err;
 }
@@ -1788,7 +1811,7 @@ static long mods_krnl_ioctl(struct file  *fp,
 {
 	int                 err      = 0;
 	void               *arg_copy = NULL;
-	void               *arg      = (void *)i_arg;
+	void        __user *arg      = (void __user *)i_arg;
 	struct mods_client *client   = fp->private_data;
 	int                 arg_size;
 	char                buf[64];
@@ -2244,6 +2267,10 @@ static long mods_krnl_ioctl(struct file  *fp,
 			   esc_mods_acpi_get_ddc_2, MODS_ACPI_GET_DDC_2);
 		break;
 
+	case MODS_ESC_GET_ACPI_DEV_CHILDREN:
+		MODS_IOCTL(MODS_ESC_GET_ACPI_DEV_CHILDREN,
+			   esc_mods_get_acpi_dev_children, MODS_GET_ACPI_DEV_CHILDREN);
+		break;
 #else
 	case MODS_ESC_EVAL_ACPI_METHOD:
 		/* fallthrough */
@@ -2256,6 +2283,8 @@ static long mods_krnl_ioctl(struct file  *fp,
 	case MODS_ESC_ACPI_GET_DDC:
 		/* fallthrough */
 	case MODS_ESC_ACPI_GET_DDC_2:
+		/* fallthrough */
+	case MODS_ESC_GET_ACPI_DEV_CHILDREN:
 		/* Silent failure to avoid clogging kernel log */
 		err = -EINVAL;
 		break;
@@ -2542,9 +2571,16 @@ static long mods_krnl_ioctl(struct file  *fp,
 			   MODS_TEGRA_PROD_ITERATOR);
 		break;
 
+#ifdef CONFIG_TRUSTY
 	case MODS_ESC_SEND_TZ_MSG:
 		MODS_IOCTL(MODS_ESC_SEND_TZ_MSG,
 			esc_mods_send_trustzone_msg, MODS_TZ_PARAMS);
+		break;
+#endif
+
+	case MODS_ESC_OIST_STATUS:
+		MODS_IOCTL(MODS_ESC_OIST_STATUS,
+			   esc_mods_oist_status, MODS_TEGRA_OIST_STATUS);
 		break;
 #endif
 

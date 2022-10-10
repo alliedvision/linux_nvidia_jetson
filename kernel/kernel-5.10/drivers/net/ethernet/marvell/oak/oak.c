@@ -24,6 +24,7 @@ static struct pci_device_id oak_pci_tbl[] = {
     {PCI_DEVICE(0x11AB, 0xABCD)}, /* FPGA board */
     {PCI_DEVICE(0x11AB, 0x0f13)},
     {PCI_DEVICE(0x11AB, 0x0a72)}, /* Oak */
+    {0,} /* Terminate the table */
 };
 #if CONFIG_PM_SLEEP
 /* Device Power Management (DPM) support */

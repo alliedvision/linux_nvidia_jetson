@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -418,6 +418,8 @@ u32 gk20a_pmu_get_irqdest(struct gk20a *g)
 {
 	u32 intr_dest;
 
+	(void)g;
+
 	/* dest 0=falcon, 1=host; level 0=irq0, 1=irq1 */
 	intr_dest = pwr_falcon_irqdest_host_gptmr_f(0)    |
 		pwr_falcon_irqdest_host_wdtmr_f(1)    |
@@ -724,5 +726,6 @@ u32 gk20a_pmu_falcon_base_addr(void)
 
 bool gk20a_is_pmu_supported(struct gk20a *g)
 {
+	(void)g;
 	return true;
 }

@@ -1,0 +1,63 @@
+From d8eb55e70c799957a57b90bc999472f0547be899 Mon Sep 17 00:00:00 2001
+From: Saravana Kannan <saravanak@google.com>
+Date: Fri, 6 Dec 2019 11:17:26 -0800
+Subject: [PATCH 304/830] ANDROID: GKI: clk: Don't disable unused clocks with
+ sync state support
+X-NVConfidentiality: public
+
+Some clocks (that are left on at boot) of a clock provider with sync
+state support might not have their "state held" during clock
+registration because they remain orphans even after all the clocks in
+the clock provider are registered.
+
+These are typically clocks whose current parent is registered by a
+different clock provider. When the other clock providers are registered,
+these orphan clocks get adopted (no longer orphans) and will have their
+"state held".
+
+However if the clock provider of the parent clocks are modules, then
+these orphan clocks would get turned off during late_initcall_sync()
+because they'd look like unused clocks at that point. This might turn
+off clocks that are in use by an active hardware block and cause system
+issues.
+
+To avoid this, don't turn off an unused clock if its clock provider has
+sync state support and the clock doesn't have the CLK_DONT_HOLD_STATE
+flag set.
+
+Bug: 144066914
+Signed-off-by: Saravana Kannan <saravanak@google.com>
+Change-Id: I1f1dbca4994a5b7085930996e1cc5e848266436c
+---
+ drivers/clk/clk.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/clk/clk.c b/drivers/clk/clk.c
+index 98eab4b4db23..d7ec0022d1bf 100644
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -1463,6 +1463,10 @@ static void __init clk_unprepare_unused_subtree(struct clk_core *core)
+ 	hlist_for_each_entry(child, &core->children, child_node)
+ 		clk_unprepare_unused_subtree(child);
+ 
++	if (dev_has_sync_state(core->dev) &&
++	    !(core->flags & CLK_DONT_HOLD_STATE))
++		return;
++
+ 	if (core->prepare_count)
+ 		return;
+ 
+@@ -1494,6 +1498,10 @@ static void __init clk_disable_unused_subtree(struct clk_core *core)
+ 	hlist_for_each_entry(child, &core->children, child_node)
+ 		clk_disable_unused_subtree(child);
+ 
++	if (dev_has_sync_state(core->dev) &&
++	    !(core->flags & CLK_DONT_HOLD_STATE))
++		return;
++
+ 	if (core->flags & CLK_OPS_PARENT_ENABLE)
+ 		clk_core_prepare_enable(core->parent);
+ 
+-- 
+2.17.1
+

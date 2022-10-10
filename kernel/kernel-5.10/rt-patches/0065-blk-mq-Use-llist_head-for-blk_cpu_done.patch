@@ -1,7 +1,7 @@
-From 3a3c01d4de8eaedc5a0a057bbc4b3c6315af72f8 Mon Sep 17 00:00:00 2001
+From 032b5aef5035232e89a8dd47a424964882e028e9 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:27 +0100
-Subject: [PATCH 065/304] blk-mq: Use llist_head for blk_cpu_done
+Subject: [PATCH 065/318] blk-mq: Use llist_head for blk_cpu_done
 
 With llist_head it is possible to avoid the locking (the irq-off region)
 when items are added. This makes it possible to add items on a remote
@@ -21,12 +21,12 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Jens Axboe <axboe@kernel.dk>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- block/blk-mq.c         | 101 +++++++++++++++++++++----------------------------
+ block/blk-mq.c         | 101 ++++++++++++++++++-----------------------
  include/linux/blkdev.h |   2 +-
  2 files changed, 44 insertions(+), 59 deletions(-)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index cdf7e6c..4de3a2e 100644
+index ecdc0ae2361f..721c5f0cfe8a 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -41,7 +41,7 @@
@@ -173,7 +173,7 @@ index cdf7e6c..4de3a2e 100644
  }
  EXPORT_SYMBOL_GPL(blk_mq_complete_request_remote);
  
-@@ -3961,7 +3946,7 @@ static int __init blk_mq_init(void)
+@@ -3978,7 +3963,7 @@ static int __init blk_mq_init(void)
  	int i;
  
  	for_each_possible_cpu(i)
@@ -183,10 +183,10 @@ index cdf7e6c..4de3a2e 100644
  
  	cpuhp_setup_state_nocalls(CPUHP_BLOCK_SOFTIRQ_DEAD,
 diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
-index 8aae375..ee72ff3 100644
+index 98fdf5a31fd6..b35193aec5e3 100644
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
-@@ -153,7 +153,7 @@ struct request {
+@@ -161,7 +161,7 @@ struct request {
  	 */
  	union {
  		struct hlist_node hash;	/* merge hash */
@@ -196,5 +196,5 @@ index 8aae375..ee72ff3 100644
  
  	/*
 -- 
-2.7.4
+2.17.1
 

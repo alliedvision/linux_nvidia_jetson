@@ -1,7 +1,7 @@
 /*
  * sensor_kernel_tests_core - sensor kernel tests module core
  *
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -298,7 +298,7 @@ static int skt_query_tests(struct sk_buff *skb, struct genl_info *info)
 		err = skt_core_append_msg(msg, "** No tests found **\n");
 		if (err != 0) {
 			pr_err("Could not append skt msg (%d)\n", err);
-			goto genl_fail;
+			goto query_test_fail;
 		}
 	} else {
 		for (i = 0; i < num_tests; i++) {
@@ -306,7 +306,7 @@ static int skt_query_tests(struct sk_buff *skb, struct genl_info *info)
 			if (err != 0) {
 				pr_err("Could not format test name (%d)\n",
 						err);
-				goto genl_fail;
+				goto query_test_fail;
 			}
 		}
 	}
@@ -314,7 +314,7 @@ static int skt_query_tests(struct sk_buff *skb, struct genl_info *info)
 	err = skt_core_append_result(msg, 0);
 	if (err != 0) {
 		pr_err("Could not append skt result (%d)\n", err);
-		goto genl_fail;
+		goto query_test_fail;
 	}
 
 	kfree(tests);
@@ -325,12 +325,10 @@ static int skt_query_tests(struct sk_buff *skb, struct genl_info *info)
 
 	return err;
 
-genl_fail:
-	pr_err("skt message failed (%d)\n", err);
-	skt_core_free_msg(msg);
 query_test_fail:
 	pr_err("skt query test failed (%d)\n", err);
 	kfree(tests);
+	skt_core_free_msg(msg);
 	return err;
 }
 

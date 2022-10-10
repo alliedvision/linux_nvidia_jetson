@@ -1,7 +1,7 @@
 /*
  * Tegra GPU Virtualization Interfaces to Server
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -452,10 +452,10 @@ struct tegra_vgpu_engines_info {
 	} info[TEGRA_VGPU_MAX_ENGINES];
 };
 
-#define TEGRA_VGPU_MAX_GPC_COUNT 2
-#define TEGRA_VGPU_MAX_TPC_COUNT_PER_GPC 4
-#define TEGRA_VGPU_MAX_PES_COUNT_PER_GPC 3
-#define TEGRA_VGPU_L2_EN_MASK 32
+#define TEGRA_VGPU_MAX_GPC_COUNT 2U
+#define TEGRA_VGPU_MAX_TPC_COUNT_PER_GPC 4U
+#define TEGRA_VGPU_MAX_PES_COUNT_PER_GPC 3U
+#define TEGRA_VGPU_L2_EN_MASK 32U
 
 struct tegra_vgpu_constants_params {
 	u32 arch;

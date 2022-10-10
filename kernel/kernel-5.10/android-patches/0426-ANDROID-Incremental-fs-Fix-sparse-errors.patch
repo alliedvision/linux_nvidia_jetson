@@ -1,0 +1,94 @@
+From 87d4e0b69b769b382542054a981d26b507cc8d9b Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 29 Jan 2020 09:15:17 -0800
+Subject: [PATCH 426/830] ANDROID: Incremental fs: Fix sparse errors
+X-NVConfidentiality: public
+
+Fix all sparse errors in fs/incfs except
+fs/incfs/integrity.c:192:9: warning: Variable length array is used
+
+Test: incfs_test passes
+Bug: 133435829
+Change-Id: I9c2e26e4e1a06a894977f11a3c8559b968dd115e
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ fs/incfs/format.c |  4 ++--
+ fs/incfs/main.c   |  2 +-
+ fs/incfs/vfs.c    | 11 ++++++-----
+ 3 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 247e1b4ec563..db71f527cf36 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -178,7 +178,7 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
+ 
+ 	record_size = le16_to_cpu(record->h_record_size);
+ 	file_pos = incfs_get_end_offset(bfc->bc_file);
+-	record->h_prev_md_offset = bfc->bc_last_md_record_offset;
++	record->h_prev_md_offset = cpu_to_le64(bfc->bc_last_md_record_offset);
+ 	record->h_next_md_offset = 0;
+ 	record->h_record_crc = cpu_to_le32(calc_md_crc(record));
+ 
+@@ -281,7 +281,7 @@ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ 	file_attr.fa_header.h_next_md_offset = cpu_to_le64(0);
+ 	file_attr.fa_size = cpu_to_le16((u16)value.len);
+ 	file_attr.fa_offset = cpu_to_le64(value_offset);
+-	file_attr.fa_crc = cpu_to_le64(crc);
++	file_attr.fa_crc = cpu_to_le32(crc);
+ 
+ 	result = write_to_bf(bfc, value.data, value.len, value_offset, true);
+ 	if (result)
+diff --git a/fs/incfs/main.c b/fs/incfs/main.c
+index d9eec7496846..e65d0d895128 100644
+--- a/fs/incfs/main.c
++++ b/fs/incfs/main.c
+@@ -12,7 +12,7 @@
+ 
+ #define INCFS_NODE_FEATURES "features"
+ 
+-struct file_system_type incfs_fs_type = {
++static struct file_system_type incfs_fs_type = {
+ 	.owner = THIS_MODULE,
+ 	.name = INCFS_NAME,
+ 	.mount = incfs_mount_fs,
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index b79621d89375..3ef2b8fadd5c 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -18,6 +18,7 @@
+ 
+ #include <uapi/linux/incrementalfs.h>
+ 
++#include "vfs.h"
+ #include "data_mgmt.h"
+ #include "format.h"
+ #include "integrity.h"
+@@ -174,7 +175,7 @@ static const struct xattr_handler incfs_xattr_handler = {
+ 	.get = incfs_handler_getxattr,
+ };
+ 
+-const struct xattr_handler *incfs_xattr_ops[] = {
++static const struct xattr_handler *incfs_xattr_ops[] = {
+ 	&incfs_xattr_handler,
+ 	NULL,
+ };
+@@ -934,11 +935,11 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 	struct path path = {};
+ 	struct file *new_file;
+ 	int error = 0;
+-	struct backing_file_context *bfc = 0;
++	struct backing_file_context *bfc = NULL;
+ 	u32 block_count;
+-	struct mem_range mem_range = {0};
+-	struct signature_info *si = 0;
+-	struct mtree *hash_tree = 0;
++	struct mem_range mem_range = {NULL};
++	struct signature_info *si = NULL;
++	struct mtree *hash_tree = NULL;
+ 
+ 	if (!mi || !dentry || !uuid)
+ 		return -EFAULT;
+-- 
+2.17.1
+

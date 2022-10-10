@@ -1,6 +1,6 @@
 ################################### tell Emacs this is a -*- makefile-gmake -*-
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All Rights Reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -48,7 +48,7 @@ NV_COMPONENT_INCLUDES		:=				\
 		$(NVGPU_NEXT_SOURCE)/include			\
 		$(NVGPU_NEXT_SOURCE)/../../../include
 ifneq ($(NV_BUILD_CONFIGURATION_OS_IS_QNX),1)
-NV_COMPONENT_SYSTEM_SHARED_LIBRARIES += pthread
+NV_COMPONENT_SYSTEM_SHARED_LIBRARIES += pthread rt
 NVGPU_FORCE_SAFETY_PROFILE	:= 1
 NVGPU_FORCE_DEBUG_PROFILE	:= 1
 endif
@@ -63,6 +63,15 @@ NVGPU_FAULT_INJECTION_ENABLEMENT := 1
 NV_COMPONENT_CFLAGS              += -DNVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
 
 _NV_TOOLCHAIN_CFLAGS            += -rdynamic -g
+
+ifneq ($(CONFIG_NVGPU_DGPU),1)
+_NV_TOOLCHAIN_CFLAGS		+= \
+	-Werror -Wall -Wextra \
+	-Wmissing-braces -Wpointer-arith -Wundef \
+	-Wconversion -Wsign-conversion \
+	-Wformat-security \
+	-Wmissing-declarations -Wredundant-decls -Wimplicit-fallthrough
+endif
 
 -include $(NVGPU_SOURCE)/Makefile.sources
 -include $(NVGPU_NEXT_SOURCE)/Makefile.sources

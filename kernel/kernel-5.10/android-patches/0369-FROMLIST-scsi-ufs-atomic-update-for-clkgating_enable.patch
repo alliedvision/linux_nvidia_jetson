@@ -1,0 +1,53 @@
+From b3c841059726804a1a5075ed131936b40196364a Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Thu, 27 Jun 2019 11:19:50 -0700
+Subject: [PATCH 369/830] FROMLIST: scsi: ufs: atomic update for
+ clkgating_enable
+X-NVConfidentiality: public
+
+Powerhints enables/disables clkgating so frequently which leads wrong UFS
+status resulting in timeout.
+
+Bug: 158050260
+Bug: 134949663
+Bug: 166641672
+Change-Id: Ie5002107a69e7d56a889138eec0e593de1bf6a61
+Link: https://lore.kernel.org/linux-scsi/20200915204532.1672300-1-jaegeuk@kernel.org/T/#t
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+---
+ drivers/scsi/ufs/ufshcd.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 33826c352432..113deae7d4a7 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1827,19 +1827,19 @@ static ssize_t ufshcd_clkgate_enable_store(struct device *dev,
+ 		return -EINVAL;
+ 
+ 	value = !!value;
++
++	spin_lock_irqsave(hba->host->host_lock, flags);
+ 	if (value == hba->clk_gating.is_enabled)
+ 		goto out;
+ 
+-	if (value) {
+-		ufshcd_release(hba);
+-	} else {
+-		spin_lock_irqsave(hba->host->host_lock, flags);
++	if (value)
++		hba->clk_gating.active_reqs--;
++	else
+ 		hba->clk_gating.active_reqs++;
+-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+-	}
+ 
+ 	hba->clk_gating.is_enabled = value;
+ out:
++	spin_unlock_irqrestore(hba->host->host_lock, flags);
+ 	return count;
+ }
+ 
+-- 
+2.17.1
+

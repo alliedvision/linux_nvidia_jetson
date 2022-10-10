@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,6 +31,7 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/dma.h>
 #include <nvgpu/rc.h>
+#include <nvgpu/string.h>
 #include <nvgpu/static_analysis.h>
 #ifdef CONFIG_NVGPU_LS_PMU
 #include <nvgpu/pmu/mutex.h>
@@ -391,13 +392,7 @@ static int nvgpu_runlist_reconstruct_locked(struct gk20a *g,
 	}
 
 	domain->mem->count = num_entries;
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON(domain->mem->count > f->num_runlist_entries);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	return 0;
 }
@@ -572,6 +567,8 @@ static void runlist_select_locked(struct gk20a *g, struct nvgpu_runlist *runlist
 
 	gk20a_busy_noresume(g);
 	if (nvgpu_is_powered_off(g)) {
+		rl_dbg(g, "Runlist[%u]: power is off, skip submit",
+				runlist->id);
 		gk20a_idle_nosuspend(g);
 		return;
 	}
@@ -580,7 +577,7 @@ static void runlist_select_locked(struct gk20a *g, struct nvgpu_runlist *runlist
 	gk20a_idle_nosuspend(g);
 
 	if (err != 0) {
-		nvgpu_err(g, "failed to hold power for runlist switch");
+		nvgpu_err(g, "failed to hold power for runlist submit");
 		/*
 		 * probably shutting down though, so don't bother propagating
 		 * the error. Power is already on when the domain scheduler is
@@ -917,6 +914,8 @@ static u32 nvgpu_runlist_get_pbdma_mask(struct gk20a *g,
 	u32 i;
 	u32 pbdma_id;
 
+	(void)g;
+
 	nvgpu_assert(runlist != NULL);
 
 	for ( i = 0U; i < PBDMA_PER_RUNLIST_SIZE; i++) {
@@ -1017,12 +1016,12 @@ static struct nvgpu_runlist_domain *nvgpu_runlist_domain_alloc(struct gk20a *g,
 
 	(void)strncpy(domain->name, name, sizeof(domain->name) - 1U);
 
-	domain->mem = init_rl_mem(g, runlist_size);
+	domain->mem = init_rl_mem(g, (u32)runlist_size);
 	if (domain->mem == NULL) {
 		goto free_domain;
 	}
 
-	domain->mem_hw = init_rl_mem(g, runlist_size);
+	domain->mem_hw = init_rl_mem(g, (u32)runlist_size);
 	if (domain->mem_hw == NULL) {
 		goto free_mem;
 	}

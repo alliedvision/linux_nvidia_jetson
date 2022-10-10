@@ -1,0 +1,59 @@
+From fbf7fd19d1ee46d95e2d07a357d3f26900fdc56c Mon Sep 17 00:00:00 2001
+From: Randall Huang <huangrandall@google.com>
+Date: Tue, 24 Nov 2020 15:29:58 +0800
+Subject: [PATCH 066/830] FROMLIST: scsi: ufs: clear uac for RPMB after ufshcd
+ resets
+X-NVConfidentiality: public
+
+If RPMB is not provisioned, we may see RPMB failure after UFS suspend/resume.
+Inject request_sense to clear uac in ufshcd reset flow.
+
+Link: https://lore.kernel.org/linux-scsi/20201201041402.3860525-1-jaegeuk@kernel.org/
+Signed-off-by: Randall Huang <huangrandall@google.com>
+Signed-off-by: Leo Liou <leoliou@google.com>
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: Icf52bab05474f5180d79aa5419f2fc174b521e22
+---
+ drivers/scsi/ufs/ufshcd.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 49f5cc932bff..e15535be314c 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -230,6 +230,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba);
+ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd);
+ static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag);
+ static void ufshcd_hba_exit(struct ufs_hba *hba);
++static int ufshcd_clear_ua_wluns(struct ufs_hba *hba);
+ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async);
+ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
+ static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+@@ -7028,7 +7029,8 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
+ 
+ 	/* Establish the link again and restore the device */
+ 	err = ufshcd_probe_hba(hba, false);
+-
++	if (!err)
++		ufshcd_clear_ua_wluns(hba);
+ out:
+ 	if (err)
+ 		dev_err(hba->dev, "%s: Host init failed %d\n", __func__, err);
+@@ -8958,13 +8960,7 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+ 	 * handling context.
+ 	 */
+ 	hba->host->eh_noresume = 1;
+-	if (hba->wlun_dev_clr_ua) {
+-		ret = ufshcd_send_request_sense(hba, sdp);
+-		if (ret)
+-			goto out;
+-		/* Unit attention condition is cleared now */
+-		hba->wlun_dev_clr_ua = false;
+-	}
++	ufshcd_clear_ua_wluns(hba);
+ 
+ 	cmd[4] = pwr_mode << 4;
+ 
+-- 
+2.17.1
+

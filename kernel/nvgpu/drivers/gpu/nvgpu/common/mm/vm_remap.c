@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,23 +27,7 @@
 #include <nvgpu/comptags.h>
 #include <nvgpu/string.h>
 #include <nvgpu/power_features/pg.h>
-
-/*
- * Return page size index of page size for VM areas that can be used with
- * remap.
- */
-static inline u32 nvgpu_vm_remap_pgsz_idx(struct vm_gk20a *vm)
-{
-	return GMMU_PAGE_SIZE_BIG;
-}
-
-/*
- * Return page size for VM areas that can be used with remap.
- */
-static inline u64 nvgpu_vm_remap_page_size(struct vm_gk20a *vm)
-{
-	return vm->gmmu_page_sizes[GMMU_PAGE_SIZE_BIG];
-}
+#include<nvgpu/log2.h>
 
 /*
  * Return a pointer to the os-specific structure for the specified physical
@@ -184,6 +168,11 @@ static int nvgpu_vm_remap_validate_vpool(struct nvgpu_vm_remap_vpool *vpool,
 {
 	u64 first_page = op->virt_offset_in_pages;
 	u64 last_page = op->virt_offset_in_pages + op->num_pages - 1ULL;
+	u64 page_size = nvgpu_vm_remap_page_size(op);
+
+	if (page_size == 0) {
+		return -EINVAL;
+	}
 
 	if (first_page < vpool->base_offset_in_pages ||
 		last_page >= vpool->base_offset_in_pages + vpool->num_pages ||
@@ -212,7 +201,7 @@ static int nvgpu_vm_remap_validate_map(struct vm_gk20a *vm,
 			struct nvgpu_vm_remap_op *op,
 			struct nvgpu_vm_remap_os_buffer *remap_os_buf)
 {
-	u64 page_size = nvgpu_vm_remap_page_size(vm);
+	u64 page_size = nvgpu_vm_remap_page_size(op);
 	u64 map_offset;
 	u64 map_size;
 	u64 os_buf_size;
@@ -278,11 +267,19 @@ static struct nvgpu_vm_remap_vpool *nvgpu_vm_remap_get_vpool_locked(
 	struct vm_gk20a *vm, struct nvgpu_vm_remap_op *op)
 {
 	struct gk20a *g = gk20a_from_vm(vm);
-	u64 page_size = nvgpu_vm_remap_page_size(vm);
-	u64 offset = nvgpu_safe_mult_u64(op->virt_offset_in_pages, page_size);
-	struct nvgpu_vm_area *vm_area = nvgpu_vm_area_find(vm, offset);
+	u64 page_size = nvgpu_vm_remap_page_size(op);
+	u64 offset;
+	struct nvgpu_vm_area *vm_area;
 
-	if ((vm_area == NULL) || (vm_area->vpool == NULL)) {
+	if (page_size == 0) {
+		return NULL;
+	}
+
+	offset = nvgpu_safe_mult_u64(op->virt_offset_in_pages, page_size);
+	vm_area = nvgpu_vm_area_find(vm, offset);
+
+	if ((vm_area == NULL) || (vm_area->vpool == NULL) ||
+		(vm->gmmu_page_sizes[vm_area->pgsz_idx] != page_size)) {
 		return NULL;
 	}
 
@@ -358,9 +355,10 @@ static u64 nvgpu_vm_remap_get_ctag_offset(struct vm_gk20a *vm,
 	struct gk20a_comptags comptags;
 	u64 ctag = 0;
 	u64 ctag_offset = 0;
-	u64 page_size = nvgpu_vm_remap_page_size(vm);
+	u64 page_size = nvgpu_vm_remap_page_size(op);
 	u64 phys_offset = nvgpu_safe_mult_u64(op->mem_offset_in_pages,
 					page_size);
+	u64 compression_page_size;
 
 	gk20a_get_comptags(os_buf, &comptags);
 
@@ -370,9 +368,13 @@ static u64 nvgpu_vm_remap_get_ctag_offset(struct vm_gk20a *vm,
 
 	if (op->compr_kind != NVGPU_KIND_INVALID) {
 		*kind = op->compr_kind;
+		compression_page_size = g->ops.fb.compression_page_size(g);
+
+		nvgpu_assert(compression_page_size > 0ULL);
+
 		if (ctag != 0) {
 			ctag_offset = ctag + (phys_offset >>
-				ilog2(g->ops.fb.compression_page_size(g)));
+				nvgpu_ilog2(compression_page_size));
 		} else {
 			ctag_offset = 0;
 		}
@@ -423,8 +425,8 @@ static int nvgpu_vm_remap_execute_remaps(struct vm_gk20a *vm,
 	struct gk20a *g = gk20a_from_vm(vm);
 	struct nvgpu_vm_remap_op *op;
 	struct nvgpu_vm_remap_os_buffer *remap_os_buf;
-	u32 pgsz_idx = nvgpu_vm_remap_pgsz_idx(vm);
-	u64 page_size = nvgpu_vm_remap_page_size(vm);
+	u32 pgsz_idx = vpool->vm_area->pgsz_idx;
+	u64 page_size = vm->gmmu_page_sizes[pgsz_idx];
 	u64 map_addr = 0;
 	u64 phys_offset = 0;
 	u64 map_size;
@@ -731,9 +733,9 @@ int nvgpu_vm_remap_vpool_create(struct vm_gk20a *vm,
 	struct gk20a *g = gk20a_from_vm(vm);
 	struct nvgpu_vm_remap_vpool *vp;
 	u64 start_page_nr = 0;
+	u32 gmmu_page_size;
 
 	if ((num_pages == 0ULL) ||
-		(vm_area->pgsz_idx != GMMU_PAGE_SIZE_BIG) ||
 		((vm_area->flags & NVGPU_VM_AREA_ALLOC_SPARSE) == 0U)) {
 		return -EINVAL;
 	}
@@ -742,14 +744,17 @@ int nvgpu_vm_remap_vpool_create(struct vm_gk20a *vm,
 	if (vp == NULL) {
 		return -ENOMEM;
 	}
+	gmmu_page_size = vm->gmmu_page_sizes[vm_area->pgsz_idx];
+	nvgpu_assert(gmmu_page_size > 0U);
 
 	start_page_nr = vm_area->addr >>
-		ilog2(vm->gmmu_page_sizes[vm_area->pgsz_idx]);
+		nvgpu_ilog2(gmmu_page_size);
 
 	vp->base_offset_in_pages = start_page_nr;
 	vp->num_pages = num_pages;
 	vp->vm = vm;
 
+	vp->vm_area = vm_area;
 	vm_area->vpool = vp;
 
 	return 0;
@@ -773,6 +778,8 @@ void nvgpu_vm_remap_vpool_destroy(struct vm_gk20a *vm,
 		u32 num_ops = 1;
 		int err;
 
+		op.flags = nvgpu_vm_remap_page_size_flag(
+			vm->gmmu_page_sizes[vm_area->pgsz_idx]);
 		op.virt_offset_in_pages = vpool->base_offset_in_pages;
 		op.num_pages = vpool->num_pages;
 

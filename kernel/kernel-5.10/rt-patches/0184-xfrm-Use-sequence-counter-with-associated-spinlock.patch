@@ -1,7 +1,7 @@
-From 1a129a523fdaa341ab390033c78fe36aee78a3e1 Mon Sep 17 00:00:00 2001
+From fd55a4dc43644ec5272bb47c2cc81d2418c75793 Mon Sep 17 00:00:00 2001
 From: "Ahmed S. Darwish" <a.darwish@linutronix.de>
 Date: Wed, 10 Jun 2020 12:53:22 +0200
-Subject: [PATCH 184/304] xfrm: Use sequence counter with associated spinlock
+Subject: [PATCH 184/318] xfrm: Use sequence counter with associated spinlock
 
 A sequence counter write side critical section must be protected by some
 form of locking to serialize writers. A plain seqcount_t does not
@@ -27,10 +27,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index c158e70..ca93d22 100644
+index f5b846a2edcd..d198bff0dd10 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -2673,7 +2673,8 @@ int __net_init xfrm_state_init(struct net *net)
+@@ -2684,7 +2684,8 @@ int __net_init xfrm_state_init(struct net *net)
  	net->xfrm.state_num = 0;
  	INIT_WORK(&net->xfrm.state_hash_work, xfrm_hash_resize);
  	spin_lock_init(&net->xfrm.xfrm_state_lock);
@@ -41,5 +41,5 @@ index c158e70..ca93d22 100644
  
  out_byspi:
 -- 
-2.7.4
+2.17.1
 

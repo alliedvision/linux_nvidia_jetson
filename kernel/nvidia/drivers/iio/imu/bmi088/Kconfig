@@ -1,0 +1,7 @@
+config BMI088_IIO
+	tristate "Bosch BMI088 IMU using IIO"
+	depends on I2C && SYSFS && IIO && TEGRA_HTS_GTE && !NVS_BMI08X_IIO
+	default n
+	help
+	  Enable Bosch BMI088 I2C based IMU driver, if enabled as module, it
+	  will be generated as bmi088.ko

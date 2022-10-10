@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -181,6 +181,15 @@ enum drv_mode_t {
 
 	/* Maximum.*/
 	DRV_MODE_MAXIMUM,
+};
+
+/*
+ * NvSciC2cPcie the cpu on peer
+ */
+enum peer_cpu_t {
+	NVCPU_ORIN = 0,
+	NVCPU_X86_64,
+	NVCPU_MAXIMUM,
 };
 
 #endif //__COMMON_H__

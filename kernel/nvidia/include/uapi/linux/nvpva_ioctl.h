@@ -1,7 +1,7 @@
 /*
  * Tegra PVA Driver ioctls
  *
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,6 +23,16 @@
 #include <linux/types.h>
 
 #define NVPVA_DEVICE_NODE "/dev/nvhost-ctrl-pva"
+/**
+ * Maximum length of the name of a symbol in a VPU ELF
+ */
+#define NVPVA_SYM_NAME_MAX_LEN 64U
+
+/*
+ * PVA specific error code
+ */
+
+#define NVPVA_ENOSLOT 102
 
 struct nvpva_ioctl_part {
 	uint64_t addr;
@@ -61,15 +71,40 @@ union nvpva_vpu_exe_unregister_args {
 	struct nvpva_vpu_exe_unregister_in_arg in;
 };
 
+enum nvpva_vpu_elf_symbol_type_e {
+	/** Symbol type Invalid */
+	NVPVA_SYMBOL_TYPE_INVALID = 0U,
+	/** Symbol type Data */
+	NVPVA_SYMBOL_TYPE_DATA = 1U,
+	/** Symbol type VPU Config Table */
+	NVPVA_SYMBOL_TYPE_VPUC_TABLE = 2U,
+	/** Symbol type Pointer */
+	NVPVA_SYMBOL_TYPE_POINTER = 3U,
+	/** Symbol type System */
+	NVPVA_SYMBOL_TYPE_SYSTEM = 4U,
+	/** Symbol type upper limit */
+	NVPVA_SYMBOL_TYPE_MAX = 5U
+};
 /*
  * VPU SYMBOL command details
  */
 
 struct nvpva_symbol {
-	uint16_t id;
 	uint32_t size;
+	uint16_t id;
 	/* 1 = true; 0 = false */
 	uint8_t isPointer;
+};
+
+struct nvpva_sym_info {
+	/** Null-terminated string indicating the name of the symbol */
+	char sym_name[NVPVA_SYM_NAME_MAX_LEN];
+	/** Size (in bytes) of the symbol */
+	uint32_t sym_size;
+	/** Registered ID of the symbol*/
+	uint16_t sym_id;
+	/** Type of the symbol */
+	uint8_t sym_type;
 };
 
 struct nvpva_get_symbol_in_arg {
@@ -84,6 +119,15 @@ struct nvpva_get_symbol_out_arg {
 union nvpva_get_symbol_args {
 	struct nvpva_get_symbol_in_arg in;
 	struct nvpva_get_symbol_out_arg out;
+};
+
+struct nvpva_get_sym_tab_in_arg {
+	uint16_t exe_id;
+	struct   nvpva_ioctl_part tab;
+};
+
+union nvpva_get_sym_tab_args {
+	struct nvpva_get_sym_tab_in_arg in;
 };
 
 /*
@@ -108,12 +152,12 @@ enum nvpva_pin_access {
 };
 
 struct nvpva_pin_handle {
-	uint32_t import_id;
 	uint64_t offset;
 	uint64_t size;
-	enum nvpva_pin_access access;
-	enum nvpva_pin_segment segment;
-	enum nvpva_pin_buf type;
+	int32_t handle;
+	uint32_t access;
+	uint32_t segment;
+	uint32_t type;
 };
 
 struct nvpva_pin_in_arg {
@@ -122,6 +166,7 @@ struct nvpva_pin_in_arg {
 
 struct nvpva_pin_out_arg {
 	uint32_t pin_id; /* Unique ID assigned by KMD for the Pin */
+	uint32_t error_code;
 };
 
 union nvpva_pin_args {
@@ -217,12 +262,14 @@ union nvpva_fence_obj {
 };
 
 struct nvpva_submit_fence {
-	enum nvpva_fence_obj_type type;
+	uint32_t type;
+	uint32_t reserved;
 	union nvpva_fence_obj obj;
 };
 
 struct nvpva_fence_action {
-	enum nvpva_fence_action_type type;
+	uint32_t type;
+	uint32_t reserved;
 	/* For syncpt, ID is the per-queue ID allocated by KMD */
 	struct nvpva_submit_fence fence;
 	/* Buffer to capture event timestamp */
@@ -248,9 +295,9 @@ struct nvpva_pointer_symbol {
  * For NVPVA_SYMBOL_POINTER, data is of type nvpva_pointer_symbol.
  */
 struct nvpva_symbol_param {
-	enum nvpva_symbol_config config; /* Type of symbol configuration */
-	struct nvpva_symbol symbol;	 /* Symbol to be configured */
-	uint32_t offset;		 /* Offset of symbol data in payload */
+	uint32_t config;		/* Type of symbol configuration */
+	uint32_t offset;		/* Offset of symbol data in payload */
+	struct nvpva_symbol symbol;	/* Symbol to be configured */
 };
 
 /* NOTE: Redefining the user side structure here
@@ -384,8 +431,9 @@ struct nvpva_dma_misr {
  * For NVPVA_HWSEQTM_DMATRIG, DMA trigger mode will be used.
  */
 struct nvpva_hwseq_config {
+	uint32_t hwseqTrigMode;
+	uint32_t reserved;
 	struct nvpva_mem hwseqBuf;
-	enum nvpva_hwseq_trigger_mode hwseqTrigMode;
 };
 
 struct nvpva_ioctl_task {
@@ -422,6 +470,14 @@ union nvpva_ioctl_submit_args {
 	struct nvpva_ioctl_submit_in_arg in;
 };
 
+struct nvpva_set_vpu_print_buffer_size_in_arg {
+	uint32_t size;
+};
+
+union nvpva_set_vpu_print_buffer_size_args {
+	struct nvpva_set_vpu_print_buffer_size_in_arg in;
+};
+
 /* There are 64 DMA descriptors in T19x and T23x. But R5 FW reserves
  * 4 DMA descriptors for internal use.
  */
@@ -433,8 +489,8 @@ union nvpva_ioctl_submit_args {
 #define NVPVA_TASK_MAX_DMA_CHANNELS 16U
 #define NVPVA_TASK_MAX_DMA_CHANNELS_T19X (13U)
 #define NVPVA_TASK_MAX_DMA_CHANNELS_T23X (15U)
-#define NVPVA_NOOP_EXE_ID 65535
-#define NVPVA_SUBMIT_MAX_TASKS 128U
+#define NVPVA_NOOP_EXE_ID		65535
+#define NVPVA_SUBMIT_MAX_TASKS		256U
 
 #define NVPVA_IOCTL_MAGIC 'Q'
 
@@ -465,17 +521,25 @@ union nvpva_ioctl_submit_args {
 #define NVPVA_IOCTL_RELEASE_QUEUE \
 	_IOW(NVPVA_IOCTL_MAGIC, 9)
 
-#define NVPVA_IOCTL_NUMBER_MAX 9
+#define NVPVA_IOCTL_GET_SYM_TAB \
+	_IOWR(NVPVA_IOCTL_MAGIC, 10, union nvpva_get_sym_tab_args)
+
+#define NVPVA_IOCTL_SET_VPU_PRINT_BUFFER_SIZE \
+	_IOW(NVPVA_IOCTL_MAGIC, 11, union nvpva_set_vpu_print_buffer_size_args)
+
+#define NVPVA_IOCTL_NUMBER_MAX 11
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NVPVA_IOCTL_MAX_SIZE \
+#define NVPVA_IOCTL_MAX_SIZE                                 \
 	    MAX(sizeof(union nvpva_vpu_exe_register_args), \
 	    MAX(sizeof(union nvpva_vpu_exe_unregister_args), \
 	    MAX(sizeof(union nvpva_get_symbol_args), \
 	    MAX(sizeof(union nvpva_pin_args), \
 	    MAX(sizeof(union nvpva_unpin_args), \
 	    MAX(sizeof(union nvpva_ioctl_submit_args), \
-		0))))))
+	    MAX(sizeof(union nvpva_get_sym_tab_args), \
+	    MAX(sizeof(union nvpva_set_vpu_print_buffer_size_args), \
+	    0))))))))
 
 /* NvPva Task param limits */
 #define NVPVA_TASK_MAX_PREFENCES 8U
@@ -503,5 +567,17 @@ union nvpva_ioctl_submit_args {
 #define NVPVA_SUBMIT_MAX_SIZE                                                \
 	(NVPVA_SUBMIT_MAX_TASKS * NVPVA_TASK_MAX_SIZE +                      \
 	sizeof(struct nvpva_submit_in_arg_s))
+
+struct pva_ocd_ioctl_vpu_io_param {
+	uint32_t instr;
+	uint32_t n_write;
+	uint32_t n_read;
+	uint32_t data[7];
+};
+
+#define PVA_OCD_MAGIC 'V'
+
+#define PVA_OCD_IOCTL_VPU_IO                                                   \
+	_IOWR(PVA_OCD_MAGIC, 1, struct pva_ocd_ioctl_vpu_io_param)
 
 #endif /* __NVPVA_IOCTL_H__ */

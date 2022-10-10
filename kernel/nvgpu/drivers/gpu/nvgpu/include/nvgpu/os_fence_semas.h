@@ -1,7 +1,7 @@
 /*
  * nvgpu os fence semas
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,6 +73,9 @@ static inline int nvgpu_os_fence_sema_create(
 	struct nvgpu_channel *c,
 	struct nvgpu_semaphore *sema)
 {
+	(void)fence_out;
+	(void)c;
+	(void)sema;
 	return -ENOSYS;
 }
 
@@ -80,6 +83,8 @@ static inline int nvgpu_os_fence_get_semas(
 	struct nvgpu_os_fence_sema *fence_sema_out,
 	struct nvgpu_os_fence *fence_in)
 {
+	(void)fence_sema_out;
+	(void)fence_in;
 	return -EINVAL;
 }
 
@@ -87,11 +92,15 @@ static inline void nvgpu_os_fence_sema_extract_nth_semaphore(
 	struct nvgpu_os_fence_sema *fence, u32 n,
 		struct nvgpu_semaphore **semaphore_out)
 {
+	(void)fence;
+	(void)n;
+	(void)semaphore_out;
 }
 
 static inline u32 nvgpu_os_fence_sema_get_num_semaphores(
 	struct nvgpu_os_fence_sema *fence)
 {
+	(void)fence;
 	return 0;
 }
 

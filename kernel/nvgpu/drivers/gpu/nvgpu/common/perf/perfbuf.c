@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,9 +27,6 @@
 #include <nvgpu/nvgpu_init.h>
 #include <nvgpu/vm_area.h>
 #include <nvgpu/utils.h>
-
-#define PERFBUF_PMA_BYTES_AVAILABLE_BUFFER_FIXED_GPU_VA	0x4000000ULL
-#define PERFBUF_PMA_BYTES_AVAILABLE_BUFFER_MAX_SIZE	NVGPU_CPU_PAGE_SIZE
 
 int nvgpu_perfbuf_enable_locked(struct gk20a *g, u64 offset, u32 size)
 {
@@ -100,22 +97,38 @@ int nvgpu_perfbuf_init_vm(struct gk20a *g)
 	}
 
 	/*
-	 * PMA available byte buffer GPU_VA needs to fit in 32 bit
-	 * register, hence use a fixed GPU_VA to map it.
-	 * Only one PMA stream is allowed right now so this works.
-	 * This should be updated later to support multiple PMA streams.
+	 * The PMA unit can only access GPU VAs within a 4GB window which
+	 * includes PMA_BUF + PMA_AVAILABLE_BYTES_BUF, hence carveout and
+	 * reserved a 4GB window from the perfbuf.vm VA space and use this
+	 * VA while binding the buffers.
 	 */
-	mm->perfbuf.pma_bytes_available_buffer_gpu_va =
-		PERFBUF_PMA_BYTES_AVAILABLE_BUFFER_FIXED_GPU_VA;
+	mm->perfbuf.pma_buffer_gpu_va = 0;
 
 	err = nvgpu_vm_area_alloc(mm->perfbuf.vm,
-			PERFBUF_PMA_BYTES_AVAILABLE_BUFFER_MAX_SIZE / SZ_4K,
-			SZ_4K, &mm->perfbuf.pma_bytes_available_buffer_gpu_va,
-			NVGPU_VM_AREA_ALLOC_FIXED_OFFSET);
+			PERFBUF_PMA_MEM_WINDOW_SIZE / SZ_4K,
+			SZ_4K, &mm->perfbuf.pma_buffer_gpu_va, 0);
 	if (err != 0) {
 		nvgpu_vm_put(mm->perfbuf.vm);
 		return err;
 	}
+	mm->perfbuf.pma_bytes_available_buffer_gpu_va = nvgpu_safe_add_u64(
+			mm->perfbuf.pma_buffer_gpu_va,
+			PERFBUF_PMA_BUF_MAX_SIZE);
+
+	if (u64_hi32(mm->perfbuf.pma_bytes_available_buffer_gpu_va) !=
+			u64_hi32(mm->perfbuf.pma_buffer_gpu_va)) {
+		nvgpu_err(g, "perfbuf: 0x%llx, 0x%llx, crosses 4GB boundary",
+				mm->perfbuf.pma_buffer_gpu_va,
+				mm->perfbuf.pma_bytes_available_buffer_gpu_va);
+
+		nvgpu_vm_area_free(mm->perfbuf.vm,
+				mm->perfbuf.pma_buffer_gpu_va);
+		nvgpu_vm_put(mm->perfbuf.vm);
+		return -ENOMEM;
+	}
+	nvgpu_log(g, gpu_dbg_prof, "perfbuf: 0x%llx, 0x%llx",
+			mm->perfbuf.pma_buffer_gpu_va,
+			mm->perfbuf.pma_bytes_available_buffer_gpu_va);
 
 	err = g->ops.perfbuf.init_inst_block(g);
 	if (err != 0) {
@@ -138,8 +151,7 @@ void nvgpu_perfbuf_deinit_vm(struct gk20a *g)
 
 	g->ops.perfbuf.deinit_inst_block(g);
 
-	nvgpu_vm_area_free(mm->perfbuf.vm,
-		mm->perfbuf.pma_bytes_available_buffer_gpu_va);
+	nvgpu_vm_area_free(mm->perfbuf.vm, mm->perfbuf.pma_buffer_gpu_va);
 	nvgpu_vm_put(g->mm.perfbuf.vm);
 }
 

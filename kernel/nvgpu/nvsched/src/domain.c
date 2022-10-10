@@ -16,7 +16,7 @@
  * Create and add a new domain to the end of the domain list.
  */
 struct nvs_domain *nvs_domain_create(struct nvs_sched *sched,
-		  const char *name, u32 timeslice, u32 preempt_grace,
+		  const char *name, u64 timeslice, u64 preempt_grace,
 		  void *priv)
 {
 	struct nvs_domain_list *dlist = sched->domain_list;
@@ -31,8 +31,8 @@ struct nvs_domain *nvs_domain_create(struct nvs_sched *sched,
 	nvs_memset(dom, 0, sizeof(*dom));
 
 	strncpy(dom->name, name, sizeof(dom->name) - 1);
-	dom->timeslice_us     = timeslice;
-	dom->preempt_grace_us = preempt_grace;
+	dom->timeslice_ns     = timeslice;
+	dom->preempt_grace_ns = preempt_grace;
 	dom->priv             = priv;
 
 	nvs_log_event(sched, NVS_EV_CREATE_DOMAIN, 0U);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,7 +23,7 @@
 #define INFO(...) pr_info("nvsciipc: " __VA_ARGS__)
 
 #define MODULE_NAME             "nvsciipc"
-#define MAX_NAME_SIZE           32
+#define MAX_NAME_SIZE           64
 
 struct nvsciipc {
 	struct device *dev;

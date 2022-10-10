@@ -11,16 +11,24 @@
 #define DMA_RD_CHNL_NUM			2
 #define DMA_WR_CHNL_NUM			4
 
+#define EDMA_DESC_SZ			32
+/**
+ * Application can use this macro as default number of descriptors.
+ * Number of descriptors should always be power of 2.
+ */
+#define NUM_EDMA_DESC			4096
+
 /**
  * @brief typedef to define various values for xfer status passed for edma_complete_t or
  * tegra_pcie_edma_submit_xfer()
  */
 typedef enum {
 	EDMA_XFER_SUCCESS = 0,
-	EDMA_XFER_ABORT,
 	EDMA_XFER_FAIL_INVAL_INPUTS,
 	EDMA_XFER_FAIL_NOMEM,
 	EDMA_XFER_FAIL_TIMEOUT,
+	EDMA_XFER_ABORT,
+	EDMA_XFER_DEINIT,
 } edma_xfer_status_t;
 
 /** @brief typedef to define various values for xfer type passed tegra_pcie_edma_submit_xfer() */
@@ -38,7 +46,7 @@ typedef enum {
 	EDMA_CHAN_XFER_ASYNC,
 } edma_chan_type_t;
 
-/** Forward decleration */
+/** Forward declaration */
 struct tegra_pcie_edma_desc;
 
 /** @brief Tx Async callback function pointer */
@@ -50,20 +58,18 @@ typedef void (edma_complete_t)(void *priv, edma_xfer_status_t status,
  *  @note: this is initial revision and expected to be modified.
  */
 struct pcie_tegra_edma_remote_info {
-	/** BAR base on which eDMA descriptors are exported by Orin PCIe EP */
-	void *base;
-	/**
-	 *  BAR(Memory window) offset of Orin PCIe EP allocated by caller.
-	 *  @note: This must be power of 2 aligned and This address must be
-	 *  after 64K of BAR0_OFFSET
-	 */
-	uint32_t desc_offset;
-	/** Number of descriptors for above desc param */
-	uint32_t num_desc;
 	/** MSI IRQ number */
 	uint32_t msi_irq;
-	/** MSI address */
+	/** MSI data that needs to be configured on EP DMA registers */
+	uint16_t msi_data;
+	/** MSI address that needs to be configured on EP DMA registers */
 	uint64_t msi_addr;
+	/** EP's DMA PHY base address, which same as BAR4 base address */
+	phys_addr_t dma_phy_base;
+	/** EP's DMA register spec size, which same as BAR4 size */
+	uint32_t dma_size;
+	/** &pci_dev.dev poniter used for devm_* and logging */
+	struct device *dev;
 };
 
 /** @brief details of EDMA Tx channel configuration */
@@ -72,13 +78,20 @@ struct tegra_pcie_edma_chans_info {
 	edma_chan_type_t ch_type;
 	/** Number of descriptors that needs to be configured for this channel.
 	 *  @note
-	 *   - If 0 is passed default 4096 will be used.
+	 *   - If 0 is passed, this channel will be treated un-used.
 	 *   - else it must be power of 2.
 	 */
 	uint32_t num_descriptors;
+	/* Below parameter are used, only if edma_remote is present in #tegra_pcie_edma_init_info */
+	/** Descriptor PHY base allocated by client which is part of BAR0. Memory allocated for this
+	 *  should be 1 more than number of descriptors.
+	 */
+	phys_addr_t desc_phy_base;
+	/** Abosolute IOVA address of desc of desc_phy_base. */
+	dma_addr_t desc_iova;
 };
 
-/** @brief init data strucutre to be used for tegra_pcie_edma_init() API */
+/** @brief init data structure to be used for tegra_pcie_edma_init() API */
 struct tegra_pcie_edma_init_info {
 	/** configuration details for edma Tx channels */
 	struct tegra_pcie_edma_chans_info tx[DMA_WR_CHNL_NUM];
@@ -111,7 +124,7 @@ struct tegra_pcie_edma_xfer_info {
 	 *  Range 0 to (DMA_RD_CHNL_NUM-1)/(DMA_WR_CHNL_NUM-1)
 	 */
 	uint32_t channel_num;
-	/** EDMA descripter strucutre with source, destination DMA addr along with its size. */
+	/** EDMA descriptor structure with source, destination DMA addr along with its size. */
 	struct tegra_pcie_edma_desc *desc;
 	/** Number of desc entries. */
 	uint32_t nents;

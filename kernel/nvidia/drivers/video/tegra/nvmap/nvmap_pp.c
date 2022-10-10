@@ -3,7 +3,7 @@
  *
  * Manage page pools to speed up page allocation.
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -202,10 +202,12 @@ static int nvmap_background_zero_thread(void *arg)
 	return 0;
 }
 
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
 static void nvmap_pgcount(struct page *page, bool incr)
 {
 	page_ref_add(page, incr ? 1 : -1);
 }
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 
 /*
  * Free the passed number of pages from the page pool. This happens regardless
@@ -309,10 +311,10 @@ int nvmap_page_pool_alloc_lots(struct nvmap_page_pool *pool,
 		}
 
 		pages[ind++] = page;
-		if (IS_ENABLED(NVMAP_CONFIG_PAGE_POOL_DEBUG)) {
-			nvmap_pgcount(page, false);
-			BUG_ON(page_count(page) != 1);
-		}
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
+		nvmap_pgcount(page, false);
+		BUG_ON(page_count(page) != 1);
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 	}
 
 	rt_mutex_unlock(&pool->lock);
@@ -395,24 +397,26 @@ static int __nvmap_page_pool_fill_lots_locked(struct nvmap_page_pool *pool,
 				       struct page **pages, u32 nr)
 {
 	int real_nr;
+	int pages_to_fill;
 	int ind = 0;
 
 	if (!enable_pp)
 		return 0;
 
+	BUG_ON(pool->count > pool->max);
 	real_nr = min_t(u32, pool->max - pool->count, nr);
-	BUG_ON(real_nr < 0);
+	pages_to_fill = real_nr;
 	if (real_nr == 0)
 		return 0;
 
 	while (real_nr > 0) {
-		if (IS_ENABLED(NVMAP_CONFIG_PAGE_POOL_DEBUG)) {
-			nvmap_pgcount(pages[ind], true);
-			BUG_ON(page_count(pages[ind]) != 2);
-		}
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
+		nvmap_pgcount(pages[ind], true);
+		BUG_ON(page_count(pages[ind]) != 2);
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 
 #ifdef CONFIG_ARM64_4K_PAGES
-		if (nvmap_is_big_page(pool, pages, ind, nr)) {
+		if (nvmap_is_big_page(pool, pages, ind, pages_to_fill)) {
 			list_add_tail(&pages[ind]->lru, &pool->page_list_bp);
 			ind += pool->pages_per_big_pg;
 			real_nr -= pool->pages_per_big_pg;

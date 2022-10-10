@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Syncpoints
  *
- * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -126,6 +126,19 @@ u32 nvhost_syncpt_update_min(struct nvhost_syncpt *sp, u32 id)
 	trace_nvhost_syncpt_update_min(id, val);
 
 	return val;
+}
+
+/**
+ * Set and update the last value from hardware.
+ */
+void nvhost_syncpt_set_min_update(struct platform_device *pdev, u32 id, u32 val)
+{
+	struct nvhost_master *master = nvhost_get_host(pdev);
+	struct nvhost_syncpt *sp = &master->syncpt;
+
+	atomic_set(&sp->min_val[id], val);
+	syncpt_op().reset(sp, id);
+	nvhost_syncpt_update_min(sp, id);
 }
 
 /**

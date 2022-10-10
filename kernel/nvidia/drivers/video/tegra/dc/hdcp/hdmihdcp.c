@@ -1,7 +1,7 @@
 /*
  * hdmihdcp.c: hdmi hdcp functions.
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1907,7 +1907,7 @@ failure:
 
 lost_hdmi:
 	nvhdcp->state = STATE_UNAUTHENTICATED;
-	if (tegra_dc_is_nvdisplay()) {
+	if (tegra_dc_is_nvdisplay() && pkt) {
 		*pkt = HDCP_TA_CMD_CTRL;
 		*(pkt + 1*HDCP_CMD_OFFSET) = TEGRA_NVHDCP_PORT_HDMI;
 		*(pkt + 2*HDCP_CMD_OFFSET) = HDCP_TA_CTRL_DISABLE;

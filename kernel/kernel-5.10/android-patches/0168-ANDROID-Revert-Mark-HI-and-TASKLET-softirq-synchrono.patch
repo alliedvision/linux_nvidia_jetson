@@ -1,0 +1,74 @@
+From 2db684452153b7741f0aa4e60d1f07062be83b63 Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Tue, 8 Jan 2019 15:38:32 -0800
+Subject: [PATCH 168/830] ANDROID: Revert "Mark HI and TASKLET softirq
+ synchronous"
+X-NVConfidentiality: public
+
+This reverts commit 3c53776e29f81719efcf8f7a6e30cdf753bee94d because it
+makes HI_SOFTIRQ and TASKLET_SOFTIRQ run immediately i.e. not get
+deferred to ksfotirqd. The commit text calls out that this is a stopgap
+until a better solution is deviced and that it should have included
+TIMER_SOFTIRQ as well, but chose not to.
+
+Patch ebc7b75d772647813cdaf085c7f5adf3c90b033b from Qualcomm is a more
+comprehensive solution which defers long running tasklets to ksfotirqd
+when a rt task is interrupted.
+
+We cannot use both these together as they conflict; e.g. the original
+makes TASKLET softirq run immediately while the Qualcomm one defers it
+if rt gets interrupted. Choose to use the Qualcomm one.
+
+Bug: 168521633
+Change-Id: I4af64cd7e2c4291dda5f503bf2d74ede459a76c6
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+[elavila: port to mainline, resolve conflicts, add commit text]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ kernel/softirq.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 7d210a5f2bfb..df727d82600a 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -85,16 +85,12 @@ static void wakeup_softirqd(void)
+ 
+ /*
+  * If ksoftirqd is scheduled, we do not want to process pending softirqs
+- * right now. Let ksoftirqd handle this at its own rate, to get fairness,
+- * unless we're doing some of the synchronous softirqs.
++ * right now. Let ksoftirqd handle this at its own rate, to get fairness.
+  */
+-#define SOFTIRQ_NOW_MASK ((1 << HI_SOFTIRQ) | (1 << TASKLET_SOFTIRQ))
+-static bool ksoftirqd_running(unsigned long pending)
++static bool ksoftirqd_running(void)
+ {
+ 	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+ 
+-	if (pending & SOFTIRQ_NOW_MASK)
+-		return false;
+ 	return tsk && (tsk->state == TASK_RUNNING) &&
+ 		!__kthread_should_park(tsk);
+ }
+@@ -363,7 +359,7 @@ asmlinkage __visible void do_softirq(void)
+ 
+ 	pending = local_softirq_pending();
+ 
+-	if (pending && !ksoftirqd_running(pending))
++	if (pending && !ksoftirqd_running())
+ 		do_softirq_own_stack();
+ 
+ 	local_irq_restore(flags);
+@@ -397,7 +393,7 @@ void irq_enter(void)
+ 
+ static inline void invoke_softirq(void)
+ {
+-	if (ksoftirqd_running(local_softirq_pending()))
++	if (ksoftirqd_running())
+ 		return;
+ 
+ 	if (!force_irqthreads) {
+-- 
+2.17.1
+

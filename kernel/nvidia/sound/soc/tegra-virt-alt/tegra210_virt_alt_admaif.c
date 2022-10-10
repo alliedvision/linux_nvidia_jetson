@@ -1,7 +1,7 @@
 /*
  * tegra210_virt_alt_admaif.c - Tegra ADMAIF component driver
  *
- * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +21,7 @@
 #include <linux/of_platform.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "tegra210_virt_alt_admaif.h"
 #include "tegra_virt_alt_ivc.h"
@@ -247,17 +248,6 @@ static int tegra210_admaif_dai_probe(struct snd_soc_dai *dai)
 {
 	dai->capture_dma_data = &admaif->capture_dma_data[dai->id];
 	dai->playback_dma_data = &admaif->playback_dma_data[dai->id];
-
-	return 0;
-}
-
-static int tegra_bytes_info(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_info *uinfo)
-{
-	struct soc_bytes *params = (void *)kcontrol->private_value;
-
-	uinfo->type = params->mask;
-	uinfo->count = params->num_regs;
 
 	return 0;
 }
@@ -773,13 +763,6 @@ ADMA_REGDUMP_CTRL_DECL("ADMA29 regdump", 29),
 ADMA_REGDUMP_CTRL_DECL("ADMA30 regdump", 30),
 ADMA_REGDUMP_CTRL_DECL("ADMA31 regdump", 31),
 ADMA_REGDUMP_CTRL_DECL("ADMA32 regdump", 32),
-
-/* Metadata controls should be always the last ones */
-SOC_SINGLE_BOOL_EXT("SAD Init", 0,
-		tegra_metadata_get_init, tegra_metadata_set_init),
-SOC_SINGLE_BOOL_EXT("SAD Enable", 0,
-		tegra_metadata_get_enable, tegra_metadata_set_enable),
-METADATA_CTRL_DECL("SAD Metadata"),
 };
 
 static struct snd_soc_component_driver tegra210_admaif_dai_driver = {

@@ -1,7 +1,7 @@
 /*
  * imx274.c - imx274 sensor driver
  *
- * Copyright (c) 2015-2022, NVIDIA CORPORATION & AFFILIATES.All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -680,13 +680,16 @@ static int imx274_fill_string_ctrl(struct tegracam_device *tc_dev,
 				struct v4l2_ctrl *ctrl)
 {
 	struct imx274 *priv = (struct imx274 *)tc_dev->priv;
-	int i;
+	int i, ret;
 
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_FUSE_ID:
-		for (i = 0; i < IMX274_FUSE_ID_SIZE; i++)
-			sprintf(&ctrl->p_new.p_char[i*2], "%02x",
+		for (i = 0; i < IMX274_FUSE_ID_SIZE; i++) {
+			ret = sprintf(&ctrl->p_new.p_char[i*2], "%02x",
 				priv->fuse_id[i]);
+			if (ret < 0)
+				return -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -751,6 +754,10 @@ static int imx274_power_on(struct camera_common_data *s_data)
 		goto imx274_avdd_fail;
 
 	usleep_range(1, 2);
+	/* Added latency due to AVDD setup time on McCoy */
+	if (pdata && pdata->avdd_latency)
+		usleep_range(pdata->avdd_latency, pdata->avdd_latency + 10);
+
 	if (pw->reset_gpio)
 		gpio_set_value(pw->reset_gpio, 1);
 	if (pw->pwdn_gpio)
@@ -939,18 +946,28 @@ struct camera_common_pdata *imx274_parse_dt(struct tegracam_device *tc_dev)
 	board_priv_pdata->reset_gpio = of_get_named_gpio(node,
 			"reset-gpios", 0);
 
-	of_property_read_string(node, "avdd-reg",
+	err = of_property_read_string(node, "avdd-reg",
 			&board_priv_pdata->regulators.avdd);
-	of_property_read_string(node, "dvdd-reg",
+	err |= of_property_read_string(node, "dvdd-reg",
 			&board_priv_pdata->regulators.dvdd);
-	of_property_read_string(node, "iovdd-reg",
+	err |= of_property_read_string(node, "iovdd-reg",
 			&board_priv_pdata->regulators.iovdd);
+	if (err)
+		dev_dbg(dev, "avdd, iovdd or dvdd reglrs. not present, ignoring.");
+
 
 	board_priv_pdata->has_eeprom =
 		of_property_read_bool(node, "has-eeprom");
 
-	of_property_read_u32(node, "fuse_id_start_addr",
+	err = of_property_read_u32(node, "fuse_id_start_addr",
 		&board_priv_pdata->fuse_id_addr);
+	if (err)
+		board_priv_pdata->fuse_id_addr = 0;
+
+	err = of_property_read_u32(node, "avdd-setup-delay",
+		&board_priv_pdata->avdd_latency);
+	if (err)
+		board_priv_pdata->avdd_latency = 0;
 
 	return board_priv_pdata;
 }
@@ -962,6 +979,9 @@ static int imx274_set_mode(struct tegracam_device *tc_dev)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct device *dev = s_data->dev;
 	int err;
+
+	if (s_data->mode < 0)
+		return -EINVAL;
 
 	err = imx274_write_table(priv, mode_table[s_data->mode]);
 	if (err)
@@ -1236,7 +1256,9 @@ static int imx274_debugfs_create(struct imx274 *priv)
 		dev_err(&client->dev, "devnode not in DT\n");
 		return err;
 	}
-	snprintf(debugfs_dir, sizeof(debugfs_dir), "camera-%s", devnode);
+	err = snprintf(debugfs_dir, sizeof(debugfs_dir), "camera-%s", devnode);
+	if (err < 0)
+		return -EINVAL;
 
 	priv->debugfs_dir = debugfs_create_dir(debugfs_dir, NULL);
 	if (priv->debugfs_dir == NULL)

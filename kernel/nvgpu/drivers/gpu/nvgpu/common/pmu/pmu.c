@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,15 +27,19 @@
 #include <nvgpu/utils.h>
 #include <nvgpu/power_features/cg.h>
 #include <nvgpu/nvgpu_err.h>
+#ifdef CONFIG_NVGPU_DGPU
 #include <nvgpu/boardobjgrp.h>
+#endif
 #include <nvgpu/pmu.h>
 
 /* PMU H/W error functions */
 void nvgpu_pmu_report_bar0_pri_err_status(struct gk20a *g, u32 bar0_status,
 	u32 error_type)
 {
-	nvgpu_report_pmu_err(g, NVGPU_ERR_MODULE_PMU,
-		GPU_PMU_BAR0_ERROR_TIMEOUT, error_type, bar0_status);
+	nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PMU,
+			GPU_PMU_BAR0_ERROR_TIMEOUT);
+	nvgpu_err(g, "PMU falcon bar0 timeout. status(0x%x), "
+			"error_type(0x%x)", bar0_status, error_type);
 }
 
 /* PMU engine reset functions */
@@ -207,10 +211,12 @@ int nvgpu_pmu_early_init(struct gk20a *g)
 		g->support_ls_pmu = false;
 
 		/* Disable LS PMU global checkers */
+#ifdef CONFIG_NVGPU_NON_FUSA
 		g->can_elpg = false;
 		g->elpg_enabled = false;
 		g->aelpg_enabled = false;
 		g->elpg_ms_enabled = false;
+#endif
 		nvgpu_set_enabled(g, NVGPU_PMU_PERFMON, false);
 		nvgpu_set_enabled(g, NVGPU_ELPG_MS_ENABLED, false);
 #ifdef  CONFIG_NVGPU_DGPU

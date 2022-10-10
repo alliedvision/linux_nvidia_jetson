@@ -1,7 +1,7 @@
 /*
  * Tegra TSEC Module Support on t23x
  *
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,6 +23,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform/tegra/tegra_mc.h>
 #include <soc/tegra/fuse.h>
+#include <asm/cacheflush.h>
 
 #include "dev.h"
 #include "bus_client.h"
@@ -110,6 +111,7 @@ static int tsec_read_riscv_bin(struct platform_device *dev,
 	/* Copy the whole image taking endianness into account */
 	for (w = 0; w < riscv_image->size/sizeof(u32); w++)
 		m->mapped[w] = le32_to_cpu(((__le32 *)riscv_image->data)[w]);
+	__flush_dcache_area((void *)m->mapped, riscv_image->size);
 
 	/* Read the offsets from desc binary */
 	err = riscv_compute_ucode_offsets(dev, m, riscv_desc);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -50,6 +50,7 @@ static u32 gk20a_fifo_intr_0_error_mask(struct gk20a *g)
 		fifo_intr_0_lb_error_pending_f() |
 		fifo_intr_0_pio_error_pending_f();
 
+	(void)g;
 	return intr_0_error_mask;
 }
 
@@ -141,8 +142,8 @@ static u32 gk20a_fifo_intr_handle_errors(struct gk20a *g, u32 fifo_intr)
 	}
 
 	if ((fifo_intr & fifo_intr_0_fb_flush_timeout_pending_f()) != 0U) {
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-				0, GPU_HOST_PFIFO_FB_FLUSH_TIMEOUT_ERROR, 0);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+				GPU_HOST_PFIFO_FB_FLUSH_TIMEOUT_ERROR);
 		nvgpu_err(g, "fifo fb flush timeout error");
 		handled |= fifo_intr_0_fb_flush_timeout_pending_f();
 	}

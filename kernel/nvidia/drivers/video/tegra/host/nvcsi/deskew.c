@@ -1,7 +1,7 @@
 /*
  * Deskew driver
  *
- * Copyright (c) 2014-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,8 +40,7 @@
 #include "dev.h"
 #include "bus_client.h"
 #include "nvhost_acm.h"
-#include "t186/t186.h"
-#include "nvcsi.h"
+#include "t194/t194.h"
 #include "camera/csi/csi4_fops.h"
 
 static struct tegra_csi_device *mc_csi;
@@ -60,45 +59,6 @@ static int nvcsi_deskew_apply_helper(unsigned int active_lanes);
 static bool is_t19x_or_greater;
 // a regmap for address changes between chips
 static uint32_t regs[REGS_COUNT];
-
-static const uint32_t t186_regs[REGS_COUNT] = {
-0x10090,	//< NVCSI_STREAM_0_ERROR_STATUS2VI_MASK		regs[0]
-0x10890,	//< NVCSI_STREAM_1_ERROR_STATUS2VI_MASK		regs[1]
-0x1010101,	//< CFG_ERR_STATUS2VI_MASK_ALL			regs[2]
-0x10400,	//< NVCSI_PHY_0_CILA_INTR_STATUS		regs[3]
-0x10404,	//< NVCSI_PHY_0_CILA_INTR_MASK			regs[4]
-0x10c00,	//< NVCSI_PHY_0_CILB_INTR_STATUS		regs[5]
-0x10c04,	//< NVCSI_PHY_0_CILB_INTR_MASK			regs[6]
-0x18000,	//< NVCSI_PHY_0_NVCSI_CIL_PHY_CTRL_0		regs[7]
-0x18,		//< NVCSI_CIL_A_SW_RESET_0_OFFSET		regs[8]
-0x2c,		//< NVCSI_CIL_A_CLK_DESKEW_CTRL_0_OFFSET	regs[9]
-0x24,		//< NVCSI_CIL_A_DPHY_INADJ_CTRL_0_OFFSET	regs[10]
-0x30,		//< NVCSI_CIL_A_DATA_DESKEW_CTRL_0_OFFSET	regs[11]
-0x34,		//< NVCSI_CIL_A_DPHY_DESKEW_STATUS_0_OFFSET	regs[12]
-0x38,	//< NVCSI_CIL_A_DPHY_DESKEW_DATA_CALIB_STATUS_LOW_0_0_OFFSET	regs[13]
-0x3c,	//< NVCSI_CIL_A_DPHY_DESKEW_DATA_CALIB_STATUS_HIGH_0_0_OFFSET	regs[14]
-0x48,	//< NVCSI_CIL_A_DPHY_DESKEW_CLK_CALIB_STATUS_LOW_0_0_OFFSET	regs[15]
-0x4c,	//< NVCSI_CIL_A_DPHY_DESKEW_CLK_CALIB_STATUS_HIGH_0_0_OFFSET	regs[16]
-0x5c,		//< NVCSI_CIL_A_DESKEW_CONTROL_0_OFFSET		regs[17]
-0x5c,		//< NVCSI_CIL_A_CONTROL_0_OFFSET		regs[18]
-0xf << 20,	//< DESKEW_COMPARE				regs[19]
-20,		//< DESKEW_COMPARE_SHIFT			regs[20]
-0xf << 16,	//< DESKEW_SETTLE				regs[21]
-16,		//< DESKEW_SETTLE_SHIFT				regs[22]
-0x3f << 8,	//< CLK_SETTLE					regs[23]
-8,		//< CLK_SETTLE_SHIFT0				regs[24]
-0x7f << 0,	//< THS_SETTLE0					regs[25]
-0x7f << 0,	//< THS_SETTLE1					regs[26]
-0,		//< THS_SETTLE0_SHIFT				regs[27]
-0,		//< THS_SETTLE1_SHIFT				regs[28]
-0x88,		//< NVCSI_CIL_B_DPHY_INADJ_CTRL_0_OFFSET	regs[29]
-0x90,		//< NVCSI_CIL_B_CLK_DESKEW_CTRL_0_OFFSET	regs[30]
-0x94,		//< NVCSI_CIL_B_DATA_DESKEW_CTRL_0_OFFSET	regs[31]
-0x98,		//< NVCSI_CIL_B_DPHY_DESKEW_STATUS_0_OFFSET	regs[32]
-0xc0,		//< NVCSI_CIL_B_DESKEW_CONTROL_0_OFFSET		regs[33]
-0xc0,		//< NVCSI_CIL_B_CONTROL_0_OFFSET		regs[34]
-0x64,		//< NVCSI_CIL_B_OFFSET				regs[35]
-};
 
 static const uint32_t t194_regs[REGS_COUNT] = {
 0x101e4,	//< NVCSI_STREAM_0_ERROR_STATUS2VI_MASK		regs[0]
@@ -151,9 +111,6 @@ void nvcsi_deskew_platform_setup(struct tegra_csi_device *dev, bool t19x)
 	if (is_t19x_or_greater)
 		for (i = 0; i < REGS_COUNT; ++i)
 			regs[i] = t194_regs[i];
-	else
-		for (i = 0; i < REGS_COUNT; ++i)
-			regs[i] = t186_regs[i];
 }
 
 static inline void set_enabled_with_lock(unsigned int active_lanes)

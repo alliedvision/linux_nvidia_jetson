@@ -113,7 +113,7 @@ source "drivers/misc/nvs/Kconfig"
 source "drivers/misc/nvs-aonsh/Kconfig"
 source "drivers/misc/tegra-profiler/Kconfig"
 source "drivers/misc/eventlib/Kconfig"
-source "drivers/misc/nvscic2c-pcie/Kconfig
+source "drivers/misc/nvscic2c-pcie/Kconfig"
 source "drivers/misc/nvsciipc/Kconfig"
 endif
 

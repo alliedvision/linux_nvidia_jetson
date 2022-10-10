@@ -3,7 +3,7 @@
  *
  * Deskew driver
  *
- * Copyright (c) 2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -107,8 +107,6 @@
 /*
  * NVCSI_PHY_0_NVCSI_CIL_A_DESKEW_CONTROL_0 was introduced in T194
  * Use this register for DESKEW_COMPARE and DESKEW_SETTLE
- * On T186, this register doesn't exist, and will be mapped to
- * NVCSI_PHY_0_NVCSI_CIL_A_CONTROL_0 for deskew compare/settle programming
  */
 #define NVCSI_CIL_A_DESKEW_CONTROL_0_OFFSET		regs[17]
 #define NVCSI_CIL_A_CONTROL_0_OFFSET			regs[18]
@@ -117,7 +115,6 @@
  * bits in NVCSI_CIL_A_DESKEW_CONTROL_0/NVCSI_CIL_A_CONTROL_0
  * For T194, the THS_SETTLE control was split into
  * THS_SETTLE0 and THS_SETTLE1 for per-lane control
- * For T186, THS_SETTLE0_SHIFT and THS_SETTLE0_SHIFT1 will be the same.
  */
 #define	DESKEW_COMPARE					regs[19]
 #define DESKEW_COMPARE_SHIFT				regs[20]

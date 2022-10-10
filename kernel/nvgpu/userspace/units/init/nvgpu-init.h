@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@ struct unit_module;
  */
 
 /**
- * Test specification for: test_setup_env
+ * Test specification for: init_test_setup_env
  *
  * Description: Do basic setup before starting other tests.
  *
@@ -48,13 +48,13 @@ struct unit_module;
  * - UNIT_FAIL if encounters an error creating reg space
  * - UNIT_SUCCESS otherwise
  */
-int test_setup_env(struct unit_module *m,
+int init_test_setup_env(struct unit_module *m,
 			  struct gk20a *g, void *args);
 
 /**
- * Test specification for: test_free_env
+ * Test specification for: init_test_free_env
  *
- * Description: Cleanup resources allocated in test_setup_env()
+ * Description: Cleanup resources allocated in init_test_setup_env()
  *
  * Test Type: Other (setup)
  *
@@ -66,7 +66,7 @@ int test_setup_env(struct unit_module *m,
  * Output:
  * - UNIT_SUCCESS always
  */
-int test_free_env(struct unit_module *m,
+int init_test_free_env(struct unit_module *m,
 			 struct gk20a *g, void *args);
 
 /**
@@ -125,7 +125,7 @@ int test_can_busy(struct unit_module *m,
  * Targets: nvgpu_get, nvgpu_put
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * - Initialize refcount.
@@ -155,7 +155,7 @@ int test_get_put(struct unit_module *m,
  * Test Type: Feature
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Targets: nvgpu_check_gpu_state, is_nvgpu_gpu_state_valid,
  *          gops_mc.get_chip_details
@@ -188,7 +188,7 @@ int test_check_gpu_state(struct unit_module *m,
  * Targets: nvgpu_detect_chip
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * - Nominal test
@@ -228,7 +228,7 @@ int test_hal_init(struct unit_module *m,
  * Targets: nvgpu_finalize_poweron, nvgpu_init_gpu_characteristics
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * 1) Setup poweron init function pointers.
@@ -256,7 +256,7 @@ int test_poweron(struct unit_module *m, struct gk20a *g, void *args);
  * Targets: nvgpu_finalize_poweron
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * 1) Setup poweron init function pointers to NULL and enable flags.
@@ -281,7 +281,7 @@ int test_poweron_branches(struct unit_module *m, struct gk20a *g, void *args);
  * Targets: nvgpu_prepare_poweroff
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * 1) Setup poweroff init function pointers.
@@ -311,7 +311,7 @@ int test_poweroff(struct unit_module *m, struct gk20a *g, void *args);
  *          nvgpu_bug_exit
  *
  * Input:
- * - test_setup_env() must be called before.
+ * - init_test_setup_env() must be called before.
  *
  * Steps:
  * - Use stub for g->ops.mc.intr_mask, g->ops.runlist.write_state and

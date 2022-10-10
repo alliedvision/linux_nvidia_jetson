@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -163,7 +163,7 @@ clear_tsg:
 int test_rc_deinit(struct unit_module *m, struct gk20a *g, void *args)
 {
 	struct nvgpu_posix_channel *posix_channel = ch->os_priv;
-	int ret = nvgpu_tsg_force_unbind_channel(tsg, ch);
+	int ret = nvgpu_tsg_unbind_channel(tsg, ch, true);
 	if (ret != 0) {
 		ret = UNIT_FAIL;
 		unit_err(m , "channel already unbound");

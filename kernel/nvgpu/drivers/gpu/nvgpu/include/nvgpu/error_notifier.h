@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@ enum {
 	NVGPU_ERR_NOTIFIER_FECS_ERR_UNIMP_FIRMWARE_METHOD,
 	NVGPU_ERR_NOTIFIER_RESETCHANNEL_VERIF_ERROR,
 	NVGPU_ERR_NOTIFIER_PBDMA_PUSHBUFFER_CRC_MISMATCH,
+	NVGPU_ERR_NOTIFIER_CE_ERROR,
 };
 
 void nvgpu_set_err_notifier_locked(struct nvgpu_channel *ch, u32 error);

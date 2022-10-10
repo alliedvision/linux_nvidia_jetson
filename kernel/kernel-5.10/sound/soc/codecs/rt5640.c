@@ -2098,12 +2098,14 @@ EXPORT_SYMBOL_GPL(rt5640_sel_asrc_clk_src);
 static void rt5640_enable_micbias1_for_ovcd(struct snd_soc_component *component)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
+	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
 
 	snd_soc_dapm_mutex_lock(dapm);
 	snd_soc_dapm_force_enable_pin_unlocked(dapm, "LDO2");
 	snd_soc_dapm_force_enable_pin_unlocked(dapm, "MICBIAS1");
 	/* OVCD is unreliable when used with RCCLK as sysclk-source */
-	snd_soc_dapm_force_enable_pin_unlocked(dapm, "Platform Clock");
+	if (rt5640->use_platform_clock)
+		snd_soc_dapm_force_enable_pin_unlocked(dapm, "Platform Clock");
 	snd_soc_dapm_sync_unlocked(dapm);
 	snd_soc_dapm_mutex_unlock(dapm);
 }
@@ -2111,9 +2113,11 @@ static void rt5640_enable_micbias1_for_ovcd(struct snd_soc_component *component)
 static void rt5640_disable_micbias1_for_ovcd(struct snd_soc_component *component)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
+	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
 
 	snd_soc_dapm_mutex_lock(dapm);
-	snd_soc_dapm_disable_pin_unlocked(dapm, "Platform Clock");
+	if (rt5640->use_platform_clock)
+		snd_soc_dapm_disable_pin_unlocked(dapm, "Platform Clock");
 	snd_soc_dapm_disable_pin_unlocked(dapm, "MICBIAS1");
 	snd_soc_dapm_disable_pin_unlocked(dapm, "LDO2");
 	snd_soc_dapm_sync_unlocked(dapm);
@@ -2397,7 +2401,8 @@ static void rt5640_cancel_work(void *data)
 }
 
 static void rt5640_enable_jack_detect(struct snd_soc_component *component,
-				      struct snd_soc_jack *jack)
+				      struct snd_soc_jack *jack,
+				      struct rt5640_set_jack_data *jack_data)
 {
 	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
 
@@ -2450,6 +2455,9 @@ static void rt5640_enable_jack_detect(struct snd_soc_component *component,
 	else
 		snd_soc_component_write(component, RT5640_IRQ_CTRL1,
 					RT5640_IRQ_JD_NOR | RT5640_JD_P_INV);
+
+	if (jack_data && jack_data->use_platform_clock)
+		rt5640->use_platform_clock = jack_data->use_platform_clock;
 
 	rt5640->jack = jack;
 	if (rt5640->jack->status & SND_JACK_MICROPHONE) {
@@ -2524,7 +2532,7 @@ static int rt5640_set_jack(struct snd_soc_component *component,
 		if (rt5640->jd_src == RT5640_JD_SRC_HDA_HEADER)
 			rt5640_enable_hda_jack_detect(component, jack);
 		else
-			rt5640_enable_jack_detect(component, jack);
+			rt5640_enable_jack_detect(component, jack, data);
 	} else {
 		rt5640_disable_jack_detect(component);
 	}

@@ -1,0 +1,23 @@
+From f62cb84add52fad51a3b605c340ff3dcc3190148 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:01:11 -0700
+Subject: [PATCH 325/830] _____ANNOTATION: USB changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index 17c5329ee39e..3ee9c5c51f6a 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -15,3 +15,4 @@ binder changes
+ ion changes
+ driver framework and misc driver changes
+ tty changes
++USB changes
+-- 
+2.17.1
+

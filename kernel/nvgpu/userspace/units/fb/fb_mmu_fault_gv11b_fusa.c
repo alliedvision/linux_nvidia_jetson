@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,11 +49,6 @@ static u32 hal_channel_count(struct gk20a *g)
 	return 0x00000200U;
 }
 
-static void hal_bar2_fault_nop(struct gk20a *g)
-{
-	/* no-op */
-}
-
 static int hal_bar2_bind_nop(struct gk20a *g, struct nvgpu_mem *bar2_inst)
 {
 	/* no-op */
@@ -99,7 +94,6 @@ int fb_mmu_fault_gv11b_init_test(struct unit_module *m, struct gk20a *g,
 
 	/* Other HALs that are needed */
 	g->ops.channel.count = hal_channel_count;
-	g->ops.ce.mthd_buffer_fault_in_bar2_fault = hal_bar2_fault_nop;
 	g->ops.bus.bar2_bind = hal_bar2_bind_nop;
 	g->ops.fifo.mmu_fault_id_to_pbdma_id =
 		hal_fifo_mmu_fault_id_to_pbdma_id;

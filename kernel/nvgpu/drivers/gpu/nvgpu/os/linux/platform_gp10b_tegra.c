@@ -1,7 +1,7 @@
 /*
  * GP10B Tegra Platform Interface
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -54,25 +54,9 @@
 #include "scale.h"
 #include "module.h"
 
-/* Select every GP10B_FREQ_SELECT_STEP'th frequency from h/w table */
-#define GP10B_FREQ_SELECT_STEP	8
-
-/* Max number of freq supported in h/w */
-#define GP10B_MAX_SUPPORTED_FREQS 120
-
-/* Allow limited set of frequencies to be available */
-#define GP10B_NUM_SUPPORTED_FREQS ((GP10B_MAX_SUPPORTED_FREQS) / (GP10B_FREQ_SELECT_STEP))
-
-static unsigned long
-gp10b_freq_table[GP10B_NUM_SUPPORTED_FREQS];
-
+unsigned long gp10b_freq_table[GP10B_NUM_SUPPORTED_FREQS];
 static bool freq_table_init_complete;
 static int num_supported_freq;
-
-#define TEGRA_GP10B_BW_PER_FREQ 64
-#define TEGRA_DDR4_BW_PER_FREQ 16
-
-#define EMC_BW_RATIO  (TEGRA_GP10B_BW_PER_FREQ / TEGRA_DDR4_BW_PER_FREQ)
 
 #define GPCCLK_INIT_RATE 1000000000
 
@@ -112,6 +96,8 @@ int gp10b_tegra_acquire_platform_clocks(struct device *dev,
 		return -ENODEV;
 	}
 
+	nvgpu_mutex_acquire(&platform->clks_lock);
+
 	platform->num_clks = 0;
 
 	for (i = 0; i < num_clks_dt; i++) {
@@ -140,6 +126,8 @@ int gp10b_tegra_acquire_platform_clocks(struct device *dev,
 	}
 #endif
 
+	nvgpu_mutex_release(&platform->clks_lock);
+
 	return 0;
 
 err_get_clock:
@@ -147,6 +135,8 @@ err_get_clock:
 		clk_put(platform->clk[i]);
 		platform->clk[i] = NULL;
 	}
+
+	nvgpu_mutex_release(&platform->clks_lock);
 
 	return err;
 }
@@ -182,7 +172,10 @@ void gp10b_tegra_clks_control(struct device *dev, bool enable)
 {
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a *g = get_gk20a(dev);
+	int err;
 	int i;
+
+	nvgpu_mutex_acquire(&platform->clks_lock);
 
 	for (i = 0; i < platform->num_clks; i++) {
 		if (!platform->clk[i]) {
@@ -192,13 +185,18 @@ void gp10b_tegra_clks_control(struct device *dev, bool enable)
 		if (enable) {
 			nvgpu_log(g, gpu_dbg_info,
 				  "clk_prepare_enable");
-			clk_prepare_enable(platform->clk[i]);
+			err = clk_prepare_enable(platform->clk[i]);
+			if (err != 0) {
+				nvgpu_err(g, "could not turn on clock %d", i);
+			}
 		} else {
 			nvgpu_log(g, gpu_dbg_info,
 				  "clk_disable_unprepare");
 			clk_disable_unprepare(platform->clk[i]);
 		}
 	}
+
+	nvgpu_mutex_release(&platform->clks_lock);
 }
 
 int gp10b_tegra_reset_assert(struct device *dev)
@@ -319,11 +317,15 @@ int gp10b_clk_get_freqs(struct device *dev,
 		new_rate = clk_round_rate(platform->clk[0],
 						prev_rate + 1);
 		loc_freq_table[i] = new_rate;
-		if (new_rate == max_rate)
+		if (new_rate == max_rate) {
+			++i;
 			break;
+		}
 	}
-	freq_counter = i + 1;
-	WARN_ON(freq_counter == GP10B_MAX_SUPPORTED_FREQS);
+	/* freq_counter indicates the count of frequencies capped
+	 * to GP10B_MAX_SUPPORTED_FREQS or till max_rate is reached.
+	*/
+	freq_counter = i;
 
 	/*
 	 * If the number of achievable frequencies is less than or

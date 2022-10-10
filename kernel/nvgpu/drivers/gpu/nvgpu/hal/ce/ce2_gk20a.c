@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics Copy Engine  (gr host)
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,10 +38,14 @@
 
 #include <nvgpu/hw/gk20a/hw_ce2_gk20a.h>
 
-void gk20a_ce2_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
+void gk20a_ce2_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base,
+				bool *needs_rc, bool *needs_quiesce)
 {
 	u32 ce2_intr = nvgpu_readl(g, ce2_intr_status_r());
 	u32 clear_intr = 0U;
+
+	(void)inst_id;
+	(void)pri_base;
 
 	nvgpu_log(g, gpu_dbg_intr, "ce2 isr %08x", ce2_intr);
 
@@ -50,12 +54,13 @@ void gk20a_ce2_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
 		nvgpu_log(g, gpu_dbg_intr, "ce2 blocking pipe interrupt");
 		clear_intr |= ce2_intr_status_blockpipe_pending_f();
 	}
-
 	if ((ce2_intr & ce2_intr_status_launcherr_pending_f()) != 0U) {
 		nvgpu_log(g, gpu_dbg_intr, "ce2 launch error interrupt");
+		*needs_rc |= true;
 		clear_intr |= ce2_intr_status_launcherr_pending_f();
 	}
 
+	*needs_quiesce |= false;
 	nvgpu_writel(g, ce2_intr_status_r(), clear_intr);
 }
 
@@ -63,6 +68,9 @@ u32 gk20a_ce2_nonstall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
 {
 	u32 ops = 0U;
 	u32 ce2_intr = nvgpu_readl(g, ce2_intr_status_r());
+
+	(void)inst_id;
+	(void)pri_base;
 
 	nvgpu_log(g, gpu_dbg_intr, "ce2 nonstall isr %08x", ce2_intr);
 

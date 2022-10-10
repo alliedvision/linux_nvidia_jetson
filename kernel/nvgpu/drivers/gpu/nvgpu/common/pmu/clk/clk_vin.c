@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -144,6 +144,8 @@ static int _clk_vin_devgrp_pmustatus_instget(struct gk20a *g,
 	*pgrp_get_status =
 		(struct nv_pmu_clk_clk_vin_device_boardobj_grp_get_status *)
 		pboardobjgrppmu;
+
+	(void)g;
 
 	/*check whether pmuboardobjgrp has a valid boardobj in index*/
 	if (((u32)BIT(idx) &
@@ -326,7 +328,7 @@ static int devinit_get_vin_device_table(struct gk20a *g,
 		pvin_dev = construct_vin_device(g, (void *)&vin_device_data);
 
 		status = boardobjgrp_objinsert(&pvinobjs->super.super,
-				(struct pmu_board_obj *)pvin_dev, index);
+				(struct pmu_board_obj *)pvin_dev, (u8)index);
 
 		vin_tbl_entry_ptr += vin_desc_table_header.entry_size;
 	}

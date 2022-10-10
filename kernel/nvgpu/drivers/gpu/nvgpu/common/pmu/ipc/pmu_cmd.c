@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -202,7 +202,7 @@ static int pmu_payload_allocate(struct gk20a *g, struct pmu_sequence *seq,
 		nvgpu_pmu_seq_set_fbq_out_offset(seq, buffer_size);
 		/* Save target address in FBQ work buffer. */
 		alloc->dmem_offset = buffer_size;
-		buffer_size += alloc->dmem_size;
+		buffer_size = (u16)(buffer_size + alloc->dmem_size);
 		nvgpu_pmu_seq_set_buffer_size(seq, buffer_size);
 	} else {
 		tmp = nvgpu_alloc(&pmu->dmem, alloc->dmem_size);
@@ -235,8 +235,8 @@ static int pmu_cmd_payload_setup_rpc(struct gk20a *g, struct pmu_cmd *cmd,
 
 	(void) memset(&alloc, 0, sizeof(struct falcon_payload_alloc));
 
-	alloc.dmem_size = payload->rpc.size_rpc +
-		payload->rpc.size_scratch;
+	alloc.dmem_size = (u16)(payload->rpc.size_rpc +
+		payload->rpc.size_scratch);
 
 	err = pmu_payload_allocate(g, seq, &alloc);
 	if (err != 0) {

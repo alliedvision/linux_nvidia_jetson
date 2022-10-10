@@ -1,7 +1,7 @@
-From ffc3e1ea46a033f91ca27b84add386af4feaa27f Mon Sep 17 00:00:00 2001
+From ea669ae870c72e902cb1117e089dfc13c6711fd1 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 9 Mar 2021 09:42:09 +0100
-Subject: [PATCH 139/304] tasklets: Replace spin wait in tasklet_kill()
+Subject: [PATCH 139/318] tasklets: Replace spin wait in tasklet_kill()
 
 tasklet_kill() spin waits for TASKLET_STATE_SCHED to be cleared invoking
 yield() from inside the loop. yield() is an ill defined mechanism and the
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 06bca02..ecc3ac4 100644
+index 06bca024ce45..ecc3ac4091c8 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -530,6 +530,16 @@ void __tasklet_hi_schedule(struct tasklet_struct *t)
@@ -69,5 +69,5 @@ index 06bca02..ecc3ac4 100644
  EXPORT_SYMBOL(tasklet_kill);
  
 -- 
-2.7.4
+2.17.1
 

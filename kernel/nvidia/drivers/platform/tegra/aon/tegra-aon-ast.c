@@ -95,20 +95,21 @@ static int tegra_ast_region_enable(struct tegra_ast *ast, u32 region,
 	void __iomem *ast_reg;
 	int ret = 0;
 
+	mask = (size - 1ULL);
 	pdata = dev_get_drvdata(aon->dev);
-	if ((size & (size - 1ULL)) != 0U) {
+	if ((size & mask) != 0U) {
 		dev_err(aon->dev, "Size is not a power of 2\n");
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	if ((master_base & (size - 1ULL)) != 0U) {
+	if ((master_base & mask) != 0U) {
 		dev_err(aon->dev, "Output addr is not aligned to size\n");
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	if ((slave_base & (size - 1ULL)) != 0U) {
+	if ((slave_base & mask) != 0U) {
 		dev_err(aon->dev, "Input addr is not aligned to size\n");
 		ret = -EINVAL;
 		goto exit;
@@ -124,7 +125,6 @@ static int tegra_ast_region_enable(struct tegra_ast *ast, u32 region,
 
 	/* Program mask */
 	ast_reg = ast_base + TEGRA_APS_AST_REGION_0_MASK_LO + roffset;
-	mask = (size - 1ULL);
 	writel(mask & AST_ADDR_MASK, ast_reg);
 
 	/* Program lower 32-bits of master-address */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -110,10 +110,6 @@ static const struct ether_stats ether_cstrings_stats[] = {
 	ETHER_PKT_ERR_STAT(rx_frame_error),
 	ETHER_PKT_ERR_STAT(clear_tx_err),
 	ETHER_PKT_ERR_STAT(clear_rx_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_ip_header_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_jabber_timeout_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_payload_cs_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_tx_underflow_err),
 };
 
 /**
@@ -290,6 +286,12 @@ static const struct ether_stats ether_gstrings_stats[] = {
 	ETHER_EXTRA_STAT(link_connect_count),
 	ETHER_EXTRA_STAT(ts_lock_add_fail),
 	ETHER_EXTRA_STAT(ts_lock_del_fail),
+
+	/* Packet error stats */
+	ETHER_CORE_PKT_ERR_STAT(mgbe_ip_header_err),
+	ETHER_CORE_PKT_ERR_STAT(mgbe_jabber_timeout_err),
+	ETHER_CORE_PKT_ERR_STAT(mgbe_payload_cs_err),
+	ETHER_CORE_PKT_ERR_STAT(mgbe_tx_underflow_err),
 };
 
 /**
@@ -1394,9 +1396,6 @@ static void ether_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 
-	wol->supported = 0;
-	wol->wolopts = 0;
-
 	if (!wol)
 		return;
 
@@ -1406,6 +1405,9 @@ static void ether_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 			   __func__);
 		return;
 	}
+
+	wol->supported = 0;
+	wol->wolopts = 0;
 
 	if (!phy_interrupt_is_valid(pdata->phydev))
 		return;

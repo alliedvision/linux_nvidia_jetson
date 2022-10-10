@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -172,6 +172,12 @@ struct gops_fb_vab {
 	int (*init)(struct gk20a *g);
 
 	/**
+	 * @brief Set VAB buffer address in HW registers
+	 *
+	 */
+	void (*set_vab_buffer_address)(struct gk20a *g, u64 buf_addr);
+
+	/**
 	 * @brief Initialize VAB range checkers and enable VAB tracking
 	 *
 	 */
@@ -182,7 +188,7 @@ struct gops_fb_vab {
 	 * @brief Trigger VAB dump, copy buffer to user and clear
 	 *
 	 */
-	int (*dump_and_clear)(struct gk20a *g, u64 *user_buf,
+	int (*dump_and_clear)(struct gk20a *g, u8 *user_buf,
 		u64 user_buf_size);
 
 	/**
@@ -196,6 +202,12 @@ struct gops_fb_vab {
 	 *
 	 */
 	int (*teardown)(struct gk20a *g);
+
+	/**
+	 * @brief Recover from VAB MMU fault
+	 *
+	 */
+	void (*recover)(struct gk20a *g);
 };
 #endif
 

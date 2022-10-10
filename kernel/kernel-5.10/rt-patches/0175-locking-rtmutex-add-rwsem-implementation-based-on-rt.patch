@@ -1,7 +1,7 @@
-From 8128b99208cdbc10ec6b220a562c9206297f4472 Mon Sep 17 00:00:00 2001
+From 63af140cfe047776b470a8a83c82c557a4ca7e6f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:28:34 +0200
-Subject: [PATCH 175/304] locking/rtmutex: add rwsem implementation based on
+Subject: [PATCH 175/318] locking/rtmutex: add rwsem implementation based on
  rtmutex
 
 The RT specific R/W semaphore implementation restricts the number of readers
@@ -43,15 +43,15 @@ the approach.
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/rwsem-rt.h  |  70 ++++++++++
- kernel/locking/rwsem-rt.c | 318 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/rwsem-rt.h  |  70 +++++++++
+ kernel/locking/rwsem-rt.c | 318 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 388 insertions(+)
  create mode 100644 include/linux/rwsem-rt.h
  create mode 100644 kernel/locking/rwsem-rt.c
 
 diff --git a/include/linux/rwsem-rt.h b/include/linux/rwsem-rt.h
 new file mode 100644
-index 00000000..0ba8aae
+index 000000000000..0ba8aae9a198
 --- /dev/null
 +++ b/include/linux/rwsem-rt.h
 @@ -0,0 +1,70 @@
@@ -127,7 +127,7 @@ index 00000000..0ba8aae
 +#endif
 diff --git a/kernel/locking/rwsem-rt.c b/kernel/locking/rwsem-rt.c
 new file mode 100644
-index 00000000..a0771c1
+index 000000000000..a0771c150041
 --- /dev/null
 +++ b/kernel/locking/rwsem-rt.c
 @@ -0,0 +1,318 @@
@@ -450,5 +450,5 @@ index 00000000..a0771c1
 +	__up_write_unlock(sem, WRITER_BIAS - 1, flags);
 +}
 -- 
-2.7.4
+2.17.1
 

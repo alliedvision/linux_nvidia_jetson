@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -42,6 +42,7 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
 	unsigned int retry = 1000;
 	unsigned int count;
 	int cond = 1;
+	int ret = 0;
 
 	/* 14. Poll for AN complete */
 	cond = 1;
@@ -50,6 +51,14 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
 		if (count > retry) {
 			OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
 				     "XPCS AN completion timed out\n", 0ULL);
+#ifdef HSI_SUPPORT
+			if (osi_core->hsi.enabled == OSI_ENABLE) {
+				osi_core->hsi.err_code[AUTONEG_ERR_IDX] =
+						OSI_PCS_AUTONEG_ERR;
+				osi_core->hsi.report_err = OSI_ENABLE;
+				osi_core->hsi.report_count_err[AUTONEG_ERR_IDX] = OSI_ENABLE;
+			}
+#endif
 			return -1;
 		}
 
@@ -62,7 +71,10 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
 		} else {
 			/* 15. clear interrupt */
 			status &= ~XPCS_VR_MII_AN_INTR_STS_CL37_ANCMPLT_INTR;
-			xpcs_write(xpcs_base, XPCS_VR_MII_AN_INTR_STS, status);
+			ret = xpcs_write_safety(osi_core, XPCS_VR_MII_AN_INTR_STS, status);
+			if (ret != 0) {
+				return ret;
+			}
 			cond = 0;
 		}
 	}
@@ -82,14 +94,18 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
  *
  * Algorithm: This routine program XPCS speed based on AN status.
  *
- * @param[in] xpcs_base: XPCS base virtual address.
+ * @param[in] osi_core: OSI core data structure.
  * @param[in] status: Autonegotation Status.
+ *
+ * @retval 0 on success
+ * @retval -1 on failure
  */
-static inline void xpcs_set_speed(void *xpcs_base,
+static inline int xpcs_set_speed(struct osi_core_priv_data *osi_core,
 				  unsigned int status)
 {
 	unsigned int speed = status & XPCS_USXG_AN_STS_SPEED_MASK;
 	unsigned int ctrl = 0;
+	void *xpcs_base = osi_core->xpcs_base;
 
 	ctrl = xpcs_read(xpcs_base, XPCS_SR_MII_CTRL);
 
@@ -112,7 +128,7 @@ static inline void xpcs_set_speed(void *xpcs_base,
 		break;
 	}
 
-	xpcs_write(xpcs_base, XPCS_SR_MII_CTRL, ctrl);
+	return xpcs_write_safety(osi_core, XPCS_SR_MII_CTRL, ctrl);
 }
 
 /**
@@ -146,15 +162,19 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
 	    (osi_core->phy_iface_mode == OSI_USXGMII_MODE_5G)) {
 		ctrl = xpcs_read(xpcs_base, XPCS_SR_MII_CTRL);
 		ctrl |= XPCS_SR_MII_CTRL_AN_ENABLE;
-		xpcs_write(xpcs_base, XPCS_SR_MII_CTRL, ctrl);
-
+		ret = xpcs_write_safety(osi_core, XPCS_SR_MII_CTRL, ctrl);
+		if (ret != 0) {
+			return ret;
+		}
 		ret = xpcs_poll_for_an_complete(osi_core, &an_status);
 		if (ret < 0) {
 			return ret;
 		}
 
-		xpcs_set_speed(xpcs_base, an_status);
-
+		ret = xpcs_set_speed(osi_core, an_status);
+		if (ret != 0) {
+			return ret;
+		}
 		/* USXGMII Rate Adaptor Reset before data transfer */
 		ctrl = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1);
 		ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_USRA_RST;
@@ -438,6 +458,7 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	unsigned int count;
 	unsigned int ctrl = 0;
 	int cond = 1;
+	int ret = 0;
 
 	if (osi_core->xpcs_base == OSI_NULL) {
 		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
@@ -461,8 +482,10 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	/* 1. switch DWC_xpcs to BASE-R mode */
 	ctrl = xpcs_read(xpcs_base, XPCS_SR_XS_PCS_CTRL2);
 	ctrl |= XPCS_SR_XS_PCS_CTRL2_PCS_TYPE_SEL_BASE_R;
-	xpcs_write(xpcs_base, XPCS_SR_XS_PCS_CTRL2, ctrl);
-
+	ret = xpcs_write_safety(osi_core, XPCS_SR_XS_PCS_CTRL2, ctrl);
+	if (ret != 0) {
+		return ret;
+	}
 	/* 2. enable USXGMII Mode inside DWC_xpcs */
 
 	/* 3.  USXG_MODE = 10G - default it will be 10G mode */
@@ -476,8 +499,10 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 		}
 	}
 
-	xpcs_write(xpcs_base, XPCS_VR_XS_PCS_KR_CTRL, ctrl);
-
+	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_KR_CTRL, ctrl);
+	if (ret != 0) {
+		return ret;
+	}
 	/* 4. Program PHY to operate at 10Gbps/5Gbps/2Gbps
          * this step not required since PHY speed programming
          * already done as part of phy INIT
@@ -485,6 +510,14 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	/* 5. Vendor specific software reset */
 	ctrl = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1);
 	ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_USXG_EN;
+	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
+	if (ret != 0) {
+		return ret;
+	}
+
+	/* XPCS_VR_XS_PCS_DIG_CTRL1_VR_RST bit is self clearing
+	 * value readback varification is not needed
+	 */
         ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_VR_RST;
 	xpcs_write(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
 
@@ -516,12 +549,18 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	    (osi_core->phy_iface_mode == OSI_USXGMII_MODE_5G)) {
 		ctrl = xpcs_read(xpcs_base, XPCS_SR_AN_CTRL);
 		ctrl &= ~XPCS_SR_AN_CTRL_AN_EN;
-		xpcs_write(xpcs_base, XPCS_SR_AN_CTRL, ctrl);
-
+		ret = xpcs_write_safety(osi_core, XPCS_SR_AN_CTRL, ctrl);
+		if (ret != 0) {
+			return ret;
+		}
 		ctrl = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1);
 		ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_CL37_BP;
-		xpcs_write(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
+		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
+		if (ret != 0) {
+			return ret;
+		}
 	}
+
 	/* TODO: 9. MII_AN_INTR_EN to 1, to enable auto-negotiation
 	 * complete interrupt */
 
@@ -540,15 +579,17 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
  * Algorithm: This routine update register related to EEE
  * for XPCS.
  *
- * @param[in] xpcs_base: XPCS virtual base address
+ * @param[in] osi_core: OSI core data structure.
  * @param[in] en_dis: enable - 1 or disable - 0
  *
  * @retval 0 on success
  * @retval -1 on failure.
  */
-int xpcs_eee(void *xpcs_base, unsigned int en_dis)
+int xpcs_eee(struct osi_core_priv_data *osi_core, unsigned int en_dis)
 {
+	void *xpcs_base = osi_core->xpcs_base;
 	unsigned int val = 0x0U;
+	int ret = 0;
 
 	if (en_dis != OSI_ENABLE && en_dis != OSI_DISABLE) {
 		return  -1;
@@ -561,7 +602,10 @@ int xpcs_eee(void *xpcs_base, unsigned int en_dis)
 		val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0);
 		val &= ~XPCS_VR_XS_PCS_EEE_MCTRL0_LTX_EN;
 		val &= ~XPCS_VR_XS_PCS_EEE_MCTRL0_LRX_EN;
-		xpcs_write(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
+		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
+		if (ret != 0) {
+			return ret;
+		}
 		return 0;
 	}
 
@@ -579,12 +623,16 @@ int xpcs_eee(void *xpcs_base, unsigned int en_dis)
 	/* 4. enable the EEE feature on the Tx path and Rx path */
 	val |= (XPCS_VR_XS_PCS_EEE_MCTRL0_LTX_EN |
 		XPCS_VR_XS_PCS_EEE_MCTRL0_LRX_EN);
-	xpcs_write(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
-
+	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
+	if (ret != 0) {
+		return ret;
+	}
 	/* Transparent Tx LPI Mode Enable */
 	val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL1);
 	val |= XPCS_VR_XS_PCS_EEE_MCTRL1_TRN_LPI;
-	xpcs_write(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL1, val);
-
+	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL1, val);
+	if (ret != 0) {
+		return ret;
+	}
 	return 0;
 }

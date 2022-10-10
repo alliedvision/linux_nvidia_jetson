@@ -3,7 +3,7 @@
  *
  * Driver for NCT1008, temperature monitoring device from ON Semiconductors
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -597,7 +597,10 @@ static ssize_t nct1008_set_nadjust(struct device *dev,
 	struct nct1008_data *data = i2c_get_clientdata(client);
 	int r, nadj;
 
-	sscanf(buf, "%d", &nadj);
+	r = sscanf(buf, "%d", &nadj);
+	if (r < 0)
+		return r;
+
 	r = nct1008_write_reg(data, NFACTOR_CORRECTION, nadj);
 	if (r)
 		return r;
@@ -629,7 +632,10 @@ static ssize_t nct1008_set_offset(struct device *dev,
 	struct nct1008_data *data = i2c_get_clientdata(client);
 	int r = count, hi_b, lo_b;
 
-	sscanf(buf, "%d %d", &hi_b, &lo_b);
+	r = sscanf(buf, "%d %d", &hi_b, &lo_b);
+	if (r < 0)
+		return r;
+
 	r = nct1008_write_reg(data, OFFSET_WR, hi_b);
 	r = r ? r : nct1008_write_reg(data, OFFSET_QUARTER_WR, lo_b << 4);
 	if (r)
@@ -754,6 +760,9 @@ static int nct1008_thermal_set_limits(int sensor,
 	long hi_limit;
 	u8 reg;
 
+	if (sensor < 0 || sensor >= TEGRA_NCT_SENSOR_MAX)
+		return -EINVAL;
+
 	lo_limit = max(NCT1008_MIN_TEMP, MILLICELSIUS_TO_CELSIUS(lo_limit_mC));
 	hi_limit = min(NCT1008_MAX_TEMP, MILLICELSIUS_TO_CELSIUS(hi_limit_mC));
 
@@ -799,8 +808,13 @@ static int nct1008_get_trend_as_sensor(int sensor, void *data, int trip,
 {
 	int ret, temp, trip_temp, last_temp;
 	struct nct1008_data *nct_data = (struct nct1008_data *)data;
-	struct thermal_zone_device *thz = nct_data->sensors[sensor].thz;
+	struct thermal_zone_device *thz;
 	*trend = THERMAL_TREND_STABLE;
+
+	if (sensor < 0 || sensor >= TEGRA_NCT_SENSOR_MAX)
+		return -EINVAL;
+
+	thz = nct_data->sensors[sensor].thz;
 
 	if (!thz)
 		return 0;

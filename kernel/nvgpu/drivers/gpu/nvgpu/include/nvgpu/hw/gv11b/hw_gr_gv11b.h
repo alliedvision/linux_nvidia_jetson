@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -169,6 +169,12 @@
 #define gr_activity_4_gpc0_v(r)                             (((r) >> 0U) & 0x7U)
 #define gr_activity_4_gpc0_empty_v()                               (0x00000000U)
 #define gr_activity_4_gpc0_preempted_v()                           (0x00000004U)
+#define gr_pri_gpcs_setup_debug_r()                                (0x00418800U)
+#define gr_pri_gpcs_setup_debug_poly_offset_nan_is_zero_m()    (U32(0x1U) << 0U)
+#define gr_pri_gpcs_setup_debug_poly_offset_nan_is_zero_enable_f()        (0x1U)
+#define gr_pri_gpcs_tpcs_tex_lod_dbg_r()                           (0x00419a04U)
+#define gr_pri_gpcs_tpcs_tex_lod_dbg_cubeseam_aniso_m()        (U32(0x1U) << 1U)
+#define gr_pri_gpcs_tpcs_tex_lod_dbg_cubeseam_aniso_enable_f()            (0x2U)
 #define gr_pri_gpc0_gcc_dbg_r()                                    (0x00501000U)
 #define gr_pri_gpcs_gcc_dbg_r()                                    (0x00419000U)
 #define gr_pri_gpcs_gcc_dbg_invalidate_m()                     (U32(0x1U) << 1U)
@@ -1308,19 +1314,34 @@
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_illegal_instr_param_report_f()\
 				(0x800U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_oor_reg_report_f()   (0x2000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_oor_addr_m()\
+				(U32(0x1U) << 14U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_oor_addr_report_f()  (0x4000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_oor_addr_no_report_f()  (0x0U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_misaligned_addr_m()\
+				(U32(0x1U) << 15U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_misaligned_addr_report_f()\
 				(0x8000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_misaligned_addr_no_report_f()\
+				(0x0U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_invalid_addr_space_report_f()\
 				(0x10000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_invalid_const_addr_ldc_m()\
+				(U32(0x1U) << 18U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_invalid_const_addr_ldc_report_f()\
 				(0x40000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_invalid_const_addr_ldc_no_report_f()\
+				(0x0U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_mmu_fault_report_f()\
 				(0x800000U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_stack_overflow_report_f()\
 				(0x400000U)
 #define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_mmu_nack_report_f()\
 				(0x4000000U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_tex_format_m()\
+				(U32(0x1U) << 24U)
+#define gr_gpc0_tpc0_sm0_hww_warp_esr_report_mask_tex_format_no_report_f()\
+				(0x0U)
 #define gr_gpcs_tpcs_tpccs_tpc_exception_en_r()                    (0x00419d0cU)
 #define gr_gpcs_tpcs_tpccs_tpc_exception_en_sm_enabled_f()                (0x2U)
 #define gr_gpcs_tpcs_tpccs_tpc_exception_en_tex_enabled_f()               (0x1U)
@@ -1594,6 +1615,8 @@
 #define gr_gpcs_tpcs_sm_disp_ctrl_r()                              (0x00419ba4U)
 #define gr_gpcs_tpcs_sm_disp_ctrl_re_suppress_m()             (U32(0x3U) << 11U)
 #define gr_gpcs_tpcs_sm_disp_ctrl_re_suppress_disable_f()              (0x1000U)
+#define gr_gpcs_tpcs_sm_disp_ctrl_killed_ld_is_nop_m()         (U32(0x1U) << 3U)
+#define gr_gpcs_tpcs_sm_disp_ctrl_killed_ld_is_nop_disable_f()            (0x0U)
 #define gr_gpcs_tc_debug0_r()                                      (0x00418708U)
 #define gr_gpcs_tc_debug0_limit_coalesce_buffer_size_f(v)\
 				((U32(v) & 0x1ffU) << 0U)

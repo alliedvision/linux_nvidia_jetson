@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -78,6 +78,7 @@ void gp10b_gr_init_get_access_map(struct gk20a *g,
 	};
 	size_t array_size;
 
+	(void)g;
 	*whitelist = wl_addr_gp10b;
 	array_size = ARRAY_SIZE(wl_addr_gp10b);
 	*num_entries = nvgpu_safe_cast_u64_to_u32(array_size);
@@ -94,6 +95,9 @@ int gp10b_gr_init_sm_id_config(struct gk20a *g, u32 *tpc_sm_id,
 	u32 max_gpcs = nvgpu_get_litter_value(g, GPU_LIT_NUM_GPCS);
 	u32 tpc_cnt = nvgpu_safe_sub_u32(
 				nvgpu_gr_config_get_tpc_count(gr_config), 1U);
+
+	(void)gr_ctx;
+	(void)patch;
 
 	/* Each NV_PGRAPH_PRI_CWD_GPC_TPC_ID can store 4 TPCs.*/
 	for (i = 0U; i <= (tpc_cnt / 4U); i++) {
@@ -194,11 +198,13 @@ int gp10b_gr_init_preemption_state(struct gk20a *g)
  */
 u32 gp10b_gr_init_get_attrib_cb_default_size(struct gk20a *g)
 {
+	(void)g;
 	return GP10B_CBM_BETA_CB_NO_DEEP_TILING_SIZE_DEFAULT;
 }
 
 u32 gp10b_gr_init_get_alpha_cb_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_gpc0_ppc0_cbm_alpha_cb_size_v_default_v();
 }
 
@@ -312,6 +318,7 @@ u32 gp10b_gr_init_get_attrib_cb_gfxp_size(struct gk20a *g)
 
 u32 gp10b_gr_init_get_ctx_spill_size(struct gk20a *g)
 {
+	(void)g;
 	return  nvgpu_safe_mult_u32(
 		 gr_gpc0_swdx_rm_spill_buffer_size_256b_default_v(),
 		 gr_gpc0_swdx_rm_spill_buffer_size_256b_byte_granularity_v());

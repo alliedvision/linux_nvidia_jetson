@@ -51,6 +51,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 21>, <&gpcdma 21>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8050>;
 	};
 
 	gen2_i2c: i2c@c240000 {
@@ -75,6 +76,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 22>, <&gpcdma 22>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8051>;
 	};
 
 	cam_i2c: i2c@3180000 {
@@ -99,6 +101,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 23>, <&gpcdma 23>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8052>;
 	};
 
 	dp_aux_ch1_i2c: i2c@3190000 {
@@ -121,6 +124,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 26>, <&gpcdma 26>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8053>;
 	};
 
 #if TEGRA_BPMP_FW_DT_VERSION <= DT_VERSION_1
@@ -154,6 +158,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 30>, <&gpcdma 30>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8054>;
 	};
 
 	dp_aux_ch2_i2c: i2c@31c0000 {
@@ -176,6 +181,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 27>, <&gpcdma 27>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8056>;
 	};
 
 	gen8_i2c: i2c@c250000 {
@@ -200,6 +206,7 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 0>, <&gpcdma 0>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8057>;
 	};
 
 	dp_aux_ch3_i2c: i2c@31e0000 {
@@ -212,7 +219,7 @@
 		nvidia,hw-instance-id = <0x8>;
 		interrupts = <0 TEGRA234_IRQ_I2C9 0x04>;
 		status = "disabled";
-		clock-frequency = <100000>;
+		clock-frequency = <400000>;
 		clocks = <&bpmp_clks TEGRA234_CLK_I2C9
 			&bpmp_clks TEGRA234_CLK_PLLP_OUT0>;
 		clock-names = "div-clk", "parent";
@@ -222,5 +229,6 @@
 		reset-names = "i2c";
 		dmas = <&gpcdma 31>, <&gpcdma 31>;
 		dma-names = "rx", "tx";
+		nvidia,epl-reporter-id = <0x8058>;
 	};
 };

@@ -1,0 +1,71 @@
+From 3ee83f2a419736591592a096282e55d3864018f7 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 23 Sep 2020 12:10:56 -0700
+Subject: [PATCH 488/830] ANDROID: Incremental fs: Fix misuse of cpu_to_leXX
+ and poll return
+X-NVConfidentiality: public
+
+Found by sparse:
+
+fs/incfs/format.c:416:21: warning: incorrect type in assignment (different base types)
+fs/incfs/format.c:416:21:    expected restricted __le32 [assigned] [usertype] fh_flags
+fs/incfs/format.c:416:21:    got int
+
+fs/incfs/pseudo_files.c:925:25: warning: incorrect type in argument 4 (different base types)
+fs/incfs/pseudo_files.c:925:25:    expected unsigned long long [usertype] size
+fs/incfs/pseudo_files.c:925:25:    got restricted __le64 [addressable] [assigned] [usertype] size_attr_value
+fs/incfs/pseudo_files.c:925:42: warning: incorrect type in argument 5 (different base types)
+fs/incfs/pseudo_files.c:925:42:    expected unsigned long long [usertype] offset
+fs/incfs/pseudo_files.c:925:42:    got restricted __le64 [usertype]
+fs/incfs/pseudo_files.c:1111:24: warning: incorrect type in return expression (different base types)
+fs/incfs/pseudo_files.c:1111:24:    expected restricted __poll_t
+fs/incfs/pseudo_files.c:1111:24:    got int
+
+Bug: 169258814
+Fixes: Sparse errors introduced by 3f4938108a7ad, 8334d69e65f60 and cb776f45766a6
+Test: incfs_test passes, sparse shows no errors
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I48596e9521069fc77bf38c345a568529d61c77dc
+---
+ fs/incfs/format.c       | 2 +-
+ fs/incfs/pseudo_files.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 691d7e474328..06ddaade8523 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -413,7 +413,7 @@ int incfs_write_mapping_fh_to_backing_file(struct backing_file_context *bfc,
+ 
+ 	fh.fh_mapped_file_size = cpu_to_le64(file_size);
+ 	fh.fh_original_uuid = *uuid;
+-	fh.fh_flags = INCFS_FILE_MAPPED;
++	fh.fh_flags = cpu_to_le32(INCFS_FILE_MAPPED);
+ 
+ 	LOCK_REQUIRED(bfc->bc_mutex);
+ 
+diff --git a/fs/incfs/pseudo_files.c b/fs/incfs/pseudo_files.c
+index 7c20d452c031..d407209c0d99 100644
+--- a/fs/incfs/pseudo_files.c
++++ b/fs/incfs/pseudo_files.c
+@@ -922,7 +922,7 @@ static long ioctl_create_mapped_file(struct mount_info *mi, void __user *arg)
+ 	}
+ 
+ 	error = init_new_mapped_file(mi, file_dentry, &args.source_file_id,
+-			size_attr_value, cpu_to_le64(args.source_offset));
++			args.size, args.source_offset);
+ 	if (error)
+ 		goto delete_file;
+ 
+@@ -1108,7 +1108,7 @@ static __poll_t blocks_written_poll(struct file *f, poll_table *wait)
+ 	unsigned long blocks_written;
+ 
+ 	if (!mi)
+-		return -EFAULT;
++		return 0;
+ 
+ 	poll_wait(f, &mi->mi_blocks_written_notif_wq, wait);
+ 	blocks_written = atomic_read(&mi->mi_blocks_written);
+-- 
+2.17.1
+

@@ -1,0 +1,39 @@
+From 7521fe0f8120ad777b14655a123142c4cdb99a32 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Thu, 20 Aug 2020 13:49:01 -0700
+Subject: [PATCH 775/830] ANDROID: build.config.common: enable LLVM=1
+X-NVConfidentiality: public
+
+This moves builds to all use LLVM=1 argument to make, rather than
+CC=clang NM=llvm-nm OBJCOPY=llvm-objcopy ... (see also
+https://www.kernel.org/doc/html/latest/kbuild/llvm.html#llvm-utilities).
+
+Step 3 of aosp/1405387.
+
+Bug: 65987925
+Bug: 141693040
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: I0975dcad48b6c5344124343606e1c7f85e76e4ee
+---
+ build.config.common | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/build.config.common b/build.config.common
+index faf89e27399a..25de474489bd 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -1,10 +1,7 @@
+ BRANCH=android-mainline
+ KMI_GENERATION=0
+ 
+-CC=clang
+-LD=ld.lld
+-NM=llvm-nm
+-OBJCOPY=llvm-objcopy
++LLVM=1
+ DEPMOD=depmod
+ DTC=dtc
+ CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r399163b/bin
+-- 
+2.17.1
+

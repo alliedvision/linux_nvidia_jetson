@@ -1,31 +1,45 @@
 / {
 	misc {
 		carveout {
+			aux_info@CARVEOUT_SCE {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
+			};
+			aux_info@CARVEOUT_SCE_CPU_NS {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x10000>; // 64KB
+				alignment = <0x0 0x10000>; // 64KB
+			};
 			aux_info@CARVEOUT_TSEC_DCE {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_UEFI {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x400000>; /* 4MB */
-				alignment = <0x0 0x200000>; /* 2MB */
+				size = <0x0 0x400000>; // 4MB
+				alignment = <0x0 0x200000>; // 2MB
 			};
 			aux_info@CARVEOUT_UEFI_MM_IPC {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x20000>; /* 128KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x20000>; // 128KB
+				alignment = <0x0 0x10000>; // 64KB
+			};
+			aux_info@CARVEOUT_OPTEE_DTB {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x20000>; // 128KB
+				alignment = <0x0 0x10000>; // 64KB
+			};
+			aux_info@CARVEOUT_RAM_OOPS {
+				pref_base = <0x0 0x0>;
+				size = <0x0 0x200000>; // 2MB
+				alignment = <0x0 0x10000>; // 64KB
 			};
 			aux_info@CARVEOUT_VPR {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x2a000000>; /* 672MB */
-				alignment = <0x0 0x100000>; /* 1MB */
-			};
-		/* TODO: Remove OS carveout after its dependency is resolved */
-			aux_info@CARVEOUT_OS {
-				pref_base = <0x0 0x80000000>;
-				size = <0x0 0x08000000>;
-				alignment = <0x0 0x200000>;
+				size = <0x0 0x36800000>; // 872MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 		};
 	};

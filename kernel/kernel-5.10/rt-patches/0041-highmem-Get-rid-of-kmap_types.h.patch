@@ -1,7 +1,7 @@
-From 681135bbe8cd3961a72e598f6ccd9741e088f10a Mon Sep 17 00:00:00 2001
+From 1d5c21931e87b6c7159d71b2693faa9b313fc06c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:30 +0100
-Subject: [PATCH 041/304] highmem: Get rid of kmap_types.h
+Subject: [PATCH 041/318] highmem: Get rid of kmap_types.h
 
 The header is not longer used and on alpha, ia64, openrisc, parisc and um
 it was completely unused anyway as these architectures have no highmem
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 diff --git a/arch/alpha/include/asm/kmap_types.h b/arch/alpha/include/asm/kmap_types.h
 deleted file mode 100644
-index 651714b..00000000
+index 651714b45729..000000000000
 --- a/arch/alpha/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,15 +0,0 @@
@@ -50,7 +50,7 @@ index 651714b..00000000
 -#endif
 diff --git a/arch/ia64/include/asm/kmap_types.h b/arch/ia64/include/asm/kmap_types.h
 deleted file mode 100644
-index 5c268cf..00000000
+index 5c268cf7c2bd..000000000000
 --- a/arch/ia64/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -68,7 +68,7 @@ index 5c268cf..00000000
 -
 -#endif /* _ASM_IA64_KMAP_TYPES_H */
 diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
-index 5e88c35..f3fa02b 100644
+index 5e88c351e6a4..f3fa02b8838a 100644
 --- a/arch/openrisc/mm/init.c
 +++ b/arch/openrisc/mm/init.c
 @@ -33,7 +33,6 @@
@@ -80,7 +80,7 @@ index 5e88c35..f3fa02b 100644
  #include <asm/tlbflush.h>
  #include <asm/sections.h>
 diff --git a/arch/openrisc/mm/ioremap.c b/arch/openrisc/mm/ioremap.c
-index a978590..5aed97a 100644
+index a978590d802d..5aed97a18bac 100644
 --- a/arch/openrisc/mm/ioremap.c
 +++ b/arch/openrisc/mm/ioremap.c
 @@ -15,7 +15,6 @@
@@ -93,7 +93,7 @@ index a978590..5aed97a 100644
  #include <linux/sched.h>
 diff --git a/arch/parisc/include/asm/kmap_types.h b/arch/parisc/include/asm/kmap_types.h
 deleted file mode 100644
-index 3e70b5c..00000000
+index 3e70b5cd1123..000000000000
 --- a/arch/parisc/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -111,7 +111,7 @@ index 3e70b5c..00000000
 -
 -#endif
 diff --git a/arch/um/include/asm/fixmap.h b/arch/um/include/asm/fixmap.h
-index 2c697a1..2efac582 100644
+index 2c697a145ac1..2efac5827188 100644
 --- a/arch/um/include/asm/fixmap.h
 +++ b/arch/um/include/asm/fixmap.h
 @@ -3,7 +3,6 @@
@@ -124,7 +124,7 @@ index 2c697a1..2efac582 100644
  #include <linux/threads.h>
 diff --git a/arch/um/include/asm/kmap_types.h b/arch/um/include/asm/kmap_types.h
 deleted file mode 100644
-index b0bd12d..00000000
+index b0bd12de1d23..000000000000
 --- a/arch/um/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,13 +0,0 @@
@@ -142,7 +142,7 @@ index b0bd12d..00000000
 -
 -#endif
 diff --git a/include/asm-generic/Kbuild b/include/asm-generic/Kbuild
-index 3114a6d..267f6df 100644
+index 3114a6da7e56..267f6dfb8960 100644
 --- a/include/asm-generic/Kbuild
 +++ b/include/asm-generic/Kbuild
 @@ -30,7 +30,6 @@ mandatory-y += irq.h
@@ -155,7 +155,7 @@ index 3114a6d..267f6df 100644
  mandatory-y += linkage.h
 diff --git a/include/asm-generic/kmap_types.h b/include/asm-generic/kmap_types.h
 deleted file mode 100644
-index 9f95b7b..00000000
+index 9f95b7b63d19..000000000000
 --- a/include/asm-generic/kmap_types.h
 +++ /dev/null
 @@ -1,11 +0,0 @@
@@ -171,7 +171,7 @@ index 9f95b7b..00000000
 -
 -#endif
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 1222a31..de78869 100644
+index 1222a31be842..de78869454b1 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -29,8 +29,6 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)
@@ -184,5 +184,5 @@ index 1222a31..de78869 100644
   * Outside of CONFIG_HIGHMEM to support X86 32bit iomap_atomic() cruft.
   */
 -- 
-2.7.4
+2.17.1
 

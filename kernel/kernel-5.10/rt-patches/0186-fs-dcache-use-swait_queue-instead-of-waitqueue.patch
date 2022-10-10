@@ -1,7 +1,7 @@
-From 2393b295022600fe2e87fb51f5b91f18bfdfe178 Mon Sep 17 00:00:00 2001
+From b4a57bd2ba0a830096e1e5f563ab481dbe87e621 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 14 Sep 2016 14:35:49 +0200
-Subject: [PATCH 186/304] fs/dcache: use swait_queue instead of waitqueue
+Subject: [PATCH 186/318] fs/dcache: use swait_queue instead of waitqueue
 
 __d_lookup_done() invokes wake_up_all() while holding a hlist_bl_lock()
 which disables preemption. As a workaround convert it to swait.
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  12 files changed, 31 insertions(+), 26 deletions(-)
 
 diff --git a/fs/afs/dir_silly.c b/fs/afs/dir_silly.c
-index dae9a57..9a6a0ec 100644
+index dae9a57d7ec0..9a6a0ec4d1fb 100644
 --- a/fs/afs/dir_silly.c
 +++ b/fs/afs/dir_silly.c
 @@ -239,7 +239,7 @@ int afs_silly_iput(struct dentry *dentry, struct inode *inode)
@@ -36,7 +36,7 @@ index dae9a57..9a6a0ec 100644
  	_enter("%p{%pd},%llx", dentry, dentry, vnode->fid.vnode);
  
 diff --git a/fs/cifs/readdir.c b/fs/cifs/readdir.c
-index 799be3a..d5165a7 100644
+index 799be3a5d25e..d5165a7da071 100644
 --- a/fs/cifs/readdir.c
 +++ b/fs/cifs/readdir.c
 @@ -81,7 +81,7 @@ cifs_prime_dcache(struct dentry *parent, struct qstr *name,
@@ -49,7 +49,7 @@ index 799be3a..d5165a7 100644
  	cifs_dbg(FYI, "%s: for %s\n", __func__, name->name);
  
 diff --git a/fs/dcache.c b/fs/dcache.c
-index ea04858..1f4255e 100644
+index ea0485861d93..1f4255ef8722 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
 @@ -2518,21 +2518,24 @@ static inline void end_dir_add(struct inode *dir, unsigned n)
@@ -98,7 +98,7 @@ index ea04858..1f4255e 100644
  	hlist_bl_unlock(b);
  	INIT_HLIST_NODE(&dentry->d_u.d_alias);
 diff --git a/fs/fuse/readdir.c b/fs/fuse/readdir.c
-index bc26783..3176913 100644
+index bc267832310c..3176913fae6c 100644
 --- a/fs/fuse/readdir.c
 +++ b/fs/fuse/readdir.c
 @@ -158,7 +158,7 @@ static int fuse_direntplus_link(struct file *file,
@@ -111,7 +111,7 @@ index bc26783..3176913 100644
  	if (!o->nodeid) {
  		/*
 diff --git a/fs/namei.c b/fs/namei.c
-index 4c9d0c36..5a6e15a 100644
+index 72f354b62dd5..3e50a5fc66ef 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1520,7 +1520,7 @@ static struct dentry *__lookup_slow(const struct qstr *name,
@@ -133,7 +133,7 @@ index 4c9d0c36..5a6e15a 100644
  	if (unlikely(IS_DEADDIR(dir_inode)))
  		return ERR_PTR(-ENOENT);
 diff --git a/fs/nfs/dir.c b/fs/nfs/dir.c
-index c837675..a615b39 100644
+index 2ad56ff4752c..26c63c5ac969 100644
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
 @@ -484,7 +484,7 @@ void nfs_prime_dcache(struct dentry *parent, struct nfs_entry *entry,
@@ -145,7 +145,7 @@ index c837675..a615b39 100644
  	struct dentry *dentry;
  	struct dentry *alias;
  	struct inode *inode;
-@@ -1671,7 +1671,7 @@ int nfs_atomic_open(struct inode *dir, struct dentry *dentry,
+@@ -1670,7 +1670,7 @@ int nfs_atomic_open(struct inode *dir, struct dentry *dentry,
  		    struct file *file, unsigned open_flags,
  		    umode_t mode)
  {
@@ -155,7 +155,7 @@ index c837675..a615b39 100644
  	struct dentry *res;
  	struct iattr attr = { .ia_valid = ATTR_OPEN };
 diff --git a/fs/nfs/unlink.c b/fs/nfs/unlink.c
-index b27ebdc..f86c98a 100644
+index b27ebdccef70..f86c98a7ed04 100644
 --- a/fs/nfs/unlink.c
 +++ b/fs/nfs/unlink.c
 @@ -13,7 +13,7 @@
@@ -177,7 +177,7 @@ index b27ebdc..f86c98a 100644
  	status = -EBUSY;
  	spin_lock(&dentry->d_lock);
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 9af9058..65db881 100644
+index 9af90586141b..65db8811c298 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -96,6 +96,7 @@
@@ -198,7 +198,7 @@ index 9af9058..65db881 100644
  		if (IS_ERR(child))
  			goto end_instantiate;
 diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index 070d2df..a1a964b 100644
+index 070d2df8ab9c..a1a964b631d7 100644
 --- a/fs/proc/proc_sysctl.c
 +++ b/fs/proc/proc_sysctl.c
 @@ -683,7 +683,7 @@ static bool proc_sys_fill_cache(struct file *file,
@@ -211,7 +211,7 @@ index 070d2df..a1a964b 100644
  		if (IS_ERR(child))
  			return false;
 diff --git a/include/linux/dcache.h b/include/linux/dcache.h
-index 6f95c33..c1290db 100644
+index 6f95c3300cbb..c1290db778bd 100644
 --- a/include/linux/dcache.h
 +++ b/include/linux/dcache.h
 @@ -106,7 +106,7 @@ struct dentry {
@@ -233,7 +233,7 @@ index 6f95c33..c1290db 100644
  extern struct dentry * d_add_ci(struct dentry *, struct inode *, struct qstr *);
  extern struct dentry * d_exact_alias(struct dentry *, struct inode *);
 diff --git a/include/linux/nfs_xdr.h b/include/linux/nfs_xdr.h
-index 5491ad5..cd9e5b3 100644
+index 5491ad5f48a9..cd9e5b3f1831 100644
 --- a/include/linux/nfs_xdr.h
 +++ b/include/linux/nfs_xdr.h
 @@ -1675,7 +1675,7 @@ struct nfs_unlinkdata {
@@ -246,7 +246,7 @@ index 5491ad5..cd9e5b3 100644
  	struct nfs_fattr dir_attr;
  	long timeout;
 diff --git a/kernel/sched/swait.c b/kernel/sched/swait.c
-index e1c655f..f230b1a 100644
+index e1c655f928c7..f230b1ac7f91 100644
 --- a/kernel/sched/swait.c
 +++ b/kernel/sched/swait.c
 @@ -64,6 +64,7 @@ void swake_up_all(struct swait_queue_head *q)
@@ -258,5 +258,5 @@ index e1c655f..f230b1a 100644
  	list_splice_init(&q->task_list, &tmp);
  	while (!list_empty(&tmp)) {
 -- 
-2.7.4
+2.17.1
 

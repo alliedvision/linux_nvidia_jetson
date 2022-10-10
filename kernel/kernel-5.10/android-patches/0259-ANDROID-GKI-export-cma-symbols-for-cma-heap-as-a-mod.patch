@@ -1,0 +1,61 @@
+From efae74b0643b60325b7193e5241e22eff5f99d19 Mon Sep 17 00:00:00 2001
+From: Sandeep Patil <sspatil@google.com>
+Date: Fri, 13 Sep 2019 14:50:38 -0700
+Subject: [PATCH 259/830] ANDROID: GKI: export cma symbols for cma heap as a
+ module
+X-NVConfidentiality: public
+
+Bug: 140294230
+Test: builds
+
+Change-Id: I04c12174934c24a704d5c1e5be3e7e948c777a78
+Signed-off-by: Sandeep Patil <sspatil@google.com>
+---
+ mm/cma.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/mm/cma.c b/mm/cma.c
+index cf9a10a88988..033b82126329 100644
+--- a/mm/cma.c
++++ b/mm/cma.c
+@@ -24,6 +24,7 @@
+ #include <linux/memblock.h>
+ #include <linux/err.h>
+ #include <linux/mm.h>
++#include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/sizes.h>
+ #include <linux/slab.h>
+@@ -56,6 +57,7 @@ const char *cma_get_name(const struct cma *cma)
+ {
+ 	return cma->name;
+ }
++EXPORT_SYMBOL_GPL(cma_get_name);
+ 
+ static unsigned long cma_bitmap_aligned_mask(const struct cma *cma,
+ 					     unsigned int align_order)
+@@ -523,6 +525,7 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
+ 	pr_debug("%s(): returned %p\n", __func__, page);
+ 	return page;
+ }
++EXPORT_SYMBOL_GPL(cma_alloc);
+ 
+ /**
+  * cma_release() - release allocated pages
+@@ -556,6 +559,7 @@ bool cma_release(struct cma *cma, const struct page *pages, unsigned int count)
+ 
+ 	return true;
+ }
++EXPORT_SYMBOL_GPL(cma_release);
+ 
+ int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data)
+ {
+@@ -570,3 +574,5 @@ int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(cma_for_each_area);
++
+-- 
+2.17.1
+

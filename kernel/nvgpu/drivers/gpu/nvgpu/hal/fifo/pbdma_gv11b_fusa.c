@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,7 @@ static void report_pbdma_error(struct gk20a *g, u32 pbdma_id,
 		pbdma_intr_0_lback_timeout_pending_f() |
 		pbdma_intr_0_lbdat_timeout_pending_f())) != 0U) {
 			err_type = GPU_HOST_PBDMA_TIMEOUT_ERROR;
+			nvgpu_err (g, "Host pbdma timeout error");
 	}
 	if ((pbdma_intr_0 & (
 		pbdma_intr_0_memack_extra_pending_f() |
@@ -59,6 +60,7 @@ static void report_pbdma_error(struct gk20a *g, u32 pbdma_id,
 		pbdma_intr_0_lback_extra_pending_f() |
 		pbdma_intr_0_lbdat_extra_pending_f())) != 0U) {
 			err_type = GPU_HOST_PBDMA_EXTRA_ERROR;
+			nvgpu_err (g, "Host pbdma extra error");
 	}
 	if ((pbdma_intr_0 & (
 		pbdma_intr_0_gpfifo_pending_f() |
@@ -69,6 +71,7 @@ static void report_pbdma_error(struct gk20a *g, u32 pbdma_id,
 		pbdma_intr_0_pbentry_pending_f() |
 		pbdma_intr_0_pbcrc_pending_f())) != 0U) {
 			err_type = GPU_HOST_PBDMA_GPFIFO_PB_ERROR;
+			nvgpu_err (g, "Host pbdma gpfifo pb error");
 	}
 	if ((pbdma_intr_0 & (
 		pbdma_intr_0_clear_faulted_error_pending_f() |
@@ -81,14 +84,16 @@ static void report_pbdma_error(struct gk20a *g, u32 pbdma_id,
 		pbdma_intr_0_pri_pending_f() |
 		pbdma_intr_0_pbseg_pending_f())) != 0U) {
 			err_type = GPU_HOST_PBDMA_METHOD_ERROR;
+			nvgpu_err (g, "Host pbdma method error");
 	}
 	if ((pbdma_intr_0 &
 		pbdma_intr_0_signature_pending_f()) != 0U) {
 			err_type = GPU_HOST_PBDMA_SIGNATURE_ERROR;
+			nvgpu_err (g, "Host pbdma signature error");
 	}
 	if (err_type != GPU_HOST_INVALID_ERROR) {
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-				pbdma_id, err_type, pbdma_intr_0);
+		nvgpu_log_info(g, "pbdma id:%u", pbdma_id);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST, err_type);
 	}
 	return;
 }
@@ -177,6 +182,7 @@ bool gv11b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 
 	u32 pbdma_intr_1_current = gk20a_readl(g, pbdma_intr_1_r(pbdma_id));
 
+	(void)error_notifier;
 	/* minimize race with the gpu clearing the pending interrupt */
 	if ((pbdma_intr_1_current &
 	     pbdma_intr_1_ctxnotvalid_pending_f()) == 0U) {
@@ -188,9 +194,6 @@ bool gv11b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 	}
 
 	recover = true;
-
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, pbdma_id,
-			GPU_HOST_PBDMA_HCE_ERROR, pbdma_intr_1);
 
 	if ((pbdma_intr_1 & pbdma_intr_1_ctxnotvalid_pending_f()) != 0U) {
 		nvgpu_log(g, gpu_dbg_intr, "ctxnotvalid intr on pbdma id %d",

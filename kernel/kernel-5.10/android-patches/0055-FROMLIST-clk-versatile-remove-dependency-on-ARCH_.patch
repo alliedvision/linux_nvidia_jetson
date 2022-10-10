@@ -1,0 +1,39 @@
+From b40579eeb4a82dd4f4496455411cbb36e672434b Mon Sep 17 00:00:00 2001
+From: Peter Collingbourne <pcc@google.com>
+Date: Thu, 15 Oct 2020 17:15:07 -0700
+Subject: [PATCH 055/830] FROMLIST: clk: versatile: remove dependency on ARCH_*
+X-NVConfidentiality: public
+
+It is now possible to build a modular kernel for vexpress by
+not setting CONFIG_ARCH_VEXPRESS=y and instead setting =m on the
+drivers that it normally implies. This is with the exception of
+CLK_VEXPRESS_OSC which is currently hidden behind a dependency on
+one of several ARCH_* variables. Remove that dependency so that
+CLK_VEXPRESS_OSC may be enabled without it.
+
+Signed-off-by: Peter Collingbourne <pcc@google.com>
+Link: https://linux-review.googlesource.com/id/I435a21e2e5f6187db54f4ef2079b60028ab2ea69
+Link: https://lore.kernel.org/linux-arm-kernel/20201016002441.60683-1-pcc@google.com/
+Change-Id: I435a21e2e5f6187db54f4ef2079b60028ab2ea69
+Bug: 142352330
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ drivers/clk/versatile/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/clk/versatile/Kconfig b/drivers/clk/versatile/Kconfig
+index 91f0ff54237d..792315d893db 100644
+--- a/drivers/clk/versatile/Kconfig
++++ b/drivers/clk/versatile/Kconfig
+@@ -1,8 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ 
+ menu "Clock driver for ARM Reference designs"
+-	depends on ARCH_INTEGRATOR || ARCH_REALVIEW || \
+-		ARCH_VERSATILE || ARCH_VEXPRESS || COMPILE_TEST
+ 
+ config ICST
+ 	bool "Clock driver for ARM Reference designs ICST"
+-- 
+2.17.1
+

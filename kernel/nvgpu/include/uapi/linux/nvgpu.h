@@ -1,7 +1,7 @@
 /*
  * NVGPU Public Interface Header
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,9 +41,12 @@ struct nvgpu_tsg_bind_channel_ex_args {
 };
 
 struct nvgpu_tsg_bind_scheduling_domain_args {
-	/* in: name of the domain this tsg will be bound to */
-	__u8 domain_name[16];
-	__u8 reserved[16];
+	/* in: id of the domain this tsg will be bound to */
+	__s32 domain_fd;
+	/* Must be set to 0 */
+	__s32 reserved0;
+	/* Must be set to 0 */
+	__u64 reserved[3];
 };
 
 /*
@@ -543,8 +546,7 @@ struct nvgpu_dbg_gpu_get_mappings_entry {
 	/* out: start of GPU VA for this mapping */
 	__u64 gpu_va;
 	/* out: size in bytes of this mapping */
-	__u32 size;
-	__u32 reserved;
+	__u64 size;
 };
 
 struct nvgpu_dbg_gpu_get_mappings_args {
@@ -619,6 +621,7 @@ struct nvgpu_profiler_bind_context_args {
 
 #define NVGPU_PROFILER_PM_RESOURCE_ARG_HWPM_LEGACY	0U
 #define NVGPU_PROFILER_PM_RESOURCE_ARG_SMPC		1U
+#define NVGPU_PROFILER_PM_RESOURCE_ARG_PC_SAMPLER	2U
 
 struct nvgpu_profiler_reserve_pm_resource_args {
 	__u32 resource; 	/* in: NVGPU_PROFILER_PM_RESOURCE_ARG_* resource to be reserved */

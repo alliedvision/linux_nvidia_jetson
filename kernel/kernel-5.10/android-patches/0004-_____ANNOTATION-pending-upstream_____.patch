@@ -1,0 +1,22 @@
+From 91e005d0f6057d3a6544a6bf625f0d7f36071f21 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Fri, 14 Aug 2020 10:19:48 -0700
+Subject: [PATCH 004/830] _____ANNOTATION: pending upstream_____
+X-NVConfidentiality: public
+
+Patches that are very likely to be upstreamed soon.
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 ANNOTATIONS
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+new file mode 100644
+index 000000000000..e6b15578b712
+--- /dev/null
++++ b/ANNOTATIONS
+@@ -0,0 +1 @@
++pending upstream
+-- 
+2.17.1
+

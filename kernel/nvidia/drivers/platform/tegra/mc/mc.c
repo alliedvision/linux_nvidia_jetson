@@ -54,6 +54,7 @@ void __iomem *mc;
 void __iomem *mc_regs[MC_MAX_CHANNELS];
 unsigned int mssnvlink_hubs;
 void __iomem *mssnvlink_regs[MC_MAX_MSSNVLINK_HUBS];
+static u32 nvlink_reg_val[MC_MAX_MSSNVLINK_HUBS];
 
 u32 tegra_mc_readl(u32 reg)
 {
@@ -304,7 +305,7 @@ static void __iomem *tegra_mc_map_regs(struct platform_device *pdev, int device)
 	if (of_address_to_resource(pdev->dev.of_node, start, &res))
 		return NULL;
 
-	pr_info("mapped MMIO address: 0x%p -> 0x%lx\n",
+	pr_info("mapped MMIO address: 0x%px -> 0x%lx\n",
 		regs_start, (unsigned long)res.start);
 
 	return regs_start;
@@ -360,6 +361,7 @@ static void enable_mssnvlinks(struct platform_device *pdev)
 		if (!disable_l3_alloc_hint)
 			reg_val |=  MSS_NVLINK_L3_ALLOC_HINT;
 		__raw_writel(reg_val, regs + MSSNVLINK_CYA_DESIGN_MODES);
+		nvlink_reg_val[i] = reg_val;
 	}
 
 err_out:
@@ -462,6 +464,13 @@ static int tegra_mc_probe(struct platform_device *pdev)
 
 static int tegra_mc_resume_early(struct device *dev)
 {
+	int i;
+
+	if (mssnvlink_hubs != UINT_MAX) {
+		for (i = 0; i < mssnvlink_hubs; i++)
+			__raw_writel(nvlink_reg_val[i],
+					mssnvlink_regs[i] + MSSNVLINK_CYA_DESIGN_MODES);
+	}
 	tegra_mcerr_resume();
 	return 0;
 }

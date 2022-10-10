@@ -1,0 +1,38 @@
+From 72032fc49d6fe6be8d5f67f2ee3ad8a897f1967b Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 26 Feb 2020 10:55:19 -0800
+Subject: [PATCH 644/830] ANDROID: gki_defconfig: disable CONFIG_CRYPTO_MD4
+X-NVConfidentiality: public
+
+The MD4 algorithm is heavily broken and obsolete, and there seems to be
+no reason for it to be enabled in GKI.  It originally got enabled at
+partner request alongside many other options with the rationale that
+they changed the kernel ABI, so they needed to be enabled in GKI for any
+module to use it.  But that doesn't apply to MD4 because it doesn't
+change the kernel ABI.  Nor should any module be using MD4 anyway.
+
+So let's disable MD4 again.
+
+Bug: 135666008
+Bug: 150302692
+Change-Id: Iec0946984c4e58bffeab7888e689af035cdd512b
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 9121d329f424..6abccc536c60 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -453,7 +453,6 @@ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_ADIANTUM=y
+-CONFIG_CRYPTO_MD4=y
+ CONFIG_CRYPTO_LZ4=y
+ CONFIG_CRYPTO_ZSTD=y
+ CONFIG_CRYPTO_ANSI_CPRNG=y
+-- 
+2.17.1
+

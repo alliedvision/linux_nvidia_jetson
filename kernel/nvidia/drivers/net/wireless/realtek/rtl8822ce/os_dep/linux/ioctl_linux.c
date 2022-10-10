@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -5784,7 +5785,7 @@ static int rtw_rereg_nd_name(struct net_device *dev,
 	if (copy_from_user(new_ifname, wrqu->data.pointer, IFNAMSIZ))
 		return -EFAULT;
 
-	if (0 == strcmp(rereg_priv->old_ifname, new_ifname))
+	if (strncmp(rereg_priv->old_ifname, new_ifname, IFNAMSIZ) == 0)
 		return ret;
 
 	RTW_INFO("%s new_ifname:%s\n", __FUNCTION__, new_ifname);

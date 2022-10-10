@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -56,6 +56,8 @@ struct nvgpu_hw_err_inject_info_desc mmu_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 		ga10b_gr_ecc_get_mmu_err_desc(struct gk20a *g)
 {
+	(void)g;
+
 	mmu_err_desc.info_ptr = mmu_ecc_err_desc;
 	mmu_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 				sizeof(mmu_ecc_err_desc) /

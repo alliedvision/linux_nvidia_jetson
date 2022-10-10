@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -214,10 +214,6 @@ bool gv11b_fifo_handle_ctxsw_timeout(struct gk20a *g)
 			if (tsg == NULL) {
 				continue;
 			}
-
-			nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-					0, GPU_HOST_PFIFO_CTXSW_TIMEOUT_ERROR,
-					tsgid);
 
 #ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 			recover = g->ops.tsg.check_ctxsw_timeout(tsg,

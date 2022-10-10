@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -143,6 +143,10 @@ static int nvgpu_gr_obj_ctx_set_graphics_preemption_mode(struct gk20a *g,
 {
 	int err = 0;
 
+	(void)config;
+	(void)gr_ctx_desc;
+	(void)vm;
+
 	/* set preemption modes */
 	switch (graphics_preempt_mode) {
 #ifdef CONFIG_NVGPU_GFXP
@@ -262,6 +266,9 @@ void nvgpu_gr_obj_ctx_update_ctxsw_preemption_mode(struct gk20a *g,
 	u32 size;
 	struct nvgpu_mem *mem;
 #endif
+
+	(void)config;
+	(void)subctx;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gr, " ");
 
@@ -748,6 +755,16 @@ int nvgpu_gr_obj_ctx_alloc_golden_ctx_image(struct gk20a *g,
 		goto clean_up;
 	}
 
+	/*
+	 * Read and save register init values that need to be configured
+	 * differently for graphics contexts.
+	 * Updated values are written to the context in
+	 * gops.gr.init.set_default_gfx_regs().
+	 */
+	if (g->ops.gr.init.capture_gfx_regs != NULL) {
+		g->ops.gr.init.capture_gfx_regs(g, &golden_image->gfx_regs);
+	}
+
 	golden_image->ready = true;
 #ifdef CONFIG_NVGPU_POWER_PG
 	nvgpu_pmu_set_golden_image_initialized(g, GOLDEN_IMG_READY);
@@ -801,6 +818,9 @@ int nvgpu_gr_obj_ctx_alloc(struct gk20a *g,
 	bool cde, bool vpr)
 {
 	int err = 0;
+
+	(void)class_num;
+	(void)flags;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gr, " ");
 
@@ -881,8 +901,21 @@ int nvgpu_gr_obj_ctx_alloc(struct gk20a *g,
 		subctx);
 
 #ifndef CONFIG_NVGPU_NON_FUSA
-	g->ops.gr.init.set_default_compute_regs(g, gr_ctx);
+	if (g->ops.gpu_class.is_valid_compute(class_num) &&
+	    g->ops.gr.init.set_default_compute_regs != NULL) {
+		g->ops.gr.init.set_default_compute_regs(g, gr_ctx);
+	}
 #endif
+
+	/*
+	 * Register init values are saved in
+	 * gops.gr.init.capture_gfx_regs(). Update and set the values as
+	 * required for graphics contexts.
+	 */
+	if (g->ops.gpu_class.is_valid_gfx(class_num) &&
+	    g->ops.gr.init.set_default_gfx_regs != NULL) {
+		g->ops.gr.init.set_default_gfx_regs(g, gr_ctx, &golden_image->gfx_regs);
+	}
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gr, "done");
 	return 0;

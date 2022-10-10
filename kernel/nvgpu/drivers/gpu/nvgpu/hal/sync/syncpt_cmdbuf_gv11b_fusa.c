@@ -1,7 +1,7 @@
 /*
  * GV11B syncpt cmdbuf
  *
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -120,8 +120,8 @@ int gv11b_syncpt_get_sync_ro_map(struct vm_gk20a *vm,
 	*base_gpuva = vm->syncpt_ro_map_gpu_va;
 	*sync_size = g->syncpt_size;
 
-	tmp = g->syncpt_size ? (g->syncpt_unit_size / g->syncpt_size) : 0U;
-	*num_syncpoints = (tmp <= U32_MAX) ? tmp : U32_MAX;
+	tmp = (g->syncpt_size != 0UL) ? (g->syncpt_unit_size / g->syncpt_size) : 0U;
+	*num_syncpoints = (tmp <= U32_MAX) ? (u32)tmp : U32_MAX;
 
 	return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,6 +66,10 @@
 		(nvgpu_safe_add_u32(0x00820838U, nvgpu_safe_mult_u32((i), 4U)))
 #define fuse_ctrl_opt_ltc_fbp_r(i)\
 		(nvgpu_safe_add_u32(0x00820970U, nvgpu_safe_mult_u32((i), 4U)))
+#define fuse_status_opt_pes_gpc_r(i)\
+		(nvgpu_safe_add_u32(0x00820dbcU, nvgpu_safe_mult_u32((i), 4U)))
+#define fuse_status_opt_rop_gpc_r(i)\
+		(nvgpu_safe_add_u32(0x00822880U, nvgpu_safe_mult_u32((i), 4U)))
 #define fuse_ctrl_opt_gpc_r()                                      (0x0082081cU)
 #define fuse_ctrl_opt_fbp_r()                                      (0x00820938U)
 #define fuse_status_opt_fbio_r()                                   (0x00820c14U)

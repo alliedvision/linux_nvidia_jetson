@@ -1,0 +1,57 @@
+From cf3a9d476d9ad4a0a5c0b4326b489405f9b3f9f2 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 5 Oct 2020 08:41:19 -0700
+Subject: [PATCH 779/830] ANDROID: GKI: Build INCREMENTAL_FS into GKI
+X-NVConfidentiality: public
+
+For GKI 2.0, build incremental into the GKI image. This allows various
+internal symbols to be hidden from modules again.
+
+Bug: 133435829
+Signed-off-by: Alistair Delva <adelva@google.com>
+Change-Id: Ie8f6cdbd7eeff8e97b25312ba893cc49483dc346
+---
+ arch/arm64/configs/db845c_gki.fragment | 1 -
+ arch/arm64/configs/gki_defconfig       | 1 +
+ arch/x86/configs/gki_defconfig         | 1 +
+ 3 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 64975d71b9e6..800160b4b00f 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -57,7 +57,6 @@ CONFIG_QCOM_QFPROM=m
+ CONFIG_INTERCONNECT_QCOM=y
+ CONFIG_INTERCONNECT_QCOM_OSM_L3=m
+ CONFIG_INTERCONNECT_QCOM_SDM845=m
+-CONFIG_INCREMENTAL_FS=m
+ CONFIG_QCOM_RPMH=m
+ CONFIG_QCOM_RPMHPD=m
+ CONFIG_WLAN_VENDOR_ATH=y
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index cb9b5c198213..a9691258baf3 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -475,6 +475,7 @@ CONFIG_QUOTA=y
+ CONFIG_QFMT_V2=y
+ CONFIG_FUSE_FS=y
+ CONFIG_OVERLAY_FS=y
++CONFIG_INCREMENTAL_FS=y
+ CONFIG_MSDOS_FS=y
+ CONFIG_VFAT_FS=y
+ CONFIG_TMPFS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index e1de3af68184..a4e0d1be1ac5 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -413,6 +413,7 @@ CONFIG_QUOTA=y
+ CONFIG_QFMT_V2=y
+ CONFIG_FUSE_FS=y
+ CONFIG_OVERLAY_FS=y
++CONFIG_INCREMENTAL_FS=y
+ CONFIG_MSDOS_FS=y
+ CONFIG_VFAT_FS=y
+ CONFIG_TMPFS=y
+-- 
+2.17.1
+

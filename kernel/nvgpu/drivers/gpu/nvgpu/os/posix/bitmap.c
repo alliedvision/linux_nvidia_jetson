@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -51,7 +51,6 @@ unsigned long nvgpu_posix_ffs(unsigned long word)
 			nvgpu_safe_cast_u64_to_s64(
 				(word & (unsigned long) LONG_MAX)));
 	} else {
-NVGPU_COV_WHITELIST(false_positive, NVGPU_MISRA(Rule, 14_3), "Bug 2615925")
 		if (word > (unsigned long) LONG_MAX) {
 			ret = maxvalue;
 		}
@@ -111,8 +110,6 @@ static unsigned long nvgpu_posix_find_next_bit(const unsigned long *address,
 	idx = start / BITS_PER_LONG;
 	w = (base_addr[idx] ^ invert_mask) & start_mask;
 
-	start = round_up(start, BITS_PER_LONG);
-
 	idx_max = (n - 1UL) / BITS_PER_LONG;
 
 	/*
@@ -124,8 +121,6 @@ static unsigned long nvgpu_posix_find_next_bit(const unsigned long *address,
 		if (idx > idx_max) {
 			return n;
 		}
-
-		start = nvgpu_safe_add_u64(start, BITS_PER_LONG);
 
 		w = base_addr[idx] ^ invert_mask;
 	}

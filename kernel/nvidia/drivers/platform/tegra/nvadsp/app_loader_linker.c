@@ -3,7 +3,7 @@
  *
  * ADSP OS App management
  *
- * Copyright (C) 2014-2020 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -701,7 +701,7 @@ static struct adsp_module *setup_load_info(struct load_info *info)
 
 	if (info->index.sym == 0) {
 		dev_warn(dev, "%s: module has no symbols (stripped?)\n",
-								mod->name);
+								info->name);
 		kfree(mod);
 		return ERR_PTR(-ENOEXEC);
 	}
@@ -893,7 +893,7 @@ struct adsp_module *load_adsp_dynamic_module(const char *appname,
 
 	/* Figure out module layout, and allocate all the memory. */
 	mod = layout_and_allocate(&info);
-	if (IS_ERR(mod))
+	if (IS_ERR_OR_NULL(mod))
 		goto error_free_memory;
 
 	/* update adsp specific sections */

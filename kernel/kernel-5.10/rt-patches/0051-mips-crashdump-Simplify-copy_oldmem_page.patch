@@ -1,7 +1,7 @@
-From 8ef428651cfbbb0f46121c58c6ed4e79ee7813f4 Mon Sep 17 00:00:00 2001
+From 62f759e86af9dbdd192e23fb5f26b0adfaf6b1b1 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:40 +0100
-Subject: [PATCH 051/304] mips/crashdump: Simplify copy_oldmem_page()
+Subject: [PATCH 051/318] mips/crashdump: Simplify copy_oldmem_page()
 
 Replace kmap_atomic_pfn() with kmap_local_pfn() which is preemptible and
 can take page faults.
@@ -14,11 +14,11 @@ Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 Cc: linux-mips@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/mips/kernel/crash_dump.c | 42 +++++++-----------------------------------
+ arch/mips/kernel/crash_dump.c | 42 ++++++-----------------------------
  1 file changed, 7 insertions(+), 35 deletions(-)
 
 diff --git a/arch/mips/kernel/crash_dump.c b/arch/mips/kernel/crash_dump.c
-index 01b2bd9..9aba83e 100644
+index 01b2bd95ba1f..9aba83e1eeb4 100644
 --- a/arch/mips/kernel/crash_dump.c
 +++ b/arch/mips/kernel/crash_dump.c
 @@ -5,8 +5,6 @@
@@ -90,5 +90,5 @@ index 01b2bd9..9aba83e 100644
 -}
 -arch_initcall(kdump_buf_page_init);
 -- 
-2.7.4
+2.17.1
 

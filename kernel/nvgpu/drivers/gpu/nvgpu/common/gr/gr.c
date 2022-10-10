@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -119,7 +119,7 @@ static int gr_alloc_global_ctx_buffers(struct gk20a *g, struct nvgpu_gr *gr)
 		NVGPU_GR_GLOBAL_CTX_PRIV_ACCESS_MAP, size);
 
 #ifdef CONFIG_NVGPU_FECS_TRACE
-	size = nvgpu_gr_fecs_trace_buffer_size(g);
+	size = (u32)nvgpu_gr_fecs_trace_buffer_size(g);
 	nvgpu_log(g, gpu_dbg_info | gpu_dbg_gr, "fecs_trace_buffer_size : %d", size);
 
 	nvgpu_gr_global_ctx_set_size(gr->global_ctx_buffer,
@@ -190,8 +190,10 @@ static void disable_gr_interrupts(struct gk20a *g)
 	/** Disable interrupts at MC level */
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR,
 					NVGPU_CIC_INTR_DISABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR,
 					   NVGPU_CIC_INTR_DISABLE);
+#endif
 }
 
 int nvgpu_gr_suspend(struct gk20a *g)
@@ -211,6 +213,9 @@ int nvgpu_gr_suspend(struct gk20a *g)
 	disable_gr_interrupts(g);
 
 	g->ops.gr.intr.flush_channel_tlb(g);
+
+	/* Clear GR Falcon state */
+	nvgpu_gr_falcon_suspend(g, nvgpu_gr_get_falcon_ptr(g));
 
 	g->gr->initialized = false;
 
@@ -599,7 +604,9 @@ static int gr_init_prepare_hw(struct gk20a *g)
 
 	/** Enable interrupts at MC level */
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR, NVGPU_CIC_INTR_ENABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR, NVGPU_CIC_INTR_ENABLE);
+#endif
 
 	return nvgpu_gr_exec_with_ret_for_each_instance(g,
 			gr_init_prepare_hw_impl(g));
@@ -612,6 +619,8 @@ static int gr_reset_engine(struct gk20a *g)
 	const struct nvgpu_device *dev =
 		nvgpu_device_get(g, NVGPU_DEVTYPE_GRAPHICS,
 			nvgpu_gr_get_syspipe_id(g, g->mig.cur_gr_instance));
+
+	nvgpu_assert(dev != NULL);
 
 	nvgpu_log(g, gpu_dbg_gr, "Reset GR%u", cur_gr_instance_id);
 
@@ -713,7 +722,9 @@ static int nvgpu_gr_enable_hw_for_instance(struct gk20a *g)
 
 	/** Enable interrupts at MC level */
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR, NVGPU_CIC_INTR_ENABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_GR, NVGPU_CIC_INTR_ENABLE);
+#endif
 
 	err = gr_init_prepare_hw_impl(g);
 	if (err != 0) {
@@ -817,7 +828,9 @@ static int gr_init_ctxsw_falcon_support(struct gk20a *g, struct nvgpu_gr *gr)
 
 	err = nvgpu_gr_falcon_init_ctxsw(g, gr->falcon);
 	if (err != 0) {
-		gr_intr_report_ctxsw_error(g, GPU_FECS_CTXSW_INIT_ERROR, 0, 0);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_FECS,
+				GPU_FECS_CTXSW_INIT_ERROR);
+		nvgpu_err (g, "FECS context switch init error");
 		return err;
 	}
 

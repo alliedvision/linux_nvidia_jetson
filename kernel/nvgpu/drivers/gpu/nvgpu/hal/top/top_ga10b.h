@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,5 +32,7 @@ bool ga10b_is_engine_gr(struct gk20a *g, u32 engine_type);
 bool ga10b_is_engine_ce(struct gk20a *g, u32 engine_type);
 
 struct nvgpu_device *ga10b_top_parse_next_dev(struct gk20a *g, u32 *i);
+
+u32 ga10b_top_get_max_rop_per_gpc(struct gk20a *g);
 
 #endif /* NVGPU_TOP_GA10B_H */

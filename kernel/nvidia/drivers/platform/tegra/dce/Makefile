@@ -18,6 +18,7 @@ tegra-dce-y += \
 	dce-hsp-smb.o \
 	dce-hsp-ss.o \
 	dce-worker.o \
+	dce-fsm.o \
 	dce-init-deinit.o \
 	dce-mailbox.o \
 	dce-bootstrap.o \
@@ -26,6 +27,7 @@ tegra-dce-y += \
 	dce-ipc-signal.o \
 	dce-client-ipc.o \
 	dce-module.o \
+	dce-pm.o \
 	dce-util-common.o
 
 tegra-dce-$(CONFIG_DEBUG_FS) += \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -273,6 +273,8 @@ void ga10b_fifo_intr_0_enable(struct gk20a *g, bool enable)
 
 void ga10b_fifo_intr_1_enable(struct gk20a *g, bool enable)
 {
+	(void)g;
+	(void)enable;
 	return;
 }
 
@@ -292,8 +294,8 @@ static void ga10b_fifo_handle_bad_tsg(struct gk20a *g,
 		nvgpu_err(g, "runlist bad tsg error code not supported");
 	}
 
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-			0, GPU_HOST_PFIFO_SCHED_ERROR, bad_tsg_code);
+	nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+			GPU_HOST_PFIFO_SCHED_ERROR);
 
 	/* id is unknown, preempt all runlists and do recovery */
 	/* TBD: nvgpu_rc_sched_error_bad_tsg(g); */

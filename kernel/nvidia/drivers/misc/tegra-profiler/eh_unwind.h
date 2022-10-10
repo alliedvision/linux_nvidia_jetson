@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/eh_unwind.h
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -71,7 +71,7 @@ quadd_is_ex_entry_exist_arm32_ehabi(struct quadd_event_context *event_ctx,
 
 void
 quadd_unwind_set_tail_info(struct ex_region_info *ri,
-			   int secid,
+			   unsigned int secid,
 			   unsigned long tf_start,
 			   unsigned long tf_end,
 			   struct task_struct *task);
@@ -83,6 +83,6 @@ void quadd_put_dw_frames(struct ex_region_info *ri);
 
 unsigned long
 get_ex_sec_address(struct ex_region_info *ri,
-		   struct extab_info *ti, int secid);
+		   struct extab_info *ti, unsigned int secid);
 
 #endif	/* __QUADD_EH_UNWIND_H__ */

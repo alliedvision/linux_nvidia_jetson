@@ -1,7 +1,7 @@
 /*
  * PVA Command Queue Interface handling
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,7 +27,6 @@
 #include <soc/tegra/fuse.h>
 #endif
 
-#include "dev.h"
 #include "pva.h"
 #include "pva_mailbox.h"
 #include "pva_ccq_t23x.h"
@@ -70,13 +69,9 @@ static int pva_ccq_send_cmd(struct pva *pva, u32 queue_id,
 
 	/* Make the writes to CCQ */
 	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, queue_id),
-		      cmd->mbox[1]);
+		      cmd->cmd_field[1]);
 	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, queue_id),
-		      cmd->mbox[0]);
-	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, queue_id),
-		      cmd->mbox[3]);
-	host1x_writel(pva->pdev, cfg_ccq_r(pva->version, queue_id),
-		      cmd->mbox[2]);
+		      cmd->cmd_field[0]);
 	return err;
 
 err_wait_ccq:
@@ -105,7 +100,7 @@ void pva_ccq_isr_handler(struct pva *pva, unsigned int queue_id)
 		host1x_readl(pdev, cfg_ccq_status_r(pva->version, queue_id,
 						    PVA_CCQ_STATUS7_INDEX));
 	if (pva->cmd_status[cmd_status_index] != PVA_CMD_STATUS_WFI) {
-		nvhost_warn(&pdev->dev, "No ISR for CCQ %u", queue_id);
+		nvpva_warn(&pdev->dev, "No ISR for CCQ %u", queue_id);
 		return;
 	}
 	/* Save the current command and subcommand for later processing */

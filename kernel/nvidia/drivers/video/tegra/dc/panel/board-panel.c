@@ -1,7 +1,7 @@
 /*
  * board-panel.c: Functions definitions for general panel.
  *
- * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -71,7 +71,7 @@ int tegra_bl_notify(struct device *dev, int brightness)
 			bl_curve = lp->pdata->bl_curve;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 	if (bl_curve)
 		brightness = bl_curve[brightness];
 

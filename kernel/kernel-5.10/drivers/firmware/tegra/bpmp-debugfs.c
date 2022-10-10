@@ -359,7 +359,7 @@ free_ret:
 
 static int bpmp_debug_open(struct inode *inode, struct file *file)
 {
-	return single_open_size(file, bpmp_debug_show, file, SZ_256K);
+	return single_open_size(file, bpmp_debug_show, file, SZ_1M);
 }
 
 static const struct file_operations bpmp_debug_fops = {

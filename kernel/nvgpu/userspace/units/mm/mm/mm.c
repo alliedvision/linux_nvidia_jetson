@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -258,32 +258,36 @@ int test_nvgpu_init_mm(struct unit_module *m, struct gk20a *g, void *args)
 	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_DMA, 11,
 						     -ENOMEM, 11);
 
+#ifdef CONFIG_NVGPU_NON_FUSA
+	/* Disable for now. */
 	/* Making nvgpu_init_cde_vm fail */
-	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_KMEM, 25,
-						     -ENOMEM, 12);
+	//errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_KMEM, 80,
+	//					     -ENOMEM, 12);
+#endif
+
 
 	/* Making nvgpu_init_ce_vm fail */
 	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_KMEM, 33,
+						     -ENOMEM, 12);
+	/* Making nvgpu_init_mmu_debug fail on wr_mem DMA alloc */
+	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_DMA, 13,
 						     -ENOMEM, 13);
 
-	/* Making nvgpu_init_mmu_debug fail on wr_mem DMA alloc */
+	/* Making nvgpu_init_mmu_debug fail on rd_mem DMA alloc */
 	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_DMA, 14,
 						     -ENOMEM, 14);
 
-	/* Making nvgpu_init_mmu_debug fail on rd_mem DMA alloc */
-	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_DMA, 15,
-						     -ENOMEM, 15);
-
 	/* Making g->ops.mm.mmu_fault.setup_sw fail */
-	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_HAL, 1,
-						     ARBITRARY_ERROR, 16);
+	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_HAL, 0,
+						     ARBITRARY_ERROR, 15);
 
 	/* Making g->ops.fb.fb_ecc_init fail */
 	g->ops.fb.ecc.init = int_empty_hal;
-	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_HAL, 2,
-						     ARBITRARY_ERROR, 17);
+	errors += nvgpu_init_mm_support_inject_error(m, g, ERROR_TYPE_HAL, 1,
+						     ARBITRARY_ERROR, 16);
 	g->ops.fb.ecc.init = NULL;
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	/*
 	 * Extra cases for branch coverage: change support flags to test
 	 * other branches
@@ -300,6 +304,7 @@ int test_nvgpu_init_mm(struct unit_module *m, struct gk20a *g, void *args)
 	nvgpu_set_enabled(g, NVGPU_SUPPORT_GSP_VM, true);
 	nvgpu_set_errata(g, NVGPU_ERRATA_MM_FORCE_128K_PMU_VM, true);
 	g->has_cde = true;
+#endif
 
 	/*
 	 * Extra cases for branch coverage: remove some HALs to test branches
@@ -452,7 +457,9 @@ int test_mm_init_hal(struct unit_module *m, struct gk20a *g, void *args)
 	struct nvgpu_os_posix *p = nvgpu_os_posix_from_gk20a(g);
 
 	p->mm_is_iommuable = true;
+#ifdef CONFIG_NVGPU_NON_FUSA
 	g->has_cde = true;
+#endif
 
 	g->ops.mc.intr_stall_unit_config = mc_gp10b_intr_stall_unit_config;
 	g->ops.mc.intr_nonstall_unit_config =
@@ -594,6 +601,7 @@ int test_mm_remove_mm_support(struct unit_module *m, struct gk20a *g,
 	/* Reset this to NULL to avoid trying to destroy the mutex again */
 	g->ops.mm.mmu_fault.info_mem_destroy = NULL;
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	/* Extra cases for branch coverage */
 	nvgpu_set_enabled(g, NVGPU_SUPPORT_SEC2_VM, false);
 	nvgpu_set_enabled(g, NVGPU_SUPPORT_GSP_VM, false);
@@ -604,6 +612,7 @@ int test_mm_remove_mm_support(struct unit_module *m, struct gk20a *g,
 	nvgpu_set_enabled(g, NVGPU_SUPPORT_SEC2_VM, true);
 	nvgpu_set_enabled(g, NVGPU_SUPPORT_GSP_VM, true);
 	g->has_cde = true;
+#endif
 
 	return UNIT_SUCCESS;
 }

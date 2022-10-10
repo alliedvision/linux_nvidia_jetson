@@ -1,0 +1,104 @@
+From 2cf9f1b208fd4d90212ca228d6c9ac5bd2f7e9e6 Mon Sep 17 00:00:00 2001
+From: Chao Hao <chao.hao@mediatek.com>
+Date: Wed, 12 Aug 2020 17:28:44 +0800
+Subject: [PATCH 290/830] ANDROID: staging: ion: export some ion symbols
+X-NVConfidentiality: public
+
+Background:
+  We can allocate buffer from ion_system_heap for general case,
+if the buffer is needed to access by HW, we need to map/unmap
+dma_address by iommu driver before and after HW engine access for
+iommu case. For example, if the same buffer is accessed by three
+HW engines, then every device driver needs to map/unmap dma_address
+by iommu driver respectively.
+  For MTK platform, all the multimedia HW engines use the same
+iommu HW and share the same iommu page table, so multiple map/unmap
+dma_address by iommu driver maybe reduce performance seriously for
+above case, especially for big size buffer. In order to improve
+performance for MTK platform, we want to add ion_mtk_iommu_heap
+and implement map/unmap dma_address by ion_mtk_iommu_heap:
+  a.heap->buf_ops.map_dma_buf: If more than one attachments map
+dma_address by iommu driver about the same buffer, the function
+only map once in first attachment, the other attachments of buffer
+copy sg_table which has already mapped to respective sg_table directly
+and don't mapping dma_address truly.
+  b.heap->buf_ops.unmap_dma_buf: Do nothing.
+  c.heap->buf_ops.release: unmap dma_address by iommu driver about buffer
+and free the buffer.
+
+Based on above description:
+We will build ion_mtk_iommu_heap as a kernel module and ion_mtk_iommu_heap
+also use some APIs like ion_system_heap but they not do export symbol
+ion_page_pool_alloc()
+ion_page_pool_free()
+ion_page_pool_nr_pages()
+ion_page_pool_shrink()
+ion_page_pool_create()
+ion_page_pool_destroy()
+
+Bug: 158729041
+Bug: 170264063
+Change-Id: If3897d5e0105edefe03a51ac52c7b3d423aaa988
+Signed-off-by: Chao Hao <chao.hao@mediatek.com>
+Signed-off-by: Chun-Hung Wu <chun-hung.wu@mediatek.com>
+(cherry picked from commit 34364883b1f7cf8aed0e3a36e38aa7803c73b203)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit 48979298f2c9f814293323e05754a9c1f2038146)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 4dad2d6066b354f9fb087430fca714ffdc05790f)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/heaps/ion_page_pool.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/staging/android/ion/heaps/ion_page_pool.c b/drivers/staging/android/ion/heaps/ion_page_pool.c
+index d34c192b1c27..efd6ce4cc0ad 100644
+--- a/drivers/staging/android/ion/heaps/ion_page_pool.c
++++ b/drivers/staging/android/ion/heaps/ion_page_pool.c
+@@ -79,6 +79,7 @@ struct page *ion_page_pool_alloc(struct ion_page_pool *pool)
+ 
+ 	return page;
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_alloc);
+ 
+ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
+ {
+@@ -86,6 +87,7 @@ void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
+ 
+ 	ion_page_pool_add(pool, page);
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_free);
+ 
+ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
+ {
+@@ -107,6 +109,7 @@ int ion_page_pool_nr_pages(struct ion_page_pool *pool)
+ 
+ 	return nr_total_pages;
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_nr_pages);
+ 
+ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
+ 			 int nr_to_scan)
+@@ -141,6 +144,7 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
+ 
+ 	return freed;
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_shrink);
+ 
+ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
+ {
+@@ -159,8 +163,10 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
+ 
+ 	return pool;
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_create);
+ 
+ void ion_page_pool_destroy(struct ion_page_pool *pool)
+ {
+ 	kfree(pool);
+ }
++EXPORT_SYMBOL_GPL(ion_page_pool_destroy);
+-- 
+2.17.1
+

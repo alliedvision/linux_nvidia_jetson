@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,14 +37,17 @@
  */
 #define NVGPU_VM_REMAP_OP_FLAGS_CACHEABLE        BIT32(1)
 #define NVGPU_VM_REMAP_OP_FLAGS_ACCESS_NO_WRITE  BIT32(7)
+#define NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_4K      BIT32(12)
+#define NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_64K     BIT32(13)
+#define NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_128K    BIT32(14)
 /**
  * This structure describes a single remap operation (either a map or unmap).
  */
 struct nvgpu_vm_remap_op {
 	/**
-	 * When a map operation is specified this field contains any flags
-	 * to use when setting up the mapping.  When an unmap operation is
-	 * specified this field must be zero.
+	 * When a map/unmap operation is specified this field contains flags
+	 * needed to determine the page size used to generate the map/unmap
+	 * mem and virt offsets and/or flags used when setting up the mapping.
 	 */
 	u32 flags;
 
@@ -56,7 +59,7 @@ struct nvgpu_vm_remap_op {
 	 * than NVGPU_KIND_INVALID is specified but there are no compression
 	 * resources available for the mapping then the #incompr_kind value
 	 * is used as a fallback for the mapping.  When an unmap operation
-         * is specified this value must be zero.
+	 * is specified this value must be zero.
 	 */
 	s16 compr_kind;
 
@@ -123,7 +126,7 @@ struct nvgpu_vm_remap_mpool {
 
 	/**
 	 * If non-NULL, the ref put function will check this l2 flag and issue
-         * a flush if necessary when releasing a mapping.
+	 * a flush if necessary when releasing a mapping.
 	 */
 	bool *l2_flushed;
 
@@ -148,17 +151,55 @@ nvgpu_vm_remap_mpool_from_ref(struct nvgpu_ref *ref)
 			offsetof(struct nvgpu_vm_remap_mpool, ref));
 }
 
+static inline u64 nvgpu_vm_remap_page_size(struct nvgpu_vm_remap_op *op)
+{
+	u64 pagesize = 0;
+
+	/* validate map/unmap_op ensures a single pagesize flag */
+	if (op->flags & NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_4K) {
+		pagesize = SZ_4K;
+	} else if (op->flags & NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_64K) {
+		pagesize = SZ_64K;
+	} else if (op->flags & NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_128K) {
+		pagesize = SZ_128K;
+	}
+
+	nvgpu_assert(pagesize);
+	return pagesize;
+}
+
+static inline u32 nvgpu_vm_remap_page_size_flag(u64 pagesize)
+{
+	u32 flag = 0;
+
+	if (pagesize == SZ_4K) {
+		flag = NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_4K;
+	} else if (pagesize == SZ_64K) {
+		flag = NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_64K;
+	} else if (pagesize == SZ_128K) {
+		flag = NVGPU_VM_REMAP_OP_FLAGS_PAGESIZE_128K;
+	}
+
+	nvgpu_assert(flag);
+	return flag;
+}
+
 /**
  * This structure describes a virtual memory pool.
- * There is one virtual memory pool for each sparse VM area allocation that
- * uses big pages.  A virtual memory pool tracks the association between
- * each mapped big page in the pool and the corresponding physical memory.
+ * There is one virtual memory pool for each sparse VM area allocation.
+ * A virtual memory pool tracks the association between each mapped page
+ * in the pool and the corresponding physical memory.
  */
 struct nvgpu_vm_remap_vpool {
 	/**
 	 * Pointer to associated VM.
 	 */
 	struct vm_gk20a *vm;
+
+	/**
+	 * Pointer to associated VM area.
+	 */
+	struct nvgpu_vm_area *vm_area;
 
 	/**
 	 * Tree of physical memory pools that are currently mapped to this
@@ -243,7 +284,6 @@ int nvgpu_vm_remap(struct vm_gk20a *vm,	struct nvgpu_vm_remap_op *ops,
  * @param num_pages [in]		Number of pages in virtual memory pool.
  *
  * - Check that #num_pages is non-zero.
- * - Check that VM area is using big pages.
  * - Check that VM area is configured as sparse.
  * - Allocate memory for internal virtual pool management structures.
  * - Initialize virtual pool management structures including storing #vm
@@ -253,7 +293,6 @@ int nvgpu_vm_remap(struct vm_gk20a *vm,	struct nvgpu_vm_remap_op *ops,
  * @return			Zero if the virtual pool create succeeds.
  *				Suitable errors, for failures.
  * @retval -EINVAL if a value of zero is specified for #num_pages.
- * @retval -EINVAL if the VM area is not using big pages.
  * @retval -EINVAL if the VM area is not configured as sparse.
  * @retval -ENOMEM if memory allocation for internal resources fails.
  */

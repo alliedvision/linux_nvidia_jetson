@@ -3,7 +3,7 @@
  *
  * NvMap event logging to ftrace.
  *
- * Copyright (c) 2012-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -791,6 +791,78 @@ TRACE_EVENT(nvmap_pp_fill_zero_lots,
 		__entry->ret - (__entry->to_zero - __entry->save_to_zero),
 		__entry->nr - __entry->ret)
 );
+
+TRACE_EVENT(refcount_get_handle_from_sci_ipc_id,
+	TP_PROTO(struct nvmap_handle *handle,
+		 struct dma_buf *dmabuf,
+		 int handle_ref, const char *perm
+	),
+
+	TP_ARGS(handle, dmabuf, handle_ref, perm),
+
+	TP_STRUCT__entry(
+		__field(struct nvmap_handle *, handle)
+		__field(struct dma_buf *, dmabuf)
+		__field(int, handle_ref)
+		__string(acc_perm, perm)
+	),
+
+	TP_fast_assign(
+		__entry->handle = handle;
+		__entry->dmabuf = dmabuf;
+		__entry->handle_ref = handle_ref;
+		__assign_str(acc_perm, perm);
+	),
+
+	TP_printk("handle=0x%p, dmabuf=0x%p, handle_ref=%d, perm=%s",
+		   __entry->handle, __entry->dmabuf, __entry->handle_ref,
+		   __get_str(acc_perm))
+);
+
+DECLARE_EVENT_CLASS(nvmap_refcount,
+	TP_PROTO(struct nvmap_handle *handle, struct dma_buf *dmabuf, \
+		 int handle_ref,  long dmabuf_ref, const char *perm),
+
+	TP_ARGS(handle, dmabuf, handle_ref, dmabuf_ref, perm),
+
+	TP_STRUCT__entry(
+		__field(struct nvmap_handle *, handle)
+		__field(struct dma_buf *, dmabuf)
+		__field(int, handle_ref)
+		__field(long, dmabuf_ref)
+		__string(acc_perm, perm)
+	),
+
+	TP_fast_assign(
+		__entry->handle = handle;
+		__entry->dmabuf = dmabuf;
+		__entry->handle_ref = handle_ref;
+		__entry->dmabuf_ref = dmabuf_ref;
+		__assign_str(acc_perm, perm);
+	),
+
+	TP_printk("handle=0x%p, dmabuf=0x%p, handle_ref=%d, dmabuf_ref=%ld, perm=%s",
+		   __entry->handle, __entry->dmabuf, __entry->handle_ref,
+		   __entry->dmabuf_ref, __get_str(acc_perm))
+);
+
+#define NVMAPREFCOUNTEVENT(ev) DEFINE_EVENT(nvmap_refcount, ev, \
+	TP_PROTO(struct nvmap_handle *handle, struct dma_buf *dmabuf, \
+		 int handle_ref,  long dmabuf_ref, const char *perm), \
+	TP_ARGS(handle, dmabuf, handle_ref, dmabuf_ref, perm) \
+)
+
+NVMAPREFCOUNTEVENT(refcount_create_handle);
+NVMAPREFCOUNTEVENT(refcount_create_handle_from_va);
+NVMAPREFCOUNTEVENT(refcount_create_handle_from_fd);
+NVMAPREFCOUNTEVENT(refcount_getfd);
+NVMAPREFCOUNTEVENT(refcount_alloc);
+NVMAPREFCOUNTEVENT(refcount_get_sci_ipc_id);
+NVMAPREFCOUNTEVENT(refcount_create_handle_from_sci_ipc_id);
+NVMAPREFCOUNTEVENT(refcount_dup_handle);
+NVMAPREFCOUNTEVENT(refcount_free_handle);
+
+#undef NVMAPREFCOUNTEVENT
 
 #endif /* _TRACE_NVMAP_H */
 

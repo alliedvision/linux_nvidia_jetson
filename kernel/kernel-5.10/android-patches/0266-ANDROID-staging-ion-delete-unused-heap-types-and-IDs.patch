@@ -1,0 +1,243 @@
+From 872ac34adaaf993f518fb6aae81f1b69bc19c02a Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Wed, 12 Feb 2020 23:40:08 -0800
+Subject: [PATCH 266/830] ANDROID: staging: ion: delete unused heap types and
+ IDs
+X-NVConfidentiality: public
+
+Delete system_contig, chunk and carevout heap types and IDs.
+
+Test: build, boot, ion-unit-tests
+Bug: 138149732
+Change-Id: I45d97138ab2a6986955c8934ab13b70372d9e62d
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/heaps/Kconfig     |   8 --
+ drivers/staging/android/ion/heaps/Makefile    |   1 -
+ .../ion/heaps/ion_system_contig_heap.c        | 102 ------------------
+ drivers/staging/android/ion/ion.c             |  10 --
+ include/uapi/linux/ion.h                      |  27 +----
+ 5 files changed, 4 insertions(+), 144 deletions(-)
+ delete mode 100644 drivers/staging/android/ion/heaps/ion_system_contig_heap.c
+
+diff --git a/drivers/staging/android/ion/heaps/Kconfig b/drivers/staging/android/ion/heaps/Kconfig
+index 617d6e7ea583..5034c45a397d 100644
+--- a/drivers/staging/android/ion/heaps/Kconfig
++++ b/drivers/staging/android/ion/heaps/Kconfig
+@@ -6,14 +6,6 @@ config ION_SYSTEM_HEAP
+ 	  Choose this option to enable the Ion system heap. The system heap
+ 	  is backed by pages from the buddy allocator. If in doubt, say Y.
+ 
+-config ION_SYSTEM_CONTIG_HEAP
+-	tristate "Ion system contig heap"
+-	depends on ION
+-	help
+-	  Choose this option to enable Ion system contig heap. The system contig heap
+-	  is backed by the pages from buddy allocator that are guaranteed to be physically
+-	  contiguous. If in doubt, say Y.
+-
+ config ION_CMA_HEAP
+ 	tristate "Ion CMA heap support"
+ 	depends on ION && DMA_CMA
+diff --git a/drivers/staging/android/ion/heaps/Makefile b/drivers/staging/android/ion/heaps/Makefile
+index 449879035877..82e36e89e978 100644
+--- a/drivers/staging/android/ion/heaps/Makefile
++++ b/drivers/staging/android/ion/heaps/Makefile
+@@ -2,5 +2,4 @@
+ obj-$(CONFIG_ION_SYSTEM_HEAP) += ion_sys_heap.o
+ ion_sys_heap-y := ion_system_heap.o ion_page_pool.o
+ 
+-obj-$(CONFIG_ION_SYSTEM_CONTIG_HEAP) += ion_system_contig_heap.o
+ obj-$(CONFIG_ION_CMA_HEAP) += ion_cma_heap.o
+diff --git a/drivers/staging/android/ion/heaps/ion_system_contig_heap.c b/drivers/staging/android/ion/heaps/ion_system_contig_heap.c
+deleted file mode 100644
+index ce854565b563..000000000000
+--- a/drivers/staging/android/ion/heaps/ion_system_contig_heap.c
++++ /dev/null
+@@ -1,102 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * ION Memory Allocator system contig heap exporter
+- *
+- * Copyright (C) 2019 Google, Inc.
+- */
+-
+-#include <asm/page.h>
+-#include <linux/dma-mapping.h>
+-#include <linux/err.h>
+-#include <linux/highmem.h>
+-#include <linux/ion.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/scatterlist.h>
+-#include <linux/slab.h>
+-
+-static int ion_system_contig_heap_allocate(struct ion_heap *heap,
+-					   struct ion_buffer *buffer,
+-					   unsigned long len,
+-					   unsigned long flags)
+-{
+-	int order = get_order(len);
+-	struct page *page;
+-	struct sg_table *table;
+-	unsigned long i;
+-	int ret;
+-
+-	page = alloc_pages(GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN, order);
+-	if (!page)
+-		return -ENOMEM;
+-
+-	split_page(page, order);
+-
+-	len = PAGE_ALIGN(len);
+-	for (i = len >> PAGE_SHIFT; i < (1 << order); i++)
+-		__free_page(page + i);
+-
+-	table = kmalloc(sizeof(*table), GFP_KERNEL);
+-	if (!table) {
+-		ret = -ENOMEM;
+-		goto free_pages;
+-	}
+-
+-	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+-	if (ret)
+-		goto free_table;
+-
+-	sg_set_page(table->sgl, page, len, 0);
+-
+-	buffer->sg_table = table;
+-
+-	ion_buffer_prep_noncached(buffer);
+-
+-	return 0;
+-
+-free_table:
+-	kfree(table);
+-free_pages:
+-	for (i = 0; i < len >> PAGE_SHIFT; i++)
+-		__free_page(page + i);
+-
+-	return ret;
+-}
+-
+-static void ion_system_contig_heap_free(struct ion_buffer *buffer)
+-{
+-	struct sg_table *table = buffer->sg_table;
+-	struct page *page = sg_page(table->sgl);
+-	unsigned long pages = PAGE_ALIGN(buffer->size) >> PAGE_SHIFT;
+-	unsigned long i;
+-
+-	for (i = 0; i < pages; i++)
+-		__free_page(page + i);
+-	sg_free_table(table);
+-	kfree(table);
+-}
+-
+-static struct ion_heap_ops kmalloc_ops = {
+-	.allocate = ion_system_contig_heap_allocate,
+-	.free = ion_system_contig_heap_free,
+-};
+-
+-static struct ion_heap contig_heap = {
+-	.ops = &kmalloc_ops,
+-	.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
+-	.name = "ion_system_contig_heap",
+-};
+-
+-static int __init ion_system_contig_heap_init(void)
+-{
+-	return ion_device_add_heap(&contig_heap);
+-}
+-
+-static void __exit ion_system_contig_heap_exit(void)
+-{
+-	ion_device_remove_heap(&contig_heap);
+-}
+-
+-module_init(ion_system_contig_heap_init);
+-module_exit(ion_system_contig_heap_exit);
+-MODULE_LICENSE("GPL v2");
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index d6dab39d9609..19f687ecade0 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -236,16 +236,6 @@ static int ion_assign_heap_id(struct ion_heap *heap, struct ion_device *dev)
+ 	case ION_HEAP_TYPE_SYSTEM:
+ 		id_bit = __ffs(ION_HEAP_SYSTEM);
+ 		break;
+-	case ION_HEAP_TYPE_SYSTEM_CONTIG:
+-		id_bit = __ffs(ION_HEAP_SYSTEM_CONTIG);
+-		break;
+-	case ION_HEAP_TYPE_CHUNK:
+-		id_bit = __ffs(ION_HEAP_CHUNK);
+-		break;
+-	case ION_HEAP_TYPE_CARVEOUT:
+-		start_bit = __ffs(ION_HEAP_CARVEOUT_START);
+-		end_bit = __ffs(ION_HEAP_CARVEOUT_END);
+-		break;
+ 	case ION_HEAP_TYPE_DMA:
+ 		start_bit = __ffs(ION_HEAP_DMA_START);
+ 		end_bit = __ffs(ION_HEAP_DMA_END);
+diff --git a/include/uapi/linux/ion.h b/include/uapi/linux/ion.h
+index fdb2eba7f500..371e44662755 100644
+--- a/include/uapi/linux/ion.h
++++ b/include/uapi/linux/ion.h
+@@ -17,23 +17,14 @@
+  * @ION_HEAP_TYPE_SYSTEM:        Reserved heap id for ion heap that allocates
+  *				 memory using alloc_page(). Also, supports
+  *				 deferred free and allocation pools.
+- * @ION_HEAP_TYPE_SYSTEM_CONTIG: Reserved heap id for ion heap that is the same
+- *				 as SYSTEM_HEAP, except doesn't support
+- *				 allocation pools.
+- * @ION_HEAP_TYPE_CARVEOUT:      Reserved heap id for ion heap that allocates
+- *				 memory from a pre-reserved memory region
+- *				 aka 'carveout'.
+- * @ION_HEAP_TYPE_DMA:		 Reserved heap id for ion heap that manages
++* @ION_HEAP_TYPE_DMA:		 Reserved heap id for ion heap that manages
+  * 				 single CMA (contiguous memory allocator)
+  * 				 region. Uses standard DMA APIs for
+  *				 managing memory within the CMA region.
+  */
+ enum ion_heap_type {
+ 	ION_HEAP_TYPE_SYSTEM = 0,
+-	ION_HEAP_TYPE_SYSTEM_CONTIG = 1,
+-	ION_HEAP_TYPE_CARVEOUT = 2,
+-	ION_HEAP_TYPE_CHUNK = 3,
+-	ION_HEAP_TYPE_DMA = 4,
++	ION_HEAP_TYPE_DMA = 2,
+ 	/* reserved range for future standard heap types */
+ 	ION_HEAP_TYPE_CUSTOM = 16,
+ 	ION_HEAP_TYPE_MAX = 31,
+@@ -43,12 +34,6 @@ enum ion_heap_type {
+  * ion_heap_id - list of standard heap ids that Android can use
+  *
+  * @ION_HEAP_SYSTEM		Id for the ION_HEAP_TYPE_SYSTEM
+- * @ION_HEAP_SYSTEM_CONTIG	Id for the ION_HEAP_TYPE_SYSTEM_CONTIG
+- * @ION_HEAP_CHUNK		Id for the ION_HEAP_TYPE_CHUNK
+- * @ION_HEAP_CARVEOUT_START	Start of reserved id range for heaps of type
+- *				ION_HEAP_TYPE_CARVEOUT
+- * @ION_HEAP_CARVEOUT_END	End of reserved id range for heaps of type
+- *				ION_HEAP_TYPE_CARVEOUT
+  * @ION_HEAP_DMA_START 		Start of reserved id range for heaps of type
+  *				ION_HEAP_TYPE_DMA
+  * @ION_HEAP_DMA_END		End of reserved id range for heaps of type
+@@ -60,14 +45,10 @@ enum ion_heap_type {
+  */
+ enum ion_heap_id {
+ 	ION_HEAP_SYSTEM = (1 << ION_HEAP_TYPE_SYSTEM),
+-	ION_HEAP_SYSTEM_CONTIG = (ION_HEAP_SYSTEM << 1),
+-	ION_HEAP_CARVEOUT_START = (ION_HEAP_SYSTEM_CONTIG << 1),
+-	ION_HEAP_CARVEOUT_END = (ION_HEAP_CARVEOUT_START << 4),
+-	ION_HEAP_CHUNK = (ION_HEAP_CARVEOUT_END << 1),
+-	ION_HEAP_DMA_START = (ION_HEAP_CHUNK << 1),
++	ION_HEAP_DMA_START = (ION_HEAP_SYSTEM << 1),
+ 	ION_HEAP_DMA_END = (ION_HEAP_DMA_START << 7),
+ 	ION_HEAP_CUSTOM_START = (ION_HEAP_DMA_END << 1),
+-	ION_HEAP_CUSTOM_END = (ION_HEAP_CUSTOM_START << 15),
++	ION_HEAP_CUSTOM_END = (ION_HEAP_CUSTOM_START << 22),
+ };
+ 
+ #define ION_NUM_MAX_HEAPS	(32)
+-- 
+2.17.1
+

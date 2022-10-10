@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -217,7 +217,7 @@ static int volt_get_voltage_device_table_1x_psv(struct gk20a *g,
 	u8 ext_dev_idx;
 	u8 steps;
 	u8 volt_domain = 0;
-	struct voltage_device_pwm_entry pwm_entry = { { 0 } };
+	struct voltage_device_pwm_entry pwm_entry = { };
 
 	ptmp_dev = nvgpu_kzalloc(g, sizeof(struct voltage_device_pwm));
 	if (ptmp_dev == NULL) {

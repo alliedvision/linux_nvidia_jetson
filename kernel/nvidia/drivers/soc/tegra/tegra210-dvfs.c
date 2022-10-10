@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -36,6 +36,8 @@
 #define VDD_CPU_INDEX	0
 #define VDD_CORE_INDEX	1
 #define VDD_GPU_INDEX	2
+
+typedef int (*dvfs_init_cb_t)(struct device_node *);
 
 struct tegra_dvfs_data {
 	struct dvfs_rail **rails;
@@ -1170,14 +1172,20 @@ static int set_cpu_lp_dvfs_data(unsigned long max_freq, struct cpu_dvfs *d,
 	return 0;
 }
 
-int of_tegra_dvfs_init(const struct of_device_id *matches)
+static int of_tegra_dvfs_init(const struct of_device_id *matches)
 {
 	int ret;
 	struct device_node *np;
 
 	for_each_matching_node(np, matches) {
+		dvfs_init_cb_t dvfs_init_cb;
 		const struct of_device_id *match = of_match_node(matches, np);
-		int (*dvfs_init_cb)(struct device_node *) = match->data;
+		if (!match) {
+			pr_err("dvfs: no of_match_node found\n");
+			return -ENODEV;
+		}
+
+		dvfs_init_cb = (dvfs_init_cb_t)match->data;
 
 		ret = dvfs_init_cb(np);
 		if (ret) {

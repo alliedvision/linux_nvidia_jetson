@@ -1,7 +1,7 @@
 /*
  * GV11b GPU GR
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,6 +44,7 @@
 #include <nvgpu/engine_status.h>
 #include <nvgpu/fbp.h>
 #include <nvgpu/nvgpu_err.h>
+#include <nvgpu/string.h>
 
 #include "gr_pri_gk20a.h"
 #include "gr_pri_gv11b.h"
@@ -1439,6 +1440,7 @@ void gv11b_gr_get_sm_dsm_perf_ctrl_regs(struct gk20a *g,
 void gv11b_gr_get_ovr_perf_regs(struct gk20a *g, u32 *num_ovr_perf_regs,
 					       u32 **ovr_perf_regs)
 {
+	(void)g;
 	*num_ovr_perf_regs = _num_ovr_perf_regs;
 	*ovr_perf_regs = _ovr_perf_regs;
 }
@@ -1730,6 +1732,7 @@ void gv11b_gr_egpc_etpc_priv_addr_table(struct gk20a *g, u32 addr,
 
 u32 gv11b_gr_get_egpc_base(struct gk20a *g)
 {
+	(void)g;
 	return EGPC_PRI_BASE;
 }
 

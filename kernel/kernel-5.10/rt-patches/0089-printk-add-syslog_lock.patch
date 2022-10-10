@@ -1,7 +1,7 @@
-From 167f9435c381aa0814c9733c8a21d6227e34d0c2 Mon Sep 17 00:00:00 2001
+From 1e339fbae889574e24c65925e481b4916b9fd81c Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 16:58:02 +0106
-Subject: [PATCH 089/304] printk: add syslog_lock
+Subject: [PATCH 089/318] printk: add syslog_lock
 
 The global variables @syslog_seq, @syslog_partial, @syslog_time
 and write access to @clear_seq are protected by @logbuf_lock.
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 37 insertions(+), 4 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 17631a3..75c2f69 100644
+index 4a92cf8dc716..c0d448cb196f 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -390,8 +390,12 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
@@ -140,7 +140,7 @@ index 17631a3..75c2f69 100644
  		logbuf_unlock_irq();
  		break;
  	/* Size of the log buffer */
-@@ -2986,7 +3014,12 @@ void register_console(struct console *newcon)
+@@ -2993,7 +3021,12 @@ void register_console(struct console *newcon)
  		 */
  		exclusive_console = newcon;
  		exclusive_console_stop_seq = console_seq;
@@ -154,5 +154,5 @@ index 17631a3..75c2f69 100644
  	}
  	console_unlock();
 -- 
-2.7.4
+2.17.1
 

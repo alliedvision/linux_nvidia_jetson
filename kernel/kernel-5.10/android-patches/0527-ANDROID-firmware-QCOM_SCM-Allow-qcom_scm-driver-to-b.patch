@@ -1,0 +1,81 @@
+From 120e76a4884b82e62fb14ba1533337952cf85d13 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 3 Apr 2020 22:09:17 +0000
+Subject: [PATCH 527/830] ANDROID: firmware: QCOM_SCM: Allow qcom_scm driver to
+ be loadable as a permenent module
+X-NVConfidentiality: public
+
+Allow the qcom_scm driver to be loadable as a
+permenent module.
+
+Bug: 153049053
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I7c0a3c9dc53ee9729cadd0457522ac0229de254d
+---
+ drivers/firmware/Kconfig    | 2 +-
+ drivers/firmware/Makefile   | 3 ++-
+ drivers/firmware/qcom_scm.c | 4 ++++
+ drivers/iommu/Kconfig       | 1 +
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/firmware/Kconfig b/drivers/firmware/Kconfig
+index c08968c5ddf8..359f6516b5ac 100644
+--- a/drivers/firmware/Kconfig
++++ b/drivers/firmware/Kconfig
+@@ -235,7 +235,7 @@ config INTEL_STRATIX10_RSU
+ 	  Say Y here if you want Intel RSU support.
+ 
+ config QCOM_SCM
+-	bool
++	tristate "Qcom SCM driver"
+ 	depends on ARM || ARM64
+ 	depends on HAVE_ARM_SMCCC
+ 	select RESET_CONTROLLER
+diff --git a/drivers/firmware/Makefile b/drivers/firmware/Makefile
+index 5e013b6a3692..523173cbff33 100644
+--- a/drivers/firmware/Makefile
++++ b/drivers/firmware/Makefile
+@@ -17,7 +17,8 @@ obj-$(CONFIG_ISCSI_IBFT)	+= iscsi_ibft.o
+ obj-$(CONFIG_FIRMWARE_MEMMAP)	+= memmap.o
+ obj-$(CONFIG_RASPBERRYPI_FIRMWARE) += raspberrypi.o
+ obj-$(CONFIG_FW_CFG_SYSFS)	+= qemu_fw_cfg.o
+-obj-$(CONFIG_QCOM_SCM)		+= qcom_scm.o qcom_scm-smc.o qcom_scm-legacy.o
++obj-$(CONFIG_QCOM_SCM)		+= qcom-scm.o
++qcom-scm-objs += qcom_scm.o qcom_scm-smc.o qcom_scm-legacy.o
+ obj-$(CONFIG_TI_SCI_PROTOCOL)	+= ti_sci.o
+ obj-$(CONFIG_TRUSTED_FOUNDATIONS) += trusted_foundations.o
+ obj-$(CONFIG_TURRIS_MOX_RWTM)	+= turris-mox-rwtm.o
+diff --git a/drivers/firmware/qcom_scm.c b/drivers/firmware/qcom_scm.c
+index e10a99860ca4..deef441b67fd 100644
+--- a/drivers/firmware/qcom_scm.c
++++ b/drivers/firmware/qcom_scm.c
+@@ -1290,6 +1290,7 @@ static const struct of_device_id qcom_scm_dt_match[] = {
+ 	{ .compatible = "qcom,scm" },
+ 	{}
+ };
++MODULE_DEVICE_TABLE(of, qcom_scm_dt_match);
+ 
+ static struct platform_driver qcom_scm_driver = {
+ 	.driver = {
+@@ -1305,3 +1306,6 @@ static int __init qcom_scm_init(void)
+ 	return platform_driver_register(&qcom_scm_driver);
+ }
+ subsys_initcall(qcom_scm_init);
++
++MODULE_DESCRIPTION("Qualcomm Technologies, Inc. SCM driver");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 3b0a2e94f410..75c11e067e98 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -413,6 +413,7 @@ config QCOM_IOMMU
+ 	# Note: iommu drivers cannot (yet?) be built as modules
+ 	bool "Qualcomm IOMMU Support"
+ 	depends on ARCH_QCOM || (COMPILE_TEST && !GENERIC_ATOMIC64)
++	depends on QCOM_SCM=y
+ 	select IOMMU_API
+ 	select IOMMU_IO_PGTABLE_LPAE
+ 	select ARM_DMA_USE_IOMMU
+-- 
+2.17.1
+

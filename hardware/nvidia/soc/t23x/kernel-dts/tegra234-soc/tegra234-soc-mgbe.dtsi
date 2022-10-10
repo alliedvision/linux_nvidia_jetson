@@ -86,6 +86,11 @@
 			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
 			      "mac", "eee_pcs", "app", "ptp_ref",
 			      "mgbe_macsec", "rx_input";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEARD>,
+				<&mc TEGRA234_MEMORY_CLIENT_MGBEAWR>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBA>;
 		nvidia,num-dma-chans = <10>;
@@ -151,6 +156,11 @@
 			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
 			      "mac", "eee_pcs", "app", "ptp_ref",
 			      "mgbe_macsec", "rx_input";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEBRD>,
+				<&mc TEGRA234_MEMORY_CLIENT_MGBEBWR>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF1>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBB>;
 		nvidia,num-dma-chans = <10>;
@@ -216,6 +226,11 @@
 			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
 			      "mac", "eee_pcs", "app", "ptp_ref",
 			      "mgbe_macsec", "rx_input";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBECRD>,
+				<&mc TEGRA234_MEMORY_CLIENT_MGBECWR>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF2>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBC>;
 		nvidia,num-dma-chans = <10>;
@@ -281,6 +296,11 @@
 			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
 			      "mac", "eee_pcs", "app", "ptp_ref",
 			      "mgbe_macsec", "rx_input";
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEDRD>,
+				<&mc TEGRA234_MEMORY_CLIENT_MGBEDWR>;
+		interconnect-names = "dma-mem", "dma-mem";
+#endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF3>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEA>;
 		nvidia,num-dma-chans = <10>;

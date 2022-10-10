@@ -1,0 +1,297 @@
+From 95c45c74e87347d8afbe8dc4d46007fbe55e259e Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 11 Mar 2020 15:21:20 -0700
+Subject: [PATCH 436/830] ANDROID: Incremental fs: Add INCFS_IOC_PERMIT_FILL
+X-NVConfidentiality: public
+
+Provide a securable way to open a file for filling
+
+Test: incfs_test passes
+Bug: 138149732
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ib4b6fd839ad30ce08e31121d19e2c0d7066d302f
+---
+ fs/incfs/vfs.c                                | 62 +++++++++++++++-
+ include/uapi/linux/incrementalfs.h            | 23 +++++-
+ .../selftests/filesystems/incfs/incfs_test.c  | 73 ++++++++++++++++---
+ 3 files changed, 143 insertions(+), 15 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 59b04dd0c6e9..3e370ddc1e30 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -132,6 +132,11 @@ static const struct file_operations incfs_file_ops = {
+ 	.compat_ioctl = dispatch_ioctl
+ };
+ 
++enum FILL_PERMISSION {
++	CANT_FILL = 0,
++	CAN_FILL = 1,
++};
++
+ static const struct file_operations incfs_pending_read_file_ops = {
+ 	.read = pending_reads_read,
+ 	.poll = pending_reads_poll,
+@@ -1282,6 +1287,9 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
+ 	if (!df)
+ 		return -EBADF;
+ 
++	if ((uintptr_t)f->private_data != CAN_FILL)
++		return -EPERM;
++
+ 	if (copy_from_user(&fill_blocks, usr_fill_blocks, sizeof(fill_blocks)))
+ 		return -EFAULT;
+ 
+@@ -1334,6 +1342,53 @@ static long ioctl_fill_blocks(struct file *f, void __user *arg)
+ 	return i;
+ }
+ 
++static long ioctl_permit_fill(struct file *f, void __user *arg)
++{
++	struct incfs_permit_fill __user *usr_permit_fill = arg;
++	struct incfs_permit_fill permit_fill;
++	long error = 0;
++	struct file *file = 0;
++
++	if (f->f_op != &incfs_pending_read_file_ops)
++		return -EPERM;
++
++	if (copy_from_user(&permit_fill, usr_permit_fill, sizeof(permit_fill)))
++		return -EFAULT;
++
++	file = fget(permit_fill.file_descriptor);
++	if (IS_ERR(file))
++		return PTR_ERR(file);
++
++	if (file->f_op != &incfs_file_ops) {
++		error = -EPERM;
++		goto out;
++	}
++
++	if (file->f_inode->i_sb != f->f_inode->i_sb) {
++		error = -EPERM;
++		goto out;
++	}
++
++	switch ((uintptr_t)file->private_data) {
++	case CANT_FILL:
++		file->private_data = (void *)CAN_FILL;
++		break;
++
++	case CAN_FILL:
++		pr_debug("CAN_FILL already set");
++		break;
++
++	default:
++		pr_warn("Invalid file private data");
++		error = -EFAULT;
++		goto out;
++	}
++
++out:
++	fput(file);
++	return error;
++}
++
+ static long ioctl_read_file_signature(struct file *f, void __user *arg)
+ {
+ 	struct incfs_get_file_sig_args __user *args_usr_ptr = arg;
+@@ -1391,6 +1446,8 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+ 		return ioctl_create_file(mi, (void __user *)arg);
+ 	case INCFS_IOC_FILL_BLOCKS:
+ 		return ioctl_fill_blocks(f, (void __user *)arg);
++	case INCFS_IOC_PERMIT_FILL:
++		return ioctl_permit_fill(f, (void __user *)arg);
+ 	case INCFS_IOC_READ_FILE_SIGNATURE:
+ 		return ioctl_read_file_signature(f, (void __user *)arg);
+ 	default:
+@@ -1821,9 +1878,10 @@ static int file_open(struct inode *inode, struct file *file)
+ 		goto out;
+ 	}
+ 
+-	if (S_ISREG(inode->i_mode))
++	if (S_ISREG(inode->i_mode)) {
+ 		err = make_inode_ready_for_data_ops(mi, inode, backing_file);
+-	else if (S_ISDIR(inode->i_mode)) {
++		file->private_data = (void *)CANT_FILL;
++	} else if (S_ISDIR(inode->i_mode)) {
+ 		struct dir_file *dir = NULL;
+ 
+ 		dir = incfs_open_dir_file(mi, backing_file);
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index d3bd532cc913..b6c300d397f8 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -51,13 +51,23 @@
+ 	_IOR(INCFS_IOCTL_BASE_CODE, 31, struct incfs_get_file_sig_args)
+ 
+ /*
+- * Fill in one or more data block
++ * Fill in one or more data block. This may only be called on a handle
++ * passed as a parameter to INCFS_IOC_PERMIT_FILLING
+  *
+  * Returns number of blocks filled in, or error if none were
+  */
+ #define INCFS_IOC_FILL_BLOCKS                                                  \
+ 	_IOR(INCFS_IOCTL_BASE_CODE, 32, struct incfs_fill_blocks)
+ 
++/*
++ * Permit INCFS_IOC_FILL_BLOCKS on the given file descriptor
++ * May only be called on .pending_reads file
++ *
++ * Returns 0 on success or error
++ */
++#define INCFS_IOC_PERMIT_FILL                                                  \
++	_IOW(INCFS_IOCTL_BASE_CODE, 33, struct incfs_permit_fill)
++
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+ 	COMPRESSION_LZ4 = 1
+@@ -136,6 +146,17 @@ struct incfs_fill_blocks {
+ 	__aligned_u64 fill_blocks;
+ };
+ 
++/*
++ * Permit INCFS_IOC_FILL_BLOCKS on the given file descriptor
++ * May only be called on .pending_reads file
++ *
++ * Argument for INCFS_IOC_PERMIT_FILL
++ */
++struct incfs_permit_fill {
++	/* File to permit fills on */
++	__u32 file_descriptor;
++};
++
+ enum incfs_hash_tree_algorithm {
+ 	INCFS_HASH_TREE_NONE = 0,
+ 	INCFS_HASH_TREE_SHA256 = 1
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 9910b274bfc0..b24cd892d014 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -204,15 +204,43 @@ static char *get_index_filename(const char *mnt_dir, incfs_uuid_t id)
+ 	return strdup(path);
+ }
+ 
+-int open_file_by_id(char *mnt_dir, incfs_uuid_t id)
++int open_file_by_id(const char *mnt_dir, incfs_uuid_t id, bool use_ioctl)
+ {
+ 	char *path = get_index_filename(mnt_dir, id);
++	int cmd_fd = open_commands_file(mnt_dir);
+ 	int fd = open(path, O_RDWR);
++	struct incfs_permit_fill permit_fill = {
++		.file_descriptor = fd,
++	};
++	int error = 0;
+ 
+-	free(path);
+ 	if (fd < 0) {
+ 		print_error("Can't open file by id.");
++		error = -errno;
++		goto out;
++	}
++
++	if (use_ioctl && ioctl(cmd_fd, INCFS_IOC_PERMIT_FILL, &permit_fill)) {
++		print_error("Failed to call PERMIT_FILL");
++		error = -errno;
++		goto out;
++	}
++
++	if (ioctl(fd, INCFS_IOC_PERMIT_FILL, &permit_fill) != -1 ||
++	    errno != EPERM) {
++		print_error(
++			"Successfully called PERMIT_FILL on non pending_read file");
+ 		return -errno;
++		goto out;
++	}
++
++out:
++	free(path);
++	close(cmd_fd);
++
++	if (error) {
++		close(fd);
++		return error;
+ 	}
+ 
+ 	return fd;
+@@ -258,12 +286,6 @@ static int emit_test_blocks(char *mnt_dir, struct test_file *file,
+ 	int i = 0;
+ 	int blocks_written = 0;
+ 
+-	fd = open_file_by_id(mnt_dir, file->id);
+-	if (fd <= 0) {
+-		error = -errno;
+-		goto out;
+-	}
+-
+ 	for (i = 0; i < block_count; i++) {
+ 		int block_index = blocks[i];
+ 		bool compress = (file->index + block_index) % 2 == 0;
+@@ -315,6 +337,24 @@ static int emit_test_blocks(char *mnt_dir, struct test_file *file,
+ 	}
+ 
+ 	if (!error) {
++		fd = open_file_by_id(mnt_dir, file->id, false);
++		if (fd < 0) {
++			error = -errno;
++			goto out;
++		}
++		write_res = ioctl(fd, INCFS_IOC_FILL_BLOCKS, &fill_blocks);
++		if (write_res >= 0) {
++			ksft_print_msg("Wrote to file via normal fd error\n");
++			error = -EPERM;
++			goto out;
++		}
++
++		close(fd);
++		fd = open_file_by_id(mnt_dir, file->id, true);
++		if (fd < 0) {
++			error = -errno;
++			goto out;
++		}
+ 		write_res = ioctl(fd, INCFS_IOC_FILL_BLOCKS, &fill_blocks);
+ 		if (write_res < 0)
+ 			error = -errno;
+@@ -706,7 +746,6 @@ static int load_hash_tree(const char *mount_dir, struct test_file *file)
+ 	int err;
+ 	int i;
+ 	int fd;
+-	char *file_path;
+ 	struct incfs_fill_blocks fill_blocks = {
+ 		.count = file->mtree_block_count,
+ 	};
+@@ -729,9 +768,7 @@ static int load_hash_tree(const char *mount_dir, struct test_file *file)
+ 		};
+ 	}
+ 
+-	file_path  = concat_file_name(mount_dir, file->name);
+-	fd = open(file_path, O_RDWR);
+-	free(file_path);
++	fd = open_file_by_id(mount_dir, file->id, false);
+ 	if (fd < 0) {
+ 		err = errno;
+ 		goto failure;
+@@ -739,7 +776,19 @@ static int load_hash_tree(const char *mount_dir, struct test_file *file)
+ 
+ 	err = ioctl(fd, INCFS_IOC_FILL_BLOCKS, &fill_blocks);
+ 	close(fd);
++	if (err >= 0) {
++		err = -EPERM;
++		goto failure;
++	}
++
++	fd = open_file_by_id(mount_dir, file->id, true);
++	if (fd < 0) {
++		err = errno;
++		goto failure;
++	}
+ 
++	err = ioctl(fd, INCFS_IOC_FILL_BLOCKS, &fill_blocks);
++	close(fd);
+ 	if (err < fill_blocks.count)
+ 		err = errno;
+ 	else {
+-- 
+2.17.1
+

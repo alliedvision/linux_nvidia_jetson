@@ -172,6 +172,7 @@ struct mrq_request {
 	 * | MRQ_ABI_RATCHET      |                                      | 2                                          |
 	 * | MRQ_EMC_DVFS_LATENCY |                                      | 8                                          |
 	 * | MRQ_EMC_DVFS_EMCHUB  |                                      | 8                                          |
+	 * | MRQ_EMC_DISP_RFL     |                                      | 4                                          |
 	 * | MRQ_BWMGR            | CMD_BWMGR_QUERY_ABI                  | 8                                          |
 	 * | MRQ_BWMGR            | CMD_BWMGR_CALC_RATE                  | 112                                        |
 	 * | MRQ_ISO_CLIENT       | CMD_ISO_CLIENT_QUERY_ABI             | 8                                          |
@@ -324,6 +325,7 @@ struct mrq_response {
 #define MRQ_EMC_DVFS_EMCHUB	76U
 #define MRQ_BWMGR		77U
 #define MRQ_ISO_CLIENT		78U
+#define MRQ_EMC_DISP_RFL	79U
 
 /** @} */
 
@@ -332,7 +334,7 @@ struct mrq_response {
  * @brief Maximum MRQ code to be sent by CPU software to
  * BPMP. Subject to change in future
  */
-#define MAX_CPU_MRQ_ID		78U
+#define MAX_CPU_MRQ_ID		79U
 
 /**
  * @addtogroup MRQ_Payloads
@@ -2256,6 +2258,50 @@ struct mrq_emc_dvfs_emchub_response {
 	uint32_t num_pairs;
 	/** @brief EMC DVFS node <frequency, hub frequency> information */
 	struct emc_dvfs_emchub pairs[EMC_DVFS_EMCHUB_MAX_SIZE];
+} BPMP_ABI_PACKED;
+
+/** @} */
+/** @endcond */
+
+/**
+ * @ingroup MRQ_Codes
+ * @def MRQ_EMC_DISP_RFL
+ * @brief Set EMC display RFL handshake mode of operations
+ *
+ * * Platforms: T234 onwards
+ * @cond bpmp_t234
+ * * Initiators: CCPLEX
+ * * Targets: BPMP
+ * * Request Payload: @ref mrq_emc_disp_rfl_request
+ * * Response Payload: N/A
+ * @addtogroup EMC
+ * @{
+ */
+
+enum mrq_emc_disp_rfl_mode {
+	/** @brief EMC display RFL handshake disabled  */
+	EMC_DISP_RFL_MODE_DISABLED = 0,
+	/** @brief EMC display RFL handshake enabled  */
+	EMC_DISP_RFL_MODE_ENABLED = 1,
+};
+
+/**
+ * @ingroup EMC
+ * @brief Request with #MRQ_EMC_DISP_RFL
+ *
+ * Used by the sender of an #MRQ_EMC_DISP_RFL message to
+ * request the mode of EMC display RFL handshake.
+ *
+ * mrq_response::err is
+ * * 0: RFL mode is set successfully
+ * * -#BPMP_EINVAL: invalid mode requested
+ * * -#BPMP_ENOSYS: RFL handshake is not supported
+ * * -#BPMP_EACCES: Permission denied
+ * * -#BPMP_ENODEV: if disp rfl mrq is not supported by BPMP-FW
+ */
+struct mrq_emc_disp_rfl_request {
+	/** @brief EMC display RFL mode (@ref mrq_emc_disp_rfl_mode) */
+	uint32_t mode;
 } BPMP_ABI_PACKED;
 
 /** @} */

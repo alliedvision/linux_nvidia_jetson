@@ -1,7 +1,7 @@
 /*
  * FIFO
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -283,8 +283,10 @@ static void disable_fifo_interrupts(struct gk20a *g)
 	if (g->ops.fifo.intr_top_enable == NULL) {
 		nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_FIFO,
 					NVGPU_CIC_INTR_DISABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 		nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_FIFO,
 					   NVGPU_CIC_INTR_DISABLE);
+#endif
 	} else {
 		g->ops.fifo.intr_top_enable(g, NVGPU_CIC_INTR_DISABLE);
 	}

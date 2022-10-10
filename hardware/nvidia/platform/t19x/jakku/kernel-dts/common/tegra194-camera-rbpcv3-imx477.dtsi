@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,8 +16,7 @@
  */
 
 / {
-	host1x {
-		vi@15c10000 {
+		tegra-capture-vi  {
 			num-channels = <2>;
 			ports {
 				#address-cells = <1>;
@@ -41,6 +40,7 @@
 			};
 		};
 
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <2>;
 			#address-cells = <1>;
@@ -55,7 +55,7 @@
 						rbpcv3_imx477_csi_in0: endpoint@0 {
 							port-index = <0>;
 							bus-width = <2>;
-							remote-endpoint = <&rbpcv3_imx477_dual_out0>;
+							remote-endpoint = <&rbpcv3_imx477_out0>;
 						};
 					};
 					port@1 {
@@ -207,7 +207,7 @@
 					line_length = "11200";
 					inherent_gain = "1";
 					mclk_multiplier = "80";
-					pix_clk_hz = "840000000";
+					pix_clk_hz = "300000000";
 
 					gain_factor = "16";
 					framerate_factor = "1000000";
@@ -247,7 +247,7 @@
 					line_length = "7000";
 					inherent_gain = "1";
 					mclk_multiplier = "80";
-					pix_clk_hz = "840000000";
+					pix_clk_hz = "300000000";
 
 					gain_factor = "16";
 					framerate_factor = "1000000";
@@ -276,7 +276,7 @@
 
 					port@0 {
 						reg = <0>;
-						rbpcv3_imx477_dual_out0: endpoint {
+						rbpcv3_imx477_out0: endpoint {
 							port-index = <0>;
 							bus-width = <2>;
 							remote-endpoint = <&rbpcv3_imx477_csi_in0>;
@@ -320,7 +320,7 @@
 					line_length = "11200";
 					inherent_gain = "1";
 					mclk_multiplier = "80";
-					pix_clk_hz = "840000000";
+					pix_clk_hz = "300000000";
 
 					gain_factor = "16";
 					framerate_factor = "1000000";
@@ -360,7 +360,7 @@
 					line_length = "7000";
 					inherent_gain = "1";
 					mclk_multiplier = "80";
-					pix_clk_hz = "840000000";
+					pix_clk_hz = "300000000";
 
 					gain_factor = "16";
 					framerate_factor = "1000000";

@@ -1,0 +1,565 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * T234 P3767 common DTSI file.
+ */
+
+#include <dt-bindings/types.h>
+#include <tegra234-soc/tegra234-soc-cvm.dtsi>
+#include <tegra234-soc/tegra234-soc-hwpm.dtsi>
+#include "tegra234-p3767-powermon.dtsi"
+#include "tegra234-p3767-fixed-regulator.dtsi"
+#include "tegra234-p3767-power-tree.dtsi"
+#include "tegra234-thermal.dtsi"
+
+/ {
+	nvidia,fastboot-usb-vid = <0x0955>;
+	nvidia,fastboot-usb-pid = <0xee1e>;
+
+	model = "NVIDIA Orin NX";
+	compatible = "nvidia,tegra234";
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		bootargs ="console=ttyTCU0,115200";
+		board-has-eeprom;
+		nvidia,tegra-joint_xpu_rail;
+	};
+
+	nvsciipc-kernel {
+		compatible = "nvidia,nvsciipc";
+		status = "okay";
+	};
+
+	soft_wdt:soft_watchdog {
+		compatible = "softdog-platform";
+		status = "okay";
+	};
+
+	cpufreq {
+		compatible = "nvidia,t234-cpufreq";
+		status = "okay";
+		cpu_emc_map = <1907200 1600000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>;
+	};
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+	ccplex {
+		compatible = "nvidia,t234-ccplex";
+		cpu_emc_map = <1907200 1600000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>;
+	};
+#endif
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+
+	arm-pmu {
+		status = "okay";
+	};
+
+	power-domain {
+		status = "okay";
+	};
+
+	interrupt-controller {
+		status = "okay";
+	};
+
+	interrupt-controller@f400000 {
+		status = "okay";
+	};
+
+	timer {
+		status = "okay";
+	};
+
+	watchdog@2190000 {
+		status = "okay";
+	};
+
+	aon-en@C600000 {
+		status = "okay";
+	};
+
+	cbb-en@1300000 {
+		status = "okay";
+	};
+
+	bpmp-en@D600000 {
+		status = "okay";
+	};
+
+	dce-en@BE00000 {
+		status = "okay";
+	};
+
+	rce-en@BE00000 {
+		status = "okay";
+	};
+
+	sce-en@B600000 {
+		status = "okay";
+	};
+
+	cpuidle {
+		status = "okay";
+	};
+
+	cpu_alert: cpu-throttle-alert {
+		status = "okay";
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		status = "okay";
+	};
+
+	cv0_alert: cv0-throttle-alert {
+		status = "okay";
+	};
+
+	cv1_alert: cv1-throttle-alert {
+		status = "okay";
+	};
+
+	cv2_alert: cv2-throttle-alert {
+		status = "okay";
+	};
+
+	soc0_alert: soc0-throttle-alert {
+		status = "okay";
+	};
+
+	soc1_alert: soc1-throttle-alert {
+		status = "okay";
+	};
+
+	soc2_alert: soc2-throttle-alert {
+		status = "okay";
+	};
+
+	hot_surface_alert: hot-surface-alert {
+		status = "okay";
+	};
+
+	thermal-zones {
+		status = "disabled";
+		CPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		GPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		Tboard_tegra {
+			/* There is no external temp sensor */
+			status = "disabled";
+			/delete-property/ thermal-sensors;
+		};
+
+		Tdiode_zone: Tdiode_tegra {
+			/* There is no external temp sensor */
+			status = "disabled";
+			/delete-property/ thermal-sensors;
+		};
+	};
+
+	reserved-memory {
+		ramoops_carveout {
+			status = "okay";
+		};
+		grid-of-semaphores {
+			status = "okay";
+		};
+		linux,cma {
+			status = "okay";
+		};
+		vpr-carveout {
+			status = "disabled";
+		};
+	};
+
+	tegra-cache {
+		status = "okay";
+	};
+
+	tegra_soc_hwpm {
+		status = "okay";
+	};
+
+	serial@3100000 {
+		status = "disabled";
+	};
+
+	mc {
+		status = "okay";
+		/delete-property/ ranges;
+		/delete-node/ mssnvlink@1f20000;
+	};
+
+	mc_sid@2c00000 {
+		status = "okay";
+	};
+
+	iommu@12000000 {
+		status = "okay";
+	};
+
+	iommu@10000000 {
+		status = "okay";
+	};
+
+	iommu@8000000 {
+		status = "okay";
+	};
+
+	serial@3130000 {
+		status = "okay";
+	};
+
+	combined-uart {
+		compatible = "nvidia,tegra194-tcu";
+		console-port;
+		combined-uart;
+		status = "okay";
+	};
+
+	pwm@c340000 {/* PWM4 OVR */
+		status = "disabled";
+	};
+
+	pcie@140a0000 {
+		status = "disabled";
+		num-lanes = <2>;
+		phys = <&p2u_gbe_2>, <&p2u_gbe_3>;
+		phy-names = "p2u-0", "p2u-1";
+		vpcie3v3-supply = <&p3767_vdd_3v3_pcie_isolate>;
+		nvidia,pex-wake = <&tegra_main_gpio TEGRA234_MAIN_GPIO(L, 2) GPIO_ACTIVE_LOW>;
+	};
+
+	rtcpu@bc00000 {
+		status = "okay";
+	};
+
+	eeprom-manager {
+		data-size = <0x100>;
+		bus@0 {
+			i2c-bus = <&gen1_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+				label = "cvm";
+			};
+		};
+	};
+
+	soctherm-oc-event {
+		status = "disabled";
+	};
+
+	display@13800000 {
+		status = "disabled";
+	};
+
+	dce@d800000 {
+		status = "okay";
+	};
+
+	/* QSPI flash MX25U51279 is controlled by qspi0 */
+	spi@3270000 {
+		spi-max-frequency = <136000000>;
+		status = "okay";
+		prod-settings {
+			#prod-cells = <3>;
+			prod {
+				prod = <0x04 0x000000ff 0x10>;
+			};
+		};
+		/* QSPI NOR */
+		spiflash@0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "MX25U51279G";
+			reg = <0>;
+			spi-max-frequency = <136000000>;
+			partition@0 {
+				label = "Whole_flash0";
+				reg = <0x00000000 0x4000000>;	/* size of QSPI-NOR 64MB == 512Mb */
+			};
+			controller-data {
+				nvidia,x1-len-limit = <16>;
+				nvidia,x1-bus-speed = <136000000>; /* In Mhz */
+				nvidia,x1-dymmy-cycle = <8>;
+				nvidia,x4-bus-speed = <136000000>;
+				nvidia,x4-dymmy-cycle = <8>;
+				nvidia,x4-is-ddr=<0>;
+				nvidia,ctrl-bus-clk-ratio = <1>;
+			};
+		};
+	};
+
+	gpio@2200000 {
+		status = "okay";
+	};
+
+	gpio@c2f0000 {
+		status = "okay";
+	};
+
+	pinmux@2430000 {
+		status = "okay";
+	};
+
+	host1x@13e00000 {
+	status = "okay";
+	};
+
+	tegra-hsp@c150000 {
+	status = "okay";
+	};
+
+	tegra-hsp@3c00000 {
+	status = "okay";
+	};
+
+	tegra-hsp@b950000 {
+		status = "okay";
+	};
+
+	tegra-hsp@3d00000 {
+		status = "okay";
+	};
+
+	aon@c000000 {
+		status = "okay";
+	};
+
+	chipid@100000 {
+		status = "okay";
+	};
+
+	ldpc-enc {
+		status = "disabled";
+	};
+
+	efuse@3810000 {
+		status = "okay";
+	};
+
+	efuse-burn {
+		status = "okay";
+	};
+
+	rtc@c2a0000 {
+		status = "okay";
+	};
+
+	nvrng@3ae0000 {
+		status = "okay";
+	};
+
+	bpmp {
+		status = "okay";
+		/* There is no temperature sensor */
+		i2c {
+			/delete-node/ temp-sensor@4c;
+		};
+	};
+
+	pmc@c360000 {
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		nvidia,invert-interrupt;
+#endif
+		iopad-defaults {
+			sdmmc-io-pads {
+				pins = "sdmmc1-hv", "sdmmc3-hv";
+				nvidia,enable-voltage-switching;
+			};
+		};
+	};
+
+#if TEGRA_PMC_VERSION < DT_VERSION_2
+	pmc@c370000 {
+		nvidia,invert-interrupt;
+	};
+#endif
+
+	actmon@d230000 {
+		status = "okay";
+		mc_all {
+			status = "okay";
+		};
+	};
+
+	ethernet@6810000 {
+		status = "disabled";
+	};
+
+	stm@24080000 {
+		status = "disabled";
+	};
+
+	cpu0_etm@27040000 {
+		status = "disabled";
+	};
+
+	cpu1_etm@27140000 {
+		status = "disabled";
+	};
+
+	cpu2_etm@27240000 {
+		status = "disabled";
+	};
+
+	cpu3_etm@27340000 {
+		status = "disabled";
+	};
+
+	cpu4_etm@27440000 {
+		status = "disabled";
+	};
+
+	cpu5_etm@27540000 {
+		status = "disabled";
+	};
+
+	cpu6_etm@27640000 {
+		status = "disabled";
+	};
+
+	cpu7_etm@27740000 {
+		status = "disabled";
+	};
+
+	cpu8_etm@27840000 {
+		status = "disabled";
+	};
+
+	cpu9_etm@27940000 {
+		status = "disabled";
+	};
+
+	cpu10_etm@27A40000 {
+		status = "disabled";
+	};
+
+	cpu11_etm@27B40000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex0@26030000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex1@26040000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex2@26050000 {
+		status = "disabled";
+	};
+
+	funnel_top_ccplex@26020000 {
+		status = "disabled";
+	};
+
+	funnel_major@24040000 {
+		status = "disabled";
+	};
+
+	replicator@24060000 {
+		status = "disabled";
+	};
+
+	etf@24050000 {
+		status = "disabled";
+	};
+
+	etr@24070000 {
+		status = "disabled";
+	};
+};

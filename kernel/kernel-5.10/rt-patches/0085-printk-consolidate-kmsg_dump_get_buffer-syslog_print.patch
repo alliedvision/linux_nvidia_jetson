@@ -1,7 +1,7 @@
-From f06d939d423f889b2f2fd8fb1f0987871528aba2 Mon Sep 17 00:00:00 2001
+From 76160009fdd139c7add8af7bae675b7577dc567c Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 13 Jan 2021 11:29:53 +0106
-Subject: [PATCH 085/304] printk: consolidate
+Subject: [PATCH 085/318] printk: consolidate
  kmsg_dump_get_buffer/syslog_print_all code
 
 The logic for finding records to fit into a buffer is the same for
@@ -10,11 +10,11 @@ function find_first_fitting_seq() to handle this logic.
 
 Signed-off-by: John Ogness <john.ogness@linutronix.de>
 ---
- kernel/printk/printk.c | 87 +++++++++++++++++++++++++++++---------------------
+ kernel/printk/printk.c | 87 ++++++++++++++++++++++++------------------
  1 file changed, 50 insertions(+), 37 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index b4f72b5..d6f93eb 100644
+index 0a5e8db02822..d5794e58d0be 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -1422,6 +1422,50 @@ static size_t get_record_print_text_size(struct printk_info *info,
@@ -101,7 +101,7 @@ index b4f72b5..d6f93eb 100644
  
  	prb_rec_init_rd(&r, &info, text, LOG_LINE_MAX + PREFIX_MAX);
  
-@@ -3423,7 +3451,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3430,7 +3458,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  			  char *buf, size_t size, size_t *len_out)
  {
  	struct printk_info info;
@@ -109,7 +109,7 @@ index b4f72b5..d6f93eb 100644
  	struct printk_record r;
  	unsigned long flags;
  	u64 seq;
-@@ -3451,26 +3478,12 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3458,26 +3485,12 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  
  	/*
  	 * Find first record that fits, including all following records,
@@ -142,5 +142,5 @@ index b4f72b5..d6f93eb 100644
  	/*
  	 * Next kmsg_dump_get_buffer() invocation will dump block of
 -- 
-2.7.4
+2.17.1
 

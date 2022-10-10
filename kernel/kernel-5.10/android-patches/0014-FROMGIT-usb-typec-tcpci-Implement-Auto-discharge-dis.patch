@@ -1,0 +1,184 @@
+From c019e1720fb3d813aa3367dec39f448643bfe732 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:36 -0700
+Subject: [PATCH 014/830] FROMGIT: usb: typec: tcpci: Implement Auto discharge
+ disconnect callbacks
+X-NVConfidentiality: public
+
+vImplement callbacks for enabling/disabling
+POWER_CONTROL.AutoDischargeDisconnect.
+
+Programs VBUS_SINK_DISCONNECT_THRESHOLD based on the
+voltage requested as sink, mode of operation.
+
+The programmed threshold is based on vSinkDisconnect and
+vSinkDisconnectPD values.
+
+Add auto_discharge_disconnect to tdata to allow TCPC chip
+level drivers enable AutoDischargeDisconnect.
+
+Bug: 168555244
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-9-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit e1a97bf80a022cdd7a5746a7de8e19f02203d112
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+(cherry picked from commit 33936ca3f6348db3e2e79776b01bc8339c446c80)
+(cherry picked from commit 3622a289e91fe57a4a6b8ca210119c1b645444ea)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 8285bc18a7fbf2409001ea1066136dd167a9cd97)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Change-Id: I896d47412ec6eaa23b87c38be545618f811253c8
+---
+ drivers/usb/typec/tcpm/tcpci.c | 63 +++++++++++++++++++++++++++++++++-
+ drivers/usb/typec/tcpm/tcpci.h | 14 ++++++--
+ 2 files changed, 74 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci.c b/drivers/usb/typec/tcpm/tcpci.c
+index fd139c86e7a7..3b8bccd50b91 100644
+--- a/drivers/usb/typec/tcpm/tcpci.c
++++ b/drivers/usb/typec/tcpm/tcpci.c
+@@ -18,7 +18,10 @@
+ 
+ #include "tcpci.h"
+ 
+-#define PD_RETRY_COUNT 3
++#define	PD_RETRY_COUNT				3
++#define	AUTO_DISCHARGE_DEFAULT_THRESHOLD_MV	3500
++#define	AUTO_DISCHARGE_PD_HEADROOM_MV		850
++#define	AUTO_DISCHARGE_PPS_HEADROOM_MV		1250
+ 
+ #define tcpc_presenting_cc1_rd(reg) \
+ 	(!(TCPC_ROLE_CTRL_DRP & (reg)) && \
+@@ -283,6 +286,58 @@ static int tcpci_set_vconn(struct tcpc_dev *tcpc, bool enable)
+ 				enable ? TCPC_POWER_CTRL_VCONN_ENABLE : 0);
+ }
+ 
++static int tcpci_enable_auto_vbus_discharge(struct tcpc_dev *dev, bool enable)
++{
++	struct tcpci *tcpci = tcpc_to_tcpci(dev);
++	int ret;
++
++	ret = regmap_update_bits(tcpci->regmap, TCPC_POWER_CTRL, TCPC_POWER_CTRL_AUTO_DISCHARGE,
++				 enable ? TCPC_POWER_CTRL_AUTO_DISCHARGE : 0);
++	return ret;
++}
++
++static int tcpci_set_auto_vbus_discharge_threshold(struct tcpc_dev *dev, enum typec_pwr_opmode mode,
++						   bool pps_active, u32 requested_vbus_voltage_mv)
++{
++	struct tcpci *tcpci = tcpc_to_tcpci(dev);
++	unsigned int pwr_ctrl, threshold = 0;
++	int ret;
++
++	/*
++	 * Indicates that vbus is going to go away due PR_SWAP, hard reset etc.
++	 * Do not discharge vbus here.
++	 */
++	if (requested_vbus_voltage_mv == 0)
++		goto write_thresh;
++
++	ret = regmap_read(tcpci->regmap, TCPC_POWER_CTRL, &pwr_ctrl);
++	if (ret < 0)
++		return ret;
++
++	if (pwr_ctrl & TCPC_FAST_ROLE_SWAP_EN) {
++		/* To prevent disconnect when the source is fast role swap is capable. */
++		threshold = AUTO_DISCHARGE_DEFAULT_THRESHOLD_MV;
++	} else if (mode == TYPEC_PWR_MODE_PD) {
++		if (pps_active)
++			threshold = (95 * requested_vbus_voltage_mv / 100) -
++				AUTO_DISCHARGE_PD_HEADROOM_MV;
++		else
++			threshold = (95 * requested_vbus_voltage_mv / 100) -
++				AUTO_DISCHARGE_PPS_HEADROOM_MV;
++	} else {
++		/* 3.5V for non-pd sink */
++		threshold = AUTO_DISCHARGE_DEFAULT_THRESHOLD_MV;
++	}
++
++	threshold = threshold / TCPC_VBUS_SINK_DISCONNECT_THRESH_LSB_MV;
++
++	if (threshold > TCPC_VBUS_SINK_DISCONNECT_THRESH_MAX)
++		return -EINVAL;
++
++write_thresh:
++	return tcpci_write16(tcpci, TCPC_VBUS_SINK_DISCONNECT_THRESH, threshold);
++}
++
+ static int tcpci_enable_frs(struct tcpc_dev *dev, bool enable)
+ {
+ 	struct tcpci *tcpci = tcpc_to_tcpci(dev);
+@@ -653,6 +708,12 @@ struct tcpci *tcpci_register_port(struct device *dev, struct tcpci_data *data)
+ 	tcpci->tcpc.enable_frs = tcpci_enable_frs;
+ 	tcpci->tcpc.frs_sourcing_vbus = tcpci_frs_sourcing_vbus;
+ 
++	if (tcpci->data->auto_discharge_disconnect) {
++		tcpci->tcpc.enable_auto_vbus_discharge = tcpci_enable_auto_vbus_discharge;
++		tcpci->tcpc.set_auto_vbus_discharge_threshold =
++			tcpci_set_auto_vbus_discharge_threshold;
++	}
++
+ 	err = tcpci_parse_config(tcpci);
+ 	if (err < 0)
+ 		return ERR_PTR(err);
+diff --git a/drivers/usb/typec/tcpm/tcpci.h b/drivers/usb/typec/tcpm/tcpci.h
+index b418fe11b527..3fe313655f0c 100644
+--- a/drivers/usb/typec/tcpm/tcpci.h
++++ b/drivers/usb/typec/tcpm/tcpci.h
+@@ -8,6 +8,8 @@
+ #ifndef __LINUX_USB_TCPCI_H
+ #define __LINUX_USB_TCPCI_H
+ 
++#include <linux/usb/typec.h>
++
+ #define TCPC_VENDOR_ID			0x0
+ #define TCPC_PRODUCT_ID			0x2
+ #define TCPC_BCD_DEV			0x4
+@@ -67,6 +69,7 @@
+ 
+ #define TCPC_POWER_CTRL			0x1c
+ #define TCPC_POWER_CTRL_VCONN_ENABLE	BIT(0)
++#define TCPC_POWER_CTRL_AUTO_DISCHARGE	BIT(4)
+ #define TCPC_FAST_ROLE_SWAP_EN		BIT(7)
+ 
+ #define TCPC_CC_STATUS			0x1d
+@@ -133,6 +136,8 @@
+ 
+ #define TCPC_VBUS_VOLTAGE			0x70
+ #define TCPC_VBUS_SINK_DISCONNECT_THRESH	0x72
++#define TCPC_VBUS_SINK_DISCONNECT_THRESH_LSB_MV	25
++#define TCPC_VBUS_SINK_DISCONNECT_THRESH_MAX	0x3ff
+ #define TCPC_VBUS_STOP_DISCHARGE_THRESH		0x74
+ #define TCPC_VBUS_VOLTAGE_ALARM_HI_CFG		0x76
+ #define TCPC_VBUS_VOLTAGE_ALARM_LO_CFG		0x78
+@@ -140,17 +145,22 @@
+ /* I2C_WRITE_BYTE_COUNT + 1 when TX_BUF_BYTE_x is only accessible I2C_WRITE_BYTE_COUNT */
+ #define TCPC_TRANSMIT_BUFFER_MAX_LEN		31
+ 
++struct tcpci;
++
+ /*
+- * @TX_BUF_BYTE_x_hidden
++ * @TX_BUF_BYTE_x_hidden:
+  *		optional; Set when TX_BUF_BYTE_x can only be accessed through I2C_WRITE_BYTE_COUNT.
+  * @frs_sourcing_vbus:
+  *		Optional; Callback to perform chip specific operations when FRS
+  *		is sourcing vbus.
++ * @auto_discharge_disconnect:
++ *		Optional; Enables TCPC to autonously discharge vbus on disconnect.
+  */
+-struct tcpci;
+ struct tcpci_data {
+ 	struct regmap *regmap;
+ 	unsigned char TX_BUF_BYTE_x_hidden:1;
++	unsigned char auto_discharge_disconnect:1;
++
+ 	int (*init)(struct tcpci *tcpci, struct tcpci_data *data);
+ 	int (*set_vconn)(struct tcpci *tcpci, struct tcpci_data *data,
+ 			 bool enable);
+-- 
+2.17.1
+

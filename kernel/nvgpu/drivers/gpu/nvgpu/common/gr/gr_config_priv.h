@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -81,7 +81,14 @@ struct nvgpu_gr_config {
 	 * Max possible number of TPCs in GR engine.
 	 */
 	u32 max_tpc_count;
-
+	/**
+	 * Max possible number of PESs in a GPC.
+	 */
+	u32 max_pes_per_gpc_count;
+	/**
+	 * Max possible number of ROPs in a GPC.
+	 */
+	u32 max_rop_per_gpc_count;
 	/**
 	 * Number of GPCs in GR engine.
 	 */
@@ -128,13 +135,12 @@ struct nvgpu_gr_config {
 
 	/**
 	 * Array to hold mask of TPCs per GPC.
-	 * Array is indexed by GPC logical index.
+	 * Array is indexed by GPC logical index/local IDs when using MIG mode
 	 */
 	u32 *gpc_tpc_mask;
 	/**
 	 * Array to hold mask of TPCs per GPC.
-	 * Array is indexed by GPC physical-id in non-MIG(legacy) mode and by
-	 * logical-id in MIG mode.
+	 * Array is indexed by GPC physical-id.
 	 */
 	u32 *gpc_tpc_mask_physical;
 	/**
@@ -147,6 +153,29 @@ struct nvgpu_gr_config {
 	 * Array is indexed by GPC index.
 	 */
 	u32 *gpc_skip_mask;
+
+	/**
+	 * Array to hold mask of PESs per GPC.
+	 * Array is indexed by GPC logical index/local IDs when using MIG mode
+	 */
+	u32 *gpc_pes_mask;
+
+	/**
+	 * 2D array to map PES physical id to logical id.
+	 */
+	u32 **gpc_pes_logical_id_map;
+
+
+	/**
+	 * Array to hold mask of ROPs per GPC.
+	 * Array is indexed by GPC logical index/local IDs when using MIG mode
+	 */
+	u32 *gpc_rop_mask;
+
+	/**
+	 * 2D array to map ROP physical id to logical id.
+	 */
+	u32 **gpc_rop_logical_id_map;
 
 	/**
 	 * Number of SMs in GR engine.

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,9 @@ struct nvgpu_list_node;
 #include <nvgpu/boardobjgrpmask.h>
 #include <nvgpu/list.h>
 #include <nvgpu/nvgpu_mem.h>
+#ifdef CONFIG_NVGPU_DGPU
 #include <nvgpu/pmu/super_surface.h>
+#endif
 #include <nvgpu/flcnif_cmn.h>
 /* Dependency of this include will be removed in further CL */
 #include "../../common/pmu/boardobj/boardobj.h"

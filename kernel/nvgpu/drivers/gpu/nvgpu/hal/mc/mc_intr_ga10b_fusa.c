@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,10 @@
 #include <nvgpu/cic_mon.h>
 #include <nvgpu/power_features/pg.h>
 #include <nvgpu/gr/gr_instances.h>
+#include <nvgpu/ce.h>
+#ifdef CONFIG_NVGPU_GSP_SCHEDULER
+#include <nvgpu/gsp.h>
+#endif
 
 #include "mc_intr_ga10b.h"
 
@@ -194,8 +198,8 @@ static void ga10b_intr_subtree_clear_unhandled(struct gk20a *g,
 				"intr_leaf0 0x%08x intr_leaf1 0x%08x",
 			subtree, handled_subtree_mask, intr_leaf0, intr_leaf1);
 		ga10b_intr_subtree_clear(g, subtree,
-			hi32_lo32_to_u64(unhandled_intr_leaf1,
-				unhandled_intr_leaf0));
+			hi32_lo32_to_u64((u32)unhandled_intr_leaf1,
+				(u32)unhandled_intr_leaf0));
 	}
 }
 
@@ -277,6 +281,7 @@ u32 ga10b_intr_isr_host2soc_0(struct gk20a *g)
 		handled_subtree_mask |= unit_subtree_mask;
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	if (ga10b_intr_is_unit_pending(g, NVGPU_CIC_INTR_UNIT_CE,
 			intr_leaf0, intr_leaf1, &unit_subtree_mask) == true) {
 		ga10b_intr_subtree_clear(g, subtree, unit_subtree_mask);
@@ -284,7 +289,7 @@ u32 ga10b_intr_isr_host2soc_0(struct gk20a *g)
 				NVGPU_CIC_NONSTALL_OPS_POST_EVENTS);
 		handled_subtree_mask |= unit_subtree_mask;
 	}
-
+#endif
 	ga10b_intr_subtree_clear_unhandled(g, subtree, intr_leaf0, intr_leaf1,
 				handled_subtree_mask);
 	return ops;
@@ -394,10 +399,12 @@ bool ga10b_mc_intr_get_unit_info(struct gk20a *g, u32 unit)
 		intr_unit_info->valid = true;
 		return true;
 	/* CE NONSTALL interrupts */
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	case NVGPU_CIC_INTR_UNIT_CE:
 		/* vectorids are setup in ce.init_hw */
 		nvgpu_log(g, gpu_dbg_intr, "CE NONSTALL interrupt");
 		break;
+#endif
 	case NVGPU_CIC_INTR_UNIT_GR_STALL:
 		reg_val = nvgpu_readl(g,
 			    ctrl_legacy_engine_stall_intr_base_vectorid_r());
@@ -489,6 +496,8 @@ static u32 ga10b_intr_map_mc_stall_unit_to_intr_unit(struct gk20a *g,
 		u32 mc_intr_unit)
 {
 	u32 intr_unit = mc_intr_unit;
+
+	(void)g;
 
 	/**
 	 * Different indices are used to store unit info for
@@ -701,7 +710,7 @@ static void ga10b_intr_isr_stall_host2soc_2(struct gk20a *g)
 				&unit_subtree_mask) == true) {
 		handled_subtree_mask |= unit_subtree_mask;
 		ga10b_intr_subtree_clear(g, subtree, unit_subtree_mask);
-		g->ops.gsp.gsp_isr(g);
+		nvgpu_gsp_isr(g);
 	}
 #endif /* CONFIG_NVGPU_GSP_SCHEDULER */
 
@@ -861,13 +870,8 @@ static void ga10b_intr_isr_stall_host2soc_3(struct gk20a *g)
 			if ((unit_subtree_mask & engine_intr_mask) == 0ULL) {
 				continue;
 			}
-			if (g->ops.ce.isr_stall != NULL) {
-				g->ops.ce.isr_stall(g,
-						    dev->inst_id,
-						    dev->pri_base);
-			} else {
-				nvgpu_err(g, "unhandled intr_unit_ce_stall");
-			}
+
+			nvgpu_ce_stall_isr(g, dev->inst_id, dev->pri_base);
 			g->ops.ce.intr_retrigger(g, dev->inst_id);
 
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,11 +27,13 @@
 
 void nvgpu_channel_worker_enqueue(struct nvgpu_channel *ch);
 
+#ifdef CONFIG_NVGPU_KERNEL_MODE_SUBMIT
 static inline struct nvgpu_channel_worker *
 nvgpu_channel_worker_from_worker(struct nvgpu_worker *worker)
 {
 	return (struct nvgpu_channel_worker *)
 	   ((uintptr_t)worker - offsetof(struct nvgpu_channel_worker, worker));
 };
+#endif
 
 #endif /* NVGPU_COMMON_FIFO_CHANNEL_WORKER_H */

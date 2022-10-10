@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -74,6 +74,8 @@
 #define fuse_ctrl_opt_ram_svop_pdp_override_data_v(r)       (((r) >> 0U) & 0x1U)
 #define fuse_ctrl_opt_ram_svop_pdp_override_data_yes_f()                  (0x1U)
 #define fuse_ctrl_opt_ram_svop_pdp_override_data_no_f()                   (0x0U)
+#define fuse_status_opt_pes_gpc_r(i)\
+		(nvgpu_safe_add_u32(0x00021dbcU, nvgpu_safe_mult_u32((i), 4U)))
 #define fuse_status_opt_fbio_r()                                   (0x00021c14U)
 #define fuse_status_opt_fbio_data_f(v)                ((U32(v) & 0xffffU) << 0U)
 #define fuse_status_opt_fbio_data_m()                       (U32(0xffffU) << 0U)

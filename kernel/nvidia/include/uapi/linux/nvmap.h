@@ -3,7 +3,7 @@
  *
  * structure declarations for nvmem and nvmap user-space ioctls
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -69,7 +69,7 @@ struct nvmap_create_handle {
 			 */
 			union {
 				__u64 ivm_id;	 /* CreateHandle from ivm*/
-				__s32 ivm_handle;/* Get ivm_id from handle */
+				__u32 ivm_handle;/* Get ivm_id from handle */
 			};
 		};
 		struct {
@@ -115,35 +115,6 @@ struct nvmap_alloc_ivm_handle {
 				 */
 };
 
-struct nvmap_alloc_kind_handle {
-	__u32 handle;		/* nvmap handle */
-	__u32 heap_mask;
-	__u32 flags;
-	__u32 align;
-	__u8  kind;
-	__u8  comp_tags;
-};
-
-struct nvmap_map_caller {
-	__u32 handle;		/* nvmap handle */
-	__u32 offset;		/* offset into hmem; should be page-aligned */
-	__u32 length;		/* number of bytes to map */
-	__u32 flags;		/* maps as wb/iwb etc. */
-	unsigned long addr;	/* user pointer */
-};
-
-#ifdef __KERNEL__
-#ifdef CONFIG_COMPAT
-struct nvmap_map_caller_32 {
-	__u32 handle;		/* nvmap handle */
-	__u32 offset;		/* offset into hmem; should be page-aligned */
-	__u32 length;		/* number of bytes to map */
-	__u32 flags;		/* maps as wb/iwb etc. */
-	__u32 addr;		/* user pointer*/
-};
-#endif /* CONFIG_COMPAT */
-#endif /* __KERNEL__ */
-
 struct nvmap_rw_handle {
 	__u64 addr;		/* user pointer*/
 	__u32 handle;		/* nvmap handle */
@@ -164,22 +135,6 @@ struct nvmap_rw_handle_32 {
 	__u32 hmem_stride;	/* delta in bytes between atoms in hmem */
 	__u32 user_stride;	/* delta in bytes between atoms in user */
 	__u32 count;		/* number of atoms to copy */
-};
-#endif /* CONFIG_COMPAT */
-#endif /* __KERNEL__ */
-
-struct nvmap_pin_handle {
-	__u32 *handles;		/* array of handles to pin/unpin */
-	unsigned long *addr;	/* array of addresses to return */
-	__u32 count;		/* number of entries in handles */
-};
-
-#ifdef __KERNEL__
-#ifdef CONFIG_COMPAT
-struct nvmap_pin_handle_32 {
-	__u32 handles;		/* array of handles to pin/unpin */
-	__u32 addr;		/*  array of addresses to return */
-	__u32 count;		/* number of entries in handles */
 };
 #endif /* CONFIG_COMPAT */
 #endif /* __KERNEL__ */
@@ -321,15 +276,6 @@ struct nvmap_duplicate_handle {
  */
 #define NVMAP_IOC_FREE       _IO(NVMAP_IOC_MAGIC, 4)
 
-/* Maps the region of the specified handle into a user-provided virtual address
- * that was previously created via an mmap syscall on this fd */
-#define NVMAP_IOC_MMAP       _IOWR(NVMAP_IOC_MAGIC, 5, struct nvmap_map_caller)
-#ifdef __KERNEL__
-#ifdef CONFIG_COMPAT
-#define NVMAP_IOC_MMAP_32    _IOWR(NVMAP_IOC_MAGIC, 5, struct nvmap_map_caller_32)
-#endif /* CONFIG_COMPAT */
-#endif /* __KERNEL__ */
-
 /* Reads/writes data (possibly strided) from a user-provided buffer into the
  * hmem at the specified offset */
 #define NVMAP_IOC_WRITE      _IOW(NVMAP_IOC_MAGIC, 6, struct nvmap_rw_handle)
@@ -348,18 +294,6 @@ struct nvmap_duplicate_handle {
 #endif /* CONFIG_COMPAT */
 #endif /* __KERNEL__ */
 
-/* Pins a list of memory handles into IO-addressable memory (either IOVMM
- * space or physical memory, depending on the allocation), and returns the
- * address. Handles may be pinned recursively. */
-#define NVMAP_IOC_PIN_MULT      _IOWR(NVMAP_IOC_MAGIC, 10, struct nvmap_pin_handle)
-#define NVMAP_IOC_UNPIN_MULT    _IOW(NVMAP_IOC_MAGIC, 11, struct nvmap_pin_handle)
-#ifdef __KERNEL__
-#ifdef CONFIG_COMPAT
-#define NVMAP_IOC_PIN_MULT_32   _IOWR(NVMAP_IOC_MAGIC, 10, struct nvmap_pin_handle_32)
-#define NVMAP_IOC_UNPIN_MULT_32 _IOW(NVMAP_IOC_MAGIC, 11, struct nvmap_pin_handle_32)
-#endif /* CONFIG_COMPAT */
-#endif /* __KERNEL__ */
-
 #define NVMAP_IOC_CACHE      _IOW(NVMAP_IOC_MAGIC, 12, struct nvmap_cache_op)
 #define NVMAP_IOC_CACHE_64   _IOW(NVMAP_IOC_MAGIC, 12, struct nvmap_cache_op_64)
 #ifdef __KERNEL__
@@ -371,10 +305,6 @@ struct nvmap_duplicate_handle {
 /* Returns a global ID usable to allow a remote process to create a handle
  * reference to the same handle */
 #define NVMAP_IOC_GET_ID  _IOWR(NVMAP_IOC_MAGIC, 13, struct nvmap_create_handle)
-
-/* Returns a dma-buf fd usable to allow a remote process to create a handle
- * reference to the same handle */
-#define NVMAP_IOC_SHARE  _IOWR(NVMAP_IOC_MAGIC, 14, struct nvmap_create_handle)
 
 /* Returns a file id that allows a remote process to create a handle
  * reference to the same handle */
@@ -409,9 +339,6 @@ struct nvmap_duplicate_handle {
 	_IOR(NVMAP_IOC_MAGIC, 27, struct nvmap_handle_parameters)
 
 /* START of T124 IOCTLS */
-/* Actually allocates memory for the specified handle, with kind */
-#define NVMAP_IOC_ALLOC_KIND _IOW(NVMAP_IOC_MAGIC, 100, struct nvmap_alloc_kind_handle)
-
 /* Actually allocates memory from IVM heaps */
 #define NVMAP_IOC_ALLOC_IVM _IOW(NVMAP_IOC_MAGIC, 101, struct nvmap_alloc_ivm_handle)
 

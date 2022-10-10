@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 #include <nvgpu/errata.h>
 
 #include "hal/gr/gr/gr_gk20a.h"
+#include "ltc_gv11b.h"
 #include "ltc_ga10b.h"
 
 #include <nvgpu/hw/ga10b/hw_ltc_ga10b.h>
@@ -74,7 +75,7 @@ void ga10b_ltc_init_fs_state(struct gk20a *g)
 	nvgpu_writel(g, ltc_ltcs_ltss_tstg_set_mgmt_1_r(), reg);
 }
 
-void ga10b_ltc_lts_set_mgmt_setup(struct gk20a *g)
+int ga10b_ltc_lts_set_mgmt_setup(struct gk20a *g)
 {
 	u32 reg;
 
@@ -88,6 +89,8 @@ void ga10b_ltc_lts_set_mgmt_setup(struct gk20a *g)
 			ltc_ltcs_ltss_tstg_set_mgmt_3_disallow_clean_fclr_imm_enabled_f());
 		nvgpu_writel(g, ltc_ltcs_ltss_tstg_set_mgmt_3_r(), reg);
 	}
+
+	return 0;
 }
 
 #ifdef CONFIG_NVGPU_DEBUGGER
@@ -233,4 +236,26 @@ u64 ga10b_determine_L2_size_bytes(struct gk20a *g)
 	nvgpu_log_fn(g, "done");
 
 	return size;
+}
+
+int ga10b_lts_ecc_init(struct gk20a *g)
+{
+	int err = 0;
+
+	err = gv11b_lts_ecc_init(g);
+	if (err != 0) {
+		goto done;
+	}
+
+	err = NVGPU_ECC_COUNTER_INIT_PER_LTS(rstg_ecc_parity_count);
+	if (err != 0) {
+		goto done;
+	}
+
+done:
+	if (err != 0) {
+		nvgpu_err(g, "ecc counter allocate failed, err=%d", err);
+	}
+
+	return err;
 }

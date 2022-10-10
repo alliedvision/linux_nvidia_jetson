@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,7 +41,7 @@ struct tegra_noc_errors {
 };
 
 struct tegra_cbb_noc_data {
-	char *name;
+	const char *name;
 	int  max_error;
 	char **tegra_cbb_master_id;
 	bool is_ax2apb_bridge_connected;

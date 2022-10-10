@@ -29,4 +29,44 @@
 			reg = <0 0 0 0>;
 		};
 	};
+
+	efuse@03810000 {
+		compatible = "nvidia,tegra234-efuse";
+		reg = <0x0 0x03810000 0x0 0x600>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	se0@03b50000 {
+		compatible = "nvidia,tegra234-se0";
+		reg = <0x0 0x03b50000 0x0 0x30000>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	rng1@03b70000 {
+		compatible = "nvidia,tegra234-rng1";
+		reg = <0x0 0x03b70000 0x0 0x10000>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	stmm-device-mappings {
+		uuid = <0xed32d533 0x99e64209 0x9cc02d72 0xcdd998a7>;
+		description = "UEFI-mm";
+
+		device-regions {
+			combuart-t234 {
+				base-address = <0x00000000 0x0c198000>;
+				pages-count = <0x1>;
+				attributes = <0x3>; /* read-write */
+			};
+
+			qspi0-t234 {
+				base-address = <0x00000000 0x03270000>;
+				pages-count = <0x10>;
+				attributes = <0x3>; /* read-write */
+			};
+		};
+	};
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -171,16 +171,19 @@ static void mock_bus_isr(struct gk20a *g)
 	u.bus_isr = true;
 }
 
-static void mock_ce_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
+static void mock_ce_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base,
+				bool *needs_rc, bool *needs_quiesce)
 {
 	u.ce_isr = true;
 }
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 static u32 mock_ce_nonstall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
 {
 	u.ce_isr = true;
 	return u.ce_isr_return;
 }
+#endif
 
 static void mock_fb_isr(struct gk20a *g, u32 intr_unit_bitmask)
 {
@@ -254,7 +257,9 @@ int test_mc_setup_env(struct unit_module *m,
 	/* override HALs */
 	g->ops.bus.isr = mock_bus_isr;
 	g->ops.ce.isr_stall = mock_ce_stall_isr;
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	g->ops.ce.isr_nonstall = mock_ce_nonstall_isr;
+#endif
 	g->ops.fb.intr.isr = mock_fb_isr;
 	g->ops.fifo.intr_0_isr = mock_fifo_stall_isr;
 	g->ops.fifo.intr_1_isr = mock_fifo_nonstall_isr;
@@ -329,7 +334,7 @@ int test_unit_config(struct unit_module *m, struct gk20a *g, void *args)
 			unit_return_fail(m, "failed to disable stall intr for unit %u val=0x%08x\n",
 					unit, val);
 		}
-
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 		/* enable nonstall intr */
 		nvgpu_cic_mon_intr_nonstall_unit_config(g, unit, true);
 		val = nvgpu_posix_io_readl_reg_space(g, NONSTALL_EN_REG);
@@ -345,6 +350,7 @@ int test_unit_config(struct unit_module *m, struct gk20a *g, void *args)
 			unit_return_fail(m, "failed to disable nonstall intr for unit %u val=0x%08x\n",
 					unit, val);
 		}
+#endif
 	}
 
 	for (i = 0; i < ARRAY_SIZE(invalid_units); i++) {
@@ -366,6 +372,7 @@ int test_unit_config(struct unit_module *m, struct gk20a *g, void *args)
 					 val);
 		}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 		/* negative testing - invalid unit enable set - nonstall */
 		nvgpu_posix_io_writel_reg_space(g, NONSTALL_EN_REG, 0x0); /* clear en reg */
 		nvgpu_cic_mon_intr_nonstall_unit_config(g, invalid_units[i], true);
@@ -383,6 +390,7 @@ int test_unit_config(struct unit_module *m, struct gk20a *g, void *args)
 			unit_return_fail(m, "Incorrectly enabled non-stall interrupt for invalid unit, val=0x%08x\n",
 					 val);
 		}
+#endif
 	}
 
 	return UNIT_SUCCESS;
@@ -392,7 +400,9 @@ int test_pause_resume_mask(struct unit_module *m, struct gk20a *g, void *args)
 {
 	u32 val;
 	u32 expected_stall_val = mc_intr_priv_ring_pending_f();
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	u32 expected_nonstall_val = mc_intr_pbus_pending_f();
+#endif
 	void (*save_func)(struct gk20a *g);
 
 	/* clear regs */
@@ -410,7 +420,9 @@ int test_pause_resume_mask(struct unit_module *m, struct gk20a *g, void *args)
 
 	/* enable something to pause and resume */
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_PRIV_RING, true);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_BUS, true);
+#endif
 
 	/* pause stall */
 	nvgpu_cic_mon_intr_stall_pause(g);
@@ -419,12 +431,14 @@ int test_pause_resume_mask(struct unit_module *m, struct gk20a *g, void *args)
 		unit_return_fail(m, "failed to pause stall intr\n");
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	/* pause nonstall */
 	nvgpu_cic_mon_intr_nonstall_pause(g);
 	val = nvgpu_posix_io_readl_reg_space(g, NONSTALL_EN_REG);
 	if (val != 0) {
 		unit_return_fail(m, "failed to pause nonstall intr\n");
 	}
+#endif
 
 	/* resume stall */
 	nvgpu_posix_io_writel_reg_space(g, STALL_EN_SET_REG, 0x0);
@@ -434,6 +448,7 @@ int test_pause_resume_mask(struct unit_module *m, struct gk20a *g, void *args)
 		unit_return_fail(m, "failed to resume stall intr\n");
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	/* resume nonstall */
 	nvgpu_posix_io_writel_reg_space(g, NONSTALL_EN_SET_REG, 0x0);
 	nvgpu_cic_mon_intr_nonstall_resume(g);
@@ -441,10 +456,13 @@ int test_pause_resume_mask(struct unit_module *m, struct gk20a *g, void *args)
 	if (val != expected_nonstall_val) {
 		unit_return_fail(m, "failed to resume nonstall intr\n");
 	}
+#endif
 
 	/* clear regs */
 	nvgpu_posix_io_writel_reg_space(g, STALL_EN_CLEAR_REG, 0x0);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_posix_io_writel_reg_space(g, NONSTALL_EN_CLEAR_REG, 0x0);
+#endif
 
 	/* mask all */
 	nvgpu_cic_mon_intr_mask(g);
@@ -658,15 +676,18 @@ int test_isr_nonstall(struct unit_module *m, struct gk20a *g, void *args)
 	}
 
 	/* for branch coverage set this HAL to NULL */
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	g->ops.ce.isr_nonstall = NULL;
+#endif
 	for (i = 0; i < NUM_MC_UNITS; i++) {
 		intrs_pending |= mc_units[i].bit;
 	}
 	nvgpu_posix_io_writel_reg_space(g, NONSTALL_PENDING_REG, intrs_pending);
 	reset_ctx();
 	g->ops.mc.isr_nonstall(g);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	g->ops.ce.isr_nonstall = mock_ce_nonstall_isr;
-
+#endif
 	return UNIT_SUCCESS;
 }
 

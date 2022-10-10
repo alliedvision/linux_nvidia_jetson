@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -57,6 +57,8 @@ typedef enum ivc_cmd {
 	read_mmc_macsec,
 	dbg_buf_config_macsec,
 	dbg_events_config_macsec,
+	macsec_get_sc_lut_key_index,
+	macsec_update_mtu_size,
 }ivc_cmd;
 
 /**
@@ -110,6 +112,10 @@ typedef struct macsec_config {
 	unsigned short ctlr;
 	/** MACsec KT index */
 	unsigned short kt_idx;
+	/** MACsec KT index */
+	nveu32_t key_index;
+	/** MACsec SCI */
+	nveu8_t sci[OSI_SCI_LEN];
 } macsec_config;
 #endif
 
@@ -157,6 +163,8 @@ typedef struct ivc_msg_common {
 		macsec_config macsec_cfg;
 		/** macsec mmc counters */
 		struct osi_macsec_mmc_counters macsec_mmc;
+		/** macsec IRQ stats */
+		struct osi_macsec_irq_stats macsec_irq_stats;
 #endif
 	}data;
 } ivc_msg_common_t;

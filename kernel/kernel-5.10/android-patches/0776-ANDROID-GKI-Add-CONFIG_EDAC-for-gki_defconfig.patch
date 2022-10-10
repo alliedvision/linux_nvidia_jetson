@@ -1,0 +1,60 @@
+From 8b658d14e185f682e379d3efbd899b10bc5a76f9 Mon Sep 17 00:00:00 2001
+From: Prasad Sodagudi <psodagud@codeaurora.org>
+Date: Mon, 21 Sep 2020 09:53:55 -0700
+Subject: [PATCH 776/830] ANDROID: GKI: Add CONFIG_EDAC for gki_defconfig
+X-NVConfidentiality: public
+
+Add config CONFIG_EDAC for gki_defconfig as vendor
+modules would like to register with edac framework.
+
+Bug: 168932061
+Change-Id: I821849f34e4e907447ce5dde1babaa05e75e5200
+Signed-off-by: Prasad Sodagudi <psodagud@codeaurora.org>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e83e5976ed15..bce3a8280d0e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -417,6 +417,7 @@ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_LEDS_TRIGGER_TIMER=y
++CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PL030=y
+ CONFIG_RTC_DRV_PL031=y
+@@ -450,6 +451,7 @@ CONFIG_IIO_BUFFER=y
+ CONFIG_IIO_TRIGGER=y
+ CONFIG_PWM=y
+ CONFIG_GENERIC_PHY=y
++CONFIG_RAS=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDERFS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b633d4527ef4..7c30bfdcf446 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -370,6 +370,7 @@ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_LEDS_TRIGGER_TIMER=y
++CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_DMABUF_HEAPS=y
+ CONFIG_DMABUF_HEAPS_SYSTEM=y
+@@ -386,6 +387,7 @@ CONFIG_PM_DEVFREQ_EVENT=y
+ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+ CONFIG_IIO_TRIGGER=y
++CONFIG_RAS=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDERFS=y
+-- 
+2.17.1
+

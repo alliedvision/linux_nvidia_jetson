@@ -1,7 +1,7 @@
 /*
  * GM20B GPC MMU
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@
 #include <nvgpu/gr/warpstate.h>
 #include <nvgpu/engines.h>
 #include <nvgpu/engine_status.h>
+#include <nvgpu/string.h>
 
 #include "gr_gk20a.h"
 #include "gr_gm20b.h"
@@ -198,6 +199,7 @@ void gr_gm20b_get_sm_dsm_perf_regs(struct gk20a *g,
 					  u32 **sm_dsm_perf_regs,
 					  u32 *perf_register_stride)
 {
+	(void)g;
 	*num_sm_dsm_perf_regs = _num_sm_dsm_perf_regs;
 	*sm_dsm_perf_regs = _sm_dsm_perf_regs;
 	*perf_register_stride = 0;

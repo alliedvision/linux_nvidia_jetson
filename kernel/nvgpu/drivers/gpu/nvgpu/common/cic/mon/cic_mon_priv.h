@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@ struct nvgpu_err_hw_module;
 struct nvgpu_err_msg;
 struct gpu_err_header;
 
-#define ERR_INJECT_TEST_PATTERN 0xA5
+#define ERR_INJECT_TEST_PATTERN		(0xA5U)
 
 /*
  * This struct contains members related to error-policy look-up table,

@@ -1,7 +1,7 @@
-From b6a53dc4a0cc651e491455c2ea0fb6de9ea00820 Mon Sep 17 00:00:00 2001
+From 420a75f4d915eeba38efb3a691598bb4c38d716a Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:15 +0200
-Subject: [PATCH 018/304] sched: Add migrate_disable() tracepoints
+Subject: [PATCH 018/318] sched: Add migrate_disable() tracepoints
 
 XXX write a tracer:
 
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 24 insertions(+), 1 deletion(-)
 
 diff --git a/include/trace/events/sched.h b/include/trace/events/sched.h
-index c96a433..e48f584 100644
+index c96a4337afe6..e48f584abf5f 100644
 --- a/include/trace/events/sched.h
 +++ b/include/trace/events/sched.h
 @@ -650,6 +650,18 @@ DECLARE_TRACE(sched_update_nr_running_tp,
@@ -45,7 +45,7 @@ index c96a433..e48f584 100644
  
  /* This part must be outside protection */
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 261b92a..82fc436 100644
+index 9313a1e92554..e3d241f151ca 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1737,6 +1737,8 @@ void migrate_disable(void)
@@ -67,7 +67,7 @@ index 261b92a..82fc436 100644
  EXPORT_SYMBOL_GPL(migrate_enable);
  
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index d6153fa..d7e3adf 100644
+index d6153fa4eeb2..d7e3adf224ac 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
 @@ -2279,6 +2279,7 @@ static void pull_dl_task(struct rq *this_rq)
@@ -79,10 +79,10 @@ index d6153fa..d7e3adf 100644
  			} else {
  				deactivate_task(src_rq, p, 0);
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index d7b3393..d906118 100644
+index 0282398fc052..bdba3e23b674 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1877,7 +1877,12 @@ static int push_rt_task(struct rq *rq, bool pull)
+@@ -1886,7 +1886,12 @@ static int push_rt_task(struct rq *rq, bool pull)
  		struct task_struct *push_task = NULL;
  		int cpu;
  
@@ -96,7 +96,7 @@ index d7b3393..d906118 100644
  			return 0;
  
  		cpu = find_lowest_rq(rq->curr);
-@@ -2223,6 +2228,7 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2232,6 +2237,7 @@ static void pull_rt_task(struct rq *this_rq)
  				goto skip;
  
  			if (is_migration_disabled(p)) {
@@ -105,5 +105,5 @@ index d7b3393..d906118 100644
  			} else {
  				deactivate_task(src_rq, p, 0);
 -- 
-2.7.4
+2.17.1
 

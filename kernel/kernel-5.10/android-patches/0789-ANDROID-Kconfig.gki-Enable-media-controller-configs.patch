@@ -1,0 +1,36 @@
+From b4f0dae8b0113287616cb4700b17e6aabee5ee68 Mon Sep 17 00:00:00 2001
+From: Maheshwar Ajja <majja@codeaurora.org>
+Date: Mon, 26 Oct 2020 10:56:35 -0700
+Subject: [PATCH 789/830] ANDROID: Kconfig.gki: Enable media controller configs
+X-NVConfidentiality: public
+
+Enable below media controller configs
+
+V4L2_MEM2MEM_DEV
+MEDIA_CONTROLLER
+MEDIA_CONTROLLER_REQUEST_API
+
+Bug: 171224361
+Change-Id: Ie36e1bdf2008732e10ecd82899cd1a7bb3098156
+Signed-off-by: Maheshwar Ajja <majja@codeaurora.org>
+---
+ init/Kconfig.gki | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 97d826d374cb..e0511c09eb78 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -84,6 +84,9 @@ config GKI_HIDDEN_QCOM_CONFIGS
+ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	bool "Hidden Media configs needed for GKI"
+ 	select VIDEOBUF2_CORE
++	select V4L2_MEM2MEM_DEV
++	select MEDIA_CONTROLLER
++	select MEDIA_CONTROLLER_REQUEST_API
+ 	select MEDIA_SUPPORT
+ 	select FRAME_VECTOR
+ 	select CEC_CORE
+-- 
+2.17.1
+

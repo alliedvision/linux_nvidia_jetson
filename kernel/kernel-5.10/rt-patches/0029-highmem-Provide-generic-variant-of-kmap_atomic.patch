@@ -1,7 +1,7 @@
-From e656439809354bcd57b68ebca687eb5a91638391 Mon Sep 17 00:00:00 2001
+From a95808f6e545ab9704a65732736c52d28d641e20 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:18 +0100
-Subject: [PATCH 029/304] highmem: Provide generic variant of kmap_atomic*
+Subject: [PATCH 029/318] highmem: Provide generic variant of kmap_atomic*
 
 The kmap_atomic* interfaces in all architectures are pretty much the same
 except for post map operations (flush) and pre- and post unmap operations.
@@ -13,13 +13,13 @@ Cc: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/highmem.h |  82 +++++++++++++++++++++------
+ include/linux/highmem.h |  82 ++++++++++++++++++-----
  mm/Kconfig              |   3 +
- mm/highmem.c            | 144 +++++++++++++++++++++++++++++++++++++++++++++++-
+ mm/highmem.c            | 144 +++++++++++++++++++++++++++++++++++++++-
  3 files changed, 211 insertions(+), 18 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index f5c3133..f5ecee9 100644
+index f5c31338f0a3..f5ecee9c2576 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -31,9 +31,16 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)
@@ -163,7 +163,7 @@ index f5c3133..f5ecee9 100644
  #ifndef clear_user_highpage
  static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 390165f..8c49d09 100644
+index 390165ffbb0f..8c49d09da214 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
 @@ -859,4 +859,7 @@ config ARCH_HAS_HUGEPD
@@ -175,7 +175,7 @@ index 390165f..8c49d09 100644
 +
  endmenu
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 6abfd76..bb4ce13 100644
+index 6abfd762eee7..bb4ce13ee7e7 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -31,9 +31,11 @@
@@ -341,5 +341,5 @@ index 6abfd76..bb4ce13 100644
  #if defined(HASHED_PAGE_VIRTUAL)
  
 -- 
-2.7.4
+2.17.1
 

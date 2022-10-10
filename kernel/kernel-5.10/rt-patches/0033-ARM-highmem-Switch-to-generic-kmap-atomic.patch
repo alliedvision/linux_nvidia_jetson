@@ -1,7 +1,7 @@
-From 2b11faf3fcd605c11aba0e3e8ce685794db24495 Mon Sep 17 00:00:00 2001
+From 1c4e41e75bdfdaaeb2be71509acaac8ea564f979 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:22 +0100
-Subject: [PATCH 033/304] ARM: highmem: Switch to generic kmap atomic
+Subject: [PATCH 033/318] ARM: highmem: Switch to generic kmap atomic
 
 No reason having the same code in every architecture.
 
@@ -13,19 +13,19 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
  arch/arm/Kconfig                  |   1 +
  arch/arm/include/asm/fixmap.h     |   4 +-
- arch/arm/include/asm/highmem.h    |  34 +++++++----
- arch/arm/include/asm/kmap_types.h |  10 ----
+ arch/arm/include/asm/highmem.h    |  34 ++++++---
+ arch/arm/include/asm/kmap_types.h |  10 ---
  arch/arm/mm/Makefile              |   1 -
- arch/arm/mm/highmem.c             | 121 --------------------------------------
+ arch/arm/mm/highmem.c             | 121 ------------------------------
  6 files changed, 27 insertions(+), 144 deletions(-)
  delete mode 100644 arch/arm/include/asm/kmap_types.h
  delete mode 100644 arch/arm/mm/highmem.c
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 002e0cf..4708ede 100644
+index a0eac00e2c81..7ac678c7c9f6 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
-@@ -1499,6 +1499,7 @@ config HAVE_ARCH_PFN_VALID
+@@ -1500,6 +1500,7 @@ config HAVE_ARCH_PFN_VALID
  config HIGHMEM
  	bool "High Memory Support"
  	depends on MMU
@@ -34,7 +34,7 @@ index 002e0cf..4708ede 100644
  	  The address space of ARM processors is only 4 Gigabytes large
  	  and it has to accommodate user address space, kernel address
 diff --git a/arch/arm/include/asm/fixmap.h b/arch/arm/include/asm/fixmap.h
-index 9575b40..707068f 100644
+index 9575b404019c..707068f852c2 100644
 --- a/arch/arm/include/asm/fixmap.h
 +++ b/arch/arm/include/asm/fixmap.h
 @@ -7,14 +7,14 @@
@@ -55,7 +55,7 @@ index 9575b40..707068f 100644
  	/* Support writing RO kernel text via kprobes, jump labels, etc. */
  	FIX_TEXT_POKE0,
 diff --git a/arch/arm/include/asm/highmem.h b/arch/arm/include/asm/highmem.h
-index 31811be..b22dffa 100644
+index 31811be38d78..b22dffa8c7eb 100644
 --- a/arch/arm/include/asm/highmem.h
 +++ b/arch/arm/include/asm/highmem.h
 @@ -2,7 +2,8 @@
@@ -112,7 +112,7 @@ index 31811be..b22dffa 100644
  #endif
 diff --git a/arch/arm/include/asm/kmap_types.h b/arch/arm/include/asm/kmap_types.h
 deleted file mode 100644
-index 5590940..00000000
+index 5590940ee43d..000000000000
 --- a/arch/arm/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,10 +0,0 @@
@@ -127,7 +127,7 @@ index 5590940..00000000
 -
 -#endif
 diff --git a/arch/arm/mm/Makefile b/arch/arm/mm/Makefile
-index 7cb1699..c4ce477 100644
+index 7cb1699fbfc4..c4ce477c5261 100644
 --- a/arch/arm/mm/Makefile
 +++ b/arch/arm/mm/Makefile
 @@ -19,7 +19,6 @@ obj-$(CONFIG_MODULES)		+= proc-syms.o
@@ -140,7 +140,7 @@ index 7cb1699..c4ce477 100644
  
 diff --git a/arch/arm/mm/highmem.c b/arch/arm/mm/highmem.c
 deleted file mode 100644
-index 187fab2..00000000
+index 187fab227b50..000000000000
 --- a/arch/arm/mm/highmem.c
 +++ /dev/null
 @@ -1,121 +0,0 @@
@@ -266,5 +266,5 @@ index 187fab2..00000000
 -	return (void *)vaddr;
 -}
 -- 
-2.7.4
+2.17.1
 

@@ -1,7 +1,7 @@
-From 2aa229ed401ada9d93ccf24839980ed734beae5e Mon Sep 17 00:00:00 2001
+From 1420f51ab88fa86752e04c7d212336f859b41dd1 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:07 +0106
-Subject: [PATCH 105/304] printk: move console printing to kthreads
+Subject: [PATCH 105/318] printk: move console printing to kthreads
 
 Create a kthread for each console to perform console printing. Now
 all console printing is fully asynchronous except for the boot
@@ -13,13 +13,14 @@ their name says... locking and unlocking of the console.
 
 Signed-off-by: John Ogness <john.ogness@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
 ---
  include/linux/console.h |   2 +
- kernel/printk/printk.c  | 625 ++++++++++++++----------------------------------
+ kernel/printk/printk.c  | 625 ++++++++++++----------------------------
  2 files changed, 186 insertions(+), 441 deletions(-)
 
 diff --git a/include/linux/console.h b/include/linux/console.h
-index d0109ec..8b97a3e 100644
+index fcc98354f733..3e99359e0660 100644
 --- a/include/linux/console.h
 +++ b/include/linux/console.h
 @@ -155,6 +155,8 @@ struct console {
@@ -28,11 +29,11 @@ index d0109ec..8b97a3e 100644
  #endif
 +	atomic64_t printk_seq;
 +	struct task_struct *thread;
+ 	uint	ispeed;
+ 	uint	ospeed;
  	void	*data;
- 	struct	 console *next;
- };
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 1f225b3..23c6e39 100644
+index 5a39b9267395..4cb5bcd5542b 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -44,6 +44,7 @@
@@ -43,18 +44,18 @@ index 1f225b3..23c6e39 100644
  #include <linux/clocksource.h>
  #include <linux/sched/clock.h>
  #include <linux/sched/debug.h>
-@@ -268,11 +269,6 @@ static void __up_console_sem(unsigned long ip)
+@@ -267,11 +268,6 @@ static void __up_console_sem(unsigned long ip)
+  */
  static int console_locked, console_suspended;
  
- /*
+-/*
 - * If exclusive_console is non-NULL then only this console is to be printed to.
 - */
 -static struct console *exclusive_console;
 -
--/*
+ /*
   *	Array of consoles built from command line options (console=)
   */
- 
 @@ -356,10 +352,10 @@ enum log_flags {
  	LOG_CONT	= 8,	/* text is a fragment of a continuation line */
  };
@@ -527,7 +528,7 @@ index 1f225b3..23c6e39 100644
  
  #endif /* CONFIG_PRINTK */
  
-@@ -2638,36 +2542,6 @@ int is_console_locked(void)
+@@ -2645,36 +2549,6 @@ int is_console_locked(void)
  }
  EXPORT_SYMBOL(is_console_locked);
  
@@ -564,7 +565,7 @@ index 1f225b3..23c6e39 100644
  /**
   * console_unlock - unlock the console system
   *
-@@ -2684,131 +2558,14 @@ static inline int can_use_console(void)
+@@ -2691,131 +2565,14 @@ static inline int can_use_console(void)
   */
  void console_unlock(void)
  {
@@ -696,7 +697,7 @@ index 1f225b3..23c6e39 100644
  }
  EXPORT_SYMBOL(console_unlock);
  
-@@ -2858,18 +2615,20 @@ void console_unblank(void)
+@@ -2865,18 +2622,20 @@ void console_unblank(void)
   */
  void console_flush_on_panic(enum con_flush_mode mode)
  {
@@ -727,7 +728,7 @@ index 1f225b3..23c6e39 100644
  	console_unlock();
  }
  
-@@ -3004,7 +2763,6 @@ static int try_enable_new_console(struct console *newcon, bool user_specified)
+@@ -3011,7 +2770,6 @@ static int try_enable_new_console(struct console *newcon, bool user_specified)
   */
  void register_console(struct console *newcon)
  {
@@ -735,7 +736,7 @@ index 1f225b3..23c6e39 100644
  	struct console *bcon = NULL;
  	int err;
  
-@@ -3028,6 +2786,8 @@ void register_console(struct console *newcon)
+@@ -3035,6 +2793,8 @@ void register_console(struct console *newcon)
  		}
  	}
  
@@ -744,7 +745,7 @@ index 1f225b3..23c6e39 100644
  	if (console_drivers && console_drivers->flags & CON_BOOT)
  		bcon = console_drivers;
  
-@@ -3092,27 +2852,12 @@ void register_console(struct console *newcon)
+@@ -3099,27 +2859,12 @@ void register_console(struct console *newcon)
  	if (newcon->flags & CON_EXTENDED)
  		nr_ext_console_drivers++;
  
@@ -777,7 +778,7 @@ index 1f225b3..23c6e39 100644
  	console_unlock();
  	console_sysfs_notify();
  
-@@ -3186,6 +2931,9 @@ int unregister_console(struct console *console)
+@@ -3193,6 +2938,9 @@ int unregister_console(struct console *console)
  	console_unlock();
  	console_sysfs_notify();
  
@@ -787,7 +788,7 @@ index 1f225b3..23c6e39 100644
  	if (console->exit)
  		res = console->exit(console);
  
-@@ -3268,6 +3016,15 @@ static int __init printk_late_init(void)
+@@ -3275,6 +3023,15 @@ static int __init printk_late_init(void)
  			unregister_console(con);
  		}
  	}
@@ -803,7 +804,7 @@ index 1f225b3..23c6e39 100644
  	ret = cpuhp_setup_state_nocalls(CPUHP_PRINTK_DEAD, "printk:dead", NULL,
  					console_cpu_notify);
  	WARN_ON(ret < 0);
-@@ -3283,7 +3040,6 @@ late_initcall(printk_late_init);
+@@ -3290,7 +3047,6 @@ late_initcall(printk_late_init);
   * Delayed printk version, for scheduler-internal messages:
   */
  #define PRINTK_PENDING_WAKEUP	0x01
@@ -811,7 +812,7 @@ index 1f225b3..23c6e39 100644
  
  static DEFINE_PER_CPU(int, printk_pending);
  
-@@ -3291,14 +3047,8 @@ static void wake_up_klogd_work_func(struct irq_work *irq_work)
+@@ -3298,14 +3054,8 @@ static void wake_up_klogd_work_func(struct irq_work *irq_work)
  {
  	int pending = __this_cpu_xchg(printk_pending, 0);
  
@@ -827,7 +828,7 @@ index 1f225b3..23c6e39 100644
  }
  
  static DEFINE_PER_CPU(struct irq_work, wake_up_klogd_work) = {
-@@ -3321,13 +3071,6 @@ void wake_up_klogd(void)
+@@ -3328,13 +3078,6 @@ void wake_up_klogd(void)
  
  void defer_console_output(void)
  {
@@ -842,5 +843,5 @@ index 1f225b3..23c6e39 100644
  
  int vprintk_deferred(const char *fmt, va_list args)
 -- 
-2.7.4
+2.17.1
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -629,22 +629,11 @@ static void mgbe_set_rx_buf_len(struct osi_dma_priv_data *osi_dma)
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static nve32_t mgbe_validate_dma_regs(struct osi_dma_priv_data *osi_dma)
+static nve32_t mgbe_validate_dma_regs(OSI_UNUSED
+				      struct osi_dma_priv_data *osi_dma)
 {
 	/* TODO: for mgbe */
 	return 0;
-}
-
-/**
- * @brief mgbe_get_global_dma_status - Gets DMA status.
- *
- * Algorithm: Returns global DMA Tx/Rx interrupt status
- *
- * @param[in] addr: MAC base address.
- */
-static nveu32_t mgbe_get_global_dma_status(void *addr)
-{
-	return osi_readl((nveu8_t *)addr + MGBE_GLOBAL_DMA_STATUS);
 }
 
 /**
@@ -706,7 +695,7 @@ static void mgbe_clear_vm_rx_intr(void *addr, nveu32_t chan)
 static void mgbe_config_slot(struct osi_dma_priv_data *osi_dma,
 			     unsigned int chan,
 			     unsigned int set,
-			     unsigned int interval)
+			     OSI_UNUSED unsigned int interval)
 {
 	unsigned int value;
 #if 0
@@ -748,7 +737,6 @@ void mgbe_init_dma_chan_ops(struct dma_chan_ops *ops)
 	ops->init_dma_channel = mgbe_init_dma_channel;
 	ops->set_rx_buf_len = mgbe_set_rx_buf_len;
 	ops->validate_regs = mgbe_validate_dma_regs;
-	ops->get_global_dma_status = mgbe_get_global_dma_status;
 	ops->clear_vm_tx_intr = mgbe_clear_vm_tx_intr;
 	ops->clear_vm_rx_intr = mgbe_clear_vm_rx_intr;
 	ops->config_slot = mgbe_config_slot;

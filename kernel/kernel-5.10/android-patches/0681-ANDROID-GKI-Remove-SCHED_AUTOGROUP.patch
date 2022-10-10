@@ -1,0 +1,66 @@
+From 806570b3de0f09056d10c2d0aa860e6ffc00269a Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 7 Apr 2020 11:26:39 -0700
+Subject: [PATCH 681/830] ANDROID: GKI: Remove SCHED_AUTOGROUP
+X-NVConfidentiality: public
+
+This feature is undesirable and not required by Android.
+
+Bug: 153460450
+Change-Id: I548bb44b9fecc90ba2589fb74b4e4693e639a8c9
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 3 ++-
+ arch/x86/configs/gki_defconfig   | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 41ce14958c5b..4be86dfef340 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -12,9 +12,11 @@ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+ CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
++CONFIG_CGROUPS=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
++CONFIG_CGROUP_SCHED=y
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+@@ -23,7 +25,6 @@ CONFIG_CGROUP_BPF=y
+ CONFIG_NAMESPACES=y
+ # CONFIG_UTS_NS is not set
+ # CONFIG_PID_NS is not set
+-CONFIG_SCHED_AUTOGROUP=y
+ CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+ # CONFIG_RD_LZMA is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index e3167e560212..c8ead7316aad 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -13,8 +13,10 @@ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+ CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
++CONFIG_CGROUPS=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
++CONFIG_CGROUP_SCHED=y
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+@@ -24,7 +26,6 @@ CONFIG_NAMESPACES=y
+ # CONFIG_UTS_NS is not set
+ # CONFIG_TIME_NS is not set
+ # CONFIG_PID_NS is not set
+-CONFIG_SCHED_AUTOGROUP=y
+ CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+ # CONFIG_RD_LZMA is not set
+-- 
+2.17.1
+

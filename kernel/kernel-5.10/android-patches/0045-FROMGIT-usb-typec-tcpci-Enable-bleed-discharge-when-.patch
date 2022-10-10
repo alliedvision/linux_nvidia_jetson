@@ -1,0 +1,38 @@
+From 9d653621ed14f4ad9d4c2753edccda7666500c15 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Thu, 10 Dec 2020 23:11:45 -0800
+Subject: [PATCH 045/830] FROMGIT: usb: typec: tcpci: Enable bleed discharge
+ when auto discharge is enabled
+X-NVConfidentiality: public
+
+Auto discharge circuits kick in only when vbus decays and reaches
+VBUS_SINK_DISCONNECT_THRESHOLD threshold. Enable bleed discharge to
+discharge vbus to VBUS_SINK_DISCONNECT_THRESHOLD upon disconnect.
+
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201211071145.2199997-1-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3b6c3d04808965167ff19d028789bc92a4b12c8c usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I816aecdc1191531c8d6f7e8a035cc66d40faf16b
+---
+ drivers/usb/typec/tcpm/tcpci.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci.c b/drivers/usb/typec/tcpm/tcpci.c
+index ea3451c2f115..577cd8c6966c 100644
+--- a/drivers/usb/typec/tcpm/tcpci.c
++++ b/drivers/usb/typec/tcpm/tcpci.c
+@@ -740,6 +740,8 @@ struct tcpci *tcpci_register_port(struct device *dev, struct tcpci_data *data)
+ 		tcpci->tcpc.enable_auto_vbus_discharge = tcpci_enable_auto_vbus_discharge;
+ 		tcpci->tcpc.set_auto_vbus_discharge_threshold =
+ 			tcpci_set_auto_vbus_discharge_threshold;
++		regmap_update_bits(tcpci->regmap, TCPC_POWER_CTRL, TCPC_POWER_CTRL_BLEED_DISCHARGE,
++				   TCPC_POWER_CTRL_BLEED_DISCHARGE);
+ 	}
+ 
+ 	if (tcpci->data->vbus_vsafe0v)
+-- 
+2.17.1
+

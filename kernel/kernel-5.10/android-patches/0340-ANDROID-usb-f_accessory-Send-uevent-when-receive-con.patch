@@ -1,0 +1,102 @@
+From 2d83bf3de4abefce9804298edb5e056e56a418fd Mon Sep 17 00:00:00 2001
+From: rickyniu <rickyniu@google.com>
+Date: Wed, 16 Oct 2019 16:16:35 +0800
+Subject: [PATCH 340/830] ANDROID: usb: f_accessory: Send uevent when receive
+ control request
+X-NVConfidentiality: public
+
+Send uevent when received control request 51 and 52
+to help debug and recover when the handshake not finished.
+
+Description about control request 51 and 52
+control_request 51 :
+Send a 51 control request ("Get Protocol") to figure out
+if the device supports the Android accessory protocol.
+A non-zero number is returned if the protocol is supported,
+which represents the version of the protocol that
+the device supports (currently, only version 1 exists).
+
+control_request 52 :
+If the device returns a proper protocol version,
+send identifying string information to the device.
+This information allows the device to figure out
+an appropriate application for this accessory and
+also present the user with a URL if
+an appropriate application does not exist.
+
+The detail description could reference below link.
+https://tool.oschina.net/uploads/apidocs/android/tools/adk/aoa.html
+
+Bug: 139264038
+Change-Id: Ie80302321b58d247a5faa83dc3cabba316743c87
+Signed-off-by: rickyniu <rickyniu@google.com>
+---
+ drivers/usb/gadget/function/f_accessory.c | 24 +++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/usb/gadget/function/f_accessory.c b/drivers/usb/gadget/function/f_accessory.c
+index 40311b27aca0..9260b89fe768 100644
+--- a/drivers/usb/gadget/function/f_accessory.c
++++ b/drivers/usb/gadget/function/f_accessory.c
+@@ -124,6 +124,12 @@ struct acc_dev {
+ 	/* delayed work for handling ACCESSORY_START */
+ 	struct delayed_work start_work;
+ 
++	/* work for handling ACCESSORY GET PROTOCOL */
++	struct work_struct getprotocol_work;
++
++	/* work for handling ACCESSORY SEND STRING */
++	struct work_struct sendstring_work;
++
+ 	/* worker for registering and unregistering hid devices */
+ 	struct work_struct hid_work;
+ 
+@@ -944,6 +950,7 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
+ 			value = 0;
+ 			cdev->req->complete = acc_complete_setup_noop;
+ 		} else if (b_request == ACCESSORY_SEND_STRING) {
++			schedule_work(&dev->sendstring_work);
+ 			dev->string_index = w_index;
+ 			cdev->gadget->ep0->driver_data = dev;
+ 			cdev->req->complete = acc_complete_set_string;
+@@ -990,6 +997,7 @@ int acc_ctrlrequest(struct usb_composite_dev *cdev,
+ 		}
+ 	} else if (b_requestType == (USB_DIR_IN | USB_TYPE_VENDOR)) {
+ 		if (b_request == ACCESSORY_GET_PROTOCOL) {
++			schedule_work(&dev->getprotocol_work);
+ 			*((u16 *)cdev->req->buf) = PROTOCOL_VERSION;
+ 			value = sizeof(u16);
+ 			cdev->req->complete = acc_complete_setup_noop;
+@@ -1146,6 +1154,20 @@ acc_function_unbind(struct usb_configuration *c, struct usb_function *f)
+ 	acc_hid_unbind(dev);
+ }
+ 
++static void acc_getprotocol_work(struct work_struct *data)
++{
++	char *envp[2] = { "ACCESSORY=GETPROTOCOL", NULL };
++
++	kobject_uevent_env(&acc_device.this_device->kobj, KOBJ_CHANGE, envp);
++}
++
++static void acc_sendstring_work(struct work_struct *data)
++{
++	char *envp[2] = { "ACCESSORY=SENDSTRING", NULL };
++
++	kobject_uevent_env(&acc_device.this_device->kobj, KOBJ_CHANGE, envp);
++}
++
+ static void acc_start_work(struct work_struct *data)
+ {
+ 	char *envp[2] = { "ACCESSORY=START", NULL };
+@@ -1312,6 +1334,8 @@ static int acc_setup(void)
+ 	INIT_LIST_HEAD(&dev->dead_hid_list);
+ 	INIT_DELAYED_WORK(&dev->start_work, acc_start_work);
+ 	INIT_WORK(&dev->hid_work, acc_hid_work);
++	INIT_WORK(&dev->getprotocol_work, acc_getprotocol_work);
++	INIT_WORK(&dev->sendstring_work, acc_sendstring_work);
+ 
+ 	/* _acc_dev must be set before calling usb_gadget_register_driver */
+ 	_acc_dev = dev;
+-- 
+2.17.1
+

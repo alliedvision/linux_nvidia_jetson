@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 u32 ga10b_gsp_falcon_base_addr(void);
 u32 ga10b_gsp_falcon2_base_addr(void);
 int ga10b_gsp_engine_reset(struct gk20a *g);
+bool ga10b_gsp_validate_mem_integrity(struct gk20a *g);
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
 void ga10b_gsp_flcn_setup_boot_config(struct gk20a *g);
 
@@ -47,7 +48,7 @@ int ga10b_gsp_flcn_copy_from_emem(struct gk20a *g,
 
 /* interrupt */
 void ga10b_gsp_enable_irq(struct gk20a *g, bool enable);
-void ga10b_gsp_isr(struct gk20a *g);
+void ga10b_gsp_isr(struct gk20a *g, struct nvgpu_gsp *gsp);
 void ga10b_gsp_set_msg_intr(struct gk20a *g);
 #endif /* CONFIG_NVGPU_GSP_SCHEDULER */
 #endif /* GSP_GA10B_H */

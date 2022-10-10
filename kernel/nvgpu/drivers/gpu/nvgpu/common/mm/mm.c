@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -164,9 +164,11 @@ static void nvgpu_remove_mm_support(struct mm_gk20a *mm)
 		nvgpu_vm_put(mm->gsp.vm);
 	}
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	if (g->has_cde) {
 		nvgpu_vm_put(mm->cde.vm);
 	}
+#endif
 
 	nvgpu_free_sysmem_flush(g);
 
@@ -250,6 +252,7 @@ static int nvgpu_init_hwpm(struct mm_gk20a *mm)
 	return 0;
 }
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 static int nvgpu_init_cde_vm(struct mm_gk20a *mm)
 {
 	struct gk20a *g = gk20a_from_mm(mm);
@@ -270,6 +273,7 @@ static int nvgpu_init_cde_vm(struct mm_gk20a *mm)
 	}
 	return 0;
 }
+#endif
 
 static int nvgpu_init_ce_vm(struct mm_gk20a *mm)
 {
@@ -454,12 +458,14 @@ static int nvgpu_init_mm_setup_vm(struct gk20a *g)
 		}
 	}
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	if (g->has_cde) {
 		err = nvgpu_init_cde_vm(mm);
 			if (err != 0) {
 				return err;
 			}
 	}
+#endif
 
 	err = nvgpu_init_ce_vm(mm);
 	if (err != 0) {
@@ -565,12 +571,6 @@ static int nvgpu_init_mm_setup_sw(struct gk20a *g)
 		}
 	}
 
-#if defined(CONFIG_NVGPU_NON_FUSA)
-	if (nvgpu_fb_vab_init_hal(g) != 0) {
-		nvgpu_err(g, "failed to init VAB");
-	}
-#endif
-
 	mm->remove_support = nvgpu_remove_mm_support;
 #ifdef CONFIG_NVGPU_DGPU
 	mm->remove_ce_support = nvgpu_remove_mm_ce_support;
@@ -670,6 +670,12 @@ int nvgpu_init_mm_support(struct gk20a *g)
 	if (err != 0) {
 		return err;
 	}
+
+#if defined(CONFIG_NVGPU_NON_FUSA)
+	if (nvgpu_fb_vab_init_hal(g) != 0) {
+		nvgpu_err(g, "failed to init VAB");
+	}
+#endif
 
 	if (g->ops.mm.setup_hw != NULL) {
 		err = g->ops.mm.setup_hw(g);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -45,14 +45,15 @@ enum fabric{
 	PSC_FAB_ID,
 	BPMP_FAB_ID,
 	FSI_FAB_ID,
+	APE_FAB_ID,
 	MAX_FAB_ID,
 };
 
 struct tegra_cbb_errmon_record {
 	struct list_head node;
-	char *name;
+	const char *name;
 	int errmon_no;
-	int err_type;
+	u32 err_type;
 	phys_addr_t start;
 	phys_addr_t err_notifier_base;
 	void __iomem *vaddr;
@@ -82,7 +83,7 @@ struct tegra_sn_addr_map {
 };
 
 struct tegra23x_cbb_fabric_sn_map {
-	char *fab_name;
+	const char *fab_name;
 	void __iomem *fab_base_vaddr;
 	struct tegra_sn_addr_map *sn_lookup;
 };

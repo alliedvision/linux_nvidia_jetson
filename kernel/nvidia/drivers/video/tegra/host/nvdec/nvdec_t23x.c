@@ -1,7 +1,7 @@
 /*
  * Tegra NVDEC Module Support on T23x
  *
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,6 +17,7 @@
  */
 
 #include <linux/slab.h>         /* for kzalloc */
+#include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform/tegra/tegra_mc.h>
@@ -60,7 +61,8 @@ static int nvdec_riscv_wait_mem_scrubbing(struct platform_device *dev)
 
 }
 
-static void nvdec_get_riscv_bin_name(struct platform_device *pdev, char *name)
+static void nvdec_get_riscv_bin_name(struct platform_device *pdev, char *name,
+					bool is_gsc)
 {
 	u8 maj, min;
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -68,19 +70,25 @@ static void nvdec_get_riscv_bin_name(struct platform_device *pdev, char *name)
 					flcn_hwcfg2_dbgmode_m();
 
 	nvdec_decode_ver(pdata->version, &maj, &min);
-	if (debug_mode) {
-		snprintf(name, FW_NAME_SIZE, "nvhost_nvdec0%d%d_desc_dev.bin",
-			maj, min);
+	if (is_gsc) {
+		if (debug_mode) {
+			snprintf(name, FW_NAME_SIZE,
+				"nvhost_nvdec0%d%d_desc_dev.bin", maj, min);
+		} else {
+			snprintf(name, FW_NAME_SIZE,
+				"nvhost_nvdec0%d%d_desc_prod.bin", maj, min);
+		}
 	} else {
-		snprintf(name, FW_NAME_SIZE, "nvhost_nvdec0%d%d_desc_prod.bin",
+		snprintf(name, FW_NAME_SIZE, "nvhost_nvdec0%d%d_desc_sim.bin",
 			maj, min);
 	}
-
 }
+
 static int nvdec_read_riscv_bin(struct platform_device *dev,
-				const char *desc_bin_name)
+				const char *desc_bin_name, bool is_gsc)
 {
-	const struct firmware *desc_bin;
+	int err, w;
+	const struct firmware *desc_bin, *riscv_image = NULL;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	struct riscv_data *m = (struct riscv_data *)pdata->riscv_data;
 
@@ -89,10 +97,35 @@ static int nvdec_read_riscv_bin(struct platform_device *dev,
 		return -ENODATA;
 	}
 
+	m->dma_addr = 0;
+	m->mapped = NULL;
 	desc_bin = nvhost_client_request_firmware(dev, desc_bin_name, true);
 	if (!desc_bin) {
 		dev_err(&dev->dev, "failed to get desc binary");
 		return -ENOENT;
+	}
+
+	if (!is_gsc) {
+		riscv_image = nvhost_client_request_firmware(dev, pdata->riscv_image_bin, true);
+		if (!riscv_image) {
+			dev_err(&dev->dev, "failed to get nvdec image binary");
+			release_firmware(desc_bin);
+			return -ENOENT;
+		}
+
+		m->size = riscv_image->size;
+		m->mapped = dma_alloc_attrs(&dev->dev, m->size, &m->dma_addr,
+					GFP_KERNEL,
+					DMA_ATTR_READ_ONLY | DMA_ATTR_FORCE_CONTIGUOUS);
+		if (!m->mapped) {
+			dev_err(&dev->dev, "dma memory allocation failed");
+			err = -ENOMEM;
+			goto clean_up;
+		}
+
+		/* Copy the whole image taking endianness into account */
+		for (w = 0; w < riscv_image->size/sizeof(u32); w++)
+			m->mapped[w] = le32_to_cpu(((__le32 *)riscv_image->data)[w]);
 	}
 
 	/* Parse the desc binary for offsets */
@@ -100,11 +133,23 @@ static int nvdec_read_riscv_bin(struct platform_device *dev,
 
 	m->valid = true;
 	release_firmware(desc_bin);
+	release_firmware(riscv_image);
 
 	return 0;
+
+clean_up:
+	if (m->mapped) {
+		dma_free_attrs(&dev->dev, m->size, m->mapped, m->dma_addr,
+				DMA_ATTR_READ_ONLY | DMA_ATTR_FORCE_CONTIGUOUS);
+		m->mapped = NULL;
+		m->dma_addr = 0;
+	}
+	release_firmware(desc_bin);
+	release_firmware(riscv_image);
+	return err;
 }
 
-static int nvhost_nvdec_riscv_init_sw(struct platform_device *pdev)
+static int nvhost_nvdec_riscv_init_sw(struct platform_device *pdev, bool is_gsc)
 {
 	int err = 0;
 	char riscv_desc_bin[FW_NAME_SIZE];
@@ -121,9 +166,9 @@ static int nvhost_nvdec_riscv_init_sw(struct platform_device *pdev)
 	}
 	pdata->riscv_data = m;
 
-	nvdec_get_riscv_bin_name(pdev, riscv_desc_bin);
-	dev_info(&pdev->dev, "risc-v desc binary name:%s", riscv_desc_bin);
-	err = nvdec_read_riscv_bin(pdev, riscv_desc_bin);
+	nvdec_get_riscv_bin_name(pdev, riscv_desc_bin, is_gsc);
+	dev_info(&pdev->dev, "RISC-V desc binary name:%s", riscv_desc_bin);
+	err = nvdec_read_riscv_bin(pdev, riscv_desc_bin, is_gsc);
 	if (err || !m->valid) {
 		dev_err(&pdev->dev, "binary not valid");
 		goto clean_up;
@@ -142,11 +187,18 @@ static void nvhost_nvdec_riscv_deinit_sw(struct platform_device *dev)
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	struct riscv_data *m = (struct riscv_data *)pdata->riscv_data;
 
+	if (m->mapped) {
+		dma_free_attrs(&dev->dev, m->size, m->mapped, m->dma_addr,
+				DMA_ATTR_READ_ONLY | DMA_ATTR_FORCE_CONTIGUOUS);
+		m->mapped = NULL;
+		m->dma_addr = 0;
+	}
+
 	kfree(m);
 	pdata->riscv_data = NULL;
 }
 
-static int load_ucode(struct platform_device *dev, u64 base,
+static int load_ucode(struct platform_device *dev, u64 base, u32 gscid,
 			struct riscv_image_desc desc)
 {
 	void __iomem *retcode_addr, *debuginfo_addr;
@@ -189,7 +241,7 @@ static int load_ucode(struct platform_device *dev, u64 base,
 
 	/* Program DMA config registers. GSC ID = 0x1 for CARVEOUT1 */
 	host1x_writel(dev, nvdec_riscv_bcr_dmacfg_sec_r(),
-			nvdec_riscv_bcr_dmacfg_sec_gscid_f(0x1));
+			nvdec_riscv_bcr_dmacfg_sec_gscid_f(gscid));
 	host1x_writel(dev, nvdec_riscv_bcr_dmacfg_r(),
 			nvdec_riscv_bcr_dmacfg_target_local_fb_f() |
 			nvdec_riscv_bcr_dmacfg_lock_locked_f());
@@ -234,27 +286,59 @@ int nvhost_nvdec_riscv_finalize_poweron(struct platform_device *dev)
 	struct riscv_data *m;
 	struct mc_carveout_info inf;
 	int err = 0;
+	bool is_gsc = 0;
+	phys_addr_t dma_pa;
+	struct iommu_domain *domain;
+	unsigned int gscid = 0x0;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
-
-	err = nvhost_nvdec_riscv_init_sw(dev);
-	if (err)
-		return err;
-
-	m = (struct riscv_data *)pdata->riscv_data;
 
 	/* Get GSC carvout info */
 	err = mc_get_carveout_info(&inf, NULL, MC_SECURITY_CARVEOUT1);
-	if (err || !inf.base) {
-		dev_err(&dev->dev, "Carveout memory allocation failed");
+	if (err) {
+		dev_err(&dev->dev, "failed to fetch carveout info");
 		err = -ENOMEM;
 		goto clean_up;
 	}
 
 	dev_dbg(&dev->dev, "CARVEOUT1 base=0x%llx size=0x%llx",
 		inf.base, inf.size);
+	if (inf.base)
+		is_gsc = 1;
+
+	err = nvhost_nvdec_riscv_init_sw(dev, is_gsc);
+	if (err)
+		return err;
+
+	m = (struct riscv_data *)pdata->riscv_data;
+
+	/* Get the physical address of corresponding dma address */
+	domain = iommu_get_domain_for_dev(&dev->dev);
+
+	if (is_gsc) {
+		dma_pa = inf.base;
+		gscid = 0x1;
+		dev_info(&dev->dev, "RISC-V booting from GSC\n");
+	} else {
+		/* For non-secure boot only */
+		dma_pa = iommu_iova_to_phys(domain, m->dma_addr);
+		dev_info(&dev->dev, "RISC-V boot using kernel allocated Mem\n");
+
+		/*
+		 * Add the offset to skip boot_component_header_t, which is
+		 * present at the start of binary. This struct is used
+		 * by MB1 for loading the binary from GSC carvout. However,
+		 * it is redundant when the binary is stored in the kernel
+		 * allocated memory.
+		 * As the firmwares are generated using the same script in
+		 * both these case, this offset is added in the non-gsc case
+		 * to exclude boot_component_header_t.
+		 * sizeof(boot_component_header_t) = 0x2000 bytes (8k).
+		 */
+		dma_pa += 8192; // 0x2000
+	}
 
 	/* Load BL ucode in stage-1*/
-	err = load_ucode(dev, inf.base, m->bl);
+	err = load_ucode(dev, dma_pa, gscid, m->bl);
 	if (err) {
 		dev_err(&dev->dev, "RISC-V stage-1 boot failed, err=0x%x", err);
 		goto clean_up;
@@ -264,7 +348,7 @@ int nvhost_nvdec_riscv_finalize_poweron(struct platform_device *dev)
 	nvhost_module_reset_for_stage2(dev);
 
 	/* Load LS ucode in stage-2 */
-	err = load_ucode(dev, inf.base, m->os);
+	err = load_ucode(dev, dma_pa, gscid, m->os);
 	if (err) {
 		dev_err(&dev->dev, "RISC-V stage-2 boot failed = 0x%x", err);
 		goto clean_up;

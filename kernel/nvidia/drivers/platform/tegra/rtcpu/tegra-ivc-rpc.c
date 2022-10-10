@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -59,6 +59,8 @@
 #endif
 
 #include <soc/tegra/tegra-ivc-rpc.h>
+
+#include "tegra-ivc-rpc-test.h"
 
 /*
  * ENABLE_IVC_RPC_TRACE is used to enable tracing
@@ -570,10 +572,6 @@ DEFINE_SEQ_FOPS(tegra_ivc_rpc_debugfs_stats,
 /*
  * Initialization / Cleanup
  */
-
-void tegra_ivc_rpc_create_test_debugfs(
-	struct tegra_ivc_channel *chan,
-	struct dentry *debugfs_root);
 
 int tegra_ivc_rpc_channel_probe(
 	struct tegra_ivc_channel *chan, struct tegra_ivc_rpc_ops *ops)

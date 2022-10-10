@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -148,6 +148,7 @@ void gp10b_gr_init_commit_global_bundle_cb(struct gk20a *g,
 
 u32 gp10b_gr_init_pagepool_default_size(struct gk20a *g)
 {
+	(void)g;
 	return gr_scc_pagepool_total_pages_hwmax_value_v();
 }
 

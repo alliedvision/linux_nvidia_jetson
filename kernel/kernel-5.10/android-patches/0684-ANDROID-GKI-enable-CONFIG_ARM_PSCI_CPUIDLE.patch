@@ -1,0 +1,30 @@
+From 60d367bfd01d6135e8644587d1a733c1404739dd Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Thu, 9 Apr 2020 14:06:59 -0700
+Subject: [PATCH 684/830] ANDROID: GKI: enable CONFIG_ARM_PSCI_CPUIDLE
+X-NVConfidentiality: public
+
+Enable support for PSCI firmware based cpuidle.
+
+Bug: 153612740
+Signed-off-by: Steve Muckle <smuckle@google.com>
+Change-Id: I78fb8a206f115eb409a893ded669df7d93460c68
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 637c28415681..e737a11bb1c7 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -63,6 +63,7 @@ CONFIG_PM_WAKELOCKS_LIMIT=0
+ CONFIG_ENERGY_MODEL=y
+ CONFIG_CPU_IDLE=y
+ CONFIG_ARM_CPUIDLE=y
++CONFIG_ARM_PSCI_CPUIDLE=y
+ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+-- 
+2.17.1
+

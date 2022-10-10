@@ -1,7 +1,7 @@
 /*
  * PVA ISR code
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,13 +17,13 @@
  */
 
 #include "pva-interface.h"
+#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
+#include <linux/nvhost.h>
 
-#include "bus_client.h"
 #include "pva_regs.h"
-#include "dev.h"
 #include "pva.h"
 
 #define PVA_MASK_LOW_16BITS 0xff
@@ -46,7 +46,7 @@ static irqreturn_t pva_system_isr(int irq, void *dev_id)
 	bool recover = false;
 
 	if (status5 & PVA_AISR_INT_PENDING) {
-		nvhost_dbg_info("PVA AISR (%x)", status5);
+		nvpva_dbg_info(pva, "PVA AISR (%x)", status5);
 
 		if (status5 & (PVA_AISR_TASK_COMPLETE | PVA_AISR_TASK_ERROR)) {
 			atomic_add(1, &pva->n_pending_tasks);
@@ -56,18 +56,18 @@ static irqreturn_t pva_system_isr(int irq, void *dev_id)
 
 		/* For now, just log the errors */
 		if (status5 & PVA_AISR_TASK_ERROR)
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_TASK_ERROR");
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_TASK_ERROR");
 		if (status5 & PVA_AISR_THRESHOLD_EXCEEDED)
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_THRESHOLD_EXCEEDED");
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_THRESHOLD_EXCEEDED");
 		if (status5 & PVA_AISR_LOGGING_OVERFLOW)
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_LOGGING_OVERFLOW");
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_LOGGING_OVERFLOW");
 		if (status5 & PVA_AISR_PRINTF_OVERFLOW)
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_PRINTF_OVERFLOW");
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_PRINTF_OVERFLOW");
 		if (status5 & PVA_AISR_CRASH_LOG)
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_CRASH_LOG");
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_CRASH_LOG");
 		if (status5 & PVA_AISR_ABORT) {
-			nvhost_warn(&pdev->dev, "PVA AISR: PVA_AISR_ABORT");
-			nvhost_warn(&pdev->dev, "Checkpoint value: 0x%08x",
+			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_ABORT");
+			nvpva_warn(&pdev->dev, "Checkpoint value: 0x%08x",
 				    checkpoint);
 			recover = true;
 		}
@@ -76,7 +76,7 @@ static irqreturn_t pva_system_isr(int irq, void *dev_id)
 	}
 
 	if (status7 & PVA_INT_PENDING) {
-		nvhost_dbg_info("PVA ISR (%x)", status7);
+		nvpva_dbg_info(pva, "PVA ISR (%x)", status7);
 
 		pva_mailbox_isr(pva);
 	}
@@ -84,14 +84,14 @@ static irqreturn_t pva_system_isr(int irq, void *dev_id)
 
 	/* Check for watchdog timer interrupt */
 	if (lic_int_status & sec_lic_intr_enable_wdt_f(SEC_LIC_INTR_WDT)) {
-		nvhost_warn(&pdev->dev, "WatchDog Timer");
+		nvpva_warn(&pdev->dev, "WatchDog Timer");
 		recover = true;
 	}
 
 	/* Check for host1x errors*/
 	h1xflgs = sec_lic_intr_enable_h1x_f(SEC_LIC_INTR_H1X_ALL);
 	if (lic_int_status & h1xflgs) {
-		nvhost_warn(&pdev->dev, "Pva Host1x errors (0x%x)",
+		nvpva_warn(&pdev->dev, "Pva Host1x errors (0x%x)",
 			     lic_int_status);
 
 		/* Clear the interrupt */

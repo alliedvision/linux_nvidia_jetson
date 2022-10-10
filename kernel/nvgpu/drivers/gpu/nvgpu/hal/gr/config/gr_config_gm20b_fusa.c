@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,8 @@ u32 gm20b_gr_config_get_tpc_count_in_gpc(struct gk20a *g,
 	u32 gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_GPC_STRIDE);
 	u32 tmp, tmp1, tmp2;
 
+	(void)config;
+
 	tmp1 = nvgpu_safe_mult_u32(gpc_stride, gpc_index);
 	tmp2 = nvgpu_safe_add_u32(gr_gpc0_fs_gpc_r(), tmp1);
 	tmp = nvgpu_readl(g, tmp2);
@@ -59,6 +61,8 @@ u32 gm20b_gr_config_get_pes_tpc_mask(struct gk20a *g,
 {
 	u32 gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_GPC_STRIDE);
 	u32 tmp, tmp1, tmp2;
+
+	(void)config;
 
 	tmp1 = nvgpu_safe_mult_u32(gpc_index, gpc_stride);
 	tmp2 = nvgpu_safe_add_u32(gr_gpc0_gpm_pd_pes_tpc_id_mask_r(pes_index),
@@ -96,6 +100,8 @@ u32 gm20b_gr_config_get_zcull_count_in_gpc(struct gk20a *g,
 {
 	u32 gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_GPC_STRIDE);
 	u32 tmp, tmp1, tmp2;
+
+	(void)config;
 
 	tmp1 = nvgpu_safe_mult_u32(gpc_stride, gpc_index);
 	tmp2 = nvgpu_safe_add_u32(gr_gpc0_fs_gpc_r(), tmp1);

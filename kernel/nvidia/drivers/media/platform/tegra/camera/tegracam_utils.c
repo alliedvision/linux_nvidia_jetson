@@ -1,7 +1,7 @@
 /*
  * tegracam_utils - tegra camera framework utilities
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -150,7 +150,7 @@ int convert_table_to_blob(struct sensor_blob *blob,
 	u16 addr;
 	u8 val;
 	int range_start = -1;
-	int range_count = 0;
+	u32 range_count = 0;
 	u8 buf[16];
 
 	for (next = table;; next++) {

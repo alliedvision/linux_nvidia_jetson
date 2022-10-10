@@ -273,11 +273,23 @@
 			cooling-maps {
 				map0 {
 					trip = <&die_temp_thresh>;
-					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-					<&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map4 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};

@@ -6,7 +6,7 @@
  *         Colin Cross <ccross@android.com>
  *         Travis Geiselbrecht <travis@palm.com>
  *
- * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -415,7 +415,7 @@ static int tegra_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 				}
 			}
 			/* data(red, green and blue) is coming from user. */
-			speculation_barrier();
+			spec_bar();
 			tegra_dc_update_lut(dc, -1, -1);
 		}
 	}
@@ -1004,7 +1004,7 @@ void tegra_fb_update_monspecs(struct tegra_fb_info *fb_info,
 		}
 	}
 	/* specs are coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	if (dc->out_ops->vrr_update_monspecs)
 		dc->out_ops->vrr_update_monspecs(dc,

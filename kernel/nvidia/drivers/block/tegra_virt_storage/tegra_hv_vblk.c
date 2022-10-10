@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -230,7 +230,7 @@ static void req_error_handler(struct vblk_dev *vblkdev, struct request *breq)
 		(uint64_t)req_op(breq),
 		blk_rq_bytes(breq));
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	blk_mq_end_request(breq, BLK_STS_IOERR);
 #else
 	blk_end_request_all(breq, -EIO);
@@ -366,7 +366,7 @@ static bool complete_bio_req(struct vblk_dev *vblkdev)
 	vs_req = &vsc_req->vs_req;
 
 	if ((bio_req != NULL) && (status == 0)) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		if (req_op(bio_req) == REQ_OP_DRV_IN) {
 #else
 		if (bio_req->cmd_type == REQ_TYPE_DRV_PRIV) {
@@ -374,7 +374,7 @@ static bool complete_bio_req(struct vblk_dev *vblkdev)
 			vblk_complete_ioctl_req(vblkdev, vsc_req,
 					req_resp.blkdev_resp.
 					ioctl_resp.status);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 				blk_mq_end_request(bio_req, BLK_STS_OK);
 #else
 				if (blk_end_request(bio_req, 0, 0)) {
@@ -456,7 +456,7 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 	size_t size;
 	size_t total_size = 0;
 	void *buffer;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	struct req_entry *entry = NULL;
 #endif
 	size_t sz;
@@ -474,7 +474,7 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 	if (vsc_req == NULL)
 		goto bio_exit;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	spin_lock(&vblkdev->queue_lock);
 	if(!list_empty(&vblkdev->req_list)) {
 		entry = list_first_entry(&vblkdev->req_list, struct req_entry,
@@ -522,7 +522,7 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 	vs_req = &vsc_req->vs_req;
 
 	vs_req->type = VS_DATA_REQ;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	if (req_op(bio_req) != REQ_OP_DRV_IN) {
 #else
 	if (bio_req->cmd_type == REQ_TYPE_FS) {
@@ -604,7 +604,7 @@ static bool submit_bio_req(struct vblk_dev *vblkdev)
 		}
 	} else {
 		if (vblk_prep_ioctl_req(vblkdev,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 			(struct vblk_ioctl_req *)bio_req->completion_data,
 #else
 			(struct vblk_ioctl_req *)bio_req->special,
@@ -663,7 +663,7 @@ static void vblk_request_work(struct work_struct *ws)
 }
 
 /* The simple form of the request function. */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 static blk_status_t vblk_request(struct blk_mq_hw_ctx *hctx,
 			const struct blk_mq_queue_data *bd)
 {
@@ -675,6 +675,10 @@ static blk_status_t vblk_request(struct blk_mq_hw_ctx *hctx,
 
 	/* malloc for req list entry */
 	entry = kmalloc(sizeof(struct req_entry), GFP_ATOMIC);
+	if (entry == NULL) {
+		dev_err(vblkdev->device, "Failed to allocate memory\n");
+		return BLK_STS_IOERR;
+	}
 
 	/* Initialise the entry */
 	entry->req = req;
@@ -706,7 +710,7 @@ static int vblk_open(struct block_device *device, fmode_t mode)
 
 	spin_lock(&vblkdev->lock);
 	if (!vblkdev->users) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 		check_disk_change(device);
 #else
 		bdev_check_media_change(device);
@@ -729,7 +733,7 @@ static void vblk_release(struct gendisk *disk, fmode_t mode)
 	spin_unlock(&vblkdev->lock);
 }
 
-int vblk_getgeo(struct block_device *device, struct hd_geometry *geo)
+static int vblk_getgeo(struct block_device *device, struct hd_geometry *geo)
 {
 	geo->heads = VS_LOG_HEADS;
 	geo->sectors = VS_LOG_SECTS;
@@ -740,7 +744,7 @@ int vblk_getgeo(struct block_device *device, struct hd_geometry *geo)
 }
 
 /* The device operations structure. */
-const struct block_device_operations vblk_ops = {
+static const struct block_device_operations vblk_ops = {
 	.owner           = THIS_MODULE,
 	.open            = vblk_open,
 	.release         = vblk_release,
@@ -834,7 +838,7 @@ static const struct device_attribute dev_attr_speed_mode_ro =
 	__ATTR(speed_mode, 0444,
 	       vblk_speed_mode_show, NULL);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 static const struct blk_mq_ops vblk_mq_ops = {
 	.queue_rq	= vblk_request,
 };
@@ -856,7 +860,7 @@ static void setup_device(struct vblk_dev *vblkdev)
 	mutex_init(&vblkdev->ioctl_lock);
 	mutex_init(&vblkdev->ivc_lock);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	vblkdev->queue = blk_mq_init_sq_queue(&vblkdev->tag_set, &vblk_mq_ops, 16,
 						BLK_MQ_F_SHOULD_MERGE);
 #else
@@ -972,7 +976,7 @@ static void setup_device(struct vblk_dev *vblkdev)
 
 	vblkdev->max_requests = max_requests;
 	blk_queue_max_hw_sectors(vblkdev->queue, max_io_bytes / SECTOR_SIZE);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	blk_queue_flag_set(QUEUE_FLAG_NONROT, vblkdev->queue);
 #else
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, vblkdev->queue);
@@ -980,7 +984,7 @@ static void setup_device(struct vblk_dev *vblkdev)
 
 	if (vblkdev->config.blk_config.req_ops_supported
 		& VS_BLK_DISCARD_OP_F) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 		blk_queue_flag_set(QUEUE_FLAG_DISCARD, vblkdev->queue);
 #else
 		queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, vblkdev->queue);
@@ -991,7 +995,7 @@ static void setup_device(struct vblk_dev *vblkdev)
 			vblkdev->config.blk_config.hardblk_size;
 		if (vblkdev->config.blk_config.req_ops_supported &
 			VS_BLK_SECURE_ERASE_OP_F)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 			blk_queue_flag_set(QUEUE_FLAG_SECERASE, vblkdev->queue);
 #else
 			queue_flag_set_unlocked(QUEUE_FLAG_SECERASE, vblkdev->queue);
@@ -1025,14 +1029,22 @@ static void setup_device(struct vblk_dev *vblkdev)
 		set_disk_ro(vblkdev->gd, 1);
 	}
 
-	if (vblkdev->config.storage_type == VSC_STORAGE_RPMB)
-		snprintf(vblkdev->gd->disk_name, 32, "vblkrpmb%d",
-				vblkdev->devnum);
-	else
-		snprintf(vblkdev->gd->disk_name, 32, "vblkdev%d",
-				vblkdev->devnum);
+	if (vblkdev->config.storage_type == VSC_STORAGE_RPMB) {
+		if (snprintf(vblkdev->gd->disk_name, 32, "vblkrpmb%d",
+				vblkdev->devnum) < 0) {
+			dev_err(vblkdev->device, "Error while updating disk_name!\n");
+			return;
+		}
+	} else {
+		if (snprintf(vblkdev->gd->disk_name, 32, "vblkdev%d",
+				vblkdev->devnum) < 0) {
+			dev_err(vblkdev->device, "Error while updating disk_name!\n");
+			return;
+		}
+	}
+
 	set_capacity(vblkdev->gd, (vblkdev->size / SECTOR_SIZE));
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
 	device_add_disk(vblkdev->device, vblkdev->gd, NULL);
 #else
 	device_add_disk(vblkdev->device, vblkdev->gd);
@@ -1188,7 +1200,7 @@ static int tegra_hv_vblk_probe(struct platform_device *pdev)
 
 	INIT_WORK(&vblkdev->init, vblk_init_device);
 	INIT_WORK(&vblkdev->work, vblk_request_work);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0)
 	/* creating and initializing the an internal request list */
 	INIT_LIST_HEAD(&vblkdev->req_list);
 #endif
@@ -1241,7 +1253,6 @@ static int tegra_hv_vblk_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 #ifdef CONFIG_PM_SLEEP
 static int tegra_hv_vblk_suspend(struct device *dev)
 {
@@ -1249,9 +1260,15 @@ static int tegra_hv_vblk_suspend(struct device *dev)
 	unsigned long flags;
 
 	if (vblkdev->queue) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 		spin_lock_irqsave(vblkdev->queue->queue_lock, flags);
 		blk_stop_queue(vblkdev->queue);
 		spin_unlock_irqrestore(vblkdev->queue->queue_lock, flags);
+#else
+		spin_lock_irqsave(&vblkdev->queue->queue_lock, flags);
+		blk_mq_stop_hw_queues(vblkdev->queue);
+		spin_unlock_irqrestore(&vblkdev->queue->queue_lock, flags);
+#endif
 
 		mutex_lock(&vblkdev->req_lock);
 		vblkdev->queue_state = VBLK_QUEUE_SUSPENDED;
@@ -1288,9 +1305,15 @@ static int tegra_hv_vblk_resume(struct device *dev)
 
 		enable_irq(vblkdev->ivck->irq);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 		spin_lock_irqsave(vblkdev->queue->queue_lock, flags);
 		blk_start_queue(vblkdev->queue);
 		spin_unlock_irqrestore(vblkdev->queue->queue_lock, flags);
+#else
+		spin_lock_irqsave(&vblkdev->queue->queue_lock, flags);
+		blk_mq_start_hw_queues(vblkdev->queue);
+		spin_unlock_irqrestore(&vblkdev->queue->queue_lock, flags);
+#endif
 
 		queue_work_on(WORK_CPU_UNBOUND, vblkdev->wq, &vblkdev->work);
 	}
@@ -1303,7 +1326,6 @@ static const struct dev_pm_ops tegra_hv_vblk_pm_ops = {
 	.resume = tegra_hv_vblk_resume,
 };
 #endif /* CONFIG_PM_SLEEP */
-#endif
 
 #ifdef CONFIG_OF
 static struct of_device_id tegra_hv_vblk_match[] = {
@@ -1320,10 +1342,8 @@ static struct platform_driver tegra_hv_vblk_driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(tegra_hv_vblk_match),
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 #ifdef CONFIG_PM_SLEEP
 		.pm = &tegra_hv_vblk_pm_ops,
-#endif
 #endif
 	},
 };

@@ -1,7 +1,7 @@
-From 8f0d0df9b9005a72e90928e9324225f2678ff122 Mon Sep 17 00:00:00 2001
+From 06716060e7efdd786fab1e171dd2b2a056dd08c3 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:32:49 +0200
-Subject: [PATCH 160/304] locking/rtmutex: Move rt_mutex_init() outside of
+Subject: [PATCH 160/318] locking/rtmutex: Move rt_mutex_init() outside of
  CONFIG_DEBUG_RT_MUTEXES
 
 rt_mutex_init() only initializes lockdep if CONFIG_DEBUG_RT_MUTEXES is
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 88a0ba8..2dc10b5 100644
+index 88a0ba806066..2dc10b582d4a 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -43,6 +43,7 @@ struct hrtimer_sleeper;
@@ -55,5 +55,5 @@ index 88a0ba8..2dc10b5 100644
  #define __DEP_MAP_RT_MUTEX_INITIALIZER(mutexname) \
  	, .dep_map = { .name = #mutexname }
 -- 
-2.7.4
+2.17.1
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -88,6 +88,8 @@ void nvgpu_pmu_mutex_sw_setup(struct gk20a *g, struct nvgpu_pmu *pmu,
 {
 	u32 i;
 
+	(void)pmu;
+
 	nvgpu_log_fn(g, " ");
 
 	for (i = 0; i < mutexes->cnt; i++) {
@@ -101,6 +103,8 @@ int nvgpu_pmu_init_mutexe(struct gk20a *g, struct nvgpu_pmu *pmu,
 {
 	struct pmu_mutexes *mutexes;
 	int err = 0;
+
+	(void)pmu;
 
 	nvgpu_log_fn(g, " ");
 
@@ -136,6 +140,8 @@ exit:
 void nvgpu_pmu_mutexe_deinit(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct pmu_mutexes *mutexes)
 {
+	(void)pmu;
+
 	nvgpu_log_fn(g, " ");
 
 	if (mutexes == NULL) {

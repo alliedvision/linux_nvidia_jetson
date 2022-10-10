@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,6 +73,10 @@
 #define top_num_ltcs_value_v(r)                            (((r) >> 0U) & 0x1fU)
 #define top_num_ces_r()                                            (0x00022444U)
 #define top_num_ces_value_v(r)                             (((r) >> 0U) & 0x1fU)
+#define top_num_pes_per_gpc_r()                                    (0x00022460U)
+#define top_num_pes_per_gpc_value_v(r)                     (((r) >> 0U) & 0x1fU)
+#define top_num_rop_per_gpc_r()                                    (0x00022480U)
+#define top_num_rop_per_gpc_value_v(r)                     (((r) >> 0U) & 0x1fU)
 #define top_device_info_cfg_r()                                    (0x000224fcU)
 #define top_device_info_cfg_version_v(r)                    (((r) >> 0U) & 0xfU)
 #define top_device_info_cfg_version_init_v()                       (0x00000002U)

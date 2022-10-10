@@ -1,0 +1,46 @@
+From 4aa4b2436aa16bf51037c224254450d330efa8ca Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 9 Oct 2019 23:13:39 +0000
+Subject: [PATCH 573/830] ANDROID: Kconfig.gki: Add Hidden QCOM configs
+X-NVConfidentiality: public
+
+Enable hidden QCOM configs via CONFIG_GKI_HACKS_TO_FIX
+
+Bug: 142268770
+Change-Id: I99e9a05ac631843dafcf33e9b4ceb8e54e40c117
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index d8a2cf0adc61..85036c08fb7b 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -37,6 +37,15 @@ config GKI_HIDDEN_GPIO_CONFIGS
+ 	  These are normally selected implicitely when a module
+ 	  that relies on it is configured.
+ 
++config GKI_HIDDEN_QCOM_CONFIGS
++	bool "Hidden QCOM configs needed for GKI"
++	select QCOM_SMEM_STATE
++	help
++	  Dummy config option used to enable hidden QCOM configs.
++	  These are normally selected implicitely when a module
++	  that relies on it is configured.
++
++
+ # LEGACY_WEXT_ALLCONFIG Discussed upstream, soundly rejected as a unique
+ # problem for GKI to solve.  It should be noted that these extensions are
+ # in-effect deprecated and generally unsupported and we should pressure
+@@ -69,6 +78,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_REGMAP_CONFIGS
+ 	select GKI_HIDDEN_SND_SOC_CONFIGS
+ 	select GKI_HIDDEN_GPIO_CONFIGS
++	select GKI_HIDDEN_QCOM_CONFIGS
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+-- 
+2.17.1
+

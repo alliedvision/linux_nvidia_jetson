@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 10
-SUBLEVEL = 65
+SUBLEVEL = 104
 EXTRAVERSION =
 NAME = Dare mighty things
 
@@ -800,6 +800,8 @@ ifdef CONFIG_CC_IS_CLANG
 KBUILD_CPPFLAGS += -Qunused-arguments
 KBUILD_CFLAGS += -Wno-format-invalid-specifier
 KBUILD_CFLAGS += -Wno-gnu
+KBUILD_CFLAGS += -Wno-typedef-redefinition -Wno-uninitialized -Wno-asm-operand-widths -Wno-parentheses-equality -Wno-enum-conversion -Wno-implicit-function-declaration -Wno-shift-count-negative -Wno-tautological-pointer-compare -Wno-shift-count-negative -Wno-shift-overflow -Wno-self-assign -Wno-incompatible-pointer-types-discards-qualifiers -Wno-deprecated-declarations -Wno-tentative-definition-incomplete-type
+
 # CLANG uses a _MergedGlobals as optimization, but this breaks modpost, as the
 # source of a reference will be _MergedGlobals and not on of the whitelisted names.
 # See modpost pattern 2
@@ -1103,7 +1105,7 @@ export mod_sign_cmd
 HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
 
 has_libelf = $(call try-run,\
-               echo "int main() {}" | $(HOSTCC) -xc -o /dev/null $(HOST_LIBELF_LIBS) -,1,0)
+               echo "int main() {}" | $(HOSTCC) $(KBUILD_HOSTLDFLAGS) -xc -o /dev/null $(HOST_LIBELF_LIBS) -,1,0)
 
 ifdef CONFIG_STACK_VALIDATION
   ifeq ($(has_libelf),1)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -53,15 +53,11 @@ struct gops_cic_mon {
 	 * @brief Report error to safety services.
 	 *
 	 * @param g [in]		Pointer to GPU driver struct.
-	 * @param err_pkt [in]		Pointer to struct holding err details.
-	 * @param err_size [in]         Size of err_pkt.
-	 * @param is_critical [in]      Flag indicating criticality of error.
+	 * @param err_id [in]		Error ID.
 	 *
 	 * @return 0 in case of success, < 0 in case of failure.
 	 */
-	int (*report_err)(struct gk20a *g,
-			void *err_pkt, size_t err_size,
-			bool is_critical);
+	int (*report_err)(struct gk20a *g, u32 err_id);
 };
 
 #endif/*NVGPU_GOPS_CIC_MON_H*/

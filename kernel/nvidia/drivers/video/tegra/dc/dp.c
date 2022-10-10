@@ -1,7 +1,7 @@
 /*
  * dp.c: tegra dp driver.
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -254,7 +254,7 @@ int tegra_dp_aux_register_i2c_bus(struct tegra_dc_dp_data *dp)
 	dp->ddc.nr = dp->dc->ctrl_num + DPAUX_I2C_ADAPTER_BASE;
 
 	strncpy(dp->ddc.name, dev_name(&dp->dc->ndev->dev),
-		    sizeof(dp->ddc.name));
+		    sizeof(dp->ddc.name) - 1);
 
 	return i2c_add_numbered_adapter(&dp->ddc);
 #undef DPAUX_I2C_ADAPTER_BASE

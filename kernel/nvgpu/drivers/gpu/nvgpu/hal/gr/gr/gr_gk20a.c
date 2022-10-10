@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -490,7 +490,7 @@ int gr_gk20a_get_ctx_buffer_offsets(struct gk20a *g,
 			  priv_registers[i],
 			  nvgpu_gr_obj_ctx_get_local_golden_image_ptr(
 				gr->golden_image),
-			  nvgpu_gr_obj_ctx_get_golden_image_size(
+			  (u32)nvgpu_gr_obj_ctx_get_golden_image_size(
 				gr->golden_image),
 			  &priv_offset);
 		if (err != 0) {
@@ -680,6 +680,7 @@ int gr_gk20a_ctx_patch_smpc(struct gk20a *g,
 void gk20a_gr_get_ovr_perf_regs(struct gk20a *g, u32 *num_ovr_perf_regs,
 					       u32 **ovr_perf_regs)
 {
+	(void)g;
 	*num_ovr_perf_regs = _num_ovr_perf_regs;
 	*ovr_perf_regs = _ovr_perf_regs;
 }
@@ -716,6 +717,8 @@ int gr_gk20a_find_priv_offset_in_ext_buffer(struct gk20a *g,
 	u32 tpc_in_gpc_base = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_BASE);
 	u32 tpc_in_gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_STRIDE);
 	u32 tpc_gpc_mask = (tpc_in_gpc_stride - 1U);
+
+	(void)context_buffer_size;
 
 	/* Only have TPC registers in extended region, so if not a TPC reg,
 	   then return error so caller can look elsewhere. */
@@ -920,6 +923,8 @@ gr_gk20a_process_context_buffer_priv_segment(struct gk20a *g,
 	u32 ppc_in_gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_PPC_IN_GPC_STRIDE);
 	u32 tpc_in_gpc_base = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_BASE);
 	u32 tpc_in_gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_STRIDE);
+
+	(void)ppc_mask;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, "pri_addr=0x%x", pri_addr);
 
@@ -1833,6 +1838,9 @@ void gk20a_gr_resume_single_sm(struct gk20a *g,
 {
 	u32 dbgr_control0;
 	u32 offset;
+
+	(void)sm;
+
 	/*
 	 * The following requires some clarification. Despite the fact that both
 	 * RUN_TRIGGER and STOP_TRIGGER have the word "TRIGGER" in their

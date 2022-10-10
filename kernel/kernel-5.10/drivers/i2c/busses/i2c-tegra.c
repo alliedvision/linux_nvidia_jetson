@@ -5,7 +5,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Colin Cross <ccross@android.com>
  *
- * Copyright (C) 2020-2021 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2020-2022 NVIDIA Corporation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -29,6 +29,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include <linux/tegra_prod.h>
+#include <linux/tegra-epl.h>
 
 #define BYTES_PER_FIFO_WORD 4
 
@@ -313,7 +314,9 @@ struct tegra_i2c_dev {
 
 	struct completion msg_complete;
 	size_t msg_buf_remaining;
-	int msg_err;
+	u32 msg_err;
+	u32 msg_err_time;
+	u16 epl_reporter_id;
 	u8 *msg_buf;
 	u16 clk_divisor_non_hs_mode;
 	bool is_periph_reset_done;
@@ -342,6 +345,7 @@ struct tegra_i2c_dev {
 	bool msg_read;
 	bool is_dvc;
 	bool is_vi;
+	bool reinit_ctrl_before_xfer;
 };
 
 static int __maybe_unused tegra_i2c_runtime_resume(struct device *dev);
@@ -1111,6 +1115,26 @@ static int tegra_i2c_fill_tx_fifo(struct tegra_i2c_dev *i2c_dev)
 	return 0;
 }
 
+static void tegra_i2c_clear_error(struct tegra_i2c_dev *i2c_dev)
+{
+		i2c_dev->msg_err = I2C_ERR_NONE;
+		i2c_dev->msg_err_time = 0;
+}
+
+static void tegra_i2c_mark_error(struct tegra_i2c_dev *i2c_dev, u32 error)
+{
+		u64 ltime;
+
+		/* Log time on the first error */
+		if (i2c_dev->epl_reporter_id && !i2c_dev->msg_err_time) {
+			/* Get TDC counter value */
+			asm volatile("mrs %0, cntvct_el0" : "=r" (ltime));
+			i2c_dev->msg_err_time = (u32)ltime;
+		}
+
+		i2c_dev->msg_err |= error;
+}
+
 static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 {
 	const u32 status_err = I2C_INT_NO_ACK | I2C_INT_ARBITRATION_LOST;
@@ -1124,16 +1148,16 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 			 i2c_readl(i2c_dev, I2C_PACKET_TRANSFER_STATUS),
 			 i2c_readl(i2c_dev, I2C_STATUS),
 			 i2c_readl(i2c_dev, I2C_CNFG));
-		i2c_dev->msg_err |= I2C_ERR_UNKNOWN_INTERRUPT;
+		tegra_i2c_mark_error(i2c_dev, I2C_ERR_UNKNOWN_INTERRUPT);
 		goto err;
 	}
 
 	if (status & status_err) {
 		tegra_i2c_disable_packet_mode(i2c_dev);
 		if (status & I2C_INT_NO_ACK)
-			i2c_dev->msg_err |= I2C_ERR_NO_ACK;
+			tegra_i2c_mark_error(i2c_dev, I2C_ERR_NO_ACK);
 		if (status & I2C_INT_ARBITRATION_LOST)
-			i2c_dev->msg_err |= I2C_ERR_ARBITRATION_LOST;
+			tegra_i2c_mark_error(i2c_dev, I2C_ERR_ARBITRATION_LOST);
 		goto err;
 	}
 
@@ -1152,7 +1176,7 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 				 * with no XFER_COMPLETE interrupt but hardware
 				 * asks to transfer more.
 				 */
-				i2c_dev->msg_err |= I2C_ERR_RX_BUFFER_OVERFLOW;
+				tegra_i2c_mark_error(i2c_dev, I2C_ERR_RX_BUFFER_OVERFLOW);
 				goto err;
 			}
 		}
@@ -1186,7 +1210,7 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 		 * fully sent.
 		 */
 		if (WARN_ON_ONCE(i2c_dev->msg_buf_remaining)) {
-			i2c_dev->msg_err |= I2C_ERR_UNKNOWN_INTERRUPT;
+			tegra_i2c_mark_error(i2c_dev, I2C_ERR_UNKNOWN_INTERRUPT);
 			goto err;
 		}
 		complete(&i2c_dev->msg_complete);
@@ -1443,30 +1467,60 @@ static void tegra_i2c_push_packet_header(struct tegra_i2c_dev *i2c_dev,
 		i2c_writel(i2c_dev, packet_header, I2C_TX_FIFO);
 }
 
+static void tegra_i2c_report_error_to_fsi(struct tegra_i2c_dev *i2c_dev)
+{
+	struct epl_error_report_frame err_report;
+
+	if (!i2c_dev->epl_reporter_id)
+		return;
+
+	err_report.error_code = i2c_dev->msg_err;
+	err_report.error_attribute = 0;
+	err_report.timestamp = i2c_dev->msg_err_time;
+	err_report.reporter_id = i2c_dev->epl_reporter_id;
+
+	dev_dbg(i2c_dev->dev, "err: %#x time: %u id: %#x",
+			err_report.error_code,
+			err_report.timestamp,
+			err_report.reporter_id);
+
+	epl_report_error(err_report);
+
+}
+
 static int tegra_i2c_error_recover(struct tegra_i2c_dev *i2c_dev,
 				   struct i2c_msg *msg)
 {
+	int ret = 0;
+
 	if (i2c_dev->msg_err == I2C_ERR_NONE)
 		return 0;
 
 	tegra_i2c_init(i2c_dev);
 
-	/* start recovery upon arbitration loss in single master mode */
-	if (i2c_dev->msg_err == I2C_ERR_ARBITRATION_LOST) {
-		if (!i2c_dev->multimaster_mode)
-			return i2c_recover_bus(&i2c_dev->adapter);
-
-		return -EAGAIN;
+	/* start recovery upon arbitration loss in single master mode.
+	 * Return the appropriate error otherwise
+	 */
+	switch (i2c_dev->msg_err) {
+	case I2C_ERR_ARBITRATION_LOST:
+		if (i2c_dev->multimaster_mode) {
+			ret = -EAGAIN;
+		} else {
+			ret = i2c_recover_bus(&i2c_dev->adapter);
+			if (ret && ret != -EAGAIN)
+				tegra_i2c_report_error_to_fsi(i2c_dev);
+		}
+		break;
+	case I2C_ERR_NO_ACK:
+		if (!(msg->flags & I2C_M_IGNORE_NAK))
+			ret = -EREMOTEIO;
+		break;
+	default:
+		ret = -EIO;
+		tegra_i2c_report_error_to_fsi(i2c_dev);
 	}
 
-	if (i2c_dev->msg_err == I2C_ERR_NO_ACK) {
-		if (msg->flags & I2C_M_IGNORE_NAK)
-			return 0;
-
-		return -EREMOTEIO;
-	}
-
-	return -EIO;
+	return ret;
 }
 
 static int tegra_i2c_xfer_msg(struct tegra_i2c_dev *i2c_dev,
@@ -1483,10 +1537,15 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_dev *i2c_dev,
 		return err;
 
 	i2c_dev->msg_buf = msg->buf;
+
+	/* The condition true implies smbus block read and len is already read */
+	if (msg->flags & I2C_M_RECV_LEN && end_state != MSG_END_CONTINUE)
+		i2c_dev->msg_buf = msg->buf + 1;
+
 	i2c_dev->msg_buf_remaining = msg->len;
-	i2c_dev->msg_err = I2C_ERR_NONE;
 	i2c_dev->msg_read = !!(msg->flags & I2C_M_RD);
 	reinit_completion(&i2c_dev->msg_complete);
+	tegra_i2c_clear_error(i2c_dev);
 
 	if (i2c_dev->msg_read)
 		xfer_size = msg->len;
@@ -1671,6 +1730,12 @@ static int tegra_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		}
 	}
 
+	if (i2c_dev->reinit_ctrl_before_xfer) {
+		ret = tegra_i2c_init(i2c_dev);
+		if (ret)
+			return ret;
+	}
+
 	if (adap->bus_clk_rate != i2c_dev->bus_clk_rate) {
 		i2c_dev->bus_clk_rate = adap->bus_clk_rate;
 		 tegra_i2c_change_clock_rate(i2c_dev);
@@ -1690,6 +1755,15 @@ static int tegra_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 				end_type = MSG_END_CONTINUE;
 			else
 				end_type = MSG_END_REPEAT_START;
+		}
+		/* If M_RECV_LEN use ContinueXfer to read the first byte */
+		if (msgs[i].flags & I2C_M_RECV_LEN) {
+			ret = tegra_i2c_xfer_msg(i2c_dev, &msgs[i], MSG_END_CONTINUE);
+			if (ret)
+				break;
+			/* Set the read byte as msg len */
+			msgs[i].len = msgs[i].buf[0];
+			dev_dbg(i2c_dev->dev, "reading %d bytes\n", msgs[i].len);
 		}
 		ret = tegra_i2c_xfer_msg(i2c_dev, &msgs[i], end_type);
 		if (ret)
@@ -1721,10 +1795,10 @@ static u32 tegra_i2c_func(struct i2c_adapter *adap)
 {
 	struct tegra_i2c_dev *i2c_dev = i2c_get_adapdata(adap);
 	u32 ret = I2C_FUNC_I2C | (I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK) |
-		  I2C_FUNC_10BIT_ADDR |	I2C_FUNC_PROTOCOL_MANGLING;
+		  I2C_FUNC_10BIT_ADDR | I2C_FUNC_PROTOCOL_MANGLING;
 
 	if (i2c_dev->hw->has_continue_xfer_support)
-		ret |= I2C_FUNC_NOSTART;
+		ret |= I2C_FUNC_NOSTART | I2C_FUNC_SMBUS_READ_BLOCK_DATA;
 
 	return ret;
 }
@@ -2065,9 +2139,14 @@ static void tegra_i2c_parse_dt(struct tegra_i2c_dev *i2c_dev)
 	if (!err)
 		i2c_dev->hs_master_code = prop;
 
+	err = of_property_read_u32(np, "nvidia,epl-reporter-id", &prop);
+	i2c_dev->epl_reporter_id = (err) ? 0 : prop;
+
 	i2c_dev->disable_dma_mode = !of_property_read_bool(np, "dmas");
 	i2c_dev->is_clkon_always = of_property_read_bool(np,
 			"nvidia,clock-always-on");
+	i2c_dev->reinit_ctrl_before_xfer = of_property_read_bool(np,
+			"nvidia,reinit-ctrl-before-xfer");
 }
 
 static int tegra_i2c_init_clocks(struct tegra_i2c_dev *i2c_dev)

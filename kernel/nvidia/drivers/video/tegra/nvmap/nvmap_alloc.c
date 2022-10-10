@@ -681,7 +681,8 @@ static void alloc_handle(struct nvmap_client *client,
 	unsigned int iovmm_mask = NVMAP_HEAP_IOVMM;
 	int ret;
 
-	BUG_ON(type & (type - 1));
+	/* type should only be non-zero and in power of 2. */
+	BUG_ON((!type) || (type & (type - 1)));
 
 	if (nvmap_convert_carveout_to_iovmm) {
 		carveout_mask &= ~NVMAP_HEAP_CARVEOUT_GENERIC;
@@ -749,13 +750,16 @@ static int alloc_handle_from_va(struct nvmap_client *client,
 	size_t nr_page = h->size >> PAGE_SHIFT;
 	struct page **pages;
 	int ret = 0;
+	struct mm_struct *mm = current->mm;
 
 	pages = nvmap_altalloc(nr_page * sizeof(*pages));
 	if (IS_ERR_OR_NULL(pages))
 		return PTR_ERR(pages);
 
+	nvmap_acquire_mmap_read_lock(mm);
 	ret = nvmap_get_user_pages(vaddr & PAGE_MASK, nr_page, pages, true,
 				(flags & NVMAP_HANDLE_RO) ? 0 : FOLL_WRITE);
+	nvmap_release_mmap_read_lock(mm);
 	if (ret) {
 		nvmap_altfree(pages, nr_page * sizeof(*pages));
 		return ret;
@@ -993,11 +997,12 @@ void _nvmap_handle_free(struct nvmap_handle *h)
 			void *addr = h->vaddr;
 
 			addr -= (h->carveout->base & ~PAGE_MASK);
-			iounmap(addr);
+			iounmap((void __iomem *)addr);
 		}
 
 		nvmap_heap_free(h->carveout);
 		nvmap_kmaps_dec(h);
+		h->carveout = NULL;
 		h->vaddr = NULL;
 		goto out;
 	} else {
@@ -1119,6 +1124,9 @@ void nvmap_free_handle_from_fd(struct nvmap_client *client,
 {
 	bool is_ro = is_nvmap_id_ro(client, id);
 	struct nvmap_handle *handle;
+	struct dma_buf *dmabuf = NULL;
+	int handle_ref = 0;
+	long dmabuf_ref = 0;
 
 	handle = nvmap_handle_get_from_id(client, id);
 	if (IS_ERR_OR_NULL(handle))
@@ -1129,4 +1137,13 @@ void nvmap_free_handle_from_fd(struct nvmap_client *client,
 
 	nvmap_free_handle(client, handle, is_ro);
 	nvmap_handle_put(handle);
+
+	if (handle) {
+		dmabuf = is_ro ? handle->dmabuf_ro : handle->dmabuf;
+		handle_ref = atomic_read(&handle->ref);
+		dmabuf_ref = dmabuf ? atomic_long_read(&dmabuf->file->f_count) : 0;
+	}
+
+	trace_refcount_free_handle(handle, dmabuf, handle_ref, dmabuf_ref,
+				   is_ro ? "RO" : "RW");
 }

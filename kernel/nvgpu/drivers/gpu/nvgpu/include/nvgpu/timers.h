@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 #define NVGPU_TIMERS_H
 
 #include <nvgpu/types.h>
+#include <nvgpu/bitops.h>
 #include <nvgpu/utils.h>
 
 #ifndef __KERNEL__
@@ -68,7 +69,7 @@ struct nvgpu_timeout {
 	 * Timeout duration/count.
 	 */
 	union {
-		s64		 time;
+		s64		 time_duration;
 		struct {
 			u32	 max_attempts;
 			u32	 attempted;
@@ -164,6 +165,24 @@ int nvgpu_timeout_init_flags(struct gk20a *g, struct nvgpu_timeout *timeout,
  * @param duration [in]	Timeout duration in milliseconds.
  */
 void nvgpu_timeout_init_cpu_timer(struct gk20a *g, struct nvgpu_timeout *timeout,
+		       u32 duration_ms);
+
+/**
+ * @brief Initialize a pure software timeout.
+ *
+ * Init a cpu clock based timeout with no pre-si override. See
+ * nvgpu_timeout_init_flags() and NVGPU_TIMER_CPU_TIMER for full explanation.
+ *
+ * This builds a timer that has the NVGPU_TIMER_NO_PRE_SI flag. Most often,
+ * hardware polling related loops are preferred to be infinite in presilicon
+ * simulation mode. That's not the case in some timers for only software logic,
+ * which this function is for.
+ *
+ * @param g [in]	GPU driver structure.
+ * @param timeout [in]	Timeout object to initialize.
+ * @param duration [in]	Timeout duration in milliseconds.
+ */
+void nvgpu_timeout_init_cpu_timer_sw(struct gk20a *g, struct nvgpu_timeout *timeout,
 		       u32 duration_ms);
 
 /**

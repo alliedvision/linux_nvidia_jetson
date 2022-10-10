@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-cec/tegra_cec.c
  *
- * Copyright (c) 2012-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -71,10 +71,6 @@ static u8 active_source_command[] = {
 	0x00
 };
 
-struct tegra_cec_soc {
-	int powergate_id;
-};
-
 static ssize_t cec_logical_addr_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
@@ -83,6 +79,25 @@ static ssize_t cec_logical_addr_show(struct device *dev,
 
 static DEVICE_ATTR(cec_logical_addr_config, S_IWUSR | S_IRUGO,
 		cec_logical_addr_show, cec_logical_addr_store);
+
+/* keeping this for debug support to track register read/writes */
+struct tegra_cec *tegra_cec_global;
+
+/* Try again in case of reset control failure */
+static int reset_retry_count = 5;
+
+static void tegra_cec_writel(u32 value, void __iomem *addr)
+{
+	/* TODO, for T23x, find out why this delay required */
+	if (tegra_cec_global->soc->cec_always_on)
+		mdelay(1);
+	writel(value, addr);
+}
+
+static u32 tegra_cec_readl(const void __iomem *addr)
+{
+	return readl(addr);
+}
 
 static int tegra_cec_open(struct inode *inode, struct file *file)
 {
@@ -113,19 +128,23 @@ static int tegra_cec_release(struct inode *inode, struct file *file)
 
 static inline void tegra_cec_native_tx(const struct tegra_cec *cec, u32 block)
 {
-	writel(block, cec->cec_base + TEGRA_CEC_TX_REGISTER);
-	writel(TEGRA_CEC_INT_STAT_TX_REGISTER_EMPTY,
+	tegra_cec_writel(block, cec->cec_base + TEGRA_CEC_TX_REGISTER);
+	tegra_cec_writel(TEGRA_CEC_INT_STAT_TX_REGISTER_EMPTY,
 		cec->cec_base + TEGRA_CEC_INT_STAT);
+
 }
 
 static inline void tegra_cec_error_recovery(struct tegra_cec *cec)
 {
 	u32 hw_ctrl;
 
-	hw_ctrl = readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
-	writel(0x0, cec->cec_base + TEGRA_CEC_HW_CONTROL);
-	writel(0xFFFFFFFF, cec->cec_base + TEGRA_CEC_INT_STAT);
-	writel(hw_ctrl, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	hw_ctrl = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	tegra_cec_writel(0x0, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	if (cec->soc->cec_always_on)
+		tegra_cec_writel(0xFFFFFFFE, cec->cec_base + TEGRA_CEC_INT_STAT);
+	else
+		tegra_cec_writel(0xFFFFFFFF, cec->cec_base + TEGRA_CEC_INT_STAT);
+	tegra_cec_writel(hw_ctrl, cec->cec_base + TEGRA_CEC_HW_CONTROL);
 }
 
 static
@@ -162,8 +181,8 @@ int tegra_cec_native_write_l(struct tegra_cec *cec, const u8 *buf, size_t cnt)
 		cec->tx_buf[i] = start | mode | eom | buf[i];
 	}
 
-	mask = readl(cec->cec_base + TEGRA_CEC_INT_MASK);
-	writel(mask | TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
+	mask = tegra_cec_readl(cec->cec_base + TEGRA_CEC_INT_MASK);
+	tegra_cec_writel(mask | TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
 		cec->cec_base + TEGRA_CEC_INT_MASK);
 
 	ret = wait_event_interruptible_timeout(cec->tx_waitq, cec->tx_wake == 1,
@@ -246,8 +265,8 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 	struct tegra_cec *cec = dev_get_drvdata(dev);
 	u32 status, mask;
 
-	status = readl(cec->cec_base + TEGRA_CEC_INT_STAT);
-	mask = readl(cec->cec_base + TEGRA_CEC_INT_MASK);
+	status = tegra_cec_readl(cec->cec_base + TEGRA_CEC_INT_STAT);
+	mask = tegra_cec_readl(cec->cec_base + TEGRA_CEC_INT_MASK);
 
 	status &= mask;
 
@@ -258,7 +277,7 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 		dev_err(dev, "TX underrun, interrupt timing issue!\n");
 
 		tegra_cec_error_recovery(cec);
-		writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
+		tegra_cec_writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
 			cec->cec_base + TEGRA_CEC_INT_MASK);
 
 		cec->tx_error = -EIO;
@@ -270,7 +289,7 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 	} else if ((status & TEGRA_CEC_INT_STAT_TX_ARBITRATION_FAILED) ||
 		   (status & TEGRA_CEC_INT_STAT_TX_BUS_ANOMALY_DETECTED)) {
 		tegra_cec_error_recovery(cec);
-		writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
+		tegra_cec_writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
 			cec->cec_base + TEGRA_CEC_INT_MASK);
 
 		cec->tx_error = -ECOMM;
@@ -280,7 +299,7 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 
 		goto out;
 	} else if (status & TEGRA_CEC_INT_STAT_TX_FRAME_TRANSMITTED) {
-		writel((TEGRA_CEC_INT_STAT_TX_FRAME_TRANSMITTED),
+		tegra_cec_writel((TEGRA_CEC_INT_STAT_TX_FRAME_TRANSMITTED),
 			cec->cec_base + TEGRA_CEC_INT_STAT);
 
 		if (status & TEGRA_CEC_INT_STAT_TX_FRAME_OR_BLOCK_NAKD) {
@@ -299,7 +318,7 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 
 	if (status & TEGRA_CEC_INT_STAT_TX_REGISTER_EMPTY) {
 		if (cec->tx_buf_cur == cec->tx_buf_cnt)
-			writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
+			tegra_cec_writel(mask & ~TEGRA_CEC_INT_MASK_TX_REGISTER_EMPTY,
 				cec->cec_base + TEGRA_CEC_INT_MASK);
 		else
 			tegra_cec_native_tx(cec,
@@ -310,13 +329,13 @@ static irqreturn_t tegra_cec_irq_handler(int irq, void *data)
 		TEGRA_CEC_INT_STAT_RX_BUS_ANOMALY_DETECTED |
 		TEGRA_CEC_INT_STAT_RX_START_BIT_DETECTED |
 		TEGRA_CEC_INT_STAT_RX_BUS_ERROR_DETECTED)) {
-		writel((TEGRA_CEC_INT_STAT_RX_REGISTER_OVERRUN |
+		tegra_cec_writel((TEGRA_CEC_INT_STAT_RX_REGISTER_OVERRUN |
 			TEGRA_CEC_INT_STAT_RX_BUS_ANOMALY_DETECTED |
 			TEGRA_CEC_INT_STAT_RX_START_BIT_DETECTED |
 			TEGRA_CEC_INT_STAT_RX_BUS_ERROR_DETECTED),
 			cec->cec_base + TEGRA_CEC_INT_STAT);
 	} else if (status & TEGRA_CEC_INT_STAT_RX_REGISTER_FULL) {
-		writel(TEGRA_CEC_INT_STAT_RX_REGISTER_FULL,
+		tegra_cec_writel(TEGRA_CEC_INT_STAT_RX_REGISTER_FULL,
 			cec->cec_base + TEGRA_CEC_INT_STAT);
 		cec->rx_buffer = readw(cec->cec_base + TEGRA_CEC_RX_REGISTER);
 		cec->rx_wake = 1;
@@ -332,9 +351,8 @@ static int tegra_cec_dump_registers(struct tegra_cec *cec)
 	int value, i;
 
 	dev_info(cec->dev, "base address = %llx\n", (u64)cec->cec_base);
-	for(i = 0; i <= TEGRA_CEC_HW_SPARE; i+=4)
-	{
-		value = readl(cec->cec_base + i);
+	for (i = 0; i <= cec->soc->offset; i += 4) {
+		value = tegra_cec_readl(cec->cec_base + i);
 		dev_info(cec->dev, "offset %08x: %08x\n", i, value);
 	}
 	return i;
@@ -344,6 +362,9 @@ static int tegra_cec_dump_registers(struct tegra_cec *cec)
 static int tegra_cec_unpowergate(struct tegra_cec *cec)
 {
 	int ret = 0;
+
+	if (cec->soc->cec_always_on)
+		return 0;
 
 	if (!tegra_dc_is_nvdisplay())
 		return 0;
@@ -361,6 +382,9 @@ static int tegra_cec_unpowergate(struct tegra_cec *cec)
 
 static void tegra_cec_powergate(struct tegra_cec *cec)
 {
+	if (cec->soc->cec_always_on)
+		return;
+
 	if (!tegra_dc_is_nvdisplay())
 		return;
 
@@ -377,10 +401,10 @@ static int tegra_cec_set_rx_snoop(struct tegra_cec *cec, u32 enable)
 
 	if (!atomic_read(&cec->init_done))
 		return -EAGAIN;
-	state = readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
 	if (((state & TEGRA_CEC_HWCTRL_RX_SNOOP) != 0) ^ (enable != 0)) {
 		state ^= TEGRA_CEC_HWCTRL_RX_SNOOP;
-		writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
 	}
 	return 0;
 }
@@ -476,17 +500,33 @@ static int tegra_cec_send_one_touch_play(struct tegra_cec *cec)
 {
 	int res = 0;
 	u8 phy_address[2] = {0};
+	u32 state = 0;
 
 	text_view_on_sent = true;
 
-	res = tegra_dc_get_source_physical_address(phy_address);
-	if (res) {
-		dev_notice(cec->dev, "Can't find physical addresse.\n");
-		return res;
+	if (cec->soc->use_tegra_dc) {
+		res = tegra_dc_get_source_physical_address(phy_address);
+		if (res) {
+			dev_notice(cec->dev, "Can't find physical address.\n");
+			return res;
+		}
+	} else {
+		/*
+		 * When tegradc is absent, UEFI suppose to write physical address
+		 * at register TEGRA_CEC_HW_SPARE.
+		 */
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_SPARE);
+		phy_address[0] = state & 0x000F;
+		phy_address[1] = state & 0x00F0;
 	}
 
 	dev_info(cec->dev, "physical address: %02x:%02x.\n",
 		phy_address[0], phy_address[1]);
+
+	if ((phy_address[0] == 0) && (phy_address[1] == 0)) {
+		dev_err(cec->dev, "Can't find physical address.\n");
+		return 0;
+	}
 
 	active_source_command[2] = phy_address[0];
 	active_source_command[3] = phy_address[1];
@@ -508,17 +548,18 @@ static int tegra_cec_send_one_touch_play(struct tegra_cec *cec)
 
 static void tegra_cec_init(struct tegra_cec *cec)
 {
+	u32 state;
 	cec->rx_wake = 0;
 	cec->tx_wake = 1;
 	cec->tx_buf_cnt = 0;
 	cec->tx_buf_cur = 0;
 	cec->tx_error = 0;
 
+	tegra_cec_global = cec;
 	dev_notice(cec->dev, "%s started\n", __func__);
 
-	writel(0x00, cec->cec_base + TEGRA_CEC_HW_CONTROL);
-	writel(0x00, cec->cec_base + TEGRA_CEC_INT_MASK);
-	writel(0xffffffff, cec->cec_base + TEGRA_CEC_INT_STAT);
+	tegra_cec_writel(0x00, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	tegra_cec_writel(0x00, cec->cec_base + TEGRA_CEC_INT_MASK);
 
 #ifdef CONFIG_PM
 	if (wait_event_interruptible_timeout(cec->suspend_waitq,
@@ -529,49 +570,87 @@ static void tegra_cec_init(struct tegra_cec *cec)
 	msleep(1000);
 #endif
 
-	writel(0x00, cec->cec_base + TEGRA_CEC_SW_CONTROL);
+	tegra_cec_writel(0x00, cec->cec_base + TEGRA_CEC_SW_CONTROL);
 
 	cec->logical_addr = TEGRA_CEC_HWCTRL_RX_LADDR_UNREG;
-	writel(TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr) |
-		TEGRA_CEC_HWCTRL_TX_NAK_MODE |
-		TEGRA_CEC_HWCTRL_TX_RX_MODE,
-		cec->cec_base + TEGRA_CEC_HW_CONTROL);
 
-	writel((1U << 31) | 0x20, cec->cec_base + TEGRA_CEC_INPUT_FILTER);
+	/* CEC initialization settings till T194 */
+	if (!cec->soc->cec_always_on) {
 
-	writel((0x7a << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MAX_LO_TIME_MASK) |
-	   (0x6d << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MIN_LO_TIME_MASK) |
-	   (0x93 << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MAX_DURATION_MASK) |
-	   (0x86 << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MIN_DURATION_MASK),
-	   cec->cec_base + TEGRA_CEC_RX_TIMING_0);
+		tegra_cec_writel(0xffffffff, cec->cec_base + TEGRA_CEC_INT_STAT);
 
-	writel((0x35 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_LO_TIME_MASK) |
-	   (0x21 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_SAMPLE_TIME_MASK) |
-	   (0x56 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_DURATION_MASK) |
-	   (0x40 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MIN_DURATION_MASK),
-	   cec->cec_base + TEGRA_CEC_RX_TIMING_1);
+		tegra_cec_writel(TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr) |
+			TEGRA_CEC_HWCTRL_TX_NAK_MODE |
+			TEGRA_CEC_HWCTRL_TX_RX_MODE,
+			cec->cec_base + TEGRA_CEC_HW_CONTROL);
 
-	writel((0x50 << TEGRA_CEC_RX_TIMING_2_RX_END_OF_BLOCK_TIME_MASK),
-	   cec->cec_base + TEGRA_CEC_RX_TIMING_2);
+		tegra_cec_writel((1U << 31) | 0x20, cec->cec_base + TEGRA_CEC_INPUT_FILTER);
 
-	writel((0x74 << TEGRA_CEC_TX_TIMING_0_TX_START_BIT_LO_TIME_MASK) |
-	   (0x8d << TEGRA_CEC_TX_TIMING_0_TX_START_BIT_DURATION_MASK) |
-	   (0x08 << TEGRA_CEC_TX_TIMING_0_TX_BUS_XITION_TIME_MASK) |
-	   (0x71 << TEGRA_CEC_TX_TIMING_0_TX_BUS_ERROR_LO_TIME_MASK),
-	   cec->cec_base + TEGRA_CEC_TX_TIMING_0);
+		tegra_cec_writel((0x7a << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MAX_LO_TIME_MASK) |
+		   (0x6d << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MIN_LO_TIME_MASK) |
+		   (0x93 << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MAX_DURATION_MASK) |
+		   (0x86 << TEGRA_CEC_RX_TIMING_0_RX_START_BIT_MIN_DURATION_MASK),
+		   cec->cec_base + TEGRA_CEC_RX_TIMING_0);
 
-	writel((0x2f << TEGRA_CEC_TX_TIMING_1_TX_LO_DATA_BIT_LO_TIME_MASK) |
-	   (0x13 << TEGRA_CEC_TX_TIMING_1_TX_HI_DATA_BIT_LO_TIME_MASK) |
-	   (0x4b << TEGRA_CEC_TX_TIMING_1_TX_DATA_BIT_DURATION_MASK) |
-	   (0x21 << TEGRA_CEC_TX_TIMING_1_TX_ACK_NAK_BIT_SAMPLE_TIME_MASK),
-	   cec->cec_base + TEGRA_CEC_TX_TIMING_1);
+		tegra_cec_writel((0x35 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_LO_TIME_MASK) |
+		   (0x21 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_SAMPLE_TIME_MASK) |
+		   (0x56 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_DURATION_MASK) |
+		   (0x40 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MIN_DURATION_MASK),
+		   cec->cec_base + TEGRA_CEC_RX_TIMING_1);
 
-	writel((0x07 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_ADDITIONAL_FRAME_MASK) |
-	   (0x05 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_NEW_FRAME_MASK) |
-	   (0x03 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_RETRY_FRAME_MASK),
-	   cec->cec_base + TEGRA_CEC_TX_TIMING_2);
+		tegra_cec_writel((0x50 << TEGRA_CEC_RX_TIMING_2_RX_END_OF_BLOCK_TIME_MASK),
+		   cec->cec_base + TEGRA_CEC_RX_TIMING_2);
 
-	writel(TEGRA_CEC_INT_MASK_TX_REGISTER_UNDERRUN |
+		tegra_cec_writel((0x74 << TEGRA_CEC_TX_TIMING_0_TX_START_BIT_LO_TIME_MASK) |
+		   (0x8d << TEGRA_CEC_TX_TIMING_0_TX_START_BIT_DURATION_MASK) |
+		   (0x08 << TEGRA_CEC_TX_TIMING_0_TX_BUS_XITION_TIME_MASK) |
+		   (0x71 << TEGRA_CEC_TX_TIMING_0_TX_BUS_ERROR_LO_TIME_MASK),
+		   cec->cec_base + TEGRA_CEC_TX_TIMING_0);
+
+		tegra_cec_writel((0x2f << TEGRA_CEC_TX_TIMING_1_TX_LO_DATA_BIT_LO_TIME_MASK) |
+		   (0x13 << TEGRA_CEC_TX_TIMING_1_TX_HI_DATA_BIT_LO_TIME_MASK) |
+		   (0x4b << TEGRA_CEC_TX_TIMING_1_TX_DATA_BIT_DURATION_MASK) |
+		   (0x21 << TEGRA_CEC_TX_TIMING_1_TX_ACK_NAK_BIT_SAMPLE_TIME_MASK),
+		   cec->cec_base + TEGRA_CEC_TX_TIMING_1);
+
+		tegra_cec_writel(
+		   (0x07 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_ADDITIONAL_FRAME_MASK) |
+		   (0x05 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_NEW_FRAME_MASK) |
+		   (0x03 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_RETRY_FRAME_MASK),
+		   cec->cec_base + TEGRA_CEC_TX_TIMING_2);
+
+	} else {
+
+		tegra_cec_writel(TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr),
+			cec->cec_base + TEGRA_CEC_HW_CONTROL);
+
+		tegra_cec_writel(0x1, cec->cec_base + TEGRA_CEC_MESSAGE_FILTER_CTRL);
+
+		state = (0xff << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_LO_TIME_MASK) |
+			(0x22 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_SAMPLE_TIME_MASK) |
+			(0xe0 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MAX_DURATION_MASK) |
+			(0x41 << TEGRA_CEC_RX_TIMING_1_RX_DATA_BIT_MIN_DURATION_MASK);
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_RX_TIMING_1);
+
+		state = (0x7 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_ADDITIONAL_FRAME_MASK) |
+			(0x1 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_NEW_FRAME_MASK) |
+			(0x3 << TEGRA_CEC_TX_TIMING_2_BUS_IDLE_TIME_RETRY_FRAME_MASK);
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_TX_TIMING_2);
+
+		/*
+		 * By default, keep RX buffer depth to 2 bytes like previous chips.
+		 * Value 1 = 2 bytes (1 fifo depth)
+		 * Value 0x40 = 128 bytes (64 fifo depth)
+		 */
+		tegra_cec_writel(0x1, cec->cec_base + TEGRA_CEC_RX_BUFFER_AFULL_CFG_0);
+
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		state |= TEGRA_CEC_HWCTRL_TX_RX_MODE;
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+
+	}
+
+	tegra_cec_writel(TEGRA_CEC_INT_MASK_TX_REGISTER_UNDERRUN |
 		TEGRA_CEC_INT_MASK_TX_FRAME_OR_BLOCK_NAKD |
 		TEGRA_CEC_INT_MASK_TX_ARBITRATION_FAILED |
 		TEGRA_CEC_INT_MASK_TX_BUS_ANOMALY_DETECTED |
@@ -629,10 +708,27 @@ static ssize_t cec_logical_addr_store(struct device *dev,
 
 	dev_info(dev, "set logical address: 0x%x\n", (u32)addr);
 	cec->logical_addr = addr;
-	state = readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
-	state &= ~TEGRA_CEC_HWCTRL_RX_LADDR_MASK;
-	state |= TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr);
-	writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+
+	if (cec->soc->cec_always_on) {
+		// clear TX_RX_MODE
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		state &= ~TEGRA_CEC_HWCTRL_TX_RX_MODE;
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		// write logical address
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		state &= ~TEGRA_CEC_HWCTRL_RX_LADDR_MASK;
+		state |= TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr);
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		// enable tx_rx mode
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		state |= TEGRA_CEC_HWCTRL_TX_RX_MODE;
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	} else {
+		state = tegra_cec_readl(cec->cec_base + TEGRA_CEC_HW_CONTROL);
+		state &= ~TEGRA_CEC_HWCTRL_RX_LADDR_MASK;
+		state |= TEGRA_CEC_HWCTRL_RX_LADDR(cec->logical_addr);
+		tegra_cec_writel(state, cec->cec_base + TEGRA_CEC_HW_CONTROL);
+	}
 
 	return count;
 }
@@ -643,6 +739,7 @@ static int tegra_cec_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *np = pdev->dev.of_node;
 	int ret = 0;
+	struct reset_control *rst = NULL;
 
 	cec = devm_kzalloc(&pdev->dev, sizeof(struct tegra_cec), GFP_KERNEL);
 
@@ -650,6 +747,24 @@ static int tegra_cec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	cec->soc = of_device_get_match_data(&pdev->dev);
+	if (cec->soc->cec_always_on && reset_retry_count != 0) {
+		rst = devm_reset_control_get(&pdev->dev, "cec");
+		if (IS_ERR(rst)) {
+			/* BPMP reset mechanism not available, return and retry again */
+			dev_info(&pdev->dev, "reset control is not found, deferring probe to retry again.\n");
+			devm_kfree(&pdev->dev, cec);
+			reset_retry_count--;
+			return -EPROBE_DEFER;
+		}
+
+		/* take CEC engine out of reset */
+		if (reset_control_reset(rst) != 0) {
+			dev_info(&pdev->dev, "reset control reset failed, deferring probe to retry again.\n");
+			devm_kfree(&pdev->dev, cec);
+			reset_retry_count--;
+			return -EPROBE_DEFER;
+		}
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
@@ -694,31 +809,35 @@ static int tegra_cec_probe(struct platform_device *pdev)
 	mutex_init(&cec->recovery_lock);
 	cec->dev = &pdev->dev;
 
+	if (!cec->soc->cec_always_on) {
+
 #if !defined(CONFIG_TEGRA_POWERGATE)
-	if (tegra_dc_is_nvdisplay())
-		pm_runtime_enable(&pdev->dev);
+		if (tegra_dc_is_nvdisplay())
+			pm_runtime_enable(&pdev->dev);
 #endif
 
-	ret = tegra_cec_unpowergate(cec);
-	if (IS_ERR(ERR_PTR(ret)))
-		goto clk_error;
-	dev_info(&pdev->dev, "Unpowergated DISP\n");
+		ret = tegra_cec_unpowergate(cec);
+		if (IS_ERR(ERR_PTR(ret)))
+			goto clk_error;
+		dev_info(&pdev->dev, "Unpowergated DISP\n");
 
-	if (tegra_dc_is_nvdisplay()) {
-		if (np)
-			cec->clk = of_clk_get_by_name(np, "cec");
-	} else {
-		cec->clk = clk_get(&pdev->dev, "cec");
+		if (tegra_dc_is_nvdisplay()) {
+			if (np)
+				cec->clk = of_clk_get_by_name(np, "cec");
+		} else {
+			cec->clk = clk_get(&pdev->dev, "cec");
+		}
+
+		if (IS_ERR_OR_NULL(cec->clk)) {
+			dev_err(&pdev->dev, "can't get clock for CEC\n");
+			ret = -ENOENT;
+			goto clk_error;
+		}
+
+		ret = clk_prepare_enable(cec->clk);
+		dev_info(&pdev->dev, "Enable clock result: %d.\n", ret);
+
 	}
-
-	if (IS_ERR_OR_NULL(cec->clk)) {
-		dev_err(&pdev->dev, "can't get clock for CEC\n");
-		ret = -ENOENT;
-		goto clk_error;
-	}
-
-	ret = clk_prepare_enable(cec->clk);
-	dev_info(&pdev->dev, "Enable clock result: %d.\n", ret);
 
 	/* set context info. */
 	init_waitqueue_head(&cec->rx_waitq);
@@ -783,9 +902,11 @@ static int tegra_cec_probe(struct platform_device *pdev)
 
 cec_error:
 	cancel_work_sync(&cec->work);
-	clk_disable(cec->clk);
-	clk_put(cec->clk);
-	tegra_cec_powergate(cec);
+	if (!cec->soc->cec_always_on) {
+		clk_disable(cec->clk);
+		clk_put(cec->clk);
+		tegra_cec_powergate(cec);
+	}
 clk_error:
 	return ret;
 }
@@ -794,13 +915,17 @@ static int tegra_cec_remove(struct platform_device *pdev)
 {
 	struct tegra_cec *cec = platform_get_drvdata(pdev);
 
-	clk_disable(cec->clk);
-	clk_put(cec->clk);
-	tegra_cec_powergate(cec);
+	if (!cec->soc->cec_always_on) {
+
+		clk_disable(cec->clk);
+		clk_put(cec->clk);
+		tegra_cec_powergate(cec);
 #if !defined(CONFIG_TEGRA_POWERGATE)
-	if (tegra_dc_is_nvdisplay())
-		pm_runtime_disable(&pdev->dev);
+		if (tegra_dc_is_nvdisplay())
+			pm_runtime_disable(&pdev->dev);
 #endif
+	}
+
 	misc_deregister(&cec->misc_dev);
 	cancel_work_sync(&cec->work);
 
@@ -823,8 +948,18 @@ static int tegra_cec_suspend(struct platform_device *pdev, pm_message_t state)
 	atomic_set(&cec->init_done, 0);
 	atomic_set(&cec->init_cancel, 0);
 
-	clk_disable(cec->clk);
-	tegra_cec_powergate(cec);
+	if (!cec->soc->cec_always_on) {
+		clk_disable(cec->clk);
+		tegra_cec_powergate(cec);
+	} else {
+		/*
+		 * TODO:
+		 * 1. Program TEGRA_CEC_RX_BUFFER_AFULL_CFG_0 for 0x40
+		 * 2. Program TEGRA_CEC_MESSAGE_FILTER_CTRL,
+		 *    TEGRA_CEC_RX_PHYSICAL_ADDR_0,
+		 *    TEGRA_CEC_RX_OPCODE_0/1/2/3/4.
+		 */
+	}
 
 	dev_notice(&pdev->dev, "suspended\n");
 	return 0;
@@ -836,8 +971,16 @@ static int tegra_cec_resume(struct platform_device *pdev)
 
 	dev_notice(&pdev->dev, "Resuming\n");
 
-	tegra_cec_unpowergate(cec);
-	clk_enable(cec->clk);
+	if (!cec->soc->cec_always_on) {
+		tegra_cec_unpowergate(cec);
+		clk_enable(cec->clk);
+	} else {
+		/* TODO:
+		 * 1. Read TEGRA_CEC_RX_BUFFER_STAT_0 value and read RX buffer data
+		 * 2. Configure TEGRA_CEC_RX_BUFFER_AFULL_CFG_0 back to 0x1.
+		 */
+	}
+
 	schedule_work(&cec->work);
 
 	return 0;
@@ -859,24 +1002,40 @@ static struct tegra_cec_soc tegra210_soc_data = {
 #if defined(CONFIG_TEGRA_POWERGATE)
 	.powergate_id = TEGRA210_POWER_DOMAIN_DISA,
 #endif
+	.offset = TEGRA_CEC_HW_SPARE,
+	.use_tegra_dc = true,
+	.cec_always_on = false,
 };
 
 static struct tegra_cec_soc tegra186_soc_data = {
 #if defined(CONFIG_TEGRA_POWERGATE)
 	.powergate_id = TEGRA186_POWER_DOMAIN_DISP,
 #endif
+	.offset = TEGRA_CEC_HW_SPARE,
+	.use_tegra_dc = true,
+	.cec_always_on = false,
 };
 
 static struct tegra_cec_soc tegra194_soc_data = {
 #if defined(CONFIG_TEGRA_POWERGATE)
 	.powergate_id = TEGRA194_POWER_DOMAIN_DISP,
 #endif
+	.offset = TEGRA_CEC_HW_SPARE,
+	.use_tegra_dc = true,
+	.cec_always_on = false,
+};
+
+static struct tegra_cec_soc tegra234_soc_data = {
+	.offset = TEGRA_CEC_RX_OPCODE_4,
+	.use_tegra_dc = false,
+	.cec_always_on = true,
 };
 
 static struct of_device_id tegra_cec_of_match[] = {
 	{ .compatible = "nvidia,tegra210-cec", .data = &tegra210_soc_data },
 	{ .compatible = "nvidia,tegra186-cec", .data = &tegra186_soc_data },
 	{ .compatible = "nvidia,tegra194-cec", .data = &tegra194_soc_data },
+	{ .compatible = "nvidia,tegra234-cec", .data = &tegra234_soc_data },
 	{},
 };
 

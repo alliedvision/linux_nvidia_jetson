@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,8 @@ static void pmgr_pmucmdhandler(struct gk20a *g, struct pmu_msg *msg,
 {
 	struct pmgr_pmucmdhandler_params *phandlerparams =
 		(struct pmgr_pmucmdhandler_params *)param;
+
+	(void)status;
 
 	if ((msg->msg.pmgr.msg_type != NV_PMU_PMGR_MSG_ID_SET_OBJECT) &&
 		(msg->msg.pmgr.msg_type != NV_PMU_PMGR_MSG_ID_QUERY) &&
@@ -459,7 +461,7 @@ exit:
 
 static int pmgr_pmu_load_blocking(struct gk20a *g)
 {
-	struct pmu_cmd cmd = { {0} };
+	struct pmu_cmd cmd = { };
 	struct nv_pmu_pmgr_cmd_load *pcmd;
 	int status;
 	struct pmgr_pmucmdhandler_params handlerparams = {0};

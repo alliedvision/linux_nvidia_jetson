@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -59,10 +59,10 @@ void nvgpu_read_support_gpu_tools(struct gk20a *g)
 	np = nvgpu_get_node(g);
 	ret = of_property_read_u32(np, "support-gpu-tools", &val);
 	if (ret != 0) {
-		nvgpu_info(g, "Missing support-gpu-tools property, ret =%d", ret);
 		/* The debugger/profiler support should be enabled by default.
 		 * So, set support_gpu_tools to 1 even if the property is missing. */
 		g->support_gpu_tools = 1;
+		nvgpu_log_info(g, "GPU tools support enabled by default");
 	} else {
 		if (val != 0U) {
 			g->support_gpu_tools = 1;
@@ -89,7 +89,6 @@ static void nvgpu_init_vars(struct gk20a *g)
 
 	nvgpu_mutex_init(&platform->railgate_lock);
 	nvgpu_mutex_init(&g->dbg_sessions_lock);
-	nvgpu_mutex_init(&g->client_lock);
 	nvgpu_mutex_init(&g->power_lock);
 	nvgpu_mutex_init(&g->static_pg_lock);
 	nvgpu_mutex_init(&g->clk_arb_enable_lock);
@@ -153,12 +152,14 @@ static void nvgpu_init_timeout(struct gk20a *g)
 
 	if (nvgpu_platform_is_silicon(g)) {
 		g->poll_timeout_default = NVGPU_DEFAULT_POLL_TIMEOUT_MS;
+		g->ch_wdt_init_limit_ms = platform->ch_wdt_init_limit_ms;
 	} else if (nvgpu_platform_is_fpga(g)) {
 		g->poll_timeout_default = NVGPU_DEFAULT_FPGA_TIMEOUT_MS;
+		g->ch_wdt_init_limit_ms = 100U * platform->ch_wdt_init_limit_ms;
 	} else {
 		g->poll_timeout_default = (u32)ULONG_MAX;
+		g->ch_wdt_init_limit_ms = 100U * platform->ch_wdt_init_limit_ms;
 	}
-	g->ch_wdt_init_limit_ms = platform->ch_wdt_init_limit_ms;
 	g->ctxsw_timeout_period_ms = CTXSW_TIMEOUT_PERIOD_MS;
 }
 
@@ -216,9 +217,15 @@ static void nvgpu_init_pm_vars(struct gk20a *g)
 	if (nvgpu_is_hypervisor_mode(g)) {
 		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
 		platform->can_railgate_init = false;
+		/* Disable frequency scaling for hypervisor platforms */
+		platform->devfreq_governor = NULL;
+		platform->qos_notify = NULL;
 	} else {
+		/* Always enable railgating on simulation platform */
+		platform->can_railgate_init = nvgpu_platform_is_simulation(g) ?
+			true : platform->can_railgate_init;
 		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE,
-			nvgpu_platform_is_simulation(g) ? true : platform->can_railgate_init);
+				platform->can_railgate_init);
 	}
 #ifdef CONFIG_NVGPU_STATIC_POWERGATE
 	g->can_tpc_pg = platform->can_tpc_pg;

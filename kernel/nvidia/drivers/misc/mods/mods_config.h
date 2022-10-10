@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * mods_config.h - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -24,8 +24,8 @@
 #define MODS_KERNEL_VERSION LINUX_VERSION_CODE
 
 #if KERNEL_VERSION(2, 6, 30) <= MODS_KERNEL_VERSION && \
-		KERNEL_VERSION(4, 16, 0) > MODS_KERNEL_VERSION && \
-		defined(CONFIG_X86)
+	KERNEL_VERSION(4, 16, 0) > MODS_KERNEL_VERSION && \
+	defined(CONFIG_X86)
 #       define MODS_HAS_DMA_OPS 1
 #endif
 
@@ -65,7 +65,7 @@
 #endif
 
 #if KERNEL_VERSION(3, 16, 0) <= MODS_KERNEL_VERSION && \
-		defined(CONFIG_VT_HW_CONSOLE_BINDING)
+	defined(CONFIG_VT_HW_CONSOLE_BINDING)
 #       define MODS_HAS_CONSOLE_BINDING 1
 #endif
 
@@ -74,8 +74,8 @@
 #endif
 
 #if KERNEL_VERSION(4, 12, 0) <= MODS_KERNEL_VERSION && \
-		KERNEL_VERSION(4, 13, 0) > MODS_KERNEL_VERSION && \
-		defined(CONFIG_X86)
+	KERNEL_VERSION(4, 13, 0) > MODS_KERNEL_VERSION && \
+	defined(CONFIG_X86)
 #       define MODS_HAS_ASM_SET_MEMORY_HEADER 1
 #endif
 
@@ -88,6 +88,10 @@
 #       define MODS_HAS_KERNEL_WRITE
 #endif
 
+#if KERNEL_VERSION(4, 16, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_POLL_T 1
+#endif
+
 #if KERNEL_VERSION(4, 17, 0) <= MODS_KERNEL_VERSION
 #       define MODS_PCIE_FLR_HAS_ERR
 #endif
@@ -98,6 +102,10 @@
 
 #if defined(CONFIG_ARCH_TEGRA)
 #       define MODS_HAS_TEGRA 1
+#endif
+
+#if defined(MODS_HAS_TEGRA) && KERNEL_VERSION(5, 1, 0) <= MODS_KERNEL_VERSION
+#       define MODS_ENABLE_BPMP_MRQ_API 1
 #endif
 
 #endif /* _MODS_CONFIG_H_  */

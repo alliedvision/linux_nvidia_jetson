@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #include <nvgpu/gr/config.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/utils.h>
 
 #include "perf_gv11b.h"
 
@@ -97,6 +98,12 @@ void gv11b_perf_bind_mem_bytes_buffer_addr(struct gk20a *g, u64 buf_addr)
 {
 	u32 addr_lo;
 
+	/*
+	 * For mem bytes addr, the upper 8 bits of the 40bit VA is taken
+	 * from perf_pmasys_channel_outbaseupper_r(), so only consider
+	 * the lower 32bits in the buf_addr and discard the rest.
+	 */
+	buf_addr = u64_lo32(buf_addr);
 	buf_addr = buf_addr >> perf_pmasys_mem_bytes_addr_ptr_b();
 	addr_lo = nvgpu_safe_cast_u64_to_u32(buf_addr);
 
@@ -111,7 +118,7 @@ int gv11b_perf_update_get_put(struct gk20a *g, u64 bytes_consumed,
 	u32 val;
 
 	if (bytes_consumed != 0U) {
-		nvgpu_writel(g, perf_pmasys_mem_bump_r(), bytes_consumed);
+		nvgpu_writel(g, perf_pmasys_mem_bump_r(), (u32)bytes_consumed);
 	}
 
 	if (update_available_bytes) {

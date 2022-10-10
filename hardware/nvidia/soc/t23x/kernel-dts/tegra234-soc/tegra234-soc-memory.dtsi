@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,8 +40,10 @@
 		};
 
 		ramoops_reserved: ramoops_carveout {
-			compatible = "nvidia,ramoops";
+			compatible = "ramoops";
 			size = <0x0 0x200000>;
+			record-size = <0x00010000>;
+			console-size = <0x00080000>;
 			alignment = <0x0 0x10000>;
 			alloc-ranges = <0x0 0x0 0x1 0x0>;
 			no-map;
@@ -54,13 +56,10 @@
 			no-map;
 			alloc-ranges = <0x0 0x0 0x1 0x0>;
 			status = "okay";
-                };
+		};
 
 		vpr: vpr-carveout {
 			compatible = "nvidia,vpr-carveout";
-			size = <0 0x2a000000>;
-			alignment = <0 0x400000>;
-			alloc-ranges = <0x0 0x80000000 0x0 0x70000000>;
 			status = "disabled";
 		};
 
@@ -82,7 +81,7 @@
 		 * once it finds Zero size "memory-region". Hence keep non zero sized
 		 * "memory-region" before the zero sized ones.
 		 */
-		memory-region = <&fsi_reserved &generic_reserved &gos_reserved>;
+		memory-region = <&fsi_reserved &generic_reserved &vpr>;
 		status = "okay";
 	};
 
@@ -97,6 +96,34 @@
 		l3-gpu-only-ways = <0>;
 		l3-total-ways = <16>;
 		l3-size = /bits/ 64 <0x0000000000400000>; /* 4 MB */
+		status = "disabled";
+	};
+
+	mc-hwpm {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "nvidia,tegra-t23x-mc-hwpm";
+		reg-ranges = <1>;
+		reg	   = <0x0 0x2c10000 0x0 0x10000   /* MCB */
+			      0x0 0x2c20000 0x0 0x10000   /* MC0 */
+			      0x0 0x2c30000 0x0 0x10000   /* MC1 */
+			      0x0 0x2c40000 0x0 0x10000   /* MC2 */
+			      0x0 0x2c50000 0x0 0x10000   /* MC3 */
+			      0x0 0x2b80000 0x0 0x10000   /* MC4 */
+			      0x0 0x2b90000 0x0 0x10000   /* MC5 */
+			      0x0 0x2ba0000 0x0 0x10000   /* MC6 */
+			      0x0 0x2bb0000 0x0 0x10000   /* MC7 */
+			      0x0 0x1700000 0x0 0x10000   /* MC8 */
+			      0x0 0x1710000 0x0 0x10000   /* MC9 */
+			      0x0 0x1720000 0x0 0x10000   /* MC10 */
+			      0x0 0x1730000 0x0 0x10000   /* MC11 */
+			      0x0 0x1740000 0x0 0x10000   /* MC12 */
+			      0x0 0x1750000 0x0 0x10000   /* MC13 */
+			      0x0 0x1760000 0x0 0x10000   /* MC14 */
+			      0x0 0x1770000 0x0 0x10000>; /* MC15 */
+
+		channels   = <16>;
+		ranges;
 		status = "disabled";
 	};
 

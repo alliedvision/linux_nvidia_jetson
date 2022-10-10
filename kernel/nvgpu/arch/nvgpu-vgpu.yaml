@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
 #
 # vGPU architecture: currently there hasn't been much work done on
 # decomposing the vGPU architecture so all of the vGPU files are simply
@@ -74,7 +74,6 @@ all:
              include/nvgpu/vgpu/tegra_vgpu.h,
              include/nvgpu/vgpu/vgpu.h,
              include/nvgpu/vgpu/vgpu_ivc.h,
-             include/nvgpu/vgpu/vgpu_ivm.h,
              include/nvgpu/vgpu/ce_vgpu.h,
              include/nvgpu/vgpu/vm_vgpu.h,
              include/nvgpu/vgpu/os_init_hal_vgpu.h ]

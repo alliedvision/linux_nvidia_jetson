@@ -1,7 +1,7 @@
 /*
  * Color decompression engine support
  *
- * Copyright (c) 2014-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -423,9 +423,9 @@ static int gk20a_cde_patch_params(struct gk20a_cde_ctx *cde_ctx)
 			new_data = cbc->comptags_per_cacheline;
 			break;
 		case TYPE_PARAM_GPU_CONFIGURATION:
-			new_data = (u64) (nvgpu_ltc_get_ltc_count(g) *
+			new_data = (u64)nvgpu_ltc_get_ltc_count(g) *
 					nvgpu_ltc_get_slices_per_ltc(g) *
-					nvgpu_ltc_get_cacheline_size(g));
+					nvgpu_ltc_get_cacheline_size(g);
 			break;
 		case TYPE_PARAM_FIRSTPAGEOFFSET:
 			new_data = cde_ctx->surf_param_offset;
@@ -936,7 +936,7 @@ __acquires(&cde_app->mutex)
 	struct gk20a_cde_ctx *cde_ctx = NULL;
 	struct nvgpu_timeout timeout;
 
-	nvgpu_timeout_init_cpu_timer(g, &timeout, MAX_CTX_RETRY_TIME);
+	nvgpu_timeout_init_cpu_timer_sw(g, &timeout, MAX_CTX_RETRY_TIME);
 
 	do {
 		cde_ctx = gk20a_cde_do_get_context(l);
@@ -1042,9 +1042,6 @@ __releases(&l->cde_app->mutex)
 	const s16 compbits_kind = 0;
 	u32 submit_op;
 	struct dma_buf_attachment *attachment;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 
 	nvgpu_log(g, gpu_dbg_cde, "compbits_byte_offset=%llu scatterbuffer_byte_offset=%llu",
 		  compbits_byte_offset, scatterbuffer_byte_offset);
@@ -1135,12 +1132,7 @@ __releases(&l->cde_app->mutex)
 		struct sg_table *sgt;
 		void *scatter_buffer;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		err = dma_buf_vmap(compbits_scatter_buf, &map);
-		surface = err ? NULL : map.vaddr;
-#else
-		surface = dma_buf_vmap(compbits_scatter_buf);
-#endif
+		surface = gk20a_dmabuf_vmap(compbits_scatter_buf);
 		if (!surface) {
 			nvgpu_warn(g, "dma_buf_vmap failed");
 			err = -EINVAL;
@@ -1189,11 +1181,7 @@ __releases(&l->cde_app->mutex)
 				goto exit_unmap_surface;
 		}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		dma_buf_vunmap(compbits_scatter_buf, &map);
-#else
-		dma_buf_vunmap(compbits_scatter_buf, surface);
-#endif
+		gk20a_dmabuf_vunmap(compbits_scatter_buf, surface);
 		surface = NULL;
 	}
 
@@ -1282,13 +1270,8 @@ __releases(&l->cde_app->mutex)
 	return err;
 
 exit_unmap_surface:
-	if (surface) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		dma_buf_vunmap(compbits_scatter_buf, &map);
-#else
-		dma_buf_vunmap(compbits_scatter_buf, surface);
-#endif
-	}
+	if (surface)
+		gk20a_dmabuf_vunmap(compbits_scatter_buf, surface);
 exit_unmap_vaddr:
 	nvgpu_vm_unmap(cde_ctx->vm, map_vaddr, NULL);
 exit_idle:

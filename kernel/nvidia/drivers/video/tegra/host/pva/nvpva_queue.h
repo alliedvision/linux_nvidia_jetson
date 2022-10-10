@@ -73,6 +73,7 @@ struct nvpva_queue {
 	struct nvhost_channel *channel;
 	struct platform_device *vm_pdev;
 	u32 syncpt_id;
+	atomic_t syncpt_maxval;
 
 	size_t task_dma_size;
 	size_t task_kmem_size;

@@ -26,13 +26,13 @@
 MODULE_IMPORT_NS(DMA_BUF);
 #endif
 
-static unsigned int __sgt_dma_count_chunks(struct sg_table *sgt)
+static unsigned int sg_dma_count_chunks(struct scatterlist *sgl, unsigned int nents)
 {
 	dma_addr_t next = ~(dma_addr_t)0;
 	unsigned int count = 0, i;
 	struct scatterlist *s;
 
-	for_each_sg(sgt->sgl, s, sgt->nents, i) {
+	for_each_sg(sgl, s, nents, i) {
 		/* sg_dma_address(s) is only valid for entries that have sg_dma_len(s) != 0. */
 		if (!sg_dma_len(s))
 			continue;
@@ -44,6 +44,11 @@ static unsigned int __sgt_dma_count_chunks(struct sg_table *sgt)
 	}
 
 	return count;
+}
+
+static inline unsigned int sgt_dma_count_chunks(struct sg_table *sgt)
+{
+	return sg_dma_count_chunks(sgt->sgl, sgt->nents);
 }
 
 static void tegra_bo_put(struct host1x_bo *bo)
@@ -89,7 +94,7 @@ static struct host1x_bo_mapping *tegra_bo_pin(struct device *dev, struct host1x_
 			goto free;
 		}
 
-		err = __sgt_dma_count_chunks(map->sgt);
+		err = sgt_dma_count_chunks(map->sgt);
 		map->size = gem->size;
 
 		goto out;
@@ -172,10 +177,12 @@ static void tegra_bo_unpin(struct host1x_bo_mapping *map)
 static void *tegra_bo_mmap(struct host1x_bo *bo)
 {
 	struct tegra_bo *obj = host1x_to_tegra_bo(bo);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
 	struct dma_buf_map map;
-	int ret;
 #endif
+	int ret;
 
 	if (obj->vaddr) {
 		return obj->vaddr;
@@ -195,7 +202,9 @@ static void *tegra_bo_mmap(struct host1x_bo *bo)
 static void tegra_bo_munmap(struct host1x_bo *bo, void *addr)
 {
 	struct tegra_bo *obj = host1x_to_tegra_bo(bo);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map = IOSYS_MAP_INIT_VADDR(addr);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
 	struct dma_buf_map map = DMA_BUF_MAP_INIT_VADDR(addr);
 #endif
 
@@ -487,7 +496,6 @@ static struct tegra_bo *tegra_bo_import(struct drm_device *drm,
 	}
 
 	bo->gem.import_attach = attach;
-	bo->gem.resv = buf->resv;
 
 	return bo;
 
@@ -714,7 +722,21 @@ static int tegra_gem_prime_mmap(struct dma_buf *buf, struct vm_area_struct *vma)
 	return __tegra_gem_mmap(gem, vma);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+static int tegra_gem_prime_vmap(struct dma_buf *buf, struct iosys_map *map)
+{
+	struct drm_gem_object *gem = buf->priv;
+	struct tegra_bo *bo = to_tegra_bo(gem);
+
+	iosys_map_set_vaddr(map, bo->vaddr);
+
+	return 0;
+}
+
+static void tegra_gem_prime_vunmap(struct dma_buf *buf, struct iosys_map *map)
+{
+}
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
 static int tegra_gem_prime_vmap(struct dma_buf *buf, struct dma_buf_map *map)
 {
 	struct drm_gem_object *gem = buf->priv;
@@ -764,7 +786,6 @@ struct dma_buf *tegra_gem_prime_export(struct drm_gem_object *gem,
 	exp_info.size = gem->size;
 	exp_info.flags = flags;
 	exp_info.priv = gem;
-	exp_info.resv = gem->resv;
 
 	return drm_gem_dmabuf_export(gem->dev, &exp_info);
 }
@@ -788,4 +809,17 @@ struct drm_gem_object *tegra_gem_prime_import(struct drm_device *drm,
 		return ERR_CAST(bo);
 
 	return &bo->gem;
+}
+
+struct host1x_bo *tegra_gem_lookup(struct drm_file *file, u32 handle)
+{
+	struct drm_gem_object *gem;
+	struct tegra_bo *bo;
+
+	gem = drm_gem_object_lookup(file, handle);
+	if (!gem)
+		return NULL;
+
+	bo = to_tegra_bo(gem);
+	return &bo->base;
 }

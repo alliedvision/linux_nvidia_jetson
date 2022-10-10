@@ -73,7 +73,12 @@ struct tegra_drm_client;
 struct tegra_drm_context {
 	struct tegra_drm_client *client;
 	struct host1x_channel *channel;
+
+	/* Only used by legacy UAPI. */
 	unsigned int id;
+
+	/* Only used by new UAPI. */
+	struct xarray mappings;
 };
 
 struct tegra_drm_client_ops {
@@ -95,13 +100,11 @@ struct tegra_drm_client {
 	struct host1x_client base;
 	struct list_head list;
 	struct tegra_drm *drm;
+	struct host1x_channel *shared_channel;
 
 	/* Set by driver */
 	unsigned int version;
 	const struct tegra_drm_client_ops *ops;
-
-	/* Set by TegraDRM core */
-	struct host1x_channel *shared_channel;
 };
 
 static inline struct tegra_drm_client *

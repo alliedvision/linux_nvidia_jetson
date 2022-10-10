@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,7 @@
  * @brief AXI Clock defines
  * @{
  */
-#define MGBE_AXI_CLK_FREQ	408000000U
+#define MGBE_AXI_CLK_FREQ	480000000U
 /** @} */
 
 /**
@@ -94,7 +94,6 @@
 #define MGBE_DMA_CHX_RBSZ_MASK			0x7FFEU
 #define MGBE_DMA_CHX_RBSZ_SHIFT			1U
 #define MGBE_AXI_BUS_WIDTH			0x10U
-#define MGBE_GLOBAL_DMA_STATUS			0x8700U
 #define MGBE_DMA_CHX_CTRL_PBLX8			OSI_BIT(16)
 #define MGBE_DMA_CHX_INTR_TIE			OSI_BIT(0)
 #define MGBE_DMA_CHX_INTR_TBUE			OSI_BIT(2)

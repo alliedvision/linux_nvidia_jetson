@@ -39,12 +39,11 @@ endif #CONFIG_ARCH_TEGRA_19x_SOC or CONFIG_ARCH_TEGRA_194_SOC
 
 KASAN_SANITIZE_nvmap_kasan_wrapper.o := n
 
-ifneq ($(findstring stable,$(NV_BUILD_KERNEL_OPTIONS)),)
-# Kernel is kstable
+ifeq ($(NVMAP_CONFIG_LOADABLE_MODULE), y)
 nvmap-y += nvmap_cache_maint.o
 obj-m += nvmap.o
 else
-# Kernel is not kstable
+# Not a loadable module
 obj-y += nvmap.o
-endif #stable
+endif #NVMAP_CONFIG_LOADABLE_MODULE
 endif #NVMAP_CONFIG

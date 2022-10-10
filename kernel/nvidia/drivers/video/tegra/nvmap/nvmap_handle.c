@@ -3,7 +3,7 @@
  *
  * Handle allocation and freeing routines for nvmap
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -171,14 +171,18 @@ struct nvmap_handle_ref *nvmap_create_handle_from_va(struct nvmap_client *client
 	struct vm_area_struct *vma;
 	struct nvmap_handle_ref *ref;
 	vm_flags_t vm_flags;
+	struct mm_struct *mm = current->mm;
 
 	/* don't allow non-page aligned addresses. */
 	if (vaddr & ~PAGE_MASK)
 		return ERR_PTR(-EINVAL);
 
-	vma = find_vma(current->mm, vaddr);
-	if (unlikely(!vma))
+	nvmap_acquire_mmap_read_lock(mm);
+	vma = find_vma(mm, vaddr);
+	if (unlikely(!vma)) {
+		nvmap_release_mmap_read_lock(mm);
 		return ERR_PTR(-EINVAL);
+	}
 
 	if (!size)
 		size = vma->vm_end - vaddr;
@@ -186,10 +190,13 @@ struct nvmap_handle_ref *nvmap_create_handle_from_va(struct nvmap_client *client
 	/* Don't allow exuberantly large sizes. */
 	if (!is_nvmap_memory_available(size, NVMAP_HEAP_IOVMM)) {
 		pr_debug("Cannot allocate %zu bytes.\n", size);
+		nvmap_release_mmap_read_lock(mm);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	vm_flags = vma->vm_flags;
+	nvmap_release_mmap_read_lock(mm);
+
 	/*
 	 * If buffer is malloc/mprotect as RO but alloc flag is not passed
 	 * as RO, don't create handle.
@@ -406,7 +413,7 @@ out:
 }
 
 struct nvmap_handle_ref *nvmap_create_handle_from_id(
-			struct nvmap_client *client, int id)
+			struct nvmap_client *client, u32 id)
 {
 	struct nvmap_handle *handle;
 	struct nvmap_handle_ref *ref;

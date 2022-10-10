@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -228,7 +228,6 @@
 	 * all the properties related to ISO-SMMU are deleted.
 	 * TEGRA_IOMMU_DT_VERSION supports multiple SMMU instances.
 	 */
-#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 	iommu@12000000 {
 		/delete-property/ stream-match-mask;
 	};
@@ -240,16 +239,6 @@
 	iommu@8000000 {
 		/delete-property/ stream-match-mask;
 	};
-#else
-	iommu@12000000 {
-		reg = <0x0 0x12000000 0x0 0x01000000>, /* SMMU0 16MB */
-			<0x0 0x11000000 0x0 0x01000000>, /* SMMU1 16MB */
-			<0x0 0x7000000 0x0 0x1000000>, /* SMMU3 16MB */
-			<0x0 0x8000000 0x0 0x1000000>; /* SMMU4 16MB */
-		/delete-property/ iso-smmu-id;
-		/delete-property/ stream-match-mask;
-	};
-#endif
 
 	smmu_suspend {
 		status = "disabled";
@@ -337,31 +326,31 @@
 		status = "disabled";
 	};
 
-	cbb-en@1300000 {
+	cbb-fabric@1300000 {
 		status = "disabled";
 	};
 
-	aon-en@C600000 {
+	aon-fabric@C600000 {
 		status = "disabled";
 	};
 
-	bpmp-en@D600000 {
+	bpmp-fabric@D600000 {
 		status = "disabled";
 	};
 
-	dce-en@BE00000 {
+	dce-fabric@BE00000 {
 		status = "disabled";
 	};
 
-	rce-en@BE00000 {
+	rce-fabric@BE00000 {
 		status = "disabled";
 	};
 
-	sce-en@B600000 {
+	sce-fabric@B600000 {
 		status = "disabled";
 	};
 
-	cv-en@14040000 {
+	cv-fabric@14040000 {
 		status = "disabled";
 	};
 
@@ -370,6 +359,10 @@
 	  owns cpufreq)DT, cpufreq DT node will be enabled explicitly.
 	*/
 	cpufreq {
+		status = "disabled";
+	};
+
+	ccplex@e000000 {
 		status = "disabled";
 	};
 

@@ -1,7 +1,7 @@
 /*
  * imx219_tables.h - sensor mode tables for imx219 HDR sensor.
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION, All Rights Reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION & AFFILIATES.All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,9 +36,9 @@ static imx219_reg imx219_stop_stream[] = {
 };
 
 static imx219_reg imx219_mode_common[] = {
-	{IMX219_TABLE_WAIT_MS, 10},
 	/* software reset */
 	{0x0103, 0x01},
+	{IMX219_TABLE_WAIT_MS, 10},
 	/* sensor config */
 	{0x0114, 0x01}, /* D-Phy, 2-lane */
 	{0x0128, 0x00},

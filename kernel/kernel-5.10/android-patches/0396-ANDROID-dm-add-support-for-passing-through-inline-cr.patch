@@ -1,0 +1,362 @@
+From 4ea8593a558fde608b5892aa515c9335348a4b6d Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Tue, 21 Jan 2020 09:27:43 -0800
+Subject: [PATCH 396/830] ANDROID: dm: add support for passing through inline
+ crypto support
+X-NVConfidentiality: public
+
+Update the device-mapper core to support exposing the inline crypto
+support of the underlying device(s) through the device-mapper device.
+
+This works by creating a "passthrough keyslot manager" for the dm
+device, which declares support for encryption settings which all
+underlying devices support.  When a supported setting is used, the bio
+cloning code handles cloning the crypto context to the bios for all the
+underlying devices.  When an unsupported setting is used, the blk-crypto
+fallback is used as usual.
+
+Crypto support on each underlying device is ignored unless the
+corresponding dm target opts into exposing it.  This is needed because
+for inline crypto to semantically operate on the original bio, the data
+must not be transformed by the dm target.  Thus, targets like dm-linear
+can expose crypto support of the underlying device, but targets like
+dm-crypt can't.  (dm-crypt could use inline crypto itself, though.)
+
+When a key is evicted from the dm device, it is evicted from all
+underlying devices.
+
+Bug: 137270441
+Bug: 147814592
+Bug: 162257830
+Change-Id: If28b574f2e28268db5eb9f325d4cf8f96cb63e3f
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ block/keyslot-manager.c         | 34 ++++++++++++
+ drivers/md/dm-core.h            |  4 ++
+ drivers/md/dm-table.c           | 52 +++++++++++++++++++
+ drivers/md/dm.c                 | 92 ++++++++++++++++++++++++++++++++-
+ include/linux/device-mapper.h   |  6 +++
+ include/linux/keyslot-manager.h |  7 +++
+ 6 files changed, 194 insertions(+), 1 deletion(-)
+
+diff --git a/block/keyslot-manager.c b/block/keyslot-manager.c
+index ec5e10fff242..80556bae1458 100644
+--- a/block/keyslot-manager.c
++++ b/block/keyslot-manager.c
+@@ -423,6 +423,40 @@ void blk_ksm_unregister(struct request_queue *q)
+ {
+ 	q->ksm = NULL;
+ }
++EXPORT_SYMBOL_GPL(blk_ksm_unregister);
++
++/**
++ * blk_ksm_intersect_modes() - restrict supported modes by child device
++ * @parent: The keyslot manager for parent device
++ * @child: The keyslot manager for child device, or NULL
++ *
++ * Clear any crypto mode support bits in @parent that aren't set in @child.
++ * If @child is NULL, then all parent bits are cleared.
++ *
++ * Only use this when setting up the keyslot manager for a layered device,
++ * before it's been exposed yet.
++ */
++void blk_ksm_intersect_modes(struct blk_keyslot_manager *parent,
++			     const struct blk_keyslot_manager *child)
++{
++	if (child) {
++		unsigned int i;
++
++		parent->max_dun_bytes_supported =
++			min(parent->max_dun_bytes_supported,
++			    child->max_dun_bytes_supported);
++		for (i = 0; i < ARRAY_SIZE(child->crypto_modes_supported);
++		     i++) {
++			parent->crypto_modes_supported[i] &=
++				child->crypto_modes_supported[i];
++		}
++	} else {
++		parent->max_dun_bytes_supported = 0;
++		memset(parent->crypto_modes_supported, 0,
++		       sizeof(parent->crypto_modes_supported));
++	}
++}
++EXPORT_SYMBOL_GPL(blk_ksm_intersect_modes);
+ 
+ /**
+  * blk_ksm_init_passthrough() - Init a passthrough keyslot manager
+diff --git a/drivers/md/dm-core.h b/drivers/md/dm-core.h
+index 3db92d9a030b..d449e9026635 100644
+--- a/drivers/md/dm-core.h
++++ b/drivers/md/dm-core.h
+@@ -13,6 +13,7 @@
+ #include <linux/ktime.h>
+ #include <linux/genhd.h>
+ #include <linux/blk-mq.h>
++#include <linux/keyslot-manager.h>
+ 
+ #include <trace/events/block.h>
+ 
+@@ -52,6 +53,9 @@ struct mapped_device {
+ 
+ 	int numa_node_id;
+ 	struct request_queue *queue;
++#ifdef CONFIG_BLK_INLINE_ENCRYPTION
++	struct blk_keyslot_manager ksm;
++#endif
+ 
+ 	atomic_t holders;
+ 	atomic_t open_count;
+diff --git a/drivers/md/dm-table.c b/drivers/md/dm-table.c
+index 5c590895c14c..1661316fc487 100644
+--- a/drivers/md/dm-table.c
++++ b/drivers/md/dm-table.c
+@@ -21,6 +21,8 @@
+ #include <linux/blk-mq.h>
+ #include <linux/mount.h>
+ #include <linux/dax.h>
++#include <linux/bio.h>
++#include <linux/keyslot-manager.h>
+ 
+ #define DM_MSG_PREFIX "table"
+ 
+@@ -1574,6 +1576,54 @@ static void dm_table_verify_integrity(struct dm_table *t)
+ 	}
+ }
+ 
++#ifdef CONFIG_BLK_INLINE_ENCRYPTION
++static int device_intersect_crypto_modes(struct dm_target *ti,
++					 struct dm_dev *dev, sector_t start,
++					 sector_t len, void *data)
++{
++	struct blk_keyslot_manager *parent = data;
++	struct blk_keyslot_manager *child = bdev_get_queue(dev->bdev)->ksm;
++
++	blk_ksm_intersect_modes(parent, child);
++	return 0;
++}
++
++/*
++ * Update the inline crypto modes supported by 'q->ksm' to be the intersection
++ * of the modes supported by all targets in the table.
++ *
++ * For any mode to be supported at all, all targets must have explicitly
++ * declared that they can pass through inline crypto support.  For a particular
++ * mode to be supported, all underlying devices must also support it.
++ *
++ * Assume that 'q->ksm' initially declares all modes to be supported.
++ */
++static void dm_calculate_supported_crypto_modes(struct dm_table *t,
++						struct request_queue *q)
++{
++	struct dm_target *ti;
++	unsigned int i;
++
++	for (i = 0; i < dm_table_get_num_targets(t); i++) {
++		ti = dm_table_get_target(t, i);
++
++		if (!ti->may_passthrough_inline_crypto) {
++			blk_ksm_intersect_modes(q->ksm, NULL);
++			return;
++		}
++		if (!ti->type->iterate_devices)
++			continue;
++		ti->type->iterate_devices(ti, device_intersect_crypto_modes,
++					  q->ksm);
++	}
++}
++#else /* CONFIG_BLK_INLINE_ENCRYPTION */
++static inline void dm_calculate_supported_crypto_modes(struct dm_table *t,
++						       struct request_queue *q)
++{
++}
++#endif /* !CONFIG_BLK_INLINE_ENCRYPTION */
++
+ static int device_flush_capable(struct dm_target *ti, struct dm_dev *dev,
+ 				sector_t start, sector_t len, void *data)
+ {
+@@ -1853,6 +1903,8 @@ void dm_table_set_restrictions(struct dm_table *t, struct request_queue *q,
+ 
+ 	dm_table_verify_integrity(t);
+ 
++	dm_calculate_supported_crypto_modes(t, q);
++
+ 	/*
+ 	 * Some devices don't use blk_integrity but still want stable pages
+ 	 * because they do their own checksumming.
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index 6030cba5b038..fa95475fd770 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -28,6 +28,7 @@
+ #include <linux/refcount.h>
+ #include <linux/part_stat.h>
+ #include <linux/blk-crypto.h>
++#include <linux/keyslot-manager.h>
+ 
+ #define DM_MSG_PREFIX "core"
+ 
+@@ -1778,6 +1779,8 @@ static const struct dax_operations dm_dax_ops;
+ 
+ static void dm_wq_work(struct work_struct *work);
+ 
++static void dm_destroy_inline_encryption(struct request_queue *q);
++
+ static void cleanup_mapped_device(struct mapped_device *md)
+ {
+ 	if (md->wq)
+@@ -1799,8 +1802,10 @@ static void cleanup_mapped_device(struct mapped_device *md)
+ 		put_disk(md->disk);
+ 	}
+ 
+-	if (md->queue)
++	if (md->queue) {
++		dm_destroy_inline_encryption(md->queue);
+ 		blk_cleanup_queue(md->queue);
++	}
+ 
+ 	cleanup_srcu_struct(&md->io_barrier);
+ 
+@@ -2156,6 +2161,88 @@ struct queue_limits *dm_get_queue_limits(struct mapped_device *md)
+ }
+ EXPORT_SYMBOL_GPL(dm_get_queue_limits);
+ 
++#ifdef CONFIG_BLK_INLINE_ENCRYPTION
++struct dm_keyslot_evict_args {
++	const struct blk_crypto_key *key;
++	int err;
++};
++
++static int dm_keyslot_evict_callback(struct dm_target *ti, struct dm_dev *dev,
++				     sector_t start, sector_t len, void *data)
++{
++	struct dm_keyslot_evict_args *args = data;
++	int err;
++
++	err = blk_crypto_evict_key(bdev_get_queue(dev->bdev), args->key);
++	if (!args->err)
++		args->err = err;
++	/* Always try to evict the key from all devices. */
++	return 0;
++}
++
++/*
++ * When an inline encryption key is evicted from a device-mapper device, evict
++ * it from all the underlying devices.
++ */
++static int dm_keyslot_evict(struct blk_keyslot_manager *ksm,
++			    const struct blk_crypto_key *key, unsigned int slot)
++{
++	struct mapped_device *md = container_of(ksm, struct mapped_device, ksm);
++	struct dm_keyslot_evict_args args = { key };
++	struct dm_table *t;
++	int srcu_idx;
++	int i;
++	struct dm_target *ti;
++
++	t = dm_get_live_table(md, &srcu_idx);
++	if (!t)
++		return 0;
++	for (i = 0; i < dm_table_get_num_targets(t); i++) {
++		ti = dm_table_get_target(t, i);
++		if (!ti->type->iterate_devices)
++			continue;
++		ti->type->iterate_devices(ti, dm_keyslot_evict_callback, &args);
++	}
++	dm_put_live_table(md, srcu_idx);
++	return args.err;
++}
++
++static struct blk_ksm_ll_ops dm_ksm_ll_ops = {
++	.keyslot_evict = dm_keyslot_evict,
++};
++
++static void dm_init_inline_encryption(struct mapped_device *md)
++{
++	blk_ksm_init_passthrough(&md->ksm);
++	md->ksm.ksm_ll_ops = dm_ksm_ll_ops;
++
++	/*
++	 * Initially declare support for all crypto settings. Anything
++	 * unsupported by a child device will be removed later when calculating
++	 * the device restrictions.
++	 */
++	md->ksm.max_dun_bytes_supported = UINT_MAX;
++	memset(md->ksm.crypto_modes_supported, 0xFF,
++	       sizeof(md->ksm.crypto_modes_supported));
++
++	blk_ksm_register(&md->ksm, md->queue);
++}
++
++static void dm_destroy_inline_encryption(struct request_queue *q)
++{
++	blk_ksm_destroy(q->ksm);
++	blk_ksm_unregister(q);
++}
++#else /* CONFIG_BLK_INLINE_ENCRYPTION */
++static inline void dm_init_inline_encryption(struct mapped_device *md)
++{
++}
++
++static inline void dm_destroy_inline_encryption(struct request_queue *q)
++{
++}
++#endif /* !CONFIG_BLK_INLINE_ENCRYPTION */
++
+ /*
+  * Setup the DM device's queue based on md's type
+  */
+@@ -2187,6 +2274,9 @@ int dm_setup_md_queue(struct mapped_device *md, struct dm_table *t)
+ 		DMERR("Cannot calculate initial queue limits");
+ 		return r;
+ 	}
++
++	dm_init_inline_encryption(md);
++
+ 	dm_table_set_restrictions(t, md->queue, &limits);
+ 	blk_register_queue(md->disk);
+ 
+diff --git a/include/linux/device-mapper.h b/include/linux/device-mapper.h
+index 50cc070cb1f7..96048aa55eb7 100644
+--- a/include/linux/device-mapper.h
++++ b/include/linux/device-mapper.h
+@@ -343,6 +343,12 @@ struct dm_target {
+ 	 * Set if we need to limit the number of in-flight bios when swapping.
+ 	 */
+ 	bool limit_swap_bios:1;
++
++	/*
++	 * Set if inline crypto capabilities from this target's underlying
++	 * device(s) can be exposed via the device-mapper device.
++	 */
++	bool may_passthrough_inline_crypto:1;
+ };
+ 
+ void *dm_per_bio_data(struct bio *bio, size_t data_size);
+diff --git a/include/linux/keyslot-manager.h b/include/linux/keyslot-manager.h
+index 323e15dd6fa7..bfe7f35da4a8 100644
+--- a/include/linux/keyslot-manager.h
++++ b/include/linux/keyslot-manager.h
+@@ -9,6 +9,8 @@
+ #include <linux/bio.h>
+ #include <linux/blk-crypto.h>
+ 
++#ifdef CONFIG_BLK_INLINE_ENCRYPTION
++
+ struct blk_keyslot_manager;
+ 
+ /**
+@@ -103,6 +105,11 @@ void blk_ksm_reprogram_all_keys(struct blk_keyslot_manager *ksm);
+ 
+ void blk_ksm_destroy(struct blk_keyslot_manager *ksm);
+ 
++void blk_ksm_intersect_modes(struct blk_keyslot_manager *parent,
++			     const struct blk_keyslot_manager *child);
++
+ void blk_ksm_init_passthrough(struct blk_keyslot_manager *ksm);
+ 
++#endif /* CONFIG_BLK_INLINE_ENCRYPTION */
++
+ #endif /* __LINUX_KEYSLOT_MANAGER_H */
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
-From d992341ae0b686a0b4217ab4af1460e88f037e22 Mon Sep 17 00:00:00 2001
+From 1f2ad3091f0afd5a41adee3e6d77e26426739c4b Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 18:21:04 +0200
-Subject: [PATCH 225/304] ptrace: fix ptrace vs tasklist_lock race
+Subject: [PATCH 225/318] ptrace: fix ptrace vs tasklist_lock race
 
 As explained by Alexander Fyodorov <halcy@yandex.ru>:
 
@@ -24,13 +24,13 @@ taken in case the caller is interrupted between looking into ->state and
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/sched.h | 49 +++++++++++++++++++++++++++++++++++++++++++++----
- kernel/ptrace.c       |  9 ++++++++-
- kernel/sched/core.c   | 17 +++++++++++++++--
+ include/linux/sched.h | 49 +++++++++++++++++++++++++++++++++++++++----
+ kernel/ptrace.c       |  9 +++++++-
+ kernel/sched/core.c   | 17 +++++++++++++--
  3 files changed, 68 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index b91001c..bd05b8c 100644
+index 8c5394f5ffc8..b8df89c41455 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -112,12 +112,8 @@ struct io_uring_task;
@@ -99,7 +99,7 @@ index b91001c..bd05b8c 100644
   * cond_resched() and cond_resched_lock(): latency reduction via
   * explicit rescheduling in places that are safe. The return
 diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index eb4d04c..258b599 100644
+index eb4d04cb3aaf..258b599b7158 100644
 --- a/kernel/ptrace.c
 +++ b/kernel/ptrace.c
 @@ -196,7 +196,14 @@ static bool ptrace_freeze_traced(struct task_struct *task)
@@ -119,7 +119,7 @@ index eb4d04c..258b599 100644
  	}
  	spin_unlock_irq(&task->sighand->siglock);
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 5b9d4ab..61fab00 100644
+index fa24e00bfc19..d30a1629d0a6 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -2582,6 +2582,18 @@ int migrate_swap(struct task_struct *cur, struct task_struct *p,
@@ -161,5 +161,5 @@ index 5b9d4ab..61fab00 100644
  		task_rq_unlock(rq, p, &rf);
  
 -- 
-2.7.4
+2.17.1
 

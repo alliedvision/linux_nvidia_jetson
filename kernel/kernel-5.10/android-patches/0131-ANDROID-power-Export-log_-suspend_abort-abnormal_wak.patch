@@ -1,0 +1,41 @@
+From a64516fe9dc6880ffa84c91b99f7a8f05fb75f0e Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Mon, 24 Aug 2020 13:35:35 -0700
+Subject: [PATCH 131/830] ANDROID: power: Export
+ log_{suspend_abort,abnormal_wakeup}_reason
+X-NVConfidentiality: public
+
+Export log_suspend_abort_reason and log_abnormal_wakeup_reason. This
+will allow device-specific vendor modules to log these specific wakeup
+reasons.
+
+Bug: 155142116
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+Change-Id: I0b1e065b57d7e5ddd36c8dbc4f086661ae56041a
+---
+ kernel/power/wakeup_reason.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/power/wakeup_reason.c b/kernel/power/wakeup_reason.c
+index 7a4ed59c0080..8fefaa3fdba2 100644
+--- a/kernel/power/wakeup_reason.c
++++ b/kernel/power/wakeup_reason.c
+@@ -244,6 +244,7 @@ void log_suspend_abort_reason(const char *fmt, ...)
+ 	__log_abort_or_abnormal_wake(true, fmt, args);
+ 	va_end(args);
+ }
++EXPORT_SYMBOL_GPL(log_suspend_abort_reason);
+ 
+ void log_abnormal_wakeup_reason(const char *fmt, ...)
+ {
+@@ -253,6 +254,7 @@ void log_abnormal_wakeup_reason(const char *fmt, ...)
+ 	__log_abort_or_abnormal_wake(false, fmt, args);
+ 	va_end(args);
+ }
++EXPORT_SYMBOL_GPL(log_abnormal_wakeup_reason);
+ 
+ void clear_wakeup_reasons(void)
+ {
+-- 
+2.17.1
+

@@ -1,0 +1,6 @@
+config TEGRA_T234_HWPM
+	bool "Tegra T23x HWPM driver"
+	depends on TEGRA_SOC_HWPM && ARCH_TEGRA_23x_SOC
+	default y if (TEGRA_SOC_HWPM && ARCH_TEGRA_23x_SOC)
+	help
+	  T23x performance monitoring driver.

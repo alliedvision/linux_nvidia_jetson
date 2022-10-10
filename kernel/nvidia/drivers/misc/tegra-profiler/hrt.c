@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/hrt.c
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -447,8 +447,9 @@ read_all_sources(struct pt_regs *regs, struct task_struct *task, u64 ts)
 	u32 vpid, vtgid;
 	u32 state, extra_data = 0, urcs = 0, ts_delta;
 	u64 ts_start, ts_end;
-	int i, vec_idx = 0, bt_size = 0;
+	int i, bt_size = 0;
 	int nr_events = 0, nr_positive_events = 0;
+	unsigned int vec_idx = 0;
 	struct pt_regs *user_regs;
 	struct quadd_iovec vec[9];
 	struct quadd_event_data events[QUADD_MAX_COUNTERS];
@@ -619,8 +620,15 @@ static void start_hrtimer(struct quadd_cpu_context *cpu_ctx)
 {
 	u32 period = prandom_u32_max(hrt.sample_period);
 
+#if ((defined(CONFIG_PREEMPT_RT) || defined(CONFIG_PREEMPT_RT_FULL)) && \
+		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)))
+	hrtimer_start(&cpu_ctx->hrtimer, ns_to_ktime(period),
+		      HRTIMER_MODE_REL_PINNED_HARD);
+#else
 	hrtimer_start(&cpu_ctx->hrtimer, ns_to_ktime(period),
 		      HRTIMER_MODE_REL_PINNED);
+#endif
+
 	qm_debug_timer_start(NULL, period);
 }
 
@@ -632,7 +640,7 @@ static void cancel_hrtimer(struct quadd_cpu_context *cpu_ctx)
 
 static void init_hrtimer(struct quadd_cpu_context *cpu_ctx)
 {
-#if (defined(CONFIG_PREEMPT_RT_FULL) && \
+#if ((defined(CONFIG_PREEMPT_RT) || defined(CONFIG_PREEMPT_RT_FULL)) && \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)))
 	hrtimer_init(&cpu_ctx->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 #else

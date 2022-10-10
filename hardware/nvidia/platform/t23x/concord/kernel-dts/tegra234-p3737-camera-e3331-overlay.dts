@@ -19,7 +19,7 @@
 
 / {
 	overlay-name = "Jetson Camera E3331 module";
-	jetson-header-name = "Jetson AGX Orin CSI Connector";
+	jetson-header-name = "Jetson AGX CSI Connector";
 	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
 
 	/* E3331 camera board */

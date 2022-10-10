@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,6 +28,7 @@
 #include "dt-bindings/soc/tegra234-powergate.h"
 #include "tegra234-soc/tegra234-soc-sdhci.dtsi"
 #include "tegra234-soc-pmc.dtsi"
+#include "tegra234-soc-uart.dtsi"
 #include "tegra234-soc-i2c.dtsi"
 #include "tegra234-soc-ufshc.dtsi"
 #include "tegra234-soc-spi.dtsi"
@@ -141,14 +142,13 @@
     };
 
 #if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
-	/* TODO: current version of pre-silicon platforms use still sysram for messaging
-	* between BPMP and kernel. In future, this will need to move. */
 	sysram@40000000 {
 		compatible = "nvidia,tegra194-sysram", "mmio-sram";
 		reg = <0x0 0x40000000 0x0 0x72000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x40000000 0x72000>;
+		no-memory-wc;
 
 		cpu_bpmp_tx: shmem@70000 {
 			compatible = "nvidia,tegra194-bpmp-shmem";
@@ -391,7 +391,8 @@
 			 <&bpmp_clks TEGRA234_CLK_AZA_2XBIT>,
 			 <&bpmp_clks TEGRA234_CLK_AZA_BIT>,
 			 <&bpmp_clks TEGRA234_CLK_MIPI_CAL>,
-			 <&bpmp_clks TEGRA234_CLK_UART_FST_MIPI_CAL>;
+			 <&bpmp_clks TEGRA234_CLK_UART_FST_MIPI_CAL>,
+			 <&bpmp_clks TEGRA234_CLK_SOR0_DIV>;
 		clock-names = "nvdisplayhub_clk",
 			      "nvdisplay_disp_clk",
 			      "nvdisplay_p0_clk",
@@ -452,7 +453,8 @@
 			      "aza_2xbit_clk",
 			      "aza_bit_clk",
 			      "mipi_cal_clk",
-			      "uart_fst_mipi_cal_clk";
+			      "uart_fst_mipi_cal_clk",
+			      "sor0_div_clk";
 		resets = <&bpmp_resets TEGRA234_RESET_NVDISPLAY>,
 			 <&bpmp_resets TEGRA234_RESET_DPAUX>,
 			 <&bpmp_resets TEGRA234_RESET_HDACODEC>,

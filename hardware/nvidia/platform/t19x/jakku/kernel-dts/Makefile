@@ -13,6 +13,7 @@ dtb-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000.dtb
 dtb-$(BUILD_ENABLE) += tegra194-p3668-0000-p3509-0000.dtb
 dtb-$(BUILD_ENABLE) += tegra194-p3668-0000-p3509-0000-avt.dtb
 dtb-$(BUILD_ENABLE) += tegra194-p3668-0001-p3509-0000.dtb
+dtb-$(BUILD_ENABLE) += tegra194-p3668-0001-p3509-0000-avt.dtb
 dtb-$(CONFIG_ARCH_TEGRA_19x_SOC) += tegra194-p3668-all-p3509-0000-kexec.dtb
 dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-hdr40.dtbo
 dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-adafruit-sph0645lm4h.dtbo
@@ -24,6 +25,7 @@ dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-m2ke.dtbo
 dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-camera-imx477-imx219.dtbo
 dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-camera-imx477-dual.dtbo
 dtbo-$(BUILD_ENABLE) += tegra194-p3668-all-p3509-0000-camera-imx219-dual.dtbo
+dtbo-$(BUILD_ENABLE) += tegra194-p3668-p3509-overlay.dtbo
 
 ifneq ($(dtb-y),)
 dtb-y := $(addprefix $(makefile-path)/,$(dtb-y))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -70,7 +70,7 @@ static int aon_hsp_probe(struct aon_hsp *aonhsp)
 	int err = -ENODEV;
 
 	np = of_get_compatible_child(np, "nvidia,tegra-aon-hsp");
-	if (!of_device_is_available(np)) {
+	if (np == NULL || !of_device_is_available(np)) {
 		of_node_put(np);
 		dev_err(&aonhsp->dev, "no hsp protocol \"%s\"\n",
 				"nvidia,tegra-aon-hsp");

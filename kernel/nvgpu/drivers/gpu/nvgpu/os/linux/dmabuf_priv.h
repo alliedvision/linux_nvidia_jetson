@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -122,5 +122,7 @@ int gk20a_dmabuf_get_state(struct dma_buf *dmabuf, struct gk20a *g,
 void gk20a_dma_buf_priv_list_clear(struct nvgpu_os_linux *l);
 struct gk20a_dmabuf_priv *gk20a_dma_buf_get_drvdata(
 		struct dma_buf *dmabuf, struct device *device);
+void *gk20a_dmabuf_vmap(struct dma_buf *dmabuf);
+void gk20a_dmabuf_vunmap(struct dma_buf *dmabuf, void *addr);
 
 #endif

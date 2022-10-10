@@ -1,7 +1,7 @@
-From b1b876dc8c35ad524a67701f0dc725f00f3de836 Mon Sep 17 00:00:00 2001
+From 66203e2b3ce7da67124ec7b54710364f7dec8e3d Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 8 Sep 2020 16:57:11 +0200
-Subject: [PATCH 189/304] net: Properly annotate the try-lock for the seqlock
+Subject: [PATCH 189/318] net: Properly annotate the try-lock for the seqlock
 
 In patch
    ("net/Qdisc: use a seqlock instead seqcount")
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 9 insertions(+), 10 deletions(-)
 
 diff --git a/include/net/net_seq_lock.h b/include/net/net_seq_lock.h
-index 95a497a..67710ba 100644
+index 95a497a72e51..67710bace741 100644
 --- a/include/net/net_seq_lock.h
 +++ b/include/net/net_seq_lock.h
 @@ -6,15 +6,6 @@
@@ -43,7 +43,7 @@ index 95a497a..67710ba 100644
  # define net_seqlock_t			seqcount_t
  # define net_seq_begin(__r)		read_seqcount_begin(__r)
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 5a564a4..9854155 100644
+index 544cff4a5797..092f75da9e5e 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
 @@ -209,8 +209,16 @@ static inline bool qdisc_run_begin(struct Qdisc *qdisc)
@@ -65,5 +65,5 @@ index 5a564a4..9854155 100644
  #else
  	/* Variant of write_seqcount_begin() telling lockdep a trylock
 -- 
-2.7.4
+2.17.1
 

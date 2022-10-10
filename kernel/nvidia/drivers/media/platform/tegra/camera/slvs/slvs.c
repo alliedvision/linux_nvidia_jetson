@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra SLVS(-EC) Subdevice for V4L2
  *
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Pekka Pessi <ppessi@nvidia.com>
  *
@@ -669,7 +669,7 @@ static void tegra_slvs_debugfs_init_stream(struct tegra_slvs_stream *stream)
 static void tegra_slvs_init_debugfs(struct tegra_mc_slvs *slvs)
 {
 	struct nvhost_device_data *info = platform_get_drvdata(slvs->pdev);
-	int i;
+	int i, ret;
 	char name[32];
 	struct dentry *dir;
 
@@ -677,12 +677,16 @@ static void tegra_slvs_init_debugfs(struct tegra_mc_slvs *slvs)
 			&slvs->syncgen_clock);
 
 	for (i = 0; i < slvs->num_streams; i++) {
-		snprintf(name, sizeof(name), "mc@%d", i);
+		ret = snprintf(name, sizeof(name), "mc@%d", i);
+		if (ret < 0) {
+			spec_bar();
+			return;
+		}
 		dir = debugfs_create_dir(name, info->debugfs);
 		slvs->streams[i].debugfs = dir;
 		tegra_slvs_debugfs_init_stream(&slvs->streams[i]);
 	}
-	speculation_barrier();
+	spec_bar();
 }
 
 /*
@@ -939,8 +943,10 @@ static int tegra_slvs_init_stream(struct tegra_mc_slvs *slvs,
 	v4l2_set_subdevdata(sd, slvs);
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd->entity.ops = &tegra_slvs_media_ops;
-	snprintf(sd->name, sizeof(sd->name), "%s-stream-%u",
+	err = snprintf(sd->name, sizeof(sd->name), "%s-stream-%u",
 		dev_name(slvs->dev), stream->id);
+	if (err < 0)
+		return -EINVAL;
 
 	/* Initialize media entity */
 	/* XXX - use media_entity_pads_init() directly? */
@@ -1064,7 +1070,7 @@ static int tegra_slvs_parse_stream_dt(struct tegra_slvs_stream *stream,
 	boolparam = of_property_read_bool(np, "nvidia,disable-payload-crc");
 	params->enable_payload_crc = !boolparam;
 
-	of_property_read_u32(np, "watchdog-period", &params->watchdog_period);
+	(void)of_property_read_u32(np, "watchdog-period", &params->watchdog_period);
 
 	err = of_property_read_u32(np, "nvidia,symbols", &params->symbols);
 	if (err != 0)
@@ -1108,18 +1114,18 @@ static int tegra_slvs_parse_stream_dt(struct tegra_slvs_stream *stream,
 	if (err == 0)
 		params->uphy.aux_idle_mode = numparam & 0x03;
 
-	of_property_read_u32(np, "nvidia,syncgen", &params->syncgen.number);
+	(void)of_property_read_u32(np, "nvidia,syncgen", &params->syncgen.number);
 	if (params->syncgen.number > VI_NUM_SYNCGEN)
 		return -EINVAL;
 
 	/* VGP pads used for syncgen */
-	of_property_read_u32(np, "nvidia,syncgen-xhs-vgp", &params->syncgen.xhs_vgp);
+	(void)of_property_read_u32(np, "nvidia,syncgen-xhs-vgp", &params->syncgen.xhs_vgp);
 	if (!tegra_platform_is_silicon())
 		params->syncgen.xhs_vgp = 2;
 	if (params->syncgen.xhs_vgp > VI_NUM_VGP)
 		return -EINVAL;
 
-	of_property_read_u32(np, "nvidia,syncgen-xvs-vgp", &params->syncgen.xvs_vgp);
+	(void)of_property_read_u32(np, "nvidia,syncgen-xvs-vgp", &params->syncgen.xvs_vgp);
 	if (!tegra_platform_is_silicon())
 		params->syncgen.xvs_vgp = 3;
 	if (params->syncgen.xvs_vgp > VI_NUM_VGP)

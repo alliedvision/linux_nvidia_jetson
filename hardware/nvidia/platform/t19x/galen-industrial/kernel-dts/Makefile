@@ -18,6 +18,7 @@ dtb-$(BUILD_19x_ENABLE) += tegra194-p2888-0008-p2822-0000.dtb
 dtb-$(BUILD_19x_ENABLE) += tegra194-p2888-0008-p2822-0000-maxn.dtb
 dtb-$(BUILD_19x_ENABLE) += tegra194-p2888-0008-p2822-0000-noecc.dtb
 dtb-$(BUILD_19x_ENABLE) += tegra194-p2888-0008-p2822-0000-safety.dtb
+dtbo-$(BUILD_19x_ENABLE) += tegra194-p2888-0008-p2822-0000-overlay.dtbo
 
 ifneq ($(dtb-y),)
 dtb-y := $(addprefix $(makefile-path)/,$(dtb-y))

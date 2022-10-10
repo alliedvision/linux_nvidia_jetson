@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -245,7 +245,9 @@ void nvgpu_pm_reservation_release_all_per_vmid(struct gk20a *g, u32 vmid)
 				nvgpu_list_del(&reservation_entry->entry);
 				reservations->count--;
 				nvgpu_kfree(g, reservation_entry);
-				prepare_resource_reservation(g, i, false);
+				prepare_resource_reservation(g,
+					(enum nvgpu_profiler_pm_resource_type)i,
+					false);
 			}
 		}
 		nvgpu_mutex_release(&reservations->lock);

@@ -1,21 +1,21 @@
-From 0febf090f7193df1a6cbf4c51a58c644beeb578b Mon Sep 17 00:00:00 2001
+From 1b1f20ac3769f936239108bb1302a4fcf763041d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:17:03 +0200
-Subject: [PATCH 174/304] locking/rtmutex: add mutex implementation based on
+Subject: [PATCH 174/318] locking/rtmutex: add mutex implementation based on
  rtmutex
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/mutex_rt.h  | 130 +++++++++++++++++++++++++++
- kernel/locking/mutex-rt.c | 224 ++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mutex_rt.h  | 130 ++++++++++++++++++++++
+ kernel/locking/mutex-rt.c | 224 ++++++++++++++++++++++++++++++++++++++
  2 files changed, 354 insertions(+)
  create mode 100644 include/linux/mutex_rt.h
  create mode 100644 kernel/locking/mutex-rt.c
 
 diff --git a/include/linux/mutex_rt.h b/include/linux/mutex_rt.h
 new file mode 100644
-index 00000000..f0b2e07
+index 000000000000..f0b2e07cd5c5
 --- /dev/null
 +++ b/include/linux/mutex_rt.h
 @@ -0,0 +1,130 @@
@@ -151,7 +151,7 @@ index 00000000..f0b2e07
 +#endif
 diff --git a/kernel/locking/mutex-rt.c b/kernel/locking/mutex-rt.c
 new file mode 100644
-index 00000000..2b849e6
+index 000000000000..2b849e6b9b4a
 --- /dev/null
 +++ b/kernel/locking/mutex-rt.c
 @@ -0,0 +1,224 @@
@@ -380,5 +380,5 @@ index 00000000..2b849e6
 +}
 +EXPORT_SYMBOL(atomic_dec_and_mutex_lock);
 -- 
-2.7.4
+2.17.1
 

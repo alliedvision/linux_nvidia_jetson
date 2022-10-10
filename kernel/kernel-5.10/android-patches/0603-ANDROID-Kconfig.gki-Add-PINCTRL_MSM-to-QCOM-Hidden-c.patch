@@ -1,0 +1,31 @@
+From c7a4c7c4269ab3211baefd76b78dfa08cdce877f Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 20 Nov 2019 18:03:34 +0000
+Subject: [PATCH 603/830] ANDROID: Kconfig.gki: Add PINCTRL_MSM to QCOM Hidden
+ configs
+X-NVConfidentiality: public
+
+This allows pinctrl drivers to work as a module on qcom hardware
+
+Change-Id: I6df13dd45985751afcdaa7c27c3674f06bbbc083
+Bug: 146449535
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 5ba6076076d5..be475727cef2 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -50,6 +50,7 @@ config GKI_HIDDEN_GPIO_CONFIGS
+ config GKI_HIDDEN_QCOM_CONFIGS
+ 	bool "Hidden QCOM configs needed for GKI"
+ 	select QCOM_SMEM_STATE
++	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
+ 	help
+ 	  Dummy config option used to enable hidden QCOM configs.
+ 	  These are normally selected implicitely when a module
+-- 
+2.17.1
+

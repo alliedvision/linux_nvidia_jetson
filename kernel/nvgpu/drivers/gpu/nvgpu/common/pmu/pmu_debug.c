@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,6 +31,8 @@
 bool nvgpu_find_hex_in_string(char *strings, struct gk20a *g, u32 *hex_pos)
 {
 	u32 i = 0, j = (u32)strlen(strings);
+
+	(void)g;
 
 	for (; i < j; i++) {
 		if (strings[i] == '%') {

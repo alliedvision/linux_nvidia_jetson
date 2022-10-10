@@ -1,7 +1,7 @@
 /*
  * GM20B Master Control
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,6 +33,7 @@
 #include <nvgpu/engines.h>
 #include <nvgpu/device.h>
 #include <nvgpu/power_features/pg.h>
+#include <nvgpu/ce.h>
 
 #include "mc_gm20b.h"
 
@@ -62,9 +63,8 @@ void gm20b_mc_isr_stall(struct gk20a *g)
 		}
 
 		/* CE Engine */
-		if (nvgpu_device_is_ce(g, dev) &&
-		    (g->ops.ce.isr_stall != NULL)) {
-			g->ops.ce.isr_stall(g, dev->inst_id, dev->pri_base);
+		if (nvgpu_device_is_ce(g, dev)) {
+			nvgpu_ce_stall_isr(g, dev->inst_id, dev->pri_base);
 		}
 	}
 

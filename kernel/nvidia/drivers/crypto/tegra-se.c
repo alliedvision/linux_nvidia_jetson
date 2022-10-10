@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine hardware crypto algorithms.
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -816,7 +816,7 @@ static void tegra_se_read_hash_result(struct tegra_se_dev *se_dev,
 		result[i] = se_readl(se_dev, SE_HASH_RESULT_REG_OFFSET +
 				(i * sizeof(u32)));
 		if (swap32)
-			result[i] = be32_to_cpu(result[i]);
+			result[i] = be32_to_cpu((__force __be32)result[i]);
 	}
 }
 
@@ -2603,7 +2603,8 @@ static int tegra_se_dh_setkey(struct crypto_kpp *tfm)
 					RSA_KEY_PKT_WORD_ADDR(i);
 			val = SE_RSA_KEYTABLE_PKT(pkt);
 			se_writel(se_dev, val, SE_RSA_KEYTABLE_ADDR);
-			se_writel(se_dev, be32_to_cpu(*pkeydata++),
+			se_writel(se_dev,
+				  be32_to_cpu((__force __be32)*pkeydata++),
 				  SE_RSA_KEYTABLE_DATA);
 		}
 	}
@@ -2619,7 +2620,8 @@ static int tegra_se_dh_setkey(struct crypto_kpp *tfm)
 					RSA_KEY_PKT_WORD_ADDR(i);
 			val = SE_RSA_KEYTABLE_PKT(pkt);
 			se_writel(se_dev, val, SE_RSA_KEYTABLE_ADDR);
-			se_writel(se_dev, be32_to_cpu(*pkeydata++),
+			se_writel(se_dev,
+				  be32_to_cpu((__force __be32)*pkeydata++),
 				  SE_RSA_KEYTABLE_DATA);
 		}
 	}
@@ -2640,9 +2642,11 @@ static void tegra_se_fix_endianness(struct tegra_se_dev *se_dev,
 
 	for (j = (nbytes / 4 - 1), k = 0; j >= 0; j--, k++) {
 		if (be)
-			se_dev->dh_buf2[k] = be32_to_cpu(se_dev->dh_buf1[j]);
+			se_dev->dh_buf2[k] =
+				be32_to_cpu((__force __be32)se_dev->dh_buf1[j]);
 		else
-			se_dev->dh_buf2[k] = cpu_to_be32(se_dev->dh_buf1[j]);
+			se_dev->dh_buf2[k] =
+				(__force __u32)cpu_to_be32(se_dev->dh_buf1[j]);
 	}
 
 	sg_copy_from_buffer(sg, num_sgs, se_dev->dh_buf2, nbytes);
@@ -3510,7 +3514,7 @@ static int tegra_se_probe(struct platform_device *pdev)
 
 		err = of_property_read_string(node, "pka0-rsa-name", &rsa_name);
 		if (!err)
-			strcpy(rsa_alg.base.cra_name, rsa_name);
+			strlcpy(rsa_alg.base.cra_name, rsa_name, CRYPTO_MAX_ALG_NAME);
 
 		if (is_algo_supported_in_hw(se_dev, rsa_alg.base.cra_name)) {
 			err = crypto_register_akcipher(&rsa_alg);
@@ -4111,7 +4115,7 @@ out:
 	return ret;
 }
 
-int se_suspend(struct device *dev, bool polling)
+static int se_suspend(struct device *dev, bool polling)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct tegra_se_dev *se_dev = platform_get_drvdata(pdev);
@@ -4243,13 +4247,6 @@ out:
 
 	return err;
 }
-EXPORT_SYMBOL(se_suspend);
-
-struct device *get_se_device(void)
-{
-	return save_se_device;
-}
-EXPORT_SYMBOL(get_se_device);
 
 static int tegra_se_suspend(struct device *dev)
 {

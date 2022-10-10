@@ -1,0 +1,201 @@
+From fc54edf987ef07fc639aef268f36374de825c8a7 Mon Sep 17 00:00:00 2001
+From: Daniel Rosenberg <drosen@google.com>
+Date: Wed, 6 Nov 2019 17:00:25 -0800
+Subject: [PATCH 418/830] ANDROID: ext4: Optimize match for casefolded
+ encrypted dirs
+X-NVConfidentiality: public
+
+Matching names with casefolded encrypting directories requires
+decrypting entries to confirm case since we are case preserving. We can
+avoid needing to decrypt if our hash values don't match.
+
+Signed-off-by: Daniel Rosenberg <drosen@google.com>
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Test: Boots, /data/media is case insensitive
+Bug: 138322712
+Bug: 161184936
+Change-Id: Id6024fc2a3bbde1e46a29070981fa64b3f667075
+---
+ fs/ext4/ext4.h  | 17 ++++++++-------
+ fs/ext4/namei.c | 55 ++++++++++++++++++++++++++-----------------------
+ 2 files changed, 38 insertions(+), 34 deletions(-)
+
+diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
+index 9e49109d6417..e03510622973 100644
+--- a/fs/ext4/ext4.h
++++ b/fs/ext4/ext4.h
+@@ -2609,9 +2609,9 @@ extern unsigned ext4_free_clusters_after_init(struct super_block *sb,
+ ext4_fsblk_t ext4_inode_to_goal_block(struct inode *);
+ 
+ #ifdef CONFIG_UNICODE
+-extern void ext4_fname_setup_ci_filename(struct inode *dir,
++extern int ext4_fname_setup_ci_filename(struct inode *dir,
+ 					 const struct qstr *iname,
+-					 struct fscrypt_str *fname);
++					 struct ext4_filename *fname);
+ #endif
+ 
+ #ifdef CONFIG_FS_ENCRYPTION
+@@ -2642,9 +2642,9 @@ static inline int ext4_fname_setup_filename(struct inode *dir,
+ 	ext4_fname_from_fscrypt_name(fname, &name);
+ 
+ #ifdef CONFIG_UNICODE
+-	ext4_fname_setup_ci_filename(dir, iname, &fname->cf_name);
++	err = ext4_fname_setup_ci_filename(dir, iname, fname);
+ #endif
+-	return 0;
++	return err;
+ }
+ 
+ static inline int ext4_fname_prepare_lookup(struct inode *dir,
+@@ -2661,9 +2661,9 @@ static inline int ext4_fname_prepare_lookup(struct inode *dir,
+ 	ext4_fname_from_fscrypt_name(fname, &name);
+ 
+ #ifdef CONFIG_UNICODE
+-	ext4_fname_setup_ci_filename(dir, &dentry->d_name, &fname->cf_name);
++	err = ext4_fname_setup_ci_filename(dir, &dentry->d_name, fname);
+ #endif
+-	return 0;
++	return err;
+ }
+ 
+ static inline void ext4_fname_free_filename(struct ext4_filename *fname)
+@@ -2688,15 +2688,16 @@ static inline int ext4_fname_setup_filename(struct inode *dir,
+ 					    int lookup,
+ 					    struct ext4_filename *fname)
+ {
++	int err = 0;
+ 	fname->usr_fname = iname;
+ 	fname->disk_name.name = (unsigned char *) iname->name;
+ 	fname->disk_name.len = iname->len;
+ 
+ #ifdef CONFIG_UNICODE
+-	ext4_fname_setup_ci_filename(dir, iname, &fname->cf_name);
++	err = ext4_fname_setup_ci_filename(dir, iname, fname);
+ #endif
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static inline int ext4_fname_prepare_lookup(struct inode *dir,
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+index c3298f161ea9..35fec16e38a9 100644
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -803,7 +803,9 @@ dx_probe(struct ext4_filename *fname, struct inode *dir,
+ 	if (hinfo->hash_version <= DX_HASH_TEA)
+ 		hinfo->hash_version += EXT4_SB(dir->i_sb)->s_hash_unsigned;
+ 	hinfo->seed = EXT4_SB(dir->i_sb)->s_hash_seed;
+-	if (fname && fname_name(fname))
++	/* hash is already computed for encrypted casefolded directory */
++	if (fname && fname_name(fname) &&
++				!(IS_ENCRYPTED(dir) && IS_CASEFOLDED(dir)))
+ 		ext4fs_dirhash(dir, fname_name(fname), fname_len(fname), hinfo);
+ 	hash = hinfo->hash;
+ 
+@@ -1368,20 +1370,22 @@ static int ext4_ci_compare(const struct inode *parent, const struct qstr *name,
+ 	return ret;
+ }
+ 
+-void ext4_fname_setup_ci_filename(struct inode *dir, const struct qstr *iname,
+-				  struct fscrypt_str *cf_name)
++int ext4_fname_setup_ci_filename(struct inode *dir, const struct qstr *iname,
++				  struct ext4_filename *name)
+ {
++	struct fscrypt_str *cf_name = &name->cf_name;
++	struct dx_hash_info *hinfo = &name->hinfo;
+ 	int len;
+ 
+ 	if (!IS_CASEFOLDED(dir) || !dir->i_sb->s_encoding ||
+ 	    (IS_ENCRYPTED(dir) && !fscrypt_has_encryption_key(dir))) {
+ 		cf_name->name = NULL;
+-		return;
++		return 0;
+ 	}
+ 
+ 	cf_name->name = kmalloc(EXT4_NAME_LEN, GFP_NOFS);
+ 	if (!cf_name->name)
+-		return;
++		return -ENOMEM;
+ 
+ 	len = utf8_casefold(dir->i_sb->s_encoding,
+ 			    iname, cf_name->name,
+@@ -1389,10 +1393,18 @@ void ext4_fname_setup_ci_filename(struct inode *dir, const struct qstr *iname,
+ 	if (len <= 0) {
+ 		kfree(cf_name->name);
+ 		cf_name->name = NULL;
+-		return;
+ 	}
+ 	cf_name->len = (unsigned) len;
++	if (!IS_ENCRYPTED(dir))
++		return 0;
+ 
++	hinfo->hash_version = DX_HASH_SIPHASH;
++	hinfo->seed = NULL;
++	if (cf_name->name)
++		ext4fs_dirhash(dir, cf_name->name, cf_name->len, hinfo);
++	else
++		ext4fs_dirhash(dir, iname->name, iname->len, hinfo);
++	return 0;
+ }
+ #endif
+ 
+@@ -1423,16 +1435,12 @@ static bool ext4_match(struct inode *parent,
+ 			struct qstr cf = {.name = fname->cf_name.name,
+ 					  .len = fname->cf_name.len};
+ 			if (IS_ENCRYPTED(parent)) {
+-				struct dx_hash_info hinfo;
+-
+-				hinfo.hash_version = DX_HASH_SIPHASH;
+-				hinfo.seed = NULL;
+-				ext4fs_dirhash(parent, fname->cf_name.name,
+-						fname_len(fname), &hinfo);
+-				if (hinfo.hash != EXT4_DIRENT_HASH(de) ||
+-						hinfo.minor_hash !=
+-						    EXT4_DIRENT_MINOR_HASH(de))
++				if (fname->hinfo.hash != EXT4_DIRENT_HASH(de) ||
++					fname->hinfo.minor_hash !=
++						EXT4_DIRENT_MINOR_HASH(de)) {
++
+ 					return 0;
++				}
+ 			}
+ 			return !ext4_ci_compare(parent, &cf, de->name,
+ 							de->name_len, true);
+@@ -2068,15 +2076,11 @@ void ext4_insert_dentry(struct inode *dir,
+ 	de->name_len = fname_len(fname);
+ 	memcpy(de->name, fname_name(fname), fname_len(fname));
+ 	if (ext4_hash_in_dirent(dir)) {
+-		struct dx_hash_info hinfo;
++		struct dx_hash_info *hinfo = &fname->hinfo;
+ 
+-		hinfo.hash_version = DX_HASH_SIPHASH;
+-		hinfo.seed = NULL;
+-		ext4fs_dirhash(dir, fname_usr_name(fname),
+-				fname_len(fname), &hinfo);
+-		EXT4_DIRENT_HASHES(de)->hash = cpu_to_le32(hinfo.hash);
++		EXT4_DIRENT_HASHES(de)->hash = cpu_to_le32(hinfo->hash);
+ 		EXT4_DIRENT_HASHES(de)->minor_hash =
+-				cpu_to_le32(hinfo.minor_hash);
++						cpu_to_le32(hinfo->minor_hash);
+ 	}
+ }
+ 
+@@ -2227,10 +2231,9 @@ static int make_indexed_dir(handle_t *handle, struct ext4_filename *fname,
+ 	if (fname->hinfo.hash_version <= DX_HASH_TEA)
+ 		fname->hinfo.hash_version += EXT4_SB(dir->i_sb)->s_hash_unsigned;
+ 	fname->hinfo.seed = EXT4_SB(dir->i_sb)->s_hash_seed;
+-	if (ext4_hash_in_dirent(dir))
+-		ext4fs_dirhash(dir, fname_usr_name(fname),
+-				fname_len(fname), &fname->hinfo);
+-	else
++
++	/* casefolded encrypted hashes are computed on fname setup */
++	if (!ext4_hash_in_dirent(dir))
+ 		ext4fs_dirhash(dir, fname_name(fname),
+ 				fname_len(fname), &fname->hinfo);
+ 
+-- 
+2.17.1
+

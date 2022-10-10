@@ -47,6 +47,14 @@ void ga10b_fb_handle_mmu_fault(struct gk20a *g, u32 intr_unit_bitmask)
 		gv11b_mm_mmu_fault_handle_other_fault_notify(g, fault_status);
 	}
 
+#if defined(CONFIG_NVGPU_HAL_NON_FUSA)
+	if ((fault_status & fb_mmu_fault_status_vab_error_m()) != 0U) {
+		if (g->ops.fb.vab.recover != NULL) {
+			g->ops.fb.vab.recover(g);
+		}
+	}
+#endif
+
 	if (gv11b_fb_is_fault_buf_enabled(g,
 			NVGPU_MMU_FAULT_NONREPLAY_REG_INDX)) {
 		if ((intr_unit_bitmask &

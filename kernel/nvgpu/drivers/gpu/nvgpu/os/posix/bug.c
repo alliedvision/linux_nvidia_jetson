@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -79,6 +79,8 @@ static void nvgpu_posix_dump_stack(int skip_frames)
 	}
 
 	free(trace_syms);
+#else
+	(void)skip_frames;
 #endif
 	return;
 }
@@ -99,11 +101,18 @@ static void nvgpu_bug_init(void)
 }
 #endif
 
-void nvgpu_bug_exit(int status)
+void nvgpu_bug_exit(void)
 {
 #ifndef __NVGPU_UNIT_TEST__
+	int err;
 	nvgpu_err(NULL, "SW quiesce done. Exiting.");
-	exit(status);
+	while ((err = raise(SIGSEGV)) != 0) {
+		/*
+		 * Make sure that SIGSEGV signal is raised.
+		 */
+	}
+
+	pthread_exit(NULL);
 #endif
 }
 
@@ -209,6 +218,7 @@ done:
 
 bool nvgpu_posix_warn(const char *func, int line_no, bool cond, const char *fmt, ...)
 {
+	(void)fmt;
 	if (!cond) {
 		goto done;
 	}

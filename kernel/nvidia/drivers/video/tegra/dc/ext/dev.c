@@ -1,7 +1,7 @@
 /*
  * dev.c: Device interface for tegradc ext.
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  * Some code based on fbdev extensions written by:
@@ -908,7 +908,7 @@ static void tegra_dc_flip_trace(struct tegra_dc_ext_flip_data *data,
 			continue;
 
 		(*trace_fn)(dc->ctrl_num, win_num,
-			win->syncpt_max, attr->buff_id, timestamp);
+			win->syncpt_max, (unsigned int)attr->buff_id, timestamp);
 	}
 }
 
@@ -1303,7 +1303,7 @@ static void tegra_dc_ext_flip_worker(struct kthread_work *work)
 	kfree(data);
 	kfree(blank_win);
 	/* Updating wins with coming user data */
-	speculation_barrier();
+	spec_bar();
 }
 
 static int lock_windows_for_flip(struct tegra_dc_ext_user *user,
@@ -1414,7 +1414,7 @@ static int sanitize_flip_args(struct tegra_dc_ext_user *user,
 		input_h.full = win->h;
 		w = dfixed_trunc(input_w);
 		h = dfixed_trunc(input_h);
-		if (win->buff_id != 0 &&
+		if (win->buff_id >= 0 &&
 			(w == 0 || h == 0 ||
 			win->out_w == 0 || win->out_h == 0)) {
 			dev_err(&dc->ndev->dev,
@@ -1453,7 +1453,7 @@ static int sanitize_flip_args(struct tegra_dc_ext_user *user,
 
 flip_fail:
 	/* Flip args are coming from user. */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 
@@ -1497,7 +1497,7 @@ static int tegra_dc_ext_pin_windows(struct tegra_dc_ext_user *user,
 		if (ret)
 			return ret;
 
-		if (flip_win->attr.buff_id_u) {
+		if (flip_win->attr.buff_id_u >= 0) {
 			ret = tegra_dc_ext_pin_window(user,
 					      flip_win->attr.buff_id_u,
 					      &flip_win->handle[TEGRA_DC_U],
@@ -1509,7 +1509,7 @@ static int tegra_dc_ext_pin_windows(struct tegra_dc_ext_user *user,
 			flip_win->phys_addr_u = 0;
 		}
 
-		if (flip_win->attr.buff_id_v) {
+		if (flip_win->attr.buff_id_v >= 0) {
 			ret = tegra_dc_ext_pin_window(user,
 					      flip_win->attr.buff_id_v,
 					      &flip_win->handle[TEGRA_DC_V],
@@ -1522,9 +1522,9 @@ static int tegra_dc_ext_pin_windows(struct tegra_dc_ext_user *user,
 		}
 
 		if (flip_win->attr.flags & TEGRA_DC_EXT_FLIP_FLAG_COMPRESSED) {
-			/* use buff_id of the main surface when cde is 0 */
-			__u32 cde_buff_id = flip_win->attr.cde.buff_id;
-			if (!cde_buff_id)
+			/* use buff_id of the main surface when the cde one is invalid */
+			__s32 cde_buff_id = flip_win->attr.cde.buff_id;
+			if (cde_buff_id < 0)
 				cde_buff_id = flip_win->attr.buff_id;
 			ret = tegra_dc_ext_pin_window(user,
 					      cde_buff_id,
@@ -1708,7 +1708,7 @@ static int tegra_dc_ext_read_nvdisp_win_csc_user_data(
 end:
 	kfree(entry);
 	/* entry is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 
@@ -2175,7 +2175,7 @@ static int set_lut_channel(u16 __user *channel_from_user,
 			channel_to[start+i] = start+i;
 	}
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	return 0;
 }
@@ -2219,7 +2219,7 @@ static int set_nvdisp_lut_channel(struct tegra_dc_ext_lut *new_lut,
 		}
 	}
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 
@@ -2338,7 +2338,7 @@ static int tegra_dc_ext_set_nvdisp_cmu(struct tegra_dc_ext_user *user,
 	for (i = 0; i < lut_size; i++)
 		nvdisp_cmu->rgb[i] = args->rgb[i];
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	tegra_nvdisp_update_cmu(dc, nvdisp_cmu);
 	tegra_dc_scrncapt_disp_pause_unlock(dc);
 
@@ -2407,7 +2407,7 @@ static int tegra_dc_ext_set_cmu(struct tegra_dc_ext_user *user,
 	for (i = 0; i < 960; i++)
 		cmu->lut2[i] = args->lut2[i];
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	tegra_dc_update_cmu(dc, cmu);
 
 	kfree(cmu);
@@ -2441,7 +2441,7 @@ static int tegra_dc_ext_set_cmu_aligned(struct tegra_dc_ext_user *user,
 	for (i = 0; i < 960; i++)
 		cmu->lut2[i] = args->lut2[i];
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	tegra_dc_update_cmu_aligned(dc, cmu);
 
 	kfree(cmu);
@@ -2498,14 +2498,14 @@ static int tegra_dc_ext_negotiate_bw(struct tegra_dc_ext_user *user,
 			return -EINVAL;
 	}
 	/* wins are coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	for (i = 0; i < win_num; i++) {
 		int idx;
 
 		idx = wins[i].index;
 
-		if (wins[i].buff_id > 0) {
+		if (wins[i].buff_id >= 0) {
 			tegra_dc_ext_set_windowattr_basic(&dc->tmp_wins[idx],
 							  &wins[i]);
 		} else {
@@ -2518,7 +2518,7 @@ static int tegra_dc_ext_negotiate_bw(struct tegra_dc_ext_user *user,
 	 * dc->tmp_wins[] is being populated with wins.
 	 * wins are coming from user.
 	 */
-	speculation_barrier();
+	spec_bar();
 
 	ret = tegra_dc_bandwidth_negotiate_bw(dc, dc_wins, win_num);
 
@@ -2564,7 +2564,7 @@ static int dev_cpy_from_usr_compat(
 		}
 	}
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 #endif
@@ -2585,7 +2585,7 @@ static int dev_cpy_from_usr(struct tegra_dc_ext_flip_windowattr *outptr,
 		}
 	}
 	/* data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 
@@ -2608,7 +2608,7 @@ static int dev_cpy_to_usr(void *outptr, u32 usr_win_size,
 	 * Both index(dstptr) and data(inptr)
 	 * depends upon incoming args.
 	 */
-	speculation_barrier();
+	spec_bar();
 	return ret;
 }
 
@@ -2741,7 +2741,7 @@ static int tegra_dc_copy_syncpts_from_user(struct tegra_dc *dc,
 		}
 	}
 	/* flip_user_data is coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	if (syncpt_user_data) {
 		struct tegra_dc_ext_syncpt *ext_syncpt;
@@ -2972,7 +2972,7 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 			 * destptr depends upon syncpt_idx.
 			 * flip_user_data is coming from user.
 			 */
-			speculation_barrier();
+			spec_bar();
 			args.post_syncpt_fd = -1;
 			ret = tegra_dc_copy_syncpts_to_user(flip_user_data,
 					syncpt_idx, (u8 *)(void *)args.data);

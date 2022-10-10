@@ -1,0 +1,29 @@
+From 95b7551070aa13e9180138043e207c34c405b4e9 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 18 Feb 2020 21:41:19 -0800
+Subject: [PATCH 640/830] ANDROID: clang: update to 11.0.5
+X-NVConfidentiality: public
+
+Bug: 170775238
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: Ibf405b519d406c58a25f4a765c6ba2d6f1bae50f
+---
+ build.config.common | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/build.config.common b/build.config.common
+index ba411b0f24c0..cf74eaaf3e5c 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -5,7 +5,7 @@ CC=clang
+ LD=ld.lld
+ NM=llvm-nm
+ OBJCOPY=llvm-objcopy
+-CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r370808/bin
++CLANG_PREBUILT_BIN=prebuilts-master/clang/host/linux-x86/clang-r399163b/bin
+ BUILDTOOLS_PREBUILT_BIN=build/build-tools/path/linux-x86
+ 
+ EXTRA_CMDS=''
+-- 
+2.17.1
+

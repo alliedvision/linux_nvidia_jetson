@@ -1,0 +1,39 @@
+From a49e690bb9d17a65b5d0db23367c71e10c39195b Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 8 Apr 2020 05:50:15 +0000
+Subject: [PATCH 534/830] ANDROID: db845c_gki.fragment: Remove nonexistent
+ CONFIG_USB_DWC3_DISABLE_GADGET_SG value
+X-NVConfidentiality: public
+
+The CONFIG_USB_DWC3_DISABLE_GADGET_SG value was added to the
+db845c_gki.fragment before it was merged to support a patch that
+ended up being replaced with a upstream solution.
+
+However, the config was not cleared out of the
+db845c_gki.fragment before it was submitted.
+
+This patch simply removes the assignment of the non-existant
+config
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Fixes: 8620e176990d ("ANDROID: db845c: add db845c_gki.fragment")
+Change-Id: Iedc98c8a1131f596d01333afad900d87702690b1
+---
+ arch/arm64/configs/db845c_gki.fragment | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 1c00edca0cdf..d6b6f70add21 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -34,7 +34,6 @@ CONFIG_USB_EHCI_HCD_PLATFORM=m
+ CONFIG_USB_OHCI_HCD=m
+ CONFIG_USB_OHCI_HCD_PLATFORM=m
+ CONFIG_USB_DWC3=m
+-CONFIG_USB_DWC3_DISABLE_GADGET_SG=y
+ # CONFIG_USB_DWC3_HAPS is not set
+ # CONFIG_USB_DWC3_OF_SIMPLE is not set
+ CONFIG_USB_GADGET_VBUS_DRAW=500
+-- 
+2.17.1
+

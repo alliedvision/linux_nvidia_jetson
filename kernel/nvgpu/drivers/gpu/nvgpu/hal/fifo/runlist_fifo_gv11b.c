@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 #ifdef CONFIG_NVGPU_CHANNEL_TSG_SCHEDULING
 int gv11b_runlist_reschedule(struct nvgpu_channel *ch, bool preempt_next)
 {
+	(void)preempt_next;
 	/*
 	 * gv11b allows multiple outstanding preempts,
 	 * so always preempt next for best reschedule effect

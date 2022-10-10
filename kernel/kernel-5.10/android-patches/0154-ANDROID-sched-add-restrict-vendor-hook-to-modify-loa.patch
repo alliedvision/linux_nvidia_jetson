@@ -1,0 +1,64 @@
+From 31f936da19c491ab67861784a156935d61997a21 Mon Sep 17 00:00:00 2001
+From: YT Chang <yt.chang@mediatek.com>
+Date: Thu, 3 Sep 2020 16:04:01 +0800
+Subject: [PATCH 154/830] ANDROID: sched: add restrict vendor hook to modify
+ load balance behavior
+X-NVConfidentiality: public
+
+For modifying load balance policy, we add the hook on
+find_busiest_group().
+It allows us to modify load balance paths.
+
+Bug: 168248326
+Signed-off-by: YT Chang <yt.chang@mediatek.com>
+Change-Id: I77ec043576139806551b978eb1bdf9f637442dfb
+---
+ include/trace/hooks/sched.h | 6 ++++++
+ kernel/sched/fair.c         | 6 +++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 6ac7dd6f97b7..4e2be4d70658 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -65,6 +65,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_user_nice,
+ DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
+ 	TP_PROTO(struct task_struct *p),
+ 	TP_ARGS(p), 1);
++
++struct sched_group;
++DECLARE_RESTRICTED_HOOK(android_rvh_find_busiest_group,
++	TP_PROTO(struct sched_group *busiest, struct rq *dst_rq, int *out_balance),
++		TP_ARGS(busiest, dst_rq, out_balance), 1);
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -79,6 +84,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_setscheduler,
+ #define trace_android_rvh_rtmutex_prepare_setprio(p, pi_task)
+ #define trace_android_rvh_set_user_nice(p, nice)
+ #define trace_android_rvh_setscheduler(p)
++#define trace_android_rvh_find_busiest_group(busiest, dst_rq, out_balance)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 239275c935a7..b078111e3bc1 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9305,8 +9305,12 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
+ 
+ 	if (sched_energy_enabled()) {
+ 		struct root_domain *rd = env->dst_rq->rd;
++		int out_balance = 1;
+ 
+-		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized))
++		trace_android_rvh_find_busiest_group(sds.busiest, env->dst_rq,
++					&out_balance);
++		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized)
++					&& out_balance)
+ 			goto out_balanced;
+ 	}
+ 
+-- 
+2.17.1
+

@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Interrupt Management
  *
- * Copyright (c) 2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,7 +40,8 @@ struct nvhost_timespec {
 #define nvhost_ktime_get_ts(nvts)	\
 do {					\
 	u64 time_ns;			\
-	int err = get_ptp_hwtime(&time_ns);		\
+	const char *intf_name = "eth0";			\
+	int err = tegra_get_hwtime(intf_name, &time_ns, PTP_HWTIME);		\
 	if (err) {					\
 		ktime_get_ts64(&(nvts)->ts);			\
 		(nvts)->clock = NVHOST_CLOCK_MONOTONIC;	\

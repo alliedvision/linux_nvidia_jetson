@@ -1,7 +1,7 @@
 /*
  * GA10B GR MANAGER
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -190,7 +190,7 @@ static u32 ga10b_grmgr_get_local_gr_syspipe_index(struct gk20a *g,
 
 	while (gr_syspipe_mask != 0U) {
 		u32 bit_position = nvgpu_safe_sub_u32(
-			nvgpu_ffs(gr_syspipe_mask), 1UL);
+			(u32)nvgpu_ffs(gr_syspipe_mask), 1UL);
 		++local_gr_syspipe_index;
 		gr_syspipe_mask ^= BIT32(bit_position);
 	}
@@ -218,7 +218,7 @@ static u32 ga10b_grmgr_get_gr_syspipe_id_from_local_gr_syspipe_index(
 
 	while (temp_gr_syspipe_index < max_allowed_syspipe_index) {
 		gr_syspipe_id = nvgpu_safe_sub_u32(
-			nvgpu_ffs(usable_gr_syspipe_mask), 1UL);
+			(u32)nvgpu_ffs(usable_gr_syspipe_mask), 1UL);
 		++temp_gr_syspipe_index;
 		usable_gr_syspipe_mask ^= BIT32(gr_syspipe_id);
 	}
@@ -245,7 +245,7 @@ static u32 ga10b_grmgr_get_num_gr_syspipe_enabled(struct gk20a *g,
 
 	while (gr_syspipe_enabled_mask != 0U) {
 		u32 bit_pos = nvgpu_safe_sub_u32(
-					nvgpu_ffs(gr_syspipe_enabled_mask), 1UL);
+					(u32)nvgpu_ffs(gr_syspipe_enabled_mask), 1UL);
 		gr_syspipe_enabled_mask ^= BIT32(bit_pos);
 		++gr_syspipe_enabled_count;
 	}
@@ -295,8 +295,6 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 	u32 allowed_swizzid_size = g->ops.grmgr.get_allowed_swizzid_size(g);
 	u32 max_subctx_count = g->ops.gr.init.get_max_subctx_count();
 	u32 max_fbps_count = g->mig.max_fbps_count;
-	u32 physical_fbp_en_mask = g->mig.gpu_instance[0].fbp_en_mask;
-	u32 *physical_fbp_l2_en_mask = g->mig.gpu_instance[0].fbp_l2_en_mask;
 
 	if ((mig_gpu_instance_config == NULL) || (num_gpc > NVGPU_MIG_MAX_GPCS)) {
 		nvgpu_err(g,"mig_gpu_instance_config NULL "
@@ -337,8 +335,8 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 		return -EINVAL;
 	}
 
-	lce_mask = nvgpu_safe_sub_u32(BIT32(num_lce), 1U);
-	gpc_mask = nvgpu_safe_sub_u32(BIT32(num_gpc), 1U);
+	lce_mask = nvgpu_safe_cast_u64_to_u32(nvgpu_safe_sub_u64(BIT64(num_lce), 1ULL));
+	gpc_mask = nvgpu_safe_cast_u64_to_u32(nvgpu_safe_sub_u64(BIT64(num_gpc), 1ULL));
 
 	gr_instance_id_per_swizzid = (u32 *)nvgpu_kzalloc(g,
 		nvgpu_safe_mult_u32(sizeof(u32), allowed_swizzid_size));
@@ -401,7 +399,7 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 				(gpu_instance_static_config[index].num_gpc))) {
 
 			logical_gpc_id = nvgpu_safe_sub_u32(
-					nvgpu_ffs(temp_gpc_mask), 1UL);
+					(u32)nvgpu_ffs(temp_gpc_mask), 1UL);
 
 			if ((gpcs[logical_gpc_id].gpcgrp_id ==
 					gpu_instance_gpcgrp_id[index]) ||
@@ -501,7 +499,7 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 						nvgpu_safe_add_u32(local_gr_syspipe_index,
 							temp_lce_cnt));
 				physical_ce_id = nvgpu_safe_sub_u32(
-					nvgpu_ffs(temp_lce_mask), 1UL);
+					(u32)nvgpu_ffs(temp_lce_mask), 1UL);
 				if (ga10b_grmgr_is_syspipe_lce(g,
 						nvgpu_device_get(g, NVGPU_DEVTYPE_GRAPHICS,
 							gr_syspipe_id),
@@ -538,7 +536,7 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 					struct nvgpu_gr_syspipe *local_gr_syspipe =
 						&gpu_instance[gpu_instance_id].gr_syspipe;
 					physical_ce_id = nvgpu_safe_sub_u32(
-						nvgpu_ffs(lce_mask), 1UL);
+						(u32)nvgpu_ffs(lce_mask), 1UL);
 					temp_lce_cnt = gpu_instance[gpu_instance_id].num_lce;
 					gpu_instance[gpu_instance_id].lce_devs[temp_lce_cnt] =
 						lces[physical_ce_id];
@@ -576,28 +574,18 @@ static int ga10b_grmgr_get_gpu_instance(struct gk20a *g,
 		}
 
 		if (gpu_instance[index].is_memory_partition_supported == false) {
-			u32 physical_fb_id, logical_fb_id;
-			u32 *logical_fbp_l2_en_mask =
-				gpu_instance[index].fbp_l2_en_mask;
+			u32 tmp_fbp_index = 0;
 
 			gpu_instance[index].num_fbp = g->mig.gpu_instance[0].num_fbp;
-			gpu_instance[index].fbp_en_mask =
-				nvgpu_safe_sub_u32(BIT32(gpu_instance[index].num_fbp), 1U);
+			gpu_instance[index].fbp_en_mask = g->mig.gpu_instance[0].fbp_en_mask;
+			nvgpu_memcpy((u8 *)gpu_instance[index].fbp_l2_en_mask,
+				(u8 *)g->mig.gpu_instance[0].fbp_l2_en_mask,
+					nvgpu_safe_mult_u64(max_fbps_count, sizeof(u32)));
 
-			/* Convert physical to logical FBP mask order */
-			for (logical_fb_id = 0U, physical_fb_id = 0U;
-					((logical_fb_id < gpu_instance[index].num_fbp) &&
-						(physical_fb_id < max_fbps_count));
-					++physical_fb_id) {
-				if (physical_fbp_en_mask & BIT32(physical_fb_id)) {
-					logical_fbp_l2_en_mask[logical_fb_id] =
-						physical_fbp_l2_en_mask[physical_fb_id];
-					++logical_fb_id;
-				}
+			while (tmp_fbp_index < gpu_instance[index].num_fbp) {
+				gpu_instance[index].fbp_mappings[tmp_fbp_index] = tmp_fbp_index;
+				tmp_fbp_index = nvgpu_safe_add_u32(tmp_fbp_index, 1U);
 			}
-
-			nvgpu_assert(logical_fb_id == gpu_instance[index].num_fbp);
-
 		} else {
 			/* SMC Memory partition is not yet supported */
 			nvgpu_assert(
@@ -810,10 +798,12 @@ int ga10b_grmgr_init_gr_manager(struct gk20a *g)
 			continue;
 		}
 		gr_syspipe = &g->mig.gpu_instance[index].gr_syspipe;
-		g->mig.gr_syspipe_en_mask |= BIT(gr_syspipe->gr_syspipe_id);
+		g->mig.gr_syspipe_en_mask |= BIT32(gr_syspipe->gr_syspipe_id);
 
 		gr_dev = nvgpu_device_get(g, NVGPU_DEVTYPE_GRAPHICS,
 			gr_syspipe->gr_syspipe_id);
+
+		nvgpu_assert(gr_dev != NULL);
 
 		/*
 		 * HW recommended to put GR engine into reset before programming
@@ -863,22 +853,22 @@ int ga10b_grmgr_init_gr_manager(struct gk20a *g)
 
 u32 ga10b_grmgr_get_max_sys_pipes(struct gk20a *g)
 {
+	(void)g;
 	return smcarb_max_partitionable_sys_pipes_v();
 }
 
 u32 ga10b_grmgr_get_allowed_swizzid_size(struct gk20a *g)
 {
+	(void)g;
 	return smcarb_allowed_swizzid__size1_v();
 }
 
 int ga10b_grmgr_get_gpc_instance_gpcgrp_id(struct gk20a *g,
 		u32 gpu_instance_id, u32 gr_syspipe_id, u32 *gpcgrp_id)
 {
-	u32 local_gpcgrp_id;
-	bool supported;
 
-	if ((gr_syspipe_id >= g->ops.grmgr.get_max_sys_pipes(g)) ||
-		(gpu_instance_id >= smcarb_allowed_swizzid__size1_v()) ||
+	if ((gpu_instance_id >= smcarb_allowed_swizzid__size1_v()) ||
+		(gr_syspipe_id >= g->ops.grmgr.get_max_sys_pipes(g)) ||
 		(gpcgrp_id == NULL)) {
 		nvgpu_err(g,
 			"[Invalid_param] gr_syspipe_id[%u %u] gpu_instance_id[%u %u] "
@@ -888,22 +878,14 @@ int ga10b_grmgr_get_gpc_instance_gpcgrp_id(struct gk20a *g,
 		return -EINVAL;
 	}
 
-	for (local_gpcgrp_id = 0U; local_gpcgrp_id < 2U; local_gpcgrp_id++) {
-		supported = GA10B_GRMGR_PSMCARB_ALLOWED_UGPU(
-			gpu_instance_id, local_gpcgrp_id);
-		if (supported) {
-			*gpcgrp_id = local_gpcgrp_id;
-			nvgpu_log(g, gpu_dbg_mig,
-					"Found [%u] gpcgrp id for gpu_instance_id[%u] "
-						"gr_syspipe_id[%u] ",
-					*gpcgrp_id,
-					gpu_instance_id,
-					gr_syspipe_id);
-			return 0;
-		}
-	}
-
-	return -EINVAL;
+	*gpcgrp_id = 0U;
+	nvgpu_log(g, gpu_dbg_mig,
+			"Found [%u] gpcgrp id for gpu_instance_id[%u] "
+				"gr_syspipe_id[%u] ",
+			*gpcgrp_id,
+			gpu_instance_id,
+			gr_syspipe_id);
+	return 0;
 }
 
 int ga10b_grmgr_remove_gr_manager(struct gk20a *g)

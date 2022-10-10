@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -76,6 +76,12 @@ static const struct of_device_id tegra_xusb_padctl_of_match[] = {
 	{
 		.compatible = "nvidia,tegra234-xusb-padctl",
 		.data = &tegra234_xusb_padctl_soc,
+	},
+#endif
+#if defined(CONFIG_ARCH_TEGRA_239_SOC)
+	{
+		.compatible = "nvidia,tegra239-xusb-padctl",
+		.data = &tegra239_xusb_padctl_soc,
 	},
 #endif
 	{ }

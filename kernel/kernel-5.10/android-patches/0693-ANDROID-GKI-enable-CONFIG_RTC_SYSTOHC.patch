@@ -1,0 +1,44 @@
+From c04cb772aa00fee347b64a946e17fcfb97f60691 Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Wed, 29 Apr 2020 13:55:58 -0700
+Subject: [PATCH 693/830] ANDROID: GKI: enable CONFIG_RTC_SYSTOHC
+X-NVConfidentiality: public
+
+If NTP is running, it is useful to keep the RTC updated with the
+accurate time.
+
+Bug: 154891696
+Signed-off-by: Steve Muckle <smuckle@google.com>
+Change-Id: I06c7f478742171c60f73e126ae3f5aa110ddde3e
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e84b557841c7..a9b943003c0e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -362,7 +362,6 @@ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_EDAC=y
+ CONFIG_RTC_CLASS=y
+-# CONFIG_RTC_SYSTOHC is not set
+ CONFIG_RTC_DRV_PL030=y
+ CONFIG_RTC_DRV_PL031=y
+ CONFIG_DMADEVICES=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index f5936905a86d..f587aa5e73e7 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -317,7 +317,6 @@ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_RTC_CLASS=y
+-# CONFIG_RTC_SYSTOHC is not set
+ CONFIG_UIO=y
+ CONFIG_STAGING=y
+ CONFIG_ASHMEM=y
+-- 
+2.17.1
+

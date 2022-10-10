@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 #include <nvgpu/pmu/pmuif/pg.h>
 #include <nvgpu/timers.h>
 #include <nvgpu/nvgpu_mem.h>
+#include <nvgpu/atomic.h>
 #include <include/nvgpu/pmu.h>
 
 struct nvgpu_pmu;
@@ -128,7 +129,7 @@ struct nvgpu_pmu_pg {
 	void (*rpc_handler)(struct gk20a *g, struct nvgpu_pmu *pmu,
 			struct nv_pmu_rpc_header *rpc, struct rpc_handler_payload *rpc_payload);
 	int (*init_send)(struct gk20a *g, struct nvgpu_pmu *pmu, u8 pg_engine_id);
-	int (*process_rpc_event)(struct gk20a *g, void *pmumsg);
+	int (*process_pg_event)(struct gk20a *g, void *pmumsg);
 };
 
 /*PG defines used by nvpgu-pmu*/
@@ -176,9 +177,7 @@ int nvgpu_pmu_elpg_statistics(struct gk20a *g, u32 pg_engine_id,
 		struct pmu_pg_stats_data *pg_stat_data);
 void nvgpu_pmu_save_zbc(struct gk20a *g, u32 entries);
 bool nvgpu_pmu_is_lpwr_feature_supported(struct gk20a *g, u32 feature_id);
-
+int nvgpu_pmu_pg_buf_alloc(struct gk20a *g, struct nvgpu_pmu *pmu, u32 size);
 u64 nvgpu_pmu_pg_buf_get_gpu_va(struct gk20a *g, struct nvgpu_pmu *pmu);
-struct nvgpu_mem *nvgpu_pmu_pg_buf(struct gk20a *g, struct nvgpu_pmu *pmu);
-void *nvgpu_pmu_pg_buf_get_cpu_va(struct gk20a *g, struct nvgpu_pmu *pmu);
 
 #endif /* NVGPU_PMU_PG_H */

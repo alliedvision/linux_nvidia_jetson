@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+#include <t234-common-cvb/tegra234-p3711-common.dtsi>
+#include <t234-common-cvb/tegra234-p3711-audio.dtsi>
+#include "tegra234-p3711-camera-p3715.dtsi"
+#include "tegra234-p3711-pcie-p3712.dtsi"
+
+/ {
+	reserved-memory {
+		linux,cma {
+			status = "okay";
+		};
+	};
+
+	pwm@3280000 {
+		status = "okay";
+	};
+
+	pwm@32a0000 {
+		status = "okay";
+	};
+
+	tachometer@39b0000 {
+		status = "okay";
+	};
+
+	tachometer@39c0000 {
+		status = "okay";
+	};
+
+	/* Update sound card names based on the platform model */
+	hda@3510000 {
+		nvidia,model = "NVIDIA Holoscan HDA";
+		status = "okay";
+	};
+
+	sound {
+		nvidia-audio-card,name = "NVIDIA Holoscan APE";
+		status = "okay";
+	};
+
+	i2c@31c0000 {
+		ioexpander@74 {
+			/* set BMC_DBG_MUX_SEL high to select BMC PCIe lanes in mux U6 */
+			bmc_dbg_mux_sel {
+				gpio-hog;
+				output-high;
+				gpios = <6 0>;
+				label = "bmc_pcie_mux_sel";
+				status = "okay";
+			};
+		};
+	};
+
+	sdhci@3400000 {
+		status = "okay";
+	};
+
+	stm@24080000 {
+		status = "disabled";
+	};
+
+	cpu0_etm@27040000 {
+		status = "disabled";
+	};
+
+	cpu1_etm@27140000 {
+		status = "disabled";
+	};
+
+	cpu2_etm@27240000 {
+		status = "disabled";
+	};
+
+	cpu3_etm@27340000 {
+		status = "disabled";
+	};
+
+	cpu4_etm@27440000 {
+		status = "disabled";
+	};
+
+	cpu5_etm@27540000 {
+		status = "disabled";
+	};
+
+	cpu6_etm@27640000 {
+		status = "disabled";
+	};
+
+	cpu7_etm@27740000 {
+		status = "disabled";
+	};
+
+	cpu8_etm@27840000 {
+		status = "disabled";
+	};
+
+	cpu9_etm@27940000 {
+		status = "disabled";
+	};
+
+	cpu10_etm@27A40000 {
+		status = "disabled";
+	};
+
+	cpu11_etm@27B40000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex0@26030000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex1@26040000 {
+		status = "disabled";
+	};
+
+	funnel_ccplex2@26050000 {
+		status = "disabled";
+	};
+
+	funnel_top_ccplex@26020000 {
+		status = "disabled";
+	};
+
+	funnel_major@24040000 {
+		status = "disabled";
+	};
+
+	replicator@24060000 {
+		status = "disabled";
+	};
+
+	etf@24050000 {
+		status = "disabled";
+	};
+
+	etr@24070000 {
+		status = "disabled";
+	};
+};

@@ -1,0 +1,43 @@
+From 7fd0cdfe1f4d703d3ced3eafa081e153a2ece648 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Mon, 11 May 2020 15:24:02 -0700
+Subject: [PATCH 700/830] ANDROID: GKI: enable CONFIG_IRQ_TIME_ACCOUNTING
+X-NVConfidentiality: public
+
+Needed by partners for task placement and OPP selection
+
+Bug: 155967932
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I16495ff45dfa9e0436d936f440ac74103224516a
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index b344b0f729fd..d86d202ab54b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -4,6 +4,7 @@ CONFIG_AUDIT=y
+ CONFIG_NO_HZ=y
+ CONFIG_HIGH_RES_TIMERS=y
+ CONFIG_PREEMPT=y
++CONFIG_IRQ_TIME_ACCOUNTING=y
+ CONFIG_TASKSTATS=y
+ CONFIG_TASK_XACCT=y
+ CONFIG_TASK_IO_ACCOUNTING=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 05d2b97a8459..d37e62d965cd 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -5,6 +5,7 @@ CONFIG_AUDIT=y
+ CONFIG_NO_HZ=y
+ CONFIG_HIGH_RES_TIMERS=y
+ CONFIG_PREEMPT=y
++CONFIG_IRQ_TIME_ACCOUNTING=y
+ CONFIG_TASKSTATS=y
+ CONFIG_TASK_XACCT=y
+ CONFIG_TASK_IO_ACCOUNTING=y
+-- 
+2.17.1
+

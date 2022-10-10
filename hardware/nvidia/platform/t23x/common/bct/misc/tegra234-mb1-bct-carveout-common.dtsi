@@ -5,148 +5,138 @@
 		carveout {
 			aux_info@CARVEOUT_XUSB {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_APE {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x400000>; /* 4MB */
-				alignment = <0x0 0x400000>; /* 4MB */
+				size = <0x0 0x400000>; // 4MB
+				alignment = <0x0 0x400000>; // 4MB
 			};
 			aux_info@CARVEOUT_SPE {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
-			};
-			aux_info@CARVEOUT_SCE {
-				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_APR {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x800000>; /* 8MB */
-				alignment = <0x0 0x800000>; /* 8MB */
+				size = <0x0 0x800000>; // 8MB
+				alignment = <0x0 0x800000>; // 8MB
 			};
 			aux_info@CARVEOUT_UNUSED3 {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x0>; /* 0 */
-				alignment = <0x0 0x0>; /* 0x0 */
+				size = <0x0 0x0>; // 0
+				alignment = <0x0 0x0>; // 0x0
 			};
 			aux_info@CARVEOUT_ETR {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_RCE {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x100000>; /* 1MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x100000>; // 1MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_UNUSED1 {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x0>; /* 0 */
-				alignment = <0x0 0x0>; /* 0x0 */
+				size = <0x0 0x0>; // 0
+				alignment = <0x0 0x0>; // 0x0
 			};
 			aux_info@CARVEOUT_DCE {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x2000000>; /* 32MB */
-				alignment = <0x0 0x2000000>; /* 32MB */
+				size = <0x0 0x2000000>; // 32MB
+				alignment = <0x0 0x2000000>; // 32MB
 			};
 			aux_info@CARVEOUT_CAMERA_TASKLIST {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x2000000>; /* 32MB */
-				alignment = <0x0 0x2000000>; /* 32MB */
+				size = <0x0 0x2000000>; // 32MB
+				alignment = <0x0 0x2000000>; // 32MB
 			};
 			aux_info@CARVEOUT_TEMP_MB2_IO_BUFFERS {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x800000>; /* 8MB */
-				alignment = <0x0 0x200000>; /* 2MB */
+				size = <0x0 0x800000>; // 8MB
+				alignment = <0x0 0x200000>; // 2MB
 			};
 			aux_info@CARVEOUT_CV_GOS {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x40000>; /* 256KB */
-				alignment = <0x0 0x2000>; /* 8KB */
+				size = <0x0 0x40000>; // 256KB
+				alignment = <0x0 0x2000>; // 8KB
 			};
 			aux_info@CARVEOUT_CCPLEX_INTERWORLD_SHMEM {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x2000000>; /* 32MB */
-				alignment = <0x0 0x2000000>; /* 32MB */
+				size = <0x0 0x2000000>; // 32MB
+				alignment = <0x0 0x2000000>; // 32MB
 			};
 			aux_info@CARVEOUT_FSI {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x2000000>; /* 32MB */
-				alignment = <0x0 0x2000000>; /* 32MB */
+				size = <0x0 0x2000000>; // 32MB
+				alignment = <0x0 0x2000000>; // 32MB
 			};
 			aux_info@CARVEOUT_PSC_TZ {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x400000>; /* 4MB */
-				alignment = <0x0 0x200000>; /* 2MB */
-			};
-			aux_info@CARVEOUT_SCE_CPU_NS {
-				pref_base = <0x0 0x0>;
-				size = <0x0 0x10000>; /* 64KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x400000>; // 4MB
+				alignment = <0x0 0x200000>; // 2MB
 			};
 			aux_info@CARVEOUT_OEM_SC7 {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x10000>; /* 64KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x10000>; // 64KB
+				alignment = <0x0 0x10000>; // 64KB
 			};
 			aux_info@CARVEOUT_SYNCPT_IGPU_RO {
 				pref_base = <0x0 0x60000000>;
-				size = <0x0 0x0>; /* 0 */
-				alignment = <0x0 0x0>; /* 0x0 */
+				size = <0x0 0x0>; // 0
+				alignment = <0x0 0x0>; // 0x0
 			};
 			aux_info@CARVEOUT_SYNCPT_IGPU_NA {
 				pref_base = <0x0 0x60000000>;
-				size = <0x0 0x0>; /* 0 */
-				alignment = <0x0 0x0>; /* 0x0 */
+				size = <0x0 0x0>; // 0
+				alignment = <0x0 0x0>; // 0x0
 			};
 			aux_info@CARVEOUT_VM_ENCRYPT {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x0>; /* 0 */
-				alignment = <0x0 0x0>; /* 0x0 */
+				size = <0x0 0x0>; // 0
+				alignment = <0x0 0x0>; // 0x0
 			};
 			aux_info@CARVEOUT_CCPLEX_SMMU_PTW {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x6000000>; /* 96MB */
-				alignment = <0x0 0x200000>; /* 2MB */
+				size = <0x0 0x6000000>; // 96MB
+				alignment = <0x0 0x200000>; // 2MB
 			};
 			aux_info@CARVEOUT_FSI_CPU_NS {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x1000000>; /* 16MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x1000000>; // 16MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_TZDRAM {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x1000000>; /* 16MB */
-				alignment = <0x0 0x200000>; /* 2MB */
+				size = <0x0 0x2000000>; // 32MB
+				alignment = <0x0 0x200000>; // 2MB
 			};
 			aux_info@CARVEOUT_VPR {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x5000000>; /* 80MB */
-				alignment = <0x0 0x100000>; /* 1MB */
+				size = <0x0 0x5000000>; // 80MB
+				alignment = <0x0 0x100000>; // 1MB
 			};
 			aux_info@CARVEOUT_RCM_BLOB {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x20000000>; /* 512MB */
-				alignment = <0x0 0x20000000>; /* 512MB */
+				size = <0x0 0x20000000>; // 512MB
+				alignment = <0x0 0x20000000>; // 512MB
 			};
 			aux_info@CARVEOUT_DRAM_ECC_TEST {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x10000>; /* 64KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x10000>; // 64KB
+				alignment = <0x0 0x10000>; // 64KB
 			};
 			aux_info@CARVEOUT_PROFILING {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x10000>; /* 64KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x10000>; // 64KB
+				alignment = <0x0 0x10000>; // 64KB
 			};
 			aux_info@CARVEOUT_FSI_KEY_BLOB {
 				pref_base = <0x0 0x0>;
-				size = <0x0 0x10000>; /* 64KB */
-				alignment = <0x0 0x10000>; /* 64KB */
+				size = <0x0 0x10000>; // 64KB
+				alignment = <0x0 0x10000>; // 64KB
 			};
 		};
 	};

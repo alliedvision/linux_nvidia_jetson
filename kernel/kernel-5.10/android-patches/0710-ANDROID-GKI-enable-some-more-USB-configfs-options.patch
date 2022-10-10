@@ -1,0 +1,58 @@
+From f28bc6582ee7108b581fe59fe99e404301bd6244 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Thu, 18 Jun 2020 17:48:59 +0200
+Subject: [PATCH 710/830] ANDROID: GKI: enable some more USB configfs options
+X-NVConfidentiality: public
+
+Enable CONFIG_USB_CONFIGFS_ACM and CONFIG_USB_CONFIGFS_F_HID as these
+options were somehow not selected before.
+
+Bug: 158724286
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I79c47a598601d2316fb3ff66d3eef8b6f0a6149e
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a86a9ef82882..a91b1ddb1543 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -353,12 +353,14 @@ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_UEVENT=y
+ CONFIG_USB_CONFIGFS_SERIAL=y
++CONFIG_USB_CONFIGFS_ACM=y
+ CONFIG_USB_CONFIGFS_RNDIS=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_CONFIGFS_F_ACC=y
+ CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y
+ CONFIG_USB_CONFIGFS_F_MIDI=y
++CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_TYPEC=y
+ CONFIG_MMC=y
+ # CONFIG_PWRSEQ_EMMC is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 00a8bfe3c000..adc3858ba7e7 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -310,12 +310,14 @@ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_UEVENT=y
+ CONFIG_USB_CONFIGFS_SERIAL=y
++CONFIG_USB_CONFIGFS_ACM=y
+ CONFIG_USB_CONFIGFS_RNDIS=y
+ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
+ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_CONFIGFS_F_ACC=y
+ CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y
+ CONFIG_USB_CONFIGFS_F_MIDI=y
++CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_MMC=y
+ # CONFIG_PWRSEQ_EMMC is not set
+ # CONFIG_PWRSEQ_SIMPLE is not set
+-- 
+2.17.1
+

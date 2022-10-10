@@ -1,7 +1,7 @@
 /*
  * Tegra NVDEC Module Support
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,7 +56,6 @@
 #include <linux/ote_protocol.h>
 #endif
 
-#include "t186/t186.h"
 #include "t194/t194.h"
 #include "t23x/t23x.h"
 #ifdef CONFIG_TEGRA_T239_GRHOST
@@ -125,7 +124,7 @@ static int nvhost_nvdec_bl_init(struct platform_device *dev)
 {
 	u32 fb_data_offset = 0;
 	struct flcn **m = get_nvdec(dev);
-	struct nvdec_bl_shared_data shared_data;
+	struct nvdec_bl_shared_data shared_data = {0};
 	u32 debug = host1x_readl(dev,
 				nvdec_scp_ctl_stat_r()) &
 				nvdec_scp_ctl_stat_debug_mode_m();
@@ -173,12 +172,7 @@ static int nvhost_nvdec_bl_init(struct platform_device *dev)
 }
 #endif
 
-/*
- * On T186, technically we don't need to keep KFUSE enabled after booting
- * the engine. However, on T194 we have to, so nicer to share the code
- * paths.
- */
-int nvhost_nvdec_finalize_poweron_t186(struct platform_device *dev)
+int nvhost_nvdec_finalize_poweron_t194(struct platform_device *dev)
 {
 	int err;
 
@@ -198,7 +192,7 @@ int nvhost_nvdec_finalize_poweron_t186(struct platform_device *dev)
 	return err;
 }
 
-int nvhost_nvdec_prepare_poweroff_t186(struct platform_device *dev)
+int nvhost_nvdec_prepare_poweroff_t194(struct platform_device *dev)
 {
 	if (!tegra_platform_is_vdk()) {
 		tegra_kfuse_disable_sensing();
@@ -464,8 +458,6 @@ static int nvhost_nvdec_init_sw(struct platform_device *pdev)
 static struct of_device_id tegra_nvdec_of_match[] = {
 	{ .compatible = "nvidia,tegra210-nvdec",
 		.data = (struct nvhost_device_data *)&t21_nvdec_info },
-	{ .compatible = "nvidia,tegra186-nvdec",
-		.data = (struct nvhost_device_data *)&t18_nvdec_info },
 	{ .compatible = "nvidia,tegra194-nvdec",
 		.data = (struct nvhost_device_data *)&t19_nvdec_info,
 		.name = "nvdec" },

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -402,7 +402,7 @@ int nvgpu_pmu_disable_elpg(struct gk20a *g)
 		if ((BIT32(pg_engine_id) & pg_engine_id_list) != 0U) {
 			if (pg_engine_id == PMU_PG_ELPG_ENGINE_ID_GRAPHICS) {
 				pmu->pg->elpg_stat = PMU_ELPG_STAT_OFF_PENDING;
-				if (pmu->pg->process_rpc_event != NULL) {
+				if (pmu->pg->process_pg_event != NULL) {
 					pmu->pg->disallow_state =
 						PMU_ELPG_STAT_OFF_PENDING;
 				}
@@ -453,7 +453,7 @@ int nvgpu_pmu_disable_elpg(struct gk20a *g)
 			 * Wait for DISALLOW_ACK RPC event from
 			 * PMU.
 			 */
-			if (pmu->pg->process_rpc_event != NULL) {
+			if (pmu->pg->process_pg_event != NULL) {
 				ptr = &pmu->pg->disallow_state;
 				pmu_wait_message_cond(pmu,
 					nvgpu_get_poll_timeout(g),
@@ -679,6 +679,8 @@ static int pmu_pg_init_powergating(struct gk20a *g, struct nvgpu_pmu *pmu,
 	u32 pg_engine_id_list = 0;
 	int err = 0;
 
+	(void)pg;
+
 	nvgpu_log_fn(g, " ");
 
 	if (pmu->pg->supported_engines_list != NULL) {
@@ -692,8 +694,7 @@ static int pmu_pg_init_powergating(struct gk20a *g, struct nvgpu_pmu *pmu,
 			pg_engine_id++) {
 
 		if ((BIT32(pg_engine_id) & pg_engine_id_list) != 0U) {
-			if (pmu != NULL &&
-				nvgpu_pmu_get_fw_state(g, pmu) ==
+			if (nvgpu_pmu_get_fw_state(g, pmu) ==
 					PMU_FW_STATE_INIT_RECEIVED) {
 				nvgpu_pmu_fw_state_change(g, pmu,
 					PMU_FW_STATE_ELPG_BOOTING, false);
@@ -747,6 +748,8 @@ static int pmu_pg_init_bind_fecs(struct gk20a *g, struct nvgpu_pmu *pmu,
 	int err = 0;
 	nvgpu_log_fn(g, " ");
 
+	(void)pg;
+
 	nvgpu_pmu_dbg(g,
 		"cmd post PMU_PG_CMD_ID_ENG_BUF_LOAD PMU_PGENG_GR_BUFFER_IDX_FECS");
 	nvgpu_pmu_fw_state_change(g, pmu, PMU_FW_STATE_LOADING_PG_BUF, false);
@@ -766,6 +769,8 @@ static int pmu_pg_setup_hw_load_zbc(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct nvgpu_pmu_pg *pg)
 {
 	int err = 0;
+
+	(void)pg;
 
 	nvgpu_pmu_dbg(g,
 		"cmd post PMU_PG_CMD_ID_ENG_BUF_LOAD PMU_PGENG_GR_BUFFER_IDX_ZBC");
@@ -935,6 +940,8 @@ static int pmu_pg_init_seq_buf(struct gk20a *g, struct nvgpu_pmu *pmu,
 	int err;
 	u8 *ptr;
 
+	(void)pmu;
+
 	err = nvgpu_dma_alloc_map_sys(vm, PMU_PG_SEQ_BUF_SIZE,
 				&pg->seq_buf);
 	if (err != 0) {
@@ -1029,6 +1036,8 @@ void nvgpu_pmu_pg_destroy(struct gk20a *g, struct nvgpu_pmu *pmu,
 	}
 
 	pg->zbc_ready = false;
+
+	(void)pmu;
 }
 
 int nvgpu_pmu_pg_init(struct gk20a *g, struct nvgpu_pmu *pmu,
@@ -1037,6 +1046,8 @@ int nvgpu_pmu_pg_init(struct gk20a *g, struct nvgpu_pmu *pmu,
 	struct nvgpu_pmu_pg *pg;
 	int err = 0;
 	u32 ver = g->params.gpu_arch + g->params.gpu_impl;
+
+	(void)pmu;
 
 	if (!g->support_ls_pmu || !g->can_elpg) {
 		return 0;
@@ -1105,6 +1116,8 @@ void nvgpu_pmu_pg_deinit(struct gk20a *g, struct nvgpu_pmu *pmu,
 {
 	struct mm_gk20a *mm = &g->mm;
 	struct vm_gk20a *vm = mm->pmu.vm;
+
+	(void)pmu;
 
 	if (!is_pg_supported(g, pg)) {
 		return;
@@ -1177,22 +1190,21 @@ u64 nvgpu_pmu_pg_buf_get_gpu_va(struct gk20a *g, struct nvgpu_pmu *pmu)
 	return pmu->pg->pg_buf.gpu_va;
 }
 
-struct nvgpu_mem *nvgpu_pmu_pg_buf(struct gk20a *g, struct nvgpu_pmu *pmu)
+int nvgpu_pmu_pg_buf_alloc(struct gk20a *g, struct nvgpu_pmu *pmu, u32 size)
 {
-	if (!is_pg_supported(g, pmu->pg)) {
-		return NULL;
+	struct mm_gk20a *mm = &g->mm;
+	struct vm_gk20a *vm = mm->pmu.vm;
+	int err = 0;
+
+	if (!nvgpu_mem_is_valid(&pmu->pg->pg_buf)) {
+		err = nvgpu_dma_alloc_map_sys(vm, size, &pmu->pg->pg_buf);
+		if (err != 0) {
+			nvgpu_err(g, "failed to allocate pg_buf");
+			return err;
+		}
 	}
 
-	return &pmu->pg->pg_buf;
-}
-
-void *nvgpu_pmu_pg_buf_get_cpu_va(struct gk20a *g, struct nvgpu_pmu *pmu)
-{
-	if (!is_pg_supported(g, pmu->pg)) {
-		return NULL;
-	}
-
-	return pmu->pg->pg_buf.cpu_va;
+	return err;
 }
 
 int nvgpu_pmu_restore_golden_img_state(struct gk20a *g)

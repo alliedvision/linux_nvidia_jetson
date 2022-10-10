@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -187,6 +187,15 @@ struct core_ops {
 	nveu32_t (*write_reg)(struct osi_core_priv_data *const osi_core,
 			      const nveu32_t val,
 			      const nve32_t reg);
+#ifdef MACSEC_SUPPORT
+	/** Called to read macsec reg */
+	nveu32_t (*read_macsec_reg)(struct osi_core_priv_data *const osi_core,
+				    const nve32_t reg);
+	/** Called to write macsec reg */
+	nveu32_t (*write_macsec_reg)(struct osi_core_priv_data *const osi_core,
+				     const nveu32_t val,
+				     const nve32_t reg);
+#endif /*  MACSEC_SUPPORT */
 #ifndef OSI_STRIPPED_LIB
 	/** Called periodically to read and validate safety critical
 	 * registers against last written value */
@@ -221,9 +230,6 @@ struct core_ops {
 				     const nveu32_t filter_enb_dis,
 				     const nveu32_t perfect_hash_filtering,
 				     const nveu32_t perfect_inverse_match);
-	/** called to update VLAN id */
-	nve32_t (*update_vlan_id)(struct osi_core_priv_data *const osi_core,
-				  const nveu32_t vid);
 	/** Called to reset MMC HW counter structure */
 	void (*reset_mmc)(struct osi_core_priv_data *const osi_core);
 	/** Called to configure EEE Tx LPI */
@@ -272,6 +278,11 @@ struct core_ops {
 #endif /* MACSEC_SUPPORT */
 	int (*ptp_tsc_capture)(struct osi_core_priv_data *const osi_core,
 			       struct osi_core_ptp_tsc_data *data);
+#ifdef HSI_SUPPORT
+	/** Interface function called to initialize HSI */
+	int (*core_hsi_configure)(struct osi_core_priv_data *const osi_core,
+				   const nveu32_t enable);
+#endif
 };
 
 /**
@@ -355,6 +366,10 @@ struct core_local {
 	nveu32_t hw_init_successful;
 	/** Dynamic MAC to MAC time sync control for secondary interface */
 	nveu32_t m2m_tsync;
+	/** control pps output signal */
+	nveu32_t pps_freq;
+	/** Time interval mask for GCL entry */
+	nveu32_t ti_mask;
 };
 
 /**

@@ -1,0 +1,95 @@
+From 7b7cb4b1b29b99b02011ab42015d322ac0bd83bd Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Fri, 1 Mar 2019 15:40:30 -0800
+Subject: [PATCH 217/830] ANDROID: cpufreq: times: don't copy invalid freqs
+ from freq table
+X-NVConfidentiality: public
+
+Invalid frequency checks are a bottleneck in reading
+/proc/uid_time_in_state, but there's no reason to include invalid
+frequencies in our local copies of frequency tables. Revise
+cpufreq_times_create_policy() to only copy valid frequencies, and
+eliminate all the checks this change makes unnecessary.
+
+Bug: 111216804
+Test: cat /proc/uid_time_in_state & confirm values & format are sane
+Test: /proc/uid_time_in_state read times reduced by ~40%
+Change-Id: I506420a6ac5fe8a6c87d01b16ad267b192d43f1d
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ drivers/cpufreq/cpufreq_times.c | 26 +++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq_times.c b/drivers/cpufreq/cpufreq_times.c
+index 0749d8d8afde..4df55b323fc1 100644
+--- a/drivers/cpufreq/cpufreq_times.c
++++ b/drivers/cpufreq/cpufreq_times.c
+@@ -118,8 +118,6 @@ int proc_time_in_state_show(struct seq_file *m, struct pid_namespace *ns,
+ 
+ 		seq_printf(m, "cpu%u\n", cpu);
+ 		for (i = 0; i < freqs->max_state; i++) {
+-			if (freqs->freq_table[i] == CPUFREQ_ENTRY_INVALID)
+-				continue;
+ 			cputime = 0;
+ 			if (freqs->offset + i < p->max_state &&
+ 			    p->time_in_state)
+@@ -150,9 +148,19 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
+ 	spin_unlock_irqrestore(&task_time_in_state_lock, flags);
+ }
+ 
++static int cpufreq_times_get_index(struct cpu_freqs *freqs, unsigned int freq)
++{
++	int index;
++        for (index = 0; index < freqs->max_state; ++index) {
++		if (freqs->freq_table[index] == freq)
++			return index;
++        }
++	return -1;
++}
++
+ void cpufreq_times_create_policy(struct cpufreq_policy *policy)
+ {
+-	int cpu, index;
++	int cpu, index = 0;
+ 	unsigned int count = 0;
+ 	struct cpufreq_frequency_table *pos, *table;
+ 	struct cpu_freqs *freqs;
+@@ -165,7 +173,7 @@ void cpufreq_times_create_policy(struct cpufreq_policy *policy)
+ 	if (!table)
+ 		return;
+ 
+-	cpufreq_for_each_entry(pos, table)
++	cpufreq_for_each_valid_entry(pos, table)
+ 		count++;
+ 
+ 	tmp =  kzalloc(sizeof(*freqs) + sizeof(freqs->freq_table[0]) * count,
+@@ -176,13 +184,13 @@ void cpufreq_times_create_policy(struct cpufreq_policy *policy)
+ 	freqs = tmp;
+ 	freqs->max_state = count;
+ 
+-	index = cpufreq_frequency_table_get_index(policy, policy->cur);
++	cpufreq_for_each_valid_entry(pos, table)
++		freqs->freq_table[index++] = pos->frequency;
++
++	index = cpufreq_times_get_index(freqs, policy->cur);
+ 	if (index >= 0)
+ 		WRITE_ONCE(freqs->last_index, index);
+ 
+-	cpufreq_for_each_entry(pos, table)
+-		freqs->freq_table[pos - table] = pos->frequency;
+-
+ 	freqs->offset = next_offset;
+ 	WRITE_ONCE(next_offset, freqs->offset + count);
+ 	for_each_cpu(cpu, policy->related_cpus)
+@@ -197,7 +205,7 @@ void cpufreq_times_record_transition(struct cpufreq_policy *policy,
+ 	if (!freqs)
+ 		return;
+ 
+-	index = cpufreq_frequency_table_get_index(policy, new_freq);
++	index = cpufreq_times_get_index(freqs, new_freq);
+ 	if (index >= 0)
+ 		WRITE_ONCE(freqs->last_index, index);
+ }
+-- 
+2.17.1
+

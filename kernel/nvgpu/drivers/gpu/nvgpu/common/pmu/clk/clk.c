@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -63,6 +63,8 @@ static void clk_free_pmupstate(struct gk20a *g)
 u32 nvgpu_pmu_clk_mon_init_domains(struct gk20a *g)
 {
 	u32 domain_mask;
+
+	(void)g;
 
 	domain_mask = (CTRL_CLK_DOMAIN_MCLK |
 			CTRL_CLK_DOMAIN_XBARCLK 	|

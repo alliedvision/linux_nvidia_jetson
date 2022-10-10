@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 #include <nvgpu/nvgpu_err.h>
 #include <nvgpu/nvgpu_err_info.h>
 #include <nvgpu/cic_mon.h>
+#include <nvgpu/string.h>
 
 #include "cic_mon_priv.h"
 
@@ -98,26 +99,6 @@ void nvgpu_report_gr_err(struct gk20a *g, u32 hw_unit, u32 inst,
 	nvpgu_report_fill_err_info(hw_unit, &err_pkt, err_info);
 	err_pkt.err_size = nvgpu_safe_cast_u64_to_u8(sizeof(err_pkt.err_info));
 
-	if (g->ops.cic_mon.report_err != NULL) {
-		err = g->ops.cic_mon.report_err(g, (void *)&err_pkt,
-			sizeof(err_pkt), err_desc->is_critical);
-		if (err != 0) {
-			if (hw_unit == NVGPU_ERR_MODULE_SM) {
-				nvgpu_err(g, "Failed to report SM exception"
-					"gpc=%u, tpc=%u, sm=%u, esr_status=%x",
-					err_pkt.err_info.sm_info.gpc,
-					err_pkt.err_info.sm_info.tpc,
-					err_pkt.err_info.sm_info.sm,
-					err_pkt.err_info.sm_info.warp_esr_status);
-			}
-			if (hw_unit == NVGPU_ERR_MODULE_PGRAPH) {
-				nvgpu_err(g, "Failed to report PGRAPH"
-					"exception: inst=%u, err_id=%u, "
-					"status=%u", inst, err_id,
-					err_pkt.err_info.gr_info.status);
-			}
-		}
-	}
 handle_report_failure:
 	if (err != 0) {
 		nvgpu_sw_quiesce(g);

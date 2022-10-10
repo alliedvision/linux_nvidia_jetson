@@ -3,6 +3,7 @@
  * PCI Endpoint *Controller* (EPC) library
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2021 NVIDIA Corporation.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
@@ -610,6 +611,23 @@ void pci_epc_init_notify(struct pci_epc *epc)
 EXPORT_SYMBOL_GPL(pci_epc_init_notify);
 
 /**
+ * pci_epc_deinit_notify() - Notify the EPF device that EPC device's core
+ *			     deinitialization is scheduled.
+ * @epc: the EPC device whose core deinitialization is scheduled
+ *
+ * Invoke to Notify the EPF device that the EPC device's deinitialization
+ * is scheduled.
+ */
+void pci_epc_deinit_notify(struct pci_epc *epc)
+{
+	if (!epc || IS_ERR(epc))
+		return;
+
+	blocking_notifier_call_chain(&epc->block_notifier, CORE_DEINIT, NULL);
+}
+EXPORT_SYMBOL_GPL(pci_epc_deinit_notify);
+
+/**
  * pci_epc_destroy() - destroy the EPC device
  * @epc: the EPC device that has to be destroyed
  *
@@ -670,6 +688,7 @@ __pci_epc_create(struct device *dev, const struct pci_epc_ops *ops,
 	spin_lock_init(&epc->lock);
 	INIT_LIST_HEAD(&epc->pci_epf);
 	ATOMIC_INIT_NOTIFIER_HEAD(&epc->notifier);
+	BLOCKING_INIT_NOTIFIER_HEAD(&epc->block_notifier);
 
 	device_initialize(&epc->dev);
 	epc->dev.class = pci_epc_class;

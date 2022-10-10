@@ -1,7 +1,7 @@
 /*
  * tegra_wdt_t18x.c: watchdog driver for NVIDIA tegra internal watchdog
  *
- * Copyright (c) 2012-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
  * Based on:
  *	drivers/watchdog/softdog.c and
  *	drivers/watchdog/omap_wdt.c
@@ -466,6 +466,11 @@ static int tegra_wdt_t18x_probe(struct platform_device *pdev)
 	twdt_t18x->shutdown_timeout = (ret) ? SHUTDOWN_TIMEOUT : pval;
 
 	twdt_t18x->soc = of_device_get_match_data(&pdev->dev);
+	if (!twdt_t18x->soc) {
+		dev_err(&pdev->dev, "Unable to find soc data\n");
+		return -EINVAL;
+	}
+
 	twdt_t18x->dev = &pdev->dev;
 	twdt_t18x->wdt.info = &tegra_wdt_t18x_info;
 	twdt_t18x->wdt.ops = &tegra_wdt_t18x_ops;

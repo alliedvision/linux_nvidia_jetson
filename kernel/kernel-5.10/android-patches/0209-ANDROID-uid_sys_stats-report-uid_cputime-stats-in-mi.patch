@@ -1,0 +1,38 @@
+From 001bcea9c8cd09c89b7cd261d383fc6edb5f2708 Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Wed, 22 May 2019 14:32:49 -0700
+Subject: [PATCH 209/830] ANDROID: uid_sys_stats: report uid_cputime stats in
+ microseconds
+X-NVConfidentiality: public
+
+A porting error in commit 0ae8088521d9 ("ANDROID: uid_cputime: Adds
+accounting for the cputimes per uid.") caused
+/proc/uid_cputime/show_uid_stat to report times in milliseconds
+instead of microseconds. Restore the expected behavior.
+
+Bug: 133273154
+Bug: 146339763
+Signed-off-by: Ed Savage-Jones <edward.savage-jones@sony.com>
+Signed-off-by: Connor O'Brien <connoro@google.com>
+Change-Id: I203919d1d44b300dab91810b16626a6950b063f8
+(cherry picked from commit 305d5c197508b80a8dec0ab506de309e5d85fd26)
+---
+ drivers/misc/uid_sys_stats.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/misc/uid_sys_stats.c b/drivers/misc/uid_sys_stats.c
+index 31d58eaad1b3..47336700f687 100644
+--- a/drivers/misc/uid_sys_stats.c
++++ b/drivers/misc/uid_sys_stats.c
+@@ -372,7 +372,7 @@ static int uid_cputime_show(struct seq_file *m, void *v)
+ 		u64 total_stime = uid_entry->stime +
+ 							uid_entry->active_stime;
+ 		seq_printf(m, "%d: %llu %llu\n", uid_entry->uid,
+-			ktime_to_ms(total_utime), ktime_to_ms(total_stime));
++			ktime_to_us(total_utime), ktime_to_us(total_stime));
+ 	}
+ 
+ 	rt_mutex_unlock(&uid_lock);
+-- 
+2.17.1
+

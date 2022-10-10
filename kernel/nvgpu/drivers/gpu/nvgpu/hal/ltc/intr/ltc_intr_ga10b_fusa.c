@@ -1,7 +1,7 @@
 /*
  * GA10B LTC INTR
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,7 +28,6 @@
 #include <nvgpu/nvgpu_err.h>
 #include <nvgpu/utils.h>
 
-#include "hal/ltc/intr/ltc_intr_gv11b.h"
 #include "ltc_intr_ga10b.h"
 
 #include <nvgpu/hw/ga10b/hw_ltc_ga10b.h>
@@ -65,9 +64,12 @@ static void ga10b_ltc_intr1_configure(struct gk20a *g)
 	 * EVICTED_CB - indicates that a CB was demoted.
 	 * Normally this should not happen because the CBs should be flushed
 	 * during context switch and/or invalidated when no longer used.
+	 *
+	 * Note: this occurs more frequently than expected, so is being left
+	 * disabled as on previous chips and consistent with HW POR value.
 	 */
 	reg = set_field(reg, ltc_ltcs_ltss_intr_en_evicted_cb_m(),
-		ltc_ltcs_ltss_intr_en_evicted_cb_enabled_f());
+		ltc_ltcs_ltss_intr_en_evicted_cb_disabled_f());
 
 	/*
 	 * ILLEGAL_ATOMIC - unsupported atomic op and/or size received.
@@ -95,6 +97,7 @@ static void ga10b_ltc_intr1_configure(struct gk20a *g)
 	/* Read back register for write synchronization */
 	reg = nvgpu_readl(g, ltc_ltcs_ltss_intr_r());
 
+#ifdef CONFIG_NVGPU_NON_FUSA
 	/* illegal_compstat interrupts can be also controlled through
 	 * debug_fs, so enable/disable based on g->ltc_intr_en_illegal_compstat
 	 * settings
@@ -103,6 +106,7 @@ static void ga10b_ltc_intr1_configure(struct gk20a *g)
 		g->ops.ltc.intr.en_illegal_compstat(g,
 					g->ltc_intr_en_illegal_compstat);
 	}
+#endif
 }
 
 /* LTC interrupts included in intr2 are not used for ga10b */
@@ -248,6 +252,8 @@ static void ga10b_ltc_intr2_configure(struct gk20a *g)
 
 void ga10b_ltc_intr3_configure_extra(struct gk20a *g, u32 *reg)
 {
+	(void)g;
+
 	/*
 	 * DTM_KIND_INVALID - If the kind of a comp stat req read or packed
 	 * read is invalid or pitch, the inter3_dtm_kind_invalid interrupt will
@@ -386,14 +392,212 @@ void ga10b_ltc_intr_configure(struct gk20a *g)
 	ga10b_ltc_intr3_configure(g);
 }
 
+static void ga10b_ltc_intr_handle_rstg_ecc_interrupts(struct gk20a *g,
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 uncorrected_delta)
+{
+	bool is_rstg_ecc_addr = (ltc_ltc0_lts0_l2_cache_ecc_address_subunit_v(ecc_addr) ==
+				 ltc_ltc0_lts0_l2_cache_ecc_address_subunit_rstg_v());
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_uncorrected_err_rstg_m()) != 0U) {
+		nvgpu_err(g, "rstg ecc error uncorrected");
+
+		if (!is_rstg_ecc_addr) {
+			nvgpu_log(g, gpu_dbg_intr, "ECC address doesn't belong to RSTG");
+			return;
+		}
+
+		g->ecc.ltc.rstg_ecc_parity_count[ltc][slice].counter =
+				nvgpu_wrapping_add_u32(
+				g->ecc.ltc.rstg_ecc_parity_count[ltc][slice].counter,
+					uncorrected_delta);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_LTC,
+				GPU_LTC_CACHE_RSTG_CBC_ECC_UNCORRECTED);
+	}
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_corrected_err_rstg_m()) != 0U) {
+		nvgpu_err(g, "rstg ecc error corrected");
+		/* This error is not expected to occur in ga10x and hence,
+		 * this scenario is considered as a fatal error.
+		 */
+		BUG();
+	}
+}
+
+static void ga10b_ltc_intr_handle_tstg_ecc_interrupts(struct gk20a *g,
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 uncorrected_delta)
+{
+	bool is_tstg_ecc_addr = (ltc_ltc0_lts0_l2_cache_ecc_address_subunit_v(ecc_addr) ==
+				 ltc_ltc0_lts0_l2_cache_ecc_address_subunit_tstg_v());
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_uncorrected_err_tstg_m()) != 0U) {
+		nvgpu_err(g, "tstg ecc error uncorrected");
+
+		if (!is_tstg_ecc_addr) {
+			nvgpu_log(g, gpu_dbg_intr, "ECC address doesn't belong to TSTG");
+			return;
+		}
+
+		g->ecc.ltc.tstg_ecc_parity_count[ltc][slice].counter =
+				nvgpu_wrapping_add_u32(
+				g->ecc.ltc.tstg_ecc_parity_count[ltc][slice].counter,
+					uncorrected_delta);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_LTC,
+				GPU_LTC_CACHE_TSTG_ECC_UNCORRECTED);
+	}
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_corrected_err_tstg_m()) != 0U) {
+		nvgpu_err(g, "tstg ecc error corrected");
+		/* This error is not expected to occur in ga10b and hence,
+		 * this scenario is considered as a fatal error.
+		 */
+		BUG();
+	}
+}
+
+static bool ga10b_ltc_intr_is_dstg_data_bank(u32 ecc_addr)
+{
+	u32 ecc_ram = ltc_ltc0_lts0_l2_cache_ecc_address_ram_v(ecc_addr);
+	bool is_dstg_data_bank = false;
+
+	if ((ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank0_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank1_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank2_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank3_v())) {
+		is_dstg_data_bank = true;
+	}
+
+	return is_dstg_data_bank;
+}
+
+static bool ga10b_ltc_intr_is_dstg_be_ram(u32 ecc_addr)
+{
+	u32 ecc_ram = ltc_ltc0_lts0_l2_cache_ecc_address_ram_v(ecc_addr);
+	bool is_dstg_be_ram = false;
+
+	if ((ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram0_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram1_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram2_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram3_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram4_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram5_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram6_v()) ||
+	    (ecc_ram == ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram7_v())) {
+		is_dstg_be_ram = true;
+	}
+
+	return is_dstg_be_ram;
+}
+
+static void ga10b_ltc_intr_handle_dstg_ecc_interrupts(struct gk20a *g,
+			u32 ltc, u32 slice, u32 ecc_status, u32 ecc_addr,
+			u32 corrected_delta, u32 uncorrected_delta)
+{
+	bool is_dstg_ecc_addr = (ltc_ltc0_lts0_l2_cache_ecc_address_subunit_v(ecc_addr) ==
+				 ltc_ltc0_lts0_l2_cache_ecc_address_subunit_dstg_v());
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_corrected_err_dstg_m()) != 0U) {
+		nvgpu_err(g, "dstg ecc error (SEC) corrected");
+
+		if (!is_dstg_ecc_addr) {
+			nvgpu_log(g, gpu_dbg_intr, "ECC address doesn't belong to DSTG");
+			return;
+		}
+
+		g->ecc.ltc.ecc_sec_count[ltc][slice].counter =
+			nvgpu_wrapping_add_u32(
+				g->ecc.ltc.ecc_sec_count[ltc][slice].counter,
+				corrected_delta);
+
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_LTC,
+				GPU_LTC_CACHE_DSTG_ECC_CORRECTED);
+
+		/*
+		 * Using a SEC code will allow correction of an SBE (Single Bit
+		 * Error). But the current HW doesn't have the ability to clear
+		 * out the SBE from the RAMs for a read access. So before the
+		 * SBE turns into a DBE (Double Bit Error), a SW flush is
+		 * preferred.
+		 */
+		if (g->ops.mm.cache.l2_flush(g, true) != 0) {
+			nvgpu_err(g, "l2_flush failed");
+			BUG();
+		}
+	}
+
+	if ((ecc_status & ltc_ltc0_lts0_l2_cache_ecc_status_uncorrected_err_dstg_m()) != 0U) {
+		nvgpu_err(g, "dstg ecc error uncorrected");
+
+		if (!is_dstg_ecc_addr) {
+			nvgpu_log(g, gpu_dbg_intr, "ECC address doesn't belong to DSTG");
+			return;
+		}
+
+		if (ga10b_ltc_intr_is_dstg_data_bank(ecc_addr)) {
+			nvgpu_err(g, "Double bit error detected in GPU L2!");
+
+			g->ecc.ltc.ecc_ded_count[ltc][slice].counter =
+				nvgpu_wrapping_add_u32(
+					g->ecc.ltc.ecc_ded_count[ltc][slice].counter,
+					uncorrected_delta);
+
+			nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_LTC,
+					GPU_LTC_CACHE_DSTG_ECC_UNCORRECTED);
+		} else if (ga10b_ltc_intr_is_dstg_be_ram(ecc_addr)) {
+			nvgpu_log(g, gpu_dbg_intr, "dstg be ecc error uncorrected");
+
+			g->ecc.ltc.dstg_be_ecc_parity_count[ltc][slice].counter =
+				nvgpu_wrapping_add_u32(
+					g->ecc.ltc.dstg_be_ecc_parity_count[ltc][slice].counter,
+					uncorrected_delta);
+
+		} else {
+			nvgpu_err(g, "unsupported uncorrected dstg ecc error");
+			BUG();
+		}
+	}
+}
+
+static void ga10b_ltc_intr_init_counters(struct gk20a *g,
+			u32 uncorrected_delta, u32 uncorrected_overflow,
+			u32 corrected_delta, u32 corrected_overflow,
+			u32 offset)
+{
+	if ((uncorrected_delta > 0U) || (uncorrected_overflow != 0U)) {
+		nvgpu_writel(g,
+			nvgpu_safe_add_u32(
+			ltc_ltc0_lts0_l2_cache_ecc_uncorrected_err_count_r(),
+			offset), 0);
+	}
+
+	if ((corrected_delta > 0U) || (corrected_overflow != 0U)) {
+		nvgpu_writel(g,
+			nvgpu_safe_add_u32(
+			ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_r(),
+			offset), 0);
+	}
+}
+
 static void ga10b_ltc_intr3_ecc_interrupts(struct gk20a *g, u32 ltc, u32 slice,
 				u32 offset, u32 ltc_intr3)
 {
-	u32 ecc_status, ecc_addr, dstg_ecc_addr, corrected_cnt, uncorrected_cnt;
+	u32 ecc_status, ecc_addr, corrected_cnt, uncorrected_cnt;
 	u32 corrected_delta, uncorrected_delta;
 	u32 corrected_overflow, uncorrected_overflow;
 
-	/* Detect and handle ECC PARITY errors */
+	/*
+	 * Detect and handle ECC PARITY errors and SEC-DED errors.
+	 * SEC errors are reported as DSTG corrected errors and
+	 * DED errors are reported as DSTG uncorrected errors.
+	 * Below are the supported errors:
+	 *
+	 *   1. UNCORRECTED_ERR_RSTG - signals a parity error in RSTG RAMS, for now only CBC RAMS
+	 *   2. UNCORRECTED_ERR_TSTG - signals a parity error in TSTG RAMS
+	 *   3. UNCORRECTED_ERR_DSTG - signals a parity error in DSTG RAMS, non-data RAMS
+	 *                             and DED in data RAMS.
+	 *   4. CORRECTED_ERR_DSTG - signals an ecc corrected error in DSTG data RAMS (SEC)
+	 */
 	if ((ltc_intr3 &
 		(ltc_ltcs_ltss_intr3_ecc_uncorrected_m() |
 		 ltc_ltcs_ltss_intr3_ecc_corrected_m())) != 0U) {
@@ -402,82 +606,65 @@ static void ga10b_ltc_intr3_ecc_interrupts(struct gk20a *g, u32 ltc, u32 slice,
 				ltc_ltc0_lts0_l2_cache_ecc_status_r(), offset));
 		ecc_addr = nvgpu_readl(g, nvgpu_safe_add_u32(
 			ltc_ltc0_lts0_l2_cache_ecc_address_r(), offset));
-		dstg_ecc_addr = nvgpu_readl(g, nvgpu_safe_add_u32(
-				ltc_ltc0_lts0_dstg_ecc_address_r(), offset));
-		corrected_cnt = nvgpu_readl(g, nvgpu_safe_add_u32(
-			ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_r(),
-			offset));
+
 		uncorrected_cnt = nvgpu_readl(g, nvgpu_safe_add_u32(
 			ltc_ltc0_lts0_l2_cache_ecc_uncorrected_err_count_r(),
 			offset));
 
-		corrected_delta =
-			ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_v(
-					corrected_cnt);
 		uncorrected_delta =
 			ltc_ltc0_lts0_l2_cache_ecc_uncorrected_err_count_total_v(uncorrected_cnt);
-		corrected_overflow = ecc_status &
-			ltc_ltc0_lts0_l2_cache_ecc_status_corrected_err_total_counter_overflow_m();
 
 		uncorrected_overflow = ecc_status &
 			ltc_ltc0_lts0_l2_cache_ecc_status_uncorrected_err_total_counter_overflow_m();
 
-		gv11b_ltc_intr_init_counters(g,
-			corrected_delta, corrected_overflow,
-			uncorrected_delta, uncorrected_overflow, offset);
+		corrected_cnt = nvgpu_readl(g, nvgpu_safe_add_u32(
+			ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_r(),
+			offset));
+
+		corrected_delta =
+			ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_v(corrected_cnt);
+
+		corrected_overflow = ecc_status &
+			ltc_ltc0_lts0_l2_cache_ecc_status_corrected_err_total_counter_overflow_m();
+
+		ga10b_ltc_intr_init_counters(g,
+			uncorrected_delta, uncorrected_overflow,
+			corrected_delta, corrected_overflow, offset);
 
 		nvgpu_writel(g, nvgpu_safe_add_u32(
 				ltc_ltc0_lts0_l2_cache_ecc_status_r(), offset),
 			ltc_ltc0_lts0_l2_cache_ecc_status_reset_task_f());
 
 		/* update counters per slice */
-		if (corrected_overflow != 0U) {
-			corrected_delta += BIT32(
-				ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_s());
-		}
 		if (uncorrected_overflow != 0U) {
+			nvgpu_info(g, "uncorrected ecc counter overflow!");
 			uncorrected_delta += BIT32(
 				ltc_ltc0_lts0_l2_cache_ecc_uncorrected_err_count_total_s());
 		}
 
-		g->ecc.ltc.ecc_sec_count[ltc][slice].counter =
-				nvgpu_safe_add_u32(
-				g->ecc.ltc.ecc_sec_count[ltc][slice].counter,
-					corrected_delta);
-		g->ecc.ltc.ecc_ded_count[ltc][slice].counter =
-				nvgpu_safe_add_u32(
-				g->ecc.ltc.ecc_ded_count[ltc][slice].counter,
-					uncorrected_delta);
+		if (corrected_overflow != 0U) {
+			nvgpu_info(g, "corrected ecc counter overflow!");
+			corrected_delta += BIT32(
+				ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_s());
+		}
+
 		nvgpu_log(g, gpu_dbg_intr,
-			"ltc:%d lts: %d cache ecc interrupt intr: 0x%x",
-			ltc, slice, ltc_intr3);
+			  "ecc status 0x%08x error address: 0x%08x subunit: %u corrected_delta: 0x%08x uncorrected_delta: 0x%08x",
+			  ecc_status, ecc_addr,
+			  ltc_ltc0_lts0_l2_cache_ecc_address_subunit_v(ecc_addr),
+			  corrected_delta, uncorrected_delta);
 
-		/* This check has been added to ensure that the slice id is less
-		 * than 8-bits and hence, it can be packed as part of LSB 8-bits
-		 * along with the LTC id while reporting LTC related ECC errors.
-		 */
-		if (slice > U8_MAX) {
-			nvgpu_log(g, gpu_dbg_intr, "Invalid slice id=%d",
-					slice);
-			slice = slice & 0xFFU;
-		}
+		ga10b_ltc_intr_handle_rstg_ecc_interrupts(g, ltc, slice,
+						ecc_status, ecc_addr,
+						uncorrected_delta);
 
-		gv11b_ltc_intr_handle_rstg_ecc_interrupts(g, ltc, slice,
-						ecc_status, ecc_addr);
+		ga10b_ltc_intr_handle_tstg_ecc_interrupts(g, ltc, slice,
+						ecc_status, ecc_addr,
+						uncorrected_delta);
 
-		gv11b_ltc_intr_handle_tstg_ecc_interrupts(g, ltc, slice,
-						ecc_status, ecc_addr);
-
-		gv11b_ltc_intr_handle_dstg_ecc_interrupts(g, ltc, slice,
-						ecc_status, dstg_ecc_addr,
-								ecc_addr);
-
-		if ((corrected_overflow != 0U) ||
-				(uncorrected_overflow != 0U)) {
-			nvgpu_info(g, "ecc counter overflow!");
-		}
-
-		nvgpu_log(g, gpu_dbg_intr, "ecc error address: 0x%x", ecc_addr);
+		ga10b_ltc_intr_handle_dstg_ecc_interrupts(g, ltc, slice,
+						ecc_status, ecc_addr,
+						corrected_delta, uncorrected_delta);
 	}
 }
 
@@ -523,22 +710,10 @@ void ga10b_ltc_intr_handle_lts_intr3_extra(struct gk20a *g, u32 ltc, u32 slice, 
 	}
 }
 
-static void ga10b_ltc_intr_handle_lts_intr3(struct gk20a *g, u32 ltc, u32 slice)
+void ga10b_ltc_intr3_interrupts(struct gk20a *g, u32 ltc, u32 slice,
+				u32 ltc_intr3)
 {
-	u32 ltc_stride = nvgpu_get_litter_value(g, GPU_LIT_LTC_STRIDE);
-	u32 lts_stride = nvgpu_get_litter_value(g, GPU_LIT_LTS_STRIDE);
-
-	u32 offset = nvgpu_safe_add_u32(nvgpu_safe_mult_u32(ltc_stride, ltc),
-					nvgpu_safe_mult_u32(lts_stride, slice));
-	u32 ltc_intr3 = nvgpu_readl(g, nvgpu_safe_add_u32(
-					ltc_ltc0_lts0_intr3_r(), offset));
 	u32 reg_value = ltc_intr3;
-
-	if (ltc_intr3 == 0U) {
-		return;
-	}
-
-	ga10b_ltc_intr3_ecc_interrupts(g, ltc, slice, offset, ltc_intr3);
 
 	if (ltc_intr3 &
 		ltc_ltcs_ltss_intr3_checkedout_rwc_upg_unexpected_nvport_m()) {
@@ -625,13 +800,32 @@ static void ga10b_ltc_intr_handle_lts_intr3(struct gk20a *g, u32 ltc, u32 slice)
 	if (g->ops.ltc.intr.isr_extra != NULL) {
 		g->ops.ltc.intr.isr_extra(g, ltc, slice, &reg_value);
 	}
+}
+
+void ga10b_ltc_intr_handle_lts_intr3(struct gk20a *g, u32 ltc, u32 slice)
+{
+	u32 ltc_stride = nvgpu_get_litter_value(g, GPU_LIT_LTC_STRIDE);
+	u32 lts_stride = nvgpu_get_litter_value(g, GPU_LIT_LTS_STRIDE);
+
+	u32 offset = nvgpu_safe_add_u32(nvgpu_safe_mult_u32(ltc_stride, ltc),
+					nvgpu_safe_mult_u32(lts_stride, slice));
+	u32 ltc_intr3 = nvgpu_readl(g, nvgpu_safe_add_u32(
+					ltc_ltc0_lts0_intr3_r(), offset));
+	u32 reg_value = ltc_intr3;
+
+	if (ltc_intr3 == 0U) {
+		return;
+	}
+
+	ga10b_ltc_intr3_ecc_interrupts(g, ltc, slice, offset, ltc_intr3);
+	ga10b_ltc_intr3_interrupts(g, ltc, slice, ltc_intr3);
 
 	/* Reset interrupts */
 	nvgpu_writel(g, nvgpu_safe_add_u32( ltc_ltc0_lts0_intr3_r(), offset),
 			reg_value);
 }
 
-static void ga10b_ltc_intr_handle_lts_intr2(struct gk20a *g, u32 ltc, u32 slice)
+void ga10b_ltc_intr_handle_lts_intr2(struct gk20a *g, u32 ltc, u32 slice)
 {
 	u32 ltc_stride = nvgpu_get_litter_value(g, GPU_LIT_LTC_STRIDE);
 	u32 lts_stride = nvgpu_get_litter_value(g, GPU_LIT_LTS_STRIDE);
@@ -795,7 +989,7 @@ static void ga10b_ltc_intr_handle_lts_intr2(struct gk20a *g, u32 ltc, u32 slice)
 			reg_value);
 }
 
-static void ga10b_ltc_intr_handle_lts_intr(struct gk20a *g, u32 ltc, u32 slice)
+void ga10b_ltc_intr_handle_lts_intr(struct gk20a *g, u32 ltc, u32 slice)
 {
 	u32 ltc_stride = nvgpu_get_litter_value(g, GPU_LIT_LTC_STRIDE);
 	u32 lts_stride = nvgpu_get_litter_value(g, GPU_LIT_LTS_STRIDE);

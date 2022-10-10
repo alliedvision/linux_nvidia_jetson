@@ -1,0 +1,75 @@
+From 85a8f3d25f8365fcd0a1f5979fd0fb995f14fb5a Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 27 Mar 2020 10:18:41 -0700
+Subject: [PATCH 672/830] ANDROID: GKI: Add CONFIG_RPMSG to gki_defconfig
+X-NVConfidentiality: public
+
+RPMSG is used on various SoC platforms downstream. Enable the subsystem
+in the gki_defconfig. This also enables RPMSG_CHAR.
+
+Bug: 146449535
+Change-Id: Ib4a6e5a438681a9835398cdb8917045191e1fbe6
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig |  1 +
+ arch/x86/configs/gki_defconfig   |  1 +
+ init/Kconfig.gki                 | 12 ++++++++++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 67f916e4af55..4bb2165763db 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -366,6 +366,7 @@ CONFIG_COMMON_CLK_SCPI=y
+ CONFIG_HWSPINLOCK=y
+ CONFIG_MAILBOX=y
+ CONFIG_ARM_SMMU=y
++CONFIG_RPMSG_CHAR=y
+ CONFIG_QCOM_COMMAND_DB=y
+ CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+ CONFIG_DEVFREQ_GOV_POWERSAVE=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index fe78fac35983..9d50af11fedb 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -316,6 +316,7 @@ CONFIG_STAGING=y
+ CONFIG_ASHMEM=y
+ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
++CONFIG_RPMSG_CHAR=y
+ CONFIG_PM_DEVFREQ=y
+ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 1a43c5da3309..3fc2d9a0f79f 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -137,6 +137,17 @@ config GKI_HIDDEN_SOC_BUS_CONFIGS
+ 	    If you are not building a kernel to be used for a variety of SoCs and
+ 	    out-of-tree drivers, say N here.
+ 
++config GKI_HIDDEN_RPMSG_CONFIGS
++	bool "Hidden RPMSG configuration needed for GKI"
++	select RPMSG
++	help
++	  Dummy config option used to enable the hidden RPMSG config.
++	  This configuration is usually only selected by another config
++	  option or a combination of them.
++
++	  If you are not building a kernel to be used for a variety of
++	  out-of-kernel build RPMSG drivers, say N here.
++
+ # Atrocities needed for
+ # a) building GKI modules in separate tree, or
+ # b) building drivers that are not modularizable
+@@ -159,6 +170,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_VIRTUAL_CONFIGS
+ 	select GKI_HIDDEN_USB_CONFIGS
+ 	select GKI_HIDDEN_SOC_BUS_CONFIGS
++	select GKI_HIDDEN_RPMSG_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+ 	  modules that may not be selectable in this config.
+-- 
+2.17.1
+

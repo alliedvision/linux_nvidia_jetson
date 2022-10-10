@@ -140,16 +140,22 @@ int tegra_dce_register_ipc_client(u32 type,
 	struct tegra_dce_client_ipc *cl;
 	u32 handle = DCE_CLIENT_IPC_HANDLE_INVALID;
 
+	if (handlep == NULL) {
+		dce_err(d, "Invalid handle pointer");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if (type >= DCE_CLIENT_IPC_TYPE_MAX) {
+		dce_err(d, "Failed to retrieve client info for type: [%u]", type);
+		ret = -EINVAL;
+		goto end;
+	}
+
 	int_type = dce_interface_type_map[type];
 
 	d = dce_ipc_get_dce_from_ch(int_type);
 	if (d == NULL) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (handlep == NULL) {
-		dce_err(d, "Invalid handle pointer");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -184,7 +190,7 @@ out:
 	}
 
 	*handlep = handle;
-
+end:
 	return ret;
 }
 EXPORT_SYMBOL(tegra_dce_register_ipc_client);
@@ -252,7 +258,7 @@ void dce_client_deinit(struct tegra_dce *d)
 	destroy_workqueue(d_aipc->async_event_wq);
 }
 
-static int dce_client_ipc_wait_rpc(struct tegra_dce *d, u32 int_type)
+int dce_client_ipc_wait(struct tegra_dce *d, u32 int_type)
 {
 	uint32_t type;
 	struct tegra_dce_client_ipc *cl;
@@ -283,25 +289,6 @@ retry_wait:
 	return 0;
 }
 
-int dce_client_ipc_wait(struct tegra_dce *d, u32 w_type, u32 ch_type)
-{
-	int ret = 0;
-
-	switch (w_type) {
-	case DCE_IPC_WAIT_TYPE_SYNC:
-		ret = dce_admin_ipc_wait(d, w_type);
-		break;
-	case DCE_IPC_WAIT_TYPE_RPC:
-		ret = dce_client_ipc_wait_rpc(d, ch_type);
-		break;
-	default:
-		dce_err(d, "Invalid wait type [%d]", w_type);
-		break;
-	}
-
-	return ret;
-}
-
 static void dce_client_process_event_ipc(struct tegra_dce *d,
 					 struct tegra_dce_client_ipc *cl)
 {
@@ -309,8 +296,12 @@ static void dce_client_process_event_ipc(struct tegra_dce *d,
 	u32 msg_length;
 	int ret = 0;
 
-	if ((cl == NULL) || (cl->callback_fn == NULL) ||
-	    (cl->type != DCE_CLIENT_IPC_TYPE_RM_EVENT)) {
+	if ((cl == NULL) || (cl->callback_fn == NULL)) {
+		dce_err(d, "Invalid arg tegra_dce_client_ipc");
+		return;
+	}
+
+	if (cl->type != DCE_CLIENT_IPC_TYPE_RM_EVENT) {
 		dce_err(d, "Invalid arg for DCE_CLIENT_IPC_TYPE_RM_EVENT type:[%u]", cl->type);
 		return;
 	}

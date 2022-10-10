@@ -241,6 +241,13 @@ Required properties:
 				interface(1), secondary interface(2) or
 				inactive interface(0). By default all HW are
 				inactive interface if DT property not defined.
+- nvidia,pps_op_ctrl:		Set PPS output control. Default(0) pps output
+				is 1 pulse (of width clk_ptp_i) every second.
+				Enable(1) the binary rollover is 2 Hz, and
+				the digital rollover is 1 Hz.
+				Low period of 537 ms and a high period of 463 ms.
+				If DT property is not defined, it is set to
+				default(0)
 
 MDIO node
 - mdio:				Child of Ethernet controller which holds the PHY

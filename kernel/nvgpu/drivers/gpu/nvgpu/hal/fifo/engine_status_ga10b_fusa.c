@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,6 +27,7 @@
 #include <nvgpu/engines.h>
 #include <nvgpu/device.h>
 #include <nvgpu/fifo.h>
+#include <nvgpu/string.h>
 
 #include "engine_status_ga10b.h"
 #include <nvgpu/hw/ga10b/hw_runlist_ga10b.h>

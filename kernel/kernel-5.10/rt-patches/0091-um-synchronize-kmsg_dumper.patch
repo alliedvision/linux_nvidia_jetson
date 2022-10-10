@@ -1,7 +1,7 @@
-From 9f9b59a207b9ce7faf042d979d4c85ee5356f71b Mon Sep 17 00:00:00 2001
+From 5fce74c371b3cef26402d8b59fb3b09e31f3d942 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 11:10:03 +0106
-Subject: [PATCH 091/304] um: synchronize kmsg_dumper
+Subject: [PATCH 091/318] um: synchronize kmsg_dumper
 
 The kmsg_dumper can be called from any context and CPU, possibly
 from multiple CPUs simultaneously. Since a static buffer is used
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 8 insertions(+)
 
 diff --git a/arch/um/kernel/kmsg_dump.c b/arch/um/kernel/kmsg_dump.c
-index f38349a..1739994 100644
+index f38349ad00ea..173999422ed8 100644
 --- a/arch/um/kernel/kmsg_dump.c
 +++ b/arch/um/kernel/kmsg_dump.c
 @@ -1,5 +1,6 @@
@@ -56,5 +56,5 @@ index f38349a..1739994 100644
  
  static struct kmsg_dumper kmsg_dumper = {
 -- 
-2.7.4
+2.17.1
 

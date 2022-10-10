@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -128,13 +128,14 @@ static void fsicom_send_sgnal(int32_t data)
 
 static void tegra_hsp_rx_notify(struct mbox_client *cl, void *msg)
 {
-	fsicom_send_sgnal((u32) (unsigned long)msg);
+
+	fsicom_send_sgnal(*((uint32_t *)msg));
 }
 
 static void tegra_hsp_tx_empty_notify(struct mbox_client *cl,
 					 void *data, int empty_value)
 {
-	pr_err("TX empty callback came\n");
+	pr_debug("TX empty callback came\n");
 }
 static int tegra_hsp_mb_init(struct device *dev)
 {
@@ -143,6 +144,10 @@ static int tegra_hsp_mb_init(struct device *dev)
 	fsi_hsp_v = devm_kzalloc(dev, sizeof(*fsi_hsp_v), GFP_KERNEL);
 	if (!fsi_hsp_v)
 		return -ENOMEM;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+		dev_err(dev, "FsiCom: setting DMA MASK failed!\n");
+	}
 
 	fsi_hsp_v->tx.client.dev = dev;
 	fsi_hsp_v->rx.client.dev = dev;
@@ -186,10 +191,11 @@ static ssize_t device_file_ioctl(
 	dma_addr_t dma_addr;
 	dma_addr_t phys_addr;
 	struct rw_data *user_input;
-	int ret;
+	int ret = 0;
+	uint32_t pdata[4] = {0};
 
 	user_input = (struct rw_data *)arg;
-	if (copy_from_user(&input, (struct rw_data *)arg,
+	if (copy_from_user(&input, (void __user *)arg,
 				 sizeof(struct rw_data)))
 		return -EACCES;
 
@@ -198,6 +204,8 @@ static ssize_t device_file_ioctl(
 	case NVMAP_SMMU_MAP:
 		dmabuf = dma_buf_get(input.handle);
 
+		if (IS_ERR_OR_NULL(dmabuf))
+			return -EINVAL;
 		attach = dma_buf_attach(dmabuf, &pdev_local->dev);
 
 		if (IS_ERR_OR_NULL(attach)) {
@@ -217,7 +225,6 @@ static ssize_t device_file_ioctl(
 		if (copy_to_user((void __user *)&user_input->iova,
 				(void *)&dma_addr, sizeof(uint64_t)))
 			return -EACCES;
-		ret = 0;
 	break;
 
 	case NVMAP_SMMU_UNMAP:
@@ -227,13 +234,13 @@ static ssize_t device_file_ioctl(
 	break;
 
 	case TEGRA_HSP_WRITE:
+		pdata[0] = input.handle;
 		ret = mbox_send_message(fsi_hsp_v->tx.chan,
-			(void *) (unsigned long) input.handle);
+			(void *)pdata);
 	break;
 
 	case TEGRA_SIGNAL_REG:
 		task = get_current();
-		ret = 0;
 	break;
 
 	default:

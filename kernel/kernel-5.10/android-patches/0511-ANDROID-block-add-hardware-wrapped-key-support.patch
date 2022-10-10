@@ -1,0 +1,413 @@
+From 3f6875192aaff23c159b53a66a9208a3bda60262 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 25 Jun 2020 10:29:31 -0700
+Subject: [PATCH 511/830] ANDROID: block: add hardware-wrapped key support
+X-NVConfidentiality: public
+
+To prevent keys from being compromised if an attacker acquires read
+access to kernel memory, some inline encryption hardware supports
+protecting the keys in hardware without software having access to or the
+ability to set the plaintext keys.  Instead, software only sees "wrapped
+keys", which may differ on every boot.  The keys can be initially
+generated either by software (in which case they need to be imported to
+hardware to be wrapped), or directly by the hardware.
+
+Therefore allow blk_crypto_key and blk_crypto_config to represent a
+hardware-wrapped key, as an alternative to standard keys.  Require
+drivers to set flags in the blk_keyslot_manager that indicate which
+types of keys they support, so that the fallback logic works correctly.
+
+Also introduce the derive_raw_secret() keyslot manager operation, which
+drivers supporting wrapped keys must implement.  It takes in a wrapped
+key and outputs a "raw secret" (or "software secret") that is
+cryptographically isolated from the inline encryption key.  This is
+needed to support kernel components like fscrypt which use the
+user-provided key for cryptographic purposes other than inline
+encryption, e.g. filenames encryption and deriving the key identifier.
+
+This patch consolidates changes that got fragmented into many
+android-mainline commits, including:
+
+   d739474ec286 ("ANDROID: block: provide key size as input to inline crypto APIs")
+   1daa058cc1c5 ("ANDROID: block: add KSM op to derive software secret from wrapped key")
+   f5ecdc54d7a9 ("ANDROID: block: Prevent crypto fallback for wrapped keys")
+   fca1165b7a7d ("ANDROID: block: make blk_crypto_start_using_mode() properly check for support")
+   935b0c41ff62 ("ANDROID: block: require drivers to declare supported crypto key type(s)")
+   c2b86b727a41 ("FROMLIST: Update Inline Encryption from v6 to upstream version of patch series")
+   9c9596e9803d ("ANDROID: block: fix checking for wrapped key support")
+
+Bug: 147209885
+Bug: 160883801
+Change-Id: I29c2a7cda88f8804f54b61e611cbb30a1ade9bff
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ block/blk-crypto-fallback.c      |  1 +
+ block/blk-crypto.c               | 40 +++++++++++++++++++++------
+ block/keyslot-manager.c          | 47 ++++++++++++++++++++++++++++++++
+ drivers/md/dm-default-key.c      |  3 +-
+ drivers/md/dm.c                  |  2 ++
+ drivers/scsi/ufs/ufshcd-crypto.c |  1 +
+ fs/crypto/inline_crypt.c         |  6 ++--
+ include/linux/blk-crypto.h       | 11 ++++++--
+ include/linux/keyslot-manager.h  | 27 ++++++++++++++++++
+ 9 files changed, 124 insertions(+), 14 deletions(-)
+
+diff --git a/block/blk-crypto-fallback.c b/block/blk-crypto-fallback.c
+index 9023c9b0aab5..d02d2972c250 100644
+--- a/block/blk-crypto-fallback.c
++++ b/block/blk-crypto-fallback.c
+@@ -545,6 +545,7 @@ static int blk_crypto_fallback_init(void)
+ 
+ 	blk_crypto_ksm.ksm_ll_ops = blk_crypto_ksm_ll_ops;
+ 	blk_crypto_ksm.max_dun_bytes_supported = BLK_CRYPTO_MAX_IV_SIZE;
++	blk_crypto_ksm.features = BLK_CRYPTO_FEATURE_STANDARD_KEYS;
+ 
+ 	/* All blk-crypto modes have a crypto API fallback. */
+ 	for (i = 0; i < BLK_ENCRYPTION_MODE_MAX; i++)
+diff --git a/block/blk-crypto.c b/block/blk-crypto.c
+index 43cbd1ff9917..722868e016ed 100644
+--- a/block/blk-crypto.c
++++ b/block/blk-crypto.c
+@@ -307,8 +307,13 @@ int __blk_crypto_rq_bio_prep(struct request *rq, struct bio *bio,
+ /**
+  * blk_crypto_init_key() - Prepare a key for use with blk-crypto
+  * @blk_key: Pointer to the blk_crypto_key to initialize.
+- * @raw_key: Pointer to the raw key. Must be the correct length for the chosen
+- *	     @crypto_mode; see blk_crypto_modes[].
++ * @raw_key: Pointer to the raw key.
++ * @raw_key_size: Size of raw key.  Must be at least the required size for the
++ *                chosen @crypto_mode; see blk_crypto_modes[].  (It's allowed
++ *                to be longer than the mode's actual key size, in order to
++ *                support inline encryption hardware that accepts wrapped keys.
++ *                @is_hw_wrapped has to be set for such keys)
++ * @is_hw_wrapped: Denotes @raw_key is wrapped.
+  * @crypto_mode: identifier for the encryption algorithm to use
+  * @dun_bytes: number of bytes that will be used to specify the DUN when this
+  *	       key is used
+@@ -317,7 +322,9 @@ int __blk_crypto_rq_bio_prep(struct request *rq, struct bio *bio,
+  * Return: 0 on success, -errno on failure.  The caller is responsible for
+  *	   zeroizing both blk_key and raw_key when done with them.
+  */
+-int blk_crypto_init_key(struct blk_crypto_key *blk_key, const u8 *raw_key,
++int blk_crypto_init_key(struct blk_crypto_key *blk_key,
++			const u8 *raw_key, unsigned int raw_key_size,
++			bool is_hw_wrapped,
+ 			enum blk_crypto_mode_num crypto_mode,
+ 			unsigned int dun_bytes,
+ 			unsigned int data_unit_size)
+@@ -329,9 +336,17 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key, const u8 *raw_key,
+ 	if (crypto_mode >= ARRAY_SIZE(blk_crypto_modes))
+ 		return -EINVAL;
+ 
++	BUILD_BUG_ON(BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE < BLK_CRYPTO_MAX_KEY_SIZE);
++
+ 	mode = &blk_crypto_modes[crypto_mode];
+-	if (mode->keysize == 0)
+-		return -EINVAL;
++	if (is_hw_wrapped) {
++		if (raw_key_size < mode->keysize ||
++		    raw_key_size > BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE)
++			return -EINVAL;
++	} else {
++		if (raw_key_size != mode->keysize)
++			return -EINVAL;
++	}
+ 
+ 	if (dun_bytes == 0 || dun_bytes > mode->ivsize)
+ 		return -EINVAL;
+@@ -342,9 +357,10 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key, const u8 *raw_key,
+ 	blk_key->crypto_cfg.crypto_mode = crypto_mode;
+ 	blk_key->crypto_cfg.dun_bytes = dun_bytes;
+ 	blk_key->crypto_cfg.data_unit_size = data_unit_size;
++	blk_key->crypto_cfg.is_hw_wrapped = is_hw_wrapped;
+ 	blk_key->data_unit_size_bits = ilog2(data_unit_size);
+-	blk_key->size = mode->keysize;
+-	memcpy(blk_key->raw, raw_key, mode->keysize);
++	blk_key->size = raw_key_size;
++	memcpy(blk_key->raw, raw_key, raw_key_size);
+ 
+ 	return 0;
+ }
+@@ -358,8 +374,10 @@ EXPORT_SYMBOL_GPL(blk_crypto_init_key);
+ bool blk_crypto_config_supported(struct request_queue *q,
+ 				 const struct blk_crypto_config *cfg)
+ {
+-	return IS_ENABLED(CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK) ||
+-	       blk_ksm_crypto_cfg_supported(q->ksm, cfg);
++	if (IS_ENABLED(CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK) &&
++	    !cfg->is_hw_wrapped)
++		return true;
++	return blk_ksm_crypto_cfg_supported(q->ksm, cfg);
+ }
+ 
+ /**
+@@ -382,6 +400,10 @@ int blk_crypto_start_using_key(const struct blk_crypto_key *key,
+ {
+ 	if (blk_ksm_crypto_cfg_supported(q->ksm, &key->crypto_cfg))
+ 		return 0;
++	if (key->crypto_cfg.is_hw_wrapped) {
++		pr_warn_once("hardware doesn't support wrapped keys\n");
++		return -EOPNOTSUPP;
++	}
+ 	return blk_crypto_fallback_start_using_mode(key->crypto_cfg.crypto_mode);
+ }
+ EXPORT_SYMBOL_GPL(blk_crypto_start_using_key);
+diff --git a/block/keyslot-manager.c b/block/keyslot-manager.c
+index 80556bae1458..ecd7df6a3000 100644
+--- a/block/keyslot-manager.c
++++ b/block/keyslot-manager.c
+@@ -311,6 +311,13 @@ bool blk_ksm_crypto_cfg_supported(struct blk_keyslot_manager *ksm,
+ 		return false;
+ 	if (ksm->max_dun_bytes_supported < cfg->dun_bytes)
+ 		return false;
++	if (cfg->is_hw_wrapped) {
++		if (!(ksm->features & BLK_CRYPTO_FEATURE_WRAPPED_KEYS))
++			return false;
++	} else {
++		if (!(ksm->features & BLK_CRYPTO_FEATURE_STANDARD_KEYS))
++			return false;
++	}
+ 	return true;
+ }
+ 
+@@ -425,6 +432,44 @@ void blk_ksm_unregister(struct request_queue *q)
+ }
+ EXPORT_SYMBOL_GPL(blk_ksm_unregister);
+ 
++/**
++ * blk_ksm_derive_raw_secret() - Derive software secret from wrapped key
++ * @ksm: The keyslot manager
++ * @wrapped_key: The wrapped key
++ * @wrapped_key_size: Size of the wrapped key in bytes
++ * @secret: (output) the software secret
++ * @secret_size: (output) the number of secret bytes to derive
++ *
++ * Given a hardware-wrapped key, ask the hardware to derive a secret which
++ * software can use for cryptographic tasks other than inline encryption.  The
++ * derived secret is guaranteed to be cryptographically isolated from the key
++ * with which any inline encryption with this wrapped key would actually be
++ * done.  I.e., both will be derived from the unwrapped key.
++ *
++ * Return: 0 on success, -EOPNOTSUPP if hardware-wrapped keys are unsupported,
++ *	   or another -errno code.
++ */
++int blk_ksm_derive_raw_secret(struct blk_keyslot_manager *ksm,
++			      const u8 *wrapped_key,
++			      unsigned int wrapped_key_size,
++			      u8 *secret, unsigned int secret_size)
++{
++	int err;
++
++	if (ksm->ksm_ll_ops.derive_raw_secret) {
++		blk_ksm_hw_enter(ksm);
++		err = ksm->ksm_ll_ops.derive_raw_secret(ksm, wrapped_key,
++							wrapped_key_size,
++							secret, secret_size);
++		blk_ksm_hw_exit(ksm);
++	} else {
++		err = -EOPNOTSUPP;
++	}
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(blk_ksm_derive_raw_secret);
++
+ /**
+  * blk_ksm_intersect_modes() - restrict supported modes by child device
+  * @parent: The keyslot manager for parent device
+@@ -445,6 +490,7 @@ void blk_ksm_intersect_modes(struct blk_keyslot_manager *parent,
+ 		parent->max_dun_bytes_supported =
+ 			min(parent->max_dun_bytes_supported,
+ 			    child->max_dun_bytes_supported);
++		parent->features &= child->features;
+ 		for (i = 0; i < ARRAY_SIZE(child->crypto_modes_supported);
+ 		     i++) {
+ 			parent->crypto_modes_supported[i] &=
+@@ -452,6 +498,7 @@ void blk_ksm_intersect_modes(struct blk_keyslot_manager *parent,
+ 		}
+ 	} else {
+ 		parent->max_dun_bytes_supported = 0;
++		parent->features = 0;
+ 		memset(parent->crypto_modes_supported, 0,
+ 		       sizeof(parent->crypto_modes_supported));
+ 	}
+diff --git a/drivers/md/dm-default-key.c b/drivers/md/dm-default-key.c
+index ce99da3a3b98..e4dea2b16c7e 100644
+--- a/drivers/md/dm-default-key.c
++++ b/drivers/md/dm-default-key.c
+@@ -231,7 +231,8 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
+ 		       (dkc->sector_bits - SECTOR_SHIFT);
+ 	dun_bytes = DIV_ROUND_UP(fls64(dkc->max_dun), 8);
+ 
+-	err = blk_crypto_init_key(&dkc->key, raw_key, cipher->mode_num,
++	err = blk_crypto_init_key(&dkc->key, raw_key, cipher->key_size,
++				  false, cipher->mode_num,
+ 				  dun_bytes, dkc->sector_size);
+ 	if (err) {
+ 		ti->error = "Error initializing blk-crypto key";
+diff --git a/drivers/md/dm.c b/drivers/md/dm.c
+index fa95475fd770..99db3ebfdda3 100644
+--- a/drivers/md/dm.c
++++ b/drivers/md/dm.c
+@@ -2222,6 +2222,8 @@ static void dm_init_inline_encryption(struct mapped_device *md)
+ 	 * the device restrictions.
+ 	 */
+ 	md->ksm.max_dun_bytes_supported = UINT_MAX;
++	md->ksm.features = BLK_CRYPTO_FEATURE_STANDARD_KEYS |
++			   BLK_CRYPTO_FEATURE_WRAPPED_KEYS;
+ 	memset(md->ksm.crypto_modes_supported, 0xFF,
+ 	       sizeof(md->ksm.crypto_modes_supported));
+ 
+diff --git a/drivers/scsi/ufs/ufshcd-crypto.c b/drivers/scsi/ufs/ufshcd-crypto.c
+index 955d1ef08873..db1b1d9ab048 100644
+--- a/drivers/scsi/ufs/ufshcd-crypto.c
++++ b/drivers/scsi/ufs/ufshcd-crypto.c
+@@ -195,6 +195,7 @@ int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba)
+ 	hba->ksm.ksm_ll_ops = ufshcd_ksm_ops;
+ 	/* UFS only supports 8 bytes for any DUN */
+ 	hba->ksm.max_dun_bytes_supported = 8;
++	hba->ksm.features = BLK_CRYPTO_FEATURE_STANDARD_KEYS;
+ 	hba->ksm.dev = hba->dev;
+ 
+ 	/*
+diff --git a/fs/crypto/inline_crypt.c b/fs/crypto/inline_crypt.c
+index aa61b3c5933a..33b65f1cfe64 100644
+--- a/fs/crypto/inline_crypt.c
++++ b/fs/crypto/inline_crypt.c
+@@ -106,6 +106,7 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci)
+ 	crypto_cfg.crypto_mode = ci->ci_mode->blk_crypto_mode;
+ 	crypto_cfg.data_unit_size = sb->s_blocksize;
+ 	crypto_cfg.dun_bytes = fscrypt_get_dun_bytes(ci);
++	crypto_cfg.is_hw_wrapped = false;
+ 	num_devs = fscrypt_get_num_devices(sb);
+ 	devs = kmalloc_array(num_devs, sizeof(*devs), GFP_KERNEL);
+ 	if (!devs)
+@@ -144,8 +145,9 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
+ 	blk_key->num_devs = num_devs;
+ 	fscrypt_get_devices(sb, num_devs, blk_key->devs);
+ 
+-	err = blk_crypto_init_key(&blk_key->base, raw_key, crypto_mode,
+-				  fscrypt_get_dun_bytes(ci), sb->s_blocksize);
++	err = blk_crypto_init_key(&blk_key->base, raw_key, ci->ci_mode->keysize,
++				  false, crypto_mode, fscrypt_get_dun_bytes(ci),
++				  sb->s_blocksize);
+ 	if (err) {
+ 		fscrypt_err(inode, "error %d initializing blk-crypto key", err);
+ 		goto fail;
+diff --git a/include/linux/blk-crypto.h b/include/linux/blk-crypto.h
+index 1a709496fad5..c495572a3c46 100644
+--- a/include/linux/blk-crypto.h
++++ b/include/linux/blk-crypto.h
+@@ -17,6 +17,8 @@ enum blk_crypto_mode_num {
+ };
+ 
+ #define BLK_CRYPTO_MAX_KEY_SIZE		64
++#define BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE                128
++
+ /**
+  * struct blk_crypto_config - an inline encryption key's crypto configuration
+  * @crypto_mode: encryption algorithm this key is for
+@@ -25,11 +27,14 @@ enum blk_crypto_mode_num {
+  *	ciphertext.  This is always a power of 2.  It might be e.g. the
+  *	filesystem block size or the disk sector size.
+  * @dun_bytes: the maximum number of bytes of DUN used when using this key
++ * @is_hw_wrapped: @raw points to a wrapped key to be used by an inline
++ *	encryption hardware that accepts wrapped keys.
+  */
+ struct blk_crypto_config {
+ 	enum blk_crypto_mode_num crypto_mode;
+ 	unsigned int data_unit_size;
+ 	unsigned int dun_bytes;
++	bool is_hw_wrapped;
+ };
+ 
+ /**
+@@ -48,7 +53,7 @@ struct blk_crypto_key {
+ 	struct blk_crypto_config crypto_cfg;
+ 	unsigned int data_unit_size_bits;
+ 	unsigned int size;
+-	u8 raw[BLK_CRYPTO_MAX_KEY_SIZE];
++	u8 raw[BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE];
+ };
+ 
+ #define BLK_CRYPTO_MAX_IV_SIZE		32
+@@ -89,7 +94,9 @@ bool bio_crypt_dun_is_contiguous(const struct bio_crypt_ctx *bc,
+ 				 unsigned int bytes,
+ 				 const u64 next_dun[BLK_CRYPTO_DUN_ARRAY_SIZE]);
+ 
+-int blk_crypto_init_key(struct blk_crypto_key *blk_key, const u8 *raw_key,
++int blk_crypto_init_key(struct blk_crypto_key *blk_key,
++			const u8 *raw_key, unsigned int raw_key_size,
++			bool is_hw_wrapped,
+ 			enum blk_crypto_mode_num crypto_mode,
+ 			unsigned int dun_bytes,
+ 			unsigned int data_unit_size);
+diff --git a/include/linux/keyslot-manager.h b/include/linux/keyslot-manager.h
+index bfe7f35da4a8..3910fb830fad 100644
+--- a/include/linux/keyslot-manager.h
++++ b/include/linux/keyslot-manager.h
+@@ -9,6 +9,15 @@
+ #include <linux/bio.h>
+ #include <linux/blk-crypto.h>
+ 
++/* Inline crypto feature bits.  Must set at least one. */
++enum {
++	/* Support for standard software-specified keys */
++	BLK_CRYPTO_FEATURE_STANDARD_KEYS = BIT(0),
++
++	/* Support for hardware-wrapped keys */
++	BLK_CRYPTO_FEATURE_WRAPPED_KEYS = BIT(1),
++};
++
+ #ifdef CONFIG_BLK_INLINE_ENCRYPTION
+ 
+ struct blk_keyslot_manager;
+@@ -21,6 +30,9 @@ struct blk_keyslot_manager;
+  *			The key is provided so that e.g. dm layers can evict
+  *			keys from the devices that they map over.
+  *			Returns 0 on success, -errno otherwise.
++ * @derive_raw_secret:	(Optional) Derive a software secret from a
++ *			hardware-wrapped key.  Returns 0 on success, -EOPNOTSUPP
++ *			if unsupported on the hardware, or another -errno code.
+  *
+  * This structure should be provided by storage device drivers when they set up
+  * a keyslot manager - this structure holds the function ptrs that the keyslot
+@@ -33,6 +45,10 @@ struct blk_ksm_ll_ops {
+ 	int (*keyslot_evict)(struct blk_keyslot_manager *ksm,
+ 			     const struct blk_crypto_key *key,
+ 			     unsigned int slot);
++	int (*derive_raw_secret)(struct blk_keyslot_manager *ksm,
++				 const u8 *wrapped_key,
++				 unsigned int wrapped_key_size,
++				 u8 *secret, unsigned int secret_size);
+ };
+ 
+ struct blk_keyslot_manager {
+@@ -49,6 +65,12 @@ struct blk_keyslot_manager {
+ 	 */
+ 	unsigned int max_dun_bytes_supported;
+ 
++	/*
++	 * The supported features as a bitmask of BLK_CRYPTO_FEATURE_* flags.
++	 * Most drivers should set BLK_CRYPTO_FEATURE_STANDARD_KEYS here.
++	 */
++	unsigned int features;
++
+ 	/*
+ 	 * Array of size BLK_ENCRYPTION_MODE_MAX of bitmasks that represents
+ 	 * whether a crypto mode and data unit size are supported. The i'th
+@@ -108,6 +130,11 @@ void blk_ksm_destroy(struct blk_keyslot_manager *ksm);
+ void blk_ksm_intersect_modes(struct blk_keyslot_manager *parent,
+ 			     const struct blk_keyslot_manager *child);
+ 
++int blk_ksm_derive_raw_secret(struct blk_keyslot_manager *ksm,
++			      const u8 *wrapped_key,
++			      unsigned int wrapped_key_size,
++			      u8 *secret, unsigned int secret_size);
++
+ void blk_ksm_init_passthrough(struct blk_keyslot_manager *ksm);
+ 
+ #endif /* CONFIG_BLK_INLINE_ENCRYPTION */
+-- 
+2.17.1
+

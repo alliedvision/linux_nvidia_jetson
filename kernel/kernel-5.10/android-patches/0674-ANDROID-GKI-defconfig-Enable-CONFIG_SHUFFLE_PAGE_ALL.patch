@@ -1,0 +1,47 @@
+From 0e836ff455c4e5a844cd19bc95fe2901f74814b4 Mon Sep 17 00:00:00 2001
+From: Sandeep Patil <sspatil@google.com>
+Date: Fri, 27 Mar 2020 12:46:50 -0700
+Subject: [PATCH 674/830] ANDROID: GKI: defconfig: Enable
+ CONFIG_SHUFFLE_PAGE_ALLOCATOR
+X-NVConfidentiality: public
+
+This enables page allocator randomization in both x86
+and arm64 gki defconfig
+
+Bug: 151881089
+Test: builds
+
+Signed-off-by: Sandeep Patil <sspatil@google.com>
+Change-Id: I1d28368f2df6aad47d9e90cc991b7f5dc21d2cfa
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index df2ab96990d2..ff19b083e68a 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -40,6 +40,7 @@ CONFIG_EMBEDDED=y
+ # CONFIG_SLAB_MERGE_DEFAULT is not set
+ CONFIG_SLAB_FREELIST_RANDOM=y
+ CONFIG_SLAB_FREELIST_HARDENED=y
++CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
+ CONFIG_PROFILING=y
+ CONFIG_ARCH_HISI=y
+ CONFIG_ARCH_QCOM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index ef128a817f86..a269d42eb980 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -41,6 +41,7 @@ CONFIG_EMBEDDED=y
+ # CONFIG_SLAB_MERGE_DEFAULT is not set
+ CONFIG_SLAB_FREELIST_RANDOM=y
+ CONFIG_SLAB_FREELIST_HARDENED=y
++CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
+ CONFIG_PROFILING=y
+ CONFIG_SMP=y
+ CONFIG_HYPERVISOR_GUEST=y
+-- 
+2.17.1
+

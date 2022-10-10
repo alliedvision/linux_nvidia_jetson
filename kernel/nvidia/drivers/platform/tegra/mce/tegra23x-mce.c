@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -112,7 +112,7 @@ static int32_t ari_send_request(void __iomem *ari_base, u32 evt_mask,
 	return ret;
 }
 
-static int get_ari_address_index(void)
+static uint32_t get_ari_address_index(void)
 {
 	uint64_t mpidr;
 	uint32_t core_id, cluster_id;
@@ -126,7 +126,7 @@ static int get_ari_address_index(void)
 
 static int tegra23x_mce_read_versions(u32 *major, u32 *minor)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	int32_t ret = 0;
 
 	if (IS_ERR_OR_NULL(major) || IS_ERR_OR_NULL(minor))
@@ -151,7 +151,7 @@ static int tegra23x_mce_read_versions(u32 *major, u32 *minor)
  */
 static int tegra23x_mce_echo_data(u64 data, u64 *matched)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	u32 input1 = (u32)(data & 0xFFFFFFFF);
 	u32 input2 = (u32)(data >> 32);
 	u64 out1, out2;
@@ -179,7 +179,7 @@ static int tegra23x_mce_echo_data(u64 data, u64 *matched)
 
 static int tegra23x_mce_read_l4_cache_ways(u64 *value)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	u64 out;
 	int32_t ret = 0;
 
@@ -200,7 +200,7 @@ static int tegra23x_mce_read_l4_cache_ways(u64 *value)
 
 static int tegra23x_mce_write_l4_cache_ways(u64 data, u64 *value)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	u32 input = (u32)(data & 0x00001F1F);
 	u64 out;
 	int32_t ret = 0;
@@ -224,7 +224,7 @@ static int tegra23x_mce_write_l4_cache_ways(u64 data, u64 *value)
 
 static int tegra23x_mce_read_uncore_perfmon(u32 req, u32 *data)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	u32 out_lo, out_hi;
 	int32_t ret = 0;
 
@@ -257,7 +257,7 @@ static int tegra23x_mce_read_uncore_perfmon(u32 req, u32 *data)
 
 static int tegra23x_mce_write_uncore_perfmon(u32 req, u32 data)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	u32 out_lo, out_hi;
 	int32_t ret = 0;
 
@@ -285,7 +285,7 @@ static int tegra23x_mce_write_uncore_perfmon(u32 req, u32 data)
 
 static int tegra23x_mce_read_cstate_stats(u32 state, u64 *stats)
 {
-	int cpu_idx;
+	uint32_t cpu_idx;
 	int32_t ret = 0;
 
 	if (IS_ERR_OR_NULL(stats))
@@ -340,7 +340,7 @@ static int tegra23x_mce_echo_set(void *data, u64 val)
 
 struct cstats_req {
 	char *name;
-	int id;
+	uint32_t id;
 };
 
 struct cstats_resp {
@@ -370,7 +370,7 @@ static int tegra23x_mce_dbg_cstats_show(struct seq_file *s, void *data)
 {
 	u64 val;
 	u32 mce_index;
-	int cpu, mpidr_core, mpidr_cl, mpidr_lin, i, j;
+	uint32_t cpu, mpidr_core, mpidr_cl, mpidr_lin, i, j;
 	struct cstats_resp core_resp[MAX_CPUS] = { 0 };
 	struct cstats_resp cl_resp[MAX_CLUSTERS] = { 0 };
 	struct cstats_resp sys_resp = { 0 };

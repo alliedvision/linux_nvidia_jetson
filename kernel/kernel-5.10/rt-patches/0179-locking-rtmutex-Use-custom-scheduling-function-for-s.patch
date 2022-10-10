@@ -1,7 +1,7 @@
-From df3fceacbeec91bb0f833df173abddcf798b2ef2 Mon Sep 17 00:00:00 2001
+From 58aa274795c55922ea12b48008bef207c54ef6bc Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 6 Oct 2020 13:07:17 +0200
-Subject: [PATCH 179/304] locking/rtmutex: Use custom scheduling function for
+Subject: [PATCH 179/318] locking/rtmutex: Use custom scheduling function for
  spin-schedule()
 
 PREEMPT_RT builds the rwsem, mutex, spinlock and rwlock typed locks on
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  7 files changed, 32 insertions(+), 21 deletions(-)
 
 diff --git a/arch/arm64/include/asm/preempt.h b/arch/arm64/include/asm/preempt.h
-index e83f098..f1486b3 100644
+index e83f0982b99c..f1486b32502c 100644
 --- a/arch/arm64/include/asm/preempt.h
 +++ b/arch/arm64/include/asm/preempt.h
 @@ -81,6 +81,9 @@ static inline bool should_resched(int preempt_offset)
@@ -53,7 +53,7 @@ index e83f098..f1486b3 100644
  void preempt_schedule_notrace(void);
  #define __preempt_schedule_notrace() preempt_schedule_notrace()
 diff --git a/arch/x86/include/asm/preempt.h b/arch/x86/include/asm/preempt.h
-index a334dd0..50e0c0a 100644
+index a334dd0d7c42..50e0c0ab7b97 100644
 --- a/arch/x86/include/asm/preempt.h
 +++ b/arch/x86/include/asm/preempt.h
 @@ -103,6 +103,9 @@ static __always_inline bool should_resched(int preempt_offset)
@@ -67,7 +67,7 @@ index a334dd0..50e0c0a 100644
  # define __preempt_schedule() \
  	asm volatile ("call preempt_schedule_thunk" : ASM_CALL_CONSTRAINT)
 diff --git a/include/asm-generic/preempt.h b/include/asm-generic/preempt.h
-index b4d43a4..ac255e8 100644
+index b4d43a4af5f7..ac255e889462 100644
 --- a/include/asm-generic/preempt.h
 +++ b/include/asm-generic/preempt.h
 @@ -79,6 +79,9 @@ static __always_inline bool should_resched(int preempt_offset)
@@ -81,7 +81,7 @@ index b4d43a4..ac255e8 100644
  #define __preempt_schedule() preempt_schedule()
  extern asmlinkage void preempt_schedule_notrace(void);
 diff --git a/include/linux/sched/rt.h b/include/linux/sched/rt.h
-index e5af028..994c256 100644
+index e5af028c08b4..994c25640e15 100644
 --- a/include/linux/sched/rt.h
 +++ b/include/linux/sched/rt.h
 @@ -39,20 +39,12 @@ static inline struct task_struct *rt_mutex_get_top_task(struct task_struct *p)
@@ -106,7 +106,7 @@ index e5af028..994c256 100644
  
  extern void normalize_rt_tasks(void);
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 50a6dd1..4e8f73d 100644
+index c095d1b92f70..2fe178651254 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1067,7 +1067,7 @@ void __sched rt_spin_lock_slowlock_locked(struct rt_mutex *lock,
@@ -119,7 +119,7 @@ index 50a6dd1..4e8f73d 100644
  		raw_spin_lock_irqsave(&lock->wait_lock, flags);
  
 diff --git a/kernel/locking/rwlock-rt.c b/kernel/locking/rwlock-rt.c
-index 1ee16b8..16be711 100644
+index 1ee16b8fedd7..16be7111aae7 100644
 --- a/kernel/locking/rwlock-rt.c
 +++ b/kernel/locking/rwlock-rt.c
 @@ -211,7 +211,7 @@ static void __write_rt_lock(struct rt_rw_lock *lock)
@@ -132,10 +132,10 @@ index 1ee16b8..16be711 100644
  		raw_spin_lock_irqsave(&m->wait_lock, flags);
  
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 7232d05..41fcbbf 100644
+index 1c1fa2c24ae6..f3a54b88cb71 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -4991,7 +4991,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
+@@ -4995,7 +4995,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
   *
   * WARNING: must be called with preemption disabled!
   */
@@ -144,7 +144,7 @@ index 7232d05..41fcbbf 100644
  {
  	struct task_struct *prev, *next;
  	unsigned long *switch_count;
-@@ -5044,7 +5044,7 @@ static void __sched notrace __schedule(bool preempt)
+@@ -5048,7 +5048,7 @@ static void __sched notrace __schedule(bool preempt)
  	 *  - ptrace_{,un}freeze_traced() can change ->state underneath us.
  	 */
  	prev_state = prev->state;
@@ -153,7 +153,7 @@ index 7232d05..41fcbbf 100644
  		if (signal_pending_state(prev_state, prev)) {
  			prev->state = TASK_RUNNING;
  		} else {
-@@ -5128,7 +5128,7 @@ void __noreturn do_task_dead(void)
+@@ -5132,7 +5132,7 @@ void __noreturn do_task_dead(void)
  	/* Tell freezer to ignore us: */
  	current->flags |= PF_NOFREEZE;
  
@@ -162,7 +162,7 @@ index 7232d05..41fcbbf 100644
  	BUG();
  
  	/* Avoid "noreturn function does return" - but don't continue if BUG() is a NOP: */
-@@ -5161,9 +5161,6 @@ static inline void sched_submit_work(struct task_struct *tsk)
+@@ -5165,9 +5165,6 @@ static inline void sched_submit_work(struct task_struct *tsk)
  		preempt_enable_no_resched();
  	}
  
@@ -172,7 +172,7 @@ index 7232d05..41fcbbf 100644
  	/*
  	 * If we are going to sleep and we have plugged IO queued,
  	 * make sure to submit it to avoid deadlocks.
-@@ -5189,7 +5186,7 @@ asmlinkage __visible void __sched schedule(void)
+@@ -5193,7 +5190,7 @@ asmlinkage __visible void __sched schedule(void)
  	sched_submit_work(tsk);
  	do {
  		preempt_disable();
@@ -181,7 +181,7 @@ index 7232d05..41fcbbf 100644
  		sched_preempt_enable_no_resched();
  	} while (need_resched());
  	sched_update_worker(tsk);
-@@ -5217,7 +5214,7 @@ void __sched schedule_idle(void)
+@@ -5221,7 +5218,7 @@ void __sched schedule_idle(void)
  	 */
  	WARN_ON_ONCE(current->state);
  	do {
@@ -190,7 +190,7 @@ index 7232d05..41fcbbf 100644
  	} while (need_resched());
  }
  
-@@ -5270,7 +5267,7 @@ static void __sched notrace preempt_schedule_common(void)
+@@ -5274,7 +5271,7 @@ static void __sched notrace preempt_schedule_common(void)
  		 */
  		preempt_disable_notrace();
  		preempt_latency_start(1);
@@ -199,7 +199,7 @@ index 7232d05..41fcbbf 100644
  		preempt_latency_stop(1);
  		preempt_enable_no_resched_notrace();
  
-@@ -5300,6 +5297,19 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
+@@ -5304,6 +5301,19 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
  NOKPROBE_SYMBOL(preempt_schedule);
  EXPORT_SYMBOL(preempt_schedule);
  
@@ -219,7 +219,7 @@ index 7232d05..41fcbbf 100644
  /**
   * preempt_schedule_notrace - preempt_schedule called by tracing
   *
-@@ -5343,7 +5353,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
+@@ -5347,7 +5357,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
  		 * an infinite recursion.
  		 */
  		prev_ctx = exception_enter();
@@ -228,7 +228,7 @@ index 7232d05..41fcbbf 100644
  		exception_exit(prev_ctx);
  
  		preempt_latency_stop(1);
-@@ -5372,7 +5382,7 @@ asmlinkage __visible void __sched preempt_schedule_irq(void)
+@@ -5376,7 +5386,7 @@ asmlinkage __visible void __sched preempt_schedule_irq(void)
  	do {
  		preempt_disable();
  		local_irq_enable();
@@ -238,5 +238,5 @@ index 7232d05..41fcbbf 100644
  		sched_preempt_enable_no_resched();
  	} while (need_resched());
 -- 
-2.7.4
+2.17.1
 

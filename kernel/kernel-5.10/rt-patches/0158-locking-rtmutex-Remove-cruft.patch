@@ -1,7 +1,7 @@
-From 5b52e84de101e30731e532dcad2c0cbcb8b00b72 Mon Sep 17 00:00:00 2001
+From 817c30c751b4bd314fe8511563365742b5539f5a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 15:21:17 +0200
-Subject: [PATCH 158/304] locking/rtmutex: Remove cruft
+Subject: [PATCH 158/318] locking/rtmutex: Remove cruft
 
 Most of this is around since the very beginning. I'm not sure if this
 was used while the rtmutex-deadlock-tester was around but today it seems
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 3 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 6fd615a..16f974a 100644
+index 6fd615a0eea9..16f974a22f51 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -32,10 +32,7 @@ struct rt_mutex {
@@ -50,7 +50,7 @@ index 6fd615a..16f974a 100644
  # define rt_mutex_init(mutex) \
  do { \
 diff --git a/kernel/locking/rtmutex-debug.c b/kernel/locking/rtmutex-debug.c
-index 36e6910..7e411b9 100644
+index 36e69100e8e0..7e411b946d4c 100644
 --- a/kernel/locking/rtmutex-debug.c
 +++ b/kernel/locking/rtmutex-debug.c
 @@ -42,12 +42,7 @@ static void printk_task(struct task_struct *p)
@@ -68,7 +68,7 @@ index 36e6910..7e411b9 100644
  	if (print_owner && rt_mutex_owner(lock)) {
  		printk(".. ->owner: %p\n", lock->owner);
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 2f8cd61..3624e8b 100644
+index f00dd928fc71..4792fc7abe7d 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1655,9 +1655,6 @@ void __sched rt_mutex_futex_unlock(struct rt_mutex *lock)
@@ -82,7 +82,7 @@ index 2f8cd61..3624e8b 100644
  EXPORT_SYMBOL_GPL(rt_mutex_destroy);
  
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index ca6fb48..e691310 100644
+index ca6fb489007b..e6913103d7ff 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -30,7 +30,6 @@ struct rt_mutex_waiter {
@@ -94,5 +94,5 @@ index ca6fb48..e691310 100644
  	struct rt_mutex		*deadlock_lock;
  #endif
 -- 
-2.7.4
+2.17.1
 

@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics channel
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -59,6 +59,7 @@
 #include "ioctl.h"
 #include "channel.h"
 #include "os_linux.h"
+#include "dmabuf_priv.h"
 
 /* the minimal size of client buffer */
 #define CSS_MIN_CLIENT_SNAPSHOT_SIZE				\
@@ -136,15 +137,8 @@ void gk20a_channel_free_cycle_stats_buffer(struct nvgpu_channel *ch)
 	/* disable existing cyclestats buffer */
 	nvgpu_mutex_acquire(&ch->cyclestate.cyclestate_buffer_mutex);
 	if (priv->cyclestate_buffer_handler) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		struct dma_buf_map map;
-
-		dma_buf_map_set_vaddr(&map, ch->cyclestate.cyclestate_buffer);
-		dma_buf_vunmap(priv->cyclestate_buffer_handler, &map);
-#else
-		dma_buf_vunmap(priv->cyclestate_buffer_handler,
+		gk20a_dmabuf_vunmap(priv->cyclestate_buffer_handler,
 				ch->cyclestate.cyclestate_buffer);
-#endif
 		dma_buf_put(priv->cyclestate_buffer_handler);
 		priv->cyclestate_buffer_handler = NULL;
 		ch->cyclestate.cyclestate_buffer = NULL;
@@ -156,10 +150,6 @@ void gk20a_channel_free_cycle_stats_buffer(struct nvgpu_channel *ch)
 int gk20a_channel_cycle_stats(struct nvgpu_channel *ch, int dmabuf_fd)
 {
 	struct dma_buf *dmabuf;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-	int err;
-#endif
 	void *virtual_address;
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -173,12 +163,8 @@ int gk20a_channel_cycle_stats(struct nvgpu_channel *ch, int dmabuf_fd)
 		dmabuf = dma_buf_get(dmabuf_fd);
 		if (IS_ERR(dmabuf))
 			return PTR_ERR(dmabuf);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		err = dma_buf_vmap(dmabuf, &map);
-		virtual_address = err ? NULL : map.vaddr;
-#else
-		virtual_address = dma_buf_vmap(dmabuf);
-#endif
+
+		virtual_address = gk20a_dmabuf_vmap(dmabuf);
 		if (!virtual_address) {
 			dma_buf_put(dmabuf);
 			return -ENOMEM;
@@ -226,9 +212,6 @@ int gk20a_attach_cycle_stats_snapshot(struct nvgpu_channel *ch,
 	struct gk20a *g = ch->g;
 	struct gk20a_cs_snapshot_client_linux *client_linux;
 	struct gk20a_cs_snapshot_client *client;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 
 	nvgpu_mutex_acquire(&ch->cs_client_mutex);
 	if (ch->cs_client) {
@@ -257,14 +240,8 @@ int gk20a_attach_cycle_stats_snapshot(struct nvgpu_channel *ch,
 		goto err_put;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	ret = dma_buf_vmap(client_linux->dma_handler, &map);
-	client->snapshot = ret ? NULL :
-		(struct gk20a_cs_snapshot_fifo *)map.vaddr;
-#else
 	client->snapshot = (struct gk20a_cs_snapshot_fifo *)
-					dma_buf_vmap(client_linux->dma_handler);
-#endif
+				gk20a_dmabuf_vmap(client_linux->dma_handler);
 	if (!client->snapshot) {
 		ret = -ENOMEM;
 		goto err_put;
@@ -309,15 +286,8 @@ int gk20a_channel_free_cycle_stats_snapshot(struct nvgpu_channel *ch)
 
 	if (client_linux->dma_handler) {
 		if (ch->cs_client->snapshot) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-			struct dma_buf_map map;
-
-			dma_buf_map_set_vaddr(&map, ch->cs_client->snapshot);
-			dma_buf_vunmap(client_linux->dma_handler, &map);
-#else
-			dma_buf_vunmap(client_linux->dma_handler,
+			gk20a_dmabuf_vunmap(client_linux->dma_handler,
 					ch->cs_client->snapshot);
-#endif
 		}
 
 		dma_buf_put(client_linux->dma_handler);
@@ -376,14 +346,8 @@ static void gk20a_channel_free_error_notifiers(struct nvgpu_channel *ch)
 
 	nvgpu_mutex_acquire(&priv->error_notifier.mutex);
 	if (priv->error_notifier.dmabuf) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		struct dma_buf_map map;
-
-		dma_buf_map_set_vaddr(&map, priv->error_notifier.vaddr);
-		dma_buf_vunmap(priv->error_notifier.dmabuf, &map);
-#else
-		dma_buf_vunmap(priv->error_notifier.dmabuf, priv->error_notifier.vaddr);
-#endif
+		gk20a_dmabuf_vunmap(priv->error_notifier.dmabuf,
+				    priv->error_notifier.vaddr);
 		dma_buf_put(priv->error_notifier.dmabuf);
 		priv->error_notifier.dmabuf = NULL;
 		priv->error_notifier.notification = NULL;
@@ -396,10 +360,6 @@ static int gk20a_init_error_notifier(struct nvgpu_channel *ch,
 		struct nvgpu_set_error_notifier *args)
 {
 	struct dma_buf *dmabuf;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-	int err;
-#endif
 	void *va;
 	u64 end = args->offset + sizeof(struct nvgpu_notification);
 	struct nvgpu_channel_linux *priv = ch->os_priv;
@@ -427,12 +387,7 @@ static int gk20a_init_error_notifier(struct nvgpu_channel *ch,
 	nvgpu_speculation_barrier();
 
 	/* map handle */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	err = dma_buf_vmap(dmabuf, &map);
-	va = err ? NULL : map.vaddr;
-#else
-	va = dma_buf_vmap(dmabuf);
-#endif
+	va = gk20a_dmabuf_vmap(dmabuf);
 	if (!va) {
 		dma_buf_put(dmabuf);
 		pr_err("Cannot map notifier handle\n");
@@ -628,7 +583,7 @@ int gk20a_channel_open_ioctl(struct gk20a *g, struct nvgpu_cdev *cdev,
 	char name[64];
 	s32 runlist_id = args->in.runlist_id;
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		return err;
 	fd = err;
@@ -749,9 +704,6 @@ static int gk20a_channel_wait_semaphore(struct nvgpu_channel *ch,
 					u32 payload, u32 timeout)
 {
 	struct dma_buf *dmabuf;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 	void *data;
 	int ret = 0;
 
@@ -779,12 +731,7 @@ static int gk20a_channel_wait_semaphore(struct nvgpu_channel *ch,
 
 	nvgpu_speculation_barrier();
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	ret = dma_buf_vmap(dmabuf, &map);
-	data = ret ? NULL : map.vaddr;
-#else
-	data = dma_buf_vmap(dmabuf);
-#endif
+	data = gk20a_dmabuf_vmap(dmabuf);
 	if (!data) {
 		nvgpu_err(ch->g, "failed to map semaphore memory");
 		ret = -EINVAL;
@@ -797,11 +744,7 @@ static int gk20a_channel_wait_semaphore(struct nvgpu_channel *ch,
 				nvgpu_channel_check_unserviceable(ch),
 			timeout);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	dma_buf_vunmap(dmabuf, &map);
-#else
-	dma_buf_vunmap(dmabuf, data);
-#endif
+	gk20a_dmabuf_vunmap(dmabuf, data);
 cleanup_put:
 	dma_buf_put(dmabuf);
 	return ret;
@@ -811,9 +754,6 @@ static int gk20a_channel_wait(struct nvgpu_channel *ch,
 			      struct nvgpu_wait_args *args)
 {
 	struct dma_buf *dmabuf;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-	struct dma_buf_map map;
-#endif
 	struct gk20a *g = ch->g;
 	struct notification *notif;
 	struct timespec64 tv;
@@ -850,12 +790,7 @@ static int gk20a_channel_wait(struct nvgpu_channel *ch,
 
 		nvgpu_speculation_barrier();
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		ret = dma_buf_vmap(dmabuf, &map);
-		notif = ret ? NULL : map.vaddr;
-#else
-		notif = dma_buf_vmap(dmabuf);
-#endif
+		notif = gk20a_dmabuf_vmap(dmabuf);
 		if (!notif) {
 			nvgpu_err(g, "failed to map notifier memory");
 			return -ENOMEM;
@@ -887,11 +822,7 @@ static int gk20a_channel_wait(struct nvgpu_channel *ch,
 		notif->info16 = ch->chid; /* should be method offset */
 
 notif_clean_up:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-		dma_buf_vunmap(dmabuf, &map);
-#else
-		dma_buf_vunmap(dmabuf, notif);
-#endif
+		gk20a_dmabuf_vunmap(dmabuf, notif);
 		return ret;
 
 	case NVGPU_WAIT_TYPE_SEMAPHORE:
@@ -970,7 +901,7 @@ static int gk20a_ioctl_channel_submit_gpfifo(
 
 	/* Try and allocate an fd here*/
 	if (flag_fence_get && flag_sync_fence) {
-		fd = get_unused_fd_flags(O_RDWR);
+		fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 		if (fd < 0)
 			return fd;
 	}

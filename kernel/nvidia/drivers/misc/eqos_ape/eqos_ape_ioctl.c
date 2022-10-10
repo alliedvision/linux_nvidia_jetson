@@ -1,7 +1,7 @@
 /*
  * eqos_ape_ioctl.c -- EQOS APE Clock Synchronization driver IO control
  *
- * Copyright (c) 2015-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -58,13 +58,14 @@ static void sync_snapshot(void)
 static long eqos_ape_hw_ioctl(struct file *file,
 unsigned int cmd, unsigned long arg)
 {
-	struct eqos_ape_cmd __user *_eqos_ape = (struct eqos_ape_cmd *)arg;
+	struct eqos_ape_cmd __user *_eqos_ape =
+				(struct eqos_ape_cmd __user *)arg;
 	struct eqos_ape_cmd eqos_ape;
 	struct eqos_ape_sync_cmd __user *_eqos_ape_sync =
-					(struct eqos_ape_sync_cmd *)arg;
+				(struct eqos_ape_sync_cmd __user *)arg;
 	struct eqos_ape_sync_cmd eqos_ape_sync;
 	struct rate_to_time_period __user *_rate_info =
-					(struct rate_to_time_period *)arg;
+				(struct rate_to_time_period __user *)arg;
 	struct rate_to_time_period rate_info = {0, 0, 0, 0};
 	u64 ape_sec_snap_prev = 0, ape_ns_snap_prev = 0;
 	u64 eavb_sec_snap_prev = 0, eavb_ns_snap_prev = 0;
@@ -146,9 +147,8 @@ unsigned int cmd, unsigned long arg)
 		eqos_ape_sync.drift_den = den;
 
 		dev_dbg(dev, "num %lld den %lld\n", num, den);
-		if (copy_to_user((struct eqos_ape_sync_cmd *)_eqos_ape_sync,
-					&eqos_ape_sync,
-					sizeof(eqos_ape_sync)))
+		if (copy_to_user(_eqos_ape_sync, &eqos_ape_sync,
+						sizeof(eqos_ape_sync)))
 			return -EFAULT;
 
 		break;
@@ -199,9 +199,7 @@ unsigned int cmd, unsigned long arg)
 	case EQOS_APE_AMISC_GET_RATE:
 		/* configuring n_fract/n_modulo based on the rate table*/
 		rate_info.rate = amisc_ape_get_rate();
-		if (copy_to_user((struct rate_to_time_period *)_rate_info,
-					&rate_info,
-					sizeof(rate_info)))
+		if (copy_to_user(_rate_info, &rate_info, sizeof(rate_info)))
 			return -EFAULT;
 		break;
 	}

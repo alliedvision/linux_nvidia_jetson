@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * References are taken from "Bosch C_CAN controller" at
  * "drivers/net/can/c_can/c_can.c"
@@ -63,7 +63,7 @@ static u64 mttcan_extend_timestamp(u16 captured, u64 tsc, u32 shift)
 static int mttcan_hw_init(struct mttcan_priv *priv)
 {
 	int err = 0;
-	u32 ie = 0, ttie = 0, gfc_reg = 0;
+	u32 ie = 0, ttie = 0;
 	struct ttcan_controller *ttcan = priv->ttcan;
 
 	ttcan_set_ok(ttcan);
@@ -85,21 +85,6 @@ static int mttcan_hw_init(struct mttcan_priv *priv)
 	ttcan_mesg_ram_init(ttcan);
 
 	err = ttcan_set_config_change_enable(ttcan);
-	if (err)
-		return err;
-
-	/* Accept unmatched in Rx FIFO0 and reject all remote frame */
-	gfc_reg |= (GFC_ANFS_RXFIFO_0 << MTT_GFC_ANFS_SHIFT) &
-		   MTT_GFC_ANFS_MASK;
-	gfc_reg |= (GFC_ANFE_RXFIFO_0 << MTT_GFC_ANFE_SHIFT) &
-		   MTT_GFC_ANFE_MASK;
-	gfc_reg |= (GFC_RRFS_REJECT << MTT_GFC_RRFS_SHIFT) &
-		   MTT_GFC_RRFS_MASK;
-	gfc_reg |= (GFC_RRFE_REJECT << MTT_GFC_RRFE_SHIFT) &
-		   MTT_GFC_RRFE_MASK;
-
-	priv->gfc_reg = gfc_reg;
-	err = ttcan_set_gfc(ttcan, gfc_reg);
 	if (err)
 		return err;
 
@@ -177,10 +162,6 @@ static int mttcan_hw_reinit(const struct mttcan_priv *priv)
 	ttcan_set_ok(ttcan);
 
 	err = ttcan_set_config_change_enable(ttcan);
-	if (err)
-		return err;
-
-	err = ttcan_set_gfc(ttcan, priv->gfc_reg);
 	if (err)
 		return err;
 
@@ -1066,6 +1047,7 @@ static void mttcan_timer_cb(unsigned long data)
 	unsigned long flags;
 	u64 tref;
 	int ret = 0;
+	const char *intf_name = "eth0";
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
 	struct mttcan_priv *priv = container_of(timer, struct mttcan_priv, timer);
 #else
@@ -1073,7 +1055,7 @@ static void mttcan_timer_cb(unsigned long data)
 #endif
 
 	raw_spin_lock_irqsave(&priv->tc_lock, flags);
-	ret = get_ptp_hwtime(&tref);
+	ret = tegra_get_hwtime(intf_name, &tref, PTP_HWTIME);
 	if (ret != 0) {
 		tref = ktime_to_ns(ktime_get());
 	}
@@ -1137,14 +1119,14 @@ static void mttcan_start(struct net_device *dev)
 		/* Error Warning */
 		priv->can.state = CAN_STATE_ERROR_WARNING;
 	} else {
-		mttcan_controller_config(dev);
-
-		ttcan_clear_intr(ttcan);
-		ttcan_clear_tt_intr(ttcan);
-
 		/* Error Active */
 		priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	}
+
+	mttcan_controller_config(dev);
+
+	ttcan_clear_intr(ttcan);
+	ttcan_clear_tt_intr(ttcan);
 
 	/* start Tx/Rx and enable protected mode */
 	if (!priv->tt_param[0]) {
@@ -1443,6 +1425,7 @@ static int mttcan_handle_hwtstamp_set(struct mttcan_priv *priv,
 	u64 tref;
 	bool rx_config_chg = false;
 	int ret = 0;
+	const char *intf_name = "eth0";
 
 	if (copy_from_user(&config, ifr->ifr_data,
 			   sizeof(struct hwtstamp_config)))
@@ -1495,7 +1478,7 @@ static int mttcan_handle_hwtstamp_set(struct mttcan_priv *priv,
 			raw_spin_unlock_irqrestore(&priv->tc_lock, flags);
 		} else {
 			raw_spin_lock_irqsave(&priv->tc_lock, flags);
-			ret = get_ptp_hwtime(&tref);
+			ret = tegra_get_hwtime(intf_name, &tref, PTP_HWTIME);
 			if (ret != 0) {
 				dev_err(priv->device, "HW PTP not running\n");
 				tref = ktime_to_ns(ktime_get());
@@ -1970,7 +1953,6 @@ static int mttcan_resume(struct platform_device *pdev)
 	if (ndev->flags & IFF_UP)
 		mttcan_start(ndev);
 
-	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	if (netif_running(ndev)) {
 		netif_device_attach(ndev);
 		netif_start_queue(ndev);

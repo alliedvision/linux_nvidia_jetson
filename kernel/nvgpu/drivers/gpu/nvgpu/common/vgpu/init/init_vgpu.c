@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -266,10 +266,12 @@ int vgpu_finalize_poweron_common(struct gk20a *g)
 	}
 
 #ifdef CONFIG_NVGPU_COMPRESSION
-	err = nvgpu_cbc_init_support(g);
-	if (err != 0) {
-		nvgpu_err(g, "failed to init cbc");
-		return err;
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION)) {
+		err = nvgpu_cbc_init_support(g);
+		if (err != 0) {
+			nvgpu_err(g, "failed to init cbc");
+			return err;
+		}
 	}
 #endif
 

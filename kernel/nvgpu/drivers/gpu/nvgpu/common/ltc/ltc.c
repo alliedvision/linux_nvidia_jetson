@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,16 +48,17 @@ int nvgpu_init_ltc_support(struct gk20a *g)
 
 	nvgpu_log_fn(g, " ");
 
-	g->mm.ltc_enabled_current = true;
-	g->mm.ltc_enabled_target = true;
-
 	if (ltc == NULL) {
 		ltc = nvgpu_kzalloc(g, sizeof(*ltc));
 		if (ltc == NULL) {
 			return -ENOMEM;
 		}
 		g->ltc = ltc;
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 		nvgpu_spinlock_init(&g->ltc->ltc_enabled_lock);
+		g->mm.ltc_enabled_current = true;
+		g->mm.ltc_enabled_target = true;
+#endif
 	}
 
 	if (g->ops.ltc.init_fs_state != NULL) {
@@ -73,10 +74,6 @@ int nvgpu_init_ltc_support(struct gk20a *g)
 		}
 	}
 
-	if (g->ops.ltc.ltc_lts_set_mgmt_setup != NULL) {
-		g->ops.ltc.ltc_lts_set_mgmt_setup(g);
-	}
-
 	if (g->ops.ltc.intr.configure != NULL) {
 		nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_LTC,
 						NVGPU_CIC_INTR_ENABLE);
@@ -86,6 +83,7 @@ int nvgpu_init_ltc_support(struct gk20a *g)
 	return 0;
 }
 
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 void nvgpu_ltc_sync_enabled(struct gk20a *g)
 {
 	if (g->ops.ltc.set_enabled == NULL) {
@@ -99,6 +97,7 @@ void nvgpu_ltc_sync_enabled(struct gk20a *g)
 	}
 	nvgpu_spinlock_release(&g->ltc->ltc_enabled_lock);
 }
+#endif
 
 u32 nvgpu_ltc_get_ltc_count(struct gk20a *g)
 {
@@ -186,48 +185,47 @@ fail:
 	return err;
 }
 
-void nvgpu_ltc_ecc_free(struct gk20a *g)
+static void ltc_ecc_free_lts_slices(struct gk20a *g, struct nvgpu_ecc_stat **ecc_stat)
 {
-	struct nvgpu_ecc *ecc = &g->ecc;
-	struct nvgpu_ecc_stat *stat;
 	u32 slices_per_ltc;
 	u32 ltc_count;
 	u32 ltc, lts;
+	struct nvgpu_ecc_stat *stat = NULL;
+
+	ltc_count = nvgpu_ltc_get_ltc_count(g);
+	slices_per_ltc = nvgpu_ltc_get_slices_per_ltc(g);
+
+	if (ecc_stat != NULL) {
+		for (ltc = 0; ltc < ltc_count; ltc++) {
+			if (ecc_stat[ltc] != NULL) {
+				for (lts = 0; lts < slices_per_ltc; lts++) {
+					stat = &ecc_stat[ltc][lts];
+					nvgpu_ecc_stat_del(g, stat);
+				}
+				nvgpu_kfree(g, ecc_stat[ltc]);
+			}
+		}
+		nvgpu_kfree(g, ecc_stat);
+	}
+}
+
+void nvgpu_ltc_ecc_free(struct gk20a *g)
+{
+	struct nvgpu_ecc *ecc = &g->ecc;
 
 	if (g->ltc == NULL) {
 		return;
 	}
 
-	ltc_count = nvgpu_ltc_get_ltc_count(g);
-	slices_per_ltc = nvgpu_ltc_get_slices_per_ltc(g);
+	ltc_ecc_free_lts_slices(g, ecc->ltc.ecc_sec_count);
+	ltc_ecc_free_lts_slices(g, ecc->ltc.ecc_ded_count);
+	ltc_ecc_free_lts_slices(g, ecc->ltc.rstg_ecc_parity_count);
+	ltc_ecc_free_lts_slices(g, ecc->ltc.tstg_ecc_parity_count);
+	ltc_ecc_free_lts_slices(g, ecc->ltc.dstg_be_ecc_parity_count);
 
-	for (ltc = 0; ltc < ltc_count; ltc++) {
-		if (ecc->ltc.ecc_sec_count != NULL &&
-		    ecc->ltc.ecc_sec_count[ltc] != NULL) {
-			for (lts = 0; lts < slices_per_ltc; lts++) {
-				stat = &ecc->ltc.ecc_sec_count[ltc][lts];
-				nvgpu_ecc_stat_del(g, stat);
-			}
-
-			nvgpu_kfree(g, ecc->ltc.ecc_sec_count[ltc]);
-			ecc->ltc.ecc_sec_count[ltc] = NULL;
-		}
-
-		if (ecc->ltc.ecc_ded_count != NULL &&
-		    ecc->ltc.ecc_ded_count[ltc] != NULL) {
-			for (lts = 0; lts < slices_per_ltc; lts++) {
-				stat = &ecc->ltc.ecc_ded_count[ltc][lts];
-				nvgpu_ecc_stat_del(g, stat);
-			}
-
-			nvgpu_kfree(g, ecc->ltc.ecc_ded_count[ltc]);
-			ecc->ltc.ecc_ded_count[ltc] = NULL;
-		}
-	}
-
-	nvgpu_kfree(g, ecc->ltc.ecc_sec_count);
 	ecc->ltc.ecc_sec_count = NULL;
-
-	nvgpu_kfree(g, ecc->ltc.ecc_ded_count);
 	ecc->ltc.ecc_ded_count = NULL;
+	ecc->ltc.rstg_ecc_parity_count = NULL;
+	ecc->ltc.tstg_ecc_parity_count = NULL;
+	ecc->ltc.dstg_be_ecc_parity_count = NULL;
 }

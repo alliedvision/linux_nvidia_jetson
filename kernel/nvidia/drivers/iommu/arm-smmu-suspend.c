@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software and related documentation
@@ -18,12 +18,8 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/slab.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
 #include "arm/arm-smmu/arm-smmu.h"
 #include "arm-smmu-suspend-regs.h"
-#else
-#include "arm-smmu-regs-t19x.h"
-#endif
 
 #define SMMU_GNSR1_CBAR_CFG(n, smmu_pgshift) \
 		((1U << smmu_pgshift) + ARM_SMMU_GR1_CBAR(n))
@@ -40,9 +36,10 @@
 #define SMMU_REG_TABLE_END_REG		0xFFFFFFFFU
 #define SMMU_REG_TABLE_END_VALUE	0xFFFFFFFFU
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
 #define MAX_SMMUS 5
-#endif
+
+static uint32_t cb_group_max;
+static uint32_t smrg_group_max;
 
 struct arm_smmu_reg {
 	u32 reg;
@@ -62,11 +59,13 @@ struct arm_smmu_context {
 	size_t num_smmus;
 
 	void __iomem *scratch_va;
-} arm_smmu_ctx;
+};
+
+static struct arm_smmu_context arm_smmu_ctx;
 
 static phys_addr_t arm_smmu_alloc_reg_list(void)
 {
-	unsigned int order = arm_smmu_ctx.reg_list_mem_size >> PAGE_SHIFT;
+	unsigned int order = get_order(arm_smmu_ctx.reg_list_mem_size);
 	struct page *pages = alloc_pages(GFP_KERNEL, order);
 
 	if (!pages)
@@ -77,7 +76,7 @@ static phys_addr_t arm_smmu_alloc_reg_list(void)
 
 static void arm_smmu_free_reg_list(void)
 {
-	unsigned int order = arm_smmu_ctx.reg_list_mem_size >> PAGE_SHIFT;
+	unsigned int order = get_order(arm_smmu_ctx.reg_list_mem_size);
 	struct page *pages = phys_to_page(arm_smmu_ctx.reg_list_pa);
 
 	__free_pages(pages, order);
@@ -164,9 +163,6 @@ static void context_save_cb_group(int group_num)
 			arm_smmu_ctx.smmu_size, arm_smmu_ctx.smmu_pgshift));
 }
 
-#define CB_GROUP_MAX			64
-#define SMRG_GROUP_MAX			128
-#define CBAR_GROUP_MAX			64
 static int arm_smmu_syscore_suspend(void)
 {
 	int i;
@@ -175,13 +171,13 @@ static int arm_smmu_syscore_suspend(void)
 
 	context_save_gnsr0_group();
 
-	for (i = 0; i < SMRG_GROUP_MAX; i++)
+	for (i = 0; i < smrg_group_max; i++)
 		context_save_smrg_group(i);
 
-	for (i = 0; i < CBAR_GROUP_MAX; i++)
+	for (i = 0; i < cb_group_max; i++)
 		context_save_cbar_group(i);
 
-	for (i = 0; i < CB_GROUP_MAX; i++)
+	for (i = 0; i < cb_group_max; i++)
 		context_save_cb_group(i);
 
 	context_save_end();
@@ -193,7 +189,7 @@ static struct syscore_ops arm_smmu_syscore_ops = {
 	.suspend = arm_smmu_syscore_suspend,
 };
 
-int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
+static int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
 				int num_smmus, unsigned long smmu_size,
 				unsigned long smmu_pgshift, u32 scratch_reg_pa)
 {
@@ -202,9 +198,9 @@ int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
 	arm_smmu_ctx.reg_list_table_size =
 		(SMMU_REG_TABLE_START_SIZE + SMMU_REG_TABLE_END_SIZE
 			+ (GNSR_GROUP_REG_SIZE
-				+ (CB_GROUP_REG_SIZE * CB_GROUP_MAX)
-				+ (SMRG_GROUP_REG_SIZE * SMRG_GROUP_MAX)
-				+ (CBAR_GROUP_REG_SIZE * CBAR_GROUP_MAX)
+				+ (CB_GROUP_REG_SIZE * cb_group_max)
+				+ (SMRG_GROUP_REG_SIZE * smrg_group_max)
+				+ (CBAR_GROUP_REG_SIZE * cb_group_max)
 			  ) * num_smmus);
 
 	arm_smmu_ctx.reg_list_mem_size =
@@ -267,7 +263,7 @@ free_reg_list:
 	return ret;
 }
 
-void arm_smmu_suspend_exit(void)
+static void arm_smmu_suspend_exit(void)
 {
 	if (arm_smmu_ctx.reg_list)
 		memunmap(arm_smmu_ctx.reg_list);
@@ -278,8 +274,6 @@ void arm_smmu_suspend_exit(void)
 	kfree(arm_smmu_ctx.smmu_base);
 	kfree(arm_smmu_ctx.smmu_base_pa);
 }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
 
 static const struct of_device_id arm_smmu_of_match[] = {
 	{ .compatible = "nvidia,smmu_suspend"},
@@ -301,10 +295,9 @@ static int arm_smmu_suspend_probe(struct platform_device *pdev)
 		if (!res)
 			break;
 
-		bases[i] = ioremap(res->start, resource_size(res));
-		if (IS_ERR(bases[i])) {
+		bases[i] = devm_ioremap(dev, res->start, resource_size(res));
+		if (IS_ERR(bases[i]))
 			break;
-		}
 
 		base_pa[i] = res->start;
 		if (i == 0) {
@@ -313,8 +306,17 @@ static int arm_smmu_suspend_probe(struct platform_device *pdev)
 	}
 	num_smmus = i;
 
+	if (num_smmus == 0) {
+		dev_err(dev, "No SMMU device found\n");
+		return -ENODEV;
+	}
+
 	id = readl_relaxed(bases[0] + ARM_SMMU_GR0_ID1);
 	pgshift = (id & ARM_SMMU_ID1_PAGESIZE) ? 16 : 12;
+	cb_group_max = FIELD_GET(ARM_SMMU_ID1_NUMCB, id);
+
+	id = readl_relaxed(bases[0] + ARM_SMMU_GR0_ID0);
+	smrg_group_max = FIELD_GET(ARM_SMMU_ID0_NUMSMRG, id);
 
 	if (!of_property_read_u32(dev->of_node, "suspend-save-reg",
 			&suspend_save_reg)) {
@@ -361,4 +363,3 @@ static void __exit arm_smmu_suspend_driver_exit(void)
 
 module_init(arm_smmu_suspend_driver_init);
 module_exit(arm_smmu_suspend_driver_exit);
-#endif /* LINUX_VERSION_CODE */

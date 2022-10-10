@@ -23,7 +23,7 @@
 #else
 #include <linux/types.h>
 #endif
-#include <stddef.h>
+#include <linux/stddef.h>
 
 typedef uint64_t pva_iova;
 

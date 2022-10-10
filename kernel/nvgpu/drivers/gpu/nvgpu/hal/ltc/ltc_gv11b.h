@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,11 +37,6 @@ void gv11b_ltc_set_zbc_stencil_entry(struct gk20a *g,
 					  u32 stencil_depth,
 					  u32 index);
 #endif /* CONFIG_NVGPU_GRAPHICS */
-#ifdef CONFIG_NVGPU_INJECT_HWERR
-struct nvgpu_hw_err_inject_info_desc * gv11b_ltc_get_err_desc(struct gk20a *g);
-void gv11b_ltc_inject_ecc_error(struct gk20a *g,
-		struct nvgpu_hw_err_inject_info *err, u32 error_info);
-#endif
 
 /** @cond DOXYGEN_SHOULD_SKIP_THIS */
 void gv11b_ltc_init_fs_state(struct gk20a *g);

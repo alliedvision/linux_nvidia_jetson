@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -79,6 +79,8 @@ bool gm20b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 			u32 *error_notifier)
 {
 	bool recover = true;
+
+	(void)error_notifier;
 	/*
 	 * all of the interrupts in _intr_1 are "host copy engine"
 	 * related, which is not supported. For now just make them
@@ -92,6 +94,7 @@ bool gm20b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 
 u32 gm20b_pbdma_get_signature(struct gk20a *g)
 {
+	(void)g;
 	return pbdma_signature_hw_valid_f() | pbdma_signature_sw_zero_f();
 }
 

@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <tegra234-soc/tegra234-cpuidle.dtsi>
+
+/ {
+	cpus {
+		cpu@0 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@1 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@2 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@3 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@4 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@5 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@6 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@7 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@8 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@9 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@10 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu@11 {
+			cpu-idle-states = <&C7>;
+		};
+
+		cpu_core_power_states {
+			c7 {
+				min-residency-us = <30000>;
+				status = "okay";
+			};
+		};
+	};
+
+	cpuidle {
+		compatible = "nvidia,tegra23x-cpuidle-debugfs";
+		status = "okay";
+	};
+};

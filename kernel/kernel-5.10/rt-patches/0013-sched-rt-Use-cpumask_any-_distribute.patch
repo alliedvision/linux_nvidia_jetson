@@ -1,7 +1,7 @@
-From 9d0f06b4dd7fbe66f17db0defe9f9cf4dea80e6a Mon Sep 17 00:00:00 2001
+From f2817d88e260f032c371911db2828c4e4763a570 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:10 +0200
-Subject: [PATCH 013/304] sched,rt: Use cpumask_any*_distribute()
+Subject: [PATCH 013/318] sched,rt: Use cpumask_any*_distribute()
 
 Replace a bunch of cpumask_any*() instances with
 cpumask_any*_distribute(), by injecting this little bit of random in
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 30 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/cpumask.h b/include/linux/cpumask.h
-index f0d895d..383684e 100644
+index f0d895d6ac39..383684e30f12 100644
 --- a/include/linux/cpumask.h
 +++ b/include/linux/cpumask.h
 @@ -199,6 +199,11 @@ static inline int cpumask_any_and_distribute(const struct cpumask *src1p,
@@ -42,7 +42,7 @@ index f0d895d..383684e 100644
  /**
   * for_each_cpu - iterate over every cpu in a mask
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index 23089fa..4d23e09 100644
+index 23089fa04f23..4d23e0950ef8 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
 @@ -2009,8 +2009,8 @@ static int find_later_rq(struct task_struct *task)
@@ -66,10 +66,10 @@ index 23089fa..4d23e09 100644
  		return cpu;
  
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 7aeaa21..5d15c87 100644
+index 0e9a10c50090..0126db0ace71 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1752,8 +1752,8 @@ static int find_lowest_rq(struct task_struct *task)
+@@ -1761,8 +1761,8 @@ static int find_lowest_rq(struct task_struct *task)
  				return this_cpu;
  			}
  
@@ -80,7 +80,7 @@ index 7aeaa21..5d15c87 100644
  			if (best_cpu < nr_cpu_ids) {
  				rcu_read_unlock();
  				return best_cpu;
-@@ -1770,7 +1770,7 @@ static int find_lowest_rq(struct task_struct *task)
+@@ -1779,7 +1779,7 @@ static int find_lowest_rq(struct task_struct *task)
  	if (this_cpu != -1)
  		return this_cpu;
  
@@ -90,7 +90,7 @@ index 7aeaa21..5d15c87 100644
  		return cpu;
  
 diff --git a/lib/cpumask.c b/lib/cpumask.c
-index fb22fb2..c3c76b8 100644
+index fb22fb266f93..c3c76b833384 100644
 --- a/lib/cpumask.c
 +++ b/lib/cpumask.c
 @@ -261,3 +261,21 @@ int cpumask_any_and_distribute(const struct cpumask *src1p,
@@ -116,5 +116,5 @@ index fb22fb2..c3c76b8 100644
 +}
 +EXPORT_SYMBOL(cpumask_any_distribute);
 -- 
-2.7.4
+2.17.1
 

@@ -46,12 +46,23 @@ endif
 # srctree.nvmap path in order to find the necessary header files for
 # the upstream nvmap driver.
 ifeq ($(CONFIG_NVGPU_NVMAP_NEXT),y)
+ifeq ($(origin srctree.nvmap), undefined)
+srctree.nvmap := $(abspath $(shell dirname $(lastword $(MAKEFILE_LIST)))/../../../../nvidia/drivers/video/tegra/nvmap)
+endif
 ccflags-y += -I$(srctree.nvmap)/include
 endif
 
 ifeq ($(CONFIG_NVGPU_DEBUGGER),y)
 ccflags-y += -DCONFIG_NVGPU_DEBUGGER
 ccflags-y += -DCONFIG_NVGPU_ENGINE_RESET
+endif
+
+ifeq ($(CONFIG_NVGPU_IVM_BUILD),y)
+ccflags-y += -DCONFIG_NVGPU_IVM_BUILD
+endif
+
+ifeq ($(CONFIG_TEGRA_L1SS_SUPPORT),y)
+ccflags-y += -DCONFIG_TEGRA_L1SS_SUPPORT
 endif
 
 ccflags-y += -DCONFIG_NVGPU_DETERMINISTIC_CHANNELS
@@ -79,6 +90,7 @@ ccflags-y += -DCONFIG_NVGPU_FALCON_NON_FUSA
 ccflags-y += -DCONFIG_NVGPU_IOCTL_NON_FUSA
 ccflags-y += -DCONFIG_NVGPU_NON_FUSA
 ccflags-y += -DCONFIG_NVGPU_INJECT_HWERR
+ccflags-y += -DCONFIG_NVGPU_NONSTALL_INTR
 ccflags-y += -DCONFIG_NVGPU_GR_FALCON_NON_SECURE_BOOT
 ccflags-y += -DCONFIG_NVGPU_SET_FALCON_ACCESS_MAP
 ccflags-y += -DCONFIG_NVGPU_SW_SEMAPHORE
@@ -224,6 +236,7 @@ nvgpu-y += \
 	common/utils/rbtree.o \
 	common/utils/string.o \
 	common/utils/worker.o \
+	common/timers_common.o \
 	common/swdebug/profile.o \
 	common/ptimer/ptimer.o \
 	common/perf/perfbuf.o \
@@ -330,15 +343,7 @@ nvgpu-y += \
 	common/cic/mon/mon_init.o \
 	common/cic/mon/mon_lut.o \
 	common/cic/mon/mon_intr.o \
-	common/cic/mon/mon_ce.o \
-	common/cic/mon/mon_ctxsw.o \
-	common/cic/mon/mon_msg.o \
-	common/cic/mon/mon_ecc.o \
-	common/cic/mon/mon_host.o \
-	common/cic/mon/mon_gr.o \
-	common/cic/mon/mon_pri.o \
-	common/cic/mon/mon_pmu.o \
-	common/cic/mon/mon_mmu.o \
+	common/cic/mon/mon_report_err.o \
 	common/cic/rm/rm_init.o \
 	common/cic/rm/rm_intr.o \
 	hal/bus/bus_gk20a.o \
@@ -366,7 +371,6 @@ nvgpu-y += \
 	hal/gr/gr/gr_gv100.o \
 	hal/gr/gr/gr_gv11b.o \
 	hal/gr/gr/gr_tu104.o \
-	hal/init/hal_gv11b.o \
 	hal/init/hal_gv11b_litter.o \
 	hal/init/hal_init.o \
 	hal/perf/perf_gv11b.o \
@@ -382,9 +386,7 @@ nvgpu-y += \
 	hal/ltc/intr/ltc_intr_gm20b.o \
 	hal/ltc/intr/ltc_intr_gp10b.o \
 	hal/fb/fb_gm20b.o \
-	hal/fb/fb_gp10b.o \
 	hal/fb/fb_gp106.o \
-	hal/fb/fb_gv11b.o \
 	hal/fb/intr/fb_intr_ecc_gv11b.o \
 	hal/fuse/fuse_gm20b.o \
 	hal/fifo/fifo_gk20a.o \
@@ -413,22 +415,42 @@ nvgpu-y += \
 	hal/top/top_gp10b.o \
 	hal/tpc/tpc_gv11b.o \
 	hal/priv_ring/priv_ring_gv11b.o \
-	hal/cic/mon/init_gv11b_fusa.o \
-	hal/cic/mon/lut_gv11b_fusa.o
+	hal/cic/mon/init_ga10b_fusa.o \
+	hal/cic/mon/lut_ga10b_fusa.o
+
+ifeq ($(CONFIG_NVGPU_SUPPORT_GV11B),y)
+nvgpu-$(CONFIG_NVGPU_SUPPORT_GV11B) += \
+	hal/init/hal_gv11b.o
+endif
+
+ifeq ($(CONFIG_NVGPU_INTR_DEBUG),y)
+nvgpu-$(CONFIG_NVGPU_INTR_DEBUG) += \
+	common/cic/mon/mon_ce.o \
+	common/cic/mon/mon_ctxsw.o \
+	common/cic/mon/mon_msg.o \
+	common/cic/mon/mon_ecc.o \
+	common/cic/mon/mon_host.o \
+	common/cic/mon/mon_gr.o \
+	common/cic/mon/mon_pri.o \
+	common/cic/mon/mon_pmu.o \
+	common/cic/mon/mon_mmu.o
+endif
 
 ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),y)
 nvgpu-$(CONFIG_NVGPU_GSP_SCHEDULER) += \
 	common/gsp/gsp_init.o \
 	common/gsp/gsp_bootstrap.o \
-	common/gsp/ipc/gsp_seq.o \
-	common/gsp/ipc/gsp_queue.o \
-	common/gsp/ipc/gsp_cmd.o \
-	common/gsp/ipc/gsp_msg.o
+	common/gsp_scheduler/ipc/gsp_seq.o \
+	common/gsp_scheduler/ipc/gsp_queue.o \
+	common/gsp_scheduler/ipc/gsp_cmd.o \
+	common/gsp_scheduler/ipc/gsp_msg.o \
+	common/gsp_scheduler/gsp_scheduler.o \
+	common/gsp_scheduler/gsp_runlist.o
 endif
 
 ifeq ($(CONFIG_NVGPU_GSP_STRESS_TEST),y)
 nvgpu-$(CONFIG_NVGPU_GSP_STRESS_TEST) += \
-	common/gsp/gsp_test.o
+	common/gsp_test/gsp_test.o
 endif
 
 # Linux specific parts of nvgpu.
@@ -467,9 +489,14 @@ nvgpu-y += \
 	os/linux/dt.o \
 	os/linux/ecc_sysfs.o \
 	os/linux/bsearch.o \
-	os/linux/cic/cic_stub.o \
+	os/linux/cic/cic_report_err.o \
 	os/linux/dmabuf_priv.o \
-	os/linux/power_ops.o
+	os/linux/power_ops.o \
+	os/linux/periodic_timer.o
+
+nvgpu-$(CONFIG_NVGPU_IVM_BUILD) += \
+	os/linux/nvgpu_ivm.o \
+	common/cbc/contig_pool.o
 
 nvgpu-$(CONFIG_NVGPU_VPR) += os/linux/vpr.o
 
@@ -518,6 +545,7 @@ nvgpu-$(CONFIG_TEGRA_GK20A) += \
 
 ifeq ($(CONFIG_TEGRA_GK20A),y)
 nvgpu-$(CONFIG_NVGPU_TEGRA_FUSE) += os/linux/soc.o
+nvgpu-$(CONFIG_NVGPU_NVMEM_FUSE) += os/linux/nvmem.o
 endif
 
 nvgpu-$(CONFIG_NVGPU_SYNCFD_ANDROID) += \
@@ -557,7 +585,6 @@ nvgpu-$(CONFIG_NVGPU_GR_VIRTUALIZATION) += \
 	os/linux/vgpu/platform_vgpu_tegra.o \
 	os/linux/vgpu/sysfs_vgpu.o \
 	os/linux/vgpu/vgpu_ivc.o \
-	os/linux/vgpu/vgpu_ivm.o \
 	os/linux/vgpu/vgpu_linux.o \
 	os/linux/vgpu/gv11b/platform_gv11b_vgpu_tegra.o
 
@@ -582,6 +609,10 @@ ifeq ($(CONFIG_DEBUG_FS),y)
 nvgpu-$(CONFIG_NVGPU_SUPPORT_CDE) += \
 	os/linux/debug_cde.o
 endif
+
+nvgpu-$(CONFIG_TEGRA_L1SS_SUPPORT) += \
+	os/linux/cic/l1ss_report_err.o \
+	hal/cic/mon/init_gv11b_non_fusa.o \
 
 nvgpu-y += \
 	common/mm/allocators/nvgpu_allocator.o \
@@ -718,6 +749,8 @@ nvgpu-y += \
 	hal/falcon/falcon_gk20a_fusa.o \
 	hal/fb/fb_gm20b_fusa.o \
 	hal/fb/fb_gv11b_fusa.o \
+	hal/fb/fb_gp10b_fusa.o \
+	hal/fb/fb_tu104_fusa.o \
 	hal/fb/fb_mmu_fault_gv11b_fusa.o \
 	hal/fb/ecc/fb_ecc_gv11b_fusa.o \
 	hal/fb/intr/fb_intr_ecc_gv11b_fusa.o \
@@ -752,8 +785,11 @@ nvgpu-y += \
 	hal/fifo/usermode_gv11b_fusa.o \
 	hal/fuse/fuse_gm20b_fusa.o \
 	hal/fuse/fuse_gp10b_fusa.o \
+	hal/fuse/fuse_gv11b_fusa.o \
 	hal/gr/config/gr_config_gm20b_fusa.o \
 	hal/gr/config/gr_config_gv100_fusa.o \
+	hal/gr/config/gr_config_gv11b_fusa.o \
+	hal/gr/config/gr_config_ga10b_fusa.o \
 	hal/gr/ctxsw_prog/ctxsw_prog_gm20b_fusa.o \
 	hal/gr/ctxsw_prog/ctxsw_prog_gp10b_fusa.o \
 	hal/gr/ctxsw_prog/ctxsw_prog_gv11b_fusa.o \
@@ -787,6 +823,7 @@ nvgpu-y += \
 
 nvgpu-$(CONFIG_NVGPU_HAL_NON_FUSA) += \
 	hal/ce/ce_tu104.o \
+	hal/ce/ce_gp10b.o \
 	hal/clk/clk_gm20b.o \
 	hal/init/hal_gm20b.o \
 	hal/init/hal_gm20b_litter.o \
@@ -808,7 +845,6 @@ nvgpu-$(CONFIG_NVGPU_HAL_NON_FUSA) += \
 	hal/ltc/ltc_gm20b.o \
 	hal/ltc/ltc_gm20b_dbg.o \
 	hal/mc/mc_gm20b.o \
-	hal/mm/cache/flush_gk20a.o \
 	hal/mm/mm_gm20b.o \
 	hal/mm/mm_gk20a.o \
 	hal/mm/gmmu/gmmu_gk20a.o \

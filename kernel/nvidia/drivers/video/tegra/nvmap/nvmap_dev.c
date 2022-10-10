@@ -3,7 +3,7 @@
  *
  * User-space interface to nvmap
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,6 +41,17 @@
 #include <linux/of.h>
 #include <linux/iommu.h>
 #include <linux/version.h>
+
+#ifdef CVNAS_BUILTIN
+#include <linux/cvnas.h>
+#include <linux/nvmap_t19x.h>
+#endif /* CVNAS_BUILTIN */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 #include <linux/sched/clock.h>
@@ -135,11 +146,13 @@ static void nvmap_pid_get_locked(struct nvmap_device *dev, pid_t pid)
 		}
 	}
 
+	if (snprintf(name, sizeof(name), "%d", pid) < 0)
+		return;
+
 	p = kzalloc(sizeof(*p), GFP_KERNEL);
 	if (!p)
 		return;
 
-	snprintf(name, sizeof(name), "%d", pid);
 	p->pid = pid;
 	kref_init(&p->refcount);
 	p->handles_file = debugfs_create_file(name, S_IRUGO,
@@ -437,42 +450,10 @@ static long nvmap_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		err = nvmap_ioctl_gup_test(filp, uarg);
 		break;
 
-	/* Depreacted IOCTL's */
-	case NVMAP_IOC_ALLOC_KIND:
-		pr_warn("NVMAP_IOC_ALLOC_KIND is deprecated. Use NVMAP_IOC_ALLOC.\n");
-		break;
-
-#ifdef CONFIG_COMPAT
-	case NVMAP_IOC_MMAP_32:
-#endif
-	case NVMAP_IOC_MMAP:
-		pr_warn("NVMAP_IOC_MMAP is deprecated. Use mmap().\n");
-		break;
-
-#ifdef CONFIG_COMPAT
-	case NVMAP_IOC_UNPIN_MULT_32:
-	case NVMAP_IOC_PIN_MULT_32:
-		pr_warn("NVMAP_IOC_[UN]PIN_MULT is deprecated. "
-			"User space must never pin NvMap handles to "
-			"allow multiple IOVA spaces.\n");
-		break;
-#endif
-
-	case NVMAP_IOC_UNPIN_MULT:
-	case NVMAP_IOC_PIN_MULT:
-		pr_warn("NVMAP_IOC_[UN]PIN_MULT/ is deprecated. "
-			"User space must never pin NvMap handles to "
-			"allow multiple IOVA spaces.\n");
-		break;
-
 	case NVMAP_IOC_FROM_ID:
 	case NVMAP_IOC_GET_ID:
 		pr_warn("NVMAP_IOC_GET_ID/FROM_ID pair is deprecated. "
 			"Use the pair NVMAP_IOC_GET_FD/FROM_FD.\n");
-		break;
-
-	case NVMAP_IOC_SHARE:
-		pr_warn("NVMAP_IOC_SHARE is deprecated. Use NVMAP_IOC_GET_FD.\n");
 		break;
 
 	case NVMAP_IOC_SET_TAG_LABEL:
@@ -1500,8 +1481,8 @@ int __init nvmap_probe(struct platform_device *pdev)
 				     nvmap_dev->debug_root, &nvmap_init_time);
 #endif
 	}
-	nvmap_dev->dynamic_dma_map_mask = ~0;
-	nvmap_dev->cpu_access_mask = ~0;
+	nvmap_dev->dynamic_dma_map_mask = ~0U;
+	nvmap_dev->cpu_access_mask = ~0U;
 	if (plat)
 		for (i = 0; i < plat->nr_carveouts; i++)
 			nvmap_create_carveout(&plat->carveouts[i]);
@@ -1540,7 +1521,26 @@ int __init nvmap_probe(struct platform_device *pdev)
 	if (e)
 		goto fail_heaps;
 
+#ifdef CVNAS_BUILTIN
+	if (tegra_get_chip_id() == TEGRA194) {
+		phys_addr_t cvs_base = nvcvnas_get_cvsram_base();
+		size_t cvs_size = nvcvnas_get_cvsram_size();
+
+		e = nvmap_register_cvsram_carveout(NULL,
+			cvs_base, cvs_size,
+			nvcvnas_busy, nvcvnas_idle);
+		if (e) {
+			dev_err(&pdev->dev, "failed to register cvsram carveout\n");
+			goto fail_sci_ipc;
+		}
+	}
+#endif /* CVNAS_BUILTIN */
+
 	goto finish;
+#ifdef CVNAS_BUILTIN
+fail_sci_ipc:
+	nvmap_sci_ipc_exit();
+#endif /* CVNAS_BUILTIN */
 fail_heaps:
 	debugfs_remove_recursive(nvmap_dev->debug_root);
 	for (i = 0; i < dev->nr_carveouts; i++) {

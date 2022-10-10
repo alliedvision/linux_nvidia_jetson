@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,8 @@
 #include <nvgpu/power_features/cg.h>
 #include <nvgpu/cic_mon.h>
 #include <nvgpu/mc.h>
+#include <nvgpu/rc.h>
+#include <nvgpu/nvgpu_init.h>
 
 int nvgpu_ce_init_support(struct gk20a *g)
 {
@@ -65,9 +67,11 @@ int nvgpu_ce_init_support(struct gk20a *g)
 		g->ops.ce.init_prod_values(g);
 	}
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	if (g->ops.ce.init_hw != NULL) {
 		g->ops.ce.init_hw(g);
 	}
+#endif
 
 	if (g->ops.ce.intr_enable != NULL) {
 		g->ops.ce.intr_enable(g, true);
@@ -75,7 +79,30 @@ int nvgpu_ce_init_support(struct gk20a *g)
 
 	/** Enable interrupts at MC level */
 	nvgpu_cic_mon_intr_stall_unit_config(g, NVGPU_CIC_INTR_UNIT_CE, NVGPU_CIC_INTR_ENABLE);
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	nvgpu_cic_mon_intr_nonstall_unit_config(g, NVGPU_CIC_INTR_UNIT_CE, NVGPU_CIC_INTR_ENABLE);
+#endif
 
 	return 0;
+}
+
+void nvgpu_ce_stall_isr(struct gk20a *g, u32 inst_id, u32 pri_base)
+{
+	bool needs_rc = false;
+	bool needs_quiesce = false;
+
+	if (g->ops.ce.isr_stall != NULL) {
+		g->ops.ce.isr_stall(g, inst_id, pri_base, &needs_rc,
+					&needs_quiesce);
+	}
+
+	if (needs_quiesce) {
+		nvgpu_sw_quiesce(g);
+	}
+
+	if (needs_rc) {
+		nvgpu_log(g, gpu_dbg_intr,
+			"Recovery needed to handle CE interrupt.");
+		nvgpu_rc_ce_fault(g, inst_id);
+	}
 }

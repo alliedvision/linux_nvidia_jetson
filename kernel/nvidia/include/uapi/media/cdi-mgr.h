@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,7 +29,7 @@
 #define CDI_MGR_IOCTL_PWR_INFO	        _IOW('o', 7, struct cdi_mgr_pwr_info)
 #define CDI_MGR_IOCTL_PWM_ENABLE        _IOW('o', 8, int)
 #define CDI_MGR_IOCTL_PWM_CONFIG        _IOW('o', 9, struct cdi_mgr_pwm_info)
-#define CDI_MGR_IOCTL_WAIT_ERR	        _IO('o', 10)
+#define CDI_MGR_IOCTL_WAIT_ERR	        _IOWR('o', 10, __u32)
 #define CDI_MGR_IOCTL_ABORT_WAIT_ERR	    _IO('o', 11)
 #define CDI_MGR_IOCTL_GET_EXT_PWR_CTRL	    _IOR('o', 12, __u8)
 #define CDI_MGR_IOCTL_SET_CAM_PWR_ON		_IOW('o', 13, uint8_t)

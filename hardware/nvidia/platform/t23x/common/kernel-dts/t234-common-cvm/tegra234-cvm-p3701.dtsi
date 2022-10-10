@@ -40,19 +40,31 @@
 
 	cpufreq {
 		compatible = "nvidia,t234-cpufreq";
-		status = "okay";
+		status = "disabled";
 		cpu_emc_map = <1907200 1600000>,
 			    <1881600 800000>,
 			    <1574400 665000>,
 			    <1267200 408000>;
 	};
+
+	ccplex@e000000 {
+		compatible = "nvidia,tegra234-ccplex-cluster";
+		status = "okay";
+		cpu_emc_map = <1907200 1600000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>,
+			    <115200 204000>;
+	};
+
 #if defined(LINUX_VERSION) && LINUX_VERSION > 414
 	ccplex {
 		compatible = "nvidia,t234-ccplex";
 		cpu_emc_map = <1907200 1600000>,
 			    <1881600 800000>,
 			    <1574400 665000>,
-			    <1267200 408000>;
+			    <1267200 408000>,
+			    <115200 204000>;
 	};
 #endif
 	pmc@c370000 {
@@ -83,27 +95,27 @@
 		status = "okay";
 	};
 
-	aon-en@C600000 {
+	aon-fabric@C600000 {
 		status = "okay";
 	};
 
-	cbb-en@1300000 {
+	cbb-fabric@1300000 {
 		status = "okay";
 	};
 
-	bpmp-en@D600000 {
-		status = "disabled";
-	};
-
-	dce-en@BE00000 {
+	bpmp-fabric@D600000 {
 		status = "okay";
 	};
 
-	rce-en@BE00000 {
+	dce-fabric@BE00000 {
 		status = "okay";
 	};
 
-	sce-en@B600000 {
+	rce-fabric@BE00000 {
+		status = "okay";
+	};
+
+	sce-fabric@B600000 {
 		status = "okay";
 	};
 
@@ -140,6 +152,10 @@
                 status = "okay";
                 /delete-property/ ranges;
                 /delete-node/ mssnvlink@1f20000;
+        };
+
+        mc-hwpm {
+                status = "okay";
         };
 
         mc_sid@2c00000 {
@@ -209,10 +225,6 @@
 			prod {
 				prod = <0x04 0x000000ff 0x10>;
 			};
-			/delete-node/ prod_c_nonsecure;
-			/delete-node/ prod_c_nopwrsave;
-			/delete-node/ prod_c_secure;
-			/delete-node/ prod_c_pwrsave;
 		};
 		/* QSPI NOR */
 		spiflash@0 {

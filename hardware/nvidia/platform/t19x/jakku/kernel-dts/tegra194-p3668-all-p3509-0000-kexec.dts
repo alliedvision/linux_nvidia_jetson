@@ -91,7 +91,7 @@
 		status = "disabled";
 	};
 
-	host1x {
+	host1x@13e00000 {
 		nvdisplay@15200000 {
 			status = "disabled";
 		};

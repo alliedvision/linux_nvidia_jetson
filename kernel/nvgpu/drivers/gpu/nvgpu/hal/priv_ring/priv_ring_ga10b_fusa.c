@@ -1,7 +1,7 @@
 /*
  * GA10B priv ring
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -63,12 +63,20 @@
  */
 static void decode_pri_client_error(struct gk20a *g, u32 value);
 static void decode_pri_local_error(struct gk20a *g, u32 value);
-static void decode_pri_access_violation(struct gk20a *g, u32 value);
 static void decode_pri_falcom_mem_violation(struct gk20a *g, u32 value);
 static void decode_pri_route_error(struct gk20a *g, u32 value);
 static void decode_pri_source_en_violation(struct gk20a *g, u32 value);
 static void decode_pri_target_mask_violation(struct gk20a *g, u32 value);
 static void decode_pri_undefined_error_extra_info(struct gk20a *g, u32 value);
+static void decode_host_pri_error(struct gk20a *g, u32 value);
+static void decode_fecs_floorsweep_error(struct gk20a *g, u32 value);
+static void decode_gcgpc_error(struct gk20a *g, u32 value);
+static void decode_pri_local_decode_error(struct gk20a *g, u32 value);
+static void decode_pri_client_badf50_error(struct gk20a *g, u32 value);
+static void decode_fecs_pri_orphan_error(struct gk20a *g, u32 value);
+static void decode_pri_direct_access_violation(struct gk20a *g, u32 value);
+static void decode_pri_indirect_access_violation(struct gk20a *g, u32 value);
+static void decode_pri_lock_sec_sensor_violation(struct gk20a *g, u32 value);
 
 /*
  * Helper functions to handle priv_ring bits associated with status0.
@@ -86,10 +94,11 @@ struct pri_error_code {
 };
 
 /*
- * Group pri error codes in the range [0xbadf001xx - 0xbadf001xx].
+ * Group pri error codes in the range [0xbad001xx - 0xbad002xx].
  */
 static struct pri_error_code bad001xx[] = {
-	{ "host pri timeout error", decode_pri_client_error },
+	{ "host pri timeout error", decode_host_pri_error },
+	{ "host pri decode error", decode_host_pri_error },
 	{ "undefined", decode_pri_undefined_error_extra_info }
 };
 static const size_t nbad001xx_entries = sizeof(bad001xx) / sizeof(*bad001xx);
@@ -117,9 +126,9 @@ static const size_t nbad0b0xx_entries = sizeof(bad0b0xx) / sizeof(*bad0b0xx);
  */
 static struct pri_error_code badf1yxx[] = {
 	{ "client timeout", decode_pri_client_error },
-	{ "decode error", decode_pri_client_error },
+	{ "decode error (range not found)", decode_pri_undefined_error_extra_info },
 	{ "client in reset", decode_pri_client_error },
-	{ "client floorswept", decode_pri_client_error },
+	{ "client floorswept", decode_fecs_floorsweep_error },
 	{ "client stuck ack", decode_pri_client_error },
 	{ "client expected ack", decode_pri_client_error },
 	{ "fence error", decode_pri_client_error },
@@ -134,10 +143,15 @@ static const size_t nbadf1yxx_entries =  sizeof(badf1yxx) / sizeof(*badf1yxx);
  * Group pri error codes in the range [0xbadf20xx - 0xbadf23xx].
  */
 static struct pri_error_code badf2yxx[] = {
-	{ "orphan(gpc/fbp)",  decode_pri_client_error },
-	{ "power ok timeout",  decode_pri_client_error },
-	{ "orphan(gpc/fbp) powergated",  decode_pri_client_error },
+	{ "orphan(gpc/fbp)",  decode_fecs_pri_orphan_error },
+	{ "power ok timeout",  decode_pri_local_error },
+	{ "orphan(gpc/fbp) powergated",  decode_fecs_pri_orphan_error },
 	{ "target powergated",  decode_pri_client_error },
+	{ "orphan gcgpc", decode_gcgpc_error },
+	{ "decode gcgpc", decode_gcgpc_error },
+	{ "local priv decode error", decode_pri_local_decode_error },
+	{ "priv poisoned", decode_pri_client_error },
+	{ "trans type", decode_pri_client_error },
 	{ "undefined", decode_pri_undefined_error_extra_info }
 };
 static const size_t nbadf2yxx_entries =  sizeof(badf2yxx) / sizeof(*badf2yxx);
@@ -166,9 +180,9 @@ static const size_t nbadf4yxx_entries =  sizeof(badf4yxx) / sizeof(*badf4yxx);
  * Group pri error codes in the range [0xbadf50xx - 0xbadf59xx].
  */
 static struct pri_error_code badf5yxx[] = {
-	{ "client error", decode_pri_client_error },
-	{ "priv level violation", decode_pri_access_violation },
-	{ "indirect priv level violation", decode_pri_access_violation },
+	{ "client error", decode_pri_client_badf50_error },
+	{ "priv level violation", decode_pri_direct_access_violation },
+	{ "indirect priv level violation", decode_pri_indirect_access_violation },
 	{ "local priv ring error", decode_pri_local_error },
 	{ "falcon mem priv level violation", decode_pri_falcom_mem_violation },
 	{ "route error", decode_pri_route_error },
@@ -184,7 +198,7 @@ static const size_t nbadf5yxx_entries = sizeof(badf5yxx) / sizeof(*badf5yxx);
  * Group pri error codes in the range [0xbadf60xx].
  */
 static struct pri_error_code badf6yxx[] = {
-	{ "lock from security sensor", decode_pri_undefined_error_extra_info },
+	{ "lock from security sensor", decode_pri_lock_sec_sensor_violation },
 	{ "undefined", decode_pri_undefined_error_extra_info }
 };
 static const size_t nbadf6yxx_entries = sizeof(badf6yxx) / sizeof(*badf6yxx);
@@ -219,6 +233,7 @@ sizeof(pri_client_error_extra_2x) / sizeof(*pri_client_error_extra_2x);
  */
 static const char *pri_client_error_extra_4x[] = {
 	"no such address",
+	"task protection",
 	"external error",
 	"index range errror",
 	"reset",
@@ -247,18 +262,49 @@ static void decode_pri_undefined_error_extra_info(struct gk20a *g, u32 value)
 	nvgpu_err(g, "[Extra Info]: undefined, value(0x%x)", value);
 }
 
+static void decode_host_pri_error(struct gk20a *g, u32 value)
+{
+	u32 sub_id;
+
+	sub_id = HOST_PRIV_SUBID_MSK_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: sub_id(0x%x)", sub_id);
+}
+
+static void decode_fecs_floorsweep_error(struct gk20a *g, u32 value)
+{
+	u32 source_id;
+
+	source_id = FECS_PRIV_SOURCEID_MSK_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: client floorswept source_id(0x%x)", source_id);
+}
+
+static void decode_gcgpc_error(struct gk20a *g, u32 value)
+{
+	u32 source_id;
+
+	source_id = FECS_PRIV_SOURCEID_MSK_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: GCGPC error source_id(0x%x)", source_id);
+}
+
+static void decode_pri_local_decode_error(struct gk20a *g, u32 value)
+{
+	u32 source_id;
+
+	source_id = FECS_PRIV_SOURCEID_MSK_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: pri local decode source_id(0x%x)", source_id);
+}
+
 static void decode_pri_client_error(struct gk20a *g, u32 value)
 {
 	const char **lookup_table = { (const char* []){ "undefined" } };
 	size_t lookup_table_size = 1;
 	size_t index = 0;
 
-	if (value >= pri_sys_pri_error_extra_no_such_address_v()) {
-		index = value - pri_sys_pri_error_extra_no_such_address_v();
-		lookup_table = pri_client_error_extra_4x;
-		lookup_table_size = npri_client_error_extra_4x;
-
-	} else if (value >= pri_sys_pri_error_extra_extra_sync_req_v()) {
+	if (value >= pri_sys_pri_error_extra_extra_sync_req_v()) {
 		index = value - pri_sys_pri_error_extra_extra_sync_req_v();
 		lookup_table = pri_client_error_extra_2x;
 		lookup_table_size = npri_client_error_extra_2x;
@@ -282,6 +328,42 @@ static void decode_pri_client_error(struct gk20a *g, u32 value)
 			lookup_table[index], value);
 }
 
+static void decode_pri_client_badf50_error(struct gk20a *g, u32 value)
+{
+	const char **lookup_table = { (const char* []){ "undefined" } };
+	size_t lookup_table_size = 1;
+	size_t index = 0;
+
+	if (value >= pri_sys_pri_error_extra_no_such_address_v()) {
+		index = (size_t)value - pri_sys_pri_error_extra_no_such_address_v();
+		lookup_table = pri_client_error_extra_4x;
+		lookup_table_size = npri_client_error_extra_4x;
+
+	}
+
+	/*
+	 * An index which falls outside the lookup table size is considered
+	 * unknown. The index is updated to the last valid entry of the table,
+	 * which is reserved for this purpose.
+	 */
+	if (index >= lookup_table_size) {
+		index = lookup_table_size - 1UL;
+	}
+
+	nvgpu_err(g, "[Extra Info]: %s, value(0x%x)",
+			lookup_table[index], value);
+}
+
+static void decode_fecs_pri_orphan_error(struct gk20a *g, u32 value)
+{
+	u32 target_ringstation;
+
+	target_ringstation = FECS_PRIV_ORPHAN_TARGET_RINGSTN_MSK_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: target_ringstation(0x%x)",
+		  target_ringstation);
+}
+
 static void decode_pri_target_mask_violation(struct gk20a *g, u32 value)
 {
 	u32 target_mask, source_id;
@@ -293,13 +375,22 @@ static void decode_pri_target_mask_violation(struct gk20a *g, u32 value)
 			target_mask, source_id);
 }
 
-static void decode_pri_access_violation(struct gk20a *g, u32 value)
+static void decode_pri_direct_access_violation(struct gk20a *g, u32 value)
 {
 	u32 priv_mask = PRI_ACCESS_VIOLATION_MSK_VAL(value);
 	u32 priv_level = PRI_ACCESS_VIOLATON_LEVEL_VAL(value);
 
 	nvgpu_err(g, "[Extra Info]: priv_level(0x%x), priv_mask(0x%x)",
 			priv_level, priv_mask);
+}
+
+static void decode_pri_indirect_access_violation(struct gk20a *g, u32 value)
+{
+	u32 cur_priv_level = PRI_ACCESS_VIOLATION_CUR_REQPL_VAL(value);
+	u32 orig_priv_level = PRI_ACCESS_VIOLATION_ORIG_REQPL_VAL(value);
+
+	nvgpu_err(g, "[Extra Info]: orig_priv_level(0x%x), cur_priv_level(0x%x)",
+			orig_priv_level, cur_priv_level);
 }
 
 static void decode_pri_falcom_mem_violation(struct gk20a *g, u32 value)
@@ -313,9 +404,11 @@ static void decode_pri_falcom_mem_violation(struct gk20a *g, u32 value)
 	}
 	fault_priv_level = FALCON_MEM_VIOLATION_PRIVLEVEL_ACCESS_VAL(value);
 	mem_priv_level_mask = FALCON_MEM_VIOLATION_PRIVLEVEL_MSK_VAL(value);
-	nvgpu_err(g, "[Extra Info]: %s violation, fault_priv_level(0x%x),"\
+	nvgpu_err(g, "[Extra Info]: %s violation %s, fault_priv_level(0x%x),"\
 			"mem_priv_level_mask(0x%x)",
 			imem_violation ? "IMEM" : "DMEM",
+			(value & FALCON_MEM_VIOLATION_MSK_VIOLATION()) != 0U ?
+				"unequal" : "mask violation",
 			fault_priv_level, mem_priv_level_mask);
 }
 
@@ -368,6 +461,18 @@ static void decode_pri_local_error(struct gk20a *g, u32 value)
 			PRIV_LOCAL_TARGET_INDEX(value));
 }
 
+static void decode_pri_lock_sec_sensor_violation(struct gk20a *g, u32 value)
+{
+	nvgpu_err(g, "[Extra Info]: pmu(%s), gsp(%s),"\
+		     " sec2(%s), nvdclk(%s), fuse_scm(%s), fuse_prod(%s)",
+		  (value & PRI_LOCK_SEC_SENSOR_PMU_MSK()) != 0U ? "yes" : "no",
+		  (value & PRI_LOCK_SEC_SENSOR_GSP_MSK()) != 0U ? "yes" : "no",
+		  (value & PRI_LOCK_SEC_SENSOR_SEC2_MSK()) != 0U ? "yes" : "no",
+		  (value & PRI_LOCK_SEC_SENSOR_NVDCLK_MSK()) != 0U ? "yes" : "no",
+		  (value & PRI_LOCK_SEC_SENSOR_FUSE_SCM_MSK()) != 0U ? "yes" : "no",
+		  (value & PRI_LOCK_SEC_SENSOR_FUSE_PROD_MSK()) != 0U ? "yes" : "no");
+}
+
 void ga10b_priv_ring_decode_error_code(struct gk20a *g, u32 error_code)
 {
 	u32 err_code;
@@ -378,11 +483,16 @@ void ga10b_priv_ring_decode_error_code(struct gk20a *g, u32 error_code)
 	size_t lookup_table_size = 1;
 	size_t index = 0;
 
-	nvgpu_report_pri_err(g, NVGPU_ERR_MODULE_PRI, 0,
-		GPU_PRI_ACCESS_VIOLATION, 0, error_code);
-
 	err_code = pri_sys_pri_error_code_v(error_code);
 	error_extra = pri_sys_pri_error_extra_v(error_code);
+
+	if (err_code ==  pri_sys_pri_error_code_fecs_pri_timeout_v()) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PRI,
+				GPU_PRI_TIMEOUT_ERROR);
+	} else {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_PRI,
+				GPU_PRI_ACCESS_VIOLATION);
+	}
 
 	if (err_code >= pri_sys_pri_error_code_fecs_pri_lock_from_security_sensor_v()) {
 		index = err_code -

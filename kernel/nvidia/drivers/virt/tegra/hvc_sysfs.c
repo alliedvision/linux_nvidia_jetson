@@ -1,7 +1,7 @@
 /*
  * drivers/virt/tegra/hvc_sysfs.c
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ static int hvc_create_sysfs(
 	return sysfs_create_bin_file(kobj, &hyp_shm_info->attr);
 }
 
-ssize_t log_mask_read(struct file *fp, struct kobject *ko,
+static ssize_t log_mask_read(struct file *fp, struct kobject *ko,
 	struct bin_attribute *attr, char *buf, loff_t pos, size_t size)
 {
 	if (size == sizeof(uint64_t))
@@ -105,7 +105,7 @@ ssize_t log_mask_read(struct file *fp, struct kobject *ko,
 	return size;
 }
 
-ssize_t log_mask_write(struct file *fp, struct kobject *ko,
+static ssize_t log_mask_write(struct file *fp, struct kobject *ko,
 	struct bin_attribute *attr, char *buf, loff_t pos, size_t size)
 {
 	if (size == sizeof(uint64_t))
@@ -151,7 +151,7 @@ static int __init hvc_sysfs_register(void)
 	if (hyp_read_hyp_info(&ipa) != 0)
 		return -EINVAL;
 
-	info = (struct hyp_info_page *)ioremap(ipa, sizeof(*info));
+	info = (__force struct hyp_info_page *)ioremap(ipa, sizeof(*info));
 	if (info == NULL)
 		return -EFAULT;
 
@@ -186,7 +186,7 @@ static int __init hvc_sysfs_register(void)
 	else
 		TEGRA_HV_INFO("pct is unavailable\n");
 
-	iounmap(info);
+	iounmap((void __iomem *)info);
 
 	return 0;
 }

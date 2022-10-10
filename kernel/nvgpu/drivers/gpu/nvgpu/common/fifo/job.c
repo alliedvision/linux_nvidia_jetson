@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,13 +29,7 @@
 #include <nvgpu/job.h>
 #include <nvgpu/priv_cmdbuf.h>
 #include <nvgpu/fence.h>
-
-static inline struct nvgpu_channel_job *
-channel_gk20a_job_from_list(struct nvgpu_list_node *node)
-{
-	return (struct nvgpu_channel_job *)
-	((uintptr_t)node - offsetof(struct nvgpu_channel_job, list));
-};
+#include <nvgpu/string.h>
 
 int nvgpu_channel_alloc_job(struct nvgpu_channel *c,
 		struct nvgpu_channel_job **job_out)
@@ -58,6 +52,8 @@ int nvgpu_channel_alloc_job(struct nvgpu_channel *c,
 void nvgpu_channel_free_job(struct nvgpu_channel *c,
 		struct nvgpu_channel_job *job)
 {
+	(void)c;
+	(void)job;
 	/*
 	 * Nothing needed for now. The job contents are preallocated. The
 	 * completion fence may briefly outlive the job, but the job memory is
@@ -88,6 +84,7 @@ struct nvgpu_channel_job *nvgpu_channel_joblist_peek(struct nvgpu_channel *c)
 void nvgpu_channel_joblist_add(struct nvgpu_channel *c,
 		struct nvgpu_channel_job *job)
 {
+	(void)job;
 	c->joblist.pre_alloc.put = (c->joblist.pre_alloc.put + 1U) %
 			(c->joblist.pre_alloc.length);
 }
@@ -95,6 +92,7 @@ void nvgpu_channel_joblist_add(struct nvgpu_channel *c,
 void nvgpu_channel_joblist_delete(struct nvgpu_channel *c,
 		struct nvgpu_channel_job *job)
 {
+	(void)job;
 	c->joblist.pre_alloc.get = (c->joblist.pre_alloc.get + 1U) %
 			(c->joblist.pre_alloc.length);
 }

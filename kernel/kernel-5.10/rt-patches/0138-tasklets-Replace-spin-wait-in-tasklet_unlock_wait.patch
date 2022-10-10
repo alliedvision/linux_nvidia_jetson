@@ -1,7 +1,7 @@
-From 34a5677cf228cac649fd26ee6056e655d77c50d5 Mon Sep 17 00:00:00 2001
+From 5e8ac2f28a4f820ab8e4926a8ccc460b3e0ae992 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 9 Mar 2021 09:42:08 +0100
-Subject: [PATCH 138/304] tasklets: Replace spin wait in tasklet_unlock_wait()
+Subject: [PATCH 138/318] tasklets: Replace spin wait in tasklet_unlock_wait()
 
 tasklet_unlock_wait() spin waits for TASKLET_STATE_RUN to be cleared. This
 is wasting CPU cycles in a tight loop which is especially painful in a
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 20 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 77bbb7e..77cd88c 100644
+index 77bbb7e4e0f9..77cd88cc4575 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -660,17 +660,8 @@ static inline int tasklet_trylock(struct tasklet_struct *t)
@@ -49,7 +49,7 @@ index 77bbb7e..77cd88c 100644
  /*
   * Do not use in new code. Waiting for tasklets from atomic contexts is
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index d5bfd5e..06bca02 100644
+index d5bfd5e661fc..06bca024ce45 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -25,6 +25,7 @@
@@ -85,5 +85,5 @@ index d5bfd5e..06bca02 100644
  {
  	int cpu;
 -- 
-2.7.4
+2.17.1
 

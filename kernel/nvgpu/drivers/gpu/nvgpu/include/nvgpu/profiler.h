@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -182,8 +182,13 @@ int nvgpu_profiler_unbind_pm_resources(struct nvgpu_profiler_object *prof);
 int nvgpu_profiler_alloc_pma_stream(struct nvgpu_profiler_object *prof);
 void nvgpu_profiler_free_pma_stream(struct nvgpu_profiler_object *prof);
 
+bool nvgpu_profiler_allowlist_range_search(struct gk20a *g,
+		struct nvgpu_pm_resource_register_range_map *map,
+		u32 map_count, u32 offset,
+		struct nvgpu_pm_resource_register_range_map *entry);
+
 bool nvgpu_profiler_validate_regops_allowlist(struct nvgpu_profiler_object *prof,
-		u32 offset, enum nvgpu_pm_resource_hwpm_register_type *type);
+		u32 offset, enum nvgpu_pm_resource_hwpm_register_type type);
 
 #ifdef CONFIG_NVGPU_NON_FUSA
 void nvgpu_profiler_hs_stream_quiesce(struct gk20a *g);

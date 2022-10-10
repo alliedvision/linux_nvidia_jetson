@@ -3,7 +3,7 @@
  *
  * Tegra NVDEC Module Support
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,8 +27,8 @@
 
 extern const struct file_operations tegra_nvdec_ctrl_ops;
 
-int nvhost_nvdec_finalize_poweron_t186(struct platform_device *dev);
-int nvhost_nvdec_prepare_poweroff_t186(struct platform_device *dev);
+int nvhost_nvdec_finalize_poweron_t194(struct platform_device *dev);
+int nvhost_nvdec_prepare_poweroff_t194(struct platform_device *dev);
 int nvhost_nvdec_finalize_poweron(struct platform_device *dev);
 int nvhost_nvdec_prepare_poweroff(struct platform_device *dev);
 

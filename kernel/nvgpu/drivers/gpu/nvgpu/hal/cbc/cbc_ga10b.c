@@ -1,7 +1,7 @@
 /*
  * GA10B CBC
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,13 +73,15 @@ int ga10b_cbc_alloc_comptags(struct gk20a *g, struct nvgpu_cbc *cbc)
 			nvgpu_readl(g, ltc_ltcs_ltss_cbc_param_r()));
 
 	u64 base_divisor = 0ULL;
-
 	/* check if vidmem is present */
-	bool alloc_vidmem = g->ops.fb.get_vidmem_size != NULL ? true : false;
+	bool alloc_vidmem = false;
 	int err;
 
 	nvgpu_log_fn(g, " ");
 
+#ifdef CONFIG_NVGPU_DGPU
+	alloc_vidmem = g->ops.fb.get_vidmem_size != NULL ? true : false;
+#endif
 	if (max_comptag_lines == 0U) {
 		return 0;
 	}
@@ -169,8 +171,8 @@ int ga10b_cbc_alloc_comptags(struct gk20a *g, struct nvgpu_cbc *cbc)
 	return 0;
 }
 
-void ga10b_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc)
+bool ga10b_cbc_use_contig_pool(struct gk20a *g)
 {
-	g->ops.fb.cbc_configure(g, cbc);
-	g->ops.cbc.ctrl(g, nvgpu_cbc_op_clear, 0U, cbc->max_comptag_lines - 1U);
+	(void)g;
+	return true;
 }

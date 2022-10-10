@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -77,6 +77,7 @@ struct nvpps_device_data {
 	u32			tsc_mode;
 
 	struct timer_list	timer;
+	struct timer_list	tsc_timer;
 
 	volatile bool		timer_inited;
 
@@ -85,9 +86,16 @@ struct nvpps_device_data {
 	struct tegra_gte_ev_desc *gte_ev_desc;
 
 	bool		memmap_phc_regs;
-	u64			mac_base_addr;
+	char		*iface_nm;
+	char		*sec_iface_nm;
+	void __iomem *mac_base_addr;
 	u32			sts_offset;
 	u32			stns_offset;
+	void __iomem 		*tsc_reg_map_base;
+	bool		platform_is_orin;
+	u32			tsc_ptp_src;
+	bool		only_timer_mode;
+	s64			ptp_offset;
 };
 
 
@@ -110,18 +118,45 @@ struct nvpps_file_data {
 #define MGBE_STSR_OFFSET		0xd08
 #define MGBE_STNSR_OFFSET		0xd0c
 
+#define TSC_CAPTURE_CONFIGURATION_PTX_0	0xc6a015c
+#define TSC_LOCKING_CONTROL_0	0xc6a01ec
+#define TSC_LOCKING_STATUS_0	0xc6a01f0
+
+#define TSC_MAPPED_RANGE	0x100
+
+/* Below are the tsc control and status register offset from
+ * ioremapped virtual base region stored in tsc_reg_map_base.
+ */
+#define TSC_LOCK_CTRL_REG_OFF 0x90
+#define TSC_LOCK_STAT_REG_OFF 0x94
+
+#define SRC_SELECT_BIT_OFFSET	8
+#define SRC_SELECT_BITS	0xff
+
+#define	TSC_PTP_SRC_EQOS	0
+#define	TSC_PTP_SRC_MGBE0	1
+#define TSC_PTP_SRC_MGBE1	2
+#define TSC_PTP_SRC_MGBE2	3
+#define TSC_PTP_SRC_MGBE3	4
+
+#define TSC_LOCKED_STATUS_BIT_OFFSET 1
+#define TSC_ALIGNED_STATUS_BIT_OFFSET 0
+
+#define TSC_LOCK_CTRL_ALIGN_BIT_OFFSET 0
+
+#define TSC_POLL_TIMER	1000
 #define BASE_ADDRESS pdev_data->mac_base_addr
 #define MAC_STNSR_TSSS_LPOS 0
 #define MAC_STNSR_TSSS_HPOS 30
 
 #define GET_VALUE(data, lbit, hbit) ((data >> lbit) & (~(~0<<(hbit-lbit+1))))
-#define MAC_STNSR_OFFSET ((volatile u32 *)(BASE_ADDRESS + pdev_data->stns_offset))
+#define MAC_STNSR_OFFSET (BASE_ADDRESS + pdev_data->stns_offset)
 #define MAC_STNSR_RD(data) do {\
-	(data) = ioread32((void *)MAC_STNSR_OFFSET);\
+	(data) = ioread32(MAC_STNSR_OFFSET);\
 } while (0)
-#define MAC_STSR_OFFSET ((volatile u32 *)(BASE_ADDRESS + pdev_data->sts_offset))
+#define MAC_STSR_OFFSET (BASE_ADDRESS + pdev_data->sts_offset)
 #define MAC_STSR_RD(data) do {\
-	(data) = ioread32((void *)MAC_STSR_OFFSET);\
+	(data) = ioread32(MAC_STSR_OFFSET);\
 } while (0)
 
 
@@ -181,11 +216,12 @@ static inline u64 get_systime(struct nvpps_device_data *pdev_data, u64 *tsc)
 static void nvpps_get_ts(struct nvpps_device_data *pdev_data, bool in_isr)
 {
 	u64		tsc;
-	u64		tsc1, tsc2;
 	u64		irq_tsc = 0;
 	u64		phc = 0;
+	s64		ptp_offset = 0;
 	u64		irq_latency = 0;
 	unsigned long	flags;
+	struct ptp_tsc_data ptp_tsc_ts, sec_ptp_tsc_ts;
 
 	if (in_isr) {
 		/* initialize irq_tsc to the current TSC just in case the
@@ -226,19 +262,32 @@ static void nvpps_get_ts(struct nvpps_device_data *pdev_data, bool in_isr)
 	if (pdev_data->memmap_phc_regs) {
 		/* get both the phc(using memmap reg) and tsc */
 		phc = get_systime(pdev_data, &tsc);
+		/*TODO : support fetching ptp offset using memmap method */
 	} else {
-		/* get the TSC time before the function call */
-		tsc1 = __arch_counter_get_cntvct();
-		/* get the phc(using ptp notifier) from eqos driver */
-		get_ptp_hwtime(&phc);
-		/* get the TSC time after the function call */
-		tsc2 = __arch_counter_get_cntvct();
-		/* we do not know the latency of the get_ptp_hwtime() function
-		 * so we are measuring the before and after and use the two
-		 * samples average to approximate the time when the PTP clock
-		 * is sampled
-		 */
-		tsc = (tsc1 + tsc2) >> 1;
+		/* get PTP_TSC concurrent timestamp(using ptp notifier) from MAC driver */
+		if (tegra_get_hwtime(pdev_data->iface_nm, &ptp_tsc_ts, PTP_TSC_HWTIME))
+			dev_warn_ratelimited(pdev_data->dev,
+					 "failed to get PTP_TSC concurrent timestamp from interface(%s)\nMake sure ptp is running\n",
+					 pdev_data->iface_nm);
+
+		phc = ptp_tsc_ts.ptp_ts;
+		tsc = ptp_tsc_ts.tsc_ts / pdev_data->tsc_res_ns;
+
+		if ((pdev_data->platform_is_orin) &&
+			/* primary & secondary ptp interface are not same */
+			(strncmp(pdev_data->iface_nm, pdev_data->sec_iface_nm, strlen(pdev_data->iface_nm)))) {
+
+			/* get PTP_TSC concurrent timestamp(using ptp notifier) from MAC
+			 * driver for secondary interface
+			 */
+			if (tegra_get_hwtime(pdev_data->sec_iface_nm, &sec_ptp_tsc_ts, PTP_TSC_HWTIME))
+				dev_warn_ratelimited(pdev_data->dev,
+						 "failed to get PTP_TSC concurrent timestamp for secondary interface(%s)\nMake sure ptp is running\n",
+						 pdev_data->sec_iface_nm);
+
+			/* offset between primary ptp inteface & secondary interface */
+			ptp_offset = (s64)(sec_ptp_tsc_ts.ptp_ts - phc);
+		}
 	}
 
 #ifdef NVPPS_ARM_COUNTER_PROFILING
@@ -284,6 +333,7 @@ static void nvpps_get_ts(struct nvpps_device_data *pdev_data, bool in_isr)
 #endif /* NVPPS_ARM_COUNTER_PROFILING || NVPPS_EQOS_REG_PROFILING */
 	pdev_data->irq_latency = irq_latency;
 	pdev_data->actual_evt_mode = in_isr ? NVPPS_MODE_GPIO : NVPPS_MODE_TIMER;
+	pdev_data->ptp_offset = ptp_offset;
 	raw_spin_unlock_irqrestore(&pdev_data->lock, flags);
 
 	/* event notification */
@@ -301,6 +351,40 @@ static irqreturn_t nvpps_gpio_isr(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+static void tsc_timer_callback(unsigned long data)
+{
+	struct nvpps_device_data        *pdev_data = (struct nvpps_device_data *)data;
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0) */
+static void tsc_timer_callback(struct timer_list *t)
+{
+	struct nvpps_device_data *pdev_data = (struct nvpps_device_data *)from_timer(pdev_data, t, tsc_timer);
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0) */
+	uint32_t tsc_lock_status;
+	tsc_lock_status = readl(pdev_data->tsc_reg_map_base + TSC_LOCK_STAT_REG_OFF);
+	/* Incase TSC is not locked clear ALIGNED bit(RW1C) so that
+	 * TSC starts to lock to the PTP again based on the PTP
+	 * source selected in TSC registers.
+	 */
+	if (!(tsc_lock_status & BIT(TSC_LOCKED_STATUS_BIT_OFFSET))) {
+		uint32_t lock_control;
+		dev_info(pdev_data->dev, "tsc_lock_stat:%x\n", tsc_lock_status);
+		/* Write 1 to TSC_LOCKING_STATUS_0.ALIGNED to clear it */
+		writel(tsc_lock_status | BIT(TSC_ALIGNED_STATUS_BIT_OFFSET),
+			pdev_data->tsc_reg_map_base + TSC_LOCK_STAT_REG_OFF);
+
+		lock_control = readl(pdev_data->tsc_reg_map_base +
+			TSC_LOCK_CTRL_REG_OFF);
+		/* Write 1 to TSC_LOCKING_CONTROL_0.ALIGN */
+		writel(lock_control | BIT(TSC_LOCK_CTRL_ALIGN_BIT_OFFSET),
+			pdev_data->tsc_reg_map_base + TSC_LOCK_CTRL_REG_OFF);
+	}
+
+	/* set the next expire time */
+	mod_timer(&pdev_data->tsc_timer, jiffies + msecs_to_jiffies(TSC_POLL_TIMER));
+}
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)
 static void nvpps_timer_callback(unsigned long data)
@@ -320,7 +404,23 @@ static void nvpps_timer_callback(struct timer_list *t)
 	}
 }
 
+/* spawn timer to monitor TSC to PTP lock and re-activate
+ locking process if its not locked in the handler */
+static int set_mode_tsc(struct nvpps_device_data *pdev_data)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+	setup_timer(&pdev_data->tsc_timer,
+			tsc_timer_callback,
+			(unsigned long)pdev_data);
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0) */
+	timer_setup(&pdev_data->tsc_timer,
+			tsc_timer_callback,
+			0);
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0) */
+	mod_timer(&pdev_data->tsc_timer, jiffies + msecs_to_jiffies(1000));
 
+	return 0;
+}
 
 static int set_mode(struct nvpps_device_data *pdev_data, u32 mode)
 {
@@ -328,20 +428,25 @@ static int set_mode(struct nvpps_device_data *pdev_data, u32 mode)
 	if (mode != pdev_data->evt_mode) {
 		switch (mode) {
 			case NVPPS_MODE_GPIO:
-				if (pdev_data->timer_inited) {
-					pdev_data->timer_inited = false;
-					del_timer_sync(&pdev_data->timer);
-				}
-				if (!pdev_data->irq_registered) {
-					/* register IRQ handler */
-					err = devm_request_irq(pdev_data->dev, pdev_data->irq, nvpps_gpio_isr,
-							IRQF_TRIGGER_RISING | IRQF_NO_THREAD, "nvpps_isr", pdev_data);
-					if (err) {
-						dev_err(pdev_data->dev, "failed to acquire IRQ %d\n", pdev_data->irq);
-					} else {
-						pdev_data->irq_registered = true;
-						dev_info(pdev_data->dev, "Registered IRQ %d for nvpps\n", pdev_data->irq);
+				if (!pdev_data->only_timer_mode) {
+					if (pdev_data->timer_inited) {
+						pdev_data->timer_inited = false;
+						del_timer_sync(&pdev_data->timer);
 					}
+					if (!pdev_data->irq_registered) {
+						/* register IRQ handler */
+						err = devm_request_irq(pdev_data->dev, pdev_data->irq, nvpps_gpio_isr,
+								IRQF_TRIGGER_RISING, "nvpps_isr", pdev_data);
+						if (err) {
+							dev_err(pdev_data->dev, "failed to acquire IRQ %d\n", pdev_data->irq);
+						} else {
+							pdev_data->irq_registered = true;
+							dev_info(pdev_data->dev, "Registered IRQ %d for nvpps\n", pdev_data->irq);
+						}
+					}
+				} else {
+					dev_err(pdev_data->dev, "unable to switch mode. Only timer mode is supported\n");
+					err = -EINVAL;
 				}
 				break;
 
@@ -378,7 +483,7 @@ static int set_mode(struct nvpps_device_data *pdev_data, u32 mode)
 
 
 /* Character device stuff */
-static unsigned int nvpps_poll(struct file *file, poll_table *wait)
+static __poll_t nvpps_poll(struct file *file, poll_table *wait)
 {
 	struct nvpps_file_data		*pfile_data = (struct nvpps_file_data *)file->private_data;
 	struct nvpps_device_data	*pdev_data = pfile_data->pdev_data;
@@ -470,6 +575,7 @@ static long nvpps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			time_event.evt_nb = pdev_data->pps_event_id;
 			time_event.tsc = pdev_data->tsc;
 			time_event.ptp = pdev_data->phc;
+			time_event.ptp_offset = pdev_data->ptp_offset;
 			time_event.irq_latency = pdev_data->irq_latency;
 			raw_spin_unlock_irqrestore(&pdev_data->lock, flags);
 			if (NVPPS_TSC_NSEC == pdev_data->tsc_mode) {
@@ -526,7 +632,7 @@ static long nvpps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					"ioctl: Unsupported clockid\n");
 			}
 
-			err = get_ptp_hwtime(&ns);
+			err = tegra_get_hwtime(pdev_data->iface_nm, &ns, PTP_HWTIME);
 			mutex_unlock(&pdev_data->ts_lock);
 			if (err) {
 				dev_dbg(pdev_data->dev,
@@ -614,87 +720,114 @@ static void nvpps_dev_release(struct device *dev)
 	mutex_unlock(&s_nvpps_lock);
 
 	kfree(dev);
-	kfree(pdev_data);
 }
 
-static int nvpps_fill_mac_phc_info(struct platform_device *pdev,
-								   struct nvpps_device_data *pdev_data)
+static void nvpps_fill_default_mac_phc_info(struct platform_device *pdev,
+											struct nvpps_device_data *pdev_data)
 {
-	struct device_node *np = pdev->dev.of_node;
-	char *eth_iface = NULL;
 	bool use_eqos_mac = false;
-	int err = 0;
+	struct device_node *np = pdev->dev.of_node;
 
-	eth_iface = (char *)of_get_property(np, "interface", NULL);
+	pdev_data->platform_is_orin = false;
+
+	/* Get default params from dt */
+	pdev_data->iface_nm = (char *)of_get_property(np, "interface", NULL);
+	pdev_data->sec_iface_nm = (char *)of_get_property(np, "sec_interface", NULL);
 	pdev_data->memmap_phc_regs = of_property_read_bool(np, "memmap_phc_regs");
 
-	/* For orin, only use memmap method of accessing MAC PHC regs */
+	/* For orin */
 	if (of_machine_is_compatible("nvidia,tegra234")) {
+		pdev_data->platform_is_orin = true;
+
+		/* set default seconday interface for ptp timestamp */
+		if (pdev_data->sec_iface_nm == NULL) {
+			pdev_data->sec_iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+		}
+
 		if (pdev_data->memmap_phc_regs) {
+			/* TODO: Add support to map secondary interfaces PHC registers */
 			dev_info(&pdev->dev, "using mem mapped MAC PHC reg method\n");
-			if (eth_iface == NULL) {
-				dev_warn(&pdev->dev, "interface property not provided. Using default interface(eqos)\n");
+			if (pdev_data->iface_nm == NULL) {
+				pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+				dev_warn(&pdev->dev, "interface property not provided. Using default interface(%s)\n", pdev_data->iface_nm);
 				use_eqos_mac = true;
 			} else {
-				if (!strncmp(eth_iface, "eqos", sizeof("eqos"))) {
+				if (!strncmp(pdev_data->iface_nm, "eqos_0", sizeof("eqos_0"))) {
 					use_eqos_mac = true;
-				} else if (!strncmp(eth_iface, "mgbe0", sizeof("mgbe0"))) {
-					/* remap base address for mgbe0 */
-					pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T234_MGBE0_BASE_ADDR, SZ_4K);
-					dev_info(&pdev->dev, "map MGBE0 to (%p)\n", (void *)pdev_data->mac_base_addr);
+				} else if (!strncmp(pdev_data->iface_nm, "mgbe0_0", sizeof("mgbe0_0"))) {
+					/* remap base address for mgbe0_0 */
+					pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T234_MGBE0_BASE_ADDR, SZ_4K);
+					dev_info(&pdev->dev, "map MGBE0_0 to (%p)\n", pdev_data->mac_base_addr);
 					pdev_data->sts_offset = MGBE_STSR_OFFSET;
 					pdev_data->stns_offset = MGBE_STNSR_OFFSET;
-				} else if (!strncmp(eth_iface, "mgbe1", sizeof("mgbe1"))) {
-					/* remap base address for mgbe1 */
-					pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T234_MGBE1_BASE_ADDR, SZ_4K);
-					dev_info(&pdev->dev, "map MGBE1 to (%p)\n", (void *)pdev_data->mac_base_addr);
+				} else if (!strncmp(pdev_data->iface_nm, "mgbe1_0", sizeof("mgbe1_0"))) {
+					/* remap base address for mgbe1_0 */
+					pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T234_MGBE1_BASE_ADDR, SZ_4K);
+					dev_info(&pdev->dev, "map MGBE1_0 to (%p)\n", pdev_data->mac_base_addr);
 					pdev_data->sts_offset = MGBE_STSR_OFFSET;
 					pdev_data->stns_offset = MGBE_STNSR_OFFSET;
-				} else if (!strncmp(eth_iface, "mgbe2", sizeof("mgbe2"))) {
-					/* remap base address for mgbe2 */
-					pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T234_MGBE2_BASE_ADDR, SZ_4K);
-					dev_info(&pdev->dev, "map MGBE2 to (%p)\n", (void *)pdev_data->mac_base_addr);
+				} else if (!strncmp(pdev_data->iface_nm, "mgbe2_0", sizeof("mgbe2_0"))) {
+					/* remap base address for mgbe2_0 */
+					pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T234_MGBE2_BASE_ADDR, SZ_4K);
+					dev_info(&pdev->dev, "map MGBE2_0 to (%p)\n", pdev_data->mac_base_addr);
 					pdev_data->sts_offset = MGBE_STSR_OFFSET;
 					pdev_data->stns_offset = MGBE_STNSR_OFFSET;
-				} else if (!strncmp(eth_iface, "mgbe3", sizeof("mgbe3"))) {
-					/* remap base address for mgbe3 */
-					pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T234_MGBE3_BASE_ADDR, SZ_4K);
-					dev_info(&pdev->dev, "map MGBE3 to (%p)\n", (void *)pdev_data->mac_base_addr);
+				} else if (!strncmp(pdev_data->iface_nm, "mgbe3_0", sizeof("mgbe3_0"))) {
+					/* remap base address for mgbe3_0 */
+					pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T234_MGBE3_BASE_ADDR, SZ_4K);
+					dev_info(&pdev->dev, "map MGBE3_0 to (%p)\n", pdev_data->mac_base_addr);
 					pdev_data->sts_offset = MGBE_STSR_OFFSET;
 					pdev_data->stns_offset = MGBE_STNSR_OFFSET;
 				} else {
-					dev_warn(&pdev->dev, "Invalid interface(%s). Using default interface(eqos)\n", eth_iface);
+					dev_warn(&pdev->dev, "Invalid interface(%s). Using default interface(eqos_0)\n", pdev_data->iface_nm);
+					pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
 					use_eqos_mac = true;
 				}
 			}
 
 			if (use_eqos_mac) {
 				/* remap base address for eqos */
-				pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T234_EQOS_BASE_ADDR, SZ_4K);
-				dev_info(&pdev->dev, "map EQOS to (%p)\n", (void *)pdev_data->mac_base_addr);
+				pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T234_EQOS_BASE_ADDR, SZ_4K);
+				dev_info(&pdev->dev, "map EQOS to (%p)\n", pdev_data->mac_base_addr);
 				pdev_data->sts_offset = EQOS_STSR_OFFSET;
 				pdev_data->stns_offset = EQOS_STNSR_OFFSET;
 			}
 		} else {
-			dev_info(&pdev->dev, "using ptp notifier method with default interface(eqos)\n");
+			/* Using ptp-notifier method */
+			if (pdev_data->iface_nm) {
+				if ((!strncmp(pdev_data->iface_nm, "eqos_0", sizeof("eqos_0"))) ||
+					(!strncmp(pdev_data->iface_nm, "mgbe0_0", sizeof("mgbe0_0"))) ||
+					(!strncmp(pdev_data->iface_nm, "mgbe1_0", sizeof("mgbe1_0"))) ||
+					(!strncmp(pdev_data->iface_nm, "mgbe2_0", sizeof("mgbe2_0"))) ||
+					(!strncmp(pdev_data->iface_nm, "mgbe3_0", sizeof("mgbe3_0")))) {
+					dev_info(&pdev->dev, "using ptp notifier method with interface(%s)\n", pdev_data->iface_nm);
+				} else {
+					dev_warn(&pdev->dev, "Invalid interface(%s). Using default interface(eqos_0)\n", pdev_data->iface_nm);
+					pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+				}
+			} else {
+				pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+				dev_info(&pdev->dev, "using ptp notifier method with interface(%s)\n", pdev_data->iface_nm);
+			}
 		}
 	} else {
 		if (pdev_data->memmap_phc_regs) {
-			if (eth_iface && strncmp(eth_iface, "eqos", sizeof("eqos")))
-				dev_warn(&pdev->dev, "Invalid interface(%s). Using default interface(eqos)\n", eth_iface);
+			if (!(pdev_data->iface_nm && (strncmp(pdev_data->iface_nm, "eqos_0", sizeof("eqos_0")) == 0))) {
+				dev_warn(&pdev->dev, "Invalid interface(%s). Using default interface(eqos_0)\n", pdev_data->iface_nm);
+				pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+			}
 
-			dev_info(&pdev->dev, "using mem mapped MAC PHC reg method with eqos MAC\n");
+			dev_info(&pdev->dev, "using mem mapped MAC PHC reg method with %s MAC\n", pdev_data->iface_nm);
 			/* remap base address for eqos */
-			pdev_data->mac_base_addr = (u64)devm_ioremap(&pdev->dev, T194_EQOS_BASE_ADDR, SZ_4K);
-			dev_info(&pdev->dev, "map EQOS to (%p)\n", (void *)pdev_data->mac_base_addr);
+			pdev_data->mac_base_addr = devm_ioremap(&pdev->dev, T194_EQOS_BASE_ADDR, SZ_4K);
+			dev_info(&pdev->dev, "map EQOS to (%p)\n", pdev_data->mac_base_addr);
 			pdev_data->sts_offset = EQOS_STSR_OFFSET;
 			pdev_data->stns_offset = EQOS_STNSR_OFFSET;
 		} else {
-			dev_info(&pdev->dev, "using ptp notifier method with default interface(eqos)\n");
+			pdev_data->iface_nm = devm_kstrdup(&pdev->dev, "eqos_0", GFP_KERNEL);
+			dev_info(&pdev->dev, "using ptp notifier method with default interface(%s)\n", pdev_data->iface_nm);
 		}
 	}
-
-	return err;
 }
 
 
@@ -705,6 +838,7 @@ static int nvpps_probe(struct platform_device *pdev)
 	dev_t				devt;
 	int				err;
 	struct device_node              *np_gte;
+	uint32_t tsc_config_ptx_0;
 
 	dev_info(&pdev->dev, "%s\n", __FUNCTION__);
 
@@ -713,46 +847,46 @@ static int nvpps_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	pdev_data = kzalloc(sizeof(struct nvpps_device_data), GFP_KERNEL);
+	pdev_data = devm_kzalloc(&pdev->dev, sizeof(struct nvpps_device_data), GFP_KERNEL);
 	if (!pdev_data) {
 		return -ENOMEM;
 	}
 
 	err = of_get_gpio(np, 0);
 	if (err < 0) {
-		dev_err(&pdev->dev, "unable to get GPIO from device tree\n");
-		return err;
+		dev_warn(&pdev->dev, "PPS GPIO not provided in DT, only Timer mode available\n");
+		pdev_data->only_timer_mode = true;
 	} else {
 		pdev_data->gpio_pin = (unsigned int)err;
 		dev_info(&pdev->dev, "gpio_pin(%d)\n", pdev_data->gpio_pin);
+
+		/* GPIO setup */
+		if (gpio_is_valid(pdev_data->gpio_pin)) {
+			err = devm_gpio_request(&pdev->dev, pdev_data->gpio_pin, "gpio_pps");
+			if (err) {
+				dev_err(&pdev->dev, "failed to request GPIO %u\n",
+					pdev_data->gpio_pin);
+				return err;
+			}
+
+			err = gpio_direction_input(pdev_data->gpio_pin);
+			if (err) {
+				dev_err(&pdev->dev, "failed to set pin direction\n");
+				return -EINVAL;
+			}
+
+			/* IRQ setup */
+			err = gpio_to_irq(pdev_data->gpio_pin);
+			if (err < 0) {
+				dev_err(&pdev->dev, "failed to map GPIO to IRQ: %d\n", err);
+				return -EINVAL;
+			}
+			pdev_data->irq = err;
+			dev_info(&pdev->dev, "gpio_to_irq(%d)\n", pdev_data->irq);
+		}
 	}
 
-	/* GPIO setup */
-	if (gpio_is_valid(pdev_data->gpio_pin)) {
-		err = devm_gpio_request(&pdev->dev, pdev_data->gpio_pin, "gpio_pps");
-		if (err) {
-			dev_err(&pdev->dev, "failed to request GPIO %u\n",
-				pdev_data->gpio_pin);
-			return err;
-		}
-
-		err = gpio_direction_input(pdev_data->gpio_pin);
-		if (err) {
-			dev_err(&pdev->dev, "failed to set pin direction\n");
-			return -EINVAL;
-		}
-
-		/* IRQ setup */
-		err = gpio_to_irq(pdev_data->gpio_pin);
-		if (err < 0) {
-			dev_err(&pdev->dev, "failed to map GPIO to IRQ: %d\n", err);
-			return -EINVAL;
-		}
-		pdev_data->irq = err;
-		dev_info(&pdev->dev, "gpio_to_irq(%d)\n", pdev_data->irq);
-	}
-
-	nvpps_fill_mac_phc_info(pdev, pdev_data);
+	nvpps_fill_default_mac_phc_info(pdev, pdev_data);
 
 	init_waitqueue_head(&pdev_data->pps_event_queue);
 	raw_spin_lock_init(&pdev_data->lock);
@@ -841,13 +975,49 @@ static int nvpps_probe(struct platform_device *pdev)
 	}
 
 	/* setup PPS event hndler */
-	err = set_mode(pdev_data, NVPPS_DEF_MODE);
+	err = set_mode(pdev_data,
+				   (pdev_data->only_timer_mode) ? NVPPS_MODE_TIMER : NVPPS_MODE_GPIO);
 	if (err) {
 		dev_err(&pdev->dev, "set_mode failed err = %d\n", err);
 		device_destroy(s_nvpps_class, pdev_data->dev->devt);
 		goto error_ret;
 	}
-	pdev_data->evt_mode = NVPPS_DEF_MODE;
+	pdev_data->evt_mode = (pdev_data->only_timer_mode) ? NVPPS_MODE_TIMER : NVPPS_MODE_GPIO;
+
+	if (pdev_data->platform_is_orin) {
+		pdev_data->tsc_reg_map_base = ioremap(TSC_CAPTURE_CONFIGURATION_PTX_0, 0x100);
+		if (!pdev_data->tsc_reg_map_base) {
+		    dev_err(&pdev->dev, "TSC register ioremap failed\n");
+			    device_destroy(s_nvpps_class, pdev_data->dev->devt);
+		    err = -ENOMEM;
+		    goto error_ret;
+		}
+
+		if (!strncmp(pdev_data->iface_nm, "mgbe0_0", sizeof("mgbe0_0"))) {
+			pdev_data->tsc_ptp_src = (TSC_PTP_SRC_MGBE0 << SRC_SELECT_BIT_OFFSET);
+		} else if (!strncmp(pdev_data->iface_nm, "mgbe1_0", sizeof("mgbe1_0"))) {
+			pdev_data->tsc_ptp_src = (TSC_PTP_SRC_MGBE1 << SRC_SELECT_BIT_OFFSET);
+		} else if (!strncmp(pdev_data->iface_nm, "mgbe2_0", sizeof("mgbe2_0"))) {
+			pdev_data->tsc_ptp_src = (TSC_PTP_SRC_MGBE2 << SRC_SELECT_BIT_OFFSET);
+		} else if (!strncmp(pdev_data->iface_nm, "mgbe3_0", sizeof("mgbe3_0"))) {
+			pdev_data->tsc_ptp_src = (TSC_PTP_SRC_MGBE3 << SRC_SELECT_BIT_OFFSET);
+		} else {
+			pdev_data->tsc_ptp_src = (TSC_PTP_SRC_EQOS << SRC_SELECT_BIT_OFFSET);
+		}
+
+		tsc_config_ptx_0 = readl(pdev_data->tsc_reg_map_base);
+		/* clear and set the ptp src based on ethernet interface passed
+		 * from dt for tsc to lock onto.
+		 */
+		tsc_config_ptx_0 = tsc_config_ptx_0 &
+			~(SRC_SELECT_BITS << SRC_SELECT_BIT_OFFSET);
+		tsc_config_ptx_0 = tsc_config_ptx_0 | pdev_data->tsc_ptp_src;
+		writel(tsc_config_ptx_0, pdev_data->tsc_reg_map_base);
+		tsc_config_ptx_0 = readl(pdev_data->tsc_reg_map_base);
+		dev_info(&pdev->dev, "TSC config ptx 0x%x\n", tsc_config_ptx_0);
+
+		set_mode_tsc(pdev_data);
+	}
 
 	return 0;
 
@@ -878,9 +1048,13 @@ static int nvpps_remove(struct platform_device *pdev)
 			pdev_data->use_gpio_int_timesatmp = false;
 		}
 		if (pdev_data->memmap_phc_regs) {
-			devm_iounmap(&pdev->dev, (void *)pdev_data->mac_base_addr);
+			devm_iounmap(&pdev->dev, pdev_data->mac_base_addr);
 			dev_info(&pdev->dev, "unmap MAC reg space %p for nvpps\n",
-				(void *)pdev_data->mac_base_addr);
+				pdev_data->mac_base_addr);
+		}
+		if (pdev_data->platform_is_orin) {
+			del_timer_sync(&pdev_data->tsc_timer);
+			iounmap(pdev_data->tsc_reg_map_base);
 		}
 		device_destroy(s_nvpps_class, pdev_data->dev->devt);
 	}

@@ -1,7 +1,7 @@
-From f59c12a2202ebe81510fe07c117c70c499758d2e Mon Sep 17 00:00:00 2001
+From 0b909a62b583bc0ca057bd38bce898c864396227 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:41 +0100
-Subject: [PATCH 052/304] ARM: mm: Replace kmap_atomic_pfn()
+Subject: [PATCH 052/318] ARM: mm: Replace kmap_atomic_pfn()
 
 There is no requirement to disable pagefaults and preemption for these
 cache management mappings.
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm/mm/cache-feroceon-l2.c b/arch/arm/mm/cache-feroceon-l2.c
-index 5c1b7a7..8732876 100644
+index 5c1b7a7b9af6..87328766e910 100644
 --- a/arch/arm/mm/cache-feroceon-l2.c
 +++ b/arch/arm/mm/cache-feroceon-l2.c
 @@ -49,9 +49,9 @@ static inline unsigned long l2_get_va(unsigned long paddr)
@@ -44,7 +44,7 @@ index 5c1b7a7..8732876 100644
  }
  
 diff --git a/arch/arm/mm/cache-xsc3l2.c b/arch/arm/mm/cache-xsc3l2.c
-index d20d7af..0e0a3ab 100644
+index d20d7af02d10..0e0a3abd8174 100644
 --- a/arch/arm/mm/cache-xsc3l2.c
 +++ b/arch/arm/mm/cache-xsc3l2.c
 @@ -59,7 +59,7 @@ static inline void l2_unmap_va(unsigned long va)
@@ -66,5 +66,5 @@ index d20d7af..0e0a3ab 100644
  	return va + (pa_offset >> (32 - PAGE_SHIFT));
  #else
 -- 
-2.7.4
+2.17.1
 

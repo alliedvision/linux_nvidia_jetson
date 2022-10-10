@@ -1,0 +1,50 @@
+From a704a0836f881b407da873e869bf38247761b6b0 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 10 Aug 2020 19:11:09 +0200
+Subject: [PATCH 734/830] ANDROID: enable CONFIG_INIT_STACK_ALL_ZERO=y
+X-NVConfidentiality: public
+
+The upstream config option changed names (CONFIG_INIT_STACK_ALL is now
+gone), and was removed in bf2a21fbe44e ("ANDROID: GKI: update defconfigs
+due to mainline merges")
+
+This restores the correct build option, and also should fix up the
+failing cuttlefish test for this.
+
+Bug: 163301784
+Cc: Steve Muckle <smuckle@google.com>
+Fixes: bf2a21fbe44e ("ANDROID: GKI: update defconfigs due to mainline merges")
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ibb065f8311d4b5b1ff84bb2226cd9214e0912de9
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 3b3704d4ca49..5442318360cc 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -480,6 +480,7 @@ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
+ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
++CONFIG_INIT_STACK_ALL_ZERO=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 76fac392758d..a6a6690bd98e 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -428,6 +428,7 @@ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
+ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
++CONFIG_INIT_STACK_ALL_ZERO=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
+-- 
+2.17.1
+

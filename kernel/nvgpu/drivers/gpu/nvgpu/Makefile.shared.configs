@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -55,8 +55,14 @@ NVGPU_COMMON_CFLAGS		:=
 NVGPU_COMMON_CFLAGS		+=		\
 	-DCONFIG_TEGRA_GK20A_PMU=1		\
 	-DCONFIG_TEGRA_ACR=1			\
-	-DCONFIG_NVGPU_GR_VIRTUALIZATION	\
-	-DCONFIG_PCI_MSI
+	-DCONFIG_NVGPU_GR_VIRTUALIZATION
+
+ifeq ($(CONFIG_NVGPU_DGPU),1)
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_PCI_MSI
+endif
+
+CONFIG_NVGPU_IVM_BUILD               := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_IVM_BUILD
 
 CONFIG_NVGPU_LOGGING                 := 1
 NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_LOGGING
@@ -71,6 +77,20 @@ NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_SYNCFD_NONE
 
 CONFIG_NVGPU_GRAPHICS                := 1
 NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_GRAPHICS
+
+CONFIG_NVGPU_SUPPORT_GV11B           := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_SUPPORT_GV11B
+
+# Error reporting needs to be supported in qnx-safety, qnx-standard, linux.
+# In qnx-standard, nvgpu makefile is used for RM SERVER. Since iGPU is in
+# pass through mode in all three platforms, EPL libraries should not be
+# included in RM server. Use this flag to include/exclude MISC_EC libraries.
+ifneq ($(NV_BUILD_CONFIGURATION_IS_VM_SERVER), 1)
+CONFIG_NVGPU_ENABLE_MISC_EC          := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_ENABLE_MISC_EC
+endif
+CONFIG_NVGPU_COMPRESSION             := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_COMPRESSION
 
 ifeq ($(profile),$(filter $(profile),safety_debug safety_release))
 
@@ -144,12 +164,13 @@ ifneq ($(profile),safety_release)
 CONFIG_NVGPU_TRACE              := 1
 NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_TRACE
 
+CONFIG_NVGPU_FALCON_DEBUG       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_DEBUG
+
 #
 # Flags enabled only for regular build profile.
 #
 ifneq ($(profile),safety_debug)
-
-NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_DEBUG
 
 CONFIG_NVGPU_SYSFS              := 1
 NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SYSFS
@@ -228,9 +249,6 @@ NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_POWER_PG
 CONFIG_NVGPU_SIM                := 1
 NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SIM
 
-CONFIG_NVGPU_COMPRESSION        := 1
-NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_COMPRESSION
-
 # Enable non FUSA HALs for normal build
 CONFIG_NVGPU_HAL_NON_FUSA       := 1
 NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_HAL_NON_FUSA
@@ -302,14 +320,25 @@ CONFIG_NVGPU_MIG                     := 1
 NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_MIG
 
 # Enable gsp scheduler for normal build
-CONFIG_NVGPU_GSP_SCHEDULER......:= 1
-NVGPU_COMMON_CFLAGS.............+= -DCONFIG_NVGPU_GSP_SCHEDULER
+CONFIG_NVGPU_GSP_SCHEDULER	:= 1
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_NVGPU_GSP_SCHEDULER
+
+# Code to encapsulate the error information into a uniform interface via
+# nvgpu_err_msg is currently used, but might be needed in future by nvgpu_rm
+# process. Retain this code under CONFIG_NVGPU_INTR_DEBUG which is enabled
+# only in standard build for now.
+CONFIG_NVGPU_INTR_DEBUG	:= 1
+NVGPU_COMMON_CFLAGS	+= -DCONFIG_NVGPU_INTR_DEBUG
 
 # Enable GSP stress test
 ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),1)
 CONFIG_NVGPU_GSP_STRESS_TEST    := 1
 NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_GSP_STRESS_TEST
 endif
+# Enable Nonstall interrupt support for normal build
+CONFIG_NVGPU_NONSTALL_INTR           := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_NONSTALL_INTR
+
 endif
 endif
 

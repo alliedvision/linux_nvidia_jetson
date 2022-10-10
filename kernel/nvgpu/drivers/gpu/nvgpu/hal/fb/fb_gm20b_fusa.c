@@ -1,7 +1,7 @@
 /*
  * GM20B GPC MMU
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -283,3 +283,34 @@ void gm20b_fb_read_wpr_info(struct gk20a *g, u64 *wpr_base, u64 *wpr_size)
 	*wpr_base = wpr_start;
 	*wpr_size = nvgpu_safe_sub_u64(wpr_end, wpr_start);
 }
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+bool gm20b_fb_set_use_full_comp_tag_line(struct gk20a *g)
+{
+	/* set large page size in fb */
+	u32 fb_mmu_ctrl = gk20a_readl(g, fb_mmu_ctrl_r());
+
+	fb_mmu_ctrl |= fb_mmu_ctrl_use_full_comp_tag_line_true_f();
+	gk20a_writel(g, fb_mmu_ctrl_r(), fb_mmu_ctrl);
+
+	return true;
+}
+
+u64 gm20b_fb_compression_page_size(struct gk20a *g)
+{
+	(void)g;
+	return SZ_128K;
+}
+
+unsigned int gm20b_fb_compressible_page_size(struct gk20a *g)
+{
+	(void)g;
+	return (unsigned int)SZ_64K;
+}
+
+u64 gm20b_fb_compression_align_mask(struct gk20a *g)
+{
+	(void)g;
+	return SZ_64K - 1UL;
+}
+#endif

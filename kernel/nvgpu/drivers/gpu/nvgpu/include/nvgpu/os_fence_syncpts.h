@@ -1,7 +1,7 @@
 /*
  * nvgpu os fence syncpts
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -86,6 +86,11 @@ static inline int nvgpu_os_fence_syncpt_create(
 	struct nvgpu_nvhost_dev *nvhost_device,
 	u32 id, u32 thresh)
 {
+	(void)fence_out;
+	(void)c;
+	(void)nvhost_device;
+	(void)id;
+	(void)thresh;
 	return -ENOSYS;
 }
 
@@ -93,12 +98,15 @@ static inline int nvgpu_os_fence_get_syncpts(
 	struct nvgpu_os_fence_syncpt *fence_syncpt_out,
 	struct nvgpu_os_fence *fence_in)
 {
+	(void)fence_syncpt_out;
+	(void)fence_in;
 	return -EINVAL;
 }
 
 static inline u32 nvgpu_os_fence_syncpt_get_num_syncpoints(
 	struct nvgpu_os_fence_syncpt *fence)
 {
+	(void)fence;
 	return 0;
 }
 

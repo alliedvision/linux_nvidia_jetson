@@ -1,7 +1,7 @@
 /*
  * tegracam_v4l2 - tegra camera framework for v4l2 support
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,14 +26,23 @@ static int v4l2sd_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
-	struct camera_common_sensor_ops *sensor_ops = s_data->ops;
-	struct tegracam_device *tc_dev = to_tegracam_device(s_data);
-	struct tegracam_sensor_data *sensor_data = &s_data->tegracam_ctrl_hdl->sensor_data;
-	struct sensor_blob *ctrl_blob = &sensor_data->ctrls_blob;
-	struct sensor_blob *mode_blob = &sensor_data->mode_blob;
+	struct camera_common_sensor_ops *sensor_ops;
+	struct tegracam_device *tc_dev;
+	struct tegracam_sensor_data *sensor_data;
+	struct sensor_blob *ctrl_blob;
+	struct sensor_blob *mode_blob;
 	int err = 0;
 
 	dev_dbg(&client->dev, "%s++ enable %d\n", __func__, enable);
+
+	if (!s_data)
+		return -EINVAL;
+
+	sensor_ops = s_data->ops;
+	tc_dev = to_tegracam_device(s_data);
+	sensor_data = &s_data->tegracam_ctrl_hdl->sensor_data;
+	ctrl_blob = &sensor_data->ctrls_blob;
+	mode_blob = &sensor_data->mode_blob;
 
 	/* reset control packet at start/stop streaming */
 	memset(ctrl_blob, 0, sizeof(struct sensor_blob));
@@ -102,8 +111,12 @@ static int v4l2sd_g_input_status(struct v4l2_subdev *sd, u32 *status)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
-	struct camera_common_power_rail *pw = s_data->power;
+	struct camera_common_power_rail *pw;
 
+	if (!s_data)
+		return -EINVAL;
+
+	pw = s_data->power;
 	*status = pw->state == SWITCH_ON;
 	return 0;
 }
@@ -134,6 +147,9 @@ static int v4l2sd_set_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_common_data *s_data = to_camera_common_data(&client->dev);
 	int ret;
+
+	if (!s_data)
+		return -EINVAL;
 
 	if (format->which == V4L2_SUBDEV_FORMAT_TRY)
 		ret = camera_common_try_fmt(sd, &format->format);
@@ -181,10 +197,15 @@ int tegracam_v4l2subdev_register(struct tegracam_device *tc_dev,
 				bool is_sensor)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
-	struct tegracam_ctrl_handler *ctrl_hdl = s_data->tegracam_ctrl_hdl;
+	struct tegracam_ctrl_handler *ctrl_hdl;
 	struct v4l2_subdev *sd = NULL;
 	struct device *dev = tc_dev->dev;
 	int err = 0;
+
+	if (!s_data)
+		return -EINVAL;
+
+	ctrl_hdl = s_data->tegracam_ctrl_hdl;
 
 	/* init v4l2 subdevice for registration */
 	sd = &s_data->subdev;
@@ -233,7 +254,12 @@ EXPORT_SYMBOL_GPL(tegracam_v4l2subdev_register);
 void tegracam_v4l2subdev_unregister(struct tegracam_device *tc_dev)
 {
 	struct camera_common_data *s_data = tc_dev->s_data;
-	struct v4l2_subdev *sd = &s_data->subdev;
+	struct v4l2_subdev *sd;
+
+	if (!s_data)
+		return;
+
+	sd = &s_data->subdev;
 
 	v4l2_ctrl_handler_free(s_data->ctrl_handler);
 	v4l2_async_unregister_subdev(sd);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,7 @@
 /* PMU version specific functions */
 static u32 pmu_perfmon_cntr_sz_v2(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_perfmon_counter_v2);
 }
 
@@ -95,6 +96,7 @@ static void pmu_set_cmd_line_args_trace_dma_base_v4(struct nvgpu_pmu *pmu)
 
 static u32 pmu_cmd_line_size_v4(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_cmdline_args_v4);
 }
 
@@ -120,16 +122,19 @@ static void pmu_set_cmd_line_args_trace_dma_idx_v4(
 
 static u32 pmu_cmd_line_size_v6(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_cmdline_args_v6);
 }
 
 static u32 pmu_cmd_line_size_v7(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_cmdline_args_v7);
 }
 
 static void pmu_set_cmd_line_args_cpu_freq_v5(struct nvgpu_pmu *pmu, u32 freq)
 {
+	(void)freq;
 	pmu->fw->args_v5.cpu_freq_hz = 204000000;
 }
 static void pmu_set_cmd_line_args_secure_mode_v5(struct nvgpu_pmu *pmu, u8 val)
@@ -140,6 +145,8 @@ static void pmu_set_cmd_line_args_secure_mode_v5(struct nvgpu_pmu *pmu, u8 val)
 static void pmu_set_cmd_line_args_trace_size_v5(
 			struct nvgpu_pmu *pmu, u32 size)
 {
+	(void)pmu;
+	(void)size;
 	/* set by surface describe */
 }
 
@@ -176,11 +183,14 @@ static void config_cmd_line_args_super_surface_v7(struct nvgpu_pmu *pmu)
 static void pmu_set_cmd_line_args_trace_dma_idx_v5(
 			struct nvgpu_pmu *pmu, u32 idx)
 {
+	(void)pmu;
+	(void)idx;
 	/* set by surface describe */
 }
 
 static u32 pmu_cmd_line_size_v3(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_cmdline_args_v3);
 }
 
@@ -228,16 +238,19 @@ static void *pmu_get_cmd_line_args_ptr_v5(struct nvgpu_pmu *pmu)
 
 static u32 pmu_get_allocation_size_v3(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_allocation_v3);
 }
 
 static u32 pmu_get_allocation_size_v2(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_allocation_v2);
 }
 
 static u32 pmu_get_allocation_size_v1(struct nvgpu_pmu *pmu)
 {
+	(void)pmu;
 	return (u32)sizeof(struct pmu_allocation_v1);
 }
 
@@ -247,6 +260,7 @@ static void pmu_set_allocation_ptr_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 **pmu_a_ptr =
 		(struct pmu_allocation_v3 **)pmu_alloc_ptr;
 
+	(void)pmu;
 	*pmu_a_ptr = (struct pmu_allocation_v3 *)assign_ptr;
 }
 
@@ -256,6 +270,7 @@ static void pmu_set_allocation_ptr_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 **pmu_a_ptr =
 		(struct pmu_allocation_v2 **)pmu_alloc_ptr;
 
+	(void)pmu;
 	*pmu_a_ptr = (struct pmu_allocation_v2 *)assign_ptr;
 }
 
@@ -265,6 +280,7 @@ static void pmu_set_allocation_ptr_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 **pmu_a_ptr =
 		(struct pmu_allocation_v1 **)pmu_alloc_ptr;
 
+	(void)pmu;
 	*pmu_a_ptr = (struct pmu_allocation_v1 *)assign_ptr;
 }
 
@@ -274,6 +290,7 @@ static void pmu_allocation_set_dmem_size_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 *pmu_a_ptr =
 		(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.size = size;
 }
 
@@ -283,6 +300,7 @@ static void pmu_allocation_set_dmem_size_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 *pmu_a_ptr =
 		(struct pmu_allocation_v2 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.size = size;
 }
 
@@ -292,6 +310,7 @@ static void pmu_allocation_set_dmem_size_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 *pmu_a_ptr =
 		(struct pmu_allocation_v1 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.size = size;
 }
 
@@ -301,6 +320,7 @@ static u16 pmu_allocation_get_dmem_size_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 *pmu_a_ptr =
 		(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.size;
 }
 
@@ -310,6 +330,7 @@ static u16 pmu_allocation_get_dmem_size_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 *pmu_a_ptr =
 		(struct pmu_allocation_v2 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.size;
 }
 
@@ -319,6 +340,7 @@ static u16 pmu_allocation_get_dmem_size_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 *pmu_a_ptr =
 		(struct pmu_allocation_v1 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.size;
 }
 
@@ -328,6 +350,7 @@ static u32 pmu_allocation_get_dmem_offset_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 *pmu_a_ptr =
 		(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -337,6 +360,7 @@ static u32 pmu_allocation_get_dmem_offset_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 *pmu_a_ptr =
 		(struct pmu_allocation_v2 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -346,6 +370,7 @@ static u32 pmu_allocation_get_dmem_offset_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 *pmu_a_ptr =
 		(struct pmu_allocation_v1 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -355,6 +380,7 @@ static u32 *pmu_allocation_get_dmem_offset_addr_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 *pmu_a_ptr =
 		(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return &pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -364,6 +390,7 @@ static void *pmu_allocation_get_fb_addr_v3(
 	struct pmu_allocation_v3 *pmu_a_ptr =
 			(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return (void *)&pmu_a_ptr->alloc.fb;
 }
 
@@ -373,6 +400,7 @@ static u32 pmu_allocation_get_fb_size_v3(
 	struct pmu_allocation_v3 *pmu_a_ptr =
 			(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return (u32)sizeof(pmu_a_ptr->alloc.fb);
 }
 
@@ -382,6 +410,7 @@ static u32 *pmu_allocation_get_dmem_offset_addr_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 *pmu_a_ptr =
 		(struct pmu_allocation_v2 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return &pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -391,6 +420,7 @@ static u32 *pmu_allocation_get_dmem_offset_addr_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 *pmu_a_ptr =
 		(struct pmu_allocation_v1 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	return &pmu_a_ptr->alloc.dmem.offset;
 }
 
@@ -400,6 +430,7 @@ static void pmu_allocation_set_dmem_offset_v3(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v3 *pmu_a_ptr =
 		(struct pmu_allocation_v3 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.offset = offset;
 }
 
@@ -409,6 +440,7 @@ static void pmu_allocation_set_dmem_offset_v2(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v2 *pmu_a_ptr =
 		(struct pmu_allocation_v2 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.offset = offset;
 }
 
@@ -418,6 +450,7 @@ static void pmu_allocation_set_dmem_offset_v1(struct nvgpu_pmu *pmu,
 	struct pmu_allocation_v1 *pmu_a_ptr =
 		(struct pmu_allocation_v1 *)pmu_alloc_ptr;
 
+	(void)pmu;
 	pmu_a_ptr->alloc.dmem.offset = offset;
 }
 
@@ -1390,11 +1423,7 @@ int nvgpu_pmu_init_fw_ver_ops(struct gk20a *g,
 				pmu_get_init_msg_sw_mngd_area_off_v5;
 			fw_ops->get_init_msg_sw_mngd_area_size =
 				pmu_get_init_msg_sw_mngd_area_size_v5;
-			if (app_version == APP_VERSION_GV10X) {
-				fw_ops->clk.clk_set_boot_clk = NULL;
-			} else {
-				fw_ops->clk.clk_set_boot_clk = NULL;
-			}
+			fw_ops->clk.clk_set_boot_clk = NULL;
 		} else {
 			fw_ops->get_init_msg_queue_params =
 				pmu_get_init_msg_queue_params_v4;

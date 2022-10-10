@@ -1,7 +1,7 @@
-From ad7f21ed183d616e875546e3ed0d08ed4580bf8f Mon Sep 17 00:00:00 2001
+From 9f03ddf7d5c839490c01459bd63c73dc75d884eb Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:49 +0100
-Subject: [PATCH 075/304] doc: Use CONFIG_PREEMPTION
+Subject: [PATCH 075/318] doc: Use CONFIG_PREEMPTION
 
 CONFIG_PREEMPTION is selected by CONFIG_PREEMPT and by CONFIG_PREEMPT_RT.
 Both PREEMPT and PREEMPT_RT require the same functionality which today
@@ -14,16 +14,16 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Paul E. McKenney <paulmck@kernel.org>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- .../Expedited-Grace-Periods.rst                    |  4 ++--
- .../RCU/Design/Requirements/Requirements.rst       | 24 +++++++++++-----------
- Documentation/RCU/checklist.rst                    |  2 +-
- Documentation/RCU/rcubarrier.rst                   |  6 +++---
- Documentation/RCU/stallwarn.rst                    |  4 ++--
- Documentation/RCU/whatisRCU.rst                    | 10 ++++-----
+ .../Expedited-Grace-Periods.rst               |  4 ++--
+ .../RCU/Design/Requirements/Requirements.rst  | 24 +++++++++----------
+ Documentation/RCU/checklist.rst               |  2 +-
+ Documentation/RCU/rcubarrier.rst              |  6 ++---
+ Documentation/RCU/stallwarn.rst               |  4 ++--
+ Documentation/RCU/whatisRCU.rst               | 10 ++++----
  6 files changed, 25 insertions(+), 25 deletions(-)
 
 diff --git a/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.rst b/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.rst
-index 72f0f6f..6f89cf1 100644
+index 72f0f6fbd53c..6f89cf1e567d 100644
 --- a/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.rst
 +++ b/Documentation/RCU/Design/Expedited-Grace-Periods/Expedited-Grace-Periods.rst
 @@ -38,7 +38,7 @@ sections.
@@ -45,7 +45,7 @@ index 72f0f6f..6f89cf1 100644
  shown in the following diagram:
  
 diff --git a/Documentation/RCU/Design/Requirements/Requirements.rst b/Documentation/RCU/Design/Requirements/Requirements.rst
-index 0f7e023..17d38480 100644
+index 0f7e0237ea14..17d38480ef5c 100644
 --- a/Documentation/RCU/Design/Requirements/Requirements.rst
 +++ b/Documentation/RCU/Design/Requirements/Requirements.rst
 @@ -78,7 +78,7 @@ RCU treats a nested set as one big RCU read-side critical section.
@@ -140,7 +140,7 @@ index 0f7e023..17d38480 100644
  for voluntary context switches.
  
 diff --git a/Documentation/RCU/checklist.rst b/Documentation/RCU/checklist.rst
-index 2efed99..7ed4956 100644
+index 2efed9926c3f..7ed4956043bd 100644
 --- a/Documentation/RCU/checklist.rst
 +++ b/Documentation/RCU/checklist.rst
 @@ -214,7 +214,7 @@ over a rather long period of time, but improvements are always welcome!
@@ -153,7 +153,7 @@ index 2efed99..7ed4956 100644
  	then the corresponding readers my use rcu_read_lock() and
  	rcu_read_unlock(), rcu_read_lock_bh() and rcu_read_unlock_bh(),
 diff --git a/Documentation/RCU/rcubarrier.rst b/Documentation/RCU/rcubarrier.rst
-index f64f4413..3b4a248 100644
+index f64f4413a47c..3b4a24877496 100644
 --- a/Documentation/RCU/rcubarrier.rst
 +++ b/Documentation/RCU/rcubarrier.rst
 @@ -9,7 +9,7 @@ RCU (read-copy update) is a synchronization mechanism that can be thought
@@ -179,7 +179,7 @@ index f64f4413..3b4a248 100644
  	Therefore, on_each_cpu() disables preemption across its call
  	to smp_call_function() and also across the local call to
 diff --git a/Documentation/RCU/stallwarn.rst b/Documentation/RCU/stallwarn.rst
-index c9ab6af..e97d1b4 100644
+index c9ab6af4d3be..e97d1b4876ef 100644
 --- a/Documentation/RCU/stallwarn.rst
 +++ b/Documentation/RCU/stallwarn.rst
 @@ -25,7 +25,7 @@ warnings:
@@ -201,7 +201,7 @@ index c9ab6af..e97d1b4 100644
  	read-side critical section.   This is especially damaging if
  	that low-priority task is not permitted to run on any other CPU,
 diff --git a/Documentation/RCU/whatisRCU.rst b/Documentation/RCU/whatisRCU.rst
-index fb3ff76..3b2b147 100644
+index fb3ff76c3e73..3b2b1479fd0f 100644
 --- a/Documentation/RCU/whatisRCU.rst
 +++ b/Documentation/RCU/whatisRCU.rst
 @@ -684,7 +684,7 @@ Quick Quiz #1:
@@ -245,5 +245,5 @@ index fb3ff76..3b2b147 100644
  		read-side critical sections.  It also permits
  		spinlocks blocking while in RCU read-side critical
 -- 
-2.7.4
+2.17.1
 

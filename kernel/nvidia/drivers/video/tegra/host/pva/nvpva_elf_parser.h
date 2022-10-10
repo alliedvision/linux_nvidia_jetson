@@ -17,8 +17,7 @@
 #ifndef NVPVA_ELF_PARSER_H
 #define NVPVA_ELF_PARSER_H
 #include <linux/types.h>
-
-#include <linux/types.h>
+#include "elf_include_fix.h"
 
 #define ZERO 0
 #define UZERO 0U

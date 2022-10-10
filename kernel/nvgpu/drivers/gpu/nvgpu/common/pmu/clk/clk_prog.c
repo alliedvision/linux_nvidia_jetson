@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -437,7 +437,7 @@ static int devinit_get_clk_prog_table_35(struct gk20a *g,
 		}
 
 		status = boardobjgrp_objinsert(&pclkprogobjs->super.super,
-			(struct pmu_board_obj *)(void *)pprog, i);
+			(struct pmu_board_obj *)(void *)pprog, (u8)i);
 		if (status != 0) {
 			nvgpu_err(g, "error adding clk_prog boardobj %d", i);
 			status = -EINVAL;
@@ -645,6 +645,8 @@ static int _clk_prog_1x_master_rail_construct_vf_point(struct gk20a *g,
 {
 	struct clk_vf_point *p_vf_point;
 	int status;
+
+	(void)p1xmaster;
 
 	nvgpu_log_info(g, " ");
 
@@ -1010,6 +1012,8 @@ static int vfflatten_prog_1x_master(struct gk20a *g,
 	u8 vf_point_idx;
 	u8 vf_rail_idx;
 
+	(void)clk_domain_idx;
+
 	nvgpu_log_info(g, " ");
 	(void) memset(&vf_point_data, 0x0, sizeof(vf_point_data));
 
@@ -1041,7 +1045,7 @@ static int vfflatten_prog_1x_master(struct gk20a *g,
 			freq_step_size_mhz = source_pll->freq_step_size_mhz;
 			step_count = (freq_step_size_mhz == 0U) ? 0U :
 					(u8)(p1xmaster->super.freq_max_mhz -
-						*pfreqmaxlastmhz - 1U) /
+						*pfreqmaxlastmhz - 1) /
 					freq_step_size_mhz;
 			/* Intentional fall-through.*/
 
@@ -1050,9 +1054,9 @@ static int vfflatten_prog_1x_master(struct gk20a *g,
 					CTRL_CLK_CLK_VF_POINT_TYPE_35_FREQ;
 			 do {
 				 vf_point_data.vf_point.pair.freq_mhz =
-					p1xmaster->super.freq_max_mhz -
+					(u16)(p1xmaster->super.freq_max_mhz -
 					  U16(step_count) *
-					  U16(freq_step_size_mhz);
+					  U16(freq_step_size_mhz));
 
 				status = _clk_prog_1x_master_rail_construct_vf_point(g, pclk,
 					p1xmaster, p_vf_rail,
@@ -1162,7 +1166,7 @@ static int vflookup_prog_1x_master(struct gk20a *g,
 			if (i == slaveentrycount) {
 				return -EINVAL;
 			}
-			clkmhz = (clkmhz * 100U)/pslaveents->ratio;
+			clkmhz = (u16)((clkmhz * 100U)/pslaveents->ratio);
 		} else {
 			/* only support ratio for now */
 			return -EINVAL;
@@ -1239,7 +1243,7 @@ static int vflookup_prog_1x_master(struct gk20a *g,
 			if (i == slaveentrycount) {
 				return -EINVAL;
 			}
-			clkmhz = (clkmhz * pslaveents->ratio)/100U;
+			clkmhz = (u16)((clkmhz * pslaveents->ratio)/100);
 		} else {
 			/* only support ratio for now */
 			return -EINVAL;
@@ -1265,6 +1269,8 @@ static int getfpoints_prog_1x_master(struct gk20a *g,
 	struct nvgpu_clk_progs *pclkprogobjs;
 	u8 j;
 	u32 fpointscount = 0;
+
+	(void)g;
 
 	if (pfpointscount == NULL) {
 		return -EINVAL;
@@ -1352,7 +1358,7 @@ static int getslaveclk_prog_1x_master(struct gk20a *g,
 			if (i == slaveentrycount) {
 				return -EINVAL;
 			}
-			*pclkmhz = (masterclkmhz * pslaveents->ratio)/100U;
+			*pclkmhz = (u16)((masterclkmhz * pslaveents->ratio)/100);
 		} else {
 			/* only support ratio for now */
 			return -EINVAL;
@@ -1374,9 +1380,9 @@ static int getslaveclk_prog_1x_master(struct gk20a *g,
 			if (i == slaveentrycount) {
 				return -EINVAL;
 			}
-			*pclkmhz = (masterclkmhz * pslaveents->ratio)/100U;
+			*pclkmhz = (u16)((masterclkmhz * pslaveents->ratio)/100);
 			/* Floor/Quantize all the slave clocks to the multiple of step size*/
-			*pclkmhz = (*pclkmhz / FREQ_STEP_SIZE_MHZ) * FREQ_STEP_SIZE_MHZ;
+			*pclkmhz = (u16)((*pclkmhz / FREQ_STEP_SIZE_MHZ) * FREQ_STEP_SIZE_MHZ);
 			*ratio = pslaveents->ratio;
 		} else {
 			/* only support ratio for now */

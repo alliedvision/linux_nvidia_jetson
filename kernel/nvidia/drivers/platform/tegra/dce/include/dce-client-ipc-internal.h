@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -62,7 +62,7 @@ struct tegra_dce_async_ipc_info {
 
 void dce_client_ipc_wakeup(struct tegra_dce *d,	u32 ch_type);
 
-int dce_client_ipc_wait(struct tegra_dce *d, u32 w_type, u32 ch_type);
+int dce_client_ipc_wait(struct tegra_dce *d, u32 ch_type);
 
 int dce_client_init(struct tegra_dce *d);
 

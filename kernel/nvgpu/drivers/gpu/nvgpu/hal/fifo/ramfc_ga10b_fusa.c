@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,6 +45,8 @@ int ga10b_ramfc_setup(struct nvgpu_channel *ch, u64 gpfifo_base,
 	u32 eng_intr_vector = 0U;
 	u32 eng_bitmask = 0U;
 	bool replayable = false;
+
+	(void)flags;
 
 	nvgpu_log_fn(g, " ");
 

@@ -1,5 +1,5 @@
 {
-    "Copyright": "Copyright (c) 2017-2019, NVIDIA Corporation.  All rights reserved.",
+    "Copyright": "Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.",
 
     "Type"   : "EventProvider",
     "Version": "2",
@@ -153,8 +153,12 @@
               "Type": "uint32_t",        "Format": "%u" },
             { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
               "Type": "uint32_t",        "Format": "%u" },
-            { "Name": "operation",       "Comment": "VPU Operation ID",
-              "Type": "uint32_t",        "Format": "%u" }
+            { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "IOVA",            "Comment": "IOVA",
+              "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -168,8 +172,12 @@
               "Type": "uint32_t",        "Format": "%u" },
             { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
               "Type": "uint32_t",        "Format": "%u" },
-            { "Name": "operation",       "Comment": "VPU Operation ID",
-              "Type": "uint32_t",        "Format": "%u" }
+            { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "IOVA",            "Comment": "IOVA",
+             "Type": "uint64_t",         "Format": "%llx" }
         ]
       },
 
@@ -183,8 +191,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -198,8 +210,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -213,8 +229,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -228,8 +248,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -243,8 +267,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -258,8 +286,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -273,8 +305,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -288,8 +324,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 

@@ -1,0 +1,106 @@
+From e2cbf1eaf4602525ff5bbbcc3466c1a97dbb5896 Mon Sep 17 00:00:00 2001
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Tue, 22 Sep 2020 14:36:36 +0100
+Subject: [PATCH 827/830] ANDROID: arm64: kvm: Hide asym aarch32 systems from
+ KVM
+X-NVConfidentiality: public
+
+KVM is not allowed when CONFIG_ASYMMETRIC_AARCH32 is enabled.
+But there's a desire to allow the 2 configs to coexist for Android
+GKI so that Protected KVM and this feature can both be enabled.
+
+The approach taken here is to simply make sure KVM doesn't see the
+asymmetry and hope for the best. It's not a bulletproof solution since
+ERET can still cause a return to aarch32. There's very little we can do
+anyway and we assume upper layer have to cooperate to guarantee
+correctness.
+
+Tested on FVP by booting the same kernel via qemu and attempting to run
+a 32bit statically linked binary. The host can run the app fine but the
+guest wasn't able to recognize the binary and run it. Which is the
+expected behavior.
+
+Bug: 168847043
+Reason: Needed for bringup. Revert when upstream patch is available
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+Change-Id: I2fc639815632567d0a4697b184ded03392dd572d
+---
+ arch/arm64/include/asm/cpufeature.h |  9 +++++++++
+ arch/arm64/kvm/guest.c              |  2 +-
+ arch/arm64/kvm/sys_regs.c           | 13 +++++++++++--
+ 3 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/include/asm/cpufeature.h b/arch/arm64/include/asm/cpufeature.h
+index 930b3cc887d4..6af7973bb5c6 100644
+--- a/arch/arm64/include/asm/cpufeature.h
++++ b/arch/arm64/include/asm/cpufeature.h
+@@ -614,6 +614,15 @@ static inline bool system_supports_32bit_el0(void)
+ 	return cpus_have_const_cap(ARM64_HAS_32BIT_EL0);
+ }
+ 
++static inline bool kvm_system_supports_32bit_el0(void)
++{
++#ifndef CONFIG_ASYMMETRIC_AARCH32
++	return system_supports_32bit_el0();
++#else
++	return cpumask_equal(&aarch32_el0_mask, cpu_possible_mask);
++#endif
++}
++
+ static inline bool system_supports_4kb_granule(void)
+ {
+ 	u64 mmfr0;
+diff --git a/arch/arm64/kvm/guest.c b/arch/arm64/kvm/guest.c
+index dfb5218137ca..cfccb06bc83b 100644
+--- a/arch/arm64/kvm/guest.c
++++ b/arch/arm64/kvm/guest.c
+@@ -226,7 +226,7 @@ static int set_core_reg(struct kvm_vcpu *vcpu, const struct kvm_one_reg *reg)
+ 		u64 mode = (*(u64 *)valp) & PSR_AA32_MODE_MASK;
+ 		switch (mode) {
+ 		case PSR_AA32_MODE_USR:
+-			if (!system_supports_32bit_el0())
++			if (!kvm_system_supports_32bit_el0())
+ 				return -EINVAL;
+ 			break;
+ 		case PSR_AA32_MODE_FIQ:
+diff --git a/arch/arm64/kvm/sys_regs.c b/arch/arm64/kvm/sys_regs.c
+index 568f11e23830..9e4850aecbc0 100644
+--- a/arch/arm64/kvm/sys_regs.c
++++ b/arch/arm64/kvm/sys_regs.c
+@@ -674,7 +674,7 @@ static void reset_pmcr(struct kvm_vcpu *vcpu, const struct sys_reg_desc *r)
+ 	 */
+ 	val = ((pmcr & ~ARMV8_PMU_PMCR_MASK)
+ 	       | (ARMV8_PMU_PMCR_MASK & 0xdecafbad)) & (~ARMV8_PMU_PMCR_E);
+-	if (!system_supports_32bit_el0())
++	if (!kvm_system_supports_32bit_el0())
+ 		val |= ARMV8_PMU_PMCR_LC;
+ 	__vcpu_sys_reg(vcpu, r->reg) = val;
+ }
+@@ -726,7 +726,7 @@ static bool access_pmcr(struct kvm_vcpu *vcpu, struct sys_reg_params *p,
+ 		val = __vcpu_sys_reg(vcpu, PMCR_EL0);
+ 		val &= ~ARMV8_PMU_PMCR_MASK;
+ 		val |= p->regval & ARMV8_PMU_PMCR_MASK;
+-		if (!system_supports_32bit_el0())
++		if (!kvm_system_supports_32bit_el0())
+ 			val |= ARMV8_PMU_PMCR_LC;
+ 		__vcpu_sys_reg(vcpu, PMCR_EL0) = val;
+ 		kvm_pmu_handle_pmcr(vcpu, val);
+@@ -1126,6 +1126,15 @@ static u64 read_id_reg(const struct kvm_vcpu *vcpu,
+ 		val &= ~(0xfUL << ID_AA64PFR0_AMU_SHIFT);
+ 		val &= ~(0xfUL << ID_AA64PFR0_CSV2_SHIFT);
+ 		val |= ((u64)vcpu->kvm->arch.pfr0_csv2 << ID_AA64PFR0_CSV2_SHIFT);
++
++		if (!kvm_system_supports_32bit_el0()) {
++			/*
++			 * We could be running on asym aarch32 system.
++			 * Override to present a aarch64 only system.
++			 */
++			val &= ~(0xfUL << ID_AA64PFR0_EL0_SHIFT);
++			val |= (ID_AA64PFR0_EL0_64BIT_ONLY << ID_AA64PFR0_EL0_SHIFT);
++		}
+ 	} else if (id == SYS_ID_AA64PFR1_EL1) {
+ 		val &= ~(0xfUL << ID_AA64PFR1_MTE_SHIFT);
+ 	} else if (id == SYS_ID_AA64ISAR1_EL1 && !vcpu_has_ptrauth(vcpu)) {
+-- 
+2.17.1
+

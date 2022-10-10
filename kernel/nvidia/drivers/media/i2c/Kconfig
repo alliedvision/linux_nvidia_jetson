@@ -13,7 +13,7 @@ config NV_VIDEO_IMX185
 	To compile this driver as a module, choose M here: the module
 	will be called imx185.
 
-config VIDEO_IMX477
+config NV_VIDEO_IMX477
         tristate "IMX477 camera sensor support"
 	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
 	help
@@ -130,7 +130,7 @@ config VIDEO_TC358840
 
 config VIDEO_LT6911UXC
         tristate "Lontium LTX6911UXC HDMI to CSI bridge"
-	depends on VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
 	help
 	  This driver supports LT6911UXC bridge from Lontium
 
@@ -164,6 +164,25 @@ config NV_VIDEO_IMX390
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called imx390.
+
+config NV_DESER_MAX96712
+
+	tristate "MAX92712 Deserializer"
+	help
+	  If you say yes here you get support for the MAX96712 deserializer.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called max96712.
+
+config NV_VIDEO_AR0234
+	tristate "AR0234 camera sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 sensor-level driver for the OnSemi
+	  AR0234 camera.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ar0234.
 
 endmenu
 

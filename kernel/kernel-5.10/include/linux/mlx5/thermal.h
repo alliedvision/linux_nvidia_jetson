@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Mellanox Technologies. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -61,12 +61,13 @@
 int mlx5_thermal_init(struct mlx5_core_dev *core);
 void mlx5_thermal_deinit(struct mlx5_core_dev *core);
 #else
-int mlx5_thermal_init(struct mlx5_core_dev *core)
+static inline int mlx5_thermal_init(struct mlx5_core_dev *core)
 {
+	core->thermal = NULL;
 	return 0;
 }
 
-void mlx5_thermal_deinit(struct mlx5_core_dev *core)
+static inline void mlx5_thermal_deinit(struct mlx5_core_dev *core)
 {
 
 }

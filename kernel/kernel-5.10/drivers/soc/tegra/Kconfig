@@ -171,3 +171,12 @@ config TEGRA_USE_NA_GPCPLL
 	  Enable noise aware (NA) mode of GM20b GPCPLL. In this mode PLL output
 	  frequency is automatically adjusted when GM20b voltage is fluctuating
 	  because of transient PMIC or power distribution tree noise.
+
+config SOC_TEGRA_CBB
+	tristate "Tegra driver to handle error from CBB"
+	depends on ARCH_TEGRA_194_SOC || ARCH_TEGRA_234_SOC
+	default y
+	help
+	  Support for handling error from Tegra Control Backbone(CBB).
+	  This driver handles the errors from CBB and prints debug
+	  information about the failed transactions.

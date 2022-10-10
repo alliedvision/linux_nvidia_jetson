@@ -1,0 +1,41 @@
+From 359dc8d7bc32669096d02658e1f81946e007f165 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Fri, 30 Oct 2020 15:51:19 +0000
+Subject: [PATCH 794/830] ANDROID: Enable hermetic toolchain
+X-NVConfidentiality: public
+
+Enable the use of the hermetic toolchain across all builds of this
+branch. For allmodconfig builds, also allow the use of openssl from the
+host.
+
+Bug: 157507870
+Change-Id: Iabb1fe4f760f9821df0318934942302ffffade7c
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ build.config.allmodconfig | 2 ++
+ build.config.common       | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index 56e4d2d29dc0..a76807f830a3 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -10,3 +10,5 @@ function update_config() {
+     (cd ${OUT_DIR} && \
+      make O=${OUT_DIR} $archsubarch CLANG_TRIPLE=${CLANG_TRIPLE} CROSS_COMPILE=${CROSS_COMPILE} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+ }
++
++ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} openssl"
+diff --git a/build.config.common b/build.config.common
+index 25de474489bd..8605f2c00aca 100644
+--- a/build.config.common
++++ b/build.config.common
+@@ -11,3 +11,5 @@ EXTRA_CMDS=''
+ STOP_SHIP_TRACEPRINTK=1
+ IN_KERNEL_MODULES=1
+ DO_NOT_STRIP_MODULES=1
++
++HERMETIC_TOOLCHAIN=1
+-- 
+2.17.1
+

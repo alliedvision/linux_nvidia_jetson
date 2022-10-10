@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,10 +36,12 @@
 #include <nvgpu/nvgpu_init.h>
 #include <nvgpu/grmgr.h>
 #include <nvgpu/ltc.h>
+#include <nvgpu/nvs.h>
 
 #include "platform_gk20a.h"
 #include "ioctl_tsg.h"
 #include "ioctl_channel.h"
+#include "ioctl_nvs.h"
 #include "ioctl.h"
 #include "os_linux.h"
 
@@ -180,8 +182,39 @@ out:
 static int nvgpu_tsg_bind_scheduling_domain(struct nvgpu_tsg *tsg,
 		struct nvgpu_tsg_bind_scheduling_domain_args *args)
 {
+	struct nvgpu_nvs_domain *domain;
+	int err;
 
-	return nvgpu_tsg_bind_domain(tsg, args->domain_name);
+	if (args->reserved0 != 0) {
+		return -EINVAL;
+	}
+
+	if (args->reserved[0] != 0) {
+		return -EINVAL;
+	}
+
+	if (args->reserved[1] != 0) {
+		return -EINVAL;
+	}
+
+	if (args->reserved[2] != 0) {
+		return -EINVAL;
+	}
+
+	if (tsg->g->scheduler == NULL) {
+		return -ENOSYS;
+	}
+
+	domain = nvgpu_nvs_domain_get_from_file(args->domain_fd);
+	if (domain == NULL) {
+		return -ENOENT;
+	}
+
+	err = nvgpu_tsg_bind_domain(tsg, domain);
+
+	nvgpu_nvs_domain_put(tsg->g, domain);
+
+	return err;
 }
 #endif
 
@@ -347,7 +380,7 @@ static int gk20a_tsg_event_id_enable(struct nvgpu_tsg *tsg,
 		goto free_ref;
 	}
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		goto free_ref;
 	local_fd = err;

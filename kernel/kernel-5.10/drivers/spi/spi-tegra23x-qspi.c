@@ -1,7 +1,7 @@
 /*
- * QSPI driver for NVIDIA's Tegra23x QUAD SPI Controller.
+ * QSPI driver for NVIDIA's Tegra210 QUAD SPI Controller.
  *
- * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1549,8 +1549,7 @@ static int tegra_qspi_probe(struct platform_device *pdev)
 	tqspi->rstc = devm_reset_control_get(&pdev->dev, "qspi");
 	if (IS_ERR(tqspi->rstc)) {
 		ret = PTR_ERR(tqspi->rstc);
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Failed to get reset control: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to get reset control: %d\n", ret);
 		goto exit_free_master;
 	}
 	reset_control_reset(tqspi->rstc);
@@ -1567,16 +1566,14 @@ static int tegra_qspi_probe(struct platform_device *pdev)
 	tqspi->clk = devm_clk_get(&pdev->dev, "qspi");
 	if (IS_ERR(tqspi->clk)) {
 		ret = PTR_ERR(tqspi->clk);
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Failed to get QSPI clock: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to get QSPI clock: %d\n", ret);
 		goto exit_free_master;
 	}
 
 	tqspi->sdr_ddr_clk = devm_clk_get(&pdev->dev, "qspi_out");
 	if (IS_ERR(tqspi->sdr_ddr_clk)) {
 		ret = PTR_ERR(tqspi->sdr_ddr_clk);
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Failed to get QSPI-OUT: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to get QSPI-OUT: %d\n", ret);
 		goto exit_free_master;
 	}
 	/* Set default mode to SDR */

@@ -1,7 +1,7 @@
-From c2e1fb4f12ac75a54a175ea409c7b0aaaf9b3e7c Mon Sep 17 00:00:00 2001
+From e4def8bb4db9a4207bcbd776dbec0fa79fa40ce8 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:45 +0100
-Subject: [PATCH 071/304] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
+Subject: [PATCH 071/318] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
 
 On PREEMPT_RT kernels, RCU callbacks are deferred to the `rcuc' kthread.
 This can stall RCU grace periods due to lengthy preemption not only of RCU
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/rcu/Kconfig b/kernel/rcu/Kconfig
-index b71e21f..a2534cd 100644
+index b71e21f73c40..a2534cd1765a 100644
 --- a/kernel/rcu/Kconfig
 +++ b/kernel/rcu/Kconfig
 @@ -188,8 +188,8 @@ config RCU_FAST_NO_HZ
@@ -36,5 +36,5 @@ index b71e21f..a2534cd 100644
  	  This option boosts the priority of preempted RCU readers that
  	  block the current preemptible RCU grace period for too long.
 -- 
-2.7.4
+2.17.1
 

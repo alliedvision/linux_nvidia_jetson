@@ -1,0 +1,40 @@
+From 61c113b1967eaaf1caca5a70ad786d771c2161cd Mon Sep 17 00:00:00 2001
+From: Sangmoon Kim <sangmoon.kim@samsung.com>
+Date: Wed, 21 Oct 2020 21:41:22 +0900
+Subject: [PATCH 058/830] FROMLIST: char: misc: increase DYNAMIC_MINORS value
+X-NVConfidentiality: public
+
+DYNAMIC_MINORS value has been set to 64.
+Due to this reason, we are facing a module loading fail problem of
+device driver like below.
+
+ [   45.712771] pdic_misc_init - return error : -16
+
+We need to increase this value for registering more misc devices.
+
+Signed-off-by: Sangmoon Kim <sangmoon.kim@samsung.com>
+
+Bug: 171370390
+Link: https://lore.kernel.org/lkml/20201029070552.GA3062343@kroah.com/
+Change-Id: I04ab486ce7674dde3118506c3d783f0e4e211bac
+Signed-off-by: Sangmoon Kim <sangmoon.kim@samsung.com>
+---
+ drivers/char/misc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/char/misc.c b/drivers/char/misc.c
+index f6a147427029..ca5141ed5ef3 100644
+--- a/drivers/char/misc.c
++++ b/drivers/char/misc.c
+@@ -60,7 +60,7 @@ static DEFINE_MUTEX(misc_mtx);
+ /*
+  * Assigned numbers, used for dynamic minors
+  */
+-#define DYNAMIC_MINORS 64 /* like dynamic majors */
++#define DYNAMIC_MINORS 128 /* like dynamic majors */
+ static DECLARE_BITMAP(misc_minors, DYNAMIC_MINORS);
+ 
+ #ifdef CONFIG_PROC_FS
+-- 
+2.17.1
+

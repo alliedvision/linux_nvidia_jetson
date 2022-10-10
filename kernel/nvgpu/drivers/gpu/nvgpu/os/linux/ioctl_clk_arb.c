@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/cdev.h>
@@ -282,9 +282,6 @@ static long nvgpu_clk_arb_ioctl_event_dev(struct file *filp, unsigned int cmd,
 		err = -ENOTTY;
 	}
 
-	if ((err == 0) && (_IOC_DIR(cmd) & _IOC_READ))
-		err = copy_to_user((void __user *) arg, buf, _IOC_SIZE(cmd));
-
 	return err;
 }
 
@@ -330,7 +327,7 @@ static int nvgpu_clk_arb_install_fd(struct gk20a *g,
 		goto fail;
 	}
 
-	fd = get_unused_fd_flags(O_RDWR);
+	fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
 		err = fd;
 		goto fail;

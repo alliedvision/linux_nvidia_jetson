@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/mmap.c
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -114,7 +114,7 @@ process_mmap(struct vm_area_struct *vma, struct task_struct *task,
 {
 	pid_t tgid;
 	unsigned int cpu_flags;
-	int is_file_exists;
+	int is_file_exists, n;
 	struct file *vm_file;
 	char *file_name;
 	struct quadd_mmap_data sample;
@@ -149,11 +149,14 @@ process_mmap(struct vm_area_struct *vma, struct task_struct *task,
 			}
 		}
 
-		if (name)
+		if (name) {
 			strlcpy(buf, name, buf_size);
-		else
-			snprintf(buf, buf_size, "[vma:%08lx-%08lx]",
-				 vma->vm_start, vma->vm_end);
+		} else {
+			n = snprintf(buf, buf_size, "[vma:%08lx-%08lx]",
+				     vma->vm_start, vma->vm_end);
+			if (n < 0 || n >= buf_size)
+				return;
+		}
 
 		file_name = buf;
 		length = strlen(file_name) + 1;

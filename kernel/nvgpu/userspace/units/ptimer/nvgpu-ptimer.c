@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,7 +28,7 @@
 #include <nvgpu/ptimer.h>
 #include <nvgpu/cic_mon.h>
 #include <hal/ptimer/ptimer_gk20a.h>
-#include <hal/cic/mon/cic_gv11b.h>
+#include <hal/cic/mon/cic_ga10b.h>
 #include <nvgpu/hw/gk20a/hw_timer_gk20a.h>
 
 #include "nvgpu-ptimer.h"
@@ -83,14 +83,13 @@ static struct nvgpu_posix_io_callbacks test_reg_callbacks = {
 #define PTIMER_REG_SPACE_START (timer_pri_timeout_r() & ~0xfff)
 #define PTIMER_REG_SPACE_SIZE 0xfff
 
-int test_setup_env(struct unit_module *m,
+int ptimer_test_setup_env(struct unit_module *m,
 			  struct gk20a *g, void *args)
 {
 	/* Setup HAL */
 	g->ops.ptimer.isr = gk20a_ptimer_isr;
 
-	g->ops.cic_mon.init = gv11b_cic_mon_init;
-	g->ops.cic_mon.report_err = nvgpu_cic_mon_report_err_safety_services;
+	g->ops.cic_mon.init = ga10b_cic_mon_init;
 
 	/* Create ptimer register space */
 	if (nvgpu_posix_io_add_reg_space(g, PTIMER_REG_SPACE_START,
@@ -116,7 +115,7 @@ int test_setup_env(struct unit_module *m,
 	return UNIT_SUCCESS;
 }
 
-int test_free_env(struct unit_module *m,
+int ptimer_test_free_env(struct unit_module *m,
 			 struct gk20a *g, void *args)
 {
 	/* Free register space */
@@ -251,10 +250,10 @@ int test_ptimer_scaling(struct unit_module *m,
 }
 
 struct unit_module_test ptimer_tests[] = {
-	UNIT_TEST(ptimer_setup_env,	test_setup_env,		NULL, 0),
+	UNIT_TEST(ptimer_setup_env,	ptimer_test_setup_env,	NULL, 0),
 	UNIT_TEST(ptimer_isr,		test_ptimer_isr,	NULL, 0),
 	UNIT_TEST(ptimer_scaling,	test_ptimer_scaling,	NULL, 0),
-	UNIT_TEST(ptimer_free_env,	test_free_env,		NULL, 0),
+	UNIT_TEST(ptimer_free_env,	ptimer_test_free_env,	NULL, 0),
 };
 
 UNIT_MODULE(ptimer, ptimer_tests, UNIT_PRIO_NVGPU_TEST);

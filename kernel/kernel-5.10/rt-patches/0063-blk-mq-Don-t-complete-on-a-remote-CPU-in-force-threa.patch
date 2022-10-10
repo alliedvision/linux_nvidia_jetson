@@ -1,7 +1,7 @@
-From 628fbcf1b1d2ba1aa17e13fa2f3117fb2bbfa7c2 Mon Sep 17 00:00:00 2001
+From d6c877e91d28e9dfb531ea4aad0cc680acb55551 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 4 Dec 2020 20:13:54 +0100
-Subject: [PATCH 063/304] blk-mq: Don't complete on a remote CPU in force
+Subject: [PATCH 063/318] blk-mq: Don't complete on a remote CPU in force
  threaded mode
 
 With force threaded interrupts enabled, raising softirq from an SMP
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 8 insertions(+)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index e8da482..d77bdcd 100644
+index 08bfcc4f078f..769cfac295eb 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -648,6 +648,14 @@ static inline bool blk_mq_complete_need_ipi(struct request *rq)
@@ -43,5 +43,5 @@ index e8da482..d77bdcd 100644
  	/* same CPU or cache domain?  Complete locally */
  	if (cpu == rq->mq_ctx->cpu ||
 -- 
-2.7.4
+2.17.1
 

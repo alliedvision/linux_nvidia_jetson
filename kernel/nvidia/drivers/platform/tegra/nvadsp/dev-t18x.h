@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2021, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,7 +15,7 @@
 #ifndef __TEGRA_NVADSP_DEV_T18X_H
 #define __TEGRA_NVADSP_DEV_T18X_H
 
-int nvadsp_acast_init(struct platform_device *pdev);
+int nvadsp_acast_t18x_init(struct platform_device *pdev);
 int nvadsp_reset_t18x_init(struct platform_device *pdev);
 int nvadsp_os_t18x_init(struct platform_device *pdev);
 int nvadsp_pm_t18x_init(struct platform_device *pdev);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -89,6 +89,15 @@ int nvgpu_tsg_bind_channel(struct nvgpu_tsg *tsg, struct nvgpu_channel *ch)
 		return -EINVAL;
 	}
 
+	/*
+	 * This runlist domain is set either by default or in an explicit
+	 * bind. If the default domain has been deleted, explicit bind is
+	 * mandatory.
+	 */
+	if (tsg->rl_domain == NULL) {
+		return -EINVAL;
+	}
+
 	/* cannot bind more channels than MAX channels supported per TSG */
 	nvgpu_rwsem_down_read(&tsg->ch_list_lock);
 	max_ch_per_tsg = g->ops.runlist.get_max_channels_per_tsg();
@@ -155,39 +164,42 @@ int nvgpu_tsg_bind_channel(struct nvgpu_tsg *tsg, struct nvgpu_channel *ch)
 }
 
 #ifdef CONFIG_NVS_PRESENT
-int nvgpu_tsg_bind_domain(struct nvgpu_tsg *tsg, const char *domain_name)
+int nvgpu_tsg_bind_domain(struct nvgpu_tsg *tsg, struct nvgpu_nvs_domain *nnvs_domain)
 {
 	struct nvgpu_runlist_domain *rl_domain;
-	struct nvgpu_nvs_domain *nvs_domain;
 	struct gk20a *g = tsg->g;
+	const char *name;
 
 	/* Hopping channels from one domain to another is not allowed */
 	if (tsg->num_active_channels != 0U) {
 		return -EINVAL;
 	}
 
-	nvs_domain = nvgpu_nvs_domain_get(g, domain_name);
-	if (nvs_domain == NULL) {
-		return -ENOENT;
-	}
+	name = nvgpu_nvs_domain_get_name(nnvs_domain);
 
 	/*
 	 * The domain ptr will get updated with the right id once the runlist
 	 * gets specified based on the first channel.
 	 */
-	rl_domain = nvgpu_rl_domain_get(g, 0, domain_name);
+	rl_domain = nvgpu_rl_domain_get(g, 0, name);
 	if (rl_domain == NULL) {
+		nvgpu_err(g, "rl domain not found (%s)", name);
 		/*
 		 * This shouldn't happen because the nvs domain guarantees RL domains.
 		 *
 		 * TODO: query this via the nvs domain.
 		 */
-		nvgpu_nvs_domain_put(g, nvs_domain);
 		return -ENOENT;
 	}
 
+	/* Release the default domain ref that was implicitly taken at open */
+	if (tsg->nvs_domain != NULL) {
+		nvgpu_nvs_domain_put(g, tsg->nvs_domain);
+	}
+
+	nvgpu_nvs_domain_get(g, nnvs_domain);
 	tsg->rl_domain = rl_domain;
-	tsg->nvs_domain = nvs_domain;
+	tsg->nvs_domain = nnvs_domain;
 
 	return 0;
 }
@@ -384,12 +396,6 @@ fail:
 
 }
 
-int nvgpu_tsg_force_unbind_channel(struct nvgpu_tsg *tsg,
-				   struct nvgpu_channel *ch)
-{
-	return nvgpu_tsg_unbind_channel(tsg, ch, true);
-}
-
 int nvgpu_tsg_unbind_channel_check_hw_state(struct nvgpu_tsg *tsg,
 		struct nvgpu_channel *ch)
 {
@@ -533,6 +539,8 @@ void nvgpu_tsg_set_unserviceable(struct gk20a *g,
 				struct nvgpu_tsg *tsg)
 {
 	struct nvgpu_channel *ch = NULL;
+
+	(void)g;
 
 	nvgpu_rwsem_down_read(&tsg->ch_list_lock);
 	nvgpu_list_for_each_entry(ch, &tsg->ch_list, nvgpu_channel, ch_entry) {
@@ -796,6 +804,7 @@ int nvgpu_tsg_set_long_timeslice(struct nvgpu_tsg *tsg, u32 timeslice_us)
 
 u32 nvgpu_tsg_default_timeslice_us(struct gk20a *g)
 {
+	(void)g;
 	return NVGPU_TSG_TIMESLICE_DEFAULT_US;
 }
 
@@ -858,7 +867,7 @@ int nvgpu_tsg_open_common(struct gk20a *g, struct nvgpu_tsg *tsg, pid_t pid)
 	 * gets specified based on the first channel.
 	 */
 	tsg->rl_domain = nvgpu_rl_domain_get(g, 0, "(default)");
-	tsg->nvs_domain = nvgpu_nvs_domain_get(g, "(default)");
+	tsg->nvs_domain = nvgpu_nvs_domain_by_name(g, "(default)");
 #ifdef CONFIG_NVGPU_DEBUGGER
 	tsg->sm_exception_mask_type = NVGPU_SM_EXCEPTION_TYPE_MASK_NONE;
 #endif
@@ -1111,13 +1120,7 @@ void nvgpu_tsg_abort(struct gk20a *g, struct nvgpu_tsg *tsg, bool preempt)
 
 	nvgpu_log_fn(g, " ");
 
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 10_3), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	WARN_ON(tsg->abortable == false);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 10_3))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 
 	g->ops.tsg.disable(tsg);
 
@@ -1175,7 +1178,7 @@ int nvgpu_tsg_set_mmu_debug_mode(struct nvgpu_channel *ch, bool enable)
 	u32 fb_refcnt;
 	struct nvgpu_tsg *tsg = nvgpu_tsg_from_ch(ch);
 
-	if ((ch == NULL) || (tsg == NULL)) {
+	if (tsg == NULL) {
 		return -EINVAL;
 	}
 	g = ch->g;

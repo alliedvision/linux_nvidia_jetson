@@ -1,7 +1,7 @@
 /*
  * PVA mailbox code
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,8 +28,6 @@
 #endif
 #include <linux/platform_device.h>
 
-#include "nvhost_acm.h"
-#include "dev.h"
 #include "pva.h"
 #include "pva_mailbox.h"
 #include "pva-interface.h"
@@ -66,13 +64,13 @@ static int pva_mailbox_send_cmd(struct pva *pva, struct pva_cmd_s *cmd,
 	WARN_ON((status & PVA_BUSY));
 
 	/*set MSB of mailbox 0 to trigger FW interrupt*/
-	cmd->mbox[0] |= PVA_BIT(31);
+	cmd->cmd_field[0] |= PVA_BIT(31);
 	/* Write all of the other command mailbox
 	 * registers before writing mailbox 0.
 	 */
 	for (i = (nregs - 1); i >= 0; i--) {
 		reg = pva_get_mb_reg_id(i);
-		pva->version_config->write_mailbox(pdev, reg, cmd->mbox[i]);
+		pva->version_config->write_mailbox(pdev, reg, cmd->cmd_field[i]);
 	}
 
 	return 0;
@@ -115,7 +113,7 @@ void pva_mailbox_isr(struct pva *pva)
 	struct platform_device *pdev = pva->pdev;
 	u32 int_status = pva->version_config->read_mailbox(pdev, PVA_MBOX_ISR);
 	if (pva->cmd_status[PVA_MAILBOX_INDEX] != PVA_CMD_STATUS_WFI) {
-		nvhost_warn(&pdev->dev, "Unexpected PVA ISR (%x)", int_status);
+		nvpva_warn(&pdev->dev, "Unexpected PVA ISR (%x)", int_status);
 		return;
 	}
 

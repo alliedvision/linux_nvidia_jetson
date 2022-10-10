@@ -1,7 +1,7 @@
 /*
  * tegracam_ctrls - control framework for tegra camera drivers
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -246,7 +246,7 @@ static int tegracam_setup_string_ctrls(struct tegracam_device *tc_dev,
 				return err;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 	return 0;
 }
@@ -273,7 +273,7 @@ static int tegracam_setup_compound_ctrls(struct tegracam_device *tc_dev,
 				return err;
 		}
 	}
-	speculation_barrier(); /* break_spec_#5_1 */
+	spec_bar(); /* break_spec_#5_1 */
 
 	return 0;
 }
@@ -583,7 +583,7 @@ int tegracam_init_ctrl_ranges_by_mode(
 			return err;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 	return 0;
 }
@@ -619,7 +619,7 @@ int tegracam_init_ctrl_ranges(struct tegracam_ctrl_handler *handler)
 			return err;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 	/* Use mode 0 control ranges as default */
 	if (s_data->sensor_props.num_modes > 0)
@@ -994,7 +994,7 @@ int tegracam_ctrl_handler_init(struct tegracam_ctrl_handler *handler)
 
 		handler->ctrls[i] = ctrl;
 	};
-	speculation_barrier();
+	spec_bar();
 
 	handler->numctrls = numctrls;
 	err = v4l2_ctrl_handler_setup(&handler->ctrl_handler);

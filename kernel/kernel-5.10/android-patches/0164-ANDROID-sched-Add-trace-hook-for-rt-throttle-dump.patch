@@ -1,0 +1,73 @@
+From a0afba7e7e02208c111600fb06bec3b564017e65 Mon Sep 17 00:00:00 2001
+From: Sai Harshini Nimmala <snimmala@codeaurora.org>
+Date: Mon, 2 Nov 2020 14:52:34 -0800
+Subject: [PATCH 164/830] ANDROID: sched: Add trace hook for rt throttle dump
+X-NVConfidentiality: public
+
+Create a trace hook when RT tasks are throttled. This allows
+vendors to debug long RT runs.
+
+Bug: 172264047
+Change-Id: I534959f8e8d714463aac2f9f1c5627d2e735f543
+Signed-off-by: Sai Harshini Nimmala <snimmala@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c | 1 +
+ include/trace/hooks/sched.h    | 6 ++++++
+ kernel/sched/rt.c              | 7 +++++++
+ 3 files changed, 14 insertions(+)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 9849a5c7e60d..0b61fb30f333 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -56,4 +56,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_throttled_rt_tasks);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_hotplug);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 4e2be4d70658..934f7df70d21 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -70,6 +70,11 @@ struct sched_group;
+ DECLARE_RESTRICTED_HOOK(android_rvh_find_busiest_group,
+ 	TP_PROTO(struct sched_group *busiest, struct rq *dst_rq, int *out_balance),
+ 		TP_ARGS(busiest, dst_rq, out_balance), 1);
++DECLARE_HOOK(android_vh_dump_throttled_rt_tasks,
++	TP_PROTO(int cpu, u64 clock, ktime_t rt_period, u64 rt_runtime,
++			s64 rt_period_timer_expires),
++	TP_ARGS(cpu, clock, rt_period, rt_runtime, rt_period_timer_expires));
++
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -85,6 +90,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_busiest_group,
+ #define trace_android_rvh_set_user_nice(p, nice)
+ #define trace_android_rvh_setscheduler(p)
+ #define trace_android_rvh_find_busiest_group(busiest, dst_rq, out_balance)
++#define trace_android_vh_dump_throttled_rt_tasks(cpu, clock, rt_period, rt_runtime, rt_period_timer_expires)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index 715fccf0063e..d4ed6c1bbaf4 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -978,6 +978,13 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
+ 		if (likely(rt_b->rt_runtime)) {
+ 			rt_rq->rt_throttled = 1;
+ 			printk_deferred_once("sched: RT throttling activated\n");
++
++			trace_android_vh_dump_throttled_rt_tasks(
++				raw_smp_processor_id(),
++				rq_clock(rq_of_rt_rq(rt_rq)),
++				sched_rt_period(rt_rq),
++				runtime,
++				hrtimer_get_expires_ns(&rt_b->rt_period_timer));
+ 		} else {
+ 			/*
+ 			 * In case we did anyway, make it go away,
+-- 
+2.17.1
+

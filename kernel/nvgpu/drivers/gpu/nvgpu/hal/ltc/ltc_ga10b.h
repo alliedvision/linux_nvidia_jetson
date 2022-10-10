@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,8 +38,9 @@ void ga10b_ltc_set_zbc_depth_entry(struct gk20a *g, u32 depth_val, u32 index);
 #endif
 
 void ga10b_ltc_init_fs_state(struct gk20a *g);
-void ga10b_ltc_lts_set_mgmt_setup(struct gk20a *g);
+int ga10b_ltc_lts_set_mgmt_setup(struct gk20a *g);
 u64 ga10b_determine_L2_size_bytes(struct gk20a *g);
+int ga10b_lts_ecc_init(struct gk20a *g);
 
 #ifdef CONFIG_NVGPU_DEBUGGER
 u32 ga10b_ltc_pri_shared_addr(struct gk20a *g, u32 addr);

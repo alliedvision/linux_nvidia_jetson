@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #ifndef __SOC_TEGRA_FUSE_H__
@@ -50,6 +50,10 @@
 #define FUSE_SECURE_MINION_DEBUG_DIS_0		0x4d8
 #define FUSE_SECURE_MINION_DEBUG_DIS_0_MASK	0x1
 
+#define TEGRA_FUSE_ODMID_0			0x308
+#define TEGRA_FUSE_ODMID_1			0x30c
+#define TEGRA_FUSE_ODM_INFO			0x19c
+
 /* opt fuse offsets */
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_23x_SOC)
 #define TEGRA_FUSE_OPT_CCPLEX_CLUSTER_DISABLE	0x214
@@ -68,11 +72,14 @@
 
 #include <linux/of.h>
 
-u32 tegra_read_chipid(void);
-u8 tegra_get_chip_id(void);
+extern u32 tegra_read_chipid(void);
+extern u8 tegra_get_chip_id(void);
 u8 tegra_get_major_rev(void);
 u8 tegra_get_minor_rev(void);
-int tegra_miscreg_set_erd(u64);
+int tegra_miscreg_set_erd(u64 err_config);
+u8 tegra_get_platform(void);
+bool tegra_is_silicon(void);
+int tegra194_miscreg_mask_serror(void);
 
 enum tegra_revision {
 	TEGRA_REVISION_UNKNOWN = 0,
@@ -159,17 +166,6 @@ struct device *tegra_soc_device_register(void);
 
 #define TEGRA_FUSE_HAS_PLATFORM_APIS
 
-enum tegra_platform {
-	TEGRA_PLATFORM_SILICON = 0,
-	TEGRA_PLATFORM_QT,
-	TEGRA_PLATFORM_LINSIM,
-	TEGRA_PLATFORM_FPGA,
-	TEGRA_PLATFORM_UNIT_FPGA,
-	TEGRA_PLATFORM_VDK,
-	TEGRA_PLATFORM_VSP,
-	TEGRA_PLATFORM_MAX,
-};
-
 extern int tegra_set_erd(u64 err_config);
 
 extern struct tegra_sku_info tegra_sku_info;
@@ -177,7 +173,6 @@ extern struct tegra_sku_info tegra_sku_info;
 extern enum tegra_revision tegra_revision;
 
 extern u32 tegra_read_emu_revid(void);
-extern u32 tegra_get_sku_id(void);
 extern enum tegra_revision tegra_chip_get_revision(void);
 extern bool is_t210b01_sku(void);
 
@@ -188,39 +183,14 @@ bool is_tegra_hypervisor_mode(void);
 bool is_tegra_safety_build(void);
 
 /* tegra-platform.c declarations */
-extern enum tegra_platform tegra_get_platform(void);
 extern bool tegra_cpu_is_asim(void);
 
-static inline bool tegra_platform_is_silicon(void)
-{
-	return tegra_get_platform() == TEGRA_PLATFORM_SILICON;
-}
-static inline bool tegra_is_silicon(void)
-{
-	return tegra_platform_is_silicon();
-}
-static inline bool tegra_platform_is_qt(void)
-{
-	return tegra_get_platform() == TEGRA_PLATFORM_QT;
-}
-static inline bool tegra_platform_is_fpga(void)
-{
-	return tegra_get_platform() == TEGRA_PLATFORM_FPGA;
-}
-static inline bool tegra_platform_is_vdk(void)
-{
-	int plat = tegra_get_platform();
-	return plat == TEGRA_PLATFORM_VDK;
-}
-static inline bool tegra_platform_is_sim(void)
-{
-	return tegra_platform_is_vdk();
-}
-static inline bool tegra_platform_is_vsp(void)
-{
-	int plat = tegra_get_platform();
-	return plat == TEGRA_PLATFORM_VSP;
-}
+extern bool tegra_platform_is_silicon(void);
+extern bool tegra_platform_is_qt(void);
+extern bool tegra_platform_is_fpga(void);
+extern bool tegra_platform_is_vdk(void);
+extern bool tegra_platform_is_sim(void);
+extern bool tegra_platform_is_vsp(void);
 /*
  * end block - downstream declarations
  */

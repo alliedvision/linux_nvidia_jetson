@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -84,6 +84,24 @@ struct vi_channel_drv_ops {
 		dma_addr_t *syncpt_addr,
 		uint32_t *gos_index,
 		uint32_t *gos_offset);
+};
+
+/**
+ * @brief VI channel character device driver context.
+ */
+struct vi_channel_drv {
+	struct platform_device *vi_capture_pdev;
+		/**< Capture VI driver platform device */
+	bool use_legacy_path;
+		/**< Flag to maintain backward-compatibility for T186 */
+	struct device *dev; /**< VI kernel @em device */
+	struct platform_device *ndev; /**< VI kernel @em platform_device */
+	struct mutex lock; /**< VI channel driver context lock */
+	u8 num_channels; /**< No. of VI channel character devices */
+	const struct vi_channel_drv_ops *ops;
+		/**< VI fops for Host1x syncpt/gos allocations */
+	struct tegra_vi_channel __rcu *channels[];
+		/**< Allocated VI channel contexts */
 };
 
 /**

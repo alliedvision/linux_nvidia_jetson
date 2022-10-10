@@ -117,11 +117,6 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 		align = max(align, (phys_addr_t)PAGE_SIZE << order);
 	}
 
-	if (IS_ENABLED(CONFIG_CMA) && of_flat_dt_is_compatible(node, "nvidia,vpr-carveout")) {
-		align = max(align, (phys_addr_t)PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order));
-		size = roundup(size, align);
-	}
-
 	prop = of_get_flat_dt_prop(node, "alloc-ranges", &len);
 	if (prop) {
 

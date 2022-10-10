@@ -20,9 +20,8 @@
 		vqmmc-supply = <&p3701_vdd_1v8_hs>;
 	};
 
-	/* P3701-0001 SKU1 doesn't support SD-card */
 	sdhci@3400000 {
-		vmmc-supply = <&p3737_vdd_3v3_sd>;
+		vqmmc-supply = <&p3701_vdd_AO_1v8>;
 	};
 
 	ethernet@2310000 {
@@ -96,12 +95,12 @@
 	xusb_padctl@3520000 {
 #if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
 		vclamp-usb-supply = <&p3701_vdd_AO_1v8>;
-		avdd-usb-supply = <&p3737_vdd_3v3_sys>;
+		avdd-usb-supply = <&p3701_vdd_AO_3v3>;
 #else
 		pex_hvdd-supply = <&p3701_vdd_1v8_hs>;
 		pex_pll_hvdd-supply = <&p3701_vdd_1v8_hs>;
 		vclamp_usb-supply = <&p3701_vdd_AO_1v8>;
-		avdd_usb-supply = <&p3737_vdd_3v3_sys>;
+		avdd_usb-supply = <&p3701_vdd_AO_3v3>;
 		avdd_pll_nvhs_eutmip-supply = <&p3701_vdd_1v8_hs>;
 #endif
 		ports {
@@ -121,6 +120,6 @@
 	};
 
 	xudc@3550000 {
-		avdd-usb-supply = <&p3737_vdd_3v3_sys>;
+		avdd-usb-supply = <&p3701_vdd_AO_3v3>;
 	};
 };

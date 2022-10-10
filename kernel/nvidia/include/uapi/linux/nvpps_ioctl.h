@@ -1,7 +1,7 @@
 /*
  * include/uapi/linux/nvpps_ioctl.h
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -34,7 +34,7 @@ struct nvpps_version {
 #define NVPPS_VERSION_MAJOR	0
 #define NVPPS_VERSION_MINOR	2
 #define NVPPS_API_MAJOR		0
-#define NVPPS_API_MINOR         3
+#define NVPPS_API_MINOR         4
 
 struct nvpps_params {
 	__u32	evt_mode;
@@ -55,6 +55,7 @@ struct nvpps_timeevent {
 	__u32	evt_nb;
 	__u64	tsc;
 	__u64	ptp;
+	__s64	ptp_offset;
 	__u64	tsc_res_ns;
 	__u32	evt_mode;
 	__u32	tsc_mode;

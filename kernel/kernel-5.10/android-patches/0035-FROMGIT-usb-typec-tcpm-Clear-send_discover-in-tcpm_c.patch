@@ -1,0 +1,50 @@
+From db3c4e99f4c78bea7e38d893a9eb4e4193f505d9 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 2 Dec 2020 19:19:08 -0800
+Subject: [PATCH 035/830] FROMGIT: usb: typec: tcpm: Clear send_discover in
+ tcpm_check_send_discover
+X-NVConfidentiality: public
+
+tcpm_check_send_discover does not clear the send_discover flag
+when any of the following conditions are not met.
+1. data_role is TYPEC_HOST
+2. link is pd_capable
+
+Discovery indentity would anyways not be attempted during
+the current session anymore when the above conditions are not
+met. Hence clear the send_discover flag here to prevent
+tcpm_enable_frs_work from rescheduling indefinetly.
+
+Bug: 174693433
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201203031908.1491542-1-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3bac42f02d41dd85da7afb9ffc3f4539fad20cc5 upstream)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I69d3137d373e303396cf37d885a9bb797331d13d
+---
+ drivers/usb/typec/tcpm/tcpm.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index 2f43c6087ff3..b14cf1a43014 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -3060,10 +3060,9 @@ static inline enum tcpm_state unattached_state(struct tcpm_port *port)
+ static void tcpm_check_send_discover(struct tcpm_port *port)
+ {
+ 	if (port->data_role == TYPEC_HOST && port->send_discover &&
+-	    port->pd_capable) {
++	    port->pd_capable)
+ 		tcpm_send_vdm(port, USB_SID_PD, CMD_DISCOVER_IDENT, NULL, 0);
+-		port->send_discover = false;
+-	}
++	port->send_discover = false;
+ }
+ 
+ static void tcpm_swap_complete(struct tcpm_port *port, int result)
+-- 
+2.17.1
+

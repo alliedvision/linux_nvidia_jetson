@@ -1,0 +1,47 @@
+From 23f41380e4cb8ad74a439502f99ed113e1f3456f Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 18 Feb 2020 22:55:21 -0800
+Subject: [PATCH 639/830] ANDROID: gki_defconfig: Enable CONFIG_NET_NS
+X-NVConfidentiality: public
+
+Bug: 144061615
+Bug: 147493341
+Change-Id: I6392a7ee9c8ab26ca3e033889d8311661e6ec4aa
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 3 +++
+ arch/x86/configs/gki_defconfig   | 4 ++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 658e7ee86645..014feeb69fb0 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -20,6 +20,9 @@ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_BPF=y
++CONFIG_NAMESPACES=y
++# CONFIG_UTS_NS is not set
++# CONFIG_PID_NS is not set
+ CONFIG_SCHED_AUTOGROUP=y
+ CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 735e1b9d43dc..be2a2a998c3d 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -20,6 +20,10 @@ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_BPF=y
++CONFIG_NAMESPACES=y
++# CONFIG_UTS_NS is not set
++# CONFIG_TIME_NS is not set
++# CONFIG_PID_NS is not set
+ CONFIG_SCHED_AUTOGROUP=y
+ CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
 /*
  * ISP5 driver
  *
- * Copyright (c) 2017-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,7 +40,7 @@
 #if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
 #endif
-#include <soc/tegra/fuse.h>
+#include <soc/tegra/fuse-helper.h>
 
 #include "isp5.h"
 #include "capture/capture-support.h"
@@ -60,6 +60,8 @@ struct host_isp5 {
 	struct platform_device *isp_thi;
 };
 
+
+#if defined(CONFIG_TEGRA_CAMERA_RTCPU)
 static int isp5_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
@@ -106,6 +108,7 @@ static struct isp_channel_drv_ops isp5_channel_drv_ops = {
 	.get_gos_table = isp5_get_gos_table,
 	.get_syncpt_gos_backing = isp5_get_syncpt_gos_backing,
 };
+#endif
 
 int isp5_priv_early_probe(struct platform_device *pdev)
 {

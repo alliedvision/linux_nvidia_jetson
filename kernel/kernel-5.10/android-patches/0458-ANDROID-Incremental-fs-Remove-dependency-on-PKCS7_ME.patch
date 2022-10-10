@@ -1,0 +1,45 @@
+From 07ff68a685b2176537947eeb0613e7a5996039e6 Mon Sep 17 00:00:00 2001
+From: Daniel Mentz <danielmentz@google.com>
+Date: Thu, 28 May 2020 18:47:31 -0700
+Subject: [PATCH 458/830] ANDROID: Incremental fs: Remove dependency on
+ PKCS7_MESSAGE_PARSER
+X-NVConfidentiality: public
+
+Incremental fs appears to not depend on pkcs7 anymore.
+
+Bug: 151584760
+Signed-off-by: Daniel Mentz <danielmentz@google.com>
+Change-Id: I809b4b5651d84ca70fd8bf837765e33df8547418
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ fs/incfs/Kconfig     | 1 -
+ fs/incfs/integrity.c | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/fs/incfs/Kconfig b/fs/incfs/Kconfig
+index a655d599ea46..1ffe31a9c0ff 100644
+--- a/fs/incfs/Kconfig
++++ b/fs/incfs/Kconfig
+@@ -9,7 +9,6 @@ config INCREMENTAL_FS
+ 	select X509_CERTIFICATE_PARSER
+ 	select ASYMMETRIC_KEY_TYPE
+ 	select ASYMMETRIC_PUBLIC_KEY_SUBTYPE
+-	select PKCS7_MESSAGE_PARSER
+ 	help
+ 	  Incremental FS is a read-only virtual file system that facilitates execution
+ 	  of programs while their binaries are still being lazily downloaded over the
+diff --git a/fs/incfs/integrity.c b/fs/incfs/integrity.c
+index d049988ef037..bce319ec2e52 100644
+--- a/fs/incfs/integrity.c
++++ b/fs/incfs/integrity.c
+@@ -6,7 +6,6 @@
+ #include <crypto/hash.h>
+ #include <linux/err.h>
+ #include <linux/version.h>
+-#include <crypto/pkcs7.h>
+ 
+ #include "integrity.h"
+ 
+-- 
+2.17.1
+

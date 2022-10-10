@@ -1,0 +1,31 @@
+From 9a73790d74a3359869ca76e99f2630ba678bb135 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Fri, 20 Nov 2020 15:30:31 +0000
+Subject: [PATCH 809/830] ANDROID: arm64: gki_defconfig: Disable VHE
+X-NVConfidentiality: public
+
+In the context of the pKVM project we need to use KVM in nVHE mode, so
+let's disable VHE in gki_defconfig.
+
+Bug: 160383565
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I4c11977971a91baecdbe620e23b6ce7edae0afe0
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index eb10473bf641..94bfc377a841 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -57,6 +57,7 @@ CONFIG_ARMV8_DEPRECATED=y
+ CONFIG_SWP_EMULATION=y
+ CONFIG_CP15_BARRIER_EMULATION=y
+ CONFIG_SETEND_EMULATION=y
++# CONFIG_ARM64_VHE is not set
+ CONFIG_RANDOMIZE_BASE=y
+ # CONFIG_RANDOMIZE_MODULE_REGION_FULL is not set
+ # CONFIG_DMI is not set
+-- 
+2.17.1
+

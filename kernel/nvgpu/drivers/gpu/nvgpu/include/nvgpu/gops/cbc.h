@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,12 +26,13 @@
 struct gops_cbc {
 	int (*cbc_init_support)(struct gk20a *g);
 	void (*cbc_remove_support)(struct gk20a *g);
-	void (*init)(struct gk20a *g, struct nvgpu_cbc *cbc);
+	void (*init)(struct gk20a *g, struct nvgpu_cbc *cbc, bool is_resume);
 	int (*alloc_comptags)(struct gk20a *g,
 				struct nvgpu_cbc *cbc);
 	int (*ctrl)(struct gk20a *g, enum nvgpu_cbc_op op,
 			u32 min, u32 max);
 	u32 (*fix_config)(struct gk20a *g, int base);
+	bool (*use_contig_pool)(struct gk20a *g);
 };
 #endif
 

@@ -21,17 +21,42 @@
 #include <tegra234-soc/mods-simple-bus.dtsi>
 #include "cvb/tegra234-p3737-0000-camera-avt-csi2-14375-2cam.dtsi"
 
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
 #include <t234-common-cvm/tegra234-thermal.dtsi>
 #include <t234-common-cvm/tegra234-thermal-cooling.dtsi>
 #include <t234-common-cvm/tegra234-thermal-userspace-alert.dtsi>
-#include <tegra234-soc/tegra234-cpuidle.dtsi>
 #include <tegra234-soc/tegra234-soc-hwpm.dtsi>
+
+#include "tegra234-p3701-0000-prod.dtsi"
 
 / {
 	nvidia,dtsfilename = __FILE__;
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 
 	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
+
+	nvsciipc-kernel {
+		compatible = "nvidia,nvsciipc";
+		status = "okay";
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			first_stage_delay = "1";
+			system_root_blkdev = "/dev/mmcblk0p1";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/3460000.sdhci/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,noatime";
+					fsmgr_flags = "wait";
+				};
+			};
+		};
+	};
 
 	display@13800000 {
 		status = "okay";
@@ -50,6 +75,22 @@
 					shutdown-limit = <107>;
 				};
 			};
+
+			vrs11_1@20 {
+				compatible = "nvidia,vrs11";
+				reg = <0x20>;
+				rail-name-loopA = "GPU";
+				rail-name-loopB = "CPU";
+				status = "okay";
+			};
+
+			vrs11_2@22 {
+				compatible = "nvidia,vrs11";
+				reg = <0x22>;
+				rail-name-loopA = "SOC";
+				rail-name-loopB = "CV";
+				status = "okay";
+			};
 		};
 	};
 
@@ -62,68 +103,6 @@
 	tegra_soc_hwpm {
                 status = "okay";
         };
-
-	cpus {
-		cpu@0 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@1 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@2 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@3 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@4 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@5 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@6 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@7 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@8 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@9 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@10 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@11 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu_core_power_states {
-			c7 {
-				min-residency-us = <30000>;
-				status = "okay";
-			};
-		};
-	};
-
-	cpuidle {
-		compatible = "nvidia,tegra23x-cpuidle-debugfs";
-		status = "okay";
-	};
 
 	tegra-hsp@3d00000 {
 		status = "okay";
@@ -251,5 +230,9 @@
 
 	etr@24070000 {
 		status = "disabled";
+	};
+
+	serial@31d0000 {
+		status = "okay";
 	};
 };

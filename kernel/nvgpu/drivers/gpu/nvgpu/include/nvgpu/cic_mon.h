@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,15 @@
 #include <nvgpu/types.h>
 #include <nvgpu/static_analysis.h>
 #include <nvgpu/log.h>
+
+#define MISC_EC_SW_ERR_CODE_0		(0U)
+#define HW_UNIT_ID_MASK			(0xFU)
+#define ERR_ID_MASK			(0x1FU)
+#define ERR_ID_FIELD_SHIFT		(4U)
+#define CORRECTED_BIT_FIELD_SHIFT	(9U)
+#define ERR_REPORT_TIMEOUT_US		(5000U)
+#define SS_WAIT_DURATION_US		(500U)
+#define MAX_SS_RETRIES (ERR_REPORT_TIMEOUT_US / SS_WAIT_DURATION_US)
 
 #define U32_BITS		32U
 #define DIV_BY_U32_BITS(x)	((x) / U32_BITS)
@@ -375,25 +384,14 @@ int nvgpu_cic_mon_get_err_desc(struct gk20a *g, u32 hw_unit_id,
  *        used by sub-units in nvgpu-rm and SDL unit.
  *
  * @param g [in]		- The GPU driver struct.
- * @param err_info [in]		- Error message.
- * @param err_size [in]		- Size of the error message.
- * @param is_critical [in]	- Criticality of the error being reported.
+ * @param err_id [in]		- Error ID.
  *
- * On QNX:
- *  - Checks whether SDL is initialized.
- *  - Enqueues \a err_info into error message queue.
- *  - Signals the workqueue condition variable.
- *  - If the reported error is critical, invokes #nvgpu_sw_quiesce() api.
- *
- * on Linux:
- *  - NOP currently as safety services are absent in Linux
+ *  - Reports the errors to Safety_Services.
  *
  * @return 0 in case of success, <0 in case of failure.
- * @retval -EAGAIN if SDL not initialized.
- * @retval -ENOMEM if sufficient memory is not available.
  */
 int nvgpu_cic_mon_report_err_safety_services(struct gk20a *g,
-		void *err_info, size_t err_size, bool is_critical);
+		u32 err_id);
 
 /**
  * @brief Get the number of HW modules supported by CIC.
@@ -437,6 +435,7 @@ u32 nvgpu_cic_mon_intr_stall_isr(struct gk20a *g);
  */
 void nvgpu_cic_mon_intr_stall_handle(struct gk20a *g);
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 /**
  * @brief Top half of nonstall interrupt ISR.
  *
@@ -463,6 +462,7 @@ u32 nvgpu_cic_mon_intr_nonstall_isr(struct gk20a *g);
  * nonstall operations.
  */
 void nvgpu_cic_mon_intr_nonstall_handle(struct gk20a *g);
+#endif
 
 /**
  * @brief Clear the GPU device interrupts at master level.
@@ -527,6 +527,7 @@ void nvgpu_cic_mon_intr_mask(struct gk20a *g);
  */
 void nvgpu_cic_mon_intr_stall_unit_config(struct gk20a *g, u32 unit, bool enable);
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 /**
  * @brief Enable/Disable the non-stalling interrupts for given GPU unit at the
  *        master level.
@@ -568,6 +569,7 @@ void nvgpu_cic_mon_intr_stall_unit_config(struct gk20a *g, u32 unit, bool enable
  * - Release the spinlock g->mc.intr_lock.
  */
 void nvgpu_cic_mon_intr_nonstall_unit_config(struct gk20a *g, u32 unit, bool enable);
+#endif
 
 /**
  * @brief Disable/Pause the stalling interrupts.
@@ -602,6 +604,7 @@ void nvgpu_cic_mon_intr_stall_pause(struct gk20a *g);
  */
 void nvgpu_cic_mon_intr_stall_resume(struct gk20a *g);
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 /**
  * @brief Disable/Pause the non-stalling interrupts.
  *
@@ -636,6 +639,7 @@ void nvgpu_cic_mon_intr_nonstall_pause(struct gk20a *g);
  * - Release the spinlock g->mc.intr_lock.
  */
 void nvgpu_cic_mon_intr_nonstall_resume(struct gk20a *g);
+#endif
 
 void nvgpu_cic_mon_intr_enable(struct gk20a *g);
 

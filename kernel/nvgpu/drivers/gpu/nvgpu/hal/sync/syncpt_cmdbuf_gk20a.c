@@ -1,7 +1,7 @@
 /*
  * GK20A syncpt cmdbuf
  *
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -42,6 +42,8 @@ void gk20a_syncpt_add_wait_cmd(struct gk20a *g,
 		/* syncpt_id, switch_en, wait */
 		(id << 8U) | 0x10U,
 	};
+
+	(void)gpu_va_base;
 
 	nvgpu_log_fn(g, " ");
 
@@ -84,6 +86,8 @@ void gk20a_syncpt_add_incr_cmd(struct gk20a *g,
 		(id << 8U) | 0x1U,
 	};
 
+	(void)gpu_va;
+
 	nvgpu_log_fn(g, " ");
 
 	if (wfi) {
@@ -106,11 +110,15 @@ u32 gk20a_syncpt_get_incr_cmd_size(bool wfi_cmd)
 void gk20a_syncpt_free_buf(struct nvgpu_channel *c,
 		struct nvgpu_mem *syncpt_buf)
 {
-
+	(void)c;
+	(void)syncpt_buf;
 }
 
 int gk20a_syncpt_alloc_buf(struct nvgpu_channel *c,
 		u32 syncpt_id, struct nvgpu_mem *syncpt_buf)
 {
+	(void)c;
+	(void)syncpt_id;
+	(void)syncpt_buf;
 	return 0;
 }

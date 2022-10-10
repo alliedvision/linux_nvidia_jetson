@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,91 +17,132 @@
 #include <interface/dce-interface.h>
 
 /**
- * dce_boot_complete - Checks if dce has complelted boot.
+ * dce_fw_boot_complete - Checks if dce has complelted boot.
  *
  * @d - Pointer to tegra_dce struct.
  *
  * Return : True if boot is complete
  */
-static inline bool dce_boot_complete(struct tegra_dce *d)
+inline bool dce_fw_boot_complete(struct tegra_dce *d)
 {
 	return !!(dce_ss_get_state(d, DCE_BOOT_SEMA)
 					& DCE_BOOT_COMPLETE);
 }
 
 /**
- * dce_boot_poll_boot_complete - Poll until dce boot is complete.
- *
- * @d : Pointer to tegra_dce struct.
- *
- * Return : 0 if successful
- */
-static int dce_boot_poll_boot_complete(struct tegra_dce *d)
-{
-	int ret = 0;
-
-	while (!dce_boot_complete(d)) {
-		dce_worker_thread_wait(d,
-			EVENT_ID_DCE_BOOT_COMPLETE_IRQ_REQ_SET);
-	}
-
-	if (dce_worker_get_state(d) == STATE_DCE_WORKER_ABORTED)
-		ret = -1;
-
-	return ret;
-}
-
-/**
- * dce_req_boot_irq_sync - Requests DCE to raise an
- *				interrupt on boot completion.
+ * dce_request_fw_boot_complete - Requests DCE to raise an
+ *				  interrupt on boot completion.
  *
  * @d - Pointer to tegra_dce struct.
  *
- * Return : 0 if sucessful.
+ * Return : void
  */
-static int dce_req_boot_irq_sync(struct tegra_dce *d)
+inline void dce_request_fw_boot_complete(struct tegra_dce *d)
 {
-	int ret = 0;
-
 #define DCE_BOOT_INIT_BPOS 31U
 	dce_ss_set(d, DCE_BOOT_INIT_BPOS, DCE_BOOT_SEMA);
 #undef DCE_BOOT_INIT_BPOS
+}
 
-	dce_info(d, "Waiting on dce fw to boot...");
+/**
+ * dce_handle_mbox_ipc_requested_event - callback handler function for event
+ *					 EVENT_ID_DCE_MBOX_IPC_MSG_REQUESTED
+ *
+ * @d : Pointer to tegra_dce struct.
+ * @params : callback params
+ *
+ * Return : 0 if successful else error code
+ */
+int dce_handle_mbox_ipc_requested_event(struct tegra_dce *d, void *params)
+{
+	int ret = 0;
+	struct dce_mailbox_send_cmd_params *mbox_params =
+			(struct dce_mailbox_send_cmd_params *)params;
 
-	ret = dce_boot_poll_boot_complete(d);
-	if (ret)
-		dce_err(d, "DCE Boot Complete Poll Interrupted");
+	dce_debug(d, "cmd:%u interface:%u", mbox_params->cmd, mbox_params->interface);
+
+	ret = dce_handle_mailbox_send_cmd_sync(d, mbox_params->cmd,
+					       mbox_params->interface);
 
 	return ret;
 }
 
 /**
- * dce_wait_boot_complete - Wait for the DCE to boot and be ready to receive
- *				commands from CCPLEX driver.
+ * dce_handle_mbox_ipc_received_event - callback handler function for event
+ *					EVENT_ID_DCE_MBOX_IPC_MSG_RECEIVED
  *
  * @d : Pointer to tegra_dce struct.
+ * @params : callback params
  *
- * Return : 0 if successful
+ * Return : 0 if successful else error code
  */
-int dce_wait_boot_complete(struct tegra_dce *d)
+int dce_handle_mbox_ipc_received_event(struct tegra_dce *d, void *params)
+{
+	dce_wakeup_interruptible(d, DCE_WAIT_MBOX_IPC);
+	return 0;
+}
+
+/**
+ * dce_handle_boot_complete_requested_event - callback handler function for
+ *				event EVENT_ID_DCE_BOOT_COMPLETE_REQUESTED
+ *
+ * Wait for the DCE to boot and be ready to receive commands from CCPLEX driver.
+ *
+ * @d : Pointer to tegra_dce struct.
+ * @params : callback params
+ *
+ * Return : 0 if successful else error code
+ */
+int dce_handle_boot_complete_requested_event(struct tegra_dce *d, void *params)
 {
 	int ret = 0;
 
-	if (dce_boot_complete(d))
-		goto boot_done;
+	d->boot_status |= DCE_FW_EARLY_BOOT_START;
+	if (dce_fw_boot_complete(d)) {
+		ret = dce_fsm_post_event(d, EVENT_ID_DCE_BOOT_COMPLETE_RECEIVED, NULL);
+		if (ret)
+			dce_err(d, "failed to send DCE_BOOT_COMPLETE_RECEIVED event");
 
-	ret = dce_req_boot_irq_sync(d);
+		goto boot_done;
+	}
+
+	dce_request_fw_boot_complete(d);
+
+	dce_debug(d, "Waiting for dce fw to boot...");
+
+	ret = dce_wait_interruptible(d, DCE_WAIT_BOOT_COMPLETE);
+	if (ret) {
+		/**
+		 * TODO: Add error handling for abort and retry
+		 */
+		dce_err(d, "dce boot wait was interrupted with err:%d", ret);
+	}
 
 boot_done:
 	if (!ret) {
 		dce_set_boot_complete(d, true);
 		d->boot_status |= DCE_FW_EARLY_BOOT_DONE;
-		dce_info(d, "dce is ready to receive bootstrap commands");
+		dce_debug(d, "dce is ready to receive bootstrap commands");
 	} else {
 		d->boot_status |= DCE_FW_EARLY_BOOT_FAILED;
 	}
+
 	return ret;
+}
+
+/**
+ * dce_handle_boot_complete_received_event - callback handler function for
+ *				event EVENT_ID_DCE_MBOX_IPC_MSG_RECEIVED
+ *
+ * @d : Pointer to tegra_dce struct.
+ * @params : callback params
+ *
+ * Return : 0 if successful else error code
+ */
+int dce_handle_boot_complete_received_event(struct tegra_dce *d, void *params)
+{
+	dce_wakeup_interruptible(d, DCE_WAIT_BOOT_COMPLETE);
+	return 0;
 }
 
 /**
@@ -114,13 +155,9 @@ boot_done:
  */
 void dce_handle_irq_status(struct tegra_dce *d, u32 status)
 {
-	enum dce_worker_event_id_type event;
 
 	if (status & DCE_IRQ_LOG_OVERFLOW)
 		dce_info(d, "DCE trace log overflow error received");
-
-	if (status & DCE_IRQ_LOG_READY)
-		dce_info(d, "DCE trace log buffers available");
 
 	if (status & DCE_IRQ_CRASH_LOG)
 		dce_info(d, "DCE crash log available");
@@ -128,17 +165,34 @@ void dce_handle_irq_status(struct tegra_dce *d, u32 status)
 	if (status & DCE_IRQ_ABORT)
 		dce_err(d, "DCE ucode abort occurred");
 
-	if (status & DCE_IRQ_SC7_ENTERED)
-		dce_info(d, "DCE can be safely powered-off now");
-
-	event = EVENT_ID_DCE_INTERFACE_ERROR_RECEIVED;
-
 	if (status & DCE_IRQ_READY) {
-		dce_info(d, "DCE IRQ Ready Received");
-		event = EVENT_ID_DCE_BOOT_COMPLETE_IRQ_RECEIVED;
+		dce_debug(d, "DCE IRQ Ready Received");
+		(void)dce_fsm_post_event(d,
+					 EVENT_ID_DCE_BOOT_COMPLETE_RECEIVED,
+					 NULL);
 	}
 
-	dce_worker_thread_wakeup(d, event);
+	if (status & DCE_IRQ_SC7_ENTERED) {
+		dce_info(d, "DCE can be safely powered-off now");
+		(void)dce_fsm_post_event(d,
+					 EVENT_ID_DCE_SC7_ENTERED_RECEIVED,
+					 NULL);
+	}
+
+	if (status & DCE_IRQ_LOG_READY) {
+		dce_info(d, "DCE trace log buffers available");
+		dce_wakeup_interruptible(d, DCE_WAIT_LOG);
+	}
+
+	/*
+	 * FIXME: handle individual bits
+	 */
+	if (status & (DCE_IRQ_LOG_OVERFLOW | DCE_IRQ_CRASH_LOG |
+		      DCE_IRQ_ABORT)) {
+		// Wrapper function around this ??
+		// TODO: Wake All other waiting processes
+		(void) dce_fsm_post_event(d, EVENT_ID_DCE_ABORT_RECEIVED, NULL);
+	}
 }
 
 
@@ -152,14 +206,13 @@ void dce_handle_irq_status(struct tegra_dce *d, u32 status)
  */
 void dce_bootstrap_handle_boot_status(struct tegra_dce *d, u32 status)
 {
-	enum dce_worker_event_id_type event;
-
-	event = EVENT_ID_DCE_IPC_SIGNAL_RECEIVED;
-
+	int ret = 0;
 	dce_mailbox_store_interface_status(d, status,
 					   DCE_MAILBOX_BOOT_INTERFACE);
 
-	dce_worker_thread_wakeup(d, event);
+	ret = dce_fsm_post_event(d, EVENT_ID_DCE_MBOX_IPC_MSG_RECEIVED, NULL);
+	if (ret)
+		dce_err(d, "Mbox bootstrap cmd failed");
 }
 
 
@@ -242,17 +295,18 @@ static void dce_parse_boot_status_err(struct tegra_dce *d, u32 status)
 static int dce_mailbox_wait_boot_interface(struct tegra_dce *d)
 {
 	u32 status;
-	enum dce_worker_event_id_type event;
+	int ret;
 
-	event = EVENT_ID_DCE_IPC_MESSAGE_SENT;
-
-	dce_worker_thread_wait(d, event);
+	ret = dce_wait_interruptible(d, DCE_WAIT_MBOX_IPC);
+	if (ret) {
+		/**
+		 * TODO: Add error handling for abort and retry
+		 */
+		dce_err(d, "dce mbox wait was interrupted with err:%d", ret);
+	}
 
 	status = dce_mailbox_get_interface_status(d,
 				DCE_MAILBOX_BOOT_INTERFACE);
-
-	if (dce_worker_get_state(d) == STATE_DCE_WORKER_ABORTED)
-		return -EINTR;
 
 	if (status & DCE_BOOT_CMD_ERR_FLAG) {
 		dce_parse_boot_status_err(d, status);

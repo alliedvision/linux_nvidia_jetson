@@ -1,3 +1,5 @@
+/* Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved. */
+
 This is a reviewers file that can be parsed by get_nv_reviewers.py that
 internally uses scripts/get_maintainer.pl from kernel.
 
@@ -159,6 +161,20 @@ L:	SW-Mobile-DLA-Dev <SW-Mobile-DLA-Dev@exchange.nvidia.com>
 B:	Tegra-DLA
 S:	Supported
 F:	drivers/video/tegra/host/nvdla/
+
+DEVFREQ WATERMARK
+M:	Johnny Liu <johnliu@nvidia.com>
+L:	sw-mobile-l4t@exchange.nvidia.com
+B:	Mobile
+S:	Supported
+F:	include/trace/events/watermark_gov.h
+
+EPL
+M:	Prashant Shaw <pshaw@nvidia.com>
+B:	Embedded Safety Services
+S:	Supported
+F:	drivers/platform/tegra/tegra-epl.c
+F:	include/linux/tegra-epl.h
 
 FSICOM
 M:	Prashant Shaw <pshaw@nvidia.com>
@@ -380,3 +396,17 @@ B:	Automotive-NvSciC2C
 S:	Supported
 F:	drivers/misc/nvscic2c-pcie/
 F:	include/uapi/misc/nvscic2c-pcie-ioctl.h
+
+HSIERRRPTINJ
+M:	Prasun Kumar <prasunk@nvidia.com>
+B:	Mobile_Linux_Kernel
+S:	Supported
+F:	drivers/platform/tegra/tegra-hsierrrptinj.c
+F:	include/linux/tegra-hsierrrptinj.h
+
+DEVFREQ PODGOV GOVERNOR
+M:  Peng Liu <pengliu@nvidia.com>
+B:  sw-mobile-graphics-performance-bugs@exchange.nvidia.com
+S:  Supported
+F:  drivers/devfreq/governor_pod_scaling*
+F:  drivers/devfreq/governor_v2.h

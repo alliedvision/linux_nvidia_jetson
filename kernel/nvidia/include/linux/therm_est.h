@@ -1,7 +1,7 @@
 /*
  * include/linux/therm_est.h
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -185,7 +185,7 @@ struct fan_dev_data {
 #define MULTIQP (100)
 #define DEFERRED_RESUME_TIME 3000
 #define THERMAL_GOV_PID "pid_thermal_gov"
-#define THERMAL_CONTINUOUS_GOV "continuous_therm_gov"
+#define THERMAL_CONTINUOUS_GOV "cont_therm_gov"
 
 struct therm_fan_estimator {
 	long cur_temp;

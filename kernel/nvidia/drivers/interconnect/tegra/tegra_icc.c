@@ -132,6 +132,7 @@ static int tegra_icc_probe(struct platform_device *pdev)
 	struct tegra_icc_provider *tp;
 	struct icc_node *node;
 	size_t num_nodes, i;
+	long rate;
 	int ret;
 
 	ops = of_device_get_match_data(&pdev->dev);
@@ -180,20 +181,23 @@ static int tegra_icc_probe(struct platform_device *pdev)
 	clk_prepare_enable(tp->dram_clk);
 
 	if (tegra_platform_is_silicon()) {
-		tp->max_rate = clk_round_rate(tp->dram_clk, ULONG_MAX);
-		if (tp->max_rate < 0) {
+		rate = clk_round_rate(tp->dram_clk, ULONG_MAX);
+		if (rate < 0) {
 			dev_err(&pdev->dev, "couldn't get emc clk max rate\n");
-			ret = tp->max_rate;
+			ret = rate;
 			goto err_bpmp;
+		} else {
+			tp->max_rate = rate;
+			tp->cap_rate = tp->max_rate;
 		}
-		tp->cap_rate = tp->max_rate;
 
-		tp->min_rate = clk_round_rate(tp->dram_clk, 0);
-		if (tp->min_rate < 0) {
+		rate = clk_round_rate(tp->dram_clk, 0);
+		if (rate < 0) {
 			dev_err(&pdev->dev, "couldn't get emc clk min rate\n");
-			ret = tp->min_rate;
+			ret = rate;
 			goto err_bpmp;
-		}
+		} else
+			tp->min_rate = rate;
 	}
 
 	ret = icc_provider_add(provider);

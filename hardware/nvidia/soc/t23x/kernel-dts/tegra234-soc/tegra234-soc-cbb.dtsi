@@ -15,51 +15,46 @@
  */
 
 / {
-	cbb-en@1300000 {
-		compatible = "nvidia,tegra234-CBB-EN";
+	cbb-fabric@1300000 {
+		compatible = "nvidia,tegra234-cbb-fabric";
 		reg = <0x0 0x13A00000 0x0 0x400000>;
 		interrupts = <0 231 4>;
-		err-notifier-base = <0 0x60000>;
 		status = "okay";
 	};
 
-	aon-en@C600000 {
-		compatible = "nvidia,tegra234-AON-EN";
+	aon-fabric@C600000 {
+		compatible = "nvidia,tegra234-aon-fabric";
 		reg = <0x0 0xC600000 0x0 0x40000>;
 		interrupts = <0 172 4>;
-		err-notifier-base = <0 0x17000>;
 		status = "okay";
 	};
 
-	bpmp-en@D600000 {
-		compatible = "nvidia,tegra234-BPMP-EN";
+	bpmp-fabric@D600000 {
+		compatible = "nvidia,tegra234-bpmp-fabric";
 		reg = <0x0 0xD600000 0x0 0x40000>;
 		interrupts = <0 174 4>;
-		err-notifier-base = <0 0x19000>;
-		status = "disabled";
+		status = "okay";
 	};
 
-	dce-en@BE00000 {
-		compatible = "nvidia,tegra234-DCE-EN";
+	dce-fabric@BE00000 {
+		compatible = "nvidia,tegra234-dce-fabric";
 		reg = <0x0 0xDE00000 0x0 0x40000>;
 		interrupts = <0 381 4>;
-		err-notifier-base = <0 0x19000>;
 		status = "okay";
 	};
 
-	rce-en@BE00000 {
-		compatible = "nvidia,tegra234-RCE-EN";
+	rce-fabric@BE00000 {
+		compatible = "nvidia,tegra234-rce-fabric";
 		reg = <0x0 0xBE00000 0x0 0x40000>;
 		interrupts = <0 175 4>;
-		err-notifier-base = <0 0x19000>;
 		status = "okay";
 	};
 
-	sce-en@B600000 {
-		compatible = "nvidia,tegra234-SCE-EN";
+	sce-fabric@B600000 {
+		compatible = "nvidia,tegra234-sce-fabric";
 		reg = <0x0 0xB600000 0x0 0x40000>;
 		interrupts = <0 173 4>;
-		err-notifier-base = <0 0x19000>;
 		status = "okay";
 	};
+
 };

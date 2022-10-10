@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -17029,7 +17030,10 @@ u8 tdls_hdl(_adapter *padapter, unsigned char *pbuf)
 		u8 sta_band = 0;
 
 		/* leave ALL PS when TDLS is established */
-		rtw_pwr_wakeup(padapter);
+		if (_FAIL == rtw_pwr_wakeup(padapter)) {
+			RTW_ERR("%s(): rtw_pwr_wakeup fail !!!\n", __FUNCTION__);
+			return H2C_REJECTED;
+		}
 
 		rtw_hal_rcr_set_chk_bssid(padapter, MLME_TDLS_LINKED);
 		RTW_INFO("Created Direct Link with "MAC_FMT"\n", MAC_ARG(ptdls_sta->cmn.mac_addr));

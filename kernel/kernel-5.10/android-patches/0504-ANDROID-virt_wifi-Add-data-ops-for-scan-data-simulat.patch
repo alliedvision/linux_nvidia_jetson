@@ -1,0 +1,177 @@
+From ab881e99651b0e51116ec183afae6a9027e7309d Mon Sep 17 00:00:00 2001
+From: lesl <lesl@google.com>
+Date: Tue, 1 Oct 2019 17:56:50 +0800
+Subject: [PATCH 504/830] ANDROID: virt_wifi: Add data ops for scan data
+ simulation
+X-NVConfidentiality: public
+
+Bug: 139421123
+Signed-off-by: lesl <lesl@google.com>
+Change-Id: Ib686dffe23cc234937af7e383182834721f01d78
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ drivers/net/wireless/virt_wifi.c | 48 ++++++++++++++++++++++++++++++--
+ include/net/virt_wifi.h          | 25 +++++++++++++++++
+ 2 files changed, 71 insertions(+), 2 deletions(-)
+ create mode 100644 include/net/virt_wifi.h
+
+diff --git a/drivers/net/wireless/virt_wifi.c b/drivers/net/wireless/virt_wifi.c
+index 514f2c1124b6..3cfd99067b2e 100644
+--- a/drivers/net/wireless/virt_wifi.c
++++ b/drivers/net/wireless/virt_wifi.c
+@@ -14,6 +14,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/math64.h>
+ #include <linux/module.h>
++#include <net/virt_wifi.h>
+ 
+ static struct wiphy *common_wiphy;
+ 
+@@ -21,6 +22,7 @@ struct virt_wifi_wiphy_priv {
+ 	struct delayed_work scan_result;
+ 	struct cfg80211_scan_request *scan_request;
+ 	bool being_deleted;
++	struct virt_wifi_network_simulation *network_simulation;
+ };
+ 
+ static struct ieee80211_channel channel_2ghz = {
+@@ -172,6 +174,9 @@ static int virt_wifi_scan(struct wiphy *wiphy,
+ 
+ 	priv->scan_request = request;
+ 	schedule_delayed_work(&priv->scan_result, HZ * 2);
++	if (priv->network_simulation &&
++	    priv->network_simulation->notify_scan_trigger)
++		priv->network_simulation->notify_scan_trigger(wiphy, request);
+ 
+ 	return 0;
+ }
+@@ -187,6 +192,12 @@ static void virt_wifi_scan_result(struct work_struct *work)
+ 
+ 	virt_wifi_inform_bss(wiphy);
+ 
++	if(priv->network_simulation &&
++	   priv->network_simulation->generate_virt_scan_result) {
++		if(priv->network_simulation->generate_virt_scan_result(wiphy))
++			wiphy_err(wiphy, "Fail to generater the simulated scan result.\n");
++	}
++
+ 	/* Schedules work which acquires and releases the rtnl lock. */
+ 	cfg80211_scan_done(priv->scan_request, &scan_info);
+ 	priv->scan_request = NULL;
+@@ -378,6 +389,8 @@ static struct wiphy *virt_wifi_make_wiphy(void)
+ 	priv = wiphy_priv(wiphy);
+ 	priv->being_deleted = false;
+ 	priv->scan_request = NULL;
++	priv->network_simulation = NULL;
++
+ 	INIT_DELAYED_WORK(&priv->scan_result, virt_wifi_scan_result);
+ 
+ 	err = wiphy_register(wiphy);
+@@ -393,7 +406,6 @@ static struct wiphy *virt_wifi_make_wiphy(void)
+ static void virt_wifi_destroy_wiphy(struct wiphy *wiphy)
+ {
+ 	struct virt_wifi_wiphy_priv *priv;
+-
+ 	WARN(!wiphy, "%s called with null wiphy", __func__);
+ 	if (!wiphy)
+ 		return;
+@@ -427,8 +439,13 @@ static netdev_tx_t virt_wifi_start_xmit(struct sk_buff *skb,
+ static int virt_wifi_net_device_open(struct net_device *dev)
+ {
+ 	struct virt_wifi_netdev_priv *priv = netdev_priv(dev);
+-
++	struct virt_wifi_wiphy_priv *w_priv;
+ 	priv->is_up = true;
++	w_priv = wiphy_priv(dev->ieee80211_ptr->wiphy);
++	if(w_priv->network_simulation &&
++	   w_priv->network_simulation->notify_device_open)
++		w_priv->network_simulation->notify_device_open(dev);
++
+ 	return 0;
+ }
+ 
+@@ -436,16 +453,22 @@ static int virt_wifi_net_device_open(struct net_device *dev)
+ static int virt_wifi_net_device_stop(struct net_device *dev)
+ {
+ 	struct virt_wifi_netdev_priv *n_priv = netdev_priv(dev);
++	struct virt_wifi_wiphy_priv *w_priv;
+ 
+ 	n_priv->is_up = false;
+ 
+ 	if (!dev->ieee80211_ptr)
+ 		return 0;
++	w_priv = wiphy_priv(dev->ieee80211_ptr->wiphy);
+ 
+ 	virt_wifi_cancel_scan(dev->ieee80211_ptr->wiphy);
+ 	virt_wifi_cancel_connect(dev);
+ 	netif_carrier_off(dev);
+ 
++	if (w_priv->network_simulation &&
++	    w_priv->network_simulation->notify_device_stop)
++		w_priv->network_simulation->notify_device_stop(dev);
++
+ 	return 0;
+ }
+ 
+@@ -688,6 +711,27 @@ static void __exit virt_wifi_cleanup_module(void)
+ 	unregister_netdevice_notifier(&virt_wifi_notifier);
+ }
+ 
++int virt_wifi_register_network_simulation
++	(struct virt_wifi_network_simulation *ops)
++{
++	struct virt_wifi_wiphy_priv *priv = wiphy_priv(common_wiphy);
++	if (priv->network_simulation)
++		return -EEXIST;
++	priv->network_simulation = ops;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(virt_wifi_register_network_simulation);
++
++int virt_wifi_unregister_network_simulation(void)
++{
++	struct virt_wifi_wiphy_priv *priv = wiphy_priv(common_wiphy);
++	if(!priv->network_simulation)
++		return -ENODATA;
++	priv->network_simulation = NULL;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(virt_wifi_unregister_network_simulation);
++
+ module_init(virt_wifi_init_module);
+ module_exit(virt_wifi_cleanup_module);
+ 
+diff --git a/include/net/virt_wifi.h b/include/net/virt_wifi.h
+new file mode 100644
+index 000000000000..343e73968d41
+--- /dev/null
++++ b/include/net/virt_wifi.h
+@@ -0,0 +1,25 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* include/net/virt_wifi.h
++ *
++ * Define the extension interface for the network data simulation
++ *
++ * Copyright (C) 2019 Google, Inc.
++ *
++ * Author: lesl@google.com
++ */
++#ifndef __VIRT_WIFI_H
++#define __VIRT_WIFI_H
++
++struct virt_wifi_network_simulation {
++	void (*notify_device_open)(struct net_device *dev);
++	void (*notify_device_stop)(struct net_device *dev);
++	void (*notify_scan_trigger)(struct wiphy *wiphy,
++				    struct cfg80211_scan_request *request);
++	int (*generate_virt_scan_result)(struct wiphy *wiphy);
++};
++
++int virt_wifi_register_network_simulation(
++	    struct virt_wifi_network_simulation *ops);
++int virt_wifi_unregister_network_simulation(void);
++#endif
++
+-- 
+2.17.1
+

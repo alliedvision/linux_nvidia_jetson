@@ -1,0 +1,115 @@
+From a71a3487e20e99650824e6a21a0475ca3ad047a3 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 27 Aug 2020 14:01:52 -0700
+Subject: [PATCH 478/830] ANDROID: Incremental fs: Remove back links and crcs
+X-NVConfidentiality: public
+
+Bug: 166638631
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ia6061f8985db85a66fce0f2f09e1305a21753dd6
+---
+ fs/incfs/format.c | 34 ----------------------------------
+ fs/incfs/format.h |  9 ---------
+ 2 files changed, 43 deletions(-)
+
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 05c23bc87ee5..f663a7605727 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -148,26 +148,6 @@ static int append_zeros(struct backing_file_context *bfc, size_t len)
+ 	return append_zeros_no_fallocate(bfc, file_size, len);
+ }
+ 
+-static u32 calc_md_crc(struct incfs_md_header *record)
+-{
+-	u32 result = 0;
+-	__le32 saved_crc = record->h_record_crc;
+-	__le64 saved_md_offset = record->h_next_md_offset;
+-	size_t record_size = min_t(size_t, le16_to_cpu(record->h_record_size),
+-				INCFS_MAX_METADATA_RECORD_SIZE);
+-
+-	/* Zero fields which needs to be excluded from CRC calculation. */
+-	record->h_record_crc = 0;
+-	record->h_next_md_offset = 0;
+-	result = crc32(0, record, record_size);
+-
+-	/* Restore excluded fields. */
+-	record->h_record_crc = saved_crc;
+-	record->h_next_md_offset = saved_md_offset;
+-
+-	return result;
+-}
+-
+ /*
+  * Append a given metadata record to the backing file and update a previous
+  * record to add the new record the the metadata list.
+@@ -191,9 +171,7 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
+ 
+ 	record_size = le16_to_cpu(record->h_record_size);
+ 	file_pos = incfs_get_end_offset(bfc->bc_file);
+-	record->h_prev_md_offset = cpu_to_le64(bfc->bc_last_md_record_offset);
+ 	record->h_next_md_offset = 0;
+-	record->h_record_crc = cpu_to_le32(calc_md_crc(record));
+ 
+ 	/* Write the metadata record to the end of the backing file */
+ 	record_offset = file_pos;
+@@ -601,7 +579,6 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
+ 	ssize_t bytes_read = 0;
+ 	size_t md_record_size = 0;
+ 	loff_t next_record = 0;
+-	loff_t prev_record = 0;
+ 	int res = 0;
+ 	struct incfs_md_header *md_hdr = NULL;
+ 
+@@ -623,7 +600,6 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
+ 
+ 	md_hdr = &handler->md_buffer.md_header;
+ 	next_record = le64_to_cpu(md_hdr->h_next_md_offset);
+-	prev_record = le64_to_cpu(md_hdr->h_prev_md_offset);
+ 	md_record_size = le16_to_cpu(md_hdr->h_record_size);
+ 
+ 	if (md_record_size > max_md_size) {
+@@ -643,16 +619,6 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
+ 		return -EBADMSG;
+ 	}
+ 
+-	if (prev_record != handler->md_prev_record_offset) {
+-		pr_warn("incfs: Metadata chain has been corrupted.");
+-		return -EBADMSG;
+-	}
+-
+-	if (le32_to_cpu(md_hdr->h_record_crc) != calc_md_crc(md_hdr)) {
+-		pr_warn("incfs: Metadata CRC mismatch.");
+-		return -EBADMSG;
+-	}
+-
+ 	switch (md_hdr->h_md_entry_type) {
+ 	case INCFS_MD_NONE:
+ 		break;
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index dea24888c0b6..c29556de594e 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -135,18 +135,9 @@ struct incfs_md_header {
+ 	 */
+ 	__le16 h_record_size;
+ 
+-	/*
+-	 * CRC32 of the metadata record.
+-	 * (e.g. inode, dir entry etc) not just this struct.
+-	 */
+-	__le32 h_record_crc;
+-
+ 	/* Offset of the next metadata entry if any */
+ 	__le64 h_next_md_offset;
+ 
+-	/* Offset of the previous metadata entry if any */
+-	__le64 h_prev_md_offset;
+-
+ } __packed;
+ 
+ /* Backing file header */
+-- 
+2.17.1
+

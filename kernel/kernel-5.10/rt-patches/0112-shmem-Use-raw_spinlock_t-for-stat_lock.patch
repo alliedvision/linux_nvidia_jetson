@@ -1,7 +1,7 @@
-From dc84c64969f80e1b101bb7a15ccb25d8462d4b95 Mon Sep 17 00:00:00 2001
+From 56f59d031a6d7f345ee23ccef79380acb80d9e7a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 18:53:34 +0200
-Subject: [PATCH 112/304] shmem: Use raw_spinlock_t for ->stat_lock
+Subject: [PATCH 112/318] shmem: Use raw_spinlock_t for ->stat_lock
 
 Each CPU has SHMEM_INO_BATCH inodes available in `->ino_batch' which is
 per-CPU. Access here is serialized by disabling preemption. If the pool is
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 18 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/shmem_fs.h b/include/linux/shmem_fs.h
-index a5a5d1d..0470d15 100644
+index a5a5d1d4d7b1..0470d1582b09 100644
 --- a/include/linux/shmem_fs.h
 +++ b/include/linux/shmem_fs.h
 @@ -31,7 +31,7 @@ struct shmem_sb_info {
@@ -34,7 +34,7 @@ index a5a5d1d..0470d15 100644
  	unsigned char huge;	    /* Whether to try for hugepages */
  	kuid_t uid;		    /* Mount uid for root directory */
 diff --git a/mm/shmem.c b/mm/shmem.c
-index ae8adca..01d4fd9 100644
+index d3d8c5e7a296..a8411aed96c8 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -278,10 +278,10 @@ static int shmem_reserve_inode(struct super_block *sb, ino_t *inop)
@@ -88,7 +88,7 @@ index ae8adca..01d4fd9 100644
  	}
  }
  
-@@ -1479,10 +1480,10 @@ static struct mempolicy *shmem_get_sbmpol(struct shmem_sb_info *sbinfo)
+@@ -1484,10 +1485,10 @@ static struct mempolicy *shmem_get_sbmpol(struct shmem_sb_info *sbinfo)
  {
  	struct mempolicy *mpol = NULL;
  	if (sbinfo->mpol) {
@@ -101,7 +101,7 @@ index ae8adca..01d4fd9 100644
  	}
  	return mpol;
  }
-@@ -3588,9 +3589,10 @@ static int shmem_reconfigure(struct fs_context *fc)
+@@ -3593,9 +3594,10 @@ static int shmem_reconfigure(struct fs_context *fc)
  	struct shmem_options *ctx = fc->fs_private;
  	struct shmem_sb_info *sbinfo = SHMEM_SB(fc->root->d_sb);
  	unsigned long inodes;
@@ -113,7 +113,7 @@ index ae8adca..01d4fd9 100644
  	inodes = sbinfo->max_inodes - sbinfo->free_inodes;
  	if ((ctx->seen & SHMEM_SEEN_BLOCKS) && ctx->blocks) {
  		if (!sbinfo->max_blocks) {
-@@ -3635,14 +3637,15 @@ static int shmem_reconfigure(struct fs_context *fc)
+@@ -3640,14 +3642,15 @@ static int shmem_reconfigure(struct fs_context *fc)
  	 * Preserve previous mempolicy unless mpol remount option was specified.
  	 */
  	if (ctx->mpol) {
@@ -132,7 +132,7 @@ index ae8adca..01d4fd9 100644
  	return invalfc(fc, "%s", err);
  }
  
-@@ -3759,7 +3762,7 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
+@@ -3764,7 +3767,7 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
  	sbinfo->mpol = ctx->mpol;
  	ctx->mpol = NULL;
  
@@ -142,5 +142,5 @@ index ae8adca..01d4fd9 100644
  		goto failed;
  	spin_lock_init(&sbinfo->shrinklist_lock);
 -- 
-2.7.4
+2.17.1
 

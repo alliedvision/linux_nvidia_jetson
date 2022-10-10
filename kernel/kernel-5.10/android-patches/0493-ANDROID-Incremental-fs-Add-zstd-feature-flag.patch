@@ -1,0 +1,57 @@
+From bfdd04f7cb9d4332296d5645672d42fd15c6f7e7 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Mon, 30 Nov 2020 09:03:36 -0800
+Subject: [PATCH 493/830] ANDROID: Incremental fs: Add zstd feature flag
+X-NVConfidentiality: public
+
+Bug: 174478527
+Test: Boot, look for flag
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ib573b5420143bd177b50311a3e8cc3a7e8541b96
+---
+ fs/incfs/main.c                    | 9 +++++++++
+ include/uapi/linux/incrementalfs.h | 5 +++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/fs/incfs/main.c b/fs/incfs/main.c
+index 2b8161f6c83a..2332fa5b7f45 100644
+--- a/fs/incfs/main.c
++++ b/fs/incfs/main.c
+@@ -38,9 +38,18 @@ static ssize_t report_uid_show(struct kobject *kobj,
+ 
+ static struct kobj_attribute report_uid_attr = __ATTR_RO(report_uid);
+ 
++static ssize_t zstd_show(struct kobject *kobj,
++			       struct kobj_attribute *attr, char *buff)
++{
++	return snprintf(buff, PAGE_SIZE, "supported\n");
++}
++
++static struct kobj_attribute zstd_attr = __ATTR_RO(zstd);
++
+ static struct attribute *attributes[] = {
+ 	&corefs_attr.attr,
+ 	&report_uid_attr.attr,
++	&zstd_attr.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 482cebd67c0d..0de1f6eeec84 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -141,6 +141,11 @@
+  */
+ #define INCFS_FEATURE_FLAG_REPORT_UID "report_uid"
+ 
++/*
++ * zstd compression support
++ */
++#define INCFS_FEATURE_FLAG_ZSTD "zstd"
++
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+ 	COMPRESSION_LZ4 = 1,
+-- 
+2.17.1
+

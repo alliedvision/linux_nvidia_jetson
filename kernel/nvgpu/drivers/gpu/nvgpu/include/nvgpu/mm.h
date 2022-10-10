@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -296,6 +296,7 @@ struct mm_gk20a {
 		struct vm_gk20a *vm;
 		struct nvgpu_mem inst_block;
 		u64 pma_bytes_available_buffer_gpu_va;
+		u64 pma_buffer_gpu_va;
 	} perfbuf;
 
 	/**
@@ -357,10 +358,14 @@ struct mm_gk20a {
 	int physical_bits;
 	/** True if whole comptag memory is used for compress rendering. */
 	bool use_full_comp_tag_line;
+
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 	/** True if LTC sw setup is ready. */
 	bool ltc_enabled_current;
 	/** True if LTC hw setup is ready. */
 	bool ltc_enabled_target;
+#endif
+
 	/** Disable big page support. */
 	bool disable_bigpage;
 
@@ -453,11 +458,6 @@ struct mm_gk20a {
 	struct nvgpu_mem mmu_wr_mem;
 	/** GMMU debug read buffer. */
 	struct nvgpu_mem mmu_rd_mem;
-
-#if defined(CONFIG_NVGPU_NON_FUSA)
-	/** VAB struct */
-	struct nvgpu_vab vab;
-#endif
 };
 
 /**

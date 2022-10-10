@@ -1,0 +1,73 @@
+From 79281111ac0e19a705ff1be565143195272658a7 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 3 Apr 2020 22:12:09 +0000
+Subject: [PATCH 688/830] ANDROID: Switch CONFIG_QCOM_PDC CONFIG_QCOM_SCM and
+ CONFIG_ARM_SMMU to be loaded as modules
+X-NVConfidentiality: public
+
+To switch the QCOM_SCM driver to be loaded from a module,
+we need to also switch QCOM_PDC and QCOM_ARM_SMMU to also
+load from a module.
+
+Bug: 153049053
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I0509628322b20dea5f7e16e973d93d369c0c2bff
+---
+ arch/arm64/configs/db845c_gki.fragment | 3 +++
+ arch/arm64/configs/gki_defconfig       | 2 --
+ init/Kconfig.gki                       | 4 ++--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 648e0fc61b6c..675af79b35eb 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -95,6 +95,9 @@ CONFIG_QCOM_GLINK_SSR=m
+ CONFIG_RPMSG_QCOM_GLINK_RPM=m
+ CONFIG_QCOM_SMD_RPM=m
+ CONFIG_QCOM_RPMPD=m
++CONFIG_QCOM_PDC=m
++CONFIG_QCOM_SCM=m
++CONFIG_ARM_SMMU=m
+ CONFIG_ARM_QCOM_CPUFREQ_HW=m
+ # XXX Audio bits start here
+ CONFIG_I2C_CHARDEV=m
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e737a11bb1c7..5f207fccf80e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -370,7 +370,6 @@ CONFIG_ION_SYSTEM_HEAP=y
+ CONFIG_COMMON_CLK_SCPI=y
+ CONFIG_HWSPINLOCK=y
+ CONFIG_MAILBOX=y
+-CONFIG_ARM_SMMU=y
+ CONFIG_REMOTEPROC=y
+ CONFIG_RPMSG_CHAR=y
+ CONFIG_QCOM_COMMAND_DB=y
+@@ -382,7 +381,6 @@ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+ CONFIG_IIO_TRIGGER=y
+ CONFIG_PWM=y
+-CONFIG_QCOM_PDC=y
+ CONFIG_GENERIC_PHY=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index a5e8f88c618e..b342a9434b7f 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -72,9 +72,9 @@ config GKI_HIDDEN_GPIO_CONFIGS
+ config GKI_HIDDEN_QCOM_CONFIGS
+ 	bool "Hidden QCOM configs needed for GKI"
+ 	select QCOM_SMEM_STATE
+-	select QCOM_SCM if (ARM64)
+ 	select QCOM_GDSC if (ARCH_QCOM)
+-	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
++	select IOMMU_IO_PGTABLE_LPAE if (ARCH_QCOM)
++
+ 	help
+ 	  Dummy config option used to enable hidden QCOM configs.
+ 	  These are normally selected implicitly when a module
+-- 
+2.17.1
+

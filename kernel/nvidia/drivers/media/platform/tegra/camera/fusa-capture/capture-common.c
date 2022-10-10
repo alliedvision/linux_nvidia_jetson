@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -196,7 +196,7 @@ static inline void set_mapping_preservation(
  *
  * @returns	@ref capture_mapping pointer (success), NULL (failure)
  */
-struct capture_mapping *find_mapping(
+static struct capture_mapping *find_mapping(
 	struct capture_buffer_table *tab,
 	struct dma_buf *buf,
 	unsigned int flag)
@@ -234,7 +234,7 @@ struct capture_mapping *find_mapping(
  *
  * @returns	@ref capture_mapping pointer (success), PTR_ERR (failure)
  */
-struct capture_mapping *get_mapping(
+static struct capture_mapping *get_mapping(
 	struct capture_buffer_table *tab,
 	uint32_t fd,
 	unsigned int flag)

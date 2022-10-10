@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 #include <nvgpu/log.h>
 #include <nvgpu/log2.h>
 #include <nvgpu/utils.h>
+#include <nvgpu/debug.h>
 #include <nvgpu/io.h>
 #include <nvgpu/bitops.h>
 #include <nvgpu/error_notifier.h>
@@ -326,8 +327,9 @@ static void report_pbdma_error(struct gk20a *g, u32 pbdma_id,
 			err_type = GPU_HOST_PBDMA_SIGNATURE_ERROR;
 	}
 	if (err_type != GPU_HOST_INVALID_ERROR) {
-		nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST,
-				pbdma_id, err_type, pbdma_intr_0);
+		nvgpu_err(g, "pbdma_intr_0(%d)= 0x%08x ",
+				pbdma_id, pbdma_intr_0);
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST, err_type);
 	}
 	return;
 }
@@ -434,6 +436,8 @@ static bool ga10b_pbdma_handle_intr_0_legacy(struct gk20a *g, u32 pbdma_id,
 			recover = true;
 			nvgpu_err(g, "semaphore acquire timeout!");
 
+			gk20a_debug_dump(g);
+
 			/*
 			 * Note: the error_notifier can be overwritten if
 			 * semaphore_timeout is triggered with pbcrc_pending
@@ -522,6 +526,8 @@ bool ga10b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 
 	u32 pbdma_intr_1_current = nvgpu_readl(g, pbdma_intr_1_r(pbdma_id));
 
+	(void)error_notifier;
+
 	/* minimize race with the gpu clearing the pending interrupt */
 	if ((pbdma_intr_1_current &
 	     pbdma_intr_1_ctxnotvalid_pending_f()) == 0U) {
@@ -534,8 +540,8 @@ bool ga10b_pbdma_handle_intr_1(struct gk20a *g, u32 pbdma_id, u32 pbdma_intr_1,
 
 	recover = true;
 
-	nvgpu_report_host_err(g, NVGPU_ERR_MODULE_HOST, pbdma_id,
-			GPU_HOST_PBDMA_HCE_ERROR, pbdma_intr_1);
+	nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_HOST,
+			GPU_HOST_PBDMA_HCE_ERROR);
 
 	if ((pbdma_intr_1 & pbdma_intr_1_ctxnotvalid_pending_f()) != 0U) {
 		nvgpu_log(g, gpu_dbg_intr, "ctxnotvalid intr on pbdma id %d",

@@ -1,9 +1,0 @@
-config TEGRA_HV_PTP
-	tristate "Tegra Hypervisor PTP"
-	depends on TEGRA_HV_MANAGER
-	help
-	  Say Y here to include support for the virtual PTP
-	  in NVIDIA Tegra Hypervisor systems.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called tegra_hv_ptp.

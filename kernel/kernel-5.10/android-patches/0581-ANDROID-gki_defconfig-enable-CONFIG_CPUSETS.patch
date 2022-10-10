@@ -1,0 +1,28 @@
+From 0b77b5399f96a601d1a93f4c30b1c4e95519a400 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Mon, 28 Oct 2019 18:00:45 -0700
+Subject: [PATCH 581/830] ANDROID: gki_defconfig: enable CONFIG_CPUSETS
+X-NVConfidentiality: public
+
+Test: local boot on cuttlefish
+Change-Id: I96834945eb904a0dce47b8c95a5431a83bdea492
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/x86/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index e3aa956e5817..a03e0394f900 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -14,6 +14,7 @@ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_RT_GROUP_SCHED=y
+ CONFIG_CGROUP_FREEZER=y
++CONFIG_CPUSETS=y
+ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_BPF=y
+ CONFIG_SCHED_AUTOGROUP=y
+-- 
+2.17.1
+

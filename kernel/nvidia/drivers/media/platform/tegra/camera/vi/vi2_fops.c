@@ -1,7 +1,7 @@
 /*
  * Tegra Video Input 2 device common APIs
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -257,6 +257,8 @@ static void tegra_channel_vi_csi_recover(struct tegra_channel *chan)
 	tegra_channel_write(chan, TEGRA_VI_CFG_CG_CTRL, DISABLE);
 	/* Find connected csi_channel */
 	csi_chan = find_linked_csi_channel(chan, csi);
+	if (!csi_chan)
+		return;
 
 	/* clear CSI state */
 	for (index = 0; index < valid_ports; index++) {
@@ -318,6 +320,8 @@ static void tegra_channel_capture_error(struct tegra_channel *chan)
 
 	/* Find connected csi_channel */
 	csi_chan = find_linked_csi_channel(chan, csi);
+	if (!csi_chan)
+		return;
 
 	for (index = 0; index < chan->valid_ports; index++) {
 		val = csi_read(chan, index, TEGRA_VI_CSI_ERROR_STATUS);
@@ -346,6 +350,8 @@ static int tegra_channel_error_status(struct tegra_channel *chan)
 
 	/* Find connected csi_channel */
 	csi_chan = find_linked_csi_channel(chan, csi);
+	if (!csi_chan)
+		return -EINVAL;
 
 	for (index = 0; index < chan->valid_ports; index++) {
 		/* Ignore error based on resolution but reset status */

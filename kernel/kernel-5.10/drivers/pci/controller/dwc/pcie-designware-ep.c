@@ -3,6 +3,7 @@
  * Synopsys DesignWare PCIe Endpoint controller driver
  *
  * Copyright (C) 2017 Texas Instruments
+ * Copyright (C) 2022 NVIDIA Corporation.
  * Author: Kishon Vijay Abraham I <kishon@ti.com>
  */
 
@@ -29,6 +30,14 @@ void dw_pcie_ep_init_notify(struct dw_pcie_ep *ep)
 	pci_epc_init_notify(epc);
 }
 EXPORT_SYMBOL_GPL(dw_pcie_ep_init_notify);
+
+void dw_pcie_ep_deinit_notify(struct dw_pcie_ep *ep)
+{
+	struct pci_epc *epc = ep->epc;
+
+	pci_epc_deinit_notify(epc);
+}
+EXPORT_SYMBOL_GPL(dw_pcie_ep_deinit_notify);
 
 struct dw_pcie_ep_func *
 dw_pcie_ep_get_func_from_ep(struct dw_pcie_ep *ep, u8 func_no)

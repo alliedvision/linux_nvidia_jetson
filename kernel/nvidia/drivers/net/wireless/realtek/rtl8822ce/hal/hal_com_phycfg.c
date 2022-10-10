@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2017 Realtek Corporation.
+ * Copyright(c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -4941,18 +4942,13 @@ PHY_ConfigRFWithParaFile(
 	if (!(Adapter->registrypriv.load_phy_file & LOAD_RF_PARA_FILE))
 		return rtStatus;
 
-	switch (eRFPath) {
-	case RF_PATH_A:
+	/* eRFPath can only be RF_PATH_A or RF_PATH_B */
+	if (eRFPath == RF_PATH_A) {
 		pBuf = pHalData->rf_radio_a;
 		pBufLen = &pHalData->rf_radio_a_len;
-		break;
-	case RF_PATH_B:
+	} else {
 		pBuf = pHalData->rf_radio_b;
 		pBufLen = &pHalData->rf_radio_b_len;
-		break;
-	default:
-		RTW_INFO("Unknown RF path!! %d\r\n", eRFPath);
-		break;
 	}
 
 	_rtw_memset(pHalData->para_file_buf, 0, MAX_PARA_FILE_BUF_LEN);
@@ -4969,17 +4965,11 @@ PHY_ConfigRFWithParaFile(
 					_rtw_memcpy(pBuf, pHalData->para_file_buf, rlen);
 					*pBufLen = rlen;
 
-					switch (eRFPath) {
-					case RF_PATH_A:
+					/* eRFPath can only be RF_PATH_A or RF_PATH_B */
+					if (eRFPath == RF_PATH_A)
 						pHalData->rf_radio_a = pBuf;
-						break;
-					case RF_PATH_B:
+					else
 						pHalData->rf_radio_b = pBuf;
-						break;
-					default:
-						RTW_INFO("Unknown RF path!! %d\r\n", eRFPath);
-						break;
-					}
 				} else
 					RTW_INFO("%s(): eRFPath=%d  alloc fail !\n", __FUNCTION__, eRFPath);
 			}

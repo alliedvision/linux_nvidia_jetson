@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <nvgpu/vgpu/vgpu_ivm.h>
+#include <nvgpu/nvgpu_ivm.h>
 #include <nvgpu/vgpu/vgpu.h>
 #include <nvgpu/vgpu/tegra_vgpu.h>
 #include <nvgpu/dt.h>
@@ -45,7 +45,7 @@ int vgpu_css_init(struct gk20a *g)
 		return err;
 	}
 
-	cookie = vgpu_ivm_mempool_reserve(mempool);
+	cookie = nvgpu_ivm_mempool_reserve(mempool);
 	if ((cookie == NULL) ||
 		((unsigned long)cookie >= (unsigned long)-MAX_ERRNO)) {
 		nvgpu_err(g, "mempool  %u reserve failed", mempool);
@@ -67,7 +67,7 @@ u32 vgpu_css_get_buffer_size(struct gk20a *g)
 		return 0U;
 	}
 
-	return vgpu_ivm_get_size(priv->css_cookie);
+	return nvgpu_ivm_get_size(priv->css_cookie);
 }
 
 static int vgpu_css_init_snapshot_buffer(struct gk20a *g)
@@ -88,7 +88,7 @@ static int vgpu_css_init_snapshot_buffer(struct gk20a *g)
 		return -EINVAL;
 	}
 
-	size = vgpu_ivm_get_size(priv->css_cookie);
+	size = nvgpu_ivm_get_size(priv->css_cookie);
 	/* Make sure buffer size is large enough */
 	if (size < CSS_MIN_HW_SNAPSHOT_SIZE) {
 		nvgpu_info(g, "mempool size 0x%llx too small", size);
@@ -96,9 +96,9 @@ static int vgpu_css_init_snapshot_buffer(struct gk20a *g)
 		goto fail;
 	}
 
-	buf = vgpu_ivm_mempool_map(priv->css_cookie);
+	buf = nvgpu_ivm_mempool_map(priv->css_cookie);
 	if (!buf) {
-		nvgpu_info(g, "vgpu_ivm_mempool_map failed");
+		nvgpu_info(g, "nvgpu_ivm_mempool_map failed");
 		err = -EINVAL;
 		goto fail;
 	}
@@ -122,7 +122,7 @@ void vgpu_css_release_snapshot_buffer(struct gk20a *g)
 		return;
 	}
 
-	vgpu_ivm_mempool_unmap(priv->css_cookie, data->hw_snapshot);
+	nvgpu_ivm_mempool_unmap(priv->css_cookie, data->hw_snapshot);
 	data->hw_snapshot = NULL;
 
 	nvgpu_log_info(g, "cyclestats(vgpu): buffer for snapshots released\n");

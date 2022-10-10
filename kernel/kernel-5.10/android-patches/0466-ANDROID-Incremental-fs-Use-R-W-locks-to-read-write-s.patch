@@ -1,0 +1,263 @@
+From 049a1bbafadbd637f879efb1052cd57e7e542650 Mon Sep 17 00:00:00 2001
+From: Akilesh Kailash <akailash@google.com>
+Date: Fri, 17 Jul 2020 00:47:05 +0000
+Subject: [PATCH 466/830] ANDROID: Incremental fs: Use R/W locks to read/write
+ segment blockmap.
+X-NVConfidentiality: public
+
+Use Read-Write locks for reading/writing segment in blockmap.
+This should allow parallel reads when there are
+multiple reads within same segment.
+
+A small optimization in pending_reads_read(). Since
+incfs_collect_pending_reads() already iterate to
+populate buffer, new_max_sn - highest serial number
+among all the pending read buffer can be done in the same
+loop instead of looping again in pending_reads_read().
+
+Bug: 161566104
+Test: kernel selftest - incfs_test and incfs_perf
+
+Signed-off-by: Akilesh Kailash <akailash@google.com>
+Change-Id: Id00376b0e4cb8c0c0bc8264cdddd6f38c4aa85f0
+---
+ fs/incfs/data_mgmt.c | 69 ++++++++++++++++++++++----------------------
+ fs/incfs/data_mgmt.h |  6 ++--
+ fs/incfs/vfs.c       |  7 +----
+ 3 files changed, 38 insertions(+), 44 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 960a1f72d34d..819b437218d2 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -119,15 +119,10 @@ void incfs_free_mount_info(struct mount_info *mi)
+ static void data_file_segment_init(struct data_file_segment *segment)
+ {
+ 	init_waitqueue_head(&segment->new_data_arrival_wq);
+-	mutex_init(&segment->blockmap_mutex);
++	init_rwsem(&segment->rwsem);
+ 	INIT_LIST_HEAD(&segment->reads_list_head);
+ }
+ 
+-static void data_file_segment_destroy(struct data_file_segment *segment)
+-{
+-	mutex_destroy(&segment->blockmap_mutex);
+-}
+-
+ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ {
+ 	struct data_file *df = NULL;
+@@ -189,14 +184,10 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 
+ void incfs_free_data_file(struct data_file *df)
+ {
+-	int i;
+-
+ 	if (!df)
+ 		return;
+ 
+ 	incfs_free_mtree(df->df_hash_tree);
+-	for (i = 0; i < ARRAY_SIZE(df->df_segments); i++)
+-		data_file_segment_destroy(&df->df_segments[i]);
+ 	incfs_free_bfc(df->df_backing_file_context);
+ 	kfree(df);
+ }
+@@ -838,22 +829,21 @@ static int wait_for_data_block(struct data_file *df, int block_index,
+ 	if (block_index < 0 || block_index >= df->df_data_block_count)
+ 		return -EINVAL;
+ 
+-	if (df->df_blockmap_off <= 0)
++	if (df->df_blockmap_off <= 0 || !df->df_mount_info)
+ 		return -ENODATA;
+ 
++	mi = df->df_mount_info;
+ 	segment = get_file_segment(df, block_index);
+-	error = mutex_lock_interruptible(&segment->blockmap_mutex);
++
++	error = down_read_killable(&segment->rwsem);
+ 	if (error)
+ 		return error;
+ 
+ 	/* Look up the given block */
+ 	error = get_data_file_block(df, block_index, &block);
+ 
+-	/* If it's not found, create a pending read */
+-	if (!error && !is_data_block_present(&block) && timeout_ms != 0)
+-		read = add_pending_read(df, block_index);
++	up_read(&segment->rwsem);
+ 
+-	mutex_unlock(&segment->blockmap_mutex);
+ 	if (error)
+ 		return error;
+ 
+@@ -861,18 +851,18 @@ static int wait_for_data_block(struct data_file *df, int block_index,
+ 	if (is_data_block_present(&block)) {
+ 		*res_block = block;
+ 		return 0;
++	} else {
++		/* If it's not found, create a pending read */
++		if (timeout_ms != 0) {
++			read = add_pending_read(df, block_index);
++			if (!read)
++				return -ENOMEM;
++		} else {
++			log_block_read(mi, &df->df_id, block_index);
++			return -ETIME;
++		}
+ 	}
+ 
+-	mi = df->df_mount_info;
+-
+-	if (timeout_ms == 0) {
+-		log_block_read(mi, &df->df_id, block_index);
+-		return -ETIME;
+-	}
+-
+-	if (!read)
+-		return -ENOMEM;
+-
+ 	/* Wait for notifications about block's arrival */
+ 	wait_res =
+ 		wait_event_interruptible_timeout(segment->new_data_arrival_wq,
+@@ -895,7 +885,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
+ 		return wait_res;
+ 	}
+ 
+-	error = mutex_lock_interruptible(&segment->blockmap_mutex);
++	error = down_read_killable(&segment->rwsem);
+ 	if (error)
+ 		return error;
+ 
+@@ -917,7 +907,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
+ 		}
+ 	}
+ 
+-	mutex_unlock(&segment->blockmap_mutex);
++	up_read(&segment->rwsem);
+ 	return error;
+ }
+ 
+@@ -1012,18 +1002,25 @@ int incfs_process_new_data_block(struct data_file *df,
+ 	if (block->compression == COMPRESSION_LZ4)
+ 		flags |= INCFS_BLOCK_COMPRESSED_LZ4;
+ 
+-	error = mutex_lock_interruptible(&segment->blockmap_mutex);
++	error = down_read_killable(&segment->rwsem);
+ 	if (error)
+ 		return error;
+ 
+ 	error = get_data_file_block(df, block->block_index, &existing_block);
++
++	up_read(&segment->rwsem);
++
+ 	if (error)
+-		goto unlock;
++		return error;
+ 	if (is_data_block_present(&existing_block)) {
+ 		/* Block is already present, nothing to do here */
+-		goto unlock;
++		return 0;
+ 	}
+ 
++	error = down_write_killable(&segment->rwsem);
++	if (error)
++		return error;
++
+ 	error = mutex_lock_interruptible(&bfc->bc_mutex);
+ 	if (!error) {
+ 		error = incfs_write_data_block_to_backing_file(
+@@ -1034,8 +1031,8 @@ int incfs_process_new_data_block(struct data_file *df,
+ 	if (!error)
+ 		notify_pending_reads(mi, segment, block->block_index);
+ 
+-unlock:
+-	mutex_unlock(&segment->blockmap_mutex);
++	up_write(&segment->rwsem);
++
+ 	if (error)
+ 		pr_debug("incfs: %s %d error: %d\n", __func__,
+ 				block->block_index, error);
+@@ -1311,7 +1308,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number)
+ 
+ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 				struct incfs_pending_read_info *reads,
+-				int reads_size)
++				int reads_size, int *new_max_sn)
+ {
+ 	int reported_reads = 0;
+ 	struct pending_read *entry = NULL;
+@@ -1343,7 +1340,9 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 		reads[reported_reads].block_index = entry->block_index;
+ 		reads[reported_reads].serial_number = entry->serial_number;
+ 		reads[reported_reads].timestamp_us = entry->timestamp_us;
+-		/* reads[reported_reads].kind = INCFS_READ_KIND_PENDING; */
++
++		if (entry->serial_number > *new_max_sn)
++			*new_max_sn = entry->serial_number;
+ 
+ 		reported_reads++;
+ 		if (reported_reads >= reads_size)
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 00e93f1b7712..88b0ec7cbd98 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -14,6 +14,7 @@
+ #include <linux/completion.h>
+ #include <linux/wait.h>
+ #include <crypto/hash.h>
++#include <linux/rwsem.h>
+ 
+ #include <uapi/linux/incrementalfs.h>
+ 
+@@ -184,8 +185,7 @@ struct data_file_segment {
+ 	wait_queue_head_t new_data_arrival_wq;
+ 
+ 	/* Protects reads and writes from the blockmap */
+-	/* Good candidate for read/write mutex */
+-	struct mutex blockmap_mutex;
++	struct rw_semaphore rwsem;
+ 
+ 	/* List of active pending_read objects belonging to this segment */
+ 	/* Protected by mount_info.pending_reads_mutex */
+@@ -303,7 +303,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
+  */
+ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 				struct incfs_pending_read_info *reads,
+-				int reads_size);
++				int reads_size, int *new_max_sn);
+ 
+ int incfs_collect_logged_reads(struct mount_info *mi,
+ 			       struct read_log_state *start_state,
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 038014c511af..58acbbd5dcdb 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -469,7 +469,6 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
+ 	int new_max_sn = last_known_read_sn;
+ 	int reads_collected = 0;
+ 	ssize_t result = 0;
+-	int i = 0;
+ 
+ 	if (!mi)
+ 		return -EFAULT;
+@@ -485,16 +484,12 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
+ 		min_t(size_t, PAGE_SIZE / sizeof(*reads_buf), reads_to_collect);
+ 
+ 	reads_collected = incfs_collect_pending_reads(
+-		mi, last_known_read_sn, reads_buf, reads_to_collect);
++		mi, last_known_read_sn, reads_buf, reads_to_collect, &new_max_sn);
+ 	if (reads_collected < 0) {
+ 		result = reads_collected;
+ 		goto out;
+ 	}
+ 
+-	for (i = 0; i < reads_collected; i++)
+-		if (reads_buf[i].serial_number > new_max_sn)
+-			new_max_sn = reads_buf[i].serial_number;
+-
+ 	/*
+ 	 * Just to make sure that we don't accidentally copy more data
+ 	 * to reads buffer than userspace can handle.
+-- 
+2.17.1
+

@@ -1,0 +1,290 @@
+From 42a0fec193b441d34b165f37c8591faa2656483f Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Tue, 3 Nov 2020 14:26:59 +0000
+Subject: [PATCH 200/830] ANDROID: cpu/hotplug: add pause/resume_cpus interface
+X-NVConfidentiality: public
+
+pause_cpus intends to have a way to force a CPU to go idle and to resume
+as quickly as possible, with as little disruption as possible on the
+system. This is a way of saving energy or meet thermal constraints, for
+which a full CPU hotunplug is too slow. A paused CPU is simply deactivated
+from the scheduler point of view. This corresponds to the first hotunplug
+step.
+
+Each pause operation still needs some heavy synchronization. Allowing to
+pause several CPUs in one go mitigate that issue.
+
+Paused CPUs can be resumed with resume_cpus(), which also takes a cpumask
+as an input.
+
+Few limitations:
+
+  * It isn't possible to pause a CPU which is running SCHED_DEADLINE task.
+
+  * A paused CPU will be removed from any cpuset it is part of. Resuming
+    the CPU won't put back this CPU in the cpuset if using cgroup1.
+    Cgroup2 doesn't have this limitation.
+
+  * per-CPU kthreads are still allowed to run on a paused CPU.
+
+Bug: 161210528
+Change-Id: I1f5cb28190f8ec979bb8640a89b022f2f7266bcf
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ include/linux/cpu.h           |   4 ++
+ include/linux/sched/hotplug.h |   2 +
+ kernel/cpu.c                  | 115 ++++++++++++++++++++++++++++++++++
+ kernel/sched/core.c           |  63 ++++++++++++++++---
+ 4 files changed, 175 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index d6428aaf67e7..22ae91f8165f 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -122,6 +122,8 @@ extern void cpu_hotplug_disable(void);
+ extern void cpu_hotplug_enable(void);
+ void clear_tasks_mm_cpumask(int cpu);
+ int remove_cpu(unsigned int cpu);
++int pause_cpus(struct cpumask *cpumask);
++int resume_cpus(struct cpumask *cpumask);
+ int cpu_device_down(struct device *dev);
+ extern void smp_shutdown_nonboot_cpus(unsigned int primary_cpu);
+ 
+@@ -135,6 +137,8 @@ static inline int  cpus_read_trylock(void) { return true; }
+ static inline void lockdep_assert_cpus_held(void) { }
+ static inline void cpu_hotplug_disable(void) { }
+ static inline void cpu_hotplug_enable(void) { }
++static inline int pause_cpus(struct cpumask *cpumask) { return -ENODEV; }
++static inline int resume_cpus(struct cpumask *cpumask) { return -ENODEV; }
+ static inline void smp_shutdown_nonboot_cpus(unsigned int primary_cpu) { }
+ #endif	/* !CONFIG_HOTPLUG_CPU */
+ 
+diff --git a/include/linux/sched/hotplug.h b/include/linux/sched/hotplug.h
+index 9a62ffdd296f..2aa088d220e0 100644
+--- a/include/linux/sched/hotplug.h
++++ b/include/linux/sched/hotplug.h
+@@ -8,7 +8,9 @@
+ 
+ extern int sched_cpu_starting(unsigned int cpu);
+ extern int sched_cpu_activate(unsigned int cpu);
++extern int sched_cpus_activate(struct cpumask *cpus);
+ extern int sched_cpu_deactivate(unsigned int cpu);
++extern int sched_cpus_deactivate_nosync(struct cpumask *cpus);
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ extern int sched_cpu_dying(unsigned int cpu);
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 49ff11757b66..c51d75c6d294 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1152,6 +1152,121 @@ int remove_cpu(unsigned int cpu)
+ }
+ EXPORT_SYMBOL_GPL(remove_cpu);
+ 
++extern bool dl_cpu_busy(unsigned int cpu);
++
++int pause_cpus(struct cpumask *cpus)
++{
++	int err = 0;
++	int cpu;
++
++	cpu_maps_update_begin();
++
++	if (cpu_hotplug_disabled) {
++		err = -EBUSY;
++		goto err_cpu_maps_update;
++	}
++
++	/* Pausing an already inactive CPU isn't an error */
++	cpumask_and(cpus, cpus, cpu_active_mask);
++
++	for_each_cpu(cpu, cpus) {
++		if (!cpu_online(cpu) || dl_cpu_busy(cpu)) {
++			err = -EBUSY;
++			goto err_cpu_maps_update;
++		}
++	}
++
++	if (cpumask_weight(cpus) >= num_active_cpus()) {
++		err = -EBUSY;
++		goto err_cpu_maps_update;
++	}
++
++	if (cpumask_empty(cpus))
++		goto err_cpu_maps_update;
++
++	cpus_write_lock();
++
++	cpuhp_tasks_frozen = 0;
++
++	if (sched_cpus_deactivate_nosync(cpus)) {
++		err = -EBUSY;
++		goto err_cpus_write_unlock;
++	}
++
++	/*
++	 * Even if living on the side of the regular HP path, pause is using
++	 * one of the HP step (CPUHP_AP_ACTIVE). This should be reflected on the
++	 * current state of the CPU.
++	 */
++	for_each_cpu(cpu, cpus) {
++		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
++
++		st->state = CPUHP_AP_ACTIVE - 1;
++		st->target = st->state;
++	}
++
++err_cpus_write_unlock:
++	cpus_write_unlock();
++err_cpu_maps_update:
++	cpu_maps_update_done();
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(pause_cpus);
++
++int resume_cpus(struct cpumask *cpus)
++{
++	unsigned int cpu;
++	int err = 0;
++
++	cpu_maps_update_begin();
++
++	if (cpu_hotplug_disabled) {
++		err = -EBUSY;
++		goto err_cpu_maps_update;
++	}
++
++	/* Resuming an already active CPU isn't an error */
++	cpumask_andnot(cpus, cpus, cpu_active_mask);
++
++	for_each_cpu(cpu, cpus) {
++		if (!cpu_online(cpu)) {
++			err = -EBUSY;
++			goto err_cpu_maps_update;
++		}
++	}
++
++	if (cpumask_empty(cpus))
++		goto err_cpu_maps_update;
++
++	cpus_write_lock();
++
++	cpuhp_tasks_frozen = 0;
++
++	if (sched_cpus_activate(cpus)) {
++		err = -EBUSY;
++		goto err_cpus_write_unlock;
++	}
++
++	/*
++	 * see pause_cpus.
++	 */
++	for_each_cpu(cpu, cpus) {
++		struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
++
++		st->state = CPUHP_ONLINE;
++		st->target = st->state;
++	}
++
++err_cpus_write_unlock:
++	cpus_write_unlock();
++err_cpu_maps_update:
++	cpu_maps_update_done();
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(resume_cpus);
++
+ void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
+ {
+ 	unsigned int cpu;
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 9d903b82aab5..c0118dbcab6a 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6963,19 +6963,27 @@ int sched_cpu_activate(unsigned int cpu)
+ 	return 0;
+ }
+ 
+-int sched_cpu_deactivate(unsigned int cpu)
++int sched_cpus_activate(struct cpumask *cpus)
++{
++	unsigned int cpu;
++
++	for_each_cpu(cpu, cpus) {
++		if (sched_cpu_activate(cpu)) {
++			for_each_cpu_and(cpu, cpus, cpu_active_mask)
++				sched_cpu_deactivate(cpu);
++
++			return -EBUSY;
++		}
++	}
++
++	return 0;
++}
++
++int _sched_cpu_deactivate(unsigned int cpu)
+ {
+ 	int ret;
+ 
+ 	set_cpu_active(cpu, false);
+-	/*
+-	 * We've cleared cpu_active_mask, wait for all preempt-disabled and RCU
+-	 * users of this state to go away such that all new such users will
+-	 * observe it.
+-	 *
+-	 * Do sync before park smpboot threads to take care the rcu boost case.
+-	 */
+-	synchronize_rcu();
+ 
+ #ifdef CONFIG_SCHED_SMT
+ 	/*
+@@ -7000,6 +7008,43 @@ int sched_cpu_deactivate(unsigned int cpu)
+ 	return 0;
+ }
+ 
++int sched_cpu_deactivate(unsigned int cpu)
++{
++	int ret = _sched_cpu_deactivate(cpu);
++
++	if (ret)
++		return ret;
++
++	/*
++	 * We've cleared cpu_active_mask, wait for all preempt-disabled and RCU
++	 * users of this state to go away such that all new such users will
++	 * observe it.
++	 *
++	 * Do sync before park smpboot threads to take care the rcu boost case.
++	 */
++	synchronize_rcu();
++
++	return 0;
++}
++
++int sched_cpus_deactivate_nosync(struct cpumask *cpus)
++{
++	unsigned int cpu;
++
++	for_each_cpu(cpu, cpus) {
++		if (_sched_cpu_deactivate(cpu)) {
++			for_each_cpu(cpu, cpus) {
++				if (!cpu_active(cpu))
++					sched_cpu_activate(cpu);
++			}
++
++			return -EBUSY;
++		}
++	}
++
++	return 0;
++}
++
+ static void sched_rq_cpu_starting(unsigned int cpu)
+ {
+ 	struct rq *rq = cpu_rq(cpu);
+-- 
+2.17.1
+

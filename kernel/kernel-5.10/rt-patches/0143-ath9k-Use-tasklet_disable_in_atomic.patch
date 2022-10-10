@@ -1,7 +1,7 @@
-From e40053d706ec4beaa54701e6fc00176440804151 Mon Sep 17 00:00:00 2001
+From 1339115d8c836004607e6b997cecb950097c01a5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:13 +0100
-Subject: [PATCH 143/304] ath9k: Use tasklet_disable_in_atomic()
+Subject: [PATCH 143/318] ath9k: Use tasklet_disable_in_atomic()
 
 All callers of ath9k_beacon_ensure_primary_slot() are preemptible /
 acquire a mutex except for this callchain:
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/wireless/ath/ath9k/beacon.c b/drivers/net/wireless/ath/ath9k/beacon.c
-index 71e2ada..72e2e71 100644
+index 71e2ada86793..72e2e71aac0e 100644
 --- a/drivers/net/wireless/ath/ath9k/beacon.c
 +++ b/drivers/net/wireless/ath/ath9k/beacon.c
 @@ -251,7 +251,7 @@ void ath9k_beacon_ensure_primary_slot(struct ath_softc *sc)
@@ -43,5 +43,5 @@ index 71e2ada..72e2e71 100644
  	/* Find first taken slot. */
  	for (slot = 0; slot < ATH_BCBUF; slot++) {
 -- 
-2.7.4
+2.17.1
 

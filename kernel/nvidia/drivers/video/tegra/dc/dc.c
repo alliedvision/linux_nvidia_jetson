@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1422,12 +1422,17 @@ static ssize_t dbg_dc_out_type_set(struct file *file,
 			/* DSI and fake DSI use same data
 			 * create new if not created yet
 			 */
+			ret = tegra_dc_init_fakedsi_panel(dc, out_type);
+			if (ret < 0) {
+				dev_err(&dc->ndev->dev,
+				"failed to initialize fake dsi panel\n");
+				return -EINVAL;
+			}
+
 			if (!dc->pdata->default_out->depth)
 				dc->pdata->default_out->depth = 18;
 
 			allocate = true;
-			tegra_dc_init_fakedsi_panel(dc, out_type);
-
 		} else if (out_type == TEGRA_DC_OUT_NULL) {
 			if (!dc->dbg_dc_out_info[TEGRA_DC_OUT_NULL].out_data) {
 				allocate = true;
@@ -1974,7 +1979,7 @@ static int tegra_dc_topology_parse(char *buf, int nargs,
 			break;
 	}
 	/* topology's disp_id, protocol and conn_list are coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	kfree(orig_b);
 
@@ -2082,7 +2087,7 @@ static ssize_t dbg_nvdisp_topology_write(struct file *file,
 		return -EINVAL;
 	}
 	/* topology is coming from user. */
-	speculation_barrier();
+	spec_bar();
 
 	if (is_topology_reset(topology)) {
 		/* Reset topology */
@@ -6446,6 +6451,16 @@ static int tegra_dc_probe(struct platform_device *ndev)
 
 	dc->ctrl_num = dt_pdata->ctrl_num;
 
+	/* Check if DCs are being probed in the order specified in DT */
+	if (tegra_dc_is_nvdisplay() &&
+			!tegra_dc_common_check_dc_probe_seq(dc->ctrl_num)) {
+		dev_info(&ndev->dev,
+			"dc.%d probe not in device tree order, deferring\n",
+			dc->ctrl_num);
+		ret = -EPROBE_DEFER;
+		goto err_free;
+	}
+
 	base = of_iomap(np, 0);
 	if (!base) {
 		dev_err(&ndev->dev, "registers can't be mapped\n");
@@ -6933,6 +6948,10 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	dc->vedid = false;
 	dc->vedid_data = NULL;
 
+	// Increment count of probed DCs
+	if (tegra_dc_is_nvdisplay())
+		tegra_dc_common_increment_probed_dc_count();
+
 	mutex_unlock(&tegra_dc_registration_lock);
 	return 0;
 
@@ -6976,6 +6995,14 @@ err_free:
 	kfree(dc);
 	dc = NULL;
 	mutex_unlock(&tegra_dc_registration_lock);
+
+	/*
+	 * If a DC probe failed and is not going to be called again,
+	 * increment the DC probed count so that the subsequent DCs
+	 * can get probed.
+	 */
+	if (ret != -EPROBE_DEFER)
+		tegra_dc_common_increment_probed_dc_count();
 
 	return ret;
 }
@@ -7227,7 +7254,7 @@ static int __init parse_disp_params(char *options, struct tegra_dc_mode *mode)
 		}
 	}
 	/* mode configuration is coming via command line argument to kernel */
-	speculation_barrier();
+	spec_bar();
 	if (ret < 0)
 		return ret;
 

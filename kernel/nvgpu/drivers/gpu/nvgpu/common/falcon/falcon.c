@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 #include <nvgpu/timers.h>
 #include <nvgpu/falcon.h>
 #include <nvgpu/io.h>
+#include <nvgpu/soc.h>
 #include <nvgpu/static_analysis.h>
 
 #include "falcon_sw_gk20a.h"
@@ -182,6 +183,58 @@ int nvgpu_falcon_mem_scrub_wait(struct nvgpu_falcon *flcn)
 
 	return status;
 }
+
+int nvgpu_falcon_wait_for_nvriscv_brom_completion(struct nvgpu_falcon *flcn)
+{
+	struct gk20a *g;
+	u32 timeoutms = 0;
+	u32 retcode = 0;
+	int err = 0;
+
+	if (!is_falcon_valid(flcn)) {
+		return -EINVAL;
+	}
+
+	g = flcn->g;
+
+	if (nvgpu_platform_is_silicon(g)) {
+		timeoutms = NVRISCV_BR_COMPLETION_TIMEOUT_SILICON_MS;
+	} else {
+		timeoutms = NVRISCV_BR_COMPLETION_TIMEOUT_NON_SILICON_MS;
+	}
+
+	do {
+		retcode = g->ops.falcon.get_brom_retcode(flcn);
+		if (g->ops.falcon.check_brom_passed(retcode)) {
+			break;
+		}
+
+		if (g->ops.falcon.check_brom_failed(retcode)) {
+			err = -ENOTRECOVERABLE;
+			nvgpu_err(g, "Falcon-%d RISCV BROM Failed", flcn->flcn_id);
+			goto exit;
+		}
+
+		if (timeoutms <= 0) {
+			nvgpu_err(g, "Falcon-%d RISCV BROM timed out, limit: %d ms",
+					flcn->flcn_id, timeoutms);
+			err =  -ETIMEDOUT;
+			goto exit;
+		}
+
+		nvgpu_msleep(NVRISCV_BR_COMPLETION_POLLING_TIME_INTERVAL_MS);
+		timeoutms -= NVRISCV_BR_COMPLETION_POLLING_TIME_INTERVAL_MS;
+
+	} while (true);
+
+	nvgpu_falcon_dbg(flcn->g, "Falcon-%d RISCV BROM passed",
+			flcn->flcn_id);
+
+exit:
+	g->ops.falcon.dump_brom_stats(flcn);
+	return err;
+}
+
 
 static int falcon_memcpy_params_check(struct nvgpu_falcon *flcn,
 		u32 offset, u32 size, enum falcon_mem_type mem_type, u8 port)
@@ -419,6 +472,7 @@ struct nvgpu_falcon *nvgpu_falcon_get_instance(struct gk20a *g, u32 flcn_id)
 	case FALCON_ID_GSPLITE:
 		flcn = &g->gsp_flcn;
 		break;
+#ifdef CONFIG_NVGPU_DGPU
 	case FALCON_ID_NVDEC:
 		flcn = &g->nvdec_flcn;
 		break;
@@ -428,6 +482,7 @@ struct nvgpu_falcon *nvgpu_falcon_get_instance(struct gk20a *g, u32 flcn_id)
 	case FALCON_ID_MINION:
 		flcn = &g->minion_flcn;
 		break;
+#endif
 	default:
 		nvgpu_err(g, "Invalid/Unsupported falcon ID %x", flcn_id);
 		break;
@@ -637,6 +692,33 @@ void nvgpu_falcon_dump_stats(struct nvgpu_falcon *flcn)
 }
 #endif
 
+#if defined(CONFIG_NVGPU_FALCON_DEBUG) || defined(CONFIG_NVGPU_FALCON_NON_FUSA)
+int nvgpu_falcon_copy_from_dmem(struct nvgpu_falcon *flcn,
+	u32 src, u8 *dst, u32 size, u8 port)
+{
+	int status = -EINVAL;
+	struct gk20a *g;
+
+	if (!is_falcon_valid(flcn)) {
+		return -EINVAL;
+	}
+
+	g = flcn->g;
+
+	if (falcon_memcpy_params_check(flcn, src, size, MEM_DMEM, port) != 0) {
+		nvgpu_err(g, "incorrect parameters");
+		goto exit;
+	}
+
+	nvgpu_mutex_acquire(&flcn->dmem_lock);
+	status = g->ops.falcon.copy_from_dmem(flcn, src, dst, size, port);
+	nvgpu_mutex_release(&flcn->dmem_lock);
+
+exit:
+	return status;
+}
+#endif
+
 #ifdef CONFIG_NVGPU_FALCON_NON_FUSA
 int nvgpu_falcon_bootstrap(struct nvgpu_falcon *flcn, u32 boot_vector)
 {
@@ -676,31 +758,6 @@ int nvgpu_falcon_clear_halt_intr_status(struct nvgpu_falcon *flcn,
 		status = -ETIMEDOUT;
 	}
 
-	return status;
-}
-
-int nvgpu_falcon_copy_from_dmem(struct nvgpu_falcon *flcn,
-	u32 src, u8 *dst, u32 size, u8 port)
-{
-	int status = -EINVAL;
-	struct gk20a *g;
-
-	if (!is_falcon_valid(flcn)) {
-		return -EINVAL;
-	}
-
-	g = flcn->g;
-
-	if (falcon_memcpy_params_check(flcn, src, size, MEM_DMEM, port) != 0) {
-		nvgpu_err(g, "incorrect parameters");
-		goto exit;
-	}
-
-	nvgpu_mutex_acquire(&flcn->dmem_lock);
-	status = g->ops.falcon.copy_from_dmem(flcn, src, dst, size, port);
-	nvgpu_mutex_release(&flcn->dmem_lock);
-
-exit:
 	return status;
 }
 

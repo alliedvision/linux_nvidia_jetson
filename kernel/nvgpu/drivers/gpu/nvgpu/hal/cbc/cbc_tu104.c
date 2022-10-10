@@ -1,7 +1,7 @@
 /*
  * TU104 CBC
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -213,11 +213,4 @@ out:
 #endif
 	nvgpu_mutex_release(&g->mm.l2_op_lock);
 	return err;
-}
-
-void tu104_cbc_init(struct gk20a *g, struct nvgpu_cbc *cbc)
-{
-	g->ops.fb.cbc_configure(g, cbc);
-	g->ops.cbc.ctrl(g, nvgpu_cbc_op_invalidate,
-			0, cbc->max_comptag_lines - 1U);
 }

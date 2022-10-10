@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,22 +67,22 @@ static int rpc_send_message(struct gk20a *g)
 {
 	/* calculations done in units of u32s */
 	u32 send_base = sim_send_put_pointer_v(g->sim->send_ring_put) * 2;
-	u32 dma_offset = send_base + sim_dma_r()/sizeof(u32);
-	u32 dma_hi_offset = send_base + sim_dma_hi_r()/sizeof(u32);
+	u32 dma_offset = send_base + sim_dma_r()/(u32)sizeof(u32);
+	u32 dma_hi_offset = send_base + sim_dma_hi_r()/4U;
 
-	*sim_send_ring_bfr(g, dma_offset*sizeof(u32)) =
+	*sim_send_ring_bfr(g, dma_offset*4U) =
 		sim_dma_target_phys_pci_coherent_f() |
 		sim_dma_status_valid_f() |
 		sim_dma_size_4kb_f() |
-		sim_dma_addr_lo_f(nvgpu_mem_get_phys_addr(g, &g->sim->msg_bfr)
-				>> sim_dma_addr_lo_b());
+		sim_dma_addr_lo_f((u32)(nvgpu_mem_get_phys_addr(g, &g->sim->msg_bfr)
+				>> sim_dma_addr_lo_b()));
 
-	*sim_send_ring_bfr(g, dma_hi_offset*sizeof(u32)) =
+	*sim_send_ring_bfr(g, dma_hi_offset*4U) =
 		u64_hi32(nvgpu_mem_get_phys_addr(g, &g->sim->msg_bfr));
 
 	*sim_msg_hdr(g, sim_msg_sequence_r()) = g->sim->sequence_base++;
 
-	g->sim->send_ring_put = (g->sim->send_ring_put + 2 * sizeof(u32)) %
+	g->sim->send_ring_put = (g->sim->send_ring_put + 2 * 4U) %
 		SIM_BFR_SIZE;
 
 	/* Update the put pointer. This will trap into the host. */
@@ -130,7 +130,7 @@ static int rpc_recv_poll(struct gk20a *g)
 		}
 
 		/* Update GET pointer */
-		g->sim->recv_ring_get = (g->sim->recv_ring_get + 2*sizeof(u32))
+		g->sim->recv_ring_get = (g->sim->recv_ring_get + 2*4U)
 			% SIM_BFR_SIZE;
 
 		sim_writel(g->sim, sim_recv_get_r(), g->sim->recv_ring_get);
@@ -175,8 +175,8 @@ static void nvgpu_sim_esc_readl(struct gk20a *g,
 	pci_sim_write_hdr(g, sim_msg_function_sim_escape_read_v(),
 		      sim_escape_read_hdr_size());
 	*pci_sim_msg_param(g, 0) = index;
-	*pci_sim_msg_param(g, 4) = sizeof(u32);
-	data_offset = round_up(pathlen + 1, sizeof(u32));
+	*pci_sim_msg_param(g, 4) = 4U;
+	data_offset = (u32)(round_up(pathlen + 1, 4U));
 	*pci_sim_msg_param(g, 8) = data_offset;
 	strcpy((char *)pci_sim_msg_param(g, sim_escape_read_hdr_size()), path);
 
@@ -187,7 +187,7 @@ static void nvgpu_sim_esc_readl(struct gk20a *g,
 			(u8 *)pci_sim_msg_param(g,
 				nvgpu_safe_add_u32(data_offset,
 					sim_escape_read_hdr_size())),
-			sizeof(u32));
+			4U);
 	} else {
 		*data = 0xffffffff;
 		WARN(1, "pci_issue_rpc_and_wait failed err=%d", err);
@@ -229,7 +229,7 @@ static int nvgpu_sim_init_late(struct gk20a *g)
 		   sim_send_ring_status_valid_f() |
 		   sim_send_ring_target_phys_pci_coherent_f() |
 		   sim_send_ring_size_4kb_f() |
-		   sim_send_ring_addr_lo_f(phys >> sim_send_ring_addr_lo_b()));
+		   sim_send_ring_addr_lo_f((u32)(phys >> sim_send_ring_addr_lo_b())));
 
 	/* repeat for recv ring (but swap put,get as roles are opposite) */
 	sim_writel(g->sim, sim_recv_ring_r(), sim_recv_ring_status_invalid_f());
@@ -246,7 +246,7 @@ static int nvgpu_sim_init_late(struct gk20a *g)
 		   sim_recv_ring_status_valid_f() |
 		   sim_recv_ring_target_phys_pci_coherent_f() |
 		   sim_recv_ring_size_4kb_f() |
-		   sim_recv_ring_addr_lo_f(phys >> sim_recv_ring_addr_lo_b()));
+		   sim_recv_ring_addr_lo_f((u32)(phys >> sim_recv_ring_addr_lo_b())));
 
 	return 0;
  fail:

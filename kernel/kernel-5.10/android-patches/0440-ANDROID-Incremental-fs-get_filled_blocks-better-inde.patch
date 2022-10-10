@@ -1,0 +1,186 @@
+From 7361ea7006d0fad5fc71f84a6d1b6a7652af9b0e Mon Sep 17 00:00:00 2001
+From: Yurii Zubrytskyi <zyy@google.com>
+Date: Sun, 29 Mar 2020 14:13:32 -0700
+Subject: [PATCH 440/830] ANDROID: Incremental fs: get_filled_blocks: better
+ index_out
+X-NVConfidentiality: public
+
+When returning incomplete results index_out has to be usable to
+call the function again and resume from the same location. This
+means that if the output buffer was too small the function needs
+to check for that when encountering the _beginning_ of a next
+output range, not the end of it. Otherwise resuming from the
+end of the range that didn't fit into the buffer would cause
+the call to never return that range
+
++ Make the backing file header flags update thread safe
+
+Bug: 152691988
+Test: libincfs-test, incfs_test passes
+Signed-off-by: Yurii Zubrytskyi <zyy@google.com>
+Change-Id: I351156beba0b74e1942a39117279d3fcdb5e0c78
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ fs/incfs/data_mgmt.c | 69 +++++++++++++++++++++++++++++++++++++-------
+ fs/incfs/format.c    |  2 +-
+ fs/incfs/format.h    |  2 +-
+ 3 files changed, 61 insertions(+), 12 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 6661ac3b52da..15462b452d59 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -371,11 +371,19 @@ static int get_data_file_block(struct data_file *df, int index,
+ 	return 0;
+ }
+ 
++static int check_room_for_one_range(u32 size, u32 size_out)
++{
++	if (size_out + sizeof(struct incfs_filled_range) > size)
++		return -ERANGE;
++	return 0;
++}
++
+ static int copy_one_range(struct incfs_filled_range *range, void __user *buffer,
+ 			  u32 size, u32 *size_out)
+ {
+-	if (*size_out + sizeof(*range) > size)
+-		return -ERANGE;
++	int error = check_room_for_one_range(size, *size_out);
++	if (error)
++		return error;
+ 
+ 	if (copy_to_user(((char *)buffer) + *size_out, range, sizeof(*range)))
+ 		return -EFAULT;
+@@ -384,6 +392,34 @@ static int copy_one_range(struct incfs_filled_range *range, void __user *buffer,
+ 	return 0;
+ }
+ 
++static int update_file_header_flags(struct data_file *df, u32 bits_to_reset,
++				    u32 bits_to_set)
++{
++	int result;
++	u32 new_flags;
++	struct backing_file_context *bfc;
++
++	if (!df)
++		return -EFAULT;
++	bfc = df->df_backing_file_context;
++	if (!bfc)
++		return -EFAULT;
++
++	result = mutex_lock_interruptible(&bfc->bc_mutex);
++	if (result)
++		return result;
++
++	new_flags = (df->df_header_flags & ~bits_to_reset) | bits_to_set;
++	if (new_flags != df->df_header_flags) {
++		df->df_header_flags = new_flags;
++		result = incfs_write_file_header_flags(bfc, new_flags);
++	}
++
++	mutex_unlock(&bfc->bc_mutex);
++
++	return result;
++}
++
+ int incfs_get_filled_blocks(struct data_file *df,
+ 			    struct incfs_get_filled_blocks_args *arg)
+ {
+@@ -407,14 +443,22 @@ int incfs_get_filled_blocks(struct data_file *df,
+ 			arg->index_out = arg->start_index;
+ 			return 0;
+ 		}
++		arg->index_out = arg->start_index;
++
++		error = check_room_for_one_range(size, *size_out);
++		if (error)
++			return error;
+ 
+ 		range = (struct incfs_filled_range){
+ 			.begin = arg->start_index,
+ 			.end = end_index,
+ 		};
+ 
++		error = copy_one_range(&range, buffer, size, size_out);
++		if (error)
++			return error;
+ 		arg->index_out = end_index;
+-		return copy_one_range(&range, buffer, size, size_out);
++		return 0;
+ 	}
+ 
+ 	for (arg->index_out = arg->start_index; arg->index_out < end_index;
+@@ -429,13 +473,20 @@ int incfs_get_filled_blocks(struct data_file *df,
+ 			continue;
+ 
+ 		if (!in_range) {
++			error = check_room_for_one_range(size, *size_out);
++			if (error)
++				break;
+ 			in_range = true;
+ 			range.begin = arg->index_out;
+ 		} else {
+ 			range.end = arg->index_out;
+ 			error = copy_one_range(&range, buffer, size, size_out);
+-			if (error)
++			if (error) {
++				/* there will be another try out of the loop,
++				 * it will reset the index_out if it fails too
++				 */
+ 				break;
++			}
+ 			in_range = false;
+ 		}
+ 	}
+@@ -443,17 +494,15 @@ int incfs_get_filled_blocks(struct data_file *df,
+ 	if (in_range) {
+ 		range.end = arg->index_out;
+ 		error = copy_one_range(&range, buffer, size, size_out);
++		if (error)
++			arg->index_out = range.begin;
+ 	}
+ 
+ 	if (!error && in_range && arg->start_index == 0 &&
+ 	    end_index == df->df_total_block_count &&
+ 	    *size_out == sizeof(struct incfs_filled_range)) {
+-		int result;
+-
+-		df->df_header_flags |= INCFS_FILE_COMPLETE;
+-		result = incfs_update_file_header_flags(
+-			df->df_backing_file_context, df->df_header_flags);
+-
++		int result =
++			update_file_header_flags(df, 0, INCFS_FILE_COMPLETE);
+ 		/* Log failure only, since it's just a failed optimization */
+ 		pr_debug("Marked file full with result %d", result);
+ 	}
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 96f4e3d54f58..1a7c4646a291 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -215,7 +215,7 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
+ 	return result;
+ }
+ 
+-int incfs_update_file_header_flags(struct backing_file_context *bfc, u32 flags)
++int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags)
+ {
+ 	if (!bfc)
+ 		return -EFAULT;
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index f84a4e00d9f6..f1095dc3c3dd 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -311,7 +311,7 @@ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 					  struct mem_range sig, u32 tree_size);
+ 
+-int incfs_update_file_header_flags(struct backing_file_context *bfc, u32 flags);
++int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
+ 
+ int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+ 				  incfs_uuid_t *uuid, u64 file_size);
+-- 
+2.17.1
+

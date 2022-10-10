@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,5 +29,6 @@ struct gk20a;
 
 u32 gv11b_runlist_count_max(struct gk20a *g)
 {
+	(void)g;
 	return fifo_eng_runlist_base__size_1_v();
 }

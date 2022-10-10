@@ -22,19 +22,4 @@
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 	compatible = "nvidia,jetson-xavier-industrial", "nvidia,tegra194";
 	model = "Jetson-AGXi";
-
-	sce@b000000 {
-		status = "okay";
-		hsp {
-			nvidia,hsp-shared-mailbox = <&sce_hsp 0>;
-		};
-	};
-
-	tegra-hsp@b150000 {
-		status = "okay";
-	};
-
-	psci {
-		nvidia,system-lp0-disable;
-	};
 };

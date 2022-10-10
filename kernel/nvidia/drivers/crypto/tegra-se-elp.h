@@ -1,7 +1,7 @@
 /*
  * Header file for Tegra Security Elliptic Engine
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -732,5 +732,8 @@ static struct tegra_se_ecc_curve edcurve_p256 = {
 #define TEGRA_SE_PKA1_KEYSLOT_ADDR_WORD_SHIFT	0
 #define TEGRA_SE_PKA1_KEYSLOT_ADDR_WORD(x)	\
 				(x << TEGRA_SE_PKA1_KEYSLOT_ADDR_WORD_SHIFT)
+
+struct tegra_se_pka1_ecc_request;
+int tegra_se_pka1_ecc_op(struct tegra_se_pka1_ecc_request *req);
 
 #endif /* _CRYPTO_TEGRA_SE_ELP_H */

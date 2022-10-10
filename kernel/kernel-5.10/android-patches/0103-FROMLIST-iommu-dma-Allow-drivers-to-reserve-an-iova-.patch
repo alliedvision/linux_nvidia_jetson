@@ -1,0 +1,91 @@
+From 5ef94ff6e3557199f764e1717facb030c34b72d1 Mon Sep 17 00:00:00 2001
+From: Patrick Daly <pdaly@codeaurora.org>
+Date: Wed, 26 Feb 2020 13:52:06 -0800
+Subject: [PATCH 103/830] FROMLIST: iommu/dma: Allow drivers to reserve an iova
+ range
+X-NVConfidentiality: public
+
+Some devices have a memory map which contains gaps or holes.
+In order for the device to have as much IOVA space as possible,
+allow its driver to inform the DMA-IOMMU layer that it should
+not allocate addresses from these holes.
+
+Bug: 149544395
+Link: https://lore.kernel.org/lkml/20200220185728.GA32137@pratikp-lnx/
+Change-Id: I15bd1d313d889c2572d0eb2adecf6bebde3267f7
+Signed-off-by: Patrick Daly <pdaly@codeaurora.org>
+Signed-off-by: Isaac J. Manjarres <isaacm@codeaurora.org>
+Signed-off-by: Chris Goldsworthy <cgoldswo@codeaurora.org>
+---
+ drivers/iommu/dma-iommu.c | 28 ++++++++++++++++++++++++++++
+ include/linux/dma-iommu.h |  9 +++++++++
+ 2 files changed, 37 insertions(+)
+
+diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
+index 5dc924912ecb..85a7943daf29 100644
+--- a/drivers/iommu/dma-iommu.c
++++ b/drivers/iommu/dma-iommu.c
+@@ -376,6 +376,34 @@ static int iommu_dma_deferred_attach(struct device *dev,
+ 	return 0;
+ }
+ 
++/*
++ * Should be called prior to using dma-apis
++ */
++int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
++			   u64 size)
++{
++	struct iommu_domain *domain;
++	struct iommu_dma_cookie *cookie;
++	struct iova_domain *iovad;
++	unsigned long pfn_lo, pfn_hi;
++
++	domain = iommu_get_domain_for_dev(dev);
++	if (!domain || !domain->iova_cookie)
++		return -EINVAL;
++
++	cookie = domain->iova_cookie;
++	iovad = &cookie->iovad;
++
++	/* iova will be freed automatically by put_iova_domain() */
++	pfn_lo = iova_pfn(iovad, base);
++	pfn_hi = iova_pfn(iovad, base + size - 1);
++	if (!reserve_iova(iovad, pfn_lo, pfn_hi))
++		return -EINVAL;
++
++	return 0;
++}
++EXPORT_SYMBOL(iommu_dma_reserve_iova);
++
+ /**
+  * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
+  *                    page flags.
+diff --git a/include/linux/dma-iommu.h b/include/linux/dma-iommu.h
+index 6c2752546025..2e36760d7531 100644
+--- a/include/linux/dma-iommu.h
++++ b/include/linux/dma-iommu.h
+@@ -44,6 +44,9 @@ void iommu_dma_unmap_msi_pages(struct device *dev, phys_addr_t msi_base,
+ 		int irq, unsigned int nr_irqs);
+ void iommu_dma_get_resv_regions(struct device *dev, struct list_head *list);
+ 
++int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
++			   u64 size);
++
+ #else /* CONFIG_IOMMU_DMA */
+ 
+ struct iommu_domain;
+@@ -104,5 +107,11 @@ static inline void iommu_dma_get_resv_regions(struct device *dev, struct list_he
+ {
+ }
+ 
++static inline int iommu_dma_reserve_iova(struct device *dev, dma_addr_t base,
++					 u64 size)
++{
++	return -ENODEV;
++}
++
+ #endif	/* CONFIG_IOMMU_DMA */
+ #endif	/* __DMA_IOMMU_H */
+-- 
+2.17.1
+

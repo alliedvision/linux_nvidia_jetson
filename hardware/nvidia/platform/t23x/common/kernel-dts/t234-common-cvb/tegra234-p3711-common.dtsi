@@ -19,6 +19,7 @@
 #include <t234-common-cvb/tegra234-p3711-display.dtsi>
 #include <t234-common-cvb/tegra234-p3711-pcie.dtsi>
 #include <t234-common-cvb/tegra234-p3711-ethernet.dtsi>
+#include <t234-common-cvb/tegra234-p3711-usb.dtsi>
 
 / {
 	gpio-keys {

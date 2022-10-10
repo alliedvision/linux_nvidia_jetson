@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra CSI Device
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -38,7 +38,6 @@
 
 #include "soc/tegra/camrtc-capture.h"
 #include <uapi/linux/nvhost_nvcsi_ioctl.h>
-#include "nvcsi/nvcsi.h"
 #include "nvcsi/deskew.h"
 
 #define DEFAULT_NUM_TPG_CHANNELS 6
@@ -475,8 +474,14 @@ static struct v4l2_mbus_framefmt tegra_csi_tpg_fmts[] = {
 		MEDIA_BUS_FMT_RGB888_1X32_PADHI,
 		V4L2_FIELD_NONE,
 		V4L2_COLORSPACE_SRGB
-	}
-
+	},
+	{
+		TEGRA_DEF_WIDTH,
+		TEGRA_DEF_HEIGHT,
+		MEDIA_BUS_FMT_UYVY8_1X16,
+		V4L2_FIELD_NONE,
+		V4L2_COLORSPACE_SRGB
+	},
 };
 
 static struct v4l2_frmsize_discrete tegra_csi_tpg_sizes[] = {
@@ -711,6 +716,17 @@ static int tegra_csi_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int tegra_csi_enum_mbus_code(struct v4l2_subdev *sd,
+				struct v4l2_subdev_pad_config *cfg,
+				struct v4l2_subdev_mbus_code_enum *code)
+{
+	if (code->index >= ARRAY_SIZE(tegra_csi_tpg_fmts))
+		return -EINVAL;
+
+	code->code = tegra_csi_tpg_fmts[code->index].code;
+	return 0;
+}
+
 /* -----------------------------------------------------------------------------
  * V4L2 Subdevice Operations
  */
@@ -723,6 +739,7 @@ static struct v4l2_subdev_video_ops tegra_csi_video_ops = {
 static struct v4l2_subdev_pad_ops tegra_csi_pad_ops = {
 	.get_fmt	= tegra_csi_get_format,
 	.set_fmt	= tegra_csi_set_format,
+	.enum_mbus_code = tegra_csi_enum_mbus_code,
 	.enum_frame_size = tegra_csi_enum_framesizes,
 	.enum_frame_interval = tegra_csi_enum_frameintervals,
 };
@@ -759,7 +776,8 @@ static int tegra_csi_get_port_info(struct tegra_csi_channel *chan,
 	struct device_node *chan_dt;
 
 	int value = 0xFFFF;
-	int ret = 0, i;
+	int ret = 0;
+	u32 i = 0;
 
 	memset(&chan->port[0], INVALID_CSI_PORT, TEGRA_CSI_BLOCKS);
 	for_each_child_of_node(node, chan_dt) {
@@ -814,7 +832,7 @@ static int tegra_csi_get_port_info(struct tegra_csi_channel *chan,
 			 * bricks to add as many ports necessary.
 			 */
 			value -= 4;
-			for (i = 1; value > 0; i++, value -= 4) {
+			for (i = 1; value > 0 && i < TEGRA_CSI_BLOCKS; i++, value -= 4) {
 				int next_port = chan->port[i-1] + 2;
 
 				next_port = (next_port % (NVCSI_PORT_H + 1));
@@ -915,11 +933,14 @@ static int tegra_csi_channel_init_one(struct tegra_csi_channel *chan)
 		chan->pads[0].flags = MEDIA_PAD_FL_SINK;
 		chan->pads[1].flags = MEDIA_PAD_FL_SOURCE;
 	}
-	snprintf(sd->name, sizeof(sd->name), "%s-%d",
+	ret = snprintf(sd->name, sizeof(sd->name), "%s-%d",
 			 chan->pg_mode ? "tpg" :
 			 (strlen(csi->devname) == 0 ?
 			  dev_name(csi->dev) : csi->devname),
 			  (chan->id - csi->num_channels));
+	if (ret < 0)
+		return -EINVAL;
+
 	/* Initialize media entity */
 	ret = tegra_media_entity_init(&sd->entity, chan->pg_mode ? 1 : 2,
 				chan->pads, true, false);

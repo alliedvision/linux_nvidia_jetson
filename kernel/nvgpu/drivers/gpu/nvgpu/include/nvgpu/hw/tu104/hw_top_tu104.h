@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -75,6 +75,8 @@
 #define top_num_ltcs_value_v(r)                            (((r) >> 0U) & 0x1fU)
 #define top_num_ces_r()                                            (0x00022444U)
 #define top_num_ces_value_v(r)                             (((r) >> 0U) & 0x1fU)
+#define top_num_pes_per_gpc_r()                                    (0x00022460U)
+#define top_num_pes_per_gpc_value_v(r)                     (((r) >> 0U) & 0x1fU)
 #define top_device_info_r(i)\
 		(nvgpu_safe_add_u32(0x00022700U, nvgpu_safe_mult_u32((i), 4U)))
 #define top_device_info__size_1_v()                                (0x00000040U)

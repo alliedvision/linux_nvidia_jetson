@@ -70,6 +70,16 @@ int gv11b_lts_ecc_init(struct gk20a *g)
 		goto done;
 	}
 
+	err = NVGPU_ECC_COUNTER_INIT_PER_LTS(tstg_ecc_parity_count);
+	if (err != 0) {
+		goto done;
+	}
+
+	err = NVGPU_ECC_COUNTER_INIT_PER_LTS(dstg_be_ecc_parity_count);
+	if (err != 0) {
+		goto done;
+	}
+
 done:
 	if (err != 0) {
 		nvgpu_err(g, "ecc counter allocate failed, err=%d", err);

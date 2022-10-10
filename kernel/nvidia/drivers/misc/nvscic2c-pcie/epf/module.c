@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -55,19 +55,6 @@ static const struct pci_epf_device_id nvscic2c_pcie_epf_ids[] = {
 	{},
 };
 
-/* nvscic2c-pcie epf specific context. */
-struct epf_context_t {
-	/* register for notifier only once.*/
-	bool notifier_registered;
-
-	/* pci-epf header.*/
-	struct pci_epf_header header;
-
-	/* to initialize NvSciC2cPcie interfaces on bootstrap msg.*/
-	void *drv_ctx;
-	struct work_struct initialization_work;
-};
-
 /* wrapper over tegra-pcie-edma init api. */
 static int
 edma_module_init(struct driver_ctx_t *drv_ctx)
@@ -82,9 +69,11 @@ edma_module_init(struct driver_ctx_t *drv_ctx)
 	memset(&info, 0x0, sizeof(info));
 	info.np = drv_ctx->drv_param.edma_np;
 	info.edma_remote = NULL;
-	for (i = 0; i < DMA_WR_CHNL_NUM; i++)
-		info.tx[i].ch_type = EDMA_CHAN_XFER_ASYNC;
 
+	for (i = 0; i < DMA_WR_CHNL_NUM; i++) {
+		info.tx[i].ch_type = EDMA_CHAN_XFER_ASYNC;
+		info.tx[i].num_descriptors = NUM_EDMA_DESC;
+	}
 	/*No use-case for RD channels.*/
 
 	drv_ctx->edma_h = tegra_pcie_edma_initialize(&info);
@@ -129,8 +118,8 @@ allocate_inbound_area(struct pci_epf *epf, size_t win_size,
 
 	self_mem->size = win_size;
 	self_mem->dma_handle =
-		 iommu_dma_alloc_iova(epf->epc->dev.parent, self_mem->size,
-				      epf->epc->dev.parent->coherent_dma_mask);
+		iommu_dma_alloc_iova(epf->epc->dev.parent, self_mem->size,
+				     epf->epc->dev.parent->coherent_dma_mask);
 	if (!self_mem->dma_handle) {
 		ret = -ENOMEM;
 		pr_err("iommu_dma_alloc_iova() failed for size:(0x%lx)\n",
@@ -206,6 +195,12 @@ set_inbound_translation(struct pci_epf *epf)
 		return ret;
 	}
 
+	ret = pci_epc_set_msi(epc, epf->func_no, epf->msi_interrupts);
+	if (ret) {
+		pr_err("pci_epc_set_msi() failed\n");
+		return ret;
+	}
+
 	return ret;
 }
 
@@ -221,6 +216,20 @@ set_outbound_translation(struct pci_epf *epf, struct pci_aper_t *peer_mem,
 {
 	return pci_epc_map_addr(epf->epc, epf->func_no, peer_mem->aper,
 				peer_iova, peer_mem->size);
+}
+
+static void
+edma_rx_desc_iova_send(struct driver_ctx_t *drv_ctx)
+{
+	int ret;
+	struct comm_msg msg = {0};
+
+	msg.type = COMM_MSG_TYPE_EDMA_RX_DESC_IOVA_RETURN;
+	msg.u.edma_rx_desc_iova.iova = pci_client_get_edma_rx_desc_iova(drv_ctx->pci_client_h);
+
+	ret = comm_channel_edma_rx_desc_iova_send(drv_ctx->comm_channel_h, &msg);
+	if (ret)
+		pr_err("failed sending COMM_MSG_TYPE_EDMA_CH_DESC_IOVA_RETURN  message\n");
 }
 
 /* Handle bootstrap message from @DRV_MODE_EPC. */
@@ -261,6 +270,10 @@ bootstrap_msg_cb(void *data, void *ctx)
 	 * then).
 	 */
 	epf_ctx = (struct epf_context_t *)drv_ctx->epf_ctx;
+	pci_client_save_peer_cpu(drv_ctx->pci_client_h, msg->u.bootstrap.peer_cpu);
+	/* send edma rx desc iova  to x86 peer(rp) */
+	if (msg->u.bootstrap.peer_cpu == NVCPU_X86_64)
+		edma_rx_desc_iova_send(drv_ctx);
 	schedule_work(&epf_ctx->initialization_work);
 }
 
@@ -335,6 +348,50 @@ nvscic2c_pcie_epf_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static void
+nvscic2c_pcie_core_deinit(struct pci_epf *epf)
+{
+	struct driver_ctx_t *drv_ctx = NULL;
+
+	if (!epf)
+		return;
+
+	drv_ctx = epf_get_drvdata(epf);
+	if (!drv_ctx)
+		return;
+
+	pci_client_change_link_status(drv_ctx->pci_client_h,
+				      NVSCIC2C_PCIE_LINK_DOWN);
+	endpoints_core_deinit(drv_ctx->endpoints_h);
+	edma_module_deinit(drv_ctx);
+}
+
+/*
+ * PCIe subsystem sends CORE_DEINIT when RP controller goes down.
+ */
+static int
+nvscic2c_pcie_epf_block_notifier(struct notifier_block *nb,
+				 unsigned long val, void *data)
+{
+	struct pci_epf *epf = NULL;
+
+	if (WARN_ON(!nb))
+		return -EINVAL;
+	epf = container_of(nb, struct pci_epf, block_nb);
+
+	switch (val) {
+	case CORE_DEINIT:
+		nvscic2c_pcie_core_deinit(epf);
+		break;
+
+	default:
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_OK;
+
+}
+
 /*
  * ASSUMPTION: applications on and @DRV_MODE_EPC(PCIe RP) must have stopped
  * communicating with application and @DRV_MODE_EPF (this) before this point.
@@ -353,10 +410,10 @@ nvscic2c_pcie_epf_unbind(struct pci_epf *epf)
 
 	pci_client_change_link_status(drv_ctx->pci_client_h,
 				      NVSCIC2C_PCIE_LINK_DOWN);
+	endpoints_release(&drv_ctx->endpoints_h);
+	edma_module_deinit(drv_ctx);
 	clear_inbound_translation(epf);
 	clear_outbound_translation(epf, &drv_ctx->peer_mem);
-	endpoints_release(&drv_ctx->endpoints_h);
-	edma_module_deinit(drv_ctx->edma_h);
 	vmap_deinit(&drv_ctx->vmap_h);
 	comm_channel_deinit(&drv_ctx->comm_channel_h);
 	pci_client_deinit(&drv_ctx->pci_client_h);
@@ -408,7 +465,7 @@ nvscic2c_pcie_epf_bind(struct pci_epf *epf)
 		pr_err("pci_client_init() failed\n");
 		goto err_pci_client;
 	}
-
+	pci_client_save_driver_ctx(drv_ctx->pci_client_h, drv_ctx);
 	/*
 	 * setup of comm-channel must be done in bind() for @DRV_MODE_EPC
 	 * to share bootstrap message. register for message from @DRV_MODE_EPC
@@ -444,6 +501,8 @@ nvscic2c_pcie_epf_bind(struct pci_epf *epf)
 	if (!epf_ctx->notifier_registered) {
 		epf->nb.notifier_call = nvscic2c_pcie_epf_notifier;
 		pci_epc_register_notifier(epf->epc, &epf->nb);
+		epf->block_nb.notifier_call = nvscic2c_pcie_epf_block_notifier;
+		pci_epc_register_block_notifier(epf->epc, &epf->block_nb);
 		epf_ctx->notifier_registered = true;
 	}
 
@@ -469,11 +528,12 @@ static int
 nvscic2c_pcie_epf_remove(struct pci_epf *epf)
 {
 	struct driver_ctx_t *drv_ctx = epf_get_drvdata(epf);
-	struct epf_context_t *epf_ctx = drv_ctx->epf_ctx;
+	struct epf_context_t *epf_ctx = NULL;
 
 	if (!drv_ctx)
 		return 0;
 
+	epf_ctx = drv_ctx->epf_ctx;
 	cancel_work_sync(&epf_ctx->initialization_work);
 	epf->header = NULL;
 	kfree(drv_ctx->epf_ctx);
@@ -549,6 +609,7 @@ nvscic2c_pcie_epf_probe(struct pci_epf *epf)
 
 	/* to initialize NvSciC2cPcie interfaces on bootstrap msg.*/
 	epf_ctx->drv_ctx = drv_ctx;
+	epf_ctx->epf = epf;
 	INIT_WORK(&epf_ctx->initialization_work, init_work);
 
 	return ret;

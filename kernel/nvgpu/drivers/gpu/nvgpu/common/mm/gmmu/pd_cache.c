@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 #include <nvgpu/gk20a.h>
 #include <nvgpu/enabled.h>
 #include <nvgpu/static_analysis.h>
+#include <nvgpu/string.h>
 
 #include "pd_cache_priv.h"
 
@@ -51,8 +52,12 @@ nvgpu_pd_mem_entry_from_tree_entry(struct nvgpu_rbtree_node *node)
 
 static u32 nvgpu_pd_cache_nr(u32 bytes)
 {
-	unsigned long tmp = ilog2((unsigned long)bytes >>
-			((unsigned long)NVGPU_PD_CACHE_MIN_SHIFT - 1UL));
+	unsigned long bytes_shift = (unsigned long)bytes >>
+			((unsigned long)NVGPU_PD_CACHE_MIN_SHIFT - 1UL);
+	unsigned long tmp;
+
+	nvgpu_assert(bytes_shift > 0UL);
+	tmp = nvgpu_ilog2(bytes_shift);
 
 	nvgpu_assert(tmp <= U32_MAX);
 	return (u32)tmp;
@@ -60,7 +65,7 @@ static u32 nvgpu_pd_cache_nr(u32 bytes)
 
 static u32 nvgpu_pd_cache_get_nr_entries(struct nvgpu_pd_mem_entry *pentry)
 {
-	BUG_ON(pentry->pd_size == 0);
+	BUG_ON(pentry->pd_size == 0U);
 
 	return (nvgpu_safe_cast_u64_to_u32(NVGPU_PD_CACHE_SIZE)) /
 			pentry->pd_size;

@@ -1,0 +1,35 @@
+From ad4362d4abf7a0e192f8f17991163cb240e5c2a1 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Tue, 3 Nov 2020 11:54:02 +0000
+Subject: [PATCH 196/830] ANDROID: sched/rt: cpu_active_mask intersection
+X-NVConfidentiality: public
+
+In the event of a partial hotunplug, a stable state with a CPU set in the
+online mask but cleared in the active can happen. This is problematic for
+the window between the active mask clearing and the sched domains rebuild.
+RT could bounce back a task, migrated off a hotunplugged CPU. Introducing
+an intersection between lowest_mask and the cpu_active_mask to prevent a
+such situation.
+
+Bug: 161210528
+Change-Id: I4f8cb782c2ca560c297b7f4bdb2336918c83a5a1
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ kernel/sched/cpupri.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/sched/cpupri.c b/kernel/sched/cpupri.c
+index 69bc0de4d2eb..46347aaf5c1b 100644
+--- a/kernel/sched/cpupri.c
++++ b/kernel/sched/cpupri.c
+@@ -99,6 +99,7 @@ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
+ 
+ 	if (lowest_mask) {
+ 		cpumask_and(lowest_mask, p->cpus_ptr, vec->mask);
++		cpumask_and(lowest_mask, lowest_mask, cpu_active_mask);
+ 
+ #ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
+ 		if (drop_nopreempts)
+-- 
+2.17.1
+

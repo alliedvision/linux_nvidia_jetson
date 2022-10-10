@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,8 @@
 #include <nvgpu/timers.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/bug.h>
+#include <nvgpu/nvgpu_err.h>
+#include <nvgpu/power_features/cg.h>
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
 #include <nvgpu/gsp.h>
 #include <nvgpu/string.h>
@@ -56,7 +58,67 @@ int ga10b_gsp_engine_reset(struct gk20a *g)
 	gk20a_writel(g, pgsp_falcon_engine_r(),
 		pgsp_falcon_engine_reset_false_f());
 
+	/* Load SLCG prod values for GSP */
+	nvgpu_cg_slcg_gsp_load_enable(g, true);
+
 	return 0;
+}
+
+static int ga10b_gsp_handle_ecc(struct gk20a *g, u32 ecc_status)
+{
+	int ret = 0;
+
+	if ((ecc_status &
+		pgsp_falcon_ecc_status_uncorrected_err_imem_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_GSP_ACR,
+					GPU_GSP_ACR_IMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "imem ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pgsp_falcon_ecc_status_uncorrected_err_dmem_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_GSP_ACR,
+					GPU_GSP_ACR_DMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "dmem ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pgsp_falcon_ecc_status_uncorrected_err_dcls_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_GSP_ACR,
+					GPU_GSP_ACR_DCLS_UNCORRECTED);
+		nvgpu_err(g, "dcls ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pgsp_falcon_ecc_status_uncorrected_err_reg_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_GSP_ACR,
+					GPU_GSP_ACR_REG_ECC_UNCORRECTED);
+		nvgpu_err(g, "reg ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	if ((ecc_status &
+		pgsp_falcon_ecc_status_uncorrected_err_emem_m()) != 0U) {
+		nvgpu_report_err_to_sdl(g, NVGPU_ERR_MODULE_GSP_ACR,
+					GPU_GSP_ACR_EMEM_ECC_UNCORRECTED);
+		nvgpu_err(g, "emem ecc error uncorrected");
+		ret = -EFAULT;
+	}
+
+	return ret;
+}
+
+bool ga10b_gsp_validate_mem_integrity(struct gk20a *g)
+{
+	u32 ecc_status;
+
+	ecc_status = nvgpu_readl(g, pgsp_falcon_ecc_status_r());
+
+	return ((ga10b_gsp_handle_ecc(g, ecc_status) == 0) ? true :
+			false);
 }
 
 #ifdef CONFIG_NVGPU_GSP_SCHEDULER
@@ -141,7 +203,7 @@ static void ga10b_gsp_clr_intr(struct gk20a *g, u32 intr)
 	gk20a_writel(g, pgsp_falcon_irqsclr_r(), intr);
 }
 
-void ga10b_gsp_handle_interrupts(struct gk20a *g, u32 intr)
+static void ga10b_gsp_handle_interrupts(struct gk20a *g, u32 intr)
 {
 	int err = 0;
 
@@ -177,7 +239,7 @@ void ga10b_gsp_handle_interrupts(struct gk20a *g, u32 intr)
 	}
 }
 
-void ga10b_gsp_isr(struct gk20a *g)
+void ga10b_gsp_isr(struct gk20a *g, struct nvgpu_gsp *gsp)
 {
 	u32 intr = 0U;
 	u32 mask = 0U;
@@ -189,8 +251,8 @@ void ga10b_gsp_isr(struct gk20a *g)
 		return;
 	}
 
-	nvgpu_gsp_isr_mutex_aquire(g);
-	if (!nvgpu_gsp_is_isr_enable(g)) {
+	nvgpu_gsp_isr_mutex_acquire(g, gsp);
+	if (!nvgpu_gsp_is_isr_enable(g, gsp)) {
 		goto exit;
 	}
 
@@ -212,92 +274,60 @@ void ga10b_gsp_isr(struct gk20a *g)
 	ga10b_gsp_handle_interrupts(g, intr);
 
 exit:
-	nvgpu_gsp_isr_mutex_release(g);
-}
-
-static void ga10b_riscv_set_irq(struct gk20a *g, bool set_irq,
-		u32 intr_mask, u32 intr_dest)
-{
-	if (set_irq) {
-		gk20a_writel(g, pgsp_riscv_irqmset_r(), intr_mask);
-		gk20a_writel(g, pgsp_riscv_irqdest_r(), intr_dest);
-	} else {
-		gk20a_writel(g, pgsp_riscv_irqmclr_r(), 0xffffffffU);
-	}
+	nvgpu_gsp_isr_mutex_release(g, gsp);
 }
 
 void ga10b_gsp_enable_irq(struct gk20a *g, bool enable)
 {
-	u32 intr_mask;
-	u32 intr_dest;
-	bool skip_priv = false;
-
 	nvgpu_log_fn(g, " ");
-
-#ifdef CONFIG_NVGPU_GSP_STRESS_TEST
-	if (nvgpu_gsp_is_stress_test(g))
-		skip_priv = true;
-#endif
-
-	/* clear before setting required irq */
-	if ((!skip_priv) || (!enable))
-		ga10b_riscv_set_irq(g, false, 0x0, 0x0);
 
 	nvgpu_cic_mon_intr_stall_unit_config(g,
 			NVGPU_CIC_INTR_UNIT_GSP, NVGPU_CIC_INTR_DISABLE);
 
 	if (enable) {
-		if (!skip_priv) {
-			/* dest 0=falcon, 1=host; level 0=irq0, 1=irq1 */
-			intr_dest = pgsp_riscv_irqdest_gptmr_f(0)    |
-				pgsp_riscv_irqdest_wdtmr_f(1)    |
-				pgsp_riscv_irqdest_mthd_f(0)     |
-				pgsp_riscv_irqdest_ctxsw_f(0)    |
-				pgsp_riscv_irqdest_halt_f(1)     |
-				pgsp_riscv_irqdest_exterr_f(0)   |
-				pgsp_riscv_irqdest_swgen0_f(1)   |
-				pgsp_riscv_irqdest_swgen1_f(1)   |
-				pgsp_riscv_irqdest_ext_f(0xff);
-
-			/* 0=disable, 1=enable */
-			intr_mask = pgsp_riscv_irqmset_gptmr_f(1)  |
-				pgsp_riscv_irqmset_wdtmr_f(1)  |
-				pgsp_riscv_irqmset_mthd_f(0)   |
-				pgsp_riscv_irqmset_ctxsw_f(0)  |
-				pgsp_riscv_irqmset_halt_f(1)   |
-				pgsp_riscv_irqmset_exterr_f(1) |
-				pgsp_riscv_irqmset_swgen0_f(1) |
-				pgsp_riscv_irqmset_swgen1_f(1);
-
-			/* set required irq */
-			ga10b_riscv_set_irq(g, true, intr_mask, intr_dest);
-		}
-
 		nvgpu_cic_mon_intr_stall_unit_config(g,
 				NVGPU_CIC_INTR_UNIT_GSP, NVGPU_CIC_INTR_ENABLE);
+
+		/* Configuring RISCV interrupts is expected to be done inside firmware */
 	}
 }
 
-static void gsp_get_emem_boundaries(struct gk20a *g,
+static int gsp_get_emem_boundaries(struct gk20a *g,
 	u32 *start_emem, u32 *end_emem)
 {
+	u32 tag_width_shift = 0;
+	int status = 0;
 	/*
 	 * EMEM is mapped at the top of DMEM VA space
 	 * START_EMEM = DMEM_VA_MAX = 2^(DMEM_TAG_WIDTH + 8)
 	 */
 	if (start_emem == NULL) {
-		return;
+		status = -EINVAL;
+		goto exit;
 	}
-	*start_emem = (u32)1U << ((u32)pgsp_falcon_hwcfg1_dmem_tag_width_v(
+
+	tag_width_shift = ((u32)pgsp_falcon_hwcfg1_dmem_tag_width_v(
 			gk20a_readl(g, pgsp_falcon_hwcfg1_r())) + (u32)8U);
+
+	if (tag_width_shift > 31) {
+		nvgpu_err(g, "Invalid tag width shift, %u", tag_width_shift);
+		status = -EINVAL;
+		goto exit;
+	}
+
+	*start_emem = BIT32(tag_width_shift);
 
 
 	if (end_emem == NULL) {
-		return;
+		goto exit;
 	}
+
 	*end_emem = *start_emem +
 		((u32)pgsp_hwcfg_emem_size_f(gk20a_readl(g, pgsp_hwcfg_r()))
 		* (u32)256U);
+
+exit:
+	return status;
 }
 
 static int gsp_memcpy_params_check(struct gk20a *g, u32 dmem_addr,
@@ -327,7 +357,10 @@ static int gsp_memcpy_params_check(struct gk20a *g, u32 dmem_addr,
 		goto exit;
 	}
 
-	gsp_get_emem_boundaries(g, &start_emem, &end_emem);
+	status = gsp_get_emem_boundaries(g, &start_emem, &end_emem);
+	if (status != 0) {
+		goto exit;
+	}
 
 	if (dmem_addr < start_emem ||
 		(dmem_addr + size_in_bytes) > end_emem) {
@@ -369,7 +402,10 @@ static int ga10b_gsp_emem_transfer(struct gk20a *g, u32 dmem_addr, u8 *buf,
 	emem_d_offset = pgsp_ememd_r(port);
 
 	/* Only start address needed */
-	gsp_get_emem_boundaries(g, &start_emem, NULL);
+	status = gsp_get_emem_boundaries(g, &start_emem, NULL);
+	if (status != 0) {
+		goto exit;
+	}
 
 	/* Convert to emem offset for use by EMEMC/EMEMD */
 	dmem_addr -= start_emem;
@@ -525,6 +561,7 @@ void ga10b_gsp_msgq_tail(struct gk20a *g, struct nvgpu_gsp *gsp,
 	} else {
 		gk20a_writel(g, pgsp_msgq_tail_r(0U), *tail);
 	}
+	(void)gsp;
 }
 
 void ga10b_gsp_set_msg_intr(struct gk20a *g)

@@ -4,7 +4,7 @@
  *
  * Tegra pulse-width-modulation controller driver
  *
- * Copyright (c) 2010-2020, NVIDIA Corporation.
+ * Copyright (c) 2010-2022, NVIDIA Corporation.
  * Based on arch/arm/plat-mxc/pwm.c by Sascha Hauer <s.hauer@pengutronix.de>
  *
  * Overview of Tegra Pulse Width Modulator Register:
@@ -229,11 +229,30 @@ static void tegra_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	pc->clk_disable(pc->clk);
 }
 
+static int tegra_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+		const struct pwm_state *state)
+{
+	int err;
+
+	if (!state->enabled) {
+		if (pwm->state.enabled)
+			tegra_pwm_disable(chip, pwm);
+		return 0;
+	}
+
+	err = tegra_pwm_config(chip, pwm, state->duty_cycle, state->period);
+	if (err)
+		return err;
+
+	if (!pwm->state.enabled)
+		err = tegra_pwm_enable(chip, pwm);
+
+	return err;
+}
+
 static const struct pwm_ops tegra_pwm_ops = {
-	.config = tegra_pwm_config,
-	.enable = tegra_pwm_enable,
-	.disable = tegra_pwm_disable,
-	.owner = THIS_MODULE,
+	.apply	= tegra_pwm_apply,
+	.owner	= THIS_MODULE,
 };
 
 static int tegra_pwm_probe(struct platform_device *pdev)

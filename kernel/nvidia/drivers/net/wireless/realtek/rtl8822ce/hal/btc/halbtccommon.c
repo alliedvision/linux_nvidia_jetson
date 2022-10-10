@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2016 - 2017 Realtek Corporation.
+ * Copyright(c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -2446,6 +2447,7 @@ static void rtw_btc_action_bt_hid(struct btc_coexist *btc)
 				slot_type = TDMA_4SLOT;
 				table_case = 32;
 				tdma_case = 27;
+				is_toggle_table = TRUE;
 			} else if (coex_sta->bt_ble_hid_exist &&
 				   coex_sta->wl_gl_busy) {
 				table_case = 32;

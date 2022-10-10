@@ -3,7 +3,7 @@
  *
  * A device driver for ADSP and APE
  *
- * Copyright (C) 2014-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -263,6 +263,7 @@ static int __init nvadsp_parse_dt(struct platform_device *pdev)
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
+	const char *adsp_elf;
 	u32 *adsp_reset;
 	u32 *adsp_mem;
 	int iter;
@@ -287,17 +288,30 @@ static int __init nvadsp_parse_dt(struct platform_device *pdev)
 		}
 	}
 
+	if (!of_property_read_string(dev->of_node,
+				"nvidia,adsp_elf", &adsp_elf)) {
+		if (strlen(adsp_elf) < MAX_FW_STR)
+			strcpy(drv_data->adsp_elf, adsp_elf);
+		else {
+			dev_err(dev, "invalid string in nvidia,adsp_elf\n");
+			return -EINVAL;
+		}
+	} else
+		strcpy(drv_data->adsp_elf, NVADSP_ELF);
+
 	drv_data->adsp_unit_fpga = of_property_read_bool(dev->of_node,
 				"nvidia,adsp_unit_fpga");
 
 	drv_data->adsp_os_secload = of_property_read_bool(dev->of_node,
 				"nvidia,adsp_os_secload");
 
-	of_property_read_u32(dev->of_node, "nvidia,tegra_platform",
-				&drv_data->tegra_platform);
+	if (of_property_read_u32(dev->of_node, "nvidia,tegra_platform",
+				&drv_data->tegra_platform))
+		dev_dbg(dev, "tegra_platform dt not found\n");
 
-	of_property_read_u32(dev->of_node, "nvidia,adsp_load_timeout",
-				&drv_data->adsp_load_timeout);
+	if (of_property_read_u32(dev->of_node, "nvidia,adsp_load_timeout",
+				&drv_data->adsp_load_timeout))
+		dev_dbg(dev, "adsp_load_timeout dt not found\n");
 
 	if (drv_data->adsp_unit_fpga) {
 		for (iter = 0; iter < ADSP_UNIT_FPGA_RESET_END; iter++) {
@@ -406,7 +420,7 @@ static int __init nvadsp_probe(struct platform_device *pdev)
 			goto out;
 		}
 		drv_data->base_regs[iter] = base;
-		nvadsp_add_load_mappings(res->start, base,
+		nvadsp_add_load_mappings(res->start, (void __force *)base,
 						resource_size(res));
 	}
 
@@ -483,6 +497,13 @@ static int __init nvadsp_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to init aram\n");
 
 	nvadsp_bw_register(drv_data);
+
+	if (!drv_data->adsp_os_secload) {
+		ret = nvadsp_acast_init(pdev);
+		if (ret)
+			goto err;
+	}
+
 err:
 #ifdef CONFIG_PM
 	ret = pm_runtime_put_sync(dev);
@@ -528,6 +549,7 @@ static struct nvadsp_chipdata tegra210_adsp_chipdata = {
 	.adsp_thread_hwmbox = 0,
 	.adsp_irq_hwmbox = 0,
 	.adsp_shared_mem_hwmbox = 0,
+	.adsp_os_config_hwmbox = 0,
 	.reset_init = nvadsp_reset_t21x_init,
 	.os_init = nvadsp_os_t21x_init,
 #ifdef CONFIG_PM
@@ -551,11 +573,14 @@ static struct nvadsp_chipdata tegrat18x_adsp_chipdata = {
 		.hwmbox5_reg = 0X28000,
 		.hwmbox6_reg = 0X30000,
 		.hwmbox7_reg = 0X38000,
+		.empty_int_ie = 0x8,
 	},
 	.adsp_shared_mem_hwmbox = 0x18000, /* HWMBOX3 */
 	.adsp_thread_hwmbox = 0x20000,	/* HWMBOX4 */
+	.adsp_os_config_hwmbox = 0X28000, /*HWMBOX5 */
 	.adsp_state_hwmbox = 0x30000,	/* HWMBOX6 */
 	.adsp_irq_hwmbox = 0x38000,	/* HWMBOX7 */
+	.acast_init = nvadsp_acast_t18x_init,
 	.reset_init = nvadsp_reset_t18x_init,
 	.os_init = nvadsp_os_t18x_init,
 #ifdef CONFIG_PM

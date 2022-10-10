@@ -1,0 +1,23 @@
+From acc80942cedb61676cdacad73e1dd1a389f6c519 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:00:35 -0700
+Subject: [PATCH 498/830] _____ANNOTATION: networking changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index a548c1c38794..6968cd2891ad 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -26,3 +26,4 @@ block changes
+ device-mapper changes
+ filesystem changes
+ Incremental filesystem
++networking changes
+-- 
+2.17.1
+

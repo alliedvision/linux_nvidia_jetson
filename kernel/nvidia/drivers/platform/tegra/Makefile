@@ -14,10 +14,10 @@ obj-$(CONFIG_TEGRA_CBB_NOC) += cbb/
 obj-$(CONFIG_TEGRA_DCE) += dce/
 obj-$(CONFIG_TEGRA_SPE) += aon/
 obj-$(CONFIG_TEGRA_PSC) += psc/
-ifeq ($(_nv_build_configuration_is_external),0)
-obj-$(CONFIG_TEGRA_SOC_HWPM) += hwpm/
-else
+ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),1)
 obj-$(CONFIG_TEGRA_SOC_HWPM) += tegra_hwpm.o
+else
+obj-$(CONFIG_TEGRA_SOC_HWPM) += hwpm/
 endif
 obj-$(CONFIG_ARCH_TEGRA_18x_SOC) += tegra18_speedo.o
 obj-$(CONFIG_TEGRA_DC) += panel-simulator.o
@@ -56,18 +56,20 @@ ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_DENVER_CPU) += denver-knobs.o
 endif
 obj-$(CONFIG_DENVER_MCA) += denver_mca.o
-obj-$(CONFIG_TEGRA_SAFETY_SCE) += tegra-safety.o
 obj-$(CONFIG_TEGRA_HV_XHCI_DEBUG) += tegra-hv-xhci-debug.o
-tegra-safety-objs += tegra-safety-ivc.o tegra-safety-dev.o
-
-obj-$(CONFIG_PSTORE_RAM) += tegra_ramoops.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra-safety-ivc.o tegra-safety-dev.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra_l1ss_kernel_interface.o tegra_l1ss_cmd_resp_l2_interface.o tegra_l1ss.o
 
 obj-$(CONFIG_TEGRA_NVADSP) += nvadsp/
 
 obj-$(CONFIG_TEGRA_VIRT_AUDIO_IVC) += nvaudio_ivc/
 
-obj-$(CONFIG_TEGRA_VPR) += tegra_vpr.o
+ifeq ($(CONFIG_TEGRA_VPR),y)
+obj-y += tegra_vpr_resize.o
 obj-y += smc-calls.o
+else
+obj-y += tegra_vpr.o
+endif
 
 ifeq ($(CONFIG_CPU_FREQ),y)
 obj-$(CONFIG_ARCH_TEGRA_21x_SOC) += cpu_emc.o
@@ -110,4 +112,6 @@ obj-y					+= tegra_prod.o
 obj-m 					+= bad.o
 obj-$(CONFIG_TEGRA_CLOCKS_CONFIGURE)	+= clocks-config.o
 obj-$(CONFIG_TEGRA_FSICOM)		+= tegra-fsicom.o
+obj-$(CONFIG_TEGRA_EPL)			+= tegra-epl.o
 obj-$(CONFIG_TEGRA_USS_IO_PROXY)	+= tegra-uss-io-proxy.o
+obj-$(CONFIG_TEGRA_HSIERRRPTINJ)	+= tegra-hsierrrptinj.o

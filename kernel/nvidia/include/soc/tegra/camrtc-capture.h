@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -67,7 +67,7 @@ typedef struct syncpoint_info {
  *       of stats data per window.
  *  FM = 32 byte header + (64 x 64 x 2 x 4) bytes. FM can have 64 x 64 windows
  *       with each windows having 2 bytes of data for each color channel.
- *  AFM = 32 byte header + 8 byte statistics data per ROI.
+ *  AFM = 32 byte header + 8 byte statistics data + 8 bytes padding per ROI.
  *  LAC = 32 byte header + ( (32 x 32) x ((4 + 2 + 2) x 4) )
  *        Each ROI has 32x32 windows with each window containing 8
  *        bytes of data per color channel.
@@ -88,7 +88,7 @@ typedef struct syncpoint_info {
 /** Focus Metrics (FM) unit statistics data size in bytes */
 #define ISP5_STATS_FM_MAX_SIZE		MK_SIZE(32800)
 /** Auto Focus Metrics (AFM) unit statistics data size in bytes */
-#define ISP5_STATS_AFM_ROI_MAX_SIZE	MK_SIZE(40)
+#define ISP5_STATS_AFM_ROI_MAX_SIZE	MK_SIZE(48)
 /** Local Average Clipping (LAC) unit statistics data size in bytes */
 #define ISP5_STATS_LAC_ROI_MAX_SIZE	MK_SIZE(32800)
 /** Histogram unit statistics data size in bytes */
@@ -2408,6 +2408,20 @@ struct stats_surface {
 } CAPTURE_IVC_ALIGN;
 
 /**
+ * @brief Memory write crop region info
+ */
+struct isp_crop_rect {
+	/** Topmost line stored in memory (inclusive) relative to the MW input image */
+	uint16_t top;
+	/** Bottommost line stored in memory (inclusive) relative to the MW input image */
+	uint16_t bottom;
+	/** Leftmost pixel stored in memory (inclusive) relative to the MW input image */
+	uint16_t left;
+	/** Rightmost pixel stored in memory (inclusive) relative to the MW input image */
+	uint16_t right;
+};
+
+/**
  * @defgroup IspProcessFlag ISP process frame specific flags.
  */
 /** @{ */
@@ -2734,6 +2748,31 @@ struct isp_overfetch {
 };
 
 /**
+ * @brief Identifier for ISP5
+ */
+#define ISP_TYPE_ID_ISP5 MK_U16(3)
+
+/**
+ * @brief Identifier for ISP6
+ */
+#define ISP_TYPE_ID_ISP6 MK_U16(4)
+
+/**
+ * @brief Magic bytes to detect ISP program struct with version information
+ */
+
+#define ISP5_PROGRAM_STRUCT_ID MK_U32(0x50505349)
+
+/**
+ * @brief Version of ISP program struct layout
+ *
+ * Value of this constant must be increased every time when the memory layout of
+ * isp5_program struct changes.
+ */
+#define ISP5_PROGRAM_STRUCT_VERSION MK_U16(3)
+
+
+/**
  * @brief ISP program buffer
  *
  * Settings needed by RCE ISP driver to generate config buffer.
@@ -2741,6 +2780,21 @@ struct isp_overfetch {
  * See ISP_Microcode.docx for detailed description.
  */
 struct isp5_program {
+	/**
+	 * @brief "Magic bytes" to identify memory area as an ISP program
+	 */
+	uint32_t isp_program_struct_id;
+
+	/**
+	 * @brief Version of the ISP program structure
+	 */
+	uint16_t isp_program_struct_version;
+
+	/**
+	 * @brief Target ISP for the ISP program.
+	 */
+	uint16_t isp_type;
+
 	/**
 	 * Sources for LS, AP and PRU blocks.
 	 * Format is same as in ISP's XB_SRC_0 register
@@ -2800,8 +2854,13 @@ struct isp5_program {
 	/** ISP overfetch requirements */
 	struct isp_overfetch overfetch;
 
+	/** memory write crop region info*/
+	struct {
+		struct isp_crop_rect mw_crop;
+	} outputs_mw[ISP_MAX_OUTPUTS];
+
 	/** Reserved */
-	uint32_t pad1__[3];
+	uint32_t pad1__[11];
 
 	/**
 	 * Push buffer containing ISP settings related to this program.

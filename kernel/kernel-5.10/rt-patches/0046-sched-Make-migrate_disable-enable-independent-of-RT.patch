@@ -1,7 +1,7 @@
-From 43f13c34f18d62d434ba91a42363aacedee503e2 Mon Sep 17 00:00:00 2001
+From da588b5c38fe95813eacb9f4721d3b36f25fec80 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:35 +0100
-Subject: [PATCH 046/304] sched: Make migrate_disable/enable() independent of
+Subject: [PATCH 046/318] sched: Make migrate_disable/enable() independent of
  RT
 
 Now that the scheduler can deal with migrate disable properly, there is no
@@ -28,16 +28,16 @@ Cc: Mel Gorman <mgorman@suse.de>
 Cc: Daniel Bristot de Oliveira <bristot@redhat.com>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/kernel.h  | 21 ++++++++++++++-------
- include/linux/preempt.h | 38 +++-----------------------------------
+ include/linux/kernel.h  | 21 ++++++++++++-------
+ include/linux/preempt.h | 38 +++-------------------------------
  include/linux/sched.h   |  2 +-
- kernel/sched/core.c     | 45 +++++++++++++++++++++++++++++++++++----------
+ kernel/sched/core.c     | 45 ++++++++++++++++++++++++++++++++---------
  kernel/sched/sched.h    |  4 ++--
  lib/smp_processor_id.c  |  2 +-
  6 files changed, 56 insertions(+), 56 deletions(-)
 
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 2f05e91..665837f 100644
+index 2f05e9128201..665837f9a831 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
 @@ -204,6 +204,7 @@ extern int _cond_resched(void);
@@ -90,7 +90,7 @@ index 2f05e91..665837f 100644
   * abs - return absolute value of an argument
   * @x: the value.  If it is unsigned type, it is converted to signed type first.
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 8b43922..6df63cbe 100644
+index 8b43922e65df..6df63cbe8bb0 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -322,7 +322,7 @@ static inline void preempt_notifier_init(struct preempt_notifier *notifier,
@@ -149,7 +149,7 @@ index 8b43922..6df63cbe 100644
  
  #endif /* __LINUX_PREEMPT_H */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index a7020a5..1cf7938 100644
+index 6363ecb01f0e..e9b05525ca76 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -731,7 +731,7 @@ struct task_struct {
@@ -162,7 +162,7 @@ index a7020a5..1cf7938 100644
  #endif
  	unsigned short			migration_flags;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 772d49f..2947853 100644
+index 90805fc11b6c..77cef49071c3 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1705,8 +1705,6 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
@@ -212,7 +212,7 @@ index 772d49f..2947853 100644
  
  static void
  ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
-@@ -7893,6 +7885,39 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
+@@ -7894,6 +7886,39 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
  	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
  }
  EXPORT_SYMBOL_GPL(__cant_sleep);
@@ -253,7 +253,7 @@ index 772d49f..2947853 100644
  
  #ifdef CONFIG_MAGIC_SYSRQ
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 03b76f2..b69e84f 100644
+index 03b76f2c85bc..b69e84f30b8d 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1059,7 +1059,7 @@ struct rq {
@@ -275,7 +275,7 @@ index 03b76f2..b69e84f 100644
  #else
  	return false;
 diff --git a/lib/smp_processor_id.c b/lib/smp_processor_id.c
-index faaa927..1c1dbd3 100644
+index faaa927ac2c8..1c1dbd300325 100644
 --- a/lib/smp_processor_id.c
 +++ b/lib/smp_processor_id.c
 @@ -26,7 +26,7 @@ unsigned int check_preemption_disabled(const char *what1, const char *what2)
@@ -288,5 +288,5 @@ index faaa927..1c1dbd3 100644
  		goto out;
  #endif
 -- 
-2.7.4
+2.17.1
 

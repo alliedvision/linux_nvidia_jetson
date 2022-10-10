@@ -1,0 +1,47 @@
+From c845fae0f953be876e22a69386ce1e501fa0f3c2 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Fri, 5 Jun 2020 09:32:10 -0700
+Subject: [PATCH 464/830] ANDROID: Incremental fs: Remove annoying pr_debugs
+X-NVConfidentiality: public
+
+Bug: 162255528
+Test: incfs_test passes with fewer annoying debug messages
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ib347d3d5dd8a3c5545a0760fc674147211aa8c9d
+---
+ fs/incfs/data_mgmt.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 9e6ef41e4302..960a1f72d34d 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -1257,8 +1257,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 	handler->handle_file_attr = process_file_attr_md;
+ 	handler->handle_signature = process_file_signature_md;
+ 
+-	pr_debug("incfs: Starting reading incfs-metadata records at offset %lld\n",
+-		 handler->md_record_offset);
+ 	while (handler->md_record_offset > 0) {
+ 		error = incfs_read_next_metadata_record(bfc, handler);
+ 		if (error) {
+@@ -1270,14 +1268,11 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 		records_count++;
+ 	}
+ 	if (error) {
+-		pr_debug("incfs: Error %d after reading %d incfs-metadata records.\n",
++		pr_warn("incfs: Error %d after reading %d incfs-metadata records.\n",
+ 			 -error, records_count);
+ 		result = error;
+-	} else {
+-		pr_debug("incfs: Finished reading %d incfs-metadata records.\n",
+-			 records_count);
++	} else
+ 		result = records_count;
+-	}
+ 	mutex_unlock(&bfc->bc_mutex);
+ 
+ 	if (df->df_hash_tree) {
+-- 
+2.17.1
+

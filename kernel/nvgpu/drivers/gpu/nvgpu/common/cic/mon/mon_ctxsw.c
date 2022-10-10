@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 #include <nvgpu/nvgpu_err.h>
 #include <nvgpu/nvgpu_err_info.h>
 #include <nvgpu/cic_mon.h>
+#include <nvgpu/string.h>
 
 #include "cic_mon_priv.h"
 
@@ -71,15 +72,6 @@ void nvgpu_report_ctxsw_err(struct gk20a *g, u32 hw_unit, u32 err_id,
 	err_pkt.err_size = nvgpu_safe_cast_u64_to_u8(
 			sizeof(err_pkt.err_info.ctxsw_info));
 
-	if (g->ops.cic_mon.report_err != NULL) {
-		err = g->ops.cic_mon.report_err(g, (void *)&err_pkt,
-			sizeof(err_pkt), err_desc->is_critical);
-		if (err != 0) {
-			nvgpu_err(g, "Failed to report CTXSW error: "
-					"err_id=%u, mailbox_val=%u",
-					err_id, err_info->mailbox_value);
-		}
-	}
 handle_report_failure:
 	if (err != 0) {
 		nvgpu_sw_quiesce(g);
@@ -90,6 +82,8 @@ void nvgpu_inject_ctxsw_swerror(struct gk20a *g, u32 hw_unit,
 		u32 err_index, u32 inst)
 {
 	struct ctxsw_err_info err_info;
+
+	(void)inst;
 
 	(void)memset(&err_info, ERR_INJECT_TEST_PATTERN, sizeof(err_info));
 

@@ -1,0 +1,46 @@
+From 0f2efbbc2e73004ddf6c9137fd94418aea04b826 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Fri, 27 Mar 2020 13:57:37 +0100
+Subject: [PATCH 671/830] ANDROID: gki_defconfig: disable
+ CONFIG_HARDENED_USERCOPY_FALLBACK
+X-NVConfidentiality: public
+
+This should be unset so that usercopy whitelists are not actually being
+enforced.
+
+Bug: 152470236
+Cc: Kees Cook <keescook@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I11069fa6d66cf23d38d33ccc52492aaa0915b776
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index b0d33d41d0a7..67f916e4af55 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -455,6 +455,7 @@ CONFIG_SECURITY=y
+ CONFIG_SECURITYFS=y
+ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
++# CONFIG_HARDENED_USERCOPY_FALLBACK is not set
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 7fa2a1b99379..fe78fac35983 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -399,6 +399,7 @@ CONFIG_SECURITY=y
+ CONFIG_SECURITYFS=y
+ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
++# CONFIG_HARDENED_USERCOPY_FALLBACK is not set
+ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+-- 
+2.17.1
+

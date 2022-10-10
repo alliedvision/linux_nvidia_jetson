@@ -1,0 +1,109 @@
+From 662c39cc1c889e6002efb3f052f39472b103c843 Mon Sep 17 00:00:00 2001
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Tue, 15 Sep 2020 11:42:28 +0100
+Subject: [PATCH 825/830] ANDROID: arm64: Handle AArch32 tasks running on non
+ AArch32 cpu
+X-NVConfidentiality: public
+
+On Asym AArch32 system, if a tasks tries to run on unsupported CPU, we
+fix up the cpumask silently to make sure tasks aren't killed if placed
+on a CPU without AArch32 support
+
+This patch can be omitted if user-space can guarantee the cpumask of
+all AArch32 apps only contains AArch32 capable CPUs.
+
+The biggest danger is in apps who try to modify their own cpu affinity
+via sched_setaffinity(). Without this change they could trigger
+a SIGKILL if they unknowingly affine to the wrong CPU.
+
+Without this patch user-space must ensure that any 32bit app is cloned
+into a cpuset cgroup that will restrict it to aarch32 capable cpus.
+clone3 syscall allows specifying the cgroup on fork.
+
+Split from Catalin's original patch to support Asym AArch32 systems.
+Only modified cpumask_t to become cpumask_var_t in
+set_32bit_cpus_allowed().
+
+Bug: 168847043
+Reason: Needed for bringup. Revert when upstream patch is available
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+Change-Id: If520cbf5cd705fb0e0399f36b81d4a68e90beb3a
+---
+ arch/arm64/Kconfig         |  7 +++----
+ arch/arm64/kernel/signal.c | 32 ++++++++++++++++++++++++++------
+ 2 files changed, 29 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 2f1fe0342d3b..174a35d9d298 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1935,10 +1935,9 @@ config ASYMMETRIC_AARCH32
+ 	  Enable this option to allow support for asymmetric AArch32 EL0
+ 	  CPU configurations. Once the AArch32 EL0 support is detected
+ 	  on a CPU, the feature is made available to user space to allow
+-	  the execution of 32-bit (compat) applications. If the affinity
+-	  of the 32-bit application contains a non-AArch32 capable CPU
+-	  or the last AArch32 capable CPU is offlined, the application
+-	  will be killed.
++	  the execution of 32-bit (compat) applications by migrating
++	  them to the capable CPUs. Offlining such CPUs leads to 32-bit
++	  applications being killed.
+ 
+ 	  If unsure say N.
+ 
+diff --git a/arch/arm64/kernel/signal.c b/arch/arm64/kernel/signal.c
+index a6f8d31c9b84..4f4f7208ca2d 100644
+--- a/arch/arm64/kernel/signal.c
++++ b/arch/arm64/kernel/signal.c
+@@ -913,14 +913,34 @@ static void do_signal(struct pt_regs *regs)
+ 	restore_saved_sigmask();
+ }
+ 
+-static void check_aarch32_cpumask(void)
++static void set_32bit_cpus_allowed(void)
+ {
++	int ret;
++
+ 	/*
+-	 * The task must be a subset of aarch32_el0_mask or it could end up
+-	 * migrating and running on the wrong CPU.
++	 * Try to honour as best as possible whatever affinity request this
++	 * task has. If it spans no compatible CPU, disregard it entirely.
+ 	 */
+-	if (!cpumask_subset(current->cpus_ptr, &aarch32_el0_mask)) {
+-		pr_warn_once("CPU affinity contains CPUs that are not capable of running 32-bit tasks\n");
++	if (cpumask_intersects(current->cpus_ptr, &aarch32_el0_mask)) {
++		cpumask_var_t cpus_allowed;
++
++		if (!alloc_cpumask_var(&cpus_allowed, GFP_ATOMIC)) {
++
++			ret = set_cpus_allowed_ptr(current, &aarch32_el0_mask);
++
++		} else {
++
++			cpumask_and(cpus_allowed, current->cpus_ptr, &aarch32_el0_mask);
++			ret = set_cpus_allowed_ptr(current, cpus_allowed);
++			free_cpumask_var(cpus_allowed);
++
++		}
++	} else {
++		ret = set_cpus_allowed_ptr(current, &aarch32_el0_mask);
++	}
++
++	if (ret) {
++		pr_warn_once("No CPUs capable of running 32-bit tasks\n");
+ 		force_sig(SIGKILL);
+ 	}
+ }
+@@ -943,7 +963,7 @@ asmlinkage void do_notify_resume(struct pt_regs *regs,
+ 			if (IS_ENABLED(CONFIG_ASYMMETRIC_AARCH32) &&
+ 			    thread_flags & _TIF_CHECK_32BIT_AFFINITY) {
+ 				clear_thread_flag(TIF_CHECK_32BIT_AFFINITY);
+-				check_aarch32_cpumask();
++				set_32bit_cpus_allowed();
+ 			}
+ 
+ 			if (thread_flags & _TIF_UPROBE)
+-- 
+2.17.1
+

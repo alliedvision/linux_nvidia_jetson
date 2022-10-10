@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -216,11 +216,11 @@ done:
 }
 
 struct unit_module_test nvgpu_channel_gk20a_tests[] = {
-	UNIT_TEST(init_support, test_fifo_init_support, NULL, 0),
-	UNIT_TEST(enable, test_gk20a_channel_enable, NULL, 0),
-	UNIT_TEST(disable, test_gk20a_channel_disable, NULL, 0),
-	UNIT_TEST(read_state, test_gk20a_channel_read_state, NULL, 0),
-	UNIT_TEST(remove_support, test_fifo_remove_support, NULL, 0),
+	UNIT_TEST(init_support, test_fifo_init_support, NULL, 2),
+	UNIT_TEST(enable, test_gk20a_channel_enable, NULL, 2),
+	UNIT_TEST(disable, test_gk20a_channel_disable, NULL, 2),
+	UNIT_TEST(read_state, test_gk20a_channel_read_state, NULL, 2),
+	UNIT_TEST(remove_support, test_fifo_remove_support, NULL, 2),
 };
 
 UNIT_MODULE(nvgpu_channel_gk20a, nvgpu_channel_gk20a_tests, UNIT_PRIO_NVGPU_TEST);

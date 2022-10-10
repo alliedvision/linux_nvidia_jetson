@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -165,6 +165,12 @@ static const struct nvmem_cell_info tegra_fuse_cells[] = {
 		.bit_offset = 0,
 		.nbits = 32,
 	}, {
+		.name = "gpu-gcplex-config-fuse",
+		.offset = 0x1c8,
+		.bytes = 4,
+		.bit_offset = 0,
+		.nbits = 32,
+	}, {
 		.name = "gcplex-config-fuse",
 		.offset = 0x1c8,
 		.bytes = 4,
@@ -189,6 +195,24 @@ static const struct nvmem_cell_info tegra_fuse_cells[] = {
 		.bit_offset = 0,
 		.nbits = 32,
 	}, {
+		.name = "gpu-pdi0",
+		.offset = 0x300,
+		.bytes = 4,
+		.bit_offset = 0,
+		.nbits = 32,
+	}, {
+		.name = "gpu-pdi1",
+		.offset = 0x304,
+		.bytes = 4,
+		.bit_offset = 0,
+		.nbits = 32,
+	}, {
+		.name = "opt-dla-disable",
+		.offset = 0x3f0,
+		.bytes = 4,
+		.bit_offset = 0,
+		.nbits = 32,
+	}, {
 		.name = "pdi0",
 		.offset = 0x300,
 		.bytes = 4,
@@ -197,12 +221,6 @@ static const struct nvmem_cell_info tegra_fuse_cells[] = {
 	}, {
 		.name = "pdi1",
 		.offset = 0x304,
-		.bytes = 4,
-		.bit_offset = 0,
-		.nbits = 32,
-	}, {
-		.name = "opt-dla-disable",
-		.offset = 0x3f0,
 		.bytes = 4,
 		.bit_offset = 0,
 		.nbits = 32,
@@ -405,7 +423,7 @@ static ssize_t production_show(struct device *dev, struct device_attribute *attr
 	u32 reg = 0;
 	int ret;
 
-	if (tegra_get_platform() == TEGRA_PLATFORM_SILICON) {
+	if (tegra_is_silicon()) {
 		ret = tegra_fuse_readl(TEGRA_FUSE_PRODUCTION_MODE, &reg);
 		if (ret)
 			reg = 0;
@@ -443,8 +461,7 @@ static ssize_t platform_show(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RO(platform);
 
-#if IS_ENABLED(CONFIG_ARCH_TEGRA_23x_SOC)
-#define OPT_FUSE_ATTR(name, offset)				\
+#define FUSE_ATTR(name, offset)				\
 static ssize_t name ## _show(struct device *dev,		\
 			     struct device_attribute *attr,	\
 			     char *buf)				\
@@ -452,27 +469,31 @@ static ssize_t name ## _show(struct device *dev,		\
 	u32 reg = 0;						\
 	int ret;						\
 								\
-	if (tegra_get_platform() == TEGRA_PLATFORM_SILICON) {	\
+	if (tegra_is_silicon()) {	\
 		ret = tegra_fuse_readl(offset, &reg);		\
 		if (ret)					\
 			reg = 0;				\
 	}							\
 								\
-	return sprintf(buf, "%d\n", reg);			\
+	return sprintf(buf, "0x%x\n", reg);			\
 }								\
 static DEVICE_ATTR_RO(name)
 
-OPT_FUSE_ATTR(opt_ccplex_cluster_disable,
-					TEGRA_FUSE_OPT_CCPLEX_CLUSTER_DISABLE);
-OPT_FUSE_ATTR(opt_dla_disable,		TEGRA_FUSE_OPT_DLA_DISABLE);
-OPT_FUSE_ATTR(opt_emc_disable,		TEGRA_FUSE_OPT_EMC_DISABLE);
-OPT_FUSE_ATTR(opt_fbp_disable,		TEGRA_FUSE_OPT_FBP_DISABLE);
-OPT_FUSE_ATTR(opt_fsi_disable,		TEGRA_FUSE_OPT_FSI_DISABLE);
-OPT_FUSE_ATTR(opt_gpc_disable,		TEGRA_FUSE_OPT_GPC_DISABLE);
-OPT_FUSE_ATTR(opt_nvdec_disable,	TEGRA_FUSE_OPT_NVENC_DISABLE);
-OPT_FUSE_ATTR(opt_nvenc_disable,	TEGRA_FUSE_OPT_NVDEC_DISABLE);
-OPT_FUSE_ATTR(opt_pva_disable,		TEGRA_FUSE_OPT_PVA_DISABLE);
-OPT_FUSE_ATTR(opt_tpc_disable,		TEGRA_FUSE_OPT_TPC_DISABLE);
+FUSE_ATTR(odmid0,	TEGRA_FUSE_ODMID_0);
+FUSE_ATTR(odmid1,	TEGRA_FUSE_ODMID_1);
+FUSE_ATTR(odm_info,	TEGRA_FUSE_ODM_INFO);
+
+#if IS_ENABLED(CONFIG_ARCH_TEGRA_23x_SOC)
+FUSE_ATTR(opt_ccplex_cluster_disable,	TEGRA_FUSE_OPT_CCPLEX_CLUSTER_DISABLE);
+FUSE_ATTR(opt_dla_disable,		TEGRA_FUSE_OPT_DLA_DISABLE);
+FUSE_ATTR(opt_emc_disable,		TEGRA_FUSE_OPT_EMC_DISABLE);
+FUSE_ATTR(opt_fbp_disable,		TEGRA_FUSE_OPT_FBP_DISABLE);
+FUSE_ATTR(opt_fsi_disable,		TEGRA_FUSE_OPT_FSI_DISABLE);
+FUSE_ATTR(opt_gpc_disable,		TEGRA_FUSE_OPT_GPC_DISABLE);
+FUSE_ATTR(opt_nvdec_disable,		TEGRA_FUSE_OPT_NVENC_DISABLE);
+FUSE_ATTR(opt_nvenc_disable,		TEGRA_FUSE_OPT_NVDEC_DISABLE);
+FUSE_ATTR(opt_pva_disable,		TEGRA_FUSE_OPT_PVA_DISABLE);
+FUSE_ATTR(opt_tpc_disable,		TEGRA_FUSE_OPT_TPC_DISABLE);
 #endif
 
 static struct attribute *tegra194_soc_attr[] = {
@@ -480,6 +501,9 @@ static struct attribute *tegra194_soc_attr[] = {
 	&dev_attr_minor.attr,
 	&dev_attr_production.attr,
 	&dev_attr_platform.attr,
+	&dev_attr_odmid0.attr,
+	&dev_attr_odmid1.attr,
+	&dev_attr_odm_info.attr,
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_23x_SOC)
 	&dev_attr_opt_ccplex_cluster_disable.attr,
 	&dev_attr_opt_dla_disable.attr,

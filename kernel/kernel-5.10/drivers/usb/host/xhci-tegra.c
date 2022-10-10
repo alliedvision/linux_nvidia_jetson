@@ -2,7 +2,7 @@
 /*
  * NVIDIA Tegra xHCI host controller driver
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  * Copyright (C) 2014 Google, Inc.
  */
 
@@ -356,6 +356,7 @@ struct tegra_xusb_soc {
 	unsigned int num_supplies;
 	const struct tegra_xusb_phy_type *phy_types;
 	unsigned int num_types;
+	unsigned int num_wakes;
 	const struct tegra_xusb_context_soc *context;
 
 	struct {
@@ -419,6 +420,7 @@ struct tegra_xusb {
 	int xhci_irq;
 	int mbox_irq;
 	int padctl_irq;
+	int *wake_irqs;
 
 	void __iomem *ipfs_base;
 	void __iomem *fpci_base;
@@ -494,6 +496,7 @@ struct tegra_xusb {
 	struct tegra_hv_ivc_cookie *ivck;
 	char ivc_rx[128]; /* Buffer to receive pad ivc message */
 	struct work_struct ivc_work;
+	bool enable_wake;
 };
 
 struct tegra_xusb_soc_ops {
@@ -2799,6 +2802,33 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 			return tegra->mbox_irq;
 	}
 
+	if ((tegra->soc->num_wakes > 0) &&
+		!device_property_read_bool(tegra->dev, "disable-wake"))
+		tegra->enable_wake = true;
+
+	if (!tegra->soc->is_xhci_vf && tegra->enable_wake) {
+		tegra->wake_irqs = devm_kcalloc(&pdev->dev,
+					tegra->soc->num_wakes,
+					sizeof(*tegra->wake_irqs), GFP_KERNEL);
+		if (!tegra->wake_irqs)
+			return -ENOMEM;
+
+		for (i = 0; i < tegra->soc->num_wakes; i++) {
+			char irq_name[] = "wakeX";
+			struct irq_desc *desc;
+
+			snprintf(irq_name, sizeof(irq_name), "wake%d", i);
+			tegra->wake_irqs[i] = platform_get_irq_byname(pdev, irq_name);
+			if (tegra->wake_irqs[i] < 0)
+				return tegra->wake_irqs[i];
+			desc = irq_to_desc(tegra->wake_irqs[i]);
+			if (!desc)
+				return -EINVAL;
+			irq_set_irq_type(tegra->wake_irqs[i],
+					irqd_get_trigger_type(&desc->irq_data));
+		}
+	}
+
 	tegra->padctl = tegra_xusb_padctl_get(&pdev->dev);
 	if (IS_ERR(tegra->padctl))
 		return PTR_ERR(tegra->padctl);
@@ -3250,6 +3280,7 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 	struct tegra_xusb *tegra = platform_get_drvdata(pdev);
 	struct xhci_hcd *xhci = hcd_to_xhci(tegra->hcd);
 	struct device *dev = &pdev->dev;
+	unsigned int i;
 
 	if (xhci_err_init && dev != NULL) {
 		sysfs_remove_group(&dev->kobj, &tegra_sysfs_group_errors);
@@ -3282,6 +3313,11 @@ static int tegra_xusb_remove(struct platform_device *pdev)
 		devm_iounmap(&pdev->dev, tegra->fpci_base);
 		devm_release_mem_region(&pdev->dev, tegra->fpci_start,
 			tegra->fpci_len);
+	}
+
+	if (!tegra->soc->is_xhci_vf && tegra->enable_wake) {
+		for (i = 0; i < tegra->soc->num_wakes; i++)
+			irq_dispose_mapping(tegra->wake_irqs[i]);
 	}
 
 	if (tegra->soc->has_bar2) {
@@ -3917,6 +3953,7 @@ static int tegra_xusb_suspend(struct device *dev)
 	struct tegra_xusb *tegra = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(tegra->hcd);
 	int err;
+	unsigned int i;
 
 	if (xhci->recovery_in_progress)
 		return 0;
@@ -3954,6 +3991,11 @@ out:
 		if (!tegra->soc->is_xhci_vf && device_may_wakeup(dev)) {
 			if (enable_irq_wake(tegra->padctl_irq))
 				dev_err(dev, "failed to enable padctl wakes\n");
+
+			if (tegra->enable_wake) {
+				for (i = 0; i < tegra->soc->num_wakes; i++)
+					enable_irq_wake(tegra->wake_irqs[i]);
+			}
 		}
 	}
 
@@ -3967,6 +4009,7 @@ static int tegra_xusb_resume(struct device *dev)
 	struct tegra_xusb *tegra = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(tegra->hcd);
 	int err;
+	unsigned int i;
 
 	if (xhci->recovery_in_progress)
 		return 0;
@@ -3987,7 +4030,13 @@ static int tegra_xusb_resume(struct device *dev)
 	if (!tegra->soc->is_xhci_vf && device_may_wakeup(dev)) {
 		if (disable_irq_wake(tegra->padctl_irq))
 			dev_err(dev, "failed to disable padctl wakes\n");
+
+		if (tegra->enable_wake) {
+			for (i = 0; i < tegra->soc->num_wakes; i++)
+				disable_irq_wake(tegra->wake_irqs[i]);
+		}
 	}
+
 	tegra->suspended = false;
 	mutex_unlock(&tegra->lock);
 
@@ -4265,6 +4314,7 @@ static const struct tegra_xusb_soc tegra194_soc = {
 	.num_supplies = ARRAY_SIZE(tegra194_supply_names),
 	.phy_types = tegra194_phy_types,
 	.num_types = ARRAY_SIZE(tegra194_phy_types),
+	.num_wakes = 7,
 	.context = &tegra186_xusb_context,
 	.ports = {
 		.usb3 = { .offset = 0, .count = 4, },
@@ -4412,6 +4462,7 @@ static const struct tegra_xusb_soc tegra234_soc = {
 	.num_supplies = ARRAY_SIZE(tegra194_supply_names),
 	.phy_types = tegra194_phy_types,
 	.num_types = ARRAY_SIZE(tegra194_phy_types),
+	.num_wakes = 7,
 	.context = &tegra186_xusb_context,
 	.ports = {
 		.usb3 = { .offset = 0, .count = 4, },

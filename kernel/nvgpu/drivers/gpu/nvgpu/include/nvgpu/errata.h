@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,8 @@ struct gk20a;
 	DEFINE_ERRATA(NVGPU_ERRATA_200391931, "GP10B", "GR Perf"),	\
 	/* GV11B */							\
 	DEFINE_ERRATA(NVGPU_ERRATA_2016608, "GV11B", "FIFO Runlist preempt"), \
+	DEFINE_ERRATA(NVGPU_ERRATA_3524791, "GV11B", \
+			"Non Virtualized GPC Exceptions"), \
 	/* GV100 */							\
 	DEFINE_ERRATA(NVGPU_ERRATA_1888034, "GV100", "Nvlink"),	\
 	/* TU104 */							\

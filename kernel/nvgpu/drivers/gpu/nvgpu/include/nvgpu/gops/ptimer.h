@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -91,14 +91,10 @@ struct gops_ptimer {
 	 * - Clear timer_pri_timeout_save_0_r() and timer_pri_timeout_save_1_r()
 	 *   registers so that the next pri access error can be recorded. Write
 	 *   0 to these two registers to clear the previous error information.
-	 * - Report the PRI_TIMEOUT_ERROR to SDL unit using \ref nvgpu_report_pri_err()
-	 *   API. The inputs to \ref nvgpu_report_pri_err() are -
+	 * - Report the PRI_TIMEOUT_ERROR to SDL unit using \ref nvgpu_report_err_to_sdl()
+	 *   API. The inputs to \ref nvgpu_report_err_to_sdl() are -
 	 *    - g,
-	 *    - NVGPU_ERR_MODULE_PRI,
-	 *    - inst,
-	 *    - GPU_PRI_TIMEOUT_ERROR,
-	 *    - error_addr,
-	 *    - fecs_errcode
+	 *    - GPU_PRI_TIMEOUT_ERROR.
 	 */
 	void (*isr)(struct gk20a *g);
 

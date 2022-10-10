@@ -102,6 +102,7 @@
 		nvidia,mask-fast-auto-mode;
 		nvidia,enable-hs-mode;
 		nvidia,enable-38mhz-clk;
+		nvidia,enable-rx-calib;
 		nvidia,max-hs-gear = <4>;
 		nvidia,max-pwm-gear = <0>;
 		vcc-max-microamp = <0>;

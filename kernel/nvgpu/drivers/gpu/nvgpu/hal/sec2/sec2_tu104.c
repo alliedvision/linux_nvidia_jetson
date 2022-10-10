@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,6 +61,7 @@ static int sec2_memcpy_params_check(struct gk20a *g, u32 dmem_addr,
 	u32 start_emem = 0;
 	u32 end_emem = 0;
 	int status = 0;
+	u32 tag_width_shift = 0;
 
 	if (size_in_bytes == 0U) {
 		nvgpu_err(g, "zero-byte copy requested");
@@ -85,8 +86,16 @@ static int sec2_memcpy_params_check(struct gk20a *g, u32 dmem_addr,
 	 * EMEM is mapped at the top of DMEM VA space
 	 * START_EMEM = DMEM_VA_MAX = 2^(DMEM_TAG_WIDTH + 8)
 	 */
-	start_emem = (u32)1U << ((u32)psec_falcon_hwcfg1_dmem_tag_width_v(
+	tag_width_shift = ((u32)psec_falcon_hwcfg1_dmem_tag_width_v(
 			gk20a_readl(g, psec_falcon_hwcfg1_r())) + (u32)8U);
+
+	if (tag_width_shift > 31U) {
+		nvgpu_err(g, "Invalid tag width shift, 0x%x", tag_width_shift);
+		status = -EINVAL;
+		goto exit;
+	}
+
+	start_emem = BIT32(tag_width_shift);
 
 	end_emem = start_emem +
 		((u32)psec_hwcfg_emem_size_f(gk20a_readl(g, psec_hwcfg_r()))
@@ -118,6 +127,7 @@ static int tu104_sec2_emem_transfer(struct gk20a *g, u32 dmem_addr, u8 *buf,
 	u32 emem_c_offset = 0;
 	u32 emem_d_offset = 0;
 	int status = 0;
+	u32 tag_width_shift = 0;
 
 	status = sec2_memcpy_params_check(g, dmem_addr, size_in_bytes, port);
 	if (status != 0) {
@@ -135,8 +145,16 @@ static int tu104_sec2_emem_transfer(struct gk20a *g, u32 dmem_addr, u8 *buf,
 	 * EMEM is mapped at the top of DMEM VA space
 	 * START_EMEM = DMEM_VA_MAX = 2^(DMEM_TAG_WIDTH + 8)
 	 */
-	start_emem = (u32)1U << ((u32)psec_falcon_hwcfg1_dmem_tag_width_v(
+	tag_width_shift = ((u32)psec_falcon_hwcfg1_dmem_tag_width_v(
 			gk20a_readl(g, psec_falcon_hwcfg1_r())) + (u32)8U);
+
+	if (tag_width_shift > 31U) {
+		nvgpu_err(g, "Invalid tag width shift, %u", tag_width_shift);
+		status = -EINVAL;
+		goto exit;
+	}
+
+	start_emem = BIT32(tag_width_shift);
 
 	/* Convert to emem offset for use by EMEMC/EMEMD */
 	dmem_addr -= start_emem;

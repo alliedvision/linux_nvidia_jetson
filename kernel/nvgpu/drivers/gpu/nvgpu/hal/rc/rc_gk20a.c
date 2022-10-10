@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -57,6 +57,9 @@ void gk20a_fifo_recover(struct gk20a *g, u32 eng_bitmask,
 	bool id_is_known = (id_type != ID_TYPE_UNKNOWN) ? true : false;
 	bool id_is_tsg = (id_type == ID_TYPE_TSG) ? true : false;
 
+	(void)rc_type;
+	(void)mmufault;
+
 	nvgpu_log_info(g, "acquire engines_reset_mutex");
 	nvgpu_mutex_acquire(&g->fifo.engines_reset_mutex);
 
@@ -76,7 +79,7 @@ void gk20a_fifo_recover(struct gk20a *g, u32 eng_bitmask,
 							(u32)engine_id);
 
 			if (mmu_id != NVGPU_INVALID_ENG_ID) {
-				mmu_fault_engines |= BIT(mmu_id);
+				mmu_fault_engines |= (u32)BIT(mmu_id);
 			}
 		}
 	} else {
@@ -108,7 +111,7 @@ void gk20a_fifo_recover(struct gk20a *g, u32 eng_bitmask,
 
 					engine_ids |= BIT(active_engine_id);
 					if (mmu_id != NVGPU_INVALID_ENG_ID) {
-						mmu_fault_engines |= BIT(mmu_id);
+						mmu_fault_engines |= (u32)BIT(mmu_id);
 					}
 				}
 			}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -161,7 +161,7 @@ int test_gr_setup_set_preemption_mode(struct unit_module *m,
  *        must have been executed successfully.
  *
  * Steps:
- * -  Call nvgpu_tsg_force_unbind_channel.
+ * -  Call nvgpu_tsg_unbind_channel.
  * -  Call nvgpu_channel_close.
  * -  Call nvgpu_tsg_release.
  *

@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -670,7 +670,7 @@ static int tegra_edid_parse_ext_block(const u8 *raw, int idx,
 	 * raw is being copied from edid->dc->vedid_data in calling function.
 	 * edid->dc->vedid_data is being populated through debugfs(edid_fops).
 	 */
-	speculation_barrier();
+	spec_bar();
 	return 0;
 }
 
@@ -1112,7 +1112,7 @@ int tegra_edid_get_monspecs(struct tegra_edid *edid, struct fb_monspecs *specs)
 				data[i * EDID_BYTES_PER_BLOCK + 2],
 				new_data);
 
-			if (new_data->quirks | TEGRA_EDID_QUIRK_LG_SBAR)
+			if ((new_data->quirks & TEGRA_EDID_QUIRK_LG_SBAR) != 0)
 				tegra_edid_quirk_lg_sbar(new_data, specs);
 
 			if (new_data->support_stereo) {

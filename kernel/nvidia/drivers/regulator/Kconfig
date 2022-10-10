@@ -8,4 +8,10 @@ config REGULATOR_PMIC_OTP
 	  is required to use the PMCI OTP configuration and do not want
 	  to register PMIC.
 
+config REGULATOR_NCP81599
+	tristate "NCP81599 Regulator"
+	depends on I2C=y
+	help
+	  Enable this driver to toggle EN pin of NCP81599 device to
+	  enable/disable regulator.
 endif

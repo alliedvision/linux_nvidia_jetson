@@ -14,7 +14,7 @@
 #include <tegra234-soc/mods-simple-bus.dtsi>
 #include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
 #include <t234-common-cvm/tegra234-thermal.dtsi>
-#include <tegra234-soc/tegra234-cpuidle.dtsi>
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
 #include <tegra234-soc/tegra234-soc-hwpm.dtsi>
 
 / {
@@ -22,7 +22,7 @@
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 
 	compatible = "nvidia,p3737-0000+p3701-0000-as-pxxxx", "nvidia,tegra234", "nvidia,tegra23x";
-	model = "NVIDIA Orin Jetson-Small Developer Kit as pxxxx";
+	model = "Jetson AGX Orin as pxxxx";
 
 	display@13800000 {
 		status = "okay";
@@ -56,52 +56,6 @@
 
         tegra-cache {
 		status = "disabled";
-	};
-
-	cpus {
-		cpu@0 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@1 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@2 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@3 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@4 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@5 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@6 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu@7 {
-			cpu-idle-states = <&C7>;
-		};
-
-		cpu_core_power_states {
-			c7 {
-				min-residency-us = <30000>;
-				status = "okay";
-			};
-		};
-	};
-
-	cpuidle {
-		compatible = "nvidia,tegra23x-cpuidle-debugfs";
-		status = "okay";
 	};
 
 	tegra-hsp@3d00000 {

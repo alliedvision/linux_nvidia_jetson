@@ -8,7 +8,7 @@
 
 / {
 	overlay-name = "Camera IMX274";
-	jetson-header-name = "Jetson AGX Xavier CSI Connector";
+	jetson-header-name = "Jetson AGX CSI Connector";
 	compatible = "nvidia,p2822-0000+p2888-0001" , "nvidia,e3900-0000+p2888-0004";
 
 	fragment@0 {

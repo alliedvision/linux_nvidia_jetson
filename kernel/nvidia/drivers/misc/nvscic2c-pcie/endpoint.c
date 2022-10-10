@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -35,6 +35,8 @@
 #include "module.h"
 #include "pci-client.h"
 #include "stream-extensions.h"
+
+#define PCIE_STATUS_CHANGE_ACK_TIMEOUT (2000)
 
 /*
  * Masked offsets to return to user, allowing them to mmap
@@ -106,6 +108,9 @@ struct endpoint_t {
 	/* syncpoint shim for notifications (rx). */
 	struct syncpt_t syncpt;
 
+	/* msi irq to x86 RP */
+	u16 msi_irq;
+
 	/* book-keeping of peer notifications.*/
 	atomic_t dataevent_count;
 
@@ -119,6 +124,9 @@ struct endpoint_t {
 	/* serialise access to fops.*/
 	struct mutex fops_lock;
 	atomic_t in_use;
+	bool link_status_ack_frm_usr;
+	wait_queue_head_t ack_waitq;
+	wait_queue_head_t close_waitq;
 
 	/* pci client handle.*/
 	void *pci_client_h;
@@ -163,6 +171,10 @@ disable_event_handling(struct endpoint_t *endpoint);
 static int
 ioctl_notify_remote_impl(struct endpoint_t *endpoint);
 
+static int
+link_change_ack(struct endpoint_t *endpoint,
+		struct nvscic2c_link_change_ack *ack);
+
 /* prototype. */
 static int
 ioctl_get_info_impl(struct endpoint_t *endpoint,
@@ -180,9 +192,6 @@ endpoint_fops_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 	struct endpoint_t *endpoint =
 		container_of(inode->i_cdev, struct endpoint_t, cdev);
-
-	if (WARN_ON(!endpoint))
-		return -EFAULT;
 
 	mutex_lock(&endpoint->fops_lock);
 	if (atomic_read(&endpoint->in_use)) {
@@ -205,10 +214,12 @@ endpoint_fops_open(struct inode *inode, struct file *filp)
 	if (ret) {
 		pr_err("(%s): Failed to enable link, syncpt event handling\n",
 		       endpoint->name);
+		stream_extension_deinit(&endpoint->stream_ext_h);
 		goto err;
 	}
 
 	filp->private_data = endpoint;
+	endpoint->link_status_ack_frm_usr = true;
 	atomic_set(&endpoint->in_use, 1);
 err:
 	mutex_unlock(&endpoint->fops_lock);
@@ -220,6 +231,7 @@ static int
 endpoint_fops_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
+	struct nvscic2c_link_change_ack ack = {0};
 	struct endpoint_t *endpoint = filp->private_data;
 
 	if (!endpoint)
@@ -228,9 +240,12 @@ endpoint_fops_release(struct inode *inode, struct file *filp)
 	mutex_lock(&endpoint->fops_lock);
 	if (atomic_read(&endpoint->in_use)) {
 		disable_event_handling(endpoint);
+		stream_extension_deinit(&endpoint->stream_ext_h);
+		ack.done = false;
+		link_change_ack(endpoint, &ack);
 		atomic_set(&endpoint->in_use, 0);
+		wake_up_interruptible_all(&endpoint->close_waitq);
 	}
-	stream_extension_deinit(&endpoint->stream_ext_h);
 	filp->private_data = NULL;
 	mutex_unlock(&endpoint->fops_lock);
 
@@ -320,14 +335,14 @@ exit:
  * to be serviced, we return letting application call get_event(), otherwise
  * kernel f/w will wait for waitq activity to occur.
  */
-static unsigned int
+static __poll_t
 endpoint_fops_poll(struct file *filp, poll_table *wait)
 {
-	unsigned int mask = 0;
+	__poll_t mask = 0;
 	struct endpoint_t *endpoint = filp->private_data;
 
 	if (WARN_ON(!endpoint))
-		return -EFAULT;
+		return POLLNVAL;
 
 	mutex_lock(&endpoint->fops_lock);
 
@@ -385,6 +400,10 @@ endpoint_fops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case NVSCIC2C_PCIE_IOCTL_NOTIFY_REMOTE:
 		ret = ioctl_notify_remote_impl(endpoint);
 		break;
+	case NVSCIC2C_PCIE_LINK_STATUS_CHANGE_ACK:
+		link_change_ack(endpoint,
+				(struct nvscic2c_link_change_ack *)buf);
+		break;
 	default:
 		ret = stream_extension_ioctl(endpoint->stream_ext_h, cmd, buf);
 		break;
@@ -394,7 +413,6 @@ endpoint_fops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	/* copy the cmd result back to user if it was kernel->user: get_info.*/
 	if (ret == 0 && (_IOC_DIR(cmd) & _IOC_READ))
 		ret = copy_to_user((void __user *)arg, buf, _IOC_SIZE(cmd));
-
 	return ret;
 }
 
@@ -431,17 +449,36 @@ ioctl_notify_remote_impl(struct endpoint_t *endpoint)
 	int ret = 0;
 	enum nvscic2c_pcie_link link = NVSCIC2C_PCIE_LINK_DOWN;
 	struct syncpt_t *syncpt = &endpoint->syncpt;
+	enum peer_cpu_t peer_cpu = NVCPU_ORIN;
 
 	link = pci_client_query_link_status(endpoint->pci_client_h);
+	peer_cpu =  pci_client_get_peer_cpu(endpoint->pci_client_h);
+
 	if (link != NVSCIC2C_PCIE_LINK_UP)
 		return -ENOLINK;
+
+	if (peer_cpu == NVCPU_X86_64) {
+		ret = pci_client_raise_irq(endpoint->pci_client_h, PCI_EPC_IRQ_MSI,
+					   endpoint->msi_irq);
+	} else {
 	/*
 	 * increment peer's syncpoint. Write of any 4-byte value
 	 * increments remote's syncpoint shim by 1.
 	 */
-	writel(0x1, syncpt->peer_mem.pva);
+		writel(0x1, syncpt->peer_mem.pva);
+	}
 
 	return ret;
+}
+
+static int
+link_change_ack(struct endpoint_t *endpoint,
+		struct nvscic2c_link_change_ack *ack)
+{
+	endpoint->link_status_ack_frm_usr = ack->done;
+	wake_up_interruptible_all(&endpoint->ack_waitq);
+
+	return 0;
 }
 
 static int
@@ -631,6 +668,7 @@ allocate_syncpoint(struct endpoint_drv_ctx_t *eps_ctx,
 		pr_err("Failed to get comm peer's syncpt pcie aperture\n");
 		goto err;
 	}
+
 	syncpt->peer_mem.pva = ioremap(syncpt->peer_mem.aper,
 				       syncpt->peer_mem.size);
 	if (!syncpt->peer_mem.pva) {
@@ -707,7 +745,6 @@ allocate_memory(struct endpoint_drv_ctx_t *eps_ctx, struct endpoint_t *ep)
 		goto err;
 	}
 	ep->self_mem.phys_addr = page_to_phys(virt_to_page(ep->self_mem.pva));
-
 	pr_debug("(%s): physical page allocated at:(0x%pa[p]+0x%lx)\n",
 		 ep->name, &ep->self_mem.phys_addr, ep->self_mem.size);
 
@@ -774,6 +811,8 @@ remove_endpoint_device(struct endpoint_drv_ctx_t *eps_ctx,
 	if (!eps_ctx || !endpoint)
 		return ret;
 
+	wait_event_interruptible(endpoint->close_waitq, !(atomic_read(&endpoint->in_use)));
+
 	pci_client_unregister_for_link_event(endpoint->pci_client_h,
 					     endpoint->linkevent_id);
 	free_syncpoint(eps_ctx, endpoint);
@@ -826,6 +865,9 @@ create_endpoint_device(struct endpoint_drv_ctx_t *eps_ctx,
 	mutex_init(&endpoint->fops_lock);
 	atomic_set(&endpoint->in_use, 0);
 	init_waitqueue_head(&endpoint->waitq);
+	endpoint->link_status_ack_frm_usr = false;
+	init_waitqueue_head(&endpoint->ack_waitq);
+	init_waitqueue_head(&endpoint->close_waitq);
 
 	/* allocate physical pages for the endpoint PCIe BAR (rx) area.*/
 	ret = allocate_memory(eps_ctx, endpoint);
@@ -925,7 +967,10 @@ endpoints_setup(struct driver_ctx_t *drv_ctx, void **endpoints_h)
 		endpoint->nframes = ep_prop->nframes;
 		endpoint->frame_sz = ep_prop->frame_sz;
 		endpoint->pci_client_h = drv_ctx->pci_client_h;
-
+		/* set index of the msi-x interruper vector
+		 * where the first one is reserved for comm-channel
+		 */
+		endpoint->msi_irq = i + 1;
 		stream_ext_params->local_node = &drv_ctx->drv_param.local_node;
 		stream_ext_params->peer_node = &drv_ctx->drv_param.peer_node;
 		stream_ext_params->host1x_pdev = drv_ctx->drv_param.host1x_pdev;
@@ -985,6 +1030,37 @@ endpoints_release(void **endpoints_h)
 
 	kfree(eps_ctx);
 	*endpoints_h = NULL;
+
+	return ret;
+}
+
+int
+endpoints_core_deinit(void *endpoints_h)
+{
+	u32 i = 0;
+	int ret = 0;
+	struct endpoint_drv_ctx_t *eps_ctx =
+				 (struct endpoint_drv_ctx_t *)endpoints_h;
+	if (!eps_ctx)
+		return ret;
+
+	if (eps_ctx->endpoints) {
+		for (i = 0; i < eps_ctx->nr_endpoint; i++) {
+			struct endpoint_t *endpoint =
+						 &eps_ctx->endpoints[i];
+
+			mutex_lock(&endpoint->fops_lock);
+			stream_extension_edma_deinit(endpoint->stream_ext_h);
+			mutex_unlock(&endpoint->fops_lock);
+			(void)wait_event_interruptible_timeout(endpoint->ack_waitq,
+							       !endpoint->link_status_ack_frm_usr,
+							       msecs_to_jiffies(
+							       PCIE_STATUS_CHANGE_ACK_TIMEOUT));
+
+			pci_client_unregister_for_link_event(endpoint->pci_client_h,
+							     endpoint->linkevent_id);
+		}
+	}
 
 	return ret;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -284,8 +284,8 @@ struct gops_priv_ring {
 	 *			"pri route error"
 	 *		};
 	 *      \endcode
-	 *      - Invoke \ref #nvgpu_report_pri_err "nvgpu_report_pri_err" with parameters \a g,
-	 *         #NVGPU_ERR_MODULE_PRI, #GPU_PRI_ACCESS_VIOLATION, 0, error_code respectively.
+	 *      - Invoke \ref #nvgpu_report_pri_err "nvgpu_report_err_to_sdl" with parameters \a g,
+	 *         #GPU_PRI_ACCESS_VIOLATION, respectively.
 	 *      - Declare a variable error_type_index and store the bits [8-12] as below.
 	 *        error_type_index will be used as an index to the above error tables.
 	 *        error_code is also updated.

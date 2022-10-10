@@ -1,0 +1,91 @@
+From 7119767bdbbb9c74478dc5e14b0467af54c109e3 Mon Sep 17 00:00:00 2001
+From: Vijayanand Jitta <vjitta@codeaurora.org>
+Date: Tue, 8 Sep 2020 17:26:39 -0700
+Subject: [PATCH 107/830] FROMLIST: iommu/iova: Free global iova rcache on iova
+ alloc failure
+X-NVConfidentiality: public
+
+When ever an iova alloc request fails we free the iova
+ranges present in the percpu iova rcaches and then retry
+but the global iova rcache is not freed as a result we could
+still see iova alloc failure even after retry as global
+rcache is holding the iova's which can cause fragmentation.
+So, free the global iova rcache as well and then go for the
+retry.
+
+Link: https://lore.kernel.org/lkml/1597927761-24441-2-git-send-email-vjitta@codeaurora.org/
+Signed-off-by: Vijayanand Jitta <vjitta@codeaurora.org>
+Signed-off-by: Chris Goldsworthy <cgoldswo@codeaurora.org>
+Change-Id: Ife06a2a078d32103a59367da705274222b18b91a
+---
+ drivers/iommu/iova.c | 23 +++++++++++++++++++++++
+ include/linux/iova.h |  6 ++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/drivers/iommu/iova.c b/drivers/iommu/iova.c
+index 7c704ee39073..7e3f4d6c5e4c 100644
+--- a/drivers/iommu/iova.c
++++ b/drivers/iommu/iova.c
+@@ -529,6 +529,7 @@ alloc_iova_fast(struct iova_domain *iovad, unsigned long size,
+ 		flush_rcache = false;
+ 		for_each_online_cpu(cpu)
+ 			free_cpu_cached_iovas(cpu, iovad);
++		free_global_cached_iovas(iovad);
+ 		goto retry;
+ 	}
+ 
+@@ -1144,5 +1145,27 @@ void free_cpu_cached_iovas(unsigned int cpu, struct iova_domain *iovad)
+ 	}
+ }
+ 
++/*
++ * free all the IOVA ranges of global cache
++ */
++void free_global_cached_iovas(struct iova_domain *iovad)
++{
++	struct iova_rcache *rcache;
++	unsigned long flags;
++	int i, j;
++
++	for (i = 0; i < IOVA_RANGE_CACHE_MAX_SIZE; ++i) {
++		rcache = &iovad->rcaches[i];
++		spin_lock_irqsave(&rcache->lock, flags);
++		for (j = 0; j < rcache->depot_size; ++j) {
++			iova_magazine_free_pfns(rcache->depot[j], iovad);
++			iova_magazine_free(rcache->depot[j]);
++			rcache->depot[j] = NULL;
++		}
++		rcache->depot_size = 0;
++		spin_unlock_irqrestore(&rcache->lock, flags);
++	}
++}
++
+ MODULE_AUTHOR("Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>");
+ MODULE_LICENSE("GPL");
+diff --git a/include/linux/iova.h b/include/linux/iova.h
+index 58713bb72a48..5b4e75fe626a 100644
+--- a/include/linux/iova.h
++++ b/include/linux/iova.h
+@@ -164,6 +164,7 @@ void put_iova_domain(struct iova_domain *iovad);
+ struct iova *split_and_remove_iova(struct iova_domain *iovad,
+ 	struct iova *iova, unsigned long pfn_lo, unsigned long pfn_hi);
+ void free_cpu_cached_iovas(unsigned int cpu, struct iova_domain *iovad);
++void free_global_cached_iovas(struct iova_domain *iovad);
+ #else
+ static inline int iova_cache_get(void)
+ {
+@@ -271,6 +272,11 @@ static inline void free_cpu_cached_iovas(unsigned int cpu,
+ 					 struct iova_domain *iovad)
+ {
+ }
++
++static inline void free_global_cached_iovas(struct iova_domain *iovad)
++{
++}
++
+ #endif
+ 
+ #endif
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
 /*
  * Tegra CSI2 device common APIs
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -440,7 +440,7 @@ static void csi2_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 
 static int csi2_hw_init(struct tegra_csi_device *csi)
 {
-	int i, csi_port;
+	u32 i, csi_port;
 	struct tegra_csi_channel *it;
 	struct tegra_csi_port *port;
 
@@ -452,7 +452,7 @@ static int csi2_hw_init(struct tegra_csi_device *csi)
 			port = &it->ports[i];
 			csi_port = !it->pg_mode ?
 				it->ports[i].csi_port : it->ports[i].stream_id;
-			port->pixel_parser = csi->iomem[csi_port >> 1] +
+			port->pixel_parser = csi->iomem[csi_port / 2] +
 				(csi_port % 2) * TEGRA_CSI_PORT_OFFSET;
 			port->cil = port->pixel_parser + TEGRA_CSI_CIL_OFFSET;
 			port->tpg = port->pixel_parser + TEGRA_CSI_TPG_OFFSET;

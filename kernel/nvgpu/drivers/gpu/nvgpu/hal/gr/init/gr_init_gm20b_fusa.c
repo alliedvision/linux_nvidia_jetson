@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -407,6 +407,9 @@ void gm20b_gr_init_commit_global_attrib_cb(struct gk20a *g,
 {
 	u32 cb_addr;
 
+	(void)tpc_count;
+	(void)max_tpc;
+
 	addr = addr >> gr_gpcs_setup_attrib_cb_base_addr_39_12_align_bits_v();
 
 	nvgpu_log_info(g, "attrib cb addr : 0x%016llx", addr);
@@ -428,6 +431,8 @@ void gm20b_gr_init_commit_global_attrib_cb(struct gk20a *g,
 u32 gm20b_gr_init_get_patch_slots(struct gk20a *g,
 	struct nvgpu_gr_config *config)
 {
+	(void)g;
+	(void)config;
 	return PATCH_CTX_SLOTS_PER_PAGE;
 }
 

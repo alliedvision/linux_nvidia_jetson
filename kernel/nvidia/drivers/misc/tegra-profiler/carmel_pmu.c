@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/carmel_pmu.c
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -455,7 +455,7 @@ current_events(int cpuid, struct quadd_event *events, int max)
 
 static bool is_cluster_available(int cluster_id)
 {
-	int cpu;
+	unsigned int cpu;
 
 	for_each_possible_cpu(cpu)
 #if KERNEL_VERSION(4, 18, 0) > LINUX_VERSION_CODE

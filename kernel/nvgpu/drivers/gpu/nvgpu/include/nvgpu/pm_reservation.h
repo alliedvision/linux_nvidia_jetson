@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@ enum nvgpu_profiler_pm_resource_type {
 	NVGPU_PROFILER_PM_RESOURCE_TYPE_HWPM_LEGACY,
 	NVGPU_PROFILER_PM_RESOURCE_TYPE_SMPC,
 	NVGPU_PROFILER_PM_RESOURCE_TYPE_PMA_STREAM,
+	NVGPU_PROFILER_PM_RESOURCE_TYPE_PC_SAMPLER,
 	NVGPU_PROFILER_PM_RESOURCE_TYPE_COUNT,
 };
 

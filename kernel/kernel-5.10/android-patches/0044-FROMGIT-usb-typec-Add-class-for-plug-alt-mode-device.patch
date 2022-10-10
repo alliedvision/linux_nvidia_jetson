@@ -1,0 +1,42 @@
+From d96ffc67a9995fa47d6aea1960c44b5acb8cd542 Mon Sep 17 00:00:00 2001
+From: Prashant Malani <pmalani@chromium.org>
+Date: Thu, 10 Dec 2020 13:16:54 -0800
+Subject: [PATCH 044/830] FROMGIT: usb: typec: Add class for plug alt mode
+ device
+X-NVConfidentiality: public
+
+Add the Type C class for plug alternate mode devices which are being
+registered by the Type C connector class. This ensures that udev events
+get generated when the plug alt modes are registered.
+
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Reviewed-by: Benson Leung <bleung@chromium.org>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Prashant Malani <pmalani@chromium.org>
+Link: https://lore.kernel.org/r/20201210211653.879044-1-pmalani@chromium.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ecf4d4310a16c32fee081924a1aebe9f4c7c0403 usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: If5ba45116b0aa0ec8cf3d12e625a2558bf793ae5
+---
+ drivers/usb/typec/class.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/usb/typec/class.c b/drivers/usb/typec/class.c
+index 3d144f20987c..b9a6503adaed 100644
+--- a/drivers/usb/typec/class.c
++++ b/drivers/usb/typec/class.c
+@@ -602,6 +602,10 @@ typec_register_altmode(struct device *parent,
+ 	if (is_typec_partner(parent))
+ 		alt->adev.dev.bus = &typec_bus;
+ 
++	/* Plug alt modes need a class to generate udev events. */
++	if (is_typec_plug(parent))
++		alt->adev.dev.class = typec_class;
++
+ 	ret = device_register(&alt->adev.dev);
+ 	if (ret) {
+ 		dev_err(parent, "failed to register alternate mode (%d)\n",
+-- 
+2.17.1
+

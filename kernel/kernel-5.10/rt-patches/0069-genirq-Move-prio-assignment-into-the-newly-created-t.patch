@@ -1,7 +1,7 @@
-From 2b88e9e762847fa7e7e25842b0147ae449183379 Mon Sep 17 00:00:00 2001
+From a99ccdefd04474d042790aaa85b700f333cab462 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 9 Nov 2020 23:32:39 +0100
-Subject: [PATCH 069/304] genirq: Move prio assignment into the newly created
+Subject: [PATCH 069/318] genirq: Move prio assignment into the newly created
  thread
 
 With enabled threaded interrupts the nouveau driver reported the
@@ -35,7 +35,7 @@ Link: https://lkml.kernel.org/r/a23a826af7c108ea5651e73b8fbae5e653f16e86.camel@g
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 79dc02b..0558f75 100644
+index 79dc02b956dc..0558f75c0b85 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
 @@ -1159,6 +1159,8 @@ static int irq_thread(void *data)
@@ -57,5 +57,5 @@ index 79dc02b..0558f75 100644
  	 * We keep the reference to the task struct even if
  	 * the thread dies to avoid that the interrupt code
 -- 
-2.7.4
+2.17.1
 

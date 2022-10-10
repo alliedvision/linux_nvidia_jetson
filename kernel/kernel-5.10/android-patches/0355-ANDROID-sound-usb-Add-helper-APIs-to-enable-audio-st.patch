@@ -1,0 +1,338 @@
+From 46b2450fdbb6276cf3f759c586a6c215191ec2c2 Mon Sep 17 00:00:00 2001
+From: Hemant Kumar <hemantk@codeaurora.org>
+Date: Mon, 7 Mar 2016 14:46:31 -0800
+Subject: [PATCH 355/830] ANDROID: sound: usb: Add helper APIs to enable audio
+ stream
+X-NVConfidentiality: public
+
+Adding helper API to find usb substream context information
+using card number, pcm device number and direction. This usb
+substream is used to enable/disable by issuing SET_ALT
+command to device. Also add disconnect call back to perform
+any clean up required.
+
+Bug: 140989596
+Change-Id: I252f5171bd94b5ab096eb1a2f053f29a8c049c3b
+Signed-off-by: Hemant Kumar <hemantk@codeaurora.org>
+Signed-off-by: Jack Pham <jackp@codeaurora.org>
+---
+ sound/usb/card.c     |  71 +++++++++++++++++++++++
+ sound/usb/card.h     |   4 ++
+ sound/usb/pcm.c      | 131 +++++++++++++++++++++++++++++++++++++++++++
+ sound/usb/pcm.h      |   2 +
+ sound/usb/stream.c   |   4 ++
+ sound/usb/usbaudio.h |   3 +
+ 6 files changed, 215 insertions(+)
+
+diff --git a/sound/usb/card.c b/sound/usb/card.c
+index 45fc217e4e97..04b8e720a9da 100644
+--- a/sound/usb/card.c
++++ b/sound/usb/card.c
+@@ -112,6 +112,72 @@ static DEFINE_MUTEX(register_mutex);
+ static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
+ static struct usb_driver usb_audio_driver;
+ 
++struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
++	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
++	**uchip, void (*disconnect_cb)(struct snd_usb_audio *chip))
++{
++	int idx;
++	struct snd_usb_stream *as;
++	struct snd_usb_substream *subs = NULL;
++	struct snd_usb_audio *chip = NULL;
++
++	mutex_lock(&register_mutex);
++	/*
++	 * legacy audio snd card number assignment is dynamic. Hence
++	 * search using chip->card->number
++	 */
++	for (idx = 0; idx < SNDRV_CARDS; idx++) {
++		if (!usb_chip[idx])
++			continue;
++		if (usb_chip[idx]->card->number == card_num) {
++			chip = usb_chip[idx];
++			break;
++		}
++	}
++
++	if (!chip || atomic_read(&chip->shutdown)) {
++		pr_debug("%s: instance of usb crad # %d does not exist\n",
++			__func__, card_num);
++		goto err;
++	}
++
++	if (pcm_idx >= chip->pcm_devs) {
++		pr_err("%s: invalid pcm dev number %u > %d\n", __func__,
++			pcm_idx, chip->pcm_devs);
++		goto err;
++	}
++
++	if (direction > SNDRV_PCM_STREAM_CAPTURE) {
++		pr_err("%s: invalid direction %u\n", __func__, direction);
++		goto err;
++	}
++
++	list_for_each_entry(as, &chip->pcm_list, list) {
++		if (as->pcm_index == pcm_idx) {
++			subs = &as->substream[direction];
++			if (subs->interface < 0 && !subs->data_endpoint &&
++				!subs->sync_endpoint) {
++				pr_debug("%s: stream disconnected, bail out\n",
++					__func__);
++				subs = NULL;
++				goto err;
++			}
++			goto done;
++		}
++	}
++
++done:
++	chip->card_num = card_num;
++	chip->disconnect_cb = disconnect_cb;
++err:
++	*uchip = chip;
++	if (!subs)
++		pr_debug("%s: substream instance not found\n", __func__);
++	mutex_unlock(&register_mutex);
++	return subs;
++}
++EXPORT_SYMBOL_GPL(find_snd_usb_substream);
++
+ /*
+  * disconnect streams
+  * called from usb_audio_disconnect()
+@@ -454,6 +520,7 @@ static void snd_usb_audio_free(struct snd_card *card)
+ 	list_for_each_entry_safe(ep, n, &chip->ep_list, list)
+ 		snd_usb_endpoint_free(ep);
+ 
++	mutex_destroy(&chip->dev_lock);
+ 	mutex_destroy(&chip->mutex);
+ 	if (!atomic_read(&chip->shutdown))
+ 		dev_set_drvdata(&chip->dev->dev, NULL);
+@@ -596,6 +663,7 @@ static int snd_usb_audio_create(struct usb_interface *intf,
+ 
+ 	chip = card->private_data;
+ 	mutex_init(&chip->mutex);
++	mutex_init(&chip->dev_lock);
+ 	init_waitqueue_head(&chip->shutdown_wait);
+ 	chip->index = idx;
+ 	chip->dev = dev;
+@@ -869,6 +937,9 @@ static void usb_audio_disconnect(struct usb_interface *intf)
+ 
+ 	card = chip->card;
+ 
++	if (chip->disconnect_cb)
++		chip->disconnect_cb(chip);
++
+ 	mutex_lock(&register_mutex);
+ 	if (atomic_inc_return(&chip->shutdown) == 1) {
+ 		struct snd_usb_stream *as;
+diff --git a/sound/usb/card.h b/sound/usb/card.h
+index cf005f5f9517..dd0ff8bd0a4d 100644
+--- a/sound/usb/card.h
++++ b/sound/usb/card.h
+@@ -183,4 +183,8 @@ struct snd_usb_stream {
+ 	struct list_head list;
+ };
+ 
++struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
++	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
++	**uchip, void (*disconnect_cb)(struct snd_usb_audio *chip));
++
+ #endif /* __USBAUDIO_CARD_H */
+diff --git a/sound/usb/pcm.c b/sound/usb/pcm.c
+index d2985f80504a..f775d9a738eb 100644
+--- a/sound/usb/pcm.c
++++ b/sound/usb/pcm.c
+@@ -138,6 +138,69 @@ static struct audioformat *find_format(struct snd_usb_substream *subs)
+ 	return found;
+ }
+ 
++/*
++ * find a matching audio format as well as non-zero service interval
++ */
++static struct audioformat *find_format_and_si(struct snd_usb_substream *subs,
++	unsigned int datainterval)
++{
++	unsigned int i;
++	struct audioformat *fp;
++	struct audioformat *found = NULL;
++	int cur_attr = 0, attr;
++
++	list_for_each_entry(fp, &subs->fmt_list, list) {
++		if (datainterval != fp->datainterval)
++			continue;
++		if (!(fp->formats & pcm_format_to_bits(subs->pcm_format)))
++			continue;
++		if (fp->channels != subs->channels)
++			continue;
++		if (subs->cur_rate < fp->rate_min ||
++		    subs->cur_rate > fp->rate_max)
++			continue;
++		if (!(fp->rates & SNDRV_PCM_RATE_CONTINUOUS)) {
++			for (i = 0; i < fp->nr_rates; i++)
++				if (fp->rate_table[i] == subs->cur_rate)
++					break;
++			if (i >= fp->nr_rates)
++				continue;
++		}
++		attr = fp->ep_attr & USB_ENDPOINT_SYNCTYPE;
++		if (!found) {
++			found = fp;
++			cur_attr = attr;
++			continue;
++		}
++		/* avoid async out and adaptive in if the other method
++		 * supports the same format.
++		 * this is a workaround for the case like
++		 * M-audio audiophile USB.
++		 */
++		if (attr != cur_attr) {
++			if ((attr == USB_ENDPOINT_SYNC_ASYNC &&
++			     subs->direction == SNDRV_PCM_STREAM_PLAYBACK) ||
++			    (attr == USB_ENDPOINT_SYNC_ADAPTIVE &&
++			     subs->direction == SNDRV_PCM_STREAM_CAPTURE))
++				continue;
++			if ((cur_attr == USB_ENDPOINT_SYNC_ASYNC &&
++			     subs->direction == SNDRV_PCM_STREAM_PLAYBACK) ||
++			    (cur_attr == USB_ENDPOINT_SYNC_ADAPTIVE &&
++			     subs->direction == SNDRV_PCM_STREAM_CAPTURE)) {
++				found = fp;
++				cur_attr = attr;
++				continue;
++			}
++		}
++		/* find the format with the largest max. packet size */
++		if (fp->maxpacksize > found->maxpacksize) {
++			found = fp;
++			cur_attr = attr;
++		}
++	}
++	return found;
++}
++
+ static int init_pitch_v1(struct snd_usb_audio *chip, int iface,
+ 			 struct usb_host_interface *alts,
+ 			 struct audioformat *fmt)
+@@ -612,6 +675,74 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
+ 	return 0;
+ }
+ 
++int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
++	int datainterval, bool enable)
++{
++	struct audioformat *fmt;
++	struct usb_host_interface *alts;
++	struct usb_interface *iface;
++	int ret;
++
++	if (!enable) {
++		if (subs->interface >= 0) {
++			usb_set_interface(subs->dev, subs->interface, 0);
++			subs->altset_idx = 0;
++			subs->interface = -1;
++			subs->cur_audiofmt = NULL;
++		}
++
++		snd_usb_autosuspend(subs->stream->chip);
++		return 0;
++	}
++
++	snd_usb_autoresume(subs->stream->chip);
++	if (datainterval != -EINVAL)
++		fmt = find_format_and_si(subs, datainterval);
++	else
++		fmt = find_format(subs);
++	if (!fmt) {
++		dev_err(&subs->dev->dev,
++		"cannot set format: format = %#x, rate = %d, channels = %d\n",
++			   subs->pcm_format, subs->cur_rate, subs->channels);
++		return -EINVAL;
++	}
++
++	subs->altset_idx = 0;
++	subs->interface = -1;
++	if (atomic_read(&subs->stream->chip->shutdown)) {
++		ret = -ENODEV;
++	} else {
++		ret = set_format(subs, fmt);
++		if (ret < 0)
++			return ret;
++
++		iface = usb_ifnum_to_if(subs->dev, subs->cur_audiofmt->iface);
++		if (!iface) {
++			dev_err(&subs->dev->dev, "Could not get iface %d\n",
++				subs->cur_audiofmt->iface);
++			return -ENODEV;
++		}
++
++		alts = &iface->altsetting[subs->cur_audiofmt->altset_idx];
++		ret = snd_usb_init_sample_rate(subs->stream->chip,
++					       subs->cur_audiofmt->iface,
++					       alts,
++					       subs->cur_audiofmt,
++					       subs->cur_rate);
++		if (ret < 0) {
++			dev_err(&subs->dev->dev, "failed to set rate %d\n",
++				subs->cur_rate);
++			return ret;
++		}
++	}
++
++	subs->interface = fmt->iface;
++	subs->altset_idx = fmt->altset_idx;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(snd_usb_enable_audio_stream);
++
+ /*
+  * Return the score of matching two audioformats.
+  * Veto the audioformat if:
+diff --git a/sound/usb/pcm.h b/sound/usb/pcm.h
+index 9833627c1eca..6e28e791e761 100644
+--- a/sound/usb/pcm.h
++++ b/sound/usb/pcm.h
+@@ -14,5 +14,7 @@ int snd_usb_init_pitch(struct snd_usb_audio *chip, int iface,
+ 		       struct audioformat *fmt);
+ void snd_usb_preallocate_buffer(struct snd_usb_substream *subs);
+ 
++int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
++				int datainterval, bool enable);
+ 
+ #endif /* __USBAUDIO_PCM_H */
+diff --git a/sound/usb/stream.c b/sound/usb/stream.c
+index 622021ec640f..efb7e49adc1c 100644
+--- a/sound/usb/stream.c
++++ b/sound/usb/stream.c
+@@ -67,9 +67,13 @@ static void snd_usb_audio_stream_free(struct snd_usb_stream *stream)
+ static void snd_usb_audio_pcm_free(struct snd_pcm *pcm)
+ {
+ 	struct snd_usb_stream *stream = pcm->private_data;
++	struct snd_usb_audio *chip;
+ 	if (stream) {
++		mutex_lock(&stream->chip->dev_lock);
++		chip = stream->chip;
+ 		stream->pcm = NULL;
+ 		snd_usb_audio_stream_free(stream);
++		mutex_unlock(&chip->dev_lock);
+ 	}
+ }
+ 
+diff --git a/sound/usb/usbaudio.h b/sound/usb/usbaudio.h
+index 3b34ddec6395..a3a94e35896f 100644
+--- a/sound/usb/usbaudio.h
++++ b/sound/usb/usbaudio.h
+@@ -62,6 +62,9 @@ struct snd_usb_audio {
+ 	struct usb_host_interface *ctrl_intf;	/* the audio control interface */
+ 	struct media_device *media_dev;
+ 	struct media_intf_devnode *ctl_intf_media_devnode;
++	struct mutex dev_lock;  /* to protect any race with disconnect */
++	int card_num;	/* cache pcm card number to use upon disconnect */
++	void (*disconnect_cb)(struct snd_usb_audio *chip);
+ };
+ 
+ #define USB_AUDIO_IFACE_UNUSED	((void *)-1L)
+-- 
+2.17.1
+

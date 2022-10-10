@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Automatic Clock Management
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -771,6 +771,7 @@ static ssize_t clk_cap_store(struct kobject *kobj,
 	int ret, i = attr - pdata->clk_cap_attrs;
 	struct clk *clk = pdata->clk[i];
 	unsigned long freq_cap;
+	long freq_cap_signed;
 
 	ret = kstrtoul(buf, 0, &freq_cap);
 	if (ret)
@@ -779,9 +780,11 @@ static ssize_t clk_cap_store(struct kobject *kobj,
 	ret = clk_set_max_rate(clk, UINT_MAX);
 	if (ret < 0)
 		return ret;
-	freq_cap = clk_round_rate(clk, freq_cap);
-	if (freq_cap < 0)
+	freq_cap_signed = clk_round_rate(clk, freq_cap);
+	if (freq_cap_signed < 0)
 		return -EINVAL;
+	else
+		freq_cap = (unsigned long)freq_cap_signed;
 	/* Apply new freq cap */
 	ret = clk_set_max_rate(clk, freq_cap);
 	if (ret < 0)

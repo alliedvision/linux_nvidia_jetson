@@ -1,0 +1,129 @@
+From 6daa5fec4ff187c7759a7b826c34b456d042184d Mon Sep 17 00:00:00 2001
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Tue, 15 Sep 2020 12:47:10 +0100
+Subject: [PATCH 826/830] ANDROID: arm64: Disallow offlining the last aarch32
+ cpu
+X-NVConfidentiality: public
+
+On asym aarch32 systems, bringing the last aarch32 cpu would cause any
+running 32bit application to crash. To protect against that, we ensure
+that we block the offlining operation of the last online cpu in
+aarch32_el0_mask.
+
+Suspend/hibernation and kexec operation should continue to work as
+intended.
+
+This is a different approach compared to the original one [1]. We should
+be able to convert this to a vendor hook if there's a desire to do so.
+
+[1] http://linux-arm.org/git?p=linux-power.git;a=commit;h=e6b567c1cc07dd1690e5d34b6a93ab9819ab2eeb
+
+Bug: 168847043
+Reason: Needed for bringup. Revert when upstream patch is available
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+Change-Id: Ie8a2372d7b7db3c3580f19d724be183f988a5895
+---
+ arch/arm64/Kconfig      |  6 +++--
+ arch/arm64/kernel/smp.c | 54 ++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 57 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 174a35d9d298..225e60c77dfe 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1936,8 +1936,10 @@ config ASYMMETRIC_AARCH32
+ 	  CPU configurations. Once the AArch32 EL0 support is detected
+ 	  on a CPU, the feature is made available to user space to allow
+ 	  the execution of 32-bit (compat) applications by migrating
+-	  them to the capable CPUs. Offlining such CPUs leads to 32-bit
+-	  applications being killed.
++	  them to the capable CPUs. You will not be able to offline all
++	  such CPUs to prevent any running 32-bit application from being
++	  killed. I.e: we guarantee there will always be at least one
++	  32-bit capable CPU online.
+ 
+ 	  If unsure say N.
+ 
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 6028fb021459..d4d03b63eba0 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -98,6 +98,54 @@ static inline int op_cpu_kill(unsigned int cpu)
+ }
+ #endif
+ 
++#ifdef CONFIG_ASYMMETRIC_AARCH32
++static int last_aarch32_cpu = -1;
++static cpumask_t aarch32_online;
++
++static void asym_aarch32_online(void)
++{
++		/*
++		 * Since we onlined another cpu, restore the hotpluggability of
++		 * the last AAarch32 cpu if it was disabled.
++		 */
++		cpumask_and(&aarch32_online, &aarch32_el0_mask, cpu_online_mask);
++
++		if (last_aarch32_cpu >= 0 &&
++		    cpumask_weight(&aarch32_online) > 1) {
++
++			struct device *dev;
++
++			dev = get_cpu_device(last_aarch32_cpu);
++			dev->offline_disabled = 0;
++			last_aarch32_cpu = -1;
++		}
++}
++
++static void asym_aarch32_offline(void)
++{
++	/* Don't let the last AArch32-compatible CPU go down */
++	if (!cpumask_empty(&aarch32_el0_mask)) {
++
++		cpumask_and(&aarch32_online, &aarch32_el0_mask, cpu_online_mask);
++
++		/*
++		 * If we're left with only one AAarch32 cpu, prevent it from
++		 * being offlined.
++		 */
++		if (cpumask_weight(&aarch32_online) == 1) {
++			struct device *dev;
++
++			last_aarch32_cpu = cpumask_first(&aarch32_online);
++			dev = get_cpu_device(last_aarch32_cpu);
++			dev->offline_disabled = 1;
++		}
++	}
++}
++#else
++static void asym_aarch32_online(void) {}
++static void asym_aarch32_offline(void) {}
++#endif
++
+ 
+ /*
+  * Boot a secondary CPU, and assign it the specified idle task.
+@@ -150,8 +198,10 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
+ 	 */
+ 	wait_for_completion_timeout(&cpu_running,
+ 				    msecs_to_jiffies(5000));
+-	if (cpu_online(cpu))
++	if (cpu_online(cpu)) {
++		asym_aarch32_online();
+ 		return 0;
++	}
+ 
+ 	pr_crit("CPU%u: failed to come online\n", cpu);
+ 	secondary_data.task = NULL;
+@@ -328,6 +378,8 @@ int __cpu_disable(void)
+ 	set_cpu_online(cpu, false);
+ 	ipi_teardown(cpu);
+ 
++	asym_aarch32_offline();
++
+ 	/*
+ 	 * OK - migrate IRQs away from this CPU
+ 	 */
+-- 
+2.17.1
+

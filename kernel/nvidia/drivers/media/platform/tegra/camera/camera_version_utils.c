@@ -2,7 +2,7 @@
  * camera_version_utils.c - utilities for different kernel versions
  * camera driver supports
  *
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,7 +77,8 @@ EXPORT_SYMBOL(tegra_vb2_dma_init);
 void tegra_vb2_dma_cleanup(struct device *dev, void *alloc_ctx,
 			atomic_t *refcount)
 {
-	atomic_dec_return(refcount);
+	if (atomic_dec_return(refcount) < 0)
+		dev_err(dev, "%s: put to negative references\n", __func__);
 	/* dont call vb2_dma_contig_clear_max_seg_size as it will */
 	/* call kfree dma_parms but dma_parms is static member */
 }

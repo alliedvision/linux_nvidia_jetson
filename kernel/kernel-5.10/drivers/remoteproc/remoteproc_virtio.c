@@ -369,7 +369,7 @@ int rproc_add_virtio_dev(struct rproc_vdev *rvdev, int id)
 			/* Associate vdev buffer memory pool to vdev subdev */
 			ret = dma_declare_coherent_memory(dev, pa,
 							   mem->da,
-							   mem->len, 0);
+							   mem->len);
 			if (ret < 0) {
 				dev_err(dev, "Failed to associate buffer\n");
 				goto out;

@@ -2,7 +2,7 @@
 /*
  * SPI driver for NVIDIA's Tegra114 SPI Controller.
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -168,9 +168,17 @@
 #define SPI_FIFO_FLUSH_MAX_DELAY		2000
 
 
+#define SPI_FATAL_INTR_EN_0				0x198
+#define SPI_RX_FIFO_UNF_FATAL_INTR_EN		BIT(25)
+#define SPI_RX_FIFO_OVF_FATAL_INTR_EN		BIT(26)
+#define SPI_TX_FIFO_UNF_FATAL_INTR_EN		BIT(27)
+#define SPI_TX_FIFO_OVF_FATAL_INTR_EN		BIT(28)
+#define SPI_FATAL_INTR_ALL_EN_0			(0x1fUL << 25)
+
 struct tegra_spi_soc_data {
 	bool has_intr_mask_reg;
 	bool set_rx_tap_delay;
+	bool has_fatal_intr_en_reg;
 };
 
 static bool prefer_last_used_cs;
@@ -300,6 +308,26 @@ static void tegra_spi_set_intr_mask(struct tegra_spi_data *tspi)
 		else
 			intr_mask &= ~(SPI_IE_TX | SPI_IE_RX);
 		tegra_spi_writel(tspi, intr_mask, SPI_DMA_CTL);
+	}
+}
+
+/* Enable fatal interrupt. This interrupt only indicates
+ * existing interrupts are fatal and does not add any new
+ * intr flags. This interrupt gets asserted when corresponding
+ * fatal_intr_en is set in SPI_FATAL_INTR_EN_0 register and the
+ * error occurs.
+ */
+static void tegra_spi_set_fatal_intr_en(struct tegra_spi_data *tspi)
+{
+	unsigned long intr_enable;
+
+	if (tspi->soc_data->has_fatal_intr_en_reg) {
+		intr_enable = tegra_spi_readl(tspi, SPI_FATAL_INTR_EN_0);
+		if (tspi->polling_mode)
+			intr_enable &= ~(SPI_FATAL_INTR_ALL_EN_0);
+		else
+			intr_enable |= SPI_FATAL_INTR_ALL_EN_0;
+		tegra_spi_writel(tspi, intr_enable, SPI_FATAL_INTR_EN_0);
 	}
 }
 
@@ -1167,15 +1195,6 @@ static struct tegra_spi_client_data
 		return NULL;
 	}
 
-	cdata = kzalloc(sizeof(*cdata), GFP_KERNEL);
-	if (!cdata)
-		return NULL;
-
-	of_property_read_u32(slave_np, "nvidia,tx-clk-tap-delay",
-			     &cdata->tx_clk_tap_delay);
-	of_property_read_u32(slave_np, "nvidia,rx-clk-tap-delay",
-			     &cdata->rx_clk_tap_delay);
-
 	data_np = of_get_child_by_name(slave_np, "controller-data");
 	if (!data_np) {
 		dev_dbg(&spi->dev, "child node 'controller-data' not found\n");
@@ -1187,6 +1206,11 @@ static struct tegra_spi_client_data
 		of_node_put(data_np);
 		return NULL;
 	}
+
+	of_property_read_u32(slave_np, "nvidia,tx-clk-tap-delay",
+			     &cdata->tx_clk_tap_delay);
+	of_property_read_u32(slave_np, "nvidia,rx-clk-tap-delay",
+			     &cdata->rx_clk_tap_delay);
 
 	ret = of_property_read_bool(data_np, "nvidia,enable-hw-based-cs");
 	if (ret)
@@ -1298,6 +1322,12 @@ static int tegra_spi_setup(struct spi_device *spi)
 		val = tegra_spi_readl(tspi, SPI_INTR_MASK);
 		val &= ~SPI_INTR_ALL_MASK;
 		tegra_spi_writel(tspi, val, SPI_INTR_MASK);
+	}
+
+	if (tspi->soc_data->has_fatal_intr_en_reg) {
+		val = tegra_spi_readl(tspi, SPI_FATAL_INTR_EN_0);
+		val |= SPI_FATAL_INTR_ALL_EN_0;
+		tegra_spi_writel(tspi, val, SPI_FATAL_INTR_EN_0);
 	}
 
 	spin_lock_irqsave(&tspi->lock, flags);
@@ -1453,6 +1483,7 @@ static int tegra_spi_transfer_one_message(struct spi_controller *ctrl,
 			reset_control_deassert(tspi->rst);
 			tspi->last_used_cs = ctrl->num_chipselect + 1;
 			tegra_spi_set_intr_mask(tspi);
+			tegra_spi_set_fatal_intr_en(tspi);
 			goto complete_xfer;
 		}
 
@@ -1539,6 +1570,7 @@ static irqreturn_t handle_cpu_based_xfer(struct tegra_spi_data *tspi)
 		udelay(2);
 		reset_control_deassert(tspi->rst);
 		tegra_spi_set_intr_mask(tspi);
+		tegra_spi_set_fatal_intr_en(tspi);
 		return IRQ_HANDLED;
 	}
 
@@ -1614,6 +1646,7 @@ static irqreturn_t handle_dma_based_xfer(struct tegra_spi_data *tspi)
 		udelay(2);
 		reset_control_deassert(tspi->rst);
 		tegra_spi_set_intr_mask(tspi);
+		tegra_spi_set_fatal_intr_en(tspi);
 		return IRQ_HANDLED;
 	}
 
@@ -1765,21 +1798,31 @@ static void tegra_spi_parse_dt(struct tegra_spi_data *tspi)
 static struct tegra_spi_soc_data tegra114_spi_soc_data = {
 	.has_intr_mask_reg = false,
 	.set_rx_tap_delay = false,
+	.has_fatal_intr_en_reg = false,
 };
 
 static struct tegra_spi_soc_data tegra124_spi_soc_data = {
 	.has_intr_mask_reg = false,
 	.set_rx_tap_delay = true,
+	.has_fatal_intr_en_reg = false,
 };
 
 static struct tegra_spi_soc_data tegra210_spi_soc_data = {
 	.has_intr_mask_reg = true,
 	.set_rx_tap_delay = false,
+	.has_fatal_intr_en_reg = false,
 };
 
 static struct tegra_spi_soc_data tegra186_spi_soc_data = {
 	.has_intr_mask_reg = true,
 	.set_rx_tap_delay = false,
+	.has_fatal_intr_en_reg = false,
+};
+
+static struct tegra_spi_soc_data tegra234_spi_soc_data = {
+	.has_intr_mask_reg = true,
+	.set_rx_tap_delay = false,
+	.has_fatal_intr_en_reg = true,
 };
 
 static const struct of_device_id tegra_spi_of_match[] = {
@@ -1795,6 +1838,9 @@ static const struct of_device_id tegra_spi_of_match[] = {
 	}, {
 		.compatible = "nvidia,tegra186-spi",
 		.data       = &tegra186_spi_soc_data,
+	}, {
+		.compatible = "nvidia,tegra234-spi",
+		.data       = &tegra234_spi_soc_data,
 	},
 	{}
 };
@@ -2026,6 +2072,7 @@ static int tegra_spi_resume(struct device *dev)
 	tegra_spi_writel(tspi, tspi->command2_reg, SPI_COMMAND2);
 	tspi->last_used_cs = ctrl->num_chipselect + 1;
 	tegra_spi_set_intr_mask(tspi);
+	tegra_spi_set_fatal_intr_en(tspi);
 	pm_runtime_put(dev);
 
 	return spi_controller_resume(ctrl);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,13 +47,9 @@
 /*
  * When this assert fails, the function will not return.
  */
-#define nvgpu_assert(cond)											\
-	({													\
-		NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")	\
-		NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")	\
-		BUG_ON((cond) == ((bool)(0 != 0)));										\
-		NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))						\
-		NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))						\
+#define nvgpu_assert(cond)						\
+	({								\
+		BUG_ON((cond) == ((bool)(0 != 0)));			\
 	})
 #endif
 
@@ -64,7 +60,6 @@
  * Invokes the macro #nvgpu_assert with parameter as #true.
  */
 #define nvgpu_do_assert()						\
-NVGPU_COV_WHITELIST(false_positive, NVGPU_MISRA(Rule, 10_3), "Bug 2623654") \
 	nvgpu_assert((bool)(0 != 0))
 
 /*
@@ -110,7 +105,7 @@ nvgpu_bug_cb_from_node(struct nvgpu_list_node *node)
 };
 
 #ifdef __KERNEL__
-static inline void nvgpu_bug_exit(int status) { }
+static inline void nvgpu_bug_exit(void) { }
 static inline void nvgpu_bug_register_cb(struct nvgpu_bug_cb *cb) { }
 static inline void nvgpu_bug_unregister_cb(struct nvgpu_bug_cb *cb) { }
 #endif

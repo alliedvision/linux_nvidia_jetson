@@ -69,7 +69,7 @@ done:
     return err;
 }
 
-int vgpu_fb_vab_dump_and_clear(struct gk20a *g, u64 *user_buf,
+int vgpu_fb_vab_dump_and_clear(struct gk20a *g, u8 *user_buf,
 				u64 user_buf_size)
 {
 	struct tegra_vgpu_cmd_msg msg = {};
@@ -99,7 +99,7 @@ int vgpu_fb_vab_dump_and_clear(struct gk20a *g, u64 *user_buf,
 
 	err = err != 0 ? err : msg.ret;
 	if (err == 0) {
-		nvgpu_memcpy((u8 *)user_buf, (u8 *)oob, user_buf_size);
+		nvgpu_memcpy(user_buf, (u8 *)oob, user_buf_size);
 	} else {
 		nvgpu_err(g, "fb vab flush state failed err %d", err);
 	}

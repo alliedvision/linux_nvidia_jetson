@@ -1,7 +1,7 @@
-From a70a2e3ce5bf1e035fa30e29eebaec7f53a6a4be Mon Sep 17 00:00:00 2001
+From 0f92b2123325eabb8927ce079ba251e3b76b109c Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 19 Nov 2019 09:25:04 +0100
-Subject: [PATCH 230/304] locking: Make spinlock_t and rwlock_t a RCU section
+Subject: [PATCH 230/318] locking: Make spinlock_t and rwlock_t a RCU section
  on RT
 
 On !RT a locked spinlock_t and rwlock_t disables preemption which
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 12 insertions(+)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 4e8f73d..4ea87d6 100644
+index 2fe178651254..31b374d36d04 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1136,6 +1136,7 @@ void __lockfunc rt_spin_lock(spinlock_t *lock)
@@ -69,7 +69,7 @@ index 4e8f73d..4ea87d6 100644
  	} else {
  		local_bh_enable();
 diff --git a/kernel/locking/rwlock-rt.c b/kernel/locking/rwlock-rt.c
-index 16be711..3d2d1f1 100644
+index 16be7111aae7..3d2d1f14b513 100644
 --- a/kernel/locking/rwlock-rt.c
 +++ b/kernel/locking/rwlock-rt.c
 @@ -270,6 +270,7 @@ int __lockfunc rt_read_trylock(rwlock_t *rwlock)
@@ -121,5 +121,5 @@ index 16be711..3d2d1f1 100644
  }
  EXPORT_SYMBOL(rt_write_unlock);
 -- 
-2.7.4
+2.17.1
 

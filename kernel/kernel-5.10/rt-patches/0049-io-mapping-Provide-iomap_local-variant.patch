@@ -1,7 +1,7 @@
-From b5981354409dc103c310b8af3326429e9d2ecd49 Mon Sep 17 00:00:00 2001
+From bc9601e9d14da9ba1a4b9c47d7eb880e15919350 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:38 +0100
-Subject: [PATCH 049/304] io-mapping: Provide iomap_local variant
+Subject: [PATCH 049/318] io-mapping: Provide iomap_local variant
 
 Similar to kmap local provide a iomap local variant which only disables
 migration, but neither disables pagefaults nor preemption.
@@ -9,12 +9,12 @@ migration, but neither disables pagefaults nor preemption.
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- Documentation/driver-api/io-mapping.rst | 74 ++++++++++++++++++++-------------
- include/linux/io-mapping.h              | 30 ++++++++++++-
+ Documentation/driver-api/io-mapping.rst | 74 +++++++++++++++----------
+ include/linux/io-mapping.h              | 30 +++++++++-
  2 files changed, 73 insertions(+), 31 deletions(-)
 
 diff --git a/Documentation/driver-api/io-mapping.rst b/Documentation/driver-api/io-mapping.rst
-index e33b882..a0cfb15 100644
+index e33b88268554..a0cfb15988df 100644
 --- a/Documentation/driver-api/io-mapping.rst
 +++ b/Documentation/driver-api/io-mapping.rst
 @@ -20,55 +20,71 @@ A mapping object is created during driver initialization using::
@@ -119,13 +119,14 @@ index e33b882..a0cfb15 100644
  At driver close time, the io_mapping object must be freed::
  
 diff --git a/include/linux/io-mapping.h b/include/linux/io-mapping.h
-index 60e7c83..c093e81 100644
+index 60e7c83e4904..c093e81310a9 100644
 --- a/include/linux/io-mapping.h
 +++ b/include/linux/io-mapping.h
-@@ -83,6 +83,21 @@ io_mapping_unmap_atomic(void __iomem *vaddr)
+@@ -82,6 +82,21 @@ io_mapping_unmap_atomic(void __iomem *vaddr)
+ 	preempt_enable();
  }
  
- static inline void __iomem *
++static inline void __iomem *
 +io_mapping_map_local_wc(struct io_mapping *mapping, unsigned long offset)
 +{
 +	resource_size_t phys_addr;
@@ -140,10 +141,9 @@ index 60e7c83..c093e81 100644
 +	kunmap_local_indexed((void __force *)vaddr);
 +}
 +
-+static inline void __iomem *
+ static inline void __iomem *
  io_mapping_map_wc(struct io_mapping *mapping,
  		  unsigned long offset,
- 		  unsigned long size)
 @@ -101,7 +116,7 @@ io_mapping_unmap(void __iomem *vaddr)
  	iounmap(vaddr);
  }
@@ -174,5 +174,5 @@ index 60e7c83..c093e81 100644
  static inline struct io_mapping *
  io_mapping_create_wc(resource_size_t base,
 -- 
-2.7.4
+2.17.1
 

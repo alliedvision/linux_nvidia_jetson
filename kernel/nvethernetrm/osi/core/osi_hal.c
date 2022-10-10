@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1563,7 +1563,7 @@ static inline nve32_t freq_offset_calculate(struct osi_core_priv_data *sec_osi_c
 	 */
 	if (offset >= 1000000000 || offset <= -1000000000) {
 		s->count = SERVO_STATS_0; /* JUMP */
-		return s->last_ppb;
+		return (nve32_t) s->last_ppb;
 	}
 
 	switch (s->count) {
@@ -2002,14 +2002,23 @@ nve32_t osi_hal_handle_ioctl(struct osi_core_priv_data *osi_core,
 		break;
 
 	case OSI_CMD_READ_REG:
-		ret = ops_p->read_reg(osi_core, (nve32_t) data->arg1_u32);
+		ret = (nve32_t) ops_p->read_reg(osi_core, (nve32_t) data->arg1_u32);
 		break;
 
 	case OSI_CMD_WRITE_REG:
-		ret = ops_p->write_reg(osi_core, (nve32_t) data->arg1_u32,
+		ret = (nve32_t) ops_p->write_reg(osi_core, (nveu32_t) data->arg1_u32,
 				       (nve32_t) data->arg2_u32);
 		break;
+#ifdef MACSEC_SUPPORT
+	case OSI_CMD_READ_MACSEC_REG:
+		ret = (nve32_t) ops_p->read_macsec_reg(osi_core, (nve32_t) data->arg1_u32);
+		break;
 
+	case OSI_CMD_WRITE_MACSEC_REG:
+		ret = (nve32_t) ops_p->write_macsec_reg(osi_core, (nveu32_t) data->arg1_u32,
+				       (nve32_t) data->arg2_u32);
+		break;
+#endif /*  MACSEC_SUPPORT */
 	case OSI_CMD_GET_TX_TS:
 		ret = get_tx_ts(osi_core, &data->tx_ts);
 		break;
@@ -2043,7 +2052,11 @@ nve32_t osi_hal_handle_ioctl(struct osi_core_priv_data *osi_core,
 			ret = 0;
 		}
 		break;
-
+#ifdef HSI_SUPPORT
+	case OSI_CMD_HSI_CONFIGURE:
+		ret = ops_p->core_hsi_configure(osi_core, data->arg1_u32);
+		break;
+#endif
 	default:
 		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_INVALID,
 			     "CORE: Incorrect command\n",

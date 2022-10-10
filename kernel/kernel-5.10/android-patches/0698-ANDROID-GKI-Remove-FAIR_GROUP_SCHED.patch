@@ -1,0 +1,43 @@
+From c1ce9b327a8aacdda20dd3e6cda47f6b4bb7adbf Mon Sep 17 00:00:00 2001
+From: Suren Baghdasaryan <surenb@google.com>
+Date: Tue, 5 May 2020 09:18:41 -0700
+Subject: [PATCH 698/830] ANDROID: GKI: Remove FAIR_GROUP_SCHED
+X-NVConfidentiality: public
+
+This feature is undesirable and not required by Android.
+
+Bug: 153203661
+Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+Change-Id: Id33fbe3bb46ca21ee4e2a412a766be21ffe069e0
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 6fb476e9dd29..b344b0f729fd 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -17,6 +17,7 @@ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
+ CONFIG_CGROUP_SCHED=y
++# CONFIG_FAIR_GROUP_SCHED is not set
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b4cf3ce7ed64..6162df7ccefa 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -17,6 +17,7 @@ CONFIG_CGROUPS=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_CGROUP_SCHED=y
++# CONFIG_FAIR_GROUP_SCHED is not set
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+-- 
+2.17.1
+

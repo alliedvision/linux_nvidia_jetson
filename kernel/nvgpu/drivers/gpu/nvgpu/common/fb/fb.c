@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,9 +30,9 @@ int nvgpu_init_fb_support(struct gk20a *g)
 		g->ops.mc.fb_reset(g);
 	}
 
-	nvgpu_cg_slcg_fb_ltc_load_enable(g);
+	nvgpu_cg_slcg_fb_load_enable(g);
 
-	nvgpu_cg_blcg_fb_ltc_load_enable(g);
+	nvgpu_cg_blcg_fb_load_enable(g);
 
 	if (g->ops.fb.init_fs_state != NULL) {
 		g->ops.fb.init_fs_state(g);

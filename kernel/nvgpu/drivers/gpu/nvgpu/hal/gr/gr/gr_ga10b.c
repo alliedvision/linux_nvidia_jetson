@@ -1,7 +1,7 @@
 /*
  * GA10b GPU GR
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 
 #include <nvgpu/dma.h>
 #include <nvgpu/log.h>
+#include <nvgpu/bug.h>
 #include <nvgpu/debug.h>
 #include <nvgpu/enabled.h>
 #include <nvgpu/fuse.h>
@@ -57,6 +58,7 @@
 
 #include <nvgpu/hw/ga10b/hw_gr_ga10b.h>
 #include <nvgpu/hw/ga10b/hw_proj_ga10b.h>
+#include <nvgpu/hw/ga10b/hw_ctxsw_prog_ga10b.h>
 
 #define ILLEGAL_ID	~U32(0U)
 
@@ -612,12 +614,26 @@ int gr_ga10b_process_context_buffer_priv_segment(struct gk20a *g,
 	u32 ppc_in_gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_PPC_IN_GPC_STRIDE);
 	u32 tpc_in_gpc_base = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_BASE);
 	u32 tpc_in_gpc_stride = nvgpu_get_litter_value(g, GPU_LIT_TPC_IN_GPC_STRIDE);
+	struct nvgpu_gr *gr;
+	u32 *context_buffer;
+	u32 tpc_segment_pri_layout;
+	bool is_tpc_layout_interleaved = false;
+
+	(void)ppc_mask;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg, "pri_addr=0x%x", pri_addr);
 
 	if (!g->netlist_valid) {
 		return -EINVAL;
 	}
+
+	gr = nvgpu_gr_get_cur_instance_ptr(g);
+	context_buffer = nvgpu_gr_obj_ctx_get_local_golden_image_ptr(
+			gr->golden_image);
+	tpc_segment_pri_layout = g->ops.gr.ctxsw_prog.get_tpc_segment_pri_layout(g, context_buffer);
+	nvgpu_assert(tpc_segment_pri_layout != ctxsw_prog_main_tpc_segment_pri_layout_v_invalid_v());
+	is_tpc_layout_interleaved = (tpc_segment_pri_layout ==
+			ctxsw_prog_main_tpc_segment_pri_layout_v_interleaved_v());
 
 	/* Process the SYS/BE segment. */
 	if ((addr_type == CTXSW_ADDR_TYPE_SYS) ||
@@ -678,7 +694,12 @@ int gr_ga10b_process_context_buffer_priv_segment(struct gk20a *g,
 					tpc_in_gpc_base +
 					(tpc_num * tpc_in_gpc_stride);
 				address = base_address + tpc_addr;
-				tpc_offset = reg->index;
+				if (is_tpc_layout_interleaved) {
+					tpc_offset = (reg->index * num_tpcs) +
+						(tpc_num * 4U);
+				} else {
+					tpc_offset = reg->index;
+				}
 
 				if (pri_addr == address) {
 					*priv_offset = tpc_offset;
@@ -696,7 +717,12 @@ int gr_ga10b_process_context_buffer_priv_segment(struct gk20a *g,
 					tpc_in_gpc_base +
 					(tpc_num * tpc_in_gpc_stride);
 				address = base_address + tpc_addr;
-				tpc_offset = reg->index;
+				if (is_tpc_layout_interleaved) {
+					tpc_offset = (reg->index * num_tpcs) +
+						(tpc_num * 4U);
+				} else {
+					tpc_offset = reg->index;
+				}
 
 				if (pri_addr == address) {
 					*priv_offset = tpc_offset;
@@ -886,6 +912,8 @@ int gr_ga10b_find_priv_offset_in_buffer(struct gk20a *g, u32 addr,
 	u32 segoffset, compute_segoffset;
 	u32 graphics_segoffset;
 	u32 main_hdr_size, fecs_hdr_size, gpccs_hdr_stride;
+	u32 tpc_segment_pri_layout;
+	bool is_tpc_layout_interleaved = false;
 
 	err = g->ops.gr.decode_priv_addr(g, addr, &addr_type,
 					&gpc_num, &tpc_num, &ppc_num, &be_num,
@@ -907,6 +935,16 @@ int gr_ga10b_find_priv_offset_in_buffer(struct gk20a *g, u32 addr,
 	fecs_hdr_size = g->ops.gr.ctxsw_prog.hw_get_fecs_header_size();
 	gpccs_hdr_stride = g->ops.gr.ctxsw_prog.hw_get_gpccs_header_stride();
 	num_gpcs = g->ops.gr.ctxsw_prog.get_num_gpcs(context);
+	/*
+	 * Determine the layout of the TPC priv save segment. It can either
+	 * be interleaved or migration. In case of interleaved, the registers
+	 * will be sorted by address first followed by TPC number, migration
+	 * layout is does the exact opposite.
+	 */
+	tpc_segment_pri_layout = g->ops.gr.ctxsw_prog.get_tpc_segment_pri_layout(g, context_buffer);
+	nvgpu_assert(tpc_segment_pri_layout != ctxsw_prog_main_tpc_segment_pri_layout_v_invalid_v());
+	is_tpc_layout_interleaved = (tpc_segment_pri_layout ==
+			ctxsw_prog_main_tpc_segment_pri_layout_v_interleaved_v());
 
 	/*
 	 * Check in extended buffer segment of ctxsw buffer. If found, return
@@ -1005,6 +1043,19 @@ int gr_ga10b_find_priv_offset_in_buffer(struct gk20a *g, u32 addr,
 		graphics_segoffset =
 			g->ops.gr.ctxsw_prog.get_gfx_ppcreglist_offset(context);
 	} else if (addr_type == CTXSW_ADDR_TYPE_TPC) {
+		/*
+		 * Incase of interleaved TPC layout, all TPC registers will be
+		 * saved contiguously starting from TPC0 segment address,
+		 * whereas, in migration layout, registers of each TPC will
+		 * be stored in separate segments based on the tpc number.
+		 * Hence, for interleaved layout the segment start address will
+		 * be a constant for all TPC registers i.e. the segment address
+		 * of TPC0.
+		 */
+		if (is_tpc_layout_interleaved) {
+			tpc_num = 0;
+
+		}
 		compute_segoffset =
 			g->ops.gr.ctxsw_prog.get_compute_tpcreglist_offset(context, tpc_num);
 		graphics_segoffset =
@@ -1064,7 +1115,7 @@ const u32 *ga10b_gr_get_hwpm_cau_init_data(u32 *count)
 #endif /* CONFIG_NVGPU_DEBUGGER */
 
 #ifdef CONFIG_NVGPU_HAL_NON_FUSA
-void ga10b_gr_vab_init(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
+void ga10b_gr_vab_reserve(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
 	struct nvgpu_vab_range_checker *vab_range_checker)
 {
 	/*
@@ -1086,17 +1137,19 @@ void ga10b_gr_vab_init(struct gk20a *g, u32 vab_reg, u32 num_range_checkers,
 			U32(vab_range_checker[i].start_phys_addr >> 32U));
 
 		nvgpu_writel(g, gr_gpcs_mmu_vidmem_access_bit_start_addr_lo_r(i),
-			(vab_range_checker[i].start_phys_addr &
+			(u32)(vab_range_checker[i].start_phys_addr &
 			gr_gpcs_mmu_vidmem_access_bit_start_addr_lo_val_m()) |
 			gr_gpcs_mmu_vidmem_access_bit_start_addr_lo_granularity_f(
 				granularity_shift_bits));
 	}
 
+	/* Setup VAB */
 	nvgpu_writel(g, gr_gpcs_mmu_vidmem_access_bit_r(), vab_reg);
 }
 
-void ga10b_gr_vab_release(struct gk20a *g, u32 vab_reg)
+void ga10b_gr_vab_configure(struct gk20a *g, u32 vab_reg)
 {
 	nvgpu_writel(g, gr_gpcs_mmu_vidmem_access_bit_r(), vab_reg);
 }
+
 #endif /* CONFIG_NVGPU_HAL_NON_FUSA */

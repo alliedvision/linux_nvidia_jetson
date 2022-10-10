@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -78,8 +78,7 @@
 #define TEGRA234_RESET_NVENC			59U
 #define TEGRA234_RESET_MGBE2_MACSEC_SECURE	60U
 #define TEGRA234_RESET_NVJPG			61U
-#define TEGRA234_RESET_PCIE			62U
-#define TEGRA234_RESET_PCIEXCLK			63U
+/* RESERVED 62:63 */
 #define TEGRA234_RESET_LA			64U
 #define TEGRA234_RESET_HWPM			65U
 #define TEGRA234_RESET_PVA0_ALL			66U
@@ -102,7 +101,7 @@
 #define TEGRA234_RESET_RSVD_83			83U
 #define TEGRA234_RESET_RSVD_84			84U
 #define TEGRA234_RESET_SDMMC4			85U
-#define TEGRA234_RESET_SE			86U
+/* RESERVED 86 */
 #define TEGRA234_RESET_MGBE3_PCS		87U
 #define TEGRA234_RESET_MGBE3_MAC		88U
 #define TEGRA234_RESET_MGBE3_MACSEC		89U
@@ -113,7 +112,7 @@
 #define TEGRA234_RESET_SPI4			94U
 #define TEGRA234_RESET_TACH0			95U
 #define TEGRA234_RESET_TACH1			96U
-#define TEGRA234_RESET_RSVD_97			97U
+#define TEGRA234_RESET_SPI5			97U
 #define TEGRA234_RESET_TSEC			98U
 #define TEGRA234_RESET_UARTI			99U
 #define TEGRA234_RESET_UARTA			100U
@@ -190,5 +189,10 @@
 #define TEGRA234_MAX_PUBLIC_RESET_ID		173U
 
 /** @} */
+
+/* FIXME: remove these dummies */
+#define TEGRA234_RESET_PCIE			0U
+#define TEGRA234_RESET_PCIEXCLK			0U
+#define TEGRA234_RESET_SE			0U
 
 #endif

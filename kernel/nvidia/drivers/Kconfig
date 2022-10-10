@@ -9,7 +9,6 @@ source "drivers/iommu/Kconfig"
 source "drivers/nvpps/Kconfig"
 source "drivers/trusty/Kconfig"
 source "drivers/virt/tegra/Kconfig"
-source "drivers/virt/ptp/Kconfig"
 endif
 
 endmenu

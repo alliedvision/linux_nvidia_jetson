@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdisp.c
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -3471,7 +3471,7 @@ static void dealloc_imp_settings(
 			struct tegra_nvdisp_imp_settings *imp_settings)
 {
 	struct tegra_nvdisp_mempool_req *req;
-	int i;
+	u8 i;
 
 	if (!imp_settings)
 		return;
@@ -3647,9 +3647,14 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v1(
 {
 	struct tegra_nvdisp_imp_settings *nvdisp_settings;
 	struct tegra_dc_ext_nvdisp_imp_global_entries *global_entries;
-	u8 active_heads = 0, max_heads = tegra_dc_get_numof_dispheads();
+	u8 active_heads = 0, max_heads;
 	u8 *num_wins_per_head = NULL;
-	int i;
+	int i, ret;
+
+	ret = tegra_dc_get_numof_dispheads();
+	if (ret < 0)
+		return NULL;
+	max_heads = ret;
 
 	num_wins_per_head = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
 	if (!num_wins_per_head) {
@@ -3740,15 +3745,21 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v2(
 	struct tegra_nvdisp_imp_settings *nvdisp_settings = NULL;
 	struct tegra_dc_ext_nvdisp_imp_head_settings *ext_heads;
 	u8 num_heads = ext_settings->num_heads;
-	u8 max_heads = tegra_dc_get_numof_dispheads();
+	u8 max_heads;
+	u8 i;
 	u8 *num_wins_per_head = NULL;
-	int i, ret = 0;
+	int ret = 0;
 
 	ext_heads = kcalloc(num_heads, sizeof(*ext_heads), GFP_KERNEL);
 	if (!ext_heads) {
 		pr_err("%s: Failed to alloc mem for dc_ext heads\n", __func__);
 		return NULL;
 	}
+
+	ret = tegra_dc_get_numof_dispheads();
+	if (ret < 0)
+		return NULL;
+	max_heads = ret;
 
 	num_wins_per_head = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
 	if (!num_wins_per_head) {

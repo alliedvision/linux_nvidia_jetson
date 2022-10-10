@@ -1,0 +1,196 @@
+From 365c1cd4fcbf0408dd51a9d2e341ce8362598698 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 25 Sep 2020 23:47:47 +0000
+Subject: [PATCH 294/830] BACKPORT: dma-buf: heaps: Skip sync if not mapped
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+This patch is basically a port of Ørjan Eide's similar patch for ION
+ https://lore.kernel.org/lkml/20200414134629.54567-1-orjan.eide@arm.com/
+
+Only sync the sg-list of dma-buf heap attachment when the attachment
+is actually mapped on the device.
+
+dma-bufs may be synced at any time. It can be reached from user space
+via DMA_BUF_IOCTL_SYNC, so there are no guarantees from callers on when
+syncs may be attempted, and dma_buf_end_cpu_access() and
+dma_buf_begin_cpu_access() may not be paired.
+
+Since the sg_list's dma_address isn't set up until the buffer is used
+on the device, and dma_map_sg() is called on it, the dma_address will be
+NULL if sync is attempted on the dma-buf before it's mapped on a device.
+
+Before v5.0 (commit 55897af63091 ("dma-direct: merge swiotlb_dma_ops
+into the dma_direct code")) this was a problem as the dma-api (at least
+the swiotlb_dma_ops on arm64) would use the potentially invalid
+dma_address. How that failed depended on how the device handled physical
+address 0. If 0 was a valid address to physical ram, that page would get
+flushed a lot, while the actual pages in the buffer would not get synced
+correctly. While if 0 is an invalid physical address it may cause a
+fault and trigger a crash.
+
+In v5.0 this was incidentally fixed by commit 55897af63091 ("dma-direct:
+merge swiotlb_dma_ops into the dma_direct code"), as this moved the
+dma-api to use the page pointer in the sg_list, and (for Ion buffers at
+least) this will always be valid if the sg_list exists at all.
+
+But, this issue is re-introduced in v5.3 with
+commit 449fa54d6815 ("dma-direct: correct the physical addr in
+dma_direct_sync_sg_for_cpu/device") moves the dma-api back to the old
+behaviour and picks the dma_address that may be invalid.
+
+dma-buf core doesn't ensure that the buffer is mapped on the device, and
+thus have a valid sg_list, before calling the exporter's
+begin_cpu_access.
+
+Logic and commit message originally by: Ørjan Eide <orjan.eide@arm.com>
+
+Cc: Sumit Semwal <sumit.semwal@linaro.org>
+Cc: Liam Mark <lmark@codeaurora.org>
+Cc: Laura Abbott <labbott@kernel.org>
+Cc: Brian Starkey <Brian.Starkey@arm.com>
+Cc: Hridya Valsaraju <hridya@google.com>
+Cc: Suren Baghdasaryan <surenb@google.com>
+Cc: Sandeep Patil <sspatil@google.com>
+Cc: Daniel Mentz <danielmentz@google.com>
+Cc: Chris Goldsworthy <cgoldswo@codeaurora.org>
+Cc: Ørjan Eide <orjan.eide@arm.com>
+Cc: Robin Murphy <robin.murphy@arm.com>
+Cc: Ezequiel Garcia <ezequiel@collabora.com>
+Cc: Simon Ser <contact@emersion.fr>
+Cc: James Jones <jajones@nvidia.com>
+Cc: linux-media@vger.kernel.org
+Cc: dri-devel@lists.freedesktop.org
+Reviewed-by: Brian Starkey <brian.starkey@arm.com>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+
+Bug: 173440990
+(cherry picked from commit 4c68e499bb9d6d9ec3e18fcb2f68641abb22464a
+git: //anongit.freedesktop.org/drm/drm-misc
+tags/drm-misc-next-2020-11-27)
+Link: https://lore.kernel.org/patchwork/patch/1343071/
+Change-Id: If1c7312e437a8166a7d3e65bcd4c352f46cab718
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/dma-buf/heaps/cma_heap.c    | 10 ++++++++++
+ drivers/dma-buf/heaps/system_heap.c | 10 ++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/drivers/dma-buf/heaps/cma_heap.c b/drivers/dma-buf/heaps/cma_heap.c
+index 0d3165a3e6d4..4772c8729e77 100644
+--- a/drivers/dma-buf/heaps/cma_heap.c
++++ b/drivers/dma-buf/heaps/cma_heap.c
+@@ -43,6 +43,7 @@ struct dma_heap_attachment {
+ 	struct device *dev;
+ 	struct sg_table table;
+ 	struct list_head list;
++	bool mapped;
+ };
+ 
+ static int cma_heap_attach(struct dma_buf *dmabuf,
+@@ -67,6 +68,7 @@ static int cma_heap_attach(struct dma_buf *dmabuf,
+ 
+ 	a->dev = attachment->dev;
+ 	INIT_LIST_HEAD(&a->list);
++	a->mapped = false;
+ 
+ 	attachment->priv = a;
+ 
+@@ -101,6 +103,7 @@ static struct sg_table *cma_heap_map_dma_buf(struct dma_buf_attachment *attachme
+ 	ret = dma_map_sgtable(attachment->dev, table, direction, 0);
+ 	if (ret)
+ 		return ERR_PTR(-ENOMEM);
++	a->mapped = true;
+ 	return table;
+ }
+ 
+@@ -108,6 +111,9 @@ static void cma_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 				   struct sg_table *table,
+ 				   enum dma_data_direction direction)
+ {
++	struct dma_heap_attachment *a = attachment->priv;
++
++	a->mapped = false;
+ 	dma_unmap_sgtable(attachment->dev, table, direction, 0);
+ }
+ 
+@@ -122,6 +128,8 @@ static int cma_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+ 
+ 	mutex_lock(&buffer->lock);
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sgtable_for_cpu(a->dev, &a->table, direction);
+ 	}
+ 	mutex_unlock(&buffer->lock);
+@@ -140,6 +148,8 @@ static int cma_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+ 
+ 	mutex_lock(&buffer->lock);
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sgtable_for_device(a->dev, &a->table, direction);
+ 	}
+ 	mutex_unlock(&buffer->lock);
+diff --git a/drivers/dma-buf/heaps/system_heap.c b/drivers/dma-buf/heaps/system_heap.c
+index 0a9214d9f8a9..bcf2754fd983 100644
+--- a/drivers/dma-buf/heaps/system_heap.c
++++ b/drivers/dma-buf/heaps/system_heap.c
+@@ -37,6 +37,7 @@ struct dma_heap_attachment {
+ 	struct device *dev;
+ 	struct sg_table *table;
+ 	struct list_head list;
++	bool mapped;
+ };
+ 
+ static struct sg_table *dup_sg_table(struct sg_table *table)
+@@ -84,6 +85,7 @@ static int system_heap_attach(struct dma_buf *dmabuf,
+ 	a->table = table;
+ 	a->dev = attachment->dev;
+ 	INIT_LIST_HEAD(&a->list);
++	a->mapped = false;
+ 
+ 	attachment->priv = a;
+ 
+@@ -120,6 +122,7 @@ static struct sg_table *system_heap_map_dma_buf(struct dma_buf_attachment *attac
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
++	a->mapped = true;
+ 	return table;
+ }
+ 
+@@ -127,6 +130,9 @@ static void system_heap_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 				      struct sg_table *table,
+ 				      enum dma_data_direction direction)
+ {
++	struct dma_heap_attachment *a = attachment->priv;
++
++	a->mapped = false;
+ 	dma_unmap_sgtable(attachment->dev, table, direction, 0);
+ }
+ 
+@@ -142,6 +148,8 @@ static int system_heap_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+ 		invalidate_kernel_vmap_range(buffer->vaddr, buffer->len);
+ 
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sgtable_for_cpu(a->dev, a->table, direction);
+ 	}
+ 	mutex_unlock(&buffer->lock);
+@@ -161,6 +169,8 @@ static int system_heap_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+ 		flush_kernel_vmap_range(buffer->vaddr, buffer->len);
+ 
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sgtable_for_device(a->dev, a->table, direction);
+ 	}
+ 	mutex_unlock(&buffer->lock);
+-- 
+2.17.1
+

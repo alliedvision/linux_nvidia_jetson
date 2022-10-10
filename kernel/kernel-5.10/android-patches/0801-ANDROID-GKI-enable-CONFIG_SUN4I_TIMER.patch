@@ -1,0 +1,51 @@
+From 97ac76ff079c52cd526c9494c978ddf32cfa5121 Mon Sep 17 00:00:00 2001
+From: Martin Wu <wuyan@allwinnertech.com>
+Date: Fri, 13 Nov 2020 17:51:09 +0800
+Subject: [PATCH 801/830] ANDROID: GKI: enable CONFIG_SUN4I_TIMER
+X-NVConfidentiality: public
+
+Allwinner's SoC timer driver (timer-sun4i.c) has to be built-in rather
+than modularized for the following limitations in linux timer framework:
+1. tick broadcast installed by insmod cannot switch to oneshot mode
+   correctly
+2. cpus cannot enter cpuidle state due to the issue above.
+3. rcu warnings will appear if we forcibly re-enable tick-broadcast
+   for each cpu when new tick broadcast device is installed by insmod
+   (timer-sun4i.c in our case)
+
+Bug: 173667601
+Change-Id: If077db348c027ec02549e25eee3e17c2cc429644
+Signed-off-by: Martin Wu <wuyan@allwinnertech.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ drivers/clocksource/Kconfig      | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index ddbaee9aed53..7fbcd4807691 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -449,6 +449,7 @@ CONFIG_COMMON_CLK_SCPI=y
+ # CONFIG_CLK_SUNXI is not set
+ # CONFIG_SUNXI_CCU is not set
+ CONFIG_HWSPINLOCK=y
++CONFIG_SUN4I_TIMER=y
+ # CONFIG_SUN50I_ERRATUM_UNKNOWN1 is not set
+ CONFIG_MAILBOX=y
+ CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT=y
+diff --git a/drivers/clocksource/Kconfig b/drivers/clocksource/Kconfig
+index a0c6e88bebe0..dc98a1aecd25 100644
+--- a/drivers/clocksource/Kconfig
++++ b/drivers/clocksource/Kconfig
+@@ -128,7 +128,7 @@ config RDA_TIMER
+ 	  Enables the support for the RDA Micro timer driver.
+ 
+ config SUN4I_TIMER
+-	bool "Sun4i timer driver" if COMPILE_TEST
++	bool "Sun4i timer driver"
+ 	depends on HAS_IOMEM
+ 	select CLKSRC_MMIO
+ 	select TIMER_OF
+-- 
+2.17.1
+

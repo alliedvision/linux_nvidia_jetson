@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021 NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2020-2022 NVIDIA CORPORATION.  All Rights Reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -31,6 +31,7 @@ OBJS += ivc_core.o
 OBJS += ./../common/osi_common.o
 OBJS += ./../common/eqos_common.o
 OBJS += ./../common/mgbe_common.o
+OBJS += core_common.o
 
 CFLAGS += -D_FILE_OFFSET_BITS=64
 

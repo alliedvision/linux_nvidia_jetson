@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,6 +41,9 @@ enum comm_msg_type {
 	/* Unregister exported object back with peer.*/
 	COMM_MSG_TYPE_UNREGISTER,
 
+	/* return edma rx descriptor iova to peer x86 */
+	COMM_MSG_TYPE_EDMA_RX_DESC_IOVA_RETURN,
+
 	/* Maximum. */
 	COMM_MSG_TYPE_MAXIMUM,
 };
@@ -53,7 +56,12 @@ enum comm_msg_type {
  */
 struct comm_msg_bootstrap {
 	u64 iova;
-	u32 arch_type;
+	enum peer_cpu_t  peer_cpu;
+};
+
+/* to simply,only one channel c2c remote edma case   */
+struct comm_msg_edma_rx_desc_iova {
+	dma_addr_t iova;
 };
 
 /* Link status shared between @DRV_MODE_EPC and @DRV_MODE_EPF.
@@ -96,6 +104,7 @@ struct comm_msg {
 		struct comm_msg_link link;
 		struct comm_msg_register reg;
 		struct comm_msg_unregister unreg;
+		struct comm_msg_edma_rx_desc_iova edma_rx_desc_iova;
 	} u;
 } __aligned(8);
 
@@ -116,4 +125,8 @@ comm_channel_register_msg_cb(void *comm_channel_h, enum comm_msg_type type,
 			     struct callback_ops *ops);
 int
 comm_channel_unregister_msg_cb(void *comm_channel_h, enum comm_msg_type type);
+
+int
+comm_channel_edma_rx_desc_iova_send(void *comm_channel_h, struct comm_msg *msg);
+
 #endif //__COMM_CHANNEL_H__

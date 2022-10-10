@@ -140,7 +140,7 @@ static u32 mc_reverse_masked_bank(u64 linear, int masked_bank, int bankpos,
 	u32 pre_bank = 0;
 	u32 pos = bankpos + bankbits;
 	u64 bank_bit;
-	u32 i, j;
+	int i, j;
 
 	for (i = (bankbits - 1); ((i >= 0) && (i < bankbits)); --i) {
 		pre_bank <<= 1;

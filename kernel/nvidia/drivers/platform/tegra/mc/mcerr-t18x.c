@@ -1,7 +1,7 @@
 /*
  * Tegra 18x SoC-specific mcerr code.
  *
- * Copyright (c) 2015-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -198,6 +198,8 @@ static struct mc_client mc_clients[] = {
 static int mc_client_last = ARRAY_SIZE(mc_clients) - 1;
 /*** Done. ***/
 
+static u32 global_intstatus;
+
 static const char *t186_intr_info[] = {
 	NULL,		/* Bit 0 */
 	NULL,
@@ -308,8 +310,18 @@ enum {
 #define MC_HUBC_INTSTATUS_CLEAR 0x00000001
 #define MC_GLOBAL_INTSTATUS_CLEAR 0x0103000F
 
-static void clear_interrupt(unsigned int irq)
+static void set_intstatus(unsigned int irq)
 {
+}
+
+static void save_intstatus(unsigned int irq)
+{
+	global_intstatus = mc_readl(MC_GLOBAL_INTSTATUS);
+}
+
+static void clear_intstatus(unsigned int irq)
+{
+	/* Clear int status to clear MSS to GIC interrupts */
 	mc_writel(MC_INTSTATUS_CLEAR, MC_INTSTATUS);
 	mc_writel(MC_CH_INTSTATUS_CLEAR, MC_CH_INTSTATUS);
 	mc_writel(MC_HUBC_INTSTATUS_CLEAR, MC_HUBC_INTSTATUS);
@@ -374,7 +386,7 @@ static void log_mcerr_fault(unsigned int irq)
 	const struct mc_error *err;
 	int mc_channel = MC_BROADCAST_CHANNEL;
 	u32 int_status, ch_int_status, hubc_int_status;
-	u32 g_intstatus = mc_readl(MC_GLOBAL_INTSTATUS);
+	u32 g_intstatus = global_intstatus;
 
 	/*
 	 * If multiple interrupts come in just handle the first one we see. The
@@ -441,7 +453,9 @@ static void log_mcerr_fault(unsigned int irq)
 static struct mcerr_ops mcerr_ops = {
 	.nr_clients = ARRAY_SIZE(mc_clients),
 	.intr_descriptions = t186_intr_info,
-	.clear_interrupt = clear_interrupt,
+	.set_intstatus = set_intstatus,
+	.clear_intstatus = clear_intstatus,
+	.save_intstatus = save_intstatus,
 	.log_mcerr_fault = log_mcerr_fault,
 	.mc_clients = mc_clients,
 };

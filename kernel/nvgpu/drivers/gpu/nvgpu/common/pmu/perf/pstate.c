@@ -1,7 +1,7 @@
 /*
  * general p state infrastructure
  *
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@
 #include <nvgpu/boardobjgrp.h>
 #include <nvgpu/boardobjgrp_e32.h>
 #include <nvgpu/boardobjgrp_e255.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/boardobjgrp_classes.h>
 #include <nvgpu/pmu/clk/clk.h>
 #include <nvgpu/pmu/perf.h>
@@ -85,22 +86,22 @@ static int pstate_init_pmudata(struct gk20a *g,
 
 	for (clkidx = 0; clkidx < pstate->clklist.num_info; clkidx++) {
 		pstate_pmu_data->clkEntries[clkidx].max.baseFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].max_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].max_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].max.freqKz =
-			pstate->clklist.clksetinfo[clkidx].max_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].max_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].max.origFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].max_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].max_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].max.porFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].max_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].max_mhz*1000);
 
 		pstate_pmu_data->clkEntries[clkidx].min.baseFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].min_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].min_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].min.freqKz =
-			pstate->clklist.clksetinfo[clkidx].min_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].min_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].min.origFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].min_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].min_mhz*1000);
 		pstate_pmu_data->clkEntries[clkidx].min.porFreqKhz =
-			pstate->clklist.clksetinfo[clkidx].min_mhz*1000;
+			(u32)(pstate->clklist.clksetinfo[clkidx].min_mhz*1000);
 
 		pstate_pmu_data->clkEntries[clkidx].nom.baseFreqKhz =
 			pstate->clklist.clksetinfo[clkidx].nominal_mhz*1000;
@@ -347,7 +348,7 @@ static int perf_pstate_pmudatainit(struct gk20a *g,
 
 	pset->numClkDomains = pprogs->num_clk_domains;
 	pset->boot_pstate_idx =
-			perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
+			(u8)perf_pstate_get_table_entry_idx(g, CTRL_PERF_PSTATE_P0);
 
 done:
 	return status;
@@ -360,6 +361,8 @@ static int perf_pstate_pmudata_instget(struct gk20a *g,
 	struct nv_pmu_perf_pstate_boardobj_grp_set  *pgrp_set =
 		(struct nv_pmu_perf_pstate_boardobj_grp_set *)
 		(void *)pmuboardobjgrp;
+
+	(void)g;
 
 	/* check whether pmuboardobjgrp has a valid boardobj in index */
 	if (idx >= CTRL_BOARDOBJGRP_E32_MAX_OBJECTS) {

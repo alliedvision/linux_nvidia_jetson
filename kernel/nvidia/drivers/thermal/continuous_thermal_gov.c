@@ -1,7 +1,7 @@
 /*
  * drivers/thermal/continuous_thermal_gov.c
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,7 +25,7 @@
 
 #include "thermal_core.h"
 
-#define DRV_NAME	"continuous_therm_gov"
+#define DRV_NAME	"cont_therm_gov"
 
 #define IIR_POWER (7)
 #define UPPER_WIDTH (5000)

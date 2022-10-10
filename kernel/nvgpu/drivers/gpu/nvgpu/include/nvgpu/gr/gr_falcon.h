@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -348,5 +348,6 @@ u32 nvgpu_gr_falcon_get_preempt_image_size(struct nvgpu_gr_falcon *falcon);
 #ifdef CONFIG_NVGPU_GRAPHICS
 u32 nvgpu_gr_falcon_get_zcull_image_size(struct nvgpu_gr_falcon *falcon);
 #endif
+void nvgpu_gr_falcon_suspend(struct gk20a *g, struct nvgpu_gr_falcon *falcon);
 
 #endif /* NVGPU_GR_FALCON_H */

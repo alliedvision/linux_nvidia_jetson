@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,11 +32,15 @@
 #include <linux/slab.h>
 #include <linux/clk/tegra.h>
 #include <linux/module.h>
-
+#include <linux/version.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/nvhost_podgov.h>
 
+#ifndef GOVERNOR_POD_SCALING_V2_MODULE
 #include "governor.h"
+#else
+#include "governor_v2.h"
+#endif // GOVERNOR_POD_SCALING_V2_MODULE
 
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -121,6 +125,45 @@ enum podgov_adjustment_type {
 
 #define HZ_PER_KHZ	1000
 
+#ifdef GOVERNOR_POD_SCALING_V2_MODULE
+static void get_freq_range(struct devfreq *devfreq,
+				unsigned long *min_freq,
+				unsigned long *max_freq)
+{
+	unsigned long *freq_table = devfreq->profile->freq_table;
+
+	lockdep_assert_held(&devfreq->lock);
+
+	if (freq_table[0] < freq_table[devfreq->profile->max_state - 1]) {
+		*min_freq = freq_table[0];
+		*max_freq = freq_table[devfreq->profile->max_state - 1];
+	} else {
+		*min_freq = freq_table[devfreq->profile->max_state - 1];
+		*max_freq = freq_table[0];
+	}
+
+	/* Apply constraints from OPP interface */
+	*min_freq = max(*min_freq, devfreq->scaling_min_freq);
+	*max_freq = min(*max_freq, devfreq->scaling_max_freq);
+
+	if (*min_freq > *max_freq)
+		*min_freq = *max_freq;
+}
+
+static void get_min_freq_limit(struct devfreq *df, unsigned long *min_freq_hz)
+{
+	unsigned long max_freq_hz;
+
+	get_freq_range(df, min_freq_hz, &max_freq_hz);
+}
+
+static void get_max_freq_limit(struct devfreq *df, unsigned long *max_freq_hz)
+{
+	unsigned long min_freq_hz;
+
+	get_freq_range(df, &min_freq_hz, max_freq_hz);
+}
+#else
 static void get_min_freq_limit(struct devfreq *df, unsigned long *min_freq_hz)
 {
 	s32 qos_min_freq = 0;
@@ -142,6 +185,7 @@ static void get_max_freq_limit(struct devfreq *df, unsigned long *max_freq_hz)
 
 	*max_freq_hz = (unsigned long)HZ_PER_KHZ * qos_max_freq;
 }
+#endif // GOVERNOR_POD_SCALING_V2_MODULE
 
 /*******************************************************************************
  * scaling_limit(df, freq)

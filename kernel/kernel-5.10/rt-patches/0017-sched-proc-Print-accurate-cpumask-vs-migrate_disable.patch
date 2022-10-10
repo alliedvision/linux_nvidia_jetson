@@ -1,7 +1,7 @@
-From fa6b2af2f8b24b870f1940f58d519149e289f961 Mon Sep 17 00:00:00 2001
+From f1181a62afff0d3de6e3e6ec1b4022798eefbd97 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:14 +0200
-Subject: [PATCH 017/304] sched/proc: Print accurate cpumask vs
+Subject: [PATCH 017/318] sched/proc: Print accurate cpumask vs
  migrate_disable()
 
 Ensure /proc/*/status doesn't print 'random' cpumasks due to
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 18a4588..decaa77 100644
+index 18a4588c35be..decaa7768044 100644
 --- a/fs/proc/array.c
 +++ b/fs/proc/array.c
 @@ -384,9 +384,9 @@ static inline void task_context_switch_counts(struct seq_file *m,
@@ -30,5 +30,5 @@ index 18a4588..decaa77 100644
  
  static inline void task_core_dumping(struct seq_file *m, struct mm_struct *mm)
 -- 
-2.7.4
+2.17.1
 

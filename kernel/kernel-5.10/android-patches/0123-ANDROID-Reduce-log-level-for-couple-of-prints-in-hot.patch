@@ -1,0 +1,57 @@
+From c2e6684d5997bafee1e34e56b368b6bb7f89ec56 Mon Sep 17 00:00:00 2001
+From: Prasad Sodagudi <psodagud@codeaurora.org>
+Date: Thu, 22 Oct 2020 04:32:05 -0700
+Subject: [PATCH 123/830] ANDROID: Reduce log level for couple of prints in
+ hotplug flow
+X-NVConfidentiality: public
+
+During the cpu hot plug stress testing, couple of messages
+continuous flooding on to the console is causing timers
+migration delay.
+
+Bug: 165340180
+Change-Id: I18f96613242a7a821ff707bcdaac794ccefd0bba
+Signed-off-by: Prasad Sodagudi <psodagud@codeaurora.org>
+---
+ arch/arm64/kernel/smp.c | 2 +-
+ kernel/irq/cpuhotplug.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index fe9f25739540..6028fb021459 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -363,7 +363,7 @@ void __cpu_die(unsigned int cpu)
+ 		pr_crit("CPU%u: cpu didn't die\n", cpu);
+ 		return;
+ 	}
+-	pr_notice("CPU%u: shutdown\n", cpu);
++	pr_debug("CPU%u: shutdown\n", cpu);
+ 
+ 	/*
+ 	 * Now that the dying CPU is beyond the point of no return w.r.t.
+diff --git a/kernel/irq/cpuhotplug.c b/kernel/irq/cpuhotplug.c
+index 02236b13b359..cf8d4f75632e 100644
+--- a/kernel/irq/cpuhotplug.c
++++ b/kernel/irq/cpuhotplug.c
+@@ -42,7 +42,7 @@ static inline bool irq_needs_fixup(struct irq_data *d)
+ 		 * If this happens then there was a missed IRQ fixup at some
+ 		 * point. Warn about it and enforce fixup.
+ 		 */
+-		pr_warn("Eff. affinity %*pbl of IRQ %u contains only offline CPUs after offlining CPU %u\n",
++		pr_debug("Eff. affinity %*pbl of IRQ %u contains only offline CPUs after offlining CPU %u\n",
+ 			cpumask_pr_args(m), d->irq, cpu);
+ 		return true;
+ 	}
+@@ -166,7 +166,7 @@ void irq_migrate_all_off_this_cpu(void)
+ 		raw_spin_unlock(&desc->lock);
+ 
+ 		if (affinity_broken) {
+-			pr_warn_ratelimited("IRQ %u: no longer affine to CPU%u\n",
++			pr_debug_ratelimited("IRQ %u: no longer affine to CPU%u\n",
+ 					    irq, smp_processor_id());
+ 		}
+ 	}
+-- 
+2.17.1
+

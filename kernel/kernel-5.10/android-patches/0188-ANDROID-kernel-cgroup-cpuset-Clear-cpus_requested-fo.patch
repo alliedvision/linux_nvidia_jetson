@@ -1,0 +1,64 @@
+From 9d6b93e5db98919349f1e82fb245fb0bfb78964a Mon Sep 17 00:00:00 2001
+From: Roman Kiryanov <rkir@google.com>
+Date: Mon, 17 Jun 2019 10:00:52 -0700
+Subject: [PATCH 188/830] ANDROID: kernel: cgroup: cpuset: Clear cpus_requested
+ for empty buf
+X-NVConfidentiality: public
+
+update_cpumask had a special case for empty buf which
+did not update cpus_requested. This change reduces
+differences (only to parsing) in empty/non-empty codepaths
+to make them consistent.
+
+Bug: 174125747
+Bug: 120444281
+Fixes: 4803def4e0b2 ("ANDROID: cpuset: Make cpusets restore on hotplug")
+Test: check that writes to /dev/cpuset/background/tasks
+Test: work as expected, e.g.:
+Test: echo $$ > /dev/cpuset/background/tasks
+Test: echo > /dev/cpuset/background/tasks
+Signed-off-by: Roman Kiryanov <rkir@google.com>
+Change-Id: I49d320ea046636ec38bd23f053317abc59f64f8e
+[satyap@codeaurora.org: port to android-mainline kernel]
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ kernel/cgroup/cpuset.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/cgroup/cpuset.c b/kernel/cgroup/cpuset.c
+index ef3991d0ea53..53b68c9fc04b 100644
+--- a/kernel/cgroup/cpuset.c
++++ b/kernel/cgroup/cpuset.c
+@@ -1521,23 +1521,23 @@ static int update_cpumask(struct cpuset *cs, struct cpuset *trialcs,
+ 		return -EACCES;
+ 
+ 	/*
+-	 * An empty cpus_allowed is ok only if the cpuset has no tasks.
++	 * An empty cpus_requested is ok only if the cpuset has no tasks.
+ 	 * Since cpulist_parse() fails on an empty mask, we special case
+ 	 * that parsing.  The validate_change() call ensures that cpusets
+ 	 * with tasks have cpus.
+ 	 */
+ 	if (!*buf) {
+-		cpumask_clear(trialcs->cpus_allowed);
++		cpumask_clear(trialcs->cpus_requested);
+ 	} else {
+ 		retval = cpulist_parse(buf, trialcs->cpus_requested);
+ 		if (retval < 0)
+ 			return retval;
++	}
+ 
+-		if (!cpumask_subset(trialcs->cpus_requested, cpu_present_mask))
+-			return -EINVAL;
++	if (!cpumask_subset(trialcs->cpus_requested, cpu_present_mask))
++		return -EINVAL;
+ 
+-		cpumask_and(trialcs->cpus_allowed, trialcs->cpus_requested, cpu_active_mask);
+-	}
++	cpumask_and(trialcs->cpus_allowed, trialcs->cpus_requested, cpu_active_mask);
+ 
+ 	/* Nothing to do if the cpus didn't change */
+ 	if (cpumask_equal(cs->cpus_requested, trialcs->cpus_requested))
+-- 
+2.17.1
+

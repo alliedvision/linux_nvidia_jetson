@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 #include <nvgpu/pmu.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
 #include <nvgpu/pmu/clk/clk.h>
 #include <nvgpu/clk_arb.h>
 #include <nvgpu/pmu/perf.h>

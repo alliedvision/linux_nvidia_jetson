@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1193,16 +1193,11 @@ static int tegra_cam_rtcpu_probe(struct platform_device *pdev)
 	rtcpu->max_reboot_retry = 3;
 	(void)of_property_read_u32(dev->of_node, NV(max-reboot),
 			&rtcpu->max_reboot_retry);
-#if 0
 	timeout = 2000;
-#else
-	/* 10 seconds to WAR rtcpu suspend issue (bug 2805934) */
-	timeout = 10000;
-#endif
 	if (tegra_platform_is_vdk())
 		timeout = 5000;
 
-	(void)of_property_read_u32(dev->of_node, NV(cmd-timeout), &timeout);
+	(void)of_property_read_u32(dev->of_node, "nvidia,cmd-timeout", &timeout);
 
 	rtcpu->cmd_timeout = msecs_to_jiffies(timeout);
 

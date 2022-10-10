@@ -70,6 +70,11 @@ config TEGRA_FSICOM
 	depends on ARCH_TEGRA_23x_SOC && MAILBOX
 	default n
 
+config TEGRA_EPL
+	bool "Enable Tegra EPL client driver"
+	depends on ARCH_TEGRA_23x_SOC && MAILBOX
+	default n
+
 config TEGRA_DCE
 	bool "Tegra DCE driver"
 	depends on ARCH_TEGRA_23x_SOC
@@ -206,7 +211,7 @@ config TEGRA_19X_RAS
 config TEGRA_CBB_NOC
 	tristate "Tegar19x CBB NOC Bridge Error handler"
 	depends on ARCH_TEGRA_19x_SOC || ARCH_TEGRA_194_SOC
-	default y
+	default n
 	select SERROR_HANDLER if ARCH_TEGRA_19x_SOC
 	help
 	  The Tegra Control Backbone(CBB)/Network-on-chip(NOC) error handler.
@@ -322,5 +327,24 @@ config TEGRA_CVNAS
 	help
 	 Tegra CVNAS driver for managing CVSRAM memory region.
 
+config TEGRA_SAFETY
+        tristate "Tegra safety ivc driver"
+        default n
+        help
+          When enabled, establish the IVC channel with SCE FW and support ivc
+          frame transfers.
+
+config TEGRA_SAFETY_IVC_DEBUG
+        tristate "Use ivc stubs for safety ivc driver testing"
+        depends on TEGRA_SAFETY
+        help
+          When enabled, stub the IVC responses from SCE FW.
+
+config TEGRA_HSIERRRPTINJ
+	bool "Enable Tegra HSI Error Report Injection client driver"
+	depends on ARCH_TEGRA_23x_SOC && MAILBOX && TEGRA_EPL && DEBUG_FS
+	default n
+
+source "drivers/platform/tegra/hwpm/Kconfig"
 source "drivers/platform/tegra/nvadsp/Kconfig"
 source "drivers/platform/tegra/nvaudio_ivc/Kconfig"

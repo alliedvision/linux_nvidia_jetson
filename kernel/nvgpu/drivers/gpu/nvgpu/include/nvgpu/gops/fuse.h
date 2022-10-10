@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -167,6 +167,32 @@ struct gops_fuse {
 	u32 (*fuse_opt_priv_sec_en)(struct gk20a *g);
 
 	/**
+	 * @brief Read NV_FUSE_STATUS_OPT_PES_GPC fuse.
+	 *
+	 * @param g [in]	The GPU driver struct.
+	 * @param gpc [in]	GPC index.
+	 *
+	 * The HAL reads NV_FUSE_STATUS_OPT_PES_GPC fuse value which provides
+	 * PES floorsweeping status.
+	 *
+	 * @return fuse value read from NV_FUSE_STATUS_OPT_PES_GPC.
+	 */
+	u32 (*fuse_status_opt_pes_gpc)(struct gk20a *g, u32 gpc);
+
+	/**
+	 * @brief Read NV_FUSE_STATUS_OPT_ROP_GPC fuse.
+	 *
+	 * @param g [in]	The GPU driver struct.
+	 * @param gpc [in]	GPC index.
+	 *
+	 * The HAL reads NV_FUSE_STATUS_OPT_ROP_GPC fuse value which provides
+	 * ROP floorsweeping status.
+	 *
+	 * @return fuse value read from NV_FUSE_STATUS_OPT_ROP_GPC.
+	 */
+	u32 (*fuse_status_opt_rop_gpc)(struct gk20a *g, u32 gpc);
+
+	/**
 	 * @brief Read FUSE_GCPLEX_CONFIG_FUSE_0 fuse.
 	 *
 	 * @param g [in]	The GPU driver struct.
@@ -249,6 +275,10 @@ struct gops_fuse {
 #if defined(CONFIG_NVGPU_HAL_NON_FUSA)
 	void (*write_feature_override_ecc)(struct gk20a *g, u32 val);
 	void (*write_feature_override_ecc_1)(struct gk20a *g, u32 val);
+#endif
+
+#if defined(CONFIG_NVGPU_NEXT) && defined(CONFIG_NVGPU_HAL_NON_FUSA)
+#include "gops/nvgpu_next_fuse.h"
 #endif
 	/** @endcond DOXYGEN_SHOULD_SKIP_THIS */
 };

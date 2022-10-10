@@ -1,0 +1,34 @@
+/*
+ * Top level DTS file for CVM:P3701-0002 and CVB:P3711-0000.
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+#include "cvm/tegra234-p3701-0002.dtsi"
+#include "cvb/tegra234-p3711-0000-a01.dtsi"
+#include "cvb/tegra234-p3711-camera-p3715.dtsi"
+#include "tegra234-dcb-p3701-0002-a02-p3711-0000-a01-p3710-sku00.dtsi"
+#include <tegra234-soc/mods-simple-bus.dtsi>
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	compatible = "nvidia,p3711-0000+p3701-0002", "nvidia,tegra23x",
+		      "nvidia,tegra234";
+
+	dce@d800000 {
+		status = "okay";
+	};
+};

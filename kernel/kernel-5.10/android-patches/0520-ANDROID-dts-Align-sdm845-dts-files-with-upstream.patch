@@ -1,0 +1,214 @@
+From 9d67a33efa0b4c02385721b94052e713b8a2fc21 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 27 Oct 2020 18:09:33 +0000
+Subject: [PATCH 520/830] ANDROID: dts: Align sdm845 dts files with upstream
+X-NVConfidentiality: public
+
+We'll want to take the dts changes that landed upstream
+in 5.10-rc1, so backout the current delta in android-mainline
+and align it to match upstream as of commit 45fe605832c8
+("Merge tag 'armsoc-defconfig' of git://git.kernel.org/pub/scm/linux/kernel/git/soc/soc")
+
+Fixes: f2ddade04bf3 ("ANDROID: lt9611: Sync w/ Vinod's most recent lt9611 patches which enable HDMI audio")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I93f76c6bbdf465bdfe40067445e47a8e3b3c23cd
+---
+ arch/arm64/boot/dts/qcom/sdm845-db845c.dts | 136 +--------------------
+ arch/arm64/boot/dts/qcom/sdm845.dtsi       |   1 -
+ 2 files changed, 5 insertions(+), 132 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+index 8c0005086188..96d36b38f269 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
++++ b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+@@ -420,37 +420,11 @@
+ 			   <GCC_LPASS_SWAY_CLK>;
+ };
+ 
+-&pcie0 {
+-	status = "okay";
+-	perst-gpio = <&tlmm 35 GPIO_ACTIVE_LOW>;
+-	enable-gpio = <&tlmm 134 GPIO_ACTIVE_HIGH>;
+-
+-	vddpe-3v3-supply = <&pcie0_3p3v_dual>;
+-
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&pcie0_default_state>;
+-};
+-
+-&pcie0_phy {
+-	status = "okay";
+-
+-	vdda-phy-supply = <&vreg_l1a_0p875>;
+-	vdda-pll-supply = <&vreg_l26a_1p2>;
+-};
+-
+-&pcie1 {
+-	status = "okay";
+-	perst-gpio = <&tlmm 102 GPIO_ACTIVE_LOW>;
+-
+-	pinctrl-names = "default";
+-	pinctrl-0 = <&pcie1_default_state>;
+-};
+-
+-&pcie1_phy {
+-	status = "okay";
+-
+-	vdda-phy-supply = <&vreg_l1a_0p875>;
+-	vdda-pll-supply = <&vreg_l26a_1p2>;
++&gpu {
++	zap-shader {
++		memory-region = <&gpu_mem>;
++		firmware-name = "qcom/sdm845/a630_zap.mbn";
++	};
+ };
+ 
+ &i2c10 {
+@@ -479,103 +453,18 @@
+ 			port@0 {
+ 				reg = <0>;
+ 
+-				lt9611_out: endpoint {
+-					remote-endpoint = <&hdmi_con>;
+-				};
+-			};
+-
+-			port@1 {
+-				reg = <1>;
+-
+ 				lt9611_a: endpoint {
+ 					remote-endpoint = <&dsi0_out>;
+ 				};
+ 			};
+ 
+-#if 0
+ 			port@2 {
+ 				reg = <2>;
+ 
+-				lt9611_b: endpoint {
+-					remote-endpoint = <&dsi1_out>;
+-				};
+-			};
+-#endif
+-		};
+-	};
+-};
+-
+-&i2c11 {
+-	/* On Low speed expansion */
+-	label = "LS-I2C1";
+-	status = "okay";
+-};
+-
+-&i2c14 {
+-	/* On Low speed expansion */
+-	label = "LS-I2C0";
+-	status = "okay";
+-};
+-
+-&spi2 {
+-	/* On Low speed expansion */
+-	label = "LS-SPI0";
+-	status = "okay";
+-};
+-
+-&mdss {
+-	status = "okay";
+-};
+-
+-&mdss_mdp {
+-	status = "okay";
+-};
+-
+-&gpu {
+-	zap-shader {
+-		memory-region = <&gpu_mem>;
+-		firmware-name = "qcom/sdm845/a630_zap.mbn";
+-	};
+-};
+-
+-&i2c10 {
+-	status = "okay";
+-	clock-frequency = <400000>;
+-
+-	lt9611_codec: hdmi-bridge@3b {
+-		compatible = "lontium,lt9611";
+-		reg = <0x3b>;
+-		#sound-dai-cells = <1>;
+-
+-		interrupts-extended = <&tlmm 84 IRQ_TYPE_EDGE_FALLING>;
+-
+-		reset-gpios = <&tlmm 128 GPIO_ACTIVE_HIGH>;
+-
+-		vdd-supply = <&lt9611_1v8>;
+-		vcc-supply = <&lt9611_3v3>;
+-
+-		pinctrl-names = "default";
+-		pinctrl-0 = <&lt9611_irq_pin>, <&dsi_sw_sel>;
+-
+-		ports {
+-			#address-cells = <1>;
+-			#size-cells = <0>;
+-
+-			port@0 {
+-				reg = <0>;
+-
+ 				lt9611_out: endpoint {
+ 					remote-endpoint = <&hdmi_con>;
+ 				};
+ 			};
+-
+-			port@1 {
+-				reg = <1>;
+-
+-				lt9611_a: endpoint {
+-					remote-endpoint = <&dsi0_out>;
+-				};
+-			};
+ 		};
+ 	};
+ };
+@@ -934,12 +823,6 @@
+ 		};
+ 	};
+ 
+-	lt9611_irq_pin: lt9611-irq {
+-		pins = "gpio84";
+-		function = "gpio";
+-		bias-disable;
+-	};
+-
+ 	pcie0_pwren_state: pcie0-pwren {
+ 		pins = "gpio90";
+ 		function = "gpio";
+@@ -1020,15 +903,6 @@
+ 		bias-pull-down;
+ 		drive-strength = <2>;
+ 	};
+-
+-	dsi_sw_sel: dsi-sw-sel {
+-		pins = "gpio120";
+-		function = "gpio";
+-
+-		drive-strength = <2>;
+-		bias-disable;
+-		output-high;
+-	};
+ };
+ 
+ &uart3 {
+diff --git a/arch/arm64/boot/dts/qcom/sdm845.dtsi b/arch/arm64/boot/dts/qcom/sdm845.dtsi
+index 6930d8b65fd1..ea6e3a11e641 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845.dtsi
++++ b/arch/arm64/boot/dts/qcom/sdm845.dtsi
+@@ -4291,7 +4291,6 @@
+ 			compatible = "qcom,sdm845-smmu-500", "arm,mmu-500";
+ 			reg = <0 0x15000000 0 0x80000>;
+ 			#iommu-cells = <2>;
+-			qcom,smmu-500-fw-impl-safe-errata;
+ 			#global-interrupts = <1>;
+ 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+-- 
+2.17.1
+

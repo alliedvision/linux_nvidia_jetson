@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,6 +44,7 @@ struct nvgpu_cic_rm {
 	 */
 	nvgpu_atomic_t sw_irq_stall_pending;
 
+#ifdef CONFIG_NVGPU_NONSTALL_INTR
 	/**
 	 * One of the condition variables needed to keep track of deferred
 	 * interrupts.
@@ -59,6 +60,7 @@ struct nvgpu_cic_rm {
 	 * non-stalling interrupt handler and reset to 0 on exit.
 	 */
 	nvgpu_atomic_t sw_irq_nonstall_pending;
+#endif
 };
 
 #endif /* CIC_RM_PRIV_H */

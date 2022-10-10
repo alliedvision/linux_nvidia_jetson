@@ -1,0 +1,92 @@
+From 0bbffe2b6c78d0cd7fe6278b8ccfadcb13db1634 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 2 Oct 2019 03:12:09 +0000
+Subject: [PATCH 283/830] ANDROID: dma-buf: heaps: Allow cma heaps to be
+ configured as a module
+X-NVConfidentiality: public
+
+Allow loading cma heap as a module instead of just as a
+statically built in heap.
+
+Since there isn't a good mechanism for dmabuf lifetime tracking
+it isn't safe to allow the heap drivers to be unloaded, so these
+drivers do not implement any module unloading functionality and
+will show up in lsmod as "[permanent]".
+
+This patch also exports key functions from dmabuf heaps core and
+the heap helper functions so they can be accessed by the module.
+
+Cc: Laura Abbott <labbott@redhat.com>
+Cc: Benjamin Gaignard <benjamin.gaignard@linaro.org>
+Cc: Sumit Semwal <sumit.semwal@linaro.org>
+Cc: Liam Mark <lmark@codeaurora.org>
+Cc: Pratik Patel <pratikp@codeaurora.org>
+Cc: Brian Starkey <Brian.Starkey@arm.com>
+Cc: Andrew F. Davis <afd@ti.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Yue Hu <huyue2@yulong.com>
+Cc: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Chenbo Feng <fengc@google.com>
+Cc: Alistair Strachan <astrachan@google.com>
+Cc: Sandeep Patil <sspatil@google.com>
+Cc: Hridya Valsaraju <hridya@google.com>
+Cc: dri-devel@lists.freedesktop.org
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I8d4516899d42c0b6e145bde8a0fed1235ae46654
+Bug: 155218010
+Link: https://lore.kernel.org/lkml/20191025234834.28214-3-john.stultz@linaro.org/
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/dma-buf/dma-heap.c           | 1 +
+ drivers/dma-buf/heaps/Kconfig        | 2 +-
+ drivers/dma-buf/heaps/heap-helpers.c | 2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/dma-buf/dma-heap.c b/drivers/dma-buf/dma-heap.c
+index 6856ed3c9d96..8af87cc08dae 100644
+--- a/drivers/dma-buf/dma-heap.c
++++ b/drivers/dma-buf/dma-heap.c
+@@ -238,6 +238,7 @@ void *dma_heap_get_drvdata(struct dma_heap *heap)
+ {
+ 	return heap->priv;
+ }
++EXPORT_SYMBOL_GPL(dma_heap_get_drvdata);
+ 
+ static void dma_heap_release(struct kref *ref)
+ {
+diff --git a/drivers/dma-buf/heaps/Kconfig b/drivers/dma-buf/heaps/Kconfig
+index a5eef06c4226..aed0b9b4febf 100644
+--- a/drivers/dma-buf/heaps/Kconfig
++++ b/drivers/dma-buf/heaps/Kconfig
+@@ -6,7 +6,7 @@ config DMABUF_HEAPS_SYSTEM
+ 	  is backed by pages from the buddy allocator. If in doubt, say Y.
+ 
+ config DMABUF_HEAPS_CMA
+-	bool "DMA-BUF CMA Heap"
++	tristate "DMA-BUF CMA Heap"
+ 	depends on DMABUF_HEAPS && DMA_CMA
+ 	help
+ 	  Choose this option to enable dma-buf CMA heap. This heap is backed
+diff --git a/drivers/dma-buf/heaps/heap-helpers.c b/drivers/dma-buf/heaps/heap-helpers.c
+index d0696cf937af..0a08203145e6 100644
+--- a/drivers/dma-buf/heaps/heap-helpers.c
++++ b/drivers/dma-buf/heaps/heap-helpers.c
+@@ -24,6 +24,7 @@ void init_heap_helper_buffer(struct heap_helper_buffer *buffer,
+ 	INIT_LIST_HEAD(&buffer->attachments);
+ 	buffer->free = free;
+ }
++EXPORT_SYMBOL_GPL(init_heap_helper_buffer);
+ 
+ struct dma_buf *heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
+ 					  int fd_flags)
+@@ -37,6 +38,7 @@ struct dma_buf *heap_helper_export_dmabuf(struct heap_helper_buffer *buffer,
+ 
+ 	return dma_buf_export(&exp_info);
+ }
++EXPORT_SYMBOL_GPL(heap_helper_export_dmabuf);
+ 
+ static void *dma_heap_map_kernel(struct heap_helper_buffer *buffer)
+ {
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
 /*
  * Tegra GK20A GPU Debugger/Profiler Driver
  *
- * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -161,7 +161,7 @@ u32 nvgpu_set_powergate_locked(struct dbg_session_gk20a *dbg_s,
 		 * the global pg disabled refcount is zero
 		 */
 		if (g->dbg_powergating_disabled_refcount == 0) {
-			err = g->ops.debugger.dbg_set_powergate(dbg_s,
+			err = (u32)g->ops.debugger.dbg_set_powergate(dbg_s,
 									mode);
 		}
 

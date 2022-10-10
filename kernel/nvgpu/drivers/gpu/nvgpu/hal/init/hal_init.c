@@ -1,7 +1,7 @@
 /*
  * NVIDIA GPU HAL interface.
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -68,11 +68,13 @@ int nvgpu_init_hal(struct gk20a *g)
 			err = -ENODEV;
 		}
 		break;
+#ifdef CONFIG_NVGPU_SUPPORT_GV11B
 	case NVGPU_GPUID_GV11B:
 		if (gv11b_init_hal(g) != 0) {
 			err = -ENODEV;
 		}
 		break;
+#endif
 
 #if defined(CONFIG_NVGPU_DGPU) && defined(CONFIG_NVGPU_HAL_NON_FUSA)
 	case NVGPU_GPUID_TU104:
@@ -121,6 +123,7 @@ int nvgpu_detect_chip(struct gk20a *g)
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_NVGPU_SUPPORT_GV11B
 	if (nvgpu_safe_add_u32(p->gpu_arch, p->gpu_impl) ==
 						(u32)NVGPU_GPUID_GV11B) {
 		/* overwrite gpu revison for A02  */
@@ -128,6 +131,7 @@ int nvgpu_detect_chip(struct gk20a *g)
 			p->gpu_rev = 0xa2;
 		}
 	}
+#endif
 	nvgpu_log_info(g, "arch: %x, impl: %x, rev: %x\n",
 			g->params.gpu_arch,
 			g->params.gpu_impl,

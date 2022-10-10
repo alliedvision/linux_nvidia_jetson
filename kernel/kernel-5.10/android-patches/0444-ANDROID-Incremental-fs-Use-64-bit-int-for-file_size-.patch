@@ -1,0 +1,47 @@
+From 0cd09e86721c2ea0b52b97c60ca9562162e963a6 Mon Sep 17 00:00:00 2001
+From: Yurii Zubrytskyi <zyy@google.com>
+Date: Fri, 3 Apr 2020 20:39:33 -0700
+Subject: [PATCH 444/830] ANDROID: Incremental fs: Use 64-bit int for file_size
+ when writing hash blocks
+X-NVConfidentiality: public
+
+Bug: 153210803
+Test: manual
+Change-Id: Iafc888dbe906cd37e5b28dc2814f52aace175c0f
+Signed-off-by: Yurii Zubrytskyi <zyy@google.com>
+---
+ fs/incfs/format.c | 3 ++-
+ fs/incfs/format.h | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 1a7c4646a291..ff3a2219fc24 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -450,7 +450,8 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+ 					   struct mem_range block,
+ 					   int block_index,
+ 					   loff_t hash_area_off,
+-					   loff_t bm_base_off, int file_size)
++					   loff_t bm_base_off,
++					   loff_t file_size)
+ {
+ 	struct incfs_blockmap_entry bm_entry = {};
+ 	int result;
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index f1095dc3c3dd..d57a7b479721 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -303,7 +303,8 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+ 					   struct mem_range block,
+ 					   int block_index,
+ 					   loff_t hash_area_off,
+-					   loff_t bm_base_off, int file_size);
++					   loff_t bm_base_off,
++					   loff_t file_size);
+ 
+ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ 		struct mem_range value, struct incfs_file_attr *attr);
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
 /*
  * GM20B Graphics
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,7 +54,9 @@
 #include <nvgpu/pmu/pmu_pstate.h>
 #endif
 #include <nvgpu/therm.h>
+#ifdef CONFIG_NVGPU_CLK_ARB
 #include <nvgpu/clk_arb.h>
+#endif
 #include <nvgpu/grmgr.h>
 #ifdef CONFIG_NVGPU_POWER_PG
 #include <nvgpu/pmu/pmu_pg.h>
@@ -149,7 +151,9 @@ static const struct gops_bios gm20b_ops_bios = {
 static const struct gops_ltc_intr gm20b_ops_ltc_intr = {
 	.configure = gm20b_ltc_intr_configure,
 	.isr = gm20b_ltc_intr_isr,
+#ifdef CONFIG_NVGPU_NON_FUSA
 	.en_illegal_compstat = NULL,
+#endif
 };
 
 static const struct gops_ltc gm20b_ops_ltc = {
@@ -159,6 +163,8 @@ static const struct gops_ltc gm20b_ops_ltc = {
 #ifdef CONFIG_NVGPU_FALCON_NON_FUSA
 	.determine_L2_size_bytes = gm20b_determine_L2_size_bytes,
 	.init_fs_state = gm20b_ltc_init_fs_state,
+#endif
+#if defined(CONFIG_NVGPU_NON_FUSA) || defined(CONFIG_NVGPU_KERNEL_MODE_SUBMIT)
 	.set_enabled = gm20b_ltc_set_enabled,
 #endif
 #ifdef CONFIG_NVGPU_GRAPHICS
@@ -426,7 +432,7 @@ static const struct gops_gr_falcon gm20b_ops_gr_falcon = {
 	.bind_instblk = gm20b_gr_falcon_bind_instblk,
 	.wait_mem_scrubbing = gm20b_gr_falcon_wait_mem_scrubbing,
 	.wait_ctxsw_ready = gm20b_gr_falcon_wait_ctxsw_ready,
-	.ctrl_ctxsw = gm20b_gr_falcon_ctrl_ctxsw,
+	.ctrl_ctxsw = gm20b_gr_falcon_ctrl_ctxsw_internal,
 	.get_current_ctx = gm20b_gr_falcon_get_current_ctx,
 	.get_ctx_ptr = gm20b_gr_falcon_get_ctx_ptr,
 	.get_fecs_current_ctx_data = gm20b_gr_falcon_get_fecs_current_ctx_data,

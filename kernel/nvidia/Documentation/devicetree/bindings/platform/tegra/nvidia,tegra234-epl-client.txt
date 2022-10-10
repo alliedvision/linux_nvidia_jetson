@@ -1,0 +1,39 @@
+NVIDIA Tegra EPL (Error Reporting Driver)
+=========================================
+
+This driver is used to report software detected errors via HSP mailbox
+or MISC-EC registers to Safety Service module running on FSI core.
+
+Required properties :
+ - compatible : "nvidia,tegra234-epl-client"
+ - mboxes     : Mailbox configuration refer "nvidia,tegra186-hsp.txt"
+                for more details
+ - mbox-names : Mailbox name
+
+Optional properties :
+ - client-misc-sw-generic-err0 : Device driver's name which reports error
+                                 via MISC-EC 0
+ - client-misc-sw-generic-err1 : Device driver's name which reports error
+                                 via MISC-EC 1
+ - client-misc-sw-generic-err2 : Device driver's name which reports error
+                                 via MISC-EC 2
+ - client-misc-sw-generic-err3 : Device driver's name which reports error
+                                 via MISC-EC 3
+ - client-misc-sw-generic-err4 : Device driver's name which reports error
+                                 via MISC-EC 4
+
+Example :
+
+		epl {
+			compatible = "nvidia,tegra234-epl-client";
+#if TEGRA_HSP_DT_VERSION >= DT_VERSION_2
+			mboxes =
+				<&hsp_top2 (TEGRA_HSP_MBOX_TYPE_SM | TEGRA_HSP_MBOX_TYPE_SM_128BIT) TEGRA_HSP_SM_TX(1)>;
+#else
+			mboxes =
+				<&hsp_top2 TEGRA_HSP_MBOX_TYPE_SM_128BIT TEGRA_HSP_SM_TX(1)>;
+#endif
+			mbox-names = "epl-tx";
+
+			client-misc-sw-generic-err0 = "example_client";
+		};

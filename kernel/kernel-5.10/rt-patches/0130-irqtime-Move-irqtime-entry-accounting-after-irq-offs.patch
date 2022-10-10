@@ -1,7 +1,7 @@
-From 0a966f6fb1cc8240e91856bffbaa46a72edb8b47 Mon Sep 17 00:00:00 2001
+From f4b1482ce9dcbd165a4d9a8011ee4f7bb700e109 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:31 +0100
-Subject: [PATCH 130/304] irqtime: Move irqtime entry accounting after irq
+Subject: [PATCH 130/318] irqtime: Move irqtime entry accounting after irq
  offset incrementation
 
 IRQ time entry is currently accounted before HARDIRQ_OFFSET or
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 40 insertions(+), 22 deletions(-)
 
 diff --git a/include/linux/hardirq.h b/include/linux/hardirq.h
-index c35b71f..0926e9c 100644
+index c35b71f8644a..0926e9ca4d85 100644
 --- a/include/linux/hardirq.h
 +++ b/include/linux/hardirq.h
 @@ -32,9 +32,9 @@ static __always_inline void rcu_irq_enter_check_tick(void)
@@ -55,7 +55,7 @@ index c35b71f..0926e9c 100644
  	} while (0)
  
 diff --git a/include/linux/vtime.h b/include/linux/vtime.h
-index 6c98674..041d652 100644
+index 6c9867419615..041d6524d144 100644
 --- a/include/linux/vtime.h
 +++ b/include/linux/vtime.h
 @@ -83,32 +83,46 @@ static inline void vtime_init_idle(struct task_struct *tsk, int cpu) { }
@@ -116,7 +116,7 @@ index 6c98674..041d652 100644
  
  #endif /* _LINUX_KERNEL_VTIME_H */
 diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-index 02163d4..5f61165 100644
+index 60129af16ed6..02a7932c7383 100644
 --- a/kernel/sched/cputime.c
 +++ b/kernel/sched/cputime.c
 @@ -44,12 +44,13 @@ static void irqtime_account_delta(struct irqtime *irqtime, u64 delta,
@@ -173,7 +173,7 @@ index 02163d4..5f61165 100644
  	} else if (!IS_ENABLED(CONFIG_HAVE_VIRT_CPU_ACCOUNTING_IDLE) &&
  		   is_idle_task(tsk)) {
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 617009c..b8f42b3 100644
+index 617009ccd82c..b8f42b3ba8ca 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -315,10 +315,10 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
@@ -208,5 +208,5 @@ index 617009c..b8f42b3 100644
  	if (!in_interrupt() && local_softirq_pending())
  		invoke_softirq();
 -- 
-2.7.4
+2.17.1
 

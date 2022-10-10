@@ -150,6 +150,9 @@ Optional properties:
    based platforms for controllers C5, C6 and C7.
 - nvidia,enable-safety: Set this property to enable safety features like
    PCIe core clk monitoring, HSI, etc.
+- nvidia,pex-wake-gpios: Add this optional property to support PCIe wake.
+   It contains a phandle to a GPIO controller followed by GPIO that is being
+   used to support PCIe wake.
 
 RC mode:
 - vpcie3v3-supply: A phandle to the regulator node that supplies 3.3V to the slot

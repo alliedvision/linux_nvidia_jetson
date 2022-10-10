@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -60,33 +60,63 @@ bool nvgpu_channel_wdt_check(struct nvgpu_channel_wdt *wdt,
 static inline struct nvgpu_channel_wdt *nvgpu_channel_wdt_alloc(
 		struct gk20a *g)
 {
+	(void)g;
 	return NULL;
 }
-static inline void nvgpu_channel_wdt_destroy(struct nvgpu_channel_wdt *wdt) {}
-static inline void nvgpu_channel_wdt_enable(struct nvgpu_channel_wdt *wdt) {}
-static inline void nvgpu_channel_wdt_disable(struct nvgpu_channel_wdt *wdt) {}
+static inline void nvgpu_channel_wdt_destroy(struct nvgpu_channel_wdt *wdt)
+{
+	(void)wdt;
+}
+static inline void nvgpu_channel_wdt_enable(struct nvgpu_channel_wdt *wdt)
+{
+	(void)wdt;
+}
+static inline void nvgpu_channel_wdt_disable(struct nvgpu_channel_wdt *wdt)
+{
+	(void)wdt;
+}
 static inline bool nvgpu_channel_wdt_enabled(struct nvgpu_channel_wdt *wdt)
 {
+	(void)wdt;
 	return false;
 }
 
 static inline void nvgpu_channel_wdt_set_limit(struct nvgpu_channel_wdt *wdt,
-		u32 limit_ms) {}
+		u32 limit_ms)
+{
+	(void)wdt;
+	(void)limit_ms;
+}
 static inline u32 nvgpu_channel_wdt_limit(struct nvgpu_channel_wdt *wdt)
 {
+	(void)wdt;
 	return 0U;
 }
 static inline void nvgpu_channel_wdt_start(struct nvgpu_channel_wdt *wdt,
-		struct nvgpu_channel_wdt_state *state) {}
+		struct nvgpu_channel_wdt_state *state)
+{
+	(void)wdt;
+	(void)state;
+}
 static inline bool nvgpu_channel_wdt_stop(struct nvgpu_channel_wdt *wdt)
 {
+	(void)wdt;
 	return false;
 }
-static inline void nvgpu_channel_wdt_continue(struct nvgpu_channel_wdt *wdt) {}
+static inline void nvgpu_channel_wdt_continue(struct nvgpu_channel_wdt *wdt)
+{
+	(void)wdt;
+}
 static inline void nvgpu_channel_wdt_rewind(struct nvgpu_channel_wdt *wdt,
-		struct nvgpu_channel_wdt_state *state) {}
+		struct nvgpu_channel_wdt_state *state)
+{
+	(void)wdt;
+	(void)state;
+}
 static inline bool nvgpu_channel_wdt_check(struct nvgpu_channel_wdt *wdt,
 		struct nvgpu_channel_wdt_state *state) {
+	(void)wdt;
+	(void)state;
 	return false;
 }
 

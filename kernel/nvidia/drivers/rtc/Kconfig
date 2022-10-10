@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# RTC class/drivers configuration
+#
+
+if RTC_CLASS
+config NVVRS_PSEQ_RTC
+	bool "Nvidia's VRS Power Sequencer RTC Driver"
+	default y if MFD_NVVRS_PSEQ
+	help
+		Say yes here to add support for RTC provided by Nvidia
+		based Voltage Regulator Specification Power Sequencer.
+endif

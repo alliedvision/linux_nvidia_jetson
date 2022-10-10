@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Mellanox Technologies. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This software is available to you under a choice of one of two
  * licenses.  You may choose to be licensed under the terms of the GNU
@@ -37,6 +37,7 @@
 #include <linux/thermal.h>
 #include <linux/err.h>
 #include <linux/mlx5/driver.h>
+#include <linux/mlx5/thermal.h>
 
 #define MLX5_THERMAL_POLL_INT	1000
 #define MLX5_THERMAL_NUM_TRIPS	0
@@ -88,39 +89,12 @@ static int mlx5_thermal_get_mtmp_temp(struct mlx5_core_dev *core, int *p_temp)
 				   &mtmp_out, sizeof(mtmp_out),
 				   MLX5_REG_MTMP, 0, 0);
 	if (!err)
-		*p_temp = (mtmp_out.temp[0] << 8 | mtmp_out.temp[1]) >> 3;
+		/* The unit of temp returned is in 0.125 C. The thermal
+		 * framework expects the value in 0.001 C.
+		 */
+		*p_temp = (mtmp_out.temp[0] << 8 | mtmp_out.temp[1]) * 125;
 
 	return err;
-}
-
-static int mlx5_thermal_get_mode(struct thermal_zone_device *tzdev,
-				 enum thermal_device_mode *mode)
-{
-	struct mlx5_thermal *thermal = tzdev->devdata;
-
-	*mode = thermal->mode;
-
-	return 0;
-}
-
-static int mlx5_thermal_set_mode(struct thermal_zone_device *tzdev,
-				 enum thermal_device_mode mode)
-{
-	struct mlx5_thermal *thermal = tzdev->devdata;
-
-	mutex_lock(&tzdev->lock);
-
-	if (mode == THERMAL_DEVICE_ENABLED)
-		tzdev->polling_delay = MLX5_THERMAL_POLL_INT;
-	else
-		tzdev->polling_delay = 0;
-
-	mutex_unlock(&tzdev->lock);
-
-	thermal->mode = mode;
-	thermal_zone_device_update(tzdev, THERMAL_EVENT_UNSPECIFIED);
-
-	return 0;
 }
 
 static int mlx5_thermal_get_temp(struct thermal_zone_device *tzdev,
@@ -136,26 +110,20 @@ static int mlx5_thermal_get_temp(struct thermal_zone_device *tzdev,
 }
 
 static struct thermal_zone_device_ops mlx5_thermal_ops = {
-	.get_mode = mlx5_thermal_get_mode,
-	.set_mode = mlx5_thermal_set_mode,
 	.get_temp = mlx5_thermal_get_temp,
 };
-
-static int mlx5_thermal_match(struct thermal_zone_device *thz, void *data)
-{
-	/* match for mlx5 */
-	return (strncmp((char *)data, thz->type, 4) == 0);
-}
 
 int mlx5_thermal_init(struct mlx5_core_dev *core)
 {
 	struct mlx5_thermal *thermal;
 	struct device *dev = &core->pdev->dev;
+	struct thermal_zone_device *tzd;
 	const char *data = "mlx5";
 
 	core->thermal = NULL;
 
-	if (thermal_zone_device_find((void *)data, mlx5_thermal_match))
+	tzd = thermal_zone_get_zone_by_name(data);
+	if (!IS_ERR(tzd))
 		return 0;
 
 	thermal = devm_kzalloc(dev, sizeof(*thermal), GFP_KERNEL);

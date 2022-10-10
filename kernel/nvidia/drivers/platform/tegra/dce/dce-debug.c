@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -356,6 +356,7 @@ static ssize_t dbg_dce_boot_status_fops_read(struct file *file,
 					     char __user *user_buf,
 					     size_t count, loff_t *ppos)
 {
+	u8 fsb;
 	char buf[32];
 	u32 last_status;
 	ssize_t len = 0;
@@ -370,7 +371,14 @@ static ssize_t dbg_dce_boot_status_fops_read(struct file *file,
 	/* Clear BOOT_COMPLETE bit and bits set by OS */
 	ss &= ~(DCE_OS_BITMASK | DCE_BOOT_COMPLETE);
 	addr = (unsigned long *)&ss;
-	last_status = DCE_BIT(find_first_bit(addr, 32));
+
+	fsb = find_first_bit(addr, 32U);
+	if (fsb > 31U) {
+		dce_info(d, "dce-fw boot not started yet");
+		goto core_boot_done;
+	}
+
+	last_status = DCE_BIT(fsb);
 
 	switch (last_status) {
 	case DCE_HALTED:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -171,9 +171,49 @@ struct gpu_ops {
 	struct gops_profiler profiler;
 #endif
 
-	/** Ops to get litter value corresponding to litter define. */
+	/**
+	 * @brief Ops to get litter value corresponding to litter define.
+	 *
+	 * @param g 	[in] The GPU driver struct.
+	 * - The function does not perform validation of g parameter.
+	 * @param value	[in] Litter define.
+	 * - Must be one of the litter defined in common.nvgpu unit.
+	 *
+	 * This function returns the value of the litter define.
+	 *
+	 * Steps:
+	 * - Use switch-case statement on param \a value and return chip
+	 *   specific litter value.
+	 * - Call #BUG() if the default label of switch-case is hit.
+	 */
 	u32 (*get_litter_value)(struct gk20a *g, int value);
-	/** Ops to initialize gpu characteristics. */
+
+	/**
+	 * @brief Ops to initialize gpu characteristics.
+	 *
+	 * @param g 	[in] The GPU driver struct.
+	 * - The function does not perform validation of g parameter.
+	 *
+	 * This function initializes gpu characteristics for the specific chip.
+	 *
+	 * Steps:
+	 * - Calls \ref nvgpu_init_gpu_characteristics
+	 *   "nvgpu_init_gpu_characteristics(g)" to initialize the default
+	 *   characteristics and return error if it fails.
+	 * - Calls \ref nvgpu_set_enabled
+	 *   "nvgpu_set_enabled(g, NVGPU_SUPPORT_TSG_SUBCONTEXTS, true)".
+	 * - Calls \ref nvgpu_set_enabled
+	 *   "nvgpu_set_enabled(g, NVGPU_SUPPORT_SCG, true)".
+	 * - Calls \ref nvgpu_set_enabled
+	 *   "nvgpu_set_enabled(g, NVGPU_SUPPORT_SYNCPOINT_ADDRESS, true)".
+	 * - Calls \ref nvgpu_set_enabled
+	 *   "nvgpu_set_enabled(g, NVGPU_SUPPORT_USER_SYNCPOINT, true)".
+	 * - Calls \ref nvgpu_set_enabled
+	 *   "nvgpu_set_enabled(g, NVGPU_SUPPORT_USER_SYNCPOINT, true)".
+	 *
+	 * @return      0 in case of success, < 0 otherwise.
+	 * @retval      0 in case of success.
+	 */
 	int (*chip_init_gpu_characteristics)(struct gk20a *g);
 
 	/** Bus hal ops. */
@@ -214,7 +254,9 @@ struct gpu_ops {
 			void (**fn)(struct gk20a *g, struct nvgpu_mem *mem));
 	struct gops_pmu_perf pmu_perf;
 	struct gops_debug debug;
+#ifdef CONFIG_NVGPU_DGPU
 	struct gops_nvlink nvlink;
+#endif
 	struct gops_sec2 sec2;
 	struct gops_gsp gsp;
 /** @endcond */

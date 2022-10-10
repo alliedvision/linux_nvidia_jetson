@@ -1,7 +1,7 @@
 /*
  * Virtualized GPU Fifo
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -112,6 +112,11 @@ int vgpu_fifo_isr(struct gk20a *g, struct tegra_vgpu_fifo_intr_info *info)
 
 	nvgpu_err(g, "fifo intr (%d) on ch %u",
 		info->type, info->chid);
+
+	if (ch == NULL) {
+		nvgpu_err(g, "Invalid channel");
+		return -EINVAL;
+	}
 
 	switch (info->type) {
 	case TEGRA_VGPU_FIFO_INTR_PBDMA:

@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -114,37 +114,34 @@ NVMAP_CONFIG_DEBUG_MAPS := n
 # This is fallback option to support handle as FD
 # To support handle as ID, set this to n
 # This config is useful to debug issue if its due to handle as ID or FD
-NVMAP_CONFIG_HANDLE_AS_FD := y
+NVMAP_CONFIG_HANDLE_AS_FD := n
+
+# Config for kstable/OOT kernel
+# This is useful when any kstable/OOT specific checks are needed
+NVMAP_CONFIG_UPSTREAM_KERNEL := n
 ################################################################################
 # Section 3
 # Enable/Disable configs based upon the kernel version
 # Specify the values which are different from the default values
 
-#Enable/Disable the below configs for kstable
-ifneq ($(findstring stable,$(NV_BUILD_KERNEL_OPTIONS)),)
-NVMAP_CONFIG_COLOR_PAGES := n
+ifdef CONFIG_TEGRA_VPR
+# For 4.9
+NVMAP_CONFIG_VPR_RESIZE := y
+else
+# For 5.10+
 NVMAP_CONFIG_LOADABLE_MODULE := y
 NVMAP_CONFIG_PROCRANK := n
 ifneq ($(NVMAP_CONFIG_HANDLE_AS_FD),y)
 NVMAP_CONFIG_HANDLE_AS_ID := y
 NVMAP_CONFIG_FD_START := 0x0
 endif
-endif
-
-ifneq ($(findstring 5.10,$(NV_BUILD_KERNEL_OPTIONS)),)
-# For 5.10
-ifneq ($(NVMAP_CONFIG_HANDLE_AS_FD),y)
-NVMAP_CONFIG_HANDLE_AS_ID := y
-NVMAP_CONFIG_FD_START := 0x0
-endif
 NVMAP_CONFIG_SCIIPC := y
+# For OOT build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+NVMAP_CONFIG_UPSTREAM_KERNEL := y
+NVMAP_CONFIG_COLOR_PAGES := n
 endif
-
-ifneq ($(findstring 4.9,$(NV_BUILD_KERNEL_OPTIONS)),)
-# For 4.9
-NVMAP_CONFIG_VPR_RESIZE := y
 endif
-
 ################################################################################
 # Section 4
 # This section creates ccflags based upon the values specified
@@ -188,14 +185,9 @@ ccflags-y += -DNVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD=${NVMAP_CONFIG_DEFER_FD_RECY
 endif #NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD
 endif #NVMAP_CONFIG_DEFER_FD_RECYCLE
 
-
-ifeq ($(CONFIG_NVSCIIPC),y)
-ifeq (y, $(filter y, $(CONFIG_ARCH_TEGRA_19x_SOC) $(CONFIG_ARCH_TEGRA_194_SOC)))
 ifeq ($(NVMAP_CONFIG_SCIIPC),y)
 ccflags-y += -DNVMAP_CONFIG_SCIIPC
 endif #NVMAP_CONFIG_SCIIPC
-endif #CONFIG_ARCH_TEGRA_19x_SOC || CONFIG_ARCH_TEGRA_194_SOC
-endif #CONFIG_NVSCIIPC
 
 ifeq ($(NVMAP_CONFIG_VPR_RESIZE),y)
 ccflags-y += -DNVMAP_CONFIG_VPR_RESIZE
@@ -204,6 +196,10 @@ endif #NVMAP_CONFIG_VPR_RESIZE
 ifeq ($(NVMAP_CONFIG_LOADABLE_MODULE),y)
 ccflags-y += -DNVMAP_LOADABLE_MODULE
 endif #NVMAP_CONFIG_LOADABLE_MODULE
+
+ifeq ($(NVMAP_CONFIG_UPSTREAM_KERNEL),y)
+ccflags-y += -DNVMAP_UPSTREAM_KERNEL
+endif #NVMAP_CONFIG_UPSTREAM_KERNEL
 
 ifeq ($(NVMAP_CONFIG_PROCRANK),y)
 ccflags-y += -DNVMAP_CONFIG_PROCRANK
@@ -216,6 +212,10 @@ endif #NVMAP_CONFIG_DEBUG_MAPS
 ifeq ($(NVMAP_CONFIG_HANDLE_AS_ID),y)
 ccflags-y += -DNVMAP_CONFIG_HANDLE_AS_ID
 endif #NVMAP_CONFIG_HANDLE_AS_ID
+
+ifeq ($(CONFIG_TEGRA_CVNAS),y)
+ccflags-y += -DCVNAS_BUILTIN
+endif #CONFIG_TEGRA_CVNAS
 
 endif #NVMAP_CONFIG
 endif #CONFIG_ARCH_TEGRA

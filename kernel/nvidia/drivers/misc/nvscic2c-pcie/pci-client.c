@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,6 +28,7 @@
 #include <asm/cacheflush.h>
 
 #include <uapi/misc/nvscic2c-pcie-ioctl.h>
+#include <linux/tegra-pcie-edma.h>
 
 #include "common.h"
 #include "iova-mngr.h"
@@ -80,14 +81,22 @@ struct pci_client_t {
 	 * skip this area for use in @DRV_MODE_EPC also. We skip by reserving
 	 * the iova region and thereby marking it as unusable.
 	 */
+	dma_addr_t edma_ch_desc_iova;
 	void *skip_iova;
-
+	void *skip_meta;
+	void *edma_ch_desc_iova_h;
 	/*
 	 * iova-mngr instance for managing the reserved iova region.
 	 * application allocated objs and endpoints allocated physical memory
 	 * are pinned to this address.
 	 */
 	void *mem_mngr_h;
+
+	/*
+	 * the context of DRV_MODE_EPC/DRV_MODE_EPF
+	 */
+	struct driver_ctx_t *drv_ctx;
+
 };
 
 static void
@@ -117,6 +126,61 @@ allocate_link_status_mem(struct pci_client_t *ctx)
 	/* physical address to be mmap() in user-space.*/
 	mem->phys_addr = virt_to_phys(mem->pva);
 
+	return ret;
+}
+
+/* Allocate desc_iova and mapping to bar0 for remote edma, x86-orin c2c only */
+static int
+pci_client_allocate_edma_rx_desc_iova(void *pci_client_h)
+{
+	int ret = 0;
+	int prot = 0;
+	void *pva;
+	u64 phys_addr;
+	struct pci_client_t *ctx = (struct pci_client_t *)pci_client_h;
+	if (WARN_ON(!ctx))
+		return -EINVAL;
+
+	/*
+	 *bar0 first 128K [-------128k-------]
+	 *                [-4k-][-60k-][-64k-]
+	 *first 4K reserved for meta data communication
+	 *next 60k for x86/peer edma rx descriptor
+	 *next 64K resered for sys-sw
+	 */
+	ret = iova_mngr_block_reserve(ctx->mem_mngr_h, SZ_4K,
+				NULL, NULL, &ctx->skip_meta);
+	if (ret) {
+		pr_err("Failed to skip the 4K reserved iova region\n");
+		return ret;
+	}
+	pva = alloc_pages_exact(60*SZ_1K, (GFP_KERNEL | __GFP_ZERO));
+	if (!pva) {
+		pr_err("Failed to allocate a page with size of 60K\n");
+		return -ENOMEM;
+	}
+	phys_addr = page_to_phys(virt_to_page(pva));
+	ret = pci_client_alloc_iova(ctx, 60*SZ_1K,
+				&ctx->edma_ch_desc_iova, NULL,
+				&ctx->edma_ch_desc_iova_h);
+	if (ret) {
+		pr_err("pci client failed to allocate iova with size of 60k\n");
+		return ret;
+	}
+	prot = (IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
+	ret = pci_client_map_addr(ctx, ctx->edma_ch_desc_iova,
+				phys_addr, 60*SZ_1K, prot);
+	if (ret) {
+		pr_err("ci client failed to map iova to 60K physical backing\n");
+		return ret;
+	}
+	/* bar0+64K - bar0+126K  reserved for sys-sw  */
+	ret = iova_mngr_block_reserve(ctx->mem_mngr_h, SZ_64K,
+				NULL, NULL, &ctx->skip_iova);
+	if (ret) {
+		pr_err("Failed to skip the 64K reserved iova region\n");
+		return ret;
+	}
 	return ret;
 }
 
@@ -186,8 +250,8 @@ pci_client_init(struct pci_client_params *params, void **pci_client_h)
 	 * skip this area for use in @DRV_MODE_EPC also. We skip by reserving
 	 * the iova region and thereby marking it as unusable for others.
 	 */
-	ret = iova_mngr_block_reserve(ctx->mem_mngr_h, SKIP_BAR_AREA,
-				      NULL, NULL, &ctx->skip_iova);
+	/* remote edma on x86 */
+	ret = pci_client_allocate_edma_rx_desc_iova(ctx);
 	if (ret) {
 		pr_err("Failed to skip the reserved iova region\n");
 		goto err;
@@ -212,6 +276,16 @@ pci_client_deinit(void **pci_client_h)
 	if (ctx->skip_iova) {
 		iova_mngr_block_release(ctx->mem_mngr_h, &ctx->skip_iova);
 		ctx->skip_iova = NULL;
+	}
+
+	if (ctx->skip_meta) {
+		iova_mngr_block_release(ctx->mem_mngr_h, &ctx->skip_meta);
+		ctx->skip_meta = NULL;
+	}
+
+	if (ctx->edma_ch_desc_iova) {
+		iova_mngr_block_release(ctx->mem_mngr_h, &ctx->edma_ch_desc_iova_h);
+		ctx->edma_ch_desc_iova_h = NULL;
 	}
 
 	if (ctx->mem_mngr_h) {
@@ -462,3 +536,122 @@ pci_client_change_link_status(void *pci_client_h,
 
 	return ret;
 }
+
+/*
+ * Helper functions to set and get driver context from  pci_client t
+ *
+ */
+/*Set driver context of DRV_MODE_EPF or DRV_MODE_EPC */
+int
+pci_client_save_driver_ctx(void *pci_client_h, struct driver_ctx_t *drv_ctx)
+{
+	int ret = 0;
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+
+	if (WARN_ON(!pci_client_ctx))
+		return -EINVAL;
+	if (WARN_ON(!drv_ctx))
+		return -EINVAL;
+	pci_client_ctx->drv_ctx = drv_ctx;
+	return ret;
+}
+
+/*Get the driver context of DRV_MODE_EPF or DRV_MODE_EPC */
+struct driver_ctx_t *
+pci_client_get_driver_ctx(void *pci_client_h)
+{
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+	struct driver_ctx_t *drv_ctx = NULL;
+
+	if (WARN_ON(!pci_client_ctx))
+		return NULL;
+	drv_ctx = pci_client_ctx->drv_ctx;
+	if (WARN_ON(!drv_ctx))
+		return NULL;
+	return drv_ctx;
+}
+
+/* get drv mode  */
+enum drv_mode_t
+pci_client_get_drv_mode(void *pci_client_h)
+{
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+	struct driver_ctx_t *drv_ctx = NULL;
+
+	if (WARN_ON(!pci_client_ctx))
+		return DRV_MODE_INVALID;
+	drv_ctx = pci_client_ctx->drv_ctx;
+	if (WARN_ON(!drv_ctx))
+		return NVCPU_MAXIMUM;
+	return drv_ctx->drv_mode;
+}
+/* save the peer cup orin/x86_64 */
+int
+pci_client_save_peer_cpu(void *pci_client_h, enum peer_cpu_t peer_cpu)
+{
+	int ret = 0;
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+	struct driver_ctx_t *drv_ctx = NULL;
+
+	if (WARN_ON(!pci_client_ctx))
+		return -EINVAL;
+	drv_ctx = pci_client_ctx->drv_ctx;
+	if (WARN_ON(!drv_ctx))
+		return -EINVAL;
+	drv_ctx->peer_cpu = peer_cpu;
+	return ret;
+}
+
+
+/* get the peer cup orin/x86_64 */
+enum peer_cpu_t
+pci_client_get_peer_cpu(void *pci_client_h)
+{
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+	struct driver_ctx_t *drv_ctx = NULL;
+
+	if (WARN_ON(!pci_client_ctx))
+		return NVCPU_MAXIMUM;
+	drv_ctx = pci_client_ctx->drv_ctx;
+	if (WARN_ON(!drv_ctx))
+		return NVCPU_MAXIMUM;
+	return drv_ctx->peer_cpu;
+}
+
+/* get  the iova allocated for x86 peer tegra-pcie-emda rx descriptor   */
+dma_addr_t
+pci_client_get_edma_rx_desc_iova(void *pci_client_h)
+{
+	struct pci_client_t *ctx = (struct pci_client_t *)pci_client_h;
+
+	if (ctx)
+		return ctx->edma_ch_desc_iova;
+	else
+		return 0;
+}
+
+int
+pci_client_raise_irq(void *pci_client_h, enum pci_epc_irq_type type, u16 num)
+{
+	int ret = 0;
+	struct pci_client_t *pci_client_ctx = (struct pci_client_t *)pci_client_h;
+	struct driver_ctx_t *drv_ctx = NULL;
+	struct epf_context_t *epf_ctx = NULL;
+
+	if (WARN_ON(!pci_client_ctx))
+		return -EINVAL;
+
+	drv_ctx = pci_client_ctx->drv_ctx;
+	if (WARN_ON(!drv_ctx))
+		return -EINVAL;
+	epf_ctx = (struct epf_context_t *)drv_ctx->epf_ctx;
+	if (WARN_ON(!epf_ctx))
+		return -EINVAL;
+	if (WARN_ON(!epf_ctx->epf))
+		return -EINVAL;
+	if (WARN_ON(drv_ctx->drv_mode != DRV_MODE_EPF))
+		return -EINVAL;
+	ret = pci_epc_raise_irq(epf_ctx->epf->epc, epf_ctx->epf->func_no, type, num);
+	return ret;
+}
+

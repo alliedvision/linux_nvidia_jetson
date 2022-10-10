@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -89,7 +89,7 @@
 #define XPCS_USXG_AN_STS_SPEED_10000		0xC00U
 #define XPCS_REG_ADDR_SHIFT			10U
 #define XPCS_REG_ADDR_MASK			0x1FFFU
-#define XPCS_REG_VALUE_MASK			0xFFU
+#define XPCS_REG_VALUE_MASK			0x3FFU
 #define XPCS_VR_XS_PCS_KR_CTRL_USXG_MODE_MASK	(OSI_BIT(12) | \
 						 OSI_BIT(11) | \
 						 OSI_BIT(10))
@@ -107,11 +107,27 @@
 #define XPCS_WRAP_UPHY_RX_CONTROL_0_0_RX_PCS_PHY_RDY	OSI_BIT(10)
 #define XPCS_WRAP_UPHY_RX_CONTROL_0_0_RX_SW_OVRD	OSI_BIT(31)
 #define XPCS_WRAP_UPHY_STATUS_TX_P_UP_STATUS		OSI_BIT(0)
+
+#ifdef HSI_SUPPORT
+#define XPCS_WRAP_INTERRUPT_CONTROL			0x8048
+#define XPCS_WRAP_INTERRUPT_STATUS			0x8050
+#define XPCS_CORE_CORRECTABLE_ERR			OSI_BIT(10)
+#define XPCS_CORE_UNCORRECTABLE_ERR			OSI_BIT(9)
+#define XPCS_REGISTER_PARITY_ERR			OSI_BIT(8)
+#define XPCS_BASE_PMA_MMD_SR_PMA_KR_FEC_CTRL		0x402AC
+#define EN_ERR_IND					OSI_BIT(1)
+#define FEC_EN						OSI_BIT(0)
+#define XPCS_VR_XS_PCS_SFTY_UE_INTR0			0xE03C0
+#define XPCS_VR_XS_PCS_SFTY_CE_INTR			0xE03C8
+#define XPCS_VR_XS_PCS_SFTY_TMR_CTRL			0xE03D4
+#define XPCS_SFTY_1US_MULT_MASK				0xFF
+#define XPCS_SFTY_1US_MULT_SHIFT			0U
+#endif
 /** @} */
 
 int xpcs_init(struct osi_core_priv_data *osi_core);
 int xpcs_start(struct osi_core_priv_data *osi_core);
-int xpcs_eee(void *xpcs_base, unsigned int en_dis);
+int xpcs_eee(struct osi_core_priv_data *osi_core, unsigned int en_dis);
 
 /**
  * @brief xpcs_read - read from xpcs.
@@ -132,7 +148,7 @@ static inline unsigned int xpcs_read(void *xpcs_base, unsigned int reg_addr)
 }
 
 /**
- * @brief xpcs_read - write to xpcs.
+ * @brief xpcs_write - write to xpcs.
  *
  * Algorithm: This routine writes data to XPCS register.
  *
@@ -147,5 +163,41 @@ static inline void xpcs_write(void *xpcs_base, unsigned int reg_addr,
 		   ((unsigned char *)xpcs_base + XPCS_ADDRESS));
 	osi_writel(val, (unsigned char *)xpcs_base +
 		   (((reg_addr) & XPCS_REG_VALUE_MASK)));
+}
+
+/**
+ * @brief xpcs_write_safety - write to xpcs.
+ *
+ * Algorithm: This routine writes data to XPCS register.
+ * And verifiy by reading back the value
+ *
+ * @param[in] osi_core: OSI core data structure
+ * @param[in] reg_addr: register address for writing
+ * @param[in] val: write value to register address
+ *
+ * @retval 0 on success
+ * @retval -1 on failure.
+ *
+ */
+static inline int xpcs_write_safety(struct osi_core_priv_data *osi_core,
+				    unsigned int reg_addr,
+				    unsigned int val)
+{
+	void *xpcs_base = osi_core->xpcs_base;
+	unsigned int read_val;
+	int retry = 10;
+
+	while (--retry > 0) {
+		xpcs_write(xpcs_base, reg_addr, val);
+		read_val = xpcs_read(xpcs_base, reg_addr);
+		if (val == read_val) {
+			return 0;
+		}
+		osi_core->osd_ops.udelay(OSI_DELAY_1US);
+	}
+
+	OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+		     "xpcs_write_safety failed", reg_addr);
+	return -1;
 }
 #endif

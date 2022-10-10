@@ -1,0 +1,31 @@
+From 7ff0000bdd672860a51f50882378ed0a2f36ab98 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 9 Oct 2019 23:11:38 +0000
+Subject: [PATCH 570/830] ANDROID: Kconfig.gki: Add extra
+ GKI_HIDDEN_REGMAP_CONFIGS selections
+X-NVConfidentiality: public
+
+Add REGMAP_MMIO to GKI_HIDDEN_REGMAP_CONFIGS
+
+Bug: 142268770
+Change-Id: I7e67afbd67f31b853abc3a4f7ba596b82a5febef
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index b2f3ecefd782..14265007d7e8 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -12,6 +12,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ config GKI_HIDDEN_REGMAP_CONFIGS
+ 	bool "Hidden Regmap configs needed for GKI"
+ 	select REGMAP_IRQ
++	select REGMAP_MMIO
+ 	help
+ 	  Dummy config option used to enable hidden regmap configs.
+ 	  These are normally selected implicitely when a module
+-- 
+2.17.1
+

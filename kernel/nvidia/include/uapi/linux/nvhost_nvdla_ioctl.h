@@ -3,7 +3,7 @@
  *
  * Tegra NvDLA Driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -70,13 +70,17 @@ struct nvdla_ping_args {
  * @share_id		identifier of handle to be shared
  * @offset		offset within the shared memory
  * @access_flags	access with which memory is intended to be shared
- * @reserved		reserved for future use
+ * @import_id		memory import transaction identifier
  **/
 struct nvdla_mem_share_handle {
 	__u32 share_id;
 	__u32 offset;
+#define NVDLA_MEM_ACCESS_NONE (0U)
+#define NVDLA_MEM_ACCESS_READ (1U << 0U)
+#define NVDLA_MEM_ACCESS_WRITE (1U << 1U)
+#define NVDLA_MEM_ACCESS_READ_WRITE (NVDLA_MEM_ACCESS_READ | NVDLA_MEM_ACCESS_WRITE)
 	__u32 access_flags;
-	__u32 reserved;
+	__u32 import_id;
 };
 
 /**

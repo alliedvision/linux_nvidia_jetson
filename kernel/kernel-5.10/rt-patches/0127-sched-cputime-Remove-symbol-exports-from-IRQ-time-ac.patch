@@ -1,7 +1,7 @@
-From 1d120bb338868b2c12d6f86bd4ce1b8178bbd919 Mon Sep 17 00:00:00 2001
+From 31c5babb00350cae10147c3310e62db7d327f2ea Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:28 +0100
-Subject: [PATCH 127/304] sched/cputime: Remove symbol exports from IRQ time
+Subject: [PATCH 127/318] sched/cputime: Remove symbol exports from IRQ time
  accounting
 
 account_irq_enter_time() and account_irq_exit_time() are not called
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 5 insertions(+), 7 deletions(-)
 
 diff --git a/arch/s390/kernel/vtime.c b/arch/s390/kernel/vtime.c
-index 579ec3a..7101359 100644
+index 579ec3a8c816..710135905deb 100644
 --- a/arch/s390/kernel/vtime.c
 +++ b/arch/s390/kernel/vtime.c
 @@ -227,7 +227,7 @@ void vtime_flush(struct task_struct *tsk)
@@ -48,7 +48,7 @@ index 579ec3a..7101359 100644
   * Sorted add to a list. List is linear searched until first bigger
   * element is found.
 diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-index 5a55d23..61ce9f9 100644
+index ca0eef7d3852..e03568c5f584 100644
 --- a/kernel/sched/cputime.c
 +++ b/kernel/sched/cputime.c
 @@ -71,7 +71,6 @@ void irqtime_account_irq(struct task_struct *curr)
@@ -68,5 +68,5 @@ index 5a55d23..61ce9f9 100644
  
  void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
 -- 
-2.7.4
+2.17.1
 

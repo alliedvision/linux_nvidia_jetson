@@ -1,0 +1,34 @@
+From 10ba41e7e0906b34e54832846d08b148e9bf6e06 Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:38:58 +0530
+Subject: [PATCH 155/830] ANDROID: GKI: core: Export for runqueues
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for runqueues().
+
+    - This API is required by loadable driver module,to get number of
+    jobs in the run queue (state R) or waiting for disk I/O (state D)
+    averaged over 1 min.
+
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Bug: 158067689
+Change-Id: I3e80a46bef2e7c92714b68cc5b6b617ac50bc478
+---
+ kernel/sched/core.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index b45ff1c4fe68..3f58704da1db 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -46,6 +46,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_util_est_se_tp);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_update_nr_running_tp);
+ 
+ DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
++EXPORT_SYMBOL_GPL(runqueues);
+ 
+ #ifdef CONFIG_SCHED_DEBUG
+ /*
+-- 
+2.17.1
+

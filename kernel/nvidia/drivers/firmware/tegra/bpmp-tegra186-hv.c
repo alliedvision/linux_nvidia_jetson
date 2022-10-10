@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  */
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
@@ -14,12 +14,12 @@
 #define MAX_POSSIBLE_RX_CHANNEL 1
 #define TX_CHANNEL_EXACT_COUNT  1
 
-struct tegra186_hv_bpmp {
+static struct tegra186_hv_bpmp {
 	struct tegra_bpmp *parent;
 } tegra186_hv_bpmp;
 
 static struct tegra_hv_ivc_cookie **hv_bpmp_ivc_cookies;
-struct device_node *hv_of_node;
+static struct device_node *hv_of_node;
 
 static irqreturn_t tegra186_hv_bpmp_rx_handler(int irq, void *ivck)
 {

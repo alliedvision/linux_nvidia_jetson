@@ -9,10 +9,9 @@ ccflags-y += -I$(srctree.host1x)/include
 
 tegra-drm-next-y := \
 	drm.o \
-	uapi/uapi.o \
-	uapi/submit.o \
-	uapi/firewall.o \
-	uapi/gather_bo.o \
+	uapi.o \
+	submit.o \
+	firewall.o \
 	gem.o \
 	fb.o \
 	dp.o \

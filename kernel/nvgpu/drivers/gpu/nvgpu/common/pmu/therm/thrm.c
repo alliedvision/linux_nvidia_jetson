@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 static void therm_unit_rpc_handler(struct gk20a *g, struct nvgpu_pmu *pmu,
 		struct nv_pmu_rpc_header *rpc)
 {
+	(void)pmu;
 	switch (rpc->function) {
 	case NV_PMU_RPC_ID_THERM_BOARD_OBJ_GRP_CMD:
 		nvgpu_pmu_dbg(g,
@@ -69,6 +70,8 @@ exit:
 int nvgpu_pmu_therm_pmu_setup(struct gk20a *g, struct nvgpu_pmu *pmu)
 {
 	int status;
+
+	(void)pmu;
 
 	status = therm_device_pmu_setup(g);
 	if (status != 0) {

@@ -45,7 +45,6 @@ endif
 
 ifeq ($(build_nvgpu_ut),1)
 NV_REPOSITORY_COMPONENTS := libs/igpu
-NV_REPOSITORY_COMPONENTS += libs/dgpu
 NV_REPOSITORY_COMPONENTS += userspace
 NV_REPOSITORY_COMPONENTS += userspace/units/posix/bitops
 NV_REPOSITORY_COMPONENTS += userspace/units/posix/env
@@ -80,7 +79,6 @@ NV_REPOSITORY_COMPONENTS += userspace/units/ptimer
 NV_REPOSITORY_COMPONENTS += userspace/units/mc
 NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_sgt
 NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_mem
-NV_REPOSITORY_COMPONENTS += userspace/units/mm/nvgpu_mem/dgpu
 NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/buddy_allocator
 NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/nvgpu_allocator
 NV_REPOSITORY_COMPONENTS += userspace/units/mm/allocators/bitmap_allocator

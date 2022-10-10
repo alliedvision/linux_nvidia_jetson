@@ -1,7 +1,7 @@
-From 1e3e7a63c9a9be8ae9c0557c0b64bdb815b85b5a Mon Sep 17 00:00:00 2001
+From d985a652476427e7cefdcd2f18044426dd62dba2 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:12 +0100
-Subject: [PATCH 119/304] ARM: irqstat: Get rid of duplicated declaration
+Subject: [PATCH 119/318] ARM: irqstat: Get rid of duplicated declaration
 
 irq_cpustat_t is exactly the same as the asm-generic one. Define
 ack_bad_irq so the generic header does not emit the generic version of it.
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 5 insertions(+), 8 deletions(-)
 
 diff --git a/arch/arm/include/asm/hardirq.h b/arch/arm/include/asm/hardirq.h
-index b95848e..706efaf 100644
+index b95848ed2bc7..706efafbf972 100644
 --- a/arch/arm/include/asm/hardirq.h
 +++ b/arch/arm/include/asm/hardirq.h
 @@ -2,16 +2,11 @@
@@ -41,7 +41,7 @@ index b95848e..706efaf 100644
  
  #endif /* __ASM_HARDIRQ_H */
 diff --git a/arch/arm/include/asm/irq.h b/arch/arm/include/asm/irq.h
-index 46d4114..1cbcc46 100644
+index 46d41140df27..1cbcc462b07e 100644
 --- a/arch/arm/include/asm/irq.h
 +++ b/arch/arm/include/asm/irq.h
 @@ -31,6 +31,8 @@ void handle_IRQ(unsigned int, struct pt_regs *);
@@ -54,5 +54,5 @@ index 46d4114..1cbcc46 100644
  					   bool exclude_self);
  #define arch_trigger_cpumask_backtrace arch_trigger_cpumask_backtrace
 -- 
-2.7.4
+2.17.1
 

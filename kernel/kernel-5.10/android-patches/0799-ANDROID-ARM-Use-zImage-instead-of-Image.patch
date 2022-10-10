@@ -1,0 +1,42 @@
+From b860a714878e115f665e8c6e33a1be8660f73ed4 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Thu, 12 Nov 2020 20:43:25 -0800
+Subject: [PATCH 799/830] ANDROID: ARM: Use zImage instead of Image
+X-NVConfidentiality: public
+
+Nothing seems to support booting uncompressed ARM 32-bit kernels, and
+everything supports zImage, so change the default on 32-bit to zImage.
+
+More information about this:
+http://www.simtec.co.uk/products/SWLINUX/files/booting_article.html
+
+Bug: 165410044
+Test: booted zImage on cuttlefish
+Change-Id: I130d38737643dc092900e57e117ac268f6a9bd07
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ build.config.arm | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/build.config.arm b/build.config.arm
+index 55610bab09ed..77f8dc815e16 100644
+--- a/build.config.arm
++++ b/build.config.arm
+@@ -4,12 +4,12 @@ CROSS_COMPILE=arm-linux-gnueabi-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+-Image
++zImage
+ modules
+ "
+ 
+ FILES="
+-arch/arm/boot/Image
++arch/arm/boot/zImage
+ vmlinux
+ System.map
+ "
+-- 
+2.17.1
+

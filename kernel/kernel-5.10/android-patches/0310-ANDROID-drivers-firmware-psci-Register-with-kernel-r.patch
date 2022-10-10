@@ -1,0 +1,83 @@
+From efbe6ac981227362028602f5251999621defd15d Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 15 Oct 2019 16:51:44 +0200
+Subject: [PATCH 310/830] ANDROID: drivers: firmware: psci: Register with
+ kernel restart handler
+X-NVConfidentiality: public
+
+Register with kernel restart handler instead of setting arm_pm_restart
+directly. This enables support for replacing the PSCI restart handler
+with a different handler if necessary for a specific board.
+
+Select a priority of 129 to indicate a higher than default priority, but
+keep it as low as possible since PSCI reset is known to fail on some
+boards.
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Tested-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+Reviewed-by: Stefan Agner <stefan.agner@toradex.com>
+
+Bug: 16375272
+Link: https://lore.kernel.org/lkml/20191015145147.1106247-4-thierry.reding@gmail.com/
+Change-Id: Id7d15706a667168d729a16083c9c93314e7b6487
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ drivers/firmware/psci/psci.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index baf48af96886..f9fc5694c226 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -266,7 +266,8 @@ static int get_set_conduit_method(struct device_node *np)
+ 	return 0;
+ }
+ 
+-static __maybe_unused void psci_sys_reset(enum reboot_mode reboot_mode, const char *cmd)
++static int psci_sys_reset(struct notifier_block *nb, unsigned long action,
++			  void *data)
+ {
+ 	if ((reboot_mode == REBOOT_WARM || reboot_mode == REBOOT_SOFT) &&
+ 	    psci_system_reset2_supported) {
+@@ -277,14 +278,19 @@ static __maybe_unused void psci_sys_reset(enum reboot_mode reboot_mode, const ch
+ 		 */
+ 		invoke_psci_fn(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2), 0, 0, 0);
+ 	} else {
+-		if (psci_handle_reboot_cmd)
+-				psci_handle_reboot_cmd(cmd);
+ 		if (psci_prepare_poweroff)
+ 				psci_prepare_poweroff();
+ 		invoke_psci_fn(PSCI_0_2_FN_SYSTEM_RESET, 0, 0, 0);
+ 	}
++
++	return NOTIFY_DONE;
+ }
+ 
++static struct notifier_block psci_sys_reset_nb = {
++	.notifier_call = psci_sys_reset,
++	.priority = 129,
++};
++
+ static void psci_sys_poweroff(void)
+ {
+ 	invoke_psci_fn(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
+@@ -458,9 +464,11 @@ static void __init psci_0_2_set_functions(void)
+ 	psci_ops.migrate_info_type = psci_migrate_info_type;
+ 
+ 	pm_power_off = psci_sys_poweroff;
+-	arm_pm_restart = psci_sys_reset;
+ 
+ 	set_system_pmic_post_power_off_handler(psci_sys_poweroff);
++	register_restart_handler(&psci_sys_reset_nb);
++
++	pm_power_off = psci_sys_poweroff;
+ }
+ 
+ /*
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -438,12 +438,17 @@ static struct nvgpu_page_alloc *nvgpu_alloc_slab(
 	struct page_alloc_slab *slab;
 	struct nvgpu_page_alloc *alloc = NULL;
 	struct nvgpu_mem_sgl *sgl = NULL;
+	u64 aligned_page;
 
 	/*
 	 * Align the length to a page and then divide by the page size (4k for
-	 * this code). ilog2() of that then gets us the correct slab to use.
+	 * this code). nvgpu_ilog2() of that then gets us the correct slab to use.
 	 */
-	slab_nr = ilog2(PAGE_ALIGN(len) >> 12);
+	aligned_page = PAGE_ALIGN(len) >> 12;
+	if (aligned_page == 0) {
+		goto fail;
+	}
+	slab_nr = nvgpu_ilog2(aligned_page);
 	slab = &a->slabs[slab_nr];
 
 	alloc = nvgpu_kmem_cache_alloc(a->alloc_cache);
@@ -918,6 +923,7 @@ static void nvgpu_page_allocator_destroy(struct nvgpu_allocator *na)
 	struct nvgpu_page_allocator *a = page_allocator(na);
 
 	alloc_lock(na);
+	nvgpu_fini_alloc_debug(na);
 	nvgpu_kfree(nvgpu_alloc_to_gpu(na), a);
 	na->priv = NULL;
 	alloc_unlock(na);
@@ -1011,17 +1017,24 @@ static const struct nvgpu_allocator_ops page_ops = {
  * slabs. For 64k page_size that works on like:
  *
  *   1024*64 / 1024*4 = 16
- *   ilog2(16) = 4
+ *   nvgpu_ilog2(16) = 4
  *
  * That gives buckets of 1, 2, 4, and 8 pages (i.e 4k, 8k, 16k, 32k).
  */
 static int nvgpu_page_alloc_init_slabs(struct nvgpu_page_allocator *a)
 {
 	/* Use temp var for MISRA 10.8 */
-	unsigned long tmp_nr_slabs = ilog2(a->page_size >> 12);
-	u32 nr_slabs = nvgpu_safe_cast_u64_to_u32(tmp_nr_slabs);
+	unsigned long aligned_page_size = a->page_size >> 12;
+	unsigned long tmp_nr_slabs;
+	u32 nr_slabs;
 	u32 i;
 
+	if (aligned_page_size == 0UL) {
+		return -EINVAL;
+	}
+
+	tmp_nr_slabs = nvgpu_ilog2(aligned_page_size);
+	nr_slabs = nvgpu_safe_cast_u64_to_u32(tmp_nr_slabs);
 	/*
 	 * As slab_size is 32-bits wide, maximum possible slab_size
 	 * is 2^32 i.e. 4Gb
@@ -1065,6 +1078,11 @@ int nvgpu_page_allocator_init(struct gk20a *g, struct nvgpu_allocator *na,
 	int err;
 
 	if (blk_size < SZ_4K) {
+		return -EINVAL;
+	}
+
+	if (strlen(name) >= (sizeof(buddy_name)) - (sizeof("-src"))) {
+		nvgpu_err(g, "allocator name too long");
 		return -EINVAL;
 	}
 
@@ -1114,9 +1132,7 @@ int nvgpu_page_allocator_init(struct gk20a *g, struct nvgpu_allocator *na,
 		goto fail;
 	}
 
-#ifdef CONFIG_DEBUG_FS
 	nvgpu_init_alloc_debug(g, na);
-#endif
 	palloc_dbg(a, "New allocator: type      page");
 	palloc_dbg(a, "               base      0x%llx", a->base);
 	palloc_dbg(a, "               size      0x%llx", a->length);

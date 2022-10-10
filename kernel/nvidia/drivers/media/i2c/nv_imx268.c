@@ -1,7 +1,7 @@
 /*
  * imx268.c - imx268 sensor driver
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -541,6 +541,8 @@ static int imx268_set_mode(struct tegracam_device *tc_dev)
 	if (err)
 		return err;
 
+	if (s_data->mode < 0)
+		return -EINVAL;
 	err = imx268_write_table(priv, mode_table[s_data->mode]);
 	if (err)
 		return err;

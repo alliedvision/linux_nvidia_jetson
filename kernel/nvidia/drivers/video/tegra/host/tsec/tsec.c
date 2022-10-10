@@ -1,7 +1,7 @@
 /*
  * Tegra TSEC Module Support
  *
- * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -52,7 +52,6 @@
 #include "tsec_methods.h"
 #include "nvhost_vm.h"
 
-#include "t186/t186.h"
 #include "t194/t194.h"
 #include "t23x/t23x.h"
 #ifdef CONFIG_TEGRA_T239_GRHOST
@@ -559,7 +558,7 @@ static int tsec_load_kfuse(struct platform_device *pdev)
 		return -1;
 }
 
-int nvhost_tsec_finalize_poweron_t186(struct platform_device *dev)
+int nvhost_tsec_finalize_poweron_t194(struct platform_device *dev)
 {
 	flcn_enable_thi_sec(dev);
 
@@ -772,12 +771,6 @@ static struct of_device_id tegra_tsec_of_match[] = {
 	{ .name = "tsecb",
 		.compatible = "nvidia,tegra210-tsec",
 		.data = (struct nvhost_device_data *)&t21_tsecb_info },
-	{ .name = "tsec",
-		.compatible = "nvidia,tegra186-tsec",
-		.data = (struct nvhost_device_data *)&t18_tsec_info },
-	{ .name = "tsecb",
-		.compatible = "nvidia,tegra186-tsec",
-		.data = (struct nvhost_device_data *)&t18_tsecb_info },
 	{ .name = "tsec",
 		.compatible = "nvidia,tegra194-tsec",
 		.data = (struct nvhost_device_data *)&t19_tsec_info },

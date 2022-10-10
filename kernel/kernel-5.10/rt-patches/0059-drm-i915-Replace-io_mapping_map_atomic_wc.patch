@@ -1,7 +1,7 @@
-From b33efb4dd4e2e129cfad124987eb0cd477b6416d Mon Sep 17 00:00:00 2001
+From 674b80af5da04c4276e49ae7751ef45056b1dbbc Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:48 +0100
-Subject: [PATCH 059/304] drm/i915: Replace io_mapping_map_atomic_wc()
+Subject: [PATCH 059/318] drm/i915: Replace io_mapping_map_atomic_wc()
 
 None of these mapping requires the side effect of disabling pagefaults and
 preemption.
@@ -20,14 +20,14 @@ Cc: intel-gfx@lists.freedesktop.org
 Cc: dri-devel@lists.freedesktop.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c |  7 ++---
- drivers/gpu/drm/i915/i915_gem.c                | 40 +++++++++-----------------
- drivers/gpu/drm/i915/selftests/i915_gem.c      |  4 +--
- drivers/gpu/drm/i915/selftests/i915_gem_gtt.c  |  8 +++---
+ .../gpu/drm/i915/gem/i915_gem_execbuffer.c    |  7 ++--
+ drivers/gpu/drm/i915/i915_gem.c               | 40 ++++++-------------
+ drivers/gpu/drm/i915/selftests/i915_gem.c     |  4 +-
+ drivers/gpu/drm/i915/selftests/i915_gem_gtt.c |  8 ++--
  4 files changed, 22 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c b/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
-index 0c083af..2abf043 100644
+index 0c083af5a59d..2abf043d3d9d 100644
 --- a/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
 +++ b/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
 @@ -1080,7 +1080,7 @@ static void reloc_cache_reset(struct reloc_cache *cache, struct i915_execbuffer
@@ -59,7 +59,7 @@ index 0c083af..2abf043 100644
  	cache->vaddr = (unsigned long)vaddr;
  
 diff --git a/drivers/gpu/drm/i915/i915_gem.c b/drivers/gpu/drm/i915/i915_gem.c
-index 5827669..88944c3 100644
+index 58276694c848..88944c3b1bc8 100644
 --- a/drivers/gpu/drm/i915/i915_gem.c
 +++ b/drivers/gpu/drm/i915/i915_gem.c
 @@ -355,22 +355,15 @@ gtt_user_read(struct io_mapping *mapping,
@@ -121,7 +121,7 @@ index 5827669..88944c3 100644
  
  /**
 diff --git a/drivers/gpu/drm/i915/selftests/i915_gem.c b/drivers/gpu/drm/i915/selftests/i915_gem.c
-index 412e216..4324931 100644
+index 412e21604a05..432493183d20 100644
 --- a/drivers/gpu/drm/i915/selftests/i915_gem.c
 +++ b/drivers/gpu/drm/i915/selftests/i915_gem.c
 @@ -57,12 +57,12 @@ static void trash_stolen(struct drm_i915_private *i915)
@@ -140,10 +140,10 @@ index 412e216..4324931 100644
  
  	ggtt->vm.clear_range(&ggtt->vm, slot, PAGE_SIZE);
 diff --git a/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c b/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
-index 713770f..a68bed4 100644
+index 65e28c4cd4ce..ca483285f267 100644
 --- a/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
 +++ b/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
-@@ -1200,9 +1200,9 @@ static int igt_ggtt_page(void *arg)
+@@ -1201,9 +1201,9 @@ static int igt_ggtt_page(void *arg)
  		u64 offset = tmp.start + order[n] * PAGE_SIZE;
  		u32 __iomem *vaddr;
  
@@ -155,7 +155,7 @@ index 713770f..a68bed4 100644
  	}
  	intel_gt_flush_ggtt_writes(ggtt->vm.gt);
  
-@@ -1212,9 +1212,9 @@ static int igt_ggtt_page(void *arg)
+@@ -1213,9 +1213,9 @@ static int igt_ggtt_page(void *arg)
  		u32 __iomem *vaddr;
  		u32 val;
  
@@ -168,5 +168,5 @@ index 713770f..a68bed4 100644
  		if (val != n) {
  			pr_err("insert page failed: found %d, expected %d\n",
 -- 
-2.7.4
+2.17.1
 

@@ -3,7 +3,7 @@
  *
  * GPU memory management driver for Tegra
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -99,7 +99,7 @@ do {                                                    \
 
 #define GFP_NVMAP       (GFP_KERNEL | __GFP_HIGHMEM | __GFP_NOWARN)
 
-#ifdef NVMAP_LOADABLE_MODULE
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 
 /*
  * DMA_ATTR_ALLOC_EXACT_SIZE: This tells the DMA-mapping
@@ -107,6 +107,13 @@ do {                                                    \
  */
 #define DMA_ATTR_ALLOC_EXACT_SIZE	(DMA_ATTR_PRIVILEGED << 2)
 
+#define DMA_MEMORY_NOMAP		0x02
+
+#endif /* LINUX_VERSION_CODE */
+
+#ifdef NVMAP_LOADABLE_MODULE
+
+#ifdef NVMAP_UPSTREAM_KERNEL
 /*
  * DMA_ATTR_READ_ONLY: for DMA memory allocations, attempt to map
  * memory as read-only for the device. CPU access will still be
@@ -120,10 +127,10 @@ do {                                                    \
  */
 #define DMA_ATTR_WRITE_ONLY	(DMA_ATTR_PRIVILEGED << 13)
 
-#define DMA_MEMORY_NOMAP		0x02
+#endif /* NVMAP_UPSTREAM_KERNEL */
 #endif /* NVMAP_LOADABLE_MODULE */
 
-#define DMA_ALLOC_FREE_ATTR	(DMA_ATTR_ALLOC_EXACT_SIZE | DMA_ATTR_ALLOC_SINGLE_PAGES)
+#define DMA_ALLOC_FREE_ATTR	DMA_ATTR_ALLOC_SINGLE_PAGES
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 #define ACCESS_OK(type, addr, size)	access_ok(type, addr, size)
 #define SYS_CLOSE(arg)	sys_close(arg)
@@ -406,27 +413,6 @@ static inline void nvmap_ref_unlock(struct nvmap_client *priv)
 	mutex_unlock(&priv->ref_lock);
 }
 
-/*
- * NOTE: this does not ensure the continued existence of the underlying
- * dma_buf. If you want ensure the existence of the dma_buf you must get an
- * nvmap_handle_ref as that is what tracks the dma_buf refs.
- */
-static inline struct nvmap_handle *nvmap_handle_get(struct nvmap_handle *h)
-{
-	if (WARN_ON(!virt_addr_valid(h))) {
-		pr_err("%s: invalid handle\n", current->group_leader->comm);
-		return NULL;
-	}
-
-	if (unlikely(atomic_inc_return(&h->ref) <= 1)) {
-		pr_err("%s: %s attempt to get a freed handle\n",
-			__func__, current->group_leader->comm);
-		atomic_dec(&h->ref);
-		return NULL;
-	}
-	return h;
-}
-
 static inline void nvmap_acquire_mmap_read_lock(struct mm_struct *mm)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
@@ -503,6 +489,7 @@ struct nvmap_heap_block *nvmap_carveout_alloc(struct nvmap_client *dev,
 
 struct nvmap_carveout_node;
 
+struct nvmap_handle *nvmap_handle_get(struct nvmap_handle *h);
 void nvmap_handle_put(struct nvmap_handle *h);
 
 struct nvmap_handle_ref *__nvmap_validate_locked(struct nvmap_client *priv,
@@ -534,7 +521,7 @@ struct nvmap_handle_ref *nvmap_try_duplicate_by_ivmid(
 			struct nvmap_heap_block **block);
 
 struct nvmap_handle_ref *nvmap_create_handle_from_id(
-			struct nvmap_client *client, int id);
+			struct nvmap_client *client, u32 id);
 
 struct nvmap_handle_ref *nvmap_create_handle_from_fd(
 			struct nvmap_client *client, int fd);
@@ -814,6 +801,7 @@ static inline pid_t nvmap_client_pid(struct nvmap_client *client)
 	return client->task ? client->task->pid : 0;
 }
 
+/* must be called with mmap_sem held for read or write */
 static inline int nvmap_get_user_pages(ulong vaddr,
 				size_t nr_page, struct page **pages,
 				bool is_user_flags, u32 user_foll_flags)
@@ -824,7 +812,6 @@ static inline int nvmap_get_user_pages(ulong vaddr,
 	long user_pages = 0;
 	int ret = 0;
 
-	nvmap_acquire_mmap_read_lock(current->mm);
 	vma = find_vma(current->mm, vaddr);
 	if (vma) {
 		if (is_user_flags) {
@@ -843,7 +830,6 @@ static inline int nvmap_get_user_pages(ulong vaddr,
 		user_pages = get_user_pages(vaddr & PAGE_MASK, nr_page,
 					    foll_flags, pages, NULL);
 	}
-	nvmap_release_mmap_read_lock(current->mm);
 	if (user_pages != nr_page) {
 		ret = user_pages < 0 ? user_pages : -ENOMEM;
 		pr_err("get_user_pages requested/got: %zu/%ld]\n", nr_page,
@@ -879,9 +865,9 @@ __weak void nvmap_sci_ipc_exit(void)
 #ifdef NVMAP_CONFIG_HANDLE_AS_ID
 void nvmap_id_array_init(struct xarray *xarr);
 void nvmap_id_array_exit(struct xarray *xarr);
-struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *xarr, int id);
-int nvmap_id_array_id_alloc(struct xarray *xarr, int *id, struct dma_buf *dmabuf);
-struct dma_buf *nvmap_id_array_id_release(struct xarray *xarr, int id);
+struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *xarr, u32 id);
+int nvmap_id_array_id_alloc(struct xarray *xarr, u32 *id, struct dma_buf *dmabuf);
+struct dma_buf *nvmap_id_array_id_release(struct xarray *xarr, u32 id);
 #else
 static inline void nvmap_id_array_init(struct xarray *xarr)
 {
@@ -893,17 +879,17 @@ static inline void nvmap_id_array_exit(struct xarray *xarr)
 
 }
 
-static inline struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *xarr, int id)
+static inline struct dma_buf *nvmap_id_array_get_dmabuf_from_id(struct xarray *xarr, u32 id)
 {
 	return NULL;
 }
 
-static inline int nvmap_id_array_id_alloc(struct xarray *xarr, int *id, struct dma_buf *dmabuf)
+static inline int nvmap_id_array_id_alloc(struct xarray *xarr, u32 *id, struct dma_buf *dmabuf)
 {
 	return 0;
 }
 
-static inline struct dma_buf *nvmap_id_array_id_release(struct xarray *xarr, int id)
+static inline struct dma_buf *nvmap_id_array_id_release(struct xarray *xarr, u32 id)
 {
 	return NULL;
 }
@@ -923,5 +909,8 @@ void nvmap_remove_device_name(char *device_name, u32 heap_type);
 
 bool dmabuf_is_nvmap(struct dma_buf *dmabuf);
 struct nvmap_handle *nvmap_handle_get_from_id(struct nvmap_client *client,
-		int id);
+		u32 id);
+int nvmap_dma_alloc_from_dev_coherent(struct device *dev, ssize_t size,
+		dma_addr_t *dma_handle, void **ret);
+int nvmap_dma_release_from_dev_coherent(struct device *dev, int order, void *vaddr);
 #endif /* __VIDEO_TEGRA_NVMAP_NVMAP_H */

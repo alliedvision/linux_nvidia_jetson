@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -63,6 +63,16 @@ struct nvgpu_gr_falcon *nvgpu_gr_falcon_init_support(struct gk20a *g)
 	return falcon;
 }
 
+void nvgpu_gr_falcon_suspend(struct gk20a *g, struct nvgpu_gr_falcon *falcon)
+{
+	nvgpu_log_fn(g, " ");
+
+	if (falcon == NULL) {
+		return;
+	}
+	falcon->coldboot_bootstrap_done = false;
+}
+
 void nvgpu_gr_falcon_remove_support(struct gk20a *g,
 				struct nvgpu_gr_falcon *falcon)
 {
@@ -80,7 +90,6 @@ int nvgpu_gr_falcon_bind_fecs_elpg(struct gk20a *g)
 #ifdef CONFIG_NVGPU_LS_PMU
 	struct nvgpu_pmu *pmu = g->pmu;
 	struct mm_gk20a *mm = &g->mm;
-	struct vm_gk20a *vm = mm->pmu.vm;
 	int err = 0;
 	u32 size;
 	u32 data;
@@ -99,12 +108,10 @@ int nvgpu_gr_falcon_bind_fecs_elpg(struct gk20a *g)
 
 	nvgpu_log(g, gpu_dbg_gr, "FECS PG buffer size = %u", size);
 
-	if (nvgpu_pmu_pg_buf_get_cpu_va(g, pmu) == NULL) {
-		err = nvgpu_dma_alloc_map_sys(vm, size, nvgpu_pmu_pg_buf(g, pmu));
-		if (err != 0) {
-			nvgpu_err(g, "failed to allocate memory");
-			return -ENOMEM;
-		}
+	err = nvgpu_pmu_pg_buf_alloc(g, pmu, size);
+	if (err != 0) {
+		nvgpu_err(g, "failed to allocate pg_buf memory");
+		return err;
 	}
 
 	data = g->ops.gr.falcon.get_fecs_current_ctx_data(g,

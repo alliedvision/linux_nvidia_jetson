@@ -248,6 +248,7 @@ config CRYPTO_DH
 
 config CRYPTO_ECC
 	tristate "ECC functions"
+	select CRYPTO_RNG_DEFAULT
 	help
 	  Implementation of ECC functions. This includes different
 	  kinds of ECC functionalities that can be also used as
@@ -258,7 +259,6 @@ config CRYPTO_ECDH
 	tristate "ECDH algorithm"
 	select CRYPTO_ECC
 	select CRYPTO_KPP
-	select CRYPTO_RNG_DEFAULT
 	help
 	  Generic implementation of the ECDH algorithm
 

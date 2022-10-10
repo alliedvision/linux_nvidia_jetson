@@ -12,7 +12,7 @@ Properties in thermal_fan_est_shared_data node : Required.
  - ndevs : The number of cooling device.
  - cdev_type : Cooling device.
  - tzp_governor_name : Select thermal governor.
-	Support "pid_thermal_gov" and "continuous_therm_gov".
+	Support "pid_thermal_gov" and "cont_therm_gov".
  - dev_data in dev1 node : List hot spots for sampling the temperature.
 
 Properties in profiles : Required.

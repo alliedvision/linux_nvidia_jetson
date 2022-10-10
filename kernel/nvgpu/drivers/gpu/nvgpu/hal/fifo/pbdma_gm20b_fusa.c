@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -167,6 +167,8 @@ bool gm20b_pbdma_handle_intr_0(struct gk20a *g, u32 pbdma_id,
 			recover = true;
 			nvgpu_err(g, "semaphore acquire timeout!");
 
+			gk20a_debug_dump(g);
+
 			/*
 			 * Note: the error_notifier can be overwritten if
 			 * semaphore_timeout is triggered with pbcrc_pending
@@ -282,6 +284,7 @@ void gm20b_pbdma_format_gpfifo_entry(struct gk20a *g,
 		struct nvgpu_gpfifo_entry *gpfifo_entry,
 		u64 pb_gpu_va, u32 method_size)
 {
+	(void)g;
 	gpfifo_entry->entry0 = u64_lo32(pb_gpu_va);
 	gpfifo_entry->entry1 = u64_hi32(pb_gpu_va) |
 					pbdma_gp_entry1_length_f(method_size);
@@ -376,7 +379,7 @@ u32 gm20b_pbdma_get_gp_base_hi(u64 gpfifo_base, u32 gpfifo_entry)
 {
 	return 	(pbdma_gp_base_hi_offset_f(u64_hi32(gpfifo_base)) |
 		pbdma_gp_base_hi_limit2_f(
-			nvgpu_safe_cast_u64_to_u32(ilog2(gpfifo_entry))));
+			nvgpu_safe_cast_u64_to_u32(nvgpu_ilog2(gpfifo_entry))));
 }
 
 u32 gm20b_pbdma_get_fc_subdevice(void)
@@ -388,6 +391,7 @@ u32 gm20b_pbdma_get_fc_subdevice(void)
 
 u32 gm20b_pbdma_get_fc_target(const struct nvgpu_device *dev)
 {
+	(void)dev;
 	return pbdma_target_engine_sw_f();
 }
 

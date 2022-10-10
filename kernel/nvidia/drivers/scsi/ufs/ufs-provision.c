@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *      Abhinav Site    <asite@nvidia.com>
@@ -605,7 +605,11 @@ void debugfs_provision_init(struct ufs_hba *hba, struct dentry *device_root)
 
 	for (i = 0; i < MAX_LUN_COUNT; i++) {
 
-		snprintf(lun_name, sizeof(lun_name), "lun%d", i);
+		err = snprintf(lun_name, sizeof(lun_name), "lun%d", i);
+		if (err < 0) {
+			dev_err(hba->dev, "snprintf o/p error\n");
+			goto out;
+		}
 		tmp_lun_root = debugfs_create_dir(lun_name, lun_root);
 		CHECK_NULL(tmp_lun_root);
 

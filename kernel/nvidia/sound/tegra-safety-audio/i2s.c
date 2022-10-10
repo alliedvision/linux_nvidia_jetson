@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -313,7 +313,7 @@ int i2s_configure(unsigned int id, struct i2s_config *config)
 	unsigned int i2sclock, bitcnt;
 	unsigned int clock_trim = config->clock_trim;
 	unsigned int fifo_ctrl = 0, threshold = 0;
-	void *i2s_base = I2S_BASE(id);
+	volatile void __iomem *i2s_base = I2S_BASE(id);
 
 	switch (config->mode) {
 	case I2S_FRAME_FORMAT_I2S:

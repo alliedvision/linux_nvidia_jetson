@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -202,12 +202,12 @@ memobj_clientmngd_pin(struct vmap_ctx_t *vmap_ctx,
 		pin->nents[sg_index].iova = iova;
 		pin->nents[sg_index].len = sg->length;
 		ret = pci_client_map_addr(vmap_ctx->pci_client_h,
-					  pin->nents[sg_index].iova, paddr,
-					  pin->nents[sg_index].len,
-					  (IOMMU_CACHE | prot));
+					pin->nents[sg_index].iova, paddr,
+					pin->nents[sg_index].len,
+					(IOMMU_CACHE | prot));
 		if (ret < 0) {
 			pr_err("Failed: to iommu_map sg_nent: (%u), size: (%u)\n",
-			       sg_index, sg->length);
+					sg_index, sg->length);
 			goto err;
 		}
 		pin->nents[sg_index].mapped_iova = true;

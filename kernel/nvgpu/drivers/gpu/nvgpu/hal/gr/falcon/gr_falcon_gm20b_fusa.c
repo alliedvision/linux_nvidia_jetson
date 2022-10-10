@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 #include <nvgpu/gr/gr_utils.h>
 #include <nvgpu/gr/config.h>
 #include <nvgpu/pmu/clk/clk.h>
+#include <nvgpu/string.h>
 
 #include "gr_falcon_gm20b.h"
 #include "common/gr/gr_falcon_priv.h"
@@ -150,11 +151,7 @@ void gm20b_gr_falcon_bind_instblk(struct gk20a *g,
 	nvgpu_writel(g, gr_fecs_arb_ctx_adr_r(), 0x0);
 
 	inst_ptr >>= 12;
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 14_4), "Bug 2277532")
-NVGPU_COV_WHITELIST_BLOCK_BEGIN(false_positive, 1, NVGPU_MISRA(Rule, 15_6), "Bug 2277532")
 	BUG_ON(u64_hi32(inst_ptr) != 0U);
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 14_4))
-NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 15_6))
 	inst_ptr_u32 = (u32)inst_ptr;
 	nvgpu_writel(g, gr_fecs_new_ctx_r(),
 		     gr_fecs_new_ctx_ptr_f(inst_ptr_u32) |
@@ -325,6 +322,7 @@ static bool gm20b_gr_falcon_gr_opcode_less(u32 opc_status, bool is_fail,
 static void gm20b_gr_falcon_gr_opcode_less_equal(u32 opc_status, bool is_fail,
 		u32 mailbox_status, u32 reg, enum wait_ucode_status *check)
 {
+	(void)opc_status;
 	if (reg <= mailbox_status) {
 		if (is_fail) {
 			*check = WAIT_UCODE_ERROR;
@@ -820,12 +818,6 @@ defined(CONFIG_NVGPU_CTXSW_FW_ERROR_CODE_TESTING)
 		op.cond.fail = GR_IS_UCODE_OP_AND;
 		flags |= NVGPU_GR_FALCON_SUBMIT_METHOD_F_SLEEP;
 		break;
-#ifdef CONFIG_NVGPU_FECS_TRACE
-	case NVGPU_GR_FALCON_METHOD_FECS_TRACE_FLUSH:
-		op.method.addr =
-			gr_fecs_method_push_adr_write_timestamp_record_v();
-		break;
-#endif
 	case NVGPU_GR_FALCON_METHOD_SET_WATCHDOG_TIMEOUT:
 		op.method.addr =
 			gr_fecs_method_push_adr_set_watchdog_timeout_f();
@@ -840,6 +832,31 @@ defined(CONFIG_NVGPU_CTXSW_FW_ERROR_CODE_TESTING)
 	}
 
 	return gm20b_gr_falcon_submit_fecs_method_op(g, op, flags);
+}
+
+int gm20b_gr_falcon_ctrl_ctxsw_internal(struct gk20a *g, u32 fecs_method,
+			u32 data, u32 *ret_val)
+{
+#ifdef CONFIG_NVGPU_FECS_TRACE
+	if (fecs_method == NVGPU_GR_FALCON_METHOD_FECS_TRACE_FLUSH) {
+		struct nvgpu_fecs_method_op op = {
+			.mailbox = { .id = 0U, .data = 0U, .ret = NULL,
+					.clr = ~U32(0U), .ok = 0U, .fail = 0U},
+			.method.addr = gr_fecs_method_push_adr_write_timestamp_record_v(),
+			.method.data = 0U,
+			.cond.ok = GR_IS_UCODE_OP_NOT_EQUAL,
+			.cond.fail = GR_IS_UCODE_OP_SKIP,
+		};
+		u32 flags = 0U;
+
+		nvgpu_log_info(g, "fecs method %d data 0x%x ret_value %p",
+							fecs_method, data, ret_val);
+
+		return gm20b_gr_falcon_submit_fecs_method_op(g, op, flags);
+	}
+#endif
+
+	return gm20b_gr_falcon_ctrl_ctxsw(g, fecs_method, data, ret_val);
 }
 
 u32 gm20b_gr_falcon_get_current_ctx(struct gk20a *g)

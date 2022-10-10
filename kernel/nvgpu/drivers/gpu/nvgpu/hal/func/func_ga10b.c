@@ -29,5 +29,6 @@
 
 u32 ga10b_func_get_full_phys_offset(struct gk20a *g)
 {
+	(void)g;
 	return func_full_phys_offset_v();
 }

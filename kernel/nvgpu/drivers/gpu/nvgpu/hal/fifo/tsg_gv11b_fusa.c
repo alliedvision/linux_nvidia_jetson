@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -111,7 +111,6 @@ int gv11b_tsg_init_eng_method_buffers(struct gk20a *g, struct nvgpu_tsg *tsg)
 	int err = 0;
 	int i;
 	unsigned int runque, buffer_size;
-	u32 page_size = U32(NVGPU_CPU_PAGE_SIZE);
 	unsigned int num_pbdma = nvgpu_get_litter_value(g, GPU_LIT_HOST_NUM_PBDMA);
 
 	if (tsg->eng_method_buffers != NULL) {
@@ -122,7 +121,7 @@ int gv11b_tsg_init_eng_method_buffers(struct gk20a *g, struct nvgpu_tsg *tsg)
 	buffer_size =  nvgpu_safe_add_u32(nvgpu_safe_mult_u32((9U + 1U + 3U),
 				g->ops.ce.get_num_pce(g)), 2U);
 	buffer_size = nvgpu_safe_mult_u32((27U * 5U), buffer_size);
-	buffer_size = round_up(buffer_size, page_size);
+	buffer_size = PAGE_ALIGN(buffer_size);
 	nvgpu_log_info(g, "method buffer size in bytes %d", buffer_size);
 
 	tsg->eng_method_buffers = nvgpu_kzalloc(g,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -898,24 +898,6 @@ static void eqos_config_slot(struct osi_dma_priv_data *osi_dma,
 #endif /* !OSI_STRIPPED_LIB */
 
 /**
- * @brief eqos_get_global_dma_status - Gets DMA status.
- *
- * Algorithm: Returns global DMA Tx/Rx interrupt status
- *
- * @param[in] addr: MAC base address.
- *
- * @note
- *	Dependencies: None.
- *	Protection: None.
- *
- * @retval status
- */
-static nveu32_t eqos_get_global_dma_status(void *addr)
-{
-	return osi_readl((nveu8_t *)addr + EQOS_GLOBAL_DMA_STATUS);
-}
-
-/**
  * @brief eqos_clear_vm_tx_intr - Handle VM Tx interrupt
  *
  * @param[in] addr: MAC base address.
@@ -1001,7 +983,6 @@ void eqos_init_dma_chan_ops(struct dma_chan_ops *ops)
 	ops->validate_regs = eqos_validate_dma_regs;
 	ops->config_slot = eqos_config_slot;
 #endif /* !OSI_STRIPPED_LIB */
-	ops->get_global_dma_status = eqos_get_global_dma_status;
 	ops->clear_vm_tx_intr = eqos_clear_vm_tx_intr;
 	ops->clear_vm_rx_intr = eqos_clear_vm_rx_intr;
 }

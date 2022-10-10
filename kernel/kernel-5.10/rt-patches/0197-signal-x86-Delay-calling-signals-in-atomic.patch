@@ -1,7 +1,7 @@
-From 38895a88d1bf05e8d6c678a15ccc0e85a89d298b Mon Sep 17 00:00:00 2001
+From b3863d55c4099315da4da40c2bde90bfc7222599 Mon Sep 17 00:00:00 2001
 From: Oleg Nesterov <oleg@redhat.com>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 197/304] signal/x86: Delay calling signals in atomic
+Subject: [PATCH 197/318] signal/x86: Delay calling signals in atomic
 
 On x86_64 we must disable preemption before we enable interrupts
 for stack faults, int3 and debugging, because the current task is using
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 53 insertions(+)
 
 diff --git a/arch/x86/include/asm/signal.h b/arch/x86/include/asm/signal.h
-index 6fd8410..f3bf2f5 100644
+index 6fd8410a3910..f3bf2f515edb 100644
 --- a/arch/x86/include/asm/signal.h
 +++ b/arch/x86/include/asm/signal.h
 @@ -28,6 +28,19 @@ typedef struct {
@@ -63,7 +63,7 @@ index 6fd8410..f3bf2f5 100644
  typedef sigset_t compat_sigset_t;
  #endif
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 091e439..b91001c 100644
+index 55acf9182c6b..8c5394f5ffc8 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1002,6 +1002,10 @@ struct task_struct {
@@ -78,7 +78,7 @@ index 091e439..b91001c 100644
  	size_t				sas_ss_size;
  	unsigned int			sas_ss_flags;
 diff --git a/kernel/entry/common.c b/kernel/entry/common.c
-index 59c666d..c4e495b 100644
+index 59c666d9d43c..c4e495b04178 100644
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
 @@ -152,6 +152,14 @@ static unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
@@ -97,7 +97,7 @@ index 59c666d..c4e495b 100644
  			uprobe_notify_resume(regs);
  
 diff --git a/kernel/signal.c b/kernel/signal.c
-index bbd1e9d..fde69283 100644
+index 0ea1f857963d..a97a07f7cab0 100644
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
 @@ -1314,6 +1314,34 @@ force_sig_info_to_task(struct kernel_siginfo *info, struct task_struct *t)
@@ -136,5 +136,5 @@ index bbd1e9d..fde69283 100644
  	action = &t->sighand->action[sig-1];
  	ignored = action->sa.sa_handler == SIG_IGN;
 -- 
-2.7.4
+2.17.1
 

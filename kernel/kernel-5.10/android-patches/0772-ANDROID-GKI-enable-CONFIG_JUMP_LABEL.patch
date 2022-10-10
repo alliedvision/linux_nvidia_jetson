@@ -1,0 +1,45 @@
+From f62803738800aa2bd22f7c1ddeeec99784824994 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 16 Mar 2020 10:54:02 +0100
+Subject: [PATCH 772/830] ANDROID: GKI: enable CONFIG_JUMP_LABEL
+X-NVConfidentiality: public
+
+It's needed to speed up trace points and other dynamic debugging stuff.
+
+Bug: 145162121
+Bug: 162909109
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I811b538bc5280a633c56e0544ba1f54cd6b234f2
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 73e5b95a3d85..abeda5317398 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -82,6 +82,7 @@ CONFIG_KVM=y
+ CONFIG_CRYPTO_SHA2_ARM64_CE=y
+ CONFIG_CRYPTO_AES_ARM64_CE_BLK=y
+ CONFIG_KPROBES=y
++CONFIG_JUMP_LABEL=y
+ CONFIG_SHADOW_CALL_STACK=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index d2bc32d76fd9..cc17cd2c2d35 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -62,6 +62,7 @@ CONFIG_KVM=y
+ CONFIG_KVM_INTEL=y
+ CONFIG_KVM_AMD=y
+ CONFIG_KPROBES=y
++CONFIG_JUMP_LABEL=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -245,8 +245,7 @@ int nvgpu_vm_area_alloc(struct vm_gk20a *vm, u64 pages, u32 page_size,
 	nvgpu_init_list_node(&vm_area->vm_area_list);
 
 #ifdef CONFIG_NVGPU_REMAP
-	if (((flags & NVGPU_VM_AREA_ALLOC_SPARSE) != 0U) &&
-		(vm_area->pgsz_idx == GMMU_PAGE_SIZE_BIG)) {
+	if ((flags & NVGPU_VM_AREA_ALLOC_SPARSE) != 0U) {
 		err = nvgpu_vm_remap_vpool_create(vm, vm_area, pages);
 		if (err != 0) {
 			goto free_vaddr;

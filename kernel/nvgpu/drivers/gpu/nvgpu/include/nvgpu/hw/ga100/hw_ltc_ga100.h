@@ -284,11 +284,7 @@
 				(0x8000000U)
 #define ltc_ltc0_lts0_intr_r()                                     (0x0014040cU)
 #define ltc_ltc0_lts0_intr2_r()                                    (0x00140408U)
-#define ltc_ltc0_lts0_dstg_ecc_report_r()                          (0x0014051cU)
-#define ltc_ltc0_lts0_dstg_ecc_report_sec_count_m()           (U32(0xffU) << 0U)
-#define ltc_ltc0_lts0_dstg_ecc_report_sec_count_v(r)       (((r) >> 0U) & 0xffU)
-#define ltc_ltc0_lts0_dstg_ecc_report_ded_count_m()          (U32(0xffU) << 16U)
-#define ltc_ltc0_lts0_dstg_ecc_report_ded_count_v(r)      (((r) >> 16U) & 0xffU)
+#define ltc_ltc0_lts0_intr3_r()                                    (0x00140588U)
 #define ltc_ltcs_ltss_tstg_cmgmt0_r()                              (0x0017e2a0U)
 #define ltc_ltcs_ltss_tstg_cmgmt0_invalidate_pending_f()                  (0x1U)
 #define ltc_ltcs_ltss_tstg_cmgmt0_max_cycles_between_invalidates_3_f()  (0x300U)
@@ -321,9 +317,32 @@
 #define ltc_ltcs_ltss_tstg_set_mgmt_1_plc_recompress_rmw_disabled_f()     (0x0U)
 #define ltc_ltcs_ltss_tstg_set_mgmt_1_plc_recompress_rmw_enabled_f()\
 				(0x20000000U)
-#define ltc_ltc0_lts0_dstg_ecc_address_r()                         (0x00140520U)
-#define ltc_ltc0_lts0_dstg_ecc_address_info_ram_m()           (U32(0x1U) << 22U)
 #define ltc_ltc0_lts0_l2_cache_ecc_address_r()                     (0x001404fcU)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_v(r)       (((r) >> 22U) & 0xffU)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram0_v()\
+				(0x00000000U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram1_v()\
+				(0x00000001U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram2_v()\
+				(0x00000002U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram3_v()\
+				(0x00000003U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram4_v()\
+				(0x00000004U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram5_v()\
+				(0x00000005U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram6_v()\
+				(0x00000006U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_clrbe_trlram7_v()\
+				(0x00000007U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank0_v()   (0x00000008U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank1_v()   (0x00000009U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank2_v()   (0x0000000aU)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_ram_dstg_db_bank3_v()   (0x0000000bU)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_subunit_v(r)    (((r) >> 30U) & 0x3U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_subunit_rstg_v()        (0x00000000U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_subunit_tstg_v()        (0x00000001U)
+#define ltc_ltc0_lts0_l2_cache_ecc_address_subunit_dstg_v()        (0x00000002U)
 #define ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_r()         (0x001404f4U)
 #define ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_s()           (16U)
 #define ltc_ltc0_lts0_l2_cache_ecc_corrected_err_count_total_m()\
@@ -336,6 +355,23 @@
 				(U32(0xffffU) << 0U)
 #define ltc_ltc0_lts0_l2_cache_ecc_uncorrected_err_count_total_v(r)\
 				(((r) >> 0U) & 0xffffU)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_r()                     (0x001404ecU)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_corrected_err_f(v)\
+				((U32(v) & 0x1U) << 4U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_uncorrected_err_f(v)\
+				((U32(v) & 0x1U) << 5U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_corrected_err_rstg_f(v)\
+				((U32(v) & 0x1U) << 6U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_uncorrected_err_rstg_f(v)\
+				((U32(v) & 0x1U) << 7U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_corrected_err_tstg_f(v)\
+				((U32(v) & 0x1U) << 8U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_uncorrected_err_tstg_f(v)\
+				((U32(v) & 0x1U) << 9U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_corrected_err_dstg_f(v)\
+				((U32(v) & 0x1U) << 10U)
+#define ltc_ltc0_lts0_l2_cache_ecc_control_inject_uncorrected_err_dstg_f(v)\
+				((U32(v) & 0x1U) << 11U)
 #define ltc_ltc0_lts0_l2_cache_ecc_status_r()                      (0x001404f0U)
 #define ltc_ltc0_lts0_l2_cache_ecc_status_uncorrected_err_rstg_m()\
 				(U32(0x1U) << 0U)

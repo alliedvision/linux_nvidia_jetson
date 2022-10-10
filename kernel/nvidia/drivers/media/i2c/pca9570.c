@@ -1,7 +1,7 @@
 /*
  * pca9570.c - pca9570 IO Expander driver
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -235,8 +235,10 @@ static int pca9570_debugfs_init(const char *dir_name,
 		err = of_property_read_string(np, "channel", &priv->channel);
 		if (err)
 			dev_err(&i2c_client->dev, "channel not found\n");
-		snprintf(dev_name, sizeof(dev_name), "pca9570_%s",
-			priv->channel);
+
+		err = snprintf(dev_name, sizeof(dev_name), "pca9570_%s", priv->channel);
+		if (err < 0)
+			return -EINVAL;
 	}
 
 	dp = debugfs_create_dir(dev_name, NULL);

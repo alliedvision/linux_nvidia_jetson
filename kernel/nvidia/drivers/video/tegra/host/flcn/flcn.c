@@ -1,7 +1,7 @@
 /*
 * Tegra flcn common driver
 *
-* Copyright (c) 2011-2021, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms and conditions of the GNU General Public License,
@@ -50,7 +50,6 @@
 #include "host1x/host1x04_hardware.h" /* for nvhost opcodes*/
 #include "t210/t210.h"
 
-#include "t186/t186.h"
 #include "t194/t194.h"
 #include "t23x/t23x.h"
 #ifdef CONFIG_TEGRA_T239_GRHOST
@@ -487,7 +486,7 @@ void flcn_enable_thi_sec(struct platform_device *pdev)
 	host1x_writel(pdev, 0x38, BIT(8));
 }
 
-int nvhost_flcn_finalize_poweron_t186(struct platform_device *pdev)
+int nvhost_flcn_finalize_poweron_t194(struct platform_device *pdev)
 {
 	flcn_enable_thi_sec(pdev);
 
@@ -737,8 +736,6 @@ static struct of_device_id tegra_flcn_of_match[] = {
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_VIC)
 	{ .compatible = "nvidia,tegra210-vic",
 		.data = (struct nvhost_device_data *)&t21_vic_info },
-	{ .compatible = "nvidia,tegra186-vic",
-		.data = (struct nvhost_device_data *)&t18_vic_info },
 	{ .compatible = "nvidia,tegra194-vic",
 		.data = (struct nvhost_device_data *)&t19_vic_info },
 	{ .compatible = "nvidia,tegra234-vic",
@@ -747,8 +744,6 @@ static struct of_device_id tegra_flcn_of_match[] = {
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVENC)
 	{ .compatible = "nvidia,tegra210-nvenc",
 		.data = (struct nvhost_device_data *)&t21_msenc_info },
-	{ .compatible = "nvidia,tegra186-nvenc",
-		.data = (struct nvhost_device_data *)&t18_msenc_info },
 	{ .compatible = "nvidia,tegra194-nvenc",
 		.data = (struct nvhost_device_data *)&t19_msenc_info,
 		.name = "nvenc" },
@@ -762,8 +757,6 @@ static struct of_device_id tegra_flcn_of_match[] = {
 #if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVJPG)
 	{ .compatible = "nvidia,tegra210-nvjpg",
 		.data = (struct nvhost_device_data *)&t21_nvjpg_info },
-	{ .compatible = "nvidia,tegra186-nvjpg",
-		.data = (struct nvhost_device_data *)&t18_nvjpg_info },
 	{ .compatible = "nvidia,tegra194-nvjpg",
 		.data = (struct nvhost_device_data *)&t19_nvjpg_info },
 	{ .compatible = "nvidia,tegra234-nvjpg",
@@ -807,7 +800,19 @@ static ssize_t reload_fw_write(struct device *device,
 static DEVICE_ATTR(reload_fw, 0200, NULL, reload_fw_write);
 
 #ifdef CONFIG_TEGRA_SOC_HWPM
-int flcn_hwpm_ip_pm(void *ip_dev, bool disable)
+static u32 flcn_hwpm_get_ip_index(const char *name)
+{
+	if (strstr(name, "vic")) {
+		return (u32)TEGRA_SOC_HWPM_RESOURCE_VIC;
+	} else if (strstr(name, "nvenc")) {
+		return (u32)TEGRA_SOC_HWPM_RESOURCE_NVENC;
+	} else if (strstr(name, "ofa")) {
+		return (u32)TEGRA_SOC_HWPM_RESOURCE_OFA;
+	}
+	return (u32)TERGA_SOC_HWPM_NUM_IPS;
+}
+
+static int flcn_hwpm_ip_pm(void *ip_dev, bool disable)
 {
 	int err = 0;
 	struct platform_device *dev = (struct platform_device *)ip_dev;
@@ -815,21 +820,19 @@ int flcn_hwpm_ip_pm(void *ip_dev, bool disable)
 	nvhost_dbg_fn("ip power management %s", disable ? "disable" : "enable");
 
 	if (disable) {
-		err = pm_runtime_get_sync(&dev->dev);
-		if (err != 0) {
-			nvhost_err(&dev->dev, "pm_runtime_get_sync failed");
-		}
+		err = nvhost_module_busy(ip_dev);
+		if (err < 0)
+			dev_err(&dev->dev, "nvhost_module_busy failed");
 	} else {
-		err = pm_runtime_put_sync(&dev->dev);
-		if (err != 0) {
-			nvhost_err(&dev->dev, "pm_runtime_put_sync failed");
-		}
+		nvhost_module_idle(ip_dev);
 	}
+
 	return err;
 }
 
-int flcn_hwpm_ip_reg_op(void *ip_dev, enum tegra_soc_hwpm_ip_reg_op reg_op,
-						u64 reg_offset, u32 *reg_data)
+static int flcn_hwpm_ip_reg_op(void *ip_dev,
+	enum tegra_soc_hwpm_ip_reg_op reg_op,
+	u32 inst_element_index, u64 reg_offset, u32 *reg_data)
 {
 	struct platform_device *dev = (struct platform_device *)ip_dev;
 
@@ -850,6 +853,7 @@ static int flcn_probe(struct platform_device *dev)
 	struct nvhost_device_data *pdata = NULL;
 #ifdef CONFIG_TEGRA_SOC_HWPM
 	struct tegra_soc_hwpm_ip_ops hwpm_ip_ops;
+	u32 hwpm_ip_index;
 #endif
 
 	if (dev->dev.of_node) {
@@ -904,11 +908,16 @@ static int flcn_probe(struct platform_device *dev)
 	if (pdata->flcn_isr)
 		flcn_intr_init(dev);
 #ifdef CONFIG_TEGRA_SOC_HWPM
-	hwpm_ip_ops.ip_dev = (void *)dev;
-	hwpm_ip_ops.ip_base_address = dev->resource[0].start;
-	hwpm_ip_ops.hwpm_ip_pm = &flcn_hwpm_ip_pm;
-	hwpm_ip_ops.hwpm_ip_reg_op = &flcn_hwpm_ip_reg_op;
-	tegra_soc_hwpm_ip_register(&hwpm_ip_ops);
+	hwpm_ip_index = flcn_hwpm_get_ip_index(dev->name);
+	nvhost_dbg_fn("ip %s register", dev->name);
+	if (hwpm_ip_index != TERGA_SOC_HWPM_NUM_IPS) {
+		hwpm_ip_ops.ip_dev = (void *)dev;
+		hwpm_ip_ops.ip_base_address = dev->resource[0].start;
+		hwpm_ip_ops.resource_enum = hwpm_ip_index;
+		hwpm_ip_ops.hwpm_ip_pm = &flcn_hwpm_ip_pm;
+		hwpm_ip_ops.hwpm_ip_reg_op = &flcn_hwpm_ip_reg_op;
+		tegra_soc_hwpm_ip_register(&hwpm_ip_ops);
+	}
 #endif
 
 	return 0;

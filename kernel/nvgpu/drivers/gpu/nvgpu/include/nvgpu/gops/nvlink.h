@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,6 +22,7 @@
 #ifndef NVGPU_GOPS_NVLINK_H
 #define NVGPU_GOPS_NVLINK_H
 
+#ifdef CONFIG_NVGPU_DGPU
 /* API */
 struct gops_nvlink_link_mode_transitions {
 	int (*setup_pll)(struct gk20a *g,
@@ -90,5 +91,6 @@ struct gops_nvlink {
 	struct gops_nvlink_minion minion;
 	struct gops_nvlink_intr intr;
 };
+#endif
 
 #endif /* NVGPU_GOPS_NVLINK_H */

@@ -1,21 +1,9 @@
-/*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * tegra194-super-module-e2614.dtsi: E2600 DTSI file.
+ *
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
  */
 
 / {
@@ -138,6 +126,16 @@
 					realtek,jd-src = <1>; /* RT5659_JD3 */
 					realtek,dmic1-data-pin = <2>; /* RT5659_DMIC1_DATA_GPIO5 */
 					#sound-dai-cells = <1>;
+
+					sound-name-prefix = "H40-RT";
+
+					port {
+						e2614_rt5658_i2c3_ep: endpoint {
+							remote-endpoint = <&hdr40_snd_i2s_dap_ep>;
+							mclk-fs = <256>;
+							link-name = "rt565x-codec-sysclk-bclk1";
+						};
+					};
 				};
 			};
 		};
@@ -201,6 +199,16 @@
 			realtek,jd-src = <1>; /* RT5659_JD3 */
 			realtek,dmic1-data-pin = <2>; /* RT5659_DMIC1_DATA_GPIO5 */
 			#sound-dai-cells = <1>;
+
+			sound-name-prefix = "H40-RT";
+
+			port {
+				e2614_rt5658_ep: endpoint {
+					remote-endpoint = <&hdr40_snd_i2s_dap_ep>;
+					mclk-fs = <256>;
+					link-name = "rt565x-codec-sysclk-bclk1";
+				};
+			};
 		};
 	};
 

@@ -1,7 +1,7 @@
 /*
  * GV11B ECC INTR
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,7 @@ void gv11b_fb_intr_inject_hubmmu_ecc_error(struct gk20a *g,
 {
 	unsigned int reg_addr = err->get_reg_addr();
 
+	(void)error_info;
 	nvgpu_info(g, "Injecting HUBMMU fault %s", err->name);
 	nvgpu_writel(g, reg_addr, err->get_reg_val(1U));
 }
@@ -92,6 +93,8 @@ static struct nvgpu_hw_err_inject_info_desc hubmmu_err_desc;
 struct nvgpu_hw_err_inject_info_desc *
 gv11b_fb_intr_get_hubmmu_err_desc(struct gk20a *g)
 {
+	(void)g;
+
 	hubmmu_err_desc.info_ptr = hubmmu_ecc_err_desc;
 	hubmmu_err_desc.info_size = nvgpu_safe_cast_u64_to_u32(
 			sizeof(hubmmu_ecc_err_desc) /

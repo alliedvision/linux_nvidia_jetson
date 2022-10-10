@@ -3,7 +3,7 @@
  *
  * Tegra Media controller common APIs
  *
- * Copyright (c) 2012-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -86,7 +86,7 @@ struct tegra_channel_buffer {
 	struct tegra_channel *chan;
 
 	unsigned int vb2_state;
-	unsigned int capture_descr_index;
+	unsigned int capture_descr_index[TEGRA_CSI_BLOCKS];
 
 	dma_addr_t addr;
 
@@ -259,8 +259,8 @@ struct tegra_channel {
 	unsigned int subdevs_bound;
 	unsigned int link_status;
 	struct nvcsi_deskew_context *deskew_ctx;
-	struct tegra_vi_channel *tegra_vi_channel;
-	struct capture_descriptor *request;
+	struct tegra_vi_channel *tegra_vi_channel[TEGRA_CSI_BLOCKS];
+	struct capture_descriptor *request[TEGRA_CSI_BLOCKS];
 	bool is_slvsec;
 	int is_interlaced;
 	enum interlaced_type interlace_type;

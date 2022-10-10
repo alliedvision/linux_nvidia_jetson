@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -94,6 +94,10 @@ struct tegra_fuse_burn_dev {
 };
 
 static DEFINE_MUTEX(fuse_lock);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+static u64 chip_uid;
+#endif
 
 static void fuse_state_wait_for_idle(void)
 {
@@ -520,7 +524,7 @@ static ssize_t tegra_fuse_show(struct device *dev,
 	char str[9];
 	u32 *macro_buf;
 	int num_words, i;
-	u32 val;
+	__be32 val;
 
 	data = container_of(attr, struct fuse_burn_data, attr);
 	num_words = DIV_ROUND_UP(data->size_bits, 32);
@@ -563,7 +567,7 @@ static ssize_t tegra_fuse_store(struct device *dev,
 	int len = count;
 	int num_nibbles;
 	u32 input_data[17] = {0};
-	u32 temp_data[17] = {0};
+	__be32 temp_data[17] = {0};
 	char str[9] = {0};
 	int copy_cnt, copy_idx;
 	int burn_idx = 0, idx;
@@ -666,6 +670,8 @@ static ssize_t tegra_fuse_calc_h2_code(struct device *dev,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 #define TEGRA210_INT_CID 5
 #define TEGRA186_INT_CID 6
+#define TEGRA194_INT_CID 7
+#define TEGRA234_INT_CID 8
 
 #define FUSE_OPT_VENDOR_CODE		0x100
 #define FUSE_OPT_VENDOR_CODE_MASK	0xf
@@ -680,7 +686,7 @@ static ssize_t tegra_fuse_calc_h2_code(struct device *dev,
 #define FUSE_OPT_Y_COORDINATE		0x118
 #define FUSE_OPT_Y_COORDINATE_MASK	0x1ff
 
-unsigned long long tegra_chip_uid(void)
+static unsigned long long tegra_chip_uid(void)
 {
 
 	u64 uid = 0ull;
@@ -728,6 +734,12 @@ unsigned long long tegra_chip_uid(void)
 		break;
 	case TEGRA186:
 		cid = TEGRA186_INT_CID;
+		break;
+	case TEGRA194:
+		cid = TEGRA194_INT_CID;
+		break;
+	case TEGRA234:
+		cid = TEGRA234_INT_CID;
 		break;
 	default:
 		cid = 0;
@@ -1136,3 +1148,16 @@ static struct platform_driver tegra_fuse_burn_driver = {
 	.probe = tegra_fuse_burn_probe,
 };
 module_platform_driver(tegra_fuse_burn_driver);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+static int get_chip_uid(char *val, const struct kernel_param *kp)
+{
+	chip_uid = tegra_chip_uid();
+	return param_get_ulong(val, kp);
+}
+
+static struct kernel_param_ops tegra_chip_uid_ops = {
+	.get = get_chip_uid,
+};
+module_param_cb(tegra_chip_uid, &tegra_chip_uid_ops, &chip_uid, 0444);
+#endif

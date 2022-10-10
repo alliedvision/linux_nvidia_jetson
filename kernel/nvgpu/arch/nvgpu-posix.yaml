@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
 #
 # POSIX elements and units in nvgpu.
 #
@@ -35,7 +35,8 @@ all:
              os/posix/fecs_trace_posix.c,
              os/posix/stubs.c,
              os/posix/posix-vpr.c,
-             os/posix/mock-registers.c ]
+             os/posix/mock-registers.c,
+             os/posix/contig_pool.c ]
 
 headers:
   safe: no
@@ -113,7 +114,9 @@ timers:
   safe: yes
   owner: Ajesh K
   sources: [ os/posix/timers.c,
-             include/nvgpu/posix/timers.h ]
+             os/posix/periodic_timer.c,
+             include/nvgpu/posix/timers.h,
+             include/nvgpu/posix/periodic_timer.h ]
   deps:
 
 atomic:
