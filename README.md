@@ -27,9 +27,9 @@ Compatible platforms with JetPack 5.0.2 (L4T 35.1) :
 + AGX Orin NVIDIA developer kit
 
 
-The scripts require Git on the host PC.
-
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
+
+***If your using an NVME ssd as boot device, the driver installation might break your boot order.***
 
 ## Prerequisites: Install JetPack 5.0.2
  
@@ -54,16 +54,19 @@ https://docs.nvidia.com/sdk-manager/
 4. Proceed with selecting options from the installation menu as described below.
 
 ### Method B: Cross-compile binaries from source      
-  The scripts require a host PC with Ubuntu (we recommend version 18.04).
-
-Download sources and scripts from https://github.com/alliedvision/linux_nvidia_jetson to the host PC.
+  The scripts require a host PC with Ubuntu (we recommend version 18.04) and git must be installed on the system.
 
 **On the host PC:**
 
-1. Execute `./build.py -b xavier`  
+1. Clone the git repository and checkout the release branch (e.g. l4t-35.1.0):
+    - git clone https://github.com/alliedvision/linux_nvidia_jetson.git
+    - cd linux_nvidia_jetson
+    - git checkout l4t-35.1.0
+    - cd avt_build
+2. Execute `./build.py -b xavier`  
 Optionally you can sign the resulting apt repository with a pgp key by adding the option `--sign <name of pgp key>`.
 
-2. Copy the tarball to the target board. 
+3. Copy the tarball to the target board. 
 
 **On the target board:**
 
@@ -84,6 +87,14 @@ To change the configuration after the driver was installed, enter:
 
 Reboot the board to apply the changes.
 
+## Troubleshooting
+
+- The board is configured to boot from an NVME ssd and after the driver installation the board does not boot anymore:
+  1. Attach a serial console to the board
+  2. Enter the UEFI bootloader 
+  3. Check and correct the boot order
+
+  All information for the steps can be found in the NVIDIA L4T documentation. 
 
  ## Additional information
  :open_book:
