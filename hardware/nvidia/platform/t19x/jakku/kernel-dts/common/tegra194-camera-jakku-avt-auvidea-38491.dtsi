@@ -227,7 +227,7 @@
 
       /* Camera -> Serializer MIPI config */
       csi_clk_freq = <400000000>;
-      csi_lanes = <4>;
+      csi_lanes = <2>;
 
       mode0 {
         num_lanes = "2";
@@ -292,7 +292,7 @@
 
       /* Camera -> Serializer MIPI config */
       csi_clk_freq = <400000000>;
-      csi_lanes = <4>;
+      csi_lanes = <2>;
 
       mode0 {
         num_lanes = "2";
