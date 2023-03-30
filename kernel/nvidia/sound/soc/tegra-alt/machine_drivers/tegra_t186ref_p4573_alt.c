@@ -1,7 +1,7 @@
 /*
  * tegra_t186ref_p4573_alt.c - Tegra t186 Machine driver for P4573 board
  *
- * Copyright (c) 2016-2021 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2019 NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -118,8 +118,7 @@ static int tegra186_hw_params(struct snd_pcm_substream *substream,
 	unsigned int clk_out_rate, bclk_ratio;
 	int ret, i;
 
-	ret = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, rate, 0, 0,
-						0, 0);
+	ret = tegra_alt_asoc_utils_set_rate(&machine->audio_clock, rate, 0, 0);
 	if (ret < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return ret;
@@ -133,14 +132,9 @@ static int tegra186_hw_params(struct snd_pcm_substream *substream,
 
 	/* Update dai link hw_params for non pcm links */
 	i = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	for ( ; i < TEGRA186_DAI_LINK_ADMAIF20; ) {
-		rtd = &card->rtd[i];
-#else
 	list_for_each_entry(rtd, &card->rtd_list, list) {
 		if (i >= TEGRA186_DAI_LINK_ADMAIF20)
 			break;
-#endif
 		if (!rtd->dai_link->params) {
 			i++;
 			continue;
@@ -271,14 +265,7 @@ static int tegra186_suspend_pre(struct snd_soc_card *card)
 	struct snd_soc_pcm_runtime *rtd;
 
 	/* DAPM dai link stream work for non pcm links */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	unsigned int idx;
-
-	for (idx = 0; idx < card->num_rtd; idx++) {
-		rtd = &card->rtd[idx];
-#else
 	list_for_each_entry(rtd, &card->rtd_list, list) {
-#endif
 		if (rtd->dai_link->params)
 			INIT_DELAYED_WORK(&rtd->delayed_work, NULL);
 	}
@@ -363,6 +350,9 @@ static void dai_link_setup(struct platform_device *pdev)
 		tegra_machine_append_dai_link_t18x(tegra186_codec_links,
 				2 * machine->num_codec_links);
 	tegra_machine_dai_links = tegra_machine_get_dai_link_t18x();
+	if (!tegra_machine_dai_links)
+		goto err_alloc_dai_link;
+
 	card->dai_link = tegra_machine_dai_links;
 
 	/* Append t186 specific codec_conf */
@@ -404,7 +394,6 @@ static int tegra186_driver_probe(struct platform_device *pdev)
 	card->dev = dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, machine);
-	machine->audio_clock.clk_cdev1_state = 0;
 	card->dapm.idle_bias_off = true;
 
 	ret = snd_soc_of_parse_card_name(card, "nvidia,model");
@@ -430,8 +419,6 @@ static int tegra186_driver_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err;
 	}
-
-	tegra_machine_dma_set_mask(pdev);
 
 	dai_link_setup(pdev);
 

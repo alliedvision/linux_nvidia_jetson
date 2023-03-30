@@ -1,0 +1,312 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include "dt-bindings/input/input.h"
+#include "tegra234-pwm-fan.dtsi"
+#include "tegra234-p3740-audio.dtsi"
+#include "tegra234-p3740-fixed-regulator.dtsi"
+#include "tegra234-p3740-pcie.dtsi"
+#include "tegra234-p3740-camera-modules.dtsi"
+
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+		gpio-keys,name = "gpio-keys";
+		status = "okay";
+
+		forcerecovery {
+			label = "force-recovery";
+			gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 0) GPIO_ACTIVE_LOW>;
+			linux,code = <BTN_1>;
+		};
+
+		power_key {
+			label = "power-key";
+			gpios = <&tegra_aon_gpio TEGRA234_AON_GPIO(EE, 4) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			gpio-key,wakeup;
+		};
+
+		sleep {
+			label = "sleep";
+			gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 2) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_SLEEP>;
+		};
+	};
+
+	soft_wdt:soft_watchdog {
+		compatible = "softdog-platform";
+		status = "okay";
+	};
+
+	eeprom-manager {
+		data-size = <0x100>;
+		bus@0 {
+			i2c-bus = <&gen1_i2c>;
+			eeprom@1 {
+				slave-address = <0x56>;
+				label = "cvb";
+			};
+		};
+
+		bus@1 {
+			i2c-bus = <&gen2_i2c>;
+			eeprom@1 {
+				slave-address = <0x50>;
+				label = "super-module";
+			};
+		};
+	};
+
+	ufshci@2500000 {
+		status = "okay";
+	};
+
+	sdhci@3400000 {
+		disable-wp;
+		no-sdio;
+		nvidia,cd-wakeup-capable;
+		no-mmc;
+		nvidia,boot-detect-delay = <1000>;
+		cd-gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 7) 0>;
+		status = "okay";
+	};
+
+	/* I2C7 */
+	i2c@31c0000 {
+		status = "okay";
+		clock-frequency = <400000>;
+
+		typec: stusb1600@29 {
+			status = "okay";
+			compatible = "st,stusb1600";
+			reg = <0x29>;
+			vdd-supply = <&p3740_vdd_5v_sys>;
+			vsys-supply = <&p3740_vdd_3v3_sys>;
+			interrupt-parent = <&tegra_main_gpio>;
+			interrupts = <TEGRA234_MAIN_GPIO(K, 6) IRQ_TYPE_LEVEL_LOW>;
+			typec_con: connector {
+				compatible = "usb-c-connector";
+				label = "USB-C";
+				data-role = "dual";
+				power-role = "dual";
+				typec-power-opmode = "default";
+
+				port {
+					typec_con_ep: endpoint {
+						remote-endpoint = <&usb_role_switch0>;
+					};
+				};
+			};
+		};
+	};
+
+	xusb_padctl: xusb_padctl@3520000 {
+		status = "okay";
+		pads {
+			usb2 {
+				lanes {
+					usb2-0 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-1 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-2 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb2-3 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+			usb3 {
+				lanes {
+					usb3-0 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb3-1 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+					usb3-2 {
+						nvidia,function = "xusb";
+						status = "okay";
+					};
+				};
+			};
+		};
+
+		ports {
+			usb2-0 {
+				mode = "otg";
+				usb-role-switch;
+				status = "okay";
+				port {
+					usb_role_switch0: endpoint {
+						remote-endpoint = <&typec_con_ep>;
+					};
+				};
+			};
+			usb2-1 {
+				mode = "host";
+				status = "okay";
+			};
+			usb2-2 {
+				mode = "host";
+				status = "okay";
+			};
+			usb2-3 {
+				mode = "host";
+				status = "okay";
+			};
+			usb3-0 {
+				nvidia,usb2-companion = <1>;
+				status = "okay";
+			};
+			usb3-1 {
+				nvidia,usb2-companion = <0>;
+				status = "okay";
+			};
+			usb3-2 {
+				nvidia,usb2-companion = <2>;
+				status = "okay";
+			};
+		};
+	};
+
+	tegra_xudc: xudc@3550000 {
+		status = "okay";
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-1}>;
+		phy-names = "usb2-0", "usb3-1";
+		nvidia,xusb-padctl = <&xusb_padctl>;
+		nvidia,boost_cpu_freq = <1200>;
+	};
+
+	tegra_xhci: xhci@3610000 {
+		status = "okay";
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
+			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-3}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-0}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-1}>,
+			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-2}>;
+		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3",
+			"usb3-0", "usb3-1", "usb3-2";
+		nvidia,xusb-padctl = <&xusb_padctl>;
+	};
+
+	spi@3210000{ /* SPI1 in 40 pin conn */
+		status = "okay";
+		spi@0 { /* chip select 0 */
+			compatible = "tegra-spidev";
+			reg = <0x0>;
+			spi-max-frequency = <50000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x10>;
+				nvidia,tx-clk-tap-delay = <0x0>;
+			};
+		};
+		spi@1 { /* chip select 1 */
+			compatible = "tegra-spidev";
+			reg = <0x1>;
+			spi-max-frequency = <50000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x10>;
+				nvidia,tx-clk-tap-delay = <0x0>;
+			};
+		};
+	};
+
+	spi@3230000{ /* SPI3 in 40 pin conn */
+		status = "okay";
+		spi@0 { /* chip select 0 */
+			compatible = "tegra-spidev";
+			reg = <0x0>;
+			spi-max-frequency = <50000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x10>;
+				nvidia,tx-clk-tap-delay = <0x0>;
+			};
+		};
+		spi@1 { /* chips select 1 */
+			compatible = "tegra-spidev";
+			reg = <0x1>;
+			spi-max-frequency = <50000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x10>;
+				nvidia,tx-clk-tap-delay = <0x0>;
+			};
+		};
+	};
+
+	mttcan@c310000 {
+		status = "okay";
+	};
+
+	mttcan@c320000 {
+		status = "okay";
+	};
+
+	serial@3110000 {
+		status = "disabled";
+	};
+
+	tachometer@39c0000 {
+		status = "okay";
+		upper-threshold = <0xfffff>;
+		lower-threshold = <0x0>;
+	};
+
+	generic_pwm_tachometer {
+		status = "okay";
+	};
+
+	pwm@3280000 {
+		status = "okay";
+	};
+
+	pwm@32a0000 {
+		status = "okay";
+	};
+
+	pwm@32c0000 {
+		status = "okay";
+	};
+
+	pwm@32d0000 {
+		status = "disabled";
+	};
+
+	pwm@32f0000 {
+		status = "okay";
+	};
+	spi@c260000 {
+		status = "disabled";
+	};
+
+	spi@3300000 {
+		status = "disabled";
+	};
+};

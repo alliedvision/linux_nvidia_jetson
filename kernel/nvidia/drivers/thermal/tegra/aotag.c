@@ -3,7 +3,7 @@
  *
  * TEGRA AOTAG (Always-On Thermal Alert Generator) driver.
  *
- * Copyright (c) 2014 - 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,8 +29,14 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include <linux/tsensor-fuse.h>
+#include <linux/version.h>
 #include <soc/tegra/fuse.h>
 #include <soc/tegra/pmc.h>
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 9, 0)
+#define tegra_pmc_readl tegra_pmc_aotag_readl
+#define tegra_pmc_writel tegra_pmc_aotag_writel
+#endif
 
 #define PDEV2DEVICE(pdev) (&(pdev->dev))
 #define PDEV2SENSOR_INFO(pdev) \

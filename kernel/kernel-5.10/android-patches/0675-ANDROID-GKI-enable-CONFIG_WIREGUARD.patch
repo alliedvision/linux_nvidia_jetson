@@ -1,0 +1,55 @@
+From 121993fd02e5c39847223525fef6790d7d294612 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 30 Mar 2020 09:43:24 +0200
+Subject: [PATCH 675/830] ANDROID: GKI: enable CONFIG_WIREGUARD
+X-NVConfidentiality: public
+
+Add native kernel support for a sane VPN
+
+Note, this disables CONFIG_ARM64_CRYPTO from the gki arm64 defconfig
+because CONFIG_WIREGUARD explicitly enables.  So the functionality is
+still there, but the defconfig does not need to show it anymore.
+
+Bug: 152722841
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I4cb674d299778c7c994f3220292ec1c43f80e6bf
+---
+ arch/arm64/configs/gki_defconfig | 2 +-
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index ff19b083e68a..10f1b777c2d7 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -74,7 +74,6 @@ CONFIG_ARM_SCMI_PROTOCOL=y
+ CONFIG_ARM_SCPI_PROTOCOL=y
+ # CONFIG_ARM_SCPI_POWER_DOMAIN is not set
+ # CONFIG_EFI_ARMSTUB_DTB_LOADER is not set
+-CONFIG_ARM64_CRYPTO=y
+ CONFIG_CRYPTO_SHA2_ARM64_CE=y
+ CONFIG_CRYPTO_AES_ARM64_CE_BLK=y
+ CONFIG_KPROBES=y
+@@ -232,6 +231,7 @@ CONFIG_DM_VERITY_FEC=y
+ CONFIG_DM_BOW=y
+ CONFIG_NETDEVICES=y
+ CONFIG_DUMMY=y
++CONFIG_WIREGUARD=y
+ CONFIG_TUN=y
+ # CONFIG_ETHERNET is not set
+ CONFIG_PHYLIB=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a269d42eb980..9d264344124a 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -206,6 +206,7 @@ CONFIG_DM_VERITY_FEC=y
+ CONFIG_DM_BOW=y
+ CONFIG_NETDEVICES=y
+ CONFIG_DUMMY=y
++CONFIG_WIREGUARD=y
+ CONFIG_TUN=y
+ # CONFIG_ETHERNET is not set
+ CONFIG_PHYLIB=y
+-- 
+2.17.1
+

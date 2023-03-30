@@ -1,7 +1,7 @@
 /*
  * Tegra CSI2 device common APIs
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -82,28 +82,16 @@ int tegra_csi_error(struct tegra_csi_channel *chan, int port_idx)
 	 * corrected automatically
 	 */
 	val = pp_read(port, TEGRA_CSI_PIXEL_PARSER_STATUS);
-	err |= val & (0x4000);
+	err |= val & 0x4000;
 	pp_write(port, TEGRA_CSI_PIXEL_PARSER_STATUS, val);
-
-    if (val) {
-        dev_dbg(chan->csi->dev,"pixel parser error %u",val);
-    }
 
 	val = cil_read(port, TEGRA_CSI_CIL_STATUS);
 	err |= val & 0x02;
 	cil_write(port, TEGRA_CSI_CIL_STATUS, val);
 
-    if (val) {
-        dev_dbg(chan->csi->dev,"cil status error %u",val);
-    }
-
 	val = cil_read(port, TEGRA_CSI_CILX_STATUS);
 	err |= val & 0x00020020;
 	cil_write(port, TEGRA_CSI_CILX_STATUS, val);
-
-    if (val) {
-        dev_dbg(chan->csi->dev,"cilx status error %u",val);
-    }
 
 	return err;
 }
@@ -268,17 +256,48 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 {
 	struct tegra_csi_port *port = &chan->ports[port_idx];
 	struct tegra_csi_device *csi = chan->csi;
+	struct camera_common_data *s_data = chan->s_data;
+	const struct sensor_mode_properties *mode = NULL;
 	int csi_port, csi_lanes;
 	/* Clocks for the CSI interface */
 	const unsigned int cil_clk_mhz = TEGRA_CSICIL_CLK_MHZ;
 	const unsigned int csi_clk_mhz = csi->clk_freq / 1000000;
 	/* Calculated clock settling times for cil and csi clocks */
+	unsigned int cil_settletime = 0;
 	unsigned int csi_settletime;
-	unsigned int cil_settletime = read_settle_time_from_dt(chan);
-	unsigned int discontinuous_clk = read_discontinuous_clk_from_dt(chan);
 
 	csi_port = !chan->pg_mode ? port->csi_port : port->stream_id;
 	csi_lanes = port->lanes;
+
+	/* Attempt to find the cil_settingtime from the device tree */
+	if (s_data) {
+		int idx = s_data->mode_prop_idx;
+
+		dev_dbg(csi->dev, "cil_settingtime is pulled from device");
+		if (idx < s_data->sensor_props.num_modes &&
+				s_data->sensor_props.sensor_modes != NULL) {
+			mode = &s_data->sensor_props.sensor_modes[idx];
+			cil_settletime = mode->signal_properties.cil_settletime;
+		} else {
+			dev_dbg(csi->dev, "mode not listed in DT, use default");
+			cil_settletime = 0;
+		}
+	} else if (chan->of_node) {
+		int err = 0;
+		const char *str;
+
+		dev_dbg(csi->dev,
+			"cil_settletime is pulled from device of_node");
+		err = of_property_read_string(chan->of_node, "cil_settletime",
+			&str);
+		if (!err) {
+			err = kstrtou32(str, 10, &cil_settletime);
+			if (err)
+				dev_dbg(csi->dev,
+					"no cil_settletime in of_node");
+				cil_settletime = 0;
+		}
+	}
 
 	/* calculate MIPI settling time if no settletime is set*/
 	if (!cil_settletime) {
@@ -306,7 +325,7 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	cil_write(port, TEGRA_CSI_CIL_PAD_CONFIG0, 0x0);
 	cil_write(port, TEGRA_CSI_CIL_PHY_CONTROL,
 			csi_settletime << CLK_SETTLE_SHIFT |
-			!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
+			BYPASS_LP_SEQ |
 			cil_settletime << THS_SETTLE_SHIFT);
 
 	/*
@@ -330,11 +349,11 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 				csi_port >> 1);
 		cil_write(port, TEGRA_CSI_CIL_PHY_CONTROL,
 				csi_settletime << CLK_SETTLE_SHIFT |
-				!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
+				BYPASS_LP_SEQ |
 				cil_settletime << THS_SETTLE_SHIFT);
 		csi_write(chan, cilb_offset + TEGRA_CSI_CIL_PHY_CONTROL,
 				csi_settletime << CLK_SETTLE_SHIFT |
-				!discontinuous_clk << BYPASS_LP_SEQ_SHIFT |
+				BYPASS_LP_SEQ |
 				cil_settletime << THS_SETTLE_SHIFT,
 				csi_port >> 1);
 		csi_write(chan, TEGRA_CSI_PHY_CIL_COMMAND,
@@ -384,7 +403,6 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 	pp_write(port, TEGRA_CSI_PIXEL_STREAM_PP_COMMAND,
 			(0xF << CSI_PP_START_MARKER_FRAME_MAX_OFFSET) |
 			CSI_PP_SINGLE_SHOT_ENABLE | CSI_PP_ENABLE);
-
 	return 0;
 }
 
@@ -422,7 +440,7 @@ static void csi2_stop_streaming(struct tegra_csi_channel *chan, int port_idx)
 
 static int csi2_hw_init(struct tegra_csi_device *csi)
 {
-	int i, csi_port;
+	u32 i, csi_port;
 	struct tegra_csi_channel *it;
 	struct tegra_csi_port *port;
 
@@ -434,7 +452,7 @@ static int csi2_hw_init(struct tegra_csi_device *csi)
 			port = &it->ports[i];
 			csi_port = !it->pg_mode ?
 				it->ports[i].csi_port : it->ports[i].stream_id;
-			port->pixel_parser = csi->iomem[csi_port >> 1] +
+			port->pixel_parser = csi->iomem[csi_port / 2] +
 				(csi_port % 2) * TEGRA_CSI_PORT_OFFSET;
 			port->cil = port->pixel_parser + TEGRA_CSI_CIL_OFFSET;
 			port->tpg = port->pixel_parser + TEGRA_CSI_TPG_OFFSET;

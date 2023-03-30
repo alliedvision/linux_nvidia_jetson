@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdisp_stub.c
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,20 +21,27 @@
 #include <linux/ioport.h>
 #include <linux/clk/tegra.h>
 #include <linux/of.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/of_gpio.h>
 #include <linux/backlight.h>
 #include <linux/iommu.h>
 #include <linux/memblock.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <linux/bootmem.h>
+#endif
 
 #include <linux/platform/tegra/latency_allowance.h>
 
 #include "dc.h"
 #include "board-panel.h"
 #include "dc_priv.h"
+#include "board-id.h"
 #include <linux/platform_data/lp855x.h>
-#include <soc/tegra/common.h>
 
 __weak const struct disp_client *tegra_la_disp_clients_info;
 

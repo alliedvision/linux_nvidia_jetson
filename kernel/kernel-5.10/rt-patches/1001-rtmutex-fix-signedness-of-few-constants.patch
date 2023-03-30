@@ -1,0 +1,52 @@
+From 3ea88340132d8f61a11f9c2a66503c7b2b30a8ac Mon Sep 17 00:00:00 2001
+From: Timo Alho <talho@nvidia.com>
+Date: Tue, 3 Jul 2018 14:57:44 +0300
+Subject: [PATCH 1/5] rtmutex: fix signedness of few constants
+
+Fix the signedness of READER|WRITER_BIAS to avoid comparison between
+signed and unsigned.
+
+include/linux/rwsem_rt.h: In function rwsem_is_locked:
+include/linux/rwsem_rt.h:50:36: error: comparison between signed and unsigned integer expressions [-Werror=sign-compare]
+   return atomic_read(&sem->readers) != READER_BIAS;
+
+Change-Id: Idb21cd6b4ac5e5fa4d0b7ffcaeff1d7697f44a86
+Signed-off-by: Timo Alho <talho@nvidia.com>
+---
+ include/linux/rwlock_types_rt.h | 4 ++--
+ include/linux/rwsem-rt.h        | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rwlock_types_rt.h b/include/linux/rwlock_types_rt.h
+index 4762391..3e9c037 100644
+--- a/include/linux/rwlock_types_rt.h
++++ b/include/linux/rwlock_types_rt.h
+@@ -33,8 +33,8 @@ struct rt_rw_lock {
+ #endif
+ };
+ 
+-#define READER_BIAS	(1U << 31)
+-#define WRITER_BIAS	(1U << 30)
++#define READER_BIAS	(1 << 31)
++#define WRITER_BIAS	(1 << 30)
+ 
+ #define __RWLOCK_RT_INITIALIZER(name)					\
+ {									\
+diff --git a/include/linux/rwsem-rt.h b/include/linux/rwsem-rt.h
+index 7f7e748..541354d 100644
+--- a/include/linux/rwsem-rt.h
++++ b/include/linux/rwsem-rt.h
+@@ -9,8 +9,8 @@
+ #include <linux/rtmutex.h>
+ #include <linux/swait.h>
+ 
+-#define READER_BIAS		(1U << 31)
+-#define WRITER_BIAS		(1U << 30)
++#define READER_BIAS		(1 << 31)
++#define WRITER_BIAS		(1 << 30)
+ 
+ struct rw_semaphore {
+ 	atomic_t		readers;
+-- 
+2.7.4
+

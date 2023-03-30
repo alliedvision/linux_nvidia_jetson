@@ -19,6 +19,7 @@
 #include "dhd_custom_sysfs_tegra.h"
 #include <linux/jiffies.h>
 #include <linux/spinlock_types.h>
+#include <linux/version.h>
 
 #ifndef TCPDUMP_NETIF_MAXSIZ
 #define TCPDUMP_NETIF_MAXSIZ	16
@@ -210,7 +211,11 @@ static int pkt_save;
 static int pkt_rx_save = 1;
 static int pkt_tx_save = 1;
 static atomic_t insert_dummy_timestamp = ATOMIC_INIT(1);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 static struct timespec time_stamp;
+#else
+static struct timespec64 time_stamp;
+#endif
 
 struct dummy_time {
 	unsigned long time_sec;
@@ -400,7 +405,11 @@ tcpdump_insert_dummy_timestamp(char *buf)
 {
 	multidump_pkt_t pkt;
 	dt.jiffies = jiffies;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	getnstimeofday(&time_stamp);
+#else
+	ktime_get_ts64(&time_stamp);
+#endif
 	dt.time_sec = time_stamp.tv_sec;
 	dt.time_nsec = time_stamp.tv_nsec;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,7 +33,7 @@ int add_msg_controller_list(struct ttcan_controller *ttcan,
 	struct ttcan_rx_msg_list *msg_list;
 
 	msg_list = (struct ttcan_rx_msg_list *)
-		kzalloc(sizeof(struct ttcan_rx_msg_list), GFP_KERNEL);
+		kzalloc(sizeof(struct ttcan_rx_msg_list), GFP_ATOMIC);
 	if (msg_list == NULL) {
 		pr_err("%s: memory allocation failed\n", __func__);
 		return -ENOMEM;
@@ -83,7 +83,7 @@ int add_event_controller_list(struct ttcan_controller *ttcan,
 
 	evt_list =
 	    (struct ttcan_txevt_msg_list *)
-	    kzalloc(sizeof(struct ttcan_txevt_msg_list), GFP_KERNEL);
+	    kzalloc(sizeof(struct ttcan_txevt_msg_list), GFP_ATOMIC);
 	if (evt_list == NULL) {
 		pr_err("%s: memory allocation failed\n", __func__);
 		return -ENOMEM;

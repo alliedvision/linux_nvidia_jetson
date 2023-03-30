@@ -1,7 +1,7 @@
 /*
  * tegra186_asrc_alt.c - Tegra186 ASRC driver
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -192,11 +192,13 @@ static int tegra186_asrc_runtime_resume(struct device *dev)
 
 	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR,
 		0x01);
-#if defined(CONFIG_TEGRA186_ASRC_INT_CLEAR_WAR)
-	/* Hw Bug:200208400 - asrc interrupt status gets cleared when
-		it is cleared twice */
-	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR, 0x1);
-#endif
+	/**
+	 * Hw Bug:200208400 - asrc interrupt status gets cleared when
+	 * it is cleared twice. This WAR is only applicable for T186
+	 */
+	if (of_machine_is_compatible("nvidia,tegra186-asrc"))
+		regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR, 0x1);
+
 	for (lane_id = 0; lane_id < 6; lane_id++) {
 		if (asrc->lane[lane_id].ratio_source == RATIO_SW) {
 			regmap_write(asrc->regmap,
@@ -233,9 +235,6 @@ static int tegra186_asrc_set_audio_cif(struct tegra186_asrc *asrc,
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		audio_bits = TEGRA210_AUDIOCIF_BITS_16;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		audio_bits = TEGRA210_AUDIOCIF_BITS_24;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		audio_bits = TEGRA210_AUDIOCIF_BITS_32;
@@ -596,7 +595,6 @@ static struct snd_soc_dai_ops tegra186_asrc_out_dai_ops = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},						\
 		.ops = dai_ops,		\
@@ -612,7 +610,6 @@ static struct snd_soc_dai_ops tegra186_asrc_out_dai_ops = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},						\
 		.ops = dai_ops,		\
@@ -1059,11 +1056,14 @@ static void tegra186_asrc_ahc_cb(void *data)
 
 	regcache_cache_bypass(asrc->regmap, true);
 	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR, 0x1);
-#if defined(CONFIG_TEGRA186_ASRC_INT_CLEAR_WAR)
-	/* Hw Bug:200208400 - asrc interrupt status gets cleared when
-		it is cleared twice */
-	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR, 0x1);
-#endif
+
+	/**
+	 * Hw Bug:200208400 - asrc interrupt status gets cleared when
+	 * it is cleared twice. This WAR is only applicable for T186
+	 */
+	if (of_machine_is_compatible("nvidia,tegra186-asrc"))
+		regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_INT_CLEAR, 0x1);
+
 	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_ENB, 0x0);
 	udelay(100);
 	regmap_write(asrc->regmap, TEGRA186_ASRC_GLOBAL_ENB, 0x1);
@@ -1073,6 +1073,7 @@ static void tegra186_asrc_ahc_cb(void *data)
 
 static const struct of_device_id tegra186_asrc_of_match[] = {
 	{ .compatible = "nvidia,tegra186-asrc" },
+	{ .compatible = "nvidia,tegra194-asrc" },
 	{},
 };
 static int tegra186_asrc_platform_probe(struct platform_device *pdev)
@@ -1107,13 +1108,6 @@ static int tegra186_asrc_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(asrc->regmap);
 	}
 	regcache_cache_only(asrc->regmap, true);
-
-	ret = of_property_read_u32(pdev->dev.of_node, "nvidia,ahub-asrc-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-asrc-id\n");
-		return ret;
-	}
 
 #ifdef CONFIG_TEGRA186_AHC
 	tegra186_ahc_register_cb(tegra186_asrc_ahc_cb, TEGRA186_AHC_ASRC1_CB,

@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host ISP
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,9 +41,8 @@ struct isp {
 };
 
 extern const struct file_operations tegra_isp_ctrl_ops;
-int nvhost_isp_t124_finalize_poweron(struct platform_device *);
-int nvhost_isp_t124_prepare_poweroff(struct platform_device *);
-int nvhost_isp_t210_finalize_poweron(struct platform_device *);
+int nvhost_isp_prepare_poweroff(struct platform_device *);
+int nvhost_isp_finalize_poweron(struct platform_device *);
 void nvhost_isp_queue_isr_work(struct isp *tegra_isp);
 
 #ifdef CONFIG_TEGRA_GRHOST_ISP

@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Syncpoints
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,7 +27,7 @@
 #include <linux/delay.h>
 #include <linux/nospec.h>
 #include <trace/events/nvhost.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 #include "nvhost_syncpt.h"
 #include "debug.h"
 
@@ -35,9 +35,14 @@
 #include "nvhost_sync.h"
 #endif
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && !IS_ENABLED(CONFIG_SYNC)
+#include <linux/dma-fence.h>
+#endif
+
 #include "nvhost_acm.h"
 #include "dev.h"
 #include "chip_support.h"
+#include "platform.h"
 #include "nvhost_channel.h"
 #include "nvhost_ktime.h"
 #include "vhost/vhost.h"
@@ -121,6 +126,19 @@ u32 nvhost_syncpt_update_min(struct nvhost_syncpt *sp, u32 id)
 	trace_nvhost_syncpt_update_min(id, val);
 
 	return val;
+}
+
+/**
+ * Set and update the last value from hardware.
+ */
+void nvhost_syncpt_set_min_update(struct platform_device *pdev, u32 id, u32 val)
+{
+	struct nvhost_master *master = nvhost_get_host(pdev);
+	struct nvhost_syncpt *sp = &master->syncpt;
+
+	atomic_set(&sp->min_val[id], val);
+	syncpt_op().reset(sp, id);
+	nvhost_syncpt_update_min(sp, id);
 }
 
 /**
@@ -209,17 +227,8 @@ static bool syncpt_update_min_is_expired(
 	u32 id,
 	u32 thresh)
 {
-	if (atomic_read(&sp->stop_stream_called[id]))
-		return true;
-
-
 	syncpt_op().update_min(sp, id);
 	return nvhost_syncpt_is_expired(sp, id, thresh);
-}
-
-static bool syncpt_stop_waiting(struct nvhost_syncpt *sp,u32 id)
-{
-	return atomic_read(&sp->stop_stream_called[id]) ? true : false;
 }
 
 /**
@@ -235,12 +244,6 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	u32 val, old_val, new_val;
 	struct nvhost_master *host;
 	bool syncpt_poll = false;
-	bool (*syncpt_is_expired)(struct nvhost_syncpt *sp,
-			u32 id,
-			u32 thresh);
-	bool (*syncpt_stop)(struct nvhost_syncpt *sp,u32 id);
-
-	syncpt_stop = syncpt_stop_waiting;
 
 	sp = nvhost_get_syncpt_owner_struct(id, sp);
 	host = syncpt_to_dev(sp);
@@ -322,11 +325,6 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 	if (timeout < SYNCPT_CHECK_PERIOD)
 		low_timeout = timeout;
 
-	if (nvhost_dev_is_virtual(host->dev))
-		syncpt_is_expired = nvhost_syncpt_is_expired;
-	else
-		syncpt_is_expired = syncpt_update_min_is_expired;
-
 	/* wait for the syncpoint, or timeout, or signal */
 	while (timeout) {
 		u32 check = min_t(u32, SYNCPT_CHECK_PERIOD, timeout);
@@ -341,7 +339,7 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 			loops = DIV_ROUND_UP(check_ms, SYNCPT_POLL_PERIOD);
 
 			for (i = 0; i < loops; i++) {
-				if (syncpt_is_expired(sp, id, thresh))
+				if (syncpt_update_min_is_expired(sp, id, thresh))
 					break;
 
 				usleep_range(SYNCPT_POLL_PERIOD*1000,
@@ -354,15 +352,11 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 
 		} else if (interruptible)
 			remain = wait_event_interruptible_timeout(waiter->wq,
-				syncpt_is_expired(sp, id, thresh),
-				check);
-		else if (id == sp->stream_id)
-			remain = wait_event_timeout(waiter->wq,
-				(syncpt_is_expired(sp, id, thresh) || syncpt_stop(sp, id)),
+				syncpt_update_min_is_expired(sp, id, thresh),
 				check);
 		else
 			remain = wait_event_timeout(waiter->wq,
-				syncpt_is_expired(sp, id, thresh),
+				syncpt_update_min_is_expired(sp, id, thresh),
 				check);
 		if (remain > 0 ||
 			syncpt_update_min_is_expired(sp, id, thresh)) {
@@ -378,48 +372,41 @@ int nvhost_syncpt_wait_timeout(struct nvhost_syncpt *sp, u32 id,
 				}
 			}
 
-            if (syncpt_stop(sp,id) && remain > 0)
-                err = -ECANCELED;
-            else
-			    err = 0;
-
-            break;
+			err = 0;
+			break;
 		}
-
-		if (timeout != NVHOST_NO_TIMEOUT) {
+		if (remain < 0) {
+			err = remain;
+			break;
+		}
+		if (timeout != NVHOST_NO_TIMEOUT)
 			timeout -= check;
-
-			if (remain < 0) {
-				err = remain;
-				break;
+		if (timeout && check_count <= MAX_STUCK_CHECK_COUNT) {
+			new_val = syncpt_op().update_min(sp, id);
+			if (old_val == new_val) {
+				dev_warn(&syncpt_to_dev(sp)->dev->dev,
+					"%s: syncpoint id %d (%s) stuck waiting %d, timeout=%d\n",
+					 current->comm, id,
+					 syncpt_op().name(sp, id),
+					 thresh, timeout);
+				nvhost_syncpt_debug(sp);
+			} else {
+				old_val = new_val;
+				dev_info(&syncpt_to_dev(sp)->dev->dev,
+					"%s: syncpoint id %d (%s) progressing slowly %d, timeout=%d\n",
+					 current->comm, id,
+					 syncpt_op().name(sp, id),
+					 thresh, timeout);
 			}
-			if (timeout && check_count <= MAX_STUCK_CHECK_COUNT) {
-				new_val = syncpt_op().update_min(sp, id);
-				if (old_val == new_val) {
+			if (check_count == MAX_STUCK_CHECK_COUNT) {
+				if (low_timeout) {
 					dev_warn(&syncpt_to_dev(sp)->dev->dev,
-						"%s: syncpoint id %d (%s) stuck waiting %d, timeout=%d\n",
-						 current->comm, id,
-						 syncpt_op().name(sp, id),
-						 thresh, timeout);
-					nvhost_syncpt_debug(sp);
-				} else {
-					old_val = new_val;
-					dev_info(&syncpt_to_dev(sp)->dev->dev,
-						"%s: syncpoint id %d (%s) progressing slowly %d, timeout=%d\n",
-						 current->comm, id,
-						 syncpt_op().name(sp, id),
-						 thresh, timeout);
+						"is timeout %d too low?\n",
+						low_timeout);
 				}
-				if (check_count == MAX_STUCK_CHECK_COUNT) {
-					if (low_timeout) {
-						dev_warn(&syncpt_to_dev(sp)->dev->dev,
-							"is timeout %d too low?\n",
-							low_timeout);
-					}
-					nvhost_debug_dump(syncpt_to_dev(sp));
-				}
-				check_count++;
+				nvhost_debug_dump(syncpt_to_dev(sp));
 			}
+			check_count++;
 		}
 	}
 
@@ -436,56 +423,9 @@ done:
  */
 static bool _nvhost_syncpt_is_expired(
 	u32 current_val,
-	u32 future_val,
-	bool has_future_val,
 	u32 thresh)
 {
-	/* Note the use of unsigned arithmetic here (mod 1<<32).
-	 *
-	 * c = current_val = min_val	= the current value of the syncpoint.
-	 * t = thresh			= the value we are checking
-	 * f = future_val  = max_val	= the value c will reach when all
-	 *			   	  outstanding increments have completed.
-	 *
-	 * Note that c always chases f until it reaches f.
-	 *
-	 * Dtf = (f - t)
-	 * Dtc = (c - t)
-	 *
-	 *  Consider all cases:
-	 *
-	 *	A) .....c..t..f.....	Dtf < Dtc	need to wait
-	 *	B) .....c.....f..t..	Dtf > Dtc	expired
-	 *	C) ..t..c.....f.....	Dtf > Dtc	expired	   (Dct very large)
-	 *
-	 *  Any case where f==c: always expired (for any t).  	Dtf == Dcf
-	 *  Any case where t==c: always expired (for any f).  	Dtf >= Dtc (because Dtc==0)
-	 *  Any case where t==f!=c: always wait.	 	Dtf <  Dtc (because Dtf==0,
-	 *							Dtc!=0)
-	 *
-	 *  Other cases:
-	 *
-	 *	A) .....t..f..c.....	Dtf < Dtc	need to wait
-	 *	A) .....f..c..t.....	Dtf < Dtc	need to wait
-	 *	A) .....f..t..c.....	Dtf > Dtc	expired
-	 *
-	 *   So:
-	 *	   Dtf >= Dtc implies EXPIRED	(return true)
-	 *	   Dtf <  Dtc implies WAIT	(return false)
-	 *
-	 * Note: If t is expired then we *cannot* wait on it. We would wait
-	 * forever (hang the system).
-	 *
-	 * Note: do NOT get clever and remove the -thresh from both sides. It
-	 * is NOT the same.
-	 *
-	 * If future valueis zero, we have a client managed sync point. In that
-	 * case we do a direct comparison.
-	 */
-	if (has_future_val)
-		return future_val - thresh >= current_val - thresh;
-	else
-		return (s32)(current_val - thresh) >= 0;
+	return (s32)(current_val - thresh) >= 0;
 }
 
 /**
@@ -542,8 +482,6 @@ static int _nvhost_syncpt_compare_ref(
  */
 static int _nvhost_syncpt_compare(
 	u32 current_val,
-	u32 future_val,
-	bool has_future_val,
 	u32 a,
 	u32 b)
 {
@@ -554,10 +492,8 @@ static int _nvhost_syncpt_compare(
 	if (a == b)
 		return 0;
 
-	a_expired = _nvhost_syncpt_is_expired(current_val, future_val,
-					      has_future_val, a);
-	b_expired = _nvhost_syncpt_is_expired(current_val, future_val,
-					      has_future_val, b);
+	a_expired = _nvhost_syncpt_is_expired(current_val, a);
+	b_expired = _nvhost_syncpt_is_expired(current_val, b);
 	if (a_expired && !b_expired) {
 		/* Easy, a was earlier */
 		return -1;
@@ -582,10 +518,7 @@ bool nvhost_syncpt_is_expired(
 	u32 thresh)
 {
 	u32 current_val = (u32)atomic_read(&sp->min_val[id]);
-	u32 future_val = (u32)atomic_read(&sp->max_val[id]);
-	bool has_future_val = !nvhost_syncpt_client_managed(sp, id);
-	return _nvhost_syncpt_is_expired(current_val, future_val,
-					 has_future_val, thresh);
+	return _nvhost_syncpt_is_expired(current_val, thresh);
 }
 
 /**
@@ -600,13 +533,9 @@ int nvhost_syncpt_compare(
 	u32 thresh_b)
 {
 	u32 current_val;
-	u32 future_val;
-	bool has_future_val = !nvhost_syncpt_client_managed(sp, id);
 
 	current_val = (u32)atomic_read(&sp->min_val[id]);
-	future_val = (u32)atomic_read(&sp->max_val[id]);
-	return _nvhost_syncpt_compare(current_val, future_val,
-				      has_future_val, thresh_a, thresh_b);
+	return _nvhost_syncpt_compare(current_val, thresh_a, thresh_b);
 }
 
 int nvhost_mutex_try_lock(struct nvhost_syncpt *sp, int idx)
@@ -635,7 +564,7 @@ void nvhost_mutex_unlock(struct nvhost_syncpt *sp, int idx)
 	atomic_dec(&sp->lock_counts[idx]);
 }
 
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && IS_ENABLED(CONFIG_SYNC)
 struct nvhost_sync_timeline *nvhost_syncpt_timeline(struct nvhost_syncpt *sp,
 		int idx)
 {
@@ -800,13 +729,6 @@ static int nvhost_syncpt_timeline_attr(struct nvhost_master *host,
 {
 	char name[MAX_SYNCPT_LENGTH];
 	struct kobject *kobj;
-
-	/*
-	 * The large number of sysfs files causes long boot times
-	 * on FPGA due to restorecon/ueventd.
-	 */
-	if (tegra_platform_is_fpga())
-		return 0;
 
 	/* Create one directory per sync point */
 	snprintf(name, sizeof(name), "%d", i);
@@ -1037,7 +959,22 @@ static void nvhost_free_syncpt(struct nvhost_syncpt *sp, u32 id)
 					sp->syncpt_names[id]);
 
 	/* set to default state */
-	nvhost_syncpt_set_min_eq_max(sp, id);
+	if (!nvhost_syncpt_client_managed(sp, id)) {
+		/*
+		 * We know the correct max value. Make sure to release any
+		 * pending waiters in case the syncpt is released abruptly.
+		 */
+		nvhost_syncpt_set_min_eq_max(sp, id);
+	} else {
+		/*
+		 * We don't know what the max value is for sure. Assume that
+		 * the client has forced any users of the syncpt to idle, so
+		 * that the min value has settled.
+		 */
+		u32 val = nvhost_syncpt_read(sp, id);
+
+		nvhost_syncpt_set_maxval(host->dev, id, val);
+	}
 	sp->assigned[id] = false;
 	sp->client_managed[id] = false;
 	kfree(sp->syncpt_names[id]);
@@ -1150,12 +1087,11 @@ int nvhost_syncpt_init(struct platform_device *dev,
 	sp->last_used_by = kzalloc(sizeof(char *) * nb_pts, GFP_KERNEL);
 	sp->min_val = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
 	sp->max_val = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
-	sp->stop_stream_called = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
 	sp->lock_counts =
 		kzalloc(sizeof(atomic_t) * nvhost_syncpt_nb_mlocks(sp),
 			GFP_KERNEL);
 	sp->ref = kzalloc(sizeof(atomic_t) * nb_pts, GFP_KERNEL);
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC) && defined(CONFIG_SYNC)
 	sp->timeline = kzalloc(sizeof(struct nvhost_sync_timeline *) *
 			nb_pts, GFP_KERNEL);
 	if (!sp->timeline) {
@@ -1164,17 +1100,6 @@ int nvhost_syncpt_init(struct platform_device *dev,
 		goto fail;
 	}
 #endif
-
-	if (nvhost_dev_is_virtual(dev)) {
-		struct nvhost_virt_ctx *ctx = nvhost_get_virt_data(dev);
-		u32 size;
-
-		err = vhost_syncpt_get_range(ctx->handle,
-					&host->info.pts_base, &size);
-		if (err)
-			goto fail;
-		host->info.pts_limit = host->info.pts_base + size;
-	}
 
 	if (!(sp->assigned && sp->client_managed && sp->min_val && sp->max_val
 		     && sp->lock_counts && sp->in_use_ch && sp->ref)) {
@@ -1239,7 +1164,7 @@ int nvhost_syncpt_init(struct platform_device *dev,
 		sp->last_used_by[i] = NULL;
 		atomic_set(&sp->ref[i], 0);
 
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC) && defined(CONFIG_SYNC)
 		sp->timeline[i] = nvhost_sync_timeline_create(sp, i);
 		if (!sp->timeline[i]) {
 			err = -ENOMEM;
@@ -1248,7 +1173,7 @@ int nvhost_syncpt_init(struct platform_device *dev,
 #endif
 	}
 
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC) && defined(CONFIG_SYNC)
 	err = nvhost_syncpt_timeline_attr(host, sp, &sp->invalid_min_attr,
 					  &sp->invalid_max_attr,
 					  &sp->invalid_name_attr,
@@ -1267,6 +1192,11 @@ int nvhost_syncpt_init(struct platform_device *dev,
 	}
 #endif
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && !IS_ENABLED(CONFIG_SYNC)
+	sp->syncpt_context_base = dma_fence_context_alloc(
+		nvhost_syncpt_nb_hw_pts(sp));
+#endif
+
 	/*
 	 * some syncpts need to be reserved (hard-coded) because of
 	 * external dependencies / constraints
@@ -1282,7 +1212,7 @@ fail:
 
 static void nvhost_syncpt_deinit_timeline(struct nvhost_syncpt *sp)
 {
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC) && defined(CONFIG_SYNC)
 	int i;
 	for (i = 0; i < nvhost_syncpt_nb_hw_pts(sp); i++) {
 		if (sp->timeline && sp->timeline[i]) {
@@ -1332,9 +1262,6 @@ void nvhost_syncpt_deinit(struct nvhost_syncpt *sp)
 	kfree(sp->assigned);
 	sp->assigned = NULL;
 
-	kfree(sp->stop_stream_called);
-	sp->stop_stream_called = NULL;
-
 	nvhost_syncpt_deinit_timeline(sp);
 }
 
@@ -1368,6 +1295,11 @@ int nvhost_syncpt_pts_base(struct nvhost_syncpt *sp)
 	return syncpt_to_dev(sp)->info.pts_base;
 }
 
+int nvhost_syncpt_nb_irqs(struct nvhost_syncpt *sp)
+{
+	return syncpt_to_dev(sp)->info.nb_syncpt_irqs;
+}
+
 bool nvhost_syncpt_is_valid_hw_pt(struct nvhost_syncpt *sp, u32 id)
 {
 	return (id >= 0 && id < nvhost_syncpt_nb_hw_pts(sp) &&
@@ -1376,7 +1308,7 @@ bool nvhost_syncpt_is_valid_hw_pt(struct nvhost_syncpt *sp, u32 id)
 
 bool nvhost_syncpt_is_valid_hw_pt_nospec(struct nvhost_syncpt *sp, u32 *id)
 {
-	if (*id < nvhost_syncpt_nb_hw_pts(sp) &&
+	if (*id >= 0 && *id < nvhost_syncpt_nb_hw_pts(sp) &&
 	    *id != NVSYNCPT_INVALID) {
 		*id = array_index_nospec(*id, nvhost_syncpt_nb_hw_pts(sp));
 		return true;
@@ -1464,7 +1396,7 @@ int nvhost_syncpt_is_expired_ext(struct platform_device *dev,
 EXPORT_SYMBOL(nvhost_syncpt_is_expired_ext);
 
 int nvhost_syncpt_wait_timeout_ext(struct platform_device *dev, u32 id,
-	u32 thresh, u32 timeout, u32 *value, struct timespec *ts)
+	u32 thresh, u32 timeout, u32 *value, struct timespec64 *ts)
 {
 	struct nvhost_master *master = nvhost_get_host(dev);
 	struct nvhost_syncpt *sp =
@@ -1482,46 +1414,10 @@ int nvhost_syncpt_wait_timeout_ext(struct platform_device *dev, u32 id,
 }
 EXPORT_SYMBOL(nvhost_syncpt_wait_timeout_ext);
 
-int nvhost_syncpt_stop_waiting_ext(struct platform_device *dev, u32 id)
-{
-	struct nvhost_master *master = nvhost_get_host(dev);
-	struct nvhost_syncpt *sp =
-		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
-
-	atomic_set(&sp->stop_stream_called[id],1);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_syncpt_stop_waiting_ext);
-
-int nvhost_syncpt_restart_waiting_ext(struct platform_device *dev, u32 id)
-{
-	struct nvhost_master *master = nvhost_get_host(dev);
-	struct nvhost_syncpt *sp =
-		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
-
-	atomic_set(&sp->stop_stream_called[id],0);
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_syncpt_restart_waiting_ext);
-
-int nvhost_syncpt_remember_stream_id_ext(struct platform_device *dev, u32 id)
-{
-	struct nvhost_master *master = nvhost_get_host(dev);
-	struct nvhost_syncpt *sp =
-		nvhost_get_syncpt_owner_struct(id, &master->syncpt);
-
-	sp->stream_id = id;
-
-	return 0;
-}
-EXPORT_SYMBOL(nvhost_syncpt_remember_stream_id_ext);
-
 int nvhost_syncpt_create_fence_single_ext(struct platform_device *dev,
 	u32 id, u32 thresh, const char *name, int *fence_fd)
 {
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC)
 	struct nvhost_ctrl_sync_fence_info pts = {id, thresh};
 
 	if (id == NVSYNCPT_INVALID) {
@@ -1529,7 +1425,7 @@ int nvhost_syncpt_create_fence_single_ext(struct platform_device *dev,
 		return -EINVAL;
 	}
 
-	return nvhost_sync_create_fence_fd(dev, &pts, 1, name, fence_fd);
+	return nvhost_fence_create_fd(dev, &pts, 1, name, fence_fd);
 #else
 	return -EINVAL;
 #endif

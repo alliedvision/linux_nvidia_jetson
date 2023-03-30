@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2016 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2016 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -249,7 +249,7 @@ cfg_sounding_88xx(struct halmac_adapter *adapter, enum halmac_snd_role role,
 		break;
 	case HAL_BFEE:
 		HALMAC_REG_W8(REG_SND_PTCL_CTRL, 0xDB);
-		HALMAC_REG_W8(REG_SND_PTCL_CTRL + 3, 0x26);
+		HALMAC_REG_W8(REG_SND_PTCL_CTRL + 3, 0x3A);
 		HALMAC_REG_W8_CLR(REG_RXFLTMAP1, BIT(4));
 		HALMAC_REG_W8_CLR(REG_RXFLTMAP4, BIT(4));
 		#if (HALMAC_8822C_SUPPORT || HALMAC_8812F_SUPPORT)
@@ -643,6 +643,11 @@ cfg_csi_rate_88xx(struct halmac_adapter *adapter, u8 rssi, u8 cur_rate,
 	csi_cfg = HALMAC_REG_R32(REG_BBPSF_CTRL) & ~BITS_WMAC_CSI_RATE;
 #endif
 
+#if (HALMAC_8822C_SUPPORT || HALMAC_8812F_SUPPORT)
+	if (adapter->chip_id == HALMAC_CHIP_ID_8822C ||
+	    adapter->chip_id == HALMAC_CHIP_ID_8812F)
+		HALMAC_REG_W32_SET(REG_BBPSF_CTRL, BIT(15));
+#endif
 
 	if (rssi >= 40) {
 		if (cur_rate != HALMAC_OFDM54) {

@@ -1,0 +1,47 @@
+From 938b2da07d2e7c1db0ceeef4a63620370b6ed982 Mon Sep 17 00:00:00 2001
+From: Satya Tangirala <satyat@google.com>
+Date: Tue, 17 Dec 2019 17:32:46 -0800
+Subject: [PATCH 708/830] ANDROID: gki_defconfig: Enable blk-crypto fallback
+X-NVConfidentiality: public
+
+Enable blk-crypto's kernel crypto API fallback, so that devices
+without inline encryption hardware can continue to use the inlinecrypt
+mount option and have file content crypto handled by the block layer.
+
+Bug: 137270441
+Test: xfstests, cuttlefish boot and stress test, pixel 4 boot and stress
+      test
+Change-Id: I26376479ee38259b8c35732cb3a1d7e15f9b05a3
+Signed-off-by: Satya Tangirala <satyat@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index cae061cde7be..c68766854468 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -84,6 +84,7 @@ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+ CONFIG_BLK_INLINE_ENCRYPTION=y
++CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index bbb273cb13ef..07c1c816da44 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -62,6 +62,7 @@ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+ CONFIG_BLK_INLINE_ENCRYPTION=y
++CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=y
+-- 
+2.17.1
+

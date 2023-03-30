@@ -1,0 +1,32 @@
+From 87d38b1f910a18672e3fbdc840b8660b341cf2ed Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Tue, 17 Nov 2020 21:16:31 -0800
+Subject: [PATCH 174/830] ANDROID: Sched: Export sched_feat_keys symbol needed
+ by vendor modules
+X-NVConfidentiality: public
+
+Export sched_feat_keys to check Sched feature is enabled or not
+from vendor modules.
+
+Bug: 173559623
+Change-Id: Id03483149f39bfc3e3a18ea56736a84d824a53f7
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ kernel/sched/debug.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
+index 70a578272436..33516a42ffb3 100644
+--- a/kernel/sched/debug.c
++++ b/kernel/sched/debug.c
+@@ -79,6 +79,7 @@ static int sched_feat_show(struct seq_file *m, void *v)
+ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
+ #include "features.h"
+ };
++EXPORT_SYMBOL_GPL(sched_feat_keys);
+ 
+ #undef SCHED_FEAT
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,16 @@
+Tegra Hypervisor manager
+
+Instantiates virtualization related resources such as ivc, mempool
+ivc is used for inter-VM communication
+mempool is used for data exchange between VMs
+
+Required properties:
+- compatible: Should be "nvidia,tegra-hv"
+
+
+Example:
+	tegra_hv: hyp {
+		compatible = "nvidia,tegra-hv";
+		status = "okay";
+	};
+

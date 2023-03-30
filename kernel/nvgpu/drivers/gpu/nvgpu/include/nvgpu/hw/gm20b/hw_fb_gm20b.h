@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,287 +53,80 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_fb_gm20b_h_
-#define _hw_fb_gm20b_h_
+#ifndef NVGPU_HW_FB_GM20B_H
+#define NVGPU_HW_FB_GM20B_H
 
-static inline u32 fb_fbhub_num_active_ltcs_r(void)
-{
-	return 0x00100800U;
-}
-static inline u32 fb_mmu_ctrl_r(void)
-{
-	return 0x00100c80U;
-}
-static inline u32 fb_mmu_ctrl_pri_fifo_empty_v(u32 r)
-{
-	return (r >> 15U) & 0x1U;
-}
-static inline u32 fb_mmu_ctrl_pri_fifo_empty_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_ctrl_pri_fifo_space_v(u32 r)
-{
-	return (r >> 16U) & 0xffU;
-}
-static inline u32 fb_mmu_ctrl_use_pdb_big_page_size_v(u32 r)
-{
-	return (r >> 11U) & 0x1U;
-}
-static inline u32 fb_mmu_ctrl_use_pdb_big_page_size_true_f(void)
-{
-	return 0x800U;
-}
-static inline u32 fb_mmu_ctrl_use_pdb_big_page_size_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_ctrl_use_full_comp_tag_line_v(u32 r)
-{
-	return (r >> 12U) & 0x1U;
-}
-static inline u32 fb_mmu_ctrl_use_full_comp_tag_line_true_f(void)
-{
-	return 0x1000U;
-}
-static inline u32 fb_priv_mmu_phy_secure_r(void)
-{
-	return 0x00100ce4U;
-}
-static inline u32 fb_mmu_invalidate_pdb_r(void)
-{
-	return 0x00100cb8U;
-}
-static inline u32 fb_mmu_invalidate_pdb_aperture_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_invalidate_pdb_aperture_sys_mem_f(void)
-{
-	return 0x2U;
-}
-static inline u32 fb_mmu_invalidate_pdb_addr_f(u32 v)
-{
-	return (v & 0xfffffffU) << 4U;
-}
-static inline u32 fb_mmu_invalidate_r(void)
-{
-	return 0x00100cbcU;
-}
-static inline u32 fb_mmu_invalidate_all_va_true_f(void)
-{
-	return 0x1U;
-}
-static inline u32 fb_mmu_invalidate_all_pdb_true_f(void)
-{
-	return 0x2U;
-}
-static inline u32 fb_mmu_invalidate_trigger_s(void)
-{
-	return 1U;
-}
-static inline u32 fb_mmu_invalidate_trigger_f(u32 v)
-{
-	return (v & 0x1U) << 31U;
-}
-static inline u32 fb_mmu_invalidate_trigger_m(void)
-{
-	return 0x1U << 31U;
-}
-static inline u32 fb_mmu_invalidate_trigger_v(u32 r)
-{
-	return (r >> 31U) & 0x1U;
-}
-static inline u32 fb_mmu_invalidate_trigger_true_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 fb_mmu_debug_wr_r(void)
-{
-	return 0x00100cc8U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_s(void)
-{
-	return 2U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_m(void)
-{
-	return 0x3U << 0U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_sys_mem_coh_f(void)
-{
-	return 0x2U;
-}
-static inline u32 fb_mmu_debug_wr_aperture_sys_mem_ncoh_f(void)
-{
-	return 0x3U;
-}
-static inline u32 fb_mmu_debug_wr_vol_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_debug_wr_vol_true_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 fb_mmu_debug_wr_vol_true_f(void)
-{
-	return 0x4U;
-}
-static inline u32 fb_mmu_debug_wr_addr_f(u32 v)
-{
-	return (v & 0xfffffffU) << 4U;
-}
-static inline u32 fb_mmu_debug_wr_addr_alignment_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 fb_mmu_debug_rd_r(void)
-{
-	return 0x00100cccU;
-}
-static inline u32 fb_mmu_debug_rd_aperture_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_debug_rd_aperture_sys_mem_coh_f(void)
-{
-	return 0x2U;
-}
-static inline u32 fb_mmu_debug_rd_aperture_sys_mem_ncoh_f(void)
-{
-	return 0x3U;
-}
-static inline u32 fb_mmu_debug_rd_vol_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_debug_rd_addr_f(u32 v)
-{
-	return (v & 0xfffffffU) << 4U;
-}
-static inline u32 fb_mmu_debug_rd_addr_alignment_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 fb_mmu_debug_ctrl_r(void)
-{
-	return 0x00100cc4U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_v(u32 r)
-{
-	return (r >> 16U) & 0x1U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_m(void)
-{
-	return 0x1U << 16U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_enabled_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_enabled_f(void)
-{
-	return 0x10000U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_disabled_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 fb_mmu_debug_ctrl_debug_disabled_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fb_mmu_vpr_info_r(void)
-{
-	return 0x00100cd0U;
-}
-static inline u32 fb_mmu_vpr_info_index_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 fb_mmu_vpr_info_index_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 fb_mmu_vpr_info_index_addr_lo_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 fb_mmu_vpr_info_index_addr_hi_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 fb_mmu_vpr_info_index_cya_lo_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 fb_mmu_vpr_info_index_cya_hi_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 fb_mmu_vpr_info_fetch_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 fb_mmu_vpr_info_fetch_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 fb_mmu_vpr_info_fetch_false_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 fb_mmu_vpr_info_fetch_true_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 fb_mmu_wpr_info_r(void)
-{
-	return 0x00100cd4U;
-}
-static inline u32 fb_mmu_wpr_info_index_f(u32 v)
-{
-	return (v & 0xfU) << 0U;
-}
-static inline u32 fb_mmu_wpr_info_index_allow_read_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 fb_mmu_wpr_info_index_allow_write_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 fb_mmu_wpr_info_index_wpr1_addr_lo_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 fb_mmu_wpr_info_index_wpr1_addr_hi_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 fb_mmu_wpr_info_index_wpr2_addr_lo_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 fb_mmu_wpr_info_index_wpr2_addr_hi_v(void)
-{
-	return 0x00000005U;
-}
-static inline u32 fb_niso_flush_sysmem_addr_r(void)
-{
-	return 0x00100c10U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define fb_fbhub_num_active_ltcs_r()                               (0x00100800U)
+#define fb_mmu_ctrl_r()                                            (0x00100c80U)
+#define fb_mmu_ctrl_pri_fifo_empty_v(r)                    (((r) >> 15U) & 0x1U)
+#define fb_mmu_ctrl_pri_fifo_empty_false_f()                              (0x0U)
+#define fb_mmu_ctrl_pri_fifo_space_v(r)                   (((r) >> 16U) & 0xffU)
+#define fb_mmu_ctrl_use_pdb_big_page_size_v(r)             (((r) >> 11U) & 0x1U)
+#define fb_mmu_ctrl_use_pdb_big_page_size_true_f()                      (0x800U)
+#define fb_mmu_ctrl_use_pdb_big_page_size_false_f()                       (0x0U)
+#define fb_mmu_ctrl_use_full_comp_tag_line_v(r)            (((r) >> 12U) & 0x1U)
+#define fb_mmu_ctrl_use_full_comp_tag_line_true_f()                    (0x1000U)
+#define fb_priv_mmu_phy_secure_r()                                 (0x00100ce4U)
+#define fb_mmu_invalidate_pdb_r()                                  (0x00100cb8U)
+#define fb_mmu_invalidate_pdb_aperture_vid_mem_f()                        (0x0U)
+#define fb_mmu_invalidate_pdb_aperture_sys_mem_f()                        (0x2U)
+#define fb_mmu_invalidate_pdb_addr_f(v)            ((U32(v) & 0xfffffffU) << 4U)
+#define fb_mmu_invalidate_r()                                      (0x00100cbcU)
+#define fb_mmu_invalidate_all_va_true_f()                                 (0x1U)
+#define fb_mmu_invalidate_all_pdb_true_f()                                (0x2U)
+#define fb_mmu_invalidate_trigger_s()                                       (1U)
+#define fb_mmu_invalidate_trigger_f(v)                  ((U32(v) & 0x1U) << 31U)
+#define fb_mmu_invalidate_trigger_m()                         (U32(0x1U) << 31U)
+#define fb_mmu_invalidate_trigger_v(r)                     (((r) >> 31U) & 0x1U)
+#define fb_mmu_invalidate_trigger_true_f()                         (0x80000000U)
+#define fb_mmu_debug_wr_r()                                        (0x00100cc8U)
+#define fb_mmu_debug_wr_aperture_s()                                        (2U)
+#define fb_mmu_debug_wr_aperture_f(v)                    ((U32(v) & 0x3U) << 0U)
+#define fb_mmu_debug_wr_aperture_m()                           (U32(0x3U) << 0U)
+#define fb_mmu_debug_wr_aperture_v(r)                       (((r) >> 0U) & 0x3U)
+#define fb_mmu_debug_wr_aperture_vid_mem_f()                              (0x0U)
+#define fb_mmu_debug_wr_aperture_sys_mem_coh_f()                          (0x2U)
+#define fb_mmu_debug_wr_aperture_sys_mem_ncoh_f()                         (0x3U)
+#define fb_mmu_debug_wr_vol_false_f()                                     (0x0U)
+#define fb_mmu_debug_wr_vol_true_v()                               (0x00000001U)
+#define fb_mmu_debug_wr_vol_true_f()                                      (0x4U)
+#define fb_mmu_debug_wr_addr_f(v)                  ((U32(v) & 0xfffffffU) << 4U)
+#define fb_mmu_debug_wr_addr_alignment_v()                         (0x0000000cU)
+#define fb_mmu_debug_rd_r()                                        (0x00100cccU)
+#define fb_mmu_debug_rd_aperture_vid_mem_f()                              (0x0U)
+#define fb_mmu_debug_rd_aperture_sys_mem_coh_f()                          (0x2U)
+#define fb_mmu_debug_rd_aperture_sys_mem_ncoh_f()                         (0x3U)
+#define fb_mmu_debug_rd_vol_false_f()                                     (0x0U)
+#define fb_mmu_debug_rd_addr_f(v)                  ((U32(v) & 0xfffffffU) << 4U)
+#define fb_mmu_debug_rd_addr_alignment_v()                         (0x0000000cU)
+#define fb_mmu_debug_ctrl_r()                                      (0x00100cc4U)
+#define fb_mmu_debug_ctrl_debug_v(r)                       (((r) >> 16U) & 0x1U)
+#define fb_mmu_debug_ctrl_debug_m()                           (U32(0x1U) << 16U)
+#define fb_mmu_debug_ctrl_debug_enabled_v()                        (0x00000001U)
+#define fb_mmu_debug_ctrl_debug_enabled_f()                           (0x10000U)
+#define fb_mmu_debug_ctrl_debug_disabled_v()                       (0x00000000U)
+#define fb_mmu_debug_ctrl_debug_disabled_f()                              (0x0U)
+#define fb_mmu_vpr_info_r()                                        (0x00100cd0U)
+#define fb_mmu_vpr_info_index_f(v)                       ((U32(v) & 0x3U) << 0U)
+#define fb_mmu_vpr_info_index_v(r)                          (((r) >> 0U) & 0x3U)
+#define fb_mmu_vpr_info_index_addr_lo_v()                          (0x00000000U)
+#define fb_mmu_vpr_info_index_addr_hi_v()                          (0x00000001U)
+#define fb_mmu_vpr_info_index_cya_lo_v()                           (0x00000002U)
+#define fb_mmu_vpr_info_index_cya_hi_v()                           (0x00000003U)
+#define fb_mmu_vpr_info_fetch_f(v)                       ((U32(v) & 0x1U) << 2U)
+#define fb_mmu_vpr_info_fetch_v(r)                          (((r) >> 2U) & 0x1U)
+#define fb_mmu_vpr_info_fetch_false_v()                            (0x00000000U)
+#define fb_mmu_vpr_info_fetch_true_v()                             (0x00000001U)
+#define fb_mmu_wpr_info_r()                                        (0x00100cd4U)
+#define fb_mmu_wpr_info_index_f(v)                       ((U32(v) & 0xfU) << 0U)
+#define fb_mmu_wpr_info_index_allow_read_v()                       (0x00000000U)
+#define fb_mmu_wpr_info_index_allow_write_v()                      (0x00000001U)
+#define fb_mmu_wpr_info_index_wpr1_addr_lo_v()                     (0x00000002U)
+#define fb_mmu_wpr_info_index_wpr1_addr_hi_v()                     (0x00000003U)
+#define fb_mmu_wpr_info_index_wpr2_addr_lo_v()                     (0x00000004U)
+#define fb_mmu_wpr_info_index_wpr2_addr_hi_v()                     (0x00000005U)
+#define fb_niso_flush_sysmem_addr_r()                              (0x00100c10U)
 #endif

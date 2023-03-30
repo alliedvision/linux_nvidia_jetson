@@ -1,0 +1,1702 @@
+From 98bbd1753953ab47b99a17eb13a4c0f808879ab3 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Fri, 13 Mar 2020 12:38:35 -0700
+Subject: [PATCH 435/830] ANDROID: Incremental fs: Remove signature checks from
+ kernel
+X-NVConfidentiality: public
+
+Test: selftests pass
+Bug: 133435829
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ia7e69b1b0176202da4b418ea815b370cbdacd5c2
+---
+ fs/incfs/data_mgmt.c                          | 154 +++-------
+ fs/incfs/data_mgmt.h                          |   5 +-
+ fs/incfs/format.c                             |  22 +-
+ fs/incfs/format.h                             |  45 +--
+ fs/incfs/integrity.c                          | 169 ++++++-----
+ fs/incfs/integrity.h                          |  20 +-
+ fs/incfs/vfs.c                                | 155 +++-------
+ include/uapi/linux/incrementalfs.h            |  66 ++---
+ .../selftests/filesystems/incfs/incfs_test.c  | 275 +-----------------
+ .../selftests/filesystems/incfs/utils.c       | 229 +++++----------
+ .../selftests/filesystems/incfs/utils.h       |  34 +--
+ 11 files changed, 305 insertions(+), 869 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 06a1f0c70f43..4a3da8523e8e 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -250,7 +250,7 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
+ {
+ 	u8 digest[INCFS_MAX_HASH_SIZE] = {};
+ 	struct mtree *tree = NULL;
+-	struct ondisk_signature *sig = NULL;
++	struct incfs_df_signature *sig = NULL;
+ 	struct mem_range calc_digest_rng;
+ 	struct mem_range saved_digest_rng;
+ 	struct mem_range root_hash_rng;
+@@ -273,8 +273,8 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
+ 		return res;
+ 
+ 	for (lvl = 0; lvl < tree->depth; lvl++) {
+-		loff_t lvl_off = tree->hash_level_suboffset[lvl] +
+-					sig->mtree_offset;
++		loff_t lvl_off =
++			tree->hash_level_suboffset[lvl] + sig->hash_offset;
+ 		loff_t hash_block_off = lvl_off +
+ 			round_down(hash_block_index * digest_size,
+ 				INCFS_DATA_FILE_BLOCK_SIZE);
+@@ -322,72 +322,6 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
+ 	return 0;
+ }
+ 
+-static int revalidate_signature(struct file *bf, struct data_file *df)
+-{
+-	struct ondisk_signature *sig = df->df_signature;
+-	struct mem_range root_hash = {};
+-	int result = 0;
+-	u8 *sig_buf = NULL;
+-	u8 *add_data_buf = NULL;
+-	ssize_t read_res;
+-
+-	/* File has no signature. */
+-	if (!sig || !df->df_hash_tree || sig->sig_size == 0)
+-		return 0;
+-
+-	/* Signature has already been validated. */
+-	if (df->df_signature_validated)
+-		return 0;
+-
+-	add_data_buf = kzalloc(sig->add_data_size, GFP_NOFS);
+-	if (!add_data_buf) {
+-		result = -ENOMEM;
+-		goto out;
+-	}
+-
+-	read_res = incfs_kread(bf, add_data_buf, sig->add_data_size,
+-				sig->add_data_offset);
+-	if (read_res < 0) {
+-		result = read_res;
+-		goto out;
+-	}
+-	if (read_res != sig->add_data_size) {
+-		result = -EIO;
+-		goto out;
+-	}
+-
+-	sig_buf = kzalloc(sig->sig_size, GFP_NOFS);
+-	if (!sig_buf) {
+-		result = -ENOMEM;
+-		goto out;
+-	}
+-
+-	read_res = incfs_kread(bf, sig_buf, sig->sig_size, sig->sig_offset);
+-	if (read_res < 0) {
+-		result = read_res;
+-		goto out;
+-	}
+-	if (read_res != sig->sig_size) {
+-		result = -EIO;
+-		goto out;
+-	}
+-
+-	root_hash = range(df->df_hash_tree->root_hash,
+-		df->df_hash_tree->alg->digest_size);
+-
+-	result = incfs_validate_pkcs7_signature(
+-		range(sig_buf, sig->sig_size),
+-		root_hash,
+-		range(add_data_buf, sig->add_data_size));
+-
+-	if (result == 0)
+-		df->df_signature_validated = true;
+-out:
+-	kfree(sig_buf);
+-	kfree(add_data_buf);
+-	return result;
+-}
+-
+ static struct data_file_segment *get_file_segment(struct data_file *df,
+ 						  int block_index)
+ {
+@@ -683,13 +617,6 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
+ 			result = err;
+ 	}
+ 
+-	if (result > 0) {
+-		int err = revalidate_signature(bf, df);
+-
+-		if (err < 0)
+-			result = err;
+-	}
+-
+ 	if (result >= 0)
+ 		log_block_read(mi, &df->df_id, index, false /*timed out*/);
+ 
+@@ -755,7 +682,7 @@ int incfs_process_new_data_block(struct data_file *df,
+ int incfs_read_file_signature(struct data_file *df, struct mem_range dst)
+ {
+ 	struct file *bf = df->df_backing_file_context->bc_file;
+-	struct ondisk_signature *sig;
++	struct incfs_df_signature *sig;
+ 	int read_res = 0;
+ 
+ 	if (!dst.data)
+@@ -785,7 +712,7 @@ int incfs_process_new_hash_block(struct data_file *df,
+ 	struct backing_file_context *bfc = NULL;
+ 	struct mount_info *mi = NULL;
+ 	struct mtree *hash_tree = NULL;
+-	struct ondisk_signature *sig = NULL;
++	struct incfs_df_signature *sig = NULL;
+ 	loff_t hash_area_base = 0;
+ 	loff_t hash_area_size = 0;
+ 	int error = 0;
+@@ -804,11 +731,11 @@ int incfs_process_new_hash_block(struct data_file *df,
+ 
+ 	hash_tree = df->df_hash_tree;
+ 	sig = df->df_signature;
+-	if (!hash_tree || !sig || sig->mtree_offset == 0)
++	if (!hash_tree || !sig || sig->hash_offset == 0)
+ 		return -ENOTSUPP;
+ 
+-	hash_area_base = sig->mtree_offset;
+-	hash_area_size = sig->mtree_size;
++	hash_area_base = sig->hash_offset;
++	hash_area_size = sig->hash_size;
+ 	if (hash_area_size < block->block_index * INCFS_DATA_FILE_BLOCK_SIZE
+ 				+ block->data_len) {
+ 		/* Hash block goes beyond dedicated hash area of this file. */
+@@ -866,58 +793,69 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
+ {
+ 	struct data_file *df = handler->context;
+ 	struct mtree *hash_tree = NULL;
+-	struct ondisk_signature *signature = NULL;
+ 	int error = 0;
+-	loff_t base_tree_off = le64_to_cpu(sg->sg_hash_tree_offset);
+-	u32 tree_size = le32_to_cpu(sg->sg_hash_tree_size);
+-	loff_t sig_off = le64_to_cpu(sg->sg_sig_offset);
+-	u32 sig_size = le32_to_cpu(sg->sg_sig_size);
+-	loff_t add_data_off = le64_to_cpu(sg->sg_add_data_offset);
+-	u32 add_data_size = le32_to_cpu(sg->sg_add_data_size);
++	struct incfs_df_signature *signature =
++		kzalloc(sizeof(*signature), GFP_NOFS);
++	void *buf = 0;
++	ssize_t read;
++
++	if (!df || !df->df_backing_file_context ||
++	    !df->df_backing_file_context->bc_file) {
++		error = -ENOENT;
++		goto out;
++	}
+ 
+-	if (!df)
+-		return -ENOENT;
++	signature->hash_offset = le64_to_cpu(sg->sg_hash_tree_offset);
++	signature->hash_size = le32_to_cpu(sg->sg_hash_tree_size);
++	signature->sig_offset = le64_to_cpu(sg->sg_sig_offset);
++	signature->sig_size = le32_to_cpu(sg->sg_sig_size);
+ 
+-	signature = kzalloc(sizeof(*signature), GFP_NOFS);
+-	if (!signature) {
++	buf = kzalloc(signature->sig_size, GFP_NOFS);
++	if (!buf) {
+ 		error = -ENOMEM;
+ 		goto out;
+ 	}
+ 
+-	signature->add_data_offset = add_data_off;
+-	signature->add_data_size = add_data_size;
+-	signature->sig_offset = sig_off;
+-	signature->sig_size = sig_size;
+-	signature->mtree_offset = base_tree_off;
+-	signature->mtree_size = tree_size;
++	read = incfs_kread(df->df_backing_file_context->bc_file, buf,
++			   signature->sig_size, signature->sig_offset);
++	if (read < 0) {
++		error = read;
++		goto out;
++	}
+ 
+-	hash_tree = incfs_alloc_mtree(sg->sg_hash_alg, df->df_block_count,
+-			range(sg->sg_root_hash, sizeof(sg->sg_root_hash)));
++	if (read != signature->sig_size) {
++		error = -EINVAL;
++		goto out;
++	}
++
++	hash_tree = incfs_alloc_mtree(range(buf, signature->sig_size),
++				      df->df_block_count);
+ 	if (IS_ERR(hash_tree)) {
+ 		error = PTR_ERR(hash_tree);
+ 		hash_tree = NULL;
+ 		goto out;
+ 	}
+-	if (hash_tree->hash_tree_area_size != tree_size) {
++	if (hash_tree->hash_tree_area_size != signature->hash_size) {
+ 		error = -EINVAL;
+ 		goto out;
+ 	}
+-	if (tree_size > 0 && handler->md_record_offset <= base_tree_off) {
++	if (signature->hash_size > 0 &&
++	    handler->md_record_offset <= signature->hash_offset) {
+ 		error = -EINVAL;
+ 		goto out;
+ 	}
+-	if (handler->md_record_offset <= signature->add_data_offset ||
+-	    handler->md_record_offset <= signature->sig_offset) {
++	if (handler->md_record_offset <= signature->sig_offset) {
+ 		error = -EINVAL;
+ 		goto out;
+ 	}
+ 	df->df_hash_tree = hash_tree;
++	hash_tree = NULL;
+ 	df->df_signature = signature;
++	signature = NULL;
+ out:
+-	if (error) {
+-		incfs_free_mtree(hash_tree);
+-		kfree(signature);
+-	}
++	incfs_free_mtree(hash_tree);
++	kfree(signature);
++	kfree(buf);
+ 
+ 	return error;
+ }
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index aa08d18a61c2..4e3eab5f7701 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -189,10 +189,7 @@ struct data_file {
+ 
+ 	struct mtree *df_hash_tree;
+ 
+-	struct ondisk_signature *df_signature;
+-
+-	/* True, if file signature has already been validated. */
+-	bool df_signature_validated;
++	struct incfs_df_signature *df_signature;
+ };
+ 
+ struct dir_file {
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index db71f527cf36..8c8213ee325d 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -299,9 +299,7 @@ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ }
+ 
+ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+-		u8 hash_alg, u32 tree_size,
+-		struct mem_range root_hash, struct mem_range add_data,
+-		struct mem_range sig)
++					  struct mem_range sig, u32 tree_size)
+ {
+ 	struct incfs_file_signature sg = {};
+ 	int result = 0;
+@@ -311,8 +309,6 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 
+ 	if (!bfc)
+ 		return -EFAULT;
+-	if (root_hash.len > sizeof(sg.sg_root_hash))
+-		return -E2BIG;
+ 
+ 	LOCK_REQUIRED(bfc->bc_mutex);
+ 
+@@ -321,7 +317,6 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 	sg.sg_header.h_md_entry_type = INCFS_MD_SIGNATURE;
+ 	sg.sg_header.h_record_size = cpu_to_le16(sizeof(sg));
+ 	sg.sg_header.h_next_md_offset = cpu_to_le64(0);
+-	sg.sg_hash_alg = hash_alg;
+ 	if (sig.data != NULL && sig.len > 0) {
+ 		loff_t pos = incfs_get_end_offset(bfc->bc_file);
+ 
+@@ -333,20 +328,8 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 			goto err;
+ 	}
+ 
+-	if (add_data.len > 0) {
+-		loff_t pos = incfs_get_end_offset(bfc->bc_file);
+-
+-		sg.sg_add_data_size = cpu_to_le32(add_data.len);
+-		sg.sg_add_data_offset = cpu_to_le64(pos);
+-
+-		result = write_to_bf(bfc, add_data.data,
+-			add_data.len, pos, false);
+-		if (result)
+-			goto err;
+-	}
+-
+ 	tree_area_pos = incfs_get_end_offset(bfc->bc_file);
+-	if (hash_alg && tree_size > 0) {
++	if (tree_size > 0) {
+ 		if (tree_size > 5 * INCFS_DATA_FILE_BLOCK_SIZE) {
+ 			/*
+ 			 * If hash tree is big enough, it makes sense to
+@@ -369,7 +352,6 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 		sg.sg_hash_tree_size = cpu_to_le32(tree_size);
+ 		sg.sg_hash_tree_offset = cpu_to_le64(tree_area_pos);
+ 	}
+-	memcpy(sg.sg_root_hash, root_hash.data, root_hash.len);
+ 
+ 	/* Write a hash tree metadata record pointing to the hash tree above. */
+ 	result = append_md_to_backing_file(bfc, &sg.sg_header);
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index 0978f8a89b34..3e3f7fa7560a 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -217,27 +217,27 @@ struct incfs_file_attr {
+ 	__le32 fa_crc;
+ } __packed;
+ 
+-/* Metadata record for file attribute. Type = INCFS_MD_SIGNATURE */
++/* Metadata record for file signature. Type = INCFS_MD_SIGNATURE */
+ struct incfs_file_signature {
+ 	struct incfs_md_header sg_header;
+ 
+-	__u8 sg_hash_alg; /* Value from incfs_hash_tree_algorithm */
++	__le32 sg_sig_size; /* The size of the signature. */
++
++	__le64 sg_sig_offset; /* Signature's offset in the backing file */
+ 
+ 	__le32 sg_hash_tree_size; /* The size of the hash tree. */
+ 
+ 	__le64 sg_hash_tree_offset; /* Hash tree offset in the backing file */
+-
+-	__u8 sg_root_hash[INCFS_MAX_HASH_SIZE];
+-
+-	__le32 sg_sig_size; /* The size of the pkcs7 signature. */
+-
+-	__le64 sg_sig_offset; /* pkcs7 signature's offset in the backing file */
+-
+-	__le32 sg_add_data_size; /* The size of the additional data. */
+-
+-	__le64 sg_add_data_offset; /* Additional data's offset */
+ } __packed;
+ 
++/* In memory version of above */
++struct incfs_df_signature {
++	u32 sig_size;
++	u64 sig_offset;
++	u32 hash_size;
++	u64 hash_offset;
++};
++
+ /* State of the backing file. */
+ struct backing_file_context {
+ 	/* Protects writes to bc_file */
+@@ -253,23 +253,6 @@ struct backing_file_context {
+ 	loff_t bc_last_md_record_offset;
+ };
+ 
+-
+-/* Backing file locations of things required for signature validation. */
+-struct ondisk_signature {
+-
+-	loff_t add_data_offset; /* Additional data's offset */
+-
+-	loff_t sig_offset; /* pkcs7 signature's offset in the backing file */
+-
+-	loff_t mtree_offset; /* Backing file offset of the hash tree. */
+-
+-	u32 add_data_size; /* The size of the additional data. */
+-
+-	u32 sig_size; /* The size of the pkcs7 signature. */
+-
+-	u32 mtree_size; /* The size of the hash tree. */
+-};
+-
+ struct metadata_handler {
+ 	loff_t md_record_offset;
+ 	loff_t md_prev_record_offset;
+@@ -319,9 +302,7 @@ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ 		struct mem_range value, struct incfs_file_attr *attr);
+ 
+ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+-		u8 hash_alg, u32 tree_size,
+-		struct mem_range root_hash, struct mem_range add_data,
+-		struct mem_range sig);
++					  struct mem_range sig, u32 tree_size);
+ 
+ int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+ 				  incfs_uuid_t *uuid, u64 file_size);
+diff --git a/fs/incfs/integrity.c b/fs/incfs/integrity.c
+index 1d00dda109e3..f8af9a83ea8a 100644
+--- a/fs/incfs/integrity.c
++++ b/fs/incfs/integrity.c
+@@ -10,70 +10,6 @@
+ 
+ #include "integrity.h"
+ 
+-int incfs_validate_pkcs7_signature(struct mem_range pkcs7_blob,
+-	struct mem_range root_hash, struct mem_range add_data)
+-{
+-	struct pkcs7_message *pkcs7 = NULL;
+-	const void *data = NULL;
+-	size_t data_len = 0;
+-	const char *p;
+-	int err;
+-
+-	pkcs7 = pkcs7_parse_message(pkcs7_blob.data, pkcs7_blob.len);
+-	if (IS_ERR(pkcs7)) {
+-		pr_debug("PKCS#7 parsing error. ptr=%p size=%ld err=%ld\n",
+-			pkcs7_blob.data, pkcs7_blob.len, -PTR_ERR(pkcs7));
+-		return PTR_ERR(pkcs7);
+-	}
+-
+-	err = pkcs7_get_content_data(pkcs7, &data, &data_len, NULL);
+-	if (err || data_len == 0 || data == NULL) {
+-		pr_debug("PKCS#7 message does not contain data\n");
+-		err = -EBADMSG;
+-		goto out;
+-	}
+-
+-	if (root_hash.len == 0) {
+-		pr_debug("Root hash is empty.\n");
+-		err = -EBADMSG;
+-		goto out;
+-	}
+-
+-	if (data_len != root_hash.len + add_data.len) {
+-		pr_debug("PKCS#7 data size doesn't match arguments.\n");
+-		err = -EKEYREJECTED;
+-		goto out;
+-	}
+-
+-	p = data;
+-	if (memcmp(p, root_hash.data, root_hash.len) != 0) {
+-		pr_debug("Root hash mismatch.\n");
+-		err = -EKEYREJECTED;
+-		goto out;
+-	}
+-	p += root_hash.len;
+-	if (memcmp(p, add_data.data, add_data.len) != 0) {
+-		pr_debug("Additional data mismatch.\n");
+-		err = -EKEYREJECTED;
+-		goto out;
+-	}
+-
+-	err = pkcs7_verify(pkcs7, VERIFYING_UNSPECIFIED_SIGNATURE);
+-	if (err)
+-		pr_debug("PKCS#7 signature verification error: %d\n", -err);
+-
+-	/*
+-	 * RSA signature verification sometimes returns unexpected error codes
+-	 * when signature doesn't match.
+-	 */
+-	if (err == -ERANGE || err == -EINVAL)
+-		err = -EBADMSG;
+-
+-out:
+-	pkcs7_free_message(pkcs7);
+-	return err;
+-}
+-
+ struct incfs_hash_alg *incfs_get_hash_alg(enum incfs_hash_tree_algorithm id)
+ {
+ 	static struct incfs_hash_alg sha256 = {
+@@ -113,11 +49,90 @@ struct incfs_hash_alg *incfs_get_hash_alg(enum incfs_hash_tree_algorithm id)
+ 	return result;
+ }
+ 
++struct signature_info {
++	u32 version;
++	enum incfs_hash_tree_algorithm hash_algorithm;
++	u8 log2_blocksize;
++	struct mem_range salt;
++	struct mem_range root_hash;
++};
+ 
+-struct mtree *incfs_alloc_mtree(enum incfs_hash_tree_algorithm id,
+-				int data_block_count,
+-				struct mem_range root_hash)
++static u32 read_u32(u8 **p, u8 *top, u32 *result)
+ {
++	if (*p + sizeof(u32) > top)
++		return false;
++
++	*result = le32_to_cpu(*(u32 *)*p);
++	*p += sizeof(u32);
++	return true;
++}
++
++static bool read_u8(u8 **p, u8 *top, u8 *result)
++{
++	if (*p + sizeof(u8) > top)
++		return false;
++
++	*result = *(u8 *)*p;
++	*p += sizeof(u8);
++	return true;
++}
++
++static bool read_mem_range(u8 **p, u8 *top, struct mem_range *range)
++{
++	u32 len;
++
++	if (!read_u32(p, top, &len) || *p + len > top)
++		return false;
++
++	range->len = len;
++	range->data = *p;
++	*p += len;
++	return true;
++}
++
++static int incfs_parse_signature(struct mem_range signature,
++				 struct signature_info *si)
++{
++	u8 *p = signature.data;
++	u8 *top = signature.data + signature.len;
++	u32 hash_section_size;
++
++	if (signature.len > INCFS_MAX_SIGNATURE_SIZE)
++		return -EINVAL;
++
++	if (!read_u32(&p, top, &si->version) ||
++	    si->version != INCFS_SIGNATURE_VERSION)
++		return -EINVAL;
++
++	if (!read_u32(&p, top, &hash_section_size) ||
++	    p + hash_section_size > top)
++		return -EINVAL;
++	top = p + hash_section_size;
++
++	if (!read_u32(&p, top, &si->hash_algorithm) ||
++	    si->hash_algorithm != INCFS_HASH_TREE_SHA256)
++		return -EINVAL;
++
++	if (!read_u8(&p, top, &si->log2_blocksize) || si->log2_blocksize != 12)
++		return -EINVAL;
++
++	if (!read_mem_range(&p, top, &si->salt))
++		return -EINVAL;
++
++	if (!read_mem_range(&p, top, &si->root_hash))
++		return -EINVAL;
++
++	if (p != top)
++		return -EINVAL;
++
++	return 0;
++}
++
++struct mtree *incfs_alloc_mtree(struct mem_range signature,
++				int data_block_count)
++{
++	int error;
++	struct signature_info si;
+ 	struct mtree *result = NULL;
+ 	struct incfs_hash_alg *hash_alg = NULL;
+ 	int hash_per_block;
+@@ -129,11 +144,15 @@ struct mtree *incfs_alloc_mtree(enum incfs_hash_tree_algorithm id,
+ 	if (data_block_count <= 0)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	hash_alg = incfs_get_hash_alg(id);
++	error = incfs_parse_signature(signature, &si);
++	if (error)
++		return ERR_PTR(error);
++
++	hash_alg = incfs_get_hash_alg(si.hash_algorithm);
+ 	if (IS_ERR(hash_alg))
+ 		return ERR_PTR(PTR_ERR(hash_alg));
+ 
+-	if (root_hash.len < hash_alg->digest_size)
++	if (si.root_hash.len < hash_alg->digest_size)
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	result = kzalloc(sizeof(*result), GFP_NOFS);
+@@ -173,7 +192,7 @@ struct mtree *incfs_alloc_mtree(enum incfs_hash_tree_algorithm id,
+ 	}
+ 
+ 	/* Root hash is stored separately from the rest of the tree. */
+-	memcpy(result->root_hash, root_hash.data, hash_alg->digest_size);
++	memcpy(result->root_hash, si.root_hash.data, hash_alg->digest_size);
+ 	return result;
+ 
+ err:
+@@ -215,13 +234,3 @@ int incfs_calc_digest(struct incfs_hash_alg *alg, struct mem_range data,
+ 	return crypto_shash_digest(desc, data.data, data.len, digest.data);
+ }
+ 
+-void incfs_free_signature_info(struct signature_info *si)
+-{
+-	if (!si)
+-		return;
+-	kfree(si->root_hash.data);
+-	kfree(si->additional_data.data);
+-	kfree(si->signature.data);
+-	kfree(si);
+-}
+-
+diff --git a/fs/incfs/integrity.h b/fs/incfs/integrity.h
+index da1c38486b2f..cf79b64da736 100644
+--- a/fs/incfs/integrity.h
++++ b/fs/incfs/integrity.h
+@@ -38,21 +38,10 @@ struct mtree {
+ 	int depth;
+ };
+ 
+-struct signature_info {
+-	struct mem_range root_hash;
+-
+-	struct mem_range additional_data;
+-
+-	struct mem_range signature;
+-
+-	enum incfs_hash_tree_algorithm hash_alg;
+-};
+-
+ struct incfs_hash_alg *incfs_get_hash_alg(enum incfs_hash_tree_algorithm id);
+ 
+-struct mtree *incfs_alloc_mtree(enum incfs_hash_tree_algorithm id,
+-				int data_block_count,
+-				struct mem_range root_hash);
++struct mtree *incfs_alloc_mtree(struct mem_range signature,
++				int data_block_count);
+ 
+ void incfs_free_mtree(struct mtree *tree);
+ 
+@@ -64,9 +53,4 @@ size_t incfs_get_mtree_hash_count(enum incfs_hash_tree_algorithm alg,
+ int incfs_calc_digest(struct incfs_hash_alg *alg, struct mem_range data,
+ 			struct mem_range digest);
+ 
+-int incfs_validate_pkcs7_signature(struct mem_range pkcs7_blob,
+-	struct mem_range root_hash, struct mem_range add_data);
+-
+-void incfs_free_signature_info(struct signature_info *si);
+-
+ #endif /* _INCFS_INTEGRITY_H */
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 4eabab4fcdd2..59b04dd0c6e9 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -838,104 +838,39 @@ static char *file_id_to_str(incfs_uuid_t id)
+ 	return result;
+ }
+ 
+-static struct signature_info *incfs_copy_signature_info_from_user(
+-		struct incfs_file_signature_info __user *original)
++static struct mem_range incfs_copy_signature_info_from_user(u8 __user *original,
++							    u64 size)
+ {
+-	struct incfs_file_signature_info usr_si;
+-	struct signature_info *result;
+-	int error;
++	u8 *result;
+ 
+ 	if (!original)
+-		return NULL;
++		return range(NULL, 0);
+ 
+-	if (copy_from_user(&usr_si, original, sizeof(usr_si)) > 0)
+-		return ERR_PTR(-EFAULT);
++	if (size > INCFS_MAX_SIGNATURE_SIZE)
++		return range(ERR_PTR(-EFAULT), 0);
+ 
+-	result = kzalloc(sizeof(*result), GFP_NOFS);
++	result = kzalloc(size, GFP_NOFS);
+ 	if (!result)
+-		return ERR_PTR(-ENOMEM);
+-
+-	result->hash_alg = usr_si.hash_tree_alg;
+-
+-	if (result->hash_alg) {
+-		void *p = kzalloc(INCFS_MAX_HASH_SIZE, GFP_NOFS);
+-
+-		if (!p) {
+-			error = -ENOMEM;
+-			goto err;
+-		}
+-
+-		/* TODO this sets the root_hash length to MAX_HASH_SIZE not
+-		 * the actual size. Fix, then set INCFS_MAX_HASH_SIZE back
+-		 * to 64
+-		 */
+-		result->root_hash = range(p, INCFS_MAX_HASH_SIZE);
+-		if (copy_from_user(p, u64_to_user_ptr(usr_si.root_hash),
+-				result->root_hash.len) > 0) {
+-			error = -EFAULT;
+-			goto err;
+-		}
+-	}
+-
+-	if (usr_si.additional_data_size > INCFS_MAX_FILE_ATTR_SIZE) {
+-		error = -E2BIG;
+-		goto err;
+-	}
+-
+-	if (usr_si.additional_data && usr_si.additional_data_size) {
+-		void *p = kzalloc(usr_si.additional_data_size, GFP_NOFS);
++		return range(ERR_PTR(-ENOMEM), 0);
+ 
+-		if (!p) {
+-			error = -ENOMEM;
+-			goto err;
+-		}
+-		result->additional_data = range(p,
+-					usr_si.additional_data_size);
+-		if (copy_from_user(p, u64_to_user_ptr(usr_si.additional_data),
+-				result->additional_data.len) > 0) {
+-			error = -EFAULT;
+-			goto err;
+-		}
++	if (copy_from_user(result, original, size)) {
++		kfree(result);
++		return range(ERR_PTR(-EFAULT), 0);
+ 	}
+ 
+-	if (usr_si.signature_size > INCFS_MAX_SIGNATURE_SIZE) {
+-		error = -E2BIG;
+-		goto err;
+-	}
+-
+-	if (usr_si.signature && usr_si.signature_size) {
+-		void *p = kzalloc(usr_si.signature_size, GFP_NOFS);
+-
+-		if (!p) {
+-			error = -ENOMEM;
+-			goto err;
+-		}
+-		result->signature = range(p, usr_si.signature_size);
+-		if (copy_from_user(p, u64_to_user_ptr(usr_si.signature),
+-				result->signature.len) > 0) {
+-			error = -EFAULT;
+-			goto err;
+-		}
+-	}
+-
+-	return result;
+-
+-err:
+-	incfs_free_signature_info(result);
+-	return ERR_PTR(-error);
++	return range(result, size);
+ }
+ 
+ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+-		incfs_uuid_t *uuid, u64 size, struct mem_range attr,
+-		struct incfs_file_signature_info __user *fsi)
++			 incfs_uuid_t *uuid, u64 size, struct mem_range attr,
++			 u8 __user *user_signature_info, u64 signature_size)
+ {
+ 	struct path path = {};
+ 	struct file *new_file;
+ 	int error = 0;
+ 	struct backing_file_context *bfc = NULL;
+ 	u32 block_count;
+-	struct mem_range mem_range = {NULL};
+-	struct signature_info *si = NULL;
++	struct mem_range raw_signature = { NULL };
+ 	struct mtree *hash_tree = NULL;
+ 
+ 	if (!mi || !dentry || !uuid)
+@@ -985,44 +920,27 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 			goto out;
+ 	}
+ 
+-	if (fsi) {
+-		si = incfs_copy_signature_info_from_user(fsi);
++	if (user_signature_info) {
++		raw_signature = incfs_copy_signature_info_from_user(
++			user_signature_info, signature_size);
+ 
+-		if (IS_ERR(si)) {
+-			error = PTR_ERR(si);
+-			si = NULL;
++		if (IS_ERR(raw_signature.data)) {
++			error = PTR_ERR(raw_signature.data);
++			raw_signature.data = NULL;
+ 			goto out;
+ 		}
+ 
+-		if (si->hash_alg) {
+-			hash_tree = incfs_alloc_mtree(si->hash_alg, block_count,
+-						      si->root_hash);
+-			if (IS_ERR(hash_tree)) {
+-				error = PTR_ERR(hash_tree);
+-				hash_tree = NULL;
+-				goto out;
+-			}
+-
+-			/* TODO This code seems wrong when len is zero - we
+-			 * should error out??
+-			 */
+-			if (si->signature.len > 0)
+-				error = incfs_validate_pkcs7_signature(
+-						si->signature,
+-						si->root_hash,
+-						si->additional_data);
+-			if (error)
+-				goto out;
+-
+-			error = incfs_write_signature_to_backing_file(bfc,
+-					si->hash_alg,
+-					hash_tree->hash_tree_area_size,
+-					si->root_hash, si->additional_data,
+-					si->signature);
+-
+-			if (error)
+-				goto out;
++		hash_tree = incfs_alloc_mtree(raw_signature, block_count);
++		if (IS_ERR(hash_tree)) {
++			error = PTR_ERR(hash_tree);
++			hash_tree = NULL;
++			goto out;
+ 		}
++
++		error = incfs_write_signature_to_backing_file(
++			bfc, raw_signature, hash_tree->hash_tree_area_size);
++		if (error)
++			goto out;
+ 	}
+ 
+ out:
+@@ -1031,8 +949,7 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 		incfs_free_bfc(bfc);
+ 	}
+ 	incfs_free_mtree(hash_tree);
+-	incfs_free_signature_info(si);
+-	kfree(mem_range.data);
++	kfree(raw_signature.data);
+ 
+ 	if (error)
+ 		pr_debug("incfs: %s error: %d\n", __func__, error);
+@@ -1290,7 +1207,7 @@ static long ioctl_create_file(struct mount_info *mi,
+ 		goto delete_index_file;
+ 	}
+ 
+-	/* Save the file's attrubute as an xattr */
++	/* Save the file's attribute as an xattr */
+ 	if (args.file_attr_len && args.file_attr) {
+ 		if (args.file_attr_len > INCFS_MAX_FILE_ATTR_SIZE) {
+ 			error = -E2BIG;
+@@ -1321,9 +1238,9 @@ static long ioctl_create_file(struct mount_info *mi,
+ 
+ 	/* Initializing a newly created file. */
+ 	error = init_new_file(mi, index_file_dentry, &args.file_id, args.size,
+-			range(attr_value, args.file_attr_len),
+-			(struct incfs_file_signature_info __user *)
+-				args.signature_info);
++			      range(attr_value, args.file_attr_len),
++			      (u8 __user *)args.signature_info,
++			      args.signature_size);
+ 	if (error)
+ 		goto delete_index_file;
+ 
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 82add05a32c9..d3bd532cc913 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -35,6 +35,8 @@
+ #define INCFS_XATTR_METADATA_NAME (XATTR_USER_PREFIX "incfs.metadata")
+ 
+ #define INCFS_MAX_SIGNATURE_SIZE 8096
++#define INCFS_SIGNATURE_VERSION 2
++#define INCFS_SIGNATURE_SECTIONS 2
+ 
+ #define INCFS_IOCTL_BASE_CODE 'g'
+ 
+@@ -139,46 +141,6 @@ enum incfs_hash_tree_algorithm {
+ 	INCFS_HASH_TREE_SHA256 = 1
+ };
+ 
+-struct incfs_file_signature_info {
+-	/*
+-	 * A pointer to file's root hash (if determined != 0)
+-	 * Actual hash size determined by hash_tree_alg.
+-	 * Size of the buffer should be at least INCFS_MAX_HASH_SIZE
+-	 *
+-	 * Equivalent to: u8 *root_hash;
+-	 */
+-	__aligned_u64 root_hash;
+-
+-	/*
+-	 * A pointer to additional data that was attached to the root hash
+-	 * before signing.
+-	 *
+-	 * Equivalent to: u8 *additional_data;
+-	 */
+-	__aligned_u64 additional_data;
+-
+-	/* Size of additional data. */
+-	__u32 additional_data_size;
+-
+-	__u32 reserved1;
+-
+-	/*
+-	 * A pointer to pkcs7 signature DER blob.
+-	 *
+-	 * Equivalent to: u8 *signature;
+-	 */
+-	__aligned_u64 signature;
+-
+-
+-	/* Size of pkcs7 signature DER blob */
+-	__u32 signature_size;
+-
+-	__u32 reserved2;
+-
+-	/* Value from incfs_hash_tree_algorithm */
+-	__u8 hash_tree_alg;
+-};
+-
+ /*
+  * Create a new file or directory.
+  */
+@@ -232,10 +194,30 @@ struct incfs_new_file_args {
+ 
+ 	__u32 reserved4;
+ 
+-	/* struct incfs_file_signature_info *signature_info; */
++	/*
++	 * Points to an APK V4 Signature data blob
++	 * Signature must have two sections
++	 * Format is:
++	 *	u32 version
++	 *	u32 size_of_hash_info_section
++	 *	u8 hash_info_section[]
++	 *	u32 size_of_signing_info_section
++	 *	u8 signing_info_section[]
++	 *
++	 * Note that incfs does not care about what is in signing_info_section
++	 *
++	 * hash_info_section has following format:
++	 *	u32 hash_algorithm; // Must be SHA256 == 1
++	 *	u8 log2_blocksize;  // Must be 12 for 4096 byte blocks
++	 *	u32 salt_size;
++	 *	u8 salt[];
++	 *	u32 hash_size;
++	 *	u8 root_hash[];
++	 */
+ 	__aligned_u64 signature_info;
+ 
+-	__aligned_u64 reserved5;
++	/* Size of signature_info */
++	__aligned_u64 signature_size;
+ 
+ 	__aligned_u64 reserved6;
+ };
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index c276b4cde2d5..9910b274bfc0 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -25,8 +25,6 @@
+ #include "lz4.h"
+ #include "utils.h"
+ 
+-#define __packed __attribute__((__packed__))
+-
+ #define TEST_FAILURE 1
+ #define TEST_SUCCESS 0
+ #define INCFS_MAX_MTREE_LEVELS 8
+@@ -69,101 +67,6 @@ struct linux_dirent64 {
+ 	char	       d_name[0];
+ } __packed;
+ 
+-/*
+- * The certificate below and the private key were created by calling:
+- *	openssl req -x509 -newkey rsa:4096 -keyout private.key -out cert.crt
+- *	-days 1000 -sha256 -nodes -outform PEM -subj
+- *	"/C=US/ST=WA/L=Kirkland/O=Example/OU=Org/CN=www.example.com"
+- */
+-char x509_cert[] =
+-"-----BEGIN CERTIFICATE-----\n"
+-"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\n"
+-"-----END CERTIFICATE-----";
+-
+-char private_key[] =
+-"-----BEGIN PRIVATE KEY-----\n"
+-"MIIJQwIBADANBgkqhkiG9w0BAQEFAASCCS0wggkpAgEAAoICAQC1LuFW/lDV/Gfl\n"
+-"qFMz7RDvFFgWld982ZuDJRaK55JNj+MI4RZNL61PDw43NeeJtqUoVxSLS9wHURjS\n"
+-"jD/CV5GudUOnzGfbwFlLko+jhYRT4HNFS+5ys1FEJLtAuYcY4P9GHQEXYUX+ue82\n"
+-"A2kJ91oY6G3vCQYJFiGteb6TRDICmug31x4pBfB8rOdt4/NXS/Dn+S0/mJlxw34I\n"
+-"KfqrlFjzUziRZtAWWqDcfxFDUizSggkdXIUq4GY38RADqGewNNCab3ClJDP7/M32\n"
+-"BhSNgsIKhgtSTM2+ocfvBhwup+BjV6UbL21DPAshlolVgSL1HM2jin5bi4bpFMre\n"
+-"Y0LXwFih87/6AVSfQHY9TZrombVZnMxvB7NG1NCSwDBTqjjFb3oiSMugJzY+MhIS\n"
+-"M754m46fwUyHZ1ylWCLJEU8kQ5A1q9vvqMcaDa4uTGP3UgC6SyVmZxG2o+AO6m8T\n"
+-"RTCtqHN41mPTM9HK4T1UyuzVpykSc2LlYkKE517SyEiVXDmotNb2myXNYHHTjRYN\n"
+-"xkq75Lbii2I4Q4z8XtDngaIrhZqACKSqIt2CocGjx61SoxKWi+LGa7B4NaCMjz1L\n"
+-"naOIsXn1rJDRnUWL49T42g4kOi/5QaC2JDygfefw1hAbuxkq9EYUDg+w9broltiB\n"
+-"f4rKAnw8JMySARnyPZbj0lhZK3va5wIDAQABAoICAQCMKul/0J2e/ncub6t2t4dr\n"
+-"PnTrfCT6xKqPqciny4Ee6hr9So1jR2gvink380bd/mQFMmEdZqGhM3cdpAzLf82f\n"
+-"hu7BSNxsYIF0er0PB4MZFMJ4sMaXC+zp5/TJnP5MG/zBND0c5k8tQpEyWy8O28Jj\n"
+-"FKW/0F5P90Q0ncP20EJUS50tXgniOMsU2Prtw/UE6yZDgD0mPxsurMu66ycXSFwM\n"
+-"WqyfqEeBk7lw/AjR6Sft71W31lTbl+DclG0MN2OIKUPcxiwCRmDFKI36MDgERk1x\n"
+-"sMPfdrWRLj2ryDFTUuLAWBTOVEGWS0RdRsWWVaJCuHbKd6FLl0TW2xQbOfWDTjYC\n"
+-"Ps31ejh163qdbk7OGOZIbd83fP3jsyL+4eNzhUpeXMKhfG58mFIv4yhdZIUOpuL6\n"
+-"aqnoU9z9wEsJKj/SrKr3nw6tuTnmbXgNjun9LfTFmqqDRBYd0Okiprw6jHNM1jgA\n"
+-"GG0kC/K7r89jKymVDABwGMFCS33ynR1Tb6zG+cqgNMPw19Fy3uQuW21CjqSzCOyP\n"
+-"aEVCEUZeP+ofql5+7ZKi6Dj+EdTfeKt2ihgheHZZoaYSINb8tsnKbdJhwBfW9PFT\n"
+-"aT/hu3bnO2FPC8H2NGOqxOEeel9ALU4SFu1pOknEhiL3/mNfOQ+KgrSRDtNRlcL0\n"
+-"cto05J90u0cmqwWKlshfaQKCAQEA5dcklxs4ezyzt28NcsiyS02oZ+9TkQp6pCXV\n"
+-"kx7AwhivAmVTlJ+c6BegA5EPd7A1gknM3+EKzGpoBOqmlF45G57phVIAphAp4oCH\n"
+-"UOVtIQgM8p4EU2gtX+uNOopdYlpBQnWimXaHA2sOD9/yTbZ03j/McRH6D15+iCld\n"
+-"3880GHdZaYYbQmHoSDg39LRRO1bdS3WC0oKBD2gPi3K0b9RaZSwKzuVrmlvrLURj\n"
+-"WMZfmkGl4BsITfuoTxbWFVncG3Kb9eYkYUFZy4M2G/s849PS/HjrN7BvgpanjtVp\n"
+-"1/39APQfAYfUuBPbKYnb6F8dE0pb5cVd4uMZklAeTb3bXjOO9QKCAQEAyc4CxWXr\n"
+-"bG6Do5dGpWudQ7ucq00MR0T3MHQIu5XTn6BsPHAJ9ZgrQw9C24PXm2VEjjsrMs5T\n"
+-"rHNF9oeO39s25Za1iyJ+893icqA3h3ivCUOOoVE54BkuJK6REhkXPD5G1ubmxeBz\n"
+-"MKNehlpd/eSbJJArkzKFZ8sBtLt8i9VFhRnXSpDAbiMpCbjW+bem9MWdLmkenSnu\n"
+-"OUbnqYcJhFBCvOT7ZCHFCDNUNPfHcaReSY2EYjw0ZqtqAZD0Q+DL+RkLz7l1+/bF\n"
+-"eEwNjmjFTcwRyawqf38D4miU0H6ca16FkeSlbmM5p3HdwZK2HVYYz3FSwhox6Ebd\n"
+-"n6in42qfL4Ug6wKCAQAh9IDRWhIkErmyNdPUy1WbzmM8x5ye5t9rdLNywq5TfnYM\n"
+-"co/AezwhBax8GmgglIWzM9fykzqXLHklkMz/SlRBgl6ZdZ3m6qhlb/uNtfdDU/8l\n"
+-"sLaO4+sgKpp4tYxKRW8ytFJLPbmAhcZUDg+r73KgiuhXJAK/VoR29TWLJP9bRfaN\n"
+-"omRQkEpSsQuDOUhu7cxPo5KqKuGKNyNkxJNnmgWowLLwEfCtozrBO0M6EER7c4tf\n"
+-"6l51tuIMnSEPknD0FSB5WYCyZYcwi7fotlsuhVK8PdjyJzyyHDOw5FJ4uGsyQt55\n"
+-"yWlhsH1GS7mTQMn42Zlt/pR6OnbCqNdxQMUxy4gpAoIBAFvMbs5E0pb8nr0n72cI\n"
+-"UP2itl3mKpOw95D+94n9WcrfOt0zShSCKAvVQWCB1O5HXqwklj4CRWXI+iZu+7sx\n"
+-"CQPfTq3//ygH4x6paxkg+N6J8LPJMz6Rtb/R+QP2je9FlQvk9U1GEKArcLBFI0R/\n"
+-"XWOAgZHwBWd1nU0NjFY/qeQmIR02Q5LWQ7C8eG4X8MafriSShO6RSGCdtHwVhWq+\n"
+-"59ztfL3L7skQMFn37K3xS0LCMVpOcLfTeeFEgxjthVvG3OydPOJlGubiEbiaSEZf\n"
+-"cif/PUXKDYZMdIVzUsw0ryXykJ5qXKuizHFlv5oQtDCJKFBLgjBbLC2YluaIdekz\n"
+-"8gkCggEBAJWxS7EuB/qL7fOz0o3HRy0plR3qbwZ0pLoCz0Ii7WxraBS1yQwmxif1\n"
+-"Rgv89GyFqg1yQl3CSrMiw7oC9WxxxuiEZDO18c4KO3NTv9K4itN9OPQVBTHmEhod\n"
+-"KWcyP4/W/Sfuae77PyclSqUsAARRrKYn2fpLTS5ibaU0QZgHmdPgYDUrPr+6PHKK\n"
+-"ZfQKU2uBfuo6zoMbMmFi3UYG49j9rv4d6v+44vS1MPHV9JK/LD8YfBhgx8Pg/u6D\n"
+-"nUgipS48pkGjJr2u2Vu7Mx70vqz0Yf2neyyDbdLtkYauC4w7YKPTD0yzDJyGuAeB\n"
+-"GyPbW1yZa5vE302a1Cr0Cd7RC4AFAAw=\n"
+-"-----END PRIVATE KEY-----";
+-
+ struct test_files_set get_test_files_set(void)
+ {
+ 	static struct test_file files[] = {
+@@ -290,7 +193,7 @@ char *bin2hex(char *dst, const void *src, size_t count)
+ 	return dst;
+ }
+ 
+-static char *get_index_filename(char *mnt_dir, incfs_uuid_t id)
++static char *get_index_filename(const char *mnt_dir, incfs_uuid_t id)
+ {
+ 	char path[FILENAME_MAX];
+ 	char str_id[1 + 2 * sizeof(id)];
+@@ -722,8 +625,6 @@ static int build_mtree(struct test_file *file)
+ 	int tree_lvl_index[INCFS_MAX_MTREE_LEVELS] = {};
+ 	int tree_lvl_count[INCFS_MAX_MTREE_LEVELS] = {};
+ 	int levels_count = 0;
+-	char data_to_sign[256] = {};
+-	int sig_data_size;
+ 	int i, level;
+ 
+ 	if (file->size == 0)
+@@ -797,19 +698,6 @@ static int build_mtree(struct test_file *file)
+ 	sha256(file->mtree[0].data,
+ 		INCFS_DATA_FILE_BLOCK_SIZE, file->root_hash);
+ 
+-	/* Calculating digital signature */
+-	snprintf(file->sig.add_data, sizeof(file->sig.add_data), "%ld",
+-		 file->size);
+-	memcpy(data_to_sign, file->root_hash, SHA256_DIGEST_SIZE);
+-	memcpy(data_to_sign + SHA256_DIGEST_SIZE, file->sig.add_data,
+-		strlen(file->sig.add_data));
+-	sig_data_size = SHA256_DIGEST_SIZE + strlen(file->sig.add_data);
+-	if (!sign_pkcs7(data_to_sign, sig_data_size, private_key, x509_cert,
+-		       &file->sig.data, &file->sig.size)) {
+-		ksft_print_msg("Signing failed.\n");
+-		return -EINVAL;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -1873,162 +1761,6 @@ static int multiple_providers_test(char *mount_dir)
+ 	return TEST_FAILURE;
+ }
+ 
+-static int signature_test(char *mount_dir)
+-{
+-	struct test_files_set test = get_test_files_set();
+-	const int file_num = test.files_count;
+-	int i = 0;
+-	unsigned char sig_buf[INCFS_MAX_SIGNATURE_SIZE];
+-	char *backing_dir;
+-	int cmd_fd = -1;
+-
+-	backing_dir = create_backing_dir(mount_dir);
+-	if (!backing_dir)
+-		goto failure;
+-
+-	/* Mount FS and release the backing file.  (10s wait time) */
+-	if (mount_fs(mount_dir, backing_dir, 10000) != 0)
+-		goto failure;
+-
+-	cmd_fd = open_commands_file(mount_dir);
+-	if (cmd_fd < 0)
+-		goto failure;
+-
+-	/* Write hashes and data. */
+-	for (i = 0; i < file_num; i++) {
+-		struct test_file *file = &test.files[i];
+-		int res;
+-
+-		build_mtree(file);
+-
+-		res = crypto_emit_file(cmd_fd, NULL, file->name, &file->id,
+-			file->size, file->root_hash,
+-			file->sig.data, file->sig.size, file->sig.add_data);
+-
+-		if (res) {
+-			ksft_print_msg("Emit failed for %s. error: %s\n",
+-				file->name, strerror(-res));
+-			goto failure;
+-		}
+-
+-		if (emit_test_file_data(mount_dir, file))
+-			goto failure;
+-
+-		res = load_hash_tree(mount_dir, file);
+-		if (res) {
+-			ksft_print_msg("Can't load hashes for %s. error: %s\n",
+-				file->name, strerror(-res));
+-			goto failure;
+-		}
+-	}
+-
+-	/* Validate data */
+-	for (i = 0; i < file_num; i++) {
+-		struct test_file *file = &test.files[i];
+-		int sig_len;
+-		char *path;
+-		int fd;
+-
+-		if (validate_test_file_content(mount_dir, file) < 0)
+-			goto failure;
+-
+-		path = concat_file_name(mount_dir, file->name);
+-		fd = open(path, O_RDWR);
+-		free(path);
+-		if (fd < 0) {
+-			print_error("Can't open file");
+-			goto failure;
+-		}
+-
+-		sig_len = get_file_signature(fd, sig_buf, ARRAY_SIZE(sig_buf));
+-
+-		if (close(fd)) {
+-			print_error("Can't close file");
+-			goto failure;
+-		}
+-
+-		if (sig_len < 0) {
+-			ksft_print_msg("Can't load signature %s. error: %s\n",
+-				file->name, strerror(-sig_len));
+-			goto failure;
+-		}
+-
+-		if (sig_len != file->sig.size ||
+-			memcmp(sig_buf, file->sig.data, sig_len)) {
+-			ksft_print_msg("Signature mismatch %s.\n",
+-				file->name);
+-			goto failure;
+-		}
+-	}
+-
+-	/* Unmount and mount again, to make sure the signature is persistent. */
+-	close(cmd_fd);
+-	cmd_fd = -1;
+-	if (umount(mount_dir) != 0) {
+-		print_error("Can't unmout FS");
+-		goto failure;
+-	}
+-	if (mount_fs(mount_dir, backing_dir, 50) != 0)
+-		goto failure;
+-
+-	cmd_fd = open_commands_file(mount_dir);
+-	if (cmd_fd < 0)
+-		goto failure;
+-
+-	/* Validate data again */
+-	for (i = 0; i < file_num; i++) {
+-		struct test_file *file = &test.files[i];
+-		int sig_len;
+-		char *path;
+-		int fd;
+-
+-		if (validate_test_file_content(mount_dir, file) < 0)
+-			goto failure;
+-
+-		path = concat_file_name(mount_dir, file->name);
+-		fd = open(path, O_RDWR);
+-		free(path);
+-		if (fd < 0) {
+-			print_error("Can't open file");
+-			goto failure;
+-		}
+-
+-		sig_len = get_file_signature(fd, sig_buf, ARRAY_SIZE(sig_buf));
+-
+-		if (close(fd)) {
+-			print_error("Can't close file");
+-			goto failure;
+-		}
+-
+-		if (sig_len < 0) {
+-			ksft_print_msg("Can't load signature %s. error: %s\n",
+-				file->name, strerror(-sig_len));
+-			goto failure;
+-		}
+-		if (sig_len != file->sig.size ||
+-			memcmp(sig_buf, file->sig.data, sig_len)) {
+-			ksft_print_msg("Signature mismatch %s.\n",
+-				file->name);
+-			goto failure;
+-		}
+-	}
+-
+-	/* Final unmount */
+-	close(cmd_fd);
+-	cmd_fd = -1;
+-	if (umount(mount_dir) != 0) {
+-		print_error("Can't unmout FS");
+-		goto failure;
+-	}
+-	return TEST_SUCCESS;
+-
+-failure:
+-	close(cmd_fd);
+-	free(backing_dir);
+-	umount(mount_dir);
+-	return TEST_FAILURE;
+-}
+-
+ static int hash_tree_test(char *mount_dir)
+ {
+ 	char *backing_dir;
+@@ -2057,8 +1789,8 @@ static int hash_tree_test(char *mount_dir)
+ 
+ 		build_mtree(file);
+ 		res = crypto_emit_file(cmd_fd, NULL, file->name, &file->id,
+-			file->size, file->root_hash,
+-			file->sig.data, file->sig.size, file->sig.add_data);
++				       file->size, file->root_hash,
++				       file->sig.add_data);
+ 
+ 		if (i == corrupted_file_idx) {
+ 			/* Corrupt third blocks hash */
+@@ -2383,7 +2115,6 @@ int main(int argc, char *argv[])
+ 		MAKE_TEST(work_after_remount_test),
+ 		MAKE_TEST(child_procs_waiting_for_data_test),
+ 		MAKE_TEST(multiple_providers_test),
+-		MAKE_TEST(signature_test),
+ 		MAKE_TEST(hash_tree_test),
+ 		MAKE_TEST(read_log_test),
+ 	};
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.c b/tools/testing/selftests/filesystems/incfs/utils.c
+index 08b8452ad0bc..3a72fa5d5e9a 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.c
++++ b/tools/testing/selftests/filesystems/incfs/utils.c
+@@ -23,7 +23,8 @@
+ 
+ #include "utils.h"
+ 
+-int mount_fs(char *mount_dir, char *backing_dir, int read_timeout_ms)
++int mount_fs(const char *mount_dir, const char *backing_dir,
++	     int read_timeout_ms)
+ {
+ 	static const char fs_name[] = INCFS_NAME;
+ 	char mount_options[512];
+@@ -39,7 +40,8 @@ int mount_fs(char *mount_dir, char *backing_dir, int read_timeout_ms)
+ 	return result;
+ }
+ 
+-int mount_fs_opt(char *mount_dir, char *backing_dir, char *opt)
++int mount_fs_opt(const char *mount_dir, const char *backing_dir,
++		 const char *opt)
+ {
+ 	static const char fs_name[] = INCFS_NAME;
+ 	int result;
+@@ -50,179 +52,94 @@ int mount_fs_opt(char *mount_dir, char *backing_dir, char *opt)
+ 	return result;
+ }
+ 
+-int unlink_node(int fd, int parent_ino, char *filename)
++struct hash_section {
++	uint32_t algorithm;
++	uint8_t log2_blocksize;
++	uint32_t salt_size;
++	/* no salt */
++	uint32_t hash_size;
++	uint8_t hash[SHA256_DIGEST_SIZE];
++} __packed;
++
++struct signature_blob {
++	uint32_t version;
++	uint32_t hash_section_size;
++	struct hash_section hash_section;
++	uint32_t signing_section_size;
++	uint8_t signing_section[];
++} __packed;
++
++size_t format_signature(void **buf, const char *root_hash, const char *add_data)
+ {
+-	return 0;
+-}
+-
+-
+-static EVP_PKEY *deserialize_private_key(const char *pem_key)
+-{
+-	BIO *bio = NULL;
+-	EVP_PKEY *pkey = NULL;
+-	int len = strlen(pem_key);
+-
+-	bio = BIO_new_mem_buf(pem_key, len);
+-	if (!bio)
+-		return NULL;
+-
+-	pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+-	BIO_free(bio);
+-	return pkey;
+-}
+-
+-static X509 *deserialize_cert(const char *pem_cert)
+-{
+-	BIO *bio = NULL;
+-	X509 *cert = NULL;
+-	int len = strlen(pem_cert);
+-
+-	bio = BIO_new_mem_buf(pem_cert, len);
+-	if (!bio)
+-		return NULL;
+-
+-	cert = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+-	BIO_free(bio);
+-	return cert;
+-}
+-
+-bool sign_pkcs7(const void *data_to_sign, size_t data_size,
+-		       char *pkey_pem, char *cert_pem,
+-		       void **sig_ret, size_t *sig_size_ret)
+-{
+-	/*
+-	 * PKCS#7 signing flags:
+-	 *
+-	 * - PKCS7_BINARY	signing binary data, so skip MIME translation
+-	 *
+-	 * - PKCS7_NOATTR	omit extra authenticated attributes, such as
+-	 *			SMIMECapabilities
+-	 *
+-	 * - PKCS7_PARTIAL	PKCS7_sign() creates a handle only, then
+-	 *			PKCS7_sign_add_signer() can add a signer later.
+-	 *			This is necessary to change the message digest
+-	 *			algorithm from the default of SHA-1.  Requires
+-	 *			OpenSSL 1.0.0 or later.
+-	 */
+-	int pkcs7_flags = PKCS7_BINARY | PKCS7_NOATTR | PKCS7_PARTIAL;
+-	void *sig;
+-	size_t sig_size;
+-	BIO *bio = NULL;
+-	PKCS7 *p7 = NULL;
+-	EVP_PKEY *pkey = NULL;
+-	X509 *cert = NULL;
+-	bool ok = false;
+-
+-	const EVP_MD *md = EVP_sha256();
+-
+-	pkey = deserialize_private_key(pkey_pem);
+-	if (!pkey) {
+-		printf("deserialize_private_key failed\n");
+-		goto out;
+-	}
+-
+-	cert = deserialize_cert(cert_pem);
+-	if (!cert) {
+-		printf("deserialize_cert failed\n");
+-		goto out;
+-	}
+-
+-	bio = BIO_new_mem_buf(data_to_sign, data_size);
+-	if (!bio)
+-		goto out;
+-
+-	p7 = PKCS7_sign(NULL, NULL, NULL, bio, pkcs7_flags);
+-	if (!p7) {
+-		printf("failed to initialize PKCS#7 signature object\n");
+-		goto out;
+-	}
+-
+-	if (!PKCS7_sign_add_signer(p7, cert, pkey, md, pkcs7_flags)) {
+-		printf("failed to add signer to PKCS#7 signature object\n");
+-		goto out;
+-	}
+-
+-	if (PKCS7_final(p7, bio, pkcs7_flags) != 1) {
+-		printf("failed to finalize PKCS#7 signature\n");
+-		goto out;
+-	}
+-
+-	BIO_free(bio);
+-	bio = BIO_new(BIO_s_mem());
+-	if (!bio) {
+-		printf("out of memory\n");
+-		goto out;
+-	}
+-
+-	if (i2d_PKCS7_bio(bio, p7) != 1) {
+-		printf("failed to DER-encode PKCS#7 signature object\n");
+-		goto out;
+-	}
++	size_t size = sizeof(struct signature_blob) + strlen(add_data) + 1;
++	struct signature_blob *sb = malloc(size);
++
++	*sb = (struct signature_blob){
++		.version = INCFS_SIGNATURE_VERSION,
++		.hash_section_size = sizeof(struct hash_section),
++		.hash_section =
++			(struct hash_section){
++				.algorithm = INCFS_HASH_TREE_SHA256,
++				.log2_blocksize = 12,
++				.salt_size = 0,
++				.hash_size = SHA256_DIGEST_SIZE,
++			},
++		.signing_section_size = sizeof(uint32_t) + strlen(add_data) + 1,
++	};
+ 
+-	sig_size = BIO_get_mem_data(bio, &sig);
+-	*sig_ret = malloc(sig_size);
+-	memcpy(*sig_ret, sig, sig_size);
+-	*sig_size_ret = sig_size;
+-	ok = true;
+-out:
+-	PKCS7_free(p7);
+-	BIO_free(bio);
+-	return ok;
++	memcpy(sb->hash_section.hash, root_hash, SHA256_DIGEST_SIZE);
++	memcpy((char *)sb->signing_section, add_data, strlen(add_data) + 1);
++	*buf = sb;
++	return size;
+ }
+ 
+-int crypto_emit_file(int fd, char *dir, char *filename, incfs_uuid_t *id_out,
+-	size_t size, const char *root_hash, char *sig, size_t sig_size,
+-	char *add_data)
++int crypto_emit_file(int fd, const char *dir, const char *filename,
++		     incfs_uuid_t *id_out, size_t size, const char *root_hash,
++		     const char *add_data)
+ {
+ 	int mode = __S_IFREG | 0555;
+-	struct incfs_file_signature_info sig_info = {
+-		.hash_tree_alg = root_hash
+-					? INCFS_HASH_TREE_SHA256
+-					: 0,
+-		.root_hash = ptr_to_u64(root_hash),
+-		.additional_data = ptr_to_u64(add_data),
+-		.additional_data_size = strlen(add_data),
+-		.signature =  ptr_to_u64(sig),
+-		.signature_size = sig_size,
+-	};
++	void *signature;
++	int error = 0;
+ 
+ 	struct incfs_new_file_args args = {
+ 			.size = size,
+ 			.mode = mode,
+ 			.file_name = ptr_to_u64(filename),
+ 			.directory_path = ptr_to_u64(dir),
+-			.signature_info = ptr_to_u64(&sig_info),
+ 			.file_attr = 0,
+ 			.file_attr_len = 0
+ 	};
+ 
++	args.signature_size = format_signature(&signature, root_hash, add_data);
++	args.signature_info = ptr_to_u64(signature);
++
+ 	md5(filename, strlen(filename), (char *)args.file_id.bytes);
+ 
+-	if (ioctl(fd, INCFS_IOC_CREATE_FILE, &args) != 0)
+-		return -errno;
++	if (ioctl(fd, INCFS_IOC_CREATE_FILE, &args) != 0) {
++		error = -errno;
++		goto out;
++	}
+ 
+ 	*id_out = args.file_id;
+-	return 0;
+-}
+ 
++out:
++	free(signature);
++	return error;
++}
+ 
+-int emit_file(int fd, char *dir, char *filename, incfs_uuid_t *id_out,
+-		size_t size, char *attr)
++int emit_file(int fd, const char *dir, const char *filename,
++	      incfs_uuid_t *id_out, size_t size, const char *attr)
+ {
+ 	int mode = __S_IFREG | 0555;
+-	struct incfs_file_signature_info sig_info = {
+-		.hash_tree_alg = 0,
+-		.root_hash = ptr_to_u64(NULL)
+-	};
+-	struct incfs_new_file_args args = {
+-			.size = size,
+-			.mode = mode,
+-			.file_name = ptr_to_u64(filename),
+-			.directory_path = ptr_to_u64(dir),
+-			.signature_info = ptr_to_u64(&sig_info),
+-			.file_attr = ptr_to_u64(attr),
+-			.file_attr_len = attr ? strlen(attr) : 0
+-	};
++	struct incfs_new_file_args args = { .size = size,
++					    .mode = mode,
++					    .file_name = ptr_to_u64(filename),
++					    .directory_path = ptr_to_u64(dir),
++					    .signature_info = ptr_to_u64(NULL),
++					    .signature_size = 0,
++					    .file_attr = ptr_to_u64(attr),
++					    .file_attr_len =
++						    attr ? strlen(attr) : 0 };
+ 
+ 	md5(filename, strlen(filename), (char *)args.file_id.bytes);
+ 
+@@ -250,7 +167,7 @@ int get_file_signature(int fd, unsigned char *buf, int buf_size)
+ 	return -errno;
+ }
+ 
+-loff_t get_file_size(char *name)
++loff_t get_file_size(const char *name)
+ {
+ 	struct stat st;
+ 
+@@ -259,7 +176,7 @@ loff_t get_file_size(char *name)
+ 	return -ENOENT;
+ }
+ 
+-int open_commands_file(char *mount_dir)
++int open_commands_file(const char *mount_dir)
+ {
+ 	char cmd_file[255];
+ 	int cmd_fd;
+@@ -273,7 +190,7 @@ int open_commands_file(char *mount_dir)
+ 	return cmd_fd;
+ }
+ 
+-int open_log_file(char *mount_dir)
++int open_log_file(const char *mount_dir)
+ {
+ 	char cmd_file[255];
+ 	int cmd_fd;
+@@ -358,7 +275,7 @@ int delete_dir_tree(const char *dir_path)
+ 	return result;
+ }
+ 
+-void sha256(char *data, size_t dsize, char *hash)
++void sha256(const char *data, size_t dsize, char *hash)
+ {
+ 	SHA256_CTX ctx;
+ 
+@@ -367,7 +284,7 @@ void sha256(char *data, size_t dsize, char *hash)
+ 	SHA256_Final((unsigned char *)hash, &ctx);
+ }
+ 
+-void md5(char *data, size_t dsize, char *hash)
++void md5(const char *data, size_t dsize, char *hash)
+ {
+ 	MD5_CTX ctx;
+ 
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.h b/tools/testing/selftests/filesystems/incfs/utils.h
+index 9c9ba3c5f70a..23c8a099662a 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.h
++++ b/tools/testing/selftests/filesystems/incfs/utils.h
+@@ -9,6 +9,8 @@
+ 
+ #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+ 
++#define __packed __attribute__((__packed__))
++
+ #ifdef __LP64__
+ #define ptr_to_u64(p) ((__u64)p)
+ #else
+@@ -17,9 +19,11 @@
+ 
+ #define SHA256_DIGEST_SIZE 32
+ 
+-int mount_fs(char *mount_dir, char *backing_dir, int read_timeout_ms);
++int mount_fs(const char *mount_dir, const char *backing_dir,
++	     int read_timeout_ms);
+ 
+-int mount_fs_opt(char *mount_dir, char *backing_dir, char *opt);
++int mount_fs_opt(const char *mount_dir, const char *backing_dir,
++		 const char *opt);
+ 
+ int get_file_bmap(int cmd_fd, int ino, unsigned char *buf, int buf_size);
+ 
+@@ -28,32 +32,26 @@ int get_file_signature(int fd, unsigned char *buf, int buf_size);
+ int emit_node(int fd, char *filename, int *ino_out, int parent_ino,
+ 		size_t size, mode_t mode, char *attr);
+ 
+-int emit_file(int fd, char *dir, char *filename, incfs_uuid_t *id_out,
+-		size_t size, char *attr);
+-
+-int crypto_emit_file(int fd, char *dir, char *filename, incfs_uuid_t *id_out,
+-	size_t size, const char *root_hash, char *sig, size_t sig_size,
+-	char *add_data);
++int emit_file(int fd, const char *dir, const char *filename,
++	      incfs_uuid_t *id_out, size_t size, const char *attr);
+ 
+-int unlink_node(int fd, int parent_ino, char *filename);
++int crypto_emit_file(int fd, const char *dir, const char *filename,
++		     incfs_uuid_t *id_out, size_t size, const char *root_hash,
++		     const char *add_data);
+ 
+-loff_t get_file_size(char *name);
++loff_t get_file_size(const char *name);
+ 
+-int open_commands_file(char *mount_dir);
++int open_commands_file(const char *mount_dir);
+ 
+-int open_log_file(char *mount_dir);
++int open_log_file(const char *mount_dir);
+ 
+ int wait_for_pending_reads(int fd, int timeout_ms,
+ 	struct incfs_pending_read_info *prs, int prs_count);
+ 
+ char *concat_file_name(const char *dir, char *file);
+ 
+-void sha256(char *data, size_t dsize, char *hash);
+-
+-void md5(char *data, size_t dsize, char *hash);
++void sha256(const char *data, size_t dsize, char *hash);
+ 
+-bool sign_pkcs7(const void *data_to_sign, size_t data_size,
+-		char *pkey_pem, char *cert_pem,
+-		void **sig_ret, size_t *sig_size_ret);
++void md5(const char *data, size_t dsize, char *hash);
+ 
+ int delete_dir_tree(const char *path);
+-- 
+2.17.1
+

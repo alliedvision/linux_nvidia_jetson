@@ -1,7 +1,7 @@
 /*
  * Tegra 18x SoC-specific DRAM ECC Error handling code.
  *
- * Copyright (c) 2016-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,12 @@
 #include <linux/platform/tegra/tegra18_emc.h>
 #include <linux/platform/tegra/tegra_emc_err.h>
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 static struct mc_ecc_err_log ecc_log;
 static u32 mc_emem_arb_misc1;

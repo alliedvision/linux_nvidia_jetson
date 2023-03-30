@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2016 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2016 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -94,8 +94,8 @@ dbi_r8_88xx(struct halmac_adapter *adapter, u16 addr);
 enum halmac_ret_status
 trxdma_check_idle_88xx(struct halmac_adapter *adapter);
 
-void
-en_ref_autok_88xx(struct halmac_adapter *dapter, u8 en);
+enum halmac_ret_status
+en_ref_autok_pcie_88xx(struct halmac_adapter *dapter, u8 en);
 
 #endif /* HALMAC_88XX_SUPPORT */
 

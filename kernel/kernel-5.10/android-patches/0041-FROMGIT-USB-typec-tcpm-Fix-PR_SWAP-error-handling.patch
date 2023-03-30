@@ -1,0 +1,47 @@
+From 85cfd28ccf21bc3c28ef94a06c5bcd079707e081 Mon Sep 17 00:00:00 2001
+From: Kyle Tso <kyletso@google.com>
+Date: Thu, 10 Dec 2020 17:05:19 +0100
+Subject: [PATCH 041/830] FROMGIT: USB: typec: tcpm: Fix PR_SWAP error handling
+X-NVConfidentiality: public
+
+PD rev3.0 8.3.3.16.3.6 PE_PRS_SRC_SNK_Wait_Source_on State
+The Policy Enging Shall transition to the ErrorRecovery state when the
+PSSourceOnTimer times out ...
+
+Bug: 142545898
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Kyle Tso <kyletso@google.com>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Link: https://lore.kernel.org/r/20201210160521.3417426-4-gregkh@linuxfoundation.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+(cherry picked from commit 639866a2e78bc7befaeb790706397750ea4bbf4f)
+(cherry picked from commit c5396117f418f34d7e6747675b3850ade29fde1a)
+(cherry picked from commit 4414569078af5ad9dd160d071e56fc1c745aa095)
+(cherry picked from commit 301a633c1b5b2caa4c4b97a83270d4a1d60c53bf usb-next)
+Change-Id: I6ac90c401e80475180020418253d479c4e6389cc
+---
+ drivers/usb/typec/tcpm/tcpm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index f1f913902a18..da1ef7d57842 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -3759,7 +3759,7 @@ static void run_state_machine(struct tcpm_port *port)
+ 			tcpm_set_state(port, ERROR_RECOVERY, 0);
+ 			break;
+ 		}
+-		tcpm_set_state_cond(port, SNK_UNATTACHED, PD_T_PS_SOURCE_ON);
++		tcpm_set_state(port, ERROR_RECOVERY, PD_T_PS_SOURCE_ON);
+ 		break;
+ 	case PR_SWAP_SRC_SNK_SINK_ON:
+ 		/* Set the vbus disconnect threshold for implicit contract */
+-- 
+2.17.1
+

@@ -14,7 +14,16 @@
  *
  */
 
-#include "tsec_drv.h"
+#define HDCP_SIZE_E_KM_8                     (1024/8)
+#define HDCP_SIZE_EKH_KM_8                   (128/8)
+#define HDCP_SIZE_M_8                        (128/8)
+#define HDCP_SIZE_HPRIME_8                   (256/8)
+#define HDCP_SIZE_LPRIME_8                   (256/8)
+#define HDCP_SIZE_E_KS_8                     (128/8)
+#define HDCP_SIZE_SEQ_NUM_V_8                3
+#define HDCP_SIZE_VPRIME_2X_8                (256/8)
+#define HDCP_SIZE_SEQ_NUM_M_8                3
+#define HDCP_SIZE_MPRIME_8                   (256/8)
 
 #define NV_PSEC_THI_METHOD1                  0x00000044      /* RW-4R */
 #define NV_PSEC_THI_METHOD0                  0x00000040      /* RW-4R */

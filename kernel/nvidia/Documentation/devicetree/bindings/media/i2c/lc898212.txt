@@ -1,0 +1,54 @@
+ON Semiconductor LC898212 Camera Focuser, NVIDIA TCF driver bindings
+
+The ON Semiconductor LC898212 is a digitally-controlled voice coil motor (VCM)
+focuser module built into embedded camera packages.
+
+Camera-board specific overlays are applied by the NVIDIA Tegra plugin-manager
+pre-boot, they define the physical regulator and GPIO connections which differ
+by the Jetson board and chip generation, and the camera daughter board revision.
+
+Required properties:
+	- compatible: Should be "onnn,lc898212".
+	- reg: Sensor I2C bus address, default is 0x72.
+
+	- vcmvdd-reg: Name of the voice coil motor (VCM) focuser power
+		regulator.
+	- vvcm-supply: Voice coil motor (VCM) focuser power source.
+
+	- min_focus_distance: Minimum focus distance ratio.
+	- hyper_focal: Hyperfocal distance ratio.
+	- focal_length: Focal length.
+	- f_number: Focuser f-number.
+	- aperture: Focuser aperture f-number.
+
+Optional properties:
+	- support_mfi: Whether focuser synchronization is supported.
+
+Deprecated properties:
+	- devnode: Name of V4L2 character device in filesystem, this property is
+		now deprecated, the Tegra Camera Framework enumerates them
+		automatically.
+	- type: Set to "default" if property is still necessary in software
+		stack.
+
+Example:
+
+	lc898212@72 {
+		compatible = "onnn,lc898212";
+		reg = <0x72>;
+
+		/* physical camera layer interface tags */
+		devnode = "video3";
+		type = "default";
+		min_focus_distance = "10.0"; /* 1.0f/0.1f */
+		hyper_focal = "0.2"; /* 1.0f/5.0f */
+		focal_length = "4.73";
+		f_number = "2.2";
+		aperture = "2.2";
+	};
+
+	/* Camera board-specific config overlay */
+	lc898212_2: lc898212@72 {
+		vvcm-supply = <&en_vdd_vcm_2v8>;
+		support_mfi = "true";
+	};

@@ -1,0 +1,32 @@
+From d753af615347a75905a6a557e893ee60104f4286 Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Tue, 15 Sep 2020 16:21:38 -0600
+Subject: [PATCH 118/830] ANDROID: tick/nohz: export
+ tick_nohz_get_sleep_length()
+X-NVConfidentiality: public
+
+Export tick_nohz_get_sleep_length() so idle drivers may use this to
+determine the available idle time before the next timer wakeup.
+
+Bug: 169136276
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: I0d18638d63c032862ae048bc2c3d49fa1bd90291
+---
+ kernel/time/tick-sched.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
+index e8d351b7f9b0..07d1e5052952 100644
+--- a/kernel/time/tick-sched.c
++++ b/kernel/time/tick-sched.c
+@@ -1110,6 +1110,7 @@ ktime_t tick_nohz_get_sleep_length(ktime_t *delta_next)
+ 
+ 	return ktime_sub(next_event, now);
+ }
++EXPORT_SYMBOL_GPL(tick_nohz_get_sleep_length);
+ 
+ /**
+  * tick_nohz_get_idle_calls_cpu - return the current idle calls counter value
+-- 
+2.17.1
+

@@ -1,0 +1,117 @@
+From 455a44740e4a7127ad9e40d950f63b741651b506 Mon Sep 17 00:00:00 2001
+From: John Dias <joaodias@google.com>
+Date: Wed, 5 Oct 2016 15:11:40 -0700
+Subject: [PATCH 166/830] ANDROID: sched: avoid migrating when softint on tgt
+ cpu should be short
+X-NVConfidentiality: public
+
+The scheduling change to avoid putting RT threads on cores that
+are handling softint's was catching cases where there was no reason
+to believe the softint would take a long time, resulting in unnecessary
+migration overhead. This patch reduces the migration to cases where
+the core has a softint that is actually likely to take a long time,
+as opposed to the RCU, SCHED, and TIMER softints that are rather quick.
+
+Bug: 31752786
+Bug: 168521633
+Change-Id: Ib4e179f1e15c736b2fdba31070494e357e9fbbe2
+Signed-off-by: John Dias <joaodias@google.com>
+[elavila: Amend commit text for AOSP, port to mainline]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ include/linux/interrupt.h |  7 +++++++
+ kernel/sched/rt.c         | 13 +++++++++----
+ kernel/softirq.c          |  9 +++++++++
+ 3 files changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index ee8299eb1f52..386ddf43e2f2 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -542,6 +542,12 @@ enum
+ };
+ 
+ #define SOFTIRQ_STOP_IDLE_MASK (~(1 << RCU_SOFTIRQ))
++/* Softirq's where the handling might be long: */
++#define LONG_SOFTIRQ_MASK ((1 << NET_TX_SOFTIRQ)       | \
++			   (1 << NET_RX_SOFTIRQ)       | \
++			   (1 << BLOCK_SOFTIRQ)        | \
++			   (1 << IRQ_POLL_SOFTIRQ) | \
++			   (1 << TASKLET_SOFTIRQ))
+ 
+ /* map softirq index to softirq name. update 'softirq_to_name' in
+  * kernel/softirq.c when adding a new softirq.
+@@ -577,6 +583,7 @@ extern void raise_softirq_irqoff(unsigned int nr);
+ extern void raise_softirq(unsigned int nr);
+ 
+ DECLARE_PER_CPU(struct task_struct *, ksoftirqd);
++DECLARE_PER_CPU(__u32, active_softirqs);
+ 
+ static inline struct task_struct *this_cpu_ksoftirqd(void)
+ {
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index 4966e764980c..398fc6305875 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -1448,15 +1448,20 @@ static int find_lowest_rq(struct task_struct *task);
+ #ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
+ /*
+  * Return whether the task on the given cpu is currently non-preemptible
+- * while handling a softirq or is likely to block preemptions soon because
+- * it is a ksoftirq thread.
++ * while handling a potentially long softint, or if the task is likely
++ * to block preemptions soon because it is a ksoftirq thread that is
++ * handling slow softints.
+  */
+ bool
+ task_may_not_preempt(struct task_struct *task, int cpu)
+ {
++	__u32 softirqs = per_cpu(active_softirqs, cpu) |
++			 __IRQ_STAT(cpu, __softirq_pending);
++
+ 	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
+-	return (task_thread_info(task)->preempt_count & SOFTIRQ_MASK) ||
+-	       task == cpu_ksoftirqd;
++	return ((softirqs & LONG_SOFTIRQ_MASK) &&
++		(task == cpu_ksoftirqd ||
++		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
+ }
+ #endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
+ 
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 09229ad82209..0a7cd1f1b4e0 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -56,6 +56,13 @@ static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp
+ 
+ DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
+ 
++/*
++ * active_softirqs -- per cpu, a mask of softirqs that are being handled,
++ * with the expectation that approximate answers are acceptable and therefore
++ * no synchronization.
++ */
++DEFINE_PER_CPU(__u32, active_softirqs);
++
+ const char * const softirq_to_name[NR_SOFTIRQS] = {
+ 	"HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL",
+ 	"TASKLET", "SCHED", "HRTIMER", "RCU"
+@@ -278,6 +285,7 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ restart:
+ 	/* Reset the pending bitmask before enabling irqs */
+ 	set_softirq_pending(0);
++	__this_cpu_write(active_softirqs, pending);
+ 
+ 	local_irq_enable();
+ 
+@@ -307,6 +315,7 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)
+ 		pending >>= softirq_bit;
+ 	}
+ 
++	__this_cpu_write(active_softirqs, 0);
+ 	if (__this_cpu_read(ksoftirqd) == current)
+ 		rcu_softirq_qs();
+ 	local_irq_disable();
+-- 
+2.17.1
+

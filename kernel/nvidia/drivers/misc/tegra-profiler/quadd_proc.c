@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/quadd_proc.c
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,14 +64,35 @@ static const struct proc_ops version_proc_fops = {
 };
 #endif
 
+static void
+show_uncore_events(struct seq_file *f, struct quadd_event_source *pmu,
+		   struct source_info *src_info)
+{
+	int i = 0;
+	const struct quadd_pmu_cntr_info *e;
+
+	if (!pmu)
+		return;
+
+	seq_puts(f, "\n");
+	seq_puts(f, pmu->description);
+	seq_puts(f, "\nSupported events:\n");
+
+	while ((e = pmu->pmu_cntrs[i++]))
+		seq_printf(f, "  %s/%-22s %#x\n", pmu->name, e->name, e->id);
+
+	seq_printf(f, "Number of event counters in the unit: %d\n",
+		src_info->nr_ctrs);
+}
+
 static int show_capabilities(struct seq_file *f, void *offset)
 {
-	int cpuid, i;
+	int cpuid;
 	const char *name;
 	struct quadd_comm_cap *cap = &ctx->cap;
 	unsigned int extra = cap->reserved[QUADD_COMM_CAP_IDX_EXTRA];
 	const struct quadd_arch_info *arch = NULL;
-	struct quadd_event_source *pmu, *carmel_pmu;
+	struct quadd_event_source *pmu;
 
 	seq_printf(f, "pmu:                     %s\n",
 		   YES_NO(cap->pmu));
@@ -147,21 +168,9 @@ static int show_capabilities(struct seq_file *f, void *offset)
 		}
 	}
 
-	carmel_pmu = ctx->carmel_pmu;
-	if (carmel_pmu) {
-		const char *name = carmel_pmu->name;
-		const struct quadd_pmu_cntr_info **cntrs, *e;
-
-		seq_puts(f, "\n");
-		seq_puts(f, "Carmel Uncore PMU\n");
-		seq_puts(f, "Supported events:\n");
-
-		cntrs = carmel_pmu->pmu_cntrs;
-
-		i = 0;
-		while ((e = cntrs[i++]))
-			seq_printf(f, "  %s/%-20s %#x\n", name, e->name, e->id);
-	}
+	show_uncore_events(f, ctx->carmel_pmu, &ctx->carmel_pmu_info);
+	show_uncore_events(f, ctx->tegra23x_pmu_scf, &ctx->tegra23x_pmu_scf_info);
+	show_uncore_events(f, ctx->tegra23x_pmu_dsu, &ctx->tegra23x_pmu_dsu_info);
 
 	return 0;
 }

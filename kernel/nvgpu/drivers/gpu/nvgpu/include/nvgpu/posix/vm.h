@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __NVGPU_POSIX_VM_H__
-#define __NVGPU_POSIX_VM_H__
+#ifndef NVGPU_POSIX_VM_H
+#define NVGPU_POSIX_VM_H
 
 #include <nvgpu/types.h>
 
@@ -38,4 +38,4 @@ struct nvgpu_mapped_buf_priv {
 	size_t size;
 };
 
-#endif
+#endif /* NVGPU_POSIX_VM_H */

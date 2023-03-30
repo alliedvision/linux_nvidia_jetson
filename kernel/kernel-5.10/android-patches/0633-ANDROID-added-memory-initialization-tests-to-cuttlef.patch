@@ -1,0 +1,31 @@
+From 8712ea6f0805fa56e7872c713e2f3619a9b9fad4 Mon Sep 17 00:00:00 2001
+From: Alexander Potapenko <glider@google.com>
+Date: Thu, 13 Feb 2020 23:56:55 +0100
+Subject: [PATCH 633/830] ANDROID: added memory initialization tests to
+ cuttlefish config
+X-NVConfidentiality: public
+
+Build the cuttlefish kernel with CONFIG_TEST_STACKINIT=m and
+CONFIG_TEST_MEMINIT=m to provide the tests for stack and heap
+initialization.
+
+Bug: 144999193
+Change-Id: Ifbcf70df6f23f3e37178d5872ceda64aa1199c12
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+ cuttlefish.fragment | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cuttlefish.fragment b/cuttlefish.fragment
+index bdff8fa24404..e201d2d23a9a 100644
+--- a/cuttlefish.fragment
++++ b/cuttlefish.fragment
+@@ -17,3 +17,5 @@ CONFIG_VIRTIO_INPUT=m
+ CONFIG_VIRTIO_MMIO=m
+ CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+ CONFIG_INCREMENTAL_FS=m
++CONFIG_TEST_STACKINIT=m
++CONFIG_TEST_MEMINIT=m
+-- 
+2.17.1
+

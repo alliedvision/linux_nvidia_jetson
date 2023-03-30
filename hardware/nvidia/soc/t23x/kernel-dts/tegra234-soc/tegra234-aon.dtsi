@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	aon: aon@c000000 {
+		compatible = "nvidia,tegra234-aon";
+		status = "disabled";
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_AON>;
+		dma-coherent;
+
+		/* common mailbox binding property, should be 1. */
+		#mbox-cells = <1>;
+		reg =   <0 0xc000000 0 0x800000>;
+		nvidia,ivc-carveout-base-ss = <0>;
+		nvidia,ivc-carveout-size-ss = <1>;
+		nvidia,ivc-rx-ss = <2>;
+		nvidia,ivc-tx-ss = <3>;
+
+		/* mailbox for debugging */
+		mboxes = <&aon 0>;
+
+		hsp {
+			compatible = "nvidia,tegra-aon-hsp";
+			mboxes =
+			  <&hsp_top1 TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(5)>,
+			  <&hsp_top1 TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(4)>;
+			mbox-names = "ivc-tx", "ivc-rx";
+		};
+
+		ivc-channels@80000000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ivc_aon_aondbg@0 {
+				reg = <0x0000>, <0x10000>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <2>;
+				nvidia,frame-size = <64>;
+			};
+
+			ivc_aon_echo@100 {
+				reg = <0x0100>, <0x10100>;
+				reg-names = "rx", "tx";
+				nvidia,frame-count = <16>;
+				nvidia,frame-size = <64>;
+			};
+		};
+	};
+
+	aon_echo {
+		compatible = "nvidia,tegra186-aon-ivc-echo";
+		mboxes = <&aon 1>;
+		status = "disabled";
+	};
+};

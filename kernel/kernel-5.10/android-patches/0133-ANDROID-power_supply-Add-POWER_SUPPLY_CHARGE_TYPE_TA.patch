@@ -1,0 +1,50 @@
+From cb7b44aae94bb2d334900d36159c83a7984a2f50 Mon Sep 17 00:00:00 2001
+From: AleX Pelosi <apelosi@google.com>
+Date: Thu, 27 Aug 2020 11:00:04 -0700
+Subject: [PATCH 133/830] ANDROID: power_supply: Add
+ POWER_SUPPLY_CHARGE_TYPE_TAPER
+X-NVConfidentiality: public
+
+Used to track the constant voltage phase of charging and implement
+tier transition for multi-step charging.
+
+Bug: 168244640
+Signed-off-by: AleX Pelosi <apelosi@google.com>
+Change-Id: I49d3033eec671156ffd113d8d0e3972d2cdad982
+---
+ drivers/power/supply/power_supply_sysfs.c | 1 +
+ include/linux/power_supply.h              | 6 ++++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/power/supply/power_supply_sysfs.c b/drivers/power/supply/power_supply_sysfs.c
+index a616b9d8f43c..a5e65636057d 100644
+--- a/drivers/power/supply/power_supply_sysfs.c
++++ b/drivers/power/supply/power_supply_sysfs.c
+@@ -89,6 +89,7 @@ static const char * const POWER_SUPPLY_CHARGE_TYPE_TEXT[] = {
+ 	[POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE]	= "Adaptive",
+ 	[POWER_SUPPLY_CHARGE_TYPE_CUSTOM]	= "Custom",
+ 	[POWER_SUPPLY_CHARGE_TYPE_LONGLIFE]	= "Long Life",
++	[POWER_SUPPLY_CHARGE_TYPE_TAPER]	= "Taper",
+ };
+ 
+ static const char * const POWER_SUPPLY_HEALTH_TEXT[] = {
+diff --git a/include/linux/power_supply.h b/include/linux/power_supply.h
+index e9c67d61d82a..aa61744b2b77 100644
+--- a/include/linux/power_supply.h
++++ b/include/linux/power_supply.h
+@@ -49,6 +49,12 @@ enum {
+ 	POWER_SUPPLY_CHARGE_TYPE_ADAPTIVE,	/* dynamically adjusted speed */
+ 	POWER_SUPPLY_CHARGE_TYPE_CUSTOM,	/* use CHARGE_CONTROL_* props */
+ 	POWER_SUPPLY_CHARGE_TYPE_LONGLIFE,	/* slow speed, longer life */
++
++	/*
++	 * force to 50 to minimize the chances of userspace binary
++	 * incompatibility on newer upstream kernels
++	 */
++	POWER_SUPPLY_CHARGE_TYPE_TAPER = 50,	/* charging in CV phase */
+ };
+ 
+ enum {
+-- 
+2.17.1
+

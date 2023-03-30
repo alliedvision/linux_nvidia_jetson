@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,195 +53,62 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_trim_gv100_h_
-#define _hw_trim_gv100_h_
+#ifndef NVGPU_HW_TRIM_GV100_H
+#define NVGPU_HW_TRIM_GV100_H
 
-static inline u32 trim_sys_nvlink_uphy_cfg_r(void)
-{
-	return 0x00132410U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_f(u32 v)
-{
-	return (v & 0x3ffU) << 0U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_m(void)
-{
-	return 0x3ffU << 0U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_v(u32 r)
-{
-	return (r >> 0U) & 0x3ffU;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_f(u32 v)
-{
-	return (v & 0x1U) << 12U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_m(void)
-{
-	return 0x1U << 12U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_v(u32 r)
-{
-	return (r >> 12U) & 0x1U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_f(u32 v)
-{
-	return (v & 0xffU) << 16U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_m(void)
-{
-	return 0xffU << 16U;
-}
-static inline u32 trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_v(u32 r)
-{
-	return (r >> 16U) & 0xffU;
-}
-static inline u32 trim_sys_nvlink0_ctrl_r(void)
-{
-	return 0x00132420U;
-}
-static inline u32 trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 trim_sys_nvlink0_status_r(void)
-{
-	return 0x00132424U;
-}
-static inline u32 trim_sys_nvlink0_status_pll_off_f(u32 v)
-{
-	return (v & 0x1U) << 5U;
-}
-static inline u32 trim_sys_nvlink0_status_pll_off_m(void)
-{
-	return 0x1U << 5U;
-}
-static inline u32 trim_sys_nvlink0_status_pll_off_v(u32 r)
-{
-	return (r >> 5U) & 0x1U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_r(void)
-{
-	return 0x001371c4U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_f(u32 v)
-{
-	return (v & 0x3U) << 16U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_m(void)
-{
-	return 0x3U << 16U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_v(u32 r)
-{
-	return (r >> 16U) & 0x3U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_xtal4x_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_xtal4x_f(void)
-{
-	return 0x30000U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_xtal_in_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_slowclk_xtal_in_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_m(void)
-{
-	return 0x3U << 0U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_slowclk_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_slowclk_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_miscclk_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_miscclk_f(void)
-{
-	return 0x2U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_onesrcclk_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 trim_sys_nvl_common_clk_alt_switch_finalsel_onesrcclk_f(void)
-{
-	return 0x3U;
-}
-static inline u32 trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cfg_r(void)
-{
-	return 0x00132a70U;
-}
-static inline u32 trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cfg_source_gpcclk_f(void)
-{
-	return 0x10000000U;
-}
-static inline u32 trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cnt0_r(void)
-{
-	return 0x00132a74U;
-}
-static inline u32 trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cnt1_r(void)
-{
-	return 0x00132a78U;
-}
-static inline u32 trim_sys_nafll_fr_clk_cntr_xbarclk_cfg_r(void)
-{
-	return 0x00136470U;
-}
-static inline u32 trim_sys_nafll_fr_clk_cntr_xbarclk_cfg_source_xbarclk_f(void)
-{
-	return 0x10000000U;
-}
-static inline u32 trim_sys_nafll_fr_clk_cntr_xbarclk_cntr0_r(void)
-{
-	return 0x00136474U;
-}
-static inline u32 trim_sys_nafll_fr_clk_cntr_xbarclk_cntr1_r(void)
-{
-	return 0x00136478U;
-}
-static inline u32 trim_sys_fr_clk_cntr_sysclk_cfg_r(void)
-{
-	return 0x0013762cU;
-}
-static inline u32 trim_sys_fr_clk_cntr_sysclk_cfg_source_sysclk_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 trim_sys_fr_clk_cntr_sysclk_cntr0_r(void)
-{
-	return 0x00137630U;
-}
-static inline u32 trim_sys_fr_clk_cntr_sysclk_cntr1_r(void)
-{
-	return 0x00137634U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define trim_sys_nvlink_uphy_cfg_r()                               (0x00132410U)
+#define trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_f(v)\
+				((U32(v) & 0x3ffU) << 0U)
+#define trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_m()\
+				(U32(0x3ffU) << 0U)
+#define trim_sys_nvlink_uphy_cfg_lockdect_wait_dly_length_v(r)\
+				(((r) >> 0U) & 0x3ffU)
+#define trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_f(v)\
+				((U32(v) & 0x1U) << 12U)
+#define trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_m()     (U32(0x1U) << 12U)
+#define trim_sys_nvlink_uphy_cfg_phy2clks_use_lockdet_v(r) (((r) >> 12U) & 0x1U)
+#define trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_f(v)  ((U32(v) & 0xffU) << 16U)
+#define trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_m()         (U32(0xffU) << 16U)
+#define trim_sys_nvlink_uphy_cfg_nvlink_wait_dly_v(r)     (((r) >> 16U) & 0xffU)
+#define trim_sys_nvlink0_ctrl_r()                                  (0x00132420U)
+#define trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_f(v)\
+				((U32(v) & 0x1U) << 0U)
+#define trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_m()       (U32(0x1U) << 0U)
+#define trim_sys_nvlink0_ctrl_unit2clks_pll_turn_off_v(r)   (((r) >> 0U) & 0x1U)
+#define trim_sys_nvlink0_status_r()                                (0x00132424U)
+#define trim_sys_nvlink0_status_pll_off_f(v)             ((U32(v) & 0x1U) << 5U)
+#define trim_sys_nvlink0_status_pll_off_m()                    (U32(0x1U) << 5U)
+#define trim_sys_nvlink0_status_pll_off_v(r)                (((r) >> 5U) & 0x1U)
+#define trim_sys_nvl_common_clk_alt_switch_r()                     (0x001371c4U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_f(v) ((U32(v) & 0x3U) << 16U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_m()        (U32(0x3U) << 16U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_v(r)    (((r) >> 16U) & 0x3U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_xtal4x_v()      (0x00000003U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_xtal4x_f()         (0x30000U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_xtal_in_v()     (0x00000000U)
+#define trim_sys_nvl_common_clk_alt_switch_slowclk_xtal_in_f()            (0x0U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_f(v) ((U32(v) & 0x3U) << 0U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_m()        (U32(0x3U) << 0U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_v(r)    (((r) >> 0U) & 0x3U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_slowclk_v()    (0x00000000U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_slowclk_f()           (0x0U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_miscclk_v()    (0x00000002U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_miscclk_f()           (0x2U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_onesrcclk_v()  (0x00000003U)
+#define trim_sys_nvl_common_clk_alt_switch_finalsel_onesrcclk_f()         (0x3U)
+#define trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cfg_r()                (0x00132a70U)
+#define trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cfg_source_gpcclk_f()  (0x10000000U)
+#define trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cnt0_r()               (0x00132a74U)
+#define trim_gpc_bcast_fr_clk_cntr_ncgpcclk_cnt1_r()               (0x00132a78U)
+#define trim_sys_fll_fr_clk_cntr_xbarclk_cfg_r()                   (0x00136470U)
+#define trim_sys_fll_fr_clk_cntr_xbarclk_cfg_source_xbarclk_f()    (0x10000000U)
+#define trim_sys_fll_fr_clk_cntr_xbarclk_cntr0_r()                 (0x00136474U)
+#define trim_sys_fll_fr_clk_cntr_xbarclk_cntr1_r()                 (0x00136478U)
+#define trim_sys_fr_clk_cntr_sysclk_cfg_r()                        (0x0013762cU)
+#define trim_sys_fr_clk_cntr_sysclk_cfg_source_sysclk_f()          (0x20000000U)
+#define trim_sys_fr_clk_cntr_sysclk_cntr0_r()                      (0x00137630U)
+#define trim_sys_fr_clk_cntr_sysclk_cntr1_r()                      (0x00137634U)
 #endif

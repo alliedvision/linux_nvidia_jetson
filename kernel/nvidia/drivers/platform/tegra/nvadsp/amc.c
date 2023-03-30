@@ -3,7 +3,7 @@
  *
  * AMC and ARAM handling
  *
- * Copyright (C) 2014-2017, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2021, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -19,6 +19,12 @@
 #include <linux/tegra_nvadsp.h>
 #include <linux/irqchip/tegra-agic.h>
 #include <linux/interrupt.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "dev.h"
 #include "amc.h"
@@ -142,7 +148,8 @@ static irqreturn_t nvadsp_amc_error_int_handler(int irq, void *devid)
 		 * Ignore addresses lesser than AMC_ERROR_ADDR_IGNORE (4k)
 		 * as those are spurious ones due a hardware issue.
 		 */
-		if (addr > AMC_ERROR_ADDR_IGNORE)
+		if (!(nvadsp_drv_data->chip_data->amc_err_war) ||
+				(addr > AMC_ERROR_ADDR_IGNORE))
 			pr_info("nvadsp: invalid ARAM access. address: 0x%x\n",
 				addr);
 
@@ -170,7 +177,7 @@ void nvadsp_free_amc_interrupts(struct platform_device *pdev)
 
 	node = dev->of_node;
 
-	if (!of_device_is_compatible(node, "nvidia,tegra18x-adsp-hv"))
+	if (!is_tegra_hypervisor_mode())
 		devm_free_irq(dev, drv->agic_irqs[AMC_ERR_VIRQ], pdev);
 }
 
@@ -185,7 +192,7 @@ int nvadsp_setup_amc_interrupts(struct platform_device *pdev)
 	nvadsp_pdev = pdev;
 	nvadsp_drv_data = drv;
 
-	if (!of_device_is_compatible(node, "nvidia,tegra18x-adsp-hv"))
+	if (!is_tegra_hypervisor_mode())
 		ret = devm_request_irq(dev, drv->agic_irqs[AMC_ERR_VIRQ],
 			nvadsp_amc_error_int_handler, 0,
 			"AMC error int", pdev);

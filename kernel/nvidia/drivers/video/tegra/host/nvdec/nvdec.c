@@ -1,7 +1,7 @@
 /*
  * Tegra NVDEC Module Support
  *
- * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,13 +30,15 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/dma-mapping.h>
-#include <soc/tegra/chip-id.h>
 #include <linux/version.h>
 
-#include <linux/tegra_pm_domains.h>
 #include <uapi/linux/nvhost_nvdec_ioctl.h>
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDEC_SECURE)
 #include <linux/platform/tegra/mc.h>
+#endif
+
+#include <soc/tegra/kfuse.h>
 
 #include "dev.h"
 #include "nvdec.h"
@@ -46,19 +48,18 @@
 #include "nvhost_acm.h"
 #include "nvhost_scale.h"
 #include "chip_support.h"
-#include "t124/t124.h"
 #include "t210/t210.h"
-#include "iomap.h"
+#include "class_ids_t194.h"
+#include "platform.h"
 
 #if defined(CONFIG_TRUSTED_LITTLE_KERNEL) || defined(CONFIG_TRUSTY)
 #include <linux/ote_protocol.h>
 #endif
 
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-#include "t186/t186.h"
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 #include "t194/t194.h"
+#include "t23x/t23x.h"
+#ifdef CONFIG_TEGRA_T239_GRHOST
+#include "t239/t239.h"
 #endif
 
 #define FW_NAME_SIZE			32
@@ -118,6 +119,7 @@ static void nvdec_get_ls_fw_name(struct platform_device *pdev, char *name)
 			min);
 }
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDEC_SECURE)
 static int nvhost_nvdec_bl_init(struct platform_device *dev)
 {
 	u32 fb_data_offset = 0;
@@ -159,6 +161,42 @@ static int nvhost_nvdec_bl_init(struct platform_device *dev)
 	/* store fw start address for nvdec bl to read */
 	memcpy(&(m[0]->mapped[fb_data_offset]), &shared_data,
 		sizeof(shared_data));
+
+	return 0;
+}
+#else
+static int nvhost_nvdec_bl_init(struct platform_device *dev)
+{
+	dev_err(&dev->dev, "kernel configuration does not support booting NVDEC in secure mode\n");
+	return -EINVAL;
+}
+#endif
+
+int nvhost_nvdec_finalize_poweron_t194(struct platform_device *dev)
+{
+	int err;
+
+	if (!tegra_platform_is_vdk()) {
+		err = tegra_kfuse_enable_sensing();
+		if (err)
+			return err;
+	}
+
+	flcn_enable_thi_sec(dev);
+
+	err = nvhost_nvdec_finalize_poweron(dev);
+	if (err && !tegra_platform_is_vdk()) {
+		tegra_kfuse_disable_sensing();
+	}
+
+	return err;
+}
+
+int nvhost_nvdec_prepare_poweroff_t194(struct platform_device *dev)
+{
+	if (!tegra_platform_is_vdk()) {
+		tegra_kfuse_disable_sensing();
+	}
 
 	return 0;
 }
@@ -221,6 +259,24 @@ int nvhost_nvdec_finalize_poweron(struct platform_device *dev)
 	return 0;
 }
 
+static int get_dma_attrs(struct platform_device *dev, unsigned long *attrs)
+{
+#ifdef DMA_ATTR_READ_ONLY
+        *attrs = DMA_ATTR_READ_ONLY;
+        return 0;
+#else
+        struct nvhost_device_data *pdata = nvhost_get_devdata(dev);
+        if (pdata->isolate_contexts) {
+                *attrs = 0;
+                return 0;
+        } else {
+                dev_err(&dev->dev, "kernel doesn't support DMA_ATTR_READ_ONLY and context isolation is disabled!\n");
+                return -EINVAL;
+        }
+#endif
+}
+
+
 static int nvdec_read_ucode(struct platform_device *dev,
 			    const char *fw_name,
 			    struct flcn *m,
@@ -228,10 +284,14 @@ static int nvdec_read_ucode(struct platform_device *dev,
 {
 	const struct firmware *ucode_fw;
 	struct ucode_v1_flcn ucode;
+	unsigned long attrs;
 	int err;
-	DEFINE_DMA_ATTRS(attrs);
 
-	dma_set_attr(DMA_ATTR_READ_ONLY, __DMA_ATTR(attrs));
+	err = get_dma_attrs(dev, &attrs);
+	if (err) {
+		return err;
+	}
+
 	m->dma_addr = 0;
 	m->mapped = NULL;
 	ucode_fw  = nvhost_client_request_firmware(dev, fw_name, warn);
@@ -245,7 +305,7 @@ static int nvdec_read_ucode(struct platform_device *dev,
 
 	m->size = ucode_fw->size;
 	m->mapped = dma_alloc_attrs(&dev->dev, m->size, &m->dma_addr,
-				    GFP_KERNEL, __DMA_ATTR(attrs));
+				    GFP_KERNEL, attrs);
 	if (!m->mapped) {
 		dev_err(&dev->dev, "dma memory allocation failed");
 		err = -ENOMEM;
@@ -267,7 +327,7 @@ static int nvdec_read_ucode(struct platform_device *dev,
 clean_up:
 	if (m->mapped) {
 		dma_free_attrs(&dev->dev, m->size, m->mapped, m->dma_addr,
-			       __DMA_ATTR(attrs));
+			       attrs);
 		m->mapped = NULL;
 		m->dma_addr = 0;
 	}
@@ -396,21 +456,21 @@ static int nvhost_nvdec_init_sw(struct platform_device *pdev)
 }
 
 static struct of_device_id tegra_nvdec_of_match[] = {
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra210-nvdec",
 		.data = (struct nvhost_device_data *)&t21_nvdec_info },
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{ .compatible = "nvidia,tegra186-nvdec",
-		.data = (struct nvhost_device_data *)&t18_nvdec_info },
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 	{ .compatible = "nvidia,tegra194-nvdec",
 		.data = (struct nvhost_device_data *)&t19_nvdec_info,
 		.name = "nvdec" },
 	{ .compatible = "nvidia,tegra194-nvdec",
 		.data = (struct nvhost_device_data *)&t19_nvdec1_info,
 		.name = "nvdec1" },
+	{ .compatible = "nvidia,tegra234-nvdec",
+		.data = (struct nvhost_device_data *)&t23x_nvdec_info,
+		.name = "nvdec" },
+#ifdef CONFIG_TEGRA_T239_GRHOST
+	{ .compatible = "nvidia,tegra239-nvdec",
+		.data = (struct nvhost_device_data *)&t239_nvdec_info,
+		.name = "nvdec" },
 #endif
 	{ },
 };
@@ -508,9 +568,18 @@ static int nvdec_probe(struct platform_device *dev)
 		return -ENODATA;
 	}
 
+	if (nvhost_is_194() &&
+	    (tegra_get_sku_id() == 0x9F ||
+	     tegra_get_sku_id() == 0x9E) &&
+	    pdata->class == NV_NVDEC1_CLASS_ID) {
+		dev_err(&dev->dev, "NVDEC1 IP is disabled in SKU\n");
+		err = -ENODEV;
+		return err;
+	}
+
 	pdata->pdev = dev;
 
-	if (tegra_platform_is_sim() && tegra_get_chip_id() == TEGRA194) {
+	if (tegra_platform_is_sim() && nvhost_is_194()) {
 		dev_info(&dev->dev, "context isolation disabled on simulator");
 		pdata->isolate_contexts = false;
 	}
@@ -539,7 +608,7 @@ static int __exit nvdec_remove(struct platform_device *dev)
 	return 0;
 }
 
-static struct platform_driver nvdec_driver = {
+struct platform_driver nvhost_nvdec_driver = {
 	.probe = nvdec_probe,
 	.remove = __exit_p(nvdec_remove),
 	.driver = {
@@ -565,37 +634,10 @@ const struct file_operations tegra_nvdec_ctrl_ops = {
 	.release = nvdec_release,
 };
 
-static struct of_device_id tegra_nvdec_domain_match[] = {
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_LEGACY_PD)
+struct of_device_id nvhost_nvdec_domain_match[] = {
 	{ .compatible = "nvidia,tegra210-nvdec-pd",
 	.data = (struct nvhost_device_data *)&t21_nvdec_info},
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{ .compatible = "nvidia,tegra186-nvdec-pd",
-	.data = (struct nvhost_device_data *)&t18_nvdec_info},
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
-	{.compatible = "nvidia,tegra194-nvdec1-pd",
-	 .data = (struct nvhost_device_data *)&t19_nvdec1_info},
-#endif
 	{},
 };
-
-static int __init nvdec_init(void)
-{
-	int ret;
-
-	ret = nvhost_domain_init(tegra_nvdec_domain_match);
-	if (ret)
-		return ret;
-
-	return platform_driver_register(&nvdec_driver);
-}
-
-static void __exit nvdec_exit(void)
-{
-	platform_driver_unregister(&nvdec_driver);
-}
-
-module_init(nvdec_init);
-module_exit(nvdec_exit);
+#endif

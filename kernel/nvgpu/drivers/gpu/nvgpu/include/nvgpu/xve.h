@@ -24,14 +24,15 @@
 
 #include <nvgpu/types.h>
 #include <nvgpu/log2.h>
+#include <nvgpu/bitops.h>
 
 /*
  * For the available speeds bitmap.
  */
-#define GPU_XVE_SPEED_2P5	(1 << 0)
-#define GPU_XVE_SPEED_5P0	(1 << 1)
-#define GPU_XVE_SPEED_8P0	(1 << 2)
-#define GPU_XVE_NR_SPEEDS	3
+#define GPU_XVE_SPEED_2P5	BIT32(0)
+#define GPU_XVE_SPEED_5P0	BIT32(1)
+#define GPU_XVE_SPEED_8P0	BIT32(2)
+#define GPU_XVE_NR_SPEEDS	3U
 
 #define GPU_XVE_SPEED_MASK	(GPU_XVE_SPEED_2P5 |	\
 				 GPU_XVE_SPEED_5P0 |	\
@@ -54,14 +55,14 @@
  */
 static inline const char *xve_speed_to_str(u32 speed)
 {
-	if (!speed || !is_power_of_2(speed) ||
-	    !(speed & GPU_XVE_SPEED_MASK)) {
+	if ((speed == 0U) || !is_power_of_2(speed) ||
+	    (speed & GPU_XVE_SPEED_MASK) == 0U) {
 		return "Unknown ???";
 	}
 
-	return speed & GPU_XVE_SPEED_2P5 ? "Gen1" :
-	       speed & GPU_XVE_SPEED_5P0 ? "Gen2" :
-	       speed & GPU_XVE_SPEED_8P0 ? "Gen3" :
+	return (speed & GPU_XVE_SPEED_2P5) != 0U ? "Gen1" :
+	       (speed & GPU_XVE_SPEED_5P0) != 0U ? "Gen2" :
+	       (speed & GPU_XVE_SPEED_8P0) != 0U ? "Gen3" :
 	       "Unknown ???";
 }
 

@@ -1,7 +1,7 @@
 /*
  * drivers/misc/therm_est.c
  *
- * Copyright (c) 2010-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -57,11 +57,6 @@ struct therm_estimator {
 	struct notifier_block pm_nb;
 #endif
 };
-
-static int therm_est_subdev_match(struct thermal_zone_device *thz, void *data)
-{
-	return strcmp((char *)data, thz->type) == 0;
-}
 
 static int therm_est_subdev_get_temp(struct thermal_zone_device *thz,
 					int *temp)
@@ -156,11 +151,7 @@ static void therm_est_work_func(struct work_struct *work)
 
 	if (est->thz && ((est->cur_temp < est->low_limit) ||
 			(est->cur_temp >= est->high_limit))) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 		thermal_zone_device_update(est->thz, THERMAL_EVENT_UNSPECIFIED);
-#else
-		thermal_zone_device_update(est->thz);
-#endif
 		therm_est_update_limits(est);
 	}
 
@@ -199,11 +190,7 @@ static int therm_est_trip_update(void *of_data, int trip)
 {
 	struct therm_estimator *est = (struct therm_estimator *)of_data;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 	thermal_zone_device_update(est->thz, THERMAL_EVENT_UNSPECIFIED);
-#else
-	thermal_zone_device_update(est->thz);
-#endif
 	therm_est_update_limits(est);
 
 	return 0;
@@ -642,10 +629,9 @@ static int therm_est_get_subdev(struct device *dev,
 		if (ret)
 			return -EINVAL;
 
-		thz = thermal_zone_device_find(thz_name,
-							therm_est_subdev_match);
-		if (!thz)
-			return -EINVAL;
+		thz = thermal_zone_get_zone_by_name(thz_name);
+		if (IS_ERR(thz))
+			return PTR_ERR(thz);
 		subdevice->sub_thz[i].thz = thz;
 	}
 

@@ -491,6 +491,13 @@ u32 rtl8822ce_init(PADAPTER padapter)
 	rtl8822c_init_misc(padapter);
 	hal_init_misc(padapter);
 
+#ifdef CONFIG_USB_CONFIG_OFFLOAD_8822C
+	/* Check HCI Configuration if MIX mode, BT-USB, WiFi-PCIe */
+	/* 3b'010 is WiFi-PCIe + BT-UART. 3b'011 is WiFi-PCIe + BT-USB */
+	if (0x3 == ((rtw_read32(padapter, REG_SYS_STATUS1_8822C)>>12)&0x7))
+		rtl8822c_set_usb_suspend_mode(padapter);
+#endif
+	
 #ifdef CONFIG_8822CE_INT_MIGRATION 
 	/* TX interrupt migration - 3pkts or 7*64=448us */
 	rtw_write32(padapter, REG_INT_MIG_8822C, 0x03070000);
@@ -548,7 +555,7 @@ void rtl8822ce_init_default_value(PADAPTER padapter)
 			#ifdef CONFIG_LPS_LCLK
 						BIT_CPWM_MSK		|
 			#endif
-			#if (!(defined (CONFIG_PCI_TX_POLLING) || defined (CONFIG_PCI_TX_POLLING_V2)))
+			#ifndef CONFIG_PCI_TX_POLLING
 					       BIT_HIGHDOK_MSK		|
 					       BIT_MGTDOK_MSK		|
 					       BIT_BKDOK_MSK		|

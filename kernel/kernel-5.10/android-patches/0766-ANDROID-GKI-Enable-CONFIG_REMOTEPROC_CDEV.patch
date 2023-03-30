@@ -1,0 +1,43 @@
+From d01682a480da57e7f5ace48ff1213db195f0255e Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 31 Aug 2020 08:05:45 -0700
+Subject: [PATCH 766/830] ANDROID: GKI: Enable CONFIG_REMOTEPROC_CDEV
+X-NVConfidentiality: public
+
+So userspace can talk to remoteprocs.
+
+Bug: 166496944
+Change-Id: I92bef600e7270cc8bfab083a64da55dec18bedb4
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c8342b0ccb77..ef49759ca003 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -427,6 +427,7 @@ CONFIG_HWSPINLOCK=y
+ # CONFIG_SUN50I_ERRATUM_UNKNOWN1 is not set
+ CONFIG_MAILBOX=y
+ CONFIG_REMOTEPROC=y
++CONFIG_REMOTEPROC_CDEV=y
+ CONFIG_RPMSG_CHAR=y
+ CONFIG_QCOM_COMMAND_DB=y
+ CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a597e8a44276..e4d4ce7399f3 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -370,6 +370,7 @@ CONFIG_ASHMEM=y
+ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+ CONFIG_REMOTEPROC=y
++CONFIG_REMOTEPROC_CDEV=y
+ CONFIG_RPMSG_CHAR=y
+ CONFIG_PM_DEVFREQ_EVENT=y
+ CONFIG_IIO=y
+-- 
+2.17.1
+

@@ -1,0 +1,57 @@
+From deae627bb3adf840a0d7c9a1b1a8de81799eaa44 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 13 Feb 2020 18:39:40 +0000
+Subject: [PATCH 533/830] ANDROID: db845c_gki.fragment: Enable config options
+ to support wifi on db845c
+X-NVConfidentiality: public
+
+Adds config changes to the db845c_gki.fragment in order to
+support wifi on the db845c board.
+
+Bug: 146449535
+Change-Id: I4d9bf877176db57ba7990980566357b2313bc149
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ arch/arm64/configs/db845c_gki.fragment | 29 ++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index c8b7fc3c3cd1..1c00edca0cdf 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -62,3 +62,32 @@ CONFIG_PHY_QCOM_USB_HS=m
+ CONFIG_QCOM_QFPROM=m
+ CONFIG_INTERCONNECT_QCOM=y
+ CONFIG_INTERCONNECT_QCOM_SDM845=m
++CONFIG_WLAN_VENDOR_ATH=y
++CONFIG_ATH10K_AHB=y
++CONFIG_ATH10K=m
++CONFIG_ATH10K_PCI=m
++CONFIG_ATH10K_SNOC=m
++CONFIG_WCN36XX=m
++CONFIG_QRTR_SMD=m
++CONFIG_QCOM_FASTRPC=m
++CONFIG_QCOM_APCS_IPC=m
++CONFIG_QCOM_Q6V5_COMMON=m
++CONFIG_QCOM_RPROC_COMMON=m
++CONFIG_QCOM_Q6V5_ADSP=m
++CONFIG_QCOM_Q6V5_MSS=m
++CONFIG_QCOM_Q6V5_PAS=m
++CONFIG_QCOM_Q6V5_WCSS=m
++CONFIG_QCOM_SYSMON=m
++CONFIG_QCOM_WCNSS_PIL=m
++CONFIG_RPMSG_QCOM_GLINK_SMEM=m
++CONFIG_RPMSG_QCOM_SMD=m
++CONFIG_QCOM_AOSS_QMP=m
++CONFIG_QCOM_OCMEM=m
++CONFIG_QCOM_SMP2P=m
++CONFIG_QCOM_SOCINFO=m
++CONFIG_QCOM_WCNSS_CTRL=m
++CONFIG_QCOM_APR=m
++CONFIG_QCOM_GLINK_SSR=m
++CONFIG_RPMSG_QCOM_GLINK_RPM=m
++CONFIG_QCOM_SMD_RPM=m
++CONFIG_QCOM_RPMPD=m
+-- 
+2.17.1
+

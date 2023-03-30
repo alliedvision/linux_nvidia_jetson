@@ -1,0 +1,43 @@
+From 814a348fc236ff919e9aec3d542bcaeea0d92be2 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 9 Jul 2020 18:16:15 -0700
+Subject: [PATCH 413/830] ANDROID: f2fs: add back compress inode check
+X-NVConfidentiality: public
+
+f2fs_force_buffered_io() originally had two checks of
+f2fs_compressed_file(), when only one was needed.  The one via
+f2fs_post_read_required() got removed by ANDROID commit 141f59b911eb
+("ANDROID: ext4, f2fs: enable direct I/O with inline encryption").  Then
+more recently, the second was removed by upstream commit b5f4684b5f5f
+("f2fs: remove redundant compress inode check"), but this wasn't fixed
+up during the merge resolution.
+
+This incorrectly left no checks remaining, so add one back.
+
+Reported at
+https://lkml.kernel.org/r/560266ca-0164-c02e-18ea-55564683d13e@huawei.com
+
+Fixes: 8912845e4e95 ("Merge 42612e776331 ("Merge tag 'f2fs-for-5.8' of git://git.kernel.org/pub/scm/linux/kernel/git/jaegeuk/f2fs") into android-mainline")
+Bug: 162255927
+Change-Id: I3f6afdd221b6e44f1caa5a92d3c751a573e284df
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ fs/f2fs/f2fs.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/fs/f2fs/f2fs.h b/fs/f2fs/f2fs.h
+index a01d4cfdb00e..1ad5dd686cd2 100644
+--- a/fs/f2fs/f2fs.h
++++ b/fs/f2fs/f2fs.h
+@@ -4066,6 +4066,8 @@ static inline bool f2fs_force_buffered_io(struct inode *inode,
+ 		return true;
+ 	if (fsverity_active(inode))
+ 		return true;
++	if (f2fs_compressed_file(inode))
++		return true;
+ 	if (f2fs_is_multi_device(sbi))
+ 		return true;
+ 	/*
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,7 @@ struct unit_modules;
 struct unit_results;
 
 struct gk20a;
+struct nvgpu_posix_fault_inj_container;
 
 /*
  * The core unit testing framework data structure. Keeps track of global state
@@ -41,7 +42,7 @@ struct unit_fw {
 	struct unit_results	 *results;
 
 	/*
-	 * nvgpu-drv interface. Currently the only two directly referenced
+	 * driver library interface. Currently the only two directly referenced
 	 * functions are:
 	 *
 	 *   nvgpu_posix_probe()
@@ -54,10 +55,15 @@ struct unit_fw {
 	struct {
 		struct gk20a	*(*nvgpu_posix_probe)(void);
 		void		 (*nvgpu_posix_cleanup)(struct gk20a *g);
+		void		 (*nvgpu_posix_init_fault_injection)
+				    (struct nvgpu_posix_fault_inj_container *c);
+		void		 (*nvgpu_posix_init_fault_injection_qnx)
+				    (struct nvgpu_posix_fault_inj_container *c);
 	} nvgpu;
+	void			 *nvgpu_qnx_ut;
 };
 
 int core_load_nvgpu(struct unit_fw *fw);
 int core_exec(struct unit_fw *fw);
-
+int verbose_lvl(struct unit_module *module);
 #endif

@@ -1,7 +1,7 @@
 /*
  * tegra186_ahc.h - Definitions for Tegra186 AHC driver
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,8 +19,9 @@
 #ifndef __TEGRA186_AHC_H__
 #define __TEGRA186_AHC_H__
 
-#include <linux/spinlock_types.h>
+#include <linux/interrupt.h>
 #include <linux/list.h>
+#include <linux/spinlock_types.h>
 
 enum {
 	TEGRA186_AHC_I2S1_CB = 0,

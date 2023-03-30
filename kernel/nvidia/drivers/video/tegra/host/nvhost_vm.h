@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Virtual Memory
  *
- * Copyright (c) 2014-2015, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,12 @@
 #define NVHOST_VM_H
 
 #include <linux/kref.h>
+#include <linux/iommu.h>
+#include <linux/version.h>
+
+#ifdef CONFIG_NV_TEGRA_MC
+#include <linux/platform/tegra/tegra-mc-sid.h>
+#endif
 
 struct platform_device;
 struct nvhost_vm_pin;
@@ -46,41 +52,6 @@ struct nvhost_vm {
 	bool enable_hw;
 };
 
-struct nvhost_vm_static_buffer {
-	struct sg_table *sgt;
-
-	void *vaddr;
-	dma_addr_t paddr;
-	size_t size;
-
-	/* list of all statically mapped buffers */
-	struct list_head list;
-};
-
-/**
- * nvhost_vm_release_firmware_area - releases area from firmware pool
- *	@pdev: Pointer to platform device
- *	@size: Size of the area
- *	@dma_addr: Address given by nvhost_vm_allocate_firmware_area()
- *
- * This function releases a firmware area.
- */
-void nvhost_vm_release_firmware_area(struct platform_device *pdev,
-				     size_t size, dma_addr_t dma_addr);
-
-/**
- * nvhost_vm_allocate_firmware_area - allocate area from firmware pool
- *	@pdev: Pointer to platform device
- *	@size: Size of the area
- *	@dma_addr: Address to the beginning of iova address
- *
- * This function allocates a firmware area. The return value indicates
- * the cpu virtual address. Return value is NULL if the allocation
- * failed.
- */
-void *nvhost_vm_allocate_firmware_area(struct platform_device *pdev,
-				       size_t size, dma_addr_t *dma_addr);
-
 /**
  * nvhost_vm_init - initialize vm
  *	@pdev: Pointer to host1x platform device
@@ -106,26 +77,6 @@ int nvhost_vm_init_device(struct platform_device *pdev);
  * This function returns hardware identifier of the given vm.
  */
 int nvhost_vm_get_id(struct nvhost_vm *vm);
-
-/**
- * nvhost_vm_map_static - map allocated area to iova
- *	@pdev: pointer to host1x or host1x client device
- *	@vaddr: kernel virtual address
- *	@paddr: desired physical address for this buffer
- *	@size: size of the buffer (in bytes)
- *
- * This call maps given area to all existing (and future) address spaces.
- * The mapping is permanent and cannot be removed. User of this API is
- * responsible to ensure that the backing memory is not released at any
- * point.
- *
- * Return 0 on succcess, error otherwise. Base address is returned
- * in address pointer.
- *
- */
-int nvhost_vm_map_static(struct platform_device *pdev,
-			 void *vaddr, dma_addr_t paddr,
-			 size_t size);
 
 /**
  * nvhost_vm_put - Drop reference to vm
@@ -157,5 +108,29 @@ void nvhost_vm_get(struct nvhost_vm *vm);
  */
 struct nvhost_vm *nvhost_vm_allocate(struct platform_device *pdev,
 				     void *identifier);
+
+static inline int nvhost_vm_get_hwid(struct platform_device *pdev,
+				     unsigned int id)
+{
+	struct device *dev = &pdev->dev;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+#else
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+#endif
+
+	if (!fwspec)
+		return -EINVAL;
+
+	if (id >= fwspec->num_ids)
+		return -EINVAL;
+
+	return fwspec->ids[id] & 0xffff;
+}
+
+static inline int nvhost_vm_get_bypass_hwid(void)
+{
+	return 0x7f;
+}
 
 #endif

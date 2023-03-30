@@ -1,0 +1,45 @@
+From 6484663273d4862545cd641ae0c922cce5d9ed0d Mon Sep 17 00:00:00 2001
+From: Suren Baghdasaryan <surenb@google.com>
+Date: Mon, 9 Mar 2020 16:03:42 -0700
+Subject: [PATCH 657/830] ANDROID: gki_defconfig: disable CONFIG_DEBUG_DEVRES
+X-NVConfidentiality: public
+
+Disable CONFIG_DEBUG_DEVRES to fix ABI differences caused by changes to
+devres_alloc_node function when this debug option is enabled.
+
+Bug: 151110905
+Test: build
+Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+Change-Id: I27ba172843c80ffd1dfbcc6cc4d706c5b18eb5d3
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 96718aa53253..d9aaf2e929a6 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -208,7 +208,6 @@ CONFIG_FW_LOADER_USER_HELPER=y
+ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+-CONFIG_DEBUG_DEVRES=y
+ CONFIG_GNSS=y
+ CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index f2fd8d0d9038..8b33c2e7387e 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -183,7 +183,6 @@ CONFIG_FW_LOADER_USER_HELPER=y
+ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+-CONFIG_DEBUG_DEVRES=y
+ CONFIG_GNSS=y
+ CONFIG_OF=y
+ CONFIG_ZRAM=y
+-- 
+2.17.1
+

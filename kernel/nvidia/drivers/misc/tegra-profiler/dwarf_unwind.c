@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/dwarf_unwind.c
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -208,7 +208,7 @@ get_user_reg_size(int mode)
 		sizeof(u32) : sizeof(u64);
 }
 
-static inline int
+static inline unsigned int
 get_secid_frame(int is_eh)
 {
 	return is_eh ?
@@ -216,7 +216,7 @@ get_secid_frame(int is_eh)
 		QUADD_SEC_TYPE_DEBUG_FRAME;
 }
 
-static inline int
+static inline unsigned int
 get_secid_frame_hdr(int is_eh)
 {
 	return is_eh ?
@@ -239,7 +239,7 @@ static inline int
 validate_addr(struct ex_region_info *ri,
 	      unsigned long addr,
 	      unsigned long nbytes,
-	      int st)
+	      unsigned int st)
 {
 	struct extab_info *ti;
 	struct quadd_mmap_area *mmap;
@@ -270,7 +270,7 @@ validate_addr(struct ex_region_info *ri,
 
 static inline u8
 read_mmap_data_u8(struct ex_region_info *ri,
-		  const u8 *addr, int st, long *err)
+		  const u8 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -285,7 +285,7 @@ read_mmap_data_u8(struct ex_region_info *ri,
 
 static inline u16
 read_mmap_data_u16(struct ex_region_info *ri,
-		   const u16 *addr, int st, long *err)
+		   const u16 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -301,7 +301,7 @@ read_mmap_data_u16(struct ex_region_info *ri,
 
 static inline s16
 read_mmap_data_s16(struct ex_region_info *ri,
-		   const s16 *addr, int st, long *err)
+		   const s16 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -317,7 +317,7 @@ read_mmap_data_s16(struct ex_region_info *ri,
 
 static inline u32
 read_mmap_data_u32(struct ex_region_info *ri,
-		   const u32 *addr, int st, long *err)
+		   const u32 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -333,7 +333,7 @@ read_mmap_data_u32(struct ex_region_info *ri,
 
 static inline s32
 read_mmap_data_s32(struct ex_region_info *ri,
-		   const s32 *addr, int st, long *err)
+		   const s32 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -349,7 +349,7 @@ read_mmap_data_s32(struct ex_region_info *ri,
 
 static inline s64
 read_mmap_data_s64(struct ex_region_info *ri,
-		   const s64 *addr, int st, long *err)
+		   const s64 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -365,7 +365,7 @@ read_mmap_data_s64(struct ex_region_info *ri,
 
 static inline u64
 read_mmap_data_u64(struct ex_region_info *ri,
-		   const u64 *addr, int st, long *err)
+		   const u64 *addr, unsigned int st, long *err)
 {
 	unsigned long a = (unsigned long)addr;
 
@@ -381,7 +381,7 @@ read_mmap_data_u64(struct ex_region_info *ri,
 
 static inline unsigned long
 ex_addr_to_mmap_addr(unsigned long addr,
-		     struct ex_region_info *ri, int st)
+		     struct ex_region_info *ri, unsigned int st)
 {
 	unsigned long offset;
 	struct extab_info *ti;
@@ -407,7 +407,7 @@ ex_addr_to_mmap_addr(unsigned long addr,
 
 static inline unsigned long
 mmap_addr_to_ex_addr(unsigned long addr,
-		     struct ex_region_info *ri, int st)
+		     struct ex_region_info *ri, unsigned int st)
 {
 	unsigned long offset;
 	struct extab_info *ti;
@@ -531,7 +531,7 @@ static inline unsigned long
 dwarf_read_uleb128(struct ex_region_info *ri,
 		   unsigned char *addr,
 		   unsigned long *ret,
-		   int st,
+		   unsigned int st,
 		   long *err)
 {
 	unsigned long result;
@@ -566,7 +566,7 @@ static inline unsigned long
 dwarf_read_sleb128(struct ex_region_info *ri,
 		   unsigned char *addr,
 		   long *ret,
-		   int st,
+		   unsigned int st,
 		   long *err)
 {
 	unsigned char byte;
@@ -633,7 +633,7 @@ dwarf_read_encoded_value(struct ex_region_info *ri,
 			 void *pcrel_base,
 			 unsigned long *val,
 			 char encoding,
-			 int st)
+			 unsigned int st)
 {
 	int dw_ptr_size, count = 0;
 	long stmp = 0, err = 0;
@@ -773,12 +773,15 @@ dwarf_read_encoded_value(struct ex_region_info *ri,
 
 	if (res != 0) {
 		if (encoding & DW_EH_PE_indirect) {
-			int sec_idx;
+			int res_idx;
+			unsigned int sec_idx;
 
 			pr_debug("DW_EH_PE_indirect, addr: %#lx\n", res);
 
-			sec_idx = get_section_index_by_address(ri, res);
-			if (sec_idx >= 0) {
+			res_idx = get_section_index_by_address(ri, res);
+			if (res_idx >= 0) {
+				sec_idx = res_idx;
+
 				if (dw_ptr_size == 4) {
 					res = read_mmap_data_u32(ri, (u32 *)res,
 								 sec_idx, &err);
@@ -1374,7 +1377,8 @@ decode_fde_entry(struct ex_region_info *ri,
 		 size_t length,
 		 int is_eh)
 {
-	int count, secid;
+	int count;
+	unsigned int secid;
 	long err = 0;
 	unsigned long utmp;
 	unsigned char *p, *end, *pcrel_base;
@@ -1484,7 +1488,8 @@ dwarf_get_bs_table(struct ex_region_info *ri,
 		   unsigned long *nr_entries,
 		   int is_eh)
 {
-	int count, secid_hdr;
+	int count;
+	unsigned int secid_hdr;
 	unsigned char *p, *end;
 	struct dw_fde_table *bst;
 	unsigned long fde_count, frame_ptr;
@@ -1556,7 +1561,7 @@ dwarf_decode_fde_cie(struct ex_region_info *ri,
 		     int is_eh)
 {
 	u32 *p;
-	int secid;
+	unsigned int secid;
 	long err;
 	unsigned char *cie_p;
 	unsigned long cie_pointer, length;
@@ -1642,7 +1647,7 @@ dwarf_find_fde(struct ex_region_info *ri,
 	       struct task_struct *task)
 {
 	long err;
-	int secid, secid_hdr;
+	unsigned int secid, secid_hdr;
 	const struct dw_fde_table *fi;
 	unsigned long fde_count = 0, data_base;
 	unsigned long fde_addr, init_loc;
@@ -1719,7 +1724,7 @@ static int
 __is_fde_entry_exist(struct ex_region_info *ri, unsigned long addr,
 		     int is_eh, struct task_struct *task)
 {
-	int secid_hdr;
+	unsigned int secid_hdr;
 	unsigned char *fde_p;
 	struct extab_info *ti;
 	unsigned char *hdr_start;
@@ -1774,7 +1779,7 @@ dwarf_decode(struct ex_region_info *ri,
 	     struct task_struct *task)
 {
 	long err;
-	int secid_hdr;
+	unsigned int secid_hdr;
 	unsigned char *fde_p;
 	unsigned char *hdr_start;
 	unsigned long hdr_len, addr;

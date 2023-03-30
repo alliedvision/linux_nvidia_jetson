@@ -30,6 +30,15 @@
 #include <media/vi.h>
 #include <media/tegra_camera_dev_mfi.h>
 #include <media/tegra_camera_platform.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+#include <linux/interconnect.h>
+#include <dt-bindings/interconnect/tegra_icc_id.h>
+#endif
 
 #include "nvhost_acm.h"
 
@@ -58,6 +67,13 @@ struct tegra_camera_info {
 #if defined(CONFIG_TEGRA_ISOMGR)
 	tegra_isomgr_handle isomgr_handle;
 	u64 max_bw;
+#endif
+#if defined(CONFIG_INTERCONNECT)
+	int icc_iso_id;
+	struct icc_path *icc_iso_path_handle;
+	int icc_noniso_id;
+	struct icc_path *icc_noniso_path_handle;
+	struct mutex icc_noniso_path_handle_lock;
 #endif
 	struct mutex update_bw_lock;
 	u64 vi_mode_isobw;
@@ -89,7 +105,8 @@ static struct miscdevice tegra_camera_misc;
 static int tegra_camera_isomgr_register(struct tegra_camera_info *info,
 					struct device *dev)
 {
-#if defined(CONFIG_TEGRA_ISOMGR)
+#if defined(CONFIG_TEGRA_ISOMGR) || \
+   (IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST))
 	int ret = 0;
 	u32 num_csi_lanes = 0;
 	u32 max_lane_speed = 0;
@@ -157,10 +174,26 @@ static int tegra_camera_isomgr_register(struct tegra_camera_info *info,
 				tpg_max_iso);
 		info->max_bw = max_t(u64, info->max_bw, tpg_max_iso);
 	}
+#endif
 
-	dev_info(info->dev, "%s isp_iso_bw=%llu, vi_iso_bw=%llu, max_bw=%llu\n",
-				__func__, isp_iso_bw, vi_iso_bw, info->max_bw);
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	/* For T194 and earlier chips Interconnect is not supported. */
+	if (tegra_get_chip_id() == TEGRA234) {
+		if (info->icc_iso_id) {
+			info->icc_iso_path_handle =
+				icc_get(dev, info->icc_iso_id, TEGRA_ICC_PRIMARY);
+			if (IS_ERR_OR_NULL(info->icc_iso_path_handle)) {
+				dev_err(info->dev,
+					"%s unable to get icc path (err=%ld)\n",
+					__func__, PTR_ERR(info->icc_iso_path_handle));
+				return -ENOMEM;
+			}
+		}
+		return 0;
+	}
+#endif
 
+#if defined(CONFIG_TEGRA_ISOMGR)
 	/* Register with max possible BW for CAMERA usecases.*/
 	info->isomgr_handle = tegra_isomgr_register(
 					TEGRA_ISO_CLIENT_TEGRA_CAMERA,
@@ -169,6 +202,9 @@ static int tegra_camera_isomgr_register(struct tegra_camera_info *info,
 					NULL);	/* *priv */
 
 	if (IS_ERR(info->isomgr_handle)) {
+		/* Defer probe if isomgr is not up */
+		if (info->isomgr_handle == ERR_PTR(-EAGAIN))
+			return -EPROBE_DEFER;
 		dev_err(info->dev,
 			"%s: unable to register to isomgr\n",
 				__func__);
@@ -176,11 +212,21 @@ static int tegra_camera_isomgr_register(struct tegra_camera_info *info,
 	}
 #endif
 
+	dev_info(info->dev, "%s isp_iso_bw=%llu, vi_iso_bw=%llu, max_bw=%llu\n",
+				__func__, isp_iso_bw, vi_iso_bw, info->max_bw);
+
 	return 0;
 }
 
 static int tegra_camera_isomgr_unregister(struct tegra_camera_info *info)
 {
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	if (tegra_get_chip_id() == TEGRA234) {
+		icc_put(info->icc_iso_path_handle);
+		info->icc_iso_path_handle = NULL;
+	}
+#endif
+
 #if defined(CONFIG_TEGRA_ISOMGR)
 	tegra_isomgr_unregister(info->isomgr_handle);
 	info->isomgr_handle = NULL;
@@ -192,12 +238,26 @@ static int tegra_camera_isomgr_unregister(struct tegra_camera_info *info)
 static int tegra_camera_isomgr_request(
 		struct tegra_camera_info *info, uint iso_bw, uint lt)
 {
-#if defined(CONFIG_TEGRA_ISOMGR)
 	int ret = 0;
 
 	dev_dbg(info->dev,
 		"%s++ bw=%u, lt=%u\n", __func__, iso_bw, lt);
 
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	if (tegra_get_chip_id() == TEGRA234) {
+		ret = icc_set_bw(info->icc_iso_path_handle,
+			iso_bw, (u32)info->max_bw);
+		if (ret) {
+			dev_err(info->dev,
+			"%s: ICC failed to reserve %u KBps\n",
+			__func__, iso_bw);
+		}
+
+		return ret;
+	}
+#endif
+
+#if defined(CONFIG_TEGRA_ISOMGR)
 	if (!info->isomgr_handle) {
 		dev_err(info->dev,
 		"%s: isomgr_handle is NULL\n",
@@ -287,6 +347,29 @@ static int tegra_camera_open(struct inode *inode, struct file *file)
 	mdev = file->private_data;
 	info = dev_get_drvdata(mdev->parent);
 	file->private_data = info;
+
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	/* For T194 and earlier chips Interconnect is not supported. */
+	if (tegra_get_chip_id() == TEGRA234) {
+		mutex_lock(&info->icc_noniso_path_handle_lock);
+		info->icc_noniso_id = TEGRA_ICC_ISP;
+		info->icc_noniso_path_handle =
+			icc_get(info->dev,
+				info->icc_noniso_id, TEGRA_ICC_PRIMARY);
+		mutex_unlock(&info->icc_noniso_path_handle_lock);
+
+		if (IS_ERR_OR_NULL(info->icc_noniso_path_handle)) {
+			dev_err(info->dev,
+			"%s unable to get icc path (err=%ld)\n",
+			__func__, PTR_ERR(info->icc_noniso_path_handle));
+
+			return -ENOMEM;
+		}
+
+		return 0;
+	}
+#endif
+
 #if defined(CONFIG_TEGRA_BWMGR)
 	/* get bandwidth manager handle if needed */
 	info->bwmgr_handle =
@@ -311,6 +394,15 @@ static int tegra_camera_release(struct inode *inode, struct file *file)
 	struct tegra_camera_info *info;
 
 	info = file->private_data;
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	if (tegra_get_chip_id() == TEGRA234) {
+		mutex_lock(&info->icc_noniso_path_handle_lock);
+		icc_put(info->icc_noniso_path_handle);
+		info->icc_noniso_path_handle = NULL;
+		mutex_unlock(&info->icc_noniso_path_handle_lock);
+		return 0;
+	}
+#endif
 #if defined(CONFIG_TEGRA_BWMGR)
 	tegra_bwmgr_unregister(info->bwmgr_handle);
 #else
@@ -326,18 +418,26 @@ static u64 bypass_mode_d;
 static int dbgfs_tegra_camera_init(void)
 {
 	struct dentry *dir;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	struct dentry *val;
+#endif
 
 	dir = debugfs_create_dir("tegra_camera_platform", NULL);
 	if (!dir)
 		return -ENOMEM;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	val = debugfs_create_u64("vi", S_IRUGO, dir, &vi_mode_d);
 	if (!val)
 		return -ENOMEM;
 	val = debugfs_create_u64("scf", S_IRUGO, dir, &bypass_mode_d);
 	if (!val)
 		return -ENOMEM;
+#else
+	debugfs_create_u64("vi", S_IRUGO, dir, &vi_mode_d);
+	debugfs_create_u64("scf", S_IRUGO, dir, &bypass_mode_d);
+#endif
+
 	return 0;
 }
 #endif
@@ -369,6 +469,10 @@ int tegra_camera_update_isobw(void)
 	if (info->bypass_mode_isobw > info->active_iso_bw)
 		bw = info->bypass_mode_isobw;
 
+	if (info->bypass_mode_isobw > 0)
+		info->num_active_streams++;
+
+#if defined(CONFIG_TEGRA_ISOMGR)
 	/* Bug 200323801 consider iso bw of both vi mode and vi-bypass mode */
 	if (bw >= info->max_bw) {
 		dev_info(info->dev,
@@ -379,10 +483,11 @@ int tegra_camera_update_isobw(void)
 
 	if (info->pg_mode)
 		bw = info->max_bw;
+#endif
 	if (info->num_active_streams == 0)
 		bw = 0;
 
-#ifdef CONFIG_TEGRA_MC
+#ifdef CONFIG_NV_TEGRA_MC
 	/*
 	 * Different chip versions use different APIs to set LA for VI.
 	 * If one fails, try another, and fail if both of them don't work.
@@ -396,6 +501,7 @@ int tegra_camera_update_isobw(void)
 		if (ret) {
 			dev_err(info->dev, "%s: set la failed: %d\n",
 				__func__, ret);
+			mutex_unlock(&info->update_bw_lock);
 			return ret;
 		}
 	}
@@ -414,7 +520,7 @@ int tegra_camera_update_isobw(void)
 			__func__);
 #endif
 	/*
-	 * Request to ISOMGR.
+	 * Request to ISOMGR or ICC depending on chip version.
 	 */
 	ret = tegra_camera_isomgr_request(info, bw, info->memory_latency);
 	if (ret) {
@@ -430,6 +536,10 @@ int tegra_camera_update_isobw(void)
 	vi_mode_d = bw;
 	bypass_mode_d = info->bypass_mode_isobw;
 #endif
+
+	if (info->bypass_mode_isobw > 0)
+		info->num_active_streams--;
+
 	mutex_unlock(&info->update_bw_lock);
 	return ret;
 }
@@ -476,6 +586,22 @@ static long tegra_camera_ioctl(struct file *file,
 		} else {
 			dev_dbg(info->dev, "%s:Set bw %llu at %lu KHz\n",
 				__func__, kcopy.bw, mc_khz);
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+			if (tegra_get_chip_id() == TEGRA234) {
+				mutex_lock(&info->icc_noniso_path_handle_lock);
+				ret = icc_set_bw(info->icc_noniso_path_handle,
+						(u32)(kcopy.bw & 0xFFFFFFFF),
+						(u32)(kcopy.bw & 0xFFFFFFFF));
+				mutex_unlock(&info->icc_noniso_path_handle_lock);
+				if (ret) {
+					dev_err(info->dev,
+					"%s: ICC failed to reserve %u KBps\n",
+					__func__, (u32)(kcopy.bw & 0xFFFFFFFF));
+				}
+				break;
+			}
+#endif
+
 #if defined(CONFIG_TEGRA_BWMGR)
 			ret = tegra_bwmgr_set_emc(info->bwmgr_handle,
 				mc_khz*1000, TEGRA_BWMGR_SET_EMC_SHARED_BW);
@@ -490,6 +616,15 @@ static long tegra_camera_ioctl(struct file *file,
 	{
 		unsigned long mc_hz = 0;
 		u64 bw = 0;
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+		if (tegra_get_chip_id() == TEGRA234) {
+			dev_err(info->dev,
+			"%s:ioctl TEGRA_CAMERA_IOCTL_GET_BW not supported\n",
+			__func__);
+			return -EFAULT;
+
+		}
+#endif
 
 #if defined(CONFIG_TEGRA_BWMGR)
 		ret = tegra_bwmgr_get_client_info(info->bwmgr_handle, &mc_hz,
@@ -552,14 +687,68 @@ static const struct file_operations tegra_camera_ops = {
 	.release = tegra_camera_release,
 };
 
+static bool is_isomgr_up(struct device *dev)
+{
+#if (IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST))
+	if (tegra_get_chip_id() == TEGRA234) {
+		bool ret = false;
+		struct icc_path *icc_iso_path_handle =
+			icc_get(dev, TEGRA_ICC_VI, TEGRA_ICC_PRIMARY);
+		struct icc_path *icc_niso_path_handle =
+			icc_get(dev, TEGRA_ICC_ISP, TEGRA_ICC_PRIMARY);
 
+		if (PTR_ERR(icc_iso_path_handle) == -EPROBE_DEFER ||
+		PTR_ERR(icc_niso_path_handle) == -EPROBE_DEFER) {
+			dev_dbg(dev,
+			"%s unable to get icc path, as icc driver not up yet\n",
+			__func__);
+			ret = false;
+		} else if (icc_iso_path_handle == NULL ||
+			icc_niso_path_handle == NULL) {
+			dev_err(dev, "%s ICC disabled\n", __func__);
+			ret = false;
+		} else if (IS_ERR(icc_iso_path_handle) ||
+			IS_ERR(icc_niso_path_handle)) {
+			dev_err(dev, "%s icc error, iso : %ld non-iso : %ld\n",
+				__func__, PTR_ERR(icc_iso_path_handle),
+				PTR_ERR(icc_niso_path_handle));
+			ret = false;
+		} else {
+			ret = true;
+		}
+
+		if (!IS_ERR_OR_NULL(icc_iso_path_handle))
+			icc_put(icc_iso_path_handle);
+		if (!IS_ERR_OR_NULL(icc_niso_path_handle))
+			icc_put(icc_niso_path_handle);
+
+		return ret;
+	}
+#endif
+
+#if defined(CONFIG_TEGRA_ISOMGR)
+	if (tegra_get_chip_id() != TEGRA234)
+		return tegra_isomgr_init_status();
+#endif
+
+return true;
+}
 
 static int tegra_camera_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct tegra_camera_info *info;
 
-	dev_info(&pdev->dev, "%s:camera_platform_driver probe\n", __func__);
+	/* Defer the probe till isomgr is initialized */
+	if (!is_isomgr_up(&pdev->dev)) {
+		dev_dbg(&pdev->dev,
+		"%s:camera_platform_driver probe deferred as isomgr not up\n",
+		__func__);
+		return -EPROBE_DEFER;
+	}
+
+	dev_dbg(&pdev->dev,
+		"%s:tegra_camera_platform driver probe\n", __func__);
 
 	tegra_camera_misc.minor = MISC_DYNAMIC_MINOR;
 	tegra_camera_misc.name = CAMDEV_NAME;
@@ -569,10 +758,10 @@ static int tegra_camera_probe(struct platform_device *pdev)
 	ret = misc_register(&tegra_camera_misc);
 	if (ret) {
 		dev_err(tegra_camera_misc.this_device,
-			"register failed for %s\n",
-			tegra_camera_misc.name);
+			"register failed for %s\n", tegra_camera_misc.name);
 		return ret;
 	}
+
 	info = devm_kzalloc(tegra_camera_misc.this_device,
 		sizeof(struct tegra_camera_info), GFP_KERNEL);
 	if (!info)
@@ -596,6 +785,10 @@ static int tegra_camera_probe(struct platform_device *pdev)
 	clk_set_rate(info->iso_emc, 0);
 #endif
 	mutex_init(&info->update_bw_lock);
+#if IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+	info->icc_iso_id = TEGRA_ICC_VI;
+	mutex_init(&info->icc_noniso_path_handle_lock);
+#endif
 	/* Register Camera as isomgr client. */
 	ret = tegra_camera_isomgr_register(info, &pdev->dev);
 	if (ret) {
@@ -608,7 +801,8 @@ static int tegra_camera_probe(struct platform_device *pdev)
 	info->en_max_bw = of_property_read_bool(pdev->dev.of_node,
 		"default-max-bw");
 	if (info->en_max_bw == true) {
-#if defined(CONFIG_TEGRA_ISOMGR)
+#if defined(CONFIG_TEGRA_ISOMGR) || \
+   (IS_ENABLED(CONFIG_INTERCONNECT) && IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST))
 		ret = tegra_camera_isomgr_request(info, info->max_bw,
 				info->memory_latency);
 		if (ret) {
@@ -619,7 +813,6 @@ static int tegra_camera_probe(struct platform_device *pdev)
 		}
 #endif
 	}
-
 	info->phy_pixel_rate = 0;
 	info->active_pixel_rate = 0;
 	info->active_iso_bw = 0;
@@ -650,7 +843,7 @@ static void update_platform_data(struct tegra_camera_dev_info *cdev,
 	/* TPG: handled differently based on
 	 * throughput calculations.
 	 */
-	static u64 phy_pixel_rate_aggregated = 0;
+	static u64 phy_pixel_rate_aggregated;
 
 	if (cdev->sensor_type == SENSORTYPE_VIRTUAL)
 		info->pg_mode = dev_registered;
@@ -673,9 +866,8 @@ static void update_platform_data(struct tegra_camera_dev_info *cdev,
 			// temp variable to store aggregated rate
 			phy_pixel_rate_aggregated += cdev->pixel_rate;
 		} else if (cdev->lane_num == info->num_device_lanes) {
-			if (info->phy_pixel_rate < cdev->pixel_rate) {
+			if (info->phy_pixel_rate < cdev->pixel_rate)
 				info->phy_pixel_rate = cdev->pixel_rate;
-			}
 		}
 
 		if (info->phy_pixel_rate < phy_pixel_rate_aggregated)

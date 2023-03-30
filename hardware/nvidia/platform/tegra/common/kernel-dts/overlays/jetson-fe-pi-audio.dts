@@ -2,7 +2,7 @@
 /*
  * Jetson Device-tree overlay for FE-PI Audio V1 and Z V2.
  *
- * Copyright (c) 2019-2021 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  */
 
@@ -42,7 +42,17 @@
 				micbias-voltage-m-volts = <3000>;
 				VDDA-supply = <&hdr40_vdd_3v3>;
 				VDDIO-supply = <&hdr40_vdd_3v3>;
+				#sound-dai-cells = <0>;
 				status = "okay";
+
+				sound-name-prefix = "H40-SGTL";
+
+				port {
+					sgtl5000_ep: endpoint {
+						remote-endpoint = <&hdr40_snd_i2s_dap_ep>;
+						link-name = "fe-pi-audio-z-v2";
+					};
+				};
 			};
 		};
 	};
@@ -50,12 +60,18 @@
 	fragment@2 {
 		target = <&tegra_sound>;
 		__overlay__ {
-			nvidia,audio-routing =
-				"x Headphone",		"x HP_OUT",
-				"x MIC_IN",		"x Mic",
-				"x ADC",		"x Mic Bias",
-				"x LINE_IN",		"x Line In",
-				"x Line Out",		"x LINE_OUT";
+			nvidia-audio-card,widgets =
+				"Headphone",	"H40-SGTL Headphone",
+				"Microphone",	"H40-SGTL Mic",
+				"Line",		"H40-SGTL Line In",
+				"Line",		"H40-SGTL Line Out";
+
+			nvidia-audio-card,routing =
+				"H40-SGTL Headphone",	"H40-SGTL HP_OUT",
+				"H40-SGTL MIC_IN",	"H40-SGTL Mic",
+				"H40-SGTL ADC",		"H40-SGTL Mic Bias",
+				"H40-SGTL LINE_IN",	"H40-SGTL Line In",
+				"H40-SGTL Line Out",	"H40-SGTL LINE_OUT";
 		};
 	};
 
@@ -63,10 +79,13 @@
 		target = <&hdr40_snd_link_i2s>;
 		__overlay__ {
 			link-name = "fe-pi-audio-z-v2";
-			codec-dai = <&sgtl5000>;
-			codec-dai-name = "sgtl5000";
 			bitclock-master;
 			frame-master;
+
+			codec {
+				sound-dai = <&sgtl5000>;
+				prefix = "H40-SGTL";
+			};
 		};
 	};
 
@@ -109,6 +128,31 @@
 					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
 				};
 			};
+		};
+	};
+
+	fragment@5 {
+		target = <&tegra_sound_graph>;
+		__overlay__ {
+			widgets = "Headphone",	"H40-SGTL Headphone",
+				  "Microphone",	"H40-SGTL Mic",
+				  "Line",	"H40-SGTL Line In",
+				  "Line",	"H40-SGTL Line Out";
+
+			routing = "H40-SGTL Headphone",	"H40-SGTL HP_OUT",
+				  "H40-SGTL MIC_IN",	"H40-SGTL Mic",
+				  "H40-SGTL ADC",	"H40-SGTL Mic Bias",
+				  "H40-SGTL LINE_IN",	"H40-SGTL Line In",
+				  "H40-SGTL Line Out",	"H40-SGTL LINE_OUT";
+		};
+	};
+
+	fragment@6 {
+		target = <&hdr40_snd_i2s_dap_ep>;
+		__overlay__ {
+			bitclock-master;
+			frame-master;
+			remote-endpoint = <&sgtl5000_ep>;
 		};
 	};
 };

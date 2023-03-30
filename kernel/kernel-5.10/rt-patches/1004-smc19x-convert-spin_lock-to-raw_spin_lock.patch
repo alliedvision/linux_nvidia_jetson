@@ -1,0 +1,291 @@
+From 6efcfda0e24a9c36c68661cd6ec7f23bf8e92ab6 Mon Sep 17 00:00:00 2001
+From: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Date: Mon, 8 Feb 2021 18:19:30 +0530
+Subject: [PATCH] smc19x: convert spin_lock to raw_spin_lock
+
+Issue: vdk is getting hung while booting using rt-kernel,
+       hung is happening becaue spinlock gets converted to
+       mutex in rt-kernel.
+Fix: convert spinlock APIs to raw_spinlock APIs to fix hung
+     issue
+
+Bug 200699670
+
+Signed-off-by: Manish Bhardwaj <mbhardwaj@nvidia.com>
+Change-Id: Iaf6683804c551b13e771555ba053f000eaf537a9
+---
+ drivers/net/ethernet/smsc/smc91x.c | 68 +++++++++++++++++++-------------------
+ drivers/net/ethernet/smsc/smc91x.h |  2 +-
+ 2 files changed, 35 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index f6b73af..b3f6e0c 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -194,22 +194,22 @@ static inline void PRINT_PKT(u_char *buf, int length) { }
+ #define SMC_ENABLE_INT(lp, x) do {					\
+ 	unsigned char mask;						\
+ 	unsigned long smc_enable_flags;					\
+-	spin_lock_irqsave(&lp->lock, smc_enable_flags);			\
++	raw_spin_lock_irqsave(&lp->lock, smc_enable_flags);			\
+ 	mask = SMC_GET_INT_MASK(lp);					\
+ 	mask |= (x);							\
+ 	SMC_SET_INT_MASK(lp, mask);					\
+-	spin_unlock_irqrestore(&lp->lock, smc_enable_flags);		\
++	raw_spin_unlock_irqrestore(&lp->lock, smc_enable_flags);		\
+ } while (0)
+ 
+ /* this disables an interrupt from the interrupt mask register */
+ #define SMC_DISABLE_INT(lp, x) do {					\
+ 	unsigned char mask;						\
+ 	unsigned long smc_disable_flags;				\
+-	spin_lock_irqsave(&lp->lock, smc_disable_flags);		\
++	raw_spin_lock_irqsave(&lp->lock, smc_disable_flags);		\
+ 	mask = SMC_GET_INT_MASK(lp);					\
+ 	mask &= ~(x);							\
+ 	SMC_SET_INT_MASK(lp, mask);					\
+-	spin_unlock_irqrestore(&lp->lock, smc_disable_flags);		\
++	raw_spin_unlock_irqrestore(&lp->lock, smc_disable_flags);		\
+ } while (0)
+ 
+ /*
+@@ -245,12 +245,12 @@ static void smc_reset(struct net_device *dev)
+ 	DBG(2, dev, "%s\n", __func__);
+ 
+ 	/* Disable all interrupts, block TX tasklet */
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	SMC_SELECT_BANK(lp, 2);
+ 	SMC_SET_INT_MASK(lp, 0);
+ 	pending_skb = lp->pending_tx_skb;
+ 	lp->pending_tx_skb = NULL;
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ 
+ 	/* free any pending tx skb */
+ 	if (pending_skb) {
+@@ -372,12 +372,12 @@ static void smc_shutdown(struct net_device *dev)
+ 	DBG(2, dev, "%s: %s\n", CARDNAME, __func__);
+ 
+ 	/* no more interrupts for me */
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	SMC_SELECT_BANK(lp, 2);
+ 	SMC_SET_INT_MASK(lp, 0);
+ 	pending_skb = lp->pending_tx_skb;
+ 	lp->pending_tx_skb = NULL;
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ 	dev_kfree_skb(pending_skb);
+ 
+ 	/* and tell the card to stay away from that nasty outside world */
+@@ -519,13 +519,13 @@ static inline void  smc_rcv(struct net_device *dev)
+ ({									\
+ 	int __ret;							\
+ 	local_irq_save(flags);						\
+-	__ret = spin_trylock(lock);					\
++	__ret = raw_spin_trylock(lock);					\
+ 	if (!__ret)							\
+ 		local_irq_restore(flags);				\
+ 	__ret;								\
+ })
+-#define smc_special_lock(lock, flags)		spin_lock_irqsave(lock, flags)
+-#define smc_special_unlock(lock, flags) 	spin_unlock_irqrestore(lock, flags)
++#define smc_special_lock(lock, flags)		raw_spin_lock_irqsave(lock, flags)
++#define smc_special_unlock(lock, flags) 	raw_spin_unlock_irqrestore(lock, flags)
+ #else
+ #define smc_special_trylock(lock, flags)	((void)flags, true)
+ #define smc_special_lock(lock, flags)   	do { flags = 0; } while (0)
+@@ -956,9 +956,9 @@ static int smc_phy_reset(struct net_device *dev, int phy)
+ 	smc_phy_write(dev, phy, MII_BMCR, BMCR_RESET);
+ 
+ 	for (timeout = 2; timeout; timeout--) {
+-		spin_unlock_irq(&lp->lock);
++		raw_spin_unlock_irq(&lp->lock);
+ 		msleep(50);
+-		spin_lock_irq(&lp->lock);
++		raw_spin_lock_irq(&lp->lock);
+ 
+ 		bmcr = smc_phy_read(dev, phy, MII_BMCR);
+ 		if (!(bmcr & BMCR_RESET))
+@@ -1039,7 +1039,7 @@ static void smc_phy_configure(struct work_struct *work)
+ 
+ 	DBG(3, dev, "smc_program_phy()\n");
+ 
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 
+ 	/*
+ 	 * We should not be called if phy_type is zero.
+@@ -1121,7 +1121,7 @@ static void smc_phy_configure(struct work_struct *work)
+ 
+ smc_phy_configure_exit:
+ 	SMC_SELECT_BANK(lp, 2);
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ }
+ 
+ /*
+@@ -1206,7 +1206,7 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
+ 
+ 	DBG(3, dev, "%s\n", __func__);
+ 
+-	spin_lock(&lp->lock);
++	raw_spin_lock(&lp->lock);
+ 
+ 	/* A preamble may be used when there is a potential race
+ 	 * between the interruptible transmit functions and this
+@@ -1285,7 +1285,7 @@ static irqreturn_t smc_interrupt(int irq, void *dev_id)
+ 	/* restore register states */
+ 	SMC_SET_PTR(lp, saved_pointer);
+ 	SMC_SET_INT_MASK(lp, mask);
+-	spin_unlock(&lp->lock);
++	raw_spin_unlock(&lp->lock);
+ 
+ #ifndef CONFIG_NET_POLL_CONTROLLER
+ 	if (timeout == MAX_IRQ_LOOPS)
+@@ -1328,7 +1328,7 @@ static void smc_timeout(struct net_device *dev, unsigned int txqueue)
+ 
+ 	DBG(2, dev, "%s\n", __func__);
+ 
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	status = SMC_GET_INT(lp);
+ 	mask = SMC_GET_INT_MASK(lp);
+ 	fifo = SMC_GET_FIFO(lp);
+@@ -1336,7 +1336,7 @@ static void smc_timeout(struct net_device *dev, unsigned int txqueue)
+ 	eph_st = SMC_GET_EPH_STATUS(lp);
+ 	meminfo = SMC_GET_MIR(lp);
+ 	SMC_SELECT_BANK(lp, 2);
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ 	PRINTK(dev, "TX timeout (INT 0x%02x INTMASK 0x%02x MEM 0x%04x FIFO 0x%04x EPH_ST 0x%04x)\n",
+ 	       status, mask, meminfo, fifo, eph_st);
+ 
+@@ -1440,7 +1440,7 @@ static void smc_set_multicast_list(struct net_device *dev)
+ 		update_multicast = 1;
+ 	}
+ 
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	SMC_SELECT_BANK(lp, 0);
+ 	SMC_SET_RCR(lp, lp->rcr_cur_mode);
+ 	if (update_multicast) {
+@@ -1448,7 +1448,7 @@ static void smc_set_multicast_list(struct net_device *dev)
+ 		SMC_SET_MCAST(lp, multicast_table);
+ 	}
+ 	SMC_SELECT_BANK(lp, 2);
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ }
+ 
+ 
+@@ -1486,9 +1486,9 @@ smc_open(struct net_device *dev)
+ 	if (lp->phy_type != 0)
+ 		smc_phy_configure(&lp->phy_configure);
+ 	else {
+-		spin_lock_irq(&lp->lock);
++		raw_spin_lock_irq(&lp->lock);
+ 		smc_10bt_check_media(dev, 1);
+-		spin_unlock_irq(&lp->lock);
++		raw_spin_unlock_irq(&lp->lock);
+ 	}
+ 
+ 	netif_start_queue(dev);
+@@ -1528,9 +1528,9 @@ smc_ethtool_get_link_ksettings(struct net_device *dev,
+ 	struct smc_local *lp = netdev_priv(dev);
+ 
+ 	if (lp->phy_type != 0) {
+-		spin_lock_irq(&lp->lock);
++		raw_spin_lock_irq(&lp->lock);
+ 		mii_ethtool_get_link_ksettings(&lp->mii, cmd);
+-		spin_unlock_irq(&lp->lock);
++		raw_spin_unlock_irq(&lp->lock);
+ 	} else {
+ 		u32 supported = SUPPORTED_10baseT_Half |
+ 				 SUPPORTED_10baseT_Full |
+@@ -1561,9 +1561,9 @@ smc_ethtool_set_link_ksettings(struct net_device *dev,
+ 	int ret;
+ 
+ 	if (lp->phy_type != 0) {
+-		spin_lock_irq(&lp->lock);
++		raw_spin_lock_irq(&lp->lock);
+ 		ret = mii_ethtool_set_link_ksettings(&lp->mii, cmd);
+-		spin_unlock_irq(&lp->lock);
++		raw_spin_unlock_irq(&lp->lock);
+ 	} else {
+ 		if (cmd->base.autoneg != AUTONEG_DISABLE ||
+ 		    cmd->base.speed != SPEED_10 ||
+@@ -1599,9 +1599,9 @@ static int smc_ethtool_nwayreset(struct net_device *dev)
+ 	int ret = -EINVAL;
+ 
+ 	if (lp->phy_type != 0) {
+-		spin_lock_irq(&lp->lock);
++		raw_spin_lock_irq(&lp->lock);
+ 		ret = mii_nway_restart(&lp->mii);
+-		spin_unlock_irq(&lp->lock);
++		raw_spin_unlock_irq(&lp->lock);
+ 	}
+ 
+ 	return ret;
+@@ -1625,7 +1625,7 @@ static int smc_write_eeprom_word(struct net_device *dev, u16 addr, u16 word)
+ 	struct smc_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
+ 
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	/* load word into GP register */
+ 	SMC_SELECT_BANK(lp, 1);
+ 	SMC_SET_GP(lp, word);
+@@ -1643,7 +1643,7 @@ static int smc_write_eeprom_word(struct net_device *dev, u16 addr, u16 word)
+ 	/* clean up */
+ 	SMC_SET_CTL(lp, ctl);
+ 	SMC_SELECT_BANK(lp, 2);
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ 	return 0;
+ }
+ 
+@@ -1653,7 +1653,7 @@ static int smc_read_eeprom_word(struct net_device *dev, u16 addr, u16 *word)
+ 	struct smc_local *lp = netdev_priv(dev);
+ 	void __iomem *ioaddr = lp->base;
+ 
+-	spin_lock_irq(&lp->lock);
++	raw_spin_lock_irq(&lp->lock);
+ 	/* set the EEPROM address to get the data from */
+ 	SMC_SELECT_BANK(lp, 2);
+ 	SMC_SET_PTR(lp, addr | PTR_READ);
+@@ -1671,7 +1671,7 @@ static int smc_read_eeprom_word(struct net_device *dev, u16 addr, u16 *word)
+ 	/* clean up */
+ 	SMC_SET_CTL(lp, ctl);
+ 	SMC_SELECT_BANK(lp, 2);
+-	spin_unlock_irq(&lp->lock);
++	raw_spin_unlock_irq(&lp->lock);
+ 	return 0;
+ }
+ 
+@@ -1917,7 +1917,7 @@ static int smc_probe(struct net_device *dev, void __iomem *ioaddr,
+ 	dev->base_addr = (unsigned long)ioaddr;
+ 	lp->base = ioaddr;
+ 	lp->version = revision_register & 0xff;
+-	spin_lock_init(&lp->lock);
++	raw_spin_lock_init(&lp->lock);
+ 
+ 	/* Get the MAC address */
+ 	SMC_SELECT_BANK(lp, 1);
+diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+index 387539a..7b17c3a 100644
+--- a/drivers/net/ethernet/smsc/smc91x.h
++++ b/drivers/net/ethernet/smsc/smc91x.h
+@@ -259,7 +259,7 @@ struct smc_local {
+ 	struct net_device *dev;
+ 	int	work_pending;
+ 
+-	spinlock_t lock;
++	raw_spinlock_t lock;
+ 
+ #ifdef CONFIG_ARCH_PXA
+ 	/* DMA needs the physical address of the chip */
+-- 
+2.7.4
+

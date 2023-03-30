@@ -1,0 +1,29 @@
+From c8c00b96ce44e15a5836c7bbf5489f238052cf59 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Fri, 31 Jan 2020 18:59:11 -0800
+Subject: [PATCH 626/830] ANDROID: gki: Enable DRM_GEM_SHMEM_HELPER for GKI
+X-NVConfidentiality: public
+
+Bug: 139431025
+Test: Treehugger
+Change-Id: I9a454e4f1e988627a5318ccffd9714a955dd50df
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index bd5e645c8944..fb415595c05a 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -1,6 +1,7 @@
+ config GKI_HIDDEN_DRM_CONFIGS
+ 	bool "Hidden DRM configs needed for GKI"
+ 	select DRM_KMS_HELPER if (HAS_IOMEM && DRM)
++	select DRM_GEM_SHMEM_HELPER if (DRM)
+ 	select DRM_GEM_CMA_HELPER
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
+-- 
+2.17.1
+

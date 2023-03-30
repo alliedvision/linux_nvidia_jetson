@@ -83,6 +83,7 @@ enum _EFUSE_DEF_TYPE {
 #define GET_MASK_ARRAY_LEN(ic, txt) (GET_MASK_ARRAY_LEN_MP(ic, txt))
 #define GET_MASK_ARRAY(ic, txt, out) do { GET_MASK_ARRAY_MP(ic, txt, out); } while (0)
 
+#ifdef CONFIG_BT_EFUSE_MASK
 #define IS_BT_MASKED_MP(ic, txt, offset) (EFUSE_IsBTAddressMasked_MP_##ic##txt(offset))
 #define GET_BT_MASK_ARRAY_LEN_MP(ic, txt) (EFUSE_GetBTArrayLen_MP_##ic##txt())
 #define GET_BT_MASK_ARRAY_LEN_TC(ic, txt) (EFUSE_GetBTArrayLen_TC_##ic##txt())
@@ -91,6 +92,7 @@ enum _EFUSE_DEF_TYPE {
 #define IS_BT_MASKED(ic, txt, offset) (IS_BT_MASKED_MP(ic,txt, offset))
 #define GET_BT_MASK_ARRAY(ic, txt, out) do { GET_BT_MASK_ARRAY_MP(ic,txt, out); } while(0)
 #define GET_BT_MASK_ARRAY_LEN(ic, txt) (GET_BT_MASK_ARRAY_LEN_MP(ic,txt))
+#endif
 
 /* *********************************************
  *	The following is for BT Efuse definition
@@ -209,7 +211,9 @@ u8	rtw_efuse_map_read(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_BT_efuse_map_read(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
 u8	rtw_BT_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data);
-
+#ifdef CONFIG_RTL8822C
+void	rtw_pre_bt_efuse(PADAPTER padapter);
+#endif
 u16	Efuse_GetCurrentSize(PADAPTER pAdapter, u8 efuseType, BOOLEAN bPseudoTest);
 u8	Efuse_CalculateWordCnts(u8 word_en);
 void	ReadEFuseByte(PADAPTER Adapter, u16 _offset, u8 *pbuf, BOOLEAN bPseudoTest) ;
@@ -262,7 +266,8 @@ extern const u8 _mac_hidden_proto_to_hal_proto_cap[];
 u8 mac_hidden_wl_func_to_hal_wl_func(u8 func);
 
 #ifdef PLATFORM_LINUX
-u8 rtw_efuse_file_read(PADAPTER padapter, u8 *filepatch, u8 *buf, u32 len);
+u8 rtw_efuse_file_read(PADAPTER padapter, u8 *filepath, u8 *buf, u32 len);
+u8 rtw_efuse_file_store(PADAPTER padapter, u8 *filepath, u8 *buf, u32 len);
 #ifdef CONFIG_EFUSE_CONFIG_FILE
 u32 rtw_read_efuse_from_file(const char *path, u8 *buf, int map_size);
 u32 rtw_read_macaddr_from_file(const char *path, u8 *buf);

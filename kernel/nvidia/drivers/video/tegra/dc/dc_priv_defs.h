@@ -31,7 +31,12 @@
 #include <linux/nvhost.h>
 #include <linux/types.h>
 #include <linux/clk/tegra.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/reset.h>
 #include <uapi/video/tegra_dc_ext.h>
 #include <linux/platform/tegra/isomgr.h>
@@ -104,10 +109,6 @@ struct tegra_dc_out_ops {
 	/* callback before new mode is programmed.
 	 * dc clocks are on at this point */
 	void (*modeset_notifier)(struct tegra_dc *dc);
-	/* Set up interface and sink for partial frame update.
-	 */
-	int (*partial_update) (struct tegra_dc *dc, unsigned int *xoff,
-		unsigned int *yoff, unsigned int *width, unsigned int *height);
 	/* refcounted enable of pads and clocks before performing DDC/I2C. */
 	int (*ddc_enable)(struct tegra_dc *dc);
 	/* refcounted disable of pads and clocks after performing DDC/I2C. */
@@ -125,6 +126,8 @@ struct tegra_dc_out_ops {
 	int (*set_avi)(struct tegra_dc *dc, struct tegra_dc_ext_avi *avi);
 	/* Configure controller for hdr infoframe update */
 	int (*set_hdr)(struct tegra_dc *dc);
+	/* Configure controller for dv infofrmae update */
+	int (*set_dv)(struct tegra_dc *dc, struct tegra_dc_ext_dv *dv);
 	/* shutdown the serial interface */
 	void (*shutdown_interface)(struct tegra_dc *dc);
 	u32 (*get_crc)(struct tegra_dc *dc);
@@ -220,6 +223,8 @@ struct tegra_dc_pd_clk_info {
 struct tegra_dc_pd_info {
 	struct of_device_id			of_id[2];
 	int					pg_id;
+	const char				pd_name[5];
+	struct device				*genpd_dev;
 
 	const u32				head_owner;
 	const u32				head_mask;
@@ -573,7 +578,6 @@ struct tegra_dc {
 	struct work_struct		vblank_work;
 	long				vblank_ref_count;
 	struct work_struct		frame_end_work;
-	struct work_struct		vpulse2_work;
 	long				vpulse2_ref_count;
 
 	struct {

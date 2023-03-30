@@ -1,25 +1,21 @@
 /*
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
  * include/dt-bindings/display/tegra-panel.h
- *
- * Copyright (c) 2013-2017, NVIDIA CORPORATION. All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
  */
 
 #ifndef __TEGRA_PANEL_H
@@ -63,6 +59,9 @@
 #define TEGRA_DSI_PIXEL_FORMAT_8BIT_DSC  4
 #define TEGRA_DSI_PIXEL_FORMAT_12BIT_DSC  5
 #define TEGRA_DSI_PIXEL_FORMAT_16BIT_DSC  6
+#define TEGRA_DSI_PIXEL_FORMAT_10BIT_DSC  7
+#define TEGRA_DSI_PIXEL_FORMAT_30BIT_P  8
+#define TEGRA_DSI_PIXEL_FORMAT_36BIT_P  9
 
 #define	TEGRA_DSI_VIRTUAL_CHANNEL_0  0
 #define	TEGRA_DSI_VIRTUAL_CHANNEL_1  1
@@ -84,6 +83,9 @@
 #define DSI_GENERIC_SHORT_WRITE_2_PARAMS	0x23
 #define DSI_DCS_WRITE_0_PARAM			0x05
 #define DSI_DCS_WRITE_1_PARAM			0x15
+#define DSI_DCS_READ_PARAM			0x06
+#define DSI_DCS_COMPRESSION_MODE		0x07
+#define DSI_DCS_PPS_LONG_WRITE			0x0A
 
 #define DSI_DCS_SET_ADDR_MODE			0x36
 #define DSI_DCS_EXIT_SLEEP_MODE			0x11
@@ -95,6 +97,7 @@
 #define DSI_DCS_NO_OP				0x0
 #define DSI_NULL_PKT_NO_DATA			0x9
 #define DSI_BLANKING_PKT_NO_DATA		0x19
+#define DSI_DCS_SET_COMPRESSION_METHOD		0xC0
 
 #define PKT_LP		 0x40000000
 #define CMD_VS		 0x01
@@ -156,6 +159,10 @@
 #define DSIB_DPD_EN		(1 << 1)
 #define DSIC_DPD_EN		(1 << 2)
 #define DSID_DPD_EN		(1 << 3)
+
+/* DSI Phy Type */
+#define DSI_DPHY	0
+#define DSI_CPHY	1
 
 #define DRIVE_CURRENT_L0 0
 #define DRIVE_CURRENT_L1 1

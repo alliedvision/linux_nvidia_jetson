@@ -4,7 +4,7 @@
 
 append_menu "Security options"
 
-source security/tlk_driver/Kconfig
+source "security/tlk_driver/Kconfig"
 
 endmenu
 

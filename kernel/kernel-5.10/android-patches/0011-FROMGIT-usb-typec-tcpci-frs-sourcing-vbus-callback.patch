@@ -1,0 +1,77 @@
+From 6805118782ce855d33ff3dda11500e597825cd42 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:33 -0700
+Subject: [PATCH 011/830] FROMGIT: usb: typec: tcpci: frs sourcing vbus
+ callback
+X-NVConfidentiality: public
+
+During FRS hardware autonomously starts to source vbus. Provide
+callback to perform chip specific operations.
+
+Bug: 168158832
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-6-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 57d253fc0582d223464705a5103cfb1930a06cd
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I2fcd468e6a84827cd1dda59228837d5d7051de4c
+---
+ drivers/usb/typec/tcpm/tcpci.c | 9 +++++++++
+ drivers/usb/typec/tcpm/tcpci.h | 4 ++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci.c b/drivers/usb/typec/tcpm/tcpci.c
+index a06da1854c10..fd139c86e7a7 100644
+--- a/drivers/usb/typec/tcpm/tcpci.c
++++ b/drivers/usb/typec/tcpm/tcpci.c
+@@ -299,6 +299,14 @@ static int tcpci_enable_frs(struct tcpc_dev *dev, bool enable)
+ 	return ret;
+ }
+ 
++static void tcpci_frs_sourcing_vbus(struct tcpc_dev *dev)
++{
++	struct tcpci *tcpci = tcpc_to_tcpci(dev);
++
++	if (tcpci->data->frs_sourcing_vbus)
++		tcpci->data->frs_sourcing_vbus(tcpci, tcpci->data);
++}
++
+ static int tcpci_set_bist_data(struct tcpc_dev *tcpc, bool enable)
+ {
+ 	struct tcpci *tcpci = tcpc_to_tcpci(tcpc);
+@@ -643,6 +651,7 @@ struct tcpci *tcpci_register_port(struct device *dev, struct tcpci_data *data)
+ 	tcpci->tcpc.pd_transmit = tcpci_pd_transmit;
+ 	tcpci->tcpc.set_bist_data = tcpci_set_bist_data;
+ 	tcpci->tcpc.enable_frs = tcpci_enable_frs;
++	tcpci->tcpc.frs_sourcing_vbus = tcpci_frs_sourcing_vbus;
+ 
+ 	err = tcpci_parse_config(tcpci);
+ 	if (err < 0)
+diff --git a/drivers/usb/typec/tcpm/tcpci.h b/drivers/usb/typec/tcpm/tcpci.h
+index 5ef07a56d67a..b418fe11b527 100644
+--- a/drivers/usb/typec/tcpm/tcpci.h
++++ b/drivers/usb/typec/tcpm/tcpci.h
+@@ -143,6 +143,9 @@
+ /*
+  * @TX_BUF_BYTE_x_hidden
+  *		optional; Set when TX_BUF_BYTE_x can only be accessed through I2C_WRITE_BYTE_COUNT.
++ * @frs_sourcing_vbus:
++ *		Optional; Callback to perform chip specific operations when FRS
++ *		is sourcing vbus.
+  */
+ struct tcpci;
+ struct tcpci_data {
+@@ -154,6 +157,7 @@ struct tcpci_data {
+ 	int (*start_drp_toggling)(struct tcpci *tcpci, struct tcpci_data *data,
+ 				  enum typec_cc_status cc);
+ 	int (*set_vbus)(struct tcpci *tcpci, struct tcpci_data *data, bool source, bool sink);
++	void (*frs_sourcing_vbus)(struct tcpci *tcpci, struct tcpci_data *data);
+ };
+ 
+ struct tcpci *tcpci_register_port(struct device *dev, struct tcpci_data *data);
+-- 
+2.17.1
+

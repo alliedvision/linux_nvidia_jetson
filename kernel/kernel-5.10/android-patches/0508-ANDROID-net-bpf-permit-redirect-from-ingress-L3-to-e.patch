@@ -1,0 +1,68 @@
+From 33fb4fd0f4055a6427ae71e3f8e19b5e8e0cc5f1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Date: Wed, 6 May 2020 16:25:38 -0700
+Subject: [PATCH 508/830] ANDROID: net: bpf: permit redirect from ingress L3 to
+ egress L2 devices at near max mtu
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+__bpf_skb_max_len(skb) is used from:
+  bpf_skb_adjust_room
+  __bpf_skb_change_tail
+  __bpf_skb_change_head
+
+but in the case of forwarding we're likely calling these functions
+during receive processing on ingress and bpf_redirect()'ing at
+a later point in time to egress on another interface, thus these
+mtu checks are for the wrong device (input instead of output).
+
+This is particularly problematic if we're receiving on an L3 1500 mtu
+cellular interface, trying to add an L2 header and forwarding to
+an L3 mtu 1500 mtu wifi/ethernet device (which is thus L2 1514).
+
+The mtu check prevents us from adding the 14 byte ethernet header prior
+to forwarding the packet.
+
+After the packet has already been redirected, we'd need to add
+an additional 2nd ebpf program on the target device's egress tc hook,
+but then we'd also see non-redirected traffic and have no easy
+way to tell apart normal egress with ethernet header packets
+from forwarded ethernet headerless packets.
+
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Jakub Kicinski <kuba@kernel.org>
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+
+Link: https://lore.kernel.org/netdev/20200507023606.111650-1-zenczykowski@gmail.com/
+and https://patchwork.ozlabs.org/project/netdev/patch/20200507023606.111650-1-zenczykowski@gmail.com/
+But note that a more thorough solution will be pursued.
+
+Bug: 149816401
+Change-Id: If55a144d7822e23bce85f65897bca7de4e0f9b24
+---
+ net/core/filter.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 659a32802471..ee75b19dbf88 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3553,6 +3553,13 @@ static int bpf_skb_net_shrink(struct sk_buff *skb, u32 off, u32 len_diff,
+ 
+ #define BPF_SKB_MAX_LEN SKB_MAX_ALLOC
+ 
++static u32 __bpf_skb_max_len(const struct sk_buff *skb)
++{
++	if (skb_at_tc_ingress(skb) || !skb->dev)
++		return SKB_MAX_ALLOC;
++	return skb->dev->mtu + skb->dev->hard_header_len;
++}
++
+ BPF_CALL_4(sk_skb_adjust_room, struct sk_buff *, skb, s32, len_diff,
+ 	   u32, mode, u64, flags)
+ {
+-- 
+2.17.1
+

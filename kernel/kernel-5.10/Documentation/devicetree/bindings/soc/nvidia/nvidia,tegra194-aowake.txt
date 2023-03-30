@@ -1,0 +1,20 @@
+Tegra always on wake registers wrapper
+
+Wrapper for Tegra AON wake regisers.
+
+Required properties:
+- compatible: should be
+  "nvidia,tegra186-aowake" for Tegra186,
+  "nvidia,tegra194-aowake" for Tegra194.
+- reg: base address and length of Tegra aon wake registers.
+
+Optional properties:
+- nvidia,invert-pmic-interrupt-polarity: invert pmic interrupt polarity.
+- nvidia,invert-interrupt: invert aon wake interrupt polarity.
+
+Example:
+aowake: pmc@c370000 {
+		compatible = "nvidia,tegra194-aowake";
+		reg = <0x0 0xc370000 0x0 0x600>;
+		status = "disabled";
+}

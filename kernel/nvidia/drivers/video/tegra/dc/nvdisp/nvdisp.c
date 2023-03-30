@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdisp.c
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +20,10 @@
 #include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/dma-mapping.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <linux/tegra_pm_domains.h>
+#endif
 #include <linux/tegra-pm.h>
 #include <linux/platform/tegra/bwmgr_mc.h>
 #include <linux/uaccess.h>
@@ -118,6 +121,8 @@ static struct tegra_dc_pd_info t18x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disa",
+		.genpd_dev = NULL,
 		.head_owner = 0,
 		.head_mask = 0x1,	/* Head(s):	0 */
 		.win_mask = 0x1,	/* Window(s):	0 */
@@ -132,6 +137,8 @@ static struct tegra_dc_pd_info t18x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disb",
+		.genpd_dev = NULL,
 		.head_owner = 1,
 		.head_mask = 0x2,	/* Head(s):	1 */
 		.win_mask = 0x6,	/* Window(s):	1,2 */
@@ -146,6 +153,8 @@ static struct tegra_dc_pd_info t18x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disc",
+		.genpd_dev = NULL,
 		.head_owner = 2,
 		.head_mask = 0x4,	/* Head(s):	2 */
 		.win_mask = 0x38,	/* Window(s):	3,4,5 */
@@ -800,8 +809,13 @@ static int nvdisp_alloc_output_lut(struct tegra_dc *dc)
 
 	/* Allocate the memory for LUT */
 	nvdisp_lut->size = NVDISP_OUTPUT_LUT_SIZE * sizeof(u64);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	nvdisp_lut->rgb = (u64 *)dma_zalloc_coherent(&dc->ndev->dev,
 			nvdisp_lut->size, &nvdisp_lut->phy_addr, GFP_KERNEL);
+#else
+	nvdisp_lut->rgb = (u64 *)dma_alloc_coherent(&dc->ndev->dev,
+			nvdisp_lut->size, &nvdisp_lut->phy_addr, GFP_KERNEL);
+#endif
 	if (!nvdisp_lut->rgb)
 		return -ENOMEM;
 
@@ -835,8 +849,13 @@ static int nvdisp_alloc_input_lut(struct tegra_dc *dc,
 
 	/* Allocate the memory for LUT */
 	nvdisp_lut->size = NVDISP_INPUT_LUT_SIZE * sizeof(u64);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	nvdisp_lut->rgb = (u64 *)dma_zalloc_coherent(&dc->ndev->dev,
 			nvdisp_lut->size, &nvdisp_lut->phy_addr, GFP_KERNEL);
+#else
+	nvdisp_lut->rgb = (u64 *)dma_alloc_coherent(&dc->ndev->dev,
+			nvdisp_lut->size, &nvdisp_lut->phy_addr, GFP_KERNEL);
+#endif
 	if (!nvdisp_lut->rgb)
 		return -ENOMEM;
 
@@ -924,14 +943,6 @@ static int tegra_nvdisp_reset_prepare(struct tegra_dc *dc)
 {
 	char rst_name[6];
 	int i;
-
-	/* Continue if bpmp is enabled or sim */
-	if (!tegra_bpmp_running()) {
-		if (tegra_platform_is_vdk())
-			dev_err(&dc->ndev->dev, "Continue without BPMP for sim\n");
-		else
-			return 0;
-	}
 
 	nvdisp_common_rst[0] =
 		devm_reset_control_get(&dc->ndev->dev, "misc");
@@ -1050,9 +1061,24 @@ static int _tegra_nvdisp_init_pd_table(struct tegra_dc *dc)
 		int nclks = pd->nclks;
 		int j;
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		/*
+		 * dev_pm_domain_attach_by_name() calls pm_runtime_enable() on
+		 * the newly created virtual device, no need to enable again.
+		 */
+		pd->genpd_dev =
+			dev_pm_domain_attach_by_name(
+			&dc->ndev->dev, pd->pd_name);
+		if (IS_ERR(pd->genpd_dev)) {
+			dev_err(&dc->ndev->dev,
+				"Failed to attach pm-domain %s to dc.%d\n",
+				pd->pd_name, dc->ctrl_num);
+			return -EINVAL;
+		}
+#else
 		/* Fill in the powergate id for this power domain. */
 		pd->pg_id = tegra_pd_get_powergate_id(pd->of_id);
-
+#endif
 		/* Query all the required clocks for this power domain. */
 		for (j = 0; j < nclks; j++) {
 			struct tegra_dc_pd_clk_info *domain_clk;
@@ -1085,6 +1111,10 @@ static void _tegra_nvdisp_destroy_pd_table(struct tegra_dc *dc)
 		int nclks = pd->nclks;
 		int j;
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		if (!IS_ERR_OR_NULL(pd->genpd_dev))
+			dev_pm_domain_detach(pd->genpd_dev, true);
+#endif
 		/* Release all the required clocks for this power domain. */
 		for (j = 0; j < nclks; j++) {
 			struct tegra_dc_pd_clk_info *domain_clk;
@@ -1159,21 +1189,49 @@ static void tegra_nvdisp_init_imp_mc_caps(void)
 		mc_caps->request_batch_size = 32;
 }
 
-static void tegra_nvdisp_init_common_imp_data(void)
+static void tegra_nvdisp_init_common_imp_data(struct tegra_dc *dc)
 {
 	struct mrq_emc_dvfs_latency_response *emc_dvfs_table =
 							&g_imp.emc_dvfs_table;
 	uint32_t cur_max_latency = 0;
 	int i;
+	int ret;
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	struct tegra_bpmp *bpmp_dev;
+	struct tegra_bpmp_message msg;
+#endif
 
 	INIT_LIST_HEAD(&g_imp.imp_settings_queue);
 
 	tegra_nvdisp_init_imp_wqs();
-
-	tegra_bpmp_send_receive(MRQ_EMC_DVFS_LATENCY, NULL, 0,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	ret = tegra_bpmp_send_receive(MRQ_EMC_DVFS_LATENCY, NULL, 0,
 			emc_dvfs_table,
 			sizeof(*emc_dvfs_table));
+#else
+	bpmp_dev = tegra_bpmp_get(&dc->ndev->dev);
+	if (IS_ERR(bpmp_dev)) {
+		pr_err("%s: bpmp_get failed\n", __func__);
+		ret = -ENODEV;
+	} else {
+		memset(&msg, 0, sizeof(msg));
+		msg.mrq = MRQ_EMC_DVFS_LATENCY;
+		msg.tx.data = NULL;
+		msg.tx.size = 0;
+		msg.rx.data = emc_dvfs_table;
+		msg.rx.size = sizeof(*emc_dvfs_table);
 
+		ret = tegra_bpmp_transfer(bpmp_dev, &msg);
+		if (ret < 0) {
+			pr_err("%s: MRQ_EMC_DVFS_LATENCY failed\n", __func__);
+		}
+	}
+#endif
+
+	if (ret != 0) {
+		pr_warn("%s: IPC failed: %d\n", __func__, ret);
+		emc_dvfs_table->num_pairs = 0;
+	}
 
 	for (i = emc_dvfs_table->num_pairs - 1; i >= 0; i--) {
 		struct emc_dvfs_latency *dvfs_pair = &emc_dvfs_table->pairs[i];
@@ -1284,7 +1342,7 @@ static int _tegra_nvdisp_init_once(struct tegra_dc *dc)
 	}
 #endif
 
-	tegra_nvdisp_init_common_imp_data();
+	tegra_nvdisp_init_common_imp_data(dc);
 	tegra_nvdisp_crc_region_init();
 
 	dc->valid_windows = 0;
@@ -1318,6 +1376,58 @@ INIT_CLK_ERR:
 INIT_EXIT:
 	return ret;
 
+}
+
+void tegra_nvdisp_init_once_cleanup(struct tegra_dc *dc)
+{
+	int i = 0;
+	unsigned long valid_wins = 0x0;
+
+	if (nvdisp_common_init_done == false)
+		return;
+
+	/*
+	 * Cleanup allocations from _tegra_nvdisp_init_once() only
+	 * if no other dc is active.
+	 */
+	if (tegra_dc_get_numof_reg_disps() > 1)
+		return;
+
+#ifdef CONFIG_TEGRA_ISOMGR
+	tegra_nvdisp_bandwidth_unregister();
+#endif
+	_tegra_nvdisp_destroy_pd_table(dc);
+
+	/* Input LUT was initialized on all windows forcefully */
+	valid_wins = dc->valid_windows;
+	dc->valid_windows = 0x3f;
+	for (i = 0; i < tegra_dc_get_numof_dispwindows(); ++i) {
+		struct tegra_dc_nvdisp_lut *nvdisp_lut;
+		struct tegra_dc_win *win = tegra_dc_get_window(dc, i);
+
+		if (win == NULL) {
+			dev_warn(&dc->ndev->dev,
+				"%s: unexpected invalid win.%d\n", __func__, i);
+			continue;
+		}
+
+		nvdisp_lut = &win->nvdisp_lut;
+		if (nvdisp_lut && nvdisp_lut->rgb)
+			dma_free_coherent(&dc->ndev->dev, nvdisp_lut->size,
+				(void *)nvdisp_lut->rgb, nvdisp_lut->phy_addr);
+
+		if (win->syncpt.id != 0)
+			nvhost_syncpt_put_ref_ext(dc->ndev, win->syncpt.id);
+	}
+	dc->valid_windows = valid_wins;
+
+	if (!IS_ERR_OR_NULL(hubclk))
+		tegra_disp_clk_put(&dc->ndev->dev, hubclk);
+
+	if (!IS_ERR_OR_NULL(compclk))
+		tegra_disp_clk_put(&dc->ndev->dev, compclk);
+
+	nvdisp_common_init_done = false;
 }
 
 static inline bool tegra_nvdisp_is_lpf_required(struct tegra_dc *dc)
@@ -1604,14 +1714,12 @@ int tegra_nvdisp_init(struct tegra_dc *dc)
 	tegra_nvdisp_bandwidth_attach(dc);
 #endif
 
-	if (tegra_bpmp_running()) {
-		snprintf(rst_name, sizeof(rst_name), "head%u", dc->ctrl_num);
-		dc->rst = devm_reset_control_get(&dc->ndev->dev, rst_name);
-		if (IS_ERR(dc->rst)) {
-			dev_err(&dc->ndev->dev,"Unable to get %s reset\n",
-				rst_name);
-			return PTR_ERR(dc->rst);
-		}
+	snprintf(rst_name, sizeof(rst_name), "head%u", dc->ctrl_num);
+	dc->rst = devm_reset_control_get(&dc->ndev->dev, rst_name);
+	if (IS_ERR(dc->rst)) {
+		dev_err(&dc->ndev->dev, "Unable to get %s reset\n",
+			rst_name);
+		return PTR_ERR(dc->rst);
 	}
 
 	dc->parent_clk_safe = tegra_disp_clk_get(&dc->ndev->dev,
@@ -2120,8 +2228,7 @@ int tegra_nvdisp_head_enable(struct tegra_dc *dc)
 {
 	int i;
 	int res;
-	int pclk = 0, ret = 0;
-	struct clk *parent_clk = NULL;
+	int pclk = 0;
 
 	if (WARN_ON(!dc || !dc->out || !dc->out_ops))
 		return false;
@@ -2146,36 +2253,13 @@ int tegra_nvdisp_head_enable(struct tegra_dc *dc)
 	if (dc->out->enable)
 		dc->out->enable(&dc->ndev->dev);
 
-	/* Setting DC clocks, DC, COMPCLK
-	 * Set maximum of DC clock for COMPCLK
-	 */
-	if (dc->out->type == TEGRA_DC_OUT_DSI) {
-		parent_clk = tegra_disp_clk_get(&dc->ndev->dev,
-						"pll_d_out1");
-	} else	{
-		parent_clk = tegra_disp_clk_get(&dc->ndev->dev,
-						dc->out->parent_clk);
-		pr_info("Parent Clock set for DC %s\n",
-				dc->out->parent_clk);
-	}
-
-	if (IS_ERR_OR_NULL(parent_clk)) {
-		dev_err(&dc->ndev->dev,
-			"Failed to get DC Parent clock\n");
-		ret = -ENOENT;
-		return ret; /*TODO: Add proper cleanup later */
-	}
-
-	/* Set parent for DC clock */
-	clk_set_parent(dc->clk, parent_clk);
-
-	/* Set rate on DC same as pclk */
-	if (!dc->initialized)
-		clk_set_rate(dc->clk, dc->mode.pclk);
-
 	if (dc->out_ops->setup_clk)
 		pclk = dc->out_ops->setup_clk(dc, dc->clk);
 
+	if (pclk < 0) {
+		dev_err(&dc->ndev->dev, "clock setup failed\n");
+		return -EINVAL;
+	}
 	/* Enable DC clock */
 	tegra_disp_clk_prepare_enable(dc->clk);
 
@@ -2185,16 +2269,14 @@ int tegra_nvdisp_head_enable(struct tegra_dc *dc)
 	tegra_dc_get(dc);
 
 	/* Deassert the dc reset */
-	if (tegra_bpmp_running()) {
-		res = reset_control_deassert(dc->rst);
-		if (res) {
-			dev_err(&dc->ndev->dev, "Unable to deassert dc %d\n",
-					dc->ctrl_num);
-			return res;
-		}
-
-		tegra_nvdisp_wgrp_reset_deassert(dc);
+	res = reset_control_deassert(dc->rst);
+	if (res) {
+		dev_err(&dc->ndev->dev, "Unable to deassert dc %d\n",
+				dc->ctrl_num);
+		return res;
 	}
+
+	tegra_nvdisp_wgrp_reset_deassert(dc);
 
 	/* Mask interrupts during init */
 	tegra_dc_writel(dc, 0, DC_CMD_INT_MASK);
@@ -2240,8 +2322,9 @@ int tegra_nvdisp_head_enable(struct tegra_dc *dc)
 	if (dc->out_ops && dc->out_ops->postpoweron)
 		dc->out_ops->postpoweron(dc);
 
-
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	tegra_log_resume_time();
+#endif
 	/*
 	 * We will need to reinitialize the display the next time panel
 	 * is enabled.
@@ -2286,7 +2369,11 @@ void tegra_nvdisp_vrr_work(struct work_struct *work)
 {
 	int reg_val;
 	int frame_time_elapsed;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec time_now;
+#else
+	struct timespec64 time_now;
+#endif
 	s64 time_now_us;
 
 	struct tegra_dc *dc = container_of(
@@ -2296,7 +2383,11 @@ void tegra_nvdisp_vrr_work(struct work_struct *work)
 	mutex_lock(&dc->lock);
 	tegra_dc_get(dc);
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	getnstimeofday(&time_now);
+#else
+	ktime_get_ts64(&time_now);
+#endif
 	time_now_us = (s64)time_now.tv_sec * 1000000 +
 		time_now.tv_nsec / 1000;
 
@@ -2370,7 +2461,7 @@ u32 tegra_nvdisp_sysfs_read_rg_crc(struct tegra_dc *dc)
 	}
 
 	/* If gated quitely return */
-	if (tegra_bpmp_running() && !tegra_dc_is_powered(dc))
+	if (!tegra_dc_is_powered(dc))
 		return 0;
 
 #ifdef INIT_COMPLETION
@@ -2463,12 +2554,21 @@ static inline int tegra_nvdisp_handle_pd_enable(struct tegra_dc_pd_info *pd,
 		int nclks = pd->nclks;
 		int i;
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		ret = pm_runtime_get_sync(pd->genpd_dev);
+		if (IS_ERR(ERR_PTR(ret))) {
+			pr_err("%s: Failed to unpowergate %s domain for Head%u\n",
+				__func__, pd->pd_name, pd->head_owner);
+			return -EINVAL;
+		}
+#else
 		ret = tegra_unpowergate_partition(pd->pg_id);
 		if (ret) {
 			pr_err("%s: Failed to unpowergate Head%u pd\n",
 				__func__, pd->head_owner);
 			return -EINVAL;
 		}
+#endif
 
 		for (i = 0; i < nclks; i++)
 			tegra_disp_clk_prepare_enable(domain_clks[i].clk);
@@ -2496,13 +2596,21 @@ static inline int tegra_nvdisp_handle_pd_disable(struct tegra_dc_pd_info *pd,
 		int nclks = pd->nclks;
 		int i;
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		ret = pm_runtime_put_sync(pd->genpd_dev);
+		if (ret) {
+			pr_err("%s: Failed to powergate %s domain for Head%u\n",
+				__func__, pd->pd_name, pd->head_owner);
+			return -EINVAL;
+		}
+#else
 		ret = tegra_powergate_partition(pd->pg_id);
 		if (ret) {
 			pr_err("%s: Failed to powergate Head%u pd\n",
 				__func__, pd->head_owner);
 			return -EINVAL;
 		}
-
+#endif
 		for (i = 0; i < nclks; i++)
 			tegra_disp_clk_disable_unprepare(domain_clks[i].clk);
 
@@ -2522,7 +2630,13 @@ static int tegra_nvdisp_update_pd_ref_cnts(struct tegra_dc *dc, bool enable)
 	u32 pd_owner;
 	int npower_domains = pd_table->npd;
 	int ret = 0, i;
-	int pd_ref_cnt_updates[npower_domains];
+	int *pd_ref_cnt_updates = NULL;
+
+	pd_ref_cnt_updates = kcalloc(npower_domains, sizeof(int), GFP_KERNEL);
+	if (!pd_ref_cnt_updates) {
+		pr_err("%s: Failed pd_ref_cnt_updates mem alloc\n", __func__);
+		return -ENOMEM;
+	}
 
 	memset(pd_ref_cnt_updates, 0,
 			sizeof(pd_ref_cnt_updates[0]) * npower_domains);
@@ -2572,11 +2686,12 @@ static int tegra_nvdisp_update_pd_ref_cnts(struct tegra_dc *dc, bool enable)
 			ret = tegra_nvdisp_handle_pd_disable(pd,
 								ref_cnt_update);
 
-		if (ret)
+		if (ret < 0)
 			break;
 	}
 
 	mutex_unlock(&pd_table->pd_lock);
+	kfree(pd_ref_cnt_updates);
 
 	return ret;
 }
@@ -2917,11 +3032,20 @@ static int cpy_dvfs_pairs_to_user(void __user *ext_dvfs_ptr,
 {
 	struct mrq_emc_dvfs_latency_response *dvfs_table =
 							&g_imp.emc_dvfs_table;
-	struct tegra_dc_ext_imp_emc_dvfs_pair ext_pairs[dvfs_table->num_pairs];
+	struct tegra_dc_ext_imp_emc_dvfs_pair *ext_pairs = NULL;
 	u32 num_pairs_to_cpy = 0;
 	size_t i;
 	int emc_to_dram_factor = bwmgr_get_emc_to_dram_freq_factor();
 	int ret = 0;
+
+	ext_pairs = kcalloc(dvfs_table->num_pairs,
+			sizeof(struct tegra_dc_ext_imp_emc_dvfs_pair),
+			GFP_KERNEL);
+	if (!ext_pairs) {
+		pr_err("%s: Failed to allocate memory for ext_pairs\n",
+				__func__);
+		return -ENOMEM;
+	}
 
 	num_pairs_to_cpy = min(dvfs_table->num_pairs, num_pairs_requested);
 	for (i = 0; i < num_pairs_to_cpy; i++) {
@@ -2955,6 +3079,7 @@ static int cpy_dvfs_pairs_to_user(void __user *ext_dvfs_ptr,
 		*num_pairs_returned = num_pairs_to_cpy;
 	}
 
+	kfree(ext_pairs);
 	return ret;
 }
 
@@ -2979,7 +3104,7 @@ static int cpy_thread_info_to_user(struct tegra_dc_ext_imp_caps *imp_caps)
 	int max_wins = tegra_dc_get_numof_dispwindows();
 	struct tegra_dc_ext_imp_thread_info *ext_info_arr;
 	struct tegra_dc_ext_imp_thread_info *ext_info;
-	struct tegra_dc_ext_imp_thread_info *thread_info_map[max_wins];
+	struct tegra_dc_ext_imp_thread_info **thread_info_map = NULL;
 	u32 num_info = imp_caps->num_thread_info;
 	struct nvdisp_imp_table *imp_table;
 	struct tegra_nvdisp_imp_settings *boot_setting;
@@ -3007,6 +3132,16 @@ static int cpy_thread_info_to_user(struct tegra_dc_ext_imp_caps *imp_caps)
 		pr_err("%s: Can't copy thread info from user\n", __func__);
 		ret = -EFAULT;
 
+		goto free_thread_info_ret;
+	}
+
+	thread_info_map = kcalloc(max_wins,
+				sizeof(struct tegra_dc_ext_imp_thread_info *),
+				GFP_KERNEL);
+	if (!thread_info_map) {
+		pr_err("%s: Failed to allocate memory for thread_info_map\n",
+				__func__);
+		ret = -ENOMEM;
 		goto free_thread_info_ret;
 	}
 
@@ -3050,6 +3185,7 @@ static int cpy_thread_info_to_user(struct tegra_dc_ext_imp_caps *imp_caps)
 	}
 
 free_thread_info_ret:
+	kfree(thread_info_map);
 	kfree(ext_info_arr);
 	return ret;
 }
@@ -3335,7 +3471,7 @@ static void dealloc_imp_settings(
 			struct tegra_nvdisp_imp_settings *imp_settings)
 {
 	struct tegra_nvdisp_mempool_req *req;
-	int i;
+	u8 i;
 
 	if (!imp_settings)
 		return;
@@ -3511,9 +3647,21 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v1(
 {
 	struct tegra_nvdisp_imp_settings *nvdisp_settings;
 	struct tegra_dc_ext_nvdisp_imp_global_entries *global_entries;
-	u8 active_heads = 0, max_heads = tegra_dc_get_numof_dispheads();
-	u8 num_wins_per_head[max_heads];
-	int i;
+	u8 active_heads = 0, max_heads;
+	u8 *num_wins_per_head = NULL;
+	int i, ret;
+
+	ret = tegra_dc_get_numof_dispheads();
+	if (ret < 0)
+		return NULL;
+	max_heads = ret;
+
+	num_wins_per_head = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
+	if (!num_wins_per_head) {
+		pr_err("%s: Failed to alloc mem for num_win_per_head\n",
+				__func__);
+		return NULL;
+	}
 
 	for (i = 0; i < max_heads; i++) {
 		struct tegra_dc_ext_imp_head_results *head_results;
@@ -3526,8 +3674,10 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v1(
 	}
 
 	nvdisp_settings = alloc_imp_settings(active_heads, num_wins_per_head);
-	if (!nvdisp_settings)
+	if (!nvdisp_settings) {
+		kfree(num_wins_per_head);
 		return NULL;
+	}
 
 	global_entries = &nvdisp_settings->global_entries;
 	global_entries->total_win_fetch_slots =
@@ -3554,6 +3704,7 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v1(
 		cpy_from_ext_imp_head_v1(head_results, nvdisp_head, i);
 	}
 
+	kfree(num_wins_per_head);
 	return nvdisp_settings;
 }
 
@@ -3594,13 +3745,25 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v2(
 	struct tegra_nvdisp_imp_settings *nvdisp_settings = NULL;
 	struct tegra_dc_ext_nvdisp_imp_head_settings *ext_heads;
 	u8 num_heads = ext_settings->num_heads;
-	u8 max_heads = tegra_dc_get_numof_dispheads();
-	u8 num_wins_per_head[max_heads];
-	int i, ret = 0;
+	u8 max_heads;
+	u8 i;
+	u8 *num_wins_per_head = NULL;
+	int ret = 0;
 
 	ext_heads = kcalloc(num_heads, sizeof(*ext_heads), GFP_KERNEL);
 	if (!ext_heads) {
 		pr_err("%s: Failed to alloc mem for dc_ext heads\n", __func__);
+		return NULL;
+	}
+
+	ret = tegra_dc_get_numof_dispheads();
+	if (ret < 0)
+		return NULL;
+	max_heads = ret;
+
+	num_wins_per_head = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
+	if (!num_wins_per_head) {
+		pr_err("%s: Failed mem alloc for num_win_per_head\n", __func__);
 		return NULL;
 	}
 
@@ -3627,11 +3790,6 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v2(
 
 	nvdisp_settings->global_entries = ext_settings->global_settings.entries;
 	for (i = 0; i < num_heads; i++) {
-		if (ext_heads[i].num_wins < 1 || ext_heads[i].num_wins > DC_N_WINDOWS) {
-			pr_err("Wrong number of displays");
-			goto cpy_imp_v2_ret;
-		}
-
 		ret = cpy_from_ext_imp_head_v2(&ext_heads[i],
 					&nvdisp_settings->head_settings[i]);
 		if (ret) {
@@ -3643,6 +3801,7 @@ static struct tegra_nvdisp_imp_settings *cpy_from_ext_imp_settings_v2(
 	}
 
 cpy_imp_v2_ret:
+	kfree(num_wins_per_head);
 	kfree(ext_heads);
 	return nvdisp_settings;
 }
@@ -3734,10 +3893,7 @@ int tegra_dc_queue_imp_propose(struct tegra_dc *dc,
 		dev_err(&dc->ndev->dev,
 			"Failed to copy IMP session id back to user\n");
 		mutex_unlock(&tegra_nvdisp_lock);
-		if (nvdisp_settings->num_heads > 0)
-			dealloc_imp_settings(nvdisp_settings);
-		else
-			dev_err(&dc->ndev->dev, "num heads is not a positive integer\n");
+		dealloc_imp_settings(nvdisp_settings);
 
 		return -EFAULT;
 	}
@@ -4202,9 +4358,15 @@ static struct tegra_nvdisp_imp_settings *cpy_imp_entries(
 {
 	struct tegra_nvdisp_imp_settings *dst_settings;
 	u32 max_heads = tegra_dc_get_numof_dispheads();
-	u8 num_wins_per_head[max_heads];
+	u8 *num_wins_per_head = NULL;
 	u8 num_heads = src_settings->num_heads;
 	int i;
+
+	num_wins_per_head = kcalloc(max_heads, sizeof(u8), GFP_KERNEL);
+	if (!num_wins_per_head) {
+		pr_err("%s: Failed mem alloc for num_win_per_head\n", __func__);
+		return NULL;
+	}
 
 	for (i = 0; i < num_heads; i++) {
 		struct tegra_nvdisp_imp_head_settings *head_settings;
@@ -4222,7 +4384,7 @@ static struct tegra_nvdisp_imp_settings *cpy_imp_entries(
 
 	dst_settings = alloc_imp_settings(num_heads, num_wins_per_head);
 	if (!dst_settings)
-		return NULL;
+		goto cpy_imp_entries_ret;
 
 	memcpy(&dst_settings->global_entries, &src_settings->global_entries,
 					sizeof(dst_settings->global_entries));
@@ -4238,6 +4400,8 @@ static struct tegra_nvdisp_imp_settings *cpy_imp_entries(
 			sizeof(*(dst_head->win_entries)) * dst_head->num_wins);
 	}
 
+cpy_imp_entries_ret:
+	kfree(num_wins_per_head);
 	return dst_settings;
 }
 

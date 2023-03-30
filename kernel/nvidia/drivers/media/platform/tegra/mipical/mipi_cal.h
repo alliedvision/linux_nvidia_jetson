@@ -1,7 +1,7 @@
 /*
  * mipi_cal.h
  *
- * Copyright (c) 2016-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,6 +35,7 @@
 int tegra_mipi_bias_pad_enable(void);
 int tegra_mipi_bias_pad_disable(void);
 int tegra_mipi_calibration(int lanes);
+int tegra_mipi_poweron(bool enable);
 #else
 static inline int tegra_mipi_bias_pad_enable(void)
 {
@@ -45,6 +46,10 @@ static inline int tegra_mipi_bias_pad_disable(void)
 	return 0;
 }
 static inline int tegra_mipi_calibration(int lanes)
+{
+	return 0;
+}
+static inline int tegra_mipi_poweron(bool enable)
 {
 	return 0;
 }

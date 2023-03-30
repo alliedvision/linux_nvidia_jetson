@@ -1,0 +1,65 @@
+NVIDIA Tegra EMC BWMGR(External Memory Controller Bandwidth Manager)
+
+Tegra EMC BWMGR controls the EMC clock rate by aggregating all the EMC client
+requests and calculating the final clock rate.
+EMC BWMGR also registers a cooling device with the thermal framework
+(AO-therm zone) to track DRAM temperature which will impact efficiency tables.
+
+Required properties:
+	- compatible : "nvidia,bwmgr"
+	- clocks : List of phandle and clock specifier pairs.
+			This should be EMC clock for BWMGR.
+	- status : Should be "disabled" or "okay"
+
+Optional properties:
+	- clock-names : List of clocks that control the memory subsystem
+			managed by BWMGR. Input name strings sorted in the same
+			order as the clocks property.  Consumers drivers
+			will use clock-names to match clock input names
+			with clocks specifiers.
+	- cdev-type : Name of cooling device.
+	- #cooling-cells : Provides cooling device specific information.
+			Must be at least 2, to represent minimum followed
+			by maximum cooling state.
+
+	- cooling-min-level : The smallest cooling state.
+	- cooling-max-level : The largest cooling state.
+
+For more information on cooling device refer,
+        Documentation/devicetree/bindings/thermal/thermal.txt
+
+Example:
+	bwmgr: bwmgr {
+		compatible = "nvidia,bwmgr";
+		clocks = <&bpmp_clks TEGRA194_CLK_EMC>;
+		clock-names = "emc";
+		cdev-type = "bwmgr-therm-handler";
+		cooling-min-state = <0>;
+		cooling-max-state = <1>;
+		#cooling-cells = <2>;
+		status = "okay";
+	};
+
+	AO-therm {
+		status = "okay";
+
+		thermal-zone-params {
+			governor-name = "step_wise";
+		};
+
+		trips {
+			trip_dram_refresh {
+				temperature = <85000>;
+				type = "active";
+				hysteresis = <3000>;
+				writable;
+			};
+		};
+		cooling-maps {
+			map0 {
+				trip = <&{/thermal-zones/AO-therm/trips/trip_dram_refresh}>;
+				cdev-type = "bwmgr-therm-handler";
+				cooling-device = <&bwmgr THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+		};
+	};

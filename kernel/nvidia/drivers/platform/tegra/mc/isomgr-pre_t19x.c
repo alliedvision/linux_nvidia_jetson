@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/isomgr-pre_t19x.c
  *
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,12 @@
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/platform/tegra/isomgr.h>
 #include <linux/io.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 /* This file contains platform specific isomgr
  * code for all chips prior to T194.
@@ -263,11 +268,19 @@ static struct isoclient_info tegra18x_isoclients[] = {
 
 static struct isoclient_info *get_iso_client_info(int *length)
 {
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	enum tegra_chipid cid;
+#else
+	u8 cid;
+#endif
 	struct isoclient_info *cinfo;
 	int i, len;
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+	cid = tegra_get_chipid();
+#else
 	cid = tegra_get_chip_id();
+#endif
 	switch (cid) {
 	case TEGRA114:
 		cinfo = tegra11x_isoclients;

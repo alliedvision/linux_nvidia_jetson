@@ -83,8 +83,8 @@ enum tegra_image_format {
 
 static const struct tegra_video_format vi5_video_formats[] = {
 	/* CUSTOM MIPI DATATYPE */
-	TEGRA_VIDEO_FORMAT(RAW8, 32, CUSTOM, 1, 1, T_U8_Y8__V8_Y8,
-				YUV422_8, CUSTOM, "0x31 MIPI DATATYPE"),
+	TEGRA_VIDEO_FORMAT(RAW8, 8, CUSTOM, 1, 1, T_R8,
+					   RAW8, CUSTOM, "0x31 MIPI DATATYPE"),
 
 	/* RAW 6: TODO */
 

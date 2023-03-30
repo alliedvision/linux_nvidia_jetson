@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Hypervisor interfaces
  *
@@ -46,19 +46,12 @@
 #define HVC_NR_READ_HYP_INFO		9
 #define HVC_NR_GUEST_RESET		10
 #define HVC_NR_SYSINFO_IPA		13
-#define HVC_NR_ERRINFO_GET		17
-#define HVC_NR_ASYNC_ERR_GUEST_READ_ACK	18
-#define HVC_NR_READ_VCPU_ID		19
-#define HVC_NR_SYNC_ERR_GUEST_READ_ACK	20
-
-#define HVC_NR_TRACE_GET_EVENT_MASK	289
-#define HVC_NR_TRACE_SET_EVENT_MASK	290
-#define HVC_NR_UART_RELAY_INFO		518
-#define HVC_NR_NVLOG_WRITER_INFO	519
-#define HVC_NR_NVLOG_READER_INFO	520
+#define HVC_NR_TRACE_GET_EVENT_MASK		0x8003U
+#define HVC_NR_TRACE_SET_EVENT_MASK		0x8004U
 
 #define GUEST_PRIMARY		0
 #define GUEST_IVC_SERVER	0
+#define HVC_NR_CPU_FREQ		0xC6000022
 
 #define NGUESTS_MAX 16
 
@@ -76,6 +69,8 @@ struct tegra_hv_queue_data {
 	uint32_t	frame_size;
 	uint32_t	offset;
 	uint16_t	irq, raise_irq;
+	uint64_t	trap_ipa; /** @brief IO address used to notify peer endpoint */
+	uint64_t	msi_ipa; /** @brief MSI address used to notify peer endpoint */
 };
 
 struct ivc_mempool {
@@ -97,6 +92,15 @@ struct ivc_info_page {
 	uint32_t nr_queues;
 	uint32_t nr_areas;
 	uint32_t nr_mempools;
+	uint32_t padding; /**< @brief reserved for internal use */
+			// IMPORTANT: Padding is needed to align
+			// sizeof(struct ivc_info_page ) to 64 bits
+	uint64_t trap_region_base_ipa; /**< @brief MMIO trap region start address */
+	uint64_t trap_region_size; /**< @brief MMIO trap region size */
+	uint64_t trap_ipa_stride; /**< @brief MMIO trap IPA stride size */
+	uint64_t msi_region_base_ipa; /**< @brief MMIO msi region start address */
+	uint64_t msi_region_size; /**< @brief MMIO msi region size */
+	uint64_t msi_ipa_stride; /**< @brief MMIO msi IPA stride size */
 
 	/* The actual length of this array is nr_areas. */
 	struct ivc_shared_area areas[];
@@ -156,28 +160,31 @@ struct trapped_access {
 struct hyp_server_page {
 	/* guest reset protocol */
 	uint32_t guest_reset_virq;
+
 	/* boot delay offsets per VM needed by monitor partition */
 	uint32_t boot_delay[NGUESTS_MAX];
-
-	uint32_t trap_virq;
-
-	/*
-	 * Bitmap of VCPU indices in vcpu_trapped_accesses containing active
-	 * trap information.
-	 */
-	uint32_t trapped_vcpus[HVC_MAX_VCPU / 32];
-	struct trapped_access vcpu_trapped_accesses[HVC_MAX_VCPU];
 
 	/* hypervisor trace log */
 	uint64_t log_ipa;
 	uint32_t log_size;
 
-	/* PCT location Shared with guests */
-	uint64_t pct_ipa;
+	/* secure-hypervisor trace log */
+	uint64_t secure_log_ipa;
+	uint32_t secure_log_size;
 
-	/* PCT Size Shared with guests in bytes */
+	/* PCT data */
+	uint64_t pct_ipa;
 	uint64_t pct_size;
 
+	/* check if the VM is a server or a guest */
+	uint32_t is_server_vm;
+
+	/* golden register data */
+	uint64_t gr_ipa;
+	uint32_t gr_size;
+
+	/* all vm mappings ipa */
+	uint64_t mappings_ipa;
 };
 
 /* For backwards compatibility, alias the old name for hyp_server_name. */
@@ -191,22 +198,7 @@ struct hyp_server_page {
 #define _X4_X17 "x4", "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", \
 "x13", "x14", "x15", "x16", "x17"
 
-#define _X5_X17 "x5", "x6", "x7", "x8", "x9", "x10", "x11", "x12", \
-"x13", "x14", "x15", "x16", "x17"
-
-#define _X6_X17 "x6", "x7", "x8", "x9", "x10", "x11", "x12", \
-"x13", "x14", "x15", "x16", "x17"
-
-#define _X7_X17 "x7", "x8", "x9", "x10", "x11", "x12", \
-"x13", "x14", "x15", "x16", "x17"
-
-#if IS_ENABLED(CONFIG_KASAN)
-#   define __INLINE __no_sanitize_address __maybe_unused
-#else
-#   define __INLINE inline
-#endif
-
-static __INLINE int hyp_read_gid(unsigned int *gid)
+static inline int hyp_read_gid(unsigned int *gid)
 {
 	register uint64_t r0 asm("x0");
 	register uint64_t r1 asm("x1");
@@ -220,19 +212,7 @@ static __INLINE int hyp_read_gid(unsigned int *gid)
 	return (int)r0;
 }
 
-static __INLINE uint32_t hyp_read_vcpu_id(void)
-{
-	register uint64_t r0 asm("x0");
-
-	asm("hvc %1"
-		: "=r"(r0)
-		: "i"(HVC_NR_READ_VCPU_ID)
-		: "x1", "x2", "x3", _X4_X17);
-
-	return (uint32_t)r0;
-}
-
-static __INLINE int hyp_read_nguests(unsigned int *nguests)
+static inline int hyp_read_nguests(unsigned int *nguests)
 {
 	register uint64_t r0 asm("x0");
 	register uint64_t r1 asm("x1");
@@ -246,7 +226,7 @@ static __INLINE int hyp_read_nguests(unsigned int *nguests)
 	return (int)r0;
 }
 
-static __INLINE int hyp_read_ivc_info(uint64_t *ivc_info_page_pa)
+static inline int hyp_read_ivc_info(uint64_t *ivc_info_page_pa)
 {
 	register uint64_t r0 asm("x0");
 	register uint64_t r1 asm("x1");
@@ -260,7 +240,7 @@ static __INLINE int hyp_read_ivc_info(uint64_t *ivc_info_page_pa)
 	return (int)r0;
 }
 
-static __INLINE int hyp_read_ipa_pa_info(struct hyp_ipa_pa_info *info,
+static inline int hyp_read_ipa_pa_info(struct hyp_ipa_pa_info *info,
 		unsigned int guestid, uint64_t ipa)
 {
 	register uint64_t r0 asm("x0") = guestid;
@@ -281,7 +261,7 @@ static __INLINE int hyp_read_ipa_pa_info(struct hyp_ipa_pa_info *info,
 	return (int)r0;
 }
 
-static __INLINE int hyp_raise_irq(unsigned int irq, unsigned int vmid)
+static inline int hyp_raise_irq(unsigned int irq, unsigned int vmid)
 {
 	register uint64_t r0 asm("x0") = irq;
 	register uint64_t r1 asm("x1") = vmid;
@@ -294,7 +274,7 @@ static __INLINE int hyp_raise_irq(unsigned int irq, unsigned int vmid)
 	return (int)r0;
 }
 
-static __INLINE int hyp_read_guest_state(unsigned int vmid, unsigned int *state)
+static inline int hyp_read_guest_state(unsigned int vmid, unsigned int *state)
 {
 	register uint64_t r0 asm("x0") = vmid;
 	register uint64_t r1 asm("x1");
@@ -308,7 +288,7 @@ static __INLINE int hyp_read_guest_state(unsigned int vmid, unsigned int *state)
 	return (int)r0;
 }
 
-static __INLINE int hyp_read_hyp_info(uint64_t *hyp_info_page_pa)
+static inline int hyp_read_hyp_info(uint64_t *hyp_info_page_pa)
 {
 	register uint64_t r0 asm("x0");
 	register uint64_t r1 asm("x1");
@@ -322,7 +302,7 @@ static __INLINE int hyp_read_hyp_info(uint64_t *hyp_info_page_pa)
 	return (int)r0;
 }
 
-static __INLINE int hyp_guest_reset(unsigned int id,
+static inline int hyp_guest_reset(unsigned int id,
 				  struct hyp_sys_state_info *out)
 {
 	register uint64_t r0 asm("x0") = id;
@@ -336,7 +316,7 @@ static __INLINE int hyp_guest_reset(unsigned int id,
 		: "i"(HVC_NR_GUEST_RESET)
 		: _X4_X17);
 
-	if (out != 0) {
+	if (out != NULL) {
 		out->sys_transition_mask = (uint32_t)r1;
 		out->vm_shutdown_mask = (uint32_t)r2;
 		out->vm_reboot_mask = (uint32_t)r3;
@@ -345,7 +325,7 @@ static __INLINE int hyp_guest_reset(unsigned int id,
 	return (int)r0;
 }
 
-static __INLINE uint64_t hyp_sysinfo_ipa(void)
+static inline uint64_t hyp_sysinfo_ipa(void)
 {
 	register uint64_t r0 asm("x0");
 
@@ -357,178 +337,171 @@ static __INLINE uint64_t hyp_sysinfo_ipa(void)
 	return r0;
 }
 
-static __INLINE int hyp_trace_get_mask(uint64_t *mask)
+static inline int hyp_read_freq_feedback(uint64_t *value)
 {
-	register uint64_t x0 asm("x0");
-	register uint64_t x1 asm("x1");
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 1U;
 
-	asm("hvc %[imm16]"
+	asm volatile("hvc #0"
+		: "+r"(r0), "+r"(r1)
 		:
-		"=r"(x0), "=r"(x1)
-		:
-		[imm16] "i"(HVC_NR_TRACE_GET_EVENT_MASK)
-		:
-		"x2", _X3_X17);
+		: "x2", "x3", _X4_X17);
 
-	*mask = x1;
+	if (r0 == 1 &&  value != NULL)
+		*value = r1;
 
-	return (int)x0;
+	return (int16_t)r0;
 }
 
-static __INLINE int hyp_trace_set_mask(uint64_t mask)
+static inline int hyp_read_freq_request(uint64_t *value)
 {
-	register uint64_t x0 asm("x0") = mask;
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 0U;
 
-	asm volatile ("hvc %[imm16]"
+	asm volatile("hvc #0"
+		: "+r"(r0), "+r"(r1)
 		:
-		"+r"(x0)
-		:
-		[imm16] "i"(HVC_NR_TRACE_SET_EVENT_MASK)
-		:
-		"x1", "x2", _X3_X17);
+		: "x2", "x3", _X4_X17);
 
-	return (int)x0;
+	if (r0 == 1 &&  value != 0)
+		*value = r1;
+
+	return (int16_t)r0;
 }
 
-static __INLINE int hyp_read_uart_relay_info(uint64_t *ipa, uint64_t *size,
-					uint64_t *num_channels,
-					uint64_t *max_msg_size)
+static inline int hyp_write_freq_request(uint64_t value)
 {
-	register uint64_t x0 asm("x0");
-	register uint64_t x1 asm("x1");
-	register uint64_t x2 asm("x2");
-	register uint64_t x3 asm("x3");
-	register uint64_t x4 asm("x4");
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 2U;
+	register uint64_t r2 asm("x2") = value;
 
-	asm("hvc %5"
-		: "=r"(x0), "=r"(x1),
-		  "=r"(x2), "=r"(x3),
-		  "=r"(x4)
-		: "i"(HVC_NR_UART_RELAY_INFO)
-		: _X5_X17);
-
-	*ipa = x1;
-	*size = x2;
-	*num_channels = x3;
-	*max_msg_size = x4;
-
-	return (int)x0;
-}
-
-static __INLINE int hyp_read_nvlog_reader_info(uint64_t *ipa, uint64_t *size,
-					uint64_t *num_vms)
-{
-	register uint64_t x0 asm("x0");
-	register uint64_t x1 asm("x1");
-	register uint64_t x2 asm("x2");
-	register uint64_t x3 asm("x3");
-	register uint64_t x4 asm("x4");
-
-	asm("hvc %5"
-		: "=r"(x0), "=r"(x1),
-		  "=r"(x2), "=r"(x3),
-		  "=r"(x4)
-		: "i"(HVC_NR_NVLOG_READER_INFO)
-		: _X5_X17);
-
-	*ipa = x1;
-	*size = x2;
-	*num_vms = x3;
-
-	return (int)x0;
-}
-
-static __INLINE int hyp_read_nvlog_writer_info(uint64_t *ipa, uint64_t *size)
-{
-	register uint64_t x0 asm("x0");
-	register uint64_t x1 asm("x1");
-	register uint64_t x2 asm("x2");
-	register uint64_t x3 asm("x3");
-	register uint64_t x4 asm("x4");
-
-	asm("hvc %5"
-		: "=r"(x0), "=r"(x1),
-		  "=r"(x2), "=r"(x3),
-		  "=r"(x4)
-		: "i"(HVC_NR_NVLOG_WRITER_INFO)
-		: _X5_X17);
-
-	*ipa = x1;
-	*size = x2;
-
-	return (int)x0;
-}
-
-static __INLINE int hyp_read_err_info_get(uint64_t *ipa, uint64_t *buff_size,
-	unsigned int *async_err_arr_items, int *peer_err_irq_id,
-	unsigned int *vcpu_cnt)
-{
-	register uint64_t r0 asm("x0");
-	register uint64_t r1 asm("x1");
-	register uint64_t r2 asm("x2");
-	register uint64_t r3 asm("x3");
-	register uint64_t r4 asm("x4");
-	register uint64_t r5 asm("x5");
-
-	asm volatile("hvc %6"
-		: "=r"(r0), "=r"(r1), "=r"(r2), "=r"(r3), "=r"(r4), "=r"(r5)
-		: "i"(HVC_NR_ERRINFO_GET)
-		: _X6_X17);
-
-	*ipa = r1;
-	*buff_size = r2;
-	*async_err_arr_items = r3;
-	*peer_err_irq_id = (int) r4;
-	*vcpu_cnt = r5;
-
-	return (int)r0;
-}
-
-static __INLINE int hyp_send_async_err_ack(uint64_t local_rd_idx)
-{
-	register uint64_t r0 asm("x0") = local_rd_idx;
-
-	asm volatile("hvc %1"
+	asm volatile("hvc #0"
 		: "+r"(r0)
-		: "i"(HVC_NR_ASYNC_ERR_GUEST_READ_ACK)
-		: "x1", "x2", "x3", _X4_X17);
+		: "r"(r1), "r"(r2)
+		: "x3", _X4_X17);
 
-	return (int)r0;
+	return (int16_t)r0;
 }
 
-static __INLINE int hyp_send_sync_err_ack(void)
+static inline int hyp_pct_cpu_id_read_freq_feedback(uint8_t cpu_id,
+							uint64_t *value)
 {
-	register uint64_t r0 asm("x0");
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 4U;
+	register uint64_t r2 asm("x2") = cpu_id;
 
-	asm volatile("hvc %1"
-		: "=r"(r0)
-		: "i"(HVC_NR_SYNC_ERR_GUEST_READ_ACK)
-		: "x1", "x2", "x3", _X4_X17);
+	asm volatile("hvc #0"
+		: "+r"(r0), "+r"(r1)
+		: "r"(r2)
+		: "x3", _X4_X17);
 
-	return (int)r0;
+	if (r0 == 1 &&  value != 0)
+		*value = r1;
+
+	return (int16_t)r0;
+
+}
+
+static inline int hyp_pct_cpu_id_read_freq_request(uint8_t cpu_id,
+							uint64_t *value)
+{
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 3U;
+	register uint64_t r2 asm("x2") = cpu_id;
+
+	asm volatile("hvc #0"
+		: "+r"(r0), "+r"(r1)
+		: "r"(r2)
+		: "x3", _X4_X17);
+
+	if (r0 == 1 &&  value != 0)
+		*value = r1;
+
+	return (int16_t)r0;
+}
+
+static inline int hyp_pct_cpu_id_write_freq_request(uint8_t cpu_id,
+							uint64_t value)
+{
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 5U;
+	register uint64_t r2 asm("x2") = value;
+	register uint64_t r3 asm("x3") = cpu_id;
+
+	asm volatile("hvc #0"
+		: "+r"(r0)
+		: "r"(r1), "r"(r2), "r"(r3)
+		: _X4_X17);
+
+	return (int16_t)r0;
+}
+
+static inline uint8_t hyp_get_cpu_count(void)
+{
+	register uint64_t r0 asm("x0") = HVC_NR_CPU_FREQ;
+	register uint64_t r1 asm("x1") = 6U;
+
+	asm volatile("hvc #0"
+		: "+r"(r0), "+r"(r1)
+		:
+		: "x2", "x3", _X4_X17);
+
+	if (r0 == 1)
+		return r1;
+
+	return 0;
+}
+
+static __attribute__((always_inline)) inline void hyp_call44(uint16_t id,
+			uint64_t args[4])
+{
+		register uint64_t x0 asm("x0") = args[0];
+		register uint64_t x1 asm("x1") = args[1];
+		register uint64_t x2 asm("x2") = args[2];
+		register uint64_t x3 asm("x3") = args[3];
+
+		asm volatile("HVC %[imm16]"
+			: "+r"(x0), "+r"(x1), "+r"(x2), "+r"(x3)
+			:
+			[imm16] "i"(((uint32_t)id)));
+
+		args[0] = x0;
+		args[1] = x1;
+		args[2] = x2;
+		args[3] = x3;
+}
+
+static inline int hyp_trace_get_mask(uint64_t *value)
+{
+	uint64_t args[4] = { 0U, 0U, 0U, 0U };
+
+	hyp_call44(HVC_NR_TRACE_GET_EVENT_MASK, args);
+	if (args[0] == 0U)
+		*value = args[1];
+
+	return (int) args[0];
+}
+
+static inline int hyp_trace_set_mask(uint64_t mask)
+{
+	uint64_t args[4] = { mask, 0U, 0U, 0U };
+
+	hyp_call44(HVC_NR_TRACE_SET_EVENT_MASK, args);
+	return (int) args[0];
 }
 
 #undef _X3_X17
 #undef _X4_X17
-#undef _X5_X17
-#undef _X6_X17
-#undef _X7_X17
 
 #else
 
 int hyp_read_gid(unsigned int *gid);
-uint32_t hyp_read_vcpu_id(void);
 int hyp_read_nguests(unsigned int *nguests);
 int hyp_read_ivc_info(uint64_t *ivc_info_page_pa);
 int hyp_read_ipa_pa_info(struct hyp_ipa_pa_info *info, int guestid,
 		uint64_t ipa);
 int hyp_raise_irq(unsigned int irq, unsigned int vmid);
 uint64_t hyp_sysinfo_ipa(void);
-int hyp_read_err_info_get(uint64_t *ipa, uint64_t *buff_size,
-	unsigned int *async_err_arr_size, int *peer_err_irq_id,
-	uint64_t *sync_err_offset, unsigned int  *vcpu_cnt);
-int hyp_send_async_err_ack(uint64_t local_rd_idx);
-int hyp_send_sync_err_ack(void);
 
 /* ASM prototypes */
 extern int hvc_read_gid(void *);

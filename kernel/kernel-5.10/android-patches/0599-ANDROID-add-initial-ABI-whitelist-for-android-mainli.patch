@@ -1,0 +1,26 @@
+From 38a9eaf285b05feaa0daf419bf4918021a1907f7 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Wed, 18 Dec 2019 12:57:43 +0000
+Subject: [PATCH 599/830] ANDROID: add initial ABI whitelist for
+ android-mainline
+X-NVConfidentiality: public
+
+Bug: 145692847
+Change-Id: I52e4b9b6bc025a86eb4f75bc7643a69b1e5c0d93
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ build.config.gki.aarch64 | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.gki.aarch64 b/build.config.gki.aarch64
+index 352a6382b06c..dade4408295e 100644
+--- a/build.config.gki.aarch64
++++ b/build.config.gki.aarch64
+@@ -3,3 +3,4 @@
+ . ${ROOT_DIR}/common/build.config.gki
+ 
+ ABI_DEFINITION=abi_gki_aarch64.xml
++KMI_WHITELIST=abi_gki_aarch64_whitelist
+-- 
+2.17.1
+

@@ -1,0 +1,65 @@
+##################### tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+# Build the doxygen output.
+#
+# Some assumptions: this is a local build only. You need installed:
+#
+#   doxygen
+#   python2
+#
+# You also must have $TOP/$TEGRA_TOP set; For L4T:
+#
+#   $ export TOP=$TEGRA_TOP
+#
+# Should work.
+#
+
+PYTHON2    = python2.7
+ARCH       = $(TEGRA_TOP)/core-private/tools/arch/arch.py
+NVGPU_ARCH = $(TOP)/kernel/nvgpu/arch
+ARCH_YAML  = $(NVGPU_ARCH)/*.yaml
+
+# Build the doxygen output. But make sure the sources file is generated
+# first.
+all: doxygen/sources
+	doxygen doxygen/Doxyfile.safety
+
+# Generate the sources file. This has a list of files that we shall include
+# in the doxygen output.
+doxygen/sources: $(ARCH) $(ARCH_YAML)
+	$(ARCH) --arch-file $(NVGPU_ARCH)/nvgpu.yaml files	\
+		--safe --gpu igpu --gpu both			\
+		--prefix 'INPUT += ' > doxygen/Doxyfile.sources.safety
+	@if [ ! -z "$(EXTRA_PATH)" ] ; then \
+		$(ARCH) --arch-file $(NVGPU_ARCH)/nvgpu.yaml \
+			--include-path $(EXTRA_PATH) files	\
+		--safe --gpu igpu --gpu both			\
+		--prefix 'INPUT += $(EXTRA_PATH)/' \
+		>> doxygen/Doxyfile.sources.safety ; \
+		cat $(EXTRA_PATH)/unit-tests/SWUTS.sources \
+			 >> doxygen/Doxyfile.sources.safety ; \
+	fi
+
+clean:
+	rm -rf doxygen/Doxyfile.sources.safety
+	rm -rf html

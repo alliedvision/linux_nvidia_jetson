@@ -1,0 +1,91 @@
+From a662241f1597e2e5f41b72b12079c4777a788ce5 Mon Sep 17 00:00:00 2001
+From: Pavankumar Kondeti <pkondeti@codeaurora.org>
+Date: Tue, 17 Nov 2020 11:37:48 +0530
+Subject: [PATCH 173/830] ANDROID: sched: Export few scheduler symbols for
+ vendor modules
+X-NVConfidentiality: public
+
+The following symbols are exported:
+
+- cpu_scale: For arch_scale_cpu_capacity() API.
+
+- update_rq_clock(): To refresh the rq->clock during task migrations.
+
+- migrate_swap(): Brought of NUMA and exported. It is needed to
+migrate tasks running on LITTLE and big CPUs.
+
+Bug: 173468448
+Change-Id: I72fb91c49abe365177acc3006ddd038cdb504188
+Signed-off-by: Pavankumar Kondeti <pkondeti@codeaurora.org>
+---
+ drivers/base/arch_topology.c | 1 +
+ kernel/sched/core.c          | 4 ++--
+ kernel/sched/sched.h         | 4 ++--
+ 3 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index 441f90526525..5512b7224271 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -60,6 +60,7 @@ void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
+ }
+ 
+ DEFINE_PER_CPU(unsigned long, cpu_scale) = SCHED_CAPACITY_SCALE;
++EXPORT_PER_CPU_SYMBOL_GPL(cpu_scale);
+ 
+ void topology_set_cpu_scale(unsigned int cpu, unsigned long capacity)
+ {
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 47f50a0cb1ed..4898d8cb6b11 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -323,6 +323,7 @@ void update_rq_clock(struct rq *rq)
+ 	rq->clock += delta;
+ 	update_rq_clock_task(rq, delta);
+ }
++EXPORT_SYMBOL_GPL(update_rq_clock);
+ 
+ static inline void
+ rq_csd_init(struct rq *rq, struct __call_single_data *csd, smp_call_func_t func)
+@@ -2024,7 +2025,6 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
+ }
+ EXPORT_SYMBOL_GPL(set_task_cpu);
+ 
+-#ifdef CONFIG_NUMA_BALANCING
+ static void __migrate_swap_task(struct task_struct *p, int cpu)
+ {
+ 	if (task_on_rq_queued(p)) {
+@@ -2139,7 +2139,7 @@ int migrate_swap(struct task_struct *cur, struct task_struct *p,
+ out:
+ 	return ret;
+ }
+-#endif /* CONFIG_NUMA_BALANCING */
++EXPORT_SYMBOL_GPL(migrate_swap);
+ 
+ /*
+  * wait_task_inactive - wait for a thread to unschedule.
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 5704699c9dde..23df51cb962b 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -1384,8 +1384,6 @@ enum numa_faults_stats {
+ };
+ extern void sched_setnuma(struct task_struct *p, int node);
+ extern int migrate_task_to(struct task_struct *p, int cpu);
+-extern int migrate_swap(struct task_struct *p, struct task_struct *t,
+-			int cpu, int scpu);
+ extern void init_numa_balancing(unsigned long clone_flags, struct task_struct *p);
+ #else
+ static inline void
+@@ -1396,6 +1394,8 @@ init_numa_balancing(unsigned long clone_flags, struct task_struct *p)
+ 
+ #ifdef CONFIG_SMP
+ 
++extern int migrate_swap(struct task_struct *p, struct task_struct *t,
++			int cpu, int scpu);
+ static inline void
+ queue_balance_callback(struct rq *rq,
+ 		       struct callback_head *head,
+-- 
+2.17.1
+

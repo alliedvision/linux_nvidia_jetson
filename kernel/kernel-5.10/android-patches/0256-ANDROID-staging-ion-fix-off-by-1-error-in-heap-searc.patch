@@ -1,0 +1,35 @@
+From e3f65fab0f08f92bb28da251c2366506b4bb323b Mon Sep 17 00:00:00 2001
+From: Sandeep Patil <sspatil@google.com>
+Date: Mon, 9 Sep 2019 08:21:20 -0700
+Subject: [PATCH 256/830] ANDROID: staging: ion: fix off-by-1 error in heap
+ search
+X-NVConfidentiality: public
+
+ion allocation was wrong because of an off-by-1 error
+in heap search for buffer allocation. Fix it.
+
+Bug: 140507100
+Test: ion-unit-tests
+
+Change-Id: I6ac5b0ddc6b31b5409645f62a96781d464b7bdf3
+Signed-off-by: Sandeep Patil <sspatil@google.com>
+---
+ drivers/staging/android/ion/ion.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index fe1bca06d163..49a2b379cee6 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -387,7 +387,7 @@ void ion_device_remove_heap(struct ion_heap *heap)
+ 			__func__, heap->name);
+ 	}
+ 	debugfs_remove_recursive(heap->debugfs_dir);
+-	clear_bit(heap->id - 1, dev->heap_ids);
++	clear_bit(heap->id, dev->heap_ids);
+ 	dev->heap_cnt--;
+ 	up_write(&dev->lock);
+ }
+-- 
+2.17.1
+

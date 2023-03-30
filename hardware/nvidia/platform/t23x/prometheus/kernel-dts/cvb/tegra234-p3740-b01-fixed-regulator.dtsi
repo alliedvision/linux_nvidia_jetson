@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+/ {
+	fixed-regulators {
+		p3740_vdd_5v0_stby: battery_reg: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vdd-ac-bat";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-always-on;
+		};
+		p3740_vdd_12v_sys: regulator@100 {
+			compatible = "regulator-fixed";
+			reg = <100>;
+			regulator-name = "vdd-12v-sys";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+		};
+		p3740_vdd_5v_sys: vdd_5v_sys: regulator@101 {
+			compatible = "regulator-fixed";
+			reg = <101>;
+			regulator-name = "vdd-5v-sys";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+		p3740_vdd_3v3_sys: vdd_3v3_sys: regulator@102 {
+			compatible = "regulator-fixed";
+			reg = <102>;
+			regulator-name = "vdd-3v3-sys";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+		p3740_vdd_1v8_sys: regulator@103 {
+			compatible = "regulator-fixed";
+			reg = <103>;
+			regulator-name = "vdd-1v8-sys";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+		p3740_vdd_3v7_AO: regulator@104 {
+			compatible = "regulator-fixed";
+			reg = <104>;
+			regulator-name = "vdd-3v7-AO";
+			regulator-min-microvolt = <3700000>;
+			regulator-max-microvolt = <3700000>;
+		};
+		p3740_vdd_3v3_AO: regulator@105 {
+			compatible = "regulator-fixed";
+			reg = <105>;
+			regulator-name = "vdd-3v3-AO";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+		p3740_vdd_1v8_AO: regulator@106 {
+			compatible = "regulator-fixed";
+			reg = <106>;
+			regulator-name = "vdd-1v8-AO";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+		p3740_vdd_0v95_AO: regulator@107 {
+			compatible = "regulator-fixed";
+			reg = <107>;
+			regulator-name = "vdd-0v95-AO";
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+		};
+		p3740_vdd_2v8_sys: regulator@108 {
+			compatible = "regulator-fixed";
+			reg = <108>;
+			regulator-name = "vdd-2v8-sys";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+		};
+		p3740_vdd_2v5_sys: regulator@109 {
+			compatible = "regulator-fixed";
+			reg = <109>;
+			regulator-name = "vdd-2v5-sys";
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+		};
+		p3740_vdd_1v05_AO: regulator@110 {
+			compatible = "regulator-fixed";
+			reg = <110>;
+			regulator-name = "vdd-1v05-AO";
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1050000>;
+		};
+		p3740_vdd_1v1_sys: regulator@111 {
+			compatible = "regulator-fixed";
+			reg = <111>;
+			regulator-name = "vdd-1v1-sys";
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+		};
+		p3740_vdd_1v0_sys: regulator@112 {
+			compatible = "regulator-fixed";
+			reg = <112>;
+			regulator-name = "vdd-1v0-sys";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+		};
+		p3740_vdd_3v3_dp: regulator@114 {
+			compatible = "regulator-fixed";
+			reg = <114>;
+			regulator-name = "vdd-3v3-dp";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3740_vdd_3v3_sys>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(H, 6) 0>;
+			enable-active-high;
+			regulator-always-on; /* Keeping always-on for bringup */
+		};
+		p3740_vdd_wifi_3v3: regulator@115 {
+			compatible = "regulator-fixed";
+			reg = <115>;
+			regulator-name = "vdd_wifi_3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 3) GPIO_ACTIVE_HIGH>;
+			regulator-boot-on;
+			enable-active-high;
+		};
+	};
+};

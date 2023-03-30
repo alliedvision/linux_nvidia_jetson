@@ -1,0 +1,64 @@
+/*
+ * Top level DTS file to enable DSI A1 panel on CVM:P3701-0000 and CVB:P3737-0000
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+#include "tegra234-p3701-0000-as-p3767-0003-p3737-0000.dts"
+#include "tegra234-dcb-p3701-0000-a02-p3737-0000-a01_dsi.dtsi"
+#include <panels/t23x/dsi-tianma-b-j2-dphy.dtsi>
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	i2c@3180000 { //gen-3 i2c or cam i2c
+		lp8556-backlight-t-lcd-7-0@2c {
+			power-supply = <&p3737_vdd_3v3_sys>;
+			enable-supply = <&dsi_vdd_1v8_bl_en>;
+		};
+	};
+	/* Disable all camera related nodes to avoid conflict in mipi pads */
+	host1x@13e00000 {
+		vi0@15c00000 {
+			status = "disabled";
+		};
+		vi0-thi@15f00000 {
+			status = "disabled";
+		};
+		vi1@14c00000 {
+			status = "disabled";
+		};
+		vi1-thi@14f00000 {
+			status = "disabled";
+		};
+		isp@14800000 {
+			status = "disabled";
+		};
+		isp-thi@14b00000 {
+			status = "disabled";
+		};
+		nvcsi@15a00000 {
+			status = "disabled";
+		};
+	};
+	rce-en@BE00000 {
+		status = "disabled";
+	};
+	tegra-capture-vi {
+		status = "disabled";
+	};
+	rtcpu@bc00000 {
+		status = "disabled";
+	};
+};

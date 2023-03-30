@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/carmel_pmu.c
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,8 +21,13 @@
 #include <linux/bitmap.h>
 #include <linux/errno.h>
 #include <linux/topology.h>
+#include <linux/version.h>
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include <asm/sysreg.h>
 
@@ -101,6 +106,7 @@ struct cntr_info {
 	u32 prev_val;
 	u32 id_raw;
 	u32 id_hw;
+	size_t out_idx;
 };
 
 struct carmel_unit {
@@ -249,6 +255,8 @@ read_unit_cntrs(struct carmel_unit *unit,
 			curr->event.type = QUADD_EVENT_TYPE_RAW_CARMEL_UNCORE;
 			curr->event.id = cntr->id_raw;
 
+			curr->out_idx = cntr->out_idx;
+
 			prev_val = cntr->prev_val;
 
 			if (prev_val <= val)
@@ -383,10 +391,32 @@ static int carmel_pmu_read(struct quadd_event_data *events, int max)
 	return curr - events;
 }
 
-static int
-carmel_pmu_set_events(int cpuid, const struct quadd_event *events, int size)
+static void fill_output_indexes(size_t base_idx)
 {
-	int i, err;
+	unsigned long cntr_id;
+	size_t out_idx = base_idx;
+	struct carmel_unit *unit;
+
+	list_for_each_entry(unit, &ctx.units, next) {
+		if (unit->is_used) {
+			cntr_id = 0;
+			while (true) {
+				cntr_id = find_next_bit(unit->used_ctrs,
+							UNIT_CTRS, cntr_id);
+				if (cntr_id >= UNIT_CTRS)
+					break;
+
+				unit->cntrs[cntr_id++].out_idx = out_idx++;
+			}
+		}
+	}
+}
+
+static int
+carmel_pmu_set_events(int cpuid, const struct quadd_event *events,
+		      int size, size_t base_idx)
+{
+	int i, err, nr_events = 0;
 
 	clean_all_units();
 
@@ -399,17 +429,20 @@ carmel_pmu_set_events(int cpuid, const struct quadd_event *events, int size)
 				clean_all_units();
 				return err;
 			}
+			nr_events++;
 		}
 	}
+	fill_output_indexes(base_idx);
 
-	return 0;
+	return nr_events;
 }
 
 static int
 supported_events(int cpuid, struct quadd_event *events,
-		 int max, unsigned int *raw_event_mask)
+		 int max, unsigned int *raw_event_mask, int *nr_ctrs)
 {
 	*raw_event_mask = 0x0fff;
+	*nr_ctrs = UNIT_CTRS;
 	return 0;
 }
 
@@ -419,28 +452,22 @@ current_events(int cpuid, struct quadd_event *events, int max)
 	struct quadd_event *curr, *end;
 	struct carmel_unit *unit;
 
-	if (max == 0)
-		return 0;
-
 	curr = events;
 	end = curr + max;
 
 	list_for_each_entry(unit, &ctx.units, next) {
 		if (unit->is_used) {
-			unsigned long idx = 0;
+			unsigned long cntr_id = 0;
 
-			while (idx < UNIT_CTRS) {
-				idx = find_next_bit(unit->used_ctrs,
-						    UNIT_CTRS, idx);
-				if (idx != UNIT_CTRS) {
-					curr->type =
-					    QUADD_EVENT_TYPE_RAW_CARMEL_UNCORE;
-					curr->id = unit->cntrs[idx].id_raw;
+			while (curr < end) {
+				cntr_id = find_next_bit(unit->used_ctrs,
+							UNIT_CTRS, cntr_id);
+				if (cntr_id >= UNIT_CTRS)
+					break;
 
-					if (++curr >= end)
-						return curr - events;
-				}
-				idx++;
+				curr->type = QUADD_EVENT_TYPE_RAW_CARMEL_UNCORE;
+				curr->id = unit->cntrs[cntr_id++].id_raw;
+				curr++;
 			}
 		}
 	}
@@ -450,10 +477,14 @@ current_events(int cpuid, struct quadd_event *events, int max)
 
 static bool is_cluster_available(int cluster_id)
 {
-	int cpu;
+	unsigned int cpu;
 
 	for_each_possible_cpu(cpu)
+#if KERNEL_VERSION(4, 18, 0) > LINUX_VERSION_CODE
 		if (cpu_topology[cpu].cluster_id == cluster_id)
+#else
+		if (cpu_topology[cpu].package_id == cluster_id)
+#endif
 			return true;
 
 	return false;
@@ -499,6 +530,7 @@ static const struct quadd_pmu_cntr_info *carmel_cntrs[] = {
 static struct
 quadd_event_source carmel_uncore_pmu_int = {
 	.name			= "carmel_pmu",
+	.description		= "Carmel Uncore PMU",
 	.enable			= carmel_pmu_enable,
 	.disable		= carmel_pmu_disable,
 	.start			= carmel_pmu_start,
@@ -516,7 +548,11 @@ quadd_carmel_uncore_pmu_init(void)
 	int i;
 	struct carmel_unit *unit;
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	if (tegra_get_chipid() != TEGRA_CHIPID_TEGRA19)
+#else
+	if (tegra_get_chip_id() != TEGRA194)
+#endif
 		return NULL;
 
 	INIT_LIST_HEAD(&ctx.units);

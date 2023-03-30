@@ -1,0 +1,44 @@
+From 72730d5ba43d404e1b3b84f30185f8d4070a4548 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 23 Jun 2020 11:24:00 +0100
+Subject: [PATCH 715/830] ANDROID: gki_defconfig: Enable CONFIG_WQ_WATCHDOG
+X-NVConfidentiality: public
+
+It is useful to some partners to debug in-field lockups, and can
+disabled by those who don't need it via command line or sysfs.
+
+Bug: 159101622
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I14d2b112d2d4d1a4a920c71f254fc4ba4d3cd57c
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c8c3a9388a3b..ec85c04d1b81 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -498,6 +498,7 @@ CONFIG_PANIC_ON_OOPS=y
+ CONFIG_PANIC_TIMEOUT=-1
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+ # CONFIG_DETECT_HUNG_TASK is not set
++CONFIG_WQ_WATCHDOG=y
+ CONFIG_SCHEDSTATS=y
+ # CONFIG_DEBUG_PREEMPT is not set
+ CONFIG_BUG_ON_DATA_CORRUPTION=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index faedb2dd3b6a..1760750b25bc 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -446,6 +446,7 @@ CONFIG_PANIC_ON_OOPS=y
+ CONFIG_PANIC_TIMEOUT=-1
+ CONFIG_SOFTLOCKUP_DETECTOR=y
+ # CONFIG_DETECT_HUNG_TASK is not set
++CONFIG_WQ_WATCHDOG=y
+ CONFIG_SCHEDSTATS=y
+ CONFIG_BUG_ON_DATA_CORRUPTION=y
+ CONFIG_UNWINDER_FRAME_POINTER=y
+-- 
+2.17.1
+

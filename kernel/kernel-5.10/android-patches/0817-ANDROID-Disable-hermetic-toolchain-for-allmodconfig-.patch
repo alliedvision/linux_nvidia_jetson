@@ -1,0 +1,32 @@
+From e742fe2a6458dd7eb76df420118d2217312e2931 Mon Sep 17 00:00:00 2001
+From: Matthias Maennich <maennich@google.com>
+Date: Tue, 8 Dec 2020 10:04:34 +0000
+Subject: [PATCH 817/830] ANDROID: Disable hermetic toolchain for allmodconfig
+ builds
+X-NVConfidentiality: public
+
+allmodconfig builds require a full implementation of openssl as of
+today. The hermetic toolchain provides only a subset through boringssl.
+
+Fixes: 6991ab0b2dc1 ("ANDROID: Enable hermetic toolchain")
+Signed-off-by: Matthias Maennich <maennich@google.com>
+Change-Id: Idcd0233893059d4a10951edf51cba0b3b7a9a0f1
+---
+ build.config.allmodconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index 89b6c5c1b84b..f35ffe60274b 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -1,5 +1,7 @@
+ DEFCONFIG=allmodconfig
+ 
++HERMETIC_TOOLCHAIN=0
++
+ POST_DEFCONFIG_CMDS="update_config"
+ function update_config() {
+     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+-- 
+2.17.1
+

@@ -337,12 +337,6 @@ void rtw_odm_parse_rx_phy_status_chinfo(union recv_frame *rframe, u8 *phys)
 
 				static const s8 cch_offset_by_rxsc[15] = {0, 2, -2, 6, -6, 10, -10, 14, -14, 4, -4, 12, -12, 8, -8};
 
-				if (phys_t1->rf_mode > 3) {
-					/* invalid rf_mode */
-					rtw_warn_on(1);
-					goto type1_end;
-				}
-
 				if (phys_t1->rf_mode == 0) {
 					/* RF 20MHz */
 					pkt_cch = phys_t1->channel;

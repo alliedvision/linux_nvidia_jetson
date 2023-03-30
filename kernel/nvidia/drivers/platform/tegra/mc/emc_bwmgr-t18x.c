@@ -14,8 +14,6 @@
 #include <linux/platform/tegra/bwmgr_mc.h>
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/io.h>
-#include <soc/tegra/bpmp_abi.h>
-#include <soc/tegra/tegra_bpmp.h>
 
 static u32 bwmgr_t186_iso_bw_table[] = { /* MHz */
 	  5,  10,  20,  30,  40,  60,  80, 100, 120, 140,
@@ -59,8 +57,6 @@ static u32 bwmgr_t186_ddr3_iso_eff[] = {
 	47,  47,  47,  47,  47,  47,  47,  47,  47,  47,
 	47,  47,   1,   1,   1,   1,   1
 };
-
-static struct mrq_emc_dvfs_latency_response bwmgr_emc_dvfs;
 
 #define MC_BASE 0x02c10000
 #define EMC_BASE 0x02c60000
@@ -272,9 +268,6 @@ struct bwmgr_ops *bwmgr_eff_init_t18x(void)
 			}
 		}
 	}
-
-	tegra_bpmp_send_receive(MRQ_EMC_DVFS_LATENCY, NULL, 0,
-			&bwmgr_emc_dvfs, sizeof(bwmgr_emc_dvfs));
 
 	return &bwmgr_ops_t18x;
 }

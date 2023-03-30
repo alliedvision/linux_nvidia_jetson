@@ -1,7 +1,7 @@
 /*
  * dsi2lvds.c: dsi 2 lvds controller interface.
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -113,12 +113,12 @@ static struct i2c_client *init_i2c_slave(struct tegra_dc_dsi_data *dsi)
 		goto err;
 	}
 
-	client = i2c_new_device(adapter, &p_data);
+	client = tegra_dc_i2c_new_device(adapter, &p_data);
 	i2c_put_adapter(adapter);
-	if (!client) {
+	if (IS_ERR(client)) {
 		dev_err(&dsi->dc->ndev->dev,
 			"dsi2lvds: can't add i2c slave device\n");
-		err = -EBUSY;
+		err = PTR_ERR(client);
 		goto err;
 	}
 

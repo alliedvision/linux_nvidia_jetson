@@ -1,0 +1,53 @@
+From 4bb5ee34c28bdd2a219008e72a36be07e2f957b6 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Thu, 20 Aug 2020 15:09:55 -0700
+Subject: [PATCH 540/830] FROMLIST: Makefile: add -fuse-ld=lld to
+ KBUILD_HOSTLDFLAGS when LLVM=1
+X-NVConfidentiality: public
+
+While moving Android kernels over to use LLVM=1, we observe the failure
+when building in a hermetic docker image:
+  HOSTCC  scripts/basic/fixdep
+clang: error: unable to execute command: Executable "ld" doesn't exist!
+
+The is because the build of the host utility fixdep builds the fixdep
+executable in one step by invoking the compiler as the driver, rather
+than individual compile then link steps.
+
+Clang when configured from source defaults to use the system's linker,
+and not LLVM's own LLD, unless the CMake config
+-DCLANG_DEFAULT_LINKER='lld' is set when configuring a build of clang
+itself.
+
+Don't rely on the compiler's implicit default linker; be explicit.
+
+Fixes: commit a0d1c951ef08 ("kbuild: support LLVM=1 to switch the default tools to Clang/LLVM")
+Reported-by: Matthias Maennich <maennich@google.com>
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Reviewed-by: Nathan Chancellor <natechancellor@gmail.com>
+Cc: stable@vger.kernel.org
+
+Bug: 116869922
+Bug: 141693040
+Link: https://lore.kernel.org/lkml/20200820220955.3325555-1-ndesaulniers@google.com/T/#u
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: I54b79beceb669ec06a017d3f5c3627ccf3655986
+---
+ Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile b/Makefile
+index 666cad659b57..9ca40f145b83 100644
+--- a/Makefile
++++ b/Makefile
+@@ -464,6 +464,7 @@ OBJCOPY		= llvm-objcopy
+ OBJDUMP		= llvm-objdump
+ READELF		= llvm-readelf
+ STRIP		= llvm-strip
++KBUILD_HOSTLDFLAGS	+= -fuse-ld=lld
+ else
+ CC		= $(CROSS_COMPILE)gcc
+ LD		= $(CROSS_COMPILE)ld
+-- 
+2.17.1
+

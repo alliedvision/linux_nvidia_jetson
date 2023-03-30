@@ -20,6 +20,7 @@
 #include <linux/uaccess.h>
 #include <linux/gpio.h>
 #include <linux/module.h>
+#include <linux/version.h>
 
 #include <linux/seq_file.h>
 #include <linux/of.h>
@@ -486,7 +487,9 @@ static struct v4l2_subdev_video_ops imx214_subdev_video_ops = {
 	.g_mbus_fmt	= camera_common_g_fmt,
 	.try_mbus_fmt	= camera_common_try_fmt,
 	.enum_mbus_fmt	= camera_common_enum_fmt,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	.g_mbus_config	= camera_common_g_mbus_config,
+#endif
 };
 
 static struct v4l2_subdev_core_ops imx214_subdev_core_ops = {
@@ -495,6 +498,9 @@ static struct v4l2_subdev_core_ops imx214_subdev_core_ops = {
 
 static struct v4l2_subdev_pad_ops imx214_subdev_pad_ops = {
 	.enum_mbus_code = camera_common_enum_mbus_code,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	.get_mbus_config	= camera_common_get_mbus_config,
+#endif
 };
 
 static struct v4l2_subdev_ops imx214_subdev_ops = {
@@ -504,7 +510,7 @@ static struct v4l2_subdev_ops imx214_subdev_ops = {
 };
 
 static struct of_device_id imx214_of_match[] = {
-	{ .compatible = "nvidia,imx214", },
+	{ .compatible = "sony,imx214", },
 	{ },
 };
 

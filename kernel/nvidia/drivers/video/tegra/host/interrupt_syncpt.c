@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2018, NVIDIA Corporation. All rights reserved. */
 
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>
@@ -16,6 +17,7 @@ struct nvhost_interrupt_syncpt {
 	u32 value;
 	void *private_data;
 	void (*callback)(void *);
+	struct mutex lock;
 
 	struct nvhost_waitlist *waiter;
 	void *ref;
@@ -48,6 +50,7 @@ struct nvhost_interrupt_syncpt *nvhost_interrupt_syncpt_get(
 	struct platform_device *host1x_pdev;
 	struct nvhost_interrupt_syncpt *is;
 	struct device_node *host1x_np;
+	struct nvhost_master *master;
 	int err;
 
 	host1x_np = of_parse_phandle(np, "nvidia,host1x", 0);
@@ -73,7 +76,10 @@ struct nvhost_interrupt_syncpt *nvhost_interrupt_syncpt_get(
 		goto free_is;
 	}
 
-	is->value = nvhost_syncpt_read_minval(host1x_pdev, is->syncpt);
+	master = nvhost_get_host(is->host1x_pdev);
+	is->value = nvhost_syncpt_read(&master->syncpt, is->syncpt);
+
+	mutex_init(&is->lock);
 
 	return is;
 
@@ -97,6 +103,21 @@ void nvhost_interrupt_syncpt_free(struct nvhost_interrupt_syncpt *is)
 }
 EXPORT_SYMBOL(nvhost_interrupt_syncpt_free);
 
+void nvhost_interrupt_syncpt_reset(struct nvhost_interrupt_syncpt *is)
+{
+	struct nvhost_master *master = nvhost_get_host(is->host1x_pdev);
+
+	mutex_lock(&is->lock);
+	if (is->ref) {
+		nvhost_intr_put_ref(&master->intr, is->syncpt, is->ref);
+		is->ref = NULL;
+	}
+	mutex_unlock(&is->lock);
+
+	is->value = nvhost_syncpt_read(&master->syncpt, is->syncpt);
+}
+EXPORT_SYMBOL(nvhost_interrupt_syncpt_reset);
+
 static void notifier_callback(void *private_data, int count)
 {
 	struct nvhost_interrupt_syncpt *is = private_data;
@@ -109,6 +130,7 @@ int nvhost_interrupt_syncpt_prime(struct nvhost_interrupt_syncpt *is)
 	struct nvhost_master *master = nvhost_get_host(is->host1x_pdev);
 	int err;
 
+	mutex_lock(&is->lock);
 	if (is->ref) {
 		nvhost_intr_put_ref(&master->intr, is->syncpt, is->ref);
 		is->ref = NULL;
@@ -116,7 +138,8 @@ int nvhost_interrupt_syncpt_prime(struct nvhost_interrupt_syncpt *is)
 
 	is->waiter = kzalloc(sizeof(*is->waiter), GFP_KERNEL);
 	if (!is->waiter) {
-		return -ENOMEM;
+		err = -ENOMEM;
+		goto unlock;
 	}
 
 	is->notifier = kzalloc(sizeof(*is->notifier), GFP_KERNEL);
@@ -136,13 +159,15 @@ int nvhost_interrupt_syncpt_prime(struct nvhost_interrupt_syncpt *is)
 		goto free_notifier;
 	}
 
+	mutex_unlock(&is->lock);
 	return 0;
 
 free_notifier:
 	kfree(is->notifier);
 free_waiter:
 	kfree(is->waiter);
-
+unlock:
+	mutex_unlock(&is->lock);
 	return err;
 }
 EXPORT_SYMBOL(nvhost_interrupt_syncpt_prime);

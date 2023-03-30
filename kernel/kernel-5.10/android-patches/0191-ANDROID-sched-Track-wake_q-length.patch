@@ -1,0 +1,91 @@
+From 8b6b1053fafad1a35ef5787dba6d361172418f81 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 24 Nov 2020 15:33:49 +0000
+Subject: [PATCH 191/830] ANDROID: sched: Track wake_q length
+X-NVConfidentiality: public
+
+Some partners have value-adds based on aosp/540066, which cannot be
+carried in ACK in its entirety as it no longer makes sense as-is (the
+select_idle_capacity() rework upstream solved the issue differently).
+
+It seems that those partners do not actually need the wake-wide tweaks,
+they only need to access the wake_q length for wake-up balance. To
+support this, add minimal tracking to the wake_q infrastructure in the
+core kernel, but do that by adding a pointer to the wake_q_head to
+task_struct directly to not litter all sched classes with an additional
+sibling_count_hint argument to the select_task_rq callbacks.
+
+Modules needing to access the wake_q length can do so by dereferencing
+p->wake_q_head in the wake-up path when it is non-NULL.
+
+Bug: 173981591
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I9a98167face92e70aba847d9f04d0c216065478c
+---
+ include/linux/sched.h        | 1 +
+ include/linux/sched/wake_q.h | 2 ++
+ kernel/sched/core.c          | 3 +++
+ 3 files changed, 6 insertions(+)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index d5173721ea53..38715eda25d8 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1008,6 +1008,7 @@ struct task_struct {
+ 	raw_spinlock_t			pi_lock;
+ 
+ 	struct wake_q_node		wake_q;
++	struct wake_q_head		*wake_q_head;
+ 
+ #ifdef CONFIG_RT_MUTEXES
+ 	/* PI waiters blocked on a rt_mutex held by this task: */
+diff --git a/include/linux/sched/wake_q.h b/include/linux/sched/wake_q.h
+index 26a2013ac39c..1e05e5669713 100644
+--- a/include/linux/sched/wake_q.h
++++ b/include/linux/sched/wake_q.h
+@@ -38,6 +38,7 @@
+ struct wake_q_head {
+ 	struct wake_q_node *first;
+ 	struct wake_q_node **lastp;
++	int count;
+ };
+ 
+ #define WAKE_Q_TAIL ((struct wake_q_node *) 0x01)
+@@ -49,6 +50,7 @@ static inline void wake_q_init(struct wake_q_head *head)
+ {
+ 	head->first = WAKE_Q_TAIL;
+ 	head->lastp = &head->first;
++	head->count = 0;
+ }
+ 
+ static inline bool wake_q_empty(struct wake_q_head *head)
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index c0c2380b1666..1f53d01e90f7 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -536,6 +536,7 @@ static bool __wake_q_add(struct wake_q_head *head, struct task_struct *task)
+ 	 */
+ 	*head->lastp = node;
+ 	head->lastp = &node->next;
++	head->count++;
+ 	return true;
+ }
+ 
+@@ -592,12 +593,14 @@ void wake_up_q(struct wake_q_head *head)
+ 		/* Task can safely be re-inserted now: */
+ 		node = node->next;
+ 		task->wake_q.next = NULL;
++		task->wake_q_head = head;
+ 
+ 		/*
+ 		 * wake_up_process() executes a full barrier, which pairs with
+ 		 * the queueing in wake_q_add() so as not to miss wakeups.
+ 		 */
+ 		wake_up_process(task);
++		task->wake_q_head = NULL;
+ 		put_task_struct(task);
+ 	}
+ }
+-- 
+2.17.1
+

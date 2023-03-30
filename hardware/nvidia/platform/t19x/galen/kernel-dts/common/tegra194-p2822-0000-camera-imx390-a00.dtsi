@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
@@ -32,7 +31,7 @@
 			skip_mux_detect = "yes";
 			vif-supply = <&p2822_vdd_1v8_cvb>;
 			vcc-supply = <&p2822_vdd_1v8_cvb>;
-			vcc_lp = "vcc";
+			vcc-pullup-supply = <&battery_reg>;
 			force_bus_start = <CAMERA_I2C_MUX_BUS(0)>;
 
 			i2c@0 {
@@ -41,24 +40,24 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				dser: max9296@48 {
-					compatible = "nvidia,max9296";
+					compatible = "maxim,max9296";
 					reg = <0x48>;
 					csi-mode = "2x4";
 					max-src = <2>;
 					reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 				};
 				ser_prim: max9295_prim@62 {
-					compatible = "nvidia,max9295";
+					compatible = "maxim,max9295";
 					reg = <0x62>;
 					is-prim-ser;
 				};
 				ser_a: max9295_a@40 {
-					compatible = "nvidia,max9295";
+					compatible = "maxim,max9295";
 					reg = <0x40>;
 					nvidia,gmsl-dser-device = <&dser>;
 				};
 				ser_b: max9295_b@60 {
-					compatible = "nvidia,max9295";
+					compatible = "maxim,max9295";
 					reg = <0x60>;
 					nvidia,gmsl-dser-device = <&dser>;
 				};

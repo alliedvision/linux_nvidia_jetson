@@ -1,0 +1,58 @@
+NVIDIA Tegra Xavier (T19x) ISP5 bindings
+
+Tegra ISP5 (Image Signal Processor, version 5), is a pixel processing unit
+operating on optical sensor data in memory (such as from VI). Functional
+implementation of the APIs is located in the Camera RTCPU firmware.
+
+Required properties:
+	- compatible: Should be "nvidia,tegra194-isp".
+	- reg: Register address space (MMIO).
+	- resets: All ISP resets.
+	- reset-names: Names of the above resets.
+	- clocks: All ISP clocks.
+	- clock-names: Names of the above clocks.
+	- power-domains: Power domain group, should be
+		"TEGRA194_POWER_DOMAIN_ISPA".
+	- nvidia,vi-falcon-device: ISP5 Falcon device, should be "isp_thi".
+	- iommus: ISP5 Stream ID, should be "TEGRA_SID_ISP".
+	- non-coherent: Coherent DMA, should be set.
+
+Example:
+
+	isp: isp@14800000 {
+		compatible = "nvidia,tegra194-isp";
+		reg = <0x0 0x14800000 0x0 0x00010000>;
+
+		resets = <&bpmp_resets TEGRA194_RESET_ISP>;
+		reset-names = "isp";
+		clocks = <&bpmp_clks TEGRA194_CLK_ISP>;
+		clock-names = "isp";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_ISPA>;
+
+		nvidia,isp-falcon-device = <&isp_thi>;
+
+		iommus = <&smmu TEGRA_SID_ISP>;
+		dma-coherent;
+	};
+
+== ISP5 Falcon unit ==
+
+The ISP5 Falcon is a microcontroller for the ISP5 unit. THI is the Tegra Host
+Interface.
+
+Required properties:
+	- compatible: Should be "nvidia,tegra194-isp-thi".
+	- reg: Register address space (MMIO).
+
+Optional properties:
+	- clocks: All ISP clocks.
+	- clock-names: Names of the above clocks.
+	- power-domains: Power domain group, should be
+		"TEGRA194_POWER_DOMAIN_ISPA".
+
+Example:
+
+	isp_thi: isp-thi@14b00000 {
+		compatible = "nvidia,tegra194-isp-thi";
+		reg = <0x0 0x14b00000 0x0 0x00100000>;
+	};

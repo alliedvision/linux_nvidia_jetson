@@ -3,7 +3,7 @@
  *
  * ADSP OS App management
  *
- * Copyright (C) 2014-2017 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
 #include <linux/kernel.h>
+#include <asm/hwcap.h>
 
 #include "os.h"
 #include "dram_app_mem_manager.h"
@@ -700,7 +701,7 @@ static struct adsp_module *setup_load_info(struct load_info *info)
 
 	if (info->index.sym == 0) {
 		dev_warn(dev, "%s: module has no symbols (stripped?)\n",
-								mod->name);
+								info->name);
 		kfree(mod);
 		return ERR_PTR(-ENOEXEC);
 	}
@@ -789,7 +790,7 @@ static int elf_check_arch_arm32(const struct elf32_hdr *x)
 
 	/* Make sure the entry address is reasonable */
 	if (x->e_entry & 1) {
-		if (!(elf_hwcap & HWCAP_THUMB))
+		if (!(ELF_HWCAP & HWCAP_THUMB))
 			return 0;
 	} else if (x->e_entry & 3)
 		return 0;
@@ -799,13 +800,13 @@ static int elf_check_arch_arm32(const struct elf32_hdr *x)
 		unsigned int flt_fmt;
 
 		/* APCS26 is only allowed if the CPU supports it */
-		if ((eflags & EF_ARM_APCS_26) && !(elf_hwcap & HWCAP_26BIT))
+		if ((eflags & EF_ARM_APCS_26) && !(ELF_HWCAP & HWCAP_26BIT))
 			return 0;
 
 		flt_fmt = eflags & (EF_ARM_VFP_FLOAT | EF_ARM_SOFT_FLOAT);
 
 		/* VFP requires the supporting code */
-		if (flt_fmt == EF_ARM_VFP_FLOAT && !(elf_hwcap & HWCAP_VFP))
+		if (flt_fmt == EF_ARM_VFP_FLOAT && !(ELF_HWCAP & HWCAP_VFP))
 			return 0;
 	}
 	return 1;
@@ -892,7 +893,7 @@ struct adsp_module *load_adsp_dynamic_module(const char *appname,
 
 	/* Figure out module layout, and allocate all the memory. */
 	mod = layout_and_allocate(&info);
-	if (IS_ERR(mod))
+	if (IS_ERR_OR_NULL(mod))
 		goto error_free_memory;
 
 	/* update adsp specific sections */

@@ -1,0 +1,105 @@
+From 9b9ab06a5d2fe86490d05aedaa603e19c6ff6f4b Mon Sep 17 00:00:00 2001
+From: Chris Goldsworthy <cgoldswo@codeaurora.org>
+Date: Fri, 18 Sep 2020 09:19:53 -0700
+Subject: [PATCH 225/830] ANDROID: mm: cma: retry allocations in cma_alloc
+X-NVConfidentiality: public
+
+CMA allocations will fail if 'pinned' pages are in a CMA area, since
+we cannot migrate pinned pages. The _refcount of a struct page being
+greater than _mapcount for that page can cause pinning for anonymous
+pages.  This is because try_to_unmap(), which (1) is called in the CMA
+allocation path, and (2) decrements both _refcount and _mapcount for a
+page, will stop unmapping a page from VMAs once the _mapcount for a
+page reaches 0.  This implies that after try_to_unmap() has finished
+successfully for a page where _recount > _mapcount, that _refcount
+will be greater than 0.  Later in the CMA allocation path in
+migrate_page_move_mapping(), we will have one more reference count
+than intended for anonymous pages, meaning the allocation will fail
+for that page.
+
+One example of where _refcount can be greater than _mapcount for a
+page we would not expect to be pinned is inside of copy_one_pte(),
+which is called during a fork. For ptes for which pte_present(pte) ==
+true, copy_one_pte() will increment the _refcount field followed by
+the  _mapcount field of a page. If the process doing copy_one_pte() is
+context switched out after incrementing _refcount but before
+incrementing _mapcount, then the page will be temporarily pinned.
+
+So, inside of cma_alloc(), instead of giving up when
+alloc_contig_range() returns -EBUSY after having scanned a whole
+CMA-region bitmap, perform retries with sleeps to give the system an
+opportunity to unpin any pinned pages.
+
+Additionally, based off feedback by Minchan Kim, add the ability to
+exit early if a fatal signal is pending (this is a delta from the
+mailing-list version of this patch).
+
+Bug: 168521646
+Link: https://lore.kernel.org/lkml/1596682582-29139-2-git-send-email-cgoldswo@codeaurora.org/
+Signed-off-by: Chris Goldsworthy <cgoldswo@codeaurora.org>
+Co-developed-by: Susheel Khiani <skhiani@codeaurora.org>
+Signed-off-by: Susheel Khiani <skhiani@codeaurora.org>
+Co-developed-by: Vinayak Menon <vinmenon@codeaurora.org>
+Signed-off-by: Vinayak Menon <vinmenon@codeaurora.org>
+Change-Id: I2f0c8388f9163e0decd631d9ae07bb6ad9ab79c8
+---
+ mm/cma.c | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/mm/cma.c b/mm/cma.c
+index 7f415d7cda9f..cf9a10a88988 100644
+--- a/mm/cma.c
++++ b/mm/cma.c
+@@ -32,6 +32,8 @@
+ #include <linux/highmem.h>
+ #include <linux/io.h>
+ #include <linux/kmemleak.h>
++#include <linux/sched.h>
++#include <linux/jiffies.h>
+ #include <trace/events/cma.h>
+ 
+ #include "cma.h"
+@@ -418,6 +420,8 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
+ 	size_t i;
+ 	struct page *page = NULL;
+ 	int ret = -ENOMEM;
++	int num_attempts = 0;
++	int max_retries = 5;
+ 
+ 	if (!cma || !cma->count || !cma->bitmap)
+ 		return NULL;
+@@ -445,6 +449,31 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
+ 			mutex_unlock(&cma->lock);
+ 			break;
+ 		}
++
++		if (bitmap_no >= bitmap_maxno) {
++			if ((num_attempts < max_retries) && (ret == -EBUSY)) {
++				mutex_unlock(&cma->lock);
++
++				if (fatal_signal_pending(current))
++					break;
++
++				/*
++				 * Page may be momentarily pinned by some other
++				 * process which has been scheduled out, e.g.
++				 * in exit path, during unmap call, or process
++				 * fork and so cannot be freed there. Sleep
++				 * for 100ms and retry the allocation.
++				 */
++				start = 0;
++				ret = -ENOMEM;
++				schedule_timeout_killable(msecs_to_jiffies(100));
++				num_attempts++;
++				continue;
++			} else {
++				mutex_unlock(&cma->lock);
++				break;
++			}
++		}
+ 		bitmap_set(cma->bitmap, bitmap_no, bitmap_count);
+ 		/*
+ 		 * It's safe to drop the lock here. We've marked this region for
+-- 
+2.17.1
+

@@ -1,0 +1,44 @@
+From c2f3ed3d0a1922ce8ea66344ae71a75b9ba23652 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 2 Nov 2020 10:11:19 -0800
+Subject: [PATCH 793/830] ANDROID: GKI: Enable DEBUG_INFO_DWARF4
+X-NVConfidentiality: public
+
+This is useful for debuggers, and is already the default for clang
+(incidentally). Make sure it is on for all users/compilers.
+
+Bug: 160841764
+Change-Id: Ibb9a0c6900728d4cce3eccb57fb4c38268a89f24
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 2051760785d9..810b0481b52b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -569,6 +569,7 @@ CONFIG_DMA_CMA=y
+ CONFIG_PRINTK_TIME=y
+ CONFIG_DYNAMIC_DEBUG_CORE=y
+ CONFIG_DEBUG_INFO=y
++CONFIG_DEBUG_INFO_DWARF4=y
+ # CONFIG_ENABLE_MUST_CHECK is not set
+ CONFIG_HEADERS_INSTALL=y
+ # CONFIG_SECTION_MISMATCH_WARN_ONLY is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index c51573f021fc..c5508eeae9b4 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -512,6 +512,7 @@ CONFIG_DMA_CMA=y
+ CONFIG_PRINTK_TIME=y
+ CONFIG_DYNAMIC_DEBUG_CORE=y
+ CONFIG_DEBUG_INFO=y
++CONFIG_DEBUG_INFO_DWARF4=y
+ # CONFIG_ENABLE_MUST_CHECK is not set
+ CONFIG_HEADERS_INSTALL=y
+ # CONFIG_SECTION_MISMATCH_WARN_ONLY is not set
+-- 
+2.17.1
+

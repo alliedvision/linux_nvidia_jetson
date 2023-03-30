@@ -1,0 +1,33 @@
+* NVIDIA Tegra Virtualized  ADSP Audio Driver
+
+The Tegra ADSP Audio Driver provide interface to userspace
+to start adsp and configure plugins properties.
+
+Required properties:
+- compatible : Must be "nvidia,tegra210-adsp-audio-hv".
+- nvidia,adma_ch_start : starting adma channel no. assigned to adsp.
+- nvidia,adma_ch_cnt : total adma channels assigned to adsp.
+- num-plugin : total number of adsp plugins.
+- apmX-stack-size : stack size assigned to adsp plugin X.
+- plugin-info-X : plugin X node.
+- plugin-name : name of plugin.
+- firmware-name : name of firmware embedded in adsp.
+- widget-name : alsa exposed plugin control name.
+- param-type : plugin input format decoding[1: byte 2: integer].
+
+Example:
+
+adsp_audio {
+	compatible = "nvidia,tegra210-adsp-audio-hv";
+	status = "okay";
+	nvidia,adma_ch_start = <20>;
+	nvidia,adma_ch_cnt = <12>;
+	apm1-stack-size = <24576>;
+	num-plugin = <1>;
+	plugin-info-1 {
+		plugin-name = "reverb";
+		firmware-name = "libnvreverbfx.elf";
+		widget-name = "REVERB";
+		param-type = <2>; /* SNDRV_CTL_ELEM_TYPE_INTEGER */
+	};
+};

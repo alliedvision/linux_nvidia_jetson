@@ -1,7 +1,7 @@
 /*
  * crc.c: CRC functions for tegradc EXT device
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2017-2018, NVIDIA CORPORATION, All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -1,0 +1,30 @@
+From 45c898f0cf702600eec7d64e87c9b509680947bb Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Fri, 20 Nov 2020 11:34:55 -0800
+Subject: [PATCH 802/830] ANDROID: gki_defconfig: Remove QCOM_COMMAND_DB=y
+X-NVConfidentiality: public
+
+Allow command db to be a loadable permanent module.
+
+Bug: 169259846
+Change-Id: I8b0b85bff8dd894dbf26200acb3df5b574dc4a30
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 7fbcd4807691..67b3e87e2ffb 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -456,7 +456,6 @@ CONFIG_IOMMU_LIMIT_IOVA_ALIGNMENT=y
+ CONFIG_REMOTEPROC=y
+ CONFIG_REMOTEPROC_CDEV=y
+ CONFIG_RPMSG_CHAR=y
+-CONFIG_QCOM_COMMAND_DB=y
+ CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+ CONFIG_DEVFREQ_GOV_POWERSAVE=y
+ CONFIG_DEVFREQ_GOV_USERSPACE=y
+-- 
+2.17.1
+

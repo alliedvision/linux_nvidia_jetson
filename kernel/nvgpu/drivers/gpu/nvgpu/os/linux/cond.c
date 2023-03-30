@@ -32,24 +32,18 @@ void nvgpu_cond_destroy(struct nvgpu_cond *cond)
 	cond->initialized = false;
 }
 
-int nvgpu_cond_signal(struct nvgpu_cond *cond)
+void nvgpu_cond_signal(struct nvgpu_cond *cond)
 {
-	if (!cond->initialized)
-		return -EINVAL;
+	BUG_ON(!cond->initialized);
 
 	wake_up(&cond->wq);
-
-	return 0;
 }
 
-int nvgpu_cond_signal_interruptible(struct nvgpu_cond *cond)
+void nvgpu_cond_signal_interruptible(struct nvgpu_cond *cond)
 {
-	if (!cond->initialized)
-		return -EINVAL;
+	BUG_ON(!cond->initialized);
 
 	wake_up_interruptible(&cond->wq);
-
-	return 0;
 }
 
 int nvgpu_cond_broadcast(struct nvgpu_cond *cond)

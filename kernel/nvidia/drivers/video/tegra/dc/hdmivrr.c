@@ -1,7 +1,7 @@
 /*
  * hdmivrr.c: hdmi vrr interface.
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -789,12 +789,13 @@ int tegra_hdmi_vrr_init(struct tegra_hdmi *hdmi)
 		goto fail;
 	}
 
-	hdmi->ddcci_i2c_client = i2c_new_device(i2c_adap, &i2c_dev_info);
+	hdmi->ddcci_i2c_client =
+		tegra_dc_i2c_new_device(i2c_adap, &i2c_dev_info);
 	i2c_put_adapter(i2c_adap);
-	if (!hdmi->ddcci_i2c_client) {
+	if (IS_ERR(hdmi->ddcci_i2c_client)) {
 		dev_err(&dc->ndev->dev,
 			"hdmi: can't create ddcci i2c device\n");
-		err = -EBUSY;
+		err = PTR_ERR(hdmi->ddcci_i2c_client);
 		goto fail;
 	}
 

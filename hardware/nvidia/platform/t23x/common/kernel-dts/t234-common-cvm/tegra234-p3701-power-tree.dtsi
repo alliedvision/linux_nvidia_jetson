@@ -1,0 +1,125 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "dt-bindings/gpio/tegra234-gpio.h"
+
+/ {
+	sdhci@3460000 {
+		vmmc-supply = <&p3701_vdd_AO_3v3>;
+		vqmmc-supply = <&p3701_vdd_1v8_hs>;
+	};
+
+	sdhci@3400000 {
+		vqmmc-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	ethernet@2310000 {
+		vddio_sys_enet_bias-supply = <&battery_reg>;
+		vddio_enet-supply = <&battery_reg>;
+		phy_vdd_1v8-supply = <&p3701_vdd_1v8_ls>;
+		phy_ovdd_rgmii-supply = <&p3701_vdd_1v8_ls>;
+		phy_pllvdd-supply = <&battery_reg>;
+	};
+
+	pcie_ep@141a0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie_ep@141c0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie_ep@141e0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie_ep@140e0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@14180000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	pcie@14100000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	pcie@14120000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	pcie@14140000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	pcie@14160000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_AO_1v8>;
+	};
+
+	pcie@141a0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@141c0000{
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@141e0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@140a0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@140c0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	pcie@140e0000 {
+		vddio-pex-ctl-supply = <&p3701_vdd_1v8_ls>;
+	};
+
+	xusb_padctl@3520000 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p3701_vdd_AO_1v8>;
+		avdd-usb-supply = <&p3701_vdd_AO_3v3>;
+#else
+		pex_hvdd-supply = <&p3701_vdd_1v8_hs>;
+		pex_pll_hvdd-supply = <&p3701_vdd_1v8_hs>;
+		vclamp_usb-supply = <&p3701_vdd_AO_1v8>;
+		avdd_usb-supply = <&p3701_vdd_AO_3v3>;
+		avdd_pll_nvhs_eutmip-supply = <&p3701_vdd_1v8_hs>;
+#endif
+		ports {
+			usb2-0 {
+				vbus-supply = <&battery_reg>;
+			};
+			usb2-1 {
+				vbus-supply = <&battery_reg>;
+			};
+			usb2-2 {
+				vbus-supply = <&battery_reg>;
+			};
+			usb2-3 {
+				vbus-supply = <&battery_reg>;
+			};
+		};
+	};
+
+	xudc@3550000 {
+		avdd-usb-supply = <&p3701_vdd_AO_3v3>;
+	};
+};

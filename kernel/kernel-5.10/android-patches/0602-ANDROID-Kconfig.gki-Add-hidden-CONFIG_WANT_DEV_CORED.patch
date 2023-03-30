@@ -1,0 +1,32 @@
+From 39d6cb5c069257f321448c012ef332adc4190f32 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 5 Dec 2019 01:42:25 +0000
+Subject: [PATCH 602/830] ANDROID: Kconfig.gki: Add hidden
+ CONFIG_WANT_DEV_COREDUMP for DRM_MSM driver
+X-NVConfidentiality: public
+
+In order to work with the modularized DRM_MSM driver, we
+need to enable CONFIG_WANT_DEV_COREDUMP
+
+Change-Id: Ieeab292a0aad851edd49d368156fc18fe78fccb7
+Bug: 146449535
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index ad9c434bd6b5..5ba6076076d5 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -5,6 +5,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
+ 	select SND_PCM_ELD
++	select WANT_DEV_COREDUMP
+ 	help
+ 	  Dummy config option used to enable hidden DRM configs.
+ 	  These are normally selected implicitely when including a
+-- 
+2.17.1
+

@@ -1,0 +1,40 @@
+From ac1c08dc8f1258be2723ff889af3b7fef1c6f369 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Fri, 15 May 2020 10:18:08 +0100
+Subject: [PATCH 113/830] ANDROID: export: Disable symbol trimming on modules
+X-NVConfidentiality: public
+
+Trimming non-whitelisted symbols from modules will be useful once we
+introduce GKI modules, but in the meantime it causes pain downstream for
+out-of-tree modules as vendors will have to whitelist the symbols they
+need.
+
+The right solution would be to apply the trimming or not to a module
+based on an explicit list of GKI modules, but as we currently don't have
+any (nor we have a good way to differentiate them in the kernel build
+system), let's simply disable the trimming for all modules altogether,
+and get things unblocked for GKI 1.0.
+
+Bug: 148277666
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I2513d85c46eefc62c59883b724b6153dd27b3671
+---
+ include/linux/export.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/export.h b/include/linux/export.h
+index fceb5e855717..b962df3c5dd3 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -118,7 +118,7 @@ struct kernel_symbol {
+  */
+ #define __EXPORT_SYMBOL(sym, sec, ns)
+ 
+-#elif defined(CONFIG_TRIM_UNUSED_KSYMS)
++#elif defined(CONFIG_TRIM_UNUSED_KSYMS) && !defined(MODULE)
+ 
+ #include <generated/autoksyms.h>
+ 
+-- 
+2.17.1
+

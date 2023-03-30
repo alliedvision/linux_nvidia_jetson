@@ -1,0 +1,62 @@
+From 2aef5faa25647ee58e120ddac6fb05c5056f51ab Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 15 Oct 2019 16:51:47 +0200
+Subject: [PATCH 092/830] ANDROID: ARM: Remove arm_pm_restart()
+X-NVConfidentiality: public
+
+All users of arm_pm_restart() have been converted to use the kernel
+restart handler.
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+
+Bug: 163752725
+Link: https://lore.kernel.org/lkml/20191015145147.1106247-7-thierry.reding@gmail.com/
+Change-Id: I94b76131144cede75c806871e69ee57b0e2c9652
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm/include/asm/system_misc.h | 1 -
+ arch/arm/kernel/reboot.c           | 6 +-----
+ 2 files changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/arch/arm/include/asm/system_misc.h b/arch/arm/include/asm/system_misc.h
+index 66f6a3ae68d2..98b37340376b 100644
+--- a/arch/arm/include/asm/system_misc.h
++++ b/arch/arm/include/asm/system_misc.h
+@@ -13,7 +13,6 @@
+ extern void cpu_init(void);
+ 
+ void soft_restart(unsigned long);
+-extern void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
+ extern void (*arm_pm_idle)(void);
+ 
+ #ifdef CONFIG_HARDEN_BRANCH_PREDICTOR
+diff --git a/arch/arm/kernel/reboot.c b/arch/arm/kernel/reboot.c
+index 0ce388f15422..3044fcb8d073 100644
+--- a/arch/arm/kernel/reboot.c
++++ b/arch/arm/kernel/reboot.c
+@@ -18,7 +18,6 @@ typedef void (*phys_reset_t)(unsigned long, bool);
+ /*
+  * Function pointers to optional machine specific functions
+  */
+-void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
+ void (*pm_power_off)(void);
+ EXPORT_SYMBOL(pm_power_off);
+ 
+@@ -138,10 +137,7 @@ void machine_restart(char *cmd)
+ 	local_irq_disable();
+ 	smp_send_stop();
+ 
+-	if (arm_pm_restart)
+-		arm_pm_restart(reboot_mode, cmd);
+-	else
+-		do_kernel_restart(cmd);
++	do_kernel_restart(cmd);
+ 
+ 	/* Give a grace period for failure to restart of 1s */
+ 	mdelay(1000);
+-- 
+2.17.1
+

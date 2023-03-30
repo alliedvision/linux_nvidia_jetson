@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2011-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -91,11 +91,13 @@ enum {
 	/* 19-31 rsvd for other audio related blocks */
 
 	CEA_DATA_BLOCK_EXT_IDB = 32, /* infoframe data block */
-	/* 33-255 rsvd */
+	CEA_DATA_BLOCK_EXT_SCDB = 121, /* sink capability data block */
+	/* 122-255 rsvd */
 };
 
 #define ELD_MAX_MNL	16
 #define ELD_MAX_SAD	16
+#define ELD_SAD_LENGTH 3
 #define ELD_MAX_SAD_BYTES (ELD_MAX_SAD * 3)
 
 struct tegra_edid_pvt;
@@ -144,7 +146,15 @@ enum {
 #define TEGRA_EDID_QUIRK_HPD_BOUNCE (1 << 4)
 /* TVs supports only CEA modes */
 #define TEGRA_EDID_QUIRK_ONLY_CEA	(1 << 5)
+/* TVs supports EAC3 but not 192K, ignoring EAC3 */
+#define TEGRA_EDID_QUIRK_IGNORE_EAC3 (1 << 6)
+/* LG soundbar advertises DV 4k@60 but does not advertise non-DV 4k@60 */
+#define TEGRA_EDID_QUIRK_LG_SBAR (1 << 7)
+/* Samsung soundbar HW-Q70R advertises incorrect Dolby Vision VSVDB length */
+#define TEGRA_EDID_QUIRK_VSVDB_LEN (1 << 8)
 
+/* This number is defined in hda driver - enum cea_audio_coding_types */
+#define    AUDIO_CODING_TYPE_EAC3    10
 
 struct tegra_edid {
 	struct tegra_edid_pvt	*data;
@@ -178,6 +188,13 @@ struct tegra_edid_hdmi_eld {
 	u8	sad[ELD_MAX_SAD_BYTES];
 };
 
+#define IEEE_CEA861_HDR10P_ID 0x90848b
+#define IEEE_CEA861_DV_ID 0x00D046
+#define TEGRA_DC_DV_VSVDB_V0_SIZE 0x19
+#define TEGRA_DC_DV_VSVDB_V1_12B_SIZE 0x0B
+#define TEGRA_DC_DV_VSVDB_V1_15B_SIZE 0x0E
+#define TEGRA_DC_DV_VSVDB_V2_SIZE 0x0B
+
 struct tegra_edid *tegra_edid_create(struct tegra_dc *dc,
 	i2c_transfer_func_t func);
 void tegra_edid_destroy(struct tegra_edid *edid);
@@ -191,10 +208,14 @@ bool tegra_edid_is_rgb_quantization_selectable(struct tegra_edid *edid);
 bool tegra_edid_is_yuv_quantization_selectable(struct tegra_edid *edid);
 int tegra_edid_get_ex_quant_cap_info(struct tegra_edid *edid,
 				struct tegra_dc_ext_quant_caps *hdr_quant_info);
+void tegra_edid_get_ex_dv_cap_info(struct tegra_edid *edid,
+				struct tegra_dc_ext_dv_caps *dv_cap_info);
+u16 tegra_edid_get_quant_cap(struct tegra_edid *edid);
 u16 tegra_edid_get_max_clk_rate(struct tegra_edid *edid);
 bool tegra_edid_is_scdc_present(struct tegra_edid *edid);
 bool tegra_edid_is_420db_present(struct tegra_edid *edid);
-bool tegra_edid_is_hfvsdb_present(struct tegra_edid *edid);
+bool tegra_edid_require_dv_vsif(struct tegra_edid *edid);
+bool tegra_edid_support_dv_std_422(struct tegra_edid *edid);
 bool tegra_edid_support_yuv422(struct tegra_edid *edid);
 bool tegra_edid_support_yuv444(struct tegra_edid *edid);
 u16 tegra_edid_get_ex_colorimetry(struct tegra_edid *edid);

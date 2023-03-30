@@ -1,18 +1,24 @@
 /*
- * tegra-platforms-audio-dmic3-5-switch.dtsi: DMIC3<->DMIC5 switching.
- *
  * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * tegra-platforms-audio-dmic3-5-switch.dtsi: DMIC3<->DMIC5 switching.
+ */
+
+#if TEGRA_GPIO_DT_VERSION <= DT_VERSION_1
 &tegra_pinctrl {
 	/* Dynamic pinmux config for DMIC3/DMIC5 */
 	dmic3_dap_active_state: dmic3_dap_active {
@@ -48,4 +54,4 @@
 		};
 	};
 };
-
+#endif /* TEGRA_GPIO_DT_VERSION <= DT_VERSION_1 */

@@ -1,0 +1,97 @@
+From 7e490e2baca032d5af5c65366fd7681b037ea9f7 Mon Sep 17 00:00:00 2001
+From: Prasad Sodagudi <psodagud@codeaurora.org>
+Date: Thu, 22 Oct 2020 04:26:09 -0700
+Subject: [PATCH 124/830] ANDROID: printk: add vendor hook for console flush
+X-NVConfidentiality: public
+
+Add vendor hook for skipping console flush in cpu hotplug.
+
+Bug: 165340180
+Change-Id: I167e1595bbb50e57371bfabfde638624761d5f8a
+Signed-off-by: Prasad Sodagudi <psodagud@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ include/trace/hooks/printk.h   | 27 +++++++++++++++++++++++++++
+ kernel/printk/printk.c         |  8 ++++++++
+ 3 files changed, 37 insertions(+)
+ create mode 100644 include/trace/hooks/printk.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 7bd8c6d92cd9..169da7a0fe12 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -14,6 +14,7 @@
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
++#include <trace/hooks/printk.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+@@ -29,3 +30,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_hotplug);
+diff --git a/include/trace/hooks/printk.h b/include/trace/hooks/printk.h
+new file mode 100644
+index 000000000000..83f8ad5e710d
+--- /dev/null
++++ b/include/trace/hooks/printk.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM printk
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_PRINTK_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_PRINTK_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++
++DECLARE_HOOK(android_vh_printk_hotplug,
++	TP_PROTO(int *flag),
++	TP_ARGS(flag));
++
++#else
++
++#define trace_android_vh_printk_hotplug(flag)
++
++#endif
++
++#endif /* _TRACE_HOOK_PRINTK_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index eb5d2742bca2..9f84754196dc 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -54,6 +54,8 @@
+ #include <trace/events/initcall.h>
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/printk.h>
++#undef CREATE_TRACE_POINTS
++#include <trace/hooks/printk.h>
+ 
+ #include "printk_ringbuffer.h"
+ #include "console_cmdline.h"
+@@ -2324,6 +2326,12 @@ void resume_console(void)
+  */
+ static int console_cpu_notify(unsigned int cpu)
+ {
++	int flag = 0;
++
++	trace_android_vh_printk_hotplug(&flag);
++	if (flag)
++		return 0;
++
+ 	if (!cpuhp_tasks_frozen) {
+ 		/* If trylock fails, someone else is doing the printing */
+ 		if (console_trylock())
+-- 
+2.17.1
+

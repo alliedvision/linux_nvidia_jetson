@@ -1,0 +1,56 @@
+NVIDIA nvpps driver bindings
+
+Nvpps is a Linux Kernel mode driver to support the Xavier & Orin time domain
+correlation feature.
+
+Required properties:
+
+- compatibles: should be "nvpps,tegra194-nvpps"
+
+Optional properties:
+- gpios: GPIO number and active level for the PPS input signal
+- memmap_phc_regs: boolean flag to indicate MAC PHC regs to be memory mapped
+				   for getting PTP time. If not defined ptp notifer method will
+				   be used with selected interface
+- interface: NW interface name to be used for MAC PHC regs. This field can be
+			 set to 'eqos_0', 'mgbe0_0', 'mgbe1_0', 'mgbe2_0' or 'mgbe3_0' for Orin.
+			 For Xavier, it shoud be set to 'eqos_0'. If undef, default to 'eqos_0'
+- sec_interface: NW interface name to be used to calculate PTP Time offset.
+				 set to 'eqos_0', 'mgbe0_0', 'mgbe1_0', 'mgbe2_0' or 'mgbe3_0' for Orin.
+				 For Xavier, Leave this undefined. For Orin, If undef default to 'eqos_0'
+
+Example:
+
+nvpps {
+	compatible = "nvidia,tegrat194-nvpps";
+	status = "okay";
+	gpios = <&tegra_aon_gpio TEGRA194_AON_GPIO(BB, 2) GPIO_ACTIVE_HIGH>;
+};
+
+Example:
+
+nvpps {
+	compatible = "nvidia,tegra194-nvpps";
+	status = "okay";
+	gpios = <&tegra_aon_gpio TEGRA234_AON_GPIO(EE, 6) GPIO_ACTIVE_HIGH>;
+	memmap_phc_regs;
+	interface = "mgbe2_0";
+};
+
+Example:
+
+nvpps {
+	compatible = "nvidia,tegra194-nvpps";
+	status = "okay";
+	gpios = <&tegra_aon_gpio TEGRA234_AON_GPIO(EE, 6) GPIO_ACTIVE_HIGH>;
+	interface = "mgbe2_0";
+	sec_interface = "eqos_0";
+};
+
+Example: GPIO as optional
+
+nvpps {
+	compatible = "nvidia,tegra194-nvpps";
+	status = "okay";
+	interface = "mgbe2_0";
+};

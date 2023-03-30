@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,6 @@
 #define EVENTLIB_FLT_H
 
 #include "eventlib.h"
-#include "utility.h"
 
 /* Readers' connects/updates/disconnects and writer's checks for updates, are
  * all fully asynchronous.
@@ -72,7 +71,7 @@
  * calculations.
  */
 
-#define MAX_MASK_SIZE 20
+#define MAX_MASK_SIZE 16
 #define NUM_SLOTS 4
 
 /* w2r shared memory subblock */
@@ -158,17 +157,17 @@ struct eventlib_flt_ctx {
 
 static inline bool sync_test_and_set_bit(unsigned int n, uint32_t *p)
 {
-	return !!(tracebuf_sync_fetch_and_or_u32(p, (1u << n)) & (1u << n));
+	return !!(__sync_fetch_and_or(p, (1u << n)) & (1u << n));
 }
 
 static inline void sync_set_bit(unsigned int n, uint32_t *p)
 {
-	tracebuf_sync_fetch_and_or_u32(p, (1u << n));
+	__sync_fetch_and_or(p, (1u << n));
 }
 
 static inline void sync_clear_bit(unsigned int n, uint32_t *p)
 {
-	tracebuf_sync_fetch_and_and_u32(p, ~(1u << n));
+	__sync_fetch_and_and(p, ~(1u << n));
 }
 
 /* Below functions are implemented by the filter subsystem interface.

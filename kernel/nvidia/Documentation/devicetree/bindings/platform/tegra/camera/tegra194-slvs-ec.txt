@@ -1,0 +1,93 @@
+NVIDIA Tegra Xavier (T19x) SLVS-EC bindings
+
+Tegra SLVS-EC is a Sony SLVS-EC v1.2 receiver, it outputs packetized data
+directly to the VI unit.
+
+A Test Pattern Generator (TPG) unit is present for system bandwidth and image
+signal processing testing.
+
+Pre-boot hardware auto-detection is peformed by the NVIDIA Tegra plugin-manager
+for supported devices; if present, the attached camera board's Device Tree
+configuration overlays additional fields for assembling a complete system
+stream/channel graph for all camera sensor(s).
+
+Required properties:
+	- compatible: Should be "nvidia,tegra-slvs-ec".
+	- reg: Register address space (MMIO).
+	- resets: All ISP resets.
+	- reset-names: Names of the above resets.
+	- clocks: All ISP clocks.
+	- clock-names: Names of the above clocks.
+	- power-domains: Power domain group, should be
+		"TEGRA194_POWER_DOMAIN_VE".
+	- interrupts: All SLVS-EC interrupts.
+	- interrupt-names: Names of the above interrupts.
+	- nvidia,vi-device: VI5 Falcon/THI interface device.
+
+	-- Camera Board Configuration --
+	-- Stream (streams) --
+	-- Streams (stream@{0,1}) --
+	- reg: Main (<0>) or sub (<1>) stream.
+	- lanes: List of lane indexes in use.
+
+	-- Port (ports) --
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	#size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Ports (port@{0,1}) --
+	- reg: Sensor-link (<0>) or VI-link (<1>).
+
+	-- Endpoint (endpoint@{0,1}) --
+	- port-index: Sensor-link only, SLVS-EC port index; {0,1}.
+	- bus-width: Sensor-link only, number of SLVS-EC lanes.
+	- remote-endpoint: Label to sensor or VI node.
+
+Example:
+
+	slvs_ec: slvs-ec@15ac0000 {
+		compatible = "nvidia,tegra-slvs-ec";
+		reg = <0x0 0x15ac0000 0x0 0x00040000>,
+			<0x0 0x15c00000 0x0 0x00010000>,
+			<0x0 0x15e40000 0x0 0x00010000>;
+		resets = <&bpmp_resets TEGRA194_RESET_SLVSEC>;
+		reset-names = "slvs-ec";
+		clocks = <&bpmp_clks TEGRA194_CLK_SLVSEC>,
+			<&bpmp_clks TEGRA194_CLK_SLVSEC_PADCTRL>,
+			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+		clock-names = "slvs-ec", "slvs-ec-lp", "slvs-ec-parent";
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_VE>;
+		interrupts = <0 74 0x04>,
+			<0 255 0x04>;
+		interrupt-names = "slvs-ec", "syncgen";
+		nvidia,vi-device = <&vi_thi>;
+	};
+
+	/* Camera board-specific config overlay */
+	slvs-ec@15ac0000 {
+		streams {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			stream@0 {
+				reg = <0>;
+				lanes = <0 1 2 3 4 5 6 7>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						e3377_slvs_ec_in0: endpoint@0 {
+							port-index = <0>;
+							bus-width = <8>;
+							remote-endpoint = <&e3377_imx204_out0>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						e3377_slvs_ec_out0: endpoint@1 {
+							remote-endpoint = <&e3377_vi_in0>;
+						};
+					};
+				};
+			};
+		};
+	};

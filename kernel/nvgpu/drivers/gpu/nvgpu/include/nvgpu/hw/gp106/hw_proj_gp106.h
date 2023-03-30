@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,127 +53,40 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_proj_gp106_h_
-#define _hw_proj_gp106_h_
+#ifndef NVGPU_HW_PROJ_GP106_H
+#define NVGPU_HW_PROJ_GP106_H
 
-static inline u32 proj_gpc_base_v(void)
-{
-	return 0x00500000U;
-}
-static inline u32 proj_gpc_shared_base_v(void)
-{
-	return 0x00418000U;
-}
-static inline u32 proj_gpc_stride_v(void)
-{
-	return 0x00008000U;
-}
-static inline u32 proj_gpc_priv_stride_v(void)
-{
-	return 0x00000800U;
-}
-static inline u32 proj_ltc_stride_v(void)
-{
-	return 0x00002000U;
-}
-static inline u32 proj_lts_stride_v(void)
-{
-	return 0x00000200U;
-}
-static inline u32 proj_fbpa_base_v(void)
-{
-	return 0x00900000U;
-}
-static inline u32 proj_fbpa_shared_base_v(void)
-{
-	return 0x009a0000U;
-}
-static inline u32 proj_fbpa_stride_v(void)
-{
-	return 0x00004000U;
-}
-static inline u32 proj_ppc_in_gpc_base_v(void)
-{
-	return 0x00003000U;
-}
-static inline u32 proj_ppc_in_gpc_shared_base_v(void)
-{
-	return 0x00003e00U;
-}
-static inline u32 proj_ppc_in_gpc_stride_v(void)
-{
-	return 0x00000200U;
-}
-static inline u32 proj_rop_base_v(void)
-{
-	return 0x00410000U;
-}
-static inline u32 proj_rop_shared_base_v(void)
-{
-	return 0x00408800U;
-}
-static inline u32 proj_rop_stride_v(void)
-{
-	return 0x00000400U;
-}
-static inline u32 proj_tpc_in_gpc_base_v(void)
-{
-	return 0x00004000U;
-}
-static inline u32 proj_tpc_in_gpc_stride_v(void)
-{
-	return 0x00000800U;
-}
-static inline u32 proj_tpc_in_gpc_shared_base_v(void)
-{
-	return 0x00001800U;
-}
-static inline u32 proj_host_num_engines_v(void)
-{
-	return 0x00000009U;
-}
-static inline u32 proj_host_num_pbdma_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 proj_scal_litter_num_tpc_per_gpc_v(void)
-{
-	return 0x00000005U;
-}
-static inline u32 proj_scal_litter_num_sm_per_tpc_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 proj_scal_litter_num_fbps_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 proj_scal_litter_num_fbpas_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 proj_scal_litter_num_gpcs_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 proj_scal_litter_num_pes_per_gpc_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 proj_scal_litter_num_tpcs_per_pes_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 proj_scal_litter_num_zcull_banks_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 proj_scal_max_gpcs_v(void)
-{
-	return 0x00000020U;
-}
-static inline u32 proj_scal_max_tpc_per_gpc_v(void)
-{
-	return 0x00000008U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define proj_gpc_base_v()                                          (0x00500000U)
+#define proj_gpc_shared_base_v()                                   (0x00418000U)
+#define proj_gpc_stride_v()                                        (0x00008000U)
+#define proj_gpc_priv_stride_v()                                   (0x00000800U)
+#define proj_ltc_stride_v()                                        (0x00002000U)
+#define proj_lts_stride_v()                                        (0x00000200U)
+#define proj_fbpa_base_v()                                         (0x00900000U)
+#define proj_fbpa_shared_base_v()                                  (0x009a0000U)
+#define proj_fbpa_stride_v()                                       (0x00004000U)
+#define proj_ppc_in_gpc_base_v()                                   (0x00003000U)
+#define proj_ppc_in_gpc_shared_base_v()                            (0x00003e00U)
+#define proj_ppc_in_gpc_stride_v()                                 (0x00000200U)
+#define proj_rop_base_v()                                          (0x00410000U)
+#define proj_rop_shared_base_v()                                   (0x00408800U)
+#define proj_rop_stride_v()                                        (0x00000400U)
+#define proj_tpc_in_gpc_base_v()                                   (0x00004000U)
+#define proj_tpc_in_gpc_stride_v()                                 (0x00000800U)
+#define proj_tpc_in_gpc_shared_base_v()                            (0x00001800U)
+#define proj_host_num_engines_v()                                  (0x00000009U)
+#define proj_host_num_pbdma_v()                                    (0x00000004U)
+#define proj_scal_litter_num_tpc_per_gpc_v()                       (0x00000005U)
+#define proj_scal_litter_num_sm_per_tpc_v()                        (0x00000001U)
+#define proj_scal_litter_num_fbps_v()                              (0x00000006U)
+#define proj_scal_litter_num_fbpas_v()                             (0x00000006U)
+#define proj_scal_litter_num_gpcs_v()                              (0x00000006U)
+#define proj_scal_litter_num_pes_per_gpc_v()                       (0x00000003U)
+#define proj_scal_litter_num_tpcs_per_pes_v()                      (0x00000002U)
+#define proj_scal_litter_num_zcull_banks_v()                       (0x00000004U)
+#define proj_scal_max_gpcs_v()                                     (0x00000020U)
+#define proj_scal_max_tpc_per_gpc_v()                              (0x00000008U)
 #endif

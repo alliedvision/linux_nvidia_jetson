@@ -1,0 +1,97 @@
+From b92e3696d7b6646c565dc78097b844712dfe952f Mon Sep 17 00:00:00 2001
+From: Sangmoon Kim <sangmoon.kim@samsung.com>
+Date: Tue, 29 Sep 2020 10:15:35 +0900
+Subject: [PATCH 121/830] ANDROID: workqueue: add vendor hook for wq lockup
+ information
+X-NVConfidentiality: public
+
+ - Add the hook to provide additional information like
+   a task scheduling log.
+
+Bug: 169374262
+
+Signed-off-by: Sangmoon Kim <sangmoon.kim@samsung.com>
+Change-Id: I203dbc6faa77687ea48769f76658d28b29ef46fd
+(cherry picked from commit 2ea974a00c7bdbbee140d68d8867ddcbfb529ecc)
+---
+ drivers/android/vendor_hooks.c |  3 +++
+ include/trace/hooks/wqlockup.h | 24 ++++++++++++++++++++++++
+ kernel/workqueue.c             |  5 +++++
+ 3 files changed, 32 insertions(+)
+ create mode 100644 include/trace/hooks/wqlockup.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 9398063ed96a..7bd8c6d92cd9 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -12,6 +12,7 @@
+ #include <trace/hooks/rwsem.h>
+ #include <trace/hooks/futex.h>
+ #include <trace/hooks/mpam.h>
++#include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+ 
+ /*
+@@ -25,4 +26,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_futex_plist_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+diff --git a/include/trace/hooks/wqlockup.h b/include/trace/hooks/wqlockup.h
+new file mode 100644
+index 000000000000..de70eacaa8c8
+--- /dev/null
++++ b/include/trace/hooks/wqlockup.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM wqlockup
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_WQLOCKUP_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_WQLOCKUP_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++DECLARE_HOOK(android_vh_wq_lockup_pool,
++	TP_PROTO(int cpu, unsigned long pool_ts),
++	TP_ARGS(cpu, pool_ts));
++#else
++#define trace_android_vh_wq_lockup_pool(cpu, pool_ts)
++#endif
++
++#endif /* _TRACE_HOOK_WQLOCKUP_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index fdf5fa4bf444..6060a486cf8b 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -54,6 +54,10 @@
+ 
+ #include "workqueue_internal.h"
+ 
++#include <trace/hooks/wqlockup.h>
++/* events/workqueue.h uses default TRACE_INCLUDE_PATH */
++#undef TRACE_INCLUDE_PATH
++
+ enum {
+ 	/*
+ 	 * worker_pool flags
+@@ -5826,6 +5830,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
+ 			pr_cont_pool_info(pool);
+ 			pr_cont(" stuck for %us!\n",
+ 				jiffies_to_msecs(now - pool_ts) / 1000);
++			trace_android_vh_wq_lockup_pool(pool->cpu, pool_ts);
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

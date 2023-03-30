@@ -1,7 +1,7 @@
 /*
  * drivers/ata/ahci_tegra.c
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -516,7 +516,7 @@ static int tegra_ahci_umh(unsigned long long block, char *block_dev)
 
 	snprintf(buf1, sizeof(buf1), "%llu", block);
 	snprintf(buf2, sizeof(buf2), "%s", block_dev);
-	argv[TEGRA_BADBLK_COMMAND] = "/system/bin/badblk.sh";
+	argv[TEGRA_BADBLK_COMMAND] = "/vendor/bin/badblk.sh";
 	argv[TEGRA_BADBLK_COMMAND_PARAM1] = buf1;
 	argv[TEGRA_BADBLK_COMMAND_PARAM2] = buf2;
 	argv[TEGRA_BADBLK_MAX_ARGUMENTS] = NULL;
@@ -569,11 +569,9 @@ static void tegra_ahci_unbind(struct work_struct *work)
 		struct ata_port *ap = host->ports[i];
 		unsigned long flags;
 
-		if (!ap)
-			continue;
 		spin_lock_irqsave(ap->lock, flags);
-		if ((ap->pflags & ATA_PFLAG_LOADING) ||
-					(ap->pflags & ATA_PFLAG_INITIALIZING)) {
+		if (ap && ((ap->pflags & ATA_PFLAG_LOADING) ||
+					(ap->pflags & ATA_PFLAG_INITIALIZING))) {
 			INIT_DELAYED_WORK(&tegra->work, tegra_ahci_unbind);
 			schedule_delayed_work(&tegra->work, msecs_to_jiffies(1000));
 			spin_unlock_irqrestore(ap->lock, flags);
@@ -1412,24 +1410,15 @@ static int tegra_ahci_disable_features(struct ahci_host_priv *hpriv)
 static int tegra_ahci_quirks(struct ahci_host_priv *hpriv)
 {
 	struct tegra_ahci_priv *tegra = hpriv->plat_data;
-	struct platform_device *pdev;
-	struct device *dev;
-	u32 t_satao_nvoob_comma_cnt_mask;
-	u32 t_satao_nvoob_comma_cnt;
+	struct platform_device *pdev = tegra->pdev;
+	struct device *dev = &pdev->dev;
+	u32 t_satao_nvoob_comma_cnt_mask =
+			tegra->soc_data->reg.t_satao_nvoob_comma_cnt_mask;
+	u32 t_satao_nvoob_comma_cnt =
+			tegra->soc_data->reg.t_satao_nvoob_comma_cnt;
 	unsigned int val;
 	unsigned int mask;
 	int ret = 0;
-
-	if (tegra) {
-		pdev = tegra->pdev;
-		dev = &pdev->dev;
-		t_satao_nvoob_comma_cnt_mask =
-			tegra->soc_data->reg.t_satao_nvoob_comma_cnt_mask;
-		t_satao_nvoob_comma_cnt =
-			tegra->soc_data->reg.t_satao_nvoob_comma_cnt;
-	} else {
-		return -ENODEV;
-	}
 
 	/* SATA WARS */
 	/* For SQUELCH Filter & Gen3 drive getting detected as Gen1 drive */
@@ -1452,7 +1441,7 @@ static int tegra_ahci_quirks(struct ahci_host_priv *hpriv)
 	val = T_SATA0_CFG2NVOOB_2_COMWAKE_IDLE_CNT_LOW;
 	tegra_ahci_scfg_update(hpriv, val, mask, T_SATA0_CFG2NVOOB_2);
 
-	if (tegra->prod_list) {
+	if (tegra && tegra->prod_list) {
 		tegra_ahci_scfg_writel(hpriv, T_SATA0_INDEX_CH1, T_SATA0_INDEX);
 		ret = tegra_prod_set_by_name(tegra->base_list, "prod",
 							tegra->prod_list);

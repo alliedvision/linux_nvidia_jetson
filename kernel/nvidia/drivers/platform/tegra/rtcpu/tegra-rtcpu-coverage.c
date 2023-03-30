@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,8 @@
  */
 
 #define _BullseyeCoverage 1
+
+#include <linux/tegra-rtcpu-coverage.h>
 
 #include <soc/tegra/camrtc-channels.h>
 #include <linux/debugfs.h>
@@ -212,7 +214,12 @@ EXPORT_SYMBOL(tegra_rtcpu_coverage_create);
 
 int tegra_rtcpu_coverage_boot_sync(struct tegra_rtcpu_coverage *coverage)
 {
-	int ret = tegra_camrtc_iovm_setup(coverage->dev,
+	int ret;
+
+	if (coverage == NULL)
+		return 0;
+
+	ret = tegra_camrtc_iovm_setup(coverage->dev,
 			coverage->dma_handle);
 
 	if (ret == 0)

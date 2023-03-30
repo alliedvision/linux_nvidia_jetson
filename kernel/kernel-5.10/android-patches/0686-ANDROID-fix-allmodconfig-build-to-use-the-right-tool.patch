@@ -1,0 +1,31 @@
+From 0b9cf2106b2a89e1969f81e75f222545dbbfacdc Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Mon, 13 Apr 2020 23:36:09 -0700
+Subject: [PATCH 686/830] ANDROID: fix allmodconfig build to use the right
+ toolchain
+X-NVConfidentiality: public
+
+Without these changes, the user will be prompted for config changes.
+
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Bug: 153934356
+Test: BUILD_CONFIG=common/build.config.allmodconfig.aarch64 build/build.sh
+Change-Id: Ib9ef72b217d1e0d78edf136cfe560058e3126d18
+---
+ build.config.allmodconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index 9e39960c6a80..941ea3bdbfa2 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -9,5 +9,5 @@ function update_config() {
+          -e UNWINDER_FRAME_POINTER \
+ 
+     (cd ${OUT_DIR} && \
+-     make O=${OUT_DIR} $archsubarch CC=${CC} CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
++     make O=${OUT_DIR} $archsubarch CLANG_TRIPLE=${CLANG_TRIPLE} CROSS_COMPILE=${CROSS_COMPILE} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+ }
+-- 
+2.17.1
+

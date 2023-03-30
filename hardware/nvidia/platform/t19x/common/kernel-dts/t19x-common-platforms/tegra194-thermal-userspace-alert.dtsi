@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,28 +33,47 @@
 		#cooling-cells = <2>;
 	};
 
+	hot_surface_alert: hot-surface-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "hot-surface-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
 	thermal-zones {
 		CPU-therm {
 			cooling-maps {
 				user-alert-map0 {
-					trip = <&{/thermal-zones/CPU-therm/trips/trip_bthrot}>;
+					trip = <&cpu_sw_throttle>;
 					cooling-device = <&cpu_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&cpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
 				};
 			};
 		};
 		AUX-therm {
 			cooling-maps {
 				user-alert-map0 {
-					trip = <&{/thermal-zones/AUX-therm/trips/trip_bthrot}>;
+					trip = <&aux_sw_throttle>;
 					cooling-device = <&aux_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&aux_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
 				};
 			};
 		};
 		GPU-therm {
 			cooling-maps {
 				user-alert-map0 {
-					trip = <&{/thermal-zones/GPU-therm/trips/trip_bthrot}>;
+					trip = <&gpu_sw_throttle>;
 					cooling-device = <&gpu_alert 1 1>;
+				};
+				hot-surface-alert-map0 {
+					trip = <&gpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
 				};
 			};
 		};

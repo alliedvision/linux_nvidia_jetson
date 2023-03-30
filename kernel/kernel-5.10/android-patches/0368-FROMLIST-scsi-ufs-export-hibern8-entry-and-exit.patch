@@ -1,0 +1,62 @@
+From 4aa3859f8f393c8ce85e019792ad8b03408cc3d2 Mon Sep 17 00:00:00 2001
+From: Asutosh Das <asutoshd@codeaurora.org>
+Date: Mon, 3 Feb 2020 14:11:50 +0000
+Subject: [PATCH 368/830] FROMLIST: scsi: ufs: export hibern8 entry and exit
+X-NVConfidentiality: public
+
+Qualcomm controllers need to be in hibern8 before scaling up
+or down the clocks. Hence, export the hibern8 entry and exit
+functions.
+
+Bug: 143136976
+Link: https://lore.kernel.org/lkml/1571849351-819-1-git-send-email-asutoshd@codeaurora.org/
+Change-Id: Ie7dc3b953790642e6d2893de6e6cc8c9cfb8be6d
+Signed-off-by: Asutosh Das <asutoshd@codeaurora.org>
+---
+ drivers/scsi/ufs/ufshcd.c | 4 ++--
+ drivers/scsi/ufs/ufshcd.h | 2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 9ae5ab33f6da..33826c352432 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -233,7 +233,6 @@ static void ufshcd_hba_exit(struct ufs_hba *hba);
+ static int ufshcd_clear_ua_wluns(struct ufs_hba *hba);
+ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async);
+ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
+-static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+ static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba);
+ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
+ static void ufshcd_resume_clkscaling(struct ufs_hba *hba);
+@@ -4077,7 +4076,7 @@ int ufshcd_link_recovery(struct ufs_hba *hba)
+ }
+ EXPORT_SYMBOL_GPL(ufshcd_link_recovery);
+ 
+-static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
++int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
+ {
+ 	int ret;
+ 	struct uic_command uic_cmd = {0};
+@@ -4099,6 +4098,7 @@ static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_uic_hibern8_enter);
+ 
+ int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
+ {
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index d6660511f2a3..c02105599b63 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -1311,4 +1311,6 @@ int ufshcd_get_bootlun_en_value(struct ufs_hba *hba, u32 *value);
+ int ufshcd_set_bootlun_en_value(struct ufs_hba *hba, u32 *value);
+ int ufshcd_get_config_desc_lock(struct ufs_hba *hba, u32 *value);
+ int ufshcd_set_config_desc(struct ufs_hba *hba, u8 *desc_buf);
++int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
++int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
+ #endif /* End of Header */
+-- 
+2.17.1
+

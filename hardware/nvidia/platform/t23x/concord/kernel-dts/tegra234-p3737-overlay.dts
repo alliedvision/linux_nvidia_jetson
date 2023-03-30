@@ -1,0 +1,155 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include "dt-bindings/input/input.h"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/sound/tegra-asoc-dais.h>
+
+/ {
+	overlay-name = "Add P3737 Overlay Support for A01-A03 and ODMDATA";
+	compatible = "nvidia,tegra23x";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	/* PCIe 12V supply through NCP for TS3 */
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			ids = "3737-0000-TS3","3737-0000-200","3737-0000-300","3737-0000-EB3";
+		};
+		 __overlay__ {
+			i2c@c240000 {
+				ncp81599@74 {
+					status = "okay";
+				};
+			};
+			pcie@141a0000 {
+				vpcie12v-supply = <&ncp_12v_pcie_supply>;
+			};
+			pcie_ep@141a0000 {
+				vpcie12v-supply = <&ncp_12v_pcie_supply>;
+			};
+		};
+	};
+
+	/* UCSI_CCG and PCIe changes for <= P3737-A03 revision. */
+	fragment@1 {
+		target-path = "/";
+		board_config {
+			ids = "3737-0000-TS1","3737-0000-TS2","3737-0000-TS3","3737-0000-EB1","3737-0000-EB2","3737-0000-EB3","3737-0000-000","3737-0000-100","3737-0000-200";
+		};
+		__overlay__ {
+			i2c@c240000 {
+				ucsi_ccg@8 {
+					interrupt-parent = <&tegra_aon_gpio>;
+					interrupts = <TEGRA234_AON_GPIO(BB, 2) IRQ_TYPE_LEVEL_LOW>;
+				};
+			};
+			pcie_ep@141a0000 {
+				nvidia,refclk-select-gpios = <&tegra_aon_gpio
+							      TEGRA234_AON_GPIO(AA, 4)
+							      GPIO_ACTIVE_HIGH>;
+
+			};
+			fixed-regulators {
+				regulator@105 {
+					gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Z, 2) 0>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		board_config {
+			odm-data = "hsio-uphy-config-3";
+		};
+		__overlay__ {
+			ufshci@2500000 {
+				nvidia,max-hs-gear = <3>;
+				status = "okay";
+			};
+		};
+	};
+
+	/* PCIe C5 root port */
+	fragment@3 {
+		target-path = "/";
+		board_config {
+			odm-data = "nvhs-uphy-config-0";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				status = "okay";
+			};
+			pcie_ep@141a0000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	/* PCIe C5 endpoint */
+	fragment@4 {
+		target-path = "/";
+		board_config {
+			odm-data = "nvhs-uphy-config-1";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				status = "disabled";
+			};
+			pcie_ep@141a0000 {
+				status = "okay";
+			};
+		};
+	};
+
+	/* Onboard RT5640 audio codec disable changes for <= P3737-A03 revision. */
+	fragment@5 {
+		target-path = "/i2c@31e0000";
+		board_config {
+			ids = "3737-0000-TS1","3737-0000-TS2","3737-0000-TS3","3737-0000-EB1","3737-0000-EB2","3737-0000-EB3","3737-0000-000","3737-0000-100","3737-0000-200";
+		};
+		__overlay__ {
+			rt5640.8-001c@1c {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@6 {
+		target-path = "/sound";
+		delete_prop = "nvidia-audio-card,widgets", "nvidia-audio-card,routing";
+		board_config {
+			ids = "3737-0000-TS1","3737-0000-TS2","3737-0000-TS3","3737-0000-EB1","3737-0000-EB2","3737-0000-EB3","3737-0000-000","3737-0000-100","3737-0000-200";
+		};
+	};
+
+	fragment@7 {
+		target-path = "/sound/nvidia-audio-card,dai-link@76";
+		delete_prop = "link-name";
+
+		board_config {
+			ids = "3737-0000-TS1","3737-0000-TS2","3737-0000-TS3","3737-0000-EB1","3737-0000-EB2","3737-0000-EB3","3737-0000-000","3737-0000-100","3737-0000-200";
+		};
+		__overlay__ {
+			codec {
+				sound-dai = <&tegra_i2s1 I2S_DUMMY>;
+			};
+		};
+	};
+};

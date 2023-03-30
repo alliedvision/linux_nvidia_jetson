@@ -1,0 +1,106 @@
+From aae904d3e64459c658f4be4ab99b39be2d6209d3 Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Tue, 24 Nov 2020 03:38:47 -0800
+Subject: [PATCH 190/830] ANDROID: sched/cpuset: Add vendor hook to change
+ tasks affinity
+X-NVConfidentiality: public
+
+Vendors might want to change tasks affinity settings when they are
+moving from one cpuset into the other. Add vendor hook to give control
+to vendor to implement what they need.
+
+Bug: 174125747
+Change-Id: Icee0405be0bca432002dae4a26ebe945082ce052
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c |  1 +
+ include/trace/hooks/sched.h    |  6 ++++++
+ kernel/cgroup/cpuset.c         | 18 ++++++++++++++++--
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 9a8070c1e25a..8c385bced001 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -71,3 +71,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_sugov_sched_attr);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_setaffinity);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpus_allowed);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 82bda911c91e..a2570fccdda0 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -119,6 +119,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
+ DECLARE_RESTRICTED_HOOK(android_rvh_sched_setaffinity,
+ 	TP_PROTO(struct task_struct *p, const struct cpumask *in_mask, int *retval),
+ 	TP_ARGS(p, in_mask, retval), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_update_cpus_allowed,
++	TP_PROTO(struct task_struct *p, cpumask_var_t cpus_requested,
++		 const struct cpumask *new_mask, int *ret),
++	TP_ARGS(p, cpus_requested, new_mask, ret), 1);
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -145,6 +150,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_sched_setaffinity,
+ #define trace_android_rvh_set_iowait(p, should_iowait_boost)
+ #define trace_android_rvh_set_sugov_update(sg_policy, next_freq, should_update)
+ #define trace_android_rvh_sched_setaffinity(p, in_mask, retval)
++#define trace_android_rvh_update_cpus_allowed(p, cpus_requested, new_mask, ret)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/cgroup/cpuset.c b/kernel/cgroup/cpuset.c
+index 53b68c9fc04b..a7e55e16d595 100644
+--- a/kernel/cgroup/cpuset.c
++++ b/kernel/cgroup/cpuset.c
+@@ -66,6 +66,8 @@
+ #include <linux/cgroup.h>
+ #include <linux/wait.h>
+ 
++#include <trace/hooks/sched.h>
++
+ DEFINE_STATIC_KEY_FALSE(cpusets_pre_enable_key);
+ DEFINE_STATIC_KEY_FALSE(cpusets_enabled_key);
+ 
+@@ -1043,6 +1045,18 @@ void rebuild_sched_domains(void)
+ 	put_online_cpus();
+ }
+ 
++static int update_cpus_allowed(struct cpuset *cs, struct task_struct *p,
++				const struct cpumask *new_mask)
++{
++	int ret = -EINVAL;
++
++	trace_android_rvh_update_cpus_allowed(p, cs->cpus_requested, new_mask, &ret);
++	if (!ret)
++		return ret;
++
++	return set_cpus_allowed_ptr(p, new_mask);
++}
++
+ /**
+  * update_tasks_cpumask - Update the cpumasks of tasks in the cpuset.
+  * @cs: the cpuset in which each task's cpus_allowed mask needs to be changed
+@@ -1058,7 +1072,7 @@ static void update_tasks_cpumask(struct cpuset *cs)
+ 
+ 	css_task_iter_start(&cs->css, 0, &it);
+ 	while ((task = css_task_iter_next(&it)))
+-		set_cpus_allowed_ptr(task, cs->effective_cpus);
++		update_cpus_allowed(cs, task, cs->effective_cpus);
+ 	css_task_iter_end(&it);
+ }
+ 
+@@ -2226,7 +2240,7 @@ static void cpuset_attach(struct cgroup_taskset *tset)
+ 		 * can_attach beforehand should guarantee that this doesn't
+ 		 * fail.  TODO: have a better way to handle failure here
+ 		 */
+-		WARN_ON_ONCE(set_cpus_allowed_ptr(task, cpus_attach));
++		WARN_ON_ONCE(update_cpus_allowed(cs, task, cpus_attach));
+ 
+ 		cpuset_change_task_nodemask(task, &cpuset_attach_nodemask_to);
+ 		cpuset_update_task_spread_flag(cs, task);
+-- 
+2.17.1
+

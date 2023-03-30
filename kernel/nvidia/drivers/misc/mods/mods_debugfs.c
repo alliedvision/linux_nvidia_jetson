@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * mods_debugfs.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -19,8 +20,6 @@
 
 #include "mods_internal.h"
 
-#ifdef MODS_HAS_DEBUGFS
-
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
@@ -30,7 +29,11 @@
 
 static struct dentry *mods_debugfs_dir;
 
-#if defined(MODS_TEGRA) && defined(MODS_HAS_KFUSE)
+#ifdef CONFIG_ARCH_TEGRA_19x_SOC
+#include "mods_ras.h"
+#endif
+
+#if defined(MODS_HAS_TEGRA) && defined(CONFIG_TEGRA_KFUSE)
 #include <soc/tegra/kfuse.h>
 #endif
 
@@ -364,6 +367,8 @@ static ssize_t mods_dc_oc_write(struct file *file, const char __user *user_buf,
 	int buf_size;
 
 	buf_size = min(size, (sizeof(buf) - 1));
+	if (unlikely(buf_size < 0))
+		return -EFAULT;
 	if (strncpy_from_user(buf, user_buf, buf_size) < 0)
 		return -EFAULT;
 	buf[buf_size] = 0;
@@ -420,7 +425,7 @@ static const struct file_operations mods_dc_crc_latched_fops = {
 };
 #endif /* CONFIG_TEGRA_DC */
 
-#if defined(MODS_TEGRA) && defined(MODS_HAS_KFUSE)
+#if defined(MODS_HAS_TEGRA) && defined(CONFIG_TEGRA_KFUSE)
 static int mods_kfuse_show(struct seq_file *s, void *unused)
 {
 	unsigned int buf[KFUSE_DATA_SZ / 4];
@@ -450,7 +455,7 @@ static const struct file_operations mods_kfuse_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-#endif /* MODS_TEGRA */
+#endif /* MODS_HAS_TEGRA */
 
 static int mods_debug_get(void *data, u64 *val)
 {
@@ -475,29 +480,88 @@ static int mods_mi_set(void *data, u64 val)
 	mods_set_multi_instance((int)val);
 	return 0;
 }
+
+#ifdef CONFIG_ARCH_TEGRA_19x_SOC
+static int mods_set_err_sel(void *data, u64 val)
+{
+	set_err_sel(val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(mods_err_sel_fops, 0, mods_set_err_sel, "%llu\n");
+
+static int mods_set_err_ctrl(void *data, u64 val)
+{
+	set_err_ctrl(val);
+	return 0;
+}
+
+static int mods_get_err_ctrl(void *data, u64 *val)
+{
+	*val = get_err_ctrl();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mods_err_ctrl_fops, mods_get_err_ctrl,
+				mods_set_err_ctrl, "%llu\n");
+
+static int mods_enable_cpu_core_reporting(void *data, u64 val)
+{
+	enable_cpu_core_reporting(val);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(mods_enable_cpu_fops, 0, mods_enable_cpu_core_reporting,
+								"%llu\n");
+#endif
+
 DEFINE_SIMPLE_ATTRIBUTE(mods_mi_fops, mods_mi_get, mods_mi_set, "%llu\n");
-#endif /* MODS_HAS_DEBUGFS */
 
 void mods_remove_debugfs(void)
 {
-#ifdef MODS_HAS_DEBUGFS
 	debugfs_remove_recursive(mods_debugfs_dir);
 	mods_debugfs_dir = NULL;
-#endif
 }
 
 int mods_create_debugfs(struct miscdevice *modsdev)
 {
-#ifdef MODS_HAS_DEBUGFS
+#ifdef CONFIG_ARCH_TEGRA_19x_SOC
+	struct dentry *ras_debugfs_entry;
+#endif
 	struct dentry *retval;
+	int err = 0;
 #ifdef CONFIG_TEGRA_DC
 	unsigned int dc_idx;
 	int nheads = tegra_dc_get_numof_dispheads();
+	int client_reg_rc = 0;
+
+	// Check if tegra dc client registration succeeds. This will fail
+	// with ENODEV if given architecture no longer uses tegra_dc
+	// driver. Skip creating display related debugfs nodes
+	bool skip_tegradc_debug_nodes = false;
+	struct tegra_dc_client client;
+
+	memset(&client, 0, sizeof(client));
+
+	client_reg_rc = tegra_dc_register_client(&client);
+	if (client_reg_rc != 0) {
+		if (client_reg_rc == -ENODEV) {
+			skip_tegradc_debug_nodes = true;
+		} else {
+			pr_err("%s: tegra dc client registration failed\n",
+				__func__);
+			return client_reg_rc;
+		}
+	} else {
+		client_reg_rc = tegra_dc_unregister_client(&client);
+		if (client_reg_rc != 0) {
+			pr_err("%s: tegra dc client unregistration failed\n",
+				__func__);
+			return client_reg_rc;
+		}
+	}
 #endif
-	int err = 0;
 
 #ifdef CONFIG_TEGRA_DC
-	if (nheads <= 0) {
+	if (nheads <= 0 && !skip_tegradc_debug_nodes) {
 		pr_err("%s: max heads:%d cannot be negative or zero\n",
 			__func__, nheads);
 		return -EINVAL;
@@ -511,23 +575,53 @@ int mods_create_debugfs(struct miscdevice *modsdev)
 		goto remove_out;
 	}
 
+#ifdef CONFIG_ARCH_TEGRA_19x_SOC
+	if (of_find_node_by_name(NULL, "carmel_ras")) {
+		ras_debugfs_entry = debugfs_create_dir("ras", mods_debugfs_dir);
+		if (IS_ERR(ras_debugfs_entry)) {
+			err = -EIO;
+			goto remove_out;
+		}
+
+		retval = debugfs_create_file("err_sel", 0644,
+			ras_debugfs_entry, 0, &mods_err_sel_fops);
+		if (IS_ERR(retval)) {
+			err = -EIO;
+			goto remove_out;
+		}
+
+		retval = debugfs_create_file("err_ctrl", 0644,
+			ras_debugfs_entry, 0, &mods_err_ctrl_fops);
+		if (IS_ERR(retval)) {
+			err = -EIO;
+			goto remove_out;
+		}
+		retval = debugfs_create_file("ccplex_config", 0644,
+			ras_debugfs_entry, 0, &mods_enable_cpu_fops);
+		if (IS_ERR(retval)) {
+			err = -EIO;
+			goto remove_out;
+		}
+	}
+#endif
+
 	retval = debugfs_create_file("debug", 0644,
-		mods_debugfs_dir, 0, &mods_debug_fops);
+		mods_debugfs_dir, NULL, &mods_debug_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
 	}
 
 	retval = debugfs_create_file("multi_instance", 0644,
-		mods_debugfs_dir, 0, &mods_mi_fops);
+		mods_debugfs_dir, NULL, &mods_mi_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
 	}
 
-#if defined(MODS_TEGRA) && defined(MODS_HAS_KFUSE)
+#if defined(MODS_HAS_TEGRA) && defined(CONFIG_TEGRA_KFUSE)
 	retval = debugfs_create_file("kfuse_data", 0444,
-		mods_debugfs_dir, 0, &mods_kfuse_fops);
+		mods_debugfs_dir, NULL, &mods_kfuse_fops);
 	if (IS_ERR(retval)) {
 		err = -EIO;
 		goto remove_out;
@@ -535,122 +629,135 @@ int mods_create_debugfs(struct miscdevice *modsdev)
 #endif
 
 #ifdef CONFIG_TEGRA_DC
-	for (dc_idx = 0; dc_idx < nheads; dc_idx++) {
-		struct dentry *dc_debugfs_dir;
-		char devname[16];
-		struct tegra_dc *dc = tegra_dc_get_dc(dc_idx);
+	if (!skip_tegradc_debug_nodes) {
+		for (dc_idx = 0; dc_idx < nheads; dc_idx++) {
+			struct dentry *dc_debugfs_dir;
+			char devname[16];
+			struct tegra_dc *dc = tegra_dc_get_dc(dc_idx);
+			int devname_size;
 
-		if (!dc)
-			continue;
+			if (!dc)
+				continue;
 
-		snprintf(devname, sizeof(devname), "tegradc.%d", dc->ctrl_num);
-		dc_debugfs_dir = debugfs_create_dir(devname, mods_debugfs_dir);
+			devname_size = snprintf(devname, sizeof(devname), "tegradc.%d",
+					dc->ctrl_num);
+			if (unlikely(devname_size < 0))
+				continue;
+			dc_debugfs_dir = debugfs_create_dir(devname,
+					mods_debugfs_dir);
 
-		if (IS_ERR(dc_debugfs_dir)) {
-			err = -EIO;
-			goto remove_out;
-		}
-
-		retval = debugfs_create_file("window_mask", 0444,
-			dc_debugfs_dir, dc, &mods_dc_window_mask_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("color_formats", 0444,
-			dc_debugfs_dir, dc, &mods_dc_color_formats_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("blend_gen", 0444,
-			dc_debugfs_dir, dc, &mods_dc_blend_gen_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("layout", 0444, dc_debugfs_dir,
-			dc, &mods_dc_layout_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("invert", 0444, dc_debugfs_dir,
-			dc, &mods_dc_invert_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("interlaced", 0444,
-			dc_debugfs_dir, dc, &mods_dc_interlaced_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("scaling", 0444, dc_debugfs_dir,
-			dc, &mods_dc_scaling_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("border_color", 0644,
-			dc_debugfs_dir, dc, &mods_dc_border_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-
-		retval = debugfs_create_file("output_color_possible", 0444,
-			dc_debugfs_dir, NULL, &mods_dc_ocp_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-		retval = debugfs_create_file("output_color", 0644,
-			dc_debugfs_dir, dc, &mods_dc_oc_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-
-		retval = debugfs_create_file("crc_checksum_latched", 0444,
-			dc_debugfs_dir, dc, &mods_dc_crc_latched_fops);
-		if (IS_ERR(retval)) {
-			err = -EIO;
-			goto remove_out;
-		}
-
-		if (dc->out && dc->out->type == TEGRA_DC_OUT_DSI) {
-			struct dentry *dsi_debugfs_dir;
-
-			dsi_debugfs_dir = debugfs_create_dir("dsi",
-				dc_debugfs_dir);
-			if (IS_ERR(dsi_debugfs_dir)) {
+			if (IS_ERR(dc_debugfs_dir)) {
 				err = -EIO;
 				goto remove_out;
 			}
-			retval = debugfs_create_file("ganged", 0444,
-				dsi_debugfs_dir, tegra_dc_get_outdata(dc),
-				&mods_dsi_ganged_fops);
+
+			retval = debugfs_create_file("window_mask", 0444,
+				dc_debugfs_dir, dc,
+				&mods_dc_window_mask_fops);
 			if (IS_ERR(retval)) {
 				err = -EIO;
 				goto remove_out;
 			}
-			retval = debugfs_create_file("instance", 0444,
-				dsi_debugfs_dir, tegra_dc_get_outdata(dc),
-				&mods_dsi_inst_fops);
+			retval = debugfs_create_file("color_formats", 0444,
+				dc_debugfs_dir, dc,
+				&mods_dc_color_formats_fops);
 			if (IS_ERR(retval)) {
 				err = -EIO;
 				goto remove_out;
 			}
-		}
-
-		if (dc->out && dc->out->type == TEGRA_DC_OUT_HDMI) {
-			retval = debugfs_create_file("ddc_bus", 0444,
-				dc_debugfs_dir, dc, &mods_dc_ddc_bus_fops);
+			retval = debugfs_create_file("blend_gen", 0444,
+				dc_debugfs_dir, dc, &mods_dc_blend_gen_fops);
 			if (IS_ERR(retval)) {
 				err = -EIO;
 				goto remove_out;
+			}
+			retval = debugfs_create_file("layout", 0444,
+				 dc_debugfs_dir, dc, &mods_dc_layout_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+			retval = debugfs_create_file("invert", 0444,
+				dc_debugfs_dir, dc, &mods_dc_invert_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+			retval = debugfs_create_file("interlaced", 0444,
+				dc_debugfs_dir, dc, &mods_dc_interlaced_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+			retval = debugfs_create_file("scaling", 0444,
+				dc_debugfs_dir, dc, &mods_dc_scaling_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+			retval = debugfs_create_file("border_color", 0644,
+				dc_debugfs_dir, dc, &mods_dc_border_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+
+			retval = debugfs_create_file("output_color_possible",
+				0444, dc_debugfs_dir, NULL, &mods_dc_ocp_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+			retval = debugfs_create_file("output_color", 0644,
+				dc_debugfs_dir, dc, &mods_dc_oc_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+
+			retval = debugfs_create_file("crc_checksum_latched",
+				0444, dc_debugfs_dir, dc,
+				&mods_dc_crc_latched_fops);
+			if (IS_ERR(retval)) {
+				err = -EIO;
+				goto remove_out;
+			}
+
+			if (dc->out && dc->out->type == TEGRA_DC_OUT_DSI) {
+				struct dentry *dsi_debugfs_dir;
+
+				dsi_debugfs_dir = debugfs_create_dir("dsi",
+					dc_debugfs_dir);
+				if (IS_ERR(dsi_debugfs_dir)) {
+					err = -EIO;
+					goto remove_out;
+				}
+				retval = debugfs_create_file("ganged", 0444,
+					dsi_debugfs_dir,
+					tegra_dc_get_outdata(dc),
+					&mods_dsi_ganged_fops);
+				if (IS_ERR(retval)) {
+					err = -EIO;
+					goto remove_out;
+				}
+				retval = debugfs_create_file("instance", 0444,
+					dsi_debugfs_dir,
+					tegra_dc_get_outdata(dc),
+					&mods_dsi_inst_fops);
+				if (IS_ERR(retval)) {
+					err = -EIO;
+					goto remove_out;
+				}
+			}
+
+			if (dc->out && dc->out->type == TEGRA_DC_OUT_HDMI) {
+				retval = debugfs_create_file("ddc_bus", 0444,
+					dc_debugfs_dir, dc,
+					&mods_dc_ddc_bus_fops);
+				if (IS_ERR(retval)) {
+					err = -EIO;
+					goto remove_out;
+				}
 			}
 		}
 	}
@@ -661,8 +768,4 @@ remove_out:
 	dev_err(modsdev->this_device, "could not create debugfs\n");
 	mods_remove_debugfs();
 	return err;
-#else
-	return 0;
-#endif
 }
-

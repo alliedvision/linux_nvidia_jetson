@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,55 +53,23 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_ce_gv100_h_
-#define _hw_ce_gv100_h_
+#ifndef NVGPU_HW_CE_GV100_H
+#define NVGPU_HW_CE_GV100_H
 
-static inline u32 ce_intr_status_r(u32 i)
-{
-	return 0x00104410U + i*128U;
-}
-static inline u32 ce_intr_status_blockpipe_pending_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce_intr_status_blockpipe_reset_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce_intr_status_nonblockpipe_pending_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce_intr_status_nonblockpipe_reset_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce_intr_status_launcherr_pending_f(void)
-{
-	return 0x4U;
-}
-static inline u32 ce_intr_status_launcherr_reset_f(void)
-{
-	return 0x4U;
-}
-static inline u32 ce_intr_status_invalid_config_pending_f(void)
-{
-	return 0x8U;
-}
-static inline u32 ce_intr_status_invalid_config_reset_f(void)
-{
-	return 0x8U;
-}
-static inline u32 ce_intr_status_mthd_buffer_fault_pending_f(void)
-{
-	return 0x10U;
-}
-static inline u32 ce_intr_status_mthd_buffer_fault_reset_f(void)
-{
-	return 0x10U;
-}
-static inline u32 ce_pce_map_r(void)
-{
-	return 0x00104028U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define ce_intr_status_r(i)\
+		(nvgpu_safe_add_u32(0x00104410U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_intr_status_blockpipe_pending_f()                              (0x1U)
+#define ce_intr_status_blockpipe_reset_f()                                (0x1U)
+#define ce_intr_status_nonblockpipe_pending_f()                           (0x2U)
+#define ce_intr_status_nonblockpipe_reset_f()                             (0x2U)
+#define ce_intr_status_launcherr_pending_f()                              (0x4U)
+#define ce_intr_status_launcherr_reset_f()                                (0x4U)
+#define ce_intr_status_invalid_config_pending_f()                         (0x8U)
+#define ce_intr_status_invalid_config_reset_f()                           (0x8U)
+#define ce_intr_status_mthd_buffer_fault_pending_f()                     (0x10U)
+#define ce_intr_status_mthd_buffer_fault_reset_f()                       (0x10U)
+#define ce_pce_map_r()                                             (0x00104028U)
 #endif

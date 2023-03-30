@@ -1,0 +1,38 @@
+From 7033e2725c37d05b301b569154b42caabec511ca Mon Sep 17 00:00:00 2001
+From: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Date: Wed, 2 Oct 2019 14:44:42 -0700
+Subject: [PATCH 347/830] ANDROID: drm: dsi: add two DSI mode flags for BLLP
+X-NVConfidentiality: public
+
+Add two dsi mode flag namely MIPI_DSI_MODE_VIDEO_BLLP
+and MIPI_DSI_MODE_VIDEO_EOF_BLLP. MIPI_DSI_MODE_VIDEO_BLLP
+flag is used when DSI is allowed to enter low power stop mode
+during BLLP period, and MIPI_DSI_MODE_VIDEO_EOF_BLLP
+is used when DSI is allowed to enter low power stop  mode in
+the BLLP area of the last line of a frame.
+
+Signed-off-by: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Bug: 139653858
+Change-Id: I54c1d0cc7a87d23054b82cfa975117f0590ca2d3
+---
+ include/drm/drm_mipi_dsi.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/drm/drm_mipi_dsi.h b/include/drm/drm_mipi_dsi.h
+index 41c8367ecd28..07e10623c4f8 100644
+--- a/include/drm/drm_mipi_dsi.h
++++ b/include/drm/drm_mipi_dsi.h
+@@ -138,6 +138,10 @@ struct mipi_dsi_host *of_find_mipi_dsi_host_by_node(struct device_node *node);
+ #define MIPI_DSI_CLOCK_NON_CONTINUOUS	BIT(10)
+ /* transmit data in low power */
+ #define MIPI_DSI_MODE_LPM		BIT(11)
++/* disable BLLP area */
++#define MIPI_DSI_MODE_VIDEO_BLLP	BIT(12)
++/* disable EOF BLLP area */
++#define MIPI_DSI_MODE_VIDEO_EOF_BLLP	BIT(13)
+ 
+ enum mipi_dsi_pixel_format {
+ 	MIPI_DSI_FMT_RGB888,
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2021 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ static int te_create_free_cmd_list(struct tlk_device *dev)
 	 * only needs to send the offsets within each (with cache coherency
 	 * being maintained by HW through an NS mapping).
 	 */
-	req_buf_size = (4 * PAGE_SIZE);
+	req_buf_size = (TE_TOTAL_PAGE_COUNT * PAGE_SIZE);
 	req_buf = kmalloc(req_buf_size, GFP_KERNEL);
 	if (!req_buf) {
 		pr_err("%s: Failed to allocate param buffer!\n", __func__);
@@ -124,6 +124,13 @@ error:
 			&(dev->free_cmd_list), list)
 		kfree(req_desc);
 	return ret;
+}
+
+static void te_release_free_cmd_list(struct tlk_device *dev)
+{
+	kfree(dev->req_addr);
+	kfree(dev->param_bitmap);
+	kfree(dev->plist_bitmap);
 }
 
 struct te_oper_param *te_get_free_params(struct tlk_device *dev,
@@ -674,6 +681,9 @@ static int __init tlk_driver_init(void)
 static void __exit tlk_driver_exit(void)
 {
 	platform_driver_unregister(&tlk_driver);
+
+	if (get_tlk_device_node())
+		te_release_free_cmd_list(&tlk_dev);
 }
 
 /* Initialize early so that other device drivers can use it during boot */
@@ -684,6 +694,11 @@ static int __init tlk_driver_misc_init(void)
 {
 	int ret;
 
+	if (!te_is_secos_dev_enabled()) {
+		pr_info("%s: tlk not enabled on this device\n", __func__);
+		return -ENODEV;
+	}
+
 	ret = misc_register(&tlk_misc_device);
 	if (ret)
 		pr_err("%s: misc_register failed: %d\n", __func__, ret);
@@ -693,7 +708,8 @@ static int __init tlk_driver_misc_init(void)
 
 static void __exit tlk_driver_misc_exit(void)
 {
-	misc_deregister(&tlk_misc_device);
+	if (te_is_secos_dev_enabled())
+		misc_deregister(&tlk_misc_device);
 }
 
 module_init(tlk_driver_misc_init);

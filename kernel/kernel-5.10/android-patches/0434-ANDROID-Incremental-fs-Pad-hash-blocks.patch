@@ -1,0 +1,74 @@
+From baa12d25efd886fa3adbf0c52587baf5aec02662 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 19 Feb 2020 10:07:25 -0800
+Subject: [PATCH 434/830] ANDROID: Incremental fs: Pad hash blocks
+X-NVConfidentiality: public
+
+Test: incfs_test passes
+Bug: 133435829
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I4e6fbd0938f00e7e6883ce1a26cbfd38fdcaa9a5
+---
+ fs/incfs/integrity.c                               | 14 ++++++++++++++
+ .../selftests/filesystems/incfs/incfs_test.c       |  9 ++++++---
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/fs/incfs/integrity.c b/fs/incfs/integrity.c
+index feb212c38945..1d00dda109e3 100644
+--- a/fs/incfs/integrity.c
++++ b/fs/incfs/integrity.c
+@@ -198,6 +198,20 @@ int incfs_calc_digest(struct incfs_hash_alg *alg, struct mem_range data,
+ 		return -EINVAL;
+ 
+ 	desc->tfm = alg->shash;
++
++	if (data.len < INCFS_DATA_FILE_BLOCK_SIZE) {
++		int err;
++		void *buf = kzalloc(INCFS_DATA_FILE_BLOCK_SIZE, GFP_NOFS);
++
++		if (!buf)
++			return -ENOMEM;
++
++		memcpy(buf, data.data, data.len);
++		err = crypto_shash_digest(desc, buf, INCFS_DATA_FILE_BLOCK_SIZE,
++					  digest.data);
++		kfree(buf);
++		return err;
++	}
+ 	return crypto_shash_digest(desc, data.data, data.len, digest.data);
+ }
+ 
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 56634651060e..c276b4cde2d5 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -750,8 +750,9 @@ static int build_mtree(struct test_file *file)
+ 	if (block_count == 1) {
+ 		int seed = get_file_block_seed(file->index, 0);
+ 
++		memset(data, 0, INCFS_DATA_FILE_BLOCK_SIZE);
+ 		rnd_buf((uint8_t *)data, file->size, seed);
+-		sha256(data, file->size, file->root_hash);
++		sha256(data, INCFS_DATA_FILE_BLOCK_SIZE, file->root_hash);
+ 		return 0;
+ 	}
+ 
+@@ -766,11 +767,13 @@ static int build_mtree(struct test_file *file)
+ 		int seed = get_file_block_seed(file->index, i);
+ 		char *hash_ptr = file->mtree[block_index].data + block_off;
+ 
+-		if (file->size - offset < block_size)
++		if (file->size - offset < block_size) {
+ 			block_size = file->size - offset;
++			memset(data, 0, INCFS_DATA_FILE_BLOCK_SIZE);
++		}
+ 
+ 		rnd_buf((uint8_t *)data, block_size, seed);
+-		sha256(data, block_size, hash_ptr);
++		sha256(data, INCFS_DATA_FILE_BLOCK_SIZE, hash_ptr);
+ 	}
+ 
+ 	/* Build higher levels of hash tree. */
+-- 
+2.17.1
+

@@ -1,0 +1,37 @@
+From 6c82471751a4a244aacee77160c622beb4288725 Mon Sep 17 00:00:00 2001
+From: Leo Liou <leoliou@google.com>
+Date: Thu, 12 Nov 2020 21:32:22 +0800
+Subject: [PATCH 376/830] FROMLIST: scsi: ufs: show lba and length for unmap
+ commands
+X-NVConfidentiality: public
+
+We have lba and length for unmap commands.
+
+Bug: 70910891
+Bug: 172970877
+Link: https://lore.kernel.org/linux-scsi/20201112165950.518952-1-jaegeuk@kernel.org/T/#u
+Signed-off-by: Leo Liou <leoliou@google.com>
+Change-Id: I8426785f41fa9d7771aa0c095cf43eb0d7f40253
+---
+ drivers/scsi/ufs/ufshcd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 1d9fecb6d438..683d03dc6a09 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -389,6 +389,11 @@ static void ufshcd_add_command_trace(struct ufs_hba *hba,
+ 				lrbp->ucd_req_ptr->sc.exp_data_transfer_len);
+ 			if (opcode == WRITE_10)
+ 				group_id = lrbp->cmd->cmnd[6];
++		} else if (opcode == UNMAP) {
++			if (cmd->request) {
++				lba = scsi_get_lba(cmd);
++				transfer_len = blk_rq_bytes(cmd->request);
++			}
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

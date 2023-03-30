@@ -1,0 +1,23 @@
+From 91a2d8c3106f3bca70e3b696aa80a1dfc1f2b2e0 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 13:59:35 -0700
+Subject: [PATCH 342/830] _____ANNOTATION: graphics changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index 3ee9c5c51f6a..9b7ae7617739 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -16,3 +16,4 @@ ion changes
+ driver framework and misc driver changes
+ tty changes
+ USB changes
++graphics changes
+-- 
+2.17.1
+

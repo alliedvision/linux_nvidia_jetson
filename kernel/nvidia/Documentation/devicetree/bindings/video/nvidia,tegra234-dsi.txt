@@ -1,0 +1,288 @@
+NVIDIA TEGRA234 DSI (Display Serial Interface)
+==============================================
+
+On Tegra234, DSI settings are specified as part of two blobs:
+a. DCB (Display Control Block), and
+b. Device Tree
+
+The configuration is split as below:
+a. DCB specifies the DSI Display Device, DSI Connector and few other properties.
+b. Device Tree has DSI controller properties, DSI Panel properties and backlight.
+
+Tegra Display firmware identifies if DSI can be enabled on a given board using data from both DCB and Device Tree.
+
+This document explains the device-tree properties of DSI. For DCB, please check the readme.txt available along with dcb_tool.
+If a user needs to add support for a new panel, updating the Device-Tree properties should be sufficient.
+
+DSI device tree properties specify the configuration of DSI Controller, DSI Panel connected to the board and the Panel Backlight.
+These properties are parsed by Tegra Display Firmware and are used for programming the DSI controller and the Panel.
+
+1) display@13800000 Node:
+ This node represents Tegra Display Controller. Following DSI related properties are required to be specified
+ under this node:
+ - nvidia,backlight-name: Should match the bl-name property specified under LP8556 backlight node.
+ - reg: No need to specify DSI register address/range since it is part of display register space.
+        Mipical (pad calibration logic) register address is specified here. Display firmware uses this to access mipical registers.
+ - clocks: Clocks required for DSI and MIPI_CAL are specified here.
+ - resets: DSI and MIPI_CAL resets are specified here.
+ - nvidia,dcb-image: Holds the dcb blob (an array of hex values), which specifies the supported display devices and controllers.
+        Check the readme.txt available along with dcb_tool for details on DCB and its properties.
+
+2) dsi node:
+ dsi node must be specified under display parent node (display@13800000). This node represents Tegra234 DSI controller.
+
+ Required properties
+ - name: dsi
+ - compatible: Should contain "nvidia,tegra234-dsi".
+ - nvidia,active-panel: Holds the phandle of the panel node corresponding to the panel connected to board.
+
+ - Child node represents dsi panel node.
+
+2.a) dsi panel node:
+ dsi panel node must be contained in dsi parent node. This node represents the dsi panel.
+
+ It is possible to have multiple dsi panel nodes, but the panel node phandle assigned to "nvidia,active-panel"
+ under dsi node will be parsed by Display Firmware.
+
+ Required properties
+ - name: Can be arbitrary. Prefer to ahve panel vendor name with panel size or resolution to get a unique name.
+ - compatible: Can be arbitrary. One panel has its own unique compatible.
+ - nvidia,panel-rst-gpio: panel reset gpio.
+ - nvidia,avdd-avee-en-gpio: gpio to enable AVDD/AVEE supplies to panel
+ - nvidia,vdd-1v8-lcd-en-gpio: gpio to enable 1v8 supply to panel LCD
+ - nvidia,panel-bl-en-gpio: backlight enabling gpio.
+ - nvidia,dsi-n-data-lanes: Number of DSI lanes in use for DPHY (max 4) and number of Trios for CPHY (max 3).
+ - nvidia,dsi-video-burst-mode: Video mode. Write 0, 1, 2, 3, 4, 5 and 6 for TEGRA_DSI_VIDEO_NONE_BURST_MODE,
+     TEGRA_DSI_VIDEO_NONE_BURST_MODE_WITH_SYNC_END, TEGRA_DSI_VIDEO_BURST_MODE_LOWEST_SPEED,
+     TEGRA_DSI_VIDEO_BURST_MODE_LOW_SPEED, TEGRA_DSI_VIDEO_BURST_MODE_MEDIUM_SPEED,
+     TEGRA_DSI_VIDEO_BURST_MODE_FAST_SPEED and TEGRA_DSI_VIDEO_BURST_MODE_FASTEST_SPEED, respectively.
+ - nvidia,dsi-pixel-format: DSI bits per pixel
+     0 - TEGRA_DSI_PIXEL_FORMAT_16BIT_P
+     1 - TEGRA_DSI_PIXEL_FORMAT_18BIT_P
+     2 - TEGRA_DSI_PIXEL_FORMAT_18BIT_NP
+     3 - TEGRA_DSI_PIXEL_FORMAT_24BIT_P
+     8 - DSI_PIXEL_FORMAT_30BIT_P
+     9 - DSI_PIXEL_FORMAT_36BIT_P
+ - nvidia,dsi-refresh-rate: Refresh rate.
+ - nvidia,dsi-virtual-channel: DSI virtual channel number. Write 0, 1, 2 and 3 for TEGRA_DSI_VIRTUAL_CHANNEL_0,
+   TEGRA_DSI_VIRTUAL_CHANNEL_1, TEGRA_DSI_VIRTUAL_CHANNEL_2 and TEGRA_DSI_VIRTUAL_CHANNEL_3, respectively.
+ - nvidia,dsi-instance: Should be <DSI_INSTANCE_0>. T23x has only one DSI controller.
+ - nvidia,dsi-panel-reset: Indicate if dsi output device requires hardware reset or not (not used on T234).
+ - nvidia,dsi-power-saving-suspend: With enabled, set dsi controller ultra low power mode in suspend (not used on T234).
+ - nvidia,dsi-ulpm-not-support: With enabled, do not enter dsi ulpm mode (not used on T234).
+ - nvidia,dsi-video-data-type: DSI video data can be transmitted in two modes: Video and Host/Command mode.
+     Write 0, 1 for TEGRA_DSI_VIDEO_TYPE_VIDEO_MODE, TEGRA_DSI_VIDEO_TYPE_COMMAND_MODE, respectively.
+ - nvidia,dsi-video-clock-mode: Controls High Speed (HS) clock behavior.
+     CONTINUOUS indicates HS clock is on all the time.
+     TXONLY indicates HS clock is active during HS transmission only.
+     Write 0, 1 for TEGRA_DSI_VIDEO_CLOCK_CONTINUOUS and TEGRA_DSI_VIDEO_CLOCK_TX_ONLY, respectively.
+ - nvidia,dsi-init-cmd: Init command sequence required by panel.
+ - nvidia,dsi-n-init-cmd: Number of init commands, including delay set.
+ - nvidia,dsi-suspend-cmd: Suspend command sequence required by panel.
+ - nvidia,dsi-n-suspend-cmd: Number of suspend commands, including delay set.
+ - nvidia,dsi-early-suspend-cmd: Early suspend command sequence required by panel.
+ - nvidia,dsi-n-early-suspend-cmd: Number of early suspend commands, including delay set.
+ - nvidia,dsi-late-resume-cmd: Late resume command sequence required by panel.
+ - nvidia,dsi-n-late-resume-cmd: Number of late resume commands, including delay set.
+ - nvidia,send-init-cmds-early: Send init commands during dsi initialization instead of later during modeset.
+     This is for debug purposes. Panel may or may not lightup with this approach.
+ - nvidia,dsi-pkt-seq: Custom packet sequence since some panels need non standard packet sequence.
+ - nvidia,panel-timings: Holds the phandle of the panel timings node.
+ - nvidia,cphy-data-scrambling: Enable Data Scrambling on CPHY interface if panel supports it (not supported on T234).
+ - nvidia,vpll0-rate-hz: VPLL0 clock rate in Hz (not required on T234).
+ - nvidia,dsipll-vco-rate-hz: DSIPLL_VCO clock rate in Hz (not required on T234).
+ - nvidia,dsipll-clkouta-rate-hz: DSIPLL_CLKOUTA clock rate in Hz (not required on T234).
+ - nvidia,dsipll-clkoutpn-rate-hz: DSIPLL_CLKOUTPN clock rate in Hz (not required on T234).
+
+ Custom PHY timings:
+ - nvidia,dsi-phy-hsdexit: dsi phy timing, t_hsdexit_ns.
+ - nvidia,dsi-phy-hstrail: dsi phy timing, t_hstrail_ns.
+ - nvidia,dsi-phy-datzero: dsi phy timing, t_datzero_ns.
+ - nvidia,dsi-phy-hsprepare: dsi phy timing, t_hsprepare_ns.
+ - nvidia,dsi-phy-clktrail: dsi phy timing, t_clktrail_ns.
+ - nvidia,dsi-phy-clkpost: dsi phy timing, t_clkpost_ns.
+ - nvidia,dsi-phy-clkzero: dsi phy timing, t_clkzero_ns.
+ - nvidia,dsi-phy-tlpx: dsi phy timing, t_tlpx_ns.
+ - nvidia,dsi-phy-clkprepare: dsi phy timing, t_clkprepare_ns.
+ - nvidia,dsi-phy-clkpre: dsi phy timing, t_clkpre_ns.
+ - nvidia,dsi-phy-wakeup: dsi phy timing, t_wakeup_ns.
+ - nvidia,dsi-phy-taget: dsi phy timing, t_taget_ns.
+ - nvidia,dsi-phy-tasure: dsi phy timing, t_tasure_ns.
+ - nvidia,dsi-phy-tago: dsi phy timing, t_tago_ns.
+ - nvidia,set-max-dsi-timeout: set the phy timeout value to max.
+
+ - Child nodes of DSI panel node represent panel timings.
+
+2.a.i) Display Timings node
+ This node must be specified under dsi panel node. This contains details on the timings supported
+ by the dsi panel.
+
+ Required properties:
+ - name: Should be "display-timings"
+ - Child nodes represent timings/modes supported by the panel. Several modes can be specified.
+
+2.a.i.i) Panel Timings node
+ This must be specified under display-timings parent node. This contains mode settings supported by
+ Panel, including display timings.
+
+ Required properties:
+ - name: Can be arbitrary, but each sibling node should have unique name.
+ - hactive, vactive: display resolution.
+ - hfront-porch, hback-porch, hsync-len: horizontal display timing parameters in pixels.
+ - vfront-porch, vback-porch, vsync-len: vertical display timing parameters in lines.
+ - clock-frequency: pixel clock rate in Hz.
+
+3) LP8556 Backlight Node
+ This node represents the LP8556 backlight chip by TI that controls the backlight on the panel.
+ Properties under this node are parsed by lp855x_bl.c driver, which is part of Linux Kernel backlight
+ drivers.
+
+ This node is specified under appropritate i2c instance node. E.g.: If lp855x chip is under i2c gen3
+ instance, then its parent node would be i2c@3180000.
+
+ Required properties:
+  - compatible: "ti,lp8556"
+  - bl-name: indicates the name for registering this backlight device. This name should be same as the
+      name specified at "nvidia,backlight-name".
+  - reg: specifies the i2c slave address of lp8556 chip.
+  - init-brt: specifies the initial brightness value (0 to 255 - index into the array defined by the
+      "brightness-levels" property)
+  - dev-ctrl: specifies control parameters for lp8556 device. Refer to LP8556 driver/manual for details.
+  - pwm-period: PWM period used for backlgiht brightness control
+  - pwm-names: arbitrary name for the pwm being used.
+  - pwms: OF device-tree PWM specification (see PWM binding[0])
+  - skip-i2c-configuration: LP8556 supports backlight control through pwm pin or i2c commands. Irrespective of
+      the backlight control mode (pwm or i2c), LP8556 driver tries initial configurations using i2c commands.
+      If i2c communication fails, LP8556 probe fails. Hence, this property helps skip all i2c transactions
+      in case the board uses pwm pin for backlight control and doesn't support i2c communication to Lp8556 chip.
+  - bl-measured: Arrays for backlight calibration, which is usually for linear backlight response.
+      The actual brightness level (PWM duty cycle) will be interpolated
+      from these values. 0 means a 0% duty cycle (darkest/off), while the
+      last value in the array represents a 100% duty cycle (brightest).
+  - power-supply: regulator for supply voltage
+  - enable-supply: backlight enable supply. This currently points to a fixed regulator that enables the backlight
+      enable GPIO pin.
+
+Example
+
+	display@13800000 {
+		nvidia,backlight-name = "pwm-backlight"; // Should match bl-name property in lp8556 node.
+		dsi {
+			status = "okay";
+			nvidia,active-panel = <&panel_i_a1_cphy_lcd_7_9>;
+			panel_i_a1_cphy_lcd_7_9: panel-i-a1-cphy-lcd-7-9 {
+				status = "okay";
+				compatible = "innolux,a1_cphy_lcd-7-9";
+				nvidia,dsi-instance = <DSI_INSTANCE_0>;
+				nvidia,dsi-n-data-lanes = <3>;
+				nvidia,dsi-pixel-format = <TEGRA_DSI_PIXEL_FORMAT_30BIT_P>;
+				nvidia,dsi-refresh-rate = <60>;
+				nvidia,dsi-phy-type = <DSI_CPHY>; //DPHY = 0, CPHY = 1
+				nvidia,dsi-video-data-type = <0>; // DSI_VIDEO_MODE
+				nvidia,dsi-video-clock-mode = <1>; // CONTINUOUS CLK == TX_ONLY on CPHY (check hw manual)
+				nvidia,dsi-video-burst-mode = <0>;
+				nvidia,dsi-virtual-channel = <TEGRA_DSI_VIRTUAL_CHANNEL_0>;
+				nvidia,dsi-panel-reset = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-power-saving-suspend = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-ulpm-not-support = <TEGRA_DSI_ENABLE>;
+				nvidia,set-max-dsi-timeout;
+				nvidia,vpll0-rate-hz = <130463173>;
+				nvidia,dsipll-vco-rate-hz = <1711500000>;
+				nvidia,dsipll-clkouta-rate-hz = <39802325>;
+				nvidia,dsipll-clkoutpn-rate-hz = <570500000>;
+				nvidia,dsi-init-cmd =
+					/* Long  Packet: <PACKETTYPE[u8] COMMANDID[u8] PAYLOADCOUNT[u16] ECC[u8] PAYLOAD[..] CHECKSUM[u16]> */
+					/* Short Packet: <PACKETTYPE[u8] COMMANDID[u8] DATA0[u8] DATA1[u8] ECC[u8]> */
+					/* For DSI packets each DT cell is interpreted as u8 not u32 */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_1_PARAM 0xFF 0x10 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>, //Required 5ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_1_PARAM 0xFB 0x01 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>, //Required 0ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_1_PARAM 0xB0 0x10 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>, //Required 0ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_1_PARAM 0x36 0x02 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>, //Required 0ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_EXIT_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 200>, //Required 120ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_ON 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>; //Required 0ms
+				nvidia,dsi-n-init-cmd = <12>;
+				nvidia,dsi-suspend-cmd =
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_OFF 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 120>, //Required 120ms
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_ENTER_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>; //Required 0ms
+				nvidia,dsi-n-suspend-cmd = <4>;
+				nvidia,cphy-data-scrambling;
+				nvidia,panel-rst-gpio = <&tegra_aon_gpio TEGRA234_AON_GPIO(CC, 3) GPIO_ACTIVE_HIGH>; //CAM_INT4
+				nvidia,avdd-avee-en-gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(AC, 0) GPIO_ACTIVE_HIGH>; //CAM1_PWDN
+				nvidia,vdd-1v8-lcd-en-gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(H, 1) GPIO_ACTIVE_HIGH>; //CAM_ERROR2
+				nvidia,panel-timings = <&panel_i_a1_cphy_lcd_7_9_timings>;
+				display-timings {
+					//Panel-A1 timings
+					panel_i_a1_cphy_lcd_7_9_timings: 1080-1920-60Hz_panel_a1 {
+						clock-frequency = <130400000>;
+						hactive = <1080>;
+						vactive = <1920>;
+						hfront-porch = <16>;
+						hback-porch = <14>; //Added 2 more pixels to aligin with %4 for 30bpp.
+						hsync-len = <10>;
+						vfront-porch = <14>;
+						vback-porch = <6>;
+						vsync-len = <4>;
+					};
+				};
+			};
+		};
+	};
+	i2c@3180000 { //gen-3 i2c or cam i2c
+		status = "okay";
+		lp8556_backlight: lp8556-backlight-t-lcd-7-0@2c {
+			status = "okay";
+			compatible = "ti,lp8556";
+			reg = <0x2C>;
+
+			bl-name = "pwm-backlight";
+			// init-brt = /bits/ 8 <0xFF>; /* Max brightness */
+			init-brt = /bits/ 8 <0x7D>; /* Half brightness */
+			dev-ctrl = /bits/ 8 <0x80>; /* PWM, enable standby mode */
+			pwm-period = <59424>;
+
+			pwm-names = "lp8556";
+			pwms = <&tegra_pwm8 0 59424>;
+			skip-i2c-configuration;
+
+			bl-measured = < 0 1 2 3 4 5 5 6
+					7 8 9 10 11 11 12 13
+					14 15 15 16 17 18 19 20
+					21 22 22 23 24 25 26 27
+					28 29 30 31 31 32 33 34
+					35 36 37 37 38 39 40 41
+					41 42 43 44 45 46 47 48
+					48 49 50 51 52 53 54 54
+					55 56 57 58 58 59 60 61
+					62 63 64 65 66 67 68 69
+					70 71 72 73 74 75 75 76
+					77 78 79 80 81 82 83 84
+					85 86 87 88 89 90 91 92
+					93 94 94 95 96 97 98 99
+					100 101 102 104 105 106 107 108
+					109 110 111 112 113 114 115 116
+					117 118 119 120 121 122 123 125
+					126 127 128 129 130 131 132 133
+					134 135 136 137 138 139 140 141
+					142 143 144 146 147 148 149 150
+					151 152 153 154 155 156 157 158
+					159 160 161 162 163 164 165 167
+					168 169 170 171 172 173 174 175
+					176 178 179 180 181 182 183 184
+					185 186 187 188 189 190 191 192
+					193 194 195 196 197 199 200 201
+					202 203 204 205 206 207 208 210
+					211 212 213 214 215 216 217 219
+					220 221 222 223 225 226 227 228
+					229 230 231 233 234 235 236 237
+					238 239 240 241 242 244 245 246
+					247 248 249 250 251 253 254 255 >;
+		};
+	};

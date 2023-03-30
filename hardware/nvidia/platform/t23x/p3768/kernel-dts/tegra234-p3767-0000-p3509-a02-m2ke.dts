@@ -1,0 +1,83 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/*
+ * Device-tree overlay for tegra234-p3767-0000-p3509-a02 M.2 Key E Slot.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra234-p3767-0000-common.h>
+
+/ {
+	overlay-name = "Jetson M.2 Key E Slot";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				m2ke-pin8 {
+					nvidia,pins = "dap4_sclk_pa4";
+					nvidia,function = "i2s4";
+					nvidia,pin-label = "i2s4_sclk";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin10 {
+					nvidia,pins = "dap4_fs_pa7";
+					nvidia,function = "i2s4";
+					nvidia,pin-label = "i2s4_fs";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin12 {
+					nvidia,pins = "dap4_din_pa6";
+					nvidia,function = "i2s4";
+					nvidia,pin-label = "i2s4_din";
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				m2ke-pin14 {
+					nvidia,pins = "dap4_dout_pa5";
+					nvidia,function = "i2s4";
+					nvidia,pin-label = "i2s4_dout";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				m2ke-pin22 {
+					nvidia,pins = "uart2_rx_px5";
+				};
+				m2ke-pin32 {
+					nvidia,pins = "uart2_tx_px4";
+				};
+				m2ke-pin34 {
+					nvidia,pins = "uart2_cts_px7";
+				};
+				m2ke-pin36 {
+					nvidia,pins = "uart2_rts_px6";
+				};
+				m2ke-pin58 {
+					nvidia,pins = "gen1_i2c_sda_pi4";
+				};
+				m2ke-pin60 {
+					nvidia,pins = "gen1_i2c_scl_pi3";
+				};
+			};
+		};
+	};
+};

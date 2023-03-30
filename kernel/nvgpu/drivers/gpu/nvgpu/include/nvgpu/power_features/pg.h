@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,8 +28,43 @@
 
 struct gk20a;
 
+#ifdef CONFIG_NVGPU_POWER_PG
+#define nvgpu_pg_elpg_protected_call(g, func) \
+	({ \
+		int err = 0; \
+		err = nvgpu_pg_elpg_disable(g);\
+		if (err != 0) {\
+			(void)nvgpu_pg_elpg_enable(g);\
+		}\
+		if (err == 0) { \
+			err = (func); \
+			(void)nvgpu_pg_elpg_enable(g);\
+		} \
+		err; \
+	})
+
+#define nvgpu_pg_elpg_ms_protected_call(g, func) \
+	({ \
+		int status = 0; \
+		status = nvgpu_pg_elpg_ms_disable(g);\
+		if (status != 0) {\
+			(void)nvgpu_pg_elpg_ms_enable(g);\
+		} \
+		if (status == 0) { \
+			status = (func); \
+			(void)nvgpu_pg_elpg_ms_enable(g);\
+		} \
+		status; \
+	})
+#else
+#define nvgpu_pg_elpg_protected_call(g, func) func
+#define nvgpu_pg_elpg_ms_protected_call(g, func) func
+#endif
+
 int nvgpu_pg_elpg_disable(struct gk20a *g);
 int nvgpu_pg_elpg_enable(struct gk20a *g);
+int nvgpu_pg_elpg_ms_disable(struct gk20a *g);
+int nvgpu_pg_elpg_ms_enable(struct gk20a *g);
 bool nvgpu_pg_elpg_is_enabled(struct gk20a *g);
 int nvgpu_pg_elpg_set_elpg_enabled(struct gk20a *g, bool enable);
 

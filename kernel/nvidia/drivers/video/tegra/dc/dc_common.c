@@ -1,7 +1,8 @@
 /*
  * drivers/video/tegra/dc/dc_common.c
  *
- * Copyright (c) 2017-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION. All rights reserved.
+ *
  * Author: Arun Swain <arswain@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -14,7 +15,6 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/pm_runtime.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/err.h>
@@ -32,7 +32,7 @@
 #include "dc_common.h"
 #include "nvhost_channel.h"
 #include "nvhost_job.h"
-#include "host1x/host1x03_hardware.h"
+#include "host1x/host1x04_hardware.h"
 #include <trace/events/display.h>
 
 #define CMDBUF_SIZE		128
@@ -116,7 +116,8 @@
 
 #ifdef CONFIG_OF
 static struct of_device_id tegra_display_common_of_match[] = {
-	{.compatible = "nvidia,tegra_dc_common", },
+	{.compatible = "nvidia,tegra186-display", },
+	{.compatible = "nvidia,tegra194-display", },
 	{ },
 };
 #endif
@@ -1050,6 +1051,54 @@ static int tegra_dc_common_assign_head_offset(void)
 	return ret;
 }
 
+/**
+ * tegra_dc_common_identify_dc_dt_seq - Parse the sequence of DCs in
+ * device tree, and set the count of DCs to be probed before each DC.
+ */
+static void tegra_dc_common_identify_dc_dt_seq(struct device_node *np,
+				struct tegra_dc_common *dc_common)
+{
+	struct device_node *child_disp;
+	u32 temp;
+	u8 index = 0;
+
+	for_each_available_child_of_node(np, child_disp) {
+		if (!of_property_read_u32(child_disp,
+				"nvidia,dc-ctrlnum", &temp)) {
+			dc_common->dc_dt_seq.dc_probe_seq[temp] = index;
+			index++;
+		}
+	}
+
+	dc_common->dc_dt_seq.probed_dc_count = 0;
+}
+
+/**
+ * tegra_dc_common_check_dc_probe_seq - Checks if disp heads are being
+ * probed in the order specified in device tree.
+ */
+bool tegra_dc_common_check_dc_probe_seq(u8 dc_ctrl_num)
+{
+	if (!dc_common)
+		return false;
+
+	if (dc_common->dc_dt_seq.dc_probe_seq[dc_ctrl_num] ==
+				dc_common->dc_dt_seq.probed_dc_count) {
+		return true;
+	}
+
+	return false;
+}
+
+/**
+ * tegra_dc_common_increment_probed_dc_count - Increment the count of DCs
+ * that have been probed.
+ */
+void tegra_dc_common_increment_probed_dc_count(void)
+{
+	dc_common->dc_dt_seq.probed_dc_count++;
+}
+
 static int tegra_dc_common_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1084,7 +1133,7 @@ static int tegra_dc_common_probe(struct platform_device *pdev)
 	}
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-	if (!dc_common) {
+	if (!pdata) {
 		dev_err(&pdev->dev, "can't allocate memory for nvhost_device_data\n");
 		goto err_free_dc_common;
 	}
@@ -1116,7 +1165,11 @@ static int tegra_dc_common_probe(struct platform_device *pdev)
 
 	ret = nvhost_channel_map(pdata, &dc_common->channel, pdata);
 	if (ret) {
-		dev_err(&pdev->dev, "Nvhost Channel map failed\n");
+		if (ret == -EPROBE_DEFER) {
+			dev_info(&pdev->dev, "Nvhost Channel map failed\n");
+		} else {
+			dev_err(&pdev->dev, "Nvhost Channel map failed\n");
+		}
 		goto err_iounmap_reg;
 	}
 	dev_info(&pdev->dev, "host1x channel mapped\n");
@@ -1164,16 +1217,16 @@ static int tegra_dc_common_probe(struct platform_device *pdev)
 		goto err_free_upd_val;
 	}
 
-	pm_runtime_enable(&pdev->dev);
-
 	tegra_dc_common_create_debugfs(dc_common);
+
+	tegra_dc_common_identify_dc_dt_seq(np, dc_common);
 
 	probe_success = true;
 
 	return 0;
 
 err_free_upd_val:
-	kfree(dc_common->upd_val);
+	devm_kfree(&pdev->dev, dc_common->upd_val);
 err_syncpt_drop:
 	nvhost_syncpt_put_ref_ext(pdev, dc_common->syncpt_id);
 err_drop_channel:
@@ -1181,9 +1234,9 @@ err_drop_channel:
 err_iounmap_reg:
 	iounmap(dc_common->base);
 err_free:
-	kfree(pdata);
+	devm_kfree(&pdev->dev, pdata);
 err_free_dc_common:
-	kfree(dc_common);
+	devm_kfree(&pdev->dev, dc_common);
 	return ret;
 }
 

@@ -1,7 +1,7 @@
 /*
  * tegracam_ctrls - control framework for tegra camera drivers
  *
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include <linux/nospec.h>
 #include <linux/types.h>
 #include <media/tegra-v4l2-camera.h>
@@ -245,7 +246,7 @@ static int tegracam_setup_string_ctrls(struct tegracam_device *tc_dev,
 				return err;
 		}
 	}
-	speculation_barrier(); /* break_spec_#5_1 */
+	spec_bar();
 
 	return 0;
 }
@@ -272,7 +273,7 @@ static int tegracam_setup_compound_ctrls(struct tegracam_device *tc_dev,
 				return err;
 		}
 	}
-	speculation_barrier(); /* break_spec_#5_1 */
+	spec_bar(); /* break_spec_#5_1 */
 
 	return 0;
 }
@@ -442,19 +443,20 @@ int tegracam_ctrl_set_overrides(struct tegracam_ctrl_handler *hdl)
 	 * overrides are non-fatal
 	 */
 	memset(&ctrls, 0, sizeof(ctrls));
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4, 9, 0)
 	ctrls.which = V4L2_CTRL_ID2WHICH(TEGRA_CAMERA_CID_BASE);
-#else
-	ctrls.ctrl_class = V4L2_CTRL_ID2CLASS(TEGRA_CAMERA_CID_BASE);
-#endif
 	ctrls.count = 1;
 	ctrls.controls = &control;
 
 	for (i = 0; i < NUM_OVERRIDE_CTRLS; i++) {
 		s64 val = 0;
-
 		control.id = tegracam_override_cids[i];
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		result = v4l2_g_ext_ctrls(&hdl->ctrl_handler, &ctrls);
+#else
+		result = v4l2_g_ext_ctrls(&hdl->ctrl_handler, tc_dev->s_data->subdev.devnode, NULL, &ctrls);
+#endif
+
 		if (result == 0) {
 			val = control.value64;
 			switch (control.id) {
@@ -581,7 +583,7 @@ int tegracam_init_ctrl_ranges_by_mode(
 			return err;
 		}
 	}
-	speculation_barrier(); /* break spec_p#5_1 */
+	spec_bar();
 
 	return 0;
 }
@@ -617,15 +619,14 @@ int tegracam_init_ctrl_ranges(struct tegracam_ctrl_handler *handler)
 			return err;
 		}
 	}
-	speculation_barrier();
+	spec_bar();
 
 	/* Use mode 0 control ranges as default */
-	if (s_data->sensor_props.num_modes > 0)	{
+	if (s_data->sensor_props.num_modes > 0)
+	{
 		err = tegracam_init_ctrl_ranges_by_mode(handler, 0);
 		if (err) {
-			dev_err(dev,
-				"Error %d updating mode specific control ranges\n",
-				err);
+			dev_err(dev, "Error %d updating mode specific control ranges \n", err);
 			return err;
 		}
 	}
@@ -947,7 +948,6 @@ int tegracam_ctrl_handler_init(struct tegracam_ctrl_handler *handler)
 		u32 cid = i < ops->numctrls ? cids[i] : tegracam_def_cids[j++];
 		int index = tegracam_get_ctrl_index(cid);
 		int size = 0;
-
 		if (index >= ARRAY_SIZE(ctrl_cfg_list)) {
 			dev_err(dev, "unsupported control in the list\n");
 			return -ENOTTY;
@@ -994,7 +994,7 @@ int tegracam_ctrl_handler_init(struct tegracam_ctrl_handler *handler)
 
 		handler->ctrls[i] = ctrl;
 	};
-	speculation_barrier(); /* break_spec_p#5_1 */
+	spec_bar();
 
 	handler->numctrls = numctrls;
 	err = v4l2_ctrl_handler_setup(&handler->ctrl_handler);

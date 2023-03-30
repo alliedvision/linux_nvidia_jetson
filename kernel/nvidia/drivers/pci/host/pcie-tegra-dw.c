@@ -31,10 +31,16 @@
 #include <linux/pm_runtime.h>
 #include <linux/phy/phy.h>
 #include <linux/resource.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/bpmp_abi.h>
 #include <soc/tegra/tegra_bpmp.h>
 #include <linux/random.h>
+#include <uapi/linux/pci_regs.h>
 
 #include "pcie-designware.h"
 
@@ -234,21 +240,6 @@
 
 #define EVENT_COUNTER_DATA_REG		0x16C
 
-#define MARGIN_PORT_CAP_STATUS_REG_MARGINING_READY     BIT(16)
-#define MARGIN_PORT_CAP_STATUS_REG_MARGINING_SW_READY  BIT(17)
-
-#define MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_MASK		GENMASK(2, 0)
-#define MARGIN_LANE_CNTRL_STATUS_TYPE_MASK			GENMASK(5, 3)
-#define MARGIN_LANE_CNTRL_STATUS_TYPE_SHIFT			3
-#define MARGIN_LANE_CNTRL_STATUS_PAYLOAD_MASK			GENMASK(15, 8)
-#define MARGIN_LANE_CNTRL_STATUS_PAYLOAD_SHIFT			8
-#define MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_STATUS_MASK		GENMASK(18, 16)
-#define MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_STATUS_SHIFT	16
-#define MARGIN_LANE_CNTRL_STATUS_TYPE_STATUS_MASK		GENMASK(21, 19)
-#define MARGIN_LANE_CNTRL_STATUS_TYPE_STATUS_SHIFT		19
-#define MARGIN_LANE_CNTRL_STATUS_PAYLOAD_STATUS_MASK		GENMASK(31, 24)
-#define MARGIN_LANE_CNTRL_STATUS_PAYLOAD_STATUS_SHIFT		24
-
 #define DL_FEATURE_EXCHANGE_EN		BIT(31)
 
 #define PORT_LOGIC_ACK_F_ASPM_CTRL			0x70C
@@ -317,6 +308,8 @@
 
 #define GEN4_LANE_MARGINING_2	0xb84
 #define GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED		BIT(24)
+#define GEN4_LANE_MARGINING_2_UP_DOWN_VOLTAGE		BIT(25)
+#define GEN4_LANE_MARGINING_2_LEFT_RIGHT_TIMING		BIT(26)
 
 #define DMA_RD_CHNL_NUM			2
 #define DMA_WR_CHNL_NUM			4
@@ -419,6 +412,7 @@
 
 /* Receiver number*/
 #define RP_RCV_NO 1
+#define EP_RCV_NO 6
 
 /* Time in msec */
 #define MARGIN_WIN_TIME 1000
@@ -496,8 +490,6 @@ struct tegra_pcie_dw {
 	u32 event_cntr_ctrl;
 	u32 event_cntr_data;
 	u32 dl_feature_cap;
-	u32 margin_port_cap;
-	u32 margin_lane_cntrl;
 
 	u32 num_lanes;
 	u32 max_speed;
@@ -508,6 +500,11 @@ struct tegra_pcie_dw {
 	int pex_wake;
 	u32 tsa_config_addr;
 	bool link_state;
+	u32 aux_clk_freq;
+	u32 preset_init;
+	u32 aspm_cmrt;
+	u32 aspm_pwr_on_t;
+	u32 aspm_l0s_enter_lat;
 
 	int n_gpios;
 	int *gpios;
@@ -1130,7 +1127,7 @@ static int write(struct seq_file *s, void *data)
 	tx.size = pcie->size;
 	tx.channel = pcie->channel;
 
-	dst_cpu_virt = ioremap_nocache(pcie->dst, pcie->size);
+	dst_cpu_virt = ioremap(pcie->dst, pcie->size);
 
 	/* fill source with random data */
 	get_random_bytes(pcie->cpu_virt_addr, pcie->size);
@@ -1161,7 +1158,7 @@ static int write_ll(struct seq_file *s, void *data)
 	struct dma_ll *ll;
 	void __iomem *dst_cpu_virt;
 
-	dst_cpu_virt = ioremap_nocache(pcie->dst, 6 * 64 * 1024);
+	dst_cpu_virt = ioremap(pcie->dst, 6 * 64 * 1024);
 
 	/* create linked list */
 	ll = (struct dma_ll *)(pcie->cpu_virt_addr);
@@ -1246,7 +1243,7 @@ static int read(struct seq_file *s, void *data)
 	tx.size = pcie->size;
 	tx.channel = pcie->channel;
 
-	dst_cpu_virt = ioremap_nocache(pcie->src, pcie->size);
+	dst_cpu_virt = ioremap(pcie->src, pcie->size);
 	/* fill source with random data */
 	get_random_bytes(dst_cpu_virt, pcie->size);
 
@@ -1276,7 +1273,7 @@ static int read_ll(struct seq_file *s, void *data)
 	struct dma_ll *ll;
 	void __iomem *dst_cpu_virt;
 
-	dst_cpu_virt = ioremap_nocache(pcie->src, 6 * 64 * 1024);
+	dst_cpu_virt = ioremap(pcie->src, 6 * 64 * 1024);
 
 	/* create linked list to be sent to ep's local memory */
 	ll = (struct dma_ll *)(pcie->cpu_virt_addr);
@@ -1540,6 +1537,7 @@ static int aspm_state_cnt(struct seq_file *s, void *data)
 	return 0;
 }
 
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 static void setup_margin_cmd(struct tegra_pcie_dw *pcie, enum margin_cmds mcmd,
 			     int rcv_no, int payload)
 {
@@ -1574,41 +1572,42 @@ static void setup_margin_cmd(struct tegra_pcie_dw *pcie, enum margin_cmds mcmd,
 	pcie->mcmd.rxm_cmd_check = 1;
 }
 
-static void issue_margin_cmd(struct tegra_pcie_dw *pcie)
+static void issue_margin_cmd(struct tegra_pcie_dw *pcie, struct pci_dev *pdev)
 {
-	u32 val, offset;
-	int i;
+	u16 val;
+	int i, offset, pos;
 
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_MARGIN);
 	for (i = 0; i < pcie->init_link_width; i++) {
-		offset = pcie->margin_lane_cntrl + 4 * i;
-		val = readl(pcie->pp.dbi_base + offset);
-		val &= ~MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_MASK;
+		offset = pos + PCI_MARGIN_LANE_CTRL + 4 * i;
+		pci_read_config_word(pdev, offset, &val);
+		val &= ~PCI_MARGIN_LANE_CTRL_RCV_NUM_MASK;
 		val |= pcie->mcmd.rcv_no;
-		val &= ~MARGIN_LANE_CNTRL_STATUS_TYPE_MASK;
+		val &= ~PCI_MARGIN_LANE_CTRL_TYPE_MASK;
 		val |= (pcie->mcmd.margin_type <<
-			MARGIN_LANE_CNTRL_STATUS_TYPE_SHIFT);
-		val &= ~MARGIN_LANE_CNTRL_STATUS_PAYLOAD_MASK;
+			PCI_MARGIN_LANE_CTRL_TYPE_SHIFT);
+		val &= ~PCI_MARGIN_LANE_CTRL_PAYLOAD_MASK;
 		val |= (pcie->mcmd.payload <<
-			MARGIN_LANE_CNTRL_STATUS_PAYLOAD_SHIFT);
-		writel(val, pcie->pp.dbi_base + offset);
+			PCI_MARGIN_LANE_CTRL_PAYLOAD_SHIFT);
+		pci_write_config_word(pdev, offset, val);
 	}
 }
 
 static void read_margin_status(struct tegra_pcie_dw *pcie, struct seq_file *s,
-			       int step, char side)
+			       struct pci_dev *pdev, int step, char side)
 {
-	u32 val, offset;
-	int rcv_no, margin_type, payload, i;
+	u16 val;
+	int pos, offset, rcv_no, margin_type, payload, i;
 
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_MARGIN);
 	for (i = 0; i < pcie->init_link_width; i++) {
-		offset = pcie->margin_lane_cntrl + 4 * i;
-		val = readl(pcie->pp.dbi_base + offset);
-		rcv_no = (val & MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_STATUS_MASK)
-			>> MARGIN_LANE_CNTRL_STATUS_RCV_NUMBER_STATUS_SHIFT;
-		margin_type = (val & MARGIN_LANE_CNTRL_STATUS_TYPE_STATUS_MASK)
-				>> MARGIN_LANE_CNTRL_STATUS_TYPE_STATUS_SHIFT;
-		payload = (val & MARGIN_LANE_CNTRL_STATUS_PAYLOAD_STATUS_MASK)
-			>> MARGIN_LANE_CNTRL_STATUS_PAYLOAD_STATUS_SHIFT;
+		offset = pos + PCI_MARGIN_LANE_STATUS + 4 * i;
+		pci_read_config_word(pdev, offset, &val);
+		rcv_no = val & PCI_MARGIN_LANE_STATUS_RCV_NUM_MASK;
+		margin_type = (val & PCI_MARGIN_LANE_STATUS_TYPE_MASK)
+				>> PCI_MARGIN_LANE_STATUS_TYPE_SHIFT;
+		payload = (val & PCI_MARGIN_LANE_STATUS_PAYLOAD_MASK)
+			>> PCI_MARGIN_LANE_STATUS_PAYLOAD_SHIFT;
 		if (pcie->mcmd.rxm_cmd_check) {
 			if (pcie->mcmd.rcv_no != rcv_no)
 				seq_printf(s, "Rcv no. check fail: rcv_no=%d "
@@ -1626,67 +1625,174 @@ static void read_margin_status(struct tegra_pcie_dw *pcie, struct seq_file *s,
 					   pcie->mcmd.payload, payload);
 		}
 		if ((margin_type == 3) || (margin_type == 4))
-			seq_printf(s, "%s Lane=%d Side=%c Step=%d Error=0x%x\n",
-				   dev_name(pcie->dev), i, side, step,
-				   (payload & 0x3f));
+			dev_info(&pdev->bus->dev, "Lane=%d Side=%c Step=%d Error=0x%x\n",
+				 i, side, step, (payload & 0x3f));
 	}
 }
 
 static int verify_timing_margin(struct seq_file *s, void *data)
 {
 	struct tegra_pcie_dw *pcie = (struct tegra_pcie_dw *)(s->private);
+	struct pcie_port *pp = &pcie->pp;
+	struct pci_dev *ppdev, *pdev;
 	u32 val = 0;
-	int i = 0;
+	u16 value;
+	int i = 0, pos;
 
-	val = readl(pcie->pp.dbi_base + pcie->margin_port_cap);
-	if (!(val & MARGIN_PORT_CAP_STATUS_REG_MARGINING_SW_READY) &&
-		!(val & MARGIN_PORT_CAP_STATUS_REG_MARGINING_READY)) {
-		seq_puts(s, "Lane margining is not ready\n");
+	ppdev = pci_get_slot(pp->bus, PCI_DEVFN(0, 0));
+	pci_dev_put(ppdev);
+	pdev = pci_get_slot(ppdev->subordinate, PCI_DEVFN(0, 0));
+	pci_dev_put(pdev);
+
+	pcie_capability_read_word(ppdev, PCI_EXP_LNKSTA, &value);
+	if ((value & PCI_EXP_LNKSTA_CLS) != 0x4) {
+		seq_puts(s, "Link is not in Gen4\n");
 		return 0;
 	}
 
-	val = readl(pcie->pp.dbi_base + GEN4_LANE_MARGINING_1);
-	val &= ~GEN4_LANE_MARGINING_1_NUM_TIMING_STEPS_MASK;
-	val |= NUM_TIMING_STEPS;
-	writel(val, pcie->pp.dbi_base + GEN4_LANE_MARGINING_1);
+	pos = pci_find_ext_capability(ppdev, PCI_EXT_CAP_ID_MARGIN);
+	if (!pos) {
+		seq_puts(s, "Lane margining is not defined in RP\n");
+		goto endpoint;
+	}
+
+	pci_read_config_word(ppdev, pos + PCI_MARGIN_PORT_STATUS, &value);
+	if (!(value & PCI_MARGIN_PORT_STATUS_SW_READY) &&
+	    !(value & PCI_MARGIN_PORT_STATUS_READY)) {
+		seq_puts(s, "Lane margining is not ready in RP\n");
+		goto endpoint;
+	}
 
 	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, RP_RCV_NO,
 			 MAX_ERR_CNT_PAYLOAD);
-	issue_margin_cmd(pcie);
+	issue_margin_cmd(pcie, ppdev);
 	msleep(MARGIN_READ_DELAY);
-	read_margin_status(pcie, s, i, NO_STEP);
+	read_margin_status(pcie, s, ppdev, i, NO_STEP);
+
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	for (i = 1; i <= NUM_TIMING_STEPS; i++) {
+		/*
+		 * Step Margin to timing offset to left of default
+		 * payload = offset | (0x10 << 6)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_X_OFFSET, RP_RCV_NO,
+				 i | LEFT_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, ppdev, i, LEFT_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, RP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, RP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
+	}
+#endif
 
 	for (i = 1; i <= NUM_TIMING_STEPS; i++) {
-		/* Step Margin to timing offset to right of default
+		/*
+		 * Step Margin to timing offset to right of default
 		 * payload = offset | (0x00 << 6)
 		 */
 		setup_margin_cmd(pcie, MARGIN_SET_X_OFFSET, RP_RCV_NO,
 				 i | RIGHT_STEP_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_WIN_TIME);
-		read_margin_status(pcie, s, i, RIGHT_STEP);
+		read_margin_status(pcie, s, ppdev, i, RIGHT_STEP);
 
 		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, RP_RCV_NO,
 				 NORMAL_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_READ_DELAY);
-		read_margin_status(pcie, s, i, NO_STEP);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
 
 		setup_margin_cmd(pcie, MARGIN_CLR_ERR, RP_RCV_NO,
 				 CLR_ERR_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_READ_DELAY);
-		read_margin_status(pcie, s, i, NO_STEP);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
 	}
 
-	dw_pcie_cfg_read(pcie->pp.dbi_base + CFG_LINK_STATUS_CONTROL, 4, &val);
+endpoint:
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_MARGIN);
+	if (!pos) {
+		seq_puts(s, "Lane margining is not defined in EP\n");
+		goto end;
+	}
 
-	if (((val >> 16) & PCI_EXP_LNKSTA_CLS) != 0x4)
+	pci_read_config_word(pdev, pos + PCI_MARGIN_PORT_STATUS, &value);
+	if (!(value & PCI_MARGIN_PORT_STATUS_SW_READY) &&
+	    !(value & PCI_MARGIN_PORT_STATUS_READY)) {
+		seq_puts(s, "Lane margining is not ready in EP\n");
+		goto end;
+	}
+
+	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, EP_RCV_NO,
+			 MAX_ERR_CNT_PAYLOAD);
+	issue_margin_cmd(pcie, pdev);
+	msleep(MARGIN_READ_DELAY);
+	read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	for (i = 1; i <= NUM_TIMING_STEPS; i++) {
+		/*
+		 * Step Margin to timing offset to left of default
+		 * payload = offset | (0x10 << 6)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_X_OFFSET, EP_RCV_NO,
+				 i | LEFT_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, pdev, i, LEFT_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, EP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, EP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+	}
+#endif
+
+	for (i = 1; i <= NUM_TIMING_STEPS; i++) {
+		/*
+		 * Step Margin to timing offset to right of default
+		 * payload = offset | (0x00 << 6)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_X_OFFSET, EP_RCV_NO,
+				 i | RIGHT_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, pdev, i, RIGHT_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, EP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, EP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+	}
+
+end:
+	pcie_capability_read_word(pdev, PCI_EXP_LNKSTA, &value);
+	if ((value & PCI_EXP_LNKSTA_CLS) != 0x4)
 		seq_puts(s, "Link is not in Gen4, restart the device & execute lane margin\n");
-
-	if (pcie->init_link_width > ((val >> 16) & PCI_EXP_LNKSTA_NLW) >>
-	    PCI_EXP_LNKSTA_NLW_SHIFT)
-		seq_puts(s, "Link width reduced, restart the device & execute lane margin\n");
 
 	val = readl(pcie->appl_base + APPL_DEBUG);
 	val &= APPL_DEBUG_LTSSM_STATE_MASK;
@@ -1701,69 +1807,166 @@ static int verify_timing_margin(struct seq_file *s, void *data)
 static int verify_voltage_margin(struct seq_file *s, void *data)
 {
 	struct tegra_pcie_dw *pcie = (struct tegra_pcie_dw *)(s->private);
+	struct pcie_port *pp = &pcie->pp;
+	struct pci_dev *ppdev, *pdev;
 	u32 val = 0;
-	int i = 0;
+	u16 value = 0;
+	int i = 0, pos = 0;
 
-	val = readl(pcie->pp.dbi_base + pcie->margin_port_cap);
-	if (!(val & MARGIN_PORT_CAP_STATUS_REG_MARGINING_SW_READY) &&
-		!(val & MARGIN_PORT_CAP_STATUS_REG_MARGINING_READY)) {
-		seq_puts(s, "Lane margining is not ready\n");
+	ppdev = pci_get_slot(pp->bus, PCI_DEVFN(0, 0));
+	pci_dev_put(ppdev);
+	pdev = pci_get_slot(ppdev->subordinate, PCI_DEVFN(0, 0));
+	pci_dev_put(pdev);
+
+	pcie_capability_read_word(ppdev, PCI_EXP_LNKSTA, &value);
+	if ((value & PCI_EXP_LNKSTA_CLS) != 0x4) {
+		seq_puts(s, "Link is not in Gen4\n");
 		return 0;
 	}
 
-	val = readl(pcie->pp.dbi_base + GEN4_LANE_MARGINING_1);
-	val &= ~GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_MASK;
-	val |= (NUM_VOLTAGE_STEPS <<
-		GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_SHIFT);
-	writel(val, pcie->pp.dbi_base + GEN4_LANE_MARGINING_1);
+	pos = pci_find_ext_capability(ppdev, PCI_EXT_CAP_ID_MARGIN);
+	if (!pos) {
+		seq_puts(s, "Lane margining is not defined in RP\n");
+		goto endpoint;
+	}
 
-	val = readl(pcie->pp.dbi_base + PORT_LOGIC_MISC_CONTROL);
-	val |= PORT_LOGIC_MISC_CONTROL_DBI_RO_WR_EN;
-	writel(val, pcie->pp.dbi_base + PORT_LOGIC_MISC_CONTROL);
-	val = readl(pcie->pp.dbi_base + GEN4_LANE_MARGINING_2);
-	val |= GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED;
-	writel(val, pcie->pp.dbi_base + GEN4_LANE_MARGINING_2);
-	val = readl(pcie->pp.dbi_base + PORT_LOGIC_MISC_CONTROL);
-	val &= ~PORT_LOGIC_MISC_CONTROL_DBI_RO_WR_EN;
-	writel(val, pcie->pp.dbi_base + PORT_LOGIC_MISC_CONTROL);
+	pci_read_config_word(ppdev, pos + PCI_MARGIN_PORT_STATUS, &value);
+	if (!(value & PCI_MARGIN_PORT_STATUS_SW_READY) &&
+	    !(value & PCI_MARGIN_PORT_STATUS_READY)) {
+		seq_puts(s, "Lane margining is not ready in RP\n");
+		goto endpoint;
+	}
 
 	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, RP_RCV_NO,
 			 MAX_ERR_CNT_PAYLOAD);
-	issue_margin_cmd(pcie);
+	issue_margin_cmd(pcie, ppdev);
 	msleep(MARGIN_READ_DELAY);
-	read_margin_status(pcie, s, i, NO_STEP);
+	read_margin_status(pcie, s, ppdev, i, NO_STEP);
+
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	for (i = 1; i <= NUM_VOLTAGE_STEPS; i++) {
+		/*
+		 * Step Margin to voltage offset to down of default
+		 * payload = offset | (0x01 << 7)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_Y_OFFSET, RP_RCV_NO,
+				 i | DOWN_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, ppdev, i, DOWN_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, RP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, RP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, ppdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
+	}
+#endif
 
 	for (i = 1; i <= NUM_VOLTAGE_STEPS; i++) {
-		/* Step Margin to voltage offset to up of default
+		/*
+		 * Step Margin to voltage offset to up of default
 		 * payload = offset | (0x00 << 7)
 		 */
 		setup_margin_cmd(pcie, MARGIN_SET_Y_OFFSET, RP_RCV_NO,
 				 i | UP_STEP_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_WIN_TIME);
-		read_margin_status(pcie, s, i, UP_STEP);
+		read_margin_status(pcie, s, ppdev, i, UP_STEP);
 
 		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, RP_RCV_NO,
 				 NORMAL_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_READ_DELAY);
-		read_margin_status(pcie, s, i, NO_STEP);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
 
 		setup_margin_cmd(pcie, MARGIN_CLR_ERR, RP_RCV_NO,
 				 CLR_ERR_PAYLOAD);
-		issue_margin_cmd(pcie);
+		issue_margin_cmd(pcie, ppdev);
 		msleep(MARGIN_READ_DELAY);
-		read_margin_status(pcie, s, i, NO_STEP);
+		read_margin_status(pcie, s, ppdev, i, NO_STEP);
 	}
 
-	dw_pcie_cfg_read(pcie->pp.dbi_base + CFG_LINK_STATUS_CONTROL, 4, &val);
+endpoint:
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_MARGIN);
+	if (!pos) {
+		seq_puts(s, "Lane margining is not defined in RP\n");
+		goto end;
+	}
 
-	if (((val >> 16) & PCI_EXP_LNKSTA_CLS) != 0x4)
+	pci_read_config_word(pdev, pos + PCI_MARGIN_PORT_STATUS, &value);
+	if (!(value & PCI_MARGIN_PORT_STATUS_SW_READY) &&
+	    !(value & PCI_MARGIN_PORT_STATUS_READY)) {
+		seq_puts(s, "Lane margining is not ready in RP\n");
+		goto end;
+	}
+
+	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, EP_RCV_NO,
+			 MAX_ERR_CNT_PAYLOAD);
+	issue_margin_cmd(pcie, pdev);
+	msleep(MARGIN_READ_DELAY);
+	read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	for (i = 1; i <= NUM_VOLTAGE_STEPS; i++) {
+		/*
+		 * Step Margin to voltage offset to down of default
+		 * payload = offset | (0x01 << 7)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_Y_OFFSET, EP_RCV_NO,
+				 i | DOWN_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, pdev, i, DOWN_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, EP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, EP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+	}
+#endif
+
+	for (i = 1; i <= NUM_VOLTAGE_STEPS; i++) {
+		/*
+		 * Step Margin to voltage offset to up of default
+		 * payload = offset | (0x00 << 7)
+		 */
+		setup_margin_cmd(pcie, MARGIN_SET_Y_OFFSET, EP_RCV_NO,
+				 i | UP_STEP_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_WIN_TIME);
+		read_margin_status(pcie, s, pdev, i, UP_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_SET_NORMAL, EP_RCV_NO,
+				 NORMAL_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+
+		setup_margin_cmd(pcie, MARGIN_CLR_ERR, EP_RCV_NO,
+				 CLR_ERR_PAYLOAD);
+		issue_margin_cmd(pcie, pdev);
+		msleep(MARGIN_READ_DELAY);
+		read_margin_status(pcie, s, pdev, i, NO_STEP);
+	}
+
+end:
+	pcie_capability_read_word(pdev, PCI_EXP_LNKSTA, &value);
+	if ((value & PCI_EXP_LNKSTA_CLS) != 0x4)
 		seq_puts(s, "Link is not in Gen4, restart the device & execute lane margin\n");
-
-	if (pcie->init_link_width > ((val >> 16) & PCI_EXP_LNKSTA_NLW) >>
-	    PCI_EXP_LNKSTA_NLW_SHIFT)
-		seq_puts(s, "Link width reduced, restart the device & execute lane margin\n");
 
 	val = readl(pcie->appl_base + APPL_DEBUG);
 	val &= APPL_DEBUG_LTSSM_STATE_MASK;
@@ -1774,6 +1977,7 @@ static int verify_voltage_margin(struct seq_file *s, void *data)
 
 	return 0;
 }
+#endif
 
 static int __attach_controller(struct tegra_pcie_dw *pcie)
 {
@@ -1871,8 +2075,10 @@ DEFINE_ENTRY(apply_speed_change);
 DEFINE_ENTRY(apply_pme_turnoff);
 DEFINE_ENTRY(apply_sbr);
 DEFINE_ENTRY(aspm_state_cnt);
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 DEFINE_ENTRY(verify_timing_margin);
 DEFINE_ENTRY(verify_voltage_margin);
+#endif
 DEFINE_ENTRY(hot_plug);
 DEFINE_ENTRY(hot_unplug);
 
@@ -1992,6 +2198,7 @@ static int init_debugfs(struct tegra_pcie_dw *pcie)
 	if (!d)
 		dev_err(pcie->dev, "debugfs for aspm_state_cnt failed\n");
 
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 	d = debugfs_create_file("verify_timing_margin", 0444, pcie->debugfs,
 				(void *)pcie, &verify_timing_margin_fops);
 	if (!d)
@@ -2001,6 +2208,7 @@ static int init_debugfs(struct tegra_pcie_dw *pcie)
 				(void *)pcie, &verify_voltage_margin_fops);
 	if (!d)
 		dev_err(pcie->dev, "debugfs for verify_voltage_margin failed\n");
+#endif
 
 	d = debugfs_create_file("hot_plug", 0444, pcie->debugfs,
 				(void *)pcie, &hot_plug_fops);
@@ -2202,18 +2410,18 @@ static void disable_aspm_l12(struct tegra_pcie_dw *pcie)
 static void program_gen3_gen4_eq_presets(struct pcie_port *pp)
 {
 	struct tegra_pcie_dw *pcie = to_tegra_pcie(pp);
-	int i, init_preset = 5;
+	int i;
 	u32 val;
 
 	/* program init preset */
-	if (init_preset < 11) {
+	if (pcie->preset_init < 11) {
 		for (i = 0; i < pcie->num_lanes; i++) {
 			dw_pcie_cfg_read(pp->dbi_base + CAP_SPCIE_CAP_OFF
 					 + (i * 2), 2, &val);
 			val &= ~CAP_SPCIE_CAP_OFF_DSP_TX_PRESET0_MASK;
-			val |= init_preset;
+			val |= pcie->preset_init;
 			val &= ~CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_MASK;
-			val |= (init_preset <<
+			val |= (pcie->preset_init <<
 				   CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_SHIFT);
 			dw_pcie_cfg_write(pp->dbi_base + CAP_SPCIE_CAP_OFF
 					 + (i * 2), 2, val);
@@ -2221,9 +2429,9 @@ static void program_gen3_gen4_eq_presets(struct pcie_port *pp)
 			dw_pcie_cfg_read(pp->dbi_base + pcie->cap_pl16g_cap_off
 					 + i, 1, &val);
 			val &= ~PL16G_CAP_OFF_DSP_16G_TX_PRESET_MASK;
-			val |= init_preset;
+			val |= pcie->preset_init;
 			val &= ~PL16G_CAP_OFF_USP_16G_TX_PRESET_MASK;
-			val |= (init_preset <<
+			val |= (pcie->preset_init <<
 				PL16G_CAP_OFF_USP_16G_TX_PRESET_SHIFT);
 			dw_pcie_cfg_write(pp->dbi_base + pcie->cap_pl16g_cap_off
 					 + i, 1, val);
@@ -2293,7 +2501,7 @@ static void tegra_pcie_dw_host_init(struct pcie_port *pp)
 		dw_pcie_cfg_read(pp->dbi_base + AUX_CLK_FREQ, 4, &tmp);
 		tmp &= ~(0x3FF);
 		/* CHECK: Confirm this value for Silicon */
-		tmp |= 19;
+		tmp |= pcie->aux_clk_freq;
 		dw_pcie_cfg_write(pp->dbi_base + AUX_CLK_FREQ, 4, tmp);
 	}
 
@@ -2360,14 +2568,14 @@ static void tegra_pcie_dw_host_init(struct pcie_port *pp)
 	/* Program T_cmrt and T_pwr_on values */
 	dw_pcie_cfg_read(pcie->pp.dbi_base + pcie->cfg_link_cap_l1sub, 4, &val);
 	val &= ~(PCI_L1SS_CAP_CM_RTM_MASK | PCI_L1SS_CAP_PWRN_VAL_MASK);
-	val |= (0x3C << PCI_L1SS_CAP_CM_RTM_SHIFT);	/* 60us */
-	val |= (0x14 << PCI_L1SS_CAP_PWRN_VAL_SHIFT);	/* 40us */
+	val |= (pcie->aspm_cmrt << PCI_L1SS_CAP_CM_RTM_SHIFT);
+	val |= (pcie->aspm_pwr_on_t << PCI_L1SS_CAP_PWRN_VAL_SHIFT);
 	dw_pcie_cfg_write(pcie->pp.dbi_base + pcie->cfg_link_cap_l1sub, 4, val);
 
 	/* Program L0s and L1 entrance latencies */
 	val = readl(pp->dbi_base + PORT_LOGIC_ACK_F_ASPM_CTRL);
 	val &= ~L0S_ENTRANCE_LAT_MASK;
-	val |= (0x3 << L0S_ENTRANCE_LAT_SHIFT); /* 4us */
+	val |= (pcie->aspm_l0s_enter_lat << L0S_ENTRANCE_LAT_SHIFT);
 	val |= ENTER_ASPM;
 	writel(val, pp->dbi_base + PORT_LOGIC_ACK_F_ASPM_CTRL);
 
@@ -2421,6 +2629,25 @@ static void tegra_pcie_dw_host_init(struct pcie_port *pp)
 		disable_aspm_l11(pcie); /* Disable L1.1 */
 		disable_aspm_l12(pcie); /* Disable L1.2 */
 	}
+
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
+	val = readl(pp->dbi_base + GEN4_LANE_MARGINING_1);
+	val &= ~GEN4_LANE_MARGINING_1_NUM_TIMING_STEPS_MASK;
+	val |= NUM_TIMING_STEPS;
+	val &= ~GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_MASK;
+	val |= (NUM_VOLTAGE_STEPS <<
+		GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_SHIFT);
+	writel(val, pp->dbi_base + GEN4_LANE_MARGINING_1);
+
+	/* Need DBI_RO_WR_EN set to program this bit */
+	val = readl(pp->dbi_base + GEN4_LANE_MARGINING_2);
+	val |= GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED;
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	val |= GEN4_LANE_MARGINING_2_LEFT_RIGHT_TIMING;
+	val |= GEN4_LANE_MARGINING_2_UP_DOWN_VOLTAGE;
+#endif
+	writel(val, pp->dbi_base + GEN4_LANE_MARGINING_2);
+#endif
 
 	val = readl(pp->dbi_base + PORT_LOGIC_MISC_CONTROL);
 	val &= ~PORT_LOGIC_MISC_CONTROL_DBI_RO_WR_EN;
@@ -2517,24 +2744,6 @@ static void enable_ltr(struct pci_dev *pdev)
 	}
 }
 
-static inline int find_width_index(unsigned long width)
-{
-	if (width & (width-1))
-		return -1;
-	switch (width) {
-	case PCIE_LNK_X1:
-		return 0;
-	case PCIE_LNK_X2:
-		return 1;
-	case PCIE_LNK_X4:
-		return 2;
-	case PCIE_LNK_X8:
-		return 3;
-	default :
-		return -1;
-	}
-}
-
 static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 {
 	struct pci_host_bridge *host = pci_find_host_bridge(pp->bus);
@@ -2543,27 +2752,18 @@ static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 	struct pci_dev *pdev = NULL, *ppdev = NULL;
 	u32 speed = 0, data = 0, pos = 0;
 	struct pci_bus *child;
-	unsigned long freq, width;
-	int width_index;
+	unsigned long freq, width = 0;
 
 	if (!tegra_pcie_dw_link_up(pp))
 		return;
 
 	/* Make EMC FLOOR freq request based on link width and speed */
 	data = readl(pp->dbi_base + CFG_LINK_STATUS_CONTROL);
-	/* Width is 6 bits field PCIE_CAP_NEGO_LINK_WIDTH
-	 * inside CFG_LINK_STATUS_CONTROL register
-	 */
 	width = ((data >> 16) & PCI_EXP_LNKSTA_NLW) >> 4;
-	width_index = find_width_index(width);
-	if (width_index == -1) {
-		dev_err(pcie->dev, "error in %s", __func__);
-		dev_err(pcie->dev, "width in CFG_LINK_STATUS_CONTROL is"
-			"wrong\n");
-		return;
-	}
+	/* Here 6 is size of PCIE_CAP_NEGO_LINK_WIDTH register field*/
+	width = find_first_bit((const unsigned long *)&width, 6);
 	speed = ((data >> 16) & PCI_EXP_LNKSTA_CLS);
-	freq = pcie->dvfs_tbl[width_index][speed - 1];
+	freq = pcie->dvfs_tbl[width][speed - 1];
 	dev_dbg(pp->dev, "EMC Freq requested = %lu\n", freq);
 
 	if (tegra_bwmgr_set_emc(pcie->emc_bw, freq, TEGRA_BWMGR_SET_EMC_FLOOR))
@@ -2588,14 +2788,12 @@ static void tegra_pcie_dw_scan_bus(struct pcie_port *pp)
 			/* program iATU for Non-prefetchable MEM mapping */
 			outbound_atu(pp, PCIE_ATU_REGION_INDEX3,
 				     PCIE_ATU_TYPE_MEM, win->res->start,
-				     win->res->start - win->offset,
-				     resource_size(win->res));
+				     win->res->start, resource_size(win->res));
 		} else if (win->res->flags & IORESOURCE_MEM) {
 			/* program iATU for Non-prefetchable MEM mapping */
 			outbound_atu(pp, PCIE_ATU_REGION_INDEX2,
 				     PCIE_ATU_TYPE_MEM, win->res->start,
-				     win->res->start - win->offset,
-				     resource_size(win->res));
+				     win->res->start, resource_size(win->res));
 		}
 	}
 
@@ -2719,19 +2917,6 @@ static int tegra_pcie_dw_parse_dt(struct tegra_pcie_dw *pcie)
 		dev_err(pcie->dev, "fail to read event-cntr-data: %d\n", ret);
 		return ret;
 	}
-	ret = of_property_read_u32(np, "nvidia,margin-port-cap",
-			     &pcie->margin_port_cap);
-	if (ret < 0) {
-		dev_err(pcie->dev, "fail to read margin-port-cap: %d\n", ret);
-		return ret;
-	}
-
-	ret = of_property_read_u32(np, "nvidia,margin-lane-cntrl",
-			     &pcie->margin_lane_cntrl);
-	if (ret < 0) {
-		dev_err(pcie->dev, "fail to read margin-lane-cntrl: %d\n", ret);
-		return ret;
-	}
 
 	ret = of_property_read_u32(np, "nvidia,dl-feature-cap",
 			     &pcie->dl_feature_cap);
@@ -2746,6 +2931,36 @@ static int tegra_pcie_dw_parse_dt(struct tegra_pcie_dw *pcie)
 		dev_err(pcie->dev, "fail to read EMC DVFS table: %d\n", ret);
 		return ret;
 	}
+
+	ret = of_property_read_u32(np, "nvidia,aux-clk-freq",
+				   &pcie->aux_clk_freq);
+	if (ret < 0) {
+		dev_err(pcie->dev, "fail to read Aux_Clk_Freq: %d\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "nvidia,preset-init",
+				   &pcie->preset_init);
+	if (ret < 0) {
+		dev_err(pcie->dev, "fail to read Preset Init: %d\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "nvidia,aspm-cmrt", &pcie->aspm_cmrt);
+	if (ret < 0)
+		dev_info(pcie->dev, "fail to read ASPM cmrt: %d\n", ret);
+
+	ret = of_property_read_u32(np, "nvidia,aspm-pwr-on-t",
+				   &pcie->aspm_pwr_on_t);
+	if (ret < 0)
+		dev_info(pcie->dev, "fail to read ASPM Power On time: %d\n",
+			 ret);
+
+	ret = of_property_read_u32(np, "nvidia,aspm-l0s-entrance-latency",
+				   &pcie->aspm_l0s_enter_lat);
+	if (ret < 0)
+		dev_info(pcie->dev,
+			 "fail to read ASPM L0s Entrance latency: %d\n", ret);
 
 	ret = of_property_read_u32(np, "num-lanes", &pcie->num_lanes);
 	if (ret < 0) {
@@ -2979,8 +3194,7 @@ static int tegra_pcie_dw_probe(struct platform_device *pdev)
 			kfree(name);
 			if (IS_ERR(phy[i])) {
 				ret = PTR_ERR(phy[i]);
-				if (ret != -EPROBE_DEFER)
-					dev_err(pcie->dev, "phy_get error: %d\n", ret);
+				dev_err(pcie->dev, "phy_get error: %d\n", ret);
 				return ret;
 			}
 		}
@@ -3314,6 +3528,10 @@ static int tegra_pcie_dw_runtime_resume(struct device *dev)
 		val |= APPL_PINMUX_CLKREQ_OVERRIDE_EN;
 		val &= ~APPL_PINMUX_CLKREQ_OVERRIDE;
 		writel(val, pcie->appl_base + APPL_PINMUX);
+
+		/* Disable ASPM-L1SS adv as there is no CLKREQ routing */
+		disable_aspm_l11(pcie); /* Disable L1.1 */
+		disable_aspm_l12(pcie); /* Disable L1.2 */
 	}
 
 	/* update iATU_DMA base address */
@@ -3321,12 +3539,6 @@ static int tegra_pcie_dw_runtime_resume(struct device *dev)
 	       pcie->appl_base + APPL_CFG_IATU_DMA_BASE_ADDR);
 
 	reset_control_deassert(pcie->core_rst);
-
-	if (pcie->disable_clock_request) {
-		/* Disable ASPM-L1SS adv as there is no CLKREQ routing */
-		disable_aspm_l11(pcie); /* Disable L1.1 */
-		disable_aspm_l12(pcie); /* Disable L1.2 */
-	}
 
 	/* program to use MPS of 256 whereever possible */
 	pcie_bus_config = PCIE_BUS_SAFE;
@@ -3371,7 +3583,7 @@ static int tegra_pcie_dw_suspend_late(struct device *dev)
 	struct tegra_pcie_dw *pcie = dev_get_drvdata(dev);
 	u32 val;
 
-	if (!pcie->link_state && pcie->power_down_en)
+	if (!pcie->link_state)
 		return 0;
 
 	/* Enable HW_HOT_RST mode */
@@ -3389,7 +3601,7 @@ static int tegra_pcie_dw_suspend_noirq(struct device *dev)
 	struct tegra_pcie_dw *pcie = dev_get_drvdata(dev);
 	int ret = 0;
 
-	if (!pcie->link_state && pcie->power_down_en)
+	if (!pcie->link_state)
 		return 0;
 
 	/* save MSI interrutp vector*/
@@ -3436,7 +3648,7 @@ static int tegra_pcie_dw_resume_noirq(struct device *dev)
 	int ret;
 	u32 val;
 
-	if (!pcie->link_state && pcie->power_down_en)
+	if (!pcie->link_state)
 		return 0;
 
 	if (gpio_is_valid(pcie->pex_wake) && device_may_wakeup(dev)) {
@@ -3517,6 +3729,10 @@ static int tegra_pcie_dw_resume_noirq(struct device *dev)
 		val |= APPL_PINMUX_CLKREQ_OVERRIDE_EN;
 		val &= ~APPL_PINMUX_CLKREQ_OVERRIDE;
 		writel(val, pcie->appl_base + APPL_PINMUX);
+
+		/* Disable ASPM-L1SS adv as there is no CLKREQ routing */
+		disable_aspm_l11(pcie); /* Disable L1.1 */
+		disable_aspm_l12(pcie); /* Disable L1.2 */
 	}
 
 	/* update iATU_DMA base address */
@@ -3524,12 +3740,6 @@ static int tegra_pcie_dw_resume_noirq(struct device *dev)
 	       pcie->appl_base + APPL_CFG_IATU_DMA_BASE_ADDR);
 
 	reset_control_deassert(pcie->core_rst);
-
-	if (pcie->disable_clock_request) {
-		/* Disable ASPM-L1SS adv as there is no CLKREQ routing */
-		disable_aspm_l11(pcie); /* Disable L1.1 */
-		disable_aspm_l12(pcie); /* Disable L1.2 */
-	}
 
 	tegra_pcie_dw_host_init(&pcie->pp);
 
@@ -3556,7 +3766,7 @@ static int tegra_pcie_dw_resume_early(struct device *dev)
 	struct tegra_pcie_dw *pcie = dev_get_drvdata(dev);
 	u32 val;
 
-	if (!pcie->link_state && pcie->power_down_en)
+	if (!pcie->link_state)
 		return 0;
 
 	/* Disable HW_HOT_RST mode */

@@ -1,7 +1,7 @@
 /*
  * ahci-tegra.c - AHCI SATA support for TEGRA AHCI device
  *
- * Copyright (c) 2011-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -53,7 +53,9 @@
 
 #include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#endif
 #else
 #include <linux/tegra-soc.h>
 #endif
@@ -417,7 +419,11 @@ struct tegra_ahci_host_priv {
 	s16			gen2_rx_eq;
 	int			pexp_gpio_high;
 	int			pexp_gpio_low;
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	enum tegra_chipid	cid;
+#else
+	u8			cid;
+#endif
 	struct tegra_sata_soc_data *soc_data;
 	struct tegra_prod	*prod_list;
 	void __iomem		*base_list[6];
@@ -727,7 +733,11 @@ static void tegra_ahci_set_pad_cntrl_regs(
 	int	i;
 	int	err = 0;
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	if (tegra_hpriv->cid == TEGRA_CHIPID_TEGRA21) {
+#else
+	if (tegra_hpriv->cid == TEGRA210) {
+#endif
 		err = tegra_prod_set_by_name(
 				tegra_hpriv->base_list,
 				"prod",
@@ -2411,14 +2421,21 @@ static int tegra_ahci_init_one(struct platform_device *pdev)
 	struct resource *res, *irq_res;
 	struct phy *phy = NULL;
 	void __iomem *mmio;
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	enum tegra_chipid cid;
-
+#else
+	u8 cid;
+#endif
 
 #if defined(CONFIG_TEGRA_AHCI_CONTEXT_RESTORE)
 	u32 save_size;
 #endif
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	cid = tegra_get_chipid();
+#else
+	cid = tegra_get_chip_id();
+#endif
 
 	VPRINTK("ENTER\n");
 

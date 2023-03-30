@@ -1,7 +1,7 @@
 /*
- * include/uapi/linux/nvhvivc_mempool_ioctl.h
+ * include/uapi/linux/nvpps_ioctl.h
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +20,6 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
-
 struct nvpps_version {
 	struct _version {
 		__u32	major;
@@ -33,9 +32,9 @@ struct nvpps_version {
 };
 
 #define NVPPS_VERSION_MAJOR	0
-#define NVPPS_VERSION_MINOR	1
+#define NVPPS_VERSION_MINOR	2
 #define NVPPS_API_MAJOR		0
-#define NVPPS_API_MINOR		1
+#define NVPPS_API_MINOR         4
 
 struct nvpps_params {
 	__u32	evt_mode;
@@ -56,10 +55,28 @@ struct nvpps_timeevent {
 	__u32	evt_nb;
 	__u64	tsc;
 	__u64	ptp;
+	__s64	ptp_offset;
 	__u64	tsc_res_ns;
 	__u32	evt_mode;
 	__u32	tsc_mode;
 	__u64	irq_latency;
+};
+
+#ifndef _LINUX_TIME64_H
+typedef __s64 time64_t;
+typedef __u64 timeu64_t;
+
+struct timespec64 {
+	time64_t	tv_sec;			/* seconds */
+	long		tv_nsec;		/* nanoseconds */
+};
+#endif
+
+struct nvpps_timestamp_struct {
+	clockid_t	clockid;
+	struct timespec64 kernel_ts;
+        struct timespec64 hw_ptp_ts;
+	__u64		extra[2];
 };
 
 
@@ -67,5 +84,6 @@ struct nvpps_timeevent {
 #define NVPPS_GETPARAMS		_IOR('p', 0x2, struct nvpps_params *)
 #define NVPPS_SETPARAMS		_IOW('p', 0x3, struct nvpps_params *)
 #define NVPPS_GETEVENT		_IOR('p', 0x4, struct nvpps_timeevent *)
+#define NVPPS_GETTIMESTAMP	_IOWR('p', 0x5, struct nvpps_timestamp_struct *)
 
 #endif /* __UAPI_NVPPS_IOCTL_H__ */

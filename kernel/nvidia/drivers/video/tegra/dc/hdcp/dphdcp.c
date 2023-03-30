@@ -24,6 +24,7 @@
 #include <linux/wait.h>
 #include <linux/uaccess.h>
 #include <linux/tsec.h>
+#include <linux/version.h>
 #include <soc/tegra/kfuse.h>
 #include <soc/tegra/fuse.h>
 
@@ -774,7 +775,7 @@ static int tsec_hdcp_dp_verify_vprime(struct tegra_dphdcp *dphdcp)
 {
 	int i;
 	u8 *p;
-	u8 buf[RCVR_ID_LIST_SIZE];
+	u8 buf[RCVR_ID_LIST_SIZE] = {0};
 	unsigned char nonce[HDCP_NONCE_SIZE];
 	struct hdcp_verify_vprime_param verify_vprime_param;
 	int e = 0;
@@ -961,7 +962,7 @@ static int get_repeater_info(struct tegra_dphdcp *dphdcp)
 	return 0;
 }
 
-static void dphdcp_downstream_worker(struct work_struct *work)
+static void dphdcp1_downstream_worker(struct work_struct *work)
 {
 	int e = 0;
 	u8 b_caps = 0;
@@ -1652,12 +1653,21 @@ static int dphdcp_poll(struct tegra_dc_dp_data *dp, int timeout, int status)
 	int e;
 	s64 start_time;
 	s64 end_time;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec tm;
+#else
+	struct timespec64 tm;
+#endif
 	u8 val;
 	u32 aux_stat;
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	ktime_get_ts(&tm);
 	start_time = timespec_to_ns(&tm);
+#else
+	ktime_get_ts64(&tm);
+	start_time = timespec64_to_ns(&tm);
+#endif
 
 	while (1) {
 		ktime_get_ts(&tm);
@@ -2008,36 +2018,39 @@ err:
 }
 #endif
 
-static int tegra_dphdcp_on(struct tegra_dphdcp *dphdcp)
+static void dphdcp_downstream_worker(struct work_struct *work)
 {
+	struct tegra_dphdcp *dphdcp =
+		container_of(to_delayed_work(work), struct tegra_dphdcp, work);
+	struct tegra_dc_dp_data *dp = dphdcp->dp;
 	u8 hdcp2version = 0;
 	int e;
 	u32 status;
-	struct tegra_dc_dp_data *dp = dphdcp->dp;
 
+	dphdcp->fail_count = 0;
+	e = tegra_dphdcp_read(dp, HDCP_HDCP2_VERSION,
+			&hdcp2version, 1, &status);
+	if (e)
+		dphdcp_err("dphdcp i2c HDCP22 version read failed\n");
+
+	dphdcp_vdbg("read back version:%x\n", hdcp2version);
+#ifdef DPHDCP22
+	if (hdcp2version & HDCP_HDCP2_VERSION_HDCP22_YES) {
+		dphdcp->hdcp22 = HDCP22_PROTOCOL;
+		dphdcp2_downstream_worker(work);
+		return;
+	}
+#endif
+	dphdcp->hdcp22 = HDCP1X_PROTOCOL;
+	dphdcp1_downstream_worker(work);
+}
+
+static int tegra_dphdcp_on(struct tegra_dphdcp *dphdcp)
+{
 	dphdcp->state = STATE_UNAUTHENTICATED;
 	if (dphdcp_is_plugged(dphdcp) &&
 		atomic_read(&dphdcp->policy) !=
 		TEGRA_DC_HDCP_POLICY_ALWAYS_OFF) {
-		dphdcp->fail_count = 0;
-		e = tegra_dphdcp_read(dp, HDCP_HDCP2_VERSION,
-				&hdcp2version, 1, &status);
-		if (e)
-			return -EIO;
-
-		dphdcp_vdbg("read back version:%x\n", hdcp2version);
-		if (hdcp2version & HDCP_HDCP2_VERSION_HDCP22_YES) {
-#ifdef DPHDCP22
-			INIT_DELAYED_WORK(&dphdcp->work,
-					dphdcp2_downstream_worker);
-#endif
-			dphdcp->hdcp22 = HDCP22_PROTOCOL;
-		} else {
-			INIT_DELAYED_WORK(&dphdcp->work,
-					dphdcp_downstream_worker);
-			dphdcp->hdcp22 = HDCP1X_PROTOCOL;
-		}
-
 		queue_delayed_work(dphdcp->downstream_wq, &dphdcp->work,
 						msecs_to_jiffies(100));
 	}
@@ -2076,7 +2089,6 @@ static int get_dphdcp_state(struct tegra_dphdcp *dphdcp,
 		pkt->hdcp22 = dphdcp->hdcp22;
 		pkt->port = TEGRA_NVHDCP_PORT_DP;
 	}
-	pkt->sor = dphdcp->dp->sor->ctrl_num;
 	mutex_unlock(&dphdcp->lock);
 	return 0;
 }
@@ -2128,11 +2140,14 @@ void tegra_dphdcp_set_plug(struct tegra_dphdcp *dphdcp, bool hpd)
 	vprime_check_done = false;
 	repeater_flag = false;
 	dphdcp_debug("DP hotplug detected (hpd = %d)\n", hpd);
-	if (hpd) {
-		dphdcp_set_plugged(dphdcp, true);
-		tegra_dphdcp_on(dphdcp);
-	} else {
-		tegra_dphdcp_off(dphdcp);
+
+	if (atomic_read(&dphdcp->policy) != TEGRA_DC_HDCP_POLICY_ALWAYS_OFF) {
+		if (hpd) {
+			dphdcp_set_plugged(dphdcp, true);
+			tegra_dphdcp_on(dphdcp);
+		} else {
+			tegra_dphdcp_off(dphdcp);
+		}
 	}
 }
 
@@ -2141,35 +2156,23 @@ static long dphdcp_dev_ioctl(struct file *filp,
 {
 	struct tegra_dphdcp *dphdcp;
 	struct tegra_nvhdcp_packet *pkt;
-	struct tegra_dc_dp_data *dp;
 	int e = -ENOTTY;
 
 	if (!filp)
 		return -EINVAL;
 
 	dphdcp = filp->private_data;
-	dp = dphdcp->dp;
-
 	switch (cmd) {
 	case TEGRAIO_NVHDCP_ON:
-		mutex_lock(&dphdcp->lock);
-		dphdcp_set_plugged(dphdcp, dp->enabled);
-		mutex_unlock(&dphdcp->lock);
 		return tegra_dphdcp_on(dphdcp);
 
 	case TEGRAIO_NVHDCP_OFF:
 		return tegra_dphdcp_off(dphdcp);
 
 	case TEGRAIO_NVHDCP_SET_POLICY:
-		mutex_lock(&dphdcp->lock);
-		dphdcp_set_plugged(dphdcp, dp->enabled);
-		mutex_unlock(&dphdcp->lock);
 		return tegra_dphdcp_set_policy(dphdcp, arg);
 
 	case TEGRAIO_NVHDCP_RENEGOTIATE:
-		mutex_lock(&dphdcp->lock);
-		dphdcp_set_plugged(dphdcp, dp->enabled);
-		mutex_unlock(&dphdcp->lock);
 		e = tegra_dphdcp_renegotiate(dphdcp);
 		break;
 
@@ -2196,27 +2199,7 @@ static int dphdcp_dev_open(struct inode *inode, struct file *filp)
 	struct miscdevice *miscdev = filp->private_data;
 	struct tegra_dphdcp *dphdcp =
 		container_of(miscdev, struct tegra_dphdcp, miscdev);
-#ifndef CONFIG_ANDROID
-	int err = 0;
-#endif
 	filp->private_data = dphdcp;
-
-/* enable policy only if HDCP TA is ready */
-#ifndef CONFIG_ANDROID
-	if (!dphdcp->policy_initialized) {
-		dphdcp->policy_initialized = true;
-
-		err = te_open_trusted_session(HDCP_PORT_NAME, &dphdcp->ta_ctx);
-		if (!err)
-			tegra_dphdcp_set_policy(dphdcp,
-				TEGRA_DC_HDCP_POLICY_ALWAYS_ON);
-
-		if (dphdcp->ta_ctx) {
-			te_close_trusted_session(dphdcp->ta_ctx);
-			dphdcp->ta_ctx = NULL;
-		}
-	}
-#endif
 	return 0;
 }
 
@@ -2283,6 +2266,8 @@ struct tegra_dphdcp *tegra_dphdcp_create(struct tegra_dc_dp_data *dp,
 	dphdcp->state = STATE_UNAUTHENTICATED;
 
 	dphdcp->downstream_wq = create_singlethread_workqueue(dphdcp->name);
+
+	INIT_DELAYED_WORK(&dphdcp->work, dphdcp_downstream_worker);
 
 	dphdcp->miscdev.minor = MISC_DYNAMIC_MINOR;
 	dphdcp->miscdev.name = dphdcp->name;

@@ -1,0 +1,66 @@
+From 2a331637293bb0907eaaa6368d6bb11d4c76d668 Mon Sep 17 00:00:00 2001
+From: Sandeep Patil <sspatil@google.com>
+Date: Thu, 19 Mar 2020 18:18:41 -0700
+Subject: [PATCH 669/830] ANDROID: GKI: Enable CONFIG_USB_PHY for usb drivers
+ like dwc3
+X-NVConfidentiality: public
+
+The configuration is only selected by other drivers, so add it in
+the list of hidden gki configurations. USB_PHY also autoselects
+CONFIG_EXTCON, so EXTCON now disappears from gki_defconfig
+
+Bug: 151969174
+Test: Builds
+
+Signed-off-by: Sandeep Patil <sspatil@google.com>
+Change-Id: I0cc55d2f06fcb5a46daf0578629e1f0a653ac48b
+---
+ arch/arm64/configs/gki_defconfig |  1 -
+ init/Kconfig.gki                 | 12 ++++++++++++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 52239278f919..b0d33d41d0a7 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -371,7 +371,6 @@ CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+ CONFIG_DEVFREQ_GOV_POWERSAVE=y
+ CONFIG_DEVFREQ_GOV_USERSPACE=y
+ CONFIG_DEVFREQ_GOV_PASSIVE=y
+-CONFIG_EXTCON=y
+ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+ CONFIG_IIO_TRIGGER=y
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index b68a5a14be0f..c752d6284773 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -116,6 +116,17 @@ config GKI_LEGACY_WEXT_ALLCONFIG
+ 	  If you are not building a kernel to be used for a variety of
+ 	  out-of-kernel built wireless modules, say N here.
+ 
++config GKI_HIDDEN_USB_CONFIGS
++	bool "Hiddel USB configurations needed for GKI"
++	select USB_PHY
++	help
++	  Dummy config option used to enable all USB related hidden configs.
++	  These configurations are usually only selected by another config
++	  option or a combination of them.
++
++	  If you are not building a kernel to be used for a variety of
++	  out-of-kernel build USB drivers, say N here.
++
+ # Atrocities needed for
+ # a) building GKI modules in separate tree, or
+ # b) building drivers that are not modularizable
+@@ -136,6 +147,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+ 	select GKI_HIDDEN_MEDIA_CONFIGS
+ 	select GKI_HIDDEN_VIRTUAL_CONFIGS
++	select GKI_HIDDEN_USB_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+ 	  modules that may not be selectable in this config.
+-- 
+2.17.1
+

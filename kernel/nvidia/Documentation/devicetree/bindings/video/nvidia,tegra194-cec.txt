@@ -1,0 +1,40 @@
+NVIDIA Tegra Consumer Electronics Control
+
+The Tegra CEC provides an engine for Consumer Electronics Control protocol
+implementation. It is used to transfer command to connected monitor via
+display connector.
+
+This document describes the device tree bindings for the CEC hardware itself,
+as well as for subnodes corresponding to this engine.
+
+Required properties:
+- status: Should be "disabled" in SoC and "okay" in Board DTSI.
+- compatible: Must be "nvidia,tegra194-cec".
+- reg: A list of physical base address and length of the controller's
+  registers.
+- interrupts: The interrupt IRQ info for the controller.
+- clocks: Must contain an entry for each entry in clock-names.
+- clock-names: Must include the following entries:
+  "cec"
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+tegra_cec: tegra_cec {
+	status = "disabled";
+	compatible = "nvidia,tegra194-cec";
+	reg = <0x0 0x03960000 0x0 0x00001000>;
+	interrupts = <0 162 0x04>;
+	clocks = <&bpmp_clks TEGRA194_CLK_CEC>;
+	clock-names = "cec";
+};
+
+Board DTSI:
+----------
+
+tegra_cec: tegra_cec {
+	status = "okay";
+};

@@ -155,7 +155,7 @@ static irqreturn_t vi_checkwd(struct vi *tegra_vi, int stream)
 	return IRQ_NONE;
 }
 
-static irqreturn_t vi_isr(int irq, void *dev_id)
+irqreturn_t vi_isr(int irq, void *dev_id)
 {
 	struct vi *tegra_vi = (struct vi *)dev_id;
 	int i, val;

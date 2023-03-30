@@ -1,7 +1,7 @@
 /*
  * edid_quirks.c: edid specific exceptions.
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION, All rights reserved.
  * Author: Anshuman Nath Kar <anshumank@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -25,10 +25,16 @@ static const struct hdmi_blacklist {
 	/* Bauhn ATVS65-815 65" 4K TV */
 	{ "CTV", 48, "Tempo 4K TV", TEGRA_EDID_QUIRK_NO_YUV },
 	/* Vizio SmartCast P-Series 4K TV */
-	{ "VIZ", 4120, "P50-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP },
-	{ "VIZ", 4120, "P55-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP },
-	{ "VIZ", 4120, "P65-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP },
-	{ "VIZ", 4120, "P75-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP },
+	/* WAR for bug 2734273 /2719829 to ignore EAC3 capability */
+	{ "VIZ", 4120, "P50-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP |
+		TEGRA_EDID_QUIRK_IGNORE_EAC3 },
+	{ "VIZ", 4120, "P55-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP |
+		TEGRA_EDID_QUIRK_IGNORE_EAC3 },
+	{ "VIZ", 4120, "P65-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP |
+		TEGRA_EDID_QUIRK_IGNORE_EAC3 },
+	{ "VIZ", 4120, "P75-C1",    TEGRA_EDID_QUIRK_DELAY_HDCP |
+		TEGRA_EDID_QUIRK_IGNORE_EAC3 },
+	{ "VIZ", 4120, "P65-E1",    TEGRA_EDID_QUIRK_IGNORE_EAC3 },
 	/* BlackMagic 12G SDI */
 	{ "BMD", 0,    "BMD HDMI",  TEGRA_EDID_QUIRK_NO_HDCP    },
 	/* Denon 2313 doesn't support YUV422, but declares support for it */
@@ -40,6 +46,12 @@ static const struct hdmi_blacklist {
 	{ "SAM", 3387, "SAMSUNG",   TEGRA_EDID_QUIRK_HPD_BOUNCE },
 	/* WAR for bug 2408317 to skip non-CEA modes */
 	{ "KL@", 18508, "LCD HDTV", TEGRA_EDID_QUIRK_ONLY_CEA   },
+	/* WAR for bug 2818605 to add missing DV 4k@60 */
+	/* WAR for bug 3323188 to fix HDCP delay issue on LG SBAR */
+	{ "LGE", 0,    "LG-SBAR",   TEGRA_EDID_QUIRK_LG_SBAR |
+		TEGRA_EDID_QUIRK_DELAY_HDCP },
+	/* WAR for bug 2789334 to fix Dolby Vision VSVDB length */
+	{ "VIZ", 4149, "M558-G1",   TEGRA_EDID_QUIRK_VSVDB_LEN  },
 };
 
 u32 tegra_edid_lookup_quirks(const char *manufacturer, u32 model,

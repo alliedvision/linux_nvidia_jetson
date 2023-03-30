@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,223 +53,68 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_fuse_gp106_h_
-#define _hw_fuse_gp106_h_
+#ifndef NVGPU_HW_FUSE_GP106_H
+#define NVGPU_HW_FUSE_GP106_H
 
-static inline u32 fuse_status_opt_gpc_r(void)
-{
-	return 0x00021c1cU;
-}
-static inline u32 fuse_status_opt_tpc_gpc_r(u32 i)
-{
-	return 0x00021c38U + i*4U;
-}
-static inline u32 fuse_ctrl_opt_tpc_gpc_r(u32 i)
-{
-	return 0x00021838U + i*4U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_r(void)
-{
-	return 0x00021944U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_data_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_data_m(void)
-{
-	return 0x3U << 0U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_data_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_r(void)
-{
-	return 0x00021948U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_data_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_data_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_data_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_data_yes_f(void)
-{
-	return 0x1U;
-}
-static inline u32 fuse_ctrl_opt_ram_svop_pdp_override_data_no_f(void)
-{
-	return 0x0U;
-}
-static inline u32 fuse_status_opt_fbio_r(void)
-{
-	return 0x00021c14U;
-}
-static inline u32 fuse_status_opt_fbio_data_f(u32 v)
-{
-	return (v & 0xffffU) << 0U;
-}
-static inline u32 fuse_status_opt_fbio_data_m(void)
-{
-	return 0xffffU << 0U;
-}
-static inline u32 fuse_status_opt_fbio_data_v(u32 r)
-{
-	return (r >> 0U) & 0xffffU;
-}
-static inline u32 fuse_status_opt_rop_l2_fbp_r(u32 i)
-{
-	return 0x00021d70U + i*4U;
-}
-static inline u32 fuse_status_opt_fbp_r(void)
-{
-	return 0x00021d38U;
-}
-static inline u32 fuse_status_opt_fbp_idx_v(u32 r, u32 i)
-{
-	return (r >> (0U + i*1U)) & 0x1U;
-}
-static inline u32 fuse_vin_cal_fuse_rev_r(void)
-{
-	return 0x0002164cU;
-}
-static inline u32 fuse_vin_cal_fuse_rev_data_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 fuse_vin_cal_gpc0_r(void)
-{
-	return 0x00021650U;
-}
-static inline u32 fuse_vin_cal_gpc0_icpt_int_data_s(void)
-{
-	return 12U;
-}
-static inline u32 fuse_vin_cal_gpc0_icpt_int_data_v(u32 r)
-{
-	return (r >> 16U) & 0xfffU;
-}
-static inline u32 fuse_vin_cal_gpc0_icpt_frac_data_s(void)
-{
-	return 2U;
-}
-static inline u32 fuse_vin_cal_gpc0_icpt_frac_data_v(u32 r)
-{
-	return (r >> 14U) & 0x3U;
-}
-static inline u32 fuse_vin_cal_gpc0_slope_int_data_s(void)
-{
-	return 4U;
-}
-static inline u32 fuse_vin_cal_gpc0_slope_int_data_v(u32 r)
-{
-	return (r >> 10U) & 0xfU;
-}
-static inline u32 fuse_vin_cal_gpc0_slope_frac_data_s(void)
-{
-	return 10U;
-}
-static inline u32 fuse_vin_cal_gpc0_slope_frac_data_v(u32 r)
-{
-	return (r >> 0U) & 0x3ffU;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_r(void)
-{
-	return 0x00021654U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_int_data_s(void)
-{
-	return 8U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_int_data_v(u32 r)
-{
-	return (r >> 14U) & 0xffU;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_frac_data_s(void)
-{
-	return 2U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_frac_data_v(u32 r)
-{
-	return (r >> 12U) & 0x3U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_sign_data_s(void)
-{
-	return 1U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_icpt_sign_data_v(u32 r)
-{
-	return (r >> 22U) & 0x1U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_int_data_s(void)
-{
-	return 1U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_int_data_v(u32 r)
-{
-	return (r >> 10U) & 0x1U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_frac_data_s(void)
-{
-	return 10U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_frac_data_v(u32 r)
-{
-	return (r >> 0U) & 0x3ffU;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_sign_data_s(void)
-{
-	return 1U;
-}
-static inline u32 fuse_vin_cal_gpc1_delta_slope_sign_data_v(u32 r)
-{
-	return (r >> 11U) & 0x1U;
-}
-static inline u32 fuse_vin_cal_gpc2_delta_r(void)
-{
-	return 0x00021658U;
-}
-static inline u32 fuse_vin_cal_gpc3_delta_r(void)
-{
-	return 0x0002165cU;
-}
-static inline u32 fuse_vin_cal_gpc4_delta_r(void)
-{
-	return 0x00021660U;
-}
-static inline u32 fuse_vin_cal_gpc5_delta_r(void)
-{
-	return 0x00021664U;
-}
-static inline u32 fuse_vin_cal_shared_delta_r(void)
-{
-	return 0x00021668U;
-}
-static inline u32 fuse_vin_cal_sram_delta_r(void)
-{
-	return 0x0002166cU;
-}
-static inline u32 fuse_vin_cal_sram_delta_icpt_int_data_s(void)
-{
-	return 9U;
-}
-static inline u32 fuse_vin_cal_sram_delta_icpt_int_data_v(u32 r)
-{
-	return (r >> 13U) & 0x1ffU;
-}
-static inline u32 fuse_vin_cal_sram_delta_icpt_frac_data_s(void)
-{
-	return 1U;
-}
-static inline u32 fuse_vin_cal_sram_delta_icpt_frac_data_v(u32 r)
-{
-	return (r >> 12U) & 0x1U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define fuse_status_opt_gpc_r()                                    (0x00021c1cU)
+#define fuse_status_opt_tpc_gpc_r(i)\
+		(nvgpu_safe_add_u32(0x00021c38U, nvgpu_safe_mult_u32((i), 4U)))
+#define fuse_ctrl_opt_tpc_gpc_r(i)\
+		(nvgpu_safe_add_u32(0x00021838U, nvgpu_safe_mult_u32((i), 4U)))
+#define fuse_ctrl_opt_ram_svop_pdp_r()                             (0x00021944U)
+#define fuse_ctrl_opt_ram_svop_pdp_data_f(v)             ((U32(v) & 0x3U) << 0U)
+#define fuse_ctrl_opt_ram_svop_pdp_data_m()                    (U32(0x3U) << 0U)
+#define fuse_ctrl_opt_ram_svop_pdp_data_v(r)                (((r) >> 0U) & 0x3U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_r()                    (0x00021948U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_data_f(v)    ((U32(v) & 0x1U) << 0U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_data_m()           (U32(0x1U) << 0U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_data_v(r)       (((r) >> 0U) & 0x1U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_data_yes_f()                  (0x1U)
+#define fuse_ctrl_opt_ram_svop_pdp_override_data_no_f()                   (0x0U)
+#define fuse_status_opt_fbio_r()                                   (0x00021c14U)
+#define fuse_status_opt_fbio_data_f(v)                ((U32(v) & 0xffffU) << 0U)
+#define fuse_status_opt_fbio_data_m()                       (U32(0xffffU) << 0U)
+#define fuse_status_opt_fbio_data_v(r)                   (((r) >> 0U) & 0xffffU)
+#define fuse_status_opt_rop_l2_fbp_r(i)\
+		(nvgpu_safe_add_u32(0x00021d70U, nvgpu_safe_mult_u32((i), 4U)))
+#define fuse_status_opt_fbp_r()                                    (0x00021d38U)
+#define fuse_status_opt_fbp_idx_v(r, i)\
+		(((r) >> (0U + i*1U)) & 0x1U)
+#define fuse_vin_cal_fuse_rev_r()                                  (0x0002164cU)
+#define fuse_vin_cal_fuse_rev_data_v(r)                     (((r) >> 0U) & 0x3U)
+#define fuse_vin_cal_gpc0_r()                                      (0x00021650U)
+#define fuse_vin_cal_gpc0_icpt_int_data_s()                                (12U)
+#define fuse_vin_cal_gpc0_icpt_int_data_v(r)             (((r) >> 16U) & 0xfffU)
+#define fuse_vin_cal_gpc0_icpt_frac_data_s()                                (2U)
+#define fuse_vin_cal_gpc0_icpt_frac_data_v(r)              (((r) >> 14U) & 0x3U)
+#define fuse_vin_cal_gpc0_slope_int_data_s()                                (4U)
+#define fuse_vin_cal_gpc0_slope_int_data_v(r)              (((r) >> 10U) & 0xfU)
+#define fuse_vin_cal_gpc0_slope_frac_data_s()                              (10U)
+#define fuse_vin_cal_gpc0_slope_frac_data_v(r)            (((r) >> 0U) & 0x3ffU)
+#define fuse_vin_cal_gpc1_delta_r()                                (0x00021654U)
+#define fuse_vin_cal_gpc1_delta_icpt_int_data_s()                           (8U)
+#define fuse_vin_cal_gpc1_delta_icpt_int_data_v(r)        (((r) >> 14U) & 0xffU)
+#define fuse_vin_cal_gpc1_delta_icpt_frac_data_s()                          (2U)
+#define fuse_vin_cal_gpc1_delta_icpt_frac_data_v(r)        (((r) >> 12U) & 0x3U)
+#define fuse_vin_cal_gpc1_delta_icpt_sign_data_s()                          (1U)
+#define fuse_vin_cal_gpc1_delta_icpt_sign_data_v(r)        (((r) >> 22U) & 0x1U)
+#define fuse_vin_cal_gpc1_delta_slope_int_data_s()                          (1U)
+#define fuse_vin_cal_gpc1_delta_slope_int_data_v(r)        (((r) >> 10U) & 0x1U)
+#define fuse_vin_cal_gpc1_delta_slope_frac_data_s()                        (10U)
+#define fuse_vin_cal_gpc1_delta_slope_frac_data_v(r)      (((r) >> 0U) & 0x3ffU)
+#define fuse_vin_cal_gpc1_delta_slope_sign_data_s()                         (1U)
+#define fuse_vin_cal_gpc1_delta_slope_sign_data_v(r)       (((r) >> 11U) & 0x1U)
+#define fuse_vin_cal_gpc2_delta_r()                                (0x00021658U)
+#define fuse_vin_cal_gpc3_delta_r()                                (0x0002165cU)
+#define fuse_vin_cal_gpc4_delta_r()                                (0x00021660U)
+#define fuse_vin_cal_gpc5_delta_r()                                (0x00021664U)
+#define fuse_vin_cal_shared_delta_r()                              (0x00021668U)
+#define fuse_vin_cal_sram_delta_r()                                (0x0002166cU)
+#define fuse_vin_cal_sram_delta_icpt_int_data_s()                           (9U)
+#define fuse_vin_cal_sram_delta_icpt_int_data_v(r)       (((r) >> 13U) & 0x1ffU)
+#define fuse_vin_cal_sram_delta_icpt_frac_data_s()                          (1U)
+#define fuse_vin_cal_sram_delta_icpt_frac_data_v(r)        (((r) >> 12U) & 0x1U)
 #endif

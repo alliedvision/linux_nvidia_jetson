@@ -1,0 +1,16 @@
+Tegra Hypervisor Communication driver
+
+This driver simulates a serial port over a Tegra IVC channel
+The serial port works exactly like a normal serial port
+
+Required Properties:
+- compatible: should be "nvidia,tegra-hv-comm"
+- ivc:        ivc channel number used for communication
+
+
+Example:
+	tegra_hv_comm {
+		compatible = "nvidia,tegra-hv-comm";
+		status = "okay";
+		ivc = <&tegra_hv 80>;
+	};

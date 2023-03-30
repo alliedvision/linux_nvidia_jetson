@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * tegrat234-soc-cvm.dtsi: CVM based platform common SoC specific DTSI file
+ *			   with required node enabled.
+ */
+
+#include <tegra234-soc/tegra234-soc-base.dtsi>
+#include <tegra234-soc/tegra234-cpus.dtsi>
+#include <tegra234-soc/tegra234-soc-prod.dtsi>
+
+/ {
+	gpcdma@2600000 {
+		status = "okay";
+	};
+
+	i2c@3160000 {
+		status = "okay";
+	};
+
+	i2c@3180000 {
+		status = "okay";
+	};
+
+	i2c@3190000 {
+		status = "okay";
+	};
+
+	i2c@31b0000 {
+		status = "okay";
+		nvidia,reinit-ctrl-before-xfer;
+	};
+
+	i2c@31c0000 {
+		status = "okay";
+	};
+
+	i2c@31e0000 {
+		status = "okay";
+	};
+
+	i2c@c240000 {
+		status = "okay";
+	};
+
+	i2c@c250000 {
+		status = "okay";
+	};
+
+	pmc@c360000 {
+		status = "okay";
+	};
+
+	gpio-keys {
+		status = "okay";
+	};
+
+	ga10b {
+		status = "okay";
+	};
+
+	iommu@12000000 {
+		status = "okay";
+	};
+
+	iommu@10000000 {
+		status = "okay";
+	};
+
+	iommu@8000000 {
+		status = "okay";
+	};
+
+	smmu_suspend {
+		status = "okay";
+	};
+};

@@ -1,0 +1,23 @@
+Nvidia, smmu-test:
+==================
+
+The device node describes smmu-test as device
+used to benchmark smmu. The device driver uses this
+dt property to benchmark, smmu operations such as
+attach/detach and map/unmap.
+
+It uses TEGRA_SID_SMMU_TEST as Sid.
+
+Required properties:
+--------------------
+- compatible = Must be one of the following
+               "nvidia,smmu_test"
+- iommus     = defines SID
+
+Examples:
+========
+
+smmu_test: smmu_test {
+		compatible = "nvidia,smmu_test";
+		iommus = <&smmu TEGRA_SID_SMMU_TEST>;
+	};

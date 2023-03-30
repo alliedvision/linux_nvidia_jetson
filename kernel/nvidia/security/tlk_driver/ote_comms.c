@@ -50,33 +50,6 @@ static struct te_session *te_get_session(struct tlk_context *context,
 	return NULL;
 }
 
-#ifdef CONFIG_SMP
-cpumask_t saved_cpu_mask;
-static long switch_cpumask_to_cpu0(void)
-{
-	long ret;
-	cpumask_t local_cpu_mask = CPU_MASK_NONE;
-
-	cpumask_set_cpu(0, &local_cpu_mask);
-	cpumask_copy(&saved_cpu_mask, &current->cpus_allowed);
-	ret = sched_setaffinity(0, &local_cpu_mask);
-	if (ret)
-		pr_err("%s: sched_setaffinity #1 -> 0x%lX", __func__, ret);
-
-	return ret;
-}
-
-static void restore_cpumask(void)
-{
-	long ret = sched_setaffinity(0, &saved_cpu_mask);
-	if (ret)
-		pr_err("%s: sched_setaffinity #2 -> 0x%lX", __func__, ret);
-}
-#else
-static inline long switch_cpumask_to_cpu0(void) { return 0; };
-static inline void restore_cpumask(void) {};
-#endif
-
 struct tlk_smc_work_args {
 	uint32_t arg0;
 	uintptr_t arg1;
@@ -107,48 +80,23 @@ static long tlk_generic_smc_on_cpu0(void *args)
 
 /*
  * This routine is called both from normal threads and worker threads.
- * The worker threads are per-cpu and have PF_NO_SETAFFINITY set, so
- * any calls to sched_setaffinity will fail.
+ * The worker threads have PF_NO_SETAFFINITY set, so any calls to
+ * sched_setaffinity will fail.
  *
- * If it's a worker thread on CPU0, just invoke the SMC directly. If
- * it's running on a non-CPU0, use work_on_cpu() to schedule the SMC
- * on CPU0.
+ * If it's a worker thread, always schedule work on CPU0.
+ * If it's not a worker thread, try to switch to CPU0. If this fails,
+ * then schedule work on CPU0.
  */
 uint32_t tlk_send_smc(uint32_t arg0, uintptr_t arg1, uintptr_t arg2)
 {
-	long ret;
 	struct tlk_smc_work_args work_args;
 
 	work_args.arg0 = arg0;
 	work_args.arg1 = arg1;
 	work_args.arg2 = arg2;
 
-	if (current->flags &
-	    (PF_WQ_WORKER | PF_NO_SETAFFINITY | PF_KTHREAD)) {
-		int cpu = cpu_logical_map(get_cpu());
-		put_cpu();
-
-		/* workers don't change CPU. depending on the CPU, execute
-		 * directly or sched work */
-		if (cpu == 0 && (current->flags & PF_WQ_WORKER))
-			return tlk_generic_smc_on_cpu0(&work_args);
-		else
-			return work_on_cpu(0,
-					tlk_generic_smc_on_cpu0, &work_args);
-	}
-
-	/* switch to CPU0 */
-	ret = switch_cpumask_to_cpu0();
-	if (ret) {
-		/* not able to switch, schedule work on CPU0 */
-		ret = work_on_cpu(0, tlk_generic_smc_on_cpu0, &work_args);
-	} else {
-		/* switched to CPU0 */
-		ret = tlk_generic_smc_on_cpu0(&work_args);
-		restore_cpumask();
-	}
-
-	return ret;
+	return work_on_cpu(0,
+			tlk_generic_smc_on_cpu0, &work_args);
 }
 
 /*

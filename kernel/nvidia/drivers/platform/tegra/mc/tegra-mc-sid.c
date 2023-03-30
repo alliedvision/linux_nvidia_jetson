@@ -1,7 +1,7 @@
 /*
  * MC StreamID configuration
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,39 +21,42 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/slab.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <soc/tegra/tegra-sid-override.h>
+#endif
 
 #include <linux/platform/tegra/tegra-mc-sid.h>
 #include <dt-bindings/memory/tegra-swgroup.h>
 
 #define TO_MC_SID_STREAMID_SECURITY_CONFIG(addr)	(addr + sizeof(u32))
 
-#define SMMU_BYPASS_SID		0x7f
+static LIST_HEAD(sid_override_list);
+
+struct tegra_mc_sid_override {
+	struct list_head list;
+	void __iomem *addr;
+	unsigned long sid;
+};
 
 struct tegra_mc_sid {
 	struct device *dev;
 	void __iomem *base;
 	void __iomem *sid_base;
 	const struct tegra_mc_sid_soc_data *soc_data;
-	u32 smmu_bypass_sid;
 	struct dentry *debugfs_root;
 };
 
 static struct tegra_mc_sid *mc_sid;
-
-/*
- * Return the by-pass-smmu StreamID.
- */
-u32 tegra_mc_get_smmu_bypass_sid(void)
-{
-	if (!mc_sid)
-		return SMMU_BYPASS_SID;
-
-	return mc_sid->smmu_bypass_sid;
-}
-EXPORT_SYMBOL(tegra_mc_get_smmu_bypass_sid);
 
 /*
  * Return a string with the name associated with the passed StreamID.
@@ -87,6 +90,7 @@ end:
 
 static void __mc_override_sid(int sid, int oid, enum mc_overrides ord)
 {
+	struct tegra_mc_sid_override *entry;
 	volatile void __iomem *addr;
 	u32 val;
 	int offs = mc_sid->soc_data->sid_override_reg[oid].offs;
@@ -100,23 +104,27 @@ static void __mc_override_sid(int sid, int oid, enum mc_overrides ord)
 		&& (val & SCEW_STREAMID_WRITE_ACCESS_DISABLED))
 		return;
 
-	/*
-	 * Only valid when kernel runs in secure mode.
-	 * Otherwise, no effect on MC_SID_STREAMID_SECURITY_CONFIG_*.
-	 */
-	if ((ord == OVERRIDE) ||
-	    (tegra_platform_is_sim() && ord == SIM_OVERRIDE))
-		val = SCEW_STREAMID_OVERRIDE | SCEW_NS;
-	else
-		val = SCEW_NS;
-
-	writel_relaxed(val, addr);
-
 	addr = mc_sid->sid_base + offs;
 	writel_relaxed(sid, addr);
 
 	pr_debug("override sid=%d oid=%d ord=%d at offset=%x\n",
 		 sid, oid, ord, offs);
+
+	/* Check if this override exists in the list */
+	list_for_each_entry(entry, &sid_override_list, list) {
+		if (entry->addr != mc_sid->sid_base + offs)
+			continue;
+		/* Upon hit, Update existing list if mismatch */
+		if (entry->sid != sid)
+			entry->sid = sid;
+		return;
+	}
+
+	/* Add this override to the list for resume() */
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry->addr = mc_sid->sid_base + offs;
+	entry->sid = sid;
+	list_add_tail(&entry->list, &sid_override_list);
 }
 
 void platform_override_streamid(int sid)
@@ -145,9 +153,9 @@ void platform_override_streamid(int sid)
 
 #if defined(CONFIG_DEBUG_FS)
 
-enum { ORD, SEC, TXN, MAX_REGS_TYPE};
+enum { ORD, SEC, MAX_REGS_TYPE};
 
-static const char * const mc_regs_type[] = { "ord", "sec", "txn", };
+static const char * const mc_regs_type[] = { "ord", "sec", };
 
 static int mc_reg32_debugfs_set(void *data, u64 val)
 {
@@ -179,8 +187,6 @@ static void tegra_mc_sid_create_debugfs(void)
 
 		if (i == SEC)
 			base = mc_sid->sid_base + sizeof(u32);
-		else if (i == TXN)
-			base = mc_sid->base + 0x1000;
 		else
 			base = mc_sid->sid_base;
 
@@ -235,23 +241,6 @@ int tegra_mc_sid_probe(struct platform_device *pdev,
 
 	mc_sid->sid_base = addr;
 
-	/* Read the bypass streamid. If not found, assign default value. */
-	if (of_property_read_u32(pdev->dev.of_node,
-				"nvidia,by-pass-smmu-streamid",
-				&mc_sid->smmu_bypass_sid))
-		mc_sid->smmu_bypass_sid = SMMU_BYPASS_SID;
-
-	/* FIXME: wait for MC driver */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	addr = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(addr))
-		return PTR_ERR(addr);
-
-	mc_sid->base = addr;
-
-	writel_relaxed(TBU_BYPASS_SID,
-		mc_sid->base + MC_SMMU_BYPASS_CONFIG_0);
-
 	tegra_mc_sid_create_debugfs();
 
 	return 0;
@@ -260,11 +249,29 @@ EXPORT_SYMBOL_GPL(tegra_mc_sid_probe);
 
 int tegra_mc_sid_remove(struct platform_device *pdev)
 {
+	struct tegra_mc_sid_override *entry, *next;
+
 	tegra_mc_sid_remove_debugfs();
+	list_for_each_entry_safe(entry, next, &sid_override_list, list) {
+		list_del(&entry->list);
+		kfree(entry);
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(tegra_mc_sid_remove);
+
+int tegra_mc_sid_resume_early(struct device *dev)
+{
+	struct tegra_mc_sid_override *entry;
+
+	/* Restore all saved overrides */
+	list_for_each_entry(entry, &sid_override_list, list)
+		writel_relaxed(entry->sid, entry->addr);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tegra_mc_sid_resume_early);
 
 MODULE_DESCRIPTION("MC StreamID configuration");
 MODULE_AUTHOR("Hiroshi DOYU <hdoyu@nvidia.com>, Pritesh Raithatha <praithatha@nvidia.com>");

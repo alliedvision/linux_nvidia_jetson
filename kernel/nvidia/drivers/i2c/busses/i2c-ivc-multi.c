@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2017-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -229,9 +229,7 @@ static int tegra_i2c_ivc_multi_xfer(
 {
 	int ret = 0;
 
-	ret = tegra_ivc_channel_runtime_get(sensor->i2c_ivc_dev->chan);
-	if (ret < 0)
-		goto exit;
+	tegra_ivc_channel_runtime_get(sensor->i2c_ivc_dev->chan);
 
 	if (sensor->req_len == CAMRTC_I2C_MULTI_HEADER_SIZE) {
 		ret = 0;

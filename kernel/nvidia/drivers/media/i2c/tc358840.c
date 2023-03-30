@@ -2,7 +2,7 @@
  * tc358840.c - Toshiba UH2C/D HDMI-CSI bridge driver
  *
  * Copyright (c) 2015, Armin Weiss <weii@zhaw.ch>
- * Copyright (c) 2016 - 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is based on the tc358840 - Toshiba HDMI to CSI-2 bridge driver
  * from Cisco Systems, Inc.
@@ -552,7 +552,11 @@ static void print_avi_infoframe(struct v4l2_subdev *sd)
 
 	i2c_rd(sd, PK_AVI_0HEAD, buffer, HDMI_INFOFRAME_SIZE(AVI));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	if (hdmi_infoframe_unpack(&frame, buffer) < 0) {
+#else
+	if (hdmi_infoframe_unpack(&frame, buffer, sizeof(buffer)) < 0) {
+#endif
 		v4l2_err(sd, "%s: unpack of AVI infoframe failed\n", __func__);
 		return;
 	}
@@ -1733,12 +1737,26 @@ static int tc358840_dv_timings_cap(struct v4l2_subdev *sd,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static int tc358840_g_mbus_config(struct v4l2_subdev *sd,
 				  struct v4l2_mbus_config *cfg)
+#else
+static int tc358840_get_mbus_config(struct v4l2_subdev *sd,
+				unsigned int pad,
+                                struct v4l2_mbus_config *cfg)
+#endif
 {
 	v4l2_dbg(3, debug, sd, "%s():\n", __func__);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	cfg->type = V4L2_MBUS_CSI2;
+#else
+	/*
+	 * TODO Bug 200664694: If the sensor type is CPHY
+	 *  then return an error
+	 */
+	cfg->type = V4L2_MBUS_CSI2_DPHY;
+#endif
 
 	/* Support for non-continuous CSI-2 clock is missing in the driver */
 	cfg->flags = V4L2_MBUS_CSI2_CONTINUOUS_CLOCK | V4L2_MBUS_CSI2_CHANNEL_0;
@@ -1814,6 +1832,8 @@ static int tc358840_log_status(struct v4l2_subdev *sd)
 		"RGB", "YCbCr 601", "Adobe RGB", "YCbCr 709", "NA (4)",
 		"xvYCC 601", "NA(6)", "xvYCC 709", "NA(8)", "sYCC601",
 		"NA(10)", "NA(11)", "NA(12)", "Adobe YCC 601"};
+	u8 num_color_space = sizeof(input_color_space) / sizeof(input_color_space[0]);
+	u8 color_space_index = 0;
 
 	v4l2_ctrl_subdev_log_status(sd);
 	v4l2_info(sd, "-----Chip status-----\n");
@@ -1885,9 +1905,11 @@ static int tc358840_log_status(struct v4l2_subdev *sd)
 	v4l2_info(sd, "-----%s status-----\n", is_hdmi(sd) ? "HDMI" : "DVI-D");
 	v4l2_info(sd, "HDCP encrypted content: %s\n",
 			hdmi_sys_status & MASK_S_HDCP ? "yes" : "no");
-	v4l2_info(sd, "Input color space: %s %s range\n",
-			input_color_space[(vi_status3 & MASK_S_V_COLOR) >> 1],
-			(vi_status3 & MASK_LIMITED) ? "limited" : "full");
+	color_space_index = (vi_status3 & MASK_S_V_COLOR) >> 1;
+	if (color_space_index < num_color_space)
+		v4l2_info(sd, "Input color space: %s %s range\n",
+				input_color_space[color_space_index],
+				(vi_status3 & MASK_LIMITED) ? "limited" : "full");
 	if (!is_hdmi(sd))
 		return 0;
 	v4l2_info(sd, "AV Mute: %s\n", hdmi_sys_status & MASK_S_AVMUTE ? "on" :
@@ -1993,7 +2015,9 @@ static struct v4l2_subdev_video_ops tc358840_subdev_video_ops = {
 	.s_dv_timings = tc358840_s_dv_timings,
 	.g_dv_timings = tc358840_g_dv_timings,
 	.query_dv_timings = tc358840_query_dv_timings,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	.g_mbus_config = tc358840_g_mbus_config,
+#endif
 	.s_stream = tc358840_s_stream,
 };
 
@@ -2019,6 +2043,9 @@ static const struct v4l2_subdev_pad_ops tc358840_pad_ops = {
 	.enum_dv_timings = tc358840_enum_dv_timings,
 	.enum_frame_size = tc358840_enum_framesizes,
 	.enum_frame_interval = tc358840_enum_frameintervals,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	.get_mbus_config = tc358840_get_mbus_config, 
+#endif
 };
 
 static struct v4l2_subdev_ops tc358840_ops = {
@@ -2071,7 +2098,7 @@ static bool tc358840_parse_dt(struct tc358840_platform_data *pdata,
 		struct i2c_client *client)
 {
 	struct device_node *node = client->dev.of_node;
-	const u32 *property;
+	const void *property;
 
 	v4l_dbg(1, debug, client, "Device Tree Parameters:\n");
 
@@ -2409,7 +2436,7 @@ static int tc358840_probe(struct i2c_client *client, const struct i2c_device_id 
 
 	err = v4l2_ctrl_handler_setup(sd->ctrl_handler);
 	if (err) {
-		v4l2_err(sd, "Could not setup handler!\n");
+		v4l2_err(sd, "Error %d setting default controls\n", err);
 		goto err_hdl;
 	}
 

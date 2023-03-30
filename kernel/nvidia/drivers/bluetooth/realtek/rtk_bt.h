@@ -55,11 +55,7 @@
 #define HDEV_BUS		hdev->type
 #endif
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 33)
 #define USB_RPM			1
-#else
-#define USB_RPM			0
-#endif
 
 #if HCI_VERSION_CODE < KERNEL_VERSION(2, 6, 36)
 #define NUM_REASSEMBLY 3

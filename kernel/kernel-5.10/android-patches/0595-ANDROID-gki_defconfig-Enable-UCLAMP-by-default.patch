@@ -1,0 +1,59 @@
+From 41f03e4fb376dbe9fe3b479e51fb4e44f1318239 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Wed, 4 Dec 2019 15:55:34 -0800
+Subject: [PATCH 595/830] ANDROID: gki_defconfig: Enable UCLAMP by default
+X-NVConfidentiality: public
+
+Bug: 145626605
+Bug: 143710295
+Change-Id: Id2f463c42dbc6ad5a0cfc22b6c2efa4fa683c12f
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 3 +++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 868951152439..4b4946926180 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -10,10 +10,12 @@ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+ CONFIG_IKHEADERS=m
++CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
+ CONFIG_RT_GROUP_SCHED=y
++CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+ CONFIG_CGROUP_CPUACCT=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 53edd7b99449..b39377d72961 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -11,9 +11,11 @@ CONFIG_PSI=y
+ CONFIG_IKCONFIG=y
+ CONFIG_IKCONFIG_PROC=y
+ CONFIG_IKHEADERS=m
++CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_RT_GROUP_SCHED=y
++CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+ CONFIG_CGROUP_CPUACCT=y
+@@ -47,6 +49,7 @@ CONFIG_PM_WAKELOCKS=y
+ CONFIG_PM_WAKELOCKS_LIMIT=0
+ # CONFIG_PM_WAKELOCKS_GC is not set
+ CONFIG_CPU_FREQ_TIMES=y
++CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+ CONFIG_CPUFREQ_DUMMY=m
+-- 
+2.17.1
+

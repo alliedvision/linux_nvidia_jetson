@@ -144,6 +144,16 @@
  */
 static inline u32 __emc_readl(int idx, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if (!warned) {
+			pr_warn("WARNING: VM isn't allowed to read EMC register space in "
+					"Safety Build");
+			warned = true;
+		}
+		return 0x1;
+	}
+
 	if (WARN(!emc, "Read before EMC init'ed"))
 		return 0;
 
@@ -171,6 +181,16 @@ static inline u32 __emc_readl(int idx, u32 reg)
  */
 static inline void __emc_writel(int idx, u32 val, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if(!warned) {
+			pr_warn("WARNING: VM isn't allowed to write into EMC register "
+					"space in Safety Build");
+			warned = true;
+		}
+		return;
+	}
+
 	if (WARN(!emc, "Write before EMC init'ed"))
 		return;
 

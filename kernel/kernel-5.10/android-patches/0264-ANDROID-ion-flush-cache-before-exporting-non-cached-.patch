@@ -1,0 +1,147 @@
+From 18bfeebd7733f7a02320f327ef669783f61f96c0 Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Thu, 4 Oct 2018 18:21:47 +0100
+Subject: [PATCH 264/830] ANDROID: ion: flush cache before exporting non-cached
+ buffers
+X-NVConfidentiality: public
+
+The memory allocated from the page pool might be in the CPU cache, as the
+zeroing can have been done through cache. e.g GFP_ZERO, or if the buffer
+was used as cached memory previously. To map this memory as non-cached, we
+need to flush the CPU cache first, to avoid any memory corruption when the
+corresponding dirty cache line gets evicted.
+
+A proper fix would be to flush the cache using the Linux DMA API. The
+problem is that the buffer can be used without a device attached, which is
+not covered since the introduction of:
+
+  commit 1dccb598df54 ("arm64: simplify dma_get_ops")
+
+This patch is then a dirty fix, calling directly cache flush function, to
+cover the export of non-cached to an ION client. It ensures that the cache
+line is actually cleaned before the memory is used as non-cached.
+
+Change-Id: I9179c2f644a29ae71820c4ae63c880195f55e45d
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ .../staging/android/ion/heaps/ion_cma_heap.c  |  3 +++
+ .../ion/heaps/ion_system_contig_heap.c        |  2 ++
+ .../android/ion/heaps/ion_system_heap.c       |  3 +++
+ drivers/staging/android/ion/ion_buffer.c      | 19 +++++++++++++++++++
+ include/linux/ion.h                           | 15 +++++++++++++++
+ 5 files changed, 42 insertions(+)
+
+diff --git a/drivers/staging/android/ion/heaps/ion_cma_heap.c b/drivers/staging/android/ion/heaps/ion_cma_heap.c
+index 9584972b5005..6ba7fd84c9ee 100644
+--- a/drivers/staging/android/ion/heaps/ion_cma_heap.c
++++ b/drivers/staging/android/ion/heaps/ion_cma_heap.c
+@@ -70,6 +70,9 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
+ 
+ 	buffer->priv_virt = pages;
+ 	buffer->sg_table = table;
++
++	ion_buffer_prep_noncached(buffer);
++
+ 	return 0;
+ 
+ free_mem:
+diff --git a/drivers/staging/android/ion/heaps/ion_system_contig_heap.c b/drivers/staging/android/ion/heaps/ion_system_contig_heap.c
+index 36e8769f3ef7..ce854565b563 100644
+--- a/drivers/staging/android/ion/heaps/ion_system_contig_heap.c
++++ b/drivers/staging/android/ion/heaps/ion_system_contig_heap.c
+@@ -50,6 +50,8 @@ static int ion_system_contig_heap_allocate(struct ion_heap *heap,
+ 
+ 	buffer->sg_table = table;
+ 
++	ion_buffer_prep_noncached(buffer);
++
+ 	return 0;
+ 
+ free_table:
+diff --git a/drivers/staging/android/ion/heaps/ion_system_heap.c b/drivers/staging/android/ion/heaps/ion_system_heap.c
+index 5eb8ea6c9646..b249104042c1 100644
+--- a/drivers/staging/android/ion/heaps/ion_system_heap.c
++++ b/drivers/staging/android/ion/heaps/ion_system_heap.c
+@@ -141,6 +141,9 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
+ 	}
+ 
+ 	buffer->sg_table = table;
++
++	ion_buffer_prep_noncached(buffer);
++
+ 	return 0;
+ 
+ free_table:
+diff --git a/drivers/staging/android/ion/ion_buffer.c b/drivers/staging/android/ion/ion_buffer.c
+index a49f2067365a..446d5d50c779 100644
+--- a/drivers/staging/android/ion/ion_buffer.c
++++ b/drivers/staging/android/ion/ion_buffer.c
+@@ -9,6 +9,7 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
++#include <linux/dma-map-ops.h>
+ 
+ #include "ion_private.h"
+ 
+@@ -167,6 +168,24 @@ int ion_buffer_zero(struct ion_buffer *buffer)
+ }
+ EXPORT_SYMBOL_GPL(ion_buffer_zero);
+ 
++void ion_buffer_prep_noncached(struct ion_buffer *buffer)
++{
++	struct scatterlist *sg;
++	struct sg_table *table;
++	int i;
++
++	if (WARN_ONCE(!buffer || !buffer->sg_table,
++		      "%s needs a buffer and a sg_table", __func__) ||
++	    buffer->flags & ION_FLAG_CACHED)
++		return;
++
++	table = buffer->sg_table;
++
++	for_each_sg(table->sgl, sg, table->orig_nents, i)
++		arch_dma_prep_coherent(sg_page(sg), sg->length);
++}
++EXPORT_SYMBOL_GPL(ion_buffer_prep_noncached);
++
+ void ion_buffer_release(struct ion_buffer *buffer)
+ {
+ 	if (buffer->kmap_cnt > 0) {
+diff --git a/include/linux/ion.h b/include/linux/ion.h
+index 025071c19240..dbcbe0cb7b08 100644
+--- a/include/linux/ion.h
++++ b/include/linux/ion.h
+@@ -275,6 +275,19 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
+  */
+ int ion_buffer_zero(struct ion_buffer *buffer);
+ 
++/**
++ * ion_buffer_prep_noncached - flush cache before non-cached mapping
++ *
++ * @buffer:		ion_buffer to flush
++ *
++ * The memory allocated by the heap could be in the CPU cache. To map
++ * this memory as non-cached, we need to flush the associated cache
++ * first. Without the flush, it is possible for stale dirty cache lines
++ * to be evicted after the ION client started writing into this buffer,
++ * leading to data corruption.
++ */
++void ion_buffer_prep_noncached(struct ion_buffer *buffer);
++
+ /**
+  * ion_alloc - Allocates an ion buffer of given size from given heap
+  *
+@@ -354,6 +367,8 @@ static inline int ion_buffer_zero(struct ion_buffer *buffer)
+ 	return -EINVAL;
+ }
+ 
++static inline void ion_buffer_prep_noncached(struct ion_buffer *buffer) {}
++
+ static inline struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+ 					unsigned int flags)
+ {
+-- 
+2.17.1
+

@@ -1,0 +1,23 @@
+From 9a49680639c78e335ec0af40e79b0ff7bbf4084e Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:00:47 -0700
+Subject: [PATCH 230/830] _____ANNOTATION: security changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index 45434eb17fda..03eb4490d7bd 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -10,3 +10,4 @@ scheduler changes
+ uid_sys_stats support
+ cpufreq changes
+ mm (memory management) changes
++security changes
+-- 
+2.17.1
+

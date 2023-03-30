@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,26 +56,28 @@
  */
 
 /* Offset of each memory */
-#define CAMRTC_TRACE_NEXT_IDX_SIZE	U32_C(64)
-#define CAMRTC_TRACE_EXCEPTION_OFFSET	U32_C(0x01000)
-#define CAMRTC_TRACE_EVENT_OFFSET	U32_C(0x10000)
+#define CAMRTC_TRACE_NEXT_IDX_SIZE	MK_SIZE(64)
+#define CAMRTC_TRACE_EXCEPTION_OFFSET	MK_U32(0x01000)
+#define CAMRTC_TRACE_EVENT_OFFSET	MK_U32(0x10000)
 
 /* Size of each entry */
-#define CAMRTC_TRACE_EXCEPTION_SIZE	U32_C(1024)
-#define CAMRTC_TRACE_EVENT_SIZE		U32_C(64)
+#define CAMRTC_TRACE_EXCEPTION_SIZE	MK_SIZE(1024)
+#define CAMRTC_TRACE_EVENT_SIZE		MK_SIZE(64)
 
 /* Depth of call stack */
-#define CAMRTC_TRACE_CALLSTACK_MAX	U32_C(32)
-#define CAMRTC_TRACE_CALLSTACK_MIN	U32_C(4)
+#define CAMRTC_TRACE_CALLSTACK_MAX	MK_SIZE(32)
+#define CAMRTC_TRACE_CALLSTACK_MIN	MK_SIZE(4)
 
 /*
  * Trace memory header
  */
 
-#define CAMRTC_TRACE_SIGNATURE_1	U32_C(0x5420564e)
-#define CAMRTC_TRACE_SIGNATURE_2	U32_C(0x45434152)
+#define CAMRTC_TRACE_SIGNATURE_1	MK_U32(0x5420564e)
+#define CAMRTC_TRACE_SIGNATURE_2	MK_U32(0x45434152)
 
-#define CAMRTC_TRACE_ALIGN		__aligned(U32_C(64))
+#define CAMRTC_TRACE_ALIGNOF		MK_ALIGN(64)
+
+#define CAMRTC_TRACE_ALIGN		CAMRTC_ALIGN(CAMRTC_TRACE_ALIGNOF)
 
 struct camrtc_trace_memory_header {
 	/* layout: offset 0 */
@@ -105,21 +107,18 @@ struct camrtc_trace_memory_header {
 	uint32_t reserved_ptrs[0x38 / 4];
 } CAMRTC_TRACE_ALIGN;
 
-
 /*
  * Exception entry
  */
-
-enum camrtc_trace_armv7_exception_type {
-	/* Reset = 0 */
-	CAMRTC_ARMV7_EXCEPTION_UNDEFINED_INSTRUCTION = 1,
-	/* SWI = 2 */
-	CAMRTC_ARMV7_EXCEPTION_PREFETCH_ABORT = 3,
-	CAMRTC_ARMV7_EXCEPTION_DATA_ABORT,
-	CAMRTC_ARMV7_EXCEPTION_RSVD,	/* Should never happen */
-	CAMRTC_ARMV7_EXCEPTION_IRQ,	/* Unhandled IRQ */
-	CAMRTC_ARMV7_EXCEPTION_FIQ,	/* Unhandled FIQ */
-};
+/* Reset = 0 */
+#define	CAMRTC_ARMV7_EXCEPTION_UNDEFINED_INSTRUCTION	MK_U32(1)
+/* SWI = 2 */
+#define CAMRTC_ARMV7_EXCEPTION_PREFETCH_ABORT		MK_U32(3)
+#define	CAMRTC_ARMV7_EXCEPTION_DATA_ABORT		MK_U32(4)
+/* RSVD, IRQ, FIQ should never happen */
+#define	CAMRTC_ARMV7_EXCEPTION_RSVD			MK_U32(5)
+#define	CAMRTC_ARMV7_EXCEPTION_IRQ			MK_U32(6)
+#define CAMRTC_ARMV7_EXCEPTION_FIQ			MK_U32(7)
 
 struct camrtc_trace_callstack {
 	uint32_t lr_stack_addr;		/* address in stack where lr is saved */
@@ -128,7 +127,7 @@ struct camrtc_trace_callstack {
 
 struct camrtc_trace_armv7_exception {
 	uint32_t len;		/* length in byte including this */
-	uint32_t type;		/* enum camrtc_trace_armv7_exception_type */
+	uint32_t type;		/* CAMRTC_TRACE_ARMV7_EXCEPTION_* above */
 	union {
 		uint32_t data[24];
 		struct {
@@ -155,37 +154,37 @@ struct camrtc_trace_armv7_exception {
  * The format of event data is determined by event type.
  */
 
-#define CAMRTC_TRACE_EVENT_HEADER_SIZE		U32_C(16)
+#define CAMRTC_TRACE_EVENT_HEADER_SIZE		MK_SIZE(16)
 #define CAMRTC_TRACE_EVENT_PAYLOAD_SIZE		\
 	(CAMRTC_TRACE_EVENT_SIZE - CAMRTC_TRACE_EVENT_HEADER_SIZE)
 
-#define CAMRTC_EVENT_TYPE_OFFSET		U32_C(24)
+#define CAMRTC_EVENT_TYPE_OFFSET		MK_U32(24)
 #define CAMRTC_EVENT_TYPE_MASK			\
-	(U32_C(0xff) << CAMRTC_EVENT_TYPE_OFFSET)
+	(MK_U32(0xff) << CAMRTC_EVENT_TYPE_OFFSET)
 #define CAMRTC_EVENT_TYPE_FROM_ID(id)		\
 	(((id) & CAMRTC_EVENT_TYPE_MASK) >> CAMRTC_EVENT_TYPE_OFFSET)
 
-#define CAMRTC_EVENT_MODULE_OFFSET		U32_C(16)
+#define CAMRTC_EVENT_MODULE_OFFSET		MK_U32(16)
 #define CAMRTC_EVENT_MODULE_MASK		\
-	(U32_C(0xff) << CAMRTC_EVENT_MODULE_OFFSET)
+	(MK_U32(0xff) << CAMRTC_EVENT_MODULE_OFFSET)
 #define CAMRTC_EVENT_MODULE_FROM_ID(id)		\
 	(((id) & CAMRTC_EVENT_MODULE_MASK) >> CAMRTC_EVENT_MODULE_OFFSET)
 
-#define CAMRTC_EVENT_SUBID_OFFSET		U32_C(0)
+#define CAMRTC_EVENT_SUBID_OFFSET		MK_U32(0)
 #define CAMRTC_EVENT_SUBID_MASK			\
-	(U32_C(0xffff) << CAMRTC_EVENT_SUBID_OFFSET)
+	(MK_U32(0xffff) << CAMRTC_EVENT_SUBID_OFFSET)
 #define CAMRTC_EVENT_SUBID_FROM_ID(id)		\
 	(((id) & CAMRTC_EVENT_SUBID_MASK) >> CAMRTC_EVENT_SUBID_OFFSET)
 
 #define CAMRTC_EVENT_MAKE_ID(type, module, subid) \
-	(((type) << CAMRTC_EVENT_TYPE_OFFSET) | \
-	((module) << CAMRTC_EVENT_MODULE_OFFSET) | (uint32_t)(subid))
+	(((uint32_t)(type) << CAMRTC_EVENT_TYPE_OFFSET) | \
+	((uint32_t)(module) << CAMRTC_EVENT_MODULE_OFFSET) | (uint32_t)(subid))
 
 struct camrtc_event_header {
 	uint32_t len;		/* Size in bytes including this field */
 	uint32_t id;		/* Event ID */
 	uint64_t tstamp;	/* Timestamp from TKE TSC */
-} __packed;
+};
 
 struct camrtc_event_struct {
 	struct camrtc_event_header header;
@@ -193,42 +192,42 @@ struct camrtc_event_struct {
 		uint8_t data8[CAMRTC_TRACE_EVENT_PAYLOAD_SIZE];
 		uint32_t data32[CAMRTC_TRACE_EVENT_PAYLOAD_SIZE / 4];
 	} data;
-} __packed;
+};
 
 // camrtc_event_type
-#define CAMRTC_EVENT_TYPE_ARRAY			U32_C(0)
-#define CAMRTC_EVENT_TYPE_ARMV7_EXCEPTION	U32_C(1)
-#define CAMRTC_EVENT_TYPE_PAD			U32_C(2)
-#define CAMRTC_EVENT_TYPE_START			U32_C(3)
-#define CAMRTC_EVENT_TYPE_STRING		U32_C(4)
-#define CAMRTC_EVENT_TYPE_BULK			U32_C(5)
+#define CAMRTC_EVENT_TYPE_ARRAY			MK_U32(0)
+#define CAMRTC_EVENT_TYPE_ARMV7_EXCEPTION	MK_U32(1)
+#define CAMRTC_EVENT_TYPE_PAD			MK_U32(2)
+#define CAMRTC_EVENT_TYPE_START			MK_U32(3)
+#define CAMRTC_EVENT_TYPE_STRING		MK_U32(4)
+#define CAMRTC_EVENT_TYPE_BULK			MK_U32(5)
 
 // camrtc_event_module
-#define CAMRTC_EVENT_MODULE_UNKNOWN	U32_C(0)
-#define CAMRTC_EVENT_MODULE_BASE	U32_C(1)
-#define CAMRTC_EVENT_MODULE_RTOS	U32_C(2)
-#define CAMRTC_EVENT_MODULE_HEARTBEAT	U32_C(3)
-#define CAMRTC_EVENT_MODULE_DBG		U32_C(4)
-#define CAMRTC_EVENT_MODULE_MODS	U32_C(5)
-#define CAMRTC_EVENT_MODULE_VINOTIFY	U32_C(6)
-#define CAMRTC_EVENT_MODULE_I2C		U32_C(7)
-#define CAMRTC_EVENT_MODULE_VI		U32_C(8)
-#define CAMRTC_EVENT_MODULE_ISP		U32_C(9)
-#define CAMRTC_EVENT_MODULE_NVCSI	U32_C(10)
+#define CAMRTC_EVENT_MODULE_UNKNOWN		MK_U32(0)
+#define CAMRTC_EVENT_MODULE_BASE		MK_U32(1)
+#define CAMRTC_EVENT_MODULE_RTOS		MK_U32(2)
+#define CAMRTC_EVENT_MODULE_HEARTBEAT		MK_U32(3)
+#define CAMRTC_EVENT_MODULE_DBG			MK_U32(4)
+#define CAMRTC_EVENT_MODULE_MODS		MK_U32(5)
+#define CAMRTC_EVENT_MODULE_VINOTIFY		MK_U32(6)
+#define CAMRTC_EVENT_MODULE_I2C			MK_U32(7)
+#define CAMRTC_EVENT_MODULE_VI			MK_U32(8)
+#define CAMRTC_EVENT_MODULE_ISP			MK_U32(9)
+#define CAMRTC_EVENT_MODULE_NVCSI		MK_U32(10)
 
 // camrtc_trace_event_type_ids
 #define camrtc_trace_type_exception \
-		CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_ARMV7_EXCEPTION, \
-		CAMRTC_EVENT_MODULE_BASE, U32_C(0))
+	CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_ARMV7_EXCEPTION, \
+		CAMRTC_EVENT_MODULE_BASE, 0)
 #define camrtc_trace_type_pad \
-		CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_PAD, \
-		CAMRTC_EVENT_MODULE_BASE, U32_C(0))
+	CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_PAD, \
+		CAMRTC_EVENT_MODULE_BASE, 0)
 #define camrtc_trace_type_start \
-		CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_START, \
-		CAMRTC_EVENT_MODULE_BASE, U32_C(0))
+	CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_START, \
+		CAMRTC_EVENT_MODULE_BASE, 0)
 #define camrtc_trace_type_string \
-		CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_STRING, \
-		CAMRTC_EVENT_MODULE_BASE, U32_C(0))
+	CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_STRING, \
+		CAMRTC_EVENT_MODULE_BASE, 0)
 
 // camrtc_trace_base_ids
 #define camrtc_trace_base_id(_subid) \
@@ -387,11 +386,11 @@ struct camrtc_event_struct {
 #define camrtc_trace_vinotify_id(_subid) \
 		CAMRTC_EVENT_MAKE_ID(CAMRTC_EVENT_TYPE_ARRAY, \
 			CAMRTC_EVENT_MODULE_VINOTIFY, (_subid))
-#define camrtc_trace_vinotify_handle_msg \
-	camrtc_trace_vinotify_id(1)
 #define camrtc_trace_vinotify_event_ts64 \
+	camrtc_trace_vinotify_id(1)
+#define camrtc_trace_vinotify_event \
 	camrtc_trace_vinotify_id(2)
-#define camrtc_trace_vinotify_error_ts64 \
+#define camrtc_trace_vinotify_error \
 	camrtc_trace_vinotify_id(3)
 
 // camrtc_trace_vi_ids

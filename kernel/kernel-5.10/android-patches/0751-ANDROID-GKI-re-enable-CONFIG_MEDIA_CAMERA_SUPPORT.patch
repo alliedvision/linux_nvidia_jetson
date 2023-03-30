@@ -1,0 +1,48 @@
+From cd23cc49748ee3bc86f39e84be254595af8df1c9 Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Fri, 21 Aug 2020 12:39:05 -0700
+Subject: [PATCH 751/830] ANDROID: GKI: re-enable CONFIG_MEDIA_CAMERA_SUPPORT
+X-NVConfidentiality: public
+
+MEDIA_CAMERA_SUPPORT was removed from gki_defconfig in commit
+b5e512c42c54 ("ANDROID: GKI: update gki defconfigs") because it is
+now enabled by default unless MEDIA_SUPPORT_FILTER is enabled. After
+commit 4467f1150461 ("ANDROID: gki_defconfig: Enable
+MEDIA_SUPPORT_FILTER"), MEDIA_CAMERA_SUPPORT again needs to be
+explicitly enabled.
+
+Bug: 162909109
+Signed-off-by: Connor O'Brien <connoro@google.com>
+Change-Id: Ia68d6e233e86b405ea4fbc0e292e6b0778c90704
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 05d5ab27955b..da9840712249 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -323,6 +323,7 @@ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_MEDIA_CEC_SUPPORT=y
+ CONFIG_MEDIA_SUPPORT_FILTER=y
++CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_MEDIA_PLATFORM_SUPPORT=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
+ # CONFIG_VGA_ARB is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 8bd0a8344cf5..3e5fa5b48404 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -286,6 +286,7 @@ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_MEDIA_CEC_SUPPORT=y
+ CONFIG_MEDIA_SUPPORT_FILTER=y
++CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_MEDIA_PLATFORM_SUPPORT=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
+ CONFIG_DRM=y
+-- 
+2.17.1
+

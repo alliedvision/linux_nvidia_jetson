@@ -1,0 +1,36 @@
+From 7d187a47f94b76dd9e1c04824db67e8247a34e9f Mon Sep 17 00:00:00 2001
+From: Lingfeng Yang <lfy@google.com>
+Date: Wed, 15 Apr 2020 13:50:41 -0700
+Subject: [PATCH 687/830] ANDROID: GKI: Add DRM_TTM config to GKI
+X-NVConfidentiality: public
+
+When certain DRM drivers, such as virtio-gpu, are built out of tree,
+they might depend on parts of DRM, such as DRM_TTM, that are not
+included in all configs.
+
+This CL adds the config to GKI_HACKS_TO_FIX, allowing DRM drivers that
+use DRM_TTM to link successfully against GKI.
+
+Test: Build and run virtio-gpu as an external module
+Change-Id: I1ae869b7394a6059c0f3880bdc65a0b3ceb3e004
+Bug: 153580313
+Signed-off-by: Lingfeng Yang <lfy@google.com>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 3fc2d9a0f79f..a5e8f88c618e 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -5,6 +5,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_GEM_CMA_HELPER
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
++	select DRM_TTM if (HAS_IOMEM && DRM)
+ 	select VIDEOMODE_HELPERS
+ 	select WANT_DEV_COREDUMP
+ 	help
+-- 
+2.17.1
+

@@ -1,0 +1,100 @@
+From 4084b2fc9c4351b66c6c7334a11ddfd4c5bd1d05 Mon Sep 17 00:00:00 2001
+From: Akilesh Kailash <akailash@google.com>
+Date: Sat, 18 Jul 2020 00:26:46 +0000
+Subject: [PATCH 471/830] ANDROID: Incremental fs: Don't allow renaming .index
+ directory.
+X-NVConfidentiality: public
+
+Add additional check to verify dentry is hashed after vfs_mkdir()
+is successful.
+
+Bug: 148423333
+Test: kernel seftest - incfs_test, manual test removing .index when
+mounted
+
+Signed-off-by: Akilesh Kailash <akailash@google.com>
+Change-Id: I7d2d71d480db4f02b7f3a347b5734c6643843594
+---
+ fs/incfs/vfs.c                                     | 14 ++++++++++++--
+ .../selftests/filesystems/incfs/incfs_test.c       | 12 ++++++++++++
+ 2 files changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 0b8051d88c74..d83ee08e25f3 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -781,7 +781,8 @@ static struct dentry *open_or_create_index_dir(struct dentry *backing_dir)
+ 	if (err)
+ 		return ERR_PTR(err);
+ 
+-	if (!d_really_is_positive(index_dentry)) {
++	if (!d_really_is_positive(index_dentry) ||
++		unlikely(d_unhashed(index_dentry))) {
+ 		dput(index_dentry);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+@@ -1647,7 +1648,8 @@ static int dir_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
+ 	if (!err) {
+ 		struct inode *inode = NULL;
+ 
+-		if (d_really_is_negative(backing_dentry)) {
++		if (d_really_is_negative(backing_dentry) ||
++			unlikely(d_unhashed(backing_dentry))) {
+ 			err = -EINVAL;
+ 			goto out;
+ 		}
+@@ -1872,6 +1874,13 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
+ 		return error;
+ 
+ 	backing_old_dentry = get_incfs_dentry(old_dentry)->backing_path.dentry;
++
++	if (!backing_old_dentry || backing_old_dentry == mi->mi_index_dir) {
++		/* Renaming .index not allowed */
++		error = -EBUSY;
++		goto exit;
++	}
++
+ 	backing_new_dentry = get_incfs_dentry(new_dentry)->backing_path.dentry;
+ 	dget(backing_old_dentry);
+ 	dget(backing_new_dentry);
+@@ -1918,6 +1927,7 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
+ 	dput(backing_new_dentry);
+ 	dput(backing_old_dentry);
+ 
++exit:
+ 	mutex_unlock(&mi->mi_dir_struct_mutex);
+ 	if (error)
+ 		pr_debug("incfs: %s err:%d\n", __func__, error);
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 316d71877e2f..19496d191115 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -837,6 +837,12 @@ static int cant_touch_index_test(const char *mount_dir)
+ 		goto failure;
+ 	}
+ 
++	err = rmdir(index_path);
++	if (err == 0 || errno != EBUSY) {
++		print_error(".index directory should not be removed\n");
++		goto failure;
++	}
++
+ 	err = emit_file(cmd_fd, ".index", file_name, &file_id,
+ 				file_size, NULL);
+ 	if (err != -EBUSY) {
+@@ -871,6 +877,12 @@ static int cant_touch_index_test(const char *mount_dir)
+ 		goto failure;
+ 	}
+ 
++	err = rename(index_path, dst_name);
++	if (err == 0 || errno != EBUSY) {
++		print_error("Shouldn't rename .index directory\n");
++		goto failure;
++	}
++
+ 	close(cmd_fd);
+ 	free(subdir);
+ 	free(index_path);
+-- 
+2.17.1
+

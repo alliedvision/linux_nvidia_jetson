@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -44,7 +44,7 @@
 
 struct l1ss_data *ldata;
 struct class *l1ss_class;
-int dev_major;
+static unsigned int dev_major;
 static cmd_resp_look_up_ex cmd_resp_lookup_table[CMDRESPL1_N_CLASSES]
 						[CMDRESPL1_MAX_CMD_IN_CLASS] = {
 						 CMDRESPL1_L2_CLASS0,
@@ -107,7 +107,8 @@ static int l1ss_uevent(struct device *dev, struct kobj_uevent_env *env)
 }
 
 static int l1ss_process_request(nv_guard_request_t *req,
-				struct l1ss_data *ldata) {
+				struct l1ss_data *ldata)
+{
 
 	int ret = 0;
 
@@ -176,6 +177,11 @@ int l1ss_init(struct tegra_safety_ivc *safety_ivc)
 	ldata->cmd_resp_lookup_table = cmd_resp_lookup_table;
 
 	err = alloc_chrdev_region(&ldata->dev, 0, MAX_DEV, "l1ss");
+	if (err) {
+		pr_err("%s: Failed to allocate chardev region\n", __func__);
+		kfree(ldata);
+		return err;
+	}
 
 	ldata->dev_major = MAJOR(ldata->dev);
 
@@ -185,7 +191,12 @@ int l1ss_init(struct tegra_safety_ivc *safety_ivc)
 	cdev_init(&ldata->cdev, &l1ss_fops);
 	ldata->cdev.owner = THIS_MODULE;
 
-	cdev_add(&ldata->cdev, MKDEV(ldata->dev_major, 0), 1);
+	err = cdev_add(&ldata->cdev, MKDEV(ldata->dev_major, 0), 1);
+	if (err) {
+		pr_err("%s: failed to add char device\n", __func__);
+		kfree(ldata);
+		return err;
+	}
 
 	device_create(ldata->l1ss_class, NULL, MKDEV(ldata->dev_major, 0),
 		      NULL, "l1ss-%d", 0);
@@ -229,15 +240,11 @@ static int l1ss_open(struct inode *inode, struct file *file)
 	ldata = container_of(inode->i_cdev, struct l1ss_data, cdev);
 	file->private_data = ldata;
 
-	if (ldata == NULL)
-		return -1;
-
 	return 0;
 }
 
 static int l1ss_release(struct inode *inode, struct file *file)
 {
-
 	PDEBUG("Device close\n");
 	ldata = container_of(inode->i_cdev, struct l1ss_data, cdev);
 	if (ldata) {
@@ -539,7 +546,7 @@ static long l1ss_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case L1SS_CLIENT_REQUEST:
 		PDEBUG("L1SS_CLIENT_REQUEST\n");
 
-		req = kmalloc(sizeof(nv_guard_request_t), GFP_KERNEL);
+		req = kzalloc(sizeof(nv_guard_request_t), GFP_KERNEL);
 		if (req == NULL) {
 			pr_err("Failed to allocate memory");
 			return -1;
@@ -547,6 +554,7 @@ static long l1ss_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(req, (nv_guard_request_t *)arg,
 				   sizeof(nv_guard_request_t))) {
 			pr_err("Failed copy_from_user");
+			kfree(req);
 			return -EACCES;
 		}
 

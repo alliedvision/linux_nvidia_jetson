@@ -4,7 +4,7 @@
  * Tegra Graphics Host Interrupt Management
  *
  * Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2010-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,18 +36,20 @@ static void t20_intr_enable_syncpt_intr(struct nvhost_intr *intr, u32 id);
 static void t20_intr_set_syncpt_threshold(struct nvhost_intr *intr,
 					  u32 id, u32 thresh);
 
-static irqreturn_t syncpt_thresh_cascade_isr(int irq, void *dev_id)
+static irqreturn_t syncpt_thresh_cascade_isr(int irq, void *syncpt_irq_ctx)
 {
-	struct nvhost_master *dev = dev_id;
+	struct nvhost_syncpt_irq_ctx *ctx = syncpt_irq_ctx;
+	struct nvhost_master *dev = ctx->dev;
 	struct nvhost_intr *intr = &dev->intr;
 	unsigned long reg;
 	int i, id;
 	struct nvhost_timespec isr_recv;
+	int start_reg = ctx->start_id / 32;
+	int end_reg = DIV_ROUND_UP((ctx->end_id + 1), 32);
 
 	nvhost_ktime_get_ts(&isr_recv);
 
-	for (i = 0; i < DIV_ROUND_UP(nvhost_syncpt_nb_hw_pts(&dev->syncpt), 32);
-			i++) {
+	for (i = start_reg; i < end_reg; i++) {
 		reg = host1x_sync_readl(dev,
 				host1x_sync_syncpt_thresh_cpu0_int_status_r() +
 				i * REGISTER_STRIDE);
@@ -58,13 +60,10 @@ static irqreturn_t syncpt_thresh_cascade_isr(int irq, void *dev_id)
 			int graphics_host_sp =
 				nvhost_syncpt_graphics_host_sp(&dev->syncpt);
 
-			if (unlikely(!nvhost_syncpt_is_valid_hw_pt(&dev->syncpt,
-					sp_id))) {
-				dev_err(&dev->dev->dev, "%s(): syncpoint id %d is beyond the number of syncpoints (%d)\n",
-					__func__, sp_id,
-					nvhost_syncpt_nb_hw_pts(&dev->syncpt));
+			if (sp_id < ctx->start_id)
+				continue;
+			if (sp_id > ctx->end_id)
 				goto out;
-			}
 
 			sp = intr->syncpt + sp_id;
 			sp->isr_recv = isr_recv;
@@ -305,26 +304,6 @@ static void intr_disable_host_irq(struct nvhost_intr *intr, int irq)
 	host1x_sync_writel(dev, host1x_sync_hintmask_r(), val);
 }
 
-static void intr_enable_module_intr(struct nvhost_intr *intr, int irq)
-{
-	struct nvhost_master *dev = intr_to_dev(intr);
-	long val;
-
-	val = host1x_sync_readl(dev, host1x_sync_intc0mask_r());
-	val |= BIT(irq);
-	host1x_sync_writel(dev, host1x_sync_intc0mask_r(), val);
-}
-
-static void intr_disable_module_intr(struct nvhost_intr *intr, int irq)
-{
-	struct nvhost_master *dev = intr_to_dev(intr);
-	long val;
-
-	val = host1x_sync_readl(dev, host1x_sync_intc0mask_r());
-	val &= ~BIT(irq);
-	host1x_sync_writel(dev, host1x_sync_intc0mask_r(), val);
-}
-
 static void t20_intr_resume(struct nvhost_intr *intr)
 {
 	struct nvhost_master *dev = intr_to_dev(intr);
@@ -373,15 +352,24 @@ static void t20_intr_suspend(struct nvhost_intr *intr)
 static int t20_intr_init(struct nvhost_intr *intr)
 {
 	struct nvhost_master *dev = intr_to_dev(intr);
-	int err;
+	int nb_syncpt_irqs = nvhost_syncpt_nb_irqs(&dev->syncpt);
+	int err, i;
 
 	intr_op().disable_all_syncpt_intrs(intr);
 
-	err = request_threaded_irq(intr->syncpt_irq, NULL,
-				syncpt_thresh_cascade_isr,
-				IRQF_ONESHOT, "host_syncpt", dev);
-	if (err)
-		return err;
+	for (i = 0; i < nb_syncpt_irqs; i++) {
+		err = devm_request_threaded_irq(&dev->dev->dev,
+					intr->syncpt_irqs[i], NULL,
+					syncpt_thresh_cascade_isr,
+					IRQF_ONESHOT, "host_syncpt",
+					&intr->syncpt_irq_ctx[i]);
+		if (err) {
+			nvhost_err(&dev->dev->dev,
+			   "failed to request host_syncpt irq %u with err=%d",
+			   intr->syncpt_irqs[i], err);
+			return err;
+		}
+	}
 
 	/* master disable for general (not syncpt) host interrupts */
 	host1x_sync_writel(dev, host1x_sync_intmask_r(), 0);
@@ -395,20 +383,13 @@ static int t20_intr_init(struct nvhost_intr *intr)
 	err = request_threaded_irq(intr->general_irq, NULL,
 				t20_intr_host1x_isr,
 				IRQF_ONESHOT, "host_status", intr);
-	if (err) {
-		free_irq(intr->syncpt_irq, dev);
-		return err;
-	}
 
-	return 0;
+	return err;
 }
 
 static void t20_intr_deinit(struct nvhost_intr *intr)
 {
-	struct nvhost_master *dev = intr_to_dev(intr);
-
 	free_irq(intr->general_irq, intr);
-	free_irq(intr->syncpt_irq, dev);
 }
 
 static const struct nvhost_intr_ops host1x_intr_ops = {
@@ -424,6 +405,4 @@ static const struct nvhost_intr_ops host1x_intr_ops = {
 	.debug_dump = intr_debug_dump,
 	.enable_host_irq = intr_enable_host_irq,
 	.disable_host_irq = intr_disable_host_irq,
-	.enable_module_intr = intr_enable_module_intr,
-	.disable_module_intr = intr_disable_module_intr,
 };

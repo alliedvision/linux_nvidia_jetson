@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/tegra234-gpio.h>
+#include <dt-bindings/thermal/thermal.h>
+
+/* THERMAL gpio definitions */
+#define TEMP_ALERT TEGRA234_MAIN_GPIO(G, 1)
+#define TMP451_SLAVE_ADDR               0x4c
+#define REMOTE_SENS_OFFSET              (-16)
+#define REMOTE_SENS_SHUTDOWN_LIMIT      115
+#define TEGRA234_THERMAL_ZONE_TBOARD	0
+#define TEGRA234_THERMAL_ZONE_TDIODE 	1
+
+/ {
+	bpmp {
+		bpmpthermal {
+			status = "okay";
+		};
+
+		i2c {
+			tegra_tmp451: temp-sensor@4c {
+				status = "okay";
+				#thermal-sensor-cells = <1>;
+				compatible = "ti,tmp451";
+				reg = <TMP451_SLAVE_ADDR>;
+				sensor-name = "tmp451-ext";
+				supported-hwrev = <1>;
+				offset = <REMOTE_SENS_OFFSET>; /* Actual value will be programmed as REMOTE_SENS_OFFSET/4 */
+				conv-rate = <0x06>;
+				extended-rage = <1>;
+
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEMP_ALERT IRQ_TYPE_LEVEL_LOW>;
+				temp-alert-gpio = <&tegra_main_gpio TEMP_ALERT 0>;
+
+				/* vdd-supply configured in power tree */
+
+				loc {
+					/* set to maximum for not having local  shutdown */
+					shutdown-limit = <107>;
+				};
+				ext {
+					shutdown-limit = <REMOTE_SENS_SHUTDOWN_LIMIT>;
+				};
+			};
+		};
+	};
+
+	thermal-zones {
+		CPU-therm {
+			status = "okay";
+		};
+
+		GPU-therm {
+			status = "okay";
+		};
+
+		CV0-therm {
+			status = "okay";
+		};
+
+		CV1-therm {
+			status = "okay";
+		};
+
+		CV2-therm {
+			status = "okay";
+		};
+
+		SOC0-therm {
+			status = "okay";
+		};
+
+		SOC1-therm {
+			status = "okay";
+		};
+
+		SOC2-therm {
+			status = "okay";
+		};
+
+		tj_therm: tj-therm {
+			status = "okay";
+		};
+
+		Tboard_tegra {
+			status = "okay";
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&tegra_tmp451 TEGRA234_THERMAL_ZONE_TBOARD>;
+
+			thermal-zone-params {
+				governor-name = "pid_thermal_gov";
+			};
+
+		};
+
+		Tdiode_zone: Tdiode_tegra {
+			status = "okay";
+			polling-delay = <0>;
+			polling-delay-passive = <1000>;
+			thermal-sensors = <&tegra_tmp451 TEGRA234_THERMAL_ZONE_TDIODE>;
+
+			thermal-zone-params {
+				governor-name = "pid_thermal_gov";
+			};
+		};
+	};
+};

@@ -1,0 +1,23 @@
+From c5a2413877161c8da311270cab021089b794c728 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 13:57:57 -0700
+Subject: [PATCH 388/830] _____ANNOTATION: block changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index ac8a0b726ab0..d493ebe092b2 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -22,3 +22,4 @@ media changes
+ input and HID changes
+ UFS driver changes
+ MMC driver changes
++block changes
+-- 
+2.17.1
+

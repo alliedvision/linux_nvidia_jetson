@@ -1,15 +1,15 @@
 /*
-* tegra_adspff.h - Shared ADSPFF interface between Tegra ADSP File
-*			System driver and ADSP side user space code.
-* Copyright (c) 2016-2019 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
-*/
-
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
 
 #ifndef _TEGRA_ADSPFF_H_
 #define _TEGRA_ADSPFF_H_

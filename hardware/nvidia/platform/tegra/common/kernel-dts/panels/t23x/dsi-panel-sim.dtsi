@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+//Panel: Dummy 640x480@60Hz 24bpp for VDK.
+
+#include <dt-bindings/display/tegra-dc.h>
+#include <dt-bindings/display/tegra-panel.h>
+#include "dt-bindings/gpio/tegra234-gpio.h"
+
+/ {
+	display@13800000 {
+		dsi {
+			status = "okay";
+			nvidia,active-panel = <&panel_vdk_dummy>;
+			nvidia,panel-timings = <&panel_vdk_timings>;
+			panel_vdk_dummy: panel-vdk-dummy {
+				status = "okay";
+				compatible = "nvidia,vdk-dummy-panel";
+				nvidia,dsi-instance = <DSI_INSTANCE_0>;
+				nvidia,dsi-n-data-lanes = <4>;
+				nvidia,dsi-pixel-format = <TEGRA_DSI_PIXEL_FORMAT_24BIT_P>;
+				nvidia,dsi-refresh-rate = <60>;
+				nvidia,dsi-video-data-type = <0>;
+				nvidia,dsi-video-clock-mode = <0>;
+				nvidia,dsi-video-burst-mode = <0>;
+				nvidia,dsi-virtual-channel = <TEGRA_DSI_VIRTUAL_CHANNEL_0>;
+				nvidia,dsi-panel-reset = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-power-saving-suspend = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-ulpm-not-support = <TEGRA_DSI_ENABLE>;
+				nvidia,dsi-init-cmd =
+					/* Long  Packet: <PACKETTYPE[u8] COMMANDID[u8] PAYLOADCOUNT[u16] ECC[u8] PAYLOAD[..] CHECKSUM[u16]> */
+					/* Short Packet: <PACKETTYPE[u8] COMMANDID[u8] DATA0[u8] DATA1[u8] ECC[u8]> */
+					/* For DSI packets each DT cell is interpreted as u8 not u32 */
+
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_EXIT_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 50>,
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_ON 0x0 0x0>;
+				nvidia,dsi-n-init-cmd = <3>;
+				nvidia,dsi-suspend-cmd =
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_OFF 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 50>,
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_ENTER_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_SEND_FRAME 3>,
+				nvidia,dsi-n-suspend-cmd = <4>;
+
+				/*
+				 * nvidia,dsi-pkt-seq =
+				 *	<CMD_VS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>;
+				 */
+
+				display-timings {
+					panel_vdk_timings: 640x480-32-60Hz {
+						clock-frequency = <27000000>;
+						hactive = <640>;
+						vactive = <480>;
+						hfront-porch = <8>;
+						hback-porch = <56>;
+						hsync-len = <96>;
+						vfront-porch = <2>;
+						vback-porch = <51>;
+						vsync-len = <2>;
+					};
+				};
+			};
+		};
+	};
+};

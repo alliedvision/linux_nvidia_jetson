@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/of_platform.h>
+#include <linux/version.h>
 #include <soc/tegra/bpmp_abi.h>
 #include <soc/tegra/tegra_bpmp.h>
 
@@ -70,9 +71,18 @@
 #define P2U_RX_MARGIN_CONTROL				0xf0
 #define P2U_RX_MARGIN_CONTROL_START			BIT(0)
 
+#define P2U_RX_MARGIN_CYA_CTRL				0xf8
+#define P2U_RX_MARGIN_CYA_CTRL_IND_X			BIT(0)
+#define P2U_RX_MARGIN_CYA_CTRL_IND_Y			BIT(1)
+
 #define RX_MARGIN_START_CHANGE	(1)
 #define RX_MARGIN_STOP		(2)
 #define RX_MARGIN_GET_MARGIN	(3)
+
+struct tegra_p2u_of_data {
+	/* Bug 200366472 */
+	bool twos_comp_fixup;
+};
 
 struct tegra_p2u {
 	void __iomem		*base;
@@ -81,8 +91,8 @@ struct tegra_p2u {
 	struct work_struct	rx_margin_work;
 	u32			next_state;
 	spinlock_t		next_state_lock; /* lock for next_state */
-	bool			enable_lm;
 	bool			disable_uphy_rx_idle;
+	struct tegra_p2u_of_data *of_data;
 };
 
 struct margin_ctrl {
@@ -103,13 +113,20 @@ static int tegra_p2u_power_on(struct phy *x)
 	u32 val;
 	struct tegra_p2u *phy = phy_get_drvdata(x);
 
-	if (phy->enable_lm) {
-		val = P2U_RX_MARGIN_SW_INT_EN_READINESS |
-		      P2U_RX_MARGIN_SW_INT_EN_MARGIN_START |
-		      P2U_RX_MARGIN_SW_INT_EN_MARGIN_CHANGE |
-		      P2U_RX_MARGIN_SW_INT_EN_MARGIN_STOP;
-		writel(val, phy->base + P2U_RX_MARGIN_SW_INT_EN);
-	}
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
+	val = P2U_RX_MARGIN_SW_INT_EN_READINESS |
+	      P2U_RX_MARGIN_SW_INT_EN_MARGIN_START |
+	      P2U_RX_MARGIN_SW_INT_EN_MARGIN_CHANGE |
+	      P2U_RX_MARGIN_SW_INT_EN_MARGIN_STOP;
+	writel(val, phy->base + P2U_RX_MARGIN_SW_INT_EN);
+#endif
+
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	val = readl(phy->base + P2U_RX_MARGIN_CYA_CTRL);
+	val |= P2U_RX_MARGIN_CYA_CTRL_IND_X;
+	val |= P2U_RX_MARGIN_CYA_CTRL_IND_Y;
+	writel(val, phy->base + P2U_RX_MARGIN_CYA_CTRL);
+#endif
 
 	if (!phy->disable_uphy_rx_idle) {
 		val = readl(phy->base + P2U_CONTROL_GEN1);
@@ -153,19 +170,38 @@ static const struct phy_ops ops = {
 	.owner		= THIS_MODULE,
 };
 
-static int set_margin_control(u32 id, u32 ctrl_data)
+static int set_margin_control(struct tegra_p2u *phy, u32 ctrl_data)
 {
 	struct mrq_uphy_request req;
 	struct mrq_uphy_response resp;
 	struct margin_ctrl ctrl;
+	u32 ctrl_x;
+	u32 id = phy->id;
 
 	memcpy(&ctrl, &ctrl_data, sizeof(ctrl_data));
+
+	/*
+	 * P2U logic converts negative time step to 6-bit 1's compliment,
+	 * where as UPHY expects 7-bit 2's compliment. P2U logic converts
+	 * negative voltage step to 6-bit 1's compliment and UPHY expects same.
+	 * number of timing steps is set to 0x20, so anything greater than
+	 * 0x20 would be negative step with 1's compliment.
+	 */
+	if (ctrl.x > 0x20) {
+		ctrl_x = ctrl.x + 1;
+		ctrl_x |= 0x40;
+	} else {
+		ctrl_x = ctrl.x;
+	}
 
 	req.lane = id;
 	req.cmd = CMD_UPHY_PCIE_LANE_MARGIN_CONTROL;
 	req.uphy_set_margin_control.en = ctrl.en;
 	req.uphy_set_margin_control.clr = ctrl.clr;
-	req.uphy_set_margin_control.x = ctrl.x;
+	if (phy->of_data->twos_comp_fixup)
+		req.uphy_set_margin_control.x = ctrl_x;
+	else
+		req.uphy_set_margin_control.x = ctrl.x;
 	req.uphy_set_margin_control.y = ctrl.y;
 	req.uphy_set_margin_control.nblks = ctrl.n_blks;
 
@@ -205,7 +241,7 @@ void rx_margin_work_fn(struct work_struct *work)
 		case RX_MARGIN_START_CHANGE:
 		case RX_MARGIN_STOP:
 			val = readl(phy->base + P2U_RX_MARGIN_CTRL);
-			ret = set_margin_control(phy->id, val);
+			ret = set_margin_control(phy, val);
 			if (ret) {
 				dev_err(phy->dev,
 					"MARGIN_SET BPMP-FW SEND ERR\n");
@@ -228,6 +264,9 @@ void rx_margin_work_fn(struct work_struct *work)
 				continue;
 			}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
+			fallthrough;
+#endif
 		case RX_MARGIN_GET_MARGIN:
 			if (state != RX_MARGIN_STOP) {
 				ret = get_margin_status(phy->id, &val);
@@ -328,6 +367,11 @@ static int tegra_p2u_probe(struct platform_device *pdev)
 
 	phy->dev = dev;
 
+	phy->of_data =
+		(struct tegra_p2u_of_data *)of_device_get_match_data(dev);
+	if (!(phy->of_data))
+		return -EINVAL;
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	phy->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->base))
@@ -351,9 +395,6 @@ static int tegra_p2u_probe(struct platform_device *pdev)
 		return ret;
 	}
 	phy->id = val;
-
-	phy->enable_lm = of_property_read_bool(dev->of_node,
-					       "nvidia,enable-lm");
 
 	phy->disable_uphy_rx_idle =
 		of_property_read_bool(dev->of_node,
@@ -383,9 +424,22 @@ static int tegra_p2u_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct tegra_p2u_of_data tegra_p2u_of_data_t194 = {
+	.twos_comp_fixup = true,
+};
+
+static const struct tegra_p2u_of_data tegra_p2u_of_data_t234 = {
+	.twos_comp_fixup = false,
+};
+
 static const struct of_device_id tegra_p2u_id_table[] = {
 	{
-		.compatible = "nvidia,phy-p2u",
+		.compatible = "nvidia,phy-p2u-t194",
+		.data = &tegra_p2u_of_data_t194,
+	},
+	{
+		.compatible = "nvidia,phy-p2u-t234",
+		.data = &tegra_p2u_of_data_t234,
 	},
 	{}
 };

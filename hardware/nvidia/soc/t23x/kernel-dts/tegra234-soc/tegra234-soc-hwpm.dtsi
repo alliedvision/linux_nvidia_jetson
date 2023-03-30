@@ -1,0 +1,131 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <dt-bindings/memory/tegra234-smmu-streamid.h>
+
+/ {
+	tegra_soc_hwpm {
+		compatible = "nvidia,t234-soc-hwpm";
+		dma-coherent;
+		reg = <0x0 0xf100000 0x0 0x1000>,
+		      <0x0 0xf101000 0x0 0x1000>,
+		      <0x0 0xf102000 0x0 0x1000>,
+		      <0x0 0xf103000 0x0 0x1000>,
+		      <0x0 0xf104000 0x0 0x1000>,
+		      <0x0 0xf105000 0x0 0x1000>,
+		      <0x0 0xf106000 0x0 0x1000>,
+		      <0x0 0xf107000 0x0 0x1000>,
+		      <0x0 0xf108000 0x0 0x1000>,
+		      <0x0 0xf109000 0x0 0x1000>,
+		      <0x0 0xf10a000 0x0 0x1000>,
+		      <0x0 0xf10b000 0x0 0x1000>,
+		      <0x0 0xf10c000 0x0 0x1000>,
+		      <0x0 0xf10d000 0x0 0x1000>,
+		      <0x0 0xf10e000 0x0 0x1000>,
+		      <0x0 0xf10f000 0x0 0x1000>,
+		      <0x0 0xf110000 0x0 0x1000>,
+		      <0x0 0xf111000 0x0 0x1000>,
+		      <0x0 0xf112000 0x0 0x1000>,
+		      <0x0 0xf113000 0x0 0x1000>,
+		      <0x0 0xf114000 0x0 0x1000>,
+		      <0x0 0xf115000 0x0 0x1000>,
+		      <0x0 0xf116000 0x0 0x1000>,
+		      <0x0 0xf117000 0x0 0x1000>,
+		      <0x0 0xf118000 0x0 0x1000>,
+		      <0x0 0xf119000 0x0 0x1000>,
+		      <0x0 0xf11a000 0x0 0x1000>,
+		      <0x0 0xf11b000 0x0 0x1000>,
+		      <0x0 0xf11c000 0x0 0x1000>,
+		      <0x0 0xf11d000 0x0 0x1000>,
+		      <0x0 0xf11e000 0x0 0x1000>,
+		      <0x0 0xf11f000 0x0 0x1000>,
+		      <0x0 0xf120000 0x0 0x1000>,
+		      <0x0 0xf121000 0x0 0x1000>,
+		      <0x0 0xf122000 0x0 0x1000>,
+		      <0x0 0xf123000 0x0 0x1000>,
+		      <0x0 0xf124000 0x0 0x1000>,
+		      <0x0 0xf125000 0x0 0x1000>,
+		      <0x0 0xf126000 0x0 0x1000>,
+		      <0x0 0xf127000 0x0 0x1000>,
+		      <0x0 0xf128000 0x0 0x1000>,
+		      <0x0 0xf129000 0x0 0x1000>,
+		      <0x0 0xf12a000 0x0 0x1000>,
+		      <0x0 0xf12b000 0x0 0x1000>,
+		      <0x0 0xf12c000 0x0 0x1000>,
+		      <0x0 0xf12d000 0x0 0x1000>,
+		      <0x0 0xf12e000 0x0 0x1000>,
+		      <0x0 0xf12f000 0x0 0x1000>,
+		      <0x0 0xf130000 0x0 0x1000>,
+		      <0x0 0xf131000 0x0 0x1000>,
+		      <0x0 0xf132000 0x0 0x1000>,
+		      <0x0 0xf133000 0x0 0x1000>,
+		      <0x0 0xf14a000 0x0 0x2000>,
+		      <0x0 0xf14d000 0x0 0x1000>;
+
+		reg-names = "perfmon_vi0",
+			"perfmon_vi1",
+			"perfmon_isp0",
+			"perfmon_vica0",
+			"perfmon_ofaa0",
+			"perfmon_pvav0", "perfmon_pvav1", "perfmon_pvac0",
+			"perfmon_nvdlab0", "perfmon_nvdlab1",
+			"perfmon_nvdisplay0",
+			"perfmon_sys0",
+			"perfmon_mgbe0", "perfmon_mgbe1",
+			"perfmon_mgbe2", "perfmon_mgbe3",
+			"perfmon_scf",
+			"perfmon_nvdeca0",
+			"perfmon_nvenca0",
+			"perfmon_mssnvlhsh0",
+			"perfmon_pcie0", "perfmon_pcie1",
+			"perfmon_pcie2", "perfmon_pcie3", "perfmon_pcie4",
+			"perfmon_pcie5", "perfmon_pcie6", "perfmon_pcie7",
+			"perfmon_pcie8", "perfmon_pcie9", "perfmon_pcie10",
+			"perfmon_msschannel_parta0",
+			"perfmon_msschannel_parta1",
+			"perfmon_msschannel_parta2",
+			"perfmon_msschannel_parta3",
+			"perfmon_msschannel_partb0",
+			"perfmon_msschannel_partb1",
+			"perfmon_msschannel_partb2",
+			"perfmon_msschannel_partb3",
+			"perfmon_msschannel_partc0",
+			"perfmon_msschannel_partc1",
+			"perfmon_msschannel_partc2",
+			"perfmon_msschannel_partc3",
+			"perfmon_msschannel_partd0",
+			"perfmon_msschannel_partd1",
+			"perfmon_msschannel_partd2",
+			"perfmon_msschannel_partd3",
+			"perfmon_msshub0", "perfmon_msshub1",
+			"perfmon_mssmcfclient0", "perfmon_mssmcfmem0",
+			"perfmon_mssmcfmem1",
+			"pma", "rtr";
+
+		clocks = <&bpmp_clks TEGRA234_CLK_LA>,
+				<&bpmp_clks TEGRA234_CLK_PLLREFE_VCOOUT_GATED>;
+		clock-names = "la", "parent";
+		resets = <&bpmp_resets TEGRA234_RESET_LA>,
+			<&bpmp_resets TEGRA234_RESET_HWPM>;
+		reset-names = "la", "hwpm";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_HWMP_PMA>;
+		/*
+		 * Presence of this property indicates that HWPM
+		 * node can be enabled
+		 */
+		support-soc-tools;
+		status = "disabled";
+	};
+};

@@ -26,6 +26,7 @@
 #include "wlioctl.h"
 #include "wldev_common.h"
 #include <linux/module.h>
+#include <linux/version.h>
 
 /* Overall stats collection rate in ms */
 #define BCMDHD_STAT_RATE (15*60*1000)
@@ -286,6 +287,7 @@ typedef struct tegra_sysfs_stat_generic {
 	unsigned long eapol_message_4_retry;
 
 	int ccode_sig_fail[SIG_FAIL_REASONS];
+	unsigned long skb_realloc_headroom_fail;
 } tegra_sysfs_stat_generic_t;
 
 typedef struct tegra_sysfs_stat_firmware {
@@ -294,8 +296,13 @@ typedef struct tegra_sysfs_stat_firmware {
 } tegra_sysfs_stat_firmware_t;
 
 typedef struct tegra_sysfs_stat_driver {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec cur_drv_state_update_time;
 	struct timespec cur_pm_state_update_time;
+#else
+	struct timespec64 cur_drv_state_update_time;
+	struct timespec64 cur_pm_state_update_time;
+#endif
 	unsigned long aggr_num_sta_scans;
 	unsigned long aggr_num_p2p_scans;
 	unsigned long aggr_time_drv_suspend;
@@ -326,7 +333,11 @@ typedef struct tegra_sysfs_stat_driver {
 
 struct tegra_sysfs_histogram_stat {
 	/* Timestamp of record */
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec time;
+#else
+	struct timespec64 time;
+#endif
 	/* Generic stats reported in Shieldstats */
 	tegra_sysfs_stat_generic_t gen_stat;
 	/* Specific driver stats */
@@ -339,7 +350,11 @@ extern struct tegra_sysfs_histogram_stat bcmdhd_stat;
 /* Previous saved snapshot for taking diffs when required */
 extern struct tegra_sysfs_histogram_stat bcmdhd_stat_saved;
 /* Last time stats node is shown */
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 extern struct timespec dhdstats_ts;
+#else
+extern struct timespec64 dhdstats_ts;
+#endif
 /* Flags */
 extern int aggr_not_assoc_err_set;
 

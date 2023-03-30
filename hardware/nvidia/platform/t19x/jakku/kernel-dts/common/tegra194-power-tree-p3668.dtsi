@@ -36,12 +36,17 @@
 	};
 
 	xusb_padctl@3520000 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p3668_spmic_sd3>;
+		avdd-usb-supply = <&p3668_spmic_ldo5>;
+#else
 		pex_dvdd-supply = <&p3668_spmic_sd0>;
 		pex_hvdd-supply = <&p3668_spmic_sd1>;
 		pex_pll_hvdd-supply = <&p3668_spmic_sd1>;
 		vclamp_usb-supply = <&p3668_spmic_sd3>;
 		avdd_usb-supply = <&p3668_spmic_ldo5>;
 		avdd_pll_nvhs_eutmip-supply = <&p3668_spmic_sd1>;
+#endif
 		ports {
 			usb2-0 {
 				vbus-supply = <&battery_reg>;

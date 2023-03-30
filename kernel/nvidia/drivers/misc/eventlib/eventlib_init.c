@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -185,13 +185,13 @@ int _eventlib_init(struct eventlib_ctx *ctx, uint32_t ctx_version,
 		return ret;
 	}
 
-	if (flt_init) {
-		ret = flt_init(ctx);
-		if (ret) {
-			ctx->priv = NULL;
-			return ret;
-		}
+#ifdef EVENTLIB_FLT_PRESENT
+	ret = flt_init(ctx);
+	if (ret) {
+		ctx->priv = NULL;
+		return ret;
 	}
+#endif
 
 	ret = tbuf_init(ctx);
 	if (ret) {
@@ -205,7 +205,9 @@ int _eventlib_init(struct eventlib_ctx *ctx, uint32_t ctx_version,
 
 void eventlib_close(struct eventlib_ctx *ctx)
 {
+#ifdef EVENTLIB_FLT_PRESENT
 	if (flt_fini)
 		flt_fini(ctx);
+#endif
 	ctx->priv = NULL;
 }

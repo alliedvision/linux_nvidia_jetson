@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2015 - 2017 Realtek Corporation.
+ * Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -47,8 +48,6 @@ s32 rtl8822ce_init_xmit_priv(_adapter *padapter)
 	s32 ret = _SUCCESS;
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 	struct dvobj_priv *pdvobjpriv = adapter_to_dvobj(padapter);
-
-	_rtw_spinlock_init(&pdvobjpriv->irq_th_lock);
 
 #ifdef PLATFORM_LINUX
 	tasklet_init(&pxmitpriv->xmit_tasklet,
@@ -421,10 +420,8 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, s32 sz)
 		rtl8822c_fill_txdesc_sectype(pattrib, ptxdesc);
 		rtl8822c_fill_txdesc_vcs(padapter, pattrib, ptxdesc);
 
-#ifdef CONFIG_CONCURRENT_MODE
 		if (bmcst)
 			rtl8822c_fill_txdesc_force_bmc_camid(pattrib, ptxdesc);
-#endif
 
 		if ((pattrib->ether_type != 0x888e) &&
 		    (pattrib->ether_type != 0x0806) &&
@@ -692,32 +689,6 @@ s32 rtl8822ce_dump_xframe(_adapter *padapter, struct xmit_frame *pxmitframe)
 		if (pxmitpriv->dump_txbd_desc)
 			rtw_tx_desc_backup(padapter, pxmitframe, TX_WIFI_INFO_SIZE, ff_hwaddr);
 #endif
-
-
-#ifdef CONFIG_PCI_TX_POLLING_V2
-		if (BE_QUEUE_INX == ff_hwaddr) { 
-			/*while (ptx_ring->qlen > (29*(NR_XMITBUFF>>5))) { *//*90.6%*/
-			/*while (ptx_ring->qlen > (14*(NR_XMITBUFF>>4))) { *//*87.5%*/
-			while (ptx_ring->qlen > (6*(NR_XMITBUFF>>3))) { /*75%*/
-			/*while (ptx_ring->qlen > (NR_XMITBUFF>>1)) { *//*50%*/
-				rtl8822ce_tx_isr_polling(padapter, BE_QUEUE_INX);
-			}
-		}
-#ifndef CONFIG_PCI_TX_POLLING
-		else if (MGT_QUEUE_INX == ff_hwaddr){
-			while (ptx_ring->qlen > 2) {	/* mini. qlen=2 */
-				rtl8822ce_tx_isr_polling(padapter, MGT_QUEUE_INX); /*mgnt frame use xmit_buf_ext, only 32 buf.*/
-			}
-		} else if ((HIGH_QUEUE_INX == ff_hwaddr) ||(BK_QUEUE_INX == ff_hwaddr) ||
-			 (VI_QUEUE_INX == ff_hwaddr) ||(VO_QUEUE_INX == ff_hwaddr)){
-			while (ptx_ring->qlen > (6*(TX_BD_NUM_8822CE>>3))) { /*75%*/
-			/*while (ptx_ring->qlen > (TX_BD_NUM_8822CE>>1)) { *//*50%*/
-				rtl8822ce_tx_isr_polling(padapter, ff_hwaddr);
-			}
-		}
-#endif
-#endif
-
 		_exit_critical(&pdvobjpriv->irq_th_lock, &irqL);
 
 		inner_ret = rtw_write_port(padapter, ff_hwaddr, w_sz,
@@ -1519,75 +1490,6 @@ void rtl8822ce_tx_isr(PADAPTER Adapter, int prio)
 	    && rtw_xmit_ac_blocked(Adapter) != _TRUE)
 		rtw_mi_xmit_tasklet_schedule(Adapter);
 }
-
-#ifdef CONFIG_PCI_TX_POLLING_V2
-void rtl8822ce_tx_isr_polling(PADAPTER Adapter, int prio)
-{
-	struct xmit_priv *t_priv = &Adapter->xmitpriv;
-	struct dvobj_priv *pdvobjpriv = adapter_to_dvobj(Adapter);
-	struct rtw_tx_ring *ring = &t_priv->tx_ring[prio];
-	struct xmit_buf	*pxmitbuf;
-	u8 *tx_desc;
-	u16 tmp_4bytes;
-	u16 desc_idx_hw = 0, desc_idx_host = 0;
-	u32 qlen_ths;
-
-#ifdef CONFIG_LPS_LCLK
-	int index;
-	s32 enter32k = _SUCCESS;
-	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(Adapter);
-#endif
-	qlen_ths = ring->qlen >>3; /*10% ~ 6% */
-	/*qlen_ths = 1;*/
-
-	while (ring->qlen >= qlen_ths) {
-		tx_desc = (u8 *)&ring->buf_desc[ring->idx];
-
-		/*  beacon use cmd buf Never run into here */
-		if (!rtl8822ce_check_txdesc_closed(Adapter, prio, ring)){
-			return;
-		}
-
-		buf_desc_debug("TX: %s, q_idx = %d, tx_bd = %04x, close [%04x] r_idx [%04x]\n",
-			       __func__, prio, (u32)tx_desc, ring->idx,
-			       (ring->idx + 1) % ring->entries);
-
-		ring->idx = (ring->idx + 1) % ring->entries;
-		pxmitbuf = rtl8822ce_dequeue_xmitbuf(ring);
-
-		if (pxmitbuf) {
-			pci_unmap_single(pdvobjpriv->ppcidev,
-				GET_TX_BD_PHYSICAL_ADDR0_LOW(tx_desc),
-				pxmitbuf->len, PCI_DMA_TODEVICE);
-			rtw_sctx_done(&pxmitbuf->sctx);
-			rtw_free_xmitbuf(&(pxmitbuf->padapter->xmitpriv),
-					 pxmitbuf);
-
-		} else {
-			RTW_INFO("%s qlen=%d!=0,but have xmitbuf in pendingQ\n",
-				 __func__, ring->qlen);
-			break;
-		}
-	}
-
-#ifdef CONFIG_LPS_LCLK
-	for (index = 0; index < HW_QUEUE_ENTRY; index++) {
-		if (index != BCN_QUEUE_INX) {
-			if (_rtw_queue_empty(&(Adapter->xmitpriv.tx_ring[index].queue)) == _FALSE) {
-				enter32k = _FAIL;
-				break;
-			}
-		}
-	}
-	if (enter32k)
-		_set_workitem(&(pwrpriv->dma_event));
-#endif
-
-	if (check_tx_desc_resource(Adapter, prio)
-	    && rtw_xmit_ac_blocked(Adapter) != _TRUE)
-		rtw_mi_xmit_tasklet_schedule(Adapter);
-}
-#endif
 
 #else /* !CONFIG_BCN_ICF */
 void rtl8822ce_tx_isr(PADAPTER Adapter, int prio)

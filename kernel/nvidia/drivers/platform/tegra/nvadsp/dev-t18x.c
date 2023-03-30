@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2015-2021, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -11,13 +11,24 @@
  * GNU General Public License for more details.
  *
  */
-
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/platform_device.h>
 #include <linux/tegra_nvadsp.h>
 #include <linux/reset.h>
 #include <linux/clk.h>
 
 #include <linux/delay.h>
+#include <linux/tegra_nvadsp.h>
+
+#ifdef CONFIG_TEGRA_VIRT_AUDIO_IVC
+#include "tegra_virt_alt_ivc_common.h"
+#include "tegra_virt_alt_ivc.h"
+#endif
 
 #include "dev.h"
 #include "dev-t18x.h"
@@ -107,7 +118,6 @@ static int nvadsp_t18x_clocks_enable(struct platform_device *pdev)
 static int __nvadsp_t18x_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
 	int ret;
 
 	dev_dbg(dev, "at %s:%d\n", __func__, __LINE__);
@@ -116,14 +126,6 @@ static int __nvadsp_t18x_runtime_resume(struct device *dev)
 	if (ret) {
 		dev_dbg(dev, "failed in nvadsp_t18x_clocks_enable\n");
 		return ret;
-	}
-
-	if (!drv_data->adsp_os_secload) {
-		ret = nvadsp_acast_init(pdev);
-		if (ret) {
-			dev_err(dev, "failed in nvadsp_acast_init\n");
-			return ret;
-		}
 	}
 
 	return ret;
@@ -172,9 +174,19 @@ static int __assert_t18x_adsp(struct nvadsp_drv_data *d)
 	 * only ADSP reset is sufficient to reset all ADSP sub-modules.
 	 */
 	ret = reset_control_assert(d->adspall_rst);
-	if (ret)
+	if (ret) {
 		dev_err(dev, "failed to assert adsp\n");
+		goto end;
+	}
 
+	/* APE_TKE reset */
+	if (d->ape_tke_rst) {
+		ret = reset_control_assert(d->ape_tke_rst);
+		if (ret)
+			dev_err(dev, "failed to assert ape_tke\n");
+	}
+
+end:
 	return ret;
 }
 
@@ -183,6 +195,15 @@ static int __deassert_t18x_adsp(struct nvadsp_drv_data *d)
 	struct platform_device *pdev = d->pdev;
 	struct device *dev = &pdev->dev;
 	int ret = 0;
+
+	/* APE_TKE reset */
+	if (d->ape_tke_rst) {
+		ret = reset_control_deassert(d->ape_tke_rst);
+		if (ret) {
+			 dev_err(dev, "failed to deassert ape_tke\n");
+			 goto end;
+		}
+	}
 
 	/*
 	 * The ADSP_ALL reset in BPMP-FW is overloaded to de-assert
@@ -196,8 +217,61 @@ static int __deassert_t18x_adsp(struct nvadsp_drv_data *d)
 	if (ret)
 		dev_err(dev, "failed to deassert adsp\n");
 
+end:
 	return ret;
 }
+
+#ifdef CONFIG_TEGRA_VIRT_AUDIO_IVC
+static int __virt_assert_t18x_adsp(struct nvadsp_drv_data *d)
+{
+	int err;
+	struct nvaudio_ivc_msg	msg;
+	struct nvaudio_ivc_ctxt *hivc_client = nvaudio_get_ivc_alloc_ctxt();
+
+	if (!hivc_client) {
+		pr_err("%s: Failed to allocate IVC context\n", __func__);
+		return -ENODEV;
+	}
+
+	memset(&msg, 0, sizeof(struct nvaudio_ivc_msg));
+	msg.cmd = NVAUDIO_ADSP_RESET;
+	msg.params.adsp_reset_info.reset_req = ASSERT;
+	msg.ack_required = true;
+
+	err = nvaudio_ivc_send_receive(hivc_client,
+			&msg,
+			sizeof(struct nvaudio_ivc_msg));
+	if (err < 0)
+		pr_err("%s: error on ivc_send_receive\n", __func__);
+
+	return 0;
+}
+
+static int __virt_deassert_t18x_adsp(struct nvadsp_drv_data *d)
+{
+	int err;
+	struct nvaudio_ivc_msg	msg;
+	struct nvaudio_ivc_ctxt *hivc_client = nvaudio_get_ivc_alloc_ctxt();
+
+	if (!hivc_client) {
+		pr_err("%s: Failed to allocate IVC context\n", __func__);
+		return -ENODEV;
+	}
+
+	memset(&msg, 0, sizeof(struct nvaudio_ivc_msg));
+	msg.cmd = NVAUDIO_ADSP_RESET;
+	msg.params.adsp_reset_info.reset_req = DEASSERT;
+	msg.ack_required = true;
+
+	err = nvaudio_ivc_send_receive(hivc_client,
+			&msg,
+			sizeof(struct nvaudio_ivc_msg));
+	if (err < 0)
+		pr_err("%s: error on ivc_send_receive\n", __func__);
+
+	return 0;
+}
+#endif
 
 int nvadsp_reset_t18x_init(struct platform_device *pdev)
 {
@@ -205,12 +279,29 @@ int nvadsp_reset_t18x_init(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
+#ifdef CONFIG_TEGRA_VIRT_AUDIO_IVC
+
+	if (is_tegra_hypervisor_mode()) {
+		d->assert_adsp = __virt_assert_t18x_adsp;
+		d->deassert_adsp = __virt_deassert_t18x_adsp;
+		d->adspall_rst = NULL;
+		return 0;
+	}
+#endif
+
 	d->assert_adsp = __assert_t18x_adsp;
 	d->deassert_adsp = __deassert_t18x_adsp;
 	d->adspall_rst = devm_reset_control_get(dev, "adspall");
 	if (IS_ERR(d->adspall_rst)) {
 		dev_err(dev, "can not get adspall reset\n");
 		ret = PTR_ERR(d->adspall_rst);
+		goto end;
 	}
+
+	d->ape_tke_rst = devm_reset_control_get(dev, "ape_tke");
+	if (IS_ERR(d->ape_tke_rst))
+		d->ape_tke_rst = NULL;
+
+end:
 	return ret;
 }

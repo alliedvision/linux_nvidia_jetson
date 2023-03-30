@@ -1,0 +1,49 @@
+From 1a69ae320feb4378ad324757bf687400dca6d83b Mon Sep 17 00:00:00 2001
+From: Amit Pundir <amit.pundir@linaro.org>
+Date: Tue, 1 Oct 2019 12:39:08 +0530
+Subject: [PATCH 522/830] ANDROID: db845c: Add build config
+X-NVConfidentiality: public
+
+Add a build config for db845c.
+
+This one uses cat to merge the gki_defconfig with
+the db845c_gki.fragment.
+
+This isn't as ideal as using merge_config.sh which
+provides more useful warnings but I couldn't manage
+to get merge_config.sh to run properly within the
+context of the PRE_DEFCONFIG_CMDS.
+
+This does however result in a .config identical
+to the  merge_config result.
+
+Signed-off-by: Amit Pundir <amit.pundir@linaro.org>
+[jstultz: overhauled for android-mainline]
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Bug: 146449535
+Change-Id: Ib32bb07590adcb10e9e208f33773900054202e68
+---
+ build.config.db845c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+ create mode 100644 build.config.db845c
+
+diff --git a/build.config.db845c b/build.config.db845c
+new file mode 100644
+index 000000000000..65b768fb1fb3
+--- /dev/null
++++ b/build.config.db845c
+@@ -0,0 +1,11 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.aarch64
++
++DEFCONFIG=db845c_gki_defconfig
++PRE_DEFCONFIG_CMDS="cat ./common/arch/arm64/configs/gki_defconfig ./common/arch/arm64/configs/db845c_gki.fragment > ./common/arch/arm64/configs/${DEFCONFIG};"
++POST_DEFCONFIG_CMDS="rm ./common/arch/arm64/configs/${DEFCONFIG}"
++
++FILES="
++arch/arm64/boot/Image.gz
++arch/arm64/boot/dts/qcom/sdm845-db845c.dtb
++"
+-- 
+2.17.1
+

@@ -1,5 +1,4 @@
-
-# Copyright (c) 2012-2019, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2012-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -12,6 +11,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+menu "Nvidia Thermal Drivers"
 
 config PWM_FAN
 	tristate "Tegra PWM Fan driver"
@@ -40,6 +41,26 @@ config TEGRA_THERMAL_THROTTLE
          Passive cooling device that throttles clocks using cpufreq and pmqos
 	 interfaces.
 
+config TEGRA23X_OC_EVENT
+	tristate "Tegra23x overcurrent event driver"
+	depends on TEGRA_BPMP
+	help
+	  Tegra23x overcurrent event driver that shows the overcurrent enable
+	  state and the event count via the hwmon subsystem.
+
+	  Say 'Y' here if you want to learn the overcurrent enable state and
+	  the event count from the user space.
+
+config TEGRA19X_OC_EVENT
+	tristate "Tegra19x overcurrent event driver"
+	help
+	  Tegra19x overcurrent event driver that shows the interrupt request
+	  count, priority, CPU throttle control, and GPU throttle control via
+	  the hwmon subsystem.
+
+	  Say 'Y' here if you want to learn the overcurrent event from the user
+	  space.
+
 config USERSPACE_THERM_ALERT
 	tristate "Userspace thermal alert cooling device"
 	depends on THERMAL_OF
@@ -49,3 +70,4 @@ config USERSPACE_THERM_ALERT
 
 	  Say 'Y' here if you want to get notification of temperature alert
 	  in user space.
+endmenu

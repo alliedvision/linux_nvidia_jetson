@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 - 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *	Navneet Kumar <navneetk@nvidia.com>
@@ -70,11 +70,6 @@ static const struct of_device_id tegra_tj_thermal_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, tegra_tj_thermal_of_match);
 
-static int match(struct thermal_zone_device *tzd, void *data)
-{
-	return !strncmp(tzd->type, (char *)data, 32);
-}
-
 static int tegra_tj_thermal_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -119,7 +114,7 @@ static int tegra_tj_thermal_probe(struct platform_device *pdev)
 		if (args.args_count != 1)
 			continue;
 
-		tzd = thermal_zone_device_find((void *)args.np->name, match);
+		tzd = thermal_zone_get_zone_by_name(args.np->name);
 		if (IS_ERR_OR_NULL(tzd)) {
 			dev_err(dev, "failed to find thermal zone for %s\n",
 					args.np->name);

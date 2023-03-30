@@ -1,0 +1,77 @@
+From 040a4d037715744b7d8c0f82579cdda917017ee2 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 9 Jul 2020 19:47:48 +0000
+Subject: [PATCH 409/830] FROMLIST: direct-io: add support for fscrypt using
+ blk-crypto
+X-NVConfidentiality: public
+
+Set bio crypt contexts on bios by calling into fscrypt when required,
+and explicitly check for DUN continuity when adding pages to the bio.
+(While DUN continuity is usually implied by logical block contiguity,
+this is not the case when using certain fscrypt IV generation methods
+like IV_INO_LBLK_32).
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+Signed-off-by: Satya Tangirala <satyat@google.com>
+
+Bug: 137270441
+Bug: 144046242
+Bug: 162255927
+Link: https://lore.kernel.org/r/20200709194751.2579207-3-satyat@google.com
+Change-Id: I34b4432a6d820e8bf3e051b196e72c79a180e565
+---
+ fs/direct-io.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/fs/direct-io.c b/fs/direct-io.c
+index 764ea304b669..ec6b4e04d97e 100644
+--- a/fs/direct-io.c
++++ b/fs/direct-io.c
+@@ -25,6 +25,7 @@
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/fs.h>
++#include <linux/fscrypt.h>
+ #include <linux/mm.h>
+ #include <linux/slab.h>
+ #include <linux/highmem.h>
+@@ -393,6 +394,7 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
+ 	      sector_t first_sector, int nr_vecs)
+ {
+ 	struct bio *bio;
++	struct inode *inode = dio->inode;
+ 
+ 	/*
+ 	 * bio_alloc() is guaranteed to return a bio when allowed to sleep and
+@@ -400,6 +402,9 @@ dio_bio_alloc(struct dio *dio, struct dio_submit *sdio,
+ 	 */
+ 	bio = bio_alloc(GFP_KERNEL, nr_vecs);
+ 
++	fscrypt_set_bio_crypt_ctx(bio, inode,
++				  sdio->cur_page_fs_offset >> inode->i_blkbits,
++				  GFP_KERNEL);
+ 	bio_set_dev(bio, bdev);
+ 	bio->bi_iter.bi_sector = first_sector;
+ 	bio_set_op_attrs(bio, dio->op, dio->op_flags);
+@@ -771,9 +776,17 @@ static inline int dio_send_cur_page(struct dio *dio, struct dio_submit *sdio,
+ 		 * current logical offset in the file does not equal what would
+ 		 * be the next logical offset in the bio, submit the bio we
+ 		 * have.
++		 *
++		 * When fscrypt inline encryption is used, data unit number
++		 * (DUN) contiguity is also required.  Normally that's implied
++		 * by logical contiguity.  However, certain IV generation
++		 * methods (e.g. IV_INO_LBLK_32) don't guarantee it.  So, we
++		 * must explicitly check fscrypt_mergeable_bio() too.
+ 		 */
+ 		if (sdio->final_block_in_bio != sdio->cur_page_block ||
+-		    cur_offset != bio_next_offset)
++		    cur_offset != bio_next_offset ||
++		    !fscrypt_mergeable_bio(sdio->bio, dio->inode,
++					   cur_offset >> dio->inode->i_blkbits))
+ 			dio_bio_submit(dio, sdio);
+ 	}
+ 
+-- 
+2.17.1
+

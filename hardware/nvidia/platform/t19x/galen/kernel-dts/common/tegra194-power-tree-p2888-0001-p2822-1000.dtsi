@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "tegra194-spmic-p2888-0001.dtsi"
@@ -33,7 +35,7 @@
 		vccq2-supply = <&p2888_spmic_sd2>;
 	};
 
-	ether_qos@2490000 {
+	ethernet@2490000 {
 		vddio_sys_enet_bias-supply = <&battery_reg>;
 		vddio_enet-supply = <&battery_reg>;
 		phy_vdd_1v8-supply = <&p2888_spmic_sd2>;
@@ -41,14 +43,19 @@
 		phy_pllvdd-supply = <&battery_reg>;
 	};
 
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 	xusb_padctl@3520000 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p2888_spmic_sd3>;
+		avdd-usb-supply = <&p2888_spmic_ldo5>;
+#else
 		pex_dvdd-supply = <&p2888_spmic_sd0>;
 		pex_hvdd-supply = <&p2888_spmic_sd1>;
 		pex_pll_hvdd-supply = <&p2888_spmic_sd1>;
 		vclamp_usb-supply = <&p2888_spmic_sd3>;
 		avdd_usb-supply = <&p2888_spmic_ldo5>;
 		avdd_pll_nvhs_eutmip-supply = <&p2888_spmic_sd1>;
+#endif
+
 		ports {
 			usb2-0 {
 				vbus-supply = <&battery_reg>;
@@ -64,7 +71,6 @@
 			};
 		};
 	};
-#endif
 
 	xudc@3550000 {
 		avdd-usb-supply = <&p2888_spmic_ldo5>;
@@ -93,10 +99,19 @@
 	};
 
 	pwm-fan {
+#if TEGRA_PWM_FAN_DT_VERSION == DT_VERSION_2
+		fan-supply = <&p2822_vdd_fan>;
+#else
 		vdd-fan-supply = <&p2822_vdd_fan>;
+#endif
 	};
 
+
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
 	bpmp_i2c {
+#endif
 		spmic@3c {
 			regulators {
 				sd0 {
@@ -194,5 +209,13 @@
 				};
 			};
 		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
+	};
+#endif
+
+	bcmdhd_pcie_wlan {
+		wlreg_on-supply = <&p2888_spmic_ldo2>;
 	};
 };

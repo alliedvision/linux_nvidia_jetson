@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +16,7 @@
 #ifndef NVGPU_PCI_H
 #define NVGPU_PCI_H
 
-#ifdef CONFIG_GK20A_PCI
+#ifdef CONFIG_NVGPU_DGPU
 int nvgpu_pci_init(void);
 void nvgpu_pci_exit(void);
 #else

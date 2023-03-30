@@ -1,0 +1,48 @@
+From 58af75fcac0f97cc4d6cb8735cfebe4a2aefcd87 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Tue, 21 Jan 2020 16:43:41 -0800
+Subject: [PATCH 397/830] ANDROID: dm: enable may_passthrough_inline_crypto on
+ some targets
+X-NVConfidentiality: public
+
+dm-linear obviously can pass through inline crypto support.
+
+In addition, we need dm-bow to pass through inline crypto support, as
+the userdata partition in Android may be located on top of dm-bow.
+
+Bug: 137270441
+Bug: 162257830
+Change-Id: Ib9b0f67b77391fa450394568ceed441c1508de6e
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/md/dm-bow.c    | 1 +
+ drivers/md/dm-linear.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/md/dm-bow.c b/drivers/md/dm-bow.c
+index dccc5cc5a4df..ea6a30fa27d4 100644
+--- a/drivers/md/dm-bow.c
++++ b/drivers/md/dm-bow.c
+@@ -788,6 +788,7 @@ static int dm_bow_ctr(struct dm_target *ti, unsigned int argc, char **argv)
+ 	rb_insert_color(&br->node, &bc->ranges);
+ 
+ 	ti->discards_supported = true;
++	ti->may_passthrough_inline_crypto = true;
+ 
+ 	return 0;
+ 
+diff --git a/drivers/md/dm-linear.c b/drivers/md/dm-linear.c
+index 00774b5d7668..345e22b9be5d 100644
+--- a/drivers/md/dm-linear.c
++++ b/drivers/md/dm-linear.c
+@@ -62,6 +62,7 @@ static int linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
+ 	ti->num_secure_erase_bios = 1;
+ 	ti->num_write_same_bios = 1;
+ 	ti->num_write_zeroes_bios = 1;
++	ti->may_passthrough_inline_crypto = true;
+ 	ti->private = lc;
+ 	return 0;
+ 
+-- 
+2.17.1
+

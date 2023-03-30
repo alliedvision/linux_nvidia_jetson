@@ -1,0 +1,38 @@
+From 9c6d7e12b437702210b1d993eaa3040cb39f5514 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 4 Aug 2020 00:48:52 +0000
+Subject: [PATCH 728/830] ANDROID: Kconfig.gki: Add IRQ_CHIP options needed for
+ PINCTRL_MSM
+X-NVConfidentiality: public
+
+In v5.8, commit c3c0c2e18d943 ("pinctrl: qcom: Handle
+broken/missing PDC dual edge IRQs on sc7180"), a new dependency
+was added on the IRQ_DOMAIN_HIERARCHY and
+IRQ_FASTEOI_HIERARCHY_HANDLERS for PINCTRL_MSM.
+
+These are not module options and need to be built in, so they
+need to be included in the GKI config.
+
+Fixes: c3c0c2e18d943 ("pinctrl: qcom: Handle broken/missing PDC dual edge IRQs on sc7180")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: Ia9ceb1e0dc56e8860caed5ecff334fcfdcd4b224
+---
+ init/Kconfig.gki | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 5bd056e33337..db2a9b940f40 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -161,6 +161,8 @@ config GKI_HIDDEN_GPU_CONFIGS
+ config GKI_HIDDEN_IRQ_CONFIGS
+ 	bool "Hidden IRQ configuration needed for GKI"
+ 	select GENERIC_IRQ_CHIP
++	select IRQ_DOMAIN_HIERARCHY
++	select IRQ_FASTEOI_HIERARCHY_HANDLERS
+ 	help
+ 	  Dummy config option used to enable GENERIC_IRQ_CHIP hidden
+ 	  config, required by various SoC platforms. This is usually
+-- 
+2.17.1
+

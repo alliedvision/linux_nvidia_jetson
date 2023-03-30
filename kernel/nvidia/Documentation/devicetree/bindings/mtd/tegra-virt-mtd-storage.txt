@@ -1,0 +1,18 @@
+Tegra Virtual MTD Storage driver
+
+Virtual MTD Storage Driver is the front end driver that interfaces with the
+Storage Virtualization System for Tegra SOC and provides an MTD device
+interface
+
+Required Properties:
+- compatible: should be "nvidia,tegra-virt-mtd-storage"
+- ivc:        ivc channel to used for communication with Virtualization System
+- mempool:    mempool used for data transfers with Virtualization System
+
+Example:
+	tegra_virt_storage4 {
+		compatible = "nvidia,tegra-virt-mtd-storage";
+		ivc = <&tegra_hv 106>;
+		mempool = <21>;
+		status = "okay";
+	};

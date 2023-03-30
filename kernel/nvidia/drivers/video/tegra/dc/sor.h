@@ -1,7 +1,7 @@
 /*
  * sor.h: tegra dc sor structue and function declarations.
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,15 +17,20 @@
 #ifndef __DRIVERS_VIDEO_TEGRA_DC_SOR_H__
 #define __DRIVERS_VIDEO_TEGRA_DC_SOR_H__
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/clk/tegra.h>
 #include <linux/reset.h>
-#include <soc/tegra/tegra_bpmp.h>
 #include <linux/rwsem.h>
 #include <linux/delay.h>
 #include <uapi/video/tegra_dc_ext.h>
 #include "dc_priv.h"
 #include "sor_regs.h"
+#include <linux/interrupt.h>
 
 /* Handle to a training pattern data object. Serves as the sole interface of
  * APIs and data structures to the training pattern data object
@@ -207,8 +212,17 @@ struct tegra_dc_sor_data {
 	struct pinctrl_state *dpd_enable;
 	struct pinctrl_state *dpd_disable;
 	int powergate_id;
+	struct device *genpd_dev;
 	struct rw_semaphore reset_lock;
 	struct dentry	*debugdir;
+	unsigned int irq;
+	struct delayed_work work;
+	struct {
+		unsigned int sample_rate;
+		unsigned int channels;
+		unsigned int is_pcm_format;
+		bool valid;
+	} audio;
 	u32 dev_id;
 };
 
@@ -239,7 +253,7 @@ void tegra_dc_sor_set_link_bandwidth(struct tegra_dc_sor_data *sor,
 void tegra_dc_sor_set_lane_count(struct tegra_dc_sor_data *sor, u8 lane_count);
 void tegra_sor_pad_cal_power(struct tegra_dc_sor_data *sor, bool power_up);
 void tegra_sor_setup_clk(struct tegra_dc_sor_data *sor, struct clk *clk,
-	bool is_lvds);
+	struct clk *parent_clk, bool is_lvds);
 void tegra_sor_precharge_lanes(struct tegra_dc_sor_data *sor);
 int tegra_dc_sor_set_power_state(struct tegra_dc_sor_data *sor,
 	int pu_pd);
@@ -520,10 +534,10 @@ static inline void tegra_sor_write_field(struct tegra_dc_sor_data *sor,
 static inline void tegra_sor_clk_enable(struct tegra_dc_sor_data *sor)
 {
 	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon() && tegra_bpmp_running())
+		if (tegra_platform_is_silicon())
 			clk_prepare_enable(sor->ref_clk);
 	} else {
-		if (tegra_platform_is_silicon() || tegra_bpmp_running())
+		if (tegra_platform_is_silicon())
 			clk_prepare_enable(sor->sor_clk);
 	}
 }
@@ -531,45 +545,29 @@ static inline void tegra_sor_clk_enable(struct tegra_dc_sor_data *sor)
 static inline void tegra_sor_clk_disable(struct tegra_dc_sor_data *sor)
 {
 	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon() && tegra_bpmp_running())
+		if (tegra_platform_is_silicon())
 			clk_disable_unprepare(sor->ref_clk);
 	} else {
-		if (tegra_platform_is_silicon() || tegra_bpmp_running())
+		if (tegra_platform_is_silicon())
 			clk_disable_unprepare(sor->sor_clk);
 	}
 }
 
 static inline void tegra_sor_safe_clk_enable(struct tegra_dc_sor_data *sor)
 {
-	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon() && tegra_bpmp_running())
-			clk_prepare_enable(sor->safe_clk);
-	} else {
-		if (tegra_platform_is_silicon() || tegra_bpmp_running())
-			clk_prepare_enable(sor->safe_clk);
-	}
+	if (tegra_platform_is_silicon())
+		clk_prepare_enable(sor->safe_clk);
 }
 
 static inline void tegra_sor_safe_clk_disable(struct tegra_dc_sor_data *sor)
 {
-	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon() && tegra_bpmp_running())
-			clk_disable_unprepare(sor->safe_clk);
-	} else {
-		if (tegra_platform_is_silicon() || tegra_bpmp_running())
-			clk_disable_unprepare(sor->safe_clk);
-	}
+	if (tegra_platform_is_silicon())
+		clk_disable_unprepare(sor->safe_clk);
 }
 
 static inline int tegra_get_sor_reset_ctrl(struct tegra_dc_sor_data *sor,
 	struct device_node *np_sor, const char *res_name)
 {
-	if (tegra_dc_is_nvdisplay()) {
-		/* Use only if bpmp is enabled */
-		if (!tegra_bpmp_running())
-			return 0;
-	}
-
 	sor->rst = of_reset_control_get(np_sor, res_name);
 	if (IS_ERR(sor->rst)) {
 		dev_err(&sor->dc->ndev->dev,
@@ -626,5 +624,23 @@ static inline void tegra_sor_write_field_ext(struct tegra_dc_sor_data *sor,
 	reg_val |= val;
 	tegra_sor_writel(sor, reg, reg_val);
 	up_read(&sor->reset_lock);
+}
+
+static inline void tegra_sor_unpowergate(struct tegra_dc_sor_data *sor)
+{
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	pm_runtime_get_sync(sor->genpd_dev);
+#else
+	tegra_unpowergate_partition(sor->powergate_id);
+#endif
+}
+
+static inline void tegra_sor_powergate(struct tegra_dc_sor_data *sor)
+{
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	pm_runtime_put_sync(sor->genpd_dev);
+#else
+	tegra_powergate_partition(sor->powergate_id);
+#endif
 }
 #endif

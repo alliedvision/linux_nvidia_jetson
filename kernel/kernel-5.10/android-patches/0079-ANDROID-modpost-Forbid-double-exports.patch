@@ -1,0 +1,42 @@
+From 6e1d7e5ee4ae8e800c44fa4c69864c9bbedd659b Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 24 Nov 2020 14:40:13 +0000
+Subject: [PATCH 079/830] ANDROID: modpost: Forbid double exports
+X-NVConfidentiality: public
+
+In the context of GKI we are exporting quite a few internal kernel
+symbols, some of which may be static functions (yes this is bad, but
+technically it works). As such, we need to be careful about conflicts
+and we really should not allow a symbol to be exported more than once.
+
+To ensure this is the case, turn the modpost check 'fatal' to bail out
+immediately when such a situation is detected.
+
+Bug: 174214891
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: I674c9c9c327849503e94d79654e6288411a830af
+---
+ scripts/mod/modpost.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 6988f18283c6..d20d432c94ad 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -426,10 +426,9 @@ static struct symbol *sym_add_exported(const char *name, struct module *mod,
+ 		s = new_symbol(name, mod, export);
+ 	} else if (!external_module || s->module->is_vmlinux ||
+ 		   s->module == mod) {
+-		warn("%s: '%s' exported twice. Previous export was in %s%s\n",
+-		     mod->name, name, s->module->name,
+-		     s->module->is_vmlinux ? "" : ".ko");
+-		return s;
++		fatal("%s: '%s' exported twice. Previous export was in %s%s\n",
++		      mod->name, name, s->module->name,
++		      s->module->is_vmlinux ? "" : ".ko");
+ 	}
+ 
+ 	s->module = mod;
+-- 
+2.17.1
+

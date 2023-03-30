@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Suresh Mangipudi <smangipudi@nvidia.com>
  *
@@ -23,7 +23,12 @@
 #include <linux/platform_device.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/reset.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <linux/pm_domain.h>
+#else
 #include <linux/tegra-powergate.h>
+#endif
 
 #include <dt-bindings/soc/tegra186-powergate.h>
 #include <dt-bindings/soc/tegra194-powergate.h>
@@ -344,6 +349,10 @@ static int tegra186_dpaux_pinctrl_probe(struct platform_device *pdev)
 	tdpaux_ctl->dev = &pdev->dev;
 	cdata = (struct tegra_dpaux_chip_data *)
 				of_device_get_match_data(&pdev->dev);
+	if (!cdata) {
+		dev_err(&pdev->dev, "no device match found for dpaux_pinctrl\n");
+		return -EINVAL;
+	}
 
 	tdpaux_ctl->pdev = pdev;
 	tdpaux_ctl->regs = devm_ioremap_resource(&pdev->dev,
@@ -370,11 +379,19 @@ static int tegra186_dpaux_pinctrl_probe(struct platform_device *pdev)
 	tdpaux_ctl->powergate_id = cdata->powergate_id;
 	platform_set_drvdata(pdev, tdpaux_ctl);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	ret = dev_pm_domain_attach(tdpaux_ctl->dev, true);
+	if (ret) {
+		dev_err(tdpaux_ctl->dev, "pm domain attach failed: %d\n", ret);
+		return ret;
+	}
+#else
 	ret = tegra_unpowergate_partition(tdpaux_ctl->powergate_id);
 	if (ret < 0) {
 		dev_err(tdpaux_ctl->dev, "unpowergate failed: %d\n", ret);
 		return ret;
 	}
+#endif
 
 	tdpaux_ctl->dpaux_clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(tdpaux_ctl->dpaux_clk)) {
@@ -405,7 +422,11 @@ static int tegra_dpaux_remove(struct platform_device *pdev)
 {
 	struct tegra_dpaux_pinctl *tdpaux_ctl = platform_get_drvdata(pdev);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	dev_pm_domain_detach(tdpaux_ctl->dev, true);
+#else
 	tegra_powergate_partition(tdpaux_ctl->powergate_id);
+#endif
 
 	return 0;
 }

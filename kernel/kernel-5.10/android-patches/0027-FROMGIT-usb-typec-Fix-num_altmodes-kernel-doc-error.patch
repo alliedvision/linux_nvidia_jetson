@@ -1,0 +1,49 @@
+From 9bcdfa8206707be64de1ecae32002b87d3532cd6 Mon Sep 17 00:00:00 2001
+From: Prashant Malani <pmalani@chromium.org>
+Date: Thu, 19 Nov 2020 22:35:22 -0800
+Subject: [PATCH 027/830] FROMGIT: usb: typec: Fix num_altmodes kernel-doc
+ error
+X-NVConfidentiality: public
+
+The commit to introduce the num_altmodes attribute for partner had an
+error where one of the parameters was named differently in the comment
+and the function signature. Fix the version in the comment to align with
+what is in the function signature.
+
+This fixes the following htmldocs warning:
+
+drivers/usb/typec/class.c:632: warning: Excess function parameter 'num_alt_modes' description in 'typec_partner_set_num_altmodes'
+
+Bug: 174347172
+Fixes: a0ccdc4a77a1 ("usb: typec: Add number of altmodes partner attr")
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Prashant Malani <pmalani@chromium.org>
+Link: https://lore.kernel.org/r/20201120063523.4159877-1-pmalani@chromium.org
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 52a0372a38b45899368b44147db52f7360aaea31
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Cc: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I4f24ac20a3bb84d103737fb86de6f903ab265370
+---
+ drivers/usb/typec/class.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/class.c b/drivers/usb/typec/class.c
+index 4decf495b88f..0b90d95d1f40 100644
+--- a/drivers/usb/typec/class.c
++++ b/drivers/usb/typec/class.c
+@@ -620,7 +620,7 @@ EXPORT_SYMBOL_GPL(typec_partner_set_identity);
+ /**
+  * typec_partner_set_num_altmodes - Set the number of available partner altmodes
+  * @partner: The partner to be updated.
+- * @num_alt_modes: The number of altmodes we want to specify as available.
++ * @num_altmodes: The number of altmodes we want to specify as available.
+  *
+  * This routine is used to report the number of alternate modes supported by the
+  * partner. This value is *not* enforced in alternate mode registration routines.
+-- 
+2.17.1
+

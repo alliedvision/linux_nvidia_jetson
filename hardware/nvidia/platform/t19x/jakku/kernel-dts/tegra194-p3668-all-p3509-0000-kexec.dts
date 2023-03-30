@@ -1,7 +1,7 @@
 /*
  * Top level DTS file for CVM:P3668-0001 and CVB:P3509-0000.
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,10 +25,6 @@
 	memory {
 		reg =   <0x0 0x80000000 0x0 0x2c000000 0x0 0xac200000 0x0 0x44600000 0x1 0x0 0x1 0x80000000>;
 		device_type = "memory";
-	};
-
-	trusty {
-		status = "okay";
 	};
 
 	cpus {
@@ -95,11 +91,7 @@
 		status = "disabled";
 	};
 
-	spi@c260000 {
-		status = "disabled";
-	};
-
-	host1x {
+	host1x@13e00000 {
 		nvdisplay@15200000 {
 			status = "disabled";
 		};

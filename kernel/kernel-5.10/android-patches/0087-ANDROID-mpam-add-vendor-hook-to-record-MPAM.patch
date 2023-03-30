@@ -1,0 +1,81 @@
+From 6e16b434d8dd1f25b26dbe5f0c09648c6eb3810b Mon Sep 17 00:00:00 2001
+From: "C-J.Chen" <C-J.Chen@mediatek.com>
+Date: Tue, 18 Aug 2020 08:38:07 +0800
+Subject: [PATCH 087/830] ANDROID: mpam: add vendor hook to record MPAM
+X-NVConfidentiality: public
+
+- To use MPAM in kernel task, vendor_hook call is needed to
+  set MPAM at scheduling time.
+- Vendor_hooks is call ed when task is switching for MPAM state
+
+Bug: 165333282
+Signed-off-by: C-J.Chen <C-J.Chen@mediatek.com>
+Change-Id: I30270c667c26e1a7039580b33011665bb3a8cce7
+---
+ arch/arm64/kernel/process.c    |  1 +
+ drivers/android/vendor_hooks.c |  2 ++
+ include/trace/hooks/mpam.h     | 24 ++++++++++++++++++++++++
+ 3 files changed, 27 insertions(+)
+ create mode 100644 include/trace/hooks/mpam.h
+
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index aa44f00bfe21..d8c661c2cb60 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -46,6 +46,7 @@
+ #include <linux/prctl.h>
+ #include <linux/console.h>
+ #include <trace/hooks/fpsimd.h>
++#include <trace/hooks/mpam.h>
+ 
+ #include <asm/alternative.h>
+ #include <asm/arch_gicv3.h>
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index dc24cdb3ce00..5c089306d2ba 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -9,9 +9,11 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/hooks/vendor_hooks.h>
+ #include <trace/hooks/fpsimd.h>
++#include <trace/hooks/mpam.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+  * associated with them) to allow external modules to probe them.
+  */
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+diff --git a/include/trace/hooks/mpam.h b/include/trace/hooks/mpam.h
+new file mode 100644
+index 000000000000..1a89dae9b1fb
+--- /dev/null
++++ b/include/trace/hooks/mpam.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM mpam
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH trace/hooks
++#if !defined(_TRACE_HOOK_MPAM_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_MPAM_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct task_struct;
++DECLARE_HOOK(android_vh_mpam_set,
++	TP_PROTO(struct task_struct *prev, struct task_struct *next),
++	TP_ARGS(prev, next));
++#else
++#define trace_android_vh_mpam_set(prev, next)
++#endif
++#endif /* _TRACE_HOOK_MPAM_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

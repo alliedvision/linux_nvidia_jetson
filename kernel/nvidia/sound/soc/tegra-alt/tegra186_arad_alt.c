@@ -1,7 +1,7 @@
 /*
  * tegra186_arad_alt.c - Tegra186 ARAD driver
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -136,7 +136,7 @@ static struct snd_soc_dai_driver tegra186_arad_dais[] = {
 			.channels_min = 2,
 			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_8000_192000,
-			.formats = SNDRV_PCM_FMTBIT_S24_LE,
+			.formats = SNDRV_PCM_FMTBIT_S32_LE,
 		},
 		.ops = &tegra186_arad_out_dai_ops,
 	},
@@ -771,13 +771,6 @@ static int tegra186_arad_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(arad->regmap);
 	}
 	regcache_cache_only(arad->regmap, true);
-
-	ret = of_property_read_u32(pdev->dev.of_node, "nvidia,ahub-arad-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-arad-id\n");
-		return ret;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 

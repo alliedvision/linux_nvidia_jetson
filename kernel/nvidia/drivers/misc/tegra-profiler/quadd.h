@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/quadd.h
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,6 +32,8 @@ struct quadd_event_data {
 
 	u64 delta;
 	u64 max_count;
+
+	size_t out_idx;
 };
 
 struct quadd_pmu_cntr_info {
@@ -50,15 +52,17 @@ struct quadd_comm_data_interface;
 
 struct quadd_event_source {
 	const char *name;
+	const char *description;
 	int	(*enable)(void);
 	void	(*disable)(void);
 	void	(*start)(void);
 	void	(*stop)(void);
 	int	(*read)(struct quadd_event_data *events, int max);
 	int	(*set_events)(int cpuid, const struct quadd_event *events,
-			      int size);
+			      int size, size_t base_idx);
 	int	(*supported_events)(int cpuid, struct quadd_event *events,
-				    int max, unsigned int *raw_event_mask);
+				    int max, unsigned int *raw_event_mask,
+				    int *nr_ctrs);
 	int	(*current_events)(int cpuid, struct quadd_event *events,
 				  int max);
 	const struct quadd_arch_info		*(*get_arch)(int cpuid);
@@ -70,9 +74,12 @@ struct source_info {
 	int nr_supp_events;
 
 	unsigned int raw_event_mask;
+	int nr_ctrs;
 
 	unsigned int is_present:1;
 	unsigned int active:1;
+
+	unsigned int events_offset;
 };
 
 struct quadd_hrt_ctx;
@@ -88,6 +95,12 @@ struct quadd_ctx {
 
 	struct quadd_event_source *carmel_pmu;
 	struct source_info carmel_pmu_info;
+
+	struct quadd_event_source *tegra23x_pmu_scf;
+	struct source_info tegra23x_pmu_scf_info;
+
+	struct quadd_event_source *tegra23x_pmu_dsu;
+	struct source_info tegra23x_pmu_dsu_info;
 
 	struct quadd_comm_data_interface *comm;
 	struct quadd_hrt_ctx *hrt;
@@ -111,6 +124,10 @@ struct quadd_ctx {
 	unsigned int mode_is_sampling_sched:1;
 
 	unsigned int pclk_cpufreq:1;
+
+	unsigned int exclude_user:1;
+	unsigned int exclude_kernel:1;
+	unsigned int exclude_hv:1;
 
 	struct list_head mmap_areas;
 	raw_spinlock_t mmaps_lock;

@@ -1,7 +1,7 @@
 /*
  * drivers/i2c/busses/i2c-rtcpu.c
  *
- * Copyright (C) 2017 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2017-2020 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -244,9 +244,9 @@ static int tegra_i2c_rtcpu_suspend(struct device *dev)
 {
 	struct tegra_i2c_rtcpu *i2c_dev = dev_get_drvdata(dev);
 
-	i2c_lock_adapter(&i2c_dev->adapter);
+	i2c_lock_bus(&i2c_dev->adapter, I2C_LOCK_ROOT_ADAPTER);
 	i2c_dev->is_suspended = true;
-	i2c_unlock_adapter(&i2c_dev->adapter);
+	i2c_unlock_bus(&i2c_dev->adapter, I2C_LOCK_ROOT_ADAPTER);
 
 	return 0;
 }
@@ -255,9 +255,9 @@ static int tegra_i2c_rtcpu_resume(struct device *dev)
 {
 	struct tegra_i2c_rtcpu *i2c_dev = dev_get_drvdata(dev);
 
-	i2c_lock_adapter(&i2c_dev->adapter);
+	i2c_lock_bus(&i2c_dev->adapter, I2C_LOCK_ROOT_ADAPTER);
 	i2c_dev->is_suspended = false;
-	i2c_unlock_adapter(&i2c_dev->adapter);
+	i2c_unlock_bus(&i2c_dev->adapter, I2C_LOCK_ROOT_ADAPTER);
 
 	return 0;
 }

@@ -1,0 +1,47 @@
+From c4a652ecb6f5045d0dfe357be97b8565f0d32d90 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 27 Apr 2020 08:54:47 -0700
+Subject: [PATCH 691/830] ANDROID: GKI: Enable GENERIC_IRQ_CHIP
+X-NVConfidentiality: public
+
+This feature is only used by arm/arm64 boards but it builds on x86 too
+so enable it everywhere for build coverage.
+
+Bug: 153699377
+Bug: 154880035
+Change-Id: I30c78c394c7d95a02d75d39101c414d37b824024
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ init/Kconfig.gki | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 399e6c7a3ba5..728171c02dce 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -157,6 +157,14 @@ config GKI_HIDDEN_GPU_CONFIGS
+ 	  These are normally selected implicitly when a module
+ 	  that relies on it is configured.
+ 
++config GKI_HIDDEN_IRQ_CONFIGS
++	bool "Hidden IRQ configuration needed for GKI"
++	select GENERIC_IRQ_CHIP
++	help
++	  Dummy config option used to enable GENERIC_IRQ_CHIP hidden
++	  config, required by various SoC platforms. This is usually
++	  selected by ARCH_*.
++
+ # Atrocities needed for
+ # a) building GKI modules in separate tree, or
+ # b) building drivers that are not modularizable
+@@ -181,6 +189,7 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_HIDDEN_SOC_BUS_CONFIGS
+ 	select GKI_HIDDEN_RPMSG_CONFIGS
+ 	select GKI_HIDDEN_GPU_CONFIGS
++	select GKI_HIDDEN_IRQ_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+ 	  modules that may not be selectable in this config.
+-- 
+2.17.1
+

@@ -8,6 +8,7 @@
 #define _OZPD_H_
 
 #include <linux/interrupt.h>
+#include <linux/version.h>
 #include "ozeltbuf.h"
 
 /* PD state
@@ -80,7 +81,11 @@ struct oz_pd {
 	u8		isoc_sent;
 	u32		last_rx_pkt_num;
 	u32		last_tx_pkt_num;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec	last_rx_timestamp;
+#else
+	struct timespec64	last_rx_timestamp;
+#endif
 	u32		trigger_pkt_num;
 	unsigned long	pulse_time;
 	ktime_t		pulse_period;

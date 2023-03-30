@@ -1,7 +1,7 @@
  /*
  * Carmel Uncore PMU support
  *
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -35,6 +35,7 @@
 #include <linux/perf_event.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <linux/version.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 #include <linux/sched/clock.h>
 #else
@@ -44,7 +45,11 @@
 #include <asm/irq_regs.h>
 #include <asm/sysreg.h>
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 // Global registers
 #define SYS_NV_PMSELR_EL0     sys_reg(3, 3, 15, 5, 1)

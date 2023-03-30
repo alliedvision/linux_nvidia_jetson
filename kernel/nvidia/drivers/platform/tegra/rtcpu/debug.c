@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,9 +15,12 @@
  */
 
 #include "soc/tegra/camrtc-dbg-messages.h"
-#include "soc/tegra/camrtc-commands.h"
 
 #include <linux/debugfs.h>
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+#include <linux/interconnect.h>
+#include <dt-bindings/interconnect/tegra_icc_id.h>
+#endif
 #include <linux/io.h>
 #include <linux/iommu.h>
 #include <linux/kernel.h>
@@ -25,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
@@ -38,8 +42,56 @@
 #include <linux/tegra-camera-rtcpu.h>
 #include <linux/tegra-ivc.h>
 #include <linux/tegra-ivc-bus.h>
+#include <linux/platform/tegra/common.h>
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
 #include <linux/platform/tegra/emc_bwmgr.h>
-#include <linux/platform/tegra/tegra-mc-sid.h>
+#endif
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
+
+#include <dt-bindings/memory/tegra-swgroup.h>
+
+#define CAMRTC_TEST_CAM_DEVICES 4
+
+struct camrtc_test_device {
+	/* device handle */
+	struct device *dev;
+	/* device iova for the memory in context */
+	dma_addr_t dev_iova;
+};
+
+struct camrtc_test_mem {
+	/* access id in memory array */
+	u32 index;
+	/* occupied memory size */
+	size_t used;
+	/* total size */
+	size_t size;
+	/* CPU address */
+	void *ptr;
+	/* Physical base address, offsets valid for first page only */
+	phys_addr_t phys_addr;
+	/* base iova for device used for allocation */
+	dma_addr_t iova;
+	/* device index */
+	u32 dev_index;
+	/* metadata for all the devices using this memory */
+	struct camrtc_test_device devices[CAMRTC_TEST_CAM_DEVICES];
+};
+
+struct camrtc_falcon_coverage {
+	u8 id;
+	bool enabled;
+	struct camrtc_test_mem mem;
+	struct sg_table sgt;
+	u64 falc_iova;
+	struct tegra_ivc_channel *ch;
+	struct device *mem_dev;
+	struct device *falcon_dev;
+};
 
 struct camrtc_debug {
 	struct tegra_ivc_channel *channel;
@@ -48,27 +100,65 @@ struct camrtc_debug {
 	wait_queue_head_t waitq;
 	struct {
 		u32 completion_timeout;
+		u32 mods_case;
 		u32 mods_loops;
+		u32 mods_dma_channels;
 		char *test_case;
 		size_t test_case_size;
 		u32 test_timeout;
-		unsigned long test_bw;
+		u32 test_bw;
 	} parameters;
-	struct camrtc_test_mem {
-		u32 index;
-		size_t used;
-		size_t size;
-		void *ptr;
-		dma_addr_t iova;
-	} mem[CAMRTC_DBG_NUM_MEM_TEST_MEM];
-	struct device *mem_devices[3];
-	struct camrtc_dbg_streamids streamids;
+	struct camrtc_falcon_coverage vi_falc_coverage;
+	struct camrtc_falcon_coverage isp_falc_coverage;
+
+	struct camrtc_test_mem mem[CAMRTC_DBG_NUM_MEM_TEST_MEM];
+	struct device *mem_devices[CAMRTC_TEST_CAM_DEVICES];
 	struct ast_regset {
 		struct debugfs_regset32 common, region[8];
 	} ast_regsets[2];
 };
 
 #define NV(x) "nvidia," #x
+#define FALCON_COVERAGE_MEM_SIZE (1024 * 128) /* 128kB */
+
+struct camrtc_dbgfs_rmem {
+	/* reserved memory base address */
+	phys_addr_t     base_address;
+	 /* reserved memory size */
+	unsigned long   total_size;
+	/* if reserved memory enabled */
+	bool enabled;
+	/* memory contexts */
+	struct camrtc_rmem_ctx {
+		phys_addr_t address;
+		unsigned long size;
+	} mem_ctxs[CAMRTC_DBG_NUM_MEM_TEST_MEM];
+};
+
+static struct camrtc_dbgfs_rmem _camdbg_rmem;
+
+static int __init camrtc_dbgfs_rmem_init(struct reserved_mem *rmem)
+{
+	int i;
+	phys_addr_t curr_address = rmem->base;
+	unsigned long ctx_size = rmem->size/CAMRTC_DBG_NUM_MEM_TEST_MEM;
+
+	_camdbg_rmem.base_address = rmem->base;
+	_camdbg_rmem.total_size = rmem->size;
+
+	for (i = 0; i < CAMRTC_DBG_NUM_MEM_TEST_MEM; i++) {
+		_camdbg_rmem.mem_ctxs[i].address = curr_address;
+		_camdbg_rmem.mem_ctxs[i].size = ctx_size;
+		curr_address += ctx_size;
+	}
+
+	_camdbg_rmem.enabled = true;
+
+	return 0;
+}
+
+RESERVEDMEM_OF_DECLARE(tegra_cam_rtcpu,
+		"nvidia,camdbg_carveout", camrtc_dbgfs_rmem_init);
 
 /* Get a camera-rtcpu device */
 static struct device *camrtc_get_device(struct tegra_ivc_channel *ch)
@@ -179,6 +269,9 @@ static int camrtc_ivc_dbg_full_frame_xact(
 	struct camrtc_debug *crd = tegra_ivc_channel_get_drvdata(ch);
 	int ret;
 
+	if (req == NULL || resp == NULL)
+		return -ENOMEM;
+
 	if (timeout == 0)
 		timeout = crd->parameters.completion_timeout;
 
@@ -192,7 +285,11 @@ static int camrtc_ivc_dbg_full_frame_xact(
 	if (ret < 0)
 		goto unlock;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	if (WARN_ON(!tegra_ivc_channel_online_check(ch))) {
+#else
+	if ((!tegra_ivc_channel_online_check(ch))) {
+#endif
 		ret = -ECONNRESET;
 		goto out;
 	}
@@ -314,7 +411,6 @@ static int camrtc_show_sm_ping(struct seq_file *file, void *data)
 	struct tegra_ivc_channel *ch = file->private;
 	struct device *camrtc = camrtc_get_device(ch);
 	u64 sent, recv;
-	u32 command;
 	int err;
 
 	err = tegra_ivc_channel_runtime_get(ch);
@@ -323,9 +419,7 @@ static int camrtc_show_sm_ping(struct seq_file *file, void *data)
 
 	sent = sched_clock();
 
-	command = RTCPU_COMMAND(PING, sent & 0xffffff);
-
-	err = tegra_camrtc_command(camrtc, command, 0);
+	err = tegra_camrtc_ping(camrtc, (uint32_t)sent & 0xffffffU, 0);
 	if (err < 0)
 		goto error;
 
@@ -411,7 +505,9 @@ static int camrtc_show_mods_result(struct seq_file *file, void *data)
 	unsigned long timeout = crd->parameters.completion_timeout;
 	u32 loops = crd->parameters.mods_loops;
 
+	req.data.mods_data.mods_case = crd->parameters.mods_case;
 	req.data.mods_data.mods_loops = loops;
+	req.data.mods_data.mods_dma_channels = crd->parameters.mods_dma_channels;
 
 	ret = camrtc_ivc_dbg_xact(ch, &req, &resp, loops * timeout);
 	if (ret == 0)
@@ -443,6 +539,80 @@ static int camrtc_dbgfs_show_freertos_state(struct seq_file *file, void *data)
 
 DEFINE_SEQ_FOPS(camrtc_dbgfs_fops_freertos_state,
 		camrtc_dbgfs_show_freertos_state);
+
+static int camrtc_dbgfs_show_memstat(struct seq_file *file, void *data)
+{
+	struct tegra_ivc_channel *ch = file->private;
+	struct camrtc_dbg_request req = {
+		.req_type = CAMRTC_REQ_GET_MEM_USAGE,
+	};
+	struct camrtc_dbg_response resp;
+	int ret = 0;
+
+	ret = camrtc_ivc_dbg_xact(ch, &req, &resp, 0);
+	if (ret == 0) {
+		const struct camrtc_dbg_mem_usage *m = &resp.data.mem_usage;
+		uint32_t total = m->text + m->bss + m->data + m->heap +
+			m->stack + m->free_mem;
+
+#define K(x) (((x) + 1023) / 1024)
+		seq_printf(file, "%7s %7s %7s %7s %7s %7s %7s\n",
+			"text", "bss", "data", "heap", "sys", "free", "TOTAL");
+		seq_printf(file, "%7u\t%7u\t%7u\t%7u\t%7u\t%7u\t%7u\n",
+			m->text, m->bss, m->data, m->heap, m->stack, m->free_mem, total);
+		seq_printf(file, "%7u\t%7u\t%7u\t%7u\t%7u\t%7u\t%7u (in kilobytes)\n",
+			K(m->text), K(m->bss), K(m->data), K(m->heap),
+			K(m->stack), K(m->free_mem), K(total));
+	}
+
+	return ret;
+}
+
+DEFINE_SEQ_FOPS(camrtc_dbgfs_fops_memstat, camrtc_dbgfs_show_memstat);
+
+static int camrtc_dbgfs_show_irqstat(struct seq_file *file, void *data)
+{
+	int ret = -ENOMSG;
+#ifdef CAMRTC_REQ_GET_IRQ_STAT
+	struct tegra_ivc_channel *ch = file->private;
+	struct camrtc_dbg_request req = {
+		.req_type = CAMRTC_REQ_GET_IRQ_STAT,
+	};
+	void *mem = kzalloc(ch->ivc.frame_size, GFP_KERNEL | __GFP_ZERO);
+	struct camrtc_dbg_response *resp = mem;
+	const struct camrtc_dbg_irq_stat *stat = &resp->data.irq_stat;
+	uint32_t i;
+	uint32_t max_runtime = 0;
+
+	ret = camrtc_ivc_dbg_full_frame_xact(ch, &req, sizeof(req),
+			resp, ch->ivc.frame_size, 0);
+	if (ret != 0)
+		goto done;
+
+	seq_printf(file, "Irq#\tCount\tRuntime\tMax rt\tName\n");
+
+	for (i = 0; i < stat->n_irq; i++) {
+		seq_printf(file, "%u\t%u\t%llu\t%u\t%.*s\n",
+			stat->irqs[i].irq_num,
+			stat->irqs[i].num_called,
+			stat->irqs[i].runtime,
+			stat->irqs[i].max_runtime,
+			(int)sizeof(stat->irqs[i].name), stat->irqs[i].name);
+
+		if (max_runtime < stat->irqs[i].max_runtime)
+			max_runtime = stat->irqs[i].max_runtime;
+	}
+
+	seq_printf(file, "-\t%llu\t%llu\t%u\t%s\n", stat->total_called,
+		stat->total_runtime, max_runtime, "total");
+
+done:
+	kfree(mem);
+#endif
+	return ret;
+}
+
+DEFINE_SEQ_FOPS(camrtc_dbgfs_fops_irqstat, camrtc_dbgfs_show_irqstat);
 
 static size_t camrtc_dbgfs_get_max_test_size(
 	const struct tegra_ivc_channel *ch)
@@ -489,6 +659,20 @@ static const struct file_operations camrtc_dbgfs_fops_test_case = {
 	.write = camrtc_dbgfs_write_test_case,
 };
 
+static struct device *camrtc_dbgfs_memory_dev(
+	const struct camrtc_debug *crd)
+{
+	/*
+	 * If VI misses stage-1 SMMU translation, the allocations need
+	 * to be contiguous. Just allocate everything through VI and
+	 * map it to other contexts separately.
+	 */
+	if (crd->mem_devices[1] != NULL)
+		return crd->mem_devices[1];
+	else
+		return crd->mem_devices[0];
+}
+
 static ssize_t camrtc_dbgfs_read_test_mem(struct file *file,
 		char __user *buf, size_t count, loff_t *f_pos)
 {
@@ -503,24 +687,59 @@ static ssize_t camrtc_dbgfs_write_test_mem(struct file *file,
 	struct camrtc_test_mem *mem = file->f_inode->i_private;
 	struct camrtc_debug *crd = container_of(
 		mem, struct camrtc_debug, mem[mem->index]);
-	struct device *dev = crd->mem_devices[0];
+	struct device *mem_dev = camrtc_dbgfs_memory_dev(crd);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(mem_dev);
 	ssize_t ret;
 
-	if (*f_pos + count > mem->size) {
-		size_t size = round_up(*f_pos + count, 64 * 1024);
-		dma_addr_t iova;
-		void *ptr = dma_alloc_coherent(dev, size, &iova,
+	if ((*f_pos + count) > mem->size) {
+		if (_camdbg_rmem.enabled) {
+			size_t size = round_up(*f_pos + count, 64 * 1024);
+			void *ptr = phys_to_virt(
+				_camdbg_rmem.mem_ctxs[mem->index].address);
+			unsigned long rmem_size =
+				_camdbg_rmem.mem_ctxs[mem->index].size;
+
+			if (size > rmem_size) {
+				pr_err("%s: not enough memory\n", __func__);
+				return -ENOMEM;
+			}
+
+			if (mem->ptr)
+				dma_unmap_single(mem_dev, mem->iova, mem->size,
+						DMA_BIDIRECTIONAL);
+
+			/* same addr, no overwrite concern */
+			mem->ptr = ptr;
+			mem->size = size;
+
+			mem->iova = dma_map_single(mem_dev, mem->ptr,
+						mem->size, DMA_BIDIRECTIONAL);
+			if (dma_mapping_error(mem_dev,  mem->iova)) {
+				pr_err("%s: dma map failed\n", __func__);
+				return -ENOMEM;
+			}
+		} else {
+			size_t size = round_up(*f_pos + count, 64 * 1024);
+			dma_addr_t iova;
+			void *ptr = dma_alloc_coherent(mem_dev, size, &iova,
 					GFP_KERNEL | __GFP_ZERO);
-		if (ptr == NULL)
-			return -ENOMEM;
-		if (mem->ptr) {
-			memcpy(ptr, mem->ptr, mem->used);
-			dma_free_coherent(dev, mem->size, mem->ptr,
+			if (ptr == NULL)
+				return -ENOMEM;
+			if (mem->ptr) {
+				memcpy(ptr, mem->ptr, mem->used);
+				dma_free_coherent(mem_dev, mem->size, mem->ptr,
 					mem->iova);
+			}
+			mem->ptr = ptr;
+			mem->size = size;
+			mem->iova = iova;
 		}
-		mem->ptr = ptr;
-		mem->size = size;
-		mem->iova = iova;
+
+		/* If mem_dev is not connected to SMMU, the iova is physical */
+		if (domain)
+			mem->phys_addr = iommu_iova_to_phys(domain, mem->iova);
+		else
+			mem->phys_addr = mem->iova;
 	}
 
 	ret = simple_write_to_buffer(mem->ptr, mem->size, f_pos, buf, count);
@@ -529,8 +748,13 @@ static ssize_t camrtc_dbgfs_write_test_mem(struct file *file,
 		mem->used = *f_pos;
 
 		if (mem->used == 0 && mem->ptr != NULL) {
-			dma_free_coherent(dev, mem->size, mem->ptr,
-					mem->iova);
+			if (_camdbg_rmem.enabled)
+				dma_unmap_single(mem_dev, mem->iova, mem->size,
+						DMA_BIDIRECTIONAL);
+			else
+				dma_free_coherent(mem_dev, mem->size, mem->ptr,
+						mem->iova);
+
 			memset(mem, 0, sizeof(*mem));
 		}
 	}
@@ -619,31 +843,163 @@ runtime_put:
 	return ret;
 }
 
-static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
-			struct device *dev,
-			struct sg_table *sgt,
-			struct camrtc_test_mem *mem)
+static void camrtc_run_rmem_unmap_all(struct camrtc_debug *crd,
+		struct camrtc_test_mem *mem, bool all)
 {
-	int ret;
+	int i;
+	struct device *mem_dev = camrtc_dbgfs_memory_dev(crd);
+
+	/* Nothing to unmap */
+	if (mem->ptr == NULL)
+		return;
+
+	for (i = 0; i < mem->dev_index; i++) {
+		struct device *dev = mem->devices[i].dev;
+		dma_addr_t iova = mem->devices[i].dev_iova;
+
+		if (dev == NULL)
+			break;
+
+		/* keep mem_dev mapped unless forced */
+		if (!all && (dev == mem_dev))
+			continue;
+
+		dma_unmap_single(dev, iova,
+			mem->size, DMA_BIDIRECTIONAL);
+	}
+}
+
+static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
+		struct device *mem_dev,
+		struct device *dev,
+		struct sg_table *sgt,
+		struct camrtc_test_mem *mem,
+		uint64_t *return_iova)
+{
+	int ret = 0;
+
+	*return_iova = 0ULL;
 
 	if (dev == NULL)
 		return 0;
 
-	ret = dma_get_sgtable(dev, sgt, mem->ptr, mem->iova, mem->size);
-	if (ret < 0) {
-		dev_err(&ch->dev, "dma_get_sgtable for %s failed\n",
-			dev_name(dev));
-		return ret;
+	if (mem->dev_index >= CAMRTC_TEST_CAM_DEVICES) {
+		pr_err("%s: device list exhausted\n", __func__);
+		return -ENOMEM;
 	}
 
-	if (!dma_map_sg(dev, sgt->sgl, sgt->orig_nents, DMA_BIDIRECTIONAL)) {
-		dev_err(&ch->dev, "failed to map %s mem at 0x%llx\n",
-			dev_name(dev), (u64)mem->iova);
-		sg_free_table(sgt);
-		ret = -ENXIO;
+	if (mem_dev == dev) {
+		*return_iova = mem->iova;
+		goto done;
 	}
+
+	if (_camdbg_rmem.enabled) {
+		*return_iova = dma_map_single(dev, mem->ptr,
+					mem->size, DMA_BIDIRECTIONAL);
+		if (dma_mapping_error(dev, *return_iova)) {
+			pr_err("%s: dma map failed\n", __func__);
+			*return_iova = 0ULL;
+			return -ENOMEM;
+		}
+	} else {
+		ret = dma_get_sgtable(dev, sgt, mem->ptr, mem->iova, mem->size);
+		if (ret < 0) {
+			dev_err(&ch->dev, "dma_get_sgtable for %s failed\n",
+				dev_name(dev));
+			return ret;
+		}
+
+		if (!dma_map_sg(dev, sgt->sgl, sgt->orig_nents,
+				DMA_BIDIRECTIONAL)) {
+			dev_err(&ch->dev, "failed to map %s mem at 0x%llx\n",
+				dev_name(dev), (u64)mem->iova);
+			sg_free_table(sgt);
+			ret = -ENXIO;
+		}
+
+		*return_iova = sgt->sgl->dma_address;
+	}
+
+done:
+	mem->devices[mem->dev_index].dev = dev;
+	mem->devices[mem->dev_index++].dev_iova = *return_iova;
 
 	return ret;
+}
+
+struct camrtc_run_membw {
+	struct device *dev;
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	struct icc_path *icc_path;
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	struct tegra_bwmgr_client *bwmgr;
+#endif
+};
+
+static void camrtc_membw_set(struct camrtc_run_membw *membw, u32 bw)
+{
+	struct device *dev = membw->dev;
+
+	if (bw == 0) {
+		;
+	} else if (tegra_get_chip_id() == TEGRA234) {
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+		struct icc_path *icc_path;
+		int ret;
+
+		icc_path = icc_get(dev, TEGRA_ICC_RCE, TEGRA_ICC_PRIMARY);
+
+		if (!IS_ERR_OR_NULL(icc_path)) {
+			ret = icc_set_bw(icc_path, 0, bw);
+
+			if (ret)
+				dev_err(dev, "set icc bw [%u] failed: %d\n", bw, ret);
+			else
+				dev_dbg(dev, "requested icc bw %u\n", bw);
+
+			membw->icc_path = icc_path;
+		}
+#endif
+	} else {
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+		struct tegra_bwmgr_client *bwmgr;
+		unsigned long emc_rate;
+		int ret;
+
+		bwmgr = tegra_bwmgr_register(TEGRA_BWMGR_CLIENT_CAMERA_NON_ISO);
+
+		if (!IS_ERR_OR_NULL(bwmgr)) {
+			if (bw == 0xFFFFFFFFU)
+				emc_rate = tegra_bwmgr_get_max_emc_rate();
+			else
+				emc_rate = tegra_bwmgr_round_rate(bw);
+
+			ret = tegra_bwmgr_set_emc(bwmgr,
+						emc_rate, TEGRA_BWMGR_SET_EMC_SHARED_BW);
+
+			if (ret < 0)
+				dev_info(dev, "emc request rate %lu failed, %d\n", emc_rate, ret);
+			else
+				dev_dbg(dev, "requested emc rate %lu\n", emc_rate);
+
+			membw->bwmgr = bwmgr;
+		}
+#endif
+	}
+}
+
+static void camrtc_membw_reset(struct camrtc_run_membw *membw)
+{
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	if (membw->icc_path)
+		icc_put(membw->icc_path);
+#endif
+
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	if (membw->bwmgr)
+		tegra_bwmgr_unregister(membw->bwmgr);
+#endif
 }
 
 static int camrtc_run_mem_test(struct seq_file *file,
@@ -652,43 +1008,83 @@ static int camrtc_run_mem_test(struct seq_file *file,
 {
 	struct tegra_ivc_channel *ch = file->private;
 	struct camrtc_debug *crd = tegra_ivc_channel_get_drvdata(ch);
+	struct camrtc_run_membw membw = { .dev = crd->mem_devices[0], };
 	struct camrtc_dbg_test_mem *testmem;
 	size_t i;
-	int ret;
-	struct device *dev = crd->mem_devices[0];
+	int ret = 0;
+	struct device *mem_dev = camrtc_dbgfs_memory_dev(crd);
+	struct device *rce_dev = crd->mem_devices[0];
+	struct sg_table rce_sgt[ARRAY_SIZE(crd->mem)];
 	struct device *vi_dev = crd->mem_devices[1];
 	struct sg_table vi_sgt[ARRAY_SIZE(crd->mem)];
 	struct device *isp_dev = crd->mem_devices[2];
 	struct sg_table isp_sgt[ARRAY_SIZE(crd->mem)];
+	struct device *vi2_dev = crd->mem_devices[3];
+	struct sg_table vi2_sgt[ARRAY_SIZE(crd->mem)];
 	struct camrtc_test_mem *mem0 = &crd->mem[0];
-	struct tegra_bwmgr_client *bwmgr = NULL;
 
+	memset(rce_sgt, 0, sizeof(rce_sgt));
 	memset(vi_sgt, 0, sizeof(vi_sgt));
 	memset(isp_sgt, 0, sizeof(isp_sgt));
+	memset(vi2_sgt, 0, sizeof(vi2_sgt));
 
 	req->req_type = CAMRTC_REQ_RUN_MEM_TEST;
-	req->data.run_mem_test_data.streamids = crd->streamids;
 
 	/* Allocate 6MB scratch memory in mem0 by default */
 	if (!mem0->used) {
 		const size_t size = 6U << 20U; /* 6 MB */
 		dma_addr_t iova;
 		void *ptr;
+		struct iommu_domain *domain = iommu_get_domain_for_dev(mem_dev);
 
 		if (mem0->ptr) {
-			dma_free_coherent(dev, mem0->size, mem0->ptr,
-					mem0->iova);
+			if (_camdbg_rmem.enabled)
+				camrtc_run_rmem_unmap_all(crd, mem0, true);
+			else
+				dma_free_coherent(mem_dev, mem0->size,
+					mem0->ptr, mem0->iova);
+
 			memset(mem0, 0, sizeof(*mem0));
 		}
-		ptr = dma_alloc_coherent(dev, size, &iova,
+
+		if (_camdbg_rmem.enabled) {
+			if (_camdbg_rmem.mem_ctxs[0].size < size) {
+				pr_err(
+				"%s: mem [%lu] < req size [%lu]\n",
+				__func__, _camdbg_rmem.mem_ctxs[0].size,
+				size);
+				return -ENOMEM;
+			}
+
+			ptr = phys_to_virt(_camdbg_rmem.mem_ctxs[0].address);
+
+			iova = dma_map_single(mem_dev, ptr, size,
+						DMA_BIDIRECTIONAL);
+			if (dma_mapping_error(mem_dev, iova)) {
+				pr_err("%s: dma map failed\n", __func__);
+				return -ENOMEM;
+			}
+		} else {
+			ptr = dma_alloc_coherent(mem_dev, size, &iova,
 					GFP_KERNEL | __GFP_ZERO);
-		if (ptr == NULL)
-			return -ENOMEM;
+			if (ptr == NULL)
+				return -ENOMEM;
+		}
+
 		mem0->ptr = ptr;
 		mem0->size = size;
+
+		/* If mem_dev is not connected to SMMU, the iova is physical */
+		if (domain)
+			mem0->phys_addr = iommu_iova_to_phys(domain, iova);
+		else
+			mem0->phys_addr = iova;
+
 		mem0->iova = iova;
 		mem0->used = size;
 	}
+
+	camrtc_membw_set(&membw, crd->parameters.test_bw);
 
 	for (i = 0; i < ARRAY_SIZE(crd->mem); i++) {
 		struct camrtc_test_mem *mem = &crd->mem[i];
@@ -699,40 +1095,32 @@ static int camrtc_run_mem_test(struct seq_file *file,
 		testmem = &req->data.run_mem_test_data.mem[i];
 
 		testmem->size = mem->used;
-		testmem->rtcpu_iova = mem->iova;
+		testmem->page_size = PAGE_SIZE;
+		testmem->phys_addr = mem->phys_addr;
 
-		ret = camrtc_run_mem_map(ch, vi_dev, &vi_sgt[i], mem);
+		ret = camrtc_run_mem_map(ch, mem_dev, rce_dev, &rce_sgt[i], mem,
+			&testmem->rtcpu_iova);
 		if (ret < 0)
 			goto unmap;
 
-		if (vi_sgt[i].sgl)
-			testmem->vi_iova = vi_sgt[i].sgl->dma_address;
-
-		ret = camrtc_run_mem_map(ch, isp_dev, &isp_sgt[i], mem);
+		ret = camrtc_run_mem_map(ch, mem_dev, vi_dev, &vi_sgt[i], mem,
+			&testmem->vi_iova);
 		if (ret < 0)
 			goto unmap;
 
-		if (isp_sgt[i].sgl)
-			testmem->isp_iova = isp_sgt[i].sgl->dma_address;
-
-		dma_sync_single_for_device(dev, mem->iova, mem->used,
-						DMA_TO_DEVICE);
-	}
-
-	if (crd->parameters.test_bw != 0)
-		bwmgr = tegra_bwmgr_register(TEGRA_BWMGR_CLIENT_CAMERA_NON_ISO);
-
-	if (!IS_ERR_OR_NULL(bwmgr)) {
-		ret = tegra_bwmgr_set_emc(bwmgr, crd->parameters.test_bw,
-				TEGRA_BWMGR_SET_EMC_SHARED_BW);
+		ret = camrtc_run_mem_map(ch, mem_dev, isp_dev, &isp_sgt[i], mem,
+			&testmem->isp_iova);
 		if (ret < 0)
-			dev_info(dev, "emc request rate %lu failed, %d\n",
-				crd->parameters.test_bw, ret);
-		else
-			dev_dbg(dev, "requested emc rate %lu\n",
-				crd->parameters.test_bw);
-	}
+			goto unmap;
 
+		ret = camrtc_run_mem_map(ch, mem_dev, vi2_dev, &vi2_sgt[i], mem,
+			&testmem->vi2_iova);
+		if (ret < 0)
+			goto unmap;
+
+		dma_sync_single_for_device(mem_dev, mem->iova, mem->used,
+				DMA_BIDIRECTIONAL);
+	}
 
 	BUILD_BUG_ON_MISMATCH(
 		struct camrtc_dbg_request, run_mem_test_data.data,
@@ -754,16 +1142,19 @@ static int camrtc_run_mem_test(struct seq_file *file,
 		if (!WARN_ON(testmem->size > mem->size))
 			mem->used = testmem->size;
 
-		dma_sync_single_for_device(dev, mem->iova, mem->used,
-					DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(mem_dev, mem->iova, mem->used,
+					DMA_BIDIRECTIONAL);
 	}
 
 unmap:
-	if (!IS_ERR_OR_NULL(bwmgr)) {
-		tegra_bwmgr_unregister(bwmgr);
-	}
+	camrtc_membw_reset(&membw);
 
 	for (i = 0; i < ARRAY_SIZE(vi_sgt); i++) {
+		if (rce_sgt[i].sgl) {
+			dma_unmap_sg(rce_dev, rce_sgt[i].sgl,
+				rce_sgt[i].orig_nents, DMA_BIDIRECTIONAL);
+			sg_free_table(&rce_sgt[i]);
+		}
 		if (vi_sgt[i].sgl) {
 			dma_unmap_sg(vi_dev, vi_sgt[i].sgl,
 				vi_sgt[i].orig_nents, DMA_BIDIRECTIONAL);
@@ -774,6 +1165,26 @@ unmap:
 				isp_sgt[i].orig_nents, DMA_BIDIRECTIONAL);
 			sg_free_table(&isp_sgt[i]);
 		}
+		if (vi2_sgt[i].sgl) {
+			dma_unmap_sg(vi2_dev, vi2_sgt[i].sgl,
+				vi2_sgt[i].orig_nents, DMA_BIDIRECTIONAL);
+			sg_free_table(&vi2_sgt[i]);
+		}
+	}
+
+	if (_camdbg_rmem.enabled) {
+		for (i = 0; i < ARRAY_SIZE(crd->mem); i++) {
+			struct camrtc_test_mem *mem = &crd->mem[i];
+			camrtc_run_rmem_unmap_all(crd, mem, false);
+		}
+	}
+
+	/* Reset mapping info, memory can still be used by cpu tests */
+	for (i = 0; i < ARRAY_SIZE(crd->mem); i++) {
+		crd->mem[i].dev_index = 0U;
+		memset(&crd->mem[i].devices, 0,
+				(ARRAY_SIZE(crd->mem[i].devices) *
+				sizeof(struct camrtc_test_device)));
 	}
 
 	return ret;
@@ -841,6 +1252,225 @@ static int camrtc_dbgfs_show_test_list(struct seq_file *file, void *data)
 }
 
 DEFINE_SEQ_FOPS(camrtc_dbgfs_fops_test_list, camrtc_dbgfs_show_test_list);
+
+static int camrtc_coverage_msg(struct camrtc_falcon_coverage *cov,
+			struct camrtc_dbg_response *resp,
+			bool flush, bool reset)
+{
+	struct camrtc_dbg_request req = {
+		.req_type = CAMRTC_REQ_SET_FALCON_COVERAGE,
+		.data = {
+			.coverage_data = {
+				.falcon_id = cov->id,
+				.size = cov->enabled ? cov->mem.size : 0,
+				.iova = cov->enabled ? cov->falc_iova : 0,
+				.flush = flush ? 1 : 0,
+				.reset = reset ? 1 : 0,
+			},
+		},
+	};
+	struct tegra_ivc_channel *ch = cov->ch;
+	int ret;
+
+	ret = camrtc_ivc_dbg_xact(ch, &req, resp, 200);
+
+	if (ret || (resp->status != CAMRTC_STATUS_OK)) {
+		dev_warn(&ch->dev, "Coverage IVC error: %d, status %u, id %u\n",
+				ret, resp->status, cov->id);
+		ret = -ENODEV;
+	} else if (resp->data.coverage_stat.full == 1) {
+		ret = -EOVERFLOW;
+	}
+
+	return ret;
+}
+
+static bool camrtc_coverage_is_supported(struct camrtc_falcon_coverage *cov)
+{
+	struct camrtc_dbg_response resp;
+
+	(void)camrtc_coverage_msg(cov, &resp, false, false);
+
+	return (resp.status == CAMRTC_STATUS_OK);
+}
+
+static ssize_t camrtc_read_falcon_coverage(struct file *file,
+		char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct camrtc_falcon_coverage *cov = file->f_inode->i_private;
+	struct camrtc_dbg_response resp;
+	ssize_t ret = 0;
+
+	if (!cov->enabled) {
+		ret = -ENODEV;
+		goto done;
+	}
+
+	/* In the beginning, do a flush */
+	if (*f_pos == 0) {
+		/* Flush falcon buffer */
+		ret = camrtc_coverage_msg(cov, &resp, true, false);
+
+		if (ret)
+			goto done;
+
+		cov->mem.used = resp.data.coverage_stat.bytes_written;
+
+		dma_sync_single_for_cpu(cov->mem_dev, cov->mem.iova,
+				cov->mem.size, DMA_BIDIRECTIONAL);
+	}
+
+	ret = simple_read_from_buffer(buf, count, f_pos,
+			cov->mem.ptr, cov->mem.used);
+done:
+	return ret;
+}
+
+static ssize_t camrtc_write_falcon_coverage(struct file *file,
+		const char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct camrtc_falcon_coverage *cov = file->f_inode->i_private;
+	struct camrtc_dbg_response resp;
+	ssize_t ret = count;
+
+	if (cov->enabled) {
+		memset(cov->mem.ptr, 0, cov->mem.size);
+		if (camrtc_coverage_msg(cov, &resp, false, true))
+			ret = -ENODEV;
+		else
+			*f_pos += count;
+	} else {
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+static const struct file_operations camrtc_dbgfs_fops_falcon_coverage = {
+	.read = camrtc_read_falcon_coverage,
+	.write = camrtc_write_falcon_coverage,
+};
+
+static int camrtc_falcon_coverage_enable(struct camrtc_falcon_coverage *cov)
+{
+	struct tegra_ivc_channel *ch = cov->ch;
+	struct device *mem_dev = cov->mem_dev;
+	struct device *falcon_dev = cov->falcon_dev;
+	struct camrtc_dbg_response resp;
+	int ret = 0;
+
+	if (cov->enabled)
+		goto done;
+
+	if (!camrtc_coverage_is_supported(cov)) {
+		ret = -ENODEV;
+		goto done;
+	}
+
+	cov->mem.ptr = dma_alloc_coherent(mem_dev,
+				FALCON_COVERAGE_MEM_SIZE,
+				&cov->mem.iova,
+				GFP_KERNEL | __GFP_ZERO);
+	if (cov->mem.ptr == NULL) {
+		dev_warn(&ch->dev,
+			"Failed to allocate Falcon 0x%02x coverage memory!\n",
+			cov->id);
+		goto error;
+	}
+
+	cov->mem.size = FALCON_COVERAGE_MEM_SIZE;
+
+	if (camrtc_run_mem_map(ch, cov->mem_dev, falcon_dev,
+				&cov->sgt, &cov->mem,
+				&cov->falc_iova)) {
+		dev_warn(&ch->dev,
+			"Failed to map Falcon 0x%02x coverage memory\n",
+			cov->id);
+		goto clean_mem;
+	}
+
+	/* Keep rtcpu alive when falcon coverage is in use. */
+	ret = tegra_ivc_channel_runtime_get(ch);
+	if (ret < 0)
+		goto clean_mem;
+
+	cov->enabled = true;
+
+	/* Sync state with rtcpu */
+	camrtc_coverage_msg(cov, &resp, false, false);
+
+	dev_dbg(&ch->dev, "Falcon 0x%02x code coverage enabled.\n",
+			cov->id);
+
+done:
+	return ret;
+
+clean_mem:
+	dma_free_coherent(mem_dev, cov->mem.size, cov->mem.ptr, cov->mem.iova);
+	memset(&cov->mem, 0, sizeof(struct camrtc_test_mem));
+	cov->enabled = false;
+
+error:
+	return ret;
+}
+
+static void camrtc_falcon_coverage_disable(struct camrtc_falcon_coverage *cov)
+{
+	struct tegra_ivc_channel *ch = cov->ch;
+	struct device *mem_dev = cov->mem_dev;
+	struct device *falcon_dev = cov->falcon_dev;
+	struct camrtc_dbg_response resp;
+
+	if (!cov->enabled)
+		return;
+
+	/* Disable and sync with rtpcu */
+	cov->enabled = false;
+	camrtc_coverage_msg(cov, &resp, false, false);
+
+	if (cov->sgt.sgl) {
+		dma_unmap_sg(falcon_dev, cov->sgt.sgl,
+			cov->sgt.orig_nents, DMA_BIDIRECTIONAL);
+		sg_free_table(&cov->sgt);
+	}
+
+	if (cov->mem.ptr) {
+		dma_free_coherent(mem_dev, cov->mem.size,
+			cov->mem.ptr, cov->mem.iova);
+		memset(&cov->mem, 0, sizeof(struct camrtc_test_mem));
+	}
+
+	tegra_ivc_channel_runtime_put(ch);
+}
+
+static int camrtc_dbgfs_show_coverage_enable(void *data, u64 *val)
+{
+	struct camrtc_falcon_coverage *cov = data;
+
+	*val = cov->enabled ? 1 : 0;
+
+	return 0;
+}
+
+static int camrtc_dbgfs_store_coverage_enable(void *data, u64 val)
+{
+	struct camrtc_falcon_coverage *cov = data;
+	bool enable = (val != 0) ? true : false;
+	int ret = 0;
+
+	if (cov->enabled != enable) {
+		if (enable)
+			ret = camrtc_falcon_coverage_enable(cov);
+		else
+			camrtc_falcon_coverage_disable(cov);
+	}
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(camrtc_dbgfs_fops_coverage_enable,
+			camrtc_dbgfs_show_coverage_enable,
+			camrtc_dbgfs_store_coverage_enable,
+			"%lld\n");
 
 #define TEGRA_APS_AST_CONTROL			0x0
 #define TEGRA_APS_AST_STREAMID_CTL		0x20
@@ -1083,6 +1713,9 @@ static int camrtc_debug_populate(struct tegra_ivc_channel *ch)
 {
 	struct camrtc_debug *crd = tegra_ivc_channel_get_drvdata(ch);
 	struct dentry *dir;
+	struct dentry *coverage;
+	struct dentry *vi;
+	struct dentry *isp;
 	struct camrtc_dbgfs_ast_node *ast_nodes;
 	unsigned int i, dma, region;
 	char const *name = "camrtc";
@@ -1092,6 +1725,32 @@ static int camrtc_debug_populate(struct tegra_ivc_channel *ch)
 	crd->root = dir = debugfs_create_dir(name, NULL);
 	if (dir == NULL)
 		return -ENOMEM;
+
+	coverage = debugfs_create_dir("coverage", dir);
+	if (coverage == NULL)
+		goto error;
+	vi = debugfs_create_dir("vi", coverage);
+	if (vi == NULL)
+		goto error;
+	isp = debugfs_create_dir("isp", coverage);
+	if (isp == NULL)
+		goto error;
+	if (!debugfs_create_file("data", 0600, vi,
+			&crd->vi_falc_coverage,
+			&camrtc_dbgfs_fops_falcon_coverage))
+		goto error;
+	if (!debugfs_create_file("enable", 0600, vi,
+			&crd->vi_falc_coverage,
+			&camrtc_dbgfs_fops_coverage_enable))
+		goto error;
+	if (!debugfs_create_file("data", 0600, isp,
+			&crd->isp_falc_coverage,
+			&camrtc_dbgfs_fops_falcon_coverage))
+		goto error;
+	if (!debugfs_create_file("enable", 0600, isp,
+			&crd->isp_falc_coverage,
+			&camrtc_dbgfs_fops_coverage_enable))
+		goto error;
 
 	if (!debugfs_create_file("version", 0444, dir, ch,
 			&camrtc_dbgfs_fops_version))
@@ -1108,19 +1767,54 @@ static int camrtc_debug_populate(struct tegra_ivc_channel *ch)
 	if (!debugfs_create_file("log-level", 0644, dir, ch,
 			&camrtc_dbgfs_fops_loglevel))
 		goto error;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	if (!debugfs_create_u32("timeout", 0644, dir,
 			&crd->parameters.completion_timeout))
 		goto error;
+#else
+	debugfs_create_u32("timeout", 0644, dir,
+			&crd->parameters.completion_timeout);
+#endif
+
 	if (!debugfs_create_file("forced-reset-restore", 0400, dir, ch,
 			&camrtc_dbgfs_fops_forced_reset_restore))
+		goto error;
+
+	if (!debugfs_create_file("irqstat", 0444, dir, ch,
+			&camrtc_dbgfs_fops_irqstat))
+		goto error;
+	if (!debugfs_create_file("memstat", 0444, dir, ch,
+			&camrtc_dbgfs_fops_memstat))
 		goto error;
 
 	dir = debugfs_create_dir("mods", crd->root);
 	if (!dir)
 		goto error;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	if (!debugfs_create_u32("case", 0644, dir,
+			&crd->parameters.mods_loops))
+		goto error;
+
 	if (!debugfs_create_u32("loops", 0644, dir,
 			&crd->parameters.mods_loops))
 		goto error;
+
+	if (!debugfs_create_x32("dma_channels", 0644, dir,
+			&crd->parameters.mods_dma_channels))
+		goto error;
+#else
+	debugfs_create_u32("case", 0644, dir,
+			&crd->parameters.mods_case);
+
+	debugfs_create_u32("loops", 0644, dir,
+			&crd->parameters.mods_loops);
+
+	debugfs_create_x32("dma_channels", 0644, dir,
+			&crd->parameters.mods_dma_channels);
+#endif
+
 	if (!debugfs_create_file("result", 0400, dir, ch,
 			&camrtc_dbgfs_fops_mods_result))
 		goto error;
@@ -1144,9 +1838,15 @@ static int camrtc_debug_populate(struct tegra_ivc_channel *ch)
 	if (!debugfs_create_file("result", 0400, dir, ch,
 			&camrtc_dbgfs_fops_test_result))
 		goto error;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	if (!debugfs_create_u32("timeout", 0644, dir,
 			&crd->parameters.test_timeout))
 		goto error;
+#else
+	debugfs_create_u32("timeout", 0644, dir,
+			&crd->parameters.test_timeout);
+#endif
+
 	for (i = 0; i < ARRAY_SIZE(crd->mem); i++) {
 		char name[8];
 
@@ -1219,27 +1919,11 @@ static struct device *camrtc_get_linked_device(
 	of_node_put(np);
 
 	if (pdev == NULL) {
-		dev_info(dev, "%s[%u] node has no device\n", name, index);
+		dev_warn(dev, "%s[%u] node has no device\n", name, index);
 		return NULL;
 	}
 
 	return &pdev->dev;
-}
-
-static int camrtc_get_streamid(struct device *dev)
-{
-	int streamid = -ENODEV;
-
-	if (dev == NULL)
-		return 0;
-
-	if (dev->archdata.iommu != NULL)
-		streamid = iommu_get_hwid(dev->archdata.iommu, dev, 0);
-
-	if (streamid < 0)
-		streamid = tegra_mc_get_smmu_bypass_sid();
-
-	return streamid;
 }
 
 static int camrtc_debug_probe(struct tegra_ivc_channel *ch)
@@ -1257,7 +1941,9 @@ static int camrtc_debug_probe(struct tegra_ivc_channel *ch)
 
 	crd->channel = ch;
 	crd->parameters.test_case = (char *)(crd + 1);
+	crd->parameters.mods_case = CAMRTC_MODS_TEST_BASIC;
 	crd->parameters.mods_loops = 20;
+	crd->parameters.mods_dma_channels = 0;
 
 	if (of_property_read_u32(dev->of_node,
 			NV(ivc-timeout),
@@ -1277,18 +1963,22 @@ static int camrtc_debug_probe(struct tegra_ivc_channel *ch)
 	crd->mem_devices[0] = camrtc_get_linked_device(dev, NV(mem-map), 0);
 	crd->mem_devices[1] = camrtc_get_linked_device(dev, NV(mem-map), 1);
 	crd->mem_devices[2] = camrtc_get_linked_device(dev, NV(mem-map), 2);
+	crd->mem_devices[3] = camrtc_get_linked_device(dev, NV(mem-map), 3);
+
+	crd->vi_falc_coverage.id = CAMRTC_DBG_FALCON_ID_VI;
+	crd->vi_falc_coverage.mem_dev = camrtc_dbgfs_memory_dev(crd);
+	crd->vi_falc_coverage.falcon_dev = crd->mem_devices[1];
+	crd->vi_falc_coverage.ch = ch;
+
+	crd->isp_falc_coverage.id = CAMRTC_DBG_FALCON_ID_ISP;
+	crd->isp_falc_coverage.mem_dev = crd->mem_devices[0];
+	crd->isp_falc_coverage.falcon_dev = crd->mem_devices[2];
+	crd->isp_falc_coverage.ch = ch;
 
 	if (of_property_read_u32(dev->of_node, NV(test-bw), &bw) == 0) {
-		unsigned long test_bw;
+		crd->parameters.test_bw = bw;
 
-		if (bw == 0xFFFFFFFFU)
-			test_bw = tegra_bwmgr_get_max_emc_rate();
-		else
-			test_bw = tegra_bwmgr_round_rate(bw);
-
-		crd->parameters.test_bw = test_bw;
-
-		dev_dbg(dev, "using emc rate %lu for tests\n", test_bw);
+		dev_dbg(dev, "using emc bw %u for tests\n", bw);
 	}
 
 	if (crd->mem_devices[0] == NULL) {
@@ -1296,12 +1986,9 @@ static int camrtc_debug_probe(struct tegra_ivc_channel *ch)
 		crd->mem_devices[0] = get_device(camrtc_get_device(ch));
 	}
 
-	crd->streamids.rtcpu = camrtc_get_streamid(crd->mem_devices[0]);
-	crd->streamids.vi = camrtc_get_streamid(crd->mem_devices[1]);
-	crd->streamids.isp = camrtc_get_streamid(crd->mem_devices[2]);
-
 	if (camrtc_debug_populate(ch))
 		return -ENOMEM;
+
 	return 0;
 }
 
@@ -1309,7 +1996,10 @@ static void camrtc_debug_remove(struct tegra_ivc_channel *ch)
 {
 	struct camrtc_debug *crd = tegra_ivc_channel_get_drvdata(ch);
 	int i;
-	struct device *mem_dev = crd->mem_devices[0];
+	struct device *mem_dev = camrtc_dbgfs_memory_dev(crd);
+
+	camrtc_falcon_coverage_disable(&crd->vi_falc_coverage);
+	camrtc_falcon_coverage_disable(&crd->isp_falc_coverage);
 
 	for (i = 0; i < ARRAY_SIZE(crd->mem); i++) {
 		struct camrtc_test_mem *mem = &crd->mem[i];
@@ -1324,6 +2014,7 @@ static void camrtc_debug_remove(struct tegra_ivc_channel *ch)
 	put_device(crd->mem_devices[0]);
 	put_device(crd->mem_devices[1]);
 	put_device(crd->mem_devices[2]);
+	put_device(crd->mem_devices[3]);
 
 	debugfs_remove_recursive(crd->root);
 }

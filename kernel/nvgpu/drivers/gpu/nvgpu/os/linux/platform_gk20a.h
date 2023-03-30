@@ -1,7 +1,7 @@
 /*
  * GK20A Platform (SoC) Interface
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,14 +17,19 @@
 #define _GK20A_PLATFORM_H_
 
 #include <linux/device.h>
+#include <linux/version.h>
 
 #include <nvgpu/lock.h>
 #include <nvgpu/gk20a.h>
 
+#if defined(CONFIG_NVGPU_NEXT)
+#include <nvgpu_next_chips.h>
+#endif
+
 #define GK20A_CLKS_MAX		4
 
 struct gk20a;
-struct channel_gk20a;
+struct nvgpu_channel;
 struct gr_ctx_buffer_desc;
 struct gk20a_scale_profile;
 
@@ -35,6 +40,38 @@ struct secure_page_buffer {
 	size_t used;
 };
 
+enum {
+	PCI_GPIO_VBAT_PWR_ON,
+	PCI_GPIO_PRSNT2,
+	PCI_GPIO_PRSNT1,
+	PCI_GPIO_PWR_ON,
+	PCI_GPIO_PG,
+	PCI_GPIO_MAX,
+};
+
+struct nvgpu_pci_gpios {
+	int gpios[PCI_GPIO_MAX];
+};
+
+/* delays in milliseconds (ms) */
+#define PCI_VBAR_PWR_ON_DELAY_MS	15
+#define PCI_PWR_ON_DELAY_MS		250
+#define PCI_VBAR_PWR_OFF_DELAY_MS	2
+#define PCI_PWR_OFF_DELAY_MS		2
+
+enum tegra_chip_id {
+	TEGRA_124,
+	TEGRA_132,
+	TEGRA_210,
+	TEGRA_186,
+	TEGRA_194,
+	TEGRA_194_VGPU,
+	TEGRA_234,
+#ifdef CONFIG_NVGPU_NEXT
+	NVGPU_NEXT_TEGRA_CHIPS
+#endif
+};
+
 struct gk20a_platform {
 	/* Populated by the gk20a driver before probing the platform. */
 	struct gk20a *g;
@@ -42,9 +79,19 @@ struct gk20a_platform {
 	/* Should be populated at probe. */
 	bool can_railgate_init;
 
-	/* Should be populated at probe. */
-	bool can_tpc_powergate;
+	/* controls gc off feature for pci gpu */
+	bool can_pci_gc_off;
 
+#ifdef CONFIG_NVGPU_STATIC_POWERGATE
+	/* Should be populated at probe. */
+	bool can_tpc_pg;
+
+	/* Should be populated at probe. */
+	bool can_fbp_pg;
+
+	/* Should be populated at probe. */
+	bool can_gpc_pg;
+#endif
 	/* Should be populated at probe. */
 	bool can_elpg_init;
 
@@ -54,14 +101,14 @@ struct gk20a_platform {
 	/* channel limit after which to start aggressive sync destroy */
 	unsigned int aggressive_sync_destroy_thresh;
 
-	/* flag to set sync destroy aggressiveness */
-	bool aggressive_sync_destroy;
-
 	/* set if ASPM should be disabled on boot; only makes sense for PCI */
 	bool disable_aspm;
 
 	/* Set if the platform can unify the small/large address spaces. */
 	bool unify_address_spaces;
+
+	/* P-state */
+	bool pstate;
 
 	/* Clock configuration is stored here. Platform probe is responsible
 	 * for filling this data. */
@@ -73,9 +120,17 @@ struct gk20a_platform {
 	/* Reset control for device */
 	struct reset_control *reset_control;
 #endif
-	/* valid TPC-MASK */
-	u32 valid_tpc_mask[MAX_TPC_PG_CONFIGS];
 
+#ifdef CONFIG_NVGPU_STATIC_POWERGATE
+	/* valid TPC-PG MASK */
+	u32 valid_tpc_pg_mask[MAX_PG_TPC_CONFIGS];
+
+	/* Valid GPC-PG and FBP-PG mask */
+	u32 valid_gpc_fbp_pg_mask[MAX_PG_GPC_FBP_CONFIGS];
+
+	/* available TPC count in a chip */
+	u32 tpc_count;
+#endif
 	/* Delay before rail gated */
 	int railgate_delay_init;
 
@@ -103,6 +158,9 @@ struct gk20a_platform {
 	/* Engine Level Power Gating: true = enable flase = disable */
 	bool enable_elpg;
 
+	/* Memory System power Gating: true = enable false = disable*/
+	bool enable_elpg_ms;
+
 	/* Adaptative ELPG: true = enable flase = disable */
 	bool enable_aelpg;
 
@@ -113,16 +171,13 @@ struct gk20a_platform {
 	bool enable_mscg;
 
 	/* Timeout for per-channel watchdog (in mS) */
-	u32 ch_wdt_timeout_ms;
+	u32 ch_wdt_init_limit_ms;
 
 	/* Disable big page support */
 	bool disable_bigpage;
 
-	/*
-	 * gk20a_do_idle() API can take GPU either into rail gate or CAR reset
-	 * This flag can be used to force CAR reset case instead of rail gate
-	 */
-	bool force_reset_in_do_idle;
+	/* Disable nvlink support */
+	bool disable_nvlink;
 
 	/* guest/vm id, needed for IPA to PA transation */
 	int vmid;
@@ -196,18 +251,35 @@ struct gk20a_platform {
 	/* Pre callback is called before frequency change */
 	void (*prescale)(struct device *dev);
 
+#ifdef CONFIG_NVGPU_STATIC_POWERGATE
 	/* Set TPC_PG_MASK during probe */
-	void (*set_tpc_pg_mask)(struct device *dev, u32 tpc_pg_mask);
+	int (*set_tpc_pg_mask)(struct device *dev, u32 dt_tpc_pg_mask);
 
+	/* Set GPC_PG_MASK during probe */
+	int (*set_gpc_pg_mask)(struct device *dev, u32 dt_gpc_pg_mask);
+
+	/* Set FBP_PG_MASK during probe */
+	int (*set_fbp_pg_mask)(struct device *dev, u32 dt_fbp_pg_mask);
+#endif
 	/* Devfreq governor name. If scaling is enabled, we request
 	 * this governor to be used in scaling */
 	const char *devfreq_governor;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	/* Quality of service notifier callback for min frequency limit. */
+	int (*qos_min_notify)(struct notifier_block *nb,
+			  unsigned long n, void *p);
+
+	/* Quality of service notifier callback for max frequency limit. */
+	int (*qos_max_notify)(struct notifier_block *nb,
+			  unsigned long n, void *p);
+#else
 	/* Quality of service notifier callback. If this is set, the scaling
 	 * routines will register a callback to Qos. Each time we receive
 	 * a new value, this callback gets called.  */
 	int (*qos_notify)(struct notifier_block *nb,
 			  unsigned long n, void *p);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) */
 
 	/* Called as part of debug dump. If the gpu gets hung, this function
 	 * is responsible for delivering all necessary debug data of other
@@ -220,7 +292,7 @@ struct gk20a_platform {
 	 * addresses (not IPA). This is the case for GV100 nvlink in HV+L
 	 * configuration, when dGPU is in pass-through mode.
 	 */
-	u64 (*phys_addr)(struct gk20a *g, u64 ipa);
+	u64 (*phys_addr)(struct gk20a *g, u64 ipa, u64 *pa_len);
 
 	/* Callbacks to assert/deassert GPU reset */
 	int (*reset_assert)(struct device *dev);
@@ -229,7 +301,7 @@ struct gk20a_platform {
 	struct dvfs_rail *gpu_rail;
 
 	bool virtual_dev;
-#ifdef CONFIG_TEGRA_GR_VIRTUALIZATION
+#ifdef CONFIG_NVGPU_GR_VIRTUALIZATION
 	void *vgpu_priv;
 #endif
 	/* source frequency for ptimer in hz */
@@ -239,6 +311,8 @@ struct gk20a_platform {
 	bool has_cde;
 #endif
 
+	enum tegra_chip_id platform_chip_id;
+
 	/* soc name for finding firmware files */
 	const char *soc_name;
 
@@ -246,7 +320,7 @@ struct gk20a_platform {
 	bool honors_aperture;
 	/* unified or split memory with separate vidmem? */
 	bool unified_memory;
-	/* WAR for gm20b chips. */
+	/* Fix for gm20b chips. */
 	bool force_128K_pmu_vm;
 
 	/*
@@ -254,9 +328,6 @@ struct gk20a_platform {
 	 * 0x3ffffffff (i.e a 34 bit mask).
 	 */
 	u64 dma_mask;
-
-	/* minimum supported VBIOS version */
-	u32 vbios_min_version;
 
 	/* true if we run preos microcode on this board */
 	bool run_preos;
@@ -276,6 +347,9 @@ struct gk20a_platform {
 
 	/* synchronized access to platform->clk_get_freqs */
 	struct nvgpu_mutex clk_get_freq_lock;
+
+	/* synchronized access to platform->clks */
+	struct nvgpu_mutex clks_lock;
 };
 
 static inline struct gk20a_platform *gk20a_get_platform(
@@ -286,12 +360,17 @@ static inline struct gk20a_platform *gk20a_get_platform(
 
 #ifdef CONFIG_TEGRA_GK20A
 extern struct gk20a_platform gm20b_tegra_platform;
-extern struct gk20a_platform gp10b_tegra_platform;
 extern struct gk20a_platform gv11b_tegra_platform;
-#ifdef CONFIG_TEGRA_GR_VIRTUALIZATION
-extern struct gk20a_platform vgpu_tegra_platform;
+#ifdef CONFIG_NVGPU_GR_VIRTUALIZATION
 extern struct gk20a_platform gv11b_vgpu_tegra_platform;
 #endif
+#if defined(CONFIG_NVGPU_HAL_NON_FUSA) && defined(CONFIG_NVGPU_NON_FUSA)
+extern struct gk20a_platform ga10b_tegra_platform;
+#ifdef CONFIG_NVGPU_GR_VIRTUALIZATION
+extern struct gk20a_platform ga10b_vgpu_tegra_platform;
+#endif
+#endif
+
 #endif
 
 int gk20a_tegra_busy(struct device *dev);

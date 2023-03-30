@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,43 +20,87 @@
 #include <linux/tegra-ivc.h>
 #include <linux/list.h>
 #include <linux/workqueue.h>
+#include <linux/i2c.h>
+
+/*
+ * struct i2c_virt_msg - an I2C transaction segment
+ * @addr: Slave address, either seven or ten bits.  When this is a ten
+ *  bit address, I2C_M_TEN must be set in @flags and the adapter
+ *  must support I2C_FUNC_10BIT_ADDR.
+ * @flags: I2C_M_RD is handled by all adapters.  No other flags may be
+ *  provided unless the adapter exported the relevant I2C_FUNC_*
+ *  flags through i2c_check_functionality().
+ * @len: Number of data bytes in @buf being read from or written to the
+ *  I2C slave address.  For read transactions where I2C_M_RECV_LEN
+ *  is set, the caller guarantees that this buffer can hold up to
+ *  32 bytes in addition to the initial length byte sent by the
+ *  slave (plus, if used, the SMBus PEC); and this value will be
+ *  incremented by the number of block data bytes received.
+ * @buf: The buffer into which data is read, or from which it's written.
+*/
+
+struct i2c_virt_msg {
+	__u16 addr;	/* slave address			*/
+	__u16 flags;
+#define I2C_M_TEN		0x0010	/* this is a ten bit chip address */
+#define I2C_M_RD		0x0001	/* read data, from slave to master */
+#define I2C_M_STOP		0x8000	/* if I2C_FUNC_PROTOCOL_MANGLING */
+#define I2C_M_NOSTART		0x4000	/* if I2C_FUNC_NOSTART */
+#define I2C_M_REV_DIR_ADDR	0x2000	/* if I2C_FUNC_PROTOCOL_MANGLING */
+#define I2C_M_IGNORE_NAK	0x1000	/* if I2C_FUNC_PROTOCOL_MANGLING */
+#define I2C_M_NO_RD_ACK		0x0800	/* if I2C_FUNC_PROTOCOL_MANGLING */
+#define I2C_M_RECV_LEN		0x0400	/* length will be first received byte */
+	__u16 len;		/* msg length				*/
+	__u8 *buf;
+};
+
+struct i2c_ivc_msg_common {
+	uint32_t err;
+	int32_t count;
+	uint32_t s_marker;
+	uint32_t e_marker;
+	int32_t comm_chan_id;
+	uint32_t controller_instance;
+};
+
+struct i2c_ivc_frame {
+	struct i2c_ivc_msg_common hdr;
+	struct i2c_virt_msg virt_msg_array[];
+};
+
+#define I2C_IVC_FRAME_GET_FIRST_MSG_PTR(frame_ptr)  \
+                (&(frame_ptr->virt_msg_array[0]))
+
+#define I2C_IVC_FRAME_GET_NEXT_MSG_PTR(current_msg_ptr)  \
+                ((struct i2c_virt_msg *)((char *)&current_msg_ptr->buf + current_msg_ptr->len))
 
 typedef void (*i2c_isr_handler)(void *context);
 
 struct tegra_hv_i2c_comm_chan;
 
-int hv_i2c_transfer(struct tegra_hv_i2c_comm_chan *comm_chan, phys_addr_t base,
-		int addr, int read, uint8_t *buf, size_t len, int *err,
-		int seq_no, uint32_t flags);
-int hv_i2c_get_max_payload(struct tegra_hv_i2c_comm_chan *comm_chan,
-		phys_addr_t base, uint32_t *max_payload, int *err);
-int hv_i2c_comm_chan_cleanup(struct tegra_hv_i2c_comm_chan *comm_chan,
-		phys_addr_t base);
+int hv_i2c_transfer(struct i2c_ivc_frame *frame, struct tegra_hv_i2c_comm_chan
+		*comm_chan, phys_addr_t base,
+		struct i2c_msg *msgs, int count);
+void hv_i2c_comm_chan_cleanup(struct tegra_hv_i2c_comm_chan *comm_chan);
 void hv_i2c_comm_chan_free(struct tegra_hv_i2c_comm_chan *comm_chan);
 void hv_i2c_comm_suspend(struct tegra_hv_i2c_comm_chan *comm_chan);
 void hv_i2c_comm_resume(struct tegra_hv_i2c_comm_chan *comm_chan);
 void *hv_i2c_comm_init(struct device *dev, i2c_isr_handler handler,
 		void *data);
 void tegra_hv_i2c_poll_cleanup(struct tegra_hv_i2c_comm_chan *comm_chan);
+int hv_i2c_comm_chan_transfer_size(struct tegra_hv_i2c_comm_chan *comm_chan);
+
+#ifdef I2C_DEBUG
+void print_msg(struct i2c_msg *msg);
+void print_frame(struct i2c_ivc_frame *i2c_ivc_frame, int num);
+#endif
 
 #define MAX_COMM_CHANS  10
 
-enum i2c_ivc_msg_t {
-	I2C_READ,
-	I2C_READ_RESPONSE,
-	I2C_WRITE,
-	I2C_WRITE_RESPONSE,
-	I2C_GET_MAX_PAYLOAD,
-	I2C_GET_MAX_PAYLOAD_RESPONSE,
-	I2C_CLEANUP,
-	I2C_CLEANUP_RESPONSE,
-	I2C_INVALID,
-};
 
 enum i2c_rx_state_t {
 	I2C_RX_INIT,
 	I2C_RX_PENDING,
-	I2C_RX_PENDING_CLEANUP,
 };
 
 #define HV_I2C_FLAGS_HIGHSPEED_MODE	(1<<22)
@@ -67,38 +111,7 @@ enum i2c_rx_state_t {
 #define HV_I2C_FLAGS_REPEAT_START	(1<<16)
 #define HV_I2C_FLAGS_CONTINUE_XFER	(1<<15)
 
-struct i2c_ivc_msg_common {
-	uint32_t s_marker;
-	uint32_t msg_type;
-	int32_t comm_chan_id;
-	uint32_t controller_instance;
-	uint32_t err;
-	uint32_t e_marker;
-};
 
-struct i2c_ivc_msg_tx_rx_hdr {
-	int32_t seq_no;
-	uint32_t slave_address;
-	uint32_t buf_len;
-	uint32_t flags;
-};
-
-struct i2c_ivc_msg_tx_rx {
-	struct i2c_ivc_msg_tx_rx_hdr fixed;
-	uint8_t buffer[4096];
-};
-
-struct i2c_ivc_msg_max_payload {
-	uint32_t max_payload;
-};
-
-struct i2c_ivc_msg {
-	struct i2c_ivc_msg_common hdr;
-	union {
-		struct i2c_ivc_msg_tx_rx m;
-		struct i2c_ivc_msg_max_payload p;
-	} body;
-};
 
 #define I2C_IVC_COMMON_HEADER_LEN	sizeof(struct i2c_ivc_msg_common)
 
@@ -107,21 +120,8 @@ struct i2c_ivc_msg {
 #define i2c_ivc_chan_id(_msg_ptr)	(_msg_ptr->hdr.comm_chan_id)
 #define i2c_ivc_controller_instance(_msg_ptr)	\
 					(_msg_ptr->hdr.controller_instance)
-#define i2c_ivc_msg_type(_msg_ptr)	(_msg_ptr->hdr.msg_type)
 #define i2c_ivc_error_field(_msg_ptr)	(_msg_ptr->hdr.err)
-
-#define i2c_ivc_message_seq_nr(_msg_ptr)	\
-					(_msg_ptr->body.m.fixed.seq_no)
-#define i2c_ivc_message_slave_addr(_msg_ptr)	\
-					(_msg_ptr->body.m.fixed.slave_address)
-#define i2c_ivc_message_buf_len(_msg_ptr)	\
-					(_msg_ptr->body.m.fixed.buf_len)
-#define i2c_ivc_message_flags(_msg_ptr)	(_msg_ptr->body.m.fixed.flags)
-#define i2c_ivc_message_buffer(_msg_ptr)	\
-					(_msg_ptr->body.m.buffer[0])
-
-#define i2c_ivc_max_payload_field(_msg_ptr)	\
-					(_msg_ptr->body.p.max_payload)
+#define i2c_ivc_count_field(_msg_ptr)	(_msg_ptr->hdr.count)
 
 struct tegra_hv_i2c_comm_dev;
 
@@ -136,13 +136,11 @@ struct tegra_hv_i2c_comm_chan {
 	i2c_isr_handler handler;
 	void *data;
 	void *rcvd_data;
-	size_t data_len;
-	int *rcvd_err;
 	enum i2c_rx_state_t rx_state;
 	struct tegra_hv_i2c_comm_dev *hv_comm_dev;
 	spinlock_t lock;
+	int count;
 };
-
 
 struct tegra_hv_i2c_comm_dev {
 	uint32_t queue_id;

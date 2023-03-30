@@ -7,7 +7,7 @@ config TEGRA_AOTAG
 
 config TEGRA_TJ_THERMAL
 	bool "Tegra Tj temperature"
-	default y
+	default n
 	help
 	  Enable this option to read the temperature of hottest spot on Tegra
 	  SoC. The driver can be configured (via device-tree) to account for

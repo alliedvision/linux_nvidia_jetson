@@ -1,0 +1,31 @@
+From e8346af4c940b0995ccf9af6e1739ff95417992b Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Sun, 25 Oct 2020 12:33:20 +0100
+Subject: [PATCH 788/830] ANDROID: GKI: remove explicit CONFIG_SECCOMP from
+ defconfig for arm64
+X-NVConfidentiality: public
+
+This gets pulled in automatically now, so we don't have to explicitly
+set it.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ia1d0735ac3113c152da85ac59d7302b3f9a9aed6
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c2e0ec69bb74..445bd0644695 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -49,7 +49,6 @@ CONFIG_ARCH_HISI=y
+ CONFIG_ARCH_QCOM=y
+ CONFIG_SCHED_MC=y
+ CONFIG_NR_CPUS=32
+-CONFIG_SECCOMP=y
+ CONFIG_PARAVIRT=y
+ CONFIG_ARM64_SW_TTBR0_PAN=y
+ CONFIG_COMPAT=y
+-- 
+2.17.1
+

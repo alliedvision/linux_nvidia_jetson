@@ -10,7 +10,7 @@
  * with a userspace daemon linked against ivc library code, i.e. it  is not
  * a stand-alone driver.
  *
- * Copyright (C) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -26,7 +26,12 @@
 #include <linux/fs.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/tegra-ivc.h>
 #include <linux/tegra-ivc-instance.h>
 #include <uapi/linux/nvhvivc_mempool_ioctl.h>
@@ -98,7 +103,7 @@ static ssize_t peer_show(struct device *dev,
 static DEVICE_ATTR_RO(id);
 static DEVICE_ATTR_RO(size);
 static DEVICE_ATTR_RO(peer);
-struct attribute *ivc_mempool_attrs[] = {
+static struct attribute *ivc_mempool_attrs[] = {
 	&dev_attr_id.attr,
 	&dev_attr_size.attr,
 	&dev_attr_peer.attr,
@@ -273,8 +278,14 @@ static int __init add_ivc_mempool_dev(struct ivc_mempool_dev *mempooldev,
 		pr_err("user_ivc_mempool: ### device add failed\n");
 		return ret;
 	}
-	snprintf(mempooldev->name, sizeof(mempooldev->name) - 1,
+
+	ret = snprintf(mempooldev->name, sizeof(mempooldev->name) - 1,
 			"uivcmpool%d", mempooldev->mempoolcfg->id);
+	if (ret < 0) {
+		pr_err("user_ivc_mempool: ### snprintf failed\n");
+		return -ENOMEM;
+	}
+
 	mempooldev->device = device_create(ivc_mempool_class, NULL,
 			mempooldev->dev, mempooldev, mempooldev->name);
 	if (IS_ERR(mempooldev->device)) {

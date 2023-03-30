@@ -76,6 +76,8 @@ void halrf_dack_dbg_8822c(void *dm_void);
 void phy_lc_calibrate_8822c(
 	void *dm_void);
 
+void halrf_rxdck_8822c(void *dm_void);
+
 void phy_x2_check_8822c(void *dm_void);
 
 void phy_set_rf_path_switch_8822c(
@@ -91,4 +93,7 @@ void halrf_rxbb_dc_cal_8822c(void *dm_void);
 void halrf_rfk_handshake_8822c(void *dm_void, boolean is_before_k);
 
 void halrf_dack_restore_8822c(void *dm_void);
+
+void halrf_rfk_power_save_8822c(void *dm_void, boolean is_power_save);
+
 #endif /*__HALRF_8822C_H__*/

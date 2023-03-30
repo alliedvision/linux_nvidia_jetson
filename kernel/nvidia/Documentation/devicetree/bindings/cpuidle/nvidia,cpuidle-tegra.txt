@@ -1,0 +1,96 @@
+NVIDIA TEGRA cpuidle driver and Idle states
+
+ARM provides cpu-idle-state node to define the cpuidle states, as defined in
+Documentation/devicetree/bindings/arm/idle-states.txt
+cpuidle-tegra19x is the cpuidle driver for Tegra T19X SoCs and uses these idle
+states. Idle states have different enter/exit latency and residency values.
+The idle states supported by the TEGRA SoC are defined as -
+
+    * Core Clock Gating(C1)
+    * Core Virtual Power Gating(C6)
+    * Core Power Gating(C7)
+    * Cluster Clock Gating(CC1)
+    * Cluster Power Gating(CC6)
+
+Required properties for cpuidle driver:
+
+- compatible: Must be "nvidia,tegra19x-cpuidle"
+- status: Must be "okay" or "disabled"
+
+Optional properties for Idle states:
+
+- compatible: "nvidia,tegra194-cpuidle-core"
+		"nvidia,tegra194-cpuidle-cluster"
+		"nvidia,tegra194-cpuidle-thresholds"
+
+Other required and optional properties are specified in
+Documentation/devicetree/bindings/arm/idle-states.txt
+
+Tegra specific Idle state properties:
+
+- power: Average in-state power consumed by core/cluster idle state.
+- pmstate: Numeric identification of the power states.
+		Higher the number deeper the power saving.
+- crossover_c1_c6: Idle time in micro seconds when C6 power state starts
+			to get more efficient than C1. Below this threshold C1 is more optimal.
+- crossover_cc1_cc6: Idle time in micro seconds when CC6 power state starts
+			to get more efficient than CC1. Below this threshold CC1 is more optimal.
+
+Example:
+
+	cpus {
+		CPU_CORE_POWER_STATES: cpu_core_power_states {
+			compatible = "nvidia,tegra194-cpuidle-core";
+
+			C1: c1 {
+				compatible = "nvidia,tegra194-cpuidle-core";
+				state-name = "Clock gated";
+				wakeup-latency-us = <1>;
+				min-residency-us = <1>;
+				power = <70>;
+				pmstate = <0x1>;
+				status = "okay";
+			};
+			C6: c6 {
+				compatible = "nvidia,tegra194-cpuidle-core";
+				state-name = "Virtual core powergate";
+				wakeup-latency-us = <2000>;
+				min-residency-us = <0xffffffff>;
+				power = <60>;
+				pmstate = <0x6>;
+				arm,psci-suspend-param= <0x6>;
+				status = "okay";
+			};
+			C7: c7 {
+				compatible = "nvidia,tegra194-cpuidle-core";
+				state-name = "Core powergate";
+				wakeup-latency-us = <560>;
+				min-residency-us = <0xffffffff>;
+				power = <60>;
+				pmstate = <0x7>;
+				arm,psci-suspend-param= <0x40000007>;
+				status = "disabled";
+			};
+		};
+
+		cpu_cluster_power_states {
+			compatible = "nvidia,tegra194-cpuidle-cluster";
+			cc6 {
+				state-name = "Cluster powergate";
+				wakeup-latency-us = <5000>;
+				min-residency-us = <0xffffffff>;
+				power = <19>;
+				pmstate = <0x6>;
+				status = "okay";
+			};
+		};
+
+		cpu_crossover_thresholds {
+			compatible = "nvidia,tegra194-cpuidle-thresholds";
+
+			thresholds {
+				crossover_c1_c6         = <30000>;
+				crossover_cc1_cc6       = <80000>;
+			};
+		};
+	};

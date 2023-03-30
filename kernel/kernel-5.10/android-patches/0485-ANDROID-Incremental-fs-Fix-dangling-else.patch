@@ -1,0 +1,44 @@
+From 6c771018e5d2e85d0cbd2b6fa2f204698ec8623f Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 17 Sep 2020 19:50:20 -0700
+Subject: [PATCH 485/830] ANDROID: Incremental fs: Fix dangling else
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+Fix a compiler warning:
+
+    fs/incfs/data_mgmt.c: In function ‘incfs_get_filled_blocks’:
+    fs/incfs/data_mgmt.c:768:6: warning: suggest explicit braces to avoid ambiguous ‘else’ [-Wdangling-else]
+      768 |   if (is_data_block_present(&dfb))
+          |      ^
+
+Fixes: 9cbdd375f644 ("ANDROID: Incremental fs: Fix filled block count from get filled blocks")
+Change-Id: I5a331442155443c6f67e33f1bbaf5deae84a644b
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ fs/incfs/data_mgmt.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index d8c02a413e44..a4dd223ee693 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -765,11 +765,12 @@ int incfs_get_filled_blocks(struct data_file *df,
+ 
+ 		convert_data_file_block(bme + i, &dfb);
+ 
+-		if (is_data_block_present(&dfb))
++		if (is_data_block_present(&dfb)) {
+ 			if (arg->index_out >= df->df_data_block_count)
+ 				++hash_blocks_filled;
+ 			else
+ 				++data_blocks_filled;
++		}
+ 
+ 		if (is_data_block_present(&dfb) == in_range)
+ 			continue;
+-- 
+2.17.1
+

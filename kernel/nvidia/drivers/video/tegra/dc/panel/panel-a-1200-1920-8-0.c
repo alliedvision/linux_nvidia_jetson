@@ -1,7 +1,7 @@
 /*
  * panel-a-1200-1920-8-0.c: Panel driver for a-1200-1920-8-0 panel.
  *
- * Copyright (c) 2013-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,7 +22,6 @@
 
 #include "../dc.h"
 #include "../dc_priv.h"
-#include "board.h"
 #include "board-panel.h"
 
 #define DSI_PANEL_RESET		1

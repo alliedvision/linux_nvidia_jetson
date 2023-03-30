@@ -1,0 +1,34 @@
+/*
+ * Common include DTS file for CVM:P3767-0000 and CVB:P3768-0000 variants.
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "dt-bindings/gpio/tegra234-gpio.h"
+#include <t234-common-cvm/tegra234-cvm-p3767.dtsi>
+
+/ {
+	sdhci@3400000 {
+		disable-wp;
+		no-sdio;
+		nvidia,cd-wakeup-capable;
+		no-mmc;
+		nvidia,boot-detect-delay = <1000>;
+		cd-gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 7) GPIO_ACTIVE_HIGH>;
+		vmmc-supply = <&p3767_vdd_3v3_sd>;
+		assigned-clocks = <&bpmp TEGRA234_CLK_SDMMC1>,
+				  <&bpmp TEGRA234_CLK_PLLC4_MUXED>;
+		assigned-clock-parents = <&bpmp TEGRA234_CLK_PLLC4_MUXED>,
+					 <&bpmp TEGRA234_CLK_PLLC4_VCO_DIV2>;
+		status = "okay";
+	};
+};

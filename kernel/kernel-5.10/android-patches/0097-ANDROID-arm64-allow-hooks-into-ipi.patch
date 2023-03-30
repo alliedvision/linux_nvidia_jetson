@@ -1,0 +1,33 @@
+From 7c37054e43ea62adb82c23a98a2edaf79e97d0ff Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Thu, 5 Nov 2020 13:37:19 -0700
+Subject: [PATCH 097/830] ANDROID: arm64: allow hooks into ipi
+X-NVConfidentiality: public
+
+Allow drivers to register hooks when IPIs are sent and handled. The
+statistics of these IPIs are helpful in predicting CPU idle states.
+
+Bug: 172588415
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: I33f6e5598abb0b53392030407900037d5cd516e0
+---
+ arch/arm64/kernel/smp.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 3838e3ef5541..fe9f25739540 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -58,6 +58,9 @@
+ 
+ DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
+ EXPORT_PER_CPU_SYMBOL(cpu_number);
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_raise);
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_entry);
++EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_exit);
+ 
+ /*
+  * as from 2.5, kernels no longer have an init_tasks structure
+-- 
+2.17.1
+

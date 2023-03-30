@@ -1,0 +1,47 @@
+From 7c2b76c5d77bb45eccf8bf58610cfa7c8966a6f5 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Wed, 6 Nov 2019 10:47:49 -0800
+Subject: [PATCH 583/830] ANDROID: gki_defconfig: enable FW_LOADER configs
+X-NVConfidentiality: public
+
+Enabled the two configs:
+	CONFIG_FW_LOADER_USER_HELPER
+	CONFIG_FW_LOADER_USER_HELPER_FALLBACK
+
+Bug: 135666008
+Change-Id: Ief331a33b61a704d8719c5f8b2c17824c0ef53d2
+Signed-off-by: Todd Kjos <tkjos@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 2d48aea50e83..6e57801349f9 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -201,6 +201,8 @@ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_PCI_HOST_GENERIC=y
+ CONFIG_PCIE_KIRIN=y
++CONFIG_FW_LOADER_USER_HELPER=y
++CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
+ CONFIG_ZRAM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a3a1138f3278..e9039a54c5c0 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -177,6 +177,8 @@ CONFIG_MAC80211=y
+ # CONFIG_MAC80211_RC_MINSTREL is not set
+ CONFIG_RFKILL=y
+ CONFIG_PCI=y
++CONFIG_FW_LOADER_USER_HELPER=y
++CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
+ CONFIG_OF=y
+-- 
+2.17.1
+

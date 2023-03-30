@@ -1,0 +1,75 @@
+From a941b2ef1ce4b17b80bdaaa3f1efbe2d0a3555ae Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Thu, 13 Aug 2020 19:24:52 +0100
+Subject: [PATCH 197/830] ANDROID: sched/fair: update_max_interval()
+ active_mask dependant
+X-NVConfidentiality: public
+
+Adding support in update_max_interval() for incomplete HP _cpu_down, where
+cpu_active_mask != cpu_online_mask. This situation can happen in the event
+of a partial _cpu_down. i.e. _cpu_down(target) where
+target > CPUHP_AP_OFFLINE.
+
+Bug: 161210528
+Change-Id: Ia422057c65f16dc9aa8f6d272098b2308b00f0ac
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+---
+ kernel/sched/core.c | 7 +++++--
+ kernel/sched/fair.c | 2 +-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 670034f69cad..9d903b82aab5 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6958,6 +6958,8 @@ int sched_cpu_activate(unsigned int cpu)
+ 	}
+ 	rq_unlock_irqrestore(rq, &rf);
+ 
++	update_max_interval();
++
+ 	return 0;
+ }
+ 
+@@ -6992,6 +6994,9 @@ int sched_cpu_deactivate(unsigned int cpu)
+ 		return ret;
+ 	}
+ 	sched_domains_numa_masks_clear(cpu);
++
++	update_max_interval();
++
+ 	return 0;
+ }
+ 
+@@ -7000,7 +7005,6 @@ static void sched_rq_cpu_starting(unsigned int cpu)
+ 	struct rq *rq = cpu_rq(cpu);
+ 
+ 	rq->calc_load_update = calc_load_update;
+-	update_max_interval();
+ }
+ 
+ int sched_cpu_starting(unsigned int cpu)
+@@ -7032,7 +7036,6 @@ int sched_cpu_dying(unsigned int cpu)
+ 	trace_android_rvh_sched_cpu_dying(cpu);
+ 
+ 	calc_load_migrate(rq);
+-	update_max_interval();
+ 	nohz_balance_exit_idle(rq);
+ 	hrtick_clear(rq);
+ 	return 0;
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index bf7975de1def..76d17af9bcdd 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -10086,7 +10086,7 @@ static DEFINE_SPINLOCK(balancing);
+  */
+ void update_max_interval(void)
+ {
+-	max_load_balance_interval = HZ*num_online_cpus()/10;
++	max_load_balance_interval = HZ*num_active_cpus()/10;
+ }
+ 
+ /*
+-- 
+2.17.1
+

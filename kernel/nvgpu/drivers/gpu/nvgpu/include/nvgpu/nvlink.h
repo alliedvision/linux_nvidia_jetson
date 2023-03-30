@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,45 +24,38 @@
 #define NVGPU_NVLINK_H
 
 #include <nvgpu/types.h>
+#include <nvgpu/nvlink_minion.h>
 
-#ifdef __KERNEL__
-#include <nvgpu/linux/nvlink.h>
-#elif defined(__NVGPU_POSIX__)
-#include <nvgpu/posix/nvlink.h>
-#else
-#include <nvgpu_rmos/include/nvlink.h>
-#endif
+#define NVLINK_MAX_LINKS_SW			6U
 
 #define NV_NVLINK_REG_POLL_TIMEOUT_MS           3000
 #define NV_NVLINK_TIMEOUT_DELAY_US              5
 
-#define MINION_REG_RD32(g, off) gk20a_readl(g, g->nvlink.minion_base + (off))
-#define MINION_REG_WR32(g, off, v) gk20a_writel(g, g->nvlink.minion_base + (off), (v))
-#define IOCTRL_REG_RD32(g, off) gk20a_readl(g, g->nvlink.ioctrl_base + (off))
-#define IOCTRL_REG_WR32(g, off, v) gk20a_writel(g, g->nvlink.ioctrl_base + (off), (v))
-#define MIF_REG_RD32(g, id, off) gk20a_readl(g, g->nvlink.links[(id)].mif_base + (off))
-#define MIF_REG_WR32(g, id, off, v) gk20a_writel(g, g->nvlink.links[(id)].mif_base + (off), (v))
-#define IPT_REG_RD32(g, off) gk20a_readl(g, g->nvlink.ipt_base + (off))
-#define IPT_REG_WR32(g, off, v) gk20a_writel(g, g->nvlink.ipt_base + (off), (v))
-#define TLC_REG_RD32(g, id, off) gk20a_readl(g, g->nvlink.links[(id)].tl_base + (off))
-#define TLC_REG_WR32(g, id, off, v) gk20a_writel(g, g->nvlink.links[(id)].tl_base + (off), (v))
-#define DLPL_REG_RD32(g, id, off) gk20a_readl(g, g->nvlink.links[(id)].dlpl_base + (off))
-#define DLPL_REG_WR32(g, id, off, v) gk20a_writel(g, g->nvlink.links[(id)].dlpl_base + (off), (v))
+#define IOCTRL_REG_RD32(g, off) gk20a_readl(g, (g)->nvlink.ioctrl_base + (off))
+#define IOCTRL_REG_WR32(g, off, v) gk20a_writel(g, (g)->nvlink.ioctrl_base + (off), (v))
+#define MIF_REG_RD32(g, id, off) gk20a_readl(g, (g)->nvlink.links[(id)].mif_base + (off))
+#define MIF_REG_WR32(g, id, off, v) gk20a_writel(g, (g)->nvlink.links[(id)].mif_base + (off), (v))
+#define IPT_REG_RD32(g, off) gk20a_readl(g, (g)->nvlink.ipt_base + (off))
+#define IPT_REG_WR32(g, off, v) gk20a_writel(g, (g)->nvlink.ipt_base + (off), (v))
+#define TLC_REG_RD32(g, id, off) gk20a_readl(g, (g)->nvlink.links[(id)].tl_base + (off))
+#define TLC_REG_WR32(g, id, off, v) gk20a_writel(g, (g)->nvlink.links[(id)].tl_base + (off), (v))
+#define DLPL_REG_RD32(g, id, off) gk20a_readl(g, (g)->nvlink.links[(id)].dlpl_base + (off))
+#define DLPL_REG_WR32(g, id, off, v) gk20a_writel(g, (g)->nvlink.links[(id)].dlpl_base + (off), (v))
 
 struct gk20a;
 
 struct nvgpu_nvlink_ioctrl_list {
 	bool valid;
 	u32 pri_base_addr;
-	u8 intr_enum;
-	u8 reset_enum;
+	u32 intr_enum;
+	u32 reset_enum;
 };
 
 struct nvgpu_nvlink_device_list {
 	bool valid;
 	u8 device_type;
 	u8 device_id;
-	u8 device_version;
+	u32 device_version;
 	u32 pri_base_addr;
 	u8 intr_enum;
 	u8 reset_enum;
@@ -78,47 +71,6 @@ enum nvgpu_nvlink_endp {
 	nvgpu_nvlink_endp__last,
 };
 
-enum nvgpu_nvlink_link_mode {
-	nvgpu_nvlink_link_off,
-	nvgpu_nvlink_link_hs,
-	nvgpu_nvlink_link_safe,
-	nvgpu_nvlink_link_fault,
-	nvgpu_nvlink_link_rcvy_ac,
-	nvgpu_nvlink_link_rcvy_sw,
-	nvgpu_nvlink_link_rcvy_rx,
-	nvgpu_nvlink_link_detect,
-	nvgpu_nvlink_link_reset,
-	nvgpu_nvlink_link_enable_pm,
-	nvgpu_nvlink_link_disable_pm,
-	nvgpu_nvlink_link_disable_err_detect,
-	nvgpu_nvlink_link_lane_disable,
-	nvgpu_nvlink_link_lane_shutdown,
-	nvgpu_nvlink_link__last,
-};
-
-enum nvgpu_nvlink_sublink_mode {
-	nvgpu_nvlink_sublink_tx_hs,
-	nvgpu_nvlink_sublink_tx_enable_pm,
-	nvgpu_nvlink_sublink_tx_disable_pm,
-	nvgpu_nvlink_sublink_tx_single_lane,
-	nvgpu_nvlink_sublink_tx_safe,
-	nvgpu_nvlink_sublink_tx_off,
-	nvgpu_nvlink_sublink_tx_common,
-	nvgpu_nvlink_sublink_tx_common_disable,
-	nvgpu_nvlink_sublink_tx_data_ready,
-	nvgpu_nvlink_sublink_tx_prbs_en,
-	nvgpu_nvlink_sublink_tx__last,
-	/* RX */
-	nvgpu_nvlink_sublink_rx_hs,
-	nvgpu_nvlink_sublink_rx_enable_pm,
-	nvgpu_nvlink_sublink_rx_disable_pm,
-	nvgpu_nvlink_sublink_rx_single_lane,
-	nvgpu_nvlink_sublink_rx_safe,
-	nvgpu_nvlink_sublink_rx_off,
-	nvgpu_nvlink_sublink_rx_rxcal,
-	nvgpu_nvlink_sublink_rx__last,
-};
-
 struct nvgpu_nvlink_conn_info {
 	enum nvgpu_nvlink_endp device_type;
 	u32 link_number;
@@ -131,13 +83,13 @@ struct nvgpu_nvlink_link {
 	u8 link_id;
 
 	u32 dlpl_base;
-	u8 dlpl_version;
+	u32 dlpl_version;
 
 	u32 tl_base;
-	u8 tl_version;
+	u32 tl_version;
 
 	u32 mif_base;
-	u8 mif_version;
+	u32 mif_version;
 
 	u8 intr_enum;
 	u8 reset_enum;
@@ -151,11 +103,10 @@ struct nvgpu_nvlink_link {
 	void *priv;
 };
 
-#define NVLINK_MAX_LINKS_SW 6
+
 
 enum nvgpu_nvlink_speed {
-	nvgpu_nvlink_speed_25G,
-	nvgpu_nvlink_speed_20G,
+	nvgpu_nvlink_speed_20G = 20,
 	nvgpu_nvlink_speed__last,
 };
 
@@ -179,18 +130,18 @@ struct nvgpu_nvlink_dev {
 
 	u8 ipt_type;
 	u32 ipt_base;
-	u8 ipt_version;
+	u32 ipt_version;
 
 	u8 dlpl_multicast_type;
-	u8 dlpl_multicast_version;
+	u32 dlpl_multicast_version;
 	u32 dlpl_multicast_base;
 
 	u8 tl_multicast_type;
-	u8 tl_multicast_version;
+	u32 tl_multicast_version;
 	u32 tl_multicast_base;
 
 	u8 mif_multicast_type;
-	u8 mif_multicast_version;
+	u32 mif_multicast_version;
 	u32 mif_multicast_base;
 
 	u8 ioctrl_type;
@@ -198,7 +149,7 @@ struct nvgpu_nvlink_dev {
 
 	u8 minion_type;
 	u32 minion_base;
-	u8 minion_version;
+	u32 minion_version;
 
 	u32 discovered_links;
 
@@ -224,14 +175,14 @@ struct nvgpu_nvlink_dev {
 	/* priv struct */
 	void *priv;
 };
-
+int nvgpu_nvlink_init(struct gk20a *g);
+int nvgpu_nvlink_early_init(struct gk20a *g);
+int nvgpu_nvlink_link_early_init(struct gk20a *g);
+int nvgpu_nvlink_interface_init(struct gk20a *g);
+int nvgpu_nvlink_interface_disable(struct gk20a *g);
+int nvgpu_nvlink_dev_shutdown(struct gk20a *g);
 int nvgpu_nvlink_enumerate(struct gk20a *g);
-int nvgpu_nvlink_train(struct gk20a *g, u32 link_id, bool from_off);
-int nvgpu_nvlink_read_dt_props(struct gk20a *g);
-
-int nvgpu_nvlink_probe(struct gk20a *g);
 int nvgpu_nvlink_remove(struct gk20a *g);
-
 void nvgpu_mss_nvlink_init_credits(struct gk20a *g);
 
 #endif /* NVGPU_NVLINK_H */

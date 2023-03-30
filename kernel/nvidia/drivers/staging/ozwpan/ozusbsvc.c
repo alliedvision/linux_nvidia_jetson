@@ -17,6 +17,7 @@
 #include <linux/netdevice.h>
 #include <linux/errno.h>
 #include <linux/input.h>
+#include <linux/version.h>
 #include <asm/unaligned.h>
 #include "ozprotocol.h"
 #include "ozeltbuf.h"
@@ -135,8 +136,13 @@ void oz_usb_stop(struct oz_pd *pd, int pause)
 	pd->app_ctx[OZ_APPID_USB-1] = NULL;
 	spin_unlock_bh(&pd->app_lock[OZ_APPID_USB-1]);
 	if (usb_ctx) {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		struct timespec ts, now;
 		getnstimeofday(&ts);
+#else
+		struct timespec64 ts, now;
+		ktime_get_ts64(&ts);
+#endif
 		oz_trace("USB service stopping...\n");
 		usb_ctx->stopped = 1;
 		/* At this point the reference count on the usb context should
@@ -146,7 +152,11 @@ void oz_usb_stop(struct oz_pd *pd, int pause)
 		 * until they leave but timeout after 1 second.
 		 */
 		while ((atomic_read(&usb_ctx->ref_count) > 2)) {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 			getnstimeofday(&now);
+#else
+			ktime_get_ts64(&now);
+#endif
 			/*Approx 1 Sec. this is not perfect calculation*/
 			if (now.tv_sec != ts.tv_sec)
 				break;

@@ -3,7 +3,7 @@
  *
  * A header file containing data structures shared with ADSP OS
  *
- * Copyright (C) 2014-2018 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -88,6 +88,7 @@ enum adsp_os_cmd {
 	ADSP_OS_BOOT_COMPLETE,
 	ADSP_OS_SUSPEND,
 	ADSP_OS_RESUME,
+	ADSP_OS_STOP,
 };
 
 #if RECORD_STATS

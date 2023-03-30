@@ -1073,7 +1073,7 @@ odm_txpowertracking_thermal_meter_init(
 
 #if (RTL8192F_SUPPORT == 1)
 	if (GET_CHIP_VER(priv) == VERSION_8192F) {
-		cali_info->default_ofdm_index = 30;
+		cali_info->default_ofdm_index = (default_swing_index >= (OFDM_TABLE_SIZE_92D - 1)) ? 30 : default_swing_index;
 		cali_info->default_cck_index = 28;
 	}
 #endif
@@ -1204,6 +1204,8 @@ odm_txpowertracking_check_ap(
 )
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 
 #if ((RTL8188E_SUPPORT == 1) || (RTL8192E_SUPPORT == 1) || (RTL8812A_SUPPORT == 1) || (RTL8881A_SUPPORT == 1) || (RTL8814A_SUPPORT == 1) || (RTL8197F_SUPPORT == 1) || (RTL8192F_SUPPORT == 1) || (RTL8198F_SUPPORT == 1) || (RTL8814B_SUPPORT == 1) || (RTL8812F_SUPPORT == 1))
 	if (!dm->rf_calibrate_info.tm_trigger) {
@@ -1224,9 +1226,17 @@ odm_txpowertracking_check_ap(
 			odm_set_rf_reg(dm, RF_PATH_D, 0x42, BIT(17), 0x1);
 		}
 
+		if (dm->support_ic_type & ODM_RTL8814B) {
+			ODM_delay_us(300);
+			odm_txpowertracking_callback_thermal_meter(dm);
+			tssi->thermal_trigger = 1;
+		}
+
 		dm->rf_calibrate_info.tm_trigger = 1;
 	} else {
 		odm_txpowertracking_callback_thermal_meter(dm);
+		if (dm->support_ic_type & ODM_RTL8814B)
+			tssi->thermal_trigger = 0;
 		dm->rf_calibrate_info.tm_trigger = 0;
 	}
 #endif

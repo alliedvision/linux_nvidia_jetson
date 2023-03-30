@@ -1,0 +1,63 @@
+From 005e039134ab456f39ac8a95664eae5443896c0c Mon Sep 17 00:00:00 2001
+From: Kyle Tso <kyletso@google.com>
+Date: Thu, 10 Dec 2020 17:05:20 +0100
+Subject: [PATCH 042/830] FROMGIT: USB: typec: tcpm: Add a 30ms room for
+ tPSSourceOn in PR_SWAP
+X-NVConfidentiality: public
+
+TCPM state machine needs 20-25ms to enter the ErrorRecovery state after
+tPSSourceOn timer timeouts. Change the timer from max 480ms to 450ms to
+ensure that the timer complies with the Spec. In order to keep the
+flexibility for other usecases using tPSSourceOn, add another timer only
+for PR_SWAP.
+
+Bug: 142545898
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Kyle Tso <kyletso@google.com>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Link: https://lore.kernel.org/r/20201210160521.3417426-5-gregkh@linuxfoundation.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit ad2fed76a67abf493fe8867fc89fde3dfbfb493e)
+(cherry picked from commit aeb6f52f3ae6293625c7d950e5021915ae04d688)
+(cherry picked from commit 1bb1005bc61c215aa438b9105b7a8ea57e736d05)
+(cherry picked from commit fe79d5de77204dd946cfad76a9bec23354b1a500 usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ie9bff0e5511e4268746762369c80ec016b2dd167
+---
+ drivers/usb/typec/tcpm/tcpm.c | 2 +-
+ include/linux/usb/pd.h        | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index da1ef7d57842..b4853f2df989 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -3759,7 +3759,7 @@ static void run_state_machine(struct tcpm_port *port)
+ 			tcpm_set_state(port, ERROR_RECOVERY, 0);
+ 			break;
+ 		}
+-		tcpm_set_state(port, ERROR_RECOVERY, PD_T_PS_SOURCE_ON);
++		tcpm_set_state(port, ERROR_RECOVERY, PD_T_PS_SOURCE_ON_PRS);
+ 		break;
+ 	case PR_SWAP_SRC_SNK_SINK_ON:
+ 		/* Set the vbus disconnect threshold for implicit contract */
+diff --git a/include/linux/usb/pd.h b/include/linux/usb/pd.h
+index d4ace1aac18c..fd12fab350f9 100644
+--- a/include/linux/usb/pd.h
++++ b/include/linux/usb/pd.h
+@@ -466,6 +466,7 @@ static inline unsigned int rdo_max_power(u32 rdo)
+ #define PD_T_DRP_SRC		30
+ #define PD_T_PS_SOURCE_OFF	920
+ #define PD_T_PS_SOURCE_ON	480
++#define PD_T_PS_SOURCE_ON_PRS	450	/* 390 - 480ms */
+ #define PD_T_PS_HARD_RESET	30
+ #define PD_T_SRC_RECOVER	760
+ #define PD_T_SRC_RECOVER_MAX	1000
+-- 
+2.17.1
+

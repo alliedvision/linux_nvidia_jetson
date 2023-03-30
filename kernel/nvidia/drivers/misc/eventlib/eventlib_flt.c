@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,7 @@ static void flt_reader_push(struct eventlib_flt_ctx *flt)
 {
 	uint8_t n = flt->r.slot_index;
 	shmptr struct eventlib_flt_slot *slot = flt_r2w_slot(flt, n);
+	void *notifyPtr = &(flt->r2w->notify);
 	uint32_t seqlock, ack;
 
 	/* This is not first access to seqlock of this slot by this reader.
@@ -69,9 +70,9 @@ static void flt_reader_push(struct eventlib_flt_ctx *flt)
 	read_barrier();
 	ack = flt->r2w->ack;
 	if (ack & (1u << n))
-		sync_clear_bit(n, &flt->r2w->notify);
+		sync_clear_bit(n, (uint32_t *)notifyPtr);
 	else
-		sync_set_bit(n, &flt->r2w->notify);
+		sync_set_bit(n, (uint32_t *)notifyPtr);
 }
 
 /* Writer: fetch any slot updates from readers */
@@ -156,6 +157,7 @@ static int flt_reader_alloc_slot(struct eventlib_flt_ctx *flt)
 {
 	shmptr struct eventlib_flt_slot *slot;
 	uint32_t busy, all_slots_mask, seqlock;
+	void *busyPtr = &(flt->r2w->busy);
 	uint8_t n;
 
 	all_slots_mask = (uint32_t)((1ull << NUM_SLOTS) - 1ull);
@@ -186,7 +188,7 @@ static int flt_reader_alloc_slot(struct eventlib_flt_ctx *flt)
 		for (n = 0; n < NUM_SLOTS; n++) {
 			if (busy & (1u << n))
 				continue;
-			if (sync_test_and_set_bit(n, &flt->r2w->busy) == 0)
+			if (sync_test_and_set_bit(n, (uint32_t *)busyPtr) == 0)
 				goto success;
 		}
 	}
@@ -216,12 +218,13 @@ success:
 /* Reader: release slot */
 static void flt_reader_release_slot(struct eventlib_flt_ctx *flt)
 {
+	void *busyPtr = &(flt->r2w->busy);
 	/* push all-zero mask */
 	memset(flt->r.mask, 0, MAX_MASK_SIZE);
 	flt_reader_push(flt);
 
 	/* clear busy bit */
-	sync_clear_bit(flt->r.slot_index, &flt->r2w->busy);
+	sync_clear_bit(flt->r.slot_index, (uint32_t *)busyPtr);
 }
 
 static void flt_reader_set_all_bits(struct eventlib_flt_ctx *flt)

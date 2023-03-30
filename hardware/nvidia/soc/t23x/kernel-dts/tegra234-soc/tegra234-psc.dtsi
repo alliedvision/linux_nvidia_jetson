@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	psc_mbox: psc@e800000 {
+		compatible = "nvidia,tegra234-psc";
+		nvidia,cpu-name = "psc";
+
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PSC>;
+		nvidia,sidtable = /bits/ 8 <TEGRA_SID_NISO0_PSC TEGRA_SID_NISO0_PSC TEGRA_SID_NISO0_PSC TEGRA_SID_NISO0_PSC>;
+		dma-coherent;
+
+		/* common mailbox binding property, should be 1. */
+		#mbox-cells = <1>;
+		reg =	<0x0 0x0e860000 0x0 0x200000>, /* PSC_MBOX_VM* address space. */
+			<0x0 0x0e80201c 0x0 0x8>; /* VM0 SID EXT_CFG address space */
+		reg-names = "mbox-regs", "extcfg";
+		interrupts =	<0 366 4>, /* PSC_MBOX_VM0  */
+				<0 367 4>, /* PSC_MBOX_VM1  */
+				<0 368 4>, /* PSC_MBOX_VM2  */
+				<0 369 4>, /* PSC_MBOX_VM3  */
+				<0 370 4>, /* PSC_MBOX_VM4  */
+				<0 371 4>, /* PSC_MBOX_VM5  */
+				<0 372 4>, /* PSC_MBOX_VM6  */
+				<0 373 4>; /* PSC_MBOX_VM7  */
+
+		/* VM0 mailbox for debugging */
+		mboxes = <&psc_mbox 0>;
+
+		nvidia,sidconfig = <0x0>;
+	};
+};

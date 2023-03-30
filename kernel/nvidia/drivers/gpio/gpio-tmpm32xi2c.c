@@ -1,7 +1,7 @@
 /*
  * drivers/gpio/gpio-tmpm32xi2c.c
  *
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/version.h>
 #ifdef CONFIG_OF_GPIO
 #include <linux/of_platform.h>
 #endif
@@ -118,7 +119,11 @@ static int tmpm32xi2c_gpio_to_irq(struct gpio_chip *gc, unsigned int offset)
 	struct tmpm32xi2c_gpio_data *data = gc_to_tmpm32xi2c_gpio(gc);
 
 	if (TMPM_TEST_BIT(data->irq_available, offset))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+		return irq_find_mapping(gc->irq.domain, offset);
+#else
 		return irq_find_mapping(gc->irqdomain, offset);
+#endif
 
 	dev_dbg(data->dev, "%s: offset[%u] is not available for irq\n",
 		 __func__, offset);
@@ -373,8 +378,13 @@ static irqreturn_t tmpm32xi2c_gpio_irq_handler(int irq, void *devid)
 	for (i = 0; i < TMPM_MAX_INTR_BANK; i++) {
 		while (data->irq_pending[i]) {
 			level = __ffs(data->irq_pending[i]);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+			gpio_irq = irq_find_mapping(data->gc.irq.domain,
+						    TMPM_GET_GPIO_NUM(level));
+#else
 			gpio_irq = irq_find_mapping(data->gc.irqdomain,
 						    TMPM_GET_GPIO_NUM(level));
+#endif
 			handle_nested_irq(gpio_irq);
 			data->irq_pending[i] &= ~(1 << level);
 			nhandled++;

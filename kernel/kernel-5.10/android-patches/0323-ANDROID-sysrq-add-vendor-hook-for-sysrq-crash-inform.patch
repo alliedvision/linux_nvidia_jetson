@@ -1,0 +1,97 @@
+From 9c5f79e4edf87c8db45029f607d1d087cc1cc827 Mon Sep 17 00:00:00 2001
+From: Sangmoon Kim <sangmoon.kim@samsung.com>
+Date: Thu, 8 Oct 2020 10:42:06 +0900
+Subject: [PATCH 323/830] ANDROID: sysrq: add vendor hook for sysrq crash
+ information
+X-NVConfidentiality: public
+
+ - Add the hook to provide additional information
+   of sysrq crash.
+
+Bug: 170234110
+
+Signed-off-by: Sangmoon Kim <sangmoon.kim@samsung.com>
+Change-Id: Ib8f14eaa639b2ef959e911d611515868ff9f193d
+(cherry picked from commit 32b242337266a3b8e170b0ddc4bec478d5cf1f94)
+---
+ drivers/android/vendor_hooks.c   |  2 ++
+ drivers/tty/sysrq.c              |  4 ++++
+ include/trace/hooks/sysrqcrash.h | 24 ++++++++++++++++++++++++
+ 3 files changed, 30 insertions(+)
+ create mode 100644 include/trace/hooks/sysrqcrash.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 2040a8196134..85081a15febf 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -20,6 +20,7 @@
+ #include <trace/hooks/gic.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
++#include <trace/hooks/sysrqcrash.h>
+ #include <trace/hooks/printk.h>
+ #include <trace/hooks/epoch.h>
+ #include <trace/hooks/cpufreq.h>
+@@ -68,6 +69,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gic_resume);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sysrq_crash);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_throttled_rt_tasks);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_hotplug);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_jiffies_update);
+diff --git a/drivers/tty/sysrq.c b/drivers/tty/sysrq.c
+index 959f9e121cc6..8f01cde61d20 100644
+--- a/drivers/tty/sysrq.c
++++ b/drivers/tty/sysrq.c
+@@ -55,6 +55,8 @@
+ #include <asm/ptrace.h>
+ #include <asm/irq_regs.h>
+ 
++#include <trace/hooks/sysrqcrash.h>
++
+ /* Whether we react on sysrq keys or just ignore them */
+ static int __read_mostly sysrq_enabled = CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE;
+ static bool __read_mostly sysrq_always_enabled;
+@@ -151,6 +153,8 @@ static void sysrq_handle_crash(int key)
+ 	/* release the RCU read lock before crashing */
+ 	rcu_read_unlock();
+ 
++	trace_android_vh_sysrq_crash(current);
++
+ 	panic("sysrq triggered crash\n");
+ }
+ static const struct sysrq_key_op sysrq_crash_op = {
+diff --git a/include/trace/hooks/sysrqcrash.h b/include/trace/hooks/sysrqcrash.h
+new file mode 100644
+index 000000000000..e5d9102ba4e1
+--- /dev/null
++++ b/include/trace/hooks/sysrqcrash.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM sysrqcrash
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_SYSRQCRASH_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_SYSRQCRASH_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++DECLARE_HOOK(android_vh_sysrq_crash,
++	TP_PROTO(void *data),
++	TP_ARGS(data));
++#else
++#define trace_android_vh_sysrq_crash(data)
++#endif
++
++#endif /* _TRACE_HOOK_SYSRQCRASH_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms and conditions of the GNU General Public License,
-# version 2, as published by the Free Software Foundation.
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
 #
-# This program is distributed in the hope it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-# more details.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
 #
 # usage: nvgpu_debug_hal.py [-h] [--csv] [--gk20a GK20A] [gops_filename]
 #
@@ -45,7 +54,7 @@ else:
 	if top is None:
 		print("$TOP is undefined, unable to find gk20a.h");
 		exit(-1);
-	gk20a_h_path = top + "/kernel/nvgpu/drivers/gpu/nvgpu/gk20a/gk20a.h"
+	gk20a_h_path = top + "/kernel/nvgpu/drivers/gpu/nvgpu/include/nvgpu/gk20a.h"
 
 def get_function_pointer_name(line):
 	matches = re.search('.*\(\*(?P<function_name>\w+)\)\(', line);

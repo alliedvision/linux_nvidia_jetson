@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Interrupt Management
  *
- * Copyright (c) 2010-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,6 +24,10 @@
 
 #ifdef CONFIG_TEGRA_GRHOST_SYNC
 #include "nvhost_sync.h"
+#endif
+
+#if IS_ENABLED(CONFIG_SYNC_FILE) && !IS_ENABLED(CONFIG_SYNC)
+#include <linux/dma-fence.h>
 #endif
 
 #include <linux/interrupt.h>
@@ -209,9 +213,14 @@ static void action_wakeup_interruptible(struct nvhost_waitlist *waiter)
 static void action_signal_sync_pt(struct nvhost_waitlist *waiter)
 {
 #ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if IS_ENABLED(CONFIG_SYNC)
 	struct nvhost_sync_pt *pt = waiter->data;
 	ktime_t time = timespec_to_ktime(waiter->isr_recv.ts);
 	nvhost_sync_pt_signal(pt, ktime_to_ns(time));
+#elif IS_ENABLED(CONFIG_SYNC_FILE)
+	struct dma_fence *fence = waiter->data;
+	dma_fence_signal(fence);
+#endif
 #endif
 }
 
@@ -363,11 +372,7 @@ void nvhost_syncpt_thresh_fn(void *dev_id)
 		return;
 	}
 
-	if (nvhost_dev_is_virtual(dev->dev))
-		(void)process_wait_list(intr, syncpt,
-				nvhost_syncpt_read_min(&dev->syncpt, id));
-	else
-		(void)process_wait_list(intr, syncpt,
+	(void)process_wait_list(intr, syncpt,
 				nvhost_syncpt_update_min(&dev->syncpt, id));
 
 	nvhost_module_idle(dev->dev);
@@ -557,16 +562,32 @@ void nvhost_intr_put_ref(struct nvhost_intr *intr, u32 id, void *ref)
 
 /*** Init & shutdown ***/
 
-int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync)
+int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync[8])
 {
 	unsigned int id, i, err;
 	struct nvhost_intr_syncpt *syncpt;
 	struct nvhost_master *host = intr_to_dev(intr);
 	u32 nb_pts = nvhost_syncpt_nb_hw_pts(&host->syncpt);
+	u32 nb_syncpt_irqs = nvhost_syncpt_nb_irqs(&host->syncpt);
+	u32 pts_per_irq = nb_pts / nb_syncpt_irqs;
 
 	mutex_init(&intr->mutex);
-	intr->syncpt_irq = irq_sync;
 	intr->general_irq = irq_gen;
+	memcpy(intr->syncpt_irqs, irq_sync, 8*sizeof(u32));
+	for (i = 0; i < nb_syncpt_irqs; i++) {
+		intr->syncpt_irq_ctx[i].start_id = i * pts_per_irq;
+		intr->syncpt_irq_ctx[i].end_id = (i + 1) * pts_per_irq - 1;
+		intr->syncpt_irq_ctx[i].dev = host;
+	}
+
+	if (intr->syncpt_irq_ctx[nb_syncpt_irqs-1].end_id != (nb_pts - 1)) {
+		nvhost_dbg_info(
+		    "additional %d syncpoints from %d are mapped to last irq",
+		    (nb_pts - 1) -
+			intr->syncpt_irq_ctx[nb_syncpt_irqs - 1].end_id,
+		    intr->syncpt_irq_ctx[nb_syncpt_irqs - 1].end_id + 1);
+		intr->syncpt_irq_ctx[nb_syncpt_irqs - 1].end_id = nb_pts - 1;
+	}
 
 	intr->low_prio_wq = create_singlethread_workqueue("host_low_prio_wq");
 	if (!intr->low_prio_wq) {
@@ -677,18 +698,4 @@ void nvhost_intr_disable_host_irq(struct nvhost_intr *intr, int irq)
 	intr_op().disable_host_irq(intr, irq);
 	intr->host_isr[irq] = NULL;
 	intr->host_isr_priv[irq] = NULL;
-}
-
-void nvhost_intr_enable_module_intr(struct nvhost_intr *intr, int module_irq)
-{
-	mutex_lock(&intr->mutex);
-	intr_op().enable_module_intr(intr, module_irq);
-	mutex_unlock(&intr->mutex);
-}
-
-void nvhost_intr_disable_module_intr(struct nvhost_intr *intr, int module_irq)
-{
-	mutex_lock(&intr->mutex);
-	intr_op().disable_module_intr(intr, module_irq);
-	mutex_unlock(&intr->mutex);
 }

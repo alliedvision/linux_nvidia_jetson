@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/nvmap/nvmap_dmabuf_t19x.c
  *
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -47,15 +47,16 @@ struct sg_table *nvmap_dmabuf_map_dma_buf(
 	if (!nvmap_version_t19x)
 		goto dmabuf_map;
 
-	handle_t19x = dma_buf_get_drvdata(handle->dmabuf, dev);
+	handle_t19x = nvmap_dmabuf_get_drv_data(handle->dmabuf, dev);
 	if (!handle_t19x && !of_dma_is_coherent(attach->dev->of_node)) {
 		handle_t19x = kmalloc(sizeof(*handle_t19x), GFP_KERNEL);
 		if (WARN(!handle_t19x, "No memory!!"))
 			return ERR_PTR(-ENOMEM);
 
 		atomic_set(&handle_t19x->nc_pin, 0);
-		dma_buf_set_drvdata(handle->dmabuf, dev,
-				handle_t19x, nvmap_handle_t19x_free);
+		nvmap_dmabuf_set_drv_data(info->is_ro ? handle->dmabuf_ro :
+					  handle->dmabuf, dev, handle_t19x,
+					  nvmap_handle_t19x_free);
 	}
 
 	if (!of_dma_is_coherent(attach->dev->of_node))
@@ -81,7 +82,8 @@ void nvmap_dmabuf_unmap_dma_buf(struct dma_buf_attachment *attach,
 
 	_nvmap_dmabuf_unmap_dma_buf(attach, sgt, dir);
 
-	handle_t19x = dma_buf_get_drvdata(handle->dmabuf, dev);
+	handle_t19x = nvmap_dmabuf_get_drv_data(info->is_ro ?
+				handle->dmabuf_ro : handle->dmabuf, dev);
 	if (handle_t19x && !of_dma_is_coherent(attach->dev->of_node))
 		atomic_dec(&handle_t19x->nc_pin);
 }

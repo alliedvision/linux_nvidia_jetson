@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -75,6 +75,7 @@ int l1ss_deregister_client(nv_guard_client_id_t id)
 			found = true;
 			list_del(&temp->cli_list);
 			kfree(temp);
+			break;
 		}
 	}
 	mutex_unlock(&l1ss_client_lock);

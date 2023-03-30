@@ -1,7 +1,7 @@
 /*
  * hdmi2.0.c: hdmi2.0 driver.
  *
- * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -34,8 +34,11 @@
 #endif
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/tegra_powergate.h>
-#include <uapi/video/tegra_dc_ext.h>
+#else
+#include <linux/device/driver.h>
+#endif
 
 #include "dc.h"
 #include "dc_reg.h"
@@ -235,24 +238,31 @@ static int tegra_hdmi_ddc_init(struct tegra_hdmi *hdmi)
 		hdmi->ddc_i2c_original_rate =
 			i2c_get_adapter_bus_clk_rate(i2c_adap);
 
-		hdmi->ddc_i2c_client = i2c_new_device(i2c_adap, &i2c_dev_info);
+		hdmi->ddc_i2c_client =
+			tegra_dc_i2c_new_device(i2c_adap, &i2c_dev_info);
 		i2c_put_adapter(i2c_adap);
-		if (!hdmi->ddc_i2c_client) {
+		if (IS_ERR(hdmi->ddc_i2c_client)) {
 			dev_err(&dc->ndev->dev, "hdmi: can't create new i2c device\n");
-			err = -EBUSY;
+			err = PTR_ERR(hdmi->ddc_i2c_client);
 			goto fail_edid_free;
 		}
 	} else if (hdmi->edid_src != EDID_SRC_DT) {
 		dev_err(&dc->ndev->dev,
 			"hdmi: can't get adpater for ddc bus %d\n",
 			dc->out->ddc_bus);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		err = -EBUSY;
+#else
+		err = driver_deferred_probe_check_state(&dc->ndev->dev);
+#endif
 		goto fail_edid_free;
 	}
 
 	return 0;
 fail_edid_free:
 	tegra_edid_destroy(hdmi->edid);
+	hdmi->edid = NULL;
+	dc->edid = NULL;
 	return err;
 }
 
@@ -282,16 +292,21 @@ static int tegra_hdmi_scdc_init(struct tegra_hdmi *hdmi)
 		dev_err(&dc->ndev->dev,
 			"hdmi: can't get adpater for scdc bus %d\n",
 			dc->out->ddc_bus);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		err = -EBUSY;
+#else
+		err = driver_deferred_probe_check_state(&dc->ndev->dev);
+#endif
 		goto fail;
 	}
 
-	hdmi->scdc_i2c_client = i2c_new_device(i2c_adap, &i2c_dev_info);
+	hdmi->scdc_i2c_client =
+		tegra_dc_i2c_new_device(i2c_adap, &i2c_dev_info);
 	i2c_put_adapter(i2c_adap);
-	if (!hdmi->scdc_i2c_client) {
+	if (IS_ERR(hdmi->scdc_i2c_client)) {
 		dev_err(&dc->ndev->dev,
 			"hdmi: can't create scdc i2c device\n");
-		err = -EBUSY;
+		err = PTR_ERR(hdmi->scdc_i2c_client);
 		goto fail;
 	}
 
@@ -345,8 +360,7 @@ static bool tegra_hdmi_fb_mode_filter(const struct tegra_dc *dc,
 	/* some non-compliant edids list 420vdb modes in vdb */
 	if ((mode->vmode & FB_VMODE_Y420) &&
 		!(mode->flag & FB_MODE_IS_FROM_VAR) &&
-		!(tegra_edid_is_hfvsdb_present(hdmi->edid) &&
-		tegra_edid_is_scdc_present(hdmi->edid)) &&
+		!(tegra_edid_is_scdc_present(hdmi->edid)) &&
 		tegra_edid_is_420db_present(hdmi->edid)) {
 		mode->vmode &= ~FB_VMODE_Y420;
 		mode->vmode |= FB_VMODE_Y420_ONLY;
@@ -371,8 +385,7 @@ static bool tegra_hdmi_fb_mode_filter(const struct tegra_dc *dc,
 	 */
 	if (((tegra_hdmi_mode_min_tmds_rate(mode) / 1000 >= 340) &&
 		!(mode->flag & FB_MODE_IS_FROM_VAR)) &&
-		(!tegra_edid_is_hfvsdb_present(hdmi->edid) ||
-		!tegra_edid_is_scdc_present(hdmi->edid)))
+		(!tegra_edid_is_scdc_present(hdmi->edid)))
 		return false;
 
 	/* Check if the mode's pixel clock is more than the max rate*/
@@ -405,7 +418,7 @@ static bool tegra_hdmi_fb_mode_filter(const struct tegra_dc *dc,
 
 static int tegra_hdmi_get_mon_spec(struct tegra_hdmi *hdmi)
 {
-#define MAX_RETRY 10
+#define MAX_RETRY 100
 #define MIN_RETRY_DELAY_US 200
 #define MAX_RETRY_DELAY_US (MIN_RETRY_DELAY_US + 200)
 
@@ -413,9 +426,16 @@ static int tegra_hdmi_get_mon_spec(struct tegra_hdmi *hdmi)
 	int err = 0;
 	struct i2c_adapter *i2c_adap = i2c_get_adapter(hdmi->dc->out->ddc_bus);
 
+	if (IS_ERR_OR_NULL(i2c_adap)) {
+		dev_err(&hdmi->dc->ndev->dev,
+			"tegra_hdmi_get_mon_spec:i2c adpater err, ddc bus %d\n",
+			hdmi->dc->out->ddc_bus);
+		return -EINVAL;
+	}
+
 	if (IS_ERR_OR_NULL(hdmi->edid)) {
 		dev_err(&hdmi->dc->ndev->dev, "hdmi: edid not initialized\n");
-		return PTR_ERR(hdmi->edid);
+		return -EINVAL;
 	}
 
 	tegra_edid_i2c_adap_change_rate(i2c_adap, hdmi->ddc_i2c_original_rate);
@@ -549,7 +569,7 @@ static int tegra_hdmi_edid_eld_setup(struct tegra_hdmi *hdmi)
 {
 	int err;
 
-	tegra_unpowergate_partition(hdmi->sor->powergate_id);
+	tegra_sor_unpowergate(hdmi->sor);
 
 	err = tegra_hdmi_edid_read(hdmi);
 	if (err < 0)
@@ -569,7 +589,7 @@ static int tegra_hdmi_edid_eld_setup(struct tegra_hdmi *hdmi)
 	 */
 	tegra_hdmi_setup_hda_presence(hdmi->sor->dev_id);
 
-	tegra_powergate_partition(hdmi->sor->powergate_id);
+	tegra_sor_powergate(hdmi->sor);
 
 	tegra_hdmi_edid_config(hdmi);
 
@@ -581,7 +601,7 @@ static int tegra_hdmi_edid_eld_setup(struct tegra_hdmi *hdmi)
 	tegra_hdmi_hotplug_notify(hdmi, true);
 	return 0;
 fail:
-	tegra_powergate_partition(hdmi->sor->powergate_id);
+	tegra_sor_powergate(hdmi->sor);
 	return err;
 }
 
@@ -594,7 +614,7 @@ static int tegra_hdmi_controller_disable(struct tegra_hdmi *hdmi)
 	tegra_dc_get(dc);
 
 	/* disable hdcp */
-	if (hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid)
+	if (hdmi->nvhdcp && hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid)
 		tegra_nvhdcp_set_plug(hdmi->nvhdcp, false);
 
 	cancel_delayed_work_sync(&hdmi->scdc_work);
@@ -677,10 +697,12 @@ static int hdmi_hpd_process_edid_match(struct tegra_hdmi *hdmi, int match)
 			hdmi->dc->use_cached_mode = true;
 			hdmi->plug_state = TEGRA_HDMI_MONITOR_ENABLE;
 		} else {
-			if ((hdmi->edid_src == EDID_SRC_PANEL)
+			if (hdmi->nvhdcp && (hdmi->edid_src == EDID_SRC_PANEL)
 					&& !hdmi->dc->vedid && hdmi->enabled) {
 				tegra_nvhdcp_set_plug(hdmi->nvhdcp, false);
 				tegra_nvhdcp_set_plug(hdmi->nvhdcp, true);
+				if (tegra_hdmivrr_setup(hdmi) < 0)
+					dev_info(&hdmi->dc->ndev->dev, "vrr_setup failed");
 			}
 
 			/*
@@ -785,7 +807,8 @@ static void tegra_hdmi_hpd_worker(struct work_struct *work)
 	connected = tegra_dc_hpd(hdmi->dc);
 	orig_state = hdmi->plug_state;
 
-	if (hdmi->dc->out->hotplug_state == TEGRA_HPD_STATE_NORMAL &&
+	if (hdmi->nvhdcp &&
+		hdmi->dc->out->hotplug_state == TEGRA_HPD_STATE_NORMAL &&
 		hdmi->dc->out->prev_hotplug_state == TEGRA_HPD_STATE_NORMAL)
 			tegra_nvhdcp_clear_fallback(hdmi->nvhdcp);
 
@@ -860,7 +883,8 @@ static irqreturn_t tegra_hdmi_hpd_irq_handler(int irq, void *ptr)
 	if (atomic_read(&hdmi->suspended))
 		return IRQ_HANDLED;
 
-	tegra_nvhdcp_clear_fallback(hdmi->nvhdcp);
+	if (hdmi->nvhdcp)
+		tegra_nvhdcp_clear_fallback(hdmi->nvhdcp);
 	cancel_delayed_work(&hdmi->hpd_worker);
 
 	if (tegra_edid_get_quirks(hdmi->edid) &
@@ -900,7 +924,8 @@ static int tegra_dc_hdmi_hpd_init(struct tegra_dc *dc)
 	hotplug_gpio_np = of_get_named_gpio_flags(sor_np,
 					       "nvidia,hpd-gpio", 0, &flags);
 	if (hotplug_gpio_np == -ENOENT &&
-		hotplug_state == TEGRA_HPD_STATE_FORCE_ASSERT) {
+		((hotplug_state == TEGRA_HPD_STATE_FORCE_ASSERT) ||
+		(hotplug_state == TEGRA_HPD_STATE_FORCE_DEASSERT))) {
 		dev_info(&dc->ndev->dev,
 			"hdmi: No hotplug gpio is assigned\n");
 		goto skip_gpio_irq_settings;
@@ -1605,7 +1630,7 @@ static int tegra_dc_hdmi_init(struct tegra_dc *dc)
 	hdmi->sor = tegra_dc_sor_init(dc, NULL);
 	if (IS_ERR_OR_NULL(hdmi->sor)) {
 		err = PTR_ERR(hdmi->sor);
-		goto fail_audio_switch;
+		goto fail_dpaux_init;
 	}
 
 	hdmi->pdata = dc->pdata->default_out->hdmi_out;
@@ -1638,7 +1663,7 @@ static int tegra_dc_hdmi_init(struct tegra_dc *dc)
 		atomic_set(&hdmi->clock_refcount, 0);
 	}
 	atomic_set(&hdmi->suspended, 0);
-	if (!tegra_platform_is_sim()) {
+	if (!tegra_platform_is_sim() && hdmi->sor->hdcp_support) {
 		hdmi->nvhdcp = tegra_nvhdcp_create(hdmi, dc->ndev->id,
 			dc->out->ddc_bus);
 		if (IS_ERR(hdmi->nvhdcp)) {
@@ -1650,9 +1675,13 @@ static int tegra_dc_hdmi_init(struct tegra_dc *dc)
 		}
 	}
 
-	tegra_hdmi_ddc_init(hdmi);
+	err = tegra_hdmi_ddc_init(hdmi);
+	if (err != 0)
+		goto fail_nvhdcp;
 
-	tegra_hdmi_scdc_init(hdmi);
+	err = tegra_hdmi_scdc_init(hdmi);
+	if (err != 0)
+		goto fail_ddc_init;
 
 	err = tegra_hdmi_vrr_init(hdmi);
 	if (err && err != -ENODEV)
@@ -1717,6 +1746,24 @@ static int tegra_dc_hdmi_init(struct tegra_dc *dc)
 	hdmi_instance++;
 	return 0;
 
+fail_ddc_init:
+	if (hdmi->edid != NULL) {
+		tegra_edid_destroy(hdmi->edid);
+		hdmi->edid = NULL;
+		dc->edid = NULL;
+	}
+fail_nvhdcp:
+	if (!IS_ERR_OR_NULL(hdmi->nvhdcp))
+		tegra_nvhdcp_destroy(hdmi->nvhdcp);
+	if (!IS_ERR_OR_NULL(hdmi->sor)) {
+		tegra_dc_sor_destroy(hdmi->sor);
+		hdmi->sor = NULL;
+	}
+fail_dpaux_init:
+	if (!IS_ERR_OR_NULL(hdmi->dpaux)) {
+		tegra_dpaux_destroy_data(hdmi->dpaux);
+		hdmi->dpaux = NULL;
+	}
 fail_audio_switch:
 	devm_kfree(&dc->ndev->dev, hdmi->audio_switch_name);
 fail_hpd_switch:
@@ -1747,8 +1794,8 @@ static void tegra_dc_hdmi_destroy(struct tegra_dc *dc)
 #ifdef CONFIG_TEGRA_HDA_DC
 	tegra_hda_destroy(hdmi->hda_handle);
 #endif
-
-	tegra_nvhdcp_destroy(hdmi->nvhdcp);
+	if (hdmi->nvhdcp)
+		tegra_nvhdcp_destroy(hdmi->nvhdcp);
 
 	if (hdmi->dpaux)
 		tegra_dpaux_destroy_data(hdmi->dpaux);
@@ -1762,6 +1809,8 @@ static void tegra_dc_hdmi_destroy(struct tegra_dc *dc)
 	tegra_dc_sor_destroy(hdmi->sor);
 
 	tegra_edid_destroy(hdmi->edid);
+	hdmi->edid = NULL;
+	dc->edid = NULL;
 
 	kfree(hdmi->tmds_range);
 	hdmi->tmds_range = NULL;
@@ -1972,6 +2021,114 @@ static int tegra_hdmi_find_cea_vic(struct tegra_hdmi *hdmi)
 	return best;
 }
 
+static void tegra_hdmi_avi_infoframe_overrides(struct tegra_hdmi *hdmi)
+{
+	struct hdmi_avi_infoframe *avi = &hdmi->avi;
+
+	switch (hdmi->avi_color_components) {
+	case TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_RGB:
+		avi->rgb_ycc = HDMI_AVI_RGB;
+		break;
+	case TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV422:
+		avi->rgb_ycc = HDMI_AVI_YCC_422;
+		break;
+	case TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV444:
+		avi->rgb_ycc = HDMI_AVI_YCC_444;
+		break;
+	case TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV420:
+		avi->rgb_ycc = HDMI_AVI_YCC_420;
+		break;
+	default:
+		/* Let default value as it is.*/
+		break;
+	}
+
+	switch (hdmi->avi_colorimetry) {
+	/* default colorimetry for the current mode  */
+	case TEGRA_DC_EXT_AVI_COLORIMETRY_NO_DATA:
+		avi->colorimetry = HDMI_AVI_COLORIMETRY_DEFAULT;
+		break;
+	/* base colorimetry */
+	case TEGRA_DC_EXT_AVI_COLORIMETRY_SMPTE170M_ITU601:
+		avi->colorimetry = HDMI_AVI_COLORIMETRY_SMPTE170M_ITU601;
+		break;
+	case TEGRA_DC_EXT_AVI_COLORIMETRY_ITU709:
+		avi->colorimetry = HDMI_AVI_COLORIMETRY_ITU709;
+		break;
+	/* extended colorimetry */
+	case TEGRA_DC_EXT_AVI_COLORIMETRY_xvYCC709:
+		avi->colorimetry = HDMI_AVI_COLORIMETRY_EXTENDED_VALID;
+		avi->ext_colorimetry = HDMI_AVI_EXT_COLORIMETRY_xvYCC709;
+		break;
+	case TEGRA_DC_EXT_AVI_COLORIMETRY_BT2020_YCC_RGB:
+		avi->colorimetry = HDMI_AVI_COLORIMETRY_EXTENDED_VALID;
+		avi->ext_colorimetry = HDMI_AVI_EXT_COLORIMETRY_BT2020_YCC_RGB;
+		break;
+	default:
+		/* Let default value as it is.*/
+		break;
+	}
+
+	switch (hdmi->avi_scan) {
+	case TEGRA_DC_EXT_AVI_SCAN_NO_DATA:
+		avi->scan = HDMI_AVI_SCAN_NO_DATA;
+		break;
+	case TEGRA_DC_EXT_AVI_SCAN_OVERSCAN:
+		avi->scan = HDMI_AVI_OVERSCAN;
+		break;
+	case TEGRA_DC_EXT_AVI_SCAN_UNDERSCAN:
+		avi->scan = HDMI_AVI_UNDERSCAN;
+		break;
+	default:
+		/* Let default value as it is.*/
+		break;
+	}
+
+	switch (hdmi->avi_it_content) {
+	case TEGRA_DC_EXT_AVI_IT_CONTENT_FALSE:
+		avi->it_content = HDMI_AVI_IT_CONTENT_FALSE;
+		avi->it_content_type = HDMI_AVI_IT_CONTENT_GRAPHICS;
+		break;
+	case TEGRA_DC_EXT_AVI_IT_CONTENT_GRAPHICS:
+		avi->it_content = HDMI_AVI_IT_CONTENT_TRUE;
+		avi->it_content_type = HDMI_AVI_IT_CONTENT_GRAPHICS;
+		break;
+	case TEGRA_DC_EXT_AVI_IT_CONTENT_PHOTO:
+		avi->it_content = HDMI_AVI_IT_CONTENT_TRUE;
+		avi->it_content_type = HDMI_AVI_IT_CONTENT_PHOTO;
+		break;
+	case TEGRA_DC_EXT_AVI_IT_CONTENT_CINEMA:
+		avi->it_content = HDMI_AVI_IT_CONTENT_TRUE;
+		avi->it_content_type = HDMI_AVI_IT_CONTENT_CINEMA;
+		break;
+	case TEGRA_DC_EXT_AVI_IT_CONTENT_GAME:
+		avi->it_content = HDMI_AVI_IT_CONTENT_TRUE;
+		avi->it_content_type = HDMI_AVI_IT_CONTENT_GAME;
+		break;
+	default:
+		/* Let default value as it is.*/
+		break;
+	}
+
+	switch (hdmi->avi_color_quant) {
+	case TEGRA_DC_EXT_AVI_COLOR_QUANT_LIMITED:
+		if (avi->rgb_ycc == HDMI_AVI_RGB)
+			avi->rgb_quant = HDMI_AVI_RGB_QUANT_LIMITED;
+		else
+			avi->ycc_quant = HDMI_AVI_YCC_QUANT_LIMITED;
+		break;
+	case TEGRA_DC_EXT_AVI_COLOR_QUANT_FULL:
+		if (avi->rgb_ycc == HDMI_AVI_RGB)
+			avi->rgb_quant = HDMI_AVI_RGB_QUANT_FULL;
+		else
+			avi->ycc_quant = HDMI_AVI_YCC_QUANT_FULL;
+		break;
+	default:
+		/* Let default value as it is.*/
+		break;
+	}
+}
+
 static u32 tegra_hdmi_get_aspect_ratio(struct tegra_hdmi *hdmi)
 {
 	u32 aspect_ratio;
@@ -2153,20 +2310,6 @@ static void tegra_hdmi_avi_infoframe_update(struct tegra_hdmi *hdmi)
 	avi->rgb_quant = tegra_hdmi_get_rgb_quant(hdmi);
 	avi->ext_colorimetry = tegra_hdmi_get_ex_colorimetry(hdmi);
 
-	switch (hdmi->avi_colorimetry) {
-	case TEGRA_DC_EXT_AVI_COLORIMETRY_BT2020_YCC_RGB:
-		avi->colorimetry = HDMI_AVI_COLORIMETRY_EXTENDED_VALID;
-		avi->ext_colorimetry = HDMI_AVI_EXT_COLORIMETRY_BT2020_YCC_RGB;
-		break;
-	case TEGRA_DC_EXT_AVI_COLORIMETRY_xvYCC709:
-		avi->colorimetry = HDMI_AVI_COLORIMETRY_EXTENDED_VALID;
-		avi->ext_colorimetry = HDMI_AVI_EXT_COLORIMETRY_xvYCC709;
-		break;
-	default:
-		/* Let default value as it is.*/
-		break;
-	}
-
 	avi->it_content = HDMI_AVI_IT_CONTENT_FALSE;
 
 	/* set correct vic if video format is cea defined else set 0 */
@@ -2182,7 +2325,7 @@ static void tegra_hdmi_avi_infoframe_update(struct tegra_hdmi *hdmi)
 	}
 
 	avi->pix_rep = HDMI_AVI_NO_PIX_REPEAT;
-	avi->it_content_type = HDMI_AVI_IT_CONTENT_NONE;
+	avi->it_content_type = HDMI_AVI_IT_CONTENT_GRAPHICS;
 	avi->ycc_quant = tegra_hdmi_get_ycc_quant(hdmi);
 
 	avi->top_bar_end_line_low_byte = 0;
@@ -2196,6 +2339,9 @@ static void tegra_hdmi_avi_infoframe_update(struct tegra_hdmi *hdmi)
 
 	avi->right_bar_start_pixel_low_byte = 0;
 	avi->right_bar_start_pixel_high_byte = 0;
+
+	/* Apply override values from user space set in the latest flip call */
+	tegra_hdmi_avi_infoframe_overrides(hdmi);
 }
 
 static void tegra_hdmi_avi_infoframe(struct tegra_hdmi *hdmi)
@@ -2226,13 +2372,24 @@ static void tegra_hdmi_avi_infoframe(struct tegra_hdmi *hdmi)
 		NV_SOR_HDMI_AVI_INFOFRAME_CTRL_CHECKSUM_ENABLE);
 }
 
-static int tegra_dc_hdmi_set_avi(struct tegra_dc *dc, struct tegra_dc_ext_avi *avi)
+static int tegra_dc_hdmi_set_avi(struct tegra_dc *dc,
+		 struct tegra_dc_ext_avi *avi)
 {
 	struct tegra_hdmi *hdmi = tegra_dc_get_outdata(dc);
 
-	hdmi->avi_colorimetry = avi->avi_colorimetry;
-	/* Setting AVI infoframe externally */
-	tegra_hdmi_avi_infoframe(hdmi);
+	if (hdmi->avi_scan != avi->avi_scan ||
+	    hdmi->avi_colorimetry != avi->avi_colorimetry ||
+	    hdmi->avi_color_components != avi->avi_color_components ||
+	    hdmi->avi_color_quant != avi->avi_color_quant ||
+	    hdmi->avi_it_content != avi->avi_it_content) {
+		hdmi->avi_scan = avi->avi_scan;
+		hdmi->avi_colorimetry = avi->avi_colorimetry;
+		hdmi->avi_color_components = avi->avi_color_components;
+		hdmi->avi_color_quant = avi->avi_color_quant;
+		hdmi->avi_it_content = avi->avi_it_content;
+		/* Setting AVI infoframe externally */
+		tegra_hdmi_avi_infoframe(hdmi);
+	}
 
 	return 0;
 }
@@ -2282,11 +2439,8 @@ static void tegra_hdmi_vendor_infoframe_update(struct tegra_hdmi *hdmi)
 	}
 }
 
-static void tegra_hdmi_vendor_infoframe(struct tegra_hdmi *hdmi)
+static void tegra_hdmi_vendor_infoframe(struct tegra_hdmi *hdmi, u8 length)
 {
-/* hdmi licensing, LLC vsi playload len as per hdmi1.4b  */
-#define HDMI_INFOFRAME_LEN_VENDOR_LLC	(6)
-
 	struct tegra_dc_sor_data *sor = hdmi->sor;
 
 	if (hdmi->dvi)
@@ -2300,7 +2454,7 @@ static void tegra_hdmi_vendor_infoframe(struct tegra_hdmi *hdmi)
 	tegra_hdmi_infoframe_pkt_write(hdmi, NV_SOR_HDMI_VSI_INFOFRAME_HEADER,
 					HDMI_INFOFRAME_TYPE_VENDOR,
 					HDMI_INFOFRAME_VS_VENDOR,
-					HDMI_INFOFRAME_LEN_VENDOR_LLC,
+					length,
 					&hdmi->vsi, sizeof(hdmi->vsi),
 					false);
 
@@ -2310,8 +2464,90 @@ static void tegra_hdmi_vendor_infoframe(struct tegra_hdmi *hdmi)
 		NV_SOR_HDMI_VSI_INFOFRAME_CTRL_OTHER_DISABLE |
 		NV_SOR_HDMI_VSI_INFOFRAME_CTRL_SINGLE_DISABLE |
 		NV_SOR_HDMI_VSI_INFOFRAME_CTRL_CHECKSUM_ENABLE);
+}
 
-#undef HDMI_INFOFRAME_LEN_VENDOR_LLC
+static void tegra_hdmi_dv_infoframe_update(struct tegra_hdmi *hdmi)
+{
+	struct hdmi_dv_infoframe *dv = &hdmi->dv;
+
+	memset(&hdmi->dv, 0, sizeof(hdmi->dv));
+
+	/* PB1 - PB3 */
+	dv->oui = DV_IEEE_LLC_OUI;
+
+	/* PB4 */
+	if (hdmi->hdmi_dv_signal == TEGRA_DC_EXT_DV_SIGNAL_NONE)
+		dv->dolby_vision_signal = 0;
+	else
+		dv->dolby_vision_signal = 1;
+
+	if (hdmi->hdmi_dv_signal == TEGRA_DC_EXT_DV_SIGNAL_LOW_LATENCY)
+		dv->low_latency = 1;
+	else
+		dv->low_latency = 0;
+
+	dv->res1 = 0;
+
+	/* PB5 */
+	dv->eff_tmax_pq_high = 0;
+	dv->res2 = 0;
+	dv->auxilary_md_present = 0;
+	dv->backlight_ctrl_md_present = 0;
+
+	/* PB6 */
+	dv->eff_tmax_pq_low = 0;
+
+	/* PB7 */
+	dv->auxilary_run_mode = 0;
+
+	/* PB8 */
+	dv->auxilary_run_version = 0;
+
+	/* PB9 */
+	dv->auxilary_debug = 0;
+}
+
+static void tegra_hdmi_dv_infoframe(struct tegra_hdmi *hdmi)
+{
+	struct tegra_dc_sor_data *sor = hdmi->sor;
+
+	/* disable/stop vsi/dv infoframe before configuring */
+	tegra_sor_writel(sor, NV_SOR_HDMI_VSI_INFOFRAME_CTRL, 0);
+
+	if (tegra_edid_require_dv_vsif(hdmi->edid)) {
+		/*
+		 * Dolby Vision VSVDB v1, 12-byte with low-latency
+		 * support and VSVDB v2 require Dolby VSIF to be
+		 * send continuously.
+		 */
+		tegra_hdmi_dv_infoframe_update(hdmi);
+
+		tegra_hdmi_infoframe_pkt_write(hdmi,
+			NV_SOR_HDMI_VSI_INFOFRAME_HEADER,
+			HDMI_INFOFRAME_TYPE_DV,
+			HDMI_INFOFRAME_VS_DV,
+			HDMI_INFOFRAME_LEN_DV,
+			&hdmi->dv, sizeof(hdmi->dv),
+			false);
+
+		/* Send infoframe every frame, checksum hw generated */
+		tegra_sor_writel(sor, NV_SOR_HDMI_VSI_INFOFRAME_CTRL,
+			NV_SOR_HDMI_VSI_INFOFRAME_CTRL_ENABLE_YES |
+			NV_SOR_HDMI_VSI_INFOFRAME_CTRL_OTHER_DISABLE |
+			NV_SOR_HDMI_VSI_INFOFRAME_CTRL_SINGLE_DISABLE |
+			NV_SOR_HDMI_VSI_INFOFRAME_CTRL_CHECKSUM_ENABLE);
+	} else {
+		/*
+		 * Dolby Vision VSVDB v0, v1-15 byte, and v1-12 byte without
+		 * low-latency support need HDMI 1.4b VSIF length 24 to be
+		 * send continuously. If DV signal is turned off then send
+		 * normal LLC length VSIF.
+		 */
+		tegra_hdmi_vendor_infoframe(hdmi,
+			hdmi->hdmi_dv_signal == TEGRA_DC_EXT_DV_SIGNAL_NONE ?
+			HDMI_INFOFRAME_LEN_VENDOR_LLC :
+			HDMI_INFOFRAME_LEN_VENDOR_DV);
+	}
 }
 
 static void tegra_hdmi_hdr_infoframe_update(struct tegra_hdmi *hdmi)
@@ -2495,6 +2731,13 @@ static int tegra_hdmi_scdc_read(struct tegra_hdmi *hdmi,
 		},
 	};
 
+	if (IS_ERR_OR_NULL(i2c_adap)) {
+		dev_err(&hdmi->dc->ndev->dev,
+			"tegra_hdmi_scdc_read: i2c adapter err, ddc bus %d\n",
+			hdmi->dc->out->ddc_bus);
+		return -EINVAL;
+	}
+
 	_tegra_hdmi_ddc_enable(hdmi);
 
 	for (i = 0; i < n_entries; i++) {
@@ -2602,13 +2845,6 @@ static int _tegra_hdmi_v2_x_config(struct tegra_hdmi *hdmi)
 
 	return 0;
 #undef SCDC_STABILIZATION_DELAY_MS
-}
-
-static int tegra_hdmi_v2_x_config(struct tegra_hdmi *hdmi)
-{
-	_tegra_hdmi_v2_x_config(hdmi);
-
-	return 0;
 }
 
 static void tegra_hdmi_scdc_worker(struct work_struct *work)
@@ -2839,8 +3075,12 @@ static int tegra_hdmi_controller_enable(struct tegra_hdmi *hdmi)
 	 * check ensures we don't reference a null edid
 	 * */
 	if (hdmi->edid) {
+		if (hdmi->hdmi_dv_signal != TEGRA_DC_EXT_DV_SIGNAL_NONE)
+			tegra_hdmi_dv_infoframe(hdmi);
+		else
+			tegra_hdmi_vendor_infoframe(hdmi,
+				HDMI_INFOFRAME_LEN_VENDOR_LLC);
 		tegra_hdmi_avi_infoframe(hdmi);
-		tegra_hdmi_vendor_infoframe(hdmi);
 		tegra_hdmi_spd_infoframe(hdmi);
 	}
 
@@ -2849,9 +3089,8 @@ static int tegra_hdmi_controller_enable(struct tegra_hdmi *hdmi)
 	else
 		tegra_dc_enable_disp_ctrl_mode(dc);
 
-	/* enable hdcp only if valid edid */
-	if (hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid && hdmi->edid &&
-		(tegra_edid_get_monspecs(hdmi->edid, &hdmi->mon_spec) == 0))
+	/* enable hdcp */
+	if (hdmi->nvhdcp && hdmi->edid_src == EDID_SRC_PANEL && !hdmi->dc->vedid)
 		tegra_nvhdcp_set_plug(hdmi->nvhdcp, true);
 
 	if (hdmi->dpaux) {
@@ -2871,7 +3110,6 @@ static int tegra_hdmi_controller_enable(struct tegra_hdmi *hdmi)
 	tegra_sor_writel(sor,  NV_SOR_PWR, 0x80000001);
 
 	if (tegra_sor_get_link_rate(hdmi->dc) > 340000000) {
-		tegra_hdmi_v2_x_config(hdmi);
 		schedule_delayed_work(&hdmi->scdc_work,
 			msecs_to_jiffies(HDMI_SCDC_MONITOR_TIMEOUT_MS));
 	}
@@ -3124,6 +3362,9 @@ static long tegra_dc_hdmi_setup_clk_nvdisplay(struct tegra_dc *dc,
 
 		clk_set_rate(parent_clk, parent_clk_rate);
 
+		/* Set parent for dc->clk. This also enables the parent clk */
+		clk_set_parent(dc->clk, parent_clk);
+
 		if (clk == dc->clk)
 			clk_set_rate(clk, dc->mode.pclk);
 	}
@@ -3144,25 +3385,6 @@ static long tegra_dc_hdmi_setup_clk_nvdisplay(struct tegra_dc *dc,
 	tegra_disp_clk_prepare_enable(sor->sor_clk);
 
 	return tegra_dc_pclk_round_rate(dc, dc->mode.pclk);
-}
-
-static void tegra_dc_hdmi_configure_ss(struct tegra_dc *dc, struct clk *clk)
-{
-#if defined(CONFIG_ARCH_TEGRA_210_SOC)
-	struct tegra_hdmi *hdmi = tegra_dc_get_outdata(dc);
-
-	if (!dc->pdata->plld2_ss_enable)
-		return;
-
-	if (dc->mode.pclk == 148500000 &&
-		dc->mode.h_active == 1920 &&
-		dc->mode.v_active == 1080 &&
-		(tegra_hdmi_find_cea_vic(hdmi) == 31)) {
-		tegra210_plld2_configure_ss(true);
-	} else {
-		tegra210_plld2_configure_ss(false);
-	}
-#endif
 }
 
 static long tegra_dc_hdmi_setup_clk_t21x(struct tegra_dc *dc, struct clk *clk)
@@ -3201,9 +3423,7 @@ static long tegra_dc_hdmi_setup_clk_t21x(struct tegra_dc *dc, struct clk *clk)
 				return 0;
 			}
 		}
-		tegra_dc_hdmi_configure_ss(dc, clk);
 	}
-
 	if (dc->initialized)
 		goto skip_setup;
 	if (clk_get_rate(parent_clk) != dc->mode.pclk)
@@ -3247,7 +3467,8 @@ static void tegra_dc_hdmi_shutdown(struct tegra_dc *dc)
 
 	_tegra_hdmivrr_activate(hdmi, false);
 	hdmi->device_shutdown = true;
-	tegra_nvhdcp_shutdown(hdmi->nvhdcp);
+	if (hdmi->nvhdcp)
+		tegra_nvhdcp_shutdown(hdmi->nvhdcp);
 
 	return;
 }
@@ -3356,6 +3577,23 @@ static void tegra_dc_hdmi_resume(struct tegra_dc *dc)
 				msecs_to_jiffies(HDMI_HPD_DEBOUNCE_DELAY_MS));
 
 	wait_for_completion(&dc->hpd_complete);
+}
+
+static int tegra_dc_hdmi_set_dv(struct tegra_dc *dc, struct tegra_dc_ext_dv *dv)
+{
+	u16 ret = 0;
+	struct tegra_hdmi *hdmi = tegra_dc_get_outdata(dc);
+
+	if (hdmi->hdmi_dv_signal == dv->dv_signal)
+		return ret;
+
+	/* update hdmi dv signal with requested value */
+	hdmi->hdmi_dv_signal = dv->dv_signal;
+
+	/* update dv infoframe */
+	tegra_hdmi_dv_infoframe(hdmi);
+
+	return ret;
 }
 
 static int tegra_dc_hdmi_set_hdr(struct tegra_dc *dc)
@@ -3733,8 +3971,6 @@ static int tegra_hdmi_status_dbg_show(struct seq_file *m, void *unused)
 	seq_printf(m, "hotplug state: %d\n", tegra_dc_hpd(dc));
 	seq_printf(m, "SCDC present: %d\n",
 		tegra_edid_is_scdc_present(hdmi->edid));
-	seq_printf(m, "Forum VSDB present: %d\n",
-		tegra_edid_is_hfvsdb_present(hdmi->edid));
 	seq_printf(m, "YCbCr4:2:0 VDB present: %d\n",
 		tegra_edid_is_420db_present(hdmi->edid));
 
@@ -3816,7 +4052,7 @@ static bool tegra_dc_hdmi_hpd_state(struct tegra_dc *dc)
 	int level;
 	bool hpd;
 
-	if (WARN_ON(!dc || !dc->out))
+	if (WARN_ON(!dc || !dc->out) || !gpio_is_valid(dc->out->hotplug_gpio))
 		return false;
 
 	if (tegra_platform_is_sim())
@@ -3935,6 +4171,7 @@ struct tegra_dc_out_ops tegra_dc_hdmi2_0_ops = {
 	.vrr_update_monspecs = tegra_hdmivrr_update_monspecs,
 	.set_hdr = tegra_dc_hdmi_set_hdr,
 	.set_avi = tegra_dc_hdmi_set_avi,
+	.set_dv = tegra_dc_hdmi_set_dv,
 	.postpoweron = tegra_dc_hdmi_postpoweron,
 	.shutdown_interface = tegra_dc_hdmi_sor_sleep,
 	.get_crc = tegra_dc_hdmi_sor_crc_check,

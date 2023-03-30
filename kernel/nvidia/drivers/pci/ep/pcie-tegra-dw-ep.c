@@ -31,7 +31,12 @@
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/phy/phy.h>
 #include <linux/resource.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/bpmp_abi.h>
 #include <soc/tegra/tegra_bpmp.h>
 #include <linux/pci.h>
@@ -214,6 +219,9 @@
 
 #define GEN4_LANE_MARGINING_2	0xb84
 #define GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED		BIT(24)
+#define GEN4_LANE_MARGINING_2_UP_DOWN_VOLTAGE		BIT(25)
+#define GEN4_LANE_MARGINING_2_LEFT_RIGHT_TIMING		BIT(26)
+
 
 #define PCIE_ATU_REGION_INDEX0	0 /* used for BAR-0 translations */
 #define PCIE_ATU_REGION_INDEX1	1
@@ -328,6 +336,11 @@ struct tegra_pcie_dw_ep {
 	dma_addr_t dma_handle;
 	void *cpu_virt;
 	bool update_fc_fixup;
+	u32 aux_clk_freq;
+	u32 aspm_cmrt;
+	u32 aspm_pwr_on_t;
+	u32 aspm_l0s_enter_lat;
+	u32 aspm_l1_enter_lat;
 	enum ep_event event;
 	struct regulator *pex_ctl_reg;
 	struct margin_cmd mcmd;
@@ -578,6 +591,10 @@ static void pex_ep_event_pex_rst_assert(struct tegra_pcie_dw_ep *pcie)
 	u32 val = 0;
 	int ret = 0, count = 0;
 
+	/*
+	 * mutex lock to synchronize pex_rst_assert triggered by irq which executes
+	 * in kthread context and triggered by remove callback function.
+	 */
 	mutex_lock(&pcie->disable_lock);
 	if (pcie->ep_state == EP_STATE_DISABLED) {
 		mutex_unlock(&pcie->disable_lock);
@@ -758,7 +775,7 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw_ep *pcie)
 	if (tegra_platform_is_fpga())
 		val |= 0x6;
 	else
-		val |= 19;	/* CHECK: for Silicon */
+		val |= pcie->aux_clk_freq;
 	writel(val, pcie->dbi_base + AUX_CLK_FREQ);
 
 	inbound_atu(pcie, PCIE_ATU_REGION_INDEX0, PCIE_ATU_TYPE_MEM,
@@ -782,15 +799,15 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw_ep *pcie)
 	/* Program T_cmrt and T_pwr_on values */
 	val = readl(pcie->dbi_base + pcie->cfg_link_cap_l1sub);
 	val &= ~(PCI_L1SS_CAP_CM_RTM_MASK | PCI_L1SS_CAP_PWRN_VAL_MASK);
-	val |= (0x3C << PCI_L1SS_CAP_CM_RTM_SHIFT);	/* 60us */
-	val |= (0x14 << PCI_L1SS_CAP_PWRN_VAL_SHIFT);	/* 40us */
+	val |= (pcie->aspm_cmrt << PCI_L1SS_CAP_CM_RTM_SHIFT);
+	val |= (pcie->aspm_pwr_on_t << PCI_L1SS_CAP_PWRN_VAL_SHIFT);
 	writel(val, pcie->dbi_base + pcie->cfg_link_cap_l1sub);
 
 	/* Program L0s and L1 entrance latencies */
 	val = readl(pcie->dbi_base + PORT_LOGIC_ACK_F_ASPM_CTRL);
 	val &= ~(L0S_ENTRANCE_LAT_MASK | L1_ENTRANCE_LAT_MASK);
-	val |= (0x3 << L0S_ENTRANCE_LAT_SHIFT);	/* 4us */
-	val |= (0x5 << L1_ENTRANCE_LAT_SHIFT);	/* 32us */
+	val |= (pcie->aspm_l0s_enter_lat << L0S_ENTRANCE_LAT_SHIFT);
+	val |= (pcie->aspm_l1_enter_lat << L1_ENTRANCE_LAT_SHIFT);
 	val |= ENTER_ASPM;
 	writel(val, pcie->dbi_base + PORT_LOGIC_ACK_F_ASPM_CTRL);
 
@@ -837,6 +854,24 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw_ep *pcie)
 
 	writew(PCI_CLASS_MEMORY_OTHER,
 	       pcie->dbi_base + PCI_CLASS_DEVICE);
+
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
+	val = readl(pcie->dbi_base + GEN4_LANE_MARGINING_1);
+	val &= ~GEN4_LANE_MARGINING_1_NUM_TIMING_STEPS_MASK;
+	val |= NUM_TIMING_STEPS;
+	val &= ~GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_MASK;
+	val |= (NUM_VOLTAGE_STEPS <<
+		GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_SHIFT);
+	writel(val, pcie->dbi_base + GEN4_LANE_MARGINING_1);
+
+	val = readl(pcie->dbi_base + GEN4_LANE_MARGINING_2);
+	val |= GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED;
+#ifdef CONFIG_PCIE_TEGRA_DW_TWO_SIDE_LANE_MARGIN
+	val |= GEN4_LANE_MARGINING_2_LEFT_RIGHT_TIMING;
+	val |= GEN4_LANE_MARGINING_2_UP_DOWN_VOLTAGE;
+#endif
+	writel(val, pcie->dbi_base + GEN4_LANE_MARGINING_2);
+#endif
 
 	val = readl(pcie->dbi_base + MISC_CONTROL_1);
 	val &= ~MISC_CONTROL_1_DBI_RO_WR_EN;
@@ -892,29 +927,10 @@ static void pex_ep_event_hot_rst_done(struct tegra_pcie_dw_ep *pcie)
 	writel(val, pcie->appl_base + APPL_CTRL);
 }
 
-static inline int find_width_index(unsigned long width)
-{
-	if (width & (width-1))
-		return -1;
-	switch (width) {
-	case PCIE_LNK_X1:
-		return 0;
-	case PCIE_LNK_X2:
-		return 1;
-	case PCIE_LNK_X4:
-		return 2;
-	case PCIE_LNK_X8:
-		return 3;
-	default :
-		return -1;
-	}
-}
-
 static void pex_ep_event_bme_change(struct tegra_pcie_dw_ep *pcie)
 {
-	u32 val = 0, speed = 0;
-	unsigned long freq, width = 0;
-	int width_index;
+	u32 val = 0, width = 0, speed = 0;
+	unsigned long freq;
 
 	/* If EP doesn't advertise L1SS, just return */
 	val = readl(pcie->dbi_base + pcie->cfg_link_cap_l1sub);
@@ -951,13 +967,8 @@ static void pex_ep_event_bme_change(struct tegra_pcie_dw_ep *pcie)
 	/* Make EMC FLOOR freq request based on link width and speed */
 	val = readl(pcie->dbi_base + CFG_LINK_STATUS_CONTROL);
 	width = ((val >> 16) & PCI_EXP_LNKSTA_NLW) >> 4;
-	width_index = find_width_index(width);
-	if (width_index == -1) {
-		dev_err(pcie->dev, "error in %s", __func__);
-		dev_err(pcie->dev, "width in CFG_LINK_STATUS_CONTROL is"
-			"wrong\n");
-		return;
-	}
+	width = find_first_bit((const unsigned long *)&width,
+			       sizeof(width));
 	speed = ((val >> 16) & PCI_EXP_LNKSTA_CLS);
 	freq = pcie->dvfs_tbl[width][speed - 1];
 	dev_dbg(pcie->dev, "EMC Freq requested = %lu\n", freq);
@@ -1090,6 +1101,7 @@ static irqreturn_t pex_rst_isr(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 static void setup_margin_cmd(struct tegra_pcie_dw_ep *pcie,
 			     enum margin_cmds mcmd,
 			     int rcv_no, int payload)
@@ -1200,11 +1212,6 @@ static int verify_timing_margin(struct seq_file *s, void *data)
 		return 0;
 	}
 
-	val = readl(pcie->dbi_base + GEN4_LANE_MARGINING_1);
-	val &= ~GEN4_LANE_MARGINING_1_NUM_TIMING_STEPS_MASK;
-	val |= NUM_TIMING_STEPS;
-	writel(val, pcie->dbi_base + GEN4_LANE_MARGINING_1);
-
 	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, EP_RCV_NO,
 			 MAX_ERR_CNT_PAYLOAD);
 	issue_margin_cmd(pcie);
@@ -1273,22 +1280,6 @@ static int verify_voltage_margin(struct seq_file *s, void *data)
 		return 0;
 	}
 
-	val = readl(pcie->dbi_base + GEN4_LANE_MARGINING_1);
-	val &= ~GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_MASK;
-	val |= (NUM_VOLTAGE_STEPS <<
-		GEN4_LANE_MARGINING_1_MAX_VOLTAGE_OFFSET_SHIFT);
-	writel(val, pcie->dbi_base + GEN4_LANE_MARGINING_1);
-
-	val = readl(pcie->dbi_base + MISC_CONTROL_1);
-	val |= MISC_CONTROL_1_DBI_RO_WR_EN;
-	writel(val, pcie->dbi_base + MISC_CONTROL_1);
-	val = readl(pcie->dbi_base + GEN4_LANE_MARGINING_2);
-	val |= GEN4_LANE_MARGINING_2_VOLTAGE_SUPPORTED;
-	writel(val, pcie->dbi_base + GEN4_LANE_MARGINING_2);
-	val = readl(pcie->dbi_base + MISC_CONTROL_1);
-	val &= ~MISC_CONTROL_1_DBI_RO_WR_EN;
-	writel(val, pcie->dbi_base + MISC_CONTROL_1);
-
 	setup_margin_cmd(pcie, MARGIN_SET_ERR_COUNT, EP_RCV_NO,
 			 MAX_ERR_CNT_PAYLOAD);
 	issue_margin_cmd(pcie);
@@ -1343,6 +1334,7 @@ static int verify_voltage_margin(struct seq_file *s, void *data)
 
 	return 0;
 }
+#endif
 
 static inline u32 event_counter_prog(struct tegra_pcie_dw_ep *pcie, u32 event)
 {
@@ -1402,14 +1394,17 @@ static const struct file_operations __name ## _fops = {	\
 	.release	= single_release,	\
 }
 
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 DEFINE_ENTRY(verify_timing_margin);
 DEFINE_ENTRY(verify_voltage_margin);
+#endif
 DEFINE_ENTRY(aspm_state_cnt);
 
 static int init_debugfs(struct tegra_pcie_dw_ep *pcie)
 {
 	struct dentry *d;
 
+#ifdef CONFIG_PCIE_TEGRA_DW_LANE_MARGIN
 	d = debugfs_create_file("verify_timing_margin", 0444, pcie->debugfs,
 				(void *)pcie, &verify_timing_margin_fops);
 	if (!d)
@@ -1419,6 +1414,7 @@ static int init_debugfs(struct tegra_pcie_dw_ep *pcie)
 				(void *)pcie, &verify_voltage_margin_fops);
 	if (!d)
 		dev_err(pcie->dev, "debugfs for verify_voltage_margin failed\n");
+#endif
 
 	d = debugfs_create_file("aspm_state_cnt", 0444, pcie->debugfs,
 				(void *)pcie, &aspm_state_cnt_fops);
@@ -1455,6 +1451,35 @@ static int tegra_pcie_dw_ep_probe(struct platform_device *pdev)
 		dev_err(pcie->dev, "fail to read num-lanes: %d\n", ret);
 		return ret;
 	}
+
+	ret = of_property_read_u32(np, "nvidia,aux-clk-freq",
+				   &pcie->aux_clk_freq);
+	if (ret < 0) {
+		dev_err(pcie->dev, "fail to read Aux_Clk_Freq: %d\n", ret);
+		return ret;
+	}
+
+	ret = of_property_read_u32(np, "nvidia,aspm-cmrt", &pcie->aspm_cmrt);
+	if (ret < 0)
+		dev_info(pcie->dev, "fail to read ASPM cmrt: %d\n", ret);
+
+	ret = of_property_read_u32(np, "nvidia,aspm-pwr-on-t",
+				   &pcie->aspm_pwr_on_t);
+	if (ret < 0)
+		dev_info(pcie->dev, "fail to read ASPM Power On time: %d\n",
+			 ret);
+
+	ret = of_property_read_u32(np, "nvidia,aspm-l0s-entrance-latency",
+				   &pcie->aspm_l0s_enter_lat);
+	if (ret < 0)
+		dev_info(pcie->dev,
+			 "fail to read ASPM L0s Entrance latency: %d\n", ret);
+
+	ret = of_property_read_u32(np, "nvidia,aspm-l1-entrance-latency",
+				   &pcie->aspm_l1_enter_lat);
+	if (ret < 0)
+		dev_info(pcie->dev,
+			 "fail to read ASPM L1 Entrance latency: %d\n", ret);
 
 	ret = of_property_read_u32_array(np, "nvidia,dvfs-tbl",
 					 &pcie->dvfs_tbl[0][0], 16);

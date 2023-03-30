@@ -1,6 +1,6 @@
 config TEGRA_HV_SECCAN
 	tristate "Tegra Hypervisor Security path CAN"
-	depends on ARCH_TEGRA_18x_SOC && CAN
+	depends on (ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC) && CAN
 	select STAGING
 	help
 	 Add support for emulating a socketCAN device on tegra hypervisor systems.

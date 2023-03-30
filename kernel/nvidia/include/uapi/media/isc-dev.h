@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,13 +17,9 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define ISC_DEV_IOCTL_RW	_IOW('o', 1, struct isc_dev_package)
-
-#ifdef CONFIG_COMPAT
-#define ISC_DEV_IOCTL_RW32	_IOW('o', 1, struct isc_dev_package32)
-#endif
-
 #define ISC_DEV_PKG_FLAG_WR	1
+
+#define ISC_DEV_IOCTL_RW	_IOW('o', 1, struct isc_dev_package)
 
 struct __attribute__ ((__packed__)) isc_dev_package {
 	__u16 offset;
@@ -33,6 +29,10 @@ struct __attribute__ ((__packed__)) isc_dev_package {
 	unsigned long buffer;
 };
 
+#ifdef __KERNEL__
+#ifdef CONFIG_COMPAT
+#define ISC_DEV_IOCTL_RW32	_IOW('o', 1, struct isc_dev_package32)
+
 struct __attribute__ ((__packed__)) isc_dev_package32 {
 	__u16 offset;
 	__u16 offset_len;
@@ -40,5 +40,7 @@ struct __attribute__ ((__packed__)) isc_dev_package32 {
 	__u32 flags;
 	__u32 buffer;
 };
+#endif /* CONFIG_COMPAT */
+#endif /* __KERNEL__ */
 
 #endif  /* __UAPI_ISC_DEV_H__ */

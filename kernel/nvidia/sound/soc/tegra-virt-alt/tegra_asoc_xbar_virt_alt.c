@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_xbar_virt_alt.c - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2017-2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -451,6 +451,182 @@ ADDER_CTRL_DECL(Adder3, 0x2);
 ADDER_CTRL_DECL(Adder4, 0x3);
 ADDER_CTRL_DECL(Adder5, 0x4);
 
+/*T234 specific Controls */
+MUX_ENUM_CTRL_DECL_186(t234_afc1_tx, 0x34);
+MUX_ENUM_CTRL_DECL_186(t234_afc2_tx, 0x35);
+MUX_ENUM_CTRL_DECL_186(t234_afc3_tx, 0x36);
+MUX_ENUM_CTRL_DECL_186(t234_afc4_tx, 0x37);
+MUX_ENUM_CTRL_DECL_186(t234_afc5_tx, 0x38);
+MUX_ENUM_CTRL_DECL_186(t234_afc6_tx, 0x39);
+MUX_ENUM_CTRL_DECL_186(t234_spkprot_tx, 0x41);
+MUX_ENUM_CTRL_DECL_186(t234_mvc1_tx, 0x44);
+MUX_ENUM_CTRL_DECL_186(t234_mvc2_tx, 0x45);
+MUX_ENUM_CTRL_DECL_186(t234_amx11_tx, 0x48);
+MUX_ENUM_CTRL_DECL_186(t234_amx12_tx, 0x49);
+MUX_ENUM_CTRL_DECL_186(t234_amx13_tx, 0x4a);
+MUX_ENUM_CTRL_DECL_186(t234_amx14_tx, 0x4b);
+MUX_ENUM_CTRL_DECL_186(t234_amx21_tx, 0x4c);
+MUX_ENUM_CTRL_DECL_186(t234_amx22_tx, 0x4d);
+MUX_ENUM_CTRL_DECL_186(t234_amx23_tx, 0x4e);
+MUX_ENUM_CTRL_DECL_186(t234_amx24_tx, 0x4f);
+MUX_ENUM_CTRL_DECL_186(t234_amx31_tx, 0x50);
+MUX_ENUM_CTRL_DECL_186(t234_amx32_tx, 0x51);
+MUX_ENUM_CTRL_DECL_186(t234_amx33_tx, 0x52);
+MUX_ENUM_CTRL_DECL_186(t234_amx34_tx, 0x53);
+MUX_ENUM_CTRL_DECL_186(t234_adx1_tx, 0x58);
+MUX_ENUM_CTRL_DECL_186(t234_adx2_tx, 0x59);
+MUX_ENUM_CTRL_DECL_186(t234_adx3_tx, 0x5a);
+MUX_ENUM_CTRL_DECL_186(t234_adx4_tx, 0x5b);
+MUX_ENUM_CTRL_DECL_186(t234_amx41_tx, 0x5c);
+MUX_ENUM_CTRL_DECL_186(t234_amx42_tx, 0x5d);
+MUX_ENUM_CTRL_DECL_186(t234_amx43_tx, 0x5e);
+MUX_ENUM_CTRL_DECL_186(t234_amx44_tx, 0x5f);
+MUX_ENUM_CTRL_DECL_186(t234_admaif17_tx, 0x60);
+MUX_ENUM_CTRL_DECL_186(t234_admaif18_tx, 0x61);
+MUX_ENUM_CTRL_DECL_186(t234_admaif19_tx, 0x62);
+MUX_ENUM_CTRL_DECL_186(t234_admaif20_tx, 0x63);
+MUX_ENUM_CTRL_DECL_186(t234_asrc11_tx, 0x64);
+MUX_ENUM_CTRL_DECL_186(t234_asrc12_tx, 0x65);
+MUX_ENUM_CTRL_DECL_186(t234_asrc13_tx, 0x66);
+MUX_ENUM_CTRL_DECL_186(t234_asrc14_tx, 0x67);
+MUX_ENUM_CTRL_DECL_186(t234_asrc15_tx, 0x68);
+MUX_ENUM_CTRL_DECL_186(t234_asrc16_tx, 0x69);
+MUX_ENUM_CTRL_DECL_186(t234_asrc17_tx, 0x6a);
+MUX_ENUM_CTRL_DECL_186(t234_spdif11_tx, 0x71);
+MUX_ENUM_CTRL_DECL_186(t234_spdif12_tx, 0x72);
+
+static struct snd_soc_dapm_widget tegra234_virt_xbar_widgets[] = {
+	WIDGETS("ADMAIF1", admaif1_tx),
+	WIDGETS("ADMAIF2", admaif2_tx),
+	WIDGETS("ADMAIF3", admaif3_tx),
+	WIDGETS("ADMAIF4", admaif4_tx),
+	WIDGETS("ADMAIF5", admaif5_tx),
+	WIDGETS("ADMAIF6", admaif6_tx),
+	WIDGETS("ADMAIF7", admaif7_tx),
+	WIDGETS("ADMAIF8", admaif8_tx),
+	WIDGETS("ADMAIF9", admaif9_tx),
+	WIDGETS("ADMAIF10", admaif10_tx),
+	WIDGETS("I2S1", i2s1_tx),
+	WIDGETS("I2S2", i2s2_tx),
+	WIDGETS("I2S3", i2s3_tx),
+	WIDGETS("I2S4", i2s4_tx),
+	WIDGETS("I2S5", i2s5_tx),
+	WIDGETS("SFC1", sfc1_tx),
+	WIDGETS("SFC2", sfc2_tx),
+	WIDGETS("SFC3", sfc3_tx),
+	WIDGETS("SFC4", sfc4_tx),
+	MIXER_IN_WIDGETS("MIXER1-1", mixer11_tx),
+	MIXER_IN_WIDGETS("MIXER1-2", mixer12_tx),
+	MIXER_IN_WIDGETS("MIXER1-3", mixer13_tx),
+	MIXER_IN_WIDGETS("MIXER1-4", mixer14_tx),
+	MIXER_IN_WIDGETS("MIXER1-5", mixer15_tx),
+	MIXER_IN_WIDGETS("MIXER1-6", mixer16_tx),
+	MIXER_IN_WIDGETS("MIXER1-7", mixer17_tx),
+	MIXER_IN_WIDGETS("MIXER1-8", mixer18_tx),
+	MIXER_IN_WIDGETS("MIXER1-9", mixer19_tx),
+	MIXER_IN_WIDGETS("MIXER1-10", mixer110_tx),
+
+	MIXER_OUT_WIDGETS("MIXER1-1"),
+	MIXER_OUT_WIDGETS("MIXER1-2"),
+	MIXER_OUT_WIDGETS("MIXER1-3"),
+	MIXER_OUT_WIDGETS("MIXER1-4"),
+	MIXER_OUT_WIDGETS("MIXER1-5"),
+	SND_SOC_DAPM_MIXER("Adder1", SND_SOC_NOPM, 1, 0,
+		Adder1, ARRAY_SIZE(Adder1)),
+	SND_SOC_DAPM_MIXER("Adder2", SND_SOC_NOPM, 1, 0,
+		Adder2, ARRAY_SIZE(Adder2)),
+	SND_SOC_DAPM_MIXER("Adder3", SND_SOC_NOPM, 1, 0,
+		Adder3, ARRAY_SIZE(Adder3)),
+	SND_SOC_DAPM_MIXER("Adder4", SND_SOC_NOPM, 1, 0,
+		Adder4, ARRAY_SIZE(Adder4)),
+	SND_SOC_DAPM_MIXER("Adder5", SND_SOC_NOPM, 1, 0,
+		Adder5, ARRAY_SIZE(Adder5)),
+	WIDGETS("SPDIF1-1", t234_spdif11_tx),
+	WIDGETS("SPDIF1-2", t234_spdif12_tx),
+	WIDGETS("AFC1", t234_afc1_tx),
+	WIDGETS("AFC2", t234_afc2_tx),
+	WIDGETS("AFC3", t234_afc3_tx),
+	WIDGETS("AFC4", t234_afc4_tx),
+	WIDGETS("AFC5", t234_afc5_tx),
+	WIDGETS("AFC6", t234_afc6_tx),
+	WIDGETS("OPE1", ope1_tx),
+	WIDGETS("SPKPROT1", t234_spkprot_tx),
+	WIDGETS("MVC1", t234_mvc1_tx),
+	WIDGETS("MVC2", t234_mvc2_tx),
+	WIDGETS("AMX1-1", t234_amx11_tx),
+	WIDGETS("AMX1-2", t234_amx12_tx),
+	WIDGETS("AMX1-3", t234_amx13_tx),
+	WIDGETS("AMX1-4", t234_amx14_tx),
+	WIDGETS("AMX2-1", t234_amx21_tx),
+	WIDGETS("AMX2-2", t234_amx22_tx),
+	WIDGETS("AMX2-3", t234_amx23_tx),
+	WIDGETS("AMX2-4", t234_amx24_tx),
+	WIDGETS("ADX1", t234_adx1_tx),
+	WIDGETS("ADX2", t234_adx2_tx),
+	TX_WIDGETS("IQC1-1"),
+	TX_WIDGETS("IQC1-2"),
+	TX_WIDGETS("IQC2-1"),
+	TX_WIDGETS("IQC2-2"),
+	TX_WIDGETS("DMIC1"),
+	TX_WIDGETS("DMIC2"),
+	TX_WIDGETS("DMIC3"),
+	TX_WIDGETS("AMX1"),
+	TX_WIDGETS("ADX1-1"),
+	TX_WIDGETS("ADX1-2"),
+	TX_WIDGETS("ADX1-3"),
+	TX_WIDGETS("ADX1-4"),
+	TX_WIDGETS("AMX2"),
+	TX_WIDGETS("ADX2-1"),
+	TX_WIDGETS("ADX2-2"),
+	TX_WIDGETS("ADX2-3"),
+	TX_WIDGETS("ADX2-4"),
+	WIDGETS("ADMAIF11", admaif11_tx),
+	WIDGETS("ADMAIF12", admaif12_tx),
+	WIDGETS("ADMAIF13", admaif13_tx),
+	WIDGETS("ADMAIF14", admaif14_tx),
+	WIDGETS("ADMAIF15", admaif15_tx),
+	WIDGETS("ADMAIF16", admaif16_tx),
+	WIDGETS("ADMAIF17", t234_admaif17_tx),
+	WIDGETS("ADMAIF18", t234_admaif18_tx),
+	WIDGETS("ADMAIF19", t234_admaif19_tx),
+	WIDGETS("ADMAIF20", t234_admaif20_tx),
+	WIDGETS("I2S6", i2s6_tx),
+	WIDGETS("AMX3-1", t234_amx31_tx),
+	WIDGETS("AMX3-2", t234_amx32_tx),
+	WIDGETS("AMX3-3", t234_amx33_tx),
+	WIDGETS("AMX3-4", t234_amx34_tx),
+	WIDGETS("AMX4-1", t234_amx41_tx),
+	WIDGETS("AMX4-2", t234_amx42_tx),
+	WIDGETS("AMX4-3", t234_amx43_tx),
+	WIDGETS("AMX4-4", t234_amx44_tx),
+	WIDGETS("ADX3", t234_adx3_tx),
+	WIDGETS("ADX4", t234_adx4_tx),
+	WIDGETS("ASRC1-1", t234_asrc11_tx),
+	WIDGETS("ASRC1-2", t234_asrc12_tx),
+	WIDGETS("ASRC1-3", t234_asrc13_tx),
+	WIDGETS("ASRC1-4", t234_asrc14_tx),
+	WIDGETS("ASRC1-5", t234_asrc15_tx),
+	WIDGETS("ASRC1-6", t234_asrc16_tx),
+	WIDGETS("ASRC1-7", t234_asrc17_tx),
+	TX_WIDGETS("AMX3"),
+	TX_WIDGETS("ADX3-1"),
+	TX_WIDGETS("ADX3-2"),
+	TX_WIDGETS("ADX3-3"),
+	TX_WIDGETS("ADX3-4"),
+	TX_WIDGETS("AMX4"),
+	TX_WIDGETS("ADX4-1"),
+	TX_WIDGETS("ADX4-2"),
+	TX_WIDGETS("ADX4-3"),
+	TX_WIDGETS("ADX4-4"),
+	TX_WIDGETS("DMIC4"),
+	TX_WIDGETS("ARAD1"),
+	CODEC_WIDGET("I2S1"),
+	CODEC_WIDGET("I2S2"),
+	CODEC_WIDGET("I2S3"),
+	CODEC_WIDGET("I2S4"),
+	CODEC_WIDGET("I2S5"),
+	CODEC_WIDGET("I2S6"),
+};
 
 static struct snd_soc_dapm_widget tegra186_virt_xbar_widgets[] = {
 	WIDGETS("ADMAIF1", admaif1_tx),
@@ -807,11 +983,9 @@ static struct snd_soc_dapm_route tegra186_virt_xbar_routes[] = {
 	AMX_OUT_ROUTES("AMX4")
 };
 
-static int tegra_virt_xbar_read(struct snd_soc_component *component,
-		unsigned int reg, unsigned int *val)
+static unsigned int tegra_virt_xbar_read(struct snd_soc_component *component,
+					unsigned int reg)
 {
-	*val = 0;
-
 	return 0;
 }
 
@@ -823,21 +997,27 @@ static int tegra_virt_xbar_write(struct snd_soc_component *component,
 
 static int tegra_virt_xbar_component_probe(struct snd_soc_component *component)
 {
-	component->read = tegra_virt_xbar_read;
-	component->write = tegra_virt_xbar_write;
-
 	return 0;
 }
 
-static struct snd_soc_codec_driver tegra186_virt_xbar_codec = {
-	.idle_bias_off = 1,
-	.component_driver = {
-		.probe = tegra_virt_xbar_component_probe,
-		.dapm_widgets = tegra186_virt_xbar_widgets,
-		.num_dapm_widgets = ARRAY_SIZE(tegra186_virt_xbar_widgets),
-		.dapm_routes = tegra186_virt_xbar_routes,
-		.num_dapm_routes = ARRAY_SIZE(tegra186_virt_xbar_routes),
-	},
+static struct snd_soc_component_driver tegra186_virt_xbar_codec = {
+	.probe = tegra_virt_xbar_component_probe,
+	.read = tegra_virt_xbar_read,
+	.write = tegra_virt_xbar_write,
+	.dapm_widgets = tegra186_virt_xbar_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(tegra186_virt_xbar_widgets),
+	.dapm_routes = tegra186_virt_xbar_routes,
+	.num_dapm_routes = ARRAY_SIZE(tegra186_virt_xbar_routes),
+};
+
+static const struct snd_soc_component_driver tegra234_virt_xbar_codec = {
+	.probe = tegra_virt_xbar_component_probe,
+	.read = tegra_virt_xbar_read,
+	.write = tegra_virt_xbar_write,
+	.dapm_widgets = tegra234_virt_xbar_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(tegra234_virt_xbar_widgets),
+	.dapm_routes = tegra186_virt_xbar_routes,
+	.num_dapm_routes = ARRAY_SIZE(tegra186_virt_xbar_routes),
 };
 
 int tegra_virt_get_route(struct snd_kcontrol *kcontrol,
@@ -934,10 +1114,18 @@ int tegra_virt_xbar_register_codec(struct platform_device *pdev)
 
 	int ret;
 
-	ret = snd_soc_register_codec(&pdev->dev,
-			&tegra186_virt_xbar_codec,
-			tegra186_virt_xbar_dais,
-			ARRAY_SIZE(tegra186_virt_xbar_dais));
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"nvidia,tegra234-virt-pcm")) {
+		ret = tegra_register_component(&pdev->dev,
+				&tegra234_virt_xbar_codec,
+				tegra186_virt_xbar_dais,
+				ARRAY_SIZE(tegra186_virt_xbar_dais), "xbar");
+	} else {
+		ret = tegra_register_component(&pdev->dev,
+				&tegra186_virt_xbar_codec,
+				tegra186_virt_xbar_dais,
+				ARRAY_SIZE(tegra186_virt_xbar_dais), "xbar");
+	}
 
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Could not register CODEC: %d\n", ret);

@@ -1,0 +1,52 @@
+From c9361e974e0992fd975f0bd219cf124dd3978ed6 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Thu, 20 Aug 2020 15:54:43 -0700
+Subject: [PATCH 773/830] ANDROID: Makefile: add compiler-rt dependency
+ explicitly
+X-NVConfidentiality: public
+
+AOSP clang still has a dependency on libgcc_s (the "compiler runtime")
+(upstream LLVM does not.) When building the kernel in a hermetic
+environment, we observe the following linkage failures while building
+host executables:
+
+  HOSTCC  scripts/basic/fixdep
+ld.lld: error: cannot open crtbegin.o: No such file or directory
+ld.lld: error: unable to find library -lgcc
+ld.lld: error: unable to find library -lgcc_s
+ld.lld: error: unable to find library -lgcc
+ld.lld: error: unable to find library -lgcc_s
+ld.lld: error: cannot open crtend.o: No such file or directory
+
+AOSP clang is not bound by the same dependencies for kernel builds that
+it is for userspace; tell it to use LLVM's compiler runtime,
+compiler-rt, instead explicitly. This allows us to drop the libgcc
+dependency from our hermetic Docker image.
+
+Bug: 65987925
+Bug: 131098715
+Bug: 135922132
+Bug: 141693040
+Suggested-by: Stephen Hines <srhines@google.com>
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: Ied7bd6fadd30fe56b85c2bfa59b5ea0a87d476d8
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index 9ca40f145b83..2a36be6da889 100644
+--- a/Makefile
++++ b/Makefile
+@@ -464,7 +464,7 @@ OBJCOPY		= llvm-objcopy
+ OBJDUMP		= llvm-objdump
+ READELF		= llvm-readelf
+ STRIP		= llvm-strip
+-KBUILD_HOSTLDFLAGS	+= -fuse-ld=lld
++KBUILD_HOSTLDFLAGS	+= -fuse-ld=lld --rtlib=compiler-rt
+ else
+ CC		= $(CROSS_COMPILE)gcc
+ LD		= $(CROSS_COMPILE)ld
+-- 
+2.17.1
+

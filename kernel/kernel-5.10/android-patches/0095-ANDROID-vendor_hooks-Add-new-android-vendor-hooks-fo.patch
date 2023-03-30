@@ -1,0 +1,98 @@
+From aa62be06b1164ebe6283d191b6b3b0e6099ba5be Mon Sep 17 00:00:00 2001
+From: Changki Kim <changki.kim@samsung.com>
+Date: Sun, 23 Aug 2020 14:36:48 +0900
+Subject: [PATCH 095/830] ANDROID: vendor_hooks: Add new android vendor hooks
+ for ipi stop
+X-NVConfidentiality: public
+
+When a kernel panic occurred, it is sometimes caused by a other cpu
+than the panic cpu. When a panic cpu sends smp stop IPI, it can help to
+solve the problem even more if aonther cpu stores registers and
+run cache flush.
+
+Bug: 165956922
+
+Change-Id: I747f776456330d904015cfe4ae423e4b63f18f85
+Signed-off-by: Changki Kim <changki.kim@samsung.com>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Jonglin Lee <jonglin@google.com>
+---
+ arch/arm64/kernel/smp.c        |  3 +++
+ drivers/android/vendor_hooks.c |  2 ++
+ include/trace/hooks/debug.h    | 26 ++++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+)
+ create mode 100644 include/trace/hooks/debug.h
+
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index d3624c48fb47..f0ef91d1e035 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -53,6 +53,8 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/ipi.h>
++#undef CREATE_TRACE_POINTS
++#include <trace/hooks/debug.h>
+ 
+ DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
+ EXPORT_PER_CPU_SYMBOL(cpu_number);
+@@ -914,6 +916,7 @@ static void do_handle_IPI(int ipinr)
+ 		break;
+ 
+ 	case IPI_CPU_STOP:
++		trace_android_vh_ipi_stop(get_irq_regs());
+ 		local_cpu_stop();
+ 		break;
+ 
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 5c089306d2ba..6c32b5722a5a 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -10,6 +10,7 @@
+ #include <trace/hooks/vendor_hooks.h>
+ #include <trace/hooks/fpsimd.h>
+ #include <trace/hooks/mpam.h>
++#include <trace/hooks/debug.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+@@ -17,3 +18,4 @@
+  */
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+diff --git a/include/trace/hooks/debug.h b/include/trace/hooks/debug.h
+new file mode 100644
+index 000000000000..ac006d7fdd0a
+--- /dev/null
++++ b/include/trace/hooks/debug.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM debug
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_DEBUG_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_DEBUG_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct pt_regs;
++
++DECLARE_HOOK(android_vh_ipi_stop,
++	TP_PROTO(struct pt_regs *regs),
++	TP_ARGS(regs))
++#else
++#define trace_android_vh_ipi_stop(regs)
++#define trace_android_vh_ipi_stop_rcuidle(regs)
++#endif
++
++#endif /* _TRACE_HOOK_DEBUG_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

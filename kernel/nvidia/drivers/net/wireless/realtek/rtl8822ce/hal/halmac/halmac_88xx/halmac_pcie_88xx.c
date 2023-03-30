@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2016 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2016 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -14,8 +14,33 @@
  ******************************************************************************/
 
 #include "halmac_pcie_88xx.h"
+#include "halmac_efuse_88xx.h"
 
 #if (HALMAC_88XX_SUPPORT && HALMAC_PCIE_SUPPORT)
+
+#if HALMAC_8822C_SUPPORT
+static enum halmac_ret_status
+low_pwr_patch(struct halmac_adapter *adapter)
+{
+	u8 map = 0;
+	struct halmac_api *api = (struct halmac_api *)adapter->halmac_api;
+
+	if (adapter->chip_id != HALMAC_CHIP_ID_8822C)
+		return HALMAC_RET_NOT_SUPPORT;
+	if (read_wifi_phy_efuse_88xx(adapter, 0x1F9, 1, &map) !=
+	    HALMAC_RET_SUCCESS)
+		return HALMAC_RET_EFUSE_R_FAIL;
+	if (map & BIT(3)) {
+		HALMAC_REG_W8_SET(REG_PMC_DBG_CTRL2,
+				  BIT_SYSON_DIS_PMCREG_WRMSK);
+		HALMAC_REG_W8_SET(REG_HCI_BG_CTRL, BIT_FORCED_IB_EN);
+		HALMAC_REG_W8_CLR(REG_PMC_DBG_CTRL2,
+				  BIT_SYSON_DIS_PMCREG_WRMSK);
+	}
+
+	return HALMAC_RET_SUCCESS;
+}
+#endif
 
 /**
  * init_pcie_cfg_88xx() -  init PCIe
@@ -36,6 +61,7 @@ init_pcie_cfg_88xx(struct halmac_adapter *adapter)
 		    adapter->chip_ver == HALMAC_CHIP_VER_F_CUT)
 			/* defined after 8822C D CUT */
 			HALMAC_REG_W8_SET(REG_HCI_MIX_CFG + 3, BIT(2));
+		low_pwr_patch(adapter);
 	}
 #endif
 	return HALMAC_RET_SUCCESS;
@@ -536,13 +562,14 @@ trxdma_check_idle_88xx(struct halmac_adapter *adapter)
 	return HALMAC_RET_SUCCESS;
 }
 
-void
-en_ref_autok_88xx(struct halmac_adapter *adapter, u8 en)
+enum halmac_ret_status
+en_ref_autok_pcie_88xx(struct halmac_adapter *adapter, u8 en)
 {
 	if (en == 1)
 		adapter->pcie_refautok_en = 1;
 	else
 		adapter->pcie_refautok_en = 0;
+	return HALMAC_RET_SUCCESS;
 }
 
 #endif /* HALMAC_88XX_SUPPORT */

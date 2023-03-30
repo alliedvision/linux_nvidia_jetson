@@ -1,0 +1,205 @@
+/*
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra234-camera.dtsi: Camera RTCPU DTSI file.
+ */
+
+#include <dt-bindings/soc/nvidia,tegra186-hsp.h>
+
+/ {
+	aliases { /* RCE is the Camera RTCPU */
+		tegra-camera-rtcpu = &tegra_rce;
+	};
+
+	tegra_rce: rtcpu@bc00000 {
+		compatible = "nvidia,tegra194-rce";
+
+		nvidia,cpu-name = "rce";
+
+		reg =	<0 0xbc00000 0 0x1000>,	  /* RCE EVP (RCE_ATCM_EVP) */
+			<0 0xb9f0000 0 0x40000>,  /* RCE PM */
+			<0 0xb840000 0 0x10000>,
+			<0 0xb850000 0 0x10000>;
+
+		reg-names = "rce-evp", "rce-pm",
+				"ast-cpu", "ast-dma";
+
+		clocks =
+			<&bpmp_clks TEGRA234_CLK_RCE_CPU_NIC>,
+			<&bpmp_clks TEGRA234_CLK_RCE_NIC>,
+			<&bpmp_clks TEGRA234_CLK_RCE_CPU>;
+		clock-names = "rce-cpu-nic", "rce-nic", "rce-cpu";
+
+		nvidia,clock-rates =
+			<115200000 601600000>,
+			<115200000 601600000>,
+			<115200000 601600000>;
+
+		resets = <&bpmp_resets TEGRA234_RESET_RCE_ALL>;
+		reset-names = "rce-all";
+
+		interrupts = <0 TEGRA234_IRQ_RCE_WDT_REMOTE 0x4>;
+		interrupt-names = "wdt-remote";
+
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_RCE>;
+		iommu-resv-regions = <0x0 0x0 0x0 0xA0000000 0x0 0xc0000000 0xffffffff 0xffffffff>;
+		dma-coherent;
+
+		/* Memory bandwidth in kB/s during boot */
+		nvidia,test-bw = <2400000>;
+
+		nvidia,trace = <&{/tegra-rtcpu-trace} 4 0x70100000 0x100000>;
+		nvidia,ivc-channels = <&{/camera-ivc-channels} 2 0x90000000 0x10000>;
+
+		nvidia,autosuspend-delay-ms = <5000>;
+
+		hsp-vm1 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(0)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(1)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 0>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+		};
+
+		hsp-vm2 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(2)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(3)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 1>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+			status = "disabled";
+		};
+
+		hsp-vm3 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(4)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(5)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 2>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+			status = "disabled";
+		};
+
+		hsp-vm4 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(6)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(7)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 3>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+			status = "disabled";
+		};
+
+		hsp {
+			compatible = "nvidia,tegra186-hsp-mailbox";
+			nvidia,hsp-shared-mailbox = <&hsp_rce 1>, <&hsp_rce 6>;
+			nvidia,hsp-shared-mailbox-names = "ivc-pair", "cmd-pair";
+		};
+	};
+
+	camera-ivc-channels {
+		echo@0 {
+			compatible = "nvidia,tegra186-camera-ivc-protocol-echo";
+			nvidia,service = "echo";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <16>;
+			nvidia,frame-size = <64>;
+		};
+		dbg@1 {
+			/* This is raw channel exposed as device */
+			compatible = "nvidia,tegra186-camera-ivc-protocol-dbg";
+			nvidia,service = "debug";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <448>;
+		};
+		dbg@2 {
+			/* This is exposed in debugfs */
+			compatible = "nvidia,tegra186-camera-ivc-protocol-debug";
+			nvidia,service = "debug";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <8192>;
+			nvidia,ivc-timeout = <50>;
+			nvidia,test-timeout = <5000>;
+			nvidia,mem-map = <&tegra_rce &vi0 &isp &vi1>;
+			/* Memory bandwidth in kB/s during tests */
+			nvidia,test-bw = <2400000>;
+		};
+		ivccontrol@3 {
+			compatible = "nvidia,tegra186-camera-ivc-protocol-capture-control";
+			nvidia,service = "capture-control";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <64>;
+			nvidia,frame-size = <320>;
+		};
+		ivccapture@4 {
+			compatible = "nvidia,tegra186-camera-ivc-protocol-capture";
+			nvidia,service = "capture";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <512>;
+			nvidia,frame-size = <64>;
+		};
+		diag@5 {
+			compatible = "nvidia,tegra186-camera-diagnostics";
+			nvidia,service = "diag";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <64>;
+		};
+	};
+
+	tegra-rtcpu-trace {
+		nvidia,enable-printk;
+		nvidia,interval-ms = <50>;
+		nvidia,log-prefix = "[RCE]";
+	};
+
+	tegra-capture-vi {
+		compatible = "nvidia,tegra-camrtc-capture-vi";
+
+		nvidia,vi-devices = <&vi0 &vi1>;
+		nvidia,vi-mapping-size = <6>;
+		nvidia,vi-mapping =
+			<0 0>,
+			<1 0>,
+			<2 1>,
+			<3 1>,
+			<4 0>,
+			<5 1>;
+		nvidia,vi-mapping-names = "csi-stream-id", "vi-unit-id";
+		nvidia,vi-max-channels = <72>;
+	};
+
+	reserved-memory {
+		camdbg_reserved: camdbg_carveout {
+			compatible = "nvidia,camdbg_carveout";
+			size = <0 0x6400000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0x1 0 0x1 0>;
+			status = "disabled";
+		};
+	};
+};

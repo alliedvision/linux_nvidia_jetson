@@ -1,0 +1,16 @@
+BPMP Clocks
+
+Binding for the BPMP clock driver.
+
+Required properties:
+- compatible: Must be "nvidia,tegra-bpmp-clks"
+- reg: Should be 0
+- #clock-cells: Should be 1
+
+Example:
+
+        bpmp_clks: clock@0 {
+                compatible = "nvidia,tegra-bpmp-clks";
+                reg = <0x0 0x0 0x0 0x0>;
+                #clock-cells = <1>;
+        };

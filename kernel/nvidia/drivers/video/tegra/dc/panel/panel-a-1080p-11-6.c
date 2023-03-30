@@ -1,7 +1,7 @@
 /*
  * panel-a-1080p-11-6.c: Panel driver for 1080p-11-6 panel.
  *
- * Copyright (c) 2012-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,7 +27,6 @@
 #include <linux/export.h>
 
 #include "../dc.h"
-#include "board.h"
 #include "board-panel.h"
 #include "gpio-names.h"
 #include "tegra11_host1x_devices.h"

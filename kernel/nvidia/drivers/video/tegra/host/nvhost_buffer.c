@@ -1,7 +1,7 @@
 /*
  * NVHOST buffer management for T194
  *
- * Copyright (c) 2016-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -295,6 +295,7 @@ int nvhost_buffer_pin(struct nvhost_buffers *nvhost_buffers,
 		vm = kzalloc(sizeof(struct nvhost_vm_buffer), GFP_KERNEL);
 		if (!vm) {
 			nvhost_err(NULL, "could not allocate vm_buffer");
+			err = -ENOMEM;
 			goto unpin;
 		}
 

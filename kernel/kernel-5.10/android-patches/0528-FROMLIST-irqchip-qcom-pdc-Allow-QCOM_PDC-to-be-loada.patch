@@ -1,0 +1,108 @@
+From ade9c5de0d73fae4cd38812ea07be561935b448c Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 10 Jul 2020 23:18:24 +0000
+Subject: [PATCH 528/830] FROMLIST: irqchip/qcom-pdc: Allow QCOM_PDC to be
+ loadable as a permanent module
+X-NVConfidentiality: public
+
+Allows qcom-pdc driver to be loaded as a permanent module
+
+Also, due to the fact that IRQCHIP_DECLARE becomes a no-op when
+building as a module, we have to replace it with platform driver
+hooks explicitly.
+
+Thanks to Saravana for his help on pointing out the
+IRQCHIP_DECLARE issue and guidance on a solution.
+
+NOTE: This re-applies the patch that landed upstream (as part of
+a larger rework of irqchips as platform drivers), but was reverted
+due to problems other patches in the series caused.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Marc Zyngier <maz@kernel.org>
+Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+Cc: Andy Gross <agross@kernel.org>
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Jason Cooper <jason@lakedaemon.net>
+Cc: Marc Zyngier <maz@kernel.org>
+Cc: Linus Walleij <linus.walleij@linaro.org>
+Cc: Maulik Shah <mkshah@codeaurora.org>
+Cc: Lina Iyer <ilina@codeaurora.org>
+Cc: Saravana Kannan <saravanak@google.com>
+Cc: Todd Kjos <tkjos@google.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-arm-msm@vger.kernel.org
+Cc: iommu@lists.linux-foundation.org
+Cc: linux-gpio@vger.kernel.org
+Link: https://lore.kernel.org/r/20200710231824.60699-4-john.stultz@linaro.org
+Change-Id: I9a7736971aa49f8cc344fe29c959cbca024be462
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ drivers/irqchip/Kconfig    |  2 +-
+ drivers/irqchip/qcom-pdc.c | 28 +++++++++++++++++++++++++++-
+ 2 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
+index 3cf7fdccf916..298910ffd29d 100644
+--- a/drivers/irqchip/Kconfig
++++ b/drivers/irqchip/Kconfig
+@@ -439,7 +439,7 @@ config GOLDFISH_PIC
+          for Goldfish based virtual platforms.
+ 
+ config QCOM_PDC
+-	bool "QCOM PDC"
++	tristate "QCOM PDC"
+ 	depends on ARCH_QCOM
+ 	select IRQ_DOMAIN_HIERARCHY
+ 	help
+diff --git a/drivers/irqchip/qcom-pdc.c b/drivers/irqchip/qcom-pdc.c
+index 30e2a85a0517..73ed66f9e55e 100644
+--- a/drivers/irqchip/qcom-pdc.c
++++ b/drivers/irqchip/qcom-pdc.c
+@@ -11,9 +11,11 @@
+ #include <linux/irqdomain.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
++#include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/of_device.h>
++#include <linux/of_irq.h>
+ #include <linux/soc/qcom/irq.h>
+ #include <linux/spinlock.h>
+ #include <linux/slab.h>
+@@ -535,4 +537,28 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
+ 	return ret;
+ }
+ 
+-IRQCHIP_DECLARE(qcom_pdc, "qcom,pdc", qcom_pdc_init);
++static int qcom_pdc_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	struct device_node *parent = of_irq_find_parent(np);
++
++	return qcom_pdc_init(np, parent);
++}
++
++static const struct of_device_id qcom_pdc_match_table[] = {
++	{ .compatible = "qcom,pdc" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, qcom_pdc_match_table);
++
++static struct platform_driver qcom_pdc_driver = {
++	.probe = qcom_pdc_probe,
++	.driver = {
++		.name = "qcom-pdc",
++		.of_match_table = qcom_pdc_match_table,
++		.suppress_bind_attrs = true,
++	},
++};
++module_platform_driver(qcom_pdc_driver);
++MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Power Domain Controller");
++MODULE_LICENSE("GPL v2");
+-- 
+2.17.1
+

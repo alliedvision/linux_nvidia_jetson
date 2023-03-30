@@ -1,7 +1,7 @@
 /*
- * Capture support for T194
+ * Capture support for syncpoint and GoS management
  *
- * Copyright (c) 2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,17 +22,17 @@
 #include <linux/types.h>
 #include <linux/platform_device.h>
 
-int t194_capture_alloc_syncpt(struct platform_device *pdev,
+int capture_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id);
 
-void t194_capture_release_syncpt(struct platform_device *pdev, uint32_t id);
+void capture_release_syncpt(struct platform_device *pdev, uint32_t id);
 
-void t194_capture_get_gos_table(struct platform_device *pdev,
+void capture_get_gos_table(struct platform_device *pdev,
 			int *gos_count,
 			const dma_addr_t **gos_table);
 
-int t194_capture_get_syncpt_gos_backing(struct platform_device *pdev,
+int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr,
 			uint32_t *gos_index,

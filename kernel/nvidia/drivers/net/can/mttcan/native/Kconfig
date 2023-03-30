@@ -1,6 +1,6 @@
 config MTTCAN
 	tristate "Bosch M_TTCAN Devices"
-	depends on ARCH_TEGRA_18x_SOC && CAN
+	depends on (ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC) && CAN
 	select STAGING
 	select TEGRA_PTP_NOTIFIER
 	help

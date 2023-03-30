@@ -1,0 +1,17 @@
+if VIDEO_V4L2
+
+menu "Allied Vision Drivers"
+	visible if !MEDIA_SUBDRV_AUTOSELECT || COMPILE_TEST
+
+config VIDEO_AVT_CSI2
+	tristate "Allied Vision CSI2 camera support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	help
+	  This is a Video4Linux2 sensor-level driver for Allied Vision camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called avt_csi2.
+
+endmenu
+
+endif

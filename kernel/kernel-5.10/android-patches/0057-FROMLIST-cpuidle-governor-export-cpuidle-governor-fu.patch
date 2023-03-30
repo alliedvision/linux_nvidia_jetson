@@ -1,0 +1,41 @@
+From c0b6fda82a96ac73a62be6d8a70175dddc4a06ee Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Tue, 30 Jun 2020 13:13:08 -0600
+Subject: [PATCH 057/830] FROMLIST: cpuidle: governor: export cpuidle governor
+ functions
+X-NVConfidentiality: public
+
+Commit 83788c0caed3 ("cpuidle: remove unused exports") removed
+capability of registering cpuidle governors, which was unused at that
+time. By exporting the symbol, let's allow platform specific modules to
+register cpuidle governors and use cpuidle_governor_latency_req() to get
+the QoS for the CPU.
+
+Bug: 169136276
+Link: https://lore.kernel.org/linux-pm/010101746fc98add-45e77496-d2d6-4bc1-a1ce-0692599a9a7a-000000@us-west-2.amazonses.com/
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: Ifa91576af0a3ae92ce9b216cb67728f037546c5b
+---
+ drivers/cpuidle/governor.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/cpuidle/governor.c b/drivers/cpuidle/governor.c
+index 29acaf48e575..0e51ed25665e 100644
+--- a/drivers/cpuidle/governor.c
++++ b/drivers/cpuidle/governor.c
+@@ -102,6 +102,7 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(cpuidle_register_governor);
+ 
+ /**
+  * cpuidle_governor_latency_req - Compute a latency constraint for CPU
+@@ -118,3 +119,4 @@ s64 cpuidle_governor_latency_req(unsigned int cpu)
+ 
+ 	return (s64)device_req * NSEC_PER_USEC;
+ }
++EXPORT_SYMBOL_GPL(cpuidle_governor_latency_req);
+-- 
+2.17.1
+

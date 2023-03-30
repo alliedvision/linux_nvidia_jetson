@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	/* C1 - M.2 Key-E */
+	pcie@14100000 {
+		status = "okay";
+
+		phys = <&p2u_hsio_3>;
+		phy-names = "p2u-0";
+	};
+
+	/* C4 - M.2 Key-M */
+	pcie@14160000 {
+		status = "disabled";
+
+		phys = <&p2u_hsio_4>, <&p2u_hsio_5>, <&p2u_hsio_6>,
+		       <&p2u_hsio_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	/* C5 - CEM slot (Testing purpose)
+	 *
+	 * When the following is enabled, make sure that P3713 board is
+	 * removed and all the PCIe nodes of P3713 are set to 'disabled'
+	 */
+	pcie@141a0000 {
+		status = "disabled";
+
+		phys = <&p2u_nvhs_0>, <&p2u_nvhs_1>, <&p2u_nvhs_2>,
+		       <&p2u_nvhs_3>, <&p2u_nvhs_4>, <&p2u_nvhs_5>,
+		       <&p2u_nvhs_6>, <&p2u_nvhs_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3",
+			    "p2u-4", "p2u-5", "p2u-6", "p2u-7";
+	};
+};

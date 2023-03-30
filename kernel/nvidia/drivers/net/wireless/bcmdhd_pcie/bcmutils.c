@@ -1962,7 +1962,8 @@ bcm_format_field(const bcm_bit_desc_ex_t *bd, uint32 flags, char* buf, int len)
 		bit = bd->bitfield[i].bit;
 		if ((flags & mask) == bit) {
 			if (len > (int)strlen(name)) {
-				strcpy(buf, name);
+				slen = strlen(name);
+				strncpy(buf, name, slen+1);
 			}
 			break;
 		}
@@ -2005,7 +2006,7 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 		if (len <= slen)
 			break;
 		/* copy NULL char but don't count it */
-		memcpy(p, name, nlen + 1);
+		strncpy(p, name, nlen + 1);
 		p += nlen;
 		/* copy btwn flag space and NULL char */
 		if (flags != 0)
@@ -2329,7 +2330,7 @@ bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...)
 
 	r = vsnprintf(b->buf, b->size, fmt, ap);
 	if (bcm_bprintf_bypass == TRUE) {
-		printf(b->buf);
+		printf("%s", b->buf);
 		goto exit;
 	}
 

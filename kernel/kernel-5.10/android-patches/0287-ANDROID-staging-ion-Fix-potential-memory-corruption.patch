@@ -1,0 +1,61 @@
+From 18fd4b830d1815d6be79f389915286e53b3e62b5 Mon Sep 17 00:00:00 2001
+From: "Isaac J. Manjarres" <isaacm@codeaurora.org>
+Date: Wed, 20 May 2020 16:22:44 -0700
+Subject: [PATCH 287/830] ANDROID: staging: ion: Fix potential memory
+ corruption
+X-NVConfidentiality: public
+
+ion_dma_buf_unmap() interprets the priv pointer in the
+attachment structure as a pointer to an ion_dma_buf_attachment
+structure, and modifies the "mapped" field of that structure.
+
+In cases where the heap specifies its own dma-buf ops, this
+is not correct, as the priv pointer in the attachment structure
+may point to a structure that is not an ion_dma_buf_attachment
+structure, and thus, the current implementation of
+ion_dma_buf_unmap() will modify the unknown structure--potentially
+putting it in an inconsistent state--prior to calling the heap's
+dma-buf unmap operation.
+
+Thus, modify the structure pointed to by the priv field in the
+attachment structure only if the heap doesn't provide its own
+implementation of the unmap operation, as that guarantees that
+the priv field points to an ion_dma_buf_attachment structure.
+
+Bug: 157163668
+Bug: 170264063
+Change-Id: If79a90ae1ca54762bbead6e23518b21076efd44b
+Signed-off-by: Isaac J. Manjarres <isaacm@codeaurora.org>
+(cherry picked from commit 01b0584902c56d12569423ef8cdb37d3a132a629)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit af44ead94861b441f815786a55a6f6fcedb85b4e)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit 2466e97c83568d752e56cec619488b891ca6e34c)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 29f05b8cd5ef..3cd40f9ac48b 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -134,12 +134,12 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 	struct ion_dma_buf_attachment *a = attachment->priv;
+ 	unsigned long attrs = attachment->dma_map_attrs;
+ 
+-	a->mapped = false;
+-
+ 	if (heap->buf_ops.unmap_dma_buf)
+ 		return heap->buf_ops.unmap_dma_buf(attachment, table,
+ 						   direction);
+ 
++	a->mapped = false;
++
+ 	if (!(buffer->flags & ION_FLAG_CACHED))
+ 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+ 
+-- 
+2.17.1
+

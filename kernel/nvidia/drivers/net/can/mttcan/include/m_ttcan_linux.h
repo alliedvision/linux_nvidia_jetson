@@ -71,6 +71,10 @@
 #define TX_BLOCK_PERIOD		200
 #define TSC_REF_CLK_RATE	31250000
 
+#define MTTCAN_TSC_SIZE		16U
+#define MTTCAN_TSC_MASK		0xFFFFULL
+#define TSC_REF_CLK_SHIFT	9U
+
 struct tegra_mttcan_soc_info {
 	bool set_can_core_clk;
 	unsigned long can_core_clk_rate;

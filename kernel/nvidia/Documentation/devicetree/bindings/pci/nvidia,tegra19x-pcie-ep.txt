@@ -62,6 +62,7 @@ Required properties:
       0x5 - C5
 - num-lanes: Must contain an entry to represent number of lanes
   controller is given to get the link up
+- nvidia,aux-clk-freq: Auxiliary clock frequency in MHz
 
 Optional properties:
 - iommus: A reference to the IOMMU. See ../iommu/iommu.txt for details.
@@ -89,12 +90,14 @@ Optional properties:
 - "nvidia,tsa-config" : Add TSA configuration register address to configure MC
     with production settings for PCIe. Note:- this is applicable only for C5
 - "nvidia,mods" : Add to indicate NVidia specific MODs configuration
-- nvidia,enable-srns: This property needs to be present if the platform has SRNS
-   (Separate Reference clocks with No Spread-spectrum clocking) configuration
-   implemented. This property initializes PLLs with the internal clock source.
-- nvidia,enable-slot-supplies: This property needs to be present if the
-  slots that are owned by controllers operating in the endpoint mode need to be
-  supplied with slot power.
+- "nvidia,aspm-cmrt" : Common Mode Restore time for proper operation of ASPM to
+   be specified in microseconds
+- "nvidia,aspm-pwr-on-t" : Power On time for proper operation of ASPM to be
+   specified in microseconds
+- "nvidia,aspm-l0s-entrance-latency" : ASPM L0s entrance latency to be specified
+   in microseconds
+- "nvidia,aspm-l1-entrance-latency" : ASPM L1 entrance latency to be specified
+   in microseconds
 
 Power supplies for Tegra194:
 //TODO

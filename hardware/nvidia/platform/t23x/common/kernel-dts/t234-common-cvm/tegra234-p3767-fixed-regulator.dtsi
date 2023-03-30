@@ -1,0 +1,149 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include <t234-common-cvm/tegra234-platforms-simple-bus.dtsi>
+#include "dt-bindings/gpio/tegra234-gpio.h"
+
+/ {
+	fixed-regulators {
+		p3767_vdd_1v2_soc: regulator@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "vdd-soc";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			/*
+			 * EN pin is connected to SOC_REG_EN which
+			 * is set by PMIC MAX77851 GPIO out.
+			 */
+			regulator-always-on;
+		};
+		p3767_vdd_1v2_cpu_gpu: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "vdd-cpu-gpu";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-always-on;
+		};
+		p3767_vdd_5v: regulator@2 {
+			compatible = "regulator-fixed";
+			reg = <2>;
+			regulator-name = "vdd-5v";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			/*
+			 * This is 20v coming from the baseboard through
+			 * vdd_in pins
+			 */
+			regulator-always-on;
+		};
+		p3767_vdd_1v8: regulator@3 {
+			compatible = "regulator-fixed";
+			reg = <3>;
+			regulator-name = "sys-vdd-1v8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			/*
+			 * This is 20v coming from the baseboard through
+			 * vdd_in pins, EN pin is connected to VDD_1V8_EN which
+			 * is set by PMIC MAX77851 GPIO out.
+			 */
+			regulator-always-on;
+		};
+		p3767_ddr_vddq: regulator@4 {
+			compatible = "regulator-fixed";
+			reg = <4>;
+			regulator-name = "ddr-vddq";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <500000>;
+			vin-supply = <&p3767_vdd_5v>;
+			regulator-always-on;
+		};
+		p3767_ddr_vdd2: regulator@5 {
+			compatible = "regulator-fixed";
+			reg = <5>;
+			regulator-name = "ddr-vdd2";
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1050000>;
+			vin-supply = <&p3767_vdd_5v>;
+			regulator-always-on;
+		};
+		p3767_vdd_AO_1v2: regulator@6 {
+			compatible = "regulator-fixed";
+			reg = <6>;
+			regulator-name = "vdd-AO-1v2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			vin-supply = <&p3767_vdd_5v>;
+			regulator-always-on;
+		};
+		p3767_vdd_3v3: regulator@7 {
+			compatible = "regulator-fixed";
+			reg = <7>;
+			regulator-name = "vdd-3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3767_vdd_5v>;
+			regulator-always-on;
+		};
+		p3767_vdd_3v3_sd: regulator@8 {
+			compatible = "regulator-fixed";
+			reg = <8>;
+			regulator-name = "vdd-3v3-sd";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3767_vdd_3v3>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(A, 0) GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+		p3767_vdd_rtc: regulator@9 {
+			compatible = "regulator-fixed";
+			reg = <9>;
+			regulator-name = "vdd-rtc";
+			regulator-min-microvolt = <750000>;
+			regulator-max-microvolt = <750000>;
+			vin-supply = <&p3767_vdd_AO_1v2>;
+			regulator-always-on;
+		};
+		p3767_vdd_0v95_uphy: regulator@10 {
+			compatible = "regulator-fixed";
+			reg = <10>;
+			regulator-name = "vdd-0v95-uphy";
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+			vin-supply = <&p3767_vdd_AO_1v2>;
+			regulator-always-on;
+		};
+		p3767_vdd_0v95_hdmi: regulator@11 {
+			compatible = "regulator-fixed";
+			reg = <11>;
+			regulator-name = "vdd-0v95-hdmi";
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+			vin-supply = <&p3767_vdd_AO_1v2>;
+			regulator-always-on;
+		};
+
+		p3767_vdd_3v3_pcie_isolate: regulator@12 {
+			compatible = "regulator-fixed";
+			reg = <12>;
+			regulator-name = "vdd-3v3-pcie-isolate";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&tegra_aon_gpio TEGRA234_AON_GPIO(AA, 5) GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+ 		};
+	};
+};

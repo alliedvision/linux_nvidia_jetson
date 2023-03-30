@@ -1,0 +1,59 @@
+From 12ff4a6fd652718d4bb4e14c815b83093b5ccf85 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 22 Jan 2020 12:32:33 -0800
+Subject: [PATCH 392/830] ANDROID: block: export symbols needed for modules to
+ use inline crypto
+X-NVConfidentiality: public
+
+Export the blk-crypto symbols needed for modules to use inline crypto.
+
+This is needed for dm-default-key.
+
+These would have already been exported, except that so far they've only
+been used by fs/crypto/, which is no longer modular.
+
+Bug: 137270441
+Bug: 147814592
+Bug: 160885805
+Change-Id: I64bf98aecabe891c188b30dd50124aacb1e008ca
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ block/blk-crypto.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/block/blk-crypto.c b/block/blk-crypto.c
+index 5ffa9aab49de..43cbd1ff9917 100644
+--- a/block/blk-crypto.c
++++ b/block/blk-crypto.c
+@@ -96,6 +96,7 @@ void bio_crypt_set_ctx(struct bio *bio, const struct blk_crypto_key *key,
+ 
+ 	bio->bi_crypt_context = bc;
+ }
++EXPORT_SYMBOL_GPL(bio_crypt_set_ctx);
+ 
+ void __bio_crypt_free_ctx(struct bio *bio)
+ {
+@@ -347,6 +348,7 @@ int blk_crypto_init_key(struct blk_crypto_key *blk_key, const u8 *raw_key,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(blk_crypto_init_key);
+ 
+ /*
+  * Check if bios with @cfg can be en/decrypted by blk-crypto (i.e. either the
+@@ -382,6 +384,7 @@ int blk_crypto_start_using_key(const struct blk_crypto_key *key,
+ 		return 0;
+ 	return blk_crypto_fallback_start_using_mode(key->crypto_cfg.crypto_mode);
+ }
++EXPORT_SYMBOL_GPL(blk_crypto_start_using_key);
+ 
+ /**
+  * blk_crypto_evict_key() - Evict a key from any inline encryption hardware
+@@ -409,3 +412,4 @@ int blk_crypto_evict_key(struct request_queue *q,
+ 	 */
+ 	return blk_crypto_fallback_evict_key(key);
+ }
++EXPORT_SYMBOL_GPL(blk_crypto_evict_key);
+-- 
+2.17.1
+

@@ -2,7 +2,7 @@
  * tegra_nvfx_apm.h - Shared APM interface between Tegra ADSP ALSA driver and
  *                    ADSP side user space code.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,8 +56,11 @@ enum apm_mbx_cmd {
  * a input fetch request is pending. Usually a one shot mode ADMA
  * fetches input data when required and signals event to wake up APM.
  */
-#define NVFX_APM_INPUT_MODE_PUSH	0
-#define NVFX_APM_INPUT_MODE_PULL	1
+enum {
+	NVFX_APM_INPUT_MODE_PUSH = 0,
+	NVFX_APM_INPUT_MODE_PULL,
+	NVFX_APM_INPUT_MODE_MAX = NVFX_APM_INPUT_MODE_PULL,
+};
 
 enum {
 	/* NVFX APM params */

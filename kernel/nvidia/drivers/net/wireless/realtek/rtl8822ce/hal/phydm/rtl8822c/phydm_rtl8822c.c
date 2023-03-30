@@ -40,7 +40,6 @@ void phydm_dynamic_switch_htstf_agc_8822c(struct dm_struct *dm)
 		phydm_release_bb_dbg_port(dm);
 
 		ndp_valid_cnt_diff = DIFF_2(dm->ndp_cnt_pre, ndp_valid_cnt);
-		dm->ndp_cnt_pre = ndp_valid_cnt;
 
 		if (ndp_valid_cnt_diff)
 			dm->is_beamformed = true;
@@ -51,11 +50,14 @@ void phydm_dynamic_switch_htstf_agc_8822c(struct dm_struct *dm)
 			odm_set_bb_reg(dm, R_0x8a0, BIT(2), 0x1);
 			dm->no_ndp_cnts = 0;
 		} else {
-			if (dm->no_ndp_cnts == 3)
+			dm->no_ndp_cnts++;
+
+			if (dm->no_ndp_cnts == 3) {
 				odm_set_bb_reg(dm, R_0x8a0, BIT(2), 0x0);
-			else if (dm->no_ndp_cnts < 3)
-				dm->no_ndp_cnts++;
+				dm->no_ndp_cnts = 0;
+			}
 		}
+		dm->ndp_cnt_pre = ndp_valid_cnt;
 	}
 }
 

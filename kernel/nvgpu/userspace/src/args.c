@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,14 +34,18 @@ static struct option core_opts[] = {
 	{ "verbose",		0, NULL, 'v' },
 	{ "quiet",		0, NULL, 'q' },
 	{ "no-color",		0, NULL, 'C' },
-
+	{ "nvtest",		0, NULL, 'n' },
+	{ "is-qnx",		0, NULL, 'Q' },
 	{ "unit-load-path",	1, NULL, 'L' },
+	{ "driver-load-path",	1, NULL, 'K' },
 	{ "num-threads",	1, NULL, 'j' },
-
+	{ "test-level",		1, NULL, 't' },
+	{ "debug",		0, NULL, 'd' },
+	{ "required",		0, NULL, 'r' },
 	{ NULL,			0, NULL,  0  }
 };
 
-static const char *core_opts_str = "hvqCL:j:";
+static const char *core_opts_str = "hvqCnQL:K:j:t:dr:";
 
 void core_print_help(struct unit_fw *fw)
 {
@@ -62,10 +66,20 @@ void core_print_help(struct unit_fw *fw)
 "  -C, --no-color         Disable color printing; for example, if writing\n",
 "                         output to a file the color escape sequences will\n",
 "                         corrupt that file.\n",
+"  -n, --nvtest           Enable nvtest-formatted output results\n",
+"  -Q, --is-qnx           QNX specific tests\n",
 "  -L, --unit-load-path <PATH>\n",
 "                         Path to where the unit test libraries reside.\n",
+"  -K, --driver-load-path <PATH>\n",
+"                         Path to driver library.\n",
 "  -j, --num-threads <COUNT>\n",
 "                         Number of threads to use while running all tests.\n",
+"  -t, --test-level <LEVEL>\n",
+"                         Test plan level. 0=L0, 1=L1. default: 1\n",
+"  -d, --debug            Disable signal handling to facilitate debug of",
+"                         crashes.\n",
+"  -r, --required <FILE>  Path to a file with a list of required tests to\n"
+"                         check if all were executed.\n",
 "\n",
 "Note: mandatory arguments to long arguments are mandatory for short\n",
 "arguments as well.\n",
@@ -81,8 +95,11 @@ NULL
 
 static void set_arg_defaults(struct unit_fw_args *args)
 {
+	args->driver_load_path = DEFAULT_ARG_DRIVER_LOAD_PATH;
 	args->unit_load_path = DEFAULT_ARG_UNIT_LOAD_PATH;
 	args->thread_count = 1;
+	args->test_lvl = TEST_PLAN_MAX;
+	args->required_tests_file = NULL;
 }
 
 /*
@@ -99,6 +116,15 @@ int core_parse_args(struct unit_fw *fw, int argc, char **argv)
 
 	memset(args, 0, sizeof(*args));
 	set_arg_defaults(args);
+
+	args->binary_name = strrchr(argv[0], '/');
+	if (args->binary_name == NULL) {
+		/* no slash, so use the whole name */
+		args->binary_name = argv[0];
+	} else {
+		/* move past the slash */
+		args->binary_name++;
+	}
 
 	fw->args = args;
 
@@ -122,8 +148,14 @@ int core_parse_args(struct unit_fw *fw, int argc, char **argv)
 		case 'C':
 			args->no_color = true;
 			break;
+		case 'n':
+			args->nvtest = true;
+			break;
 		case 'L':
 			args->unit_load_path = optarg;
+			break;
+		case 'K':
+			args->driver_load_path = optarg;
 			break;
 		case 'j':
 			args->thread_count = strtol(optarg, NULL, 10);
@@ -132,6 +164,22 @@ int core_parse_args(struct unit_fw *fw, int argc, char **argv)
 				return -1;
 			}
 			break;
+		case 'Q':
+			args->is_qnx = true;
+			break;
+		case 't':
+			args->test_lvl = strtol(optarg, NULL, 10);
+			if (args->test_lvl > TEST_PLAN_MAX) {
+				core_err(fw, "Invalid test plan level\n");
+				return -1;
+			}
+			break;
+		case 'd':
+			args->debug = true;
+			break;
+		case 'r':
+			args->required_tests_file = optarg;
+			break;
 		case '?':
 			args->help = true;
 			return -1;
@@ -139,6 +187,14 @@ int core_parse_args(struct unit_fw *fw, int argc, char **argv)
 			core_err(fw, "bug?!\n");
 			return -1;
 		}
+	}
+
+	/*
+	 * If there is an extra argument after the command-line options, then
+	 * it is a unit test name that need to be specifically run.
+	 */
+	if (optind < argc) {
+		args->unit_to_run = argv[optind];
 	}
 
 	return 0;

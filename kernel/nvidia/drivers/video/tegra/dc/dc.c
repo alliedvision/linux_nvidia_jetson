@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -51,7 +51,9 @@
 #endif
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <linux/tegra_pm_domains.h>
+#endif
 #include <linux/uaccess.h>
 #if defined(CONFIG_TRUSTED_LITTLE_KERNEL) || defined(CONFIG_TRUSTY)
 #include <linux/ote_protocol.h>
@@ -67,10 +69,8 @@ EXPORT_TRACEPOINT_SYMBOL(display_readl);
 
 #include <linux/nvhost.h>
 #include <uapi/linux/nvhost_ioctl.h>
-
 #include <linux/platform/tegra/latency_allowance.h>
 #include <linux/platform/tegra/mc.h>
-#include <soc/tegra/tegra_bpmp.h>
 #include <uapi/video/tegra_dc_ext.h>
 
 #include "dc.h"
@@ -85,6 +85,7 @@ EXPORT_TRACEPOINT_SYMBOL(display_readl);
 #include "dc_common.h"
 
 #include "edid.h"
+#include <linux/nospec.h>
 
 #ifdef CONFIG_TEGRA_DC_FAKE_PANEL_SUPPORT
 #include "fake_panel.h"
@@ -115,13 +116,13 @@ static const struct of_device_id tegra_display_of_match[] = {
 MODULE_DEVICE_TABLE(of, tegra_display_of_match);
 
 /* Used only on T21x*/
-static struct of_device_id tegra_disa_pd[] = {
+static struct of_device_id __maybe_unused tegra_disa_pd[] = {
 	{ .compatible = "nvidia,tegra210-disa-pd", },
 	{},
 };
 
 /* Used only on T21x */
-static struct of_device_id tegra_disb_pd[] = {
+static struct of_device_id __maybe_unused tegra_disb_pd[] = {
 	{ .compatible = "nvidia,tegra210-disb-pd", },
 	{},
 };
@@ -599,6 +600,39 @@ void tegra_dc_activate_general_channel(struct tegra_dc *dc)
 	else
 		tegra_nvdisp_activate_general_channel(dc);
 }
+
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+static int __maybe_unused t21x_disp_attach_pd(struct tegra_dc *dc)
+{
+	struct tegra_dc_pd_table *pd_table = tegra_dc_get_disp_pd_table();
+	struct tegra_dc_pd_info *pds = pd_table->pd_entries;
+	struct tegra_dc_pd_info *pd = &pds[dc->ctrl_num];
+
+	/*
+	 * dev_pm_domain_attach_by_name() calls pm_runtime_enable() on the
+	 * newly created virtual device, no need to enable again.
+	 */
+	pd->genpd_dev = dev_pm_domain_attach_by_name(
+				&dc->ndev->dev, pd->pd_name);
+	if (IS_ERR(pd->genpd_dev)) {
+		dev_err(&dc->ndev->dev,
+			"Failed to attach pm-domain %s to dc.%d\n",
+			pd->pd_name, dc->ctrl_num);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static void __maybe_unused t21x_disp_detach_pd(struct tegra_dc *dc)
+{
+	struct tegra_dc_pd_table *pd_table = tegra_dc_get_disp_pd_table();
+	struct tegra_dc_pd_info *pds = pd_table->pd_entries;
+	struct tegra_dc_pd_info *pd = &pds[dc->ctrl_num];
+
+	if (!IS_ERR_OR_NULL(pd->genpd_dev))
+		dev_pm_domain_detach(pd->genpd_dev, true);
+}
+#endif
 
 unsigned long tegra_dc_readl_exported(struct tegra_dc *dc, unsigned long reg)
 {
@@ -1293,6 +1327,11 @@ static ssize_t dbg_dc_out_type_set(struct file *file,
 		dev_err(&dc->ndev->dev, "Unknown out_type 0x%lx\n", out_type);
 		return -EINVAL;
 	}
+	/*
+	 * Updating dc with dc->dbg_dc_out_info[out_type].
+	 * out_type is coming from user.
+	 */
+	out_type = array_index_nospec(out_type, TEGRA_DC_OUT_MAX);
 
 	if (boot_out_type[dc->ndev->id] == -1)
 		boot_out_type[dc->ndev->id] = dc->pdata->default_out->type;
@@ -1383,12 +1422,17 @@ static ssize_t dbg_dc_out_type_set(struct file *file,
 			/* DSI and fake DSI use same data
 			 * create new if not created yet
 			 */
+			ret = tegra_dc_init_fakedsi_panel(dc, out_type);
+			if (ret < 0) {
+				dev_err(&dc->ndev->dev,
+				"failed to initialize fake dsi panel\n");
+				return -EINVAL;
+			}
+
 			if (!dc->pdata->default_out->depth)
 				dc->pdata->default_out->depth = 18;
 
 			allocate = true;
-			tegra_dc_init_fakedsi_panel(dc, out_type);
-
 		} else if (out_type == TEGRA_DC_OUT_NULL) {
 			if (!dc->dbg_dc_out_info[TEGRA_DC_OUT_NULL].out_data) {
 				allocate = true;
@@ -1589,11 +1633,7 @@ static int dbg_hotplug_show(struct seq_file *s, void *unused)
 		return -EINVAL;
 
 	rmb();
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	seq_put_decimal_ll(s, '\0', dc->out->hotplug_state);
-#else
 	seq_put_decimal_ll(s, "", dc->out->hotplug_state);
-#endif
 	seq_putc(s, '\n');
 	return 0;
 }
@@ -1623,7 +1663,8 @@ static ssize_t dbg_hotplug_write(struct file *file, const char __user *addr,
 	rmb();
 	hotplug_state = dc->out->hotplug_state;
 
-	if (tegra_platform_is_sim() || tegra_platform_is_fpga())
+	if (tegra_platform_is_sim() || tegra_platform_is_fpga() ||
+		!gpio_is_valid(dc->out->hotplug_gpio))
 		goto skip_gpio;
 
 	if (hotplug_state == TEGRA_HPD_STATE_NORMAL &&
@@ -1937,6 +1978,8 @@ static int tegra_dc_topology_parse(char *buf, int nargs,
 				args[i] > TEGRA_DC_TOPOLOGY_ARG_MAX)
 			break;
 	}
+	/* topology's disp_id, protocol and conn_list are coming from user. */
+	spec_bar();
 
 	kfree(orig_b);
 
@@ -2010,7 +2053,7 @@ static ssize_t dbg_nvdisp_topology_write(struct file *file,
 {
 	int res = 0, ret = 0;
 	int i = 0;
-	char buf[CHAR_BUF_SIZE_MAX+1] = {'\0'};
+	char buf[CHAR_BUF_SIZE_MAX] = {'\0'};
 	struct tegra_dc *primary =  NULL;
 	struct tegra_dc *curr = NULL;
 	bool dangling = false;
@@ -2043,6 +2086,8 @@ static ssize_t dbg_nvdisp_topology_write(struct file *file,
 			topology.conn_inst);
 		return -EINVAL;
 	}
+	/* topology is coming from user. */
+	spec_bar();
 
 	if (is_topology_reset(topology)) {
 		/* Reset topology */
@@ -2678,11 +2723,7 @@ static int dbg_nvdisp_win_csc_force_user_csc_show(struct seq_file *m,
 	if (win == NULL)
 		return -EINVAL;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	seq_put_decimal_ll(m, '\0', win->force_user_csc);
-#else
 	seq_put_decimal_ll(m, "", win->force_user_csc);
-#endif
 	seq_putc(m, '\n');
 
 	return 0;
@@ -2830,12 +2871,12 @@ static int dbg_flip_stats_show(struct seq_file *m, void *unused)
 	if (WARN_ON(!dc || !dc->out))
 		return -EINVAL;
 
-	seq_printf(m, "Flips queued: %ld\n",
-		atomic64_read(&dc->flip_stats.flips_queued));
-	seq_printf(m, "Flips skipped: %ld\n",
-		atomic64_read(&dc->flip_stats.flips_skipped));
-	seq_printf(m, "Flips completed: %ld\n",
-		atomic64_read(&dc->flip_stats.flips_cmpltd));
+	seq_printf(m, "Flips queued: %lld\n",
+		(long long int)atomic64_read(&dc->flip_stats.flips_queued));
+	seq_printf(m, "Flips skipped: %lld\n",
+		(long long int)atomic64_read(&dc->flip_stats.flips_skipped));
+	seq_printf(m, "Flips completed: %lld\n",
+		(long long int)atomic64_read(&dc->flip_stats.flips_cmpltd));
 
 	return 0;
 }
@@ -3379,7 +3420,9 @@ static const char * const extcon_cable_strings[] = {
 
 static const int hdmi_extcon_cable_id[] = {
 	EXTCON_DISP_HDMI,
-	EXTCON_DISP_HDMI2
+	EXTCON_DISP_HDMI2,
+	EXTCON_DISP_HDMI3,
+	EXTCON_DISP_HDMI4
 };
 /* the map of dc->ctrl_num to the index of tegra_hdmi_extcon_cable_id[] */
 unsigned long extcon_hdmi_dc_map[ARRAY_SIZE(hdmi_extcon_cable_id)] = {
@@ -3455,7 +3498,7 @@ EXPORT_SYMBOL(tegra_dc_get_stride);
 
 struct tegra_dc *tegra_dc_get_dc(unsigned idx)
 {
-	if (idx < tegra_dc_get_numof_dispheads())
+	if ((int)idx < tegra_dc_get_numof_dispheads())
 		return tegra_dcs[idx];
 	else
 		return NULL;
@@ -3809,18 +3852,6 @@ void tegra_dc_incr_syncpt_min(struct tegra_dc *dc, int i, u32 val)
 	mutex_unlock(&dc->lock);
 }
 
-struct sync_fence *tegra_dc_create_fence(struct tegra_dc *dc, int i, u32 val)
-{
-	struct nvhost_ctrl_sync_fence_info syncpt;
-	u32 id = tegra_dc_get_syncpt_id(dc, i);
-
-	syncpt.id = id;
-	syncpt.thresh = val;
-	return nvhost_sync_create_fence(
-			to_platform_device(dc->ndev->dev.parent),
-			&syncpt, 1, dev_name(&dc->ndev->dev));
-}
-
 void
 tegra_dc_config_pwm(struct tegra_dc *dc, struct tegra_dc_pwm_params *cfg)
 {
@@ -4158,9 +4189,15 @@ bypass_init_check:
 		if (err < 0) {
 			dc->out = NULL;
 			dc->out_ops = NULL;
-			dev_err(&dc->ndev->dev,
-				"Error: out->type:%d out_ops->init() failed. err=%d\n",
-				out->type, err);
+			if (err == -EPROBE_DEFER) {
+				dev_info(&dc->ndev->dev,
+					"out->type:%d out_ops->init err = %d\n",
+					out->type, err);
+			} else {
+				dev_err(&dc->ndev->dev,
+					"out->type:%d out_ops->init err = %d\n",
+					out->type, err);
+			}
 			return err;
 		}
 	}
@@ -4568,14 +4605,22 @@ int tegra_dc_get_v_count(struct tegra_dc *dc)
 
 static void tegra_dc_vrr_get_ts(struct tegra_dc *dc)
 {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec time_now;
+#else
+	struct timespec64 time_now;
+#endif
 	struct tegra_vrr *vrr  = dc->out->vrr;
 
 	if (!vrr || !vrr->capability ||
 		(!vrr->enable && !vrr->lastenable))
 		return;
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	getnstimeofday(&time_now);
+#else
+	ktime_get_ts64(&time_now);
+#endif
 	vrr->fe_time_us = (s64)time_now.tv_sec * 1000000 +
 				time_now.tv_nsec / 1000;
 	vrr->v_count = tegra_dc_get_v_count(dc);
@@ -4829,27 +4874,6 @@ static void tegra_dc_underflow_handler(struct tegra_dc *dc)
 	trace_underflow(dc);
 }
 
-static void tegra_dc_vpulse2(struct work_struct *work)
-{
-	struct tegra_dc *dc = container_of(work, struct tegra_dc, vpulse2_work);
-
-	mutex_lock(&dc->lock);
-
-	if (!dc->enabled) {
-		mutex_unlock(&dc->lock);
-		return;
-	}
-
-	tegra_dc_get(dc);
-
-	/* Clear the V_PULSE2_FLIP if no update */
-	if (!tegra_dc_windows_are_dirty(dc, WIN_ALL_ACT_REQ))
-		clear_bit(V_PULSE2_FLIP, &dc->vpulse2_ref_count);
-
-	tegra_dc_put(dc);
-	mutex_unlock(&dc->lock);
-}
-
 static void tegra_dc_process_vblank(struct tegra_dc *dc)
 {
 	/* pending user vblank, so wakeup */
@@ -4915,7 +4939,6 @@ static void tegra_dc_one_shot_irq(struct tegra_dc *dc, unsigned long status)
 	if (status & V_PULSE2_INT) {
 		if (test_bit(V_PULSE2_LATENCY_MSRMNT, &dc->vpulse2_ref_count))
 			tegra_dc_collect_latency_data(dc);
-		queue_work(system_freezable_wq, &dc->vpulse2_work);
 	}
 }
 
@@ -4934,9 +4957,10 @@ static void tegra_dc_continuous_irq(struct tegra_dc *dc, unsigned long status)
 	}
 
 	if (status & FRAME_END_INT) {
-		struct timespec tm;
-		ktime_get_ts(&tm);
-		dc->frame_end_timestamp = timespec_to_ns(&tm);
+		struct timespec64 tm;
+
+		ktime_get_ts64(&tm);
+		dc->frame_end_timestamp = timespec64_to_ns(&tm);
 		wake_up(&dc->timestamp_wq);
 
 		if (!tegra_dc_windows_are_dirty(dc, WIN_ALL_ACT_REQ)) {
@@ -4977,7 +5001,6 @@ static void tegra_dc_continuous_irq(struct tegra_dc *dc, unsigned long status)
 	if (status & V_PULSE2_INT) {
 		if (test_bit(V_PULSE2_LATENCY_MSRMNT, &dc->vpulse2_ref_count))
 			tegra_dc_collect_latency_data(dc);
-		queue_work(system_freezable_wq, &dc->vpulse2_work);
 	}
 }
 
@@ -4997,23 +5020,6 @@ bool tegra_dc_does_vsync_separate(struct tegra_dc *dc, s64 new_ts, s64 old_ts)
 				dc->frametime_ns)));
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
-inline u64 tegra_dc_get_tsc_time(void)
-{
-	struct timecounter *tc;
-	cycle_t value;
-	u64 frac = 0;
-
-	tc = arch_timer_get_timecounter();
-	if (tc) {
-		const struct cyclecounter *cc = tc->cc;
-
-		value = cc->read(cc);
-		return cyclecounter_cyc2ns(cc, value, 0, &frac);
-	}
-	return 0;
-}
-#else
 inline u64 tegra_dc_get_tsc_time(void)
 {
 	u64 frac = 0;
@@ -5031,7 +5037,6 @@ inline u64 tegra_dc_get_tsc_time(void)
 	value = cc->read(cc);
 	return cyclecounter_cyc2ns(cc, value, 0, &frac);
 }
-#endif
 
 static inline void tegra_dc_scanline_trace(struct tegra_dc *dc)
 {
@@ -5504,31 +5509,6 @@ void tegra_dc_en_dis_dsc(struct tegra_dc *dc, bool enable)
 }
 
 /* Used only on T21x */
-static void tegra_dc_init_vpulse2_int(struct tegra_dc *dc)
-{
-	u32 start, end;
-	unsigned long val;
-
-	val = V_PULSE2_H_POSITION(0) | V_PULSE2_LAST(0x1);
-	tegra_dc_writel(dc, val, DC_DISP_V_PULSE2_CONTROL);
-
-	start = dc->mode.v_ref_to_sync + dc->mode.v_sync_width +
-		dc->mode.v_back_porch +	dc->mode.v_active;
-	end = start + 1;
-	val = V_PULSE2_START_A(start) + V_PULSE2_END_A(end);
-	tegra_dc_writel(dc, val, DC_DISP_V_PULSE2_POSITION_A);
-
-	val = tegra_dc_readl(dc, DC_CMD_INT_ENABLE);
-	val |= V_PULSE2_INT;
-	tegra_dc_writel(dc, val , DC_CMD_INT_ENABLE);
-
-	tegra_dc_mask_interrupt(dc, V_PULSE2_INT);
-	val = tegra_dc_readl(dc, DC_DISP_DISP_SIGNAL_OPTIONS0);
-	val |= V_PULSE_2_ENABLE;
-	tegra_dc_writel(dc, val, DC_DISP_DISP_SIGNAL_OPTIONS0);
-}
-
-/* Used only on T21x */
 static int tegra_dc_init(struct tegra_dc *dc)
 {
 	int i;
@@ -5555,35 +5535,29 @@ static int tegra_dc_init(struct tegra_dc *dc)
 
 	tegra_dc_writel(dc, int_enable, DC_CMD_INT_ENABLE);
 	tegra_dc_writel(dc, ALL_UF_INT(), DC_CMD_INT_MASK);
-	tegra_dc_init_vpulse2_int(dc);
 
 	tegra_dc_writel(dc, WRITE_MUX_ASSEMBLY | READ_MUX_ASSEMBLY,
 		DC_CMD_STATE_ACCESS);
 
 	tegra_dc_writel(dc, 0x00000000, DC_DISP_BLEND_BACKGROUND_COLOR);
 
-	if (tegra_dc_is_t21x()) {
-		if (dc->is_cmu_set_bl)
-			_tegra_dc_update_cmu_aligned(dc, &dc->cmu, true);
-		else
-			_tegra_dc_update_cmu(dc, &dc->cmu);
-		dc->is_cmu_set_bl = false;
-	}
+	if (dc->is_cmu_set_bl)
+		_tegra_dc_update_cmu_aligned(dc, &dc->cmu, true);
+	else
+		_tegra_dc_update_cmu(dc, &dc->cmu);
+	dc->is_cmu_set_bl = false;
 
 	tegra_dc_set_color_control(dc);
 	for_each_set_bit(i, &dc->valid_windows,
 			tegra_dc_get_numof_dispwindows()) {
+
 		struct tegra_dc_win *win = tegra_dc_get_window(dc, i);
+
 		tegra_dc_writel(dc, WINDOW_A_SELECT << i,
 				DC_CMD_DISPLAY_WINDOW_HEADER);
-		if (tegra_dc_is_t21x()) {
-			tegra_dc_set_win_csc(dc, &win->win_csc);
-			tegra_dc_set_lut(dc, win);
-		}
-		if (tegra_dc_is_nvdisplay()) {
-			tegra_dc_set_nvdisp_win_csc(dc, &win->nvdisp_win_csc);
-			tegra_dc_set_nvdisp_lut(dc, win);
-		}
+
+		tegra_dc_set_win_csc(dc, &win->win_csc);
+		tegra_dc_set_lut(dc, win);
 		tegra_dc_set_scaling_filter(dc);
 	}
 
@@ -5715,7 +5689,9 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
 	if (dc->out_ops && dc->out_ops->postpoweron)
 		dc->out_ops->postpoweron(dc);
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	tegra_log_resume_time();
+#endif
 
 	tegra_dc_put(dc);
 
@@ -5733,10 +5709,10 @@ static int _tegra_dc_set_default_videomode(struct tegra_dc *dc)
 			 */
 			break;
 		case TEGRA_DC_OUT_DP:
-			if (tegra_dc_is_nvdisplay())
-				break;
 		case TEGRA_DC_OUT_FAKE_DP:
 		case TEGRA_DC_OUT_NULL:
+			if (tegra_dc_is_nvdisplay())
+				break;
 			return tegra_dc_set_fb_mode(dc, &tegra_dc_vga_mode, 0);
 
 		/* Do nothing for other outputs for now */
@@ -5796,16 +5772,12 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
 		!tegra_dc_hpd(dc))
 		return false;
 
-	pm_runtime_get_sync(&dc->ndev->dev);
-
 	if (tegra_dc_is_nvdisplay()) {
 		if (tegra_nvdisp_head_enable(dc)) {
-			pm_runtime_put_sync(&dc->ndev->dev);
 			return false;
 		}
 	} else {
 		if (!_tegra_dc_controller_enable(dc)) {
-			pm_runtime_put_sync(&dc->ndev->dev);
 			return false;
 		}
 	}
@@ -5964,7 +5936,7 @@ bool tegra_dc_stats_get(struct tegra_dc *dc)
 void tegra_dc_blank_wins(struct tegra_dc *dc, unsigned windows)
 {
 	int nwins = tegra_dc_get_numof_dispwindows();
-	struct tegra_dc_win *dcwins[nwins];
+	struct tegra_dc_win **dcwins = NULL;
 	struct tegra_dc_win blank_win;
 	unsigned i;
 	unsigned long int blank_windows;
@@ -5974,6 +5946,12 @@ void tegra_dc_blank_wins(struct tegra_dc *dc, unsigned windows)
 	bool yuv_420_10b_path = false;
 	int fb_win_idx = -1;
 	int fb_win_pos = -1;
+
+	dcwins = kcalloc(nwins, sizeof(struct tegra_dc_win *), GFP_KERNEL);
+	if (!dcwins) {
+		pr_err("%s: Failed memory alloc for dcwins\n", __func__);
+		return;
+	}
 
 	if (dc->yuv_bypass && tegra_dc_is_yuv420_10bpc(&dc->mode))
 		yuv_420_10b_path = true;
@@ -6005,7 +5983,7 @@ void tegra_dc_blank_wins(struct tegra_dc *dc, unsigned windows)
 	blank_windows = windows & dc->valid_windows;
 
 	if (!blank_windows)
-		return;
+		goto fail;
 
 	for_each_set_bit(i, &blank_windows, tegra_dc_get_numof_dispwindows()) {
 		dcwins[nr_win] = tegra_dc_get_window(dc, i);
@@ -6023,7 +6001,7 @@ void tegra_dc_blank_wins(struct tegra_dc *dc, unsigned windows)
 		dcwins[nr_win++]->flags &= ~TEGRA_WIN_FLAG_ENABLED;
 	}
 
-	tegra_dc_update_windows(dcwins, nr_win, NULL, true, false);
+	tegra_dc_update_windows(dcwins, nr_win, true, false);
 	tegra_dc_sync_windows(dcwins, nr_win);
 
 	tegra_dc_program_bandwidth(dc, true);
@@ -6040,6 +6018,8 @@ void tegra_dc_blank_wins(struct tegra_dc *dc, unsigned windows)
 		}
 		tegra_dc_disable_window(dc, i);
 	}
+fail:
+	kfree(dcwins);
 }
 
 int tegra_dc_restore(struct tegra_dc *dc)
@@ -6062,9 +6042,9 @@ static void _tegra_dc_disable(struct tegra_dc *dc)
 
 	tegra_dc_powergate_locked(dc);
 
-	pm_runtime_put(&dc->ndev->dev);
-
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	tegra_log_suspend_entry_time();
+#endif
 
 	tegra_dc_client_handle_event(dc, NOTIFY_DC_DISABLED_EVENT);
 }
@@ -6337,6 +6317,21 @@ exit:
 	return ret;
 }
 
+struct i2c_client *tegra_dc_i2c_new_device(struct i2c_adapter *adapter,
+				struct i2c_board_info const *p_data)
+{
+	struct i2c_client *client = NULL;
+
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	client = i2c_new_device(adapter, p_data);
+	if (client == NULL)
+		client = ERR_PTR(-EBUSY);
+#else
+	client = i2c_new_client_device(adapter, p_data);
+#endif
+	return client;
+}
+
 struct clk *tegra_disp_of_clk_get_by_name(struct device_node *np,
 						const char *name)
 {
@@ -6360,7 +6355,7 @@ struct clk *tegra_disp_clk_get(struct device *dev, const char *id)
 void tegra_disp_clk_put(struct device *dev, struct clk *clk)
 {
 	if (tegra_dc_is_nvdisplay()) {
-		if (tegra_platform_is_silicon() && tegra_bpmp_running())
+		if (tegra_platform_is_silicon())
 			devm_clk_put(dev, clk);
 	} else {
 		return clk_put(clk);
@@ -6409,7 +6404,7 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	int irq;
 	int i;
 #if IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)
-	int partition_id_disa, partition_id_disb;
+	int __maybe_unused partition_id_disa, partition_id_disb;
 #endif
 	struct resource of_fb_res;
 	struct resource of_lut_res;
@@ -6441,6 +6436,13 @@ static int tegra_dc_probe(struct platform_device *ndev)
 		goto err_free;
 	}
 
+	/*
+	 * NvDisplay can issue 40bits of addresses but BIT(39) is reserved for
+	 * Block Linear surfaces. So set Display IOVA range to 0 - (BIT(39)-1).
+	 */
+	if (tegra_dc_is_t19x())
+		dma_set_mask(&ndev->dev, DMA_BIT_MASK(39));
+
 	dt_pdata = of_dc_parse_platform_data(ndev, dt_pdata);
 	if (IS_ERR_OR_NULL(dt_pdata)) {
 		ret = dt_pdata ? PTR_ERR(dt_pdata) : -EINVAL;
@@ -6448,6 +6450,16 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	}
 
 	dc->ctrl_num = dt_pdata->ctrl_num;
+
+	/* Check if DCs are being probed in the order specified in DT */
+	if (tegra_dc_is_nvdisplay() &&
+			!tegra_dc_common_check_dc_probe_seq(dc->ctrl_num)) {
+		dev_info(&ndev->dev,
+			"dc.%d probe not in device tree order, deferring\n",
+			dc->ctrl_num);
+		ret = -EPROBE_DEFER;
+		goto err_free;
+	}
 
 	base = of_iomap(np, 0);
 	if (!base) {
@@ -6485,6 +6497,12 @@ static int tegra_dc_probe(struct platform_device *ndev)
 		if (dc->ctrl_num == 0) {
 			dc->vblank_syncpt = NVSYNCPT_VBLANK0;
 #if IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+			if (t21x_disp_attach_pd(dc)) {
+				ret = -EINVAL;
+				goto err_iounmap_reg;
+			}
+#else
 			partition_id_disa = tegra_pd_get_powergate_id(
 								tegra_disa_pd);
 			if (partition_id_disa < 0) {
@@ -6492,16 +6510,20 @@ static int tegra_dc_probe(struct platform_device *ndev)
 				goto err_iounmap_reg;
 			}
 			dc->powergate_id = partition_id_disa;
+#endif
 #ifdef CONFIG_TEGRA_ISOMGR
 			isomgr_client_id = TEGRA_ISO_CLIENT_DISP_0;
 #endif
-			dc->slgc_notifier.notifier_call = tegra_dc_slgc_disp0;
-			slcg_register_notifier(dc->powergate_id,
-					&dc->slgc_notifier);
 #endif
 		} else if (dc->ctrl_num == 1) {
 			dc->vblank_syncpt = NVSYNCPT_VBLANK1;
 #if IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+			if (t21x_disp_attach_pd(dc)) {
+				ret = -EINVAL;
+				goto err_iounmap_reg;
+			}
+#else
 			partition_id_disb = tegra_pd_get_powergate_id(
 								tegra_disb_pd);
 			if (partition_id_disb < 0) {
@@ -6509,6 +6531,7 @@ static int tegra_dc_probe(struct platform_device *ndev)
 				goto err_iounmap_reg;
 			}
 			dc->powergate_id = partition_id_disb;
+#endif
 #endif
 #ifdef CONFIG_TEGRA_ISOMGR
 			isomgr_client_id = TEGRA_ISO_CLIENT_DISP_1;
@@ -6596,7 +6619,6 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	INIT_WORK(&dc->vblank_work, tegra_dc_vblank);
 	dc->vblank_ref_count = 0;
 	INIT_WORK(&dc->frame_end_work, tegra_dc_frame_end);
-	INIT_WORK(&dc->vpulse2_work, tegra_dc_vpulse2);
 	dc->vpulse2_ref_count = 0;
 	INIT_DELAYED_WORK(&dc->underflow_work, tegra_dc_underflow_worker);
 	INIT_DELAYED_WORK(&dc->one_shot_work, tegra_dc_one_shot_worker);
@@ -6653,13 +6675,19 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	tegra_dc_feature_register(dc);
 
 	if (dc->pdata->default_out) {
-		if (dc->pdata->default_out->hotplug_init)
-			dc->pdata->default_out->hotplug_init(&dc->ndev->dev);
-		ret = tegra_dc_set_out(dc, dc->pdata->default_out, false);
-		if (ret < 0) {
-			dev_err(&dc->ndev->dev, "failed to initialize DC out ops\n");
-			goto err_put_clk;
+		if (dc->pdata->default_out->hotplug_init) {
+			ret = dc->pdata->default_out->hotplug_init(
+							&dc->ndev->dev);
+			if (ret < 0) {
+				dev_err(&dc->ndev->dev,
+					"dc_probe: failed hotplug init, %d\n",
+					ret);
+				goto err_put_clk;
+			}
 		}
+		ret = tegra_dc_set_out(dc, dc->pdata->default_out, false);
+		if (ret < 0)
+			goto err_put_clk;
 	} else {
 		dev_err(&ndev->dev,
 			"No default output specified.  Leaving output disabled.\n");
@@ -6749,10 +6777,6 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	}
 	disable_dc_irq(dc);
 
-	tegra_pd_add_device(&ndev->dev);
-	pm_runtime_use_autosuspend(&ndev->dev);
-	pm_runtime_set_autosuspend_delay(&ndev->dev, 100);
-	pm_runtime_enable(&ndev->dev);
 	/* Enable async suspend/resume to reduce LP0 latency */
 	device_enable_async_suspend(&ndev->dev);
 
@@ -6880,6 +6904,7 @@ static int tegra_dc_probe(struct platform_device *ndev)
 		_tegra_dc_set_default_videomode(dc);
 		dc->enabled = _tegra_dc_enable(dc);
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #if IS_ENABLED(CONFIG_PM_GENERIC_DOMAINS)
 		/* BL or PG init will keep DISA unpowergated after booting.
 		 * Adding an extra powergate to balance the refcount
@@ -6890,6 +6915,7 @@ static int tegra_dc_probe(struct platform_device *ndev)
 				if (dc->powergate_id == TEGRA_POWERGATE_DISA)
 					tegra_dc_powergate_locked(dc);
 		}
+#endif
 #endif
 	}
 
@@ -6922,6 +6948,10 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	dc->vedid = false;
 	dc->vedid_data = NULL;
 
+	// Increment count of probed DCs
+	if (tegra_dc_is_nvdisplay())
+		tegra_dc_common_increment_probed_dc_count();
+
 	mutex_unlock(&tegra_dc_registration_lock);
 	return 0;
 
@@ -6947,11 +6977,15 @@ err_disable_dc:
 	if (!tegra_dc_is_nvdisplay())
 		tegra_bwmgr_unregister(dc->emc_la_handle);
 err_put_clk:
+	if (dc->pdata->default_out->hotplug_deinit)
+		dc->pdata->default_out->hotplug_deinit(&dc->ndev->dev);
 #ifdef CONFIG_SWITCH
 	if (dc->switchdev_registered)
 		switch_dev_unregister(&dc->modeset_switch);
 #endif
 	tegra_disp_clk_put(&ndev->dev, clk);
+	if (tegra_dc_is_nvdisplay())
+		tegra_nvdisp_init_once_cleanup(dc);
 err_iounmap_reg:
 	iounmap(base);
 	kfree(fb_mem);
@@ -6961,6 +6995,14 @@ err_free:
 	kfree(dc);
 	dc = NULL;
 	mutex_unlock(&tegra_dc_registration_lock);
+
+	/*
+	 * If a DC probe failed and is not going to be called again,
+	 * increment the DC probed count so that the subsequent DCs
+	 * can get probed.
+	 */
+	if (ret != -EPROBE_DEFER)
+		tegra_dc_common_increment_probed_dc_count();
 
 	return ret;
 }
@@ -7027,6 +7069,9 @@ static int tegra_dc_remove(struct platform_device *ndev)
 	}
 #else
 	tegra_disp_clk_put(&ndev->dev, dc->emc_clk);
+#endif
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	t21x_disp_detach_pd(dc);
 #endif
 
 	if (!tegra_dc_is_nvdisplay())
@@ -7186,7 +7231,7 @@ static int suspend_get(char *buffer, struct kernel_param *kp)
 }
 
 static int suspend;
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 135)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)))
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 141)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)))
 module_param_call(suspend, (void *)suspend_set, (void *)suspend_get, &suspend, 0644);
 #else
 module_param_call(suspend, suspend_set, suspend_get, &suspend, 0644);
@@ -7195,7 +7240,7 @@ module_param_call(suspend, suspend_set, suspend_get, &suspend, 0644);
 #ifndef MODULE
 static int __init parse_disp_params(char *options, struct tegra_dc_mode *mode)
 {
-	int i, params[11];
+	int i, params[11], ret = 0;
 	char *p;
 
 	memset(params, 0, ARRAY_SIZE(params) * sizeof(int));
@@ -7203,9 +7248,15 @@ static int __init parse_disp_params(char *options, struct tegra_dc_mode *mode)
 		if ((p = strsep(&options, ",")) != NULL) {
 			if (*p)
 				params[i] = simple_strtoul(p, &p, 10);
-		} else
-			return -EINVAL;
+		} else {
+			ret = -EINVAL;
+			break;
+		}
 	}
+	/* mode configuration is coming via command line argument to kernel */
+	spec_bar();
+	if (ret < 0)
+		return ret;
 
 	if ((mode->pclk = params[0]) == 0)
 		return -EINVAL;
@@ -7585,7 +7636,6 @@ static void tegra_dc_collect_latency_data(struct tegra_dc *dc)
 {
 	int ret;
 	struct dma_buf *handle;
-	int page_num = 0;
 	void *ptr;
 	u64 value;
 
@@ -7603,8 +7653,11 @@ static void tegra_dc_collect_latency_data(struct tegra_dc *dc)
 		return;
 	}
 
-	ret = dma_buf_begin_cpu_access(handle, 0,
-				handle->size, DMA_BIDIRECTIONAL);
+	ret = dma_buf_begin_cpu_access(handle,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+				0, handle->size,
+#endif
+				DMA_BIDIRECTIONAL);
 
 	if (ret) {
 		dev_err(&dc->ndev->dev, "dma_buf_begin_cpu_access failed\n");
@@ -7612,11 +7665,14 @@ static void tegra_dc_collect_latency_data(struct tegra_dc *dc)
 		return;
 	}
 
-	ptr = dma_buf_kmap(handle, page_num);
+	ptr = dma_buf_vmap(handle);
 	if (!ptr) {
-		dev_err(&dc->ndev->dev, "dma_buf_kmap failed\n");
-		dma_buf_end_cpu_access(handle, 0,
-				handle->size, DMA_BIDIRECTIONAL);
+		dev_err(&dc->ndev->dev, "dma_buf_vmap failed\n");
+		dma_buf_end_cpu_access(handle,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+				0, handle->size,
+#endif
+				DMA_BIDIRECTIONAL);
 		mutex_unlock(&dc->msrmnt_info.lock);
 		return;
 	}
@@ -7624,8 +7680,12 @@ static void tegra_dc_collect_latency_data(struct tegra_dc *dc)
 	trace_display_embedded_latency(dc->ctrl_num,
 			dc->msrmnt_info.line_num, be64_to_cpup(&value));
 
-	dma_buf_kunmap(handle, page_num, ptr);
-	dma_buf_end_cpu_access(handle, 0, handle->size, DMA_BIDIRECTIONAL);
+	dma_buf_vunmap(handle, ptr);
+	dma_buf_end_cpu_access(handle,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+			0, handle->size,
+#endif
+			DMA_BIDIRECTIONAL);
 	mutex_unlock(&dc->msrmnt_info.lock);
 }
 
@@ -7712,6 +7772,27 @@ static struct tegra_dc_sor_info t21x_sor_info[] = {
 	{ .hdcp_supported = true },   /* SOR1 */
 };
 
+/*
+ * NOTE: Keep the following power domains ordered according to their head owner.
+ */
+static struct tegra_dc_pd_info t21x_disp_pd_info[] = {
+	/* Head0 power domain */
+	{
+		.pd_name = "disa",
+		.genpd_dev = NULL,
+	},
+	/* Head1 power domain */
+	{
+		.pd_name = "disb",
+		.genpd_dev = NULL,
+	},
+};
+
+static struct tegra_dc_pd_table t21x_disp_pd_table = {
+	.pd_entries = t21x_disp_pd_info,
+	.npd = ARRAY_SIZE(t21x_disp_pd_info),
+};
+
 static void tegra_dc_populate_t21x_hw_data(struct tegra_dc_hw_data *hw_data)
 {
 	if (!hw_data)
@@ -7722,8 +7803,7 @@ static void tegra_dc_populate_t21x_hw_data(struct tegra_dc_hw_data *hw_data)
 	hw_data->nsors = 2;
 	hw_data->sor_info = t21x_sor_info;
 
-	/* unused */
-	hw_data->pd_table = NULL;
+	hw_data->pd_table = &t21x_disp_pd_table;
 
 	hw_data->valid = true;
 	hw_data->version = TEGRA_DC_HW_T210;

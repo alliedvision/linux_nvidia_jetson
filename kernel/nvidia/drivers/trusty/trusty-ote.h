@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2016-2020 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  */
 
 #ifndef _TRUSTY_OTE_H_
-#define __TRUSTY_OTE_H_
+#define _TRUSTY_OTE_H_
 /*
  * NOTE: These OTE structures need to be in sync with the ones defined on
  * $TOP/ote/lib

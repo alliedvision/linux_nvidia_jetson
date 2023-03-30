@@ -20,9 +20,6 @@ Required properties:
 	interrupt number
 - nvidia,num-slices:
 	u32 property indicating number of slices of the given GTE instance
-- nvidia,gpio-controller:
-	phandle to the gpio controller for which GTE is monitoring its GPIO,
-	mandatory for the tegra194-gte-aon, not needed for tegra194-gte-lic
 
 Optional:
 
@@ -47,7 +44,6 @@ Example:
 		interrupts = <0 13 0x4>;
 		nvidia,int-threshold = <1>;
 		nvidia,num-slices = <3>;
-		nvidia,gpio-controller = <&tegra_aon_gpio>;
 		status = "disabled";
 	};
 };

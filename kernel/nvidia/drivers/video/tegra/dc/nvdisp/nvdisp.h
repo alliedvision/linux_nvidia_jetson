@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdisp.h
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,8 +17,11 @@
 #ifndef __DRIVER_VIDEO_TEGRA_DC_NVDISP_H
 #define __DRIVER_VIDEO_TEGRA_DC_NVDISP_H
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/bpmp_abi.h>
-#include <soc/tegra/tegra_bpmp.h>
+#else
+#include <soc/tegra/bpmp-abi.h>
+#endif
 
 extern struct mutex tegra_nvdisp_lock;
 extern struct clk *hubclk;

@@ -1,11 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA CORPORATION and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #ifndef INCLUDE_CAMRTC_DBG_MESSAGES_H
@@ -13,82 +8,67 @@
 
 #include "camrtc-common.h"
 
-/* All the enums and the fields inside the structs described in this header
- * file supports only uintX_t types, where X can be 8,16,32,64.
+#pragma GCC diagnostic error "-Wpadded"
+
+/*
+ * Message identifiers.
  */
-
-/* Requests and responses
- */
-
-/* Ping request. RTCPU returns the fw version in the data field and
- * 0 in the status field.
-
-*/
-#define CAMRTC_REQ_PING                 0x01U
-/* PM sleep request */
-#define CAMRTC_REQ_PM_SLEEP             0x02U
-/* Test request */
-#define CAMRTC_REQ_MODS_TEST            0x03U
-/* Set log level */
-#define CAMRTC_REQ_SET_LOGLEVEL         0x04U
+#define CAMRTC_REQ_PING                 MK_U32(0x01) /* Ping request. */
+#define CAMRTC_REQ_PM_SLEEP             MK_U32(0x02) /* Never implemented */
+#define CAMRTC_REQ_MODS_TEST            MK_U32(0x03) /* Run MODS test */
+#define CAMRTC_REQ_SET_LOGLEVEL         MK_U32(0x04) /* Set log level */
 #define CAMRTC_REQ_LOGLEVEL             CAMRTC_REQ_SET_LOGLEVEL
-/* Get FreeRTOS state */
-#define CAMRTC_REQ_RTOS_STATE           0x05U
-/* Read memory */
-#define CAMRTC_REQ_READ_MEMORY_32BIT    0x06U
-#define CAMRTC_REQ_READ_MEMORY          0x07U
-/* Performance counter */
-#define CAMRTC_REQ_SET_PERF_COUNTERS    0x08U
-#define CAMRTC_REQ_GET_PERF_COUNTERS    0x09U
-#define CAMRTC_REQ_GET_LOGLEVEL         0x0AU
-#define CAMRTC_REQ_RUN_TEST             0x0BU
-#define CAMRTC_REQ_GET_TASK_STAT        0x0CU
-#define CAMRTC_REQ_ENABLE_VI_STAT       0x0DU
-#define CAMRTC_REQ_GET_VI_STAT          0x0EU
-#define CAMRTC_REQ_GET_MEM_USAGE        0x0FU
-#define CAMRTC_REQ_RUN_MEM_TEST         0x10U
-#define CAMRTC_REQ_GET_IRQ_STAT		0x11U
-#define CAMRTC_REQUEST_TYPE_MAX		0x12U
+#define CAMRTC_REQ_RTOS_STATE           MK_U32(0x05) /* Get FreeRTOS state */
+#define CAMRTC_REQ_READ_MEMORY_32BIT    MK_U32(0x06) /* Read memory */
+#define CAMRTC_REQ_READ_MEMORY          MK_U32(0x07)
+#define CAMRTC_REQ_SET_PERF_COUNTERS    MK_U32(0x08) /* ARM Performance counter */
+#define CAMRTC_REQ_GET_PERF_COUNTERS    MK_U32(0x09)
+#define CAMRTC_REQ_GET_LOGLEVEL         MK_U32(0x0A)
+#define CAMRTC_REQ_RUN_TEST             MK_U32(0x0B) /* Run functional test (obsolete) */
+#define CAMRTC_REQ_GET_TASK_STAT        MK_U32(0x0C)
+#define CAMRTC_REQ_ENABLE_VI_STAT       MK_U32(0x0D)
+#define CAMRTC_REQ_GET_VI_STAT          MK_U32(0x0E)
+#define CAMRTC_REQ_GET_MEM_USAGE        MK_U32(0x0F)
+#define CAMRTC_REQ_RUN_MEM_TEST         MK_U32(0x10) /* Run functional test */
+#define CAMRTC_REQ_GET_IRQ_STAT         MK_U32(0x11)
+#define CAMRTC_REQ_SET_FALCON_COVERAGE  MK_U32(0x12)
+#define CAMRTC_REQ_GET_COVERAGE_SUPPORT MK_U32(0x13)
+#define CAMRTC_REQUEST_TYPE_MAX         MK_U32(0x14)
 
-enum camrtc_response {
-	CAMRTC_RESP_PONG = 1,
-	CAMRTC_RESP_PM_SLEEP,
-	CAMRTC_RESP_MODS_RESULT,
-	CAMRTC_RESP_LOGLEVEL,
-	CAMRTC_RESP_RTOS_STATE,
+/* MODS test cases */
+#define CAMRTC_MODS_TEST_BASIC		MK_U32(0x00) /* Basic MODS tests */
+#define CAMRTC_MODS_TEST_DMA		MK_U32(0x01) /* MODS DMA test */
 
-	CAMRTC_RESP_READ_MEMORY_32BIT,
-	CAMRTC_RESP_READ_MEMORY,
+/* Deprecated */
+#define CAMRTC_RESP_PONG                CAMRTC_REQ_PING
+#define CAMRTC_RESP_PM_SLEEP            CAMRTC_REQ_PM_SLEEP
+#define CAMRTC_RESP_MODS_RESULT         CAMRTC_REQ_MODS_TEST
+#define CAMRTC_RESP_LOGLEVEL            CAMRTC_REQ_SET_LOGLEVEL
+#define CAMRTC_RESP_RTOS_STATE          CAMRTC_REQ_RTOS_STATE
+#define CAMRTC_RESP_READ_MEMORY_32BIT   CAMRTC_REQ_READ_MEMORY_32BIT
+#define CAMRTC_RESP_READ_MEMORY         CAMRTC_REQ_READ_MEMORY
+#define CAMRTC_RESP_SET_PERF_COUNTERS   CAMRTC_REQ_SET_PERF_COUNTERS
+#define CAMRTC_RESP_GET_PERF_COUNTERS   CAMRTC_REQ_GET_PERF_COUNTERS
 
-	CAMRTC_RESP_SET_PERF_COUNTERS,
-	CAMRTC_RESP_GET_PERF_COUNTERS,
+/* Return statuses */
+#define CAMRTC_STATUS_OK		MK_U32(0)
+#define CAMRTC_STATUS_ERROR		MK_U32(1) /* Generic error */
+#define CAMRTC_STATUS_REQ_UNKNOWN	MK_U32(2) /* Unknown req_type */
+#define CAMRTC_STATUS_NOT_IMPLEMENTED	MK_U32(3) /* Request not implemented */
+#define CAMRTC_STATUS_INVALID_PARAM	MK_U32(4) /* Invalid parameter */
 
-	CAMRTC_RESPONSE_TYPE_MAX,
-};
+#define CAMRTC_DBG_FRAME_SIZE		MK_U32(448)
+#define CAMRTC_DBG_MAX_DATA		MK_U32(440)
+#define CAMRTC_DBG_TASK_STAT_MAX	MK_U32(16)
 
-#define CAMRTC_STATUS_OK                0U
-#define CAMRTC_STATUS_ERROR             1U /* Generic error */
-#define CAMRTC_STATUS_REQ_UNKNOWN       2U /* Unknown req_type */
-#define CAMRTC_STATUS_NOT_IMPLEMENTED   3U /* Request not implemented */
-#define CAMRTC_STATUS_INVALID_PARAM     4U /* Invalid parameter */
-
-enum {
-	CAMRTC_DBG_FRAME_SIZE = 384U,
-	CAMRTC_DBG_MAX_DATA = 376U,
-	CAMRTC_DBG_READ_MEMORY_COUNT_MAX = 256U,
-	CAMRTC_DBG_MAX_PERF_COUNTERS = 31U,
-	CAMRTC_DBG_TASK_STAT_MAX = 16U,
-	/** Limit for default CAMRTC_DBG_FRAME_SIZE */
-	CAMRTC_DBG_IRQ_STAT_MAX = 11U,
-};
-
-/* This struct is used to query or set the wake timeout for the target.
+/*
+ * This struct is used to query or set the wake timeout for the target.
  * Fields:
  * force_entry:	when set forces the target to sleep for a set time
  */
 struct camrtc_pm_data {
 	uint32_t force_entry;
-} __packed;
+};
 
 /* This struct is used to send the loop count to perform the mods test
  * on the target.
@@ -96,8 +76,10 @@ struct camrtc_pm_data {
  * mods_loops:	number of times mods test should be run
  */
 struct camrtc_mods_data {
+	uint32_t mods_case;
 	uint32_t mods_loops;
-} __packed;
+	uint32_t mods_dma_channels;
+};
 
 /* This struct is used to extract the firmware version of the RTCPU.
  * Fields:
@@ -107,15 +89,15 @@ struct camrtc_ping_data {
 	uint64_t ts_req;		/* requestor timestamp */
 	uint64_t ts_resp;		/* response timestamp */
 	uint8_t data[64];		/* data */
-} __packed;
+};
 
 struct camrtc_log_data {
 	uint32_t level;
-} __packed;
+};
 
 struct camrtc_rtos_state_data {
 	uint8_t rtos_state[CAMRTC_DBG_MAX_DATA];	/* string data */
-} __packed;
+};
 
 /* This structure is used to read 32 bit data from firmware address space.
  * Fields:
@@ -124,11 +106,13 @@ struct camrtc_rtos_state_data {
  */
 struct camrtc_dbg_read_memory_32bit {
 	uint32_t addr;
-} __packed;
+};
 
 struct camrtc_dbg_read_memory_32bit_result {
 	uint32_t data;
-} __packed;
+};
+
+#define CAMRTC_DBG_READ_MEMORY_COUNT_MAX	MK_U32(256)
 
 /* This structure is used to read memory in firmware address space.
  * Fields:
@@ -139,13 +123,15 @@ struct camrtc_dbg_read_memory_32bit_result {
 struct camrtc_dbg_read_memory {
 	uint32_t addr;
 	uint32_t count;
-} __packed;
+};
 
 struct camrtc_dbg_read_memory_result {
 	uint8_t data[CAMRTC_DBG_READ_MEMORY_COUNT_MAX];
-} __packed;
+};
 
-/* These structure is used to set event type that each performance counter
+#define CAMRTC_DBG_MAX_PERF_COUNTERS		MK_U32(31)
+
+/* This structure is used to set event type that each performance counter
  * will monitor. This doesn't include fixed performance counter. If there
  * are 4 counters available, only 3 of them are configurable.
  * Fields:
@@ -160,9 +146,9 @@ struct camrtc_dbg_set_perf_counters {
 	uint32_t do_reset;
 	uint32_t cycle_counter_div64;
 	uint32_t events[CAMRTC_DBG_MAX_PERF_COUNTERS];
-} __packed;
+};
 
-/* These structure is used to get performance counters.
+/* This structure is used to get performance counters.
  * Fields:
  *   number: Number of performance counters.
  *     This includes a fixed performance counter: cycle counter
@@ -177,10 +163,10 @@ struct camrtc_dbg_get_perf_counters_result {
 		uint32_t event;
 		uint32_t value;
 	} counters[CAMRTC_DBG_MAX_PERF_COUNTERS];
-} __packed;
+};
 
 
-#define CAMRTC_DBG_MAX_TEST_DATA (CAMRTC_DBG_MAX_DATA - 8U)
+#define CAMRTC_DBG_MAX_TEST_DATA (CAMRTC_DBG_MAX_DATA - sizeof(uint64_t))
 
 /* This structure is used pass textual input data to functional test
  * case and get back the test output, including verdict.
@@ -192,25 +178,31 @@ struct camrtc_dbg_get_perf_counters_result {
 struct camrtc_dbg_run_test_data {
 	uint64_t timeout;	/* Time in nanoseconds */
 	char data[CAMRTC_DBG_MAX_TEST_DATA];
-} __packed;
+};
 
-#define CAMRTC_DBG_NUM_MEM_TEST_MEM 8U
+/* Number of memory areas */
+#define CAMRTC_DBG_NUM_MEM_TEST_MEM MK_U32(8)
 
-#define CAMRTC_DBG_MAX_MEM_TEST_DATA (CAMRTC_DBG_MAX_DATA - 12U - \
-		(sizeof(struct camrtc_dbg_test_mem) * CAMRTC_DBG_NUM_MEM_TEST_MEM))
+#define CAMRTC_DBG_MAX_MEM_TEST_DATA (\
+	CAMRTC_DBG_MAX_DATA \
+	- sizeof(uint64_t) - sizeof(struct camrtc_dbg_streamids) \
+	- (sizeof(struct camrtc_dbg_test_mem) * CAMRTC_DBG_NUM_MEM_TEST_MEM))
 
 struct camrtc_dbg_test_mem {
-	uint64_t size;
+	uint32_t size;
+	uint32_t page_size;
+	uint64_t phys_addr;
 	uint64_t rtcpu_iova;
 	uint64_t vi_iova;
+	uint64_t vi2_iova;
 	uint64_t isp_iova;
 };
 
 struct camrtc_dbg_streamids {
 	uint8_t rtcpu;
 	uint8_t vi;
+	uint8_t vi2;
 	uint8_t isp;
-	uint8_t _pad;
 };
 
 /* This structure is used pass memory areas and textual input data to
@@ -227,7 +219,7 @@ struct camrtc_dbg_run_mem_test_data {
 	struct camrtc_dbg_test_mem mem[CAMRTC_DBG_NUM_MEM_TEST_MEM];
 	struct camrtc_dbg_streamids streamids;
 	char data[CAMRTC_DBG_MAX_MEM_TEST_DATA];
-} __packed;
+};
 
 /* This structure is used get information on system tasks.
  * Fields:
@@ -248,7 +240,10 @@ struct camrtc_dbg_task_stat {
 		uint32_t number;
 		uint32_t priority;
 	} task[CAMRTC_DBG_TASK_STAT_MAX];
-} __packed;
+};
+
+/* Limit for default CAMRTC_DBG_FRAME_SIZE */
+#define CAMRTC_DBG_NUM_IRQ_STAT			MK_U32(11)
 
 /*
  * This structure is used get information on interrupts.
@@ -275,8 +270,8 @@ struct camrtc_dbg_irq_stat {
 		uint64_t runtime;
 		uint32_t max_runtime;
 		uint32_t num_called;
-	} irqs[CAMRTC_DBG_IRQ_STAT_MAX];
-} __packed;
+	} irqs[CAMRTC_DBG_NUM_IRQ_STAT];
+};
 
 /* These structure is used to get VI message statistics.
  * Fields:
@@ -284,7 +279,7 @@ struct camrtc_dbg_irq_stat {
  */
 struct camrtc_dbg_enable_vi_stat {
 	uint32_t enable;
-} __packed;
+};
 
 /* These structure is used to get VI message statistics.
  * Fields:
@@ -294,7 +289,7 @@ struct camrtc_dbg_enable_vi_stat {
 struct camrtc_dbg_vi_stat {
 	uint32_t avg;
 	uint32_t max;
-} __packed;
+};
 
 /* These structure is used to get memory usage.
  * Fields:
@@ -311,8 +306,45 @@ struct camrtc_dbg_mem_usage {
 	uint32_t data;
 	uint32_t heap;
 	uint32_t stack;
-	uint32_t free;
-} __packed;
+	uint32_t free_mem;
+};
+
+#define CAMRTC_DBG_FALCON_ID_VI       MK_U32(0x00)
+#define CAMRTC_DBG_FALCON_ID_ISP      MK_U32(0x80)
+
+/* This structure is used to set falcon code coverage configuration data.
+ * Fields:
+ *   falcon_id: Which falcon to set up the coverage for.
+ *   flush: Flush coverage data action bit.
+ *   reset: Reset coverage data action bit. If flush is also set, it runs first.
+ *   size: Size of the coverage data buffer.
+ *   iova: Address of the coverage data buffer in falcon IOVA space.
+ *
+ * NOTE: Setting iova and/or size to 0 will disable coverage.
+ */
+struct camrtc_dbg_coverage_data {
+	uint8_t falcon_id;
+	uint8_t flush;
+	uint8_t reset;
+	uint8_t pad__;
+	uint32_t size;
+	uint64_t iova;
+};
+
+/* This structure is used to reply code coverage status.
+ * Fields:
+ *   falcon_id: Which falcon the status is for
+ *   enabled: Coverage output is configured properly and enabled
+ *   full: Coverage output buffer is full
+ *   bytes_written: Bytes written to buffer so far.
+ */
+struct camrtc_dbg_coverage_stat {
+	uint8_t falcon_id;
+	uint8_t enabled;
+	uint8_t full;
+	uint8_t pad__;
+	uint32_t bytes_written;
+};
 
 /* This struct encapsulates the type of the request and the respective
  * data associated with that request.
@@ -335,8 +367,9 @@ struct camrtc_dbg_request {
 		struct camrtc_dbg_run_test_data run_test_data;
 		struct camrtc_dbg_run_mem_test_data run_mem_test_data;
 		struct camrtc_dbg_enable_vi_stat enable_vi_stat;
+		struct camrtc_dbg_coverage_data coverage_data;
 	} data;
-} __packed;
+};
 
 /* This struct encapsulates the type of the response and the respective
  * data associated with that response.
@@ -364,7 +397,10 @@ struct camrtc_dbg_response {
 		struct camrtc_dbg_vi_stat vi_stat;
 		struct camrtc_dbg_mem_usage mem_usage;
 		struct camrtc_dbg_irq_stat irq_stat;
+		struct camrtc_dbg_coverage_stat coverage_stat;
 	} data;
-} __packed;
+};
+
+#pragma GCC diagnostic ignored "-Wpadded"
 
 #endif /* INCLUDE_CAMRTC_DBG_MESSAGES_H */

@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_util_virt_alt.c - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,8 +20,6 @@
 
 #include "tegra_virt_alt_ivc.h"
 #include "tegra_asoc_util_virt_alt.h"
-
-static struct tegra_audio_metadata_cntx *metadata;
 
 const int tegra186_arad_mux_value[] = {
 	-1, /* None */
@@ -1451,141 +1449,6 @@ int tegra_virt_i2s_set_rate(
 	return 0;
 }
 EXPORT_SYMBOL(tegra_virt_i2s_set_rate);
-
-int tegra_virt_get_metadata(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	uint8_t *m = ucontrol->value.bytes.data;
-
-	tegra_metadata_flood_get(m);
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_virt_get_metadata);
-
-int tegra_virt_set_metadata(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	uint8_t *m = ucontrol->value.bytes.data;
-
-	tegra_metadata_flood_update(m);
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_virt_set_metadata);
-
-int tegra_metadata_get_init(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] =
-			metadata->init_metadata_flood;
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_metadata_get_init);
-
-int tegra_metadata_set_init(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
-
-	if (metadata->init_metadata_flood == ucontrol->value.integer.value[0])
-		return 0;
-
-	if (ucontrol->value.integer.value[0]) {
-		if (tegra_metadata_flood_init(metadata, card->dev)) {
-			dev_err(card->dev, "failed to initialize metadata\n");
-			return -1;
-		}
-	} else {
-		if (metadata->enable_metadata_flood) {
-			dev_err(card->dev, "META flood is enabled, disable first\n");
-			return -1;
-		}
-		tegra_metadata_flood_deinit(metadata, card->dev);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_metadata_set_init);
-
-int tegra_metadata_get_enable(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] =
-			metadata->enable_metadata_flood;
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_metadata_get_enable);
-
-int tegra_metadata_set_enable(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
-
-	if (!metadata->init_metadata_flood) {
-		dev_err(card->dev, "META flood has not been initialized yet\n");
-		return -1;
-	}
-
-	tegra_metadata_flood_enable(metadata, ucontrol->value.integer.value[0],
-								card->dev);
-
-	return 0;
-}
-EXPORT_SYMBOL(tegra_metadata_set_enable);
-
-
-int tegra_metadata_setup(struct platform_device *pdev,
-	struct tegra_audio_metadata_cntx *psad, struct snd_soc_card *card)
-{
-
-	metadata = psad;
-	if (of_property_read_u32_index(pdev->dev.of_node, "nvidia,adma_ch_page",
-			0, &metadata->dma_ch_page)) {
-		dev_info(&pdev->dev, "META dma channel page address dt entry not found\n");
-		goto lb;
-	}
-	if (of_property_read_u32_index(pdev->dev.of_node,
-				"nvidia,sad_admaif_id", 0,
-					&metadata->admaif_id)) {
-		dev_info(&pdev->dev, "META admaif id dt entry not found\n");
-		goto lb;
-	}
-	if (of_property_read_u32_index(pdev->dev.of_node, "nvidia,sad_dma_id",
-			0, &metadata->dma_id)) {
-		dev_info(&pdev->dev, "META dma id dt entry not found\n");
-		goto lb;
-	}
-	if (of_property_read_u32_index(pdev->dev.of_node,
-			"nvidia,sad_header_mode", 0,
-					&metadata->metadata_mode)) {
-		dev_info(&pdev->dev, "META header mode dt entry not found\n");
-		goto lb;
-	}
-
-	if (metadata->metadata_mode == SUBFRAME_MODE) {
-		if (tegra_metadata_flood_init(metadata, card->dev)) {
-			dev_err(&pdev->dev, "failed to initialize metadata\n");
-			goto lb;
-		}
-
-		if (tegra_metadata_flood_enable(metadata, 1, card->dev)) {
-			dev_err(&pdev->dev, "failed to initialize\n");
-			goto lb;
-		}
-	}
-lb:
-	return 0;
-}
-EXPORT_SYMBOL(tegra_metadata_setup);
 
 int tegra_virt_t210ahub_get_regdump(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)

@@ -1,7 +1,7 @@
 /*
- * PVA trace log for T194
+ * PVA trace log
  *
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,17 +19,18 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/nvhost_pva.h>
 
-#include "dev.h"
 #include "pva.h"
 #include "pva_trace.h"
 
-static void read_linear(const char *name, struct pva_trace_log *trace, u32 toff)
+static void read_linear(struct pva *pva, struct pva_trace_log *trace, u32 toff)
 {
 	struct pva_trace_header *th = NULL;
 	struct pva_trace_block_hdr *bh = NULL;
 	struct pva_trace_point *tp = NULL;
 	u64 dt;
 	u32 i;
+
+	const char *name = pva->pdev->name;
 
 	th = (struct pva_trace_header *)trace->addr;
 	bh = (struct pva_trace_block_hdr *)((u8 *)th + th->head_offset);
@@ -38,7 +39,7 @@ static void read_linear(const char *name, struct pva_trace_log *trace, u32 toff)
 		dt = bh->start_time;
 		for (i = 0 ; i < bh->n_entries ; i++) {
 			dt = dt + tp->delta_time;
-			nvhost_dbg_info("delta_time: %llu\t %s\t major: %u\t"
+			nvpva_dbg_info(pva, "delta_time: %llu\t %s\t major: %u\t"
 				"minor: %u\t flags: %u\tsequence: %u\targ1:"
 				" %u\targ2: %u\n",
 				dt, name, tp->major, tp->minor, tp->flags,
@@ -68,7 +69,6 @@ void pva_trace_copy_to_ftrace(struct pva *pva)
 	struct pva_trace_log *trace;
 	struct pva_trace_header *th;
 	u32 toff;
-	const char *dev_name = pva->pdev->name;
 
 	trace = &pva->pva_trace;
 	th = (struct pva_trace_header *)trace->addr;
@@ -81,7 +81,7 @@ void pva_trace_copy_to_ftrace(struct pva *pva)
 		|| !th->tail_offset)
 		return;
 
-	nvhost_dbg_info("th->block_size: %u\tth->head_offset: %u\tth->tail_offset: %u\n",
+	nvpva_dbg_info(pva, "th->block_size: %u\tth->head_offset: %u\tth->tail_offset: %u\n",
 			th->block_size, th->head_offset, th->tail_offset);
 
 	/*
@@ -94,14 +94,14 @@ void pva_trace_copy_to_ftrace(struct pva *pva)
 
 	if (th->head_offset < toff) {
 		/* No circular read */
-		read_linear(dev_name, trace, toff);
+		read_linear(pva, trace, toff);
 	} else {
 		/*
 		 * Circular read
 		 * Read from head to trace_log buffer size
 		 */
-		read_linear(dev_name, trace, trace->size);
+		read_linear(pva, trace, trace->size);
 		/* Read from head to tail  */
-		read_linear(dev_name, trace, toff);
+		read_linear(pva, trace, toff);
 	}
 }

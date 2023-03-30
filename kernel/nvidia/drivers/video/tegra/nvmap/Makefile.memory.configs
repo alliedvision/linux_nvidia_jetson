@@ -1,0 +1,221 @@
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+
+# This file consists of 4 sections
+# Section 1: This section is for doing prerequisite check.
+#            It checkes whether the prereq configs are enabled or not.
+#            If not, return error.
+#
+# Section 2: This section declare all configs with the default values
+#            just similar to Kconfig
+#
+# Section 3: This section consists of checks for kernel versions and
+#            actual values of these configs for corresponding kernel
+#            version. This is the place where we can enable/disable or
+#            set values to configs as per kernel version.
+#
+# Section 4: This section creates ccflags based upon the values specified
+#            in the section 2. These ccflags would be actually used in the
+#            source files. This section also takes care of the dependencies
+#            between the configs.
+#
+
+################################################################################
+ifeq ($(CONFIG_ARCH_TEGRA), y)
+# Section 1
+# For dma_buf support CONFIG_DMA_SHARED_BUFFER needs be enabled
+ifneq ($(CONFIG_DMA_SHARED_BUFFER),y)
+$(error CONFIG_DMA_SHARED_BUFFER is not set)
+endif
+
+################################################################################
+# Section 2
+# This config is used to include the memory management driver for the
+# Tegra GPU, multimedia and display subsystems
+NVMAP_CONFIG := y
+
+# Config to reduce the alloction overhead, which is significant
+# for uncached, writecombine and inner cacheable memories as it
+# involves changing page attributes during every allocation per page
+# and flushing cache. Alloc time is reduced by allcoating the pages
+# ahead and keeping them aside. The reserved pages would be released
+# when system is low on memory and acquired back during release of
+# memory.
+NVMAP_CONFIG_PAGE_POOLS := y
+
+# Config to include some debugging info in the page pools. This
+# adds a bit of unnecessary overhead so only enable this is you
+# suspect there is an issue with the nvmap page pools.
+NVMAP_CONFIG_PAGE_POOL_DEBUG := n
+
+# Config for page pool size in pages
+NVMAP_CONFIG_PAGE_POOL_SIZE := 0x0
+
+# Config to enable page coloring
+# Page coloring rearranges the pages allocated based on the color
+# of the page. It can improve memory access performance.
+# The coloring option enable can optionally overallocate a portion of
+# reqeusted allcoation size to improve the probabilty of better
+# page coloring. If unsure, say Y.
+NVMAP_CONFIG_COLOR_PAGES := y
+
+# Config for FD number to start allocation from
+# NvMap handles are represented with FD's in the user processes.
+# To avoid Linux FD usage limitations, NvMap allocates FD starting
+# from this number.
+NVMAP_CONFIG_FD_START := 0x400
+
+# Config for enabling deferred FD recycle
+# A released nvmap handle would release memory and FD. This FD
+# can be reused immediately for subsequent nvmap allocation req in
+# the same process. Any buggy code in client process that continues to
+# use FD of released allocation would continue to use new allocation
+# and can lead to undesired consequences, which can be hard to debug.
+# Enabling this option would defer recycling FD for longer time and
+# allows debugging incorrect FD references by clients by returning errors
+# for the accesses that occur after handle/FD release.
+NVMAP_CONFIG_DEFER_FD_RECYCLE := n
+
+# Config for FD number to start free FD recycle
+# Once last allocated FD reaches this number, allocation of subsequent
+# FD's start from NVMAP_START_FD.
+NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD := 0x8000
+
+# Config for enabling nvmap mapping with SciIpc secure buffer sharing
+# Enable nvmap mapping with SciIpc secure buffer sharing.
+# Supports nvmap ioctls to get Unique SciIpcId and attach
+# it with nvmap_handle.
+# Suppports getting nvmap_handle from SciIpcId passed via ioctl.
+NVMAP_CONFIG_SCIIPC := n
+
+# Config for enabling NvMap as OOT module
+NVMAP_CONFIG_LOADABLE_MODULE := n
+
+# Config for enabling PROCRANK functionality
+NVMAP_CONFIG_PROCRANK := y
+
+# Config for enabling VPR resize functionality
+NVMAP_CONFIG_VPR_RESIZE := n
+
+# Config for enabling few debugfs which would impact the NvMap performance
+# There are few debugfs which would impact NvMap performance.
+# Disable this when perf regression is observed.
+NVMAP_CONFIG_DEBUG_MAPS := n
+
+# This is fallback option to support handle as FD
+# To support handle as ID, set this to n
+# This config is useful to debug issue if its due to handle as ID or FD
+NVMAP_CONFIG_HANDLE_AS_FD := n
+
+# Config for kstable/OOT kernel
+# This is useful when any kstable/OOT specific checks are needed
+NVMAP_CONFIG_UPSTREAM_KERNEL := n
+################################################################################
+# Section 3
+# Enable/Disable configs based upon the kernel version
+# Specify the values which are different from the default values
+
+ifdef CONFIG_TEGRA_VPR
+# For 4.9
+NVMAP_CONFIG_VPR_RESIZE := y
+else
+# For 5.10+
+NVMAP_CONFIG_LOADABLE_MODULE := y
+NVMAP_CONFIG_PROCRANK := n
+ifneq ($(NVMAP_CONFIG_HANDLE_AS_FD),y)
+NVMAP_CONFIG_HANDLE_AS_ID := y
+NVMAP_CONFIG_FD_START := 0x0
+endif
+NVMAP_CONFIG_SCIIPC := y
+# For OOT build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+NVMAP_CONFIG_UPSTREAM_KERNEL := y
+NVMAP_CONFIG_COLOR_PAGES := n
+endif
+endif
+################################################################################
+# Section 4
+# This section creates ccflags based upon the values specified
+# in the section 2. These ccflags would be actually used in the
+# source files.
+
+ifeq ($(NVMAP_CONFIG),y)
+# All other flags make sense only when NVMAP_CONFIG is enabled
+ccflags-y += -DNVMAP_CONFIG
+
+ifeq ($(NVMAP_CONFIG_PAGE_POOLS),y)
+ccflags-y += -DNVMAP_CONFIG_PAGE_POOLS
+
+# NVMAP_CONFIG_PAGE_POOL_DEBUG depends upon NVMAP_CONFIG_PAGE_POOLS
+ifeq ($(NVMAP_CONFIG_PAGE_POOL_DEBUG),y)
+ccflags-y += -DNVMAP_CONFIG_PAGE_POOL_DEBUG
+endif #NVMAP_CONFIG_PAGE_POOL_DEBUG
+
+# NVMAP_CONFIG_PAGE_POOL_SIZE depends upon NVMAP_CONFIG_PAGE_POOLS
+ifdef NVMAP_CONFIG_PAGE_POOL_SIZE
+ccflags-y += -DNVMAP_CONFIG_PAGE_POOL_SIZE=${NVMAP_CONFIG_PAGE_POOL_SIZE}
+endif #NVMAP_CONFIG_PAGE_POOL_SIZE
+endif #NVMAP_CONFIG_PAGE_POOLS
+
+# NVMAP_CONFIG_COLOR_PAGES depends upon CONFIG_ARM64_4K_PAGES
+ifeq ($(CONFIG_ARM64_4K_PAGES),y)
+ifeq ($(NVMAP_CONFIG_COLOR_PAGES),y)
+ccflags-y += -DNVMAP_CONFIG_COLOR_PAGES
+endif #CONFIG_ARM64_4K_PAGES
+endif #NVMAP_CONFIG_COLOR_PAGES
+
+ifdef NVMAP_CONFIG_FD_START
+ccflags-y += -DNVMAP_CONFIG_FD_START=${NVMAP_CONFIG_FD_START}
+endif #NVMAP_CONFIG_FD_START
+
+ifeq ($(NVMAP_CONFIG_DEFER_FD_RECYCLE),y)
+ccflags-y += -DNVMAP_CONFIG_DEFER_FD_RECYCLE
+# NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD depends upon CONFIG_NVMAP_DEFER_FD_RECYCLE
+ifdef NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD
+ccflags-y += -DNVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD=${NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD}
+endif #NVMAP_CONFIG_DEFER_FD_RECYCLE_MAX_FD
+endif #NVMAP_CONFIG_DEFER_FD_RECYCLE
+
+ifeq ($(NVMAP_CONFIG_SCIIPC),y)
+ccflags-y += -DNVMAP_CONFIG_SCIIPC
+endif #NVMAP_CONFIG_SCIIPC
+
+ifeq ($(NVMAP_CONFIG_VPR_RESIZE),y)
+ccflags-y += -DNVMAP_CONFIG_VPR_RESIZE
+endif #NVMAP_CONFIG_VPR_RESIZE
+
+ifeq ($(NVMAP_CONFIG_LOADABLE_MODULE),y)
+ccflags-y += -DNVMAP_LOADABLE_MODULE
+endif #NVMAP_CONFIG_LOADABLE_MODULE
+
+ifeq ($(NVMAP_CONFIG_UPSTREAM_KERNEL),y)
+ccflags-y += -DNVMAP_UPSTREAM_KERNEL
+endif #NVMAP_CONFIG_UPSTREAM_KERNEL
+
+ifeq ($(NVMAP_CONFIG_PROCRANK),y)
+ccflags-y += -DNVMAP_CONFIG_PROCRANK
+endif #NVMAP_CONFIG_PROCRANK
+
+ifeq ($(NVMAP_CONFIG_DEBUG_MAPS),y)
+ccflags-y += -DNVMAP_CONFIG_DEBUG_MAPS
+endif #NVMAP_CONFIG_DEBUG_MAPS
+
+ifeq ($(NVMAP_CONFIG_HANDLE_AS_ID),y)
+ccflags-y += -DNVMAP_CONFIG_HANDLE_AS_ID
+endif #NVMAP_CONFIG_HANDLE_AS_ID
+
+ifeq ($(CONFIG_TEGRA_CVNAS),y)
+ccflags-y += -DCVNAS_BUILTIN
+endif #CONFIG_TEGRA_CVNAS
+
+endif #NVMAP_CONFIG
+endif #CONFIG_ARCH_TEGRA

@@ -4,7 +4,6 @@
  * Portions of this code are copyright (c) 2017 Cypress Semiconductor Corporation
  * 
  * Copyright (C) 1999-2017, Broadcom Corporation
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -375,8 +374,7 @@ int wldev_get_mode(
 	error = wldev_ioctl(dev, WLC_GET_BSS_INFO, (void*)buf, WL_EXTRA_BUF_MAX, false);
 	if (error) {
 		WLDEV_ERROR(("%s:failed:%d\n", __FUNCTION__, error));
-		error = -1;
-		goto out;
+		goto exit;
 	}
 	bss = (struct  wl_bss_info *)(buf + 4);
 	chanspec = wl_chspec_driver_to_host(bss->chanspec);
@@ -404,11 +402,11 @@ int wldev_get_mode(
 		} else {
 			WLDEV_ERROR(("%s:Mode get failed\n", __FUNCTION__));
 			error = -1;
-			goto out;
+			goto exit;
 		}
 
 	}
-out:
+exit:
 	kfree(buf);
 	return error;
 }

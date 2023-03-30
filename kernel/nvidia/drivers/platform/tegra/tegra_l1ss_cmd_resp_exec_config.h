@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -70,23 +70,23 @@
 #define CMDRESPL1_GET_SAFETY_ERROR_STATUS 0x01U
 
 /*CMDRESPL1_L1 Class0 commands*/
-#define CMDRESPL1_GET_DIAG_TEST_RESULT    (uint8_t)5
-#define CMDRESPL1_GET_ERROR_STATUS        (uint8_t)6
-#define CMDRESPL1_GRP_STATUS              (uint8_t)8
+#define CMDRESPL1_GET_DIAG_TEST_RESULT    ((uint8_t)5)
+#define CMDRESPL1_GET_ERROR_STATUS        ((uint8_t)6)
+#define CMDRESPL1_GRP_STATUS              ((uint8_t)8)
 
 /*CMDRESPL1_L1 Class1 Commands*/
-#define CMDRESPL1_REGISTER_SERVICE        (uint8_t)1
-#define CMDRESPL1_REPORT_SERVICE_STATUS   (uint8_t)4
-#define CMDRESPL1_REQUEST_SERVICE         (uint8_t)5
-#define CMDRESPL1_FUSA_STATE_NOTIFICATION (uint8_t)9
+#define CMDRESPL1_REGISTER_SERVICE        ((uint8_t)1)
+#define CMDRESPL1_REPORT_SERVICE_STATUS   ((uint8_t)4)
+#define CMDRESPL1_REQUEST_SERVICE         ((uint8_t)5)
+#define CMDRESPL1_FUSA_STATE_NOTIFICATION ((uint8_t)9)
 
 /*CMDRESPL1_L1 Class2 Commands*/
-#define CMDRESPL1_REGISTER_NOTIFICATION   (uint8_t)4
-#define CMDRESPL1_DEREGISTER_SERVICE      (uint8_t)5
-#define CMDRESPL1_OVERRIDE                (uint8_t)6
-#define CMDRESPL1_TESTCOMPLETION_STATUS   (uint8_t)10
+#define CMDRESPL1_REGISTER_NOTIFICATION   ((uint8_t)4)
+#define CMDRESPL1_DEREGISTER_SERVICE      ((uint8_t)5)
+#define CMDRESPL1_OVERRIDE                ((uint8_t)6)
+#define CMDRESPL1_TESTCOMPLETION_STATUS   ((uint8_t)10)
 #ifdef PROFILING_ENABLED
-#define CMDRESPL2_SEND_STATS              (uint8_t)13
+#define CMDRESPL2_SEND_STATS              ((uint8_t)13)
 #endif
 
 /*CMDRESPL1_L2_CLASS0 Commands*/

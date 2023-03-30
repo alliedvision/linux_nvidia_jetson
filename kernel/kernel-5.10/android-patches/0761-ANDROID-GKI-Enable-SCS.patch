@@ -1,0 +1,30 @@
+From e71554d00379a16a864dc55726d8c7df48551181 Mon Sep 17 00:00:00 2001
+From: Sami Tolvanen <samitolvanen@google.com>
+Date: Tue, 1 Sep 2020 12:33:55 -0700
+Subject: [PATCH 761/830] ANDROID: GKI: Enable SCS
+X-NVConfidentiality: public
+
+Enable CONFIG_SHADOW_CALL_STACK in gki_defconfig.
+
+Bug: 167259389
+Change-Id: I1da2e0210aa2b65715eee55b1333fb25204fd6f3
+Signed-off-by: Sami Tolvanen <samitolvanen@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c3e101986b83..391043d1d287 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -82,6 +82,7 @@ CONFIG_KVM=y
+ CONFIG_CRYPTO_SHA2_ARM64_CE=y
+ CONFIG_CRYPTO_AES_ARM64_CE_BLK=y
+ CONFIG_KPROBES=y
++CONFIG_SHADOW_CALL_STACK=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+-- 
+2.17.1
+

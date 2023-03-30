@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,8 @@
 #ifndef NVGPU_PRAMIN_H
 #define NVGPU_PRAMIN_H
 
+#ifdef CONFIG_NVGPU_DGPU
+
 #include <nvgpu/types.h>
 
 struct gk20a;
@@ -30,10 +32,15 @@ struct mm_gk20a;
 struct nvgpu_mem;
 
 
-void nvgpu_pramin_rd_n(struct gk20a *g, struct nvgpu_mem *mem, u32 start, u32 words, void *dest);
-void nvgpu_pramin_wr_n(struct gk20a *g, struct nvgpu_mem *mem, u32 start, u32 words, void *src);
-void nvgpu_pramin_memset(struct gk20a *g, struct nvgpu_mem *mem, u32 start, u32 words, u32 w);
+void nvgpu_pramin_rd_n(struct gk20a *g, struct nvgpu_mem *mem, u64 start,
+							u64 size, void *dest);
+void nvgpu_pramin_wr_n(struct gk20a *g, struct nvgpu_mem *mem, u64 start,
+							u64 size, void *src);
+void nvgpu_pramin_memset(struct gk20a *g, struct nvgpu_mem *mem, u64 start,
+							u64 size, u32 w);
 
 void nvgpu_init_pramin(struct mm_gk20a *mm);
+
+#endif
 
 #endif /* NVGPU_PRAMIN_H */

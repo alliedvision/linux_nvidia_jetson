@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -457,7 +457,7 @@ static int write(struct seq_file *s, void *data)
 	}
 
 	/* compare copied data */
-	if (!memcmp(__io_virt(bar_mem), phys_to_virt(ep->dst), ep->size))
+	if (!memcmp(__io_virt(bar_mem), p_cpu_addr, ep->size))
 		dev_info(&ep->pdev->dev, "DMA-Write test PASSED\n");
 	else
 		dev_info(&ep->pdev->dev, "DMA-Write test FAILED\n");
@@ -484,7 +484,7 @@ static int write_ll(struct seq_file *s, void *data)
 	}
 
 	/* create linked list to be sent to ep's local memory */
-	ll = (struct dma_ll *)(phys_to_virt(ep->dst));
+	ll = (struct dma_ll *)(p_cpu_addr);
 
 	/* leave first 64K for LL element preparation */
 	memset((ll + 0), 0x0, sizeof(struct dma_ll));
@@ -541,19 +541,19 @@ static int write_ll(struct seq_file *s, void *data)
 
 	/* compare copied data */
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 1)),
-		   phys_to_virt(ep->dst + (64 * 1024 * 1)),
+		   (p_cpu_addr + (64 * 1024 * 1)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Write-LL Chunk-1 FAILED\n");
 		goto err_out;
 	}
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 2)),
-		   phys_to_virt(ep->dst + (64 * 1024 * 2)),
+		   (p_cpu_addr + (64 * 1024 * 2)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Write-LL Chunk-2 FAILED\n");
 		goto err_out;
 	}
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 4)),
-		   phys_to_virt(ep->dst + (64 * 1024 * 4)),
+		   (p_cpu_addr + (64 * 1024 * 4)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Write-LL Chunk-3 FAILED\n");
 		goto err_out;
@@ -586,7 +586,7 @@ static int read(struct seq_file *s, void *data)
 		ret = -ENOMEM;
 		goto err_remap;
 	}
-	get_random_bytes(phys_to_virt(ep->src), ep->size);
+	get_random_bytes(p_cpu_addr, ep->size);
 
 	ret = dma_read(ep, &tx);
 	if (ret < 0) {
@@ -596,7 +596,7 @@ static int read(struct seq_file *s, void *data)
 	}
 
 	/* compare copied data */
-	if (!memcmp(__io_virt(bar_mem), phys_to_virt(ep->src), ep->size))
+	if (!memcmp(__io_virt(bar_mem), p_cpu_addr, ep->size))
 		dev_info(&ep->pdev->dev, "DMA-Read test PASSED\n");
 	else
 		dev_info(&ep->pdev->dev, "DMA-Read test FAILED\n");
@@ -624,20 +624,20 @@ static int read_ll(struct seq_file *s, void *data)
 	}
 
 	/* create linked list to be sent to ep's local memory */
-	ll = (struct dma_ll *)(phys_to_virt(ep->src));
+	ll = (struct dma_ll *)(p_cpu_addr);
 
 	/* leave first 64K for LL element preparation */
 	memset((ll + 0), 0x0, sizeof(struct dma_ll));
 	(ll + 0)->size = (64 * 1024);
 	(ll + 0)->sar_low = ep->src + (64 * 1024 * 1);
 	(ll + 0)->dar_low = ep->dst + (64 * 1024 * 1);
-	get_random_bytes(phys_to_virt(ep->src + (64 * 1024 * 1)), 64 * 1024);
+	get_random_bytes((p_cpu_addr + (64 * 1024 * 1)), 64 * 1024);
 
 	memset((ll + 1), 0x0, sizeof(struct dma_ll));
 	(ll + 1)->size = (64 * 1024);
 	(ll + 1)->sar_low = ep->src + (64 * 1024 * 2);
 	(ll + 1)->dar_low = ep->dst + (64 * 1024 * 2);
-	get_random_bytes(phys_to_virt(ep->src + (64 * 1024 * 2)), 64 * 1024);
+	get_random_bytes((p_cpu_addr + (64 * 1024 * 2)), 64 * 1024);
 
 	memset((ll + 2), 0x0, sizeof(struct dma_ll));
 	(ll + 2)->ele_1.llp = 1;
@@ -649,7 +649,7 @@ static int read_ll(struct seq_file *s, void *data)
 	(ll + 4)->size = (64 * 1024);
 	(ll + 4)->sar_low = ep->src + (64 * 1024 * 4);
 	(ll + 4)->dar_low = ep->dst + (64 * 1024 * 4);
-	get_random_bytes(phys_to_virt(ep->src + (64 * 1024 * 4)), 64 * 1024);
+	get_random_bytes((p_cpu_addr + (64 * 1024 * 4)), 64 * 1024);
 
 	memset((ll + 5), 0x0, sizeof(struct dma_ll));
 	(ll + 5)->ele_1.llp = 1;
@@ -681,19 +681,19 @@ static int read_ll(struct seq_file *s, void *data)
 
 	/* compare copied data */
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 1)),
-		   phys_to_virt(ep->src + (64 * 1024 * 1)),
+		   (p_cpu_addr + (64 * 1024 * 1)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Read-LL Chunk-1 FAILED\n");
 		goto err_out;
 	}
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 2)),
-		   phys_to_virt(ep->src + (64 * 1024 * 2)),
+		   (p_cpu_addr + (64 * 1024 * 2)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Read-LL Chunk-2 FAILED\n");
 		goto err_out;
 	}
 	if (memcmp((void *)(__io_virt(bar_mem) + (64 * 1024 * 4)),
-		   phys_to_virt(ep->src + (64 * 1024 * 4)),
+		   (p_cpu_addr + (64 * 1024 * 4)),
 		   64 * 1024)) {
 		dev_err(&ep->pdev->dev, "DMA-Read-LL Chunk-3 FAILED\n");
 		goto err_out;

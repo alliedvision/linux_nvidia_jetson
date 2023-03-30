@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+/*
+ * tegra194-soc-disp-clk-rst-fixup.dtsi - Display dtsi file  to fix up the
+ *                                        clocks/resets mapping to display nodes
+ *                                        for automotive platforms.
+ */
+
+#include <dt-bindings/clock/tegra194-clock.h>
+#include <dt-bindings/reset/tegra194-reset.h>
+#include <dt-bindings/display/tegra-dc.h>
+
+/ {
+	host1x@13e00000 {
+		display-hub@15200000 {
+			clock-names = "nvdisplay_disp", "pll_disphub",
+				      "nvdisplayhub", "pllp_display";
+			clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_DISP>,
+				 <&bpmp_clks TEGRA194_CLK_PLLDISPHUB>,
+				 <&bpmp_clks TEGRA194_CLK_NVDISPLAYHUB>,
+				 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+			reset-names = "nvdisplay0_misc", "nvdisplay0_wgrp0", "nvdisplay0_wgrp1", "nvdisplay0_wgrp2",
+				      "nvdisplay0_wgrp3", "nvdisplay0_wgrp4", "nvdisplay0_wgrp5";
+			resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_MISC>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP0>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP1>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP2>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP3>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP4>,
+				 <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_WGRP5>;
+
+			display@15200000 {
+				clock-names = "nvdisplay_p0", "pll_d";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P0>,
+				         <&bpmp_clks TEGRA194_CLK_PLLD>;
+				reset-names = "nvdisplay0_head0";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD0>;
+			};
+
+			display@15210000 {
+				clock-names = "nvdisplay_p1", "pll_d2";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P1>,
+				         <&bpmp_clks TEGRA194_CLK_PLLD2>;
+				reset-names = "nvdisplay0_head1";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD1>;
+			};
+
+			display@15220000 {
+				clock-names = "nvdisplay_p2", "pll_d3";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P2>,
+				         <&bpmp_clks TEGRA194_CLK_PLLD3>;
+				reset-names = "nvdisplay0_head2";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD2>;
+			};
+
+			display@15230000 {
+				clock-names = "nvdisplay_p3", "pll_d4";
+				clocks = <&bpmp_clks TEGRA194_CLK_NVDISPLAY_P3>,
+				         <&bpmp_clks TEGRA194_CLK_PLLD4>;
+				reset-names = "nvdisplay0_head3";
+				resets = <&bpmp_resets TEGRA194_RESET_NVDISPLAY0_HEAD3>;
+			};
+		};
+	};
+};

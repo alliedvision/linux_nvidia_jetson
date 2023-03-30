@@ -14,19 +14,21 @@
 #define pr_fmt(fmt) "adspff: " fmt
 
 #include <linux/fs.h>
-#include <asm/segment.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
+#include <linux/errno.h>
 
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/task.h>
 #include <linux/semaphore.h>
 #include <linux/debugfs.h>
 #include <linux/platform_device.h>
 #include <linux/list.h>
 
 #include <linux/tegra_nvadsp.h>
+#include <uapi/linux/sched/types.h>
 
 #include "adspff.h"
 #include "dev.h"
@@ -51,14 +53,14 @@ static int open_count;
 * Kernel file functions
 ******************************************************************************/
 
-struct file *file_open(const char *path, int flags, int rights)
+static struct file *file_open(const char *path, int flags, int rights)
 {
 	struct file *filp = NULL;
 	mm_segment_t oldfs;
 	int err = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	filp = filp_open(path, flags, rights);
 	set_fs(oldfs);
 	if (IS_ERR(filp)) {
@@ -68,49 +70,49 @@ struct file *file_open(const char *path, int flags, int rights)
 	return filp;
 }
 
-void file_close(struct file *file)
+static void file_close(struct file *file)
 {
 	filp_close(file, NULL);
 }
 
-int file_write(struct file *file, unsigned long long *offset,
+static int file_write(struct file *file, unsigned long long *offset,
 				unsigned char *data, unsigned int size)
 {
 	mm_segment_t oldfs;
 	int ret = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
-	ret = vfs_write(file, data, size, offset);
+	ret = vfs_write(file, (const char __user *)data, size, offset);
 
 	set_fs(oldfs);
 	return ret;
 }
 
-uint32_t file_read(struct file *file, unsigned long long *offset,
+static uint32_t file_read(struct file *file, unsigned long long *offset,
 				unsigned char *data, unsigned int size)
 {
 	mm_segment_t oldfs;
 	uint32_t ret = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
-	ret = vfs_read(file, data, size, offset);
+	ret = vfs_read(file, (char __user *)data, size, offset);
 
 	set_fs(oldfs);
 
 	return ret;
 }
 
-uint32_t file_size(struct file *file)
+static uint32_t file_size(struct file *file)
 {
 	mm_segment_t oldfs;
 	uint32_t size = 0;
 
 	oldfs = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 
 	size = vfs_llseek(file, 0, SEEK_END);
 
@@ -135,7 +137,7 @@ static struct nvadsp_mbox rx_mbox;
  * w+ - open for reading and writing (overwrite file)			*
  * a+ - open for reading and writing (append if file exists)	*/
 
-void set_flags(union adspff_message_t *m, unsigned int *flags)
+static void set_flags(union adspff_message_t *m, unsigned int *flags)
 {
 	if (0 == strcmp(m->msg.payload.fopen_msg.modes, "r+"))
 		*flags = O_RDWR;
@@ -200,7 +202,7 @@ static struct file_struct *check_file_opened(const char *path)
 	return file;
 }
 
-void adspff_fopen(void)
+static void adspff_fopen(void)
 {
 	union adspff_message_t *message;
 	union adspff_message_t *msg_recv;
@@ -241,7 +243,7 @@ void adspff_fopen(void)
 
 		file->fp = file_open(
 			(const char *)message->msg.payload.fopen_msg.fname,
-			flags, S_IRWXU | S_IRWXG | S_IRWXO);
+			flags, 0777); /* S_IRWXU | S_IRWXG | S_IRWXO */
 
 		file->wr_offset = 0;
 		file->rd_offset = 0;
@@ -291,7 +293,7 @@ static inline unsigned int is_write_file(struct file_struct *file)
 	return file->flags & (O_WRONLY | O_RDWR);
 }
 
-void adspff_fclose(void)
+static void adspff_fclose(void)
 {
 	union adspff_message_t *message;
 	struct file_struct *file = NULL;
@@ -324,7 +326,7 @@ void adspff_fclose(void)
 	kfree(message);
 }
 
-void adspff_fsize(void)
+static void adspff_fsize(void)
 {
 	union adspff_message_t *msg_recv;
 	union adspff_message_t message;
@@ -364,7 +366,7 @@ void adspff_fsize(void)
 	kfree(msg_recv);
 }
 
-void adspff_fwrite(void)
+static void adspff_fwrite(void)
 {
 	union adspff_message_t message;
 	union adspff_message_t *msg_recv;
@@ -422,7 +424,7 @@ void adspff_fwrite(void)
 	kfree(msg_recv);
 }
 
-void adspff_fread(void)
+static void adspff_fread(void)
 {
 	union adspff_message_t *message;
 	union adspff_message_t *msg_recv;
@@ -511,10 +513,11 @@ send_ack:
 	kfree(msg_recv);
 }
 
-
+#if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 static const struct sched_param param = {
-	.sched_priority = MAX_RT_PRIO - 1,
+	.sched_priority = 1,
 };
+#endif
 static struct task_struct *adspff_kthread;
 static struct list_head adspff_kthread_msgq_head;
 static wait_queue_head_t  wait_queue;
@@ -591,7 +594,6 @@ static int adspff_msg_handler(uint32_t msg, void *data)
 
 	kmsg->msg_id = msg;
 	list_add_tail(&kmsg->list, &adspff_kthread_msgq_head);
-
 	wake_up(&wait_queue);
 	spin_unlock_irqrestore(&adspff_lock, flags);
 
@@ -619,6 +621,7 @@ static int adspff_set(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(adspff_fops, NULL, adspff_set, "%llu\n");
 
+#ifdef CONFIG_DEBUG_FS
 static int adspff_debugfs_init(struct nvadsp_drv_data *drv)
 {
 	int ret = -ENOMEM;
@@ -631,26 +634,31 @@ static int adspff_debugfs_init(struct nvadsp_drv_data *drv)
 		return ret;
 
 	d = debugfs_create_file(
-			"close_files", S_IWUGO, dir, NULL, &adspff_fops);
+			"close_files", 0200, /* S_IWUSR */
+			dir, NULL, &adspff_fops);
 	if (!d)
 		return ret;
 
 	return 0;
 }
+#endif
 
 int adspff_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	nvadsp_app_handle_t handle;
 	nvadsp_app_info_t *app_info;
+
+#ifdef CONFIG_DEBUG_FS
 	struct nvadsp_drv_data *drv = platform_get_drvdata(pdev);
+#endif
 
 	handle = nvadsp_app_load("adspff", "adspff.elf");
 	if (!handle)
-		return -1;
+		return -ENOENT;
 
 	app_info = nvadsp_app_init(handle, NULL);
-	if (IS_ERR_OR_NULL(app_info)) {
+	if (!app_info) {
 		pr_err("unable to init app adspff\n");
 		return -1;
 	}
@@ -667,9 +675,11 @@ int adspff_init(struct platform_device *pdev)
 
 	spin_lock_init(&adspff_lock);
 
+#ifdef CONFIG_DEBUG_FS
 	ret = adspff_debugfs_init(drv);
 	if (ret)
 		pr_warn("adspff: failed to create debugfs entry\n");
+#endif
 
 	INIT_LIST_HEAD(&adspff_kthread_msgq_head);
 	INIT_LIST_HEAD(&file_list);
@@ -678,7 +688,13 @@ int adspff_init(struct platform_device *pdev)
 	init_waitqueue_head(&wait_queue);
 	adspff_kthread = kthread_create(adspff_kthread_fn,
 		NULL, "adspp_kthread");
+
+#if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 	sched_setscheduler(adspff_kthread, SCHED_FIFO, &param);
+#else
+	sched_set_fifo_low(adspff_kthread);
+#endif
+
 	get_task_struct(adspff_kthread);
 	wake_up_process(adspff_kthread);
 

@@ -1,7 +1,7 @@
 config SCSI_UFSHCD_TEGRA
         tristate "Tegra UFS Controller support"
         depends on SCSI_UFSHCD
-        ---help---
+        help
         This selects the Tegra specific additions to UFSHCD platform driver.
         UFS host on TEGRA needs some vendor specific configuration before
         accessing the hardware which includes PHY configuration and vendor

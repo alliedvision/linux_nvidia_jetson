@@ -1,0 +1,59 @@
+From 2a914b9c36460abebb044736961f9291db4de166 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Mon, 27 Jan 2020 14:48:38 -0800
+Subject: [PATCH 424/830] ANDROID: Make incfs selftests pass
+X-NVConfidentiality: public
+
+Fixed incfs_test build errors
+Fixed Kconfig errors
+Readded .gitignore
+
+Test: With just enabling CONFIG_INCREMENTAL_FS, both defconfig and
+cuttlefish_defconfig build and incfs_test runs and passes
+
+Bug: 133435829
+Change-Id: Id3247ffcc63a095f66dcedf554017a06c5a9ce4a
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ fs/incfs/Kconfig                                     | 1 +
+ tools/testing/selftests/filesystems/incfs/.gitignore | 1 +
+ tools/testing/selftests/filesystems/incfs/Makefile   | 2 ++
+ 3 files changed, 4 insertions(+)
+ create mode 100644 tools/testing/selftests/filesystems/incfs/.gitignore
+
+diff --git a/fs/incfs/Kconfig b/fs/incfs/Kconfig
+index d860c07664c3..a655d599ea46 100644
+--- a/fs/incfs/Kconfig
++++ b/fs/incfs/Kconfig
+@@ -4,6 +4,7 @@ config INCREMENTAL_FS
+ 	select DECOMPRESS_LZ4
+ 	select CRC32
+ 	select CRYPTO
++	select CRYPTO_RSA
+ 	select CRYPTO_SHA256
+ 	select X509_CERTIFICATE_PARSER
+ 	select ASYMMETRIC_KEY_TYPE
+diff --git a/tools/testing/selftests/filesystems/incfs/.gitignore b/tools/testing/selftests/filesystems/incfs/.gitignore
+new file mode 100644
+index 000000000000..4cba9c219a92
+--- /dev/null
++++ b/tools/testing/selftests/filesystems/incfs/.gitignore
+@@ -0,0 +1 @@
++incfs_test
+\ No newline at end of file
+diff --git a/tools/testing/selftests/filesystems/incfs/Makefile b/tools/testing/selftests/filesystems/incfs/Makefile
+index 7cff78cf5131..1f13573d3617 100644
+--- a/tools/testing/selftests/filesystems/incfs/Makefile
++++ b/tools/testing/selftests/filesystems/incfs/Makefile
+@@ -5,6 +5,8 @@ CFLAGS += -I../../../../include/uapi/
+ CFLAGS += -I../../../../lib
+ 
+ EXTRA_SOURCES := utils.c
++CFLAGS += $(EXTRA_SOURCES)
++
+ TEST_GEN_PROGS := incfs_test
+ 
+ include ../../lib.mk
+-- 
+2.17.1
+

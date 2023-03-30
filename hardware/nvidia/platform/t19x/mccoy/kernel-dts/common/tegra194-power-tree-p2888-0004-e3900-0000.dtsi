@@ -43,12 +43,17 @@
 
 #if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 	xusb_padctl@3520000 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p2888_spmic_sd3>;
+		avdd-usb-supply = <&p2888_spmic_ldo5>;
+#else
 		pex_dvdd-supply = <&p2888_spmic_sd0>;
 		pex_hvdd-supply = <&p2888_spmic_sd1>;
 		pex_pll_hvdd-supply = <&p2888_spmic_sd1>;
 		vclamp_usb-supply = <&p2888_spmic_sd3>;
 		avdd_usb-supply = <&p2888_spmic_ldo5>;
 		avdd_pll_nvhs_eutmip-supply = <&p2888_spmic_sd1>;
+#endif
 		ports {
 			usb2-0 {
 				vbus-supply = <&battery_reg>;
@@ -75,7 +80,11 @@
 		vdd-fan-supply = <&e3900_atx_12v_cvb>;
 	};
 
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
 	bpmp_i2c {
+#endif
 		spmic@3c {
 			regulators {
 				sd0 {
@@ -173,5 +182,9 @@
 				};
 			};
 		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
 	};
+#endif
 };

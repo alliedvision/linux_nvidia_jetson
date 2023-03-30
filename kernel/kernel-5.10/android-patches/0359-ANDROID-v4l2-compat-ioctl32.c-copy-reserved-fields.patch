@@ -1,0 +1,82 @@
+From 5327deab3502759fbbca4ee00d746b62c80f9e0e Mon Sep 17 00:00:00 2001
+From: Maheshwar Ajja <majja@codeaurora.org>
+Date: Thu, 24 Oct 2019 13:08:09 -0700
+Subject: [PATCH 359/830] ANDROID: v4l2-compat-ioctl32.c: copy reserved fields
+X-NVConfidentiality: public
+
+Copy reserved fields along with other fields in v4l2_plane
+for userspace clients and drivers to use reserved fields
+when required.
+
+Bug: 143160749
+Change-Id: I0c7e7485961ab50188cda6ae81998473500bb07b
+Signed-off-by: Maheshwar Ajja <majja@codeaurora.org>
+---
+ drivers/media/v4l2-core/v4l2-compat-ioctl32.c | 13 +++++++++++--
+ include/uapi/linux/videodev2.h                |  5 ++++-
+ 2 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/v4l2-core/v4l2-compat-ioctl32.c b/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
+index a99e82ec9ab6..cd8927eabc33 100644
+--- a/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
++++ b/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
+@@ -465,6 +465,11 @@ struct v4l2_plane32 {
+ 		__s32		fd;
+ 	} m;
+ 	__u32			data_offset;
++	/*
++	 * few userspace clients and drivers use reserved fields
++	 * and it is up to them how these fields are used. v4l2
++	 * simply copy reserved fields between them.
++	 */
+ 	__u32			reserved[11];
+ };
+ 
+@@ -529,7 +534,9 @@ static int get_v4l2_plane32(struct v4l2_plane __user *p64,
+ 
+ 	if (copy_in_user(p64, p32, 2 * sizeof(__u32)) ||
+ 	    copy_in_user(&p64->data_offset, &p32->data_offset,
+-			 sizeof(p64->data_offset)))
++			 sizeof(p64->data_offset)) ||
++	    copy_in_user(p64->reserved, p32->reserved,
++			 sizeof(p64->reserved)))
+ 		return -EFAULT;
+ 
+ 	switch (memory) {
+@@ -561,7 +568,9 @@ static int put_v4l2_plane32(struct v4l2_plane __user *p64,
+ 
+ 	if (copy_in_user(p32, p64, 2 * sizeof(__u32)) ||
+ 	    copy_in_user(&p32->data_offset, &p64->data_offset,
+-			 sizeof(p64->data_offset)))
++			 sizeof(p64->data_offset)) ||
++	    copy_in_user(p32->reserved, p64->reserved,
++			 sizeof(p32->reserved)))
+ 		return -EFAULT;
+ 
+ 	switch (memory) {
+diff --git a/include/uapi/linux/videodev2.h b/include/uapi/linux/videodev2.h
+index f750b6cce0e8..162f0454ef3f 100644
+--- a/include/uapi/linux/videodev2.h
++++ b/include/uapi/linux/videodev2.h
+@@ -991,7 +991,9 @@ struct v4l2_requestbuffers {
+  *			descriptor associated with this plane
+  * @data_offset:	offset in the plane to the start of data; usually 0,
+  *			unless there is a header in front of the data
+- *
++ * @reserved:		few userspace clients and drivers use reserved fields
++ *			and it is up to them how these fields are used. v4l2
++ *			simply copy reserved fields between them.
+  * Multi-planar buffers consist of one or more planes, e.g. an YCbCr buffer
+  * with two planes can have one plane for Y, and another for interleaved CbCr
+  * components. Each plane can reside in a separate memory buffer, or even in
+@@ -1006,6 +1008,7 @@ struct v4l2_plane {
+ 		__s32		fd;
+ 	} m;
+ 	__u32			data_offset;
++	/* reserved fields used by few userspace clients and drivers */
+ 	__u32			reserved[11];
+ };
+ 
+-- 
+2.17.1
+

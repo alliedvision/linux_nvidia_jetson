@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,7 +22,12 @@
 #include <linux/io.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/tick.h>
 #include <linux/vmalloc.h>
 #include <linux/syscore_ops.h>
@@ -93,24 +98,6 @@ static int tegra186_timer_set_periodic(struct clock_event_device *evt)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
-static void tegra186_timer_set_mode(enum clock_event_mode mode,
-				    struct clock_event_device *evt)
-{
-	switch (mode) {
-	case CLOCK_EVT_MODE_PERIODIC:
-		tegra186_timer_set_periodic(evt);
-		break;
-	case CLOCK_EVT_MODE_ONESHOT:
-	case CLOCK_EVT_MODE_UNUSED:
-	case CLOCK_EVT_MODE_SHUTDOWN:
-	case CLOCK_EVT_MODE_RESUME:
-		tegra186_timer_shutdown(evt);
-		break;
-	}
-}
-#endif
-
 static irqreturn_t tegra186_timer_isr(int irq, void *dev_id)
 {
 	struct tegra186_tmr *tmr;
@@ -175,27 +162,6 @@ static int tegra186_timer_suspend(void)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
-static int tegra186_timer_cpu_notify(struct notifier_block *self,
-				     unsigned long action, void *hcpu)
-{
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_STARTING:
-		tegra186_timer_setup(smp_processor_id());
-		break;
-	case CPU_DYING:
-		tegra186_timer_stop(smp_processor_id());
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block tegra186_timer_cpu_nb = {
-	.notifier_call = tegra186_timer_cpu_notify,
-};
-#endif
-
 static void tegra186_timer_resume(void)
 {
 	int cpu;
@@ -220,7 +186,7 @@ static struct syscore_ops tegra186_timer_syscore_ops = {
 	.resume = tegra186_timer_resume,
 };
 
-static void __init tegra186_timer_init(struct device_node *np)
+static int __init tegra186_timer_init(struct device_node *np)
 {
 	int cpu;
 	struct tegra186_tmr *tmr;
@@ -276,14 +242,11 @@ static void __init tegra186_timer_init(struct device_node *np)
 		tmr->evt.features = CLOCK_EVT_FEAT_PERIODIC |
 			CLOCK_EVT_FEAT_ONESHOT;
 		tmr->evt.set_next_event     = tegra186_timer_set_next_event;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
-		tmr->evt.set_mode = tegra186_timer_set_mode;
-#else
 		tmr->evt.set_state_shutdown = tegra186_timer_shutdown;
 		tmr->evt.set_state_periodic = tegra186_timer_set_periodic;
 		tmr->evt.set_state_oneshot  = tegra186_timer_shutdown;
 		tmr->evt.tick_resume        = tegra186_timer_shutdown;
-#endif
+
 		/* want to be preferred over arch timers */
 		tmr->evt.rating = 460;
 		irq_set_status_flags(tmr->evt.irq, IRQ_NOAUTOEN | IRQ_PER_CPU);
@@ -297,33 +260,19 @@ static void __init tegra186_timer_init(struct device_node *np)
 		tmr_index++;
 	}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
-	/* boot cpu is online */
-	tegra186_timer_setup(0);
-
-	if (register_cpu_notifier(&tegra186_timer_cpu_nb)) {
-		pr_err("%s: cannot setup CPU notifier\n", __func__);
-		BUG();
-	}
-#else
 	cpuhp_setup_state(CPUHP_AP_TEGRA_TIMER_STARTING,
 			  "AP_TEGRA_TIMER_STARTING", tegra186_timer_setup,
 			  tegra186_timer_stop);
-#endif
 
 	register_syscore_ops(&tegra186_timer_syscore_ops);
-}
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0)
-#define tegra186_timer_init_func tegra186_timer_init
-#else
-static int __init tegra186_timer_init_ret(struct device_node *np)
-{
-	tegra186_timer_init(np);
 	return 0;
 }
-#define tegra186_timer_init_func tegra186_timer_init_ret
-#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 CLOCKSOURCE_OF_DECLARE(tegra186_timer, "nvidia,tegra186-timer",
-		       tegra186_timer_init_func);
+		       tegra186_timer_init);
+#else
+TIMER_OF_DECLARE(tegra186_timer, "nvidia,tegra186-timer",
+		       tegra186_timer_init);
+#endif

@@ -1,7 +1,7 @@
 /*
  * eventlib.c
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,7 +29,9 @@
 
 #include "eventlib.h"
 
-#define KEVENTLIB_VERSION		"0.2"
+#define KEVENTLIB_VER		"0.3"
+#define KEVENTLIB_VERSION	KEVENTLIB_VER "." \
+				__stringify(EVENTLIB_CTX_VERSION)
 
 #define EVENTLIB_SYSFS_DIR_NAME		"eventlib"
 #define EVENTLIB_SYSFS_TEST_FILE_NAME	"test"

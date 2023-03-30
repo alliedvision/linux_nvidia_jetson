@@ -1,0 +1,45 @@
+From e5667b5c753e812dc18496314525eebd861bb239 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 23 Dec 2019 10:45:42 -0800
+Subject: [PATCH 607/830] ANDROID: gki_defconfig: Disable TRANSPARENT_HUGEPAGE
+X-NVConfidentiality: public
+
+Fix conflict between jemalloc/scudo and MADV_NOHUGEPAGE by disabling the
+transparent hugepage support. It has also been suggested that this
+feature can make VM behavior less predictable.
+
+Bug: 131119917
+Change-Id: I17556838fbf1f893e26c5658ee95b4e3b16b10ad
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 1bd559397f02..ca3ace1f559a 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -84,7 +84,6 @@ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=m
+ CONFIG_MEMORY_HOTPLUG=y
+-CONFIG_TRANSPARENT_HUGEPAGE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+ CONFIG_ZSMALLOC=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index d3ce2fcc3cb3..05ea182a15b4 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -61,7 +61,6 @@ CONFIG_MODVERSIONS=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=m
+-CONFIG_TRANSPARENT_HUGEPAGE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+ CONFIG_ZSMALLOC=y
+-- 
+2.17.1
+

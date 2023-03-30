@@ -3,7 +3,7 @@ append_menu "I2C Hardware Bus support"
 config I2C_TEGRA_VI
         tristate "NVIDIA Tegra internal VII2C controller"
         depends on ARCH_TEGRA
-        default y
+        default n
         select I2C_ALGOBIT
         help
           If you say yes to this option, support will be included for the
@@ -25,6 +25,15 @@ config I2C_BPMP_TEGRA
 	  This driver is a downstream version and there is a newer variant
 	  available in modern kernels.
 
+config I2C_NVVRS11
+	tristate "Nvidia's VRS11: High Current Voltage Regulator"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+		Say yes to add Linux userspace sysfs nodes to read CPU/GPU/CV/SOC
+		High Current Voltage regulators (VRS11) voltage, current and power.
+
 config I2C_TEGRA_CAMRTC
         bool "Tegra I2C Camera RTCPU driver"
         depends on TEGRA_CAMERA_RTCPU
@@ -45,6 +54,17 @@ config I2C_TEGRA_HV
           Client driver is written to communicate with I2C server
           partition by using IVC (Inter VM Commuication) framework.
           IVC support is a prerequisite for this driver.
+
+config I2C_TEGRA_SLAVE
+	tristate "NVIDIA Tegra internal I2C slave controller"
+	depends on ARCH_TEGRA
+	select I2C_SLAVE
+	help
+	  If you say yes to this option, support will be included for the
+	  I2C slave controller embedded in NVIDIA Tegra SOCs.
+
+	  This driver supports byte mode where for byte read/write interrupt
+	  is generated.
 
 config I2C_TEGRA194_SLAVE
 	tristate "NVIDIA Tegra194 internal I2C slave controller"

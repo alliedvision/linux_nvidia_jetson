@@ -41,10 +41,6 @@ config SND_SOC_TEGRA186_ASRC_WAR
 	depends on SND_SOC_TEGRA186_ASRC_ALT
 	depends on SND_SOC_TEGRA186_ARAD_WAR
 
-config TEGRA186_ASRC_INT_CLEAR_WAR
-	def_bool y
-	depends on SND_SOC_TEGRA186_ASRC_ALT
-
 config SND_SOC_TEGRA_ALT
 	tristate "Alternative DAPM-based SoC audio support for the Tegra System-on-Chip"
 	depends on ARCH_TEGRA

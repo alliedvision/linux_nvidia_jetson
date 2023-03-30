@@ -1,0 +1,27 @@
+NVIDIA gosmem carveout
+-----------------------
+"gosmem" carveout is reserved memory used for allocating "grid of
+semaphore", GoS. GoS is used by CV clients, pva, dla, vi and isp
+to allocate/modify bunch of semaphore values on one go.
+This imrpoves perf.
+
+This is child node of upstream /reserved-memory node.
+It's used for OS to exclude the memory region for normal usage.
+
+Required properties:
+- compatible: "nvidia,gosmem";
+- no-map: CPU can't map the memory for Rw
+- cvdevs: CV(Compute Vision) clients who can access the gosmem carveout
+
+Rest of the properties are common properties defined under /reserved-memory node Documentation
+
+Example:
+--------
+	gos_reserved: grid-of-semaphores {
+		compatible = "nvidia,gosmem";
+		size = <0 0x6000>;
+		alignment = <0 0x1000>;
+		no-map;
+		status = "disabled";
+		cvdevs = <&nvdla0 &nvdla1 &pva0 &pva1 &vi_thi &isp_thi>;
+	};

@@ -1,0 +1,61 @@
+From 2818f3ef2e2a254be7510cbff2e6ed7fd858dc4f Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 15 Nov 2019 23:32:07 +0000
+Subject: [PATCH 262/830] ANDROID: ion: Fix buffer_lock mutex initialization
+X-NVConfidentiality: public
+
+Running with lockdep, I saw:
+
+[   95.326037] DEBUG_LOCKS_WARN_ON(lock->magic != lock)
+[   95.326067] WARNING: CPU: 6 PID: 814 at kernel/locking/mutex.c:938 __mutex_lock+0x608/0x8d8
+[   95.339515] Modules linked in: xhci_plat_hcd xhci_pci xhci_hcd ufs_qcom syscon_reboot_mode spmi_pmic_arb snd_soc_hdmi_codec smsm smem sdhci_msm sdhci_pltfm sdhci rf
+[   95.405115] CPU: 6 PID: 814 Comm: NDK MediaCodec_ Tainted: G W         5.4.0-rc7-mainline-00568-gd48a35356edb #1095
+[   95.416246] Hardware name: Thundercomm Dragonboard 845c (DT)
+[   95.421960] pstate: 60400005 (nZCv daif +PAN -UAO)
+[   95.426806] pc : __mutex_lock+0x608/0x8d8
+[   95.430868] lr : __mutex_lock+0x608/0x8d8
+[   95.434933] sp : ffffffc0133c3a90
+...
+[   95.518865] Call trace:
+[   95.521354]  __mutex_lock+0x608/0x8d8
+[   95.525059]  mutex_lock_nested+0x3c/0x50
+[   95.529070]  ion_buffer_alloc+0x230/0x330
+[   95.533136]  ion_dmabuf_alloc+0x6c/0xf8
+[   95.537034]  ion_ioctl+0x220/0x418
+[   95.540622]  do_vfs_ioctl+0xc4/0xa20
+[   95.544255]  ksys_ioctl+0x8c/0xa0
+[   95.547841]  __arm64_sys_ioctl+0x28/0x38
+[   95.551850]  el0_svc_common.constprop.2+0x7c/0x198
+[   95.556693]  el0_svc_handler+0x80/0xa0
+[   95.560495]  el0_svc+0x8/0xc
+[   95.563430] irq event stamp: 7881
+[   95.567894] hardirqs last  enabled at (7881): [<ffffffd0d1edfc78>] __slab_alloc.isra.83.constprop.90+0x80/0xc8
+[   95.578008] hardirqs last disabled at (7880): [<ffffffd0d1edfc3c>] __slab_alloc.isra.83.constprop.90+0x44/0xc8
+[   95.588098] softirqs last  enabled at (7780): [<ffffffd0d1c820bc>] __do_softirq+0x49c/0x608
+[   95.596529] softirqs last disabled at (7771): [<ffffffd0d1cc1df8>] irq_exit+0x140/0x148
+[   95.604613] ---[ end trace 206552022d1ff2b8 ]---
+
+After digging around, I realized the ion_device buffer_lock
+isn't being properly initialized. So this patch corrects that.
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: Id3381006b23c370f90a7e5efd6efe5448ebe87c5
+---
+ drivers/staging/android/ion/ion.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index d6dab39d9609..7d54a1975b87 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -422,6 +422,7 @@ static int ion_device_create(void)
+ 
+ 	idev->debug_root = debugfs_create_dir("ion", NULL);
+ 	init_rwsem(&idev->lock);
++	mutex_init(&idev->buffer_lock);
+ 	plist_head_init(&idev->heaps);
+ 	internal_dev = idev;
+ 	return 0;
+-- 
+2.17.1
+

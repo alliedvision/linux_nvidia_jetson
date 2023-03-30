@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,451 +53,125 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_trim_gm20b_h_
-#define _hw_trim_gm20b_h_
+#ifndef NVGPU_HW_TRIM_GM20B_H
+#define NVGPU_HW_TRIM_GM20B_H
 
-static inline u32 trim_sys_gpcpll_cfg_r(void)
-{
-	return 0x00137000U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enable_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enable_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enable_no_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enable_yes_f(void)
-{
-	return 0x1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_iddq_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_iddq_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_iddq_power_on_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 trim_sys_gpcpll_cfg_sync_mode_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 trim_sys_gpcpll_cfg_sync_mode_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_sync_mode_enable_f(void)
-{
-	return 0x4U;
-}
-static inline u32 trim_sys_gpcpll_cfg_sync_mode_disable_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enb_lckdet_m(void)
-{
-	return 0x1U << 4U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enb_lckdet_power_on_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpcpll_cfg_enb_lckdet_power_off_f(void)
-{
-	return 0x10U;
-}
-static inline u32 trim_sys_gpcpll_cfg_pll_lock_v(u32 r)
-{
-	return (r >> 17U) & 0x1U;
-}
-static inline u32 trim_sys_gpcpll_cfg_pll_lock_true_f(void)
-{
-	return 0x20000U;
-}
-static inline u32 trim_sys_gpcpll_coeff_r(void)
-{
-	return 0x00137004U;
-}
-static inline u32 trim_sys_gpcpll_coeff_mdiv_f(u32 v)
-{
-	return (v & 0xffU) << 0U;
-}
-static inline u32 trim_sys_gpcpll_coeff_mdiv_m(void)
-{
-	return 0xffU << 0U;
-}
-static inline u32 trim_sys_gpcpll_coeff_mdiv_v(u32 r)
-{
-	return (r >> 0U) & 0xffU;
-}
-static inline u32 trim_sys_gpcpll_coeff_ndiv_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 trim_sys_gpcpll_coeff_ndiv_m(void)
-{
-	return 0xffU << 8U;
-}
-static inline u32 trim_sys_gpcpll_coeff_ndiv_v(u32 r)
-{
-	return (r >> 8U) & 0xffU;
-}
-static inline u32 trim_sys_gpcpll_coeff_pldiv_f(u32 v)
-{
-	return (v & 0x3fU) << 16U;
-}
-static inline u32 trim_sys_gpcpll_coeff_pldiv_m(void)
-{
-	return 0x3fU << 16U;
-}
-static inline u32 trim_sys_gpcpll_coeff_pldiv_v(u32 r)
-{
-	return (r >> 16U) & 0x3fU;
-}
-static inline u32 trim_sys_sel_vco_r(void)
-{
-	return 0x00137100U;
-}
-static inline u32 trim_sys_sel_vco_gpc2clk_out_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 trim_sys_sel_vco_gpc2clk_out_init_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 trim_sys_sel_vco_gpc2clk_out_init_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_sel_vco_gpc2clk_out_bypass_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_sel_vco_gpc2clk_out_vco_f(void)
-{
-	return 0x1U;
-}
-static inline u32 trim_sys_gpc2clk_out_r(void)
-{
-	return 0x00137250U;
-}
-static inline u32 trim_sys_gpc2clk_out_bypdiv_s(void)
-{
-	return 6U;
-}
-static inline u32 trim_sys_gpc2clk_out_bypdiv_f(u32 v)
-{
-	return (v & 0x3fU) << 0U;
-}
-static inline u32 trim_sys_gpc2clk_out_bypdiv_m(void)
-{
-	return 0x3fU << 0U;
-}
-static inline u32 trim_sys_gpc2clk_out_bypdiv_v(u32 r)
-{
-	return (r >> 0U) & 0x3fU;
-}
-static inline u32 trim_sys_gpc2clk_out_bypdiv_by31_f(void)
-{
-	return 0x3cU;
-}
-static inline u32 trim_sys_gpc2clk_out_vcodiv_s(void)
-{
-	return 6U;
-}
-static inline u32 trim_sys_gpc2clk_out_vcodiv_f(u32 v)
-{
-	return (v & 0x3fU) << 8U;
-}
-static inline u32 trim_sys_gpc2clk_out_vcodiv_m(void)
-{
-	return 0x3fU << 8U;
-}
-static inline u32 trim_sys_gpc2clk_out_vcodiv_v(u32 r)
-{
-	return (r >> 8U) & 0x3fU;
-}
-static inline u32 trim_sys_gpc2clk_out_vcodiv_by1_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpc2clk_out_sdiv14_m(void)
-{
-	return 0x1U << 31U;
-}
-static inline u32 trim_sys_gpc2clk_out_sdiv14_indiv4_mode_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cfg_r(u32 i)
-{
-	return 0x00134124U + i*512U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cfg_noofipclks_f(u32 v)
-{
-	return (v & 0x3fffU) << 0U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cfg_write_en_asserted_f(void)
-{
-	return 0x10000U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cfg_enable_asserted_f(void)
-{
-	return 0x100000U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cfg_reset_asserted_f(void)
-{
-	return 0x1000000U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cnt_r(u32 i)
-{
-	return 0x00134128U + i*512U;
-}
-static inline u32 trim_gpc_clk_cntr_ncgpcclk_cnt_value_v(u32 r)
-{
-	return (r >> 0U) & 0xfffffU;
-}
-static inline u32 trim_sys_gpcpll_cfg2_r(void)
-{
-	return 0x0013700cU;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_f(u32 v)
-{
-	return (v & 0xffU) << 0U;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_m(void)
-{
-	return 0xffU << 0U;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_v(u32 r)
-{
-	return (r >> 0U) & 0xffU;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_new_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_new_m(void)
-{
-	return 0xffU << 8U;
-}
-static inline u32 trim_sys_gpcpll_cfg2_sdm_din_new_v(u32 r)
-{
-	return (r >> 8U) & 0xffU;
-}
-static inline u32 trim_sys_gpcpll_cfg2_pll_stepa_f(u32 v)
-{
-	return (v & 0xffU) << 24U;
-}
-static inline u32 trim_sys_gpcpll_cfg2_pll_stepa_m(void)
-{
-	return 0xffU << 24U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_r(void)
-{
-	return 0x00137018U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_vco_ctrl_f(u32 v)
-{
-	return (v & 0x1ffU) << 0U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_vco_ctrl_m(void)
-{
-	return 0x1ffU << 0U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_pll_stepb_f(u32 v)
-{
-	return (v & 0xffU) << 16U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_pll_stepb_m(void)
-{
-	return 0xffU << 16U;
-}
-static inline u32 trim_sys_gpcpll_cfg3_dfs_testout_v(u32 r)
-{
-	return (r >> 24U) & 0x7fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_r(void)
-{
-	return 0x00137010U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_coeff_f(u32 v)
-{
-	return (v & 0x7fU) << 0U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_coeff_m(void)
-{
-	return 0x7fU << 0U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_coeff_v(u32 r)
-{
-	return (r >> 0U) & 0x7fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_det_max_f(u32 v)
-{
-	return (v & 0x7fU) << 8U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_det_max_m(void)
-{
-	return 0x7fU << 8U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_det_max_v(u32 r)
-{
-	return (r >> 8U) & 0x7fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_dc_offset_f(u32 v)
-{
-	return (v & 0x3fU) << 16U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_dc_offset_m(void)
-{
-	return 0x3fU << 16U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_dfs_dc_offset_v(u32 r)
-{
-	return (r >> 16U) & 0x3fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_mode_m(void)
-{
-	return 0x1U << 28U;
-}
-static inline u32 trim_sys_gpcpll_dvfs0_mode_dvfspll_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_r(void)
-{
-	return 0x00137014U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_det_f(u32 v)
-{
-	return (v & 0x7fU) << 0U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_det_m(void)
-{
-	return 0x7fU << 0U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_det_v(u32 r)
-{
-	return (r >> 0U) & 0x7fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_strb_m(void)
-{
-	return 0x1U << 7U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_cal_f(u32 v)
-{
-	return (v & 0x7fU) << 8U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_cal_m(void)
-{
-	return 0x7fU << 8U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_cal_v(u32 r)
-{
-	return (r >> 8U) & 0x7fU;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ext_sel_m(void)
-{
-	return 0x1U << 15U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ctrl_f(u32 v)
-{
-	return (v & 0xfffU) << 16U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ctrl_m(void)
-{
-	return 0xfffU << 16U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_ctrl_v(u32 r)
-{
-	return (r >> 16U) & 0xfffU;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_en_sdm_m(void)
-{
-	return 0x1U << 28U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_en_dfs_m(void)
-{
-	return 0x1U << 29U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_en_dfs_cal_m(void)
-{
-	return 0x1U << 30U;
-}
-static inline u32 trim_sys_gpcpll_dvfs1_dfs_cal_done_v(u32 r)
-{
-	return (r >> 31U) & 0x1U;
-}
-static inline u32 trim_sys_gpcpll_dvfs2_r(void)
-{
-	return 0x00137020U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_r(void)
-{
-	return 0x0013701cU;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_m(void)
-{
-	return 0x1U << 22U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_yes_f(void)
-{
-	return 0x400000U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_no_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_en_dynramp_m(void)
-{
-	return 0x1U << 31U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_en_dynramp_yes_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 trim_sys_gpcpll_ndiv_slowdown_en_dynramp_no_f(void)
-{
-	return 0x0U;
-}
-static inline u32 trim_gpc_bcast_gpcpll_ndiv_slowdown_debug_r(void)
-{
-	return 0x001328a0U;
-}
-static inline u32 trim_gpc_bcast_gpcpll_ndiv_slowdown_debug_pll_dynramp_done_synced_v(u32 r)
-{
-	return (r >> 24U) & 0x1U;
-}
-static inline u32 trim_gpc_bcast_gpcpll_dvfs2_r(void)
-{
-	return 0x00132820U;
-}
-static inline u32 trim_sys_bypassctrl_r(void)
-{
-	return 0x00137340U;
-}
-static inline u32 trim_sys_bypassctrl_gpcpll_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 trim_sys_bypassctrl_gpcpll_bypassclk_f(void)
-{
-	return 0x1U;
-}
-static inline u32 trim_sys_bypassctrl_gpcpll_vco_f(void)
-{
-	return 0x0U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define trim_sys_gpcpll_cfg_r()                                    (0x00137000U)
+#define trim_sys_gpcpll_cfg_enable_m()                         (U32(0x1U) << 0U)
+#define trim_sys_gpcpll_cfg_enable_v(r)                     (((r) >> 0U) & 0x1U)
+#define trim_sys_gpcpll_cfg_enable_no_f()                                 (0x0U)
+#define trim_sys_gpcpll_cfg_enable_yes_f()                                (0x1U)
+#define trim_sys_gpcpll_cfg_iddq_m()                           (U32(0x1U) << 1U)
+#define trim_sys_gpcpll_cfg_iddq_v(r)                       (((r) >> 1U) & 0x1U)
+#define trim_sys_gpcpll_cfg_iddq_power_on_v()                      (0x00000000U)
+#define trim_sys_gpcpll_cfg_sync_mode_m()                      (U32(0x1U) << 2U)
+#define trim_sys_gpcpll_cfg_sync_mode_v(r)                  (((r) >> 2U) & 0x1U)
+#define trim_sys_gpcpll_cfg_sync_mode_enable_f()                          (0x4U)
+#define trim_sys_gpcpll_cfg_sync_mode_disable_f()                         (0x0U)
+#define trim_sys_gpcpll_cfg_enb_lckdet_m()                     (U32(0x1U) << 4U)
+#define trim_sys_gpcpll_cfg_enb_lckdet_power_on_f()                       (0x0U)
+#define trim_sys_gpcpll_cfg_enb_lckdet_power_off_f()                     (0x10U)
+#define trim_sys_gpcpll_cfg_pll_lock_v(r)                  (((r) >> 17U) & 0x1U)
+#define trim_sys_gpcpll_cfg_pll_lock_true_f()                         (0x20000U)
+#define trim_sys_gpcpll_coeff_r()                                  (0x00137004U)
+#define trim_sys_gpcpll_coeff_mdiv_f(v)                 ((U32(v) & 0xffU) << 0U)
+#define trim_sys_gpcpll_coeff_mdiv_m()                        (U32(0xffU) << 0U)
+#define trim_sys_gpcpll_coeff_mdiv_v(r)                    (((r) >> 0U) & 0xffU)
+#define trim_sys_gpcpll_coeff_ndiv_f(v)                 ((U32(v) & 0xffU) << 8U)
+#define trim_sys_gpcpll_coeff_ndiv_m()                        (U32(0xffU) << 8U)
+#define trim_sys_gpcpll_coeff_ndiv_v(r)                    (((r) >> 8U) & 0xffU)
+#define trim_sys_gpcpll_coeff_pldiv_f(v)               ((U32(v) & 0x3fU) << 16U)
+#define trim_sys_gpcpll_coeff_pldiv_m()                      (U32(0x3fU) << 16U)
+#define trim_sys_gpcpll_coeff_pldiv_v(r)                  (((r) >> 16U) & 0x3fU)
+#define trim_sys_sel_vco_r()                                       (0x00137100U)
+#define trim_sys_sel_vco_gpc2clk_out_m()                       (U32(0x1U) << 0U)
+#define trim_sys_sel_vco_gpc2clk_out_init_v()                      (0x00000000U)
+#define trim_sys_sel_vco_gpc2clk_out_init_f()                             (0x0U)
+#define trim_sys_sel_vco_gpc2clk_out_bypass_f()                           (0x0U)
+#define trim_sys_sel_vco_gpc2clk_out_vco_f()                              (0x1U)
+#define trim_sys_gpc2clk_out_r()                                   (0x00137250U)
+#define trim_sys_gpc2clk_out_bypdiv_s()                                     (6U)
+#define trim_sys_gpc2clk_out_bypdiv_f(v)                ((U32(v) & 0x3fU) << 0U)
+#define trim_sys_gpc2clk_out_bypdiv_m()                       (U32(0x3fU) << 0U)
+#define trim_sys_gpc2clk_out_bypdiv_v(r)                   (((r) >> 0U) & 0x3fU)
+#define trim_sys_gpc2clk_out_bypdiv_by31_f()                             (0x3cU)
+#define trim_sys_gpc2clk_out_vcodiv_s()                                     (6U)
+#define trim_sys_gpc2clk_out_vcodiv_f(v)                ((U32(v) & 0x3fU) << 8U)
+#define trim_sys_gpc2clk_out_vcodiv_m()                       (U32(0x3fU) << 8U)
+#define trim_sys_gpc2clk_out_vcodiv_v(r)                   (((r) >> 8U) & 0x3fU)
+#define trim_sys_gpc2clk_out_vcodiv_by1_f()                               (0x0U)
+#define trim_sys_gpc2clk_out_sdiv14_m()                       (U32(0x1U) << 31U)
+#define trim_sys_gpc2clk_out_sdiv14_indiv4_mode_f()                (0x80000000U)
+#define trim_gpc_clk_cntr_ncgpcclk_cfg_r(i)\
+		(nvgpu_safe_add_u32(0x00134124U, nvgpu_safe_mult_u32((i), 512U)))
+#define trim_gpc_clk_cntr_ncgpcclk_cfg_noofipclks_f(v)\
+				((U32(v) & 0x3fffU) << 0U)
+#define trim_gpc_clk_cntr_ncgpcclk_cfg_write_en_asserted_f()          (0x10000U)
+#define trim_gpc_clk_cntr_ncgpcclk_cfg_enable_asserted_f()           (0x100000U)
+#define trim_gpc_clk_cntr_ncgpcclk_cfg_reset_asserted_f()           (0x1000000U)
+#define trim_gpc_clk_cntr_ncgpcclk_cnt_r(i)\
+		(nvgpu_safe_add_u32(0x00134128U, nvgpu_safe_mult_u32((i), 512U)))
+#define trim_gpc_clk_cntr_ncgpcclk_cnt_value_v(r)       (((r) >> 0U) & 0xfffffU)
+#define trim_sys_gpcpll_cfg2_r()                                   (0x0013700cU)
+#define trim_sys_gpcpll_cfg2_sdm_din_f(v)               ((U32(v) & 0xffU) << 0U)
+#define trim_sys_gpcpll_cfg2_sdm_din_m()                      (U32(0xffU) << 0U)
+#define trim_sys_gpcpll_cfg2_sdm_din_v(r)                  (((r) >> 0U) & 0xffU)
+#define trim_sys_gpcpll_cfg2_sdm_din_new_f(v)           ((U32(v) & 0xffU) << 8U)
+#define trim_sys_gpcpll_cfg2_sdm_din_new_m()                  (U32(0xffU) << 8U)
+#define trim_sys_gpcpll_cfg2_sdm_din_new_v(r)              (((r) >> 8U) & 0xffU)
+#define trim_sys_gpcpll_cfg2_pll_stepa_f(v)            ((U32(v) & 0xffU) << 24U)
+#define trim_sys_gpcpll_cfg2_pll_stepa_m()                   (U32(0xffU) << 24U)
+#define trim_sys_gpcpll_cfg3_r()                                   (0x00137018U)
+#define trim_sys_gpcpll_cfg3_vco_ctrl_f(v)             ((U32(v) & 0x1ffU) << 0U)
+#define trim_sys_gpcpll_cfg3_vco_ctrl_m()                    (U32(0x1ffU) << 0U)
+#define trim_sys_gpcpll_cfg3_pll_stepb_f(v)            ((U32(v) & 0xffU) << 16U)
+#define trim_sys_gpcpll_cfg3_pll_stepb_m()                   (U32(0xffU) << 16U)
+#define trim_sys_gpcpll_cfg3_dfs_testout_v(r)             (((r) >> 24U) & 0x7fU)
+#define trim_sys_gpcpll_dvfs0_r()                                  (0x00137010U)
+#define trim_sys_gpcpll_dvfs0_dfs_coeff_f(v)            ((U32(v) & 0x7fU) << 0U)
+#define trim_sys_gpcpll_dvfs0_dfs_coeff_m()                   (U32(0x7fU) << 0U)
+#define trim_sys_gpcpll_dvfs0_dfs_coeff_v(r)               (((r) >> 0U) & 0x7fU)
+#define trim_sys_gpcpll_dvfs0_dfs_det_max_f(v)          ((U32(v) & 0x7fU) << 8U)
+#define trim_sys_gpcpll_dvfs0_dfs_det_max_m()                 (U32(0x7fU) << 8U)
+#define trim_sys_gpcpll_dvfs0_dfs_det_max_v(r)             (((r) >> 8U) & 0x7fU)
+#define trim_sys_gpcpll_dvfs0_dfs_dc_offset_f(v)       ((U32(v) & 0x3fU) << 16U)
+#define trim_sys_gpcpll_dvfs0_dfs_dc_offset_m()              (U32(0x3fU) << 16U)
+#define trim_sys_gpcpll_dvfs0_dfs_dc_offset_v(r)          (((r) >> 16U) & 0x3fU)
+#define trim_sys_gpcpll_dvfs0_mode_m()                        (U32(0x1U) << 28U)
+#define trim_sys_gpcpll_dvfs0_mode_dvfspll_f()                            (0x0U)
+#define trim_sys_gpcpll_dvfs1_r()                                  (0x00137014U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_det_f(v)          ((U32(v) & 0x7fU) << 0U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_det_m()                 (U32(0x7fU) << 0U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_det_v(r)             (((r) >> 0U) & 0x7fU)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_strb_m()                 (U32(0x1U) << 7U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_cal_f(v)          ((U32(v) & 0x7fU) << 8U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_cal_m()                 (U32(0x7fU) << 8U)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_cal_v(r)             (((r) >> 8U) & 0x7fU)
+#define trim_sys_gpcpll_dvfs1_dfs_ext_sel_m()                 (U32(0x1U) << 15U)
+#define trim_sys_gpcpll_dvfs1_dfs_ctrl_f(v)           ((U32(v) & 0xfffU) << 16U)
+#define trim_sys_gpcpll_dvfs1_dfs_ctrl_m()                  (U32(0xfffU) << 16U)
+#define trim_sys_gpcpll_dvfs1_dfs_ctrl_v(r)              (((r) >> 16U) & 0xfffU)
+#define trim_sys_gpcpll_dvfs1_en_sdm_m()                      (U32(0x1U) << 28U)
+#define trim_sys_gpcpll_dvfs1_en_dfs_m()                      (U32(0x1U) << 29U)
+#define trim_sys_gpcpll_dvfs1_en_dfs_cal_m()                  (U32(0x1U) << 30U)
+#define trim_sys_gpcpll_dvfs1_dfs_cal_done_v(r)            (((r) >> 31U) & 0x1U)
+#define trim_sys_gpcpll_dvfs2_r()                                  (0x00137020U)
+#define trim_sys_gpcpll_ndiv_slowdown_r()                          (0x0013701cU)
+#define trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_m()  (U32(0x1U) << 22U)
+#define trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_yes_f()     (0x400000U)
+#define trim_sys_gpcpll_ndiv_slowdown_slowdown_using_pll_no_f()           (0x0U)
+#define trim_sys_gpcpll_ndiv_slowdown_en_dynramp_m()          (U32(0x1U) << 31U)
+#define trim_sys_gpcpll_ndiv_slowdown_en_dynramp_yes_f()           (0x80000000U)
+#define trim_sys_gpcpll_ndiv_slowdown_en_dynramp_no_f()                   (0x0U)
+#define trim_gpc_bcast_gpcpll_ndiv_slowdown_debug_r()              (0x001328a0U)
+#define trim_gpc_bcast_gpcpll_ndiv_slowdown_debug_pll_dynramp_done_synced_v(r)\
+				(((r) >> 24U) & 0x1U)
+#define trim_gpc_bcast_gpcpll_dvfs2_r()                            (0x00132820U)
+#define trim_sys_bypassctrl_r()                                    (0x00137340U)
+#define trim_sys_bypassctrl_gpcpll_m()                         (U32(0x1U) << 0U)
+#define trim_sys_bypassctrl_gpcpll_bypassclk_f()                          (0x1U)
+#define trim_sys_bypassctrl_gpcpll_vco_f()                                (0x0U)
 #endif

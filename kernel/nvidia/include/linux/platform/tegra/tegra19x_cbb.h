@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -11,14 +11,161 @@
  * more details.
  */
 
-#include <linux/platform/tegra/tegra_cbb.h>
+#define  OFF_ERRLOGGER_0_ID_COREID_0            0x00000000
+#define  OFF_ERRLOGGER_0_ID_REVISIONID_0        0x00000004
+#define  OFF_ERRLOGGER_0_FAULTEN_0              0x00000008
+#define  OFF_ERRLOGGER_0_ERRVLD_0               0x0000000c
+#define  OFF_ERRLOGGER_0_ERRCLR_0               0x00000010
+#define  OFF_ERRLOGGER_0_ERRLOG0_0              0x00000014
+#define  OFF_ERRLOGGER_0_ERRLOG1_0              0x00000018
+#define  OFF_ERRLOGGER_0_RESERVED_00_0          0x0000001c
+#define  OFF_ERRLOGGER_0_ERRLOG3_0              0x00000020
+#define  OFF_ERRLOGGER_0_ERRLOG4_0              0x00000024
+#define  OFF_ERRLOGGER_0_ERRLOG5_0              0x00000028
+#define  OFF_ERRLOGGER_0_STALLEN_0              0x00000038
 
-extern int nvcvnas_busy(void);
-extern int nvcvnas_idle(void);
-extern int is_nvcvnas_probed(void);
-extern int nvcvnas_busy_no_rpm(void);
-extern int nvcvnas_idle_no_rpm(void);
-extern int is_nvcvnas_clk_enabled(void);
+#define  OFF_ERRLOGGER_1_ID_COREID_0            0x00000080
+#define  OFF_ERRLOGGER_1_ID_REVISIONID_0        0x00000084
+#define  OFF_ERRLOGGER_1_FAULTEN_0              0x00000088
+#define  OFF_ERRLOGGER_1_ERRVLD_0               0x0000008c
+#define  OFF_ERRLOGGER_1_ERRCLR_0               0x00000090
+#define  OFF_ERRLOGGER_1_ERRLOG0_0              0x00000094
+#define  OFF_ERRLOGGER_1_ERRLOG1_0              0x00000098
+#define  OFF_ERRLOGGER_1_RESERVED_00_0          0x0000009c
+#define  OFF_ERRLOGGER_1_ERRLOG3_0              0x000000A0
+#define  OFF_ERRLOGGER_1_ERRLOG4_0              0x000000A4
+#define  OFF_ERRLOGGER_1_ERRLOG5_0              0x000000A8
+#define  OFF_ERRLOGGER_1_STALLEN_0              0x000000b8
+
+#define  OFF_ERRLOGGER_2_ID_COREID_0            0x00000100
+#define  OFF_ERRLOGGER_2_ID_REVISIONID_0        0x00000104
+#define  OFF_ERRLOGGER_2_FAULTEN_0              0x00000108
+#define  OFF_ERRLOGGER_2_ERRVLD_0               0x0000010c
+#define  OFF_ERRLOGGER_2_ERRCLR_0               0x00000110
+#define  OFF_ERRLOGGER_2_ERRLOG0_0              0x00000114
+#define  OFF_ERRLOGGER_2_ERRLOG1_0              0x00000118
+#define  OFF_ERRLOGGER_2_RESERVED_00_0          0x0000011c
+#define  OFF_ERRLOGGER_2_ERRLOG3_0              0x00000120
+#define  OFF_ERRLOGGER_2_ERRLOG4_0              0x00000124
+#define  OFF_ERRLOGGER_2_ERRLOG5_0              0x00000128
+#define  OFF_ERRLOGGER_2_STALLEN_0              0x00000138
+
+#define get_noc_errlog_subfield(_x_, _msb_, _lsb_) \
+	CBB_EXTRACT(_x_, _msb_, _lsb_)
+
+struct tegra_noc_packet_header {
+	bool lock;   // [0]
+	u8   opc;    // [4:1]
+	u8   errcode;// [10:8]= RD, RDW, RDL, RDX, WR, WRW, WRC, PRE, URG
+	u16  len1;   // [27:16]
+	bool format; // [31]  = 1 -> FlexNoC versions 2.7 & above
+};
+
+struct tegra_lookup_noc_aperture {
+	u8  initflow;
+	u8  targflow;
+	u8  targ_subrange;
+	u8  init_mapping;
+	u32 init_localaddress;
+	u8  targ_mapping;
+	u32 targ_localaddress;
+	u16 seqid;
+};
+
+struct tegra_noc_userbits {
+	u8  axcache;
+	u8  non_mod;
+	u8  axprot;
+	u8  falconsec;
+	u8  grpsec;
+	u8  vqc;
+	u8  mstr_id;
+	u8  axi_id;
+};
+
+struct tegra_cbb_errlog_record {
+	struct list_head node;
+	struct serr_hook *callback;
+	const char *name;
+	phys_addr_t start;
+	void __iomem *vaddr;
+	int num_intr;
+	int noc_secure_irq;
+	int noc_nonsecure_irq;
+	u32 errlog0;
+	u32 errlog1;
+	u32 errlog2;
+	u32 errlog3;
+	u32 errlog4;
+	u32 errlog5;
+	u32 errlog6;	//RESERVED
+	u32 errlog7;	//RESERVED
+	u32 errlog8;	//RESERVED
+	void (*tegra_noc_parse_routeid)(struct tegra_lookup_noc_aperture *, u64);
+	void (*tegra_noc_parse_userbits)(struct tegra_noc_userbits *, u64);
+	struct tegra_lookup_noc_aperture *noc_aperture;
+	int  max_noc_aperture;
+	char **tegra_noc_routeid_initflow;
+	char **tegra_noc_routeid_targflow;
+	char **tegra_cbb_master_id;
+	bool is_ax2apb_bridge_connected;
+	void __iomem **axi2abp_bases;
+	int  apb_bridge_cnt;
+	bool erd_mask_inband_err;
+	bool is_clk_rst;
+	int (*is_cluster_probed)(void);
+	int (*is_clk_enabled)(void);
+	int (*tegra_noc_en_clk_rpm)(void);
+	int (*tegra_noc_dis_clk_rpm)(void);
+	int (*tegra_noc_en_clk_no_rpm)(void);
+	int (*tegra_noc_dis_clk_no_rpm)(void);
+};
+
+static struct tegra_noc_errors tegra194_noc_errors[] = {
+	{.errcode = "SLV",
+	 .src = "Target",
+	 .type = "Target error detected by CBB slave"
+	},
+	{.errcode = "DEC",
+	 .src = "Initiator NIU",
+	 .type = "Address decode error"
+	},
+	{.errcode = "UNS",
+	 .src = "Target NIU",
+	 .type = "Unsupported request. Not a valid transaction"
+	},
+	{.errcode = "DISC",                     /* Not Supported by CBB */
+	 .src = "Power Disconnect",
+	 .type = "Disconnected target or domain"
+	},
+	{.errcode = "SEC",
+	 .src = "Initiator NIU or Firewall",
+	 .type = "Security violation. Firewall error"
+	},
+	{.errcode = "HIDE",                     /* Not Supported by CBB */
+	 .src = "Firewall",
+	 .type = "Hidden security violation, reported as OK to initiator"
+	},
+	{.errcode = "TMO",
+	 .src = "Target NIU",
+	 .type = "Target time-out error"
+	},
+	{.errcode = "RSV",
+	 .src = "None",
+	 .type = "Reserved"
+	}
+};
+
+static char *tegra194_noc_opc_trantype[] = {
+	"RD  - Read, Incrementing",
+	"RDW - Read, Wrap",                     /* Not Supported by CBB */
+	"RDX - Exclusive Read",                 /* Not Supported by CBB */
+	"RDL - Linked Read",                    /* Not Supported by CBB */
+	"WR  - Write, Incrementing",
+	"WRW - Write, Wrap",                    /* Not Supported by CBB */
+	"WRC - Exclusive Write",                /* Not Supported by CBB */
+	"PRE - Preamble Sequence for Fixed Accesses"
+};
 
 static char *t194_master_id[] = {
 	"CCPLEX",                               /* 0x1 */
@@ -36,6 +183,30 @@ static char *t194_master_id[] = {
 	"NVDEC",                                /* 0xd */
 	"RCE",                                  /* 0xe */
 	"NVDEC1"                                /* 0xf */
+};
+
+static char *tegra194_axi2apb_errors[] = {
+	"SFIFONE - Status FIFO Not Empty interrupt",
+	"SFIFOF - Status FIFO Full interrupt",
+	"TIM - Timer(Timeout) interrupt",
+	"SLV - SLVERR interrupt",
+	"NULL",
+	"ERBF - Early response buffer Full interrupt",
+	"NULL",
+	"RDFIFOF - Read Response FIFO Full interrupt",
+	"WRFIFOF - Write Response FIFO Full interrupt",
+	"CH0DFIFOF - Ch0 Data FIFO Full interrupt",
+	"CH1DFIFOF - Ch1 Data FIFO Full interrupt",
+	"CH2DFIFOF - Ch2 Data FIFO Full interrupt",
+	"UAT - Unsupported alignment type error",
+	"UBS - Unsupported burst size error",
+	"UBE - Unsupported Byte Enable error",
+	"UBT - Unsupported burst type error",
+	"BFS - Block Firewall security error",
+	"ARFS - Address Range Firewall security error",
+	"CH0RFIFOF - Ch0 Request FIFO Full interrupt",
+	"CH1RFIFOF - Ch1 Request FIFO Full interrupt",
+	"CH2RFIFOF - Ch2 Request FIFO Full interrupt"
 };
 
 /*
@@ -963,7 +1134,6 @@ static struct tegra_lookup_noc_aperture t194_aonnoc_aperture_lookup[] = {
 	{ 0x3, 0x38, 0x1,  0,	0x0,  0,  0x0 },
 	{ 0x3, 0x39, 0x0,  0,	0xc280000,  0,  0x0 }
 };
-
 
 
 /*

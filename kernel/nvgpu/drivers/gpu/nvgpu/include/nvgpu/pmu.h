@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,174 +24,197 @@
 #define NVGPU_PMU_H
 
 #include <nvgpu/kmem.h>
-#include <nvgpu/nvgpu_mem.h>
 #include <nvgpu/allocator.h>
 #include <nvgpu/lock.h>
-#include <nvgpu/cond.h>
-#include <nvgpu/thread.h>
 #include <nvgpu/nvgpu_common.h>
+#include <nvgpu/nvgpu_mem.h>
 #include <nvgpu/flcnif_cmn.h>
-#include <nvgpu/pmuif/nvgpu_gpmu_cmdif.h>
 #include <nvgpu/falcon.h>
+#include <nvgpu/timers.h>
+#ifdef CONFIG_NVGPU_LS_PMU
+#include <nvgpu/pmu/queue.h>
+#include <nvgpu/pmu/msg.h>
+#include <nvgpu/pmu/fw.h>
+#include <nvgpu/pmu/volt.h>
 
+struct pmu_sequences;
+struct pmu_mutexes;
+struct nvgpu_pmu_lsfm;
+struct nvgpu_pmu_super_surface;
+struct nvgpu_pmu_pg;
+struct nvgpu_pmu_perfmon;
+struct nvgpu_clk_pmupstate;
+#endif
+
+/**
+ * @file
+ * @page unit-PMU Unit PMU(Programmable Management Unit)
+ *
+ * Acronyms
+ * ========
+ * PMU    - Programmable Management Unit
+ * ACR    - Access Controlled Regions
+ * FALCON - Fast Logic Controller
+ * RTOS   - Real time operating system
+ * NS     - Non Secure
+ * LS     - Light Secure
+ * HS     - Heavy Secure
+ * VM     - virtual memory
+ *
+ * Overview
+ * ========
+ *
+ * The PMU unit is responsible for managing the PMU Engine on the GPU & the PMU
+ * RTOS ucode. The PMU unit helps to load different ucode's(iGPU-ACR & PMU RTOS)
+ * onto PMU Engine Falcon at different stages of GPU boot process. Once PMU RTOS
+ * is up then PMU Engine h/w is controlled by both PMU unit as well as PMU RTOS
+ * executing on PMU Engine Flacon. In the absence of PMU RTOS support only PMU
+ * unit controls PMU Engine by supporting below listed h/w functionalities in
+ * the PMU Engine h/w management section.
+ *
+ * Below are the two features supported by the PMU unit
+ *
+ * - The PMU Engine h/w.
+ * - The PMU RTOS.
+ *
+ * The PMU Engine h/w management
+ * -----------------------------
+ * The PMU unit is responsible for below PMU Engine h/w related functionalities:
+ *   - Reset & enable PMU Engine to bring into good known state.
+ *   - PMU Engine clock gating support configuration.
+ *   - PMU Engine interrupt configuration & handling.
+ *   - PMU Engine H/W error detection, handling & reporting to 3LSS.
+ *   - Functions to control supported h/w functionalities.
+ *
+ * The PMU RTOS management
+ * -----------------------
+ * The PMU unit is responsible for loading PMU RTOS onto PMU Engine Falcon and
+ * bootstrap. In non-secure mode(NS PMU RTOS), load & bootstrap is handled by
+ * PMU unit. In secure mode(LS PMU RTOS), signature verification followed by
+ * loading of ucode onto PMU Engine falcon is handled by HS ACR ucode and
+ * bootstrap is done by PMU unit. Upon PMU RTOS bootup, PMU RTOS sends init
+ * message to PMU unit to ACK PMU RTOS is up & ready to accept inputs from PMU
+ * unit. PMU unit decodes init message to establish communication with PMU RTOS
+ * by creating command & message queues as per init message parameters. Upon
+ * successful communication establishment, its PMU sub-unit responsible to
+ * communicate with PMU RTOS to get its tasks executed as required.
+ *
+ * Data Structures
+ * ===============
+ *
+ * The major data structures exposed by PMU unit in nvgpu is:
+ *
+ *   + struct nvgpu_pmu
+ *       The data struct holds PMU Engine h/w properties, PMU RTOS supporting
+ *       data structs, sub-unit's data structs & ops of the PMU unit which will
+ *       be populated based on the detected chip.
+ *
+ * Static Design
+ * =============
+ *
+ * PMU Initialization
+ * ------------------
+ *
+ * PMU unit initialization happens as part of early NVGPU poweron sequence by
+ * calling nvgpu_pmu_early_init(). At PMU init stage memory gets allocated for
+ * PMU unit's data struct #struct nvgpu_pmu. The data struct holds PMU Engine
+ * h/w properties, PMU RTOS supporting data structs, sub-unit's data structs &
+ * ops of the PMU unit which will be populated based on the detected chip.
+ *
+ * PMU Teardown
+ * ------------
+ *
+ * The function nvgpu_pmu_remove_support() is called from nvgpu_remove() as part
+ * of poweroff sequence to clear and free the memory space allocated for PMU
+ * unit.
+ *
+ * External APIs
+ * -------------
+ *   + nvgpu_pmu_early_init()
+ *   + nvgpu_pmu_remove_support()
+ *
+ * Dynamic Design
+ * ==============
+ *
+ * Operation listed based on features of PMU unit:
+ *
+ * PMU Engine h/w
+ * --------------
+ *   + PMU Engine reset:
+ *     Engine reset is required before loading any ucode onto
+ *     PMU Engine Falcon. The reset sequence also configures PMU Engine clock
+ *     gating & interrupts if interrupt support is enabled.
+ *   + Error detection & reporting:
+ *     Different types of PMU BAR0 error will be detected & reported to 3LSS
+ *     during ucode load & execution of ucode on PMU Engine Falcon.
+ *
+ * PMU RTOS
+ * --------
+ * Loading & bootstrap of PMU RTOS ucode on to PMU Engine Falcon differs based
+ * on secure mode.
+ *    + NS PMU RTOS: load & bootstrap is handled by PMU unit. PMU RTOS ucode
+ *      will be loaded onto IMEM/DMEM & trigger execution.
+ *    + LS PMU RTOS: signature verification followed by loading of ucode onto
+ *      PMU Engine falcon is handled by HS ACR ucode and bootstrap is done by
+ *      PMU unit.
+ *
+ * Upon successful PMU RTOS load & bootstrap, PMU subunits related to PMU RTOS
+ * will be initialized by sending subunit specific commands to PMU RTOS. Next,
+ * PMU subunit waits to receive ACK to confirm init is done. Once subunit init
+ * is successful then commands and message will be exchanged between PMU UNIT
+ * and PMU RTOS to get subunit specific operation executed.
+ *
+ * External APIs
+ * -------------
+ *   + nvgpu_pmu_reset()
+ *   + nvgpu_pmu_report_bar0_pri_err_status()
+ *   + nvgpu_pmu_rtos_init()
+ *   + nvgpu_pmu_destroy()
+ *
+ */
+
+/**
+ *  The PMU unit debugging macro
+ */
 #define nvgpu_pmu_dbg(g, fmt, args...) \
 	nvgpu_log(g, gpu_dbg_pmu, fmt, ##args)
 
-/* defined by pmu hw spec */
-#define GK20A_PMU_VA_SIZE		(512 * 1024 * 1024)
-#define GK20A_PMU_UCODE_SIZE_MAX	(256 * 1024)
-#define GK20A_PMU_SEQ_BUF_SIZE		4096
+/**
+ *  The PMU unit system memory VM space
+ */
+#define GK20A_PMU_VA_SIZE		(512U * 1024U * 1024U)
 
-#define GK20A_PMU_TRACE_BUFSIZE		0x4000    /* 4K */
-#define GK20A_PMU_DMEM_BLKSIZE2		8
+/**
+ * The PMU's frame-buffer interface block has several slots/indices which can
+ * be bound to support DMA to various surfaces in memory. These defines give
+ * name to each index based on type of memory-aperture the index is used to
+ * access.
+ */
+#define	GK20A_PMU_DMAIDX_UCODE		U32(0)
+#define	GK20A_PMU_DMAIDX_VIRT		U32(1)
+#define	GK20A_PMU_DMAIDX_PHYS_VID	U32(2)
+#define	GK20A_PMU_DMAIDX_PHYS_SYS_COH	U32(3)
+#define	GK20A_PMU_DMAIDX_PHYS_SYS_NCOH	U32(4)
+#define	GK20A_PMU_DMAIDX_RSVD		U32(5)
+#define	GK20A_PMU_DMAIDX_PELPG		U32(6)
+#define	GK20A_PMU_DMAIDX_END		U32(7)
 
-#define PMU_MODE_MISMATCH_STATUS_MAILBOX_R  6
-#define PMU_MODE_MISMATCH_STATUS_VAL        0xDEADDEAD
+/**
+ * This assigns an unique index for errors in PMU unit.
+ */
+#define	PMU_BAR0_SUCCESS		0U
+#define	PMU_BAR0_HOST_READ_TOUT		1U
+#define	PMU_BAR0_HOST_WRITE_TOUT	2U
+#define	PMU_BAR0_FECS_READ_TOUT		3U
+#define	PMU_BAR0_FECS_WRITE_TOUT	4U
+#define	PMU_BAR0_CMD_READ_HWERR		5U
+#define	PMU_BAR0_CMD_WRITE_HWERR	6U
+#define	PMU_BAR0_READ_HOSTERR		7U
+#define	PMU_BAR0_WRITE_HOSTERR		8U
+#define	PMU_BAR0_READ_FECSERR		9U
+#define	PMU_BAR0_WRITE_FECSERR		10U
 
-/* Falcon Register index */
-#define PMU_FALCON_REG_R0		(0)
-#define PMU_FALCON_REG_R1		(1)
-#define PMU_FALCON_REG_R2		(2)
-#define PMU_FALCON_REG_R3		(3)
-#define PMU_FALCON_REG_R4		(4)
-#define PMU_FALCON_REG_R5		(5)
-#define PMU_FALCON_REG_R6		(6)
-#define PMU_FALCON_REG_R7		(7)
-#define PMU_FALCON_REG_R8		(8)
-#define PMU_FALCON_REG_R9		(9)
-#define PMU_FALCON_REG_R10		(10)
-#define PMU_FALCON_REG_R11		(11)
-#define PMU_FALCON_REG_R12		(12)
-#define PMU_FALCON_REG_R13		(13)
-#define PMU_FALCON_REG_R14		(14)
-#define PMU_FALCON_REG_R15		(15)
-#define PMU_FALCON_REG_IV0		(16)
-#define PMU_FALCON_REG_IV1		(17)
-#define PMU_FALCON_REG_UNDEFINED	(18)
-#define PMU_FALCON_REG_EV		(19)
-#define PMU_FALCON_REG_SP		(20)
-#define PMU_FALCON_REG_PC		(21)
-#define PMU_FALCON_REG_IMB		(22)
-#define PMU_FALCON_REG_DMB		(23)
-#define PMU_FALCON_REG_CSW		(24)
-#define PMU_FALCON_REG_CCR		(25)
-#define PMU_FALCON_REG_SEC		(26)
-#define PMU_FALCON_REG_CTX		(27)
-#define PMU_FALCON_REG_EXCI		(28)
-#define PMU_FALCON_REG_RSVD0	(29)
-#define PMU_FALCON_REG_RSVD1	(30)
-#define PMU_FALCON_REG_RSVD2	(31)
-#define PMU_FALCON_REG_SIZE		(32)
-
-/* Choices for pmu_state */
-#define PMU_STATE_OFF			0U /* PMU is off */
-#define PMU_STATE_STARTING		1U /* PMU is on, but not booted */
-#define PMU_STATE_INIT_RECEIVED		2U /* PMU init message received */
-#define PMU_STATE_ELPG_BOOTING		3U /* PMU is booting */
-#define PMU_STATE_ELPG_BOOTED		4U /* ELPG is initialized */
-#define PMU_STATE_LOADING_PG_BUF	5U /* Loading PG buf */
-#define PMU_STATE_LOADING_ZBC		6U /* Loading ZBC buf */
-#define PMU_STATE_STARTED		7U /* Fully unitialized */
-#define PMU_STATE_EXIT			8U /* Exit PMU state machine */
-
-#define GK20A_PMU_UCODE_NB_MAX_OVERLAY	    32U
-#define GK20A_PMU_UCODE_NB_MAX_DATE_LENGTH  64U
-
-#define PMU_MAX_NUM_SEQUENCES		(256U)
-#define PMU_SEQ_BIT_SHIFT		(5U)
-#define PMU_SEQ_TBL_SIZE	\
-		(PMU_MAX_NUM_SEQUENCES >> PMU_SEQ_BIT_SHIFT)
-
-#define PMU_INVALID_SEQ_DESC		(~0)
-
-enum {
-	GK20A_PMU_DMAIDX_UCODE		= 0,
-	GK20A_PMU_DMAIDX_VIRT		= 1,
-	GK20A_PMU_DMAIDX_PHYS_VID	= 2,
-	GK20A_PMU_DMAIDX_PHYS_SYS_COH	= 3,
-	GK20A_PMU_DMAIDX_PHYS_SYS_NCOH	= 4,
-	GK20A_PMU_DMAIDX_RSVD		= 5,
-	GK20A_PMU_DMAIDX_PELPG		= 6,
-	GK20A_PMU_DMAIDX_END		= 7
-};
-
-enum {
-	PMU_SEQ_STATE_FREE = 0,
-	PMU_SEQ_STATE_PENDING,
-	PMU_SEQ_STATE_USED,
-	PMU_SEQ_STATE_CANCELLED
-};
-
-/*PG defines used by nvpgu-pmu*/
-#define PMU_PG_IDLE_THRESHOLD_SIM		1000
-#define PMU_PG_POST_POWERUP_IDLE_THRESHOLD_SIM	4000000
-/* TBD: QT or else ? */
-#define PMU_PG_IDLE_THRESHOLD			15000
-#define PMU_PG_POST_POWERUP_IDLE_THRESHOLD	1000000
-
-#define PMU_PG_LPWR_FEATURE_RPPG 0x0
-#define PMU_PG_LPWR_FEATURE_MSCG 0x1
-
-#define PMU_MSCG_DISABLED 0U
-#define PMU_MSCG_ENABLED 1U
-
-/* Default Sampling Period of AELPG */
-#define APCTRL_SAMPLING_PERIOD_PG_DEFAULT_US                    (1000000)
-
-/* Default values of APCTRL parameters */
-#define APCTRL_MINIMUM_IDLE_FILTER_DEFAULT_US                   (100)
-#define APCTRL_MINIMUM_TARGET_SAVING_DEFAULT_US                 (10000)
-#define APCTRL_POWER_BREAKEVEN_DEFAULT_US                       (2000)
-#define APCTRL_CYCLES_PER_SAMPLE_MAX_DEFAULT                    (200)
-
-/* pmu load const defines */
-#define PMU_BUSY_CYCLES_NORM_MAX		(1000U)
-
-/* RPC */
-#define PMU_RPC_EXECUTE(_stat, _pmu, _unit, _func, _prpc, _size)\
-	do {                                                 \
-		memset(&((_prpc)->hdr), 0, sizeof((_prpc)->hdr));\
-		\
-		(_prpc)->hdr.unit_id   = PMU_UNIT_##_unit;       \
-		(_prpc)->hdr.function = NV_PMU_RPC_ID_##_unit##_##_func;\
-		(_prpc)->hdr.flags    = 0x0;    \
-		\
-		_stat = nvgpu_pmu_rpc_execute(_pmu, &((_prpc)->hdr),    \
-			(sizeof(*(_prpc)) - sizeof((_prpc)->scratch)),\
-			(_size), NULL, NULL, false);	\
-	} while (0)
-
-/* RPC blocking call to copy back data from PMU to  _prpc */
-#define PMU_RPC_EXECUTE_CPB(_stat, _pmu, _unit, _func, _prpc, _size)\
-	do {                                                 \
-		memset(&((_prpc)->hdr), 0, sizeof((_prpc)->hdr));\
-		\
-		(_prpc)->hdr.unit_id   = PMU_UNIT_##_unit;       \
-		(_prpc)->hdr.function = NV_PMU_RPC_ID_##_unit##_##_func;\
-		(_prpc)->hdr.flags    = 0x0;    \
-		\
-		_stat = nvgpu_pmu_rpc_execute(_pmu, &((_prpc)->hdr),    \
-			(sizeof(*(_prpc)) - sizeof((_prpc)->scratch)),\
-			(_size), NULL, NULL, true);	\
-	} while (0)
-
-/* RPC non-blocking with call_back handler option */
-#define PMU_RPC_EXECUTE_CB(_stat, _pmu, _unit, _func, _prpc, _size, _cb, _cbp)\
-	do {                                                 \
-		memset(&((_prpc)->hdr), 0, sizeof((_prpc)->hdr));\
-		\
-		(_prpc)->hdr.unit_id   = PMU_UNIT_##_unit;       \
-		(_prpc)->hdr.function = NV_PMU_RPC_ID_##_unit##_##_func;\
-		(_prpc)->hdr.flags    = 0x0;    \
-		\
-		_stat = nvgpu_pmu_rpc_execute(_pmu, &((_prpc)->hdr),    \
-			(sizeof(*(_prpc)) - sizeof((_prpc)->scratch)),\
-			(_size), _cb, _cbp, false);	\
-	} while (0)
-
-typedef void (*pmu_callback)(struct gk20a *, struct pmu_msg *, void *, u32,
-	u32);
-
+#ifdef CONFIG_NVGPU_LS_PMU
 struct rpc_handler_payload {
 	void *rpc_buff;
 	bool is_mem_free_set;
@@ -204,22 +227,28 @@ struct pmu_rpc_desc {
 	u16 size_scratch;
 };
 
+struct pmu_in_out_payload_desc {
+	void *buf;
+	u32 offset;
+	u32 size;
+	u32 fb_size;
+};
+
 struct pmu_payload {
-	struct {
-		void *buf;
-		u32 offset;
-		u32 size;
-		u32 fb_size;
-	} in, out;
+	struct pmu_in_out_payload_desc in;
+	struct pmu_in_out_payload_desc out;
 	struct pmu_rpc_desc rpc;
 };
+
+#define PMU_UCODE_NB_MAX_OVERLAY	64U
+#define PMU_UCODE_NB_MAX_DATE_LENGTH  64U
 
 struct pmu_ucode_desc {
 	u32 descriptor_size;
 	u32 image_size;
 	u32 tools_version;
 	u32 app_version;
-	char date[GK20A_PMU_UCODE_NB_MAX_DATE_LENGTH];
+	char date[PMU_UCODE_NB_MAX_DATE_LENGTH];
 	u32 bootloader_start_offset;
 	u32 bootloader_size;
 	u32 bootloader_imem_offset;
@@ -242,16 +271,22 @@ struct pmu_ucode_desc {
 	 */
 	u32 app_resident_data_size;
 	u32 nb_overlays;
-	struct {u32 start; u32 size; } load_ovl[GK20A_PMU_UCODE_NB_MAX_OVERLAY];
+	struct {u32 start; u32 size; } load_ovl[PMU_UCODE_NB_MAX_OVERLAY];
 	u32 compressed;
 };
 
+/*
+ * nvgpu-next PMU ucode built with below new ucode descriptor, so use
+ * below descriptor to read nvgpu-next PMU ucode details from PMU desc
+ * bin.
+ */
 struct pmu_ucode_desc_v1 {
 	u32 descriptor_size;
 	u32 image_size;
 	u32 tools_version;
 	u32 app_version;
-	char date[GK20A_PMU_UCODE_NB_MAX_DATE_LENGTH];
+	char date[PMU_UCODE_NB_MAX_DATE_LENGTH];
+	u32 secure_bootloader;
 	u32 bootloader_start_offset;
 	u32 bootloader_size;
 	u32 bootloader_imem_offset;
@@ -261,160 +296,137 @@ struct pmu_ucode_desc_v1 {
 	u32 app_imem_offset;
 	u32 app_imem_entry;
 	u32 app_dmem_offset;
+	/* Offset from appStartOffset */
 	u32 app_resident_code_offset;
+	/* Exact size of the resident code
+	 * ( potentially contains CRC inside at the end )
+	 */
 	u32 app_resident_code_size;
+	/* Offset from appStartOffset */
 	u32 app_resident_data_offset;
+	/* Exact size of the resident code
+	 * ( potentially contains CRC inside at the end )
+	 */
 	u32 app_resident_data_size;
-	u32 nb_imem_overlays;
-	u32 nb_dmem_overlays;
-	struct {u32 start; u32 size; } load_ovl[64];
-	u32 compressed;
+	u32 nb_overlays;
+	struct {u32 start; u32 size; } load_ovl[PMU_UCODE_NB_MAX_OVERLAY];
 };
 
-struct pmu_mutex {
-	u32 id;
-	u32 index;
-	u32 ref_cnt;
+/*
+ * configuration for bootloader
+ */
+struct nv_next_core_bootldr_params {
+	/*
+	 *                   *** warning ***
+	 * first 3 fields must be frozen like that always. should never
+	 * be reordered or changed.
+	 */
+	/* set to 'nvrm' if booting from rm. */
+	u32 boot_type;
+	/* size of boot params.*/
+	u16 size;
+	/* version of boot params. */
+	u8  version;
+	/*
+	 * you can reorder or change below this point but update version.
+	 */
 };
 
-struct pmu_sequence {
-	u8 id;
-	u32 state;
-	u32 desc;
-	struct pmu_msg *msg;
-	union {
-		struct pmu_allocation_v1 in_v1;
-		struct pmu_allocation_v2 in_v2;
-		struct pmu_allocation_v3 in_v3;
-	};
-	struct nvgpu_mem *in_mem;
-	union {
-		struct pmu_allocation_v1 out_v1;
-		struct pmu_allocation_v2 out_v2;
-		struct pmu_allocation_v3 out_v3;
-	};
-	struct nvgpu_mem *out_mem;
-	u8 *out_payload;
-	pmu_callback callback;
-	void *cb_params;
+/*
+ * Version of bootloader struct, increment on struct changes (while on prod).
+ */
+/* Macro to build and u32 from four bytes, listed from msb to lsb */
+#define U32_BUILD(a, b, c, d) (((a) << 24U) | ((b) << 16U) | ((c) << 8U) | (d))
+
+#define NV_NEXT_CORE_BOOTLDR_VERSION            1U
+#define NV_NEXT_CORE_BOOTLDR_BOOT_TYPE_UNKNOWN  0U
+#define NV_NEXT_CORE_BOOTLDR_BOOT_TYPE_RM       U32_BUILD('N', 'V', 'R', 'M')
+
+#define NV_REG_STR_NEXT_CORE_DUMP_SIZE_DEFAULT  8192U
+
+#define NV_NEXT_CORE_AMAP_EXTMEM2_START		0x8060000000000000ull
+
+/*
+ * configuration for rtos
+ */
+struct nv_next_core_rtos_params {
+	/* address (next-core pa) of ucode core dump buffer */
+	u64 core_dump_phys;
+	/* size of ucode core dump buffer */
+	u32 core_dump_size;
 };
 
-struct nvgpu_pg_init {
-	bool state_change;
-	bool state_destroy;
-	struct nvgpu_cond wq;
-	struct nvgpu_thread state_task;
+struct nv_next_core_boot_params {
+	struct nv_next_core_bootldr_params bl;
+	/* rtos specific configuration should be added here. */
+	struct nv_next_core_rtos_params rtos;
+	u32 dummy[24];
 };
 
+struct nv_pmu_boot_params {
+	struct nv_next_core_boot_params boot_params;
+	struct pmu_cmdline_args_v7 cmd_line_args;
+};
+
+struct falcon_next_core_ucode_desc {
+	u32 version;
+	u32 bootloader_offset;
+	u32 bootloader_size;
+	u32 bootloader_param_offset;
+	u32 bootloader_param_size;
+	u32 next_core_elf_offset;
+	u32 next_core_elf_size;
+	u32 app_version;
+	/* manifest contains information about monitor and it is input to br */
+	u32 manifest_offset;
+	u32 manifest_size;
+	/* monitor data offset within next_core image and size */
+	u32 monitor_data_offset;
+	u32 monitor_data_size;
+	/* monitor code offset withtin next_core image and size */
+	u32 monitor_code_offset;
+	u32 monitor_code_size;
+	bool is_monitor_enabled;
+};
+#endif
+
+/**
+ * This data struct holds PMU Engine h/w properties, PMU RTOS supporting data
+ * structs, sub-unit's data structs & ops of the PMU unit which will be
+ * populated based on the detected chip.
+ */
 struct nvgpu_pmu {
 	struct gk20a *g;
+	bool sw_ready;
+	bool isr_enabled;
+	struct nvgpu_mutex isr_mutex;
 	struct nvgpu_falcon *flcn;
-
-	union {
-		struct pmu_ucode_desc *desc;
-		struct pmu_ucode_desc_v1 *desc_v1;
-	};
-	struct nvgpu_mem ucode;
-
-	struct nvgpu_mem pg_buf;
-
-	/* TBD: remove this if ZBC seq is fixed */
-	struct nvgpu_mem seq_buf;
+#ifdef CONFIG_NVGPU_LS_PMU
+	struct nvgpu_allocator dmem;
 	struct nvgpu_mem trace_buf;
-	struct nvgpu_mem super_surface_buf;
-
-	bool buf_loaded;
-
 	struct pmu_sha1_gid gid_info;
 
-	struct nvgpu_falcon_queue queue[PMU_QUEUE_COUNT];
+	struct pmu_rtos_fw *fw;
+	struct pmu_queues queues;
+	struct pmu_sequences *sequences;
+	struct pmu_mutexes *mutexes;
 
-	struct pmu_sequence *seq;
-	unsigned long pmu_seq_tbl[PMU_SEQ_TBL_SIZE];
-	u32 next_seq_desc;
-
-	struct pmu_mutex *mutex;
-	u32 mutex_cnt;
-
-	struct nvgpu_mutex pmu_copy_lock;
-	struct nvgpu_mutex pmu_seq_lock;
-
-	struct nvgpu_allocator dmem;
-
-	u32 *ucode_image;
-	bool pmu_ready;
-
-	u32 perfmon_query;
-
-	u32 zbc_save_done;
-
-	u32 stat_dmem_offset[PMU_PG_ELPG_ENGINE_ID_INVALID_ENGINE];
-
-	u32 elpg_stat;
-
-	u32 mscg_stat;
-	u32 mscg_transition_state;
-
-	u32 pmu_state;
-
-#define PMU_ELPG_ENABLE_ALLOW_DELAY_MSEC	1 /* msec */
-	struct nvgpu_pg_init pg_init;
-	struct nvgpu_mutex pg_mutex; /* protect pg-RPPG/MSCG enable/disable */
-	struct nvgpu_mutex elpg_mutex; /* protect elpg enable/disable */
-	/* disable -1, enable +1, <=0 elpg disabled, > 0 elpg enabled */
-	int elpg_refcnt;
-
-	union {
-		struct pmu_perfmon_counter_v2 perfmon_counter_v2;
-	};
-	u32 perfmon_state_id[PMU_DOMAIN_GROUP_NUM];
-
-	bool initialized;
+	struct nvgpu_pmu_lsfm *lsfm;
+	struct nvgpu_pmu_super_surface *super_surface;
+	struct nvgpu_pmu_pg *pg;
+	struct nvgpu_pmu_perfmon *pmu_perfmon;
+	struct nvgpu_clk_pmupstate *clk_pmu;
+	struct nvgpu_pmu_perf *perf_pmu;
+	struct nvgpu_pmu_therm *therm_pmu;
+	struct nvgpu_pmu_volt *volt;
 
 	void (*remove_support)(struct nvgpu_pmu *pmu);
-	bool sw_ready;
-	bool perfmon_ready;
-
-	u32 sample_buffer;
-	u32 load_shadow;
-	u32 load_avg;
-	u32 load;
-
-	struct nvgpu_mutex isr_mutex;
-	bool isr_enabled;
-
-	bool zbc_ready;
-	union {
-		struct pmu_cmdline_args_v3 args_v3;
-		struct pmu_cmdline_args_v4 args_v4;
-		struct pmu_cmdline_args_v5 args_v5;
-		struct pmu_cmdline_args_v6 args_v6;
-	};
-	unsigned long perfmon_events_cnt;
-	bool perfmon_sampling_enabled;
-	u8 pmu_mode; /*Added for GM20b, and ACR*/
-	u32 falcon_id;
-	u32 aelpg_param[5];
-	u32 override_done;
-
-	struct nvgpu_firmware *fw;
+	void (*therm_rpc_handler)(struct gk20a *g, struct nvgpu_pmu *pmu,
+			struct nv_pmu_rpc_header *rpc);
+#endif
 };
 
-struct pmu_surface {
-	struct nvgpu_mem vidmem_desc;
-	struct nvgpu_mem sysmem_desc;
-	struct flcn_mem_desc_v0 params;
-};
-
-/*PG defines used by nvpgu-pmu*/
-struct pmu_pg_stats_data {
-	u32 gating_cnt;
-	u32 ingating_time;
-	u32 ungating_time;
-	u32 avg_entry_latency_us;
-	u32 avg_exit_latency_us;
-};
-
+#ifdef CONFIG_NVGPU_LS_PMU
 /*!
  * Structure/object which single register write need to be done during PG init
  * sequence to set PROD values.
@@ -424,104 +436,114 @@ struct pg_init_sequence_list {
 	u32 writeval;
 };
 
-/* PMU IPC Methods */
-void nvgpu_pmu_seq_init(struct nvgpu_pmu *pmu);
+/* PMU locks used along with PMU-RTOS */
+int nvgpu_pmu_lock_acquire(struct gk20a *g, struct nvgpu_pmu *pmu,
+	u32 id, u32 *token);
+int nvgpu_pmu_lock_release(struct gk20a *g, struct nvgpu_pmu *pmu,
+	u32 id, u32 *token);
 
-int nvgpu_pmu_mutex_acquire(struct nvgpu_pmu *pmu, u32 id, u32 *token);
-int nvgpu_pmu_mutex_release(struct nvgpu_pmu *pmu, u32 id, u32 *token);
+/* PMU RTOS init/setup functions*/
+int nvgpu_pmu_rtos_early_init(struct gk20a *g, struct nvgpu_pmu *pmu);
+int nvgpu_pmu_rtos_init(struct gk20a *g);
+int nvgpu_pmu_destroy(struct gk20a *g, struct nvgpu_pmu *pmu);
 
-int nvgpu_pmu_queue_init(struct nvgpu_pmu *pmu, u32 id,
-	union pmu_init_msg_pmu *init);
+void nvgpu_pmu_rtos_cmdline_args_init(struct gk20a *g, struct nvgpu_pmu *pmu);
+#if defined(CONFIG_NVGPU_HAL_NON_FUSA)
+void nvgpu_pmu_next_core_rtos_args_setup(struct gk20a *g,
+		struct nvgpu_pmu *pmu);
+s32 nvgpu_pmu_next_core_rtos_args_allocate(struct gk20a *g,
+		struct nvgpu_pmu *pmu);
+#endif
+#endif
 
-/* send a cmd to pmu */
-int nvgpu_pmu_cmd_post(struct gk20a *g, struct pmu_cmd *cmd,
-		struct pmu_msg *msg, struct pmu_payload *payload,
-		u32 queue_id, pmu_callback callback, void *cb_param,
-		u32 *seq_desc, unsigned long timeout);
+/**
+ * @brief Report PMU BAR0 error to 3LSS.
+ *
+ * @param g           [in] The GPU driver struct.
+ * @param bar0_status [in] bar0 error status value.
+ * @param err_type    [in] Error type.
+ *
+ * This function reports PMU BAR0 error to 3LSS.
+ *
+ */
+void nvgpu_pmu_report_bar0_pri_err_status(struct gk20a *g, u32 bar0_status,
+	u32 error_type);
 
-int nvgpu_pmu_process_message(struct nvgpu_pmu *pmu);
+/**
+ * @brief Enable/Disable PMU ECC interrupt.
+ *
+ * @param g		[in] The GPU driver struct.
+ * @param enable	[in] boolean parameter to enable/disable.
+ *
+ * Enable/Disable PMU ECC interrupt.
+ *  + Check that g->pmu and g->ops.pmu.pmu_enable_irq are not null.
+ *  + Acquire the mutex g->pmu->isr_mutex.
+ *  + Disable the PMU interrupts at MC and PMU level.
+ *  + If enabling, enable ECC interrupt in PMU interrupt configuration
+ *    registers and enable PMU interrupts at MC level.
+ *  + Release the mutex g->pmu->isr_mutex.
+ */
+void nvgpu_pmu_enable_irq(struct gk20a *g, bool enable);
 
-/* perfmon */
-int nvgpu_pmu_init_perfmon(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_perfmon_start_sampling(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_perfmon_stop_sampling(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_perfmon_start_sampling_rpc(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_perfmon_stop_sampling_rpc(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_perfmon_get_samples_rpc(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_handle_perfmon_event(struct nvgpu_pmu *pmu,
-	struct pmu_perfmon_msg *msg);
-int nvgpu_pmu_init_perfmon_rpc(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_load_norm(struct gk20a *g, u32 *load);
-int nvgpu_pmu_load_update(struct gk20a *g);
-int nvgpu_pmu_busy_cycles_norm(struct gk20a *g, u32 *norm);
-void nvgpu_pmu_reset_load_counters(struct gk20a *g);
-void nvgpu_pmu_get_load_counters(struct gk20a *g, u32 *busy_cycles,
-		u32 *total_cycles);
-
-int nvgpu_pmu_handle_therm_event(struct nvgpu_pmu *pmu,
-			struct nv_pmu_therm_msg *msg);
-
-/* PMU init */
-int nvgpu_init_pmu_support(struct gk20a *g);
-int nvgpu_pmu_destroy(struct gk20a *g);
-int nvgpu_pmu_process_init_msg(struct nvgpu_pmu *pmu,
-	struct pmu_msg *msg);
-int nvgpu_pmu_super_surface_alloc(struct gk20a *g,
-	struct nvgpu_mem *mem_surface, u32 size);
-
-void nvgpu_pmu_state_change(struct gk20a *g, u32 pmu_state,
-	bool post_change_event);
-void nvgpu_kill_task_pg_init(struct gk20a *g);
-
-/* NVGPU-PMU MEM alloc */
-void nvgpu_pmu_surface_free(struct gk20a *g, struct nvgpu_mem *mem);
-void nvgpu_pmu_surface_describe(struct gk20a *g, struct nvgpu_mem *mem,
-		struct flcn_mem_desc_v0 *fb);
-int nvgpu_pmu_vidmem_surface_alloc(struct gk20a *g, struct nvgpu_mem *mem,
-		u32 size);
-int nvgpu_pmu_sysmem_surface_alloc(struct gk20a *g, struct nvgpu_mem *mem,
-		u32 size);
-
-/* PMU F/W support */
-int nvgpu_init_pmu_fw_support(struct nvgpu_pmu *pmu);
-int nvgpu_pmu_prepare_ns_ucode_blob(struct gk20a *g);
-
-/* PG init*/
-int nvgpu_pmu_init_powergating(struct gk20a *g);
-int nvgpu_pmu_init_bind_fecs(struct gk20a *g);
-void nvgpu_pmu_setup_hw_load_zbc(struct gk20a *g);
-
-/* PMU reset */
+/**
+ * @brief Reset the PMU Engine.
+ *
+ * @param g   [in] The GPU driver struct.
+ *
+ * Does the PMU Engine reset to bring into good known state. The reset sequence
+ * also configures PMU Engine clock gating & interrupts if interrupt support is
+ * enabled.
+ *
+ * @return 0 in case of success, < 0 in case of failure.
+ * @retval -ETIMEDOUT if PMU engine reset times out.
+ */
 int nvgpu_pmu_reset(struct gk20a *g);
 
-/* PG enable/disable */
-int nvgpu_pmu_reenable_elpg(struct gk20a *g);
-int nvgpu_pmu_enable_elpg(struct gk20a *g);
-int nvgpu_pmu_disable_elpg(struct gk20a *g);
-int nvgpu_pmu_pg_global_enable(struct gk20a *g, u32 enable_pg);
+/**
+ * @brief PMU early initialization to allocate memory for PMU unit & set PMU
+ *        Engine h/w properties, PMU RTOS supporting data structs, sub-unit's
+ *        data structs & ops of the PMU unit by populating data based on the
+ *        detected chip,
+ *
+ * @param g         [in] The GPU driver struct.
+ *
+ * Initializes PMU unit data struct in the GPU driver based on detected chip.
+ * Allocate memory for #nvgpu_pmu data struct & set PMU Engine h/w properties,
+ * PMU RTOS supporting data structs & ops of the PMU unit by populating data
+ * based on the detected chip. Allocates memory for ECC counters for PMU
+ * unit. Initializes the isr_mutex.
+ *
+ * @return 0 in case of success, < 0 in case of failure.
+ * @retval -ENOMEM if memory allocation for struct #nvgpu_pmu fails.
+ */
+int nvgpu_pmu_early_init(struct gk20a *g);
 
-int nvgpu_pmu_get_pg_stats(struct gk20a *g, u32 pg_engine_id,
-	struct pmu_pg_stats_data *pg_stat_data);
+/**
+ * @brief PMU remove to free space allocted for PMU unit
+ *
+ * @param g [in] The GPU
+ * @param nvgpu_pmu [in] The PMU unit.
+ *
+ */
+void nvgpu_pmu_remove_support(struct gk20a *g, struct nvgpu_pmu *pmu);
 
-/* AELPG */
-int nvgpu_aelpg_init(struct gk20a *g);
-int nvgpu_aelpg_init_and_enable(struct gk20a *g, u8 ctrl_id);
-int nvgpu_pmu_ap_send_command(struct gk20a *g,
-		union pmu_ap_cmd *p_ap_cmd, bool b_block);
+/*
+ * @brief Allocate and initialize ECC counter for memories within PMU.
+ *
+ * @param stat [in] Address of pointer to struct nvgpu_ecc_stat.
+ *
+ */
+#define NVGPU_ECC_COUNTER_INIT_PMU(stat) \
+	nvgpu_ecc_counter_init(g, &g->ecc.pmu.stat, #stat)
 
-/* PMU debug */
-void nvgpu_pmu_dump_falcon_stats(struct nvgpu_pmu *pmu);
-void nvgpu_pmu_dump_elpg_stats(struct nvgpu_pmu *pmu);
-bool nvgpu_find_hex_in_string(char *strings, struct gk20a *g, u32 *hex_pos);
+/*
+ * @brief Remove ECC counter from the list and free the counter.
+ *
+ * @param stat [in] Address of pointer to struct nvgpu_ecc_stat.
+ *
+ */
+#define NVGPU_ECC_COUNTER_FREE_PMU(stat) \
+	nvgpu_ecc_counter_deinit(g, &g->ecc.pmu.stat)
 
-/* PMU RPC */
-int nvgpu_pmu_rpc_execute(struct nvgpu_pmu *pmu, struct nv_pmu_rpc_header *rpc,
-	u16 size_rpc, u16 size_scratch, pmu_callback callback, void *cb_param,
-	bool is_copy_back);
-
-/* PMU wait*/
-int pmu_wait_message_cond(struct nvgpu_pmu *pmu, u32 timeout_ms,
-				 void *var, u8 val);
-
-struct gk20a *gk20a_from_pmu(struct nvgpu_pmu *pmu);
 #endif /* NVGPU_PMU_H */
+

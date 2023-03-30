@@ -187,6 +187,7 @@ static u8 _init_rf_reg(PADAPTER adapter)
 	u8 path;
 	enum rf_path phydm_path;
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 	u8 *regfile;
 #endif
@@ -211,7 +212,7 @@ static u8 _init_rf_reg(PADAPTER adapter)
 	/*
 	 * Initialize RF
 	 */
-	for (path = 0; path < hal->NumTotalRFPath; path++) {
+	for (path = 0; path < hal_spec->rf_reg_path_num; path++) {
 		/* Initialize RF from configuration file */
 		switch (path) {
 		case 0:
@@ -291,8 +292,6 @@ u8 rtl8822c_phy_init(PADAPTER adapter)
 {
 	struct dvobj_priv *d;
 	struct dm_struct *phydm;
-	enum bb_path txpath = BB_PATH_A | BB_PATH_B;
-	enum bb_path rxpath = BB_PATH_A | BB_PATH_B;
 	int err;
 	u8 ok = _TRUE;
 	BOOLEAN ret;
@@ -325,11 +324,6 @@ u8 rtl8822c_phy_init(PADAPTER adapter)
 	phydm_iot_patch_id_update(phydm, 0x021f0800, true);
 #endif
 	ret = config_phydm_parameter_init_8822c(phydm, ODM_POST_SETTING);
-	if (FALSE == ret)
-		return _FALSE;
-
-	rtw_hal_get_rf_path(d, NULL, &txpath, &rxpath);
-	ret = config_phydm_trx_mode_8822c(phydm, txpath, rxpath, BB_PATH_A);
 	if (FALSE == ret)
 		return _FALSE;
 
@@ -411,7 +405,7 @@ void dm_InterruptMigration(PADAPTER adapter)
 	 * when interrupt migration is set before. 2010.03.05.
 	 */
 	if (!adapter->registrypriv.wifi_spec
-	    && (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
+	    && (check_fwstate(pmlmepriv, WIFI_ASOC_STATE) == _TRUE)
 	    && pmlmepriv->LinkDetectInfo.bHigherBusyTraffic) {
 		IntMtToSet = _TRUE;
 
@@ -468,7 +462,7 @@ static void init_phydm_cominfo(PADAPTER adapter)
 	else if (IS_CHIP_VENDOR_SMIC(hal->version_id))
 		fab_ver = ODM_UMC + 1;
 	else
-		RTW_INFO("%s: unknown fab_ver=%d !!\n",
+		RTW_INFO("%s: unknown Fv=%d !!\n",
 			 __FUNCTION__, GET_CVID_MANUFACTUER(hal->version_id));
 
 	if (IS_A_CUT(hal->version_id))
@@ -490,13 +484,16 @@ static void init_phydm_cominfo(PADAPTER adapter)
 	else if (IS_K_CUT(hal->version_id))
 		cut_ver = ODM_CUT_K;
 	else
-		RTW_INFO("%s: unknown cut_ver=%d !!\n",
+		RTW_INFO("%s: unknown Cv=%d !!\n",
 			 __FUNCTION__, GET_CVID_CUT_VERSION(hal->version_id));
 
-	RTW_INFO("%s: fab_ver=%d cut_ver=%d\n", __FUNCTION__, fab_ver, cut_ver);
+	RTW_INFO("%s: Fv=%d Cv=%d\n", __FUNCTION__, fab_ver, cut_ver);
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_FAB_VER, fab_ver);
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_CUT_VER, cut_ver);
-	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_DIS_DPD, _TRUE);
+	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_DIS_DPD
+		, hal->txpwr_pg_mode == TXPWR_PG_WITH_PWR_IDX ? _TRUE : _FALSE);
+	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_TSSI_ENABLE
+		, hal->txpwr_pg_mode == TXPWR_PG_WITH_TSSI_OFFSET ? _TRUE : _FALSE);
 }
 
 void rtl8822c_phy_init_dm_priv(PADAPTER adapter)
@@ -587,14 +584,14 @@ void rtl8822c_phy_haldm_watchdog(PADAPTER adapter)
 
 		lps_changed = _TRUE;
 		in_lps = _TRUE;
-		LPS_Leave(current_lps_iface, "LPS_CTRL_PHYDM");
+		LPS_Leave(current_lps_iface, LPS_CTRL_PHYDM);
 	}
 #endif
 
 #ifdef CONFIG_BEAMFORMING
 #ifdef RTW_BEAMFORMING_VERSION_2
 	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE) &&
-			check_fwstate(&adapter->mlmepriv, _FW_LINKED))
+			check_fwstate(&adapter->mlmepriv, WIFI_ASOC_STATE))
 		rtw_hal_beamforming_config_csirate(adapter);
 #endif
 #endif
@@ -609,7 +606,7 @@ skip_dm:
 
 #ifdef CONFIG_LPS
 	if (lps_changed)
-		LPS_Enter(current_lps_iface, "LPS_CTRL_PHYDM");
+		LPS_Enter(current_lps_iface, LPS_CTRL_PHYDM);
 #endif
 	/*
 	 * Check GPIO to determine current RF on/off and Pbc status.
@@ -700,59 +697,52 @@ static void set_tx_power_level_by_path(PADAPTER adapter, u8 channel, u8 path)
 	u8 under_24g = (hal->current_band_type == BAND_ON_2_4G);
 
 	if (under_24g)
-	phy_set_tx_power_index_by_rate_section(adapter, path, channel, CCK);
+		phy_set_tx_power_index_by_rate_section(adapter, path, channel, CCK);
 
 	phy_set_tx_power_index_by_rate_section(adapter, path, channel, OFDM);
 
 	if (!under_survey_ch) {
-	phy_set_tx_power_index_by_rate_section(adapter, path, channel, HT_MCS0_MCS7);
-	phy_set_tx_power_index_by_rate_section(adapter, path, channel, HT_MCS8_MCS15);
-	phy_set_tx_power_index_by_rate_section(adapter, path, channel, VHT_1SSMCS0_1SSMCS9);
-	phy_set_tx_power_index_by_rate_section(adapter, path, channel, VHT_2SSMCS0_2SSMCS9);
-}
+		phy_set_tx_power_index_by_rate_section(adapter, path, channel, HT_MCS0_MCS7);
+		phy_set_tx_power_index_by_rate_section(adapter, path, channel, HT_MCS8_MCS15);
+		phy_set_tx_power_index_by_rate_section(adapter, path, channel, VHT_1SSMCS0_1SSMCS9);
+		phy_set_tx_power_index_by_rate_section(adapter, path, channel, VHT_2SSMCS0_2SSMCS9);
+	}
 }
 
 void rtl8822c_set_tx_power_level(PADAPTER adapter, u8 channel)
 {
-	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
-	struct dm_struct *phydm;
-	#ifdef CONFIG_ANTENNA_DIVERSITY
-	struct phydm_fat_struct *p_dm_fat_table;
-	#endif
-	u8 path = RF_PATH_A;
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
+	u8 path;
 
-
-	hal = GET_HAL_DATA(adapter);
-	phydm = &hal->odmpriv;
-
-	#ifdef CONFIG_ANTENNA_DIVERSITY
-	p_dm_fat_table = &phydm->dm_fat_table;
-
-	if (hal->AntDivCfg) {
-		/* antenna diversity Enable */
-		path = (p_dm_fat_table->rx_idle_ant == MAIN_ANT) ? RF_PATH_A : RF_PATH_B;
+	for (path = RF_PATH_A; path < hal_spec->rf_reg_path_num; ++path) {
+		/*
+		* can't bypass unused path
+		* because phydm need all path values to calculate min diff
+		*/
 		set_tx_power_level_by_path(adapter, channel, path);
-	} else
-	#endif
-	{
-		/* antenna diversity disable */
-		for (path = RF_PATH_A; path < hal->NumTotalRFPath; ++path)
-			set_tx_power_level_by_path(adapter, channel, path);
 	}
 }
 
 void rtl8822c_set_txpwr_done(_adapter *adapter)
 {
+	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
 	struct dm_struct *phydm = adapter_to_phydm(adapter);
 
 	config_phydm_set_txagc_to_hw_8822c(phydm);
+
+#ifdef CONFIG_TXPWR_PG_WITH_TSSI_OFFSET
+	if (hal_data->txpwr_pg_mode == TXPWR_PG_WITH_TSSI_OFFSET
+		#ifdef CONFIG_MP_INCLUDED
+		&& !rtw_mp_mode_check(adapter)
+		#endif
+	) {
+		halrf_calculate_tssi_codeword(phydm);
+		halrf_set_tssi_codeword(phydm);
+	}
+#endif
 }
 
-#ifndef DBG_TX_POWER_IDX
-#define DBG_TX_POWER_IDX 0
-#endif
-
-static u8 rtl8822c_get_dis_dpd_by_rate_diff(PADAPTER adapter, u8 rate)
+u8 rtl8822c_get_dis_dpd_by_rate_diff(PADAPTER adapter, u8 rate)
 {
 	struct dm_struct *phydm = adapter_to_phydm(adapter);
 	u16 dis_dpd_rate;
@@ -848,62 +838,6 @@ clear_buf:
 
 exit:
 	return;
-}
-
-/*
- * Parameters:
- *	padatper
- *	rfpath		Antenna(RF) path, type "enum rf_path"
- *	rate		data rate, type "enum MGN_RATE"
- *	bandwidth	Bandwidth, type "enum _CHANNEL_WIDTH"
- *	channel		Channel number
- *
- * Rteurn:
- *	tx_power	power index for rate
- */
-u8 rtl8822c_get_tx_power_index(PADAPTER adapter, enum rf_path rfpath, u8 rate, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic)
-{
-	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
-	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
-	s16 power_idx;
-	u8 pg = 0;
-	s8 by_rate_diff = 0, limit = 0, tpt_offset = 0, btc_diff = 0, dis_dpd_rate_diff = 0;
-	u8 ntx_idx = phy_get_current_tx_num(adapter, rate);
-	u8 bIn24G = _FALSE;
-
-	pg = phy_get_pg_txpwr_idx(adapter, rfpath, rate, ntx_idx, bandwidth, channel, &bIn24G);
-
-	by_rate_diff = PHY_GetTxPowerByRate(adapter, (u8)(!bIn24G), rfpath, rate);
-	limit = PHY_GetTxPowerLimit(adapter, NULL, (BAND_TYPE)(!bIn24G),
-			hal->current_channel_bw, rfpath, rate, ntx_idx, hal->current_channel);
-
-	/* tpt_offset += PHY_GetTxPowerTrackingOffset(adapter, rfpath, rate); */
-
-#ifdef CONFIG_BT_COEXIST
-	if (hal->EEPROMBluetoothCoexist == _TRUE)
-		btc_diff = -(rtw_btcoex_query_reduced_wl_pwr_lvl(adapter) * hal_spec->txgi_pdbm);
-#endif
-
-	dis_dpd_rate_diff = -(rtl8822c_get_dis_dpd_by_rate_diff(adapter, rate) * hal_spec->txgi_pdbm);
-
-	if (tic)
-		txpwr_idx_comp_set(tic, ntx_idx, pg, by_rate_diff, limit, tpt_offset, 0, btc_diff, dis_dpd_rate_diff);
-
-	by_rate_diff = by_rate_diff > limit ? limit : by_rate_diff;
-	power_idx = pg + by_rate_diff + tpt_offset + btc_diff + dis_dpd_rate_diff;
-
-#if 0
-#if CCX_SUPPORT
-	CCX_CellPowerLimit(adapter, channel, rate, (u8 *)&power_idx);
-#endif
-#endif
-
-	if (power_idx < 0)
-		power_idx = 0;
-	else if (power_idx > hal_spec->txgi_max)
-		power_idx = hal_spec->txgi_max;
-
-	return power_idx;
 }
 
 /*
@@ -1035,6 +969,17 @@ static void switch_chnl_and_set_bw_by_drv(PADAPTER adapter, u8 switch_band)
 		mac_switch_bandwidth(adapter, pri_ch_idx);
 
 		/* 3.2 set BB/RF registet */
+#ifdef CONFIG_NARROWBAND_SUPPORTING
+		if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_10) {
+			rtw_write8(adapter, REG_CCK_CHECK_8822C,
+				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT(7)));
+			ret = config_phydm_switch_bandwidth_8822c(p_dm_odm, pri_ch_idx, CHANNEL_WIDTH_10);
+		} else if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_5) {
+			rtw_write8(adapter, REG_CCK_CHECK_8822C,
+				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT(7)));
+			ret = config_phydm_switch_bandwidth_8822c(p_dm_odm, pri_ch_idx, CHANNEL_WIDTH_5);
+		} else
+#endif
 		ret = config_phydm_switch_bandwidth_8822c(p_dm_odm, pri_ch_idx, hal->current_channel_bw);
 		hal->bSetChnlBW = _FALSE;
 
@@ -1326,7 +1271,7 @@ void rtl8822c_mp_config_rfpath(PADAPTER adapter)
 		break;
 	}
 
-	config_phydm_trx_mode_8822c(GET_PDM_ODM(adapter), bb_tx, bb_rx, bb_tx);
+	phydm_api_trx_mode(GET_PDM_ODM(adapter), bb_tx, bb_rx, bb_tx);
 
 	RTW_INFO("-Config RF Path Finish\n");
 }
@@ -1403,23 +1348,10 @@ enum _HW_CFG_SOUNDING_TYPE {
 
 static u8 _bf_get_nrx(PADAPTER adapter)
 {
-	u8 rf;
 	u8 nrx = 0;
 
-
-	rtw_hal_get_hwreg(adapter, HW_VAR_RF_TYPE, &rf);
-	switch (rf) {
-	case RF_1T1R:
-		nrx = 0;
-		break;
-	default:
-	case RF_1T2R:
-	case RF_2T2R:
-		nrx = 1;
-		break;
-	}
-
-	return nrx;
+	nrx = GET_HAL_RX_NSS(adapter);
+	return (nrx - 1);
 }
 
 static void _sounding_reset_all(PADAPTER adapter)
@@ -1709,7 +1641,7 @@ static void _config_beamformer_su(PADAPTER adapter, struct beamformer_entry *bfe
 		u32 tmp6dc = 0;
 		u8 csi_rsc = 0x0;
 
-		tmp6dc = (rtw_read32(adapter, REG_BBPSF_CTRL_8822C) | BIT(30) |  (csi_rsc << 13));
+		tmp6dc = (rtw_read32(adapter, REG_BBPSF_CTRL_8822C) | BIT(30) | (csi_rsc << 13));
 		if (check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE)
 			tmp6dc |= BIT(12);
 		else

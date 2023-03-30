@@ -1,0 +1,44 @@
+From d9cf9b9f5a7e11c13c17a47fa0ca83a8d3f08b02 Mon Sep 17 00:00:00 2001
+From: Dmitry Shmidt <dimitrysh@google.com>
+Date: Thu, 20 Aug 2020 08:17:37 -0700
+Subject: [PATCH 757/830] ANDROID: GKI: Enable V4L MEM2MEM drivers
+X-NVConfidentiality: public
+
+CONFIG_V4L_MEM2MEM_DRIVERS
+
+Bug: 165798419
+
+Change-Id: I604ab4367714c5fc3858e1ad89504b924f8db9d2
+Signed-off-by: Dmitry Shmidt <dimitrysh@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 33d82afd229c..faccb44d1868 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -337,6 +337,7 @@ CONFIG_MEDIA_SUPPORT_FILTER=y
+ CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_MEDIA_PLATFORM_SUPPORT=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
++CONFIG_V4L_MEM2MEM_DRIVERS=y
+ # CONFIG_VGA_ARB is not set
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 7b9e6f24b9d1..e5a2986e281f 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -293,6 +293,7 @@ CONFIG_MEDIA_SUPPORT_FILTER=y
+ CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_MEDIA_PLATFORM_SUPPORT=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
++CONFIG_V4L_MEM2MEM_DRIVERS=y
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+-- 
+2.17.1
+

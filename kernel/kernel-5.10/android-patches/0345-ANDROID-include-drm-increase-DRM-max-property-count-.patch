@@ -1,0 +1,34 @@
+From 1fbe4c2bca2a1cd9160e359f5f2a9e00142fecc2 Mon Sep 17 00:00:00 2001
+From: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Date: Mon, 9 Sep 2019 17:48:16 -0700
+Subject: [PATCH 345/830] ANDROID: include: drm: increase DRM max property
+ count to 64
+X-NVConfidentiality: public
+
+Increase drm property count from 24 to 64 to make
+room for custom properties of drm plane and drm
+crtc objects.
+
+Signed-off-by: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Bug: 139653858
+Change-Id: I3e42c1fc684d7d7cea828fc35b96673bdef598f4
+---
+ include/drm/drm_mode_object.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/drm/drm_mode_object.h b/include/drm/drm_mode_object.h
+index c34a3e8030e1..6292fa663844 100644
+--- a/include/drm/drm_mode_object.h
++++ b/include/drm/drm_mode_object.h
+@@ -60,7 +60,7 @@ struct drm_mode_object {
+ 	void (*free_cb)(struct kref *kref);
+ };
+ 
+-#define DRM_OBJECT_MAX_PROPERTY 24
++#define DRM_OBJECT_MAX_PROPERTY 64
+ /**
+  * struct drm_object_properties - property tracking for &drm_mode_object
+  */
+-- 
+2.17.1
+

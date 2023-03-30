@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -144,7 +144,10 @@ int vblk_prep_sg_io(struct vblk_dev *vblkdev,
 	/* This is the data buffer len, data length is strictly dependent on the
 	 * IOCTL being executed. data_buffer length is atleast cache aligned to
 	 * make sure that cache operations can be done successfully without
-	 * corruption */
+	 * corruption.
+	 * Since Block size is 4K, if it is aligned to blocksize, it will
+	 * indirectly align to cache line.
+	 */
 	vblk_hp->dxfer_buf_len = data_buf_size_aligned;
 	vblk_hp->xfer_arg_offset = data_buf_offset_aligned;
 	vblk_hp->cmdp_arg_offset = cmnd_offset;
@@ -155,7 +158,7 @@ int vblk_prep_sg_io(struct vblk_dev *vblkdev,
 
 free_ioctl_buf:
 	if (err && ioctl_buf)
-		kfree (ioctl_buf);
+		kfree(ioctl_buf);
 
 free_hp:
 	if (hp)
@@ -174,6 +177,13 @@ int vblk_complete_sg_io(struct vblk_dev *vblkdev,
 	void *sbp;
 	void *data_buf;
 	int err = 0;
+
+	if (ioctl_req->status) {
+		err = ioctl_req->status;
+		if (ioctl_req->ioctl_buf)
+			kfree(ioctl_req->ioctl_buf);
+		goto exit;
+	}
 
 	hp = kmalloc(header_len, GFP_KERNEL);
 	if (hp == NULL) {
@@ -207,10 +217,6 @@ int vblk_complete_sg_io(struct vblk_dev *vblkdev,
 
 	if ((vblk_hp->data_direction == SCSI_FROM_DEVICE) ||
 		(vblk_hp->data_direction == SCSI_BIDIRECTIONAL)) {
-		if (vblk_hp->dxfer_len >=  SZ_256M) {
-			err = -EINVAL;
-			goto free_hp;
-		}
 		if (copy_to_user(hp->dxferp, data_buf, vblk_hp->dxfer_len)) {
 			err = -EFAULT;
 			goto free_hp;
@@ -228,6 +234,6 @@ free_hp:
 
 	if (hp)
 		kfree(hp);
-
+exit:
 	return err;
 }

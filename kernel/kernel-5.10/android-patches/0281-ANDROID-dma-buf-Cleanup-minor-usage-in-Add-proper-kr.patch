@@ -1,0 +1,91 @@
+From 464cf073f9703002c177435d94bd8a6038c4e962 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Wed, 14 Oct 2020 02:40:03 +0000
+Subject: [PATCH 281/830] ANDROID: dma-buf: Cleanup minor usage in "Add proper
+ kref handling on dma-buf heaps"
+X-NVConfidentiality: public
+
+When submitting a cherry-picked version of commit c700bdd2233e
+("ANDROID: dma-heap: Add proper kref handling on dma-buf heaps")
+from the android-mainline tree, Greg had some feedback that
+tracking the minor number wasn't necessary as it was already
+stored in the heap_devt:
+  https://android-review.googlesource.com/c/kernel/common/+/1433176/4#message-b07e73548e082ae85b97c3f3ff889ae4ab6ab09d
+
+So this patch reworks those changes so we don't need an extra
+minor field in the dma_heap struct.
+
+Fixes: c700bdd2233e ("ANDROID: dma-heap: Add proper kref handling on dma-buf heaps")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I5f12e2249a6a02ee02dc19049b7b3577e094b0ce
+Bug: 154341375
+---
+ drivers/dma-buf/dma-heap.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/dma-buf/dma-heap.c b/drivers/dma-buf/dma-heap.c
+index aedca76f929d..6856ed3c9d96 100644
+--- a/drivers/dma-buf/dma-heap.c
++++ b/drivers/dma-buf/dma-heap.c
+@@ -41,7 +41,6 @@ struct dma_heap {
+ 	dev_t heap_devt;
+ 	struct list_head list;
+ 	struct cdev heap_cdev;
+-	int minor;
+ 	struct kref refcount;
+ };
+ 
+@@ -243,13 +242,14 @@ void *dma_heap_get_drvdata(struct dma_heap *heap)
+ static void dma_heap_release(struct kref *ref)
+ {
+ 	struct dma_heap *heap = container_of(ref, struct dma_heap, refcount);
++	int minor = MINOR(heap->heap_devt);
+ 
+ 	/* Note, we already holding the heap_list_lock here */
+ 	list_del(&heap->list);
+ 
+ 	device_destroy(dma_heap_class, heap->heap_devt);
+ 	cdev_del(&heap->heap_cdev);
+-	xa_erase(&dma_heap_minors, heap->minor);
++	xa_erase(&dma_heap_minors, minor);
+ 
+ 	kfree(heap);
+ }
+@@ -269,6 +269,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ {
+ 	struct dma_heap *heap, *err_ret;
+ 	struct device *dev_ret;
++	int minor;
+ 	int ret;
+ 
+ 	if (!exp_info->name || !strcmp(exp_info->name, "")) {
+@@ -300,7 +301,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ 	heap->priv = exp_info->priv;
+ 
+ 	/* Find unused minor number */
+-	ret = xa_alloc(&dma_heap_minors, &heap->minor, heap,
++	ret = xa_alloc(&dma_heap_minors, &minor, heap,
+ 		       XA_LIMIT(0, NUM_HEAP_MINORS - 1), GFP_KERNEL);
+ 	if (ret < 0) {
+ 		pr_err("dma_heap: Unable to get minor number for heap\n");
+@@ -309,7 +310,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ 	}
+ 
+ 	/* Create device */
+-	heap->heap_devt = MKDEV(MAJOR(dma_heap_devt), heap->minor);
++	heap->heap_devt = MKDEV(MAJOR(dma_heap_devt), minor);
+ 
+ 	cdev_init(&heap->heap_cdev, &dma_heap_fops);
+ 	ret = cdev_add(&heap->heap_cdev, heap->heap_devt, 1);
+@@ -339,7 +340,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ err2:
+ 	cdev_del(&heap->heap_cdev);
+ err1:
+-	xa_erase(&dma_heap_minors, heap->minor);
++	xa_erase(&dma_heap_minors, minor);
+ err0:
+ 	kfree(heap);
+ 	return err_ret;
+-- 
+2.17.1
+

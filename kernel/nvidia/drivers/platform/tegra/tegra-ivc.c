@@ -1,7 +1,7 @@
 /*
  * Inter-VM Communication
  *
- * Copyright (C) 2014-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2016, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -133,11 +133,11 @@ static inline int ivc_channel_empty(struct ivc *ivc,
 {
 	/*
 	 * This function performs multiple checks on the same values with
-	 * security implications, so create snapshots with ACCESS_ONCE() to
+	 * security implications, so create snapshots with READ_ONCE() to
 	 * ensure that these checks use the same values.
 	 */
-	uint32_t w_count = ACCESS_ONCE(ch->w_count);
-	uint32_t r_count = ACCESS_ONCE(ch->r_count);
+	uint32_t w_count = READ_ONCE(ch->w_count);
+	uint32_t r_count = READ_ONCE(ch->r_count);
 
 	/*
 	 * Perform an over-full check to prevent denial of service attacks where
@@ -162,7 +162,7 @@ static inline int ivc_channel_full(struct ivc *ivc,
 	 * Invalid cases where the counters indicate that the queue is over
 	 * capacity also appear full.
 	 */
-	return ACCESS_ONCE(ch->w_count) - ACCESS_ONCE(ch->r_count)
+	return READ_ONCE(ch->w_count) - READ_ONCE(ch->r_count)
 		>= ivc->nframes;
 }
 
@@ -175,13 +175,12 @@ static inline uint32_t ivc_channel_avail_count(struct ivc *ivc,
 	 * comment in ivc_channel_empty() for an explanation about special
 	 * over-full considerations.
 	 */
-	return ACCESS_ONCE(ch->w_count) - ACCESS_ONCE(ch->r_count);
+	return READ_ONCE(ch->w_count) - READ_ONCE(ch->r_count);
 }
 
 static inline void ivc_advance_tx(struct ivc *ivc)
 {
-	ACCESS_ONCE(ivc->tx_channel->w_count) =
-		ACCESS_ONCE(ivc->tx_channel->w_count) + 1;
+	WRITE_ONCE(ivc->tx_channel->w_count, (READ_ONCE(ivc->tx_channel->w_count) + 1));
 
 	if (ivc->w_pos == ivc->nframes - 1)
 		ivc->w_pos = 0;
@@ -191,8 +190,7 @@ static inline void ivc_advance_tx(struct ivc *ivc)
 
 static inline void ivc_advance_rx(struct ivc *ivc)
 {
-	ACCESS_ONCE(ivc->rx_channel->r_count) =
-		ACCESS_ONCE(ivc->rx_channel->r_count) + 1;
+	WRITE_ONCE(ivc->rx_channel->r_count, (READ_ONCE(ivc->rx_channel->r_count) + 1));
 
 	if (ivc->r_pos == ivc->nframes - 1)
 		ivc->r_pos = 0;
@@ -264,8 +262,8 @@ uint32_t tegra_ivc_tx_frames_available(struct ivc *ivc)
 {
 	ivc_invalidate_counter(ivc, ivc->tx_handle +
 			offsetof(struct ivc_channel_header, r_count));
-	return ivc->nframes - (ACCESS_ONCE(ivc->tx_channel->w_count) -
-			ACCESS_ONCE(ivc->tx_channel->r_count));
+	return ivc->nframes - (READ_ONCE(ivc->tx_channel->w_count) -
+			READ_ONCE(ivc->tx_channel->r_count));
 }
 EXPORT_SYMBOL(tegra_ivc_tx_frames_available);
 
@@ -563,11 +561,8 @@ EXPORT_SYMBOL(tegra_ivc_write_poke);
 void *tegra_ivc_write_get_next_frame(struct ivc *ivc)
 {
 	int result = ivc_check_write(ivc);
-	if (result) {
-		printk_ratelimited("%s :ivc_check_write failed, error %d\n",
-				__func__, result);
+	if (result)
 		return ERR_PTR(result);
-	}
 
 	return ivc_frame_pointer(ivc, ivc->tx_channel, ivc->w_pos);
 }
@@ -577,11 +572,8 @@ EXPORT_SYMBOL(tegra_ivc_write_get_next_frame);
 int tegra_ivc_write_advance(struct ivc *ivc)
 {
 	int result = ivc_check_write(ivc);
-	if (result) {
-		printk_ratelimited("%s: ivc_check_write failed , error %d\n",
-		__func__, result);
+	if (result)
 		return result;
-	}
 
 	ivc_flush_frame(ivc, ivc->tx_handle, ivc->w_pos, 0, ivc->frame_size);
 
@@ -650,7 +642,7 @@ int tegra_ivc_channel_notified(struct ivc *ivc)
 	/* Copy the receiver's state out of shared memory. */
 	ivc_invalidate_counter(ivc, ivc->rx_handle +
 			offsetof(struct ivc_channel_header, w_count));
-	peer_state = ACCESS_ONCE(ivc->rx_channel->state);
+	peer_state = READ_ONCE(ivc->rx_channel->state);
 
 	if (peer_state == ivc_state_sync) {
 		/*
@@ -872,18 +864,18 @@ static int tegra_ivc_init_body(struct ivc *ivc, uintptr_t rx_base,
 	ivc->tx_channel = (struct ivc_channel_header *)tx_base;
 
 	if (peer_device) {
-		if (rx_handle != DMA_ERROR_CODE) {
+		if (rx_handle && !dma_mapping_error(peer_device, rx_handle)) {
 			ivc->rx_handle = rx_handle;
 			ivc->tx_handle = tx_handle;
 		} else {
 			ivc->rx_handle = dma_map_single(peer_device,
 				ivc->rx_channel, queue_size, DMA_BIDIRECTIONAL);
-			if (ivc->rx_handle == DMA_ERROR_CODE)
+			if (dma_mapping_error(peer_device, ivc->rx_handle))
 				return -ENOMEM;
 
 			ivc->tx_handle = dma_map_single(peer_device,
 				ivc->tx_channel, queue_size, DMA_BIDIRECTIONAL);
-			if (ivc->tx_handle == DMA_ERROR_CODE) {
+			if (dma_mapping_error(peer_device, ivc->tx_handle)) {
 				dma_unmap_single(peer_device, ivc->rx_handle,
 					queue_size, DMA_BIDIRECTIONAL);
 				return -ENOMEM;
@@ -910,8 +902,8 @@ int tegra_ivc_init(struct ivc *ivc, uintptr_t rx_base, uintptr_t tx_base,
 		unsigned nframes, unsigned frame_size,
 		struct device *peer_device, void (*notify)(struct ivc *))
 {
-	return tegra_ivc_init_body(ivc, rx_base, DMA_ERROR_CODE, tx_base,
-		DMA_ERROR_CODE, nframes, frame_size, peer_device, notify);
+	return tegra_ivc_init_body(ivc, rx_base, 0, tx_base,
+		0, nframes, frame_size, peer_device, notify);
 }
 EXPORT_SYMBOL(tegra_ivc_init);
 

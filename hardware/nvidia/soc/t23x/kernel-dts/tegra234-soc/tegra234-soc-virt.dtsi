@@ -1,0 +1,414 @@
+/*
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+
+/ {
+	/* IVC and mempool driver */
+	tegra_hv: hyp {
+		compatible = "nvidia,tegra-hv";
+		status = "okay";
+	};
+	/* Property to be used by VM to determine if it is
+	 * running as VM under Hypervisor */
+	chosen {
+		nvidia,tegra-hypervisor-mode;
+	};
+
+	/* Paravirtualized BPMP driver */
+	bpmp {
+		compatible = "nvidia,tegra186-bpmp-hv";
+	};
+	/* Paravirtualized PM driver */
+	tegra_hv_pm_ctl {
+		compatible = "nvidia,tegra-hv-pm-ctl";
+	};
+
+	/* Paravirtualized watchdog driver */
+	tegra_hv_wdt {
+		compatible = "nvidia,tegra-hv-wdt";
+	};
+
+	/* Disable physical watchdog driver */
+	watchdog@30c0000 {
+		status = "disabled";
+	};
+
+	generic-system-config {
+		status = "disabled";
+	};
+
+	mipical {
+		status = "disabled";
+	};
+
+	combined-uart {
+		status = "disabled";
+	};
+
+	host1x@13e00000 {
+		status = "disabled";
+
+		niso0_ctx0 {
+			status = "disabled";
+		};
+
+		niso0_ctx1 {
+			status = "disabled";
+		};
+
+		niso0_ctx2 {
+			status = "disabled";
+		};
+
+		niso0_ctx3 {
+			status = "disabled";
+		};
+
+		niso0_ctx4 {
+			status = "disabled";
+		};
+
+		niso0_ctx5 {
+			status = "disabled";
+		};
+
+		niso0_ctx6 {
+			status = "disabled";
+		};
+
+		niso0_ctx7 {
+			status = "disabled";
+		};
+
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		niso1_ctx0 {
+			status = "disabled";
+		};
+
+		niso1_ctx1 {
+			status = "disabled";
+		};
+
+		niso1_ctx2 {
+			status = "disabled";
+		};
+
+		niso1_ctx3 {
+			status = "disabled";
+		};
+
+		niso1_ctx4 {
+			status = "disabled";
+		};
+
+		niso1_ctx5 {
+			status = "disabled";
+		};
+
+		niso1_ctx6 {
+			status = "disabled";
+		};
+
+		niso1_ctx7 {
+			status = "disabled";
+		};
+#endif
+
+		vic@15340000 {
+			status = "disabled";
+		};
+
+		nvjpg@15380000 {
+			status = "disabled";
+		};
+
+		nvjpg1@15540000 {
+			status = "disabled";
+		};
+
+		tsec@15500000 {
+			status = "disabled";
+		};
+
+		nvdec@15480000 {
+			status = "disabled";
+		};
+
+		nvenc@154c0000 {
+			status = "disabled";
+		};
+
+		ofa@15a50000 {
+			status = "disabled";
+		};
+
+		/* ISO-clients cannot have stage-1 translation and hence
+		 * iommus node are deleted for ISO-Clients which are
+		 * nvdisplay, vi0, vi1, vi0-thi, and vi1-thi */
+		vi0@15c00000 {
+			/delete-property/ iommus;
+			/delete-property/ iso-smmu;
+			status = "disabled";
+		};
+
+		vi1@14c00000 {
+			/delete-property/ iommus;
+			/delete-property/ iso-smmu;
+			status = "disabled";
+		};
+
+		vi0-thi@15f00000 {
+			/delete-property/ iommus;
+			/delete-property/ iso-smmu;
+			status = "disabled";
+		};
+
+		vi1-thi@14f00000 {
+			/delete-property/ iommus;
+			/delete-property/ iso-smmu;
+			status = "disabled";
+		};
+
+		isp@14800000 {
+			status = "disabled";
+		};
+
+		isp-thi@14b00000 {
+			status = "disabled";
+		};
+
+		nvcsi@15a00000 {
+			status = "disabled";
+		};
+
+		pva0 {
+			status = "disabled";
+		};
+
+		nvdla0@15880000 {
+			status = "disabled";
+		};
+
+		nvdla1@158c0000 {
+			status = "disabled";
+		};
+
+		se@15810000 {
+			status="disabled";
+		};
+
+		se@15820000 {
+			status="disabled";
+		};
+
+		se@15840000 {
+			status="disabled";
+		};
+	};
+
+	mc {
+		/delete-property/ ranges;
+		/delete-node/ mssnvlink@1f20000;
+	};
+
+	/* ISO-SMMU is not available for a VM and hence
+	 * all the properties related to ISO-SMMU are deleted.
+	 * TEGRA_IOMMU_DT_VERSION supports multiple SMMU instances.
+	 */
+	iommu@12000000 {
+		/delete-property/ stream-match-mask;
+	};
+
+	iommu@10000000 {
+		status = "disabled";
+	};
+
+	iommu@8000000 {
+		/delete-property/ stream-match-mask;
+	};
+
+	smmu_suspend {
+		status = "disabled";
+	};
+
+	xhci@3610000 {
+		vfs_num = <4>;
+		/* Index 0 : XUSB PF base address and size
+		 * Index 1 : XUSB PF CFG (FPCI) base address and size
+		 * Index 2 : XUSB PF BAR2 base address and size
+		 * Index 3 : XUSB PADCTL base address and size
+		 * Index 4 : XUSB AO base address and size
+		 * Index 5 : XUSB VF0 base address and size
+		 */
+		reg = <0x0 0x03610000 0x0 0x40000>,
+			<0x0 0x03600000 0x0 0x10000>,
+			<0x0 0x03650000 0x0 0x10000>,
+			<0x0 0x03520000 0x0 0x20000>,
+			<0x0 0x03540000 0x0 0x10000>,
+			<0x0 0x03670000 0x0 0x40000>;
+		pf {
+			ss_start = <1>;
+			ss_num = <4>;
+			hs_start = <5>;
+			hs_num = <4>;
+		};
+
+		vfs {
+			/*
+			 * portmap : Add all the ports(Host/Device Mode) that
+			 * are owned by a Guest. Even if there is a micro-B port
+			 * which is device only, add it to portmap so that
+			 * XHCI_SERVER can validate when VF accesses PAD/AO
+			 * Registers for the device only port
+			 */
+
+			vf@1 {
+				slots = <36>;
+			};
+			vf@2 {
+				slots = <36>;
+			};
+			vf@3 {
+				slots = <36>;
+			};
+			vf@4 {
+				slots = <36>;
+			};
+		};
+	};
+
+	vse@15810000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <0>;
+		status = "disabled";
+	};
+
+	vse@15820000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <1>;
+		status = "disabled";
+	};
+
+	vse@15830000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <2>;
+		status = "disabled";
+	};
+
+	vse@15840000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <3>;
+		status = "disabled";
+	};
+
+	vse@3ae0000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <4>;
+		status = "disabled";
+	};
+
+	vse@3ad0000 {
+		compatible = "nvidia,tegra234-hv-vse-safety";
+		se-engine-id = <5>;
+		status = "disabled";
+	};
+
+	cbb-fabric@1300000 {
+		status = "disabled";
+	};
+
+	aon-fabric@C600000 {
+		status = "disabled";
+	};
+
+	bpmp-fabric@D600000 {
+		status = "disabled";
+	};
+
+	dce-fabric@BE00000 {
+		status = "disabled";
+	};
+
+	rce-fabric@BE00000 {
+		status = "disabled";
+	};
+
+	sce-fabric@B600000 {
+		status = "disabled";
+	};
+
+	cv-fabric@14040000 {
+		status = "disabled";
+	};
+
+	/* Disable cpufreq, so that server partitions accidently don't invoke
+	  cpufreq driver(in case if present in server code). In bpmp-server(which
+	  owns cpufreq)DT, cpufreq DT node will be enabled explicitly.
+	*/
+	cpufreq {
+		status = "disabled";
+	};
+
+	ccplex@e000000 {
+		status = "disabled";
+	};
+
+	se_elp@3ad0000 {
+		status = "disabled";
+	};
+
+	nvrng@3ae0000 {
+		status = "disabled";
+	};
+
+	vgpu {
+		compatible = "nvidia,ga10b-vgpu";
+		reg = <0x0 0x17bb0000 0x0 0x10000>;
+		reg-names = "usermode";
+		nvidia,host1x = <&host1x>;
+		dma-noncontig;
+		status = "disabled";
+	};
+
+	aconnect@2a41000 {
+		/* Remove APE and APB2APE clocks from adsp node to
+		 * prevent guest owning ADSP peripheral from
+		 * toggling APE clocks. These clocks are owned and
+		 * controlled only by Audio Server
+		 *
+		 * ADSP_ALL reset will be owned by Audio Server only
+		 * since multiple VMs can't own ADSP reset
+		*/
+		adsp@2993000 {
+			clocks = <&bpmp_clks TEGRA234_CLK_ADSPNEON>,
+				<&bpmp_clks TEGRA234_CLK_ADSP>,
+				<&bpmp_clks TEGRA234_CLK_ACLK>;
+			clock-names = "adspneon", "adsp", "aclk";
+
+			/delete-property/ resets;
+			/delete-property/ reset-names;
+		};
+
+		/* Add ADSP reset information to AHUB node to allow
+		 * Audio Server ownership of ADSP reset. Required for
+		 * ADSP reset handling during guest reset.
+		*/
+		ahub {
+			resets = <&bpmp_resets TEGRA234_RESET_ADSP_ALL>;
+			reset-names = "adspall";
+		};
+	};
+};

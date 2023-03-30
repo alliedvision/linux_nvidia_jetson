@@ -1,0 +1,43 @@
+From e22e0e6e77f3b58492e0fe21ca2c675a3a6e970c Mon Sep 17 00:00:00 2001
+From: Suren Baghdasaryan <surenb@google.com>
+Date: Thu, 20 Feb 2020 17:50:12 -0800
+Subject: [PATCH 643/830] ANDROID: gki_defconfig: Disable CONFIG_RT_GROUP_SCHED
+X-NVConfidentiality: public
+
+Disable CONFIG_RT_GROUP_SCHED to control RT cpu allowance globally.
+
+Bug: 149954332
+Change-Id: I9487bd113502e52f19637e43109433cb13e97a23
+Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 012722787ccd..9121d329f424 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -14,7 +14,6 @@ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+ CONFIG_BLK_CGROUP=y
+-CONFIG_RT_GROUP_SCHED=y
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index be2a2a998c3d..57f3da30b1d1 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -14,7 +14,6 @@ CONFIG_IKHEADERS=y
+ CONFIG_UCLAMP_TASK=y
+ CONFIG_MEMCG=y
+ CONFIG_MEMCG_SWAP=y
+-CONFIG_RT_GROUP_SCHED=y
+ CONFIG_UCLAMP_TASK_GROUP=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CPUSETS=y
+-- 
+2.17.1
+

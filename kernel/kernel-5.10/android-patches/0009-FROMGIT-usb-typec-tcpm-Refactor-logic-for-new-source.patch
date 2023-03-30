@@ -1,0 +1,81 @@
+From c5f2b90fd2e6c22ef1d18b73541fc236cc8a40c1 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:31 -0700
+Subject: [PATCH 009/830] FROMGIT: usb: typec: tcpm: Refactor logic for
+ new-source-frs-typec-current
+X-NVConfidentiality: public
+
+New source's current capability is now defined as string based
+device tree property through new-source-frs-typec-current.
+Refactor tcpm code to parse new-source-frs-typec-current and
+infer local port's new source current capability during frs.
+
+Bug: 168158832
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-4-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 8115240c4fbd1c2705d1369f66168ec77fa2a7e4
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I0c8560a7e0d70d5cca6de1489b4003e987b0e02b
+---
+ drivers/usb/typec/tcpm/tcpm.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index 8333c80b5f7c..2bea74742651 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -381,8 +381,8 @@ struct tcpm_port {
+ 	/* port belongs to a self powered device */
+ 	bool self_powered;
+ 
+-	/* FRS */
+-	enum frs_typec_current frs_current;
++	/* Sink FRS */
++	enum frs_typec_current new_source_frs_current;
+ 
+ 	/* Sink caps have been queried */
+ 	bool sink_cap_done;
+@@ -1732,7 +1732,7 @@ static void tcpm_pd_data_request(struct tcpm_port *port,
+ 	unsigned int cnt = pd_header_cnt_le(msg->header);
+ 	unsigned int rev = pd_header_rev_le(msg->header);
+ 	unsigned int i;
+-	enum frs_typec_current frs_current;
++	enum frs_typec_current partner_frs_current;
+ 	bool frs_enable;
+ 	int ret;
+ 
+@@ -1805,12 +1805,13 @@ static void tcpm_pd_data_request(struct tcpm_port *port,
+ 		for (i = 0; i < cnt; i++)
+ 			port->sink_caps[i] = le32_to_cpu(msg->payload[i]);
+ 
+-		frs_current = (port->sink_caps[0] & PDO_FIXED_FRS_CURR_MASK) >>
++		partner_frs_current = (port->sink_caps[0] & PDO_FIXED_FRS_CURR_MASK) >>
+ 			PDO_FIXED_FRS_CURR_SHIFT;
+-		frs_enable = frs_current && (frs_current <= port->frs_current);
++		frs_enable = partner_frs_current && (partner_frs_current <=
++						     port->new_source_frs_current);
+ 		tcpm_log(port,
+ 			 "Port partner FRS capable partner_frs_current:%u port_frs_current:%u enable:%c",
+-			 frs_current, port->frs_current, frs_enable ? 'y' : 'n');
++			 partner_frs_current, port->new_source_frs_current, frs_enable ? 'y' : 'n');
+ 		if (frs_enable) {
+ 			ret  = port->tcpc->enable_frs(port->tcpc, true);
+ 			tcpm_log(port, "Enable FRS %s, ret:%d\n", ret ? "fail" : "success", ret);
+@@ -4831,9 +4832,10 @@ static int tcpm_fw_get_caps(struct tcpm_port *port,
+ 
+ 	/* FRS can only be supported byb DRP ports */
+ 	if (port->port_type == TYPEC_PORT_DRP) {
+-		ret = fwnode_property_read_u32(fwnode, "frs-typec-current", &frs_current);
++		ret = fwnode_property_read_u32(fwnode, "new-source-frs-typec-current",
++					       &frs_current);
+ 		if (ret >= 0 && frs_current <= FRS_5V_3A)
+-			port->frs_current = frs_current;
++			port->new_source_frs_current = frs_current;
+ 	}
+ 
+ 	return 0;
+-- 
+2.17.1
+

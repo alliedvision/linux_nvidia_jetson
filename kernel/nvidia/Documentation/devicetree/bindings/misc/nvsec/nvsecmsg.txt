@@ -1,0 +1,28 @@
+Comms and Security inter vm message Device Tree Bindings
+--------------------------------------------------------
+
+The inter vm message is a Comms and Security feature which supports inter VM message exchange
+between Security VM and guest VM
+
+
+Required properties:
+compatible:         should be "nvidia,tegra-hv-secmsg"
+    taggsc:         message service tag
+                    format: taggsc = <vm_id, ivm_service>
+                            vm_id: comms&security pct guest vm id starts from 1
+                      ivm_service: the service number, should keep as 3 for the nvsecmsg application
+
+       ivc:         ivc channel number
+
+  platform:         comms&security pct platform id for supporting multiple platforms
+                    e.g. "driveav" is for the drive AV pct. There will be new ids for
+                    pcts which need comms and security service
+
+Example:
+       tegra_hv_secmsg {
+          compatible = "nvidia,tegra-hv-secmsg";
+          status = "okay";
+          taggsc = <1 3>;
+          ivc = <&tegra_hv 365>;
+          platform = "driveav";
+       };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,23 +16,23 @@
  */
 
 / {
-	host1x {
-		vi@15c10000 {
-			num-channels = <1>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
-					e2832_vi_in0: endpoint {
-						port-index = <0>;
-						bus-width = <8>;
-						remote-endpoint = <&e2832_csi_out0>;
-					};
+	tegra-capture-vi {
+		num-channels = <1>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				e2832_vi_in0: endpoint {
+					port-index = <0>;
+					bus-width = <8>;
+					remote-endpoint = <&e2832_csi_out0>;
 				};
 			};
 		};
+	};
 
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <1>;
 			#address-cells = <1>;
@@ -210,7 +210,7 @@
 				line_length = "1920";
 				inherent_gain = "1";
 				mclk_multiplier = "24";
-				pix_clk_hz = "576000000";
+				pix_clk_hz = "220000000";
 
 				gain_factor = "16";
 				framerate_factor = "1000000";
@@ -248,7 +248,7 @@
 				line_length = "3840";
 				inherent_gain = "1";
 				mclk_multiplier = "24";
-				pix_clk_hz = "576000000";
+				pix_clk_hz = "500000000";
 
 				gain_factor = "16";
 				framerate_factor = "1000000";
@@ -286,7 +286,7 @@
 				line_length = "1280";
 				inherent_gain = "1";
 				mclk_multiplier = "24";
-				pix_clk_hz = "576000000";
+				pix_clk_hz = "220000000";
 
 				gain_factor = "16";
 				framerate_factor = "1000000";

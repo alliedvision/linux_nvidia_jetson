@@ -1,0 +1,46 @@
+From 0420e26069432483f9480b24e9748a98cbf341fc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>
+Date: Thu, 16 Jan 2020 01:52:49 -0800
+Subject: [PATCH 613/830] ANDROID: GKI: enable CONFIG_DUMMY=y
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+Dummy network interface required for upcoming self-tests.
+
+Bug: 147203196
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+Change-Id: I1989ece6cb95a8fa0c8b03ed756f9962476e0577
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 084563e2f353..afb865e6ac5e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -238,6 +238,7 @@ CONFIG_DM_VERITY_AVB=y
+ CONFIG_DM_VERITY_FEC=y
+ CONFIG_DM_BOW=y
+ CONFIG_NETDEVICES=y
++CONFIG_DUMMY=y
+ CONFIG_TUN=y
+ CONFIG_VIRTIO_NET=m
+ # CONFIG_ETHERNET is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index e4b5f68f1dfd..fa5014e5441a 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -210,6 +210,7 @@ CONFIG_DM_VERITY_AVB=y
+ CONFIG_DM_VERITY_FEC=y
+ CONFIG_DM_BOW=y
+ CONFIG_NETDEVICES=y
++CONFIG_DUMMY=y
+ CONFIG_TUN=y
+ CONFIG_VIRTIO_NET=m
+ # CONFIG_ETHERNET is not set
+-- 
+2.17.1
+

@@ -211,7 +211,7 @@ static void isc_gpio_set_value(struct gpio_chip *gc, unsigned off, int val)
 		mutex_unlock(&isc_gpio->mutex);
 		return;
 	}
-	idx = array_index_nospec(idx, 0);
+	idx = array_index_nospec(idx, isc_gpio->pdata.max_gpio);
 
 	/* set gpio value based on refcount */
 	ref_cnt = &isc_gpio->gpios[idx].ref_cnt;

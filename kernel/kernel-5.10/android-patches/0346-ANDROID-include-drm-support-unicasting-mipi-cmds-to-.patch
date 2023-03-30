@@ -1,0 +1,56 @@
+From 32363d3a976becd66d640d4066cd030ded5a18a9 Mon Sep 17 00:00:00 2001
+From: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Date: Mon, 9 Sep 2019 17:48:16 -0700
+Subject: [PATCH 346/830] ANDROID: include: drm: support unicasting mipi cmds
+ to dsi ctrls
+X-NVConfidentiality: public
+
+Add support into the drm_mipi_dsi framework to support
+unicasting DCS commands to specific DSI controls within a panel.
+This is required for partial update where region of interest
+spans only on one controller in a dual controller configuration.
+Also, Some display panel have the requirement of waiting for certain
+duration before dsi host can read back the response from panel during
+a DCS read command. This change adds the support to store
+the delay required in dsi message structure.
+
+Signed-off-by: Shashank Babu Chinta Venkata <sbchin@codeaurora.org>
+Bug: 139653858
+Change-Id: I3a99437441410a2514f9486d08ae3ba68670769e
+---
+ include/drm/drm_mipi_dsi.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/include/drm/drm_mipi_dsi.h b/include/drm/drm_mipi_dsi.h
+index 360e6377e84b..41c8367ecd28 100644
+--- a/include/drm/drm_mipi_dsi.h
++++ b/include/drm/drm_mipi_dsi.h
+@@ -19,12 +19,16 @@ struct drm_dsc_picture_parameter_set;
+ #define MIPI_DSI_MSG_REQ_ACK	BIT(0)
+ /* use Low Power Mode to transmit message */
+ #define MIPI_DSI_MSG_USE_LPM	BIT(1)
++/* read mipi_dsi_msg.ctrl and unicast to only that ctrls */
++#define MIPI_DSI_MSG_UNICAST	BIT(2)
+ 
+ /**
+  * struct mipi_dsi_msg - read/write DSI buffer
+  * @channel: virtual channel id
+  * @type: payload data type
+  * @flags: flags controlling this message transmission
++ * @ctrl: ctrl index to transmit on
++ * @wait_ms: duration in ms to wait after message transmission
+  * @tx_len: length of @tx_buf
+  * @tx_buf: data to be written
+  * @rx_len: length of @rx_buf
+@@ -34,6 +38,8 @@ struct mipi_dsi_msg {
+ 	u8 channel;
+ 	u8 type;
+ 	u16 flags;
++	u32 ctrl;
++	u32 wait_ms;
+ 
+ 	size_t tx_len;
+ 	const void *tx_buf;
+-- 
+2.17.1
+

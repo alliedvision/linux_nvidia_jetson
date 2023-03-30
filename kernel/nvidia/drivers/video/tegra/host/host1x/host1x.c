@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Driver Entrypoint
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -31,15 +31,12 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
-#include <soc/tegra/chip-id.h>
-#include <linux/tegra_pm_domains.h>
-#include <linux/vmalloc.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
 #include <linux/kref.h>
 #include <linux/nospec.h>
-#include <linux/dma-mapping.h>
 
 #include "dev.h"
 #include <trace/events/nvhost.h>
@@ -54,6 +51,10 @@
 #include "nvhost_channel.h"
 #include "nvhost_job.h"
 #include "vhost/vhost.h"
+#include "platform.h"
+
+#include "../syncpt_fd.h"
+#include "../nvhost_syncpt_dmabuf.h"
 
 #ifdef CONFIG_TEGRA_GRHOST_SYNC
 #include "nvhost_sync.h"
@@ -61,17 +62,17 @@
 
 #include "nvhost_scale.h"
 #include "chip_support.h"
-#include "t124/t124.h"
 #include "t210/t210.h"
 
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-#include "t186/t186.h"
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 #include "t194/t194.h"
+#include "t23x/t23x.h"
+#ifdef CONFIG_TEGRA_T239_GRHOST
+#include "t239/t239.h"
 #endif
 
 #define DRIVER_NAME		"host1x"
+
+#define SP_TEST_VAL		0xdeadbeef
 
 static const char *num_syncpts_name = "num_pts";
 static const char *num_mutexes_name = "num_mlocks";
@@ -282,7 +283,7 @@ static int nvhost_ioctl_ctrl_sync_fence_create(struct nvhost_ctrl_userctx *ctx,
 		}
 	}
 
-	err = nvhost_sync_create_fence_fd(ctx->dev->dev, pts, args->num_pts,
+	err = nvhost_fence_create_fd(ctx->dev->dev, pts, args->num_pts,
 					  name, &args->fence_fd);
 out:
 	kfree(pts);
@@ -297,7 +298,7 @@ static int nvhost_ioctl_ctrl_sync_fence_set_name(
 	struct nvhost_ctrl_userctx *ctx,
 	struct nvhost_ctrl_sync_fence_name_args *args)
 {
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && IS_ENABLED(CONFIG_SYNC)
 	int err;
 	char name[32];
 	const char __user *args_name =
@@ -567,6 +568,59 @@ static int nvhost_ioctl_ctrl_poll_fd_trigger_event(
 	return err;
 }
 
+static int nvhost_ioctl_ctrl_sync_file_extract(
+	struct nvhost_ctrl_userctx *ctx,
+	struct nvhost_ctrl_sync_file_extract *args)
+{
+	u32 __user *out_fences = u64_to_user_ptr(args->fences_ptr);
+	struct nvhost_fence *fence = nvhost_fence_get(args->fd);
+	u32 num_pts, i, limit;
+	int err = 0;
+
+	if (!fence)
+		return -EINVAL;
+
+	num_pts = nvhost_fence_num_pts(fence);
+	limit = min(num_pts, args->num_fences);
+
+	/*
+	 * prevent speculative access to fences, by making sure
+	 * that the limit is within bounds before entering loop
+	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	spec_bar();
+#else
+	speculation_barrier();
+#endif
+
+	for (i = 0; i < limit; i++) {
+		u32 __user *ptr = out_fences + i*2;
+		unsigned long copy_err;
+		u32 id, thresh;
+
+		nvhost_fence_get_pt(fence, i, &id, &thresh);
+
+		copy_err = copy_to_user(ptr+0, &id, sizeof(id));
+		if (copy_err) {
+			err = -EFAULT;
+			goto put_fence;
+		}
+
+		copy_err = copy_to_user(ptr+1, &thresh, sizeof(thresh));
+		if (copy_err) {
+			err = -EFAULT;
+			goto put_fence;
+		}
+	}
+
+	args->num_fences = num_pts;
+
+put_fence:
+	nvhost_fence_put(fence);
+
+	return err;
+}
+
 static long nvhost_ctrlctl(struct file *filp,
 	unsigned int cmd, unsigned long arg)
 {
@@ -645,6 +699,15 @@ static long nvhost_ctrlctl(struct file *filp,
 	case NVHOST_IOCTL_CTRL_POLL_FD_TRIGGER_EVENT:
 		err = nvhost_ioctl_ctrl_poll_fd_trigger_event(priv, (void *)buf);
 		break;
+	case NVHOST_IOCTL_CTRL_ALLOC_SYNCPT:
+		err = nvhost_syncpt_fd_alloc(priv->dev, (void *)buf);
+		break;
+	case NVHOST_IOCTL_CTRL_SYNC_FILE_EXTRACT:
+		err = nvhost_ioctl_ctrl_sync_file_extract(priv, (void *)buf);
+		break;
+	case NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD:
+		err = nvhost_syncpt_dmabuf_alloc(priv->dev, (void *)buf);
+		break;
 	default:
 		nvhost_err(&priv->dev->dev->dev, "invalid cmd 0x%x", cmd);
 		err = -ENOIOCTLCMD;
@@ -680,6 +743,9 @@ static int power_on_host(struct platform_device *dev)
 
 	if (host_device_op().load_gating_regs)
 		host_device_op().load_gating_regs(dev, pdata->engine_can_cg);
+
+	if (host_device_op().load_map_regs)
+		host_device_op().load_map_regs(dev);
 
 	nvhost_syncpt_reset(&host->syncpt);
 	nvhost_syncpt_initialize_unused(&host->syncpt);
@@ -807,7 +873,9 @@ static int nvhost_user_init(struct nvhost_master *host)
 		goto fail;
 	}
 	host->ctrl = device_create(host->nvhost_class, &host->dev->dev, devno,
-					NULL, IFACE_NAME "-ctrl");
+				   NULL, IFACE_NAME "-%s",
+				   host->info.ctrl_name ?
+				      host->info.ctrl_name : "ctrl");
 	if (IS_ERR(host->ctrl)) {
 		err = PTR_ERR(host->ctrl);
 		dev_err(&host->dev->dev, "failed to create ctrl device\n");
@@ -931,34 +999,24 @@ static int nvhost_alloc_resources(struct nvhost_master *host)
 }
 
 static struct of_device_id tegra_host1x_of_match[] = {
-#ifdef TEGRA_12X_OR_HIGHER_CONFIG
-	{ .compatible = "nvidia,tegra124-host1x",
-		.data = (struct nvhost_device_data *)&t124_host1x_info },
-#endif
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra210-host1x",
 		.data = (struct nvhost_device_data *)&t21_host1x_info },
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{ .name = "host1x",
-		.compatible = "nvidia,tegra186-host1x",
-		.data = (struct nvhost_device_data *)&t18_host1x_info },
-	{ .name = "host1xb",
-		.compatible = "nvidia,tegra186-host1x",
-		.data = (struct nvhost_device_data *)&t18_host1xb_info },
-	{ .compatible = "nvidia,tegra186-host1x-cl34000094",
-		.data = (struct nvhost_device_data *)&t18_host1x_info },
-	{ .name = "host1x",
-	  .compatible = "nvidia,tegra186-host1x-hv",
-		.data = (struct nvhost_device_data *)&t18_host1x_hv_info },
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 	{ .name = "host1x",
 		.compatible = "nvidia,tegra194-host1x",
 		.data = (struct nvhost_device_data *)&t19_host1x_info },
 	{ .name = "host1x",
 		.compatible = "nvidia,tegra194-host1x-hv",
 		.data = (struct nvhost_device_data *)&t19_host1x_hv_info },
+	{ .name = "host1x",
+		.compatible = "nvidia,tegra234-host1x",
+		.data = (struct nvhost_device_data *)&t23x_host1x_info },
+	{ .name = "host1x",
+		.compatible = "nvidia,tegra234-host1x-hv",
+		.data = (struct nvhost_device_data *)&t23x_host1x_hv_info },
+#ifdef CONFIG_TEGRA_T239_GRHOST
+	{ .name = "host1x",
+		.compatible = "nvidia,tegra239-host1x",
+		.data = (struct nvhost_device_data *)&t239_host1x_info },
 #endif
 	{ },
 };
@@ -972,6 +1030,20 @@ int nvhost_host1x_prepare_poweroff(struct platform_device *dev)
 {
 	return power_off_host(dev);
 }
+
+/*
+ * Simple function to return platform_device ptr to default HOST1X
+ * instance.
+ */
+struct platform_device *nvhost_get_default_device(void)
+{
+	if (!nvhost_get_prim_host()) {
+		return NULL;
+	} else {
+		return nvhost_get_prim_host()->dev;
+	}
+}
+EXPORT_SYMBOL(nvhost_get_default_device);
 
 static int of_nvhost_parse_platform_data(struct platform_device *dev,
 					struct nvhost_device_data *pdata)
@@ -1113,19 +1185,21 @@ static int check_syncpt_range(struct platform_device *dev,
 	int err = 0;
 	u32 val;
 
-	nvhost_syncpt_set_minval(dev, host->info.pts_base, 0xdeadbeef);
+	nvhost_syncpt_set_minval(dev, host->info.pts_base, SP_TEST_VAL);
 	val = nvhost_syncpt_update_min(sp, host->info.pts_base);
-	if (val != 0xdeadbeef) {
-		nvhost_err(&dev->dev, "syncpt %u: read 0x%x", host->info.pts_base, val);
+	if (val != SP_TEST_VAL) {
+		nvhost_err(&dev->dev, "syncpt %u: read 0x%x",
+				host->info.pts_base, val);
 		err = -EINVAL;
 		goto fail;
 	}
 	nvhost_syncpt_set_minval(dev, host->info.pts_base, 0);
 
-	nvhost_syncpt_set_minval(dev, host->info.pts_limit - 1, 0xbeefdead);
+	nvhost_syncpt_set_minval(dev, host->info.pts_limit - 1, SP_TEST_VAL);
 	val = nvhost_syncpt_update_min(sp, host->info.pts_limit - 1);
-	if (val != 0xbeefdead) {
-		nvhost_err(&dev->dev, "syncpt %u: read 0x%x", host->info.pts_limit - 1, val);
+	if (val != SP_TEST_VAL) {
+		nvhost_err(&dev->dev, "syncpt %u: read 0x%x",
+				host->info.pts_limit - 1, val);
 		err = -EINVAL;
 		goto fail;
 	}
@@ -1138,7 +1212,7 @@ fail:
 static int nvhost_probe(struct platform_device *dev)
 {
 	struct nvhost_master *host;
-	int syncpt_irq, generic_irq;
+	int syncpt_irqs[8], generic_irq, irq_idx;
 	int err;
 	struct nvhost_device_data *pdata = NULL;
 
@@ -1166,26 +1240,36 @@ static int nvhost_probe(struct platform_device *dev)
 		return -ENODATA;
 	}
 
-	syncpt_irq = platform_get_irq(dev, 0);
-	if (syncpt_irq < 0) {
-		dev_err(&dev->dev, "missing syncpt irq\n");
-		return -ENXIO;
-	}
-
-	generic_irq = platform_get_irq(dev, 1);
-	if (generic_irq < 0) {
-		dev_err(&dev->dev, "missing generic irq\n");
-		generic_irq = 0;
-	}
-
 	host = devm_kzalloc(&dev->dev, sizeof(*host), GFP_KERNEL);
 	if (!host) {
 		nvhost_err(NULL, "failed to alloc host structure");
 		return -ENOMEM;
 	}
 
+	/*
+	 * Copy host1x parameters. The private_data gets replaced
+	 * by nvhost_master later
+	 */
+	memcpy(&host->info, pdata->private_data,
+			sizeof(struct host1x_device_info));
+
+	for (irq_idx = 0; irq_idx < host->info.nb_syncpt_irqs; irq_idx++) {
+		syncpt_irqs[irq_idx] = platform_get_irq(dev, irq_idx);
+		if (syncpt_irqs[irq_idx] < 0) {
+			dev_err(&dev->dev, "missing syncpt irq\n");
+			return -ENXIO;
+		}
+	}
+
+	/* In DT, generic irq index comes after all configured syncpt irqs */
+	irq_idx = host->info.nb_syncpt_irqs;
+	generic_irq = platform_get_irq(dev, irq_idx);
+	if (generic_irq < 0) {
+		dev_err(&dev->dev, "missing generic irq\n");
+		generic_irq = 0;
+	}
+
 	host->dev = dev;
-	INIT_LIST_HEAD(&host->static_mappings_list);
 	INIT_LIST_HEAD(&host->vm_list);
 	host->syncpt_backing_head = RB_ROOT;
 	mutex_init(&host->vm_mutex);
@@ -1193,14 +1277,7 @@ static int nvhost_probe(struct platform_device *dev)
 	mutex_init(&pdata->lock);
 	init_rwsem(&pdata->busy_lock);
 
-	/* Copy host1x parameters. The private_data gets replaced
-	 * by nvhost_master later */
-	memcpy(&host->info, pdata->private_data,
-			sizeof(struct host1x_device_info));
-
 	pdata->pdev = dev;
-
-	dma_set_mask_and_coherent(&dev->dev, host->info.dma_mask);
 
 	/* set common host1x device data */
 	platform_set_drvdata(dev, pdata);
@@ -1273,7 +1350,7 @@ static int nvhost_probe(struct platform_device *dev)
 	if (err)
 		goto fail;
 
-	err = nvhost_intr_init(&host->intr, generic_irq, syncpt_irq);
+	err = nvhost_intr_init(&host->intr, generic_irq, syncpt_irqs);
 	if (err)
 		goto fail;
 
@@ -1347,32 +1424,6 @@ static int __exit nvhost_remove(struct platform_device *dev)
 
 #ifdef CONFIG_PM
 
-/*
- * FIXME: Genpd disables the runtime pm while preparing for system
- * suspend. As host1x clients may need host1x in suspend sequence
- * for register reads/writes or syncpoint increments, we need to
- * re-enable pm_runtime. As we *must* balance pm_runtime counter,
- * we drop the reference in suspend complete callback, right before
- * the genpd re-enables runtime pm.
- *
- * We should revisit the power code as this is hacky and
- * caused by the way we use power domains.
- */
-
-static int nvhost_suspend_prepare(struct device *dev)
-{
-	if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) && dev->pm_domain)
-		pm_runtime_enable(dev);
-
-	return 0;
-}
-
-static void nvhost_suspend_complete(struct device *dev)
-{
-	if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0) && dev->pm_domain)
-		__pm_runtime_disable(dev, false);
-}
-
 static int nvhost_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1426,8 +1477,6 @@ static int nvhost_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops host1x_pm_ops = {
-	.prepare = nvhost_suspend_prepare,
-	.complete = nvhost_suspend_complete,
 	.suspend_late = nvhost_suspend,
 	.resume_early = nvhost_resume,
 	SET_RUNTIME_PM_OPS(nvhost_module_disable_clk,
@@ -1452,38 +1501,75 @@ static struct platform_driver platform_driver = {
 	},
 };
 
-static struct of_device_id tegra_host1x_domain_match[] = {
-	{.compatible = "nvidia,tegra124-host1x-pd",
-	 .data = (struct nvhost_device_data *)&t124_host1x_info},
-	{.compatible = "nvidia,tegra132-host1x-pd",
-	 .data = (struct nvhost_device_data *)&t124_host1x_info},
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
-	{.compatible = "nvidia,tegra210-host1x-pd",
-	 .data = (struct nvhost_device_data *)&t21_host1x_info},
+extern struct platform_driver nvhost_iommu_context_dev_driver;
+extern struct platform_driver nvhost_flcn_driver;
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDEC)
+extern struct platform_driver nvhost_nvdec_driver;
 #endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{.compatible = "nvidia,tegra186-host1x-pd",
-	 .data = (struct nvhost_device_data *)&t18_host1x_info},
-	{.compatible = "nvidia,tegra186-host1x-pd-hv",
-	 .data = (struct nvhost_device_data *)&t18_host1x_hv_info},
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_TSEC)
+extern struct platform_driver nvhost_tsec_driver;
 #endif
-	{},
+
+static struct platform_driver *platform_drivers[] = {
+	&platform_driver,
+	&nvhost_iommu_context_dev_driver,
+	&nvhost_flcn_driver,
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_NVDEC)
+	&nvhost_nvdec_driver,
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_TSEC)
+	&nvhost_tsec_driver,
+#endif
+	NULL
 };
+
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_LEGACY_PD)
+extern struct of_device_id nvhost_flcn_domain_match[];
+extern struct of_device_id nvhost_nvdec_domain_match[];
+extern struct of_device_id nvhost_tsec_domain_match[];
+#endif
 
 static int __init nvhost_mod_init(void)
 {
-	int ret;
+	int ret, i;
 
-	ret = nvhost_domain_init(tegra_host1x_domain_match);
-	if (ret)
-		return ret;
+	/*
+	 * DC may use the TSEC kernel API immediately after DC
+	 * has been initialized in module_init(). If power domains are
+	 * registered after platform_driver_register(), the devices are not
+	 * probed immediately and hence DC may use the TSEC kernel APIs before
+	 * TSEC has been initialized. DC also does not respect -EPROBE_DEFER
+	 * return code, and hence the lack of initialization cannot be
+	 * performed using only a simple check in the DC driver.
+	 *
+	 * Modify the probe order by registering power domains before
+	 * platform drivers. This should ensure that
+	 * platform_driver_register() triggers also probe of the platform
+	 * drivers thereby performing also TSEC probe as part of
+	 * rootfs_initcall().
+	 */
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_LEGACY_PD)
+	nvhost_domain_init(nvhost_flcn_domain_match);
+	nvhost_domain_init(nvhost_nvdec_domain_match);
+	nvhost_domain_init(nvhost_tsec_domain_match);
+#endif
 
-	return platform_driver_register(&platform_driver);
+	for (i = 0; platform_drivers[i] != NULL; i++) {
+		ret = platform_driver_register(platform_drivers[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static void __exit nvhost_mod_exit(void)
 {
-	platform_driver_unregister(&platform_driver);
+	int i;
+
+	for (i = 0; platform_drivers[i] != NULL; i++) {
+		platform_driver_unregister(platform_drivers[i]);
+	}
 }
 
 /* host1x master device needs nvmap to be instantiated first.

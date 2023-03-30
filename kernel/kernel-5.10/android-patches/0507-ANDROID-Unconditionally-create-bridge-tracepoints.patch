@@ -1,0 +1,38 @@
+From 3a0ffa0307f5c937b7ec9b5810d17eb810dad854 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Mon, 2 Mar 2020 12:50:07 -0800
+Subject: [PATCH 507/830] ANDROID: Unconditionally create bridge tracepoints
+X-NVConfidentiality: public
+
+Even if the bridge module is not enabled, we may need the tracepoints
+downstream in products that enable bridge.ko, so avoid defining the
+export of these symbols based on a config option.
+
+Bug: 150625937
+Change-Id: Ib961fd6e353fe3bdfde11a38488568f42f1dbe7a
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ net/core/net-traces.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 283ddb2dbc7d..465362a9b55d 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -35,13 +35,11 @@
+ #include <trace/events/tcp.h>
+ #include <trace/events/fib.h>
+ #include <trace/events/qdisc.h>
+-#if IS_ENABLED(CONFIG_BRIDGE)
+ #include <trace/events/bridge.h>
+ EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_external_learn_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(fdb_delete);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_update);
+-#endif
+ 
+ #if IS_ENABLED(CONFIG_PAGE_POOL)
+ #include <trace/events/page_pool.h>
+-- 
+2.17.1
+

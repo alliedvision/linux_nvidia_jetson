@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016-2023, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -14,6 +14,8 @@
 #ifndef ACTMON_COMMON_H
 
 #include <asm/io.h>
+
+#define offs(dev_reg_offs) (actmon->base + dev_reg_offs)
 
 /* START: These device register offsets have common value across socs */
 #define ACTMON_CMN_DEV_CTRL				0x00
@@ -49,8 +51,9 @@
  */
 #define EMC_PLLP_FREQ_MAX			204000
 
-enum actmon_devices {
-	MC_ALL, /* Should match with device sequence in dt */
+enum actmon_devices { /* Should match with device sequence in dt */
+	MC_ALL, /* instance 1 */
+	MC_CPU, /* instance 0 */
 	MAX_DEVICES,
 };
 
@@ -70,13 +73,19 @@ struct actmon_drv_data;
 struct dev_reg_ops {
 	void (*set_init_avg)(u32 value, void __iomem *base);
 	void (*set_avg_up_wm)(u32 value, void __iomem *base);
+	u32 (*get_avg_up_wm)(void __iomem *base);
 	void (*set_avg_dn_wm)(u32 value, void __iomem *base);
+	u32 (*get_avg_dn_wm)(void __iomem *base);
 	void (*set_dev_up_wm)(u32 value, void __iomem *base);
+	u32 (*get_dev_up_wm)(void __iomem *base);
 	void (*set_dev_dn_wm)(u32 value, void __iomem *base);
+	u32 (*get_dev_dn_wm)(void __iomem *base);
 	void (*enb_dev_wm)(u32 *value);
 	void (*disb_dev_up_wm)(u32 *value);
 	void (*disb_dev_dn_wm)(u32 *value);
 	void (*set_intr_st)(u32 value, void __iomem *base);
+	void (*set_dev_ctrl)(u32 value, void __iomem *base);
+	u32 (*get_dev_ctrl)(void __iomem *base);
 	void (*init_dev_cntrl)(struct actmon_dev *, void __iomem *base);
 	void (*enb_dev_intr)(u32 value, void __iomem *base);
 	void (*enb_dev_intr_all)(void __iomem *base);
@@ -87,6 +96,19 @@ struct dev_reg_ops {
 	u32 (*get_raw_cnt)(void __iomem *base);
 	u32 (*get_avg_cnt)(void __iomem *base);
 	u32 (*get_cum_cnt)(void __iomem *base);
+};
+
+struct glb_reg_save {
+	u32 glb_ctrl;
+	u32 glb_intr_en;
+};
+
+struct dev_reg_save {
+	u32 dev_up_wm;
+	u32 dev_dn_wm;
+	u32 dev_avg_up_wm;
+	u32 dev_avg_dn_wm;
+	u32 dev_ctrl;
 };
 
 /* Units:
@@ -130,7 +152,11 @@ struct actmon_dev {
 	enum actmon_state state;
 	enum actmon_state saved_state;
 
+	bool bwmgr_disable;
+	struct clk *dram_clk_handle;
+
 	struct dev_reg_ops ops;
+	struct dev_reg_save reg_ctx;
 	void (*actmon_dev_set_rate)(struct actmon_dev *, unsigned long);
 	unsigned long (*actmon_dev_get_rate)(struct actmon_dev *);
 	unsigned long (*actmon_dev_post_change_rate)(struct actmon_dev *,
@@ -144,6 +170,8 @@ struct actmon_dev {
 struct actmon_reg_ops {
 	void (*set_sample_prd)(u32 value, void __iomem *base);
 	void (*set_glb_intr)(u32 value, void __iomem *base);
+	u32 (*get_glb_intr)(void __iomem *base);
+	u32 (*get_glb_ctrl)(void __iomem *base);
 	u32 (*get_glb_intr_st)(void __iomem *base);
 };
 struct actmon_drv_data {
@@ -164,6 +192,7 @@ struct actmon_drv_data {
 	void (*dev_free_resource)(struct actmon_dev *adev,
 		struct platform_device *pdev);
 	struct actmon_reg_ops ops;
+	struct glb_reg_save reg_ctx;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dfs_root;
 #endif

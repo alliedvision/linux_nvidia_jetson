@@ -1,0 +1,48 @@
+From 566b9c1ef96d07a3145826a29598cc46b1e79c7b Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Tue, 19 Feb 2019 17:36:53 -0800
+Subject: [PATCH 577/830] ANDROID: gki_defconfig: enable dummy cpufreq driver
+X-NVConfidentiality: public
+
+Test: all 3 proc files show reasonable data on cuttlefish
+Test: log shows no errors from bad /proc/uid_time_in_state format
+Bug: 139763108
+Bug: 140796321
+Bug: 141206930
+Signed-off-by: Connor O'Brien <connoro@google.com>
+Change-Id: I7f6b7cce4e7e6b8f0bf4ffc754bac1e9c124d63c
+[ebiggers: split this out from "ANDROID: cpufreq: create dummy cpufreq
+           driver"]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index e2b7f40cb55a..a21a3ece3296 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -61,6 +61,7 @@ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
++CONFIG_CPUFREQ_DUMMY=m
+ CONFIG_ARM_SCPI_CPUFREQ=y
+ CONFIG_ARM_SCMI_CPUFREQ=y
+ CONFIG_ARM_SCMI_PROTOCOL=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 09dc0adca00d..b1535ba3b397 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -46,6 +46,7 @@ CONFIG_PM_WAKELOCKS_LIMIT=0
+ # CONFIG_PM_WAKELOCKS_GC is not set
+ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
++CONFIG_CPUFREQ_DUMMY=m
+ CONFIG_IA32_EMULATION=y
+ CONFIG_KPROBES=y
+ CONFIG_MODULES=y
+-- 
+2.17.1
+

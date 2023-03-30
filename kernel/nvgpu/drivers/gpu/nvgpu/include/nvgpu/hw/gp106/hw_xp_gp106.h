@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,91 +53,33 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_xp_gp106_h_
-#define _hw_xp_gp106_h_
+#ifndef NVGPU_HW_XP_GP106_H
+#define NVGPU_HW_XP_GP106_H
 
-static inline u32 xp_dl_mgr_r(u32 i)
-{
-	return 0x0008b8c0U + i*4U;
-}
-static inline u32 xp_dl_mgr_safe_timing_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 xp_pl_link_config_r(u32 i)
-{
-	return 0x0008c040U + i*4U;
-}
-static inline u32 xp_pl_link_config_ltssm_status_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 xp_pl_link_config_ltssm_status_idle_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 xp_pl_link_config_ltssm_directive_f(u32 v)
-{
-	return (v & 0xfU) << 0U;
-}
-static inline u32 xp_pl_link_config_ltssm_directive_m(void)
-{
-	return 0xfU << 0U;
-}
-static inline u32 xp_pl_link_config_ltssm_directive_normal_operations_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 xp_pl_link_config_ltssm_directive_change_speed_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 xp_pl_link_config_max_link_rate_f(u32 v)
-{
-	return (v & 0x3U) << 18U;
-}
-static inline u32 xp_pl_link_config_max_link_rate_m(void)
-{
-	return 0x3U << 18U;
-}
-static inline u32 xp_pl_link_config_max_link_rate_2500_mtps_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 xp_pl_link_config_max_link_rate_5000_mtps_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 xp_pl_link_config_max_link_rate_8000_mtps_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_f(u32 v)
-{
-	return (v & 0x7U) << 20U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_m(void)
-{
-	return 0x7U << 20U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_x1_v(void)
-{
-	return 0x00000007U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_x2_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_x4_v(void)
-{
-	return 0x00000005U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_x8_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 xp_pl_link_config_target_tx_width_x16_v(void)
-{
-	return 0x00000000U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define xp_dl_mgr_r(i)\
+		(nvgpu_safe_add_u32(0x0008b8c0U, nvgpu_safe_mult_u32((i), 4U)))
+#define xp_dl_mgr_safe_timing_f(v)                       ((U32(v) & 0x1U) << 2U)
+#define xp_pl_link_config_r(i)\
+		(nvgpu_safe_add_u32(0x0008c040U, nvgpu_safe_mult_u32((i), 4U)))
+#define xp_pl_link_config_ltssm_status_f(v)              ((U32(v) & 0x1U) << 4U)
+#define xp_pl_link_config_ltssm_status_idle_v()                    (0x00000000U)
+#define xp_pl_link_config_ltssm_directive_f(v)           ((U32(v) & 0xfU) << 0U)
+#define xp_pl_link_config_ltssm_directive_m()                  (U32(0xfU) << 0U)
+#define xp_pl_link_config_ltssm_directive_normal_operations_v()    (0x00000000U)
+#define xp_pl_link_config_ltssm_directive_change_speed_v()         (0x00000001U)
+#define xp_pl_link_config_max_link_rate_f(v)            ((U32(v) & 0x3U) << 18U)
+#define xp_pl_link_config_max_link_rate_m()                   (U32(0x3U) << 18U)
+#define xp_pl_link_config_max_link_rate_2500_mtps_v()              (0x00000002U)
+#define xp_pl_link_config_max_link_rate_5000_mtps_v()              (0x00000001U)
+#define xp_pl_link_config_max_link_rate_8000_mtps_v()              (0x00000000U)
+#define xp_pl_link_config_target_tx_width_f(v)          ((U32(v) & 0x7U) << 20U)
+#define xp_pl_link_config_target_tx_width_m()                 (U32(0x7U) << 20U)
+#define xp_pl_link_config_target_tx_width_x1_v()                   (0x00000007U)
+#define xp_pl_link_config_target_tx_width_x2_v()                   (0x00000006U)
+#define xp_pl_link_config_target_tx_width_x4_v()                   (0x00000005U)
+#define xp_pl_link_config_target_tx_width_x8_v()                   (0x00000004U)
+#define xp_pl_link_config_target_tx_width_x16_v()                  (0x00000000U)
 #endif

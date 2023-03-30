@@ -1,0 +1,45 @@
+From fe9cc473f0573f1e36bcea0356649a3a527cbf20 Mon Sep 17 00:00:00 2001
+From: Siarhei Vishniakou <svv@google.com>
+Date: Fri, 28 Feb 2020 13:20:43 -0800
+Subject: [PATCH 677/830] ANDROID: Enable HID_NINTENDO as y
+X-NVConfidentiality: public
+
+This config will enable the Nintendo Switch Pro controller driver.
+
+Change-Id: I50645a611566928e20a1afd4024f71803ed5fefa
+Signed-off-by: Siarhei Vishniakou <svv@google.com>
+Bug: 135136477
+Test: tested via custom test app
+Test: atest NintendoSwitchProTest
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 10f1b777c2d7..153a4f11e87b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -328,6 +328,7 @@ CONFIG_HID_ELECOM=y
+ CONFIG_HID_MAGICMOUSE=y
+ CONFIG_HID_MICROSOFT=y
+ CONFIG_HID_MULTITOUCH=y
++CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 9d264344124a..cbd418812f2c 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -289,6 +289,7 @@ CONFIG_HID_ELECOM=y
+ CONFIG_HID_MAGICMOUSE=y
+ CONFIG_HID_MICROSOFT=y
+ CONFIG_HID_MULTITOUCH=y
++CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+-- 
+2.17.1
+

@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host NVDLA
  *
- * Copyright (c) 2016-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -46,10 +46,23 @@
 #define MAX_GRID_SIZE			SZ_256
 
 /**
- * DLA MCIF (Matrix Convolution Image Filter) outstanding AXI transactions
- * count register offset
+ * DLA Host1x class IDs
  */
-#define NVDLA_MCIF_CFG_OUTSTANDING_CNT_0_OFFSET	0x00005014	/* RW-4R */
+enum {
+	NV_DLA0_CLASS_ID	= 0xF3,
+	NV_DLA1_CLASS_ID	= 0xF4,
+};
+
+/**
+ * DLA firmware file names
+ */
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST)
+#define NV_DLA_TEGRA194_FW	"nvhost_nvdla010.fw"
+#define NV_DLA_TEGRA234_FW	"nvhost_nvdla020.fw"
+#else
+#define NV_DLA_TEGRA194_FW	"nvidia/tegra194/nvdla.bin"
+#define NV_DLA_TEGRA234_FW	"nvidia/tegra234/nvdla.bin"
+#endif
 
 /**
  * Method ID and Method data THI registers
@@ -60,6 +73,56 @@
 #define NV_DLA_OS_VERSION	0x00001080      /* RW-4R */
 
 #define MAX_NUM_ACTION_LIST	1
+
+/**
+ * Return size of FUSE_OPT_DLA_DISABLE register read
+ */
+#define FUSE_OPT_DLA_DISABLE_SIZE	4
+
+/**
+ * Value of FUSE_OPT_DLA_DISABLE register
+ * when DLA0 is disabled
+ */
+#define FUSE_OPT_DLA_0_DISABLED		1
+
+/**
+ * Value of FUSE_OPT_DLA_DISABLE register
+ * when DLA1 is disabled
+ */
+#define FUSE_OPT_DLA_1_DISABLED		2
+
+/**
+ * Bit at mask of the Soft Sku register
+ * when DLA0 is disabled
+ */
+#define FUSE_OPT_DLA_0_DISABLED_SOFT	0x8000000
+
+/**
+ * Bit at mask of the Soft Sku register set
+ * when DLA1 is disabled
+ */
+#define FUSE_OPT_DLA_1_DISABLED_SOFT	0x10000000
+
+/* Bit at mask is set when Soft SKU is enabled
+ */
+#define SOFT_SKU_OVERRIDE_ENABLE_MASK	0x80000000
+
+/*
+ * Physical base address of scratch area
+ */
+#define SCRATCH_REG_BASE_ADDRESS	0xc390000
+
+/*
+ * Number of bytes to be mapped from the
+ * scratch area
+ */
+#define SCRATCH_REG_MMAP_SIZE	0x200
+
+/*
+ * Offset to the Sw SKU register in
+ * the scratch area
+ */
+#define SCRATCH_REG_SW_SKU_OFFSET	0x180
 
 /**
  * Maximum number of queue's per engine
@@ -110,11 +173,6 @@
  */
 #define MAX_CMD_SIZE			SZ_256
 #define NVDLA_CMD_OFFSET(index)		(MAX_CMD_SIZE * index)
-
-/*
- * Tegra/DLA Hardware version specific Quirks
- */
-#define NVDLA_QUIRK_T194_A01_WAR	BIT(0)
 
 /**
  * data structure to keep command memory
@@ -177,7 +235,6 @@ enum nvdla_submit_mode {
  * @cmd_mem		structure to hold command memory pool
  * @trace_enable	to enable/disable the DLA firmware trace
  * @events_mask		mask to set/reset the different DLA firmware trace event
- * @is_gos_enabled	flag to check if GoS enabled
  * @debug_dump_pa	physical address of print buffer
  * @debug_dump_va	virtual address of print buffer
  * @trace_dump_pa	physical address of trace buffer
@@ -185,7 +242,7 @@ enum nvdla_submit_mode {
  * @en_fw_gcov		flag to enable firmware gcov
  * @gcov_dump_pa	physical address of fw gcov buffer
  * @gcov_dump_va	virtual address of fw gcovbuffer
- * @quirks		Tegra/DLA Hardware version specific settings
+ * @is_suspended	flag to check if module is in suspend state.
  */
 struct nvdla_device {
 	struct platform_device *pdev;
@@ -201,8 +258,6 @@ struct nvdla_device {
 	struct nvdla_cmd_mem cmd_mem;
 	u32 trace_enable;
 	u32 events_mask;
-	bool is_gos_enabled;
-	bool is_gos_fetched;
 	dma_addr_t debug_dump_pa;
 	u32 *debug_dump_va;
 	dma_addr_t trace_dump_pa;
@@ -210,15 +265,16 @@ struct nvdla_device {
 	u32 en_fw_gcov;
 	dma_addr_t gcov_dump_pa;
 	u32 *gcov_dump_va;
-	u32 quirks;
 	struct work_struct reset_work;
+#ifdef CONFIG_PM
+	bool is_suspended;
+#endif
 };
 
 /**
  * struct nvdla_emu_task:	structure for emulator task info
  *
  * @queue		Queue in which task submitted
- * @sp			pointer to syncpt
  * @prefences		pointer to pre fences
  * @postfences		pointer to post fences
  * @num_prefences	Number of prefences in task
@@ -229,7 +285,6 @@ struct nvdla_device {
  */
 struct nvdla_emu_task {
 	struct nvdla_queue *queue;
-	struct nvhost_syncpt *sp;
 	struct nvdev_fence prefences[MAX_NVDLA_EMU_PREFENCES_PER_TASK];
 	struct nvdev_fence postfences[MAX_NVDLA_EMU_POSTFENCES_PER_TASK];
 	u32 num_prefences;
@@ -243,7 +298,6 @@ struct nvdla_emu_task {
  *
  * @queue		Queue in which task submitted
  * @buffers		nvhost buffers for priv/task
- * @sp			pointer to syncpt
  * @prefences		pointer to prefences
  * @postfences		pointer to post fences
  * @fence		fence tracking for current task
@@ -259,7 +313,6 @@ struct nvdla_emu_task {
 struct nvdla_task {
 	struct nvdla_queue *queue;
 	struct nvdla_buffers *buffers;
-	struct nvhost_syncpt *sp;
 	struct nvdev_fence prefences[MAX_NVDLA_PREFENCES_PER_TASK];
 	struct nvdev_fence postfences[MAX_NVDLA_POSTFENCES_PER_TASK];
 	struct nvdla_status_notify in_task_status[MAX_NVDLA_IN_STATUS_PER_TASK];
@@ -267,7 +320,7 @@ struct nvdla_task {
 	struct nvdla_status_notify eof_task_status[MAX_NVDLA_OUT_STATUS_PER_TASK];
 	struct nvdla_mem_handle sof_timestamps[MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK];
 	struct nvdla_mem_handle eof_timestamps[MAX_NVDLA_OUT_TIMESTAMPS_PER_TASK];
-	struct nvdla_mem_handle memory_handles[NVDLA_MAX_BUFFERS_PER_TASK];
+	struct nvdla_mem_handle memory_handles[MAX_NVDLA_BUFFERS_PER_TASK];
 	u8 num_prefences;
 	u8 num_postfences;
 	u8 num_in_task_status;
@@ -286,7 +339,7 @@ struct nvdla_task {
 	int timeout;
 	int pool_index;
 
-	struct dma_buf *memory_dmabuf[NVDLA_MAX_BUFFERS_PER_TASK];
+	struct dma_buf *memory_dmabuf[MAX_NVDLA_BUFFERS_PER_TASK];
 	struct dma_buf *prefences_sem_dmabuf[MAX_NVDLA_PREFENCES_PER_TASK];
 	struct dma_buf *in_task_status_dmabuf[MAX_NVDLA_IN_STATUS_PER_TASK];
 	struct dma_buf *postfences_sem_dmabuf[MAX_NVDLA_POSTFENCES_PER_TASK];
@@ -417,6 +470,10 @@ int nvdla_emulator_submit(struct nvdla_queue *queue,
 				struct nvdla_emu_task *task);
 void task_free(struct kref *ref);
 int nvdla_get_signal_fences(struct nvdla_queue *queue, void *in_task);
-int nvdla_send_gos_region(struct platform_device *pdev);
+
+#ifdef CONFIG_PM
+/** NvDla PM operations */
+extern const struct dev_pm_ops nvdla_module_pm_ops;
+#endif
 
 #endif /* End of __NVHOST_NVDLA_H__ */

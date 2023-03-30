@@ -30,6 +30,7 @@
 #include <linux/gpio-tegra186.h>
 #include <dt-bindings/gpio/tegra186-gpio.h>
 #include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/gpio/tegra234-gpio.h>
 #include <linux/version.h>
 
 /* GPIO control registers */
@@ -725,6 +726,74 @@ static struct tegra_gpio_port_soc_info tegra194_aon_gpio_cinfo[] = {
 	TEGRA194_AON_GPIO_PORT_INFO(EE, 0, 0, 7),
 };
 
+#define TEGRA234_MAIN_GPIO_PORT_INFO(port, cid, cind, npins)	\
+[TEGRA234_MAIN_GPIO_PORT_##port] = {				\
+		.port_name = #port,				\
+		.cont_id = cid,					\
+		.port_index = cind,				\
+		.valid_pins = npins,				\
+		.reg_index = 0,					\
+		.scr_offset = cid * 0x1000 + cind * 0x40,	\
+		.reg_offset = cid * 0x1000 + cind * 0x200,	\
+}
+
+#define TEGRA234_AON_GPIO_PORT_INFO(port, cid, cind, npins)	\
+[TEGRA234_AON_GPIO_PORT_##port] = {				\
+		.port_name = #port,				\
+		.cont_id = cid,					\
+		.port_index = cind,				\
+		.valid_pins = npins,				\
+		.reg_index = 1,					\
+		.scr_offset = cind * 0x40,			\
+		.reg_offset = cind * 0x200,			\
+}
+
+static struct tegra_gpio_port_soc_info tegra234_gpio_cinfo[] = {
+	TEGRA234_MAIN_GPIO_PORT_INFO(A, 0, 0, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(B, 0, 3, 1),
+	TEGRA234_MAIN_GPIO_PORT_INFO(C, 5, 1, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(D, 5, 2, 4),
+	TEGRA234_MAIN_GPIO_PORT_INFO(E, 5, 3, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(F, 5, 4, 6),
+	TEGRA234_MAIN_GPIO_PORT_INFO(G, 4, 0, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(H, 4, 1, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(I, 4, 2, 7),
+	TEGRA234_MAIN_GPIO_PORT_INFO(J, 5, 0, 6),
+	TEGRA234_MAIN_GPIO_PORT_INFO(K, 3, 0, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(L, 3, 1, 4),
+	TEGRA234_MAIN_GPIO_PORT_INFO(M, 2, 0, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(N, 2, 1, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(O, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(P, 2, 2, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(Q, 2, 3, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(R, 2, 4, 6),
+	TEGRA234_MAIN_GPIO_PORT_INFO(S, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(T, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(U, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(V, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(W, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(X, 1, 0, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(Y, 1, 1, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(Z, 1, 2, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AB, -1, -1, 0),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AC, 0, 1, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AD, 0, 2, 4),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AE, 3, 3, 2),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AF, 3, 4, 4),
+	TEGRA234_MAIN_GPIO_PORT_INFO(AG, 3, 2, 8),
+	TEGRA234_MAIN_GPIO_PORT_INFO(FF, -1, -1, 0),
+};
+
+static struct tegra_gpio_port_soc_info tegra234_aon_gpio_cinfo[] = {
+	TEGRA234_AON_GPIO_PORT_INFO(AA, 0, 4, 8),
+	TEGRA234_AON_GPIO_PORT_INFO(BB, 0, 5, 4),
+	TEGRA234_AON_GPIO_PORT_INFO(CC, 0, 2, 8),
+	TEGRA234_AON_GPIO_PORT_INFO(DD, 0, 3, 3),
+	TEGRA234_AON_GPIO_PORT_INFO(EE, 0, 0, 8),
+	TEGRA234_AON_GPIO_PORT_INFO(GG, 0, 1, 1),
+	TEGRA234_AON_GPIO_PORT_INFO(HH, -1, -1, 0),
+};
+
 struct tegra_gpio_info;
 
 struct tegra_gpio_soc_info {
@@ -740,6 +809,7 @@ struct tegra_gpio_soc_info {
 	int num_banks;
 	int start_irq_line;
 	bool do_vm_check;
+	unsigned int use_pinmuxing:1;
 };
 
 struct tegra_gpio_irq_info {
@@ -1111,14 +1181,20 @@ static int tegra_gpio_request(struct gpio_chip *chip, unsigned offset)
 		return -EBUSY;
 
 	tegra_gpio_save_gpio_state(tgi, offset);
-	return pinctrl_request_gpio(chip->base + offset);
+
+	if (tgi->soc->use_pinmuxing)
+		return pinctrl_request_gpio(chip->base + offset);
+
+	return 0;
 }
 
 static void tegra_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
 	struct tegra_gpio_info *tgi = gpiochip_get_data(chip);
 
-	pinctrl_free_gpio(chip->base + offset);
+	if (tgi->soc->use_pinmuxing)
+		pinctrl_free_gpio(chip->base + offset);
+
 	tegra_gpio_restore_gpio_state(tgi, offset);
 }
 
@@ -1159,14 +1235,18 @@ static void set_gpio_direction_mode(struct gpio_chip *chip, u32 offset,
 static int tegra_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	struct tegra_gpio_info *tgi = gpiochip_get_data(chip);
-	int ret;
+	int ret = 0;
 
 	set_gpio_direction_mode(chip, offset, 0);
 	tegra_gpio_enable(tgi, offset);
-	ret = pinctrl_gpio_direction_input(chip->base + offset);
-	if (ret < 0)
-		dev_err(chip->parent, "Failed to set input direction: %d\n",
-			ret);
+
+	if (tgi->soc->use_pinmuxing) {
+		ret = pinctrl_gpio_direction_input(chip->base + offset);
+		if (ret < 0)
+			dev_err(chip->parent,
+				"Failed to set input direction: %d\n", ret);
+	}
+
 	return ret;
 }
 
@@ -1174,16 +1254,18 @@ static int tegra_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 				       int value)
 {
 	struct tegra_gpio_info *tgi = gpiochip_get_data(chip);
-	int ret;
+	int ret = 0;
 
 	tegra_gpio_set(chip, offset, value);
 	tegra_gpio_writel(tgi, 0, offset, GPIO_OUT_CTRL_REG);
 	set_gpio_direction_mode(chip, offset, 1);
 	tegra_gpio_enable(tgi, offset);
-	ret = pinctrl_gpio_direction_output(chip->base + offset);
-	if (ret < 0)
-		dev_err(chip->parent, "Failed to set output direction: %d\n",
-			ret);
+	if (tgi->soc->use_pinmuxing) {
+		ret = pinctrl_gpio_direction_output(chip->base + offset);
+		if (ret < 0)
+			dev_err(chip->parent,
+				"Failed to set output direction: %d\n", ret);
+	}
 	return ret;
 }
 
@@ -1930,6 +2012,7 @@ static const struct tegra_gpio_soc_info t186_gpio_soc = {
 	.num_banks = 0,
 	.start_irq_line = 0,
 	.do_vm_check = false,
+	.use_pinmuxing = 1,
 };
 
 static const struct tegra_gpio_soc_info t186_aon_gpio_soc = {
@@ -1943,6 +2026,7 @@ static const struct tegra_gpio_soc_info t186_aon_gpio_soc = {
 	.num_banks = 0,
 	.start_irq_line = 0,
 	.do_vm_check = false,
+	.use_pinmuxing = 1,
 };
 
 static const struct tegra_gpio_soc_info t194_gpio_soc = {
@@ -1956,6 +2040,7 @@ static const struct tegra_gpio_soc_info t194_gpio_soc = {
 	.num_banks = 6,
 	.start_irq_line = 0,
 	.do_vm_check = true,
+	.use_pinmuxing = 1,
 };
 
 static const struct tegra_gpio_soc_info t194_aon_gpio_soc = {
@@ -1971,6 +2056,35 @@ static const struct tegra_gpio_soc_info t194_aon_gpio_soc = {
 	.num_banks = 1,
 	.start_irq_line = 4,
 	.do_vm_check = false,
+	.use_pinmuxing = 1,
+};
+
+static const struct tegra_gpio_soc_info t234_gpio_soc = {
+	.name = "tegra-gpio",
+	.debug_fs_name = "tegra_gpio",
+	.port = tegra234_gpio_cinfo,
+	.nports = ARRAY_SIZE(tegra234_gpio_cinfo),
+	.wake_table = NULL,
+	.nwakes = 0,
+	.num_irq_line = 8,
+	.num_banks = 6,
+	.start_irq_line = 0,
+	.do_vm_check = true,
+	.use_pinmuxing = 0,
+};
+
+static const struct tegra_gpio_soc_info t234_aon_gpio_soc = {
+	.name = "tegra-gpio-aon",
+	.debug_fs_name = "tegra-gpio-aon",
+	.port = tegra234_aon_gpio_cinfo,
+	.nports = ARRAY_SIZE(tegra234_aon_gpio_cinfo),
+	.wake_table = NULL,
+	.nwakes = 0,
+	.num_irq_line = 4,
+	.num_banks = 1,
+	.start_irq_line = 4,
+	.do_vm_check = false,
+	.use_pinmuxing = 0,
 };
 
 static struct of_device_id tegra_gpio_of_match[] = {
@@ -1978,6 +2092,8 @@ static struct of_device_id tegra_gpio_of_match[] = {
 	{ .compatible = "nvidia,tegra186-gpio-aon", .data = &t186_aon_gpio_soc},
 	{ .compatible = "nvidia,tegra194-gpio", .data = &t194_gpio_soc},
 	{ .compatible = "nvidia,tegra194-gpio-aon", .data = &t194_aon_gpio_soc},
+	{ .compatible = "nvidia,tegra234-gpio", .data = &t234_gpio_soc},
+	{ .compatible = "nvidia,tegra234-gpio-aon", .data = &t234_aon_gpio_soc},
 	{ },
 };
 

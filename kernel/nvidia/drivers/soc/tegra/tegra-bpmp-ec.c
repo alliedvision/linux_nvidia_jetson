@@ -42,35 +42,34 @@ static int bpmp_get_ec_status(uint32_t hsm_id,
 	return 0;
 }
 
-static int ec_status_show(struct seq_file *s, void *data)
+static int bpmp_get_ec_status_ex(uint32_t hsm_id,
+			      struct cmd_ec_status_ex_get_response *ec_status)
 {
-	int i, ret;
-	uint32_t hid = hsm_id;
-	struct cmd_ec_status_get_response ec_status;
-	uint32_t *flags = &ec_status.ec_status_flags;
+	struct mrq_ec_request req;
+	struct mrq_ec_response reply;
+	int ret;
 
-	ret = bpmp_get_ec_status(hid, &ec_status);
-	if (ret) {
-		seq_printf(s, "HSM id %u\nError: ", hid);
-		seq_printf(s, "failed (%d)\n", ret);
-		return 0;
-	}
+	req.cmd_id = CMD_EC_STATUS_EX_GET;
+	req.ec_status_get.ec_hsm_id = hsm_id;
 
-	seq_printf(s, "HSM id %u\nError: ", ec_status.ec_hsm_id);
-	if (*flags & EC_STATUS_FLAG_NO_ERROR) {
-		seq_printf(s, "none\n");
-		return 0;
-	}
+	ret = tegra_bpmp_send_receive(MRQ_EC, &req, sizeof(req), &reply,
+				      sizeof(reply));
+	if (ret < 0)
+		return ret;
 
-	seq_printf(s, "idx %u (%s%s)\n", ec_status.error_idx,
-		   *flags & EC_STATUS_FLAG_LATENT_ERROR ? "latent" : "mission",
-		   *flags & EC_STATUS_FLAG_LAST_ERROR ? ", last" : "");
-	seq_printf(s, "type %u\n", ec_status.error_type);
+	*ec_status = reply.ec_status_ex_get;
+	return 0;
+}
 
-	for (i = 0; i < ec_status.error_desc_num; i++) {
-		union ec_err_desc *desc = &ec_status.error_descs[i];
+static void ec_descs_show(struct seq_file *s, uint32_t error_type,
+			  uint32_t desc_num, union ec_err_desc descs[])
+{
+	int i;
 
-		switch (ec_status.error_type) {
+	for (i = 0; i < desc_num; i++) {
+		union ec_err_desc *desc = &descs[i];
+
+		switch (error_type) {
 		case EC_ERR_TYPE_CLOCK_MONITOR:
 			if (desc->fmon_desc.desc_flags & EC_DESC_FLAG_NO_ID) {
 				seq_printf(s, "id unknown\n");
@@ -104,6 +103,17 @@ static int ec_status_show(struct seq_file *s, void *data)
 				   desc->reg_parity_desc.reg_group,
 				   desc->reg_parity_desc.desc_flags);
 			break;
+		case EC_ERR_TYPE_SW_CORRECTABLE:
+		case EC_ERR_TYPE_SW_UNCORRECTABLE:
+			if (desc->sw_error_desc.desc_flags & EC_DESC_FLAG_NO_ID) {
+				seq_printf(s, "id unknown\n");
+				break;
+			}
+			seq_printf(s, "id %u data 0x%x flags 0x%x\n",
+				   desc->sw_error_desc.err_source_id,
+				   desc->sw_error_desc.sw_error_data,
+				   desc->sw_error_desc.desc_flags);
+				break;
 		default:
 			if (desc->simple_desc.desc_flags & EC_DESC_FLAG_NO_ID) {
 				seq_printf(s, "id unknown\n");
@@ -115,6 +125,36 @@ static int ec_status_show(struct seq_file *s, void *data)
 			break;
 		}
 	}
+}
+
+static int ec_status_show(struct seq_file *s, void *data)
+{
+	int ret;
+	uint32_t hid = hsm_id;
+	struct cmd_ec_status_get_response ec_status;
+	uint32_t *flags = &ec_status.ec_status_flags;
+
+	ret = bpmp_get_ec_status(hid, &ec_status);
+	if (ret) {
+		seq_printf(s, "HSM id %u\nError: ", hid);
+		seq_printf(s, "failed (%d)\n", ret);
+		return 0;
+	}
+
+	seq_printf(s, "HSM id %u\nError: ", ec_status.ec_hsm_id);
+	if (*flags & EC_STATUS_FLAG_NO_ERROR) {
+		seq_printf(s, "none\n");
+		return 0;
+	}
+
+	seq_printf(s, "idx %u (%s%s)\n", ec_status.error_idx,
+		   *flags & EC_STATUS_FLAG_LATENT_ERROR ? "latent" : "mission",
+		   *flags & EC_STATUS_FLAG_LAST_ERROR ? ", last" : "");
+	seq_printf(s, "type %u\n", ec_status.error_type);
+
+	ec_descs_show(s, ec_status.error_type, ec_status.error_desc_num,
+		      ec_status.error_descs);
+
 	return 0;
 }
 
@@ -130,6 +170,51 @@ static const struct file_operations ec_status_fops = {
 	.release	= single_release,
 };
 
+static int ec_status_ex_show(struct seq_file *s, void *data)
+{
+	int ret;
+	uint32_t hid = hsm_id;
+	struct cmd_ec_status_ex_get_response ec_status;
+	uint32_t *flags = &ec_status.ec_status_flags;
+
+	ret = bpmp_get_ec_status_ex(hid, &ec_status);
+	if (ret) {
+		seq_printf(s, "HSM id %u\nError: ", hid);
+		seq_printf(s, "failed (%d)\n", ret);
+		return 0;
+	}
+
+	seq_printf(s, "HSM id %u\nError: ", ec_status.ec_hsm_id);
+	if (*flags & EC_STATUS_FLAG_NO_ERROR) {
+		seq_printf(s, "none\n");
+		return 0;
+	}
+
+	seq_printf(s, "idx %u (%s%s)\n", ec_status.error_idx,
+		   *flags & EC_STATUS_FLAG_LATENT_ERROR ? "latent" : "mission",
+		   *flags & EC_STATUS_FLAG_LAST_ERROR ? ", last" : "");
+	seq_printf(s, "type %u counter %u uval %u\n", ec_status.error_type,
+		   ec_status.error_counter, ec_status.error_uval);
+
+	ec_descs_show(s, ec_status.error_type, ec_status.error_desc_num,
+		      ec_status.error_descs);
+
+	return 0;
+}
+
+static int ec_status_ex_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ec_status_ex_show, inode->i_private);
+}
+
+static const struct file_operations ec_status_ex_fops = {
+	.open		= ec_status_ex_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+
 static int __init bpmp_ec_debugfs_init(void)
 {
 	struct dentry *d, *dir;
@@ -140,6 +225,11 @@ static int __init bpmp_ec_debugfs_init(void)
 
 	d = debugfs_create_file("ec_status", S_IRUGO, dir, NULL,
 				&ec_status_fops);
+	if (!d)
+		return -ENOMEM;
+
+	d = debugfs_create_file("ec_status_ex", S_IRUGO, dir, NULL,
+				&ec_status_ex_fops);
 	if (!d)
 		return -ENOMEM;
 

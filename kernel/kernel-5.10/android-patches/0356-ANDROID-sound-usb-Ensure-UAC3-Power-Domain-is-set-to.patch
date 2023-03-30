@@ -1,0 +1,50 @@
+From 8e2d454a573cc0ca75fa0eca704af12707f0774b Mon Sep 17 00:00:00 2001
+From: Jack Pham <jackp@codeaurora.org>
+Date: Wed, 15 Jan 2020 16:09:44 -0800
+Subject: [PATCH 356/830] ANDROID: sound: usb: Ensure UAC3 Power Domain is set
+ to D0 when enabling stream
+X-NVConfidentiality: public
+
+Since commit a0a4959eb4e9 ("ALSA: usb-audio: Operate UAC3 Power
+Domains in PCM callbacks") the UAC3 PD state is brought to D1 when
+resuming from suspend, and suggests that only when a stream is
+begun should a device be put into D0. We need to ensure that is
+also done for the tunnel mode case, so add it to
+snd_usb_enable_audio_stream() which will get called when receiving
+a QMI request to enable the stream.
+
+Fixes: 3f6054629309 ("ANDROID: sound: usb: Add helper APIs to enable audio stream")
+Change-Id: I9d3aaf6083a6d859e7e64d167e3ee7eb61522052
+Signed-off-by: Jack Pham <jackp@codeaurora.org>
+---
+ sound/usb/pcm.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/sound/usb/pcm.c b/sound/usb/pcm.c
+index f775d9a738eb..14c214ab04d5 100644
+--- a/sound/usb/pcm.c
++++ b/sound/usb/pcm.c
+@@ -675,6 +675,8 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
+ 	return 0;
+ }
+ 
++static int snd_usb_pcm_change_state(struct snd_usb_substream *subs, int state);
++
+ int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
+ 	int datainterval, bool enable)
+ {
+@@ -696,6 +698,11 @@ int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
+ 	}
+ 
+ 	snd_usb_autoresume(subs->stream->chip);
++
++	ret = snd_usb_pcm_change_state(subs, UAC3_PD_STATE_D0);
++	if (ret < 0)
++		return ret;
++
+ 	if (datainterval != -EINVAL)
+ 		fmt = find_format_and_si(subs, datainterval);
+ 	else
+-- 
+2.17.1
+

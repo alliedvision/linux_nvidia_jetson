@@ -34,7 +34,7 @@
  * @brief DLA engine ID used to verify version engine
  * @{
  */
-#define DLA_ENGINE_ID		0x44
+#define DLA_ENGINE_ID		0x44U
 /** @} */
 
 /**
@@ -44,7 +44,7 @@
  *        command IDs mentioned in @ref Command IDs
  * @{
  */
-#define DLA_METHOD_ID_CMD_MASK		0xff
+#define DLA_METHOD_ID_CMD_MASK		0xffU
 /** @} */
 
 /**
@@ -128,9 +128,9 @@ enum dla_action {
 	ACTION_WRITE_TASK_STATUS	= 0xC1U,
 };
 
-#define PING_DATA_SIZE		4
-#define BUFFER_MULTIPLIER	4
-#define MAX_NUM_GRIDS		6
+#define PING_DATA_SIZE		4U
+#define BUFFER_MULTIPLIER	4U
+#define MAX_NUM_GRIDS		6U
 
 #define ERR(code) (-(int32_t)DLA_ERR_##code)
 
@@ -217,7 +217,7 @@ enum dla_msgs {
  * Magic number expected to be written to mailbox0 after
  * interuppt handling is complete
  */
-#define DLA_MSG_INTERRUPT_HANDLING_COMPLETE 0xD1A0CAFE
+#define DLA_MSG_INTERRUPT_HANDLING_COMPLETE 0xD1A0CAFEU
 
 /**
  * Struct dla_task_descriptor

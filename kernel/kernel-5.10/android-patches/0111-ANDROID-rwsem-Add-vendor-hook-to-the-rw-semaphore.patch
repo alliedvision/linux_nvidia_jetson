@@ -1,0 +1,209 @@
+From 0083b6d79758069cb8f8fc8727c7cbe6aec3525b Mon Sep 17 00:00:00 2001
+From: JianMin Liu <jian-min.liu@mediatek.com>
+Date: Tue, 21 Jul 2020 13:36:22 +0800
+Subject: [PATCH 111/830] ANDROID: rwsem: Add vendor hook to the rw-semaphore
+X-NVConfidentiality: public
+
+  - Add the hook to apply vendor's performance tune for owner
+    of rwsem.
+
+  - Add the hook for the waiter list of rwsem to allow
+    vendor perform waiting queue enhancement
+
+  - ANDROID_VENDOR_DATA added to rw_semaphore
+
+Bug: 161400830
+
+Signed-off-by: JianMin Liu <jian-min.liu@mediatek.com>
+Change-Id: I007a5e26f3db2adaeaf4e5ccea414ce7abfa83b8
+---
+ drivers/android/vendor_hooks.c |  5 +++++
+ include/linux/rwsem.h          |  2 ++
+ include/trace/hooks/rwsem.h    | 38 ++++++++++++++++++++++++++++++++++
+ kernel/locking/rwsem.c         | 20 ++++++++++++++++--
+ 4 files changed, 63 insertions(+), 2 deletions(-)
+ create mode 100644 include/trace/hooks/rwsem.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 6c32b5722a5a..56ae8fedfeac 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -9,6 +9,7 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/hooks/vendor_hooks.h>
+ #include <trace/hooks/fpsimd.h>
++#include <trace/hooks/rwsem.h>
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/debug.h>
+ 
+@@ -17,5 +18,9 @@
+  * associated with them) to allow external modules to probe them.
+  */
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 4c715be48717..1979bc20d95d 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -19,6 +19,7 @@
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ #include <linux/osq_lock.h>
+ #endif
++#include <linux/android_vendor.h>
+ 
+ /*
+  * For an uncontended rwsem, count and owner are the only fields a task
+@@ -51,6 +52,7 @@ struct rw_semaphore {
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ 	struct lockdep_map	dep_map;
+ #endif
++	ANDROID_VENDOR_DATA(1);
+ };
+ 
+ /* In all implementations count != 0 means locked */
+diff --git a/include/trace/hooks/rwsem.h b/include/trace/hooks/rwsem.h
+new file mode 100644
+index 000000000000..7c7a1f786369
+--- /dev/null
++++ b/include/trace/hooks/rwsem.h
+@@ -0,0 +1,38 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM rwsem
++#define TRACE_INCLUDE_PATH trace/hooks
++#if !defined(_TRACE_HOOK_RWSEM_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_RWSEM_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct rw_semaphore;
++struct rwsem_waiter;
++DECLARE_HOOK(android_vh_rwsem_init,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_rwsem_wake,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_rwsem_write_finished,
++	TP_PROTO(struct rw_semaphore *sem),
++	TP_ARGS(sem));
++DECLARE_HOOK(android_vh_alter_rwsem_list_add,
++	TP_PROTO(struct rwsem_waiter *waiter,
++		 struct rw_semaphore *sem,
++		 bool *already_on_list),
++	TP_ARGS(waiter, sem, already_on_list));
++#else
++#define trace_android_vh_rwsem_init(sem)
++#define trace_android_vh_rwsem_wake(sem)
++#define trace_android_vh_rwsem_write_finished(sem)
++#define trace_android_vh_alter_rwsem_list_add(waiter, sem, already_on_list)
++#endif
++#endif /* _TRACE_HOOK_RWSEM_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index cc5cc889b5b7..4ff7ec6c6ab9 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -29,6 +29,7 @@
+ #include <linux/atomic.h>
+ 
+ #include "lock_events.h"
++#include <trace/hooks/rwsem.h>
+ 
+ /*
+  * The least significant 3 bits of the owner value has the following
+@@ -340,6 +341,7 @@ void __init_rwsem(struct rw_semaphore *sem, const char *name,
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ 	osq_lock_init(&sem->osq);
+ #endif
++	trace_android_vh_rwsem_init(sem);
+ }
+ EXPORT_SYMBOL(__init_rwsem);
+ 
+@@ -995,6 +997,7 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 	struct rwsem_waiter waiter;
+ 	DEFINE_WAKE_Q(wake_q);
+ 	bool wake = false;
++	bool already_on_list = false;
+ 
+ 	/*
+ 	 * Save the current read-owner of rwsem, if available, and the
+@@ -1056,7 +1059,11 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 		}
+ 		adjustment += RWSEM_FLAG_WAITERS;
+ 	}
+-	list_add_tail(&waiter.list, &sem->wait_list);
++	trace_android_vh_alter_rwsem_list_add(
++					&waiter,
++					sem, &already_on_list);
++	if (!already_on_list)
++		list_add_tail(&waiter.list, &sem->wait_list);
+ 
+ 	/* we're now waiting on the lock, but no longer actively locking */
+ 	if (adjustment)
+@@ -1078,6 +1085,7 @@ rwsem_down_read_slowpath(struct rw_semaphore *sem, int state)
+ 		    (adjustment & RWSEM_FLAG_WAITERS)))
+ 		rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+ 
++	trace_android_vh_rwsem_wake(sem);
+ 	raw_spin_unlock_irq(&sem->wait_lock);
+ 	wake_up_q(&wake_q);
+ 
+@@ -1141,6 +1149,7 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ 	struct rwsem_waiter waiter;
+ 	struct rw_semaphore *ret = sem;
+ 	DEFINE_WAKE_Q(wake_q);
++	bool already_on_list = false;
+ 
+ 	/* do optimistic spinning and steal lock if possible */
+ 	if (rwsem_can_spin_on_owner(sem, RWSEM_WR_NONSPINNABLE) &&
+@@ -1169,7 +1178,11 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ 	/* account for this before adding a new element to the list */
+ 	wstate = list_empty(&sem->wait_list) ? WRITER_FIRST : WRITER_NOT_FIRST;
+ 
+-	list_add_tail(&waiter.list, &sem->wait_list);
++	trace_android_vh_alter_rwsem_list_add(
++					&waiter,
++					sem, &already_on_list);
++	if (!already_on_list)
++		list_add_tail(&waiter.list, &sem->wait_list);
+ 
+ 	/* we're now waiting on the lock */
+ 	if (wstate == WRITER_NOT_FIRST) {
+@@ -1205,6 +1218,7 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
+ 	}
+ 
+ wait:
++	trace_android_vh_rwsem_wake(sem);
+ 	/* wait until we successfully acquire the lock */
+ 	set_current_state(state);
+ 	for (;;) {
+@@ -1607,6 +1621,7 @@ EXPORT_SYMBOL(up_read);
+ void up_write(struct rw_semaphore *sem)
+ {
+ 	rwsem_release(&sem->dep_map, _RET_IP_);
++	trace_android_vh_rwsem_write_finished(sem);
+ 	__up_write(sem);
+ }
+ EXPORT_SYMBOL(up_write);
+@@ -1617,6 +1632,7 @@ EXPORT_SYMBOL(up_write);
+ void downgrade_write(struct rw_semaphore *sem)
+ {
+ 	lock_downgrade(&sem->dep_map, _RET_IP_);
++	trace_android_vh_rwsem_write_finished(sem);
+ 	__downgrade_write(sem);
+ }
+ EXPORT_SYMBOL(downgrade_write);
+-- 
+2.17.1
+

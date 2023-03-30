@@ -12,6 +12,17 @@ config DEVFREQ_GOV_POD_SCALING
           from device profile to determine if the frequency should
           be altered.
 
+config DEVFREQ_GOV_POD_SCALING_V2
+        tristate "Power On Demand Scaling v2"
+        help
+          Sets the frequency based on two properties:
+          (1) The governor receives activity throughput hints that
+          indicate whether scaling up or down is required
+          (2) the load of the devices is estimated using busy times
+          from device profile to determine if the frequency should
+          be altered.
+          Used with kernel-5.9 and later version
+
 config DEVFREQ_GOV_POD_SCALING_HISTORY_BUFFER_SIZE_MAX
         int
         default 100

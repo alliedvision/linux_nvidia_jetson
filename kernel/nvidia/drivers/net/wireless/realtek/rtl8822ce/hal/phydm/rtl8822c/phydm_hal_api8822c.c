@@ -29,9 +29,6 @@
 #if (PHYDM_FW_API_ENABLE_8822C)
 /* ======================================================================== */
 /* These following functions can be used for PHY DM only*/
-
-enum channel_width bw_8822c;
-
 #ifdef CONFIG_TXAGC_DEBUG_8822C
 __odm_func__
 boolean phydm_set_pw_by_rate_8822c(struct dm_struct *dm, s8 *pw_idx,
@@ -54,10 +51,10 @@ boolean phydm_set_pw_by_rate_8822c(struct dm_struct *dm, s8 *pw_idx,
 
 	/* @According the rate to write in the ofdm or the cck */
 	/* @driver need to construct a 4-byte power index */
-	odm_set_bb_reg(dm, 0x3a00 + rate_idx, MASKDWORD, pw_all);
+	odm_set_bb_reg(dm, R_0x3a00 + rate_idx, MASKDWORD, pw_all);
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "rate_idx=0x%x (REG0x%x) = 0x%x\n",
-		  rate_idx, 0x3a00 + rate_idx, pw_all);
+		  rate_idx, R_0x3a00 + rate_idx, pw_all);
 
 	for (j = 0; j < 4; j++)
 		config_phydm_read_txagc_diff_8822c(dm, rate_idx + j);
@@ -104,8 +101,49 @@ void phydm_bb_reset_8822c(struct dm_struct *dm)
 }
 
 __odm_func__
+void phydm_bb_reset_no_3wires_8822c(struct dm_struct *dm)
+{
+	/* Disable bbrstb 3-wires */
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x0);
+
+	odm_set_mac_reg(dm, R_0x0, BIT(16), 1);
+	odm_set_mac_reg(dm, R_0x0, BIT(16), 0);
+	odm_set_mac_reg(dm, R_0x0, BIT(16), 1);
+
+	/* Enable bbrstb 3-wires */
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x1);
+}
+
+__odm_func__
+boolean phydm_chk_pkg_set_valid_8822c(struct dm_struct *dm,
+				      u8 ver_bb, u8 ver_rf)
+{
+	boolean valid = true;
+
+	if (ver_bb >= 41 && ver_rf >= 23)
+		valid = true;
+	else if (ver_bb < 41 && ver_rf < 23)
+		valid = true;
+	else
+		valid = false;
+
+	if (!valid) {
+		odm_set_bb_reg(dm, R_0x1c3c, (BIT(0) | BIT(1)), 0x0);
+		pr_debug("[Warning][%s] Pkg_ver{bb, rf}={%d, %d} disable all BB block\n",
+			 __func__, ver_bb, ver_rf);
+	}
+
+	return valid;
+}
+
+__odm_func__
 void phydm_igi_toggle_8822c(struct dm_struct *dm)
 {
+/*
+ * @Toggle IGI to force BB HW send 3-wire-cmd and will let RF HW enter RX mode.
+ * @Because BB HW does not send 3-wire command automacically when BB setting
+ * @is changed including the configuration of path/channel/BW
+ */
 	u32 igi = 0x20;
 
 	/* @Do not use PHYDM API to read/write because FW can not access */
@@ -137,7 +175,7 @@ u32 config_phydm_read_rf_reg_8822c(struct dm_struct *dm, enum rf_path path,
 				   u32 reg_addr, u32 bit_mask)
 {
 	u32 readback_value = 0, direct_addr = 0;
-	u32 offset_read_rf[2] = {0x3c00, 0x4c00};
+	u32 offset_read_rf[2] = {R_0x3c00, R_0x4c00};
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -168,7 +206,7 @@ config_phydm_direct_write_rf_reg_8822c(struct dm_struct *dm, enum rf_path path,
 				       u32 reg_addr, u32 bit_mask, u32 data)
 {
 	u32 direct_addr = 0;
-	u32 offset_write_rf[2] = {0x3c00, 0x4c00};
+	u32 offset_write_rf[2] = {R_0x3c00, R_0x4c00};
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -179,22 +217,10 @@ config_phydm_direct_write_rf_reg_8822c(struct dm_struct *dm, enum rf_path path,
 	/* @RF register only has 20bits */
 	bit_mask &= RFREG_MASK;
 
-	/* direct write only*/
-	if (reg_addr == RF_0x18) {
-		odm_set_mac_reg(dm, R_0x1c, BIT(31) | BIT(30), 0x3);
-		odm_set_mac_reg(dm, R_0xec, BIT(31) | BIT(30), 0x3);
-	}
-
 	/* @write RF register directly*/
 	odm_set_bb_reg(dm, direct_addr, bit_mask, data);
 
 	ODM_delay_us(1);
-
-	/* default setting: RF-0x0 is PI, others are direct*/
-	if (reg_addr == RF_0x18) {
-		odm_set_mac_reg(dm, R_0x1c, BIT(31) | BIT(30), 0x2);
-		odm_set_mac_reg(dm, R_0xec, BIT(31) | BIT(30), 0x2);
-	}
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "RF-%d 0x%x = 0x%x , bit mask = 0x%x\n",
 		  path, reg_addr, data, bit_mask);
@@ -208,7 +234,7 @@ config_phydm_write_rf_reg_8822c(struct dm_struct *dm, enum rf_path path,
 				u32 reg_addr, u32 bit_mask, u32 data)
 {
 	u32 data_and_addr = 0, data_original = 0;
-	u32 offset_write_rf[2] = {0x1808, 0x4108};
+	u32 offset_write_rf[2] = {R_0x1808, R_0x4108};
 	boolean result = false;
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
@@ -272,7 +298,7 @@ phydm_write_txagc_1byte_8822c(struct dm_struct *dm, u32 pw_idx, u8 hw_rate)
 {
 #if (PHYDM_FW_API_FUNC_ENABLE_8822C)
 
-	u32 offset_txagc = 0x3a00;
+	u32 offset_txagc = R_0x3a00;
 	u8 rate_idx = (hw_rate & 0xfc), i = 0;
 	u8 rate_offset = (hw_rate & 0x3);
 	u8 ret = 0;
@@ -318,8 +344,8 @@ config_phydm_write_txagc_ref_8822c(struct dm_struct *dm, u8 power_index,
 				   enum PDM_RATE_TYPE rate_type)
 {
 	/* @2-path power reference */
-	u32 txagc_ofdm_ref[2] = {0x18e8, 0x41e8};
-	u32 txagc_cck_ref[2] = {0x18a0, 0x41a0};
+	u32 txagc_ofdm_ref[2] = {R_0x18e8, R_0x41e8};
+	u32 txagc_cck_ref[2] = {R_0x18a0, R_0x41a0};
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -367,7 +393,7 @@ config_phydm_write_txagc_diff_8822c(struct dm_struct *dm, s8 power_index1,
 				    s8 power_index2, s8 power_index3,
 				    s8 power_index4, u8 hw_rate)
 {
-	u32 offset_txagc = 0x3a00;
+	u32 offset_txagc = R_0x3a00;
 	u8 rate_idx = hw_rate & 0xfc; /* @Extract the 0xfc */
 	u8 power_idx1 = 0;
 	u8 power_idx2 = 0;
@@ -762,8 +788,8 @@ u8 config_phydm_read_txagc_8822c(struct dm_struct *dm, enum rf_path path,
 	u8 ref_data = 0;
 	u8 result_data = 0;
 	/* @2-path power reference */
-	u32 r_txagc_ofdm[2] = {0x18e8, 0x41e8};
-	u32 r_txagc_cck[2] = {0x18a0, 0x41a0};
+	u32 r_txagc_ofdm[2] = {R_0x18e8, R_0x41e8};
+	u32 r_txagc_cck[2] = {R_0x18a0, R_0x41a0};
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -817,13 +843,16 @@ phydm_get_tx_path_en_setting_8822c(struct dm_struct *dm,
 				   struct tx_path_en_8822c *path)
 {
 	u32 val = 0;
+#ifdef CONFIG_PATH_DIVERSITY
+	struct _ODM_PATH_DIVERSITY_ *p_div = &dm->dm_path_div;
+#endif
 
-	/*@OFDM*/
+	/*OFDM*/
 	val = odm_get_bb_reg(dm, R_0x820, MASKDWORD);
 	path->tx_path_en_ofdm_2sts = (u8)((val & 0xf0) >> 4);
 	path->tx_path_en_ofdm_1sts = (u8)(val & 0xf);
 
-	/*@CCK*/
+	/*CCK*/
 	val = odm_get_bb_reg(dm, R_0x1a04, 0xf0000000);
 
 	if (val == 0xc)
@@ -835,9 +864,16 @@ phydm_get_tx_path_en_setting_8822c(struct dm_struct *dm,
 	else if (val == 0x0)
 		path->tx_path_en_cck = 0; /*disable cck tx in 5G*/
 
-	/*@Path CTRL source*/
+	/*Path CTRL source*/
 	val = odm_get_bb_reg(dm, R_0x1e24, BIT(16));
 	path->is_path_ctrl_by_bb_reg = (boolean)(~val);
+
+	/*stop path div*/
+#ifdef CONFIG_PATH_DIVERSITY
+	path->stop_path_div = p_div->stop_path_div;
+#else
+	path->stop_path_div = true;
+#endif
 }
 
 __odm_func__
@@ -847,10 +883,10 @@ phydm_get_rx_path_en_setting_8822c(struct dm_struct *dm,
 {
 	u32 val = 0;
 
-	/*@OFDM*/
+	/*OFDM*/
 	path->rx_path_en_ofdm = (u8)odm_get_bb_reg(dm, R_0x824, 0xf0000);
 
-	/*@CCK*/
+	/*CCK*/
 	val = odm_get_bb_reg(dm, R_0x1a04, 0x0f000000);
 
 	if (val == 0x1)
@@ -869,15 +905,10 @@ phydm_config_cck_tx_path_8822c(struct dm_struct *dm, enum bb_path tx_path)
 		odm_set_bb_reg(dm, R_0x1a04, 0xf0000000, 0x8);
 	else if (tx_path == BB_PATH_B)
 		odm_set_bb_reg(dm, R_0x1a04, 0xf0000000, 0x4);
-	else /* @if (tx_path == BB_PATH_AB)*/
+	else /* if (tx_path == BB_PATH_AB)*/
 		odm_set_bb_reg(dm, R_0x1a04, 0xf0000000, 0xc);
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 }
 
 __odm_func__
@@ -887,49 +918,44 @@ phydm_config_cck_rx_path_8822c(struct dm_struct *dm, enum bb_path rx_path)
 	boolean set_result = PHYDM_SET_FAIL;
 
 	if (rx_path == BB_PATH_A) {
-		/* @Select ant_A to receive CCK_1 and CCK_2*/
+		/* Select ant_A to receive CCK_1 and CCK_2*/
 		odm_set_bb_reg(dm, R_0x1a04, 0x0f000000, 0x0);
-		/* @Enable Rx clk gated */
+		/* Enable Rx clk gated */
 		odm_set_bb_reg(dm, R_0x1a2c, BIT(5), 0x0);
-		/* @Disable MRC for CCK barker */
+		/* Disable MRC for CCK barker */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00060000, 0x0);
-		/* @Disable MRC for CCK CCA */
+		/* Disable MRC for CCK CCA */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00600000, 0x0);
-		/* @2R CS ratio setting*/
+		/* 2R CS ratio setting*/
 		odm_set_bb_reg(dm, R_0x1ad0, 0x3e0, 0xd);
 	} else if (rx_path == BB_PATH_B) {
-		/* @Select ant_B to receive CCK_1 and CCK_2*/
+		/* Select ant_B to receive CCK_1 and CCK_2*/
 		odm_set_bb_reg(dm, R_0x1a04, 0x0f000000, 0x5);
-		/* @Disable Rx clk gated */
+		/* Disable Rx clk gated */
 		odm_set_bb_reg(dm, R_0x1a2c, BIT(5), 0x1);
-		/* @replace path-B with path-AB: [PHYDM-336]*/
-		/* @Disable MRC for CCK barker */
+		/* replace path-B with path-AB: [PHYDM-336]*/
+		/* Disable MRC for CCK barker */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00060000, 0x0);
-		/* @Eable MRC for CCK CCA */
+		/* Eable MRC for CCK CCA */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00600000, 0x1);
-		/* @2R CS ratio setting*/
+		/* 2R CS ratio setting*/
 		odm_set_bb_reg(dm, R_0x1ad0, 0x3e0, 0xf);
 	} else if (rx_path == BB_PATH_AB) {
-		/* @Select ant_A to receive CCK_1 and ant_B to receive CCK_2*/
+		/* Select ant_A to receive CCK_1 and ant_B to receive CCK_2*/
 		odm_set_bb_reg(dm, R_0x1a04, 0x0f000000, 0x1);
-		/* @Enable Rx clk gated */
+		/* Enable Rx clk gated */
 		odm_set_bb_reg(dm, R_0x1a2c, BIT(5), 0x0);
-		/* @Disable MRC for CCK barker */
+		/* Enable MRC for CCK barker */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00060000, 0x1);
-		/* @Eable MRC for CCK CCA */
+		/* Eable MRC for CCK CCA */
 		odm_set_bb_reg(dm, R_0x1a2c, 0x00600000, 0x1);
-		/* @2R CS ratio setting*/
+		/* 2R CS ratio setting*/
 		odm_set_bb_reg(dm, R_0x1ad0, 0x3e0, 0xd);
 	}
 
 	set_result = PHYDM_SET_SUCCESS;
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 	return set_result;
 }
 
@@ -964,12 +990,7 @@ phydm_config_ofdm_tx_path_8822c(struct dm_struct *dm, enum bb_path tx_path_2ss,
 		}
 	}
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 }
 
 __odm_func__
@@ -1026,12 +1047,7 @@ phydm_config_ofdm_rx_path_8822c(struct dm_struct *dm, enum bb_path rx_path)
 		odm_set_bb_reg(dm, R_0x824, 0x0f000000, BB_PATH_AB);
 	}
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 }
 
 __odm_func__
@@ -1053,12 +1069,7 @@ void phydm_config_tx_path_8822c(struct dm_struct *dm, enum bb_path tx_path_2ss,
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "path_sel_2ss/1ss/cck={%d, %d, %d}\n",
 		  tx_path_2ss, tx_path_sel_1ss, tx_path_sel_cck);
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 }
 
 __odm_func__
@@ -1072,12 +1083,7 @@ void phydm_config_rx_path_8822c(struct dm_struct *dm, enum bb_path rx_path)
 
 	dm->rx_ant_status = rx_path;
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!dm->dm_path_div.path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 }
 
 __odm_func__
@@ -1119,6 +1125,57 @@ phydm_set_rf_mode_table_8822c(struct dm_struct *dm,
 }
 
 __odm_func__
+void
+phydm_rfe_8822c(struct dm_struct *dm, enum bb_path path)
+{
+	u8 rfe_type = dm->rfe_type;
+	u32 rf_reg18 = 0;
+	u8 central_ch = 0;
+	boolean is_2g_ch = false;
+
+	rf_reg18 = config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, RF_0x18,
+						  RFREG_MASK);
+	central_ch = (u8)(rf_reg18 & 0xff);
+	is_2g_ch = (central_ch <= 14) ? true : false;
+
+	PHYDM_DBG(dm, ODM_PHY_CONFIG,
+		  "[8822C] Update RFE PINs: T/RX_path:{0x%x, 0x%x}, rfe_type:%d\n",
+		  dm->tx_ant_status, dm->rx_ant_status, rfe_type);
+
+	/*HW Setting for each RFE type */
+	if (rfe_type == 21 || rfe_type == 22) {
+		/*rfe sel*/
+		/*0 : PAPE_2G_rfm*/
+		/*2 : LNAON_2G*/
+		/*3 : rfm_lnaon*/
+		/*7 : 1'b0*/
+		if (is_2g_ch)
+			path = BB_PATH_NON;
+
+		switch (path) {
+		case BB_PATH_NON:
+			odm_set_bb_reg(dm, R_0x1840, 0xffff, 0x7770);
+			odm_set_bb_reg(dm, R_0x4144, 0xffff, 0x7077);
+			break;
+		case BB_PATH_A:
+			odm_set_bb_reg(dm, R_0x1840, 0xffff, 0x2300);
+			odm_set_bb_reg(dm, R_0x4144, 0xffff, 0x7077);
+			break;
+		case BB_PATH_B:
+			odm_set_bb_reg(dm, R_0x1840, 0xffff, 0x7770);
+			odm_set_bb_reg(dm, R_0x4144, 0xffff, 0x2030);
+			break;
+		case BB_PATH_AB:
+			odm_set_bb_reg(dm, R_0x1840, 0xffff, 0x2300);
+			odm_set_bb_reg(dm, R_0x4144, 0xffff, 0x2030);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+__odm_func__
 boolean
 config_phydm_trx_mode_8822c(struct dm_struct *dm, enum bb_path tx_path_en,
 			    enum bb_path rx_path, enum bb_path tx_path_sel_1ss)
@@ -1129,6 +1186,7 @@ config_phydm_trx_mode_8822c(struct dm_struct *dm, enum bb_path tx_path_en,
 	boolean disable_2sts_div_mode = false;
 	enum bb_path tx_path_mode_table = tx_path_en;
 	enum bb_path tx_path_2ss = BB_PATH_AB;
+	u8 rfe_type = dm->rfe_type;
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -1202,126 +1260,47 @@ config_phydm_trx_mode_8822c(struct dm_struct *dm, enum bb_path tx_path_en,
 	phydm_config_tx_path_8822c(dm, tx_path_2ss, tx_path_sel_1ss,
 				   tx_path_sel_1ss);
 
+	/*====== [RFE ctrl] =============================================*/
+	if (rfe_type == 21 || rfe_type == 22) {
+		if (dm->tx_ant_status == BB_PATH_A && rx_path == BB_PATH_A)
+			phydm_rfe_8822c(dm, BB_PATH_A);
+		else if (dm->tx_ant_status == BB_PATH_B && rx_path == BB_PATH_B)
+			phydm_rfe_8822c(dm, BB_PATH_B);
+		else
+			phydm_rfe_8822c(dm, BB_PATH_AB);
+	}
+
 	phydm_igi_toggle_8822c(dm);
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "RX_en=%x, tx_en/2ss/1ss={%x,%x,%x}\n",
 		  rx_path, tx_path_en, tx_path_2ss, tx_path_sel_1ss);
 
-#ifdef CONFIG_PATH_DIVERSITY
-	if (!p_div->path_div_in_progress)
-		phydm_bb_reset_8822c(dm);
-#else
 	phydm_bb_reset_8822c(dm);
-#endif
 
 	return true;
 }
 
-void phydm_dis_cck_trx_8822c(struct dm_struct *dm, u8 set_type)
+void phydm_cck_rxiq_8822c(struct dm_struct *dm, u8 set_type)
 {
-	PHYDM_DBG(dm, ODM_PHY_CONFIG, "Disable CCK TRX\n");
+	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
 	if (set_type == PHYDM_SET) {
-		/* @ CCK source 1*/
-		odm_set_bb_reg(dm, R_0x1a9c, BIT(20), 0x0);
-		/* @ CCK RxIQ weighting = [0,0] */
-		odm_set_bb_reg(dm, R_0x1a14, 0x300, 0x3);
-		/* @ Disable CCK Tx */
-		odm_set_bb_reg(dm, R_0x1a04, 0xf0000000, 0x0);
-	} else if (set_type == PHYDM_REVERT) {
 		/* @ CCK source 5*/
 		odm_set_bb_reg(dm, R_0x1a9c, BIT(20), 0x1);
 		/* @ CCK RxIQ weighting = [1,1] */
 		odm_set_bb_reg(dm, R_0x1a14, 0x300, 0x0);
-
-		if (dm->tx_1ss_status == BB_PATH_NON) {
-			dm->tx_1ss_status = BB_PATH_A;
-			pr_debug("[%s]tx_1ss is non !\n", __func__);
-		}
-		phydm_config_cck_tx_path_8822c(dm, dm->tx_1ss_status);
+	} else if (set_type == PHYDM_REVERT) {
+		/* @ CCK source 1*/
+		odm_set_bb_reg(dm, R_0x1a9c, BIT(20), 0x0);
+		/* @ CCK RxIQ weighting = [0,0] */
+		odm_set_bb_reg(dm, R_0x1a14, 0x300, 0x3);
 	}
-	phydm_bb_reset_8822c(dm);
 }
 
 __odm_func__
 boolean
 config_phydm_switch_band_8822c(struct dm_struct *dm, u8 central_ch)
 {
-	u32 rf_reg18 = 0;
-	boolean rf_reg_status = true;
-#if 0
-	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
-
-	if (dm->is_disable_phy_api) {
-		PHYDM_DBG(dm, ODM_PHY_CONFIG, "Disable PHY API for dbg\n");
-		return true;
-	}
-
-	rf_reg18 = config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, 0x18,
-						  RFREG_MASK);
-	if (rf_reg18 != INVALID_RF_DATA)
-		rf_reg_status = true;
-	else
-		rf_reg_status = false;
-
-	rf_reg18 &= ~(BIT(16) | BIT(9) | BIT(8) | MASKBYTE0);
-
-	if (central_ch <= 14) {
-		/* @2.4G */
-
-		/* @Enable CCK TRx */
-		phydm_dis_cck_trx_8822c(dm, PHYDM_REVERT);
-
-		/* @Disable MAC CCK check */
-		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x0);
-
-		/* @Disable BB CCK check */
-		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x0);
-
-		/* @CCA Mask, default = 0xf */
-		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0xF);
-
-		/* @RF 2.4G default ch-1 */
-		rf_reg18 |= 0x1;
-
-	} else if (central_ch > 35) {
-		/* 5G */
-
-		/* @Enable BB CCK check */
-		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x1);
-
-		/* @Enable CCK check */
-		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x1);
-
-		/* @Disable CCK TRx */
-		phydm_dis_cck_trx_8822c(dm, PHYDM_SET);
-
-		/* @CCA Mask */
-		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0x22);
-
-		/* @RF band, 5G default ch-36 */
-		rf_reg18 |= (BIT(16) | BIT(8) | 0x24);
-	} else {
-		PHYDM_DBG(dm, ODM_PHY_CONFIG, "Fail to switch band (ch: %d)\n",
-			  central_ch);
-		return false;
-	}
-
-	odm_set_rf_reg(dm, RF_PATH_A, RF_0x18, RFREG_MASK, rf_reg18);
-	odm_set_rf_reg(dm, RF_PATH_B, RF_0x18, RFREG_MASK, rf_reg18);
-
-	if (!rf_reg_status) {
-		PHYDM_DBG(dm, ODM_PHY_CONFIG,
-			  "Fail to switch band (ch: %d), write RF_reg fail\n",
-			  central_ch);
-		return false;
-	}
-
-	PHYDM_DBG(dm, ODM_PHY_CONFIG, "Success to switch band (ch: %d)\n",
-		  central_ch);
-
-	phydm_bb_reset_8822c(dm);
-#endif
 	return true;
 }
 
@@ -1369,41 +1348,28 @@ phydm_cck_tx_shaping_filter_8822c(struct dm_struct *dm, u8 central_ch)
 
 __odm_func__
 void
-phydm_agc_tab_sel_8822c(struct dm_struct *dm, u8 central_ch)
+phydm_cck_agc_tab_sel_8822c(struct dm_struct *dm, u8 table)
+{
+	odm_set_bb_reg(dm, R_0x18ac, 0xf000, table);
+	odm_set_bb_reg(dm, R_0x41ac, 0xf000, table);
+}
+
+__odm_func__
+void
+phydm_ofdm_agc_tab_sel_8822c(struct dm_struct *dm, u8 table)
 {
 	struct phydm_dig_struct *dig_tab = &dm->dm_dig_table;
+	u8 lower_bound = dm->ofdm_rxagc_l_bnd[table];
 
-	if (central_ch <= 14) {
-		if (*dm->band_width == CHANNEL_WIDTH_20) {
-			/* @CCK*/
-			odm_set_bb_reg(dm, R_0x18ac, 0xf000, 0x5);
-			odm_set_bb_reg(dm, R_0x41ac, 0xf000, 0x5);
-			/* @OFDM*/
-			odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x6);
-			odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x6);
-			dig_tab->agc_table_idx = 0x6;
-		} else {
-			/* @CCK*/
-			odm_set_bb_reg(dm, R_0x18ac, 0xf000, 0x4);
-			odm_set_bb_reg(dm, R_0x41ac, 0xf000, 0x4);
-			/* @OFDM*/
-			odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x0);
-			odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x0);
-			dig_tab->agc_table_idx = 0x0;
-		}
-	} else if (central_ch >= 36 && central_ch <= 64) {
-		odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x1);
-		odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x1);
-		dig_tab->agc_table_idx = 0x1;
-	} else if ((central_ch >= 100) && (central_ch <= 144)) {
-		odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x2);
-		odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x2);
-		dig_tab->agc_table_idx = 0x2;
-	} else { /*if (central_ch >= 149)*/
-		odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x3);
-		odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x3);
-		dig_tab->agc_table_idx = 0x3;
-	}
+	odm_set_bb_reg(dm, R_0x18ac, 0x1f0, table);
+	odm_set_bb_reg(dm, R_0x41ac, 0x1f0, table);
+	dig_tab->agc_table_idx = table;
+
+	if (!dm->l_bnd_detect[table])
+		lower_bound = L_BND_DEFAULT_8822C;
+
+	/*AGC lower bound, need to be updated with AGC table*/
+	odm_set_bb_reg(dm, R_0x828, 0xf8, lower_bound);
 }
 
 __odm_func__
@@ -1455,11 +1421,35 @@ phydm_tx_dfir_setting_8822c(struct dm_struct *dm, u8 central_ch)
 }
 
 __odm_func__
+void phydm_set_dis_dpd_by_rate_8822c(struct dm_struct *dm, u16 bitmask)
+{
+	/* bit(0) : ofdm 6m*/
+	/* bit(1) : ofdm 9m*/
+	/* bit(2) : ht mcs0*/
+	/* bit(3) : ht mcs1*/
+	/* bit(4) : ht mcs8*/
+	/* bit(5) : ht mcs9*/
+	/* bit(6) : vht 1ss mcs0*/
+	/* bit(7) : vht 1ss mcs1*/
+	/* bit(8) : vht 2ss mcs0*/
+	/* bit(9) : vht 2ss mcs1*/
+
+	odm_set_bb_reg(dm, R_0xa70, 0x3ff, bitmask);
+	dm->dis_dpd_rate = bitmask;
+}
+
+__odm_func__
 boolean
 config_phydm_switch_channel_8822c(struct dm_struct *dm, u8 central_ch)
 {
 	u32 rf_reg18 = 0;
 	boolean is_2g_ch = true;
+	enum bb_path tx_1sts = BB_PATH_NON;
+	enum bb_path tx_2sts = BB_PATH_NON;
+	enum bb_path tx = BB_PATH_NON;
+	enum bb_path rx = BB_PATH_NON;
+	u8 rfe_type = dm->rfe_type;
+	struct phydm_iot_center	*iot_table = &dm->iot_table;
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
 
@@ -1485,52 +1475,118 @@ config_phydm_switch_channel_8822c(struct dm_struct *dm, u8 central_ch)
 
 	is_2g_ch = (central_ch <= 14) ? true : false;
 
-	/* ==== [Set BB Reg] =================================================*/
-
-	/* @1. AGC table selection */
-	phydm_agc_tab_sel_8822c(dm, central_ch);
-	/* @2. Set fc for clock offset tracking */
-	phydm_sco_trk_fc_setting_8822c(dm, central_ch);
-	/* @3. TX DFIR*/
-	phydm_tx_dfir_setting_8822c(dm, central_ch);
-	/* @4. Other BB Settings*/
-	if (is_2g_ch) {
-		phydm_cck_tx_shaping_filter_8822c(dm, central_ch);
-		/* @Enable CCK TRx */
-		phydm_dis_cck_trx_8822c(dm, PHYDM_REVERT);
-		/* @Disable MAC CCK check */
-		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x0);
-		/* @Disable BB CCK check */
-		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x0);
-		/* @CCA Mask, default = 0xf */
-		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0xF);
-	} else {
-		/* @Enable BB CCK check */
-		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x1);
-		/* @Enable CCK check */
-		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x1);
-		/* @Disable CCK TRx */
-		phydm_dis_cck_trx_8822c(dm, PHYDM_SET);
-		/* @CCA Mask */
-		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0x22);
+	/* [get trx info for cck tx and rfe ctrl] */
+	tx_1sts = dm->tx_1ss_status;
+	if (tx_1sts == BB_PATH_NON) {
+		tx_1sts = (u8)odm_get_bb_reg(dm, R_0x820, 0xf);
+		dm->tx_1ss_status = (u8)tx_1sts;
+		pr_debug("[%s]tx_1ss is non!, update tx_1sts:%d\n",
+			 __func__, tx_1sts);
+	}
+	tx = dm->tx_ant_status;
+	if (tx == BB_PATH_NON) {
+		tx_2sts = (u8)odm_get_bb_reg(dm, R_0x820, 0xf0);
+		tx = (u8)(tx_1sts | tx_2sts);
+		dm->tx_2ss_status = (u8)tx_2sts;
+		dm->tx_ant_status = tx;
+		pr_debug("[%s]tx_ant_status is non!, update tx_2sts/tx_path:%d/%d\n",
+			 __func__, tx_2sts, tx);
+	}
+	rx = dm->rx_ant_status;
+	if (rx == BB_PATH_NON) {
+		rx = (u8)odm_get_bb_reg(dm, R_0x824, 0xf0000);
+		dm->rx_ant_status = (u8)rx;
+		pr_debug("[%s]rx_ant_status is non!, update rx_path:%d\n",
+			 __func__, rx);
 	}
 
 	/* ==== [Set RF Reg 0x18] ===========================================*/
 	rf_reg18 &= ~0x703ff; /*[18:17],[16],[9:8],[7:0]*/
-	rf_reg18 |= central_ch; /* @Channel*/
+	rf_reg18 |= central_ch; /* Channel*/
 
 	if (!is_2g_ch) { /*5G*/
 		rf_reg18 |= (BIT(16) | BIT(8));
 
-		/* @5G Sub-Band, 01: 5400<f<=5720, 10: f>5720*/
+		/* 5G Sub-Band, 01: 5400<f<=5720, 10: f>5720*/
 		if (central_ch > 144)
 			rf_reg18 |= BIT(18);
 		else if (central_ch >= 80)
 			rf_reg18 |= BIT(17);
 	}
 
+	/*reset HSSI*/
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x0);
+	/*RxA enhance-Q setting*/
+	odm_set_rf_reg(dm, RF_PATH_A, RF_0xdf, BIT(18), is_2g_ch);
+	/*write RF-0x18*/
 	odm_set_rf_reg(dm, RF_PATH_A, RF_0x18, RFREG_MASK, rf_reg18);
 	odm_set_rf_reg(dm, RF_PATH_B, RF_0x18, RFREG_MASK, rf_reg18);
+	/*reset HSSI*/
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x1);
+	/*force update anapar*/
+	odm_set_bb_reg(dm, R_0x1830, BIT(29), 0x1);
+	odm_set_bb_reg(dm, R_0x4130, BIT(29), 0x1);
+	/* ==== [Set BB Reg] =================================================*/
+	/* 1. AGC table selection */
+	if (central_ch <= 14) {
+		if (*dm->band_width == CHANNEL_WIDTH_20) {
+			phydm_cck_agc_tab_sel_8822c(dm, CCK_BW20_8822C);
+			phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_2G_BW20_8822C);
+		} else {
+			phydm_cck_agc_tab_sel_8822c(dm, CCK_BW40_8822C);
+			phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_2G_BW40_8822C);
+		}
+	} else if (central_ch >= 36 && central_ch <= 64) {
+		phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_5G_LOW_BAND_8822C);
+	} else if ((central_ch >= 100) && (central_ch <= 144)) {
+		phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_5G_MID_BAND_8822C);
+	} else { /*if (central_ch >= 149)*/
+		phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_5G_HIGH_BAND_8822C);
+	}
+	/* 2. Set fc for clock offset tracking */
+	phydm_sco_trk_fc_setting_8822c(dm, central_ch);
+	/* 3. TX DFIR*/
+	phydm_tx_dfir_setting_8822c(dm, central_ch);
+	/* 4. Other BB Settings*/
+	if (is_2g_ch) {
+		phydm_cck_tx_shaping_filter_8822c(dm, central_ch);
+		/* Enable CCK Rx IQ */
+		phydm_cck_rxiq_8822c(dm, PHYDM_SET);
+		/* Disable MAC CCK check */
+		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x0);
+		/* Disable BB CCK check */
+		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x0);
+		/* CCA Mask, default = 0xf */
+		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0xF);
+		/*RFE ctrl*/
+		if (rfe_type == 21 || rfe_type == 22)
+			phydm_rfe_8822c(dm, BB_PATH_NON);
+	} else { /* 5G*/
+		/* Enable BB CCK check */
+		odm_set_bb_reg(dm, R_0x1a80, BIT(18), 0x1);
+		/* Enable CCK check */
+		odm_set_mac_reg(dm, R_0x454, BIT(7), 0x1);
+		/* Disable CCK Rx IQ */
+		phydm_cck_rxiq_8822c(dm, PHYDM_REVERT);
+		/* CCA Mask */
+		odm_set_bb_reg(dm, R_0x1c80, 0x3F000000, 0x22);
+		/*RFE ctrl*/
+		if (rfe_type == 21 || rfe_type == 22) {
+			if (tx == BB_PATH_A && rx == BB_PATH_A)
+				phydm_rfe_8822c(dm, BB_PATH_A);
+			else if (tx == BB_PATH_B && rx == BB_PATH_B)
+				phydm_rfe_8822c(dm, BB_PATH_B);
+			else
+				phydm_rfe_8822c(dm, BB_PATH_AB);
+		}
+	}
+
+	if (iot_table->patch_id_011f0500) {
+		if (central_ch != 1 && dm->en_dis_dpd)
+			phydm_set_dis_dpd_by_rate_8822c(dm, 0x3ff);
+		else
+			phydm_set_dis_dpd_by_rate_8822c(dm, 0x0);
+	}
 	/*====================================================================*/
 
 	phydm_igi_toggle_8822c(dm);
@@ -1545,8 +1601,8 @@ boolean
 config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 				    enum channel_width bw)
 {
-	struct phydm_dig_struct *dig_tab = &dm->dm_dig_table;
 	u32 rf_reg18 = 0;
+	u32 rf_reg3f = 0;
 	boolean rf_reg_status = true;
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG, "%s ======>\n", __func__);
@@ -1556,7 +1612,7 @@ config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 		return true;
 	}
 
-	/* @Error handling */
+	/*Error handling */
 	if (bw >= CHANNEL_WIDTH_MAX || (bw == CHANNEL_WIDTH_40 && pri_ch > 2) ||
 	    (bw == CHANNEL_WIDTH_80 && pri_ch > 4)) {
 		PHYDM_DBG(dm, ODM_PHY_CONFIG,
@@ -1564,7 +1620,6 @@ config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 		return false;
 	}
 
-	bw_8822c = bw;
 	rf_reg18 = config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, RF_0x18,
 						  RFREG_MASK);
 	if (rf_reg18 != INVALID_RF_DATA)
@@ -1574,175 +1629,140 @@ config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 
 	rf_reg18 &= ~(BIT(13) | BIT(12));
 
-	/* @Switch bandwidth */
+	/*Switch bandwidth */
 	switch (bw) {
 	case CHANNEL_WIDTH_5:
 	case CHANNEL_WIDTH_10:
 	case CHANNEL_WIDTH_20:
 		if (bw == CHANNEL_WIDTH_5) {
-			/* @RX DFIR*/
+			/*RX DFIR*/
 			odm_set_bb_reg(dm, R_0x810, 0x3ff0, 0x2ab);
 
-			/* @small BW:[7:6]=0x1 */
-			/* @TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
+			/*small BW:[7:6]=0x1 */
+			/*TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
 			odm_set_bb_reg(dm, R_0x9b0, 0xffc0, 0x1);
 
-			/* @DAC clock = 120M clock for BW5 */
+			/*DAC clock = 120M clock for BW5 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00000700, 0x4);
 
-			/* @ADC clock = 40M clock for BW5 */
+			/*ADC clock = 40M clock for BW5 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00700000, 0x4);
 		} else if (bw == CHANNEL_WIDTH_10) {
-			/* @RX DFIR*/
+			/*RX DFIR*/
 			odm_set_bb_reg(dm, R_0x810, 0x3ff0, 0x2ab);
 
-			/* @small BW:[7:6]=0x2 */
-			/* @TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
+			/*small BW:[7:6]=0x2 */
+			/*TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
 			odm_set_bb_reg(dm, R_0x9b0, 0xffc0, 0x2);
 
-			/* @DAC clock = 240M clock for BW10 */
+			/*DAC clock = 240M clock for BW10 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00000700, 0x6);
 
-			/* @ADC clock = 80M clock for BW10 */
+			/*ADC clock = 80M clock for BW10 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00700000, 0x5);
 		} else if (bw == CHANNEL_WIDTH_20) {
-			/* @RX DFIR*/
+			/*RX DFIR*/
 			odm_set_bb_reg(dm, R_0x810, 0x3ff0, 0x19b);
 
-			/* @small BW:[7:6]=0x0 */
-			/* @TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
+			/*small BW:[7:6]=0x0 */
+			/*TX pri ch:[11:8]=0x0, RX pri ch:[15:12]=0x0 */
 			odm_set_bb_reg(dm, R_0x9b0, 0xffc0, 0x0);
 
-			/* @DAC clock = 480M clock for BW20 */
+			/*DAC clock = 480M clock for BW20 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00000700, 0x7);
 
-			/* @ADC clock = 160M clock for BW20 */
+			/*ADC clock = 160M clock for BW20 */
 			odm_set_bb_reg(dm, R_0x9b4, 0x00700000, 0x6);
 		}
 
-		/* @TX_RF_BW:[1:0]=0x0, RX_RF_BW:[3:2]=0x0 */
+		/*TX_RF_BW:[1:0]=0x0, RX_RF_BW:[3:2]=0x0 */
 		odm_set_bb_reg(dm, R_0x9b0, 0xf, 0x0);
 
-		/* @RF bandwidth */
+		/*RF bandwidth */
 		rf_reg18 |= (BIT(13) | BIT(12));
 
-		/* @RF RXBB setting, modify 0x3f for WLANBB-1081*/
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x3f, RFREG_MASK, 0x18);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x0);
+		/*RF RXBB setting*/
+		rf_reg3f = (BIT(4) | BIT(3));
 
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x3f, RFREG_MASK, 0x18);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x0);
-
-		/* @pilot smoothing on */
+		/*pilot smoothing on */
 		odm_set_bb_reg(dm, R_0xcbc, BIT(21), 0x0);
 
-		/* @CCK source 4 */
+		/*CCK source 4 */
 		odm_set_bb_reg(dm, R_0x1abc, BIT(30), 0x0);
 
-		/* dynamic CCK PD th*/
+		/*dynamic CCK PD th*/
 		odm_set_bb_reg(dm, R_0x1ae8, BIT(31), 0x1);
 		odm_set_bb_reg(dm, R_0x1aec, 0xf, 0x6);
 
-		/* subtune*/
+		/*subtune*/
 		odm_set_bb_reg(dm, R_0x88c, 0xf000, 0x1);
 
 		if (*dm->band_type == ODM_BAND_2_4G) {
-			/* @CCK*/
-			odm_set_bb_reg(dm, R_0x18ac, 0xf000, 0x5);
-			odm_set_bb_reg(dm, R_0x41ac, 0xf000, 0x5);
-
-			/* @OFDM*/
-			odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x6);
-			odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x6);
-			dig_tab->agc_table_idx = 0x6;
+			phydm_cck_agc_tab_sel_8822c(dm, CCK_BW20_8822C);
+			phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_2G_BW20_8822C);
 		}
 		break;
 	case CHANNEL_WIDTH_40:
-		/* @CCK primary channel */
+		/*CCK primary channel */
 		if (pri_ch == 1)
 			odm_set_bb_reg(dm, R_0x1a00, BIT(4), pri_ch);
 		else
 			odm_set_bb_reg(dm, R_0x1a00, BIT(4), 0);
 
-		/* @TX_RF_BW:[1:0]=0x1, RX_RF_BW:[3:2]=0x1 */
+		/*TX_RF_BW:[1:0]=0x1, RX_RF_BW:[3:2]=0x1 */
 		odm_set_bb_reg(dm, R_0x9b0, 0xf, 0x5);
 
-		/* @small BW */
+		/*small BW */
 		odm_set_bb_reg(dm, R_0x9b0, 0xc0, 0x0);
 
-		/* @TX pri ch:[11:8], RX pri ch:[15:12] */
+		/*TX pri ch:[11:8], RX pri ch:[15:12] */
 		odm_set_bb_reg(dm, R_0x9b0, 0xff00, (pri_ch | (pri_ch << 4)));
 
-		/* @RF bandwidth */
+		/*RF bandwidth */
 		rf_reg18 |= BIT(13);
 
-		/* @RF RXBB setting, modify 0x3f for WLANBB-1081 */
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x3f, RFREG_MASK, 0x10);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x0);
+		/*RF RXBB setting*/
+		rf_reg3f = BIT(4);
 
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x3f, RFREG_MASK, 0x10);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x0);
-
-		/* @pilot smoothing off */
+		/*pilot smoothing off */
 		odm_set_bb_reg(dm, R_0xcbc, BIT(21), 0x1);
 
-		/* @CCK source 5 */
+		/*CCK source 5 */
 		odm_set_bb_reg(dm, R_0x1abc, BIT(30), 0x1);
 
-		/* dynamic CCK PD th*/
+		/*dynamic CCK PD th*/
 		odm_set_bb_reg(dm, R_0x1ae8, BIT(31), 0x0);
 		odm_set_bb_reg(dm, R_0x1aec, 0xf, 0x8);
 
-		/* subtune*/
+		/*subtune*/
 		odm_set_bb_reg(dm, R_0x88c, 0xf000, 0x1);
 
 		if (*dm->band_type == ODM_BAND_2_4G) {
-			/* @CCK*/
-			odm_set_bb_reg(dm, R_0x18ac, 0xf000, 0x4);
-			odm_set_bb_reg(dm, R_0x41ac, 0xf000, 0x4);
-
-			/* @OFDM*/
-			odm_set_bb_reg(dm, R_0x18ac, 0x1f0, 0x0);
-			odm_set_bb_reg(dm, R_0x41ac, 0x1f0, 0x0);
-			dig_tab->agc_table_idx = 0x0;
+			/*CCK*/
+			phydm_cck_agc_tab_sel_8822c(dm, CCK_BW40_8822C);
+			phydm_ofdm_agc_tab_sel_8822c(dm, OFDM_2G_BW40_8822C);
 		}
 		break;
 	case CHANNEL_WIDTH_80:
-		/* @TX_RF_BW:[1:0]=0x2, RX_RF_BW:[3:2]=0x2 */
+		/*TX_RF_BW:[1:0]=0x2, RX_RF_BW:[3:2]=0x2 */
 		odm_set_bb_reg(dm, R_0x9b0, 0xf, 0xa);
 
-		/* @small BW */
+		/*small BW */
 		odm_set_bb_reg(dm, R_0x9b0, 0xc0, 0x0);
 
-		/* @TX pri ch:[11:8], RX pri ch:[15:12] */
+		/*TX pri ch:[11:8], RX pri ch:[15:12] */
 		odm_set_bb_reg(dm, R_0x9b0, 0xff00, (pri_ch | (pri_ch << 4)));
 
-		/* @RF bandwidth */
+		/*RF bandwidth */
 		rf_reg18 |= BIT(12);
 
-		/* @RF RXBB setting, modify 0x3f for WLANBB-1081 */
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x3f, RFREG_MASK, 0x8);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x0);
+		/*RF RXBB setting*/
+		rf_reg3f = BIT(3);
 
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x33, 0x1F, 0x12);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x3f, RFREG_MASK, 0x8);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x0);
-
-		/* @pilot smoothing off */
+		/*pilot smoothing off */
 		odm_set_bb_reg(dm, R_0xcbc, BIT(21), 0x1);
 
-		/* subtune*/
+		/*subtune*/
 		odm_set_bb_reg(dm, R_0x88c, 0xf000, 0x6);
 		break;
 	default:
@@ -1750,9 +1770,27 @@ config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 			  "Fail to switch bw (bw:%d, pri ch:%d)\n", bw, pri_ch);
 	}
 
-	/* @Write RF register */
+	/*Write RF register */
+	/*reset HSSI*/
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x0);
+	/*RF RXBB setting, WLANBB-1081*/
+	odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x1);
+	odm_set_rf_reg(dm, RF_PATH_A, RF_0x33, 0x1F, 0x12);
+	odm_set_rf_reg(dm, RF_PATH_A, RF_0x3f, RFREG_MASK, rf_reg3f);
+	odm_set_rf_reg(dm, RF_PATH_A, RF_0xee, 0x4, 0x0);
+
+	odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x1);
+	odm_set_rf_reg(dm, RF_PATH_B, RF_0x33, 0x1F, 0x12);
+	odm_set_rf_reg(dm, RF_PATH_B, RF_0x3f, RFREG_MASK, rf_reg3f);
+	odm_set_rf_reg(dm, RF_PATH_B, RF_0xee, 0x4, 0x0);
+	/*write RF-0x18*/
 	odm_set_rf_reg(dm, RF_PATH_A, RF_0x18, RFREG_MASK, rf_reg18);
 	odm_set_rf_reg(dm, RF_PATH_B, RF_0x18, RFREG_MASK, rf_reg18);
+	/*reset HSSI*/
+	odm_set_bb_reg(dm, R_0x1c90, BIT(8), 0x1);
+	/*force update anapar*/
+	odm_set_bb_reg(dm, R_0x1830, BIT(29), 0x1);
+	odm_set_bb_reg(dm, R_0x4130, BIT(29), 0x1);
 
 	if (!rf_reg_status) {
 		PHYDM_DBG(dm, ODM_PHY_CONFIG,
@@ -1761,7 +1799,13 @@ config_phydm_switch_bandwidth_8822c(struct dm_struct *dm, u8 pri_ch,
 		return false;
 	}
 
-	/* @Toggle IGI to let RF enter RX mode */
+	/*fix bw setting*/
+	#ifdef CONFIG_BW_INDICATION
+	if (!(*dm->mp_mode))
+		phydm_bw_fixed_setting(dm);
+	#endif
+
+	/*Toggle IGI to let RF enter RX mode */
 	phydm_igi_toggle_8822c(dm);
 
 	PHYDM_DBG(dm, ODM_PHY_CONFIG,
@@ -1870,6 +1914,20 @@ void phydm_1rcca_setting_8822c(struct dm_struct *dm, boolean en_1rcca)
 }
 
 __odm_func__
+void phydm_invld_pkt_setting_8822c(struct dm_struct *dm, boolean en_invld_pkt)
+{
+	if (en_invld_pkt) {
+		odm_set_bb_reg(dm, R_0x1c64, BIT(30), 0x1);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70e0c001);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70e0c001);
+	} else {
+		odm_set_bb_reg(dm, R_0x1c64, BIT(30), 0x0);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8001);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8001);
+	}
+}
+
+__odm_func__
 void phydm_cck_gi_bound_8822c(struct dm_struct *dm)
 {
 	struct phydm_physts *physts_table = &dm->dm_physts_table;
@@ -1910,24 +1968,6 @@ u16 phydm_get_dis_dpd_by_rate_8822c(struct dm_struct *dm)
 }
 
 __odm_func__
-void phydm_set_dis_dpd_by_rate_8822c(struct dm_struct *dm, u16 bitmask)
-{
-	/* bit(0) : ofdm 6m*/
-	/* bit(1) : ofdm 9m*/
-	/* bit(2) : ht mcs0*/
-	/* bit(3) : ht mcs1*/
-	/* bit(4) : ht mcs8*/
-	/* bit(5) : ht mcs9*/
-	/* bit(6) : vht 1ss mcs0*/
-	/* bit(7) : vht 1ss mcs1*/
-	/* bit(8) : vht 2ss mcs0*/
-	/* bit(9) : vht 2ss mcs1*/
-
-	odm_set_bb_reg(dm, R_0xa70, 0x3ff, bitmask);
-	dm->dis_dpd_rate = bitmask;
-}
-
-__odm_func__
 void phydm_cck_pd_init_8822c(struct dm_struct *dm)
 {
 	struct phydm_iot_center	*iot_table = &dm->iot_table;
@@ -1946,6 +1986,9 @@ config_phydm_parameter_init_8822c(struct dm_struct *dm,
 
 	phydm_cck_gi_bound_8822c(dm);
 	phydm_cck_pd_init_8822c(dm);
+
+	if (*dm->mp_mode)
+		phydm_ch_smooth_setting_8822c(dm, true);
 
 	/* Disable low rate DPD*/
 	if (dm->en_dis_dpd)
@@ -1981,104 +2024,23 @@ config_phydm_parameter_init_8822c(struct dm_struct *dm,
 	return true;
 }
 
-#if CONFIG_POWERSAVING
-__odm_func_aon__
+__odm_func__
 boolean
-phydm_rfe_8822c_lps(struct dm_struct *dm, boolean enable_sw_rfe)
+phydm_chk_bb_state_idle_8822c(struct dm_struct *dm)
 {
-#if 0
-	//u8 rfe_type = dm->rfe_type;
-	u32 rf_reg18_ch = 0;
+	u32 dbgport = 0;
 
-	rf_reg18_ch = config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, RF_0x18,
-						     0xff);
-
-	/* HW Setting for each RFE type */
-	if (rfe_type == 4) {
-		if (rf_reg18_ch <= 14) {
-			/* signal source */
-			if (!enable_sw_rfe) {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x745774);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x745774);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x57);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x57);
-			} else {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x77);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x77);
-			}
-		} else if (rf_reg18_ch > 35) {
-			/* signal source */
-			if (!enable_sw_rfe) {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x477547);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x477547);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x75);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x75);
-			} else {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x77);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x77);
-			}
-		} else {
-			return false;
-		}
-	} else if ((rfe_type == 1) || (rfe_type == 2) || (rfe_type == 6) ||
-		   (rfe_type == 7) || (rfe_type == 9) || (rfe_type == 11)) {
-		/* eFem */
-		if (rf_reg18_ch <= 14) {
-			/* signal source */
-			if (!enable_sw_rfe) {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x705770);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x705770);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x57);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x57);
-			} else {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x77);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x77);
-			}
-		} else if (rf_reg18_ch > 35) {
-			/* signal source */
-			if (!enable_sw_rfe) {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x177517);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x177517);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x75);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x75);
-			} else {
-				odm_set_bb_reg(dm, R_0x1840, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x4140, 0xffffff,
-					       0x777777);
-				odm_set_bb_reg(dm, R_0x1844, MASKBYTE1, 0x77);
-				odm_set_bb_reg(dm, R_0x4144, MASKBYTE1, 0x77);
-			}
-		} else {
-			return false;
-		}
-	} else {
+	/* Do not check GNT_WL for LPS */
+	odm_set_bb_reg(dm, R_0x1c3c, 0x00f00000, 0x0);
+	dbgport = odm_get_bb_reg(dm, R_0x2db4, MASKDWORD);
+	if ((dbgport & 0x1ffeff3f) == 0 &&
+	    (dbgport & 0xc0000000) == 0xc0000000)
 		return true;
-	}
-	#endif
-	return true;
+	else
+		return false;
 }
 
+#if CONFIG_POWERSAVING
 __odm_func_aon__
 boolean
 phydm_8822c_lps(struct dm_struct *dm, boolean enable_lps)
@@ -2088,30 +2050,25 @@ phydm_8822c_lps(struct dm_struct *dm, boolean enable_lps)
 
 	if (enable_lps == _TRUE) {
 		/* backup RF reg0x0 */
-		SysMib.Wlan.PS.PSParm.RxGainPathA = (u16)(config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, RF_0x00, RFREG_MASK));
-		SysMib.Wlan.PS.PSParm.RxGainPathB = (u16)(config_phydm_read_rf_reg_8822c(dm, RF_PATH_B, RF_0x00, RFREG_MASK));
+		SysMib.Wlan.PS.PSParm.RxGainPathA = config_phydm_read_rf_reg_8822c(dm, RF_PATH_A, RF_0x0, RFREG_MASK);
+		SysMib.Wlan.PS.PSParm.RxGainPathB = config_phydm_read_rf_reg_8822c(dm, RF_PATH_B, RF_0x0, RFREG_MASK);
 
-		/* turn off TRx HSSI: 0x180c[1:0]=2'b00, 0x410c[1:0]=2'b00 */
-		bbtemp = odm_get_bb_reg(dm, R_0x180c, MASKDWORD) & 0xfffffffc;
-		odm_set_bb_reg(dm, R_0x180c, MASKDWORD, bbtemp);
-		bbtemp = odm_get_bb_reg(dm, R_0x410c, MASKDWORD) & 0xfffffffc;
-		odm_set_bb_reg(dm, R_0x410c, MASKDWORD, bbtemp);
+		/* turn off TRx HSSI*/
+		odm_set_bb_reg(dm, R_0x180c, 0x3, 0x0);
+		odm_set_bb_reg(dm, R_0x410c, 0x3, 0x0);
 
-		/* Set RF enter shutdown mode */
-		config_phydm_write_rf_reg_8822c(dm, RF_PATH_A, RF_0x0,
-						RFREG_MASK, 0);
-		config_phydm_write_rf_reg_8822c(dm, RF_PATH_B, RF_0x0,
-						RFREG_MASK, 0);
+		/* Set RF enter shutdown mode*/
+		bbtemp = odm_get_bb_reg(dm, R_0x824, MASKDWORD);
+		odm_set_bb_reg(dm, R_0x824, 0xf0000, 0x3);
+		config_phydm_write_rf_reg_8822c(dm, RF_PATH_A, RF_0x0, RFREG_MASK, 0x0);
+		config_phydm_write_rf_reg_8822c(dm, RF_PATH_B, RF_0x0, RFREG_MASK, 0x0);
+		odm_set_bb_reg(dm, R_0x824, MASKDWORD, bbtemp);
 
-		/* if eFEM, RFE control for signal source = 0 */
-		phydm_rfe_8822c_lps(dm, _TRUE);
+		/*bb reset w/o 3-wires */
+		phydm_bb_reset_no_3wires_8822c(dm);
 
-		/* Check BB state is idle, do not check GNT_WL only for LPS */
 		while (1) {
-			odm_set_bb_reg(dm, R_0x1c3c, 0x00f00000, 0x0);
-			bbtemp = odm_get_bb_reg(dm, R_0x2db4, MASKDWORD);
-			if ((bbtemp & 0x1FFEFF3F) == 0 &&
-			    (bbtemp & 0xC0000000) == 0xC0000000)
+			if (phydm_chk_bb_state_idle_8822c(dm))
 				break;
 
 			if (poll_cnt > WAIT_TXSM_STABLE_CNT) {
@@ -2129,18 +2086,16 @@ phydm_8822c_lps(struct dm_struct *dm, boolean enable_lps)
 				& ~BIT_FEN_BBRSTB);
 
 		if (poll_cnt < WAIT_TXSM_STABLE_CNT) {
-			/* Gated BBclk 0x1c24[0] = 1 */
-			bbtemp = odm_get_bb_reg(dm, R_0x1c24, MASKDWORD) |
-				 0x00000001;
-			odm_set_bb_reg(dm, R_0x1c24, MASKDWORD, bbtemp);
+			/* Gated BBclk*/
+			odm_set_bb_reg(dm, R_0x1c24, BIT(0), 0x1);
 		}
 
 		return _TRUE;
 	} else {
-		/* release BB clk 0x1c24[0] = 0 */
-		bbtemp = odm_get_bb_reg(dm, R_0x1c24, MASKDWORD) &
-			 (~0x00000001);
-		odm_set_bb_reg(dm, R_0x1c24, MASKDWORD, bbtemp);
+		/* release BB clk*/
+		odm_set_bb_reg(dm, R_0x1c24, BIT(0), 0x0);
+
+		PwrGatedRestoreBB();
 
 		/* Enable CCK and OFDM module, */
 		/* should be a delay large than 200ns before RF access */
@@ -2148,18 +2103,19 @@ phydm_8822c_lps(struct dm_struct *dm, boolean enable_lps)
 				| BIT_FEN_BBRSTB);
 		DelayUS(1);
 
-		/* if eFEM, restore RFE control signal */
-		phydm_rfe_8822c_lps(dm, _FALSE);
-
 		/* Set RF enter active mode */
-		config_phydm_write_rf_reg_8822c(dm, RF_PATH_A, R_0x00, RFREG_MASK, (0x30000 | SysMib.Wlan.PS.PSParm.RxGainPathA));
-		config_phydm_write_rf_reg_8822c(dm, RF_PATH_B, R_0x00, RFREG_MASK, (0x30000 | SysMib.Wlan.PS.PSParm.RxGainPathB));
+		bbtemp = odm_get_bb_reg(dm, R_0x824, MASKDWORD);
+		odm_set_bb_reg(dm, R_0x824, 0xf0000, 0x3);
+		config_phydm_write_rf_reg_8822c(dm, RF_PATH_A, RF_0x0, RFREG_MASK, SysMib.Wlan.PS.PSParm.RxGainPathA);
+		config_phydm_write_rf_reg_8822c(dm, RF_PATH_B, RF_0x0, RFREG_MASK, SysMib.Wlan.PS.PSParm.RxGainPathB);
+		odm_set_bb_reg(dm, R_0x824, MASKDWORD, bbtemp);
 
-		/* turn on TRx HSSI: 0x180c[1:0]=2'b11, 0x410c[1:0]=2'b11 */
-		bbtemp = odm_get_bb_reg(dm, R_0x180c, MASKDWORD) | 0x00000003;
-		odm_set_bb_reg(dm, R_0x180c, MASKDWORD, bbtemp);
-		bbtemp = odm_get_bb_reg(dm, R_0x410c, MASKDWORD) | 0x00000003;
-		odm_set_bb_reg(dm, R_0x410c, MASKDWORD, bbtemp);
+		/*bb reset w/o 3-wires */
+		phydm_bb_reset_no_3wires_8822c(dm);
+
+		/* turn on TRx HSSI*/
+		odm_set_bb_reg(dm, R_0x180c, 0x3, 0x3);
+		odm_set_bb_reg(dm, R_0x410c, 0x3, 0x3);
 
 		return _TRUE;
 	}

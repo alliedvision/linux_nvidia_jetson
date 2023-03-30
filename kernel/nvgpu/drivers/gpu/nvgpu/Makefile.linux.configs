@@ -1,0 +1,302 @@
+# Turn off all other configs, if CONFIG_GK20A is not set
+CONFIG_GK20A := m
+
+# Enable the nv_sched build.
+CONFIG_NVS_PRESENT := y
+
+# Enable GK20A PMU features.
+CONFIG_GK20A_PMU := y
+
+# Enable support for the GK20A graphics engine on Tegra
+# by adding a Tegra platfrom interface to the GK20A driver.
+CONFIG_TEGRA_GK20A := y
+
+# Enable Support for Loading High Secure binary, and using
+# Write Protected Regions (WPR) for storing ucodes, and bootstrap
+# PMU, FECS and GPCCS in Low Secure mode.
+CONFIG_TEGRA_ACR := y
+
+# Support for debugger APIs
+CONFIG_NVGPU_DEBUGGER := y
+
+# Support for Falcon debugger APIs
+CONFIG_NVGPU_FALCON_DEBUG := y
+
+# Support for iGPU LS PMU enable/disable
+CONFIG_NVGPU_LS_PMU := y
+
+# Enable/Disable NVGPU logging
+CONFIG_NVGPU_LOGGING := y
+
+# Enable/Disable the support of HALs from chips that do not have functional
+# safety certification
+CONFIG_NVGPU_HAL_NON_FUSA := y
+
+# Support recovery on failure (which may involve engine reset)
+CONFIG_NVGPU_RECOVERY := y
+
+# Support for compression
+CONFIG_NVGPU_COMPRESSION := y
+
+# Enable MIG Support
+CONFIG_NVGPU_MIG := y
+
+# Enable gv11b support
+CONFIG_NVGPU_SUPPORT_GV11B := y
+
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_TEGRA_HOST1X_NEXT := m
+CONFIG_TEGRA_NVMAP_NEXT := m
+endif
+
+# Enable support for extraction of comptags for CDE.
+ifeq ($(CONFIG_NVGPU_COMPRESSION),y)
+CONFIG_NVGPU_SUPPORT_CDE := y
+endif
+
+# Support for remap
+CONFIG_NVGPU_REMAP := y
+
+# Enable gsp scheduler support
+CONFIG_NVGPU_GSP_SCHEDULER := y
+
+#Enable stress test for GSP
+ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),y)
+CONFIG_NVGPU_GSP_STRESS_TEST := y
+endif
+
+ifeq ($(CONFIG_COMMON_CLK),y)
+ifeq ($(CONFIG_PM_DEVFREQ),y)
+# Select this entry to enable gk20a scaling
+CONFIG_GK20A_DEVFREQ := y
+
+# Enable support to pass PM_QOS constraints to devfreq based scaling.
+CONFIG_GK20A_PM_QOS := y
+
+endif
+endif
+
+# Say Y here to allow nvgpu to track and keep statistics on
+# the system memory used by the driver. This does recreate
+# some of the kmem_leak tracking but this is also applicable
+# to other OSes which do not have Linux' kmem_leak.
+#CONFIG_NVGPU_TRACK_MEM_USAGE    := n
+
+# Enable the cycle stats debugging features.
+CONFIG_NVGPU_CYCLESTATS := y
+
+# Enable support for the NVGPU Context Switch Tracing. In this mode,
+# FECS collects timestamps for contexts loaded on GR engine. This
+# allows tracking context switches on GR engine, as well as
+# identifying processes that submitted work.
+CONFIG_NVGPU_FECS_TRACE := y
+
+# Enable support in GK20A for the nvhost (host1x) dma engine hardware
+# that includes things like hardware syncpts. This requires
+# TEGRA_GRHOST
+ifdef CONFIG_TEGRA_GRHOST
+CONFIG_TEGRA_GK20A_NVHOST := y
+endif
+ifdef CONFIG_TEGRA_HOST1X_NEXT
+CONFIG_TEGRA_GK20A_NVHOST := y
+CONFIG_TEGRA_GK20A_NVHOST_HOST1X := y
+endif
+
+ifdef CONFIG_TEGRA_NVMAP_NEXT
+CONFIG_NVGPU_NVMAP_NEXT := y
+endif
+
+CONFIG_NVGPU_ENABLE_MISC_EC := n
+ifdef CONFIG_TEGRA_EPL
+CONFIG_NVGPU_ENABLE_MISC_EC := y
+endif
+
+CONFIG_TEGRA_L1SS_SUPPORT := n
+ifdef CONFIG_TEGRA_SAFETY
+CONFIG_TEGRA_L1SS_SUPPORT := y
+endif
+
+CONFIG_NVGPU_NVMEM_FUSE := n
+
+CONFIG_NVGPU_NVMAP_NEXT := y
+CONFIG_NVGPU_NVMEM_FUSE := y
+
+# Set CONFIG_NVGPU_IVM_BUILD for non-oot build
+ifneq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_NVGPU_IVM_BUILD := y
+endif
+
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_NVGPU_NVMEM_FUSE := y
+endif
+
+# Enable support for GPUs on PCIe bus.
+ifeq ($(CONFIG_PCI),y)
+# Support for NVGPU DGPU
+CONFIG_NVGPU_DGPU := y
+endif
+
+# Enable nvgpu debug facility to redirect debug spew to ftrace. This
+# affects kernel memory use, so should not be enabled by default.
+ifeq ($(CONFIG_TRACING),y)
+#CONFIG_GK20A_TRACE_PRINTK := y
+endif
+
+# Use tegra_alloc_fd() for allocating dma_buf fds. This allocates
+# the fds above 1024 which exempts them from counting against process
+# fd limit.
+ifeq ($(CONFIG_NV_TEGRA_MC),y)
+CONFIG_NVGPU_USE_TEGRA_ALLOC_FD := y
+endif
+
+CONFIG_TEGRA_NVLINK := n
+
+# Support Nvlink
+ifeq ($(CONFIG_TEGRA_NVLINK),y)
+CONFIG_NVGPU_NVLINK := y
+endif
+
+# Support NVGPU Virtualization
+ifeq ($(CONFIG_TEGRA_GR_VIRTUALIZATION),y)
+CONFIG_NVGPU_GR_VIRTUALIZATION := y
+endif
+
+CONFIG_NVGPU_VPR := y
+
+# Support Tegra fuse
+ifeq ($(CONFIG_TEGRA_KFUSE),y)
+CONFIG_NVGPU_TEGRA_FUSE := y
+endif
+
+# GPU job synchronization (fences before and after submits) can use raw
+# syncpoints if available and sync fds if chosen. Without syncpoints,
+# nvgpu also provides semaphore-backed sync fds to userspace.
+#
+# Select which kernel-provided API is used for sync fds. Matching
+# support is required for the userspace drivers too.
+ifeq ($(CONFIG_SYNC),y)
+CONFIG_NVGPU_SYNCFD_ANDROID := y
+else ifeq ($(CONFIG_SYNC_FILE), y)
+CONFIG_NVGPU_SYNCFD_STABLE := y
+else
+CONFIG_NVGPU_SYNCFD_NONE := y
+endif
+
+# Set config for OOT module build
+ifeq ($(CONFIG_TEGRA_OOT_MODULE),m)
+CONFIG_GK20A_DEVFREQ := y
+endif
+
+ifeq ($(CONFIG_GK20A_PMU),y)
+ccflags-y += -DCONFIG_GK20A_PMU
+endif
+ifeq ($(CONFIG_TEGRA_GK20A),y)
+ccflags-y += -DCONFIG_TEGRA_GK20A
+endif
+ifeq ($(CONFIG_TEGRA_ACR),y)
+ccflags-y += -DCONFIG_TEGRA_ACR
+endif
+ifeq ($(CONFIG_NVGPU_DEBUGGER),y)
+ccflags-y += -DCONFIG_NVGPU_DEBUGGER
+endif
+ifeq ($(CONFIG_NVGPU_FALCON_DEBUG),y)
+ccflags-y += -DCONFIG_NVGPU_FALCON_DEBUG
+endif
+ifeq ($(CONFIG_NVGPU_LS_PMU),y)
+ccflags-y += -DCONFIG_NVGPU_LS_PMU
+endif
+ifeq ($(CONFIG_NVGPU_LOGGING),y)
+ccflags-y += -DCONFIG_NVGPU_LOGGING
+endif
+ifeq ($(CONFIG_NVGPU_HAL_NON_FUSA),y)
+ccflags-y += -DCONFIG_NVGPU_HAL_NON_FUSA
+endif
+ifeq ($(CONFIG_NVGPU_RECOVERY),y)
+ccflags-y += -DCONFIG_NVGPU_RECOVERY
+endif
+ifeq ($(CONFIG_NVGPU_COMPRESSION),y)
+ccflags-y += -DCONFIG_NVGPU_COMPRESSION
+endif
+ifeq ($(CONFIG_NVGPU_SUPPORT_GV11B),y)
+ccflags-y += -DCONFIG_NVGPU_SUPPORT_GV11B
+endif
+ifeq ($(CONFIG_NVGPU_REMAP),y)
+ccflags-y += -DCONFIG_NVGPU_REMAP
+endif
+ifeq ($(CONFIG_NVGPU_SUPPORT_CDE),y)
+ccflags-y += -DCONFIG_NVGPU_SUPPORT_CDE
+endif
+ifeq ($(CONFIG_GK20A_DEVFREQ),y)
+ccflags-y += -DCONFIG_GK20A_DEVFREQ
+endif
+ifeq ($(CONFIG_GK20A_PM_QOS),y)
+ccflags-y += -DCONFIG_GK20A_PM_QOS
+endif
+ifeq ($(CONFIG_NVGPU_TRACK_MEM_USAGE),y)
+ccflags-y += -DCONFIG_NVGPU_TRACK_MEM_USAGE
+endif
+ifeq ($(CONFIG_NVGPU_CYCLESTATS),y)
+ccflags-y += -DCONFIG_NVGPU_CYCLESTATS
+endif
+ifeq ($(CONFIG_NVGPU_FECS_TRACE),y)
+ccflags-y += -DCONFIG_NVGPU_FECS_TRACE
+endif
+ifeq ($(CONFIG_TEGRA_GK20A_NVHOST),y)
+ccflags-y += -DCONFIG_TEGRA_GK20A_NVHOST
+endif
+ifeq ($(CONFIG_TEGRA_GK20A_NVHOST_HOST1X),y)
+ccflags-y += -DCONFIG_TEGRA_GK20A_NVHOST_HOST1X
+endif
+ifeq ($(CONFIG_NVGPU_NVMEM_FUSE),y)
+ccflags-y += -DCONFIG_NVGPU_NVMEM_FUSE
+endif
+ifeq ($(CONFIG_NVGPU_NVMAP_NEXT),y)
+ccflags-y += -DCONFIG_NVGPU_NVMAP_NEXT
+endif
+ifeq ($(CONFIG_NVGPU_DGPU),y)
+ccflags-y += -DCONFIG_NVGPU_DGPU
+endif
+ifeq ($(CONFIG_GK20A_TRACE_PRINTK),y)
+ccflags-y += -DCONFIG_GK20A_TRACE_PRINTK
+endif
+ifeq ($(CONFIG_NVGPU_USE_TEGRA_ALLOC_FD),y)
+ccflags-y += -DCONFIG_NVGPU_USE_TEGRA_ALLOC_FD
+endif
+ifeq ($(CONFIG_NVGPU_NVLINK),y)
+ccflags-y += -DCONFIG_NVGPU_NVLINK
+endif
+ifeq ($(CONFIG_NVGPU_GR_VIRTUALIZATION),y)
+ccflags-y += -DCONFIG_NVGPU_GR_VIRTUALIZATION
+endif
+ifeq ($(CONFIG_NVGPU_VPR),y)
+ccflags-y += -DCONFIG_NVGPU_VPR
+endif
+ifeq ($(CONFIG_NVGPU_TEGRA_FUSE),y)
+ccflags-y += -DCONFIG_NVGPU_TEGRA_FUSE
+endif
+ifeq ($(CONFIG_NVGPU_SYNCFD_ANDROID),y)
+ccflags-y += -DCONFIG_NVGPU_SYNCFD_ANDROID
+endif
+ifeq ($(CONFIG_NVGPU_SYNCFD_STABLE),y)
+ccflags-y += -DCONFIG_NVGPU_SYNCFD_STABLE
+endif
+ifeq ($(CONFIG_NVGPU_SYNCFD_NONE),y)
+ccflags-y += -DCONFIG_NVGPU_SYNCFD_NONE
+endif
+ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),y)
+ccflags-y += -DCONFIG_NVGPU_GSP_SCHEDULER
+endif
+ifeq ($(CONFIG_NVGPU_GSP_STRESS_TEST),y)
+ccflags-y += -DCONFIG_NVGPU_GSP_STRESS_TEST
+endif
+ifeq ($(CONFIG_NVS_PRESENT),y)
+ccflags-y += -DCONFIG_NVS_PRESENT
+endif
+ifeq ($(CONFIG_NVGPU_IVM_BUILD),y)
+ccflags-y += -DCONFIG_NVGPU_IVM_BUILD
+endif
+ifeq ($(CONFIG_NVGPU_ENABLE_MISC_EC),y)
+ccflags-y += -DCONFIG_NVGPU_ENABLE_MISC_EC
+endif

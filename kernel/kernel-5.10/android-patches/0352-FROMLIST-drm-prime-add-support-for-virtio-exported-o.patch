@@ -1,0 +1,116 @@
+From 1149ddb37e752c3a155d3c979cfb3a6713c50782 Mon Sep 17 00:00:00 2001
+From: David Stevens <stevensd@chromium.org>
+Date: Mon, 2 Mar 2020 17:10:01 +0900
+Subject: [PATCH 352/830] FROMLIST: drm/prime: add support for virtio exported
+ objects
+X-NVConfidentiality: public
+
+This change exposes dma-buf's get_uuid callback to PRIME drivers.
+
+Signed-off-by: David Stevens <stevensd@chromium.org>
+
+BUG=b:136269340
+TEST=boot ARCVM and launch play store
+
+Signed-off-by: Keiichi Watanabe <keiichiw@chromium.org>
+Reviewed-on: https://chromium-review.googlesource.com/c/chromiumos/third_party/kernel/+/2090951
+Reviewed-by: Sean Paul <seanpaul@chromium.org>
+Reviewed-by: Gurchetan Singh <gurchetansingh@chromium.org>
+Tested-by: David Stevens <stevensd@chromium.org>
+Commit-Queue: David Stevens <stevensd@chromium.org>
+Bug: 153580313
+Link: https://lore.kernel.org/lkml/20200311112004.47138-3-stevensd@chromium.org/
+Change-Id: I0599ce4cafee3dc705805c1ad97295bea264cfdf
+Signed-off-by: Lingfeng Yang <lfy@google.com>
+[ebiggers: folded in fix from commit e556869703e4 ("ANDROID: Add C
+           protos for dma_buf/drm_prime get_uuid")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/gpu/drm/drm_prime.c | 23 +++++++++++++++++++++++
+ include/drm/drm_drv.h       | 10 ++++++++++
+ include/drm/drm_prime.h     |  1 +
+ 3 files changed, 34 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_prime.c b/drivers/gpu/drm/drm_prime.c
+index 9f955f2010c2..ca6d13eb3190 100644
+--- a/drivers/gpu/drm/drm_prime.c
++++ b/drivers/gpu/drm/drm_prime.c
+@@ -780,6 +780,28 @@ int drm_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struct *vma)
+ }
+ EXPORT_SYMBOL(drm_gem_dmabuf_mmap);
+ 
++/**
++ * drm_gem_dmabuf_get_uuid - dma_buf get_uuid implementation for GEM
++ * @dma_buf: buffer to query
++ * @uuid: uuid outparam
++ *
++ * Queries the buffer's virtio UUID. This can be used as the
++ * &dma_buf_ops.get_uuid callback. Calls into &drm_driver.gem_prime_get_uuid.
++ *
++ * Returns 0 on success or a negative error code on failure.
++ */
++int drm_gem_dmabuf_get_uuid(struct dma_buf *dma_buf, uuid_t *uuid)
++{
++	struct drm_gem_object *obj = dma_buf->priv;
++	struct drm_device *dev = obj->dev;
++
++	if (!dev->driver->gem_prime_get_uuid)
++		return -ENODEV;
++
++	return dev->driver->gem_prime_get_uuid(obj, uuid);
++}
++EXPORT_SYMBOL(drm_gem_dmabuf_get_uuid);
++
+ static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
+ 	.cache_sgt_mapping = true,
+ 	.attach = drm_gem_map_attach,
+@@ -790,6 +812,7 @@ static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
+ 	.mmap = drm_gem_dmabuf_mmap,
+ 	.vmap = drm_gem_dmabuf_vmap,
+ 	.vunmap = drm_gem_dmabuf_vunmap,
++	.get_uuid = drm_gem_dmabuf_get_uuid,
+ };
+ 
+ /**
+diff --git a/include/drm/drm_drv.h b/include/drm/drm_drv.h
+index e57d0440f00f..e395d1fc186e 100644
+--- a/include/drm/drm_drv.h
++++ b/include/drm/drm_drv.h
+@@ -29,6 +29,7 @@
+ 
+ #include <linux/list.h>
+ #include <linux/irqreturn.h>
++#include <linux/uuid.h>
+ 
+ #include <drm/drm_device.h>
+ 
+@@ -460,6 +461,15 @@ struct drm_driver {
+ 	int (*gem_prime_mmap)(struct drm_gem_object *obj,
+ 				struct vm_area_struct *vma);
+ 
++	/**
++	 * @gem_prime_get_uuid
++	 *
++	 * get_uuid hook for GEM drivers. Retrieves the virtio uuid of the
++	 * given GEM buffer.
++	 */
++	int (*gem_prime_get_uuid)(struct drm_gem_object *obj,
++				  uuid_t *uuid);
++
+ 	/**
+ 	 * @dumb_create:
+ 	 *
+diff --git a/include/drm/drm_prime.h b/include/drm/drm_prime.h
+index 0f69f9fbf12c..a9d0c6b0854e 100644
+--- a/include/drm/drm_prime.h
++++ b/include/drm/drm_prime.h
+@@ -107,5 +107,6 @@ void drm_prime_gem_destroy(struct drm_gem_object *obj, struct sg_table *sg);
+ int drm_prime_sg_to_page_addr_arrays(struct sg_table *sgt, struct page **pages,
+ 				     dma_addr_t *addrs, int max_pages);
+ 
++int drm_gem_dmabuf_get_uuid(struct dma_buf *dma_buf, uuid_t *uuid);
+ 
+ #endif /* __DRM_PRIME_H__ */
+-- 
+2.17.1
+

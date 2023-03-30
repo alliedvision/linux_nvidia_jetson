@@ -44,6 +44,7 @@ struct isc_mgr_platform_data {
 	bool default_pwr_on;
 	bool runtime_pwrctrl_off;
 	char *drv_name;
+	u8 ext_pwr_ctrl; /* bit 0 - des, bit 1 - sensor */
 };
 
 int isc_delete_lst(struct device *dev, struct i2c_client *client);

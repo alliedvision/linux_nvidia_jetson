@@ -1,0 +1,83 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+        cbb-noc@2300000 {
+                compatible = "nvidia,tegra194-cbb-noc";
+                reg = <0x0 0x02300000 0x0 0x1000>;
+                interrupts = <0 230 4>, <0 231 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        aon-noc@C600000 {
+                compatible = "nvidia,tegra194-aon-noc";
+                reg = <0x0 0xC600000 0x0 0x1000>;
+                interrupts = <0 260 4>, <0 172 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        bpmp-noc@D600000 {
+                compatible = "nvidia,tegra194-bpmp-noc";
+                reg = <0x0 0xD600000 0x0 0x1000>;
+                interrupts = <0 262 4>, <0 174 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        rce-noc@BE00000 {
+                compatible = "nvidia,tegra194-rce-noc";
+                reg = <0x0 0xBE00000 0x0 0x1000>;
+                interrupts = <0 259 4>, <0 175 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        sce-noc@B600000 {
+                compatible = "nvidia,tegra194-rce-noc";
+                reg = <0x0 0xB600000 0x0 0x1000>;
+                interrupts = <0 261 4>, <0 173 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        cv-noc@14040000 {
+                compatible = "nvidia,tegra194-cv-noc";
+                reg = <0x0 0x14040000 0x0 0x1000>;
+                interrupts = <0 238 4>, <0 239 4>;
+                nvidia,axi2apb = <&axi2apb>;
+                nvidia,apbmisc = <&apbmisc>;
+                status = "disabled";
+        };
+
+        axi2apb: axi2apb@2390000 {
+                compatible = "nvidia,tegra194-axi2apb";
+                reg = <0x0 0x02390000 0x0 0x1000>,
+                    <0x0 0x023A0000 0x0 0x1000>,
+                    <0x0 0x023B0000 0x0 0x1000>,
+                    <0x0 0x023C0000 0x0 0x1000>,
+                    <0x0 0x023D0000 0x0 0x1000>,
+                    <0x0 0x023E0000 0x0 0x1000>;
+                status = "disabled";
+        };
+
+};

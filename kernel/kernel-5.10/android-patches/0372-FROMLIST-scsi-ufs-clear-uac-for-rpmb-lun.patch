@@ -1,0 +1,40 @@
+From 4eeaeccf7669b1a2531ff8855e789d8f380c5770 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Mon, 5 Oct 2020 15:02:31 -0700
+Subject: [PATCH 372/830] FROMLIST: scsi: ufs: clear uac for rpmb lun
+X-NVConfidentiality: public
+
+This patch clears UA condition for RPMB lun.
+
+Bug: 169682240
+Link: https://lore.kernel.org/linux-scsi/20201005223635.2922805-2-jaegeuk@kernel.org/T/#u
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: Ia088deb649a7f9dbabbdc1622041ea30f1e2f375
+---
+ drivers/scsi/ufs/ufshcd.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 06cda719bf42..abc1ad5963af 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -7842,7 +7842,7 @@ static int ufshcd_clear_ua_wlun(struct ufs_hba *hba, u8 wlun)
+ 	else if (wlun == UFS_UPIU_RPMB_WLUN)
+ 		sdp = hba->sdev_rpmb;
+ 	else
+-		BUG();
++		return -EINVAL;
+ 	if (sdp) {
+ 		ret = scsi_device_get(sdp);
+ 		if (!ret && !scsi_device_online(sdp)) {
+@@ -8986,7 +8986,6 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+ 
+ 	if (!ret)
+ 		hba->curr_dev_pwr_mode = pwr_mode;
+-out:
+ 	scsi_device_put(sdp);
+ 	hba->host->eh_noresume = 0;
+ 	return ret;
+-- 
+2.17.1
+

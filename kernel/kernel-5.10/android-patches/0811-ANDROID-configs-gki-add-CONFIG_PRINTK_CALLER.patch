@@ -1,0 +1,35 @@
+From f26346872e387ddb701bf06a7c7e7256fbb797a0 Mon Sep 17 00:00:00 2001
+From: Jonglin Lee <jonglin@google.com>
+Date: Wed, 21 Oct 2020 13:45:58 -0700
+Subject: [PATCH 811/830] ANDROID: configs: gki: add CONFIG_PRINTK_CALLER
+X-NVConfidentiality: public
+
+Thread ID and CPU ID is useful to distinguish printk
+callers from different threads/cpus. Enable config
+to prepend the information to printk statements.
+
+Bug: 171425082
+Bug: 170888438
+Signed-off-by: Jonglin Lee <jonglin@google.com>
+Change-Id: Ia5b3396971c689618ae8235b9c75a9f8d07774f2
+(cherry picked from commit db79bb68e2955f8d3974823e6a6391934bfd443d)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 94bfc377a841..cd98777fd6e7 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -581,6 +581,7 @@ CONFIG_CRC8=y
+ CONFIG_XZ_DEC=y
+ CONFIG_DMA_CMA=y
+ CONFIG_PRINTK_TIME=y
++CONFIG_PRINTK_CALLER=y
+ CONFIG_DYNAMIC_DEBUG_CORE=y
+ CONFIG_DEBUG_INFO=y
+ CONFIG_DEBUG_INFO_DWARF4=y
+-- 
+2.17.1
+

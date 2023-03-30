@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,12 +20,13 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/firmware.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
 
 #include "platform_gk20a.h"
 #include "os_linux.h"
 
 static const struct firmware *do_request_firmware(struct device *dev,
-		const char *prefix, const char *fw_name, int flags)
+		const char *prefix, const char *fw_name, u32 flags)
 {
 	const struct firmware *fw;
 	char *fw_path = NULL;
@@ -40,7 +41,7 @@ static const struct firmware *do_request_firmware(struct device *dev,
 		if (!fw_path)
 			return NULL;
 
-		sprintf(fw_path, "%s/%s", prefix, fw_name);
+		(void) sprintf(fw_path, "%s/%s", prefix, fw_name);
 		fw_name = fw_path;
 	}
 
@@ -60,7 +61,7 @@ static const struct firmware *do_request_firmware(struct device *dev,
  * responsible for calling nvgpu_release_firmware later. */
 struct nvgpu_firmware *nvgpu_request_firmware(struct gk20a *g,
 					      const char *fw_name,
-					      int flags)
+					      u32 flags)
 {
 	struct device *dev = dev_from_gk20a(g);
 	struct nvgpu_firmware *fw;
@@ -93,7 +94,7 @@ struct nvgpu_firmware *nvgpu_request_firmware(struct gk20a *g,
 	if (!fw->data)
 		goto err_release;
 
-	memcpy(fw->data, linux_fw->data, linux_fw->size);
+	nvgpu_memcpy((u8 *)fw->data, (u8 *)linux_fw->data, linux_fw->size);
 	fw->size = linux_fw->size;
 
 	release_firmware(linux_fw);

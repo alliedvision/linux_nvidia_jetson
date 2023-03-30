@@ -1,0 +1,38 @@
+From 0604f5d11a70aaa54f08440f984cf50fca407487 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Thu, 26 Mar 2020 13:37:15 +0000
+Subject: [PATCH 665/830] ANDROID: build.config.allmodconfig: Re-enable XFS_FS
+X-NVConfidentiality: public
+
+It appears that the clang version we were using when we first introduced
+build.config.allmodconfig had issues with XFS_FS, so 884416f5176a
+("ANDROID: create build.configs for allmodconfig") made sure to disable
+it.
+
+Now that ACK uses an updated clang, attempt to re-enable that option.
+
+Bug: 140224784
+Bug: 140490203
+Test: allmodconfig build for x86_64 and arm64
+Fixes: 884416f5176a ("ANDROID: create build.configs for allmodconfig")
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: Iffdaaedb67162515af3b60ec62efd8f947ce17f2
+---
+ build.config.allmodconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index f4da6b278e80..d318971fb9b3 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -5,7 +5,6 @@ POST_DEFCONFIG_CMDS="update_config"
+ function update_config() {
+     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+          -d TEST_KMOD  \
+-         -d XFS_FS \
+          -d CPU_BIG_ENDIAN \
+          -d STM \
+          -d TEST_MEMCAT_P \
+-- 
+2.17.1
+

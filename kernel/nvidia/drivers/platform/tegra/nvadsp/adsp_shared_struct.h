@@ -3,7 +3,7 @@
  *
  * A header file containing shared data structures shared with ADSP OS
  *
- * Copyright (C) 2015-2018 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2021 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -117,16 +117,18 @@ union app_loader_msgq {
 };
 
 /* ADSP APP shared message pool */
+#pragma pack(8)
 struct nvadsp_app_shared_msg_pool {
 	union app_loader_msgq		app_loader_send_message;
 	union app_loader_msgq		app_loader_recv_message;
-} __packed;
+};
+#pragma pack()
 
 /*ADSP shated OS args */
 struct nvadsp_os_args {
+	uint64_t        adsp_freq_hz;
 	int32_t		timer_prescalar;
 	char		logger[DRAM_DEBUG_LOG_SIZE];
-	uint64_t	adsp_freq_hz;
 	uint32_t        dynamic_app_support;
 	uint32_t	chip_id;
 	char		reserved[120];
@@ -168,12 +170,14 @@ struct nvadsp_os_info {
 } __packed;
 
 /* ADSP OS shared memory */
+#pragma pack(8)
 struct nvadsp_shared_mem {
 	struct nvadsp_app_shared_msg_pool app_shared_msg_pool;
 	struct nvadsp_os_args os_args;
 	struct nvadsp_os_info os_info;
 	struct nvadsp_exception_context exception_context;
-} __packed;
+};
+#pragma pack()
 
 
 #endif /* __ADSP_SHARED_STRUCT */

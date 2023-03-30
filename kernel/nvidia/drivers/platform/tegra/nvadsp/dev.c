@@ -3,7 +3,7 @@
  *
  * A device driver for ADSP and APE
  *
- * Copyright (C) 2014-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -27,9 +27,16 @@
 #include <linux/moduleparam.h>
 #include <linux/io.h>
 #include <linux/tegra_nvadsp.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/pm_runtime.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <linux/tegra_pm_domains.h>
+#endif
 #include <linux/clk/tegra.h>
 #include <linux/delay.h>
 #include <asm/arch_timer.h>
@@ -121,9 +128,110 @@ static const struct dev_pm_ops nvadsp_pm_ops = {
 
 uint64_t nvadsp_get_timestamp_counter(void)
 {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	return arch_counter_get_cntvct();
+#else
+	return __arch_counter_get_cntvct_stable();
+#endif
 }
 EXPORT_SYMBOL(nvadsp_get_timestamp_counter);
+
+int nvadsp_set_bw(struct nvadsp_drv_data *drv_data, u32 efreq)
+{
+	int ret = -EINVAL;
+
+	if (drv_data->bwmgr)
+		ret = tegra_bwmgr_set_emc(drv_data->bwmgr, efreq * 1000,
+					  TEGRA_BWMGR_SET_EMC_FLOOR);
+#if KERNEL_VERSION(5, 9, 0) <= LINUX_VERSION_CODE
+	else if (drv_data->icc_path_handle)
+		ret = icc_set_bw(drv_data->icc_path_handle, 0,
+				(unsigned long)FREQ2ICC(efreq * 1000));
+#endif
+	if (ret)
+		dev_err(&drv_data->pdev->dev,
+			"failed to set emc freq rate:%d\n", ret);
+
+	return ret;
+}
+
+static void nvadsp_bw_register(struct nvadsp_drv_data *drv_data)
+{
+	struct device *dev = &drv_data->pdev->dev;
+
+	switch (tegra_get_chip_id()) {
+	case TEGRA210:
+	case TEGRA186:
+	case TEGRA194:
+		drv_data->bwmgr = tegra_bwmgr_register(
+				TEGRA_BWMGR_CLIENT_APE_ADSP);
+		if (IS_ERR(drv_data->bwmgr)) {
+			dev_err(dev, "unable to register bwmgr\n");
+			drv_data->bwmgr = NULL;
+		}
+		break;
+	default:
+#if KERNEL_VERSION(5, 9, 0) <= LINUX_VERSION_CODE
+		/* Interconnect Support */
+#ifdef CONFIG_ARCH_TEGRA_23x_SOC
+		drv_data->icc_path_handle = icc_get(dev, TEGRA_ICC_APE,
+							TEGRA_ICC_PRIMARY);
+#endif
+		if (IS_ERR(drv_data->icc_path_handle)) {
+			dev_err(dev,
+			"%s: Failed to register Interconnect. err=%ld\n",
+			__func__, PTR_ERR(drv_data->icc_path_handle));
+			drv_data->icc_path_handle = NULL;
+		}
+#endif
+		break;
+	}
+}
+
+static void nvadsp_bw_unregister(struct nvadsp_drv_data *drv_data)
+{
+	nvadsp_set_bw(drv_data, 0);
+
+	if (drv_data->bwmgr) {
+		tegra_bwmgr_unregister(drv_data->bwmgr);
+		drv_data->bwmgr = NULL;
+	}
+
+#if KERNEL_VERSION(5, 9, 0) <= LINUX_VERSION_CODE
+	if (drv_data->icc_path_handle) {
+		icc_put(drv_data->icc_path_handle);
+		drv_data->icc_path_handle = NULL;
+	}
+#endif
+}
+
+static int __init nvadsp_parse_co_mem(struct platform_device *pdev)
+{
+	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+	struct device_node *node;
+	int err = 0;
+
+	node = of_parse_phandle(dev->of_node, "nvidia,adsp_co", 0);
+	if (!node)
+		return 0;
+
+	if (!of_device_is_available(node))
+		goto exit;
+
+	err = of_address_to_resource(node, 0, &drv_data->co_mem);
+	if (err) {
+		dev_err(dev, "cannot get adsp CO memory (%d)\n", err);
+		goto exit;
+	}
+
+	drv_data->adsp_mem[ADSP_OS_SIZE] = resource_size(&drv_data->co_mem);
+
+exit:
+	of_node_put(node);
+
+	return err;
+}
 
 static void __init nvadsp_parse_clk_entries(struct platform_device *pdev)
 {
@@ -155,6 +263,7 @@ static int __init nvadsp_parse_dt(struct platform_device *pdev)
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
+	const char *adsp_elf;
 	u32 *adsp_reset;
 	u32 *adsp_mem;
 	int iter;
@@ -179,11 +288,30 @@ static int __init nvadsp_parse_dt(struct platform_device *pdev)
 		}
 	}
 
+	if (!of_property_read_string(dev->of_node,
+				"nvidia,adsp_elf", &adsp_elf)) {
+		if (strlen(adsp_elf) < MAX_FW_STR)
+			strcpy(drv_data->adsp_elf, adsp_elf);
+		else {
+			dev_err(dev, "invalid string in nvidia,adsp_elf\n");
+			return -EINVAL;
+		}
+	} else
+		strcpy(drv_data->adsp_elf, NVADSP_ELF);
+
 	drv_data->adsp_unit_fpga = of_property_read_bool(dev->of_node,
 				"nvidia,adsp_unit_fpga");
 
 	drv_data->adsp_os_secload = of_property_read_bool(dev->of_node,
 				"nvidia,adsp_os_secload");
+
+	if (of_property_read_u32(dev->of_node, "nvidia,tegra_platform",
+				&drv_data->tegra_platform))
+		dev_dbg(dev, "tegra_platform dt not found\n");
+
+	if (of_property_read_u32(dev->of_node, "nvidia,adsp_load_timeout",
+				&drv_data->adsp_load_timeout))
+		dev_dbg(dev, "adsp_load_timeout dt not found\n");
 
 	if (drv_data->adsp_unit_fpga) {
 		for (iter = 0; iter < ADSP_UNIT_FPGA_RESET_END; iter++) {
@@ -197,6 +325,9 @@ static int __init nvadsp_parse_dt(struct platform_device *pdev)
 		}
 	}
 	nvadsp_parse_clk_entries(pdev);
+
+	if (nvadsp_parse_co_mem(pdev))
+		return -ENOMEM;
 
 	drv_data->state.evp = devm_kzalloc(dev,
 			drv_data->evp_base[ADSP_EVP_SIZE], GFP_KERNEL);
@@ -289,7 +420,7 @@ static int __init nvadsp_probe(struct platform_device *pdev)
 			goto out;
 		}
 		drv_data->base_regs[iter] = base;
-		nvadsp_add_load_mappings(res->start, base,
+		nvadsp_add_load_mappings(res->start, (void __force *)base,
 						resource_size(res));
 	}
 
@@ -321,7 +452,9 @@ static int __init nvadsp_probe(struct platform_device *pdev)
 	nvadsp_drv_data = drv_data;
 
 #ifdef CONFIG_PM
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	tegra_pd_add_device(dev);
+#endif
 
 	pm_runtime_enable(dev);
 
@@ -363,10 +496,14 @@ static int __init nvadsp_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "Failed to init aram\n");
 
-	drv_data->bwmgr = tegra_bwmgr_register(TEGRA_BWMGR_CLIENT_APE_ADSP);
-	ret = IS_ERR_OR_NULL(drv_data->bwmgr);
-	if (ret)
-		dev_err(&pdev->dev, "unable to register bwmgr\n");
+	nvadsp_bw_register(drv_data);
+
+	if (!drv_data->adsp_os_secload) {
+		ret = nvadsp_acast_init(pdev);
+		if (ret)
+			goto err;
+	}
+
 err:
 #ifdef CONFIG_PM
 	ret = pm_runtime_put_sync(dev);
@@ -380,17 +517,9 @@ out:
 static int nvadsp_remove(struct platform_device *pdev)
 {
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
-	int err;
 
-	if (drv_data->bwmgr) {
-		err = tegra_bwmgr_set_emc(drv_data->bwmgr, 0,
-					  TEGRA_BWMGR_SET_EMC_FLOOR);
-		if (err) {
-			dev_err(&pdev->dev, "failed to set emc freq rate:%d\n",
-				err);
-		}
-		tegra_bwmgr_unregister(drv_data->bwmgr);
-	}
+	nvadsp_bw_unregister(drv_data);
+
 	nvadsp_aram_exit();
 
 	pm_runtime_disable(&pdev->dev);
@@ -400,7 +529,9 @@ static int nvadsp_remove(struct platform_device *pdev)
 		nvadsp_runtime_suspend(&pdev->dev);
 #endif
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	tegra_pd_remove_device(&pdev->dev);
+#endif
 
 	return 0;
 }
@@ -414,9 +545,11 @@ static struct nvadsp_chipdata tegra210_adsp_chipdata = {
 		.hwmbox2_reg = 0x60,
 		.hwmbox3_reg = 0x64,
 	},
-	.adsp_state_hwmbox = -1,
-	.adsp_thread_hwmbox = -1,
-	.adsp_irq_hwmbox = -1,
+	.adsp_state_hwmbox = 0,
+	.adsp_thread_hwmbox = 0,
+	.adsp_irq_hwmbox = 0,
+	.adsp_shared_mem_hwmbox = 0,
+	.adsp_os_config_hwmbox = 0,
 	.reset_init = nvadsp_reset_t21x_init,
 	.os_init = nvadsp_os_t21x_init,
 #ifdef CONFIG_PM
@@ -425,6 +558,8 @@ static struct nvadsp_chipdata tegra210_adsp_chipdata = {
 	.wdt_irq = INT_T210_ADSP_WDT,
 	.start_irq = INT_T210_AGIC_START,
 	.end_irq = INT_T210_AGIC_END,
+
+	.amc_err_war = true,
 };
 
 static struct nvadsp_chipdata tegrat18x_adsp_chipdata = {
@@ -438,10 +573,14 @@ static struct nvadsp_chipdata tegrat18x_adsp_chipdata = {
 		.hwmbox5_reg = 0X28000,
 		.hwmbox6_reg = 0X30000,
 		.hwmbox7_reg = 0X38000,
+		.empty_int_ie = 0x8,
 	},
-	.adsp_state_hwmbox = 0x30000,
-	.adsp_thread_hwmbox = 0x20000,
-	.adsp_irq_hwmbox = 0x38000,
+	.adsp_shared_mem_hwmbox = 0x18000, /* HWMBOX3 */
+	.adsp_thread_hwmbox = 0x20000,	/* HWMBOX4 */
+	.adsp_os_config_hwmbox = 0X28000, /*HWMBOX5 */
+	.adsp_state_hwmbox = 0x30000,	/* HWMBOX6 */
+	.adsp_irq_hwmbox = 0x38000,	/* HWMBOX7 */
+	.acast_init = nvadsp_acast_t18x_init,
 	.reset_init = nvadsp_reset_t18x_init,
 	.os_init = nvadsp_os_t18x_init,
 #ifdef CONFIG_PM
@@ -450,6 +589,8 @@ static struct nvadsp_chipdata tegrat18x_adsp_chipdata = {
 	.wdt_irq = INT_T18x_ATKE_WDT_IRQ,
 	.start_irq = INT_T18x_AGIC_START,
 	.end_irq = INT_T18x_AGIC_END,
+
+	.amc_err_war = true,
 };
 
 static const struct of_device_id nvadsp_of_match[] = {
@@ -458,9 +599,6 @@ static const struct of_device_id nvadsp_of_match[] = {
 		.data = &tegra210_adsp_chipdata,
 	}, {
 		.compatible = "nvidia,tegra18x-adsp",
-		.data = &tegrat18x_adsp_chipdata,
-	}, {
-		.compatible = "nvidia,tegra18x-adsp-hv",
 		.data = &tegrat18x_adsp_chipdata,
 	}, {
 	},

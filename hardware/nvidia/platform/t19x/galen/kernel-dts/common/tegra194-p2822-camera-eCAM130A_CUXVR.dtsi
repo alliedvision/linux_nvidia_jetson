@@ -1,0 +1,400 @@
+/*
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/media/camera.h>
+#include "dt-bindings/clock/tegra194-clock.h"
+#define MIPICFG0 	TEGRA194_MAIN_GPIO(H, 3)
+#define MIPICFG1	TEGRA194_MAIN_GPIO(H, 6)
+#define MIPICFG2	TEGRA194_MAIN_GPIO(T, 5)
+#define IO_EXP_RST	TEGRA194_MAIN_GPIO(T, 6)
+
+#define CAM_LANES 4
+#define CAM_LANES_STRING "4"
+
+
+/ {
+	gpio@2200000 {
+		camera-control-output-low {
+			gpio-hog;
+			output-low;
+			gpios =  <MIPICFG0 1 MIPICFG1 1 MIPICFG2 0
+					IO_EXP_RST 1>;
+			label = "mipi_sel1", "mipi_sel2",
+				  "mipi_sel_3","cam_ioexp_rst";
+		};
+	};
+	tegra-capture-vi {
+			num-channels = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				 vi_port0: port@0 {
+					reg = <0>;
+					ecam_vi_in0: endpoint {
+						port-index = <0>;
+						bus-width = <CAM_LANES>;
+						remote-endpoint = <&ecam_csi_out0>;
+					};
+				};
+				vi_port1: port@1 {
+					reg = <1>;
+					ecam_vi_in1: endpoint {
+						port-index = <2>;
+						bus-width = <CAM_LANES>;
+						remote-endpoint = <&ecam_csi_out1>;
+					};
+				};
+				vi_port2: port@2 {
+					reg = <2>;
+					ecam_vi_in2: endpoint {
+						port-index = <4>;
+						bus-width = <CAM_LANES>;
+						remote-endpoint = <&ecam_csi_out2>;
+					};
+				};
+			};
+		};
+	host1x@13e00000 {
+		nvcsi@15a00000 {
+			num-channels = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			csi_chan0: channel@0 {
+				reg = <0>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					csi_chan0_port0: port@0 {
+						reg = <0>;
+						ecam_csi_in0: endpoint@0 {
+							port-index = <0>;
+							bus-width = <CAM_LANES>;
+							remote-endpoint = <&ecam_ar1335_out0>;
+						};
+					};
+					csi_chan0_port1: port@1 {
+						reg = <1>;
+						ecam_csi_out0: endpoint@1 {
+							remote-endpoint = <&ecam_vi_in0>;
+						};
+					};
+				};
+			};
+			 csi_chan1: channel@1 {
+				reg = <1>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					csi_chan1_port0: port@0 {
+						reg = <0>;
+						ecam_csi_in1: endpoint@2 {
+							port-index = <2>;
+							bus-width = <CAM_LANES>;
+							remote-endpoint = <&ecam_ar1335_out1>;
+						};
+					};
+					csi_chan1_port1: port@1 {
+						reg = <1>;
+						ecam_csi_out1: endpoint@3 {
+							remote-endpoint = <&ecam_vi_in1>;
+						};
+					};
+				};
+			};
+			csi_chan2: channel@2 {
+				reg = <2>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					csi_chan2_port0: port@0 {
+						reg = <0>;
+						ecam_csi_in2: endpoint@4 {
+							port-index = <4>;
+							bus-width = <CAM_LANES>;
+							remote-endpoint = <&ecam_ar1335_out2>;
+						};
+					};
+					csi_chan2_port1: port@1 {
+						reg = <1>;
+						ecam_csi_out2: endpoint@5 {
+							remote-endpoint = <&ecam_vi_in2>;
+						};
+					};
+				};
+			};
+		};
+	};
+	fixed-regulators {
+			p2822_vdd_1v8_cvb: regulator@102 {
+					regulator-always-on;
+			};
+	};
+
+	i2c@c240000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		tca6424_22: tca6424@22 {
+			compatible = "ti,tca6424";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x22>;
+			vcc-supply = <&p2822_vdd_1v8_cvb>;
+			//vcc-pullup-supply = <&battery_reg>;
+			reset-gpios = <&tegra_main_gpio IO_EXP_RST GPIO_ACTIVE_HIGH>;
+			tca6424_22_outlow {
+				/*
+				 * GPIO-0  : RST_CAM1
+				 * GPIO-1  : RST_CAM2
+				 * GPIO-2  : RST_CAM3
+				 * GPIO-3  : RST_CAM4
+				 * GPIO-4  : RST_CAM5
+				 * GPIO-5  : RST_CAM6
+				 * GPIO-6  : PWDN_CAM1
+				 * GPIO-7  : PWDN_CAM2
+				 * GPIO-8  : PWDN_CAM3
+				 * GPIO-9  : PWDN_CAM4
+				 * GPIO-10 : PWDN_CAM5
+				 * GPIO-11 : PWDN_CAM6
+				 */
+
+				gpio-hog;
+				gpios = <0 0 1 0 2 0 3 0 4 0 5 0 6 0 7 0 8 0 9 0 10 0 11 0 12 0 13 0 14 0 15 0 22 0 23 0>;
+				output-low;
+				label = "tca6424_22_rst_cam0_0",
+					"tca6424_22_rst_cam1_1",
+					"tca6424_22_rst_cam2_2",
+					"tca6424_22_rst_cam3_3",
+					"tca6424_22_rst_cam4_4",
+					"tca6424_22_rst_cam5_5",
+					"tca6424_22_boot_cam0_6",
+					"tca6424_22_boot_cam1_7",
+					"tca6424_22_boot_cam2_8",
+					"tca6424_22_boot_cam3_9",
+					"tca6424_22_boot_cam4_10",
+					"tca6424_22_boot_cam5_11",
+					"tca6424_22_flash_cam0_12",
+					"tca6424_22_flash_cam1_13";
+			};
+			tca6424_22_input {
+				gpio-hog;
+				gpios = < 16 0 17 0 18 0 19 0 20 0 21 0>;
+				output-low;
+				label = "tca6424_22_spi_cam0_16",
+					  "tca6424_22_spi_cam1_17",
+					  "tca6424_22_spi_cam2_18",
+					  "tca6424_22_spi_cam3_19",
+					  "tca6424_22_spi_cam4_20",
+					  "tca6424_22_spi_cam5_21";
+			};
+		};
+	};
+
+
+	i2c@3180000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		tca9548@70 {
+			compatible = "nxp,pca9548";
+			reg = <0x70>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vcc-supply = <&p2822_vdd_1v8_cvb>;
+			vcc-pullup-supply = <&battery_reg>;
+			skip_mux_detect;
+			force_bus_start = <0x1e>;
+			i2c@0 {
+				reg = <0>;
+				i2c-mux,deselect-on-exit;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				ar1335_a@42 {
+					compatible = "nvidia,ar1335";
+					reg = <0x42>;
+					sensor_model ="ar1335";
+					avdd-reg = "vana";
+					iovdd-reg = "vif";
+					clocks = <&bpmp_clks TEGRA194_CLK_EXTPERIPH1>,
+						   	 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+					clock-names = "extperiph1", "pllp_grtba";
+					mclk = "extperiph1";
+					clock-frequency = <24000000>;
+					reset-gpios = <&tca6424_22 0 GPIO_ACTIVE_HIGH>;
+					pwdn-gpios = <&tca6424_22 6 GPIO_ACTIVE_HIGH>;
+					vana-supply = <&p2822_avdd_cam_2v8>;
+					vif-supply = <&p2822_vdd_1v8_cvb>;
+					use_sensor_mode_id = "false";
+					camera_mipi_lanes = <CAM_LANES>;
+					pwm-upper_limit = <342>;
+					pwm-lower_limit = <340>;
+					pwm-invert= <1>;
+					pwm-duty_ns = <0x1CBC720>;
+					pwm-period_ns = <0x2045B80>;
+					pwm-name = "ecam-trigger";
+#define TEGRA_SINTERFACE "serial_a"
+#include "e-cam130a_cuxvr_modes.dtsi"
+					ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+						port@0 {
+							reg = <0>;
+							ecam_ar1335_out0: endpoint {
+								port-index = <0>;
+								bus-width = <CAM_LANES>;
+								remote-endpoint = <&ecam_csi_in0>;
+							};
+						};
+					};
+				};
+			};
+			i2c@2{
+				reg = <2>;
+				i2c-mux,deselect-on-exit;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				ar1335_c@42 {
+					compatible = "nvidia,ar1335";
+					reg = <0x42>;
+					sensor_model ="ar1335";
+					avdd-reg = "vana";
+					iovdd-reg = "vif";
+					clocks = <&bpmp_clks TEGRA194_CLK_EXTPERIPH1>,
+						   	 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+					clock-names = "extperiph1", "pllp_grtba";
+					mclk = "extperiph1";
+					clock-frequency = <24000000>;
+					reset-gpios = <&tca6424_22 2 GPIO_ACTIVE_HIGH>;
+					pwdn-gpios = <&tca6424_22 8 GPIO_ACTIVE_HIGH>;
+					vana-supply = <&p2822_avdd_cam_2v8>;
+					vif-supply = <&p2822_vdd_1v8_cvb>;
+					use_sensor_mode_id = "false";
+					camera_mipi_lanes = <CAM_LANES>;
+					pwm-upper_limit = <342>;
+					pwm-lower_limit = <340>;
+					pwm-invert= <1>;
+					pwm-duty_ns = <0x1CBC720>;
+					pwm-period_ns = <0x2045B80>;
+					pwm-name = "ecam-trigger";
+#undef TEGRA_SINTERFACE
+#define TEGRA_SINTERFACE "serial_c"
+#include "e-cam130a_cuxvr_modes.dtsi"
+					ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+						port@0 {
+							reg = <0>;
+							ecam_ar1335_out1: endpoint {
+								port-index = <2>;
+								bus-width = <CAM_LANES>;
+								remote-endpoint = <&ecam_csi_in1>;
+							};
+						};
+					};
+				};
+			};
+			i2c@4{
+				reg = <4>;
+				i2c-mux,deselect-on-exit;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				ar1335_e@42 {
+					compatible = "nvidia,ar1335";
+					reg = <0x42>;
+					sensor_model ="ar1335";
+					avdd-reg = "vana";
+					iovdd-reg = "vif";
+					clocks = <&bpmp_clks TEGRA194_CLK_EXTPERIPH1>,
+						   	 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
+					clock-names = "extperiph1", "pllp_grtba";
+					mclk = "extperiph1";
+					clock-frequency = <24000000>;
+					reset-gpios = <&tca6424_22 4 GPIO_ACTIVE_HIGH>;
+					pwdn-gpios =  <&tca6424_22 10 GPIO_ACTIVE_HIGH>;
+					vana-supply = <&p2822_avdd_cam_2v8>;
+					vif-supply = <&p2822_vdd_1v8_cvb>;
+					use_sensor_mode_id = "false";
+					camera_mipi_lanes = <CAM_LANES>;
+					pwm-upper_limit = <342>;
+					pwm-lower_limit = <340>;
+					pwm-invert= <1>;
+					pwm-duty_ns = <0x1CBC720>;
+					pwm-period_ns = <0x2045B80>;
+					pwm-name = "ecam-trigger";
+#undef TEGRA_SINTERFACE
+#define TEGRA_SINTERFACE "serial_e"
+#include "e-cam130a_cuxvr_modes.dtsi"
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						port@0 {
+							reg = <0>;
+							ecam_ar1335_out2: endpoint {
+								port-index = <4>;
+								bus-width = <CAM_LANES>;
+								remote-endpoint = <&ecam_csi_in2>;
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+/{
+	 tegra-camera-platform {
+		compatible = "nvidia, tegra-camera-platform";
+		num_csi_lanes = <12>;
+		max_lane_speed = <2500000>;
+		min_bits_per_pixel = <16>;
+		vi_peak_byte_per_pixel = <2>;
+		vi_bw_margin_pct = <67>;
+
+		modules {
+			cam_module0: module0 {
+				badge = "ecam_hexcu130-1";
+				position = "rear1";
+				orientation = "1";
+				cam_module0_drivernode0: drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "e-CAM130A_CUXVR-1";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@0/ar1335_a@42";
+				};
+			};
+			cam_module1: module1 {
+				badge = "ecam_hexcu130-2";
+				position = "rear2";
+				orientation = "1";
+				cam_module1_drivernode0: drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "e-CAM130A_CUXVR-2";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@2/ar1335_c@42";
+				};
+			};
+			cam_module2: module2 {
+				badge = "ecam_hexcu130-3";
+				position = "rear3";
+				orientation = "1";
+				cam_module2_drivernode0: drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "e-CAM130A_CUXVR-3";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@4/ar1335_e@42";
+				};
+			};
+		};
+	};
+};
+

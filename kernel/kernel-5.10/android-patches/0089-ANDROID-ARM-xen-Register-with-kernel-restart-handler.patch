@@ -1,0 +1,71 @@
+From b197d44429c8428b7694863ab4d59a6dc1e25205 Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 15 Oct 2019 16:51:43 +0200
+Subject: [PATCH 089/830] ANDROID: ARM: xen: Register with kernel restart
+ handler
+X-NVConfidentiality: public
+
+Register with kernel restart handler instead of setting arm_pm_restart
+directly.
+
+Select a high priority of 192 to ensure that default restart handlers
+are replaced if Xen is running.
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Reviewed-by: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+
+Bug: 163752725
+Link: https://lore.kernel.org/lkml/20191015145147.1106247-3-thierry.reding@gmail.com/
+Change-Id: Ib0ddadaa88ad78d5dc1c37207540b3db7e6bc465
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm/xen/enlighten.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/xen/enlighten.c b/arch/arm/xen/enlighten.c
+index 8ad576ecd0f1..7f1c106b746f 100644
+--- a/arch/arm/xen/enlighten.c
++++ b/arch/arm/xen/enlighten.c
+@@ -29,6 +29,7 @@
+ #include <linux/cpu.h>
+ #include <linux/console.h>
+ #include <linux/pvclock_gtod.h>
++#include <linux/reboot.h>
+ #include <linux/time64.h>
+ #include <linux/timekeeping.h>
+ #include <linux/timekeeper_internal.h>
+@@ -181,11 +182,18 @@ void xen_reboot(int reason)
+ 	BUG_ON(rc);
+ }
+ 
+-static void xen_restart(enum reboot_mode reboot_mode, const char *cmd)
++static int xen_restart(struct notifier_block *nb, unsigned long action,
++		       void *data)
+ {
+ 	xen_reboot(SHUTDOWN_reboot);
++
++	return NOTIFY_DONE;
+ }
+ 
++static struct notifier_block xen_restart_nb = {
++	.notifier_call = xen_restart,
++	.priority = 192,
++};
+ 
+ static void xen_power_off(void)
+ {
+@@ -404,7 +412,7 @@ static int __init xen_pm_init(void)
+ 		return -ENODEV;
+ 
+ 	pm_power_off = xen_power_off;
+-	arm_pm_restart = xen_restart;
++	register_restart_handler(&xen_restart_nb);
+ 	if (!xen_initial_domain()) {
+ 		struct timespec64 ts;
+ 		xen_read_wallclock(&ts);
+-- 
+2.17.1
+

@@ -1,7 +1,7 @@
 /*
  * bandwidth.c: Functions required for dc bandwidth calculations.
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Jon Mayo <jmayo@nvidia.com>
  *
@@ -885,12 +885,18 @@ int tegra_dc_set_dynamic_emc(struct tegra_dc *dc)
 {
 	unsigned long new_rate;
 	int nwins = tegra_dc_get_numof_dispwindows();
-	struct tegra_dc_win *windows[nwins];
+	struct tegra_dc_win **windows = NULL;
 	unsigned i;
 	unsigned len;
 
 	if (!use_dynamic_emc)
 		return 0;
+
+	windows = kcalloc(nwins, sizeof(struct tegra_dc_win *), GFP_KERNEL);
+	if (!windows) {
+		pr_err("%s: Failed memory alloc for windows\n", __func__);
+		return -ENOMEM;
+	}
 
 	for (i = 0, len = 0; i < tegra_dc_get_numof_dispwindows(); i++) {
 		struct tegra_dc_win *win = tegra_dc_get_window(dc, i);
@@ -909,6 +915,7 @@ int tegra_dc_set_dynamic_emc(struct tegra_dc *dc)
 	dc->new_bw_kbps = new_rate;
 	trace_set_dynamic_emc(dc);
 
+	kfree(windows);
 	return 0;
 }
 

@@ -34,10 +34,10 @@ all: lib$(MODULE).so
 # Inherits from the top level makefile. As such the unit test make files cannot
 # be invoked by themselves.
 %.o : %.c # $(LOCAL_HEADERS)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) --coverage $(CFLAGS) -c -o $@ $<
 
 lib$(MODULE).so: $(OBJS)
-	$(CC) -shared -o $@ $(OBJS) $(LIB_PATHS) -lnvgpu_unit
+	$(CC) -shared -o $@ $(OBJS) $(LIB_PATHS) -lnvgpu_unit -lgcov
 	@mkdir -p $(UNIT_OUT)/
 	@cp $@ $(UNIT_OUT)/
 

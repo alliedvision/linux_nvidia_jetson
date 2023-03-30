@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,14 +54,14 @@ static int check_module(struct unit_fw *fw, struct unit_module *mod)
 	for (i = 0; i < mod->nr_tests; i++) {
 		struct unit_module_test *test = &mod->tests[i];
 
-		if (test->name == NULL) {
+		if (test->fn_name == NULL) {
 			core_err(fw, "%s: Unnamed test\n", mod->name);
 			return -1;
 		}
 
 		if (test->fn == NULL) {
-			core_err(fw, "%s: Test %s missing function \n",
-				 mod->name, test->name);
+			core_err(fw, "%s: Test %s missing function\n",
+				 mod->name, test->fn_name);
 			return -1;
 		}
 	}
@@ -76,6 +76,14 @@ static struct unit_module *load_one_module(struct unit_fw *fw,
 	struct unit_module *mod;
 
 	core_vbs(fw, 1, "Loading: %s\n", dent->d_name);
+
+	if (fw->args->unit_to_run != NULL) {
+		if (strstr(dent->d_name, fw->args->unit_to_run) == NULL) {
+			core_vbs(fw, 1, "  Skipping unit (not *%s*)\n",
+				fw->args->unit_to_run);
+			return NULL;
+		}
+	}
 
 	lib_handle = dlopen(dent->d_name, RTLD_NOW);
 	if (lib_handle == NULL) {
@@ -117,6 +125,17 @@ static void sort_modules_by_prio(struct unit_module **modules, int nr)
 	      cmp_module_prio);
 }
 
+static bool is_shared_obj_filename(char *name)
+{
+	size_t len = strlen(name);
+
+	if ((len > 3) && (strcmp(&name[len-3], ".so") == 0)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 /*
  * Load all the modules we can from the module load path. Return the list of
  * loaded module as an array of pointers to modules. The returned list of
@@ -142,11 +161,17 @@ struct unit_module **core_load_modules(struct unit_fw *fw)
 		return NULL;
 	}
 
-	while (readdir(load_dir) != NULL)
-		nr_modules += 1;
-
-	/* '.' and '..' should be skipped. */
-	nr_modules -= 2;
+	ent = readdir(load_dir);
+	while (ent != NULL) {
+		if (is_shared_obj_filename(ent->d_name)) {
+			nr_modules += 1;
+		} else {
+			core_vbs(fw, 1,
+				 "Skipping load of file %s (not a .so)\n",
+				 ent->d_name);
+		}
+		ent = readdir(load_dir);
+	}
 
 	/*
 	 * Now allocate necessary space for storing pointers to the modules and
@@ -162,7 +187,8 @@ struct unit_module **core_load_modules(struct unit_fw *fw)
 	i = 0;
 	while ((ent = readdir(load_dir)) != NULL) {
 		if (strcmp(".", ent->d_name) == 0 ||
-		    strcmp("..", ent->d_name) == 0)
+		    strcmp("..", ent->d_name) == 0 ||
+		    !is_shared_obj_filename(ent->d_name))
 			continue;
 
 		mod = load_one_module(fw, ent);
@@ -180,9 +206,16 @@ struct unit_module **core_load_modules(struct unit_fw *fw)
 
 	sort_modules_by_prio(modules, i);
 
+	closedir(load_dir);
 	return modules;
 
 err:
 	closedir(load_dir);
 	return NULL;
+}
+
+/* Return the current verbosity level */
+int verbose_lvl(struct unit_module *module)
+{
+	return module->fw->args->verbose_lvl;
 }

@@ -1,0 +1,17 @@
+Tegra Virtual Watch Dog Timer
+
+This implements the watchdog timer on Hypervisor based systems. The Virtual
+WDT driver kicks the watchdog(once every 28 seconds by default) though ivc
+communication to the WDT Server. When the Watch Dog Timer Server notices
+that the watch dog kick is not received from the guest for a timeout
+period(1 minute) the guest is rebooted
+
+Required Properties:
+- compatible: should be "nvidia,tegra-hv-wdt"
+- ivc: ivc channel used to communicate with the WDT Server to kick the watchdog
+
+Example:
+	tegra_hv_wdt {
+		compatible = "nvidia,tegra-hv-wdt";
+		ivc = <&tegra_hv 77>;
+	};

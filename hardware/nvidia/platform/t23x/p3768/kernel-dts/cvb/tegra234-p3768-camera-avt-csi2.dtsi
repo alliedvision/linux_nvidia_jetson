@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) 2023, Allied Vision Technologies.  All rights reserved
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "tegra234-camera-avt-csi2.dtsi"
+
+#define CAM0_PWDN	TEGRA234_MAIN_GPIO(H, 6)
+#define CAM1_PWDN	TEGRA234_MAIN_GPIO(AC, 0)
+#define CAM_I2C_MUX 	TEGRA234_AON_GPIO(CC, 3)
+
+/ {
+	cam_i2cmux{
+		status = "okay";
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-parent = <&cam_i2c>;
+		mux-gpios = <&tegra_aon_gpio CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
+		i2c@0 {
+			status = "okay";
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+		i2c@1 {
+			status = "okay";
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+};
+

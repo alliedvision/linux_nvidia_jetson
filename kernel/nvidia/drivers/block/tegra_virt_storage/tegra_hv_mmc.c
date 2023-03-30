@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,40 +25,9 @@
 
 #define VBLK_MMC_MAX_IOC_SIZE (256 * 1024)
 
-static uint32_t vblk_get_response_type(uint32_t mmc_resp_type)
-{
-	uint32_t vblk_resp;
-	/* consider only respose types */
-	switch (mmc_resp_type & 0x1F) {
-	case MMC_RSP_NONE:
-		vblk_resp = RESP_TYPE_NO_RESP;
-		break;
-	case MMC_RSP_R1:
-		/*
-		 * MMC_RSP_R1, MMC_RSP_R6, MMC_RSP_R6, MMC_RSP_R7 have same
-		 * values
-		 */
-		vblk_resp = RESP_TYPE_R1;
-		break;
-	case MMC_RSP_R1B:
-		vblk_resp = RESP_TYPE_R1B;
-		break;
-	case MMC_RSP_R2:
-		vblk_resp = RESP_TYPE_R2;
-		break;
-	case MMC_RSP_R3:
-		/* MMC_RSP_R3 and MMC_RSP_R4 have same value */
-		vblk_resp = RESP_TYPE_R3;
-		break;
-	default:
-		vblk_resp = RESP_TYPE_NUM;
-	}
-	return vblk_resp;
-}
-
 int vblk_prep_mmc_multi_ioc(struct vblk_dev *vblkdev,
-		struct vblk_ioctl_req *ioctl_req,
-		void __user *user,
+	struct vblk_ioctl_req *ioctl_req,
+	void __user *user,
 		uint32_t cmd)
 {
 	int err = 0;
@@ -75,9 +44,8 @@ int vblk_prep_mmc_multi_ioc(struct vblk_dev *vblkdev,
 	void *ioctl_buf;
 
 	ioctl_buf = vmalloc(ioctl_bytes);
-	if (ioctl_buf == NULL) {
+	if (ioctl_buf == NULL)
 		return -ENOMEM;
-	}
 
 	combo_info = (struct combo_info_t *)ioctl_buf;
 	combo_cmd_size = sizeof(uint32_t);
@@ -95,10 +63,10 @@ int vblk_prep_mmc_multi_ioc(struct vblk_dev *vblkdev,
 			goto free_ioc_buf;
 		}
 
-		usr_ptr = (void * __user)&user_cmd->cmds;
+		usr_ptr = (void __user *)&user_cmd->cmds;
 	} else {
 		num_cmd = 1;
-		usr_ptr = (void * __user)user;
+		usr_ptr = (void __user *)user;
 	}
 	combo_info->count = num_cmd;
 
@@ -129,7 +97,6 @@ int vblk_prep_mmc_multi_ioc(struct vblk_dev *vblkdev,
 		}
 		combo_cmd->cmd = ic.opcode;
 		combo_cmd->arg = ic.arg;
-		combo_cmd->flags = vblk_get_response_type(ic.flags);
 		combo_cmd->write_flag = (uint32_t)ic.write_flag;
 		combo_cmd->data_len = (uint32_t)(ic.blksz * ic.blocks);
 		combo_cmd->buf_offset = combo_cmd_size;
@@ -185,6 +152,13 @@ int vblk_complete_mmc_multi_ioc(struct vblk_dev *vblkdev,
 	int err = 0;
 	void *ioctl_buf = ioctl_req->ioctl_buf;
 
+	if (ioctl_req->status) {
+		err = ioctl_req->status;
+		if (ioctl_req->ioctl_buf)
+			vfree(ioctl_req->ioctl_buf);
+		goto exit;
+	}
+
 	if (cmd == MMC_IOC_MULTI_CMD) {
 		user_cmd = (struct mmc_ioc_multi_cmd __user *)user;
 		if (copy_from_user(&num_cmd, &user_cmd->num_of_cmds,
@@ -198,9 +172,9 @@ int vblk_complete_mmc_multi_ioc(struct vblk_dev *vblkdev,
 			goto free_ioc_buf;
 		}
 
-		usr_ptr = (void * __user)&user_cmd->cmds;
+		usr_ptr = (void __user *)&user_cmd->cmds;
 	} else {
-		usr_ptr = (void * __user)user;
+		usr_ptr = (void __user *)user;
 		num_cmd = 1;
 	}
 
@@ -240,5 +214,6 @@ free_ioc_buf:
 	if (ioctl_buf)
 		vfree(ioctl_buf);
 
+exit:
 	return err;
 }

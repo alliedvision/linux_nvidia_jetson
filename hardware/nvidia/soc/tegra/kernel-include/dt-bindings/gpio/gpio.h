@@ -6,8 +6,8 @@
  * defined in this header.
  */
 
-#ifndef _DT_BINDINGS_GPIO_GPIO_H
-#define _DT_BINDINGS_GPIO_GPIO_H
+#ifndef INCLUDED_DT_BINDINGS_GPIO_GPIO_H
+#define INCLUDED_DT_BINDINGS_GPIO_GPIO_H
 
 /* Bit 0 express polarity */
 #define GPIO_ACTIVE_HIGH 0

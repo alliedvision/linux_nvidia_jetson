@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/namei.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 5))
 	#include <linux/kref.h>
 #endif
@@ -54,6 +55,10 @@
 #include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/vmalloc.h>
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
+	#include <uapi/linux/sched/types.h>
+#endif
 
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 5, 41))
 	#include <linux/tqueue.h>
@@ -121,11 +126,6 @@
 
 #ifdef CONFIG_USB_HCI
 	typedef struct urb   *PURB;
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22))
-		#ifdef CONFIG_USB_SUSPEND
-			#define CONFIG_AUTOSUSPEND	1
-		#endif
-	#endif
 #endif
 
 #if defined(CONFIG_RTW_GRO) && (!defined(CONFIG_RTW_NAPI))

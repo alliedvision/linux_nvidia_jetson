@@ -40,7 +40,11 @@
 #include <linux/fs.h>		// struct file_operations
 #include <linux/mm.h>		// mmap
 #include <linux/slab.h>		// kmalloc
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
+#include <linux/pci.h>
+#else
 #include <linux/pci-aspm.h>
+#endif
 #include <asm/io.h>
 #include <asm/uaccess.h>		// copy_to_user
 #include <asm/byteorder.h>
@@ -421,10 +425,8 @@ int __devinit pgdrv_prob(struct pci_dev *pdev, const struct pci_device_id *id)
 	int		pg_minor, result, i;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
-	if (!of_property_read_bool(pci_device_to_OF_node(pdev), "enable-aspm"))
-		pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
-				       PCIE_LINK_STATE_L1 |
-				       PCIE_LINK_STATE_CLKPM);
+        pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
+                               PCIE_LINK_STATE_CLKPM);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)

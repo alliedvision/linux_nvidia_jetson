@@ -60,6 +60,21 @@ struct unit_module;
 #define unit_err(unit, msg, ...)					\
 	__unit_info_color(unit, C_RED, msg, ##__VA_ARGS__)
 
+
+/*
+ * helper to check a condition, output and error if condition is false
+ * and execute bail_out_code
+*/
+#define unit_assert(cond, bail_out_code)				\
+do {									\
+	if (!(cond)) {							\
+		unit_err(m, "%s:%d (" #cond ") is false\n",		\
+			__func__, __LINE__);				\
+		bail_out_code;						\
+	}								\
+} while (0)
+
+
 /*
  * Don't go overboard with these!!!
  */

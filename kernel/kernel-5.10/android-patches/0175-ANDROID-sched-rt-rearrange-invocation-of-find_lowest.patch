@@ -1,0 +1,82 @@
+From d919ecb4eee394c312ba497050665e3c903e7f94 Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Wed, 18 Nov 2020 07:34:49 -0800
+Subject: [PATCH 175/830] ANDROID: sched: rt: rearrange invocation of
+ find_lowest_rq() vendor hook
+X-NVConfidentiality: public
+
+Right now, invocation of find_lowest_rq() vendor hook is made before
+error checks and also, cpupri_find() isn't exported either. It would be
+appropriate to move invocation of find_lowest_rq() vendor hook after
+error checks are done & calling cpupri_find().
+
+Bug: 173559623
+Change-Id: I298dffd39be0451b0b154930ace4e16763c6e78d
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ include/trace/hooks/sched.h |  6 +++---
+ kernel/sched/rt.c           | 13 +++++++------
+ 2 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index 8f6cc48a50ce..51f5236274d2 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -43,8 +43,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_can_migrate_task,
+ 
+ DECLARE_RESTRICTED_HOOK(android_rvh_find_lowest_rq,
+ 	TP_PROTO(struct task_struct *p, struct cpumask *local_cpu_mask,
+-			int *lowest_cpu),
+-	TP_ARGS(p, local_cpu_mask, lowest_cpu), 1);
++			int ret, int *lowest_cpu),
++	TP_ARGS(p, local_cpu_mask, ret, lowest_cpu), 1);
+ 
+ DECLARE_RESTRICTED_HOOK(android_rvh_prepare_prio_fork,
+ 	TP_PROTO(struct task_struct *p),
+@@ -87,7 +87,7 @@ DECLARE_HOOK(android_vh_jiffies_update,
+ #define trace_android_rvh_enqueue_task(rq, p)
+ #define trace_android_rvh_dequeue_task(rq, p)
+ #define trace_android_rvh_can_migrate_task(p, dst_cpu, can_migrate)
+-#define trace_android_rvh_find_lowest_rq(p, local_cpu_mask, lowest_cpu)
++#define trace_android_rvh_find_lowest_rq(p, local_cpu_mask, ret, lowest_cpu)
+ #define trace_android_rvh_prepare_prio_fork(p)
+ #define trace_android_rvh_finish_prio_fork(p)
+ #define trace_android_rvh_rtmutex_prepare_setprio(p, pi_task)
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index 398fc6305875..8db364e48798 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -1745,13 +1745,8 @@ static int find_lowest_rq(struct task_struct *task)
+ 	struct sched_domain *sd;
+ 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
+ 	int this_cpu = smp_processor_id();
+-	int cpu      = task_cpu(task);
++	int cpu      = -1;
+ 	int ret;
+-	int lowest_cpu = -1;
+-
+-	trace_android_rvh_find_lowest_rq(task, lowest_mask, &lowest_cpu);
+-	if (lowest_cpu >= 0)
+-		return lowest_cpu;
+ 
+ 	/* Make sure the mask is initialized first */
+ 	if (unlikely(!lowest_mask))
+@@ -1775,9 +1770,15 @@ static int find_lowest_rq(struct task_struct *task)
+ 				  task, lowest_mask);
+ 	}
+ 
++	trace_android_rvh_find_lowest_rq(task, lowest_mask, ret, &cpu);
++	if (cpu >= 0)
++		return cpu;
++
+ 	if (!ret)
+ 		return -1; /* No targets found */
+ 
++	cpu = task_cpu(task);
++
+ 	/*
+ 	 * At this point we have built a mask of CPUs representing the
+ 	 * lowest priority tasks in the system.  Now we want to elect
+-- 
+2.17.1
+

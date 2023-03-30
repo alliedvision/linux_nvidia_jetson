@@ -1,0 +1,115 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	fsicom_client {
+		compatible = "nvidia,tegra234-fsicom-client";
+#if TEGRA_HSP_DT_VERSION >= DT_VERSION_2
+		mboxes =
+			<&hsp_top2 (TEGRA_HSP_MBOX_TYPE_SM | TEGRA_HSP_MBOX_TYPE_SM_128BIT) TEGRA_HSP_SM_TX(3)>,
+			<&hsp_top2 (TEGRA_HSP_MBOX_TYPE_SM | TEGRA_HSP_MBOX_TYPE_SM_128BIT) TEGRA_HSP_SM_RX(2)>;
+#else
+		mboxes =
+			<&hsp_top2 TEGRA_HSP_MBOX_TYPE_SM_128BIT TEGRA_HSP_SM_TX(3)>,
+			<&hsp_top2 TEGRA_HSP_MBOX_TYPE_SM_128BIT TEGRA_HSP_SM_RX(2)>;
+#endif
+		mbox-names = "fsi-tx", "fsi-rx";
+		iommus = <&smmu_niso1 TEGRA_SID_NISO1_FSI>;
+		iommu-resv-regions = <0x0 0x0 0x0 0xF0000000 0x0 0xF1000000 0xffffffff 0xffffffff>;
+		dma-coherent;
+		status = "disabled";
+	};
+
+	safetyservices_epl_client {
+		compatible = "nvidia,tegra234-epl-client";
+#if TEGRA_HSP_DT_VERSION >= DT_VERSION_2
+		mboxes =
+			<&hsp_top2 (TEGRA_HSP_MBOX_TYPE_SM | TEGRA_HSP_MBOX_TYPE_SM_128BIT) TEGRA_HSP_SM_TX(1)>;
+#else
+		mboxes =
+			<&hsp_top2 TEGRA_HSP_MBOX_TYPE_SM_128BIT TEGRA_HSP_SM_TX(1)>;
+#endif
+		mbox-names = "epl-tx";
+
+		/* Device driver's name for reporting errors via MISCREG_MISC_EC_ERR0_SW_ERR_CODE_0 */
+		client-misc-sw-generic-err0 = "fsicom_client";
+		/* Device driver's name for reporting errors via MISCREG_MISC_EC_ERR1_SW_ERR_CODE_0 */
+		client-misc-sw-generic-err1 = "gk20b";
+		/* Device driver's name for reporting errors via MISCREG_MISC_EC_ERR3_SW_ERR_CODE_0 */
+		client-misc-sw-generic-err3 = "gk20d";
+		/* Device driver's name for reporting errors via MISCREG_MISC_EC_ERR4_SW_ERR_CODE_0 */
+		client-misc-sw-generic-err4 = "gk20e";
+
+		status = "disabled";
+	};
+
+        FsiComClientChConfigEpd{
+                compatible = "nvidia,tegra-fsicom-EPD";
+                status = "disabled";
+                channelid_list = <0>;
+        };
+        FsiComAppChConfCcplexApp{
+                compatible = "nvidia,tegra-fsicom-CcplexApp";
+                status = "disabled";
+                channelid_list = <1>;
+        };
+	FsiComAppChConfApp1{
+		compatible = "nvidia,tegra-fsicom-sampleApp1";
+		status = "disabled";
+		channelid_list = <2>;
+	};
+	FsiComQnxAppChConfAppGR{
+		compatible = "nvidia,tegra-fsicom-sampleAppGR";
+		status = "disabled";
+		channelid_list = <4>;
+	};
+	FsiComAppChConfApp2{
+		compatible = "nvidia,tegra-fsicom-sampleApp2";
+		status = "disabled";
+		channelid_list = <3>;
+	};
+
+	FsiComIvc {
+		compatible = "nvidia,tegra-fsicom-channels";
+		status = "disabled";
+		nChannel=<5>;
+                channel_0{
+                        frame-count = <4>;
+                        frame-size = <1024>;
+                        NvSciCh = "nvfsicom_EPD";
+                };
+                channel_1{
+                        frame-count = <4>;
+                        frame-size = <64>;
+                        NvSciCh = "nvfsicom_CcplexApp";
+                };
+		channel_2{
+			frame-count = <4>;
+			frame-size = <64>;
+			NvSciCh = "nvfsicom_app1";
+		};
+		channel_3{
+			frame-count = <2>;
+			frame-size = <512>;
+			NvSciCh = "nvfsicom_app2";
+		};
+		channel_4{
+			frame-count = <4>;
+			frame-size = <64>;
+			NvSciCh = "nvfsicom_appGR";
+		};
+	};
+};

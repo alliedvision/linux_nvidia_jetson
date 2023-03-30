@@ -1,12 +1,11 @@
 /*
  * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
@@ -16,63 +15,63 @@
  */
 
 / {
-	host1x {
-		vi@15c10000 {
-			num-channels = <6>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
-					e3333_vi_in0: endpoint {
-						port-index = <0>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out0>;
-					};
+	tegra-capture-vi {
+		num-channels = <6>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				e3333_vi_in0: endpoint {
+					port-index = <0>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out0>;
 				};
-				port@1 {
-					reg = <1>;
-					e3333_vi_in1: endpoint {
-						port-index = <1>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out1>;
-					};
+			};
+			port@1 {
+				reg = <1>;
+				e3333_vi_in1: endpoint {
+					port-index = <1>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out1>;
 				};
-				port@2 {
-					reg = <2>;
-					e3333_vi_in2: endpoint {
-						port-index = <2>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out2>;
-					};
+			};
+			port@2 {
+				reg = <2>;
+				e3333_vi_in2: endpoint {
+					port-index = <2>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out2>;
 				};
-				port@3 {
-					reg = <3>;
-					e3333_vi_in3: endpoint {
-						port-index = <3>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out3>;
-					};
+			};
+			port@3 {
+				reg = <3>;
+				e3333_vi_in3: endpoint {
+					port-index = <3>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out3>;
 				};
-				port@4 {
-					reg = <4>;
-					e3333_vi_in4: endpoint {
-						port-index = <4>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out4>;
-					};
+			};
+			port@4 {
+				reg = <4>;
+				e3333_vi_in4: endpoint {
+					port-index = <4>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out4>;
 				};
-				port@5 {
-					reg = <5>;
-					e3333_vi_in5: endpoint {
-						port-index = <5>;
-						bus-width = <2>;
-						remote-endpoint = <&e3333_csi_out5>;
-					};
+			};
+			port@5 {
+				reg = <5>;
+				e3333_vi_in5: endpoint {
+					port-index = <5>;
+					bus-width = <2>;
+					remote-endpoint = <&e3333_csi_out5>;
 				};
 			};
 		};
+	};
 
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <6>;
 			#address-cells = <1>;
@@ -211,7 +210,7 @@
 		tca9548@77 {
 			i2c@0 {
 				ov5693_a@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video0";
 
@@ -439,7 +438,7 @@
 
 			i2c@1 {
 				ov5693_b@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video1";
 
@@ -667,7 +666,7 @@
 
 			i2c@2 {
 				ov5693_c@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video2";
 
@@ -895,7 +894,7 @@
 
 			i2c@3 {
 				ov5693_d@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video3";
 
@@ -1123,7 +1122,7 @@
 
 			i2c@4 {
 				ov5693_e@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video4";
 
@@ -1351,7 +1350,7 @@
 
 			i2c@5 {
 				ov5693_g@36 {
-					compatible = "nvidia,ov5693";
+					compatible = "ovti,ov5693";
 					reg = <0x36>;
 					devnode = "video5";
 

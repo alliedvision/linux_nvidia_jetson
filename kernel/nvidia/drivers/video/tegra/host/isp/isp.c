@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics ISP
  *
- * Copyright (c) 2012-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,19 +26,13 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/tegra_pm_domains.h>
 #include <linux/version.h>
 #include <soc/tegra/fuse.h>
 
 #include "dev.h"
 #include "bus_client.h"
 #include "nvhost_acm.h"
-#include "t124/t124.h"
 #include "t210/t210.h"
-
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-#include "t186/t186.h"
-#endif
 
 #include <linux/uaccess.h>
 #include <linux/fs.h>
@@ -54,23 +48,12 @@
 
 #define ISPA_DEV_ID		0
 #define ISPB_DEV_ID		1
-#define ISP_PPC_T186		2
 #define ISP_OVERHEAD_T210	10
-/* 15% sw + 2% hw */
-#define ISP_OVERHEAD_T186	17
 
 static struct of_device_id tegra_isp_of_match[] = {
-#ifdef TEGRA_12X_OR_HIGHER_CONFIG
-	{ .compatible = "nvidia,tegra124-isp",
-		.data = (struct nvhost_device_data *)&t124_isp_info },
-#endif
 #ifdef TEGRA_21X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra210-isp",
 		.data = (struct nvhost_device_data *)&t21_isp_info },
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{ .compatible = "nvidia,tegra186-isp",
-		.data = (struct nvhost_device_data *)&t18_isp_info },
 #endif
 	{ },
 };
@@ -87,7 +70,7 @@ static int __init init_tegra_isp_isr_callback(void)
 
 pure_initcall(init_tegra_isp_isr_callback);
 
-int nvhost_isp_t124_prepare_poweroff(struct platform_device *pdev)
+int nvhost_isp_prepare_poweroff(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct isp *tegra_isp = pdata->private_data;
@@ -97,18 +80,7 @@ int nvhost_isp_t124_prepare_poweroff(struct platform_device *pdev)
 	return 0;
 }
 
-int nvhost_isp_t124_finalize_poweron(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct isp *tegra_isp = pdata->private_data;
-
-	host1x_writel(pdev, T12_ISP_CG_CTRL, T12_CG_2ND_LEVEL_EN);
-	enable_irq(tegra_isp->irq);
-
-	return 0;
-}
-
-int nvhost_isp_t210_finalize_poweron(struct platform_device *pdev)
+int nvhost_isp_finalize_poweron(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct isp *tegra_isp = pdata->private_data;
@@ -187,49 +159,31 @@ static int isp_probe(struct platform_device *dev)
 	memset(&isp_info, 0, sizeof(isp_info));
 
 	if (dev->dev.of_node) {
-		const struct of_device_id *match;
+		/*
+		 * For older kernels, we use "isp.0" for ispa
+		 * and "isp.1" for ispb
+		 *
+		 * For newer kernels, we use "54600000.isp" for ispa
+		 * and "54680000.isp" for ispb
+		 *
+		 */
+		if (strcmp(dev->name, "isp.0") == 0
+				|| strcmp(dev->name, "54600000.isp") == 0)
+			dev_id = ISPA_DEV_ID;
+		else if (strcmp(dev->name, "isp.1") == 0
+				|| strcmp(dev->name, "54680000.isp") == 0)
+			dev_id = ISPB_DEV_ID;
+		else
+			return -EINVAL;
 
-		if (nvhost_is_186()) {
-			/* T186 only has one ISP */
-			match = of_match_device(tegra_isp_of_match, &dev->dev);
-			if (match)
-				pdata = (struct nvhost_device_data *)
-					match->data;
-			/* 2% hw + 15% sw overhead */
-			isp_info.overhead = ISP_OVERHEAD_T186;
-			isp_info.ppc = ISP_PPC_T186;
-		} else {
-			/*
-			* For older kernels, we use "isp.0" for ispa
-			* and "isp.1" for ispb
-			*
-			* For newer kernels, we use "54600000.isp" for ispa
-			* and "54680000.isp" for ispb
-			*
-			*/
-			if (strcmp(dev->name, "isp.0") == 0 ||
-				strcmp(dev->name, "54600000.isp") == 0)
-				dev_id = ISPA_DEV_ID;
-			else if (strcmp(dev->name, "isp.1") == 0 ||
-				strcmp(dev->name, "54680000.isp") == 0)
-				dev_id = ISPB_DEV_ID;
-			else
-				return -EINVAL;
-
-			if (nvhost_is_124()) {
-				if (dev_id == ISPB_DEV_ID)
-					pdata = &t124_ispb_info;
-				if (dev_id == ISPA_DEV_ID)
-					pdata = &t124_isp_info;
-			} else if (nvhost_is_210()) {
-				if (dev_id == ISPB_DEV_ID)
-					pdata = &t21_ispb_info;
-				if (dev_id == ISPA_DEV_ID)
-					pdata = &t21_isp_info;
-				/* 10% overhead */
-				isp_info.overhead = ISP_OVERHEAD_T210;
-				isp_info.use_max = true;
-			}
+		if (nvhost_is_210()) {
+			if (dev_id == ISPB_DEV_ID)
+				pdata = &t21_ispb_info;
+			if (dev_id == ISPA_DEV_ID)
+				pdata = &t21_isp_info;
+			/* 10% overhead */
+			isp_info.overhead = ISP_OVERHEAD_T210;
+			isp_info.use_max = true;
 		}
 	} else
 		pdata = (struct nvhost_device_data *)dev->dev.platform_data;
@@ -343,7 +297,7 @@ static struct platform_driver isp_driver = {
 	}
 };
 
-#ifdef CONFIG_TEGRA_MC
+#ifdef CONFIG_NV_TEGRA_MC
 static int isp_set_la(struct isp *tegra_isp, u32 isp_bw, u32 la_client)
 {
 	int ret = 0;
@@ -459,19 +413,11 @@ const struct file_operations tegra_isp_ctrl_ops = {
 };
 
 static struct of_device_id tegra_isp_domain_match[] = {
-	{.compatible = "nvidia,tegra124-ve-pd",
-	 .data = (struct nvhost_device_data *)&t124_isp_info},
-	{.compatible = "nvidia,tegra132-ve-pd",
-	 .data = (struct nvhost_device_data *)&t124_isp_info},
 #ifdef TEGRA_21X_OR_HIGHER_CONFIG
 	{.compatible = "nvidia,tegra210-ve-pd",
 	 .data = (struct nvhost_device_data *)&t21_isp_info},
 	{.compatible = "nvidia,tegra210-ve2-pd",
 	 .data = (struct nvhost_device_data *)&t21_ispb_info},
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{.compatible = "nvidia,tegra186-ispa-pd",
-	 .data = (struct nvhost_device_data *)&t18_isp_info},
 #endif
 	{},
 };

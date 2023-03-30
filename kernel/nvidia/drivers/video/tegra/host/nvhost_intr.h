@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Interrupt Management
  *
- * Copyright (c) 2010-2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -104,6 +104,13 @@ struct nvhost_waitlist_external_notifier {
 	bool reuse;
 };
 
+/* Syncpoint irq context */
+struct nvhost_syncpt_irq_ctx {
+	int start_id;
+	int end_id;
+	struct nvhost_master *dev;
+};
+
 struct nvhost_intr_syncpt {
 	struct nvhost_intr *intr;
 	u32 id;
@@ -119,7 +126,8 @@ struct nvhost_intr {
 	struct nvhost_intr_syncpt *syncpt;
 	struct mutex mutex;
 	int general_irq;
-	int syncpt_irq;
+	int syncpt_irqs[8];
+	struct nvhost_syncpt_irq_ctx syncpt_irq_ctx[8];
 	u32 intstatus;
 	void (*host_isr[32])(u32, void*);
 	void *host_isr_priv[32];
@@ -160,7 +168,7 @@ void *nvhost_intr_alloc_waiter(void);
  */
 void nvhost_intr_put_ref(struct nvhost_intr *intr, u32 id, void *ref);
 
-int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync);
+int nvhost_intr_init(struct nvhost_intr *intr, u32 irq_gen, u32 irq_sync[8]);
 void nvhost_intr_deinit(struct nvhost_intr *intr);
 int nvhost_intr_start(struct nvhost_intr *intr, u32 hz);
 int nvhost_intr_stop(struct nvhost_intr *intr);
@@ -169,8 +177,6 @@ void nvhost_intr_enable_host_irq(struct nvhost_intr *intr, int irq,
 				 void (*host_isr)(u32, void *),
 				 void *priv);
 void nvhost_intr_disable_host_irq(struct nvhost_intr *intr, int irq);
-void nvhost_intr_enable_module_intr(struct nvhost_intr *intr, int module_irq);
-void nvhost_intr_disable_module_intr(struct nvhost_intr *intr, int module_irq);
 
 void nvhost_syncpt_thresh_fn(void *dev_id);
 irqreturn_t nvhost_intr_irq_fn(int irq, void *dev_id);

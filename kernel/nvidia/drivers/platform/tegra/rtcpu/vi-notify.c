@@ -1,7 +1,7 @@
 /*
  * VI NOTIFY driver for Tegra186
  *
- * Copyright (c) 2015-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -92,7 +92,7 @@ struct tegra_ivc_vi_notify {
 	struct completion ack;
 	struct work_struct notify_work;
 	size_t status_mem_size;
-	struct vi_capture_status __iomem *status_mem;
+	struct vi_capture_status *status_mem;
 	dma_addr_t status_dmaptr;
 	u16 status_entries;
 	u32 adjust_ts_counter;
@@ -116,13 +116,26 @@ static inline s64 get_ts_adjustment(u64 tsc_res)
 	preempt_disable();
 
 	do {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		tsc = (s64)(arch_counter_get_cntvct() * tsc_res);
+#else
+		tsc = (s64)(__arch_counter_get_cntvct() * tsc_res);
+#endif
 
 		ktime_get_ts64(&ts);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		mono_time = timespec_to_ns(&ts);
+#else
+		mono_time = timespec64_to_ns(&ts);
+#endif
 
 		delta1 = mono_time - tsc;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		tsc = (s64)(arch_counter_get_cntvct() * tsc_res);
+#else
+		tsc = (s64)(__arch_counter_get_cntvct() * tsc_res);
+#endif
+
 		delta2 = mono_time - tsc;
 
 		tries++;
@@ -239,9 +252,6 @@ static int tegra_ivc_vi_notify_send(struct tegra_ivc_channel *chan,
 	 * - VI emitting an event before the request is processed. */
 	ret = wait_for_completion_killable_timeout(&ivn->ack, HZ);
 	if (ret <= 0) {
-		if (tegra_ivc_can_read(&chan->ivc))
-			dev_err(&chan->dev, "IVC frames pending to be read\n");
-
 		dev_err(&chan->dev, "no reply from camera processor\n");
 #ifndef BUG_200219206
 		WARN_ON(1);
@@ -385,6 +395,7 @@ static int tegra_ivc_vi_notify_get_capture_status(struct device *dev,
 	struct tegra_ivc_channel *chan = to_tegra_ivc_channel(dev);
 	struct tegra_ivc_vi_notify *ivn = tegra_ivc_channel_get_drvdata(chan);
 	struct vi_capture_status __iomem *status_mem =
+		(struct vi_capture_status __iomem *)
 		&ivn->status_mem[ch * ivn->status_entries];
 	int err = 0;
 

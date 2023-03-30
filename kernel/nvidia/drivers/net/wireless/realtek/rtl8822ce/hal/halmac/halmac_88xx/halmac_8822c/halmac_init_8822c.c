@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2017 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2017 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -367,9 +367,6 @@ init_sifs_ctrl_8822c(struct halmac_adapter *adapter);
 static void
 init_rate_fallback_ctrl_8822c(struct halmac_adapter *adapter);
 
-static enum halmac_ret_status
-init_xtal_aac(struct halmac_adapter *adapter);
-
 enum halmac_ret_status
 mount_api_8822c(struct halmac_adapter *adapter)
 {
@@ -408,7 +405,8 @@ mount_api_8822c(struct halmac_adapter *adapter)
 	if (adapter->intf == HALMAC_INTERFACE_SDIO) {
 #if HALMAC_SDIO_SUPPORT
 		adapter->sdio_hw_info.tx_addr_format = HALMAC_SDIO_AGG_MODE;
-
+		api->halmac_init_interface_cfg = init_sdio_cfg_8822c;
+		api->halmac_init_sdio_cfg = init_sdio_cfg_8822c;
 		api->halmac_mac_power_switch = mac_pwr_switch_sdio_8822c;
 		api->halmac_phy_cfg = phy_cfg_sdio_8822c;
 		api->halmac_pcie_switch = pcie_switch_sdio_8822c;
@@ -774,14 +772,25 @@ init_system_cfg_8822c(struct halmac_adapter *adapter)
 	u8 value8;
 	u32 tmp = 0;
 	u32 value32;
+	enum halmac_ret_status status;
+	u8 hwval;
 
 	PLTFM_MSG_TRACE("[TRACE]%s ===>\n", __func__);
+
+	if (adapter->intf == HALMAC_INTERFACE_PCIE) {
+		hwval = 1;
+		status = set_hw_value_8822c(adapter, HALMAC_HW_PCIE_REF_AUTOK,
+					    &hwval);
+		if (status != HALMAC_RET_SUCCESS)
+			return status;
+	}
 
 	value32 = HALMAC_REG_R32(REG_CPU_DMEM_CON);
 	value32 |= (BIT_WL_PLATFORM_RST | BIT_DDMA_EN);
 	HALMAC_REG_W32(REG_CPU_DMEM_CON, value32);
 
-	HALMAC_REG_W8(REG_SYS_FUNC_EN + 1, SYS_FUNC_EN);
+	value8 = HALMAC_REG_R8(REG_SYS_FUNC_EN + 1) | SYS_FUNC_EN;
+	HALMAC_REG_W8(REG_SYS_FUNC_EN + 1, value8);
 
 	/*PHY_REQ_DELAY reg 0x1100[27:24] = 0x0C*/
 	value8 = (HALMAC_REG_R8(REG_CR_EXT + 3) & 0xF0) | 0x0C;
@@ -820,6 +829,7 @@ init_protocol_cfg_8822c(struct halmac_adapter *adapter)
 	u32 max_rts_agg_num;
 	u32 value32;
 	u16 pre_txcnt;
+	u8 value8;
 	struct halmac_api *api = (struct halmac_api *)adapter->halmac_api;
 
 	PLTFM_MSG_TRACE("[TRACE]%s ===>\n", __func__);
@@ -849,7 +859,7 @@ init_protocol_cfg_8822c(struct halmac_adapter *adapter)
 	HALMAC_REG_W8(REG_FAST_EDCA_BEBK_SETTING, WLAN_FAST_EDCA_BE_TH);
 	HALMAC_REG_W8(REG_FAST_EDCA_BEBK_SETTING + 2, WLAN_FAST_EDCA_BK_TH);
 
-	/*close BA parser*/
+	/*close A/B/C/D-cut BA parser*/
 	HALMAC_REG_W8_CLR(REG_LIFETIME_EN, BIT(5));
 
 	/*Bypass TXBF error protection due to sounding failure*/
@@ -860,6 +870,13 @@ init_protocol_cfg_8822c(struct halmac_adapter *adapter)
 	value32 = HALMAC_REG_R32(REG_BF_TIMEOUT_EN) & (~BIT_BF0_TIMEOUT_EN) &
 		 (~BIT_BF1_TIMEOUT_EN);
 	HALMAC_REG_W32(REG_BF_TIMEOUT_EN, value32);
+
+	/*Fix incorrect HW default value of RSC*/
+	value32 = BIT_CLEAR_RRSR_RSC_8822C(HALMAC_REG_R32(REG_RRSR));
+	HALMAC_REG_W32(REG_RRSR, value32);
+
+	value8 = HALMAC_REG_R8(REG_INIRTS_RATE_SEL);
+	HALMAC_REG_W8(REG_INIRTS_RATE_SEL, value8 | BIT(5));
 
 	PLTFM_MSG_TRACE("[TRACE]%s <===\n", __func__);
 
@@ -1075,9 +1092,11 @@ init_wmac_cfg_8822c(struct halmac_adapter *adapter)
 	HALMAC_REG_W8(REG_TCR + 2, WLAN_TX_FUNC_CFG2);
 	HALMAC_REG_W8(REG_TCR + 1, WLAN_TX_FUNC_CFG1);
 
+	HALMAC_REG_W16_SET(REG_GENERAL_OPTION, BIT_DUMMY_FCS_READY_MASK_EN);
+
 	HALMAC_REG_W8_SET(REG_SND_PTCL_CTRL, BIT_R_DISABLE_CHECK_VHTSIGB_CRC);
 
-	HALMAC_REG_W32(REG_WMAC_OPTION_FUNCTION + 8, WLAN_MAC_OPT_FUNC2);
+	HALMAC_REG_W32(REG_WMAC_OPTION_FUNCTION_2, WLAN_MAC_OPT_FUNC2);
 
 	if (adapter->hw_cfg_info.trx_mode == HALMAC_TRNSFER_NORMAL)
 		value8 = WLAN_MAC_OPT_NORM_FUNC1;
@@ -1149,41 +1168,12 @@ pre_init_system_cfg_8822c(struct halmac_adapter *adapter)
 	enable_bb = 0;
 	set_hw_value_88xx(adapter, HALMAC_HW_EN_BB_RF, &enable_bb);
 
-	/* if (init_xtal_aac(adapter) != HALMAC_RET_SUCCESS)
-		return HALMAC_RET_INIT_XTAL_AAC_FAIL; */
-
 	if (HALMAC_REG_R8(REG_SYS_CFG1 + 2) & BIT(4)) {
 		PLTFM_MSG_ERR("[ERR]test mode!!\n");
 		return HALMAC_RET_WLAN_MODE_FAIL;
 	}
 
 	PLTFM_MSG_TRACE("[TRACE]%s <===\n", __func__);
-
-	return HALMAC_RET_SUCCESS;
-}
-
-static enum halmac_ret_status
-init_xtal_aac(struct halmac_adapter *adapter)
-{
-	u32 cnt;
-	struct halmac_api *api = (struct halmac_api *)adapter->halmac_api;
-
-	HALMAC_REG_W32_SET(REG_ANAPAR_XTAL_1, BIT_EN_XTAL_DRV_DIGI_V2);
-	HALMAC_REG_W32_SET(REG_ANAPAR_XTAL_AACK_0, BIT_RESET_N);
-	HALMAC_REG_W32_SET(REG_ANAPAR_XTAL_AACK_0, (BIT(3) | BIT(2)));
-	HALMAC_REG_W32_SET(REG_ANAPAR_XTAL_AACK_1, (BIT(4) | BIT(3)));
-	HALMAC_REG_W32_SET(REG_ANAPAR_XTAL_AACK_0, BIT_EN_XTAL_AAC_TRIG);
-
-	cnt = 3000;
-	while (!(HALMAC_REG_R8(REG_XTAL_AAC_OUTPUT) & BIT_XAAC_READY_V1)) {
-		if (cnt == 0) {
-			PLTFM_MSG_ERR("[ERR]Init XTAL ACC fail\n");
-
-			return HALMAC_RET_INIT_XTAL_AAC_FAIL;
-		}
-		cnt--;
-		PLTFM_DELAY_US(20);
-	}
 
 	return HALMAC_RET_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,14 +35,14 @@ struct gk20a;
 #include <nvgpu/log.h>
 #include <nvgpu/barrier.h>
 #include <nvgpu/cond.h>
+#include <nvgpu/boardobjgrp_e32.h>
+#include <nvgpu/pmu/volt.h>
 
-#include "clk/clk.h"
-#include "pstate/pstate.h"
-#include "lpwr/lpwr.h"
-#include "volt/volt.h"
+/* Dependency of this include will be removed in further CL */
+#include "../../common/pmu/boardobj/boardobj.h"
 
 #define MAX_F_POINTS 256
-#define DEFAULT_EVENT_NUMBER 32
+#define DEFAULT_EVENT_NUMBER 32U
 
 struct nvgpu_clk_dev;
 struct nvgpu_clk_arb_target;
@@ -50,12 +50,14 @@ struct nvgpu_clk_notification_queue;
 struct nvgpu_clk_session;
 
 #define VF_POINT_INVALID_PSTATE ~0U
-#define VF_POINT_SET_PSTATE_SUPPORTED(a, b) ((a)->pstates |= (1UL << (b)))
+#define VF_POINT_SET_PSTATE_SUPPORTED(a, b) \
+				((a)->clk_vf_point_pstates |= (BIT16(b)))
 #define VF_POINT_GET_PSTATE(a)	(((a)->pstates) ?\
-	__fls((a)->pstates) :\
+	(nvgpu_fls((a)->pstates) - 1UL) :\
 	VF_POINT_INVALID_PSTATE)
-#define VF_POINT_COMMON_PSTATE(a, b)	(((a)->pstates & (b)->pstates) ?\
-	__fls((a)->pstates & (b)->pstates) :\
+#define VF_POINT_COMMON_PSTATE(a, b)   (((a)->pstates & (b)->pstates) != 0U ?\
+	(nvgpu_fls((unsigned long)((a)->pstates) & \
+	(unsigned long)((b)->pstates)) - 1UL) :\
 	VF_POINT_INVALID_PSTATE)
 
 /*
@@ -87,29 +89,29 @@ struct nvgpu_clk_session;
 #define NVGPU_EVENT_LAST	NVGPU_EVENT_ALARM_GPU_LOST
 
 /* Local Alarms */
-#define EVENT(alarm)	(0x1UL << NVGPU_EVENT_##alarm)
+#define EVENT(alarm)	(BIT32(NVGPU_EVENT_##alarm))
 
 #define LOCAL_ALARM_MASK (EVENT(ALARM_LOCAL_TARGET_VF_NOT_POSSIBLE) | \
 				EVENT(VF_UPDATE))
 
-#define _WRAPGTEQ(a, b) ((a-b) > 0)
+#define WRAPGTEQ(a, b) (((a)-(b)) > (typeof(a))0)
 
 /*
  * NVGPU_POLL* defines equivalent to the POLL* linux defines
  */
-#define NVGPU_POLLIN (1 << 0)
-#define NVGPU_POLLPRI (1 << 1)
-#define NVGPU_POLLOUT (1 << 2)
-#define NVGPU_POLLRDNORM (1 << 3)
-#define NVGPU_POLLHUP (1 << 4)
+#define NVGPU_POLLIN		BIT32(0)
+#define NVGPU_POLLPRI		BIT32(1)
+#define NVGPU_POLLOUT		BIT32(2)
+#define NVGPU_POLLRDNORM	BIT32(3)
+#define NVGPU_POLLHUP		BIT32(4)
 
 /* NVGPU_CLK_DOMAIN_* defines equivalent to NVGPU_GPU_CLK_DOMAIN_*
  * defines in uapi header
  */
 /* Memory clock */
-#define NVGPU_CLK_DOMAIN_MCLK	(0)
+#define NVGPU_CLK_DOMAIN_MCLK	0U
 /* Main graphics core clock */
-#define NVGPU_CLK_DOMAIN_GPCCLK	(1)
+#define NVGPU_CLK_DOMAIN_GPCCLK	1U
 
 #define NVGPU_CLK_DOMAIN_MAX	(NVGPU_CLK_DOMAIN_GPCCLK)
 
@@ -117,10 +119,10 @@ struct nvgpu_clk_session;
 	do {								\
 		nvgpu_log(g, gpu_dbg_clk_arb,	\
 				fmt, ##args);	\
-	} while (0)
+	} while (false)
 
 struct nvgpu_clk_notification {
-	u32 notification;
+	u32 clk_notification;
 	u64 timestamp;
 };
 
@@ -128,16 +130,18 @@ struct nvgpu_clk_notification_queue {
 	u32 size;
 	nvgpu_atomic_t head;
 	nvgpu_atomic_t tail;
-	struct nvgpu_clk_notification *notifications;
+	struct nvgpu_clk_notification *clk_q_notifications;
 };
 
 struct nvgpu_clk_vf_point {
-	u16 pstates;
+	u16 clk_vf_point_pstates;
 	union {
 		struct {
 			u16 gpc_mhz;
 			u16 sys_mhz;
 			u16 xbar_mhz;
+			u16 host_mhz;
+			u16 nvd_mhz;
 		};
 		u16 mem_mhz;
 	};
@@ -198,8 +202,11 @@ struct nvgpu_clk_arb {
 	u16 mclk_default_mhz;
 	u32 voltuv_actual;
 
-	u16 gpc2clk_min, gpc2clk_max;
-	u16 mclk_min, mclk_max;
+	u16 gpc2clk_min;
+	u16 gpc2clk_max;
+	u16 gpc_cap_clkmhz;
+	u16 mclk_min;
+	u16 mclk_max;
 
 	struct nvgpu_clk_arb_work_item update_vf_table_work_item;
 	struct nvgpu_clk_arb_work_item update_arb_work_item;
@@ -216,8 +223,6 @@ struct nvgpu_clk_arb {
 	u32 mclk_f_numpoints;
 	u16 *gpc2clk_f_points;
 	u32 gpc2clk_f_numpoints;
-
-	bool clk_arb_events_supported;
 
 	nvgpu_atomic64_t alarm_mask;
 	struct nvgpu_clk_notification_queue notification_queue;
@@ -318,7 +323,7 @@ int nvgpu_clk_arb_install_session_fd(struct gk20a *g,
 		struct nvgpu_clk_session *session);
 
 int nvgpu_clk_arb_init_session(struct gk20a *g,
-		struct nvgpu_clk_session **_session);
+		struct nvgpu_clk_session **l_session);
 
 void nvgpu_clk_arb_release_session(struct gk20a *g,
 		struct nvgpu_clk_session *session);
@@ -340,15 +345,13 @@ int nvgpu_clk_arb_install_request_fd(struct gk20a *g,
 
 void nvgpu_clk_arb_schedule_vf_table_update(struct gk20a *g);
 
-int nvgpu_clk_arb_get_current_pstate(struct gk20a *g);
+u32 nvgpu_clk_arb_get_current_pstate(struct gk20a *g);
 
 void nvgpu_clk_arb_pstate_change_lock(struct gk20a *g, bool lock);
 
 void nvgpu_clk_arb_send_thermal_alarm(struct gk20a *g);
 
 void nvgpu_clk_arb_set_global_alarm(struct gk20a *g, u32 alarm);
-
-void nvgpu_clk_arb_schedule_alarm(struct gk20a *g, u32 alarm);
 
 void nvgpu_clk_arb_clear_global_alarm(struct gk20a *g, u32 alarm);
 
@@ -362,7 +365,7 @@ u32 nvgpu_clk_arb_notify(struct nvgpu_clk_dev *dev,
 
 int nvgpu_clk_notification_queue_alloc(struct gk20a *g,
 				struct nvgpu_clk_notification_queue *queue,
-				size_t events_number);
+				u32 events_number);
 
 void nvgpu_clk_notification_queue_free(struct gk20a *g,
 		struct nvgpu_clk_notification_queue *queue);
@@ -370,6 +373,7 @@ void nvgpu_clk_notification_queue_free(struct gk20a *g,
 void nvgpu_clk_arb_event_post_event(struct nvgpu_clk_dev *dev);
 
 unsigned long nvgpu_clk_measure_freq(struct gk20a *g, u32 api_domain);
+void nvgpu_clk_arb_worker_deinit(struct gk20a *g);
 
 #ifdef CONFIG_DEBUG_FS
 int nvgpu_clk_arb_debugfs_init(struct gk20a *g);

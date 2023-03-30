@@ -41,6 +41,7 @@ enum _CHIP_TYPE {
 	RTL8710B,
 	RTL8192F,
 	RTL8822C,
+	RTL8814B,
 	MAX_CHIP_TYPE
 };
 
@@ -86,7 +87,6 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_SEC_CFG,
 	HW_VAR_SEC_DK_CFG,
 	HW_VAR_BCN_VALID,
-	HW_VAR_RF_TYPE,
 	HW_VAR_FREECNT,
 
 	/* PHYDM odm->SupportAbility */
@@ -249,9 +249,8 @@ typedef enum _HAL_DEF_VARIABLE {
 	HAL_DEF_TX_PAGE_SIZE,
 	HAL_DEF_TX_PAGE_BOUNDARY,
 	HAL_DEF_TX_PAGE_BOUNDARY_WOWLAN,
+	HAL_DEF_TX_BUFFER_LAST_ENTRY,
 	HAL_DEF_ANT_DETECT,/* to do for 8723a */
-	HAL_DEF_PCI_SUUPORT_L1_BACKDOOR, /* Determine if the L1 Backdoor setting is turned on. */
-	HAL_DEF_PCI_AMD_L1_SUPPORT,
 	HAL_DEF_PCI_ASPM_OSC, /* Support for ASPM OSC, added by Roger, 2013.03.27. */
 	HAL_DEF_EFUSE_USAGE,	/* Get current EFUSE utilization. 2008.12.19. Added by Roger. */
 	HAL_DEF_EFUSE_BYTES,
@@ -345,7 +344,10 @@ struct hal_ops {
 	void (*set_tx_power_level_handler)(_adapter *adapter, u8 channel);
 	void (*set_txpwr_done)(_adapter *adapter);
 	void (*set_tx_power_index_handler)(_adapter *adapter, u32 powerindex, enum rf_path rfpath, u8 rate);
-	u8 (*get_tx_power_index_handler)(_adapter *adapter, enum rf_path rfpath, u8 rate, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic);
+
+	u8 (*get_tx_power_index_handler)(_adapter *adapter, enum rf_path rfpath, RATE_SECTION rs, enum MGN_RATE rate
+		, enum channel_width bw, BAND_TYPE band, u8 cch, u8 opch, struct txpwr_idx_comp *tic);
+	s8 (*get_txpwr_target_extra_bias)(_adapter *adapter, enum rf_path rfpath, RATE_SECTION rs, enum MGN_RATE rate, enum channel_width bw, BAND_TYPE band, u8 cch);
 
 	void	(*hal_dm_watchdog)(_adapter *padapter);
 
@@ -449,6 +451,9 @@ struct hal_ops {
 #endif
 #ifdef CONFIG_PCI_TX_POLLING
 	void (*tx_poll_handler)(_adapter *adapter);
+#endif
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+	void (*dtp_macid_set)(_adapter *padapter, u8 opmode, u8 mac_id, u8 *paddr);
 #endif
 };
 
@@ -695,6 +700,13 @@ uint rtw_hal_init(_adapter *padapter);
 #ifdef CONFIG_NEW_NETDEV_HDL
 uint rtw_hal_iface_init(_adapter *adapter);
 #endif
+
+enum rf_type rtw_chip_rftype_to_hal_rftype(_adapter *adapter, u8 limit);
+void dump_hal_runtime_trx_mode(void *sel, _adapter *adapter);
+void dump_hal_trx_mode(void *sel, _adapter *adapter);
+u8 rtw_hal_rfpath_init(_adapter *adapter);
+u8 rtw_hal_trxnss_init(_adapter *adapter);
+
 uint rtw_hal_deinit(_adapter *padapter);
 void rtw_hal_stop(_adapter *padapter);
 u8 rtw_hal_set_hwreg(PADAPTER padapter, u8 variable, u8 *val);
@@ -853,11 +865,16 @@ s32 rtw_hal_fw_dl(_adapter *padapter, u8 wowlan);
 #endif
 
 void rtw_hal_set_tx_power_level(_adapter *adapter, u8 channel);
+void rtw_hal_update_txpwr_level(_adapter *adapter);
 void rtw_hal_set_txpwr_done(_adapter *adapter);
 void rtw_hal_set_tx_power_index(_adapter *adapter, u32 powerindex
 	, enum rf_path rfpath, u8 rate);
-u8 rtw_hal_get_tx_power_index(_adapter *adapter, enum rf_path rfpath, u8 rate
-	, u8 bandwidth, u8 channel, struct txpwr_idx_comp *tic);
+
+u8 rtw_hal_get_tx_power_index(_adapter *adapter, enum rf_path rfpath
+	, RATE_SECTION rs, enum MGN_RATE rate, enum channel_width bw, BAND_TYPE band, u8 cch, u8 opch
+	, struct txpwr_idx_comp *tic);
+s8 rtw_hal_get_txpwr_target_extra_bias(_adapter *adapter, enum rf_path rfpath
+	, RATE_SECTION rs, enum MGN_RATE rate, enum channel_width bw, BAND_TYPE band, u8 cch);
 
 u8 rtw_hal_ops_check(_adapter *padapter);
 
@@ -869,6 +886,10 @@ s32 rtw_hal_fw_mem_dl(_adapter *padapter, enum fw_mem mem);
 
 #ifdef CONFIG_RFKILL_POLL
 bool rtw_hal_rfkill_poll(_adapter *adapter, u8 *valid);
+#endif
+
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+void rtw_hal_dtp_macid_set(_adapter *padapter, u8 opmode, u8 mac_id, u8 *paddr);
 #endif
 
 #endif /* __HAL_INTF_H__ */

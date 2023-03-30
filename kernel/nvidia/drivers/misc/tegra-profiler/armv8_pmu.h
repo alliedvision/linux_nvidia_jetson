@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/armv8_pmu.h
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,8 +18,10 @@
 #define __ARMV8_PMU_H
 
 struct quadd_event_source;
+struct quadd_ctx;
 
-extern struct quadd_event_source *quadd_armv8_pmu_init(void);
+extern struct quadd_event_source *
+quadd_armv8_pmu_init(struct quadd_ctx *ctx);
 extern void quadd_armv8_pmu_deinit(void);
 
 #endif	/* __ARMV8_PMU_H */

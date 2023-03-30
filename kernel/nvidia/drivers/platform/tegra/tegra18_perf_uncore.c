@@ -1,7 +1,7 @@
  /*
  * Denver15 Uncore PMU support
  *
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,6 @@
 * perf events refactored include structure starting with 4.4
 * This driver is only valid with kernel version 4.4 and greater
 */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 #include <asm/irq_regs.h>
 
 #include <linux/of.h>
@@ -652,4 +651,3 @@ static int __init register_pmu_driver(void)
 	return platform_driver_register(&denverpmu_driver);
 }
 device_initcall(register_pmu_driver);
-#endif

@@ -1,0 +1,40 @@
+From e0469a22c368ed1901f5cc04cbe477706e334d10 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Thu, 5 Dec 2019 04:48:47 +0000
+Subject: [PATCH 594/830] ANDROID: Don't base allmodconfig on gki_defconfig
+X-NVConfidentiality: public
+
+The mandatory tweaks to allmodconfig are manually enforced during
+post_defconfig, so using gki_defconfig as a base for allmodconfig is not
+strictly necessary. While this helped finding bugs in code paths that
+are unexplored by the vanilla allmodconfig, this is also misalgigned
+with KernelCI, and doesn't prevent breakages there, which is one of the
+original point of allmodconfig as a presubmit test.
+
+Remove the KCONFIG_ALLCONFIG parameter for allmodconfig, and remove a
+stale comment in the same file while at it.
+
+Bug: 140224784
+Test: compiled-tested allmodconfig for arm64 and x86
+Change-Id: Idd33e25ce62e2a6a37d650844d8ae3033070f825
+Signed-off-by: Quentin Perret <qperret@google.com>
+---
+ build.config.allmodconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index 8261484c3987..f4da6b278e80 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -1,8 +1,6 @@
+ DEFCONFIG=allmodconfig
+-KCONFIG_ALLCONFIG=${ROOT_DIR}/common/arch/${ARCH%_*}/configs/gki_defconfig
+ 
+ # XFS_FS is currently broken on this branch with clang-9
+-# KVM_INTEL is broken on this branch due to lack of asm-goto support in clang
+ POST_DEFCONFIG_CMDS="update_config"
+ function update_config() {
+     ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
+-- 
+2.17.1
+

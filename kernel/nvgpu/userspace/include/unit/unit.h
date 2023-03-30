@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,10 +35,6 @@ typedef int (*module_test_fn)(struct unit_module *m,
 #define UNIT_FAIL		-1
 
 struct unit_module_test {
-	/*
-	 * Name of the test.
-	 */
-	const char *name;
 
 	/*
 	 * Function to call to execute the test.
@@ -46,11 +42,60 @@ struct unit_module_test {
 	module_test_fn fn;
 
 	/*
+	 * Name of the test function. It will be used to match the test
+	 * results with its SWUTS.
+	 */
+	const char *fn_name;
+
+	/*
+	 * Name of the test. It can be used to describe a subcase when the
+	 * same test function is used several times.
+	 */
+	const char *case_name;
+
+	/*
+	 * Minimum test plan level (L0, L1) to execute the test.
+	 */
+	unsigned int test_lvl;
+
+	/*
 	 * A void pointer to arbitrary arguments. Lets the same unit test
 	 * function perform multiple tests. This gets passed into the
 	 * module_test_fn as @args.
 	 */
 	void *args;
+
+	/*
+	 * Linkage to JAMA test specification. An example would be:
+	 *
+	 *   .requirement = "NVGPU-RQCD-68"
+	 *   .verification_criteria  = "C1"
+	 *
+	 * This would link to C1 verification criteria of the pd_cache
+	 * requirement NVGPU-RQCD-68.
+	 *
+	 * This is an optional field for any given unit test. But a unit
+	 * test module must satisfy the necessary VC for all requirements
+	 * within that unit.
+	 */
+	struct {
+		/*
+		 * Requirement linkage: this should point to the unique ID
+		 * of the test specification.
+		 */
+		const char *unique_id;
+
+		/*
+		 * The particular verification criteria that this is
+		 * satisfying.
+		 */
+		const char *verification_criteria;
+
+		/*
+		 * Specific requirement this test provides coverage for.
+		 */
+		const char *requirement;
+	} jama;
 };
 
 /*
@@ -109,11 +154,32 @@ struct unit_module {
 		.fw = NULL,						\
 	}
 
-#define UNIT_TEST(__name, __fn, __args)					\
+#define UNIT_TEST(__name, __fn, __args, __test_lvl)			\
 	{								\
-		.name = #__name,					\
+		.fn_name = #__fn,					\
+		.case_name = #__name,					\
 		.fn = __fn,						\
 		.args = __args,						\
+		.test_lvl = __test_lvl,					\
+		.jama.requirement = "",					\
+		.jama.unique_id = "",					\
+		.jama.verification_criteria = "",			\
+	}
+
+/*
+ * Use this for a unit test that satisfies or contributes to satisfying a
+ * verification criteria for a given requirement.
+ */
+#define UNIT_TEST_REQ(__req, __uid, __vc, __name, __fn, __args, __test_lvl) \
+	{								\
+		.fn_name = #__fn,					\
+		.case_name = #__name,					\
+		.fn = __fn,						\
+		.args = __args,						\
+		.test_lvl = __test_lvl,					\
+		.jama.requirement = __req,				\
+		.jama.unique_id = __uid,				\
+		.jama.verification_criteria = __vc,			\
 	}
 
 #define unit_return_fail(m, msg, ...)					\

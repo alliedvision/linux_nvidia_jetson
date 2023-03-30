@@ -1,0 +1,72 @@
+From f54e4fa4f061a23d2fe9ce706eb182f00cb1d376 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Wed, 15 Jul 2020 12:05:12 +0200
+Subject: [PATCH 771/830] ANDROID: GKI: build in more Bluetooth drivers
+X-NVConfidentiality: public
+
+Multiple platforms need these, so build them in so we don't need to
+support an api we don't really need to.
+
+Bug: 157965270
+Bug: 162909109
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Icc99311bd349e226cf61deba98414d5e48750c54
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/db845c_gki.fragment | 2 --
+ arch/arm64/configs/gki_defconfig       | 6 ++++++
+ arch/x86/configs/gki_defconfig         | 6 ++++++
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index df5906afc51f..64975d71b9e6 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -19,8 +19,6 @@ CONFIG_MFD_SPMI_PMIC=m
+ CONFIG_SPMI_MSM_PMIC_ARB=m
+ CONFIG_REGULATOR_QCOM_RPMH=m
+ CONFIG_REGULATOR_QCOM_SPMI=m
+-CONFIG_BT_HCIUART=m
+-CONFIG_BT_HCIUART_QCA=y
+ CONFIG_DRM_MSM=m
+ # CONFIG_DRM_MSM_DSI_28NM_PHY is not set
+ # CONFIG_DRM_MSM_DSI_20NM_PHY is not set
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index d38bc7355e53..73e5b95a3d85 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -207,7 +207,13 @@ CONFIG_NET_CLS_ACT=y
+ CONFIG_VSOCKETS=y
+ CONFIG_BPF_JIT=y
+ CONFIG_BT=y
++CONFIG_BT_RFCOMM=y
++CONFIG_BT_RFCOMM_TTY=y
+ CONFIG_BT_HIDP=y
++CONFIG_BT_HCIBTSDIO=y
++CONFIG_BT_HCIUART=y
++CONFIG_BT_HCIUART_LL=y
++CONFIG_BT_HCIUART_QCA=y
+ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+ # CONFIG_CFG80211_CRDA_SUPPORT is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 1c75172e66c6..d2bc32d76fd9 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -185,7 +185,13 @@ CONFIG_NET_CLS_ACT=y
+ CONFIG_VSOCKETS=y
+ CONFIG_BPF_JIT=y
+ CONFIG_BT=y
++CONFIG_BT_RFCOMM=y
++CONFIG_BT_RFCOMM_TTY=y
+ CONFIG_BT_HIDP=y
++CONFIG_BT_HCIBTSDIO=y
++CONFIG_BT_HCIUART=y
++CONFIG_BT_HCIUART_LL=y
++CONFIG_BT_HCIUART_QCA=y
+ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+ # CONFIG_CFG80211_CRDA_SUPPORT is not set
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -357,13 +357,13 @@ static ssize_t table_src_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	unsigned int val;
-	int ret =0;
+	int ret = 0;
 
 	if (kstrtouint(buf, 0, &val))
 		return -EINVAL;
 
 	ret = set_cpu_emc_limit_table_source(val);
-	if(ret)
+	if (ret)
 		return ret;
 
 	return count;

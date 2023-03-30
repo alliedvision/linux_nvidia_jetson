@@ -4,7 +4,7 @@
  * Copyright (C) 1999-2015, Broadcom Corporation
  * 
  * Portions contributed by Nvidia
- * Copyright (C) 2015-2020, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2019 NVIDIA Corporation. All rights reserved.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -2043,7 +2043,7 @@ static int wl_android_get_iovar(struct net_device *dev, char *command,
 				__func__, bytes_written));
 		bytes_written = 0;
 	} else {
-		snprintf(command, total_len, iovbuf);
+		snprintf(command, total_len, "%s", iovbuf);
 		bytes_written = snprintf(command, total_len,
 					"%d:%s", dtoh32(param), iovbuf);
 		DHD_INFO(("%s: param:%d iovbuf:%s strlen(iovbuf):%zd"
@@ -2696,7 +2696,8 @@ int wl_android_init(void)
 #endif /* ENABLE_INSMOD_NO_FW_LOAD */
 #if defined(CUSTOMER_HW2)
 	if (!iface_name[0]) {
-		strlcpy(iface_name, "wlan", IFNAMSIZ);
+		memset(iface_name, 0, IFNAMSIZ);
+		bcm_strncpy_s(iface_name, IFNAMSIZ, "wlan", IFNAMSIZ);
 	}
 #endif 
 

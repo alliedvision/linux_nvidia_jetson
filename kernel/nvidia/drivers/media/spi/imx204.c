@@ -1,7 +1,7 @@
 /*
  * imx204.c - imx204 sensor driver
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,7 +25,12 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <media/camera_common.h>
 #include <media/imx204.h>
 #include "imx204_mode_tbls.h"
@@ -149,7 +154,7 @@ static inline void imx204_get_svr_regs(imx204_reg *regs,
 	regs->addr = (IMX204_CHIP_ID << 16) | IMX204_SVR_ADDR_LSB;
 	regs->val = svr & 0xFF;
 	(regs + 1)->addr = (IMX204_CHIP_ID << 16) | IMX204_SVR_ADDR_MSB;
-	(regs + 1)->val = (svr >> 8) && 0xFF;
+	(regs + 1)->val = (svr >> 8) & 0xFF;
 }
 
 static inline void imx204_get_frame_length_regs(imx204_reg *regs,
@@ -399,7 +404,9 @@ static int imx204_g_input_status(struct v4l2_subdev *sd, u32 *status)
 
 static struct v4l2_subdev_video_ops imx204_subdev_video_ops = {
 	.s_stream	= imx204_s_stream,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	.g_mbus_config	= camera_common_g_mbus_config,
+#endif
 	.g_input_status = imx204_g_input_status,
 };
 
@@ -433,6 +440,9 @@ static struct v4l2_subdev_pad_ops imx204_subdev_pad_ops = {
 	.enum_mbus_code = camera_common_enum_mbus_code,
 	.enum_frame_size	= camera_common_enum_framesizes,
 	.enum_frame_interval	= camera_common_enum_frameintervals,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	.get_mbus_config	= camera_common_get_mbus_config,
+#endif
 };
 
 static struct v4l2_subdev_ops imx204_subdev_ops = {
@@ -441,7 +451,7 @@ static struct v4l2_subdev_ops imx204_subdev_ops = {
 	.pad	= &imx204_subdev_pad_ops,
 };
 static struct of_device_id imx204_of_match[] = {
-	{ .compatible = "nvidia,imx204-spi", },
+	{ .compatible = "sony,imx204", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, imx204_of_match);

@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	i2c@c240000 {
+		ina32211_1_40: ina3221@40 {
+			compatible = "ti,ina3221";
+			reg = <0x40>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			channel@0 {
+				reg = <0x0>;
+				label = "VDD_GPU_SOC";
+				shunt-resistor-micro-ohms = <2000>;
+			};
+			channel@1 {
+				reg = <0x1>;
+				label = "VDD_CPU_CV";
+				shunt-resistor-micro-ohms = <2000>;
+			};
+			channel@2 {
+				reg = <0x2>;
+				label = "VIN_SYS_5V0";
+				shunt-resistor-micro-ohms = <2000>;
+			};
+		};
+
+		ina3221_1_41: ina3221@41 {
+			compatible = "ti,ina3221";
+			reg = <0x41>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			channel@0 {
+				reg = <0x0>;
+				label = "NC";
+			};
+			channel@1 {
+				reg = <0x1>;
+				label = "VDDQ_VDD2_1V8AO";
+				shunt-resistor-micro-ohms = <2000>;
+			};
+			channel@2 {
+				reg = <0x2>;
+				label = "NC";
+			};
+		};
+	};
+};

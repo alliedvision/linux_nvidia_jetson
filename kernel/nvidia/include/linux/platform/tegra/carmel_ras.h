@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,6 +32,8 @@
 #define ERR_CTL_RET_JSR_TO_ERR		RAS_BIT(32)
 
 /* ERR_CTLR bits for MTS_JSR */
+#define ERR_CTL_MTS_JSR_DUEXUC_ERR	RAS_BIT(39)
+#define ERR_CTL_MTS_JSR_DUEXC_ERR	RAS_BIT(38)
 #define ERR_CTL_MTS_JSR_MMIO_ERR	RAS_BIT(37)
 #define ERR_CTL_MTS_JSR_CRAB_ERR	RAS_BIT(36)
 #define ERR_CTL_MTS_JSR_CARVE_ERR	RAS_BIT(35)
@@ -64,6 +66,7 @@
 
 /* Error records per CCPLEX */
 /* ERR_CTLR bits for CMU:CCPMU or DPMU*/
+#define ERR_CTL_DPMU_CORESIGHT_ACCESS_ERR RAS_BIT(40)
 #define ERR_CTL_DPMU_DMCE_UCODE_ERR	RAS_BIT(36)
 #define ERR_CTL_DPMU_DMCE_IL1_PAR_ERR	RAS_BIT(35)
 #define ERR_CTL_DPMU_DMCE_TIMEOUT_ERR	RAS_BIT(34)
@@ -112,6 +115,7 @@
 #define ERR_CTL_SCFL3_MCF_INTFC_ERR	RAS_BIT(42)
 #define ERR_CTL_SCFL3_TAG_ERR		RAS_BIT(41)
 #define ERR_CTL_SCFL3_L2DIR_ERR		RAS_BIT(41)
+#define ERR_CTL_SCFL3_DIR_PAR_ERR	RAS_BIT(40)
 #define ERR_CTL_SCFL3_UECC_ERR		RAS_BIT(39)
 #define ERR_CTL_SCFL3_MH_CAM_ERR	RAS_BIT(37)
 #define ERR_CTL_SCFL3_MH_TAG_ERR	RAS_BIT(36)
@@ -168,6 +172,11 @@
 #define ERRi_MISC1_CONST		0x3333333333333333UL
 #define ERRi_ADDR_CONST			0x4444444444444444UL
 
+/* [64:32] bits in ERR<n>CTLR define the errors supported by that node.
+ */
+#define DEFAULT_ERR_CTLR_MASK	(0xFFFFFFFF00000000UL | RAS_CTL_ED |\
+			RAS_CTL_UE | RAS_CTL_CFI)
+
 
 enum {
 	IFU,		/* 0 */
@@ -192,3 +201,19 @@ struct tegra_ras_impl_err_bit {
 	u64     corr_bit;
 };
 
+/**
+ * struct carmel_error_record - Platform specific error record inheriting the
+ *				generic arm64 ras error record.
+ * @err_ctlr_mask: Implementation defined field of ERR<n>CTLR field of a node
+ *		holds info regarding which errors are valid in carmel.
+ *		Typically it is the higher 32 bits, but in certain
+ *		cases, it might be different.
+ *		This mask can also be modified to disable
+ *		certain errors at the driver's discretion.
+ * @rec:	This is the arm64_ras error record that is inherited.
+ *		See arm64_ras.h for the structure description.
+ */
+struct carmel_error_record {
+	u64 err_ctlr_mask;
+	struct error_record rec;
+};

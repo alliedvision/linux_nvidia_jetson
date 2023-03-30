@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,27 +53,16 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_pri_ringstation_gpc_gm20b_h_
-#define _hw_pri_ringstation_gpc_gm20b_h_
+#ifndef NVGPU_HW_PRI_RINGSTATION_GPC_GM20B_H
+#define NVGPU_HW_PRI_RINGSTATION_GPC_GM20B_H
 
-static inline u32 pri_ringstation_gpc_master_config_r(u32 i)
-{
-	return 0x00128300U + i*4U;
-}
-static inline u32 pri_ringstation_gpc_gpc0_priv_error_adr_r(void)
-{
-	return 0x00128120U;
-}
-static inline u32 pri_ringstation_gpc_gpc0_priv_error_wrdat_r(void)
-{
-	return 0x00128124U;
-}
-static inline u32 pri_ringstation_gpc_gpc0_priv_error_info_r(void)
-{
-	return 0x00128128U;
-}
-static inline u32 pri_ringstation_gpc_gpc0_priv_error_code_r(void)
-{
-	return 0x0012812cU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define pri_ringstation_gpc_master_config_r(i)\
+		(nvgpu_safe_add_u32(0x00128300U, nvgpu_safe_mult_u32((i), 4U)))
+#define pri_ringstation_gpc_gpc0_priv_error_adr_r()                (0x00128120U)
+#define pri_ringstation_gpc_gpc0_priv_error_wrdat_r()              (0x00128124U)
+#define pri_ringstation_gpc_gpc0_priv_error_info_r()               (0x00128128U)
+#define pri_ringstation_gpc_gpc0_priv_error_code_r()               (0x0012812cU)
 #endif

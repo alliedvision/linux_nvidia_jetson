@@ -1140,22 +1140,13 @@ static int udpsocket_send(char *tx_msg, int msg_size)
 		iov.iov_len = msg_size;
 		udpmsg.msg_name = &btrtl_coex.wifi_addr;
 		udpmsg.msg_namelen = sizeof(struct sockaddr_in);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
-		udpmsg.msg_iov = &iov;
-		udpmsg.msg_iovlen = 1;
-#else
 		iov_iter_init(&udpmsg.msg_iter, WRITE, &iov, 1, msg_size);
-#endif
 		udpmsg.msg_control = NULL;
 		udpmsg.msg_controllen = 0;
 		udpmsg.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL;
 		oldfs = get_fs();
 		set_fs(KERNEL_DS);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
-		error = sock_sendmsg(btrtl_coex.udpsock, &udpmsg, msg_size);
-#else
 		error = sock_sendmsg(btrtl_coex.udpsock, &udpmsg);
-#endif
 		set_fs(oldfs);
 
 		if (error < 0)
@@ -1276,11 +1267,7 @@ static void udpsocket_recv_data(void)
 	spin_unlock(&btrtl_coex.spin_lock_sock);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 15, 0)
-static void udpsocket_recv(struct sock *sk, int bytes)
-#else
 static void udpsocket_recv(struct sock *sk)
-#endif
 {
 	spin_lock(&btrtl_coex.spin_lock_sock);
 	btrtl_coex.sk = sk;

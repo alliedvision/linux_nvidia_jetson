@@ -36,83 +36,47 @@
 
 #if (RTL8822C_SUPPORT == 1)
 
-void _halrf_dc_offset_calibration_8822c(
-	void *dm_void)
+void _backup_bb_registers_8822c(
+	void *dm_void,
+	u32 *reg,
+	u32 *reg_backup,
+	u32 reg_num)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
-	u32 reg = 0;
+	u32 i;
 
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>_halrf_dc_offset_calibration_8822c\n");
+	for (i = 0; i < reg_num; i++) {
+		reg_backup[i] = odm_get_bb_reg(dm, reg[i], MASKDWORD);
 
-	/*path s0*/
-	odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
-	odm_set_bb_reg(dm, R_0x900, 0x0f000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x30000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0xc0000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x00000001, 0x1);
-	odm_set_bb_reg(dm, R_0x900, 0x00000002, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x00000004, 0x0);
-	odm_set_bb_reg(dm, R_0x9b0, 0x00000003, 0x0);
-	odm_set_bb_reg(dm, R_0x9b0, 0x00000f00, 0x0);
-	odm_set_bb_reg(dm, R_0x1eb4, 0x000fffff, 0x0);
-	odm_set_bb_reg(dm, R_0x9b8, 0xffff0000, 0x80);
-	odm_set_bb_reg(dm, R_0xa58, 0x003f8000, 0x13);
-	odm_set_bb_reg(dm, R_0x908, 0x00ffffff, 0x020d2b);
-	odm_set_bb_reg(dm, R_0x90c, 0x00ffffff, 0x040007);
-	odm_set_bb_reg(dm, R_0x910, 0x00ffffff, 0x029007);
-	odm_set_rf_reg(dm, RF_PATH_A, RF_0xde, 0x10000, 0x1);
-	odm_set_rf_reg(dm, RF_PATH_A, RF_0x56, 0x00fff, 0xc00);
-	odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x4);
-	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x881);
-
-	reg = odm_get_bb_reg(dm, R_0x2dbc, 0x00000fff);
-	reg = (1024 - ((reg >> 2) & 0x000003ff)) & 0x000003ff;
-	odm_set_bb_reg(dm, R_0x189c, 0x0003ff00, reg);
-
-	odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
-	odm_set_rf_reg(dm, RF_PATH_A, RF_0xde, 0x10000, 0x0);
-	odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
-
-	/*path s1*/
-	odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
-	odm_set_bb_reg(dm, R_0x900, 0x0f000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x30000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0xc0000000, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x00000001, 0x1);
-	odm_set_bb_reg(dm, R_0x900, 0x00000002, 0x0);
-	odm_set_bb_reg(dm, R_0x900, 0x00000004, 0x0);
-	odm_set_bb_reg(dm, R_0x9b0, 0x00000003, 0x0);
-	odm_set_bb_reg(dm, R_0x9b0, 0x00000f00, 0x0);
-	odm_set_bb_reg(dm, R_0x1eb4, 0x000fffff, 0x0);
-	odm_set_bb_reg(dm, R_0x9b8, 0xffff0000, 0x80);
-	odm_set_bb_reg(dm, R_0xa58, 0x003f8000, 0x13);
-	odm_set_bb_reg(dm, R_0x908, 0x00ffffff, 0x020d2b);
-	odm_set_bb_reg(dm, R_0x90c, 0x00ffffff, 0x040007);
-	odm_set_bb_reg(dm, R_0x910, 0x00ffffff, 0x029007);
-	odm_set_rf_reg(dm, RF_PATH_B, RF_0xde, 0x10000, 0x1);
-	odm_set_rf_reg(dm, RF_PATH_B, RF_0x56, 0x00fff, 0xc00);
-	odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x4);
-	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0xa81);
-
-	reg = odm_get_bb_reg(dm, R_0x2dbc, 0x00000fff);
-	reg = (1024 - ((reg >> 2) & 0x000003ff)) & 0x000003ff;
-	odm_set_bb_reg(dm, R_0x419c, 0x0003ff00, reg);
-
-	odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
-	odm_set_rf_reg(dm, RF_PATH_B, RF_0xde, 0x10000, 0x0);
-	odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
-#endif
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Backup BB 0x%x = 0x%x\n",
+		       reg[i], reg_backup[i]);
+	}
 }
+
+void _reload_bb_registers_8822c(
+	void *dm_void,
+	u32 *reg,
+	u32 *reg_backup,
+	u32 reg_num)
+
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	u32 i;
+
+	for (i = 0; i < reg_num; i++) {
+		odm_set_bb_reg(dm, reg[i], MASKDWORD, reg_backup[i]);
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Reload BB 0x%x = 0x%x\n",
+		       reg[i], reg_backup[i]);
+	}
+}
+
+
 
 u8 _halrf_driver_rate_to_tssi_rate_8822c(
 	void *dm_void, u8 rate)
 {
 	u8 tssi_rate = 0;
-#if 0
+
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
 	if (rate == MGN_1M)
@@ -144,7 +108,7 @@ u8 _halrf_driver_rate_to_tssi_rate_8822c(
 	else
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 		       "===>%s not exit tx rate\n", __func__);
-#endif
+
 	return tssi_rate;
 }
 
@@ -152,7 +116,7 @@ u8 _halrf_tssi_rate_to_driver_rate_8822c(
 	void *dm_void, u8 rate)
 {
 	u8 driver_rate = 0;
-#if 0
+
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
 	if (rate == 0)
@@ -184,7 +148,7 @@ u8 _halrf_tssi_rate_to_driver_rate_8822c(
 	else
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 		       "===>%s not exit tx rate\n", __func__);
-#endif
+
 	return driver_rate;
 }
 
@@ -209,74 +173,63 @@ void _halrf_calculate_txagc_codeword_8822c(
 #endif
 }
 
-s8 _halrf_get_efuse_tssi_offset_8822c(
-	void *dm_void, u8 rate)
+u32 _halrf_get_efuse_tssi_offset_8822c(
+	void *dm_void, u8 path)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 	u8 channel = *dm->channel;
-	s8 offset = 0;
+	u32 offset = 0;
 	u32 offset_index = 0;
-	//u8 bandwidth = *dm->band_width;
-	//u8 rate = phydm_get_tx_rate(dm);
+	/*u8 bandwidth = *dm->band_width;*/
 
-	if (rate >= 0 && rate <= 3) {
-		if (channel >= 1 && channel <= 2)
-			offset_index = 0;
-		else if (channel >= 3 && channel <= 5)
-			offset_index = 1;
-		else if (channel >= 6 && channel <= 8)
-			offset_index = 2;
-		else if (channel >= 9 && channel <= 11)
-			offset_index = 3;
-		else if (channel >= 12 && channel <= 13)
-			offset_index = 4;
-		else if (channel == 14)
-			offset_index = 5;
-	} else {
-		if (channel >= 1 && channel <= 2)
-			offset_index = 6;
-		else if (channel >= 3 && channel <= 5)
-			offset_index = 7;
-		else if (channel >= 6 && channel <= 8)
-			offset_index = 8;
-		else if (channel >= 9 && channel <= 11)
-			offset_index = 9;
-		else if (channel >= 12 && channel <= 14)
-			offset_index = 10;
-		else if (channel >= 36 && channel <= 40)
-			offset_index = 11;
-		else if (channel >= 44 && channel <= 48)
-			offset_index = 12;
-		else if (channel >= 52 && channel <= 56)
-			offset_index = 13;
-		else if (channel >= 60 && channel <= 64)
-			offset_index = 14;
-		else if (channel >= 100 && channel <= 104)
-			offset_index = 15;
-		else if (channel >= 108 && channel <= 112)
-			offset_index = 16;
-		else if (channel >= 116 && channel <= 120)
-			offset_index = 17;
-		else if (channel >= 124 && channel <= 128)
-			offset_index = 18;
-		else if (channel >= 132 && channel <= 136)
-			offset_index = 19;
-		else if (channel >= 140 && channel <= 144)
-			offset_index = 20;
-		else if (channel >= 149 && channel <= 153)
-			offset_index = 21;
-		else if (channel >= 157 && channel <= 161)
-			offset_index = 22;
-		else if (channel >= 165 && channel <= 169)
-			offset_index = 23;
-		else if (channel >= 173 && channel <= 177)
-			offset_index = 24;
+	if (channel >= 1 && channel <= 2)
+		offset_index = 6;
+	else if (channel >= 3 && channel <= 5)
+		offset_index = 7;
+	else if (channel >= 6 && channel <= 8)
+		offset_index = 8;
+	else if (channel >= 9 && channel <= 11)
+		offset_index = 9;
+	else if (channel >= 12 && channel <= 14)
+		offset_index = 10;
+	else if (channel >= 36 && channel <= 40)
+		offset_index = 11;
+	else if (channel >= 42 && channel <= 48)
+		offset_index = 12;
+	else if (channel >= 50 && channel <= 58)
+		offset_index = 13;
+	else if (channel >= 60 && channel <= 64)
+		offset_index = 14;
+	else if (channel >= 100 && channel <= 104)
+		offset_index = 15;
+	else if (channel >= 106 && channel <= 112)
+		offset_index = 16;
+	else if (channel >= 114 && channel <= 120)
+		offset_index = 17;
+	else if (channel >= 122 && channel <= 128)
+		offset_index = 18;
+	else if (channel >= 130 && channel <= 136)
+		offset_index = 19;
+	else if (channel >= 138 && channel <= 144)
+		offset_index = 20;
+	else if (channel >= 149 && channel <= 153)
+		offset_index = 21;
+	else if (channel >= 155 && channel <= 161)
+		offset_index = 22;
+	else if (channel >= 163 && channel <= 169)
+		offset_index = 23;
+	else if (channel >= 171 && channel <= 177)
+		offset_index = 24;
 
-	}
+	offset = (u32)tssi->tssi_efuse[path][offset_index];
 
-	return offset = tssi->tssi_efuse[0][offset_index];
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"=====>%s channel=%d offset_index(Chn Group)=%d offset=%d\n",
+		__func__, channel, offset_index, offset);
+
+	return offset;
 }
 
 s8 _halrf_get_kfree_tssi_offset_8822c(
@@ -302,141 +255,109 @@ s8 _halrf_get_kfree_tssi_offset_8822c(
 }
 
 
-void _halrf_calculate_tssi_codeword_8822c(
+void halrf_calculate_tssi_codeword_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	
+	u8 i, rate;
+	u8 channel = *dm->channel, bandwidth = *dm->band_width;
+	/*u32 big_a, small_a;*/
+	u32 slope = 8440;
+	s32 samll_b = 64, db_temp;
+	/*u32 big_a_reg[2] = {0x18a8, 0x1eec};*/
+	/*u32 big_a_bit_mask[2] = {0x7ffc, 0x1fff};*/
 
-	u8 i, band, base_rate_power = 0, base_rate_index = 0, rate_index = 0, base_mcs = 0;
-	s8 diff_base_pwr, diff_pwr;
-	u8 channel = *dm->channel, bandwidth = *dm->band_width, tssi_slope;
-
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s channel=%d bandwidth=%d\n", __func__, channel, bandwidth);
-
-	if (channel >= 1 && channel <= 14) {
-		band = BAND_ON_2_4G;
-		tssi_slope = TSSI_SLOPE_2G;
-	} else {
-		band = BAND_ON_5G;
-		tssi_slope = TSSI_SLOPE_5G;
+#if 0	
+	big_a = odm_get_bb_reg(dm, 0x18a8, 0x7ffc);
+	
+	if (big_a == 0) {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "======>%s big_a = %d rf_path=%d return !!!\n",
+		       __func__, big_a, RF_PATH_A);
+		return;
 	}
-
+	
+	big_a = (big_a * 100) / 128;		/* 100 * big_a */
+	small_a = 434295 / big_a;		/* 1000 * small_a */
+	slope = 1000000 / small_a;			/* 1000 * slope */
+	
 	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s CCK=%d OFDM=%d MCS7=%d VHTMCS7=%d\n",
-	       __func__,
-	       phydm_get_tx_power_by_rate_base(dm, band,
-					RF_PATH_A, RF_1TX, CCK),
-	       phydm_get_tx_power_by_rate_base(dm, band,
-					RF_PATH_A, RF_1TX, OFDM),
-	       phydm_get_tx_power_by_rate_base(dm, band,
-					RF_PATH_A, RF_1TX, HT_MCS0_MCS7),
-	       phydm_get_tx_power_by_rate_base(dm, band,
-					RF_PATH_A, RF_1TX, VHT_1SSMCS0_1SSMCS9)
-	       );
-
+	       "======>%s 0x18a8[14:2] = 0x%x(%d) 100*big_a(%d) = 0x18a8[14:2] / 128 path=%d\n",
+	       __func__, odm_get_bb_reg(dm, 0x18a8, 0x7ffc),
+	       odm_get_bb_reg(dm, 0x18a8, 0x7ffc), big_a, RF_PATH_A);
+	
 	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s base rate drff  MCS7=%d MCS6=%d MCS5=%d MCS4=%d\n",
-	       __func__,
-	       odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS7, bandwidth, channel),
-	       odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS6, bandwidth, channel),
-	       odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS5, bandwidth, channel),
-	       odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS4, bandwidth, channel)
-	       );
-
-	base_mcs = phydm_get_tx_power_by_rate_base(dm, band,
-					RF_PATH_A, RF_1TX, HT_MCS0_MCS7) / POWER_INDEX_DIFF;
-
+	       "1000 * small_a(%d) = 434295 / big_a(%d)  1000*slope(%d) = 1000000/small_a path=%d\n",
+	       small_a, big_a, slope, RF_PATH_A);
+#endif
 	for (i = 0; i < TSSI_CODE_NUM; i++) {
-		if (i >= 28 && i <= 43)
-			continue;
-		if (i >= 64 && i < TSSI_CODE_NUM)
-			continue;
-		
-		/*cck 1m ~ cck11m*/
-		if (i >= 0 && i <= 3) {
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, BAND_ON_2_4G,
-						RF_PATH_A, RF_1TX, CCK) / POWER_INDEX_DIFF;
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_11M, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
-		} else if (i >= 4 && i <= 11) { /*ofdm6m~ofdm54m*/
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, band,
-						RF_PATH_A, RF_1TX, OFDM) / POWER_INDEX_DIFF;
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_54M, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
-		} else if (i >= 12 && i <= 19) { /*mcs0~mcs7*/
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, band,
-						RF_PATH_A, RF_1TX, HT_MCS0_MCS7) / POWER_INDEX_DIFF;
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS7, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
-		} else if (i >= 20 && i <= 27) { /*mcs8~mcs15*/
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, band,
-						RF_PATH_A, RF_2TX, HT_MCS8_MCS15) / POWER_INDEX_DIFF;
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_MCS15, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
-		} else if (i >= 44 && i <= 53) { /*vhtmcs0~vhtmcs9*/
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, band,
-						RF_PATH_A, RF_1TX, VHT_1SSMCS0_1SSMCS9) / POWER_INDEX_DIFF;
-			
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_VHT1SS_MCS7, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
-		} else if (i >= 54 && i <= 63) { /*vht2mcs0~vht2mcs9*/
-			base_rate_power = phydm_get_tx_power_by_rate_base(dm, band,
-						RF_PATH_A, RF_2TX, VHT_2SSMCS0_2SSMCS9) / POWER_INDEX_DIFF;
-			
-			base_rate_index = odm_get_tx_power_index(dm, RF_PATH_A, MGN_VHT2SS_MCS7, bandwidth, channel);
-			rate_index = odm_get_tx_power_index(dm, RF_PATH_A, _halrf_tssi_rate_to_driver_rate_8822c(dm, i), bandwidth, channel);
+		rate = _halrf_tssi_rate_to_driver_rate_8822c(dm, i);
+		db_temp = (s32)phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 18) {
+					slope = 8000;
+					samll_b = 35;
+				}
+			}
+		} else {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8440;
+					samll_b = 64;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 7600;
+					samll_b = 78;
+				} else if (db_temp > 18) {
+					slope = 5400;
+					samll_b = 117;
+				}
+			}
 		}
 
-		diff_base_pwr = base_rate_power - base_mcs;
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "channel(%d),   %ddBm,   1000 * slope(%d),   samll_b(%d),   path=%d\n",
+		       channel, db_temp, slope, samll_b, RF_PATH_A);
 
-		diff_pwr = (rate_index - base_rate_index) / POWER_INDEX_DIFF;
-		tssi->tssi_codeword[i] = (base_mcs + diff_base_pwr + diff_pwr) * tssi_slope;
-		/*tssi->tssi_codeword[i] = tssi->tssi_codeword[i] + _halrf_get_efuse_tssi_offset_8822c(dm, i);*/
-		/*tssi->tssi_codeword[i] = tssi->tssi_codeword[i] + _halrf_get_kfree_tssi_offset_8822c(dm);*/
+		db_temp = db_temp * slope;
+		db_temp = db_temp / 1000 + samll_b;
 
-		if (((s16)tssi->tssi_codeword[i]) < 0)
+		if (db_temp < 0)
 			tssi->tssi_codeword[i] = 0;
-		else if (tssi->tssi_codeword[i] > 255)
-			tssi->tssi_codeword[i] = 255;
-
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s diff_base_pwr(%d) = base_rate_power(%d) - base_mcs(%d)\n",
-		       __func__, diff_base_pwr, base_rate_power, base_mcs);
-
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s diff_pwr(%d) = (rate_index(%d) - base_rate_index(%d)) / POWER_INDEX_DIFF(%d)\n",
-		       __func__, diff_pwr, rate_index, base_rate_index, POWER_INDEX_DIFF);
-
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s tssi->tssi_codeword[%d]=0x%x = (base_mcs(%d) + diff_base_pwr(%d) + diff_pwr(%d)) * tssi_slope(%d)\n\n",
-		       __func__, i, tssi->tssi_codeword[i], base_mcs, diff_base_pwr, diff_pwr, tssi_slope);
+		else if (db_temp > 0xff)
+			tssi->tssi_codeword[i] = 0xff;
+		else
+			tssi->tssi_codeword[i] = (u16)(db_temp);
+	
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "phydm_get_tx_power_dbm = %d, rate=0x%x(%d) bandwidth=%d channel=%d rf_path=%d\n",
+			phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel),
+			rate, rate, bandwidth, channel, RF_PATH_A);
+	
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "tssi_codeword[%d] = 0x%x(%d)\n",
+			i, tssi->tssi_codeword[i], tssi->tssi_codeword[i]);
 	}
 
-	for (i = 28; i <= 35; i++)
-		tssi->tssi_codeword[i] = tssi->tssi_codeword[i - 8];
-
-	for (i = 36; i <= 43; i++)
-		tssi->tssi_codeword[i] = tssi->tssi_codeword[i - 16];
-
-	for (i = 64; i <= 73; i++) 
-		tssi->tssi_codeword[i] = tssi->tssi_codeword[i - 10];
-
-	for (i = 74; i <= 83; i++)
-		tssi->tssi_codeword[i] = tssi->tssi_codeword[i - 20];
-#endif
 }
-
-
-
 
 void _halrf_calculate_set_thermal_codeword_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct dm_rf_calibration_struct *cali_info = &(dm->rf_calibrate_info);
 	struct _hal_rf_ *rf = &dm->rf_table;
@@ -445,7 +366,7 @@ void _halrf_calculate_set_thermal_codeword_8822c(
 	u8 channel = *dm->channel, i, thermal;
 	s8 j;
 	u8 rate = phydm_get_tx_rate(dm);
-	u32 thermal_offset_tmp = 0, thermal_offset_index = 0x10, thermal_tmp;
+	u32 thermal_offset_tmp = 0, thermal_offset_index = 0x10, thermal_tmp = 0xff, tmp;
 	s8 thermal_offset[64] = {0};
 	u8 thermal_up_a[DELTA_SWINGIDX_SIZE] = {0}, thermal_down_a[DELTA_SWINGIDX_SIZE] = {0};
 	u8 thermal_up_b[DELTA_SWINGIDX_SIZE] = {0}, thermal_down_b[DELTA_SWINGIDX_SIZE] = {0};
@@ -453,26 +374,37 @@ void _halrf_calculate_set_thermal_codeword_8822c(
 	tssi->thermal[RF_PATH_A] = 0xff;
 	tssi->thermal[RF_PATH_B] = 0xff;
 
-	/*path s0*/
-	odm_efuse_logical_map_read(dm, 1, 0xd0, &thermal_tmp);
-	thermal = (u8)thermal_tmp;
+	if (cali_info->txpowertrack_control == 4) {
+		tmp = thermal_offset_index;
+		i = 0;
+		while (i < 64) {
+			thermal_offset_tmp = 0;
+			for (j = 0; j < 23; j = j + 6)
+				thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
 
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s channel=%d thermal pahtA=0x%x\n", __func__, channel, thermal);
+			thermal_offset_tmp = thermal_offset_tmp | ((tmp++ & 0xff) << 24);
 
-	if (thermal == 0xff) {
-		/*thermal = 0x20;*/
+			odm_set_bb_reg(dm, 0x18f4, MASKDWORD, thermal_offset_tmp);
+			odm_set_bb_reg(dm, 0x41f4, MASKDWORD, thermal_offset_tmp);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "===>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x18f4, thermal_offset_tmp);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "===>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x41f4, thermal_offset_tmp);
+		}
+
+		odm_set_bb_reg(dm, R_0x1c20, 0x000fc000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, 0x0);
+
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s thermal=0x%x return!!!\n", __func__, thermal);
+		       "======>%s TSSI Calibration Mode Set Thermal Table == 0 return!!!\n", __func__);
 		return;
 	}
 
-	tssi->thermal[RF_PATH_A] = thermal;
-
-	/*path s0*/
-	odm_set_bb_reg(dm, R_0x1c20, 0x000fc000, (thermal & 0x3f));
-
-	if (rate == MGN_1M || rate == MGN_2M || rate == MGN_5_5M || rate == MGN_11M) {
+	if (rate == ODM_MGN_1M || rate == ODM_MGN_2M || rate == ODM_MGN_5_5M || rate == ODM_MGN_11M) {
 		odm_move_memory(dm, thermal_up_a, cali_info->delta_swing_table_idx_2g_cck_a_p, sizeof(thermal_up_a));
 		odm_move_memory(dm, thermal_down_a, cali_info->delta_swing_table_idx_2g_cck_a_n, sizeof(thermal_down_a));
 		odm_move_memory(dm, thermal_up_b, cali_info->delta_swing_table_idx_2g_cck_b_p, sizeof(thermal_up_b));
@@ -500,108 +432,163 @@ void _halrf_calculate_set_thermal_codeword_8822c(
 	}
 
 	/*path s0*/
-	i = 0;
-	for (j = thermal; j >= 0; j--) {
-		if (i < DELTA_SWINGIDX_SIZE)
-			thermal_offset[j] = thermal_down_a[i++];
-		else
-			thermal_offset[j] = thermal_down_a[DELTA_SWINGIDX_SIZE - 1];
-	}
+	odm_efuse_logical_map_read(dm, 1, 0xd0, &thermal_tmp);
 
-	i = 0;
-	for (j = thermal; j < 64; j++) {
-		if (i < DELTA_SWINGIDX_SIZE)
-			thermal_offset[j] = -1 * thermal_up_a[i++];
-		else
-			thermal_offset[j] = -1 * thermal_up_a[DELTA_SWINGIDX_SIZE - 1];
-	}
-
-	for (i = 0; i < 64; i = i + 4) {
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s thermal_offset[%.2d]=%.2x %.2x %.2x %.2x\n",
-		       __func__, i, thermal_offset[i] & 0xff, thermal_offset[i + 1] & 0xff,
-		       thermal_offset[i + 2] & 0xff, thermal_offset[i + 3] & 0xff);
-	}
-
-	i = 0;
-	while (i < 64) {
-		thermal_offset_tmp = 0;
-		for (j = 0; j < 23; j = j + 6)
-			thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
-
-		thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset_index++ & 0xff) << 24);
-
-		odm_set_bb_reg(dm, 0x18f4, MASKDWORD, thermal_offset_tmp);
-
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s write addr:0x%x value=0x%08x\n",
-		       __func__, 0x18f4, thermal_offset_tmp);
-	}
-
-
-
-	/*path s1*/
-	odm_efuse_logical_map_read(dm, 1, 0xd1, &thermal_tmp);
 	thermal = (u8)thermal_tmp;
 
 	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s channel=%d thermal pahtB=0x%x\n", __func__, channel, thermal);
+	       "======>%s channel=%d thermal_pahtA=0x%x cali_info->txpowertrack_control=%d\n",
+	       __func__, channel, thermal, cali_info->txpowertrack_control);
 
 	if (thermal == 0xff) {
-		/*thermal = 0x20;*/
+		tmp = thermal_offset_index;
+		i = 0;
+		while (i < 64) {
+			thermal_offset_tmp = 0;
+			for (j = 0; j < 23; j = j + 6)
+				thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
+
+			thermal_offset_tmp = thermal_offset_tmp | ((tmp++ & 0xff) << 24);
+
+			odm_set_bb_reg(dm, 0x18f4, MASKDWORD, thermal_offset_tmp);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "===>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x18f4, thermal_offset_tmp);
+		}
+
+		odm_set_bb_reg(dm, R_0x1c20, 0x000fc000, 0x0);
+
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s thermal=0x%x return!!!\n", __func__, thermal);
-		return;
+		       "======>%s thermal A=0x%x!!!\n", __func__, thermal);
+	}
+
+	tssi->thermal[RF_PATH_A] = thermal;
+
+	if (thermal != 0xff) {
+		odm_set_bb_reg(dm, R_0x1c20, 0x000fc000, (thermal & 0x3f));
+
+		i = 0;
+		for (j = thermal; j >= 0; j--) {
+			if (i < DELTA_SWINGIDX_SIZE)
+				thermal_offset[j] = thermal_down_a[i++];
+			else
+				thermal_offset[j] = thermal_down_a[DELTA_SWINGIDX_SIZE - 1];
+		}
+
+		i = 0;
+		for (j = thermal; j < 64; j++) {
+			if (i < DELTA_SWINGIDX_SIZE)
+				thermal_offset[j] = -1 * thermal_up_a[i++];
+			else
+				thermal_offset[j] = -1 * thermal_up_a[DELTA_SWINGIDX_SIZE - 1];
+		}
+
+		for (i = 0; i < 64; i = i + 4) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "======>%s thermal_offset[%.2d]=%.2x %.2x %.2x %.2x\n",
+			       __func__, i, thermal_offset[i] & 0xff, thermal_offset[i + 1] & 0xff,
+			       thermal_offset[i + 2] & 0xff, thermal_offset[i + 3] & 0xff);
+		}
+
+		tmp = thermal_offset_index;
+		i = 0;
+		while (i < 64) {
+			thermal_offset_tmp = 0;
+			for (j = 0; j < 23; j = j + 6)
+				thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
+
+			thermal_offset_tmp = thermal_offset_tmp | ((tmp++ & 0xff) << 24);
+
+			odm_set_bb_reg(dm, 0x18f4, MASKDWORD, thermal_offset_tmp);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "======>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x18f4, thermal_offset_tmp);
+		}
+	} else 
+		odm_set_bb_reg(dm, R_0x1c20, 0x000fc000, 0x0);
+
+
+	/*path s1*/
+	odm_memory_set(dm, thermal_offset, 0, sizeof(thermal_offset));
+	odm_efuse_logical_map_read(dm, 1, 0xd1, &thermal_tmp);
+
+	thermal = (u8)thermal_tmp;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+	       "======>%s channel=%d thermal pahtB=0x%x cali_info->txpowertrack_control=%d\n",
+	       __func__, channel, thermal, cali_info->txpowertrack_control);
+
+	if (thermal == 0xff) {
+		tmp = thermal_offset_index;
+		i = 0;
+		while (i < 64) {
+			thermal_offset_tmp = 0;
+			for (j = 0; j < 23; j = j + 6)
+				thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
+
+			thermal_offset_tmp = thermal_offset_tmp | ((tmp++ & 0xff) << 24);
+
+			odm_set_bb_reg(dm, 0x41f4, MASKDWORD, thermal_offset_tmp);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "===>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x41f4, thermal_offset_tmp);
+		}
+
+		odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, 0x0);
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "======>%s thermal=0x%x return!!!\n", __func__, thermal);
 	}
 
 	tssi->thermal[RF_PATH_B] = thermal;
 
-	/*path s1*/
-	odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, (thermal & 0x3f));
+	if (thermal != 0xff) {
+		odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, (thermal & 0x3f));
 
-	/*path s1*/
-	i = 0;
-	for (j = thermal; j >= 0; j--) {
-		if (i < DELTA_SWINGIDX_SIZE)
-			thermal_offset[j] = thermal_down_b[i++];
-		else
-			thermal_offset[j] = thermal_down_b[DELTA_SWINGIDX_SIZE - 1];
-	}
+		i = 0;
+		for (j = thermal; j >= 0; j--) {
+			if (i < DELTA_SWINGIDX_SIZE)
+				thermal_offset[j] = thermal_down_b[i++];
+			else
+				thermal_offset[j] = thermal_down_b[DELTA_SWINGIDX_SIZE - 1];
+		}
 
-	i = 0;
-	for (j = thermal; j < 64; j++) {
-		if (i < DELTA_SWINGIDX_SIZE)
-			thermal_offset[j] = -1 * thermal_up_b[i++];
-		else
-			thermal_offset[j] = -1 * thermal_up_b[DELTA_SWINGIDX_SIZE - 1];
-	}
+		i = 0;
+		for (j = thermal; j < 64; j++) {
+			if (i < DELTA_SWINGIDX_SIZE)
+				thermal_offset[j] = -1 * thermal_up_b[i++];
+			else
+				thermal_offset[j] = -1 * thermal_up_b[DELTA_SWINGIDX_SIZE - 1];
+		}
 
-	for (i = 0; i < 64; i = i + 4) {
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s thermal_offset[%.2d]=%.2x %.2x %.2x %.2x\n",
-		       __func__, i, thermal_offset[i] & 0xff, thermal_offset[i + 1] & 0xff,
-		       thermal_offset[i + 2] & 0xff, thermal_offset[i + 3] & 0xff);
-	}
+		for (i = 0; i < 64; i = i + 4) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "======>%s thermal_offset[%.2d]=%.2x %.2x %.2x %.2x\n",
+			       __func__, i, thermal_offset[i] & 0xff, thermal_offset[i + 1] & 0xff,
+			       thermal_offset[i + 2] & 0xff, thermal_offset[i + 3] & 0xff);
+		}
 
-	thermal_offset_index = 0x10;
-	i = 0;
-	while (i < 64) {
-		thermal_offset_tmp = 0;
-		for (j = 0; j < 23; j = j + 6)
-			thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
+		tmp = thermal_offset_index;
+		i = 0;
+		while (i < 64) {
+			thermal_offset_tmp = 0;
+			for (j = 0; j < 23; j = j + 6)
+				thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset[i++] & 0x3f) << j);
 
-		thermal_offset_tmp = thermal_offset_tmp | ((thermal_offset_index++ & 0xff) << 24);
+			thermal_offset_tmp = thermal_offset_tmp | ((tmp++ & 0xff) << 24);
 
-		odm_set_bb_reg(dm, 0x41f4, MASKDWORD, thermal_offset_tmp);
+			odm_set_bb_reg(dm, 0x41f4, MASKDWORD, thermal_offset_tmp);
 
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s write addr:0x%x value=0x%08x\n",
-		       __func__, 0x41f4, thermal_offset_tmp);
-	}
-#endif
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "======>%s write addr:0x%x value=0x%08x\n",
+			       __func__, 0x41f4, thermal_offset_tmp);
+		}
+	} else
+		odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, 0x0);
 }
-
-
 
 void _halrf_set_txagc_codeword_8822c(
 	void *dm_void, s16 *tssi_value)
@@ -626,10 +613,9 @@ void _halrf_set_txagc_codeword_8822c(
 #endif
 }
 
-void _halrf_set_tssi_codeword_8822c(
+void halrf_set_tssi_codeword_8822c(
 	void *dm_void, u16 *tssi_value)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	u32 i, j, k = 0, tssi_value_tmp;
 
@@ -646,7 +632,6 @@ void _halrf_set_tssi_codeword_8822c(
 		       "===>%s write addr:0x%x value=0x%08x\n",
 		       __func__, i, tssi_value_tmp);
 	}
-#endif
 }
 
 void _halrf_set_efuse_kfree_offset_8822c(
@@ -705,18 +690,471 @@ void _halrf_set_efuse_kfree_offset_8822c(
 void _halrf_tssi_init_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 
 	_halrf_calculate_set_thermal_codeword_8822c(dm);
-	_halrf_calculate_tssi_codeword_8822c(dm);
-	_halrf_calculate_txagc_codeword_8822c(dm, tssi->tssi_codeword, tssi->txagc_codeword);
-	_halrf_set_txagc_codeword_8822c(dm, tssi->txagc_codeword);
-	_halrf_set_tssi_codeword_8822c(dm, tssi->tssi_codeword);
-	_halrf_set_efuse_kfree_offset_8822c(dm);
-#endif
+	halrf_calculate_tssi_codeword_8822c(dm);
+	/*_halrf_calculate_txagc_codeword_8822c(dm, tssi->tssi_codeword, tssi->txagc_codeword);*/
+	/*_halrf_set_txagc_codeword_8822c(dm, tssi->txagc_codeword);*/
+	halrf_set_tssi_codeword_8822c(dm, tssi->tssi_codeword);
+	/*_halrf_set_efuse_kfree_offset_8822c(dm);*/
+}
+
+void _halrf_tssi_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel;
+
+	/*path s0*/
+	if (channel >= 1 && channel <= 14) {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);*/
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c24, 0x07f80000, 0x20);
+		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
+		odm_set_bb_reg(dm, R_0x18ec, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1880, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
+		odm_set_bb_reg(dm, R_0x18a8, 0x00ff8000, 0x000);
+		odm_set_bb_reg(dm, R_0x1880, 0x7fc00000, 0x000);
+		/*odm_set_bb_reg(dm, R_0x18a8, 0xff000000, 0x00);*/
+		/*odm_set_bb_reg(dm, R_0x18e8, 0x01fe0000, 0x00);*/
+		odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x110);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00002, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x0000c, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x000c0, 0x0);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6e, 0x001e0, 0x0);
+		odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1800, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1804, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
+		odm_set_bb_reg(dm, R_0x1800, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1804, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18ec, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18ec, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x18a0, 0x0000007f, 0x00);
+		odm_set_bb_reg(dm, R_0x1ea4, 0x04000000, 0x1);
+	} else {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x2);*/
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c24, 0x07f80000, 0x20);
+		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0); //??????????
+		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
+		odm_set_bb_reg(dm, R_0x1880, 0x80000000, 0x1);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 36 && channel <= 64)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1ab0);
+			else if (channel >= 100 && channel <= 144)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1b50);
+			else if  (channel >= 149 && channel <= 177)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1ce0);
+		} else
+			odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
+
+		odm_set_bb_reg(dm, R_0x18a8, 0x00ff8000, 0x000);
+		/*odm_set_bb_reg(dm, R_0x18a8, 0xff000000, 0x00);*/
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x100);
+		else
+			odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x110);
+
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00100, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00003, 0x3);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x3);
+		else
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x2);
+
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x001e0, 0x0);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x00004, 0x1);
+
+		odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1800, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1804, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
+		odm_set_bb_reg(dm, R_0x1800, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1804, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18ec, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18ec, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x18a0, 0x0000007f, 0x00);
+		odm_set_bb_reg(dm, R_0x1ea4, 0x04000000, 0x1);
+	}
+
+	/*path s1*/
+	if (channel >= 1 && channel <= 14) {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);*/
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
+		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
+		odm_set_bb_reg(dm, R_0x41ec, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4180, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
+		odm_set_bb_reg(dm, R_0x1eec, 0x003fe000, 0x000);
+		odm_set_bb_reg(dm, R_0x4180, 0x7fc00000, 0x000);
+		/*odm_set_bb_reg(dm, R_0x1eec, 0x3fc00000, 0x00);*/
+		/*odm_set_bb_reg(dm, R_0x41e8, 0x01fe0000, 0x00);*/
+		odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x110);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00002, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x0000c, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x000c0, 0x0);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x6e, 0x001e0, 0x0);
+		odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4100, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4104, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4100, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x4104, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41ec, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41ec, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x1ea4, 0x04000000, 0x1);
+		/*odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, 0x26);*/
+	} else {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x2);*/
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
+		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);	
+		odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);	//??????????
+		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
+		odm_set_bb_reg(dm, R_0x4180, 0x80000000, 0x1);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 36 && channel <= 64)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1bb0);
+			else if (channel >= 100 && channel <= 144)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1cf0);
+			else if  (channel >= 149 && channel <= 177)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1fe0);
+		} else
+			odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
+
+		odm_set_bb_reg(dm, R_0x1eec, 0x003fe000, 0x000);
+		/*odm_set_bb_reg(dm, R_0x1eec, 0x3fc00000, 0x00);*/
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x100);
+		else
+			odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x110);
+
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00100, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00003, 0x3);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00030, 0x3);
+		else
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00030, 0x2);
+
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x6f, 0x001e0, 0x0);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x6f, 0x00004, 0x1);
+
+		odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4100, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4104, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4100, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x4104, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41ec, 0x20000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41ec, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->connect_ch_num);
+		odm_set_bb_reg(dm, R_0x1ea4, 0x04000000, 0x1);
+		/*odm_set_bb_reg(dm, R_0x1c20, 0x03f00000, 0x26);*/
+	}
+}
+
+u32 _halrf_tssi_channel_to_index(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	u8 channel = *dm->channel;
+	u32 idx;
+
+	if (channel >= 1 && channel <= 14)
+		idx = channel - 1;
+	else if (channel >= 36 && channel <= 64)
+		idx = ((channel - 36) / 2) + 14;
+	else if (channel >= 100 && channel <= 144)
+		idx = ((channel - 100) / 2) + 29;
+	else if (channel >= 149 && channel <= 177)
+		idx = ((channel - 149) / 2) + 52;
+	else
+		idx = 0;
+
+	return idx;
+}
+
+void _halrf_tssi_scan_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel;
+
+	/*path s0*/
+	if (channel >= 1 && channel <= 14) {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0044);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x18ec, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1880, 0x7fc00000, 0x000);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00002, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x0000c, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x000c0, 0x0);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6e, 0x001e0, 0x0);
+	} else {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0042);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 36 && channel <= 64)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1ab0);
+			else if (channel >= 100 && channel <= 144)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1b50);
+			else if  (channel >= 149 && channel <= 177)
+				odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1ce0);
+		} else
+			odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
+			
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x100);
+		else
+			odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x110);
+
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00100, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00003, 0x3);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x3);
+		else
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x2);
+
+		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x001e0, 0x0);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x00004, 0x1);
+	}
+
+	/*path s1*/
+	if (channel >= 1 && channel <= 14) {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0044);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
+		odm_set_bb_reg(dm, R_0x41ec, 0x80000000, 0x1);
+		odm_set_bb_reg(dm, R_0x4180, 0x7fc00000, 0x000);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00002, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x0000c, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x000c0, 0x0);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x6e, 0x001e0, 0x0);
+	} else {
+		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0042);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
+		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 36 && channel <= 64)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1bb0);
+			else if (channel >= 100 && channel <= 144)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1cf0);
+			else if  (channel >= 149 && channel <= 177)
+				odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1fe0);
+		} else
+			odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
+
+		odm_set_bb_reg(dm, R_0x1eec, 0x003fe000, 0x000);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x100);
+		else
+			odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x110);
+
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00100, 0x1);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x65, 0x03000, 0x3);
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00003, 0x3);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00030, 0x3);
+		else
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x67, 0x00030, 0x2);
+
+		odm_set_rf_reg(dm, RF_PATH_B, RF_0x6f, 0x001e0, 0x0);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_rf_reg(dm, RF_PATH_B, RF_0x6f, 0x00004, 0x1);
+	}
 }
 
 void _halrf_thermal_init_8822c(
@@ -736,10 +1174,962 @@ void _halrf_thermal_init_8822c(
 #endif
 }
 
+void _halrf_tssi_reload_dck_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel, i;
+
+	u32 dc_offset[2] = {R_0x189c, R_0x419c};
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
+
+	for (i = 0; i < MAX_PATH_NUM_8822C; i++){
+		if (channel >= 1 && channel <= 14) {
+			odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, tssi->tssi_dck[0][i]);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Set TSSI DCK Offset 0x%x[17:8]=0x%x channel=%d\n",
+				dc_offset[i], tssi->tssi_dck[0][i], channel);
+		} else {
+			odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, tssi->tssi_dck[1][i]);
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Set TSSI DCK Offset 0x%x[17:8]=0x%x channel=%d\n",
+				dc_offset[i], tssi->tssi_dck[1][i], channel);
+		}
+	}
+	
+}
+
+void halrf_tssi_set_tssi_tx_counter_8822c(
+	void *dm_void, u8 special_scan_num, u8 connect_ch_num)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
+
+	tssi->special_scan_num = special_scan_num;
+	tssi->connect_ch_num = connect_ch_num;
+}
+
+void halrf_tssi_lps_get_txagc_offset_8822c(
+	void *dm_void, u8 *txagc_offset)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	u8 channel = *dm->channel;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s channel=%d\n",
+		__func__, channel);
+
+	/*s0*/
+	phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, 0x944);
+	txagc_offset[RF_PATH_A] = (u8)((phydm_get_bb_dbg_port_val(dm) & 0xff00) >> 8);
+	phydm_release_bb_dbg_port(dm);
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] S0 channel=%d txagc_offset=0x%x\n",
+		channel, txagc_offset[RF_PATH_A]);
+
+	/*s1*/
+	phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, 0xb44);
+	txagc_offset[RF_PATH_B] = (u8)((phydm_get_bb_dbg_port_val(dm) & 0xff00) >> 8);
+	phydm_release_bb_dbg_port(dm);
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] S1 channel=%d txagc_offset=0x%x\n",
+		channel, txagc_offset[RF_PATH_B]);
+}
+
+void halrf_tssi_dck_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	u8 channel = *dm->channel, i, j, k;
+
+	u32 reg = 0, dck_check;
+	s32 reg_tmp = 0;
+	u32 bb_reg[14] = {R_0x1800, R_0x4100, R_0x820, R_0x1e2c, R_0x1d08, 
+			R_0x1c3c, R_0x2dbc, R_0x1e70, R_0x18a4, R_0x41a4,
+			0x18a8, 0x1eec, R_0x18e8, R_0x1ef0};
+	u32 bb_reg_backup[14] = {0};
+	u32 backup_num = 14;
+
+	u32 tssi_setting[2] = {R_0x1830, R_0x4130};
+	u32 dc_offset[2] = {R_0x189c, R_0x419c};
+	u32 path_setting[2] = {R_0x1800, R_0x4100};
+	u32 tssi_counter[2] = {R_0x18a4, R_0x41a4};
+	u32 tssi_enalbe[2] = {R_0x180c, R_0x410c};
+	u32 debug_port[2] = {0x930, 0xb30};
+
+	u32 addr_d[2] = {0x18a8, 0x1eec};
+	u32 addr_d_bitmask[2] = {0xff000000, 0x3fc00000};
+	u32 addr_cck_d[2] = {R_0x18e8, R_0x1ef0};
+	u32 addr_cck_d_bitmask[2] = {0x01fe0000, 0x0001fe00};
+	u32 dck_check_min, dck_check_max;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s channel=%d\n",
+		__func__, channel);
+	
+	/*odm_acquire_spin_lock(dm, RT_IQK_SPINLOCK);*/
+	rf->is_tssi_in_progress = 1;
+
+	_backup_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+
+	for (i = 0; i < MAX_PATH_NUM_8822C; i++) {
+		odm_set_bb_reg(dm, addr_cck_d[i], addr_cck_d_bitmask[i], 0x0);
+		odm_set_bb_reg(dm, addr_d[i], addr_d_bitmask[i], 0x0);
+	}
+
+	_halrf_tssi_8822c(dm);
+
+	halrf_disable_tssi_8822c(dm);
+
+	for (i = 0; i < 2 ; i++){
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"[TSSI] ============== Path - %d ==============\n", i);
+
+		if (channel >= 1 && channel <= 14) {
+			for (k = 0; k < 3; k++) {
+				odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+
+				odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x1);
+				odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0xff);
+				odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x2);
+
+				/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);*/
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x700b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x701f0044);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x702f0044);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x703f0044);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x704f0044);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x705b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x706f0044);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x707b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x708b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x709b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70ab8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70bb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70cb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70db8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70eb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70fb8041);
+
+				odm_set_bb_reg(dm, tssi_counter[i], 0xe0000000, 0x0);
+				ODM_delay_us(200);
+				
+				odm_set_rf_reg(dm, i, RF_0x7f, 0x00002, 0x1);
+				odm_set_rf_reg(dm, i, RF_0x65, 0x03000, 0x3);
+				odm_set_rf_reg(dm, i, RF_0x67, 0x0000c, 0x3);
+				odm_set_rf_reg(dm, i, RF_0x67, 0x000c0, 0x0);
+				odm_set_rf_reg(dm, i, RF_0x6e, 0x001e0, 0x0);
+				
+				odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x1);
+				odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x1);
+				odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
+				odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x1);
+				//ODM_delay_us(100);
+				odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+				odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x3f);
+				odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x1);
+				odm_set_rf_reg(dm, i, RF_0x56, 0x000ff, 0x0);
+
+				btc_set_gnt_wl_bt_8822c(dm, true);
+
+				odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, 0xc00);
+				odm_set_bb_reg(dm, R_0x820, 0x00000003, i + 1);
+				odm_set_bb_reg(dm, R_0x1e2c, MASKDWORD, 0xe4e40000);
+				odm_set_bb_reg(dm, R_0x1e28, 0x0000000f, 0x3);
+				odm_set_bb_reg(dm, path_setting[i], 0x000fffff, 0x33312);
+				odm_set_bb_reg(dm, path_setting[i], 0x80000000, 0x1);
+
+				odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x1);
+				//ODM_delay_us(100);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+				//ODM_delay_us(100);
+				
+				/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+				phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);				
+				/*reg = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+				reg = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[9:0]=0x%x\n", reg);
+				phydm_release_bb_dbg_port(dm);
+
+				reg_tmp = reg;
+				reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 0;
+				odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+				
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x%x[17:8]=0x%x reg=0x%x\n",
+					dc_offset[i], odm_get_bb_reg(dm, dc_offset[i], 0x0003ff00), reg);
+				
+				for (j = 0; j < 3; j++) {
+					/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+					phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+					odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+					odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+					/*dck_check = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+					dck_check = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+					phydm_release_bb_dbg_port(dm);
+
+					if (dck_check < 0x1ff) {
+						if (reg >= 0x3fb)
+							reg = 0x3ff;
+						else
+							reg = reg + 4;
+						odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x < 0x1ff Set 0x%x retry=%d\n",
+							dck_check, reg, j);
+					} else if (dck_check > 0x202) {
+						if (reg <= 4)
+							reg = 0;
+						else
+							reg = reg - 4;
+						odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x > 0x202 Set 0x%x retry=%d\n",
+							dck_check, reg, j);
+					} else {
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x OK!!! retry=%d\n",
+							dck_check, j);
+						k = 3;
+						break;
+					}
+				}
+
+				btc_set_gnt_wl_bt_8822c(dm, false);
+			}
+#if 1
+			odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x0);
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x00002, 0x0);
+			ODM_delay_us(100);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+			ODM_delay_us(100);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			ODM_delay_us(100);
+
+#else
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x00);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x00002, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+			odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x0);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+#endif
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x0);
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0x0);
+			odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x0);
+
+		} else {
+			for (k = 0; k < 3; k++) {
+				odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+				/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x2);*/
+
+				odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x1);
+				odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0xff);
+				odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x2);
+
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x700b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x701f0042);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x702f0042);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x703f0042);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x704f0042);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x705b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x706f0042);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x707b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x708b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x709b8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70ab8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70bb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70cb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70db8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70eb8041);
+				odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70fb8041);
+
+
+				odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, 0x0);
+				
+				if (dm->rfe_type == 21 || dm->rfe_type == 22)
+					odm_set_bb_reg(dm, R_0x1c38, 0x00000018, 0x0);
+
+				odm_set_bb_reg(dm, R_0x820, 0x00000003, i + 1);
+				odm_set_bb_reg(dm, R_0x1e2c, MASKDWORD, 0xe4e40000);
+				odm_set_bb_reg(dm, R_0x1e28, 0x0000000f, 0x3);
+				odm_set_bb_reg(dm, path_setting[i], 0x000fffff, 0x33312);
+				odm_set_bb_reg(dm, path_setting[i], 0x80000000, 0x1);
+				odm_set_bb_reg(dm, tssi_counter[i], 0xe0000000, 0x0);
+				ODM_delay_us(200);
+				odm_set_rf_reg(dm, i, RF_0x7f, 0x100, 0x1);
+				odm_set_rf_reg(dm, i, RF_0x65, 0x03000, 0x3);
+				odm_set_rf_reg(dm, i, RF_0x67, 0x00003, 0x3);
+
+				if (dm->rfe_type == 21 || dm->rfe_type == 22)
+					odm_set_rf_reg(dm, i, RF_0x67, 0x00030, 0x3);
+				else
+					odm_set_rf_reg(dm, i, RF_0x67, 0x00030, 0x2);
+
+				odm_set_rf_reg(dm, i, RF_0x6f, 0x001e0, 0x0);
+
+				if (dm->rfe_type == 21 || dm->rfe_type == 22)
+					odm_set_rf_reg(dm, i, RF_0x6f, 0x00004, 0x0);
+		
+				odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x1);
+				odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x1);
+				odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
+				odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x1);
+				odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+				odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x3f);
+				odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x1);
+				odm_set_rf_reg(dm, i, RF_0x56, 0x000ff, 0x0);
+
+				/*Set OFDM Packet Type*/
+				odm_set_bb_reg(dm, R_0x900, 0x00000004, 0x1);
+				odm_set_bb_reg(dm, R_0x900, 0x30000000, 0x2);
+				odm_set_bb_reg(dm, R_0x908, 0x00ffffff, 0x21b6b);
+				odm_set_bb_reg(dm, R_0x90c, 0x00ffffff, 0x800006);
+				odm_set_bb_reg(dm, R_0x910, 0x00ffffff, 0x13600);
+				odm_set_bb_reg(dm, R_0x914, 0x1fffffff, 0x6000fa);
+				odm_set_bb_reg(dm, R_0x938, 0x0000ffff, 0x4b0f);
+				odm_set_bb_reg(dm, R_0x940, MASKDWORD, 0x4ee33e41);
+				odm_set_bb_reg(dm, R_0xa58, 0x003f8000, 0x2c);
+
+				odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x1);
+				//ODM_delay_us(100);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+				//ODM_delay_us(100);
+
+				/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+				phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+				/*reg = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+				reg = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[9:0]=0x%x\n", reg);
+				phydm_release_bb_dbg_port(dm);
+
+				reg_tmp = reg;
+
+				if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+					reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 0x50;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+				} else {
+					reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 5;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+				}
+				
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x%x[17:8]=0x%x reg=0x%x\n",
+					dc_offset[i], odm_get_bb_reg(dm, dc_offset[i], 0x0003ff00), reg);
+
+				if (dm->rfe_type == 21 || dm->rfe_type == 22){
+					dck_check_min = 0x214;
+					dck_check_max = 0x219;
+				} else {
+					dck_check_min = 0x1ff;
+					dck_check_max = 0x202;	
+				}
+
+				for (j = 0; j < 3; j++) {
+					/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+					phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+					odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+					odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+					/*dck_check = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+					dck_check = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+					phydm_release_bb_dbg_port(dm);
+
+					if (dck_check < dck_check_min) {
+						if (reg >= 0x3fb)
+							reg = 0x3ff;
+						else
+							reg = reg + 4;
+						odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x < 0x%x Set 0x%x retry=%d\n",
+							dck_check, reg, dck_check_min, j);
+					} else if (dck_check > dck_check_max) {
+						if (reg <= 4)
+							reg = 0;
+						else
+							reg = reg - 4;
+						odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x > 0x%x Set 0x%x retry=%d\n",
+							dck_check, reg, dck_check_max, j);
+					} else {
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x OK!!! retry=%d\n",
+							dck_check, j);
+						k = 3;
+						break;
+					}
+				}
+			}
+
+#if 1
+			odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x0);
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x100, 0x0);
+			ODM_delay_us(100);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+			ODM_delay_us(100);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			ODM_delay_us(100);
+#else
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x00);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x100, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+			odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x0);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+#endif
+
+			if (dm->rfe_type == 21 || dm->rfe_type == 22)
+				odm_set_bb_reg(dm, R_0x1c38, 0x00000018, 0x3);
+
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x0);
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0x0);
+			odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x0);
+
+
+		}
+	}
+
+	_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	rf->is_tssi_in_progress = 0;
+	/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+
+}
+
+void halrf_tssi_dck_scan_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel, i, j, k;
+
+	u32 reg = 0, dck_check;
+	s32 reg_tmp = 0;
+	u32 bb_reg[14] = {R_0x1800, R_0x4100, R_0x820, R_0x1e2c, R_0x1d08, 
+			R_0x1c3c, R_0x2dbc, R_0x1e70, R_0x18a4, R_0x41a4,
+			0x18a8, 0x1eec, R_0x18e8, R_0x1ef0};
+	u32 bb_reg_backup[14] = {0};
+	u32 backup_num = 14;
+
+	u32 tssi_setting[2] = {R_0x1830, R_0x4130};
+	u32 dc_offset[2] = {R_0x189c, R_0x419c};
+	u32 path_setting[2] = {R_0x1800, R_0x4100};
+	u32 tssi_counter[2] = {R_0x18a4, R_0x41a4};
+	u32 tssi_enalbe[2] = {R_0x180c, R_0x410c};
+	u32 debug_port[2] = {0x930, 0xb30};
+
+	u32 addr_d[2] = {0x18a8, 0x1eec};
+	u32 addr_d_bitmask[2] = {0xff000000, 0x3fc00000};
+	u32 addr_cck_d[2] = {R_0x18e8, R_0x1ef0};
+	u32 addr_cck_d_bitmask[2] = {0x01fe0000, 0x0001fe00};
+	u32 dck_check_min, dck_check_max;
+
+	u32 rf_reg_18[MAX_PATH_NUM_8822C] = {0};
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
+
+	rf->is_tssi_in_progress = 1;
+
+	_backup_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+
+	for (i = 0; i < MAX_PATH_NUM_8822C; i++) {
+		odm_set_bb_reg(dm, addr_cck_d[i], addr_cck_d_bitmask[i], 0x0);
+		odm_set_bb_reg(dm, addr_d[i], addr_d_bitmask[i], 0x0);
+	}
+
+	_halrf_tssi_8822c(dm);
+
+	halrf_disable_tssi_8822c(dm);
+
+	for (i = 0; i < MAX_PATH_NUM_8822C; i++){
+		rf_reg_18[i] = odm_get_rf_reg(dm, i, RF_0x18, RFREGOFFSETMASK);
+
+		/*CH 7*/
+		odm_set_rf_reg(dm, i, RF_0x18, RFREGOFFSETMASK, 0x03007);
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"[TSSI] ============== Path - %d ch 7==============\n",
+			i);
+
+		for (k = 0; k < 3; k++) {
+			odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x1);
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0xff);
+			odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x2);
+
+			/*odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);*/
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x700b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x701f0044);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x702f0044);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x703f0044);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x704f0044);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x705b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x706f0044);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x707b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x708b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x709b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70ab8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70bb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70cb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70db8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70eb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70fb8041);
+
+			odm_set_bb_reg(dm, tssi_counter[i], 0xe0000000, 0x0);
+			ODM_delay_us(200);
+			
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x00002, 0x1);
+			odm_set_rf_reg(dm, i, RF_0x65, 0x03000, 0x3);
+			odm_set_rf_reg(dm, i, RF_0x67, 0x0000c, 0x3);
+			odm_set_rf_reg(dm, i, RF_0x67, 0x000c0, 0x0);
+			odm_set_rf_reg(dm, i, RF_0x6e, 0x001e0, 0x0);
+			
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x1);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x1);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x1);
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x3f);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x1);
+			odm_set_rf_reg(dm, i, RF_0x56, 0x000ff, 0x0);
+
+			btc_set_gnt_wl_bt_8822c(dm, true);
+
+			odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, 0xc00);
+			odm_set_bb_reg(dm, R_0x820, 0x00000003, i + 1);
+			odm_set_bb_reg(dm, R_0x1e2c, MASKDWORD, 0xe4e40000);
+			odm_set_bb_reg(dm, R_0x1e28, 0x0000000f, 0x3);
+			odm_set_bb_reg(dm, path_setting[i], 0x000fffff, 0x33312);
+			odm_set_bb_reg(dm, path_setting[i], 0x80000000, 0x1);
+
+			odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x1);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+			
+			/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+			phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);				
+			/*reg = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+			reg = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[9:0]=0x%x\n", reg);
+			phydm_release_bb_dbg_port(dm);
+
+			reg_tmp = reg;
+			reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 0;
+			odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+			tssi->tssi_dck[0][i] = reg & 0x03ff;
+			
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x%x[17:8]=0x%x reg=0x%x\n",
+				dc_offset[i], odm_get_bb_reg(dm, dc_offset[i], 0x0003ff00), reg);
+			
+			for (j = 0; j < 3; j++) {
+				/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+				phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+				/*dck_check = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+				dck_check = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+				phydm_release_bb_dbg_port(dm);
+
+				if (dck_check < 0x1ff) {
+					if (reg >= 0x3fb)
+						reg = 0x3ff;
+					else
+						reg = reg + 4;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+					RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x < 0x1ff Set 0x%x retry=%d\n",
+						dck_check, reg, j);
+					tssi->tssi_dck[0][i] = reg & 0x03ff;
+				} else if (dck_check > 0x202) {
+					if (reg <= 4)
+						reg = 0;
+					else
+						reg = reg - 4;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+					RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x > 0x202 Set 0x%x retry=%d\n",
+						dck_check, reg, j);
+					tssi->tssi_dck[0][i] = reg & 0x03ff;
+				} else {
+					RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x OK!!! retry=%d\n",
+						dck_check, j);
+					k = 3;
+					break;
+				}
+			}
+
+			btc_set_gnt_wl_bt_8822c(dm, false);
+		}
+
+		odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
+		odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+		odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x0);
+		odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+		odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+
+		odm_set_rf_reg(dm, i, RF_0x7f, 0x00002, 0x0);
+		ODM_delay_us(100);
+		odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+		odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+		ODM_delay_us(100);
+		odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+		ODM_delay_us(100);
+		odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x0);
+		odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0x0);
+		odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x0);
+
+		/*CH 100*/
+		odm_set_rf_reg(dm, i, RF_0x18, RFREGOFFSETMASK, 0x33164);
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"[TSSI] ============== Path - %d ch 100==============\n", i);
+
+		for (k = 0; k < 3; k++) {
+			odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
+
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x1);
+			odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0xff);
+			odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x2);
+
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x700b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x701f0042);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x702f0042);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x703f0042);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x704f0042);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x705b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x706f0042);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x707b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x708b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x709b8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70ab8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70bb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70cb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70db8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70eb8041);
+			odm_set_bb_reg(dm, tssi_setting[i], MASKDWORD, 0x70fb8041);
+
+
+			odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, 0x0);
+				
+				if (dm->rfe_type == 21 || dm->rfe_type == 22)
+					odm_set_bb_reg(dm, R_0x1c38, 0x00000018, 0x0);
+
+			odm_set_bb_reg(dm, R_0x820, 0x00000003, i + 1);
+			odm_set_bb_reg(dm, R_0x1e2c, MASKDWORD, 0xe4e40000);
+			odm_set_bb_reg(dm, R_0x1e28, 0x0000000f, 0x3);
+			odm_set_bb_reg(dm, path_setting[i], 0x000fffff, 0x33312);
+			odm_set_bb_reg(dm, path_setting[i], 0x80000000, 0x1);
+			odm_set_bb_reg(dm, tssi_counter[i], 0xe0000000, 0x0);
+			ODM_delay_us(200);
+			odm_set_rf_reg(dm, i, RF_0x7f, 0x100, 0x1);
+			odm_set_rf_reg(dm, i, RF_0x65, 0x03000, 0x3);
+			odm_set_rf_reg(dm, i, RF_0x67, 0x00003, 0x3);
+
+			if (dm->rfe_type == 21 || dm->rfe_type == 22)
+				odm_set_rf_reg(dm, i, RF_0x67, 0x00030, 0x3);
+			else
+				odm_set_rf_reg(dm, i, RF_0x67, 0x00030, 0x2);
+
+			odm_set_rf_reg(dm, i, RF_0x6f, 0x001e0, 0x0);
+	
+				if (dm->rfe_type == 21 || dm->rfe_type == 22)
+					odm_set_rf_reg(dm, i, RF_0x6f, 0x00004, 0x0);
+		
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x1);
+			odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x1);
+			odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x1);
+			odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x1);
+			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+			odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x3f);
+			odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x1);
+			odm_set_rf_reg(dm, i, RF_0x56, 0x000ff, 0x0);
+
+			/*Set OFDM Packet Type*/
+			odm_set_bb_reg(dm, R_0x900, 0x00000004, 0x1);
+			odm_set_bb_reg(dm, R_0x900, 0x30000000, 0x2);
+			odm_set_bb_reg(dm, R_0x908, 0x00ffffff, 0x21b6b);
+			odm_set_bb_reg(dm, R_0x90c, 0x00ffffff, 0x800006);
+			odm_set_bb_reg(dm, R_0x910, 0x00ffffff, 0x13600);
+			odm_set_bb_reg(dm, R_0x914, 0x1fffffff, 0x6000fa);
+			odm_set_bb_reg(dm, R_0x938, 0x0000ffff, 0x4b0f);
+			odm_set_bb_reg(dm, R_0x940, MASKDWORD, 0x4ee33e41);
+			odm_set_bb_reg(dm, R_0xa58, 0x003f8000, 0x2c);
+
+			odm_set_bb_reg(dm, R_0x1e70, 0x00000004, 0x1);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+
+			/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+			phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+			odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+			/*reg = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+			reg = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[9:0]=0x%x\n", reg);
+			phydm_release_bb_dbg_port(dm);
+
+			reg_tmp = reg;
+
+			if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+				reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 0x50;
+				odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+				tssi->tssi_dck[1][i] = reg & 0x03ff;
+			} else {
+				reg = 1024 - (((reg_tmp - 512) * 4) & 0x000003ff) + 5;
+				odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, (reg & 0x03ff));
+				tssi->tssi_dck[1][i] = reg & 0x03ff;
+			}
+			
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x%x[17:8]=0x%x reg=0x%x\n",
+				dc_offset[i], odm_get_bb_reg(dm, dc_offset[i], 0x0003ff00), reg);
+
+			if (dm->rfe_type == 21 || dm->rfe_type == 22){
+				dck_check_min = 0x214;
+				dck_check_max = 0x219;
+			} else {
+				dck_check_min = 0x1ff;
+				dck_check_max = 0x202;	
+			}
+
+			for (j = 0; j < 3; j++) {
+				/*odm_set_bb_reg(dm, R_0x1c3c, 0x000fff00, 0x930);*/
+				phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, debug_port[i]);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+				odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x1);
+				/*dck_check = odm_get_bb_reg(dm, R_0x2dbc, 0x000003ff);*/
+				dck_check = phydm_get_bb_dbg_port_val(dm) & 0x000003ff;
+				phydm_release_bb_dbg_port(dm);
+
+					if (dck_check < dck_check_min) {
+					if (reg >= 0x3fb)
+						reg = 0x3ff;
+					else
+						reg = reg + 4;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x < 0x%x Set 0x%x retry=%d\n",
+							dck_check, reg, dck_check_min, j);
+					tssi->tssi_dck[1][i] = reg & 0x03ff;
+				} else if (dck_check > dck_check_max) {
+					if (reg <= 4)
+						reg = 0;
+					else
+						reg = reg - 4;
+					odm_set_bb_reg(dm, dc_offset[i], 0x0003ff00, reg);
+						RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x > 0x%x Set 0x%x retry=%d\n",
+							dck_check, reg, dck_check_max, j);
+					tssi->tssi_dck[1][i] = reg & 0x03ff;
+				} else {
+					RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] 0x2dbc[23:12]=0x%x OK!!! retry=%d\n",
+						dck_check, j);
+					k = 3;
+					break;
+				}
+			}
+		}
+
+		odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2);
+		odm_set_rf_reg(dm, i, RF_0xde, 0x10000, 0x0);
+		odm_set_bb_reg(dm, R_0x1bcc, 0x0000003f, 0x0);
+		odm_set_bb_reg(dm, R_0x1b00, 0x00000006, i);
+		odm_set_bb_reg(dm, R_0x1ca4, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x1d08, 0x00000001, 0x0);
+
+		odm_set_rf_reg(dm, i, RF_0x7f, 0x100, 0x0);
+		ODM_delay_us(100);
+		odm_set_bb_reg(dm, tssi_enalbe[i], 0x08000000, 0x0);
+		odm_set_bb_reg(dm, tssi_enalbe[i], 0x40000000, 0x0);
+		ODM_delay_us(100);
+		odm_set_bb_reg(dm, tssi_counter[i], 0x10000000, 0x0);
+		ODM_delay_us(100);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22)
+			odm_set_bb_reg(dm, R_0x1c38, 0x00000018, 0x3);
+
+		odm_set_bb_reg(dm, R_0x1d58, 0x00000008, 0x0);
+		odm_set_bb_reg(dm, R_0x1d58, 0x00000ff0, 0x0);
+		odm_set_bb_reg(dm, R_0x1a00, 0x00000003, 0x0);
+
+		odm_set_rf_reg(dm, i, RF_0x18, RFREGOFFSETMASK, rf_reg_18[i]);
+	}
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] tssi->tssi_dck[2G][PathA]=0x%x tssi->tssi_dck[2G][PathB]=0x%x\n",
+		tssi->tssi_dck[0][0], tssi->tssi_dck[0][1]);
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] tssi->tssi_dck[5G][PathA]=0x%x tssi->tssi_dck[5G][PathB]=0x%x\n",
+		tssi->tssi_dck[1][0], tssi->tssi_dck[1][1]);
+
+	_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	rf->is_tssi_in_progress = 0;
+}
+
+void halrf_set_tssi_codeword_scan_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	
+	u8 i, rate;
+	u8 channel = *dm->channel, bandwidth = *dm->band_width;
+	u32 slope = 8440, db_temp;
+	s32 samll_b = 64;
+	u32 tssi_value_tmp = 0;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s channel=%d\n",
+		__func__, channel);
+
+	for (i = 0; i <= 3; i++) {
+		rate = _halrf_tssi_rate_to_driver_rate_8822c(dm, i);
+		db_temp = (u32)phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 18) {
+					slope = 8000;
+					samll_b = 35;
+				}
+			}
+		} else {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8440;
+					samll_b = 64;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 7600;
+					samll_b = 78;
+				} else if (db_temp > 18) {
+					slope = 5400;
+					samll_b = 117;
+				}
+			}
+		}
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "channel(%d),   %ddBm,	1000 * slope(%d),   samll_b(%d),   path=%d\n",
+		       channel, db_temp, slope, samll_b, RF_PATH_A);
+
+		db_temp = db_temp * slope;
+		db_temp = db_temp / 1000 + samll_b;
+
+		if (db_temp > 0xff)
+			db_temp = 0xff;
+		else if ((s32)db_temp < 0)
+			db_temp = 0x0;
+
+		tssi_value_tmp = tssi_value_tmp | (db_temp << (i * 8));
+	
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "phydm_get_tx_power_dbm = %d, rate=0x%x(%d) bandwidth=%d channel=%d rf_path=%d\n",
+			phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel),
+			rate, rate, bandwidth, channel, RF_PATH_A);
+
+	}
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "tssi_value_tmp = 0x%x\n",
+		tssi_value_tmp);
+
+	odm_set_bb_reg(dm, R_0x3a54, MASKDWORD, tssi_value_tmp);
+
+	tssi_value_tmp = 0;
+	for (i = 4; i <= 7; i++) {
+		rate = _halrf_tssi_rate_to_driver_rate_8822c(dm, i);
+		db_temp = (u32)phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel);
+
+		if (dm->rfe_type == 21 || dm->rfe_type == 22) {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 8000;
+					samll_b = 35;
+				} else if (db_temp > 18) {
+					slope = 8000;
+					samll_b = 35;
+				}
+			}
+		} else {
+			if (channel >= 1 && channel <= 14) {
+				slope = 8440;
+				samll_b = 64;
+			} else {
+				if (db_temp <= 10) {
+					slope = 8440;
+					samll_b = 64;
+				} else if (db_temp > 10 && db_temp <= 18) {
+					slope = 7600;
+					samll_b = 78;
+				} else if (db_temp > 18) {
+					slope = 5400;
+					samll_b = 117;
+				}
+			}
+		}
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "channel(%d),   %ddBm,	1000 * slope(%d),   samll_b(%d),   path=%d\n",
+		       channel, db_temp, slope, samll_b, RF_PATH_A);
+
+		db_temp = db_temp * slope;
+		db_temp = db_temp / 1000 + samll_b;
+
+		if (db_temp > 0xff)
+			db_temp = 0xff;
+		else if ((s32)db_temp < 0)
+			db_temp = 0x0;
+
+		tssi_value_tmp = tssi_value_tmp | (db_temp << ((i - 4) * 8));
+	
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "phydm_get_tx_power_dbm = %d, rate=0x%x(%d) bandwidth=%d channel=%d rf_path=%d\n",
+			phydm_get_tx_power_dbm(dm, RF_PATH_A, rate, bandwidth, channel),
+			rate, rate, bandwidth, channel, RF_PATH_A);
+	}
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "tssi_value_tmp = 0x%x\n",
+		tssi_value_tmp);
+
+	odm_set_bb_reg(dm, R_0x3a58, MASKDWORD, tssi_value_tmp);
+
+}
+
 void halrf_tssi_get_efuse_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
@@ -754,14 +2144,7 @@ void halrf_tssi_get_efuse_8822c(
 	j = 0;
 	for (i = 0x10; i <= 0x1a; i++) {
 		odm_efuse_logical_map_read(dm, 1, i, &pg_tssi_tmp);
-		pg_tssi = (u8)pg_tssi_tmp;
-		if ((pg_tssi & BIT(6) >> 6) == 0) {
-			pg_tssi = (pg_tssi | ((pg_tssi & BIT(7)) >> 1)) & 0x7f;
-			if (pg_tssi & BIT(6))
-				tssi->tssi_efuse[0][j] = (s8)(pg_tssi - 128);
-			else
-				tssi->tssi_efuse[0][j] = (s8)pg_tssi;
-		}
+		tssi->tssi_efuse[0][j] = (s8)pg_tssi_tmp;
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 			"tssi->tssi_efuse[%d][%d]=%d\n", 0, j, tssi->tssi_efuse[0][j]);
 		j++;
@@ -769,14 +2152,7 @@ void halrf_tssi_get_efuse_8822c(
 
 	for (i = 0x22; i <= 0x2f; i++) {
 		odm_efuse_logical_map_read(dm, 1, i, &pg_tssi_tmp);
-		pg_tssi = (u8)pg_tssi_tmp;
-		if ((pg_tssi & BIT(6) >> 6) == 0) {
-			pg_tssi = (pg_tssi | ((pg_tssi & BIT(7)) >> 1)) & 0x7f;
-			if (pg_tssi & BIT(6))
-				tssi->tssi_efuse[0][j] = (s8)(pg_tssi - 128);
-			else
-				tssi->tssi_efuse[0][j] = (s8)pg_tssi;
-		}
+		tssi->tssi_efuse[0][j] = (s8)pg_tssi_tmp;
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 			"tssi->tssi_efuse[%d][%d]=%d\n", 0, j, tssi->tssi_efuse[0][j]);
 		j++;
@@ -786,14 +2162,7 @@ void halrf_tssi_get_efuse_8822c(
 	j = 0;
 	for (i = 0x3a; i <= 0x44; i++) {
 		odm_efuse_logical_map_read(dm, 1, i, &pg_tssi_tmp);
-		pg_tssi = (u8)pg_tssi_tmp;
-		if ((pg_tssi & BIT(6) >> 6) == 0) {
-			pg_tssi = (pg_tssi | ((pg_tssi & BIT(7)) >> 1)) & 0x7f;
-			if (pg_tssi & BIT(6))
-				tssi->tssi_efuse[1][j] = (s8)(pg_tssi - 128);
-			else
-				tssi->tssi_efuse[1][j] = (s8)pg_tssi;
-		}
+		tssi->tssi_efuse[1][j] = (s8)pg_tssi_tmp;
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 			"tssi->tssi_efuse[%d][%d]=%d\n", 1, j, tssi->tssi_efuse[1][j]);
 		j++;
@@ -801,20 +2170,110 @@ void halrf_tssi_get_efuse_8822c(
 
 	for (i = 0x4c; i <= 0x59; i++) {
 		odm_efuse_logical_map_read(dm, 1, i, &pg_tssi_tmp);
-		pg_tssi = (u8)pg_tssi_tmp;
-		if ((pg_tssi & BIT(6) >> 6) == 0) {
-			pg_tssi = (pg_tssi | ((pg_tssi & BIT(7)) >> 1)) & 0x7f;
-			if (pg_tssi & BIT(6))
-				tssi->tssi_efuse[1][j] = (s8)(pg_tssi - 128);
-			else
-				tssi->tssi_efuse[1][j] = (s8)pg_tssi;
-		}
+		tssi->tssi_efuse[1][j] = (s8)pg_tssi_tmp;
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 			"tssi->tssi_efuse[%d][%d]=%d\n", 1, j, tssi->tssi_efuse[1][j]);
 		j++;
 	}
-#endif
 }
+
+u32 halrf_tssi_get_de_8822c(
+	void *dm_void, u8 path)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+
+	u32 i;
+
+	u32 tssi_offest_de = 0;
+	/*halrf_do_tssi_8822c(dm);*/
+	rf->is_tssi_in_progress = 1;
+
+	_halrf_tssi_8822c(dm);
+
+	if (path == RF_PATH_A) {
+		odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+		odm_set_bb_reg(dm, R_0x1c64, 0x003f8000, 0x00);
+		odm_set_bb_reg(dm, R_0x1c64, 0x1fc00000, 0x00);
+		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x1c24, 0x07f80000, 0x20);
+		odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+		odm_set_bb_reg(dm, R_0x186c, 0x0000ff00, 0xff);
+		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1860, 0x00000800, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x1);
+
+		for (i = 0; odm_get_bb_reg(dm, R_0x28a4, 0x10000) == 0; i++) {
+			ODM_delay_ms(1);
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				 "TSSI finish bit != 1 retry=%d s0 0x%x\n", i,
+				 odm_get_bb_reg(dm, R_0x28a4, MASKDWORD));
+			if (i >= 36) {
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				       "TSSI finish bit i > 36ms, return s0\n");
+				rf->is_tssi_in_progress = 0;
+				break;
+			}
+		}
+
+		tssi_offest_de = odm_get_bb_reg(dm, R_0x28a4, 0x1ff);
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"======>%s path=%d tssi_offest_de_org=0x%x\n",
+			__func__, path, tssi_offest_de);
+	} else if (path == RF_PATH_B) {
+		odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
+		odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
+		odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+		odm_set_bb_reg(dm, R_0x1c64, 0x003f8000, 0x00);
+		odm_set_bb_reg(dm, R_0x1c64, 0x1fc00000, 0x00);
+		odm_set_bb_reg(dm, R_0x1ef0, 0x01fe0000, 0xff);
+		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
+		odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
+		odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
+		odm_set_bb_reg(dm, R_0x4160, 0x00000800, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
+		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x1);
+
+		for (i = 0; odm_get_bb_reg(dm, R_0x45a4, 0x10000) == 0; i++) {
+			ODM_delay_ms(1);
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				 "TSSI finish bit != 1 retry=%d s1 0x%x\n", i,
+				 odm_get_bb_reg(dm, R_0x45a4, MASKDWORD));
+			if (i >= 36) {
+				RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				       "TSSI finish bit i > 36ms, return s1\n");
+				rf->is_tssi_in_progress = 0;
+				break;
+			}
+		}
+
+		tssi_offest_de = odm_get_bb_reg(dm, R_0x45a4, 0x1ff);
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"======>%s path=%d tssi_offest_de_org=0x%x\n",
+			__func__, path, tssi_offest_de);
+	} else {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"======>%s path=%d is not exist!!!\n", __func__, path);
+	}
+
+	if (tssi_offest_de & BIT(8))
+		tssi_offest_de = (tssi_offest_de & 0xff) | BIT(7);
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"======>%s path=%d tssi_offest_de_change=0x%x\n", __func__, path, tssi_offest_de);
+	rf->is_tssi_in_progress = 0;
+
+	return tssi_offest_de;
+}
+
 
 void halrf_tssi_get_kfree_efuse_8822c(
 	void *dm_void)
@@ -932,358 +2391,564 @@ void halrf_tssi_get_kfree_efuse_8822c(
 
 }
 
+void halrf_tssi_set_de_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	
+	u8 i;
+	u32 addr_d[2] = {0x18a8, 0x1eec};
+	u32 addr_d_bitmask[2] = {0xff000000, 0x3fc00000};
+	u32 addr_cck_d[2] = {R_0x18e8, R_0x1ef0};
+	u32 addr_cck_d_bitmask[2] = {0x01fe0000, 0x0001fe00};
+	s8 tssi_offest_de;
+	u32 offset_index = 0;
+	u8 channel = *dm->channel;
+	s32 tmp;
+
+	if (dm->rf_calibrate_info.txpowertrack_control == 4) {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"==>%s txpowertrack_control=%d return!!!\n", __func__,
+			dm->rf_calibrate_info.txpowertrack_control);
+#if 0
+		for (i = 0; i < MAX_PATH_NUM_8822C; i++) {
+			odm_set_bb_reg(dm, addr_cck_d[i], addr_cck_d_bitmask[i], 0x0);
+			odm_set_bb_reg(dm, addr_d[i], addr_d_bitmask[i], 0x0);
+		}
+#else
+		if (channel >= 1 && channel <= 2)
+			offset_index = 0;
+		else if (channel >= 3 && channel <= 5)
+			offset_index = 1;
+		else if (channel >= 6 && channel <= 8)
+			offset_index = 2;
+		else if (channel >= 9 && channel <= 11)
+			offset_index = 3;
+		else if (channel >= 12 && channel <= 13)
+			offset_index = 4;
+		else if (channel == 14)
+			offset_index = 5;
+
+		for (i = 0; i < MAX_PATH_NUM_8822C; i++) {
+			tmp = phydm_get_tssi_trim_de(dm, i);
+
+			if (tmp > 127)
+				tmp = 127;
+			else if (tmp < -128)
+				tmp = -128;
+
+			odm_set_bb_reg(dm, addr_cck_d[i], addr_cck_d_bitmask[i],
+				(tmp & 0xff));
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"==>%s CCK 0x%x[%x] tssi_trim(%d)\n",
+				__func__,
+				addr_cck_d[i], addr_cck_d_bitmask[i],
+				(tmp & 0xff)
+				);
+
+			tmp = phydm_get_tssi_trim_de(dm, i);
+			odm_set_bb_reg(dm, addr_d[i], addr_d_bitmask[i], (tmp & 0xff));
+
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"==>%s 0x%x[%x] tssi_offset(%d)\n",
+				__func__,
+				addr_d[i], addr_d_bitmask[i],
+				(tmp & 0xff)
+				);
+		}
+
+
+
+#endif
+		return;
+	}
+
+	if (channel >= 1 && channel <= 2)
+		offset_index = 0;
+	else if (channel >= 3 && channel <= 5)
+		offset_index = 1;
+	else if (channel >= 6 && channel <= 8)
+		offset_index = 2;
+	else if (channel >= 9 && channel <= 11)
+		offset_index = 3;
+	else if (channel >= 12 && channel <= 13)
+		offset_index = 4;
+	else if (channel == 14)
+		offset_index = 5;
+
+	for (i = 0; i < MAX_PATH_NUM_8822C; i++) {
+		tmp = tssi->tssi_efuse[i][offset_index] + phydm_get_tssi_trim_de(dm, i);
+
+		if (tmp > 127)
+			tmp = 127;
+		else if (tmp < -128)
+			tmp = -128;
+
+		odm_set_bb_reg(dm, addr_cck_d[i], addr_cck_d_bitmask[i],
+			(tmp & 0xff));
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"==>%s CCK 0x%x[%x] tssi_offset(%d)=tssi_efuse(%d)+tssi_trim(%d)\n",
+			__func__,
+			addr_cck_d[i], addr_cck_d_bitmask[i],
+			(tmp & 0xff),
+			tssi->tssi_efuse[i][offset_index],
+			phydm_get_tssi_trim_de(dm, i));
+
+		tssi_offest_de = (s8)_halrf_get_efuse_tssi_offset_8822c(dm, i);
+		tmp = tssi_offest_de + phydm_get_tssi_trim_de(dm, i);
+
+		if (tmp > 127)
+			tmp = 127;
+		else if (tmp < -128)
+			tmp = -128;
+
+		odm_set_bb_reg(dm, addr_d[i], addr_d_bitmask[i], (tmp & 0xff));
+
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			"==>%s 0x%x[%x] tssi_offset(%d)=tssi_efuse(%d)+tssi_trim(%d)\n",
+			__func__,
+			addr_d[i], addr_d_bitmask[i],
+			(tmp & 0xff),
+			tssi_offest_de,
+			phydm_get_tssi_trim_de(dm, i));
+	}
+}
+
+void halrf_tssi_set_de_for_tx_verify_8822c(
+	void *dm_void, u32 tssi_de, u8 path)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+
+	u32 addr_d[2] = {0x18a8, 0x1eec};
+	u32 addr_d_bitmask[2] = {0xff000000, 0x3fc00000};
+	u32 addr_cck_d[2] = {R_0x18e8, R_0x1ef0};
+	u32 addr_cck_d_bitmask[2] = {0x01fe0000, 0x0001fe00};
+	u32 tssi_offest_de, offset_index = 0;
+	s32 tmp, tssi_de_tmp;
+
+#if 0
+	odm_set_bb_reg(dm, addr_cck_d[path], addr_cck_d_bitmask[path], 
+				(tssi_de & 0xff));
+	odm_set_bb_reg(dm, addr_d[path], addr_d_bitmask[path], (tssi_de & 0xff));
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"==>%s CCK 0x%x[%x] tssi_efuse_offset=%d path=%d\n", __func__,
+		addr_cck_d[path], addr_cck_d_bitmask[path], (tssi_de & 0xff), path);
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"==>%s 0x%x[%x] tssi_efuse_offset=%d path=%d\n", __func__,
+		addr_d[path], addr_d_bitmask[path], (tssi_de & 0xff), path);
+#endif
+	if (tssi_de & BIT(7))
+		tssi_de_tmp = tssi_de | 0xffffff00;
+	else
+		tssi_de_tmp = tssi_de;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"==>%s tssi_de(%d) tssi_de_tmp(%d)\n",
+		__func__,
+		tssi_de, tssi_de_tmp);
+
+	tmp = tssi_de_tmp + phydm_get_tssi_trim_de(dm, path);
+
+	if (tmp > 127)
+		tmp = 127;
+	else if (tmp < -128)
+		tmp = -128;
+
+	odm_set_bb_reg(dm, addr_cck_d[path], addr_cck_d_bitmask[path],
+		(tmp & 0xff));
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"==>%s CCK 0x%x[%x] tssi_offset(%d)=tssi_de_tmp(%d)+tssi_trim(%d)\n",
+		__func__,
+		addr_cck_d[path], addr_cck_d_bitmask[path],
+		(tmp & 0xff),
+		tssi_de_tmp,
+		phydm_get_tssi_trim_de(dm, path));
+
+	tmp = tssi_de_tmp + phydm_get_tssi_trim_de(dm, path);
+
+	if (tmp > 127)
+		tmp = 127;
+	else if (tmp < -128)
+		tmp = -128;
+
+	odm_set_bb_reg(dm, addr_d[path], addr_d_bitmask[path], (tmp & 0xff));
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		"==>%s 0x%x[%x] tssi_offset(%d)=tssi_de_tmp(%d)+tssi_trim(%d)\n",
+		__func__,
+		addr_d[path], addr_d_bitmask[path],
+		(tmp & 0xff),
+		tssi_de_tmp,
+		phydm_get_tssi_trim_de(dm, path));
+}
 
 void halrf_enable_tssi_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	u8 channel = *dm->channel;
 
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>halrf_enable_tssi_8822c\n");
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "===>%s   channel=%d\n", __func__, channel);
+
+	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
 
 	/*path s0*/
-	odm_set_bb_reg(dm, R_0x1860, 0x00000800, 0x0);
-	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x1);
-	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x1);
+	if (channel >= 1 && channel <= 14)
+		odm_set_bb_reg(dm, R_0x18a4, 0x0003e000, 0xb);
+	else
+		odm_set_bb_reg(dm, R_0x18a4, 0x0003e000, 0xd);
 
-	/*path s1*/
+	odm_set_bb_reg(dm, R_0x18a0, 0x7f, 0x0);
+	odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
+	odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
+	odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+	odm_set_bb_reg(dm, R_0x1c64, 0x003f8000, 0x00);
+	odm_set_bb_reg(dm, R_0x1c64, 0x1fc00000, 0x00);
+	odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
+	odm_set_bb_reg(dm, R_0x1c24, 0x07f80000, 0x20);
+	odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+	odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+	odm_set_bb_reg(dm, R_0x186c, 0x0000ff00, 0xff);
+	odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
 	odm_set_bb_reg(dm, R_0x1860, 0x00000800, 0x0);
+#if 0
+	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
 	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
 	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
 	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x1);
+	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x1);
 	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x1);
 #endif
+
+	/*path s1*/
+	if (channel >= 1 && channel <= 14)
+		odm_set_bb_reg(dm, R_0x41a4, 0x0003e000, 0xb);
+	else
+		odm_set_bb_reg(dm, R_0x41a4, 0x0003e000, 0xd);
+
+	odm_set_bb_reg(dm, R_0x41a0, 0x7f, 0x0);
+	odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
+	odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
+	odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+	odm_set_bb_reg(dm, R_0x1c64, 0x003f8000, 0x00);
+	odm_set_bb_reg(dm, R_0x1c64, 0x1fc00000, 0x00);
+	odm_set_bb_reg(dm, R_0x1ef0, 0x01fe0000, 0xff);
+	odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
+	odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
+	odm_set_bb_reg(dm, R_0x1c64, 0x00007f00, 0x00);
+	odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+	odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
+	odm_set_bb_reg(dm, R_0x4160, 0x00000800, 0x0);
+	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
+	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
+	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x1);
+	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x1);
+	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x1);
 }
 
 void halrf_disable_tssi_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>halrf_disable_tssi_8822c\n");
-
-	odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0);
-	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffa1005e);
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "===>%s\n", __func__);
 
 	/*path s0*/
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70144041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70244041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70344041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70444041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70644041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
-	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
-
+	odm_set_bb_reg(dm, R_0x18a4, 0x0003e000, 0x0);
+	odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x0);
+	odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x0);
 	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1860, 0x00000800, 0x0);
 	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+
 	odm_set_bb_reg(dm, R_0x18a0, 0x7f, 0x0);
 
 	/*path s1*/
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70144041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70244041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70344041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70444041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70644041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
-	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
-
+	odm_set_bb_reg(dm, R_0x41a4, 0x0003e000, 0x0);
+	odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x0);
+	odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x0);
 	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x1860, 0x00000800, 0x0);
 	odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
+
 	odm_set_bb_reg(dm, R_0x41a0, 0x7f, 0x0);
-#endif
+
+	/*ADDA Serring*/
+	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffa1005e);
 }
 
 void halrf_do_tssi_8822c(
 	void *dm_void)
 {
-#if 0
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct dm_rf_calibration_struct *cali_info = &(dm->rf_calibrate_info);
 	struct _hal_rf_ *rf = &(dm->rf_table);
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	struct dm_dpk_info *dpk_info = &dm->dpk_info;
 
-	u8 channel = *dm->channel;
-	u8 rate = phydm_get_tx_rate(dm);
+	u32 bb_reg[7] = {R_0x820, R_0x1e2c, R_0x1d08, R_0x1c3c, R_0x1e28,
+			R_0x18a0, R_0x41a0};
+	u32 bb_reg_backup[7] = {0};
+	u32 backup_num = 7;
+	
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
 
-	if (tssi->index[RF_PATH_A][channel - 1] != 0 || tssi->index[RF_PATH_B][channel - 1] != 0) {
-		odm_set_bb_reg(dm, R_0x18e8, 0x0001fc00,
-			       (tssi->index[RF_PATH_A][channel - 1] & 0x7f));
-		odm_set_bb_reg(dm, R_0x41e8, 0x0001fc00,
-			       (tssi->index[RF_PATH_B][channel - 1] & 0x7f));
+	/*odm_acquire_spin_lock(dm, RT_IQK_SPINLOCK);*/
+	rf->is_tssi_in_progress = 1;
 
+	_backup_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	
+#if 0
+	if ((rf->rf_supportability & HAL_RF_TX_PWR_TRACK) && (dm->priv->pmib->dot11RFEntry.tssi_enable) == 1) {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s Set coex power index PathA:%d PathB:%d\n",
-		       __func__, tssi->index[RF_PATH_A][channel - 1],
-		       tssi->index[RF_PATH_B][channel - 1]);
-	}
-
-	if ((rf->rf_supportability & HAL_RF_TX_PWR_TRACK) == 1) {
+		       "[TSSI] rf_supportability HAL_RF_TX_PWR_TRACK on\n");
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s\n", __func__);
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "rf_supportability HAL_RF_TX_PWR_TRACK on\n");
+		       "[TSSI] dm->priv->pmib->dot11RFEntry.tssi_enable=%d\n",
+		       dm->priv->pmib->dot11RFEntry.tssi_enable);
 	} else {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s, return!\n", __func__);
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s, return!\n", __func__);
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "rf_supportability HAL_RF_TX_PWR_TRACK off, return!!\n");
+		       "[TSSI] rf_supportability HAL_RF_TX_PWR_TRACK off, return!!\n");
 
-		halrf_disable_tssi_8822c(dm);
+		halrf_disable_tssi_8812f(dm);
 		return;
 	}
-
+#endif
+	
+	
+	halrf_tssi_set_de_8822c(dm);
 	halrf_disable_tssi_8822c(dm);
 	_halrf_tssi_init_8822c(dm);
-	/*_halrf_dc_offset_calibration_8822c(dm);*/
+	/*halrf_tssi_dck_8822c(dm);*/
+	_halrf_tssi_8822c(dm);
 
-	if (rate == MGN_1M || rate == MGN_2M || rate == MGN_5_5M || rate == MGN_11M) {
+	if (!(rf->rf_supportability & HAL_RF_TX_PWR_TRACK)) {
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-		       "===>%s, in CCK Rate return!!!\n", __func__);
+		       "[TSSI] rf_supportability HAL_RF_TX_PWR_TRACK=%d, return!!!\n",
+		       (rf->rf_supportability & HAL_RF_TX_PWR_TRACK));
+		_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+		rf->is_tssi_in_progress = 0;
+		/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
 		return;
 	}
 
-	/*path s0*/
-	if (channel >= 1 && channel <= 14) {
-		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
-		odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0044);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0044);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0044);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0044);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0044);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c24, 0x0001fe00, 0x20);
-		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
-		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
-		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00ff8000, 0x000);
-		odm_set_bb_reg(dm, R_0x18a8, 0xff000000, 0x00);
-		odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x110);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00002, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x0000c, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x000c0, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6e, 0x001e0, 0x0);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
-		odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
-		odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1800, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1804, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1800, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1804, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18ec, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18ec, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x186c, 0x0000ff00, 0xff);
-		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x1fffff00, 0x000000);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x18a0, 0x0000007f, 0x00);
-		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+	if (*dm->mp_mode == 1) {
+		if (cali_info->txpowertrack_control == 3) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"[TSSI] cali_info->txpowertrack_control=%d, TSSI Mode\n",
+				cali_info->txpowertrack_control);
+			halrf_enable_tssi_8822c(dm);
+			_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+			rf->is_tssi_in_progress = 0;
+			/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+			return;
+		}
 	} else {
-		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
-		odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x2);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0042);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0042);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x703f0042);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x704f0042);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x705b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x706f0042);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x707b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x708b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x709b8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70ab8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70bb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70cb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70db8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70eb8041);
-		odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x70fb8041);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c24, 0x0001fe00, 0x20);
-		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
-		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
-		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
-		odm_set_bb_reg(dm, R_0x18a8, 0x00ff8000, 0x000);
-		odm_set_bb_reg(dm, R_0x18a8, 0xff000000, 0x00);
-		odm_set_bb_reg(dm, R_0x18e8, 0x000003fe, 0x110);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x7f, 0x00100, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00003, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x001e0, 0x0);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
-		odm_set_bb_reg(dm, R_0x180c, 0x08000000, 0x1);
-		odm_set_bb_reg(dm, R_0x180c, 0x40000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1800, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1804, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x1800, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1804, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18ec, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18ec, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x186c, 0x0000ff00, 0xff);
-		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x1fffff00, 0x000000);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x18a0, 0x0000007f, 0x00);
-		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+		if (rf->power_track_type >= 4 && rf->power_track_type <= 7) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"[TSSI] cali_info->txpowertrack_control=%d, TSSI Mode\n",
+				cali_info->txpowertrack_control);
+			/*halrf_disable_tssi_8822c(dm);*/
+			halrf_enable_tssi_8822c(dm);
+			_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+			rf->is_tssi_in_progress = 0;
+			/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+			return;
+		}	
 	}
 
-#if 1
-	/*path s1*/
-	if (channel >= 1 && channel <= 14) {
-		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
-		odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0044);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0044);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0044);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0044);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0044);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
-		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
-		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
-		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
-		odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
-		odm_set_bb_reg(dm, R_0x1eec, 0x003fe000, 0x000);
-		odm_set_bb_reg(dm, R_0x1eec, 0x3fc00000, 0x00);
-		odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x110);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00002, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x0000c, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x000c0, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6e, 0x001e0, 0x0);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
-		odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
-		odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4100, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4104, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4100, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x4104, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41ec, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41ec, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1ef0, 0x01fe0000, 0xff);
-		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x1fffff00, 0x000000);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x41a0, 0x0000007f, 0x00);
-		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
-	} else {
-		odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
-		odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x2);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0042);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x702f0042);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x703f0042);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x704f0042);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x705b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x706f0042);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x707b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x708b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x709b8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70ab8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70bb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70cb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70db8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70eb8041);
-		odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x70fb8041);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1c64, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1d04, 0x000ff000, 0x20);
-		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
-		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
-		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
-		odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
-		odm_set_bb_reg(dm, R_0x1eec, 0x003fe000, 0x000);
-		odm_set_bb_reg(dm, R_0x1eec, 0x3fc00000, 0x00);
-		odm_set_bb_reg(dm, R_0x1ef0, 0x000001ff, 0x110);
-		odm_set_rf_reg(dm, RF_PATH_B, RF_0x7f, 0x00100, 0x1);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x65, 0x03000, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00003, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x67, 0x00030, 0x3);
-		odm_set_rf_reg(dm, RF_PATH_A, RF_0x6f, 0x001e0, 0x0);
-		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x00800000, 0x0);
-		odm_set_bb_reg(dm, R_0x410c, 0x08000000, 0x1);
-		odm_set_bb_reg(dm, R_0x410c, 0x40000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4100, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4104, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x4100, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x4104, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41ec, 0x20000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41ec, 0x40000000, 0x0);
-		odm_set_bb_reg(dm, R_0x1ef0, 0x01fe0000, 0xff);
-		odm_set_bb_reg(dm, R_0x1c64, 0x1fffff00, 0x000000);
-		odm_set_bb_reg(dm, R_0x1e7c, 0x80000000, 0x1);
-		odm_set_bb_reg(dm, R_0x41a0, 0x0000007f, 0x00);
-		odm_set_bb_reg(dm, R_0x1d04, 0x07f00000, 0x00);
+	_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	rf->is_tssi_in_progress = 0;
+	/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+}
+
+void halrf_do_tssi_scan_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct dm_rf_calibration_struct *cali_info = &(dm->rf_calibrate_info);
+	struct _hal_rf_ *rf = &(dm->rf_table);
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	struct dm_dpk_info *dpk_info = &dm->dpk_info;
+
+	u32 bb_reg[7] = {R_0x820, R_0x1e2c, R_0x1d08, R_0x1c3c, R_0x1e28,
+			R_0x18a0, R_0x41a0};
+	u32 bb_reg_backup[7] = {0};
+	u32 backup_num = 7;
+	
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
+
+	if (odm_get_bb_reg(dm, R_0x1e7c, 0x40000000) == 0)
+		return;
+
+	/*odm_acquire_spin_lock(dm, RT_IQK_SPINLOCK);*/
+	rf->is_tssi_in_progress = 1;
+
+	_backup_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	
+	_halrf_tssi_reload_dck_8822c(dm);
+	halrf_tssi_set_de_8822c(dm);
+	halrf_disable_tssi_8822c(dm);
+	halrf_calculate_tssi_codeword_8822c(dm);
+	halrf_set_tssi_codeword_8822c(dm, tssi->tssi_codeword);
+	_halrf_tssi_scan_8822c(dm);
+
+	if (!(rf->rf_supportability & HAL_RF_TX_PWR_TRACK)) {
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+		       "[TSSI] rf_supportability HAL_RF_TX_PWR_TRACK=%d, return!!!\n",
+		       (rf->rf_supportability & HAL_RF_TX_PWR_TRACK));
+		_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+		rf->is_tssi_in_progress = 0;
+		/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+		return;
 	}
-#endif
-	halrf_enable_tssi_8822c(dm);
-#endif
+
+	if (*dm->mp_mode == 1) {
+		if (cali_info->txpowertrack_control == 3) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"[TSSI] cali_info->txpowertrack_control=%d, TSSI Mode\n",
+				cali_info->txpowertrack_control);
+			halrf_enable_tssi_8822c(dm);
+			_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+			rf->is_tssi_in_progress = 0;
+			/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+			return;
+		}
+	} else {
+		if (rf->power_track_type >= 4 && rf->power_track_type <= 7) {
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+				"[TSSI] cali_info->txpowertrack_control=%d, TSSI Mode\n",
+				cali_info->txpowertrack_control);
+			/*halrf_disable_tssi_8822c(dm);*/
+			halrf_enable_tssi_8822c(dm);
+			_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+			rf->is_tssi_in_progress = 0;
+			/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+			return;
+		}	
+	}
+
+	_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, backup_num);
+	rf->is_tssi_in_progress = 0;
+	/*odm_release_spin_lock(dm, RT_IQK_SPINLOCK);*/
+}
+
+void halrf_tssi_scan_set_tssi_setting_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s\n", __func__);
+
+	_halrf_tssi_reload_dck_8822c(dm);
+	halrf_tssi_set_de_8822c(dm);
+	halrf_set_tssi_codeword_scan_8822c(dm);
+
+	odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->special_scan_num);
+	odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->special_scan_num);
+}
+
+
+void halrf_tssi_scan_save_txagc_offset_8822c(
+	void *dm_void, u8 path)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel, i;
+	u32 idx;
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s channel=%d\n",
+		__func__, channel);
+
+	//_halrf_tssi_reload_dck_8822c(dm);
+	//halrf_tssi_set_de_8822c(dm);
+	//halrf_calculate_tssi_codeword_8822c(dm);
+	//halrf_set_tssi_codeword_8822c(dm, tssi->tssi_codeword);
+
+	//halrf_set_tssi_codeword_scan_8822c(dm);
+
+	/*s0*/
+	if (path == RF_PATH_A) {
+		idx = _halrf_tssi_channel_to_index(dm);
+		phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, 0x944);
+		tssi->txagc_offset[RF_PATH_A][idx] = (s8)((phydm_get_bb_dbg_port_val(dm) & 0xff00) >> 8);
+		tssi->txagc_offset[RF_PATH_A][idx] = tssi->txagc_offset[RF_PATH_A][idx] - 8;
+		phydm_release_bb_dbg_port(dm);
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] S0 channel=%d tssi->txagc_offset[RF_PATH_A][%d]=0x%x\n",
+			channel, idx, tssi->txagc_offset[RF_PATH_A][idx]);
+	}
+
+	/*s1*/
+	if (path == RF_PATH_B) {
+		idx = _halrf_tssi_channel_to_index(dm);
+		phydm_set_bb_dbg_port(dm, DBGPORT_PRI_2, 0xb44);
+		tssi->txagc_offset[RF_PATH_B][idx] = (s8)((phydm_get_bb_dbg_port_val(dm) & 0xff00) >> 8);
+		tssi->txagc_offset[RF_PATH_B][idx] = tssi->txagc_offset[RF_PATH_B][idx] - 8;
+		phydm_release_bb_dbg_port(dm);
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] S1 channel=%d tssi->txagc_offset[RF_PATH_B][%d]=0x%x\n",
+			channel, idx, tssi->txagc_offset[RF_PATH_B][idx]);
+	}
+
+	odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
+	odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x00);
+	odm_set_rf_reg(dm, RF_PATH_A, R_0x42, BIT(19), 0x01);
+	
+	odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);
+	odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x00);
+	odm_set_rf_reg(dm, RF_PATH_B, R_0x42, BIT(19), 0x01);
+
+	
+	/* 0x42: RF Reg[6:1] Thermal Trim*/
+	for (i = 0; i < 2; i++)
+		tssi->tssi_thermal[i] = (u8)odm_get_rf_reg(dm, i, R_0x42, 0x7e);
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] tssi->tssi_thermal[0]=%d tssi->tssi_thermal[1]=%d\n",
+		tssi->tssi_thermal[0], tssi->tssi_thermal[1]);
+
+	odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, tssi->connect_ch_num);
+	odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, tssi->connect_ch_num);
+
+	tssi->retry_sacan_tssi = 0;
+}
+
+void halrf_tssi_scan_reload_txagc_offset_8822c(
+	void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
+	u8 channel = *dm->channel;
+	u32 idx;
+	u32 bitmask_6_0 = BIT(6) | BIT(5) | BIT(4) | BIT(3) |
+		BIT(2) | BIT(1) | BIT(0);
+
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] ======>%s channel=%d\n",
+		__func__, channel);
+
+	idx = _halrf_tssi_channel_to_index(dm);
+
+	/*s0*/
+	odm_set_bb_reg(dm, R_0x18a0, bitmask_6_0, (tssi->txagc_offset[RF_PATH_A][idx] & 0x7f));
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+	       "0x%x=0x%x\n", R_0x18a0,
+	       odm_get_bb_reg(dm, R_0x18a0, bitmask_6_0));
+
+	/*s1*/
+	odm_set_bb_reg(dm, R_0x41a0, bitmask_6_0, (tssi->txagc_offset[RF_PATH_B][idx] & 0x7f));
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+	       "0x%x=0x%x\n", R_0x41a0,
+	       odm_get_bb_reg(dm, R_0x41a0, bitmask_6_0));
+
 }
 
 void halrf_do_thermal_8822c(
@@ -1335,7 +3000,7 @@ void halrf_do_thermal_8822c(
 	halrf_disable_tssi_8822c(dm);
 	_halrf_thermal_init_8822c(dm);
 	
-	/*_halrf_dc_offset_calibration_8822c(dm);*/
+	/*halrf_tssi_dck_8822c(dm);*/
 
 	if (rate == MGN_1M || rate == MGN_2M || rate == MGN_5_5M || rate == MGN_11M) {
 		RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
@@ -1351,7 +3016,7 @@ void halrf_do_thermal_8822c(
 		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x3);
 		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x1);
 		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0);
 		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
 		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
 		odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x0000);
@@ -1376,7 +3041,7 @@ void halrf_do_thermal_8822c(
 		odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x3);
 		odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x1);
 		odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0);
 		odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
 		odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
 		odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x0000);
@@ -1405,7 +3070,7 @@ void halrf_do_thermal_8822c(
 		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x3);
 		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x1);
 		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);
 		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
 		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
 		odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x0000);
@@ -1430,7 +3095,7 @@ void halrf_do_thermal_8822c(
 		odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x3);
 		odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x1);
 		odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-		odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
+		odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);
 		odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
 		odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
 		odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x0000);
@@ -1481,7 +3146,7 @@ u32 halrf_set_tssi_value_8822c(
 
 	_halrf_calculate_txagc_codeword_8822c(dm, tssi_codeword_tmp, txagc_codeword_tmp);
 	_halrf_set_txagc_codeword_8822c(dm, txagc_codeword_tmp);
-	_halrf_set_tssi_codeword_8822c(dm, tssi_codeword_tmp);
+	halrf_set_tssi_codeword_8822c(dm, tssi_codeword_tmp);
 
 	kfree = _halrf_get_kfree_tssi_offset_8822c(dm);
 
@@ -1558,7 +3223,7 @@ void halrf_set_tssi_poewr_8822c(
 
 		_halrf_calculate_txagc_codeword_8822c(dm, tssi_codeword_tmp, txagc_codeword_tmp);
 		_halrf_set_txagc_codeword_8822c(dm, txagc_codeword_tmp);
-		/*_halrf_set_tssi_codeword_8822c(dm, tssi_codeword_tmp);*/
+		/*halrf_set_tssi_codeword_8822c(dm, tssi_codeword_tmp);*/
 #endif
 #if 0
 		if (power != 0x7f) {
@@ -1638,7 +3303,7 @@ void halrf_get_efuse_thermal_pwrtype_8822c(
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 
-	u32 thermal_tmp;
+	u32 thermal_tmp, pg_tmp;
 
 	tssi->thermal[RF_PATH_A] = 0xff;
 	tssi->thermal[RF_PATH_B] = 0xff;
@@ -1652,8 +3317,11 @@ void halrf_get_efuse_thermal_pwrtype_8822c(
 	tssi->thermal[RF_PATH_B] = (u8)thermal_tmp;
 
 	/*power tracking type*/
-	odm_efuse_logical_map_read(dm, 1, 0xc8, &thermal_tmp);
-	rf->power_track_type = (u8)(thermal_tmp & 0xff);
+	odm_efuse_logical_map_read(dm, 1, 0xc8, &pg_tmp);
+	if (((pg_tmp >> 4) & 0xf) == 0xf)
+		rf->power_track_type = 0x0;
+	else
+		rf->power_track_type = (u8)((pg_tmp >> 4) & 0xf);
 
 	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 	       "===>%s thermal pahtA=0x%x pahtB=0x%x power_track_type=0x%x\n",
@@ -1666,17 +3334,18 @@ u32 halrf_query_tssi_value_8822c(
 	void *dm_void)
 {
 	s32 tssi_codeword = 0;
-#if 0
+
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct _hal_rf_ *rf = &dm->rf_table;
 	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 	u8 tssi_rate;
 	u8 rate = phydm_get_tx_rate(dm);
-	s8 efuse, kfree;
+	/*s8 efuse, kfree;*/
 
-	tssi_rate = _halrf_driver_rate_to_tssi_rate_8822c(dm, phydm_get_tx_rate(dm));
-	tssi_codeword = tssi->tssi_codeword[tssi_rate];
+	tssi_rate = _halrf_driver_rate_to_tssi_rate_8822c(dm, rate);
+	/*tssi_codeword = tssi->tssi_codeword[tssi_rate];*/
 
+#if 0
 	if (rate == MGN_1M || rate == MGN_2M || rate == MGN_5_5M || rate == MGN_11M) {
 		efuse = _halrf_get_efuse_tssi_offset_8822c(dm, 3);
 		kfree = _halrf_get_kfree_tssi_offset_8822c(dm);
@@ -1691,14 +3360,12 @@ u32 halrf_query_tssi_value_8822c(
 		tssi_codeword = 0;
 	else if (tssi_codeword >= 255)
 		tssi_codeword = 255;
-
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
-	       "===>%s tx_rate=0x%X tssi_codeword(0x%x) = tssi_codeword(%d) + efuse(%d) + kfree(%d)\n",
-	       __func__, phydm_get_tx_rate(dm), tssi_codeword,
-	       tssi->tssi_codeword[tssi_rate], efuse, kfree);
 #endif
+	RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+	       "===>%s tx_rate=0x%x tssi_codeword=0x%x\n",
+	       __func__, rate, tssi->tssi_codeword[tssi_rate]);
 
-	return (u32)tssi_codeword;
+	return (u32)tssi->tssi_codeword[tssi_rate];
 }
 
 void halrf_tssi_cck_8822c(
@@ -1716,7 +3383,7 @@ void halrf_tssi_cck_8822c(
 		return;
 
 	/*path s0*/
-	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
+	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
 	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x700b8041);
 	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x701f0044);
 	odm_set_bb_reg(dm, R_0x1830, MASKDWORD, 0x702f0044);
@@ -1739,7 +3406,7 @@ void halrf_tssi_cck_8822c(
 	odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x2);
 	odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x1);
 	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
+	odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0);
 	odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
 	odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
 	odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x1266);
@@ -1817,7 +3484,7 @@ void halrf_tssi_cck_8822c(
 
 
 	/*path s1*/
-	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xffff00bc);
+	odm_set_bb_reg(dm, R_0x1c38, MASKDWORD, 0xf7d5005e);
 	odm_set_bb_reg(dm, R_0x1860, 0x00007000, 0x4);
 	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x700b8041);
 	odm_set_bb_reg(dm, R_0x4130, MASKDWORD, 0x701f0044);
@@ -1841,7 +3508,7 @@ void halrf_tssi_cck_8822c(
 	odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x2);
 	odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x1);
 	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
+	odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);
 	odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
 	odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
 	odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x1266);
@@ -1998,7 +3665,7 @@ void halrf_thermal_cck_8822c(
 	odm_set_bb_reg(dm, R_0x18ec, 0x00c00000, 0x3);
 	odm_set_bb_reg(dm, R_0x1834, 0x80000000, 0x1);
 	odm_set_bb_reg(dm, R_0x18a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x18e0, 0x00000001, 0x0);
+	odm_set_bb_reg(dm, R_0x18e8, 0x00000001, 0x0);
 	odm_set_bb_reg(dm, R_0x18a4, 0xe0000000, 0x0);
 	odm_set_bb_reg(dm, R_0x18a8, 0x00000003, 0x2);
 	odm_set_bb_reg(dm, R_0x18a8, 0x00007ffc, 0x0000);
@@ -2048,7 +3715,7 @@ void halrf_thermal_cck_8822c(
 	odm_set_bb_reg(dm, R_0x41ec, 0x00c00000, 0x3);
 	odm_set_bb_reg(dm, R_0x4134, 0x80000000, 0x1);
 	odm_set_bb_reg(dm, R_0x41a4, 0x10000000, 0x0);
-	odm_set_bb_reg(dm, R_0x41e0, 0x00000001, 0x0);
+	odm_set_bb_reg(dm, R_0x41e8, 0x00000001, 0x0);
 	odm_set_bb_reg(dm, R_0x41a4, 0xe0000000, 0x0);
 	odm_set_bb_reg(dm, R_0x41a8, 0x00000003, 0x2);
 	odm_set_bb_reg(dm, R_0x1eec, 0x00001fff, 0x0000);

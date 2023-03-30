@@ -1,0 +1,50 @@
+From 889914206516a037e456d2503444554d56957bd8 Mon Sep 17 00:00:00 2001
+From: Jonglin Lee <jonglin@google.com>
+Date: Tue, 22 Sep 2020 18:31:21 -0700
+Subject: [PATCH 094/830] ANDROID: arm64: debug-monitors: export break hook
+ APIs
+X-NVConfidentiality: public
+
+Export register/unregister kernel/user break hook APIs
+for modules to reference.
+
+Bug: 169899018
+Signed-off-by: Jonglin Lee <jonglin@google.com>
+Change-Id: I0e58f72f97f2952485dd4318f36b68e8afa0e454
+---
+ arch/arm64/kernel/debug-monitors.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/kernel/debug-monitors.c b/arch/arm64/kernel/debug-monitors.c
+index fa76151de6ff..1e14bfa8c8a4 100644
+--- a/arch/arm64/kernel/debug-monitors.c
++++ b/arch/arm64/kernel/debug-monitors.c
+@@ -284,21 +284,25 @@ void register_user_break_hook(struct break_hook *hook)
+ {
+ 	register_debug_hook(&hook->node, &user_break_hook);
+ }
++EXPORT_SYMBOL_GPL(register_user_break_hook);
+ 
+ void unregister_user_break_hook(struct break_hook *hook)
+ {
+ 	unregister_debug_hook(&hook->node);
+ }
++EXPORT_SYMBOL_GPL(unregister_user_break_hook);
+ 
+ void register_kernel_break_hook(struct break_hook *hook)
+ {
+ 	register_debug_hook(&hook->node, &kernel_break_hook);
+ }
++EXPORT_SYMBOL_GPL(register_kernel_break_hook);
+ 
+ void unregister_kernel_break_hook(struct break_hook *hook)
+ {
+ 	unregister_debug_hook(&hook->node);
+ }
++EXPORT_SYMBOL_GPL(unregister_kernel_break_hook);
+ 
+ static int call_break_hook(struct pt_regs *regs, unsigned int esr)
+ {
+-- 
+2.17.1
+

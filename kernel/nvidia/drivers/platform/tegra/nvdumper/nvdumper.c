@@ -66,7 +66,7 @@ early_param("nvdumper_reserved", tegra_nvdumper_arg);
 static void enable_hw_ram_dump_ctrl(int enable)
 {
 	u32 value;
-	void __iomem *ram_dump_ctrl = ioremap_nocache(
+	void __iomem *ram_dump_ctrl = ioremap(
 			NV_ADDRESS_MAP_PMC_IMPL_BASE,
 			NV_ADDRESS_MAP_PMC_IMPL_SIZE);
 	if (!ram_dump_ctrl) {
@@ -222,7 +222,7 @@ static int nvdumper_probe(struct platform_device *pdev)
 
 	nvdumper_soc = of_device_get_match_data(&pdev->dev);
 
-	nvdumper_ptr = ioremap_nocache(nvdumper_reserved,
+	nvdumper_ptr = ioremap(nvdumper_reserved,
 				       NVDUMPER_RESERVED_SIZE);
 	if (!nvdumper_ptr) {
 		pr_info("nvdumper: failed to ioremap memory at 0x%08lx\n",

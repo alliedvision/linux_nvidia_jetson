@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,11 +36,11 @@
  */
 static atomic_t kmem_cache_id;
 
-void *__nvgpu_big_alloc(struct gk20a *g, size_t size, bool clear)
+void *nvgpu_big_alloc_impl(struct gk20a *g, size_t size, bool clear)
 {
 	void *p;
 
-	if (size > PAGE_SIZE) {
+	if (size > NVGPU_CPU_PAGE_SIZE) {
 		if (clear)
 			p = nvgpu_vzalloc(g, size);
 		else
@@ -68,7 +68,7 @@ void nvgpu_big_free(struct gk20a *g, void *p)
 		nvgpu_kfree(g, p);
 }
 
-void *__nvgpu_kmalloc(struct gk20a *g, size_t size, void *ip)
+void *nvgpu_kmalloc_impl(struct gk20a *g, size_t size, void *ip)
 {
 	void *alloc;
 
@@ -84,7 +84,7 @@ void *__nvgpu_kmalloc(struct gk20a *g, size_t size, void *ip)
 	return alloc;
 }
 
-void *__nvgpu_kzalloc(struct gk20a *g, size_t size, void *ip)
+void *nvgpu_kzalloc_impl(struct gk20a *g, size_t size, void *ip)
 {
 	void *alloc;
 
@@ -100,7 +100,7 @@ void *__nvgpu_kzalloc(struct gk20a *g, size_t size, void *ip)
 	return alloc;
 }
 
-void *__nvgpu_kcalloc(struct gk20a *g, size_t n, size_t size, void *ip)
+void *nvgpu_kcalloc_impl(struct gk20a *g, size_t n, size_t size, void *ip)
 {
 	void *alloc;
 
@@ -116,7 +116,7 @@ void *__nvgpu_kcalloc(struct gk20a *g, size_t n, size_t size, void *ip)
 	return alloc;
 }
 
-void *__nvgpu_vmalloc(struct gk20a *g, unsigned long size, void *ip)
+void *nvgpu_vmalloc_impl(struct gk20a *g, unsigned long size, void *ip)
 {
 	void *alloc;
 
@@ -131,7 +131,7 @@ void *__nvgpu_vmalloc(struct gk20a *g, unsigned long size, void *ip)
 	return alloc;
 }
 
-void *__nvgpu_vzalloc(struct gk20a *g, unsigned long size, void *ip)
+void *nvgpu_vzalloc_impl(struct gk20a *g, unsigned long size, void *ip)
 {
 	void *alloc;
 
@@ -146,7 +146,7 @@ void *__nvgpu_vzalloc(struct gk20a *g, unsigned long size, void *ip)
 	return alloc;
 }
 
-void __nvgpu_kfree(struct gk20a *g, void *addr)
+void nvgpu_kfree_impl(struct gk20a *g, void *addr)
 {
 	kmem_dbg(g, "kfree: addr=0x%p", addr);
 #ifdef CONFIG_NVGPU_TRACK_MEM_USAGE
@@ -156,7 +156,7 @@ void __nvgpu_kfree(struct gk20a *g, void *addr)
 #endif
 }
 
-void __nvgpu_vfree(struct gk20a *g, void *addr)
+void nvgpu_vfree_impl(struct gk20a *g, void *addr)
 {
 	kmem_dbg(g, "vfree: addr=0x%p", addr);
 #ifdef CONFIG_NVGPU_TRACK_MEM_USAGE
@@ -182,7 +182,7 @@ void kmem_print_mem_alloc(struct gk20a *g,
 			 struct nvgpu_mem_alloc *alloc,
 			 struct seq_file *s)
 {
-#ifdef __NVGPU_SAVE_KALLOC_STACK_TRACES
+#ifdef NVGPU_SAVE_KALLOC_STACK_TRACES
 	int i;
 
 	__pstat(s, "nvgpu-alloc: addr=0x%llx size=%ld\n",
@@ -193,7 +193,7 @@ void kmem_print_mem_alloc(struct gk20a *g,
 			(void *)alloc->stack[i]);
 	__pstat(s, "\n");
 #else
-	__pstat(s, "nvgpu-alloc: addr=0x%llx size=%ld src=%pF\n",
+	__pstat(s, "nvgpu-alloc: addr=0x%llx size=%ld src=%pS\n",
 		alloc->addr, alloc->size, alloc->ip);
 #endif
 }
@@ -231,7 +231,7 @@ static int __nvgpu_save_kmem_alloc(struct nvgpu_mem_alloc_tracker *tracker,
 {
 	int ret;
 	struct nvgpu_mem_alloc *alloc;
-#ifdef __NVGPU_SAVE_KALLOC_STACK_TRACES
+#ifdef NVGPU_SAVE_KALLOC_STACK_TRACES
 	struct stack_trace stack_trace;
 #endif
 
@@ -245,7 +245,7 @@ static int __nvgpu_save_kmem_alloc(struct nvgpu_mem_alloc_tracker *tracker,
 	alloc->addr = addr;
 	alloc->ip = ip;
 
-#ifdef __NVGPU_SAVE_KALLOC_STACK_TRACES
+#ifdef NVGPU_SAVE_KALLOC_STACK_TRACES
 	stack_trace.max_entries = MAX_STACK_TRACE;
 	stack_trace.nr_entries = 0;
 	stack_trace.entries = alloc->stack;
@@ -295,12 +295,14 @@ static int __nvgpu_free_kmem_alloc(struct nvgpu_mem_alloc_tracker *tracker,
 
 	nvgpu_lock_tracker(tracker);
 	alloc = nvgpu_rem_alloc(tracker, addr);
-	if (WARN(!alloc, "Possible double-free detected: 0x%llx!", addr)) {
+	if (!alloc) {
 		nvgpu_unlock_tracker(tracker);
+		nvgpu_do_assert_print(g,
+			"Possible double-free detected: 0x%llx!", addr);
 		return -EINVAL;
 	}
 
-	memset((void *)alloc->addr, 0, alloc->size);
+	(void) memset((void *)alloc->addr, 0, alloc->size);
 
 	tracker->nr_frees++;
 	tracker->bytes_freed += alloc->size;
@@ -312,12 +314,12 @@ static int __nvgpu_free_kmem_alloc(struct nvgpu_mem_alloc_tracker *tracker,
 
 static void __nvgpu_check_valloc_size(unsigned long size)
 {
-	WARN(size < PAGE_SIZE, "Alloc smaller than page size! (%lu)!\n", size);
+	WARN(size < NVGPU_CPU_PAGE_SIZE, "Alloc smaller than page size! (%lu)!\n", size);
 }
 
 static void __nvgpu_check_kalloc_size(size_t size)
 {
-	WARN(size > PAGE_SIZE, "Alloc larger than page size! (%zu)!\n", size);
+	WARN(size > NVGPU_CPU_PAGE_SIZE, "Alloc larger than page size! (%zu)!\n", size);
 }
 
 void *__nvgpu_track_vmalloc(struct gk20a *g, unsigned long size,
@@ -568,7 +570,7 @@ int nvgpu_kmem_init(struct gk20a *g)
 	nvgpu_mutex_init(&g->vmallocs->lock);
 	nvgpu_mutex_init(&g->kmallocs->lock);
 
-	g->vmallocs->min_alloc = PAGE_SIZE;
+	g->vmallocs->min_alloc = NVGPU_CPU_PAGE_SIZE;
 	g->kmallocs->min_alloc = KMALLOC_MIN_SIZE;
 
 	/*
@@ -621,7 +623,7 @@ struct nvgpu_kmem_cache *nvgpu_kmem_cache_create(struct gk20a *g, size_t size)
 
 	cache->g = g;
 
-	snprintf(cache->name, sizeof(cache->name),
+	(void) snprintf(cache->name, sizeof(cache->name),
 		 "nvgpu-cache-0x%p-%d-%d", g, (int)size,
 		 atomic_inc_return(&kmem_cache_id));
 	cache->cache = kmem_cache_create(cache->name,

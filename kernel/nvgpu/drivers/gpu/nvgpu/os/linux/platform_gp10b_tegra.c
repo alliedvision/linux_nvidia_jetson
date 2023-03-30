@@ -1,7 +1,7 @@
 /*
  * GP10B Tegra Platform Interface
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,27 +13,36 @@
  * more details.
  */
 
+#include <linux/string.h>
+#include <linux/clk.h>
 #include <linux/of_platform.h>
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
-#include <linux/nvmap.h>
 #include <linux/reset.h>
+#include <linux/iommu.h>
+#include <linux/pm_runtime.h>
+#ifdef CONFIG_TEGRA_BWMGR
 #include <linux/platform/tegra/emc_bwmgr.h>
+#endif
+#include <linux/hashtable.h>
 
 #include <uapi/linux/nvgpu.h>
 
-#include <soc/tegra/tegra_bpmp.h>
-#include <soc/tegra/tegra_powergate.h>
+#ifdef CONFIG_NV_TEGRA_BPMP
 #include <soc/tegra/tegra-bpmp-dvfs.h>
+#endif /* CONFIG_NV_TEGRA_BPMP */
 
+#ifdef CONFIG_NV_TEGRA_MC
 #include <dt-bindings/memory/tegra-swgroup.h>
+#endif
 
 #include <nvgpu/kmem.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/enabled.h>
-#include <nvgpu/hashtable.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/nvhost.h>
+#include <nvgpu/soc.h>
+#include <nvgpu/pmu/pmu_perfmon.h>
 
 #include "os_linux.h"
 
@@ -42,75 +51,105 @@
 #include "platform_gk20a.h"
 #include "platform_gk20a_tegra.h"
 #include "platform_gp10b.h"
-#include "platform_gp10b_tegra.h"
 #include "scale.h"
+#include "module.h"
 
-/* Select every GP10B_FREQ_SELECT_STEP'th frequency from h/w table */
-#define GP10B_FREQ_SELECT_STEP	8
-/* Allow limited set of frequencies to be available */
-#define GP10B_NUM_SUPPORTED_FREQS 15
-/* Max number of freq supported in h/w */
-#define GP10B_MAX_SUPPORTED_FREQS 120
-static unsigned long
-gp10b_freq_table[GP10B_MAX_SUPPORTED_FREQS / GP10B_FREQ_SELECT_STEP];
-
+unsigned long gp10b_freq_table[GP10B_NUM_SUPPORTED_FREQS];
 static bool freq_table_init_complete;
 static int num_supported_freq;
 
-#define TEGRA_GP10B_BW_PER_FREQ 64
-#define TEGRA_DDR4_BW_PER_FREQ 16
-
-#define EMC_BW_RATIO  (TEGRA_GP10B_BW_PER_FREQ / TEGRA_DDR4_BW_PER_FREQ)
-
 #define GPCCLK_INIT_RATE 1000000000
 
-static struct {
-	char *name;
-	unsigned long default_rate;
-} tegra_gp10b_clocks[] = {
+struct gk20a_platform_clk tegra_gp10b_clocks[] = {
 	{"gpu", GPCCLK_INIT_RATE},
-	{"gpu_sys", 204000000} };
+	{"pwr", 204000000},
+	{"fuse", UINT_MAX}
+};
 
 /*
- * gp10b_tegra_get_clocks()
- *
  * This function finds clocks in tegra platform and populates
- * the clock information to gp10b platform data.
+ * the clock information to platform data.
  */
 
-int gp10b_tegra_get_clocks(struct device *dev)
+int gp10b_tegra_acquire_platform_clocks(struct device *dev,
+		struct gk20a_platform_clk *clk_entries,
+		unsigned int num_clk_entries)
 {
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
-	unsigned int i;
+	struct gk20a *g = platform->g;
+	struct device_node *np = nvgpu_get_node(g);
+	unsigned int i, num_clks_dt;
+	int err = 0;
+
+	/* Get clocks only on supported platforms(silicon and fpga) */
+	if (!nvgpu_platform_is_silicon(g) && !nvgpu_platform_is_fpga(g)) {
+		return 0;
+	}
+
+	num_clks_dt = of_clk_get_parent_count(np);
+	if (num_clks_dt > num_clk_entries) {
+		nvgpu_err(g, "maximum number of clocks supported is %d",
+			num_clk_entries);
+		return -EINVAL;
+	} else if (num_clks_dt == 0) {
+		nvgpu_err(g, "unable to read clocks from DT");
+		return -ENODEV;
+	}
+
+	nvgpu_mutex_acquire(&platform->clks_lock);
 
 	platform->num_clks = 0;
-	for (i = 0; i < ARRAY_SIZE(tegra_gp10b_clocks); i++) {
-		long rate = tegra_gp10b_clocks[i].default_rate;
-		struct clk *c;
 
-		c = clk_get(dev, tegra_gp10b_clocks[i].name);
+	for (i = 0; i < num_clks_dt; i++) {
+		long rate;
+		struct clk *c = of_clk_get_by_name(np, clk_entries[i].name);
 		if (IS_ERR(c)) {
-			nvgpu_err(platform->g, "cannot get clock %s",
-					tegra_gp10b_clocks[i].name);
-		} else {
-			clk_set_rate(c, rate);
-			platform->clk[i] = c;
+			nvgpu_err(g, "cannot get clock %s",
+					clk_entries[i].name);
+			err = PTR_ERR(c);
+			goto err_get_clock;
 		}
+
+		rate = clk_entries[i].default_rate;
+		clk_set_rate(c, rate);
+		platform->clk[i] = c;
 	}
+
 	platform->num_clks = i;
 
+#ifdef CONFIG_NV_TEGRA_BPMP
 	if (platform->clk[0]) {
 		i = tegra_bpmp_dvfs_get_clk_id(dev->of_node,
-					       tegra_gp10b_clocks[0].name);
+					       clk_entries[0].name);
 		if (i > 0)
 			platform->maxmin_clk_id = i;
 	}
+#endif
+
+	nvgpu_mutex_release(&platform->clks_lock);
 
 	return 0;
+
+err_get_clock:
+	while (i--) {
+		clk_put(platform->clk[i]);
+		platform->clk[i] = NULL;
+	}
+
+	nvgpu_mutex_release(&platform->clks_lock);
+
+	return err;
+}
+
+int gp10b_tegra_get_clocks(struct device *dev)
+{
+	return gp10b_tegra_acquire_platform_clocks(dev, tegra_gp10b_clocks,
+			ARRAY_SIZE(tegra_gp10b_clocks));
 }
 
 void gp10b_tegra_scale_init(struct device *dev)
 {
+#ifdef CONFIG_TEGRA_BWMGR
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
 	struct tegra_bwmgr_client *bwmgr_handle;
@@ -126,147 +165,38 @@ void gp10b_tegra_scale_init(struct device *dev)
 		return;
 
 	profile->private_data = (void *)bwmgr_handle;
+#endif
 }
 
-static void gp10b_tegra_scale_exit(struct device *dev)
+void gp10b_tegra_clks_control(struct device *dev, bool enable)
 {
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
-	struct gk20a_scale_profile *profile = platform->g->scale_profile;
+	struct gk20a *g = get_gk20a(dev);
+	int err;
+	int i;
 
-	if (profile && profile->private_data)
-		tegra_bwmgr_unregister(
-			(struct tegra_bwmgr_client *)profile->private_data);
-}
+	nvgpu_mutex_acquire(&platform->clks_lock);
 
-static int gp10b_tegra_probe(struct device *dev)
-{
-	struct gk20a_platform *platform = dev_get_drvdata(dev);
-	bool joint_xpu_rail = false;
-	struct gk20a *g = platform->g;
-#ifdef CONFIG_TEGRA_GK20A_NVHOST
-	int ret;
-
-	ret = nvgpu_get_nvhost_dev(platform->g);
-	if (ret)
-		return ret;
-#endif
-
-	ret = gk20a_tegra_init_secure_alloc(platform);
-	if (ret)
-		return ret;
-
-	platform->disable_bigpage = !device_is_iommuable(dev);
-
-	platform->g->gr.ctx_vars.dump_ctxsw_stats_on_channel_close
-		= false;
-	platform->g->gr.ctx_vars.dump_ctxsw_stats_on_channel_close
-		= false;
-
-	platform->g->gr.ctx_vars.force_preemption_gfxp = false;
-	platform->g->gr.ctx_vars.force_preemption_cilp = false;
-
-#ifdef CONFIG_OF
-	joint_xpu_rail = of_property_read_bool(of_chosen,
-				"nvidia,tegra-joint_xpu_rail");
-#endif
-
-	if (joint_xpu_rail) {
-		nvgpu_log_info(g, "XPU rails are joint\n");
-		platform->can_railgate_init = false;
-		__nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
-	}
-
-	gp10b_tegra_get_clocks(dev);
-	nvgpu_linux_init_clk_support(platform->g);
-
-	nvgpu_mutex_init(&platform->clk_get_freq_lock);
-
-	platform->g->ops.clk.support_clk_freq_controller = true;
-
-	return 0;
-}
-
-static int gp10b_tegra_late_probe(struct device *dev)
-{
-	return 0;
-}
-
-static int gp10b_tegra_remove(struct device *dev)
-{
-	struct gk20a_platform *platform = gk20a_get_platform(dev);
-
-	/* deinitialise tegra specific scaling quirks */
-	gp10b_tegra_scale_exit(dev);
-
-#ifdef CONFIG_TEGRA_GK20A_NVHOST
-	nvgpu_free_nvhost_dev(get_gk20a(dev));
-#endif
-
-	nvgpu_mutex_destroy(&platform->clk_get_freq_lock);
-
-	return 0;
-}
-
-static bool gp10b_tegra_is_railgated(struct device *dev)
-{
-	bool ret = false;
-
-	if (tegra_bpmp_running())
-		ret = !tegra_powergate_is_powered(TEGRA186_POWER_DOMAIN_GPU);
-
-	return ret;
-}
-
-static int gp10b_tegra_railgate(struct device *dev)
-{
-	struct gk20a_platform *platform = gk20a_get_platform(dev);
-	struct gk20a_scale_profile *profile = platform->g->scale_profile;
-
-	/* remove emc frequency floor */
-	if (profile)
-		tegra_bwmgr_set_emc(
-			(struct tegra_bwmgr_client *)profile->private_data,
-			0, TEGRA_BWMGR_SET_EMC_FLOOR);
-
-	if (tegra_bpmp_running() &&
-	    tegra_powergate_is_powered(TEGRA186_POWER_DOMAIN_GPU)) {
-		int i;
-		for (i = 0; i < platform->num_clks; i++) {
-			if (platform->clk[i])
-				clk_disable_unprepare(platform->clk[i]);
+	for (i = 0; i < platform->num_clks; i++) {
+		if (!platform->clk[i]) {
+			continue;
 		}
-		tegra_powergate_partition(TEGRA186_POWER_DOMAIN_GPU);
-	}
-	return 0;
-}
 
-static int gp10b_tegra_unrailgate(struct device *dev)
-{
-	int ret = 0;
-	struct gk20a_platform *platform = gk20a_get_platform(dev);
-	struct gk20a_scale_profile *profile = platform->g->scale_profile;
-
-	if (tegra_bpmp_running()) {
-		int i;
-		ret = tegra_unpowergate_partition(TEGRA186_POWER_DOMAIN_GPU);
-		for (i = 0; i < platform->num_clks; i++) {
-			if (platform->clk[i])
-				clk_prepare_enable(platform->clk[i]);
+		if (enable) {
+			nvgpu_log(g, gpu_dbg_info,
+				  "clk_prepare_enable");
+			err = clk_prepare_enable(platform->clk[i]);
+			if (err != 0) {
+				nvgpu_err(g, "could not turn on clock %d", i);
+			}
+		} else {
+			nvgpu_log(g, gpu_dbg_info,
+				  "clk_disable_unprepare");
+			clk_disable_unprepare(platform->clk[i]);
 		}
 	}
 
-	/* to start with set emc frequency floor to max rate*/
-	if (profile)
-		tegra_bwmgr_set_emc(
-			(struct tegra_bwmgr_client *)profile->private_data,
-			tegra_bwmgr_get_max_emc_rate(),
-			TEGRA_BWMGR_SET_EMC_FLOOR);
-	return ret;
-}
-
-static int gp10b_tegra_suspend(struct device *dev)
-{
-	return 0;
+	nvgpu_mutex_release(&platform->clks_lock);
 }
 
 int gp10b_tegra_reset_assert(struct device *dev)
@@ -310,6 +240,7 @@ void gp10b_tegra_prescale(struct device *dev)
 void gp10b_tegra_postscale(struct device *pdev,
 					unsigned long freq)
 {
+#ifdef CONFIG_TEGRA_BWMGR
 	struct gk20a_platform *platform = gk20a_get_platform(pdev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
 	struct gk20a *g = get_gk20a(pdev);
@@ -335,6 +266,7 @@ void gp10b_tegra_postscale(struct device *pdev,
 			emc_rate, TEGRA_BWMGR_SET_EMC_FLOOR);
 	}
 	nvgpu_log_fn(g, "done");
+#endif
 }
 
 long gp10b_round_clk_rate(struct device *dev, unsigned long rate)
@@ -385,11 +317,15 @@ int gp10b_clk_get_freqs(struct device *dev,
 		new_rate = clk_round_rate(platform->clk[0],
 						prev_rate + 1);
 		loc_freq_table[i] = new_rate;
-		if (new_rate == max_rate)
+		if (new_rate == max_rate) {
+			++i;
 			break;
+		}
 	}
-	freq_counter = i + 1;
-	WARN_ON(freq_counter == GP10B_MAX_SUPPORTED_FREQS);
+	/* freq_counter indicates the count of frequencies capped
+	 * to GP10B_MAX_SUPPORTED_FREQS or till max_rate is reached.
+	*/
+	freq_counter = i;
 
 	/*
 	 * If the number of achievable frequencies is less than or
@@ -407,19 +343,18 @@ int gp10b_clk_get_freqs(struct device *dev,
 		 * add MAX freq to last
 		 */
 		sel_freq_cnt = 0;
-		for (i = 0; i < GP10B_MAX_SUPPORTED_FREQS; ++i) {
+		for (i = 0; i < GP10B_MAX_SUPPORTED_FREQS &&
+				sel_freq_cnt < GP10B_NUM_SUPPORTED_FREQS; ++i) {
 			new_rate = loc_freq_table[i];
 
-			if (i % GP10B_FREQ_SELECT_STEP == 0 ||
+			if ((i % GP10B_FREQ_SELECT_STEP == 0) ||
 					new_rate == max_rate) {
-				gp10b_freq_table[sel_freq_cnt++] =
-							new_rate;
+				gp10b_freq_table[sel_freq_cnt++] = new_rate;
 
 				if (new_rate == max_rate)
 					break;
 			}
 		}
-		WARN_ON(sel_freq_cnt == GP10B_MAX_SUPPORTED_FREQS);
 	}
 
 	/* Fill freq table */
@@ -436,75 +371,3 @@ int gp10b_clk_get_freqs(struct device *dev,
 
 	return 0;
 }
-
-struct gk20a_platform gp10b_tegra_platform = {
-	.has_syncpoints = true,
-
-	/* power management configuration */
-	.railgate_delay_init	= 500,
-
-	/* ldiv slowdown factor */
-	.ldiv_slowdown_factor_init = SLOWDOWN_FACTOR_FPDIV_BY16,
-
-	/* power management configuration */
-	.can_railgate_init	= true,
-	.enable_elpg            = true,
-	.can_elpg_init          = true,
-	.enable_blcg		= true,
-	.enable_slcg		= true,
-	.enable_elcg		= true,
-	.can_slcg               = true,
-	.can_blcg               = true,
-	.can_elcg               = true,
-	.enable_aelpg       = true,
-	.enable_perfmon         = true,
-
-	/* ptimer src frequency in hz*/
-	.ptimer_src_freq	= 31250000,
-
-	.ch_wdt_timeout_ms = 5000,
-
-	.probe = gp10b_tegra_probe,
-	.late_probe = gp10b_tegra_late_probe,
-	.remove = gp10b_tegra_remove,
-
-	/* power management callbacks */
-	.suspend = gp10b_tegra_suspend,
-	.railgate = gp10b_tegra_railgate,
-	.unrailgate = gp10b_tegra_unrailgate,
-	.is_railgated = gp10b_tegra_is_railgated,
-
-	.busy = gk20a_tegra_busy,
-	.idle = gk20a_tegra_idle,
-
-	.dump_platform_dependencies = gk20a_tegra_debug_dump,
-
-#ifdef CONFIG_NVGPU_SUPPORT_CDE
-	.has_cde = true,
-#endif
-
-	.clk_round_rate = gp10b_round_clk_rate,
-	.get_clk_freqs = gp10b_clk_get_freqs,
-
-	/* frequency scaling configuration */
-	.initscale = gp10b_tegra_scale_init,
-	.prescale = gp10b_tegra_prescale,
-	.postscale = gp10b_tegra_postscale,
-	.devfreq_governor = "nvhost_podgov",
-
-	.qos_notify = gk20a_scale_qos_notify,
-
-	.reset_assert = gp10b_tegra_reset_assert,
-	.reset_deassert = gp10b_tegra_reset_deassert,
-
-	.force_reset_in_do_idle = false,
-
-	.soc_name = "tegra18x",
-
-	.unified_memory = true,
-	.dma_mask = DMA_BIT_MASK(36),
-
-	.ltc_streamid = TEGRA_SID_GPUB,
-
-	.secure_buffer_size = 401408,
-};

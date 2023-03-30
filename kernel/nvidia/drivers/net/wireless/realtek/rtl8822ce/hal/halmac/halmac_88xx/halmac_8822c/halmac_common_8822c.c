@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2017 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2017 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -20,6 +20,9 @@
 #include "halmac_sdio_8822c.h"
 #endif
 #include "halmac_cfg_wmac_8822c.h"
+#if HALMAC_PCIE_SUPPORT
+#include "halmac_pcie_8822c.h"
+#endif
 
 #if HALMAC_8822C_SUPPORT
 
@@ -115,8 +118,15 @@ set_hw_value_8822c(struct halmac_adapter *adapter, enum halmac_hw_id hw_id,
 	case HALMAC_HW_LDO25_EN:
 		cfg_ldo25_8822c(adapter, *(u8 *)value);
 		break;
+#if HALMAC_PCIE_SUPPORT
 	case HALMAC_HW_PCIE_REF_AUTOK:
+		if (adapter->intf != HALMAC_INTERFACE_PCIE)
+			return HALMAC_RET_WRONG_INTF;
+		status = auto_refclk_cal_8822c_pcie(adapter);
+		if (status != HALMAC_RET_SUCCESS)
+			return status;
 		break;
+#endif
 #if HALMAC_SDIO_SUPPORT
 	case HALMAC_HW_SDIO_TX_FORMAT:
 		if (adapter->intf != HALMAC_INTERFACE_SDIO)

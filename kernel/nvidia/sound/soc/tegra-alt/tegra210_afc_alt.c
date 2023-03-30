@@ -1,7 +1,7 @@
 /*
  * tegra210_afc_alt.c - Tegra210 AFC driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,7 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/io.h>
@@ -540,14 +539,6 @@ static int tegra210_afc_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(afc->regmap);
 	}
 	regcache_cache_only(afc->regmap, true);
-
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "nvidia,ahub-afc-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-afc-id\n");
-		return -ret;
-	}
 
 	/* Disable SLGC */
 	regmap_write(afc->regmap, TEGRA210_AFC_CG, 0);

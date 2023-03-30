@@ -17,8 +17,7 @@
 #include <dt-bindings/media/camera.h>
 
 / {
-	host1x {
-		vi@15c10000  {
+	tegra-capture-vi  {
 			num-channels = <2>;
 			ports {
 				#address-cells = <1>;
@@ -41,7 +40,7 @@
 				};
 			};
 		};
-
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <2>;
 			#address-cells = <1>;
@@ -74,7 +73,7 @@
 					#size-cells = <0>;
 					csi_chan1_port0: port@0 {
 						reg = <0>;
-						avt_csi2_csi_in1: endpoint@0 {
+						avt_csi2_csi_in1: endpoint@2 {
 							port-index = <2>;
 							bus-width = <2>;
 							remote-endpoint = <&avt_csi2_out1>;
@@ -82,7 +81,7 @@
 					};
 					csi_chan1_port1: port@1 {
 						reg = <1>;
-						avt_csi2_csi_out1: endpoint@1 {
+						avt_csi2_csi_out1: endpoint@3 {
 							remote-endpoint = <&avt_csi2_vi_in1>;
 						};
 					};
@@ -119,6 +118,7 @@
 					active_w = "5488";
 					active_h = "4112";
 					pixel_t = "bayer_bggr";
+					csi_pixel_bit_depth = "4";
 					readout_orientation = "0";
 					line_length = "5488";
 					inherent_gain = "1";
@@ -179,6 +179,7 @@
 					phy_mode = "DPHY";
 					dpcm_enable = "false";
 
+					csi_pixel_bit_depth = "4";
 					active_w = "5488";
 					active_h = "4112";
 					pixel_t = "bayer_bggr";

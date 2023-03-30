@@ -3,7 +3,7 @@
  *
  * Tegra TSEC Module Support
  *
- * Copyright (c) 2012-2015, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,10 +24,17 @@
 #include <linux/types.h>
 #include <linux/nvhost.h>
 
+int nvhost_tsec_finalize_poweron_t194(struct platform_device *dev);
 int nvhost_tsec_finalize_poweron(struct platform_device *dev);
 int nvhost_tsec_prepare_poweroff(struct platform_device *dev);
 void nvhost_tsec_isr(void);
-void nvhost_tsec_isr_thread(void);
+int nvhost_tsec_send_cmd(void *flcn_cmd, u32 queue_id,
+	void (*callback_func)(void *msg));
+int nvhost_t23x_tsec_intr_init(struct platform_device *pdev);
+int nvhost_tsec_cmdif_open(void);
+void nvhost_tsec_cmdif_close(void);
+void *nvhost_tsec_alloc_payload_mem(size_t size, dma_addr_t *dma_addr);
+void nvhost_tsec_free_payload_mem(size_t size, void *cpu_addr, dma_addr_t dma_addr);
 
 /* Would have preferred a static inline here... but we're using this
  * in a place where a constant initializer is required */

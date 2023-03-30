@@ -1,0 +1,32 @@
+From 60ac0142f624f046160ba4aa2ece666bf060988a Mon Sep 17 00:00:00 2001
+From: "A. Cody Schuffelen" <schuffelen@google.com>
+Date: Tue, 6 Oct 2020 16:26:27 -0700
+Subject: [PATCH 322/830] ANDROID: Add more hvc devices for virtio-console.
+X-NVConfidentiality: public
+
+This allows creating more TTY devices bound to virtio-console devices.
+
+Bug: 170149708
+Test: ls /dev/hvc* on a cuttlefish device
+Change-Id: Id07c25bded35dac5d17736731bfd8b8f4f1d463b
+Signed-off-by: A. Cody Schuffelen <schuffelen@google.com>
+---
+ drivers/tty/hvc/hvc_console.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/tty/hvc/hvc_console.h b/drivers/tty/hvc/hvc_console.h
+index 18d005814e4b..97200fbeeae8 100644
+--- a/drivers/tty/hvc/hvc_console.h
++++ b/drivers/tty/hvc/hvc_console.h
+@@ -30,7 +30,7 @@
+  * for the tty device.  Since this driver supports hotplug of vty adapters we
+  * need to make sure we have enough allocated.
+  */
+-#define HVC_ALLOC_TTY_ADAPTERS	8
++#define HVC_ALLOC_TTY_ADAPTERS	64
+ 
+ struct hvc_struct {
+ 	struct tty_port port;
+-- 
+2.17.1
+

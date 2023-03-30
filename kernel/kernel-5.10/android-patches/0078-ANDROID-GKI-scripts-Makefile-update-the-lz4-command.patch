@@ -1,0 +1,54 @@
+From 071b8387b981243096b020d579b1984092736195 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Wed, 17 Jun 2020 21:55:14 -0700
+Subject: [PATCH 078/830] ANDROID: GKI: scripts: Makefile: update the lz4
+ command
+X-NVConfidentiality: public
+
+Use 'lz4' instead of 'lz4c' and increase the compression level. This
+also optimizes for decompression speed at this higher level.
+
+Bug: 159285792
+Bug: 160031736
+Test: launch_cvd -kernel_path bzImage
+Test: build/build.sh
+Signed-off-by: Alistair Delva <adelva@google.com>
+Change-Id: I9604cc7d1f3600dec27ceb460f7c29d977a919b1
+[ebiggers: Folded in the following commit:
+           bd42f569a793 ("ANDROID: GKI: scripts: Makefile: update the lz4 command (#2)")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ Makefile             | 2 +-
+ scripts/Makefile.lib | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index e29107c43ac2..666cad659b57 100644
+--- a/Makefile
++++ b/Makefile
+@@ -490,7 +490,7 @@ KGZIP		= gzip
+ KBZIP2		= bzip2
+ KLZOP		= lzop
+ LZMA		= lzma
+-LZ4		= lz4c
++LZ4		= lz4
+ XZ		= xz
+ ZSTD		= zstd
+ 
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index 1a4477515b48..3d9fda7e4ffe 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -414,7 +414,8 @@ quiet_cmd_lzo = LZO     $@
+       cmd_lzo = { cat $(real-prereqs) | $(KLZOP) -9; $(size_append); } > $@
+ 
+ quiet_cmd_lz4 = LZ4     $@
+-      cmd_lz4 = { cat $(real-prereqs) | $(LZ4) -l -c1 stdin stdout; \
++      cmd_lz4 = { cat $(real-prereqs) | \
++                  $(LZ4) -l -12 --favor-decSpeed stdin stdout; \
+                   $(size_append); } > $@
+ 
+ # U-Boot mkimage
+-- 
+2.17.1
+

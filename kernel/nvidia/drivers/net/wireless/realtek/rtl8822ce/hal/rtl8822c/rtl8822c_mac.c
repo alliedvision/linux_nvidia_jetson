@@ -214,3 +214,19 @@ u32 rtl8822c_get_rx_desc_size(struct _ADAPTER *a)
 
 	return size;
 }
+
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+void rtl8822c_dtp_macid_set(_adapter *padapter, u8 opmode, u8 mac_id, u8 *paddr)
+{
+	u8 _cmd[H2C_FW_CRC5_SEARCH_LEN] = {0};
+	int ret;
+
+	SET_H2CCMD_FW_CRC5_SEARCH_EN(_cmd, opmode);
+	SET_H2CCMD_FW_CRC5_SEARCH_MACID(_cmd, mac_id);
+	SET_H2CCMD_FW_CRC5_SEARCH_MAC(&_cmd[1], paddr);
+	if (rtw_hal_fill_h2c_cmd(padapter, H2C_FW_CRC5_SEARCH,
+			H2C_FW_CRC5_SEARCH_LEN, _cmd) != _SUCCESS)
+		RTW_WARN("%s : set h2c - 0x%02x fail!\n", __func__, H2C_FW_CRC5_SEARCH);
+}
+#endif
+

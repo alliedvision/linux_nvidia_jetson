@@ -1,0 +1,16 @@
+BPMP Resets
+
+Binding for the BPMP reset driver.
+
+Required properties:
+- compatible: Must be "nvidia,bpmp-resets"
+- reg: Should be 0
+- #clock-cells: Should be 1
+
+Example:
+
+        bpmp_resets: bpmp_reset@0 {
+                compatible = "nvidia,bpmp-resets";
+                reg = <0x0 0x0 0x0 0x0>;
+                #reset-cells = <1>;
+        };

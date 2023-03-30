@@ -23,4 +23,4 @@
  *
  *****************************************************************************/
 /*RTL8822C RF Parameters*/
-#define	RF_RELEASE_VERSION_8822C	23
+#define	RF_RELEASE_VERSION_8822C	28

@@ -1,0 +1,32 @@
+From bf1604a25ec7262ce1c59d9a2aa549c1c6c84ad7 Mon Sep 17 00:00:00 2001
+From: zhang sanshan <pete.zhang@nxp.com>
+Date: Wed, 24 Jun 2020 14:14:12 +0800
+Subject: [PATCH 719/830] ANDROID: GKI: enable CONFIG_TYPEC_TCPM
+X-NVConfidentiality: public
+
+The Type-C Port Controller Manager provides a USB PD and USB Type-C
+state machine for use with Type-C Port Controllers.
+No hardware involved. Vendor who enable TYPE-C need build-in it by default.
+
+Bug: 159732196
+Signed-off-by: zhang sanshan <pete.zhang@nxp.com>
+Change-Id: I5453b40fd6047e4258942242259292f50419d28a
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 135e9e8bb18f..d8b405a46473 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -359,6 +359,7 @@ CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y
+ CONFIG_USB_CONFIGFS_F_MIDI=y
+ CONFIG_USB_CONFIGFS_F_HID=y
+ CONFIG_TYPEC=y
++CONFIG_TYPEC_TCPM=y
+ CONFIG_MMC=y
+ # CONFIG_PWRSEQ_EMMC is not set
+ # CONFIG_PWRSEQ_SIMPLE is not set
+-- 
+2.17.1
+

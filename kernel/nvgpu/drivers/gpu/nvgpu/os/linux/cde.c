@@ -1,7 +1,7 @@
 /*
  * Color decompression engine support
  *
- * Copyright (c) 2014-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,37 +20,36 @@
 #include <linux/fs.h>
 #include <linux/dma-buf.h>
 #include <uapi/linux/nvgpu.h>
-
-#include <trace/events/gk20a.h>
-
+#include <nvgpu/trace.h>
 #include <nvgpu/dma.h>
 #include <nvgpu/gmmu.h>
 #include <nvgpu/timers.h>
 #include <nvgpu/nvgpu_common.h>
 #include <nvgpu/kmem.h>
 #include <nvgpu/log.h>
+#include <nvgpu/cbc.h>
+#include <nvgpu/ltc.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/firmware.h>
 #include <nvgpu/os_sched.h>
 #include <nvgpu/channel.h>
+#include <nvgpu/watchdog.h>
+#include <nvgpu/runlist.h>
 #include <nvgpu/utils.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/nvgpu_init.h>
+#include <nvgpu/string.h>
+#include <nvgpu/fence.h>
+#include <nvgpu/user_fence.h>
 
 #include <nvgpu/linux/vm.h>
 
-#include "gk20a/mm_gk20a.h"
-#include "gk20a/fence_gk20a.h"
-#include "gk20a/gr_gk20a.h"
-
 #include "cde.h"
 #include "os_linux.h"
-#include "dmabuf.h"
+#include "dmabuf_priv.h"
 #include "channel.h"
 #include "cde_gm20b.h"
 #include "cde_gp10b.h"
-
-#include <nvgpu/hw/gk20a/hw_ccsr_gk20a.h>
-#include <nvgpu/hw/gk20a/hw_pbdma_gk20a.h>
 
 static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx);
 static struct gk20a_cde_ctx *gk20a_cde_allocate_context(struct nvgpu_os_linux *l);
@@ -67,7 +66,7 @@ static dma_addr_t gpuva_to_iova_base(struct vm_gk20a *vm, u64 gpu_vaddr)
 	struct gk20a *g = gk20a_from_vm(vm);
 
 	nvgpu_mutex_acquire(&vm->update_gmmu_lock);
-	buffer = __nvgpu_vm_find_mapped_buf(vm, gpu_vaddr);
+	buffer = nvgpu_vm_find_mapped_buf(vm, gpu_vaddr);
 	if (buffer)
 		addr = nvgpu_mem_get_addr_sgl(g, buffer->os_priv.sgt->sgl);
 	nvgpu_mutex_release(&vm->update_gmmu_lock);
@@ -100,22 +99,25 @@ __must_hold(&cde_app->mutex)
 {
 	struct nvgpu_os_linux *l = cde_ctx->l;
 	struct gk20a *g = &l->g;
-	struct channel_gk20a *ch = cde_ctx->ch;
+	struct nvgpu_channel *ch = cde_ctx->ch;
 	struct vm_gk20a *vm = ch->vm;
+	struct nvgpu_cbc *cbc = g->cbc;
 
+#ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_cde_remove_ctx(cde_ctx);
+#endif
 
 	/* release mapped memory */
 	gk20a_deinit_cde_img(cde_ctx);
-	nvgpu_gmmu_unmap(vm, &g->gr.compbit_store.mem,
+	nvgpu_gmmu_unmap_addr(vm, &cbc->compbit_store.mem,
 			 cde_ctx->backing_store_vaddr);
 
 	/*
 	 * free the channel
-	 * gk20a_channel_close() will also unbind the channel from TSG
+	 * nvgpu_channel_close() will also unbind the channel from TSG
 	 */
-	gk20a_channel_close(ch);
-	nvgpu_ref_put(&cde_ctx->tsg->refcount, gk20a_tsg_release);
+	nvgpu_channel_close(ch);
+	nvgpu_ref_put(&cde_ctx->tsg->refcount, nvgpu_tsg_release);
 
 	/* housekeeping on app */
 	nvgpu_list_del(&cde_ctx->list);
@@ -290,8 +292,9 @@ static int gk20a_init_cde_buf(struct gk20a_cde_ctx *cde_ctx,
 
 	/* copy the content */
 	if (buf->data_byte_offset != 0)
-		memcpy(mem->cpu_va, img->data + buf->data_byte_offset,
-		       buf->num_bytes);
+		nvgpu_memcpy((u8 *)mem->cpu_va,
+			(u8 *)(img->data + buf->data_byte_offset),
+			buf->num_bytes);
 
 	cde_ctx->num_bufs++;
 
@@ -402,6 +405,7 @@ static int gk20a_cde_patch_params(struct gk20a_cde_ctx *cde_ctx)
 {
 	struct nvgpu_os_linux *l = cde_ctx->l;
 	struct gk20a *g = &l->g;
+	struct nvgpu_cbc *cbc = g->cbc;
 	struct nvgpu_mem *target_mem;
 	u32 *target_mem_ptr;
 	u64 new_data;
@@ -416,11 +420,12 @@ static int gk20a_cde_patch_params(struct gk20a_cde_ctx *cde_ctx)
 
 		switch (param->id) {
 		case TYPE_PARAM_COMPTAGS_PER_CACHELINE:
-			new_data = g->gr.comptags_per_cacheline;
+			new_data = cbc->comptags_per_cacheline;
 			break;
 		case TYPE_PARAM_GPU_CONFIGURATION:
-			new_data = (u64)g->ltc_count * g->gr.slices_per_ltc *
-				g->gr.cacheline_size;
+			new_data = (u64)nvgpu_ltc_get_ltc_count(g) *
+					nvgpu_ltc_get_slices_per_ltc(g) *
+					nvgpu_ltc_get_cacheline_size(g);
 			break;
 		case TYPE_PARAM_FIRSTPAGEOFFSET:
 			new_data = cde_ctx->surf_param_offset;
@@ -438,7 +443,7 @@ static int gk20a_cde_patch_params(struct gk20a_cde_ctx *cde_ctx)
 			new_data = cde_ctx->compbit_size;
 			break;
 		case TYPE_PARAM_BACKINGSTORE_SIZE:
-			new_data = g->gr.compbit_store.mem.size;
+			new_data = cbc->compbit_store.mem.size;
 			break;
 		case TYPE_PARAM_SOURCE_SMMU_ADDR:
 			new_data = gpuva_to_iova_base(cde_ctx->vm,
@@ -450,10 +455,10 @@ static int gk20a_cde_patch_params(struct gk20a_cde_ctx *cde_ctx)
 			}
 			break;
 		case TYPE_PARAM_BACKINGSTORE_BASE_HW:
-			new_data = g->gr.compbit_store.base_hw;
+			new_data = cbc->compbit_store.base_hw;
 			break;
 		case TYPE_PARAM_GOBS_PER_COMPTAGLINE_PER_SLICE:
-			new_data = g->gr.gobs_per_comptagline_per_slice;
+			new_data = cbc->gobs_per_comptagline_per_slice;
 			break;
 		case TYPE_PARAM_SCATTERBUFFER:
 			new_data = cde_ctx->scatterbuffer_vaddr;
@@ -545,7 +550,7 @@ static int gk20a_init_cde_required_class(struct gk20a_cde_ctx *cde_ctx,
 	/* CDE enabled */
 	cde_ctx->ch->cde = true;
 
-	err = gk20a_alloc_obj_ctx(cde_ctx->ch, required_class, 0);
+	err = g->ops.gr.setup.alloc_obj_ctx(cde_ctx->ch, required_class, 0);
 	if (err) {
 		nvgpu_warn(g, "cde: failed to allocate ctx. err=%d",
 			   err);
@@ -610,14 +615,9 @@ static int gk20a_init_cde_command(struct gk20a_cde_ctx *cde_ctx,
 		}
 
 		/* store the element into gpfifo */
-		gpfifo_elem->entry0 =
-			u64_lo32(target_mem->gpu_va +
-			cmd_elem->target_byte_offset);
-		gpfifo_elem->entry1 =
-			u64_hi32(target_mem->gpu_va +
-			cmd_elem->target_byte_offset) |
-			pbdma_gp_entry1_length_f(cmd_elem->num_bytes /
-						 sizeof(u32));
+		g->ops.pbdma.format_gpfifo_entry(g, gpfifo_elem,
+			target_mem->gpu_va + cmd_elem->target_byte_offset,
+			cmd_elem->num_bytes / sizeof(u32));
 	}
 
 	*num_entries = num_elems;
@@ -644,9 +644,10 @@ static int gk20a_cde_pack_cmdbufs(struct gk20a_cde_ctx *cde_ctx)
 	}
 
 	/* move the original init here and append convert */
-	memcpy(combined_cmd, cde_ctx->init_convert_cmd, init_bytes);
-	memcpy(combined_cmd + cde_ctx->init_cmd_num_entries,
-			cde_ctx->convert_cmd, conv_bytes);
+	nvgpu_memcpy((u8 *)combined_cmd,
+		(u8 *)cde_ctx->init_convert_cmd, init_bytes);
+	nvgpu_memcpy((u8 *)(combined_cmd + cde_ctx->init_cmd_num_entries),
+		(u8 *)cde_ctx->convert_cmd, conv_bytes);
 
 	nvgpu_kfree(g, cde_ctx->init_convert_cmd);
 	nvgpu_kfree(g, cde_ctx->convert_cmd);
@@ -714,8 +715,8 @@ static int gk20a_init_cde_img(struct gk20a_cde_ctx *cde_ctx,
 			break;
 		}
 		case TYPE_ARRAY:
-			memcpy(&cde_app->arrays[elem->array.id][0],
-				elem->array.data,
+			nvgpu_memcpy((u8 *)&cde_app->arrays[elem->array.id][0],
+				(u8 *)elem->array.data,
 				MAX_CDE_ARRAY_ENTRIES*sizeof(u32));
 			break;
 		default:
@@ -753,8 +754,8 @@ deinit_image:
 }
 
 static int gk20a_cde_execute_buffer(struct gk20a_cde_ctx *cde_ctx,
-				    u32 op, struct nvgpu_channel_fence *fence,
-				    u32 flags, struct gk20a_fence **fence_out)
+				u32 op, struct nvgpu_channel_fence *fence,
+				u32 flags, struct nvgpu_fence_type **fence_out)
 {
 	struct nvgpu_os_linux *l = cde_ctx->l;
 	struct gk20a *g = &l->g;
@@ -796,7 +797,9 @@ __releases(&cde_app->mutex)
 	struct gk20a *g = &cde_ctx->l->g;
 
 	nvgpu_log(g, gpu_dbg_cde_ctx, "releasing use on %p", cde_ctx);
+#ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_cde_release(cde_ctx);
+#endif
 
 	nvgpu_mutex_acquire(&cde_app->mutex);
 
@@ -883,7 +886,9 @@ __must_hold(&cde_app->mutex)
 				cde_ctx, cde_app->ctx_count,
 				cde_app->ctx_usecount,
 				cde_app->ctx_count_top);
+#ifdef CONFIG_NVGPU_TRACE
 		trace_gk20a_cde_get_context(cde_ctx);
+#endif
 
 		/* deleter work may be scheduled, but in_use prevents it */
 		cde_ctx->in_use = true;
@@ -908,7 +913,9 @@ __must_hold(&cde_app->mutex)
 		return cde_ctx;
 	}
 
+#ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_cde_get_context(cde_ctx);
+#endif
 	cde_ctx->in_use = true;
 	cde_ctx->is_temporary = true;
 	cde_app->ctx_usecount++;
@@ -929,8 +936,7 @@ __acquires(&cde_app->mutex)
 	struct gk20a_cde_ctx *cde_ctx = NULL;
 	struct nvgpu_timeout timeout;
 
-	nvgpu_timeout_init(g, &timeout, MAX_CTX_RETRY_TIME,
-			   NVGPU_TIMER_CPU_TIMER);
+	nvgpu_timeout_init_cpu_timer_sw(g, &timeout, MAX_CTX_RETRY_TIME);
 
 	do {
 		cde_ctx = gk20a_cde_do_get_context(l);
@@ -972,7 +978,9 @@ static struct gk20a_cde_ctx *gk20a_cde_allocate_context(struct nvgpu_os_linux *l
 			gk20a_cde_ctx_deleter_fn);
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_cde_ctx, "cde: allocated %p", cde_ctx);
+#ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_cde_allocate_context(cde_ctx);
+#endif
 	return cde_ctx;
 }
 
@@ -1006,12 +1014,14 @@ int gk20a_cde_convert(struct nvgpu_os_linux *l,
 		      u64 scatterbuffer_byte_offset,
 		      struct nvgpu_channel_fence *fence,
 		      u32 __flags, struct gk20a_cde_param *params,
-		      int num_params, struct gk20a_fence **fence_out)
+		      int num_params, struct nvgpu_fence_type **fence_out)
 __acquires(&l->cde_app->mutex)
 __releases(&l->cde_app->mutex)
 {
 	struct gk20a *g = &l->g;
+	struct gk20a_dmabuf_priv *priv = NULL;
 	struct gk20a_cde_ctx *cde_ctx = NULL;
+	struct nvgpu_cbc *cbc = g->cbc;
 	struct gk20a_comptags comptags;
 	struct nvgpu_os_buffer os_buf = {
 		compbits_scatter_buf,
@@ -1056,10 +1066,13 @@ __releases(&l->cde_app->mutex)
 	/* First, map the buffer to local va */
 
 	/* ensure that the compbits buffer has drvdata */
-	err = gk20a_dmabuf_alloc_drvdata(compbits_scatter_buf,
+	priv = gk20a_dma_buf_get_drvdata(compbits_scatter_buf,
 			dev_from_gk20a(g));
-	if (err)
+	if (!priv) {
+		err = -EINVAL;
+		nvgpu_err(g, "Compbits buffer has no metadata");
 		goto exit_idle;
+	}
 
 	/* compbits don't start at page aligned offset, so we need to align
 	   the region to be mapped */
@@ -1094,6 +1107,7 @@ __releases(&l->cde_app->mutex)
 	/* map the destination buffer */
 	get_dma_buf(compbits_scatter_buf); /* a ref for nvgpu_vm_map_linux */
 	err = nvgpu_vm_map_linux(cde_ctx->vm, compbits_scatter_buf, 0,
+				 NVGPU_VM_MAP_ACCESS_DEFAULT,
 				 NVGPU_VM_MAP_CACHEABLE |
 				 NVGPU_VM_MAP_DIRECT_KIND_CTRL,
 				 gk20a_cde_mapping_page_size(cde_ctx->vm,
@@ -1101,7 +1115,6 @@ __releases(&l->cde_app->mutex)
 							     map_size),
 				 NV_KIND_INVALID,
 				 compbits_kind, /* incompressible kind */
-				 gk20a_mem_flag_none,
 				 map_offset, map_size,
 				 NULL,
 				 &map_vaddr);
@@ -1119,10 +1132,9 @@ __releases(&l->cde_app->mutex)
 		struct sg_table *sgt;
 		void *scatter_buffer;
 
-		surface = dma_buf_vmap(compbits_scatter_buf);
-		if (IS_ERR(surface)) {
-			nvgpu_warn(g,
-				   "dma_buf_vmap failed");
+		surface = gk20a_dmabuf_vmap(compbits_scatter_buf);
+		if (!surface) {
+			nvgpu_warn(g, "dma_buf_vmap failed");
 			err = -EINVAL;
 			goto exit_unmap_vaddr;
 		}
@@ -1131,27 +1143,45 @@ __releases(&l->cde_app->mutex)
 
 		nvgpu_log(g, gpu_dbg_cde, "surface=0x%p scatterBuffer=0x%p",
 			  surface, scatter_buffer);
-		sgt = gk20a_mm_pin(dev_from_gk20a(g), compbits_scatter_buf,
-				   &attachment);
+		sgt = nvgpu_mm_pin(dev_from_gk20a(g), compbits_scatter_buf,
+				   &attachment, DMA_BIDIRECTIONAL);
 		if (IS_ERR(sgt)) {
-			nvgpu_warn(g,
+			nvgpu_err(g,
 				   "mm_pin failed");
 			err = -EINVAL;
 			goto exit_unmap_surface;
 		} else {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+			err = dma_buf_begin_cpu_access(compbits_scatter_buf, scatterbuffer_byte_offset,
+					scatterbuffer_size, DMA_BIDIRECTIONAL);
+#else
+			err = dma_buf_begin_cpu_access(compbits_scatter_buf, DMA_BIDIRECTIONAL);
+#endif
+			if (err != 0) {
+				nvgpu_warn(g, "buffer access setup failed");
+				nvgpu_mm_unpin(dev_from_gk20a(g), compbits_scatter_buf,
+					attachment, sgt);
+				goto exit_unmap_surface;
+			}
 			err = l->ops.cde.populate_scatter_buffer(g, sgt,
 					compbits_byte_offset, scatter_buffer,
 					scatterbuffer_size);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+			dma_buf_end_cpu_access(compbits_scatter_buf, scatterbuffer_byte_offset,
+					scatterbuffer_size, DMA_BIDIRECTIONAL);
+#else
+			dma_buf_end_cpu_access(compbits_scatter_buf, DMA_BIDIRECTIONAL);
+#endif
 			WARN_ON(err);
 
-			gk20a_mm_unpin(dev_from_gk20a(g), compbits_scatter_buf,
+			nvgpu_mm_unpin(dev_from_gk20a(g), compbits_scatter_buf,
 				       attachment, sgt);
 			if (err)
 				goto exit_unmap_surface;
 		}
 
-		__cpuc_flush_dcache_area(scatter_buffer, scatterbuffer_size);
-		dma_buf_vunmap(compbits_scatter_buf, surface);
+		gk20a_dmabuf_vunmap(compbits_scatter_buf, surface);
 		surface = NULL;
 	}
 
@@ -1173,7 +1203,7 @@ __releases(&l->cde_app->mutex)
 	cde_ctx->scatterbuffer_size = scatterbuffer_size;
 
 	/* remove existing argument data */
-	memset(cde_ctx->user_param_values, 0,
+	(void) memset(cde_ctx->user_param_values, 0,
 	       sizeof(cde_ctx->user_param_values));
 
 	/* read user space arguments for the conversion */
@@ -1197,7 +1227,7 @@ __releases(&l->cde_app->mutex)
 	}
 
 	nvgpu_log(g, gpu_dbg_cde, "cde: buffer=cbc, size=%zu, gpuva=%llx\n",
-		 g->gr.compbit_store.mem.size, cde_ctx->backing_store_vaddr);
+		 cbc->compbit_store.mem.size, cde_ctx->backing_store_vaddr);
 	nvgpu_log(g, gpu_dbg_cde, "cde: buffer=compbits, size=%llu, gpuva=%llx\n",
 		 cde_ctx->compbit_size, cde_ctx->compbit_vaddr);
 	nvgpu_log(g, gpu_dbg_cde, "cde: buffer=scatterbuffer, size=%llu, gpuva=%llx\n",
@@ -1241,7 +1271,7 @@ __releases(&l->cde_app->mutex)
 
 exit_unmap_surface:
 	if (surface)
-		dma_buf_vunmap(compbits_scatter_buf, surface);
+		gk20a_dmabuf_vunmap(compbits_scatter_buf, surface);
 exit_unmap_vaddr:
 	nvgpu_vm_unmap(cde_ctx->vm, map_vaddr, NULL);
 exit_idle:
@@ -1249,7 +1279,7 @@ exit_idle:
 	return err;
 }
 
-static void gk20a_cde_finished_ctx_cb(struct channel_gk20a *ch, void *data)
+static void gk20a_cde_finished_ctx_cb(struct nvgpu_channel *ch, void *data)
 __acquires(&cde_app->mutex)
 __releases(&cde_app->mutex)
 {
@@ -1257,22 +1287,16 @@ __releases(&cde_app->mutex)
 	struct nvgpu_os_linux *l = cde_ctx->l;
 	struct gk20a *g = &l->g;
 	struct gk20a_cde_app *cde_app = &l->cde_app;
-	bool channel_idle;
 
-	channel_gk20a_joblist_lock(ch);
-	channel_idle = channel_gk20a_joblist_is_empty(ch);
-	channel_gk20a_joblist_unlock(ch);
-
-	if (!channel_idle)
-		return;
-
+#ifdef CONFIG_NVGPU_TRACE
 	trace_gk20a_cde_finished_ctx_cb(cde_ctx);
+#endif
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_cde_ctx, "cde: finished %p", cde_ctx);
 	if (!cde_ctx->in_use)
 		nvgpu_log_info(g, "double finish cde context %p on channel %p",
 				cde_ctx, ch);
 
-	if (gk20a_channel_check_timedout(ch)) {
+	if (nvgpu_channel_check_unserviceable(ch)) {
 		if (cde_ctx->is_temporary) {
 			nvgpu_warn(g,
 					"cde: channel had timed out"
@@ -1299,7 +1323,7 @@ __releases(&cde_app->mutex)
 			msecs_to_jiffies(CTX_DELETE_TIME));
 	}
 
-	if (!gk20a_channel_check_timedout(ch)) {
+	if (!nvgpu_channel_check_unserviceable(ch)) {
 		gk20a_cde_ctx_release(cde_ctx);
 	}
 }
@@ -1308,10 +1332,10 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 {
 	struct nvgpu_os_linux *l = cde_ctx->l;
 	struct gk20a *g = &l->g;
+	struct nvgpu_cbc *cbc = g->cbc;
 	struct nvgpu_firmware *img;
-	struct channel_gk20a *ch;
-	struct tsg_gk20a *tsg;
-	struct gr_gk20a *gr = &g->gr;
+	struct nvgpu_channel *ch;
+	struct nvgpu_tsg *tsg;
 	struct nvgpu_setup_bind_args setup_bind_args;
 	int err = 0;
 	u64 vaddr;
@@ -1322,7 +1346,7 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 		return -ENOSYS;
 	}
 
-	tsg = gk20a_tsg_open(g, nvgpu_current_pid(g));
+	tsg = nvgpu_tsg_open(g, nvgpu_current_pid(g));
 	if (!tsg) {
 		nvgpu_err(g, "cde: could not create TSG");
 		err = -ENOMEM;
@@ -1331,7 +1355,7 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 
 	ch = gk20a_open_new_channel_with_cb(g, gk20a_cde_finished_ctx_cb,
 			cde_ctx,
-			-1,
+			NVGPU_INVALID_RUNLIST_ID,
 			false);
 	if (!ch) {
 		nvgpu_warn(g, "cde: gk20a channel not available");
@@ -1339,7 +1363,7 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 		goto err_get_gk20a_channel;
 	}
 
-	ch->timeout.enabled = false;
+	nvgpu_channel_wdt_disable(ch->wdt);
 
 	/* bind the channel to the vm */
 	err = g->ops.mm.vm_bind_channel(g->mm.cde.vm, ch);
@@ -1348,12 +1372,16 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 		goto err_commit_va;
 	}
 
-	err = gk20a_tsg_bind_channel(tsg, ch);
+	err = nvgpu_tsg_bind_channel(tsg, ch);
 	if (err) {
 		nvgpu_err(g, "cde: unable to bind to tsg");
 		goto err_setup_bind;
 	}
 
+	/*
+	 * Note that this cannot be deterministic because of the job completion
+	 * callbacks that aren't delivered for deterministic channels.
+	 */
 	setup_bind_args.num_gpfifo_entries = 1024;
 	setup_bind_args.num_inflight_jobs = 0;
 	setup_bind_args.flags = 0;
@@ -1364,12 +1392,11 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 	}
 
 	/* map backing store to gpu virtual space */
-	vaddr = nvgpu_gmmu_map(ch->vm, &gr->compbit_store.mem,
-			       g->gr.compbit_store.mem.size,
+	vaddr = nvgpu_gmmu_map(ch->vm, &cbc->compbit_store.mem,
 			       NVGPU_VM_MAP_CACHEABLE,
 			       gk20a_mem_flag_read_only,
 			       false,
-			       gr->compbit_store.mem.aperture);
+			       cbc->compbit_store.mem.aperture);
 
 	if (!vaddr) {
 		nvgpu_warn(g, "cde: cannot map compression bit backing store");
@@ -1396,7 +1423,7 @@ static int gk20a_cde_load(struct gk20a_cde_ctx *cde_ctx)
 	return 0;
 
 err_init_cde_img:
-	nvgpu_gmmu_unmap(ch->vm, &g->gr.compbit_store.mem, vaddr);
+	nvgpu_gmmu_unmap_addr(ch->vm, &cbc->compbit_store.mem, vaddr);
 err_map_backingstore:
 err_setup_bind:
 	nvgpu_vm_put(ch->vm);
@@ -1449,10 +1476,7 @@ __releases(&cde_app->mutex)
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_cde_ctx, "cde: init");
 
-	err = nvgpu_mutex_init(&cde_app->mutex);
-	if (err)
-		return err;
-
+	nvgpu_mutex_init(&cde_app->mutex);
 	nvgpu_mutex_acquire(&cde_app->mutex);
 
 	nvgpu_init_list_node(&cde_app->free_contexts);
@@ -1526,7 +1550,7 @@ static int gk20a_buffer_convert_gpu_to_cde_v1(
 	struct gk20a_cde_param params[MAX_CDE_LAUNCH_PATCHES];
 	int param = 0;
 	int err = 0;
-	struct gk20a_fence *new_fence = NULL;
+	struct nvgpu_fence_type *new_fence = NULL;
 	const int wgx = 8;
 	const int wgy = 8;
 	const int compbits_per_byte = 4; /* one byte stores 4 compbit pairs */
@@ -1536,10 +1560,10 @@ static int gk20a_buffer_convert_gpu_to_cde_v1(
 	/* Compute per launch parameters */
 	const int xtiles = (width + 7) >> 3;
 	const int ytiles = (height + 7) >> 3;
-	const int gridw_h = roundup(xtiles, xalign) / xalign;
-	const int gridh_h = roundup(ytiles, yalign) / yalign;
-	const int gridw_v = roundup(ytiles, xalign) / xalign;
-	const int gridh_v = roundup(xtiles, yalign) / yalign;
+	const int gridw_h = round_up(xtiles, xalign) / xalign;
+	const int gridh_h = round_up(ytiles, yalign) / yalign;
+	const int gridw_v = round_up(ytiles, xalign) / xalign;
+	const int gridh_v = round_up(xtiles, yalign) / yalign;
 	const int xblocks = (xtiles + 1) >> 1;
 	const int voffset = compbits_voffset - compbits_hoffset;
 
@@ -1647,9 +1671,17 @@ static int gk20a_buffer_convert_gpu_to_cde_v1(
 	if (err)
 		goto out;
 
-	/* compbits generated, update state & fence */
-	gk20a_fence_put(state->fence);
-	state->fence = new_fence;
+	/*
+	 * compbits generated, update state & fence to match the most recent
+	 * request (state lock held by the caller)
+	 */
+	nvgpu_user_fence_release(&state->fence);
+	/*
+	 * released in gk20a_mm_delete_priv, in gk20a_prepare_compressible_read
+	 * (above, or up in the call stack), or in gk20a_mark_compressible_write
+	 */
+	state->fence = nvgpu_fence_extract_user(new_fence);
+	nvgpu_fence_put(new_fence);
 	state->valid_compbits |= consumer &
 		(NVGPU_GPU_COMPBITS_CDEH | NVGPU_GPU_COMPBITS_CDEV);
 out:
@@ -1695,17 +1727,28 @@ int gk20a_prepare_compressible_read(
 		u32 width, u32 height, u32 block_height_log2,
 		u32 submit_flags, struct nvgpu_channel_fence *fence,
 		u32 *valid_compbits, u32 *zbc_color,
-		struct gk20a_fence **fence_out)
+		struct nvgpu_user_fence *fence_out)
 {
 	struct gk20a *g = &l->g;
 	int err = 0;
 	struct gk20a_buffer_state *state;
 	struct dma_buf *dmabuf;
 	u32 missing_bits;
+	struct gk20a_dmabuf_priv *priv = NULL;
 
 	dmabuf = dma_buf_get(buffer_fd);
 	if (IS_ERR(dmabuf))
 		return -EINVAL;
+
+	/* this function is nop for incompressible buffers */
+	priv = gk20a_dma_buf_get_drvdata(dmabuf, dev_from_gk20a(g));
+	if (!priv || !priv->comptags.enabled) {
+		nvgpu_log_info(g, "comptags not enabled for the buffer");
+		*valid_compbits = NVGPU_GPU_COMPBITS_NONE;
+		*zbc_color = 0;
+		dma_buf_put(dmabuf);
+		return 0;
+	}
 
 	err = gk20a_dmabuf_get_state(dmabuf, g, offset, &state);
 	if (err) {
@@ -1718,11 +1761,7 @@ int gk20a_prepare_compressible_read(
 	nvgpu_mutex_acquire(&state->lock);
 
 	if (state->valid_compbits && request == NVGPU_GPU_COMPBITS_NONE) {
-
-		gk20a_fence_put(state->fence);
-		state->fence = NULL;
-		/* state->fence = decompress();
-		state->valid_compbits = 0; */
+		nvgpu_user_fence_release(&state->fence);
 		err = -EINVAL;
 		goto out;
 	} else if (missing_bits) {
@@ -1743,14 +1782,18 @@ int gk20a_prepare_compressible_read(
 		}
 	}
 
-	if (state->fence && fence_out)
-		*fence_out = gk20a_fence_get(state->fence);
+	if (submit_flags & NVGPU_SUBMIT_FLAGS_FENCE_GET) {
+		/*
+		 * If no missing bits, this is the fence of a previously
+		 * submitted preparation job, if any. If a job was submitted
+		 * now, this is a new fence. Anyway, this is owned by the
+		 * state; clone a new one.
+		 */
+		*fence_out = nvgpu_user_fence_clone(&state->fence);
+	}
 
-	if (valid_compbits)
-		*valid_compbits = state->valid_compbits;
-
-	if (zbc_color)
-		*zbc_color = state->zbc_color;
+	*valid_compbits = state->valid_compbits;
+	*zbc_color = state->zbc_color;
 
 out:
 	nvgpu_mutex_release(&state->lock);
@@ -1764,11 +1807,20 @@ int gk20a_mark_compressible_write(struct gk20a *g, u32 buffer_fd,
 	int err;
 	struct gk20a_buffer_state *state;
 	struct dma_buf *dmabuf;
+	struct gk20a_dmabuf_priv *priv = NULL;
 
 	dmabuf = dma_buf_get(buffer_fd);
 	if (IS_ERR(dmabuf)) {
 		nvgpu_err(g, "invalid dmabuf");
 		return -EINVAL;
+	}
+
+	/* this function is nop for incompressible buffers */
+	priv = gk20a_dma_buf_get_drvdata(dmabuf, dev_from_gk20a(g));
+	if (!priv || !priv->comptags.enabled) {
+		nvgpu_log_info(g, "comptags not allocated for the buffer");
+		dma_buf_put(dmabuf);
+		return 0;
 	}
 
 	err = gk20a_dmabuf_get_state(dmabuf, g, offset, &state);
@@ -1785,8 +1837,7 @@ int gk20a_mark_compressible_write(struct gk20a *g, u32 buffer_fd,
 	state->zbc_color = zbc_color;
 
 	/* Discard previous compbit job fence. */
-	gk20a_fence_put(state->fence);
-	state->fence = NULL;
+	nvgpu_user_fence_release(&state->fence);
 
 	nvgpu_mutex_release(&state->lock);
 	dma_buf_put(dmabuf);

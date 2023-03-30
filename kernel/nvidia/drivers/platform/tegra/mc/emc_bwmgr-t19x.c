@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,12 +11,17 @@
  * more details.
  */
 
+#include <linux/types.h>
+#include <linux/platform/tegra/mc.h>
 #include <linux/platform/tegra/bwmgr_mc.h>
 #include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/io.h>
-#include <soc/tegra/bpmp_abi.h>
-#include <soc/tegra/tegra_bpmp.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 /* T194 dram freq table */
 static u32 bwmgr_t194_dram_freq_table[] = { /* MHz */
@@ -359,7 +364,6 @@ static u32 bwmgr_t194_lpddr4_16ch_ecc_iso_vi_bw_reqd_offset[] = { /* MHz */
 	   0,    37
 };
 
-static struct mrq_emc_dvfs_latency_response bwmgr_emc_dvfs;
 static int dram_rank;
 static int dram_freq_count;
 
@@ -673,18 +677,20 @@ struct bwmgr_ops *bwmgr_eff_init_t19x(void)
 {
 	int ch_num = 0;
 	u32 dram, ch, ecc;
-	void __iomem *mc_base, *emc_base;
+	void __iomem *emc_base;
 
-	mc_base = ioremap(MC_BASE, 0x00010000);
 	emc_base = ioremap(EMC_BASE, 0x00010000);
 
-	dram = readl(emc_base + EMC_FBIO_CFG5_0) & DRAM_MASK;
-	ch = readl(mc_base + MC_EMEM_ADR_CFG_CHANNEL_ENABLE_0) & CH_MASK;
-	ecc = readl(mc_base + MC_ECC_CONTROL_0) & ECC_MASK;
-	dram_rank = readl(mc_base + MC_EMEM_ADR_CFG_0) & RANK_MASK;
+	if (is_tegra_safety_build())
+		dram = 0x1;
+	else
+		dram = readl(emc_base + EMC_FBIO_CFG5_0) & DRAM_MASK;
+
+	ch = mc_readl(MC_EMEM_ADR_CFG_CHANNEL_ENABLE_0) & CH_MASK;
+	ecc = mc_readl(MC_ECC_CONTROL_0) & ECC_MASK;
+	dram_rank = mc_readl(MC_EMEM_ADR_CFG_0) & RANK_MASK;
 
 	iounmap(emc_base);
-	iounmap(mc_base);
 
 	while (ch) {
 		if (ch & 1)
@@ -869,9 +875,6 @@ struct bwmgr_ops *bwmgr_eff_init_t19x(void)
 	}
 
 	dram_freq_count = ARRAY_SIZE(bwmgr_t194_dram_freq_table);
-
-	tegra_bpmp_send_receive(MRQ_EMC_DVFS_LATENCY, NULL, 0,
-			&bwmgr_emc_dvfs, sizeof(bwmgr_emc_dvfs));
 
 	/* isomgr uses this value to calculate max_iso_bw.
 	 * We need this until the isomgr framework changes are checked in.

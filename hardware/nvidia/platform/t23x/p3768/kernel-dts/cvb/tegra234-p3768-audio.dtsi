@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Audio DT bindings on P3768 carrier board
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+#include "tegra234-p3767-common-audio.dtsi"

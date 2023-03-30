@@ -1,0 +1,33 @@
+From 32904614965bc5920d7ffe825d607b2b477b7d65 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@kernel.org>
+Date: Mon, 26 Oct 2020 12:30:39 -0700
+Subject: [PATCH 373/830] FROMLIST: scsi: ufs: avoid to call REQ_CLKS_OFF to
+ CLKS_OFF
+X-NVConfidentiality: public
+
+Once UFS was gated with CLKS_OFF, it should not call REQ_CLKS_OFF again, which
+caused hibern8_enter failure.
+
+Link: https://lore.kernel.org/linux-scsi/20201028194352.GA3060274@google.com/T/#m3485ba8df14e4ad5cf0aa5b314ffe1cb90d90105
+Signed-off-by: Jaegeuk Kim <jaegeuk@kernel.org>
+Change-Id: Ia5cad145189c266b1bfba34ad3875f8ccf8ec322
+---
+ drivers/scsi/ufs/ufshcd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index abc1ad5963af..04a6e27ed6f1 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1765,7 +1765,7 @@ static void __ufshcd_release(struct ufs_hba *hba)
+ 
+ 	if (hba->clk_gating.active_reqs || hba->clk_gating.is_suspended ||
+ 	    hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL ||
+-	    hba->outstanding_tasks ||
++	    ufshcd_any_tag_in_use(hba) || hba->outstanding_tasks ||
+ 	    hba->active_uic_cmd || hba->uic_async_done ||
+ 	    hba->clk_gating.state == CLKS_OFF)
+ 		return;
+-- 
+2.17.1
+

@@ -51,11 +51,7 @@
 #define RTKBT_ERR(fmt, arg...)
 #endif
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 33)
 #define USB_RPM			1
-#else
-#define USB_RPM			0
-#endif
 
 #define CONFIG_NEEDS_BINDING
 

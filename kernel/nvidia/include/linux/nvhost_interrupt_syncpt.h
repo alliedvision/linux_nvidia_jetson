@@ -11,6 +11,7 @@ u32 nvhost_interrupt_syncpt_get_syncpt_index(struct nvhost_interrupt_syncpt *is)
 phys_addr_t nvhost_interrupt_syncpt_get_syncpt_addr(
     struct nvhost_interrupt_syncpt *is);
 void nvhost_interrupt_syncpt_free(struct nvhost_interrupt_syncpt *is);
+void nvhost_interrupt_syncpt_reset(struct nvhost_interrupt_syncpt *is);
 int nvhost_interrupt_syncpt_prime(struct nvhost_interrupt_syncpt *is);
 
 #endif

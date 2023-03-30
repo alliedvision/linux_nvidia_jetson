@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License version 2
@@ -11,6 +11,7 @@
  * more details.
  */
 
+#include <linux/version.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -73,8 +74,11 @@ static ssize_t store_gpio_en_dis(struct kobject *kobj,
 	np = of_find_compatible_node(NULL, NULL, "nvidia,tegra194-gte-aon");
 
 	if (!np) {
-		pr_err("Could not locate aon gte node\n");
-		return -EINVAL;
+		np = of_find_compatible_node(NULL, NULL, "nvidia,tegra234-gte-aon");
+		if (!np) {
+			pr_err("Could not locate aon gte node\n");
+			return -EINVAL;
+		}
 	}
 
 	if (kstrtoul(buf, 10, &val) < 0) {
@@ -229,7 +233,11 @@ static int tegra_gte_test_sysfs_create(void)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 static void gpio_timer_cb(unsigned long data)
+#else
+static void gpio_timer_cb(struct timer_list *t)
+#endif
 {
 	gpio_set_value(gpio_out, !gpio_get_value(gpio_out));
 	mod_timer(&gte.timer, jiffies + msecs_to_jiffies(5000));
@@ -316,7 +324,12 @@ static int __init tegra_gte_test_init(void)
 		goto free_irq;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 	setup_timer(&gte.timer, gpio_timer_cb, 0);
+#else
+	timer_setup(&gte.timer, gpio_timer_cb, 0);
+#endif
+
 	mod_timer(&gte.timer, jiffies + msecs_to_jiffies(5000));
 
 	return 0;

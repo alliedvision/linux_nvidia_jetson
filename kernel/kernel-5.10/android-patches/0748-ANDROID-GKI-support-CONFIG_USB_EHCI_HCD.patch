@@ -1,0 +1,49 @@
+From a4436704e7d786f6d10b25341db6ed9d4e650c2c Mon Sep 17 00:00:00 2001
+From: zhang sanshan <pete.zhang@nxp.com>
+Date: Tue, 30 Jun 2020 16:21:38 +0800
+Subject: [PATCH 748/830] ANDROID: GKI: support CONFIG_USB_EHCI_HCD
+X-NVConfidentiality: public
+
+it use CHIPIDEA usb controller on imx8mm-evk board.
+Need enable device/host mode for android device by default.
+host mode depend on CONFIG_USB_CHIPIDEA_HOST which need enable CONFIG_USB_EHCI_HCD by default.
+CONFIG_USB_EHCI_HCD is used for USB 2.0 "high speed" protocol.
+
+Bug: 160193672
+Bug: 162909109
+Change-Id: Ic635ae6c12397ed7d2060ab68fec3853fadfa6ec
+Signed-off-by: zhang sanshan <pete.zhang@nxp.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 0e3546677e0a..692ba6be130d 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -352,6 +352,7 @@ CONFIG_HID_SONY=y
+ CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB_OTG=y
++CONFIG_USB_EHCI_HCD=y
+ CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index bfc29e3ab581..a348520c38b7 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -313,6 +313,7 @@ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
+ CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
++CONFIG_USB_EHCI_HCD=y
+ CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+-- 
+2.17.1
+

@@ -38,6 +38,7 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/sort.h>
+#include <linux/version.h>
 #include <dngl_stats.h>
 #include <wlioctl.h>
 
@@ -405,7 +406,11 @@ dhd_rtt_convert_to_host(rtt_result_t *rtt_results, const wl_proxd_event_data_t* 
 	int i;
 	char eabuf[ETHER_ADDR_STR_LEN];
 	char diststr[40];
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 	NULL_CHECK(rtt_results, "rtt_results is NULL", err);
 	NULL_CHECK(evp, "evp is NULL", err);
 	DHD_RTT(("%s enter\n", __FUNCTION__));

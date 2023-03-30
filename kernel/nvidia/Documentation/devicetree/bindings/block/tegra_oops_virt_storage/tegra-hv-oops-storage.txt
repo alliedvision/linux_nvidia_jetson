@@ -1,0 +1,27 @@
+Tegra Virtual Storage driver for OOPS partition
+
+Virtual Storage Driver is the front end driver that interfaces with
+-  the Storage Virtualization System for Tegra SOC OOPS partition and
+-  the pstore system for storing OOPS/panic logs
+
+Required Properties:
+- compatible: should be "nvidia,tegra-hv-oops-storage"
+- instance:   to identify a specific instance of the device
+- ivc:        ivc channel to used for communication with Virtualization System
+- mempool:    mempool used for data transfers with Virtualization System
+- pstore_max_reason: one of KMSG_DUMP_* values from kmsg_dump.h. Driver only
+	supports KMSG_DUMP_OOPS (value = 2) which allows PANIC and OOPS logs
+	to be stored.  KMSG logs above this reason level will be ignored.
+- pstore_kmsg_size: record size (should be block size aligned) for KMSG logs.
+	Default is 64KB.
+
+Example:
+	tegra_virt_storage31 {
+		compatible = "nvidia,tegra-hv-oops-storage";
+		status = "okay";
+		pstore_max_reason = <2>;
+		pstore_kmsg_size = <0x10000>;
+		instance = <31>;
+		ivc = <&tegra_hv 230>;
+		mempool = <69>;
+	};

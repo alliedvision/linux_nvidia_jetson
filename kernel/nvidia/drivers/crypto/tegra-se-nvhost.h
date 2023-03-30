@@ -1,7 +1,7 @@
 /*
  * Header file for Tegra Security Engine
  *
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,9 @@
 #include <crypto/sha.h>
 
 #define PFX	"tegra-se-nvhost: "
+
+#define ENCRYPT 1
+#define DECRYPT 0
 
 #define TEGRA_SE_CRA_PRIORITY	300
 #define TEGRA_SE_COMPOSITE_PRIORITY 400
@@ -56,6 +59,9 @@
 #define ALG_NOP			0
 #define ALG_AES_DEC		1
 #define ALG_KEYFETCH		5
+#define ALG_HMAC		7
+#define ALG_KDF			8
+#define ALG_INS			13
 #define SE_CONFIG_ENC_ALG(x)		(x << SE_CONFIG_ENC_ALG_SHIFT)
 #define SE_CONFIG_DEC_ALG(x)		(x << SE_CONFIG_DEC_ALG_SHIFT)
 #define SE_CONFIG_DST_SHIFT			2
@@ -70,14 +76,24 @@
 #define MODE_KEY128		0
 #define MODE_KEY192		1
 #define MODE_KEY256		2
-#define MODE_XTS_KEY128		3
-#define MODE_XTS_KEY256		4
+#define MODE_GMAC		3
+#define MODE_GCM		4
+#define MODE_GCM_FINAL		5
+#define MODE_CMAC		7
 
 #define MODE_SHA1		0
 #define MODE_SHA224		4
 #define MODE_SHA256		5
 #define MODE_SHA384		6
 #define MODE_SHA512		7
+#define MODE_SHA3_224		9
+#define MODE_SHA3_256		10
+#define MODE_SHA3_384		11
+#define MODE_SHA3_512		12
+#define MODE_SHAKE128		13
+#define MODE_SHAKE256		14
+#define MODE_HMAC_SHA256_1KEY	0
+#define MODE_HMAC_SHA256_2KEY	1
 #define SE_CONFIG_ENC_MODE(x)		(x << SE_CONFIG_ENC_MODE_SHIFT)
 #define SE_CONFIG_DEC_MODE(x)		(x << SE_CONFIG_DEC_MODE_SHIFT)
 
@@ -175,6 +191,8 @@
 #define CORE_DECRYPT	0
 #define CORE_ENCRYPT	1
 #define SE_CRYPTO_CORE_SEL(x)		(x << SE_CRYPTO_CORE_SEL_SHIFT)
+#define SE_CRYPTO_KEY2_INDEX_SHIFT	28
+#define SE_CRYPTO_KEY2_INDEX(x)		(x << SE_CRYPTO_KEY2_INDEX_SHIFT)
 #define SE_CRYPTO_KEY_INDEX_SHIFT	24
 #define SE_CRYPTO_KEY_INDEX(x)		(x << SE_CRYPTO_KEY_INDEX_SHIFT)
 #define SE_CRYPTO_CTR_CNTN_SHIFT	11
@@ -201,11 +219,24 @@
 #define WRSTALL_TRUE		1
 #define WRSTALL_FALSE		0
 
+#define SE_OPERATION_FINAL_SHIFT	5
+#define SE_OPERATION_FINAL(x)		(x << SE_OPERATION_FINAL_SHIFT)
+#define FINAL_TRUE		1
+#define FINAL_FALSE		0
+
+#define SE_OPERATION_INIT_SHIFT		4
+#define SE_OPERATION_INIT(x)		(x << SE_OPERATION_INIT_SHIFT)
+#define INIT_TRUE			1
+#define INIT_FALSE			0
+
 #define SE_ADDR_HI_MSB_SHIFT		24
 #define SE_ADDR_HI_SZ_SHIFT		0
 #define SE_ADDR_HI_MSB(x)		(x << SE_ADDR_HI_MSB_SHIFT)
 #define MSB(x)				((x & 0xFF00000000) >> 32)
 #define SE_ADDR_HI_SZ(x)		(x << SE_ADDR_HI_SZ_SHIFT)
+
+#define SE_LAST_BLOCK_RESIDUAL_BITS_SHIFT	20
+#define SE_LAST_BLOCK_RESIDUAL_BITS(x)	(x << SE_LAST_BLOCK_RESIDUAL_BITS_SHIFT)
 
 #define SE_BUFF_SIZE_MASK	0xFF000000
 
@@ -264,12 +295,14 @@
 #define SE4_SHA_CONFIG_REG_OFFSET	0x104
 #define SE_SHA_MSG_LENGTH_OFFSET	0x18
 #define SE_SHA_OPERATION_OFFSET		0x78
+#define SE_SHA_HASH_LENGTH		0xa8
 
 #define SHA_DISABLE		0
 #define SHA_ENABLE		1
 
 #define SE_HASH_RESULT_REG_OFFSET	0x13c
 #define SE_CMAC_RESULT_REG_OFFSET	0x4c4
+#define T234_SE_CMAC_RESULT_REG_OFFSET	0x0c0
 
 #define SE_STATIC_MEM_ALLOC_BUFSZ	512
 
@@ -287,11 +320,13 @@
 #define TEGRA_SE_RNG_SEED_SIZE		(TEGRA_SE_RNG_IV_SIZE + \
 						TEGRA_SE_RNG_KEY_SIZE + \
 						TEGRA_SE_RNG_DT_SIZE)
-#define TEGRA_SE_AES_CMAC_DIGEST_SIZE	16
-#define TEGRA_SE_RSA512_INPUT_SIZE	64
-#define TEGRA_SE_RSA1024_INPUT_SIZE	128
-#define TEGRA_SE_RSA1536_INPUT_SIZE	192
-#define TEGRA_SE_RSA2048_INPUT_SIZE	256
+#define TEGRA_SE_AES_CMAC_DIGEST_SIZE		16
+#define TEGRA_SE_AES_CBC_MAC_DIGEST_SIZE	16
+#define TEGRA_SE_RSA512_INPUT_SIZE		64
+#define TEGRA_SE_RSA1024_INPUT_SIZE		128
+#define TEGRA_SE_RSA1536_INPUT_SIZE		192
+#define TEGRA_SE_RSA2048_INPUT_SIZE		256
+#define TEGRA_SE_CMAC_MAX_INPUT_SIZE		(TEGRA_SE_AES_BLOCK_SIZE * 256)
 
 #define TEGRA_SE_AES_CMAC_STATE_SIZE	16
 #define SHA1_STATE_SIZE	20
@@ -299,6 +334,10 @@
 #define SHA256_STATE_SIZE	32
 #define SHA384_STATE_SIZE	64
 #define SHA512_STATE_SIZE	64
+#define SHA3_224_STATE_SIZE	200
+#define SHA3_256_STATE_SIZE	200
+#define SHA3_384_STATE_SIZE	200
+#define SHA3_512_STATE_SIZE	200
 
 #define TEGRA_SE_RSA_KEYSLOT_COUNT	4
 #define SE_RSA_OUTPUT			0x628
@@ -336,4 +375,46 @@
 #define SE_KEY_LEN_MASK	0x3FF
 #define SE_MAGIC_PATTERN_OFFSET	16
 #define SE_STREAMID_REG_OFFSET	0x90
+
+#define SE_AES_CRYPTO_AAD_LENGTH_0_OFFSET	0x128
+#define SE_AES_CRYPTO_MSG_LENGTH_0_OFFSET	0x130
+
+#define SE_AES_GCM_GMAC_SIZE	16
+
+/* Key manifest */
+#define SE_KEYMANIFEST_ORIGIN(x)	(x << 0)
+
+#define SE_KEYMANIFEST_USER(x)	(x << 4)
+#define NS		3
+
+#define SE_KEYMANIFEST_PURPOSE(x)	(x << 8)
+#define ENC		0
+#define CMAC		1
+#define HMAC		2
+#define KW		3
+#define KUW		4
+#define KWUW		5
+#define KDK		6
+#define KDD		7
+#define KDD_KUW		8
+#define XTS		9
+#define GCM		10
+
+#define SE_KEYMANIFEST_SIZE(x)	(x << 14)
+#define KEY128 0
+#define KEY192 1
+#define KEY256 2
+
+#define SE_KEYMANIFEST_EX(x)	(x << 12)
+
+#define SE_AES_CRYPTO_KEYTABLE_KEYMANIFEST_OFFSET	0x110
+
+#define SE_AES_CRYPTO_KEYTABLE_DST_OFFSET		0x2c
+
+#define SE_AES_KEY_INDEX(x)	(x << 8)
+
+#define SE_SHA_CRYPTO_KEYTABLE_KEYMANIFEST_OFFSET	0x98
+#define SE_SHA_CRYPTO_KEYTABLE_DST_OFFSET		0xa4
+#define SE_SHA_CRYPTO_KEYTABLE_ADDR_OFFSET		0x90
+#define SE_SHA_CRYPTO_KEYTABLE_DATA_OFFSET		0x94
 #endif /* _CRYPTO_TEGRA_SE_H */

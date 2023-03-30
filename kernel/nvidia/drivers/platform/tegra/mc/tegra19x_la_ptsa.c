@@ -26,27 +26,6 @@
 /* Reuse API from other drivers */
 #define NV_ADDRESS_MAP_EMCB_BASE                    0x02C60000
 
-/* Non LA/PTSA mmio apertures */
-static void __iomem *t19x_pipe2uphy_xbar_base;
-
-/* TODO: Enable MSSNVLINK aperture access */
-
-#define mssnvl1_writel(x, y)	mssnvlink_writel(0, x, y)
-#define mssnvl2_writel(x, y)	mssnvlink_writel(1, x, y)
-#define mssnvl3_writel(x, y)	mssnvlink_writel(2, x, y)
-#define mssnvl4_writel(x, y)	mssnvlink_writel(3, x, y)
-
-#define mssnvl1_readl(x)	mssnvlink_readl(0, x)
-#define mssnvl2_readl(x)	mssnvlink_readl(1, x)
-#define mssnvl3_readl(x)	mssnvlink_readl(2, x)
-#define mssnvl4_readl(x)	mssnvlink_readl(3, x)
-
-/* TODO: Use pcie driver interface */
-static inline unsigned int pipe2uphy_xbar_readl(unsigned int offset)
-{
-	return readl(t19x_pipe2uphy_xbar_base + offset);
-}
-
 static struct la_ptsa_core lp;
 static int tegra_gen_to_t19x_la_id[TEGRA_LA_MAX_ID];
 static int tegra_t19x_to_gen_la_id[TEGRA_T19X_LA_MAX_ID];
@@ -54,16 +33,6 @@ static int t19x_la_kern_init[TEGRA_T19X_LA_MAX_ID];
 static struct la_client_info t19x_la_info_array[TEGRA_T19X_LA_MAX_ID];
 static struct dda_info dda_info_array[TEGRA_DDA_MAX_ID];
 static struct mc_settings_info mc_settings;
-static struct reg_info mc_reg_info_array[TEGRA_KERN_INIT_MC_MAX_ID];
-static struct reg_info
-mssnvlink1_reg_info_array[TEGRA_KERN_INIT_MSSNVLINK_MAX_ID];
-static struct reg_info
-mssnvlink2_reg_info_array[TEGRA_KERN_INIT_MSSNVLINK_MAX_ID];
-static struct reg_info
-mssnvlink3_reg_info_array[TEGRA_KERN_INIT_MSSNVLINK_MAX_ID];
-static struct reg_info
-mssnvlink4_reg_info_array[TEGRA_KERN_INIT_MSSNVLINK_MAX_ID];
-static struct reg_info mcpcie_reg_info_array[TEGRA_KERN_INIT_MCPCIE_MAX_ID];
 
 static void la_init(unsigned int *error)
 {
@@ -151,92 +120,12 @@ static void dda_init(unsigned int *error)
 
 static void program_kern_init_ptsa(void)
 {
-	T19X_WRITE_PTSA_MIN_MAX_RATE(AONPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(APB);
+	/*For these clients PTSA_RATE is programmed dynamically*/
 	T19X_WRITE_PTSA_MIN_MAX_RATE(AUD);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(BPMPPC);
-	T19X_WRITE_PTSA_MIN_MAX(CIFLL_ISO);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(CIFLL_SISO);
-	T19X_WRITE_PTSA_MAX(CIFLL_NISO);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(CIFLL_RING0X);
 	T19X_WRITE_PTSA_MIN_MAX_RATE(DIS);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA0FALPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA0XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA0XA2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA0XA3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA1FALPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA1XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA1XA2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(DLA1XA3);
 	T19X_WRITE_PTSA_MIN_MAX_RATE(EQOSPC);
 	T19X_WRITE_PTSA_MIN_MAX_RATE(HDAPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(HOST);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(ISP);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(ISP2PC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(ISPPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(JPG);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU0);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU1);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU4);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU5);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU6);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MIU7);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSE);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSE2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSE3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSEA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSEB);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(MSEB1);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NIC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD4);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD5);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(NVD6);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE0X);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE0X2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE0XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE1X);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE1XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE4X);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE4XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE5X);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE5X2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PCIE5XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XA2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XA3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XB);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XB2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XB3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA0XC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XA);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XA2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XA3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XB);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XB2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XB3);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(PVA1XC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(RCEPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(RING2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(SAX);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(SCEPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(SD);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(SDM);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(SMMU_SMMU);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(UFSHCPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(UFSHCPC2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(USBD);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(USBD2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(USBX);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(USBX2);
 	T19X_WRITE_PTSA_MIN_MAX_RATE(VE);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(VICPC);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(VICPC2);
-	T19X_WRITE_PTSA_MIN_MAX_RATE(VICPC3);
 }
 
 
@@ -268,93 +157,11 @@ static void program_ptsa(void)
 
 static void save_ptsa(void)
 {
-	T19X_SAVE_PTSA_MIN_MAX_RATE(AONPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(APB);
 	T19X_SAVE_PTSA_MIN_MAX_RATE(AUD);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(BPMPPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(CIFLL_ISO);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(CIFLL_SISO);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(CIFLL_NISO);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(CIFLL_RING0X);
 	T19X_SAVE_PTSA_MIN_MAX_RATE(DIS);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA0FALPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA0XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA0XA2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA0XA3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA1FALPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA1XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA1XA2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(DLA1XA3);
 	T19X_SAVE_PTSA_MIN_MAX_RATE(EQOSPC);
 	T19X_SAVE_PTSA_MIN_MAX_RATE(HDAPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(HOST);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(ISP);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(ISP2PC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(ISPPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(JPG);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU0);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU1);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU4);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU5);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU6);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MIU7);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MLL_MPCORER);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSE);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSE2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSE3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSEA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSEB);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(MSEB1);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NIC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD4);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD5);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(NVD6);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE0X);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE0X2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE0XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE1X);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE1XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE4X);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE4XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE5X);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE5X2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PCIE5XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XA2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XA3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XB);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XB2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XB3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA0XC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XA);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XA2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XA3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XB);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XB2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XB3);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(PVA1XC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(RCEPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(RING2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(SAX);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(SCEPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(SD);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(SDM);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(SMMU_SMMU);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(UFSHCPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(UFSHCPC2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(USBD);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(USBD2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(USBX);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(USBX2);
 	T19X_SAVE_PTSA_MIN_MAX_RATE(VE);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(VICPC);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(VICPC2);
-	T19X_SAVE_PTSA_MIN_MAX_RATE(VICPC3);
 }
 #undef T19X_SAVE_PTSA_MIN_MAX_RATE
 
@@ -528,66 +335,6 @@ static int t19x_set_dynamic_la_ptsa(enum tegra_la_id id, unsigned int bw_mbps)
 		return -1;
 
 	return ret_val;
-}
-
-static void program_non_la_ptsa(void)
-{
-	int i;
-
-	for (i = 0; i < TEGRA_KERN_INIT_MC_MAX_ID; i++) {
-		mc_writel(mc_reg_info_array[i].val,
-				mc_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvl1_writel(mssnvlink1_reg_info_array[i].val,
-				mssnvlink1_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvl2_writel(mssnvlink2_reg_info_array[i].val,
-				mssnvlink2_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvl3_writel(mssnvlink3_reg_info_array[i].val,
-				mssnvlink3_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvl4_writel(mssnvlink4_reg_info_array[i].val,
-				mssnvlink4_reg_info_array[i].offset);
-	}
-}
-
-static void save_non_la_ptsa(void)
-{
-	int i;
-
-	for (i = 0; i < TEGRA_KERN_INIT_MC_MAX_ID; i++) {
-		mc_reg_info_array[i].val =
-			mc_readl(mc_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvlink1_reg_info_array[i].val =
-			mssnvl1_readl(mssnvlink1_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvlink2_reg_info_array[i].val =
-			mssnvl2_readl(mssnvlink2_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvlink3_reg_info_array[i].val =
-			mssnvl3_readl(mssnvlink3_reg_info_array[i].offset);
-	}
-
-	for (i = 0; i < TEGRA_KERN_INIT_MSSNVLINK_MAX_ID; i++) {
-		mssnvlink4_reg_info_array[i].val =
-			mssnvl4_readl(mssnvlink4_reg_info_array[i].offset);
-	}
 }
 
 #define SET_FIELD_IN_64BIT_REG(fn_name, var, start, width, field) \
@@ -788,61 +535,6 @@ static void scf_dda_init(
 #undef PERC
 }
 
-static void program_mcpcie(void)
-{
-	int i;
-
-	for (i = 0; i < TEGRA_KERN_INIT_MCPCIE_MAX_ID; i++) {
-		mc_writel(mcpcie_reg_info_array[i].val,
-				mcpcie_reg_info_array[i].offset);
-	}
-}
-
-static void save_mcpcie(void)
-{
-	int i;
-
-	for (i = 0; i < TEGRA_KERN_INIT_MCPCIE_MAX_ID; i++) {
-		mcpcie_reg_info_array[i].val =
-			mc_readl(mcpcie_reg_info_array[i].offset);
-	}
-}
-
-// TODO: Use pcie driver interface
-// TODO: Read base address from dtb
-#define NV_ADDRESS_MAP_PIPE2UPHY_XBAR_BASE          0x03e00000
-static void t19x_mc_pcie_init(void)
-{
-	unsigned int data;
-	unsigned int xbar_cfg;
-	unsigned int error = 0;
-
-	t19x_pipe2uphy_xbar_base = ioremap(NV_ADDRESS_MAP_PIPE2UPHY_XBAR_BASE, 0x00010000);
-	data = pipe2uphy_xbar_readl(PCIE_COMMON_APPL_COMMON_CONTROL_0);
-	iounmap(t19x_pipe2uphy_xbar_base);
-
-	xbar_cfg = NV_DRF_VAL(PCIE_COMMON, APPL_COMMON_CONTROL,
-							XBAR_CONFIG, data);
-
-	lp.mcpcie_reg_info_array_init(mcpcie_reg_info_array);
-	save_mcpcie();
-
-	lp.update_ord_ids(
-		mcpcie_reg_info_array,
-		&mc_settings,
-		xbar_cfg,
-		&error);
-
-	if (error) {
-		pr_err("%s: ", __func__);
-		pr_err("error. Skipping mcpcie programming\n");
-		WARN_ON(1);
-		return;
-	}
-
-	program_mcpcie();
-}
-
 static void t19x_la_cleanup(void)
 {
 	int i;
@@ -866,8 +558,16 @@ static enum tegra_dram_t t19x_emc_get_dram_type(void)
 	void __iomem *t19x_emc_base;
 
 	t19x_emc_base = ioremap(NV_ADDRESS_MAP_EMCB_BASE, 0x00010000);
-	dram = readl(t19x_emc_base + EMC_FBIO_CFG5_0) & DRAM_TYPE_MASK;
-	mem_type = readl(t19x_emc_base + EMC_PMACRO_PAD_CFG_CTRL_0);
+
+	if (is_tegra_safety_build()) {
+		dram = 0x1;
+		mem_type = 0x1;
+	}
+	else {
+		dram = readl(t19x_emc_base + EMC_FBIO_CFG5_0) & DRAM_TYPE_MASK;
+		mem_type = readl(t19x_emc_base + EMC_PMACRO_PAD_CFG_CTRL_0);
+	}
+
 	iounmap(t19x_emc_base);
 
 	ch = mc_readl(MC_EMEM_ADR_CFG_CHANNEL_ENABLE_0) & DRAM_CH_MASK;
@@ -918,23 +618,6 @@ static void tegra_la_init(void)
 		return;
 	}
 
-	lp.all_reg_info_array_init(
-		mc_reg_info_array,
-		mssnvlink1_reg_info_array,
-		mssnvlink2_reg_info_array,
-		mssnvlink3_reg_info_array,
-		mssnvlink4_reg_info_array);
-	save_non_la_ptsa();
-
-	lp.write_perf_regs_kern_init(
-		&mc_settings,
-		mc_reg_info_array,
-		mssnvlink1_reg_info_array,
-		mssnvlink2_reg_info_array,
-		mssnvlink3_reg_info_array,
-		mssnvlink4_reg_info_array);
-	program_non_la_ptsa();
-
 	scf_dda_init(&mc_settings, &error);
 	if (error) {
 		pr_err("%s: ", __func__);
@@ -965,11 +648,8 @@ void tegra_la_get_t19x_specific(struct la_chip_specific *cs_la)
 	cs_la->check_disp_la = t19x_check_display_la_ptsa;
 	cs_la->save_ptsa = save_ptsa;
 	cs_la->program_ptsa = program_ptsa;
-	cs_la->save_non_la_ptsa = save_non_la_ptsa;
-	cs_la->program_non_la_ptsa = program_non_la_ptsa;
 	cs_la->suspend = la_suspend;
 	cs_la->resume = la_resume;
-	cs_la->mc_pcie_init = t19x_mc_pcie_init;
 	cs_la->la_cleanup = t19x_la_cleanup;
 
 	tegra_la_init();

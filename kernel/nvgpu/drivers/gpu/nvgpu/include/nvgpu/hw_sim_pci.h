@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, NVIDIA Corporation.
+ * Copyright (c) 2012-2019, NVIDIA Corporation.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -336,6 +336,10 @@ static inline u32 sim_send_ring_addr_lo__prod_v(void)
 static inline u32 sim_send_ring_addr_lo__prod_f(void)
 {
 	return 0x0U;
+}
+static inline u32 sim_send_ring_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_send_ring_hi_r(void)
 {
@@ -688,6 +692,10 @@ static inline u32 sim_recv_ring_addr_lo__prod_v(void)
 static inline u32 sim_recv_ring_addr_lo__prod_f(void)
 {
 	return 0x0U;
+}
+static inline u32 sim_recv_ring_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_recv_ring_hi_r(void)
 {
@@ -2068,6 +2076,10 @@ static inline u32 sim_dma_addr_lo__prod_v(void)
 static inline u32 sim_dma_addr_lo__prod_f(void)
 {
 	return 0x0U;
+}
+static inline u32 sim_dma_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_dma_hi_r(void)
 {

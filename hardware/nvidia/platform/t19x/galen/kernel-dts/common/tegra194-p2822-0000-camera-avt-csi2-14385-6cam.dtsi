@@ -34,8 +34,8 @@
 		};
 	};
 
-	host1x {
-		vi@15c10000 {
+
+	tegra-capture-vi {
 			status = "okay";
 			num-channels = <6>;
       ports {
@@ -103,7 +103,7 @@
         };
       };
 		};
-
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			status = "okay";
 			num-channels = <6>;
@@ -385,6 +385,8 @@
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
 
+				csi_pixel_bit_depth = "4";
+
 				active_w = "5488";
 				active_h = "4112";
 				pixel_t = "bayer_bggr";
@@ -441,6 +443,8 @@
 				mclk_khz = "24000";
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
+
+				csi_pixel_bit_depth = "4";
 
 				active_w = "5488";
 				active_h = "4112";
@@ -508,6 +512,8 @@
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
 
+				csi_pixel_bit_depth = "4";
+
 				active_w = "5488";
 				active_h = "4112";
 				pixel_t = "bayer_bggr";
@@ -565,6 +571,8 @@
 				mclk_khz = "24000";
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
+
+				csi_pixel_bit_depth = "4";
 
 				active_w = "5488";
 				active_h = "4112";
@@ -627,6 +635,8 @@
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
 
+				csi_pixel_bit_depth = "4";
+
 				active_w = "5488";
 				active_h = "4112";
 				pixel_t = "bayer_bggr";
@@ -674,7 +684,7 @@
 
 			mode0 {
 				num_lanes = "2";
-        tegra_sinterface = "serial_g";
+        		tegra_sinterface = "serial_g";
 				discontinuous_clk = "no";
 				cil_settletime = "0";
 				embedded_metadata_height = "0";
@@ -683,6 +693,8 @@
 				mclk_khz = "24000";
 				phy_mode = "DPHY";
 				dpcm_enable = "false";
+
+				csi_pixel_bit_depth = "4";
 
 				active_w = "5488";
 				active_h = "4112";

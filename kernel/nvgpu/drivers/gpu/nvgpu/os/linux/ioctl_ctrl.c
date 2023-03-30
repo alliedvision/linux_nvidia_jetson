@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,11 +19,13 @@
 #include <linux/file.h>
 #include <linux/anon_inodes.h>
 #include <linux/fs.h>
-#include <linux/pm_runtime.h>
 #include <uapi/linux/nvgpu.h>
+#include <nvgpu/pmu/clk/clk.h>
 
 #include <nvgpu/bitops.h>
+#include <nvgpu/comptags.h>
 #include <nvgpu/kmem.h>
+#include <nvgpu/nvhost.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/ptimer.h>
 #include <nvgpu/vidmem.h>
@@ -31,31 +33,59 @@
 #include <nvgpu/enabled.h>
 #include <nvgpu/sizes.h>
 #include <nvgpu/list.h>
+#include <nvgpu/fbp.h>
 #include <nvgpu/clk_arb.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/engines.h>
+#include <nvgpu/device.h>
+#include <nvgpu/gr/config.h>
+#ifdef CONFIG_NVGPU_GRAPHICS
+#include <nvgpu/gr/zbc.h>
+#include <nvgpu/gr/zcull.h>
+#endif
+#include <nvgpu/gr/gr.h>
+#include <nvgpu/gr/gr_utils.h>
+#include <nvgpu/gr/gr_instances.h>
+#include <nvgpu/gr/warpstate.h>
 #include <nvgpu/channel.h>
+#include <nvgpu/pmu/pmgr.h>
+#include <nvgpu/pmu/therm.h>
+#include <nvgpu/power_features/pg.h>
+#include <nvgpu/fence.h>
+#include <nvgpu/channel_sync_syncpt.h>
+#include <nvgpu/soc.h>
+#include <nvgpu/nvgpu_init.h>
+#include <nvgpu/user_fence.h>
+#include <nvgpu/nvgpu_init.h>
+#include <nvgpu/grmgr.h>
+#include <nvgpu/string.h>
 
 #include "ioctl_ctrl.h"
 #include "ioctl_dbg.h"
 #include "ioctl_as.h"
 #include "ioctl_tsg.h"
 #include "ioctl_channel.h"
-#include "gk20a/fence_gk20a.h"
+#include "ioctl.h"
 
+#include "dmabuf_priv.h"
 #include "platform_gk20a.h"
 #include "os_linux.h"
-#include "dmabuf.h"
 #include "channel.h"
 #include "dmabuf_vidmem.h"
+#include "fecs_trace_linux.h"
 
 #define HZ_TO_MHZ(a) ((a > 0xF414F9CD7ULL) ? 0xffff : (a >> 32) ? \
 	(u32) ((a * 0x10C8ULL) >> 32) : (u16) ((u32) a/MHZ))
 #define MHZ_TO_HZ(a) ((u64)a * MHZ)
 
+extern const struct file_operations gk20a_as_ops;
+extern const struct file_operations gk20a_tsg_ops;
+
 struct gk20a_ctrl_priv {
 	struct device *dev;
 	struct gk20a *g;
 	struct nvgpu_clk_session *clk_session;
+	struct nvgpu_cdev *cdev;
 
 	struct nvgpu_list_node list;
 	struct {
@@ -77,6 +107,8 @@ static u32 gk20a_as_translate_as_alloc_flags(struct gk20a *g, u32 flags)
 
 	if (flags & NVGPU_GPU_IOCTL_ALLOC_AS_FLAGS_USERSPACE_MANAGED)
 		core_flags |= NVGPU_AS_ALLOC_USERSPACE_MANAGED;
+	if (flags & NVGPU_GPU_IOCTL_ALLOC_AS_FLAGS_UNIFIED_VA)
+		core_flags |= NVGPU_AS_ALLOC_UNIFIED_VA;
 
 	return core_flags;
 }
@@ -87,12 +119,16 @@ int gk20a_ctrl_dev_open(struct inode *inode, struct file *filp)
 	struct gk20a *g;
 	struct gk20a_ctrl_priv *priv;
 	int err = 0;
+	struct nvgpu_cdev *cdev;
 
-	l = container_of(inode->i_cdev,
-			 struct nvgpu_os_linux, ctrl.cdev);
-	g = gk20a_get(&l->g);
+	cdev = container_of(inode->i_cdev, struct nvgpu_cdev, cdev);
+	g = nvgpu_get_gk20a_from_cdev(cdev);
+
+	g = nvgpu_get(g);
 	if (!g)
 		return -ENODEV;
+
+	l = nvgpu_os_linux_from_gk20a(g);
 
 	nvgpu_log_fn(g, " ");
 
@@ -103,6 +139,7 @@ int gk20a_ctrl_dev_open(struct inode *inode, struct file *filp)
 	}
 	filp->private_data = priv;
 	priv->dev = dev_from_gk20a(g);
+	priv->cdev = cdev;
 	/*
 	 * We dont close the arbiter fd's after driver teardown to support
 	 * GPU_LOST events, so we store g here, instead of dereferencing the
@@ -117,16 +154,18 @@ int gk20a_ctrl_dev_open(struct inode *inode, struct file *filp)
 		gk20a_idle(g);
 	}
 
-	err = nvgpu_clk_arb_init_session(g, &priv->clk_session);
+	if (nvgpu_is_enabled(g, NVGPU_CLK_ARB_ENABLED)) {
+		err = nvgpu_clk_arb_init_session(g, &priv->clk_session);
+	}
 free_ref:
 	if (err != 0) {
-		gk20a_put(g);
+		nvgpu_put(g);
 		if (priv)
 			nvgpu_kfree(g, priv);
 	} else {
-		nvgpu_mutex_acquire(&l->ctrl.privs_lock);
-		nvgpu_list_add(&priv->list, &l->ctrl.privs);
-		nvgpu_mutex_release(&l->ctrl.privs_lock);
+		nvgpu_mutex_acquire(&l->ctrl_privs_lock);
+		nvgpu_list_add(&priv->list, &l->ctrl_privs);
+		nvgpu_mutex_release(&l->ctrl_privs_lock);
 	}
 
 	return err;
@@ -139,14 +178,14 @@ int gk20a_ctrl_dev_release(struct inode *inode, struct file *filp)
 
 	nvgpu_log_fn(g, " ");
 
-	nvgpu_mutex_acquire(&l->ctrl.privs_lock);
+	nvgpu_mutex_acquire(&l->ctrl_privs_lock);
 	nvgpu_list_del(&priv->list);
-	nvgpu_mutex_release(&l->ctrl.privs_lock);
+	nvgpu_mutex_release(&l->ctrl_privs_lock);
 
 	if (priv->clk_session)
 		nvgpu_clk_arb_release_session(g, priv->clk_session);
 
-	gk20a_put(g);
+	nvgpu_put(g);
 	nvgpu_kfree(g, priv);
 
 	return 0;
@@ -224,8 +263,50 @@ static struct nvgpu_flags_mapping flags_mapping[] = {
 		NVGPU_SUPPORT_SCG},
 	{NVGPU_GPU_FLAGS_SUPPORT_VPR,
 		NVGPU_SUPPORT_VPR},
+	{NVGPU_GPU_FLAGS_DRIVER_REDUCED_PROFILE,
+		NVGPU_DRIVER_REDUCED_PROFILE},
 	{NVGPU_GPU_FLAGS_SUPPORT_SET_CTX_MMU_DEBUG_MODE,
 		NVGPU_SUPPORT_SET_CTX_MMU_DEBUG_MODE},
+	{NVGPU_GPU_FLAGS_SUPPORT_FAULT_RECOVERY,
+		NVGPU_SUPPORT_FAULT_RECOVERY},
+	{NVGPU_GPU_FLAGS_SUPPORT_MAPPING_MODIFY,
+		NVGPU_SUPPORT_MAPPING_MODIFY},
+	{NVGPU_GPU_FLAGS_SUPPORT_REMAP,
+		NVGPU_SUPPORT_REMAP},
+	{NVGPU_GPU_FLAGS_SUPPORT_COMPRESSION,
+		NVGPU_SUPPORT_COMPRESSION},
+	{NVGPU_GPU_FLAGS_SUPPORT_SM_TTU,
+		NVGPU_SUPPORT_SM_TTU},
+	{NVGPU_GPU_FLAGS_SUPPORT_POST_L2_COMPRESSION,
+		NVGPU_SUPPORT_POST_L2_COMPRESSION},
+	{NVGPU_GPU_FLAGS_SUPPORT_MAP_ACCESS_TYPE,
+		NVGPU_SUPPORT_MAP_ACCESS_TYPE},
+	{NVGPU_GPU_FLAGS_SUPPORT_2D,
+		NVGPU_SUPPORT_2D},
+	{NVGPU_GPU_FLAGS_SUPPORT_3D,
+		NVGPU_SUPPORT_3D},
+	{NVGPU_GPU_FLAGS_SUPPORT_COMPUTE,
+		NVGPU_SUPPORT_COMPUTE},
+	{NVGPU_GPU_FLAGS_SUPPORT_I2M,
+		NVGPU_SUPPORT_I2M},
+	{NVGPU_GPU_FLAGS_SUPPORT_ZBC,
+		NVGPU_SUPPORT_ZBC},
+	{NVGPU_GPU_FLAGS_SUPPORT_PROFILER_V2_DEVICE,
+		NVGPU_SUPPORT_PROFILER_V2_DEVICE},
+	{NVGPU_GPU_FLAGS_SUPPORT_PROFILER_V2_CONTEXT,
+		NVGPU_SUPPORT_PROFILER_V2_CONTEXT},
+	{NVGPU_GPU_FLAGS_SUPPORT_SMPC_GLOBAL_MODE,
+		NVGPU_SUPPORT_SMPC_GLOBAL_MODE},
+	{NVGPU_GPU_FLAGS_SUPPORT_GET_GR_CONTEXT,
+		NVGPU_SUPPORT_GET_GR_CONTEXT},
+	{NVGPU_GPU_FLAGS_L2_MAX_WAYS_EVICT_LAST_ENABLED,
+		NVGPU_L2_MAX_WAYS_EVICT_LAST_ENABLED},
+	{NVGPU_GPU_FLAGS_SUPPORT_VAB,
+		NVGPU_SUPPORT_VAB_ENABLED},
+	{NVGPU_GPU_FLAGS_SUPPORT_BUFFER_METADATA,
+		NVGPU_SUPPORT_BUFFER_METADATA},
+	{NVGPU_GPU_FLAGS_SUPPORT_NVS,
+		NVGPU_SUPPORT_NVS},
 };
 
 static u64 nvgpu_ctrl_ioctl_gpu_characteristics_flags(struct gk20a *g)
@@ -248,59 +329,101 @@ static u64 nvgpu_ctrl_ioctl_gpu_characteristics_flags(struct gk20a *g)
 static void nvgpu_set_preemption_mode_flags(struct gk20a *g,
 	struct nvgpu_gpu_characteristics *gpu)
 {
-	struct nvgpu_preemption_modes_rec preemption_mode_rec;
+	u32 graphics_preemption_mode_flags = 0U;
+	u32 compute_preemption_mode_flags = 0U;
+	u32 default_graphics_preempt_mode = 0U;
+	u32 default_compute_preempt_mode = 0U;
 
-	g->ops.gr.get_preemption_mode_flags(g, &preemption_mode_rec);
+	g->ops.gr.init.get_supported__preemption_modes(
+			&graphics_preemption_mode_flags,
+			&compute_preemption_mode_flags);
+	g->ops.gr.init.get_default_preemption_modes(
+			&default_graphics_preempt_mode,
+			&default_compute_preempt_mode);
 
 	gpu->graphics_preemption_mode_flags =
 		nvgpu_get_ioctl_graphics_preempt_mode_flags(
-			preemption_mode_rec.graphics_preemption_mode_flags);
+			graphics_preemption_mode_flags);
 	gpu->compute_preemption_mode_flags =
 		nvgpu_get_ioctl_compute_preempt_mode_flags(
-			preemption_mode_rec.compute_preemption_mode_flags);
+			compute_preemption_mode_flags);
 
 	gpu->default_graphics_preempt_mode =
 		nvgpu_get_ioctl_graphics_preempt_mode(
-			preemption_mode_rec.default_graphics_preempt_mode);
+			default_graphics_preempt_mode);
 	gpu->default_compute_preempt_mode =
 		nvgpu_get_ioctl_compute_preempt_mode(
-			preemption_mode_rec.default_compute_preempt_mode);
+			default_compute_preempt_mode);
 }
 
-static long
-gk20a_ctrl_ioctl_gpu_characteristics(
-	struct gk20a *g,
-	struct nvgpu_gpu_get_characteristics *request)
+static long gk20a_ctrl_ioctl_gpu_characteristics(
+		struct gk20a *g, u32 gpu_instance_id, struct nvgpu_gr_config *gr_config,
+		struct nvgpu_gpu_get_characteristics *request)
 {
 	struct nvgpu_gpu_characteristics gpu;
 	long err = 0;
+	struct nvgpu_gpu_instance *gpu_instance;
+
+	u32 gr_instance_id = nvgpu_grmgr_get_gr_instance_id(g, gpu_instance_id);
 
 	if (gk20a_busy(g)) {
 		nvgpu_err(g, "failed to power on gpu");
 		return -EINVAL;
 	}
 
-	memset(&gpu, 0, sizeof(gpu));
+	(void) memset(&gpu, 0, sizeof(gpu));
+	gpu_instance = &g->mig.gpu_instance[gpu_instance_id];
 
 	gpu.L2_cache_size = g->ops.ltc.determine_L2_size_bytes(g);
 	gpu.on_board_video_memory_size = 0; /* integrated GPU */
 
-	gpu.num_gpc = g->gr.gpc_count;
-	gpu.max_gpc_count = g->gr.max_gpc_count;
+	gpu.num_gpc = nvgpu_gr_config_get_gpc_count(gr_config);
+	gpu.max_gpc_count = nvgpu_gr_config_get_max_gpc_count(gr_config);
+	/* Convert logical to physical masks */
+	gpu.gpc_mask = nvgpu_grmgr_get_gr_physical_gpc_mask(g, gr_instance_id);
 
-	gpu.num_tpc_per_gpc = g->gr.max_tpc_per_gpc_count;
+	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_gpu_dbg,
+		"GR Instance ID = %u, physical gpc_mask = 0x%08X, logical gpc_mask = 0x%08X",
+		gr_instance_id, gpu.gpc_mask, nvgpu_grmgr_get_gr_logical_gpc_mask(g,
+			gr_instance_id));
+
+	gpu.num_tpc_per_gpc = nvgpu_gr_config_get_max_tpc_per_gpc_count(gr_config);
+
+	gpu.num_ppc_per_gpc = nvgpu_gr_config_get_pe_count_per_gpc(gr_config);
+
+	gpu.max_veid_count_per_tsg =
+		gpu_instance->gr_syspipe.max_veid_count_per_tsg;
 
 	gpu.bus_type = NVGPU_GPU_BUS_TYPE_AXI; /* always AXI for now */
 
-	gpu.compression_page_size = g->ops.fb.compression_page_size(g);
-
-	if (g->ops.gr.get_gpc_mask) {
-		gpu.gpc_mask = g->ops.gr.get_gpc_mask(g);
-	} else {
-		gpu.gpc_mask = BIT32(g->gr.gpc_count) - 1;
+#ifdef CONFIG_NVGPU_COMPRESSION
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION)) {
+		gpu.compression_page_size = g->ops.fb.compression_page_size(g);
+		gpu.gr_compbit_store_base_hw = g->cbc->compbit_store.base_hw;
+		gpu.gr_gobs_per_comptagline_per_slice =
+			g->cbc->gobs_per_comptagline_per_slice;
+		gpu.cbc_comptags_per_line = g->cbc->comptags_per_cacheline;
 	}
+#endif
 
-	gpu.flags = nvgpu_ctrl_ioctl_gpu_characteristics_flags(g);
+	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG) ||
+			(gpu_instance_id != 0U) ||
+			(!nvgpu_grmgr_is_multi_gr_enabled(g))) {
+		gpu.flags = nvgpu_ctrl_ioctl_gpu_characteristics_flags(g);
+		nvgpu_set_preemption_mode_flags(g, &gpu);
+	} else {
+		gpu.flags = (NVGPU_GPU_FLAGS_SUPPORT_CLOCK_CONTROLS |
+			NVGPU_GPU_FLAGS_SUPPORT_GET_VOLTAGE |
+			NVGPU_GPU_FLAGS_SUPPORT_GET_CURRENT |
+			NVGPU_GPU_FLAGS_SUPPORT_GET_POWER |
+			NVGPU_GPU_FLAGS_SUPPORT_GET_TEMPERATURE |
+			NVGPU_GPU_FLAGS_SUPPORT_SET_THERM_ALERT_LIMIT |
+			NVGPU_GPU_FLAGS_SUPPORT_DEVICE_EVENTS |
+			NVGPU_GPU_FLAGS_SUPPORT_SM_TTU |
+			NVGPU_GPU_FLAGS_SUPPORT_PROFILER_V2_DEVICE |
+			NVGPU_GPU_FLAGS_SUPPORT_PROFILER_V2_CONTEXT |
+			NVGPU_GPU_FLAGS_SUPPORT_SMPC_GLOBAL_MODE);
+	}
 
 	gpu.arch = g->params.gpu_arch;
 	gpu.impl = g->params.gpu_impl;
@@ -308,28 +431,46 @@ gk20a_ctrl_ioctl_gpu_characteristics(
 	gpu.reg_ops_limit = NVGPU_IOCTL_DBG_REG_OPS_LIMIT;
 	gpu.map_buffer_batch_limit = nvgpu_is_enabled(g, NVGPU_SUPPORT_MAP_BUFFER_BATCH) ?
 		NVGPU_IOCTL_AS_MAP_BUFFER_BATCH_LIMIT : 0;
-	gpu.twod_class = g->ops.get_litter_value(g, GPU_LIT_TWOD_CLASS);
-	gpu.threed_class = g->ops.get_litter_value(g, GPU_LIT_THREED_CLASS);
-	gpu.compute_class = g->ops.get_litter_value(g, GPU_LIT_COMPUTE_CLASS);
-	gpu.gpfifo_class = g->ops.get_litter_value(g, GPU_LIT_GPFIFO_CLASS);
-	gpu.inline_to_memory_class =
-		g->ops.get_litter_value(g, GPU_LIT_I2M_CLASS);
-	gpu.dma_copy_class =
-		g->ops.get_litter_value(g, GPU_LIT_DMA_COPY_CLASS);
 
-	gpu.vbios_version = g->bios.vbios_version;
-	gpu.vbios_oem_version = g->bios.vbios_oem_version;
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG)) {
+		if (gpu_instance_id != 0U) {
+			gpu.compute_class = g->ops.get_litter_value(g, GPU_LIT_COMPUTE_CLASS);
+			gpu.gpfifo_class = g->ops.get_litter_value(g, GPU_LIT_GPFIFO_CLASS);
+			gpu.dma_copy_class =
+				g->ops.get_litter_value(g, GPU_LIT_DMA_COPY_CLASS);
+		}
+	} else {
+#ifdef CONFIG_NVGPU_GRAPHICS
+		gpu.twod_class = g->ops.get_litter_value(g, GPU_LIT_TWOD_CLASS);
+		gpu.threed_class = g->ops.get_litter_value(g, GPU_LIT_THREED_CLASS);
+#endif
+		gpu.compute_class = g->ops.get_litter_value(g, GPU_LIT_COMPUTE_CLASS);
+		gpu.gpfifo_class = g->ops.get_litter_value(g, GPU_LIT_GPFIFO_CLASS);
+		gpu.inline_to_memory_class =
+			g->ops.get_litter_value(g, GPU_LIT_I2M_CLASS);
+		gpu.dma_copy_class =
+			g->ops.get_litter_value(g, GPU_LIT_DMA_COPY_CLASS);
+	}
 
+#ifdef CONFIG_NVGPU_DGPU
+	gpu.vbios_version = nvgpu_bios_get_vbios_version(g);
+	gpu.vbios_oem_version = nvgpu_bios_get_vbios_oem_version(g);
+#else
+	gpu.vbios_version = 0;
+	gpu.vbios_oem_version = 0;
+#endif
 	gpu.big_page_size = nvgpu_mm_get_default_big_page_size(g);
 	gpu.pde_coverage_bit_count =
-		g->ops.mm.get_mmu_levels(g, gpu.big_page_size)[0].lo_bit[0];
+		g->ops.mm.gmmu.get_mmu_levels(g,
+					gpu.big_page_size)[0].lo_bit[0];
 	gpu.available_big_page_sizes = nvgpu_mm_get_available_big_page_sizes(g);
 
 	gpu.sm_arch_sm_version = g->params.sm_arch_sm_version;
 	gpu.sm_arch_spa_version = g->params.sm_arch_spa_version;
 	gpu.sm_arch_warp_count = g->params.sm_arch_warp_count;
 
-	gpu.max_css_buffer_size = g->gr.max_css_buffer_size;
+	gpu.max_css_buffer_size = g->ops.css.get_max_buffer_size(g);;
+	gpu.max_ctxsw_ring_buffer_size = GK20A_CTXSW_TRACE_MAX_VM_RING_SIZE;
 
 	gpu.gpu_ioctl_nr_last = NVGPU_GPU_IOCTL_LAST;
 	gpu.tsg_ioctl_nr_last = NVGPU_TSG_IOCTL_LAST;
@@ -337,25 +478,47 @@ gk20a_ctrl_ioctl_gpu_characteristics(
 	gpu.ioctl_channel_nr_last = NVGPU_IOCTL_CHANNEL_LAST;
 	gpu.as_ioctl_nr_last = NVGPU_AS_IOCTL_LAST;
 	gpu.event_ioctl_nr_last = NVGPU_EVENT_IOCTL_LAST;
+	gpu.ctxsw_ioctl_nr_last = NVGPU_CTXSW_IOCTL_LAST;
+	gpu.prof_ioctl_nr_last = NVGPU_PROFILER_IOCTL_LAST;
+	gpu.nvs_ioctl_nr_last = NVGPU_NVS_IOCTL_LAST;
 	gpu.gpu_va_bit_count = 40;
+	gpu.max_dbg_tsg_timeslice = g->tsg_dbg_timeslice_max_us;
 
 	strlcpy(gpu.chipname, g->name, sizeof(gpu.chipname));
-	gpu.max_fbps_count = g->ops.gr.get_max_fbps_count(g);
-	gpu.fbp_en_mask = g->ops.gr.get_fbp_en_mask(g);
-	gpu.max_ltc_per_fbp =  g->ops.gr.get_max_ltc_per_fbp(g);
-	gpu.max_lts_per_ltc = g->ops.gr.get_max_lts_per_ltc(g);
-	gpu.gr_compbit_store_base_hw = g->gr.compbit_store.base_hw;
-	gpu.gr_gobs_per_comptagline_per_slice =
-		g->gr.gobs_per_comptagline_per_slice;
-	gpu.num_ltc = g->ltc_count;
-	gpu.lts_per_ltc = g->gr.slices_per_ltc;
-	gpu.cbc_cache_line_size = g->gr.cacheline_size;
-	gpu.cbc_comptags_per_line = g->gr.comptags_per_cacheline;
+	gpu.max_fbps_count = nvgpu_grmgr_get_max_fbps_count(g);
+	gpu.fbp_en_mask = nvgpu_grmgr_get_fbp_en_mask(g, gpu_instance_id);
+	gpu.max_ltc_per_fbp =  g->ops.top.get_max_ltc_per_fbp(g);
+	gpu.max_lts_per_ltc = g->ops.top.get_max_lts_per_ltc(g);
+	gpu.num_ltc = nvgpu_ltc_get_ltc_count(g);
+	gpu.lts_per_ltc = nvgpu_ltc_get_slices_per_ltc(g);
+	gpu.cbc_cache_line_size = nvgpu_ltc_get_cacheline_size(g);
 
-	if (g->ops.clk.get_maxrate)
-		gpu.max_freq = g->ops.clk.get_maxrate(g, CTRL_CLK_DOMAIN_GPCCLK);
+	/*
+	 * TODO : Need to replace with proper HAL.
+	 */
+	if (g->pci_device_id != (u16)0) {
+		/* All nvgpu supported dGPUs have 64 bit FBIO channel
+		 * So number of Sub partition per FBPA is always 0x2.
+		 * Half FBPA (32BIT channel mode) enablement
+		 * (1 sub partition per FBPA) is disabled for tegra dGPUs.
+		 */
+		gpu.num_sub_partition_per_fbpa = 0x2;
+	} else {
+		/*
+		 * All iGPUs don't have real FBPA/FBSP units at all.
+		 * So num_sub_partition_per_fbpa should be 0 for iGPUs.
+		 */
+		gpu.num_sub_partition_per_fbpa = 0x00;
+	}
 
+	if ((g->ops.clk.get_maxrate) && nvgpu_platform_is_silicon(g)) {
+		gpu.max_freq = g->ops.clk.get_maxrate(g,
+				CTRL_CLK_DOMAIN_GPCCLK);
+	}
+
+#ifdef CONFIG_NVGPU_DGPU
 	gpu.local_video_memory_size = g->mm.vidmem.size;
+#endif
 
 	gpu.pci_vendor_id = g->pci_vendor_id;
 	gpu.pci_device_id = g->pci_device_id;
@@ -364,7 +527,13 @@ gk20a_ctrl_ioctl_gpu_characteristics(
 	gpu.pci_class = g->pci_class;
 	gpu.pci_revision = g->pci_revision;
 
-	nvgpu_set_preemption_mode_flags(g, &gpu);
+	gpu.per_device_identifier = g->per_device_identifier;
+
+	gpu.gpu_instance_id = gpu_instance->gpu_instance_id;
+	gpu.gr_instance_id = gpu_instance->gr_syspipe.gr_syspipe_id;
+
+	gpu.max_gpfifo_entries = rounddown_pow_of_two(U32_MAX /
+					nvgpu_get_gpfifo_entry_size());
 
 	if (request->gpu_characteristics_buf_size > 0) {
 		size_t write_size = sizeof(gpu);
@@ -395,7 +564,7 @@ static int gk20a_ctrl_prepare_compressible_read(
 #ifdef CONFIG_NVGPU_SUPPORT_CDE
 	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 	struct nvgpu_channel_fence fence;
-	struct gk20a_fence *fence_out = NULL;
+	struct nvgpu_user_fence fence_out = nvgpu_user_fence_init();
 	int submit_flags = nvgpu_submit_gpfifo_user_flags_to_common_flags(
 		args->submit_flags);
 	int fd = -1;
@@ -406,7 +575,7 @@ static int gk20a_ctrl_prepare_compressible_read(
 	/* Try and allocate an fd here*/
 	if ((submit_flags & NVGPU_SUBMIT_FLAGS_FENCE_GET)
 		&& (submit_flags & NVGPU_SUBMIT_FLAGS_SYNC_FENCE)) {
-			fd = get_unused_fd_flags(O_RDWR);
+			fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 			if (fd < 0)
 				return fd;
 	}
@@ -425,31 +594,31 @@ static int gk20a_ctrl_prepare_compressible_read(
 		return ret;
 	}
 
-	/* Convert fence_out to something we can pass back to user space. */
+	/*
+	 * Convert fence_out, if any, to something we can pass back to user
+	 * space. Even if successful, the fence may not exist if there was
+	 * nothing to be done (no compbits requested); that's not an error.
+	 */
 	if (submit_flags & NVGPU_SUBMIT_FLAGS_FENCE_GET) {
 		if (submit_flags & NVGPU_SUBMIT_FLAGS_SYNC_FENCE) {
-			if (fence_out) {
-				ret = gk20a_fence_install_fd(fence_out, fd);
-				if (ret)
+			if (nvgpu_os_fence_is_initialized(&fence_out.os_fence)) {
+				ret = fence_out.os_fence.ops->install_fence(
+						&fence_out.os_fence, fd);
+				if (ret) {
 					put_unused_fd(fd);
-				else
-					args->fence.fd = fd;
+					fd = -1;
+				}
 			} else {
-				args->fence.fd = -1;
 				put_unused_fd(fd);
+				fd = -1;
 			}
+			args->fence.fd = fd;
 		} else {
-			if (fence_out) {
-				args->fence.syncpt_id = fence_out->syncpt_id;
-				args->fence.syncpt_value =
-						fence_out->syncpt_value;
-			} else {
-				args->fence.syncpt_id = -1;
-				args->fence.syncpt_value = 0;
-			}
+			args->fence.syncpt_id = fence_out.syncpt_id;
+			args->fence.syncpt_value = fence_out.syncpt_value;
 		}
+		nvgpu_user_fence_release(&fence_out);
 	}
-	gk20a_fence_put(fence_out);
 #endif
 
 	return ret;
@@ -473,28 +642,30 @@ static int gk20a_ctrl_alloc_as(
 		struct gk20a *g,
 		struct nvgpu_alloc_as_args *args)
 {
-	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 	struct gk20a_as_share *as_share;
 	int err;
 	int fd;
 	struct file *file;
 	char name[64];
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		return err;
 	fd = err;
 
-	snprintf(name, sizeof(name), "nvhost-%s-fd%d", g->name, fd);
+	(void) snprintf(name, sizeof(name), "nvhost-%s-fd%d", g->name, fd);
 
 	err = gk20a_as_alloc_share(g, args->big_page_size,
 				   gk20a_as_translate_as_alloc_flags(g,
 					   args->flags),
+				   args->va_range_start,
+				   args->va_range_end,
+				   args->va_range_split,
 				   &as_share);
 	if (err)
 		goto clean_up;
 
-	file = anon_inode_getfile(name, l->as_dev.cdev.ops, as_share, O_RDWR);
+	file = anon_inode_getfile(name, &gk20a_as_ops, as_share, O_RDWR);
 	if (IS_ERR(file)) {
 		err = PTR_ERR(file);
 		goto clean_up_as;
@@ -512,29 +683,28 @@ clean_up:
 	return err;
 }
 
-static int gk20a_ctrl_open_tsg(struct gk20a *g,
+static int gk20a_ctrl_open_tsg(struct gk20a *g, struct nvgpu_cdev *cdev,
 			       struct nvgpu_gpu_open_tsg_args *args)
 {
-	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 	int err;
 	int fd;
 	struct file *file;
 	char name[64];
 
-	err = get_unused_fd_flags(O_RDWR);
+	err = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (err < 0)
 		return err;
 	fd = err;
 
-	snprintf(name, sizeof(name), "nvgpu-%s-tsg%d", g->name, fd);
+	(void) snprintf(name, sizeof(name), "nvgpu-%s-tsg%d", g->name, fd);
 
-	file = anon_inode_getfile(name, l->tsg.cdev.ops, NULL, O_RDWR);
+	file = anon_inode_getfile(name, &gk20a_tsg_ops, NULL, O_RDWR);
 	if (IS_ERR(file)) {
 		err = PTR_ERR(file);
 		goto clean_up;
 	}
 
-	err = nvgpu_ioctl_tsg_open(g, file);
+	err = nvgpu_ioctl_tsg_open(g, cdev, file);
 	if (err)
 		goto clean_up_file;
 
@@ -549,12 +719,12 @@ clean_up:
 	return err;
 }
 
-static int gk20a_ctrl_get_tpc_masks(struct gk20a *g,
+static int gk20a_ctrl_get_tpc_masks(struct gk20a *g, struct nvgpu_gr_config *gr_config,
 				    struct nvgpu_gpu_get_tpc_masks_args *args)
 {
-	struct gr_gk20a *gr = &g->gr;
 	int err = 0;
-	const u32 gpc_tpc_mask_size = sizeof(u32) * gr->max_gpc_count;
+	const u32 gpc_tpc_mask_size = sizeof(u32) *
+		nvgpu_gr_config_get_max_gpc_count(gr_config);
 
 	if (args->mask_buf_size > 0) {
 		size_t write_size = gpc_tpc_mask_size;
@@ -564,8 +734,9 @@ static int gk20a_ctrl_get_tpc_masks(struct gk20a *g,
 			write_size = args->mask_buf_size;
 
 		err = copy_to_user((void __user *)(uintptr_t)
-				   args->mask_buf_addr,
-				   gr->gpc_tpc_mask, write_size);
+			args->mask_buf_addr,
+			nvgpu_gr_config_get_gpc_tpc_mask_physical_base(gr_config),
+			write_size);
 	}
 
 	if (err == 0)
@@ -575,11 +746,14 @@ static int gk20a_ctrl_get_tpc_masks(struct gk20a *g,
 }
 
 static int gk20a_ctrl_get_fbp_l2_masks(
-	struct gk20a *g, struct nvgpu_gpu_get_fbp_l2_masks_args *args)
+	struct gk20a *g, u32 gpu_instance_id,
+	struct nvgpu_gpu_get_fbp_l2_masks_args *args)
 {
-	struct gr_gk20a *gr = &g->gr;
 	int err = 0;
-	const u32 fbp_l2_mask_size = sizeof(u32) * gr->max_fbps_count;
+	const u32 fbp_l2_mask_size = sizeof(u32) *
+			nvgpu_grmgr_get_max_fbps_count(g);
+	u32 *fbp_l2_en_mask =
+		nvgpu_grmgr_get_fbp_l2_en_mask(g, gpu_instance_id);
 
 	if (args->mask_buf_size > 0) {
 		size_t write_size = fbp_l2_mask_size;
@@ -590,7 +764,7 @@ static int gk20a_ctrl_get_fbp_l2_masks(
 
 		err = copy_to_user((void __user *)(uintptr_t)
 				   args->mask_buf_addr,
-				   gr->fbp_rop_l2_en_mask, write_size);
+				   fbp_l2_en_mask, write_size);
 	}
 
 	if (err == 0)
@@ -602,46 +776,45 @@ static int gk20a_ctrl_get_fbp_l2_masks(
 static int nvgpu_gpu_ioctl_l2_fb_ops(struct gk20a *g,
 		struct nvgpu_gpu_l2_fb_args *args)
 {
-	int ret;
-	bool always_poweron;
+	int err = 0;
 
 	if ((!args->l2_flush && !args->fb_flush) ||
 	    (!args->l2_flush && args->l2_invalidate))
 		return -EINVAL;
 
-	/* Handle this case for joint rails or DGPU */
-	always_poweron = (!nvgpu_is_enabled(g, NVGPU_CAN_RAILGATE) ||
-				!pm_runtime_enabled(dev_from_gk20a(g)));
-
-	/* In case of not always power_on, exit if g->power_on is false */
-	if (!always_poweron && !gk20a_check_poweron(g)) {
+	/* In case of railgating enabled, exit if nvgpu is powered off */
+	if (nvgpu_is_enabled(g, NVGPU_CAN_RAILGATE) && nvgpu_is_powered_off(g)) {
 		return 0;
 	}
 
-	/* There is a small window between a call to gk20a_idle() has occured
-	 * and railgate being actually triggered(setting g->power_on = false),
-	 * when l2_flush can race with railgate. Its better to take a busy_lock
-	 * to prevent the gk20a_idle() from proceeding. There is a very small
-	 * chance that gk20a_idle() might begin before gk20a_busy(). Having
-	 * a locked access to g->power_on further reduces the probability of
-	 * gk20a_idle() being triggered before gk20a_busy()
-	 */
-	ret = gk20a_busy(g);
-
-	if (ret != 0) {
+	err = gk20a_busy(g);
+	if (err != 0) {
 		nvgpu_err(g, "failed to take power ref");
-		return ret;
+		return err;
 	}
 
-	if (args->l2_flush)
-		g->ops.mm.l2_flush(g, args->l2_invalidate ? true : false);
+	if (args->l2_flush) {
+		err = nvgpu_pg_elpg_ms_protected_call(g,
+			g->ops.mm.cache.l2_flush(g, args->l2_invalidate ?
+							true : false));
+		if (err != 0) {
+			nvgpu_err(g, "l2_flush failed");
+			goto out;
+		}
+	}
 
-	if (args->fb_flush)
-		g->ops.mm.fb_flush(g);
+	if (args->fb_flush) {
+		err = g->ops.mm.cache.fb_flush(g);
+		if (err != 0) {
+			nvgpu_err(g, "mm.cache.fb_flush() failed err=%d", err);
+			goto out;
+		}
+	}
 
+out:
 	gk20a_idle(g);
 
-	return 0;
+	return err;
 }
 
 static int nvgpu_gpu_ioctl_set_mmu_debug_mode(
@@ -663,42 +836,45 @@ static int nvgpu_gpu_ioctl_set_mmu_debug_mode(
 
 static int nvgpu_gpu_ioctl_set_debug_mode(
 		struct gk20a *g,
-		struct nvgpu_gpu_sm_debug_mode_args *args)
+		struct nvgpu_gpu_sm_debug_mode_args *args,
+		u32 gr_instance_id)
 {
-	struct channel_gk20a *ch;
+	struct nvgpu_channel *ch;
 	int err;
 
-	ch = gk20a_get_channel_from_file(args->channel_fd);
+	ch = nvgpu_channel_get_from_file(args->channel_fd);
 	if (!ch)
 		return -EINVAL;
 
 	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
 	if (g->ops.gr.set_sm_debug_mode)
-		err = g->ops.gr.set_sm_debug_mode(g, ch,
-				args->sms, !!args->enable);
+		err = nvgpu_gr_exec_with_err_for_instance(g, gr_instance_id,
+			g->ops.gr.set_sm_debug_mode(g, ch,
+				args->sms, !!args->enable));
 	else
 		err = -ENOSYS;
 	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
-	gk20a_channel_put(ch);
+	nvgpu_channel_put(ch);
 	return err;
 }
 
-static int nvgpu_gpu_ioctl_trigger_suspend(struct gk20a *g)
+static int nvgpu_gpu_ioctl_trigger_suspend(struct gk20a *g, u32 gr_instance_id)
 {
 	int err;
 
 	err = gk20a_busy(g);
 	if (err)
-		return err;
+	    return err;
 
-	if (g->ops.gr.trigger_suspend) {
-		nvgpu_mutex_acquire(&g->dbg_sessions_lock);
-		err = gr_gk20a_elpg_protected_call(g,
+	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
+	if (g->ops.gr.trigger_suspend != NULL) {
+		err = nvgpu_gr_exec_with_err_for_instance(g, gr_instance_id,
 			g->ops.gr.trigger_suspend(g));
-		nvgpu_mutex_release(&g->dbg_sessions_lock);
-	} else
-		err = -EINVAL;
+	} else {
+		err = -ENOSYS;
+	}
+	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
 	gk20a_idle(g);
 
@@ -706,21 +882,24 @@ static int nvgpu_gpu_ioctl_trigger_suspend(struct gk20a *g)
 }
 
 static int nvgpu_gpu_ioctl_wait_for_pause(struct gk20a *g,
-		struct nvgpu_gpu_wait_pause_args *args)
+		struct nvgpu_gpu_wait_pause_args *args, u32 gr_instance_id)
 {
 	int err;
 	struct warpstate *ioctl_w_state;
 	struct nvgpu_warpstate *w_state = NULL;
-	u32 sm_count, ioctl_size, size, sm_id;
+	u32 ioctl_size, size, sm_id, no_of_sm;
+	struct nvgpu_gr_config *gr_config =
+		nvgpu_gr_get_gr_instance_config_ptr(g, gr_instance_id);
 
-	sm_count = g->gr.gpc_count * g->gr.tpc_count;
+	no_of_sm = nvgpu_gr_config_get_no_of_sm(gr_config);
 
-	ioctl_size = sm_count * sizeof(struct warpstate);
+	ioctl_size = no_of_sm * sizeof(struct warpstate);
 	ioctl_w_state = nvgpu_kzalloc(g, ioctl_size);
-	if (!ioctl_w_state)
+	if (!ioctl_w_state) {
 		return -ENOMEM;
+	}
 
-	size = sm_count * sizeof(struct nvgpu_warpstate);
+	size = no_of_sm * sizeof(struct nvgpu_warpstate);
 	w_state = nvgpu_kzalloc(g, size);
 	if (!w_state) {
 		err = -ENOMEM;
@@ -728,40 +907,39 @@ static int nvgpu_gpu_ioctl_wait_for_pause(struct gk20a *g,
 	}
 
 	err = gk20a_busy(g);
-	if (err)
+	if (err) {
 		goto out_free;
+	}
 
 	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
-	if (g->ops.gr.wait_for_pause) {
-		(void)gr_gk20a_elpg_protected_call(g,
+	if (g->ops.gr.wait_for_pause != NULL) {
+		err = nvgpu_gr_exec_with_err_for_instance(g, gr_instance_id,
 			g->ops.gr.wait_for_pause(g, w_state));
+
+		for (sm_id = 0; sm_id < no_of_sm; sm_id++) {
+			ioctl_w_state[sm_id].valid_warps[0] =
+				w_state[sm_id].valid_warps[0];
+			ioctl_w_state[sm_id].valid_warps[1] =
+				w_state[sm_id].valid_warps[1];
+			ioctl_w_state[sm_id].trapped_warps[0] =
+				w_state[sm_id].trapped_warps[0];
+			ioctl_w_state[sm_id].trapped_warps[1] =
+				w_state[sm_id].trapped_warps[1];
+			ioctl_w_state[sm_id].paused_warps[0] =
+				w_state[sm_id].paused_warps[0];
+			ioctl_w_state[sm_id].paused_warps[1] =
+				w_state[sm_id].paused_warps[1];
+		}
+		/* Copy to user space - pointed by "args->pwarpstate" */
+		if (copy_to_user((void __user *)(uintptr_t)args->pwarpstate,
+		    w_state, ioctl_size)) {
+			nvgpu_log_fn(g, "copy_to_user failed!");
+			err = -EFAULT;
+		}
 	} else {
-		err = -EINVAL;
-		goto out_idle;
+		err = -ENOSYS;
 	}
 
-	for (sm_id = 0; sm_id < g->gr.no_of_sm; sm_id++) {
-		ioctl_w_state[sm_id].valid_warps[0] =
-			w_state[sm_id].valid_warps[0];
-		ioctl_w_state[sm_id].valid_warps[1] =
-			w_state[sm_id].valid_warps[1];
-		ioctl_w_state[sm_id].trapped_warps[0] =
-			w_state[sm_id].trapped_warps[0];
-		ioctl_w_state[sm_id].trapped_warps[1] =
-			w_state[sm_id].trapped_warps[1];
-		ioctl_w_state[sm_id].paused_warps[0] =
-			w_state[sm_id].paused_warps[0];
-		ioctl_w_state[sm_id].paused_warps[1] =
-			w_state[sm_id].paused_warps[1];
-	}
-	/* Copy to user space - pointed by "args->pwarpstate" */
-	if (copy_to_user((void __user *)(uintptr_t)args->pwarpstate,
-	    w_state, ioctl_size)) {
-		nvgpu_log_fn(g, "copy_to_user failed!");
-		err = -EFAULT;
-	}
-
-out_idle:
 	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
 	gk20a_idle(g);
@@ -773,40 +951,42 @@ out_free:
 	return err;
 }
 
-static int nvgpu_gpu_ioctl_resume_from_pause(struct gk20a *g)
+static int nvgpu_gpu_ioctl_resume_from_pause(struct gk20a *g, u32 gr_instance_id)
 {
 	int err;
 
 	err = gk20a_busy(g);
 	if (err)
-		return err;
+	    return err;
 
-	if (g->ops.gr.resume_from_pause) {
-		nvgpu_mutex_acquire(&g->dbg_sessions_lock);
-		err = gr_gk20a_elpg_protected_call(g,
+	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
+	if (g->ops.gr.resume_from_pause != NULL) {
+		err = nvgpu_gr_exec_with_err_for_instance(g, gr_instance_id,
 			g->ops.gr.resume_from_pause(g));
-		nvgpu_mutex_release(&g->dbg_sessions_lock);
-	} else
-		err = -EINVAL;
+	} else {
+		err = -ENOSYS;
+	}
+	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
 	gk20a_idle(g);
 
 	return err;
 }
 
-static int nvgpu_gpu_ioctl_clear_sm_errors(struct gk20a *g)
+static int nvgpu_gpu_ioctl_clear_sm_errors(struct gk20a *g, u32 gr_instance_id)
 {
 	int err;
+
+	if (g->ops.gr.clear_sm_errors == NULL) {
+		return -ENOSYS;
+	}
 
 	err = gk20a_busy(g);
 	if (err)
 		return err;
 
-	if (g->ops.gr.clear_sm_errors) {
-		err = gr_gk20a_elpg_protected_call(g,
+	err = nvgpu_gr_exec_with_err_for_instance(g, gr_instance_id,
 			g->ops.gr.clear_sm_errors(g));
-	} else
-		err = -EINVAL;
 
 	gk20a_idle(g);
 
@@ -817,14 +997,16 @@ static int nvgpu_gpu_ioctl_has_any_exception(
 		struct gk20a *g,
 		struct nvgpu_gpu_tpc_exception_en_status_args *args)
 {
-	u32 tpc_exception_en;
+	u64 tpc_exception_en;
 
-	if (g->ops.gr.tpc_enabled_exceptions) {
-		nvgpu_mutex_acquire(&g->dbg_sessions_lock);
-		tpc_exception_en = g->ops.gr.tpc_enabled_exceptions(g);
-		nvgpu_mutex_release(&g->dbg_sessions_lock);
-	} else
-		return -EINVAL;
+	if (g->ops.gr.intr.tpc_enabled_exceptions == NULL) {
+		return -ENOSYS;
+	}
+
+	nvgpu_mutex_acquire(&g->dbg_sessions_lock);
+	tpc_exception_en = nvgpu_pg_elpg_protected_call(g,
+				g->ops.gr.intr.tpc_enabled_exceptions(g));
+	nvgpu_mutex_release(&g->dbg_sessions_lock);
 
 	args->tpc_exception_en_sm_mask = tpc_exception_en;
 
@@ -832,20 +1014,19 @@ static int nvgpu_gpu_ioctl_has_any_exception(
 }
 
 static int gk20a_ctrl_get_num_vsms(struct gk20a *g,
-				    struct nvgpu_gpu_num_vsms *args)
+		struct nvgpu_gr_config *gr_config, struct nvgpu_gpu_num_vsms *args)
 {
-	struct gr_gk20a *gr = &g->gr;
-	args->num_vsms = gr->no_of_sm;
+	args->num_vsms = nvgpu_gr_config_get_no_of_sm(gr_config);
 	return 0;
 }
 
 static int gk20a_ctrl_vsm_mapping(struct gk20a *g,
-				    struct nvgpu_gpu_vsms_mapping *args)
+		struct nvgpu_gr_config *gr_config, struct nvgpu_gpu_vsms_mapping *args)
 {
 	int err = 0;
-	struct gr_gk20a *gr = &g->gr;
-	size_t write_size = gr->no_of_sm *
-				sizeof(struct nvgpu_gpu_vsms_mapping_entry);
+	u32 no_of_sm = nvgpu_gr_config_get_no_of_sm(gr_config);
+	size_t write_size = no_of_sm *
+		sizeof(struct nvgpu_gpu_vsms_mapping_entry);
 	struct nvgpu_gpu_vsms_mapping_entry *vsms_buf;
 	u32 i;
 
@@ -853,16 +1034,21 @@ static int gk20a_ctrl_vsm_mapping(struct gk20a *g,
 	if (vsms_buf == NULL)
 		return -ENOMEM;
 
-	for (i = 0; i < gr->no_of_sm; i++) {
-		vsms_buf[i].gpc_index = gr->sm_to_cluster[i].gpc_index;
-		if (g->ops.gr.get_nonpes_aware_tpc)
+	for (i = 0; i < no_of_sm; i++) {
+		struct nvgpu_sm_info *sm_info =
+			nvgpu_gr_config_get_sm_info(gr_config, i);
+
+		vsms_buf[i].gpc_index =
+			nvgpu_gr_config_get_sm_info_gpc_index(sm_info);
+		if (g->ops.gr.init.get_nonpes_aware_tpc)
 			vsms_buf[i].tpc_index =
-				g->ops.gr.get_nonpes_aware_tpc(g,
-					gr->sm_to_cluster[i].gpc_index,
-					gr->sm_to_cluster[i].tpc_index);
+				g->ops.gr.init.get_nonpes_aware_tpc(g,
+				nvgpu_gr_config_get_sm_info_gpc_index(sm_info),
+				nvgpu_gr_config_get_sm_info_tpc_index(sm_info),
+					gr_config);
 		else
 			vsms_buf[i].tpc_index =
-				gr->sm_to_cluster[i].tpc_index;
+				nvgpu_gr_config_get_sm_info_tpc_index(sm_info);
 	}
 
 	err = copy_to_user((void __user *)(uintptr_t)
@@ -924,51 +1110,54 @@ static int nvgpu_gpu_get_gpu_time(
 	return err;
 }
 
+static void nvgpu_gpu_fetch_engine_info_item(struct gk20a *g,
+		struct nvgpu_gpu_get_engine_info_item *dst_info,
+		const struct nvgpu_device *dev, u32 dev_inst_id, u32 gr_runlist_id)
+{
+	(void) memset(dst_info, 0, sizeof(*dst_info));
+
+	if (nvgpu_device_is_graphics(g, dev)) {
+		dst_info->engine_id = NVGPU_GPU_ENGINE_ID_GR;
+	} else if (nvgpu_device_is_ce(g, dev)) {
+		/*
+		 * There's two types of CE userpsace is interested in:
+		 * ASYNC_CEs which are copy engines with their own
+		 * runlists and GRCEs which are CEs that share a runlist
+		 * with GR.
+		 */
+		if (dev->runlist_id == gr_runlist_id) {
+			dst_info->engine_id = NVGPU_GPU_ENGINE_ID_GR_COPY;
+		} else {
+			dst_info->engine_id = NVGPU_GPU_ENGINE_ID_ASYNC_COPY;
+		}
+	}
+
+	dst_info->engine_instance = dev_inst_id;
+	dst_info->runlist_id = dev->runlist_id;
+}
+
 static int nvgpu_gpu_get_engine_info(
 	struct gk20a *g,
 	struct nvgpu_gpu_get_engine_info_args *args)
 {
 	int err = 0;
-	u32 engine_enum = ENGINE_INVAL_GK20A;
 	u32 report_index = 0;
-	u32 engine_id_idx;
+	u32 i;
+	const struct nvgpu_device *gr_dev;
 	const u32 max_buffer_engines = args->engine_info_buf_size /
 		sizeof(struct nvgpu_gpu_get_engine_info_item);
 	struct nvgpu_gpu_get_engine_info_item __user *dst_item_list =
 		(void __user *)(uintptr_t)args->engine_info_buf_addr;
 
-	for (engine_id_idx = 0; engine_id_idx < g->fifo.num_engines;
-		++engine_id_idx) {
-		u32 active_engine_id = g->fifo.active_engines_list[engine_id_idx];
-		const struct fifo_engine_info_gk20a *src_info =
-			&g->fifo.engine_info[active_engine_id];
+	gr_dev = nvgpu_device_get(g, NVGPU_DEVTYPE_GRAPHICS, 0);
+	nvgpu_assert(gr_dev != NULL);
+
+	for (i = 0; i < g->fifo.num_engines; i++) {
+		const struct nvgpu_device *dev = g->fifo.active_engines[i];
 		struct nvgpu_gpu_get_engine_info_item dst_info;
 
-		memset(&dst_info, 0, sizeof(dst_info));
-
-		engine_enum = src_info->engine_enum;
-
-		switch (engine_enum) {
-		case ENGINE_GR_GK20A:
-			dst_info.engine_id = NVGPU_GPU_ENGINE_ID_GR;
-			break;
-
-		case ENGINE_GRCE_GK20A:
-			dst_info.engine_id = NVGPU_GPU_ENGINE_ID_GR_COPY;
-			break;
-
-		case ENGINE_ASYNC_CE_GK20A:
-			dst_info.engine_id = NVGPU_GPU_ENGINE_ID_ASYNC_COPY;
-			break;
-
-		default:
-			nvgpu_err(g, "Unmapped engine enum %u",
-				  engine_enum);
-			continue;
-		}
-
-		dst_info.engine_instance = src_info->inst_id;
-		dst_info.runlist_id = src_info->runlist_id;
+		nvgpu_gpu_fetch_engine_info_item(g, &dst_info, dev,
+			dev->inst_id, gr_dev->runlist_id);
 
 		if (report_index < max_buffer_engines) {
 			err = copy_to_user(&dst_item_list[report_index],
@@ -987,6 +1176,59 @@ clean_up:
 	return err;
 }
 
+static int nvgpu_gpu_get_gpu_instance_engine_info(
+		struct gk20a *g, u32 gpu_instance_id,
+		struct nvgpu_gpu_get_engine_info_args *args)
+{
+	int err = 0;
+	u32 report_index = 0U;
+	u32 i;
+	const struct nvgpu_device *gr_dev;
+	const u32 max_buffer_engines = args->engine_info_buf_size /
+		sizeof(struct nvgpu_gpu_get_engine_info_item);
+	struct nvgpu_gpu_get_engine_info_item __user *dst_item_list =
+		(void __user *)(uintptr_t)args->engine_info_buf_addr;
+	struct nvgpu_gpu_get_engine_info_item dst_info;
+	struct nvgpu_gpu_instance *gpu_instance =
+		&g->mig.gpu_instance[gpu_instance_id];
+
+	gr_dev = gpu_instance->gr_syspipe.gr_dev;
+	nvgpu_assert(gr_dev != NULL);
+
+	nvgpu_gpu_fetch_engine_info_item(g, &dst_info, gr_dev, 0U, gr_dev->runlist_id);
+
+	if (report_index < max_buffer_engines) {
+		err = copy_to_user(&dst_item_list[report_index],
+				   &dst_info, sizeof(dst_info));
+		if (err)
+			goto clean_up;
+	}
+
+	++report_index;
+
+	for (i = 0U; i < gpu_instance->num_lce; i++) {
+		const struct nvgpu_device *dev = gpu_instance->lce_devs[i];
+
+		nvgpu_gpu_fetch_engine_info_item(g, &dst_info, dev, i, gr_dev->runlist_id);
+
+		if (report_index < max_buffer_engines) {
+			err = copy_to_user(&dst_item_list[report_index],
+					   &dst_info, sizeof(dst_info));
+			if (err)
+				goto clean_up;
+		}
+
+		++report_index;
+	}
+
+	args->engine_info_buf_size =
+		report_index * sizeof(struct nvgpu_gpu_get_engine_info_item);
+
+clean_up:
+	return err;
+}
+
+#ifdef CONFIG_NVGPU_DGPU
 static int nvgpu_gpu_alloc_vidmem(struct gk20a *g,
 			struct nvgpu_gpu_alloc_vidmem_args *args)
 {
@@ -995,13 +1237,17 @@ static int nvgpu_gpu_alloc_vidmem(struct gk20a *g,
 
 	nvgpu_log_fn(g, " ");
 
-	/* not yet supported */
-	if (WARN_ON(args->in.flags & NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_MASK))
+	if (args->in.flags & NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_MASK) {
+		nvgpu_warn(g,
+			"Allocating vidmem with FLAG_CPU_MASK is not yet supported");
 		return -EINVAL;
+	}
 
-	/* not yet supported */
-	if (WARN_ON(args->in.flags & NVGPU_GPU_ALLOC_VIDMEM_FLAG_VPR))
+	if (args->in.flags & NVGPU_GPU_ALLOC_VIDMEM_FLAG_VPR) {
+		nvgpu_warn(g,
+			"Allocating vidmem with FLAG_VPR is not yet supported");
 		return -EINVAL;
+	}
 
 	if (args->in.size & (SZ_4K - 1))
 		return -EINVAL;
@@ -1047,6 +1293,7 @@ static int nvgpu_gpu_get_memory_state(struct gk20a *g,
 
 	return err;
 }
+#endif
 
 static u32 nvgpu_gpu_convert_clk_domain(u32 clk_domain)
 {
@@ -1243,8 +1490,9 @@ static int nvgpu_gpu_clk_set_info(struct gk20a *g,
 
 	int fd;
 	u32 clk_domains = 0;
+	u32 num_domains;
 	u16 freq_mhz;
-	int i;
+	u32 i;
 	int ret;
 
 	nvgpu_log_fn(g, " ");
@@ -1255,6 +1503,13 @@ static int nvgpu_gpu_clk_set_info(struct gk20a *g,
 	clk_domains = nvgpu_clk_arb_get_arbiter_clk_domains(g);
 	if (!clk_domains)
 		return -EINVAL;
+
+	num_domains = hweight_long(clk_domains);
+
+	if ((args->num_entries == 0) || (args->num_entries > num_domains)) {
+		nvgpu_err(g, "invalid num_entries %u", args->num_entries);
+		return -EINVAL;
+	}
 
 	entry = (struct nvgpu_gpu_clk_info __user *)
 			(uintptr_t)args->clk_info_entries;
@@ -1406,6 +1661,9 @@ static int nvgpu_gpu_get_event_fd(struct gk20a *g,
 
 	nvgpu_log_fn(g, " ");
 
+	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_DEVICE_EVENTS))
+		return -EINVAL;
+
 	if (!session)
 		return -EINVAL;
 
@@ -1431,18 +1689,10 @@ static int nvgpu_gpu_get_voltage(struct gk20a *g,
 	    return err;
 
 	nvgpu_speculation_barrier();
-	switch (args->which) {
-	case NVGPU_GPU_VOLTAGE_CORE:
-		err = volt_get_voltage(g, CTRL_VOLT_DOMAIN_LOGIC, &args->voltage);
-		break;
-	case NVGPU_GPU_VOLTAGE_SRAM:
-		err = volt_get_voltage(g, CTRL_VOLT_DOMAIN_SRAM, &args->voltage);
-		break;
-	case NVGPU_GPU_VOLTAGE_BUS:
-		err = pmgr_pwr_devices_get_voltage(g, &args->voltage);
-		break;
-	default:
-		err = -EINVAL;
+
+	err = nvgpu_pmu_volt_get_curr_volt_ps35(g, &args->voltage);
+	if (err) {
+		return err;
 	}
 
 	gk20a_idle(g);
@@ -1506,20 +1756,41 @@ static int nvgpu_gpu_get_temperature(struct gk20a *g,
 
 	nvgpu_log_fn(g, " ");
 
+#ifdef CONFIG_NVGPU_SIM
+	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL)) {
+		return 0;
+	}
+#endif
+
 	if (args->reserved[0] || args->reserved[1] || args->reserved[2])
 		return -EINVAL;
 
 	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_GET_TEMPERATURE))
 		return -EINVAL;
 
-	if (!g->ops.therm.get_internal_sensor_curr_temp)
-		return -EINVAL;
-
 	err = gk20a_busy(g);
 	if (err)
 		return err;
 
-	err = g->ops.therm.get_internal_sensor_curr_temp(g, &temp_f24_8);
+	/*
+	 * If PSTATE is enabled, temp value is taken from THERM_GET_STATUS.
+	 * If PSTATE is disable, temp value is read from NV_THERM_I2CS_SENSOR_00
+	 * register value.
+	 */
+	if (nvgpu_is_enabled(g, NVGPU_PMU_PSTATE)) {
+		err = nvgpu_pmu_therm_channel_get_curr_temp(g, &temp_f24_8);
+		if (err) {
+			nvgpu_err(g, "pmu therm channel get status failed");
+			return err;
+		}
+	} else {
+		if (!g->ops.therm.get_internal_sensor_curr_temp) {
+			nvgpu_err(g, "reading NV_THERM_I2CS_SENSOR_00 not enabled");
+			return -EINVAL;
+		}
+
+		g->ops.therm.get_internal_sensor_curr_temp(g, &temp_f24_8);
+	}
 
 	gk20a_idle(g);
 
@@ -1552,7 +1823,7 @@ static int nvgpu_gpu_set_therm_alert_limit(struct gk20a *g,
 	return err;
 }
 
-static int nvgpu_gpu_set_deterministic_ch_railgate(struct channel_gk20a *ch,
+static int nvgpu_gpu_set_deterministic_ch_railgate(struct nvgpu_channel *ch,
 		u32 flags)
 {
 	int err = 0;
@@ -1594,7 +1865,8 @@ static int nvgpu_gpu_set_deterministic_ch_railgate(struct channel_gk20a *ch,
 	return err;
 }
 
-static int nvgpu_gpu_set_deterministic_ch(struct channel_gk20a *ch, u32 flags)
+#ifdef CONFIG_NVGPU_DETERMINISTIC_CHANNELS
+static int nvgpu_gpu_set_deterministic_ch(struct nvgpu_channel *ch, u32 flags)
 {
 	if (!ch->deterministic)
 		return -EINVAL;
@@ -1620,8 +1892,13 @@ static int nvgpu_gpu_set_deterministic_opts(struct gk20a *g,
 	}
 
 	/* Trivial sanity check first */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+	if (!access_ok(user_channels,
+				args->num_channels * sizeof(int))) {
+#else
 	if (!access_ok(VERIFY_READ, user_channels,
 				args->num_channels * sizeof(int))) {
+#endif
 		err = -EFAULT;
 		goto out;
 	}
@@ -1631,7 +1908,7 @@ static int nvgpu_gpu_set_deterministic_opts(struct gk20a *g,
 	/* note: we exit at the first failure */
 	for (; i < args->num_channels; i++) {
 		int ch_fd = 0;
-		struct channel_gk20a *ch;
+		struct nvgpu_channel *ch;
 
 		if (copy_from_user(&ch_fd, &user_channels[i], sizeof(int))) {
 			/* User raced with above access_ok */
@@ -1639,7 +1916,7 @@ static int nvgpu_gpu_set_deterministic_opts(struct gk20a *g,
 			break;
 		}
 
-		ch = gk20a_get_channel_from_file(ch_fd);
+		ch = nvgpu_channel_get_from_file(ch_fd);
 		if (!ch) {
 			err = -EINVAL;
 			break;
@@ -1647,7 +1924,7 @@ static int nvgpu_gpu_set_deterministic_opts(struct gk20a *g,
 
 		err = nvgpu_gpu_set_deterministic_ch(ch, args->flags);
 
-		gk20a_channel_put(ch);
+		nvgpu_channel_put(ch);
 
 		if (err)
 			break;
@@ -1660,20 +1937,312 @@ out:
 	args->num_channels = i;
 	return err;
 }
+#endif
+
+static int nvgpu_gpu_ioctl_get_buffer_info(struct gk20a *g,
+				struct nvgpu_gpu_get_buffer_info_args *args)
+{
+	u64 user_metadata_addr = args->in.metadata_addr;
+	u32 in_metadata_size = args->in.metadata_size;
+	struct gk20a_dmabuf_priv *priv = NULL;
+	s32 dmabuf_fd = args->in.dmabuf_fd;
+	struct dma_buf *dmabuf;
+	int err = 0;
+
+	nvgpu_log_fn(g, " ");
+
+	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_BUFFER_METADATA)) {
+		nvgpu_err(g, "Buffer metadata not supported");
+		return -EINVAL;
+	}
+
+	args->out.metadata_size = 0;
+	args->out.flags = 0;
+	args->out.size = 0;
+
+	dmabuf = dma_buf_get(dmabuf_fd);
+	if (IS_ERR(dmabuf)) {
+		nvgpu_warn(g, "%s: fd %d is not a dmabuf",
+			   __func__, dmabuf_fd);
+		return PTR_ERR(dmabuf);
+	}
+
+	args->out.size = dmabuf->size;
+
+	priv = gk20a_dma_buf_get_drvdata(dmabuf, dev_from_gk20a(g));
+	if (!priv) {
+		nvgpu_log_info(g, "Buffer metadata not allocated");
+		goto out;
+	}
+
+	nvgpu_mutex_acquire(&priv->lock);
+
+	if (in_metadata_size > 0) {
+		size_t write_size = priv->metadata_blob_size;
+
+		nvgpu_speculation_barrier();
+
+		if (write_size > in_metadata_size) {
+			write_size = in_metadata_size;
+		}
+
+		if (copy_to_user((void __user *)(uintptr_t)
+				 user_metadata_addr,
+				 priv->metadata_blob, write_size)) {
+			nvgpu_err(g, "metadata blob copy failed");
+			err = -EFAULT;
+			goto out_priv_unlock;
+		}
+	}
+
+	args->out.metadata_size = priv->metadata_blob_size;
+
+	if (priv->registered) {
+		args->out.flags |=
+			NVGPU_GPU_BUFFER_INFO_FLAGS_METADATA_REGISTERED;
+	}
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION) &&
+	    priv->comptags.enabled) {
+		args->out.flags |=
+			NVGPU_GPU_BUFFER_INFO_FLAGS_COMPTAGS_ALLOCATED;
+	}
+#endif
+
+	if (priv->mutable_metadata) {
+		args->out.flags |=
+			NVGPU_GPU_BUFFER_INFO_FLAGS_MUTABLE_METADATA;
+	}
+
+	nvgpu_log_info(g, "buffer info: fd: %d, flags %llx, size %llu",
+		       dmabuf_fd, args->out.flags, args->out.size);
+
+out_priv_unlock:
+	nvgpu_mutex_release(&priv->lock);
+out:
+	dma_buf_put(dmabuf);
+	return err;
+}
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+static int nvgpu_handle_comptags_control(struct gk20a *g,
+					 struct dma_buf *dmabuf,
+					 struct gk20a_dmabuf_priv *priv,
+					 u8 comptags_alloc_control)
+{
+	struct nvgpu_os_buffer os_buf = {0};
+	int err = 0;
+
+	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION)) {
+		if (comptags_alloc_control == NVGPU_GPU_COMPTAGS_ALLOC_REQUIRED) {
+			nvgpu_err(g, "Comptags allocation (required) failed. Compression disabled.");
+			return -EINVAL;
+		}
+		return 0;
+	}
+
+	if (comptags_alloc_control == NVGPU_GPU_COMPTAGS_ALLOC_NONE) {
+		if (priv->comptags.allocated) {
+			/*
+			 * Just mark the comptags as disabled. Comptags will be
+			 * freed on freeing the buffer.
+			 */
+			priv->comptags.enabled = false;
+			nvgpu_log_info(g, "Comptags disabled.");
+		}
+
+		return 0;
+	}
+
+	/* Allocate the comptags if requested/required. */
+	if (priv->comptags.allocated) {
+		priv->comptags.enabled = priv->comptags.lines > 0;
+		if (priv->comptags.enabled) {
+			nvgpu_log_info(g, "Comptags enabled.");
+			return 0;
+		} else {
+			if (comptags_alloc_control ==
+					NVGPU_GPU_COMPTAGS_ALLOC_REQUIRED) {
+				nvgpu_err(g,
+					"Previous allocation has failed, could not enable comptags (required)");
+				return -ENOMEM;
+			} else {
+				nvgpu_log_info(g,
+					"Previous allocation has failed, could not enable comptags (requested)");
+				return 0;
+			}
+		}
+	}
+
+	os_buf.dmabuf = dmabuf;
+	os_buf.dev = dev_from_gk20a(g);
+
+	err = gk20a_alloc_comptags(g, &os_buf, &g->cbc->comp_tags);
+	if (err != 0) {
+		if (comptags_alloc_control ==
+				NVGPU_GPU_COMPTAGS_ALLOC_REQUIRED) {
+			nvgpu_err(g, "Comptags allocation (required) failed (%d)",
+				  err);
+		} else {
+			nvgpu_err(g, "Comptags allocation (requested) failed (%d)",
+				  err);
+			err = 0;
+		}
+	}
+
+	return err;
+}
+#endif
+
+static int nvgpu_gpu_ioctl_register_buffer(struct gk20a *g,
+		struct nvgpu_gpu_register_buffer_args *args)
+{
+	struct gk20a_dmabuf_priv *priv = NULL;
+	bool mutable_metadata = false;
+	bool modify_metadata = false;
+	struct dma_buf *dmabuf;
+	u8 *blob_copy = NULL;
+	int err = 0;
+
+	nvgpu_log_fn(g, " ");
+
+	if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_BUFFER_METADATA)) {
+		nvgpu_err(g, "Buffer metadata not supported");
+		return -EINVAL;
+	}
+
+	if (args->metadata_size > NVGPU_GPU_REGISTER_BUFFER_METADATA_MAX_SIZE) {
+		nvgpu_err(g, "Invalid metadata blob size");
+		return -EINVAL;
+	}
+
+	if (args->comptags_alloc_control > NVGPU_GPU_COMPTAGS_ALLOC_REQUIRED) {
+		nvgpu_err(g, "Invalid comptags_alloc_control");
+		return -EINVAL;
+	}
+
+	nvgpu_log_info(g, "dmabuf_fd: %d, comptags control: %u, metadata size: %u, flags: %u",
+		       args->dmabuf_fd, args->comptags_alloc_control,
+		       args->metadata_size, args->flags);
+
+	mutable_metadata = (args->flags & NVGPU_GPU_REGISTER_BUFFER_FLAGS_MUTABLE) != 0;
+	modify_metadata = (args->flags & NVGPU_GPU_REGISTER_BUFFER_FLAGS_MODIFY) != 0;
+
+	dmabuf = dma_buf_get(args->dmabuf_fd);
+	if (IS_ERR(dmabuf)) {
+		nvgpu_warn(g, "%s: fd %d is not a dmabuf",
+			   __func__, args->dmabuf_fd);
+		return PTR_ERR(dmabuf);
+	}
+
+	/*
+	 * Allocate or get the buffer metadata state.
+	 */
+	err = gk20a_dmabuf_alloc_or_get_drvdata(
+		dmabuf, dev_from_gk20a(g), &priv);
+	if (err != 0) {
+		nvgpu_err(g, "Error allocating buffer metadata %d", err);
+		goto out;
+	}
+
+	nvgpu_mutex_acquire(&priv->lock);
+
+	/* Check for valid buffer metadata re-registration */
+	if (priv->registered) {
+		if (!modify_metadata) {
+			nvgpu_err(g, "attempt to modify buffer metadata without NVGPU_GPU_REGISTER_BUFFER_FLAGS_MODIFY");
+			err = -EINVAL;
+			goto out_priv_unlock;
+		} else if (!priv->mutable_metadata) {
+			nvgpu_err(g, "attempt to redefine immutable metadata");
+			err = -EINVAL;
+			goto out_priv_unlock;
+		}
+	}
+
+	/* Allocate memory for the metadata blob */
+	blob_copy = nvgpu_kzalloc(g, args->metadata_size);
+	if (!blob_copy) {
+		nvgpu_err(g, "Error allocating memory for blob");
+		err = -ENOMEM;
+		goto out_priv_unlock;
+	}
+
+	/* Copy the metadata blob */
+	if (copy_from_user(blob_copy,
+			   (void __user *) args->metadata_addr,
+			   args->metadata_size)) {
+		err = -EFAULT;
+		nvgpu_err(g, "Error copying buffer metadata blob");
+		goto out_priv_unlock;
+	}
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+	/* Comptags allocation */
+	err = nvgpu_handle_comptags_control(g, dmabuf, priv,
+					    args->comptags_alloc_control);
+	if (err != 0) {
+		nvgpu_err(g, "Comptags alloc control failed %d", err);
+		goto out_priv_unlock;
+	}
+#endif
+
+	/* All done, update metadata blob */
+	nvgpu_kfree(g, priv->metadata_blob);
+
+	priv->metadata_blob = blob_copy;
+	priv->metadata_blob_size = args->metadata_size;
+	blob_copy = NULL;
+
+	/* Mark registered and update mutability */
+	priv->registered = true;
+	priv->mutable_metadata = mutable_metadata;
+
+	/* Output variables */
+	args->flags = 0;
+
+#ifdef CONFIG_NVGPU_COMPRESSION
+	if (nvgpu_is_enabled(g, NVGPU_SUPPORT_COMPRESSION) &&
+	    priv->comptags.enabled) {
+		args->flags |=
+			NVGPU_GPU_REGISTER_BUFFER_FLAGS_COMPTAGS_ALLOCATED;
+	}
+#endif
+
+	nvgpu_log_info(g, "buffer registered: mutable: %s, metadata size: %u, flags: 0x%8x",
+		       priv->mutable_metadata ? "yes" : "no", priv->metadata_blob_size,
+		       args->flags);
+
+out_priv_unlock:
+	nvgpu_mutex_release(&priv->lock);
+out:
+	dma_buf_put(dmabuf);
+	nvgpu_kfree(g, blob_copy);
+
+	return err;
+}
 
 long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct gk20a_ctrl_priv *priv = filp->private_data;
 	struct gk20a *g = priv->g;
+	u8 buf[NVGPU_GPU_IOCTL_MAX_ARG_SIZE];
+	u32 gpu_instance_id, gr_instance_id;
+	struct nvgpu_gr_config *gr_config;
+#ifdef CONFIG_NVGPU_GRAPHICS
 	struct nvgpu_gpu_zcull_get_ctx_size_args *get_ctx_size_args;
 	struct nvgpu_gpu_zcull_get_info_args *get_info_args;
+	struct nvgpu_gr_zcull_info *zcull_info;
+	struct nvgpu_gr_zcull *gr_zcull = nvgpu_gr_get_zcull_ptr(g);
+	struct nvgpu_gr_zbc *gr_zbc = nvgpu_gr_get_zbc_ptr(g);
+	struct nvgpu_gr_zbc_entry *zbc_val;
+	struct nvgpu_gr_zbc_query_params *zbc_tbl;
 	struct nvgpu_gpu_zbc_set_table_args *set_table_args;
 	struct nvgpu_gpu_zbc_query_table_args *query_table_args;
-	u8 buf[NVGPU_GPU_IOCTL_MAX_ARG_SIZE];
-	struct gr_zcull_info *zcull_info;
-	struct zbc_entry *zbc_val;
-	struct zbc_query_params *zbc_tbl;
-	int i, err = 0;
+	u32 i;
+#endif /* CONFIG_NVGPU_GRAPHICS */
+	int err = 0;
 
 	nvgpu_log_fn(g, "start %d", _IOC_NR(cmd));
 
@@ -1683,7 +2252,7 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		(_IOC_SIZE(cmd) > NVGPU_GPU_IOCTL_MAX_ARG_SIZE))
 		return -EINVAL;
 
-	memset(buf, 0, sizeof(buf));
+	(void) memset(buf, 0, sizeof(buf));
 	if (_IOC_DIR(cmd) & _IOC_WRITE) {
 		if (copy_from_user(buf, (void __user *)arg, _IOC_SIZE(cmd)))
 			return -EFAULT;
@@ -1697,24 +2266,41 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		gk20a_idle(g);
 	}
 
+	gpu_instance_id = nvgpu_get_gpu_instance_id_from_cdev(g, priv->cdev);
+	nvgpu_assert(gpu_instance_id < g->mig.num_gpu_instances);
+
+	gr_instance_id = nvgpu_grmgr_get_gr_instance_id(g, gpu_instance_id);
+	nvgpu_assert(gr_instance_id < g->num_gr_instances);
+
+	gr_config = nvgpu_gr_get_gpu_instance_config_ptr(g, gpu_instance_id);
+
 	nvgpu_speculation_barrier();
 	switch (cmd) {
+#ifdef CONFIG_NVGPU_GRAPHICS
 	case NVGPU_GPU_IOCTL_ZCULL_GET_CTX_SIZE:
+		if (gr_zcull == NULL)
+			return -ENODEV;
+
 		get_ctx_size_args = (struct nvgpu_gpu_zcull_get_ctx_size_args *)buf;
 
-		get_ctx_size_args->size = gr_gk20a_get_ctxsw_zcull_size(g, &g->gr);
+		get_ctx_size_args->size = nvgpu_gr_get_ctxsw_zcull_size(g, gr_zcull);
 
 		break;
 	case NVGPU_GPU_IOCTL_ZCULL_GET_INFO:
+		if (gr_zcull == NULL)
+			return -ENODEV;
+
 		get_info_args = (struct nvgpu_gpu_zcull_get_info_args *)buf;
 
-		memset(get_info_args, 0, sizeof(struct nvgpu_gpu_zcull_get_info_args));
+		(void) memset(get_info_args, 0,
+			sizeof(struct nvgpu_gpu_zcull_get_info_args));
 
-		zcull_info = nvgpu_kzalloc(g, sizeof(struct gr_zcull_info));
+		zcull_info = nvgpu_kzalloc(g, sizeof(*zcull_info));
 		if (zcull_info == NULL)
 			return -ENOMEM;
 
-		err = g->ops.gr.get_zcull_info(g, &g->gr, zcull_info);
+		err = g->ops.gr.zcull.get_zcull_info(g, gr_config,
+					gr_zcull, zcull_info);
 		if (err) {
 			nvgpu_kfree(g, zcull_info);
 			break;
@@ -1734,26 +2320,35 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		nvgpu_kfree(g, zcull_info);
 		break;
 	case NVGPU_GPU_IOCTL_ZBC_SET_TABLE:
+		if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_ZBC))
+			return -ENODEV;
+
 		set_table_args = (struct nvgpu_gpu_zbc_set_table_args *)buf;
 
-		zbc_val = nvgpu_kzalloc(g, sizeof(struct zbc_entry));
+		zbc_val = nvgpu_gr_zbc_entry_alloc(g);
 		if (zbc_val == NULL)
 			return -ENOMEM;
 
-		zbc_val->format = set_table_args->format;
-		zbc_val->type = set_table_args->type;
+		nvgpu_gr_zbc_set_entry_format(zbc_val, set_table_args->format);
+		nvgpu_gr_zbc_set_entry_type(zbc_val, set_table_args->type);
 
 		nvgpu_speculation_barrier();
-		switch (zbc_val->type) {
-		case GK20A_ZBC_TYPE_COLOR:
-			for (i = 0; i < GK20A_ZBC_COLOR_VALUE_SIZE; i++) {
-				zbc_val->color_ds[i] = set_table_args->color_ds[i];
-				zbc_val->color_l2[i] = set_table_args->color_l2[i];
+		switch (nvgpu_gr_zbc_get_entry_type(zbc_val)) {
+		case NVGPU_GR_ZBC_TYPE_COLOR:
+			for (i = 0U; i < NVGPU_GR_ZBC_COLOR_VALUE_SIZE; i++) {
+				nvgpu_gr_zbc_set_entry_color_ds(zbc_val, i,
+						set_table_args->color_ds[i]);
+				nvgpu_gr_zbc_set_entry_color_l2(zbc_val, i,
+						set_table_args->color_l2[i]);
 			}
 			break;
-		case GK20A_ZBC_TYPE_DEPTH:
-		case T19X_ZBC:
-			zbc_val->depth = set_table_args->depth;
+		case NVGPU_GR_ZBC_TYPE_DEPTH:
+			nvgpu_gr_zbc_set_entry_depth(zbc_val,
+					set_table_args->depth);
+			break;
+		case NVGPU_GR_ZBC_TYPE_STENCIL:
+			nvgpu_gr_zbc_set_entry_stencil(zbc_val,
+					set_table_args->stencil);
 			break;
 		default:
 			err = -EINVAL;
@@ -1762,40 +2357,45 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		if (!err) {
 			err = gk20a_busy(g);
 			if (!err) {
-				err = g->ops.gr.zbc_set_table(g, &g->gr,
+				err = g->ops.gr.zbc.set_table(g, gr_zbc,
 							     zbc_val);
 				gk20a_idle(g);
 			}
 		}
 
 		if (zbc_val)
-			nvgpu_kfree(g, zbc_val);
+			nvgpu_gr_zbc_entry_free(g, zbc_val);
 		break;
 	case NVGPU_GPU_IOCTL_ZBC_QUERY_TABLE:
+		if (!nvgpu_is_enabled(g, NVGPU_SUPPORT_ZBC))
+			return -ENODEV;
+
 		query_table_args = (struct nvgpu_gpu_zbc_query_table_args *)buf;
 
-		zbc_tbl = nvgpu_kzalloc(g, sizeof(struct zbc_query_params));
+		zbc_tbl = nvgpu_kzalloc(g, sizeof(struct nvgpu_gr_zbc_query_params));
 		if (zbc_tbl == NULL)
 			return -ENOMEM;
 
 		zbc_tbl->type = query_table_args->type;
 		zbc_tbl->index_size = query_table_args->index_size;
 
-		err = g->ops.gr.zbc_query_table(g, &g->gr, zbc_tbl);
+		err = g->ops.gr.zbc.query_table(g, gr_zbc, zbc_tbl);
 
 		if (!err) {
 			switch (zbc_tbl->type) {
-			case GK20A_ZBC_TYPE_COLOR:
-				for (i = 0; i < GK20A_ZBC_COLOR_VALUE_SIZE; i++) {
+			case NVGPU_GR_ZBC_TYPE_COLOR:
+				for (i = 0U; i < NVGPU_GR_ZBC_COLOR_VALUE_SIZE; i++) {
 					query_table_args->color_ds[i] = zbc_tbl->color_ds[i];
 					query_table_args->color_l2[i] = zbc_tbl->color_l2[i];
 				}
 				break;
-			case GK20A_ZBC_TYPE_DEPTH:
-			case T19X_ZBC:
+			case NVGPU_GR_ZBC_TYPE_DEPTH:
 				query_table_args->depth = zbc_tbl->depth;
 				break;
-			case GK20A_ZBC_TYPE_INVALID:
+			case NVGPU_GR_ZBC_TYPE_STENCIL:
+				query_table_args->stencil = zbc_tbl->stencil;
+				break;
+			case NVGPU_GR_ZBC_TYPE_INVALID:
 				query_table_args->index_size = zbc_tbl->index_size;
 				break;
 			default:
@@ -1810,10 +2410,10 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		if (zbc_tbl)
 			nvgpu_kfree(g, zbc_tbl);
 		break;
-
+#endif /* CONFIG_NVGPU_GRAPHICS */
 	case NVGPU_GPU_IOCTL_GET_CHARACTERISTICS:
-		err = gk20a_ctrl_ioctl_gpu_characteristics(
-			g, (struct nvgpu_gpu_get_characteristics *)buf);
+		err = gk20a_ctrl_ioctl_gpu_characteristics(g, gpu_instance_id, gr_config,
+			(struct nvgpu_gpu_get_characteristics *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_PREPARE_COMPRESSIBLE_READ:
 		err = gk20a_ctrl_prepare_compressible_read(g,
@@ -1828,21 +2428,21 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 			(struct nvgpu_alloc_as_args *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_OPEN_TSG:
-		err = gk20a_ctrl_open_tsg(g,
+		err = gk20a_ctrl_open_tsg(g, priv->cdev,
 			(struct nvgpu_gpu_open_tsg_args *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_GET_TPC_MASKS:
-		err = gk20a_ctrl_get_tpc_masks(g,
+		err = gk20a_ctrl_get_tpc_masks(g, gr_config,
 			(struct nvgpu_gpu_get_tpc_masks_args *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_GET_FBP_L2_MASKS:
-		err = gk20a_ctrl_get_fbp_l2_masks(g,
+		err = gk20a_ctrl_get_fbp_l2_masks(g, gpu_instance_id,
 			(struct nvgpu_gpu_get_fbp_l2_masks_args *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_OPEN_CHANNEL:
 		/* this arg type here, but ..gpu_open_channel_args in nvgpu.h
 		 * for consistency - they are the same */
-		err = gk20a_channel_open_ioctl(g,
+		err = gk20a_channel_open_ioctl(g, priv->cdev,
 			(struct nvgpu_channel_open_args *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_FLUSH_L2:
@@ -1856,25 +2456,32 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		break;
 
 	case NVGPU_GPU_IOCTL_SET_SM_DEBUG_MODE:
-		err = gr_gk20a_elpg_protected_call(g,
-				nvgpu_gpu_ioctl_set_debug_mode(g, (struct nvgpu_gpu_sm_debug_mode_args *)buf));
+		err = nvgpu_pg_elpg_protected_call(g,
+			nvgpu_gpu_ioctl_set_debug_mode(g,
+				(struct nvgpu_gpu_sm_debug_mode_args *)buf,
+				gr_instance_id));
 		break;
 
 	case NVGPU_GPU_IOCTL_TRIGGER_SUSPEND:
-		err = nvgpu_gpu_ioctl_trigger_suspend(g);
+		err = nvgpu_pg_elpg_protected_call(g,
+			nvgpu_gpu_ioctl_trigger_suspend(g, gr_instance_id));
 		break;
 
 	case NVGPU_GPU_IOCTL_WAIT_FOR_PAUSE:
-		err = nvgpu_gpu_ioctl_wait_for_pause(g,
-				(struct nvgpu_gpu_wait_pause_args *)buf);
+		err = nvgpu_pg_elpg_protected_call(g,
+			nvgpu_gpu_ioctl_wait_for_pause(g,
+				(struct nvgpu_gpu_wait_pause_args *)buf,
+				gr_instance_id));
 		break;
 
 	case NVGPU_GPU_IOCTL_RESUME_FROM_PAUSE:
-		err = nvgpu_gpu_ioctl_resume_from_pause(g);
+		err = nvgpu_pg_elpg_protected_call(g,
+			nvgpu_gpu_ioctl_resume_from_pause(g, gr_instance_id));
 		break;
 
 	case NVGPU_GPU_IOCTL_CLEAR_SM_ERRORS:
-		err = nvgpu_gpu_ioctl_clear_sm_errors(g);
+		err = nvgpu_pg_elpg_protected_call(g,
+			nvgpu_gpu_ioctl_clear_sm_errors(g, gr_instance_id));
 		break;
 
 	case NVGPU_GPU_IOCTL_GET_TPC_EXCEPTION_EN_STATUS:
@@ -1883,11 +2490,11 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		break;
 
 	case NVGPU_GPU_IOCTL_NUM_VSMS:
-		err = gk20a_ctrl_get_num_vsms(g,
+		err = gk20a_ctrl_get_num_vsms(g, gr_config,
 			(struct nvgpu_gpu_num_vsms *)buf);
 		break;
 	case NVGPU_GPU_IOCTL_VSMS_MAPPING:
-		err = gk20a_ctrl_vsm_mapping(g,
+		err = gk20a_ctrl_vsm_mapping(g, gr_config,
 			(struct nvgpu_gpu_vsms_mapping *)buf);
 		break;
 
@@ -1902,10 +2509,18 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		break;
 
         case NVGPU_GPU_IOCTL_GET_ENGINE_INFO:
-		err = nvgpu_gpu_get_engine_info(g,
-			(struct nvgpu_gpu_get_engine_info_args *)buf);
+		if (nvgpu_is_enabled(g, NVGPU_SUPPORT_MIG) &&
+				((gpu_instance_id != 0U) ||
+				(!nvgpu_grmgr_is_multi_gr_enabled(g)))) {
+			err = nvgpu_gpu_get_gpu_instance_engine_info(g, gpu_instance_id,
+				(struct nvgpu_gpu_get_engine_info_args *)buf);
+		} else {
+			err = nvgpu_gpu_get_engine_info(g,
+				(struct nvgpu_gpu_get_engine_info_args *)buf);
+		}
 		break;
 
+#ifdef CONFIG_NVGPU_DGPU
 	case NVGPU_GPU_IOCTL_ALLOC_VIDMEM:
 		err = nvgpu_gpu_alloc_vidmem(g,
 			(struct nvgpu_gpu_alloc_vidmem_args *)buf);
@@ -1915,6 +2530,7 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 		err = nvgpu_gpu_get_memory_state(g,
 			(struct nvgpu_gpu_get_memory_state_args *)buf);
 		break;
+#endif
 
 	case NVGPU_GPU_IOCTL_CLK_GET_RANGE:
 		err = nvgpu_gpu_clk_get_range(g, priv,
@@ -1971,6 +2587,16 @@ long gk20a_ctrl_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg
 			(struct nvgpu_gpu_set_deterministic_opts_args *)buf);
 		break;
 
+	case NVGPU_GPU_IOCTL_REGISTER_BUFFER:
+		err = nvgpu_gpu_ioctl_register_buffer(g,
+			(struct nvgpu_gpu_register_buffer_args *)buf);
+		break;
+
+	case NVGPU_GPU_IOCTL_GET_BUFFER_INFO:
+		err = nvgpu_gpu_ioctl_get_buffer_info(g,
+			(struct nvgpu_gpu_get_buffer_info_args *)buf);
+		break;
+
 	default:
 		nvgpu_log_info(g, "unrecognized gpu ioctl cmd: 0x%x", cmd);
 		err = -ENOTTY;
@@ -1989,10 +2615,10 @@ static void usermode_vma_close(struct vm_area_struct *vma)
 	struct gk20a *g = priv->g;
 	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 
-	nvgpu_mutex_acquire(&l->ctrl.privs_lock);
+	nvgpu_mutex_acquire(&l->ctrl_privs_lock);
 	priv->usermode_vma.vma = NULL;
 	priv->usermode_vma.vma_mapped = false;
-	nvgpu_mutex_release(&l->ctrl.privs_lock);
+	nvgpu_mutex_release(&l->ctrl_privs_lock);
 }
 
 struct vm_operations_struct usermode_vma_ops = {
@@ -2005,22 +2631,19 @@ int gk20a_ctrl_dev_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct gk20a_ctrl_priv *priv = filp->private_data;
 	struct gk20a *g = priv->g;
 	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
-	u64 addr;
 	int err;
 
-	if (g->ops.fifo.usermode_base == NULL)
+	if (g->ops.usermode.base == NULL)
 		return -ENOSYS;
 
 	if (priv->usermode_vma.vma != NULL)
 		return -EBUSY;
 
-	if (vma->vm_end - vma->vm_start != SZ_4K)
+	if (vma->vm_end - vma->vm_start > SZ_64K)
 		return -EINVAL;
 
 	if (vma->vm_pgoff != 0UL)
 		return -EINVAL;
-
-	addr = l->regs_bus_addr + g->ops.fifo.usermode_base(g);
 
 	/* Sync with poweron/poweroff, and require valid regs */
 	err = gk20a_busy(g);
@@ -2028,21 +2651,22 @@ int gk20a_ctrl_dev_mmap(struct file *filp, struct vm_area_struct *vma)
 		return err;
 	}
 
-	nvgpu_mutex_acquire(&l->ctrl.privs_lock);
+	nvgpu_mutex_acquire(&l->ctrl_privs_lock);
 
 	vma->vm_flags |= VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_NORESERVE |
 		VM_DONTDUMP | VM_PFNMAP;
 	vma->vm_ops = &usermode_vma_ops;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	err = io_remap_pfn_range(vma, vma->vm_start, addr >> PAGE_SHIFT,
+	err = io_remap_pfn_range(vma, vma->vm_start,
+			g->usermode_regs_bus_addr >> PAGE_SHIFT,
 			vma->vm_end - vma->vm_start, vma->vm_page_prot);
 	if (!err) {
 		priv->usermode_vma.vma = vma;
 		vma->vm_private_data = priv;
 		priv->usermode_vma.vma_mapped = true;
 	}
-	nvgpu_mutex_release(&l->ctrl.privs_lock);
+	nvgpu_mutex_release(&l->ctrl_privs_lock);
 
 	gk20a_idle(g);
 
@@ -2053,18 +2677,14 @@ static int alter_usermode_mapping(struct gk20a *g,
 		struct gk20a_ctrl_priv *priv,
 		bool poweroff)
 {
-	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
 	struct vm_area_struct *vma = priv->usermode_vma.vma;
 	bool vma_mapped = priv->usermode_vma.vma_mapped;
-	u64 addr;
 	int err = 0;
 
 	if (!vma) {
 		/* Nothing to do - no mmap called */
 		return 0;
 	}
-
-	addr = l->regs_bus_addr + g->ops.fifo.usermode_base(g);
 
 	/*
 	 * This is a no-op for the below cases
@@ -2080,12 +2700,22 @@ static int alter_usermode_mapping(struct gk20a *g,
 	 * mmap_lock while holding ctrl_privs_lock. usermode_vma_close
 	 * does it in reverse order. Trylock is a way to avoid deadlock.
 	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+	if (!mmap_write_trylock(vma->vm_mm)) {
+#else
 	if (!down_write_trylock(&vma->vm_mm->mmap_sem)) {
+#endif
 		return -EBUSY;
 	}
 
 	if (poweroff) {
-		err = zap_vma_ptes(vma, vma->vm_start, SZ_4K);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+		zap_vma_ptes(vma, vma->vm_start, vma->vm_end - vma->vm_start);
+		err = 0;
+#else
+		err = zap_vma_ptes(vma, vma->vm_start,
+				   vma->vm_end - vma->vm_start);
+#endif
 		if (err == 0) {
 			priv->usermode_vma.vma_mapped = false;
 		} else {
@@ -2093,8 +2723,8 @@ static int alter_usermode_mapping(struct gk20a *g,
 		}
 	} else {
 		err = io_remap_pfn_range(vma, vma->vm_start,
-				addr >> PAGE_SHIFT,
-				SZ_4K, vma->vm_page_prot);
+				g->usermode_regs_bus_addr >> PAGE_SHIFT,
+				vma->vm_end - vma->vm_start, vma->vm_page_prot);
 		if (err != 0) {
 			nvgpu_err(g, "can't restore usermode mapping");
 		} else {
@@ -2102,7 +2732,11 @@ static int alter_usermode_mapping(struct gk20a *g,
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+	mmap_write_unlock(vma->vm_mm);
+#else
 	up_write(&vma->vm_mm->mmap_sem);
+#endif
 
 	return err;
 }
@@ -2114,15 +2748,15 @@ static void alter_usermode_mappings(struct gk20a *g, bool poweroff)
 	int err = 0;
 
 	do {
-		nvgpu_mutex_acquire(&l->ctrl.privs_lock);
-		nvgpu_list_for_each_entry(priv, &l->ctrl.privs,
+		nvgpu_mutex_acquire(&l->ctrl_privs_lock);
+		nvgpu_list_for_each_entry(priv, &l->ctrl_privs,
 				gk20a_ctrl_priv, list) {
 			err = alter_usermode_mapping(g, priv, poweroff);
 			if (err != 0) {
 				break;
 			}
 		}
-		nvgpu_mutex_release(&l->ctrl.privs_lock);
+		nvgpu_mutex_release(&l->ctrl_privs_lock);
 
 		if (err == -EBUSY) {
 			nvgpu_log_info(g, "ctrl_privs_lock lock contended. retry altering usermode mappings");

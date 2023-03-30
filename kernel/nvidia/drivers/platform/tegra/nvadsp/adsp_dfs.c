@@ -3,7 +3,7 @@
  *
  * adsp dynamic frequency scaling
  *
- * Copyright (C) 2014-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2020, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -361,10 +361,8 @@ static unsigned long update_freq(unsigned long freq_khz)
 
 	efreq = adsp_to_emc_freq(tfreq_hz / 1000);
 
-	ret = tegra_bwmgr_set_emc(drv->bwmgr, efreq * 1000,
-				  TEGRA_BWMGR_SET_EMC_FLOOR);
+	ret = nvadsp_set_bw(drv, efreq);
 	if (ret) {
-		dev_err(device, "failed to set emc freq rate:%d\n", ret);
 		policy->update_freq_flag = false;
 		goto err_out;
 	}
@@ -401,13 +399,10 @@ err_out:
 
 		efreq = adsp_to_emc_freq(old_freq_khz);
 
-		ret = tegra_bwmgr_set_emc(drv->bwmgr, efreq * 1000,
-					  TEGRA_BWMGR_SET_EMC_FLOOR);
-		if (ret) {
-			dev_err(device, "failed to set emc freq rate:%d\n",
-				ret);
+		ret = nvadsp_set_bw(drv, efreq);
+		if (ret)
 			policy->update_freq_flag = false;
-		}
+
 		tfreq_hz = old_freq_khz * 1000;
 	}
 	return tfreq_hz / 1000;
@@ -829,12 +824,9 @@ int adsp_dfs_core_init(struct platform_device *pdev)
 
 	efreq = adsp_to_emc_freq(policy->cur);
 
-	ret = tegra_bwmgr_set_emc(drv->bwmgr, efreq * 1000,
-				  TEGRA_BWMGR_SET_EMC_FLOOR);
-	if (ret) {
-		dev_err(device, "failed to set emc freq rate:%d\n", ret);
+	ret = nvadsp_set_bw(drv, efreq);
+	if (ret)
 		goto end;
-	}
 
 	adsp_get_target_freq(policy->cur * 1000, &freq_stats.last_index);
 	freq_stats.last_time = get_jiffies_64();

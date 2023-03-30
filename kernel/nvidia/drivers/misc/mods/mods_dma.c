@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * mods_dma.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -34,7 +35,7 @@ static DECLARE_BITMAP(dma_info_mask, MODS_DMA_MAX_CHANNEL);
 static struct mods_dma_chan_info dma_info_chan_list[MODS_DMA_MAX_CHANNEL];
 static DEFINE_SPINLOCK(dma_info_lock);
 
-int mods_get_dma_id(u32 *p_id)
+static int mods_get_dma_id(u32 *p_id)
 {
 	u32 id;
 
@@ -51,14 +52,14 @@ int mods_get_dma_id(u32 *p_id)
 	return OK;
 }
 
-void mods_release_dma_id(u32 id)
+static void mods_release_dma_id(u32 id)
 {
 	spin_lock(&dma_info_lock);
 	clear_bit(id, dma_info_mask);
 	spin_unlock(&dma_info_lock);
 }
 
-int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
+static int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
 {
 	if (id > MODS_DMA_MAX_CHANNEL)
 		return	-ERANGE;
@@ -68,7 +69,7 @@ int mods_get_chan_by_id(u32 id, struct mods_dma_chan_info **p_dma_chan)
 	return OK;
 }
 
-int mods_init_dma(void)
+void mods_init_dma(void)
 {
 	struct mods_dma_chan_info *p_chan_info;
 	int i;
@@ -78,14 +79,12 @@ int mods_init_dma(void)
 		rwlock_init(&(p_chan_info->lock));
 		p_chan_info->in_use = false;
 	}
-
-	return OK;
 }
 
-void mods_release_channel(u32 id)
+static void mods_release_channel(u32 id)
 {
 	struct mods_dma_chan_info *p_mods_chan;
-	struct dma_chan *pch = 0;
+	struct dma_chan *pch = NULL;
 
 	if (mods_get_chan_by_id(id, &p_mods_chan) != OK) {
 		mods_error_printk("get dma channel failed, id %d\n", id);
@@ -103,7 +102,7 @@ void mods_release_channel(u32 id)
 
 	/* do not call this when hold spin lock */
 	if (pch) {
-		dmaengine_terminate_all(pch);
+		dmaengine_terminate_sync(pch);
 		dma_release_channel(pch);
 	}
 }
@@ -116,7 +115,7 @@ void mods_exit_dma(void)
 		mods_release_channel(i);
 }
 
-bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
+static bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
 {
 	bool in_use = false;
 
@@ -128,8 +127,8 @@ bool mods_chan_is_inuse(struct mods_dma_chan_info *p_mods_chan)
 	return in_use;
 }
 
-int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
-				  struct mods_dma_chan_info **p_mods_chan)
+static int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
+					 struct mods_dma_chan_info **p_mods_chan)
 {
 	int ret;
 	bool in_use;
@@ -152,8 +151,8 @@ int mods_get_inuse_chan_by_handle(struct MODS_DMA_HANDLE *p_handle,
 	return OK;
 }
 
-int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
-		       mods_dma_cookie_t cookie)
+static int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
+			      mods_dma_cookie_t cookie)
 {
 	int ret = OK;
 	struct mods_dma_chan_info *p_mods_chan;
@@ -172,9 +171,9 @@ int mods_dma_sync_wait(struct MODS_DMA_HANDLE *p_handle,
 	return ret;
 }
 
-int mods_dma_async_is_tx_complete(struct MODS_DMA_HANDLE *p_handle,
-				  mods_dma_cookie_t cookie,
-				  __u32 *p_is_complete)
+static int mods_dma_async_is_tx_complete(struct MODS_DMA_HANDLE *p_handle,
+					 mods_dma_cookie_t cookie,
+					 __u32 *p_is_complete)
 {
 	int ret = OK;
 	struct mods_dma_chan_info *p_mods_chan;
@@ -198,7 +197,7 @@ int mods_dma_async_is_tx_complete(struct MODS_DMA_HANDLE *p_handle,
 	return ret;
 }
 
-int esc_mods_dma_request_channel(struct file *pfile,
+int esc_mods_dma_request_channel(struct mods_client *client,
 				 struct MODS_DMA_HANDLE *p_handle)
 {
 	struct dma_chan *chan;
@@ -211,19 +210,19 @@ int esc_mods_dma_request_channel(struct file *pfile,
 
 	ret = mods_get_dma_id(&id);
 	if (ret != OK) {
-		mods_error_printk("no dma handle available\n");
+		cl_error("no dma handle available\n");
 		return ret;
 	}
 
 	ret = mods_get_chan_by_id(id, &p_mods_chan);
 	if (ret != OK) {
-		mods_error_printk("get dma channel failed\n");
+		cl_error("get dma channel failed\n");
 		return ret;
 	}
 
 	read_lock(&(p_mods_chan->lock));
 	if (p_mods_chan->in_use) {
-		mods_error_printk("mods dma channel in use\n");
+		cl_error("mods dma channel in use\n");
 		read_unlock(&(p_mods_chan->lock));
 		return -EBUSY;
 	}
@@ -233,7 +232,7 @@ int esc_mods_dma_request_channel(struct file *pfile,
 	dma_cap_set(p_handle->dma_type, mask);
 	chan = dma_request_channel(mask, NULL, NULL);
 	if (!chan) {
-		mods_error_printk("Dma channel is not available\n");
+		cl_error("dma channel is not available\n");
 		mods_release_dma_id(id);
 		return -EBUSY;
 	}
@@ -244,21 +243,20 @@ int esc_mods_dma_request_channel(struct file *pfile,
 	write_unlock(&(p_mods_chan->lock));
 
 	p_handle->dma_id = id;
-	mods_debug_printk(DEBUG_TEGRADMA,
-			  "request get dma id: %d\n", id);
+	cl_debug(DEBUG_TEGRADMA, "request get dma id: %d\n", id);
 	LOG_EXT();
 
 	return 0;
 }
 
-int esc_mods_dma_release_channel(struct file *pfile,
+int esc_mods_dma_release_channel(struct mods_client *client,
 				 struct MODS_DMA_HANDLE *p_handle)
 {
 	mods_release_channel(p_handle->dma_id);
 	return OK;
 }
 
-int esc_mods_dma_set_config(struct file *pfile,
+int esc_mods_dma_set_config(struct mods_client *client,
 			    struct MODS_DMA_CHANNEL_CONFIG *p_config)
 
 {
@@ -281,16 +279,16 @@ int esc_mods_dma_set_config(struct file *pfile,
 	config.device_fc = (p_config->device_fc == 0) ? false : true;
 	config.slave_id = p_config->slave_id;
 
-	mods_debug_printk(DEBUG_TEGRADMA,
-			  "ch: %d dir [%d], addr[%p -> %p], burst [%d %d]",
-			  p_config->handle.dma_id,
-			  config.direction,
-			  (void *)config.src_addr, (void *)config.dst_addr,
-			  config.src_maxburst, config.dst_maxburst);
-	mods_debug_printk(DEBUG_TEGRADMA,
-			  "width [%d %d] slave id %d\n",
-			  config.src_addr_width, config.dst_addr_width,
-			  config.slave_id);
+	cl_debug(DEBUG_TEGRADMA,
+		 "ch: %d dir [%d], addr[%p -> %p], burst [%d %d]",
+		 p_config->handle.dma_id,
+		 config.direction,
+		 (void *)config.src_addr, (void *)config.dst_addr,
+		 config.src_maxburst, config.dst_maxburst);
+	cl_debug(DEBUG_TEGRADMA,
+		 "width [%d %d] slave id %d\n",
+		 config.src_addr_width, config.dst_addr_width,
+		 config.slave_id);
 
 	write_lock(&(p_mods_chan->lock));
 	ret = dmaengine_slave_config(p_mods_chan->pch, &config);
@@ -302,7 +300,7 @@ int esc_mods_dma_set_config(struct file *pfile,
 }
 
 
-int esc_mods_dma_submit_request(struct file *pfile,
+int esc_mods_dma_submit_request(struct mods_client *client,
 				struct MODS_DMA_TX_DESC *p_mods_desc)
 {
 	int ret = OK;
@@ -320,12 +318,11 @@ int esc_mods_dma_submit_request(struct file *pfile,
 		return ret;
 
 	if (p_mods_desc->mode != MODS_DMA_SINGLE) {
-		mods_error_printk("Unsupported Mode: %d\n", p_mods_desc->mode);
+		cl_error("unsupported mode: %d\n", p_mods_desc->mode);
 		return -EINVAL;
 	}
 
-	mods_debug_printk(DEBUG_TEGRADMA,
-			  "Submit on chan %p\n", p_mods_chan->pch);
+	cl_debug(DEBUG_TEGRADMA, "submit on chan %p\n", p_mods_chan->pch);
 
 	write_lock(&(p_mods_chan->lock));
 	if (p_mods_desc->data_dir == MODS_DMA_MEM_TO_MEM) {
@@ -337,21 +334,20 @@ int esc_mods_dma_submit_request(struct file *pfile,
 						p_mods_desc->length,
 						flags);
 	} else {
-		mods_debug_printk(DEBUG_TEGRADMA,
-				  "Phys Addr [%p], len [%d], dir [%d]\n",
-					(void *)p_mods_desc->phys,
-					p_mods_desc->length,
-					p_mods_desc->data_dir);
-		desc = dmaengine_prep_slave_single(
-							p_mods_chan->pch,
-							p_mods_desc->phys,
-							p_mods_desc->length,
-							p_mods_desc->data_dir,
-							flags);
+		cl_debug(DEBUG_TEGRADMA,
+			 "Phys Addr [%p], len [%d], dir [%d]\n",
+			 (void *)p_mods_desc->phys,
+			 p_mods_desc->length,
+			 p_mods_desc->data_dir);
+		desc = dmaengine_prep_slave_single(p_mods_chan->pch,
+						   p_mods_desc->phys,
+						   p_mods_desc->length,
+						   p_mods_desc->data_dir,
+						   flags);
 	}
 
 	if (desc == NULL) {
-		mods_error_printk("Not able to get desc for Tx\n");
+		cl_error("unable to get desc for Tx\n");
 		ret = -EIO;
 		goto failed;
 	}
@@ -363,7 +359,7 @@ int esc_mods_dma_submit_request(struct file *pfile,
 failed:
 	write_unlock(&(p_mods_chan->lock));
 	if (dma_submit_error(cookie)) {
-		mods_info_printk("Submit cookie: %x Error\n", cookie);
+		cl_error("submit cookie: %x\n", cookie);
 		return -EIO;
 	}
 
@@ -373,7 +369,7 @@ failed:
 	return ret;
 }
 
-int esc_mods_dma_async_issue_pending(struct file *pfile,
+int esc_mods_dma_async_issue_pending(struct mods_client *client,
 				     struct MODS_DMA_HANDLE *p_handle)
 {
 	int ret = OK;
@@ -384,8 +380,8 @@ int esc_mods_dma_async_issue_pending(struct file *pfile,
 	if (ret != OK)
 		return ret;
 
-	mods_debug_printk(DEBUG_TEGRADMA,
-			  "Issue pending on chan: %p\n", p_mods_chan->pch);
+	cl_debug(DEBUG_TEGRADMA, "issue pending on chan: %p\n",
+		 p_mods_chan->pch);
 	read_lock(&(p_mods_chan->lock));
 	dma_async_issue_pending(p_mods_chan->pch);
 	read_unlock(&(p_mods_chan->lock));
@@ -394,7 +390,7 @@ int esc_mods_dma_async_issue_pending(struct file *pfile,
 	return ret;
 }
 
-int esc_mods_dma_wait(struct file *pfile,
+int esc_mods_dma_wait(struct mods_client *client,
 		      struct MODS_DMA_WAIT_DESC *p_wait_desc)
 {
 	int ret;
@@ -414,7 +410,7 @@ int esc_mods_dma_wait(struct file *pfile,
 	return  ret;
 }
 
-int esc_mods_dma_alloc_coherent(struct file                    *fp,
+int esc_mods_dma_alloc_coherent(struct mods_client *client,
 				struct MODS_DMA_COHERENT_MEM_HANDLE *p)
 {
 	dma_addr_t    p_phys_addr;
@@ -427,20 +423,18 @@ int esc_mods_dma_alloc_coherent(struct file                    *fp,
 					&p_phys_addr,
 					GFP_KERNEL);
 
-	mods_debug_printk(DEBUG_MEM,
-		"%s:num_bytes=%d, p_cpu_addr=%p, p_phys_addr=%p\n",
-		__func__,
-		p->num_bytes,
-		(void *)p_cpu_addr,
-		(void *)p_phys_addr);
+	cl_debug(DEBUG_MEM,
+		 "num_bytes=%d, p_cpu_addr=%p, p_phys_addr=%p\n",
+		 p->num_bytes,
+		 (void *)p_cpu_addr,
+		 (void *)p_phys_addr);
 
 	if (!p_cpu_addr) {
-		mods_error_printk(
-		"%s:FAILED!!!num_bytes=%d, p_cpu_addr=%p, p_phys_addr=%p\n",
-		__func__,
-		p->num_bytes,
-		(void *)p_cpu_addr,
-		(void *)p_phys_addr);
+		cl_error(
+			"FAILED!!!num_bytes=%d, p_cpu_addr=%p, p_phys_addr=%p\n",
+			p->num_bytes,
+			(void *)p_cpu_addr,
+			(void *)p_phys_addr);
 		LOG_EXT();
 		return -1;
 	}
@@ -454,17 +448,16 @@ int esc_mods_dma_alloc_coherent(struct file                    *fp,
 	return 0;
 }
 
-int esc_mods_dma_free_coherent(struct file                    *fp,
-				struct MODS_DMA_COHERENT_MEM_HANDLE *p)
+int esc_mods_dma_free_coherent(struct mods_client *client,
+			       struct MODS_DMA_COHERENT_MEM_HANDLE *p)
 {
 	LOG_ENT();
 
-	mods_debug_printk(DEBUG_MEM,
-		"%s : num_bytes = %d, p_cpu_addr=%p, p_phys_addr=%p\n",
-		__func__,
-		p->num_bytes,
-		(void *)(p->memory_handle_virt),
-		(void *)(p->memory_handle_phys));
+	cl_debug(DEBUG_MEM,
+		 "num_bytes = %d, p_cpu_addr=%p, p_phys_addr=%p\n",
+		 p->num_bytes,
+		 (void *)(p->memory_handle_virt),
+		 (void *)(p->memory_handle_phys));
 
 	dma_free_coherent(NULL,
 		p->num_bytes,
@@ -478,23 +471,22 @@ int esc_mods_dma_free_coherent(struct file                    *fp,
 	return 0;
 }
 
-int esc_mods_dma_copy_to_user(struct file                    *fp,
-				struct MODS_DMA_COPY_TO_USER *p)
+int esc_mods_dma_copy_to_user(struct mods_client *client,
+			      struct MODS_DMA_COPY_TO_USER *p)
 {
 	int retval;
 
 	LOG_ENT();
 
-	mods_debug_printk(DEBUG_MEM,
-		"%s:memory_handle_dst=%p, memory_handle_src=%p, num_bytes=%d\n",
-		__func__,
-		(void *)(p->memory_handle_dst),
-		(void *)(p->memory_handle_src),
-		p->num_bytes);
+	cl_debug(DEBUG_MEM,
+		 "memory_handle_dst=%p, memory_handle_src=%p, num_bytes=%d\n",
+		 (void *)(p->memory_handle_dst),
+		 (void *)(p->memory_handle_src),
+		 p->num_bytes);
 
-	retval = copy_to_user((void *)(p->memory_handle_dst),
-				(void *)(p->memory_handle_src),
-				p->num_bytes);
+	retval = copy_to_user((void __user *)p->memory_handle_dst,
+			      (void *)p->memory_handle_src,
+			      p->num_bytes);
 
 	LOG_EXT();
 

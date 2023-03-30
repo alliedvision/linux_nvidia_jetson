@@ -26,7 +26,8 @@
 #ifndef __PHYDM_CCK_PD_H__
 #define __PHYDM_CCK_PD_H__
 
-#define CCK_PD_VERSION "3.1"
+/* 2019.05.09 Modify the return criterion of supportability of CCK_PD*/
+#define CCK_PD_VERSION "3.5"
 
 /*@
  * 1 ============================================================
@@ -35,6 +36,9 @@
  */
 #define CCK_FA_MA_RESET 0xffffffff
 
+#define INVALID_CS_RATIO_0 0x1b /* @ only for type4 ICs*/
+#define INVALID_CS_RATIO_1 0x1d /* @ only for type4 ICs*/
+#define MAXVALID_CS_RATIO 0x1f
 /*@Run time flag of CCK_PD HW type*/
 #define CCK_PD_IC_TYPE1 (ODM_RTL8188E | ODM_RTL8812 | ODM_RTL8821 |\
 			ODM_RTL8192E | ODM_RTL8723B | ODM_RTL8814A |\
@@ -44,7 +48,7 @@
 #define CCK_PD_IC_TYPE2 (ODM_RTL8197F | ODM_RTL8821C | ODM_RTL8723D |\
 			ODM_RTL8710B | ODM_RTL8195B) /*extend 0xaaa*/
 
-#define CCK_PD_IC_TYPE3 (ODM_RTL8192F | ODM_RTL8721D)
+#define CCK_PD_IC_TYPE3 (ODM_RTL8192F | ODM_RTL8721D | ODM_RTL8710C)
 /*@extend for different bw & path*/
 
 #define CCK_PD_IC_TYPE4 ODM_IC_JGR3_SERIES /*@extend for different bw & path*/
@@ -62,7 +66,7 @@
 	#define PHYDM_COMPILE_CCKPD_TYPE2 /*@extend 0xaaa*/
 #endif
 
-#if (RTL8192F_SUPPORT || RTL8721D_SUPPORT)
+#if (RTL8192F_SUPPORT || RTL8721D_SUPPORT || RTL8710C_SUPPORT)
 	#define PHYDM_COMPILE_CCKPD_TYPE3 /*@extend for different & path*/
 #endif
 
@@ -106,7 +110,7 @@ struct phydm_cckpd_struct {
 	u8		cckpd_hw_type;
 	u8		cur_cck_cca_thres; /*@current cck_pd value 0xa0a*/
 	u32		cck_fa_ma;
-	u8		rvrt_val;
+	u32		rvrt_val; /*all rvrt_val for pause API must set to u32*/
 	u8		pause_lv;
 	u8		cck_n_rx;
 	enum channel_width cck_bw;
@@ -137,7 +141,7 @@ struct phydm_cckpd_struct {
 	#endif
 	#ifdef PHYDM_COMPILE_CCKPD_TYPE4
 	/*@[bw][nrx][0:PD/1:CS][lv]*/
-	u8		cck_pd_table_jgr3[2][4][2][CCK_PD_LV_MAX];
+	u8		cckpd_jgr3[2][4][2][CCK_PD_LV_MAX];
 	#endif
 };
 #endif

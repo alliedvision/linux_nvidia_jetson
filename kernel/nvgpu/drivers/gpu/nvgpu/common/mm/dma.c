@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,6 +35,7 @@ int nvgpu_dma_alloc(struct gk20a *g, size_t size, struct nvgpu_mem *mem)
 int nvgpu_dma_alloc_flags(struct gk20a *g, unsigned long flags, size_t size,
 		struct nvgpu_mem *mem)
 {
+#ifdef CONFIG_NVGPU_DGPU
 	if (!nvgpu_is_enabled(g, NVGPU_MM_UNIFIED_MEMORY)) {
 		/*
 		 * Force the no-kernel-mapping flag on because we don't support
@@ -50,7 +51,7 @@ int nvgpu_dma_alloc_flags(struct gk20a *g, unsigned long flags, size_t size,
 				NVGPU_DMA_NO_KERNEL_MAPPING,
 				size, mem);
 
-		if (!err) {
+		if (err == 0) {
 			return 0;
 		}
 
@@ -59,6 +60,7 @@ int nvgpu_dma_alloc_flags(struct gk20a *g, unsigned long flags, size_t size,
 		 * vidmem is exhausted.
 		 */
 	}
+#endif
 
 	return nvgpu_dma_alloc_flags_sys(g, flags, size, mem);
 }
@@ -68,6 +70,7 @@ int nvgpu_dma_alloc_sys(struct gk20a *g, size_t size, struct nvgpu_mem *mem)
 	return nvgpu_dma_alloc_flags_sys(g, 0, size, mem);
 }
 
+#ifdef CONFIG_NVGPU_DGPU
 int nvgpu_dma_alloc_vid(struct gk20a *g, size_t size, struct nvgpu_mem *mem)
 {
 	return nvgpu_dma_alloc_flags_vid(g,
@@ -86,16 +89,25 @@ int nvgpu_dma_alloc_vid_at(struct gk20a *g,
 	return nvgpu_dma_alloc_flags_vid_at(g,
 			NVGPU_DMA_NO_KERNEL_MAPPING, size, mem, at);
 }
+#endif
 
 int nvgpu_dma_alloc_map(struct vm_gk20a *vm, size_t size,
 		struct nvgpu_mem *mem)
 {
-	return nvgpu_dma_alloc_map_flags(vm, 0, size, mem);
+	int err = nvgpu_dma_alloc_map_flags(vm, 0, size, mem);
+
+	if (err < 0) {
+		nvgpu_err(vm->mm->g, "Failed!");
+	}
+	return err;
 }
 
 int nvgpu_dma_alloc_map_flags(struct vm_gk20a *vm, unsigned long flags,
 		size_t size, struct nvgpu_mem *mem)
 {
+	int err = 0;
+
+#ifdef CONFIG_NVGPU_DGPU
 	if (!nvgpu_is_enabled(gk20a_from_vm(vm), NVGPU_MM_UNIFIED_MEMORY)) {
 		/*
 		 * Force the no-kernel-mapping flag on because we don't support
@@ -103,11 +115,11 @@ int nvgpu_dma_alloc_map_flags(struct vm_gk20a *vm, unsigned long flags,
 		 * using nvgpu_dma_alloc_map and it's vidmem, or if there's a
 		 * difference, the user should use the flag explicitly anyway.
 		 */
-		int err = nvgpu_dma_alloc_map_flags_vid(vm,
+		err = nvgpu_dma_alloc_map_flags_vid(vm,
 				flags | NVGPU_DMA_NO_KERNEL_MAPPING,
 				size, mem);
 
-		if (!err) {
+		if (err == 0) {
 			return 0;
 		}
 
@@ -116,14 +128,25 @@ int nvgpu_dma_alloc_map_flags(struct vm_gk20a *vm, unsigned long flags,
 		 * vidmem is exhausted.
 		 */
 	}
+#endif
 
-	return nvgpu_dma_alloc_map_flags_sys(vm, flags, size, mem);
+	err = nvgpu_dma_alloc_map_flags_sys(vm, flags, size, mem);
+	if (err < 0) {
+		nvgpu_err(vm->mm->g, "Failed!");
+	}
+	return err;
 }
 
 int nvgpu_dma_alloc_map_sys(struct vm_gk20a *vm, size_t size,
 		struct nvgpu_mem *mem)
 {
-	return nvgpu_dma_alloc_map_flags_sys(vm, 0, size, mem);
+	int err = 0;
+
+	err = nvgpu_dma_alloc_map_flags_sys(vm, 0, size, mem);
+	if (err < 0) {
+		nvgpu_err(vm->mm->g, "Failed!");
+	}
+	return err;
 }
 
 int nvgpu_dma_alloc_map_flags_sys(struct vm_gk20a *vm, unsigned long flags,
@@ -131,14 +154,14 @@ int nvgpu_dma_alloc_map_flags_sys(struct vm_gk20a *vm, unsigned long flags,
 {
 	int err = nvgpu_dma_alloc_flags_sys(vm->mm->g, flags, size, mem);
 
-	if (err) {
+	if (err != 0) {
 		return err;
 	}
 
-	mem->gpu_va = nvgpu_gmmu_map(vm, mem, size, 0,
+	mem->gpu_va = nvgpu_gmmu_map(vm, mem, 0,
 				     gk20a_mem_flag_none, false,
 				     mem->aperture);
-	if (!mem->gpu_va) {
+	if (mem->gpu_va == 0ULL) {
 		err = -ENOMEM;
 		goto fail_free;
 	}
@@ -150,6 +173,7 @@ fail_free:
 	return err;
 }
 
+#ifdef CONFIG_NVGPU_DGPU
 int nvgpu_dma_alloc_map_vid(struct vm_gk20a *vm, size_t size,
 		struct nvgpu_mem *mem)
 {
@@ -162,14 +186,14 @@ int nvgpu_dma_alloc_map_flags_vid(struct vm_gk20a *vm, unsigned long flags,
 {
 	int err = nvgpu_dma_alloc_flags_vid(vm->mm->g, flags, size, mem);
 
-	if (err) {
+	if (err != 0) {
 		return err;
 	}
 
-	mem->gpu_va = nvgpu_gmmu_map(vm, mem, size, 0,
+	mem->gpu_va = nvgpu_gmmu_map(vm, mem, 0,
 				     gk20a_mem_flag_none, false,
 				     mem->aperture);
-	if (!mem->gpu_va) {
+	if (mem->gpu_va == 0ULL) {
 		err = -ENOMEM;
 		goto fail_free;
 	}
@@ -180,6 +204,7 @@ fail_free:
 	nvgpu_dma_free(vm->mm->g, mem);
 	return err;
 }
+#endif
 
 void nvgpu_dma_free(struct gk20a *g, struct nvgpu_mem *mem)
 {
@@ -187,18 +212,21 @@ void nvgpu_dma_free(struct gk20a *g, struct nvgpu_mem *mem)
 	case APERTURE_SYSMEM:
 		nvgpu_dma_free_sys(g, mem);
 		break;
+#ifdef CONFIG_NVGPU_DGPU
 	case APERTURE_VIDMEM:
 		nvgpu_dma_free_vid(g, mem);
 		break;
+#endif
 	default:
-		break; /* like free() on "null" memory */
+		/* like free() on "null" memory */
+		break;
 	}
 }
 
 void nvgpu_dma_unmap_free(struct vm_gk20a *vm, struct nvgpu_mem *mem)
 {
-	if (mem->gpu_va) {
-		nvgpu_gmmu_unmap(vm, mem, mem->gpu_va);
+	if (mem->gpu_va != 0ULL) {
+		nvgpu_gmmu_unmap(vm, mem);
 	}
 	mem->gpu_va = 0;
 

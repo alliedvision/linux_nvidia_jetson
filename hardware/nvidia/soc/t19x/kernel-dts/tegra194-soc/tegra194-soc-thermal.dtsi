@@ -1,33 +1,23 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <dt-bindings/thermal/tegra194-thermal.h>
 
 / {
-	bpmp {
-		bpmpthermal {
-			compatible = "nvidia,tegra186-bpmp-thermal";
-			#thermal-sensor-cells = <1>;
-			status = "disabled";
-		};
-	};
-
 	thermal-zones {
-		CPU-therm {
+		pllx: CPU-therm {
 			polling-delay = <0>;
 			polling-delay-passive = <1000>;
 			thermal-sensors = <&{/bpmp/bpmpthermal} THERMAL_ZONE_PLLX>;
@@ -66,8 +56,7 @@
 	soctherm-oc-event {
 		compatible = "nvidia,tegra194-oc-event";
 		interrupts = <0 TEGRA194_IRQ_BPMP_HSP_SHARED_1 0x4>;
-		reg = <0x0 0x0d280000 0x0 0xa40>,
-				<0x0 0x0d170000 0x0 0x4>;
+		reg = <0x0 0x0d280000 0x0 0xa40>, <0x0 0x0d170000 0x0 0x4>;
 		status = "disabled";
 	};
 };

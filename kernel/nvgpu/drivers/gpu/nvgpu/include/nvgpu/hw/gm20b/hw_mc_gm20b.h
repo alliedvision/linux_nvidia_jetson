@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,235 +53,69 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_mc_gm20b_h_
-#define _hw_mc_gm20b_h_
+#ifndef NVGPU_HW_MC_GM20B_H
+#define NVGPU_HW_MC_GM20B_H
 
-static inline u32 mc_boot_0_r(void)
-{
-	return 0x00000000U;
-}
-static inline u32 mc_boot_0_architecture_v(u32 r)
-{
-	return (r >> 24U) & 0x1fU;
-}
-static inline u32 mc_boot_0_implementation_v(u32 r)
-{
-	return (r >> 20U) & 0xfU;
-}
-static inline u32 mc_boot_0_major_revision_v(u32 r)
-{
-	return (r >> 4U) & 0xfU;
-}
-static inline u32 mc_boot_0_minor_revision_v(u32 r)
-{
-	return (r >> 0U) & 0xfU;
-}
-static inline u32 mc_intr_r(u32 i)
-{
-	return 0x00000100U + i*4U;
-}
-static inline u32 mc_intr_pfifo_pending_f(void)
-{
-	return 0x100U;
-}
-static inline u32 mc_intr_pmu_pending_f(void)
-{
-	return 0x1000000U;
-}
-static inline u32 mc_intr_ltc_pending_f(void)
-{
-	return 0x2000000U;
-}
-static inline u32 mc_intr_priv_ring_pending_f(void)
-{
-	return 0x40000000U;
-}
-static inline u32 mc_intr_pbus_pending_f(void)
-{
-	return 0x10000000U;
-}
-static inline u32 mc_intr_mask_0_r(void)
-{
-	return 0x00000640U;
-}
-static inline u32 mc_intr_mask_0_pmu_enabled_f(void)
-{
-	return 0x1000000U;
-}
-static inline u32 mc_intr_en_0_r(void)
-{
-	return 0x00000140U;
-}
-static inline u32 mc_intr_en_0_inta_disabled_f(void)
-{
-	return 0x0U;
-}
-static inline u32 mc_intr_en_0_inta_hardware_f(void)
-{
-	return 0x1U;
-}
-static inline u32 mc_intr_mask_1_r(void)
-{
-	return 0x00000644U;
-}
-static inline u32 mc_intr_mask_1_pmu_s(void)
-{
-	return 1U;
-}
-static inline u32 mc_intr_mask_1_pmu_f(u32 v)
-{
-	return (v & 0x1U) << 24U;
-}
-static inline u32 mc_intr_mask_1_pmu_m(void)
-{
-	return 0x1U << 24U;
-}
-static inline u32 mc_intr_mask_1_pmu_v(u32 r)
-{
-	return (r >> 24U) & 0x1U;
-}
-static inline u32 mc_intr_mask_1_pmu_enabled_f(void)
-{
-	return 0x1000000U;
-}
-static inline u32 mc_intr_en_1_r(void)
-{
-	return 0x00000144U;
-}
-static inline u32 mc_intr_en_1_inta_disabled_f(void)
-{
-	return 0x0U;
-}
-static inline u32 mc_intr_en_1_inta_hardware_f(void)
-{
-	return 0x1U;
-}
-static inline u32 mc_enable_r(void)
-{
-	return 0x00000200U;
-}
-static inline u32 mc_enable_xbar_enabled_f(void)
-{
-	return 0x4U;
-}
-static inline u32 mc_enable_l2_enabled_f(void)
-{
-	return 0x8U;
-}
-static inline u32 mc_enable_pmedia_s(void)
-{
-	return 1U;
-}
-static inline u32 mc_enable_pmedia_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 mc_enable_pmedia_m(void)
-{
-	return 0x1U << 4U;
-}
-static inline u32 mc_enable_pmedia_v(u32 r)
-{
-	return (r >> 4U) & 0x1U;
-}
-static inline u32 mc_enable_priv_ring_enabled_f(void)
-{
-	return 0x20U;
-}
-static inline u32 mc_enable_ce0_m(void)
-{
-	return 0x1U << 6U;
-}
-static inline u32 mc_enable_pfifo_enabled_f(void)
-{
-	return 0x100U;
-}
-static inline u32 mc_enable_pgraph_enabled_f(void)
-{
-	return 0x1000U;
-}
-static inline u32 mc_enable_pwr_v(u32 r)
-{
-	return (r >> 13U) & 0x1U;
-}
-static inline u32 mc_enable_pwr_disabled_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 mc_enable_pwr_enabled_f(void)
-{
-	return 0x2000U;
-}
-static inline u32 mc_enable_pfb_enabled_f(void)
-{
-	return 0x100000U;
-}
-static inline u32 mc_enable_ce2_m(void)
-{
-	return 0x1U << 21U;
-}
-static inline u32 mc_enable_ce2_enabled_f(void)
-{
-	return 0x200000U;
-}
-static inline u32 mc_enable_blg_enabled_f(void)
-{
-	return 0x8000000U;
-}
-static inline u32 mc_enable_perfmon_enabled_f(void)
-{
-	return 0x10000000U;
-}
-static inline u32 mc_enable_hub_enabled_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 mc_intr_ltc_r(void)
-{
-	return 0x0000017cU;
-}
-static inline u32 mc_enable_pb_r(void)
-{
-	return 0x00000204U;
-}
-static inline u32 mc_enable_pb_0_s(void)
-{
-	return 1U;
-}
-static inline u32 mc_enable_pb_0_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 mc_enable_pb_0_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 mc_enable_pb_0_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 mc_enable_pb_0_enabled_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 mc_enable_pb_sel_f(u32 v, u32 i)
-{
-	return (v & 0x1U) << (0U + i*1U);
-}
-static inline u32 mc_elpg_enable_r(void)
-{
-	return 0x0000020cU;
-}
-static inline u32 mc_elpg_enable_xbar_enabled_f(void)
-{
-	return 0x4U;
-}
-static inline u32 mc_elpg_enable_pfb_enabled_f(void)
-{
-	return 0x100000U;
-}
-static inline u32 mc_elpg_enable_hub_enabled_f(void)
-{
-	return 0x20000000U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define mc_boot_0_r()                                              (0x00000000U)
+#define mc_boot_0_architecture_v(r)                       (((r) >> 24U) & 0x1fU)
+#define mc_boot_0_implementation_v(r)                      (((r) >> 20U) & 0xfU)
+#define mc_boot_0_major_revision_v(r)                       (((r) >> 4U) & 0xfU)
+#define mc_boot_0_minor_revision_v(r)                       (((r) >> 0U) & 0xfU)
+#define mc_intr_r(i)\
+		(nvgpu_safe_add_u32(0x00000100U, nvgpu_safe_mult_u32((i), 4U)))
+#define mc_intr_pfifo_pending_f()                                       (0x100U)
+#define mc_intr_pmu_pending_f()                                     (0x1000000U)
+#define mc_intr_ltc_pending_f()                                     (0x2000000U)
+#define mc_intr_priv_ring_pending_f()                              (0x40000000U)
+#define mc_intr_pbus_pending_f()                                   (0x10000000U)
+#define mc_intr_mask_0_r()                                         (0x00000640U)
+#define mc_intr_mask_0_pmu_enabled_f()                              (0x1000000U)
+#define mc_intr_en_0_r()                                           (0x00000140U)
+#define mc_intr_en_0_inta_disabled_f()                                    (0x0U)
+#define mc_intr_en_0_inta_hardware_f()                                    (0x1U)
+#define mc_intr_mask_1_r()                                         (0x00000644U)
+#define mc_intr_mask_1_pmu_s()                                              (1U)
+#define mc_intr_mask_1_pmu_f(v)                         ((U32(v) & 0x1U) << 24U)
+#define mc_intr_mask_1_pmu_m()                                (U32(0x1U) << 24U)
+#define mc_intr_mask_1_pmu_v(r)                            (((r) >> 24U) & 0x1U)
+#define mc_intr_mask_1_pmu_enabled_f()                              (0x1000000U)
+#define mc_intr_en_1_r()                                           (0x00000144U)
+#define mc_intr_en_1_inta_disabled_f()                                    (0x0U)
+#define mc_intr_en_1_inta_hardware_f()                                    (0x1U)
+#define mc_enable_r()                                              (0x00000200U)
+#define mc_enable_xbar_enabled_f()                                        (0x4U)
+#define mc_enable_l2_enabled_f()                                          (0x8U)
+#define mc_enable_pmedia_s()                                                (1U)
+#define mc_enable_pmedia_f(v)                            ((U32(v) & 0x1U) << 4U)
+#define mc_enable_pmedia_m()                                   (U32(0x1U) << 4U)
+#define mc_enable_pmedia_v(r)                               (((r) >> 4U) & 0x1U)
+#define mc_enable_priv_ring_enabled_f()                                  (0x20U)
+#define mc_enable_ce0_m()                                      (U32(0x1U) << 6U)
+#define mc_enable_pfifo_enabled_f()                                     (0x100U)
+#define mc_enable_pgraph_enabled_f()                                   (0x1000U)
+#define mc_enable_pwr_v(r)                                 (((r) >> 13U) & 0x1U)
+#define mc_enable_pwr_disabled_v()                                 (0x00000000U)
+#define mc_enable_pwr_enabled_f()                                      (0x2000U)
+#define mc_enable_pfb_enabled_f()                                    (0x100000U)
+#define mc_enable_ce2_m()                                     (U32(0x1U) << 21U)
+#define mc_enable_ce2_enabled_f()                                    (0x200000U)
+#define mc_enable_blg_enabled_f()                                   (0x8000000U)
+#define mc_enable_perfmon_enabled_f()                              (0x10000000U)
+#define mc_enable_hub_enabled_f()                                  (0x20000000U)
+#define mc_intr_ltc_r()                                            (0x0000017cU)
+#define mc_enable_pb_r()                                           (0x00000204U)
+#define mc_enable_pb_0_s()                                                  (1U)
+#define mc_enable_pb_0_f(v)                              ((U32(v) & 0x1U) << 0U)
+#define mc_enable_pb_0_m()                                     (U32(0x1U) << 0U)
+#define mc_enable_pb_0_v(r)                                 (((r) >> 0U) & 0x1U)
+#define mc_enable_pb_0_enabled_v()                                 (0x00000001U)
+#define mc_enable_pb_sel_f(v, i)\
+		((U32(v) & 0x1U) << (0U + (i)*1U))
+#define mc_elpg_enable_r()                                         (0x0000020cU)
+#define mc_elpg_enable_xbar_enabled_f()                                   (0x4U)
+#define mc_elpg_enable_pfb_enabled_f()                               (0x100000U)
+#define mc_elpg_enable_hub_enabled_f()                             (0x20000000U)
 #endif

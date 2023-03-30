@@ -701,6 +701,46 @@
 #define EEPROM_PID_8710BU						0x1C2
 
 /* ****************************************************
+ *	EEPROM/Efuse PG Offset for 8814B
+ * **************************************************** */
+
+#define	EEPROM_USB_MODE_8814BU			0x06
+/* 0x10 ~ 0x63 = TX power area. */
+#define	EEPROM_TX_PWR_INX_8814B			0x10
+#define	EEPROM_ChannelPlan_8814B		0xB8
+#define	EEPROM_XTAL_8814B			0xB9
+#define	EEPROM_IQK_LCK_8814B			0xBB
+
+#define	EEPROM_RF_BOARD_OPTION_8814B		0xC1
+#define	EEPROM_RF_FEATURE_OPTION_8814B		0xC2
+#define	EEPROM_RF_BT_SETTING_8814B		0xC3
+#define	EEPROM_VERSION_8814B			0xC4
+#define	EEPROM_CustomID_8814B			0xC5
+#define	EEPROM_TX_BBSWING_2G_8814B		0xC6
+#define	EEPROM_TX_BBSWING_5G_8814B		0xC7
+#define	EEPROM_TX_PWR_CALIBRATE_RATE_8814B	0xC8
+#define	EEPROM_RF_ANTENNA_OPT_8814B		0xC9
+#define	EEPROM_RFE_OPTION_8814B			0xCA
+#define	EEPROM_COUNTRY_CODE_8814B		0xCB
+
+#define	EEPROM_THERMAL_METER_A_8814B		0xD0
+#define	EEPROM_THERMAL_METER_B_8814B		0xD1
+#define	EEPROM_THERMAL_METER_C_8814B		0xD2
+#define	EEPROM_THERMAL_METER_D_8814B		0xD3
+
+#define	EEPROM_MAC_ADDR_8814BE			0x120
+#define	EEPROM_VID_8814B			0x126
+#define	EEPROM_DID_8814B			0x128
+#define	EEPROM_SVID_8814B			0x12A
+#define	EEPROM_SMID_8814B			0x12C
+
+/* RTL8814BU */
+#define EEPROM_MAC_ADDR_8814BU			0x157
+#define EEPROM_VID_8814BU			0x150
+#define EEPROM_PID_8814BU			0x152
+#define EEPROM_USB_OPTIONAL_FUNCTION0_8814BU	0x154
+
+/* ****************************************************
  *			EEPROM/Efuse Value Type
  * **************************************************** */
 #define EETYPE_TX_PWR							0x0
@@ -755,6 +795,7 @@
 #define	EEPROM_Default_ThermalMeter_8188GTV		0x18
 #define EEPROM_Default_ThermalMeter_8814A		0x18
 #define	EEPROM_Default_ThermalMeter_8192F		0x1A
+#define EEPROM_Default_ThermalMeter_8814B		0x20
 
 #define EEPROM_Default_CrystalCap				0x0
 #define EEPROM_Default_CrystalCap_8723A		0x20
@@ -771,6 +812,7 @@
 #define EEPROM_Default_CrystalCap_B9_8822C		0x3F
 #define EEPROM_Default_CrystalCap_110_8822C		0x40
 #define EEPROM_Default_CrystalCap_111_8822C		0x40
+#define EEPROM_Default_CrystalCap_8814B			0x40
 #define EEPROM_Default_CrystalFreq				0x0
 #define EEPROM_Default_TxPowerLevel_92C		0x22
 #define EEPROM_Default_TxPowerLevel_2G			0x2C
@@ -876,27 +918,6 @@
 /* It must always set to 4, otherwise read efuse table sequence will be wrong. */
 #define	MAX_TX_COUNT				4
 
-typedef struct _TxPowerInfo24G {
-	u8 IndexCCK_Base[MAX_RF_PATH][MAX_CHNL_GROUP_24G];
-	u8 IndexBW40_Base[MAX_RF_PATH][MAX_CHNL_GROUP_24G];
-	/* If only one tx, only BW20 and OFDM are used. */
-	s8 CCK_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 OFDM_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW20_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW40_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-} TxPowerInfo24G, *PTxPowerInfo24G;
-
-typedef struct _TxPowerInfo5G {
-	u8 IndexBW40_Base[MAX_RF_PATH][MAX_CHNL_GROUP_5G];
-	/* If only one tx, only BW20, OFDM, BW80 and BW160 are used. */
-	s8 OFDM_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW20_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW40_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW80_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-	s8 BW160_Diff[MAX_RF_PATH][MAX_TX_COUNT];
-} TxPowerInfo5G, *PTxPowerInfo5G;
-
-
 typedef	enum _BT_Ant_NUM {
 	Ant_x2	= 0,
 	Ant_x1	= 1
@@ -920,7 +941,8 @@ typedef	enum _BT_CoType {
 	BT_RTL8723D		= 14,
 	BT_RTL8821C		= 15,
 	BT_RTL8192F		= 16,
-	BT_RTL8822C		= 17	
+	BT_RTL8822C		= 17,
+	BT_RTL8814B		= 18,
 } BT_CoType, *PBT_CoType;
 
 typedef	enum _BT_RadioShared {

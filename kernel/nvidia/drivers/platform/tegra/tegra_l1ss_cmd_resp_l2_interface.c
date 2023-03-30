@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -136,12 +136,13 @@ int cmd_resp_l1_user_rcv_check_aliveness(const
 
 int user_send_service_status_notification(const nv_guard_srv_status_t *Var1,
 					  nv_guard_3lss_layer_t Layer_Id,
-					  struct l1ss_data *ldata) {
+					  struct l1ss_data *ldata)
+{
 	cmdresp_frame_ex_t lCmdRespData = {0};
 	//NvGuard_ReturnType_t lRet = NVGUARD_E_NOK;
 	uint8_t lBytePos = 0U;
 	const uint8_t *lPtr = (const uint8_t *)(Var1);
-	unsigned long timeout;
+	long timeout;
 
 	PDEBUG("SrvId = %d Status=%d ErrorInfoSize=%d ErrorInfo=%s\n",
 			Var1->srv_id, Var1->status,
@@ -181,7 +182,8 @@ int user_send_service_status_notification(const nv_guard_srv_status_t *Var1,
 
 int user_send_ist_mesg(const nv_guard_user_msg_t *var1,
 					  nv_guard_3lss_layer_t layer_id,
-					  struct l1ss_data *ldata) {
+					  struct l1ss_data *ldata)
+{
 	cmdresp_frame_ex_t lCmdRespData = {0};
 	//NvGuard_ReturnType_t lRet = NVGUARD_E_NOK;
 	uint8_t lBytePos = 0U;
@@ -205,7 +207,7 @@ int user_send_phase_notify(struct l1ss_data *ldata, nv_guard_3lss_layer_t layer,
 		nv_guard_tegraphase_t phase)
 {
 	static cmdresp_frame_ex_t send_phase = {0};
-	int timeout =
+	long timeout =
 		wait_event_interruptible_timeout(ldata->cmd.notify_waitq,
 						 (atomic_read(
 						 &ldata->cmd.notify_registered)

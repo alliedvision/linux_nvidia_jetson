@@ -1,7 +1,7 @@
 /*
  * mipi_cal.c
  *
- * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -34,7 +34,11 @@
 #include <linux/version.h>
 
 #include <soc/tegra/fuse.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/tegra_powergate.h>
+#else
+#include <linux/pm_runtime.h>
+#endif
 #include <linux/tegra_prod.h>
 #include <uapi/misc/tegra_mipi_ioctl.h>
 
@@ -132,7 +136,9 @@ static inline bool is_compat_above_18x(struct device_node *np)
 }
 
 struct tegra_mipi_soc {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	int powergate_id;
+#endif
 	u8 total_dsilanes;
 	u8 total_cillanes;
 	s8 csi_base;
@@ -175,16 +181,38 @@ static int mipical_update_bits(struct regmap *map, unsigned int reg,
 
 	return ret;
 }
+
+static int tegra_mipi_unpowergate(struct tegra_mipi *mipi)
+{
+	int ret = 0;
+
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	ret = tegra_unpowergate_partition(mipi->soc->powergate_id);
+#else
+	ret = pm_runtime_get(mipi->dev);
+#endif
+	return ret;
+}
+
+static void tegra_mipi_powergate(struct tegra_mipi *mipi)
+{
+
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	tegra_powergate_partition(mipi->soc->powergate_id);
+#else
+	pm_runtime_put(mipi->dev);
+#endif
+}
+
 static int tegra_mipi_clk_enable(struct tegra_mipi *mipi)
 {
 	int err;
 
-	err = tegra_unpowergate_partition(mipi->soc->powergate_id);
-	if (err) {
-		dev_err(mipi->dev, "Fail to unpowergate SOR\n");
+	err = tegra_mipi_unpowergate(mipi);
+	if (IS_ERR(ERR_PTR(err))) {
+		dev_err(mipi->dev, "Failed to unpowergate DISP, err %d\n", err);
 		return err;
 	}
-
 	err = clk_prepare_enable(mipi->mipi_cal_fixed);
 	if (err) {
 		dev_err(mipi->dev, "Fail to enable uart_mipi_cal clk\n");
@@ -201,8 +229,7 @@ static int tegra_mipi_clk_enable(struct tegra_mipi *mipi)
 err_mipi_cal_clk:
 	clk_disable_unprepare(mipi->mipi_cal_fixed);
 err_fixed_clk:
-	tegra_powergate_partition(mipi->soc->powergate_id);
-
+	tegra_mipi_powergate(mipi);
 	return err;
 }
 
@@ -210,7 +237,7 @@ static void tegra_mipi_clk_disable(struct tegra_mipi *mipi)
 {
 	clk_disable_unprepare(mipi->mipi_cal_clk);
 	clk_disable_unprepare(mipi->mipi_cal_fixed);
-	tegra_powergate_partition(mipi->soc->powergate_id);
+	tegra_mipi_powergate(mipi);
 }
 
 static void tegra_mipi_print(struct tegra_mipi *mipi) __maybe_unused;
@@ -269,28 +296,20 @@ static int tegra_mipi_wait(struct tegra_mipi *mipi, int lanes)
 
 	timeout = jiffies + msecs_to_jiffies(MIPI_CAL_TIMEOUT_MSEC);
 	while (time_before(jiffies, timeout)) {
+		usleep_range(125, 150);
 		regmap_read(mipi->regmap, ADDR(CIL_MIPI_CAL_STATUS), &val);
 		if (((val & lanes) == lanes) && ((val & CAL_ACTIVE) == 0)) {
 			trace_mipical_result("CIL_MIPI_CAL_STATUS", val);
 			return 0;
 		}
-		usleep_range(10, 50);
 	}
-	/* Sometimes there is false timeout. Sleep past the timeout and did
-	 * not check the status again.
-	 * Later status register dump shows no timeout.
-	 * Add another check here in case sleep past the timeout.
-	 */
-	regmap_read(mipi->regmap, ADDR(CIL_MIPI_CAL_STATUS), &val);
-	if (((val & lanes) == lanes) && ((val & CAL_ACTIVE) == 0))
-		return 0;
 	dev_err(mipi->dev, "Mipi cal timeout,val:%x, lanes:%x\n", val, lanes);
 	tegra_mipi_print(mipi);
 	return -ETIMEDOUT;
 
 }
 
-static int _tegra_mipi_bias_pad_enable(struct tegra_mipi *mipi)
+static int _t18x_tegra_mipi_bias_pad_enable(struct tegra_mipi *mipi)
 {
 	tegra_mipi_clk_enable(mipi);
 	mipical_update_bits(mipi->regmap, ADDR(MIPI_BIAS_PAD_CFG0),
@@ -301,7 +320,7 @@ static int _tegra_mipi_bias_pad_enable(struct tegra_mipi *mipi)
 	return 0;
 }
 
-static int _tegra_mipi_bias_pad_disable(struct tegra_mipi *mipi)
+static int _t18x_tegra_mipi_bias_pad_disable(struct tegra_mipi *mipi)
 {
 	mipical_update_bits(mipi->regmap, ADDR(MIPI_BIAS_PAD_CFG0),
 			PDVCLAMP, 1 << PDVCLAMP_SHIFT);
@@ -318,6 +337,22 @@ static int _t21x_tegra_mipi_bias_pad_enable(struct tegra_mipi *mipi)
 	return mipical_update_bits(mipi->regmap,
 			ADDR(MIPI_BIAS_PAD_CFG2), PDVREG, 0);
 	return 0;
+}
+
+/* only one client calls this function, no need for refcount (nvhost/nvcsi-t194) */
+int tegra_mipi_poweron(bool enable)
+{
+	int err = 0;
+
+	if (!mipi)
+		return -EPROBE_DEFER;
+
+	if (enable)
+		err = tegra_mipi_clk_enable(mipi);
+	else
+		tegra_mipi_clk_disable(mipi);
+
+	return err;
 }
 
 int tegra_mipi_bias_pad_enable(void)
@@ -362,8 +397,13 @@ int tegra_mipi_bias_pad_disable(void)
 
 	if (mipi->soc->pad_disable) {
 		if (atomic_read(&mipi->pad_refcount) < 1) {
-			WARN_ON(1);
-			return -EINVAL;
+			/*
+			 * no-op:
+			 * valid usecase when v4l2 path and ioctl path is used
+			 */
+			dev_info(mipi->dev,
+				"mipical: unbalanced call to pad_disable\n");
+			return ret;
 		}
 		if (atomic_dec_return(&mipi->pad_refcount) == 0)
 			ret = mipi->soc->pad_disable(mipi);
@@ -523,9 +563,9 @@ static int dbgfs_show_regs(struct seq_file *s, void *data)
 	int err, i;
 	static int first = 1;
 
-	err = tegra_unpowergate_partition(mipi->soc->powergate_id);
-	if (err) {
-		dev_err(mipi->dev, "Fail to unpowergate SOR\n");
+	err = tegra_mipi_unpowergate(mipi);
+	if (IS_ERR(ERR_PTR(err))) {
+		dev_err(mipi->dev, "Failed to unpowergate DISP, err %d\n", err);
 		return err;
 	}
 
@@ -566,7 +606,7 @@ static int dbgfs_show_regs(struct seq_file *s, void *data)
 	err = 0;
 
 clk_err:
-	tegra_powergate_partition(mipi->soc->powergate_id);
+	tegra_mipi_powergate(mipi);
 	return err;
 }
 
@@ -591,16 +631,10 @@ static int dbgfs_mipi_init(struct tegra_mipi *mipi)
 	if (!dir)
 		return -ENOMEM;
 
-	val = debugfs_create_x32("LAST_STATUS", S_IRUGO, dir, &mipical_status);
-	if (!val)
-		goto err;
-	val = debugfs_create_u32("COUNT", S_IRUGO | S_IWUGO, dir, &counts);
-	if (!val)
-		goto err;
-	val = debugfs_create_u32("TIMEOUTS", S_IRUGO | S_IWUGO, dir,
+	debugfs_create_x32("LAST_STATUS", S_IRUGO, dir, &mipical_status);
+	debugfs_create_u32("COUNT", S_IRUGO | S_IWUGO, dir, &counts);
+	debugfs_create_u32("TIMEOUTS", S_IRUGO | S_IWUGO, dir,
 				&timeout_ct);
-	if (!val)
-		goto err;
 
 	val = debugfs_create_file("regs", S_IRUGO, dir, mipi, &dbgfs_ops);
 	if (!val)
@@ -685,6 +719,19 @@ prod_set_fail:
 	return err;
 
 }
+
+static int tegra_mipical_no_op(struct tegra_mipi *mipi, int lanes_info)
+{
+	return -1;
+}
+
+
+static int tegra_mipi_bias_pad_no_op(struct tegra_mipi *mipi)
+{
+	/* TODO: return error after updating CS test. */
+	return 0;
+}
+
 int tegra_mipi_calibration(int lanes)
 {
 	if (!mipi)
@@ -797,7 +844,9 @@ static const struct tegra_mipi_soc tegra21x_mipi_soc = {
 	.cil_sw_reset = NULL,
 	.calibrate = &t21x_tegra_mipical_using_prod,
 	.parse_cfg = &t21x_tegra_prod_get_config,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	.powergate_id = TEGRA210_POWER_DOMAIN_SOR,
+#endif
 };
 
 static const struct tegra_mipi_soc tegra18x_mipi_soc = {
@@ -807,12 +856,14 @@ static const struct tegra_mipi_soc tegra18x_mipi_soc = {
 	.dsi_base = T186_DSI_BASE,
 	.ppsb_war = 0,
 	.debug_table_id = DEBUGFS_TABLE_T18x,
-	.pad_enable = &_tegra_mipi_bias_pad_enable,
-	.pad_disable = &_tegra_mipi_bias_pad_disable,
+	.pad_enable = &_t18x_tegra_mipi_bias_pad_enable,
+	.pad_disable = &_t18x_tegra_mipi_bias_pad_disable,
 	.cil_sw_reset = &nvcsi_cil_sw_reset,
 	.calibrate = &tegra_mipical_using_prod,
 	.parse_cfg = &tegra_prod_get_config,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	.powergate_id = TEGRA186_POWER_DOMAIN_DISP,
+#endif
 };
 
 /*
@@ -827,16 +878,14 @@ static const struct tegra_mipi_soc tegra19x_mipi_soc = {
 	.dsi_base = T186_DSI_BASE + 8,
 	.ppsb_war = 0,
 	.debug_table_id = DEBUGFS_TABLE_T19x,
-	.pad_enable = &_tegra_mipi_bias_pad_enable,
-	.pad_disable = &_tegra_mipi_bias_pad_disable,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	.pad_enable = &tegra_mipi_bias_pad_no_op,
+	.pad_disable = &tegra_mipi_bias_pad_no_op,
 	.cil_sw_reset = NULL,
-#else
-	.cil_sw_reset = &tegra194_nvcsi_cil_sw_reset,
-#endif
-	.calibrate = &tegra_mipical_using_prod,
+	.calibrate = &tegra_mipical_no_op,
 	.parse_cfg = &tegra_prod_get_config,
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	.powergate_id = TEGRA194_POWER_DOMAIN_DISP,
+#endif
 };
 
 static const struct tegra_mipi_soc tegra_vmipi_soc = {
@@ -1063,7 +1112,7 @@ static int tegra_mipi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot request mem region\n");
 		return -EBUSY;
 	}
-	regs = devm_ioremap_nocache(&pdev->dev, mem->start, resource_size(mem));
+	regs = devm_ioremap(&pdev->dev, mem->start, resource_size(mem));
 	if (!regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		return -ENOMEM;
@@ -1081,6 +1130,9 @@ static int tegra_mipi_probe(struct platform_device *pdev)
 	if (IS_ERR(mipi->mipi_cal_clk))
 		return PTR_ERR(mipi->mipi_cal_clk);
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	pm_runtime_enable(mipi->dev);
+#endif
 	if (of_device_is_compatible(np, "nvidia,tegra210-mipical")) {
 		mipi->mipi_cal_fixed = devm_clk_get(&pdev->dev,
 				"uart_mipi_cal");

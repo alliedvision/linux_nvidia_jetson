@@ -1,0 +1,51 @@
+From e73814ecda828414b62f596b20dd242aed5d1b10 Mon Sep 17 00:00:00 2001
+From: Haitao Shan <hshan@google.com>
+Date: Wed, 9 Sep 2020 16:21:38 -0700
+Subject: [PATCH 081/830] ANDROID: Setting up GS before calling
+ __restore_processor_state.
+X-NVConfidentiality: public
+
+Android Common Kernel compiled by clang with Shadow Call Stack will
+use GS segment. However, __restore_processor_state is called when
+system wakes up from S3 and at the moment GS is not restored yet.
+
+This is a hack by copying a small code snippet(setting gs base) from
+__restore_processor_state to restore_processor_state. It prepares GS
+before __restore_processor_state is called. At the same time,
+restore_processor_state is still small enough so that SCS is not on,
+as SCS seems to be on only for large functions.
+
+Bug: 166163480
+Change-Id: I3bfe4ac61dee876da57de6578c9a7f01431a1743
+Signed-off-by: Haitao Shan <hshan@google.com>
+---
+ arch/x86/power/cpu.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/x86/power/cpu.c b/arch/x86/power/cpu.c
+index db1378c6ff26..7e4bafaedd7f 100644
+--- a/arch/x86/power/cpu.c
++++ b/arch/x86/power/cpu.c
+@@ -274,6 +274,19 @@ static void notrace __restore_processor_state(struct saved_context *ctxt)
+ /* Needed by apm.c */
+ void notrace restore_processor_state(void)
+ {
++#ifdef __clang__
++	// The following code snippet is copied from __restore_processor_state.
++	// Its purpose is to prepare GS segment before the function is called.
++	// Since the function is compiled with SCS on, it will use GS at its
++	// entry.
++	// TODO: Hack to be removed later when compiler bug is fixed.
++#ifdef CONFIG_X86_64
++	wrmsrl(MSR_GS_BASE, saved_context.kernelmode_gs_base);
++#else
++	loadsegment(fs, __KERNEL_PERCPU);
++	loadsegment(gs, __KERNEL_STACK_CANARY);
++#endif
++#endif
+ 	__restore_processor_state(&saved_context);
+ }
+ #ifdef CONFIG_X86_32
+-- 
+2.17.1
+

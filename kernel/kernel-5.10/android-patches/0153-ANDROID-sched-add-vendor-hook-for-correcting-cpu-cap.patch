@@ -1,0 +1,105 @@
+From 00b4085610ff101b05a55f94162fe4fc8df29d9e Mon Sep 17 00:00:00 2001
+From: Yun Hsiang <yun.hsiang@mediatek.com>
+Date: Thu, 13 Aug 2020 14:41:46 +0800
+Subject: [PATCH 153/830] ANDROID: sched: add vendor hook for correcting cpu
+ capacity
+X-NVConfidentiality: public
+
+Current CPU capacity is scaled by frequency
+but it will sometime overestimate.
+Add vendor hook to adjust cpu capacity.
+
+android_vh_arch_set_freq_scale
+	Adjust cpu freq scale for each opp.
+
+Bug: 163935827
+
+Signed-off-by: Yun Hsiang <yun.hsiang@mediatek.com>
+Change-Id: I054740a7f60301d5a3b085bfa540d52853f5eec5
+[ebiggers: Folded in the following commit:
+           d6d9bb4ff41b ("ANDROID: fix kernelci build break")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ drivers/base/arch_topology.c   |  3 +++
+ include/trace/hooks/topology.h | 27 +++++++++++++++++++++++++++
+ 3 files changed, 32 insertions(+)
+ create mode 100644 include/trace/hooks/topology.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 7b16c8381931..9849a5c7e60d 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -14,6 +14,7 @@
+ #include <trace/hooks/futex.h>
+ #include <trace/hooks/dtask.h>
+ #include <trace/hooks/cpuidle.h>
++#include <trace/hooks/topology.h>
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+@@ -36,6 +37,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_prepare_prio_fork);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_finish_prio_fork);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_user_nice);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_setscheduler);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_arch_set_freq_scale);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index de8587cc119e..513639b2e1dd 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -20,6 +20,7 @@
+ #include <linux/percpu.h>
+ #include <linux/sched.h>
+ #include <linux/smp.h>
++#include <trace/hooks/topology.h>
+ 
+ bool topology_scale_freq_invariant(void)
+ {
+@@ -52,6 +53,8 @@ void topology_set_freq_scale(const struct cpumask *cpus, unsigned long cur_freq,
+ 
+ 	scale = (cur_freq << SCHED_CAPACITY_SHIFT) / max_freq;
+ 
++	trace_android_vh_arch_set_freq_scale(cur_freq, max_freq, &scale);
++
+ 	for_each_cpu(i, cpus)
+ 		per_cpu(freq_scale, i) = scale;
+ }
+diff --git a/include/trace/hooks/topology.h b/include/trace/hooks/topology.h
+new file mode 100644
+index 000000000000..65ee1962b833
+--- /dev/null
++++ b/include/trace/hooks/topology.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM topology
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_TOPOLOGY_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_TOPOLOGY_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++
++DECLARE_HOOK(android_vh_arch_set_freq_scale,
++	TP_PROTO(unsigned long freq, unsigned long max, unsigned long *scale),
++	TP_ARGS(freq, max, scale));
++
++#else
++
++#define trace_android_vh_arch_set_freq_scale(freq, max, scale)
++
++#endif
++
++#endif /* _TRACE_HOOK_TOPOLOGY_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

@@ -1,0 +1,89 @@
+NVIDIA Tegra Graphics Processing Units
+
+Required properties:
+- compatible: "nvidia,<soc>-<gpu>" or "nvidia,<gpu>"
+  "nvidia,<soc>-<gpu>" means the GPU support for a specific SOC.
+  "nvidia,<gpu>" means the GPU support on any chip.
+  Currently recognized values:
+  - nvidia,tegra210-gm20b
+  - nvidia,tegra186-gp10b
+  - nvidia,gv11b
+- reg: Physical base address and length of the controller's registers.
+  Must contain two entries:
+  - first entry for bar0
+  - second entry for bar1
+  An optional third entry is used only in case of simulation.
+- interrupts: Must contain an entry for each entry in interrupt-names.
+  See ../interrupt-controller/interrupts.txt for details.
+- interrupt-names: Must include the following entries:
+  - stall
+  - nonstall
+- vdd-supply: regulator for supply voltage. Only required for GPUs not using
+  power domains.
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details.
+- clock-names: Must include the following entries:
+  - gpu
+  - pwr
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- reset-names: Must include the following entries:
+  - gpu
+- power-domains: GPUs that make use of power domains can define this property
+  instead of vdd-supply.
+
+Optional properties:
+- dma-coherent : Present if DMA operations are coherent.
+- iommus: A reference to the IOMMU. See ../iommu/iommu.txt for details.
+- access-vpr-phys: If GPU has access to VPR.
+- nvidia,host1x: host1x device, needed for syncpoint support.
+- fuse-overrides: Allow overriding defaults fuses values for
+  GM20B_FUSE_OPT_TPC_DISABLE,
+  GP10B_FUSE_OPT_ECC_EN,
+  GV11B_FUSE_OPT_TPC_DISABLE
+- support-gpu-tools: Controls the support for debug tools like profiler,
+  debugger and feature like CTXSW tracing. Value of 0 indicates that the
+  above debug tools are not supported. Any value other than 0 indicates
+  that the driver support for above debug tools is enabled. The debug
+  tools support is enabled by default, even if the property is missing
+  in the GPU DT node.
+
+Example for GP10B:
+
+        gp10b {
+                compatible = "nvidia,tegra186-gp10b";
+                reg = <0x0 0x17000000 0x0 0x1000000
+                       0x0 0x18000000 0x0 0x1000000
+                       0x0 0x03b41000 0x0 0x00001000>;
+                interrupts = <0 70 0x04
+                              0 71 0x04>;
+                interrupt-names = "stall", "nonstall";
+                nvidia,host1x = <&host1x>;
+                iommus = <&smmu TEGRA_SID_GPUB>;
+                access-vpr-phys;
+                resets = <&tegra_car TEGRA186_RESET_GPU>;
+                clocks = <&tegra_car TEGRA186_CLK_GPCCLK>,
+                        <&tegra_car TEGRA186_CLK_GPU>;
+                clock-names = "gpu", "gpu_sys";
+                fuse-overrides = <GP10B_FUSE_OPT_ECC_EN 0x9999>;
+        };
+
+Example for GV11B:
+
+        gv11b {
+                compatible = "nvidia,gv11b";
+                reg = <0x0 0x17000000 0x0 0x1000000
+                       0x0 0x18000000 0x0 0x1000000
+                       0x0 0x03b41000 0x0 0x00001000>;
+                interrupts = <0 70 0x04
+                              0 71 0x04>;
+                interrupt-names = "stall", "nonstall";
+                nvidia,host1x = <&host1x>;
+                access-vpr-phys;
+                clocks = <&bpmp_clks TEGRA194_CLK_GPCCLK>,
+                        <&bpmp_clks TEGRA194_CLK_GPU_PWR>;
+                clock-names = "gpu", "gpu_sys";
+                resets = <&bpmp_resets TEGRA194_RESET_GPU>;
+                dma-coherent;
+                support-gpu-tools = <1>;
+        };

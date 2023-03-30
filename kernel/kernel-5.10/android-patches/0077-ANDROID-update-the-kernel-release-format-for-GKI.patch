@@ -1,0 +1,115 @@
+From aa472ce18c8b58a5fb27ed2d2ce7515a786c4356 Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Thu, 9 Jul 2020 15:33:45 -0700
+Subject: [PATCH 077/830] ANDROID: update the kernel release format for GKI
+X-NVConfidentiality: public
+
+The new kernel release format is: w.x.y-zz-k where,
+  w.x.y are the current values
+  zzz is the Android Release value
+  k is the KMI Generation number
+
+This allows one to identify the kernel module interface version using
+`uname -r`. The KMI Generation number is used to identify any KMI
+changes that occur after the KMI freeze. This should only occur in an
+unlikely event that a security patch requires a KMI update.
+
+Here is a local example:
+  5.4.51-android12-0-00153-ga972f59040e4-dirty
+
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Bug: 159842160
+Change-Id: I33f40e424ca967b85d810cdb12c6a2c58e4197b7
+[willmcvicker: squash with commit 0c0d417747d8e289b2808c3fca32c845f82fd5e5]
+[ebiggers: split the build.config.common change into a separate patch so
+           that changes to upstream files are kept separate from the
+           Android-specific build files.]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ Makefile                |  6 ++++--
+ scripts/setlocalversion | 26 +++++++++++++++++++++++++-
+ 2 files changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 0208ffca8665..e29107c43ac2 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1256,7 +1256,8 @@ targets := vmlinux
+ $(sort $(vmlinux-deps) $(subdir-modorder)): descend ;
+ 
+ filechk_kernel.release = \
+-	echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion $(srctree))"
++	echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion \
++		$(srctree) $(BRANCH) $(KMI_GENERATION))"
+ 
+ # Store (new) KERNELRELEASE string in include/config/kernel.release
+ include/config/kernel.release: FORCE
+@@ -2003,7 +2004,8 @@ checkstack:
+ 	$(PERL) $(srctree)/scripts/checkstack.pl $(CHECKSTACK_ARCH)
+ 
+ kernelrelease:
+-	@echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion $(srctree))"
++	@echo "$(KERNELVERSION)$$($(CONFIG_SHELL) $(srctree)/scripts/setlocalversion \
++		$(srctree) $(BRANCH) $(KMI_GENERATION))"
+ 
+ kernelversion:
+ 	@echo $(KERNELVERSION)
+diff --git a/scripts/setlocalversion b/scripts/setlocalversion
+index bb709eda96cd..627c6e289597 100755
+--- a/scripts/setlocalversion
++++ b/scripts/setlocalversion
+@@ -11,12 +11,14 @@
+ #
+ 
+ usage() {
+-	echo "Usage: $0 [--save-scmversion] [srctree]" >&2
++	echo "Usage: $0 [--save-scmversion] [srctree] [branch] [kmi-generation]" >&2
+ 	exit 1
+ }
+ 
+ scm_only=false
+ srctree=.
++android_release=
++kmi_generation=
+ if test "$1" = "--save-scmversion"; then
+ 	scm_only=true
+ 	shift
+@@ -25,6 +27,24 @@ if test $# -gt 0; then
+ 	srctree=$1
+ 	shift
+ fi
++if test $# -gt 0; then
++	# Extract the Android release version. If there is no match, then return 255
++	# and clear the var $android_release
++	android_release=`echo "$1" | sed -e '/android[0-9]\{2,\}/!{q255}; \
++		s/^\(android[0-9]\{2,\}\)-.*/\1/'`
++	if test $? -ne 0; then
++		android_release=
++	fi
++	shift
++
++	if test $# -gt 0; then
++		kmi_generation=$1
++		[ $(expr $kmi_generation : '^[0-9]\+$') -eq 0 ] && usage
++		shift
++	else
++		usage
++	fi
++fi
+ if test $# -gt 0 -o ! -d "$srctree"; then
+ 	usage
+ fi
+@@ -47,6 +67,10 @@ scm_version()
+ 	if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
+ 	   head=$(git rev-parse --verify HEAD 2>/dev/null); then
+ 
++		if [ -n "$android_release" ] && [ -n "$kmi_generation" ]; then
++			printf '%s' "-$android_release-$kmi_generation"
++		fi
++
+ 		# If we are at a tagged commit (like "v2.6.30-rc6"), we ignore
+ 		# it, because this version is defined in the top level Makefile.
+ 		if [ -z "$(git describe --exact-match 2>/dev/null)" ]; then
+-- 
+2.17.1
+

@@ -1,0 +1,41 @@
+From bdf096dfc6121e3e70bdf4512e49963b09b93810 Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Mon, 21 Sep 2020 11:31:38 -0700
+Subject: [PATCH 774/830] ANDROID: GKI: enable CONFIG_SONY_FF
+X-NVConfidentiality: public
+
+Bug: 168719305
+Signed-off-by: Steve Muckle <smuckle@google.com>
+Change-Id: Id9ebb1937b669b999ccc5daccaadb04f88449497
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index abeda5317398..e83e5976ed15 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -383,6 +383,7 @@ CONFIG_HID_MULTITOUCH=y
+ CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
++CONFIG_SONY_FF=y
+ CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB_OTG=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index cc17cd2c2d35..b633d4527ef4 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -339,6 +339,7 @@ CONFIG_HID_MULTITOUCH=y
+ CONFIG_HID_NINTENDO=y
+ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
++CONFIG_SONY_FF=y
+ CONFIG_HID_STEAM=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB_EHCI_HCD=y
+-- 
+2.17.1
+

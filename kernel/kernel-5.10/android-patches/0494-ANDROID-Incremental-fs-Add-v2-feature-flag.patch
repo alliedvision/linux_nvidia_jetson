@@ -1,0 +1,100 @@
+From d184105b326da0e29c99090ccf93200f545dcb5c Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Mon, 30 Nov 2020 09:18:42 -0800
+Subject: [PATCH 494/830] ANDROID: Incremental fs: Add v2 feature flag
+X-NVConfidentiality: public
+
+Roll report_uid feature flag into v2 feature flag
+
+Bug: 174478527
+Test: Feature flag present on boot
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I41ee9715904560004e25cc83a5ccc1eb1bdd2b1f
+---
+ fs/incfs/main.c                    | 29 ++++++++++++-----------------
+ include/uapi/linux/incrementalfs.h | 14 ++++++++++----
+ 2 files changed, 22 insertions(+), 21 deletions(-)
+
+diff --git a/fs/incfs/main.c b/fs/incfs/main.c
+index 2332fa5b7f45..23cf3fefac97 100644
+--- a/fs/incfs/main.c
++++ b/fs/incfs/main.c
+@@ -22,34 +22,29 @@ static struct file_system_type incfs_fs_type = {
+ 
+ static struct kobject *sysfs_root, *featurefs_root;
+ 
+-static ssize_t corefs_show(struct kobject *kobj,
+-			  struct kobj_attribute *attr, char *buff)
++static ssize_t supported(struct kobject *kobj,
++			 struct kobj_attribute *attr, char *buff)
+ {
+ 	return snprintf(buff, PAGE_SIZE, "supported\n");
+ }
+ 
+-static struct kobj_attribute corefs_attr = __ATTR_RO(corefs);
++typedef ssize_t (*const attr_show)(struct kobject *kobj,
++				   struct kobj_attribute *attr, char *buff);
+ 
+-static ssize_t report_uid_show(struct kobject *kobj,
+-			       struct kobj_attribute *attr, char *buff)
+-{
+-	return snprintf(buff, PAGE_SIZE, "supported\n");
+-}
+-
+-static struct kobj_attribute report_uid_attr = __ATTR_RO(report_uid);
++#define _DECLARE_FEATURE_FLAG(name)					\
++	static attr_show name##_show = supported;			\
++	static struct kobj_attribute name##_attr = __ATTR_RO(name)
+ 
+-static ssize_t zstd_show(struct kobject *kobj,
+-			       struct kobj_attribute *attr, char *buff)
+-{
+-	return snprintf(buff, PAGE_SIZE, "supported\n");
+-}
++#define DECLARE_FEATURE_FLAG(name) _DECLARE_FEATURE_FLAG(name)
+ 
+-static struct kobj_attribute zstd_attr = __ATTR_RO(zstd);
++DECLARE_FEATURE_FLAG(corefs);
++DECLARE_FEATURE_FLAG(zstd);
++DECLARE_FEATURE_FLAG(v2);
+ 
+ static struct attribute *attributes[] = {
+ 	&corefs_attr.attr,
+-	&report_uid_attr.attr,
+ 	&zstd_attr.attr,
++	&v2_attr.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 0de1f6eeec84..b6c3f852ae65 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -137,14 +137,20 @@
+ #define INCFS_FEATURE_FLAG_COREFS "corefs"
+ 
+ /*
+- * report_uid mount option is supported
++ * zstd compression support
+  */
+-#define INCFS_FEATURE_FLAG_REPORT_UID "report_uid"
++#define INCFS_FEATURE_FLAG_ZSTD "zstd"
+ 
+ /*
+- * zstd compression support
++ * v2 feature set support. Covers:
++ *   INCFS_IOC_CREATE_MAPPED_FILE
++ *   INCFS_IOC_GET_BLOCK_COUNT
++ *   INCFS_IOC_GET_READ_TIMEOUTS/INCFS_IOC_SET_READ_TIMEOUTS
++ *   .blocks_written status file
++ *   .incomplete folder
++ *   report_uid mount option
+  */
+-#define INCFS_FEATURE_FLAG_ZSTD "zstd"
++#define INCFS_FEATURE_FLAG_V2 "v2"
+ 
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+-- 
+2.17.1
+

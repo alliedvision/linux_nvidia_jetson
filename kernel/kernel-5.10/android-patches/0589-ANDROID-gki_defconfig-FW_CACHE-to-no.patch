@@ -1,0 +1,44 @@
+From 6a52f7e206b1eb75a2f7b3e220feddd2d94ed485 Mon Sep 17 00:00:00 2001
+From: Mark Salyzyn <salyzyn@google.com>
+Date: Wed, 13 Nov 2019 13:38:37 -0800
+Subject: [PATCH 589/830] ANDROID: gki_defconfig: FW_CACHE to no
+X-NVConfidentiality: public
+
+Set the default for FW_CACHE to n to match Android expectations.
+
+Signed-off-by: Mark Salyzyn <salyzyn@google.com>
+Bug: 32180327
+Bug: 137566496
+Change-Id: I86a28040be07fb2f30125d28f7f379798727785c
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 80b8eff87fb8..72276cc6e492 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -204,6 +204,7 @@ CONFIG_PCI_HOST_GENERIC=y
+ CONFIG_PCIE_KIRIN=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
++# CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
+ CONFIG_ZRAM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index ac1f62245426..d7cf31394e34 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -180,6 +180,7 @@ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
++# CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
+ CONFIG_OF=y
+-- 
+2.17.1
+

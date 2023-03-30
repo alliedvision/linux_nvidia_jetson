@@ -1225,19 +1225,14 @@ void phydm_soml_bytes_acq(void *dm_void, u8 rate_id, u32 length)
 }
 
 #if defined(CONFIG_RTL_TRIBAND_SUPPORT) && defined(CONFIG_USB_HCI)
-#define INIT_TIMER_EVENT_ENTRY(_entry, _func, _data) \
-	do { \
-		_rtw_init_listhead(&(_entry)->list); \
-		(_entry)->data = (_data); \
-		(_entry)->function = (_func); \
-	} while (0)
-
 static void pre_phydm_adaptive_soml_callback(unsigned long task_dm)
 {
 	struct dm_struct *dm = (struct dm_struct *)task_dm;
 	struct rtl8192cd_priv *priv = dm->priv;
 	struct priv_shared_info *pshare = priv->pshare;
 
+	if (!(priv->drv_state & DRV_STATE_OPEN))
+		return;
 	if (pshare->bDriverStopped || pshare->bSurpriseRemoved) {
 		printk("[%s] bDriverStopped(%d) OR bSurpriseRemoved(%d)\n",
 		       __FUNCTION__, pshare->bDriverStopped,

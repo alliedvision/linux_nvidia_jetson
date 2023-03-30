@@ -1,7 +1,7 @@
 /*
  * events.c: Event and Queue functions for tegradc ext interface.
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  *

@@ -1,0 +1,45 @@
+From 7eceb56384dbc92b2e664a948ea4664e930d79a4 Mon Sep 17 00:00:00 2001
+From: Mark Salyzyn <salyzyn@google.com>
+Date: Mon, 5 Oct 2020 05:24:21 -0700
+Subject: [PATCH 406/830] ANDROID: overlayfs: readdir override_creds=off option
+ bypass creator_cred
+X-NVConfidentiality: public
+
+ovl_revert_creds calls missing.
+
+Addendum to commit 6120a4d78045cc741f04ed6bcd3d6f553115278d
+("FROMLIST: overlayfs: override_creds=off option bypass creator_cred")
+
+Signed-off-by: Mark Salyzyn <salyzyn@google.com>
+Bug: 169988379
+Fixes: 48bd024b8a40 ("ovl: switch to mounter creds in readdir")
+Change-Id: Ib351a453cca7fb5a2d87c60212f4ab0a420deb98
+---
+ fs/overlayfs/readdir.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/overlayfs/readdir.c b/fs/overlayfs/readdir.c
+index b63f3dccc819..5a35f87dd66f 100644
+--- a/fs/overlayfs/readdir.c
++++ b/fs/overlayfs/readdir.c
+@@ -784,7 +784,7 @@ static int ovl_iterate(struct file *file, struct dir_context *ctx)
+ 	}
+ 	err = 0;
+ out:
+-	revert_creds(old_cred);
++	ovl_revert_creds(dentry->d_sb, old_cred);
+ 	return err;
+ }
+ 
+@@ -836,7 +836,7 @@ static struct file *ovl_dir_open_realfile(const struct file *file,
+ 
+ 	old_cred = ovl_override_creds(file_inode(file)->i_sb);
+ 	res = ovl_path_open(realpath, O_RDONLY | (file->f_flags & O_LARGEFILE));
+-	revert_creds(old_cred);
++	ovl_revert_creds(file_inode(file)->i_sb, old_cred);
+ 
+ 	return res;
+ }
+-- 
+2.17.1
+

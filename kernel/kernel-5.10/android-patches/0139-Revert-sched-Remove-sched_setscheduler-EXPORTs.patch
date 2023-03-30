@@ -1,0 +1,47 @@
+From 85ad573e33575f9afb76838a2760f4e7f11bca19 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Wed, 12 Aug 2020 08:31:55 -0700
+Subject: [PATCH 139/830] Revert "sched: Remove sched_setscheduler*() EXPORTs"
+X-NVConfidentiality: public
+
+This reverts commit 616d91b68cd56bcb1954b6a5af7d542401fde772.
+
+Some vendor modules need to set explicit priorities for kernel
+threads (display, audio, graphics)
+
+Bug: 163613349
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I58cadfd975af8b2911c05b61e6a3fa184efb1a8e
+---
+ kernel/sched/core.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 3d7bdd98eb3c..7f9042f28efe 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -5499,11 +5499,13 @@ int sched_setscheduler(struct task_struct *p, int policy,
+ {
+ 	return _sched_setscheduler(p, policy, param, true);
+ }
++EXPORT_SYMBOL_GPL(sched_setscheduler);
+ 
+ int sched_setattr(struct task_struct *p, const struct sched_attr *attr)
+ {
+ 	return __sched_setscheduler(p, attr, true, true);
+ }
++EXPORT_SYMBOL_GPL(sched_setattr);
+ 
+ int sched_setattr_nocheck(struct task_struct *p, const struct sched_attr *attr)
+ {
+@@ -5528,6 +5530,7 @@ int sched_setscheduler_nocheck(struct task_struct *p, int policy,
+ {
+ 	return _sched_setscheduler(p, policy, param, false);
+ }
++EXPORT_SYMBOL_GPL(sched_setscheduler_nocheck);
+ 
+ /*
+  * SCHED_FIFO is a broken scheduler model; that is, it is fundamentally
+-- 
+2.17.1
+

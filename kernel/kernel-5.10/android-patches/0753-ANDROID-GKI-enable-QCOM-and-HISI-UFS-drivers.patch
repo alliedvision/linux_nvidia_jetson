@@ -1,0 +1,33 @@
+From 4fe520dd0641a0e660e59faa97fc3f952fe1b6ae Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 29 Jun 2020 12:30:45 +0200
+Subject: [PATCH 753/830] ANDROID: GKI: enable QCOM and HISI UFS drivers
+X-NVConfidentiality: public
+
+These seem to be needed by most systems, so just build them into the
+kernel so we don't have to keep messing with ABI changes.
+
+Bug: 162909109
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I60801d9f98a37b4e84c56c0da2bf1e8d778d9953
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 73b27e4b46f2..116ff90289f8 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -229,6 +229,8 @@ CONFIG_BLK_DEV_SD=y
+ CONFIG_SCSI_UFSHCD=y
+ CONFIG_SCSI_UFSHCD_PCI=y
+ CONFIG_SCSI_UFSHCD_PLATFORM=y
++CONFIG_SCSI_UFS_QCOM=y
++CONFIG_SCSI_UFS_HISI=y
+ CONFIG_SCSI_UFS_CRYPTO=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_DM=y
+-- 
+2.17.1
+

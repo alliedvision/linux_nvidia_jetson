@@ -13,35 +13,11 @@
 
 / {
 	thermal_fan_est_shared_data: tfesd {
-		tzp_governor_name = "continuous_therm_gov";
 		ndevs = <4>;
 		dev4 {
-			dev_data = "mlx5";
+			dev_data = "Mellanox-therm";
 			group = <1>;
 			coeffs = <100 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
-		};
-	};
-
-	thermal-fan-est {
-		shared_data = <&thermal_fan_est_shared_data>;
-		use_tmargin;
-		thermal-zone-params {
-			governor-name = "continuous_therm_gov";
-			iir_power = <7>;
-			iir_min = <10>;
-			iir_max = <1000>;
-			iir_gain_qp = <1000>;
-			iir_upper_width = <1000>;
-			iir_lower_width = <1000>;
-		};
-		profiles {
-			default = "cool";
-			/delete-node/ quiet;
-			cool {
-				active_trip_temps = <17000 24000 52000 100000 120000
-							140000 160000 180000 200000 220000>;
-				active_hysteresis = <0 0 0 0 0 0 0 0 0 0>;
-			};
 		};
 	};
 };

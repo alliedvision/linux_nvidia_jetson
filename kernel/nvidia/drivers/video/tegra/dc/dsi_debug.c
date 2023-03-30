@@ -1,7 +1,7 @@
 /*
  * dsi_debug.c: dsi debug interface.
  *
- * Copyright (c) 2013-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -552,6 +552,11 @@ static ssize_t write_long_data_get_cmd(struct file *file,
 	i = 0;
 	while (i < 2) {
 		token = strsep(&buffer, " ");
+		if (token == NULL) {
+			dev_err(&dc->ndev->dev, "Invalid buffer\n");
+			goto fail;
+		}
+
 		if (*token == '\0')
 			continue;
 		i++;

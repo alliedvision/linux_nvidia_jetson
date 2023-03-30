@@ -1,7 +1,7 @@
 /*
  * RAS driver for T194
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -205,6 +205,16 @@ void ras_write_pfg_cdn(u64 pfg_cdn)
 	asm volatile("msr s3_0_c15_c1_6, %0" : : "r" (pfg_cdn));
 }
 EXPORT_SYMBOL(ras_write_pfg_cdn);
+
+/* Read ERR<X>FR_EL1*/
+u64 ras_read_feature_reg(void)
+{
+	u64 fr;
+
+	asm volatile("mrs %0, s3_0_c5_c4_0" : "=r" (fr));
+	return fr;
+}
+EXPORT_SYMBOL(ras_read_feature_reg);
 
 void unregister_fhi_callback(struct ras_fhi_callback *callback)
 {

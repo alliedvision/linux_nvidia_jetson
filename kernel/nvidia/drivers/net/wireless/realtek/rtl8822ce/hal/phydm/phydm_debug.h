@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2017  Realtek Corporation.
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -26,11 +27,13 @@
 #ifndef __ODM_DBG_H__
 #define __ODM_DBG_H__
 
-/*@#define DEBUG_VERSION	"1.1"*/ /*@2015.07.29 YuChen*/
-/*@#define DEBUG_VERSION	"1.2"*/ /*@2015.08.28 Dino*/
-/*@#define DEBUG_VERSION	"1.3"*/ /*@2016.04.28 YuChen*/
-/*@#define DEBUG_VERSION	"1.4"*/ /*@2017.03.13 Dino*/
-#define DEBUG_VERSION "2.0" /*@2018.01.10 Dino*/
+/*#define DEBUG_VERSION	"1.1"*/ /*2015.07.29 YuChen*/
+/*#define DEBUG_VERSION	"1.2"*/ /*2015.08.28 Dino*/
+/*#define DEBUG_VERSION	"1.3"*/ /*2016.04.28 YuChen*/
+/*#define DEBUG_VERSION	"1.4"*/ /*2017.03.13 Dino*/
+/*#define DEBUG_VERSION "2.0"*/ /*2018.01.10 Dino*/
+/* 2019.07.01 Move location of nhm_level msg in win_cli*/
+#define DEBUG_VERSION "3.8"
 
 /*@
  * ============================================================
@@ -86,8 +89,6 @@
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
 	#define PHYDM_SNPRINTF		snprintf
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
-	#undef	pr_debug
-	#define pr_debug		printk
 	#define RT_PRINTK(fmt, args...)	pr_debug(fmt, ## args)
 	#define	RT_DISP(dbgtype, dbgflag, printstr)
 	#define RT_TRACE(adapter, comp, drv_level, fmt, args...)	\

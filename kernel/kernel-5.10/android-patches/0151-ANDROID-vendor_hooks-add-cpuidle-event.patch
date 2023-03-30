@@ -1,0 +1,103 @@
+From ba3e176ee628f3477e39609fe9b07360e4a8e141 Mon Sep 17 00:00:00 2001
+From: Park Bumgyu <bumgyu.park@samsung.com>
+Date: Thu, 20 Aug 2020 11:17:23 +0900
+Subject: [PATCH 151/830] ANDROID: vendor_hooks: add cpuidle event
+X-NVConfidentiality: public
+
+An event that gather the idle state that the cpu attempted to enter and
+actually entered is added. Through this, the idle statistics of the cpu
+can be obtained and used for vendor specific algorithms or for system
+analysis.
+
+Bug: 162980647
+
+Change-Id: I9c2491d524722042e881864488f7b3cf7e903d1e
+Signed-off-by: Park Bumgyu <bumgyu.park@samsung.com>
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ drivers/cpuidle/cpuidle.c      |  3 +++
+ include/trace/hooks/cpuidle.h  | 24 ++++++++++++++++++++++++
+ 3 files changed, 29 insertions(+)
+ create mode 100644 include/trace/hooks/cpuidle.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 31d843f43cc2..957eea13ab00 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -13,6 +13,7 @@
+ #include <trace/hooks/rwsem.h>
+ #include <trace/hooks/futex.h>
+ #include <trace/hooks/dtask.h>
++#include <trace/hooks/cpuidle.h>
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+@@ -48,6 +49,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_read_wait_finish);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_start);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_finish);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_show_task);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_idle);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_busiest_group);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_wq_lockup_pool);
+diff --git a/drivers/cpuidle/cpuidle.c b/drivers/cpuidle/cpuidle.c
+index 83af15f77f66..fa0024b4549b 100644
+--- a/drivers/cpuidle/cpuidle.c
++++ b/drivers/cpuidle/cpuidle.c
+@@ -24,6 +24,7 @@
+ #include <linux/tick.h>
+ #include <linux/mmu_context.h>
+ #include <trace/events/power.h>
++#include <trace/hooks/cpuidle.h>
+ 
+ #include "cpuidle.h"
+ 
+@@ -228,6 +229,7 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
+ 	/* Take note of the planned idle state. */
+ 	sched_idle_set_state(target_state);
+ 
++	trace_android_vh_cpu_idle(0, index, dev->cpu);
+ 	trace_cpu_idle(index, dev->cpu);
+ 	time_start = ns_to_ktime(local_clock());
+ 
+@@ -242,6 +244,7 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
+ 	sched_clock_idle_wakeup_event();
+ 	time_end = ns_to_ktime(local_clock());
+ 	trace_cpu_idle(PWR_EVENT_EXIT, dev->cpu);
++	trace_android_vh_cpu_idle(PWR_EVENT_EXIT, entered_state, dev->cpu);
+ 
+ 	/* The cpu is no longer idle or about to enter idle. */
+ 	sched_idle_set_state(NULL);
+diff --git a/include/trace/hooks/cpuidle.h b/include/trace/hooks/cpuidle.h
+new file mode 100644
+index 000000000000..826e98e37690
+--- /dev/null
++++ b/include/trace/hooks/cpuidle.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM cpuidle
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_CPUIDLE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_CPUIDLE_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++DECLARE_HOOK(android_vh_cpu_idle,
++	TP_PROTO(int event, int state, int cpu),
++	TP_ARGS(event, state, cpu))
++#else
++#define trace_android_vh_cpu_idle(event, state, cpu)
++#endif
++
++#endif /* _TRACE_HOOK_CPUIDLE_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
++
+-- 
+2.17.1
+

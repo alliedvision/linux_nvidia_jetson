@@ -1,7 +1,7 @@
 /*
- * ISP5 driver for T194
+ * ISP5 driver
  *
- * Copyright (c) 2017-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,11 +33,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <media/isp_channel.h>
+#include <linux/version.h>
+#include <media/fusa-capture/capture-isp-channel.h>
 #include <media/tegra_camera_platform.h>
 #include <soc/tegra/camrtc-capture.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
-#include <soc/tegra/fuse.h>
+#endif
+#include <soc/tegra/fuse-helper.h>
 
 #include "isp5.h"
 #include "capture/capture-support.h"
@@ -57,20 +60,22 @@ struct host_isp5 {
 	struct platform_device *isp_thi;
 };
 
+
+#if defined(CONFIG_TEGRA_CAMERA_RTCPU)
 static int isp5_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
 {
 	struct host_isp5 *isp5 = nvhost_get_private_data(pdev);
 
-	return t194_capture_alloc_syncpt(isp5->isp_thi, name, syncpt_id);
+	return capture_alloc_syncpt(isp5->isp_thi, name, syncpt_id);
 }
 
 static void isp5_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
 	struct host_isp5 *isp5 = nvhost_get_private_data(pdev);
 
-	t194_capture_release_syncpt(isp5->isp_thi, id);
+	capture_release_syncpt(isp5->isp_thi, id);
 }
 
 static int isp5_get_syncpt_gos_backing(struct platform_device *pdev,
@@ -81,7 +86,7 @@ static int isp5_get_syncpt_gos_backing(struct platform_device *pdev,
 {
 	struct host_isp5 *isp5 = nvhost_get_private_data(pdev);
 
-	return t194_capture_get_syncpt_gos_backing(isp5->isp_thi, id,
+	return capture_get_syncpt_gos_backing(isp5->isp_thi, id,
 				syncpt_addr, gos_index, gos_offset);
 
 }
@@ -92,7 +97,7 @@ static uint32_t isp5_get_gos_table(struct platform_device *pdev,
 	struct host_isp5 *isp5 = nvhost_get_private_data(pdev);
 	uint32_t count;
 
-	t194_capture_get_gos_table(isp5->isp_thi, &count, table);
+	capture_get_gos_table(isp5->isp_thi, &count, table);
 
 	return count;
 }
@@ -103,6 +108,7 @@ static struct isp_channel_drv_ops isp5_channel_drv_ops = {
 	.get_gos_table = isp5_get_gos_table,
 	.get_syncpt_gos_backing = isp5_get_syncpt_gos_backing,
 };
+#endif
 
 int isp5_priv_early_probe(struct platform_device *pdev)
 {
@@ -135,7 +141,11 @@ int isp5_priv_early_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA19 &&
+#else
+	if (tegra_get_chip_id() == TEGRA194 &&
+#endif
 		tegra_get_sku_id() == 0x9E) {
 		dev_err(dev, "ISP IP is disabled in SKU\n");
 		err = -ENODEV;
@@ -174,7 +184,7 @@ int isp5_priv_late_probe(struct platform_device *pdev)
 {
 	struct tegra_camera_dev_info isp_info;
 	struct nvhost_device_data *info = platform_get_drvdata(pdev);
-	struct host_vi5 *isp5 = info->private_data;
+	struct host_isp5 *isp5 = info->private_data;
 	int err;
 
 	memset(&isp_info, 0, sizeof(isp_info));

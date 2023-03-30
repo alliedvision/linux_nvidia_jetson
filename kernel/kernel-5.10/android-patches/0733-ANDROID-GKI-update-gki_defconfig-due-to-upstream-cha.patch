@@ -1,0 +1,31 @@
+From f7ecb66b0a19bb29bac0e697fb9c60e31824f5d7 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Sat, 8 Aug 2020 13:35:40 +0200
+Subject: [PATCH 733/830] ANDROID: GKI: update gki_defconfig due to upstream
+ changes
+X-NVConfidentiality: public
+
+CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL is removed from arm64
+gki_defconfig as it's no longer needed.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ieb6daa643900106281205c41f6911dfea8782df3
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 5ef1729aceb9..3b3704d4ca49 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -68,7 +68,6 @@ CONFIG_ARM_CPUIDLE=y
+ CONFIG_ARM_PSCI_CPUIDLE=y
+ CONFIG_CPU_FREQ=y
+ CONFIG_CPU_FREQ_TIMES=y
+-CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+ CONFIG_ARM_SCPI_CPUFREQ=y
+-- 
+2.17.1
+

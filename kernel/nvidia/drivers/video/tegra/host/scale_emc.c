@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host 3D clock scaling
  *
- * Copyright (c) 2010-2015, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -34,7 +34,7 @@
 #include <linux/export.h>
 #include <linux/slab.h>
 #include <linux/ftrace.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 
 #include "chip_support.h"
 #include "dev.h"

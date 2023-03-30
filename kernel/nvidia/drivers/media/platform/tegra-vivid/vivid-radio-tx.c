@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/videodev2.h>
 #include <linux/v4l2-dv-timings.h>
+#include <linux/version.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-dv-timings.h>
@@ -36,7 +37,11 @@ ssize_t vivid_radio_tx_write(struct file *file, const char __user *buf,
 {
 	struct vivid_dev *dev = video_drvdata(file);
 	struct v4l2_rds_data *data = dev->rds_gen.data;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 	unsigned blk;
 	int i;
 

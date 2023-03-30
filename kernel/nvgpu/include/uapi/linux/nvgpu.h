@@ -1,7 +1,7 @@
 /*
  * NVGPU Public Interface Header
  *
- * Copyright (c) 2011-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,1001 +16,11 @@
 #ifndef _UAPI__LINUX_NVGPU_IOCTL_H
 #define _UAPI__LINUX_NVGPU_IOCTL_H
 
-#include <linux/ioctl.h>
-#include <linux/types.h>
-
-#if !defined(__KERNEL__)
-#define __user
-
-/* Some userspace builds have __packed defined already */
-#if !defined(__packed)
-#define __packed __attribute__((packed))
-#endif /* __packed */
-
-#endif /* __KERNEL__ */
-
-/*
- * /dev/nvhost-ctrl-gpu device
- *
- * Opening a '/dev/nvhost-ctrl-gpu' device node creates a way to send
- * ctrl ioctl to gpu driver.
- *
- * /dev/nvhost-gpu is for channel (context specific) operations. We use
- * /dev/nvhost-ctrl-gpu for global (context independent) operations on
- * gpu device.
- */
-
-#define NVGPU_GPU_IOCTL_MAGIC 'G'
-
-/* return zcull ctx size */
-struct nvgpu_gpu_zcull_get_ctx_size_args {
-	__u32 size;
-} __packed;
-
-/* return zcull info */
-struct nvgpu_gpu_zcull_get_info_args {
-	__u32 width_align_pixels;
-	__u32 height_align_pixels;
-	__u32 pixel_squares_by_aliquots;
-	__u32 aliquot_total;
-	__u32 region_byte_multiplier;
-	__u32 region_header_size;
-	__u32 subregion_header_size;
-	__u32 subregion_width_align_pixels;
-	__u32 subregion_height_align_pixels;
-	__u32 subregion_count;
-};
-
-#define NVGPU_ZBC_COLOR_VALUE_SIZE	4
-#define NVGPU_ZBC_TYPE_INVALID		0
-#define NVGPU_ZBC_TYPE_COLOR		1
-#define NVGPU_ZBC_TYPE_DEPTH		2
-
-struct nvgpu_gpu_zbc_set_table_args {
-	__u32 color_ds[NVGPU_ZBC_COLOR_VALUE_SIZE];
-	__u32 color_l2[NVGPU_ZBC_COLOR_VALUE_SIZE];
-	__u32 depth;
-	__u32 format;
-	__u32 type;	/* color or depth */
-} __packed;
-
-struct nvgpu_gpu_zbc_query_table_args {
-	__u32 color_ds[NVGPU_ZBC_COLOR_VALUE_SIZE];
-	__u32 color_l2[NVGPU_ZBC_COLOR_VALUE_SIZE];
-	__u32 depth;
-	__u32 ref_cnt;
-	__u32 format;
-	__u32 type;		/* color or depth */
-	__u32 index_size;	/* [out] size, [in] index */
-} __packed;
-
-
-/* This contains the minimal set by which the userspace can
-   determine all the properties of the GPU */
-#define NVGPU_GPU_ARCH_GK100	0x000000E0
-#define NVGPU_GPU_ARCH_GM200	0x00000120
-#define NVGPU_GPU_ARCH_GP100	0x00000130
-#define NVGPU_GPU_ARCH_GV110	0x00000150
-#define NVGPU_GPU_ARCH_GV100	0x00000140
-
-#define NVGPU_GPU_IMPL_GK20A	0x0000000A
-#define NVGPU_GPU_IMPL_GM204	0x00000004
-#define NVGPU_GPU_IMPL_GM206	0x00000006
-#define NVGPU_GPU_IMPL_GM20B	0x0000000B
-#define NVGPU_GPU_IMPL_GM20B_B	0x0000000E
-#define NVGPU_GPU_IMPL_GP104	0x00000004
-#define NVGPU_GPU_IMPL_GP106	0x00000006
-#define NVGPU_GPU_IMPL_GP10B	0x0000000B
-#define NVGPU_GPU_IMPL_GV11B	0x0000000B
-#define NVGPU_GPU_IMPL_GV100	0x00000000
-
-#define NVGPU_GPU_BUS_TYPE_NONE         0
-#define NVGPU_GPU_BUS_TYPE_AXI         32
-
-#define NVGPU_GPU_FLAGS_HAS_SYNCPOINTS			(1ULL << 0)
-/* MAP_BUFFER_EX with partial mappings */
-#define NVGPU_GPU_FLAGS_SUPPORT_PARTIAL_MAPPINGS	(1ULL << 1)
-/* MAP_BUFFER_EX with sparse allocations */
-#define NVGPU_GPU_FLAGS_SUPPORT_SPARSE_ALLOCS		(1ULL << 2)
-/* sync fence FDs are available in, e.g., submit_gpfifo */
-#define NVGPU_GPU_FLAGS_SUPPORT_SYNC_FENCE_FDS		(1ULL << 3)
-/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_CYCLE_STATS		(1ULL << 4)
-/* NVGPU_DBG_GPU_IOCTL_CYCLE_STATS_SNAPSHOT is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_CYCLE_STATS_SNAPSHOT	(1ULL << 6)
-/* User-space managed address spaces support */
-#define NVGPU_GPU_FLAGS_SUPPORT_USERSPACE_MANAGED_AS	(1ULL << 7)
-/* Both gpu driver and device support TSG */
-#define NVGPU_GPU_FLAGS_SUPPORT_TSG			(1ULL << 8)
-/* Clock control support */
-#define NVGPU_GPU_FLAGS_SUPPORT_CLOCK_CONTROLS		(1ULL << 9)
-/* NVGPU_GPU_IOCTL_GET_VOLTAGE is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_GET_VOLTAGE		(1ULL << 10)
-/* NVGPU_GPU_IOCTL_GET_CURRENT is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_GET_CURRENT		(1ULL << 11)
-/* NVGPU_GPU_IOCTL_GET_POWER is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_GET_POWER		(1ULL << 12)
-/* NVGPU_GPU_IOCTL_GET_TEMPERATURE is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_GET_TEMPERATURE		(1ULL << 13)
-/* NVGPU_GPU_IOCTL_SET_THERM_ALERT_LIMIT is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_SET_THERM_ALERT_LIMIT	(1ULL << 14)
-/* NVGPU_GPU_IOCTL_GET_EVENT_FD is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_DEVICE_EVENTS		(1ULL << 15)
-/* FECS context switch tracing is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_FECS_CTXSW_TRACE	(1ULL << 16)
-/* NVGPU_AS_IOCTL_MAP_BUFFER_COMPBITS is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_MAP_COMPBITS		(1ULL << 17)
-/* Fast deterministic submits with no job tracking are supported */
-#define NVGPU_GPU_FLAGS_SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING (1ULL << 18)
-/* Deterministic submits are supported even with job tracking */
-#define NVGPU_GPU_FLAGS_SUPPORT_DETERMINISTIC_SUBMIT_FULL (1ULL << 19)
-/* IO coherence support is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_IO_COHERENCE		(1ULL << 20)
-/* NVGPU_IOCTL_CHANNEL_RESCHEDULE_RUNLIST is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_RESCHEDULE_RUNLIST	(1ULL << 21)
-/*  subcontexts are available */
-#define NVGPU_GPU_FLAGS_SUPPORT_TSG_SUBCONTEXTS         (1ULL << 22)
-/* Direct PTE kind control is supported (map_buffer_ex) */
-#define NVGPU_GPU_FLAGS_SUPPORT_MAP_DIRECT_KIND_CTRL	(1ULL << 23)
-/* NVGPU_GPU_IOCTL_SET_DETERMINISTIC_OPTS is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_DETERMINISTIC_OPTS	(1ULL << 24)
-/* SCG support is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_SCG			(1ULL << 25)
-/* GPU_VA address of a syncpoint is supported */
-#define NVGPU_GPU_FLAGS_SUPPORT_SYNCPOINT_ADDRESS	(1ULL << 26)
-/* VPR is supported */
-#define NVGPU_GPU_FLAGS_SUPPORT_VPR			(1ULL << 27)
-/* Allocating per-channel syncpoint in user space is supported */
-#define NVGPU_GPU_FLAGS_SUPPORT_USER_SYNCPOINT		(1ULL << 28)
-/* Railgating (powering the GPU off completely) is supported and enabled */
-#define NVGPU_GPU_FLAGS_CAN_RAILGATE			(1ULL << 29)
-/* Usermode submit is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_USERMODE_SUBMIT		(1ULL << 30)
-/* Set MMU debug mode is available */
-#define NVGPU_GPU_FLAGS_SUPPORT_SET_CTX_MMU_DEBUG_MODE	(1ULL << 32)
-/* SM LRF ECC is enabled */
-#define NVGPU_GPU_FLAGS_ECC_ENABLED_SM_LRF	(1ULL << 60)
-/* SM SHM ECC is enabled */
-#define NVGPU_GPU_FLAGS_ECC_ENABLED_SM_SHM	(1ULL << 61)
-/* TEX ECC is enabled */
-#define NVGPU_GPU_FLAGS_ECC_ENABLED_TEX		(1ULL << 62)
-/* L2 ECC is enabled */
-#define NVGPU_GPU_FLAGS_ECC_ENABLED_LTC		(1ULL << 63)
-/* All types of ECC are enabled */
-#define NVGPU_GPU_FLAGS_ALL_ECC_ENABLED	\
-				(NVGPU_GPU_FLAGS_ECC_ENABLED_SM_LRF |	\
-				NVGPU_GPU_FLAGS_ECC_ENABLED_SM_SHM |	\
-				NVGPU_GPU_FLAGS_ECC_ENABLED_TEX    |	\
-				NVGPU_GPU_FLAGS_ECC_ENABLED_LTC)
-
-struct nvgpu_gpu_characteristics {
-	__u32 arch;
-	__u32 impl;
-	__u32 rev;
-	__u32 num_gpc;
-
-	__u64 L2_cache_size;               /* bytes */
-	__u64 on_board_video_memory_size;  /* bytes */
-
-	__u32 num_tpc_per_gpc; /* the architectural maximum */
-	__u32 bus_type;
-
-	__u32 big_page_size; /* the default big page size */
-	__u32 compression_page_size;
-
-	__u32 pde_coverage_bit_count;
-
-	/* bit N set ==> big page size 2^N is available in
-	   NVGPU_GPU_IOCTL_ALLOC_AS. The default big page size is
-	   always available regardless of this field. */
-	__u32 available_big_page_sizes;
-
-	__u64 flags;
-
-	__u32 twod_class;
-	__u32 threed_class;
-	__u32 compute_class;
-	__u32 gpfifo_class;
-	__u32 inline_to_memory_class;
-	__u32 dma_copy_class;
-
-	__u32 gpc_mask; /* enabled GPCs */
-
-	__u32 sm_arch_sm_version; /* sm version */
-	__u32 sm_arch_spa_version; /* sm instruction set */
-	__u32 sm_arch_warp_count;
-
-	/* IOCTL interface levels by service. -1 if not supported */
-	__s16 gpu_ioctl_nr_last;
-	__s16 tsg_ioctl_nr_last;
-	__s16 dbg_gpu_ioctl_nr_last;
-	__s16 ioctl_channel_nr_last;
-	__s16 as_ioctl_nr_last;
-
-	__u8 gpu_va_bit_count;
-	__u8 reserved;
-
-	__u32 max_fbps_count;
-	__u32 fbp_en_mask;
-	__u32 max_ltc_per_fbp;
-	__u32 max_lts_per_ltc;
-	__u32 max_tex_per_tpc;
-	__u32 max_gpc_count;
-	/* mask of Rop_L2 for each FBP */
-	__u32 rop_l2_en_mask_DEPRECATED[2];
-
-
-	__u8 chipname[8];
-
-	__u64 gr_compbit_store_base_hw;
-	__u32 gr_gobs_per_comptagline_per_slice;
-	__u32 num_ltc;
-	__u32 lts_per_ltc;
-	__u32 cbc_cache_line_size;
-	__u32 cbc_comptags_per_line;
-
-	/* MAP_BUFFER_BATCH: the upper limit for num_unmaps and
-	 * num_maps */
-	__u32 map_buffer_batch_limit;
-
-	__u64 max_freq;
-
-	/* supported preemption modes */
-	__u32 graphics_preemption_mode_flags; /* NVGPU_GRAPHICS_PREEMPTION_MODE_* */
-	__u32 compute_preemption_mode_flags; /* NVGPU_COMPUTE_PREEMPTION_MODE_* */
-	/* default preemption modes */
-	__u32 default_graphics_preempt_mode; /* NVGPU_GRAPHICS_PREEMPTION_MODE_* */
-	__u32 default_compute_preempt_mode; /* NVGPU_COMPUTE_PREEMPTION_MODE_* */
-
-	__u64 local_video_memory_size; /* in bytes, non-zero only for dGPUs */
-
-	/* These are meaningful only for PCI devices */
-	__u16 pci_vendor_id, pci_device_id;
-	__u16 pci_subsystem_vendor_id, pci_subsystem_device_id;
-	__u16 pci_class;
-	__u8  pci_revision;
-	__u8  vbios_oem_version;
-	__u32 vbios_version;
-
-	/* NVGPU_DBG_GPU_IOCTL_REG_OPS: the upper limit for the number
-	 * of regops */
-	__u32 reg_ops_limit;
-	__u32 reserved1;
-
-	__s16 event_ioctl_nr_last;
-	__u16 pad;
-
-	__u32 max_css_buffer_size;
-
-	/* Notes:
-	   - This struct can be safely appended with new fields. However, always
-	     keep the structure size multiple of 8 and make sure that the binary
-	     layout does not change between 32-bit and 64-bit architectures.
-	   - If the last field is reserved/padding, it is not
-	     generally safe to repurpose the field in future revisions.
-	*/
-};
-
-struct nvgpu_gpu_get_characteristics {
-	/* [in]  size reserved by the user space. Can be 0.
-	   [out] full buffer size by kernel */
-	__u64 gpu_characteristics_buf_size;
-
-	/* [in]  address of nvgpu_gpu_characteristics buffer. Filled with field
-	   values by exactly MIN(buf_size_in, buf_size_out) bytes. Ignored, if
-	   buf_size_in is zero.  */
-	__u64 gpu_characteristics_buf_addr;
-};
-
-#define NVGPU_GPU_COMPBITS_NONE		0
-#define NVGPU_GPU_COMPBITS_GPU		(1 << 0)
-#define NVGPU_GPU_COMPBITS_CDEH		(1 << 1)
-#define NVGPU_GPU_COMPBITS_CDEV		(1 << 2)
-
-struct nvgpu_gpu_prepare_compressible_read_args {
-	__u32 handle;			/* in, dmabuf fd */
-	union {
-		__u32 request_compbits;	/* in */
-		__u32 valid_compbits;	/* out */
-	};
-	__u64 offset;			/* in, within handle */
-	__u64 compbits_hoffset;		/* in, within handle */
-	__u64 compbits_voffset;		/* in, within handle */
-	__u32 width;			/* in, in pixels */
-	__u32 height;			/* in, in pixels */
-	__u32 block_height_log2;	/* in */
-	__u32 submit_flags;		/* in (NVGPU_SUBMIT_GPFIFO_FLAGS_) */
-	union {
-		struct {
-			__u32 syncpt_id;
-			__u32 syncpt_value;
-		};
-		__s32 fd;
-	} fence;			/* in/out */
-	__u32 zbc_color;		/* out */
-	__u32 reserved;		/* must be zero */
-	__u64 scatterbuffer_offset;	/* in, within handle */
-	__u32 reserved2[2];		/* must be zero */
-};
-
-struct nvgpu_gpu_mark_compressible_write_args {
-	__u32 handle;			/* in, dmabuf fd */
-	__u32 valid_compbits;		/* in */
-	__u64 offset;			/* in, within handle */
-	__u32 zbc_color;		/* in */
-	__u32 reserved[3];		/* must be zero */
-};
-
-struct nvgpu_alloc_as_args {
-	__u32 big_page_size;
-	__s32 as_fd;
-
-/*
- * The GPU address space will be managed by the userspace. This has
- * the following changes in functionality:
- *   1. All non-fixed-offset user mappings are rejected (i.e.,
- *      fixed-offset only)
- *   2. Address space does not need to be allocated for fixed-offset
- *      mappings, except to mark sparse address space areas.
- *   3. Maps and unmaps are immediate. In particular, mapping ref
- *      increments at kickoffs and decrements at job completion are
- *      bypassed.
- */
-#define NVGPU_GPU_IOCTL_ALLOC_AS_FLAGS_USERSPACE_MANAGED (1 << 0)
-	__u32 flags;
-
-	__u32 reserved;			/* must be zero */
-};
-
-struct nvgpu_gpu_open_tsg_args {
-	__u32 tsg_fd;			/* out, tsg fd */
-	__u32 reserved;			/* must be zero */
-};
-
-struct nvgpu_gpu_get_tpc_masks_args {
-	/* [in]  TPC mask buffer size reserved by userspace. Should be
-		 at least sizeof(__u32) * fls(gpc_mask) to receive TPC
-		 mask for each GPC.
-	   [out] full kernel buffer size
-	*/
-	__u32 mask_buf_size;
-	__u32 reserved;
-
-	/* [in]  pointer to TPC mask buffer. It will receive one
-		 32-bit TPC mask per GPC or 0 if GPC is not enabled or
-		 not present. This parameter is ignored if
-		 mask_buf_size is 0. */
-	__u64 mask_buf_addr;
-};
-
-struct nvgpu_gpu_open_channel_args {
-	union {
-		__s32 channel_fd; /* deprecated: use out.channel_fd instead */
-		struct {
-			 /* runlist_id is the runlist for the
-			  * channel. Basically, the runlist specifies the target
-			  * engine(s) for which the channel is
-			  * opened. Runlist_id -1 is synonym for the primary
-			  * graphics runlist. */
-			__s32 runlist_id;
-		} in;
-		struct {
-			__s32 channel_fd;
-		} out;
-	};
-};
-
-/* L2 cache writeback, optionally invalidate clean lines and flush fb */
-struct nvgpu_gpu_l2_fb_args {
-	__u32 l2_flush:1;
-	__u32 l2_invalidate:1;
-	__u32 fb_flush:1;
-	__u32 reserved;
-} __packed;
-
-struct nvgpu_gpu_mmu_debug_mode_args {
-	__u32 state;
-	__u32 reserved;
-} __packed;
-
-struct nvgpu_gpu_sm_debug_mode_args {
-	int channel_fd;
-	__u32 enable;
-	__u64 sms;
-} __packed;
-
-struct warpstate {
-	__u64 valid_warps[2];
-	__u64 trapped_warps[2];
-	__u64 paused_warps[2];
-};
-
-struct nvgpu_gpu_wait_pause_args {
-	__u64 pwarpstate;
-};
-
-struct nvgpu_gpu_tpc_exception_en_status_args {
-	__u64 tpc_exception_en_sm_mask;
-};
-
-struct nvgpu_gpu_num_vsms {
-	__u32 num_vsms;
-	__u32 reserved;
-};
-
-struct nvgpu_gpu_vsms_mapping_entry {
-	__u8 gpc_index;
-	__u8 tpc_index;
-};
-
-struct nvgpu_gpu_vsms_mapping {
-	__u64 vsms_map_buf_addr;
-};
-
-struct nvgpu_gpu_get_buffer_info_args {
-	union {
-		struct {
-			__u32 dmabuf_fd;   /* dma-buf fd */
-		} in;
-		struct {
-			__u64 id;          /* Unique within live
-					    * buffers */
-			__u64 length;      /* Allocated length of the
-					    * buffer */
-			__u64 reserved0;
-			__u64 reserved1;
-		} out;
-	};
-};
-
-#define NVGPU_GPU_GET_CPU_TIME_CORRELATION_INFO_MAX_COUNT		16
-#define NVGPU_GPU_GET_CPU_TIME_CORRELATION_INFO_SRC_ID_TSC		1
-
-struct nvgpu_gpu_get_cpu_time_correlation_sample {
-	/* gpu timestamp value */
-	__u64 cpu_timestamp;
-	/* raw GPU counter (PTIMER) value */
-	__u64 gpu_timestamp;
-};
-
-struct nvgpu_gpu_get_cpu_time_correlation_info_args {
-	/* timestamp pairs */
-	struct nvgpu_gpu_get_cpu_time_correlation_sample samples[
-		NVGPU_GPU_GET_CPU_TIME_CORRELATION_INFO_MAX_COUNT];
-	/* number of pairs to read */
-	__u32 count;
-	/* cpu clock source id */
-	__u32 source_id;
-};
-
-struct nvgpu_gpu_get_gpu_time_args {
-	/* raw GPU counter (PTIMER) value */
-	__u64 gpu_timestamp;
-
-	/* reserved for future extensions */
-	__u64 reserved;
-};
-
-struct nvgpu_gpu_get_engine_info_item {
-
-#define NVGPU_GPU_ENGINE_ID_GR 0
-#define NVGPU_GPU_ENGINE_ID_GR_COPY 1
-#define NVGPU_GPU_ENGINE_ID_ASYNC_COPY 2
-	__u32 engine_id;
-
-	__u32 engine_instance;
-
-	/* runlist id for opening channels to the engine, or -1 if
-	 * channels are not supported */
-	__s32 runlist_id;
-
-	__u32 reserved;
-};
-
-struct nvgpu_gpu_get_engine_info_args {
-	/* [in]  Buffer size reserved by userspace.
-	 *
-	 * [out] Full kernel buffer size. Multiple of sizeof(struct
-	 *       nvgpu_gpu_get_engine_info_item)
-	*/
-	__u32 engine_info_buf_size;
-	__u32 reserved;
-	__u64 engine_info_buf_addr;
-};
-
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_CONTIGUOUS		(1U << 0)
-
-/* CPU access and coherency flags (3 bits). Use CPU access with care,
- * BAR resources are scarce. */
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_NOT_MAPPABLE	(0U << 1)
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_WRITE_COMBINE	(1U << 1)
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_CACHED		(2U << 1)
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_CPU_MASK		(7U << 1)
-
-#define NVGPU_GPU_ALLOC_VIDMEM_FLAG_VPR			(1U << 4)
-
-/* Allocation of device-specific local video memory. Returns dmabuf fd
- * on success. */
-struct nvgpu_gpu_alloc_vidmem_args {
-	union {
-		struct {
-			/* Size for allocation. Must be a multiple of
-			 * small page size. */
-			__u64 size;
-
-			/* NVGPU_GPU_ALLOC_VIDMEM_FLAG_* */
-			__u32 flags;
-
-			/* Informational mem tag for resource usage
-			 * tracking. */
-			__u16 memtag;
-
-			__u16 reserved0;
-
-			/* GPU-visible physical memory alignment in
-			 * bytes.
-			 *
-			 * Alignment must be a power of two. Minimum
-			 * alignment is the small page size, which 0
-			 * also denotes.
-			 *
-			 * For contiguous and non-contiguous
-			 * allocations, the start address of the
-			 * physical memory allocation will be aligned
-			 * by this value.
-			 *
-			 * For non-contiguous allocations, memory is
-			 * internally allocated in round_up(size /
-			 * alignment) contiguous blocks. The start
-			 * address of each block is aligned by the
-			 * alignment value. If the size is not a
-			 * multiple of alignment (which is ok), the
-			 * last allocation block size is (size %
-			 * alignment).
-			 *
-			 * By specifying the big page size here and
-			 * allocation size that is a multiple of big
-			 * pages, it will be guaranteed that the
-			 * allocated buffer is big page size mappable.
-			 */
-			__u32 alignment;
-
-			__u32 reserved1[3];
-		} in;
-
-		struct {
-			__s32 dmabuf_fd;
-		} out;
-	};
-};
-
-/* Memory clock */
-#define NVGPU_GPU_CLK_DOMAIN_MCLK                                (0)
-/* Main graphics core clock */
-#define NVGPU_GPU_CLK_DOMAIN_GPCCLK	                         (1)
-
-struct nvgpu_gpu_clk_range {
-
-	/* Flags (not currently used) */
-	__u32 flags;
-
-	/* NVGPU_GPU_CLK_DOMAIN_* */
-	__u32 clk_domain;
-	__u64 min_hz;
-	__u64 max_hz;
-};
-
-/* Request on specific clock domains */
-#define NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS		(1UL << 0)
-
-struct nvgpu_gpu_clk_range_args {
-
-	/* Flags. If NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS the request will
-	   apply only to domains specified in clock entries. In this case
-	   caller must set clock domain in each entry. Otherwise, the
-	   ioctl will return all clock domains.
-	*/
-	__u32 flags;
-
-	__u16 pad0;
-
-	/* in/out: Number of entries in clk_range_entries buffer. If zero,
-	   NVGPU_GPU_IOCTL_CLK_GET_RANGE will return 0 and
-	   num_entries will be set to number of clock domains.
-	 */
-	__u16 num_entries;
-
-	/* in: Pointer to clock range entries in the caller's address space.
-	   size must be >= max_entries * sizeof(struct nvgpu_gpu_clk_range)
-	 */
-	__u64 clk_range_entries;
-};
-
-struct nvgpu_gpu_clk_vf_point {
-	__u64 freq_hz;
-};
-
-struct nvgpu_gpu_clk_vf_points_args {
-
-	/* in: Flags (not currently used) */
-	__u32 flags;
-
-	/* in: NVGPU_GPU_CLK_DOMAIN_* */
-	__u32 clk_domain;
-
-	/* in/out: max number of nvgpu_gpu_clk_vf_point entries in
-	   clk_vf_point_entries.  If max_entries is zero,
-	   NVGPU_GPU_IOCTL_CLK_GET_VF_POINTS will return 0 and max_entries will
-	   be set to the max number of VF entries for this clock domain. If
-	   there are more entries than max_entries, then ioctl will return
-	   -EINVAL.
-	*/
-	__u16 max_entries;
-
-	/* out: Number of nvgpu_gpu_clk_vf_point entries returned in
-	   clk_vf_point_entries. Number of entries might vary depending on
-	   thermal conditions.
-	*/
-	__u16 num_entries;
-
-	__u32 reserved;
-
-	/* in: Pointer to clock VF point entries in the caller's address space.
-	   size must be >= max_entries * sizeof(struct nvgpu_gpu_clk_vf_point).
-	 */
-	__u64 clk_vf_point_entries;
-};
-
-/* Target clock requested by application*/
-#define NVGPU_GPU_CLK_TYPE_TARGET	1
-/* Actual clock frequency for the domain.
-   May deviate from desired target frequency due to PLL constraints. */
-#define NVGPU_GPU_CLK_TYPE_ACTUAL	2
-/* Effective clock, measured from hardware */
-#define NVGPU_GPU_CLK_TYPE_EFFECTIVE	3
-
-struct nvgpu_gpu_clk_info {
-
-	/* Flags (not currently used) */
-	__u16 flags;
-
-	/* in: When NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS set, indicates
-	   the type of clock info to be returned for this entry. It is
-	   allowed to have several entries with different clock types in
-	   the same request (for instance query both target and actual
-	   clocks for a given clock domain). This field is ignored for a
-	   SET operation. */
-	__u16 clk_type;
-
-	/* NVGPU_GPU_CLK_DOMAIN_xxx */
-	__u32 clk_domain;
-
-	__u64 freq_hz;
-};
-
-struct nvgpu_gpu_clk_get_info_args {
-
-	/* Flags. If NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS the request will
-	   apply only to domains specified in clock entries. In this case
-	   caller must set clock domain in each entry. Otherwise, the
-	   ioctl will return all clock domains.
-	*/
-	__u32 flags;
-
-	/* in: indicates which type of clock info to be returned (see
-	   NVGPU_GPU_CLK_TYPE_xxx). If NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS
-	   is defined, clk_type is specified in each clock info entry instead.
-	 */
-	__u16 clk_type;
-
-	/* in/out: Number of clock info entries contained in clk_info_entries.
-	   If zero, NVGPU_GPU_IOCTL_CLK_GET_INFO will return 0 and
-	   num_entries will be set to number of clock domains. Also,
-	   last_req_nr will be updated, which allows checking if a given
-	   request has completed. If there are more entries than max_entries,
-	   then ioctl will return -EINVAL.
-	 */
-	__u16 num_entries;
-
-	/* in: Pointer to nvgpu_gpu_clk_info entries in the caller's address
-	   space. Buffer size must be at least:
-		num_entries * sizeof(struct nvgpu_gpu_clk_info)
-	   If NVGPU_GPU_CLK_FLAG_SPECIFIC_DOMAINS is set, caller should set
-	   clk_domain to be queried in  each entry. With this flag,
-	   clk_info_entries passed to an NVGPU_GPU_IOCTL_CLK_SET_INFO,
-	   can be re-used on completion for a NVGPU_GPU_IOCTL_CLK_GET_INFO.
-	   This allows checking actual_mhz.
-	 */
-	__u64 clk_info_entries;
-
-};
-
-struct nvgpu_gpu_clk_set_info_args {
-
-	/* in: Flags (not currently used). */
-	__u32 flags;
-
-	__u16 pad0;
-
-	/* Number of clock info entries contained in clk_info_entries.
-	   Must be > 0.
-	 */
-	__u16 num_entries;
-
-	/* Pointer to clock info entries in the caller's address space. Buffer
-	   size must be at least
-		num_entries * sizeof(struct nvgpu_gpu_clk_info)
-	 */
-	__u64 clk_info_entries;
-
-	/* out: File descriptor for request completion. Application can poll
-	   this file descriptor to determine when the request has completed.
-	   The fd must be closed afterwards.
-	 */
-	__s32 completion_fd;
-};
-
-struct nvgpu_gpu_get_event_fd_args {
-
-	/* in: Flags (not currently used). */
-	__u32 flags;
-
-	/* out: File descriptor for events, e.g. clock update.
-	 * On successful polling of this event_fd, application is
-	 * expected to read status (nvgpu_gpu_event_info),
-	 * which provides detailed event information
-	 * For a poll operation, alarms will be reported with POLLPRI,
-	 * and GPU shutdown will be reported with POLLHUP.
-	 */
-	__s32 event_fd;
-};
-
-struct nvgpu_gpu_get_memory_state_args {
-	/*
-	 * Current free space for this device; may change even when any
-	 * kernel-managed metadata (e.g., page tables or channels) is allocated
-	 * or freed. For an idle gpu, an allocation of this size would succeed.
-	 */
-	__u64 total_free_bytes;
-
-	/* For future use; must be set to 0. */
-	__u64 reserved[4];
-};
-
-struct nvgpu_gpu_get_fbp_l2_masks_args {
-	/* [in]  L2 mask buffer size reserved by userspace. Should be
-		 at least sizeof(__u32) * fls(fbp_en_mask) to receive LTC
-		 mask for each FBP.
-	   [out] full kernel buffer size
-	*/
-	__u32 mask_buf_size;
-	__u32 reserved;
-
-	/* [in]  pointer to L2 mask buffer. It will receive one
-		 32-bit L2 mask per FBP or 0 if FBP is not enabled or
-		 not present. This parameter is ignored if
-		 mask_buf_size is 0. */
-	__u64 mask_buf_addr;
-};
-
-#define NVGPU_GPU_VOLTAGE_CORE		1
-#define NVGPU_GPU_VOLTAGE_SRAM		2
-#define NVGPU_GPU_VOLTAGE_BUS		3	/* input to regulator */
-
-struct nvgpu_gpu_get_voltage_args {
-	__u64 reserved;
-	__u32 which;		/* in: NVGPU_GPU_VOLTAGE_* */
-	__u32 voltage;		/* uV */
-};
-
-struct nvgpu_gpu_get_current_args {
-	__u32 reserved[3];
-	__u32 currnt;		/* mA */
-};
-
-struct nvgpu_gpu_get_power_args {
-	__u32 reserved[3];
-	__u32 power;		/* mW */
-};
-
-struct nvgpu_gpu_get_temperature_args {
-	__u32 reserved[3];
-	/* Temperature in signed fixed point format SFXP24.8
-	 *    Celsius = temp_f24_8 / 256.
-	 */
-	__s32 temp_f24_8;
-};
-
-struct nvgpu_gpu_set_therm_alert_limit_args {
-	__u32 reserved[3];
-	/* Temperature in signed fixed point format SFXP24.8
-	 *    Celsius = temp_f24_8 / 256.
-	 */
-	__s32 temp_f24_8;
-};
-
-/*
- * Adjust options of deterministic channels in channel batches.
- *
- * This supports only one option currently: relax railgate blocking by
- * "disabling" the channel.
- *
- * Open deterministic channels do not allow the GPU to railgate by default. It
- * may be preferable to hold preopened channel contexts open and idle and still
- * railgate the GPU, taking the channels back into use dynamically in userspace
- * as an optimization. This ioctl allows to drop or reacquire the requirement
- * to hold GPU power on for individual channels. If allow_railgate is set on a
- * channel, no work can be submitted to it.
- *
- * num_channels is updated to signify how many channels were updated
- * successfully. It can be used to test which was the first update to fail.
- */
-struct nvgpu_gpu_set_deterministic_opts_args {
-	__u32 num_channels; /* in/out */
-/*
- * Set or unset the railgating reference held by deterministic channels. If
- * the channel status is already the same as the flag, this is a no-op. Both
- * of these flags cannot be set at the same time. If none are set, the state
- * is left as is.
- */
-#define NVGPU_GPU_SET_DETERMINISTIC_OPTS_FLAGS_ALLOW_RAILGATING    (1 << 0)
-#define NVGPU_GPU_SET_DETERMINISTIC_OPTS_FLAGS_DISALLOW_RAILGATING (1 << 1)
-	__u32 flags;        /* in */
-	/*
-	 * This is a pointer to an array of size num_channels.
-	 *
-	 * The channels have to be valid fds and be previously set as
-	 * deterministic.
-	 */
-	__u64 channels; /* in */
-};
-
-#define NVGPU_GPU_IOCTL_ZCULL_GET_CTX_SIZE \
-	_IOR(NVGPU_GPU_IOCTL_MAGIC, 1, struct nvgpu_gpu_zcull_get_ctx_size_args)
-#define NVGPU_GPU_IOCTL_ZCULL_GET_INFO \
-	_IOR(NVGPU_GPU_IOCTL_MAGIC, 2, struct nvgpu_gpu_zcull_get_info_args)
-#define NVGPU_GPU_IOCTL_ZBC_SET_TABLE	\
-	_IOW(NVGPU_GPU_IOCTL_MAGIC, 3, struct nvgpu_gpu_zbc_set_table_args)
-#define NVGPU_GPU_IOCTL_ZBC_QUERY_TABLE	\
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 4, struct nvgpu_gpu_zbc_query_table_args)
-#define NVGPU_GPU_IOCTL_GET_CHARACTERISTICS   \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 5, struct nvgpu_gpu_get_characteristics)
-#define NVGPU_GPU_IOCTL_PREPARE_COMPRESSIBLE_READ \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 6, struct nvgpu_gpu_prepare_compressible_read_args)
-#define NVGPU_GPU_IOCTL_MARK_COMPRESSIBLE_WRITE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 7, struct nvgpu_gpu_mark_compressible_write_args)
-#define NVGPU_GPU_IOCTL_ALLOC_AS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 8, struct nvgpu_alloc_as_args)
-#define NVGPU_GPU_IOCTL_OPEN_TSG \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 9, struct nvgpu_gpu_open_tsg_args)
-#define NVGPU_GPU_IOCTL_GET_TPC_MASKS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 10, struct nvgpu_gpu_get_tpc_masks_args)
-#define NVGPU_GPU_IOCTL_OPEN_CHANNEL \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 11, struct nvgpu_gpu_open_channel_args)
-#define NVGPU_GPU_IOCTL_FLUSH_L2 \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 12, struct nvgpu_gpu_l2_fb_args)
-#define NVGPU_GPU_IOCTL_SET_MMUDEBUG_MODE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 14, struct nvgpu_gpu_mmu_debug_mode_args)
-#define NVGPU_GPU_IOCTL_SET_SM_DEBUG_MODE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 15, struct nvgpu_gpu_sm_debug_mode_args)
-#define NVGPU_GPU_IOCTL_WAIT_FOR_PAUSE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 16, struct nvgpu_gpu_wait_pause_args)
-#define NVGPU_GPU_IOCTL_GET_TPC_EXCEPTION_EN_STATUS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 17, struct nvgpu_gpu_tpc_exception_en_status_args)
-#define NVGPU_GPU_IOCTL_NUM_VSMS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 18, struct nvgpu_gpu_num_vsms)
-#define NVGPU_GPU_IOCTL_VSMS_MAPPING \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 19, struct nvgpu_gpu_vsms_mapping)
-#define NVGPU_GPU_IOCTL_RESUME_FROM_PAUSE \
-	_IO(NVGPU_GPU_IOCTL_MAGIC, 21)
-#define NVGPU_GPU_IOCTL_TRIGGER_SUSPEND \
-	_IO(NVGPU_GPU_IOCTL_MAGIC, 22)
-#define NVGPU_GPU_IOCTL_CLEAR_SM_ERRORS \
-	_IO(NVGPU_GPU_IOCTL_MAGIC, 23)
-#define NVGPU_GPU_IOCTL_GET_CPU_TIME_CORRELATION_INFO \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 24, \
-			struct nvgpu_gpu_get_cpu_time_correlation_info_args)
-#define NVGPU_GPU_IOCTL_GET_GPU_TIME \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 25, \
-			struct nvgpu_gpu_get_gpu_time_args)
-#define NVGPU_GPU_IOCTL_GET_ENGINE_INFO \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 26, \
-			struct nvgpu_gpu_get_engine_info_args)
-#define NVGPU_GPU_IOCTL_ALLOC_VIDMEM \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 27, \
-			struct nvgpu_gpu_alloc_vidmem_args)
-#define NVGPU_GPU_IOCTL_CLK_GET_RANGE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 28, struct nvgpu_gpu_clk_range_args)
-#define NVGPU_GPU_IOCTL_CLK_GET_VF_POINTS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 29, struct nvgpu_gpu_clk_vf_points_args)
-#define NVGPU_GPU_IOCTL_CLK_GET_INFO \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 30, struct nvgpu_gpu_clk_get_info_args)
-#define NVGPU_GPU_IOCTL_CLK_SET_INFO \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 31, struct nvgpu_gpu_clk_set_info_args)
-#define NVGPU_GPU_IOCTL_GET_EVENT_FD \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 32, struct nvgpu_gpu_get_event_fd_args)
-#define NVGPU_GPU_IOCTL_GET_MEMORY_STATE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 33, \
-			struct nvgpu_gpu_get_memory_state_args)
-#define NVGPU_GPU_IOCTL_GET_VOLTAGE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 34, struct nvgpu_gpu_get_voltage_args)
-#define NVGPU_GPU_IOCTL_GET_CURRENT \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 35, struct nvgpu_gpu_get_current_args)
-#define NVGPU_GPU_IOCTL_GET_POWER \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 36, struct nvgpu_gpu_get_power_args)
-#define NVGPU_GPU_IOCTL_GET_TEMPERATURE \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 37, struct nvgpu_gpu_get_temperature_args)
-#define NVGPU_GPU_IOCTL_GET_FBP_L2_MASKS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 38, struct nvgpu_gpu_get_fbp_l2_masks_args)
-#define NVGPU_GPU_IOCTL_SET_THERM_ALERT_LIMIT \
-		_IOWR(NVGPU_GPU_IOCTL_MAGIC, 39, \
-			struct nvgpu_gpu_set_therm_alert_limit_args)
-#define NVGPU_GPU_IOCTL_SET_DETERMINISTIC_OPTS \
-	_IOWR(NVGPU_GPU_IOCTL_MAGIC, 40, \
-			struct nvgpu_gpu_set_deterministic_opts_args)
-#define NVGPU_GPU_IOCTL_LAST		\
-	_IOC_NR(NVGPU_GPU_IOCTL_SET_DETERMINISTIC_OPTS)
-#define NVGPU_GPU_IOCTL_MAX_ARG_SIZE	\
-	sizeof(struct nvgpu_gpu_get_cpu_time_correlation_info_args)
-
-/*
- * Event session
- *
- * NVGPU_GPU_IOCTL_GET_EVENT_FD opens an event session.
- * Below ioctls can be used on these sessions fds.
- */
-#define NVGPU_EVENT_IOCTL_MAGIC	'E'
-
-/* Normal events (POLLIN) */
-/* Event associated to a VF update */
-#define NVGPU_GPU_EVENT_VF_UPDATE				0
-
-/* Recoverable alarms (POLLPRI) */
-/* Alarm when target frequency on any session is not possible */
-#define NVGPU_GPU_EVENT_ALARM_TARGET_VF_NOT_POSSIBLE		1
-/* Alarm when target frequency on current session is not possible */
-#define NVGPU_GPU_EVENT_ALARM_LOCAL_TARGET_VF_NOT_POSSIBLE	2
-/* Alarm when Clock Arbiter failed */
-#define NVGPU_GPU_EVENT_ALARM_CLOCK_ARBITER_FAILED		3
-/* Alarm when VF table update failed */
-#define NVGPU_GPU_EVENT_ALARM_VF_TABLE_UPDATE_FAILED		4
-/* Alarm on thermal condition */
-#define NVGPU_GPU_EVENT_ALARM_THERMAL_ABOVE_THRESHOLD		5
-/* Alarm on power condition */
-#define NVGPU_GPU_EVENT_ALARM_POWER_ABOVE_THRESHOLD		6
-
-/* Non recoverable alarm (POLLHUP) */
-/* Alarm on GPU shutdown/fall from bus */
-#define NVGPU_GPU_EVENT_ALARM_GPU_LOST				7
-
-#define NVGPU_GPU_EVENT_LAST	NVGPU_GPU_EVENT_ALARM_GPU_LOST
-
-struct nvgpu_gpu_event_info {
-	__u32 event_id;		/* NVGPU_GPU_EVENT_* */
-	__u32 reserved;
-	__u64 timestamp;	/* CPU timestamp (in nanoseconds) */
-};
-
-struct nvgpu_gpu_set_event_filter_args {
-
-	/* in: Flags (not currently used). */
-	__u32 flags;
-
-	/* in: Size of event filter in 32-bit words */
-	__u32 size;
-
-	/* in: Address of buffer containing bit mask of events.
-	 * Bit #n is set if event #n should be monitored.
-	 */
-	__u64 buffer;
-};
-
-#define NVGPU_EVENT_IOCTL_SET_FILTER \
-	_IOW(NVGPU_EVENT_IOCTL_MAGIC, 1, struct nvgpu_gpu_set_event_filter_args)
-#define NVGPU_EVENT_IOCTL_LAST		\
-	_IOC_NR(NVGPU_EVENT_IOCTL_SET_FILTER)
-#define NVGPU_EVENT_IOCTL_MAX_ARG_SIZE	\
-	sizeof(struct nvgpu_gpu_set_event_filter_args)
+#include "nvgpu-ctrl.h"
+#include "nvgpu-event.h"
+#include "nvgpu-as.h"
+
+#include "nvgpu-nvs.h"
 
 /*
  * /dev/nvhost-tsg-gpu device
@@ -1027,9 +37,16 @@ struct nvgpu_tsg_bind_channel_ex_args {
 
 	/* in: VEID in Volta */
 	__u32 subcontext_id;
-	__u32 num_active_tpcs;
-	__u8 tpc_pg_enabled;
-	__u8 reserved[11];
+	__u8 reserved[16];
+};
+
+struct nvgpu_tsg_bind_scheduling_domain_args {
+	/* in: id of the domain this tsg will be bound to */
+	__s32 domain_fd;
+	/* Must be set to 0 */
+	__s32 reserved0;
+	/* Must be set to 0 */
+	__u64 reserved[3];
 };
 
 /*
@@ -1064,6 +81,35 @@ struct nvgpu_tsg_read_single_sm_error_state_args {
 	__u64 record_size;
 };
 
+/*
+ * This struct is used to read and configure l2 max evict_last
+ * setting.
+ */
+struct nvgpu_tsg_l2_max_ways_evict_last_args {
+	/*
+	 * Maximum number of ways in a l2 cache set that can be allocated
+	 * with eviction_policy=EVICT_LAST
+	 */
+	__u32 max_ways;
+	__u32 reserved;
+};
+
+/*
+ * This struct contains the parameter for configuring L2 sector promotion.
+ * It supports 3 valid options:-
+ *  - PROMOTE_NONE(1): cache-miss doens't get promoted.
+ *  - PROMOTE_64B(2): cache-miss gets promoted to 64 bytes if less than 64 bytes.
+ *  - PROMOTE_128B(4): cache-miss gets promoted to 128 bytes if less than 128 bytes.
+ */
+#define NVGPU_GPU_IOCTL_TSG_L2_SECTOR_PROMOTE_FLAG_NONE		(1U << 0U)
+#define NVGPU_GPU_IOCTL_TSG_L2_SECTOR_PROMOTE_FLAG_64B		(1U << 1U)
+#define NVGPU_GPU_IOCTL_TSG_L2_SECTOR_PROMOTE_FLAG_128B		(1U << 2U)
+struct nvgpu_tsg_set_l2_sector_promotion_args {
+	/* Valid promotion flag */
+	__u32 promotion_flag;
+	__u32 reserved;
+};
+
 #define NVGPU_TSG_IOCTL_BIND_CHANNEL \
 	_IOW(NVGPU_TSG_IOCTL_MAGIC, 1, int)
 #define NVGPU_TSG_IOCTL_UNBIND_CHANNEL \
@@ -1087,10 +133,23 @@ struct nvgpu_tsg_read_single_sm_error_state_args {
 #define NVGPU_TSG_IOCTL_READ_SINGLE_SM_ERROR_STATE \
 	_IOWR(NVGPU_TSG_IOCTL_MAGIC, 12, \
 			struct nvgpu_tsg_read_single_sm_error_state_args)
+#define NVGPU_TSG_IOCTL_SET_L2_MAX_WAYS_EVICT_LAST \
+	_IOW(NVGPU_TSG_IOCTL_MAGIC, 13, \
+			struct nvgpu_tsg_l2_max_ways_evict_last_args)
+#define NVGPU_TSG_IOCTL_GET_L2_MAX_WAYS_EVICT_LAST \
+	_IOR(NVGPU_TSG_IOCTL_MAGIC, 14, \
+			struct nvgpu_tsg_l2_max_ways_evict_last_args)
+#define NVGPU_TSG_IOCTL_SET_L2_SECTOR_PROMOTION \
+	_IOW(NVGPU_TSG_IOCTL_MAGIC, 15, \
+			struct nvgpu_tsg_set_l2_sector_promotion_args)
+#define NVGPU_TSG_IOCTL_BIND_SCHEDULING_DOMAIN \
+	_IOW(NVGPU_TSG_IOCTL_MAGIC, 16, \
+			struct nvgpu_tsg_bind_scheduling_domain_args)
 #define NVGPU_TSG_IOCTL_MAX_ARG_SIZE	\
-		sizeof(struct nvgpu_tsg_bind_channel_ex_args)
+		sizeof(struct nvgpu_tsg_bind_scheduling_domain_args)
+
 #define NVGPU_TSG_IOCTL_LAST		\
-	_IOC_NR(NVGPU_TSG_IOCTL_READ_SINGLE_SM_ERROR_STATE)
+	_IOC_NR(NVGPU_TSG_IOCTL_BIND_SCHEDULING_DOMAIN)
 
 /*
  * /dev/nvhost-dbg-gpu device
@@ -1201,7 +260,7 @@ struct nvgpu_dbg_gpu_events_ctrl_args {
 
 struct nvgpu_dbg_gpu_powergate_args {
 	__u32 mode;
-} __packed;
+};
 
 #define NVGPU_DBG_GPU_IOCTL_POWERGATE					\
 	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 4, struct nvgpu_dbg_gpu_powergate_args)
@@ -1213,7 +272,7 @@ struct nvgpu_dbg_gpu_powergate_args {
 
 struct nvgpu_dbg_gpu_smpc_ctxsw_mode_args {
 	__u32 mode;
-} __packed;
+};
 
 #define NVGPU_DBG_GPU_IOCTL_SMPC_CTXSW_MODE \
 	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 5, struct nvgpu_dbg_gpu_smpc_ctxsw_mode_args)
@@ -1224,7 +283,7 @@ struct nvgpu_dbg_gpu_smpc_ctxsw_mode_args {
 
 struct nvgpu_dbg_gpu_suspend_resume_all_sms_args {
 	__u32 mode;
-} __packed;
+};
 
 #define NVGPU_DBG_GPU_IOCTL_SUSPEND_RESUME_ALL_SMS			\
 	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 6, struct nvgpu_dbg_gpu_suspend_resume_all_sms_args)
@@ -1453,11 +512,289 @@ struct nvgpu_dbg_gpu_set_ctx_mmu_debug_mode_args {
 	_IOW(NVGPU_DBG_GPU_IOCTL_MAGIC, 26, \
 	struct nvgpu_dbg_gpu_set_ctx_mmu_debug_mode_args)
 
+/* Get gr context size */
+struct nvgpu_dbg_gpu_get_gr_context_size_args {
+	__u32 size;
+	__u32 reserved;
+};
+
+#define NVGPU_DBG_GPU_IOCTL_GET_GR_CONTEXT_SIZE \
+	_IOR(NVGPU_DBG_GPU_IOCTL_MAGIC, 27, \
+	struct nvgpu_dbg_gpu_get_gr_context_size_args)
+
+/* Get gr context */
+struct nvgpu_dbg_gpu_get_gr_context_args {
+	__u64 buffer;    /* in/out: the output buffer containing contents of the gr context.
+						buffer address is given by the user */
+	__u32 size;      /* in: size of the context buffer */
+	__u32 reserved;
+};
+
+#define NVGPU_DBG_GPU_IOCTL_GET_GR_CONTEXT \
+	_IOW(NVGPU_DBG_GPU_IOCTL_MAGIC, 28, \
+	struct nvgpu_dbg_gpu_get_gr_context_args)
+
+#define NVGPU_DBG_GPU_IOCTL_TSG_SET_TIMESLICE \
+	_IOW(NVGPU_DBG_GPU_IOCTL_MAGIC, 29, \
+	struct nvgpu_timeslice_args)
+
+#define NVGPU_DBG_GPU_IOCTL_TSG_GET_TIMESLICE \
+	_IOR(NVGPU_DBG_GPU_IOCTL_MAGIC, 30, \
+	struct nvgpu_timeslice_args)
+
+struct nvgpu_dbg_gpu_get_mappings_entry {
+	/* out: start of GPU VA for this mapping */
+	__u64 gpu_va;
+	/* out: size in bytes of this mapping */
+	__u64 size;
+};
+
+struct nvgpu_dbg_gpu_get_mappings_args {
+	/* in: lower VA range, inclusive */
+	__u64 va_lo;
+	/* in: upper VA range, exclusive */
+	__u64 va_hi;
+	/* in: Pointer to the struct nvgpu_dbg_gpu_get_mappings_entry. */
+	__u64 ops_buffer;
+	/*
+	 * in: maximum number of the entries that ops_buffer may hold.
+	 * out: number of entries written to ops_buffer.
+	 * When ops_buffer is zero:
+	 * out: number of mapping entries in range [va_lo, va_hi).
+	 */
+	__u32 count;
+	/* out: Has more valid mappings in this range than count */
+	__u8 has_more;
+	__u8 reserved[3];
+};
+
+/* Maximum read/write ops supported in a single call */
+#define NVGPU_DBG_GPU_IOCTL_ACCESS_GPUVA_CMD_READ 1U
+#define NVGPU_DBG_GPU_IOCTL_ACCESS_GPUVA_CMD_WRITE 2U
+struct nvgpu_dbg_gpu_va_access_entry {
+	/* in: gpu_va address */
+	__u64 gpu_va;
+	/* in/out: Pointer to buffer through which data needs to be read/written */
+	__u64 data;
+	/* in: Access size in bytes */
+	__u32 size;
+	/* out: Whether the GpuVA is accessible */
+	__u8 valid;
+	__u8 reserved[3];
+};
+
+struct nvgpu_dbg_gpu_va_access_args {
+	/* in/out: Pointer to the struct nvgpu_dbg_gpu_va_access_entry */
+	__u64 ops_buf;
+	/* in: Number of buffer ops */
+	__u32 count;
+	/* in: Access cmd Read/Write */
+	__u8 cmd;
+	__u8 reserved[3];
+};
+
+#define NVGPU_DBG_GPU_IOCTL_GET_MAPPINGS \
+	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 31, struct nvgpu_dbg_gpu_get_mappings_args)
+#define NVGPU_DBG_GPU_IOCTL_ACCESS_GPU_VA \
+	_IOWR(NVGPU_DBG_GPU_IOCTL_MAGIC, 32, struct nvgpu_dbg_gpu_va_access_args)
+
 #define NVGPU_DBG_GPU_IOCTL_LAST		\
-	_IOC_NR(NVGPU_DBG_GPU_IOCTL_SET_CTX_MMU_DEBUG_MODE)
+	_IOC_NR(NVGPU_DBG_GPU_IOCTL_ACCESS_GPU_VA)
 
 #define NVGPU_DBG_GPU_IOCTL_MAX_ARG_SIZE		\
 	sizeof(struct nvgpu_dbg_gpu_access_fb_memory_args)
+
+
+/*
+ * /dev/nvhost-prof-dev-gpu and /dev/nvhost-prof-ctx-gpu devices
+ *
+ * Opening a '/dev/nvhost-prof-*' device node creates a way to
+ * open and manage a profiler object.
+ */
+
+#define NVGPU_PROFILER_IOCTL_MAGIC 'P'
+
+struct nvgpu_profiler_bind_context_args {
+	__s32 tsg_fd;		/* in: TSG file descriptor */
+	__u32 reserved;
+};
+
+#define NVGPU_PROFILER_PM_RESOURCE_ARG_HWPM_LEGACY	0U
+#define NVGPU_PROFILER_PM_RESOURCE_ARG_SMPC		1U
+#define NVGPU_PROFILER_PM_RESOURCE_ARG_PC_SAMPLER	2U
+
+struct nvgpu_profiler_reserve_pm_resource_args {
+	__u32 resource; 	/* in: NVGPU_PROFILER_PM_RESOURCE_ARG_* resource to be reserved */
+
+/* in: if ctxsw should be enabled for resource */
+#define NVGPU_PROFILER_RESERVE_PM_RESOURCE_ARG_FLAG_CTXSW	(1 << 0)
+	__u32 flags;
+
+	__u32 reserved[2];
+};
+
+struct nvgpu_profiler_release_pm_resource_args {
+	__u32 resource; 	/* in: NVGPU_PROFILER_PM_RESOURCE_ARG_* resource to be released */
+	__u32 reserved;
+};
+
+struct nvgpu_profiler_alloc_pma_stream_args {
+	__u64 pma_buffer_map_size;			/* in: PMA stream buffer size */
+	__u64 pma_buffer_offset;			/* in: offset of PMA stream buffer */
+	__u64 pma_buffer_va;				/* out: PMA stream buffer virtual address */
+	__s32 pma_buffer_fd;				/* in: PMA stream buffer fd */
+
+	__s32 pma_bytes_available_buffer_fd;		/* in: PMA available bytes buffer fd */
+
+/* in: if ctxsw should be enabled for PMA channel */
+#define NVGPU_PROFILER_ALLOC_PMA_STREAM_ARG_FLAG_CTXSW		(1 << 0)
+	__u32 flags;
+
+	__u32 reserved[3];
+};
+
+struct nvgpu_profiler_pma_stream_update_get_put_args {
+	__u64 bytes_consumed;		/* in: total bytes consumed by user since last update */
+	__u64 bytes_available;		/* out: available bytes in PMA buffer for user to consume */
+
+	__u64 put_ptr;			/* out: current PUT pointer to be returned */
+
+/* in: if available bytes buffer should be updated */
+#define NVGPU_PROFILER_PMA_STREAM_UPDATE_GET_PUT_ARG_FLAG_UPDATE_AVAILABLE_BYTES	(1 << 0)
+/* in: if need to wait for available bytes buffer to get updated */
+#define NVGPU_PROFILER_PMA_STREAM_UPDATE_GET_PUT_ARG_FLAG_WAIT_FOR_UPDATE		(1 << 1)
+/* in: if current PUT pointer should be returned */
+#define NVGPU_PROFILER_PMA_STREAM_UPDATE_GET_PUT_ARG_FLAG_RETURN_PUT_PTR		(1 << 2)
+/* out: if PMA stream buffer overflow was triggered */
+#define NVGPU_PROFILER_PMA_STREAM_UPDATE_GET_PUT_ARG_FLAG_OVERFLOW_TRIGGERED		(1 << 3)
+	__u32 flags;
+
+	__u32 reserved[3];
+};
+
+/*
+ * MODE_ALL_OR_NONE
+ * Reg_ops execution will bail out if any of the reg_op is not valid
+ * or if there is any other error such as failure to access context image.
+ * Subsequent reg_ops will not be executed and nvgpu_profiler_reg_op.status
+ * will not be populated for them.
+ * IOCTL will always return error for all of the errors.
+ */
+#define NVGPU_PROFILER_EXEC_REG_OPS_ARG_MODE_ALL_OR_NONE	0U
+/*
+ * MODE_CONTINUE_ON_ERROR
+ * This mode allows continuing reg_ops execution even if some of the
+ * reg_ops are not valid. Invalid reg_ops will be skipped and valid
+ * ones will be executed.
+ * IOCTL will return error only if there is some other severe failure
+ * such as failure to access context image.
+ * If any of the reg_op is invalid, or if didn't pass, it will be
+ * reported via NVGPU_PROFILER_EXEC_REG_OPS_ARG_FLAG_ALL_PASSED flag.
+ * IOCTL will return success in such cases.
+ */
+#define NVGPU_PROFILER_EXEC_REG_OPS_ARG_MODE_CONTINUE_ON_ERROR	1U
+
+struct nvgpu_profiler_reg_op {
+	__u8    op;		/* Operation in the form NVGPU_DBG_GPU_REG_OP_READ/WRITE_* */
+	__u8    status;		/* Status in the form NVGPU_DBG_GPU_REG_OP_STATUS_* */
+	__u32   offset;
+	__u64   value;
+	__u64   and_n_mask;
+};
+
+struct nvgpu_profiler_exec_reg_ops_args {
+	__u32 mode;		/* in: operation mode NVGPU_PROFILER_EXEC_REG_OPS_ARG_MODE_* */
+
+	__u32 count;		/* in: number of reg_ops operations,
+				 *     upper limit nvgpu_gpu_characteristics.reg_ops_limit
+				 */
+
+	__u64 ops;		/* in/out: pointer to actual operations nvgpu_profiler_reg_op */
+
+/* out: if all reg_ops passed, valid only for MODE_CONTINUE_ON_ERROR */
+#define NVGPU_PROFILER_EXEC_REG_OPS_ARG_FLAG_ALL_PASSED		(1 << 0)
+/* out: if the operations were performed directly on HW or in context image */
+#define NVGPU_PROFILER_EXEC_REG_OPS_ARG_FLAG_DIRECT_OPS		(1 << 1)
+	__u32 flags;
+
+	__u32 reserved[3];
+};
+
+struct nvgpu_profiler_vab_range_checker {
+
+	/*
+	 * in: starting physical address. Must be aligned by
+	 *     1 << (granularity_shift + bitmask_size_shift) where
+	 *     bitmask_size_shift is a HW specific constant.
+	 */
+	__u64 start_phys_addr;
+
+	/* in: log2 of coverage granularity per bit */
+	__u8  granularity_shift;
+
+	__u8  reserved[7];
+};
+
+/* Range checkers track all accesses (read and write) */
+#define NVGPU_PROFILER_VAB_RANGE_CHECKER_MODE_ACCESS  1U
+/* Range checkers track writes (writes and read-modify-writes) */
+#define NVGPU_PROFILER_VAB_RANGE_CHECKER_MODE_DIRTY   2U
+
+struct nvgpu_profiler_vab_reserve_args {
+
+	/* in: range checker mode */
+	__u8 vab_mode;
+
+	__u8 reserved[3];
+
+	/* in: number of range checkers, must match with the HW */
+	__u32 num_range_checkers;
+
+	/*
+	 * in: range checker parameters. Pointer to array of
+	 *     nvgpu_profiler_vab_range_checker elements
+	 */
+	__u64 range_checkers_ptr;
+};
+
+struct nvgpu_profiler_vab_flush_state_args {
+	__u64 buffer_ptr;	/* in: usermode pointer to receive the
+				 * VAB state buffer */
+	__u64 buffer_size;	/* in: VAB buffer size. Must match
+				 * with the hardware VAB state size */
+};
+
+#define NVGPU_PROFILER_IOCTL_BIND_CONTEXT \
+	_IOW(NVGPU_PROFILER_IOCTL_MAGIC, 1, struct nvgpu_profiler_bind_context_args)
+#define NVGPU_PROFILER_IOCTL_RESERVE_PM_RESOURCE \
+	_IOW(NVGPU_PROFILER_IOCTL_MAGIC, 2, struct nvgpu_profiler_reserve_pm_resource_args)
+#define NVGPU_PROFILER_IOCTL_RELEASE_PM_RESOURCE \
+	_IOW(NVGPU_PROFILER_IOCTL_MAGIC, 3, struct nvgpu_profiler_release_pm_resource_args)
+#define NVGPU_PROFILER_IOCTL_ALLOC_PMA_STREAM \
+	_IOWR(NVGPU_PROFILER_IOCTL_MAGIC, 4, struct nvgpu_profiler_alloc_pma_stream_args)
+#define NVGPU_PROFILER_IOCTL_FREE_PMA_STREAM \
+	_IO(NVGPU_PROFILER_IOCTL_MAGIC, 5)
+#define NVGPU_PROFILER_IOCTL_BIND_PM_RESOURCES \
+	_IO(NVGPU_PROFILER_IOCTL_MAGIC, 6)
+#define NVGPU_PROFILER_IOCTL_UNBIND_PM_RESOURCES \
+	_IO(NVGPU_PROFILER_IOCTL_MAGIC, 7)
+#define NVGPU_PROFILER_IOCTL_PMA_STREAM_UPDATE_GET_PUT \
+	_IOWR(NVGPU_PROFILER_IOCTL_MAGIC, 8, struct nvgpu_profiler_pma_stream_update_get_put_args)
+#define NVGPU_PROFILER_IOCTL_EXEC_REG_OPS \
+	_IOWR(NVGPU_PROFILER_IOCTL_MAGIC, 9, struct nvgpu_profiler_exec_reg_ops_args)
+#define NVGPU_PROFILER_IOCTL_UNBIND_CONTEXT \
+	_IO(NVGPU_PROFILER_IOCTL_MAGIC, 10)
+#define NVGPU_PROFILER_IOCTL_VAB_RESERVE \
+	_IOW(NVGPU_PROFILER_IOCTL_MAGIC, 11, struct nvgpu_profiler_vab_reserve_args)
+#define NVGPU_PROFILER_IOCTL_VAB_RELEASE \
+	_IO(NVGPU_PROFILER_IOCTL_MAGIC, 12)
+#define NVGPU_PROFILER_IOCTL_VAB_FLUSH_STATE \
+	_IOW(NVGPU_PROFILER_IOCTL_MAGIC, 13, struct nvgpu_profiler_vab_flush_state_args)
+#define NVGPU_PROFILER_IOCTL_MAX_ARG_SIZE	\
+		sizeof(struct nvgpu_profiler_alloc_pma_stream_args)
+#define NVGPU_PROFILER_IOCTL_LAST		\
+	_IOC_NR(NVGPU_PROFILER_IOCTL_VAB_FLUSH_STATE)
+
 
 /*
  * /dev/nvhost-gpu device
@@ -1475,7 +812,7 @@ struct nvgpu_gpfifo {
 
 struct nvgpu_get_param_args {
 	__u32 value;
-} __packed;
+};
 
 struct nvgpu_channel_open_args {
 	union {
@@ -1496,7 +833,7 @@ struct nvgpu_channel_open_args {
 
 struct nvgpu_set_nvmap_fd_args {
 	__u32 fd;
-} __packed;
+};
 
 #define NVGPU_ALLOC_OBJ_FLAGS_LOCKBOOST_ZERO	(1 << 0)
 /* Flags in nvgpu_alloc_obj_ctx_args.flags */
@@ -1507,14 +844,6 @@ struct nvgpu_alloc_obj_ctx_args {
 	__u32 class_num; /* kepler3d, 2d, compute, etc       */
 	__u32 flags;     /* input, output */
 	__u64 obj_id;    /* output, used to free later       */
-};
-
-/* Deprecated. Use the SETUP_BIND IOCTL instead. */
-struct nvgpu_alloc_gpfifo_args {
-	__u32 num_entries;
-#define NVGPU_ALLOC_GPFIFO_FLAGS_VPR_ENABLED	(1 << 0)
-#define NVGPU_ALLOC_GPFIFO_FLAGS_REPLAYABLE_FAULTS_ENABLE   (1 << 2)
-	__u32 flags;
 };
 
 /* Deprecated. Use the SETUP_BIND IOCTL instead. */
@@ -1531,6 +860,16 @@ struct nvgpu_alloc_gpfifo_ex_args {
  * Setup the channel and bind it (enable).
  */
 struct nvgpu_channel_setup_bind_args {
+/*
+ * Must be power of 2. Max value U32_MAX/8 (size of gpfifo entry) rounded of to
+ * nearest lower power of 2 i.e. 2^28. The lower limit is due to the fact that
+ * the last entry of gpfifo is kept empty and used to determine buffer empty or
+ * full condition. Additionally, kmd submit uses pre/post sync which needs
+ * another extra entry.
+ * Range: 2, 4, 8, ..., 2^28 when
+ *        NVGPU_CHANNEL_SETUP_BIND_FLAGS_USERMODE_SUPPORT is set.
+ * Range: 4, 8, 16, ..., 2^28 otherwise.
+ */
 	__u32 num_gpfifo_entries;
 	__u32 num_inflight_jobs;
 /* Set owner channel of this gpfifo as a vpr channel. */
@@ -1574,6 +913,7 @@ struct nvgpu_channel_setup_bind_args {
 	__u64 gpfifo_dmabuf_offset; /* in */
 	__u32 reserved[9];
 };
+
 struct nvgpu_fence {
 	__u32 id;        /* syncpoint id or sync fence fd */
 	__u32 value;     /* syncpoint value (discarded when using sync fence) */
@@ -1626,7 +966,7 @@ struct nvgpu_wait_args {
 
 struct nvgpu_set_timeout_args {
 	__u32 timeout;
-} __packed;
+};
 
 struct nvgpu_set_timeout_ex_args {
 	__u32 timeout;
@@ -1766,8 +1106,6 @@ struct nvgpu_reschedule_runlist_args {
 	_IOR(NVGPU_IOCTL_MAGIC, 12, struct nvgpu_get_param_args)
 #define NVGPU_IOCTL_CHANNEL_SET_TIMEOUT_EX	\
 	_IOWR(NVGPU_IOCTL_MAGIC, 18, struct nvgpu_set_timeout_ex_args)
-#define NVGPU_IOCTL_CHANNEL_ALLOC_GPFIFO	\
-	_IOW(NVGPU_IOCTL_MAGIC,  100, struct nvgpu_alloc_gpfifo_args)
 #define NVGPU_IOCTL_CHANNEL_WAIT		\
 	_IOWR(NVGPU_IOCTL_MAGIC, 102, struct nvgpu_wait_args)
 #define NVGPU_IOCTL_CHANNEL_SUBMIT_GPFIFO	\
@@ -1794,16 +1132,12 @@ struct nvgpu_reschedule_runlist_args {
 	_IOW(NVGPU_IOCTL_MAGIC, 119, struct nvgpu_channel_wdt_args)
 #define NVGPU_IOCTL_CHANNEL_SET_RUNLIST_INTERLEAVE \
 	_IOW(NVGPU_IOCTL_MAGIC, 120, struct nvgpu_runlist_interleave_args)
-#define NVGPU_IOCTL_CHANNEL_SET_TIMESLICE \
-	_IOW(NVGPU_IOCTL_MAGIC, 121, struct nvgpu_timeslice_args)
 #define NVGPU_IOCTL_CHANNEL_SET_PREEMPTION_MODE \
 	_IOW(NVGPU_IOCTL_MAGIC, 122, struct nvgpu_preemption_mode_args)
 #define NVGPU_IOCTL_CHANNEL_ALLOC_GPFIFO_EX	\
 	_IOW(NVGPU_IOCTL_MAGIC, 123, struct nvgpu_alloc_gpfifo_ex_args)
 #define NVGPU_IOCTL_CHANNEL_SET_BOOSTED_CTX	\
 	_IOW(NVGPU_IOCTL_MAGIC, 124, struct nvgpu_boosted_ctx_args)
-#define NVGPU_IOCTL_CHANNEL_GET_TIMESLICE \
-	_IOW(NVGPU_IOCTL_MAGIC, 125, struct nvgpu_timeslice_args)
 #define NVGPU_IOCTL_CHANNEL_GET_USER_SYNCPOINT \
 	_IOR(NVGPU_IOCTL_MAGIC, 126, struct nvgpu_get_user_syncpoint_args)
 #define NVGPU_IOCTL_CHANNEL_RESCHEDULE_RUNLIST	\
@@ -1815,395 +1149,6 @@ struct nvgpu_reschedule_runlist_args {
 	_IOC_NR(NVGPU_IOCTL_CHANNEL_SETUP_BIND)
 #define NVGPU_IOCTL_CHANNEL_MAX_ARG_SIZE \
 	sizeof(struct nvgpu_channel_setup_bind_args)
-
-/*
- * /dev/nvhost-as-gpu device
- *
- * Opening a '/dev/nvhost-as-gpu' device node creates a new address
- * space.  nvgpu channels (for the same module) can then be bound to such an
- * address space to define the addresses it has access to.
- *
- * Once a nvgpu channel has been bound to an address space it cannot be
- * unbound.  There is no support for allowing an nvgpu channel to change from
- * one address space to another (or from one to none).
- *
- * As long as there is an open device file to the address space, or any bound
- * nvgpu channels it will be valid.  Once all references to the address space
- * are removed the address space is deleted.
- *
- */
-
-#define NVGPU_AS_IOCTL_MAGIC 'A'
-
-/*
- * Allocating an address space range:
- *
- * Address ranges created with this ioctl are reserved for later use with
- * fixed-address buffer mappings.
- *
- * If _FLAGS_FIXED_OFFSET is specified then the new range starts at the 'offset'
- * given.  Otherwise the address returned is chosen to be a multiple of 'align.'
- *
- */
-struct nvgpu32_as_alloc_space_args {
-	__u32 pages;     /* in, pages */
-	__u32 page_size; /* in, bytes */
-	__u32 flags;     /* in */
-#define NVGPU_AS_ALLOC_SPACE_FLAGS_FIXED_OFFSET 0x1
-#define NVGPU_AS_ALLOC_SPACE_FLAGS_SPARSE 0x2
-	union {
-		__u64 offset; /* inout, byte address valid iff _FIXED_OFFSET */
-		__u64 align;  /* in, alignment multiple (0:={1 or n/a}) */
-	} o_a;
-};
-
-struct nvgpu_as_alloc_space_args {
-	__u32 pages;     /* in, pages */
-	__u32 page_size; /* in, bytes */
-	__u32 flags;     /* in */
-	__u32 padding;     /* in */
-	union {
-		__u64 offset; /* inout, byte address valid iff _FIXED_OFFSET */
-		__u64 align;  /* in, alignment multiple (0:={1 or n/a}) */
-	} o_a;
-};
-
-/*
- * Releasing an address space range:
- *
- * The previously allocated region starting at 'offset' is freed.  If there are
- * any buffers currently mapped inside the region the ioctl will fail.
- */
-struct nvgpu_as_free_space_args {
-	__u64 offset; /* in, byte address */
-	__u32 pages;     /* in, pages */
-	__u32 page_size; /* in, bytes */
-};
-
-/*
- * Binding a nvgpu channel to an address space:
- *
- * A channel must be bound to an address space before allocating a gpfifo
- * in nvgpu.  The 'channel_fd' given here is the fd used to allocate the
- * channel.  Once a channel has been bound to an address space it cannot
- * be unbound (except for when the channel is destroyed).
- */
-struct nvgpu_as_bind_channel_args {
-	__u32 channel_fd; /* in */
-} __packed;
-
-/*
- * Mapping nvmap buffers into an address space:
- *
- * The start address is the 'offset' given if _FIXED_OFFSET is specified.
- * Otherwise the address returned is a multiple of 'align.'
- *
- * If 'page_size' is set to 0 the nvmap buffer's allocation alignment/sizing
- * will be used to determine the page size (largest possible).  The page size
- * chosen will be returned back to the caller in the 'page_size' parameter in
- * that case.
- */
-#define NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET	    (1 << 0)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_CACHEABLE	    (1 << 2)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_IO_COHERENT	    (1 << 4)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_UNMAPPED_PTE	    (1 << 5)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_MAPPABLE_COMPBITS (1 << 6)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_L3_ALLOC          (1 << 7)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL  (1 << 8)
-#define NVGPU_AS_MAP_BUFFER_FLAGS_PLATFORM_ATOMIC   (1 << 9)
-
-/*
- * VM map buffer IOCTL
- *
- * This ioctl maps a buffer - generally a dma_buf FD - into the VM's address
- * space. Usage of this API is as follows.
- *
- * @flags  [IN]
- *
- *   These are the flags passed to the IOCTL to modify the IOCTL behavior. The
- *   following flags are supported:
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET
- *
- *     Specify that the mapping already has an address. The mapping address
- *     must reside in an area already reserved with the as_alloc_space IOCTL.
- *     If this flag is set then the @offset field must be populated with the
- *     address to map to.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_CACHEABLE
- *
- *     Specify that a mapping shall be GPU cachable.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_IO_COHERENT
- *
- *     Specify that a mapping shall be IO coherent.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_UNMAPPED_PTE
- *
- *     Specify that a mapping shall be marked as invalid but otherwise
- *     populated. This flag doesn't actually make a lot of sense. The
- *     only reason to specify it is for testing replayable faults but
- *     an actual useful implementation of such a feature would likely
- *     not use this.
- *
- *     DEPRECATED: do not use! This will be removed in a future update.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_MAPPABLE_COMPBITS
- *
- *     Deprecated.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL
- *
- *     Set when userspace plans to pass in @compr_kind and @incompr_kind
- *     instead of letting the kernel work out kind fields.
- *
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_PLATFORM_ATOMIC
- *
- *     Specify that a mapping should use platform atomics.
- *
- * @kind  [IN]
- *
- *   Specify the kind to use for the mapping.
- *
- * @compr_kind  [IN]
- * @incompr_kind  [IN]
- *
- *   Specify the compressible and incompressible kinds to be used for the
- *   mapping. Requires that %NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL is
- *   set in @flags. The kernel will attempt to use @comp_kind and if for
- *   some reason that is not possible will then fall back to using the
- *   @incompr_kind.
- *
- * @dmabuf_fd  [IN]
- *
- *   FD pointing to the dmabuf that will be mapped into the GMMU.
- *
- * @page_size  [IN]
- *
- *   Specify the page size for the mapping. Must be set to a valid, supported
- *   page size. If left unset this IOCTL will return -EINVAL. In general, a
- *   small page size mapping will always be supported, but in certain cases of
- *   compression this will not be the case.
- *
- * @buffer_offset  [IN]
- *
- *   Specify an offset into the physical buffer to being the mapping at. For
- *   example imagine a DMA buffer 32KB long. However, you wish to only  this
- *   buffer starting at 8KB. In such a case you would pass 8KB as the
- *   @buffer_offset. This is only available with fixed address mappings. All
- *   regular (non-fixed) mappings require this field to be set to 0. This field
- *   is in bytes.
- *
- * @mapping_size  [IN]
- *
- *   The size of the mapping in bytes. This is from the @buffer_offset position.
- *   So for example, assuming you have a 32KB physical buffer and you want to
- *   map only 8KB of it, starting at some offset, then you would specify 8192 in
- *   this field. Of course this size + the buffer_offset must be less than the
- *   length of the physical buffer; otherwise -EINVAL is returned. This is only
- *   supported for fixed mappings.
- *
- * @offset  [IN, OUT]
- *
- *   The offset of the buffer in the GPU virtual address space. In other words
- *   the virtual address of the buffer. If the
- *   %NVGPU_AS_MAP_BUFFER_FLAGS_FIXED_OFFSET flag is set then this field must be
- *   populated by userspace. In all cases the ultimate mapped address is
- *   returned in this field. The field is in bytes.
- */
-struct nvgpu_as_map_buffer_ex_args {
-	/* NVGPU_AS_MAP_BUFFER_FLAGS_DIRECT_KIND_CTRL must be set */
-	__u32 flags;		/* in/out */
-
-	/*
-	 * - If both compr_kind and incompr_kind are set
-	 *   (i.e., value is other than NV_KIND_INVALID),
-	 *   kernel attempts to use compr_kind first.
-	 *
-	 * - If compr_kind is set, kernel attempts to allocate
-	 *   comptags for the buffer. If successful,
-	 *   compr_kind is used as the PTE kind.
-	 *
-	 * - If incompr_kind is set, kernel uses incompr_kind as the
-	 *   PTE kind, if compr_kind cannot be used. Comptags are not
-	 *   allocated.
-	 *
-	 * - If neither compr_kind or incompr_kind is set, the
-	 *   map call will fail.
-	 */
-#define NV_KIND_INVALID -1
-	__s16 compr_kind;
-	__s16 incompr_kind;
-
-	__u32 dmabuf_fd;	/* in */
-	__u32 page_size;	/* inout, 0:= best fit to buffer */
-
-	__u64 buffer_offset;	/* in, offset of mapped buffer region */
-	__u64 mapping_size;	/* in, size of mapped buffer region */
-
-	__u64 offset;		/* in/out, we use this address if flag
-				 * FIXED_OFFSET is set. This will fail
-				 * if space is not properly allocated. The
-				 * actual virtual address to which we mapped
-				 * the buffer is returned in this field. */
-};
-
-/*
- * Get info about buffer compbits. Requires that buffer is mapped with
- * NVGPU_AS_MAP_BUFFER_FLAGS_MAPPABLE_COMPBITS.
- *
- * The compbits for a mappable buffer are organized in a mappable
- * window to the compbits store. In case the window contains comptags
- * for more than one buffer, the buffer comptag line index may differ
- * from the window comptag line index.
- */
-struct nvgpu_as_get_buffer_compbits_info_args {
-
-	/* in: address of an existing buffer mapping */
-	__u64 mapping_gva;
-
-	/* out: size of compbits mapping window (bytes) */
-	__u64 compbits_win_size;
-
-	/* out: comptag line index of the window start */
-	__u32 compbits_win_ctagline;
-
-	/* out: comptag line index of the buffer mapping */
-	__u32 mapping_ctagline;
-
-/* Buffer uses compbits */
-#define NVGPU_AS_GET_BUFFER_COMPBITS_INFO_FLAGS_HAS_COMPBITS    (1 << 0)
-
-/* Buffer compbits are mappable */
-#define NVGPU_AS_GET_BUFFER_COMPBITS_INFO_FLAGS_MAPPABLE        (1 << 1)
-
-/* Buffer IOVA addresses are discontiguous */
-#define NVGPU_AS_GET_BUFFER_COMPBITS_INFO_FLAGS_DISCONTIG_IOVA  (1 << 2)
-
-	/* out */
-	__u32 flags;
-
-	__u32 reserved1;
-};
-
-/*
- * Map compbits of a mapped buffer to the GPU address space. The
- * compbits mapping is automatically unmapped when the buffer is
- * unmapped.
- *
- * The compbits mapping always uses small pages, it is read-only, and
- * is GPU cacheable. The mapping is a window to the compbits
- * store. The window may not be exactly the size of the cache lines
- * for the buffer mapping.
- */
-struct nvgpu_as_map_buffer_compbits_args {
-
-	/* in: address of an existing buffer mapping */
-	__u64 mapping_gva;
-
-	/* in: gva to the mapped compbits store window when
-	 * FIXED_OFFSET is set. Otherwise, ignored and should be be 0.
-	 *
-	 * For FIXED_OFFSET mapping:
-	 * - If compbits are already mapped compbits_win_gva
-	 *   must match with the previously mapped gva.
-	 * - The user must have allocated enough GVA space for the
-	 *   mapping window (see compbits_win_size in
-	 *   nvgpu_as_get_buffer_compbits_info_args)
-	 *
-	 * out: gva to the mapped compbits store window */
-	__u64 compbits_win_gva;
-
-	/* in: reserved, must be 0
-	   out: physical or IOMMU address for mapping */
-	union {
-		/* contiguous iova addresses */
-		__u64 mapping_iova;
-
-		/* buffer to receive discontiguous iova addresses (reserved) */
-		__u64 mapping_iova_buf_addr;
-	};
-
-	/* in: Buffer size (in bytes) for discontiguous iova
-	 * addresses. Reserved, must be 0. */
-	__u64 mapping_iova_buf_size;
-
-#define NVGPU_AS_MAP_BUFFER_COMPBITS_FLAGS_FIXED_OFFSET        (1 << 0)
-	__u32 flags;
-	__u32 reserved1;
-};
-
-/*
- * Unmapping a buffer:
- *
- * To unmap a previously mapped buffer set 'offset' to the offset returned in
- * the mapping call.  This includes where a buffer has been mapped into a fixed
- * offset of a previously allocated address space range.
- */
-struct nvgpu_as_unmap_buffer_args {
-	__u64 offset; /* in, byte address */
-};
-
-
-struct nvgpu_as_va_region {
-	__u64 offset;
-	__u32 page_size;
-	__u32 reserved;
-	__u64 pages;
-};
-
-struct nvgpu_as_get_va_regions_args {
-	__u64 buf_addr; /* Pointer to array of nvgpu_as_va_region:s.
-			 * Ignored if buf_size is 0 */
-	__u32 buf_size; /* in:  userspace buf size (in bytes)
-			   out: kernel buf size    (in bytes) */
-	__u32 reserved;
-};
-
-struct nvgpu_as_map_buffer_batch_args {
-	__u64 unmaps; /* ptr to array of nvgpu_as_unmap_buffer_args */
-	__u64 maps;   /* ptr to array of nvgpu_as_map_buffer_ex_args */
-	__u32 num_unmaps; /* in: number of unmaps
-			   * out: on error, number of successful unmaps */
-	__u32 num_maps;   /* in: number of maps
-			   * out: on error, number of successful maps */
-	__u64 reserved;
-};
-
-struct nvgpu_as_get_sync_ro_map_args {
-	__u64 base_gpuva;
-	__u32 sync_size;
-	__u32 padding;
-};
-
-#define NVGPU_AS_IOCTL_BIND_CHANNEL \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 1, struct nvgpu_as_bind_channel_args)
-#define NVGPU32_AS_IOCTL_ALLOC_SPACE \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 2, struct nvgpu32_as_alloc_space_args)
-#define NVGPU_AS_IOCTL_FREE_SPACE \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 3, struct nvgpu_as_free_space_args)
-#define NVGPU_AS_IOCTL_UNMAP_BUFFER \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 5, struct nvgpu_as_unmap_buffer_args)
-#define NVGPU_AS_IOCTL_ALLOC_SPACE \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 6, struct nvgpu_as_alloc_space_args)
-#define NVGPU_AS_IOCTL_MAP_BUFFER_EX \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 7, struct nvgpu_as_map_buffer_ex_args)
-#define NVGPU_AS_IOCTL_GET_VA_REGIONS \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 8, struct nvgpu_as_get_va_regions_args)
-#define NVGPU_AS_IOCTL_GET_BUFFER_COMPBITS_INFO \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 9, struct nvgpu_as_get_buffer_compbits_info_args)
-#define NVGPU_AS_IOCTL_MAP_BUFFER_COMPBITS \
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 10, struct nvgpu_as_map_buffer_compbits_args)
-#define NVGPU_AS_IOCTL_MAP_BUFFER_BATCH	\
-	_IOWR(NVGPU_AS_IOCTL_MAGIC, 11, struct nvgpu_as_map_buffer_batch_args)
-#define NVGPU_AS_IOCTL_GET_SYNC_RO_MAP	\
-	_IOR(NVGPU_AS_IOCTL_MAGIC,  12, struct nvgpu_as_get_sync_ro_map_args)
-
-#define NVGPU_AS_IOCTL_LAST            \
-	_IOC_NR(NVGPU_AS_IOCTL_GET_SYNC_RO_MAP)
-#define NVGPU_AS_IOCTL_MAX_ARG_SIZE	\
-	sizeof(struct nvgpu_as_map_buffer_ex_args)
-
 
 /*
  * /dev/nvhost-ctxsw-gpu device
@@ -2265,8 +1210,10 @@ struct nvgpu_ctxsw_ring_setup_args {
 	((p)->tag_bits[(n) / 64] &= ~(1 << ((n) & 63)))
 #define NVGPU_CTXSW_FILTER_ISSET(n, p) \
 	((p)->tag_bits[(n) / 64] &   (1 << ((n) & 63)))
-#define NVGPU_CTXSW_FILTER_CLR_ALL(p)    memset((void *)(p), 0, sizeof(*(p)))
-#define NVGPU_CTXSW_FILTER_SET_ALL(p)    memset((void *)(p), ~0, sizeof(*(p)))
+#define NVGPU_CTXSW_FILTER_CLR_ALL(p) \
+	((void) memset((void *)(p), 0, sizeof(*(p))))
+#define NVGPU_CTXSW_FILTER_SET_ALL(p) \
+	((void) memset((void *)(p), ~0, sizeof(*(p))))
 
 struct nvgpu_ctxsw_trace_filter {
 	__u64 tag_bits[(NVGPU_CTXSW_FILTER_SIZE + 63) / 64];

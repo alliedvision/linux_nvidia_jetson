@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,12 +23,21 @@
 #ifndef NVGPU_FLCNIF_CMN_H
 #define NVGPU_FLCNIF_CMN_H
 
-#define PMU_CMD_SUBMIT_PAYLOAD_PARAMS_FB_SIZE_UNUSED 0
+#include <nvgpu/types.h>
+#include <nvgpu/bitops.h>
+
+#define PMU_CMD_SUBMIT_PAYLOAD_PARAMS_FB_SIZE_UNUSED 0U
 
 struct falc_u64 {
 	u32 lo;
 	u32 hi;
 };
+
+static inline void flcn64_set_dma(struct falc_u64 *dma_addr, u64 value)
+{
+	dma_addr->lo |= u64_lo32(value);
+	dma_addr->hi |= u64_hi32(value);
+}
 
 struct falc_dma_addr {
 	u32 dma_base;
@@ -87,6 +96,11 @@ struct pmu_allocation_v3 {
 	} alloc;
 };
 
+struct falcon_payload_alloc {
+	u16 dmem_size;
+	u32 dmem_offset;
+};
+
 #define nv_pmu_allocation pmu_allocation_v3
 
 struct pmu_hdr {
@@ -98,24 +112,44 @@ struct pmu_hdr {
 
 #define  NV_FLCN_UNIT_ID_REWIND    (0x00U)
 
-#define PMU_MSG_HDR_SIZE	sizeof(struct pmu_hdr)
-#define PMU_CMD_HDR_SIZE	sizeof(struct pmu_hdr)
+#define PMU_MSG_HDR_SIZE	U32(sizeof(struct pmu_hdr))
+#define PMU_CMD_HDR_SIZE	U32(sizeof(struct pmu_hdr))
 
 #define nv_pmu_hdr pmu_hdr
-typedef u8 flcn_status;
+typedef u8 falcon_status;
 
-#define PMU_DMEM_ALLOC_ALIGNMENT	(32)
-#define PMU_DMEM_ALIGNMENT		(4)
+#define PMU_DMEM_ALLOC_ALIGNMENT	32U
+#define PMU_DMEM_ALIGNMENT		4U
 
-#define PMU_CMD_FLAGS_PMU_MASK		(0xF0)
+#define PMU_CMD_FLAGS_PMU_MASK		U8(0xF0U)
 
-#define PMU_CMD_FLAGS_STATUS		BIT(0)
-#define PMU_CMD_FLAGS_INTR		BIT(1)
-#define PMU_CMD_FLAGS_EVENT		BIT(2)
-#define PMU_CMD_FLAGS_WATERMARK		BIT(3)
+#define PMU_CMD_FLAGS_STATUS		BIT8(0)
+#define PMU_CMD_FLAGS_INTR		BIT8(1)
+#define PMU_CMD_FLAGS_EVENT		BIT8(2)
+#define PMU_CMD_FLAGS_RPC_EVENT		BIT8(3U)
 
-#define ALIGN_UP(v, gran)       (((v) + ((gran) - 1)) & ~((gran)-1))
+#define ALIGN_UP(v, gran)       (((v) + ((gran) - 1U)) & ~((gran)-1U))
 
-#define NV_UNSIGNED_ROUNDED_DIV(a, b)    (((a) + ((b) / 2)) / (b))
+#define NV_UNSIGNED_ROUNDED_DIV(a, b)    (((a) + ((b) / 2U)) / (b))
 
+/* FB queue support interfaces */
+/* Header for a FBQ qntry */
+struct nv_falcon_fbq_hdr {
+	/* Element this CMD will use in the FB CMD Q. */
+	u8    element_index;
+	/* Pad bytes to keep 4 byte alignment. */
+	u8    padding[3];
+	/* Size of allocation in nvgpu managed heap. */
+	u16   heap_size;
+	/* Heap location this CMD will use in the nvgpu managed heap. */
+	u16   heap_offset;
+};
+
+/* Header for a FB MSG Queue Entry */
+struct nv_falcon_fbq_msgq_hdr {
+	/* Queue level sequence number. */
+	u16   sequence_number;
+	/* Negative checksum of entire queue entry. */
+	u16   checksum;
+};
 #endif /* NVGPU_FLCNIF_CMN_H */

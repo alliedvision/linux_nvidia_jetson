@@ -1,0 +1,257 @@
+From 5c5d1e0615b16128cf1a2c9d7ea2376ae555e059 Mon Sep 17 00:00:00 2001
+From: Can Guo <cang@codeaurora.org>
+Date: Wed, 2 Dec 2020 04:04:01 -0800
+Subject: [PATCH 006/830] FROMGIT: scsi: ufs: Serialize eh_work with system PM
+ events and async scan
+X-NVConfidentiality: public
+
+Serialize eh_work with system PM events and async scan to make sure eh_work
+does not run in parallel with them.
+
+Link: https://lore.kernel.org/r/1606910644-21185-2-git-send-email-cang@codeaurora.org
+Reviewed-by: Stanley Chu <stanley.chu@mediatek.com>
+Reviewed-by: Asutosh Das <asutoshd@codeaurora.org>
+Reviewed-by: Hongwu Su <hongwus@codeaurora.org>
+Signed-off-by: Can Guo <cang@codeaurora.org>
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+
+Bug: 174590161
+Change-Id: I14670bbace0ec446bd8948de7c27c1a5918f295a
+(cherry picked from commit 88a92d6ae4fe09b2b27781178c5c9432d27b1ffb
+ git://git.kernel.org/pub/scm/linux/kernel/git/mkp/scsi.git 5.11/scsi-staging)
+Signed-off-by: Can Guo <cang@codeaurora.org>
+---
+ drivers/scsi/ufs/ufshcd.c | 64 ++++++++++++++++++++++++---------------
+ drivers/scsi/ufs/ufshcd.h |  1 +
+ 2 files changed, 41 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index ec4910418b27..bab1e60add73 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -5803,7 +5803,9 @@ static inline void ufshcd_schedule_eh_work(struct ufs_hba *hba)
+ static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
+ {
+ 	pm_runtime_get_sync(hba->dev);
+-	if (pm_runtime_suspended(hba->dev)) {
++	if (pm_runtime_status_suspended(hba->dev) || hba->is_sys_suspended) {
++		enum ufs_pm_op pm_op;
++
+ 		/*
+ 		 * Don't assume anything of pm_runtime_get_sync(), if
+ 		 * resume fails, irq and clocks can be OFF, and powers
+@@ -5818,7 +5820,8 @@ static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
+ 		if (!ufshcd_is_clkgating_allowed(hba))
+ 			ufshcd_setup_clocks(hba, true);
+ 		ufshcd_release(hba);
+-		ufshcd_vops_resume(hba, UFS_RUNTIME_PM);
++		pm_op = hba->is_sys_suspended ? UFS_SYSTEM_PM : UFS_RUNTIME_PM;
++		ufshcd_vops_resume(hba, pm_op);
+ 	} else {
+ 		ufshcd_hold(hba, false);
+ 		if (hba->clk_scaling.is_allowed) {
+@@ -5839,7 +5842,7 @@ static void ufshcd_err_handling_unprepare(struct ufs_hba *hba)
+ 
+ static inline bool ufshcd_err_handling_should_stop(struct ufs_hba *hba)
+ {
+-	return (hba->ufshcd_state == UFSHCD_STATE_ERROR ||
++	return (!hba->is_powered || hba->ufshcd_state == UFSHCD_STATE_ERROR ||
+ 		(!(hba->saved_err || hba->saved_uic_err || hba->force_reset ||
+ 			ufshcd_is_link_broken(hba))));
+ }
+@@ -5852,6 +5855,7 @@ static void ufshcd_recover_pm_error(struct ufs_hba *hba)
+ 	struct request_queue *q;
+ 	int ret;
+ 
++	hba->is_sys_suspended = false;
+ 	/*
+ 	 * Set RPM status of hba device to RPM_ACTIVE,
+ 	 * this also clears its runtime error.
+@@ -5910,11 +5914,13 @@ static void ufshcd_err_handler(struct work_struct *work)
+ 
+ 	hba = container_of(work, struct ufs_hba, eh_work);
+ 
++	down(&hba->eh_sem);
+ 	spin_lock_irqsave(hba->host->host_lock, flags);
+ 	if (ufshcd_err_handling_should_stop(hba)) {
+ 		if (hba->ufshcd_state != UFSHCD_STATE_ERROR)
+ 			hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+ 		spin_unlock_irqrestore(hba->host->host_lock, flags);
++		up(&hba->eh_sem);
+ 		return;
+ 	}
+ 	ufshcd_set_eh_in_progress(hba);
+@@ -5922,20 +5928,18 @@ static void ufshcd_err_handler(struct work_struct *work)
+ 	ufshcd_err_handling_prepare(hba);
+ 	spin_lock_irqsave(hba->host->host_lock, flags);
+ 	ufshcd_scsi_block_requests(hba);
+-	/*
+-	 * A full reset and restore might have happened after preparation
+-	 * is finished, double check whether we should stop.
+-	 */
+-	if (ufshcd_err_handling_should_stop(hba)) {
+-		if (hba->ufshcd_state != UFSHCD_STATE_ERROR)
+-			hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+-		goto out;
+-	}
+ 	hba->ufshcd_state = UFSHCD_STATE_RESET;
+ 
+ 	/* Complete requests that have door-bell cleared by h/w */
+ 	ufshcd_complete_requests(hba);
+ 
++	/*
++	 * A full reset and restore might have happened after preparation
++	 * is finished, double check whether we should stop.
++	 */
++	if (ufshcd_err_handling_should_stop(hba))
++		goto skip_err_handling;
++
+ 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
+ 		bool ret;
+ 
+@@ -5943,17 +5947,10 @@ static void ufshcd_err_handler(struct work_struct *work)
+ 		/* release the lock as ufshcd_quirk_dl_nac_errors() may sleep */
+ 		ret = ufshcd_quirk_dl_nac_errors(hba);
+ 		spin_lock_irqsave(hba->host->host_lock, flags);
+-		if (!ret && !hba->force_reset && ufshcd_is_link_active(hba))
++		if (!ret && ufshcd_err_handling_should_stop(hba))
+ 			goto skip_err_handling;
+ 	}
+ 
+-	if (hba->force_reset || ufshcd_is_link_broken(hba) ||
+-	    ufshcd_is_saved_err_fatal(hba) ||
+-	    ((hba->saved_err & UIC_ERROR) &&
+-	     (hba->saved_uic_err & (UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
+-				    UFSHCD_UIC_DL_TCx_REPLAY_ERROR))))
+-		needs_reset = true;
+-
+ 	if ((hba->saved_err & (INT_FATAL_ERRORS | UFSHCD_UIC_HIBERN8_MASK)) ||
+ 	    (hba->saved_uic_err &&
+ 	     (hba->saved_uic_err != UFSHCD_UIC_PA_GENERIC_ERROR))) {
+@@ -5973,8 +5970,14 @@ static void ufshcd_err_handler(struct work_struct *work)
+ 	 * transfers forcefully because they will get cleared during
+ 	 * host reset and restore
+ 	 */
+-	if (needs_reset)
++	if (hba->force_reset || ufshcd_is_link_broken(hba) ||
++	    ufshcd_is_saved_err_fatal(hba) ||
++	    ((hba->saved_err & UIC_ERROR) &&
++	     (hba->saved_uic_err & (UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
++				    UFSHCD_UIC_DL_TCx_REPLAY_ERROR)))) {
++		needs_reset = true;
+ 		goto do_reset;
++	}
+ 
+ 	/*
+ 	 * If LINERESET was caught, UFS might have been put to PWM mode,
+@@ -6082,12 +6085,11 @@ static void ufshcd_err_handler(struct work_struct *work)
+ 			dev_err_ratelimited(hba->dev, "%s: exit: saved_err 0x%x saved_uic_err 0x%x",
+ 			    __func__, hba->saved_err, hba->saved_uic_err);
+ 	}
+-
+-out:
+ 	ufshcd_clear_eh_in_progress(hba);
+ 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+ 	ufshcd_scsi_unblock_requests(hba);
+ 	ufshcd_err_handling_unprepare(hba);
++	up(&hba->eh_sem);
+ }
+ 
+ /**
+@@ -7040,6 +7042,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
+ 	 */
+ 	scsi_report_bus_reset(hba->host, 0);
+ 	if (err) {
++		hba->ufshcd_state = UFSHCD_STATE_ERROR;
+ 		hba->saved_err |= saved_err;
+ 		hba->saved_uic_err |= saved_uic_err;
+ 	}
+@@ -8375,8 +8378,10 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
+ 	struct ufs_hba *hba = (struct ufs_hba *)data;
+ 	int ret;
+ 
++	down(&hba->eh_sem);
+ 	/* Initialize hba, detect and initialize UFS device */
+ 	ret = ufshcd_probe_hba(hba, true);
++	up(&hba->eh_sem);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -9405,6 +9410,7 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
+ 	int ret = 0;
+ 	ktime_t start = ktime_get();
+ 
++	down(&hba->eh_sem);
+ 	if (!hba || !hba->is_powered)
+ 		return 0;
+ 
+@@ -9440,6 +9446,8 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
+ 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+ 	if (!ret)
+ 		hba->is_sys_suspended = true;
++	else
++		up(&hba->eh_sem);
+ 	return ret;
+ }
+ EXPORT_SYMBOL(ufshcd_system_suspend);
+@@ -9456,8 +9464,10 @@ int ufshcd_system_resume(struct ufs_hba *hba)
+ 	int ret = 0;
+ 	ktime_t start = ktime_get();
+ 
+-	if (!hba)
++	if (!hba) {
++		up(&hba->eh_sem);
+ 		return -EINVAL;
++	}
+ 
+ 	if (!hba->is_powered)
+ 		/*
+@@ -9473,6 +9483,7 @@ int ufshcd_system_resume(struct ufs_hba *hba)
+ 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+ 	if (!ret)
+ 		hba->is_sys_suspended = false;
++	up(&hba->eh_sem);
+ 	return ret;
+ }
+ EXPORT_SYMBOL(ufshcd_system_resume);
+@@ -9564,6 +9575,7 @@ int ufshcd_shutdown(struct ufs_hba *hba)
+ {
+ 	int ret = 0;
+ 
++	down(&hba->eh_sem);
+ 	if (!hba->is_powered)
+ 		goto out;
+ 
+@@ -9576,6 +9588,8 @@ int ufshcd_shutdown(struct ufs_hba *hba)
+ out:
+ 	if (ret)
+ 		dev_err(hba->dev, "%s failed, err %d\n", __func__, ret);
++	hba->is_powered = false;
++	up(&hba->eh_sem);
+ 	/* allow force shutdown even in case of errors */
+ 	return 0;
+ }
+@@ -9805,6 +9819,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
+ 	INIT_WORK(&hba->eh_work, ufshcd_err_handler);
+ 	INIT_WORK(&hba->eeh_work, ufshcd_exception_event_handler);
+ 
++	sema_init(&hba->eh_sem, 1);
++
+ 	/* Initialize UIC command mutex */
+ 	mutex_init(&hba->uic_cmd_mutex);
+ 
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 5fc2def61437..c79eede6410c 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -782,6 +782,7 @@ struct ufs_hba {
+ 	bool is_powered;
+ 	bool is_init_prefetch;
+ 	struct ufs_init_prefetch init_prefetch_data;
++	struct semaphore eh_sem;
+ 
+ 	/* Work Queues */
+ 	struct workqueue_struct *eh_wq;
+-- 
+2.17.1
+

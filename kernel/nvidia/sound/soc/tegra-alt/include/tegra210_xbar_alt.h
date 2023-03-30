@@ -1,7 +1,7 @@
 /*
  * tegra210_xbar_alt.h - TEGRA210 XBAR registers
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,18 +56,6 @@
 #define TEGRA210_AHUBRAMCTL_CTRL_SEQ_ACCESS_EN		(1 << 12)
 #define TEGRA210_AHUBRAMCTL_CTRL_RAM_ADDR_MASK		0x1ff
 
-#define TEGRA210_NUM_DAIS				67
-#define TEGRA210_NUM_MUX_WIDGETS			50
-
-/* size of TEGRA210_ROUTES */
-#define TEGRA210_NUM_MUX_INPUT				54
-
-#define TEGRA186_NUM_DAIS				108
-#define TEGRA186_NUM_MUX_WIDGETS			79
-
-/* size of TEGRA_ROUTES + TEGRA186_ROUTES */
-#define TEGRA186_NUM_MUX_INPUT				82
-
 #define TEGRA210_MAX_REGISTER_ADDR (TEGRA210_XBAR_PART2_RX +		\
 	(TEGRA210_XBAR_RX_STRIDE * (TEGRA210_XBAR_AUDIO_RX_COUNT - 1)))
 
@@ -91,79 +79,73 @@
 
 #define TEGRA_XBAR_UPDATE_MAX_REG		(TEGRA186_XBAR_UPDATE_MAX_REG)
 
-/* T210 Modules Base address */
-#define T210_ADMAIF_BASE_ADDR		0x702d0000
-#define T210_I2S1_BASE_ADDR		0x702d1000
-#define T210_I2S2_BASE_ADDR		0x702d1100
-#define T210_I2S3_BASE_ADDR		0x702d1200
-#define T210_I2S4_BASE_ADDR		0x702d1300
-#define T210_I2S5_BASE_ADDR		0x702d1400
-#define T210_AMX1_BASE_ADDR		0x702d3000
-#define T210_AMX2_BASE_ADDR		0x702d3100
-#define T210_ADX1_BASE_ADDR		0x702d3800
-#define T210_ADX2_BASE_ADDR		0x702d3900
-#define T210_AFC1_BASE_ADDR		0x702d7000
-#define T210_AFC2_BASE_ADDR		0x702d7100
-#define T210_AFC3_BASE_ADDR		0x702d7200
-#define T210_AFC4_BASE_ADDR		0x702d7300
-#define T210_AFC5_BASE_ADDR		0x702d7400
-#define T210_AFC6_BASE_ADDR		0x702d7500
-#define T210_SFC1_BASE_ADDR		0x702d2000
-#define T210_SFC2_BASE_ADDR		0x702d2200
-#define T210_SFC3_BASE_ADDR		0x702d2400
-#define T210_SFC4_BASE_ADDR		0x702d2600
-#define T210_MVC1_BASE_ADDR		0x702da000
-#define T210_MVC2_BASE_ADDR		0x702da200
-#define T210_IQC1_BASE_ADDR		0x702de000
-#define T210_IQC2_BASE_ADDR		0x702de200
-#define T210_DMIC1_BASE_ADDR		0x702d4000
-#define T210_DMIC2_BASE_ADDR		0x702d4100
-#define T210_DMIC3_BASE_ADDR		0x702d4200
-#define T210_OPE1_BASE_ADDR		0x702d8000
-#define T210_OPE2_BASE_ADDR		0x702d8400
-#define T210_AMIXER1_BASE_ADDR		0x702dbb00
+#define MUX_ENUM_CTRL_DECL(ename, id)				\
+	SOC_VALUE_ENUM_WIDE_DECL(ename##_enum, MUX_REG(id), 0,	\
+				 tegra210_xbar_mux_texts,	\
+				 tegra210_xbar_mux_values);	\
+	static const struct snd_kcontrol_new ename##_control =	\
+		SOC_DAPM_ENUM_EXT("Route", ename##_enum,	\
+				  tegra_xbar_get_value_enum,	\
+				  tegra_xbar_put_value_enum)
 
-/* T186 Modules Base address */
-#define T186_ADMAIF_BASE_ADDR		0x0290F000
-#define T186_I2S1_BASE_ADDR		0x02901000
-#define T186_I2S2_BASE_ADDR		0x02901100
-#define T186_I2S3_BASE_ADDR		0x02901200
-#define T186_I2S4_BASE_ADDR		0x02901300
-#define T186_I2S5_BASE_ADDR		0x02901400
-#define T186_I2S6_BASE_ADDR		0x02901500
-#define T186_AMX1_BASE_ADDR		0x02903000
-#define T186_AMX2_BASE_ADDR		0x02903100
-#define T186_AMX3_BASE_ADDR		0x02903200
-#define T186_AMX4_BASE_ADDR		0x02903300
-#define T186_ADX1_BASE_ADDR		0x02903800
-#define T186_ADX2_BASE_ADDR		0x02903900
-#define T186_ADX3_BASE_ADDR		0x02903a00
-#define T186_ADX4_BASE_ADDR		0x02903b00
-#define T186_AFC1_BASE_ADDR		0x02907000
-#define T186_AFC2_BASE_ADDR		0x02907100
-#define T186_AFC3_BASE_ADDR		0x02907200
-#define T186_AFC4_BASE_ADDR		0x02907300
-#define T186_AFC5_BASE_ADDR		0x02907400
-#define T186_AFC6_BASE_ADDR		0x02907500
-#define T186_SFC1_BASE_ADDR		0x02902000
-#define T186_SFC2_BASE_ADDR		0x02902200
-#define T186_SFC3_BASE_ADDR		0x02902400
-#define T186_SFC4_BASE_ADDR		0x02902600
-#define T186_MVC1_BASE_ADDR		0x0290A000
-#define T186_MVC2_BASE_ADDR		0x0290A200
-#define T186_IQC1_BASE_ADDR		0x0290E000
-#define T186_IQC2_BASE_ADDR		0x0290E200
-#define T186_DMIC1_BASE_ADDR		0x02904000
-#define T186_DMIC2_BASE_ADDR		0x02904100
-#define T186_DMIC3_BASE_ADDR		0x02904200
-#define T186_DMIC4_BASE_ADDR		0x02904300
-#define T186_OPE1_BASE_ADDR		0x02908000
-#define T186_AMIXER1_BASE_ADDR		0x0290BB00
-#define T186_ASRC1_BASE_ADDR		0x02910000
-#define T186_ARAD1_BASE_ADDR		0x0290E400
-#define T186_DSPK1_BASE_ADDR		0x02905000
-#define T186_DSPK2_BASE_ADDR		0x02905100
+#define MUX_ENUM_CTRL_DECL_186(ename, id)			\
+	SOC_VALUE_ENUM_WIDE_DECL(ename##_enum, MUX_REG(id), 0,	\
+				 tegra186_xbar_mux_texts,	\
+				 tegra186_xbar_mux_values);	\
+	static const struct snd_kcontrol_new ename##_control =	\
+		SOC_DAPM_ENUM_EXT("Route", ename##_enum,	\
+				  tegra_xbar_get_value_enum,	\
+				  tegra_xbar_put_value_enum)
 
+#define DAI(sname)						\
+	{							\
+		.name = #sname,					\
+		.playback = {					\
+			.stream_name = #sname " Receive",	\
+			.channels_min = 1,			\
+			.channels_max = 16,			\
+			.rates = SNDRV_PCM_RATE_8000_192000,	\
+			.formats = SNDRV_PCM_FMTBIT_S8 |	\
+				SNDRV_PCM_FMTBIT_S16_LE |	\
+				SNDRV_PCM_FMTBIT_S32_LE,	\
+		},						\
+		.capture = {					\
+			.stream_name = #sname " Transmit",	\
+			.channels_min = 1,			\
+			.channels_max = 16,			\
+			.rates = SNDRV_PCM_RATE_8000_192000,	\
+			.formats = SNDRV_PCM_FMTBIT_S8 |	\
+				SNDRV_PCM_FMTBIT_S16_LE |	\
+				SNDRV_PCM_FMTBIT_S32_LE,	\
+		},						\
+	}
+
+#define MUX_REG(id) (TEGRA210_XBAR_RX_STRIDE * (id))
+
+#define SOC_VALUE_ENUM_WIDE(xreg, shift, xmax, xtexts, xvalues) \
+{	.reg = xreg, .shift_l = shift, .shift_r = shift,	\
+	.items = xmax, .texts = xtexts, .values = xvalues,	\
+	.mask = xmax ? roundup_pow_of_two(xmax) - 1 : 0}
+
+#define SOC_VALUE_ENUM_WIDE_DECL(name, xreg, shift, xtexts, xvalues)	\
+	static struct soc_enum name = SOC_VALUE_ENUM_WIDE(xreg, shift,	\
+		ARRAY_SIZE(xtexts), xtexts, xvalues)
+
+#define WIDGETS(sname, ename)						\
+	SND_SOC_DAPM_AIF_IN(sname " RX", NULL, 0, SND_SOC_NOPM, 0, 0),	\
+	SND_SOC_DAPM_AIF_OUT(sname " TX", NULL, 0, SND_SOC_NOPM, 0, 0), \
+	SND_SOC_DAPM_MUX(sname " Mux", SND_SOC_NOPM, 0, 0,		\
+			 &ename##_control)
+
+#define TX_WIDGETS(sname)						\
+	SND_SOC_DAPM_AIF_IN(sname " RX", NULL, 0, SND_SOC_NOPM, 0, 0),	\
+	SND_SOC_DAPM_AIF_OUT(sname " TX", NULL, 0, SND_SOC_NOPM, 0, 0)
+
+#define MUX_VALUE(npart, nbit) (1 + nbit + npart * 32)
+
+#define IN_OUT_ROUTES(name)					\
+	{ name " RX",       NULL,	name " Receive" },	\
+	{ name " Transmit", NULL,       name " TX" },
 
 struct tegra210_xbar_cif_conf {
 	unsigned int threshold;
@@ -185,8 +167,9 @@ struct tegra_xbar_soc_data {
 	const struct regmap_config *regmap_config;
 	unsigned int mask[4];
 	unsigned int reg_count;
-	unsigned int reg_offset;
-	int (*xbar_registration)(struct platform_device *pdev);
+	unsigned int num_dais;
+	struct snd_soc_codec_driver *codec_drv;
+	struct snd_soc_dai_driver *dai_drv;
 };
 
 struct tegra_xbar {

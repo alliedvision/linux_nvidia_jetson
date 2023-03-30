@@ -1,7 +1,7 @@
 /*
  * PVA mailbox header
  *
- * Copyright (c) 2016-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,9 +22,10 @@
 #include <linux/platform_device.h>
 
 #include "pva-interface.h"
+#include "pva_status_regs.h"
 
 /* Total CCQ status registers */
-#define PVA_CCQ_STATUS_REGS	9
+#define PVA_CCQ_STATUS_REGS    9
 
 /* Symbolic definitions of the CCQ status registers */
 #define PVA_CCQ_STATUS0_INDEX	0
@@ -36,6 +37,7 @@
 #define PVA_CCQ_STATUS6_INDEX	6
 #define PVA_CCQ_STATUS7_INDEX	7
 #define PVA_CCQ_STATUS8_INDEX	8
+
 
 /* Number of valid MBOX registers used for sending commands */
 #define VALID_MB_INPUT_REGS 4
@@ -70,14 +72,13 @@ struct pva_mailbox_status_regs {
 };
 
 /**
+ *
  * pva_mailbox_send_cmd_sync() - Send a command and wait for response
  *
  * @pva:		Pointer to PVA structure
  * @pva_cmd:		Pointer to the pva command struct
  * @nregs:		Number of valid mailbox registers for the command
- * @mb_status_regs:	Pointer to pva_mailbox_status_regs struct
- *
- * Return:	0 on Success or negative error code
+ * @status_regs:	Pointer to pva_cmd_status_regs struct
  *
  * This function called by OS to pass the mailbox commands to
  * the PVA uCode. The function returns the output status from PVA
@@ -86,19 +87,18 @@ struct pva_mailbox_status_regs {
  * The caller is responsible to ensure that PVA has been powered
  * up through nvhost_module_busy() API prior calling this function.
  */
-int pva_mailbox_send_cmd_sync(struct pva *pva,
-			struct pva_cmd *cmd, u32 nregs,
-			struct pva_mailbox_status_regs *mb_status_regs);
 
+int pva_mailbox_send_cmd_sync(struct pva *pva,
+				struct pva_cmd_s *cmd, u32 nregs,
+				struct pva_cmd_status_regs *status_regs);
 /**
+ *
  * pva_mailbox_send_cmd_sync_locked() - Send a command and wait for response
  *
  * @pva:		Pointer to PVA structure
  * @pva_cmd:		Pointer to the pva command struct
  * @nregs:		Number of valid mailbox registers for the command
- * @mb_status_regs:	Pointer to pva_mailbox_status_regs struct
- *
- * Return:	0 on Success or negative error code
+ * @status_regs:	Pointer to pva_cmd_status_regs struct
  *
  * This function called by OS to pass the mailbox commands to
  * the PVA uCode. The function returns the output status from PVA
@@ -107,8 +107,8 @@ int pva_mailbox_send_cmd_sync(struct pva *pva,
  * the function can be called during PVA boot-up).
  */
 int pva_mailbox_send_cmd_sync_locked(struct pva *pva,
-			struct pva_cmd *cmd, u32 nregs,
-			struct pva_mailbox_status_regs *mailbox_status_regs);
+				struct pva_cmd_s *cmd, u32 nregs,
+				struct pva_cmd_status_regs *status_regs);
 
 /**
  * pva_mailbox_isr() - Handle interrupt for PVA ISR
@@ -123,40 +123,12 @@ void pva_mailbox_isr(struct pva *pva);
 /**
  * pva_mailbox_wait_event() - mailbox wait event
  *
- * @pva:»       Pointer to PVA structure
- * @wait_time»       WaitTime Interval for the event
+ * @pva:»	Pointer to PVA structure
+ * @wait_time»	     WaitTime Interval for the event
  *
  * This function do the wait until the mailbox isr get invoked based on
  * the mailbox register set by the ucode.
  */
 int pva_mailbox_wait_event(struct pva *pva, int wait_time);
-
-/**
- * pva_read_mailbox() - read a mailbox register
- *
- * @pva:			Pointer to PVA structure
- * @mbox:		mailbox register to be written
- *
- * This function will read the indicated mailbox register and return its
- * contents.  it uses side channel B as host would.
- *
- * Return Value:
- *	contents of the indicated mailbox register
- */
-u32 pva_read_mailbox(struct platform_device *pdev, u32 mbox_id);
-
-/**
- * pva_write_mailbox() - write to a mailbox register
- *
- * @pva:			Pointer to PVA structure
- * @mbox:		mailbox register to be written
- * @value:		value to be written into the mailbox register
- *
- * This function will write a value into the indicated mailbox register.
- *
- * Return Value:
- *	none
- */
-void pva_write_mailbox(struct platform_device *pdev, u32 mbox_id, u32 value);
 
 #endif /*__PVA_MAINBOX_H__*/

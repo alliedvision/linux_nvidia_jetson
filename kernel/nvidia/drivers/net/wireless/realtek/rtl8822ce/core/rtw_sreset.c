@@ -183,6 +183,8 @@ void sreset_restore_network_station(_adapter *padapter)
 
 		rtw_hal_rcr_set_chk_bssid(padapter, MLME_STA_CONNECTING);
 		rtw_hal_set_hwreg(padapter, HW_VAR_MLME_JOIN, (u8 *)(&join_type));
+
+		rtw_btcoex_connect_notify(padapter, join_type);
 	}
 
 	Set_MSR(padapter, (pmlmeinfo->state & 0x3));
@@ -230,10 +232,10 @@ void sreset_stop_adapter(_adapter *padapter)
 	tasklet_kill(&pxmitpriv->xmit_tasklet);
 #endif
 
-	if (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY))
+	if (check_fwstate(pmlmepriv, WIFI_UNDER_SURVEY))
 		rtw_scan_abort(padapter);
 
-	if (check_fwstate(pmlmepriv, _FW_UNDER_LINKING)) {
+	if (check_fwstate(pmlmepriv, WIFI_UNDER_LINKING)) {
 		rtw_set_to_roam(padapter, 0);
 		rtw_join_timeout_handler(padapter);
 	}
@@ -250,7 +252,7 @@ void sreset_start_adapter(_adapter *padapter)
 
 	RTW_INFO(FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(padapter));
 
-	if (check_fwstate(pmlmepriv, _FW_LINKED))
+	if (check_fwstate(pmlmepriv, WIFI_ASOC_STATE))
 		sreset_restore_network_status(padapter);
 
 	/* TODO: OS and HCI independent */
@@ -295,6 +297,9 @@ void sreset_reset(_adapter *padapter)
 #ifdef CONFIG_IPS
 	_ips_enter(padapter);
 	_ips_leave(padapter);
+#endif
+#ifdef CONFIG_CONCURRENT_MODE
+	rtw_mi_ap_info_restore(padapter);
 #endif
 	rtw_mi_sreset_adapter_hdl(padapter, _TRUE);/*sreset_start_adapter*/
 

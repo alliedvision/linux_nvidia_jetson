@@ -1,7 +1,7 @@
 /*
  * drivers/platform/tegra/pm_debugfs.c
  *
- * Copyright (c) 2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION. All rights reserved.
  *
  *
  * This software is licensed under the terms of the GNU General Public
@@ -26,49 +26,9 @@ static struct dentry *system_states_debugfs;
 static u32 suspend_debug_flags;
 
 /*
- * Helper function for send_smc that actually makes the smc call
- */
-static noinline notrace int __send_smc(u32 smc_func, struct pm_regs *regs)
-{
-	u32 ret = smc_func;
-
-	asm volatile (
-	"       mov     x0, %0\n"
-	"       ldp     x1, x2, [%1, #16 * 0]\n"
-	"       ldp     x3, x4, [%1, #16 * 1]\n"
-	"       ldp     x5, x6, [%1, #16 * 2]\n"
-	"       isb\n"
-	"       smc     #0\n"
-	"       mov     %0, x0\n"
-	"       stp     x0, x1, [%1, #16 * 0]\n"
-	"       stp     x2, x3, [%1, #16 * 1]\n"
-	: "+r" (ret)
-	: "r" (regs)
-	: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8",
-	"x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17");
-	return ret;
-}
-
-/*
- * Make an SMC call. Takes in the SMC function to be invoked & registers to be
- * passed along as args.
- */
-int send_smc(u32 smc_func, struct pm_regs *regs)
-{
-	int __ret = __send_smc(smc_func, regs);
-
-	if (__ret) {
-		pr_err("%s: failed (ret=%d)\n", __func__, __ret);
-		return __ret;
-	}
-
-	return __ret;
-}
-
-/*
  * Specify debug flags for system suspend.
  */
-static int tegra_set_suspend_debug_flags(u32 debug_flags)
+int tegra_set_suspend_debug_flags(u32 debug_flags)
 {
 	struct pm_regs regs;
 	u32 smc_func = SMC_FAKE_SYS_SUSPEND |

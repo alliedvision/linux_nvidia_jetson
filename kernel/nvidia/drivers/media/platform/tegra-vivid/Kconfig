@@ -8,7 +8,7 @@ config VIDEO_TEGRA_VIVID
 	select FB_CFB_IMAGEBLIT
 	select VIDEOBUF2_VMALLOC
 	default n
-	---help---
+	help
 	  Enables a virtual video driver. This driver emulates a webcam,
 	  TV, S-Video and HDMI capture hardware, including VBI support for
 	  the SDTV inputs. Also video output, VBI output, radio receivers,
@@ -29,6 +29,6 @@ config VIDEO_TEGRA_VIVID_MAX_DEVS
 	int "Maximum number of devices"
 	depends on VIDEO_TEGRA_VIVID
 	default "64"
-	---help---
+	help
 	  This allows you to specify the maximum number of devices supported
 	  by the tegra vivid driver.

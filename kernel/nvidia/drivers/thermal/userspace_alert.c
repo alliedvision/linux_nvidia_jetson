@@ -145,7 +145,8 @@ static ssize_t thermal_alert_block_show(struct device *dev,
 
 	alert_timeout_ms = alert_data->alert_timeout_ms;
 	if (alert_timeout_ms > 0)
-		ret = wait_event_interruptible_timeout(alert_data->alert_wait_queue,
+		ret = wait_event_interruptible_timeout(
+			alert_data->alert_wait_queue,
 			alert_data->therm_alert == ALERT,
 			msecs_to_jiffies(alert_timeout_ms));
 	else

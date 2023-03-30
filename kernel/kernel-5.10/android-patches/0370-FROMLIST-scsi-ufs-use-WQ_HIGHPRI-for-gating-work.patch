@@ -1,0 +1,37 @@
+From dd8f678ff9614e0073ac93816d40ba0a2d08404f Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Sun, 3 May 2020 06:54:45 -0700
+Subject: [PATCH 370/830] FROMLIST: scsi: ufs: use WQ_HIGHPRI for gating work
+X-NVConfidentiality: public
+
+Must have WQ_MEM_RECLAIM
+``WQ_MEM_RECLAIM``
+  All wq which might be used in the memory reclaim paths **MUST**
+  have this flag set.  The wq is guaranteed to have at least one
+  execution context regardless of memory pressure.
+
+Bug: 158050260
+Bug: 155410470
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Link: https://lore.kernel.org/linux-scsi/20200915204532.1672300-3-jaegeuk@kernel.org/T/#u
+Change-Id: I65f2608650fa3436503581a60ac539f85273a21e
+---
+ drivers/scsi/ufs/ufshcd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 113deae7d4a7..0bdfb2e9cd51 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1887,7 +1887,7 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
+ 	snprintf(wq_name, ARRAY_SIZE(wq_name), "ufs_clk_gating_%d",
+ 		 hba->host->host_no);
+ 	hba->clk_gating.clk_gating_workq = alloc_ordered_workqueue(wq_name,
+-							   WQ_MEM_RECLAIM);
++					WQ_MEM_RECLAIM | WQ_HIGHPRI);
+ 
+ 	hba->clk_gating.is_enabled = true;
+ 
+-- 
+2.17.1
+

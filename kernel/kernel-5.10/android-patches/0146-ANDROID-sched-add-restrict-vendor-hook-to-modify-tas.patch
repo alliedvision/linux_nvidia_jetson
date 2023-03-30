@@ -1,0 +1,99 @@
+From 14c3db13be679630f2e6c781d62590cf2998a208 Mon Sep 17 00:00:00 2001
+From: Yun Hsiang <yun.hsiang@mediatek.com>
+Date: Wed, 20 May 2020 10:31:35 +0800
+Subject: [PATCH 146/830] ANDROID: sched: add restrict vendor hook to modify
+ task placement policy in EAS
+X-NVConfidentiality: public
+
+For modifying task placement policy, we add the hook on the top of
+select_task_rq_fair(). It allows us to modify wakeup/fork/exec balance
+paths.
+
+Bug: 158263250
+Signed-off-by: Yun Hsiang <yun.hsiang@mediatek.com>
+Change-Id: I80ff870453472e183ab2aae7381bff91e49ae296
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ include/trace/hooks/sched.h    | 23 +++++++++++++++++++++++
+ kernel/sched/fair.c            |  8 ++++++++
+ 3 files changed, 33 insertions(+)
+ create mode 100644 include/trace/hooks/sched.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 169da7a0fe12..6bf12cd90dc6 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -8,6 +8,7 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/hooks/vendor_hooks.h>
++#include <trace/hooks/sched.h>
+ #include <trace/hooks/fpsimd.h>
+ #include <trace/hooks/rwsem.h>
+ #include <trace/hooks/futex.h>
+@@ -20,6 +21,7 @@
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+  * associated with them) to allow external modules to probe them.
+  */
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_select_task_rq_fair);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+new file mode 100644
+index 000000000000..e4ef56686a76
+--- /dev/null
++++ b/include/trace/hooks/sched.h
+@@ -0,0 +1,23 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM sched
++#define TRACE_INCLUDE_PATH trace/hooks
++#if !defined(_TRACE_HOOK_SCHED_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_SCHED_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct task_struct;
++DECLARE_RESTRICTED_HOOK(android_rvh_select_task_rq_fair,
++	TP_PROTO(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags, int *new_cpu),
++	TP_ARGS(p, prev_cpu, sd_flag, wake_flags, new_cpu), 1);
++#else
++#define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
++#endif
++#endif /* _TRACE_HOOK_SCHED_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index cee2edd3e4cb..c88d262d33f4 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -22,6 +22,8 @@
+  */
+ #include "sched.h"
+ 
++#include <trace/hooks/sched.h>
++
+ /*
+  * Targeted preemption latency for CPU-bound tasks:
+  *
+@@ -6794,6 +6796,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
+ 	int new_cpu = prev_cpu;
+ 	int want_affine = 0;
+ 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
++	int target_cpu = -1;
++
++	trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag,
++			wake_flags, &target_cpu);
++	if (target_cpu >= 0)
++		return target_cpu;
+ 
+ 	if (sd_flag & SD_BALANCE_WAKE) {
+ 		record_wakee(p);
+-- 
+2.17.1
+

@@ -1,0 +1,94 @@
+From 55a500e81dd6a81ab4872679efc05f5f7ee65f98 Mon Sep 17 00:00:00 2001
+From: David Stevens <stevensd@chromium.org>
+Date: Wed, 22 Jan 2020 15:02:33 +0900
+Subject: [PATCH 351/830] FROMLIST: dma-buf: add support for virtio exported
+ objects
+X-NVConfidentiality: public
+
+This change adds a new dma-buf operation that allows dma-bufs to be used
+by virtio drivers to share exported objects. The new operation allows
+the importing driver to query the exporting driver for the UUID which
+identifies the underlying exported object.
+
+Signed-off-by: David Stevens <stevensd@chromium.org>
+
+BUG=b:136269340
+TEST=boot ARCVM and launch play store
+
+Signed-off-by: Keiichi Watanabe <keiichiw@chromium.org>
+Reviewed-on: https://chromium-review.googlesource.com/c/chromiumos/third_party/kernel/+/2059086
+Reviewed-by: Sean Paul <seanpaul@chromium.org>
+Reviewed-by: Gurchetan Singh <gurchetansingh@chromium.org>
+Tested-by: David Stevens <stevensd@chromium.org>
+Commit-Queue: David Stevens <stevensd@chromium.org>
+Bug: 153580313
+Link: https://lore.kernel.org/lkml/20200311112004.47138-2-stevensd@chromium.org/
+Change-Id: Ifb429e36ebbba9feead6fd1792fbefa9ca097f0c
+Signed-off-by: Lingfeng Yang <lfy@google.com>
+[ebiggers: folded in fix from commit e556869703e4 ("ANDROID: Add C
+           protos for dma_buf/drm_prime get_uuid")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/dma-buf/dma-buf.c | 12 ++++++++++++
+ include/linux/dma-buf.h   | 17 +++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/drivers/dma-buf/dma-buf.c b/drivers/dma-buf/dma-buf.c
+index 62a576b0007d..eb77420de59b 100644
+--- a/drivers/dma-buf/dma-buf.c
++++ b/drivers/dma-buf/dma-buf.c
+@@ -1575,6 +1575,18 @@ int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
+ }
+ EXPORT_SYMBOL_GPL(dma_buf_get_flags);
+ 
++int dma_buf_get_uuid(struct dma_buf *dmabuf, uuid_t *uuid)
++{
++	if (WARN_ON(!dmabuf) || !uuid)
++		return -EINVAL;
++
++	if (!dmabuf->ops->get_uuid)
++		return -ENODEV;
++
++	return dmabuf->ops->get_uuid(dmabuf, uuid);
++}
++EXPORT_SYMBOL_GPL(dma_buf_get_uuid);
++
+ #ifdef CONFIG_DEBUG_FS
+ static int dma_buf_debug_show(struct seq_file *s, void *unused)
+ {
+diff --git a/include/linux/dma-buf.h b/include/linux/dma-buf.h
+index 56b172fdf4ab..e1255b1417c3 100644
+--- a/include/linux/dma-buf.h
++++ b/include/linux/dma-buf.h
+@@ -328,6 +328,21 @@ struct dma_buf_ops {
+ 	void *(*vmap)(struct dma_buf *);
+ 	void (*vunmap)(struct dma_buf *, void *vaddr);
+ 
++	/**
++	 * @get_uuid
++	 *
++	 * This is called by dma_buf_get_uuid to get the UUID which identifies
++	 * the buffer to virtio devices.
++	 *
++	 * This callback is optional.
++	 *
++	 * Returns:
++	 *
++	 * 0 on success or a negative error code on failure. On success uuid
++	 * will be populated with the buffer's UUID.
++	 */
++	int (*get_uuid)(struct dma_buf *dmabuf, uuid_t *uuid);
++
+ 	/**
+ 	 * @get_flags:
+ 	 *
+@@ -602,4 +617,6 @@ void *dma_buf_vmap(struct dma_buf *);
+ void dma_buf_vunmap(struct dma_buf *, void *vaddr);
+ extern int dma_buf_disable_defer_unmapping(struct device *device);
+ int dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags);
++int dma_buf_get_uuid(struct dma_buf *dmabuf, uuid_t *uuid);
++
+ #endif /* __DMA_BUF_H__ */
+-- 
+2.17.1
+

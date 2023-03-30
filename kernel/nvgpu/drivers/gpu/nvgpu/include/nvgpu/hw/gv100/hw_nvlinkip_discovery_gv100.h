@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,259 +53,76 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_nvlinkip_discovery_gv100_h_
-#define _hw_nvlinkip_discovery_gv100_h_
+#ifndef NVGPU_HW_NVLINKIP_DISCOVERY_GV100_H
+#define NVGPU_HW_NVLINKIP_DISCOVERY_GV100_H
 
-static inline u32 nvlinkip_discovery_common_r(void)
-{
-	return 0x00000000U;
-}
-static inline u32 nvlinkip_discovery_common_entry_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 nvlinkip_discovery_common_entry_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 nvlinkip_discovery_common_entry_invalid_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 nvlinkip_discovery_common_entry_enum_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 nvlinkip_discovery_common_entry_data1_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 nvlinkip_discovery_common_entry_data2_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 nvlinkip_discovery_common_contents_f(u32 v)
-{
-	return (v & 0x1fffffffU) << 2U;
-}
-static inline u32 nvlinkip_discovery_common_contents_v(u32 r)
-{
-	return (r >> 2U) & 0x1fffffffU;
-}
-static inline u32 nvlinkip_discovery_common_chain_f(u32 v)
-{
-	return (v & 0x1U) << 31U;
-}
-static inline u32 nvlinkip_discovery_common_chain_v(u32 r)
-{
-	return (r >> 31U) & 0x1U;
-}
-static inline u32 nvlinkip_discovery_common_chain_enable_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 nvlinkip_discovery_common_device_f(u32 v)
-{
-	return (v & 0x3fU) << 2U;
-}
-static inline u32 nvlinkip_discovery_common_device_v(u32 r)
-{
-	return (r >> 2U) & 0x3fU;
-}
-static inline u32 nvlinkip_discovery_common_device_invalid_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 nvlinkip_discovery_common_device_ioctrl_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 nvlinkip_discovery_common_device_nvltl_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 nvlinkip_discovery_common_device_nvlink_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 nvlinkip_discovery_common_device_minion_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 nvlinkip_discovery_common_device_nvlipt_v(void)
-{
-	return 0x00000005U;
-}
-static inline u32 nvlinkip_discovery_common_device_nvltlc_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 nvlinkip_discovery_common_device_dlpl_v(void)
-{
-	return 0x0000000bU;
-}
-static inline u32 nvlinkip_discovery_common_device_ioctrlmif_v(void)
-{
-	return 0x00000007U;
-}
-static inline u32 nvlinkip_discovery_common_device_dlpl_multicast_v(void)
-{
-	return 0x00000008U;
-}
-static inline u32 nvlinkip_discovery_common_device_nvltlc_multicast_v(void)
-{
-	return 0x00000009U;
-}
-static inline u32 nvlinkip_discovery_common_device_ioctrlmif_multicast_v(void)
-{
-	return 0x0000000aU;
-}
-static inline u32 nvlinkip_discovery_common_device_sioctrl_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 nvlinkip_discovery_common_device_tioctrl_v(void)
-{
-	return 0x0000000dU;
-}
-static inline u32 nvlinkip_discovery_common_id_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 nvlinkip_discovery_common_id_v(u32 r)
-{
-	return (r >> 8U) & 0xffU;
-}
-static inline u32 nvlinkip_discovery_common_version_f(u32 v)
-{
-	return (v & 0x7ffU) << 20U;
-}
-static inline u32 nvlinkip_discovery_common_version_v(u32 r)
-{
-	return (r >> 20U) & 0x7ffU;
-}
-static inline u32 nvlinkip_discovery_common_pri_base_f(u32 v)
-{
-	return (v & 0xfffU) << 12U;
-}
-static inline u32 nvlinkip_discovery_common_pri_base_v(u32 r)
-{
-	return (r >> 12U) & 0xfffU;
-}
-static inline u32 nvlinkip_discovery_common_intr_f(u32 v)
-{
-	return (v & 0x1fU) << 7U;
-}
-static inline u32 nvlinkip_discovery_common_intr_v(u32 r)
-{
-	return (r >> 7U) & 0x1fU;
-}
-static inline u32 nvlinkip_discovery_common_reset_f(u32 v)
-{
-	return (v & 0x1fU) << 2U;
-}
-static inline u32 nvlinkip_discovery_common_reset_v(u32 r)
-{
-	return (r >> 2U) & 0x1fU;
-}
-static inline u32 nvlinkip_discovery_common_ioctrl_length_f(u32 v)
-{
-	return (v & 0x3fU) << 24U;
-}
-static inline u32 nvlinkip_discovery_common_ioctrl_length_v(u32 r)
-{
-	return (r >> 24U) & 0x3fU;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_num_tx_f(u32 v)
-{
-	return (v & 0x7U) << 24U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_num_tx_v(u32 r)
-{
-	return (r >> 24U) & 0x7U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_num_rx_f(u32 v)
-{
-	return (v & 0x7U) << 27U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_num_rx_v(u32 r)
-{
-	return (r >> 27U) & 0x7U;
-}
-static inline u32 nvlinkip_discovery_common_data1_ioctrl_length_f(u32 v)
-{
-	return (v & 0x7ffffU) << 12U;
-}
-static inline u32 nvlinkip_discovery_common_data1_ioctrl_length_v(u32 r)
-{
-	return (r >> 12U) & 0x7ffffU;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_f(u32 v)
-{
-	return (v & 0x1fU) << 26U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_v(u32 r)
-{
-	return (r >> 26U) & 0x1fU;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_invalid_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_pllcontrol_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_resetreg_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_intrreg_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_discovery_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_unicast_v(void)
-{
-	return 0x00000005U;
-}
-static inline u32 nvlinkip_discovery_common_data2_type_broadcast_v(void)
-{
-	return 0x00000006U;
-}
-static inline u32 nvlinkip_discovery_common_data2_addr_f(u32 v)
-{
-	return (v & 0xffffffU) << 2U;
-}
-static inline u32 nvlinkip_discovery_common_data2_addr_v(u32 r)
-{
-	return (r >> 2U) & 0xffffffU;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_type_f(u32 v)
-{
-	return (v & 0x1fU) << 26U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_type_v(u32 r)
-{
-	return (r >> 26U) & 0x1fU;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_master_f(u32 v)
-{
-	return (v & 0x1U) << 15U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_master_v(u32 r)
-{
-	return (r >> 15U) & 0x1U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_masterid_f(u32 v)
-{
-	return (v & 0x7fU) << 8U;
-}
-static inline u32 nvlinkip_discovery_common_dlpl_data2_masterid_v(u32 r)
-{
-	return (r >> 8U) & 0x7fU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define nvlinkip_discovery_common_entry_f(v)             ((U32(v) & 0x3U) << 0U)
+#define nvlinkip_discovery_common_entry_v(r)                (((r) >> 0U) & 0x3U)
+#define nvlinkip_discovery_common_entry_invalid_v()                (0x00000000U)
+#define nvlinkip_discovery_common_entry_enum_v()                   (0x00000001U)
+#define nvlinkip_discovery_common_entry_data1_v()                  (0x00000002U)
+#define nvlinkip_discovery_common_entry_data2_v()                  (0x00000003U)
+#define nvlinkip_discovery_common_contents_f(v)   ((U32(v) & 0x1fffffffU) << 2U)
+#define nvlinkip_discovery_common_contents_v(r)      (((r) >> 2U) & 0x1fffffffU)
+#define nvlinkip_discovery_common_chain_f(v)            ((U32(v) & 0x1U) << 31U)
+#define nvlinkip_discovery_common_chain_v(r)               (((r) >> 31U) & 0x1U)
+#define nvlinkip_discovery_common_chain_enable_v()                 (0x00000001U)
+#define nvlinkip_discovery_common_device_f(v)           ((U32(v) & 0x3fU) << 2U)
+#define nvlinkip_discovery_common_device_v(r)              (((r) >> 2U) & 0x3fU)
+#define nvlinkip_discovery_common_device_invalid_v()               (0x00000000U)
+#define nvlinkip_discovery_common_device_ioctrl_v()                (0x00000001U)
+#define nvlinkip_discovery_common_device_nvltl_v()                 (0x00000002U)
+#define nvlinkip_discovery_common_device_nvlink_v()                (0x00000003U)
+#define nvlinkip_discovery_common_device_minion_v()                (0x00000004U)
+#define nvlinkip_discovery_common_device_nvlipt_v()                (0x00000005U)
+#define nvlinkip_discovery_common_device_nvltlc_v()                (0x00000006U)
+#define nvlinkip_discovery_common_device_dlpl_v()                  (0x0000000bU)
+#define nvlinkip_discovery_common_device_ioctrlmif_v()             (0x00000007U)
+#define nvlinkip_discovery_common_device_dlpl_multicast_v()        (0x00000008U)
+#define nvlinkip_discovery_common_device_nvltlc_multicast_v()      (0x00000009U)
+#define nvlinkip_discovery_common_device_ioctrlmif_multicast_v()   (0x0000000aU)
+#define nvlinkip_discovery_common_device_sioctrl_v()               (0x0000000cU)
+#define nvlinkip_discovery_common_device_tioctrl_v()               (0x0000000dU)
+#define nvlinkip_discovery_common_id_f(v)               ((U32(v) & 0xffU) << 8U)
+#define nvlinkip_discovery_common_id_v(r)                  (((r) >> 8U) & 0xffU)
+#define nvlinkip_discovery_common_version_f(v)        ((U32(v) & 0x7ffU) << 20U)
+#define nvlinkip_discovery_common_version_v(r)           (((r) >> 20U) & 0x7ffU)
+#define nvlinkip_discovery_common_pri_base_f(v)       ((U32(v) & 0xfffU) << 12U)
+#define nvlinkip_discovery_common_pri_base_v(r)          (((r) >> 12U) & 0xfffU)
+#define nvlinkip_discovery_common_intr_f(v)             ((U32(v) & 0x1fU) << 7U)
+#define nvlinkip_discovery_common_intr_v(r)                (((r) >> 7U) & 0x1fU)
+#define nvlinkip_discovery_common_reset_f(v)            ((U32(v) & 0x1fU) << 2U)
+#define nvlinkip_discovery_common_reset_v(r)               (((r) >> 2U) & 0x1fU)
+#define nvlinkip_discovery_common_ioctrl_length_f(v)   ((U32(v) & 0x3fU) << 24U)
+#define nvlinkip_discovery_common_ioctrl_length_v(r)      (((r) >> 24U) & 0x3fU)
+#define nvlinkip_discovery_common_dlpl_num_tx_f(v)      ((U32(v) & 0x7U) << 24U)
+#define nvlinkip_discovery_common_dlpl_num_tx_v(r)         (((r) >> 24U) & 0x7U)
+#define nvlinkip_discovery_common_dlpl_num_rx_f(v)      ((U32(v) & 0x7U) << 27U)
+#define nvlinkip_discovery_common_dlpl_num_rx_v(r)         (((r) >> 27U) & 0x7U)
+#define nvlinkip_discovery_common_data1_ioctrl_length_f(v)\
+				((U32(v) & 0x7ffffU) << 12U)
+#define nvlinkip_discovery_common_data1_ioctrl_length_v(r)\
+				(((r) >> 12U) & 0x7ffffU)
+#define nvlinkip_discovery_common_data2_type_f(v)      ((U32(v) & 0x1fU) << 26U)
+#define nvlinkip_discovery_common_data2_type_v(r)         (((r) >> 26U) & 0x1fU)
+#define nvlinkip_discovery_common_data2_type_invalid_v()           (0x00000000U)
+#define nvlinkip_discovery_common_data2_type_pllcontrol_v()        (0x00000001U)
+#define nvlinkip_discovery_common_data2_type_resetreg_v()          (0x00000002U)
+#define nvlinkip_discovery_common_data2_type_intrreg_v()           (0x00000003U)
+#define nvlinkip_discovery_common_data2_type_discovery_v()         (0x00000004U)
+#define nvlinkip_discovery_common_data2_type_unicast_v()           (0x00000005U)
+#define nvlinkip_discovery_common_data2_type_broadcast_v()         (0x00000006U)
+#define nvlinkip_discovery_common_data2_addr_f(v)   ((U32(v) & 0xffffffU) << 2U)
+#define nvlinkip_discovery_common_data2_addr_v(r)      (((r) >> 2U) & 0xffffffU)
+#define nvlinkip_discovery_common_dlpl_data2_type_f(v) ((U32(v) & 0x1fU) << 26U)
+#define nvlinkip_discovery_common_dlpl_data2_type_v(r)    (((r) >> 26U) & 0x1fU)
+#define nvlinkip_discovery_common_dlpl_data2_master_f(v)\
+				((U32(v) & 0x1U) << 15U)
+#define nvlinkip_discovery_common_dlpl_data2_master_v(r)   (((r) >> 15U) & 0x1U)
+#define nvlinkip_discovery_common_dlpl_data2_masterid_f(v)\
+				((U32(v) & 0x7fU) << 8U)
+#define nvlinkip_discovery_common_dlpl_data2_masterid_v(r) (((r) >> 8U) & 0x7fU)
 #endif

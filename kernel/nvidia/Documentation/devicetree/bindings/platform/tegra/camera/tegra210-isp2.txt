@@ -1,0 +1,45 @@
+NVIDIA Tegra Erista (T21x) ISP2 bindings
+
+Tegra ISP2 (Image Signal Processor, version 2), is a pixel processing unit
+operating on optical sensor data from VI2. It is subdivided into ISPA and ISPB,
+which can simultaneously process images independently. Functional control is
+implemented in NVDIA user-space driver libraries.
+
+Required properties:
+	- compatible: Should be "nvidia,tegra210-isp".
+	- reg: Register address space (MMIO).
+	- power-domains: Power domain group, should be "&ve_pd", label to
+		TEGRA210_POWER_DOMAIN_VENC.
+	- resets: All ISPA or ISPB resets.
+	- clocks: All ISPA or ISPB clocks.
+	- clock-names: Names of the above clocks.
+	- interrupts: All ISPA or ISPB interrupts.
+	- iommus: ISP2 Stream ID, should be "TEGRA_SWGROUP_ISP" (ISPA) or
+		"TEGRA_SWGROUP_ISP2B" (ISPB).
+	- iommu-group-id: IOMMU group, should be "TEGRA_IOMMU_GROUP_HOST1X".
+
+Example:
+
+	isp@54600000 {
+		compatible = "nvidia,tegra210-isp";
+		power-domains = <&ve_pd>;
+		reg = <0x0 0x54600000 0x0 0x00040000>;
+		interrupts = <0 71 0x04>;
+		iommus = <&smmu TEGRA_SWGROUP_ISP>;
+		status = "disabled";
+		clocks = <&tegra_car TEGRA210_CLK_ISPA_ISP_CBUS>;
+		clock-names = "ispa";
+		resets = <&tegra_car TEGRA210_CLK_ISPA>;
+	};
+
+	isp@54680000 {
+		compatible = "nvidia,tegra210-isp";
+		power-domains = <&pd_ve2>;
+		reg = <0x0 0x54680000 0x0 0x00040000>;
+		interrupts = <0 70 0x04>;
+		iommus = <&smmu TEGRA_SWGROUP_ISP2B>;
+		status = "disabled";
+		clocks = <&tegra_car TEGRA210_CLK_ISPB_ISP_CBUS>;
+		clock-names = "ispb";
+		resets = <&tegra_car TEGRA210_CLK_ISPB>;
+	};

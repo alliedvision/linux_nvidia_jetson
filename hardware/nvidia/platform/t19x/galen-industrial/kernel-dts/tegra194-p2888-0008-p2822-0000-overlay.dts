@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Device-tree overlay for tegra194-p2888-0008-p2822-0000-overlay.dts for T194 platform.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Jetson AGX Xavier Industrial Overlay Support";
+	compatible = "nvidia,tegra194";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			odm-data = "enable-denver-wdt";
+		};
+		__overlay__ {
+			watchdog@30c0000 {
+				status = "okay";
+			};
+		};
+	};
+
+	fragment-pcie-c5-ep-enable@2 {
+		target-path = "/";
+		board_config {
+		    odm-data = "pcie-c5-endpoint-enable";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				status = "disabled";
+			};
+			pcie_ep@141a0000 {
+				status = "okay";
+			};
+		};
+	};
+};

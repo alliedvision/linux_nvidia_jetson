@@ -1,0 +1,45 @@
+From a266e8499d499f0c74ca0a03107ac323d46c1497 Mon Sep 17 00:00:00 2001
+From: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Date: Tue, 8 Dec 2020 20:24:08 -0800
+Subject: [PATCH 039/830] FROMGIT: usb: typec: intel_pmc_mux: Configure cable
+ generation value for USB4
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
+
+USB4 specification chapter 3 indicates that cable data rates have to be
+rounded for USB4 device to operate as USB4.
+With that configure cable generation value to use rounded data rates for
+USB4.
+
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Link: https://lore.kernel.org/r/20201209042408.23079-2-utkarsh.h.patel@intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit beff5de94fd45dc68f65b45634013184b6d66519 usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I33ac3344d8b9f08737362a9ffb0d449926c3ea9d
+---
+ drivers/usb/typec/mux/intel_pmc_mux.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/usb/typec/mux/intel_pmc_mux.c b/drivers/usb/typec/mux/intel_pmc_mux.c
+index 6d38e22f3350..31b1b3b555c7 100644
+--- a/drivers/usb/typec/mux/intel_pmc_mux.c
++++ b/drivers/usb/typec/mux/intel_pmc_mux.c
+@@ -338,6 +338,11 @@ pmc_usb_mux_usb4(struct pmc_usb_port *port, struct typec_mux_state *state)
+ 		fallthrough;
+ 	default:
+ 		req.mode_data |= PMC_USB_ALTMODE_ACTIVE_CABLE;
++
++		/* Configure data rate to rounded in the case of Active TBT3
++		 * and USB4 cables.
++		 */
++		req.mode_data |= PMC_USB_ALTMODE_TBT_GEN(1);
+ 		break;
+ 	}
+ 
+-- 
+2.17.1
+

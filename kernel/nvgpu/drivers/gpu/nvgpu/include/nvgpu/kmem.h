@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,25 +23,11 @@
 #ifndef NVGPU_KMEM_H
 #define NVGPU_KMEM_H
 
-#include <nvgpu/types.h>
-#include <nvgpu/utils.h>
-
-struct gk20a;
-
-/*
- * When there's other implementations make sure they are included instead of
- * Linux when not compiling on Linux!
- */
-#ifdef __KERNEL__
-#include <nvgpu/linux/kmem.h>
-#elif defined(__NVGPU_POSIX__)
-#include <nvgpu/posix/kmem.h>
-#else
-#include <nvgpu_rmos/include/kmem.h>
-#endif
-
 /**
- * DOC: Kmem cache support
+ * @file
+ *
+ * Kmem cache support
+ * ------------------
  *
  * In Linux there is support for the notion of a kmem_cache. It gives better
  * memory usage characteristics for lots of allocations of the same size. Think
@@ -52,17 +38,36 @@ struct gk20a;
  * much better. This is the benefit of a slab allocator. This type hides the
  * underlying kmem_cache (or absense thereof).
  */
+
+#include <nvgpu/types.h>
+#include <nvgpu/utils.h>
+
+struct gk20a;
+
+/**
+ * When there's other implementations make sure they are included instead of
+ * Linux (i.e Qnx) when not compiling on Linux!
+ */
+#ifdef __KERNEL__
+#include <nvgpu/linux/kmem.h>
+#else
+#include <nvgpu/posix/kmem.h>
+#endif
+
 struct nvgpu_kmem_cache;
 
 #ifdef CONFIG_NVGPU_TRACK_MEM_USAGE
-/*
+/**
  * Uncomment this if you want to enable stack traces in the memory profiling.
  * Since this is a fairly high overhead operation and is only necessary for
  * debugging actual bugs it's left here for developers to enable.
  */
-/* #define __NVGPU_SAVE_KALLOC_STACK_TRACES */
 
-/*
+#if 0
+#define NVGPU_SAVE_KALLOC_STACK_TRACES
+#endif
+
+/**
  * Defined per-OS.
  */
 struct nvgpu_mem_alloc_tracker;
@@ -70,157 +75,218 @@ struct nvgpu_mem_alloc_tracker;
 
 
 /**
- * nvgpu_kmem_cache_create - create an nvgpu kernel memory cache.
+ * @brief Create an nvgpu memory cache.
  *
- * @g		The GPU driver struct using this cache.
- * @size	Size of the object allocated by the cache.
- *
- * This cache can be used to allocate objects of size @size. Common usage would
- * be for a struct that gets allocated a lot. In that case @size should be
- * sizeof(struct my_struct).
- *
+ * The internal implementation of the function is OS specific. In Posix
+ * implementation, the function would just allocate a normal malloc memory for
+ * the cache structure using \a malloc and populates the variables \a g and
+ * \a size in struct #nvgpu_kmem_cache. This cache can be used to allocate
+ * objects of size \a size. Common usage would be for a struct that gets
+ * allocated a lot. In that case \a size should be sizeof(struct my_struct).
  * A given implementation of this need not do anything special. The allocation
- * routines can simply be passed on to nvgpu_kzalloc() if desired so packing
- * and alignment of the structs cannot be assumed.
+ * routines can simply be passed on to #nvgpu_kzalloc() if desired, so packing
+ * and alignment of the structs cannot be assumed. In Posix implementation, the
+ * allocation from this cache would just return a normal malloc memory of size
+ * \a size. Function does not perform any validation of the input parameters.
+ *
+ * @param g [in] The GPU driver struct using this cache.
+ * @param size [in] Size of the object allocated by the cache.
+ *
+ * @return Pointer to #nvgpu_kmem_cache in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
 struct nvgpu_kmem_cache *nvgpu_kmem_cache_create(struct gk20a *g, size_t size);
 
 /**
- * nvgpu_kmem_cache_destroy - destroy a cache created by
- *                            nvgpu_kmem_cache_create().
+ * @brief Destroy a cache created by #nvgpu_kmem_cache_create().
  *
- * @cache	The cache to destroy.
+ * Destroy the allocated OS specific internal structure to avoid memory leak.
+ * Uses the function \a free() with \a cache as parameter. Function does not
+ * perform any validation of the parameter.
+ *
+ * @param cache [in] The cache to destroy.
  */
 void nvgpu_kmem_cache_destroy(struct nvgpu_kmem_cache *cache);
 
 /**
- * nvgpu_kmem_cache_alloc - Allocate an object from the cache
+ * @brief Allocate an object from the cache
  *
- * @cache	The cache to alloc from.
+ * Allocate an object from a cache created using #nvgpu_kmem_cache_create().
+ * In Posix implementation, this function would just return a normal malloc
+ * memory allocated using the function \a malloc with \a size in struct
+ * #nvgpu_kmem_cache as parameter. Function does not perform any validation of
+ * the parameter.
+ *
+ * @param cache [in] The cache to alloc from.
+ *
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
 void *nvgpu_kmem_cache_alloc(struct nvgpu_kmem_cache *cache);
 
 /**
- * nvgpu_kmem_cache_free - Free an object back to a cache
+ * @brief Free an object back to a cache
  *
- * @cache	The cache to return the object to.
- * @ptr		Pointer to the object to free.
+ * Free an object back to a cache allocated using #nvgpu_kmem_cache_alloc().
+ * Uses the function \a free with \a ptr as argument to free the allocated
+ * memory. Function does not perform any validation of the input parameters.
+ *
+ * @param cache [in] The cache to return the object to.
+ * @param ptr [in] Pointer to the object to free.
  */
 void nvgpu_kmem_cache_free(struct nvgpu_kmem_cache *cache, void *ptr);
 
 /**
- * nvgpu_kmalloc - Allocate from the kernel's allocator.
+ * @brief Macro to allocate memory.
  *
- * @g:		Current GPU.
- * @size:	Size of the allocation.
+ * Allocate a chunk of system memory from the process address space.
+ * This function may sleep so cannot be used in IRQs. Invokes the function
+ * #nvgpu_kmalloc_impl() internally with \a g, \a size and #NVGPU_GET_IP as
+ * parameters to allocate the required size of memory. Refer to the function
+ * #nvgpu_kmalloc_impl() for further details. Macro does not perform any
+ * validation of the parameters.
  *
- * Allocate a chunk of system memory from the kernel. Allocations larger than 1
- * page may fail even when there may appear to be enough memory.
+ * @param g [in] Current GPU.
+ * @param size [in] Size of the allocation.
  *
- * This function may sleep so cannot be used in IRQs.
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
-#define nvgpu_kmalloc(g, size)		__nvgpu_kmalloc(g, size, _NVGPU_GET_IP_)
+#define nvgpu_kmalloc(g, size)	nvgpu_kmalloc_impl(g, size, NVGPU_GET_IP)
 
 /**
- * nvgpu_kzalloc - Allocate from the kernel's allocator.
+ * @brief Allocate from the OS allocator.
  *
- * @g:		Current GPU.
- * @size:	Size of the allocation.
+ * Identical to #nvgpu_kalloc() except the memory will be zeroed before being
+ * returned. Invokes the function #nvgpu_kzalloc_impl() internally with \a g,
+ * \a size and #NVGPU_GET_IP as parameters to allocate the required size of
+ * memory. Refer to the function #nvgpu_kzalloc_impl() for further details.
+ * Macro does not perform any validation of the parameters.
  *
- * Identical to nvgpu_kalloc() except the memory will be zeroed before being
- * returned.
+ * @param g [in] Current GPU.
+ * @param size [in] Size of the allocation.
+ *
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
-#define nvgpu_kzalloc(g, size)		__nvgpu_kzalloc(g, size, _NVGPU_GET_IP_)
+#define nvgpu_kzalloc(g, size)	nvgpu_kzalloc_impl(g, size, NVGPU_GET_IP)
 
 /**
- * nvgpu_kcalloc - Allocate from the kernel's allocator.
- *
- * @g:		Current GPU.
- * @n:          Number of objects.
- * @size:	Size of each object.
+ * @brief Allocate from the OS allocator.
  *
  * Identical to nvgpu_kalloc() except the size of the memory chunk returned is
- * @n * @size.
+ * \a n * \a size. Invokes the function #nvgpu_kcalloc_impl() internally
+ * with \a g, \a n, \a size and #NVGPU_GET_IP as parameters to allocate the
+ * required size of memory. Refer to the function #nvgpu_kcalloc_impl() for
+ * further details. Macro does not perform any validation of the parameters.
+ *
+ * @param g [in] Current GPU.
+ * @param n [in] Number of objects.
+ * @param size [in] Size of each object.
+ *
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
 #define nvgpu_kcalloc(g, n, size)	\
-	__nvgpu_kcalloc(g, n, size, _NVGPU_GET_IP_)
+	nvgpu_kcalloc_impl(g, n, size, NVGPU_GET_IP)
 
 /**
- * nvgpu_vmalloc - Allocate memory and return a map to it.
- *
- * @g:		Current GPU.
- * @size:	Size of the allocation.
+ * @brief Allocate memory and return a map to it.
  *
  * Allocate some memory and return a pointer to a virtual memory mapping of
- * that memory in the kernel's virtual address space. The underlying physical
- * memory is not guaranteed to be contiguous (and indeed likely isn't). This
- * allows for much larger allocations to be done without worrying about as much
- * about physical memory fragmentation.
+ * that memory. The underlying physical memory is not guaranteed to be
+ * contiguous. This allows for much larger allocations to be done without
+ * worrying as much about physical memory fragmentation. This function may
+ * sleep. Invokes the function #nvgpu_vmalloc_impl() with \a g, \a size and
+ * #NVGPU_GET_IP as parameters to allocate the required memory. Refer to
+ * #nvgpu_vmalloc_impl() for further details. Macro does not perform any
+ * validation of the parameters.
  *
- * This function may sleep.
+ * @param g [in] Current GPU.
+ * @param size [in] Size of the allocation.
+ *
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
-#define nvgpu_vmalloc(g, size)		__nvgpu_vmalloc(g, size, _NVGPU_GET_IP_)
+#define nvgpu_vmalloc(g, size)	nvgpu_vmalloc_impl(g, size, NVGPU_GET_IP)
 
 /**
- * nvgpu_vzalloc - Allocate memory and return a map to it.
+ * @brief Allocate memory and return a map to it.
  *
- * @g:		Current GPU.
- * @size:	Size of the allocation.
+ * Identical to #nvgpu_vmalloc(), except, this macro will return zero
+ * initialized memory. Invokes the function #nvgpu_vxalloc_impl() with \a g,
+ * \a size and #NVGPU_GET_IP as parameters to allocate the required memory.
+ * Refer to #nvgpu_vzalloc_impl() for further details. Macro does not perform
+ * any validation of the parameters.
  *
- * Identical to nvgpu_vmalloc() except this will return zero'ed memory.
+ * @param g [in] Current GPU.
+ * @param size [in] Size of the allocation.
+ *
+ * @return Pointer to an object in case of success, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
-#define nvgpu_vzalloc(g, size)		__nvgpu_vzalloc(g, size, _NVGPU_GET_IP_)
+#define nvgpu_vzalloc(g, size)	nvgpu_vzalloc_impl(g, size, NVGPU_GET_IP)
 
 /**
- * nvgpu_kfree - Frees an alloc from nvgpu_kmalloc, nvgpu_kzalloc,
- *               nvgpu_kcalloc.
+ * @brief Macro to free an allocated chunk of memory.
  *
- * @g:		Current GPU.
- * @addr:	Address of object to free.
+ * Invokes the function #nvgpu_kfree_impl() with \a g and \a addr as parameters
+ * to free the memory. Macro does not perform any validation of the parameters.
+ *
+ * @param g [in] Current GPU.
+ * @param addr [in] Address of object to free.
  */
-#define nvgpu_kfree(g, addr)		__nvgpu_kfree(g, addr)
+#define nvgpu_kfree(g, addr)	nvgpu_kfree_impl(g, addr)
 
 /**
- * nvgpu_vfree - Frees an alloc from nvgpu_vmalloc, nvgpu_vzalloc.
+ * @brief Frees an allocated chunk of virtual memory.
  *
- * @g:		Current GPU.
- * @addr:	Address of object to free.
+ * Invokes the function #nvgpu_vfree_impl() with \a g and \a addr as parameters
+ * to free the memory. Macro does not perform any validation of the parameters.
+ *
+ * @param g [in] Current GPU.
+ * @param addr [in] Address of object to free.
  */
-#define nvgpu_vfree(g, addr)		__nvgpu_vfree(g, addr)
+#define nvgpu_vfree(g, addr)	nvgpu_vfree_impl(g, addr)
 
 #define kmem_dbg(g, fmt, args...)		\
 	nvgpu_log(g, gpu_dbg_kmem, fmt, ##args)
 
 /**
- * nvgpu_kmem_init - Initialize the kmem tracking stuff.
+ * @brief Initialize the kmem tracking stuff.
  *
- *@g: The driver to init.
+ * Initialize the kmem tracking internal structure. Internal implementation
+ * is specific to OS. In Posix implementation, the function just returns 0.
+ * Function does not perform any validation of the parameter.
  *
- * Returns non-zero on failure.
+ * @param g [in] GPU structure.
+ *
+ * @return 0 in case of success, non-zero in case of failure. Posix
+ * implementation is a dummy function which just returns 0.
+ *
+ * @retval 0 for Posix implementation.
  */
 int nvgpu_kmem_init(struct gk20a *g);
 
 /**
- * nvgpu_kmem_fini - Finalize the kmem tracking code
+ * @brief Finalize the kmem tracking code
  *
- * @g     - The GPU.
- * @flags - Flags that control operation of this finalization.
+ * The implementation of the function is OS specific. In Posix implementation
+ * the function does not perform any operation.
  *
- * Cleanup resources used by nvgpu_kmem. Available flags for cleanup are:
- *
- *   %NVGPU_KMEM_FINI_DO_NOTHING
- *   %NVGPU_KMEM_FINI_FORCE_CLEANUP
- *   %NVGPU_KMEM_FINI_DUMP_ALLOCS
- *   %NVGPU_KMEM_FINI_WARN
- *   %NVGPU_KMEM_FINI_BUG
- *
- * %NVGPU_KMEM_FINI_DO_NOTHING will be overridden by anything else specified.
- * Put another way don't just add %NVGPU_KMEM_FINI_DO_NOTHING and expect that
- * to suppress other flags from doing anything.
+ * @param g [in] The GPU.
+ * @param flags [in] Flags that control operation of this finalization.
  */
 void nvgpu_kmem_fini(struct gk20a *g, int flags);
 
-/*
+/**
  * These will simply be ignored if CONFIG_NVGPU_TRACK_MEM_USAGE is not defined.
  */
 #define NVGPU_KMEM_FINI_DO_NOTHING		0
@@ -229,56 +295,77 @@ void nvgpu_kmem_fini(struct gk20a *g, int flags);
 #define NVGPU_KMEM_FINI_WARN			(1 << 2)
 #define NVGPU_KMEM_FINI_BUG			(1 << 3)
 
-/*
- * Implemented by the OS interface.
+/**
+ * @brief Wrapper for memory allocation functions.
+ *
+ * The internal implementation of this function is OS specific. For Posix
+ * implementation, the requested \a size of memory is allocated and returns
+ * a pointer to that memory. The parameter \a clear is used to decide if the
+ * allocated memory has to be zero filled or not. Based on \a clear value,
+ * #nvgpu_kzalloc or #nvgpu_kmalloc is used internally with \a g and \a size
+ * as parameters. Function does not perform any validation of the parameters.
+ *
+ * @param g [in] The GPU.
+ * @param size [in] Size of the allocation.
+ * @param clear [in] Flag indicates the need of zeroed memory.
+ *
+ * @return upon successful allocation a pointer to a virtual address range
+ * that the nvgpu can access is returned, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
-void *__nvgpu_big_alloc(struct gk20a *g, size_t size, bool clear);
+void *nvgpu_big_alloc_impl(struct gk20a *g, size_t size, bool clear);
 
 /**
- * nvgpu_big_malloc - Pick virtual or physical alloc based on @size
+ * @brief Macro to allocate memory
  *
- * @g - The GPU.
- * @size - Size of the allocation.
+ * Invokes the function #nvgpu_big_alloc_impl() internally with \a g, \a size
+ * and \a false as parameters. Refer to #nvgpu_big_alloc_impl() for further
+ * details. Function does not perform any validation of the input parameters.
  *
- * On some platforms (i.e Linux) it is possible to allocate memory directly
- * mapped into the kernel's address space (kmalloc) or allocate discontiguous
- * pages which are then mapped into a special kernel address range. Each type
- * of allocation has pros and cons. kmalloc() for instance lets you allocate
- * small buffers more space efficiently but vmalloc() allows you to successfully
- * allocate much larger buffers without worrying about fragmentation as much
- * (but will allocate in multiples of page size).
+ * @param g [in] The GPU.
+ * @param size [in] Size of the allocation.
  *
- * This function aims to provide the right allocation for when buffers are of
- * variable size. In some cases the code doesn't know ahead of time if the
- * buffer is going to be big or small so this does the check for you and
- * provides the right type of memory allocation.
+ * @return upon successful allocation a pointer to a virtual address range
+ * that the nvgpu can access is returned, else NULL.
  *
- * Returns a pointer to a virtual address range that the kernel can access or
- * %NULL on failure.
+ * @retval NULL in case of failure.
  */
 static inline void *nvgpu_big_malloc(struct gk20a *g, size_t size)
 {
-	return __nvgpu_big_alloc(g, size, false);
+	return nvgpu_big_alloc_impl(g, size, false);
 }
 
 /**
- * nvgpu_big_malloc - Pick virtual or physical alloc based on @size
+ * @brief Macro to allocate a zero initialised memory.
  *
- * @g - The GPU.
- * @size - Size of the allocation.
+ * Invokes the function #nvgpu_big_alloc_impl() internally with \a g, \a size
+ * and \a true as parameters to allocated zero initialized memory. Refer to
+ * #nvgpu_big_alloc_impl() for further details. Function does not perform any
+ * validation of the input parameters.
  *
- * Zeroed memory version of nvgpu_big_malloc().
+ * @param g [in] The GPU.
+ * @param size [in] Size of the allocation.
+ *
+ * @return upon successful allocation a pointer to a virtual address range
+ * that the nvgpu can access is returned, else NULL.
+ *
+ * @retval NULL in case of failure.
  */
 static inline void *nvgpu_big_zalloc(struct gk20a *g, size_t size)
 {
-	return __nvgpu_big_alloc(g, size, true);
+	return nvgpu_big_alloc_impl(g, size, true);
 }
 
 /**
- * nvgpu_big_free - Free and alloc from nvgpu_big_zalloc() or
- *                  nvgpu_big_malloc().
- * @g - The GPU.
- * @p - A pointer allocated by nvgpu_big_zalloc() or nvgpu_big_malloc().
+ * @brief Free any allocated memory.
+ *
+ * Invokes the function #nvgpu_kfree_impl() with \a g and \a p as parameters
+ * internally to free any allocated memory. Function does not perform any
+ * validation of the parameters.
+ *
+ * @param g [in] The GPU.
+ * @param p [in] Pointer to allocated memory.
  */
 void nvgpu_big_free(struct gk20a *g, void *p);
 

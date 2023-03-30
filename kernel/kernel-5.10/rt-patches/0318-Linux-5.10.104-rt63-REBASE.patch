@@ -1,0 +1,20 @@
+From e10e187f25395588fd8f2f4bc9028c6456afad83 Mon Sep 17 00:00:00 2001
+From: "Luis Claudio R. Goncalves" <lgoncalv@redhat.com>
+Date: Wed, 9 Mar 2022 18:05:40 -0300
+Subject: [PATCH 318/318] Linux 5.10.104-rt63 REBASE
+
+Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
+---
+ localversion-rt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/localversion-rt b/localversion-rt
+index 21988f9ad53f..b0e8dd7bd707 100644
+--- a/localversion-rt
++++ b/localversion-rt
+@@ -1 +1 @@
+--rt34
++-rt63
+-- 
+2.17.1
+

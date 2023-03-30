@@ -21,28 +21,6 @@
 
 #include "tegra_asoc_utils_alt.h"
 
-/* used for soc specific data */
-struct tegra_machine_soc_data {
-	unsigned int num_xbar_dai_links,
-		/* dai link indexes */
-		admaif_dai_link_start,
-		admaif_dai_link_end,
-		adsp_pcm_dai_link_start,
-		adsp_pcm_dai_link_end,
-		adsp_compr_dai_link_start,
-		adsp_compr_dai_link_end,
-		sfc_dai_link;
-
-	bool is_asrc_available,
-	     write_cdev1_state,
-	     write_idle_bias_off_state;
-
-	struct snd_soc_codec_conf *ahub_confs;
-	struct snd_soc_dai_link *ahub_links;
-	unsigned int num_ahub_links;
-	unsigned int num_ahub_confs;
-};
-
 /*
  * struct tegra_asoc - ASoC topology of dai links and codec confs
  * @codec_confs: Configuration of codecs from xbar and devicetree
@@ -64,7 +42,6 @@ struct tegra_asoc {
 /* machine structure which holds sound card */
 struct tegra_machine {
 	struct tegra_asoc_audio_clock_info audio_clock;
-	struct tegra_machine_soc_data *soc_data;
 	struct tegra_asoc *asoc;
 	unsigned int num_codec_links;
 	int rate_via_kcontrol;
@@ -488,18 +465,19 @@ unsigned int tegra_machine_get_tx_mask_t18x(
 	struct snd_soc_pcm_runtime *rtd);
 
 void tegra_machine_remove_adsp_links_t18x(void);
-int tegra_machine_add_i2s_codec_controls(struct snd_soc_card *card,
-					 unsigned int num_dai_links);
+int tegra_machine_add_i2s_codec_controls(struct snd_soc_card *card);
 int tegra_machine_add_codec_jack_control(struct snd_soc_card *card,
 					 struct snd_soc_pcm_runtime *rtd,
 					 struct snd_soc_jack *jack);
 
-void tegra_machine_dma_set_mask(struct platform_device *pdev);
-
-/* new helper functions for populating sound card DAI links and codec confs */
-int tegra_asoc_populate_dai_links(struct platform_device *pdev);
-int tegra_asoc_populate_codec_confs(struct platform_device *pdev);
 void release_asoc_phandles(struct tegra_machine *machine);
+
+/*
+ * new helper functions for parsing all DAI links from DT.
+ * Representation of XBAR and codec links would be similar.
+ */
+int parse_card_info(struct snd_soc_card *card, struct snd_soc_ops *pcm_ops,
+		    struct snd_soc_compr_ops *compr_ops);
 
 /* for legacy machine driver support */
 static inline int tegra_machine_get_bclk_ratio(struct snd_soc_pcm_runtime *rtd,

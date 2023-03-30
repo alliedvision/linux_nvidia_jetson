@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,25 +20,39 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __NVGPU_POSIX_CIRC_BUF_H__
-#define __NVGPU_POSIX_CIRC_BUF_H__
+#ifndef NVGPU_POSIX_CIRC_BUF_H
+#define NVGPU_POSIX_CIRC_BUF_H
 
 #include <nvgpu/bug.h>
 
-/* TODO: implement. */
+/**
+ * @brief Return count in buffer.
+ *
+ * Calculates the number of elements present in the circular buffer and
+ * returns the value. The circular buffer should have a power of 2 size.
+ * Macro does not perform any validation of the parameters.
+ *
+ * @param head [in]        Head of the buffer.
+ * @param tail [in]        Tail of the buffer.
+ * @param size [in]        Max number of elements in buffer.
+ *
+ * @return Count of elements in the buffer.
+ */
+#define CIRC_CNT(head, tail, size) ((__typeof(head))(((head) - (tail))) & ((size)-1U))
 
-#define CIRC_CNT(head, tail, size)		\
-	({(void)head;				\
-	  (void)tail;				\
-	  (void)size;				\
-	  BUG();				\
-	  1; })
+/**
+ * @brief Return space in buffer.
+ *
+ * Calculates the space available in the circular buffer and returns the value.
+ * The circular buffer should have a power of 2 size.
+ * Macro does not perform any validation of the parameters.
+ *
+ * @param head [in]        Head of the buffer.
+ * @param tail [in]        Tail of the buffer.
+ * @param size [in]        Max number of elements in buffer.
+ *
+ * @return The space available in the buffer.
+ */
+#define CIRC_SPACE(head, tail, size) CIRC_CNT((tail), ((head)+1U), (size))
 
-#define CIRC_SPACE(head, tail, size)		\
-	({(void)head;				\
-	  (void)tail;				\
-	  (void)size;				\
-	  BUG();				\
-	  1; })
-
-#endif
+#endif /* NVGPU_POSIX_CIRC_BUF_H */

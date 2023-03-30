@@ -1,4 +1,4 @@
-ifdef CONFIG_ARCH_TEGRA_19x_SOC
+ifneq ($(filter y,$(CONFIG_ARCH_TEGRA_19x_SOC) $(CONFIG_ARCH_TEGRA_194_SOC)),)
 
 GCOV_PROFILE := y
 ccflags-y += -I$(srctree.nvidia)/drivers/video/tegra/host

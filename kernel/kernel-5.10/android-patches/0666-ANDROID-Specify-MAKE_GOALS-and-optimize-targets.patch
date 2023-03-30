@@ -1,0 +1,103 @@
+From 7eb95bd97678d6eb5dfa873964931227e1f7c793 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Thu, 26 Mar 2020 14:08:29 -0700
+Subject: [PATCH 666/830] ANDROID: Specify MAKE_GOALS and optimize targets
+X-NVConfidentiality: public
+
+The default goals for an ARCH=arm64 kernel will build all of the dtb
+files available in the tree, and hard-codes the generation of a
+gzip-compressed Image artifact. For GKI, we want to support various
+compression methods (gz, lz4 and uncompressed) and this can be handled
+outside of kbuild where compressor flags can be tuned. Also, GKI does
+not need to build any dtb files because it is board-neutral, and in most
+cases the dtbs will come from downstream kernels, not ACK.
+
+On arm and aarch64, this suppresses the generation of the useless gzip
+compressed Image artifact, and dtbs on the gki configs, which do not make
+sense. The x86 defaults were already optimal but make them match
+aarch64. On db845c, this builds only the needed dtb file and a compressed
+artifact for backwards compatibility.
+
+Bug: 152546767
+Change-Id: If90ea331fc7564358b77a777fb367d7d2f95e6a6
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ build.config.aarch64 | 6 +++++-
+ build.config.arm     | 6 +++++-
+ build.config.db845c  | 7 ++++++-
+ build.config.x86_64  | 5 +++++
+ 4 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/build.config.aarch64 b/build.config.aarch64
+index acbba39fbec2..15d2c0f83aea 100644
+--- a/build.config.aarch64
++++ b/build.config.aarch64
+@@ -4,8 +4,12 @@ CLANG_TRIPLE=aarch64-linux-gnu-
+ CROSS_COMPILE=aarch64-linux-androidkernel-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+ 
++MAKE_GOALS="
++Image
++modules
++"
++
+ FILES="
+-arch/arm64/boot/Image.gz
+ arch/arm64/boot/Image
+ vmlinux
+ System.map
+diff --git a/build.config.arm b/build.config.arm
+index 8eb547e21593..7f71449bf0b8 100644
+--- a/build.config.arm
++++ b/build.config.arm
+@@ -4,8 +4,12 @@ CLANG_TRIPLE=arm-linux-gnueabi-
+ CROSS_COMPILE=arm-linux-androidkernel-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin
+ 
++MAKE_GOALS="
++Image
++modules
++"
++
+ FILES="
+-arch/arm/boot/Image.gz
+ arch/arm/boot/Image
+ vmlinux
+ System.map
+diff --git a/build.config.db845c b/build.config.db845c
+index 98171a93ef7a..3146200719f1 100644
+--- a/build.config.db845c
++++ b/build.config.db845c
+@@ -6,7 +6,12 @@ DEFCONFIG=db845c_gki_defconfig
+ PRE_DEFCONFIG_CMDS="cat ./common/arch/arm64/configs/gki_defconfig ./common/arch/arm64/configs/db845c_gki.fragment > ./common/arch/arm64/configs/${DEFCONFIG};"
+ POST_DEFCONFIG_CMDS="rm ./common/arch/arm64/configs/${DEFCONFIG}"
+ 
+-FILES="
++MAKE_GOALS="${MAKE_GOALS}
++qcom/sdm845-db845c.dtb
++Image.gz
++"
++
++FILES="${FILES}
+ arch/arm64/boot/Image.gz
+ arch/arm64/boot/dts/qcom/sdm845-db845c.dtb
+ "
+diff --git a/build.config.x86_64 b/build.config.x86_64
+index df73a47e7220..452554915122 100644
+--- a/build.config.x86_64
++++ b/build.config.x86_64
+@@ -4,6 +4,11 @@ CLANG_TRIPLE=x86_64-linux-gnu-
+ CROSS_COMPILE=x86_64-linux-androidkernel-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin
+ 
++MAKE_GOALS="
++bzImage
++modules
++"
++
+ FILES="
+ arch/x86/boot/bzImage
+ vmlinux
+-- 
+2.17.1
+

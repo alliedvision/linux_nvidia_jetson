@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "tegra194-spmic-p2888-0001.dtsi"
@@ -20,15 +22,18 @@
 		vmmc-supply = <&p2888_spmic_ldo3>;
 		vqmmc-supply = <&p2888_spmic_sd2>;
 	};
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 	xusb_padctl@3520000 {
-
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p2888_spmic_sd3>;
+		avdd-usb-supply = <&p2888_spmic_ldo5>;
+#else
 		pex_dvdd-supply = <&p2888_spmic_sd0>;
 		pex_hvdd-supply = <&p2888_spmic_sd1>;
 		pex_pll_hvdd-supply = <&p2888_spmic_sd1>;
 		vclamp_usb-supply = <&p2888_spmic_sd3>;
 		avdd_usb-supply = <&p2888_spmic_ldo5>;
 		avdd_pll_nvhs_eutmip-supply = <&p2888_spmic_sd1>;
+#endif
 
 		ports {
 			usb2-0 {
@@ -45,12 +50,11 @@
 			};
 		};
 	};
-#endif
 	xudc@3550000 {
 		avdd-usb-supply = <&p2888_spmic_ldo5>;
 	};
 
-	ether_qos@2490000 {
+	ethernet@2490000 {
 		vddio_sys_enet_bias-supply = <&battery_reg>;
 		vddio_enet-supply = <&battery_reg>;
 		phy_vdd_1v8-supply = <&p2888_spmic_sd2>;

@@ -1,11 +1,11 @@
 {
-    "Copyright": "Copyright (c) 2017-2019, NVIDIA Corporation.  All rights reserved.",
+    "Copyright": "Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.",
 
     "Type"   : "EventProvider",
-    "Version": "1",
+    "Version": "2",
 
     "EventProviderDomain": "NvMedia",
-    "EventProviderName": "nv_mm_nvhost",
+    "EventProviderName": "mm_nvhost",
     "StructPrefix"     : "nv_mm_nvhost_",
     "MacroPrefix"      : "NV_MM_NVHOST_",
 
@@ -24,6 +24,8 @@
                 { "Name": "pid",             "Comment": "PID",
                   "Type": "uint32_t",        "Format": "%u" },
                 { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "channel_id",      "Comment": "Channel ID",
                   "Type": "uint32_t",        "Format": "%u" }
             ]
         },
@@ -37,6 +39,8 @@
                 { "Name": "syncpt_id",       "Comment": "Syncpoint ID",
                   "Type": "uint32_t",        "Format": "%u" },
                 { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "channel_id",      "Comment": "Channel ID",
                   "Type": "uint32_t",        "Format": "%u" }
             ]
         },
@@ -50,6 +54,8 @@
                 { "Name": "syncpt_id",       "Comment": "Syncpoint ID",
                   "Type": "uint32_t",        "Format": "%u" },
                 { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "channel_id",      "Comment": "Channel ID",
                   "Type": "uint32_t",        "Format": "%u" }
             ]
         },
@@ -147,8 +153,12 @@
               "Type": "uint32_t",        "Format": "%u" },
             { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
               "Type": "uint32_t",        "Format": "%u" },
-            { "Name": "operation",       "Comment": "VPU Operation ID",
-              "Type": "uint32_t",        "Format": "%u" }
+            { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "IOVA",            "Comment": "IOVA",
+              "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -162,8 +172,12 @@
               "Type": "uint32_t",        "Format": "%u" },
             { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
               "Type": "uint32_t",        "Format": "%u" },
-            { "Name": "operation",       "Comment": "VPU Operation ID",
-              "Type": "uint32_t",        "Format": "%u" }
+            { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+              "Type": "uint8_t",         "Format": "%u" },
+            { "Name": "IOVA",            "Comment": "IOVA",
+             "Type": "uint64_t",         "Format": "%llx" }
         ]
       },
 
@@ -177,8 +191,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -192,8 +210,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -207,8 +229,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -222,8 +248,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -237,8 +267,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -252,8 +286,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -267,8 +305,12 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
       },
 
@@ -282,10 +324,274 @@
             "Type": "uint32_t",        "Format": "%u" },
           { "Name": "syncpt_thresh",   "Comment": "Threshold for task completion",
             "Type": "uint32_t",        "Format": "%u" },
-          { "Name": "operation",       "Comment": "VPU Operation ID",
-            "Type": "uint32_t",        "Format": "%u" }
+          { "Name": "vpu_id",          "Comment": "ID of the VPU on which task was run. 0 or 1.",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "queue_id",        "Comment": "ID of the FW Queue on which the task was run",
+            "Type": "uint8_t",         "Format": "%u" },
+          { "Name": "IOVA",            "Comment": "IOVA",
+            "Type": "uint64_t",        "Format": "%llx" }
         ]
-      }
+      },
+
+        {
+            "Name"   : "vi_capture_setup",
+            "Comment": "The vi_capture_setup API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_reset",
+            "Comment": "The vi_capture_reset API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_release",
+            "Comment": "The vi_capture_release API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_get_info",
+            "Comment": "The vi_capture_get_info API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_set_config",
+            "Comment": "The vi_capture_set_config API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_request",
+            "Comment": "The vi_capture_request API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_status",
+            "Comment": "The vi_capture_status API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_set_compand",
+            "Comment": "The vi_capture_set_compand API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "vi_capture_set_progress_status",
+            "Comment": "The vi_capture_set_progress_status API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_setup",
+            "Comment": "The isp_capture_setup API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_reset",
+            "Comment": "The isp_capture_reset API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_release",
+            "Comment": "The isp_capture_release API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_get_info",
+            "Comment": "The isp_capture_get_info API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_request",
+            "Comment": "The isp_capture_request API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_status",
+            "Comment": "The isp_capture_status API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_program_request",
+            "Comment": "The isp_capture_program_request API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_program_status",
+            "Comment": "The isp_capture_program_status API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_request_ex",
+            "Comment": "The isp_capture_request_ex API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "isp_capture_set_progress_status",
+            "Comment": "The isp_capture_set_progress_status API is called",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        },
+
+        {
+            "Name"   : "task_log",
+            "Comment": "Placeholder to generate a generic function",
+            "Fields" : [
+                { "Name": "class_id",        "Comment": "Engine class ID",
+                  "Type": "uint32_t",        "Format": "%x" },
+                { "Name": "pid",             "Comment": "PID",
+                  "Type": "uint32_t",        "Format": "%u" },
+                { "Name": "tid",             "Comment": "TID",
+                  "Type": "uint32_t",        "Format": "%u" }
+            ]
+        }
     ],
 
     "Filtering": {

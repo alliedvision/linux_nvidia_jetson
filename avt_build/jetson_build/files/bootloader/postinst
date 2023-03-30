@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -17,15 +17,46 @@ BOOT_CTRL_CONF="/etc/nv_boot_control.conf"
 OTA_PACKAGE_DIR="/opt/ota_package"
 T186REF_UPDATER="/usr/sbin/nv_update_engine"
 T186REF_NVBOOTCTRL="/usr/sbin/nvbootctrl"
-T210REF_UPDATER="/usr/sbin/l4t_payload_updater_t210"
 UPDATE_CONF="/opt/nvidia/l4t-bootloader-config/nv-l4t-bootloader-config.sh"
-bl_update_payload="bl_update_payload"
+L4T_LAUNCHER="BOOTAA64.efi"
+EMMC_VAR_MOUNT_DIR="/opt/nvidia/emmc_var"
+ACTIVE_ESP_MOUNT_DIR="/opt/nvidia/esp"
+ESP_CAPSULE_DIR="EFI/UpdateCapsule/"
+ESP_LAUNCHER_DIR="EFI/BOOT/"
+ESP_VAR_DIR="EFI/NVDA/Variables"
+SYS_VAR_DIR="/sys/firmware/efi/efivars"
+EFI_GLOBAL_GUID="8be4df61-93ca-11d2-aa0d-00e098032b8c"
+TMP_FILE="/tmp/spec_var.bin"
+OS_INDICATION_VAR="OsIndications"
 bl_only_payload="bl_only_payload"
+capsule_payload="TEGRA_BL.Cap"
+
+if [[ -v DEBCONF_RECONFIGURE ]]; then
+  if [ "$DEBCONF_RECONFIGURE" -eq 1 ]; then
+    sudo modprobe mtd_blkdevs
+    sudo modprobe mtdblock
+  fi
+fi
 
 if [ -e "/opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall" ]; then
     echo "Pre-installing bootloader package, skip flashing"
     exit 0
 fi
+
+chkerr () {
+    # shellcheck disable=SC2181
+    if [ $? -ne 0 ]; then
+        if [ "$1" != "" ]; then
+            echo "$1";
+        else
+            echo "failed.";
+        fi;
+        exit 1;
+    fi;
+    if [ "$1" = "" ]; then
+        echo "done.";
+    fi;
+}
 
 reboot_notify () {
     if [ -d /var/lib/update-notifier/user.d/ ]; then
@@ -48,92 +79,38 @@ EOF
     fi
 }
 
-t186ref_install_payload () {
-    local payload_name="${1}"
+# Mount esp on specified media to specified directory
+mount_media_esp () {
+    local media_dev="${1}"
+    local mount_dir="${2}"
+    local esp_uuid=""
 
-    if [ -f "${payload_dir}/${payload_name}" ]; then
-        # shellcheck disable=SC2164
-        pushd "${payload_dir}" &> /dev/null
-        # The update engine and payload updater currently only consumes payloads
-        # named "/opt/ota_package/bl_update_payload"
-        cp "${payload_name}" "${OTA_PACKAGE_DIR}"/bl_update_payload
-        "${T186REF_UPDATER}" --install no-reboot &> "${OTA_PACKAGE_DIR}/${payload_name}.log"
-        # shellcheck disable=SC2181
-        if [ $? -ne 0 ]; then
-            echo "ERROR. Procedure for ${payload_name} update FAILED."
-            echo "Cannot install package. Exiting..."
-            exit 1
-        fi
-        # shellcheck disable=SC2164
-        popd &> /dev/null
-        echo "Update ${payload_name} completed."
-    else
-        echo "ERROR. ${payload_dir}/${payload_name} does not exist."
-        echo "Cannot install package. Exiting..."
-        exit 1
-    fi
-}
-
-t186ref_update () {
-    echo "Starting bootloader post-install procedure."
-
-    if [ -x "${T186REF_UPDATER}" ] && [ -x "${T186REF_NVBOOTCTRL}" ]; then
-        "${T186REF_UPDATER}" --enable-ab > /dev/null
-
-        rootfs_ab=$( "${T186REF_NVBOOTCTRL}" -t rootfs get-number-slots )
-        if [ "${rootfs_ab}" = "1" ]; then
-            echo "rootfs AB is not enabled."
-            t186ref_install_payload "${bl_update_payload}"
-        elif [ "${rootfs_ab}" = "2" ]; then
-            echo "rootfs AB is enabled."
-            # Installing bl_only_payload.
-            # kernel and kernel-dtb should be installed with Kernel Deb package.
-            t186ref_install_payload "${bl_only_payload}"
-        else
-            echo "The SMD may be corrupted. Exiting..."
-            exit 1
+    # Create esp mount directory if does not exist
+    if [ ! -d "${mount_dir}" ]; then
+        mkdir -p "${mount_dir}"
         fi
 
-        echo "Reboot the target system for changes to take effect."
-        reboot_notify
-    else
-        echo "ERROR. ${T186REF_UPDATER} or ${T186REF_NVBOOTCTRL} is NOT executable."
-        echo "Post install script FAILED."
-        echo "Cannot install package. Exiting..."
-        exit 1
+    # Umount the esp mount directory in case it is mounted
+    if mountpoint -q "${mount_dir}"; then
+        umount "${mount_dir}" > /dev/null 2>&1
     fi
-}
 
-t210ref_update () {
-    echo "Starting bootloader post-install procedure."
+    # Find the uuid of specified media's esp partition
+    esp_uuid=$( lsblk -o partlabel,uuid,name | grep "${media_dev}" | grep -w "esp" | awk '{ print $2 }' )
+    if [ "${esp_uuid}" == "" ]; then
+        echo "Error: uuid of esp is not found."
+        return 1
+    fi
 
-    if [ -x "${T210REF_UPDATER}" ]; then
-        local payload_name="${bl_update_payload}"
-        if [ -f "${payload_dir}/${payload_name}" ]; then
-            # shellcheck disable=SC2164
-            pushd "${payload_dir}" &> /dev/null
-            "${T210REF_UPDATER}" "${payload_dir}/${payload_name}" &> "${OTA_PACKAGE_DIR}/${payload_name}.log"
-            # shellcheck disable=SC2181
-            if [ $? -ne 0 ]; then
-                echo "ERROR. Procedure for bootloader update FAILED."
-                echo "Cannot install package. Exiting..."
-                exit 1
-            fi;
-            # shellcheck disable=SC2164
-            popd &> /dev/null
-            echo "Update bootloader completed."
-            echo "Reboot the target system for changes to take effect."
-            reboot_notify
-        else
-            echo "ERROR. ${payload_dir}/${payload_name} does not exist."
-            echo "Cannot install package. Exiting..."
-            exit 1
+    # Unmount the esp in case it is mounted to other directory
+    umount /dev/disk/by-uuid/"${esp_uuid}" > /dev/null 2>&1
+
+    # Mount the esp to specified ${mount_dir}
+    if ! mount UUID="${esp_uuid}" "${mount_dir}"; then
+        return 2
         fi
-    else
-        echo "ERROR. ${T210REF_UPDATER} is NOT executable, post install script FAILED."
-        echo "Cannot install package. Exiting..."
-        exit 1
-    fi
+
+    return 0
 }
 
 extlinux_update () {
@@ -176,34 +153,259 @@ extlinux_update () {
 	fi
 }
 
+force_install_payload () {
+    local payload_name="${1}"
+
+    if [ -f "${payload_dir}/${payload_name}" ]; then
+        # shellcheck disable=SC2164
+        pushd "${payload_dir}" &> /dev/null
+        # The update engine and payload updater currently only consumes payloads
+        # named "/opt/ota_package/bl_update_payload"
+        cp "${payload_name}" "${OTA_PACKAGE_DIR}"/bl_update_payload
+        "${T186REF_UPDATER}" --forced-install &> "${OTA_PACKAGE_DIR}/${payload_name}.log"
+        # shellcheck disable=SC2181
+        if [ $? -ne 0 ]; then
+            echo "ERROR. Procedure for ${payload_name} update FAILED."
+            echo "Cannot install package. Exiting..."
+            exit 1
+        fi
+        # shellcheck disable=SC2164
+        popd &> /dev/null
+        echo "Update ${payload_name} completed."
+    else
+        echo "ERROR. ${payload_dir}/${payload_name} does not exist."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+}
+
+force_install_esp() {
+    local payload_name="${1}";
+    local l4tlauncher_dir=""
+
+    if [ -f "${payload_dir}/${payload_name}" ]; then
+        l4tlauncher_dir="${ACTIVE_ESP_MOUNT_DIR}/${ESP_LAUNCHER_DIR}"
+        echo "Updating esp partition...";
+        cp -f "${payload_dir}/${payload_name}" "${l4tlauncher_dir}";
+        chkerr "Copying ${payload_dir}/${payload_name} failed.";
+        sync;
+        chkerr;
+    else
+        echo "ERROR. ${payload_dir}/${payload_name} does not exist.";
+        echo "Cannot install package. Exiting...";
+        exit 1;
+    fi
+}
+
+force_update() {
+    echo "Starting legacy update procedure."
+
+    if [ -x "${T186REF_UPDATER}" ]; then
+        # Install bootloader components to current slot
+        # Installing bl_only_payload.
+        # kernel and kernel-dtb are installed along with Kernel Deb package.
+        force_install_payload "${bl_only_payload}"
+
+        # Until UEFI capsule mechanism is ready, we should always update esp
+        # partition in case L4tlauncher is changed. In general, esp partition update
+        # is handled by UEFI.
+        force_install_esp "${L4T_LAUNCHER}"
+
+        echo "Reboot the target system for changes to take effect."
+        reboot_notify
+    else
+        echo "ERROR. ${T186REF_UPDATER} or ${T186REF_NVBOOTCTRL} is NOT executable."
+        echo "Post install script FAILED."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+}
+
+# Set payload_dir according to the chipid
+set_payload_dir () {
+    case "${chipid}" in
+        0x19)
+            payload_dir+="/t19x"
+            ;;
+        0x23)
+            payload_dir+="/t23x"
+            ;;
+        *)
+            echo "ERROR. Unrecognized chip ID: ${chipid}."
+            echo "Cannot find payload directory. Exiting..."
+            exit 1
+    esac
+}
+
+# Mount active boot media's esp to /opt/nvidia/esp directory
+# Mount eMMC's esp to /opt/nvidia/emmc_var if board is eMMC only
+# and the active boot media is not eMMC
+mount_esp () {
+    # Mount active boot media's esp to /opt/nvidia/esp
+    if ! mount_media_esp "${active_media}" "${ACTIVE_ESP_MOUNT_DIR}"; then
+        echo "ERROR. Mount active boot media's esp failed."
+        echo "Cannot install capsule package. Exiting..."
+        exit 1
+    fi
+
+    if [ "${emmc_only}" = "true" ] && [ "${active_media}" != "mmcblk0" ]; then
+        # Mount eMMC's esp to /opt/nvidia/emmc_var directory
+        if ! mount_media_esp "mmcblk0" "${EMMC_VAR_MOUNT_DIR}"; then
+            echo "ERROR. Mount eMMC's esp partition failed."
+            echo "Cannot install capsule package. Exiting..."
+            exit 1
+        fi
+    fi
+
+}
+
+# Unmount the esp if mounted
+unmount_esp () {
+    # Unmount eMMC's esp
+    if mountpoint -q "${EMMC_VAR_MOUNT_DIR}"; then
+        umount "${EMMC_VAR_MOUNT_DIR}" > /dev/null 2>&1;
+    fi
+
+    # Unmount active boot media's esp
+    if mountpoint -q "${ACTIVE_ESP_MOUNT_DIR}"; then
+        umount "${ACTIVE_ESP_MOUNT_DIR}" > /dev/null 2>&1;
+    fi
+}
+
+# Install mtdblock and its dependent modules
+install_mtdblock () {
+    local kernel_ver=
+    local mtd_dir=
+    kernel_ver="$(uname -r)"
+    mtd_dir="/lib/modules/${kernel_ver}/kernel/drivers/mtd"
+
+    # mtdblock has dependency on mtd and mtd_blkdevs
+    if [ -f "${mtd_dir}/mtd.ko" ] \
+        &&  [ -f "${mtd_dir}/mtd_blkdevs.ko" ] \
+        &&  [ -f "${mtd_dir}/mtdblock.ko" ]; then
+        echo "INFO. Installing mtdblock."
+        modprobe mtdblock
+    fi
+}
+
+# Uninstall mtdblock and its dependent modules
+uninstall_mtdblock () {
+    echo "INFO. Uninstalling mtdblock."
+    modprobe -r mtdblock
+}
+
+# 1. Copy the capsule payload to ${actvie_media's esp}/EFI/UpdateCapsule/;
+# 2. Copy the L4Tlauncher to ${active_media's esp}/EFI/BOOT/.
+copy_capsule_and_l4tlauncher () {
+    local payload_name="${1}"
+    local capsule_dir=""
+    local l4tlauncher_dir=""
+
+    # Check capsule payload, exit if does not exist
+    if [ ! -f "${payload_dir}/${payload_name}" ]; then
+        echo "ERROR. Cannot find ${payload_dir}/${payload_name}."
+        echo "Cannot install package. Exiting..."
+        exit 1
+    fi
+
+    capsule_dir="${ACTIVE_ESP_MOUNT_DIR}/${ESP_CAPSULE_DIR}"
+    l4tlauncher_dir="${ACTIVE_ESP_MOUNT_DIR}/${ESP_LAUNCHER_DIR}"
+
+    # Create UpdateCapsule directory if does not exist
+    if [ ! -d "${capsule_dir}" ]; then
+        mkdir -p "${capsule_dir}"
+    fi
+
+    # Copy capsule payload and L4Tlauncher
+    # shellcheck disable=SC2164
+    pushd "${payload_dir}" &> /dev/null
+    cp "${payload_name}" "${capsule_dir}"
+    cp "${L4T_LAUNCHER}" "${l4tlauncher_dir}"
+    # shellcheck disable=SC2164
+    popd &> /dev/null
+
+    echo "INFO. Copy capsule payload to ${capsule_dir} and l4tlauncher to ${l4tlauncher_dir} done."
+}
+
+# Set bit 2 of the OsIndications UEFI variable
+set_capsule_uefi_variable () {
+    local var_path=""
+
+    # Set the variable directory
+    if [ "${emmc_only}" = "true" ]; then
+        if [ "${active_media}" = "mmcblk0" ]; then
+            var_path="${ACTIVE_ESP_MOUNT_DIR}/${ESP_VAR_DIR}/${OS_INDICATION_VAR}-${EFI_GLOBAL_GUID}"
+        else
+            var_path="${EMMC_VAR_MOUNT_DIR}/${ESP_VAR_DIR}/${OS_INDICATION_VAR}-${EFI_GLOBAL_GUID}"
+        fi
+    else
+        var_path="${SYS_VAR_DIR}/${OS_INDICATION_VAR}-${EFI_GLOBAL_GUID}"
+    fi
+
+    if [ -f "${TMP_FILE}" ]; then
+        rm -f "${TMP_FILE}"
+    fi
+
+    # Set bit 2 of the OsIndications UEFI variable
+    printf "\x07\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00" > "${TMP_FILE}"
+    dd if="${TMP_FILE}" of="${var_path}" > /dev/null 2>&1
+
+    # Clean up the tmp fie
+    rm -f "${TMP_FILE}"
+
+    echo "INFO. Set capsule UEFI variable ${var_path} done."
+}
+
+dump_debug_info () {
+    # Dump slots info
+    if [ -x "${T186REF_NVBOOTCTRL}" ] && [ "${legacy_update_support}" = "false" ]; then
+        echo "INFO. Dump slots info:"
+        "${T186REF_NVBOOTCTRL}" dump-slots-info
+    fi
+
+    # Dump ${BOOT_CTRL_CONF}
+    echo "INFO. Dump nv_boot_control.conf:"
+    cat "${BOOT_CTRL_CONF}"
+}
+
 if [ ! -r "${BOOT_CTRL_CONF}" ]; then
     echo "ERROR. Cannot open ${BOOT_CTRL_CONF} for reading."
     echo "Cannot install package. Exiting..."
     exit 1
 fi
 
-"${UPDATE_CONF}" -c
+"${UPDATE_CONF}" -l
 
 chipid=$( awk '/TEGRA_CHIPID/ {print $2}' "${BOOT_CTRL_CONF}" )
+legacy_update_support=$( awk '/TEGRA_LEGACY_UPDATE/ {print $2}' "${BOOT_CTRL_CONF}" )
+emmc_only=$( awk '/TEGRA_EMMC_ONLY/ {print $2}' "${BOOT_CTRL_CONF}" )
+active_media=$( awk '/TEGRA_BOOT_STORAGE/ {print $2}' "${BOOT_CTRL_CONF}" )
 payload_dir="${OTA_PACKAGE_DIR}"
 
-case "${chipid}" in
-    0x18)
-        payload_dir+="/t18x"
-        t186ref_update
-        ;;
-    0x19)
-        payload_dir+="/t19x"
-        t186ref_update
-        ;;
-    0x21)
-        payload_dir+="/t21x"
-        t210ref_update
-        ;;
-    *)
-        echo "ERROR. Unrecognized chip ID: ${chipid}."
+set_payload_dir
+
+mount_esp
+
+# Dump debug info before update
+dump_debug_info
+
+# If legacy update is not supported, prepare capsule to update bootloader;
+# if legacy update is supported, call nv_update_engine to update bootloader.
+echo "Starting bootloader post-install procedure."
+if [ "${legacy_update_support}" = "false" ]; then
+    # Prepare capsule update
+    copy_capsule_and_l4tlauncher ${capsule_payload}
+    set_capsule_uefi_variable
+elif [ "${legacy_update_support}" = "true" ]; then
+    # Use BUP to update
+    install_mtdblock
+                force_update
+            else
+    echo "ERROR. Unrecognized legacy update support: ${legacy_update_support}."
         echo "Cannot install bootloader package. Exiting..."
         exit 1
-esac
+fi
+
+unmount_esp
 
 extlinux_update

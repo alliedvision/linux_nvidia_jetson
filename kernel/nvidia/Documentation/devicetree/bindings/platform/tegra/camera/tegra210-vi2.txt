@@ -1,0 +1,100 @@
+NVIDIA Tegra Erista (T21x) VI2 bindings
+
+Tegra VI2 (Video Input, version 2) is a pixel pipeline that ingresses data from
+its MIPI CSI-2 D-Phy 1.1 receiver (from CIL pads). Image frame data is outputted
+directly to the ISP2 (A or B).
+
+The MIPICAL unit performs calibration at start of capture to condition the
+impedance of CSI-2 D-Phy lanes.
+
+VII2C is an I2C bus driver intended for the control of external camera sensors
+and peripherals such as onboard EEPROMs and focusers; it is separate from other
+I2C units in the Tegra SOC.
+
+An internal Pattern Generator (PG) unit is present for system bandwidth and
+image signal processing testing.
+
+Pre-boot hardware auto-detection is peformed by the NVIDIA Tegra plugin-manager
+for supported devices; if present, the attached camera board's Device Tree
+configuration overlays additional fields for assembling a complete system
+stream/channel graph for all camera sensor(s).
+
+Required properties:
+	- compatible: Should be "nvidia,tegra210-vi", "simple-bus".
+	- reg: Register address space (MMIO).
+	- power-domains: Power domain group, should be "&ve_pd", label to
+		TEGRA210_POWER_DOMAIN_VENC.
+	- resets: All VI resets.
+	- reset-names: Names of the above resets.
+	- clocks: All VI, CSI-2 CIL, VII2C and DSI clocks.
+	- clock-names: Names of the above clocks.
+	- interrupts: All VI2 interrupts.
+	- iommus: VI2 Stream ID, should be "TEGRA_SWGROUP_VI".
+
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Camera Board Overlay --
+	- num-channels: Total number of VI channels, equal to the number of
+		connected sensors.
+
+	-- Port (ports) --
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- Ports (port@PQ) --
+	- reg: Channel/stream index, same as <PQ>.
+
+	-- Endpoint (endpoint) --
+	- port-index: NVCSI port index; {0-5} (A-F).
+	- bus-width: Number of D-Phy lanes used in SCIL; {1-4}.
+	- remote-endpoint: Label to sensor node.
+
+Example:
+
+	host1x {
+		vi {
+			compatible = "nvidia,tegra210-vi", "simple-bus";
+			power-domains = <&ve_pd>;
+			reg = <0x0 0x54080000 0x0 0x40000>;
+			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&smmu TEGRA_SWGROUP_VI>;
+			clocks = <&tegra_car TEGRA210_CLK_VI_V4L2_CBUS>,
+				<&tegra_car TEGRA210_CLK_CSI>,
+				<&tegra_car TEGRA210_CLK_CILAB>,
+				<&tegra_car TEGRA210_CLK_CILCD>,
+				<&tegra_car TEGRA210_CLK_CILE>,
+				<&tegra_car TEGRA210_CLK_VI_I2C>,
+				<&tegra_car TEGRA210_CLK_I2CSLOW>,
+				<&tegra_car TEGRA210_CLK_PLL_D>,
+				<&tegra_car TEGRA210_CLK_PLL_D_DSI_OUT>;
+			clock-names = "vi", "csi", "cilab", "cilcd",
+				"cile", "vii2c", "i2cslow",
+				"pll_d", "pll_d_dsi_out";
+			resets = <&tegra_car 20>;
+			reset-names = "vi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+
+	};
+
+	/* Camera board-specific config overlay */
+	host1x {
+		vi {
+			num-channels = <1>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					e3326_vi_in0: endpoint {
+						port-index = <2>;
+						bus-width = <2>;
+						remote-endpoint = <&e3326_csi_out0>;
+					};
+				};
+			};
+		};
+	};

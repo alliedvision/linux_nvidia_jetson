@@ -1,7 +1,7 @@
 /*
  * tegra210_virt_alt_admaif.c - Tegra ADMAIF component driver
  *
- * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +21,7 @@
 #include <linux/of_platform.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
+#include <sound/dmaengine_pcm.h>
 
 #include "tegra210_virt_alt_admaif.h"
 #include "tegra_virt_alt_ivc.h"
@@ -197,9 +198,15 @@ static void tegra210_admaif_stop_capture(struct snd_soc_dai *dai)
 static int tegra210_admaif_trigger(struct snd_pcm_substream *substream, int cmd,
 				 struct snd_soc_dai *dai)
 {
+	int err;
 	pr_info("Pcm trigger for admaif%d %s: cmd_id %d\n", dai->id+1,
 		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		"playback":"capture", cmd);
+
+	err = snd_dmaengine_pcm_trigger(substream, cmd);
+	if (err)
+		return err;
+
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
@@ -239,20 +246,8 @@ static struct snd_soc_dai_ops tegra210_admaif_dai_ops = {
 
 static int tegra210_admaif_dai_probe(struct snd_soc_dai *dai)
 {
-
 	dai->capture_dma_data = &admaif->capture_dma_data[dai->id];
 	dai->playback_dma_data = &admaif->playback_dma_data[dai->id];
-
-	return 0;
-}
-
-static int tegra_bytes_info(struct snd_kcontrol *kcontrol,
-		       struct snd_ctl_elem_info *uinfo)
-{
-	struct soc_bytes *params = (void *)kcontrol->private_value;
-
-	uinfo->type = params->mask;
-	uinfo->count = params->num_regs;
 
 	return 0;
 }
@@ -768,13 +763,6 @@ ADMA_REGDUMP_CTRL_DECL("ADMA29 regdump", 29),
 ADMA_REGDUMP_CTRL_DECL("ADMA30 regdump", 30),
 ADMA_REGDUMP_CTRL_DECL("ADMA31 regdump", 31),
 ADMA_REGDUMP_CTRL_DECL("ADMA32 regdump", 32),
-
-/* Metadata controls should be always the last ones */
-SOC_SINGLE_BOOL_EXT("SAD Init", 0,
-		tegra_metadata_get_init, tegra_metadata_set_init),
-SOC_SINGLE_BOOL_EXT("SAD Enable", 0,
-		tegra_metadata_get_enable, tegra_metadata_set_enable),
-METADATA_CTRL_DECL("SAD Metadata"),
 };
 
 static struct snd_soc_component_driver tegra210_admaif_dai_driver = {
@@ -845,22 +833,30 @@ int tegra210_virt_admaif_register_component(struct platform_device *pdev,
 	for (i = 0; i < soc_data->num_ch; i++) {
 		if ((i + 1) != admaif_ch_list[adma_count])
 			continue;
-	if (of_device_is_compatible(pdev->dev.of_node,
-		"nvidia,tegra186-virt-pcm")) {
-		admaif->playback_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
-				TEGRA186_ADMAIF_XBAR_TX_FIFO_WRITE +
-				(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
-		admaif->capture_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
-				TEGRA186_ADMAIF_XBAR_RX_FIFO_READ +
-				(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
+		if (of_device_is_compatible(pdev->dev.of_node,
+			"nvidia,tegra186-virt-pcm")) {
+			admaif->playback_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
+					TEGRA186_ADMAIF_XBAR_TX_FIFO_WRITE +
+					(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
+			admaif->capture_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
+					TEGRA186_ADMAIF_XBAR_RX_FIFO_READ +
+					(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
 		} else if (of_device_is_compatible(pdev->dev.of_node,
-		"nvidia,tegra210-virt-pcm")) {
-		admaif->playback_dma_data[i].addr = TEGRA210_ADMAIF_BASE +
-				TEGRA210_ADMAIF_XBAR_TX_FIFO_WRITE +
-				(i * TEGRA210_ADMAIF_CHANNEL_REG_STRIDE);
-		admaif->capture_dma_data[i].addr = TEGRA210_ADMAIF_BASE +
-				TEGRA210_ADMAIF_XBAR_RX_FIFO_READ +
-				(i * TEGRA210_ADMAIF_CHANNEL_REG_STRIDE);
+			"nvidia,tegra234-virt-pcm")) {
+			admaif->playback_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
+					TEGRA186_ADMAIF_XBAR_TX_FIFO_WRITE +
+					(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
+			admaif->capture_dma_data[i].addr = TEGRA186_ADMAIF_BASE +
+					TEGRA186_ADMAIF_XBAR_RX_FIFO_READ +
+					(i * TEGRA186_ADMAIF_CHANNEL_REG_STRIDE);
+		} else if (of_device_is_compatible(pdev->dev.of_node,
+			"nvidia,tegra210-virt-pcm")) {
+			admaif->playback_dma_data[i].addr = TEGRA210_ADMAIF_BASE +
+					TEGRA210_ADMAIF_XBAR_TX_FIFO_WRITE +
+					(i * TEGRA210_ADMAIF_CHANNEL_REG_STRIDE);
+			admaif->capture_dma_data[i].addr = TEGRA210_ADMAIF_BASE +
+					TEGRA210_ADMAIF_XBAR_RX_FIFO_READ +
+					(i * TEGRA210_ADMAIF_CHANNEL_REG_STRIDE);
 		} else {
 			dev_err(&pdev->dev,
 				"Uncompatible device driver\n");
@@ -919,10 +915,10 @@ int tegra210_virt_admaif_register_component(struct platform_device *pdev,
 		ARRAY_SIZE(tegra_virt_t186ref_controls) - NUM_META_CONTROLS;
 	}
 
-	ret = snd_soc_register_component(&pdev->dev,
+	ret = tegra_register_component(&pdev->dev,
 					&tegra210_admaif_dai_driver,
 					tegra210_admaif_dais,
-					soc_data->num_ch);
+					soc_data->num_ch, "admaif");
 	if (ret) {
 		dev_err(&pdev->dev, "Could not register DAIs %d: %d\n",
 			i, ret);

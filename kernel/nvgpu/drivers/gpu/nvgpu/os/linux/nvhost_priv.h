@@ -17,8 +17,23 @@
 #ifndef __NVGPU_NVHOST_PRIV_H__
 #define __NVGPU_NVHOST_PRIV_H__
 
+#include <nvgpu/os_fence_syncpts.h>
+
+struct nvhost_fence;
 struct nvgpu_nvhost_dev {
 	struct platform_device *host1x_pdev;
 };
+
+int nvgpu_nvhost_fence_install(struct nvhost_fence *f, int fd);
+struct nvhost_fence *nvgpu_nvhost_fence_get(int fd);
+void nvgpu_nvhost_fence_put(struct nvhost_fence *f);
+void nvgpu_nvhost_fence_dup(struct nvhost_fence *f);
+struct nvhost_fence *nvgpu_nvhost_fence_create(struct platform_device *pdev,
+					struct nvhost_ctrl_sync_fence_info *pts,
+					u32 num_pts, const char *name);
+u32 nvgpu_nvhost_fence_num_pts(struct nvhost_fence *fence);
+int nvgpu_nvhost_fence_foreach_pt(struct nvhost_fence *fence,
+	int (*iter)(struct nvhost_ctrl_sync_fence_info, void *),
+	void *data);
 
 #endif /* __NVGPU_NVHOST_PRIV_H__ */

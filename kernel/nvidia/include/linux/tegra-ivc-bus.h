@@ -18,8 +18,8 @@
 #include <linux/types.h>
 
 extern struct bus_type tegra_ivc_bus_type;
+extern struct device_type tegra_ivc_bus_dev_type;
 struct tegra_ivc_bus;
-struct tegra_hsp_ops;
 struct tegra_ivc_rpc_data;
 
 struct tegra_ivc_bus *tegra_ivc_bus_create(struct device *);
@@ -27,12 +27,12 @@ struct tegra_ivc_bus *tegra_ivc_bus_create(struct device *);
 void tegra_ivc_bus_ready(struct tegra_ivc_bus *bus, bool online);
 void tegra_ivc_bus_destroy(struct tegra_ivc_bus *bus);
 int tegra_ivc_bus_boot_sync(struct tegra_ivc_bus *bus);
+void tegra_ivc_bus_notify(struct tegra_ivc_bus *bus, u16 group);
 
 struct tegra_ivc_driver {
 	struct device_driver driver;
 	struct device_type *dev_type;
 	union {
-		const struct tegra_hsp_ops *hsp;
 		const struct tegra_ivc_channel_ops *channel;
 	} ops;
 };
@@ -63,26 +63,6 @@ tegra_ivc_subsys_driver(__driver, \
 						tegra_ivc_driver_register, \
 						tegra_ivc_driver_unregister)
 
-/* Tegra HSP driver support */
-extern struct device_type tegra_hsp_type;
-
-struct tegra_hsp_ops {
-	int (*probe)(struct device *);
-	void (*remove)(struct device *);
-	void (*ring)(struct device *);
-};
-void tegra_hsp_notify(struct device *);
-
-static inline const struct tegra_hsp_ops *tegra_hsp_dev_ops(struct device *dev)
-{
-	struct tegra_ivc_driver *drv = to_tegra_ivc_driver(dev->driver);
-	const struct tegra_hsp_ops *ops = NULL;
-
-	if (drv != NULL && drv->dev_type == &tegra_hsp_type)
-		ops = drv->ops.hsp;
-	return ops;
-}
-
 /* IVC channel driver support */
 extern struct device_type tegra_ivc_channel_type;
 
@@ -94,6 +74,7 @@ struct tegra_ivc_channel {
 	struct mutex ivc_wr_lock;
 	struct tegra_ivc_rpc_data *rpc_priv;
 	atomic_t bus_resets;
+	u16 group;
 	bool is_ready;
 };
 

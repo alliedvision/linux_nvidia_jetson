@@ -1,0 +1,31 @@
+From 15a511b859b32005f1f63f10791fee37a6f77763 Mon Sep 17 00:00:00 2001
+From: Orson Zhai <orson.zhai@unisoc.com>
+Date: Tue, 24 Dec 2019 17:27:54 +0800
+Subject: [PATCH 608/830] ANDROID: Kconfig.gki: Add Hidden SPRD DRM configs
+X-NVConfidentiality: public
+
+Add needed configuration for sprd_drm.
+
+Bug: 146821203
+Change-Id: I38838abfd0bc2f486a8b677d5976b85f7b2ed0bf
+Signed-off-by: Orson Zhai <orson.zhai@unisoc.com>
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 2c6f92b15ea3..282c1c35b963 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -5,6 +5,7 @@ config GKI_HIDDEN_DRM_CONFIGS
+ 	select DRM_KMS_CMA_HELPER
+ 	select DRM_MIPI_DSI
+ 	select SND_PCM_ELD
++	select VIDEOMODE_HELPERS
+ 	select WANT_DEV_COREDUMP
+ 	help
+ 	  Dummy config option used to enable hidden DRM configs.
+-- 
+2.17.1
+

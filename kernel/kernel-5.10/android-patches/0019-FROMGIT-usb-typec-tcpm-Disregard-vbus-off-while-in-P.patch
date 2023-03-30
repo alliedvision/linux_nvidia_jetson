@@ -1,0 +1,49 @@
+From 7f71d485f9b64d2048d656af930726ccd3c485a5 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Tue, 24 Nov 2020 18:07:03 -0800
+Subject: [PATCH 019/830] FROMGIT: usb: typec: tcpm: Disregard vbus off while
+ in PR_SWAP_SNK_SRC_SOURCE_ON
+X-NVConfidentiality: public
+
+During PR_SWAP sequence, when TCPM is waiting in PR_SWAP_SNK_SRC_SOURCE_ON
+for the vbus source to ramp up, TCPM would prematurely exit
+PR_SWAP_SNK_SRC_SOURCE_ON and transition to SNK_UNATTACHED state when a
+vbus off notification is received. This should not be the case as vbus
+can still be off while in PR_SWAP_SNK_SRC_SOURCE_ON and the vbus source
+has PD_T_NEWSRC to ramp up.
+
+Bug: 168555244
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201125020703.1604979-1-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 3f461fba1f8f07d1a93c6489136b44c7300bb016
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I598c75bcca2d2b878897036f8a8dd6a1fc1d6fa3
+---
+ drivers/usb/typec/tcpm/tcpm.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index 08275a1428fe..f5f4d2df035a 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -4241,6 +4241,14 @@ static void _tcpm_pd_vbus_off(struct tcpm_port *port)
+ 		/* Do nothing, expected */
+ 		break;
+ 
++	case PR_SWAP_SNK_SRC_SOURCE_ON:
++		/*
++		 * Do nothing when vbus off notification is received.
++		 * TCPM can wait for PD_T_NEWSRC in PR_SWAP_SNK_SRC_SOURCE_ON
++		 * for the vbus source to ramp up.
++		 */
++		break;
++
+ 	case PORT_RESET_WAIT_OFF:
+ 		tcpm_set_state(port, tcpm_default_state(port), 0);
+ 		break;
+-- 
+2.17.1
+

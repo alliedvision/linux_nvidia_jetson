@@ -95,7 +95,7 @@ void rtw_phydm_iqk_trigger(_adapter *adapter)
 	u8 rfk_forbidden = _FALSE;
 
 	halrf_cmn_info_set(p_dm_odm, HALRF_CMNINFO_RFK_FORBIDDEN, rfk_forbidden);
-#if (RTL8822C_SUPPORT == 1)
+#if (RTL8822C_SUPPORT == 1) || (RTL8814B_SUPPORT == 1)
 	/* halrf_cmn_info_set(p_dm_odm, HALRF_CMNINFO_IQK_SEGMENT, segment); to do */
 	halrf_rf_k_connect_trigger(p_dm_odm, _TRUE, SEGMENT_FREE);
 #else
@@ -241,6 +241,11 @@ void rtw_phydm_fill_desc_dpt(void *dm, u8 *desc, u8 dpt_lv)
 		break;
 	#endif
 */
+	#ifdef CONFIG_RTL8822B
+	case RTL8822B :
+		SET_TX_DESC_TXPWR_OFSET_8822B(desc, dpt_lv);
+	break;
+	#endif
 
 	#ifdef CONFIG_RTL8821C
 	case RTL8821C :
@@ -261,14 +266,6 @@ void rtw_phydm_set_dyntxpwr(_adapter *adapter, u8 *desc, u8 mac_id)
 }
 #endif
 
-#ifdef CONFIG_RTW_TX_2PATH_EN
-void rtw_phydm_tx_2path_en(_adapter *adapter)
-{
-	struct dm_struct *dm = adapter_to_phydm(adapter);
-
-	phydm_tx_2path(dm);
-}
-#endif
 #ifdef CONFIG_TDMADIG
 void rtw_phydm_tdmadig(_adapter *adapter, u8 state)
 {
@@ -322,6 +319,8 @@ void Init_ODM_ComInfo(_adapter *adapter)
 	struct dm_struct	*pDM_Odm = &(pHalData->odmpriv);
 	struct pwrctrl_priv *pwrctl = adapter_to_pwrctl(adapter);
 	int i;
+
+	pHalData->shift_rxagc = 0;
 
 	/*phydm_op_mode could be change for different scenarios: ex: SoftAP - PHYDM_BALANCE_MODE*/
 	pHalData->phydm_op_mode = PHYDM_PERFORMANCE_MODE;/*Service one device*/
@@ -410,6 +409,7 @@ void Init_ODM_ComInfo(_adapter *adapter)
 	/*halrf info init*/
 	halrf_cmn_info_init(pDM_Odm, HALRF_CMNINFO_EEPROM_THERMAL_VALUE, pHalData->eeprom_thermal_meter);
 	halrf_cmn_info_init(pDM_Odm, HALRF_CMNINFO_PWT_TYPE, 0);
+	halrf_cmn_info_init(pDM_Odm, HALRF_CMNINFO_MP_POWER_TRACKING_TYPE, pHalData->txpwr_pg_mode);
 
 	if (rtw_odm_adaptivity_needed(adapter) == _TRUE)
 		rtw_odm_adaptivity_config_msg(RTW_DBGDUMP, adapter);
@@ -436,6 +436,13 @@ void Init_ODM_ComInfo(_adapter *adapter)
 
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_SEC_CHNL_OFFSET, &(pHalData->nCur40MhzPrimeSC));
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_SEC_MODE, &(adapter->securitypriv.dot11PrivacyAlgrthm));
+#ifdef CONFIG_NARROWBAND_SUPPORTING
+	if ((adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_10)
+		|| (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_5)) {
+		odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_BW, &(adapter->registrypriv.rtw_nb_config));
+	}
+	else
+#endif
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_BW, &(pHalData->current_channel_bw));
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_CHNL, &(pHalData->current_channel));
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_NET_CLOSED, &(adapter->net_closed));
@@ -457,7 +464,9 @@ void Init_ODM_ComInfo(_adapter *adapter)
 #ifdef CONFIG_DYNAMIC_SOML
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_ADAPTIVE_SOML, &(adapter->registrypriv.dyn_soml_en));
 #endif
-
+#ifdef CONFIG_RTW_PATH_DIV
+	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_PATH_DIV, &(adapter->registrypriv.path_div));
+#endif
 	odm_cmn_info_hook(pDM_Odm, ODM_CMNINFO_FCS_MODE, &(pHalData->multi_ch_switch_mode));
 
 	/*halrf info hook*/
@@ -676,7 +685,7 @@ void rtw_hal_turbo_edca(_adapter *adapter)
 			if (interface_type == RTW_PCIE &&
 				((ic_type == RTL8822B)
 				|| (ic_type == RTL8822C)
-				|| (ic_type == RTL8814A))) {
+				|| (ic_type == RTL8814A) || (ic_type == RTL8814B))) {
 				EDCA_BE_UL = 0x6ea42b;
 				EDCA_BE_DL = 0x6ea42b;
 			}
@@ -1030,6 +1039,19 @@ void GetHalODMVar(
 #include "../hal_halmac.h"
 #endif
 
+int rtw_phydm_rfe_ctrl_gpio(
+	_adapter *adapter,
+	u8 gpio_num
+)
+{
+	#ifdef RTW_HALMAC
+	if(rtw_halmac_rfe_ctrl_cfg(adapter_to_dvobj(adapter), gpio_num))
+		return _TRUE;
+	else
+		return _FALSE;
+	#endif/*RTW_HALMAC*/
+}
+
 enum hal_status
 rtw_phydm_fw_iqk(
 	struct dm_struct	*p_dm_odm,
@@ -1155,11 +1177,8 @@ void rtw_phydm_wd_lps_lclk_hdl(_adapter *adapter)
 {
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(adapter);
-	struct dm_struct	*podmpriv = &(pHalData->odmpriv);
 	struct sta_priv *pstapriv = &adapter->stapriv;
 	struct sta_info *psta = NULL;
-	u8 rssi_min = 0;
-	u32	rssi_rpt = 0;
 	bool is_linked = _FALSE;
 
 	if (!rtw_is_hw_init_completed(adapter))
@@ -1335,12 +1354,17 @@ void dump_sta_info(void *sel, struct sta_info *psta)
 void rtw_phydm_ra_registed(_adapter *adapter, struct sta_info *psta)
 {
 	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	struct macid_ctl_t *macid_ctl = dvobj_to_macidctl(dvobj);
 
 	if (psta == NULL) {
 		RTW_ERR(FUNC_ADPT_FMT" sta is NULL\n", FUNC_ADPT_ARG(adapter));
 		rtw_warn_on(1);
 		return;
 	}
+
+	if (psta->cmn.mac_id >= macid_ctl->num)
+		return;
 
 	phydm_ra_registed(&hal_data->odmpriv, psta->cmn.mac_id, psta->cmn.rssi_stat.rssi);
 	dump_sta_info(RTW_DBGDUMP, psta);
@@ -1351,17 +1375,154 @@ static void init_phydm_info(_adapter *adapter)
 	PHAL_DATA_TYPE	hal_data = GET_HAL_DATA(adapter);
 	struct dm_struct *phydm = &(hal_data->odmpriv);
 
-	odm_cmn_info_update(phydm, ODM_CMNINFO_IS_DOWNLOAD_FW, hal_data->bFWReady);
 	odm_cmn_info_init(phydm, ODM_CMNINFO_FW_VER, hal_data->firmware_version);
 	odm_cmn_info_init(phydm, ODM_CMNINFO_FW_SUB_VER, hal_data->firmware_sub_version);
 }
+
+#ifdef CONFIG_CTRL_TXSS_BY_TP
+void rtw_phydm_trx_cfg(_adapter *adapter, bool tx_1ss)
+{
+	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
+	enum bb_path txpath = BB_PATH_AB;
+	enum bb_path rxpath = BB_PATH_AB;
+	/*is_2tx = _FALSE for 8822B, or BB_PATH_AUTO for PATH_DIVERSITY for 8822B*/
+	enum bb_path txpath_1ss = BB_PATH_A;
+
+	rtw_hal_get_trx_path(adapter_to_dvobj(adapter), NULL, &txpath, &rxpath);
+	txpath = (tx_1ss) ? BB_PATH_A : txpath;
+
+	if (phydm_api_trx_mode(adapter_to_phydm(adapter), txpath, rxpath, txpath_1ss) == FALSE)
+		RTW_ERR("%s failed\n", __func__);
+}
+#endif
+
+
+/*
+* trx_mode init - 8822B / 8822C / 8192F
+* 1ssNTx - 8192E / 8812A / 8822B / 8822C / 8192F
+* Path-diversity - 8822B / 8822C / 8192F
+* PHYDM API - phydm_api_trx_mode
+*/
+static u8 rtw_phydm_config_trx_path(_adapter *adapter)
+{
+	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
+	enum bb_path txpath;
+	enum bb_path rxpath;
+	int i;
+	u8 rst = _FAIL;
+
+	rtw_hal_get_trx_path(adapter_to_dvobj(adapter), NULL, &txpath, &rxpath);
+	if (!txpath) {
+		RTW_ERR("%s tx_path_bmp is empty\n", __func__);
+		rtw_warn_on(1);
+		goto exit;
+	}
+	if (!rxpath) {
+		RTW_ERR("%s rx_path_bmp is empty\n", __func__);
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	tx_path_nss_set_default(hal_data->txpath_nss, hal_data->txpath_num_nss
+		, GET_HAL_TX_PATH_BMP(adapter));
+
+#if defined(CONFIG_RTL8192F) || defined(CONFIG_RTL8822B) ||defined(CONFIG_RTL8822C)
+{
+	enum bb_path txpath_1ss;
+
+	if (txpath == BB_PATH_AB) {
+		switch (hal_data->max_tx_cnt) {
+		case 2:
+			#ifdef CONFIG_RTW_TX_NPATH_EN
+			if (adapter->registrypriv.tx_npath == 1)
+				txpath_1ss = BB_PATH_AB;
+			else
+			#endif
+			#ifdef CONFIG_RTW_PATH_DIV
+			if (adapter->registrypriv.path_div == 1) /* path diversity, support 2sts TX */
+				txpath_1ss = BB_PATH_AUTO;
+			else
+			#endif
+				txpath_1ss = BB_PATH_A;
+			break;
+		case 1:
+			#ifdef CONFIG_RTW_PATH_DIV
+			if (adapter->registrypriv.path_div == 1) /* path diversity, no support 2sts TX */
+				txpath = txpath_1ss = BB_PATH_AUTO;
+			else
+			#endif
+				txpath = txpath_1ss = BB_PATH_A;
+			break;
+		default:
+			RTW_ERR("%s invalid max_tx_cnt:%u\n", __func__
+				, hal_data->max_tx_cnt);
+			rtw_warn_on(1);
+			goto exit;
+		}
+	} else 
+		txpath_1ss = txpath;
+
+	if (phydm_api_trx_mode(adapter_to_phydm(adapter), txpath, rxpath, txpath_1ss) == FALSE) {
+		RTW_ERR("%s txpath=0x%x, rxpath=0x%x, txpath_1ss=0x%x fail\n", __func__
+			, txpath, rxpath, txpath_1ss);
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	if (hal_data->txpath_nss[0] != txpath_1ss) {
+		hal_data->txpath_nss[0] = txpath_1ss;
+		if (txpath_1ss == BB_PATH_AUTO)
+			hal_data->txpath_num_nss[0] = 1;
+		else {
+			hal_data->txpath_num_nss[0] = 0;
+			for (i = 0; i < RF_PATH_MAX; i++) {
+				if (txpath_1ss & BIT(i))
+					hal_data->txpath_num_nss[0]++;
+			}
+		}
+	}
+}
+#elif defined(CONFIG_RTL8814B)
+{
+	if (config_phydm_trx_mode_8814b(adapter_to_phydm(adapter), txpath, rxpath) == FALSE) {
+		RTW_ERR("%s txpath=0x%x, rxpath=0x%x fail\n", __func__
+			, txpath, rxpath);
+		rtw_warn_on(1);
+		goto exit;
+	}
+
+	/* 8814B is always full-TX */
+	tx_path_nss_set_full_tx(hal_data->txpath_nss, hal_data->txpath_num_nss, txpath);
+}
+#elif defined(CONFIG_RTL8812A) || defined(CONFIG_RTL8192E)
+{
+	#ifdef CONFIG_RTW_TX_NPATH_EN
+	if (adapter->registrypriv.tx_npath == 1) {
+		phydm_tx_2path(adapter_to_phydm(adapter));
+		tx_path_nss_set_full_tx(hal_data->txpath_nss, hal_data->txpath_num_nss, txpath);
+	}
+	#endif
+}
+#endif
+
+	hal_data->txpath = txpath;
+	hal_data->rxpath = rxpath;
+	dump_hal_runtime_trx_mode(RTW_DBGDUMP, adapter);
+	rst = _SUCCESS;
+
+exit:
+	return rst;
+}
+
 void rtw_phydm_init(_adapter *adapter)
 {
 	PHAL_DATA_TYPE	hal_data = GET_HAL_DATA(adapter);
 	struct dm_struct	*phydm = &(hal_data->odmpriv);
 
+	rtw_phydm_config_trx_path(adapter);
 	init_phydm_info(adapter);
-	odm_dm_init(phydm);
+	hal_data->phydm_init_result = odm_dm_init(phydm);
+
 #ifdef CONFIG_CUSTOMER01_SMART_ANTENNA
 	phydm_pathb_q_matrix_rotate_en(phydm);
 #endif
@@ -1488,7 +1649,9 @@ static u8 _rtw_phydm_pwr_tracking_rate_check(_adapter *adapter)
 	u8		if_tx_rate = 0xFF;
 	u8		tx_rate = 0xFF;
 	struct mlme_ext_priv	*pmlmeext = NULL;
+	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(adapter);
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
@@ -1500,12 +1663,24 @@ static u8 _rtw_phydm_pwr_tracking_rate_check(_adapter *adapter)
 			else
 #endif
 				if_tx_rate = pmlmeext->tx_rate;
-			if(if_tx_rate < tx_rate)
-				tx_rate = if_tx_rate;
 
-			RTW_DBG("%s i=%d tx_rate =0x%x\n", __func__, i, if_tx_rate);
+			if (if_tx_rate < tx_rate) {
+				/*5G limit ofdm rate*/
+				if (pHalData->current_channel > 14) {
+					if (!IS_CCK_RATE(if_tx_rate))
+						tx_rate = if_tx_rate;
+				} else {
+					tx_rate = if_tx_rate;
+				}
+			}
+			RTW_DBG("%s i=%d if_tx_rate =0x%x\n", __func__, i, if_tx_rate);
 		}
 	}
+
+	/*suggest by RF James,unlinked setting ofdm rate*/
+	if (tx_rate == 0xFF)
+		tx_rate = IEEE80211_OFDM_RATE_6MB;
+
 	RTW_DBG("%s tx_low_rate (unlinked to any AP)=0x%x\n", __func__, tx_rate);
 	return tx_rate;
 }
@@ -1557,17 +1732,26 @@ void rtw_dyn_soml_config(_adapter *adapter)
 }
 #endif
 
-#ifdef RTW_DYNAMIC_RRSR
 void rtw_phydm_set_rrsr(_adapter *adapter, u32 rrsr_value, bool write_rrsr)
 {
+	struct dm_struct *phydm = adapter_to_phydm(adapter);
+	u32 temp_rrsr =0xFFFFFFFF;
 
+	if (adapter->registrypriv.set_rrsr_value != 0xFFFFFFFF)
+		temp_rrsr = adapter->registrypriv.set_rrsr_value;
+	else
+		temp_rrsr = rrsr_value;
+
+	odm_cmn_info_update(phydm, ODM_CMNINFO_RRSR_VAL, temp_rrsr);
+	if(write_rrsr)
+		phydm_rrsr_set_register(phydm, temp_rrsr);
+}
+void rtw_phydm_dyn_rrsr_en(_adapter *adapter, bool en_rrsr)
+{
 	struct dm_struct *phydm = adapter_to_phydm(adapter);
 
-	odm_cmn_info_update(phydm, ODM_CMNINFO_RRSR_VAL, rrsr_value);
-	if(write_rrsr)
-		phydm_rrsr_set_register(phydm, rrsr_value);
+	phydm_rrsr_en(phydm, en_rrsr);
 }
-#endif/*RTW_DYNAMIC_RRSR*/
 void rtw_phydm_read_efuse(_adapter *adapter)
 {
 	PHAL_DATA_TYPE hal_data = GET_HAL_DATA(adapter);
@@ -1612,7 +1796,7 @@ void rtw_phydm_watchdog(_adapter *adapter, bool in_lps)
 		RTW_DBG("%s skip due to hw_init_completed == FALSE\n", __func__);
 		return;
 	}
-	if (rtw_mi_check_fwstate(adapter, _FW_UNDER_SURVEY))
+	if (rtw_mi_check_fwstate(adapter, WIFI_UNDER_SURVEY))
 		pHalData->bScanInProcess = _TRUE;
 	else
 		pHalData->bScanInProcess = _FALSE;
@@ -1628,9 +1812,11 @@ void rtw_phydm_watchdog(_adapter *adapter, bool in_lps)
 
 	#ifdef CONFIG_BT_COEXIST
 	bBtDisabled = rtw_btcoex_IsBtDisabled(adapter);
-	#endif /* CONFIG_BT_COEXIST */
 	odm_cmn_info_update(&pHalData->odmpriv, ODM_CMNINFO_BT_ENABLED,
-							(bBtDisabled == _TRUE) ? _FALSE : _TRUE);
+				(bBtDisabled == _TRUE) ? _FALSE : _TRUE);
+	#else
+	odm_cmn_info_update(&pHalData->odmpriv, ODM_CMNINFO_BT_ENABLED, _FALSE);
+	#endif /* CONFIG_BT_COEXIST */
 
 	rfk_forbidden = (_rtw_phydm_rfk_condition_check(adapter, pHalData->bScanInProcess, bLinked) == _TRUE) ? _FALSE : _TRUE;
 	halrf_cmn_info_set(&pHalData->odmpriv, HALRF_CMNINFO_RFK_FORBIDDEN, rfk_forbidden);
@@ -1672,20 +1858,4 @@ void rtw_phydm_watchdog(_adapter *adapter, bool in_lps)
 	return;
 }
 
-#ifdef CONFIG_CTRL_TXSS_BY_TP
-void rtw_phydm_trx_cfg(_adapter *adapter, bool tx_1ss)
-{
-	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(adapter);
-	enum bb_path txpath = BB_PATH_AB;
-	enum bb_path rxpath = BB_PATH_AB;
-	/*is_2tx = _FALSE for 8822B, or BB_PATH_AUTO for PATH_DIVERSITY for 8822B*/
-	enum bb_path txpath_1ss = BB_PATH_A;
-
-	rtw_hal_get_rf_path(adapter_to_dvobj(adapter), NULL, &txpath, &rxpath);
-	txpath = (tx_1ss) ? BB_PATH_A : txpath;
-
-	if (phydm_api_trx_mode(adapter_to_phydm(adapter), txpath, rxpath, txpath_1ss) == FALSE)
-		RTW_ERR("%s failed\n", __func__);
-}
-#endif
 

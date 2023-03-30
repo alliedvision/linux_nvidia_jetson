@@ -1,21 +1,24 @@
 /*
- * Copyright (C) 2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "debug_ltc.h"
 #include "os_linux.h"
 
 #include <nvgpu/gk20a.h>
+#include <nvgpu/nvgpu_init.h>
 
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
@@ -45,7 +48,7 @@ static ssize_t ltc_intr_illegal_compstat_write(struct file *file,
 	struct gk20a *g = file->private_data;
 	int err;
 
-	if (!g->ops.ltc.intr_en_illegal_compstat)
+	if (!g->ops.ltc.intr.en_illegal_compstat)
 		return -EINVAL;
 
 	buf_size = min(count, (sizeof(buf)-1));
@@ -57,7 +60,7 @@ static ssize_t ltc_intr_illegal_compstat_write(struct file *file,
 		return err;
 
 	if (strtobool(buf, &intr_illegal_compstat_enabled) == 0) {
-		g->ops.ltc.intr_en_illegal_compstat(g,
+		g->ops.ltc.intr.en_illegal_compstat(g,
 				intr_illegal_compstat_enabled);
 		g->ltc_intr_en_illegal_compstat = intr_illegal_compstat_enabled;
 	}

@@ -1,0 +1,112 @@
+From 30cabf20054b428ed2e820f12078f5c0336d59d8 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Mon, 9 Nov 2020 10:48:31 -0800
+Subject: [PATCH 796/830] Revert "ANDROID: Kbuild, LLVMLinux: allow overriding
+ clang target triple"
+X-NVConfidentiality: public
+
+This reverts commit e145f7b10374662f03889c2dea0fdc14df7f1371.
+
+AOSP's distribution of GNU binutils always had a curious target triple
+prefix on the binaries.  Now that GNU binutils is deprecated for Android
+Common Kernels, we can now remove this out of tree workaround. Now
+building Android kernels with LLVM matches upstream (see
+Documentation/kbuild/llvm.rst).
+
+Bug: 118439987
+Bug: 120440614
+Bug: 141693040
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: Iecaa3264a440f795f2f3a44bdf74fe28ad4ed1cc
+---
+ Makefile                  | 6 +-----
+ build.config.aarch64      | 3 +--
+ build.config.allmodconfig | 2 +-
+ build.config.arm          | 3 +--
+ build.config.x86_64       | 3 +--
+ scripts/clang-android.sh  | 4 ----
+ 6 files changed, 5 insertions(+), 16 deletions(-)
+ delete mode 100755 scripts/clang-android.sh
+
+diff --git a/Makefile b/Makefile
+index 2a36be6da889..39e601ca613a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -593,11 +593,7 @@ endif
+ 
+ ifneq ($(shell $(CC) --version 2>&1 | head -n 1 | grep clang),)
+ ifneq ($(CROSS_COMPILE),)
+-CLANG_TRIPLE	?= $(CROSS_COMPILE)
+-CLANG_FLAGS	+= --target=$(notdir $(CLANG_TRIPLE:%-=%))
+-ifeq ($(shell $(srctree)/scripts/clang-android.sh $(CC) $(CLANG_FLAGS)), y)
+-$(error "Clang with Android --target detected. Did you specify CLANG_TRIPLE?")
+-endif
++CLANG_FLAGS	+= --target=$(notdir $(CROSS_COMPILE:%-=%))
+ GCC_TOOLCHAIN_DIR := $(dir $(shell which $(CROSS_COMPILE)elfedit))
+ CLANG_FLAGS	+= --prefix=$(GCC_TOOLCHAIN_DIR)$(notdir $(CROSS_COMPILE))
+ GCC_TOOLCHAIN	:= $(realpath $(GCC_TOOLCHAIN_DIR)/..)
+diff --git a/build.config.aarch64 b/build.config.aarch64
+index db6cb0a8e9b6..97758e66097e 100644
+--- a/build.config.aarch64
++++ b/build.config.aarch64
+@@ -1,7 +1,6 @@
+ ARCH=arm64
+ 
+-CLANG_TRIPLE=aarch64-linux-gnu-
+-CROSS_COMPILE=aarch64-linux-androidkernel-
++CROSS_COMPILE=aarch64-linux-gnu-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index a76807f830a3..89b6c5c1b84b 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -8,7 +8,7 @@ function update_config() {
+          -e UNWINDER_FRAME_POINTER \
+ 
+     (cd ${OUT_DIR} && \
+-     make O=${OUT_DIR} $archsubarch CLANG_TRIPLE=${CLANG_TRIPLE} CROSS_COMPILE=${CROSS_COMPILE} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
++     make O=${OUT_DIR} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} "${TOOL_ARGS[@]}" ${MAKE_ARGS} olddefconfig)
+ }
+ 
+ ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} openssl"
+diff --git a/build.config.arm b/build.config.arm
+index 306021ed8782..55610bab09ed 100644
+--- a/build.config.arm
++++ b/build.config.arm
+@@ -1,7 +1,6 @@
+ ARCH=arm
+ 
+-CLANG_TRIPLE=arm-linux-gnueabi-
+-CROSS_COMPILE=arm-linux-androidkernel-
++CROSS_COMPILE=arm-linux-gnueabi-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+diff --git a/build.config.x86_64 b/build.config.x86_64
+index d14feabde927..d5a358cbddcb 100644
+--- a/build.config.x86_64
++++ b/build.config.x86_64
+@@ -1,7 +1,6 @@
+ ARCH=x86_64
+ 
+-CLANG_TRIPLE=x86_64-linux-gnu-
+-CROSS_COMPILE=x86_64-linux-androidkernel-
++CROSS_COMPILE=x86_64-linux-gnu-
+ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+diff --git a/scripts/clang-android.sh b/scripts/clang-android.sh
+deleted file mode 100755
+index 9186c4f48576..000000000000
+--- a/scripts/clang-android.sh
++++ /dev/null
+@@ -1,4 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-$* -dM -E - </dev/null 2>&1 | grep -q __ANDROID__ && echo "y"
+-- 
+2.17.1
+

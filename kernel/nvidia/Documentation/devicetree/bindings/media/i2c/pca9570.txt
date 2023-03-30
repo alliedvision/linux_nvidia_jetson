@@ -1,0 +1,18 @@
+NXP Semiconductor PCA9570 GPIO Expander, NVIDIA driver bindings
+
+The NXP Semiconductor PCA9570 is an I2C 4-bit GPIO expander.
+
+Required properties:
+	- compatible: Should be "nxp,pca9570".
+	- reg: Sensor I2C bus address, default is 0x24.
+	- channel: Device channel index [alpha char.].
+	- drive_ac: Device IC name.
+
+Example:
+
+	pca9570_a@24 {
+		compatible = "nvidia,pca9570";
+		reg = <0x24>;
+		channel = "a";
+		drive_ic = "DRV8838";
+	};

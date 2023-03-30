@@ -1,0 +1,89 @@
+From 9a726fba980c6d2cfdb2ea28bc161930e7956903 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Sat, 22 Aug 2020 10:47:34 -0700
+Subject: [PATCH 381/830] ANDROID: scsi: ufs: add UFSHCD_QUIRK_KEYS_IN_PRDT
+X-NVConfidentiality: public
+
+Add UFSHCD_QUIRK_KEYS_IN_PRDT which tells ufshcd-core to zeroize the
+PRDT after each encrypted request.
+
+This is needed because when using FMP, encryption keys get stored in the
+PRDT.  Keys should always be zeroized when no longer needed.
+
+Bug: 166139333
+Bug: 162257402
+Change-Id: I4855e276f16742aeaf962a2d344a11db6ff2a544
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/scsi/ufs/ufshcd-crypto.h | 16 ++++++++++++++++
+ drivers/scsi/ufs/ufshcd.c        |  1 +
+ drivers/scsi/ufs/ufshcd.h        |  7 +++++++
+ 3 files changed, 24 insertions(+)
+
+diff --git a/drivers/scsi/ufs/ufshcd-crypto.h b/drivers/scsi/ufs/ufshcd-crypto.h
+index d53851be5541..b75d8ca12a6f 100644
+--- a/drivers/scsi/ufs/ufshcd-crypto.h
++++ b/drivers/scsi/ufs/ufshcd-crypto.h
+@@ -34,6 +34,19 @@ ufshcd_prepare_req_desc_hdr_crypto(struct ufshcd_lrb *lrbp, u32 *dword_0,
+ 	}
+ }
+ 
++static inline void ufshcd_crypto_clear_prdt(struct ufs_hba *hba,
++					    struct ufshcd_lrb *lrbp)
++{
++	if (!(hba->quirks & UFSHCD_QUIRK_KEYS_IN_PRDT))
++		return;
++
++	if (!lrbp->cmd->request->crypt_ctx)
++		return;
++
++	memzero_explicit(lrbp->ucd_prdt_ptr,
++			 hba->sg_entry_size * scsi_sg_count(lrbp->cmd));
++}
++
+ bool ufshcd_crypto_enable(struct ufs_hba *hba);
+ 
+ int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba);
+@@ -54,6 +67,9 @@ static inline void
+ ufshcd_prepare_req_desc_hdr_crypto(struct ufshcd_lrb *lrbp, u32 *dword_0,
+ 				   u32 *dword_1, u32 *dword_3) { }
+ 
++static inline void ufshcd_crypto_clear_prdt(struct ufs_hba *hba,
++					    struct ufshcd_lrb *lrbp) { }
++
+ static inline bool ufshcd_crypto_enable(struct ufs_hba *hba)
+ {
+ 	return false;
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 422c9d32579e..a98a43f5eb8e 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -5155,6 +5155,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
+ 			result = ufshcd_transfer_rsp_status(hba, lrbp);
+ 			scsi_dma_unmap(cmd);
+ 			cmd->result = result;
++			ufshcd_crypto_clear_prdt(hba, lrbp);
+ 			/* Mark completed command as NULL in LRB */
+ 			lrbp->cmd = NULL;
+ 			/* Do not touch lrbp after scsi done */
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 58a96cb36be2..ba6c981859ba 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -607,6 +607,13 @@ enum ufshcd_quirks {
+ 	 * breaks the HCE sequence if used.
+ 	 */
+ 	UFSHCD_QUIRK_BROKEN_CRYPTO_ENABLE		= 1 << 21,
++
++	/*
++	 * This quirk needs to be enabled if the host controller requires that
++	 * the PRDT be cleared after each encrypted request because encryption
++	 * keys were stored in it.
++	 */
++	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 22,
+ };
+ 
+ enum ufshcd_caps {
+-- 
+2.17.1
+

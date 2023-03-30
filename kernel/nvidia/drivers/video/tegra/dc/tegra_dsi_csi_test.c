@@ -247,30 +247,20 @@ static int dsi_csi_create_debugfs(struct dsi_csi_test_info *info)
 	else
 		info->root = d;
 
-	d = debugfs_create_u32("x-res", 0644, info->root,
+	debugfs_create_u32("x-res", 0644, info->root,
 		(u32 *)&info->x_res);
-	if (IS_ERR_OR_NULL(d))
-		goto err_node;
 
-	d = debugfs_create_u32("y-res", 0644, info->root,
+	debugfs_create_u32("y-res", 0644, info->root,
 		(u32 *)&info->y_res);
-	if (IS_ERR_OR_NULL(d))
-		goto err_node;
 
-	d = debugfs_create_u32("bytes-per-pixel", 0644, info->root,
+	debugfs_create_u32("bytes-per-pixel", 0644, info->root,
 		(u32 *)&info->bpp);
-	if (IS_ERR_OR_NULL(d))
-		goto err_node;
 
-	d = debugfs_create_u8("fixed-pattern", 0644, info->root,
+	debugfs_create_u8("fixed-pattern", 0644, info->root,
 		(u8 *)&info->fixed_pattern);
-	if (IS_ERR_OR_NULL(d))
-		goto err_node;
 
-	d = debugfs_create_u8("dsi-instance", 0644, info->root,
+	debugfs_create_u8("dsi-instance", 0644, info->root,
 		(u8 *)&info->dsi_instance);
-	if (IS_ERR_OR_NULL(d))
-		goto err_node;
 
 	d = debugfs_create_file("prepare-host-transmission", 0644,
 		info->root, info, &dsi_prep_host_transmission_fops);

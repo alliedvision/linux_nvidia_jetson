@@ -30,7 +30,7 @@
  * =========================================================================
  */
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -44,6 +44,7 @@
 /*!@file: ptp.c
  * @brief: Driver functions.
  */
+#include <linux/version.h>
 #include "yheader.h"
 
 /*!
@@ -156,7 +157,11 @@ static int eqos_adjust_time(struct ptp_clock_info *ptp, s64 delta)
  * \retval 0 on success and -ve number on failure.
  */
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 static int eqos_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
+#else
+static int eqos_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
+#endif
 {
 	struct eqos_prv_data *pdata =
 	    container_of(ptp, struct eqos_prv_data, ptp_clock_ops);
@@ -196,7 +201,11 @@ static int eqos_get_time(struct ptp_clock_info *ptp, struct timespec *ts)
  * \retval 0 on success and -ve number on failure.
  */
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 static int eqos_set_time(struct ptp_clock_info *ptp, const struct timespec *ts)
+#else
+static int eqos_set_time(struct ptp_clock_info *ptp, const struct timespec64 *ts)
+#endif
 {
 	struct eqos_prv_data *pdata =
 	    container_of(ptp, struct eqos_prv_data, ptp_clock_ops);
@@ -322,8 +331,7 @@ void eqos_ptp_remove(struct eqos_prv_data *pdata)
 
 	if (pdata->ptp_clock) {
 		ptp_clock_unregister(pdata->ptp_clock);
-		pr_debug("Removed PTP HW clock successfully\n");
-		pdata->ptp_clock = NULL;
+		pr_err("Removed PTP HW clock successfully\n");
 	}
 
 	DBGPR_PTP("<--eqos_ptp_remove\n");

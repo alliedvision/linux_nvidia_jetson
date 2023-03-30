@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -162,10 +162,8 @@ static void tegra_bpmp_pg_remove_domain(struct tegra_bpmp_pg *pg, int id)
 	if (!genpd)
 		return;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 	if (pm_genpd_remove(genpd) < 0)
 		dev_err(pg->dev, "failed to remove %s\n", genpd->name);
-#endif
 
 	kfree(genpd->name);
 }

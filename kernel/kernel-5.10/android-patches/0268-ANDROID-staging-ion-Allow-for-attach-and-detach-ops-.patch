@@ -1,0 +1,51 @@
+From f23b539df96908c240dbe742aa53ad0b73702cd8 Mon Sep 17 00:00:00 2001
+From: "Isaac J. Manjarres" <isaacm@codeaurora.org>
+Date: Mon, 23 Mar 2020 14:57:51 -0700
+Subject: [PATCH 268/830] ANDROID: staging: ion: Allow for attach and detach
+ ops to be overridden
+X-NVConfidentiality: public
+
+The ION core is supposed to allow for all of the dma-buf ops
+to be overridden by a heap's dma-buf ops. However, the
+attach and detach ops are not overridable, which doesn't make
+much sense, as the other dma-buf ops assume that the attachment
+structure that they operate on was allocated by their attach
+callbacks, which aren't being invoked. Thus, allow for the dma-buf
+attach and detach ops to be overridable.
+
+Bug: 152270037
+Change-Id: I981973911b8649700901740456e03ed4a1731c9a
+Signed-off-by: Isaac J. Manjarres <isaacm@codeaurora.org>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 6b77a2fbb67a..9cb38d519c10 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -57,6 +57,10 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
+ 	struct ion_dma_buf_attachment *a;
+ 	struct sg_table *table;
+ 	struct ion_buffer *buffer = dmabuf->priv;
++	struct ion_heap *heap = buffer->heap;
++
++	if (heap->buf_ops.attach)
++		return heap->buf_ops.attach(dmabuf, attachment);
+ 
+ 	a = kzalloc(sizeof(*a), GFP_KERNEL);
+ 	if (!a)
+@@ -86,6 +90,10 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
+ {
+ 	struct ion_dma_buf_attachment *a = attachment->priv;
+ 	struct ion_buffer *buffer = dmabuf->priv;
++	struct ion_heap *heap = buffer->heap;
++
++	if (heap->buf_ops.detach)
++		return heap->buf_ops.detach(dmabuf, attachment);
+ 
+ 	mutex_lock(&buffer->lock);
+ 	list_del(&a->list);
+-- 
+2.17.1
+

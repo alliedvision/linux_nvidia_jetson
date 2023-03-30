@@ -1,7 +1,7 @@
 /*
  * Semaphore Sync Framework Integration
  *
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,10 +22,10 @@
 #include <nvgpu/lock.h>
 
 #include <nvgpu/kmem.h>
-#include <nvgpu/semaphore.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/kref.h>
 #include <nvgpu/channel.h>
+#include <nvgpu/semaphore.h>
 #include "../linux/channel.h"
 
 #include "../drivers/staging/android/sync.h"
@@ -119,8 +119,10 @@ static struct gk20a_sync_pt *to_gk20a_sync_pt(struct sync_pt *pt)
 }
 static struct gk20a_sync_timeline *to_gk20a_timeline(struct sync_timeline *obj)
 {
-	if (WARN_ON(obj->ops != &gk20a_sync_timeline_ops))
+	if (obj->ops != &gk20a_sync_timeline_ops) {
+		nvgpu_do_assert();
 		return NULL;
+	}
 	return (struct gk20a_sync_timeline *)obj;
 }
 
@@ -241,12 +243,15 @@ static int gk20a_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
 	struct gk20a_sync_pt *pt_a = to_gk20a_sync_pt(a);
 	struct gk20a_sync_pt *pt_b = to_gk20a_sync_pt(b);
 
-	if (WARN_ON(pt_a->obj != pt_b->obj))
+	if (pt_a->obj != pt_b->obj) {
+		nvgpu_do_assert();
 		return 0;
+	}
 
 	/* Early out */
-	if (a == b)
+	if (a == b) {
 		return 0;
+	}
 
 	a_expired = gk20a_sync_pt_has_signaled(a);
 	b_expired = gk20a_sync_pt_has_signaled(b);
@@ -276,7 +281,7 @@ static void gk20a_sync_timeline_value_str(struct sync_timeline *timeline,
 {
 	struct gk20a_sync_timeline *obj =
 		(struct gk20a_sync_timeline *)timeline;
-	snprintf(str, size, "%d", gk20a_sync_timeline_current(obj));
+	(void) snprintf(str, size, "%d", gk20a_sync_timeline_current(obj));
 }
 
 static void gk20a_sync_pt_value_str_for_sema(struct gk20a_sync_pt *pt,
@@ -284,8 +289,8 @@ static void gk20a_sync_pt_value_str_for_sema(struct gk20a_sync_pt *pt,
 {
 	struct nvgpu_semaphore *s = pt->sema;
 
-	snprintf(str, size, "S: pool=%llu [v=%u,r_v=%u]",
-		 s->location.pool->page_idx,
+	(void) snprintf(str, size, "S: pool=%llu [v=%u,r_v=%u]",
+		 nvgpu_semaphore_get_hw_pool_page_idx(s),
 		 nvgpu_semaphore_get_value(s),
 		 nvgpu_semaphore_read(s));
 }
@@ -300,7 +305,7 @@ static void gk20a_sync_pt_value_str(struct sync_pt *sync_pt, char *str,
 		return;
 	}
 
-	snprintf(str, size, "%d", pt->thresh);
+	(void) snprintf(str, size, "%d", pt->thresh);
 }
 
 static const struct sync_timeline_ops gk20a_sync_timeline_ops = {
@@ -383,7 +388,7 @@ struct sync_timeline *gk20a_sync_timeline_create(
 }
 
 struct sync_fence *gk20a_sync_fence_create(
-		struct channel_gk20a *c,
+		struct nvgpu_channel *c,
 		struct nvgpu_semaphore *sema,
 		const char *fmt, ...)
 {
@@ -406,7 +411,7 @@ struct sync_fence *gk20a_sync_fence_create(
 		return NULL;
 
 	va_start(args, fmt);
-	vsnprintf(name, sizeof(name), fmt, args);
+	(void) vsnprintf(name, sizeof(name), fmt, args);
 	va_end(args);
 
 	fence = sync_fence_create(name, pt);

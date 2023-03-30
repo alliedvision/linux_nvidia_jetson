@@ -44,3 +44,9 @@
 #define TEGRA_SID_NVDEC1	0x5C	/* 92 */
 
 #define TEGRA_SID_VI_VM2	0x64	/* 100 */
+
+/* EQOS virtual functions */
+#define TEGRA_SID_EQOS_VF1     0x65U    /* 101 */
+#define TEGRA_SID_EQOS_VF2     0x66U    /* 102 */
+#define TEGRA_SID_EQOS_VF3     0x67U    /* 103 */
+#define TEGRA_SID_EQOS_VF4     0x68U    /* 104 */

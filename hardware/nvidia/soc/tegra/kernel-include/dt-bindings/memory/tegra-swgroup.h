@@ -1,16 +1,17 @@
 /*
- * This header provides constants for binding nvidia,swgroup ID
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2014-2018 NVIDIA CORPORATION, All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef _DT_BINDINGS_MEMORY_TEGRA_SWGROUP_H
@@ -134,122 +135,122 @@
  */
 
 /* Host clients. */
-#define TEGRA_SID_HC		0x1	/* 1 */
-#define TEGRA_SID_VIC		0x3	/* 3 */
-#define TEGRA_SID_VI		0x4	/* 4 */
-#define TEGRA_SID_ISP		0x5	/* 5 */
-#define TEGRA_SID_NVDEC		0x6	/* 6 */
-#define TEGRA_SID_NVENC		0x7	/* 7 */
-#define TEGRA_SID_NVJPG		0x8	/* 8 */
-#define TEGRA_SID_NVDISPLAY	0x9	/* 9 */
-#define TEGRA_SID_TSEC		0xa	/* 10 */
-#define TEGRA_SID_TSECB		0xb	/* 11 */
-#define TEGRA_SID_SE		0xc	/* 12 */
-#define TEGRA_SID_SE1		0xd	/* 13 */
+#define TEGRA_SID_HC		0x1U	/* 1 */
+#define TEGRA_SID_VIC		0x3U	/* 3 */
+#define TEGRA_SID_VI		0x4U	/* 4 */
+#define TEGRA_SID_ISP		0x5U	/* 5 */
+#define TEGRA_SID_NVDEC		0x6U	/* 6 */
+#define TEGRA_SID_NVENC		0x7U	/* 7 */
+#define TEGRA_SID_NVJPG		0x8U	/* 8 */
+#define TEGRA_SID_NVDISPLAY	0x9U	/* 9 */
+#define TEGRA_SID_TSEC		0xaU	/* 10 */
+#define TEGRA_SID_TSECB		0xbU	/* 11 */
+#define TEGRA_SID_SE		0xcU	/* 12 */
+#define TEGRA_SID_SE1		0xdU	/* 13 */
 
 /* GPU clients. */
-#define TEGRA_SID_GPUB		0x10	/* 16 */
+#define TEGRA_SID_GPUB		0x10U	/* 16 */
 
 /* Other SoC clients */
-#define TEGRA_SID_AFI		0x11	/* 17 */
-#define TEGRA_SID_HDA		0x12	/* 18 */
-#define TEGRA_SID_ETR		0x13	/* 19 */
-#define TEGRA_SID_EQOS		0x14	/* 20 */
-#define TEGRA_SID_UFSHC		0x15	/* 21 */
-#define TEGRA_SID_AON		0x16	/* 22 */
-#define TEGRA_SID_SDMMC4A	0x17	/* 23 */
-#define TEGRA_SID_SDMMC3A	0x18	/* 24 */
-#define TEGRA_SID_SDMMC2A	0x19	/* 25 */
-#define TEGRA_SID_SDMMC1A	0x1a	/* 26 */
-#define TEGRA_SID_XUSB_HOST	0x1b	/* 27 */
-#define TEGRA_SID_XUSB_DEV	0x1c	/* 28 */
-#define TEGRA_SID_SATA2		0x1d	/* 29 */
-#define TEGRA_SID_APE		0x1e	/* 30 */
+#define TEGRA_SID_AFI		0x11U	/* 17 */
+#define TEGRA_SID_HDA		0x12U	/* 18 */
+#define TEGRA_SID_ETR		0x13U	/* 19 */
+#define TEGRA_SID_EQOS		0x14U	/* 20 */
+#define TEGRA_SID_UFSHC		0x15U	/* 21 */
+#define TEGRA_SID_AON		0x16U	/* 22 */
+#define TEGRA_SID_SDMMC4A	0x17U	/* 23 */
+#define TEGRA_SID_SDMMC3A	0x18U	/* 24 */
+#define TEGRA_SID_SDMMC2A	0x19U	/* 25 */
+#define TEGRA_SID_SDMMC1A	0x1aU	/* 26 */
+#define TEGRA_SID_XUSB_HOST	0x1bU	/* 27 */
+#define TEGRA_SID_XUSB_DEV	0x1cU	/* 28 */
+#define TEGRA_SID_SATA2		0x1dU	/* 29 */
+#define TEGRA_SID_APE		0x1eU	/* 30 */
 
 /*
  * The BPMP has hard coded their SID value in their FW which is not built
  * in the normal Linux tree. As a result, changing the SID requires a
  * considerable amount of work.
  */
-#define TEGRA_SID_BPMP		0x32	/* 50 */
+#define TEGRA_SID_BPMP		0x32U	/* 50 */
 
 /* For smmu tests */
-#define TEGRA_SID_SMMU_TEST	0x33	/* 51 */
+#define TEGRA_SID_SMMU_TEST	0x33U	/* 51 */
 
 /*
  * This is the t18x specific component of the new SID dt-binding.
  */
-#define TEGRA_SID_NVCSI		0x2	/* 2 */
-#define TEGRA_SID_SE2		0xe	/* 14 */
-#define TEGRA_SID_SE3		0xf	/* 15 */
-#define TEGRA_SID_SCE		0x1f	/* 31 */
+#define TEGRA_SID_NVCSI		0x2U	/* 2 */
+#define TEGRA_SID_SE2		0xeU	/* 14 */
+#define TEGRA_SID_SE3		0xfU	/* 15 */
+#define TEGRA_SID_SCE		0x1fU	/* 31 */
 
 /* The GPC DMA clients. */
-#define TEGRA_SID_GPCDMA_0	0x20	/* 32 */
-#define TEGRA_SID_GPCDMA_1	0x21	/* 33 */
-#define TEGRA_SID_GPCDMA_2	0x22	/* 34 */
-#define TEGRA_SID_GPCDMA_3	0x23	/* 35 */
-#define TEGRA_SID_GPCDMA_4	0x24	/* 36 */
-#define TEGRA_SID_GPCDMA_5	0x25	/* 37 */
-#define TEGRA_SID_GPCDMA_6	0x26	/* 38 */
-#define TEGRA_SID_GPCDMA_7	0x27	/* 39 */
+#define TEGRA_SID_GPCDMA_0	0x20U	/* 32 */
+#define TEGRA_SID_GPCDMA_1	0x21U	/* 33 */
+#define TEGRA_SID_GPCDMA_2	0x22U	/* 34 */
+#define TEGRA_SID_GPCDMA_3	0x23U	/* 35 */
+#define TEGRA_SID_GPCDMA_4	0x24U	/* 36 */
+#define TEGRA_SID_GPCDMA_5	0x25U	/* 37 */
+#define TEGRA_SID_GPCDMA_6	0x26U	/* 38 */
+#define TEGRA_SID_GPCDMA_7	0x27U	/* 39 */
 
 /* The APE DMA Clients. */
-#define TEGRA_SID_APE_1		0x28	/* 40 */
-#define TEGRA_SID_APE_2		0x29	/* 41 */
+#define TEGRA_SID_APE_1		0x28U	/* 40 */
+#define TEGRA_SID_APE_2		0x29U	/* 41 */
 
 /* The Camera RTCPU. */
-#define TEGRA_SID_RCE		0x2a	/* 42 */
+#define TEGRA_SID_RCE		0x2aU	/* 42 */
 
 /* The Camera RTCPU on Host1x address space. */
-#define TEGRA_SID_RCE_1X	0x2b	/* 43 */
+#define TEGRA_SID_RCE_1X	0x2bU	/* 43 */
 
 /* The APE DMA Clients. */
-#define TEGRA_SID_APE_3		0x2c	/* 44 */
+#define TEGRA_SID_APE_3		0x2cU	/* 44 */
 
 /* The Camera RTCPU running on APE */
-#define TEGRA_SID_APE_CAM	0x2d	/* 45 */
-#define TEGRA_SID_APE_CAM_1X	0x2e	/* 46 */
+#define TEGRA_SID_APE_CAM	0x2dU	/* 45 */
+#define TEGRA_SID_APE_CAM_1X	0x2eU	/* 46 */
 
 /* Host1x virtualization clients. */
-#define TEGRA_SID_HOST1X_CTX0	0x38	/* 56 */
-#define TEGRA_SID_HOST1X_CTX1	0x39	/* 57 */
-#define TEGRA_SID_HOST1X_CTX2	0x3a	/* 58 */
-#define TEGRA_SID_HOST1X_CTX3	0x3b	/* 59 */
-#define TEGRA_SID_HOST1X_CTX4	0x3c	/* 60 */
-#define TEGRA_SID_HOST1X_CTX5	0x3d	/* 61 */
-#define TEGRA_SID_HOST1X_CTX6	0x3e	/* 62 */
-#define TEGRA_SID_HOST1X_CTX7	0x3f	/* 63 */
+#define TEGRA_SID_HOST1X_CTX0	0x38U	/* 56 */
+#define TEGRA_SID_HOST1X_CTX1	0x39U	/* 57 */
+#define TEGRA_SID_HOST1X_CTX2	0x3aU	/* 58 */
+#define TEGRA_SID_HOST1X_CTX3	0x3bU	/* 59 */
+#define TEGRA_SID_HOST1X_CTX4	0x3cU	/* 60 */
+#define TEGRA_SID_HOST1X_CTX5	0x3dU	/* 61 */
+#define TEGRA_SID_HOST1X_CTX6	0x3eU	/* 62 */
+#define TEGRA_SID_HOST1X_CTX7	0x3fU	/* 63 */
 
 /* Host1x command buffers */
-#define TEGRA_SID_HC_VM0	0x40
-#define TEGRA_SID_HC_VM1	0x41
-#define TEGRA_SID_HC_VM2	0x42
-#define TEGRA_SID_HC_VM3	0x43
-#define TEGRA_SID_HC_VM4	0x44
-#define TEGRA_SID_HC_VM5	0x45
-#define TEGRA_SID_HC_VM6	0x46
-#define TEGRA_SID_HC_VM7	0x47
+#define TEGRA_SID_HC_VM0	0x40U
+#define TEGRA_SID_HC_VM1	0x41U
+#define TEGRA_SID_HC_VM2	0x42U
+#define TEGRA_SID_HC_VM3	0x43U
+#define TEGRA_SID_HC_VM4	0x44U
+#define TEGRA_SID_HC_VM5	0x45U
+#define TEGRA_SID_HC_VM6	0x46U
+#define TEGRA_SID_HC_VM7	0x47U
 
 /* SE data buffers */
-#define TEGRA_SID_SE_VM0	0x48
-#define TEGRA_SID_SE_VM1	0x49
-#define TEGRA_SID_SE_VM2	0x4a
-#define TEGRA_SID_SE_VM3	0x4b
-#define TEGRA_SID_SE_VM4	0x4c
-#define TEGRA_SID_SE_VM5	0x4d
-#define TEGRA_SID_SE_VM6	0x4e
-#define TEGRA_SID_SE_VM7	0x4f
+#define TEGRA_SID_SE_VM0	0x48U
+#define TEGRA_SID_SE_VM1	0x49U
+#define TEGRA_SID_SE_VM2	0x4aU
+#define TEGRA_SID_SE_VM3	0x4bU
+#define TEGRA_SID_SE_VM4	0x4cU
+#define TEGRA_SID_SE_VM5	0x4dU
+#define TEGRA_SID_SE_VM6	0x4eU
+#define TEGRA_SID_SE_VM7	0x4fU
 
 /* XUSB virtual functions */
-#define TEGRA_SID_XUSB_VF0	0x5d
-#define TEGRA_SID_XUSB_VF1	0x5e
-#define TEGRA_SID_XUSB_VF2	0x5f
-#define TEGRA_SID_XUSB_VF3	0x60
+#define TEGRA_SID_XUSB_VF0	0x5dU
+#define TEGRA_SID_XUSB_VF1	0x5eU
+#define TEGRA_SID_XUSB_VF2	0x5fU
+#define TEGRA_SID_XUSB_VF3	0x60U
 
 /* Special clients */
-#define TEGRA_SID_PASSTHROUGH	0x7f
-#define TEGRA_SID_INVALID	0x0
+#define TEGRA_SID_PASSTHROUGH	0x7fU
+#define TEGRA_SID_INVALID	0x0U
 
 /*
  * These macros will be removed once the bitmap problem is sorted out. Until

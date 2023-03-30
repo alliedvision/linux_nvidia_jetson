@@ -1,7 +1,7 @@
 /*
  * NVDLA Buffer Management Header
  *
- * Copyright (c) 2019-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,7 @@
 #define __NVHOST_NVDLA_BUFFER_H__
 
 #include <linux/dma-buf.h>
+#include <uapi/linux/nvhost_nvdla_ioctl.h>
 
 enum nvdla_buffers_heap {
 	NVDLA_BUFFERS_HEAP_DRAM = 0,
@@ -87,27 +88,27 @@ void nvdla_buffer_set_platform_device(struct nvdla_buffers *nvdla_buffers,
  * This function maps the buffer memhandle list passed from user side
  * to device iova.
  *
- * @param nvdla_buffers	Pointer to nvdla_buffers struct
- * @param dmabufs		Pointer to dmabuffer list
+ * @param nvdla_buffers		Pointer to nvdla_buffers struct
+ * @param descs			Descs Pointer to share descriptor list
  * @param count			Number of memhandles in the list
  * @return			0 on success or negative on error
  *
  */
 int nvdla_buffer_pin(struct nvdla_buffers *nvdla_buffers,
-			struct dma_buf **dmabufs,
+			struct nvdla_mem_share_handle *descs,
 			u32 count);
 
 /**
  * @brief			UnPins the mapped address space.
  *
- * @param nvdla_buffers	Pointer to nvdla_buffer struct
- * @param dmabufs		Pointer to dmabuffer list
+ * @param nvdla_buffers		Pointer to nvdla_buffer struct
+ * @param descs			Descs Pointer to share descriptor list
  * @param count			Number of memhandles in the list
  * @return			None
  *
  */
 void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
-				struct dma_buf **dmabufs,
+				struct nvdla_mem_share_handle *descs,
 				u32 count);
 
 /**
@@ -116,8 +117,8 @@ void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
  * This function increased the reference count for a mapped buffer during
  * task submission.
  *
- * @param nvdla_buffers	Pointer to nvdla_buffer struct
- * @param dmabufs		Pointer to dmabuffer list
+ * @param nvdla_buffers		Pointer to nvdla_buffer struct
+ * @param handles		Pointer to MemHandle list
  * @param count			Number of memhandles in the list
  * @param paddr			Pointer to IOVA list
  * @param psize			Pointer to size of buffer to return
@@ -128,7 +129,7 @@ void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
  *
  */
 int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,
-			     struct dma_buf **dmabufs, u32 count,
+			     u32 *handles, u32 count,
 			     dma_addr_t *paddr, size_t *psize,
 			     enum nvdla_buffers_heap *heap);
 
@@ -138,14 +139,14 @@ int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,
  * This function decrease the reference count for a mapped buffer when the
  * task get completed or aborted.
  *
- * @param nvdla_buffers	Pointer to nvdla_buffer struct
- * @param dmabufs		Pointer to dmabuffer list
+ * @param nvdla_buffers		Pointer to nvdla_buffer struct
+ * @param handles		Pointer to MemHandle list
  * @param count			Number of memhandles in the list
  * @return			None
  *
  */
 void nvdla_buffer_submit_unpin(struct nvdla_buffers *nvdla_buffers,
-					struct dma_buf **dmabufs, u32 count);
+					u32 *handles, u32 count);
 
 /**
  * @brief			Drop a user reference to buffer structure
@@ -155,17 +156,5 @@ void nvdla_buffer_submit_unpin(struct nvdla_buffers *nvdla_buffers,
  *
  */
 void nvdla_buffer_release(struct nvdla_buffers *nvdla_buffers);
-
-/**
- * @brief		Returns dma buf and dma addr for a given handle
- *
- * @param nvdla_buffers	Pointer to nvdla_buffer struct
- * @param dmabuf		dma buf pointer to search for
- * @param addr			dma_addr_t pointer to return
- * @return			0 on success or negative on error
- *
- */
-int nvdla_get_iova_addr(struct nvdla_buffers *nvdla_buffers,
-			struct dma_buf *dmabuf, dma_addr_t *addr);
 
 #endif /*__NVHOST_NVDLA_BUFFER_H__ */

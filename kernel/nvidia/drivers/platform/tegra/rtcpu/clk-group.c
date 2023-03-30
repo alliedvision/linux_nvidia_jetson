@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -136,17 +136,12 @@ struct camrtc_clk_group *camrtc_clk_group_get(
 		if (index >= nrates)
 			continue;
 
-		ret = of_property_read_u32_index(np, "nvidia,clock-rates",
-					2 * index, &grp->rates[index].slow);
-		if (ret)
-			dev_warn(dev, "expecting first index for \"%s\"\n",
-                        "nvidia,clock-rates");
-
-		ret = of_property_read_u32_index(np, "nvidia,clock-rates",
-					2 * index + 1, &grp->rates[index].fast);
-                if (ret)
-                        dev_warn(dev, "expecting second index for \"%s\"\n",
-                        "nvidia,clock-rates");
+		if (of_property_read_u32_index(np, "nvidia,clock-rates",
+					2 * index, &grp->rates[index].slow))
+			dev_warn(dev, "clock-rates property not found\n");
+		if (of_property_read_u32_index(np, "nvidia,clock-rates",
+					2 * index + 1, &grp->rates[index].fast))
+			dev_warn(dev, "clock-rates property not found\n");
 	}
 
 	if (nparents == 2) {
@@ -178,7 +173,7 @@ static void camrtc_clk_group_error(
 
 	of_property_read_string_index(grp->device->of_node,
 				"clock-names", index, &name);
-	dev_WARN(grp->device, "%s clk %s (at [%d]): failed (%d)\n",
+	dev_warn(grp->device, "%s clk %s (at [%d]): failed (%d)\n",
 				op, name, index, error);
 }
 

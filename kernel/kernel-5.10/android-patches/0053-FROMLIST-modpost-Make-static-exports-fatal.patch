@@ -1,0 +1,40 @@
+From e292e4b8564b396e6e91b6ee90d6e9f55d6d71de Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 24 Nov 2020 18:24:09 +0000
+Subject: [PATCH 053/830] FROMLIST: modpost: Make static exports fatal
+X-NVConfidentiality: public
+
+Using EXPORT_SYMBOL*() on static functions is fundamentally wrong.
+Modpost currently reports that as a warning, but clearly this is not a
+pattern we should allow, and all in-tree occurences should have been
+fixed by now. So, promote the warn() message to fatal() to make sure
+this never happens again.
+
+Bug: 174214891
+Link: https://lore.kernel.org/lkml/20201124182420.2202514-1-qperret@google.com/
+Signed-off-by: Quentin Perret <qperret@google.com>
+Change-Id: Ic1382bfa24db556161cf1a184a4d44724d7849a1
+---
+ scripts/mod/modpost.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index e08f75aed429..6988f18283c6 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -2650,9 +2650,9 @@ int main(int argc, char **argv)
+ 
+ 		for (s = symbolhash[n]; s; s = s->next) {
+ 			if (s->is_static)
+-				warn("\"%s\" [%s] is a static %s\n",
+-				     s->name, s->module->name,
+-				     export_str(s->export));
++				fatal("\"%s\" [%s] is a static %s\n",
++				      s->name, s->module->name,
++				      export_str(s->export));
+ 		}
+ 	}
+ 
+-- 
+2.17.1
+

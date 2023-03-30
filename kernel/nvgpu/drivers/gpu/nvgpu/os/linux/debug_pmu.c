@@ -1,18 +1,26 @@
 /*
- * Copyright (C) 2017-2019 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <nvgpu/enabled.h>
+#include <nvgpu/pmu/pmu_perfmon.h>
+#include <nvgpu/pmu/debug.h>
+#include <nvgpu/pmu/pmu_pg.h>
+#include <nvgpu/pmu/fw.h>
+#include <nvgpu/nvgpu_init.h>
+
 #include "debug_pmu.h"
 #include "os_linux.h"
 
@@ -23,9 +31,14 @@
 static int lpwr_debug_show(struct seq_file *s, void *data)
 {
 	struct gk20a *g = s->private;
+	struct nvgpu_pmu *pmu = g->pmu;
 
-	if (g->ops.pmu.pmu_pg_engines_feature_list &&
-		g->ops.pmu.pmu_pg_engines_feature_list(g,
+	if (!g->can_elpg) {
+		return 0;
+	}
+
+	if (pmu->pg->engines_feature_list &&
+		pmu->pg->engines_feature_list(g,
 		PMU_PG_ELPG_ENGINE_ID_GRAPHICS) !=
 		NVGPU_PMU_GR_FEATURE_MASK_POWER_GATING) {
 		seq_printf(s, "PSTATE: %u\n"
@@ -36,16 +49,17 @@ static int lpwr_debug_show(struct seq_file *s, void *data)
 			"MSCG pstate state: %u\n"
 			"MSCG transition state: %u\n",
 			g->ops.clk_arb.get_current_pstate(g),
-			g->elpg_enabled, g->pmu.elpg_refcnt,
-			g->pmu.elpg_stat, g->mscg_enabled,
-			g->pmu.mscg_stat, g->pmu.mscg_transition_state);
+			g->elpg_enabled, g->pmu->pg->elpg_refcnt,
+			g->pmu->pg->elpg_stat, g->mscg_enabled,
+			g->pmu->pg->mscg_stat, g->pmu->pg->mscg_transition_state);
 
-	} else
+	} else {
 		seq_printf(s, "ELPG Enabled: %u\n"
 			"ELPG ref count: %u\n"
 			"ELPG state: %u\n",
-			g->elpg_enabled, g->pmu.elpg_refcnt,
-			g->pmu.elpg_stat);
+			g->elpg_enabled, g->pmu->pg->elpg_refcnt,
+			g->pmu->pg->elpg_stat);
+	}
 
 	return 0;
 
@@ -71,7 +85,7 @@ static int mscg_stat_show(struct seq_file *s, void *data)
 	int err;
 
 	/* Don't unnecessarily power on the device */
-	if (g->power_on) {
+	if (nvgpu_is_powered_on(g)) {
 		err = gk20a_busy(g);
 		if (err)
 			return err;
@@ -129,7 +143,7 @@ static int mscg_transitions_show(struct seq_file *s, void *data)
 	u32 total_gating_cnt;
 	int err;
 
-	if (g->power_on) {
+	if (nvgpu_is_powered_on(g)) {
 		err = gk20a_busy(g);
 		if (err)
 			return err;
@@ -165,7 +179,7 @@ static int elpg_stat_show(struct seq_file *s, void *data)
 	int err;
 
 	/* Don't unnecessarily power on the device */
-	if (g->power_on) {
+	if (nvgpu_is_powered_on(g)) {
 		err = gk20a_busy(g);
 		if (err)
 			return err;
@@ -222,7 +236,7 @@ static int elpg_transitions_show(struct seq_file *s, void *data)
 	u32 total_gating_cnt;
 	int err;
 
-	if (g->power_on) {
+	if (nvgpu_is_powered_on(g)) {
 		err = gk20a_busy(g);
 		if (err)
 			return err;
@@ -250,10 +264,44 @@ static const struct file_operations elpg_transitions_fops = {
 	.release	= single_release,
 };
 
+static int elpg_ms_transitions_show(struct seq_file *s, void *data)
+{
+	struct gk20a *g = s->private;
+	struct pmu_pg_stats_data pg_stat_data = { 0 };
+	u32 total_gating_cnt;
+	int err;
+
+	if (nvgpu_is_powered_on(g)) {
+		err = gk20a_busy(g);
+		if (err)
+			return err;
+
+		nvgpu_pmu_get_pg_stats(g,
+			PMU_PG_ELPG_ENGINE_ID_MS_LTC, &pg_stat_data);
+		gk20a_idle(g);
+	}
+	total_gating_cnt = g->pg_ms_gating_cnt + pg_stat_data.gating_cnt;
+
+	seq_printf(s, "%u\n", total_gating_cnt);
+	return 0;
+}
+
+static int elpg_ms_transitions_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, elpg_ms_transitions_show, inode->i_private);
+}
+
+static const struct file_operations elpg_ms_transitions_fops = {
+	.open           = elpg_ms_transitions_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 static int falc_trace_show(struct seq_file *s, void *data)
 {
 	struct gk20a *g = s->private;
-	struct nvgpu_pmu *pmu = &g->pmu;
+	struct nvgpu_pmu *pmu = g->pmu;
 	u32 i = 0, j = 0, k, l, m;
 	char part_str[40];
 	void *tracebuffer;
@@ -261,18 +309,18 @@ static int falc_trace_show(struct seq_file *s, void *data)
 	u32 *trace1;
 
 	/* allocate system memory to copy pmu trace buffer */
-	tracebuffer = nvgpu_kzalloc(g, GK20A_PMU_TRACE_BUFSIZE);
+	tracebuffer = nvgpu_kzalloc(g, PMU_RTOS_TRACE_BUFSIZE);
 	if (tracebuffer == NULL)
 		return -ENOMEM;
 
 	/* read pmu traces into system memory buffer */
 	nvgpu_mem_rd_n(g, &pmu->trace_buf,
-		       0, tracebuffer, GK20A_PMU_TRACE_BUFSIZE);
+		       0, tracebuffer, PMU_RTOS_TRACE_BUFSIZE);
 
 	trace = (char *)tracebuffer;
 	trace1 = (u32 *)tracebuffer;
 
-	for (i = 0; i < GK20A_PMU_TRACE_BUFSIZE; i += 0x40) {
+	for (i = 0; i < PMU_RTOS_TRACE_BUFSIZE; i += 0x40) {
 		for (j = 0; j < 0x40; j++)
 			if (trace1[(i / 4) + j])
 				break;
@@ -284,7 +332,7 @@ static int falc_trace_show(struct seq_file *s, void *data)
 		while (nvgpu_find_hex_in_string((trace+i+20+m), g, &k)) {
 			if (k >= 40)
 				break;
-			strncpy(part_str, (trace+i+20+m), k);
+			(void) strncpy(part_str, (trace+i+20+m), k);
 			part_str[k] = 0;
 			seq_printf(s, "%s0x%x", part_str,
 					trace1[(i / 4) + 1 + l]);
@@ -314,7 +362,8 @@ static int perfmon_events_enable_show(struct seq_file *s, void *data)
 {
 	struct gk20a *g = s->private;
 
-	seq_printf(s, "%u\n", g->pmu.perfmon_sampling_enabled ? 1 : 0);
+	seq_printf(s, "%u\n",
+		nvgpu_pmu_perfmon_get_sampling_enable_status(g->pmu) ? 1 : 0);
 	return 0;
 
 }
@@ -333,8 +382,9 @@ static ssize_t perfmon_events_enable_write(struct file *file,
 	char buf[40];
 	int buf_size;
 	int err;
+	bool status;
 
-	memset(buf, 0, sizeof(buf));
+	(void) memset(buf, 0, sizeof(buf));
 	buf_size = min(count, (sizeof(buf)-1));
 
 	if (copy_from_user(buf, userbuf, buf_size))
@@ -344,23 +394,29 @@ static ssize_t perfmon_events_enable_write(struct file *file,
 		return -EINVAL;
 
 	/* Don't turn on gk20a unnecessarily */
-	if (g->power_on) {
+	if (nvgpu_is_powered_on(g)) {
 		err = gk20a_busy(g);
 		if (err)
 			return err;
 
-		if (val && !g->pmu.perfmon_sampling_enabled &&
-				nvgpu_is_enabled(g, NVGPU_PMU_PERFMON)) {
-			g->pmu.perfmon_sampling_enabled = true;
-			g->ops.pmu.pmu_perfmon_start_sampling(&(g->pmu));
-		} else if (!val && g->pmu.perfmon_sampling_enabled &&
-				nvgpu_is_enabled(g, NVGPU_PMU_PERFMON)) {
-			g->pmu.perfmon_sampling_enabled = false;
-			g->ops.pmu.pmu_perfmon_stop_sampling(&(g->pmu));
+		if (val && !nvgpu_pmu_perfmon_get_sampling_enable_status(g->pmu)
+			&& nvgpu_is_enabled(g, NVGPU_PMU_PERFMON)) {
+			nvgpu_pmu_perfmon_set_sampling_enable_status(g->pmu,
+									true);
+			nvgpu_pmu_perfmon_start_sample(g, g->pmu,
+							g->pmu->pmu_perfmon);
+		} else if (!val
+			&& nvgpu_pmu_perfmon_get_sampling_enable_status(g->pmu)
+			&& nvgpu_is_enabled(g, NVGPU_PMU_PERFMON)) {
+			nvgpu_pmu_perfmon_set_sampling_enable_status(g->pmu,
+									false);
+			nvgpu_pmu_perfmon_stop_sample(g, g->pmu,
+							g->pmu->pmu_perfmon);
 		}
 		gk20a_idle(g);
 	} else {
-		g->pmu.perfmon_sampling_enabled = val ? true : false;
+		status = val ? true : false;
+		nvgpu_pmu_perfmon_set_sampling_enable_status(g->pmu, status);
 	}
 
 	return count;
@@ -378,7 +434,7 @@ static int perfmon_events_count_show(struct seq_file *s, void *data)
 {
 	struct gk20a *g = s->private;
 
-	seq_printf(s, "%lu\n", g->pmu.perfmon_events_cnt);
+	seq_printf(s, "%llu\n", nvgpu_pmu_perfmon_get_events_count(g->pmu));
 	return 0;
 
 }
@@ -399,9 +455,9 @@ static int security_show(struct seq_file *s, void *data)
 {
 	struct gk20a *g = s->private;
 
-	seq_printf(s, "%d\n", g->pmu.pmu_mode);
-	return 0;
+	seq_printf(s, "%d\n", nvgpu_is_enabled(g, NVGPU_SEC_PRIVSECURITY));
 
+	return 0;
 }
 
 static int security_open(struct inode *inode, struct file *file)
@@ -448,6 +504,10 @@ int gk20a_pmu_debugfs_init(struct gk20a *g)
 	d = debugfs_create_file(
 		"elpg_transitions", S_IRUGO, l->debugfs, g,
 						&elpg_transitions_fops);
+
+	d = debugfs_create_file(
+		"elpg_ms_transitions", S_IRUGO, l->debugfs, g,
+						&elpg_ms_transitions_fops);
 	if (!d)
 		goto err_out;
 

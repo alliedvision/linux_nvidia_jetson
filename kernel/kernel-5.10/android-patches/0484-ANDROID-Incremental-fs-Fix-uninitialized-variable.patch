@@ -1,0 +1,39 @@
+From 310645dbb4595d0a586d3604a08ef689ee5fee4f Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 17 Sep 2020 19:46:48 -0700
+Subject: [PATCH 484/830] ANDROID: Incremental fs: Fix uninitialized variable
+X-NVConfidentiality: public
+
+'error' isn't initialized before being returned.
+
+Fixes: d4d1163e5358 ("ANDROID: Incremental fs: Add INCFS_IOC_GET_BLOCK_COUNT")
+Change-Id: I3082ac4a3f9d8632080a8e8c9221fda25ef152a0
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ fs/incfs/vfs.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 89b9884cf02a..7f9b5f7a838c 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -669,7 +669,6 @@ static long ioctl_get_block_count(struct file *f, void __user *arg)
+ 	struct incfs_get_block_count_args __user *args_usr_ptr = arg;
+ 	struct incfs_get_block_count_args args = {};
+ 	struct data_file *df = get_incfs_data_file(f);
+-	int error;
+ 
+ 	if (!df)
+ 		return -EINVAL;
+@@ -683,7 +682,7 @@ static long ioctl_get_block_count(struct file *f, void __user *arg)
+ 	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
+ 		return -EFAULT;
+ 
+-	return error;
++	return 0;
+ }
+ 
+ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+-- 
+2.17.1
+

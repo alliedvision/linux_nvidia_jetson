@@ -6,3 +6,9 @@ config TEGRA_HV_BLKDEV
 	default n
 
 endif # BLK_DEV
+
+config TEGRA_HV_BLKDEV_OOPS
+	bool "Tegra Virtual Block I/O Driver for OOPS partition"
+	depends on BLK_DEV && PSTORE && TEGRA_HV_MANAGER
+	select PSTORE_ZONE
+	default n

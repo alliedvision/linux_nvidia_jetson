@@ -1,7 +1,7 @@
 /*
- * NVDLA driver for T194
+ * NVDLA driver for T194/T23x
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/arm64-barrier.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/of.h>
@@ -23,32 +24,24 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/dma-attrs.h>
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
-#include <soc/tegra/fuse.h>
-
-#include "dev.h"
-#include "bus_client.h"
-#include "nvhost_acm.h"
-
-#include "flcn/flcn.h"
-#include "flcn/hw_flcn.h"
-#include "nvhost_syncpt_unit_interface.h"
-
-#include "t194/t194.h"
-
-
-#include "nvdla/nvdla.h"
-#include "nvdla/dla_queue.h"
-#include "nvdla/nvdla_buffer.h"
-#include "nvdla/nvdla_debug.h"
+#include <linux/version.h>
+#include <linux/nvmem-consumer.h>
+#include <soc/tegra/fuse-helper.h>
 #include <uapi/linux/nvhost_nvdla_ioctl.h>
+#ifdef CONFIG_TEGRA_SOC_HWPM
+#include <uapi/linux/tegra-soc-hwpm-uapi.h>
+#endif
+
+#include "nvdla.h"
+#include "nvdla_hw_flcn.h"
+#include "nvdla_t194.h"
+#include "nvdla_t234.h"
+#include "dla_queue.h"
+#include "nvdla_buffer.h"
+#include "nvdla_debug.h"
 #include "dla_os_interface.h"
-
-#include "class_ids_t194.h"
-
-static DEFINE_DMA_ATTRS(attrs);
 
 /*
  * Work to handle engine reset for error recovery
@@ -128,7 +121,7 @@ static int nvdla_alloc_cmd_memory(struct platform_device *pdev)
 	nvdla_dev->cmd_mem.va = dma_alloc_attrs(&pdev->dev,
 			MAX_CMD_SIZE * MAX_COMMANDS_PER_DEVICE,
 			&nvdla_dev->cmd_mem.pa, GFP_KERNEL,
-			__DMA_ATTR(attrs));
+			0);
 
 	if (nvdla_dev->cmd_mem.va == NULL) {
 		err = -ENOMEM;
@@ -151,7 +144,7 @@ static int nvdla_free_cmd_memory(struct platform_device *pdev)
 	dma_free_attrs(&pdev->dev,
 			MAX_CMD_SIZE * MAX_COMMANDS_PER_DEVICE,
 			nvdla_dev->cmd_mem.va, nvdla_dev->cmd_mem.pa,
-			__DMA_ATTR(attrs));
+			0);
 
 	nvdla_dev->cmd_mem.alloc_table = 0;
 
@@ -342,7 +335,7 @@ int nvdla_free_gcov_region(struct platform_device *pdev, bool update_region)
 		dma_free_attrs(&pdev->dev, GCOV_BUFFER_SIZE,
 			       nvdla_dev->gcov_dump_va,
 			       nvdla_dev->gcov_dump_pa,
-			       __DMA_ATTR(attrs));
+			       0);
 		nvdla_dev->gcov_dump_va = NULL;
 		nvdla_dev->gcov_dump_pa = 0;
 	}
@@ -361,7 +354,7 @@ int nvdla_alloc_gcov_region(struct platform_device *pdev)
 		/* allocate gcov region */
 		nvdla_dev->gcov_dump_va = dma_alloc_attrs(&pdev->dev,
 				   GCOV_BUFFER_SIZE, &nvdla_dev->gcov_dump_pa,
-				   GFP_KERNEL, __DMA_ATTR(attrs));
+				   GFP_KERNEL, 0);
 
 		if (!nvdla_dev->gcov_dump_va) {
 			nvdla_dbg_err(pdev,
@@ -395,7 +388,7 @@ static int nvdla_alloc_trace_region(struct platform_device *pdev)
 		/* allocate trace region */
 		nvdla_dev->trace_dump_va = dma_alloc_attrs(&pdev->dev,
 				   TRACE_BUFFER_SIZE, &nvdla_dev->trace_dump_pa,
-				   GFP_KERNEL, __DMA_ATTR(attrs));
+				   GFP_KERNEL, 0);
 
 		if (!nvdla_dev->trace_dump_va) {
 			nvdla_dbg_err(pdev,
@@ -442,7 +435,7 @@ alloc_trace_cmd_failed:
 	if (nvdla_dev->trace_dump_pa) {
 		dma_free_attrs(&pdev->dev, TRACE_BUFFER_SIZE,
 			nvdla_dev->trace_dump_va, nvdla_dev->trace_dump_pa,
-			__DMA_ATTR(attrs));
+			0);
 		nvdla_dev->trace_dump_va = NULL;
 
 		nvdla_dev->trace_dump_pa = 0;
@@ -470,7 +463,7 @@ static int nvdla_alloc_dump_region(struct platform_device *pdev)
 	if (!nvdla_dev->debug_dump_va) {
 		nvdla_dev->debug_dump_va = dma_alloc_attrs(&pdev->dev,
 				   DEBUG_BUFFER_SIZE, &nvdla_dev->debug_dump_pa,
-				   GFP_KERNEL, __DMA_ATTR(attrs));
+				   GFP_KERNEL, 0);
 		if (!nvdla_dev->debug_dump_va) {
 			nvdla_dbg_err(pdev, "debug dump dma alloc failed");
 			err = -ENOMEM;
@@ -515,91 +508,11 @@ set_region_failed:
 	if (nvdla_dev->debug_dump_pa) {
 		dma_free_attrs(&pdev->dev, DEBUG_BUFFER_SIZE,
 			nvdla_dev->debug_dump_va, nvdla_dev->debug_dump_pa,
-			__DMA_ATTR(attrs));
+			0);
 		nvdla_dev->debug_dump_va = NULL;
 		nvdla_dev->debug_dump_pa = 0;
 	}
 fail_to_alloc_debug_dump:
-	return err;
-}
-
-int nvdla_send_gos_region(struct platform_device *pdev)
-{
-	int i;
-	int err;
-	int num_grids;
-	struct flcn *m;
-	dma_addr_t *dla_grid;
-	struct nvdla_cmd_data cmd_data;
-	struct dla_region_gos *gos_region = NULL;
-	struct nvdla_cmd_mem_info gos_cmd_mem_info;
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvdla_device *nvdla_dev = pdata->private_data;
-
-	nvdla_dbg_fn(pdev, "");
-
-	m = get_flcn(pdev);
-	if (!m) {
-		nvdla_dbg_err(pdev, "falcon is not booted!");
-		err = -ENXIO;
-		goto falcon_not_booted;
-	}
-
-	err = nvhost_syncpt_get_cv_dev_address_table(pdev, &num_grids,
-				&dla_grid);
-	if (err) {
-		nvdla_dbg_err(pdev, "failed to get grid[%d]", err);
-		nvdla_dev->is_gos_fetched = false;
-		goto fail_to_get_grid;
-	}
-
-	if (num_grids > MAX_NUM_GRIDS) {
-		nvdla_dbg_err(pdev, "num_grid[%d] > than [%d]", num_grids,
-				MAX_NUM_GRIDS);
-		nvdla_dev->is_gos_fetched = false;
-		err = -EINVAL;
-		goto fail_to_get_grid;
-	}
-	nvdla_dev->is_gos_fetched = true;
-
-	/* assign memory for GoS set command */
-	err = nvdla_get_cmd_memory(pdev, &gos_cmd_mem_info);
-	if (err) {
-		nvdla_dbg_err(pdev,
-				"dma allocation failed for gos set command.");
-		goto alloc_gos_cmd_failed;
-	}
-
-	/* set GoS region info */
-	gos_region = (struct dla_region_gos *)(gos_cmd_mem_info.va);
-	gos_region->region = DLA_REGION_GOS;
-	gos_region->num_grids = num_grids;
-	gos_region->grid_size = MAX_GRID_SIZE;
-	for (i = 0; i < num_grids; i++)
-		gos_region->address[i] = dla_grid[i];
-
-	/* set cmd info */
-	cmd_data.method_id = DLA_CMD_SET_REGIONS;
-	cmd_data.method_data = ALIGNED_DMA(gos_cmd_mem_info.pa);
-	cmd_data.wait = true;
-
-	/* send cmd to set gos region */
-	err = nvdla_send_cmd(pdev, &cmd_data);
-
-	/* release memory allocated for set GoS command */
-	nvdla_put_cmd_memory(pdev, gos_cmd_mem_info.index);
-
-	if (err != 0) {
-		nvdla_dbg_err(pdev, "failed to send set gos region command");
-		goto gos_set_cmd_failed;
-	}
-
-	nvdla_dbg_fn(pdev, "send set gos region done.");
-
-gos_set_cmd_failed:
-alloc_gos_cmd_failed:
-fail_to_get_grid:
-falcon_not_booted:
 	return err;
 }
 
@@ -653,15 +566,6 @@ int nvhost_nvdla_finalize_poweron(struct platform_device *pdev)
 		goto fail_to_alloc_trace;
 	}
 
-	/* Disable GOS until it is fixed in Kernel 4.14 */
-	nvdla_dev->is_gos_enabled = false;
-	nvdla_dev->is_gos_fetched = true;
-
-	if (nvdla_dev->quirks & NVDLA_QUIRK_T194_A01_WAR) {
-		host1x_writel(pdev,
-			NVDLA_MCIF_CFG_OUTSTANDING_CNT_0_OFFSET, 0xff);
-		nvdla_dbg_info(pdev, "enabled T194-A01 WAR");
-	}
 	return 0;
 
 fail_to_alloc_trace:
@@ -688,6 +592,134 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_TEGRA_SOC_HWPM
+static int nvdla_hwpm_ip_pm(void *ip_dev, bool disable)
+{
+	int err = 0;
+	struct platform_device *dev = (struct platform_device *)ip_dev;
+
+	nvdla_dbg_fn(dev, "ip power management %s",
+			disable ? "disable" : "enable");
+
+	if (disable) {
+		err = nvhost_module_busy(ip_dev);
+		if (err < 0)
+			nvdla_dbg_err(dev, "nvhost_module_busy failed");
+	} else {
+		nvhost_module_idle(ip_dev);
+	}
+
+	return err;
+}
+
+static int nvdla_hwpm_ip_reg_op(void *ip_dev,
+	enum tegra_soc_hwpm_ip_reg_op reg_op,
+	u32 inst_element_index, u64 reg_offset, u32 *reg_data)
+{
+	struct platform_device *dev = (struct platform_device *)ip_dev;
+
+	if (reg_offset > UINT_MAX)
+		return -EINVAL;
+
+	nvdla_dbg_fn(dev, "reg_op %d reg_offset %llu", reg_op, reg_offset);
+
+	if (reg_op == TEGRA_SOC_HWPM_IP_REG_OP_READ)
+		*reg_data = host1x_readl(dev, (unsigned int)reg_offset);
+	else if (reg_op == TEGRA_SOC_HWPM_IP_REG_OP_WRITE)
+		host1x_writel(dev, (unsigned int)reg_offset, *reg_data);
+
+	return 0;
+}
+#endif
+
+static uint32_t nvdla_read_soft_sku_scratch_register(void)
+{
+	uint32_t dla_soft_sku_opt_disable = 0U;
+	void __iomem *scratch_base;
+
+	/*
+	 * Map the scratch physical address base, read the register
+	 * from the correct offset and then unmap
+	 */
+	scratch_base = ioremap(SCRATCH_REG_BASE_ADDRESS, SCRATCH_REG_MMAP_SIZE);
+	if (scratch_base) {
+		dla_soft_sku_opt_disable = __raw_readl(scratch_base + SCRATCH_REG_SW_SKU_OFFSET);
+		iounmap(scratch_base);
+	}
+
+	return dla_soft_sku_opt_disable;
+}
+
+static int nvhost_nvdla_read_chip_option_register(struct platform_device *pdev)
+{
+	/* Read floor sweeping info using nvmem api
+	 * See Bug 200748079
+	 */
+	struct nvmem_cell *cell = NULL;
+	struct device *dev = &pdev->dev;
+	size_t len = 0ULL;
+	int *pbuf = NULL;
+	int ret = 0;
+
+	cell = nvmem_cell_get(dev, "dla-disable");
+
+	if (IS_ERR(cell)) {
+
+		dev_err(dev,
+		"nvmem_cell_get error %ld. Assuming DLA instances are available\n"
+		, PTR_ERR(cell));
+
+		ret = 0;
+		/* Throwing a fuse read error
+		 * and reverting to default
+		 * behaviour assuming that the
+		 * DLA instance exists
+		 */
+		goto out;
+	}
+
+	pbuf = nvmem_cell_read(cell, &len);
+
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(pbuf)) {
+
+		dev_err(dev,
+		"nvmem_cell_read buffer error %ld. Assuming DLA instances are available\n"
+		, PTR_ERR(pbuf));
+
+		ret = 0;
+		/* Throwing a fuse read error
+		 * and reverting to default
+		 * behaviour assuming that the
+		 * DLA instance exists
+		 */
+		goto out;
+	}
+
+	if (len != FUSE_OPT_DLA_DISABLE_SIZE) {
+
+		dev_err(dev,
+		"nvmem_cell_read len mismatch error. Assuming DLA instances are available\n"
+		);
+
+		ret = 0;
+		/* Throwing a fuse read error
+		 * and reverting to default
+		 * behaviour assuming that the
+		 * DLA instance exists
+		 */
+		goto out;
+	}
+
+	ret  = (int)(*pbuf);
+
+out:
+	kfree(pbuf);
+
+	return ret;
+}
+
 /* driver probe and init */
 static struct of_device_id tegra_nvdla_of_match[] = {
 	{
@@ -698,8 +730,17 @@ static struct of_device_id tegra_nvdla_of_match[] = {
 		.name = "nvdla1",
 		.compatible = "nvidia,tegra194-nvdla",
 		.data = (struct nvhost_device_data *)&t19_nvdla1_info },
+	{
+		.name = "nvdla0",
+		.compatible = "nvidia,tegra234-nvdla",
+		.data = (struct nvhost_device_data *)&t23x_nvdla0_info },
+	{
+		.name = "nvdla1",
+		.compatible = "nvidia,tegra234-nvdla",
+		.data = (struct nvhost_device_data *)&t23x_nvdla1_info },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, tegra_nvdla_of_match);
 
 static int nvdla_probe(struct platform_device *pdev)
 {
@@ -707,6 +748,11 @@ static int nvdla_probe(struct platform_device *pdev)
 	struct nvhost_device_data *pdata = NULL;
 	struct nvdla_device *nvdla_dev = NULL;
 	struct device *dev = &pdev->dev;
+	int fuse_ret = 0;
+	uint32_t soft_fuse_ret = 0U;
+#ifdef CONFIG_TEGRA_SOC_HWPM
+	struct tegra_soc_hwpm_ip_ops hwpm_ip_ops;
+#endif
 
 	if (pdev->dev.of_node) {
 		const struct of_device_id *match;
@@ -725,22 +771,61 @@ static int nvdla_probe(struct platform_device *pdev)
 		goto err_get_pdata;
 	}
 
-	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA19 &&
-		tegra_get_sku_id() == 0x9E) {
+	if (pdata->version == FIRMWARE_ENCODE_VERSION(T19X) &&
+			tegra_get_sku_id() == 0x9E) {
 		dev_err(dev, "NVDLA IP is disabled in SKU\n");
 		err = -ENODEV;
 		goto err_no_ip;
 	}
 
-	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA19 &&
-		tegra_get_sku_id() == 0x9F &&
-		pdata->class == NV_DLA1_CLASS_ID) {
+	if (pdata->version == FIRMWARE_ENCODE_VERSION(T19X) &&
+			tegra_get_sku_id() == 0x9F &&
+			pdata->class == NV_DLA1_CLASS_ID) {
 		dev_err(dev, "NVDLA1 IP is disabled in SKU\n");
 		err = -ENODEV;
 		goto err_no_ip;
 	}
 
-	dma_set_mask(dev, DMA_BIT_MASK(37));
+	if (pdata->version == FIRMWARE_ENCODE_VERSION(T23X)) {
+
+		soft_fuse_ret = nvdla_read_soft_sku_scratch_register();
+		if (soft_fuse_ret & SOFT_SKU_OVERRIDE_ENABLE_MASK) {
+
+			if ((soft_fuse_ret & FUSE_OPT_DLA_0_DISABLED_SOFT)
+					&& (pdata->class == NV_DLA0_CLASS_ID)) {
+				dev_err(dev, "NVDLA0 IP is disabled in Soft Fuse\n");
+				err = -ENODEV;
+				goto err_no_ip;
+			}
+
+			if ((soft_fuse_ret & FUSE_OPT_DLA_1_DISABLED_SOFT)
+					&& (pdata->class == NV_DLA1_CLASS_ID)) {
+				dev_err(dev, "NVDLA1 IP is disabled in Soft Fuse\n");
+				err = -ENODEV;
+				goto err_no_ip;
+			}
+
+		} else {
+
+			fuse_ret = nvhost_nvdla_read_chip_option_register(pdev);
+
+			if ((fuse_ret & FUSE_OPT_DLA_0_DISABLED)
+					&& (pdata->class == NV_DLA0_CLASS_ID)) {
+				dev_err(dev, "NVDLA0 IP is disabled in Fuse\n");
+				err = -ENODEV;
+				goto err_no_ip;
+			}
+
+			if ((fuse_ret & FUSE_OPT_DLA_1_DISABLED)
+					&& (pdata->class == NV_DLA1_CLASS_ID)) {
+				dev_err(dev, "NVDLA1 IP is disabled in Fuse\n");
+				err = -ENODEV;
+				goto err_no_ip;
+			}
+		}
+	}
+
+	dma_set_mask(dev, DMA_BIT_MASK(39));
 
 	nvdla_dev = devm_kzalloc(dev, sizeof(*nvdla_dev), GFP_KERNEL);
 	if (!nvdla_dev) {
@@ -793,10 +878,21 @@ static int nvdla_probe(struct platform_device *pdev)
 	if (err)
 		goto err_alloc_cmd_mem;
 
+#ifdef CONFIG_TEGRA_SOC_HWPM
+	nvdla_dbg_info(pdev, "hwpm ip %s register", pdev->name);
+	hwpm_ip_ops.ip_dev = (void *)pdev;
+	hwpm_ip_ops.ip_base_address = pdev->resource[0].start;
+	hwpm_ip_ops.resource_enum = TEGRA_SOC_HWPM_RESOURCE_NVDLA;
+	hwpm_ip_ops.hwpm_ip_pm = &nvdla_hwpm_ip_pm;
+	hwpm_ip_ops.hwpm_ip_reg_op = &nvdla_hwpm_ip_reg_op;
+	tegra_soc_hwpm_ip_register(&hwpm_ip_ops);
+#endif
+
 	nvdla_dbg_info(pdev, "pdata:%p initialized\n", pdata);
 
 	return 0;
 err_alloc_cmd_mem:
+	nvhost_syncpt_unit_interface_deinit(pdev);
 err_mss_init:
 	nvdla_queue_deinit(nvdla_dev->pool);
 err_queue_init:
@@ -818,8 +914,22 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct nvdla_device *nvdla_dev = pdata->private_data;
 
+#ifdef CONFIG_TEGRA_SOC_HWPM
+	struct tegra_soc_hwpm_ip_ops hwpm_ip_ops;
+
+	nvdla_dbg_info(pdev, "hwpm ip %s unregister", pdev->name);
+	hwpm_ip_ops.ip_dev = (void *)pdev;
+	hwpm_ip_ops.ip_base_address = pdev->resource[0].start;
+	hwpm_ip_ops.resource_enum = TEGRA_SOC_HWPM_RESOURCE_NVDLA;
+	hwpm_ip_ops.hwpm_ip_pm = NULL;
+	hwpm_ip_ops.hwpm_ip_reg_op = NULL;
+	tegra_soc_hwpm_ip_unregister(&hwpm_ip_ops);
+#endif
+
+	nvhost_syncpt_unit_interface_deinit(pdev);
 	nvdla_queue_deinit(nvdla_dev->pool);
 	nvhost_client_device_release(pdev);
+	nvhost_module_deinit(pdev);
 
 	nvdla_free_gcov_region(pdev, false);
 
@@ -827,7 +937,7 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 		dma_free_attrs(&pdev->dev, TRACE_BUFFER_SIZE,
 			       nvdla_dev->trace_dump_va,
 			       nvdla_dev->trace_dump_pa,
-			       __DMA_ATTR(attrs));
+			       0);
 		nvdla_dev->trace_dump_va = NULL;
 		nvdla_dev->trace_dump_pa = 0;
 	}
@@ -836,7 +946,7 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 		dma_free_attrs(&pdev->dev, DEBUG_BUFFER_SIZE,
 			       nvdla_dev->debug_dump_va,
 			       nvdla_dev->debug_dump_pa,
-			       __DMA_ATTR(attrs));
+			       0);
 		nvdla_dev->debug_dump_va = NULL;
 		nvdla_dev->debug_dump_pa = 0;
 	}
@@ -849,6 +959,125 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int nvdla_module_runtime_suspend(struct device *dev)
+{
+	return nvhost_module_pm_ops.runtime_suspend(dev);
+}
+
+static int nvdla_module_runtime_resume(struct device *dev)
+{
+	return nvhost_module_pm_ops.runtime_resume(dev);
+}
+
+static int nvdla_module_suspend(struct device *dev)
+{
+	int err = 0;
+	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	err = nvhost_module_pm_ops.suspend(dev);
+	if (err != 0) {
+		dev_err(dev, "(FAIL) NvHost suspend\n");
+		goto fail_nvhost_module_suspend;
+	}
+
+	/* Mark module to be in suspend state. */
+	nvdla_dev->is_suspended = true;
+
+fail_nvhost_module_suspend:
+	return err;
+}
+
+static int nvdla_module_resume(struct device *dev)
+{
+	int err = 0;
+	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	/* Confirm if module is in suspend state. */
+	if (!nvdla_dev->is_suspended) {
+		dev_warn(dev, "NvDla is not in suspend state.\n");
+		goto fail_not_in_suspend;
+	}
+
+	err = nvhost_module_pm_ops.resume(dev);
+	if (err != 0) {
+		dev_err(dev, "(FAIL) NvHost resume\n");
+		goto fail_nvhost_module_resume;
+	}
+
+	return 0;
+
+fail_nvhost_module_resume:
+fail_not_in_suspend:
+	return err;
+}
+
+static int nvdla_module_prepare_suspend(struct device *dev)
+{
+	int err = 0;
+	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	/* Confirm if module is not in suspend state. */
+	if (nvdla_dev->is_suspended) {
+		dev_warn(dev, "NvDla is already in suspend state.\n");
+		goto fail_already_in_suspend;
+	}
+
+	/* Prepare for queue pool suspension. */
+	err = nvdla_queue_pool_prepare_suspend(nvdla_dev->pool);
+	if (err != 0) {
+		dev_err(dev, "(FAIL) Queue suspend\n");
+		goto fail_nvdla_queue_pool_prepare_suspend;
+	}
+
+	/* NvHost prepare suspend - callback */
+	err = nvhost_module_pm_ops.prepare(dev);
+	if (err != 0) {
+		dev_err(dev, "(FAIL) NvHost prepare suspend\n");
+		goto fail_nvhost_module_prepare_suspend;
+	}
+
+	return 0;
+
+fail_nvhost_module_prepare_suspend:
+fail_nvdla_queue_pool_prepare_suspend:
+fail_already_in_suspend:
+	return err;
+}
+
+static void nvdla_module_complete_resume(struct device *dev)
+{
+	struct nvhost_device_data *pdata = dev_get_drvdata(dev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	nvhost_module_pm_ops.complete(dev);
+
+	/* Module is no longer in suspend and has resumed successfully */
+	nvdla_dev->is_suspended = false;
+}
+
+/**
+ * SC7 suspend sequence
+ * - prepare_suspend
+ * - suspend
+ *
+ * SC7 resume sequence
+ * - resume
+ * - complete_resume
+ **/
+const struct dev_pm_ops nvdla_module_pm_ops = {
+	SET_RUNTIME_PM_OPS(nvdla_module_runtime_suspend,
+		nvdla_module_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(nvdla_module_suspend,
+		nvdla_module_resume)
+	.prepare = nvdla_module_prepare_suspend,
+	.complete = nvdla_module_complete_resume,
+};
+#endif /* CONFIG_PM */
+
 static struct platform_driver nvdla_driver = {
 	.probe = nvdla_probe,
 	.remove = __exit_p(nvdla_remove),
@@ -859,11 +1088,47 @@ static struct platform_driver nvdla_driver = {
 		.of_match_table = tegra_nvdla_of_match,
 #endif
 #ifdef CONFIG_PM
-		.pm = &nvhost_module_pm_ops,
+		.pm = &nvdla_module_pm_ops,
 #endif
 	},
 };
 
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST)
 module_platform_driver(nvdla_driver);
+#else
+static struct host1x_driver host1x_nvdla_driver = {
+	.driver = {
+		.name = "host1x-nvdla",
+	},
+	.subdevs = tegra_nvdla_of_match,
+};
 
+static int __init nvdla_init(void)
+{
+	int err;
+
+	err = host1x_driver_register(&host1x_nvdla_driver);
+	if (err < 0)
+		return err;
+
+	err = platform_driver_register(&nvdla_driver);
+	if (err < 0)
+		host1x_driver_unregister(&host1x_nvdla_driver);
+
+	return err;
+}
+module_init(nvdla_init);
+
+static void __exit nvdla_exit(void)
+{
+	platform_driver_unregister(&nvdla_driver);
+	host1x_driver_unregister(&host1x_nvdla_driver);
+}
+module_exit(nvdla_exit);
+#endif
+
+#if KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
 MODULE_AUTHOR("Shridhar Rasal <srasal@nvidia.com>");
+MODULE_LICENSE("GPL v2");

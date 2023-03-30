@@ -286,11 +286,7 @@ static u32 nvs_light_interpolate(int x1, s64 x2, int x3, int y1, int y3)
 
 	dividend = (x2 - x1) * (y3 - y1);
 	if (dividend < 0) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0)
-		dividend = abs64(dividend);
-#else
 		dividend = abs(dividend);
-#endif
 		do_div(dividend, divisor);
 		dividend = 0 - dividend;
 	} else {

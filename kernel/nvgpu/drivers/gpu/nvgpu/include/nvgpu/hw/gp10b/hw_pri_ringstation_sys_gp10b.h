@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,47 +53,22 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_pri_ringstation_sys_gp10b_h_
-#define _hw_pri_ringstation_sys_gp10b_h_
+#ifndef NVGPU_HW_PRI_RINGSTATION_SYS_GP10B_H
+#define NVGPU_HW_PRI_RINGSTATION_SYS_GP10B_H
 
-static inline u32 pri_ringstation_sys_master_config_r(u32 i)
-{
-	return 0x00122300U + i*4U;
-}
-static inline u32 pri_ringstation_sys_decode_config_r(void)
-{
-	return 0x00122204U;
-}
-static inline u32 pri_ringstation_sys_decode_config_ring_m(void)
-{
-	return 0x7U << 0U;
-}
-static inline u32 pri_ringstation_sys_decode_config_ring_drop_on_ring_not_started_f(void)
-{
-	return 0x1U;
-}
-static inline u32 pri_ringstation_sys_priv_error_adr_r(void)
-{
-	return 0x00122120U;
-}
-static inline u32 pri_ringstation_sys_priv_error_wrdat_r(void)
-{
-	return 0x00122124U;
-}
-static inline u32 pri_ringstation_sys_priv_error_info_r(void)
-{
-	return 0x00122128U;
-}
-static inline u32 pri_ringstation_sys_priv_error_info_subid_v(u32 r)
-{
-	return (r >> 24U) & 0x3fU;
-}
-static inline u32 pri_ringstation_sys_priv_error_info_priv_level_v(u32 r)
-{
-	return (r >> 20U) & 0x3U;
-}
-static inline u32 pri_ringstation_sys_priv_error_code_r(void)
-{
-	return 0x0012212cU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define pri_ringstation_sys_master_config_r(i)\
+		(nvgpu_safe_add_u32(0x00122300U, nvgpu_safe_mult_u32((i), 4U)))
+#define pri_ringstation_sys_master_ring_start_results_r()          (0x00120050U)
+#define pri_ringstation_sys_master_ring_start_results_connectivity_pass_f()\
+				(0x1U)
+#define pri_ringstation_sys_priv_error_adr_r()                     (0x00122120U)
+#define pri_ringstation_sys_priv_error_wrdat_r()                   (0x00122124U)
+#define pri_ringstation_sys_priv_error_info_r()                    (0x00122128U)
+#define pri_ringstation_sys_priv_error_info_subid_v(r)    (((r) >> 24U) & 0x3fU)
+#define pri_ringstation_sys_priv_error_info_priv_level_v(r)\
+				(((r) >> 20U) & 0x3U)
+#define pri_ringstation_sys_priv_error_code_r()                    (0x0012212cU)
 #endif

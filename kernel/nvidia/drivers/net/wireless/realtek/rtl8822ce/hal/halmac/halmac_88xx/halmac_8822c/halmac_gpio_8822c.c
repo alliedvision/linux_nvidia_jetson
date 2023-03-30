@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2016 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2016 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -20,7 +20,7 @@
 /* GPIO0 definition */
 #define GPIO0_BT_GPIO0_8822C	\
 	{HALMAC_BT_GPIO, HALMAC_GPIO0, HALMAC_GPIO_IN_OUT, \
-	 0x66, BIT(2) | BIT(1) | BIT(0), BIT(2)}
+	 0x66, BIT(2), BIT(2)}
 #define GPIO0_BT_SDIO_INT_8822C	\
 	{HALMAC_BT_SDIO_INT, HALMAC_GPIO0, HALMAC_GPIO_OUT, \
 	 0x4F, BIT(5), BIT(5)}
@@ -67,16 +67,13 @@
 /* GPIO 1 definition */
 #define GPIO1_BT_GPIO1_8822C	\
 	{HALMAC_BT_GPIO, HALMAC_GPIO1, HALMAC_GPIO_IN_OUT, \
-	 0x66, BIT(2) | BIT(1) | BIT(0), BIT(2)}
+	 0x66, BIT(2), BIT(2)}
 #define GPIO1_USOUT0_8822C	\
 	{HALMAC_UART0, HALMAC_GPIO1, HALMAC_GPIO_OUT, \
 	 0x66, BIT(6), BIT(6)}
 #define GPIO1_BT_ANT_SW_1_8822C	\
 	{HALMAC_BT_RF, HALMAC_GPIO1, HALMAC_GPIO_OUT, \
 	 0x4F, BIT(6), BIT(6)}
-#define GPIO1_BT_3DD_SYNC_A_8822C	\
-	{HALMAC_BT_3DDLS_A, HALMAC_GPIO1, HALMAC_GPIO_IN, \
-	 0x66, BIT(2), 0}
 #define GPIO1_WL_CK_8822C	\
 	{HALMAC_BT_PTA, HALMAC_GPIO1, HALMAC_GPIO_OUT, \
 	 0x41, BIT(1), 0}
@@ -114,7 +111,7 @@
 /* GPIO2 definition */
 #define GPIO2_BT_GPIO2_8822C	\
 	{HALMAC_BT_GPIO, HALMAC_GPIO2, HALMAC_GPIO_IN_OUT, \
-	 0x66, BIT(2) | BIT(1) | BIT(0), BIT(2)}
+	 0x66, BIT(2), BIT(2)}
 #define GPIO2_BT_ANT_SW_2_8822C	\
 	{HALMAC_BT_RF, HALMAC_GPIO2, HALMAC_GPIO_OUT, \
 	 0x4F, BIT(6), BIT(6)}
@@ -146,7 +143,7 @@
 /* GPIO3 definition */
 #define GPIO3_BT_GPIO3_8822C	\
 	{HALMAC_BT_GPIO, HALMAC_GPIO3, HALMAC_GPIO_IN_OUT, \
-	 0x66, BIT(2) | BIT(1) | BIT(0), BIT(2)}
+	 0x66, BIT(2), BIT(2)}
 #define GPIO3_BT_ANT_SW_3_8822C	\
 	{HALMAC_BT_RF, HALMAC_GPIO3, HALMAC_GPIO_OUT, \
 	 0x4F, BIT(6), BIT(6)}
@@ -172,7 +169,7 @@
 	{HALMAC_BT_LNAON_SEL, HALMAC_GPIO3, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO3_RFE_CTRL_3_8822C	\
-	{HALMAC_WLBT_LNAON_SEL, HALMAC_GPIO3, HALMAC_GPIO_IN_OUT, \
+	{HALMAC_WL_LNAON_SEL, HALMAC_GPIO3, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO3_SW_IO_8822C	\
 	{HALMAC_SW_IO, HALMAC_GPIO3, HALMAC_GPIO_IN_OUT, \
@@ -295,7 +292,7 @@
 	{HALMAC_BT_PAPE_SEL, HALMAC_GPIO6, HALMAC_GPIO_IN_OUT, \
 	 0x4F, BIT(3), BIT(3)}
 #define GPIO6_RFE_CTRL_1_8822C	\
-	{HALMAC_WLBT_PAPE_SEL, HALMAC_GPIO6, HALMAC_GPIO_IN_OUT, \
+	{HALMAC_WL_PAPE_SEL, HALMAC_GPIO6, HALMAC_GPIO_IN_OUT, \
 	 0x4F, BIT(3), BIT(3)}
 #define GPIO6_EXT_SWR_CTRL_8822C	\
 	{HALMAC_SWR_CTRL_EN, HALMAC_GPIO6, HALMAC_GPIO_IN, \
@@ -342,7 +339,7 @@
 	{HALMAC_BT_LNAON_SEL, HALMAC_GPIO7, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO7_RFE_CTRL_2_8822C	\
-	{HALMAC_WLBT_LNAON_SEL, HALMAC_GPIO7, HALMAC_GPIO_IN_OUT, \
+	{HALMAC_WL_LNAON_SEL, HALMAC_GPIO7, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO7_SW_IO_8822C	\
 	{HALMAC_SW_IO, HALMAC_GPIO7, HALMAC_GPIO_IN_OUT, \
@@ -382,7 +379,7 @@
 	{HALMAC_BT_LNAON_SEL, HALMAC_GPIO9, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO9_RFE_CTRL_2_8822C	\
-	{HALMAC_WLBT_LNAON_SEL, HALMAC_GPIO9, HALMAC_GPIO_IN_OUT, \
+	{HALMAC_WL_LNAON_SEL, HALMAC_GPIO9, HALMAC_GPIO_IN_OUT, \
 	 0x42, BIT(0), BIT(0)}
 #define GPIO9_SW_IO_8822C	\
 	{HALMAC_SW_IO, HALMAC_GPIO9, HALMAC_GPIO_IN_OUT, \
@@ -506,7 +503,6 @@ static const struct halmac_gpio_pimux_list PINMUX_LIST_GPIO1_8822C[] = {
 	GPIO1_BT_GPIO1_8822C,
 	GPIO1_USOUT0_8822C,
 	GPIO1_BT_ANT_SW_1_8822C,
-	GPIO1_BT_3DD_SYNC_A_8822C,
 	GPIO1_WL_CK_8822C,
 	GPIO1_BT_CK_8822C,
 	GPIO1_WLMAC_DBG_GPIO1_8822C,
@@ -687,6 +683,15 @@ static enum halmac_ret_status
 chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 		       enum halmac_gpio_func gpio_func);
 
+static enum halmac_ret_status
+pinmux_switch_8822c(struct halmac_adapter *adapter,
+		    const struct halmac_gpio_pimux_list *list, u32 size,
+		    u32 gpio_id, enum halmac_gpio_func gpio_func);
+
+static enum halmac_ret_status
+pinmux_record_8822c(struct halmac_adapter *adapter,
+		    enum halmac_gpio_func gpio_func, u8 val);
+
 /**
  * pinmux_get_func_8822c() -get current gpio status
  * @adapter : the adapter of halmac
@@ -747,6 +752,20 @@ pinmux_get_func_8822c(struct halmac_adapter *adapter,
 	case HALMAC_GPIO_FUNC_SW_IO_15:
 		*enable = (cur_func == HALMAC_SW_IO) ? 1 : 0;
 		break;
+	case HALMAC_GPIO_FUNC_ANTSWB:
+	case HALMAC_GPIO_FUNC_ANTSW:
+		*enable = (cur_func == HALMAC_WL_DPDT_SEL) ? 1 : 0;
+		break;
+	case HALMAC_GPIO_FUNC_S1_TRSW:
+		*enable = (cur_func == HALMAC_WLPHY_RFE_CTRL2GPIO) ? 1 : 0;
+		break;
+	case HALMAC_GPIO_FUNC_S0_TRSW:
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
+		*enable = (cur_func == HALMAC_WL_LNAON_SEL) ? 1 : 0;
+		break;
+	case HALMAC_GPIO_FUNC_S0_PAPE:
+		*enable = (cur_func == HALMAC_WL_PAPE_SEL) ? 1 : 0;
+		break;
 	default:
 		*enable = 0;
 		return HALMAC_RET_GET_PINMUX_ERR;
@@ -786,12 +805,12 @@ pinmux_set_func_8822c(struct halmac_adapter *adapter,
 	if (status != HALMAC_RET_SUCCESS)
 		return status;
 
-	status = pinmux_switch_88xx(adapter, list, list_size, gpio_id,
-				    gpio_func);
+	status = pinmux_switch_8822c(adapter, list, list_size, gpio_id,
+				     gpio_func);
 	if (status != HALMAC_RET_SUCCESS)
 		return status;
 
-	status = pinmux_record_88xx(adapter, gpio_func, 1);
+	status = pinmux_record_8822c(adapter, gpio_func, 1);
 	if (status != HALMAC_RET_SUCCESS)
 		return status;
 
@@ -813,7 +832,6 @@ pinmux_free_func_8822c(struct halmac_adapter *adapter,
 		       enum halmac_gpio_func gpio_func)
 {
 	struct halmac_pinmux_info *info = &adapter->pinmux_info;
-	enum halmac_ret_status status = HALMAC_RET_SUCCESS;
 
 	PLTFM_MSG_TRACE("[TRACE]%s ===>\n", __func__);
 
@@ -822,13 +840,19 @@ pinmux_free_func_8822c(struct halmac_adapter *adapter,
 		info->sw_io_0 = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_1:
+	case HALMAC_GPIO_FUNC_ANTSWB:
 		info->sw_io_1 = 0;
+		info->antswb = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_2:
+	case HALMAC_GPIO_FUNC_S1_TRSW:
 		info->sw_io_2 = 0;
+		info->s1_trsw = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_3:
+	case HALMAC_GPIO_FUNC_S0_TRSW:
 		info->sw_io_3 = 0;
+		info->s0_trsw = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_4:
 		info->sw_io_4 = 0;
@@ -838,10 +862,14 @@ pinmux_free_func_8822c(struct halmac_adapter *adapter,
 		info->sw_io_5 = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_6:
+	case HALMAC_GPIO_FUNC_S0_PAPE:
 		info->sw_io_6 = 0;
+		info->s0_pape = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_7:
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
 		info->sw_io_7 = 0;
+		info->s0_trswb = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_8:
 	case HALMAC_GPIO_FUNC_WL_LED:
@@ -863,8 +891,10 @@ pinmux_free_func_8822c(struct halmac_adapter *adapter,
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_13:
 	case HALMAC_GPIO_FUNC_BT_DEV_WAKE1:
+	case HALMAC_GPIO_FUNC_ANTSW:
 		info->bt_dev_wake = 0;
 		info->sw_io_13 = 0;
+		info->antsw = 0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_14:
 	case HALMAC_GPIO_FUNC_BT_HOST_WAKE1:
@@ -874,6 +904,9 @@ pinmux_free_func_8822c(struct halmac_adapter *adapter,
 	case HALMAC_GPIO_FUNC_SW_IO_15:
 		info->sw_io_15 = 0;
 		break;
+	case HALMAC_GPIO_FUNC_S1_PAPE:
+	case HALMAC_GPIO_FUNC_S1_TRSWB:
+		return HALMAC_RET_PINMUX_NOT_SUPPORT;
 	default:
 		return HALMAC_RET_SWITCH_CASE_ERROR;
 	}
@@ -897,16 +930,19 @@ get_pinmux_list_8822c(struct halmac_adapter *adapter,
 		*gpio_id = HALMAC_GPIO0;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_1:
+	case HALMAC_GPIO_FUNC_ANTSWB:
 		*list = PINMUX_LIST_GPIO1_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO1_8822C);
 		*gpio_id = HALMAC_GPIO1;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_2:
+	case HALMAC_GPIO_FUNC_S1_TRSW:
 		*list = PINMUX_LIST_GPIO2_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO2_8822C);
 		*gpio_id = HALMAC_GPIO2;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_3:
+	case HALMAC_GPIO_FUNC_S0_TRSW:
 		*list = PINMUX_LIST_GPIO3_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO3_8822C);
 		*gpio_id = HALMAC_GPIO3;
@@ -922,11 +958,13 @@ get_pinmux_list_8822c(struct halmac_adapter *adapter,
 		*gpio_id = HALMAC_GPIO5;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_6:
+	case HALMAC_GPIO_FUNC_S0_PAPE:
 		*list = PINMUX_LIST_GPIO6_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO6_8822C);
 		*gpio_id = HALMAC_GPIO6;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_7:
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
 		*list = PINMUX_LIST_GPIO7_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO7_8822C);
 		*gpio_id = HALMAC_GPIO7;
@@ -960,6 +998,7 @@ get_pinmux_list_8822c(struct halmac_adapter *adapter,
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_13:
 	case HALMAC_GPIO_FUNC_BT_DEV_WAKE1:
+	case HALMAC_GPIO_FUNC_ANTSW:
 		*list = PINMUX_LIST_GPIO13_8822C;
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO13_8822C);
 		*gpio_id = HALMAC_GPIO13;
@@ -975,6 +1014,9 @@ get_pinmux_list_8822c(struct halmac_adapter *adapter,
 		*list_size = ARRAY_SIZE(PINMUX_LIST_GPIO15_8822C);
 		*gpio_id = HALMAC_GPIO15;
 		break;
+	case HALMAC_GPIO_FUNC_S1_PAPE:
+	case HALMAC_GPIO_FUNC_S1_TRSWB:
+		return HALMAC_RET_PINMUX_NOT_SUPPORT;
 	default:
 		return HALMAC_RET_SWITCH_CASE_ERROR;
 	}
@@ -995,15 +1037,18 @@ chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_1:
-		if (info->sw_io_1 == 1)
+	case HALMAC_GPIO_FUNC_ANTSWB:
+		if (info->sw_io_1 == 1 || info->antswb == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_2:
-		if (info->sw_io_2 == 1)
+	case HALMAC_GPIO_FUNC_S1_TRSW:
+		if (info->sw_io_2 == 1 || info->s1_trsw == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_3:
-		if (info->sw_io_3 == 1)
+	case HALMAC_GPIO_FUNC_S0_TRSW:
+		if (info->sw_io_3 == 1 || info->s0_trsw == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_4:
@@ -1015,10 +1060,12 @@ chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_6:
-		if (info->sw_io_6 == 1)
+	case HALMAC_GPIO_FUNC_S0_PAPE:
+		if (info->sw_io_6 == 1 || info->s0_pape == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_7:
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
 		if (info->sw_io_7 == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
@@ -1049,12 +1096,14 @@ chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_13:
-		if (info->sw_io_13 == 1 || info->bt_dev_wake == 1)
+	case HALMAC_GPIO_FUNC_ANTSW:
+		if (info->sw_io_13 == 1 || info->bt_dev_wake == 1 ||
+		    info->antsw == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_BT_DEV_WAKE1:
 		if (info->sw_io_13 == 1 || info->bt_dev_wake == 1 ||
-		    info->wl_led == 1)
+		    info->wl_led == 1 || info->antsw == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
 	case HALMAC_GPIO_FUNC_SW_IO_14:
@@ -1070,6 +1119,9 @@ chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 		if (info->sw_io_15 == 1)
 			status = HALMAC_RET_PINMUX_USED;
 		break;
+	case HALMAC_GPIO_FUNC_S1_PAPE:
+	case HALMAC_GPIO_FUNC_S1_TRSWB:
+		return HALMAC_RET_PINMUX_NOT_SUPPORT;
 	default:
 		return HALMAC_RET_SWITCH_CASE_ERROR;
 	}
@@ -1080,4 +1132,231 @@ chk_pinmux_valid_8822c(struct halmac_adapter *adapter,
 	return status;
 }
 
+static enum halmac_ret_status
+
+pinmux_switch_8822c(struct halmac_adapter *adapter,
+		    const struct halmac_gpio_pimux_list *list, u32 size,
+		    u32 gpio_id, enum halmac_gpio_func gpio_func)
+{
+	u32 i;
+	u8 value8;
+	u16 switch_func;
+	const struct halmac_gpio_pimux_list *cur_list = list;
+	enum halmac_gpio_cfg_state *state;
+	struct halmac_api *api = (struct halmac_api *)adapter->halmac_api;
+
+	state = &adapter->halmac_state.gpio_cfg_state;
+
+	if (*state == HALMAC_GPIO_CFG_STATE_BUSY)
+		return HALMAC_RET_BUSY_STATE;
+
+	switch (gpio_func) {
+	case HALMAC_GPIO_FUNC_WL_LED:
+		switch_func = HALMAC_WL_LED;
+		break;
+	case HALMAC_GPIO_FUNC_SDIO_INT:
+		switch_func = HALMAC_SDIO_INT;
+		break;
+	case HALMAC_GPIO_FUNC_BT_HOST_WAKE1:
+	case HALMAC_GPIO_FUNC_BT_DEV_WAKE1:
+		switch_func = HALMAC_GPIO13_14_WL_CTRL_EN;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_0:
+	case HALMAC_GPIO_FUNC_SW_IO_1:
+	case HALMAC_GPIO_FUNC_SW_IO_2:
+	case HALMAC_GPIO_FUNC_SW_IO_3:
+	case HALMAC_GPIO_FUNC_SW_IO_4:
+	case HALMAC_GPIO_FUNC_SW_IO_5:
+	case HALMAC_GPIO_FUNC_SW_IO_6:
+	case HALMAC_GPIO_FUNC_SW_IO_7:
+	case HALMAC_GPIO_FUNC_SW_IO_8:
+	case HALMAC_GPIO_FUNC_SW_IO_9:
+	case HALMAC_GPIO_FUNC_SW_IO_10:
+	case HALMAC_GPIO_FUNC_SW_IO_11:
+	case HALMAC_GPIO_FUNC_SW_IO_12:
+	case HALMAC_GPIO_FUNC_SW_IO_13:
+	case HALMAC_GPIO_FUNC_SW_IO_14:
+	case HALMAC_GPIO_FUNC_SW_IO_15:
+		switch_func = HALMAC_SW_IO;
+		break;
+	case HALMAC_GPIO_FUNC_S1_TRSW:
+	case HALMAC_GPIO_FUNC_S1_PAPE:
+		switch_func = HALMAC_WLPHY_RFE_CTRL2GPIO;
+		break;
+	case HALMAC_GPIO_FUNC_S0_TRSW:
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
+		switch_func = HALMAC_WL_LNAON_SEL;
+		break;
+	case HALMAC_GPIO_FUNC_S0_PAPE:
+		switch_func = HALMAC_WL_PAPE_SEL;
+		break;
+	case HALMAC_GPIO_FUNC_ANTSW:
+	case HALMAC_GPIO_FUNC_ANTSWB:
+		switch_func = HALMAC_WL_DPDT_SEL;
+		break;
+	default:
+		return HALMAC_RET_SWITCH_CASE_ERROR;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (gpio_id != cur_list->id) {
+			PLTFM_MSG_ERR("[ERR]offset:%X, value:%X, func:%X\n",
+				      cur_list->offset, cur_list->value,
+				      cur_list->func);
+			PLTFM_MSG_ERR("[ERR]id1 : %X, id2 : %X\n",
+				      gpio_id, cur_list->id);
+			return HALMAC_RET_GET_PINMUX_ERR;
+		}
+
+		if (switch_func == cur_list->func)
+			break;
+
+		cur_list++;
+	}
+
+	if (i == size) {
+		PLTFM_MSG_ERR("[ERR]gpio func error:%X %X\n",
+			      gpio_id, cur_list->id);
+		return HALMAC_RET_GET_PINMUX_ERR;
+	}
+
+	*state = HALMAC_GPIO_CFG_STATE_BUSY;
+
+	cur_list = list;
+	for (i = 0; i < size; i++) {
+		value8 = HALMAC_REG_R8(cur_list->offset);
+		value8 &= ~(cur_list->msk);
+
+		if (switch_func == cur_list->func) {
+			value8 |= (cur_list->value & cur_list->msk);
+			HALMAC_REG_W8(cur_list->offset, value8);
+			break;
+		}
+
+		value8 |= (~cur_list->value & cur_list->msk);
+		HALMAC_REG_W8(cur_list->offset, value8);
+
+		cur_list++;
+	}
+
+	switch (switch_func) {
+	case HALMAC_WL_DPDT_SEL:
+		if (gpio_id == HALMAC_GPIO1) {
+			HALMAC_REG_W8_CLR(REG_GPIO_MUXCFG + 3, BIT(2));
+		} else if (gpio_id == HALMAC_GPIO13) {
+			HALMAC_REG_W8_CLR(REG_GPIO_MUXCFG + 3, BIT(3));
+			HALMAC_REG_W8_SET(REG_GPIO_MUXCFG + 3, BIT(4));
+		}
+		HALMAC_REG_W8_SET(REG_LED_CFG + 3, BIT(0));
+		break;
+	case HALMAC_WL_PAPE_SEL:
+		HALMAC_REG_W8_SET(REG_PAD_CTRL1 + 3, BIT(5));
+		break;
+	case HALMAC_WL_LNAON_SEL:
+		if (gpio_id == HALMAC_GPIO1)
+			HALMAC_REG_W8_CLR(REG_GPIO_MUXCFG + 3, BIT(7));
+		HALMAC_REG_W8_SET(REG_PAD_CTRL1 + 3, BIT(4));
+		break;
+	case HALMAC_WLPHY_RFE_CTRL2GPIO:
+		if (gpio_id == HALMAC_GPIO2)
+			HALMAC_REG_W8_CLR(REG_GPIO_MUXCFG_2, BIT(0));
+		break;
+	default:
+		break;
+	}
+
+	*state = HALMAC_GPIO_CFG_STATE_IDLE;
+
+	return HALMAC_RET_SUCCESS;
+}
+
+static enum halmac_ret_status
+pinmux_record_8822c(struct halmac_adapter *adapter,
+		    enum halmac_gpio_func gpio_func, u8 val)
+{
+	switch (gpio_func) {
+	case HALMAC_GPIO_FUNC_WL_LED:
+		adapter->pinmux_info.wl_led = val;
+		break;
+	case HALMAC_GPIO_FUNC_SDIO_INT:
+		adapter->pinmux_info.sdio_int = val;
+		break;
+	case HALMAC_GPIO_FUNC_BT_HOST_WAKE1:
+		adapter->pinmux_info.bt_host_wake = val;
+		break;
+	case HALMAC_GPIO_FUNC_BT_DEV_WAKE1:
+		adapter->pinmux_info.bt_dev_wake = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_0:
+		adapter->pinmux_info.sw_io_0 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_1:
+		adapter->pinmux_info.sw_io_1 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_2:
+		adapter->pinmux_info.sw_io_2 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_3:
+		adapter->pinmux_info.sw_io_3 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_4:
+		adapter->pinmux_info.sw_io_4 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_5:
+		adapter->pinmux_info.sw_io_5 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_6:
+		adapter->pinmux_info.sw_io_6 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_7:
+		adapter->pinmux_info.sw_io_7 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_8:
+		adapter->pinmux_info.sw_io_8 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_9:
+		adapter->pinmux_info.sw_io_9 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_10:
+		adapter->pinmux_info.sw_io_10 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_11:
+		adapter->pinmux_info.sw_io_11 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_12:
+		adapter->pinmux_info.sw_io_12 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_13:
+		adapter->pinmux_info.sw_io_13 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_14:
+		adapter->pinmux_info.sw_io_14 = val;
+		break;
+	case HALMAC_GPIO_FUNC_SW_IO_15:
+		adapter->pinmux_info.sw_io_15 = val;
+		break;
+	case HALMAC_GPIO_FUNC_S0_PAPE:
+		adapter->pinmux_info.s0_pape = val;
+		break;
+	case HALMAC_GPIO_FUNC_S0_TRSW:
+		adapter->pinmux_info.s0_trsw = val;
+		break;
+	case HALMAC_GPIO_FUNC_S1_TRSW:
+		adapter->pinmux_info.s1_trsw = val;
+		break;
+	case HALMAC_GPIO_FUNC_S0_TRSWB:
+		adapter->pinmux_info.s0_trswb = val;
+		break;
+	case HALMAC_GPIO_FUNC_ANTSW:
+		adapter->pinmux_info.antsw = val;
+		break;
+	case HALMAC_GPIO_FUNC_ANTSWB:
+		adapter->pinmux_info.antswb = val;
+		break;
+	default:
+		return HALMAC_RET_GET_PINMUX_ERR;
+	}
+
+	return HALMAC_RET_SUCCESS;
+}
 #endif /* HALMAC_8822C_SUPPORT */

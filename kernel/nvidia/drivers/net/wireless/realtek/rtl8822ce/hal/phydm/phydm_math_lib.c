@@ -229,6 +229,21 @@ u16 phydm_show_fraction_num(u32 frac_val, u8 bit_num)
 	return val;
 }
 
+u16 phydm_ones_num_in_bitmap(u64 val, u8 size)
+{
+	u8 i = 0;
+	u8 ones_num = 0;
+
+	for (i = 0; i < size; i++) {
+		if (val & BIT(0))
+			ones_num++;
+
+		val = val >> 1;
+	}
+
+	return ones_num;
+}
+
 u64 phydm_gen_bitmask(u8 mask_num)
 {
 	u8 i = 0;

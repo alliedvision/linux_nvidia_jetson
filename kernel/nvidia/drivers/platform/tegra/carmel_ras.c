@@ -1,7 +1,7 @@
 /*
  * RAS driver for T194
  *
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +21,7 @@
 #include <linux/of_device.h>
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
+#include <linux/string.h>
 
 static LIST_HEAD(core_ras_list);
 static DEFINE_RAW_SPINLOCK(core_ras_lock);
@@ -110,46 +111,37 @@ static struct ras_error lsd_3_errors[] = {
 };
 
 /* Error Records per CORE */
-static struct error_record core_ers[] = {
-	{.name = "IFU", .errx = 0,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_IFU_ICMH_ERR | ERR_CTL_IFU_ICTP_ERR |
-		ERR_CTL_IFU_ICDP_ERR |
-		ERR_CTL_IFU_THERR_ERR | ERR_CTL_IFU_ITLBP_ERR |
-		ERR_CTL_IFU_ICMHSNP_ERR | ERR_CTL_IFU_ICTPSNP_ERR |
-		ERR_CTL_IFU_L2UC_ERR | ERR_CTL_IFU_IMQDP_ERR,
-	 .errors = ifu_errors},
-	{.name = "RET_JSR", .errx = 1,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE |
-		ERR_CTL_RET_JSR_TO_ERR | ERR_CTL_RET_JSR_GB_ERR |
-		ERR_CTL_RET_JSR_IRFP_ERR | ERR_CTL_RET_JSR_FRFP_ERR,
-	 .errors = ret_jsr_errors},
-	{.name = "MTS_JSR", .errx = 2,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_MTS_JSR_ERRUC_ERR | ERR_CTL_MTS_JSR_ERRC_ERR |
-		ERR_CTL_MTS_JSR_NAFLL_ERR | ERR_CTL_MTS_JSR_CARVE_ERR |
-		ERR_CTL_MTS_JSR_CRAB_ERR | ERR_CTL_MTS_JSR_MMIO_ERR,
-	 .errors = mts_jsr_errors},
-	{.name = "LSD_STQ", .errx = 3,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_LSD1_CCTLP_ERR | ERR_CTL_LSD1_CCTSP_ERR |
-		ERR_CTL_LSD1_CCMH_ERR |
-		ERR_CTL_LSD1_CCDLECC_S_ERR | ERR_CTL_LSD1_CCDLECC_D_ERR |
-		ERR_CTL_LSD1_CCDSECC_S_ERR | ERR_CTL_LSD1_CCDSECC_D_ERR |
-		ERR_CTL_LSD1_CCDSMLECC_ERR,
-	 .errors = lsd_1_errors},
-	{.name = "LSD_DCC", .errx = 4,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_LSD2_BTCCVPP_ERR | ERR_CTL_LSD2_BTCCPPP_ERR |
-		ERR_CTL_LSD2_VRCDECC_S_ERR | ERR_CTL_LSD2_VRCDECC_D_ERR |
-		ERR_CTL_LSD2_BTMCMH_ERR | ERR_CTL_LSD2_VRCBP_ERR |
-		ERR_CTL_LSD2_CCDEECC_S_ERR | ERR_CTL_LSD2_CCDEECC_D_ERR,
-	 .errors = lsd_2_errors},
-	{.name = "LSD_L1HPF", .errx = 5,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_LSD3_L2TLBP_ERR,
-	 .errors = lsd_3_errors},
-	{}
+static struct carmel_error_record core_ers[] = {
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "IFU", .errx = 0, .errors = ifu_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "RET_JSR", .errx = 1, .errors = ret_jsr_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "MTS_JSR", .errx = 2, .errors = mts_jsr_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "LSD_STQ", .errx = 3, .errors = lsd_1_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "LSD_DCC", .errx = 4, .errors = lsd_2_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "LSD_L1HPF", .errx = 5, .errors = lsd_3_errors},
+	},
+	/* Last entry placeholder. No entries beyond this are scanned.
+	 */
+	{
+		.err_ctlr_mask = 0xFFFFFFFFFFFFFFFFUL,
+		{.name = "", .errx = 0xFFFFFFFFFFFFFFFFUL, .errors = NULL}
+	}
 };
 
 /* Error Records per CORE CLUSTER - L2 errors
@@ -201,33 +193,26 @@ static struct ras_error cluster_clocks_errors[] = {
 };
 
 /* Error Records per CORE CLUSTER */
-static struct error_record corecluster_ers[] = {
-	{.name = "L2", .errx = 0,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_L2_MLD_ECCC_ERR | ERR_CTL_L2_URD_ECCC_ERR |
-		ERR_CTL_L2_MLD_ECCUD_ERR | ERR_CTL_L2_URD_ECCU_ERR |
-		ERR_CTL_L2_MLD_ECCUC_ERR | ERR_CTL_L2_NTDP_ERR |
-		ERR_CTL_L2_URDP | ERR_CTL_L2_MLTP_ERR | ERR_CTL_L2_NTTP_ERR |
-		ERR_CTL_L2_URTP_ERR | ERR_CTL_L2_L2MH_ERR |
-		ERR_CTL_L2_CORE02L2CP_ERR | ERR_CTL_L2_CORE12L2CP_ERR |
-		ERR_CTL_L2_SCF2L2C_ECCC_ERR | ERR_CTL_L2_SCF2L2C_ECCU_ERR |
-		ERR_CTL_L2_SCF2L2C_FILLDATAP_ERR |
-		ERR_CTL_L2_SCF2L2C_ADVNOTP_ERR |
-		ERR_CTL_L2_SCF2L2C_REQRSPP_ERR |
-		ERR_CTL_L2_SCF2L2C_DECWTERR_ERR |
-		ERR_CTL_L2_SCF2L2C_DECRDERR_ERR |
-		ERR_CTL_L2_SCF2L2C_SLVWTERR_ERR |
-		ERR_CTL_L2_SCF2L2C_SLVRDERR_ERR | ERR_CTL_L2_L2PCL_ERR |
-		ERR_CTL_L2_URTTO_ERR,
-	.errors = l2_errors},
-	{.name = "CLUSTER_CLOCKS", .errx = 1,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | ERR_CTL_CC_FREQ_MON_ERR,
-	 .errors = cluster_clocks_errors},
-	{.name = "MMU", .errx = 2,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_CFI |
-		ERR_CTL_MMU_ACPERR_ERR | ERR_CTL_MMU_WCPERR_ERR,
-	 .errors = mmu_errors},
-	{}
+static struct carmel_error_record corecluster_ers[] = {
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "L2", .errx = 0, .errors = l2_errors}
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "CLUSTER_CLOCKS", .errx = 1,
+		.errors = cluster_clocks_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "MMU", .errx = 2, .errors = mmu_errors},
+	},
+	/* Last entry placeholder. No entries beyond this are scanned.
+	 */
+	{
+		.err_ctlr_mask = 0xFFFFFFFFFFFFFFFFUL,
+		{.name = "", .errx = 0xFFFFFFFFFFFFFFFFUL, .errors = NULL}
+	}
 };
 
 /* Error Records per CCPLEX - CMU:CCPMU errors
@@ -316,77 +301,50 @@ static struct ras_error scfcmu_clocks_errors[] = {
 };
 
 /* Error Records per CCPLEX */
-static struct error_record ccplex_ers[] = {
-	{.name = "CMU:CCPMU", .errx = 1024,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE |
-		ERR_CTL_DPMU_DMCE_CRAB_ACC_ERR | ERR_CTL_DPMU_CRAB_ACC_ERR |
-		ERR_CTL_DPMU_DMCE_IL1_PAR_ERR | ERR_CTL_DPMU_DMCE_TIMEOUT_ERR |
-		ERR_CTL_DPMU_DMCE_UCODE_ERR,
-	 .errors = cmu_ccpmu_errors},
-	{.name = "SCF:IOB", .errx = 1025,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFIOB_REQ_PAR_ERR | ERR_CTL_SCFIOB_PUT_PAR_ERR |
-		ERR_CTL_SCFIOB_PUT_CECC_ERR | ERR_CTL_SCFIOB_PUT_UECC_ERR |
-		ERR_CTL_SCFIOB_EVP_ERR | ERR_CTL_SCFIOB_TBX_ERR |
-		ERR_CTL_SCFIOB_CRI_ERR | ERR_CTL_SCFIOB_MMCRAB_ERR |
-		ERR_CTL_SCFIOB_IHI_ERR | ERR_CTL_SCFIOB_CBB_ERR,
-	 .errors = scf_iob_errors},
-	{.name = "SCF:SNOC", .errx = 1026,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFSNOC_CPE_TO_ERR | ERR_CTL_SCFSNOC_CPE_RSP_ERR |
-		ERR_CTL_SCFSNOC_CPE_REQ_ERR | ERR_CTL_SCFSNOC_DVMU_TO_ERR |
-		ERR_CTL_SCFSNOC_DVMU_PAR_ERR | ERR_CTL_SCFSNOC_MISC_CECC_ERR |
-		ERR_CTL_SCFSNOC_MISC_UECC_ERR | ERR_CTL_SCFSNOC_MISC_PAR_ERR |
-		ERR_CTL_SCFSNOC_MISC_RSP_ERR | ERR_CTL_SCFSNOC_CARVEOUT_ERR |
-		ERR_CTL_SCFSNOC_CARVEOUT_CECC_ERR,
-	 .errors = scf_snoc_errors},
-	{.name = "CMU:CTU", .errx = 1027,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE |
-		ERR_CTL_CMUCTU_TRCDMA_PAR_ERR | ERR_CTL_CMUCTU_MCF_PAR_ERR |
-		ERR_CTL_CMUCTU_TRL_PAR_ERR | ERR_CTL_CMUCTU_CTU_DATA_PAR_ERR |
-		ERR_CTL_CMUCTU_TAG_PAR_ERR | ERR_CTL_CMUCTU_CTU_SNP_ERR |
-		ERR_CTL_CMUCTU_TRCDMA_REQ_ERR | ERR_CTL_CMUCTU_RSP_PAR_ERR,
-	.errors = cmu_ctu_errors},
-	{.name = "SCF:L3_0", .errx = 768,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFL3_CECC_ERR | ERR_CTL_SCFL3_SNOC_INTFC_ERR |
-		ERR_CTL_SCFL3_MCF_INTFC_ERR | ERR_CTL_SCFL3_TAG_ERR |
-		ERR_CTL_SCFL3_L2DIR_ERR | ERR_CTL_SCFL3_UECC_ERR |
-		ERR_CTL_SCFL3_MH_CAM_ERR | ERR_CTL_SCFL3_MH_TAG_ERR |
-		ERR_CTL_SCFL3_UNSUPP_REQ_ERR | ERR_CTL_SCFL3_PROT_ERR,
-	 .errors = scf_l3_errors},
-	{.name = "SCF:L3_1", .errx = 769,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFL3_CECC_ERR | ERR_CTL_SCFL3_SNOC_INTFC_ERR |
-		ERR_CTL_SCFL3_MCF_INTFC_ERR | ERR_CTL_SCFL3_TAG_ERR |
-		ERR_CTL_SCFL3_L2DIR_ERR | ERR_CTL_SCFL3_UECC_ERR |
-		ERR_CTL_SCFL3_MH_CAM_ERR | ERR_CTL_SCFL3_MH_TAG_ERR |
-		ERR_CTL_SCFL3_UNSUPP_REQ_ERR | ERR_CTL_SCFL3_PROT_ERR,
-	 .errors = scf_l3_errors},
-	{.name = "SCF:L3_2", .errx = 770,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFL3_CECC_ERR | ERR_CTL_SCFL3_SNOC_INTFC_ERR |
-		ERR_CTL_SCFL3_MCF_INTFC_ERR | ERR_CTL_SCFL3_TAG_ERR |
-		ERR_CTL_SCFL3_L2DIR_ERR | ERR_CTL_SCFL3_UECC_ERR |
-		ERR_CTL_SCFL3_MH_CAM_ERR | ERR_CTL_SCFL3_MH_TAG_ERR |
-		ERR_CTL_SCFL3_UNSUPP_REQ_ERR | ERR_CTL_SCFL3_PROT_ERR,
-	 .errors = scf_l3_errors},
-	{.name = "SCF:L3_3", .errx = 771,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE | RAS_CTL_CFI |
-		ERR_CTL_SCFL3_CECC_ERR | ERR_CTL_SCFL3_SNOC_INTFC_ERR |
-		ERR_CTL_SCFL3_MCF_INTFC_ERR | ERR_CTL_SCFL3_TAG_ERR |
-		ERR_CTL_SCFL3_L2DIR_ERR | ERR_CTL_SCFL3_UECC_ERR |
-		ERR_CTL_SCFL3_MH_CAM_ERR | ERR_CTL_SCFL3_MH_TAG_ERR |
-		ERR_CTL_SCFL3_UNSUPP_REQ_ERR | ERR_CTL_SCFL3_PROT_ERR,
-	 .errors = scf_l3_errors},
-	{.name = "SCFCMU_CLOCKS", .errx = 1028,
-	 .err_ctrl = RAS_CTL_ED | RAS_CTL_UE |
-		ERR_CTL_SCFCMU_LUT0_PAR_ERR | ERR_CTL_SCFCMU_LUT1_PAR_ERR |
-		ERR_CTL_SCFCMU_ADC0_MON_ERR | ERR_CTL_SCFCMU_ADC1_MON_ERR |
-		ERR_CTL_SCFCMU_FREQ0_MON_ERR | ERR_CTL_SCFCMU_FREQ1_MON_ERR |
-		ERR_CTL_SCFCMU_FREQ2_MON_ERR | ERR_CTL_SCFCMU_FREQ3_MON_ERR,
-	 .errors = scfcmu_clocks_errors},
-	{}
+static struct carmel_error_record ccplex_ers[] = {
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "CMU:CCPMU", .errx = 1024, .errors = cmu_ccpmu_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:IOB", .errx = 1025, .errors = scf_iob_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:SNOC", .errx = 1026, .errors = scf_snoc_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "CMU:CTU", .errx = 1027, .errors = cmu_ctu_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:L3_0", .errx = 768, .errors = scf_l3_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:L3_1", .errx = 769, .errors = scf_l3_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:L3_2", .errx = 770, .errors = scf_l3_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCF:L3_3", .errx = 771, .errors = scf_l3_errors},
+	},
+	{
+		.err_ctlr_mask = DEFAULT_ERR_CTLR_MASK,
+		{.name = "SCFCMU_CLOCKS", .errx = 1028,
+		.errors = scfcmu_clocks_errors},
+	},
+	/* Last entry placeholder. No entries beyond this are scanned.
+	 */
+	{
+		.err_ctlr_mask = 0xFFFFFFFFFFFFFFFFUL,
+		{.name = "", .errx = 0xFFFFFFFFFFFFFFFFUL, .errors = NULL}
+	}
 };
 
 static struct tegra_ras_impl_err_bit t194_ras_impl_err_bit[] = {
@@ -407,41 +365,56 @@ static struct tegra_ras_impl_err_bit t194_ras_impl_err_bit[] = {
 	{ERR_CTL_SCFCMU_FREQ0_MON_ERR,	0xFF}			  /*CMU_Clocks*/
 };
 
-
 /* This is called for each online CPU during probe and is also used
  * as hotplug callback to enable RAS every time a core comes online
  */
 static void carmel_ras_enable(void *info)
 {
 	u64 errx;
+	u64 err_ctlr_def;
 	int i;
 	u8 cpu = smp_processor_id();
 
+	/* This essentially takes the valid bits of implementation
+	 * defined fields of ERR<n>FR register and then writes to
+	 * ERR<n>CTLR
+	 */
+
 	/* Enable Core Error Records */
-	for (i = 0; core_ers[i].name; i++) {
+	for (i = 0; strlen(core_ers[i].rec.name) != 0UL; i++) {
 		errx = (tegra18_logical_to_cluster(cpu) << 5) +
 			(tegra18_logical_to_cpu(cpu) << 4) +
-			core_ers[i].errx;
-
+			core_ers[i].rec.errx;
 		ras_write_errselr(errx);
-		ras_write_error_control(core_ers[i].err_ctrl);
+
+		err_ctlr_def = ras_read_error_control();
+		core_ers[i].rec.err_ctlr =
+				err_ctlr_def & core_ers[i].err_ctlr_mask;
+		ras_write_error_control(core_ers[i].rec.err_ctlr);
 		ras_read_error_control();
 	}
 
 	/* Enable Core Cluster Error Records */
-	for (i = 0; corecluster_ers[i].name; i++) {
+	for (i = 0; strlen(corecluster_ers[i].rec.name) != 0UL; i++) {
 		errx = 512 + (tegra18_logical_to_cluster(cpu) << 4) +
-		       corecluster_ers[i].errx;
-
+		       corecluster_ers[i].rec.errx;
 		ras_write_errselr(errx);
-		ras_write_error_control(corecluster_ers[i].err_ctrl);
+
+		err_ctlr_def = ras_read_error_control();
+		corecluster_ers[i].rec.err_ctlr = err_ctlr_def &
+				corecluster_ers[i].err_ctlr_mask;
+		ras_write_error_control(corecluster_ers[i].rec.err_ctlr);
 		ras_read_error_control();
 	}
 
 	/* Enable CCPLEX Error Records */
-	for (i = 0; ccplex_ers[i].name; i++) {
-		ras_write_errselr(ccplex_ers[i].errx);
-		ras_write_error_control(ccplex_ers[i].err_ctrl);
+	for (i = 0; strlen(ccplex_ers[i].rec.name) != 0UL; i++) {
+		ras_write_errselr(ccplex_ers[i].rec.errx);
+
+		err_ctlr_def = ras_read_error_control();
+		ccplex_ers[i].rec.err_ctlr =
+			err_ctlr_def & ccplex_ers[i].err_ctlr_mask;
+		ras_write_error_control(ccplex_ers[i].rec.err_ctlr);
 		ras_read_error_control();
 	}
 
@@ -517,16 +490,16 @@ static void ras_register_core_ers(void)
 {
 	int i;
 
-	for (i = 0; core_ers[i].name; i++)
-		register_core_er(&core_ers[i]);
+	for (i = 0; strlen(core_ers[i].rec.name) != 0U; i++)
+		register_core_er(&core_ers[i].rec);
 }
 
 static void ras_unregister_core_ers(void)
 {
 	int i;
 
-	for (i = 0; core_ers[i].name; i++)
-		unregister_core_er(&core_ers[i]);
+	for (i = 0; strlen(core_ers[i].rec.name) != 0U; i++)
+		unregister_core_er(&core_ers[i].rec);
 }
 
 /*
@@ -618,16 +591,16 @@ static void ras_register_corecluster_ers(void)
 {
 	int i;
 
-	for (i = 0; corecluster_ers[i].name; i++)
-		register_corecluster_er(&corecluster_ers[i]);
+	for (i = 0; strlen(corecluster_ers[i].rec.name) != 0U; i++)
+		register_corecluster_er(&corecluster_ers[i].rec);
 }
 
 static void ras_unregister_corecluster_ers(void)
 {
 	int i;
 
-	for (i = 0; corecluster_ers[i].name; i++)
-		unregister_corecluster_er(&corecluster_ers[i]);
+	for (i = 0; strlen(corecluster_ers[i].rec.name) != 0U; i++)
+		unregister_corecluster_er(&corecluster_ers[i].rec);
 }
 
 /* This is used to handle FHI or Correctable Errors
@@ -708,16 +681,16 @@ static void ras_register_ccplex_ers(void)
 {
 	int i;
 
-	for (i = 0; ccplex_ers[i].name; i++)
-		register_ccplex_er(&ccplex_ers[i]);
+	for (i = 0; strlen(ccplex_ers[i].rec.name) != 0U; i++)
+		register_ccplex_er(&ccplex_ers[i].rec);
 }
 
 static void ras_unregister_ccplex_ers(void)
 {
 	int i;
 
-	for (i = 0; ccplex_ers[i].name; i++)
-		unregister_ccplex_er(&ccplex_ers[i]);
+	for (i = 0; strlen(ccplex_ers[i].rec.name) != 0U; i++)
+		unregister_ccplex_er(&ccplex_ers[i].rec);
 }
 
 /* This is used to handle FHI or Correctable Errors

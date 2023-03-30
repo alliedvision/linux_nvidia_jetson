@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Legacy Power Domain Provider
  *
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,12 +22,12 @@
 #include <linux/slab.h>
 #include <linux/tegra-powergate.h>
 
-#include <soc/tegra/chip-id.h>
-
+#include <linux/version.h>
 #include <trace/events/nvhost.h>
 
 #include "dev.h"
 #include "nvhost_pd.h"
+#include "platform.h"
 
 static int nvhost_module_power_on(struct generic_pm_domain *domain);
 static int nvhost_module_power_off(struct generic_pm_domain *domain);
@@ -98,7 +98,6 @@ static int nvhost_module_power_off(struct generic_pm_domain *domain)
 	return do_powergate_locked(pd->powergate_id);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 static int pm_subdomain_attach(struct device_node *node)
 {
 	int ret;
@@ -118,7 +117,6 @@ static int pm_subdomain_attach(struct device_node *node)
 
 	return of_genpd_add_subdomain(&master_phandle, &child_phandle);
 }
-#endif
 
 static LIST_HEAD(pd_list);
 
@@ -152,17 +150,10 @@ static int _nvhost_init_domain(struct device_node *np)
 
 	pd->domain.power_off = nvhost_module_power_off;
 	pd->domain.power_on = nvhost_module_power_on;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	pd->domain.flags = GENPD_FLAG_PM_UPSTREAM;
-#endif
 
 	of_genpd_add_provider_simple(np, &pd->domain);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	genpd_pm_subdomain_attach(&pd->domain);
-#else
 	pm_subdomain_attach(np);
-#endif
 
 	list_add(&pd->list, &pd_list);
 
@@ -183,31 +174,3 @@ int nvhost_domain_init(struct of_device_id *matches)
 
 }
 EXPORT_SYMBOL(nvhost_domain_init);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-void nvhost_pd_slcg_install_workaround(struct nvhost_device_data *pdata,
-				       struct generic_pm_domain *genpd)
-{
-	struct nvhost_pm_domain *pd = genpd_to_nvhost_pd(genpd);
-
-	/* needed to WAR MBIST issue */
-	if (pdata->poweron_toggle_slcg || pdata->slcg_notifier_enable) {
-		if (pd->powergate_id != -1)
-			slcg_register_notifier(pd->powergate_id,
-					       &pdata->toggle_slcg_notifier);
-	}
-}
-
-void nvhost_pd_slcg_remove_workaround(struct nvhost_device_data *pdata,
-				      struct generic_pm_domain *genpd)
-{
-	struct nvhost_pm_domain *pd = genpd_to_nvhost_pd(genpd);
-
-	if ((pdata->poweron_toggle_slcg || pdata->slcg_notifier_enable) &&
-	    pd->powergate_id != 1)
-	{
-		slcg_unregister_notifier(pd->powergate_id,
-					 &pdata->toggle_slcg_notifier);
-	}
-}
-#endif

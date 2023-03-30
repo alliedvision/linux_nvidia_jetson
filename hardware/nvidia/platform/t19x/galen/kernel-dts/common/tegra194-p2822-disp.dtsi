@@ -1,23 +1,21 @@
 /*
- * tegra194-p2822-disp.dtsi:
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- *
- * t194 galen product uses 3 display heads out of the 4 available on t194:
- *	fb0: Head0->SOR2->HDMI
- *	fb1: Head1->SOR0->DP0
- *	fb2: Head2->SOR1->DP1
- * Each display head is assigned two windows each.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-p2822-disp.dtsi:
  */
 
 #include <dt-bindings/display/tegra-dc.h>

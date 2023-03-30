@@ -1,7 +1,7 @@
 /*
  * hdmihdcp.h: hdmi hdcp interface.
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2018, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -78,7 +78,6 @@ struct tegra_nvhdcp {
 	struct workqueue_struct		*fallback_wq;
 	struct delayed_work		fallback_work;
 	void				*ta_ctx;
-	bool				policy_initialized;
 };
 
 #ifdef CONFIG_HDCP

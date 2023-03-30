@@ -269,6 +269,7 @@
 			enable-active-high;
 			vin-supply = <&e3900_sys_3v3_cvb>;
 		};
+
 		e3900_vdd_sys_en: regulator@113 {
 			compatible = "regulator-fixed";
 			reg = <225>;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -16,7 +16,12 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/tegra-ivc.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/tegra-cpufreq.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
@@ -215,50 +220,6 @@ static int tegra_cpufreq_tx_ivc_msg(uint32_t id, uint32_t len, void *msg_buf)
 err_out:
 	mutex_unlock(&ivck->mlock);
 	return ret;
-}
-
-uint32_t t194_get_cpu_speed_hv(uint32_t cpu)
-{
-	int ret = 0;
-	struct cpu_rate_msg cpu_rate;
-
-	/* cpu mpidr is required for the bpmp server to know physical cpu */
-	cpu_rate.mpidr = cpu_logical_map(cpu);
-
-	ret = tegra_cpufreq_tx_ivc_msg(TEGRA_CPU_FREQ_GET_RATE,
-					sizeof(cpu_rate),
-					&cpu_rate);
-	if (ret) {
-		pr_err("\n%s: Error in getting rate for cpu:%d failed: ret:%d\n",
-							__func__,
-							cpu,
-							ret);
-		return 0; /* Return 0 as cpu frequency in error conditions */
-	}
-	return cpu_rate.rate_khz;
-
-}
-
-void t194_update_cpu_speed_hv(uint32_t rate, uint32_t cpu)
-{
-	int ret = 0;
-	struct cpu_rate_msg cpu_rate = {0};
-
-	//cpu_rate.cl = tegra18_logical_to_cluster(cpu);
-	cpu_rate.rate_khz = rate;
-	/* cpu mpidr is required for the bpmp server to know physical cpu */
-	cpu_rate.mpidr = cpu_logical_map(cpu);
-
-
-	ret = tegra_cpufreq_tx_ivc_msg(TEGRA_CPU_FREQ_SET_RATE,
-					sizeof(cpu_rate),
-					&cpu_rate);
-
-	if (ret)
-		pr_err("\n%s: Update cpu rate %dkHz for cluster:%d failed\n",
-							__func__,
-							cpu_rate.rate_khz,
-							cpu_rate.cl);
 }
 
 void tegra_update_cpu_speed_hv(uint32_t rate, uint8_t cpu)

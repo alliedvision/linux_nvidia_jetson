@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/debug.h
  *
- * Copyright (c) 2013-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,7 +64,7 @@ void quadd_test_delay(void);
 
 #define QM_ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 static inline const char *
-quadd_get_hw_event_str(int event)
+quadd_get_hw_event_str(unsigned int event)
 {
 	static const char * const str[] = {
 		[QUADD_EVENT_HW_CPU_CYCLES]		= "cpu-cycles",
@@ -86,7 +86,7 @@ quadd_get_hw_event_str(int event)
 	if (event >= QM_ARRAY_SIZE(str))
 		return "invalid event";
 
-	speculation_barrier();
+	spec_bar();
 	return str[event];
 }
 

@@ -1,14 +1,17 @@
 /*
- * Copyright (C) 2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/debugfs.h>
@@ -164,7 +167,7 @@ static void print_histogram(struct nvgpu_mem_alloc_tracker *tracker,
 		u64 hr_bytes;
 		const char *hr_suffix;
 
-		memset(this_line, 0, sizeof(this_line));
+		(void) memset(this_line, 0, sizeof(this_line));
 
 		/*
 		 * Compute the normalized line length. Cant use floating point
@@ -175,7 +178,7 @@ static void print_histogram(struct nvgpu_mem_alloc_tracker *tracker,
 		line_length *= sizeof(histogram_line);
 		line_length /= 1000;
 
-		memset(this_line, '+', line_length);
+		(void) memset(this_line, '+', line_length);
 
 		__to_human_readable_bytes(1 << (__ffs(pot_min) + i),
 					  &hr_bytes, &hr_suffix);

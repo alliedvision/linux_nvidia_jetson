@@ -1,7 +1,7 @@
 /*
  * tegra210_admaif_alt.h - Tegra ADMAIF registers
  *
- * Copyright (c) 2014-2017 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -85,6 +85,9 @@
 #define TEGRA_ADMAIF_XBAR_RX_ENABLE_MASK	\
 			(1 << TEGRA_ADMAIF_XBAR_RX_ENABLE_SHIFT)
 
+#define SW_RESET_MASK	1
+#define SW_RESET	1
+
 #define TEGRA210_ADMAIF_RX1_FIFO_CTRL_REG_DEFAULT 0x00000300
 #define TEGRA210_ADMAIF_RX2_FIFO_CTRL_REG_DEFAULT 0x00000304
 #define TEGRA210_ADMAIF_RX3_FIFO_CTRL_REG_DEFAULT 0x00000208
@@ -155,6 +158,11 @@ enum {
 	DATA_32BIT
 };
 
+enum {
+	ADMAIF_RX_PATH,
+	ADMAIF_TX_PATH,
+	ADMAIF_PATHS,
+};
 
 struct tegra_admaif_soc_data {
 	unsigned int num_ch;
@@ -171,13 +179,13 @@ struct tegra_admaif {
 	/* regmap for admaif */
 	struct regmap *regmap;
 	struct device *dev;
-	int refcnt;
 	struct tegra_alt_pcm_dma_params *capture_dma_data;
 	struct tegra_alt_pcm_dma_params *playback_dma_data;
 	const struct tegra_admaif_soc_data *soc_data;
-	int *override_channels;
-	int *tx_mono_to_stereo;
-	int *rx_stereo_to_mono;
+	unsigned int *audio_ch_override[ADMAIF_PATHS];
+	unsigned int *client_ch_override[ADMAIF_PATHS];
+	unsigned int *mono_to_stereo[ADMAIF_PATHS];
+	unsigned int *stereo_to_mono[ADMAIF_PATHS];
 	int reg_dump_flag;
 	void __iomem *base_addr;
 };

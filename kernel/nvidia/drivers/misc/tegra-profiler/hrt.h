@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/hrt.h
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,22 +29,6 @@ struct quadd_thread_data {
 	pid_t pid;
 	pid_t tgid;
 };
-
-struct quadd_cpu_context {
-	struct hrtimer hrtimer;
-
-	struct quadd_callchain cc;
-	char mmap_filename[PATH_MAX];
-
-	struct quadd_thread_data active_thread;
-	unsigned int is_sampling_enabled:1;
-	unsigned int is_tracing_enabled:1;
-};
-
-static inline int hrt_is_active(struct quadd_cpu_context *cpu_ctx)
-{
-	return cpu_ctx->is_sampling_enabled || cpu_ctx->is_tracing_enabled;
-}
 
 struct timecounter;
 

@@ -2,10 +2,10 @@
  * Linux cfg80211 driver
  *
  * Copyright (C) 1999-2015, Broadcom Corporation
- * Copyright (C) 2019-2020, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2019 NVIDIA Corporation. All rights reserved.
  *
  * Portions contributed by Nvidia
- * Copyright (C) 2015-2020, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2015-2020 NVIDIA Corporation. All rights reserved.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -33,6 +33,7 @@
 #include <linuxver.h>
 #include <osl.h>
 #include <linux/kernel.h>
+#include <linux/version.h>
 
 #include <bcmutils.h>
 #include <bcmwifi_channels.h>
@@ -2935,6 +2936,10 @@ scan_out:
 	if (timer_pending(&cfg->scan_timeout))
 		del_timer_sync(&cfg->scan_timeout);
 	spin_lock_irqsave(&cfg->cfgdrv_lock, flags);
+#ifdef CONFIG_BCMDHD_CUSTOM_SYSFS_TEGRA
+	TEGRA_SCAN_DONE(cfg->scan_request, true)
+	skip_cfg80211_scan_done: ;
+#endif
 	cfg->scan_request = NULL;
 	spin_unlock_irqrestore(&cfg->cfgdrv_lock, flags);
 
@@ -3170,7 +3175,8 @@ wl_cfg80211_ibss_vsie_delete(struct net_device *dev)
 		}
 
 		/* change the command from "add" to "del" */
-		strlcpy(cfg->ibss_vsie->cmd, "del", VNDR_IE_CMD_LEN);
+		strncpy(cfg->ibss_vsie->cmd, "del", VNDR_IE_CMD_LEN - 1);
+		cfg->ibss_vsie->cmd[VNDR_IE_CMD_LEN - 1] = '\0';
 
 		ret = wldev_iovar_setbuf(dev, "ie",
 			cfg->ibss_vsie, cfg->ibss_vsie_len,
@@ -8970,7 +8976,11 @@ static s32 wl_inform_single_bss(struct bcm_cfg80211 *cfg, struct wl_bss_info *bi
 	signal = notif_bss_info->rssi * 100;
 	if (!mgmt->u.probe_resp.timestamp) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		struct timespec ts;
+#else
+		struct timespec64 ts;
+#endif
 		get_monotonic_boottime(&ts);
 		mgmt->u.probe_resp.timestamp = ((u64)ts.tv_sec*1000000)
 				+ ts.tv_nsec / 1000;

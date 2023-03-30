@@ -1,7 +1,7 @@
 /*
  * dpaux.h: dpaux headers.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -35,6 +35,7 @@ struct tegra_dc_dpaux_data {
 	struct mutex lock;
 	int ctrl_num; /* this should match with sor->ctrl_num */
 	int powergate_id;
+	struct device *genpd_dev;
 };
 
 enum tegra_dpaux_pad_mode {

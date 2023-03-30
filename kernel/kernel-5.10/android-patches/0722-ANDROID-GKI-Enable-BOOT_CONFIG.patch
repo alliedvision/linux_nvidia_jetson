@@ -1,0 +1,54 @@
+From c24143ab72f062981398847d0a96932e97f11b96 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Sun, 12 Jul 2020 09:57:02 -0700
+Subject: [PATCH 722/830] ANDROID: GKI: Enable BOOT_CONFIG
+X-NVConfidentiality: public
+
+To enable androidboot.<name> and other parameters to be passed through
+it, instead of abusing the kernel cmdline.
+
+Bug: 157247714
+Change-Id: I17137545617abdc86e806050495f0e9216eff4f6
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 2 +-
+ arch/x86/configs/gki_defconfig   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 043cc30b3bdb..64b19c4e7a57 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -24,11 +24,11 @@ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_BPF=y
+ CONFIG_NAMESPACES=y
+ # CONFIG_PID_NS is not set
+-CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+ # CONFIG_RD_LZMA is not set
+ # CONFIG_RD_XZ is not set
+ # CONFIG_RD_LZO is not set
++CONFIG_BOOT_CONFIG=y
+ # CONFIG_SYSFS_SYSCALL is not set
+ # CONFIG_FHANDLE is not set
+ CONFIG_KALLSYMS_ALL=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 1c7d94422f9e..542726bc5b40 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -26,11 +26,11 @@ CONFIG_CGROUP_BPF=y
+ CONFIG_NAMESPACES=y
+ # CONFIG_TIME_NS is not set
+ # CONFIG_PID_NS is not set
+-CONFIG_BLK_DEV_INITRD=y
+ # CONFIG_RD_BZIP2 is not set
+ # CONFIG_RD_LZMA is not set
+ # CONFIG_RD_XZ is not set
+ # CONFIG_RD_LZO is not set
++CONFIG_BOOT_CONFIG=y
+ # CONFIG_SYSFS_SYSCALL is not set
+ # CONFIG_FHANDLE is not set
+ CONFIG_KALLSYMS_ALL=y
+-- 
+2.17.1
+

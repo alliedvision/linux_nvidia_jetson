@@ -1,0 +1,133 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <dt-bindings/display/tegra-dc.h>
+#include <dt-bindings/display/tegra-panel.h>
+
+/ {
+	/* Display timings */
+	timing_4k_30: 3840x2160-30 {
+		clock-frequency = <296700000>;
+		hactive = <3840>;
+		vactive = <2160>;
+		hfront-porch = <176>;
+		hback-porch = <296>;
+		hsync-len = <88>;
+		vfront-porch = <8>;
+		vback-porch = <72>;
+		vsync-len = <10>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_4k_60: 3840x2160-60 {
+		clock-frequency = <594000000>;
+		hactive = <3840>;
+		vactive = <2160>;
+		hfront-porch = <176>;
+		hback-porch = <296>;
+		hsync-len = <88>;
+		vfront-porch = <8>;
+		vback-porch = <72>;
+		vsync-len = <10>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_5k_30: 5120x2880-30 {
+		clock-frequency = <455680000>;
+		hactive = <5120>;
+		vactive = <2880>;
+		hfront-porch = <8>;
+		hback-porch = <40>;
+		hsync-len = <32>;
+		vfront-porch = <27>;
+		vback-porch = <6>;
+		vsync-len = <8>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_1080p_60: 1920x1080-60 {
+		clock-frequency = <148500000>;
+		hactive = <1920>;
+		vactive = <1080>;
+		hfront-porch = <88>;
+		hback-porch = <148>;
+		hsync-len = <44>;
+		vfront-porch = <4>;
+		vback-porch = <36>;
+		vsync-len = <5>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_1080p_30: 1920x1080-30 {
+		clock-frequency = <74250000>;
+		hactive = <1920>;
+		vactive = <1080>;
+		hfront-porch = <88>;
+		hback-porch = <148>;
+		hsync-len = <44>;
+		vfront-porch = <4>;
+		vback-porch = <36>;
+		vsync-len = <5>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_3840_1080_30: 3840x1080-30 {
+		clock-frequency = <131750000>;
+		hactive = <3840>;
+		vactive = <1080>;
+		hfront-porch = <48>;
+		hback-porch = <80>;
+		hsync-len = <32>;
+		vfront-porch = <3>;
+		vback-porch = <6>;
+		vsync-len = <10>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_1280_720_60_68500: 1280x720-60-68500 {
+		clock-frequency = <68500000>;
+		hactive = <1280>;
+		vactive = <720>;
+		hfront-porch = <90>;
+		hback-porch = <90>;
+		hsync-len = <30>;
+		vfront-porch = <33>;
+		vback-porch = <7>;
+		vsync-len = <6>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+
+	timing_1280_720_60_74250: 1280x720-60-74250 {
+		clock-frequency = <74250000>;
+		hactive = <1280>;
+		vactive = <720>;
+		hfront-porch = <110>;
+		hback-porch = <220>;
+		hsync-len = <40>;
+		vfront-porch = <5>;
+		vback-porch = <20>;
+		vsync-len = <5>;
+		nvidia,h-ref-to-sync = <1>;
+		nvidia,v-ref-to-sync = <1>;
+	};
+};

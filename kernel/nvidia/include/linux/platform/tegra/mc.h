@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2012 Google, Inc.
- * Copyright (C) 2013-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2013-2020, NVIDIA Corporation.  All rights reserved.
  *
  * Author:
  *	Erik Gilling <konkers@google.com>
@@ -46,7 +46,12 @@ extern void __iomem *mssnvlink_regs[MC_MAX_MSSNVLINK_HUBS];
 #include <linux/io.h>
 #include <linux/debugfs.h>
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 /**
  * Check if the MC has more than 1 channel.
@@ -67,6 +72,16 @@ static inline int mc_multi_channel(void)
  */
 static inline u32 __mc_readl(int idx, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if (!warned) {
+			pr_warn("WARNING: VM isn't allowed to read MC register space in "
+					"Safety Build");
+			warned = true;
+		}
+		return 0xffff;
+	}
+
 	if (WARN(!mc, "Read before MC init'ed"))
 		return 0;
 
@@ -92,6 +107,16 @@ static inline u32 __mc_readl(int idx, u32 reg)
  */
 static inline void __mc_writel(int idx, u32 val, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if(!warned) {
+			pr_warn("WARNING: VM isn't allowed to write into MC register space "
+					"in Safety Build");
+			warned = true;
+		}
+		return;
+	}
+
 	if (WARN(!mc, "Write before MC init'ed"))
 		return;
 
@@ -107,6 +132,16 @@ static inline void __mc_writel(int idx, u32 val, u32 reg)
 
 static inline u32 __mc_raw_readl(int idx, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if(!warned) {
+			pr_warn("WARNING: VM isn't allowed to read MC register space in "
+					"Safety Build");
+			warned = true;
+		}
+		return 0xffff;
+	}
+
 	if (WARN(!mc, "Read before MC init'ed"))
 		return 0;
 
@@ -121,6 +156,16 @@ static inline u32 __mc_raw_readl(int idx, u32 reg)
 
 static inline void __mc_raw_writel(int idx, u32 val, u32 reg)
 {
+	static bool warned = false;
+	if (is_tegra_safety_build()) {
+		if(!warned) {
+			pr_warn("WARNING: VM isn't allowed to write into MC register space "
+					"in Safety Build");
+			warned = true;
+		}
+		return;
+	}
+
 	if (WARN(!mc, "Write before MC init'ed"))
 		return;
 
@@ -244,6 +289,8 @@ enum {
 
 int tegra_mc_flush(int id);
 int tegra_mc_flush_done(int id);
+
+void tegra_mc_utils_init(void);
 
 /*
  * Necessary bit fields for various MC registers. Add to these as

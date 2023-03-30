@@ -1,0 +1,62 @@
+From 8dbaa25ac7fd98c9e255c6d2bf7124102fe312d8 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 29 Jun 2020 12:13:51 +0200
+Subject: [PATCH 752/830] ANDROID: GKI: enable UFS for x86 gki builds and
+ SCSI_UFSHCD_PCI
+X-NVConfidentiality: public
+
+UFS was not being enabled for x86 gki builds, making it hard to test
+stuff locally.
+
+Also enable SCSI_UFSHCD_PCI=y so that the devices that were needing this
+as a module do not need that anymore, to match up with the
+SCSI_UFSHCD_PLATFORM setting.
+
+Bug: 151050916
+Bug: 162909109
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I8af43e0a55f1467c4bd670dcdefddf3746fdd5ef
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index da9840712249..73b27e4b46f2 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -227,6 +227,7 @@ CONFIG_SCSI=y
+ # CONFIG_SCSI_PROC_FS is not set
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_SCSI_UFSHCD=y
++CONFIG_SCSI_UFSHCD_PCI=y
+ CONFIG_SCSI_UFSHCD_PLATFORM=y
+ CONFIG_SCSI_UFS_CRYPTO=y
+ CONFIG_MD=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 3e5fa5b48404..e4598460521b 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -203,6 +203,10 @@ CONFIG_UID_SYS_STATS=y
+ CONFIG_SCSI=y
+ # CONFIG_SCSI_PROC_FS is not set
+ CONFIG_BLK_DEV_SD=y
++CONFIG_SCSI_UFSHCD=y
++CONFIG_SCSI_UFSHCD_PCI=y
++CONFIG_SCSI_UFSHCD_PLATFORM=y
++CONFIG_SCSI_UFS_CRYPTO=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_DM=y
+ CONFIG_DM_CRYPT=y
+@@ -351,7 +355,6 @@ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+ CONFIG_REMOTEPROC=y
+ CONFIG_RPMSG_CHAR=y
+-CONFIG_PM_DEVFREQ=y
+ CONFIG_PM_DEVFREQ_EVENT=y
+ CONFIG_IIO=y
+ CONFIG_IIO_BUFFER=y
+-- 
+2.17.1
+

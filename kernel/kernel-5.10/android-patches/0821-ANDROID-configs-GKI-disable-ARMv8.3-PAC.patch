@@ -1,0 +1,40 @@
+From 63ff9adcc25bac9c1ba82050aca1e9b78709f3c7 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Fri, 4 Dec 2020 11:06:39 -0800
+Subject: [PATCH 821/830] ANDROID: configs: GKI: disable ARMv8.3 PAC
+X-NVConfidentiality: public
+
+Moving to LLVM_IAS=1 allows for us to now emit instructions making use
+of the ARMv8.3 extension Pointer Authentication (PAC), which is enabled
+by default by Kconfig if the tooling supports it.
+
+PAC has implications for DWARF based unwinders, see section 4.1.8 of
+https://github.com/ARM-software/abi-aa/blob/master/aadwarf64/aadwarf64.rst#dwarf-register-names.
+
+Disable PAC for now until all of our DWARF based unwinders support
+unwinding kernels built with PAC, particularly third party utilties that
+assist with ramdump parsing.
+
+Bug: 173653853
+Bug: 174803347
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: I4c7d9f37da7e3901de27f20bbfad4722cdb8a423
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 00d751aefa22..2d3da62748b4 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -58,6 +58,7 @@ CONFIG_SWP_EMULATION=y
+ CONFIG_CP15_BARRIER_EMULATION=y
+ CONFIG_SETEND_EMULATION=y
+ # CONFIG_ARM64_VHE is not set
++# CONFIG_ARM64_PTR_AUTH is not set
+ CONFIG_RANDOMIZE_BASE=y
+ # CONFIG_RANDOMIZE_MODULE_REGION_FULL is not set
+ # CONFIG_DMI is not set
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,15 +22,15 @@
  * @defgroup bpmp_thermal_ids Thermal Zone ID's
  * @{
  */
-#define THERMAL_ZONE_RESERVED0	0
-#define THERMAL_ZONE_RESERVED1  1
-#define THERMAL_ZONE_CPU	2
-#define THERMAL_ZONE_GPU	3
-#define THERMAL_ZONE_AUX	4
-#define THERMAL_ZONE_PLLX	5
-#define THERMAL_ZONE_AO		6
-#define THERMAL_ZONE_TJ_MAX	7
-#define THERMAL_ZONE_COUNT	8
+#define THERMAL_ZONE_RESERVED0	0U
+#define THERMAL_ZONE_RESERVED1  1U
+#define THERMAL_ZONE_CPU	2U
+#define THERMAL_ZONE_GPU	3U
+#define THERMAL_ZONE_AUX	4U
+#define THERMAL_ZONE_PLLX	5U
+#define THERMAL_ZONE_AO		6U
+#define THERMAL_ZONE_TJ_MAX	7U
+#define THERMAL_ZONE_COUNT	8U
 /** @} */
 
 #endif

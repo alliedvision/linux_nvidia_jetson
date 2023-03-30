@@ -17,47 +17,47 @@
 #include <dt-bindings/media/camera.h>
 
 / {
-	host1x {
-		vi@15c10000  {
-			num-channels = <3>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				vi_port0: port@0 {
-					reg = <0>;
-					avt_csi2_vi_in0: endpoint {
-						port-index = <0>;
-						bus-width = <4>;
-						remote-endpoint = <&avt_csi2_csi_out0>;
-					};
+
+	tegra-capture-vi  {
+		num-channels = <3>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			vi_port0: port@0 {
+				reg = <0>;
+				avt_csi2_vi_in0: endpoint {
+					port-index = <0>;
+					bus-width = <4>;
+					remote-endpoint = <&avt_csi2_csi_out0>;
 				};
-				vi_port1: port@1 {
-					reg = <1>;
-					avt_csi2_vi_in1: endpoint {
-						port-index = <4>;
-						bus-width = <4>;
-						remote-endpoint = <&avt_csi2_csi_out1>;
-					};
+			};
+			vi_port1: port@1 {
+				reg = <1>;
+				avt_csi2_vi_in1: endpoint {
+					port-index = <4>;
+					bus-width = <4>;
+					remote-endpoint = <&avt_csi2_csi_out1>;
 				};
-				vi_port2: port@2 {
-					reg = <2>;
-					avt_csi2_vi_in2: endpoint {
-						port-index = <2>;
-						bus-width = <2>;
-						remote-endpoint = <&avt_csi2_csi_out2>;
-					};
+			};
+			vi_port2: port@2 {
+				reg = <2>;
+				avt_csi2_vi_in2: endpoint {
+					port-index = <2>;
+					bus-width = <2>;
+					remote-endpoint = <&avt_csi2_csi_out2>;
 				};
-				vi_port3: port@3 {
-					reg = <3>;
-					avt_csi2_vi_in3: endpoint {
-						port-index = <3>;
-						bus-width = <2>;
-						remote-endpoint = <&avt_csi2_csi_out3>;
-					};
+			};
+			vi_port3: port@3 {
+				reg = <3>;
+				avt_csi2_vi_in3: endpoint {
+					port-index = <3>;
+					bus-width = <2>;
+					remote-endpoint = <&avt_csi2_csi_out3>;
 				};
 			};
 		};
-
+	};
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <3>;
 			#address-cells = <1>;
@@ -175,6 +175,7 @@
         active_w = "5488";
         active_h = "4112";
         pixel_t = "bayer_bggr";
+		csi_pixel_bit_depth = "4";
         readout_orientation = "0";
         line_length = "5488";
         inherent_gain = "1";
@@ -238,6 +239,7 @@
         active_w = "5488";
         active_h = "4112";
         pixel_t = "bayer_bggr";
+		csi_pixel_bit_depth = "4";
         readout_orientation = "0";
         line_length = "5488";
         inherent_gain = "1";
@@ -301,6 +303,7 @@
         active_w = "5488";
         active_h = "4112";
         pixel_t = "bayer_bggr";
+		csi_pixel_bit_depth = "4";
         readout_orientation = "0";
         line_length = "5488";
         inherent_gain = "1";
@@ -338,7 +341,8 @@
     };
   };
 
-  i2c@c250000 {
+  i2c@3160000 {
+
     avt_csi2@3c {
       compatible = "alliedvision,avt_csi2";
       /* I2C device address */
@@ -364,6 +368,7 @@
         active_w = "5488";
         active_h = "4112";
         pixel_t = "bayer_bggr";
+		csi_pixel_bit_depth = "4";
         readout_orientation = "0";
         line_length = "5488";
         inherent_gain = "1";

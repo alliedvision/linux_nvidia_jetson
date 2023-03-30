@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,7 @@
 
 struct gk20a;
 
-#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_GK20A_CTXSW_TRACE)
+#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_NVGPU_FECS_TRACE)
 int nvgpu_fecs_trace_init_debugfs(struct gk20a *g);
 #else
 static int nvgpu_fecs_trace_init_debugfs(struct gk20a *g)

@@ -1,0 +1,16 @@
+Tegra Hypervisor Ethernet emulation driver
+
+This driver provides ethernet emulation over a Tegra IVC channel
+
+Required Properties:
+- compatible:          should be "nvidia,tegra-hv-net"
+- ivc:                 ivc channel number used for communication
+- use-random-mac-addr: enables generation of a random max address that will
+                       be used for the interface
+
+Example:
+	tegra_hv_net {
+		compatible = "nvidia,tegra-hv-net";
+		status = "okay";
+		ivc = <&tegra_hv 79>;
+	};

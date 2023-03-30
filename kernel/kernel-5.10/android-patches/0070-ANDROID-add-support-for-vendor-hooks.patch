@@ -1,0 +1,233 @@
+From 4592cd56c4f039401d7291b30f657d588b362c6b Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 24 Apr 2020 10:12:38 -0700
+Subject: [PATCH 070/830] ANDROID: add support for vendor hooks
+X-NVConfidentiality: public
+
+Add support for vendor hooks. Adds include/trace/hooks
+directory for trace definition headers where hooks
+can be defined and vendor_hook.c for instantiating
+and exporting them for vendor modules.
+
+There are two variants of vendor hooks, both based
+on tracepoints:
+
+Normal: this uses the DECLARE_HOOK macro
+to create a tracepoint function with the name trace_<name>
+where <name> is the unique identifier for the trace.
+
+Restricted: restricted hooks are needed for cases like
+scheduler hooks where the attached function must be
+called even if the cpu is offline or requires a
+non-atomic context. Restricted vendor hooks cannot
+be detached, so modules that attach to a restricted
+hook can never unload. Also, only 1 attachment is
+allowed (any other attempts to attach will fail with
+-EBUSY).
+
+For either case, modules attach to the hook by using
+register_trace_<name>(func_ptr, NULL).
+
+New hooks should be defined in headers in the
+include/trace/hooks/ directory using the
+DECLARE_HOOK() or DECLARE_RESTRICTED_HOOK()
+macros.
+
+New files added to include/trace/hooks should
+be #include'd from drivers/android/vendor_hooks.c.
+The EXPORT_TRACEPOINT_SYMBOL_GPL() should be
+also added to drivers/android/vendor_hooks.c.
+
+For example, if a new hook, 'android_vh_foo(int &ret)'
+is added in do_exit() in exit.c, these changes are
+needed:
+
+1. create a new header file include/trace/hooks/foo.h
+which contains:
+	#include <trace/hooks/vendor_hooks.h>
+	...
+ 	DECLARE_HOOK(android_vh_foo,
+		     TP_PROTO(int *retp),
+		     TP_ARGS(retp);
+
+2. in exit.c, add
+	#include <trace/hooks/foo.h>
+	...
+  	int ret = 0;
+	...
+  	android_vh_foo(&ret);
+  	if (ret)
+    		return ret;
+	...
+
+3. in drivers/android/vendor_hooks.c, add
+	#include <trace/hooks/foo.h>
+	...
+	EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_foo);
+
+The hook can then be attached by adding the registration code
+to the module:
+
+	#include <trace/hooks/sched.h>
+	...
+	static void my_foo(int *retp)
+	{
+		*retp = 0;
+	}
+	...
+	rc = register_trace_android_vh_sched_exit(my_foo, NULL);
+
+Bug: 156285741
+Bug: 163076069
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I6a7d1c8919dae91c965e2a0450df50eac2d282db
+[ebiggers: Folded in the applicable parts of the following commits:
+           dc419bab7424 ("ANDROID: fix copyright notice")
+           e706f27c765b ("ANDROID: fix redefinition error for restricted vendor hooks").
+           Also split the gki_defconfig changes into a separate patch.]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/android/Kconfig            |  9 ++++
+ drivers/android/Makefile           |  1 +
+ drivers/android/vendor_hooks.c     | 16 +++++++
+ include/trace/hooks/vendor_hooks.h | 76 ++++++++++++++++++++++++++++++
+ 4 files changed, 102 insertions(+)
+ create mode 100644 drivers/android/vendor_hooks.c
+ create mode 100644 include/trace/hooks/vendor_hooks.h
+
+diff --git a/drivers/android/Kconfig b/drivers/android/Kconfig
+index 53b22e26266c..32fb9e5b6195 100644
+--- a/drivers/android/Kconfig
++++ b/drivers/android/Kconfig
+@@ -54,6 +54,15 @@ config ANDROID_BINDER_IPC_SELFTEST
+ 	  exhaustively with combinations of various buffer sizes and
+ 	  alignments.
+ 
++config ANDROID_VENDOR_HOOKS
++	bool "Android Vendor Hooks"
++	depends on TRACEPOINTS
++	help
++	  Enable vendor hooks implemented as tracepoints
++
++	  Allow vendor modules to attach to tracepoint "hooks" defined via
++	  DECLARE_HOOK or DECLARE_RESTRICTED_HOOK.
++
+ endif # if ANDROID
+ 
+ endmenu
+diff --git a/drivers/android/Makefile b/drivers/android/Makefile
+index c9d3d0c99c25..d488047415a0 100644
+--- a/drivers/android/Makefile
++++ b/drivers/android/Makefile
+@@ -4,3 +4,4 @@ ccflags-y += -I$(src)			# needed for trace events
+ obj-$(CONFIG_ANDROID_BINDERFS)		+= binderfs.o
+ obj-$(CONFIG_ANDROID_BINDER_IPC)	+= binder.o binder_alloc.o
+ obj-$(CONFIG_ANDROID_BINDER_IPC_SELFTEST) += binder_alloc_selftest.o
++obj-$(CONFIG_ANDROID_VENDOR_HOOKS) += vendor_hooks.o
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+new file mode 100644
+index 000000000000..cf75759e4c3f
+--- /dev/null
++++ b/drivers/android/vendor_hooks.c
+@@ -0,0 +1,16 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* vendor_hook.c
++ *
++ * Android Vendor Hook Support
++ *
++ * Copyright 2020 Google LLC
++ */
++
++#define CREATE_TRACE_POINTS
++#include <trace/hooks/vendor_hooks.h>
++
++/*
++ * Export tracepoints that act as a bare tracehook (ie: have no trace event
++ * associated with them) to allow external modules to probe them.
++ */
++
+diff --git a/include/trace/hooks/vendor_hooks.h b/include/trace/hooks/vendor_hooks.h
+new file mode 100644
+index 000000000000..8a3fdb9222e5
+--- /dev/null
++++ b/include/trace/hooks/vendor_hooks.h
+@@ -0,0 +1,76 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++
++/*
++ * Note: we intentionally omit include file ifdef protection
++ *  This is due to the way trace events work. If a file includes two
++ *  trace event headers under one "CREATE_TRACE_POINTS" the first include
++ *  will override the DECLARE_RESTRICTED_HOOK and break the second include.
++ */
++
++#include <linux/tracepoint.h>
++
++#define DECLARE_HOOK DECLARE_TRACE
++
++#ifdef TRACE_HEADER_MULTI_READ
++
++#undef DECLARE_RESTRICTED_HOOK
++#define DECLARE_RESTRICTED_HOOK(name, proto, args, cond) \
++	DEFINE_TRACE(name)
++
++
++/* prevent additional recursion */
++#undef TRACE_HEADER_MULTI_READ
++#else /* TRACE_HEADER_MULTI_READ */
++
++#define DO_HOOK(tp, proto, args, cond)					\
++	do {								\
++		struct tracepoint_func *it_func_ptr;			\
++		void *it_func;						\
++		void *__data;						\
++									\
++		if (!(cond))						\
++			return;						\
++									\
++		it_func_ptr = (tp)->funcs;				\
++		if (it_func_ptr) {					\
++			it_func = (it_func_ptr)->func;			\
++			__data = (it_func_ptr)->data;			\
++			((void(*)(proto))(it_func))(args);		\
++			WARN_ON(((++it_func_ptr)->func));		\
++		}							\
++	} while (0)
++
++#define __DECLARE_HOOK(name, proto, args, cond, data_proto, data_args)	\
++	extern struct tracepoint __tracepoint_##name;			\
++	static inline void trace_##name(proto)				\
++	{								\
++		if (static_key_false(&__tracepoint_##name.key))		\
++			DO_HOOK(&__tracepoint_##name,			\
++				TP_PROTO(data_proto),			\
++				TP_ARGS(data_args),			\
++				TP_CONDITION(cond));			\
++	}								\
++	static inline bool						\
++	trace_##name##_enabled(void)					\
++	{								\
++		return static_key_false(&__tracepoint_##name.key);	\
++	}								\
++	static inline int						\
++	register_trace_##name(void (*probe)(data_proto), void *data) 	\
++	{								\
++		/* only allow a single attachment */			\
++		if (trace_##name##_enabled())				\
++			return -EBUSY;					\
++		return tracepoint_probe_register(&__tracepoint_##name,	\
++						(void *)probe, data);	\
++	}								\
++	/* vendor hooks cannot be unregistered */			\
++
++#undef DECLARE_RESTRICTED_HOOK
++#define DECLARE_RESTRICTED_HOOK(name, proto, args, cond)		\
++	__DECLARE_HOOK(name, PARAMS(proto), PARAMS(args),		\
++			cond,						\
++			PARAMS(void *__data, proto),			\
++			PARAMS(__data, args))
++
++#endif /* TRACE_HEADER_MULTI_READ */
+-- 
+2.17.1
+

@@ -26,6 +26,10 @@
 #define __INC_ODM_REGCONFIG_H_8822C
 
 #if (RTL8822C_SUPPORT)
+/* 2019.06.14: add auto parse agc lower bound mechanism*/
+#define REG_CONFIG_VERSION_8822C "1.0"
+
+#define RXBB_MAX_GAIN_8822C 0x14
 
 void odm_config_rf_reg_8822c(struct dm_struct *dm, u32 addr, u32 data,
 			     enum rf_path rf_path, u32 reg_addr);
@@ -33,11 +37,6 @@ void odm_config_rf_reg_8822c(struct dm_struct *dm, u32 addr, u32 data,
 void odm_config_rf_radio_a_8822c(struct dm_struct *dm, u32 addr, u32 data);
 
 void odm_config_rf_radio_b_8822c(struct dm_struct *dm, u32 addr, u32 data);
-
-void odm_config_mac_8822c(struct dm_struct *dm, u32 addr, u8 data);
-
-void odm_update_agc_big_jump_lmt_8822c(struct dm_struct *dm, u32 addr,
-				       u32 data);
 
 void odm_config_bb_agc_8822c(struct dm_struct *dm, u32 addr, u32 bitmask,
 			     u32 data);

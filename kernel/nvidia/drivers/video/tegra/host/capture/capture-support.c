@@ -1,7 +1,7 @@
 /*
- * Device driver for owning the separate Stream-ID used for GoS
+ * Capture support for syncpoint and GoS management
  *
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,15 +28,24 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <soc/tegra/camrtc-capture.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "dev.h"
 #include "bus_client.h"
 #include "nvhost_acm.h"
 #include "nvhost_syncpt_unit_interface.h"
 #include "t194/t194.h"
+#if IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+#include "t23x/t23x.h"
+#endif
+#include "linux/nvmap_t19x.h"
 
-int t194_capture_alloc_syncpt(struct platform_device *pdev,
+int capture_alloc_syncpt(struct platform_device *pdev,
 			const char *name,
 			uint32_t *syncpt_id)
 {
@@ -57,31 +66,28 @@ int t194_capture_alloc_syncpt(struct platform_device *pdev,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(t194_capture_alloc_syncpt);
+EXPORT_SYMBOL_GPL(capture_alloc_syncpt);
 
-void t194_capture_release_syncpt(struct platform_device *pdev, uint32_t id)
+void capture_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
 	dev_dbg(&pdev->dev, "%s: id=%u\n", __func__, id);
 	nvhost_syncpt_put_ref_ext(pdev, id);
 }
-EXPORT_SYMBOL_GPL(t194_capture_release_syncpt);
+EXPORT_SYMBOL_GPL(capture_release_syncpt);
 
-void t194_capture_get_gos_table(struct platform_device *pdev,
+void capture_get_gos_table(struct platform_device *pdev,
 				int *gos_count,
 				const dma_addr_t **gos_table)
 {
 	int count = 0;
 	dma_addr_t *table = NULL;
 
-	/* Using information cached during the probe, this should never fail */
-	(void)nvhost_syncpt_get_cv_dev_address_table(pdev, &count, &table);
-
 	*gos_count = count;
 	*gos_table = table;
 }
-EXPORT_SYMBOL_GPL(t194_capture_get_gos_table);
+EXPORT_SYMBOL_GPL(capture_get_gos_table);
 
-int t194_capture_get_syncpt_gos_backing(struct platform_device *pdev,
+int capture_get_syncpt_gos_backing(struct platform_device *pdev,
 			uint32_t id,
 			dma_addr_t *syncpt_addr,
 			uint32_t *gos_index,
@@ -90,7 +96,6 @@ int t194_capture_get_syncpt_gos_backing(struct platform_device *pdev,
 	uint32_t index = GOS_INDEX_INVALID;
 	uint32_t offset = 0;
 	dma_addr_t addr;
-	int err = 0;
 
 	if (id == 0) {
 		dev_err(&pdev->dev, "%s: syncpt id is invalid\n", __func__);
@@ -103,11 +108,6 @@ int t194_capture_get_syncpt_gos_backing(struct platform_device *pdev,
 	}
 
 	addr = nvhost_syncpt_address(pdev, id);
-	err = nvhost_syncpt_get_gos(pdev, id, &index, &offset);
-	if (err < 0) {
-		dev_dbg(&pdev->dev, "%s: failed to get GoS backing: %d\n",
-			__func__, err);
-	}
 
 	*syncpt_addr = addr;
 	*gos_index = index;
@@ -118,9 +118,9 @@ int t194_capture_get_syncpt_gos_backing(struct platform_device *pdev,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(t194_capture_get_syncpt_gos_backing);
+EXPORT_SYMBOL_GPL(capture_get_syncpt_gos_backing);
 
-static int t194_capture_support_probe(struct platform_device *pdev)
+static int capture_support_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct nvhost_device_data *info;
@@ -134,7 +134,7 @@ static int t194_capture_support_probe(struct platform_device *pdev)
 	mutex_init(&info->lock);
 	platform_set_drvdata(pdev, info);
 
-	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(40));
+	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
 	err = nvhost_client_device_get_resources(pdev);
 	if (err)
@@ -164,12 +164,12 @@ error:
 	return err;
 }
 
-static int t194_capture_support_remove(struct platform_device *pdev)
+static int capture_support_remove(struct platform_device *pdev)
 {
 	return 0;
 }
 
-static const struct of_device_id t194_capture_support_match[] = {
+static const struct of_device_id capture_support_match[] = {
 	{
 		.compatible = "nvidia,tegra194-isp-thi",
 		.data = &t19_isp_thi_info,
@@ -178,18 +178,22 @@ static const struct of_device_id t194_capture_support_match[] = {
 		.compatible = "nvidia,tegra194-vi-thi",
 		.data = &t19_vi_thi_info,
 	},
+
+#if IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+#include "capture/capture-support-t23x.h"
+#endif
 	{ },
 };
 
-static struct platform_driver t194_capture_support_driver = {
-	.probe = t194_capture_support_probe,
-	.remove = t194_capture_support_remove,
+static struct platform_driver capture_support_driver = {
+	.probe = capture_support_probe,
+	.remove = capture_support_remove,
 	.driver = {
 		/* Only suitable name for dummy falcon driver */
 		.name = "scare-pigeon",
-		.of_match_table = t194_capture_support_match,
+		.of_match_table = capture_support_match,
 		.pm = &nvhost_module_pm_ops,
 	},
 };
 
-module_platform_driver(t194_capture_support_driver);
+module_platform_driver(capture_support_driver);

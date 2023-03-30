@@ -1,7 +1,7 @@
 /*
  * panel-b-1440-1600-3-5.c: Panel driver for b-1440-1600-3-5 panel.
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,7 +21,6 @@
 #include <linux/regulator/consumer.h>
 
 #include "../dc_priv.h"
-#include "board.h"
 #include "board-panel.h"
 
 #define PANEL_COMP_STRING	"b,1440-1600-3-5"

@@ -1,0 +1,18 @@
+NvSciIpc Kernel Driver
+
+The NvSciIpc(Nvidia Software Communication Interfaces - Inter Process Communication) library
+provides API for any two entities in a system to communicate with each other irrespective of
+where they are placed.
+NvSciIpc Kernel driver implements the Kernel space support needed for NvSciIpc functionality.
+At present this is used only to support secure buffer sharing usecase across processes
+
+Required properties:
+--------------------
+- compatible: should be nvidia,nvsciipc
+
+Example:
+--------
+	nvsciipc-kernel {
+		compatible = "nvidia,nvsciipc";
+		status = "okay";
+	};

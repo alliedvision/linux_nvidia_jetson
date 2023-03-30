@@ -24,6 +24,9 @@ enum tegra_dc_hda_state {
 	HDA_ENABLED = 3,
 };
 
+#define NV_SOR_AUDIO_HDA_CODEC_SCRATCH0_VALID		(1 << 30)
+#define NV_SOR_AUDIO_HDA_CODEC_SCRATCH0_FMT_MASK	0xffff
+
 struct tegra_dc_hda_data {
 	int dev_id;
 	struct tegra_dc_sor_data *sor;
@@ -56,5 +59,6 @@ int tegra_hdmi_setup_hda_presence(int sor_num);
 int tegra_hda_get_dev_id(struct tegra_dc_sor_data *sor);
 void tegra_hda_init(struct tegra_dc *dc, void *data);
 void tegra_hda_destroy(void *hda_handle);
-
+void tegra_hda_parse_format(unsigned int format, unsigned int *rate,
+			   unsigned int *channels, unsigned int *is_pcm_format);
 #endif

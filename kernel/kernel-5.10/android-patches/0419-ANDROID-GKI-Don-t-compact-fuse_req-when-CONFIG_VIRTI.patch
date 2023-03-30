@@ -1,0 +1,34 @@
+From e4478e9024c9567d0d06c6e55b392fbb4f626e03 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 24 Jul 2020 13:51:48 -0700
+Subject: [PATCH 419/830] ANDROID: GKI: Don't compact fuse_req when
+ CONFIG_VIRTIO_FS=n
+X-NVConfidentiality: public
+
+Otherwise we cannot enable VIRTIO_FS downstream.
+
+Bug: 161843089
+Change-Id: I317b8c425ab96a1bd484b85b41ce3cb036327117
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ fs/fuse/fuse_i.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/fs/fuse/fuse_i.h b/fs/fuse/fuse_i.h
+index 0bf739f0625c..abff5ac7d6cd 100644
+--- a/fs/fuse/fuse_i.h
++++ b/fs/fuse/fuse_i.h
+@@ -387,10 +387,8 @@ struct fuse_req {
+ 	/** Used to wake up the task waiting for completion of request*/
+ 	wait_queue_head_t waitq;
+ 
+-#if IS_ENABLED(CONFIG_VIRTIO_FS)
+ 	/** virtio-fs's physically contiguous buffer for in and out args */
+ 	void *argbuf;
+-#endif
+ 
+ 	/** fuse_mount this request belongs to */
+ 	struct fuse_mount *fm;
+-- 
+2.17.1
+

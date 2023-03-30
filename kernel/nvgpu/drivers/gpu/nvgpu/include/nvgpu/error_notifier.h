@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,7 +25,7 @@
 
 #include <nvgpu/types.h>
 
-struct channel_gk20a;
+struct nvgpu_channel;
 
 enum {
 	NVGPU_ERR_NOTIFIER_FIFO_ERROR_IDLE_TIMEOUT = 0,
@@ -39,11 +39,12 @@ enum {
 	NVGPU_ERR_NOTIFIER_FECS_ERR_UNIMP_FIRMWARE_METHOD,
 	NVGPU_ERR_NOTIFIER_RESETCHANNEL_VERIF_ERROR,
 	NVGPU_ERR_NOTIFIER_PBDMA_PUSHBUFFER_CRC_MISMATCH,
+	NVGPU_ERR_NOTIFIER_CE_ERROR,
 };
 
-void nvgpu_set_error_notifier_locked(struct channel_gk20a *ch, u32 error);
-void nvgpu_set_error_notifier(struct channel_gk20a *ch, u32 error);
-void nvgpu_set_error_notifier_if_empty(struct channel_gk20a *ch, u32 error);
-bool nvgpu_is_error_notifier_set(struct channel_gk20a *ch, u32 error_notifier);
+void nvgpu_set_err_notifier_locked(struct nvgpu_channel *ch, u32 error);
+void nvgpu_set_err_notifier(struct nvgpu_channel *ch, u32 error);
+void nvgpu_set_err_notifier_if_empty(struct nvgpu_channel *ch, u32 error);
+bool nvgpu_is_err_notifier_set(struct nvgpu_channel *ch, u32 error_notifier);
 
 #endif /* NVGPU_ERROR_NOTIFIER_H */

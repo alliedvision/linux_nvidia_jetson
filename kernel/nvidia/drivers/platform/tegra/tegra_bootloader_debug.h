@@ -1,7 +1,7 @@
 /*
  * drivers/platform/tegra/tegra_bootloader_debug.h
  *
- * Copyright (C) 2015 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2022 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,4 +21,7 @@ extern phys_addr_t tegra_bl_prof_start;
 extern phys_addr_t tegra_bl_prof_size;
 extern phys_addr_t tegra_bl_bcp_start;
 extern phys_addr_t tegra_bl_bcp_size;
+
+size_t tegra_bl_add_profiler_entry(const char *buf, size_t len);
+
 #endif

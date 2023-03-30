@@ -1,0 +1,30 @@
+From 5da14d793c2fd95f628f01e7df6c39bb69de6124 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Fri, 13 Mar 2020 16:24:20 -0700
+Subject: [PATCH 663/830] ANDROID: Kconfig.gki: Add FRAME_VECTOR
+X-NVConfidentiality: public
+
+Enable hidden config FRAME_VECTOR needed by VIDEOBUF2_MEMOPS=m
+
+Bug: 151405653
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I7567f2af29412dfbda459b4957353a433fd86ad4
+---
+ init/Kconfig.gki | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 82afdddd28d1..5a0cfbacaff0 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -92,6 +92,7 @@ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	bool "Hidden Media configs needed for GKI"
+ 	select VIDEOBUF2_CORE
+ 	select MEDIA_SUPPORT
++	select FRAME_VECTOR
+ 	help
+ 	  Dummy config option used to enable hidden media configs.
+ 	  These are normally selected implicitly when a module
+-- 
+2.17.1
+

@@ -1,4 +1,24 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
+#
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
 #
 # Simple script for formatting RFR messages for nvgpu changes.
 #
@@ -13,26 +33,28 @@ import smtplib
 
 from email.mime.text import MIMEText
 
-VERSION = '1.0.1'
+from rfr_addrbook import rfr_ab_load
+from rfr_addrbook import rfr_ab_query
+from rfr_addrbook import rfr_ab_lookup
+
+VERSION = '1.1.0'
+
+# Default email address.
+to_addr = 'sw-mobile-nvgpu-core <sw-mobile-nvgpu-core@exchange.nvidia.com>'
 
 # Gerrit commit URL formats. These are regular expressions to match the
 # incoming URLs against.
-gr_fmts = [ r'http://git-master/r/(\d+)',
-            r'http://git-master/r/#/c/(\d+)/',
-            r'http://git-master.nvidia.com/r/(\d+)',
-            r'http://git-master.nvidia.com/r/#/c/(\d+)/',
-            r'https://git-master/r/(\d+)',
-            r'https://git-master/r/#/c/(\d+)/',
-            r'https://git-master.nvidia.com/r/(\d+)',
-            r'https://git-master.nvidia.com/r/#/c/(\d+)',
-            r'https://git-master.nvidia.com/r/#/c/(\d+)/' ]
+gr_fmts = [ r'^(\d+)$',
+            r'https?://git-master(?:\.nvidia\.com)?/r/(\d+)',
+            r'https?://git-master(?:\.nvidia\.com)?/r/#/c/(\d+)/?',
+            r'https?://git-master(?:\.nvidia\.com)?/r/c/(?:[\w\-_\/\.]+?)\+/(\d+)' ]
 
 # The user to use. May be overridden but the default comes from the environment.
 user = os.environ['USER']
 
 # Gerrit query command to obtain the patch URL. The substitution will be the
 # gerrit Change-ID parsed from the git commit message.
-gr_query_cmd = 'ssh %s@git-master -p 29418 gerrit query --format json %s'
+gr_query_cmd = 'ssh %s@git-master -p 29418 gerrit query --format json --current-patch-set --files %s'
 
 def parse_args():
     """
@@ -40,7 +62,7 @@ def parse_args():
     """
 
     ep="""This program will format commit messages into something that can be
-sent to the nvgpu mailing list for review
+sent to the nvgpu mailing list for review.
 """
     help_msg="""Git or gerrit commits to describe. Can be either a git or gerrit
 commit ID. If the ID starts with a 'I' then it will be treated as a gerrit ID.
@@ -63,10 +85,25 @@ Otherwise it's treated as a git commit ID.
     parser.add_argument('-R', '--sender', action='store', default=None,
                         help='Specify a special from: email address.')
     parser.add_argument('-t', '--to', action='append', default=[],
-                        help='Specify an additional To: email address. '
+                        help='Specify an additional To: email address.'
                         'Can be repeated (-t a -t b).')
+    parser.add_argument('-c', '--cc', action='append', default=[],
+                        help='Specify an additional Cc: email address.'
+                        'Can be repeated (-c a -c b).')
     parser.add_argument('-F', '--file', action='store', default=None,
                         help='File with commits, one per line')
+    parser.add_argument('-q', '--query-addrbook', action='store', default=None,
+                        nargs='?', const='.', metavar='regex',
+                        help='Regex query for address book')
+    parser.add_argument('-a', '--addrbook', action='store', default=None,
+                        metavar='addrbook',
+                        help='Specify location to look for address book')
+    parser.add_argument('-I', '--ignore-addrbook', action='store_true',
+                        default=False,
+                        help='Ignore address book lookup. Default is false.')
+    parser.add_argument('--no-default-addr', action='store_true',
+                        default=False,
+                        help='Do not use the default address.')
 
     # Positionals: the gerrit URLs.
     parser.add_argument('commits', metavar='Commit-IDs',
@@ -200,7 +237,7 @@ def get_user_message(start_msg):
     editor = os.environ.get('EDITOR', 'vim')
 
     with tempfile.NamedTemporaryFile(suffix=".tmp") as filp:
-        filp.write(start_msg)
+        filp.write(start_msg.encode('utf-8'))
         filp.flush()
 
         edit_cmd = editor + ' ' + filp.name
@@ -212,7 +249,9 @@ def get_user_message(start_msg):
             return None
 
         filp.seek(0)
-        return filp.read()
+        lines = filp.readlines()
+
+        return ''.join([l.decode('utf-8') for l in lines if not l.startswith(b'#')])
 
 def indent_lines(text, ind):
     """
@@ -226,8 +265,7 @@ def format_commits(commits_info, extra_message):
     text to print. This can either be directly printed or emailed.
     """
 
-    whole_template = """
-Hi All,
+    whole_template = """Hi All,
 
 I would like you to review the following changes.
 {extra_message}
@@ -240,7 +278,9 @@ Thanks!
 | {url}
 | Author: {author}
 
-{cmtmsg}"""
+{cmtmsg}
+{files}
+"""
 
     cmt_descriptions = ''
     for c in commits_info:
@@ -255,14 +295,64 @@ Thanks!
 
     cmt_verbose = ''
     for c in commits_info:
+        # note: x['deletions'] is negative (or zero)
+        files = c['currentPatchSet']['files']
+        file_widths = [
+            len(x['file']) for x in files if x['file'] != '/COMMIT_MSG']
+
+        # For merge commits there are no files in the commit itself. So this
+        # causes the below max() operation to choke. Given that there are no
+        # files it makes little sense for us to try and fill in any file
+        # details!
+        if file_widths:
+            width = max(file_widths)
+            file_template = ("{name: <{width}} | " +
+                             "{sum:<3} (+{adds: <3} -{dels: <3})")
+            files_changed_desc = [file_template.format(
+                name=x['file'],
+                width=width,
+                sum=x['insertions'] - x['deletions'],
+                adds=x['insertions'],
+                dels=-x['deletions'])
+                for x in files if x['file'] != '/COMMIT_MSG'
+            ]
+        else:
+            files_changed_desc = ''
+
         cmt_verbose += cmt_template.format(url=c['url'],
                                            author=c['owner']['name'],
                                            cmtmsg=indent_lines(
-                                               c['commitMessage'], '  '))
+                                               c['commitMessage'], '  '),
+                                           files='  ' + "\n  ".join(
+                                               files_changed_desc))
 
     return whole_template.format(cmt_descriptions=cmt_descriptions,
                                  extra_message=extra_message,
                                  cmt_verbose=cmt_verbose)
+
+def format_msg_comment(subject, to_addrs, cc_addrs):
+    """
+    Take the list of to_addrs and format them into a comment so that the sender
+    knows who they are sending an email to.
+    """
+
+    msg_comment = """# RFR commit editor
+#
+# Lines that begin with a '#' are comments and will be ignored in the final
+# message. '#' characters that appear else where in the line will be ignored.
+# White space is not stripped from lines so, for example, ' # blah' will not
+# be ignored!
+#
+"""
+
+    msg_comment += '# Subject: %s\n' % subject
+
+    for addr in to_addrs:
+        msg_comment += '# To: %s\n' % addr
+    for addr in cc_addrs:
+        msg_comment += '# Cc: %s\n' % addr
+
+    return msg_comment
 
 def display_commits(commits_info, extra_message):
     """
@@ -276,12 +366,27 @@ def email_commits(commits_info, sender, subject, args):
     Directly email commits to the nvgpu-core mailing list for review!
     """
 
-    to_addr = 'SW-Mobile-nvgpu-core <SW-Mobile-nvgpu-core@exchange.nvidia.com>'
+    # Lets you drop nvgpu-core from the to-addr if you desire. You can then
+    # add it back to CC if you wish.
+    if not args.no_default_addr:
+        args.to.append(to_addr)
+
+    to_addrs = rfr_ab_lookup(args.to, args.ignore_addrbook)
+    if to_addrs == None:
+        print('Junk address: aborting!')
+        print('Use `-I\' to ignore.')
+        return
+    cc_addrs = rfr_ab_lookup(args.cc, args.ignore_addrbook)
+    if cc_addrs == None:
+        print('Junk address: aborting!')
+        print('Use `-I\' to ignore.')
+        return
 
     if args.no_msg:
         args.msg = None
 
-    body = format_commits(commits_info, args.msg)
+    body = format_msg_comment(subject, to_addrs, cc_addrs) + \
+           format_commits(commits_info, args.msg)
 
     # Most people like to write a little description of their patch series
     # in the email body. This aims to take care of that.
@@ -300,16 +405,15 @@ def email_commits(commits_info, sender, subject, args):
         text = get_user_message(body)
 
         if not text or text.strip() == '':
-            print 'Empty user message: aborting!'
+            print('Empty user message: aborting!')
             return
 
         msg = MIMEText(text)
     else:
         msg = MIMEText(body)
 
-    to_addrs = [to_addr] + args.to
-
     msg['To'] = ", ".join(to_addrs)
+    msg['Cc'] = ", ".join(cc_addrs)
     msg['From'] = sender
     msg['Subject'] = subject
 
@@ -331,6 +435,17 @@ def main():
         print('Version: %s' % VERSION)
         exit(0)
 
+    if arg_parser.addrbook:
+        success = rfr_ab_load(arg_parser.addrbook)
+        if not success:
+            exit(1)
+    else:
+        rfr_ab_load(None)
+
+    if arg_parser.query_addrbook:
+        rfr_ab_query(arg_parser.query_addrbook)
+        exit(0)
+
     if arg_parser.file:
         filp = open(arg_parser.file, 'r')
 
@@ -341,7 +456,7 @@ def main():
 
     # Oops: no commits?
     if not arg_parser.commits or len(arg_parser.commits) == 0:
-        print 'No commits!'
+        print('No commits!')
         exit(-1)
 
     # Builds a dictionary of Gerrit Change-Ids. From the Change-Ids we can then

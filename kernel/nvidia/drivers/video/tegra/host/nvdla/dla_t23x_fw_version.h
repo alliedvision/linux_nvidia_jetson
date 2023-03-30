@@ -1,0 +1,31 @@
+/*
+ * NVDLA OS Interface
+ *
+ * Copyright (c) 2020, NVIDIA Corporation.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+#ifndef DLA_T23X_FW_VERSION_H
+#define DLA_T23X_FW_VERSION_H
+
+#define FIRMWARE_T23X_VERSION_MAJOR		((uint32_t)0x2U)
+#define FIRMWARE_T23X_VERSION_MINOR		((uint32_t)0x1U)
+#define FIRMWARE_T23X_VERSION_SUBMINOR		((uint32_t)0x0U)
+
+static inline uint32_t dla_t23x_fw_version(void)
+{
+	return (((FIRMWARE_T23X_VERSION_MAJOR & 0xffU) << 16) |
+			((FIRMWARE_T23X_VERSION_MINOR & 0xffU) << 8) |
+			((FIRMWARE_T23X_VERSION_SUBMINOR & 0xffU)));
+}
+
+#endif /* End of DLA_T23X_FW_VERSION_H */

@@ -1,0 +1,61 @@
+From f1257ed330a49f39e2822d69164858e15a3bec7d Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 13 Feb 2020 22:52:08 +0000
+Subject: [PATCH 641/830] ANDROID: Kconfig.gki: Remove most of the built in
+ qcom clks
+X-NVConfidentiality: public
+
+There was a desire to see COMMON_CLK_QCOM set as a module
+instead of building it in. So this patch removes it and
+a few dependent modules from the built in list, and adds
+them to the db845c_gki.fragment file as modules.
+
+Bug: 149414941
+Change-Id: I6fecab5f529c5db1d7788e330ce8815dc22c4d1f
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Saravana Kannan <saravanak@google.com>
+---
+ arch/arm64/configs/db845c_gki.fragment | 3 +++
+ init/Kconfig.gki                       | 4 +---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 3b249f643910..294c2434dd2c 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -40,7 +40,10 @@ CONFIG_USB_ROLE_SWITCH=m
+ CONFIG_USB_ULPI_BUS=m
+ CONFIG_MMC_SDHCI_MSM=m
+ CONFIG_RTC_DRV_PM8XXX=m
++CONFIG_COMMON_CLK_QCOM=m
+ CONFIG_COMMON_CLK_SCMI=m
++CONFIG_SDM_GPUCC_845=m
++CONFIG_QCOM_CLK_RPMH=m
+ CONFIG_MSM_GCC_8998=m
+ CONFIG_SDM_DISPCC_845=m
+ CONFIG_HWSPINLOCK_QCOM=m
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index fb415595c05a..69e48c2feceb 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -69,6 +69,7 @@ config GKI_HIDDEN_QCOM_CONFIGS
+ 	bool "Hidden QCOM configs needed for GKI"
+ 	select QCOM_SMEM_STATE
+ 	select QCOM_SCM if (ARM64)
++	select QCOM_GDSC if (ARCH_QCOM)
+ 	select PINCTRL_MSM if (PINCTRL && ARCH_QCOM)
+ 	help
+ 	  Dummy config option used to enable hidden QCOM configs.
+@@ -77,9 +78,6 @@ config GKI_HIDDEN_QCOM_CONFIGS
+ 
+ config GKI_QCOM_CLKS_CONFIGS
+ 	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
+-	select COMMON_CLK_QCOM	if (ARCH_QCOM)
+-	select QCOM_CLK_RPMH	if (ARCH_QCOM)
+-	select SDM_GPUCC_845	if (ARCH_QCOM)
+ 	select QCOM_RPMHPD	if (ARCH_QCOM)
+ 	help
+ 	  This config option selects various QCOM clk drivers that
+-- 
+2.17.1
+

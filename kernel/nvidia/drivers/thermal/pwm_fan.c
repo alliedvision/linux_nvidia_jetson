@@ -1,7 +1,7 @@
 /*
  * pwm_fan.c fan driver that is controlled by pwm
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Anshul Jain <anshulj@nvidia.com>
  *
@@ -58,83 +58,15 @@
 /* Based off of max device tree node name length */
 #define MAX_PROFILE_NAME_LENGTH	31
 
-bool is_fan_always_on(struct thermal_cooling_device *cdev)
-{
-	struct fan_dev_data *fan_data = cdev->devdata;
-
-	return fan_data->is_always_on;
-}
-EXPORT_SYMBOL(is_fan_always_on);
-
-static int fan_get_rpm_from_pwm(struct fan_dev_data *fan_data, unsigned int pwm)
-{
-	int i;
-	int y;
-
-	for (i = 0; i < fan_data->active_steps; i++) {
-		if (pwm == fan_data->fan_pwm[i])
-			return fan_data->fan_rpm[i];
-	}
-
-	/*
-	 * The execution comes here only when an intermittent pwm value is
-	 * requested. The separate loop for index calculation optimizes
-	 * step-wise governor.
-	 */
-	for (i = 1; i < fan_data->active_steps; i++) {
-		/* PWM table can be reverse in case of Tmargin. */
-		if (((fan_data->fan_pwm[i - 1] < pwm) &&
-				(pwm < fan_data->fan_pwm[i])) ||
-			((fan_data->fan_pwm[i - 1] > pwm) &&
-				(pwm > fan_data->fan_pwm[i])))
-			break;
-	}
-
-	/* If not an active state, use linear extrapolation y = mx + c */
-	y = (((fan_data->fan_rpm[i] - fan_data->fan_rpm[i - 1]) *
-			(((int)pwm) - fan_data->fan_pwm[i - 1])) /
-		(fan_data->fan_pwm[i] - fan_data->fan_pwm[i - 1])) +
-		fan_data->fan_rpm[i - 1];
-	dev_dbg(fan_data->dev, "Requested: pwm - %d, rpm - %d\n", pwm, y);
-	return y;
-}
-
-/* Validate the current rpm with target rpm and update the pwm offset. */
-static void fan_validate_target_rpm(struct fan_dev_data *fan_data)
-{
-	if (!fan_data->pwm_tach_dev)
-		fan_data->pwm_tach_dev = pwm_get_tach_dev();
-
-	if (!fan_data->pwm_tach_dev) {
-		dev_err(fan_data->dev, "Failed to get tach device\n");
-		return;
-	}
-
-	fan_data->next_target_rpm = fan_get_rpm_from_pwm(fan_data,
-						fan_data->next_target_pwm);
-
-	fan_data->fan_rpm_in_limits = false;
-	cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
-	queue_delayed_work(fan_data->workqueue,
-			&fan_data->fan_ramp_rpm_work,
-			msecs_to_jiffies(fan_data->fan_ramp_time_ms));
-}
-
 static void fan_update_target_pwm(struct fan_dev_data *fan_data, int val)
 {
 	if (fan_data) {
 		fan_data->next_target_pwm = min(val, fan_data->fan_cap_pwm);
 
-		if (fan_data->next_target_pwm != fan_data->fan_cur_pwm) {
-			cancel_delayed_work_sync(&fan_data->fan_ramp_pwm_work);
+		if (fan_data->next_target_pwm != fan_data->fan_cur_pwm)
 			queue_delayed_work(fan_data->workqueue,
-					&fan_data->fan_ramp_pwm_work,
+					&fan_data->fan_ramp_work,
 					msecs_to_jiffies(fan_data->step_time));
-
-			/* If dt node enabled, validate the rpm */
-			if (fan_data->use_tach_feedback)
-				fan_validate_target_rpm(fan_data);
-		}
 	}
 }
 
@@ -392,21 +324,6 @@ static ssize_t fan_rpm_measured_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t fan_rpm_in_limit_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
-	int ret;
-
-	if (!fan_data)
-		return -EINVAL;
-	mutex_lock(&fan_data->fan_state_lock);
-	ret = sprintf(buf, "%s\n", fan_data->fan_rpm_in_limits ? "true"
-		: "false");
-	mutex_unlock(&fan_data->fan_state_lock);
-	return ret;
-}
-
 static int pwm_fan_get_cur_state(struct thermal_cooling_device *cdev,
 						unsigned long *cur_state)
 {
@@ -438,7 +355,9 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 	}
 
 	if (fan_data->continuous_gov) {
-		/*"continuous_therm_gov" used, "cur_state" indicate target pwm value*/
+		/* "cont_therm_gov" used, "cur_state" indicate target pwm
+		 * value
+		 */
 		target_pwm = min(fan_data->fan_cap_pwm, (int)cur_state);
 		fan_data->next_target_pwm = target_pwm;
 		fan_update_target_pwm(fan_data, target_pwm);
@@ -454,8 +373,7 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 
 	fan_data->next_state = cur_state;
 
-	if ((fan_data->next_state < 0) ||
-	    (fan_data->fan_pwm[fan_data->next_state] == 0)) {
+	if (fan_data->next_state <= 0) {
 		target_pwm = 0;
 		if (fan_data->kickstart_en
 			&& delayed_work_pending(&fan_data->fan_hyst_work)) {
@@ -469,9 +387,8 @@ static int pwm_fan_set_cur_state(struct thermal_cooling_device *cdev,
 		}
 		fan_data->fan_kickstart = true;
 		target_pwm = fan_data->fan_startup_pwm;
-		queue_delayed_work(fan_data->workqueue,
-				&fan_data->fan_hyst_work,
-				msecs_to_jiffies(fan_data->fan_startup_time +
+		queue_delayed_work(fan_data->workqueue, &fan_data->fan_hyst_work,
+					msecs_to_jiffies(fan_data->fan_startup_time +
 						fan_data->step_time));
 	} else
 		target_pwm = fan_data->fan_pwm[cur_state];
@@ -497,83 +414,30 @@ static struct thermal_cooling_device_ops pwm_fan_cooling_ops = {
 	.set_cur_state = pwm_fan_set_cur_state,
 };
 
-static int fan_get_rpm_rru(int rpm, struct fan_dev_data *fan_data)
-{
-	int rpm_delta = fan_data->next_target_rpm - rpm;
-	int pwm_delta = (fan_data->fan_cur_pwm * rpm_delta) /
-				fan_data->next_target_rpm;
-
-	if (fan_data->is_tmargin) {
-		while ((fan_data->fan_rpm_ramp_index > 1) &&
-			(rpm < fan_data->fan_rpm[fan_data->fan_rpm_ramp_index - 1]))
-			fan_data->fan_rpm_ramp_index--;
-	} else {
-		while ((fan_data->fan_rpm_ramp_index < fan_data->active_steps - 1) &&
-			(rpm > fan_data->fan_rpm[fan_data->fan_rpm_ramp_index + 1]))
-			fan_data->fan_rpm_ramp_index++;
-	}
-
-	return min(pwm_delta, fan_data->fan_rru[fan_data->fan_rpm_ramp_index]);
-}
-
-static int fan_get_rpm_rrd(int rpm, struct fan_dev_data *fan_data)
-{
-	int rpm_delta = rpm - fan_data->next_target_rpm;
-	int pwm_delta = (fan_data->fan_cur_pwm * rpm_delta) /
-				fan_data->next_target_rpm;
-
-	if (fan_data->is_tmargin) {
-		while ((fan_data->fan_rpm_ramp_index < fan_data->active_steps) &&
-			(rpm < fan_data->fan_rpm[fan_data->fan_rpm_ramp_index + 1]))
-			fan_data->fan_rpm_ramp_index++;
-	} else {
-		while ((fan_data->fan_rpm_ramp_index > 1) &&
-			(rpm < fan_data->fan_rpm[fan_data->fan_rpm_ramp_index - 1]))
-			fan_data->fan_rpm_ramp_index--;
-	}
-	return min(pwm_delta, fan_data->fan_rru[fan_data->fan_rpm_ramp_index]);
-}
-
-static int fan_get_pwm_rru(int pwm, struct fan_dev_data *fan_data)
+static int fan_get_rru(int pwm, struct fan_dev_data *fan_data)
 {
 	int i;
 
-	if (fan_data->is_tmargin) {
-		for (i = fan_data->active_steps - 1; i > 0; i--) {
-			if ((fan_data->fan_pwm[i] <= pwm) &&
-					(pwm < fan_data->fan_pwm[i - 1]))
-				return fan_data->fan_rru[i - 1];
+	for (i = 0; i < fan_data->active_steps - 1 ; i++) {
+		if ((pwm >= fan_data->fan_pwm[i]) &&
+				(pwm < fan_data->fan_pwm[i + 1])) {
+			return fan_data->fan_rru[i];
 		}
-		return fan_data->fan_rru[0];
-	} else {
-		for (i = 0; i < fan_data->active_steps - 1 ; i++) {
-			if ((fan_data->fan_pwm[i] <= pwm) &&
-					(pwm < fan_data->fan_pwm[i + 1]))
-				return fan_data->fan_rru[i];
-		}
-		return fan_data->fan_rru[fan_data->active_steps - 1];
 	}
+	return fan_data->fan_rru[fan_data->active_steps - 1];
 }
 
-static int fan_get_pwm_rrd(int pwm, struct fan_dev_data *fan_data)
+static int fan_get_rrd(int pwm, struct fan_dev_data *fan_data)
 {
 	int i;
 
-	if (fan_data->is_tmargin) {
-		for (i = fan_data->active_steps - 1; i > 0; i--) {
-			if ((fan_data->fan_pwm[i] <= pwm) &&
-					(pwm < fan_data->fan_pwm[i - 1]))
-				return fan_data->fan_rrd[i - 1];
+	for (i = 0; i < fan_data->active_steps - 1 ; i++) {
+		if ((pwm >= fan_data->fan_pwm[i]) &&
+				(pwm < fan_data->fan_pwm[i + 1])) {
+			return fan_data->fan_rrd[i];
 		}
-		return fan_data->fan_rrd[0];
-	} else {
-		for (i = 0; i < fan_data->active_steps - 1 ; i++) {
-			if ((fan_data->fan_pwm[i] <= pwm) &&
-					(pwm < fan_data->fan_pwm[i + 1]))
-				return fan_data->fan_rrd[i];
-		}
-		return fan_data->fan_rrd[fan_data->active_steps - 1];
 	}
+	return fan_data->fan_rrd[fan_data->active_steps - 1];
 }
 
 static void set_pwm_duty_cycle(int pwm, struct fan_dev_data *fan_data)
@@ -630,190 +494,20 @@ static int get_next_lower_pwm(int pwm, struct fan_dev_data *fan_data)
 	return fan_data->fan_pwm[0];
 }
 
-/*
- * @brief Validate the fan rpm with the expected target rpm.
- *
- * The fan rpm read from tach device is expected to be equal to target rpm
- * provided in DT. This validation check is expected to pass for 16 times for
- * the work thread to complete execution.
- * In case the difference between the read rpm and target rpm is more/less than
- * the given threshold value, the fan_rru/fan_rrd data should be added or
- * subtracted respectively from the current pwm value. In this case, the counter
- * restarts from 0 to 16.
- */
-static void fan_ramping_rpm_work_func(struct work_struct *work)
-{
-	int err, ret;
-	int running_rpm = 0;
-	int rrd, rru;
-	int time_off;
-
-	struct delayed_work *dwork = container_of(work, struct delayed_work,
-			work);
-	struct fan_dev_data *fan_data = container_of(dwork,
-			struct fan_dev_data,
-			fan_ramp_rpm_work);
-
-	time_off = fan_data->rpm_invalid_retry_delay;
-	if (!wait_for_completion_timeout(&fan_data->pwm_set,
-					 msecs_to_jiffies(10000))) {
-		dev_info(fan_data->dev, "pwm_set completion timedout\n");
-		return;
-	}
-
-	if (!mutex_trylock(&fan_data->fan_state_lock)) {
-		queue_delayed_work(fan_data->workqueue,
-			&fan_data->fan_ramp_rpm_work,
-			msecs_to_jiffies(fan_data->step_time + time_off));
-		return;
-	}
-
-	if (!fan_data->fan_temp_control_flag)
-		goto unlock_mutex;
-
-	ret = pwm_tach_capture_rpm(fan_data->pwm_tach_dev);
-	if (ret < 0) {
-		dev_dbg(fan_data->dev, "Failed to get rpm\n");
-		goto unlock_mutex;
-	} else {
-		running_rpm = ret;
-	}
-
-	if (abs(running_rpm - fan_data->next_target_rpm) <
-		fan_data->rpm_diff_tolerance) {
-		fan_data->fan_rpm_target_hit_count++;
-
-		if (fan_data->fan_rpm_target_hit_count <
-			fan_data->rpm_valid_retry_count) {
-			time_off = fan_data->rpm_valid_retry_delay;
-			goto reschedule;
-		}
-
-		dev_dbg(fan_data->dev, "Fan rpm in limits\n");
-		dev_dbg(fan_data->dev,
-			"cur_rpm - %d, target_rpm - %d, cur_pwm - %d\n",
-			running_rpm, fan_data->next_target_rpm,
-			fan_data->fan_cur_pwm);
-		fan_data->fan_rpm_in_limits = true;
-		fan_data->fan_rpm_target_hit_count = 0;
-		goto unlock_mutex;
-	}
-
-	dev_dbg(fan_data->dev, "Rpm diff crossed threshold\n");
-	dev_dbg(fan_data->dev, "cur_rpm - %d, target_rpm - %d, cur_pwm - %d\n",
-		running_rpm, fan_data->next_target_rpm, fan_data->fan_cur_pwm);
-	fan_data->fan_rpm_target_hit_count = 0;
-
-	if (fan_data->next_target_rpm == 0) {
-		if (fan_data->is_fan_reg_enabled) {
-			fan_data->fan_cur_pwm = 0;
-			err = regulator_disable(fan_data->fan_reg);
-			if (err < 0)
-				dev_err(fan_data->dev,
-						" Coudn't disable vdd-fan\n");
-			else {
-				dev_info(fan_data->dev,
-						" Disabled vdd-fan\n");
-				fan_data->is_fan_reg_enabled = false;
-				fan_data->fan_rpm_ramp_index = 0;
-			}
-		}
-		fan_data->fan_rpm_in_limits = true;
-		goto unlock_mutex;
-	}
-
-	if (!fan_data->is_fan_reg_enabled) {
-		err = regulator_enable(fan_data->fan_reg);
-		if (err < 0) {
-			dev_err(fan_data->dev,
-					" Coudn't enable vdd-fan\n");
-			goto unlock_mutex;
-		}
-		dev_info(fan_data->dev, " Enabled vdd-fan\n");
-		fan_data->is_fan_reg_enabled = true;
-		fan_data->fan_cur_pwm = fan_data->fan_rru[0];
-		fan_data->fan_rpm_ramp_index = 1;
-	}
-
-	if (running_rpm > fan_data->next_target_rpm) {
-		rrd = fan_get_rpm_rrd(running_rpm, fan_data);
-		if (rrd == 0) {
-			dev_dbg(fan_data->dev, " fan rrd value is 0\n");
-			goto unlock_mutex;
-		}
-		dev_dbg(fan_data->dev,
-			"Subtracting rrd - %d from current pwm - %d\n",
-				rrd, fan_data->fan_cur_pwm);
-		fan_data->fan_cur_pwm -= rrd;
-
-		fan_data->fan_cur_pwm = max(0, fan_data->fan_cur_pwm);
-		/* No point in subtracting feedback offset if pwm is min */
-		if (fan_data->fan_cur_pwm == 0) {
-			dev_dbg(fan_data->dev, "pwm at lower limit 0\n");
-			goto unlock_mutex;
-		}
-	} else {
-		rru = fan_get_rpm_rru(running_rpm, fan_data);
-		if (rru == 0) {
-			dev_dbg(fan_data->dev, " fan rru value is 0\n");
-			goto unlock_mutex;
-		}
-		dev_dbg(fan_data->dev, "Adding rru - %d to current pwm - %d\n",
-				rru, fan_data->fan_cur_pwm);
-		fan_data->fan_cur_pwm += rru;
-		fan_data->fan_cur_pwm = min(fan_data->fan_pwm_max,
-				fan_data->fan_cur_pwm);
-		/* No point in adding feedback offset if pwm is max */
-		if (fan_data->fan_cur_pwm == fan_data->fan_pwm_max) {
-			dev_dbg(fan_data->dev, "pwm at upper limit %d\n",
-				fan_data->fan_pwm_max);
-			goto unlock_mutex;
-		}
-	}
-
-	set_pwm_duty_cycle(fan_data->fan_cur_pwm, fan_data);
-
-	time_off = fan_data->rpm_invalid_retry_delay;
-reschedule:
-	queue_delayed_work(fan_data->workqueue,
-			&fan_data->fan_ramp_rpm_work,
-			msecs_to_jiffies(fan_data->step_time + time_off));
-unlock_mutex:
-	mutex_unlock(&fan_data->fan_state_lock);
-}
-
-static void fan_ramping_pwm_work_func(struct work_struct *work)
+static void fan_ramping_work_func(struct work_struct *work)
 {
 	int rru, rrd, err;
 	int cur_pwm, next_pwm;
-	int time_off;
 	struct delayed_work *dwork = container_of(work, struct delayed_work,
 									work);
 	struct fan_dev_data *fan_data = container_of(dwork, struct
-						fan_dev_data,
-						fan_ramp_pwm_work);
+						fan_dev_data, fan_ramp_work);
 
-	time_off = fan_data->rpm_invalid_retry_delay;
-	if (!mutex_trylock(&fan_data->fan_state_lock)) {
-		if (fan_data->pwm_tach_dev)
-			cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
-
-		queue_delayed_work(fan_data->workqueue,
-				&(fan_data->fan_ramp_pwm_work),
-				msecs_to_jiffies(fan_data->step_time));
-
-		if (fan_data->pwm_tach_dev)
-			queue_delayed_work(fan_data->workqueue,
-			&fan_data->fan_ramp_rpm_work,
-			msecs_to_jiffies(fan_data->step_time + time_off));
-		return;
-	}
-
-	reinit_completion(&fan_data->pwm_set);
+	mutex_lock(&fan_data->fan_state_lock);
 
 	cur_pwm = fan_data->fan_cur_pwm;
-	rru = fan_get_pwm_rru(cur_pwm, fan_data);
-	rrd = fan_get_pwm_rrd(cur_pwm, fan_data);
+	rru = fan_get_rru(cur_pwm, fan_data);
+	rrd = fan_get_rrd(cur_pwm, fan_data);
 	next_pwm = cur_pwm;
 
 	if (fan_data->next_target_pwm > fan_data->fan_cur_pwm) {
@@ -856,22 +550,10 @@ static void fan_ramping_pwm_work_func(struct work_struct *work)
 
 	set_pwm_duty_cycle(next_pwm, fan_data);
 	fan_data->fan_cur_pwm = next_pwm;
-	if (fan_data->next_target_pwm != next_pwm) {
-		if (fan_data->pwm_tach_dev)
-			cancel_delayed_work_sync(&fan_data->fan_ramp_rpm_work);
-
+	if (fan_data->next_target_pwm != next_pwm)
 		queue_delayed_work(fan_data->workqueue,
-				&(fan_data->fan_ramp_pwm_work),
+				&(fan_data->fan_ramp_work),
 				msecs_to_jiffies(fan_data->step_time));
-
-		if (fan_data->pwm_tach_dev)
-			queue_delayed_work(fan_data->workqueue,
-			&fan_data->fan_ramp_rpm_work,
-			msecs_to_jiffies(fan_data->step_time + time_off));
-	}
-	else
-		complete(&fan_data->pwm_set);
-
 	mutex_unlock(&fan_data->fan_state_lock);
 }
 
@@ -954,21 +636,27 @@ static ssize_t fan_available_profiles_show(struct device *dev,
 {
 	struct fan_dev_data *fan_data = dev_get_drvdata(dev);
 	int i;
-	ssize_t count = 0;
+	ssize_t count = 0, total_count = 0;
 
 	if (!fan_data)
 		return -EINVAL;
 	if (fan_data->num_profiles > 0) {
 		for (i = 0; i < fan_data->num_profiles; ++i) {
-			count += sprintf(&buf[count], "%s ",
+			count = sprintf(&buf[total_count], "%s ",
 				fan_data->fan_profile_names[i]);
+			if (count < 0)
+				return -EINVAL;
+			total_count += count;
 		}
 
 		/* Truncate the trailing space */
-		if (count)
-			count--;
+		if (total_count)
+			total_count--;
 
-		count += sprintf(&buf[count], "\n");
+		count = sprintf(&buf[total_count], "\n");
+		if (count < 0)
+			return -EINVAL;
+		total_count += count;
 	} else {
 		count = sprintf(buf, "N/A\n");
 	}
@@ -1235,9 +923,6 @@ static DEVICE_ATTR(kickstart_params, S_IWUSR | S_IRUGO,
 static DEVICE_ATTR(fan_kickstart, S_IWUSR | S_IRUGO,
 			fan_kickstart_show,
 			fan_kickstart_store);
-static DEVICE_ATTR(fan_rpm_in_limit, S_IRUGO,
-			fan_rpm_in_limit_show,
-			NULL);
 
 static struct attribute *pwm_fan_attrs[] = {
 	&dev_attr_fan_profile.attr,
@@ -1254,7 +939,6 @@ static struct attribute *pwm_fan_attrs[] = {
 	&dev_attr_pwm_rpm_table.attr,
 	&dev_attr_kickstart_params.attr,
 	&dev_attr_fan_kickstart.attr,
-	&dev_attr_fan_rpm_in_limit.attr,
 	NULL
 };
 
@@ -1361,8 +1045,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 		devm_kfree(&pdev->dev, (void *)fan_data);
 		return -ENODEV;
 	}
-
-	fan_data->is_tmargin = of_property_read_bool(node, "use_tmargin");
 
 	of_err |= of_property_read_string(node, "name", &fan_data->name);
 	pr_info("FAN dev name: %s\n", fan_data->name);
@@ -1559,9 +1241,6 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&fan_data->fan_state_lock);
-	init_completion(&fan_data->pwm_set);
-	spin_lock_init(&fan_data->irq_lock);
-
 	fan_data->workqueue = alloc_workqueue(dev_name(&pdev->dev),
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 	if (!fan_data->workqueue) {
@@ -1577,7 +1256,7 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	fan_data->fan_cap_pwm = fan_data->fan_pwm[fan_data->fan_state_cap];
 
 	fan_data->precision_multiplier =
-			(fan_data->pwm_period * MULTIQP) / fan_data->fan_pwm_max;
+		(fan_data->pwm_period * MULTIQP) / fan_data->fan_pwm_max;
 	dev_info(&pdev->dev, "cap state:%d, cap pwm:%d\n",
 			fan_data->fan_state_cap, fan_data->fan_cap_pwm);
 
@@ -1600,71 +1279,10 @@ static int pwm_fan_probe(struct platform_device *pdev)
 	}
 	fan_data->fan_kickstart = false;
 
-	fan_data->continuous_gov = of_property_read_bool(node, "continuous_gov_boot_on");
-	fan_data->is_always_on = of_property_read_bool(node, "is_always_on");
+	fan_data->continuous_gov = of_property_read_bool
+					(node, "continuous_gov_boot_on");
 
-	INIT_DELAYED_WORK(&(fan_data->fan_ramp_pwm_work),
-			fan_ramping_pwm_work_func);
-
-	fan_data->pwm_tach_dev = NULL;
-	fan_data->use_tach_feedback = of_property_read_bool(node,
-					"use_tach_feedback");
-	if (fan_data->use_tach_feedback) {
-		of_err = of_property_read_u32(node, "rpm_ramp_time_ms", &value);
-		if (of_err) {
-			dev_err(&pdev->dev, "Failed to get fan ramp time");
-			err = -EINVAL;
-			goto tach_feedback_fail;
-		} else {
-			fan_data->fan_ramp_time_ms = value;
-		}
-
-		of_err = of_property_read_u32(node, "rpm_diff_tolerance",
-						&value);
-		if (!of_err) {
-			fan_data->rpm_diff_tolerance = (int)value;
-			dev_info(&pdev->dev,
-				"Using tachometer rpm feedback control");
-			INIT_DELAYED_WORK(
-				&(fan_data->fan_ramp_rpm_work),
-				fan_ramping_rpm_work_func);
-		} else {
-			dev_err(&pdev->dev,
-				"Failed to get rpm difference tolerance value");
-			err = -EINVAL;
-			goto tach_feedback_fail;
-		}
-		of_err |= of_property_read_u32(node, "rpm_valid_retry_delay",
-						&value);
-		if (!of_err) {
-			fan_data->rpm_valid_retry_delay = value;
-		} else {
-			dev_err(&pdev->dev,
-				"Failed to get rpm valid retry delay");
-			goto tach_feedback_fail;
-		}
-
-		of_err |= of_property_read_u32(node, "rpm_invalid_retry_delay",
-						&value);
-		if (!of_err) {
-			fan_data->rpm_invalid_retry_delay = value;
-		} else {
-			dev_err(&pdev->dev,
-				"Failed to get rpm invalid retry delay");
-			goto tach_feedback_fail;
-		}
-
-		of_err = of_property_read_u32(node, "rpm_valid_retry_count",
-						&value);
-		if (!of_err) {
-			fan_data->rpm_valid_retry_count = value;
-		} else {
-			dev_err(&pdev->dev,
-				"Failed to get rpm valid retry count");
-			goto tach_feedback_fail;
-		}
-	}
-
+	INIT_DELAYED_WORK(&(fan_data->fan_ramp_work), fan_ramping_work_func);
 	INIT_DELAYED_WORK(&(fan_data->fan_hyst_work), fan_hyst_work_func);
 
 	type = of_get_property(node, "cdev-type", NULL);
@@ -1700,6 +1318,7 @@ static int pwm_fan_probe(struct platform_device *pdev)
 			fan_data->fan_pwm_polarity ? "inversed" : "normal");
 	}
 
+	spin_lock_init(&fan_data->irq_lock);
 	atomic_set(&fan_data->tach_enabled, 0);
 	if (fan_data->tach_gpio != -1) {
 		/* init fan tach */
@@ -1808,7 +1427,6 @@ pwm_req_fail:
 cdev_register_fail:
 	destroy_workqueue(fan_data->workqueue);
 workqueue_alloc_fail:
-tach_feedback_fail:
 profile_alloc_fail:
 pwm_alloc_fail:
 lookup_alloc_fail:
@@ -1842,9 +1460,7 @@ static int pwm_fan_remove(struct platform_device *pdev)
 		cancel_delayed_work_sync(&fan_data->fan_hyst_work);
 		fan_data->fan_kickstart = false;
 	}
-	cancel_delayed_work(&fan_data->fan_ramp_pwm_work);
-	if (fan_data->pwm_tach_dev)
-		cancel_delayed_work(&fan_data->fan_ramp_rpm_work);
+	cancel_delayed_work(&fan_data->fan_ramp_work);
 	destroy_workqueue(fan_data->workqueue);
 	pwm_config(fan_data->pwm_dev, 0, fan_data->pwm_period);
 	pwm_disable(fan_data->pwm_dev);
@@ -1867,10 +1483,7 @@ static int pwm_fan_suspend(struct platform_device *pdev, pm_message_t state)
 		cancel_delayed_work(&fan_data->fan_hyst_work);
 		fan_data->fan_kickstart = false;
 	}
-
-	cancel_delayed_work(&fan_data->fan_ramp_pwm_work);
-	if (fan_data->pwm_tach_dev)
-		cancel_delayed_work(&fan_data->fan_ramp_rpm_work);
+	cancel_delayed_work(&fan_data->fan_ramp_work);
 
 	set_pwm_duty_cycle(0, fan_data);
 	pwm_disable(fan_data->pwm_dev);
@@ -1903,19 +1516,15 @@ static int pwm_fan_resume(struct platform_device *pdev)
 {
 	struct fan_dev_data *fan_data = platform_get_drvdata(pdev);
 
+	mutex_lock(&fan_data->fan_state_lock);
+
 	gpio_free(fan_data->pwm_gpio);
 
-	reinit_completion(&fan_data->pwm_set);
-
 	queue_delayed_work(fan_data->workqueue,
-				&fan_data->fan_ramp_pwm_work,
-				msecs_to_jiffies(fan_data->step_time));
-	if (fan_data->pwm_tach_dev)
-		queue_delayed_work(fan_data->workqueue,
-				&fan_data->fan_ramp_rpm_work,
-				msecs_to_jiffies(fan_data->step_time));
-
+			&fan_data->fan_ramp_work,
+			msecs_to_jiffies(fan_data->step_time));
 	fan_data->fan_temp_control_flag = 1;
+	mutex_unlock(&fan_data->fan_state_lock);
 	return 0;
 }
 #endif

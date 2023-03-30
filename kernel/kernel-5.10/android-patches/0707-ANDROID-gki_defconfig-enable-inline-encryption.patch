@@ -1,0 +1,74 @@
+From b2b7f0a122831f786afb106e7a131d9f035602e2 Mon Sep 17 00:00:00 2001
+From: Satya Tangirala <satyat@google.com>
+Date: Tue, 15 Oct 2019 23:59:55 -0700
+Subject: [PATCH 707/830] ANDROID: gki_defconfig: enable inline encryption
+X-NVConfidentiality: public
+
+enable CONFIG_BLK_INLINE_ENCRYPTION and
+CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+
+Bug: 137270441
+Test: Test cuttlefish boots both with and without inlinecrypt mount
+      option specified in fstab, while using both F2FS and EXT4 for
+      userdata.img. Also tested by running gce-xfstests on both the
+      auto and encrypt test groups on EXT4 and F2FS both with and
+      without the inlinecrypt mount option. The UFS changes were
+      tested on a Pixel 4 device.
+Change-Id: Ie1b77f7615d6a7a60fdc9105c7ab2200d17636a8
+Signed-off-by: Satya Tangirala <satyat@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 3 +++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 40ba7faf68be..cae061cde7be 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -83,6 +83,7 @@ CONFIG_KPROBES=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
++CONFIG_BLK_INLINE_ENCRYPTION=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=y
+@@ -228,6 +229,7 @@ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_SCSI_UFSHCD=y
+ CONFIG_SCSI_UFSHCD_PLATFORM=y
++CONFIG_SCSI_UFS_CRYPTO=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_DM=y
+ CONFIG_DM_CRYPT=y
+@@ -401,6 +403,7 @@ CONFIG_EXT4_FS_SECURITY=y
+ CONFIG_F2FS_FS=y
+ CONFIG_F2FS_FS_SECURITY=y
+ CONFIG_FS_ENCRYPTION=y
++CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y
+ CONFIG_FS_VERITY=y
+ CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y
+ # CONFIG_DNOTIFY is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b13fce1f66a0..bbb273cb13ef 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -61,6 +61,7 @@ CONFIG_KPROBES=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
++CONFIG_BLK_INLINE_ENCRYPTION=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=y
+@@ -345,6 +346,7 @@ CONFIG_EXT4_FS_SECURITY=y
+ CONFIG_F2FS_FS=y
+ CONFIG_F2FS_FS_SECURITY=y
+ CONFIG_FS_ENCRYPTION=y
++CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y
+ CONFIG_FS_VERITY=y
+ CONFIG_FS_VERITY_BUILTIN_SIGNATURES=y
+ # CONFIG_DNOTIFY is not set
+-- 
+2.17.1
+

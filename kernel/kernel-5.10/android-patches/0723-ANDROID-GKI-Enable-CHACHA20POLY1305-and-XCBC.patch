@@ -1,0 +1,47 @@
+From fc57dc97b150e3a637280079bca0532ba957a650 Mon Sep 17 00:00:00 2001
+From: evitayan <evitayan@google.com>
+Date: Mon, 20 Jul 2020 10:40:39 -0700
+Subject: [PATCH 723/830] ANDROID: GKI: Enable CHACHA20POLY1305 and XCBC
+X-NVConfidentiality: public
+
+To be able to use ChaCha20Poly1305 and AES-XCBC in IPsec
+
+Bug: 161717358
+Signed-off-by: Yan Yan <evitayan@google.com>
+Change-Id: Ifeeb3d1f3458d46491ba6cd363656bf4737b5cd3
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 64b19c4e7a57..349206f231cb 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -479,7 +479,9 @@ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
++CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
++CONFIG_CRYPTO_XCBC=y
+ CONFIG_CRYPTO_LZ4=y
+ CONFIG_CRYPTO_ZSTD=y
+ CONFIG_CRYPTO_ANSI_CPRNG=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 542726bc5b40..f95e8428ea81 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -426,7 +426,9 @@ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+ CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
++CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
++CONFIG_CRYPTO_XCBC=y
+ CONFIG_CRYPTO_SHA256_SSSE3=y
+ CONFIG_CRYPTO_AES_NI_INTEL=y
+ CONFIG_CRYPTO_LZ4=y
+-- 
+2.17.1
+

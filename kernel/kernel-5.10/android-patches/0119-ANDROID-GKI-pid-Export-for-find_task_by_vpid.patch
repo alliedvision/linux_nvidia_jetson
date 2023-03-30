@@ -1,0 +1,36 @@
+From 2a1afc00d0782b95990d7b451013963d7476f94f Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:43:52 +0530
+Subject: [PATCH 119/830] ANDROID: GKI: pid: Export for find_task_by_vpid
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for find_task_by_vpid() so that drivers
+    can be loadable as a module.
+
+    - This API is required by loadable driver module from samsung to
+    read process related information based on pid and thread id.
+    To get information on when a certain process or thread was started,
+    duration of run, Average load contributed by it.
+
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Bug: 158067689
+Change-Id: I0db9cc50c93eedff0f3e9dea0ac09a5d17d118f0
+---
+ kernel/pid.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/pid.c b/kernel/pid.c
+index 4856818c9de1..48babb1dd3e1 100644
+--- a/kernel/pid.c
++++ b/kernel/pid.c
+@@ -421,6 +421,7 @@ struct task_struct *find_task_by_vpid(pid_t vnr)
+ {
+ 	return find_task_by_pid_ns(vnr, task_active_pid_ns(current));
+ }
++EXPORT_SYMBOL_GPL(find_task_by_vpid);
+ 
+ struct task_struct *find_get_task_by_vpid(pid_t nr)
+ {
+-- 
+2.17.1
+

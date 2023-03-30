@@ -30,7 +30,11 @@ struct nvgpu_cond {
  *
  * @c - The condition variable to sleep on
  * @condition - The condition that needs to be true
- * @timeout_ms - Timeout in milliseconds, or 0 for infinite wait
+ * @timeout_ms - Timeout in milliseconds, or 0 for infinite wait.
+ *               This parameter must be a u32. Since this is a macro, this is
+ *               enforced by assigning a typecast NULL pointer to a u32 tmp
+ *               variable which will generate a compiler warning (or error if
+ *               the warning is configured as an error).
  *
  * Wait for a condition to become true. Returns -ETIMEOUT if
  * the wait timed out with condition false.
@@ -38,10 +42,12 @@ struct nvgpu_cond {
 #define NVGPU_COND_WAIT(c, condition, timeout_ms) \
 ({\
 	int ret = 0; \
-	long _timeout_ms = timeout_ms;\
-	if (_timeout_ms > 0) { \
+	/* This is the assignment to enforce a u32 for timeout_ms */ \
+	u32 *tmp = (typeof(timeout_ms) *)NULL; \
+	(void)tmp; \
+	if (timeout_ms > 0U) { \
 		long _ret = wait_event_timeout((c)->wq, condition, \
-						 msecs_to_jiffies(_timeout_ms)); \
+						msecs_to_jiffies(timeout_ms)); \
 		if (_ret == 0) \
 			ret = -ETIMEDOUT; \
 	} else { \
@@ -55,7 +61,11 @@ struct nvgpu_cond {
  *
  * @c - The condition variable to sleep on
  * @condition - The condition that needs to be true
- * @timeout_ms - Timeout in milliseconds, or 0 for infinite wait
+ * @timeout_ms - Timeout in milliseconds, or 0 for infinite wait.
+ *               This parameter must be a u32. Since this is a macro, this is
+ *               enforced by assigning a typecast NULL pointer to a u32 tmp
+ *               variable which will generate a compiler warning (or error if
+ *               the warning is configured as an error).
  *
  * Wait for a condition to become true. Returns -ETIMEOUT if
  * the wait timed out with condition false or -ERESTARTSYS on
@@ -64,10 +74,12 @@ struct nvgpu_cond {
 #define NVGPU_COND_WAIT_INTERRUPTIBLE(c, condition, timeout_ms) \
 ({ \
 	int ret = 0; \
-	long _timeout_ms = timeout_ms;\
-	if (_timeout_ms > 0) { \
-		long _ret = wait_event_interruptible_timeout((c)->wq, condition, \
-						 msecs_to_jiffies(_timeout_ms)); \
+	/* This is the assignment to enforce a u32 for timeout_ms */ \
+	u32 *tmp = (typeof(timeout_ms) *)NULL; \
+	(void)tmp; \
+	if (timeout_ms > 0U) { \
+		long _ret = wait_event_interruptible_timeout((c)->wq, \
+				condition, msecs_to_jiffies(timeout_ms)); \
 		if (_ret == 0) \
 			ret = -ETIMEDOUT; \
 		else if (_ret == -ERESTARTSYS) \

@@ -47,9 +47,7 @@
 
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
 #include <linux/pm_runtime.h>
-#endif
 
 #include <linux/firmware.h>
 #include <linux/suspend.h>
@@ -395,13 +393,6 @@ int __rtk_recv_hci_evt(struct usb_device *udev, u8 *buf, u8 len, u16 opcode)
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
-static inline struct inode *file_inode(const struct file *f)
-{
-	return f->f_path.dentry->d_inode;
-}
-#endif
-
 static int config_lists_init(void)
 {
 	INIT_LIST_HEAD(&list_configs);
@@ -500,6 +491,8 @@ static void config_file_proc(const char *path)
 	int rc;
 	struct file *file;
 	u8 tbuf[256];
+	struct dentry *dir;
+	struct inode *dr_inode;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	loff_t pos = 0;
 #endif
@@ -508,9 +501,12 @@ static void config_file_proc(const char *path)
 	if (IS_ERR(file))
 		return;
 
-	if (!S_ISREG(file_inode(file)->i_mode))
+	dir = file->f_path.dentry;
+	dr_inode = d_inode(dir);
+
+	if (!S_ISREG(dr_inode->i_mode))
 		return;
-	size = i_size_read(file_inode(file));
+	size = i_size_read(dr_inode);
 	if (size <= 0)
 		return;
 
@@ -1258,6 +1254,8 @@ static int request_bdaddr(u8 *buf)
 	u8 tbuf[BDADDR_STRING_LEN + 1];
 	char *str;
 	int i;
+	struct dentry *dir;
+	struct inode *dr_inode;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	loff_t pos = 0;
 #endif
@@ -1269,9 +1267,12 @@ static int request_bdaddr(u8 *buf)
 	if (IS_ERR(file))
 		return -ENOENT;
 
-	if (!S_ISREG(file_inode(file)->i_mode))
+	dir = file->f_path.dentry;
+	dr_inode = d_inode(dir);
+
+	if (!S_ISREG(dr_inode->i_mode))
 		return -EINVAL;
-	size = i_size_read(file_inode(file));
+	size = i_size_read(dr_inode);
 	if (size <= 0)
 		return -EINVAL;
 

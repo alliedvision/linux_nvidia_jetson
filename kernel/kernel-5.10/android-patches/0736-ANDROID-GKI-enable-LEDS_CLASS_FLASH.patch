@@ -1,0 +1,44 @@
+From a3571c3600b9a80b1603d67e51dac93017c54b19 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Tue, 11 Aug 2020 17:18:08 -0700
+Subject: [PATCH 736/830] ANDROID: GKI: enable LEDS_CLASS_FLASH
+X-NVConfidentiality: public
+
+Set CONFIG_LEDS_CLASS_FLASH=y to enable the
+flash LED sysfs class in /sys/class/leds
+
+Bug: 163582665
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I19fa50c328ed0ddda7a11a0ab49f878544ac9b46
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 5442318360cc..48608ca2c25a 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -367,6 +367,7 @@ CONFIG_MMC_SDHCI=y
+ CONFIG_MMC_SDHCI_PLTFM=y
+ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
++CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_RTC_DRV_PL030=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a6a6690bd98e..239d5864412e 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -326,6 +326,7 @@ CONFIG_MMC_SDHCI=y
+ CONFIG_MMC_SDHCI_PLTFM=y
+ CONFIG_NEW_LEDS=y
+ CONFIG_LEDS_CLASS=y
++CONFIG_LEDS_CLASS_FLASH=y
+ CONFIG_LEDS_TRIGGERS=y
+ CONFIG_RTC_CLASS=y
+ CONFIG_DMABUF_HEAPS=y
+-- 
+2.17.1
+

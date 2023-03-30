@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +18,9 @@
 #include <nvgpu/linux/os_fence_android.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
+#include <nvgpu/nvhost.h>
+
+#include "os_fence_priv.h"
 
 #include "../drivers/staging/android/sync.h"
 
@@ -25,22 +28,6 @@ inline struct sync_fence *nvgpu_get_sync_fence(struct nvgpu_os_fence *s)
 {
 	struct sync_fence *fence = (struct sync_fence *)s->priv;
 	return fence;
-}
-
-static void nvgpu_os_fence_clear(struct nvgpu_os_fence *fence_out)
-{
-	fence_out->priv = NULL;
-	fence_out->g = NULL;
-	fence_out->ops = NULL;
-}
-
-void nvgpu_os_fence_init(struct nvgpu_os_fence *fence_out,
-	struct gk20a *g, const struct nvgpu_os_fence_ops *fops,
-	struct sync_fence *fence)
-{
-	fence_out->g = g;
-	fence_out->ops = fops;
-	fence_out->priv = (void *)fence;
 }
 
 void nvgpu_os_fence_android_drop_ref(struct nvgpu_os_fence *s)
@@ -52,21 +39,32 @@ void nvgpu_os_fence_android_drop_ref(struct nvgpu_os_fence *s)
 	nvgpu_os_fence_clear(s);
 }
 
-void nvgpu_os_fence_android_install_fd(struct nvgpu_os_fence *s, int fd)
+int nvgpu_os_fence_android_install_fd(struct nvgpu_os_fence *s, int fd)
 {
 	struct sync_fence *fence = nvgpu_get_sync_fence(s);
 
 	sync_fence_get(fence);
 	sync_fence_install(fence, fd);
+
+	return 0;
+}
+
+void nvgpu_os_fence_android_dup(struct nvgpu_os_fence *s)
+{
+	struct sync_fence *fence = nvgpu_get_sync_fence(s);
+
+	sync_fence_get(fence);
 }
 
 int nvgpu_os_fence_fdget(struct nvgpu_os_fence *fence_out,
-	struct channel_gk20a *c, int fd)
+	struct nvgpu_channel *c, int fd)
 {
 	int err = -ENOSYS;
 
 #ifdef CONFIG_TEGRA_GK20A_NVHOST
-	err = nvgpu_os_fence_syncpt_fdget(fence_out, c, fd);
+	if (nvgpu_has_syncpoints(c->g)) {
+		err = nvgpu_os_fence_syncpt_fdget(fence_out, c, fd);
+	}
 #endif
 
 	if (err)

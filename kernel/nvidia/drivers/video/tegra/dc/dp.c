@@ -1,7 +1,7 @@
 /*
  * dp.c: tegra dp driver.
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,7 +22,11 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/clk/tegra.h>
 #include <linux/moduleparam.h>
 #include <linux/of.h>
@@ -232,6 +236,8 @@ static const struct i2c_algorithm tegra_dp_i2c_algo = {
 
 int tegra_dp_aux_register_i2c_bus(struct tegra_dc_dp_data *dp)
 {
+#define DPAUX_I2C_ADAPTER_BASE 100
+
 	dp->ddc.algo = &tegra_dp_i2c_algo;
 	dp->ddc.algo_data = dp->dc;
 	dp->ddc.retries = 3;
@@ -239,12 +245,19 @@ int tegra_dp_aux_register_i2c_bus(struct tegra_dc_dp_data *dp)
 	dp->ddc.owner = THIS_MODULE;
 	dp->ddc.dev.parent = &dp->dc->ndev->dev;
 	dp->ddc.dev.of_node = dp->dc->ndev->dev.of_node;
-	dp->ddc.nr = dp->dc->ctrl_num + 100;
+	/*
+	 *  I2C transactions for DP are sent over the AUX channel.
+	 *  As such, we don't need to use a predefined I2C bus number here,
+	 *  and can just assign an arbitrary adapter number
+	 *  to avoid any collisions with existing I2C controllers
+	 */
+	dp->ddc.nr = dp->dc->ctrl_num + DPAUX_I2C_ADAPTER_BASE;
 
 	strncpy(dp->ddc.name, dev_name(&dp->dc->ndev->dev),
-		    sizeof(dp->ddc.name));
+		    sizeof(dp->ddc.name) - 1);
 
 	return i2c_add_numbered_adapter(&dp->ddc);
+#undef DPAUX_I2C_ADAPTER_BASE
 }
 
 void tegra_dp_aux_unregister_i2c_bus(struct tegra_dc_dp_data *dp)
@@ -863,14 +876,10 @@ static struct dentry *tegra_dpaux_i2c_dir_create(struct tegra_dc_dp_data *dp,
 	dpaux_i2c_dir = debugfs_create_dir("dpaux_i2c", parent);
 	if (!dpaux_i2c_dir)
 		return retval;
-	retval = debugfs_create_u16("addr", 0644, dpaux_i2c_dir,
+	debugfs_create_u16("addr", 0644, dpaux_i2c_dir,
 			&dp->dpaux_i2c_dbg_addr);
-	if (!retval)
-		goto free_out;
-	retval = debugfs_create_u32("num_bytes", 0644,
+	debugfs_create_u32("num_bytes", 0644,
 			dpaux_i2c_dir, &dp->dpaux_i2c_dbg_num_bytes);
-	if (!retval)
-		goto free_out;
 	retval = debugfs_create_file("data", 0444, dpaux_i2c_dir, dp,
 			&dpaux_i2c_data_fops);
 	if (!retval)
@@ -891,14 +900,10 @@ static struct dentry *tegra_dpaux_dpcd_dir_create(struct tegra_dc_dp_data *dp,
 	dpaux_dir = debugfs_create_dir("dpaux_dpcd", parent);
 	if (!dpaux_dir)
 		return retval;
-	retval = debugfs_create_u16("addr", 0644, dpaux_dir,
+	debugfs_create_u16("addr", 0644, dpaux_dir,
 			&dp->dpaux_dpcd_dbg_addr);
-	if (!retval)
-		goto free_out;
-	retval = debugfs_create_u32("num_bytes", 0644,
+	debugfs_create_u32("num_bytes", 0644,
 			dpaux_dir, &dp->dpaux_dpcd_dbg_num_bytes);
-	if (!retval)
-		goto free_out;
 	retval = debugfs_create_file("data", 0444, dpaux_dir, dp,
 			&dpaux_dpcd_data_fops);
 	if (!retval)
@@ -1257,7 +1262,8 @@ int tegra_dc_dp_get_max_link_bw(struct tegra_dc_dp_data *dp)
 		/* DPCD caps are already read in hpd worker, use them if they
 		 * are valid. Also, use cached values for internal panels as
 		 * they don't change during runtime */
-		if (tegra_dc_dp_read_ext_dpcd_caps(dp, &cfg->ext_dpcd_caps)) {
+		if (tegra_dc_dp_read_ext_dpcd_caps(dp,
+					&cfg->ext_dpcd_caps) != 0) {
 			dev_err(&dp->dc->ndev->dev,
 			"dp: Failed to read ext DPCD caps\n");
 			return 0;
@@ -1759,7 +1765,6 @@ static inline struct tegra_dc_extcon_cable
 
 static void tegra_dp_wait_for_typec_connect(struct tegra_dc_dp_data *dp)
 {
-#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 	struct tegra_dc_extcon_cable *typec_ecable;
 	struct tegra_dc *dc;
 	union extcon_property_value lane_count = {0};
@@ -1806,8 +1811,18 @@ static void tegra_dp_wait_for_typec_connect(struct tegra_dc_dp_data *dp)
 		}
 	}
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	/*
+	 * HACK: EXTCON_PROP_DISP_DP_LANE is not yet defined in K5.9 because
+	 * USB-C CCG driver hasn't yet added support to report the number of
+	 * usable DP lanes on USB-C port through extcon. Hence, skipping
+	 * calling this function in K5.9. DP will default to 4 Lanes.
+	 */
 	ret = extcon_get_property(typec_ecable->edev, EXTCON_DISP_DP,
 				EXTCON_PROP_DISP_DP_LANE, &lane_count);
+#else
+	ret = -EINVAL;
+#endif
 	if (ret) {
 		dev_err(&dc->ndev->dev,
 			"dp: extcon get lane prop error - ret=%d\n", ret);
@@ -1821,7 +1836,6 @@ static void tegra_dp_wait_for_typec_connect(struct tegra_dc_dp_data *dp)
 	return;
 typec_lane_count_err:
 	dp->typec_lane_count = 4;
-#endif
 }
 
 static int tegra_dp_typec_ecable_notifier(struct notifier_block *nb,
@@ -1850,11 +1864,8 @@ static int tegra_dp_register_typec_ecable(struct tegra_dc_dp_data *dp)
 {
 	struct tegra_dc_extcon_cable *typec_ecable;
 	int ret;
-
-#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 	union extcon_property_value lane_count = {0};
 	int init_cable_state;
-#endif
 
 	if (!dp || !dp->dc) {
 		pr_err("%s: all arguments must be non-NULL!\n", __func__);
@@ -1886,7 +1897,6 @@ static int tegra_dp_register_typec_ecable(struct tegra_dc_dp_data *dp)
 		return ret;
 	}
 
-#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 	/*
 	 * Query the initial Type-C cable state here in case ucsi_ccg updated it
 	 * before we were able to register the extcon notifier.
@@ -1899,8 +1909,18 @@ static int tegra_dp_register_typec_ecable(struct tegra_dc_dp_data *dp)
 		dev_err(&dp->dc->ndev->dev,
 			"dp: failed to get initial cable state\n");
 	} else if (init_cable_state) { /* connected */
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+		/*
+		 * HACK: EXTCON_PROP_DISP_DP_LANE is not yet defined in K5.9
+		 * because USB-C CCG driver hasn't yet added support to report
+		 * the number of usable DP lanes on USB-C port through extcon.
+		 * Hence, skipping calling this function in K5.9.
+		 */
 		ret = extcon_get_property(typec_ecable->edev, EXTCON_DISP_DP,
 					EXTCON_PROP_DISP_DP_LANE, &lane_count);
+#else
+		ret = -EINVAL;
+#endif
 		if (ret) {
 			dev_err(&dp->dc->ndev->dev,
 				"dp: failed to get initial lane count\n");
@@ -1911,7 +1931,6 @@ static int tegra_dp_register_typec_ecable(struct tegra_dc_dp_data *dp)
 	}
 
 	mutex_unlock(&typec_ecable->lock);
-#endif
 
 	return 0;
 }
@@ -2129,21 +2148,21 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 	if (!irq) {
 		dev_err(&dc->ndev->dev, "%s: error getting irq\n", __func__);
 		err = -ENOENT;
-		goto err_audio_switch;
+		goto err_dpaux_init;
 	}
 
 	parent_clk = tegra_disp_of_clk_get_by_name(sor_np, "pll_dp");
 	if (IS_ERR_OR_NULL(parent_clk)) {
 		dev_err(&dc->ndev->dev, "dp: clock pll_dp unavailable\n");
 		err = -EFAULT;
-		goto err_audio_switch;
+		goto err_dpaux_init;
 	}
 	if (request_threaded_irq(irq, NULL, tegra_dp_irq,
 				IRQF_ONESHOT, "tegra_dp", dp)) {
 		dev_err(&dc->ndev->dev,
 			"dp: request_irq %u failed\n", irq);
 		err = -EBUSY;
-		goto err_audio_switch;
+		goto err_dpaux_init;
 	}
 
 	if (dc->out->type != TEGRA_DC_OUT_FAKE_DP)
@@ -2156,7 +2175,7 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 	err = tegra_dp_register_typec_ecable(dp);
 	if (err) {
 		dev_err(&dc->ndev->dev, "dp: typec ecable register failed\n");
-		goto err_audio_switch;
+		goto err_dpaux_init;
 	}
 
 	if (dp_instance) {
@@ -2195,7 +2214,7 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 		dp->sor = NULL;
 		dev_err(&dc->ndev->dev, "%s: error getting sor,%d\n",
 				__func__, err);
-		goto err_audio_switch;
+		goto err_dpaux_init;
 	}
 
 #ifdef CONFIG_DPHDCP
@@ -2297,6 +2316,11 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 
 	return 0;
 
+err_dpaux_init:
+	if (!IS_ERR_OR_NULL(dp->dpaux)) {
+		tegra_dpaux_destroy_data(dp->dpaux);
+		dp->dpaux = NULL;
+	}
 err_audio_switch:
 	devm_kfree(&dc->ndev->dev, dp->audio_switch_name);
 err_hpd_switch:
@@ -3175,7 +3199,7 @@ void tegra_dc_dp_disable_link(struct tegra_dc_dp_data *dp, bool powerdown)
 static long tegra_dc_dp_setup_clk(struct tegra_dc *dc, struct clk *clk)
 {
 	struct tegra_dc_dp_data *dp = tegra_dc_get_outdata(dc);
-	struct clk *dc_parent_clk;
+	struct clk *dc_parent_clk = NULL;
 	struct tegra_dc_sor_data *sor = NULL;
 
 	if (!tegra_platform_is_silicon())
@@ -3185,12 +3209,6 @@ static long tegra_dc_dp_setup_clk(struct tegra_dc *dc, struct clk *clk)
 		if (tegra_dc_is_nvdisplay()) {
 			dc_parent_clk = tegra_disp_clk_get(&dc->ndev->dev,
 					dc->out->parent_clk);
-			if (IS_ERR_OR_NULL(dc_parent_clk)) {
-				dev_err(&dc->ndev->dev,
-						"dp: failed to get clock %s\n",
-						dc->out->parent_clk);
-				return -EINVAL;
-			}
 		} else {
 			if (dc->out->type == TEGRA_DC_OUT_FAKE_DP)
 				dc_parent_clk = clk_get_sys(NULL,
@@ -3199,11 +3217,15 @@ static long tegra_dc_dp_setup_clk(struct tegra_dc *dc, struct clk *clk)
 				dc_parent_clk = clk_get_sys(NULL,
 						dc->out->parent_clk);
 		}
-		clk_set_parent(dc->clk, dc_parent_clk);
+		if (IS_ERR_OR_NULL(dc_parent_clk)) {
+			dev_err(&dc->ndev->dev, "dp: failed to get clock %s\n",
+				dc->out->parent_clk);
+			return -EINVAL;
+		}
 	}
 
 	/* set pll_d2 to pclk rate */
-	tegra_sor_setup_clk(dp->sor, clk, false);
+	tegra_sor_setup_clk(dp->sor, clk, dc_parent_clk, false);
 
 	if (tegra_dc_is_nvdisplay()) {
 		sor = dp->sor;
@@ -3265,7 +3287,7 @@ static bool tegra_dc_dp_detect(struct tegra_dc *dc)
 	if (tegra_fb_is_console_enabled(dc->pdata) &&
 		!tegra_dc_is_ext_panel(dc) &&
 		dc->out->type != TEGRA_DC_OUT_FAKE_DP) {
-		if (dp->hpd_data.mon_spec.modedb_len > 0) {
+		if (dp->hpd_data.mon_spec.modedb_len > 0U) {
 			tegra_fb_update_monspecs(dc->fb, &dp->hpd_data.mon_spec,
 					tegra_dc_dp_ops.mode_filter);
 			tegra_fb_update_fix(dc->fb, &dp->hpd_data.mon_spec);

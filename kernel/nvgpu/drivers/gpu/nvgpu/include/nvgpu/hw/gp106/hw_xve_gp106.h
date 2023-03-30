@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,155 +53,47 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_xve_gp106_h_
-#define _hw_xve_gp106_h_
+#ifndef NVGPU_HW_XVE_GP106_H
+#define NVGPU_HW_XVE_GP106_H
 
-static inline u32 xve_rom_ctrl_r(void)
-{
-	return 0x00000050U;
-}
-static inline u32 xve_rom_ctrl_rom_shadow_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 xve_rom_ctrl_rom_shadow_disabled_f(void)
-{
-	return 0x0U;
-}
-static inline u32 xve_rom_ctrl_rom_shadow_enabled_f(void)
-{
-	return 0x1U;
-}
-static inline u32 xve_link_control_status_r(void)
-{
-	return 0x00000088U;
-}
-static inline u32 xve_link_control_status_link_speed_m(void)
-{
-	return 0xfU << 16U;
-}
-static inline u32 xve_link_control_status_link_speed_v(u32 r)
-{
-	return (r >> 16U) & 0xfU;
-}
-static inline u32 xve_link_control_status_link_speed_link_speed_2p5_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 xve_link_control_status_link_speed_link_speed_5p0_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 xve_link_control_status_link_speed_link_speed_8p0_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 xve_link_control_status_link_width_m(void)
-{
-	return 0x3fU << 20U;
-}
-static inline u32 xve_link_control_status_link_width_v(u32 r)
-{
-	return (r >> 20U) & 0x3fU;
-}
-static inline u32 xve_link_control_status_link_width_x1_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 xve_link_control_status_link_width_x2_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 xve_link_control_status_link_width_x4_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 xve_link_control_status_link_width_x8_v(void)
-{
-	return 0x00000008U;
-}
-static inline u32 xve_link_control_status_link_width_x16_v(void)
-{
-	return 0x00000010U;
-}
-static inline u32 xve_priv_xv_r(void)
-{
-	return 0x00000150U;
-}
-static inline u32 xve_priv_xv_cya_l0s_enable_f(u32 v)
-{
-	return (v & 0x1U) << 7U;
-}
-static inline u32 xve_priv_xv_cya_l0s_enable_m(void)
-{
-	return 0x1U << 7U;
-}
-static inline u32 xve_priv_xv_cya_l0s_enable_v(u32 r)
-{
-	return (r >> 7U) & 0x1U;
-}
-static inline u32 xve_priv_xv_cya_l1_enable_f(u32 v)
-{
-	return (v & 0x1U) << 8U;
-}
-static inline u32 xve_priv_xv_cya_l1_enable_m(void)
-{
-	return 0x1U << 8U;
-}
-static inline u32 xve_priv_xv_cya_l1_enable_v(u32 r)
-{
-	return (r >> 8U) & 0x1U;
-}
-static inline u32 xve_cya_2_r(void)
-{
-	return 0x00000704U;
-}
-static inline u32 xve_reset_r(void)
-{
-	return 0x00000718U;
-}
-static inline u32 xve_reset_reset_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 xve_reset_gpu_on_sw_reset_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 xve_reset_counter_en_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 xve_reset_counter_val_f(u32 v)
-{
-	return (v & 0x7ffU) << 4U;
-}
-static inline u32 xve_reset_counter_val_m(void)
-{
-	return 0x7ffU << 4U;
-}
-static inline u32 xve_reset_counter_val_v(u32 r)
-{
-	return (r >> 4U) & 0x7ffU;
-}
-static inline u32 xve_reset_clock_on_sw_reset_m(void)
-{
-	return 0x1U << 15U;
-}
-static inline u32 xve_reset_clock_counter_en_m(void)
-{
-	return 0x1U << 16U;
-}
-static inline u32 xve_reset_clock_counter_val_f(u32 v)
-{
-	return (v & 0x7ffU) << 17U;
-}
-static inline u32 xve_reset_clock_counter_val_m(void)
-{
-	return 0x7ffU << 17U;
-}
-static inline u32 xve_reset_clock_counter_val_v(u32 r)
-{
-	return (r >> 17U) & 0x7ffU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define xve_rom_ctrl_r()                                           (0x00000050U)
+#define xve_rom_ctrl_rom_shadow_f(v)                     ((U32(v) & 0x1U) << 0U)
+#define xve_rom_ctrl_rom_shadow_disabled_f()                              (0x0U)
+#define xve_rom_ctrl_rom_shadow_enabled_f()                               (0x1U)
+#define xve_link_control_status_r()                                (0x00000088U)
+#define xve_link_control_status_link_speed_m()                (U32(0xfU) << 16U)
+#define xve_link_control_status_link_speed_v(r)            (((r) >> 16U) & 0xfU)
+#define xve_link_control_status_link_speed_link_speed_2p5_v()      (0x00000001U)
+#define xve_link_control_status_link_speed_link_speed_5p0_v()      (0x00000002U)
+#define xve_link_control_status_link_speed_link_speed_8p0_v()      (0x00000003U)
+#define xve_link_control_status_link_width_m()               (U32(0x3fU) << 20U)
+#define xve_link_control_status_link_width_v(r)           (((r) >> 20U) & 0x3fU)
+#define xve_link_control_status_link_width_x1_v()                  (0x00000001U)
+#define xve_link_control_status_link_width_x2_v()                  (0x00000002U)
+#define xve_link_control_status_link_width_x4_v()                  (0x00000004U)
+#define xve_link_control_status_link_width_x8_v()                  (0x00000008U)
+#define xve_link_control_status_link_width_x16_v()                 (0x00000010U)
+#define xve_priv_xv_r()                                            (0x00000150U)
+#define xve_priv_xv_cya_l0s_enable_f(v)                  ((U32(v) & 0x1U) << 7U)
+#define xve_priv_xv_cya_l0s_enable_m()                         (U32(0x1U) << 7U)
+#define xve_priv_xv_cya_l0s_enable_v(r)                     (((r) >> 7U) & 0x1U)
+#define xve_priv_xv_cya_l1_enable_f(v)                   ((U32(v) & 0x1U) << 8U)
+#define xve_priv_xv_cya_l1_enable_m()                          (U32(0x1U) << 8U)
+#define xve_priv_xv_cya_l1_enable_v(r)                      (((r) >> 8U) & 0x1U)
+#define xve_cya_2_r()                                              (0x00000704U)
+#define xve_reset_r()                                              (0x00000718U)
+#define xve_reset_reset_m()                                    (U32(0x1U) << 0U)
+#define xve_reset_gpu_on_sw_reset_m()                          (U32(0x1U) << 1U)
+#define xve_reset_counter_en_m()                               (U32(0x1U) << 2U)
+#define xve_reset_counter_val_f(v)                     ((U32(v) & 0x7ffU) << 4U)
+#define xve_reset_counter_val_m()                            (U32(0x7ffU) << 4U)
+#define xve_reset_counter_val_v(r)                        (((r) >> 4U) & 0x7ffU)
+#define xve_reset_clock_on_sw_reset_m()                       (U32(0x1U) << 15U)
+#define xve_reset_clock_counter_en_m()                        (U32(0x1U) << 16U)
+#define xve_reset_clock_counter_val_f(v)              ((U32(v) & 0x7ffU) << 17U)
+#define xve_reset_clock_counter_val_m()                     (U32(0x7ffU) << 17U)
+#define xve_reset_clock_counter_val_v(r)                 (((r) >> 17U) & 0x7ffU)
 #endif

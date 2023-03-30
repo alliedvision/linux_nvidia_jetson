@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2017 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2017 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -132,7 +132,7 @@ init_low_pwr_8822c(struct halmac_adapter *adapter)
 	value16 = BIT_SET_RXPSF_PKTLENTHR(value16, 1);
 	value16 |= BIT_RXPSF_CTRLEN | BIT_RXPSF_VHTCHKEN | BIT_RXPSF_HTCHKEN
 		| BIT_RXPSF_OFDMCHKEN | BIT_RXPSF_CCKCHKEN
-		| BIT_RXPSF_OFDMRST | BIT_RXPSF_CCKRST;
+		| BIT_RXPSF_OFDMRST;
 
 	HALMAC_REG_W16(REG_RXPSF_CTRL, value16);
 	HALMAC_REG_W32(REG_RXPSF_TYPE_CTRL, 0xFFFFFFFF);

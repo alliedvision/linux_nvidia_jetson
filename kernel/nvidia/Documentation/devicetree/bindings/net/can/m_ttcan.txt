@@ -2,7 +2,9 @@ Bosch MTTCAN controller Device Tree Bindings
 -------------------------------------------------
 
 Required properties:
-- compatible		: Should be "bosch,mttcan" for M_TTCAN controllers
+- compatible		: should be "nvidia,tegra<chipid>-mttcan"
+			  Possible values are "nvidia,tegra186-mttcan" and
+			  "nvidia,tegra194-mttcan"
 - reg			: physical base address and size of the M_TTCAN
 			  registers map, glue logic register maps and
 			  Message RAM
@@ -63,10 +65,13 @@ Required properties:
 			  The format should be as follow
 			  <rx_buf_payload, rx_fifo0_payload, rx_fif1_payload>
 
+Optional properties:
+- use-polling		: boolean to use polling instead of interrupts
+
 Example:
 SoC dtsi:
 mttcan0: mttcan@c310000 {
-	compatible = "bosch,mttcan";
+	compatible = "nvidia,tegra186-mttcan";
 	reg    = <0x00 0x0c310000 0x00 0x400>,
 		<0x00 0x0c311000 0x00 0x32>,
 		<0x00 0x0c312000 0x00 0x1000>;

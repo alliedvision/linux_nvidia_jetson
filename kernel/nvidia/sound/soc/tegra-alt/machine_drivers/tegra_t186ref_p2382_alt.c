@@ -1,7 +1,7 @@
 /*
  * tegra_t186ref_p2382_alt.c - Tegra t186ref p2382 Machine driver
  *
- * Copyright (c) 2015-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,11 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <sound/soc.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "tegra_asoc_utils_alt.h"
 #include "tegra_asoc_machine_alt.h"
@@ -218,8 +222,7 @@ static int tegra_t186ref_p2382_i2s_dai_init(struct snd_soc_pcm_runtime *rtd)
 
 	srate = dai_params->rate_min;
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-					DEFAULT_SAMPLE_RATE, 0, 0,
-					0, 0);
+					DEFAULT_SAMPLE_RATE, 0, 0);
 
 	err = tegra_machine_get_bclk_ratio_t18x(rtd, &bclk_ratio);
 	if (err < 0) {
@@ -275,7 +278,7 @@ static int tegra_t186ref_p2382_audio_dsp_tdm1_hw_params(
 	srate = dai_params->rate_min;
 
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-						srate, 0, 0, 0, 0);
+						srate, 0, 0);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;
@@ -308,7 +311,7 @@ static int tegra_t186ref_p2382_audio_dsp_tdm2_hw_params(
 	srate = dai_params->rate_min;
 
 	err = tegra_alt_asoc_utils_set_rate(&machine->audio_clock,
-						srate, 0, 0, 0, 0);
+						srate, 0, 0);
 	if (err < 0) {
 		dev_err(card->dev, "Can't configure clocks\n");
 		return err;
@@ -393,13 +396,7 @@ static int tegra_t186ref_p2382_suspend_pre(struct snd_soc_card *card)
 	struct snd_soc_pcm_runtime *rtd;
 
 	/* DAPM dai link stream work for non pcm links */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
-	unsigned int idx;
-	for (idx = 0; idx < card->num_rtd; idx++) {
-		rtd = &card->rtd[idx];
-#else
 	list_for_each_entry(rtd, &card->rtd_list, list) {
-#endif
 		if (rtd->dai_link->params)
 			INIT_DELAYED_WORK(&rtd->delayed_work, NULL);
 	}
@@ -570,8 +567,6 @@ static int tegra_t186ref_p2382_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	tegra_machine_dma_set_mask(pdev);
-
 	tegra_t186ref_p2382_codec_links = tegra_machine_new_codec_links(pdev,
 			tegra_t186ref_p2382_codec_links,
 			&machine->num_codec_links);
@@ -703,6 +698,9 @@ static int tegra_t186ref_p2382_driver_probe(struct platform_device *pdev)
 				1);
 	}
 	tegra_machine_dai_links = tegra_machine_get_dai_link_t18x();
+	if (!tegra_machine_dai_links)
+		goto err_alloc_dai_link;
+
 	card->dai_link = tegra_machine_dai_links;
 
 	/* append t186ref_p2382 specific codec_conf */

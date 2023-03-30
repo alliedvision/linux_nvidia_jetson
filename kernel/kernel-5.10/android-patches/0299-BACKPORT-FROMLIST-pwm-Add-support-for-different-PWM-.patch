@@ -1,0 +1,195 @@
+From d8105fc7acc297c1fcdaa9e966f7fb3f6e247fa1 Mon Sep 17 00:00:00 2001
+From: Fenglin Wu <fenglinw@codeaurora.org>
+Date: Mon, 4 Dec 2017 09:56:51 +0800
+Subject: [PATCH 299/830] BACKPORT: FROMLIST: pwm: Add support for different
+ PWM output types
+X-NVConfidentiality: public
+
+Normally, PWM channels have fixed output until software requests to
+change their settings. There are some PWM devices whose outputs can be
+changed autonomously according to a predefined pattern programmed in
+hardware.
+
+Add support for such devices by adding a new pwm_output_type enum type
+to identify these two different PWM types and adding helper functions to
+read the PWM output type supported by a PWM.
+
+Bug: 140290585
+Link: https://lore.kernel.org/lkml/1568415464-20267-1-git-send-email-gurus@codeaurora.org/
+Change-Id: Ie8d61975057c51258e5bde9451ce96be4acdf98b
+Signed-off-by: Fenglin Wu <fenglinw@codeaurora.org>
+[gurus@codeaurora.org: removed output_pattern, changed output_type sysfs
+param to read-only, reworded commit message]
+Signed-off-by: Guru Das Srinagesh <gurus@codeaurora.org>
+---
+ drivers/pwm/core.c  |  1 +
+ drivers/pwm/sysfs.c | 25 +++++++++++++++++++++++
+ include/linux/pwm.h | 48 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 74 insertions(+)
+
+diff --git a/drivers/pwm/core.c b/drivers/pwm/core.c
+index 023a69c72698..d65dba0cd5f7 100644
+--- a/drivers/pwm/core.c
++++ b/drivers/pwm/core.c
+@@ -304,6 +304,7 @@ int pwmchip_add_with_polarity(struct pwm_chip *chip,
+ 		pwm->pwm = chip->base + i;
+ 		pwm->hwpwm = i;
+ 		pwm->state.polarity = polarity;
++		pwm->state.output_type = PWM_OUTPUT_FIXED;
+ 
+ 		radix_tree_insert(&pwm_tree, pwm->pwm, pwm);
+ 	}
+diff --git a/drivers/pwm/sysfs.c b/drivers/pwm/sysfs.c
+index c974bd6c3881..5c27e9dd8038 100644
+--- a/drivers/pwm/sysfs.c
++++ b/drivers/pwm/sysfs.c
+@@ -329,6 +329,29 @@ static ssize_t rpm_show(struct device *child,
+ 	return sprintf(buf, "%d\n", pwm_get_rpm(pwm));
+ }
+ 
++static ssize_t output_type_show(struct device *child,
++			     struct device_attribute *attr,
++			     char *buf)
++{
++	const struct pwm_device *pwm = child_to_pwm_device(child);
++	const char *output_type = "unknown";
++	struct pwm_state state;
++
++	pwm_get_state(pwm, &state);
++	switch (state.output_type) {
++	case PWM_OUTPUT_FIXED:
++		output_type = "fixed";
++		break;
++	case PWM_OUTPUT_MODULATED:
++		output_type = "modulated";
++		break;
++	default:
++		break;
++	}
++
++	return snprintf(buf, PAGE_SIZE, "%s\n", output_type);
++}
++
+ static DEVICE_ATTR_RW(period);
+ static DEVICE_ATTR_RW(duty_cycle);
+ static DEVICE_ATTR_RW(enable);
+@@ -338,6 +361,7 @@ static DEVICE_ATTR_RW(ramp_time);
+ static DEVICE_ATTR_RW(double_period);
+ static DEVICE_ATTR_RW(capture_window_length);
+ static DEVICE_ATTR_RO(rpm);
++static DEVICE_ATTR_RO(output_type);
+ 
+ static struct attribute *pwm_attrs[] = {
+ 	&dev_attr_period.attr,
+@@ -349,6 +373,7 @@ static struct attribute *pwm_attrs[] = {
+ 	&dev_attr_double_period.attr,
+ 	&dev_attr_capture_window_length.attr,
+ 	&dev_attr_rpm.attr,
++	&dev_attr_output_type.attr,
+ 	NULL
+ };
+ ATTRIBUTE_GROUPS(pwm);
+diff --git a/include/linux/pwm.h b/include/linux/pwm.h
+index f55c10b57f4c..123bc4880b6e 100644
+--- a/include/linux/pwm.h
++++ b/include/linux/pwm.h
+@@ -48,6 +48,17 @@ enum {
+ 	PWMF_EXPORTED = 1 << 1,
+ };
+ 
++/**
++ * enum pwm_output_type - output type of the PWM signal
++ * @PWM_OUTPUT_FIXED: PWM output is fixed until a change request
++ * @PWM_OUTPUT_MODULATED: PWM output is modulated in hardware
++ * autonomously with a predefined pattern
++ */
++enum pwm_output_type {
++	PWM_OUTPUT_FIXED = 1 << 0,
++	PWM_OUTPUT_MODULATED = 1 << 1,
++};
++
+ /*
+  * struct pwm_state - state of a PWM channel
+  * @period: PWM period (in nanoseconds)
+@@ -62,6 +73,7 @@ struct pwm_state {
+ 	u64 period;
+ 	u64 duty_cycle;
+ 	enum pwm_polarity polarity;
++	enum pwm_output_type output_type;
+ 	bool enabled;
+ 	unsigned int double_period;
+ 	unsigned int ramp_time;
+@@ -209,6 +221,16 @@ static inline unsigned int pwm_get_capture_window_length(
+ 	return state.capture_win_len;
+ }
+ 
++static inline enum pwm_output_type pwm_get_output_type(
++		const struct pwm_device *pwm)
++{
++	struct pwm_state state;
++
++	pwm_get_state(pwm, &state);
++
++	return state.output_type;
++}
++
+ static inline void pwm_get_args(const struct pwm_device *pwm,
+ 				struct pwm_args *args)
+ {
+@@ -315,6 +337,7 @@ pwm_set_relative_duty_cycle(struct pwm_state *state, unsigned int duty_cycle,
+  * @set_ramp_time: Set PWM ramp up/down time.
+  * @set_double_pulse_period: Set double pulse period time.
+  * @set_capture_window_length: Set PWM capture window length.
++ * @get_output_type_supported: get the supported output type of this PWM
+  * @owner: helps prevent removal of modules exporting active PWMs
+  * @config: configure duty cycles and period length for this PWM
+  * @set_polarity: configure the polarity of this PWM
+@@ -338,6 +361,8 @@ struct pwm_ops {
+ 	int (*set_capture_window_length)(struct pwm_chip *chip,
+ 					 struct pwm_device *pwm,
+ 					 int window_length);
++	int (*get_output_type_supported)(struct pwm_chip *chip,
++			struct pwm_device *pwm);
+ 	struct module *owner;
+ 
+ 	/* Only used by legacy drivers */
+@@ -394,6 +419,24 @@ void pwm_free(struct pwm_device *pwm);
+ int pwm_apply_state(struct pwm_device *pwm, const struct pwm_state *state);
+ int pwm_adjust_config(struct pwm_device *pwm);
+ 
++/**
++ * pwm_get_output_type_supported() - obtain output type of a PWM device.
++ * @pwm: PWM device
++ *
++ * Returns:  output type supported by the PWM device
++ */
++static inline int pwm_get_output_type_supported(struct pwm_device *pwm)
++{
++	if (!pwm)
++		return -EINVAL;
++
++	if (pwm->chip->ops->get_output_type_supported)
++		return pwm->chip->ops->get_output_type_supported(pwm->chip,
++				pwm);
++
++	return PWM_OUTPUT_FIXED;
++}
++
+ /**
+  * pwm_config() - change a PWM device configuration
+  * @pwm: PWM device
+@@ -512,6 +555,11 @@ static inline int pwm_adjust_config(struct pwm_device *pwm)
+ 	return -ENOTSUPP;
+ }
+ 
++static inline int pwm_get_output_type_supported(struct pwm_device *pwm)
++{
++	return -EINVAL;
++}
++
+ static inline int pwm_config(struct pwm_device *pwm, int duty_ns,
+ 			     int period_ns)
+ {
+-- 
+2.17.1
+

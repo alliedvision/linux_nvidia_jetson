@@ -1,14 +1,17 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 / {
@@ -51,6 +54,7 @@
 
 		fragment-e3365-a01-xusb {
 			ids = "3365-1099-100", "3365-1098-100";
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 			override@0 {
 				target = <&vbus_id_extcon>;
 				_overlay_ {
@@ -58,6 +62,7 @@
 						&tegra_main_gpio TEGRA194_MAIN_GPIO(Q, 0) 0>;
 				};
 			};
+#endif
 			override@1 {
 				target = <&e3365_gpio_u1405>;
 				_overlay_ {
@@ -79,7 +84,6 @@
 					interrupt-controller;
 				};
 			};
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 			override@3 {
 				target = <&xusb_padctl>;
 				_overlay_ {
@@ -147,7 +151,6 @@
 						"usb3-2", "usb3-3", "usb3-0", "usb3-1";
 				};
 			};
-#endif
 		};
 
 	};

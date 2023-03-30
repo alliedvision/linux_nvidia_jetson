@@ -1,0 +1,45 @@
+From eed2a6e62fe429c528cfe80320003c4b10807372 Mon Sep 17 00:00:00 2001
+From: Dmitry Shmidt <dimitrysh@google.com>
+Date: Tue, 11 Aug 2020 13:39:37 -0700
+Subject: [PATCH 782/830] ANDROID: GKI: add built-in BCM Bluetooth driver
+X-NVConfidentiality: public
+
+Bug: 163596438
+Bug: 157965270
+
+Change-Id: Ie126f6ab9ab1bce9d2019eb59cb6bc4b88d0a54f
+Signed-off-by: Dmitry Shmidt <dimitrysh@google.com>
+(cherry picked from commit 01f9a91f382a413cc74f78f5e970ce3500455353)
+Signed-off-by: Cheney Ni <cheneyni@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a3cbd924bb83..ba4bcc71d546 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -215,6 +215,7 @@ CONFIG_BT_HIDP=y
+ CONFIG_BT_HCIBTSDIO=y
+ CONFIG_BT_HCIUART=y
+ CONFIG_BT_HCIUART_LL=y
++CONFIG_BT_HCIUART_BCM=y
+ CONFIG_BT_HCIUART_QCA=y
+ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a703f42aeb78..23ad3de1bbc3 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -193,6 +193,7 @@ CONFIG_BT_HIDP=y
+ CONFIG_BT_HCIBTSDIO=y
+ CONFIG_BT_HCIUART=y
+ CONFIG_BT_HCIUART_LL=y
++CONFIG_BT_HCIUART_BCM=y
+ CONFIG_BT_HCIUART_QCA=y
+ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+-- 
+2.17.1
+

@@ -32,6 +32,7 @@
 #include "adsp_shared_struct.h"
 
 #define DYN_APP_EXTN	".elf"
+#define ADSP_APP_INIT_TIMEOUT 2000 /* in ms */
 
 /*
  * structure to hold the list of app binaries loaded and
@@ -424,8 +425,13 @@ static int create_instance_memory(nvadsp_app_info_t *app,
 	char name[NVADSP_NAME_SZ];
 	void *aram_handle;
 	dma_addr_t da;
+	int ret;
 
-	snprintf(name, NVADSP_NAME_SZ, "%s:%d", app->name, app->instance_id);
+	ret = snprintf(name, NVADSP_NAME_SZ, "%s:%d", app->name, app->instance_id);
+	if (ret < 0 || ret >= NVADSP_NAME_SZ) {
+		dev_err(dev, "Invalid App name %s\n", app->name);
+		return -EINVAL;
+	}
 
 	if (sz->dram) {
 		mem->dram = nvadsp_alloc_coherent(sz->dram, &da, GFP_KERNEL);
@@ -616,7 +622,7 @@ nvadsp_app_info_t __must_check *nvadsp_app_init(nvadsp_app_handle_t handle,
 	nvadsp_app_info_t *app;
 	msgq_t *msgq_send;
 	int *state;
-	unsigned long flags;
+	unsigned long flags, ret = 0;
 
 	if (IS_ERR_OR_NULL(priv.pdev)) {
 		pr_err("ADSP Driver is not initialized\n");
@@ -625,21 +631,15 @@ nvadsp_app_info_t __must_check *nvadsp_app_init(nvadsp_app_handle_t handle,
 
 	drv_data = platform_get_drvdata(priv.pdev);
 
-	if (!drv_data->adsp_os_running) {
-		pr_err("ADSP is not running\n");
+	if (!drv_data->adsp_os_running)
 		goto err;
-	}
 
-	if (IS_ERR_OR_NULL(handle)) {
-		pr_err("ADSP APP handle is NULL\n");
+	if (IS_ERR_OR_NULL(handle))
 		goto err;
-	}
 
 	message = kzalloc(sizeof(*message), GFP_KERNEL);
-	if (!message) {
-		pr_err("Failed to allocate memory for ADSP msg\n");
+	if (!message)
 		goto err;
-	}
 
 	shared_mem = drv_data->shared_adsp_os_data;
 	msg_pool = &shared_mem->app_shared_msg_pool;
@@ -648,7 +648,6 @@ nvadsp_app_info_t __must_check *nvadsp_app_init(nvadsp_app_handle_t handle,
 
 	app = create_app_instance(handle, args, &data->app_init, NULL, 0);
 	if (IS_ERR_OR_NULL(app)) {
-		pr_err("Failed to create APP instance\n");
 		kfree(message);
 		goto err;
 	}
@@ -668,7 +667,12 @@ nvadsp_app_info_t __must_check *nvadsp_app_init(nvadsp_app_handle_t handle,
 
 	nvadsp_mbox_send(&priv.mbox, 0, NVADSP_MBOX_SMSG, false, 0);
 
-	wait_for_completion(&app->wait_for_app_start);
+	ret = wait_for_completion_timeout(&app->wait_for_app_start,
+			msecs_to_jiffies(ADSP_APP_INIT_TIMEOUT));
+	if (!ret) {
+		delete_app_instance(app);
+		return NULL;
+	}
 	init_completion(&app->wait_for_app_start);
 	return app;
 err:

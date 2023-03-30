@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,35 +53,17 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_ce2_gk20a_h_
-#define _hw_ce2_gk20a_h_
+#ifndef NVGPU_HW_CE2_GK20A_H
+#define NVGPU_HW_CE2_GK20A_H
 
-static inline u32 ce2_intr_status_r(void)
-{
-	return 0x00106908U;
-}
-static inline u32 ce2_intr_status_blockpipe_pending_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce2_intr_status_blockpipe_reset_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce2_intr_status_nonblockpipe_pending_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce2_intr_status_nonblockpipe_reset_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce2_intr_status_launcherr_pending_f(void)
-{
-	return 0x4U;
-}
-static inline u32 ce2_intr_status_launcherr_reset_f(void)
-{
-	return 0x4U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define ce2_intr_status_r()                                        (0x00106908U)
+#define ce2_intr_status_blockpipe_pending_f()                             (0x1U)
+#define ce2_intr_status_blockpipe_reset_f()                               (0x1U)
+#define ce2_intr_status_nonblockpipe_pending_f()                          (0x2U)
+#define ce2_intr_status_nonblockpipe_reset_f()                            (0x2U)
+#define ce2_intr_status_launcherr_pending_f()                             (0x4U)
+#define ce2_intr_status_launcherr_reset_f()                               (0x4U)
 #endif

@@ -1,0 +1,79 @@
+From 240229e1d4727b742595b401e2aa4152f0d62416 Mon Sep 17 00:00:00 2001
+From: Benoit Goby <benoit@android.com>
+Date: Mon, 19 Dec 2011 14:39:37 -0800
+Subject: [PATCH 331/830] ANDROID: usb: gadget: f_accessory: Add Android
+ Accessory function
+X-NVConfidentiality: public
+
+USB accessory mode allows users to connect USB host hardware
+specifically designed for Android-powered devices. The accessories
+must adhere to the Android accessory protocol outlined in the
+http://accessories.android.com documentation. This allows
+Android devices that cannot act as a USB host to still interact with
+USB hardware. When an Android device is in USB accessory mode, the
+attached Android USB accessory acts as the host, provides power
+to the USB bus, and enumerates connected devices.
+
+Bug: 63740241
+Bug: 120441124
+Change-Id: I67964b50d278f3c0471d47efbb7b0973a3502681
+[badhri: f_accessory is being migrated to userspace.]
+Signed-off-by: Mike Lockwood <lockwood@android.com>
+[AmitP: Folded following android-4.9 commit changes into this patch
+        ceb2f0aac624 ("ANDROID: usb: gadget: accessory: Fix section mismatch")
+        Parts of e27543931009 ("ANDROID: usb: gadget: Fixes and hacks to make android usb gadget compile on 3.8")
+        1b07ec751563 ("ANDROID: drivers: usb: gadget: 64-bit related type fixes")]
+Signed-off-by: Amit Pundir <amit.pundir@linaro.org>
+[adelva: Folded the following changes into this patch:
+         9d5891d516e2 ("ANDROID: usb: gadget: f_accessory: Add ACCESSORY_SET_AUDIO_MODE control request and ioctl")
+         dc66cfce9622 ("ANDROID: usb: gadget: f_accessory: Add support for HID input devices")
+         5f1ac9c2871b ("ANDROID: usb: gadget: f_accessory: move userspace interface to uapi")
+         9a6241722cd8 ("ANDROID: usb: gadget: f_accessory: Enabled Zero Length Packet (ZLP) for acc_write")
+         31a0ecd5a825 ("ANDROID: usb: gadget: f_accessory: check for accessory device before disconnecting HIDs")
+         580721fa6cbc ("ANDROID: usb: gadget: f_accessory: Migrate to USB_FUNCTION API")
+         7f407172fb28 ("ANDROID: usb: gadget: f_accessory: Fix for UsbAccessory clean unbind.")
+         ebc98ac5a22f ("ANDROID: usb: gadget: f_accessory: fix false disconnect due to a signal sent to the reading process")
+         71c6dc5ffdab ("ANDROID: usb: gadget: f_accessory: assign no-op request complete callbacks")
+         675047ee68e9 ("ANDROID: usb: gadget: f_accessory: Move gadget functions code")
+         b2bedaa5c7df ("CHROMIUM: usb: gadget: f_accessory: add .raw_request callback")]
+Signed-off-by: Alistair Delva <adelva@google.com>
+[maennich: Folded the following patch in this patch:
+           f4f6f40ebc62 ("ANDROID: usb: gadget: Fix dependency for f_accessory")]
+Signed-off-by: Matthias Maennich <maennich@google.com>
+[ebiggers: Folded in the following commit:
+           fd734b5e295a ("ANDROID: USB: f_accessory: Check dev pointer before decoding ctrl request")]
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/usb/gadget/Kconfig                | 1 +
+ drivers/usb/gadget/function/f_accessory.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/Kconfig b/drivers/usb/gadget/Kconfig
+index 52602afe0401..921603f12380 100644
+--- a/drivers/usb/gadget/Kconfig
++++ b/drivers/usb/gadget/Kconfig
+@@ -385,6 +385,7 @@ config USB_CONFIGFS_F_FS
+ config USB_CONFIGFS_F_ACC
+ 	bool "Accessory gadget"
+ 	depends on USB_CONFIGFS
++	depends on HID=y
+ 	select USB_F_ACC
+ 	help
+ 	  USB gadget Accessory support
+diff --git a/drivers/usb/gadget/function/f_accessory.c b/drivers/usb/gadget/function/f_accessory.c
+index c355d4a32776..03a7a02858b3 100644
+--- a/drivers/usb/gadget/function/f_accessory.c
++++ b/drivers/usb/gadget/function/f_accessory.c
+@@ -2,8 +2,8 @@
+  * Gadget Function Driver for Android USB accessories
+  *
+  * Copyright (C) 2011 Google, Inc.
+- * Author: Mike Lockwood <lockwood@android.com>
+  * Copyright (C) 2018-2020, NVIDIA Corporation.  All rights reserved.
++ * Author: Mike Lockwood <lockwood@android.com>
+  *
+  * This software is licensed under the terms of the GNU General Public
+  * License version 2, as published by the Free Software Foundation, and
+-- 
+2.17.1
+

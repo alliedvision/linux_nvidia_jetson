@@ -1,0 +1,46 @@
+From ba37a063865734c84a95eff4e76f09dc7081a30d Mon Sep 17 00:00:00 2001
+From: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Date: Fri, 13 Nov 2020 12:24:57 -0800
+Subject: [PATCH 023/830] FROMGIT: platform/chrome: cros_ec_typec: Correct the
+ Thunderbolt rounded/non-rounded cable support
+X-NVConfidentiality: public
+
+Thunderbolt rounded/non-rounded cable support is two bits value. Correcting
+it as per the Thunderbolt 3 cable discover mode VDO changes done in the
+Thunderbolt 3 alternate mode header.
+
+Bug: 174347172
+Signed-off-by: Utkarsh Patel <utkarsh.h.patel@intel.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Acked-by: Enric Balletbo i Serra <enric.balletbo@collabora.com>
+--
+Changes in v2:
+- Removed the fixes tag as there is no functional implication.
+--
+Link: https://lore.kernel.org/r/20201113202503.6559-3-utkarsh.h.patel@intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 5384cffd7bce4652271c80ca081f5d39118e4923
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I3a1fd1eb9223954fdb5f9e3b8609d1d2f6f29aa3
+---
+ drivers/platform/chrome/cros_ec_typec.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/platform/chrome/cros_ec_typec.c b/drivers/platform/chrome/cros_ec_typec.c
+index 036d54dc52e2..f0cf5e76597e 100644
+--- a/drivers/platform/chrome/cros_ec_typec.c
++++ b/drivers/platform/chrome/cros_ec_typec.c
+@@ -438,8 +438,7 @@ static int cros_typec_enable_tbt(struct cros_typec_data *typec,
+ 	if (pd_ctrl->control_flags & USB_PD_CTRL_ACTIVE_LINK_UNIDIR)
+ 		data.cable_mode |= TBT_CABLE_LINK_TRAINING;
+ 
+-	if (pd_ctrl->cable_gen)
+-		data.cable_mode |= TBT_CABLE_ROUNDED;
++	data.cable_mode |= TBT_SET_CABLE_ROUNDED(pd_ctrl->cable_gen);
+ 
+ 	/* Enter Mode VDO */
+ 	data.enter_vdo = TBT_SET_CABLE_SPEED(pd_ctrl->cable_speed);
+-- 
+2.17.1
+

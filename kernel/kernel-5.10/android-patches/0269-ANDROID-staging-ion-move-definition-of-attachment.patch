@@ -1,0 +1,66 @@
+From 3c4dccce966721113675c5258950362a788a4ed4 Mon Sep 17 00:00:00 2001
+From: Hyesoo Yu <hyesoo.yu@samsung.com>
+Date: Thu, 5 Mar 2020 15:33:07 +0900
+Subject: [PATCH 269/830] ANDROID: staging: ion: move definition of attachment
+X-NVConfidentiality: public
+
+The ion_dma_buf_attachment definition that is connected
+to attachment of ion_buffer is used by dma buf ops.
+However this definition should be available for heap's
+dma buf ops as well as for built-in dma buf ops.
+Therefore we move this definition to the ion header.
+
+Bug: 151780326
+
+Signed-off-by: Hyesoo Yu <hyesoo.yu@samsung.com>
+Change-Id: Ib3023e29f48b1e2502f8d750af6645f65f6eea40
+(cherry picked from commit 7e27ee5fc8f8ef489e836552556dc9b36bd08322)
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c |  6 ------
+ include/linux/ion.h                       | 12 ++++++++++++
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 9cb38d519c10..284abb58a719 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -45,12 +45,6 @@ static void free_duped_table(struct sg_table *table)
+ 	kfree(table);
+ }
+ 
+-struct ion_dma_buf_attachment {
+-	struct device *dev;
+-	struct sg_table *table;
+-	struct list_head list;
+-};
+-
+ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
+ 			      struct dma_buf_attachment *attachment)
+ {
+diff --git a/include/linux/ion.h b/include/linux/ion.h
+index fa86bcce6e8f..088705119b16 100644
+--- a/include/linux/ion.h
++++ b/include/linux/ion.h
+@@ -144,6 +144,18 @@ struct ion_heap {
+ 
+ #define ion_device_add_heap(heap) __ion_device_add_heap(heap, THIS_MODULE)
+ 
++/**
++ * struct ion_dma_buf_attachment - hold device-table attachment data for buffer
++ * @dev:	device attached to the buffer.
++ * @table:	cached mapping.
++ * @list:	list of ion_dma_buf_attachment.
++ */
++struct ion_dma_buf_attachment {
++	struct device *dev;
++	struct sg_table *table;
++	struct list_head list;
++};
++
+ #ifdef CONFIG_ION
+ 
+ /**
+-- 
+2.17.1
+

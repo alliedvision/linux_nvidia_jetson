@@ -3,7 +3,7 @@
  *
  * AMISC register handling for eavb ape synchronization
  *
- * Copyright (C) 2016-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,8 +20,6 @@
 #include <asm/io.h>
 #include "eqos_ape_global.h"
 #include <linux/module.h>
-
-extern struct eqos_drvdata *eqos_ape_drv_data;
 
 u32 amisc_readl(u32 reg)
 {

@@ -306,7 +306,7 @@ static int tegra210_iqc_platform_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, iqc);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		iqc->clk_iqc = devm_clk_get(&pdev->dev, NULL);
 		if (IS_ERR(iqc->clk_iqc)) {
 			dev_err(&pdev->dev, "Can't retrieve iqc clock\n");
@@ -325,14 +325,6 @@ static int tegra210_iqc_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(iqc->regmap);
 	}
 	regcache_cache_only(iqc->regmap, true);
-
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "nvidia,ahub-iqc-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-iqc-id\n");
-		return ret;
-	}
 
 	if (of_property_read_u32(pdev->dev.of_node,
 				 "timestamp-enable",

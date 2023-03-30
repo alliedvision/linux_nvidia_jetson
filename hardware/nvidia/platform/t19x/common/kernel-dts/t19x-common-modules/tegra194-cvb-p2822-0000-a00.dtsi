@@ -1,14 +1,17 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 / {
@@ -52,12 +55,18 @@
 
 	i2c@c240000 {
 		ucsi_ccg: ucsi_ccg@8 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+			compatible = "nvidia,ccgx-ucsi";
+#else
 			compatible = "nvidia,ucsi_ccg";
-			reg = <0x08>;
 			ccg,irqflags = <IRQF_TRIGGER_LOW>;
+#endif
+			reg = <0x08>;
 			interrupt-parent = <&tegra_aon_gpio>;
-			interrupts = <TEGRA194_AON_GPIO(BB, 2) 0>;
+			interrupts = <TEGRA194_AON_GPIO(BB, 2) IRQ_TYPE_LEVEL_LOW>;
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 			wakeup-source;
+#endif
 			status = "okay";
 		};
 	};

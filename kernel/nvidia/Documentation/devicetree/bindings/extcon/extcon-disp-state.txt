@@ -1,0 +1,16 @@
+Device tree bindings for NVIDIA extcon-disp-state driver.
+
+Extcon driver for display accessory detection compatible with switch-mid.
+
+Required properties :
+ - compatible : Should be "extcon-disp-state".
+ - #extcon-cells : Should be 1.
+
+Example :
+
+	external-connection {
+		disp-state {
+			compatible = "extcon-disp-state";
+			#extcon-cells = <1>;
+		};
+	};

@@ -1,0 +1,138 @@
+From 560f6b9743a0d7913cba68dd0379f7209cd5b4a0 Mon Sep 17 00:00:00 2001
+From: Daniel Rosenberg <drosen@google.com>
+Date: Fri, 22 Apr 2016 00:00:48 -0700
+Subject: [PATCH 421/830] ANDROID: fuse: Add support for d_canonical_path
+X-NVConfidentiality: public
+
+Allows FUSE to report to inotify that it is acting as a layered filesystem.
+The userspace component returns a string representing the location of the
+underlying file. If the string cannot be resolved into a path, the top
+level path is returned instead.
+
+Bug: 23904372
+Bug: 171780975
+Test: FileObserverTest and FileObserverTestLegacyPath on cuttlefish
+Change-Id: Iabdca0bbedfbff59e9c820c58636a68ef9683d9f
+Signed-off-by: Daniel Rosenberg <drosen@google.com>
+Signed-off-by: Alessio Balsini <balsini@google.com>
+---
+ fs/fuse/dev.c             |  9 +++++++++
+ fs/fuse/dir.c             | 40 +++++++++++++++++++++++++++++++++++++++
+ fs/fuse/fuse_i.h          |  3 +++
+ include/uapi/linux/fuse.h |  1 +
+ 4 files changed, 53 insertions(+)
+
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+index 608adde0617e..ab0831b60bca 100644
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -14,6 +14,7 @@
+ #include <linux/sched/signal.h>
+ #include <linux/uio.h>
+ #include <linux/miscdevice.h>
++#include <linux/namei.h>
+ #include <linux/pagemap.h>
+ #include <linux/file.h>
+ #include <linux/slab.h>
+@@ -1924,6 +1925,14 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
+ 		err = copy_out_args(cs, req->args, nbytes);
+ 	fuse_copy_finish(cs);
+ 
++	if (!err && req->in.h.opcode == FUSE_CANONICAL_PATH) {
++		char *path = (char *)req->args->out_args[0].value;
++
++		path[req->args->out_args[0].size - 1] = 0;
++		req->out.h.error =
++			kern_path(path, 0, req->args->canonical_path);
++	}
++
+ 	spin_lock(&fpq->lock);
+ 	clear_bit(FR_LOCKED, &req->flags);
+ 	if (!fpq->connected)
+diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
+index 242760944eaf..b764e2acfb2b 100644
+--- a/fs/fuse/dir.c
++++ b/fs/fuse/dir.c
+@@ -389,6 +389,45 @@ static struct vfsmount *fuse_dentry_automount(struct path *path)
+ 	return ERR_PTR(err);
+ }
+ 
++/*
++ * Get the canonical path. Since we must translate to a path, this must be done
++ * in the context of the userspace daemon, however, the userspace daemon cannot
++ * look up paths on its own. Instead, we handle the lookup as a special case
++ * inside of the write request.
++ */
++static void fuse_dentry_canonical_path(const struct path *path,
++				       struct path *canonical_path)
++{
++	struct inode *inode = d_inode(path->dentry);
++	//struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_mount *fm = get_fuse_mount_super(path->mnt->mnt_sb);
++	FUSE_ARGS(args);
++	char *path_name;
++	int err;
++
++	path_name = (char *)__get_free_page(GFP_KERNEL);
++	if (!path_name)
++		goto default_path;
++
++	args.opcode = FUSE_CANONICAL_PATH;
++	args.nodeid = get_node_id(inode);
++	args.in_numargs = 0;
++	args.out_numargs = 1;
++	args.out_args[0].size = PATH_MAX;
++	args.out_args[0].value = path_name;
++	args.canonical_path = canonical_path;
++	args.out_argvar = 1;
++
++	err = fuse_simple_request(fm, &args);
++	free_page((unsigned long)path_name);
++	if (err > 0)
++		return;
++default_path:
++	canonical_path->dentry = path->dentry;
++	canonical_path->mnt = path->mnt;
++	path_get(canonical_path);
++}
++
+ const struct dentry_operations fuse_dentry_operations = {
+ 	.d_revalidate	= fuse_dentry_revalidate,
+ 	.d_delete	= fuse_dentry_delete,
+@@ -397,6 +436,7 @@ const struct dentry_operations fuse_dentry_operations = {
+ 	.d_release	= fuse_dentry_release,
+ #endif
+ 	.d_automount	= fuse_dentry_automount,
++	.d_canonical_path = fuse_dentry_canonical_path,
+ };
+ 
+ const struct dentry_operations fuse_root_dentry_operations = {
+diff --git a/fs/fuse/fuse_i.h b/fs/fuse/fuse_i.h
+index abff5ac7d6cd..ac5ff1a091a6 100644
+--- a/fs/fuse/fuse_i.h
++++ b/fs/fuse/fuse_i.h
+@@ -284,6 +284,9 @@ struct fuse_args {
+ 	struct fuse_in_arg in_args[3];
+ 	struct fuse_arg out_args[2];
+ 	void (*end)(struct fuse_mount *fm, struct fuse_args *args, int error);
++
++	/* Path used for completing d_canonical_path */
++	struct path *canonical_path;
+ };
+ 
+ struct fuse_args_pages {
+diff --git a/include/uapi/linux/fuse.h b/include/uapi/linux/fuse.h
+index 5fb651afdefd..0f5f709ce94d 100644
+--- a/include/uapi/linux/fuse.h
++++ b/include/uapi/linux/fuse.h
+@@ -480,6 +480,7 @@ enum fuse_opcode {
+ 	FUSE_COPY_FILE_RANGE	= 47,
+ 	FUSE_SETUPMAPPING	= 48,
+ 	FUSE_REMOVEMAPPING	= 49,
++	FUSE_CANONICAL_PATH	= 2016,
+ 
+ 	/* CUSE specific operations */
+ 	CUSE_INIT		= 4096,
+-- 
+2.17.1
+

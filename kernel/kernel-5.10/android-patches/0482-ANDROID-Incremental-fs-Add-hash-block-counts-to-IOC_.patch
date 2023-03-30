@@ -1,0 +1,484 @@
+From daf08519b34fd41b9443b04cee4994919635e49b Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Tue, 15 Sep 2020 13:01:25 -0700
+Subject: [PATCH 482/830] ANDROID: Incremental fs: Add hash block counts to
+ IOC_IOCTL_GET_BLOCK_COUNT
+X-NVConfidentiality: public
+
+Bug: 166638631
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I0061a855ec563de8df40ba0b35292e99be33c6c0
+---
+ fs/incfs/data_mgmt.c                          |  24 ++-
+ fs/incfs/data_mgmt.h                          |   6 +
+ fs/incfs/format.c                             |  27 +--
+ fs/incfs/format.h                             |   9 +-
+ fs/incfs/vfs.c                                |   7 +-
+ include/uapi/linux/incrementalfs.h            |  10 +-
+ .../selftests/filesystems/incfs/incfs_test.c  | 174 ++++++++++++------
+ 7 files changed, 175 insertions(+), 82 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 9bde35bf4f0f..35362d450d15 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -274,13 +274,16 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 
+ void incfs_free_data_file(struct data_file *df)
+ {
+-	u32 blocks_written;
++	u32 data_blocks_written, hash_blocks_written;
+ 
+ 	if (!df)
+ 		return;
+ 
+-	blocks_written = atomic_read(&df->df_data_blocks_written);
+-	if (blocks_written != df->df_initial_data_blocks_written) {
++	data_blocks_written = atomic_read(&df->df_data_blocks_written);
++	hash_blocks_written = atomic_read(&df->df_hash_blocks_written);
++
++	if (data_blocks_written != df->df_initial_data_blocks_written ||
++	    hash_blocks_written != df->df_initial_hash_blocks_written) {
+ 		struct backing_file_context *bfc = df->df_backing_file_context;
+ 		int error = -1;
+ 
+@@ -288,7 +291,8 @@ void incfs_free_data_file(struct data_file *df)
+ 			error = incfs_write_status_to_backing_file(
+ 						df->df_backing_file_context,
+ 						df->df_status_offset,
+-						blocks_written);
++						data_blocks_written,
++						hash_blocks_written);
+ 			mutex_unlock(&bfc->bc_mutex);
+ 		}
+ 
+@@ -1228,6 +1232,9 @@ int incfs_process_new_hash_block(struct data_file *df,
+ 			hash_area_base, df->df_blockmap_off, df->df_size);
+ 		mutex_unlock(&bfc->bc_mutex);
+ 	}
++	if (!error)
++		atomic_inc(&df->df_hash_blocks_written);
++
+ 	return error;
+ }
+ 
+@@ -1330,9 +1337,16 @@ static int process_status_md(struct incfs_status *is,
+ {
+ 	struct data_file *df = handler->context;
+ 
+-	df->df_initial_data_blocks_written = le32_to_cpu(is->is_blocks_written);
++	df->df_initial_data_blocks_written =
++		le32_to_cpu(is->is_data_blocks_written);
+ 	atomic_set(&df->df_data_blocks_written,
+ 		   df->df_initial_data_blocks_written);
++
++	df->df_initial_hash_blocks_written =
++		le32_to_cpu(is->is_hash_blocks_written);
++	atomic_set(&df->df_hash_blocks_written,
++		   df->df_initial_hash_blocks_written);
++
+ 	df->df_status_offset = handler->md_record_offset;
+ 
+ 	return 0;
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 1acb027b4c39..1d8a0aec4330 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -255,6 +255,12 @@ struct data_file {
+ 	/* Number of data blocks in the status block */
+ 	u32 df_initial_data_blocks_written;
+ 
++	/* Number of hash blocks written to file */
++	atomic_t df_hash_blocks_written;
++
++	/* Number of hash blocks in the status block */
++	u32 df_initial_hash_blocks_written;
++
+ 	/* Offset to status metadata header */
+ 	loff_t df_status_offset;
+ 
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index e1a036a6ba44..37a41c8162de 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -317,23 +317,25 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ }
+ 
+ static int write_new_status_to_backing_file(struct backing_file_context *bfc,
+-				       u32 blocks_written)
++				       u32 data_blocks_written,
++				       u32 hash_blocks_written)
+ {
+-	struct incfs_status is = {};
+ 	int result;
+ 	loff_t rollback_pos;
++	struct incfs_status is = {
++		.is_header = {
++			.h_md_entry_type = INCFS_MD_STATUS,
++			.h_record_size = cpu_to_le16(sizeof(is)),
++		},
++		.is_data_blocks_written = cpu_to_le32(data_blocks_written),
++		.is_hash_blocks_written = cpu_to_le32(hash_blocks_written),
++	};
+ 
+ 	if (!bfc)
+ 		return -EFAULT;
+ 
+ 	LOCK_REQUIRED(bfc->bc_mutex);
+-
+ 	rollback_pos = incfs_get_end_offset(bfc->bc_file);
+-
+-	is.is_header.h_md_entry_type = INCFS_MD_STATUS;
+-	is.is_header.h_record_size = cpu_to_le16(sizeof(is));
+-	is.is_blocks_written = cpu_to_le32(blocks_written);
+-
+ 	result = append_md_to_backing_file(bfc, &is.is_header);
+ 	if (result)
+ 		truncate_backing_file(bfc, rollback_pos);
+@@ -343,19 +345,22 @@ static int write_new_status_to_backing_file(struct backing_file_context *bfc,
+ 
+ int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+ 				       loff_t status_offset,
+-				       u32 blocks_written)
++				       u32 data_blocks_written,
++				       u32 hash_blocks_written)
+ {
+ 	struct incfs_status is;
+ 	int result;
+ 
+ 	if (status_offset == 0)
+-		return write_new_status_to_backing_file(bfc, blocks_written);
++		return write_new_status_to_backing_file(bfc,
++				data_blocks_written, hash_blocks_written);
+ 
+ 	result = incfs_kread(bfc->bc_file, &is, sizeof(is), status_offset);
+ 	if (result != sizeof(is))
+ 		return -EIO;
+ 
+-	is.is_blocks_written = cpu_to_le32(blocks_written);
++	is.is_data_blocks_written = cpu_to_le32(data_blocks_written);
++	is.is_hash_blocks_written = cpu_to_le32(hash_blocks_written);
+ 	result = incfs_kwrite(bfc->bc_file, &is, sizeof(is), status_offset);
+ 	if (result != sizeof(is))
+ 		return -EIO;
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index 240731a1dcb6..fcff0f73e416 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -249,9 +249,11 @@ struct incfs_df_signature {
+ struct incfs_status {
+ 	struct incfs_md_header is_header;
+ 
+-	__le32 is_blocks_written; /* Number of blocks written */
++	__le32 is_data_blocks_written; /* Number of data blocks written */
+ 
+-	__le32 is_dummy[7]; /* Three spare fields */
++	__le32 is_hash_blocks_written; /* Number of hash blocks written */
++
++	__le32 is_dummy[6]; /* Spare fields */
+ };
+ 
+ /* State of the backing file. */
+@@ -325,7 +327,8 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 
+ int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+ 				       loff_t status_offset,
+-				       u32 blocks_written);
++				       u32 data_blocks_written,
++				       u32 hash_blocks_written);
+ 
+ int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags);
+ 
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index f7a501657378..99212a447ab4 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -672,8 +672,11 @@ static long ioctl_get_block_count(struct file *f, void __user *arg)
+ 	if (!df)
+ 		return -EINVAL;
+ 
+-	args.total_blocks_out = df->df_data_block_count;
+-	args.filled_blocks_out = atomic_read(&df->df_data_blocks_written);
++	args.total_data_blocks_out = df->df_data_block_count;
++	args.filled_data_blocks_out = atomic_read(&df->df_data_blocks_written);
++	args.total_hash_blocks_out = df->df_total_block_count -
++		df->df_data_block_count;
++	args.filled_hash_blocks_out = atomic_read(&df->df_hash_blocks_written);
+ 
+ 	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
+ 		return -EFAULT;
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index b8b786e1cde6..374d6e4f4650 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -433,10 +433,16 @@ struct incfs_create_mapped_file_args {
+ 
+ struct incfs_get_block_count_args {
+ 	/* Total number of data blocks in the file */
+-	__u32 total_blocks_out;
++	__u32 total_data_blocks_out;
+ 
+ 	/* Number of filled data blocks in the file */
+-	__u32 filled_blocks_out;
++	__u32 filled_data_blocks_out;
++
++	/* Total number of hash blocks in the file */
++	__u32 total_hash_blocks_out;
++
++	/* Number of filled hash blocks in the file */
++	__u32 filled_hash_blocks_out;
+ };
+ 
+ #endif /* _UAPI_LINUX_INCREMENTALFS_H */
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index ad9df461f897..ed2e1c05f2ab 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2575,9 +2575,6 @@ static int emit_partial_test_file_hash(const char *mount_dir,
+ 	if (file->size <= 4096 / 32 * 4096)
+ 		return 0;
+ 
+-	if (fill_blocks.count == 0)
+-		return 0;
+-
+ 	if (!fill_block_array)
+ 		return -ENOMEM;
+ 	fill_blocks.fill_blocks = ptr_to_u64(fill_block_array);
+@@ -3011,15 +3008,23 @@ static const char v1_file[] = {
+ 	0x01, 0x00, 0x00, 0x00,
+ };
+ 
+-#define TEST(statement, condition)					\
++#define TESTCOND(condition)						\
+ 	do {								\
+-		statement;						\
+ 		if (!(condition)) {					\
+ 			ksft_print_msg("%s failed %d\n",		\
+ 				       __func__, __LINE__);		\
+ 			goto out;					\
+ 		}							\
+-	} while(false)
++	} while (false)
++
++#define TEST(statement, condition)					\
++	do {								\
++		statement;						\
++		TESTCOND(condition);					\
++	} while (false)
++
++#define TESTEQUAL(statement, res)					\
++	TESTCOND((statement) == (res))
+ 
+ static int compatibility_test(const char *mount_dir)
+ {
+@@ -3028,16 +3033,15 @@ static int compatibility_test(const char *mount_dir)
+ 	int result = TEST_FAILURE;
+ 	char *filename = NULL;
+ 	int fd = -1;
+-	int err;
+ 	uint64_t size = 0x0c;
+ 
+ 	TEST(backing_dir = create_backing_dir(mount_dir), backing_dir);
+ 	TEST(filename = concat_file_name(backing_dir, name), filename);
+ 	TEST(fd = open(filename, O_CREAT | O_WRONLY | O_CLOEXEC), fd != -1);
+-	TEST(err = write(fd, v1_file, sizeof(v1_file)), err == sizeof(v1_file));
+-	TEST(err = fsetxattr(fd, INCFS_XATTR_SIZE_NAME, &size, sizeof(size), 0),
+-	     err == 0);
+-	TEST(err = mount_fs(mount_dir, backing_dir, 50), err == 0);
++	TESTEQUAL(write(fd, v1_file, sizeof(v1_file)), sizeof(v1_file));
++	TESTEQUAL(fsetxattr(fd, INCFS_XATTR_SIZE_NAME, &size, sizeof(size), 0),
++		  0);
++	TESTEQUAL(mount_fs(mount_dir, backing_dir, 50), 0);
+ 	free(filename);
+ 	TEST(filename = concat_file_name(mount_dir, name), filename);
+ 	close(fd);
+@@ -3059,45 +3063,32 @@ static int validate_block_count(const char *mount_dir, struct test_file *file)
+ 	int fd;
+ 	struct incfs_get_block_count_args bca = {};
+ 	int test_result = TEST_FAILURE;
+-	int result;
+ 	int i;
+ 
+-	fd = open(filename, O_RDONLY | O_CLOEXEC);
+-	if (fd <= 0)
+-		goto out;
+-
+-	result = ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca);
+-	if (result != 0)
+-		goto out;
+-
+-	if (bca.total_blocks_out != block_cnt ||
+-	    bca.filled_blocks_out != 0)
+-		goto out;
++	TEST(fd = open(filename, O_RDONLY | O_CLOEXEC), fd != -1);
++	TESTEQUAL(ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca), 0);
++	TESTEQUAL(bca.total_data_blocks_out, block_cnt);
++	TESTEQUAL(bca.filled_data_blocks_out, 0);
++	TESTEQUAL(bca.total_hash_blocks_out, 0);
++	TESTEQUAL(bca.filled_hash_blocks_out, 0);
+ 
+ 	for (i = 0; i < block_cnt; i += 2)
+-		if (emit_test_block(mount_dir, file, i))
+-			goto out;
+-
+-	result = ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca);
+-	if (result != 0)
+-		goto out;
++		TESTEQUAL(emit_test_block(mount_dir, file, i), 0);
+ 
+-	if (bca.total_blocks_out != block_cnt ||
+-	    bca.filled_blocks_out != (block_cnt + 1) / 2)
+-		goto out;
++	TESTEQUAL(ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca), 0);
++	TESTEQUAL(bca.total_data_blocks_out, block_cnt);
++	TESTEQUAL(bca.filled_data_blocks_out, (block_cnt + 1) / 2);
++	TESTEQUAL(bca.total_hash_blocks_out, 0);
++	TESTEQUAL(bca.filled_hash_blocks_out, 0);
+ 
+ 	close(fd);
+-	fd = open(filename, O_RDONLY | O_CLOEXEC);
+-	if (fd <= 0)
+-		goto out;
+-
+-	result = ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca);
+-	if (result != 0)
+-		goto out;
++	TEST(fd = open(filename, O_RDONLY | O_CLOEXEC), fd != -1);
+ 
+-	if (bca.total_blocks_out != block_cnt ||
+-	    bca.filled_blocks_out != (block_cnt + 1) / 2)
+-		goto out;
++	TESTEQUAL(ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca), 0);
++	TESTEQUAL(bca.total_data_blocks_out, block_cnt);
++	TESTEQUAL(bca.filled_data_blocks_out, (block_cnt + 1) / 2);
++	TESTEQUAL(bca.total_hash_blocks_out, 0);
++	TESTEQUAL(bca.filled_hash_blocks_out, 0);
+ 
+ 	test_result = TEST_SUCCESS;
+ out:
+@@ -3113,32 +3104,96 @@ static int block_count_test(const char *mount_dir)
+ 	int cmd_fd = -1;
+ 	int i;
+ 	struct test_files_set test = get_test_files_set();
+-	const int file_num = test.files_count;
+ 
+-	backing_dir = create_backing_dir(mount_dir);
+-	if (!backing_dir)
+-		goto failure;
++	TEST(backing_dir = create_backing_dir(mount_dir), backing_dir);
++	TESTEQUAL(mount_fs_opt(mount_dir, backing_dir, "readahead=0", false),
++		  0);
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
+-		goto failure;
++	TEST(cmd_fd = open_commands_file(mount_dir), cmd_fd != -1);
+ 
+-	cmd_fd = open_commands_file(mount_dir);
+-	if (cmd_fd < 0)
+-		goto failure;
++	for (i = 0; i < test.files_count; ++i) {
++		struct test_file *file = &test.files[i];
+ 
+-	for (i = 0; i < file_num; ++i) {
++		TESTEQUAL(emit_file(cmd_fd, NULL, file->name, &file->id,
++				    file->size,	NULL), 0);
++
++		TESTEQUAL(validate_block_count(mount_dir, file), 0);
++	}
++
++	result = TEST_SUCCESS;
++out:
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return result;
++}
++
++static int validate_hash_block_count(const char *mount_dir,
++				     struct test_file *file)
++{
++	const int digest_size = SHA256_DIGEST_SIZE;
++	const int hash_per_block = INCFS_DATA_FILE_BLOCK_SIZE / digest_size;
++
++	int result = TEST_FAILURE;
++	int block_count = 1 + (file->size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
++	int hash_block_count = block_count;
++	int total_hash_block_count = 0;
++	char *filename = NULL;
++	int fd = -1;
++	struct incfs_get_block_count_args bca = {};
++
++	while (hash_block_count > 1) {
++		hash_block_count = (hash_block_count + hash_per_block - 1)
++			/ hash_per_block;
++		total_hash_block_count += hash_block_count;
++	}
++
++	TEST(filename = concat_file_name(mount_dir, file->name), filename);
++	TEST(fd = open(filename, O_RDONLY | O_CLOEXEC), fd != -1);
++	TESTEQUAL(ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &bca), 0);
++	TESTEQUAL(bca.total_data_blocks_out, block_count);
++	TESTEQUAL(bca.filled_data_blocks_out, 0);
++	TESTEQUAL(bca.total_hash_blocks_out, total_hash_block_count);
++	TESTEQUAL(bca.filled_hash_blocks_out,
++		  total_hash_block_count > 1 ? 1 : 0);
++
++	result = TEST_SUCCESS;
++out:
++	close(fd);
++	free(filename);
++	return result;
++}
++
++static int hash_block_count_test(const char *mount_dir)
++{
++	int result = TEST_FAILURE;
++	char *backing_dir;
++	int cmd_fd = -1;
++	int i;
++	struct test_files_set test = get_test_files_set();
++	int fd = -1;
++
++	TEST(backing_dir = create_backing_dir(mount_dir), backing_dir);
++	TESTEQUAL(mount_fs_opt(mount_dir, backing_dir, "readahead=0", false),
++		  0);
++	TEST(cmd_fd = open_commands_file(mount_dir), cmd_fd != -1);
++
++	for (i = 0; i < test.files_count; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (emit_file(cmd_fd, NULL, file->name, &file->id, file->size,
+-					NULL) < 0)
+-			goto failure;
++		TESTEQUAL(crypto_emit_file(cmd_fd, NULL, file->name, &file->id,
++				     file->size, file->root_hash,
++				     file->sig.add_data),
++			  0);
+ 
+-		result = validate_block_count(mount_dir, file);
+-		if (result)
+-			goto failure;
++		TESTEQUAL(emit_partial_test_file_hash(mount_dir, file), 0);
++		TESTEQUAL(validate_hash_block_count(mount_dir, &test.files[i]),
++			  0);
+ 	}
+ 
+-failure:
++	result = TEST_SUCCESS;
++out:
++	close(fd);
+ 	close(cmd_fd);
+ 	umount(mount_dir);
+ 	free(backing_dir);
+@@ -3257,6 +3312,7 @@ int main(int argc, char *argv[])
+ 		MAKE_TEST(mapped_file_test),
+ 		MAKE_TEST(compatibility_test),
+ 		MAKE_TEST(block_count_test),
++		MAKE_TEST(hash_block_count_test),
+ 	};
+ #undef MAKE_TEST
+ 
+-- 
+2.17.1
+

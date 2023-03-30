@@ -1,7 +1,7 @@
 /*
  * tegra210_ope_alt.c - Tegra210 OPE driver
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -165,7 +165,6 @@ static struct snd_soc_dai_driver tegra210_ope_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = SNDRV_PCM_FMTBIT_S8 |
 				SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE |
 				SNDRV_PCM_FMTBIT_S32_LE,
 		},
 	},
@@ -178,7 +177,6 @@ static struct snd_soc_dai_driver tegra210_ope_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,
 			.formats = SNDRV_PCM_FMTBIT_S8 |
 				SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE |
 				SNDRV_PCM_FMTBIT_S32_LE,
 		},
 		.ops = &tegra210_ope_dai_ops,
@@ -354,14 +352,6 @@ static int tegra210_ope_platform_probe(struct platform_device *pdev)
 		return ret;
 	}
 	regcache_cache_only(ope->mbdrc_regmap, true);
-
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "nvidia,ahub-ope-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-ope-id\n");
-		return ret;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = snd_soc_register_codec(&pdev->dev, &tegra210_ope_codec,

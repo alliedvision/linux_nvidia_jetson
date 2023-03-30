@@ -1,6 +1,6 @@
 config BCMDHD
 	tristate "Broadcom FullMAC wireless cards support"
-	---help---
+	help
 	  This module adds support for wireless adapters based on
 	  Broadcom FullMAC chipset.
 
@@ -26,14 +26,14 @@ config BCM43241
 config BCM4354
 	bool "Broadcom 4354 wireless cards PRC support"
 	depends on BCMDHD && !BCM43241 && !BCMDYNAMIC
-	---help---
+	help
 	  This module adds support for wireless adapters based on
 	  Broadcom 4354 chipset.
 
 config BCM4339
 	bool "Broadcom 4339 wireless cards PRC support"
 	depends on BCMDHD && !BCM43241 && !BCM4354 && !BCMDYNAMIC
-	---help---
+	help
 	  This module adds support for wireless adapters based on
 	  Broadcom 4339 chipset.
 
@@ -41,53 +41,53 @@ config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"
 	default "/system/vendor/firmware/fw_bcmdhd.bin"
-	---help---
+	help
 	  Path to the firmware file.
 
 config BCMDHD_NVRAM_PATH
 	depends on BCMDHD
 	string "NVRAM path"
 	default "/system/etc/wifi/bcmdhd.cal"
-	---help---
+	help
 	  Path to the calibration file.
 
 config BCMDHD_HW_OOB
 	bool "Use out of band interrupt"
 	depends on BCMDHD
-	---help---
+	help
 	  Use out of band interrupt for card interrupt and wake on wireless.
 
 config DHD_USE_STATIC_BUF
 	bool "Enable memory preallocation"
 	depends on BCMDHD
 	default n
-	---help---
+	help
 	  Use memory preallocated in platform
 
 config DHD_USE_SCHED_SCAN
 	bool "Use CFG80211 sched scan"
 	depends on BCMDHD && CFG80211
 	default n
-	---help---
+	help
 	  Use CFG80211 sched scan
 
 config BCMDHD_DISABLE_MCC
 	bool "Disable Multi channel concurrency"
 	depends on BCMDHD
-	---help---
+	help
 	  Disable Multi channel concurrency to operate WLAN and P2P interfaces on same channel.
 
 config BCMDHD_CUSTOM_SYSFS_TEGRA
 	bool "Custom sysfs for Tegra platform"
 	depends on BCMDHD
 	default n
-	---help---
+	help
 	  Enable custom sysfs for Tegra platform.
 
 config BCMDHD_CUSTOM_NET_PERF_TEGRA
 	bool "Custom network performance boost for Tegra platform"
 	depends on BCMDHD
-	---help---
+	help
 	  Enable custom network performance boost for Tegra platform.
 	  Dynamically boosts clock frequencies based on network traffic
 	  requirements.
@@ -95,7 +95,7 @@ config BCMDHD_CUSTOM_NET_PERF_TEGRA
 config BCMDHD_QMONITOR
 	bool "Monitoring the DHD queue utilization"
 	depends on BCMDHD
-	---help---
+	help
 	  The feature allows monitoring the DHD queue utilization
 	  to get the percentage of a time period where the number of
 	  pending packets is above a configurable theshold.
@@ -107,11 +107,11 @@ config BCMDHD_QMONITOR
 config BCMDHD_CUSTOM_NET_BW_EST_TEGRA
 	bool "Custom network bandwidth estimator for Tegra platform"
 	depends on BCMDHD
-	---help---
+	help
 	  Enable custom network bandwidth estimator for Tegra platform.
 
 config BCMDHD_CUSTOM_NET_DIAG_TEGRA
 	bool "Custom network diagnostics for Tegra platform"
 	depends on BCMDHD
-	---help---
+	help
 	  Enable custom network diagnostics for Tegra platform.

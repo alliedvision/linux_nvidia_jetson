@@ -223,6 +223,7 @@ struct phydm_phyinfo_fw_struct {
 };
 
 struct phydm_phyinfo_struct {
+	boolean		physts_rpt_valid; /* @if physts_rpt_valid is false, please ignore the parsing result in this structure*/
 	u8		rx_pwdb_all;
 	u8		signal_quality;				/* OFDM: signal_quality=rx_mimo_signal_quality[0], CCK: signal qualityin 0-100 index. */
 	u8		rx_mimo_signal_strength[4];	/* RSSI in 0~100 index */

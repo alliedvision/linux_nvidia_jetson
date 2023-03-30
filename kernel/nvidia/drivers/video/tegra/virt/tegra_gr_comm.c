@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Virtualization Communication Framework
  *
- * Copyright (c) 2013-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -219,7 +219,11 @@ static int setup_mempool(struct platform_device *pdev,
 		char name[20];
 		u32 inst;
 
-		snprintf(name, sizeof(name), "mempool%d", i);
+		if (snprintf(name, sizeof(name), "mempool%d", i) < 0) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
 		if (of_property_read_u32_index(dev->of_node, name,
 				PROP_MEMPOOL_INST, &inst) == 0) {
 			struct gr_comm_mempool_context *ctx;
@@ -268,7 +272,11 @@ static int setup_ivc(struct platform_device *pdev,
 		char name[20];
 		u32 inst;
 
-		snprintf(name, sizeof(name), "ivc-queue%d", i);
+		if (snprintf(name, sizeof(name), "ivc-queue%d", i) < 0) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
 		if (of_property_read_u32_index(dev->of_node, name,
 				PROP_IVC_INST, &inst) == 0) {
 			struct device_node *hv_dn;
@@ -359,7 +367,11 @@ int tegra_gr_comm_init(struct platform_device *pdev, u32 elems,
 		if (queue->valid)
 			return -EEXIST;
 
-		snprintf(name, sizeof(name), "gr-virt-comm-%d", i);
+		if (snprintf(name, sizeof(name), "gr-virt-comm-%d", i) < 0) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
 		queue->element_cache =
 			kmem_cache_create(name,
 				sizeof(struct gr_comm_element) + size, 0,
@@ -469,6 +481,7 @@ int tegra_gr_comm_send(u32 peer, u32 index, void *data,
 {
 	struct gr_comm_ivc_context *ivc_ctx;
 	struct gr_comm_queue *queue;
+	int retries = 10;
 	int ret;
 
 	if (index >= NUM_QUEUES)
@@ -487,14 +500,23 @@ int tegra_gr_comm_send(u32 peer, u32 index, void *data,
 		return -EINVAL;
 
 	if (!tegra_hv_ivc_can_write(ivc_ctx->cookie)) {
-		ret = wait_event_timeout(ivc_ctx->wq,
-				tegra_hv_ivc_can_write(ivc_ctx->cookie),
-				msecs_to_jiffies(500));
-		if (!ret) {
-			dev_err(&ivc_ctx->pdev->dev,
-				"%s timeout waiting for buffer\n", __func__);
-			return -ENOMEM;
-		}
+		do {
+			ret = wait_event_timeout(ivc_ctx->wq,
+					tegra_hv_ivc_can_write(ivc_ctx->cookie),
+					msecs_to_jiffies(500));
+			if (!ret) {
+				if (retries > 0) {
+					dev_warn(&ivc_ctx->pdev->dev,
+						"%s retrying (remaining %d times)\n",
+						__func__, retries--);
+				} else {
+					dev_err(&ivc_ctx->pdev->dev,
+						"%s timeout waiting for buffer\n",
+						__func__);
+					return -ENOMEM;
+				}
+			}
+		} while (!ret);
 	}
 
 	ret = tegra_hv_ivc_write(ivc_ctx->cookie, data, size);
@@ -516,7 +538,7 @@ int tegra_gr_comm_recv(u32 index, void **handle, void **data,
 	if (!queue->valid)
 		return -EINVAL;
 
-	err = down_timeout(&queue->sem, 10 * HZ);
+	err = down_timeout(&queue->sem, 40 * HZ);
 	if (unlikely(err))
 		return err;
 	mutex_lock(&queue->lock);
@@ -591,7 +613,7 @@ void *tegra_gr_comm_oob_get_ptr(u32 peer, u32 index,
 
 	mutex_lock(&queue->mempool_lock);
 	*size = mempool_ctx->cookie->size;
-	*ptr = mempool_ctx->ptr;
+	*ptr = (__force void *)mempool_ctx->ptr;
 	return queue;
 }
 EXPORT_SYMBOL(tegra_gr_comm_oob_get_ptr);

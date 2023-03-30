@@ -28,6 +28,7 @@ enum h2c_cmd {
 	H2C_DISCON_DECISION = 0x04,
 	H2C_PSD_OFFLOAD = 0x05,
 	H2C_CUSTOMER_STR_REQ = 0x06,
+	H2C_TXPWR_IDX_OFFLOAD = 0x07,
 	H2C_AP_OFFLOAD = 0x08,
 	H2C_BCN_RSVDPAGE = 0x09,
 	H2C_PROBERSP_RSVDPAGE = 0x0A,
@@ -113,6 +114,9 @@ enum h2c_cmd {
 #ifdef CONFIG_FW_HANDLE_TXBCN
 	H2C_FW_BCN_OFFLOAD = 0xBA,
 #endif
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+	H2C_FW_CRC5_SEARCH = 0xBB,
+#endif
 	H2C_RESET_TSF = 0xC0,
 #ifdef CONFIG_FW_CORRECT_BCN
 	H2C_BCNHWSEQ = 0xC5,
@@ -120,6 +124,7 @@ enum h2c_cmd {
 	H2C_CUSTOMER_STR_W1 = 0xC6,
 	H2C_CUSTOMER_STR_W2 = 0xC7,
 	H2C_CUSTOMER_STR_W3 = 0xC8,
+	H2C_BT_UNKNOWN_DEVICE_WA = 0xD1,
 #ifdef DBG_FW_DEBUG_MSG_PKT
 	H2C_FW_DBG_MSG_PKT = 0xE1,
 #endif /*DBG_FW_DEBUG_MSG_PKT*/
@@ -190,6 +195,11 @@ enum h2c_cmd {
 #endif /*DBG_FW_DEBUG_MSG_PKT*/
 
 #define H2C_SINGLE_CHANNELSWITCH_V2_LEN 2
+#define H2C_BT_UNKNOWN_DEVICE_WA_LEN 1
+
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+#define H2C_FW_CRC5_SEARCH_LEN	7
+#endif
 
 #define eq_mac_addr(a, b)						(((a)[0] == (b)[0] && (a)[1] == (b)[1] && (a)[2] == (b)[2] && (a)[3] == (b)[3] && (a)[4] == (b)[4] && (a)[5] == (b)[5]) ? 1 : 0)
 #define cp_mac_addr(des, src)					((des)[0] = (src)[0], (des)[1] = (src)[1], (des)[2] = (src)[2], (des)[3] = (src)[3], (des)[4] = (src)[4], (des)[5] = (src)[5])
@@ -319,6 +329,13 @@ s32 rtw_hal_h2c_customer_str_write(_adapter *adapter, const u8 *cs);
 s32 rtw_hal_customer_str_write(_adapter *adapter, const u8 *cs);
 #endif /* CONFIG_RTW_CUSTOMER_STR */
 
+#ifdef CONFIG_FW_OFFLOAD_SET_TXPWR_IDX
+#define H2C_TXPWR_IDX_OFFLOAD_LEN 3
+#define SET_H2CCMD_TXPWR_IDX_CCK(__pH2CCmd, __Value) SET_BITS_TO_LE_1BYTE(__pH2CCmd, 0, 8, __Value)
+#define SET_H2CCMD_TXPWR_IDX_OFDM(__pH2CCmd, __Value) SET_BITS_TO_LE_1BYTE(__pH2CCmd + 1, 0, 8, __Value)
+#define SET_H2CCMD_TXPWR_IDX_HT1SS(__pH2CCmd, __Value) SET_BITS_TO_LE_1BYTE(__pH2CCmd  + 2, 0, 8, __Value)
+#endif
+
 /* _AP_Offload 0x08 */
 #define SET_H2CCMD_AP_WOWLAN_EN(__pH2CCmd, __Value)			SET_BITS_TO_LE_1BYTE(__pH2CCmd, 0, 8, __Value)
 /* _BCN_RsvdPage	0x09 */
@@ -348,6 +365,8 @@ s32 rtw_hal_customer_str_write(_adapter *adapter, const u8 *cs);
 	SET_BITS_TO_LE_1BYTE(__pH2CCmd, 2, 1, __Value)
 #define SET_H2CCMD_INACTIVE_DISBBRF(__pH2CCmd, __Value) \
 	SET_BITS_TO_LE_1BYTE(__pH2CCmd, 3, 1, __Value)
+#define SET_H2CCMD_INACTIVE_PORT_NUM(__pH2CCmd, __Value) \
+	SET_BITS_TO_LE_1BYTE(__pH2CCmd, 5, 3, __Value)	
 #define SET_H2CCMD_INACTIVE_PS_FREQ(__pH2CCmd, __Value) \
 	SET_BITS_TO_LE_1BYTE(__pH2CCmd + 1, 0, 8, __Value)
 #define SET_H2CCMD_INACTIVE_PS_DURATION(__pH2CCmd, __Value) \
@@ -565,6 +584,8 @@ s32 rtw_hal_customer_str_write(_adapter *adapter, const u8 *cs);
 #define SET_H2CCMD_LPSPG_DPK_INFO_LOC(__pH2CCmd, __Value)	SET_BITS_TO_LE_1BYTE((__pH2CCmd)+2, 0, 8, __Value)/*Loc_LPS_PG_DPK_info*/
 #define SET_H2CCMD_LPSPG_IQK_INFO_LOC(__pH2CCmd, __Value)	SET_BITS_TO_LE_1BYTE((__pH2CCmd) + 3, 0, 8, __Value)/*Loc_IQK_result*/
 #endif
+
+#define SET_H2CCMD_BT_UNKNOWN_DEVICE_WA_PARM(__pH2CCmd, __Value) SET_BITS_TO_LE_1BYTE(__pH2CCmd, 1, 1, __Value)
 
 #ifdef DBG_FW_DEBUG_MSG_PKT
 #define SET_H2CCMD_FW_DBG_MSG_PKT_EN(__pH2CCmd, __Value)	SET_BITS_TO_LE_1BYTE(__pH2CCmd, 0, 1, __Value)/*sniffer_dbg_en*/

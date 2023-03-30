@@ -1,0 +1,505 @@
+From 3b2740604e8a976251e452f908fbb44fd4114e2d Mon Sep 17 00:00:00 2001
+From: Barani Muthukumaran <bmuthuku@codeaurora.org>
+Date: Wed, 15 Jan 2020 18:41:54 -0800
+Subject: [PATCH 514/830] ANDROID: fscrypt: add support for hardware-wrapped
+ keys
+X-NVConfidentiality: public
+
+To prevent keys from being compromised if an attacker acquires read
+access to kernel memory, some inline encryption hardware supports
+protecting the keys in hardware without software having access to or the
+ability to set the plaintext keys.  Instead, software only sees "wrapped
+keys", which may differ on every boot.  The keys can be initially
+generated either by software (in which case they need to be imported to
+hardware to be wrapped), or directly by the hardware.
+
+Add support for this type of hardware by allowing keys to be flagged as
+hardware-wrapped and encryption policies to be flagged as needing a
+hardware-wrapped key.  When used, fscrypt will pass the wrapped key
+directly to the inline encryption hardware to encrypt file contents.
+The hardware is responsible for internally unwrapping the key and
+deriving the actual file contents encryption key.
+
+fscrypt also asks the inline encryption hardware to derive a
+cryptographically isolated software "secret", which fscrypt then uses as
+the master key for all other purposes besides file contents encryption,
+e.g. to derive filenames encryption keys and the key identifier.
+
+Bug: 147209885
+Bug: 160883801
+
+Change-Id: I58d1a37f5ba8cf178b80036b813e0bc99512ef3b
+Co-developed-by: Gaurav Kashyap <gaurkash@codeaurora.org>
+Signed-off-by: Gaurav Kashyap <gaurkash@codeaurora.org>
+Signed-off-by: Barani Muthukumaran <bmuthuku@codeaurora.org>
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ fs/crypto/fscrypt_private.h  | 44 ++++++++++++++---
+ fs/crypto/inline_crypt.c     | 32 +++++++++++--
+ fs/crypto/keyring.c          | 50 ++++++++++++++++----
+ fs/crypto/keysetup.c         | 91 ++++++++++++++++++++++++++----------
+ fs/crypto/keysetup_v1.c      |  3 +-
+ include/uapi/linux/fscrypt.h |  5 +-
+ 6 files changed, 178 insertions(+), 47 deletions(-)
+
+diff --git a/fs/crypto/fscrypt_private.h b/fs/crypto/fscrypt_private.h
+index 712f350b1a9c..a1b6212f6eea 100644
+--- a/fs/crypto/fscrypt_private.h
++++ b/fs/crypto/fscrypt_private.h
+@@ -22,6 +22,8 @@
+ 
+ #define FSCRYPT_MIN_KEY_SIZE	16
+ 
++#define FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE	128
++
+ #define FSCRYPT_CONTEXT_V1	1
+ #define FSCRYPT_CONTEXT_V2	2
+ 
+@@ -330,7 +332,8 @@ void fscrypt_destroy_hkdf(struct fscrypt_hkdf *hkdf);
+ 
+ /* inline_crypt.c */
+ #ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+-int fscrypt_select_encryption_impl(struct fscrypt_info *ci);
++int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
++				   bool is_hw_wrapped_key);
+ 
+ static inline bool
+ fscrypt_using_inline_encryption(const struct fscrypt_info *ci)
+@@ -340,10 +343,18 @@ fscrypt_using_inline_encryption(const struct fscrypt_info *ci)
+ 
+ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
+ 				     const u8 *raw_key,
++				     unsigned int raw_key_size,
++				     bool is_hw_wrapped,
+ 				     const struct fscrypt_info *ci);
+ 
+ void fscrypt_destroy_inline_crypt_key(struct fscrypt_prepared_key *prep_key);
+ 
++extern int fscrypt_derive_raw_secret(struct super_block *sb,
++				     const u8 *wrapped_key,
++				     unsigned int wrapped_key_size,
++				     u8 *raw_secret,
++				     unsigned int raw_secret_size);
++
+ /*
+  * Check whether the crypto transform or blk-crypto key has been allocated in
+  * @prep_key, depending on which encryption implementation the file will use.
+@@ -367,7 +378,8 @@ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
+ 
+ #else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
+ 
+-static inline int fscrypt_select_encryption_impl(struct fscrypt_info *ci)
++static inline int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
++						 bool is_hw_wrapped_key)
+ {
+ 	return 0;
+ }
+@@ -380,7 +392,8 @@ fscrypt_using_inline_encryption(const struct fscrypt_info *ci)
+ 
+ static inline int
+ fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
+-				 const u8 *raw_key,
++				 const u8 *raw_key, unsigned int raw_key_size,
++				 bool is_hw_wrapped,
+ 				 const struct fscrypt_info *ci)
+ {
+ 	WARN_ON(1);
+@@ -392,6 +405,17 @@ fscrypt_destroy_inline_crypt_key(struct fscrypt_prepared_key *prep_key)
+ {
+ }
+ 
++static inline int fscrypt_derive_raw_secret(struct super_block *sb,
++					    const u8 *wrapped_key,
++					    unsigned int wrapped_key_size,
++					    u8 *raw_secret,
++					    unsigned int raw_secret_size)
++{
++	fscrypt_warn(NULL,
++		     "kernel built without support for hardware-wrapped keys");
++	return -EOPNOTSUPP;
++}
++
+ static inline bool
+ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
+ 			const struct fscrypt_info *ci)
+@@ -416,8 +440,15 @@ struct fscrypt_master_key_secret {
+ 	/* Size of the raw key in bytes.  Set even if ->raw isn't set. */
+ 	u32			size;
+ 
+-	/* For v1 policy keys: the raw key.  Wiped for v2 policy keys. */
+-	u8			raw[FSCRYPT_MAX_KEY_SIZE];
++	/* True if the key in ->raw is a hardware-wrapped key. */
++	bool			is_hw_wrapped;
++
++	/*
++	 * For v1 policy keys: the raw key.  Wiped for v2 policy keys, unless
++	 * ->is_hw_wrapped is true, in which case this contains the wrapped key
++	 * rather than the key with which 'hkdf' was keyed.
++	 */
++	u8			raw[FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE];
+ 
+ } __randomize_layout;
+ 
+@@ -566,7 +597,8 @@ struct fscrypt_mode {
+ extern struct fscrypt_mode fscrypt_modes[];
+ 
+ int fscrypt_prepare_key(struct fscrypt_prepared_key *prep_key,
+-			const u8 *raw_key, const struct fscrypt_info *ci);
++			const u8 *raw_key, unsigned int raw_key_size,
++			bool is_hw_wrapped, const struct fscrypt_info *ci);
+ 
+ void fscrypt_destroy_prepared_key(struct fscrypt_prepared_key *prep_key);
+ 
+diff --git a/fs/crypto/inline_crypt.c b/fs/crypto/inline_crypt.c
+index 33b65f1cfe64..bf2c46c2784a 100644
+--- a/fs/crypto/inline_crypt.c
++++ b/fs/crypto/inline_crypt.c
+@@ -15,6 +15,7 @@
+ #include <linux/blk-crypto.h>
+ #include <linux/blkdev.h>
+ #include <linux/buffer_head.h>
++#include <linux/keyslot-manager.h>
+ #include <linux/sched/mm.h>
+ #include <linux/slab.h>
+ #include <linux/uio.h>
+@@ -65,7 +66,8 @@ static unsigned int fscrypt_get_dun_bytes(const struct fscrypt_info *ci)
+ }
+ 
+ /* Enable inline encryption for this file if supported. */
+-int fscrypt_select_encryption_impl(struct fscrypt_info *ci)
++int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
++				   bool is_hw_wrapped_key)
+ {
+ 	const struct inode *inode = ci->ci_inode;
+ 	struct super_block *sb = inode->i_sb;
+@@ -106,7 +108,7 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci)
+ 	crypto_cfg.crypto_mode = ci->ci_mode->blk_crypto_mode;
+ 	crypto_cfg.data_unit_size = sb->s_blocksize;
+ 	crypto_cfg.dun_bytes = fscrypt_get_dun_bytes(ci);
+-	crypto_cfg.is_hw_wrapped = false;
++	crypto_cfg.is_hw_wrapped = is_hw_wrapped_key;
+ 	num_devs = fscrypt_get_num_devices(sb);
+ 	devs = kmalloc_array(num_devs, sizeof(*devs), GFP_KERNEL);
+ 	if (!devs)
+@@ -127,6 +129,8 @@ int fscrypt_select_encryption_impl(struct fscrypt_info *ci)
+ 
+ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
+ 				     const u8 *raw_key,
++				     unsigned int raw_key_size,
++				     bool is_hw_wrapped,
+ 				     const struct fscrypt_info *ci)
+ {
+ 	const struct inode *inode = ci->ci_inode;
+@@ -145,9 +149,12 @@ int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
+ 	blk_key->num_devs = num_devs;
+ 	fscrypt_get_devices(sb, num_devs, blk_key->devs);
+ 
+-	err = blk_crypto_init_key(&blk_key->base, raw_key, ci->ci_mode->keysize,
+-				  false, crypto_mode, fscrypt_get_dun_bytes(ci),
+-				  sb->s_blocksize);
++	BUILD_BUG_ON(FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE >
++		     BLK_CRYPTO_MAX_WRAPPED_KEY_SIZE);
++
++	err = blk_crypto_init_key(&blk_key->base, raw_key, raw_key_size,
++				  is_hw_wrapped, crypto_mode,
++				  fscrypt_get_dun_bytes(ci), sb->s_blocksize);
+ 	if (err) {
+ 		fscrypt_err(inode, "error %d initializing blk-crypto key", err);
+ 		goto fail;
+@@ -206,6 +213,21 @@ void fscrypt_destroy_inline_crypt_key(struct fscrypt_prepared_key *prep_key)
+ 	}
+ }
+ 
++int fscrypt_derive_raw_secret(struct super_block *sb,
++			      const u8 *wrapped_key,
++			      unsigned int wrapped_key_size,
++			      u8 *raw_secret, unsigned int raw_secret_size)
++{
++	struct request_queue *q;
++
++	q = bdev_get_queue(sb->s_bdev);
++	if (!q->ksm)
++		return -EOPNOTSUPP;
++
++	return blk_ksm_derive_raw_secret(q->ksm, wrapped_key, wrapped_key_size,
++					 raw_secret, raw_secret_size);
++}
++
+ bool __fscrypt_inode_uses_inline_crypto(const struct inode *inode)
+ {
+ 	return inode->i_crypt_info->ci_inlinecrypt;
+diff --git a/fs/crypto/keyring.c b/fs/crypto/keyring.c
+index d7ec52cb3d9a..1f52e841143f 100644
+--- a/fs/crypto/keyring.c
++++ b/fs/crypto/keyring.c
+@@ -476,6 +476,9 @@ static int do_add_master_key(struct super_block *sb,
+ 	return err;
+ }
+ 
++/* Size of software "secret" derived from hardware-wrapped key */
++#define RAW_SECRET_SIZE 32
++
+ static int add_master_key(struct super_block *sb,
+ 			  struct fscrypt_master_key_secret *secret,
+ 			  struct fscrypt_key_specifier *key_spec)
+@@ -483,16 +486,27 @@ static int add_master_key(struct super_block *sb,
+ 	int err;
+ 
+ 	if (key_spec->type == FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER) {
+-		err = fscrypt_init_hkdf(&secret->hkdf, secret->raw,
+-					secret->size);
+-		if (err)
+-			return err;
+-
++		u8 _kdf_key[RAW_SECRET_SIZE];
++		u8 *kdf_key = secret->raw;
++		unsigned int kdf_key_size = secret->size;
++
++		if (secret->is_hw_wrapped) {
++			kdf_key = _kdf_key;
++			kdf_key_size = RAW_SECRET_SIZE;
++			err = fscrypt_derive_raw_secret(sb, secret->raw,
++							secret->size,
++							kdf_key, kdf_key_size);
++			if (err)
++				return err;
++		}
++		err = fscrypt_init_hkdf(&secret->hkdf, kdf_key, kdf_key_size);
+ 		/*
+-		 * Now that the HKDF context is initialized, the raw key is no
+-		 * longer needed.
++		 * Now that the HKDF context is initialized, the raw HKDF key is
++		 * no longer needed.
+ 		 */
+-		memzero_explicit(secret->raw, secret->size);
++		memzero_explicit(kdf_key, kdf_key_size);
++		if (err)
++			return err;
+ 
+ 		/* Calculate the key identifier */
+ 		err = fscrypt_hkdf_expand(&secret->hkdf,
+@@ -509,8 +523,10 @@ static int fscrypt_provisioning_key_preparse(struct key_preparsed_payload *prep)
+ {
+ 	const struct fscrypt_provisioning_key_payload *payload = prep->data;
+ 
++	BUILD_BUG_ON(FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE < FSCRYPT_MAX_KEY_SIZE);
++
+ 	if (prep->datalen < sizeof(*payload) + FSCRYPT_MIN_KEY_SIZE ||
+-	    prep->datalen > sizeof(*payload) + FSCRYPT_MAX_KEY_SIZE)
++	    prep->datalen > sizeof(*payload) + FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE)
+ 		return -EINVAL;
+ 
+ 	if (payload->type != FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR &&
+@@ -659,15 +675,29 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
+ 		return -EACCES;
+ 
+ 	memset(&secret, 0, sizeof(secret));
++
++	if (arg.__flags) {
++		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
++			return -EINVAL;
++		if (arg.key_spec.type != FSCRYPT_KEY_SPEC_TYPE_IDENTIFIER)
++			return -EINVAL;
++		secret.is_hw_wrapped = true;
++	}
++
+ 	if (arg.key_id) {
+ 		if (arg.raw_size != 0)
+ 			return -EINVAL;
+ 		err = get_keyring_key(arg.key_id, arg.key_spec.type, &secret);
+ 		if (err)
+ 			goto out_wipe_secret;
++		err = -EINVAL;
++		if (secret.size > FSCRYPT_MAX_KEY_SIZE && !secret.is_hw_wrapped)
++			goto out_wipe_secret;
+ 	} else {
+ 		if (arg.raw_size < FSCRYPT_MIN_KEY_SIZE ||
+-		    arg.raw_size > FSCRYPT_MAX_KEY_SIZE)
++		    arg.raw_size > (secret.is_hw_wrapped ?
++				    FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE :
++				    FSCRYPT_MAX_KEY_SIZE))
+ 			return -EINVAL;
+ 		secret.size = arg.raw_size;
+ 		err = -EFAULT;
+diff --git a/fs/crypto/keysetup.c b/fs/crypto/keysetup.c
+index 73d96e35d9ae..1299d155bc8b 100644
+--- a/fs/crypto/keysetup.c
++++ b/fs/crypto/keysetup.c
+@@ -126,12 +126,17 @@ fscrypt_allocate_skcipher(struct fscrypt_mode *mode, const u8 *raw_key,
+  * (fs-layer or blk-crypto) will be used.
+  */
+ int fscrypt_prepare_key(struct fscrypt_prepared_key *prep_key,
+-			const u8 *raw_key, const struct fscrypt_info *ci)
++			const u8 *raw_key, unsigned int raw_key_size,
++			bool is_hw_wrapped, const struct fscrypt_info *ci)
+ {
+ 	struct crypto_skcipher *tfm;
+ 
+ 	if (fscrypt_using_inline_encryption(ci))
+-		return fscrypt_prepare_inline_crypt_key(prep_key, raw_key, ci);
++		return fscrypt_prepare_inline_crypt_key(prep_key,
++				raw_key, raw_key_size, is_hw_wrapped, ci);
++
++	if (WARN_ON(is_hw_wrapped || raw_key_size != ci->ci_mode->keysize))
++		return -EINVAL;
+ 
+ 	tfm = fscrypt_allocate_skcipher(ci->ci_mode, raw_key, ci->ci_inode);
+ 	if (IS_ERR(tfm))
+@@ -157,7 +162,9 @@ void fscrypt_destroy_prepared_key(struct fscrypt_prepared_key *prep_key)
+ int fscrypt_set_per_file_enc_key(struct fscrypt_info *ci, const u8 *raw_key)
+ {
+ 	ci->ci_owns_key = true;
+-	return fscrypt_prepare_key(&ci->ci_enc_key, raw_key, ci);
++	return fscrypt_prepare_key(&ci->ci_enc_key, raw_key,
++				   ci->ci_mode->keysize,
++				   false /*is_hw_wrapped*/, ci);
+ }
+ 
+ static int setup_per_mode_enc_key(struct fscrypt_info *ci,
+@@ -189,24 +196,48 @@ static int setup_per_mode_enc_key(struct fscrypt_info *ci,
+ 	if (fscrypt_is_key_prepared(prep_key, ci))
+ 		goto done_unlock;
+ 
+-	BUILD_BUG_ON(sizeof(mode_num) != 1);
+-	BUILD_BUG_ON(sizeof(sb->s_uuid) != 16);
+-	BUILD_BUG_ON(sizeof(hkdf_info) != 17);
+-	hkdf_info[hkdf_infolen++] = mode_num;
+-	if (include_fs_uuid) {
+-		memcpy(&hkdf_info[hkdf_infolen], &sb->s_uuid,
+-		       sizeof(sb->s_uuid));
+-		hkdf_infolen += sizeof(sb->s_uuid);
++	if (mk->mk_secret.is_hw_wrapped && S_ISREG(inode->i_mode)) {
++		int i;
++
++		if (!fscrypt_using_inline_encryption(ci)) {
++			fscrypt_warn(ci->ci_inode,
++				     "Hardware-wrapped keys require inline encryption (-o inlinecrypt)");
++			err = -EINVAL;
++			goto out_unlock;
++		}
++		for (i = 0; i <= __FSCRYPT_MODE_MAX; i++) {
++			if (fscrypt_is_key_prepared(&keys[i], ci)) {
++				fscrypt_warn(ci->ci_inode,
++					     "Each hardware-wrapped key can only be used with one encryption mode");
++				err = -EINVAL;
++				goto out_unlock;
++			}
++		}
++		err = fscrypt_prepare_key(prep_key, mk->mk_secret.raw,
++					  mk->mk_secret.size, true, ci);
++		if (err)
++			goto out_unlock;
++	} else {
++		BUILD_BUG_ON(sizeof(mode_num) != 1);
++		BUILD_BUG_ON(sizeof(sb->s_uuid) != 16);
++		BUILD_BUG_ON(sizeof(hkdf_info) != 17);
++		hkdf_info[hkdf_infolen++] = mode_num;
++		if (include_fs_uuid) {
++			memcpy(&hkdf_info[hkdf_infolen], &sb->s_uuid,
++				   sizeof(sb->s_uuid));
++			hkdf_infolen += sizeof(sb->s_uuid);
++		}
++		err = fscrypt_hkdf_expand(&mk->mk_secret.hkdf,
++					  hkdf_context, hkdf_info, hkdf_infolen,
++					  mode_key, mode->keysize);
++		if (err)
++			goto out_unlock;
++		err = fscrypt_prepare_key(prep_key, mode_key, mode->keysize,
++					  false /*is_hw_wrapped*/, ci);
++		memzero_explicit(mode_key, mode->keysize);
++		if (err)
++			goto out_unlock;
+ 	}
+-	err = fscrypt_hkdf_expand(&mk->mk_secret.hkdf,
+-				  hkdf_context, hkdf_info, hkdf_infolen,
+-				  mode_key, mode->keysize);
+-	if (err)
+-		goto out_unlock;
+-	err = fscrypt_prepare_key(prep_key, mode_key, ci);
+-	memzero_explicit(mode_key, mode->keysize);
+-	if (err)
+-		goto out_unlock;
+ done_unlock:
+ 	ci->ci_enc_key = *prep_key;
+ 	err = 0;
+@@ -311,6 +342,14 @@ static int fscrypt_setup_v2_file_key(struct fscrypt_info *ci,
+ {
+ 	int err;
+ 
++	if (mk->mk_secret.is_hw_wrapped &&
++	    !(ci->ci_policy.v2.flags & (FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64 |
++					FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))) {
++		fscrypt_warn(ci->ci_inode,
++			     "Hardware-wrapped keys are only supported with IV_INO_LBLK policies");
++		return -EINVAL;
++	}
++
+ 	if (ci->ci_policy.v2.flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY) {
+ 		/*
+ 		 * DIRECT_KEY: instead of deriving per-file encryption keys, the
+@@ -420,10 +459,6 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
+ 	struct fscrypt_key_specifier mk_spec;
+ 	int err;
+ 
+-	err = fscrypt_select_encryption_impl(ci);
+-	if (err)
+-		return err;
+-
+ 	switch (ci->ci_policy.version) {
+ 	case FSCRYPT_POLICY_V1:
+ 		mk_spec.type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR;
+@@ -448,6 +483,10 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
+ 		    ci->ci_policy.version != FSCRYPT_POLICY_V1)
+ 			return PTR_ERR(key);
+ 
++		err = fscrypt_select_encryption_impl(ci, false);
++		if (err)
++			return err;
++
+ 		/*
+ 		 * As a legacy fallback for v1 policies, search for the key in
+ 		 * the current task's subscribed keyrings too.  Don't move this
+@@ -471,6 +510,10 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
+ 		goto out_release_key;
+ 	}
+ 
++	err = fscrypt_select_encryption_impl(ci, mk->mk_secret.is_hw_wrapped);
++	if (err)
++		goto out_release_key;
++
+ 	switch (ci->ci_policy.version) {
+ 	case FSCRYPT_POLICY_V1:
+ 		err = fscrypt_setup_v1_file_key(ci, mk->mk_secret.raw);
+diff --git a/fs/crypto/keysetup_v1.c b/fs/crypto/keysetup_v1.c
+index 2762c5350432..f0c22b589804 100644
+--- a/fs/crypto/keysetup_v1.c
++++ b/fs/crypto/keysetup_v1.c
+@@ -233,7 +233,8 @@ fscrypt_get_direct_key(const struct fscrypt_info *ci, const u8 *raw_key)
+ 		return ERR_PTR(-ENOMEM);
+ 	refcount_set(&dk->dk_refcount, 1);
+ 	dk->dk_mode = ci->ci_mode;
+-	err = fscrypt_prepare_key(&dk->dk_key, raw_key, ci);
++	err = fscrypt_prepare_key(&dk->dk_key, raw_key, ci->ci_mode->keysize,
++				  false /*is_hw_wrapped*/, ci);
+ 	if (err)
+ 		goto err_free_dk;
+ 	memcpy(dk->dk_descriptor, ci->ci_policy.v1.master_key_descriptor,
+diff --git a/include/uapi/linux/fscrypt.h b/include/uapi/linux/fscrypt.h
+index 9f4428be3e36..fceafb5ab213 100644
+--- a/include/uapi/linux/fscrypt.h
++++ b/include/uapi/linux/fscrypt.h
+@@ -124,7 +124,10 @@ struct fscrypt_add_key_arg {
+ 	struct fscrypt_key_specifier key_spec;
+ 	__u32 raw_size;
+ 	__u32 key_id;
+-	__u32 __reserved[8];
++	__u32 __reserved[7];
++	/* N.B.: "temporary" flag, not reserved upstream */
++#define __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED		0x00000001
++	__u32 __flags;
+ 	__u8 raw[];
+ };
+ 
+-- 
+2.17.1
+

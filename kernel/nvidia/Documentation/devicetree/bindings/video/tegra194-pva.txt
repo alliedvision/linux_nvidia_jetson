@@ -1,0 +1,36 @@
+
+NVIDIA Programmable Vision Accelatrator (PVA )
+
+PVA is fixed-function hardware accelerator used for low to mid level
+computer vision and image processing applications. This document
+describes the device tree bindings for PVA hardware itself, as well as
+for subnodes corresponding to this engine.
+
+Required properties:
+- compatible: "nvidia,tegra194-pva"
+- power-domains: phandle pointing to the parent power domain
+- reg: Physical base address and length of the PVA registers.
+- interrupts: The interrupt IRQ info for PVA
+- resets: One entry pointing to PVA reset.
+- clock-names: Must include the following entries:
+    "pva0/1":  AXI
+    "pva0/1":  VPS0
+    "pva0/1":  VPA1
+- clocks: One entry for each entry in 'clock-names'
+- iommus: Entry for PVA0/1 stream IDs
+- dma-coherent: Present if dma operations are coherent
+
+Example from tegra194-soc-base.dtsi:
+        pva0: pva0 {
+                compatible = "nvidia,tegra194-pva";
+                power-domains = <&bpmp TEGRA194_POWER_DOMAIN_PVAA>;
+                reg = <0x0 0x16000000 0x0 0x800000>;
+                interrupts = <0 234 0x04>;
+                resets = <&bpmp_resets TEGRA194_RESET_PVA0_ALL>;
+                clocks = <&bpmp_clks TEGRA194_CLK_PVA0_AXI>,
+                        <&bpmp_clks TEGRA194_CLK_PVA0_VPS0>,
+                        <&bpmp_clks TEGRA194_CLK_PVA0_VPS1>;
+                clock-names = "axi", "vps0", "vps1";
+                iommus = <&smmu TEGRA_SID_PVA0>;
+                dma-coherent;
+        };

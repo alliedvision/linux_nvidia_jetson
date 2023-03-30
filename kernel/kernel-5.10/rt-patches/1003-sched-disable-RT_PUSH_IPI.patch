@@ -1,0 +1,33 @@
+From cc8c6631e5019705860b937cd79adbd19420e17f Mon Sep 17 00:00:00 2001
+From: Suresh Venkatachalam <skathirampat@nvidia.com>
+Date: Thu, 30 May 2019 16:25:14 -0700
+Subject: [PATCH 5/5] sched: disable RT_PUSH_IPI
+
+RT latency numbers on T19x improve with RT_PUSH_IPI disabled
+This patch disables RT_PUSH_IPI by removing HAVE_RT_PUSH_IPI define
+
+Change-Id: I3513125e9d645d7f8256ebcf596ebebf2a6d13de
+Signed-off-by: Suresh Venkatachalam <skathirampat@nvidia.com>
+---
+ kernel/sched/sched.h | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 6610e5d..a43876d 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -605,11 +605,6 @@ static inline int rt_bandwidth_enabled(void)
+ 	return sysctl_sched_rt_runtime >= 0;
+ }
+ 
+-/* RT IPI pull logic requires IRQ_WORK */
+-#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_SMP)
+-# define HAVE_RT_PUSH_IPI
+-#endif
+-
+ /* Real-Time classes' related field in a runqueue: */
+ struct rt_rq {
+ 	struct rt_prio_array	active;
+-- 
+2.7.4
+

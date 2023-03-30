@@ -1,0 +1,468 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Jetson Device-tree overlay for YUV camera AR1335 module on t19x platforms
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra194-gpio.h>
+
+#define MIPICFG0 	TEGRA194_MAIN_GPIO(H, 3)
+#define MIPICFG1	TEGRA194_MAIN_GPIO(H, 6)
+#define MIPICFG2	TEGRA194_MAIN_GPIO(T, 5)
+#define IO_EXP_RST	TEGRA194_MAIN_GPIO(T, 6)
+
+/ {
+	overlay-name = "Jetson ECON YUV Camera module";
+	jetson-header-name = "Jetson AGX CSI Connector";
+	compatible = "nvidia,p2822-0000+p2888-0001";
+
+	/* Use either odm-data or eeprom-ids for sensor detection */
+
+	/* AR1335 camera board */
+	/* VI number of channels */
+	fragment@0 {
+		/// target = <&capture_vi_base>;
+		target-path = "/tegra-capture-vi";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<3>;
+		};
+	};
+	/* CSI number of channels */
+	fragment@1 {
+		/// target = <&csi_base>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<3>;
+		};
+	};
+	/* tegra-camera-platform settings */
+	fragment@2 {
+		/// target = <&tcp>;
+		target-path = "/tegra-camera-platform";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num_csi_lanes = <12>;
+			max_lane_speed = <2500000>;
+			min_bits_per_pixel = <16>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			max_pixel_rate = <200000>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+	/* TCA9548 */
+	fragment@3 {
+		target-path = "/i2c@3180000/tca9548@70";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	/* Camera 0: Module */
+	fragment@4 {
+		target-path = "/i2c@3180000/tca9548@70/i2c@0/ar1335_a@42";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@5 {
+		/// target = <&cam_module0>;
+		target-path = "/tegra-camera-platform/modules/module0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "ecam_hexcu130-1";
+			position = "rear1";
+			orientation = "1";
+		};
+	};
+	fragment@6 {
+		/// target = <&cam_module0_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module0/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "e-CAM130A_CUXVR-1";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@0/ar1335_a@42";
+		};
+	};
+	/* Camera 0: VI */
+	fragment@7 {
+		/// target = <&vi_port0>;
+		target-path = "/tegra-capture-vi/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@8 {
+		/// target = <&ecam_vi_in0>;
+		target-path = "/tegra-capture-vi/ports/port@0/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_csi_out0>;
+		};
+	};
+	/* Camera 0: CSI */
+	fragment@9 {
+		/// target = <&csi_chan0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@10 {
+		/// target = <&csi_chan0_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		/// target = <&ecam_csi_in0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0/endpoint@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_ar1335_out0>;
+		};
+	};
+	fragment@12 {
+		/// target = <&csi_chan0_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@13 {
+		/// target = <&ecam_csi_out0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&ecam_vi_in0>;
+		};
+	};
+	/* Camera 1: Module */
+	fragment@14 {
+		/// target = <&ecam_cam1>;
+		target-path = "/i2c@3180000/tca9548@70/i2c@2/ar1335_c@42";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@15 {
+		/// target = <&cam_module1>;
+		target-path = "/tegra-camera-platform/modules/module1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "ecam_hexcu130-2";
+			position = "rear2";
+			orientation = "1";
+		};
+	};
+	fragment@16 {
+		/// target = <&cam_module1_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module1/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "e-CAM130A_CUXVR-2";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@2/ar1335_c@42";
+		};
+	};
+	/* Camera 1: VI */
+	fragment@17 {
+		/// target = <&vi_port1>;
+		target-path = "/tegra-capture-vi/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@18 {
+		/// target = <&ecam_vi_in1>;
+		target-path = "/tegra-capture-vi/ports/port@1/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_csi_out1>;
+		};
+	};
+	/* Camera 1: CSI */
+	fragment@19 {
+		/// target = <&csi_chan1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@20 {
+		/// target = <&csi_chan1_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@21 {
+		/// target = <&ecam_csi_in1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0/endpoint@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_ar1335_out1>;
+		};
+	};
+	fragment@22 {
+		/// target = <&csi_chan1_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@23 {
+		/// target = <&ecam_csi_out1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1/endpoint@3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&ecam_vi_in1>;
+		};
+	};
+	/* Camera 2: Module */
+	fragment@24 {
+		/// target = <&ecam_cam2>;
+		target-path = "/i2c@3180000/tca9548@70/i2c@4/ar1335_e@42";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@25 {
+		/// target = <&cam_module2>;
+		target-path = "/tegra-camera-platform/modules/module2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "ecam_hexcu130-3";
+			position = "rear3";
+			orientation = "1";
+		};
+	};
+	fragment@26 {
+		/// target = <&cam_module2_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module2/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "e-CAM130A_CUXVR-3";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9548@70/i2c@4/ar1335_e@42";
+		};
+	};
+	/* Camera 2: VI */
+	fragment@27 {
+		/// target = <&vi_port2>;
+		target-path = "/tegra-capture-vi/ports/port@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@28 {
+		/// target = <&ecam_vi_in2>;
+		target-path = "/tegra-capture-vi/ports/port@2/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_csi_out2>;
+		};
+	};
+	/* Camera 2: CSI */
+	fragment@29 {
+		/// target = <&csi_chan2>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@30 {
+		/// target = <&csi_chan2_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@31 {
+		/// target = <&ecam_csi_in2>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0/endpoint@4";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <4>;
+			remote-endpoint = <&ecam_ar1335_out2>;
+		};
+	};
+	fragment@32 {
+		/// target = <&csi_chan2_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@33 {
+		/// target = <&ecam_csi_out2>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1/endpoint@5";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&ecam_vi_in2>;
+		};
+	};
+	/* GPIO */
+	fragment@34 {
+		target-path = "/gpio@2200000";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			camera-control-input {
+				status = "disabled";
+			};
+			camera-control-output-low {
+				gpio-hog;
+				gpios =  <MIPICFG0 1 MIPICFG1 1 MIPICFG2 0
+					IO_EXP_RST 1>;
+				label = "mipi_sel1", "mipi_sel2",
+					"mipi_sel_3","cam_ioexp_rst";
+				output-low;
+				status = "okay";
+			};
+			camera-control-output-high {
+				status = "disabled";
+			};
+		};
+	};
+	/* TCA6424 on i2c@240000 */
+	fragment@35 {
+		target-path = "/i2c@c240000/tca6424@22";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+};

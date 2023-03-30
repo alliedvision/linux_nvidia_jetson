@@ -1,0 +1,25 @@
+#include "tegra194-p2888-0001-p2822-0000.dts"
+
+/ {
+	chosen {
+		os-default-to-acpi;
+	};
+
+	serial@3100000 {
+		status = "disabled";
+	};
+
+	serial@3110000 {
+		compatible = "nvidia,tegra20-uart";
+		status = "okay";
+	};
+
+	serial@3140000 {
+		status = "disabled";
+	};
+
+	combined-uart {
+		status = "disabled";
+	};
+};
+

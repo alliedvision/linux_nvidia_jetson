@@ -1,0 +1,43 @@
+From 4c2852b315a8efbf1fd3864a8fb0e7f0e4d6c480 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Tue, 1 Sep 2020 14:08:43 -0700
+Subject: [PATCH 763/830] ANDROID: GKI: enable ALLOW_DEV_COREDUMP
+X-NVConfidentiality: public
+
+Allow drivers to utilize the upstream devcoredump framework
+
+Bug: 166482125
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: Iee62786a143f09d2c085efeae7b5918f3b7587d2
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 69f877cd1bd1..a0fb39032dfd 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -219,7 +219,6 @@ CONFIG_PCIE_QCOM=y
+ CONFIG_PCIE_KIRIN=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ # CONFIG_FW_CACHE is not set
+-# CONFIG_ALLOW_DEV_COREDUMP is not set
+ # CONFIG_SUN50I_DE2_BUS is not set
+ # CONFIG_SUNXI_RSB is not set
+ CONFIG_GNSS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 54532ed13376..23af11279f47 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -194,7 +194,6 @@ CONFIG_PCIEPORTBUS=y
+ CONFIG_PCI_MSI=y
+ CONFIG_FW_LOADER_USER_HELPER=y
+ # CONFIG_FW_CACHE is not set
+-# CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_GNSS=y
+ CONFIG_OF=y
+ CONFIG_BLK_DEV_LOOP=y
+-- 
+2.17.1
+

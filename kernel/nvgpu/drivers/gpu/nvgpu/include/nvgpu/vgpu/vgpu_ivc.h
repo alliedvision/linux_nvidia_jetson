@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __VGPU_IVC_H__
-#define __VGPU_IVC_H__
+#ifndef NVGPU_VGPU_IVC_H
+#define NVGPU_VGPU_IVC_H
 
 #include <nvgpu/types.h>
 
@@ -42,4 +42,4 @@ void *vgpu_ivc_oob_get_ptr(u32 peer, u32 index, void **ptr,
 					size_t *size);
 void vgpu_ivc_oob_put_ptr(void *handle);
 
-#endif
+#endif /* NVGPU_VGPU_IVC_H */

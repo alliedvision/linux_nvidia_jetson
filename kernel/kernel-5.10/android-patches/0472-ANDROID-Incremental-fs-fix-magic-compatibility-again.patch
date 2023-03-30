@@ -1,0 +1,56 @@
+From 1728fb9e3a68a73ace55f0243f0e30c5e97845d8 Mon Sep 17 00:00:00 2001
+From: mtk81325 <peng.zhou@mediatek.com>
+Date: Wed, 5 Aug 2020 19:12:54 +0800
+Subject: [PATCH 472/830] ANDROID: Incremental fs: fix magic compatibility
+ again
+X-NVConfidentiality: public
+
+It's still magic number issue which cannot be compatible with
+arm-32 platform, although we try to fix it in Iae4f3877444
+("ANDROID: Incremental fs: magic number compatible 32-bit"),
+there is still incompatible scenario, such as: get_incfs_node(),
+it will return NULL then kernel exception will be trigger because
+of NULL pointer access. (inode_set() -> get_incfs_node(), then used
+node->xxx directly)
+
+We change magic number directly, otherwise, we must fix above issues one by one.
+
+Bug: 159772865
+Fixes: Iae4f3877444("ANDROID: Incremental fs: magic number compatible 32-bit")
+Signed-off-by: Peng Zhou <Peng.Zhou@mediatek.com>
+Signed-off-by: mtk81325 <peng.zhou@mediatek.com>
+Change-Id: I71f279c1bb55ea296ab33a47644f30df4a9f60a6
+---
+ fs/incfs/vfs.c                     | 2 +-
+ include/uapi/linux/incrementalfs.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index d83ee08e25f3..f82d3af90f39 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -2222,7 +2222,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
+ 	sb->s_op = &incfs_super_ops;
+ 	sb->s_d_op = &incfs_dentry_ops;
+ 	sb->s_flags |= S_NOATIME;
+-	sb->s_magic = (long)INCFS_MAGIC_NUMBER;
++	sb->s_magic = INCFS_MAGIC_NUMBER;
+ 	sb->s_time_gran = 1;
+ 	sb->s_blocksize = INCFS_DATA_FILE_BLOCK_SIZE;
+ 	sb->s_blocksize_bits = blksize_bits(sb->s_blocksize);
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 13c3d5173e14..71efcf3d1a51 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -18,7 +18,7 @@
+ 
+ /* ===== constants ===== */
+ #define INCFS_NAME "incremental-fs"
+-#define INCFS_MAGIC_NUMBER (0x5346434e49ul)
++#define INCFS_MAGIC_NUMBER (unsigned long)(0x5346434e49ul)
+ #define INCFS_DATA_FILE_BLOCK_SIZE 4096
+ #define INCFS_HEADER_VER 1
+ 
+-- 
+2.17.1
+

@@ -1,0 +1,54 @@
+From 08d8367a15498c93ca5606b61e010a7b50aedd5e Mon Sep 17 00:00:00 2001
+From: Yongqin Liu <yongqin.liu@linaro.org>
+Date: Thu, 27 Aug 2020 11:35:24 +0800
+Subject: [PATCH 537/830] ANDROID: db845c_gki.fragment: remove
+ CONFIG_USB_EHCI_HCD and CONFIG_USB_EHCI_HCD_PLATFORM
+X-NVConfidentiality: public
+
+as they are enabled in gki_defconfig already.
+Otherwise following errors will be reported when use the gki kernel:
+
+    [    3.027156] init: Loading module /lib/modules/ehci-hcd.ko with args ''
+    [    3.036118] ehci_hcd: exports duplicate symbol ehci_adjust_port_wakeup_flags (owned by kernel)
+    [    3.107862] init: Failed to insmod '/lib/modules/ehci-hcd.ko' with args '': Exec format error
+    [    3.116546] init: LoadWithAliases was unable to load ehci_hcd
+    [    3.122785] init: Failed to load kernel modules
+    [    3.127938] init: InitFatalReboot: signal 6
+    [    3.153428] init: #00 pc 00000000003147c8  /init (UnwindStackCurrent::UnwindFromContext(unsigned long, void*)+96)
+    [    3.163815] init: #01 pc 000000000027d1e0  /init (android::init::InitFatalReboot(int)+208)
+    [    3.172177] init: #02 pc 000000000027d5c8  /init (android::init::InstallRebootSignalHandlers()::$_22::__invoke(int)+32)
+    [    3.183062] init: #03 pc 00000000000007f4  [vdso:0000007f8d72b000]
+    [    3.189314] init: #04 pc 000000000039f1d0  /init (abort+176)
+    [    3.195047] init: #05 pc 000000000028006c  /init (android::init::InitAborter(char const*)+44)
+    [    3.203660] init: #06 pc 00000000002d5f18  /init (android::base::SetAborter(std::__1::function<void (char const*)>&&)::$_3::__invoke(char const*)+80)
+    [    3.217169] init: #07 pc 00000000002d5710  /init (android::base::LogMessage::~LogMessage()+320)
+    [    3.225961] init: #08 pc 0000000000274dc8  /init (android::init::FirstStageMain(int, char**)+6072)
+    [    3.235016] init: #09 pc 000000000039e190  /init (__real_libc_init(void*, void (*)(), int (*)(int, char**, char**), structors_array_t const*, bionic_tcb*)+576)
+
+Fixes: f004a66806f5 ("ANDROID: GKI: support CONFIG_USB_EHCI_HCD")
+Fixes: eade9ee6fd5f ("ANDROID: GKI: support CONFIG_USB_EHCI_HCD_PLATFORM")
+
+Test: boot db845c build with android-mainline gki kernel to homescreen
+
+Signed-off-by: Yongqin Liu <yongqin.liu@linaro.org>
+Change-Id: I202ec04aa431b9f6ff1966fb6bd50758472250e4
+---
+ arch/arm64/configs/db845c_gki.fragment | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 66925c93096e..b0c19903b1b0 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -29,8 +29,6 @@ CONFIG_DRM_MSM=m
+ CONFIG_DRM_LONTIUM_LT9611=m
+ CONFIG_USB_XHCI_PCI_RENESAS=m
+ CONFIG_USB_XHCI_HCD=m
+-CONFIG_USB_EHCI_HCD=m
+-CONFIG_USB_EHCI_HCD_PLATFORM=m
+ CONFIG_USB_OHCI_HCD=m
+ CONFIG_USB_OHCI_HCD_PLATFORM=m
+ CONFIG_USB_DWC3=m
+-- 
+2.17.1
+

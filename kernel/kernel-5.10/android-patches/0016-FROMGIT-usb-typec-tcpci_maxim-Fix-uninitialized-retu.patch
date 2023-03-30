@@ -1,0 +1,53 @@
+From d20546859c22fb0606e37c660f30fecd4c52f998 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:38 -0700
+Subject: [PATCH 016/830] FROMGIT: usb: typec: tcpci_maxim: Fix uninitialized
+ return variable
+X-NVConfidentiality: public
+
+New smatch warnings:
+drivers/usb/typec/tcpm/tcpci_maxim.c:324 max_tcpci_irq() error: uninitialized symbol 'irq_return'.
+drivers/usb/typec/tcpm/tcpci_maxim.c:407 max_tcpci_probe() warn: passing zero to 'PTR_ERR'
+
+The change fixes the above warnings by initializing irq_return
+and replacing IS_ERR_OR_NULL with IS_ERR.
+
+Bug: 168555244
+Reported-by: kernel test robot <lkp@intel.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-11-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7695cae24b29edd2dbd3b3a77a7264cd6d9ca67a
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I12ea2c7201c76bdf6237128873e25c3a55e17a9a
+---
+ drivers/usb/typec/tcpm/tcpci_maxim.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci_maxim.c b/drivers/usb/typec/tcpm/tcpci_maxim.c
+index 55dea33387ec..3b3d36f94709 100644
+--- a/drivers/usb/typec/tcpm/tcpci_maxim.c
++++ b/drivers/usb/typec/tcpm/tcpci_maxim.c
+@@ -343,7 +343,7 @@ static irqreturn_t max_tcpci_irq(int irq, void *dev_id)
+ {
+ 	struct max_tcpci_chip *chip = dev_id;
+ 	u16 status;
+-	irqreturn_t irq_return;
++	irqreturn_t irq_return = IRQ_HANDLED;
+ 	int ret;
+ 
+ 	if (!chip->port)
+@@ -445,7 +445,7 @@ static int max_tcpci_probe(struct i2c_client *client, const struct i2c_device_id
+ 
+ 	max_tcpci_init_regs(chip);
+ 	chip->tcpci = tcpci_register_port(chip->dev, &chip->data);
+-	if (IS_ERR_OR_NULL(chip->tcpci)) {
++	if (IS_ERR(chip->tcpci)) {
+ 		dev_err(&client->dev, "TCPCI port registration failed");
+ 		ret = PTR_ERR(chip->tcpci);
+ 		return PTR_ERR(chip->tcpci);
+-- 
+2.17.1
+

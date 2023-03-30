@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,7 +30,11 @@
 		};
 	};
 
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
 	bpmp_i2c {
+#endif
 		tegra_tmp451: temp-sensor@4c {
 			status = "okay";
 			#thermal-sensor-cells = <1>;
@@ -46,7 +50,9 @@
 			interrupts = <TEMP_ALERT IRQ_TYPE_LEVEL_LOW>;
 			temp-alert-gpio = <&tegra_main_gpio TEMP_ALERT 0>;
 
+#if TEGRA_BPMP_FW_DT_VERSION < DT_VERSION_2
 			vdd-supply = <&e3360_vdd_slt_1v8>;
+#endif
 
 			/* vdd-supply configured in power tree */
 
@@ -57,6 +63,28 @@
 			ext {
 				shutdown-limit = <109>;
 			};
+		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
+	};
+#endif
+
+	cpus {
+		cpu@0 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@2 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@4 {
+			#cooling-cells = <2>;
+		};
+
+		cpu@6 {
+			#cooling-cells = <2>;
 		};
 	};
 
@@ -76,6 +104,7 @@
 			polling-delay-passive = <1000>;
 			thermal-sensors = <&tegra_tmp451 1>;
 		};
+
 		CPU-therm {
 			status = "okay";
 			polling-delay-passive = <500>;
@@ -91,18 +120,41 @@
 					hysteresis = <0>;
 					writable;
 				};
-				trip_bthrot {
+
+				cpu_sw_throttle: cpu-sw-throttle {
 					temperature = <90000>;
 					type = "passive";
 					hysteresis = <0>;
 					writable;
 				};
+
+				cpu_hot_surface: cpu-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
 			};
+
 			cooling-maps {
 				map0 {
-					trip = <&{/thermal-zones/CPU-therm/trips/trip_bthrot}>;
-					cdev-type = "cpu-balanced";
-					cooling-device = <&{/bthrot_cdev/cpu_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map4 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -110,6 +162,11 @@
 		AUX-therm {
 			status = "okay";
 			polling-delay-passive = <500>;
+
+			thermal-zone-params {
+				governor-name = "step_wise";
+			};
+
 			trips {
 				trip_critical {
 					temperature = <94500>;
@@ -118,18 +175,40 @@
 					writable;
 				};
 
-				trip_bthrot {
+				aux_sw_throttle: aux-sw-throttle {
 					temperature = <89000>;
 					type = "passive";
 					hysteresis = <0>;
 					writable;
 				};
+
+				aux_hot_surface: aux-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
+				};
 			};
+
 			cooling-maps {
 				map0 {
-					trip = <&{/thermal-zones/AUX-therm/trips/trip_bthrot}>;
-					cdev-type = "aux-balanced";
-					cooling-device = <&{/bthrot_cdev/aux_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>;
+				};
+				map1 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 14>;
+				};
+				map2 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 14>;
+				};
+				map3 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 14>;
+				};
+				map4 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -149,21 +228,43 @@
 					hysteresis = <0>;
 					writable;
 				};
-				trip_bthrot {
+
+				gpu_sw_throttle: gpu-sw-throttle {
 					temperature = <92500>;
 					type = "passive";
 					hysteresis = <0>;
 					writable;
 				};
-			};
-			cooling-maps {
-				map0 {
-					trip = <&{/thermal-zones/GPU-therm/trips/trip_bthrot}>;
-					cdev-type = "gpu-balanced";
-					cooling-device = <&{/bthrot_cdev/gpu_balanced} THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+
+				gpu_hot_surface: gpu-hot-surface {
+					temperature = <70000>;
+					hysteresis = <8000>;
+					type = "active";
 				};
 			};
 
+			cooling-maps {
+				map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 14>;
+				};
+				map1 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 14>;
+				};
+				map2 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 14>;
+				};
+				map3 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 14>;
+				};
+				map4 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
 		};
 
 		AO-therm {

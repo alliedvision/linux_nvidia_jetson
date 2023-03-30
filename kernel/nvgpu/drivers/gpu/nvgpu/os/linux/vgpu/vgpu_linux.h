@@ -22,7 +22,7 @@
 struct device;
 struct platform_device;
 
-#ifdef CONFIG_TEGRA_GR_VIRTUALIZATION
+#ifdef CONFIG_NVGPU_GR_VIRTUALIZATION
 
 #include <nvgpu/vgpu/vgpu.h>
 

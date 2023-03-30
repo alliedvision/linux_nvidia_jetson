@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "debug_allocator.h"
@@ -55,6 +57,12 @@ void nvgpu_init_alloc_debug(struct gk20a *g, struct nvgpu_allocator *a)
 
 void nvgpu_fini_alloc_debug(struct nvgpu_allocator *a)
 {
+	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(a->g);
+
+	if (!l->debugfs_allocators)
+		return;
+
+	debugfs_remove(a->debugfs_entry);
 }
 
 void nvgpu_alloc_debugfs_init(struct gk20a *g)

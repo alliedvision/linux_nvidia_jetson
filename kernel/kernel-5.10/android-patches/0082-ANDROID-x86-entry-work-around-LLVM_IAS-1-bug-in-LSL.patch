@@ -1,0 +1,62 @@
+From daacbd71da1d97809dce432addcc0d3fae8e3c60 Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Wed, 11 Nov 2020 15:49:49 -0800
+Subject: [PATCH 082/830] ANDROID: x86: entry: work around LLVM_IAS=1 bug in
+ LSL
+X-NVConfidentiality: public
+
+clang-10 had a bug where it did not accept 64b GPR operands to LSL (not
+"logical shift left" but "load segment limit").
+
+It's common within the kernel to work around broken or missing assembler
+support by putting raw encodings inline.  We can roughtly approximate
+register only operands with the macro:
+
+.macro LSL opd
+       REG_TYPE lsl_opd_type \opd
+       .if lsl_opd_type == REG_TYPE_R64
+       R64_NUM lsl_opd \opd
+       PFX_REX 0 0 1
+       .else
+       R32_NUM lsl_opd \opd
+       .endif
+       .byte 0x0f, 0x03
+       MODRM 0xc0 lsl_opd 0x0
+.endm
+
+in arch/x86/asm/inst.h, but this doesn't handle memory operands. Since
+this macro is only ever expanded currently with %rax, hardcode the
+instruction encoding for now to unblock enabling LLVM_IAS=1 for x86.
+
+Once AOSP LLVM is upgraded to a point where it contains the fix, this
+should be reverted.
+
+Bug: 141693040
+Bug: 171348143
+Link: https://github.com/ClangBuiltLinux/linux/issues/1079
+Link: https://github.com/llvm/llvm-project/commit/3c2a56a857227b6bc39285747269f02cd7a9dbe5
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: I8c80f3e7883d4b0774dfd1642e31b0793c5f86ed
+---
+ arch/x86/entry/calling.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/x86/entry/calling.h b/arch/x86/entry/calling.h
+index 07a9331d55e7..4bec2597626b 100644
+--- a/arch/x86/entry/calling.h
++++ b/arch/x86/entry/calling.h
+@@ -366,7 +366,11 @@ For 32-bit we have the following conventions - kernel is built with
+  */
+ .macro LOAD_CPU_AND_NODE_SEG_LIMIT reg:req
+ 	movq	$__CPUNODE_SEG, \reg
++#ifdef __clang__
++	.long 0xc0030f48
++#else
+ 	lsl	\reg, \reg
++#endif
+ .endm
+ 
+ /*
+-- 
+2.17.1
+

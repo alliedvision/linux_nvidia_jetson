@@ -82,19 +82,51 @@ int tegra_hsp_db_del_handler(int master);
 
 #define tegra_hsp_find_master(mask, master)	((mask) & (1 << (master)))
 
-struct tegra_hsp_sm_pair;
+typedef void (*tegra_hsp_sm_notify)(void *, u32);
 
-typedef u32 (*tegra_hsp_sm_full_fn)(void *, u32);
-typedef void (*tegra_hsp_sm_empty_fn)(void *, u32);
+struct tegra_hsp_sm_tx;
+struct tegra_hsp_sm_rx;
+struct tegra_hsp_ss;
+
+struct tegra_hsp_sm_pair {
+	struct tegra_hsp_sm_rx *rx;
+	struct tegra_hsp_sm_tx *tx;
+};
 
 struct tegra_hsp_sm_pair *of_tegra_hsp_sm_pair_request(
 	const struct device_node *np, u32 index,
-	tegra_hsp_sm_full_fn, tegra_hsp_sm_empty_fn, void *);
+	tegra_hsp_sm_notify full_notify,
+	tegra_hsp_sm_notify empty_notify,
+	void *data);
 struct tegra_hsp_sm_pair *of_tegra_hsp_sm_pair_by_name(
 	struct device_node *np, char const *name,
-	tegra_hsp_sm_full_fn, tegra_hsp_sm_empty_fn, void *);
-void tegra_hsp_sm_pair_free(struct tegra_hsp_sm_pair *);
-void tegra_hsp_sm_pair_write(struct tegra_hsp_sm_pair *, u32 value);
-bool tegra_hsp_sm_pair_is_empty(const struct tegra_hsp_sm_pair *);
+	tegra_hsp_sm_notify full_notify,
+	tegra_hsp_sm_notify empty_notify,
+	void *data);
+void tegra_hsp_sm_pair_free(struct tegra_hsp_sm_pair *pair);
+void tegra_hsp_sm_pair_write(const struct tegra_hsp_sm_pair *pair, u32 value);
+bool tegra_hsp_sm_pair_is_empty(const struct tegra_hsp_sm_pair *pair);
+void tegra_hsp_sm_pair_enable_empty_notify(struct tegra_hsp_sm_pair *pair);
+
+struct tegra_hsp_sm_tx *of_tegra_hsp_sm_tx_by_name(
+	struct device_node *np, char const *name,
+	tegra_hsp_sm_notify notify, void *data);
+void tegra_hsp_sm_tx_free(struct tegra_hsp_sm_tx *tx);
+bool tegra_hsp_sm_tx_is_empty(const struct tegra_hsp_sm_tx *tx);
+void tegra_hsp_sm_tx_write(const struct tegra_hsp_sm_tx *tx, u32 value);
+void tegra_hsp_sm_tx_enable_notify(struct tegra_hsp_sm_tx *tx);
+
+struct tegra_hsp_sm_rx *of_tegra_hsp_sm_rx_by_name(
+	struct device_node *np, char const *name,
+	tegra_hsp_sm_notify notify, void *data);
+void tegra_hsp_sm_rx_free(struct tegra_hsp_sm_rx *rx);
+bool tegra_hsp_sm_rx_is_empty(const struct tegra_hsp_sm_rx *rx);
+
+struct tegra_hsp_ss *of_tegra_hsp_ss_by_name(
+	struct device_node *np, char const *name);
+void tegra_hsp_ss_free(struct tegra_hsp_ss *ss);
+u32 tegra_hsp_ss_status(const struct tegra_hsp_ss *ss);
+void tegra_hsp_ss_set(const struct tegra_hsp_ss *ss, u32 bits);
+void tegra_hsp_ss_clr(const struct tegra_hsp_ss *ss, u32 bits);
 
 #endif

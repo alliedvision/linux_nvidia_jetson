@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Common Audio DT bindings
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+#include <audio/tegra-platforms-audio-dai-links.dtsi>
+#include <audio/tegra186-audio-dai-links.dtsi>
+#include <audio/tegra186-audio-graph.dtsi>
+
+/ {
+	aconnect@2a41000 {
+		agic-controller@2a41000 {
+			status = "okay";
+		};
+
+		adsp@2993000 {
+			status = "okay";
+		};
+	};
+
+	hda@3510000 {
+		nvidia,model = "NVIDIA Jetson Orin NX HDA";
+		status = "okay";
+	};
+
+	hdr40_i2c1: i2c@c250000 { };
+
+	tegra_sound: sound {
+		status = "okay";
+		compatible = "nvidia,tegra186-ape";
+		nvidia-audio-card,name = "NVIDIA Jetson Orin NX APE";
+		clocks = <&bpmp_clks TEGRA234_CLK_PLLA>,
+			 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>,
+			 <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		clock-names = "pll_a", "pll_a_out0", "extern1";
+		assigned-clocks = <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>,
+				  <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA234_CLK_PLLA>,
+					 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>;
+	};
+
+	tegra_sound_graph: sound_graph {
+		compatible = "nvidia,tegra186-audio-graph-card";
+
+		/*
+		 * Tegra audio graph card is based on uptream generic audio
+		 * graph sound card. In future there is plan to use this
+		 * as default sound card.
+		 */
+		status = "disabled";
+
+		dais = /* ADMAIF (FE) Ports */
+		       <&admaif1_port>, <&admaif2_port>, <&admaif3_port>,
+		       <&admaif4_port>, <&admaif5_port>, <&admaif6_port>,
+		       <&admaif7_port>, <&admaif8_port>, <&admaif9_port>,
+		       <&admaif10_port>, <&admaif11_port>, <&admaif12_port>,
+		       <&admaif13_port>, <&admaif14_port>, <&admaif15_port>,
+		       <&admaif16_port>, <&admaif17_port>, <&admaif18_port>,
+		       <&admaif19_port>, <&admaif20_port>,
+
+		       /* ADSP (FE) Ports */
+		       <&adsp_pcm1_port>, <&adsp_pcm2_port>,
+		       <&adsp_compr1_port>, <&adsp_compr2_port>,
+
+		       /* XBAR I/O ports */
+		       <&xbar_i2s1_port>, <&xbar_i2s2_port>, <&xbar_i2s3_port>,
+		       <&xbar_i2s4_port>, <&xbar_i2s5_port>, <&xbar_i2s6_port>,
+
+		       <&xbar_dmic1_port>, <&xbar_dmic2_port>,
+		       <&xbar_dmic3_port>, <&xbar_dmic4_port>,
+
+		       <&xbar_dspk1_port>, <&xbar_dspk2_port>,
+
+		       /* XBAR HW accelerator ports */
+		       <&xbar_sfc1_in_port>, <&xbar_sfc2_in_port>,
+		       <&xbar_sfc3_in_port>, <&xbar_sfc4_in_port>,
+
+		       <&xbar_mvc1_in_port>, <&xbar_mvc2_in_port>,
+
+		       <&xbar_afc1_in_port>, <&xbar_afc2_in_port>,
+		       <&xbar_afc3_in_port>, <&xbar_afc4_in_port>,
+		       <&xbar_afc5_in_port>, <&xbar_afc6_in_port>,
+
+		       <&xbar_asrc_in1_port>, <&xbar_asrc_in2_port>,
+		       <&xbar_asrc_in3_port>, <&xbar_asrc_in4_port>,
+		       <&xbar_asrc_in5_port>, <&xbar_asrc_in6_port>,
+		       <&xbar_asrc_in7_port>, <&xbar_arad_port>,
+
+		       <&xbar_mixer_in1_port>, <&xbar_mixer_in2_port>,
+		       <&xbar_mixer_in3_port>, <&xbar_mixer_in4_port>,
+		       <&xbar_mixer_in5_port>, <&xbar_mixer_in6_port>,
+		       <&xbar_mixer_in7_port>, <&xbar_mixer_in8_port>,
+		       <&xbar_mixer_in9_port>, <&xbar_mixer_in10_port>,
+
+		       <&xbar_ope1_in_port>,
+
+		       <&xbar_amx1_in1_port>, <&xbar_amx1_in2_port>,
+		       <&xbar_amx1_in3_port>, <&xbar_amx1_in4_port>,
+		       <&xbar_amx2_in1_port>, <&xbar_amx2_in2_port>,
+		       <&xbar_amx2_in3_port>, <&xbar_amx2_in4_port>,
+		       <&xbar_amx3_in1_port>, <&xbar_amx3_in2_port>,
+		       <&xbar_amx3_in3_port>, <&xbar_amx3_in4_port>,
+		       <&xbar_amx4_in1_port>, <&xbar_amx4_in2_port>,
+		       <&xbar_amx4_in3_port>, <&xbar_amx4_in4_port>,
+
+		       <&xbar_adx1_in_port>, <&xbar_adx2_in_port>,
+		       <&xbar_adx3_in_port>, <&xbar_adx4_in_port>,
+
+		       /* BE I/O Ports */
+		       <&i2s1_port>, <&i2s2_port>, <&i2s3_port>,
+		       <&i2s4_port>, <&i2s5_port>, <&i2s6_port>,
+
+		       <&dmic1_port>, <&dmic2_port>, <&dmic3_port>,
+		       <&dmic4_port>,
+
+		       <&dspk1_port>, <&dspk2_port>,
+
+		       /* BE HW accelerator ports */
+		       <&sfc1_out_port>, <&sfc2_out_port>,
+		       <&sfc3_out_port>, <&sfc4_out_port>,
+
+		       <&mvc1_out_port>, <&mvc2_out_port>,
+
+		       <&afc1_out_port>, <&afc2_out_port>,
+		       <&afc3_out_port>, <&afc4_out_port>,
+		       <&afc5_out_port>, <&afc6_out_port>,
+
+		       <&asrc_out1_port>, <&asrc_out2_port>,
+		       <&asrc_out3_port>, <&asrc_out4_port>,
+		       <&asrc_out5_port>, <&asrc_out6_port>,
+
+		       <&mixer_out1_port>, <&mixer_out2_port>,
+		       <&mixer_out3_port>, <&mixer_out4_port>,
+		       <&mixer_out5_port>,
+
+		       <&ope1_out_port>,
+
+		       <&amx1_out_port>, <&amx2_out_port>,
+		       <&amx3_out_port>, <&amx4_out_port>,
+
+		       <&adx1_out1_port>, <&adx1_out2_port>,
+		       <&adx1_out3_port>, <&adx1_out4_port>,
+		       <&adx2_out1_port>, <&adx2_out2_port>,
+		       <&adx2_out3_port>, <&adx2_out4_port>,
+		       <&adx3_out1_port>, <&adx3_out2_port>,
+		       <&adx3_out3_port>, <&adx3_out4_port>,
+		       <&adx4_out1_port>, <&adx4_out2_port>,
+		       <&adx4_out3_port>, <&adx4_out4_port>,
+
+		       /* ADSP related ports */
+		       <&adsp_admaif1_port>, <&adsp_admaif2_port>,
+		       <&adsp_admaif3_port>, <&adsp_admaif4_port>,
+		       <&adsp_admaif5_port>, <&adsp_admaif6_port>,
+		       <&adsp_admaif7_port>, <&adsp_admaif8_port>,
+		       <&adsp_admaif9_port>, <&adsp_admaif10_port>,
+		       <&adsp_admaif11_port>, <&adsp_admaif12_port>,
+		       <&adsp_admaif13_port>, <&adsp_admaif14_port>,
+		       <&adsp_admaif15_port>, <&adsp_admaif16_port>,
+		       <&adsp_admaif17_port>, <&adsp_admaif18_port>,
+		       <&adsp_admaif19_port>, <&adsp_admaif20_port>,
+
+		       <&admaif1_codec_port>, <&admaif2_codec_port>,
+		       <&admaif3_codec_port>, <&admaif4_codec_port>,
+		       <&admaif5_codec_port>, <&admaif6_codec_port>,
+		       <&admaif7_codec_port>, <&admaif8_codec_port>,
+		       <&admaif9_codec_port>, <&admaif10_codec_port>,
+		       <&admaif11_codec_port>, <&admaif12_codec_port>,
+		       <&admaif13_codec_port>, <&admaif14_codec_port>,
+		       <&admaif15_codec_port>, <&admaif16_codec_port>,
+		       <&admaif17_codec_port>, <&admaif18_codec_port>,
+		       <&admaif19_codec_port>, <&admaif20_codec_port>;
+
+		label = "NVIDIA Jetson Concord APE";
+
+		clocks = <&bpmp_clks TEGRA234_CLK_PLLA>,
+			 <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>;
+		clock-names = "pll_a", "plla_out0";
+		assigned-clocks = <&bpmp_clks TEGRA234_CLK_AUD_MCLK>;
+		assigned-clock-parents = <&bpmp_clks TEGRA234_CLK_PLLA_OUT0>;
+	};
+};
+
+hdr40_snd_link_i2s: &i2s2_to_codec { };
+
+/* Audio graph related bindings */
+hdr40_snd_i2s_dap_ep: &i2s2_dap_ep { };

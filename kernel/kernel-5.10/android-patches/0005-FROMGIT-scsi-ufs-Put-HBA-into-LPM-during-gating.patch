@@ -1,0 +1,106 @@
+From 2c6c33ecff92c0a12c94783f0cc878a5064aa3a6 Mon Sep 17 00:00:00 2001
+From: Can Guo <cang@codeaurora.org>
+Date: Tue, 27 Oct 2020 12:10:36 -0700
+Subject: [PATCH 005/830] FROMGIT: scsi: ufs: Put HBA into LPM during gating
+X-NVConfidentiality: public
+
+During clock gating, after clocks are disabled, put HBA into LPM to save
+more power.
+
+Bug: 172066868
+(cherry picked from commit dd7143e27cb7dee8927d3ede59aff588c57bc224
+https://git.kernel.org/pub/scm/linux/kernel/git/mkp/scsi.git staging)
+Link: https://lore.kernel.org/r/52198e70bff750632740d78678a815256d697e43.1603825776.git.asutoshd@codeaurora.org
+Reviewed-by: Avri Altman <avri.altman@wdc.com>
+Acked-by: Stanley Chu <stanley.chu@mediatek.com>
+Signed-off-by: Can Guo <cang@codeaurora.org>
+Signed-off-by: Asutosh Das <asutoshd@codeaurora.org>
+Signed-off-by: Martin K. Petersen <martin.petersen@oracle.com>
+
+Change-Id: I3c7b627fdf485b5f79eb3e4d1bd6a175b97ada7d
+Signed-off-by: Asutosh Das <asutoshd@codeaurora.org>
+---
+ drivers/scsi/ufs/ufshcd.c |  9 +++++++--
+ drivers/scsi/ufs/ufshcd.h | 13 +++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 351d43ed016f..ec4910418b27 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -256,6 +256,8 @@ static inline void ufshcd_wb_toggle_flush(struct ufs_hba *hba, bool enable);
+ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
+ 				     enum ufs_dev_pwr_mode pwr_mode);
+ static int ufshcd_realloc_host(struct ufs_hba *);
++static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba);
++static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba);
+ 
+ static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
+ {
+@@ -1566,6 +1568,7 @@ static void ufshcd_ungate_work(struct work_struct *work)
+ 	}
+ 
+ 	spin_unlock_irqrestore(hba->host->host_lock, flags);
++	ufshcd_hba_vreg_set_hpm(hba);
+ 	ufshcd_setup_clocks(hba, true);
+ 
+ 	ufshcd_enable_irq(hba);
+@@ -1727,6 +1730,8 @@ static void ufshcd_gate_work(struct work_struct *work)
+ 
+ 	ufshcd_setup_clocks(hba, false);
+ 
++	/* Put the host controller in low power mode if possible */
++	ufshcd_hba_vreg_set_lpm(hba);
+ 	/*
+ 	 * In case you are here to cancel this work the gating state
+ 	 * would be marked as REQ_CLKS_ON. In this case keep the state
+@@ -9079,13 +9084,13 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
+ 
+ static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba)
+ {
+-	if (ufshcd_is_link_off(hba))
++	if (ufshcd_is_link_off(hba) || ufshcd_can_aggressive_pc(hba))
+ 		ufshcd_setup_hba_vreg(hba, false);
+ }
+ 
+ static void ufshcd_hba_vreg_set_hpm(struct ufs_hba *hba)
+ {
+-	if (ufshcd_is_link_off(hba))
++	if (ufshcd_is_link_off(hba) || ufshcd_can_aggressive_pc(hba))
+ 		ufshcd_setup_hba_vreg(hba, true);
+ }
+ 
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 2d82ecc66b1e..5fc2def61437 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -635,6 +635,13 @@ enum ufshcd_caps {
+ 	 * inline crypto engine, if it is present
+ 	 */
+ 	UFSHCD_CAP_CRYPTO				= 1 << 8,
++
++	/*
++	 * This capability allows the controller regulators to be put into
++	 * lpm mode aggressively during clock gating.
++	 * This would increase power savings.
++	 */
++	UFSHCD_CAP_AGGR_POWER_COLLAPSE			= 1 << 9,
+ };
+ 
+ struct ufs_hba_variant_params {
+@@ -879,6 +886,12 @@ return true;
+ #endif
+ }
+ 
++static inline bool ufshcd_can_aggressive_pc(struct ufs_hba *hba)
++{
++	return !!(ufshcd_is_link_hibern8(hba) &&
++		  (hba->caps & UFSHCD_CAP_AGGR_POWER_COLLAPSE));
++}
++
+ static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
+ {
+ 	return (hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) &&
+-- 
+2.17.1
+

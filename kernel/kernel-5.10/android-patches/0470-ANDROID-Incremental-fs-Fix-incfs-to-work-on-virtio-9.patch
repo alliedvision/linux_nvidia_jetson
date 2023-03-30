@@ -1,0 +1,117 @@
+From 92a7d89fe4da46641c69a2657ea2420e6eee8fe4 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Mon, 20 Jul 2020 13:20:02 -0700
+Subject: [PATCH 470/830] ANDROID: Incremental fs: Fix incfs to work on
+ virtio-9p
+X-NVConfidentiality: public
+
+Test: incfs_test on a virtio 9p drive. Note test 6 fails still,
+but I think this is a result of caching directory entries over a
+network file system.
+Bug: 161802292
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I6986fb3e9b403181cf81024046f394960caf4620
+---
+ fs/incfs/format.c | 47 +++++++++++++++++++++++++++++++++++------------
+ fs/incfs/vfs.c    |  6 +++---
+ 2 files changed, 38 insertions(+), 15 deletions(-)
+
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index c56e559b6893..3261d5d4b8f6 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -89,11 +89,42 @@ static int truncate_backing_file(struct backing_file_context *bfc,
+ 	return result;
+ }
+ 
++static int write_to_bf(struct backing_file_context *bfc, const void *buf,
++			size_t count, loff_t pos)
++{
++	ssize_t res = incfs_kwrite(bfc->bc_file, buf, count, pos);
++
++	if (res < 0)
++		return res;
++	if (res != count)
++		return -EIO;
++	return 0;
++}
++
++static int append_zeros_no_fallocate(struct backing_file_context *bfc,
++				     size_t file_size, size_t len)
++{
++	u8 buffer[256] = {};
++	size_t i;
++
++	for (i = 0; i < len; i += sizeof(buffer)) {
++		int to_write = len - i > sizeof(buffer)
++			? sizeof(buffer) : len - i;
++		int err = write_to_bf(bfc, buffer, to_write, file_size + i);
++
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
++
+ /* Append a given number of zero bytes to the end of the backing file. */
+ static int append_zeros(struct backing_file_context *bfc, size_t len)
+ {
+ 	loff_t file_size = 0;
+ 	loff_t new_last_byte_offset = 0;
++	int result;
+ 
+ 	if (!bfc)
+ 		return -EFAULT;
+@@ -110,19 +141,11 @@ static int append_zeros(struct backing_file_context *bfc, size_t len)
+ 	 */
+ 	file_size = incfs_get_end_offset(bfc->bc_file);
+ 	new_last_byte_offset = file_size + len - 1;
+-	return vfs_fallocate(bfc->bc_file, 0, new_last_byte_offset, 1);
+-}
+-
+-static int write_to_bf(struct backing_file_context *bfc, const void *buf,
+-			size_t count, loff_t pos)
+-{
+-	ssize_t res = incfs_kwrite(bfc->bc_file, buf, count, pos);
++	result = vfs_fallocate(bfc->bc_file, 0, new_last_byte_offset, 1);
++	if (result != -EOPNOTSUPP)
++		return result;
+ 
+-	if (res < 0)
+-		return res;
+-	if (res != count)
+-		return -EIO;
+-	return 0;
++	return append_zeros_no_fallocate(bfc, file_size, len);
+ }
+ 
+ static u32 calc_md_crc(struct incfs_md_header *record)
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 58acbbd5dcdb..0b8051d88c74 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -1931,17 +1931,17 @@ static int file_open(struct inode *inode, struct file *file)
+ 	struct file *backing_file = NULL;
+ 	struct path backing_path = {};
+ 	int err = 0;
++	int flags = O_NOATIME | O_LARGEFILE |
++		(S_ISDIR(inode->i_mode) ? O_RDONLY : O_RDWR);
+ 
+ 	if (!mi)
+ 		return -EBADF;
+ 
+ 	get_incfs_backing_path(file->f_path.dentry, &backing_path);
+-
+ 	if (!backing_path.dentry)
+ 		return -EBADF;
+ 
+-	backing_file = dentry_open(
+-		&backing_path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
++	backing_file = dentry_open(&backing_path, flags, mi->mi_owner);
+ 	path_put(&backing_path);
+ 
+ 	if (IS_ERR(backing_file)) {
+-- 
+2.17.1
+

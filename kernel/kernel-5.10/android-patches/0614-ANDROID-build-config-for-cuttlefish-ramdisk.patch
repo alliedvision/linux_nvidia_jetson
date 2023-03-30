@@ -1,0 +1,84 @@
+From 1a29bf0250a48b03efe9a09357bdf113b4c80ee6 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Fri, 17 Jan 2020 16:20:14 -0800
+Subject: [PATCH 614/830] ANDROID: build config for cuttlefish ramdisk
+X-NVConfidentiality: public
+
+Both x86 and arm64 are covered in this change.
+The ramdisk and ko's are put in the DIST_DIR by the
+BUILD_INITRAMFS option.
+
+Bug: 139431025
+Test: Local build and boot of cf
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+Change-Id: I82a410ea3cf9b9177a1c8f2186d88344b9a63488
+---
+ build.config.cuttlefish.aarch64 | 10 ++++++++++
+ build.config.cuttlefish.x86_64  | 10 ++++++++++
+ cuttlefish.fragment             | 20 ++++++++++++++++++++
+ 3 files changed, 40 insertions(+)
+ create mode 100644 build.config.cuttlefish.aarch64
+ create mode 100644 build.config.cuttlefish.x86_64
+ create mode 100644 cuttlefish.fragment
+
+diff --git a/build.config.cuttlefish.aarch64 b/build.config.cuttlefish.aarch64
+new file mode 100644
+index 000000000000..9450cead4b8e
+--- /dev/null
++++ b/build.config.cuttlefish.aarch64
+@@ -0,0 +1,10 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.aarch64
++. ${ROOT_DIR}/common/build.config.gki
++
++DEFCONFIG=cf_aarch_64_gki_defconfig
++PRE_DEFCONFIG_CMDS="cat ./common/arch/arm64/configs/gki_defconfig ./common/cuttlefish.fragment > ./common/arch/arm64/configs/${DEFCONFIG};"
++POST_DEFCONFIG_CMDS="rm ./common/arch/arm64/configs/${DEFCONFIG}"
++
++# Not saving any kernel images. This build step is meant purely to generate the .kos.
++FILES=""
+diff --git a/build.config.cuttlefish.x86_64 b/build.config.cuttlefish.x86_64
+new file mode 100644
+index 000000000000..0778c5762b16
+--- /dev/null
++++ b/build.config.cuttlefish.x86_64
+@@ -0,0 +1,10 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.x86_64
++. ${ROOT_DIR}/common/build.config.gki
++
++DEFCONFIG=cf_x86_64_gki_defconfig
++PRE_DEFCONFIG_CMDS="cat ./common/arch/x86/configs/gki_defconfig ./common/cuttlefish.fragment > ./common/arch/x86/configs/${DEFCONFIG};"
++POST_DEFCONFIG_CMDS="rm ./common/arch/x86/configs/${DEFCONFIG}"
++
++# Not saving any kernel images. This build step is meant purely to generate the .kos.
++FILES=""
+diff --git a/cuttlefish.fragment b/cuttlefish.fragment
+new file mode 100644
+index 000000000000..1e49da8de975
+--- /dev/null
++++ b/cuttlefish.fragment
+@@ -0,0 +1,20 @@
++CONFIG_CPUFREQ_DUMMY=m
++CONFIG_BINFMT_MISC=m
++CONFIG_VSOCKETS=m
++CONFIG_VIRTIO_VSOCKETS=m
++CONFIG_CAN=m
++CONFIG_CAN_VCAN=m
++CONFIG_GNSS_CMDLINE_SERIAL=m
++CONFIG_VIRTIO_BLK=m
++CONFIG_VIRTIO_NET=m
++CONFIG_VIRT_WIFI=m
++CONFIG_SERIAL_OF_PLATFORM=m
++CONFIG_VIRTIO_CONSOLE=m
++CONFIG_HW_RANDOM_VIRTIO=m
++CONFIG_DRM_VIRTIO_GPU=m
++CONFIG_SND_INTEL8X0=m
++CONFIG_USB_DUMMY_HCD=m
++CONFIG_RTC_DRV_TEST=m
++CONFIG_VIRTIO_PCI=m
++CONFIG_VIRTIO_INPUT=m
++CONFIG_VIRTIO_MMIO=m
+-- 
+2.17.1
+

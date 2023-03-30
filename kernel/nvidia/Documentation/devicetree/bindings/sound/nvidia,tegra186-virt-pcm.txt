@@ -1,0 +1,42 @@
+* NVIDIA Tegra Virtualized Audio Machine Driver
+
+The Tegra Virtualized Audio Machine Driver is used to configure
+sound card properties.
+
+Required properties:
+- compatible : Must be "nvidia,tegra186-virt-pcm".
+- dmas : phandle to ADMA device and dma channel.
+- dma-names : alias name for rx and tx dma channel.
+- dma-buffer-size : max buffer size for pcm buffers.
+- iommus : phandle for smmu and audio stream id.
+- cardname : name of sound card.
+- ivc_queue : phandle for tegra_hv and queue if.
+- admaif_ch_num : Number of admaif channel assigned.
+- admaif_ch_num : list of admaif channels assigned.
+- adsp_enabled : need to have this property to enable adsp.
+- power-domains : Must be empty.
+- adsp-admaifX-channels : No. of channels for admaif X
+- adsp-admaifX-bits : Bit format[16,32] for admaif X
+- nvidia,adma_ch_page : adma page instance id
+
+Example:
+
+virt-alt-pcm {
+	compatible = "nvidia,tegra186-virt-pcm";
+	iommus = <&smmu TEGRA_SID_APE_1>;
+	power-domains = <>;
+	cardname = "tegra-virt-pcm-vm1";
+	dmas = <&adma 1>, <&adma 1>, <&adma 2>, <&adma 2>,
+		<&adma 3>, <&adma 3>, <&adma 4>, <&adma 4>;
+	dma-names = "rx1", "tx1", "rx2", "tx2",
+		"rx3", "tx3", "rx4", "tx4";
+	dma-buffer-size = <65536>, <65536>, <65536>, <65536>,
+		<65536>, <65536>, <65536>, <65536>;
+	ivc_queue = <&tegra_hv 56>;
+	admaif_ch_num = <4>;
+	admaif_ch_list = <1>, <2>, <3>, <4>;
+	adsp_enabled;
+	adsp-admaif4-channels = <12>;
+	adsp-admaif4-bits = <16>;
+	nvidia,adma_ch_page = <0>;
+};

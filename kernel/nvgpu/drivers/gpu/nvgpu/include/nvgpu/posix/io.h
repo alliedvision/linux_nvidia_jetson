@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,11 +62,27 @@ struct nvgpu_posix_io_callbacks {
 	void (*bar1_readl)(struct gk20a *g, struct nvgpu_reg_access *access);
 	void (*usermode_writel)(struct gk20a *g,
 				struct nvgpu_reg_access *access);
+	void (*tegra_fuse_control_write)(u32 value, unsigned long offset);
+	int  (*tegra_fuse_control_read)(unsigned long offset, u32 *value);
+	void (*tegra_fuse_writel)(u32 value, unsigned long offset);
+	int  (*tegra_fuse_readl)(unsigned long offset, u32 *value);
 };
 
 struct nvgpu_posix_io_callbacks *nvgpu_posix_register_io(
 	struct gk20a *g,
 	struct nvgpu_posix_io_callbacks *io_callbacks);
+
+/**
+ * The high 4 bits of the register mapped address are used for identify which
+ * register aperture it tries to access.
+ * In nvgpu_os_writel/readl, it uses the high 4 bits to call different
+ * callbacks, like nvgpu_readl/writel or nvgpu_bar1_readl/writel.
+ */
+#define NVGPU_POSIX_REG_SHIFT 60
+#define NVGPU_POSIX_REG_MASK 0xfULL
+#define NVGPU_POSIX_REG_BAR0 1ULL
+#define NVGPU_POSIX_REG_BAR1 2ULL
+#define NVGPU_POSIX_REG_USERMODE 3ULL
 
 struct nvgpu_posix_io_reg_space {
 	u32 base;
@@ -85,10 +101,19 @@ nvgpu_posix_io_reg_space_from_link(struct nvgpu_list_node *node)
 void nvgpu_posix_io_init_reg_space(struct gk20a *g);
 int nvgpu_posix_io_get_error_code(struct gk20a *g);
 void nvgpu_posix_io_reset_error_code(struct gk20a *g);
+
+/* allocate and register reg_space */
 int nvgpu_posix_io_add_reg_space(struct gk20a *g, u32 base, u32 size);
 struct nvgpu_posix_io_reg_space *nvgpu_posix_io_get_reg_space(struct gk20a *g,
 	u32 addr);
 void nvgpu_posix_io_delete_reg_space(struct gk20a *g, u32 base);
+
+/* register/unregister pre-initialized reg_space */
+int nvgpu_posix_io_register_reg_space(struct gk20a *g,
+		struct nvgpu_posix_io_reg_space *reg_space);
+void nvgpu_posix_io_unregister_reg_space(struct gk20a *g,
+		struct nvgpu_posix_io_reg_space *reg_space);
+
 void nvgpu_posix_io_writel_reg_space(struct gk20a *g, u32 addr, u32 data);
 u32 nvgpu_posix_io_readl_reg_space(struct gk20a *g, u32 addr);
 
@@ -105,10 +130,22 @@ nvgpu_posix_io_reg_access_from_link(struct nvgpu_list_node *node)
 };
 
 void nvgpu_posix_io_start_recorder(struct gk20a *g);
-void nvgpu_posix_io_reset_recorder(struct gk20a *g);
 void nvgpu_posix_io_record_access(struct gk20a *g,
 	struct nvgpu_reg_access *access);
 bool nvgpu_posix_io_check_sequence(struct gk20a *g,
 	struct nvgpu_reg_access *sequence, u32 size, bool strict);
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+/**
+ * @brief Get fault injection structure.
+ *
+ * @param void.
+ *
+ * Returns the reference to nvgpu_readl fault injection structure.
+ *
+ * @return Pointer to nvgpu_readl fault injection structure.
+ */
+struct nvgpu_posix_fault_inj *nvgpu_readl_get_fault_injection(void);
+#endif
 
 #endif

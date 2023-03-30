@@ -1,7 +1,7 @@
 /*
  * dsi.c: Functions implementing tegra dsi interface.
  *
- * Copyright (c) 2011-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,7 +35,12 @@
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
 #include <linux/clk/tegra.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/nvhost.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
@@ -996,7 +1001,7 @@ static void tegra_dsi_init_sw(struct tegra_dc *dc,
 }
 
 #define SELECT_T_PHY(platform_t_phy_ps, default_phy, clk_ps, hw_inc) ( \
-(platform_t_phy_ps) ? ( \
+((platform_t_phy_ps) > 0) ? ( \
 ((DSI_CONVERT_T_PHY_PS_TO_T_PHY(platform_t_phy_ps, clk_ps, hw_inc)) < 0 ? 0 : \
 (DSI_CONVERT_T_PHY_PS_TO_T_PHY(platform_t_phy_ps, clk_ps, hw_inc)))) : \
 ((default_phy) < 0 ? 0 : (default_phy)))
@@ -2232,8 +2237,7 @@ static void tegra_dsi_set_dsi_clk(struct tegra_dc *dc,
 			DIV_ROUND_UP(S_TO_MS(1), dsi->info.refresh_rate);
 
 	tegra_dsi_setup_clk(dc, dsi);
-	if (tegra_bpmp_running())
-		tegra_dsi_reset_deassert(dsi);
+	tegra_dsi_reset_deassert(dsi);
 
 	dsi->current_dsi_clk_khz =
 			clk_get_rate(dsi->dsi_clk[0]) / 1000;
@@ -4655,7 +4659,7 @@ static int _tegra_dc_dsi_init(struct tegra_dc *dc)
 			goto err_dsi_clk_put;
 		}
 
-		if (tegra_platform_is_silicon() && tegra_bpmp_running()) {
+		if (tegra_platform_is_silicon()) {
 			dsi_reset = of_reset_control_get(np_dsi,
 					dsi_reset_name[index]);
 			if (IS_ERR_OR_NULL(dsi_reset)) {
@@ -5070,7 +5074,6 @@ static int tegra_dsi_host_suspend(struct tegra_dc *dc)
 			tegra_dc_put(dc);
 	}
 
-	pm_runtime_put_sync(&dc->ndev->dev);
 fail:
 	tegra_dc_io_end(dc);
 	tegra_dsi_host_suspend_unlock(dc, dsi);
@@ -5188,8 +5191,6 @@ static int tegra_dsi_host_resume(struct tegra_dc *dc)
 	}
 
 	tegra_dc_io_start(dc);
-
-	pm_runtime_get_sync(&dc->ndev->dev);
 
 	err = _tegra_dsi_host_resume(dc, dsi, dsi->info.suspend_aggr);
 	if (err < 0) {
@@ -5357,7 +5358,7 @@ static int tegra_dc_dsi_init(struct tegra_dc *dc)
 	dsi = tegra_dc_get_outdata(dc);
 
 	if (tegra_dc_is_t21x() || (tegra_dc_is_nvdisplay() &&
-		tegra_platform_is_silicon() && tegra_bpmp_running())) {
+		tegra_platform_is_silicon())) {
 		if (!dsi->avdd_dsi_csi) {
 			dsi->avdd_dsi_csi =  devm_regulator_get(&dc->ndev->dev,
 				"avdd_dsi_csi");
@@ -5437,7 +5438,6 @@ static bool tegra_dc_dsi_detect(struct tegra_dc *dc)
 	/* DrivePX2: DSI->sn65dsi85(LVDS)->ds90ub947(FPDLink) */
 	if (dsi->info.dsi2lvds_bridge_enable)
 		result = ds90ub947_lvds2fpdlink3_detect(dc);
-	return result;
 #endif /*defined(CONFIG_TEGRA_LVDS2FPDL_DS90UB947)*/
 	if (!is_hotplug_supported(dsi))
 		complete(&dc->hpd_complete);
@@ -5513,19 +5513,18 @@ static void tegra_dc_dsi_setup_clk_t21x(struct tegra_dc *dc,
 static void tegra_dc_dsi_setup_clk_nvdisplay(struct tegra_dc *dc,
 						struct clk *clk)
 {
-	unsigned long rate;
+	unsigned long rate, pclk_div_1000;
 	struct clk *parent_clk = NULL;
 	struct clk *base_clk = NULL;
 	int err;
 
 	/* divide by 1000 to avoid overflow */
-	dc->mode.pclk /= 1000;
+	pclk_div_1000 = dc->mode.pclk / 1000;
 
-	rate = (dc->mode.pclk * dc->shift_clk_div.mul * 2)
+	rate = (pclk_div_1000 * dc->shift_clk_div.mul * 2)
 		/ dc->shift_clk_div.div;
 
 	rate *= 1000;
-	dc->mode.pclk *= 1000;
 
 	if (clk == dc->clk) {
 		base_clk = tegra_disp_clk_get(&dc->ndev->dev,
@@ -5541,16 +5540,34 @@ static void tegra_dc_dsi_setup_clk_nvdisplay(struct tegra_dc *dc,
 		}
 	}
 
-	if (tegra_bpmp_running() && base_clk &&
-			rate != clk_get_rate(base_clk)) {
-		tegra_nvdisp_test_and_set_compclk(rate, dc);
+	if (base_clk && rate != clk_get_rate(base_clk)) {
 		err = clk_set_rate(base_clk, rate);
 		if (err)
 			dev_err(&dc->ndev->dev, "Failed to set pll freq\n");
+
+	}
+
+	if (clk == dc->clk) {
+		struct clk *dsi_parent_clk = NULL;
+
+		dsi_parent_clk = tegra_disp_clk_get(&dc->ndev->dev,
+						"pll_d_out1");
+		if (!dsi_parent_clk) {
+			dev_err(&dc->ndev->dev,
+				"DSI clock setup failed, parent clock NULL\n");
+			return;
+		}
+		clk_set_parent(clk, dsi_parent_clk);
 	}
 
 	if (parent_clk && (clk_get_parent(clk) != parent_clk))
 		clk_set_parent(clk, parent_clk);
+
+
+	if (!dc->initialized) {
+		clk_set_rate(dc->clk, dc->mode.pclk);
+		tegra_nvdisp_test_and_set_compclk(dc->mode.pclk, dc);
+	}
 
 }
 

@@ -1,7 +1,7 @@
 /*
- * NVHOST Queue management header for T194
+ * NVHOST Queue management header for T194/T23x
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -66,7 +66,9 @@ struct nvdla_queue {
 	u32 id;
 
 	/* Host1x resources */
+#if IS_ENABLED(CONFIG_TEGRA_NVDLA_CHANNEL)
 	struct nvhost_channel *channel;
+#endif
 	struct platform_device *vm_pdev;
 	bool use_channel;
 	u32 syncpt_id;
@@ -188,6 +190,22 @@ void nvdla_queue_get(struct nvdla_queue *queue);
 struct nvdla_queue *nvdla_queue_alloc(struct nvdla_queue_pool *pool,
 					unsigned int num_tasks,
 					bool use_channel);
+
+#ifdef CONFIG_PM
+/**
+ * @brief		Prepare suspension of all queues.
+ *
+ * This function is responsible for the following,
+ *  - Checks if there are no outstanding tasks.
+ *  - Does not attempt to clear or flush the outstanding tasks.
+ *
+ * @param pool		Pointer to a queue pool table.
+ *
+ * @return		0,	on successul completion.
+ *			-EBUSY,	if there are any outstanding tasks in queue.
+ **/
+int nvdla_queue_pool_prepare_suspend(struct nvdla_queue_pool *pool);
+#endif /* CONFIG_PM */
 
 /**
  * @brief		Abort all active queues

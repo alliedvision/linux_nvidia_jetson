@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "dt-bindings/input/input.h"
+
+/ {
+	overlay-name = "P3701 Overlay Support";
+	compatible = "nvidia,tegra23x";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+	/*For 64GB modules increase CMA to 512MB*/
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			ids = "3701-0005-*";
+		};
+		__overlay__ {
+			reserved-memory {
+				#address-cells = <2>;
+				#size-cells = <2>;
+				ranges;
+
+				linux,cma { /* Needed for nvgpu comptags */
+					compatible = "shared-dma-pool";
+					reusable;
+					size = <0x0 0x20000000>; /* 512MB */
+					alignment = <0x0 0x10000>;
+					linux,cma-default;
+					status = "okay";
+				};
+			};
+		};
+	};
+};

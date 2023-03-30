@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -13,7 +13,7 @@ subdir-ccflags-y += -Werror
 
 obj-$(CONFIG_RTK_BTUSB)         += bluetooth/realtek/
 obj-$(CONFIG_NVPMODEL_EMC)      += nvpmodel/
-obj-$(CONFIG_TEGRA_NVLINK)	+= nvlink/
+obj-$(CONFIG_TEGRA_RDMA)	+= nv-p2p/
 obj-$(CONFIG_NVPPS)		+= nvpps/
 obj-$(CONFIG_THERMAL)  += thermal/
 obj-$(CONFIG_TRUSTY)		+= trusty/

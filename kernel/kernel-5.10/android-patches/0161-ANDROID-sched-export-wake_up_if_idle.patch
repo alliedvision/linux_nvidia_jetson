@@ -1,0 +1,30 @@
+From 9078805c5051ec7136a6baa189cac4bc120e8b1f Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Tue, 15 Sep 2020 16:24:01 -0600
+Subject: [PATCH 161/830] ANDROID: sched: export wake_up_if_idle()
+X-NVConfidentiality: public
+
+Enable idle drivers to wakeup idle CPUs by exporting wake_up_if_idle().
+
+Bug: 169136276
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Change-Id: If1529ad4b883f36de1692cd3ac1853ff722e3522
+---
+ kernel/sched/core.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 3f58704da1db..47f50a0cb1ed 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2663,6 +2663,7 @@ void wake_up_if_idle(int cpu)
+ out:
+ 	rcu_read_unlock();
+ }
++EXPORT_SYMBOL_GPL(wake_up_if_idle);
+ 
+ bool cpus_share_cache(int this_cpu, int that_cpu)
+ {
+-- 
+2.17.1
+

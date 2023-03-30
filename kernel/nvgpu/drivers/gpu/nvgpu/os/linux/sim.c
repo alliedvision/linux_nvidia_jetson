@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,22 +32,6 @@
 #include "os_linux.h"
 #include "module.h"
 
-void sim_writel(struct sim_nvgpu *sim, u32 r, u32 v)
-{
-	struct sim_nvgpu_linux *sim_linux =
-		container_of(sim, struct sim_nvgpu_linux, sim);
-
-	writel(v, sim_linux->regs + r);
-}
-
-u32 sim_readl(struct sim_nvgpu *sim, u32 r)
-{
-	struct sim_nvgpu_linux *sim_linux =
-		container_of(sim, struct sim_nvgpu_linux, sim);
-
-	return readl(sim_linux->regs + r);
-}
-
 void nvgpu_remove_sim_support_linux(struct gk20a *g)
 {
 	struct sim_nvgpu_linux *sim_linux;
@@ -56,10 +40,10 @@ void nvgpu_remove_sim_support_linux(struct gk20a *g)
 		return;
 
 	sim_linux = container_of(g->sim, struct sim_nvgpu_linux, sim);
-	if (sim_linux->regs) {
+	if (g->sim->regs) {
 		sim_writel(g->sim, sim_config_r(), sim_config_mode_disabled_v());
-		iounmap(sim_linux->regs);
-		sim_linux->regs = NULL;
+		iounmap((void __iomem *)g->sim->regs);
+		g->sim->regs = 0U;
 	}
 	nvgpu_kfree(g, sim_linux);
 	g->sim = NULL;
@@ -69,6 +53,7 @@ int nvgpu_init_sim_support_linux(struct gk20a *g,
 		struct platform_device *dev)
 {
 	struct sim_nvgpu_linux *sim_linux;
+	void __iomem *addr;
 	int err = -ENOMEM;
 
 	if (!nvgpu_platform_is_simulation(g))
@@ -79,14 +64,15 @@ int nvgpu_init_sim_support_linux(struct gk20a *g,
 		return err;
 	g->sim = &sim_linux->sim;
 	g->sim->g = g;
-	sim_linux->regs = nvgpu_devm_ioremap_resource(dev,
-						      GK20A_SIM_IORESOURCE_MEM,
-						      &sim_linux->reg_mem);
-	if (IS_ERR(sim_linux->regs)) {
+	addr = nvgpu_devm_ioremap_resource(dev,
+					GK20A_SIM_IORESOURCE_MEM,
+					NULL);
+	if (IS_ERR(addr)) {
 		nvgpu_err(g, "failed to remap gk20a sim regs");
-		err = PTR_ERR(sim_linux->regs);
+		err = PTR_ERR(addr);
 		goto fail;
 	}
+	g->sim->regs = (uintptr_t)addr;
 	sim_linux->remove_support_linux = nvgpu_remove_sim_support_linux;
 	return 0;
 

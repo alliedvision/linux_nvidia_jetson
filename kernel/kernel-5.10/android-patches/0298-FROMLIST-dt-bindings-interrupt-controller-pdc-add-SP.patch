@@ -1,0 +1,70 @@
+From 4de7a4d84563de93be48b78f8e970ad533a2ba35 Mon Sep 17 00:00:00 2001
+From: Lina Iyer <ilina@codeaurora.org>
+Date: Fri, 13 Sep 2019 15:59:14 -0600
+Subject: [PATCH 298/830] FROMLIST: dt-bindings/interrupt-controller: pdc: add
+ SPI config register
+X-NVConfidentiality: public
+
+In addition to configuring the PDC, additional registers that interface
+the GIC have to be configured to match the GPIO type. The registers on
+some QCOM SoCs are access restricted, while on other SoCs are not. They
+SoCs with access restriction to these SPI registers need to be written
+from the firmware using the SCM interface. Add a flag to indicate if the
+register is to be written using SCM interface.
+
+Cc: devicetree@vger.kernel.org
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+Reviewed-by: Rob Herring <robh@kernel.org>
+
+BUG: 141169320
+TEST: Build and boot
+
+Change-Id: I0f6dfc11fc4df4b0744b7c9372eaf4c7be3a82d6
+Signed-off-by: Maulik Shah <mkshah@codeaurora.org>
+Link: https://patchwork.kernel.org/patch/11145355
+---
+ .../bindings/interrupt-controller/qcom,pdc.txt      | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/interrupt-controller/qcom,pdc.txt b/Documentation/devicetree/bindings/interrupt-controller/qcom,pdc.txt
+index 1df293953327..004584ef71f7 100644
+--- a/Documentation/devicetree/bindings/interrupt-controller/qcom,pdc.txt
++++ b/Documentation/devicetree/bindings/interrupt-controller/qcom,pdc.txt
+@@ -25,6 +25,9 @@ Properties:
+ 	Usage: required
+ 	Value type: <prop-encoded-array>
+ 	Definition: Specifies the base physical address for PDC hardware.
++		    Optionally, specify the PDC's GIC interface registers that
++		    need to be configured for wakeup capable GPIOs routed to
++		    the PDC.
+ 
+ - interrupt-cells:
+ 	Usage: required
+@@ -51,15 +54,23 @@ Properties:
+ 		    The second element is the GIC hwirq number for the PDC port.
+ 		    The third element is the number of interrupts in sequence.
+ 
++- qcom,scm-spi-cfg:
++	Usage: optional
++	Value type: <bool>
++	Definition: Specifies if the SPI configuration registers have to be
++		    written from the firmware. Sometimes the PDC interface
++		    register to the GIC can only be written from the firmware.
++
+ Example:
+ 
+ 	pdc: interrupt-controller@b220000 {
+ 		compatible = "qcom,sdm845-pdc";
+-		reg = <0xb220000 0x30000>;
++		reg = <0 0x0b220000 0 0x30000>, <0 0x179900f0 0 0x60>;
+ 		qcom,pdc-ranges = <0 512 94>, <94 641 15>, <115 662 7>;
+ 		#interrupt-cells = <2>;
+ 		interrupt-parent = <&intc>;
+ 		interrupt-controller;
++		qcom,scm-spi-cfg;
+ 	};
+ 
+ DT binding of a device that wants to use the GIC SPI 514 as a wakeup
+-- 
+2.17.1
+

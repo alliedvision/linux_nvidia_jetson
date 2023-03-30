@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, NVIDIA Corporation.
+ * Copyright (c) 2012-2019, NVIDIA Corporation.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -59,2095 +59,2107 @@
 
 static inline u32 sim_send_ring_r(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_target_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_send_ring_target_f(u32 v)
 {
-	return (v & 0x3) << 0;
+	return (v & 0x3U) << 0U;
 }
 static inline u32 sim_send_ring_target_m(void)
 {
-	return 0x3 << 0;
+	return 0x3U << 0U;
 }
 static inline u32 sim_send_ring_target_v(u32 r)
 {
-	return (r >> 0) & 0x3;
+	return (r >> 0U) & 0x3U;
 }
 static inline u32 sim_send_ring_target_phys_init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_target_phys_init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_send_ring_target_phys__init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_target_phys__init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_send_ring_target_phys__prod_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_target_phys__prod_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_send_ring_target_phys_nvm_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_target_phys_nvm_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_send_ring_target_phys_pci_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_send_ring_target_phys_pci_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_send_ring_target_phys_pci_coherent_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_send_ring_target_phys_pci_coherent_f(void)
 {
-	return 0x3;
+	return 0x3U;
 }
 static inline u32 sim_send_ring_status_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_send_ring_status_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_send_ring_status_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_send_ring_status_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_send_ring_status_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_status_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_status__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_status__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_status__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_status__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_status_invalid_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_status_invalid_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_status_valid_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_status_valid_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_send_ring_size_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_send_ring_size_f(u32 v)
 {
-	return (v & 0x3) << 4;
+	return (v & 0x3U) << 4U;
 }
 static inline u32 sim_send_ring_size_m(void)
 {
-	return 0x3 << 4;
+	return 0x3U << 4U;
 }
 static inline u32 sim_send_ring_size_v(u32 r)
 {
-	return (r >> 4) & 0x3;
+	return (r >> 4U) & 0x3U;
 }
 static inline u32 sim_send_ring_size_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_size_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_size__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_size__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_size__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_size__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_size_4kb_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_size_4kb_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_size_8kb_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_size_8kb_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_send_ring_size_12kb_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_send_ring_size_12kb_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_send_ring_size_16kb_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_send_ring_size_16kb_f(void)
 {
-	return 0x30;
+	return 0x30U;
 }
 static inline u32 sim_send_ring_gp_in_ring_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_send_ring_gp_in_ring_f(u32 v)
 {
-	return (v & 0x1) << 11;
+	return (v & 0x1U) << 11U;
 }
 static inline u32 sim_send_ring_gp_in_ring_m(void)
 {
-	return 0x1 << 11;
+	return 0x1U << 11U;
 }
 static inline u32 sim_send_ring_gp_in_ring_v(u32 r)
 {
-	return (r >> 11) & 0x1;
+	return (r >> 11U) & 0x1U;
 }
 static inline u32 sim_send_ring_gp_in_ring__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_gp_in_ring__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_gp_in_ring__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_gp_in_ring__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_gp_in_ring_no_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_gp_in_ring_no_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_gp_in_ring_yes_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_send_ring_gp_in_ring_yes_f(void)
 {
-	return 0x800;
+	return 0x800U;
 }
 static inline u32 sim_send_ring_addr_lo_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_send_ring_addr_lo_f(u32 v)
 {
-	return (v & 0xfffff) << 12;
+	return (v & 0xfffffU) << 12U;
 }
 static inline u32 sim_send_ring_addr_lo_m(void)
 {
-	return 0xfffff << 12;
+	return 0xfffffU << 12U;
 }
 static inline u32 sim_send_ring_addr_lo_v(u32 r)
 {
-	return (r >> 12) & 0xfffff;
+	return (r >> 12U) & 0xfffffU;
 }
 static inline u32 sim_send_ring_addr_lo__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_addr_lo__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_addr_lo__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_addr_lo__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
+}
+static inline u32 sim_send_ring_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_send_ring_hi_r(void)
 {
-	return 0x00000004;
+	return 0x00000004U;
 }
 static inline u32 sim_send_ring_hi_addr_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_send_ring_hi_addr_f(u32 v)
 {
-	return (v & 0xfffff) << 0;
+	return (v & 0xfffffU) << 0U;
 }
 static inline u32 sim_send_ring_hi_addr_m(void)
 {
-	return 0xfffff << 0;
+	return 0xfffffU << 0U;
 }
 static inline u32 sim_send_ring_hi_addr_v(u32 r)
 {
-	return (r >> 0) & 0xfffff;
+	return (r >> 0U) & 0xfffffU;
 }
 static inline u32 sim_send_ring_hi_addr__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_hi_addr__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_ring_hi_addr__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_send_ring_hi_addr__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_send_put_r(void)
 {
-	return 0x00000008;
+	return 0x00000008U;
 }
 static inline u32 sim_send_put_pointer_s(void)
 {
-	return 29;
+	return 29U;
 }
 static inline u32 sim_send_put_pointer_f(u32 v)
 {
-	return (v & 0x1fffffff) << 3;
+	return (v & 0x1fffffffU) << 3U;
 }
 static inline u32 sim_send_put_pointer_m(void)
 {
-	return 0x1fffffff << 3;
+	return 0x1fffffffU << 3U;
 }
 static inline u32 sim_send_put_pointer_v(u32 r)
 {
-	return (r >> 3) & 0x1fffffff;
+	return (r >> 3U) & 0x1fffffffU;
 }
 static inline u32 sim_send_get_r(void)
 {
-	return 0x0000000c;
+	return 0x0000000cU;
 }
 static inline u32 sim_send_get_pointer_s(void)
 {
-	return 29;
+	return 29U;
 }
 static inline u32 sim_send_get_pointer_f(u32 v)
 {
-	return (v & 0x1fffffff) << 3;
+	return (v & 0x1fffffffU) << 3U;
 }
 static inline u32 sim_send_get_pointer_m(void)
 {
-	return 0x1fffffff << 3;
+	return 0x1fffffffU << 3U;
 }
 static inline u32 sim_send_get_pointer_v(u32 r)
 {
-	return (r >> 3) & 0x1fffffff;
+	return (r >> 3U) & 0x1fffffffU;
 }
 static inline u32 sim_recv_ring_r(void)
 {
-	return 0x00000010;
+	return 0x00000010U;
 }
 static inline u32 sim_recv_ring_target_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_recv_ring_target_f(u32 v)
 {
-	return (v & 0x3) << 0;
+	return (v & 0x3U) << 0U;
 }
 static inline u32 sim_recv_ring_target_m(void)
 {
-	return 0x3 << 0;
+	return 0x3U << 0U;
 }
 static inline u32 sim_recv_ring_target_v(u32 r)
 {
-	return (r >> 0) & 0x3;
+	return (r >> 0U) & 0x3U;
 }
 static inline u32 sim_recv_ring_target_phys_init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_target_phys_init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_recv_ring_target_phys__init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_target_phys__init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_recv_ring_target_phys__prod_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_target_phys__prod_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_recv_ring_target_phys_nvm_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_target_phys_nvm_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_recv_ring_target_phys_pci_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_recv_ring_target_phys_pci_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_recv_ring_target_phys_pci_coherent_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_recv_ring_target_phys_pci_coherent_f(void)
 {
-	return 0x3;
+	return 0x3U;
 }
 static inline u32 sim_recv_ring_status_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_recv_ring_status_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_recv_ring_status_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_recv_ring_status_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_recv_ring_status_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_status_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_status__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_status__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_status__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_status__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_status_invalid_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_status_invalid_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_status_valid_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_status_valid_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_recv_ring_size_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_recv_ring_size_f(u32 v)
 {
-	return (v & 0x3) << 4;
+	return (v & 0x3U) << 4U;
 }
 static inline u32 sim_recv_ring_size_m(void)
 {
-	return 0x3 << 4;
+	return 0x3U << 4U;
 }
 static inline u32 sim_recv_ring_size_v(u32 r)
 {
-	return (r >> 4) & 0x3;
+	return (r >> 4U) & 0x3U;
 }
 static inline u32 sim_recv_ring_size_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_size_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_size__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_size__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_size__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_size__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_size_4kb_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_size_4kb_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_size_8kb_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_size_8kb_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_recv_ring_size_12kb_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_recv_ring_size_12kb_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_recv_ring_size_16kb_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_recv_ring_size_16kb_f(void)
 {
-	return 0x30;
+	return 0x30U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_f(u32 v)
 {
-	return (v & 0x1) << 11;
+	return (v & 0x1U) << 11U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_m(void)
 {
-	return 0x1 << 11;
+	return 0x1U << 11U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_v(u32 r)
 {
-	return (r >> 11) & 0x1;
+	return (r >> 11U) & 0x1U;
 }
 static inline u32 sim_recv_ring_gp_in_ring__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_gp_in_ring__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_gp_in_ring__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_gp_in_ring__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_no_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_no_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_yes_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_recv_ring_gp_in_ring_yes_f(void)
 {
-	return 0x800;
+	return 0x800U;
 }
 static inline u32 sim_recv_ring_addr_lo_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_recv_ring_addr_lo_f(u32 v)
 {
-	return (v & 0xfffff) << 12;
+	return (v & 0xfffffU) << 12U;
 }
 static inline u32 sim_recv_ring_addr_lo_m(void)
 {
-	return 0xfffff << 12;
+	return 0xfffffU << 12U;
 }
 static inline u32 sim_recv_ring_addr_lo_v(u32 r)
 {
-	return (r >> 12) & 0xfffff;
+	return (r >> 12U) & 0xfffffU;
 }
 static inline u32 sim_recv_ring_addr_lo__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_addr_lo__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_addr_lo__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_addr_lo__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
+}
+static inline u32 sim_recv_ring_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_recv_ring_hi_r(void)
 {
-	return 0x00000014;
+	return 0x00000014U;
 }
 static inline u32 sim_recv_ring_hi_addr_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_recv_ring_hi_addr_f(u32 v)
 {
-	return (v & 0xfffff) << 0;
+	return (v & 0xfffffU) << 0U;
 }
 static inline u32 sim_recv_ring_hi_addr_m(void)
 {
-	return 0xfffff << 0;
+	return 0xfffffU << 0U;
 }
 static inline u32 sim_recv_ring_hi_addr_v(u32 r)
 {
-	return (r >> 0) & 0xfffff;
+	return (r >> 0U) & 0xfffffU;
 }
 static inline u32 sim_recv_ring_hi_addr__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_hi_addr__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_ring_hi_addr__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_recv_ring_hi_addr__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_recv_put_r(void)
 {
-	return 0x00000018;
+	return 0x00000018U;
 }
 static inline u32 sim_recv_put_pointer_s(void)
 {
-	return 11;
+	return 11U;
 }
 static inline u32 sim_recv_put_pointer_f(u32 v)
 {
-	return (v & 0x7ff) << 3;
+	return (v & 0x7ffU) << 3U;
 }
 static inline u32 sim_recv_put_pointer_m(void)
 {
-	return 0x7ff << 3;
+	return 0x7ffU << 3U;
 }
 static inline u32 sim_recv_put_pointer_v(u32 r)
 {
-	return (r >> 3) & 0x7ff;
+	return (r >> 3U) & 0x7ffU;
 }
 static inline u32 sim_recv_get_r(void)
 {
-	return 0x0000001c;
+	return 0x0000001cU;
 }
 static inline u32 sim_recv_get_pointer_s(void)
 {
-	return 11;
+	return 11U;
 }
 static inline u32 sim_recv_get_pointer_f(u32 v)
 {
-	return (v & 0x7ff) << 3;
+	return (v & 0x7ffU) << 3U;
 }
 static inline u32 sim_recv_get_pointer_m(void)
 {
-	return 0x7ff << 3;
+	return 0x7ffU << 3U;
 }
 static inline u32 sim_recv_get_pointer_v(u32 r)
 {
-	return (r >> 3) & 0x7ff;
+	return (r >> 3U) & 0x7ffU;
 }
 static inline u32 sim_config_r(void)
 {
-	return 0x00000020;
+	return 0x00000020U;
 }
 static inline u32 sim_config_mode_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_config_mode_f(u32 v)
 {
-	return (v & 0x1) << 0;
+	return (v & 0x1U) << 0U;
 }
 static inline u32 sim_config_mode_m(void)
 {
-	return 0x1 << 0;
+	return 0x1U << 0U;
 }
 static inline u32 sim_config_mode_v(u32 r)
 {
-	return (r >> 0) & 0x1;
+	return (r >> 0U) & 0x1U;
 }
 static inline u32 sim_config_mode_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_config_mode_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_config_mode_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_mode_enabled_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_config_channels_s(void)
 {
-	return 7;
+	return 7U;
 }
 static inline u32 sim_config_channels_f(u32 v)
 {
-	return (v & 0x7f) << 1;
+	return (v & 0x7fU) << 1U;
 }
 static inline u32 sim_config_channels_m(void)
 {
-	return 0x7f << 1;
+	return 0x7fU << 1U;
 }
 static inline u32 sim_config_channels_v(u32 r)
 {
-	return (r >> 1) & 0x7f;
+	return (r >> 1U) & 0x7fU;
 }
 static inline u32 sim_config_channels_none_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_config_channels_none_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_config_cached_only_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_config_cached_only_f(u32 v)
 {
-	return (v & 0x1) << 8;
+	return (v & 0x1U) << 8U;
 }
 static inline u32 sim_config_cached_only_m(void)
 {
-	return 0x1 << 8;
+	return 0x1U << 8U;
 }
 static inline u32 sim_config_cached_only_v(u32 r)
 {
-	return (r >> 8) & 0x1;
+	return (r >> 8U) & 0x1U;
 }
 static inline u32 sim_config_cached_only_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_config_cached_only_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_config_cached_only_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_cached_only_enabled_f(void)
 {
-	return 0x100;
+	return 0x100U;
 }
 static inline u32 sim_config_validity_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_config_validity_f(u32 v)
 {
-	return (v & 0x3) << 9;
+	return (v & 0x3U) << 9U;
 }
 static inline u32 sim_config_validity_m(void)
 {
-	return 0x3 << 9;
+	return 0x3U << 9U;
 }
 static inline u32 sim_config_validity_v(u32 r)
 {
-	return (r >> 9) & 0x3;
+	return (r >> 9U) & 0x3U;
 }
 static inline u32 sim_config_validity__init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_validity__init_f(void)
 {
-	return 0x200;
+	return 0x200U;
 }
 static inline u32 sim_config_validity_valid_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_validity_valid_f(void)
 {
-	return 0x200;
+	return 0x200U;
 }
 static inline u32 sim_config_simulation_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_config_simulation_f(u32 v)
 {
-	return (v & 0x3) << 12;
+	return (v & 0x3U) << 12U;
 }
 static inline u32 sim_config_simulation_m(void)
 {
-	return 0x3 << 12;
+	return 0x3U << 12U;
 }
 static inline u32 sim_config_simulation_v(u32 r)
 {
-	return (r >> 12) & 0x3;
+	return (r >> 12U) & 0x3U;
 }
 static inline u32 sim_config_simulation_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_config_simulation_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_config_simulation_fmodel_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_simulation_fmodel_f(void)
 {
-	return 0x1000;
+	return 0x1000U;
 }
 static inline u32 sim_config_simulation_rtlsim_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_config_simulation_rtlsim_f(void)
 {
-	return 0x2000;
+	return 0x2000U;
 }
 static inline u32 sim_config_secondary_display_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_config_secondary_display_f(u32 v)
 {
-	return (v & 0x1) << 14;
+	return (v & 0x1U) << 14U;
 }
 static inline u32 sim_config_secondary_display_m(void)
 {
-	return 0x1 << 14;
+	return 0x1U << 14U;
 }
 static inline u32 sim_config_secondary_display_v(u32 r)
 {
-	return (r >> 14) & 0x1;
+	return (r >> 14U) & 0x1U;
 }
 static inline u32 sim_config_secondary_display_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_config_secondary_display_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_config_secondary_display_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_config_secondary_display_enabled_f(void)
 {
-	return 0x4000;
+	return 0x4000U;
 }
 static inline u32 sim_config_num_heads_s(void)
 {
-	return 8;
+	return 8U;
 }
 static inline u32 sim_config_num_heads_f(u32 v)
 {
-	return (v & 0xff) << 17;
+	return (v & 0xffU) << 17U;
 }
 static inline u32 sim_config_num_heads_m(void)
 {
-	return 0xff << 17;
+	return 0xffU << 17U;
 }
 static inline u32 sim_config_num_heads_v(u32 r)
 {
-	return (r >> 17) & 0xff;
+	return (r >> 17U) & 0xffU;
 }
 static inline u32 sim_event_ring_r(void)
 {
-	return 0x00000030;
+	return 0x00000030U;
 }
 static inline u32 sim_event_ring_target_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_event_ring_target_f(u32 v)
 {
-	return (v & 0x3) << 0;
+	return (v & 0x3U) << 0U;
 }
 static inline u32 sim_event_ring_target_m(void)
 {
-	return 0x3 << 0;
+	return 0x3U << 0U;
 }
 static inline u32 sim_event_ring_target_v(u32 r)
 {
-	return (r >> 0) & 0x3;
+	return (r >> 0U) & 0x3U;
 }
 static inline u32 sim_event_ring_target_phys_init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_target_phys_init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_event_ring_target_phys__init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_target_phys__init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_event_ring_target_phys__prod_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_target_phys__prod_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_event_ring_target_phys_nvm_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_target_phys_nvm_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_event_ring_target_phys_pci_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_event_ring_target_phys_pci_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_event_ring_target_phys_pci_coherent_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_event_ring_target_phys_pci_coherent_f(void)
 {
-	return 0x3;
+	return 0x3U;
 }
 static inline u32 sim_event_ring_status_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_event_ring_status_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_event_ring_status_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_event_ring_status_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_event_ring_status_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_status_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_status__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_status__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_status__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_status__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_status_invalid_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_status_invalid_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_status_valid_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_status_valid_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_event_ring_size_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_event_ring_size_f(u32 v)
 {
-	return (v & 0x3) << 4;
+	return (v & 0x3U) << 4U;
 }
 static inline u32 sim_event_ring_size_m(void)
 {
-	return 0x3 << 4;
+	return 0x3U << 4U;
 }
 static inline u32 sim_event_ring_size_v(u32 r)
 {
-	return (r >> 4) & 0x3;
+	return (r >> 4U) & 0x3U;
 }
 static inline u32 sim_event_ring_size_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_size_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_size__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_size__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_size__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_size__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_size_4kb_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_size_4kb_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_size_8kb_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_size_8kb_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_event_ring_size_12kb_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_event_ring_size_12kb_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_event_ring_size_16kb_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_event_ring_size_16kb_f(void)
 {
-	return 0x30;
+	return 0x30U;
 }
 static inline u32 sim_event_ring_gp_in_ring_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_event_ring_gp_in_ring_f(u32 v)
 {
-	return (v & 0x1) << 11;
+	return (v & 0x1U) << 11U;
 }
 static inline u32 sim_event_ring_gp_in_ring_m(void)
 {
-	return 0x1 << 11;
+	return 0x1U << 11U;
 }
 static inline u32 sim_event_ring_gp_in_ring_v(u32 r)
 {
-	return (r >> 11) & 0x1;
+	return (r >> 11U) & 0x1U;
 }
 static inline u32 sim_event_ring_gp_in_ring__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_gp_in_ring__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_gp_in_ring__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_gp_in_ring__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_gp_in_ring_no_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_gp_in_ring_no_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_gp_in_ring_yes_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_event_ring_gp_in_ring_yes_f(void)
 {
-	return 0x800;
+	return 0x800U;
 }
 static inline u32 sim_event_ring_addr_lo_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_event_ring_addr_lo_f(u32 v)
 {
-	return (v & 0xfffff) << 12;
+	return (v & 0xfffffU) << 12U;
 }
 static inline u32 sim_event_ring_addr_lo_m(void)
 {
-	return 0xfffff << 12;
+	return 0xfffffU << 12U;
 }
 static inline u32 sim_event_ring_addr_lo_v(u32 r)
 {
-	return (r >> 12) & 0xfffff;
+	return (r >> 12U) & 0xfffffU;
 }
 static inline u32 sim_event_ring_addr_lo__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_addr_lo__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_addr_lo__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_addr_lo__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_hi_v(void)
 {
-	return 0x00000034;
+	return 0x00000034U;
 }
 static inline u32 sim_event_ring_hi_addr_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_event_ring_hi_addr_f(u32 v)
 {
-	return (v & 0xfffff) << 0;
+	return (v & 0xfffffU) << 0U;
 }
 static inline u32 sim_event_ring_hi_addr_m(void)
 {
-	return 0xfffff << 0;
+	return 0xfffffU << 0U;
 }
 static inline u32 sim_event_ring_hi_addr_v(u32 r)
 {
-	return (r >> 0) & 0xfffff;
+	return (r >> 0U) & 0xfffffU;
 }
 static inline u32 sim_event_ring_hi_addr__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_hi_addr__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_ring_hi_addr__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_event_ring_hi_addr__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_event_put_r(void)
 {
-	return 0x00000038;
+	return 0x00000038U;
 }
 static inline u32 sim_event_put_pointer_s(void)
 {
-	return 30;
+	return 30U;
 }
 static inline u32 sim_event_put_pointer_f(u32 v)
 {
-	return (v & 0x3fffffff) << 2;
+	return (v & 0x3fffffffU) << 2U;
 }
 static inline u32 sim_event_put_pointer_m(void)
 {
-	return 0x3fffffff << 2;
+	return 0x3fffffffU << 2U;
 }
 static inline u32 sim_event_put_pointer_v(u32 r)
 {
-	return (r >> 2) & 0x3fffffff;
+	return (r >> 2U) & 0x3fffffffU;
 }
 static inline u32 sim_event_get_r(void)
 {
-	return 0x0000003c;
+	return 0x0000003cU;
 }
 static inline u32 sim_event_get_pointer_s(void)
 {
-	return 30;
+	return 30U;
 }
 static inline u32 sim_event_get_pointer_f(u32 v)
 {
-	return (v & 0x3fffffff) << 2;
+	return (v & 0x3fffffffU) << 2U;
 }
 static inline u32 sim_event_get_pointer_m(void)
 {
-	return 0x3fffffff << 2;
+	return 0x3fffffffU << 2U;
 }
 static inline u32 sim_event_get_pointer_v(u32 r)
 {
-	return (r >> 2) & 0x3fffffff;
+	return (r >> 2U) & 0x3fffffffU;
 }
 static inline u32 sim_status_r(void)
 {
-	return 0x00000028;
+	return 0x00000028U;
 }
 static inline u32 sim_status_send_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_send_put_f(u32 v)
 {
-	return (v & 0x1) << 0;
+	return (v & 0x1U) << 0U;
 }
 static inline u32 sim_status_send_put_m(void)
 {
-	return 0x1 << 0;
+	return 0x1U << 0U;
 }
 static inline u32 sim_status_send_put_v(u32 r)
 {
-	return (r >> 0) & 0x1;
+	return (r >> 0U) & 0x1U;
 }
 static inline u32 sim_status_send_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_send_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_send_put_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_send_put_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_send_put_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_send_put_pending_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_status_send_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_send_get_f(u32 v)
 {
-	return (v & 0x1) << 1;
+	return (v & 0x1U) << 1U;
 }
 static inline u32 sim_status_send_get_m(void)
 {
-	return 0x1 << 1;
+	return 0x1U << 1U;
 }
 static inline u32 sim_status_send_get_v(u32 r)
 {
-	return (r >> 1) & 0x1;
+	return (r >> 1U) & 0x1U;
 }
 static inline u32 sim_status_send_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_send_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_send_get_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_send_get_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_send_get_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_send_get_pending_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_status_send_get_clear_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_send_get_clear_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_status_recv_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_recv_put_f(u32 v)
 {
-	return (v & 0x1) << 2;
+	return (v & 0x1U) << 2U;
 }
 static inline u32 sim_status_recv_put_m(void)
 {
-	return 0x1 << 2;
+	return 0x1U << 2U;
 }
 static inline u32 sim_status_recv_put_v(u32 r)
 {
-	return (r >> 2) & 0x1;
+	return (r >> 2U) & 0x1U;
 }
 static inline u32 sim_status_recv_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_recv_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_recv_put_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_recv_put_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_recv_put_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_recv_put_pending_f(void)
 {
-	return 0x4;
+	return 0x4U;
 }
 static inline u32 sim_status_recv_put_clear_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_recv_put_clear_f(void)
 {
-	return 0x4;
+	return 0x4U;
 }
 static inline u32 sim_status_recv_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_recv_get_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_status_recv_get_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_status_recv_get_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_status_recv_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_recv_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_recv_get_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_recv_get_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_recv_get_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_recv_get_pending_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_status_event_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_event_put_f(u32 v)
 {
-	return (v & 0x1) << 4;
+	return (v & 0x1U) << 4U;
 }
 static inline u32 sim_status_event_put_m(void)
 {
-	return 0x1 << 4;
+	return 0x1U << 4U;
 }
 static inline u32 sim_status_event_put_v(u32 r)
 {
-	return (r >> 4) & 0x1;
+	return (r >> 4U) & 0x1U;
 }
 static inline u32 sim_status_event_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_event_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_event_put_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_event_put_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_event_put_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_event_put_pending_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_status_event_put_clear_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_event_put_clear_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_status_event_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_status_event_get_f(u32 v)
 {
-	return (v & 0x1) << 5;
+	return (v & 0x1U) << 5U;
 }
 static inline u32 sim_status_event_get_m(void)
 {
-	return 0x1 << 5;
+	return 0x1U << 5U;
 }
 static inline u32 sim_status_event_get_v(u32 r)
 {
-	return (r >> 5) & 0x1;
+	return (r >> 5U) & 0x1U;
 }
 static inline u32 sim_status_event_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_event_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_event_get_idle_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_status_event_get_idle_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_status_event_get_pending_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_status_event_get_pending_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_control_r(void)
 {
-	return 0x0000002c;
+	return 0x0000002cU;
 }
 static inline u32 sim_control_send_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_send_put_f(u32 v)
 {
-	return (v & 0x1) << 0;
+	return (v & 0x1U) << 0U;
 }
 static inline u32 sim_control_send_put_m(void)
 {
-	return 0x1 << 0;
+	return 0x1U << 0U;
 }
 static inline u32 sim_control_send_put_v(u32 r)
 {
-	return (r >> 0) & 0x1;
+	return (r >> 0U) & 0x1U;
 }
 static inline u32 sim_control_send_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_send_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_send_put_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_send_put_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_send_put_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_send_put_enabled_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_control_send_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_send_get_f(u32 v)
 {
-	return (v & 0x1) << 1;
+	return (v & 0x1U) << 1U;
 }
 static inline u32 sim_control_send_get_m(void)
 {
-	return 0x1 << 1;
+	return 0x1U << 1U;
 }
 static inline u32 sim_control_send_get_v(u32 r)
 {
-	return (r >> 1) & 0x1;
+	return (r >> 1U) & 0x1U;
 }
 static inline u32 sim_control_send_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_send_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_send_get_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_send_get_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_send_get_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_send_get_enabled_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_control_recv_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_recv_put_f(u32 v)
 {
-	return (v & 0x1) << 2;
+	return (v & 0x1U) << 2U;
 }
 static inline u32 sim_control_recv_put_m(void)
 {
-	return 0x1 << 2;
+	return 0x1U << 2U;
 }
 static inline u32 sim_control_recv_put_v(u32 r)
 {
-	return (r >> 2) & 0x1;
+	return (r >> 2U) & 0x1U;
 }
 static inline u32 sim_control_recv_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_recv_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_recv_put_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_recv_put_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_recv_put_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_recv_put_enabled_f(void)
 {
-	return 0x4;
+	return 0x4U;
 }
 static inline u32 sim_control_recv_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_recv_get_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_control_recv_get_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_control_recv_get_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_control_recv_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_recv_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_recv_get_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_recv_get_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_recv_get_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_recv_get_enabled_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_control_event_put_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_event_put_f(u32 v)
 {
-	return (v & 0x1) << 4;
+	return (v & 0x1U) << 4U;
 }
 static inline u32 sim_control_event_put_m(void)
 {
-	return 0x1 << 4;
+	return 0x1U << 4U;
 }
 static inline u32 sim_control_event_put_v(u32 r)
 {
-	return (r >> 4) & 0x1;
+	return (r >> 4U) & 0x1U;
 }
 static inline u32 sim_control_event_put__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_event_put__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_event_put_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_event_put_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_event_put_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_event_put_enabled_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_control_event_get_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_control_event_get_f(u32 v)
 {
-	return (v & 0x1) << 5;
+	return (v & 0x1U) << 5U;
 }
 static inline u32 sim_control_event_get_m(void)
 {
-	return 0x1 << 5;
+	return 0x1U << 5U;
 }
 static inline u32 sim_control_event_get_v(u32 r)
 {
-	return (r >> 5) & 0x1;
+	return (r >> 5U) & 0x1U;
 }
 static inline u32 sim_control_event_get__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_event_get__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_event_get_disabled_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_control_event_get_disabled_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_control_event_get_enabled_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_control_event_get_enabled_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_dma_r(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_target_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_dma_target_f(u32 v)
 {
-	return (v & 0x3) << 0;
+	return (v & 0x3U) << 0U;
 }
 static inline u32 sim_dma_target_m(void)
 {
-	return 0x3 << 0;
+	return 0x3U << 0U;
 }
 static inline u32 sim_dma_target_v(u32 r)
 {
-	return (r >> 0) & 0x3;
+	return (r >> 0U) & 0x3U;
 }
 static inline u32 sim_dma_target_phys_init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_target_phys_init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_dma_target_phys__init_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_target_phys__init_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_dma_target_phys__prod_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_target_phys__prod_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_dma_target_phys_nvm_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_target_phys_nvm_f(void)
 {
-	return 0x1;
+	return 0x1U;
 }
 static inline u32 sim_dma_target_phys_pci_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_dma_target_phys_pci_f(void)
 {
-	return 0x2;
+	return 0x2U;
 }
 static inline u32 sim_dma_target_phys_pci_coherent_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_dma_target_phys_pci_coherent_f(void)
 {
-	return 0x3;
+	return 0x3U;
 }
 static inline u32 sim_dma_status_s(void)
 {
-	return 1;
+	return 1U;
 }
 static inline u32 sim_dma_status_f(u32 v)
 {
-	return (v & 0x1) << 3;
+	return (v & 0x1U) << 3U;
 }
 static inline u32 sim_dma_status_m(void)
 {
-	return 0x1 << 3;
+	return 0x1U << 3U;
 }
 static inline u32 sim_dma_status_v(u32 r)
 {
-	return (r >> 3) & 0x1;
+	return (r >> 3U) & 0x1U;
 }
 static inline u32 sim_dma_status_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_status_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_status__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_status__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_status__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_status__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_status_invalid_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_status_invalid_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_status_valid_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_status_valid_f(void)
 {
-	return 0x8;
+	return 0x8U;
 }
 static inline u32 sim_dma_size_s(void)
 {
-	return 2;
+	return 2U;
 }
 static inline u32 sim_dma_size_f(u32 v)
 {
-	return (v & 0x3) << 4;
+	return (v & 0x3U) << 4U;
 }
 static inline u32 sim_dma_size_m(void)
 {
-	return 0x3 << 4;
+	return 0x3U << 4U;
 }
 static inline u32 sim_dma_size_v(u32 r)
 {
-	return (r >> 4) & 0x3;
+	return (r >> 4U) & 0x3U;
 }
 static inline u32 sim_dma_size_init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_size_init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_size__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_size__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_size__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_size__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_size_4kb_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_size_4kb_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_size_8kb_v(void)
 {
-	return 0x00000001;
+	return 0x00000001U;
 }
 static inline u32 sim_dma_size_8kb_f(void)
 {
-	return 0x10;
+	return 0x10U;
 }
 static inline u32 sim_dma_size_12kb_v(void)
 {
-	return 0x00000002;
+	return 0x00000002U;
 }
 static inline u32 sim_dma_size_12kb_f(void)
 {
-	return 0x20;
+	return 0x20U;
 }
 static inline u32 sim_dma_size_16kb_v(void)
 {
-	return 0x00000003;
+	return 0x00000003U;
 }
 static inline u32 sim_dma_size_16kb_f(void)
 {
-	return 0x30;
+	return 0x30U;
 }
 static inline u32 sim_dma_addr_lo_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_dma_addr_lo_f(u32 v)
 {
-	return (v & 0xfffff) << 12;
+	return (v & 0xfffffU) << 12U;
 }
 static inline u32 sim_dma_addr_lo_m(void)
 {
-	return 0xfffff << 12;
+	return 0xfffffU << 12U;
 }
 static inline u32 sim_dma_addr_lo_v(u32 r)
 {
-	return (r >> 12) & 0xfffff;
+	return (r >> 12U) & 0xfffffU;
 }
 static inline u32 sim_dma_addr_lo__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_addr_lo__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_addr_lo__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_addr_lo__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
+}
+static inline u32 sim_dma_addr_lo_b(void)
+{
+	return 12U;
 }
 static inline u32 sim_dma_hi_r(void)
 {
-	return 0x00000004;
+	return 0x00000004U;
 }
 static inline u32 sim_dma_hi_addr_s(void)
 {
-	return 20;
+	return 20U;
 }
 static inline u32 sim_dma_hi_addr_f(u32 v)
 {
-	return (v & 0xfffff) << 0;
+	return (v & 0xfffffU) << 0U;
 }
 static inline u32 sim_dma_hi_addr_m(void)
 {
-	return 0xfffff << 0;
+	return 0xfffffU << 0U;
 }
 static inline u32 sim_dma_hi_addr_v(u32 r)
 {
-	return (r >> 0) & 0xfffff;
+	return (r >> 0U) & 0xfffffU;
 }
 static inline u32 sim_dma_hi_addr__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_hi_addr__init_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_dma_hi_addr__prod_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_dma_hi_addr__prod_f(void)
 {
-	return 0x0;
+	return 0x0U;
 }
 static inline u32 sim_msg_signature_r(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_msg_signature_valid_v(void)
 {
-	return 0x43505256;
+	return 0x43505256U;
 }
 static inline u32 sim_msg_length_r(void)
 {
-	return 0x00000004;
+	return 0x00000004U;
 }
 static inline u32 sim_msg_function_r(void)
 {
-	return 0x00000008;
+	return 0x00000008U;
 }
 static inline u32 sim_msg_function_sim_escape_read_v(void)
 {
-	return 0x00000023;
+	return 0x00000023U;
 }
 static inline u32 sim_msg_function_sim_escape_write_v(void)
 {
-	return 0x00000024;
+	return 0x00000024U;
 }
 static inline u32 sim_msg_result_r(void)
 {
-	return 0x0000000c;
+	return 0x0000000cU;
 }
 static inline u32 sim_msg_result_success_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 static inline u32 sim_msg_result_rpc_pending_v(void)
 {
-	return 0xFFFFFFFF;
+	return 0xFFFFFFFFU;
 }
 static inline u32 sim_msg_sequence_r(void)
 {
-	return 0x00000010;
+	return 0x00000010U;
 }
 static inline u32 sim_msg_spare_r(void)
 {
-	return 0x00000014;
+	return 0x00000014U;
 }
 static inline u32 sim_msg_spare__init_v(void)
 {
-	return 0x00000000;
+	return 0x00000000U;
 }
 
 #endif /* __hw_sim__ */

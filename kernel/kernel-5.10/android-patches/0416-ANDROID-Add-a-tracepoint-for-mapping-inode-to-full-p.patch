@@ -1,0 +1,206 @@
+From be207f209586fbc7bf8816baf71d46e9c76f6a4c Mon Sep 17 00:00:00 2001
+From: Joel Fernandes <joelaf@google.com>
+Date: Thu, 14 Mar 2019 17:32:39 -0400
+Subject: [PATCH 416/830] ANDROID: Add a tracepoint for mapping inode to full
+ path
+X-NVConfidentiality: public
+
+This will be used by eBPF and the iorapd project for high speed
+inode/dev numbers to file path lookup. Look at the inodemap CL for more
+details about of eBPF and iorapd using the tracepoint.
+
+This is planned to be used by the inodemap BPF program. Also, ART folks
+have been using this tracepoint for debugging "unknown inode numer"
+issues.
+
+The tracepoint will be out of tree, and not sent upstream, since VFS
+developers don't accept tracepoints strictly.
+
+Test: Run "find /" command in emulator and measure completion time
+with/without treacepoint. find does a flood of lookups which stresses
+the tracepoint. No performance change observed.
+Test: eBPF prototypes (wip) successfully read data from the tracepoint.
+
+OOT Bug: 139663736
+Bug: 135143784
+Bug: 137393447
+Change-Id: I657f374659673a9c8853530d73c0622dbdbab146
+Signed-off-by: Joel Fernandes <joelaf@google.com>
+---
+ fs/namei.c                   | 90 ++++++++++++++++++++++++++++++++++--
+ include/trace/events/namei.h | 42 +++++++++++++++++
+ 2 files changed, 129 insertions(+), 3 deletions(-)
+ create mode 100644 include/trace/events/namei.h
+
+diff --git a/fs/namei.c b/fs/namei.c
+index 72f354b62dd5..1e6f5f6751a2 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -43,6 +43,9 @@
+ #include "internal.h"
+ #include "mount.h"
+ 
++#define CREATE_TRACE_POINTS
++#include <trace/events/namei.h>
++
+ /* [Feb-1997 T. Schoebel-Theuer]
+  * Fundamental changes in the pathname lookup mechanisms (namei)
+  * were necessary because of omirr.  The reason is that omirr needs
+@@ -770,6 +773,81 @@ static inline int d_revalidate(struct dentry *dentry, unsigned int flags)
+ 		return 1;
+ }
+ 
++#define INIT_PATH_SIZE 64
++
++static void success_walk_trace(struct nameidata *nd)
++{
++	struct path *pt = &nd->path;
++	struct inode *i = nd->inode;
++	char buf[INIT_PATH_SIZE], *try_buf;
++	int cur_path_size;
++	char *p;
++
++	/* When eBPF/ tracepoint is disabled, keep overhead low. */
++	if (!trace_inodepath_enabled())
++		return;
++
++	/* First try stack allocated buffer. */
++	try_buf = buf;
++	cur_path_size = INIT_PATH_SIZE;
++
++	while (cur_path_size <= PATH_MAX) {
++		/* Free previous heap allocation if we are now trying
++		 * a second or later heap allocation.
++		 */
++		if (try_buf != buf)
++			kfree(try_buf);
++
++		/* All but the first alloc are on the heap. */
++		if (cur_path_size != INIT_PATH_SIZE) {
++			try_buf = kmalloc(cur_path_size, GFP_KERNEL);
++			if (!try_buf) {
++				try_buf = buf;
++				sprintf(try_buf, "error:buf_alloc_failed");
++				break;
++			}
++		}
++
++		p = d_path(pt, try_buf, cur_path_size);
++
++		if (!IS_ERR(p)) {
++			char *end = mangle_path(try_buf, p, "\n");
++
++			if (end) {
++				try_buf[end - try_buf] = 0;
++				break;
++			} else {
++				/* On mangle errors, double path size
++				 * till PATH_MAX.
++				 */
++				cur_path_size = cur_path_size << 1;
++				continue;
++			}
++		}
++
++		if (PTR_ERR(p) == -ENAMETOOLONG) {
++			/* If d_path complains that name is too long,
++			 * then double path size till PATH_MAX.
++			 */
++			cur_path_size = cur_path_size << 1;
++			continue;
++		}
++
++		sprintf(try_buf, "error:d_path_failed_%lu",
++			-1 * PTR_ERR(p));
++		break;
++	}
++
++	if (cur_path_size > PATH_MAX)
++		sprintf(try_buf, "error:d_path_name_too_long");
++
++	trace_inodepath(i, try_buf);
++
++	if (try_buf != buf)
++		kfree(try_buf);
++	return;
++}
++
+ /**
+  * complete_walk - successful completion of path walk
+  * @nd:  pointer nameidata
+@@ -817,15 +895,21 @@ static int complete_walk(struct nameidata *nd)
+ 			return -EXDEV;
+ 	}
+ 
+-	if (likely(!(nd->flags & LOOKUP_JUMPED)))
++	if (likely(!(nd->flags & LOOKUP_JUMPED))) {
++		success_walk_trace(nd);
+ 		return 0;
++	}
+ 
+-	if (likely(!(dentry->d_flags & DCACHE_OP_WEAK_REVALIDATE)))
++	if (likely(!(dentry->d_flags & DCACHE_OP_WEAK_REVALIDATE))) {
++		success_walk_trace(nd);
+ 		return 0;
++	}
+ 
+ 	status = dentry->d_op->d_weak_revalidate(dentry, nd->flags);
+-	if (status > 0)
++	if (status > 0) {
++		success_walk_trace(nd);
+ 		return 0;
++	}
+ 
+ 	if (!status)
+ 		status = -ESTALE;
+diff --git a/include/trace/events/namei.h b/include/trace/events/namei.h
+new file mode 100644
+index 000000000000..e8c3e216a0a7
+--- /dev/null
++++ b/include/trace/events/namei.h
+@@ -0,0 +1,42 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM namei
++
++#if !defined(_TRACE_INODEPATH_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_INODEPATH_H
++
++#include <linux/types.h>
++#include <linux/tracepoint.h>
++#include <linux/mm.h>
++#include <linux/memcontrol.h>
++#include <linux/device.h>
++#include <linux/kdev_t.h>
++
++TRACE_EVENT(inodepath,
++		TP_PROTO(struct inode *inode, char *path),
++
++		TP_ARGS(inode, path),
++
++		TP_STRUCT__entry(
++			/* dev_t and ino_t are arch dependent bit width
++			 * so just use 64-bit
++			 */
++			__field(unsigned long, ino)
++			__field(unsigned long, dev)
++			__string(path, path)
++		),
++
++		TP_fast_assign(
++			__entry->ino = inode->i_ino;
++			__entry->dev = inode->i_sb->s_dev;
++			__assign_str(path, path);
++		),
++
++		TP_printk("dev %d:%d ino=%lu path=%s",
++			MAJOR(__entry->dev), MINOR(__entry->dev),
++			__entry->ino, __get_str(path))
++);
++#endif /* _TRACE_INODEPATH_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

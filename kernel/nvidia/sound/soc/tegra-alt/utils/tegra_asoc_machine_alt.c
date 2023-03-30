@@ -1,7 +1,7 @@
 /*
  * tegra_asoc_machine_alt.c - Tegra xbar dai link for machine drivers
  *
- * Copyright (c) 2014-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,7 +17,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/version.h>
 #include <sound/jack.h>
@@ -54,7 +53,7 @@ static struct snd_soc_pcm_stream tdm_link_params = {
 };
 
 __maybe_unused static struct snd_soc_pcm_stream arad_link_params = {
-	.formats = SNDRV_PCM_FMTBIT_S24_LE,
+	.formats = SNDRV_PCM_FMTBIT_S32_LE,
 	.rate_min = 48000,
 	.rate_max = 48000,
 	.channels_min = 2,
@@ -86,9 +85,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF1 CIF",
 		.cpu_dai_name = "ADMAIF1",
 		.codec_dai_name = "ADMAIF1",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF2] = {
@@ -96,9 +95,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF2 CIF",
 		.cpu_dai_name = "ADMAIF2",
 		.codec_dai_name = "ADMAIF2",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF3] = {
@@ -106,9 +105,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF3 CIF",
 		.cpu_dai_name = "ADMAIF3",
 		.codec_dai_name = "ADMAIF3",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF4] = {
@@ -116,9 +115,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF4 CIF",
 		.cpu_dai_name = "ADMAIF4",
 		.codec_dai_name = "ADMAIF4",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF5] = {
@@ -126,9 +125,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF5 CIF",
 		.cpu_dai_name = "ADMAIF5",
 		.codec_dai_name = "ADMAIF5",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF6] = {
@@ -136,9 +135,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF6 CIF",
 		.cpu_dai_name = "ADMAIF6",
 		.codec_dai_name = "ADMAIF6",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF7] = {
@@ -146,9 +145,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF7 CIF",
 		.cpu_dai_name = "ADMAIF7",
 		.codec_dai_name = "ADMAIF7",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF8] = {
@@ -156,9 +155,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF8 CIF",
 		.cpu_dai_name = "ADMAIF8",
 		.codec_dai_name = "ADMAIF8",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF9] = {
@@ -166,9 +165,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF9 CIF",
 		.cpu_dai_name = "ADMAIF9",
 		.codec_dai_name = "ADMAIF9",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA210_DAI_LINK_ADMAIF10] = {
@@ -176,9 +175,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF10 CIF",
 		.cpu_dai_name = "ADMAIF10",
 		.codec_dai_name = "ADMAIF10",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 #if IS_ENABLED(CONFIG_SND_SOC_TEGRA210_AMX_ALT)
@@ -187,8 +186,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3000.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX1_2] = {
@@ -196,8 +195,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3000.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX1_3] = {
@@ -205,8 +204,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3000.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX1_4] = {
@@ -214,8 +213,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3000.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX1] = {
@@ -223,8 +222,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX1",
-		.cpu_name = "tegra210-amx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3000.amx",
+		.codec_name = "702d0800.ahub",
 		.params = &tdm_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX2_1] = {
@@ -232,8 +231,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3100.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX2_2] = {
@@ -241,8 +240,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3100.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX2_3] = {
@@ -250,8 +249,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3100.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX2_4] = {
@@ -259,8 +258,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3100.amx",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AMX2] = {
@@ -268,8 +267,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX2",
-		.cpu_name = "tegra210-amx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3100.amx",
+		.codec_name = "702d0800.ahub",
 		.params = &tdm_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_AMX_ALT) */
@@ -279,8 +278,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 IN",
 		.cpu_dai_name = "ADX1",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3800.adx",
 		.params = &tdm_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX1_1] = {
@@ -288,8 +287,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX1-1",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3800.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX1_2] = {
@@ -297,8 +296,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX1-2",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3800.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX1_3] = {
@@ -306,8 +305,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX1-3",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3800.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX1_4] = {
@@ -315,8 +314,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX1-4",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3800.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX2] = {
@@ -324,8 +323,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 IN",
 		.cpu_dai_name = "ADX2",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d3900.adx",
 		.params = &tdm_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX2_1] = {
@@ -333,8 +332,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX2-1",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3900.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX2_2] = {
@@ -342,8 +341,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX2-2",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3900.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX2_3] = {
@@ -351,8 +350,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX2-3",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3900.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADX2_4] = {
@@ -360,8 +359,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX2-4",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d3900.adx",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_ADX_ALT) */
@@ -371,8 +370,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-1",
 		.codec_dai_name = "RX1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX2] = {
@@ -380,8 +379,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-2",
 		.codec_dai_name = "RX2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX3] = {
@@ -389,8 +388,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-3",
 		.codec_dai_name = "RX3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX4] = {
@@ -398,8 +397,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-4",
 		.codec_dai_name = "RX4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX5] = {
@@ -407,8 +406,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-5",
 		.codec_dai_name = "RX5",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX6] = {
@@ -416,8 +415,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-6",
 		.codec_dai_name = "RX6",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX7] = {
@@ -425,8 +424,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-7",
 		.codec_dai_name = "RX7",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX8] = {
@@ -434,8 +433,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-8",
 		.codec_dai_name = "RX8",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX9] = {
@@ -443,8 +442,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-9",
 		.codec_dai_name = "RX9",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_RX10] = {
@@ -452,8 +451,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-10",
 		.codec_dai_name = "RX10",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702dbb00.amixer",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_TX1] = {
@@ -461,8 +460,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX1",
 		.codec_dai_name = "MIXER1-1",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702dbb00.amixer",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_TX2] = {
@@ -470,8 +469,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX2",
 		.codec_dai_name = "MIXER1-2",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702dbb00.amixer",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_TX3] = {
@@ -479,8 +478,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX3",
 		.codec_dai_name = "MIXER1-3",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702dbb00.amixer",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_TX4] = {
@@ -488,8 +487,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX4",
 		.codec_dai_name = "MIXER1-4",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702dbb00.amixer",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MIXER1_TX5] = {
@@ -497,8 +496,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX5",
 		.codec_dai_name = "MIXER1-5",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702dbb00.amixer",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_MIXER_ALT) */
@@ -508,8 +507,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC1 RX",
 		.cpu_dai_name = "SFC1",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d2000.sfc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC1_TX] = {
@@ -517,8 +516,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC1 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC1",
-		.cpu_name = "tegra210-sfc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d2000.sfc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC2_RX] = {
@@ -526,8 +525,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC2 RX",
 		.cpu_dai_name = "SFC2",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d2200.sfc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC2_TX] = {
@@ -535,8 +534,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC2 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC2",
-		.cpu_name = "tegra210-sfc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d2200.sfc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC3_RX] = {
@@ -544,8 +543,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC3 RX",
 		.cpu_dai_name = "SFC3",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.2",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d2400.sfc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC3_TX] = {
@@ -553,8 +552,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC3 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC3",
-		.cpu_name = "tegra210-sfc.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d2400.sfc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC4_RX] = {
@@ -562,8 +561,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC4 RX",
 		.cpu_dai_name = "SFC4",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.3",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d2600.sfc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_SFC4_TX] = {
@@ -571,8 +570,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC4 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC4",
-		.cpu_name = "tegra210-sfc.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d2600.sfc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_SFC_ALT) */
@@ -582,8 +581,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC1 RX",
 		.cpu_dai_name = "AFC1",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7000.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC1_TX] = {
@@ -591,8 +590,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC1 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC1",
-		.cpu_name = "tegra210-afc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7000.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC2_RX] = {
@@ -600,8 +599,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC2 RX",
 		.cpu_dai_name = "AFC2",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7100.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC2_TX] = {
@@ -609,8 +608,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC2 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC2",
-		.cpu_name = "tegra210-afc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7100.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC3_RX] = {
@@ -618,8 +617,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC3 RX",
 		.cpu_dai_name = "AFC3",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.2",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7200.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC3_TX] = {
@@ -627,8 +626,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC3 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC3",
-		.cpu_name = "tegra210-afc.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7200.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC4_RX] = {
@@ -636,8 +635,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC4 RX",
 		.cpu_dai_name = "AFC4",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.3",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7300.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC4_TX] = {
@@ -645,8 +644,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC4 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC4",
-		.cpu_name = "tegra210-afc.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7300.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC5_RX] = {
@@ -654,8 +653,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC5 RX",
 		.cpu_dai_name = "AFC5",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.4",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7400.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC5_TX] = {
@@ -663,8 +662,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC5 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC5",
-		.cpu_name = "tegra210-afc.4",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7400.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC6_RX] = {
@@ -672,8 +671,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC6 RX",
 		.cpu_dai_name = "AFC6",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-afc.5",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d7500.afc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_AFC6_TX] = {
@@ -681,8 +680,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC6 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC6",
-		.cpu_name = "tegra210-afc.5",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d7500.afc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_AFC_ALT) */
@@ -692,8 +691,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC1 RX",
 		.cpu_dai_name = "MVC1",
 		.codec_dai_name = "MVC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mvc.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702da000.mvc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MVC1_TX] = {
@@ -701,8 +700,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC1 TX",
 		.cpu_dai_name = "MVC OUT",
 		.codec_dai_name = "MVC1",
-		.cpu_name = "tegra210-mvc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702da000.mvc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MVC2_RX] = {
@@ -710,8 +709,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC2 RX",
 		.cpu_dai_name = "MVC2",
 		.codec_dai_name = "MVC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mvc.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702da200.mvc",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_MVC2_TX] = {
@@ -719,8 +718,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC2 TX",
 		.cpu_dai_name = "MVC OUT",
 		.codec_dai_name = "MVC2",
-		.cpu_name = "tegra210-mvc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702da200.mvc",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_MVC_ALT) */
@@ -730,8 +729,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE1 RX",
 		.cpu_dai_name = "OPE1",
 		.codec_dai_name = "OPE IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-ope.0",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d8000.ope",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_OPE1_TX] = {
@@ -739,8 +738,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE1 TX",
 		.cpu_dai_name = "OPE OUT",
 		.codec_dai_name = "OPE1",
-		.cpu_name = "tegra210-ope.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d8000.ope",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_OPE2_RX] = {
@@ -748,8 +747,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE2 RX",
 		.cpu_dai_name = "OPE2",
 		.codec_dai_name = "OPE IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-ope.1",
+		.cpu_name = "702d0800.ahub",
+		.codec_name = "702d8400.ope",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_OPE2_TX] = {
@@ -757,8 +756,8 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE2 TX",
 		.cpu_dai_name = "OPE OUT",
 		.codec_dai_name = "OPE2",
-		.cpu_name = "tegra210-ope.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "702d8400.ope",
+		.codec_name = "702d0800.ahub",
 		.params = &default_link_params,
 	},
 #endif /* IS_ENABLED(CONFIG_SND_SOC_TEGRA210_OPE_ALT) */
@@ -767,9 +766,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF1 CODEC",
 		.cpu_dai_name = "ADMAIF1 CIF",
 		.codec_dai_name = "ADMAIF1",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -778,9 +777,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF2 CODEC",
 		.cpu_dai_name = "ADMAIF2 CIF",
 		.codec_dai_name = "ADMAIF2",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -789,9 +788,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF3 CODEC",
 		.cpu_dai_name = "ADMAIF3 CIF",
 		.codec_dai_name = "ADMAIF3",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -800,9 +799,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF4 CODEC",
 		.cpu_dai_name = "ADMAIF4 CIF",
 		.codec_dai_name = "ADMAIF4",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -811,9 +810,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF5 CODEC",
 		.cpu_dai_name = "ADMAIF5 CIF",
 		.codec_dai_name = "ADMAIF5",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -822,9 +821,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF6 CODEC",
 		.cpu_dai_name = "ADMAIF6 CIF",
 		.codec_dai_name = "ADMAIF6",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -833,9 +832,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF7 CODEC",
 		.cpu_dai_name = "ADMAIF7 CIF",
 		.codec_dai_name = "ADMAIF7",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -844,9 +843,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF8 CODEC",
 		.cpu_dai_name = "ADMAIF8 CIF",
 		.codec_dai_name = "ADMAIF8",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -855,9 +854,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF9 CODEC",
 		.cpu_dai_name = "ADMAIF9 CIF",
 		.codec_dai_name = "ADMAIF9",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -866,9 +865,9 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF10 CODEC",
 		.cpu_dai_name = "ADMAIF10 CIF",
 		.codec_dai_name = "ADMAIF10",
-		.cpu_name = "tegra210-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra210-admaif",
+		.cpu_name = "702d0000.admaif",
+		.codec_name = "702d0800.ahub",
+		.platform_name = "702d0000.admaif",
 		.ignore_pmdown_time = 1,
 		.params = &default_link_params,
 	},
@@ -879,7 +878,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF1",
 		.codec_dai_name = "ADMAIF1 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF2] = {
@@ -888,7 +887,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF2",
 		.codec_dai_name = "ADMAIF2 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF3] = {
@@ -897,7 +896,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF3",
 		.codec_dai_name = "ADMAIF3 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF4] = {
@@ -906,7 +905,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF4",
 		.codec_dai_name = "ADMAIF4 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF5] = {
@@ -915,7 +914,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF5",
 		.codec_dai_name = "ADMAIF5 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF6] = {
@@ -924,7 +923,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF6",
 		.codec_dai_name = "ADMAIF6 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF7] = {
@@ -933,7 +932,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF7",
 		.codec_dai_name = "ADMAIF7 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF8] = {
@@ -942,7 +941,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF8",
 		.codec_dai_name = "ADMAIF8 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF9] = {
@@ -951,7 +950,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF9",
 		.codec_dai_name = "ADMAIF9 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_ADMAIF10] = {
@@ -960,7 +959,7 @@ struct snd_soc_dai_link tegra210_xbar_dai_links[TEGRA210_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF10",
 		.codec_dai_name = "ADMAIF10 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra210-admaif",
+		.codec_name = "702d0000.admaif",
 		.params = &default_link_params,
 	},
 	[TEGRA210_DAI_LINK_ADSP_PCM1] = {
@@ -1009,107 +1008,107 @@ EXPORT_SYMBOL_GPL(tegra210_xbar_dai_links);
 
 struct snd_soc_codec_conf tegra210_xbar_codec_conf[TEGRA210_XBAR_CODEC_CONF] = {
 	[TEGRA210_CODEC_AMX1_CONF] = {
-		.dev_name = "tegra210-amx.0",
+		.dev_name = "702d3000.amx",
 		.name_prefix = "AMX1",
 	},
 	[TEGRA210_CODEC_AMX2_CONF] = {
-		.dev_name = "tegra210-amx.1",
+		.dev_name = "702d3100.amx",
 		.name_prefix = "AMX2",
 	},
 	[TEGRA210_CODEC_ADX1_CONF] = {
-		.dev_name = "tegra210-adx.0",
+		.dev_name = "702d3800.adx",
 		.name_prefix = "ADX1",
 	},
 	[TEGRA210_CODEC_ADX2_CONF] = {
-		.dev_name = "tegra210-adx.1",
+		.dev_name = "702d3900.adx",
 		.name_prefix = "ADX2",
 	},
 	[TEGRA210_CODEC_SFC1_CONF] = {
-		.dev_name = "tegra210-sfc.0",
+		.dev_name = "702d2000.sfc",
 		.name_prefix = "SFC1",
 	},
 	[TEGRA210_CODEC_SFC2_CONF] = {
-		.dev_name = "tegra210-sfc.1",
+		.dev_name = "702d2200.sfc",
 		.name_prefix = "SFC2",
 	},
 	[TEGRA210_CODEC_SFC3_CONF] = {
-		.dev_name = "tegra210-sfc.2",
+		.dev_name = "702d2400.sfc",
 		.name_prefix = "SFC3",
 	},
 	[TEGRA210_CODEC_SFC4_CONF] = {
-		.dev_name = "tegra210-sfc.3",
+		.dev_name = "702d2600.sfc",
 		.name_prefix = "SFC4",
 	},
 	[TEGRA210_CODEC_MVC1_CONF] = {
-		.dev_name = "tegra210-mvc.0",
+		.dev_name = "702da000.mvc",
 		.name_prefix = "MVC1",
 	},
 	[TEGRA210_CODEC_MVC2_CONF] = {
-		.dev_name = "tegra210-mvc.1",
+		.dev_name = "702da200.mvc",
 		.name_prefix = "MVC2",
 	},
 	[TEGRA210_CODEC_OPE1_CONF] = {
-		.dev_name = "tegra210-ope.0",
+		.dev_name = "702d8000.ope",
 		.name_prefix = "OPE1",
 	},
 	[TEGRA210_CODEC_OPE2_CONF] = {
-		.dev_name = "tegra210-ope.1",
+		.dev_name = "702d8400.ope",
 		.name_prefix = "OPE2",
 	},
 	[TEGRA210_CODEC_AFC1_CONF] = {
-		.dev_name = "tegra210-afc.0",
+		.dev_name = "702d7000.afc",
 		.name_prefix = "AFC1",
 	},
 	[TEGRA210_CODEC_AFC2_CONF] = {
-		.dev_name = "tegra210-afc.1",
+		.dev_name = "702d7100.afc",
 		.name_prefix = "AFC2",
 	},
 	[TEGRA210_CODEC_AFC3_CONF] = {
-		.dev_name = "tegra210-afc.2",
+		.dev_name = "702d7200.afc",
 		.name_prefix = "AFC3",
 	},
 	[TEGRA210_CODEC_AFC4_CONF] = {
-		.dev_name = "tegra210-afc.3",
+		.dev_name = "702d7300.afc",
 		.name_prefix = "AFC4",
 	},
 	[TEGRA210_CODEC_AFC5_CONF] = {
-		.dev_name = "tegra210-afc.4",
+		.dev_name = "702d7400.afc",
 		.name_prefix = "AFC5",
 	},
 	[TEGRA210_CODEC_AFC6_CONF] = {
-		.dev_name = "tegra210-afc.5",
+		.dev_name = "702d7500.afc",
 		.name_prefix = "AFC6",
 	},
 	[TEGRA210_CODEC_I2S1_CONF] = {
-		.dev_name = "tegra210-i2s.0",
+		.dev_name = "702d1000.i2s",
 		.name_prefix = "I2S1",
 	},
 	[TEGRA210_CODEC_I2S2_CONF] = {
-		.dev_name = "tegra210-i2s.1",
+		.dev_name = "702d1100.i2s",
 		.name_prefix = "I2S2",
 	},
 	[TEGRA210_CODEC_I2S3_CONF] = {
-		.dev_name = "tegra210-i2s.2",
+		.dev_name = "702d1200.i2s",
 		.name_prefix = "I2S3",
 	},
 	[TEGRA210_CODEC_I2S4_CONF] = {
-		.dev_name = "tegra210-i2s.3",
+		.dev_name = "702d1300.i2s",
 		.name_prefix = "I2S4",
 	},
 	[TEGRA210_CODEC_I2S5_CONF] = {
-		.dev_name = "tegra210-i2s.4",
+		.dev_name = "702d1400.i2s",
 		.name_prefix = "I2S5",
 	},
 	[TEGRA210_CODEC_DMIC1_CONF] = {
-		.dev_name = "tegra210-dmic.0",
+		.dev_name = "702d4000.dmic",
 		.name_prefix = "DMIC1",
 	},
 	[TEGRA210_CODEC_DMIC2_CONF] = {
-		.dev_name = "tegra210-dmic.1",
+		.dev_name = "702d4100.dmic",
 		.name_prefix = "DMIC2",
 	},
 	[TEGRA210_CODEC_DMIC3_CONF] = {
-		.dev_name = "tegra210-dmic.2",
+		.dev_name = "702d4200.dmic",
 		.name_prefix = "DMIC3",
 	},
 };
@@ -1121,9 +1120,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF1 CIF",
 		.cpu_dai_name = "ADMAIF1",
 		.codec_dai_name = "ADMAIF1",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF2] = {
@@ -1131,9 +1130,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF2 CIF",
 		.cpu_dai_name = "ADMAIF2",
 		.codec_dai_name = "ADMAIF2",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF3] = {
@@ -1141,9 +1140,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF3 CIF",
 		.cpu_dai_name = "ADMAIF3",
 		.codec_dai_name = "ADMAIF3",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF4] = {
@@ -1151,9 +1150,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF4 CIF",
 		.cpu_dai_name = "ADMAIF4",
 		.codec_dai_name = "ADMAIF4",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF5] = {
@@ -1161,9 +1160,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF5 CIF",
 		.cpu_dai_name = "ADMAIF5",
 		.codec_dai_name = "ADMAIF5",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF6] = {
@@ -1171,9 +1170,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF6 CIF",
 		.cpu_dai_name = "ADMAIF6",
 		.codec_dai_name = "ADMAIF6",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF7] = {
@@ -1181,9 +1180,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF7 CIF",
 		.cpu_dai_name = "ADMAIF7",
 		.codec_dai_name = "ADMAIF7",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF8] = {
@@ -1191,9 +1190,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF8 CIF",
 		.cpu_dai_name = "ADMAIF8",
 		.codec_dai_name = "ADMAIF8",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF9] = {
@@ -1201,9 +1200,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF9 CIF",
 		.cpu_dai_name = "ADMAIF9",
 		.codec_dai_name = "ADMAIF9",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF10] = {
@@ -1211,9 +1210,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF10 CIF",
 		.cpu_dai_name = "ADMAIF10",
 		.codec_dai_name = "ADMAIF10",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF11] = {
@@ -1221,9 +1220,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF11 CIF",
 		.cpu_dai_name = "ADMAIF11",
 		.codec_dai_name = "ADMAIF11",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF12] = {
@@ -1231,9 +1230,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF12 CIF",
 		.cpu_dai_name = "ADMAIF12",
 		.codec_dai_name = "ADMAIF12",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF13] = {
@@ -1241,9 +1240,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF13 CIF",
 		.cpu_dai_name = "ADMAIF13",
 		.codec_dai_name = "ADMAIF13",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF14] = {
@@ -1251,9 +1250,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF14 CIF",
 		.cpu_dai_name = "ADMAIF14",
 		.codec_dai_name = "ADMAIF14",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF15] = {
@@ -1261,9 +1260,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF15 CIF",
 		.cpu_dai_name = "ADMAIF15",
 		.codec_dai_name = "ADMAIF15",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF16] = {
@@ -1271,9 +1270,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF16 CIF",
 		.cpu_dai_name = "ADMAIF16",
 		.codec_dai_name = "ADMAIF16",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF17] = {
@@ -1281,9 +1280,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF17 CIF",
 		.cpu_dai_name = "ADMAIF17",
 		.codec_dai_name = "ADMAIF17",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF18] = {
@@ -1291,9 +1290,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF18 CIF",
 		.cpu_dai_name = "ADMAIF18",
 		.codec_dai_name = "ADMAIF18",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF19] = {
@@ -1301,9 +1300,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF19 CIF",
 		.cpu_dai_name = "ADMAIF19",
 		.codec_dai_name = "ADMAIF19",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF20] = {
@@ -1311,9 +1310,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF20 CIF",
 		.cpu_dai_name = "ADMAIF20",
 		.codec_dai_name = "ADMAIF20",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 	},
 	[TEGRA186_DAI_LINK_ADMAIF1_CODEC] = {
@@ -1321,9 +1320,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF1 CODEC",
 		.cpu_dai_name = "ADMAIF1 CIF",
 		.codec_dai_name = "ADMAIF1",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1333,9 +1332,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF2 CODEC",
 		.cpu_dai_name = "ADMAIF2 CIF",
 		.codec_dai_name = "ADMAIF2",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1345,9 +1344,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF3 CODEC",
 		.cpu_dai_name = "ADMAIF3 CIF",
 		.codec_dai_name = "ADMAIF3",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1357,9 +1356,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF4 CODEC",
 		.cpu_dai_name = "ADMAIF4 CIF",
 		.codec_dai_name = "ADMAIF4",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1369,9 +1368,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF5 CODEC",
 		.cpu_dai_name = "ADMAIF5 CIF",
 		.codec_dai_name = "ADMAIF5",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1381,9 +1380,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF6 CODEC",
 		.cpu_dai_name = "ADMAIF6 CIF",
 		.codec_dai_name = "ADMAIF6",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1393,9 +1392,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF7 CODEC",
 		.cpu_dai_name = "ADMAIF7 CIF",
 		.codec_dai_name = "ADMAIF7",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1405,9 +1404,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF8 CODEC",
 		.cpu_dai_name = "ADMAIF8 CIF",
 		.codec_dai_name = "ADMAIF8",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1417,9 +1416,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF9 CODEC",
 		.cpu_dai_name = "ADMAIF9 CIF",
 		.codec_dai_name = "ADMAIF9",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1429,9 +1428,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF10 CODEC",
 		.cpu_dai_name = "ADMAIF10 CIF",
 		.codec_dai_name = "ADMAIF10",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1441,9 +1440,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF11 CODEC",
 		.cpu_dai_name = "ADMAIF11 CIF",
 		.codec_dai_name = "ADMAIF11",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1453,9 +1452,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF12 CODEC",
 		.cpu_dai_name = "ADMAIF12 CIF",
 		.codec_dai_name = "ADMAIF12",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1465,9 +1464,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF13 CODEC",
 		.cpu_dai_name = "ADMAIF13 CIF",
 		.codec_dai_name = "ADMAIF13",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1477,9 +1476,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF14 CODEC",
 		.cpu_dai_name = "ADMAIF14 CIF",
 		.codec_dai_name = "ADMAIF14",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1489,9 +1488,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF15 CODEC",
 		.cpu_dai_name = "ADMAIF15 CIF",
 		.codec_dai_name = "ADMAIF15",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1501,9 +1500,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF16 CODEC",
 		.cpu_dai_name = "ADMAIF16 CIF",
 		.codec_dai_name = "ADMAIF16",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1513,9 +1512,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF17 CODEC",
 		.cpu_dai_name = "ADMAIF17 CIF",
 		.codec_dai_name = "ADMAIF17",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1525,9 +1524,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF18 CODEC",
 		.cpu_dai_name = "ADMAIF18 CIF",
 		.codec_dai_name = "ADMAIF18",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1537,9 +1536,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF19 CODEC",
 		.cpu_dai_name = "ADMAIF19 CIF",
 		.codec_dai_name = "ADMAIF19",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1549,9 +1548,9 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADMAIF20 CODEC",
 		.cpu_dai_name = "ADMAIF20 CIF",
 		.codec_dai_name = "ADMAIF20",
-		.cpu_name = "tegra186-admaif",
-		.codec_name = "tegra210-axbar",
-		.platform_name = "tegra186-admaif",
+		.cpu_name = "290f000.admaif",
+		.codec_name = "2900800.ahub",
+		.platform_name = "290f000.admaif",
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		.params = &default_link_params,
@@ -1561,8 +1560,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903000.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1571,8 +1570,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903000.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1581,8 +1580,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903000.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1591,8 +1590,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 IN",
 		.cpu_dai_name = "AMX1-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903000.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1601,8 +1600,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX1 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX1",
-		.cpu_name = "tegra210-amx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903000.amx",
+		.codec_name = "2900800.ahub",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1611,8 +1610,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903100.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1621,8 +1620,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903100.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1631,8 +1630,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903100.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1641,8 +1640,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 IN",
 		.cpu_dai_name = "AMX2-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903100.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1651,8 +1650,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX2 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX2",
-		.cpu_name = "tegra210-amx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903100.amx",
+		.codec_name = "2900800.ahub",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1661,8 +1660,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX3 IN",
 		.cpu_dai_name = "AMX3-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903200.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1671,8 +1670,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX3 IN",
 		.cpu_dai_name = "AMX3-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903200.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1681,8 +1680,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX3 IN",
 		.cpu_dai_name = "AMX3-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903200.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1691,8 +1690,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX3 IN",
 		.cpu_dai_name = "AMX3-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903200.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1701,8 +1700,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX3 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX3",
-		.cpu_name = "tegra210-amx.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903200.amx",
+		.codec_name = "2900800.ahub",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1711,8 +1710,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX4 IN",
 		.cpu_dai_name = "AMX4-1",
 		.codec_dai_name = "IN1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903300.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1721,8 +1720,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX4 IN",
 		.cpu_dai_name = "AMX4-2",
 		.codec_dai_name = "IN2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903300.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1731,8 +1730,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX4 IN",
 		.cpu_dai_name = "AMX4-3",
 		.codec_dai_name = "IN3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903300.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1741,8 +1740,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX4 IN",
 		.cpu_dai_name = "AMX4-4",
 		.codec_dai_name = "IN4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-amx.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903300.amx",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1751,8 +1750,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AMX4 CIF",
 		.cpu_dai_name = "OUT",
 		.codec_dai_name = "AMX4",
-		.cpu_name = "tegra210-amx.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903300.amx",
+		.codec_name = "2900800.ahub",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1761,8 +1760,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 IN",
 		.cpu_dai_name = "ADX1",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903800.adx",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1771,8 +1770,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX1-1",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903800.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1781,8 +1780,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX1-2",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903800.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1791,8 +1790,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX1-3",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903800.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1801,8 +1800,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX1 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX1-4",
-		.cpu_name = "tegra210-adx.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903800.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1811,8 +1810,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 IN",
 		.cpu_dai_name = "ADX2",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903900.adx",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1821,8 +1820,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX2-1",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903900.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1831,8 +1830,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX2-2",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903900.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1841,8 +1840,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX2-3",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903900.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1851,8 +1850,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX2 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX2-4",
-		.cpu_name = "tegra210-adx.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903900.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1861,8 +1860,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX3 IN",
 		.cpu_dai_name = "ADX3",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903a00.adx",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1871,8 +1870,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX3 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX3-1",
-		.cpu_name = "tegra210-adx.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903a00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1881,8 +1880,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX3 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX3-2",
-		.cpu_name = "tegra210-adx.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903a00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1891,8 +1890,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX3 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX3-3",
-		.cpu_name = "tegra210-adx.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903a00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1901,8 +1900,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX3 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX3-4",
-		.cpu_name = "tegra210-adx.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903a00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1911,8 +1910,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX4 IN",
 		.cpu_dai_name = "ADX4",
 		.codec_dai_name = "IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-adx.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2903b00.adx",
 		.params = &tdm_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1921,8 +1920,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX4 OUT",
 		.cpu_dai_name = "OUT1",
 		.codec_dai_name = "ADX4-1",
-		.cpu_name = "tegra210-adx.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903b00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1931,8 +1930,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX4 OUT",
 		.cpu_dai_name = "OUT2",
 		.codec_dai_name = "ADX4-2",
-		.cpu_name = "tegra210-adx.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903b00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1941,8 +1940,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX4 OUT",
 		.cpu_dai_name = "OUT3",
 		.codec_dai_name = "ADX4-3",
-		.cpu_name = "tegra210-adx.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903b00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1951,8 +1950,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ADX4 OUT",
 		.cpu_dai_name = "OUT4",
 		.codec_dai_name = "ADX4-4",
-		.cpu_name = "tegra210-adx.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2903b00.adx",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1961,8 +1960,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-1",
 		.codec_dai_name = "RX1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1971,8 +1970,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-2",
 		.codec_dai_name = "RX2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1981,8 +1980,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-3",
 		.codec_dai_name = "RX3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -1991,8 +1990,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-4",
 		.codec_dai_name = "RX4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2001,8 +2000,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-5",
 		.codec_dai_name = "RX5",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2011,8 +2010,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-6",
 		.codec_dai_name = "RX6",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2021,8 +2020,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-7",
 		.codec_dai_name = "RX7",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2031,8 +2030,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-8",
 		.codec_dai_name = "RX8",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2041,8 +2040,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-9",
 		.codec_dai_name = "RX9",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2051,8 +2050,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 RX",
 		.cpu_dai_name = "MIXER1-10",
 		.codec_dai_name = "RX10",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mixer",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290bb00.amixer",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2061,8 +2060,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX1",
 		.codec_dai_name = "MIXER1-1",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290bb00.amixer",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2071,8 +2070,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX2",
 		.codec_dai_name = "MIXER1-2",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290bb00.amixer",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2081,8 +2080,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX3",
 		.codec_dai_name = "MIXER1-3",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290bb00.amixer",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2091,8 +2090,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX4",
 		.codec_dai_name = "MIXER1-4",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290bb00.amixer",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2101,8 +2100,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MIXER1 TX",
 		.cpu_dai_name = "TX5",
 		.codec_dai_name = "MIXER1-5",
-		.cpu_name = "tegra210-mixer",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290bb00.amixer",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2111,8 +2110,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC1 RX",
 		.cpu_dai_name = "SFC1",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2902000.sfc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2121,8 +2120,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC1 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC1",
-		.cpu_name = "tegra210-sfc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2902000.sfc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2131,8 +2130,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC2 RX",
 		.cpu_dai_name = "SFC2",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2902200.sfc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2141,8 +2140,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC2 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC2",
-		.cpu_name = "tegra210-sfc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2902200.sfc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2151,8 +2150,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC3 RX",
 		.cpu_dai_name = "SFC3",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2902400.sfc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2161,8 +2160,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC3 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC3",
-		.cpu_name = "tegra210-sfc.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2902400.sfc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2171,8 +2170,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC4 RX",
 		.cpu_dai_name = "SFC4",
 		.codec_dai_name = "CIF",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-sfc.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2902600.sfc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2181,8 +2180,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "SFC4 TX",
 		.cpu_dai_name = "DAP",
 		.codec_dai_name = "SFC4",
-		.cpu_name = "tegra210-sfc.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2902600.sfc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2191,8 +2190,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC1 RX",
 		.cpu_dai_name = "AFC1",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907000.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2201,8 +2200,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC1 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC1",
-		.cpu_name = "tegra186-afc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907000.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2211,8 +2210,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC2 RX",
 		.cpu_dai_name = "AFC2",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907100.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2221,8 +2220,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC2 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC2",
-		.cpu_name = "tegra186-afc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907100.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2231,8 +2230,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC3 RX",
 		.cpu_dai_name = "AFC3",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.2",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907200.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2241,8 +2240,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC3 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC3",
-		.cpu_name = "tegra186-afc.2",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907200.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2251,8 +2250,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC4 RX",
 		.cpu_dai_name = "AFC4",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.3",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907300.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2261,8 +2260,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC4 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC4",
-		.cpu_name = "tegra186-afc.3",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907300.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2271,8 +2270,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC5 RX",
 		.cpu_dai_name = "AFC5",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.4",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907400.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2281,8 +2280,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC5 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC5",
-		.cpu_name = "tegra186-afc.4",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907400.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2291,8 +2290,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC6 RX",
 		.cpu_dai_name = "AFC6",
 		.codec_dai_name = "AFC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-afc.5",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2907500.afc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2301,8 +2300,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "AFC6 TX",
 		.cpu_dai_name = "AFC OUT",
 		.codec_dai_name = "AFC6",
-		.cpu_name = "tegra186-afc.5",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2907500.afc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2311,8 +2310,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC1 RX",
 		.cpu_dai_name = "MVC1",
 		.codec_dai_name = "MVC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mvc.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290a000.mvc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2321,8 +2320,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC1 TX",
 		.cpu_dai_name = "MVC OUT",
 		.codec_dai_name = "MVC1",
-		.cpu_name = "tegra210-mvc.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290a000.mvc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2331,8 +2330,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC2 RX",
 		.cpu_dai_name = "MVC2",
 		.codec_dai_name = "MVC IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-mvc.1",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "290a200.mvc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2341,8 +2340,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "MVC2 TX",
 		.cpu_dai_name = "MVC OUT",
 		.codec_dai_name = "MVC2",
-		.cpu_name = "tegra210-mvc.1",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290a200.mvc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2351,8 +2350,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE1 RX",
 		.cpu_dai_name = "OPE1",
 		.codec_dai_name = "OPE IN",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra210-ope.0",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2908000.ope",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2361,8 +2360,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "OPE1 TX",
 		.cpu_dai_name = "OPE OUT",
 		.codec_dai_name = "OPE1",
-		.cpu_name = "tegra210-ope.0",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2908000.ope",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2371,8 +2370,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-1",
 		.codec_dai_name = "RX1",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2381,8 +2380,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-2",
 		.codec_dai_name = "RX2",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2391,8 +2390,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-3",
 		.codec_dai_name = "RX3",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2401,8 +2400,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-4",
 		.codec_dai_name = "RX4",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2411,8 +2410,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-5",
 		.codec_dai_name = "RX5",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2421,8 +2420,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-6",
 		.codec_dai_name = "RX6",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2431,8 +2430,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 RX",
 		.cpu_dai_name = "ASRC1-7",
 		.codec_dai_name = "RX7",
-		.cpu_name = "tegra210-axbar",
-		.codec_name = "tegra186-asrc",
+		.cpu_name = "2900800.ahub",
+		.codec_name = "2910000.asrc",
 		.params = &arad_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2441,8 +2440,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX1",
 		.codec_dai_name = "ASRC1-1",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2451,8 +2450,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX2",
 		.codec_dai_name = "ASRC1-2",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2461,8 +2460,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX3",
 		.codec_dai_name = "ASRC1-3",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2471,8 +2470,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX4",
 		.codec_dai_name = "ASRC1-4",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2481,8 +2480,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX5",
 		.codec_dai_name = "ASRC1-5",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2491,8 +2490,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ASRC1 TX",
 		.cpu_dai_name = "TX6",
 		.codec_dai_name = "ASRC1-6",
-		.cpu_name = "tegra186-asrc",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "2910000.asrc",
+		.codec_name = "2900800.ahub",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2503,7 +2502,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF1",
 		.codec_dai_name = "ADMAIF1 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2513,7 +2512,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF2",
 		.codec_dai_name = "ADMAIF2 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2523,7 +2522,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF3",
 		.codec_dai_name = "ADMAIF3 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2533,7 +2532,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF4",
 		.codec_dai_name = "ADMAIF4 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2543,7 +2542,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF5",
 		.codec_dai_name = "ADMAIF5 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2553,7 +2552,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF6",
 		.codec_dai_name = "ADMAIF6 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2563,7 +2562,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF7",
 		.codec_dai_name = "ADMAIF7 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2573,7 +2572,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF8",
 		.codec_dai_name = "ADMAIF8 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2583,7 +2582,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF9",
 		.codec_dai_name = "ADMAIF9 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2593,7 +2592,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF10",
 		.codec_dai_name = "ADMAIF10 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2603,7 +2602,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF11",
 		.codec_dai_name = "ADMAIF11 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2613,7 +2612,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF12",
 		.codec_dai_name = "ADMAIF12 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2623,7 +2622,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF13",
 		.codec_dai_name = "ADMAIF13 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2633,7 +2632,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF14",
 		.codec_dai_name = "ADMAIF14 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2643,7 +2642,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF15",
 		.codec_dai_name = "ADMAIF15 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2653,7 +2652,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF16",
 		.codec_dai_name = "ADMAIF16 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2663,7 +2662,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF17",
 		.codec_dai_name = "ADMAIF17 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2673,7 +2672,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF18",
 		.codec_dai_name = "ADMAIF18 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2683,7 +2682,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF19",
 		.codec_dai_name = "ADMAIF19 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2693,7 +2692,7 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.cpu_dai_name = "ADSP-ADMAIF20",
 		.codec_dai_name = "ADMAIF20 FIFO",
 		.cpu_name = "tegra210-adsp",
-		.codec_name = "tegra186-admaif",
+		.codec_name = "290f000.admaif",
 		.params = &default_link_params,
 		.ignore_suspend = 1,
 	},
@@ -2747,8 +2746,8 @@ struct snd_soc_dai_link tegra186_xbar_dai_links[TEGRA186_XBAR_DAI_LINKS] = {
 		.stream_name = "ARAD ratio info",
 		.cpu_dai_name = "ARAD OUT",
 		.codec_dai_name = "ARAD1",
-		.cpu_name = "tegra186-arad",
-		.codec_name = "tegra210-axbar",
+		.cpu_name = "290e400.arad",
+		.codec_name = "2900800.ahub",
 		.params = &arad_link_params,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
@@ -2758,139 +2757,139 @@ EXPORT_SYMBOL_GPL(tegra186_xbar_dai_links);
 
 struct snd_soc_codec_conf tegra186_xbar_codec_conf[TEGRA186_XBAR_CODEC_CONF] = {
 	[TEGRA186_CODEC_AMX1_CONF] = {
-		.dev_name = "tegra210-amx.0",
+		.dev_name = "2903000.amx",
 		.name_prefix = "AMX1",
 	},
 	[TEGRA186_CODEC_AMX2_CONF] = {
-		.dev_name = "tegra210-amx.1",
+		.dev_name = "2903100.amx",
 		.name_prefix = "AMX2",
 	},
 	[TEGRA186_CODEC_AMX3_CONF] = {
-		.dev_name = "tegra210-amx.2",
+		.dev_name = "2903200.amx",
 		.name_prefix = "AMX3",
 	},
 	[TEGRA186_CODEC_AMX4_CONF] = {
-		.dev_name = "tegra210-amx.3",
+		.dev_name = "2903300.amx",
 		.name_prefix = "AMX4",
 	},
 	[TEGRA186_CODEC_ADX1_CONF] = {
-		.dev_name = "tegra210-adx.0",
+		.dev_name = "2903800.adx",
 		.name_prefix = "ADX1",
 	},
 	[TEGRA186_CODEC_ADX2_CONF] = {
-		.dev_name = "tegra210-adx.1",
+		.dev_name = "2903900.adx",
 		.name_prefix = "ADX2",
 	},
 	[TEGRA186_CODEC_ADX3_CONF] = {
-		.dev_name = "tegra210-adx.2",
+		.dev_name = "2903a00.adx",
 		.name_prefix = "ADX3",
 	},
 	[TEGRA186_CODEC_ADX4_CONF] = {
-		.dev_name = "tegra210-adx.3",
+		.dev_name = "2903b00.adx",
 		.name_prefix = "ADX4",
 	},
 	[TEGRA186_CODEC_SFC1_CONF] = {
-		.dev_name = "tegra210-sfc.0",
+		.dev_name = "2902000.sfc",
 		.name_prefix = "SFC1",
 	},
 	[TEGRA186_CODEC_SFC2_CONF] = {
-		.dev_name = "tegra210-sfc.1",
+		.dev_name = "2902200.sfc",
 		.name_prefix = "SFC2",
 	},
 	[TEGRA186_CODEC_SFC3_CONF] = {
-		.dev_name = "tegra210-sfc.2",
+		.dev_name = "2902400.sfc",
 		.name_prefix = "SFC3",
 	},
 	[TEGRA186_CODEC_SFC4_CONF] = {
-		.dev_name = "tegra210-sfc.3",
+		.dev_name = "2902600.sfc",
 		.name_prefix = "SFC4",
 	},
 	[TEGRA186_CODEC_MVC1_CONF] = {
-		.dev_name = "tegra210-mvc.0",
+		.dev_name = "290a000.mvc",
 		.name_prefix = "MVC1",
 	},
 	[TEGRA186_CODEC_MVC2_CONF] = {
-		.dev_name = "tegra210-mvc.1",
+		.dev_name = "290a200.mvc",
 		.name_prefix = "MVC2",
 	},
 	[TEGRA186_CODEC_OPE1_CONF] = {
-		.dev_name = "tegra210-ope.0",
+		.dev_name = "2908000.ope",
 		.name_prefix = "OPE1",
 	},
 	[TEGRA186_CODEC_AFC1_CONF] = {
-		.dev_name = "tegra186-afc.0",
+		.dev_name = "2907000.afc",
 		.name_prefix = "AFC1",
 	},
 	[TEGRA186_CODEC_AFC2_CONF] = {
-		.dev_name = "tegra186-afc.1",
+		.dev_name = "2907100.afc",
 		.name_prefix = "AFC2",
 	},
 	[TEGRA186_CODEC_AFC3_CONF] = {
-		.dev_name = "tegra186-afc.2",
+		.dev_name = "2907200.afc",
 		.name_prefix = "AFC3",
 	},
 	[TEGRA186_CODEC_AFC4_CONF] = {
-		.dev_name = "tegra186-afc.3",
+		.dev_name = "2907300.afc",
 		.name_prefix = "AFC4",
 	},
 	[TEGRA186_CODEC_AFC5_CONF] = {
-		.dev_name = "tegra186-afc.4",
+		.dev_name = "2907400.afc",
 		.name_prefix = "AFC5",
 	},
 	[TEGRA186_CODEC_AFC6_CONF] = {
-		.dev_name = "tegra186-afc.5",
+		.dev_name = "2907500.afc",
 		.name_prefix = "AFC6",
 	},
 	[TEGRA186_CODEC_I2S1_CONF] = {
-		.dev_name = "tegra210-i2s.0",
+		.dev_name = "2901000.i2s",
 		.name_prefix = "I2S1",
 	},
 	[TEGRA186_CODEC_I2S2_CONF] = {
-		.dev_name = "tegra210-i2s.1",
+		.dev_name = "2901100.i2s",
 		.name_prefix = "I2S2",
 	},
 	[TEGRA186_CODEC_I2S3_CONF] = {
-		.dev_name = "tegra210-i2s.2",
+		.dev_name = "2901200.i2s",
 		.name_prefix = "I2S3",
 	},
 	[TEGRA186_CODEC_I2S4_CONF] = {
-		.dev_name = "tegra210-i2s.3",
+		.dev_name = "2901300.i2s",
 		.name_prefix = "I2S4",
 	},
 	[TEGRA186_CODEC_I2S5_CONF] = {
-		.dev_name = "tegra210-i2s.4",
+		.dev_name = "2901400.i2s",
 		.name_prefix = "I2S5",
 	},
 	[TEGRA186_CODEC_I2S6_CONF] = {
-		.dev_name = "tegra210-i2s.5",
+		.dev_name = "2901500.i2s",
 		.name_prefix = "I2S6",
 	},
 	[TEGRA186_CODEC_DMIC1_CONF] = {
-		.dev_name = "tegra210-dmic.0",
+		.dev_name = "2904000.dmic",
 		.name_prefix = "DMIC1",
 	},
 	[TEGRA186_CODEC_DMIC2_CONF] = {
-		.dev_name = "tegra210-dmic.1",
+		.dev_name = "2904100.dmic",
 		.name_prefix = "DMIC2",
 	},
 	[TEGRA186_CODEC_DMIC3_CONF] = {
-		.dev_name = "tegra210-dmic.2",
+		.dev_name = "2904200.dmic",
 		.name_prefix = "DMIC3",
 	},
 	[TEGRA186_CODEC_DMIC4_CONF] = {
-		.dev_name = "tegra210-dmic.3",
+		.dev_name = "2904300.dmic",
 		.name_prefix = "DMIC4",
 	},
 	[TEGRA186_CODEC_DSPK1_CONF] = {
-		.dev_name = "tegra186-dspk.0",
+		.dev_name = "2905000.dspk",
 		.name_prefix = "DSPK1",
 	},
 	[TEGRA186_CODEC_DSPK2_CONF] = {
-		.dev_name = "tegra186-dspk.1",
+		.dev_name = "2905100.dspk",
 		.name_prefix = "DSPK2",
 	},
 	[TEGRA186_CODEC_ASRC1_CONF] = {
-		.dev_name = "tegra186-asrc",
+		.dev_name = "2910000.asrc",
 		.name_prefix = "ASRC1",
 	},
 };
@@ -2898,24 +2897,25 @@ EXPORT_SYMBOL_GPL(tegra186_xbar_codec_conf);
 
 struct snd_soc_dai_link *tegra_machine_get_dai_link(void)
 {
-	struct snd_soc_dai_link *link = NULL;
+	struct snd_soc_dai_link *link;
 	unsigned int size = 0;
-
-	if (tegra_asoc_machine_links)
-		return tegra_asoc_machine_links;
 
 	if (of_machine_is_compatible("nvidia,tegra210")  ||
 		of_machine_is_compatible("nvidia,tegra210b01")) {
 		link = tegra210_xbar_dai_links;
 		size = TEGRA210_XBAR_DAI_LINKS;
-	} else {
-		return NULL;
 	}
+
+	if (tegra_asoc_machine_links)
+		return tegra_asoc_machine_links;
 
 	num_dai_links = size;
 
 	tegra_asoc_machine_links = kzalloc(size *
 		sizeof(struct snd_soc_dai_link), GFP_KERNEL);
+
+	if (!tegra_asoc_machine_links)
+		return NULL;
 
 	memcpy(tegra_asoc_machine_links, link,
 		size * sizeof(struct snd_soc_dai_link));
@@ -3011,22 +3011,23 @@ EXPORT_SYMBOL_GPL(tegra_machine_set_dai_fmt);
 
 struct snd_soc_codec_conf *tegra_machine_get_codec_conf(void)
 {
-	struct snd_soc_codec_conf *conf = NULL;
+	struct snd_soc_codec_conf *conf;
 	unsigned int size = 0;
-
-	if (tegra_asoc_codec_conf)
-		return tegra_asoc_codec_conf;
 
 	if (of_machine_is_compatible("nvidia,tegra210")  ||
 		of_machine_is_compatible("nvidia,tegra210b01")) {
 		conf = tegra210_xbar_codec_conf;
 		size = TEGRA210_XBAR_CODEC_CONF;
-	} else {
-		return NULL;
 	}
+
+	if (tegra_asoc_codec_conf)
+		return tegra_asoc_codec_conf;
 
 	tegra_asoc_codec_conf = kzalloc(size *
 		sizeof(struct snd_soc_codec_conf), GFP_KERNEL);
+
+	if (!tegra_asoc_codec_conf)
+		return NULL;
 
 	memcpy(tegra_asoc_codec_conf, conf,
 		size * sizeof(struct snd_soc_codec_conf));
@@ -3450,6 +3451,9 @@ struct snd_soc_dai_link *tegra_machine_get_dai_link_t18x(void)
 	tegra_asoc_machine_links_t18x = kzalloc(size *
 		sizeof(struct snd_soc_dai_link), GFP_KERNEL);
 
+	if (!tegra_asoc_machine_links_t18x)
+		return NULL;
+
 	memcpy(tegra_asoc_machine_links_t18x, link,
 		size * sizeof(struct snd_soc_dai_link));
 
@@ -3507,6 +3511,9 @@ struct snd_soc_codec_conf *tegra_machine_get_codec_conf_t18x(void)
 
 	tegra_asoc_codec_conf_t18x = kzalloc(size *
 		sizeof(struct snd_soc_codec_conf), GFP_KERNEL);
+
+	if (!tegra_asoc_codec_conf_t18x)
+		return NULL;
 
 	memcpy(tegra_asoc_codec_conf_t18x, conf,
 		size * sizeof(struct snd_soc_codec_conf));
@@ -3785,8 +3792,7 @@ static int tegra_machine_add_master_mode_ctl(struct snd_soc_card *card,
 	return tegra_machine_add_ctl(card, &knew, data, name);
 }
 
-int tegra_machine_add_i2s_codec_controls(struct snd_soc_card *card,
-					 unsigned int num_dai_links)
+int tegra_machine_add_i2s_codec_controls(struct snd_soc_card *card)
 {
 	struct tegra_machine_control_data *data;
 	struct snd_soc_pcm_runtime *rtd;
@@ -3794,14 +3800,8 @@ int tegra_machine_add_i2s_codec_controls(struct snd_soc_card *card,
 	char name[SNDRV_CTL_ELEM_ID_NAME_MAXLEN];
 	unsigned int id;
 	int ret;
-#if KERNEL_VERSION(4, 5, 0) > LINUX_VERSION_CODE
-	unsigned int i;
 
-	for (i = 0; i < num_dai_links; i++) {
-		rtd = &card->rtd[i];
-#else
 	list_for_each_entry(rtd, &card->rtd_list, list) {
-#endif
 		np = rtd->dai_link->cpu_of_node;
 
 		if (!np)
@@ -3900,22 +3900,6 @@ int tegra_machine_add_codec_jack_control(struct snd_soc_card *card,
 }
 EXPORT_SYMBOL_GPL(tegra_machine_add_codec_jack_control);
 
-void tegra_machine_dma_set_mask(struct platform_device *pdev)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	struct device_node *np = pdev->dev.of_node;
-	uint64_t dma_mask;
-	int ret;
-
-	ret = of_property_read_u64(np, "dma-mask", &dma_mask);
-	if (ret)
-		dev_err(&pdev->dev, "Missing property dma-mask\n");
-	else
-		dma_set_mask_and_coherent(&pdev->dev, dma_mask);
-#endif
-}
-EXPORT_SYMBOL_GPL(tegra_machine_dma_set_mask);
-
 void release_asoc_phandles(struct tegra_machine *machine)
 {
 	unsigned int i;
@@ -3933,287 +3917,6 @@ void release_asoc_phandles(struct tegra_machine *machine)
 	}
 }
 EXPORT_SYMBOL_GPL(release_asoc_phandles);
-
-int tegra_asoc_populate_dai_links(struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node, *subnp = NULL;
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
-	struct snd_soc_dai_link *dai_links, *ahub_links;
-	struct snd_soc_pcm_stream *params;
-	char dai_link_name[MAX_STR_SIZE], *str;
-	unsigned int num_codec_links, num_ahub_links, num_links,
-		link_count = 0, i, j, *rx_slot, *tx_slot;
-	int ret;
-
-	num_ahub_links = machine->soc_data->num_ahub_links;
-	ahub_links = machine->soc_data->ahub_links;
-
-	if (!np || !num_ahub_links || !ahub_links)
-		return -EINVAL;
-
-	/* read number of codec links exposed via DT */
-	ret = of_property_read_u32(np, "nvidia,num-codec-link",
-				   &machine->num_codec_links);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"Property 'nvidia,num-codec-link' missing\n");
-		return ret;
-	}
-	num_codec_links = machine->num_codec_links;
-
-	/*
-	 * each codec link specified in device tree will result into one DAP
-	 * and one CIF link. For example, i2s dai link will look like below.
-	 * ahub <----CIF----> i2s <----DAP----> codec
-	 */
-	num_links = num_ahub_links + (num_codec_links << 1);
-
-	machine->asoc->num_links = num_links;
-	machine->asoc->dai_links = devm_kzalloc(&pdev->dev,
-						sizeof(*dai_links) * num_links,
-						GFP_KERNEL);
-	dai_links = machine->asoc->dai_links;
-	if (!dai_links)
-		return -ENOMEM;
-
-	machine->asoc->rx_slot = devm_kzalloc(&pdev->dev,
-					      sizeof(*rx_slot) * num_links,
-					      GFP_KERNEL);
-	rx_slot = machine->asoc->rx_slot;
-	if (!rx_slot)
-		return -ENOMEM;
-
-	machine->asoc->tx_slot = devm_kzalloc(&pdev->dev,
-					      sizeof(*tx_slot) * num_links,
-					      GFP_KERNEL);
-	tx_slot = machine->asoc->tx_slot;
-	if (!tx_slot)
-		return -ENOMEM;
-
-	/* populate now ahub links */
-	memcpy(dai_links, ahub_links, num_ahub_links * sizeof(*dai_links));
-
-	/* populate now CIF and DAP links from device tree */
-	for (i = num_ahub_links, j = num_ahub_links + num_codec_links;
-	     i < num_ahub_links + num_codec_links; i++, j++) {
-		memset((void *)dai_link_name, '\0', MAX_STR_SIZE);
-		sprintf(dai_link_name, "nvidia,dai-link-%d", ++link_count);
-		subnp = of_get_child_by_name(np, dai_link_name);
-		if (!subnp)
-			return -ENOENT;
-
-		/* DAP DAI link configuration */
-		dai_links[i].stream_name = "Playback";
-		dai_links[i].codec_of_node = of_parse_phandle(subnp,
-							      "codec-dai", 0);
-		if (!dai_links[i].codec_of_node) {
-			dev_err(&pdev->dev,
-				"property 'codec-dai' is missing\n");
-			ret = -ENOENT;
-			break;
-		}
-
-		dai_links[i].cpu_of_node = of_parse_phandle(subnp, "cpu-dai",
-							    0);
-		if (!dai_links[i].cpu_of_node) {
-			dev_err(&pdev->dev, "property 'cpu-dai' is missing\n");
-			ret = -ENOENT;
-			break;
-		}
-
-		ret = of_property_read_string(subnp, "link-name", &dai_links[i].name);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Property 'link-name' missing\n");
-			ret = -ENOENT;
-			break;
-		}
-
-		/*
-		 * special case for DSPK
-		 * Two mono codecs can be connected to the controller
-		 * DAP2 is required for DAPM path completion
-		 * TODO revisit this when ASoC has multi-codec support
-		 */
-		if (!strcmp(dai_links[i].name, "dspk-playback-r"))
-			dai_links[i].cpu_dai_name = "DAP2";
-		else
-			dai_links[i].cpu_dai_name = "DAP";
-		dai_links[i].dai_fmt = snd_soc_of_parse_daifmt(subnp, NULL,
-							       NULL, NULL);
-
-		params = devm_kzalloc(&pdev->dev, sizeof(*params), GFP_KERNEL);
-		if (!params) {
-			ret = -ENOMEM;
-			break;
-		}
-
-		ret = of_property_read_string(subnp, "bit-format",
-					      (const char **)&str);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Property 'bit-format' missing\n");
-			break;
-		}
-
-		ret = tegra_machine_get_format(&params->formats, str);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Wrong codec format\n");
-			break;
-		}
-
-		ret = of_property_read_u32(subnp, "srate", &params->rate_min);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Property 'srate' missing\n");
-			break;
-		}
-		params->rate_max = params->rate_min;
-
-		ret = of_property_read_u32(subnp, "num-channel",
-					   &params->channels_min);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Property 'num-channel' missing\n");
-			break;
-		}
-		params->channels_max = params->channels_min;
-
-		dai_links[i].params = params;
-		ret = of_property_read_string(subnp, "codec-dai-name",
-					      &dai_links[i].codec_dai_name);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"property 'codec-dai-name' is missing\n");
-			break;
-		}
-
-		of_property_read_u32(subnp, "rx-mask", (u32 *)&rx_slot[i]);
-		of_property_read_u32(subnp, "tx-mask", (u32 *)&tx_slot[i]);
-
-		/*
-		 * CIF DAI link configuration
-		 * CIF link is towards XBAR, hence xbar node is cpu_of_node
-		 * and codec_of_node is same as DAP's cpu_of_node.
-		 */
-		dai_links[j].codec_of_node = of_parse_phandle(subnp, "cpu-dai",
-							      0);
-		dai_links[j].cpu_of_node = of_parse_phandle(np, "nvidia,xbar",
-							    0);
-		if (!dai_links[j].cpu_of_node) {
-			dev_err(&pdev->dev,
-				"property 'nvidia,xbar' is missing\n");
-			ret = -ENOENT;
-			break;
-		}
-
-		/*
-		 * special case for DSPK
-		 * Two mono codecs can be connected to the controller
-		 * CIF2 is required for DAPM path completion
-		 * TODO revist this when ASoC has multi-codec support
-		 */
-		if (!strcmp(dai_links[i].name, "dspk-playback-r"))
-			dai_links[j].codec_dai_name = "CIF2";
-		else
-			dai_links[j].codec_dai_name = "CIF";
-
-		ret = of_property_read_string(subnp, "cpu-dai-name",
-					      &dai_links[j].cpu_dai_name);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"property 'cpu-dai-name' is missing\n");
-			break;
-		}
-
-		str = devm_kzalloc(&pdev->dev,
-			sizeof(dai_links[j].cpu_dai_name) +
-			1 + sizeof(dai_links[j].codec_dai_name),
-			GFP_KERNEL);
-		str = strcat(str, dai_links[j].cpu_dai_name);
-		str = strcat(str, " ");
-		str = strcat(str, dai_links[j].codec_dai_name);
-
-		dai_links[j].name = dai_links[j].stream_name = str;
-		dai_links[j].params = dai_links[i].params;
-
-		of_node_put(subnp);
-	}
-
-	/*
-	 * release subnp here. DAI links and codec conf release will be
-	 * taken care during error exit of machine driver probe()
-	 */
-	if (ret < 0 && subnp) {
-		of_node_put(subnp);
-		return ret;
-	}
-
-	card->num_links = num_links;
-	card->dai_link = dai_links;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(tegra_asoc_populate_dai_links);
-
-int tegra_asoc_populate_codec_confs(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
-	unsigned int num_codec_confs, num_ahub_confs, num_confs, i;
-	struct snd_soc_codec_conf *codec_confs, *ahub_confs;
-	char dai_link_name[MAX_STR_SIZE];
-	struct device_node *of_node;
-	struct device_node *np = pdev->dev.of_node, *subnp;
-	int ret = 0;
-	ahub_confs = machine->soc_data->ahub_confs;
-	num_ahub_confs = machine->soc_data->num_ahub_confs;
-	num_codec_confs = machine->num_codec_links;
-	if (!ahub_confs || !num_codec_confs || !num_ahub_confs)
-		return -EINVAL;
-	num_confs = num_codec_confs + num_ahub_confs;
-	machine->asoc->num_confs = num_confs;
-
-	machine->asoc->codec_confs =
-		devm_kzalloc(&pdev->dev, sizeof(*codec_confs) * num_confs,
-			     GFP_KERNEL);
-	codec_confs = machine->asoc->codec_confs;
-	if (!codec_confs)
-		return -ENOMEM;
-
-	/* add codec confs from ahub */
-	memcpy(codec_confs, ahub_confs, num_ahub_confs * sizeof(*codec_confs));
-
-	/* append codec confs from device tree */
-	for (i = 0; i < num_codec_confs; i++) {
-		memset((void *)dai_link_name, '\0', MAX_STR_SIZE);
-		sprintf(dai_link_name, "nvidia,dai-link-%d", i+1);
-		subnp = of_get_child_by_name(np, dai_link_name);
-		if (!subnp)
-			return -ENOENT;
-
-		of_node = of_parse_phandle(subnp, "codec-dai", 0);
-		if (!of_node) {
-			dev_err(&pdev->dev,
-				"property 'codec-dai' is missing\n");
-			of_node_put(subnp);
-			return -ENOENT;
-		}
-
-		codec_confs[i + num_ahub_confs].dev_name = NULL;
-		codec_confs[i + num_ahub_confs].of_node = of_node;
-		ret = of_property_read_string(subnp, "name-prefix",
-			&codec_confs[i + num_ahub_confs].name_prefix);
-		if (ret < 0)
-			dev_err(&pdev->dev,
-			"property 'name-prefix is missing, error %d \n", ret);
-
-		of_node_put(subnp);
-	}
-
-	card->num_configs = num_confs;
-	card->codec_conf = codec_confs;
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(tegra_asoc_populate_codec_confs);
 
 MODULE_AUTHOR("Arun Shamanna Lakshmi <aruns@nvidia.com>");
 MODULE_AUTHOR("Junghyun Kim <juskim@nvidia.com>");

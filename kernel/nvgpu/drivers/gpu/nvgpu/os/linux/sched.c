@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,14 +24,15 @@
 #include <nvgpu/bug.h>
 #include <nvgpu/barrier.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
+#include <nvgpu/gr/ctx.h>
+#include <nvgpu/nvgpu_init.h>
 
-#include "gk20a/gr_gk20a.h"
+#include "platform_gk20a.h"
 #include "sched.h"
 #include "os_linux.h"
 #include "ioctl_tsg.h"
-
-#include <nvgpu/hw/gk20a/hw_ctxsw_prog_gk20a.h>
-#include <nvgpu/hw/gk20a/hw_gr_gk20a.h>
+#include "ioctl.h"
 
 ssize_t gk20a_sched_dev_read(struct file *filp, char __user *buf,
 	size_t size, loff_t *off)
@@ -54,7 +55,7 @@ ssize_t gk20a_sched_dev_read(struct file *filp, char __user *buf,
 		if (filp->f_flags & O_NONBLOCK)
 			return -EAGAIN;
 		err = NVGPU_COND_WAIT_INTERRUPTIBLE(&sched->readout_wq,
-			sched->status, 0);
+			sched->status, 0U);
 		if (err)
 			return err;
 		nvgpu_mutex_acquire(&sched->status_lock);
@@ -136,7 +137,7 @@ static int gk20a_sched_dev_ioctl_get_recent_tsgs(struct gk20a *g,
 		return -EFAULT;
 	}
 
-	memset(sched->recent_tsg_bitmap, 0, sched->bitmap_size);
+	(void) memset(sched->recent_tsg_bitmap, 0, sched->bitmap_size);
 	nvgpu_mutex_release(&sched->status_lock);
 
 	return 0;
@@ -146,8 +147,8 @@ static int gk20a_sched_dev_ioctl_get_tsgs_by_pid(struct gk20a *g,
 	struct nvgpu_sched_get_tsgs_by_pid_args *arg)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u64 *bitmap;
 	unsigned int tsgid;
 	/* pid at user level corresponds to kernel tgid */
@@ -169,9 +170,10 @@ static int gk20a_sched_dev_ioctl_get_tsgs_by_pid(struct gk20a *g,
 	nvgpu_mutex_acquire(&sched->status_lock);
 	for (tsgid = 0; tsgid < f->num_channels; tsgid++) {
 		if (NVGPU_SCHED_ISSET(tsgid, sched->active_tsg_bitmap)) {
-			tsg = &f->tsg[tsgid];
-			if (tsg->tgid == tgid)
+			tsg = nvgpu_tsg_get_from_id(g, tsgid);
+			if (tsg->tgid == tgid) {
 				NVGPU_SCHED_SET(tsgid, bitmap);
+			}
 		}
 	}
 	nvgpu_mutex_release(&sched->status_lock);
@@ -188,8 +190,8 @@ static int gk20a_sched_dev_ioctl_get_tsgs_by_pid(struct gk20a *g,
 static int gk20a_sched_dev_ioctl_get_params(struct gk20a *g,
 	struct nvgpu_sched_tsg_get_params_args *arg)
 {
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u32 tsgid = arg->tsgid;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "tsgid=%u", tsgid);
@@ -199,18 +201,18 @@ static int gk20a_sched_dev_ioctl_get_params(struct gk20a *g,
 
 	nvgpu_speculation_barrier();
 
-	tsg = &f->tsg[tsgid];
+	tsg = nvgpu_tsg_get_from_id(g, tsgid);
 	if (!nvgpu_ref_get_unless_zero(&tsg->refcount))
 		return -ENXIO;
 
 	arg->pid = tsg->tgid;	/* kernel tgid corresponds to user pid */
 	arg->runlist_interleave = tsg->interleave_level;
-	arg->timeslice = gk20a_tsg_get_timeslice(tsg);
+	arg->timeslice = tsg->timeslice_us;
 
 	arg->graphics_preempt_mode =
-		tsg->gr_ctx.graphics_preempt_mode;
+		nvgpu_gr_ctx_get_graphics_preemption_mode(tsg->gr_ctx);
 	arg->compute_preempt_mode =
-		tsg->gr_ctx.compute_preempt_mode;
+		nvgpu_gr_ctx_get_compute_preemption_mode(tsg->gr_ctx);
 
 	nvgpu_ref_put(&tsg->refcount, nvgpu_ioctl_tsg_release);
 
@@ -221,8 +223,8 @@ static int gk20a_sched_dev_ioctl_tsg_set_timeslice(
 	struct gk20a *g,
 	struct nvgpu_sched_tsg_timeslice_args *arg)
 {
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u32 tsgid = arg->tsgid;
 	int err;
 
@@ -233,7 +235,7 @@ static int gk20a_sched_dev_ioctl_tsg_set_timeslice(
 
 	nvgpu_speculation_barrier();
 
-	tsg = &f->tsg[tsgid];
+	tsg = nvgpu_tsg_get_from_id(g, tsgid);
 	if (!nvgpu_ref_get_unless_zero(&tsg->refcount))
 		return -ENXIO;
 
@@ -241,7 +243,7 @@ static int gk20a_sched_dev_ioctl_tsg_set_timeslice(
 	if (err)
 		goto done;
 
-	err = gk20a_tsg_set_timeslice(tsg, arg->timeslice);
+	err = g->ops.tsg.set_timeslice(tsg, arg->timeslice);
 
 	gk20a_idle(g);
 
@@ -255,8 +257,8 @@ static int gk20a_sched_dev_ioctl_tsg_set_runlist_interleave(
 	struct gk20a *g,
 	struct nvgpu_sched_tsg_runlist_interleave_args *arg)
 {
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u32 tsgid = arg->tsgid;
 	int err;
 
@@ -267,7 +269,7 @@ static int gk20a_sched_dev_ioctl_tsg_set_runlist_interleave(
 
 	nvgpu_speculation_barrier();
 
-	tsg = &f->tsg[tsgid];
+	tsg = nvgpu_tsg_get_from_id(g, tsgid);
 	if (!nvgpu_ref_get_unless_zero(&tsg->refcount))
 		return -ENXIO;
 
@@ -275,7 +277,7 @@ static int gk20a_sched_dev_ioctl_tsg_set_runlist_interleave(
 	if (err)
 		goto done;
 
-	err = gk20a_tsg_set_runlist_interleave(tsg, arg->runlist_interleave);
+	err = nvgpu_tsg_set_interleave(tsg, arg->runlist_interleave);
 
 	gk20a_idle(g);
 
@@ -322,8 +324,8 @@ static int gk20a_sched_dev_ioctl_get_tsg(struct gk20a *g,
 	struct nvgpu_sched_tsg_refcount_args *arg)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u32 tsgid = arg->tsgid;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "tsgid=%u", tsgid);
@@ -333,7 +335,7 @@ static int gk20a_sched_dev_ioctl_get_tsg(struct gk20a *g,
 
 	nvgpu_speculation_barrier();
 
-	tsg = &f->tsg[tsgid];
+	tsg = nvgpu_tsg_get_from_id(g, tsgid);
 	if (!nvgpu_ref_get_unless_zero(&tsg->refcount))
 		return -ENXIO;
 
@@ -359,8 +361,8 @@ static int gk20a_sched_dev_ioctl_put_tsg(struct gk20a *g,
 	struct nvgpu_sched_tsg_refcount_args *arg)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	u32 tsgid = arg->tsgid;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "tsgid=%u", tsgid);
@@ -379,7 +381,7 @@ static int gk20a_sched_dev_ioctl_put_tsg(struct gk20a *g,
 	NVGPU_SCHED_CLR(tsgid, sched->ref_tsg_bitmap);
 	nvgpu_mutex_release(&sched->status_lock);
 
-	tsg = &f->tsg[tsgid];
+	tsg = nvgpu_tsg_get_from_id(g, tsgid);
 	nvgpu_ref_put(&tsg->refcount, nvgpu_ioctl_tsg_release);
 
 	return 0;
@@ -387,13 +389,15 @@ static int gk20a_sched_dev_ioctl_put_tsg(struct gk20a *g,
 
 int gk20a_sched_dev_open(struct inode *inode, struct file *filp)
 {
-	struct nvgpu_os_linux *l = container_of(inode->i_cdev,
-				struct nvgpu_os_linux, sched.cdev);
 	struct gk20a *g;
 	struct nvgpu_sched_ctrl *sched;
 	int err = 0;
+	struct nvgpu_cdev *cdev;
 
-	g = gk20a_get(&l->g);
+	cdev = container_of(inode->i_cdev, struct nvgpu_cdev, cdev);
+	g = nvgpu_get_gk20a_from_cdev(cdev);
+
+	g = nvgpu_get(g);
 	if (!g)
 		return -ENODEV;
 	sched = &g->sched_ctrl;
@@ -413,16 +417,17 @@ int gk20a_sched_dev_open(struct inode *inode, struct file *filp)
 		goto free_ref;
 	}
 
-	memcpy(sched->recent_tsg_bitmap, sched->active_tsg_bitmap,
-			sched->bitmap_size);
-	memset(sched->ref_tsg_bitmap, 0, sched->bitmap_size);
+	nvgpu_memcpy((u8 *)sched->recent_tsg_bitmap,
+		(u8 *)sched->active_tsg_bitmap,
+		sched->bitmap_size);
+	(void) memset(sched->ref_tsg_bitmap, 0, sched->bitmap_size);
 
 	filp->private_data = g;
 	nvgpu_log(g, gpu_dbg_sched, "filp=%p sched=%p", filp, sched);
 
 free_ref:
 	if (err)
-		gk20a_put(g);
+		nvgpu_put(g);
 	return err;
 }
 
@@ -430,7 +435,7 @@ long gk20a_sched_dev_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
 	struct gk20a *g = filp->private_data;
-	u8 buf[NVGPU_CTXSW_IOCTL_MAX_ARG_SIZE];
+	u8 buf[NVGPU_SCHED_IOCTL_MAX_ARG_SIZE];
 	int err = 0;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "nr=%d", _IOC_NR(cmd));
@@ -441,7 +446,7 @@ long gk20a_sched_dev_ioctl(struct file *filp, unsigned int cmd,
 		(_IOC_SIZE(cmd) > NVGPU_SCHED_IOCTL_MAX_ARG_SIZE))
 		return -EINVAL;
 
-	memset(buf, 0, sizeof(buf));
+	(void) memset(buf, 0, sizeof(buf));
 	if (_IOC_DIR(cmd) & _IOC_WRITE) {
 		if (copy_from_user(buf, (void __user *)arg, _IOC_SIZE(cmd)))
 			return -EFAULT;
@@ -513,8 +518,8 @@ int gk20a_sched_dev_release(struct inode *inode, struct file *filp)
 {
 	struct gk20a *g = filp->private_data;
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
-	struct fifo_gk20a *f = &g->fifo;
-	struct tsg_gk20a *tsg;
+	struct nvgpu_fifo *f = &g->fifo;
+	struct nvgpu_tsg *tsg;
 	unsigned int tsgid;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "sched: %p", sched);
@@ -522,7 +527,7 @@ int gk20a_sched_dev_release(struct inode *inode, struct file *filp)
 	/* release any reference to TSGs */
 	for (tsgid = 0; tsgid < f->num_channels; tsgid++) {
 		if (NVGPU_SCHED_ISSET(tsgid, sched->ref_tsg_bitmap)) {
-			tsg = &f->tsg[tsgid];
+			tsg = nvgpu_tsg_get_from_id(g, tsgid);
 			nvgpu_ref_put(&tsg->refcount, nvgpu_ioctl_tsg_release);
 		}
 	}
@@ -533,11 +538,11 @@ int gk20a_sched_dev_release(struct inode *inode, struct file *filp)
 	nvgpu_mutex_release(&sched->control_lock);
 
 	nvgpu_mutex_release(&sched->busy_lock);
-	gk20a_put(g);
+	nvgpu_put(g);
 	return 0;
 }
 
-void gk20a_sched_ctrl_tsg_added(struct gk20a *g, struct tsg_gk20a *tsg)
+void gk20a_sched_ctrl_tsg_added(struct gk20a *g, struct nvgpu_tsg *tsg)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
 	int err;
@@ -562,7 +567,7 @@ void gk20a_sched_ctrl_tsg_added(struct gk20a *g, struct tsg_gk20a *tsg)
 	nvgpu_cond_signal_interruptible(&sched->readout_wq);
 }
 
-void gk20a_sched_ctrl_tsg_removed(struct gk20a *g, struct tsg_gk20a *tsg)
+void gk20a_sched_ctrl_tsg_removed(struct gk20a *g, struct nvgpu_tsg *tsg)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
 
@@ -587,13 +592,13 @@ void gk20a_sched_ctrl_tsg_removed(struct gk20a *g, struct tsg_gk20a *tsg)
 int gk20a_sched_ctrl_init(struct gk20a *g)
 {
 	struct nvgpu_sched_ctrl *sched = &g->sched_ctrl;
-	struct fifo_gk20a *f = &g->fifo;
+	struct nvgpu_fifo *f = &g->fifo;
 	int err;
 
 	if (sched->sw_ready)
 		return 0;
 
-	sched->bitmap_size = roundup(f->num_channels, 64) / 8;
+	sched->bitmap_size = round_up(f->num_channels, 64) / 8;
 	sched->status = 0;
 
 	nvgpu_log(g, gpu_dbg_fn | gpu_dbg_sched, "g=%p sched=%p size=%zu",
@@ -617,28 +622,14 @@ int gk20a_sched_ctrl_init(struct gk20a *g)
 
 	nvgpu_cond_init(&sched->readout_wq);
 
-	err = nvgpu_mutex_init(&sched->status_lock);
-	if (err)
-		goto free_ref;
-
-	err = nvgpu_mutex_init(&sched->control_lock);
-	if (err)
-		goto free_status_lock;
-
-	err = nvgpu_mutex_init(&sched->busy_lock);
-	if (err)
-		goto free_control_lock;
+	nvgpu_mutex_init(&sched->status_lock);
+	nvgpu_mutex_init(&sched->control_lock);
+	nvgpu_mutex_init(&sched->busy_lock);
 
 	sched->sw_ready = true;
 
 	return 0;
 
-free_control_lock:
-	nvgpu_mutex_destroy(&sched->control_lock);
-free_status_lock:
-	nvgpu_mutex_destroy(&sched->status_lock);
-free_ref:
-	nvgpu_kfree(g, sched->ref_tsg_bitmap);
 free_recent:
 	nvgpu_kfree(g, sched->recent_tsg_bitmap);
 free_active:

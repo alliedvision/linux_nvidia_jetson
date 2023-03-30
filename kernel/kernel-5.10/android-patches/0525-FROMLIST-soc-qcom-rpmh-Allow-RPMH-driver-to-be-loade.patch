@@ -1,0 +1,79 @@
+From bf81ab209a0523c18545bf6fe804e6329952dfd3 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 26 Mar 2020 21:47:19 +0000
+Subject: [PATCH 525/830] FROMLIST: soc: qcom: rpmh: Allow RPMH driver to be
+ loaded as a module
+X-NVConfidentiality: public
+
+This patch allow the rpmh driver to be loaded as a permenent
+module. Meaning it can be loaded from a module, but then cannot
+be unloaded.
+
+Ideally, it would include a remove hook and related logic, but
+the rpmh driver is fairly core to the system, so once its loaded
+with almost anythign else to get the system to go, the dependencies
+are not likely to ever also be removed.
+
+So making it a permenent module at least improves things slightly
+over requiring it to be a built in driver.
+
+Feedback would be appreciated!
+
+Cc: Todd Kjos <tkjos@google.com>
+Cc: Saravana Kannan <saravanak@google.com>
+Cc: Andy Gross <agross@kernel.org>
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
+Cc: Rajendra Nayak <rnayak@codeaurora.org>
+Cc: linux-arm-msm@vger.kernel.org
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Link: https://lore.kernel.org/lkml/20200326224459.105170-3-john.stultz@linaro.org/T/#u
+Change-Id: I865f3ad0baa3b84bc0ea321df88238a3a89101a8
+---
+ drivers/soc/qcom/Kconfig    | 2 +-
+ drivers/soc/qcom/rpmh-rsc.c | 6 ++++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/soc/qcom/Kconfig b/drivers/soc/qcom/Kconfig
+index 340ff7e98d1c..d65e4bcf9911 100644
+--- a/drivers/soc/qcom/Kconfig
++++ b/drivers/soc/qcom/Kconfig
+@@ -108,7 +108,7 @@ config QCOM_RMTFS_MEM
+ 	  Say y here if you intend to boot the modem remoteproc.
+ 
+ config QCOM_RPMH
+-	bool "Qualcomm RPM-Hardened (RPMH) Communication"
++	tristate "Qualcomm RPM-Hardened (RPMH) Communication"
+ 	depends on ARCH_QCOM || COMPILE_TEST
+ 	depends on (QCOM_COMMAND_DB || !QCOM_COMMAND_DB)
+ 	help
+diff --git a/drivers/soc/qcom/rpmh-rsc.c b/drivers/soc/qcom/rpmh-rsc.c
+index f0c4d5e3105a..44a32cb5f33d 100644
+--- a/drivers/soc/qcom/rpmh-rsc.c
++++ b/drivers/soc/qcom/rpmh-rsc.c
+@@ -13,6 +13,7 @@
+ #include <linux/iopoll.h>
+ #include <linux/kernel.h>
+ #include <linux/list.h>
++#include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_platform.h>
+@@ -1018,6 +1019,8 @@ static const struct of_device_id rpmh_drv_match[] = {
+ 	{ .compatible = "qcom,rpmh-rsc", },
+ 	{ }
+ };
++MODULE_DEVICE_TABLE(of, rpmh_drv_match);
++
+ 
+ static struct platform_driver rpmh_driver = {
+ 	.probe = rpmh_rsc_probe,
+@@ -1033,3 +1036,6 @@ static int __init rpmh_driver_init(void)
+ 	return platform_driver_register(&rpmh_driver);
+ }
+ arch_initcall(rpmh_driver_init);
++
++MODULE_DESCRIPTION("Qualcomm Technologies, Inc. RPMh Driver");
++MODULE_LICENSE("GPL v2");
+-- 
+2.17.1
+

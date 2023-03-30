@@ -1,7 +1,5 @@
 /*
- * PVA abort handler
- *
- * Copyright (c) 2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,10 +14,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/nvhost.h>
 #include <linux/wait.h>
 
-#include "nvhost_acm.h"
-#include "dev.h"
 #include "pva.h"
 
 static void pva_abort_handler(struct work_struct *work)
@@ -27,23 +24,32 @@ static void pva_abort_handler(struct work_struct *work)
 	struct pva *pva = container_of(work, struct pva,
 				       pva_abort_handler_work);
 	struct platform_device *pdev = pva->pdev;
+	int i;
 
 	/* Dump nvhost state to show the pending jobs */
 	nvhost_debug_dump_device(pdev);
 
-	/* First, lock mailbox mutex to avoid synchronous communication. */
-	do {
-		if (pva->mailbox_status == PVA_MBOX_STATUS_WFI) {
-			pva->mailbox_status = PVA_MBOX_STATUS_ABORTED;
-			wake_up(&pva->mailbox_waitqueue);
+
+	/*wake up sync cmd waiters*/
+        for (i = 0; i < pva->version_config->irq_count; i++) {
+		if (pva->cmd_status[i] == PVA_CMD_STATUS_WFI) {
+			pva->cmd_status[i] = PVA_CMD_STATUS_ABORTED;
+			wake_up(&pva->cmd_waitqueue[i]);
 			schedule();
 		}
+	}
+
+	/* lock mailbox mutex to avoid synchronous communication. */
+	do {
+		schedule();
 	} while (mutex_trylock(&pva->mailbox_mutex) == false);
 
-	/* There is no ongoing activity anymore. Update mailbox status */
-	pva->mailbox_status = PVA_MBOX_STATUS_INVALID;
+        /* There is no ongoing activity anymore. Update mailbox status */
+        for (i = 0; i < pva->version_config->irq_count; i++) {
+            pva->cmd_status[i] = PVA_CMD_STATUS_INVALID;
+        }
 
-	/* Lock CCQ mutex to avoid asynchornous communication */
+        /* Lock CCQ mutex to avoid asynchornous communication */
 	mutex_lock(&pva->ccq_mutex);
 
 	/*
@@ -51,16 +57,7 @@ static void pva_abort_handler(struct work_struct *work)
 	 * routine handle the failure
 	 */
 	if (!pva->booted) {
-		nvhost_warn(&pdev->dev, "Recovery skipped: PVA is not booted");
-		goto skip_recovery;
-	}
-
-	/*
-	 * If we use channel submit mode, nvhost handles the channel
-	 * clean-up and syncpoint increments
-	 */
-	if (pva->submit_mode == PVA_SUBMIT_MODE_CHANNEL_CCQ) {
-		nvhost_warn(&pdev->dev, "Recovery skipped: Submit mode does not require clean-up");
+		nvpva_warn(&pdev->dev, "Recovery skipped: PVA is not booted");
 		goto skip_recovery;
 	}
 
@@ -68,9 +65,9 @@ static void pva_abort_handler(struct work_struct *work)
 	nvhost_module_reset(pdev, true);
 
 	/* Remove pending tasks from the queue */
-	nvhost_queue_abort_all(pva->pool);
+	nvpva_queue_abort_all(pva->pool);
 
-	nvhost_warn(&pdev->dev, "Recovery finished");
+	nvpva_warn(&pdev->dev, "Recovery finished");
 
 skip_recovery:
 	mutex_unlock(&pva->ccq_mutex);
@@ -80,12 +77,14 @@ skip_recovery:
 void pva_abort(struct pva *pva)
 {
 	struct platform_device *pdev = pva->pdev;
-
+	size_t i;
 	/* For selftest mode to finish the test */
 	if (host1x_readl(pdev, hsp_ss0_state_r())
 		& PVA_TEST_MODE) {
-		pva->mailbox_status = PVA_MBOX_STATUS_DONE;
-		wake_up(&pva->mailbox_waitqueue);
+		for (i = 0; i < pva->version_config->irq_count; i++) {
+			pva->cmd_status[i] = PVA_CMD_STATUS_DONE;
+			wake_up(&pva->cmd_waitqueue[i]);
+		}
 		return;
 	}
 

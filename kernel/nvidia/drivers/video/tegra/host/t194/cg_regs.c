@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -119,20 +119,5 @@ static struct nvhost_gating_register __attribute__((__unused__))
 	{ .addr = 0x00002330, .prod = 0xffff000e, .disable = 0xffffffff },
 	/* NV_PNVDEC_SLCG_GIP_THROTTLE */
 	{ .addr = 0x00002340, .prod = 0x006db6db, .disable = 0x00ffffff },
-	{}
-};
-
-static struct nvhost_gating_register __attribute__((__unused__))
-	t19x_nvdla_gating_registers[] = {
-	/* NV_PNVDLA_THI_CLK_OVERRIDE */
-	{ .addr = 0x00000e00, .prod = 0x00000000, .disable = 0xffffffff },
-	/* NV_PNVDLA_THI_SLCG_OVERRIDE_HIGH_A */
-	{ .addr = 0x00000088, .prod = 0x00000000, .disable = 0x000000ff },
-	/* NV_PNVDLA_THI_SLCG_OVERRIDE_LOW_A */
-	{ .addr = 0x0000008c, .prod = 0x00000000, .disable = 0xffffffff },
-	/* NV_PNVDLA_FALCON_CGCTL */
-	{ .addr = 0x000010a0, .prod = 0x00000000, .disable = 0x00000001 },
-	/* NV_PNVDLA_FALCON_CG2 */
-	{ .addr = 0x00001134, .prod = 0x00020008, .disable = 0x0003fffe },
 	{}
 };

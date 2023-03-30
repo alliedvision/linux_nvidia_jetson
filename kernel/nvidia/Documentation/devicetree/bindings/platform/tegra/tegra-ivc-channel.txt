@@ -14,14 +14,8 @@ frame sizes are multiples of 64-byte cache lines.
 == IVC channel top-level node ==
 
 List of IVC channels implemented by remote core to talk to CCPLEX.
-The top-level node defines the AST region shared by IVC channels below
-it.
-
-Required properties:
-- #address-cells: Number of address cells in each subnode.
-  Must be set to <1>.
-- #size-cells: Number of size cells in each subnode.
-  Must be set to <0>.
+The top-level node defines a shared memory area allocated by IVC
+channels within it.
 
 == IVC channel sub nodes ==
 
@@ -33,24 +27,22 @@ Required properties:
   See other binding documents in this directory for potential values.
   For example:
   "nvidia,tegra186-ivc-protocol-echo" for ivc echo test channel.
-- reg: Address of the rx and tx buffers, respectively, inside the IVC region.
-  Must be a multiple of 64.
+- nvidia,service: Protocol name.
+- nvidia,version: Protocol version
+- nvidia,group: Bitmap used fro shared semaphore signaling
 - nvidia,frame-size: Size of the data frame. Must be a multiple of 64.
 - nvidia,frame-count: Number of frames in rx or tx buffers.
-
-Optional properties:
-- reg-names: Names of the rx and tx buffers, respectively.
+  Must be a power of 2.
 
 Example:
 
-ivc-channels {
-	#address-cells = <1>;
-	#size-cells = <0>;
+camera-ivc-channels {
 	echo@0 {
 		compatible = "nvidia,tegra186-ivc-protocol-echo";
-		reg = <0x0000>, <0x0480>;
-		reg-names = "rx-echo", "tx-echo";
-		nvidia,frame-size = <64>;
+		nvidia,service = "echo";
+		nvidia,version = <0>;
+		nvidia,group = <1>;
 		nvidia,frame-count = <16>;
+		nvidia,frame-size = <64>;
 	};
 }

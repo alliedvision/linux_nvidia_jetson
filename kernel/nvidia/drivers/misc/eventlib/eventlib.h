@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,11 +34,11 @@
  * If eventlib_ctx is ever changed in incompatible way, EVENTLIB_CTX_VERSION
  * must be increased.
  */
-#define EVENTLIB_CTX_VERSION 1
+#define EVENTLIB_CTX_VERSION 2
 #define EVENTLIB_CTX_SIZE    (sizeof(struct eventlib_ctx))
 
 /* Mask size is aligned to 4-byte boundary */
-#define EVENTLIB_FLT_MASK_SIZE(bit_count) ((((bit_count) + 31u) / 32u) * 4u)
+#define EVENTLIB_FLT_MASK_SIZE(bit_count) ((((bit_count) + 31U) / 32U) * 4U)
 
 enum eventlib_direction {
 	EVENTLIB_DIRECTION_READER = 1,
@@ -74,7 +74,9 @@ struct eventlib_ctx {
 	/* Private storage space used for internal use; must not be touched.
 	 * Below value corresponds with size of struct eventlib_init.
 	 */
-	char local_mem[0x400] __aligned(8);
+
+	/* TODO: Replace hard coded value with compile time size. */
+	char local_mem[0x600] __aligned(8);
 
 	/* W2R shared memory. Mandatory. */
 	void *w2r_shm;
@@ -121,7 +123,7 @@ int _eventlib_init(struct eventlib_ctx *ctx, uint32_t ctx_version,
 	uint32_t ctx_size);
 
 #define eventlib_init(ctx) \
-	_eventlib_init(ctx, EVENTLIB_CTX_VERSION, EVENTLIB_CTX_SIZE)
+	_eventlib_init((ctx), EVENTLIB_CTX_VERSION, EVENTLIB_CTX_SIZE)
 
 /* De-initialize communication.
  * This operation never fails.
@@ -314,14 +316,16 @@ int eventlib_set_filter_mask(struct eventlib_ctx *ctx,
 
 #if defined(__aarch64__)
 
-/* Returns the current system timer counter value.
+/* Returns the current system timer counter value using ARM virtual counter.
+ * In case of Hypervisor, the offset of virtual counter to physical counter
+ * is expected ot be 0.
  * This operation never fails.
  */
 static inline event_timestamp_t eventlib_get_timer_counter(void)
 {
 	uint64_t value;
 
-	asm volatile("mrs %0, CNTPCT_EL0" : "=r"(value) :: );
+	asm volatile("mrs %0, CNTVCT_EL0" : "=r"(value) :: );
 	return (event_timestamp_t)value;
 }
 

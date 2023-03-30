@@ -1,7 +1,7 @@
 /*
  * panel-s-wqxga-10-1.c: Panel driver for s-wqxga-10-1 panel.
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,7 +21,6 @@
 #include <linux/regulator/consumer.h>
 
 #include "../dc.h"
-#include "board.h"
 #include "board-panel.h"
 #include "gpio-names.h"
 

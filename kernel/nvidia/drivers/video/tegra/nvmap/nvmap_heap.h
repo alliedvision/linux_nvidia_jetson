@@ -3,7 +3,7 @@
  *
  * GPU heap allocator.
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,6 +26,28 @@ struct nvmap_heap_block {
 	phys_addr_t	base;
 	unsigned int	type;
 	struct nvmap_handle *handle;
+};
+
+struct nvmap_heap {
+	struct list_head all_list;
+	struct mutex lock;
+	const char *name;
+	void *arg;
+	/* heap base */
+	phys_addr_t base;
+	/* heap size */
+	size_t len;
+	size_t free_size;
+	struct device *cma_dev;
+	struct device *dma_dev;
+	bool is_ivm;
+	bool can_alloc; /* Used only if is_ivm == true */
+	int peer; /* Used only if is_ivm == true */
+	int vm_id; /* Used only if is_ivm == true */
+	struct nvmap_pm_ops pm_ops;
+#ifdef NVMAP_CONFIG_DEBUG_MAPS
+	struct rb_root device_names;
+#endif /* NVMAP_CONFIG_DEBUG_MAPS */
 };
 
 struct nvmap_heap *nvmap_heap_create(struct device *parent,

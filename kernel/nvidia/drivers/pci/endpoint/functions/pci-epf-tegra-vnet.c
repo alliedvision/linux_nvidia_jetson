@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,6 +22,7 @@
 #include <linux/pci-epc.h>
 #include <linux/pci-epf.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 #include <linux/workqueue.h>
 #include <linux/tegra_vnet.h>
 
@@ -86,6 +87,7 @@ struct pci_epf_tvnet {
 	dma_addr_t ep_dma_iova;
 	struct irqsp_data *ctrl_irqsp;
 	struct irqsp_data *data_irqsp;
+	struct work_struct raise_irq_work;
 
 	struct tvnet_counter h2ep_ctrl;
 	struct tvnet_counter ep2h_ctrl;
@@ -94,6 +96,26 @@ struct pci_epf_tvnet {
 	struct tvnet_counter ep2h_empty;
 	struct tvnet_counter ep2h_full;
 };
+
+static void tvnet_ep_raise_irq_work_function(struct work_struct *work)
+{
+	struct pci_epf_tvnet *tvnet =
+		container_of(work, struct pci_epf_tvnet, raise_irq_work);
+
+	struct pci_epc *epc = tvnet->epf->epc;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	struct pci_epf *epf = tvnet->epf;
+#endif
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 0);
+	pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 1);
+#else
+	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
+	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 1);
+#endif
+
+}
 
 static void tvnet_ep_read_ctrl_msg(struct pci_epf_tvnet *tvnet,
 				struct ctrl_msg *msg)
@@ -119,11 +141,18 @@ static int tvnet_ep_write_ctrl_msg(struct pci_epf_tvnet *tvnet,
 	struct ep_ring_buf *ep_ring_buf = &tvnet->ep_ring_buf;
 	struct ctrl_msg *ctrl_msg = ep_ring_buf->ep2h_ctrl_msgs;
 	struct pci_epc *epc = tvnet->epf->epc;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	struct pci_epf *epf = tvnet->epf;
+#endif
 	u32 idx;
 
 	if (tvnet_ivc_full(&tvnet->ep2h_ctrl)) {
 		/* Raise an interrupt to let host process EP2H ring */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+		pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 0);
+#else
 		pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
+#endif
 		dev_dbg(tvnet->fdev, "%s: EP2H ctrl ring full\n", __func__);
 		return -EAGAIN;
 	}
@@ -131,7 +160,11 @@ static int tvnet_ep_write_ctrl_msg(struct pci_epf_tvnet *tvnet,
 	idx = tvnet_ivc_get_wr_cnt(&tvnet->ep2h_ctrl) % RING_COUNT;
 	memcpy(&ctrl_msg[idx], msg, sizeof(*msg));
 	tvnet_ivc_advance_wr(&tvnet->ep2h_ctrl);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 0);
+#else
 	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
+#endif
 
 	return 0;
 }
@@ -167,6 +200,9 @@ static void tvnet_ep_alloc_empty_buffers(struct pci_epf_tvnet *tvnet)
 {
 	struct ep_ring_buf *ep_ring_buf = &tvnet->ep_ring_buf;
 	struct pci_epc *epc = tvnet->epf->epc;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	struct pci_epf *epf = tvnet->epf;
+#endif
 	struct device *cdev = epc->dev.parent;
 	struct data_msg *h2ep_empty_msg = ep_ring_buf->h2ep_empty_msgs;
 	struct h2ep_empty_list *h2ep_empty_ptr;
@@ -271,7 +307,11 @@ static void tvnet_ep_alloc_empty_buffers(struct pci_epf_tvnet *tvnet)
 		h2ep_empty_msg[idx].u.empty_buffer.buffer_len = PAGE_SIZE;
 		tvnet_ivc_advance_wr(&tvnet->h2ep_empty);
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+		pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 0);
+#else
 		pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
+#endif
 	}
 }
 
@@ -503,18 +543,24 @@ static netdev_tx_t tvnet_ep_start_xmit(struct sk_buff *skb,
 				(struct tvnet_dma_desc *)tvnet->ep_dma_virt;
 	u32 desc_widx, desc_ridx, val, ctrl_d;
 	unsigned long timeout;
+#else
+	int ret;
 #endif
 	dma_addr_t src_iova;
 	u32 rd_idx, wr_idx;
 	u64 dst_masked, dst_off, dst_iova;
-	int ret, dst_len, len;
+	int dst_len, len;
 
 	/*TODO Not expecting skb frags, remove this after testing */
 	WARN_ON(info->nr_frags);
 
 	/* Check if EP2H_EMPTY_BUF available to read */
 	if (!tvnet_ivc_rd_available(&tvnet->ep2h_empty)) {
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+		pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 0);
+#else
 		pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
+#endif
 		dev_dbg(fdev, "%s: No EP2H empty msg, stop tx\n", __func__);
 		netif_stop_queue(ndev);
 		return NETDEV_TX_BUSY;
@@ -522,7 +568,11 @@ static netdev_tx_t tvnet_ep_start_xmit(struct sk_buff *skb,
 
 	/* Check if EP2H_FULL_BUF available to write */
 	if (tvnet_ivc_full(&tvnet->ep2h_full)) {
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+		pci_epc_raise_irq(epc, epf->func_no, PCI_EPC_IRQ_MSIX, 1);
+#else
 		pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 1);
+#endif
 		dev_dbg(fdev, "%s: No EP2H full buf, stop tx\n", __func__);
 		netif_stop_queue(ndev);
 		return NETDEV_TX_BUSY;
@@ -558,22 +608,26 @@ static netdev_tx_t tvnet_ep_start_xmit(struct sk_buff *skb,
 	dst_masked = (dst_iova & ~(SZ_64K - 1));
 	dst_off = (dst_iova & (SZ_64K - 1));
 
+#if !ENABLE_DMA
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	ret = pci_epc_map_addr(epc, epf->func_no, tvnet->tx_dst_pci_addr,
+			       dst_masked, dst_len);
+#else
 	ret = pci_epc_map_addr(epc, tvnet->tx_dst_pci_addr, dst_masked,
 			       dst_len);
+#endif
 	if (ret < 0) {
 		dev_err(fdev, "failed to map dst addr to PCIe addr range\n");
 		dma_unmap_single(cdev, src_iova, len, DMA_TO_DEVICE);
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
-
+#endif
 	/*
 	 * Advance read count after all failure cases completed, to avoid
 	 * dangling buffer at host.
 	 */
 	tvnet_ivc_advance_rd(&tvnet->ep2h_empty);
-	/* Raise an interrupt to let host populate EP2H_EMPTY_BUF ring */
-	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
 
 #if ENABLE_DMA
 	/* Trigger DMA write from src_iova to dst_iova */
@@ -613,7 +667,11 @@ static netdev_tx_t tvnet_ep_start_xmit(struct sk_buff *skb,
 				      DMA_WRITE_ENGINE_EN_OFF_ENABLE,
 				      DMA_WRITE_ENGINE_EN_OFF);
 			desc_cnt->wr_cnt--;
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+			pci_epc_unmap_addr(epc, epf->func_no, tvnet->tx_dst_pci_addr);
+#else
 			pci_epc_unmap_addr(epc, tvnet->tx_dst_pci_addr);
+#endif
 			dma_unmap_single(cdev, src_iova, len, DMA_TO_DEVICE);
 			return NETDEV_TX_BUSY;
 		}
@@ -640,12 +698,18 @@ static netdev_tx_t tvnet_ep_start_xmit(struct sk_buff *skb,
 	ep2h_full_msg[wr_idx].u.full_buffer.packet_size = len;
 	ep2h_full_msg[wr_idx].u.full_buffer.pcie_address = dst_iova;
 	tvnet_ivc_advance_wr(&tvnet->ep2h_full);
-	pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 1);
 
 	/* Free temp src and skb */
+#if !ENABLE_DMA
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	pci_epc_unmap_addr(epc, epf->func_no, tvnet->tx_dst_pci_addr);
+#else
 	pci_epc_unmap_addr(epc, tvnet->tx_dst_pci_addr);
+#endif
+#endif
 	dma_unmap_single(cdev, src_iova, len, DMA_TO_DEVICE);
 	dev_kfree_skb_any(skb);
+	schedule_work(&tvnet->raise_irq_work);
 
 	return NETDEV_TX_OK;
 }
@@ -714,13 +778,6 @@ static int tvnet_ep_process_h2ep_msg(struct pci_epf_tvnet *tvnet)
 
 		/* Advance H2EP full buffer after search in local list */
 		tvnet_ivc_advance_rd(&tvnet->h2ep_full);
-
-		/*
-		 * If H2EP network queue is stopped due to lack of H2EP_FULL
-		 * queue, raising ctrl irq will help.
-		 */
-		pci_epc_raise_irq(epc, PCI_EPC_IRQ_MSIX, 0);
-
 #if ENABLE_DMA
 		dma_unmap_single(cdev, pcie_address, ndev->mtu,
 				 DMA_FROM_DEVICE);
@@ -940,7 +997,7 @@ static int tvnet_ep_pci_epf_setup_irqsp(struct pci_epf_tvnet *tvnet)
 
 	syncpt_addr = nvhost_interrupt_syncpt_get_syncpt_addr(ctrl_irqsp->is);
 	ret = iommu_map(domain, amap->iova, syncpt_addr, PAGE_SIZE,
-			IOMMU_READ | IOMMU_WRITE);
+			IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
 	if (ret < 0) {
 		dev_err(fdev, "%s: iommu_map of ctrlsp mem failed: %d\n",
 			__func__, ret);
@@ -952,7 +1009,7 @@ static int tvnet_ep_pci_epf_setup_irqsp(struct pci_epf_tvnet *tvnet)
 
 	syncpt_addr = nvhost_interrupt_syncpt_get_syncpt_addr(data_irqsp->is);
 	ret = iommu_map(domain, amap->iova + PAGE_SIZE, syncpt_addr, PAGE_SIZE,
-			IOMMU_READ | IOMMU_WRITE);
+			IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
 	if (ret < 0) {
 		dev_err(fdev, "%s: iommu_map of datasp mem failed: %d\n",
 			__func__, ret);
@@ -1007,7 +1064,7 @@ static int tvnet_ep_alloc_single_page_bar0_mem(struct pci_epf *epf,
 	}
 
 	ret = iommu_map(domain, amap->iova, page_to_phys(amap->page), PAGE_SIZE,
-			IOMMU_READ | IOMMU_WRITE);
+			IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
 	if (ret < 0) {
 		dev_err(tvnet->fdev, "%s: type: %d iommu_map(RAM) failed: %d\n",
 			__func__, type, ret);
@@ -1064,7 +1121,7 @@ static int tvnet_ep_alloc_multi_page_bar0_mem(struct pci_epf *epf,
 	if (!map)
 		return -ENOMEM;
 
-	amap->page = alloc_pages(GFP_KERNEL, page_count);
+	amap->page = alloc_pages(GFP_KERNEL, order);
 	if (!amap->page) {
 		dev_err(tvnet->fdev, "%s: alloc_pages() failed\n", __func__);
 		ret = -ENOMEM;
@@ -1086,16 +1143,16 @@ static int tvnet_ep_alloc_multi_page_bar0_mem(struct pci_epf *epf,
 		ret = -ENOMEM;
 		goto fail_free_pages;
 	}
-	kfree(map);
 
 	ret = iommu_map(domain, amap->iova, page_to_phys(amap->page),
-			amap->size, IOMMU_READ | IOMMU_WRITE);
+			amap->size, IOMMU_CACHE | IOMMU_READ | IOMMU_WRITE);
 	if (ret < 0) {
 		dev_err(tvnet->fdev, "%s: iommu_map(RAM) failed: %d\n",
 			__func__, ret);
 		goto fail_vunmap;
 	}
 
+	kfree(map);
 	return 0;
 
 fail_vunmap:
@@ -1122,11 +1179,109 @@ static void tvnet_ep_free_multi_page_bar0_mem(struct pci_epf *epf,
 	vfree(amap->virt);
 }
 
-static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+static int tvnet_ep_pci_epf_core_init(struct pci_epf *epf)
 {
 	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
 	struct pci_epc *epc = epf->epc;
 	struct pci_epf_header *header = epf->header;
+	struct device *fdev = &epf->dev;
+	struct pci_epf_bar *epf_bar = &epf->bar[BAR_0];
+	int ret;
+
+	ret = pci_epc_write_header(epc, epf->func_no, header);
+	if (ret) {
+		dev_err(fdev, "pci_epc_write_header() failed: %d\n", ret);
+		return ret;
+	}
+
+	/* TODO Update it to 64-bit prefetch type */
+	epf_bar->phys_addr = tvnet->bar0_iova;
+	epf_bar->addr = tvnet->bar_md;
+	epf_bar->size = BAR0_SIZE;
+	epf_bar->barno = BAR_0;
+	epf_bar->flags |= PCI_BASE_ADDRESS_SPACE_MEMORY |
+				PCI_BASE_ADDRESS_MEM_TYPE_32;
+
+	ret = pci_epc_set_bar(epc, epf->func_no, epf_bar);
+	if (ret) {
+		dev_err(fdev, "pci_epc_set_bar() failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = pci_epc_set_msi(epc, epf->func_no, epf->msi_interrupts);
+	if (ret) {
+		dev_err(fdev, "pci_epc_set_msi() failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int tvnet_ep_pci_epf_notifier(struct notifier_block *nb,
+					    unsigned long val, void *data)
+{
+	struct pci_epf *epf = container_of(nb, struct pci_epf, nb);
+	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
+	int ret;
+
+	switch (val) {
+	case CORE_INIT:
+		ret = tvnet_ep_pci_epf_core_init(epf);
+		if (ret)
+			return NOTIFY_BAD;
+		break;
+
+	case LINK_UP:
+#if ENABLE_DMA
+		tvnet_ep_setup_dma(tvnet);
+#endif
+
+		/*
+		 * If host goes through a suspend resume, it recycles EP2H
+		 * empty buffer. Clear any pending EP2H full buffer by setting
+		 * "wr_cnt = rd_cnt".
+		 */
+		tvnet_ivc_set_wr(&tvnet->ep2h_full,
+				 tvnet_ivc_get_rd_cnt(&tvnet->ep2h_full));
+
+		tvnet->pcie_link_status = true;
+		break;
+
+	default:
+		dev_err(&epf->dev, "Invalid EPF test notifier event\n");
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_OK;
+}
+#else
+static void tvnet_ep_pci_epf_linkup(struct pci_epf *epf)
+{
+	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
+
+#if ENABLE_DMA
+	tvnet_ep_setup_dma(tvnet);
+#endif
+
+	/*
+	 * If host goes through a suspend resume, it recycles EP2H empty buffer.
+	 * Clear any pending EP2H full buffer by setting "wr_cnt = rd_cnt".
+	 */
+	tvnet_ivc_set_wr(&tvnet->ep2h_full,
+			 tvnet_ivc_get_rd_cnt(&tvnet->ep2h_full));
+
+	tvnet->pcie_link_status = true;
+}
+#endif
+
+static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
+{
+	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
+	struct pci_epc *epc = epf->epc;
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
+	struct pci_epf_header *header = epf->header;
+#endif
 	struct device *fdev = &epf->dev;
 	struct device *cdev = epc->dev.parent;
 	struct iommu_domain *domain = iommu_get_domain_for_dev(cdev);
@@ -1146,11 +1301,13 @@ static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
 		goto fail;
 	}
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	ret = pci_epc_write_header(epc, header);
 	if (ret < 0) {
 		dev_err(fdev, "pci_epc_write_header() failed: %d\n", ret);
 		goto fail;
 	}
+#endif
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu_dma");
 	if (!res) {
@@ -1378,6 +1535,9 @@ static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
 	INIT_LIST_HEAD(&tvnet->h2ep_empty_list);
 	spin_lock_init(&tvnet->h2ep_empty_lock);
 
+	INIT_WORK(&tvnet->raise_irq_work, tvnet_ep_raise_irq_work_function);
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	/* TODO Update it to 64-bit prefetch type */
 	ret = pci_epc_set_bar(epc, BAR_0, tvnet->bar0_iova, BAR0_SIZE,
 			      PCI_BASE_ADDRESS_SPACE_MEMORY |
@@ -1386,12 +1546,15 @@ static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
 		dev_err(fdev, "pci_epc_set_bar() failed: %d\n", ret);
 		goto fail_unreg_netdev;
 	}
+#endif
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	ret = pci_epc_set_msi(epc, epf->msi_interrupts);
 	if (ret) {
 		dev_err(fdev, "pci_epc_set_msi() failed: %d\n", ret);
 		goto fail_clear_bar;
 	}
+#endif
 
 	/* Allocate local memory for DMA write link list elements */
 	size = ((DMA_DESC_COUNT + 1) * sizeof(struct tvnet_dma_desc));
@@ -1415,11 +1578,18 @@ static int tvnet_ep_pci_epf_bind(struct pci_epf *epf)
 	nvhost_interrupt_syncpt_prime(tvnet->ctrl_irqsp->is);
 	nvhost_interrupt_syncpt_prime(tvnet->data_irqsp->is);
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	epf->nb.notifier_call = tvnet_ep_pci_epf_notifier;
+	pci_epc_register_notifier(epc, &epf->nb);
+#endif
+
 	return 0;
 
 fail_clear_bar:
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	pci_epc_clear_bar(epc, BAR_0);
 fail_unreg_netdev:
+#endif
 	unregister_netdev(ndev);
 fail_free_netdev:
 	netif_napi_del(&tvnet->napi);
@@ -1446,13 +1616,20 @@ fail:
 static void tvnet_ep_pci_epf_unbind(struct pci_epf *epf)
 {
 	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	struct pci_epf_bar *epf_bar = &epf->bar[BAR_0];
+#endif
 	struct pci_epc *epc = epf->epc;
 	struct device *cdev = epc->dev.parent;
 
 	cancel_work_sync(&tvnet->ctrl_irqsp->reprime_work);
 	cancel_work_sync(&tvnet->data_irqsp->reprime_work);
 	pci_epc_stop(epc);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	pci_epc_clear_bar(epc, epf->func_no, epf_bar);
+#else
 	pci_epc_clear_bar(epc, BAR_0);
+#endif
 	dma_free_coherent(cdev,
 			  ((RING_COUNT + 1) * sizeof(struct tvnet_dma_desc)),
 			  tvnet->ep_dma_virt, tvnet->ep_dma_iova);
@@ -1469,30 +1646,12 @@ static void tvnet_ep_pci_epf_unbind(struct pci_epf *epf)
 	iommu_dma_free_iova(cdev, tvnet->bar0_iova, BAR0_SIZE);
 }
 
-static void tvnet_ep_pci_epf_linkup(struct pci_epf *epf)
-{
-	struct pci_epf_tvnet *tvnet = epf_get_drvdata(epf);
-
-#if ENABLE_DMA
-	tvnet_ep_setup_dma(tvnet);
-#endif
-
-	/*
-	 * If host goes through a suspend resume, it recycles EP2H empty buffer.
-	 * Clear any pending EP2H full buffer by setting "wr_cnt = rd_cnt".
-	 */
-	tvnet_ivc_set_wr(&tvnet->ep2h_full,
-			 tvnet_ivc_get_rd_cnt(&tvnet->ep2h_full));
-
-	tvnet->pcie_link_status = true;
-}
-
 static const struct pci_epf_device_id tvnet_ep_epf_tvnet_ids[] = {
 	{ .name = "pci_epf_tvnet", },
 	{ },
 };
 
-int tvnet_ep_epf_tvnet_probe(struct pci_epf *epf)
+static int tvnet_ep_epf_tvnet_probe(struct pci_epf *epf)
 {
 	struct device *fdev = &epf->dev;
 	struct pci_epf_tvnet *tvnet;
@@ -1521,7 +1680,9 @@ int tvnet_ep_epf_tvnet_probe(struct pci_epf *epf)
 static struct pci_epf_ops tvnet_ep_ops = {
 	.bind		= tvnet_ep_pci_epf_bind,
 	.unbind		= tvnet_ep_pci_epf_unbind,
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	.linkup		= tvnet_ep_pci_epf_linkup,
+#endif
 };
 
 static struct pci_epf_driver tvnet_driver = {

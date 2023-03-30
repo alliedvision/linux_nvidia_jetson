@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,7 +25,12 @@
 #include <linux/tegra-ivc.h>
 #include <linux/tegra-ivc-instance.h>
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/virt/tegra_hv_pm_ctl.h>
 #include <soc/tegra/virt/syscalls.h>
 #include <soc/tegra/virt/tegra_hv_sysmgr.h>
@@ -201,26 +206,6 @@ int tegra_hv_pm_ctl_trigger_guest_suspend(u32 vmid)
 	return 0;
 }
 
-int tegra_hv_pm_ctl_trigger_guest_reboot(u32 vmid)
-{
-	int ret;
-
-	if (!tegra_hv_pm_ctl_data) {
-		pr_err("%s: tegra_hv_pm_ctl driver is not probed, %d\n",
-			__func__, -ENXIO);
-		return -ENXIO;
-	}
-
-	ret = hyp_guest_reset(GUEST_REBOOT_INIT_CMD(vmid), NULL);
-	if (ret < 0) {
-		pr_err("%s: Failed to trigger guest%u suspend, %d\n",
-			__func__, vmid, ret);
-		return ret;
-	}
-
-	return 0;
-}
-
 int tegra_hv_pm_ctl_trigger_guest_resume(u32 vmid)
 {
 	int ret;
@@ -337,15 +322,27 @@ static ssize_t tegra_hv_pm_ctl_write(struct file *filp, const char __user *buf,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static unsigned int tegra_hv_pm_ctl_poll(struct file *filp,
 					 struct poll_table_struct *table)
+#else
+static __poll_t tegra_hv_pm_ctl_poll(struct file *filp,
+					 struct poll_table_struct *table)
+#endif
 {
 	struct tegra_hv_pm_ctl *data = filp->private_data;
 	struct ivc *ivc = tegra_hv_ivc_convert_cookie(data->ivck);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	unsigned long req_events = poll_requested_events(table);
 	unsigned int read_mask = POLLIN | POLLRDNORM;
 	unsigned int write_mask = POLLOUT | POLLWRNORM;
 	unsigned int mask = 0;
+#else
+	__poll_t req_events = poll_requested_events(table);
+	__poll_t read_mask = POLLIN | POLLRDNORM;
+	__poll_t write_mask = POLLOUT | POLLWRNORM;
+	__poll_t mask = 0;
+#endif
 
 	mutex_lock(&data->mutex_lock);
 	if (!tegra_ivc_can_read(ivc) && (req_events & read_mask)) {
@@ -545,28 +542,6 @@ static ssize_t trigger_guest_suspend_store(struct device *dev,
 	return count;
 }
 
-static ssize_t trigger_guest_reboot_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	struct tegra_hv_pm_ctl *data = dev_get_drvdata(dev);
-	unsigned int val;
-	int ret;
-
-	ret = kstrtouint(buf, 0, &val);
-	if (ret) {
-		dev_err(data->dev, "%s: Failed to convert string to uint\n",
-			__func__);
-		return ret;
-	}
-
-	ret = tegra_hv_pm_ctl_trigger_guest_reboot(val);
-	if (ret < 0)
-		return ret;
-
-	return count;
-}
-
 static ssize_t trigger_guest_resume_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -653,7 +628,6 @@ static DEVICE_ATTR_RO(ivc_peer_vmid);
 static DEVICE_ATTR_WO(trigger_sys_suspend);
 static DEVICE_ATTR_WO(trigger_sys_shutdown);
 static DEVICE_ATTR_WO(trigger_sys_reboot);
-static DEVICE_ATTR_WO(trigger_guest_reboot);
 static DEVICE_ATTR_WO(trigger_guest_suspend);
 static DEVICE_ATTR_WO(trigger_guest_resume);
 static DEVICE_ATTR_RW(guest_state);
@@ -667,7 +641,6 @@ static struct attribute *tegra_hv_pm_ctl_attributes[] = {
 	&dev_attr_trigger_sys_suspend.attr,
 	&dev_attr_trigger_sys_shutdown.attr,
 	&dev_attr_trigger_sys_reboot.attr,
-	&dev_attr_trigger_guest_reboot.attr,
 	&dev_attr_trigger_guest_suspend.attr,
 	&dev_attr_trigger_guest_resume.attr,
 	&dev_attr_guest_state.attr,

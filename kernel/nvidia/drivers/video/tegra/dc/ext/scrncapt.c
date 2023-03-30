@@ -136,8 +136,13 @@ static size_t scrncapt_copy_dcbuf(void  __user *pDst,
 
 			ofs += l;
 			if (sg->offset) {
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 				pr_debug("@@!! %s.%d: sgl[].offset:%lu\n",
 					__func__, __LINE__, sg->offset);
+#else
+				pr_debug("@@!! %s.%d: sgl[].offset:%u\n",
+					__func__, __LINE__, sg->offset);
+#endif
 			}
 		}
 		local_irq_restore(flags);
@@ -294,7 +299,7 @@ static int  scrncapt_get_info_cursor(struct tegra_dc *dc, void __user *ptr)
 {
 	int  err = 0;
 	struct tegra_dc_ext  *ext = dc->ext;
-	struct tegra_dc_ext_cursor_image  info = { {0} };
+	struct tegra_dc_ext_cursor_image  info = {0};
 
 	if (!ptr)
 		err = -EFAULT;
@@ -409,8 +414,13 @@ static int scrncapt_get_info_cursor_data(struct tegra_dc *dc,
 			if (info.size < len)
 				err = -ENOSPC;
 			else
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 				/* verify user space is accessible */
 				if (!access_ok(VERIFY_WRITE, info.ptr, len))
+#else
+				/* verify user space is accessible */
+				if (!access_ok((void *)info.ptr, len))
+#endif
 					err = -EFAULT;
 		}
 		if (!err && dcbuf) {
@@ -515,7 +525,11 @@ int tegra_dc_scrncapt_dup_fbuf(struct tegra_dc_ext_user *user,
 		(tegra_dc_get_numof_dispwindows() <= (unsigned)args->win))
 		return -EINVAL;
 
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	if (!access_ok(VERIFY_WRITE, args->buffer, args->buffer_max))
+#else
+	if (!access_ok((void *)args->buffer, args->buffer_max))
+#endif
 		return -EFAULT;
 
 	/* check disp paused & valid window */
@@ -652,7 +666,11 @@ int  tegra_dc_scrncapt_resume(struct tegra_dc_ext_control_user *ctlusr,
 /* timer call-back
  * to resume display automatically after timeout
  */
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+static void  tegra_dc_scrncapt_timer_cb(struct timer_list *timer)
+#else
 static void  tegra_dc_scrncapt_timer_cb(unsigned long arg)
+#endif
 {
 	int  i;
 	u32  heads;
@@ -698,9 +716,13 @@ int  tegra_dc_scrncapt_init(void)
 
 	for (i = 0; i < nheads; i++)
 		init_rwsem(&scrncapt.rwsema_head[i]);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	timer_setup(&scrncapt.tmr_resume, tegra_dc_scrncapt_timer_cb, 0);
+#else
 	init_timer(&scrncapt.tmr_resume);
 	scrncapt.tmr_resume.function = &tegra_dc_scrncapt_timer_cb;
 	scrncapt.tmr_resume.data = (unsigned long)&scrncapt;
+#endif
 	scrncapt.magic = TEGRA_DC_EXT_CONTROL_SCRNCAPT_MAGIC ^ (jiffies << 8);
 
 	return 0;

@@ -55,53 +55,54 @@
 	};
 
 	/* all cameras are disabled by default */
-	host1x {
-		vi_base: vi@15c10000 {
-			ports {
-				vi_port0: port@0 {
+	capture_vi_base: tegra-capture-vi {
+		ports {
+			vi_port0: port@0 {
+				status = "disabled";
+				vi_in0: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in0: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port1: port@1 {
+			};
+			vi_port1: port@1 {
+				status = "disabled";
+				vi_in1: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in1: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port2: port@2 {
+			};
+			vi_port2: port@2 {
+				status = "disabled";
+				vi_in2: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in2: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port3: port@3 {
+			};
+			vi_port3: port@3 {
+				status = "disabled";
+				vi_in3: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in3: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port4: port@4 {
+			};
+			vi_port4: port@4 {
+				status = "disabled";
+				vi_in4: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in4: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port5: port@5 {
+			};
+			vi_port5: port@5 {
+				status = "disabled";
+				vi_in5: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in5: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
 			};
 		};
+	};
+
+	host1x@13e00000 {
 		csi_base: nvcsi@15a00000 {
 			num-tpg-channels = <36>;
 			csi_chan0: channel@0 {

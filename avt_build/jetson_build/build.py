@@ -23,7 +23,7 @@ def add_arguments(parser):
   parser.add_argument('--logfile', default='build.log', type=Path, help="File to write complete build log to")
   parser.add_argument('--skip-precheck', default=False, action="store_true", help="Skip apt based precondition checks")
   parser.add_argument('--build-dir', default='work', type=Path, metavar="PATH", help="Local build directory")
-  parser.add_argument('--kernel-dir', default='../kernel/kernel-4.9', type=Path, metavar="PATH", help="Kernel source directory")
+  parser.add_argument('--kernel-dir', default='../kernel/kernel-5.10', type=Path, metavar="PATH", help="Kernel source directory")
   default_steps=['download-common', 'prepare-common', 'download', 'prepare', 'build', 'deploy']
   parser.add_argument('--steps', default=default_steps, action=SplitArgs, help=f"Steps to perform: clear-cache, clean-common, download-common, prepare-common, clean, download, prepare, build, deploy. Order is ignored and will always happen as stated here. Default is {','.join(default_steps)}. WARNING: skipping a step also skips all verification of that step.")
   parser.add_argument('--verbose', '-v', default=False, action='store_true', help="Enable verbose output")
@@ -54,7 +54,7 @@ def build(args):
   kernel_build_dir=common.common_dir(args) / "kernel"
 
 #env = { **os.environ, 'ARCH': 'arm64', 'CROSS_COMPILE': common.common_dir(args) / 'gcc/bin/aarch64-linux-gnu-', 'LANG': 'C', 'INSTALL_MOD_PATH': board.build_dir / 'Linux_for_Tegra/rootfs' }
-  env = { **os.environ, 'ARCH': 'arm64', 'CROSS_COMPILE': common.common_dir(args) / 'gcc/bin/aarch64-linux-gnu-', 'LANG': 'C' }
+  env = { **os.environ, 'ARCH': 'arm64', 'CROSS_COMPILE': common.common_dir(args) / 'gcc/bin/aarch64-buildroot-linux-gnu-', 'LANG': 'C' }
 
 
   t.execute(['make', 'mrproper'], cwd=kernel_source_dir(args), env=env)
@@ -65,7 +65,7 @@ def build(args):
 
 
   make('Kernel Config',     'tegra_avcamera_defconfig', 1)
-  make('Kernel Image',      'zImage')
+  make('Kernel Image',      'Image')
   make('Kernel Modules',    'modules')
   make('Device Tree Files', 'dtbs')
 

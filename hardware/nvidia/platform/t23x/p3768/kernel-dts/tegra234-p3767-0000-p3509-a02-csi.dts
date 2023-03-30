@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+/*
+ * Device-tree overlay for tegra234-p3767-0000-p3509-a02 CSI Camera Connector.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+
+/ {
+	overlay-name = "Jetson Nano CSI Connector";
+	compatible = "nvidia,p3509-0000+p3767-0000";
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				csi-pin25 {
+					nvidia,pins = "cam_i2c_scl_pp2";
+				};
+				csi-pin27 {
+					nvidia,pins = "cam_i2c_sda_pp3";
+				};
+			};
+		};
+	};
+};

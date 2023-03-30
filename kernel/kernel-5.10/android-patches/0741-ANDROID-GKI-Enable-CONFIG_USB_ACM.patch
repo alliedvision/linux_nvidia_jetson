@@ -1,0 +1,43 @@
+From fa4d7a4eacc281fb5b0133b667dd262ad401ea25 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 18 Aug 2020 08:29:20 -0700
+Subject: [PATCH 741/830] ANDROID: GKI: Enable CONFIG_USB_ACM
+X-NVConfidentiality: public
+
+So that the pulse8-cec driver can be enabled downstream.
+
+Bug: 157503752
+Change-Id: Icaac11d24420e0320e961d11244ea349993d5fa1
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index b29f7061e0aa..023b707d8693 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -349,6 +349,7 @@ CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB=y
+ CONFIG_USB_OTG=y
++CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_UEVENT=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 25fffb102100..59a19df132d4 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -310,6 +310,7 @@ CONFIG_HID_PLANTRONICS=y
+ CONFIG_HID_SONY=y
+ CONFIG_USB_HIDDEV=y
+ CONFIG_USB=y
++CONFIG_USB_ACM=y
+ CONFIG_USB_GADGET=y
+ CONFIG_USB_CONFIGFS=y
+ CONFIG_USB_CONFIGFS_UEVENT=y
+-- 
+2.17.1
+

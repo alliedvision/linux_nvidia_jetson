@@ -1,7 +1,7 @@
 /*
  * panel-s-edp-wqxgap-15-6.c: Panel driver for s-edp-wqxgap-15-6 panel.
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,7 +26,6 @@
 #include <linux/ioport.h>
 
 #include "../dc.h"
-#include "board.h"
 #include "board-panel.h"
 #include "gpio-names.h"
 #include "tegra12_host1x_devices.h"

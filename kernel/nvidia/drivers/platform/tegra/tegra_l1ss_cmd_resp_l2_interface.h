@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,8 +36,6 @@
 #include <linux/tegra-safety-ivc.h>
 #include <linux/tegra-ivc-instance.h>
 
-
-#include "tegra_l1ss_cmd_resp_exec_config.h"
 
 int l1ss_cmd_resp_send_frame(const cmdresp_frame_ex_t *pCmdPkt,
 			     nv_guard_3lss_layer_t NvGuardLayerId,

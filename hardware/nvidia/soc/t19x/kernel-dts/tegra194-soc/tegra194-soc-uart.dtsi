@@ -1,16 +1,21 @@
 /*
- * tegra194-soc-uart.dtsi: Tegra194 soc dtsi file for UART instances
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-soc-uart.dtsi: Tegra194 soc dtsi file for UART instances
  */
 
 / {
@@ -28,6 +33,10 @@
 	uarta: serial@3100000 {
 		compatible = "nvidia,tegra186-hsuart";
 		iommus = <&smmu TEGRA_SID_GPCDMA_0>;
+#if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
+		interconnects = <&mc TEGRA194_MEMORY_CLIENT_HOST1XDMAR>;
+		interconnect-names = "dma-mem";
+#endif
 		dma-coherent;
 		reg = <0x0 0x03100000 0x0 0x10000>;
 		reg-shift = <2>;
@@ -38,8 +47,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTA>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTA>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTA>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -56,8 +68,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTB>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTB>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTB>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -74,8 +89,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTC>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTC>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTC>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -92,8 +110,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTD>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTD>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTD>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -110,8 +131,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTE>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTE>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTE>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -128,8 +152,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTF>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTF>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTF>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -146,8 +173,11 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTG>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTG>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTG>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
@@ -164,17 +194,26 @@
 		clocks = <&bpmp_clks TEGRA194_CLK_UARTH>,
 			<&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		clock-names = "serial", "parent";
+		assigned-clocks = <&bpmp_clks TEGRA194_CLK_UARTH>;
+		assigned-clock-parents = <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>;
 		resets = <&bpmp_resets TEGRA194_RESET_UARTH>;
 		reset-names = "serial";
+		nvidia,adjust-baud-rates = <115200 115200 100>;
 		status = "disabled";
 	};
 
 	combined-uart {
-		compatible = "nvidia,tegra186-combined-uart";
+		compatible = "nvidia,tegra194-tcu", "nvidia,tegra186-combined-uart";
 		reg = <0x0 0x3c10000 0x0 0x4   /* TOP0_HSP_SM_0_1_BASE */
 		       0x0 0xc168000 0x0 0x4       /* AON_HSP_SM_1_BASE */
 		       0x0 0x3c00000 0x0 0x1000>; /* TOP0_HSP_COMMON_BASE */
 		interrupts = <0 TEGRA194_IRQ_TOP0_HSP_SHARED_0 0x04>;
+		mboxes = <&hsp_top TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(0)>,
+			<&aon_hsp TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(1)>;
+		mbox-names = "rx", "tx";
+#if TEGRA_TCU_DT_VERSION >= DT_VERSION_2
+		skip-frame-info;
+#endif
 		status = "disabled";
 	};
 };

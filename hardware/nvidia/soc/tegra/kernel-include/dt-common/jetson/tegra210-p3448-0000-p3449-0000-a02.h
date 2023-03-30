@@ -1,9 +1,21 @@
-// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 /*
  * Definitions for Jetson tegra210-p3448-0000-p3449-0000-a02 board.
- *
- * Copyright (c) 2019-2021 NVIDIA CORPORATION. All rights reserved.
- *
  */
 
 #include <dt-bindings/gpio/tegra-gpio.h>

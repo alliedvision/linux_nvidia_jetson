@@ -1,7 +1,7 @@
 /*
  * drivers/misc/bluedroid_pm.c
  *
- # Copyright (c) 2013-2018, NVIDIA CORPORATION. All rights reserved.
+ # Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/of_gpio.h>
+#include <linux/version.h>
 
 #define PROC_DIR	"bluetooth/sleep"
 
@@ -66,6 +67,9 @@ struct bluedroid_pm_data {
 	struct work_struct work;
 	spinlock_t lock;
 	struct device *dev;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+	struct timer_list bluedroid_pm_timer;
+#endif
 };
 
 struct proc_dir_entry *proc_bt_dir, *bluetooth_sleep_dir;
@@ -89,8 +93,14 @@ void bt_wlan_unlock(void)
 EXPORT_SYMBOL(bt_wlan_unlock);
 
 /** bluedroid_m busy timer */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 static void bluedroid_pm_timer_expire(unsigned long data);
 static DEFINE_TIMER(bluedroid_pm_timer, bluedroid_pm_timer_expire, 0, 0);
+#else
+static void bluedroid_pm_timer_expire(struct timer_list *timer);
+static DEFINE_TIMER(bluedroid_pm_timer, bluedroid_pm_timer_expire);
+#endif
 static int bluedroid_pm_gpio_get_value(unsigned int gpio);
 static void bluedroid_pm_gpio_set_value(unsigned int gpio, int value);
 
@@ -136,19 +146,30 @@ static int bluedroid_pm_gpio_get_value(unsigned int gpio)
 static void bluedroid_pm_gpio_set_value(unsigned int gpio, int value)
 {
 	if (gpio_cansleep(gpio))
-		gpio_set_value_cansleep(gpio, value);
+		gpiod_set_value_cansleep(gpio_to_desc(gpio), value);
 	else
-		gpio_set_value(gpio, value);
+		gpiod_set_value(gpio_to_desc(gpio), value);
 }
 
 /**
  * Handles bluedroid_pm busy timer expiration.
- * @param data: bluedroid_pm strcuture.
+ * @param data: bluedroid_pm structure.
  */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 static void bluedroid_pm_timer_expire(unsigned long data)
+#else
+static void bluedroid_pm_timer_expire(struct timer_list *timer)
+#endif
 {
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 	struct bluedroid_pm_data *bluedroid_pm =
 				(struct bluedroid_pm_data *)data;
+#else
+	struct bluedroid_pm_data *bluedroid_pm =
+				from_timer(bluedroid_pm, timer,
+						bluedroid_pm_timer);
+#endif
 
 	/*
 	 * if bluedroid_pm data is NULL or timer is deleted with TX busy.
@@ -189,8 +210,13 @@ static int bluedroid_pm_rfkill_set_power(void *data, bool blocked)
 		if (gpio_is_valid(bluedroid_pm->ext_wake))
 			__pm_relax(&bluedroid_pm->wake_lock);
 		if (bluedroid_pm->resume_min_frequency)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 			pm_qos_remove_request(&bluedroid_pm->
 						resume_cpu_freq_req);
+#else
+			cpu_latency_qos_remove_request(&bluedroid_pm->
+						resume_cpu_freq_req);
+#endif
 	} else {
 		if (bluedroid_pm->vdd_3v3)
 			ret |= regulator_enable(bluedroid_pm->vdd_3v3);
@@ -203,10 +229,17 @@ static int bluedroid_pm_rfkill_set_power(void *data, bool blocked)
 			bluedroid_pm_gpio_set_value(
 				bluedroid_pm->gpio_reset, 1);
 		if (bluedroid_pm->resume_min_frequency)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 			pm_qos_add_request(&bluedroid_pm->
 						resume_cpu_freq_req,
 						PM_QOS_CPU_FREQ_MIN,
 						PM_QOS_DEFAULT_VALUE);
+#else
+			cpu_latency_qos_add_request(&bluedroid_pm->
+						resume_cpu_freq_req,
+						PM_QOS_DEFAULT_VALUE);
+#endif
+
 	}
 	bluedroid_pm->is_blocked = blocked;
 	mdelay(100);
@@ -236,6 +269,8 @@ static int bluedroid_pm_probe(struct platform_device *pdev)
 	int ret;
 	bool enable = false;  /* off */
 	struct device_node *node;
+	enum of_gpio_flags of_flags;
+	unsigned long flags;
 
 	bluedroid_pm = kzalloc(sizeof(*bluedroid_pm), GFP_KERNEL);
 	if (!bluedroid_pm)
@@ -259,7 +294,8 @@ static int bluedroid_pm_probe(struct platform_device *pdev)
 	}
 
 	bluedroid_pm->gpio_reset =
-		of_get_named_gpio(node, "bluedroid_pm,reset-gpio", 0);
+		of_get_named_gpio_flags(node, "bluedroid_pm,reset-gpio",
+								 0, &of_flags);
 	bluedroid_pm->gpio_shutdown =
 		of_get_named_gpio(node, "bluedroid_pm,shutdown-gpio", 0);
 	bluedroid_pm->host_wake =
@@ -272,7 +308,9 @@ static int bluedroid_pm_probe(struct platform_device *pdev)
 			     &bluedroid_pm->resume_min_frequency);
 
 	if (gpio_is_valid(bluedroid_pm->gpio_reset)) {
-		ret = gpio_request(bluedroid_pm->gpio_reset, "reset_gpio");
+		flags = (of_flags == OF_GPIO_ACTIVE_LOW) ? GPIOF_ACTIVE_LOW : 0;
+		ret = gpio_request_one(bluedroid_pm->gpio_reset, flags,
+								 "reset_gpio");
 		if (ret) {
 			BDP_ERR("Failed to get reset gpio\n");
 			goto free_bluedriod_pm;
@@ -354,11 +392,19 @@ static int bluedroid_pm_probe(struct platform_device *pdev)
 			goto free_ext_wake;
 		}
 		/* initialize wake lock */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 		wakeup_source_init(&bluedroid_pm->wake_lock, "bluedroid_pm");
 		/* Initialize timer */
 		init_timer(&bluedroid_pm_timer);
 		bluedroid_pm_timer.function = bluedroid_pm_timer_expire;
 		bluedroid_pm_timer.data = (unsigned long)bluedroid_pm;
+#else
+		wakeup_source_add(&bluedroid_pm->wake_lock);
+		/* Initialize timer */
+		timer_setup(&bluedroid_pm->bluedroid_pm_timer,
+				bluedroid_pm_timer_expire,0);
+#endif
+
 	} else
 		BDP_DBG("gpio_ext_wake not registered\n");
 
@@ -413,7 +459,11 @@ static int bluedroid_pm_remove(struct platform_device *pdev)
 	if (gpio_is_valid(bluedroid_pm->host_wake))
 		gpio_free(bluedroid_pm->host_wake);
 	if (gpio_is_valid(bluedroid_pm->ext_wake)) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 		wakeup_source_trash(&bluedroid_pm->wake_lock);
+#else
+		wakeup_source_destroy(&bluedroid_pm->wake_lock);
+#endif
 		gpio_free(bluedroid_pm->ext_wake);
 		remove_bt_proc_interface();
 		del_timer(&bluedroid_pm_timer);
@@ -442,10 +492,18 @@ static int bluedroid_pm_suspend(struct platform_device *pdev,
 {
 	struct bluedroid_pm_data *bluedroid_pm = platform_get_drvdata(pdev);
 	unsigned long flags;
+	int ret = 0;
 
-	if (bluedroid_pm->host_wake)
-		if (!bluedroid_pm->is_blocked || !bluedroid_pm_blocked)
-			enable_irq_wake(bluedroid_pm->host_wake_irq);
+	if (bluedroid_pm->host_wake) {
+		if (!bluedroid_pm->is_blocked || !bluedroid_pm_blocked) {
+			ret = enable_irq_wake(bluedroid_pm->host_wake_irq);
+			if (ret < 0) {
+				BDP_ERR("Failed to enable irq wake for irq %d, %d\n",
+					bluedroid_pm->host_wake_irq, ret);
+				return ret;
+			}
+		}
+	}
 
 	spin_lock_irqsave(&bluedroid_pm->lock, flags);
 	bluedroid_pm->resumed = false;
@@ -573,12 +631,20 @@ static ssize_t lpm_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 static const struct file_operations lpm_fops = {
 	.read		= lpm_read_proc,
 	.write		= lpm_write_proc,
 	.llseek		= default_llseek,
 };
+#else
+static const struct proc_ops lpm_fops = {
+	.proc_read		= lpm_read_proc,
+	.proc_write		= lpm_write_proc,
+	.proc_lseek		= default_llseek,
+};
 
+#endif
 static void remove_bt_proc_interface(void)
 {
 	remove_proc_entry("lpm", bluetooth_sleep_dir);

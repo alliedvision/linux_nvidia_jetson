@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,31 +13,26 @@
 
 / {
 	i2c@c250000 {
-		ina3221x_40: ina3221x@40 {
-			compatible = "ti,ina3221x";
+		ina3221x_40: ina3221@40 {
+			compatible = "ti,ina3221";
 			reg = <0x40>;
-			ti,trigger-config = <0x7003>;
-			ti,continuous-config = <0x7c07>;
-			ti,enable-forced-continuous;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			#io-channel-cells = <1>;
 			channel@0 {
 				reg = <0x0>;
-				ti,rail-name = "VDD_IN";
-				ti,shunt-resistor-mohm = <5>;
-				ti,current-warning-limit-ma = <3000>;
-				ti,current-critical-limit-ma = <5000>;
+				label = "VDD_IN";
+				shunt-resistor-micro-ohms = <5000>;
 			};
 			channel@1 {
 				reg = <0x1>;
-				ti,rail-name = "VDD_CPU_GPU_CV";
-				ti,shunt-resistor-mohm = <5>;
+				label = "VDD_CPU_GPU_CV";
+				shunt-resistor-micro-ohms = <5000>;
 			};
 			channel@2 {
 				reg = <0x2>;
-				ti,rail-name = "VDD_SOC";
-				ti,shunt-resistor-mohm = <5>;
+				label = "VDD_SOC";
+				shunt-resistor-micro-ohms = <5000>;
 			};
 		};
 	};

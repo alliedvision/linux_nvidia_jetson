@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -9,7 +9,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #ifndef _LINUX_TEGRA_SAFETY_IVC_H_
@@ -42,7 +41,8 @@ struct safety_ast_region {
 
 struct tegra_safety_ivc {
 	struct safety_ast_region region;
-	struct tegra_hsp_sm_pair *ivc_pair;
+	struct mbox_chan *rx_chan;
+	struct mbox_chan *tx_chan;
 	struct {
 		wait_queue_head_t response_waitq;
 		wait_queue_head_t empty_waitq;
@@ -52,6 +52,8 @@ struct tegra_safety_ivc {
 	struct tegra_safety_ivc_chan *ivc_chan[MAX_SAFETY_CHANNELS];
 	atomic_t ivc_ready;
 	struct work_struct work;
+	struct work_struct l1ss_init_work;
+	struct delayed_work init_done_work;
 	struct workqueue_struct *wq;
 	struct mutex rlock;
 	struct mutex wlock;
@@ -64,12 +66,12 @@ struct tegra_safety_ivc_chan {
 	struct tegra_safety_ivc *safety_ivc;
 };
 
-int tegra_safety_dev_init(struct device *dev, int index);
-void tegra_safety_dev_exit(struct device *dev, int index);
+int tegra_safety_dev_init(struct device *dev, uint32_t index);
+void tegra_safety_dev_exit(struct device *dev, uint32_t index);
 void tegra_safety_dev_notify(void);
 struct tegra_safety_ivc_chan *tegra_safety_get_ivc_chan_from_str(
 		struct tegra_safety_ivc *safety_ivc,
-		char *ch_name);
+		const char *ch_name);
 
 #define CMDRESP_PAYLOAD_SIZE     56U
 #define CMDRESP_PAYLOAD_EX_SIZE  248U

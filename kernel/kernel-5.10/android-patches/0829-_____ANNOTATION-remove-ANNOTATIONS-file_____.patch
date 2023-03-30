@@ -1,0 +1,57 @@
+From 4d798a2973c68cad5de00b75c76113e72911f356 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 17:15:48 -0700
+Subject: [PATCH 829/830] _____ANNOTATION: remove ANNOTATIONS file_____
+X-NVConfidentiality: public
+
+The ANNOTATION commits had to update this file as a workaround for
+'git am' not supporting applying empty patches.
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 33 ---------------------------------
+ 1 file changed, 33 deletions(-)
+ delete mode 100644 ANNOTATIONS
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+deleted file mode 100644
+index d1353a38dcb9..000000000000
+--- a/ANNOTATIONS
++++ /dev/null
+@@ -1,33 +0,0 @@
+-pending upstream
+-Android vendor hooks
+-kbuild changes
+-x86 changes
+-arm and arm64 changes
+-iommu changes
+-core kernel changes
+-power management changes
+-scheduler changes
+-uid_sys_stats support
+-cpufreq changes
+-mm (memory management) changes
+-security changes
+-binder changes
+-ion changes
+-driver framework and misc driver changes
+-tty changes
+-USB changes
+-graphics changes
+-sound changes
+-media changes
+-input and HID changes
+-UFS driver changes
+-MMC driver changes
+-block changes
+-device-mapper changes
+-filesystem changes
+-Incremental filesystem
+-networking changes
+-hardware-wrapped key support
+-db845c (DragonBoard 845c) support
+-Android kconfigs and build scripts
+-Bringup patches
+-- 
+2.17.1
+

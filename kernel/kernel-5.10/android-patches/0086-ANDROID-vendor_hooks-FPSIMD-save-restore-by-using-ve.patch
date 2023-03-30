@@ -1,0 +1,119 @@
+From e0c2842c0537e617f22b73dfc1a0881ec97045e2 Mon Sep 17 00:00:00 2001
+From: Wooyeon Kim <wooy88.kim@samsung.com>
+Date: Thu, 9 Jul 2020 14:43:13 +0900
+Subject: [PATCH 086/830] ANDROID: vendor_hooks: FPSIMD save/restore by using
+ vendor_hooks
+X-NVConfidentiality: public
+
+ - To use fpsimd in kernel task, vendor_hook call is needed to
+   save/restore fpsimd at scheduling time.
+ - ANDROID_VENDOR_DATA added to thread_struct.
+ - Vendor_hooks is called when thread is switching for save/restore
+   fpsimd states.
+  (trace_android_vh_is_fpsimd_save(prev, next))
+
+Bug: 149632552
+
+Signed-off-by: Wooyeon Kim <wooy88.kim@samsung.com>
+Change-Id: I853e1b6a9a51e24f770423bbc39fdd84265d78fc
+---
+ arch/arm64/include/asm/processor.h |  3 +++
+ arch/arm64/kernel/process.c        |  3 +++
+ drivers/android/vendor_hooks.c     |  3 ++-
+ include/trace/hooks/fpsimd.h       | 26 ++++++++++++++++++++++++++
+ 4 files changed, 34 insertions(+), 1 deletion(-)
+ create mode 100644 include/trace/hooks/fpsimd.h
+
+diff --git a/arch/arm64/include/asm/processor.h b/arch/arm64/include/asm/processor.h
+index fce8cbecd6bc..9c5efcc6e7f1 100644
+--- a/arch/arm64/include/asm/processor.h
++++ b/arch/arm64/include/asm/processor.h
+@@ -27,6 +27,7 @@
+ #include <linux/stddef.h>
+ #include <linux/string.h>
+ #include <linux/thread_info.h>
++#include <linux/android_vendor.h>
+ 
+ #include <vdso/processor.h>
+ 
+@@ -141,6 +142,8 @@ struct thread_struct {
+ 		struct user_fpsimd_state fpsimd_state;
+ 	} uw;
+ 
++	ANDROID_VENDOR_DATA(1);
++
+ 	unsigned int		fpsimd_cpu;
+ 	void			*sve_state;	/* SVE registers, if any */
+ 	unsigned int		sve_vl;		/* SVE vector length */
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 0ec325705763..aa44f00bfe21 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -45,6 +45,7 @@
+ #include <linux/thread_info.h>
+ #include <linux/prctl.h>
+ #include <linux/console.h>
++#include <trace/hooks/fpsimd.h>
+ 
+ #include <asm/alternative.h>
+ #include <asm/arch_gicv3.h>
+@@ -572,6 +573,8 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
+ 	 */
+ 	mte_thread_switch(next);
+ 
++	trace_android_vh_is_fpsimd_save(prev, next);
++
+ 	/* the actual thread switch */
+ 	last = cpu_switch_to(prev, next);
+ 
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index cf75759e4c3f..dc24cdb3ce00 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -8,9 +8,10 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/hooks/vendor_hooks.h>
++#include <trace/hooks/fpsimd.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+  * associated with them) to allow external modules to probe them.
+  */
+-
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_is_fpsimd_save);
+diff --git a/include/trace/hooks/fpsimd.h b/include/trace/hooks/fpsimd.h
+new file mode 100644
+index 000000000000..73ad2c0009c3
+--- /dev/null
++++ b/include/trace/hooks/fpsimd.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM fpsimd
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_FPSIMD_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_FPSIMD_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++struct task_struct;
++
++DECLARE_HOOK(android_vh_is_fpsimd_save,
++	TP_PROTO(struct task_struct *prev, struct task_struct *next),
++	TP_ARGS(prev, next))
++#else
++
++#define trace_android_vh_is_fpsimd_save(prev, next)
++#endif
++
++#endif /* _TRACE_HOOK_FPSIMD_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+-- 
+2.17.1
+

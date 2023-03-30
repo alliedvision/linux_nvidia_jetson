@@ -1,0 +1,86 @@
+NVIDIA Tegra MC(Memory Controller)
+
+Required properties:
+	- compatible : Must be one of the following SoC-specific values:
+			"nvidia,tegra-18x-mc"
+			 or
+			"nvidia,tegra-t19x-mc"
+			or
+			"nvidia,tegra-mc-none"
+	- reg : Should contain 2 register ranges(address and length); see the
+		example below. Note that the MC registers are interleaved with the
+		GART registers, and hence must be represented as multiple ranges.
+		For each MC there will be register space. 0th reg space for
+		MC global channel. 1st reg space for MC channel 0, 2nd for MC channel
+		1 and so on for <channels> value
+	- reg-ranges : register range for a MC register space for a channel
+	- interrupts : Must contain a list of interrupt specifiers for memory
+		controller interrupts, if available.
+	- int_mask : interrupt mask to detect type of mc err
+	- ecc_int_mask : interrupt mask for ECC errors
+	- channels : MC channels
+	- status ; MC is disabled or okay
+
+
+Optional properties:
+	- ranges : used for parent to child address translation
+	- mssnvlink : Optional child node telling number of channels from MSS
+		      to gpu
+		mssnvlink_hubs : Number of mss-gpu links
+Example:
+	mc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "nvidia,tegra-t19x-mc";
+		reg-ranges = <1>;
+		reg	   = <0x0 0x2c10000 0x0 0x10000   /* MCB */
+			      0x0 0x2c20000 0x0 0x10000   /* MC0 */
+			      0x0 0x2c30000 0x0 0x10000   /* MC1 */
+			      0x0 0x2c40000 0x0 0x10000   /* MC2 */
+			      0x0 0x2c50000 0x0 0x10000   /* MC3 */
+			      0x0 0x2b80000 0x0 0x10000   /* MC4 */
+			      0x0 0x2b90000 0x0 0x10000   /* MC5 */
+			      0x0 0x2ba0000 0x0 0x10000   /* MC6 */
+			      0x0 0x2bb0000 0x0 0x10000   /* MC7 */
+			      0x0 0x1700000 0x0 0x10000   /* MC8 */
+			      0x0 0x1710000 0x0 0x10000   /* MC9 */
+			      0x0 0x1720000 0x0 0x10000   /* MC10 */
+			      0x0 0x1730000 0x0 0x10000   /* MC11 */
+			      0x0 0x1740000 0x0 0x10000   /* MC12 */
+			      0x0 0x1750000 0x0 0x10000   /* MC13 */
+			      0x0 0x1760000 0x0 0x10000   /* MC14 */
+			      0x0 0x1770000 0x0 0x10000   /* MC15 */
+			      0x0 0x2C60000 0x0 0x10000   /* EMCB */
+			      0x0 0x2c70000 0x0 0x10000   /* EMC0 */
+			      0x0 0x2c80000 0x0 0x10000   /* EMC1 */
+			      0x0 0x2c90000 0x0 0x10000   /* EMC2 */
+			      0x0 0x2ca0000 0x0 0x10000   /* EMC3 */
+			      0x0 0x2cb0000 0x0 0x10000   /* EMC4 */
+			      0x0 0x2cc0000 0x0 0x10000   /* EMC5 */
+			      0x0 0x2cd0000 0x0 0x10000   /* EMC6 */
+			      0x0 0x2ce0000 0x0 0x10000   /* EMC7 */
+			      0x0 0x1780000 0x0 0x10000   /* EMC8 */
+			      0x0 0x1790000 0x0 0x10000   /* EMC9 */
+			      0x0 0x17a0000 0x0 0x10000   /* EMC10 */
+			      0x0 0x17b0000 0x0 0x10000   /* EMC11 */
+			      0x0 0x17c0000 0x0 0x10000   /* EMC12 */
+			      0x0 0x17d0000 0x0 0x10000   /* EMC13 */
+			      0x0 0x17e0000 0x0 0x10000   /* EMC14 */
+			      0x0 0x17f0000 0x0 0x10000>; /* EMC15 */
+
+		interrupts = <0 223 0x4>, <0 224 0x4>;
+		int_mask   = <0x1b3140>;
+		ecc_int_mask   = <0x1c00>;
+
+		channels   = <16>;
+		ranges;
+		status = "disabled";
+
+		mssnvlink@1f20000 {
+			reg = <0x0 0x1f20000 0x0 0x20000   /* MSSNVLINK 1: igpu0 link */
+			       0x0 0x1f40000 0x0 0x20000   /* MSSNVLINK 2: igpu1 link */
+			       0x0 0x1f60000 0x0 0x20000   /* MSSNVLINK 3: igpu2 link */
+			       0x0 0x1f80000 0x0 0x20000>; /* MSSNVLINK 4: igpu3 link */
+			mssnvlink_hubs = <4>;
+		};
+	};

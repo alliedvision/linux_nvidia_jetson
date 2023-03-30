@@ -1,5 +1,6 @@
 append_menu "HD-Audio"
 
+if ("$(VERSION)" < "5")
 config SND_HDA_TEGRA
 	tristate "NVIDIA Tegra HD Audio"
 	depends on ARCH_TEGRA ||  ARCH_TEGRA_18x_SOC
@@ -14,5 +15,7 @@ config SND_HDA_TEGRA
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-hda-tegra.
+
+endif
 
 endmenu

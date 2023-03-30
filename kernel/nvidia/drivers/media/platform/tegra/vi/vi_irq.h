@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/host/vi/vi_irq.h
  *
- * Copyright (c) 2014-2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,5 +22,6 @@ int vi_intr_free(struct vi *vi);
 void vi_stats_worker(struct work_struct *work);
 int vi_enable_irq(struct vi *vi);
 int vi_disable_irq(struct vi *vi);
+irqreturn_t vi_isr(int irq, void *dev_id);
 #endif
 

@@ -1,0 +1,50 @@
+From 5defb5fc6cb06c5ea6d7cacd8bfe944737ec9574 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 13 Mar 2020 13:07:55 -0700
+Subject: [PATCH 662/830] ANDROID: Add build.config files for ARM 32-bit
+X-NVConfidentiality: public
+
+Enables us to catch build-breaks for 32-bit ARM with an allmodconfig
+build in continuous integration testing.
+
+Bug: 151459448
+Change-Id: I825a18771c214e6389fc2755fce20c8fc2531695
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ build.config.allmodconfig.arm |  4 ++++
+ build.config.arm              | 12 ++++++++++++
+ 2 files changed, 16 insertions(+)
+ create mode 100644 build.config.allmodconfig.arm
+ create mode 100644 build.config.arm
+
+diff --git a/build.config.allmodconfig.arm b/build.config.allmodconfig.arm
+new file mode 100644
+index 000000000000..5dd94819c871
+--- /dev/null
++++ b/build.config.allmodconfig.arm
+@@ -0,0 +1,4 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.arm
++. ${ROOT_DIR}/common/build.config.allmodconfig
++
+diff --git a/build.config.arm b/build.config.arm
+new file mode 100644
+index 000000000000..8eb547e21593
+--- /dev/null
++++ b/build.config.arm
+@@ -0,0 +1,12 @@
++ARCH=arm
++
++CLANG_TRIPLE=arm-linux-gnueabi-
++CROSS_COMPILE=arm-linux-androidkernel-
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin
++
++FILES="
++arch/arm/boot/Image.gz
++arch/arm/boot/Image
++vmlinux
++System.map
++"
+-- 
+2.17.1
+

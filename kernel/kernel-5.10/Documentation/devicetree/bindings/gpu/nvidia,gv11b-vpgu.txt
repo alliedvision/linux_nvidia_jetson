@@ -1,0 +1,34 @@
+NVIDIA Tegra Graphics Processing Units - Virtualized
+
+Required properties:
+- compatible: "nvidia,<soc>-<gpu>-vpgu" or "nvidia,<gpu>-vgpu"
+  "nvidia,<soc>-<gpu>-vgpu" means the GPU support for a specific SOC.
+  "nvidia,<gpu>-vgpu" means the GPU support on any chip.
+  Currently recognized values:
+  - nvidia,tegra186-gp10b-vgpu
+  - nvidia,gv11b-vgpu
+- reg: Physical base address and length of the controller's BAR0 registers.
+- reg-names: Must contain "usermode"
+- ivc-queue3: Command IVC queue number.
+- ivc-queue4: Notification IVC queue number.
+- mempool3: Memory pool for command IVC queue.
+- mempool-css: Mempool for cyclestats snapshot image.
+- mempool-fecs-trace: Memory pool for FECS traces image.
+
+Optional properties:
+- nvidia,host1x: host1x device, needed for syncpoint support.
+
+Example for GV11B
+
+	vgpu {
+	        compatible = "nvidia,gv11b-vgpu";
+	        reg = <0x0 0x17810000 0x0 0x10000>;
+	        reg-names = "usermode";
+	        nvidia,host1x = <&host1x>;
+	        status = "okay";
+	        ivc-queue3 = <&tegra_hv 44>;
+	        ivc-queue4 = <&tegra_hv 45>;
+	        mempool3 = <&tegra_hv 0>;
+	        mempool-css = <&tegra_hv 1>;
+	        mempool-fecs-trace = <&tegra_hv 2>;
+	};

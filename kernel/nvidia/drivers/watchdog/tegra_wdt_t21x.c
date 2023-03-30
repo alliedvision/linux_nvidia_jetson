@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -222,7 +222,7 @@ static unsigned int tegra_wdt_get_timeleft(struct watchdog_device *wdd)
 	return (((3 - exp) * wdd->timeout) + count) / expiry_count;
 }
 
-unsigned int tegra_wdt_status(struct watchdog_device *wdd)
+static unsigned int tegra_wdt_status(struct watchdog_device *wdd)
 {
 	struct tegra_wdt *wdt = watchdog_get_drvdata(wdd);
 

@@ -18,6 +18,7 @@
 #include <linux/err.h>
 #include <linux/nvhost.h>
 #include <linux/kernel.h>
+#include <linux/interrupt.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
@@ -27,8 +28,12 @@
 #include <linux/tegra_prod.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 #include <linux/tegra_pm_domains.h>
+#endif
 #include <uapi/video/tegra_dc_ext.h>
+#include <linux/of_irq.h>
+#include <linux/pinctrl/pinctrl.h>
 
 #include "dc.h"
 #include "sor.h"
@@ -36,6 +41,8 @@
 #include "dc_priv.h"
 #include "dp.h"
 #include "dc_common.h"
+#include "hda_dc.h"
+#include <video/tegra_hdmi_audio.h>
 
 static const struct tegra_dc_sor_link_speed link_speed_table[] = {
 	[TEGRA_DC_SOR_LINK_SPEED_G1_62] = {
@@ -157,7 +164,7 @@ static const struct tegra_dc_dp_training_pattern training_pattern_table[] = {
 	},
 };
 
-static struct of_device_id tegra_sor_pd[] = {
+static struct of_device_id __maybe_unused tegra_sor_pd[] = {
 	{ .compatible = "nvidia,tegra210-sor-pd", },
 	{ .compatible = "nvidia,tegra186-disa-pd", },
 	{ .compatible = "nvidia,tegra194-disa-pd", },
@@ -176,6 +183,92 @@ static struct tegra_dc_mode min_mode = {
 	.h_front_porch = 1,
 	.v_front_porch = 2,
 };
+
+/*
+ * This work queue handles the completion of SOR hda register configuration
+ */
+static void tegra_sor_hda_config(struct work_struct *work)
+{
+	struct tegra_dc_sor_data *sor =
+	container_of(to_delayed_work(work), struct tegra_dc_sor_data, work);
+	int value, dev_id;
+
+	mutex_lock(&sor->dc->lock);
+	if (!tegra_dc_is_powered(sor->dc) || !sor->dc->enabled) {
+		mutex_unlock(&sor->dc->lock);
+		return;
+	}
+	tegra_dc_io_start(sor->dc);
+
+	/* Read the dev_id of the sor */
+	dev_id = tegra_sor_readl(sor, NV_SOR_AUDIO_GEN_CTRL);
+	dev_id = (dev_id >> NV_SOR_AUDIO_GEN_CTRL_DEV_ID_SHIFT) &
+			NV_SOR_AUDIO_GEN_CTRL_DEV_ID_MASK;
+	/* Read the scratch register value */
+	value = tegra_sor_readl(sor, NV_SOR_AUDIO_HDA_CODEC_SCRATCH0);
+
+	if (value & NV_SOR_AUDIO_HDA_CODEC_SCRATCH0_VALID) {
+		unsigned int format, sample_rate, channels;
+		unsigned int is_pcm_format;
+
+		format = value &
+			NV_SOR_AUDIO_HDA_CODEC_SCRATCH0_FMT_MASK;
+
+		tegra_hda_parse_format(format, &sample_rate, &channels,
+					&is_pcm_format);
+
+		sor->audio.sample_rate = sample_rate;
+		sor->audio.channels = channels;
+		sor->audio.is_pcm_format = is_pcm_format;
+		sor->audio.valid = true;
+
+		/* inject null samples for stereo and pcm format */
+		if ((sor->audio.channels == 2) &&
+					sor->audio.is_pcm_format)
+			tegra_hdmi_audio_null_sample_inject(true,
+							dev_id);
+		else
+			tegra_hdmi_audio_null_sample_inject(false,
+							dev_id);
+
+		/* Set hdmi:audio freq and source selection*/
+		tegra_hdmi_setup_audio_freq_source(
+						sor->audio.sample_rate,
+						0, dev_id);
+
+	} else {
+		sor->audio.valid = false;
+		tegra_hdmi_audio_null_sample_inject(false, dev_id);
+	}
+	tegra_dc_io_end(sor->dc);
+	mutex_unlock(&sor->dc->lock);
+}
+
+static irqreturn_t tegra_sor_irq(int irq, void *data)
+{
+	struct tegra_dc_sor_data *sor = data;
+	int status;
+
+
+	mutex_lock(&sor->dc->lock);
+	if (!tegra_dc_is_powered(sor->dc) || !sor->dc->enabled) {
+		mutex_unlock(&sor->dc->lock);
+		return IRQ_HANDLED;
+	}
+	tegra_dc_io_start(sor->dc);
+
+	/* Read the Int status */
+	status = tegra_sor_readl(sor, NV_SOR_INT_STATUS);
+	tegra_sor_writel(sor, NV_SOR_INT_STATUS, status);
+
+	tegra_dc_io_end(sor->dc);
+	mutex_unlock(&sor->dc->lock);
+
+	if (status & NV_SOR_INT_CODEC_SCRATCH0)
+		schedule_delayed_work(&sor->work, 0);
+
+	return IRQ_HANDLED;
+}
 
 unsigned long
 tegra_dc_sor_poll_register(struct tegra_dc_sor_data *sor,
@@ -403,7 +496,11 @@ static int dbg_sor_show(struct seq_file *s, void *unused)
 		#a, a, tegra_sor_readl(sor, a));
 
 	if (tegra_dc_is_t21x()) {
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		if (!pm_runtime_enabled(sor->genpd_dev)) {
+#else
 		if (!tegra_powergate_is_powered(sor->powergate_id)) {
+#endif
 			seq_puts(s, "SOR is powergated\n");
 			return 0;
 		}
@@ -652,7 +749,7 @@ static const struct file_operations dbg_hw_index_ops = {
 	.release = single_release,
 };
 
-static void tegra_dc_sor_debug_create(struct tegra_dc_sor_data *sor,
+void tegra_dc_sor_debug_create(struct tegra_dc_sor_data *sor,
 	const char *res_name)
 {
 	struct dentry *retval;
@@ -752,7 +849,7 @@ struct tegra_dc_sor_data *tegra_dc_sor_init(struct tegra_dc *dc,
 				const struct tegra_dc_dp_link_config *cfg)
 {
 	u32 temp;
-	int err, i;
+	int err = 0, i;
 	char res_name[CHAR_BUF_SIZE_MAX] = {0};
 	char io_pinctrl_en_name[CHAR_BUF_SIZE_MAX] = {0};
 	char io_pinctrl_dis_name[CHAR_BUF_SIZE_MAX] = {0};
@@ -781,6 +878,28 @@ struct tegra_dc_sor_data *tegra_dc_sor_init(struct tegra_dc *dc,
 	if (!sor) {
 		err = -ENOMEM;
 		goto err_allocate;
+	}
+
+	if (of_property_read_bool(sor_np, "nvidia,sor-audio-not-supported"))
+		sor->audio_support = false;
+	else
+		sor->audio_support = true;
+
+	if (sor->audio_support) {
+		INIT_DELAYED_WORK(&sor->work, tegra_sor_hda_config);
+
+		sor->irq = of_irq_to_resource(sor_np, 0, NULL);
+		if (!(sor->irq < 0)) {
+			err = request_threaded_irq(sor->irq,
+					NULL, tegra_sor_irq,
+					IRQF_ONESHOT,
+					dev_name(&dc->ndev->dev), sor);
+			if (err) {
+				dev_err(&dc->ndev->dev,
+				"hdmi: request_threaded_irq failed: %d\n", err);
+				goto err_free_sor;
+			}
+		}
 	}
 
 	sor->link_speeds = link_speed_table;
@@ -904,11 +1023,6 @@ bypass_pads:
 		dev_err(&dc->ndev->dev, "%s: error reading nvidia,xbar-ctrl\n",
 					__func__);
 
-	if (of_property_read_bool(sor_np, "nvidia,sor-audio-not-supported"))
-		sor->audio_support = false;
-	else
-		sor->audio_support = true;
-
 	sor_cap = tegra_dc_get_sor_cap();
 	if (IS_ERR_OR_NULL(sor_cap)) {
 		dev_info(&dc->ndev->dev, "sor: can't get sor cap.\n");
@@ -916,6 +1030,9 @@ bypass_pads:
 	} else {
 		sor->hdcp_support = sor_cap[sor->ctrl_num].hdcp_supported;
 	}
+
+	if (of_property_read_bool(sor_np, "nvidia,sor-hdcp-not-supported"))
+		sor->hdcp_support = false;
 
 	if (tegra_dc_is_nvdisplay()) {
 		sor->win_state_arr = devm_kzalloc(&dc->ndev->dev,
@@ -928,6 +1045,25 @@ bypass_pads:
 		}
 	}
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	/*
+	 * SOR powerdomain, named "sor", should be specified under DC node.
+	 *
+	 * dev_pm_domain_attach_by_name() calls pm_runtime_enable() on the
+	 * newly created virtual device, no need to enable again.
+	 */
+	sor->genpd_dev = dev_pm_domain_attach_by_name(&dc->ndev->dev, "sor");
+
+	if (IS_ERR(sor->genpd_dev)) {
+		dev_err(&dc->ndev->dev,
+			"Failed to attach power domain to sor.%d\n",
+			sor->ctrl_num);
+		err = -EINVAL;
+		goto err_rst;
+	}
+#else
+	sor->powergate_id = tegra_pd_get_powergate_id(tegra_sor_pd);
+#endif
 	sor->dc = dc;
 	sor->np = sor_np;
 	sor->sor_clk = sor_clk;
@@ -936,7 +1072,6 @@ bypass_pads:
 	sor->ref_clk = ref_clk;
 	sor->link_cfg = cfg;
 	sor->portnum = 0;
-	sor->powergate_id = tegra_pd_get_powergate_id(tegra_sor_pd);
 	sor->sor_state = SOR_DETACHED;
 
 	tegra_dc_sor_debug_create(sor, res_name);
@@ -1013,7 +1148,13 @@ void tegra_dc_sor_destroy(struct tegra_dc_sor_data *sor)
 	devm_pinctrl_put(sor->pinctrl_sor);
 	sor->dpd_enable = NULL;
 	sor->dpd_disable = NULL;
+	if ((!(sor->irq < 0)) && sor->audio_support)
+		free_irq(sor->irq, sor);
 
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	if (!IS_ERR_OR_NULL(sor->genpd_dev))
+		dev_pm_domain_detach(sor->genpd_dev, true);
+#endif
 	if (tegra_dc_is_nvdisplay())
 		devm_kfree(dev, sor->win_state_arr);
 	devm_kfree(dev, sor);
@@ -1902,6 +2043,18 @@ void tegra_dc_sor_attach(struct tegra_dc_sor_data *sor)
 		NV_SOR_SUPER_STATE1_ATTACHED_YES);
 	tegra_dc_sor_super_update(sor);
 
+	/*
+	 * Enable and unmask the HDA codec SCRATCH0 register interrupt. This
+	 * is used for interoperability between the HDA codec driver and the
+	 * HDMI/DP driver.
+	 */
+	if (sor->audio_support) {
+		tegra_sor_writel(sor, NV_SOR_INT_ENABLE,
+					NV_SOR_INT_CODEC_SCRATCH0);
+		tegra_sor_writel(sor, NV_SOR_INT_MASK,
+					NV_SOR_INT_CODEC_SCRATCH0);
+	}
+
 	tegra_dc_writel(dc, reg_val, DC_CMD_STATE_ACCESS);
 	tegra_dc_put(dc);
 
@@ -2094,6 +2247,9 @@ void tegra_dc_sor_detach(struct tegra_dc_sor_data *sor)
 
 	tegra_dc_get(dc);
 
+	if (sor->audio_support)
+		cancel_delayed_work_sync(&sor->work);
+
 	/* Mask DC interrupts during the 2 dummy frames required for detach */
 	dc_int_mask = tegra_dc_readl(dc, DC_CMD_INT_MASK);
 	tegra_dc_writel(dc, 0, DC_CMD_INT_MASK);
@@ -2230,38 +2386,38 @@ void tegra_dc_sor_set_lane_count(struct tegra_dc_sor_data *sor, u8 lane_count)
 }
 
 void tegra_sor_setup_clk(struct tegra_dc_sor_data *sor, struct clk *clk,
-	bool is_lvds)
+	struct clk *parent_clk, bool is_lvds)
 {
-	struct clk *dc_parent_clk;
 	struct tegra_dc *dc = sor->dc;
+	unsigned long parent_clk_rate = 0;
 
 	if (tegra_platform_is_vdk())
 		return;
 
 	if (clk == dc->clk) {
-		dc_parent_clk = clk_get_parent(clk);
-		BUG_ON(!dc_parent_clk);
-
+		if (!parent_clk) {
+			pr_err("%s: dc parent clock NULL, clock setup failed\n",
+				__func__);
+			return;
+		}
 		/* Change for seamless */
 		if (!dc->initialized) {
-			if (dc->mode.pclk != clk_get_rate(dc_parent_clk)) {
-				clk_set_rate(dc_parent_clk, dc->mode.pclk);
-				clk_set_rate(clk, dc->mode.pclk);
-			}
-		}
+			parent_clk_rate = dc->mode.pclk;
+			/*
+			 * For t18x plldx cannot go below 27MHz.
+			 * Real HW limit is lesser though.
+			 * 27Mz is chosen to have a safe margin.
+			 */
+			if (tegra_dc_is_nvdisplay() &&
+				dc->mode.pclk < 27000000)
+				parent_clk_rate = dc->mode.pclk * 2;
 
-		if (!tegra_dc_is_nvdisplay())
-			return;
+			if (clk_get_rate(parent_clk) != parent_clk_rate)
+				clk_set_rate(parent_clk, parent_clk_rate);
 
-		/*
-		 * For t18x plldx cannot go below 27MHz.
-		 * Real HW limit is lesser though.
-		 * 27Mz is chosen to have a safe margin.
-		 */
-		if (dc->mode.pclk < 27000000) {
-			if ((2 * dc->mode.pclk) != clk_get_rate(dc_parent_clk))
-				clk_set_rate(dc_parent_clk, 2 * dc->mode.pclk);
-			if (dc->mode.pclk != clk_get_rate(dc->clk))
+			clk_set_parent(clk, parent_clk);
+
+			if (clk_get_rate(dc->clk) != dc->mode.pclk)
 				clk_set_rate(dc->clk, dc->mode.pclk);
 		}
 	}

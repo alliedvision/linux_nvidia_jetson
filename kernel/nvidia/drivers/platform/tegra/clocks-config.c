@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,10 +64,10 @@ static int tegra_clocks_config_probe(struct platform_device *pdev)
 		err = update_clocks(cnp, false);
 
 err_ret:
-	if (err) {
+	if (err && (err != -EPROBE_DEFER)) {
 		pr_err("tegra_clocks_config: initialization failed: error %d\n",
 			err);
-	} else {
+	} else if (err == 0){
 		pr_info("Clocks initialized successfully\n");
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,106 +25,175 @@
 
 #include <nvgpu/types.h>
 
+/**
+ * @defgroup rbtree
+ * @ingroup unit-common-utils
+ * @{
+ */
+
+/**
+ * A node in the rbtree
+ */
 struct nvgpu_rbtree_node {
+	/**
+	 * Start of range for the key used for searching/inserting in the tree
+	 */
 	u64 key_start;
+	/**
+	 * End of range for the key used for searching/inserting the tree
+	 */
 	u64 key_end;
 
-	bool is_red; /* !IsRed == IsBlack */
+	/**
+	 * Is this a red node? (!is_red ==> is_black)
+	 */
+	bool is_red;
 
+	/**
+	 * Parent of this node
+	 */
 	struct nvgpu_rbtree_node *parent;
+	/**
+	 * Left child of this node (key is less than this node's key)
+	 */
 	struct nvgpu_rbtree_node *left;
+	/**
+	 * Right child of this node. (key is greater than this node's key)
+	 */
 	struct nvgpu_rbtree_node *right;
 };
 
 /**
- * nvgpu_rbtree_insert - insert a new node into rbtree
+ * @brief Insert a new node into rbtree.
  *
- * @new_node	Pointer to new node.
- * @root	Pointer to root of tree
+ * - Find the correct location in the tree for this node based on its key value
+ *   and insert it by updating the pointers.
+ * - Rebalance tree.
  *
- * Nodes with duplicate key_start and overlapping ranges
- * are not allowed
+ * NOTE: Nodes with duplicate key_start and overlapping ranges are not allowed.
+ *
+ * @param new_node [in]	Pointer to new node. Function does not insert if this
+ *			parameter is a duplicate entry in the tree.
+ * @param root [in] Pointer to root of tree. Function does not perform any
+ *		    validation of the parameter.
  */
 void nvgpu_rbtree_insert(struct nvgpu_rbtree_node *new_node,
 		    struct nvgpu_rbtree_node **root);
 
 /**
- * nvgpu_rbtree_unlink - delete a node from rbtree
+ * @brief Delete a node from rbtree.
  *
- * @node	Pointer to node to be deleted
- * @root	Pointer to root of tree
+ * - Update tree pointers to remove this node from tree while keeping its
+ *   children.
+ * - Rebalance tree.
+ *
+ * @param node [in] Pointer to node to be deleted. Function does not perform
+ *		    any validation of the parameter.
+ * @param root [in] Pointer to root of tree. Function does not perform any
+ *		    validation of the parameter.
  */
 void nvgpu_rbtree_unlink(struct nvgpu_rbtree_node *node,
 		    struct nvgpu_rbtree_node **root);
 
 /**
- * nvgpu_rbtree_search - search a given key in rbtree
+ * @brief Search for a given key in rbtree
  *
- * @key_start	Key to be searched in rbtree
- * @node	Node pointer to be returned
- * @root	Pointer to root of tree
+ * This API will match \a key_start against \a key_start in #nvgpu_rbtree_node
+ * for each node. In case of a hit, \a node points to a node with given key.
+ * In case of a miss, \a node is NULL.
  *
- * This API will match given key against key_start of each node
- * In case of a hit, node points to a node with given key
- * In case of a miss, node is NULL
+ * @param key_start [in] Key to be searched in rbtree. Function does not
+ *			 perform any validation of the parameter.
+ * @param node [out] Node pointer to be returned. Function does not
+ *		     perform any validation of the parameter.
+ * @param root [in] Pointer to root of tree. Function checks if this
+ *		    parameter is NULL. In case of a NULL value, the output
+ *		    parameter \a node is populated as NULL.
  */
 void nvgpu_rbtree_search(u64 key_start, struct nvgpu_rbtree_node **node,
 			     struct nvgpu_rbtree_node *root);
 
 /**
- * nvgpu_rbtree_range_search - search a node with key falling in range
+ * @brief Search a node with key falling in range
  *
- * @key		Key to be searched in rbtree
- * @node	Node pointer to be returned
- * @root	Pointer to root of tree
+ * This API will compare the given \a key with \a key_start and \a key_end in
+ * #nvgpu_rbtree_node for every node, and finds a node where \a key value
+ * falls within the range indicated by \a key_start and \a key_end in
+ * #nvgpu_rbtree_node.
+ * In case of a hit, \a node points to a node with given key.
+ * In case of a miss, \a node is NULL.
  *
- * This API will match given key and find a node where key value
- * falls within range of {start, end} keys
- * In case of a hit, node points to a node with given key
- * In case of a miss, node is NULL
+ * @param key [in] Key to be searched in rbtree. Function does not perform
+ *		   any validation of the parameter.
+ * @param node [out] Node pointer to be returned. Function does not perform
+ *		     any validation of the parameter.
+ * @param root [in] Pointer to root of tree. Function checks if the parameter
+ *		    is NULL. In case of a NULL value, the output parameter \a
+ *		    node is populated as NULL.
  */
 void nvgpu_rbtree_range_search(u64 key,
 			       struct nvgpu_rbtree_node **node,
 			       struct nvgpu_rbtree_node *root);
 
 /**
- * nvgpu_rbtree_less_than_search - search a node with key lesser than given key
+ * @brief Search a node with key lesser than given key
  *
- * @key_start	Key to be searched in rbtree
- * @node	Node pointer to be returned
- * @root	Pointer to root of tree
+ * This API will match the given \a key_start with \a key_start in
+ * #nvgpu_rbtree_node for every node and finds a node with highest
+ * key value lesser than given \a key_start.
+ * In case of a hit, \a node points to the node which matches the
+ * search criteria.
+ * In case of a miss, \a node is NULL.
  *
- * This API will match given key and find a node with highest
- * key value lesser than given key
- * In case of a hit, node points to a node with given key
- * In case of a miss, node is NULL
+ * @param key_start [in] Key to be searched in rbtree. Function does not
+ *			 perform any validation of the parameter.
+ * @param node [out] Node pointer to be returned. Function does not
+ *		     perform any validation of the parameter.
+ * @param root [in] Pointer to root of tree. Function performs the search
+ *		    only if the parameter is not equal to NULL.
  */
 void nvgpu_rbtree_less_than_search(u64 key_start,
 			       struct nvgpu_rbtree_node **node,
 			       struct nvgpu_rbtree_node *root);
 
 /**
- * nvgpu_rbtree_enum_start - enumerate tree starting at the node with specified value
+ * @brief Enumerate tree starting at the node with specified value.
  *
- * @key_start	Key value to begin enumeration from
- * @node	Pointer to first node in the tree
- * @root	Pointer to root of tree
+ * This API returns \a node pointer pointing to first node in the rbtree to
+ * begin enumerating the tree. Call this API once per enumeration. Call
+ * #nvgpu_rbtree_enum_next to get the next node. \a node is returned as NULL
+ * in case if a valid node cannot be found in the tree.
  *
- * This API returns node pointer pointing to first node in the rbtree
+ * @param key_start [in] Key value to begin enumeration from. Function does
+ *			 not perform any validation of the parameter.
+ * @param node [out] Pointer to first node in the tree. Function does
+ *		     not perform any validation of the parameter.
+ * @param root [in] Pointer to root of tree. Function performs the
+ *		    enumeration only if the parameter is not NULL.
  */
 void nvgpu_rbtree_enum_start(u64 key_start,
 			struct nvgpu_rbtree_node **node,
 			struct nvgpu_rbtree_node *root);
 
 /**
- * nvgpu_rbtree_enum_next - find next node in enumeration
+ * @brief Find next node in enumeration in order by key value.
  *
- * @node	Pointer to next node in the tree
- * @root	Pointer to root of tree
+ * To get the next node in the tree, pass in the current \a node. This API
+ * returns \a node pointer pointing to next node in the rbtree in order by key
+ * value.
  *
- * This API returns node pointer pointing to next node in the rbtree
+ * @param node [in,out]	Pointer to current node is passed in.
+ *			Pointer to next node in the tree is passed back.
+ *			Function checks if this parameter is pointing to a
+ *			valid node and not NULL.
+ * @param root [in] Pointer to root of tree. Function checks if this parameter
+ *		    is NULL. The search operation is carried out only if the
+ *		    parameter is not NULL.
  */
 void nvgpu_rbtree_enum_next(struct nvgpu_rbtree_node **node,
 		       struct nvgpu_rbtree_node *root);
 
+/**
+ * @}
+ */
 #endif /* NVGPU_RBTREE_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,7 +19,8 @@
 
 #include "os/linux/platform_gk20a.h"
 #include "os/linux/os_linux.h"
-#include "vgpu/ecc_vgpu.h"
+#include "common/vgpu/ecc_vgpu.h"
+#include "common/vgpu/ivc/comm_vgpu.h"
 
 static ssize_t vgpu_load_show(struct device *dev,
 			      struct device_attribute *attr,
@@ -36,7 +37,7 @@ static ssize_t vgpu_load_show(struct device *dev,
 	if (err)
 		return err;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", p->load);
+	return snprintf(buf, NVGPU_CPU_PAGE_SIZE, "%u\n", p->load);
 }
 static DEVICE_ATTR(load, S_IRUGO, vgpu_load_show, NULL);
 
@@ -63,7 +64,7 @@ static ssize_t vgpu_ecc_stat_show(struct device *dev,
 		return err;
 	}
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", p->value);
+	return snprintf(buf, NVGPU_CPU_PAGE_SIZE, "%u\n", p->value);
 }
 
 static int vgpu_create_ecc_sysfs(struct device *dev)

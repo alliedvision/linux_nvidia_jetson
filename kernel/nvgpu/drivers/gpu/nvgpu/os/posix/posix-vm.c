@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,14 +36,23 @@ struct nvgpu_mapped_buf *nvgpu_vm_find_mapping(struct vm_gk20a *vm,
 					       struct nvgpu_os_buffer *os_buf,
 					       u64 map_addr,
 					       u32 flags,
-					       int kind)
+					       s16 kind)
 {
-	BUG();
+	struct nvgpu_mapped_buf *mapped_buffer = NULL;
 
-	/*
-	 * No map caching for now.
-	 */
-	return NULL;
+	(void)os_buf;
+	(void)kind;
+
+	mapped_buffer = nvgpu_vm_find_mapped_buf(vm, map_addr);
+	if (mapped_buffer == NULL) {
+		return NULL;
+	}
+
+	if (mapped_buffer->flags != flags) {
+		return NULL;
+	}
+
+	return mapped_buffer;
 }
 
 void nvgpu_vm_unmap_system(struct nvgpu_mapped_buf *mapped_buffer)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,15 +17,15 @@
 #ifndef NVGPU_OS_LINUX_H
 #define NVGPU_OS_LINUX_H
 
-#include <linux/cdev.h>
 #include <linux/iommu.h>
-#include <linux/hashtable.h>
+#include <linux/notifier.h>
+#include <linux/version.h>
 
 #include <nvgpu/gk20a.h>
+#include <nvgpu/interrupts.h>
 
 #include "cde.h"
 #include "sched.h"
-#include "ecc_linux.h"
 
 struct nvgpu_os_linux_ops {
 	struct {
@@ -52,127 +52,98 @@ struct nvgpu_os_linux_ops {
 	struct {
 		int (*init_debugfs)(struct gk20a *g);
 	} fecs_trace;
+
+	struct {
+		int (*init_debugfs)(struct gk20a *g);
+	} volt;
+
+	struct {
+		int (*init_debugfs)(struct gk20a *g);
+	} s_param;
+};
+
+struct dgpu_thermal_alert {
+        struct workqueue_struct *workqueue;
+        struct work_struct work;
+        u32 therm_alert_irq;
+        u32 event_delay;
 };
 
 struct nvgpu_os_linux {
 	struct gk20a g;
 	struct device *dev;
+	struct dgpu_thermal_alert thermal_alert;
+	struct nvgpu_interrupts interrupts;
+#ifdef CONFIG_DEVFREQ_THERMAL
+	struct thermal_cooling_device *cooling;
+#endif
 
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} channel;
+	struct nvgpu_list_node class_list_head;
+	struct nvgpu_list_node cdev_list_head;
+	u32 power_cdevs;
+	u32 num_cdevs;
+	bool dev_nodes_created;
+	bool cdev_list_init_done;
 
-	struct {
-		struct cdev cdev;
-		struct device *node;
-		/* see gk20a_ctrl_priv */
-		struct nvgpu_list_node privs;
-		/* guards modifications to the list and its contents */
-		struct nvgpu_mutex privs_lock;
-	} ctrl;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} as_dev;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} dbg;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} prof;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} tsg;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} ctxsw;
-
-	struct {
-		struct cdev cdev;
-		struct device *node;
-	} sched;
-
+	dev_t power_cdev_region;
 	dev_t cdev_region;
+	atomic_t next_cdev_minor;
+
+	/* see gk20a_ctrl_priv */
+	struct nvgpu_list_node ctrl_privs;
+	/* guards modifications to the list and its contents */
+	struct nvgpu_mutex ctrl_privs_lock;
 
 	struct devfreq *devfreq;
 
 	struct device_dma_parameters dma_parms;
 
-	atomic_t hw_irq_stall_count;
-	atomic_t hw_irq_nonstall_count;
-
-	struct nvgpu_cond sw_irq_stall_last_handled_wq;
-	atomic_t sw_irq_stall_last_handled;
-
 	atomic_t nonstall_ops;
-
-	struct nvgpu_cond sw_irq_nonstall_last_handled_wq;
-	atomic_t sw_irq_nonstall_last_handled;
 
 	struct work_struct nonstall_fn_work;
 	struct workqueue_struct *nonstall_work_queue;
 
 	struct resource *reg_mem;
-	void __iomem *regs;
-	void __iomem *regs_saved;
-
 	struct resource *bar1_mem;
-	void __iomem *bar1;
-	void __iomem *bar1_saved;
-
-	void __iomem *usermode_regs;
-	void __iomem *usermode_regs_saved;
-
-	u64 regs_bus_addr;
-
-#ifdef CONFIG_NVGPU_SUPPORT_LINUX_ECC_ERROR_REPORTING
-	struct nvgpu_ecc_reporting_linux ecc_reporting_linux;
-#endif
 
 	struct nvgpu_os_linux_ops ops;
+
+#ifdef CONFIG_TEGRA_L1SS_SUPPORT
+	struct nvgpu_l1ss_ecc_reporting *l1ss_linux_ecc_reporting;
+#endif
+
+	struct notifier_block nvgpu_reboot_nb;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs;
 	struct dentry *debugfs_alias;
 
-	struct dentry *debugfs_ltc_enabled;
 	struct dentry *debugfs_timeouts_enabled;
-	struct dentry *debugfs_gr_idle_timeout_default;
 	struct dentry *debugfs_disable_bigpage;
-	struct dentry *debugfs_gr_default_attrib_cb_size;
+	struct dentry *debugfs_dbg_tsg_timeslice_max_us;
+	struct dentry *debugfs_disable_syncpts;
 
-	struct dentry *debugfs_timeslice_low_priority_us;
-	struct dentry *debugfs_timeslice_medium_priority_us;
-	struct dentry *debugfs_timeslice_high_priority_us;
-	struct dentry *debugfs_runlist_interleave;
 	struct dentry *debugfs_allocators;
 	struct dentry *debugfs_xve;
 	struct dentry *debugfs_kmem;
 	struct dentry *debugfs_hal;
 	struct dentry *debugfs_ltc;
 
-	struct dentry *debugfs_force_preemption_cilp;
-	struct dentry *debugfs_force_preemption_gfxp;
 	struct dentry *debugfs_dump_ctxsw_stats;
+	struct dentry *debugfs_gsp;
 #endif
-	DECLARE_HASHTABLE(ecc_sysfs_stats_htable, 5);
 	struct dev_ext_attribute *ecc_attrs;
 
 	struct gk20a_cde_app cde_app;
 
 	struct rw_semaphore busy_lock;
 
+	struct nvgpu_mutex dmabuf_priv_list_lock;
+	struct nvgpu_list_node dmabuf_priv_list;
+
 	bool init_done;
+
+	bool enable_platform_dbg;
 };
 
 static inline struct nvgpu_os_linux *nvgpu_os_linux_from_gk20a(struct gk20a *g)
@@ -185,8 +156,10 @@ static inline struct device *dev_from_gk20a(struct gk20a *g)
 	return nvgpu_os_linux_from_gk20a(g)->dev;
 }
 
-#define INTERFACE_NAME "nvhost%s-gpu"
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+#define totalram_size_in_mb (totalram_pages() >> (10 - (PAGE_SHIFT - 10)))
+#else
 #define totalram_size_in_mb (totalram_pages >> (10 - (PAGE_SHIFT - 10)))
+#endif
 
 #endif

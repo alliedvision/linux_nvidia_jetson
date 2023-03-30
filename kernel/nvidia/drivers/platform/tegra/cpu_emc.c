@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -54,7 +54,7 @@ void set_cpu_to_emc_freq(u32 cpu_freq)
 	unsigned long emc_freq = 0;
 	int i;
 
-	if(cpu_emc_table_src == CPU_EMC_TABLE_SRC_DEFAULT)
+	if (cpu_emc_table_src == CPU_EMC_TABLE_SRC_DEFAULT)
 		emc_freq = default_emc_cpu_limit(cpu_freq, cpemc.max_rate);
 	else{
 		for (i = 0; i < cpemc.cpu_emc_table_size; i += 2) {
@@ -64,7 +64,7 @@ void set_cpu_to_emc_freq(u32 cpu_freq)
 
 		if (i)
 			emc_freq = min(cpemc.max_rate,
-						cpemc.cpu_emc_table[i-1] * 1000UL);
+					cpemc.cpu_emc_table[i-1] * 1000UL);
 	}
 
 	tegra_bwmgr_set_emc(cpemc.bwmgr, emc_freq,
@@ -78,7 +78,7 @@ int set_cpu_emc_limit_table_source(int table_src)
 {
 	if (table_src != CPU_EMC_TABLE_SRC_DT &&
 		table_src != CPU_EMC_TABLE_SRC_DEFAULT)
-			return -1;
+		return -1;
 
 	cpu_emc_table_src = table_src;
 

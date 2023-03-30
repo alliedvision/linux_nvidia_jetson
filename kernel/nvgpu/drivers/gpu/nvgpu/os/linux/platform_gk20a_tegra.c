@@ -1,7 +1,7 @@
 /*
  * GK20A Tegra Platform Interface
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -13,48 +13,69 @@
  * more details.
  */
 
+#include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/of_platform.h>
 #include <linux/debugfs.h>
-#include <linux/platform_data/tegra_edp.h>
 #include <linux/delay.h>
 #include <uapi/linux/nvgpu.h>
 #include <linux/dma-buf.h>
-#include <linux/dma-attrs.h>
-#include <linux/nvmap.h>
 #include <linux/reset.h>
+#include <nvgpu/vpr.h>
+
 #if defined(CONFIG_TEGRA_DVFS)
 #include <linux/tegra_soctherm.h>
 #endif
+#if defined(CONFIG_NVGPU_TEGRA_FUSE) || NVGPU_VPR_RESIZE_SUPPORTED
 #include <linux/platform/tegra/common.h>
-#include <linux/platform/tegra/mc.h>
-#include <linux/clk/tegra.h>
-#if defined(CONFIG_COMMON_CLK)
-#include <soc/tegra/tegra-dvfs.h>
-#endif
-#ifdef CONFIG_TEGRA_BWMGR
-#include <linux/platform/tegra/emc_bwmgr.h>
 #endif
 
+#if defined(CONFIG_NVGPU_NVMAP_NEXT)
+#include <linux/nvmap_exports.h>
+#endif
+
+#ifdef CONFIG_NV_TEGRA_MC
+#include <linux/platform/tegra/mc.h>
+#endif /* CONFIG_NV_TEGRA_MC */
+
+#include <linux/clk/tegra.h>
+
+#if defined(CONFIG_COMMON_CLK) && defined(CONFIG_TEGRA_DVFS)
+#include <soc/tegra/tegra-dvfs.h>
+#endif /* CONFIG_COMMON_CLK && CONFIG_TEGRA_DVFS */
+
+#ifdef CONFIG_TEGRA_BWMGR
+#include <linux/platform/tegra/emc_bwmgr.h>
 #include <linux/platform/tegra/tegra_emc.h>
+#endif
+
+#ifdef CONFIG_NVGPU_TEGRA_FUSE
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
+#endif
 
 #include <nvgpu/kmem.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/enabled.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/gr/global_ctx.h>
 #include <nvgpu/nvhost.h>
-
+#include <nvgpu/pmu/pmu_perfmon.h>
 #include <nvgpu/linux/dma.h>
+#include <nvgpu/soc.h>
+#include <nvgpu/errata.h>
 
-#include "gm20b/clk_gm20b.h"
+#include "hal/clk/clk_gm20b.h"
 
 #include "scale.h"
 #include "platform_gk20a.h"
 #include "clk.h"
 #include "os_linux.h"
 
-#include "../../../arch/arm/mach-tegra/iomap.h"
 #include <soc/tegra/pmc.h>
 
 #define TEGRA_GK20A_BW_PER_FREQ 32
@@ -70,7 +91,9 @@
 #define GPU_RAIL_NAME "vdd_gpu"
 #endif
 
+#ifdef CONFIG_NVGPU_VPR
 extern struct device tegra_vpr_dev;
+#endif
 
 #ifdef CONFIG_TEGRA_BWMGR
 struct gk20a_emc_params {
@@ -88,21 +111,45 @@ struct gk20a_emc_params {
 #define MHZ_TO_HZ(x) ((x) * 1000000)
 #define HZ_TO_MHZ(x) ((x) / 1000000)
 
+#ifdef CONFIG_NVGPU_VPR
 static void gk20a_tegra_secure_page_destroy(struct gk20a *g,
 				       struct secure_page_buffer *secure_buffer)
 {
-	DEFINE_DMA_ATTRS(attrs);
-	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, __DMA_ATTR(attrs));
+#if defined(CONFIG_NVGPU_NVMAP_NEXT)
+	nvmap_dma_free_attrs(&tegra_vpr_dev, secure_buffer->size,
+			(void *)(uintptr_t)secure_buffer->phys,
+			secure_buffer->phys, DMA_ATTR_NO_KERNEL_MAPPING);
+#else
 	dma_free_attrs(&tegra_vpr_dev, secure_buffer->size,
 			(void *)(uintptr_t)secure_buffer->phys,
-			secure_buffer->phys, __DMA_ATTR(attrs));
+			secure_buffer->phys, DMA_ATTR_NO_KERNEL_MAPPING);
+#endif
 
 	secure_buffer->destroy = NULL;
 }
 
+static void gk20a_free_secure_buffer(struct gk20a *g,
+				struct nvgpu_mem *mem)
+{
+	if (!nvgpu_mem_is_valid(mem))
+		return;
+
+	if (mem->priv.sgt != NULL) {
+		sg_free_table(mem->priv.sgt);
+	}
+
+	nvgpu_kfree(g, mem->priv.sgt);
+	mem->priv.sgt = NULL;
+
+	mem->size = 0;
+	mem->aligned_size = 0;
+	mem->aperture = APERTURE_INVALID;
+
+}
+
 static int gk20a_tegra_secure_alloc(struct gk20a *g,
-			     struct gr_ctx_buffer_desc *desc,
-			     size_t size)
+				struct nvgpu_mem *desc_mem, size_t size,
+				global_ctx_mem_destroy_fn *destroy)
 {
 	struct device *dev = dev_from_gk20a(g);
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
@@ -113,7 +160,7 @@ static int gk20a_tegra_secure_alloc(struct gk20a *g,
 	int err = 0;
 	size_t aligned_size = PAGE_ALIGN(size);
 
-	if (nvgpu_mem_is_valid(&desc->mem))
+	if (nvgpu_mem_is_valid(desc_mem))
 		return 0;
 
 	/* We ran out of preallocated memory */
@@ -140,11 +187,11 @@ static int gk20a_tegra_secure_alloc(struct gk20a *g,
 	/* This bypasses SMMU for VPR during gmmu_map. */
 	sg_dma_address(sgt->sgl) = 0;
 
-	desc->destroy = NULL;
+	*destroy = gk20a_free_secure_buffer;
 
-	desc->mem.priv.sgt = sgt;
-	desc->mem.size = size;
-	desc->mem.aperture = APERTURE_SYSMEM;
+	desc_mem->priv.sgt = sgt;
+	desc_mem->size = size;
+	desc_mem->aperture = APERTURE_SYSMEM;
 
 	secure_buffer->used += aligned_size;
 
@@ -154,7 +201,9 @@ fail_sgt:
 	nvgpu_kfree(platform->g, sgt);
 	return err;
 }
+#endif
 
+#ifdef CONFIG_TEGRA_BWMGR
 /*
  * gk20a_tegra_get_emc_rate()
  *
@@ -168,13 +217,18 @@ static unsigned long gk20a_tegra_get_emc_rate(struct gk20a *g,
 	unsigned long emc_rate, emc_scale;
 
 	gpu_freq = clk_get_rate(g->clk.tegra_clk);
+#ifdef CONFIG_TEGRA_DVFS
 	gpu_fmax_at_vmin = tegra_dvfs_get_fmax_at_vmin_safe_t(
 		clk_get_parent(g->clk.tegra_clk));
+#else
+	gpu_fmax_at_vmin = 0;
+#endif
 
 	/* When scaling emc, account for the gpu load when the
 	 * gpu frequency is less than or equal to fmax@vmin. */
 	if (gpu_freq <= gpu_fmax_at_vmin)
-		emc_scale = min(g->pmu.load_avg, g->emc3d_ratio);
+		emc_scale = min(nvgpu_pmu_perfmon_get_load_avg(g->pmu),
+					g->emc3d_ratio);
 	else
 		emc_scale = g->emc3d_ratio;
 
@@ -183,6 +237,7 @@ static unsigned long gk20a_tegra_get_emc_rate(struct gk20a *g,
 
 	return MHZ_TO_HZ(emc_rate);
 }
+#endif
 
 /*
  * gk20a_tegra_prescale(profile, freq)
@@ -196,7 +251,6 @@ static void gk20a_tegra_prescale(struct device *dev)
 	u32 avg = 0;
 
 	nvgpu_pmu_load_norm(g, &avg);
-	tegra_edp_notify_gpu_load(avg, clk_get_rate(g->clk.tegra_clk));
 }
 
 /*
@@ -204,19 +258,19 @@ static void gk20a_tegra_prescale(struct device *dev)
  *
  */
 
-static void gk20a_tegra_calibrate_emc(struct device *dev,
+static void gk20a_tegra_calibrate_emc(struct gk20a_platform *platform,
 			       struct gk20a_emc_params *emc_params)
 {
-	enum tegra_chipid cid = tegra_get_chip_id();
+	enum tegra_chip_id cid = platform->platform_chip_id;
 	long gpu_bw, emc_bw;
 
 	/* store gpu bw based on soc */
 	switch (cid) {
-	case TEGRA210:
+	case TEGRA_210:
 		gpu_bw = TEGRA_GM20B_BW_PER_FREQ;
 		break;
-	case TEGRA124:
-	case TEGRA132:
+	case TEGRA_124:
+	case TEGRA_132:
 		gpu_bw = TEGRA_GK20A_BW_PER_FREQ;
 		break;
 	default:
@@ -290,8 +344,10 @@ static bool gk20a_tegra_is_railgated(struct device *dev)
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	bool ret = false;
 
+#ifdef CONFIG_TEGRA_DVFS
 	if (!nvgpu_is_enabled(g, NVGPU_IS_FMODEL))
 		ret = !tegra_dvfs_is_rail_up(platform->gpu_rail);
+#endif
 
 	return ret;
 }
@@ -308,17 +364,18 @@ static int gm20b_tegra_railgate(struct device *dev)
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	int ret = 0;
 
+#ifdef CONFIG_NV_TEGRA_MC
+#ifdef CONFIG_TEGRA_DVFS
 	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL) ||
 	    !tegra_dvfs_is_rail_up(platform->gpu_rail))
 		return 0;
+#endif
 
 	tegra_mc_flush(MC_CLIENT_GPU);
 
 	udelay(10);
 
-	/* enable clamp */
-	tegra_pmc_writel_relaxed(0x1, PMC_GPU_RG_CNTRL_0);
-	tegra_pmc_readl(PMC_GPU_RG_CNTRL_0);
+	tegra_pmc_gpu_clamp_enable();
 
 	udelay(10);
 
@@ -340,18 +397,24 @@ static int gm20b_tegra_railgate(struct device *dev)
 
 	tegra_soctherm_gpu_tsens_invalidate(1);
 
+#ifdef CONFIG_TEGRA_DVFS
 	if (tegra_dvfs_is_rail_up(platform->gpu_rail)) {
 		ret = tegra_dvfs_rail_power_down(platform->gpu_rail);
 		if (ret)
 			goto err_power_off;
 	} else
 		pr_info("No GPU regulator?\n");
+#endif
 
 #ifdef CONFIG_TEGRA_BWMGR
 	gm20b_bwmgr_set_rate(platform, false);
 #endif
 
 	return 0;
+
+#else
+	ret = -ENOTSUP;
+#endif /* CONFIG_NV_TEGRA_MC */
 
 err_power_off:
 	nvgpu_err(platform->g, "Could not railgate GPU");
@@ -426,8 +489,7 @@ static int gm20b_tegra_unrailgate(struct device *dev)
 
 	udelay(10);
 
-	tegra_pmc_writel_relaxed(0, PMC_GPU_RG_CNTRL_0);
-	tegra_pmc_readl(PMC_GPU_RG_CNTRL_0);
+	tegra_pmc_gpu_clamp_disable();
 
 	udelay(10);
 
@@ -435,19 +497,23 @@ static int gm20b_tegra_unrailgate(struct device *dev)
 	platform->reset_deassert(dev);
 	clk_enable(platform->clk_reset);
 
+#ifdef CONFIG_NV_TEGRA_MC
 	/* Flush MC after boot/railgate/SC7 */
 	tegra_mc_flush(MC_CLIENT_GPU);
 
 	udelay(10);
 
 	tegra_mc_flush_done(MC_CLIENT_GPU);
+#endif
 
 	udelay(10);
 
 	return 0;
 
 err_clk_on:
+#ifdef CONFIG_TEGRA_DVFS
 	tegra_dvfs_rail_power_down(platform->gpu_rail);
+#endif
 
 	return ret;
 }
@@ -482,7 +548,7 @@ static int gk20a_tegra_get_clocks(struct device *dev)
 
 	BUG_ON(GK20A_CLKS_MAX < ARRAY_SIZE(tegra_gk20a_clocks));
 
-	snprintf(devname, sizeof(devname), "tegra_%s", dev_name(dev));
+	(void) snprintf(devname, sizeof(devname), "tegra_%s", dev_name(dev));
 
 	platform->num_clks = 0;
 	for (i = 0; i < ARRAY_SIZE(tegra_gk20a_clocks); i++) {
@@ -540,7 +606,6 @@ static void gk20a_tegra_scale_init(struct device *dev)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a_scale_profile *profile = platform->g->scale_profile;
 	struct gk20a_emc_params *emc_params;
-	struct gk20a *g = platform->g;
 
 	if (!profile)
 		return;
@@ -553,12 +618,13 @@ static void gk20a_tegra_scale_init(struct device *dev)
 		return;
 
 	emc_params->freq_last_set = -1;
-	gk20a_tegra_calibrate_emc(dev, emc_params);
+	gk20a_tegra_calibrate_emc(platform, emc_params);
 
 #ifdef CONFIG_TEGRA_BWMGR
 	emc_params->bwmgr_cl = tegra_bwmgr_register(TEGRA_BWMGR_CLIENT_GPU);
 	if (!emc_params->bwmgr_cl) {
-		nvgpu_log_info(g, "%s Missing GPU BWMGR client\n", __func__);
+		nvgpu_log_info(platform->g,
+			       "%s Missing GPU BWMGR client\n", __func__);
 		return;
 	}
 #endif
@@ -589,8 +655,8 @@ void gk20a_tegra_debug_dump(struct device *dev)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a *g = platform->g;
 
-	if (g->nvhost_dev)
-		nvgpu_nvhost_debug_dump_device(g->nvhost_dev);
+	if (g->nvhost)
+		nvgpu_nvhost_debug_dump_device(g->nvhost);
 #endif
 }
 
@@ -600,8 +666,8 @@ int gk20a_tegra_busy(struct device *dev)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a *g = platform->g;
 
-	if (g->nvhost_dev)
-		return nvgpu_nvhost_module_busy_ext(g->nvhost_dev);
+	if (g->nvhost)
+		return nvgpu_nvhost_module_busy_ext(g->nvhost);
 #endif
 	return 0;
 }
@@ -612,36 +678,61 @@ void gk20a_tegra_idle(struct device *dev)
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct gk20a *g = platform->g;
 
-	if (g->nvhost_dev)
-		nvgpu_nvhost_module_idle_ext(g->nvhost_dev);
+	if (g->nvhost)
+		nvgpu_nvhost_module_idle_ext(g->nvhost);
 #endif
 }
 
 int gk20a_tegra_init_secure_alloc(struct gk20a_platform *platform)
 {
+#ifdef CONFIG_NVGPU_VPR
 	struct gk20a *g = platform->g;
 	struct secure_page_buffer *secure_buffer = &platform->secure_buffer;
-	DEFINE_DMA_ATTRS(attrs);
 	dma_addr_t iova;
 
-	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL))
+	if (nvgpu_platform_is_simulation(g)) {
+		/*
+		 * On simulation platform, VPR is only supported with
+		 * vdk frontdoor boot and gpu frontdoor mode.
+		 */
+#if NVGPU_VPR_RESIZE_SUPPORTED
+		tegra_unregister_idle_unidle(gk20a_do_idle);
+#endif
+		nvgpu_log_info(g,
+			"VPR is not supported on simulation platform");
 		return 0;
+	}
 
-	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, __DMA_ATTR(attrs));
+#if NVGPU_CPU_PAGE_SIZE > 4096
+	platform->secure_buffer_size += SZ_64K;
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
+	tegra_vpr_dev.coherent_dma_mask = DMA_BIT_MASK(32);
+#endif
+#if defined(CONFIG_NVGPU_NVMAP_NEXT)
+	(void)nvmap_dma_alloc_attrs(&tegra_vpr_dev,
+				    platform->secure_buffer_size, &iova,
+				    GFP_KERNEL, DMA_ATTR_NO_KERNEL_MAPPING);
+#else
 	(void)dma_alloc_attrs(&tegra_vpr_dev, platform->secure_buffer_size, &iova,
-				      GFP_KERNEL, __DMA_ATTR(attrs));
+				      GFP_KERNEL, DMA_ATTR_NO_KERNEL_MAPPING);
+#endif
 	/* Some platforms disable VPR. In that case VPR allocations always
 	 * fail. Just disable VPR usage in nvgpu in that case. */
-	if (dma_mapping_error(&tegra_vpr_dev, iova))
+	if (dma_mapping_error(&tegra_vpr_dev, iova)) {
+#if NVGPU_VPR_RESIZE_SUPPORTED
+		tegra_unregister_idle_unidle(gk20a_do_idle);
+#endif
 		return 0;
+	}
 
 	secure_buffer->size = platform->secure_buffer_size;
 	secure_buffer->phys = iova;
 	secure_buffer->destroy = gk20a_tegra_secure_page_destroy;
 
 	g->ops.secure_alloc = gk20a_tegra_secure_alloc;
-	__nvgpu_set_enabled(g, NVGPU_SUPPORT_VPR, true);
-
+	nvgpu_set_enabled(g, NVGPU_SUPPORT_VPR, true);
+#endif
 	return 0;
 }
 
@@ -653,7 +744,7 @@ static struct clk *gk20a_clk_get(struct gk20a *g)
 		char clk_dev_id[32];
 		struct device *dev = dev_from_gk20a(g);
 
-		snprintf(clk_dev_id, 32, "tegra_%s", dev_name(dev));
+		(void) snprintf(clk_dev_id, 32, "tegra_%s", dev_name(dev));
 
 		clk = clk_get_sys(clk_dev_id, "gpu");
 		if (IS_ERR(clk)) {
@@ -676,41 +767,47 @@ static struct clk *gk20a_clk_get(struct gk20a *g)
 	return g->clk.tegra_clk;
 }
 
+static struct clk_gk20a *clk_gk20a_from_hw(struct clk_hw *hw)
+{
+	return (struct clk_gk20a *)
+		((uintptr_t)hw - offsetof(struct clk_gk20a, hw));
+}
+
 static int gm20b_clk_prepare_ops(struct clk_hw *hw)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	return gm20b_clk_prepare(clk);
 }
 
 static void gm20b_clk_unprepare_ops(struct clk_hw *hw)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	gm20b_clk_unprepare(clk);
 }
 
 static int gm20b_clk_is_prepared_ops(struct clk_hw *hw)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	return gm20b_clk_is_prepared(clk);
 }
 
 static unsigned long gm20b_recalc_rate_ops(struct clk_hw *hw, unsigned long parent_rate)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	return gm20b_recalc_rate(clk, parent_rate);
 }
 
 static int gm20b_gpcclk_set_rate_ops(struct clk_hw *hw, unsigned long rate,
 				 unsigned long parent_rate)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	return gm20b_gpcclk_set_rate(clk, rate, parent_rate);
 }
 
 static long gm20b_round_rate_ops(struct clk_hw *hw, unsigned long rate,
 			     unsigned long *parent_rate)
 {
-	struct clk_gk20a *clk = to_clk_gk20a(hw);
+	struct clk_gk20a *clk = clk_gk20a_from_hw(hw);
 	return gm20b_round_rate(clk, rate, parent_rate);
 }
 
@@ -764,11 +861,12 @@ static int gk20a_tegra_probe(struct device *dev)
 {
 	struct gk20a_platform *platform = dev_get_drvdata(dev);
 	struct device_node *np = dev->of_node;
+	struct device_node *of_chosen;
 	bool joint_xpu_rail = false;
 	int ret;
 	struct gk20a *g = platform->g;
 
-#ifdef CONFIG_COMMON_CLK
+#if defined(CONFIG_COMMON_CLK) && defined(CONFIG_TEGRA_DVFS)
 	/* DVFS is not guaranteed to be initialized at the time of probe on
 	 * kernels with Common Clock Framework enabled.
 	 */
@@ -793,19 +891,23 @@ static int gk20a_tegra_probe(struct device *dev)
 #endif
 
 #ifdef CONFIG_OF
+	of_chosen = of_find_node_by_path("/chosen");
+	if (!of_chosen)
+		return -ENODEV;
+
 	joint_xpu_rail = of_property_read_bool(of_chosen,
 				"nvidia,tegra-joint_xpu_rail");
 #endif
 
 	if (joint_xpu_rail) {
 		nvgpu_log_info(g, "XPU rails are joint\n");
+		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
 		platform->can_railgate_init = false;
-		__nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE, false);
 	}
 
 	platform->g->clk.gpc_pll.id = GK20A_GPC_PLL;
-	if (tegra_get_chip_id() == TEGRA210) {
-		/* WAR for bug 1547668: Disable railgating and scaling
+	if (nvgpu_is_errata_present(g, NVGPU_ERRATA_1547668)) {
+		/* Disable railgating and scaling
 		   irrespective of platform data if the rework was not made. */
 		np = of_find_node_by_path("/gpu-dvfs-rework");
 		if (!(np && of_device_is_available(np))) {
@@ -813,18 +915,22 @@ static int gk20a_tegra_probe(struct device *dev)
 			dev_warn(dev, "board does not support scaling");
 		}
 		platform->g->clk.gpc_pll.id = GM20B_GPC_PLL_B1;
+#ifdef CONFIG_NVGPU_TEGRA_FUSE
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 		if (tegra_chip_get_revision() > TEGRA210_REVISION_A04p)
+#else
+		if (tegra_get_chip_id() == TEGRA210 &&
+		    tegra_chip_get_revision() > TEGRA_REVISION_A04p)
+#endif
 			platform->g->clk.gpc_pll.id = GM20B_GPC_PLL_C1;
+#endif
 	}
 
-	if (tegra_get_chip_id() == TEGRA132)
+	if (platform->platform_chip_id == TEGRA_132)
 		platform->soc_name = "tegra13x";
 
 	gk20a_tegra_get_clocks(dev);
 	nvgpu_linux_init_clk_support(platform->g);
-	ret = gk20a_tegra_init_secure_alloc(platform);
-	if (ret)
-		return ret;
 
 	if (platform->clk_register) {
 		ret = platform->clk_register(platform->g);
@@ -837,6 +943,13 @@ static int gk20a_tegra_probe(struct device *dev)
 
 static int gk20a_tegra_late_probe(struct device *dev)
 {
+	struct gk20a_platform *platform = dev_get_drvdata(dev);
+	int ret;
+
+	ret = gk20a_tegra_init_secure_alloc(platform);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -854,7 +967,6 @@ static int gk20a_tegra_remove(struct device *dev)
 
 static int gk20a_tegra_suspend(struct device *dev)
 {
-	tegra_edp_notify_gpu_load(0, 0);
 	return 0;
 }
 
@@ -881,13 +993,19 @@ static int gk20a_clk_get_freqs(struct device *dev,
 	if (!gk20a_clk_get(g))
 		return -ENOSYS;
 
+#ifdef CONFIG_TEGRA_DVFS
 	return tegra_dvfs_get_freqs(clk_get_parent(g->clk.tegra_clk),
 				freqs, num_freqs);
+#else
+	return -EINVAL;
+#endif
 }
 #endif
 
 struct gk20a_platform gm20b_tegra_platform = {
+#ifdef CONFIG_TEGRA_GK20A_NVHOST
 	.has_syncpoints = true,
+#endif
 	.aggressive_sync_destroy_thresh = 64,
 
 	/* power management configuration */
@@ -901,13 +1019,12 @@ struct gk20a_platform gm20b_tegra_platform = {
 	.can_blcg               = true,
 	.can_elcg               = true,
 	.enable_elpg            = true,
+	.enable_elpg_ms		= false,
 	.enable_aelpg           = true,
 	.enable_perfmon         = true,
 	.ptimer_src_freq	= 19200000,
 
-	.force_reset_in_do_idle = false,
-
-	.ch_wdt_timeout_ms = 5000,
+	.ch_wdt_init_limit_ms = 7000,
 
 	.probe = gk20a_tegra_probe,
 	.late_probe = gk20a_tegra_late_probe,
@@ -948,7 +1065,12 @@ struct gk20a_platform gm20b_tegra_platform = {
 	.postscale = gm20b_tegra_postscale,
 #endif
 	.devfreq_governor = "nvhost_podgov",
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+	.qos_min_notify = gk20a_scale_qos_min_notify,
+	.qos_max_notify = gk20a_scale_qos_max_notify,
+#else
 	.qos_notify = gk20a_scale_qos_notify,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) */
 
 	.dump_platform_dependencies = gk20a_tegra_debug_dump,
 
@@ -956,6 +1078,7 @@ struct gk20a_platform gm20b_tegra_platform = {
 	.has_cde = true,
 #endif
 
+	.platform_chip_id = TEGRA_210,
 	.soc_name = "tegra21x",
 
 	.unified_memory = true,

@@ -1,0 +1,60 @@
+Thermal fan estimator driver.
+
+Properties :
+ - compatible : Should contain "thermal-fan-est".
+ - shared_data : A sub node thermal_fan_est_shared_data.
+ - trip_length : The number of temperature would be triggered.
+ - profiles : List all supporting fan mode.
+
+Properties in thermal_fan_est_shared_data node : Required.
+ - toffset : Tolerance of calibration data.
+ - polling_period : The period used to update the temperature.
+ - ndevs : The number of cooling device.
+ - cdev_type : Cooling device.
+ - tzp_governor_name : Select thermal governor.
+	Support "pid_thermal_gov" and "cont_therm_gov".
+ - dev_data in dev1 node : List hot spots for sampling the temperature.
+
+Properties in profiles : Required.
+ - default : Default fan profile.
+ - active_trip_temps : A list of temperature points.
+ - active_hysteresis : Define the scope of switch point to a lower speed.
+	If temperature < (active_trip_temps[index] - active_hysteresis[index]),
+	then fan will switch to a lower speed.
+
+Example:
+
+	thermal_fan_est_shared_data: tfesd {
+		toffset = <0>;
+		polling_period = <1100>;
+		ndevs = <1>;
+		cdev_type = "pwm-fan";
+		tzp_governor_name = "pid_thermal_gov";
+		dev1 {
+			dev_data = "CPU-therm";
+			coeffs = <100 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+		};
+	};
+
+	thermal-fan-est {
+		name = "thermal-fan-est";
+		compatible = "thermal-fan-est";
+		status = "okay";
+		shared_data = <&thermal_fan_est_shared_data>;
+		trip_length = <10>;
+		profiles {
+			default = "quiet";
+			quiet {
+				active_trip_temps = <0 75000 77000 79000 81000
+					83000 150000 160000 170000 180000>;
+				active_hysteresis = <0 40000 12000 10000 10000
+					9000 0 0 0 0>;
+			};
+			cool {
+				active_trip_temps = <0 65000 67000 69000 71000
+					73000 150000 160000 170000 180000>;
+				active_hysteresis = <0 35000 10000 9000 9000
+					9000 0 0 0 0>;
+			};
+		};
+	};

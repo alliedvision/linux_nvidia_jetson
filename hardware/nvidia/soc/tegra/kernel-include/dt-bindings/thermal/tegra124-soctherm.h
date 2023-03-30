@@ -1,20 +1,24 @@
 /*
- * Copyright (c) 2014 - 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Author:
- *	Mikko Perttunen <mperttunen@nvidia.com>
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * This header provides constants for binding nvidia,tegra124-soctherm.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+/*
+ * Author: Mikko Perttunen <mperttunen@nvidia.com>
+ */
+
+
 
 #ifndef _DT_BINDINGS_THERMAL_TEGRA124_SOCTHERM_H
 #define _DT_BINDINGS_THERMAL_TEGRA124_SOCTHERM_H

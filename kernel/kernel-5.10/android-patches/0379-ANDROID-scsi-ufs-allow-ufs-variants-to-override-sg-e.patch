@@ -1,0 +1,198 @@
+From 47816c5dea378726de3e0e67112eb8ad781b676b Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Mon, 24 Feb 2020 14:37:12 -0800
+Subject: [PATCH 379/830] ANDROID: scsi: ufs: allow ufs variants to override sg
+ entry size
+X-NVConfidentiality: public
+
+Modify the UFSHCD core to allow 'struct ufshcd_sg_entry' to be
+variable-length.  The default is the standard length, but variants can
+override ufs_hba::sg_entry_size with a larger value if there are
+vendor-specific fields following the standard ones.
+
+This is needed to support inline encryption with ufs-exynos (FMP).
+
+Bug: 129991660
+Bug: 162257402
+Change-Id: I6ab9458d5c23331013e6b736d6fea378a6b5b86c
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/scsi/ufs/ufshcd.c | 36 +++++++++++++++++++-----------------
+ drivers/scsi/ufs/ufshcd.h |  2 ++
+ drivers/scsi/ufs/ufshci.h | 12 ++++++++++--
+ 3 files changed, 31 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 683d03dc6a09..6959a52923fb 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -496,7 +496,7 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
+ 		prdt_length = le16_to_cpu(
+ 			lrbp->utr_descriptor_ptr->prd_table_length);
+ 		if (hba->quirks & UFSHCD_QUIRK_PRDT_BYTE_GRAN)
+-			prdt_length /= sizeof(struct ufshcd_sg_entry);
++			prdt_length /= hba->sg_entry_size;
+ 
+ 		dev_err(hba->dev,
+ 			"UPIU[%d] - PRDT - %d entries  phys@0x%llx\n",
+@@ -505,7 +505,7 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
+ 
+ 		if (pr_prdt)
+ 			ufshcd_hex_dump("UPIU PRDT: ", lrbp->ucd_prdt_ptr,
+-				sizeof(struct ufshcd_sg_entry) * prdt_length);
++				hba->sg_entry_size * prdt_length);
+ 	}
+ }
+ 
+@@ -2230,7 +2230,7 @@ int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
+  */
+ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+ {
+-	struct ufshcd_sg_entry *prd_table;
++	struct ufshcd_sg_entry *prd;
+ 	struct scatterlist *sg;
+ 	struct scsi_cmnd *cmd;
+ 	int sg_segments;
+@@ -2245,22 +2245,22 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+ 
+ 		if (hba->quirks & UFSHCD_QUIRK_PRDT_BYTE_GRAN)
+ 			lrbp->utr_descriptor_ptr->prd_table_length =
+-				cpu_to_le16((sg_segments *
+-					sizeof(struct ufshcd_sg_entry)));
++				cpu_to_le16(sg_segments * hba->sg_entry_size);
+ 		else
+ 			lrbp->utr_descriptor_ptr->prd_table_length =
+ 				cpu_to_le16((u16) (sg_segments));
+ 
+-		prd_table = (struct ufshcd_sg_entry *)lrbp->ucd_prdt_ptr;
++		prd = (struct ufshcd_sg_entry *)lrbp->ucd_prdt_ptr;
+ 
+ 		scsi_for_each_sg(cmd, sg, sg_segments, i) {
+-			prd_table[i].size  =
++			prd->size =
+ 				cpu_to_le32(((u32) sg_dma_len(sg))-1);
+-			prd_table[i].base_addr =
++			prd->base_addr =
+ 				cpu_to_le32(lower_32_bits(sg->dma_address));
+-			prd_table[i].upper_addr =
++			prd->upper_addr =
+ 				cpu_to_le32(upper_32_bits(sg->dma_address));
+-			prd_table[i].reserved = 0;
++			prd->reserved = 0;
++			prd = (void *)prd + hba->sg_entry_size;
+ 		}
+ 	} else {
+ 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
+@@ -2519,10 +2519,11 @@ static inline u16 ufshcd_upiu_wlun_to_scsi_wlun(u8 upiu_wlun_id)
+ 
+ static void ufshcd_init_lrb(struct ufs_hba *hba, struct ufshcd_lrb *lrb, int i)
+ {
+-	struct utp_transfer_cmd_desc *cmd_descp = hba->ucdl_base_addr;
++	struct utp_transfer_cmd_desc *cmd_descp = (void *)hba->ucdl_base_addr +
++		i * sizeof_utp_transfer_cmd_desc(hba);
+ 	struct utp_transfer_req_desc *utrdlp = hba->utrdl_base_addr;
+ 	dma_addr_t cmd_desc_element_addr = hba->ucdl_dma_addr +
+-		i * sizeof(struct utp_transfer_cmd_desc);
++		i * sizeof_utp_transfer_cmd_desc(hba);
+ 	u16 response_offset = offsetof(struct utp_transfer_cmd_desc,
+ 				       response_upiu);
+ 	u16 prdt_offset = offsetof(struct utp_transfer_cmd_desc, prd_table);
+@@ -2530,11 +2531,11 @@ static void ufshcd_init_lrb(struct ufs_hba *hba, struct ufshcd_lrb *lrb, int i)
+ 	lrb->utr_descriptor_ptr = utrdlp + i;
+ 	lrb->utrd_dma_addr = hba->utrdl_dma_addr +
+ 		i * sizeof(struct utp_transfer_req_desc);
+-	lrb->ucd_req_ptr = (struct utp_upiu_req *)(cmd_descp + i);
++	lrb->ucd_req_ptr = (struct utp_upiu_req *)cmd_descp;
+ 	lrb->ucd_req_dma_addr = cmd_desc_element_addr;
+-	lrb->ucd_rsp_ptr = (struct utp_upiu_rsp *)cmd_descp[i].response_upiu;
++	lrb->ucd_rsp_ptr = (struct utp_upiu_rsp *)cmd_descp->response_upiu;
+ 	lrb->ucd_rsp_dma_addr = cmd_desc_element_addr + response_offset;
+-	lrb->ucd_prdt_ptr = (struct ufshcd_sg_entry *)cmd_descp[i].prd_table;
++	lrb->ucd_prdt_ptr = (struct ufshcd_sg_entry *)cmd_descp->prd_table;
+ 	lrb->ucd_prdt_dma_addr = cmd_desc_element_addr + prdt_offset;
+ }
+ 
+@@ -3556,7 +3557,7 @@ static int ufshcd_memory_alloc(struct ufs_hba *hba)
+ 	size_t utmrdl_size, utrdl_size, ucdl_size;
+ 
+ 	/* Allocate memory for UTP command descriptors */
+-	ucdl_size = (sizeof(struct utp_transfer_cmd_desc) * hba->nutrs);
++	ucdl_size = (sizeof_utp_transfer_cmd_desc(hba) * hba->nutrs);
+ 	hba->ucdl_base_addr = dmam_alloc_coherent(hba->dev,
+ 						  ucdl_size,
+ 						  &hba->ucdl_dma_addr,
+@@ -3650,7 +3651,7 @@ static void ufshcd_host_memory_configure(struct ufs_hba *hba)
+ 	prdt_offset =
+ 		offsetof(struct utp_transfer_cmd_desc, prd_table);
+ 
+-	cmd_desc_size = sizeof(struct utp_transfer_cmd_desc);
++	cmd_desc_size = sizeof_utp_transfer_cmd_desc(hba);
+ 	cmd_desc_dma_addr = hba->ucdl_dma_addr;
+ 
+ 	for (i = 0; i < hba->nutrs; i++) {
+@@ -9749,6 +9750,7 @@ int ufshcd_alloc_host(struct ufs_hba *hba)
+ 	*hba_handle = hba;
+ 	hba->host = host;
+ 	hba->dev_ref_clk_freq = REF_CLK_FREQ_INVAL;
++	hba->sg_entry_size = sizeof(struct ufshcd_sg_entry);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index 3fb5419ce413..f862365ec961 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -690,6 +690,7 @@ struct ufs_hba_variant_params {
+  * @ufs_version: UFS Version to which controller complies
+  * @vops: pointer to variant specific operations
+  * @priv: pointer to variant specific private data
++ * @sg_entry_size: size of struct ufshcd_sg_entry (may include variant fields)
+  * @irq: Irq number of the controller
+  * @active_uic_cmd: handle of active UIC command
+  * @uic_cmd_mutex: mutex for uic command
+@@ -776,6 +777,7 @@ struct ufs_hba {
+ 	const struct ufs_hba_variant_ops *vops;
+ 	struct ufs_hba_variant_params *vps;
+ 	void *priv;
++	size_t sg_entry_size;
+ 	unsigned int irq;
+ 	bool is_irq_enabled;
+ 	enum ufs_ref_clk_freq dev_ref_clk_freq;
+diff --git a/drivers/scsi/ufs/ufshci.h b/drivers/scsi/ufs/ufshci.h
+index 7df2c9b4d99c..e6cf5307fb3a 100644
+--- a/drivers/scsi/ufs/ufshci.h
++++ b/drivers/scsi/ufs/ufshci.h
+@@ -420,20 +420,28 @@ struct ufshcd_sg_entry {
+ 	__le32    upper_addr;
+ 	__le32    reserved;
+ 	__le32    size;
++	/*
++	 * followed by variant-specific fields if
++	 * hba->sg_entry_size != sizeof(struct ufshcd_sg_entry)
++	 */
+ };
+ 
+ /**
+  * struct utp_transfer_cmd_desc - UFS Command Descriptor structure
+  * @command_upiu: Command UPIU Frame address
+  * @response_upiu: Response UPIU Frame address
+- * @prd_table: Physical Region Descriptor
++ * @prd_table: Physical Region Descriptor: an array of SG_ALL struct
++ *	ufshcd_sg_entry's.  Variant-specific fields may be present after each.
+  */
+ struct utp_transfer_cmd_desc {
+ 	u8 command_upiu[ALIGNED_UPIU_SIZE];
+ 	u8 response_upiu[ALIGNED_UPIU_SIZE];
+-	struct ufshcd_sg_entry    prd_table[SG_ALL];
++	u8 prd_table[];
+ };
+ 
++#define sizeof_utp_transfer_cmd_desc(hba)	\
++	(sizeof(struct utp_transfer_cmd_desc) + SG_ALL * (hba)->sg_entry_size)
++
+ /**
+  * struct request_desc_header - Descriptor Header common to both UTRD and UTMRD
+  * @dword0: Descriptor Header DW0
+-- 
+2.17.1
+

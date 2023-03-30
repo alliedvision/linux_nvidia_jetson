@@ -26,7 +26,8 @@
 #ifndef __PHYDMRAINFO_H__
 #define __PHYDMRAINFO_H__
 
-#define RAINFO_VERSION "8.0"
+/* 2019.06.28 Add legacy rate 2 spec rate API*/
+#define RAINFO_VERSION "8.5"
 
 #define	FORCED_UPDATE_RAMASK_PERIOD	5
 
@@ -39,6 +40,9 @@
 #define	RA_RETRY_DESCEND_NUM	2
 #define	RA_RETRY_LIMIT_LOW	4
 #define	RA_RETRY_LIMIT_HIGH	32
+
+#define PHYDM_IS_LEGACY_RATE(rate) ((rate <= ODM_RATE54M) ? true : false)
+#define PHYDM_IS_CCK_RATE(rate) ((rate <= ODM_RATE11M) ? true : false)
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
 	#define	FIRST_MACID	1
@@ -175,8 +179,6 @@ struct _odm_ra_info_ {
 
 
 struct ra_table {
-	u8	firstconnect;
-	/*@u8	link_tx_rate[ODM_ASSOCIATE_ENTRY_NUM];*/
 	#ifdef MU_EX_MACID
 	u8	mu1_rate[MU_EX_MACID];
 	#endif
@@ -214,6 +216,10 @@ boolean phydm_is_ht_rate(void *dm_void, u8 rate);
 
 boolean phydm_is_vht_rate(void *dm_void, u8 rate);
 
+u8 phydm_legacy_rate_2_spec_rate(void *dm_void, u8 rate);
+
+u8 phydm_rate_2_rate_digit(void *dm_void, u8 rate);
+
 u8 phydm_rate_type_2_num_ss(void *dm_void, enum PDM_RATE_TYPE type);
 
 u8 phydm_rate_to_num_ss(void *dm_void, u8 data_rate);
@@ -225,9 +231,6 @@ void phydm_ra_debug(void *dm_void, char input[][16], u32 *_used, char *output,
 		    u32 *_out_len);
 
 void odm_c2h_ra_para_report_handler(void *dm_void, u8 *cmd_buf, u8 cmd_len);
-
-void phydm_ra_dynamic_retry_count(void *dm_void);
-
 
 void phydm_print_rate(void *dm_void, u8 rate, u32 dbg_component);
 

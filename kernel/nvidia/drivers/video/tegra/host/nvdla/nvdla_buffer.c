@@ -1,7 +1,7 @@
 /*
  * NVHOST buffer management for T194
  *
- * Copyright (c) 2016-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/arm64-barrier.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -23,7 +24,6 @@
 #include <linux/dma-buf.h>
 #include <linux/cvnas.h>
 
-#include "dev.h"
 #include "nvdla_buffer.h"
 
 /**
@@ -36,6 +36,9 @@
  * @size:		Size of the buffer
  * @user_map_count:	Buffer reference count from user space
  * @submit_map_count:	Buffer reference count from task submit
+ * @handle		MemHandle of the buffer passed from user space
+ * @offset		offset
+ * @access_flags	access (rw/ro)
  * @rb_node:		pinned buffer node
  * @list_head:		List entry
  *
@@ -52,12 +55,15 @@ struct nvdla_vm_buffer {
 	s32 user_map_count;
 	s32 submit_map_count;
 
+	u32 handle;
+	u32 offset;
+	u32 access_flags;
 	struct rb_node rb_node;
 	struct list_head list_head;
 };
 
 static struct nvdla_vm_buffer *nvdla_find_map_buffer(
-		struct nvdla_buffers *nvdla_buffers, struct dma_buf *dmabuf)
+		struct nvdla_buffers *nvdla_buffers, u32 handle)
 {
 	struct rb_root *root = &nvdla_buffers->rb_root;
 	struct rb_node *node = root->rb_node;
@@ -68,9 +74,9 @@ static struct nvdla_vm_buffer *nvdla_find_map_buffer(
 		vm = rb_entry(node, struct nvdla_vm_buffer,
 						rb_node);
 
-		if (vm->dmabuf > dmabuf)
+		if (vm->handle > handle)
 			node = node->rb_left;
-		else if (vm->dmabuf != dmabuf)
+		else if (vm->handle != handle)
 			node = node->rb_right;
 		else
 			return vm;
@@ -93,7 +99,7 @@ static void nvdla_buffer_insert_map_buffer(
 						rb_node);
 		parent = *new_node;
 
-		if (vm->dmabuf > new_vm->dmabuf)
+		if (vm->handle > new_vm->handle)
 			new_node = &((*new_node)->rb_left);
 		else
 			new_node = &((*new_node)->rb_right);
@@ -107,39 +113,25 @@ static void nvdla_buffer_insert_map_buffer(
 	list_add_tail(&new_vm->list_head, &nvdla_buffers->list_head);
 }
 
-int nvdla_get_iova_addr(struct nvdla_buffers *nvdla_buffers,
-			struct dma_buf *dmabuf, dma_addr_t *addr)
-{
-	struct nvdla_vm_buffer *vm;
-	int err = -EINVAL;
-
-	mutex_lock(&nvdla_buffers->mutex);
-
-	vm = nvdla_find_map_buffer(nvdla_buffers, dmabuf);
-	if (vm) {
-		*addr = vm->addr;
-		err = 0;
-	}
-
-	mutex_unlock(&nvdla_buffers->mutex);
-
-	return err;
-}
-
 static int nvdla_buffer_map(struct platform_device *pdev,
-				struct dma_buf *dmabuf,
+				struct nvdla_mem_share_handle *desc,
 				struct nvdla_vm_buffer *vm)
 {
 
 	const dma_addr_t cvnas_begin = nvcvnas_get_cvsram_base();
 	const dma_addr_t cvnas_end = cvnas_begin + nvcvnas_get_cvsram_size();
 	struct dma_buf_attachment *attach;
+	struct dma_buf *dmabuf;
 	struct sg_table *sgt;
 	dma_addr_t dma_addr;
 	dma_addr_t phys_addr;
 	int err = 0;
 
-	get_dma_buf(dmabuf);
+	dmabuf = dma_buf_get((__s32)desc->import_id);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		err = -EFAULT;
+		goto fail_to_get_dma_buf;
+	}
 
 	attach = dma_buf_attach(dmabuf, &pdev->dev);
 	if (IS_ERR_OR_NULL(attach)) {
@@ -148,7 +140,18 @@ static int nvdla_buffer_map(struct platform_device *pdev,
 		goto buf_attach_err;
 	}
 
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	if (desc->access_flags == NVDLA_MEM_ACCESS_READ) {
+		sgt = dma_buf_map_attachment(attach, DMA_TO_DEVICE);
+	} else if (desc->access_flags == NVDLA_MEM_ACCESS_READ_WRITE) {
+		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	} else {
+		err = -EINVAL;
+		dev_err(&pdev->dev,
+			"Invalid access permission: %u\n",
+			desc->access_flags);
+		goto buf_map_err;
+	}
+
 	if (IS_ERR_OR_NULL(sgt)) {
 		err = PTR_ERR(sgt);
 		dev_err(&pdev->dev, "dma mapping failed: %d\n", err);
@@ -172,6 +175,9 @@ static int nvdla_buffer_map(struct platform_device *pdev,
 		dma_addr = phys_addr;
 
 	vm->sgt = sgt;
+	vm->handle = desc->share_id;
+	vm->offset = desc->offset;
+	vm->access_flags = desc->access_flags;
 	vm->attach = attach;
 	vm->dmabuf = dmabuf;
 	vm->size = dmabuf->size;
@@ -184,6 +190,7 @@ buf_map_err:
 	dma_buf_detach(dmabuf, attach);
 buf_attach_err:
 	dma_buf_put(dmabuf);
+fail_to_get_dma_buf:
 	return err;
 }
 
@@ -198,12 +205,16 @@ static void nvdla_free_buffers(struct kref *kref)
 static void nvdla_buffer_unmap(struct nvdla_buffers *nvdla_buffers,
 				struct nvdla_vm_buffer *vm)
 {
-	nvhost_dbg_fn("");
+	pr_debug("%s\n", __func__);
 
 	if ((vm->user_map_count != 0) || (vm->submit_map_count != 0))
 		return;
 
-	dma_buf_unmap_attachment(vm->attach, vm->sgt, DMA_BIDIRECTIONAL);
+	if (vm->access_flags == NVDLA_MEM_ACCESS_READ)
+		dma_buf_unmap_attachment(vm->attach, vm->sgt, DMA_TO_DEVICE);
+	else
+		dma_buf_unmap_attachment(vm->attach, vm->sgt, DMA_BIDIRECTIONAL);
+
 	dma_buf_detach(vm->dmabuf, vm->attach);
 	dma_buf_put(vm->dmabuf);
 
@@ -249,7 +260,7 @@ void nvdla_buffer_set_platform_device(struct nvdla_buffers *nvdla_buffers,
 }
 
 int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,
-			     struct dma_buf **dmabufs, u32 count,
+			     u32 *handles, u32 count,
 			     dma_addr_t *paddr, size_t *psize,
 			     enum nvdla_buffers_heap *heap)
 {
@@ -261,7 +272,7 @@ int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,
 	mutex_lock(&nvdla_buffers->mutex);
 
 	for (i = 0; i < count; i++) {
-		vm = nvdla_find_map_buffer(nvdla_buffers, dmabufs[i]);
+		vm = nvdla_find_map_buffer(nvdla_buffers, handles[i]);
 		if (vm == NULL)
 			goto submit_err;
 
@@ -273,6 +284,7 @@ int nvdla_buffer_submit_pin(struct nvdla_buffers *nvdla_buffers,
 		if (heap != NULL)
 			heap[i] = vm->heap;
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 
 	mutex_unlock(&nvdla_buffers->mutex);
 	return 0;
@@ -282,13 +294,13 @@ submit_err:
 
 	count = i;
 
-	nvdla_buffer_submit_unpin(nvdla_buffers, dmabufs, count);
+	nvdla_buffer_submit_unpin(nvdla_buffers, handles, count);
 
 	return -EINVAL;
 }
 
 int nvdla_buffer_pin(struct nvdla_buffers *nvdla_buffers,
-			struct dma_buf **dmabufs,
+			struct nvdla_mem_share_handle *descs,
 			u32 count)
 {
 	struct nvdla_vm_buffer *vm;
@@ -298,7 +310,7 @@ int nvdla_buffer_pin(struct nvdla_buffers *nvdla_buffers,
 	mutex_lock(&nvdla_buffers->mutex);
 
 	for (i = 0; i < count; i++) {
-		vm = nvdla_find_map_buffer(nvdla_buffers, dmabufs[i]);
+		vm = nvdla_find_map_buffer(nvdla_buffers, descs[i].share_id);
 		if (vm) {
 			vm->user_map_count++;
 			continue;
@@ -306,16 +318,17 @@ int nvdla_buffer_pin(struct nvdla_buffers *nvdla_buffers,
 
 		vm = kzalloc(sizeof(struct nvdla_vm_buffer), GFP_KERNEL);
 		if (!vm) {
-			nvhost_err(NULL, "could not allocate vm_buffer");
+			pr_err("%s: could not allocate vm_buffer\n", __func__);
 			goto unpin;
 		}
 
-		err = nvdla_buffer_map(nvdla_buffers->pdev, dmabufs[i], vm);
+		err = nvdla_buffer_map(nvdla_buffers->pdev, &descs[i], vm);
 		if (err)
 			goto free_vm;
 
 		nvdla_buffer_insert_map_buffer(nvdla_buffers, vm);
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 
 	mutex_unlock(&nvdla_buffers->mutex);
 	return err;
@@ -327,13 +340,13 @@ unpin:
 
 	/* free pinned buffers */
 	count = i;
-	nvdla_buffer_unpin(nvdla_buffers, dmabufs, count);
+	nvdla_buffer_unpin(nvdla_buffers, descs, count);
 
 	return err;
 }
 
 void nvdla_buffer_submit_unpin(struct nvdla_buffers *nvdla_buffers,
-				struct dma_buf **dmabufs, u32 count)
+				u32 *handles, u32 count)
 {
 	struct nvdla_vm_buffer *vm;
 	int i = 0;
@@ -342,7 +355,7 @@ void nvdla_buffer_submit_unpin(struct nvdla_buffers *nvdla_buffers,
 
 	for (i = 0; i < count; i++) {
 
-		vm = nvdla_find_map_buffer(nvdla_buffers, dmabufs[i]);
+		vm = nvdla_find_map_buffer(nvdla_buffers, handles[i]);
 		if (vm == NULL)
 			continue;
 
@@ -357,7 +370,7 @@ void nvdla_buffer_submit_unpin(struct nvdla_buffers *nvdla_buffers,
 }
 
 void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
-			 struct dma_buf **dmabufs, u32 count)
+			 struct nvdla_mem_share_handle *descs, u32 count)
 {
 	int i = 0;
 
@@ -366,7 +379,7 @@ void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
 	for (i = 0; i < count; i++) {
 		struct nvdla_vm_buffer *vm = NULL;
 
-		vm = nvdla_find_map_buffer(nvdla_buffers, dmabufs[i]);
+		vm = nvdla_find_map_buffer(nvdla_buffers, descs[i].share_id);
 		if (vm == NULL)
 			continue;
 
@@ -374,6 +387,7 @@ void nvdla_buffer_unpin(struct nvdla_buffers *nvdla_buffers,
 			vm->user_map_count = 0;
 		nvdla_buffer_unmap(nvdla_buffers, vm);
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 
 	mutex_unlock(&nvdla_buffers->mutex);
 }

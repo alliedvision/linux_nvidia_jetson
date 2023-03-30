@@ -1,0 +1,66 @@
+From d97c74db8ace5c9f5fbe5586600c3b655228a023 Mon Sep 17 00:00:00 2001
+From: "A. Cody Schuffelen" <schuffelen@google.com>
+Date: Tue, 11 Feb 2020 18:01:10 -0800
+Subject: [PATCH 660/830] ANDROID: Add TPM support and the vTPM proxy to
+ Cuttlefish.
+X-NVConfidentiality: public
+
+This module allows presenting the kernel TPM interface while proxying
+the TPM commands into a file descriptor. The module was originally
+implemented to support running a TPM simulator on the same host system
+and exposing a kernel TPM interface to a Linux container, but it is also
+a convenient incremental step while we figure out our long-term strategy
+with crosvm, which does not have TPM support following the same
+standards as qemu.
+
+CONFIG_TCG_TPM, the base config for the various TPM drivers, required
+CONFIG_SECURITYFS. CONFIG_SECURITYFS exists only as a boolean and not a
+tristate, so we can't install it as a module.
+
+Bug: 148102533
+Test: Build and run locally with cuttlefish, check for /dev/vtpmx
+Change-Id: I568a50c2ecb7899aae70e7a20efaedc84443511d
+Signed-off-by: A. Cody Schuffelen <schuffelen@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ cuttlefish.fragment              | 2 ++
+ 3 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c16d4325acc9..cb0347b36867 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -450,6 +450,7 @@ CONFIG_NLS_MAC_ROMANIAN=y
+ CONFIG_NLS_MAC_TURKISH=y
+ CONFIG_NLS_UTF8=y
+ CONFIG_SECURITY=y
++CONFIG_SECURITYFS=y
+ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
+ CONFIG_FORTIFY_SOURCE=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index d36393c96c72..14b5c7a5454b 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -392,6 +392,7 @@ CONFIG_NLS_MAC_ROMANIAN=y
+ CONFIG_NLS_MAC_TURKISH=y
+ CONFIG_NLS_UTF8=y
+ CONFIG_SECURITY=y
++CONFIG_SECURITYFS=y
+ CONFIG_SECURITY_NETWORK=y
+ CONFIG_HARDENED_USERCOPY=y
+ CONFIG_FORTIFY_SOURCE=y
+diff --git a/cuttlefish.fragment b/cuttlefish.fragment
+index 456573aad434..c931d7791ab6 100644
+--- a/cuttlefish.fragment
++++ b/cuttlefish.fragment
+@@ -18,3 +18,5 @@ CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+ CONFIG_INCREMENTAL_FS=m
+ CONFIG_TEST_STACKINIT=m
+ CONFIG_TEST_MEMINIT=m
++CONFIG_TCG_TPM=m
++CONFIG_TCG_VTPM_PROXY=m
+-- 
+2.17.1
+

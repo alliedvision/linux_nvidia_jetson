@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,9 @@
 #define _LINUX_TEGRA_RTCPU_COVERAGE_H_
 
 #include <linux/types.h>
+
+struct device;
+struct tegra_rtcpu_coverage;
 
 struct tegra_rtcpu_coverage *tegra_rtcpu_coverage_create(struct device *dev);
 int tegra_rtcpu_coverage_boot_sync(struct tegra_rtcpu_coverage *coverage);

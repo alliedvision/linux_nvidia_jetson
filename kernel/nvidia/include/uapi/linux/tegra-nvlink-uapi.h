@@ -491,6 +491,18 @@ struct tegra_nvlink_set_topology_info {
 	__u32 remote_link_id;
 };
 
+/* Enum to represent link speed */
+enum tegra_nvlink_speed {
+        TEGRA_NVLINK_SPEED_16,
+        TEGRA_NVLINK_SPEED_20
+};
+
+/* TEGRA_CTRL_CMD_NVLINK_SET_SPEED */
+struct tegra_nvlink_set_speed {
+	__u32 link_mask;
+	enum tegra_nvlink_speed speed;
+};
+
 /* Enum to represent IOCTLs inside the Tegra NVLINK driver */
 enum tnvlink_ioctl_num {
 	TNVLINK_IOCTL_GET_NVLINK_CAPS,
@@ -520,6 +532,8 @@ enum tnvlink_ioctl_num {
 	TNVLINK_IOCTL_SET_TOPOLOGY_INFO,
 	TNVLINK_IOCTL_INTERFACE_DISABLE,
 	TNVLINK_IOCTL_FINALIZE_SHUTDOWN,
+	TNVLINK_IOCTL_SET_SPEED,
+	TNVLINK_IOCTL_INITIALIZE_TEGRA_ENDPT,
 	TNVLINK_IOCTL_NUM_IOCTLS
 };
 
@@ -630,5 +644,12 @@ enum tnvlink_ioctl_num {
 #define TEGRA_CTRL_CMD_NVLINK_FINALIZE_SHUTDOWN				\
 			_IO(TEGRA_NVLINK_IOC_MAGIC,			\
 				TNVLINK_IOCTL_FINALIZE_SHUTDOWN)
+#define TEGRA_CTRL_CMD_NVLINK_SET_SPEED					\
+			_IOW(TEGRA_NVLINK_IOC_MAGIC,			\
+				TNVLINK_IOCTL_SET_SPEED,		\
+				struct tegra_nvlink_set_speed)
+#define TEGRA_CTRL_CMD_NVLINK_INITIALIZE_TEGRA_ENDPT			\
+			_IO(TEGRA_NVLINK_IOC_MAGIC,			\
+				TNVLINK_IOCTL_INITIALIZE_TEGRA_ENDPT)
 
 #endif /* TEGRA_NVLINK_UAPI_H */

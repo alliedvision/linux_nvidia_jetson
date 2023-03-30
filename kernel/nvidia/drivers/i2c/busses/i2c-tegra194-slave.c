@@ -1,7 +1,7 @@
 /*
  * NVIDIA tegra i2c slave driver
  *
- * Copyright (C) 2017-2018 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2017-2022 NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Shardar Shariff Md <smohammed@nvidia.com>
  *
@@ -318,27 +318,50 @@ static void tegra_i2cslv_empty_rxfifo(struct tegra_i2cslv_dev *i2cslv_dev)
 	struct i2c_slave_data data;
 	u32 rx_fifo_avail;
 	u32 reg, cnt;
+	u32 byte_cnt, buf_remaining, words_to_transfer, curr_n_bytes;
 	u32 *buf32 = (u32 *)i2cslv_dev->rx_buffer;
+	u8 *buf = i2cslv_dev->rx_buffer;
 
 	if (i2cslv_dev->rx_in_progress) {
+		reg = tegra_i2cslv_readl(i2cslv_dev, I2C_SLV_PACKET_STATUS);
+		byte_cnt = (reg & I2C_SLV_PACKET_TRANSFER_BYTENUM_MASK) >>
+			I2C_SLV_PACKET_TRANSFER_BYTENUM_SHIFT;
+
 		reg = tegra_i2cslv_readl(i2cslv_dev, I2C_SLV_FIFO_STATUS);
 		rx_fifo_avail = (reg & I2C_SLV_RX_FIFO_FULL_CNT_MASK)
 			>> I2C_SLV_FIFO_STATUS_RX_SHIFT;
 
 		if (rx_fifo_avail) {
+			buf_remaining = byte_cnt - i2cslv_dev->rx_count;
+			curr_n_bytes = buf_remaining;
+			words_to_transfer = (buf_remaining / BYTES_PER_FIFO_WORD);
 			if (rx_fifo_avail > I2C_RX_FIFO_THRESHOLD)
 				rx_fifo_avail = I2C_RX_FIFO_THRESHOLD;
+			if (words_to_transfer > rx_fifo_avail)
+				words_to_transfer = rx_fifo_avail;
 
-			for (cnt = 0; cnt < rx_fifo_avail; cnt++) {
+			for (cnt = 0; cnt < words_to_transfer; cnt++) {
 				buf32[cnt] = tegra_i2cslv_readl(i2cslv_dev,
 						I2C_SLV_RX_FIFO);
 			}
+			buf += words_to_transfer * BYTES_PER_FIFO_WORD;
+			buf_remaining -= (words_to_transfer * BYTES_PER_FIFO_WORD);
+			rx_fifo_avail -= words_to_transfer;
 
+			if (rx_fifo_avail > 0 && buf_remaining > 0) {
+				WARN_ON(buf_remaining > 3);
+				reg = tegra_i2cslv_readl(i2cslv_dev, I2C_SLV_RX_FIFO);
+				reg = cpu_to_le32(reg);
+				memcpy(buf, &reg, buf_remaining);
+				buf_remaining = 0;
+				rx_fifo_avail--;
+			}
 			data.buf = i2cslv_dev->rx_buffer;
-			data.size = rx_fifo_avail * BYTES_PER_FIFO_WORD;
-			i2c_slave_event(i2cslv_dev->slave,
-					I2C_SLAVE_WRITE_BUFFER_RECEIVED,
-					&data);
+			data.size = curr_n_bytes - buf_remaining;
+			if (data.size)
+				i2c_slave_event(i2cslv_dev->slave,
+						I2C_SLAVE_WRITE_BUFFER_RECEIVED,
+						&data);
 			i2cslv_dev->rx_count += data.size;
 		}
 	}
@@ -358,21 +381,19 @@ void tegra_i2cslv_handle_tx(struct tegra_i2cslv_dev *i2cslv_dev,
 	i2cslv_dev->tx_buffer = (u32 *)data.buf;
 	i2cslv_dev->tx_in_progress = true;
 
-	/* Data size is greater than FIFO depth */
-	if (data.size > I2C_FIFO_DEPTH) {
-		tegra_i2cslv_unmask_irq(i2cslv_dev,
-				I2C_INTERRUPT_SLV_TFIFO_DATA_REQ_EN);
-	} else {
+	/* Data size is less than FIFO depth */
+	if (data.size <= I2C_FIFO_DEPTH) {
 		/* Rounds down to not include partial word at the end of buf */
 		words_to_transfer = ALIGN(data.size, BYTES_PER_FIFO_WORD);
-
 		/* Fill the data to TFIFO */
 		for (cnt = 0; cnt < words_to_transfer; cnt++)
 			tegra_i2cslv_writel(i2cslv_dev,
-					    i2cslv_dev->tx_buffer[cnt],
-					    I2C_SLV_TX_FIFO);
+					i2cslv_dev->tx_buffer[cnt],
+					I2C_SLV_TX_FIFO);
 		i2cslv_dev->tx_buffer += words_to_transfer;
 	}
+	tegra_i2cslv_unmask_irq(i2cslv_dev,
+			I2C_INTERRUPT_SLV_TFIFO_DATA_REQ_EN);
 
 	/*  Clear the TX Buffer request interrupt */
 	tegra_i2cslv_writel(i2cslv_dev, I2C_INTERRUPT_SLV_TX_BUFFER_REQ,
@@ -744,13 +765,8 @@ static int tegra_i2cslv_remove(struct platform_device *pdev)
 static int tegra_i2cslv_suspend(struct device *dev)
 {
 	struct tegra_i2cslv_dev *i2cslv_dev = dev_get_drvdata(dev);
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&i2cslv_dev->xfer_lock, flags);
 
 	tegra_i2cslv_deinit(i2cslv_dev);
-
-	raw_spin_unlock_irqrestore(&i2cslv_dev->xfer_lock, flags);
 
 	return 0;
 }
@@ -758,10 +774,7 @@ static int tegra_i2cslv_suspend(struct device *dev)
 static int tegra_i2cslv_resume(struct device *dev)
 {
 	struct tegra_i2cslv_dev *i2cslv_dev = dev_get_drvdata(dev);
-	unsigned long flags;
 	int ret;
-
-	raw_spin_lock_irqsave(&i2cslv_dev->xfer_lock, flags);
 
 	ret = clk_enable(i2cslv_dev->div_clk);
 	if (ret < 0) {
@@ -773,13 +786,12 @@ static int tegra_i2cslv_resume(struct device *dev)
 		goto exit;
 
 exit:
-	raw_spin_unlock_irqrestore(&i2cslv_dev->xfer_lock, flags);
 	return ret;
 }
 #endif
 
 static const struct dev_pm_ops tegra_i2cslv_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(tegra_i2cslv_suspend, tegra_i2cslv_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(tegra_i2cslv_suspend, tegra_i2cslv_resume)
 };
 
 static const struct of_device_id tegra_i2cslv_of_match[] = {

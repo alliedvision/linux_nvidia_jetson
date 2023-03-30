@@ -1,0 +1,63 @@
+From 8161dd391d0d6027faa7afb474bca2d7e2909a9f Mon Sep 17 00:00:00 2001
+From: Dmitry Shmidt <dimitrysh@google.com>
+Date: Fri, 21 Aug 2020 10:32:38 -0700
+Subject: [PATCH 765/830] ANDROID: GKI: Enable IR RC support
+X-NVConfidentiality: public
+
+CONFIG_RC_CORE=y
+CONFIG_RC_MAP is not set
+CONFIG_LIRC=y
+CONFIG_BPF_LIRC_MODE2=y
+CONFIG_RC_DECODERS=y
+CONFIG_RC_DEVICES=y
+CONFIG_MEDIA_CEC_RC=y
+CONFIG_VIDEO_IR_I2C is not set
+
+Bug: 165919198
+
+Change-Id: I332173a146306a45595def5fd0b438848f8d3cec
+Signed-off-by: Dmitry Shmidt <dimitrysh@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 7 +++++++
+ arch/x86/configs/gki_defconfig   | 7 +++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a3a2a51c05d8..c8342b0ccb77 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -333,6 +333,13 @@ CONFIG_MFD_ACT8945A=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_RC_CORE=y
++# CONFIG_RC_MAP is not set
++CONFIG_LIRC=y
++CONFIG_BPF_LIRC_MODE2=y
++CONFIG_RC_DECODERS=y
++CONFIG_RC_DEVICES=y
++CONFIG_MEDIA_CEC_RC=y
+ # CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
+ # CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
+ # CONFIG_MEDIA_RADIO_SUPPORT is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 780d79ea74a6..a597e8a44276 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -289,6 +289,13 @@ CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_RC_CORE=y
++# CONFIG_RC_MAP is not set
++CONFIG_LIRC=y
++CONFIG_BPF_LIRC_MODE2=y
++CONFIG_RC_DECODERS=y
++CONFIG_RC_DEVICES=y
++CONFIG_MEDIA_CEC_RC=y
+ # CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
+ # CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
+ # CONFIG_MEDIA_RADIO_SUPPORT is not set
+-- 
+2.17.1
+

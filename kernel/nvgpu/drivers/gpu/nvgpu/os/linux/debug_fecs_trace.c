@@ -16,7 +16,8 @@
 
 #include <linux/debugfs.h>
 
-#include <nvgpu/fecs_trace.h>
+#include <nvgpu/gr/fecs_trace.h>
+#include <nvgpu/nvgpu_init.h>
 
 #include "os_linux.h"
 
@@ -52,26 +53,27 @@ static int gk20a_fecs_trace_debugfs_ring_seq_show(
 {
 	loff_t *pos = (loff_t *) v;
 	struct gk20a *g = *(struct gk20a **)s->private;
-	struct gk20a_fecs_trace_record *r =
-		gk20a_fecs_trace_get_record(g, *pos);
+	struct nvgpu_fecs_trace_record *r =
+		nvgpu_gr_fecs_trace_get_record(g, *pos);
 	int i;
-	const u32 invalid_tag = gk20a_fecs_trace_record_ts_tag_invalid_ts_v();
+	const u32 invalid_tag =
+		g->ops.gr.ctxsw_prog.hw_get_ts_tag_invalid_timestamp();
 	u32 tag;
 	u64 timestamp;
 
 	seq_printf(s, "record #%lld (%p)\n", *pos, r);
 	seq_printf(s, "\tmagic_lo=%08x\n", r->magic_lo);
 	seq_printf(s, "\tmagic_hi=%08x\n", r->magic_hi);
-	if (gk20a_fecs_trace_is_valid_record(r)) {
+	if (nvgpu_gr_fecs_trace_is_valid_record(g, r)) {
 		seq_printf(s, "\tcontext_ptr=%08x\n", r->context_ptr);
 		seq_printf(s, "\tcontext_id=%08x\n", r->context_id);
 		seq_printf(s, "\tnew_context_ptr=%08x\n", r->new_context_ptr);
 		seq_printf(s, "\tnew_context_id=%08x\n", r->new_context_id);
-		for (i = 0; i < gk20a_fecs_trace_num_ts(); i++) {
-			tag = gk20a_fecs_trace_record_ts_tag_v(r->ts[i]);
+		for (i = 0; i < nvgpu_gr_fecs_trace_num_ts(g); i++) {
+			tag = g->ops.gr.ctxsw_prog.hw_get_ts_tag(r->ts[i]);
 			if (tag == invalid_tag)
 				continue;
-			timestamp = gk20a_fecs_trace_record_ts_timestamp_v(r->ts[i]);
+			timestamp = g->ops.gr.ctxsw_prog.hw_record_ts_timestamp(r->ts[i]);
 			timestamp <<= GK20A_FECS_TRACE_PTIMER_SHIFT;
 			seq_printf(s, "\ttag=%02x timestamp=%012llx\n", tag, timestamp);
 		}
@@ -122,7 +124,15 @@ static const struct file_operations gk20a_fecs_trace_debugfs_ring_fops = {
 
 static int gk20a_fecs_trace_debugfs_read(void *arg, u64 *val)
 {
-	*val = gk20a_fecs_trace_get_read_index((struct gk20a *)arg);
+	struct gk20a *g = (struct gk20a *)arg;
+	int err = gk20a_busy(g);
+	if (err != 0) {
+		return err;
+	}
+
+	*val = g->ops.gr.fecs_trace.get_read_index(g);
+
+	gk20a_idle(g);
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(gk20a_fecs_trace_debugfs_read_fops,
@@ -130,7 +140,15 @@ DEFINE_SIMPLE_ATTRIBUTE(gk20a_fecs_trace_debugfs_read_fops,
 
 static int gk20a_fecs_trace_debugfs_write(void *arg, u64 *val)
 {
-	*val = gk20a_fecs_trace_get_write_index((struct gk20a *)arg);
+	struct gk20a *g = (struct gk20a *)arg;
+	int err = gk20a_busy(g);
+	if (err != 0) {
+		return err;
+	}
+
+	*val = g->ops.gr.fecs_trace.get_write_index(g);
+
+	gk20a_idle(g);
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(gk20a_fecs_trace_debugfs_write_fops,

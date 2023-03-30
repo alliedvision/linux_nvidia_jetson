@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  *
  */
+
+#include "tegra-ivc-rpc-test.h"
 
 #include <soc/tegra/tegra-ivc-rpc.h>
 

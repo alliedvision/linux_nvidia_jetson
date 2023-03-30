@@ -221,7 +221,7 @@ wifi_scan_request(wl_cfg80211_scan_funcptr_t scan_func,
 	struct cfg80211_scan_request *request);
 
 int
-wifi_scan_request_done(struct cfg80211_scan_request *request, bool aborted);
+wifi_scan_request_done(struct cfg80211_scan_request *request);
 
 #define TEGRA_SCAN_PREPARE(params, request)\
 	{\
@@ -418,7 +418,7 @@ wifi_scan_request_done(struct cfg80211_scan_request *request, bool aborted);
 
 #define TEGRA_SCAN_DONE(request, aborted)\
 	{\
-		int err = wifi_scan_request_done(request, aborted);\
+		int err = wifi_scan_request_done(request);\
 		if (err >= 0) {\
 			WIFI_SCAN_DEBUG("%s: TEGRA_SCAN_DONE:"\
 				" scan work #%d"\

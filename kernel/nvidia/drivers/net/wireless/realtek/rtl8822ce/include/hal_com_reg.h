@@ -173,6 +173,8 @@
 #define REG_TXDMA_OFFSET_CHK			0x020C
 #define REG_TXDMA_STATUS				0x0210
 #define REG_RQPN_NPQ					0x0214
+#define REG_TQPNT1						0x0218
+#define REG_TQPNT2						0x021C
 #define REG_AUTO_LLT					0x0224
 
 
@@ -680,6 +682,7 @@ Default: 00b.
 #define USB_INTR_CONTENT_HISRE_OFFSET		52
 #define USB_INTR_CONTENT_LENGTH				56
 
+
 /* WOL bit information */
 #define HAL92C_WOL_PTK_UPDATE_EVENT		BIT(0)
 #define HAL92C_WOL_GTK_UPDATE_EVENT		BIT(1)
@@ -722,7 +725,6 @@ Default: 00b.
 
 #define RRSR_CCK_RATES (RRSR_11M | RRSR_5_5M | RRSR_2M | RRSR_1M)
 #define RRSR_OFDM_RATES (RRSR_54M | RRSR_48M | RRSR_36M | RRSR_24M | RRSR_18M | RRSR_12M | RRSR_9M | RRSR_6M)
-
 
 /* ----------------------------------------------------------------------------
  * Rate Definition

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019 NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2021 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,12 +24,19 @@
 #include <uapi/misc/ote_protocol.h>
 
 /*
- * shared buffer is 4 pages: 1st are requests, 2nd are params and the
- * remaining 2 are for params physical pages list
+ * shared buffer is 6 pages: 1st are requests, 2nd are params and the
+ * remaining 4 are for params physical pages list
  */
-#define TE_CMD_DESC_MAX	(PAGE_SIZE / sizeof(struct te_request))
-#define TE_PARAM_MAX	(PAGE_SIZE / sizeof(struct te_oper_param))
-#define TE_PLIST_MAX	((2 * PAGE_SIZE) / sizeof(uint64_t))
+#define TE_REQUEST_PAGE_COUNT		1
+#define TE_PARAM_PAGE_COUNT		1
+#define TE_PHYS_PAGE_LIST_PAGE_COUNT	4
+#define TE_TOTAL_PAGE_COUNT		(TE_REQUEST_PAGE_COUNT + \
+					TE_PARAM_PAGE_COUNT + \
+					TE_PHYS_PAGE_LIST_PAGE_COUNT)
+
+#define TE_CMD_DESC_MAX	((PAGE_SIZE * TE_REQUEST_PAGE_COUNT) / sizeof(struct te_request))
+#define TE_PARAM_MAX	((PAGE_SIZE * TE_PARAM_PAGE_COUNT) / sizeof(struct te_oper_param))
+#define TE_PLIST_MAX	((PAGE_SIZE * TE_PHYS_PAGE_LIST_PAGE_COUNT) / sizeof(uint64_t))
 
 #define MAX_BUFFER_MAP_SIZE	(TE_PLIST_MAX * PAGE_SIZE)
 #define MAX_EXT_SMC_ARGS	12

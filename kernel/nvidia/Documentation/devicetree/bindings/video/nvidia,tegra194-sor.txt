@@ -1,0 +1,82 @@
+NVIDIA Tegra Serial Output Resource
+
+The Tegra Serial Output Resource (SOR) provides an engine for programming
+protocol so that display data can be output to connected monitor.
+
+This document describes the device tree bindings for the SOR hardware itself,
+as well as for subnodes corresponding to this engines.
+
+Required properties:
+- status: Should be "disabled" in SoC and "okay" in Board DTSI.
+- compatible: Must be "nvidia,tegra194-sor".
+- reg: A list of physical base address and length of SOR's registers.
+- interrupts: The interrupt IRQ info for the SOR hardware.
+- nvidia,sor-ctrlnum: SOR number mapping to display hardware physical number.
+- nvidia,dpaux: SOR mapping to underlying DPAUX controller.
+  SOR instance should match DPAUX instance number.
+- nvidia,xbar-ctrl: The 'xbar-ctrl' property controls the mapping of the lanes
+  between the SOR and the pad macro.
+- clock-names: Must include the following entries:
+  "sor0_ref", "sor_safe", "sor0_pad_clkout", "sor0", "pll_dp", "pllp_out".
+  "maud", "hda", "hda2codec_2x", "hda2hdmi"
+- clocks: Must contain an entry for each entry in clock-names.
+  See ../clocks/clock-bindings.txt for details
+- reset-names: Must include the following entries:
+  "sor", "hda", "hda2hdmicodec"
+- resets: Must contain an entry for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- hdmi-display: Information if this SOR can support hdmi display.
+- dp-display: Information if this SOR can support dp display.
+- nvidia,sor-hdcp-not-supported: With enabled, do not initialize HDCP driver.
+
+Example:
+=======
+
+SoC DTSI:
+--------
+
+sor0: sor {
+	status: "disabled";
+	compatible = "nvidia,tegra194-sor";
+	reg = <0x0 0x15B00000 0x0 0x40000>;
+	interrupts = <0 157 0x4>;
+
+	nvidia,sor-ctrlnum = <0>;
+	nvidia,dpaux = <&dpaux0>;
+	nvidia,xbar-ctrl = <0x2 0x1 0x0 0x3 0x4>;
+
+	clocks = <&bpmp_clks TEGRA194_CLK_SOR0_REF>,
+		 <&bpmp_clks TEGRA194_CLK_SOR_SAFE>,
+		 <&bpmp_clks TEGRA194_CLK_SOR0_PAD_CLKOUT>,
+		 <&bpmp_clks TEGRA194_CLK_SOR0_OUT>,
+		 <&bpmp_clks TEGRA194_CLK_PLLDP>,
+		 <&bpmp_clks TEGRA194_CLK_PLLP_OUT0>,
+		 <&bpmp_clks TEGRA194_CLK_MAUD>,
+		 <&bpmp_clks TEGRA194_CLK_HDA>,
+		 <&bpmp_clks TEGRA194_CLK_HDA2CODEC_2X>,
+		 <&bpmp_clks TEGRA194_CLK_HDA2HDMICODEC>;
+	clock-names = "sor0_ref", "sor_safe", "sor0_pad_clkout",
+		      "sor0", "pll_dp", "pllp_out0",
+		      "maud", "hda", "hda2codec_2x",
+		      "hda2hdmi";
+	resets = <&bpmp_resets TEGRA194_RESET_SOR0>,
+		 <&bpmp_resets TEGRA194_RESET_HDA>,
+		 <&bpmp_resets TEGRA194_RESET_HDA2HDMICODEC>;
+	reset-names = "sor0","hda_rst","hda2hdmi_rst";
+
+	sor0_hdmi_display: hdmi-display {
+		compatible = "hdmi,display";
+		status = "disabled";
+	};
+	sor0_dp_display: dp-display {
+		compatible = "dp, display";
+		status = "disabled";
+	};
+}; //sor
+
+Board DTSI:
+----------
+
+sor0: sor0 {
+	status: "okay";
+};

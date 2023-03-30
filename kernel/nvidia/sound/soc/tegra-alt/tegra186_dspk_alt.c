@@ -1,7 +1,7 @@
 /*
  * tegra186_dspk_alt.c - Tegra186 DSPK driver
  *
- * Copyright (c) 2015-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,7 +28,12 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <linux/of_device.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/pinctrl/pinconf-tegra.h>
 
 #include "tegra210_xbar_alt.h"
@@ -94,7 +99,7 @@ static int tegra186_dspk_runtime_suspend(struct device *dev)
 	regcache_cache_only(dspk->regmap, true);
 	regcache_mark_dirty(dspk->regmap);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga()))
+	if (!(tegra_platform_is_fpga()))
 		clk_disable_unprepare(dspk->clk_dspk);
 
 	return 0;
@@ -105,7 +110,7 @@ static int tegra186_dspk_runtime_resume(struct device *dev)
 	struct tegra186_dspk *dspk = dev_get_drvdata(dev);
 	int ret;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		ret = clk_prepare_enable(dspk->clk_dspk);
 		if (ret) {
 			dev_err(dev, "clk_enable failed: %d\n", ret);
@@ -191,7 +196,7 @@ static int tegra186_dspk_hw_params(struct snd_pcm_substream *substream,
 	srate = params_rate(params);
 	dspk_clk = (1 << (5+osr)) * srate * interface_clk_ratio;
 
-	if ((tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if ((tegra_platform_is_fpga())) {
 		program_dspk_clk(dspk_clk);
 	} else {
 		ret = clk_set_rate(dspk->clk_dspk, dspk_clk);
@@ -229,6 +234,17 @@ static struct snd_soc_dai_ops tegra186_dspk_dai_ops = {
 
 static struct snd_soc_dai_driver tegra186_dspk_dais[] = {
 	{
+	    .name = "CIF",
+	    .playback = {
+		.stream_name = "CIF Receive",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
+	    },
+	},
+	{
 	    .name = "DAP",
 	    .capture = {
 		.stream_name = "DAP Transmit",
@@ -241,10 +257,14 @@ static struct snd_soc_dai_driver tegra186_dspk_dais[] = {
 	    .ops = &tegra186_dspk_dai_ops,
 	    .symmetric_rates = 1,
 	},
+	/* The second DAI is used when the output of the DSPK is connected
+	 * to two mono codecs. When the output of the DSPK is connected to
+	 * a single stereo codec, then only the first DAI should be used.
+	 */
 	{
-	    .name = "CIF",
+	    .name = "CIF2",
 	    .playback = {
-		.stream_name = "CIF Receive",
+		.stream_name = "CIF2 Receive",
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000_48000,
@@ -252,10 +272,6 @@ static struct snd_soc_dai_driver tegra186_dspk_dais[] = {
 			   SNDRV_PCM_FMTBIT_S32_LE,
 	    },
 	},
-	/* The second DAI is used when the output of the DSPK is connected
-	 * to two mono codecs. When the output of the DSPK is connected to
-	 * a single stereo codec, then only the first DAI should be used.
-	 */
 	{
 	    .name = "DAP2",
 	    .capture = {
@@ -269,21 +285,22 @@ static struct snd_soc_dai_driver tegra186_dspk_dais[] = {
 	    .symmetric_rates = 1,
 	},
 	{
-	    .name = "CIF2",
+	    .name = "DUMMY_SINK",
 	    .playback = {
-		.stream_name = "CIF2 Receive",
+		.stream_name = "Dummy Playback",
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE |
 			   SNDRV_PCM_FMTBIT_S32_LE,
 	    },
-	}
+	},
 };
 
 static const struct snd_soc_dapm_widget tegra186_dspk_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("DAP TX", NULL, 0, TEGRA186_DSPK_ENABLE, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("DAP2 TX", NULL, 0, 0, 0, 0),
+	SND_SOC_DAPM_SPK("Dummy Output", NULL),
 };
 
 static const struct snd_soc_dapm_route tegra186_dspk_routes[] = {
@@ -291,6 +308,7 @@ static const struct snd_soc_dapm_route tegra186_dspk_routes[] = {
 	{ "DAP Transmit", NULL, "DAP TX" },
 	{ "DAP2 TX", NULL, "CIF2 Receive" },
 	{ "DAP2 Transmit", NULL, "DAP2 TX" },
+	{ "Dummy Output",  NULL, "Dummy Playback" },
 };
 
 static const char * const tegra186_dspk_osr_text[] = {
@@ -430,7 +448,7 @@ static int tegra186_dspk_platform_probe(struct platform_device *pdev)
 	dspk->osr_val = TEGRA186_DSPK_OSR_64;
 	dev_set_drvdata(&pdev->dev, dspk);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		dspk->clk_dspk = devm_clk_get(&pdev->dev, "dspk");
 		if (IS_ERR(dspk->clk_dspk)) {
 			dev_err(&pdev->dev, "Can't retrieve dspk clock\n");
@@ -449,13 +467,6 @@ static int tegra186_dspk_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(dspk->regmap);
 	}
 	regcache_cache_only(dspk->regmap, true);
-
-	ret = of_property_read_u32(np, "nvidia,ahub-dspk-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-dspk-id\n");
-		return ret;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = snd_soc_register_codec(&pdev->dev, &tegra186_dspk_codec,

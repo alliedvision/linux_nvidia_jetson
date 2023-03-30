@@ -1,0 +1,80 @@
+From 458c5a557e6c3c580f796c499d7fde3d4f6a662a Mon Sep 17 00:00:00 2001
+From: Max Spector <mspector@google.com>
+Date: Tue, 5 May 2020 11:38:06 -0700
+Subject: [PATCH 696/830] ANDROID: Rename build.config.gki.arch_kasan
+X-NVConfidentiality: public
+
+Rename build.config.gki.arch_kasan -> build.config.gki_kasan.arch
+and build.config_kasan.gki -> build.config.gki_kasan
+
+Bug: 152792812
+Change-Id: I88beb1ec7342d480b717e42e50cd204c4ae43a24
+Signed-off-by: Max Spector <mspector@google.com>
+---
+ build.config.gki_kasan         | 23 +++++++++++++++++++++++
+ build.config.gki_kasan.aarch64 | 11 +++++++++++
+ build.config.gki_kasan.x86_64  |  4 ++++
+ 3 files changed, 38 insertions(+)
+ create mode 100644 build.config.gki_kasan
+ create mode 100644 build.config.gki_kasan.aarch64
+ create mode 100644 build.config.gki_kasan.x86_64
+
+diff --git a/build.config.gki_kasan b/build.config.gki_kasan
+new file mode 100644
+index 000000000000..e682b0d490bd
+--- /dev/null
++++ b/build.config.gki_kasan
+@@ -0,0 +1,23 @@
++DEFCONFIG=gki_defconfig
++POST_DEFCONFIG_CMDS="check_defconfig && update_kasan_config"
++KERNEL_DIR=common
++function update_kasan_config() {
++    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
++         -e CONFIG_KASAN \
++         -e CONFIG_KASAN_INLINE \
++         -e CONFIG_KASAN_PANIC_ON_WARN \
++         -e CONFIG_KCOV \
++         -e CONFIG_PANIC_ON_WARN_DEFAULT_ENABLE \
++         -d CONFIG_RANDOMIZE_BASE \
++         -d CONFIG_KASAN_OUTLINE \
++         --set-val CONFIG_FRAME_WARN 0 \
++         -d LTO \
++         -d LTO_CLANG \
++         -d CFI \
++         -d CFI_PERMISSIVE \
++         -d CFI_CLANG \
++         -d SHADOW_CALL_STACK
++    (cd ${OUT_DIR} && \
++     make ${CC_LD_ARG} O=${OUT_DIR} olddefconfig)
++}
++
+diff --git a/build.config.gki_kasan.aarch64 b/build.config.gki_kasan.aarch64
+new file mode 100644
+index 000000000000..9099658338a6
+--- /dev/null
++++ b/build.config.gki_kasan.aarch64
+@@ -0,0 +1,11 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.aarch64
++. ${ROOT_DIR}/common/build.config.gki_kasan
++
++ABI_DEFINITION=abi_gki_aarch64.xml
++KMI_WHITELIST=abi_gki_aarch64_whitelist
++ADDITIONAL_KMI_WHITELISTS="
++abi_gki_aarch64_cuttlefish_whitelist
++abi_gki_aarch64_qcom_whitelist
++"
++TRIM_NONLISTED_KMI=1
+diff --git a/build.config.gki_kasan.x86_64 b/build.config.gki_kasan.x86_64
+new file mode 100644
+index 000000000000..6a379eceeb31
+--- /dev/null
++++ b/build.config.gki_kasan.x86_64
+@@ -0,0 +1,4 @@
++. ${ROOT_DIR}/common/build.config.common
++. ${ROOT_DIR}/common/build.config.x86_64
++. ${ROOT_DIR}/common/build.config.gki_kasan
++
+-- 
+2.17.1
+

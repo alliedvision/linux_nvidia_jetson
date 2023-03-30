@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,115 +53,40 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_pri_ringmaster_gp10b_h_
-#define _hw_pri_ringmaster_gp10b_h_
+#ifndef NVGPU_HW_PRI_RINGMASTER_GP10B_H
+#define NVGPU_HW_PRI_RINGMASTER_GP10B_H
 
-static inline u32 pri_ringmaster_command_r(void)
-{
-	return 0x0012004cU;
-}
-static inline u32 pri_ringmaster_command_cmd_m(void)
-{
-	return 0x3fU << 0U;
-}
-static inline u32 pri_ringmaster_command_cmd_v(u32 r)
-{
-	return (r >> 0U) & 0x3fU;
-}
-static inline u32 pri_ringmaster_command_cmd_no_cmd_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 pri_ringmaster_command_cmd_start_ring_f(void)
-{
-	return 0x1U;
-}
-static inline u32 pri_ringmaster_command_cmd_ack_interrupt_f(void)
-{
-	return 0x2U;
-}
-static inline u32 pri_ringmaster_command_cmd_enumerate_stations_f(void)
-{
-	return 0x3U;
-}
-static inline u32 pri_ringmaster_command_cmd_enumerate_stations_bc_grp_all_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pri_ringmaster_command_data_r(void)
-{
-	return 0x00120048U;
-}
-static inline u32 pri_ringmaster_start_results_r(void)
-{
-	return 0x00120050U;
-}
-static inline u32 pri_ringmaster_start_results_connectivity_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 pri_ringmaster_start_results_connectivity_pass_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 pri_ringmaster_intr_status0_r(void)
-{
-	return 0x00120058U;
-}
-static inline u32 pri_ringmaster_intr_status0_ring_start_conn_fault_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 pri_ringmaster_intr_status0_disconnect_fault_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 pri_ringmaster_intr_status0_overflow_fault_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 pri_ringmaster_intr_status0_gbl_write_error_sys_v(u32 r)
-{
-	return (r >> 8U) & 0x1U;
-}
-static inline u32 pri_ringmaster_intr_status1_r(void)
-{
-	return 0x0012005cU;
-}
-static inline u32 pri_ringmaster_global_ctl_r(void)
-{
-	return 0x00120060U;
-}
-static inline u32 pri_ringmaster_global_ctl_ring_reset_asserted_f(void)
-{
-	return 0x1U;
-}
-static inline u32 pri_ringmaster_global_ctl_ring_reset_deasserted_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pri_ringmaster_enum_fbp_r(void)
-{
-	return 0x00120074U;
-}
-static inline u32 pri_ringmaster_enum_fbp_count_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 pri_ringmaster_enum_gpc_r(void)
-{
-	return 0x00120078U;
-}
-static inline u32 pri_ringmaster_enum_gpc_count_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 pri_ringmaster_enum_ltc_r(void)
-{
-	return 0x0012006cU;
-}
-static inline u32 pri_ringmaster_enum_ltc_count_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define pri_ringmaster_command_r()                                 (0x0012004cU)
+#define pri_ringmaster_command_cmd_m()                        (U32(0x3fU) << 0U)
+#define pri_ringmaster_command_cmd_v(r)                    (((r) >> 0U) & 0x3fU)
+#define pri_ringmaster_command_cmd_no_cmd_v()                      (0x00000000U)
+#define pri_ringmaster_command_cmd_start_ring_f()                         (0x1U)
+#define pri_ringmaster_command_cmd_ack_interrupt_f()                      (0x2U)
+#define pri_ringmaster_command_cmd_enumerate_stations_f()                 (0x3U)
+#define pri_ringmaster_command_cmd_enumerate_and_start_ring_f()           (0x4U)
+#define pri_ringmaster_command_cmd_enumerate_stations_bc_grp_all_f()      (0x0U)
+#define pri_ringmaster_command_data_r()                            (0x00120048U)
+#define pri_ringmaster_start_results_r()                           (0x00120050U)
+#define pri_ringmaster_start_results_connectivity_v(r)      (((r) >> 0U) & 0x1U)
+#define pri_ringmaster_start_results_connectivity_pass_v()         (0x00000001U)
+#define pri_ringmaster_intr_status0_r()                            (0x00120058U)
+#define pri_ringmaster_intr_status0_ring_start_conn_fault_v(r)\
+				(((r) >> 0U) & 0x1U)
+#define pri_ringmaster_intr_status0_disconnect_fault_v(r)   (((r) >> 1U) & 0x1U)
+#define pri_ringmaster_intr_status0_overflow_fault_v(r)     (((r) >> 2U) & 0x1U)
+#define pri_ringmaster_intr_status0_gbl_write_error_sys_v(r)\
+				(((r) >> 8U) & 0x1U)
+#define pri_ringmaster_intr_status1_r()                            (0x0012005cU)
+#define pri_ringmaster_global_ctl_r()                              (0x00120060U)
+#define pri_ringmaster_global_ctl_ring_reset_asserted_f()                 (0x1U)
+#define pri_ringmaster_global_ctl_ring_reset_deasserted_f()               (0x0U)
+#define pri_ringmaster_enum_fbp_r()                                (0x00120074U)
+#define pri_ringmaster_enum_fbp_count_v(r)                 (((r) >> 0U) & 0x1fU)
+#define pri_ringmaster_enum_gpc_r()                                (0x00120078U)
+#define pri_ringmaster_enum_gpc_count_v(r)                 (((r) >> 0U) & 0x1fU)
+#define pri_ringmaster_enum_ltc_r()                                (0x0012006cU)
+#define pri_ringmaster_enum_ltc_count_v(r)                 (((r) >> 0U) & 0x1fU)
 #endif

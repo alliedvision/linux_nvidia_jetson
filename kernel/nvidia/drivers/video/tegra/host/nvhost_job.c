@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Job
  *
- * Copyright (c) 2010-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,6 +24,7 @@
 #include <linux/vmalloc.h>
 #include <linux/sort.h>
 #include <linux/scatterlist.h>
+#include <linux/version.h>
 #include <trace/events/nvhost.h>
 #include "nvhost_channel.h"
 #include "nvhost_vm.h"
@@ -93,8 +94,7 @@ static void init_fields(struct nvhost_job *job,
 	job->sp = num_syncpts ? mem : NULL;
 
 	job->reloc_addr_phys = job->addr_phys;
-	if (job->addr_phys)
-		job->gather_addr_phys = &job->addr_phys[num_relocs];
+	job->gather_addr_phys = &job->addr_phys[num_relocs];
 }
 
 struct nvhost_job *nvhost_job_alloc(struct nvhost_channel *ch,
@@ -134,8 +134,13 @@ struct nvhost_job *nvhost_job_alloc(struct nvhost_channel *ch,
 
 	if (pdata->enable_timestamps) {
 		job->engine_timestamps.ptr =
-			dma_zalloc_coherent(&ch->vm->pdev->dev, sizeof(u64) * 2,
-			&job->engine_timestamps.dma, GFP_KERNEL);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+			dma_alloc_coherent
+#else
+			dma_zalloc_coherent
+#endif
+			(&ch->vm->pdev->dev, sizeof(u64) * 2, &job->engine_timestamps.dma,
+			 GFP_KERNEL);
 		if (!job->engine_timestamps.ptr) {
 			nvhost_err(&pdata->pdev->dev,
 				   "failed to allocate engine timestamps");
@@ -215,7 +220,7 @@ void nvhost_job_add_gather(struct nvhost_job *job,
 void nvhost_job_set_notifier(struct nvhost_job *job, u32 error)
 {
 	struct nvhost_notification *error_notifier;
-	struct timespec time_data;
+	struct timespec64 time_data;
 	void *va;
 	u64 nsec;
 
@@ -225,14 +230,14 @@ void nvhost_job_set_notifier(struct nvhost_job *job, u32 error)
 	/* map handle and clear error notifier struct */
 	va = dma_buf_vmap(job->error_notifier_ref);
 	if (!va) {
-		dma_buf_put(job->error_notifier_ref);
 		dev_err(&job->ch->dev->dev, "Cannot map notifier handle\n");
 		return;
 	}
 
 	error_notifier = va + job->error_notifier_offset;
 
-	getnstimeofday(&time_data);
+	ktime_get_real_ts64(&time_data);
+
 	nsec = ((u64)time_data.tv_sec) * 1000000000u +
 		(u64)time_data.tv_nsec;
 	error_notifier->time_stamp.nanoseconds[0] =
@@ -310,7 +315,7 @@ static int pin_array_ids(struct platform_device *dev,
 			goto clean_up_map;
 		}
 
-		if (!device_is_iommuable(&dev->dev) && sgt->nents > 1) {
+		if (!iommu_get_domain_for_dev(&dev->dev) && sgt->nents > 1U) {
 			dev_err(&dev->dev, "Cannot use non-contiguous buffer w/ IOMMU disabled\n");
 			err = -EINVAL;
 			goto clean_up_iommu;
@@ -352,18 +357,12 @@ static int pin_job_mem(struct nvhost_job *job)
 	int i;
 	int count = 0;
 	int result;
-	struct nvhost_device_data *pdata = platform_get_drvdata(job->ch->dev);
 
 	for (i = 0; i < job->num_relocs; i++) {
 		struct nvhost_reloc *reloc = &job->relocarray[i];
-		struct nvhost_reloc_type *type = &job->reloctypearray[i];
-		enum dma_data_direction direction = DMA_BIDIRECTIONAL;
-
-		if (pdata->get_dma_direction)
-			direction = pdata->get_dma_direction(type->reloc_type);
 
 		job->pin_ids[count].id = reloc->target;
-		job->pin_ids[count].direction = direction;
+		job->pin_ids[count].direction = DMA_BIDIRECTIONAL;
 		count++;
 	}
 
@@ -406,11 +405,26 @@ static int do_relocs(struct nvhost_job *job,
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(job->ch->dev);
 	int i = 0;
-	int last_page = -1;
-	size_t last_offset;
-	void *cmdbuf_page_addr = NULL;
+	void *cmdbuf_base_addr = NULL;
 	dma_addr_t phys_addr;
 	int err;
+
+	cmdbuf_base_addr = dma_buf_vmap(buf);
+	if (!cmdbuf_base_addr) {
+		nvhost_err(&pdata->pdev->dev, "could not vmap cmdbuf");
+		return -ENOMEM;
+	}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+	err = dma_buf_begin_cpu_access(buf, 0, buf->size, DMA_TO_DEVICE);
+#else
+	err = dma_buf_begin_cpu_access(buf, DMA_TO_DEVICE);
+#endif
+	if (err) {
+		nvhost_err(&pdata->pdev->dev, "could not begin_cpu_access: %d",
+		           err);
+		goto vunmap;
+	}
 
 	/* pin & patch the relocs for one gather */
 	while (i < job->num_relocs) {
@@ -429,35 +443,8 @@ static int do_relocs(struct nvhost_job *job,
 			nvhost_err(&pdata->pdev->dev,
 				   "invalid cmdbuf_offset=0x%x",
 				   reloc->cmdbuf_offset);
-			return -EINVAL;
-		}
-
-		if (last_page != reloc->cmdbuf_offset >> PAGE_SHIFT) {
-			if (cmdbuf_page_addr) {
-				dma_buf_kunmap(buf, last_page,
-						cmdbuf_page_addr);
-				dma_buf_end_cpu_access(buf, last_offset,
-					PAGE_SIZE, DMA_TO_DEVICE);
-			}
-
-			cmdbuf_page_addr = dma_buf_kmap(buf,
-					reloc->cmdbuf_offset >> PAGE_SHIFT);
-			last_page = reloc->cmdbuf_offset >> PAGE_SHIFT;
-			last_offset = reloc->cmdbuf_offset & PAGE_MASK;
-
-			if (unlikely(!cmdbuf_page_addr)) {
-				pr_err("Couldn't map cmdbuf for relocation\n");
-				return -ENOMEM;
-			}
-
-			err = dma_buf_begin_cpu_access(buf, last_offset,
-					PAGE_SIZE, DMA_TO_DEVICE);
-			if (err) {
-				nvhost_err(&pdata->pdev->dev,
-					"begin_cpu_access() failed for patching reloc %d",
-					err);
-				return err;
-			}
+			err = -EINVAL;
+			goto end_cpu_access;
 		}
 
 		if (pdata->get_reloc_phys_addr)
@@ -470,8 +457,8 @@ static int do_relocs(struct nvhost_job *job,
 		__raw_writel(
 			(phys_addr +
 				reloc->target_offset) >> shift->shift,
-			(void __iomem *)(cmdbuf_page_addr +
-				(reloc->cmdbuf_offset & ~PAGE_MASK)));
+			(void __iomem *)(cmdbuf_base_addr +
+				reloc->cmdbuf_offset));
 
 		/* remove completed reloc from the job */
 		if (i != job->num_relocs - 1) {
@@ -495,13 +482,18 @@ static int do_relocs(struct nvhost_job *job,
 		}
 	}
 
-	if (cmdbuf_page_addr) {
-		dma_buf_kunmap(buf, last_page, cmdbuf_page_addr);
-		dma_buf_end_cpu_access(buf, last_offset,
-				PAGE_SIZE, DMA_TO_DEVICE);
-	}
+end_cpu_access:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+	dma_buf_end_cpu_access(buf, 0,
+			       buf->size, DMA_TO_DEVICE);
+#else
+	dma_buf_end_cpu_access(buf, DMA_TO_DEVICE);
+#endif
 
-	return 0;
+vunmap:
+	dma_buf_vunmap(buf, cmdbuf_base_addr);
+
+	return err;
 }
 
 

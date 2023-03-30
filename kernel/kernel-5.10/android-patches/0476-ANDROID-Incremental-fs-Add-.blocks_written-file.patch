@@ -1,0 +1,453 @@
+From 5131f97119bb8c854f158079aa5d7bbc311ae11f Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 20 Aug 2020 15:03:54 -0700
+Subject: [PATCH 476/830] ANDROID: Incremental fs: Add .blocks_written file
+X-NVConfidentiality: public
+
+Bug: 162856396
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I942582218cdc7741bcff2f264960b76cdfa1bb36
+---
+ fs/incfs/data_mgmt.c                          |   5 +
+ fs/incfs/data_mgmt.h                          |   7 +
+ fs/incfs/pseudo_files.c                       | 159 +++++++++++++-----
+ fs/incfs/pseudo_files.h                       |   2 +-
+ include/uapi/linux/incrementalfs.h            |   1 +
+ .../selftests/filesystems/incfs/incfs_test.c  |  51 ++++++
+ .../selftests/filesystems/incfs/utils.c       |  26 ++-
+ .../selftests/filesystems/incfs/utils.h       |   2 +
+ 8 files changed, 205 insertions(+), 48 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 8e58f6edb555..7cc530b8c1f4 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -43,6 +43,8 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
+ 	mutex_init(&mi->mi_dir_struct_mutex);
+ 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
+ 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
++	init_waitqueue_head(&mi->mi_blocks_written_notif_wq);
++	atomic_set(&mi->mi_blocks_written, 0);
+ 	INIT_DELAYED_WORK(&mi->mi_log.ml_wakeup_work, log_wake_up_all);
+ 	spin_lock_init(&mi->mi_log.rl_lock);
+ 	spin_lock_init(&mi->pending_read_lock);
+@@ -902,6 +904,9 @@ static void notify_pending_reads(struct mount_info *mi,
+ 	}
+ 	rcu_read_unlock();
+ 	wake_up_all(&segment->new_data_arrival_wq);
++
++	atomic_inc(&mi->mi_blocks_written);
++	wake_up_all(&mi->mi_blocks_written_notif_wq);
+ }
+ 
+ static int wait_for_data_block(struct data_file *df, int block_index,
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 77d0950f9a22..26e9b4bf4d33 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -155,6 +155,13 @@ struct mount_info {
+ 
+ 	void *pending_read_xattr;
+ 	size_t pending_read_xattr_size;
++
++	/* A queue of waiters who want to be notified about blocks_written */
++	wait_queue_head_t mi_blocks_written_notif_wq;
++
++	/* Number of blocks written since mount */
++	atomic_t mi_blocks_written;
++
+ };
+ 
+ struct data_file_block {
+diff --git a/fs/incfs/pseudo_files.c b/fs/incfs/pseudo_files.c
+index 5d61d8e866dc..22863204bb59 100644
+--- a/fs/incfs/pseudo_files.c
++++ b/fs/incfs/pseudo_files.c
+@@ -20,13 +20,14 @@
+ 
+ #define INCFS_PENDING_READS_INODE 2
+ #define INCFS_LOG_INODE 3
++#define INCFS_BLOCKS_WRITTEN_INODE 4
+ #define READ_WRITE_FILE_MODE 0666
+ 
+ /*******************************************************************************
+  * .log pseudo file definition
+  ******************************************************************************/
+ static const char log_file_name[] = INCFS_LOG_FILENAME;
+-static struct mem_range log_file_name_range = {
++static const struct mem_range log_file_name_range = {
+ 	.data = (u8 *)log_file_name,
+ 	.len = ARRAY_SIZE(log_file_name) - 1
+ };
+@@ -156,7 +157,7 @@ static const struct file_operations incfs_log_file_ops = {
+  * .pending_reads pseudo file definition
+  ******************************************************************************/
+ static const char pending_reads_file_name[] = INCFS_PENDING_READS_FILENAME;
+-static struct mem_range pending_reads_file_name_range = {
++static const struct mem_range pending_reads_file_name_range = {
+ 	.data = (u8 *)pending_reads_file_name,
+ 	.len = ARRAY_SIZE(pending_reads_file_name) - 1
+ };
+@@ -927,6 +928,90 @@ static const struct file_operations incfs_pending_read_file_ops = {
+ 	.compat_ioctl = pending_reads_dispatch_ioctl
+ };
+ 
++/*******************************************************************************
++ * .blocks_written pseudo file definition
++ ******************************************************************************/
++static const char blocks_written_file_name[] = INCFS_BLOCKS_WRITTEN_FILENAME;
++static const struct mem_range blocks_written_file_name_range = {
++	.data = (u8 *)blocks_written_file_name,
++	.len = ARRAY_SIZE(blocks_written_file_name) - 1
++};
++
++/* State of an open .blocks_written file, unique for each file descriptor. */
++struct blocks_written_file_state {
++	unsigned long blocks_written;
++};
++
++static ssize_t blocks_written_read(struct file *f, char __user *buf, size_t len,
++			loff_t *ppos)
++{
++	struct mount_info *mi = get_mount_info(file_superblock(f));
++	struct blocks_written_file_state *state = f->private_data;
++	unsigned long blocks_written;
++	char string[21];
++	int result = 0;
++
++	if (!mi)
++		return -EFAULT;
++
++	blocks_written = atomic_read(&mi->mi_blocks_written);
++	if (state->blocks_written == blocks_written)
++		return 0;
++
++	result = snprintf(string, sizeof(string), "%lu", blocks_written);
++	if (result > len)
++		result = len;
++	if (copy_to_user(buf, string, result))
++		return -EFAULT;
++
++	state->blocks_written = blocks_written;
++	return result;
++}
++
++static __poll_t blocks_written_poll(struct file *f, poll_table *wait)
++{
++	struct mount_info *mi = get_mount_info(file_superblock(f));
++	struct blocks_written_file_state *state = f->private_data;
++	unsigned long blocks_written;
++
++	if (!mi)
++		return -EFAULT;
++
++	poll_wait(f, &mi->mi_blocks_written_notif_wq, wait);
++	blocks_written = atomic_read(&mi->mi_blocks_written);
++	if (state->blocks_written == blocks_written)
++		return 0;
++
++	return EPOLLIN | EPOLLRDNORM;
++}
++
++static int blocks_written_open(struct inode *inode, struct file *file)
++{
++	struct blocks_written_file_state *state =
++		kzalloc(sizeof(*state), GFP_NOFS);
++
++	if (!state)
++		return -ENOMEM;
++
++	state->blocks_written = -1;
++	file->private_data = state;
++	return 0;
++}
++
++static int blocks_written_release(struct inode *inode, struct file *file)
++{
++	kfree(file->private_data);
++	return 0;
++}
++
++static const struct file_operations incfs_blocks_written_file_ops = {
++	.read = blocks_written_read,
++	.poll = blocks_written_poll,
++	.open = blocks_written_open,
++	.release = blocks_written_release,
++	.llseek = noop_llseek,
++};
++
+ /*******************************************************************************
+  * Generic inode lookup functionality
+  ******************************************************************************/
+@@ -950,6 +1035,10 @@ static bool get_pseudo_inode(int ino, struct inode *inode)
+ 		inode->i_fop = &incfs_log_file_ops;
+ 		return true;
+ 
++	case INCFS_BLOCKS_WRITTEN_INODE:
++		inode->i_fop = &incfs_blocks_written_file_ops;
++		return true;
++
+ 	default:
+ 		return false;
+ 	}
+@@ -977,27 +1066,10 @@ static int inode_set(struct inode *inode, void *opaque)
+ 	return -EINVAL;
+ }
+ 
+-static struct inode *fetch_pending_reads_inode(struct super_block *sb)
+-{
+-	struct inode_search search = {
+-		.ino = INCFS_PENDING_READS_INODE
+-	};
+-	struct inode *inode = iget5_locked(sb, search.ino, inode_test,
+-				inode_set, &search);
+-
+-	if (!inode)
+-		return ERR_PTR(-ENOMEM);
+-
+-	if (inode->i_state & I_NEW)
+-		unlock_new_inode(inode);
+-
+-	return inode;
+-}
+-
+-static struct inode *fetch_log_inode(struct super_block *sb)
++static struct inode *fetch_inode(struct super_block *sb, unsigned long ino)
+ {
+ 	struct inode_search search = {
+-		.ino = INCFS_LOG_INODE
++		.ino = ino
+ 	};
+ 	struct inode *inode = iget5_locked(sb, search.ino, inode_test,
+ 				inode_set, &search);
+@@ -1015,28 +1087,24 @@ int dir_lookup_pseudo_files(struct super_block *sb, struct dentry *dentry)
+ {
+ 	struct mem_range name_range =
+ 			range((u8 *)dentry->d_name.name, dentry->d_name.len);
++	unsigned long ino;
++	struct inode *inode;
++
++	if (incfs_equal_ranges(pending_reads_file_name_range, name_range))
++		ino = INCFS_PENDING_READS_INODE;
++	else if (incfs_equal_ranges(log_file_name_range, name_range))
++		ino = INCFS_LOG_INODE;
++	else if (incfs_equal_ranges(blocks_written_file_name_range, name_range))
++		ino = INCFS_BLOCKS_WRITTEN_INODE;
++	else
++		return -ENOENT;
+ 
+-	if (incfs_equal_ranges(pending_reads_file_name_range, name_range)) {
+-		struct inode *inode = fetch_pending_reads_inode(sb);
+-
+-		if (IS_ERR(inode))
+-			return PTR_ERR(inode);
+-
+-		d_add(dentry, inode);
+-		return 0;
+-	}
+-
+-	if (incfs_equal_ranges(log_file_name_range, name_range)) {
+-		struct inode *inode = fetch_log_inode(sb);
+-
+-		if (IS_ERR(inode))
+-			return PTR_ERR(inode);
+-
+-		d_add(dentry, inode);
+-		return 0;
+-	}
++	inode = fetch_inode(sb, ino);
++	if (IS_ERR(inode))
++		return PTR_ERR(inode);
+ 
+-	return -ENOENT;
++	d_add(dentry, inode);
++	return 0;
+ }
+ 
+ int emit_pseudo_files(struct dir_context *ctx)
+@@ -1059,5 +1127,14 @@ int emit_pseudo_files(struct dir_context *ctx)
+ 		ctx->pos++;
+ 	}
+ 
++	if (ctx->pos == 2) {
++		if (!dir_emit(ctx, blocks_written_file_name,
++			      ARRAY_SIZE(blocks_written_file_name) - 1,
++			      INCFS_BLOCKS_WRITTEN_INODE, DT_REG))
++			return -EINVAL;
++
++		ctx->pos++;
++	}
++
+ 	return 0;
+ }
+diff --git a/fs/incfs/pseudo_files.h b/fs/incfs/pseudo_files.h
+index 14a8cc513363..358bcabfe49a 100644
+--- a/fs/incfs/pseudo_files.h
++++ b/fs/incfs/pseudo_files.h
+@@ -6,7 +6,7 @@
+ #ifndef _INCFS_PSEUDO_FILES_H
+ #define _INCFS_PSEUDO_FILES_H
+ 
+-#define PSEUDO_FILE_COUNT 2
++#define PSEUDO_FILE_COUNT 3
+ #define INCFS_START_INO_RANGE 10
+ 
+ int dir_lookup_pseudo_files(struct super_block *sb, struct dentry *dentry);
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 6b5900445eae..932e7fd2718e 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -30,6 +30,7 @@
+ 
+ #define INCFS_PENDING_READS_FILENAME ".pending_reads"
+ #define INCFS_LOG_FILENAME ".log"
++#define INCFS_BLOCKS_WRITTEN_FILENAME ".blocks_written"
+ #define INCFS_XATTR_ID_NAME (XATTR_USER_PREFIX "incfs.id")
+ #define INCFS_XATTR_SIZE_NAME (XATTR_USER_PREFIX "incfs.size")
+ #define INCFS_XATTR_METADATA_NAME (XATTR_USER_PREFIX "incfs.metadata")
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index e666dd7cc982..876efcba1a3a 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -7,6 +7,7 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <lz4.h>
++#include <poll.h>
+ #include <stdbool.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -963,6 +964,7 @@ static bool iterate_directory(const char *dir_to_iterate, bool root,
+ 	} names[] = {
+ 		{INCFS_LOG_FILENAME, true, false},
+ 		{INCFS_PENDING_READS_FILENAME, true, false},
++		{INCFS_BLOCKS_WRITTEN_FILENAME, true, false},
+ 		{".index", true, false},
+ 		{"..", false, false},
+ 		{".", false, false},
+@@ -2293,10 +2295,39 @@ static int emit_partial_test_file_data(const char *mount_dir,
+ 	int *block_indexes = NULL;
+ 	int result = 0;
+ 	int blocks_written = 0;
++	int bw_fd = -1;
++	char buffer[20];
++	struct pollfd pollfd;
++	long blocks_written_total, blocks_written_new_total;
+ 
+ 	if (file->size == 0)
+ 		return 0;
+ 
++	bw_fd = open_blocks_written_file(mount_dir);
++	if (bw_fd == -1)
++		return -errno;
++
++	result = read(bw_fd, buffer, sizeof(buffer));
++	if (result <= 0) {
++		result = -EIO;
++		goto out;
++	}
++
++	buffer[result] = 0;
++	blocks_written_total = atol(buffer);
++	result = 0;
++
++	pollfd = (struct pollfd) {
++		.fd = bw_fd,
++		.events = POLLIN,
++	};
++
++	result = poll(&pollfd, 1, 0);
++	if (result) {
++		result = -EIO;
++		goto out;
++	}
++
+ 	/* Emit 2 blocks, skip 2 blocks etc*/
+ 	block_indexes = calloc(block_cnt, sizeof(*block_indexes));
+ 	for (i = 0, j = 0; i < block_cnt; ++i)
+@@ -2316,9 +2347,29 @@ static int emit_partial_test_file_data(const char *mount_dir,
+ 			result = -EIO;
+ 			goto out;
+ 		}
++
++		result = poll(&pollfd, 1, 0);
++		if (result != 1 || pollfd.revents != POLLIN) {
++			result = -EIO;
++			goto out;
++		}
++
++		result = read(bw_fd, buffer, sizeof(buffer));
++		buffer[result] = 0;
++		blocks_written_new_total = atol(buffer);
++
++		if (blocks_written_new_total - blocks_written_total
++		    != blocks_written) {
++			result = -EIO;
++			goto out;
++		}
++
++		blocks_written_total = blocks_written_new_total;
++		result = 0;
+ 	}
+ out:
+ 	free(block_indexes);
++	close(bw_fd);
+ 	return result;
+ }
+ 
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.c b/tools/testing/selftests/filesystems/incfs/utils.c
+index 3bc1449c16da..32ba6af49bbd 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.c
++++ b/tools/testing/selftests/filesystems/incfs/utils.c
+@@ -234,14 +234,28 @@ int open_commands_file(const char *mount_dir)
+ 
+ int open_log_file(const char *mount_dir)
+ {
+-	char cmd_file[255];
+-	int cmd_fd;
++	char file[255];
++	int fd;
+ 
+-	snprintf(cmd_file, ARRAY_SIZE(cmd_file), "%s/.log", mount_dir);
+-	cmd_fd = open(cmd_file, O_RDWR | O_CLOEXEC);
+-	if (cmd_fd < 0)
++	snprintf(file, ARRAY_SIZE(file), "%s/.log", mount_dir);
++	fd = open(file, O_RDWR | O_CLOEXEC);
++	if (fd < 0)
+ 		perror("Can't open log file");
+-	return cmd_fd;
++	return fd;
++}
++
++int open_blocks_written_file(const char *mount_dir)
++{
++	char file[255];
++	int fd;
++
++	snprintf(file, ARRAY_SIZE(file),
++			"%s/%s", mount_dir, INCFS_BLOCKS_WRITTEN_FILENAME);
++	fd = open(file, O_RDONLY | O_CLOEXEC);
++
++	if (fd < 0)
++		perror("Can't open blocks_written file");
++	return fd;
+ }
+ 
+ int wait_for_pending_reads(int fd, int timeout_ms,
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.h b/tools/testing/selftests/filesystems/incfs/utils.h
+index 39eb60333637..470471c7f418 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.h
++++ b/tools/testing/selftests/filesystems/incfs/utils.h
+@@ -52,6 +52,8 @@ int open_commands_file(const char *mount_dir);
+ 
+ int open_log_file(const char *mount_dir);
+ 
++int open_blocks_written_file(const char *mount_dir);
++
+ int wait_for_pending_reads(int fd, int timeout_ms,
+ 	struct incfs_pending_read_info *prs, int prs_count);
+ 
+-- 
+2.17.1
+

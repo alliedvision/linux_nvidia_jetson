@@ -1,7 +1,7 @@
 /*
  * sensor_dt_test - sensor device tree test
  *
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018 - 2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -377,6 +377,9 @@ static inline bool sv_dt_prop_applies_mode_type(struct sv_dt_link *link)
 {
 	u32 modes;
 
+	if (sv_ctx.version < 0)
+		return false;
+
 	modes = link->attrs[sv_ctx.version].modes;
 	if ((modes == MODE_TYPE_ANY) || (modes & sv_ctx.mode))
 		return true;
@@ -421,6 +424,9 @@ static void sv_dt_warn_link_mode_type_mismatch(struct property *dt_prop,
 	if (sv_dt_prop_applies_mode_type(link))
 		return;
 
+	if (sv_ctx.version < 0)
+		return;
+
 	camtest_log(KERN_INFO "  " PROP_WARN
 			": prop %s only valid for mode types:\n",
 			dt_prop->name);
@@ -445,6 +451,9 @@ static int sv_dt_match_link(struct device_node *dt_node,
 {
 	struct property *dt_prop;
 	int status = 0;
+
+	if (sv_ctx.version < 0)
+		return -1;
 
 	*link_found = false;
 	for_each_property_of_node(dt_node, dt_prop) {
@@ -494,6 +503,9 @@ static bool sv_dt_link_not_found_ok(struct sv_dt_link *link)
 	if (!sv_dt_prop_applies_mode_type(link))
 		return true;
 
+	if (sv_ctx.version < 0)
+		return false;
+
 	switch (link->attrs[sv_ctx.version].type) {
 	case LTYPE_FORBIDDEN:
 	case LTYPE_OPTIONAL:
@@ -523,6 +535,9 @@ static int sv_dt_masquerade_link(struct device_node *dt_node,
 {
 	enum sv_dt_link_type ltype;
 	int status;
+
+	if (sv_ctx.version < 0)
+		return -1;
 
 	ltype = imposter->attrs[sv_ctx.version].type;
 	imposter->source = real->source;
@@ -560,6 +575,9 @@ static int sv_dt_verify_link(struct device_node *dt_node,
 	struct sv_dt_link *temp;
 	bool link_found;
 	int status = 0;
+
+	if (sv_ctx.version < 0)
+		return -1;
 
 	/*
 	 * Any LTYPE_ALTERNATIVE* links will be separated out into their
@@ -880,7 +898,7 @@ int sensor_verify_dt(struct device_node *node, const u32 tvcf_version)
 
 	sv_ctx.version = sv_dt_map_tvcf_version(tvcf_version);
 
-	if (sv_ctx.version == TVCF_VERSION_INVALID) {
+	if (sv_ctx.version == TVCF_VERSION_INVALID || sv_ctx.version < 0) {
 		camtest_log(KERN_ERR "Invalid TVCF version\n");
 		return -EINVAL;
 	}
@@ -900,18 +918,17 @@ int sensor_verify_dt(struct device_node *node, const u32 tvcf_version)
 	modeX_node = sv_dt_make_node("mode[0-9]*", sv_dt_make_modeX_node_props);
 	if (modeX_node == NULL) {
 		camtest_log(KERN_ERR "Could not create modeX node\n");
-		goto sv_fail;
+		goto sv_root_fail;
 	}
 	sv_dt_link_nodes(root_node, modeX_node);
 
 	err = sv_dt_verify_full_dt(node, root_node);
 
-sv_fail:
-	if (root_node)
-		sv_dt_free_node(root_node);
-	if (modeX_node)
-		sv_dt_free_node(modeX_node);
+	sv_dt_free_node(modeX_node);
 
+sv_root_fail:
+	sv_dt_free_node(root_node);
+sv_fail:
 	if (err == 0)
 		camtest_log(KERN_INFO "Sensor DT test passed\n");
 	else

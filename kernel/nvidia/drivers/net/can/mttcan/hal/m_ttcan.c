@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -784,7 +784,7 @@ unsigned int ttcan_read_hp_mesgs(struct ttcan_controller *ttcan,
 
 	switch (msi) {
 	default:
-		pr_info("High Priority Interrupt recieved, no mesg\n");
+		pr_debug("High Priority Interrupt received, no mesg\n");
 		return 0;
 	case 1:
 		pr_info("High Priority FIFO Mesg lost\n");

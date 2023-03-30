@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/dc_common.h
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION. All rights reserved.
  * Author: Arun Swain <arswain@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -73,6 +73,21 @@ struct bit_mapped_data {
 	 * flip lock from mulitple heads.
 	 */
 	ulong fl_lck_req_completed;
+};
+
+// Max 4 heads among T18x and T19x SoCs.
+#define MAX_HEAD_COUNT 4
+/**
+ * struct tegra_dc_common_dc_dt_seq: Holds info on enabled dc/display nodes in
+ * DT and the sequence in which they are specified in DT.
+ *
+ * dc_probe_seq    : An array that holds the number of DCs that are supposed
+ *		      to be probed before a given DC, indexed by dc->ctrl_num.
+ * probed_dc_count : Holds the count of DCs that have been probed until now.
+ */
+struct tegra_dc_common_dc_dt_seq {
+	u8 dc_probe_seq[MAX_HEAD_COUNT];
+	u8 probed_dc_count;
 };
 
 /**
@@ -181,6 +196,13 @@ struct tegra_dc_common {
 #ifdef CONFIG_DEBUG_FS
 	struct dentry	*debugdir;
 #endif
+
+	/**
+	 * dc_dt_seq[]: Holds the list of enabled dc/display nodes and the
+	 * order they are specified in device-tree.
+	 *
+	 */
+	struct tegra_dc_common_dc_dt_seq dc_dt_seq;
 };
 
 /**
@@ -219,4 +241,7 @@ struct nvdisp_imp_table
 	*tegra_dc_common_get_imp_table(void);
 
 bool tegra_dc_common_probe_status(void);
+
+bool tegra_dc_common_check_dc_probe_seq(u8 dc_ctrl_num);
+void tegra_dc_common_increment_probed_dc_count(void);
 #endif

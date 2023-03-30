@@ -1,0 +1,26 @@
+Tegra Fuse controller
+
+Tegra Fuse controller driver reads fuse registers of chip.
+
+Required properties :
+- compatible: Each chip has different spare reg offset and length.
+  Must be one of these :
+  - For Tegra186, "nvidia,tegra186-efuse",
+  - For Tegra194, "nvidia,tegra194-efuse",
+  - For Tegra210, "nvidia,tegra210-efuse".
+- reg : Fuse controller registers location and length.
+- clocks : Handle for Tegra Fuse controller clock.
+- clock-names : contains fuse controller clock name "fuse".
+
+Optional properties :
+- nvidia,clock-always-on : controller clock turned on at boot and remains on.
+
+Example:
+	efuse@3820000 {
+		compatible = "nvidia,tegra186-efuse";
+		reg = <0x0 0x03820000 0x0 0x600>;
+		clocks = <&tegra_car TEGRA186_CLK_FUSE>;
+		clock-names = "fuse";
+		nvidia,clock-always-on;
+		status = "disabled";
+	};

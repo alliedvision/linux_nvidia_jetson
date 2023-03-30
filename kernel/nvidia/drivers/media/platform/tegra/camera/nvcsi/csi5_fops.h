@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host VI
  *
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Frank Chen <frankc@nvidia.com>
  *
@@ -16,5 +16,7 @@
 #define __CSI5_H__
 
 extern struct tegra_csi_fops csi5_fops;
+
+int csi5_tpg_set_gain(struct tegra_csi_channel *chan, int gain_ratio_tpg);
 
 #endif

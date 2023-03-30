@@ -1,0 +1,87 @@
+From 1ed8b19ea8d78c5a2a9181014169daa8f264e24d Mon Sep 17 00:00:00 2001
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Date: Tue, 3 Nov 2020 16:06:26 +0100
+Subject: [PATCH 051/830] FROMGIT: PM: domains: Enable
+ dev_pm_genpd_suspend|resume() for suspend-to-idle
+X-NVConfidentiality: public
+
+The dev_pm_genpd_suspend|resume() have so far only been used during the
+syscore suspend/resume phases. However, during suspend-to-idle, where the
+syscore phases doesn't exist, similar operations are sometimes needed.
+
+An existing example are the timekeeping_suspend|resume() functions, which
+are being called both through a registered syscore ops during the syscore
+phases, but also as regular functions calls from cpuidle (via
+tick_freeze()) during suspend-to-idle.
+
+For similar reasons, let's enable the dev_pm_genpd_suspend|resume() APIs to
+be re-used for corresponding CPU devices that are attached to a genpd,
+during suspend-to-idle.
+
+Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+(cherry picked from commit b9795a3e4e1cbf521bbb5ef240eb47803c303b02 git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm.git)
+Bug: 175076037
+Change-Id: I0019bd01e19c60dc57320b366b1e762cd12977f7
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+---
+ drivers/base/power/domain.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/base/power/domain.c b/drivers/base/power/domain.c
+index 9b4881b67683..4a55f3c949ae 100644
+--- a/drivers/base/power/domain.c
++++ b/drivers/base/power/domain.c
+@@ -1366,18 +1366,27 @@ static void genpd_complete(struct device *dev)
+ static void genpd_switch_state(struct device *dev, bool suspend)
+ {
+ 	struct generic_pm_domain *genpd;
++	bool use_lock;
+ 
+ 	genpd = dev_to_genpd_safe(dev);
+ 	if (!genpd)
+ 		return;
+ 
++	use_lock = genpd_is_irq_safe(genpd);
++
++	if (use_lock)
++		genpd_lock(genpd);
++
+ 	if (suspend) {
+ 		genpd->suspended_count++;
+-		genpd_sync_power_off(genpd, false, 0);
++		genpd_sync_power_off(genpd, use_lock, 0);
+ 	} else {
+-		genpd_sync_power_on(genpd, false, 0);
++		genpd_sync_power_on(genpd, use_lock, 0);
+ 		genpd->suspended_count--;
+ 	}
++
++	if (use_lock)
++		genpd_unlock(genpd);
+ }
+ 
+ /**
+@@ -1385,7 +1394,9 @@ static void genpd_switch_state(struct device *dev, bool suspend)
+  * @dev: The device that is attached to the genpd, that can be suspended.
+  *
+  * This routine should typically be called for a device that needs to be
+- * suspended during the syscore suspend phase.
++ * suspended during the syscore suspend phase. It may also be called during
++ * suspend-to-idle to suspend a corresponding CPU device that is attached to a
++ * genpd.
+  */
+ void dev_pm_genpd_suspend(struct device *dev)
+ {
+@@ -1398,7 +1409,8 @@ EXPORT_SYMBOL_GPL(dev_pm_genpd_suspend);
+  * @dev: The device that is attached to the genpd, which needs to be resumed.
+  *
+  * This routine should typically be called for a device that needs to be resumed
+- * during the syscore resume phase.
++ * during the syscore resume phase. It may also be called during suspend-to-idle
++ * to resume a corresponding CPU device that is attached to a genpd.
+  */
+ void dev_pm_genpd_resume(struct device *dev)
+ {
+-- 
+2.17.1
+

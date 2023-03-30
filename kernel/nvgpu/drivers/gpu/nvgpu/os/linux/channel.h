@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,13 +21,14 @@
 
 #include <nvgpu/types.h>
 
-struct channel_gk20a;
+struct nvgpu_channel;
 struct nvgpu_gpfifo;
 struct nvgpu_submit_gpfifo_args;
 struct nvgpu_channel_fence;
-struct gk20a_fence;
-struct fifo_profile_gk20a;
+struct nvgpu_fence_type;
+struct nvgpu_swprofile;
 struct nvgpu_os_linux;
+struct nvgpu_cdev;
 
 struct sync_fence;
 struct sync_timeline;
@@ -38,7 +39,7 @@ struct nvgpu_channel_completion_cb {
 	 * schedule_work. Means that something finished on the channel (perhaps
 	 * more than one job).
 	 */
-	void (*fn)(struct channel_gk20a *, void *);
+	void (*fn)(struct nvgpu_channel *, void *);
 	void *user_data;
 	/* Make access to the two above atomic */
 	struct nvgpu_spinlock lock;
@@ -56,11 +57,16 @@ struct nvgpu_error_notifier {
 };
 
 /*
- * This struct contains fence_related data.
- * e.g. sync_timeline for sync_fences.
+ * channel-global data for sync fences created from the hardware
+ * synchronization primitive in each particular channel.
  */
 struct nvgpu_os_fence_framework {
+#if defined(CONFIG_NVGPU_SYNCFD_ANDROID)
 	struct sync_timeline *timeline;
+#elif defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	u64 context;
+	bool exists;
+#endif
 };
 
 struct nvgpu_usermode_bufs_linux {
@@ -77,7 +83,7 @@ struct nvgpu_usermode_bufs_linux {
 };
 
 struct nvgpu_channel_linux {
-	struct channel_gk20a *ch;
+	struct nvgpu_channel *ch;
 
 	struct nvgpu_os_fence_framework fence_framework;
 
@@ -87,16 +93,19 @@ struct nvgpu_channel_linux {
 	struct dma_buf *cyclestate_buffer_handler;
 
 	struct nvgpu_usermode_bufs_linux usermode;
+
+	struct nvgpu_cdev *cdev;
 };
 
 u32 nvgpu_submit_gpfifo_user_flags_to_common_flags(u32 user_flags);
-int nvgpu_init_channel_support_linux(struct nvgpu_os_linux *l);
-void nvgpu_remove_channel_support_linux(struct nvgpu_os_linux *l);
+int nvgpu_channel_init_support_linux(struct nvgpu_os_linux *l);
+void nvgpu_channel_remove_support_linux(struct nvgpu_os_linux *l);
 
-struct channel_gk20a *gk20a_open_new_channel_with_cb(struct gk20a *g,
-		void (*update_fn)(struct channel_gk20a *, void *),
+/* Deprecated. Use fences in new code. */
+struct nvgpu_channel *gk20a_open_new_channel_with_cb(struct gk20a *g,
+		void (*update_fn)(struct nvgpu_channel *, void *),
 		void *update_fn_data,
-		int runlist_id,
+		u32 runlist_id,
 		bool is_privileged_channel);
 
 #endif

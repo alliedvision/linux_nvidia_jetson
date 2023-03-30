@@ -27,14 +27,12 @@
 #ifndef _dhd_dbg_
 #define _dhd_dbg_
 
-#include <nv_logger.h>
-
 #define USE_NET_RATELIMIT		1
 
 #if defined(DHD_DEBUG)
 
 #define DHD_ERROR(args)		do {if ((dhd_msg_level & DHD_ERROR_VAL) && USE_NET_RATELIMIT) \
-								printf args; nv_sprintf args;} while (0)
+								printf args;} while (0)
 #define DHD_TRACE(args)		do {if (dhd_msg_level & DHD_TRACE_VAL) printf args;} while (0)
 #define DHD_INFO(args)		do {if (dhd_msg_level & DHD_INFO_VAL) printf args;} while (0)
 #define DHD_DATA(args)		do {if (dhd_msg_level & DHD_DATA_VAL) printf args;} while (0)
@@ -73,7 +71,6 @@
 #define DHD_NOCHECKDIED_ON()	(dhd_msg_level & DHD_NOCHECKDIED_VAL)
 #define DHD_PNO_ON()		(dhd_msg_level & DHD_PNO_VAL)
 #define DHD_FWLOG_ON()		(dhd_msg_level & DHD_FWLOG_VAL)
-#define NV_FILELOG_ON()		(enable_file_logging)
 
 #else /* defined(BCMDBG) || defined(DHD_DEBUG) */
 
@@ -116,7 +113,6 @@
 #define DHD_NOCHECKDIED_ON()	0
 #define DHD_PNO_ON()		0
 #define DHD_FWLOG_ON()		0
-#define NV_FILELOG_ON()		0
 
 #endif 
 

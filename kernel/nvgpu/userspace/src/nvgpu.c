@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,28 +27,36 @@
 #include <unit/core.h>
 
 /*
- * Load libnvgpu-drv.so. This is done with dlopen() since this will make
+ * Load driver library. This is done with dlopen() since this will make
  * resolving addresses into symbols easier in the future.
  *
  * Also, this makes people think carefully about what functions to call in
- * nvgpu-drv from the unit test FW. The interaction should really be limited
+ * nvgpu-drv-igpu from the unit test FW. The interaction should really be limited
  * and doing explicit name lookups is a good way to prevent too much coupling.
  */
 int core_load_nvgpu(struct unit_fw *fw)
 {
 	const char *msg;
+	int flag = RTLD_NOW;
+	const char *load_path = args(fw)->driver_load_path;
 
-	/*
-	 * Specify a GLOBAL binding so that subsequently loaded unit tests see
-	 * the nvgpu-drv library. They will of course need it (and will access
-	 * it directly). I.e they will link against nvgpu-drv and this should
-	 * satisfy that linkage.
-	 */
-	fw->nvgpu_so = dlopen("libnvgpu-drv.so", RTLD_NOW | RTLD_GLOBAL);
+	if (fw->args->is_qnx == 0) {
+		/*
+		 * Specify a GLOBAL binding so that subsequently loaded
+		 * unit tests see the nvgpu-drv-igpu library. They will of course
+		 * need it (and will access it directly). I.e they will link
+		 * against nvgpu-drv-igpu and this should satisfy that linkage.
+		 */
+		flag |= RTLD_GLOBAL;
+	}
+
+	/* TODO: WAR: remove this dependency of libnvgpu-drv-igpu.so for qnx unit
+	 * test, refer NVGPU-1935 for more detail */
+	fw->nvgpu_so = dlopen(load_path, flag);
 
 	if (fw->nvgpu_so == NULL) {
 		msg = dlerror();
-		core_err(fw, "Failed to load nvgpu-drv: %s\n", msg);
+		core_err(fw, "Failed to load %s: %s\n", load_path, msg);
 		return -1;
 	}
 
@@ -72,6 +80,35 @@ int core_load_nvgpu(struct unit_fw *fw)
 		msg = dlerror();
 		core_err(fw, "Failed to resolve nvgpu_posix_cleanup: %s\n", msg);
 		return -1;
+	}
+
+	fw->nvgpu.nvgpu_posix_init_fault_injection = dlsym(fw->nvgpu_so,
+					    "nvgpu_posix_init_fault_injection");
+	if (fw->nvgpu.nvgpu_posix_init_fault_injection == NULL) {
+		msg = dlerror();
+		core_err(fw, "Failed to resolve nvgpu_posix_init_fault_injection: %s\n",
+			 msg);
+		return -1;
+	}
+
+	if (fw->args->is_qnx != 0) {
+		fw->nvgpu_qnx_ut = dlopen("libnvgpu_ut_igpu.so", flag);
+		if (fw->nvgpu_qnx_ut == NULL) {
+			msg = dlerror();
+			core_err(fw, "Failed to load nvgpu_ut_igpu: %s\n", msg);
+			return -1;
+		}
+		fw->nvgpu.nvgpu_posix_init_fault_injection_qnx =
+					dlsym(fw->nvgpu_qnx_ut,
+					      "nvgpu_posix_init_fault_injection");
+		if (fw->nvgpu.nvgpu_posix_init_fault_injection_qnx == NULL) {
+			msg = dlerror();
+			core_err(fw, "Failed to resolve nvgpu_posix_init_fault_injection: %s\n",
+				 msg);
+			return -1;
+		}
+	} else {
+		fw->nvgpu.nvgpu_posix_init_fault_injection_qnx = NULL;
 	}
 
 	return 0;

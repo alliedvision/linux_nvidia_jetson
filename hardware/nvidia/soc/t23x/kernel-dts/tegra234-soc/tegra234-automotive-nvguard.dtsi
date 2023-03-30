@@ -1,0 +1,218 @@
+/*
+ * tegra194-automotive-nvguard.dtsi: NvGuard DTSI file.  Common
+ * for all t194 based boards.
+ *
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+
+/{
+
+	/* NvGuard configuration */
+	safetysrv_cfg: safetysrv_cfg {
+			compatible = "nvguard,safetysrv_cfg_param";
+			status = "disabled";
+			/* Time period of L1SS Heartbeat (in ms) */
+			l1ss_heartbeat_timeint = <30>;
+			/* Common periodicity of diagnostic services, in unit of 10ms.
+			All the services configured as periodic tests in 'tegra194-automotive-nvguard-srvprop.dtsi'
+			are triggered at this periodicity.
+			Periodicity must be at least 1 unit(10ms) greater than deadline */
+			diag_period = <4>;
+			/* Common deadline for service execution, in unit of 10ms.
+			Applicable for execution of diagnostic tests and HW error handlers */
+			srv_deadline = <2>;
+			/* Timeout for boot of all ccplex partitions (in ms) */
+			l1ss_startup_timeout = <6000>;
+			/* Client identifier of Drive OS user VM */
+			driveosuser_vmid = <4>;
+			/* Client identifier of IST VM */
+			ist_vmid = <4>;
+	       };
+
+	       /* Corrected error threshold configuration for error collators */
+	ecthreshold_cfg: ecthreshold_cfg {
+			 compatible = "nvguard,ecthreshold_cfg_param";
+			 status="disable";
+				 /* Default value of corrected error threshold for all error collators */
+				 default_threshold = <0>;
+			 /* Number of error collators in the following list */
+			 num_ec = <155>;
+			 /* list of service IDs corresponding to corrected HSM error
+			  * line connected to error collator */
+			 eclist = <1 0x02002b40>, /* HSMERR 320, CBB_FABRIC_17_CE */
+				<1 0x02002b41>, /* HSMERR 321, CBB_FABRIC_16_CE */
+				<1 0x02002b42>, /* HSMERR 322, CBB_FABRIC_15_CE */
+				<1 0x02002b43>, /* HSMERR 323, CBB_FABRIC_14_CE */
+				<1 0x02002b44>, /* HSMERR 324, CBB_FABRIC_13_CE */
+				<1 0x02002b45>, /* HSMERR 325, CBB_FABRIC_12_CE */
+				<1 0x02002b46>, /* HSMERR 326, CBB_FABRIC_11_CE */
+				<1 0x02002b47>, /* HSMERR 327, CBB_FABRIC_10_CE */
+				<1 0x02002b48>, /* HSMERR 328, CBB_FABRIC_9_CE */
+				<1 0x02002b49>, /* HSMERR 329, CBB_FABRIC_8_CE */
+				<1 0x02002b4a>, /* HSMERR 330, CBB_FABRIC_7_CE */
+				<1 0x02002b4b>, /* HSMERR 331, CBB_FABRIC_6_CE */
+				<1 0x02002b4c>, /* HSMERR 332, CBB_FABRIC_5_CE */
+				<1 0x02002b4d>, /* HSMERR 333, CBB_FABRIC_4_CE */
+				<1 0x02002b4e>, /* HSMERR 334, CBB_FABRIC_3_CE */
+				<1 0x02002b4f>, /* HSMERR 335, CBB_FABRIC_2_CE */
+				<1 0x02002b50>, /* HSMERR 336, CBB_FABRIC_1_CE */
+				<1 0x02002b51>, /* HSMERR 337, CBB_FABRIC_0_CE */
+				<1 0x02002b52>, /* HSMERR 338, CBB_FABRIC_18_CE */
+				<1 0x02002f54>, /* HSMERR 340, SYSRAM_0_CE */
+				<1 0x02003355>, /* HSMERR 341, SYSRAM_1_CE */
+				<1 0x02006f56>, /* HSMERR 342, CV0_FABRIC_0_CE */
+				<1 0x02004758>, /* HSMERR 344, CV0_SRAM_0_CE */
+				<1 0x02004759>, /* HSMERR 345, CV0_SRAM_1_CE */
+				<1 0x0200475a>, /* HSMERR 346, CV0_SRAM_2_CE */
+				<1 0x0200475b>, /* HSMERR 347, CV0_SRAM_3_CE */
+				<0 0x0200e75c>, /* HSMERR 348, MSS_QUAL_CE */
+				<1 0x02004f5e>, /* HSMERR 350, MC_15_CE */
+				<1 0x02004f5f>, /* HSMERR 351, MC_14_CE */
+				<1 0x02004f60>, /* HSMERR 352, MC_13_CE */
+				<1 0x02004f61>, /* HSMERR 353, MC_12_CE */
+				<1 0x02004f62>, /* HSMERR 354, MC_11_CE */
+				<1 0x02004f63>, /* HSMERR 355, MC_10_CE */
+				<1 0x02004f64>, /* HSMERR 356, MC_9_CE */
+				<1 0x02004f65>, /* HSMERR 357, MC_8_CE */
+				<1 0x02004f66>, /* HSMERR 358, MC_7_CE */
+				<1 0x02004f67>, /* HSMERR 359, MC_6_CE */
+				<1 0x02004f68>, /* HSMERR 360, MC_5_CE */
+				<1 0x02004f69>, /* HSMERR 361, MC_4_CE */
+				<1 0x02004f6a>, /* HSMERR 362, MC_3_CE */
+				<1 0x02004f6b>, /* HSMERR 363, MC_2_CE */
+				<1 0x02004f6c>, /* HSMERR 364, MC_1_CE */
+				<1 0x02004f6d>, /* HSMERR 365, MC_0_CE */
+				<1 0x0200ff6e>, /* HSMERR 366, EMC_15_CE */
+				<1 0x0200ff6f>, /* HSMERR 367, EMC_14_CE */
+				<1 0x0200ff70>, /* HSMERR 368, EMC_13_CE */
+				<1 0x0200ff71>, /* HSMERR 369, EMC_12_CE */
+				<1 0x0200ff72>, /* HSMERR 370, EMC_11_CE */
+				<1 0x0200ff73>, /* HSMERR 371, EMC_10_CE */
+				<1 0x0200ff74>, /* HSMERR 372, EMC_9_CE */
+				<1 0x0200ff75>, /* HSMERR 373, EMC_8_CE */
+				<1 0x0200ff76>, /* HSMERR 374, EMC_7_CE */
+				<1 0x0200ff77>, /* HSMERR 375, EMC_6_CE */
+				<1 0x0200ff78>, /* HSMERR 376, EMC_5_CE */
+				<1 0x0200ff79>, /* HSMERR 377, EMC_4_CE */
+				<1 0x0200ff7a>, /* HSMERR 378, EMC_3_CE */
+				<1 0x0200ff7b>, /* HSMERR 379, EMC_2_CE */
+				<1 0x0200ff7c>, /* HSMERR 380, EMC_1_CE */
+				<1 0x0200ff7d>, /* HSMERR 381, EMC_0_CE */
+				<1 0x02004f7e>, /* HSMERR 382, MC_HUB_3_CE */
+				<1 0x02004f7f>, /* HSMERR 383, MC_HUB_2_CE */
+				<1 0x02004f80>, /* HSMERR 384, MC_HUB_1_CE */
+				<1 0x02004f81>, /* HSMERR 385, MC_HUB_0_CE */
+				<1 0x02006b82>, /* HSMERR 386, MSS_NVLINK_4_CE */
+				<1 0x02006b83>, /* HSMERR 387, MSS_NVLINK_3_CE */
+				<1 0x02006b84>, /* HSMERR 388, MSS_NVLINK_2_CE */
+				<1 0x02006b85>, /* HSMERR 389, MSS_NVLINK_1_CE */
+				<1 0x02006b86>, /* HSMERR 390, MSS_NVLINK_0_CE */
+				<1 0x0200cb87>, /* HSMERR 391, TCU_WRAP_0_CE */
+				<1 0x02004f88>, /* HSMERR 392, MC_HUBC_CE */
+				<1 0x02005389>, /* HSMERR 393, MCF_SLICE_3_CE */
+				<1 0x0200538a>, /* HSMERR 394, MCF_SLICE_2_CE */
+				<1 0x0200538b>, /* HSMERR 395, MCF_SLICE_1_CE */
+				<1 0x0200538c>, /* HSMERR 396, MCF_SLICE_0_CE */
+				<1 0x0200538d>, /* HSMERR 397, MCF_IREQX_CE */
+				<1 0x0200538e>, /* HSMERR 398, MCF_IRSPX_1_CE */
+				<1 0x0200538f>, /* HSMERR 399, MCF_IRSPX_0_CE */
+				<1 0x02005390>, /* HSMERR 400, MCF_OREQX_1_CE */
+				<1 0x02005391>, /* HSMERR 401, MCF_OREQX_0_CE */
+				<1 0x02005394>, /* HSMERR 404, MCF_ORSPX_CE */
+				<1 0x0200e796>, /* HSMERR 406, MSS_SBS_CE */
+				<1 0x0200e797>, /* HSMERR 407, AON_MSS_CE */
+				<1 0x0200fba0>, /* HSMERR 416, TSA_NODE_55_CE */
+				<1 0x0200fba1>, /* HSMERR 417, TSA_NODE_54_CE */
+				<1 0x0200fba2>, /* HSMERR 418, TSA_NODE_53_CE */
+				<1 0x0200fba3>, /* HSMERR 419, TSA_NODE_52_CE */
+				<1 0x0200fba4>, /* HSMERR 420, TSA_NODE_51_CE */
+				<1 0x0200fba5>, /* HSMERR 421, TSA_NODE_50_CE */
+				<1 0x0200fba6>, /* HSMERR 422, TSA_NODE_49_CE */
+				<1 0x0200fba7>, /* HSMERR 423, TSA_NODE_48_CE */
+				<1 0x0200fba8>, /* HSMERR 424, TSA_NODE_47_CE */
+				<1 0x0200fba9>, /* HSMERR 425, TSA_NODE_46_CE */
+				<1 0x0200fbaa>, /* HSMERR 426, TSA_NODE_45_CE */
+				<1 0x0200fbab>, /* HSMERR 427, TSA_NODE_44_CE */
+				<1 0x0200fbac>, /* HSMERR 428, TSA_NODE_43_CE */
+				<1 0x0200fbad>, /* HSMERR 429, TSA_NODE_42_CE */
+				<1 0x0200fbae>, /* HSMERR 430, TSA_NODE_41_CE */
+				<1 0x0200fbaf>, /* HSMERR 431, TSA_NODE_40_CE */
+				<1 0x0200fbb0>, /* HSMERR 432, TSA_NODE_39_CE */
+				<1 0x0200fbb1>, /* HSMERR 433, TSA_NODE_38_CE */
+				<1 0x0200fbb2>, /* HSMERR 434, TSA_NODE_37_CE */
+				<1 0x0200fbb3>, /* HSMERR 435, TSA_NODE_36_CE */
+				<1 0x0200fbb4>, /* HSMERR 436, TSA_NODE_35_CE */
+				<1 0x0200fbb5>, /* HSMERR 437, TSA_NODE_34_CE */
+				<1 0x0200fbb6>, /* HSMERR 438, TSA_NODE_33_CE */
+				<1 0x0200fbb7>, /* HSMERR 439, TSA_NODE_32_CE */
+				<1 0x0200fbb8>, /* HSMERR 440, TSA_NODE_31_CE */
+				<1 0x0200fbb9>, /* HSMERR 441, TSA_NODE_30_CE */
+				<1 0x0200fbba>, /* HSMERR 442, TSA_NODE_29_CE */
+				<1 0x0200fbbb>, /* HSMERR 443, TSA_NODE_28_CE */
+				<1 0x0200fbbc>, /* HSMERR 444, TSA_NODE_27_CE */
+				<1 0x0200fbbd>, /* HSMERR 445, TSA_NODE_26_CE */
+				<1 0x0200fbbe>, /* HSMERR 446, TSA_NODE_25_CE */
+				<1 0x0200fbbf>, /* HSMERR 447, TSA_NODE_24_CE */
+				<1 0x0200fbc0>, /* HSMERR 448, TSA_NODE_23_CE */
+				<1 0x0200fbc1>, /* HSMERR 449, TSA_NODE_22_CE */
+				<1 0x0200fbc2>, /* HSMERR 450, TSA_NODE_21_CE */
+				<1 0x0200fbc3>, /* HSMERR 451, TSA_NODE_20_CE */
+				<1 0x0200fbc4>, /* HSMERR 452, TSA_NODE_19_CE */
+				<1 0x0200fbc5>, /* HSMERR 453, TSA_NODE_18_CE */
+				<1 0x0200fbc6>, /* HSMERR 454, TSA_NODE_17_CE */
+				<1 0x0200fbc7>, /* HSMERR 455, TSA_NODE_16_CE */
+				<1 0x0200fbc8>, /* HSMERR 456, TSA_NODE_15_CE */
+				<1 0x0200fbc9>, /* HSMERR 457, TSA_NODE_14_CE */
+				<1 0x0200fbca>, /* HSMERR 458, TSA_NODE_13_CE */
+				<1 0x0200fbcb>, /* HSMERR 459, TSA_NODE_12_CE */
+				<1 0x0200fbcc>, /* HSMERR 460, TSA_NODE_11_CE */
+				<1 0x0200fbcd>, /* HSMERR 461, TSA_NODE_10_CE */
+				<1 0x0200fbce>, /* HSMERR 462, TSA_NODE_9_CE */
+				<1 0x0200fbcf>, /* HSMERR 463, TSA_NODE_8_CE */
+				<1 0x0200fbd0>, /* HSMERR 464, TSA_NODE_7_CE */
+				<1 0x0200fbd1>, /* HSMERR 465, TSA_NODE_6_CE */
+				<1 0x0200fbd2>, /* HSMERR 466, TSA_NODE_5_CE */
+				<1 0x0200fbd3>, /* HSMERR 467, TSA_NODE_4_CE */
+				<1 0x0200fbd4>, /* HSMERR 468, TSA_NODE_3_CE */
+				<1 0x0200fbd5>, /* HSMERR 469, TSA_NODE_2_CE */
+				<1 0x0200fbd6>, /* HSMERR 470, TSA_NODE_1_CE */
+				<1 0x0200fbd7>, /* HSMERR 471, TSA_NODE_0_CE */
+				<1 0x020023d9>, /* HSMERR 473, RCE_CLUSTER_CE */
+				<1 0x020023da>, /* HSMERR 474, RCE_DMA_CE */
+				<1 0x02000bdb>, /* HSMERR 475, SCE_CLUSTER_CE */
+				<1 0x02000be1>, /* HSMERR 481, AON_CLUSTER_CE */
+				<1 0x0200bbf0>, /* HSMERR 496, GPCDMA_CE */
+				<1 0x02008ff2>, /* HSMERR 498, HOST1X_CE */
+				<1 0x020093f3>, /* HSMERR 499, MISC_CE */
+				<1 0x0200f7f4>, /* HSMERR 500, ISP_THI_CE */
+				<1 0x0200ebf5>, /* HSMERR 501, HSMERR_NVCSI_ERR_WITH_THRESHOLD */
+				<1 0x0200abf6>, /* HSMERR 502, NVDLA_0_CE */
+				<1 0x0200abf7>, /* HSMERR 503, NVDLA_1_CE */
+				<1 0x0200aff8>, /* HSMERR 504, NVENC_0_CE */
+				<1 0x0200aff9>, /* HSMERR 505, NVENC_1_CE */
+				<1 0x020063fa>, /* HSMERR 506, VIC_CE */
+				<1 0x02004bfb>, /* HSMERR 507, PVA_0_CE */
+				<1 0x02004bfc>, /* HSMERR 508, PVA_1_CE */
+				<1 0x02010bfd>; /* HSMERR 509, HSMERR_VI_ERR_WITH_THRESHOLD */
+		 };
+
+	nvguard_service_smmu_diag_mmu500_parity {
+			status="disabled";
+			CorrectedParityErrThreshold = <0x0>;
+		 };
+
+};

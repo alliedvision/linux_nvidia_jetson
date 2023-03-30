@@ -1,0 +1,67 @@
+From 2eb9eed20e5a3f9e6a012fb3e647b4848842e985 Mon Sep 17 00:00:00 2001
+From: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Date: Wed, 25 Nov 2020 15:06:41 +0300
+Subject: [PATCH 031/830] FROMGIT: usb: pd: DFP product types
+X-NVConfidentiality: public
+
+USB Power Delivery Specification R3.0 introduced separate
+field for the DFP product type to the ID Header VDO.
+
+Bug: 174347172
+Signed-off-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201125120642.37156-2-heikki.krogerus@linux.intel.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 7656ca71b0ba04ae7437afe3d046e9134442678e
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Cc: Badhri Jagan Sridharan <badhri@google.com>
+Cc: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I2acdd13ecde48b9bf531f3829a4ffa0f22b1d895
+---
+ include/linux/usb/pd_vdo.h | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/usb/pd_vdo.h b/include/linux/usb/pd_vdo.h
+index 68bdc4e2f5a9..04a66c2deedc 100644
+--- a/include/linux/usb/pd_vdo.h
++++ b/include/linux/usb/pd_vdo.h
+@@ -103,17 +103,25 @@
+  * --------------------
+  * <31>     :: data capable as a USB host
+  * <30>     :: data capable as a USB device
+- * <29:27>  :: product type
++ * <29:27>  :: product type (UFP / Cable)
+  * <26>     :: modal operation supported (1b == yes)
+- * <25:16>  :: Reserved, Shall be set to zero
++ * <25:16>  :: product type (DFP)
+  * <15:0>   :: USB-IF assigned VID for this cable vendor
+  */
+ #define IDH_PTYPE_UNDEF		0
+ #define IDH_PTYPE_HUB		1
+ #define IDH_PTYPE_PERIPH	2
++#define IDH_PTYPE_PSD		3
++#define IDH_PTYPE_AMA		5
++
+ #define IDH_PTYPE_PCABLE	3
+ #define IDH_PTYPE_ACABLE	4
+-#define IDH_PTYPE_AMA		5
++
++#define IDH_PTYPE_DFP_UNDEF	0
++#define IDH_PTYPE_DFP_HUB	1
++#define IDH_PTYPE_DFP_HOST	2
++#define IDH_PTYPE_DFP_PB	3
++#define IDH_PTYPE_DFP_AMC	4
+ 
+ #define VDO_IDH(usbh, usbd, ptype, is_modal, vid)		\
+ 	((usbh) << 31 | (usbd) << 30 | ((ptype) & 0x7) << 27	\
+@@ -122,6 +130,7 @@
+ #define PD_IDH_PTYPE(vdo)	(((vdo) >> 27) & 0x7)
+ #define PD_IDH_VID(vdo)		((vdo) & 0xffff)
+ #define PD_IDH_MODAL_SUPP(vdo)	((vdo) & (1 << 26))
++#define PD_IDH_DFP_PTYPE(vdo)	(((vdo) >> 23) & 0x7)
+ 
+ /*
+  * Cert Stat VDO
+-- 
+2.17.1
+

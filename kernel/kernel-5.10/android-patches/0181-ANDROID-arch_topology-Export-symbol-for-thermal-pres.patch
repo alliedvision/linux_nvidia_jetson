@@ -1,0 +1,36 @@
+From a99f297eb9720d148a4cefae804473b0c5b6e37b Mon Sep 17 00:00:00 2001
+From: Wei Wang <wvw@google.com>
+Date: Tue, 3 Nov 2020 21:46:15 -0800
+Subject: [PATCH 181/830] ANDROID: arch_topology: Export symbol for thermal
+ pressure notification
+X-NVConfidentiality: public
+
+Vendor cooling device driver need
+arch_set_thermal_pressure/topology_set_thermal_pressure to notify
+scheduler for thermal limit change.
+
+Test: boot and check trace
+Bug: 172387671
+Signed-off-by: Wei Wang <wvw@google.com>
+Change-Id: I777cb652a98cb4ca457ccdc9a32300aae6c2b37f
+(cherry picked from commit fb06869994d6f7efc411230c067aee7fb3bb25ac)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ drivers/base/arch_topology.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index 5512b7224271..78069d49faff 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -77,6 +77,7 @@ void topology_set_thermal_pressure(const struct cpumask *cpus,
+ 	for_each_cpu(cpu, cpus)
+ 		WRITE_ONCE(per_cpu(thermal_pressure, cpu), th_pressure);
+ }
++EXPORT_SYMBOL_GPL(topology_set_thermal_pressure);
+ 
+ static ssize_t cpu_capacity_show(struct device *dev,
+ 				 struct device_attribute *attr,
+-- 
+2.17.1
+

@@ -1,0 +1,44 @@
+From 49e940d25b8247d547f7a4c4f76c4c200d5342d4 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Thu, 10 Dec 2020 17:05:21 +0100
+Subject: [PATCH 043/830] FROMGIT: USB: typec: tcpci: Add Bleed discharge to
+ POWER_CONTROL definition
+X-NVConfidentiality: public
+
+"Table 4-19. POWER_CONTROL Register Definition" from tcpci spec
+defines BIT(3) as the control bit for bleed discharge.
+
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Cc: Kyle Tso <kyletso@google.com>
+Reviewed-by: Guenter Roeck <linux@roeck-us.net>
+Acked-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Link: https://lore.kernel.org/r/20201210160521.3417426-6-gregkh@linuxfoundation.org
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 4cdc194c8dd698cad49e5a2d254fb457fd923456)
+(cherry picked from commit 72d816d9ba5c8cb45ca4e2c56eae4c1c739832b7)
+(cherry picked from commit ca955d3308ba111881d18bca7045aee964eac6ce usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I2e31c74325f6c6934c09bd35883ca2b1a03355a4
+---
+ drivers/usb/typec/tcpm/tcpci.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci.h b/drivers/usb/typec/tcpm/tcpci.h
+index 116a69c85e38..c3c7d07d9b4e 100644
+--- a/drivers/usb/typec/tcpm/tcpci.h
++++ b/drivers/usb/typec/tcpm/tcpci.h
+@@ -72,6 +72,7 @@
+ 
+ #define TCPC_POWER_CTRL			0x1c
+ #define TCPC_POWER_CTRL_VCONN_ENABLE	BIT(0)
++#define TCPC_POWER_CTRL_BLEED_DISCHARGE	BIT(3)
+ #define TCPC_POWER_CTRL_AUTO_DISCHARGE	BIT(4)
+ #define TCPC_FAST_ROLE_SWAP_EN		BIT(7)
+ 
+-- 
+2.17.1
+

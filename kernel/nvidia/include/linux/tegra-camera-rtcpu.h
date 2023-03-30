@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,8 +29,7 @@ bool tegra_camrtc_is_rtcpu_powered(void);
 
 #define TEGRA_CAMRTC_VERSION_LEN 128
 
-int tegra_camrtc_command(struct device *dev, u32 command, long timeout);
-int tegra_camrtc_prefix_command(struct device *dev,
-				u32 prefix, u32 command, long timeout);
+int tegra_camrtc_ping(struct device *dev, u32 data, long timeout);
+void tegra_camrtc_ivc_ring(struct device *dev, u16 group);
 
 #endif

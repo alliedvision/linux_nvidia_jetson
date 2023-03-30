@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Chip Support
  *
- * Copyright (c) 2011-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2011-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -65,11 +65,8 @@ struct nvhost_cdma_ops {
 };
 
 struct nvhost_vm_ops {
-	int (*init)(struct nvhost_vm *vm, void *identifier);
+	int (*init)(struct nvhost_vm *vm, void *identifier, struct device *dev);
 	void (*deinit)(struct nvhost_vm *vm);
-	int (*pin_static_buffer)(struct platform_device *pdev,
-				 void *vaddr, dma_addr_t paddr,
-				 size_t size);
 	int (*get_id)(struct nvhost_vm *vm);
 	int (*init_device)(struct platform_device *pdev);
 	int (*init_syncpt_interface)(struct platform_device *pdev);
@@ -129,8 +126,6 @@ struct nvhost_intr_ops {
 	int (*debug_dump)(struct nvhost_intr *, struct output *);
 	void (*enable_host_irq)(struct nvhost_intr *, int irq);
 	void (*disable_host_irq)(struct nvhost_intr *, int irq);
-	void (*enable_module_intr)(struct nvhost_intr *, int irq);
-	void (*disable_module_intr)(struct nvhost_intr *, int irq);
 };
 
 struct nvhost_dev_ops {
@@ -139,6 +134,7 @@ struct nvhost_dev_ops {
 	void (*free_nvhost_channel)(struct nvhost_channel *ch);
 	void (*set_nvhost_chanops)(struct nvhost_channel *ch);
 	void (*load_gating_regs)(struct platform_device *pdev, bool enable);
+	void (*load_map_regs)(struct platform_device *pdev);
 	void (*module_reset_clamp)(struct platform_device *pdev, bool enable);
 };
 
@@ -235,6 +231,8 @@ struct nvhost_chip_support *nvhost_get_chip_ops(void);
 
 int nvhost_init_chip_support(struct nvhost_master *);
 
+bool nvhost_is_234(void);
+bool nvhost_is_194(void);
 bool nvhost_is_186(void);
 bool nvhost_is_210(void);
 bool nvhost_is_124(void);

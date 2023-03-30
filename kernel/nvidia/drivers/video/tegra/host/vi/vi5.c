@@ -1,7 +1,7 @@
 /*
- * VI5 driver for T194
+ * VI5 driver
  *
- * Copyright (c) 2017-2020, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,9 +33,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
-#include <media/capture_vi_channel.h>
+#include <media/fusa-capture/capture-vi-channel.h>
 #include <soc/tegra/camrtc-capture.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "vi5.h"
 #include "dev.h"
@@ -44,11 +49,12 @@
 #include "capture/capture-support.h"
 
 #include "t194/t194.h"
-
+#if IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+#include "t23x/t23x.h"
+#endif
 #include <media/vi.h>
 #include <media/mc_common.h>
 #include <media/tegra_camera_platform.h>
-#include "camera/vi/vi5_fops.h"
 #include <uapi/linux/nvhost_vi_ioctl.h>
 #include <linux/platform/tegra/latency_allowance.h>
 
@@ -63,13 +69,15 @@ struct host_vi5 {
 	struct platform_device *vi_thi;
 	struct vi vi_common;
 
-	/* RCE RM area */
-	struct sg_table rm_sgt;
-
 	/* Debugfs */
 	struct vi5_debug {
 		struct debugfs_regset32 ch0;
 	} debug;
+
+	/* WAR: Adding a temp flags to avoid registering to V4L2 and
+	 * tegra camera platform device.
+	 */
+	bool skip_v4l2_init;
 };
 
 static int vi5_init_debugfs(struct host_vi5 *vi5);
@@ -81,7 +89,7 @@ static int vi5_alloc_syncpt(struct platform_device *pdev,
 {
 	struct host_vi5 *vi5 = nvhost_get_private_data(pdev);
 
-	return t194_capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
+	return capture_alloc_syncpt(vi5->vi_thi, name, syncpt_id);
 }
 
 int nvhost_vi5_aggregate_constraints(struct platform_device *dev,
@@ -97,11 +105,12 @@ int nvhost_vi5_aggregate_constraints(struct platform_device *dev,
 			"No platform data, fall back to default policy\n");
 		return 0;
 	}
-	if (!pixelrate || clk_index != 0)
+
+	if (clk_index != 0)
 		return 0;
-	/* SCF send request using NVHOST_CLK, which is calculated
-	 * in floor_rate, so we need to aggregate its request
-	 * with V4L2 pixelrate request
+	/*
+	 * SCF and V4l2 send request using NVHOST_CLK through tegra_camera_platform,
+	 * which is calculated in floor_rate.
 	 */
 	return floor_rate + (pixelrate / pdata->num_ppc);
 }
@@ -110,7 +119,7 @@ static void vi5_release_syncpt(struct platform_device *pdev, uint32_t id)
 {
 	struct host_vi5 *vi5 = nvhost_get_private_data(pdev);
 
-	t194_capture_release_syncpt(vi5->vi_thi, id);
+	capture_release_syncpt(vi5->vi_thi, id);
 }
 
 static void vi5_get_gos_table(struct platform_device *pdev, int *count,
@@ -118,7 +127,7 @@ static void vi5_get_gos_table(struct platform_device *pdev, int *count,
 {
 	struct host_vi5 *vi5 = nvhost_get_private_data(pdev);
 
-	t194_capture_get_gos_table(vi5->vi_thi, count, table);
+	capture_get_gos_table(vi5->vi_thi, count, table);
 }
 
 static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
@@ -129,7 +138,7 @@ static int vi5_get_syncpt_gos_backing(struct platform_device *pdev,
 {
 	struct host_vi5 *vi5 = nvhost_get_private_data(pdev);
 
-	return t194_capture_get_syncpt_gos_backing(vi5->vi_thi, id,
+	return capture_get_syncpt_gos_backing(vi5->vi_thi, id,
 				syncpt_addr, gos_index, gos_offset);
 }
 
@@ -148,7 +157,6 @@ int vi5_priv_early_probe(struct platform_device *pdev)
 	struct platform_device *thi = NULL;
 	struct host_vi5 *vi5;
 	int err = 0;
-	unsigned int num_channels = 0;
 
 	info = (void *)of_device_get_match_data(dev);
 	if (unlikely(info == NULL)) {
@@ -173,19 +181,11 @@ int vi5_priv_early_probe(struct platform_device *pdev)
 		goto put_vi;
 	}
 
-	if (of_property_read_u32(dev->of_node, "nvidia,num-vi-channels",
-				&num_channels)) {
-		dev_warn(dev, "using default number of vi channels, %d\n",
-			info->num_channels);
-	} else {
-		if (num_channels < info->num_channels) {
-			info->num_channels = num_channels;
-		} else {
-			dev_WARN(dev,
-				"num of channels are out of range, use default num");
-		}
+	err = vi_channel_drv_fops_register(&vi5_channel_drv_ops);
+	if (err) {
+		dev_warn(&pdev->dev, "syncpt fops register failed, defer probe\n");
+		goto put_vi;
 	}
-	dev_dbg(dev, "num vi channels : %d\n", info->num_channels);
 
 	vi5 = (struct host_vi5*) devm_kzalloc(dev, sizeof(*vi5), GFP_KERNEL);
 	if (!vi5) {
@@ -193,6 +193,8 @@ int vi5_priv_early_probe(struct platform_device *pdev)
 		goto put_vi;
 	}
 
+	vi5->skip_v4l2_init = of_property_read_bool(dev->of_node,
+					"nvidia,skip-v4l2-init");
 	vi5->vi_thi = thi;
 	vi5->pdev = pdev;
 	info->pdev = pdev;
@@ -200,7 +202,7 @@ int vi5_priv_early_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	info->private_data = vi5;
 
-	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(40));
+	(void) dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(39));
 
 	return 0;
 
@@ -226,23 +228,12 @@ int vi5_priv_late_probe(struct platform_device *pdev)
 	vi_info.hw_type = HWTYPE_VI;
 	vi_info.ppc = NUM_PPC;
 	vi_info.overhead = VI_OVERHEAD;
+
 	err = tegra_camera_device_register(&vi_info, vi5);
 	if (err)
 		goto device_release;
 
-	err = vi_channel_drv_register(pdev, &vi5_channel_drv_ops);
-	if (err)
-		goto device_release;
-
 	vi5_init_debugfs(vi5);
-
-	vi5->vi_common.mc_vi.vi = &vi5->vi_common;
-	vi5->vi_common.mc_vi.fops = &vi5_fops;
-	err = tegra_vi_media_controller_init(&vi5->vi_common.mc_vi, pdev);
-	if (err) {
-		dev_warn(&pdev->dev, "media controller init failed\n");
-		err = 0;
-	}
 
 	return 0;
 
@@ -257,6 +248,8 @@ static int vi5_probe(struct platform_device *pdev)
 	int err;
 	struct nvhost_device_data *pdata;
 	struct host_vi5 *vi5;
+
+	dev_dbg(&pdev->dev, "%s: probe %s\n", __func__, pdev->name);
 
 	err = vi5_priv_early_probe(pdev);
 	if (err)
@@ -277,7 +270,9 @@ static int vi5_probe(struct platform_device *pdev)
 	if (err)
 		goto deinit;
 
-	vi5_priv_late_probe(pdev);
+	err = vi5_priv_late_probe(pdev);
+	if (err)
+		goto deinit;
 
 	return 0;
 
@@ -306,12 +301,6 @@ static int vi5_remove(struct platform_device *pdev)
 	vi_channel_drv_unregister(&pdev->dev);
 	tegra_vi_media_controller_cleanup(&vi5->vi_common.mc_vi);
 
-	if (vi5->rm_sgt.sgl) {
-		dma_unmap_sg(&pdev->dev, vi5->rm_sgt.sgl,
-			vi5->rm_sgt.orig_nents, DMA_FROM_DEVICE);
-		sg_free_table(&vi5->rm_sgt);
-	}
-
 	vi5_remove_debugfs(vi5);
 	platform_device_put(vi5->vi_thi);
 
@@ -320,9 +309,13 @@ static int vi5_remove(struct platform_device *pdev)
 
 static const struct of_device_id tegra_vi5_of_match[] = {
 	{
+		.name = "vi",
 		.compatible = "nvidia,tegra194-vi",
 		.data = &t19_vi5_info,
 	},
+#if IS_ENABLED(CONFIG_TEGRA_T23X_GRHOST)
+#include "vi/vi5-t23x.h"
+#endif
 	{ },
 };
 

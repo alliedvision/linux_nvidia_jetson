@@ -1,0 +1,78 @@
+From d396ace04402d15b2e3352d6d605f5800d5a7f17 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:34 -0700
+Subject: [PATCH 012/830] FROMGIT: usb: typec: tcpci_maxim: Fix vbus stuck on
+ upon diconnecting sink
+X-NVConfidentiality: public
+
+Occasionally, POWER_STATUS.sourcing_vbus takes a while to clear after
+writing to  MAX_BUCK_BOOST_OP register. This causes vbus to turn back
+on while disconnecting the sink. Overcome this issue by writing into
+MAX_BUCK_BOOST_OP during frs while sourcing vbu, instead of always
+into the register whenever POWER_STATUS.sourcing_vbus is set.
+
+Bug: 168555244
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-7-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit 2fc58b36e919902ae2f17531783d8debadcc2a27
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Ib9189de393cb29129419babbfaf333a34e1d4035
+---
+ drivers/usb/typec/tcpm/tcpci_maxim.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci_maxim.c b/drivers/usb/typec/tcpm/tcpci_maxim.c
+index 723d7dd38f75..43dcad95e897 100644
+--- a/drivers/usb/typec/tcpm/tcpci_maxim.c
++++ b/drivers/usb/typec/tcpm/tcpci_maxim.c
+@@ -238,23 +238,22 @@ static void process_power_status(struct max_tcpci_chip *chip)
+ 	if (ret < 0)
+ 		return;
+ 
+-	if (pwr_status == 0xff) {
++	if (pwr_status == 0xff)
+ 		max_tcpci_init_regs(chip);
+-	} else if (pwr_status & TCPC_POWER_STATUS_SOURCING_VBUS) {
++	else if (pwr_status & TCPC_POWER_STATUS_SOURCING_VBUS)
+ 		tcpm_sourcing_vbus(chip->port);
+-		/*
+-		 * Alawys re-enable boost here.
+-		 * In normal case, when say an headset is attached, TCPM would
+-		 * have instructed to TCPC to enable boost, so the call is a
+-		 * no-op.
+-		 * But for Fast Role Swap case, Boost turns on autonomously without
+-		 * AP intervention, but, needs AP to enable source mode explicitly
+-		 * for AP to regain control.
+-		 */
+-		max_tcpci_set_vbus(chip->tcpci, &chip->data, true, false);
+-	} else {
++	else
+ 		tcpm_vbus_change(chip->port);
+-	}
++}
++
++static void max_tcpci_frs_sourcing_vbus(struct tcpci *tcpci, struct tcpci_data *tdata)
++{
++	/*
++	 * For Fast Role Swap case, Boost turns on autonomously without
++	 * AP intervention, but, needs AP to enable source mode explicitly
++	 * for AP to regain control.
++	 */
++	max_tcpci_set_vbus(tcpci, tdata, true, false);
+ }
+ 
+ static void process_tx(struct max_tcpci_chip *chip, u16 status)
+@@ -441,6 +440,7 @@ static int max_tcpci_probe(struct i2c_client *client, const struct i2c_device_id
+ 	chip->data.start_drp_toggling = max_tcpci_start_toggling;
+ 	chip->data.TX_BUF_BYTE_x_hidden = true;
+ 	chip->data.init = tcpci_init;
++	chip->data.frs_sourcing_vbus = max_tcpci_frs_sourcing_vbus;
+ 
+ 	max_tcpci_init_regs(chip);
+ 	chip->tcpci = tcpci_register_port(chip->dev, &chip->data);
+-- 
+2.17.1
+

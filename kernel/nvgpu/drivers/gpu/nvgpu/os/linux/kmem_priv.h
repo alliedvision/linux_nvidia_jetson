@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,7 +28,7 @@ struct seq_file;
 			seq_printf(s, fmt, ##msg);	\
 		else					\
 			pr_info(fmt, ##msg);		\
-	} while (0)
+	} while (false)
 
 #define MAX_STACK_TRACE				20
 
@@ -54,7 +54,7 @@ struct nvgpu_mem_alloc {
 	struct nvgpu_mem_alloc_tracker *owner;
 
 	void *ip;
-#ifdef __NVGPU_SAVE_KALLOC_STACK_TRACES
+#ifdef NVGPU_SAVE_KALLOC_STACK_TRACES
 	unsigned long stack[MAX_STACK_TRACE];
 	int stack_length;
 #endif

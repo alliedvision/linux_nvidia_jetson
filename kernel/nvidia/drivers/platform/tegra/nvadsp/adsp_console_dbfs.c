@@ -3,7 +3,7 @@
  *
  * adsp mailbox console driver
  *
- * Copyright (C) 2014-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2020, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -43,6 +43,12 @@ static int open_cnt;
 #define ADSP_APP_CTX_MAX	32
 
 static uint64_t adsp_app_ctx_vals[ADSP_APP_CTX_MAX];
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+#define ACCESS_OK(addr, size) access_ok(0, addr, size)
+#else
+#define ACCESS_OK(addr, size) access_ok(addr, size)
+#endif
 
 static int adsp_app_ctx_add(uint64_t ctx)
 {
@@ -192,8 +198,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 		memset(mbox, 0, sizeof(struct nvadsp_mbox));
 		break;
 	case _IOC_NR(ADSP_CNSL_RUN_APP):
-		if (!access_ok(0, uarg,
-			sizeof(struct adsp_consol_run_app_arg_t)))
+		if (!ACCESS_OK(uarg, sizeof(struct adsp_consol_run_app_arg_t)))
 			return -EACCES;
 		ret = copy_from_user(&app_args, uarg,
 			sizeof(app_args));
@@ -260,8 +265,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 			ret = -EACCES;
 		break;
 	case _IOC_NR(ADSP_CNSL_STOP_APP):
-		if (!access_ok(0, uarg,
-			sizeof(struct adsp_consol_run_app_arg_t)))
+		if (!ACCESS_OK(uarg, sizeof(struct adsp_consol_run_app_arg_t)))
 			return -EACCES;
 		ret = copy_from_user(&app_args, uarg,
 			sizeof(app_args));
@@ -311,7 +315,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 	case _IOC_NR(ADSP_CNSL_CLR_BUFFER):
 		break;
 	case _IOC_NR(ADSP_CNSL_OPN_MBX):
-		if (!access_ok(0, uarg, sizeof(ctx2)))
+		if (!ACCESS_OK(uarg, sizeof(ctx2)))
 			return -EACCES;
 		ret = copy_from_user(&ctx2, uarg, sizeof(ctx2));
 		if (ret) {
@@ -348,8 +352,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 		memset(mbox, 0, sizeof(struct nvadsp_mbox));
 		break;
 	case _IOC_NR(ADSP_CNSL_PUT_MBX):
-		if (!access_ok(0, uarg,
-			sizeof(uint32_t)))
+		if (!ACCESS_OK(uarg, sizeof(uint32_t)))
 			return -EACCES;
 		ret = copy_from_user(&data, uarg,
 			sizeof(uint32_t));
@@ -361,8 +364,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 			NVADSP_MBOX_SMSG, 0, 0);
 		break;
 	case _IOC_NR(ADSP_CNSL_GET_MBX):
-		if (!access_ok(0, uarg,
-			       sizeof(uint32_t)))
+		if (!ACCESS_OK(uarg, sizeof(uint32_t)))
 			return -EACCES;
 		ret = nvadsp_mbox_recv(&console->app_mbox, &data, 0, 0);
 		if (ret)
@@ -373,8 +375,7 @@ adsp_consol_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 			ret = -EACCES;
 		break;
 	case _IOC_NR(ADSP_CNSL_PUT_DATA):
-		if (!access_ok(0, uarg,
-			sizeof(struct adsp_consol_run_app_arg_t)))
+		if (!ACCESS_OK(uarg, sizeof(struct adsp_consol_run_app_arg_t)))
 			return -EACCES;
 		ret = copy_from_user(&data, uarg, sizeof(uint32_t));
 		if (ret) {

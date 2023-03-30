@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ *
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+        overlay-name = "Jetson AGX Xavier 64GB";
+
+        fragment@0 {
+                target-path = "/gv11b";
+
+                board_config {
+                        ids = "2888-0005-*";
+                };
+
+                __overlay__ {
+                        disable_l3_alloc;
+                };
+        };
+
+        fragment@1 {
+                target-path = "/mc/mssnvlink@1f20000";
+
+                board_config {
+                        ids = "2888-0005-*";
+                };
+
+                __overlay__ {
+                        disable-nvlink-l3-alloc-hint;
+                };
+        };
+};
+

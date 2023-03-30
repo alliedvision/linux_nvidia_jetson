@@ -6,7 +6,7 @@
  * Author:
  *	Erik Gilling <konkers@google.com>
  *
- * Copyright (c) 2010-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -688,6 +688,7 @@ struct tegra_dc_out {
 	int	(*disable)(struct device *);
 
 	int	(*hotplug_init)(struct device *);
+	void	(*hotplug_deinit)(struct device *);
 	int	(*postsuspend)(void);
 	void	(*hotplug_report)(bool);
 };
@@ -723,8 +724,7 @@ struct tegra_dc_out {
 #define V_BLANK_USER		2
 #define V_BLANK_IMP		3
 
-#define V_PULSE2_FLIP		0
-#define V_PULSE2_LATENCY_MSRMNT	2
+#define V_PULSE2_LATENCY_MSRMNT	0
 
 struct tegra_dc_cmu_csc {
 	u16 krr;
@@ -800,7 +800,6 @@ struct tegra_dc_platform_data {
 	struct device_node	*panel_np; /* dp-display, hdmi-display etc. */
 	struct device_node	*def_out_np; /* disp-default-out */
 	bool			frame_lock_enable;
-	bool			plld2_ss_enable;
 };
 
 struct tegra_dc_bw_data {
@@ -833,7 +832,6 @@ int tegra_dc_set_default_videomode(struct tegra_dc *dc);
 u32 tegra_dc_get_syncpt_id(struct tegra_dc *dc, int i);
 u32 tegra_dc_incr_syncpt_max(struct tegra_dc *dc, int i);
 void tegra_dc_incr_syncpt_min(struct tegra_dc *dc, int i, u32 val);
-struct sync_fence *tegra_dc_create_fence(struct tegra_dc *dc, int i, u32 val);
 
 /* needed for tegra/dc/ext/ */
 
@@ -978,10 +976,9 @@ static inline int tegra_fb_release_fbmem(struct tegra_fb_info *info)
 
 /* tegra_dc_update_windows and tegra_dc_sync_windows do not support windows
  * with differenct dcs in one call
- * dirty_rect is u16[4]: xoff, yoff, width, height
  */
 int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n,
-	u16 *dirty_rect, bool wait_for_vblank, bool lock_flip);
+	bool wait_for_vblank, bool lock_flip);
 int tegra_dc_sync_windows(struct tegra_dc_win *windows[], int n);
 void tegra_dc_disable_window(struct tegra_dc *dc, unsigned win);
 int tegra_dc_attach_win(struct tegra_dc *dc, unsigned idx);

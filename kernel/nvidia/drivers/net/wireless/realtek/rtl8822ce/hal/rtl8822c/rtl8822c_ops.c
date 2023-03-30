@@ -20,7 +20,7 @@
 #include <rtw_sreset.h>
 #endif /* DBG_CONFIG_ERROR_DETECT */
 #include <hal_data.h>		/* PHAL_DATA_TYPE, GET_HAL_DATA() */
-#include <hal_com.h>		/* rtw_hal_config_rftype(), dump_chip_info() and etc. */
+#include <hal_com.h>		/* dump_chip_info() and etc. */
 #include "../hal_halmac.h"	/* GET_RX_DESC_XXX_8822C() */
 #include "rtl8822c.h"
 #include "rtl8822c_hal.h"
@@ -195,8 +195,6 @@ static void read_chip_version(PADAPTER adapter)
 	}
 
 	hal->version_id.RFType = ((value32 & BIT_RF_TYPE_ID_8822C) ? RF_TYPE_2T2R : RF_TYPE_1T1R);
-	if (adapter->registrypriv.special_rf_path == 1)
-		hal->version_id.RFType = RF_TYPE_1T1R;	/* RF_1T1R; */
 
 	/* refer to sd7 code base*/
 	hal->RegulatorMode = ((value32 & BIT_INTERNAL_EXTERNAL_SWR_8822C) ? RT_LDO_REGULATOR : RT_SWITCHING_REGULATOR);
@@ -210,8 +208,6 @@ static void read_chip_version(PADAPTER adapter)
 	hal->MultiFunc |= ((value32 & BIT_WL_FUNC_EN_8822C) ? RT_MULTI_FUNC_WIFI : 0);
 	hal->MultiFunc |= ((value32 & BIT_BT_FUNC_EN_8822C) ? RT_MULTI_FUNC_BT : 0);
 	hal->PolarityCtl = ((value32 & BIT_WL_HWPDN_SL_8822C) ? RT_POLARITY_HIGH_ACT : RT_POLARITY_LOW_ACT);
-
-	rtw_hal_config_rftype(adapter);
 
 	dump_chip_info(hal->version_id);
 }
@@ -253,21 +249,38 @@ static int Hal_EfuseParseTxPowerInfo(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
 	u8 tpt_mode = (map[EEPROM_TX_PWR_CALIBRATE_RATE_8822C] & 0xF0) >> 4;
-	TxPowerInfo24G tbl2G4;
-	TxPowerInfo5G tbl5g;
 	int ret = _FAIL;
 
-	if (tpt_mode >= 4 && tpt_mode < 7) { /* 4~7: TSSI, TODO */
-		RTW_ERR("%s tpt_mode=%u, TSSI is not supported\n", __func__, tpt_mode);
-		goto exit;
+	if (GetRegPowerTrackingType(adapter) != 64) {
+		tpt_mode = GetRegPowerTrackingType(adapter);
+		RTW_INFO("%s force tpt_mode=%u\n", __func__, tpt_mode);
 	}
 
-	hal_load_txpwr_info(adapter, &tbl2G4, &tbl5g, map);
+#ifdef CONFIG_TXPWR_PG_WITH_PWR_IDX
+	if (tpt_mode <= 3) { /* 0~3: thermal */
+		hal->txpwr_pg_mode = TXPWR_PG_WITH_PWR_IDX;
+		goto parse_tpt_mode_done;
+	}
+#endif
+
+#ifdef CONFIG_TXPWR_PG_WITH_TSSI_OFFSET
+	if (tpt_mode >= 4 && tpt_mode <= 7) { /* 4~7: TSSI */
+		hal->txpwr_pg_mode = TXPWR_PG_WITH_TSSI_OFFSET;
+		goto parse_tpt_mode_done;
+	}
+#endif
+
+	RTW_ERR("%s unknown tpt_mode=%u\n", __func__, tpt_mode);
+	goto exit;
+
+parse_tpt_mode_done:
+	RTW_INFO("%s tpt_mode=%u, PG with %s\n", __func__
+		, tpt_mode, txpwr_pg_mode_str(hal->txpwr_pg_mode));
 
 	if ((_TRUE == mapvalid) && (map[EEPROM_RF_BOARD_OPTION_8822C] != 0xFF))
-		hal->EEPROMRegulatory = map[EEPROM_RF_BOARD_OPTION_8822C] & 0x7; /* bit0~2 */
+		hal->EEPROMRegulatory = map[EEPROM_RF_BOARD_OPTION_8822C] & 0x3; /* bit0~1 */
 	else
-		hal->EEPROMRegulatory = EEPROM_DEFAULT_BOARD_OPTION & 0x7; /* bit0~2 */
+		hal->EEPROMRegulatory = EEPROM_DEFAULT_BOARD_OPTION & 0x3; /* bit0~1 */
 	RTW_INFO("EEPROM Regulatory=0x%02x\n", hal->EEPROMRegulatory);
 
 	ret = _SUCCESS;
@@ -287,6 +300,18 @@ static void Hal_EfuseParseBoardType(PADAPTER adapter, u8 *map, u8 mapvalid)
 		hal->InterfaceSel = (EEPROM_DEFAULT_BOARD_OPTION & 0xE0) >> 5;
 
 	RTW_INFO("EEPROM Board Type=0x%02x\n", hal->InterfaceSel);
+
+	if (mapvalid) {
+		if (map[EEPROM_RF_BOARD_OPTION_8822C] & BIT2) {
+			/* de-featured to 1 Tx/stream */
+			hal->eeprom_max_tx_cnt = 1;
+			RTW_INFO("EEPROM 0xC1[2]=1, de-featured to 1 Tx/stream\n");
+		}
+		if (map[EEPROM_RF_BOARD_OPTION_8822C] & BIT3) {
+			/* de-featured to 1 Rx/stream */
+			/* TODO, how and necessary? */
+		}
+	}
 }
 
 static void Hal_EfuseParseBTCoexistInfo(PADAPTER adapter, u8 *map, u8 mapvalid)
@@ -319,12 +344,6 @@ static void Hal_EfuseParseBTCoexistInfo(PADAPTER adapter, u8 *map, u8 mapvalid)
 		hal->ant_path = RF_PATH_A;
 	}
 
-#ifdef CONFIG_RTW_8822C_BETA_DEV
-		hal->EEPROMBluetoothCoexist = _FALSE;
-		hal->EEPROMBluetoothAntNum = Ant_x1;
-		hal->ant_path = RF_PATH_A;
-#endif
-
 	RTW_INFO("EEPROM %s BT-coex, ant_num=%d\n",
 		 hal->EEPROMBluetoothCoexist == _TRUE ? "Enable" : "Disable",
 		 hal->EEPROMBluetoothAntNum == Ant_x2 ? 2 : 1);
@@ -343,6 +362,128 @@ static int Hal_EfuseParseChnlPlan(PADAPTER adapter, u8 *map, u8 autoloadfail)
 	);
 }
 
+#ifdef CONFIG_RTL8822C_XCAP_NEW_POLICY
+#define GET_XCAP_VALUE_B9_8822C(x) (x & 0x7F)
+#define GET_XCAP_VALUE_110_8822C(x) (x & 0x7F)
+#define GET_XCAP_VALUE_111_8822C(x) ((x & 0x7F00) >> 8)
+#define EFUSE_XCAP_VALID_CHK_B9_8822C(x) \
+	(!(GET_XCAP_VALUE_B9_8822C(x) == 0x7F))
+#define EFUSE_XCAP_VALID_CHK_110_8822C(x) \
+	(!((GET_XCAP_VALUE_110_8822C(x) == EEPROM_Default_CrystalCap_110_8822C) || (GET_XCAP_VALUE_110_8822C(x) == 0x7F)))
+#define EFUSE_XCAP_VALID_CHK_111_8822C(x) \
+	(!((GET_XCAP_VALUE_111_8822C(x) == EEPROM_Default_CrystalCap_111_8822C) || (GET_XCAP_VALUE_111_8822C(x) == 0x7F)))
+static s16 hal_efuse_search_xtal_cap(PADAPTER adapter, u8 h_xcap_b9, u16 f_xcap_110_111, u8 f_xcap_b9)
+{
+	enum {
+		XCAP_SRC_H_EFUSE_B9_8822C = 0,
+		XCAP_SRC_F_EFUSE_110_8822C,
+		XCAP_SRC_F_EFUSE_B9_8822C,
+		XCAP_SRC_8822C_MAX
+	};
+
+	const char *const xcap_src_8822c_str[XCAP_SRC_8822C_MAX] = {
+		"XCAP_SRC_H_EFUSE_B9",
+		"XCAP_SRC_F_EFUSE_110",
+		"XCAP_SRC_F_EFUSE_B9"
+	};
+
+	/* this declaration also controls the priority while searching xcap value from the candidates, 
+		the prior element in the array implies the higher priority, fill -1 to bypass the element */
+	s8 xcap_src_8822c[XCAP_SRC_8822C_MAX] = 
+		{XCAP_SRC_F_EFUSE_B9_8822C, XCAP_SRC_F_EFUSE_110_8822C, XCAP_SRC_H_EFUSE_B9_8822C};
+
+	int i = 0;
+	s8 xcap_found = -1;
+	s16 xcap_value = -1;
+
+	/* search for the valid xcap value from candidates */
+	for (i = 0; i < XCAP_SRC_8822C_MAX; i++) {
+		switch (xcap_src_8822c[i]) {
+		case XCAP_SRC_H_EFUSE_B9_8822C:
+			if (EFUSE_XCAP_VALID_CHK_B9_8822C(h_xcap_b9)) {
+				xcap_value = ((GET_XCAP_VALUE_B9_8822C(h_xcap_b9) << 8) | GET_XCAP_VALUE_B9_8822C(h_xcap_b9));
+				xcap_found = XCAP_SRC_H_EFUSE_B9_8822C;
+			}
+			break;
+		case XCAP_SRC_F_EFUSE_110_8822C:
+			if ((EFUSE_XCAP_VALID_CHK_110_8822C(f_xcap_110_111 )) && (EFUSE_XCAP_VALID_CHK_111_8822C(f_xcap_110_111 ))) {
+				xcap_value = (f_xcap_110_111 & 0x7F7F);
+				xcap_found = XCAP_SRC_F_EFUSE_110_8822C;
+			}
+			break;
+		case XCAP_SRC_F_EFUSE_B9_8822C:
+			if (EFUSE_XCAP_VALID_CHK_B9_8822C(f_xcap_b9)) {
+				xcap_value = ((GET_XCAP_VALUE_B9_8822C(f_xcap_b9) << 8) | GET_XCAP_VALUE_B9_8822C(f_xcap_b9));
+				xcap_found = XCAP_SRC_F_EFUSE_B9_8822C;
+			}
+			break;
+		case -1:
+			break;
+		}
+
+		if (xcap_found >= 0)
+			break;
+	}
+
+	if (xcap_found == -1)
+		RTW_INFO("valid crystall_cap value is not found in all sources!\n");
+	else
+		RTW_INFO("valid crystal_cap value 0x%04X is found in %s!\n", xcap_value, xcap_src_8822c_str[xcap_found]);
+
+	return xcap_value;
+}
+
+static void hal_efuse_parse_xtal_cap_new(PADAPTER adapter, u16 h_xcap_110_111, u8 h_xcap_b9, 
+	u16 f_xcap_110_111, u8 f_xcap_b9, u8 mapvalid)
+{
+	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
+	s16 xcap_value = -1;
+	u16 xcap_value_to_h_efuse = 0;
+
+	if (mapvalid == _FALSE) {
+		hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
+		goto exit;
+	}
+
+	if (adapter->registrypriv.rtw_8822c_xcap_overwrite == 1) {
+		xcap_value = hal_efuse_search_xtal_cap(adapter, h_xcap_b9, f_xcap_110_111, f_xcap_b9);
+		if (xcap_value != -1) {
+			if (xcap_value != (h_xcap_110_111 & 0x7F7F)) {
+				xcap_value_to_h_efuse = ((h_xcap_110_111 & 0x8080) | xcap_value);
+				rtw_efuse_map_write(adapter, EEPROM_XTAL_110_8822C, 2, (u8*)&xcap_value_to_h_efuse);
+				RTW_INFO("update crystal_cap = 0x%02X into hw efuse!\n", xcap_value);
+			}
+
+			hal->crystal_cap = GET_XCAP_VALUE_110_8822C(xcap_value);
+		}
+		else {
+			if ((EFUSE_XCAP_VALID_CHK_110_8822C(h_xcap_110_111)) && (EFUSE_XCAP_VALID_CHK_111_8822C(h_xcap_110_111)))
+				hal->crystal_cap = GET_XCAP_VALUE_110_8822C(h_xcap_110_111);
+			else
+				hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
+		}
+	}
+	else {
+			if ((EFUSE_XCAP_VALID_CHK_110_8822C(h_xcap_110_111)) && (EFUSE_XCAP_VALID_CHK_111_8822C(h_xcap_110_111)))
+				hal->crystal_cap = GET_XCAP_VALUE_110_8822C(h_xcap_110_111);
+			else {
+				xcap_value = hal_efuse_search_xtal_cap(adapter, h_xcap_b9, f_xcap_110_111, f_xcap_b9);
+				if (xcap_value != -1) {
+					xcap_value_to_h_efuse = ((h_xcap_110_111 & 0x8080) | xcap_value);
+					rtw_efuse_map_write(adapter, EEPROM_XTAL_110_8822C, 2, (u8*)&xcap_value_to_h_efuse);
+					RTW_INFO("update crystal_cap = 0x%02X into hw efuse!\n", xcap_value);
+					hal->crystal_cap = GET_XCAP_VALUE_110_8822C(xcap_value);
+				}
+				else
+					hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
+			}
+	}
+
+exit:
+	RTW_INFO("EEPROM crystal_cap=0x%02x\n", hal->crystal_cap);
+
+}
+#endif
 static void Hal_EfuseParseXtal(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
@@ -376,40 +517,28 @@ static void Hal_EfuseParseThermalMeter(PADAPTER adapter, u8 *map, u8 mapvalid)
 	RTW_INFO("EEPROM ThermalMeter=0x%02x\n", hal->eeprom_thermal_meter);
 }
 
-static void Hal_EfuseParseAntennaDiversity(PADAPTER adapter, u8 *map, u8 mapvalid)
+static void Hal_EfuseParsePathSelection(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
-#ifdef CONFIG_ANTENNA_DIVERSITY
 	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
-	struct registry_priv *registry_par = &adapter->registrypriv;
+	u8 trx_path_bmp = map[EEPROM_RF_ANTENNA_OPT_8822C];
 
+	if (!mapvalid)
+		return;
 
-	if (hal->EEPROMBluetoothAntNum == Ant_x1)
-		hal->AntDivCfg = 0;
-	else {
-		if (registry_par->antdiv_cfg == 2)/* 0:OFF , 1:ON, 2:By EFUSE */
-			hal->AntDivCfg = 1;
-		else
-			hal->AntDivCfg = registry_par->antdiv_cfg;
+	switch (trx_path_bmp) {
+	case 0x33: /* 2T2R - TX:AB,	RX:AB */
+	case 0x13: /* 1T2R - TX:A,	RX:AB */
+	case 0x23: /* 1T2R - TX:B,	RX:AB */
+	case 0x11: /* 1T1R - TX:A,	RX:A */
+	case 0x22: /* 1T1R - TX:B,	RX:B */
+		hal->eeprom_trx_path_bmp = trx_path_bmp;
+		RTW_INFO("EEPROM efuse[0x%x]=0x%02x is valid\n"
+			, EEPROM_RF_ANTENNA_OPT_8822C, trx_path_bmp);
+		break;
+	default:
+		RTW_INFO("EEPROM efuse[0x%x]=0x%02x is unknown type\n"
+			, EEPROM_RF_ANTENNA_OPT_8822C, trx_path_bmp);
 	}
-
-	/* If TRxAntDivType is AUTO in advanced setting, use EFUSE value instead. */
-	if (registry_par->antdiv_type == 0) {
-		hal->TRxAntDivType = map[EEPROM_RFE_OPTION_8822C];
-		if (hal->TRxAntDivType == 0xFF)
-			hal->TRxAntDivType = S0S1_SW_ANTDIV; /* internal switch S0S1 */
-		else if (hal->TRxAntDivType == 0x10)
-			hal->TRxAntDivType = S0S1_SW_ANTDIV; /* internal switch S0S1 */
-		else if (hal->TRxAntDivType == 0x11)
-			hal->TRxAntDivType = S0S1_SW_ANTDIV; /* internal switch S0S1 */
-		else
-			RTW_INFO("EEPROM efuse[0x%x]=0x%02x is unknown type\n",
-				 EEPROM_RFE_OPTION_8723B, hal->TRxAntDivType);
-	} else
-		hal->TRxAntDivType = registry_par->antdiv_type;
-
-	RTW_INFO("EEPROM AntDivCfg=%d, AntDivType=%d\n",
-		 hal->AntDivCfg, hal->TRxAntDivType);
-#endif /* CONFIG_ANTENNA_DIVERSITY */
 }
 
 static void Hal_EfuseParseCustomerID(PADAPTER adapter, u8 *map, u8 mapvalid)
@@ -578,6 +707,7 @@ static void Hal_EfuseParsePackageType(PADAPTER adapter, u8 *map, u8 mapvalid)
 {
 }
 
+#if 0
 static void Hal_EfuseParsePABias(PADAPTER adapter)
 {
 	struct hal_com_data *hal;
@@ -598,7 +728,7 @@ static void Hal_EfuseParsePABias(PADAPTER adapter)
 	RTW_INFO("EEPROM efuse[0x3D7]=0x%x\n", hal->efuse0x3d7);
 	RTW_INFO("EEPROM efuse[0x3D8]=0x%x\n", hal->efuse0x3d8);
 }
-
+#endif
 
 #ifdef CONFIG_USB_HCI
 static void Hal_ReadUsbModeSwitch(PADAPTER adapter, u8 *map, u8 mapvalid)
@@ -632,129 +762,6 @@ static void hal_read_usb_pid_vid(PADAPTER adapter, u8 *map, u8 mapvalid)
 
 #endif /* CONFIG_USB_HCI */
 
-#ifdef CONFIG_RTL8822C_XCAP_NEW_POLICY
-#define GET_XCAP_VALUE_B9_8822C(x) (x & 0x7F)
-#define GET_XCAP_VALUE_110_8822C(x) (x & 0x7F)
-#define GET_XCAP_VALUE_111_8822C(x) ((x & 0x7F00) >> 8)
-#define EFUSE_XCAP_VALID_CHK_B9_8822C(x) \
-	(!(GET_XCAP_VALUE_B9_8822C(x) == 0x7F))
-#define EFUSE_XCAP_VALID_CHK_110_8822C(x) \
-	(!((GET_XCAP_VALUE_110_8822C(x) == EEPROM_Default_CrystalCap_110_8822C) || (GET_XCAP_VALUE_110_8822C(x) == 0x7F)))
-#define EFUSE_XCAP_VALID_CHK_111_8822C(x) \
-	(!((GET_XCAP_VALUE_111_8822C(x) == EEPROM_Default_CrystalCap_111_8822C) || (GET_XCAP_VALUE_111_8822C(x) == 0x7F)))
-static s16 hal_efuse_search_xtal_cap(PADAPTER adapter, u8 h_xcap_b9, u16 f_xcap_110_111, u8 f_xcap_b9)
-{
-	enum {
-		XCAP_SRC_H_EFUSE_B9_8822C = 0,
-		XCAP_SRC_F_EFUSE_110_8822C,
-		XCAP_SRC_F_EFUSE_B9_8822C,
-		XCAP_SRC_8822C_MAX
-	};
-
-	const char *const xcap_src_8822c_str[XCAP_SRC_8822C_MAX] = {
-		"XCAP_SRC_H_EFUSE_B9",
-		"XCAP_SRC_F_EFUSE_110",
-		"XCAP_SRC_F_EFUSE_B9"
-	};
-
-	/* this declaration also controls the priority while searching xcap value from the candidates, 
-		the prior element in the array implies the higher priority, fill -1 to bypass the element */
-	s8 xcap_src_8822c[XCAP_SRC_8822C_MAX] = 
-		{XCAP_SRC_F_EFUSE_B9_8822C, XCAP_SRC_F_EFUSE_110_8822C, XCAP_SRC_H_EFUSE_B9_8822C};
-
-	int i = 0;
-	s8 xcap_found = -1;
-	s16 xcap_value = -1;
-
-	/* search for the valid xcap value from candidates */
-	for (i = 0; i < XCAP_SRC_8822C_MAX; i++) {
-		switch (xcap_src_8822c[i]) {
-		case XCAP_SRC_H_EFUSE_B9_8822C:
-			if (EFUSE_XCAP_VALID_CHK_B9_8822C(h_xcap_b9)) {
-				xcap_value = ((GET_XCAP_VALUE_B9_8822C(h_xcap_b9) << 8) | GET_XCAP_VALUE_B9_8822C(h_xcap_b9));
-				xcap_found = XCAP_SRC_H_EFUSE_B9_8822C;
-			}
-			break;
-		case XCAP_SRC_F_EFUSE_110_8822C:
-			if ((EFUSE_XCAP_VALID_CHK_110_8822C(f_xcap_110_111 )) && (EFUSE_XCAP_VALID_CHK_111_8822C(f_xcap_110_111 ))) {
-				xcap_value = (f_xcap_110_111 & 0x7F7F);
-				xcap_found = XCAP_SRC_F_EFUSE_110_8822C;
-			}
-			break;
-		case XCAP_SRC_F_EFUSE_B9_8822C:
-			if (EFUSE_XCAP_VALID_CHK_B9_8822C(f_xcap_b9)) {
-				xcap_value = ((GET_XCAP_VALUE_B9_8822C(f_xcap_b9) << 8) | GET_XCAP_VALUE_B9_8822C(f_xcap_b9));
-				xcap_found = XCAP_SRC_F_EFUSE_B9_8822C;
-			}
-			break;
-		case -1:
-			break;
-		}
-
-		if (xcap_found >= 0)
-			break;
-	}
-
-	if (xcap_found == -1)
-		RTW_INFO("valid crystall_cap value is not found in all sources!\n");
-	else
-		RTW_INFO("valid crystal_cap value 0x%04X is found in %s!\n", xcap_value, xcap_src_8822c_str[xcap_found]);
-
-	return xcap_value;
-}
-
-static void hal_efuse_parse_xtal_cap_new(PADAPTER adapter, u16 h_xcap_110_111, u8 h_xcap_b9, 
-	u16 f_xcap_110_111, u8 f_xcap_b9, u8 mapvalid)
-{
-	PHAL_DATA_TYPE hal = GET_HAL_DATA(adapter);
-	s16 xcap_value = -1;
-	u16 xcap_value_to_h_efuse = 0;
-
-	if (mapvalid == _FALSE) {
-		hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
-		goto exit;
-	}
-
-	if (adapter->registrypriv.rtw_8822c_xcap_overwrite == 1) {
-		xcap_value = hal_efuse_search_xtal_cap(adapter, h_xcap_b9, f_xcap_110_111, f_xcap_b9);
-		if (xcap_value != -1) {
-			if (xcap_value != (h_xcap_110_111 & 0x7F7F)) {
-				xcap_value_to_h_efuse = ((h_xcap_110_111 & 0x8080) | xcap_value);
-				rtw_efuse_map_write(adapter, EEPROM_XTAL_110_8822C, 2, (u8*)&xcap_value_to_h_efuse);
-				RTW_INFO("update crystal_cap = 0x%02X into hw efuse!\n", xcap_value);
-			}
-
-			hal->crystal_cap = GET_XCAP_VALUE_110_8822C(xcap_value);
-		}
-		else {
-			if ((EFUSE_XCAP_VALID_CHK_110_8822C(h_xcap_110_111)) && (EFUSE_XCAP_VALID_CHK_111_8822C(h_xcap_110_111)))
-				hal->crystal_cap = GET_XCAP_VALUE_110_8822C(h_xcap_110_111);
-			else
-				hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
-		}
-	}
-	else {
-			if ((EFUSE_XCAP_VALID_CHK_110_8822C(h_xcap_110_111)) && (EFUSE_XCAP_VALID_CHK_111_8822C(h_xcap_110_111)))
-				hal->crystal_cap = GET_XCAP_VALUE_110_8822C(h_xcap_110_111);
-			else {
-				xcap_value = hal_efuse_search_xtal_cap(adapter, h_xcap_b9, f_xcap_110_111, f_xcap_b9);
-				if (xcap_value != -1) {
-					xcap_value_to_h_efuse = ((h_xcap_110_111 & 0x8080) | xcap_value);
-					rtw_efuse_map_write(adapter, EEPROM_XTAL_110_8822C, 2, (u8*)&xcap_value_to_h_efuse);
-					RTW_INFO("update crystal_cap = 0x%02X into hw efuse!\n", xcap_value);
-					hal->crystal_cap = GET_XCAP_VALUE_110_8822C(xcap_value);
-				}
-				else
-					hal->crystal_cap = EEPROM_Default_CrystalCap_110_8822C;
-			}
-	}
-
-exit:
-	RTW_INFO("EEPROM crystal_cap=0x%02x\n", hal->crystal_cap);
-
-}
-#endif
-
 /*
  * Description:
  *	Collect all information from efuse or files.
@@ -785,6 +792,9 @@ u8 rtl8822c_read_efuse(PADAPTER adapter)
 	val8 = rtw_read8(adapter, REG_SYS_EEPROM_CTRL_8822C);
 	hal->EepromOrEfuse = (val8 & BIT_EERPOMSEL_8822C) ? _TRUE : _FALSE;
 	hal->bautoload_fail_flag = (val8 & BIT_AUTOLOAD_SUS_8822C) ? _FALSE : _TRUE;
+	if (hal->bautoload_fail_flag == _TRUE)
+		RTW_ERR("%s: HW %s AUTO LOAD FAIL!!\n", __func__, hal->EepromOrEfuse ? "EEPROM" : "EFUSE");
+
 	/*
 	 * In 8822C, bautoload_fail_flag is used to present eFuse map is valid
 	 * or not, no matter the map comes from hardware or files.
@@ -829,7 +839,6 @@ u8 rtl8822c_read_efuse(PADAPTER adapter)
 		RTW_WARN("load channel plan file\n");
 		goto exit;
 	}
-
 #ifdef CONFIG_RTL8822C_XCAP_NEW_POLICY
 	if ((adapter->registrypriv.mp_mode == 0) && (hal->EEPROMBluetoothCoexist == _TRUE))
 		hal_efuse_parse_xtal_cap_new(adapter, h_efuse_xcap_110_111, h_efuse_xcap_b9, f_efuse_xcap_110_111, f_efuse_xcap_b9, valid);
@@ -838,7 +847,7 @@ u8 rtl8822c_read_efuse(PADAPTER adapter)
 	Hal_EfuseParseXtal(adapter, efuse_map, valid);
 
 	Hal_EfuseParseThermalMeter(adapter, efuse_map, valid);
-	Hal_EfuseParseAntennaDiversity(adapter, efuse_map, valid);
+	Hal_EfuseParsePathSelection(adapter, efuse_map, valid);
 	Hal_EfuseParseCustomerID(adapter, efuse_map, valid);
 	Hal_DetectWoWMode(adapter);
 	Hal_ReadAmplifierType(adapter, efuse_map, valid);
@@ -1146,27 +1155,44 @@ static void linked_status_check(PADAPTER p)
 
 static void set_opmode_monitor(PADAPTER adapter)
 {
-	u32 rcr_bits;
-	u16 value_rxfltmap2;
-	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
+#ifdef CONFIG_WIFI_MONITOR
+	u8 tmp_8bit;
+	u32 tmp_32bit;
+	struct net_device *ndev = adapter->pnetdev;
+	struct mon_reg_backup *mon = &GET_HAL_DATA(adapter)->mon_backup;
 
+	mon->known_rcr = 1;
+	rtw_hal_get_hwreg(adapter, HW_VAR_RCR, (u8 *)& mon->rcr);
 
 	/* Receive all type */
-	rcr_bits = BIT_AAP_8822C | BIT_APM_8822C | BIT_AM_8822C
-		   | BIT_AB_8822C | BIT_APWRMGT_8822C
-		   | BIT_APP_PHYSTS_8822C;
+	tmp_32bit = BIT_AAP_8822C | BIT_APP_PHYSTS_8822C;
 
-#ifndef CONFIG_CUSTOMER_ALIBABA_GENERAL
-	/* Append FCS */
-	rcr_bits |= BIT_APP_FCS_8822C;
-#endif
+	if (ndev->type == ARPHRD_IEEE80211_RADIOTAP) {
+		/* Append FCS */
+		tmp_32bit |= BIT_APP_FCS_8822C;
+	}
 
-	rtw_hal_get_hwreg(adapter, HW_VAR_RCR, (u8 *)&GET_HAL_DATA(adapter)->rcr_backup);
-	rtw_hal_set_hwreg(adapter, HW_VAR_RCR, (u8 *)&rcr_bits);
+	rtw_hal_set_hwreg(adapter, HW_VAR_RCR, (u8 *)& tmp_32bit);
+
+	if (1)
+		rtw_halmac_config_rx_info(adapter_to_dvobj(adapter),
+			HALMAC_DRV_INFO_PHY_SNIFFER);
+	else
+		rtw_halmac_config_rx_info(adapter_to_dvobj(adapter),
+			HALMAC_DRV_INFO_PHY_PLCP);
+
+	tmp_8bit = rtw_read8(adapter, REG_RX_DRVINFO_SZ_8822C);
+	rtw_write8(adapter, REG_RX_DRVINFO_SZ_8822C, (tmp_8bit | 0x80));
 
 	/* Receive all data frames */
-	value_rxfltmap2 = 0xFFFF;
-	rtw_write16(adapter, REG_RXFLTMAP2_8822C, value_rxfltmap2);
+	mon->known_rxfilter = 1;
+	mon->rxfilter0 = rtw_read16(adapter, REG_RXFLTMAP0_8822C);
+	mon->rxfilter1 = rtw_read16(adapter, REG_RXFLTMAP1_8822C);
+	mon->rxfilter2 = rtw_read16(adapter, REG_RXFLTMAP2_8822C);
+	rtw_write16(adapter, REG_RXFLTMAP0_8822C, 0xFFFF);
+	rtw_write16(adapter, REG_RXFLTMAP1_8822C, 0xFFFF);
+	rtw_write16(adapter, REG_RXFLTMAP2_8822C, 0xFFFF);
+#endif /* CONFIG_WIFI_MONITOR */
 }
 
 static void set_opmode_port0(PADAPTER adapter, u8 mode)
@@ -1432,14 +1458,32 @@ void rtw_hw_client_port_clr(_adapter *adapter)
 
 static void hw_var_set_opmode(PADAPTER adapter, u8 mode)
 {
-	u8 val8;
 	static u8 isMonitor = _FALSE;
 
-
 	if (isMonitor == _TRUE) {
-		/* reset RCR from backup */
-		rtw_hal_set_hwreg(adapter, HW_VAR_RCR, (u8 *)&GET_HAL_DATA(adapter)->rcr_backup);
-		rtw_hal_rcr_set_chk_bssid(adapter, MLME_ACTION_NONE);
+#ifdef CONFIG_WIFI_MONITOR
+		struct mon_reg_backup *backup = &GET_HAL_DATA(adapter)->mon_backup;
+
+		if (backup->known_rcr) {
+			backup->known_rcr = 0;
+			rtw_hal_set_hwreg(adapter, HW_VAR_RCR, (u8 *)&backup->rcr);
+
+			if (!!(backup->rcr &= BIT_APP_PHYSTS_8822C))
+				rtw_halmac_config_rx_info(adapter_to_dvobj(adapter),
+					HALMAC_DRV_INFO_PHY_STATUS);
+			else
+				rtw_halmac_config_rx_info(adapter_to_dvobj(adapter),
+					HALMAC_DRV_INFO_NONE);
+
+			rtw_hal_rcr_set_chk_bssid(adapter, MLME_ACTION_NONE);
+		}
+		if (backup->known_rxfilter) {
+			backup->known_rxfilter = 0;
+			rtw_write16(adapter, REG_RXFLTMAP0_8822C, backup->rxfilter0);
+			rtw_write16(adapter, REG_RXFLTMAP1_8822C, backup->rxfilter1);
+			rtw_write16(adapter, REG_RXFLTMAP2_8822C, backup->rxfilter2);
+		}
+#endif /* CONFIG_WIFI_MONITOR */
 		isMonitor = _FALSE;
 	}
 
@@ -1652,7 +1696,7 @@ static void hw_var_set_mlme_sitesurvey(PADAPTER adapter, u8 enable)
 		 * 2. config RCR not to receive different BSSID BCN or probe rsp
 		 */
 
-		if (rtw_mi_check_fwstate(adapter, _FW_LINKED | WIFI_AP_STATE | WIFI_MESH_STATE))
+		if (rtw_mi_check_fwstate(adapter, WIFI_ASOC_STATE | WIFI_AP_STATE | WIFI_MESH_STATE))
 			/* enable to rx data frame */
 			rtw_write16(adapter, REG_RXFLTMAP2_8822C, 0xFFFF);
 
@@ -1979,11 +2023,12 @@ static void hw_var_set_h2c_fw_joinbssrpt(PADAPTER adapter, u8 mstatus)
 static u8 rx_agg_switch(PADAPTER adapter, u8 enable)
 {
 	int err;
-
+/* DON'T disable rxagg for 11ac 5.2.9a 1ss TP FAIL */
+#if 0
 	err = rtw_halmac_rx_agg_switch(adapter_to_dvobj(adapter), enable);
 	if (err)
 		return _FAIL;
-
+#endif
 	return _SUCCESS;
 }
 
@@ -2152,12 +2197,6 @@ u8 rtl8822c_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 
 	case HW_VAR_MLME_JOIN:
 		hw_var_set_mlme_join(adapter, *val);
-#ifdef CONFIG_BT_COEXIST
-		if (hal->EEPROMBluetoothCoexist)
-			rtw_btcoex_ConnectNotify(adapter, *val ? _FALSE : _TRUE);
-		else
-#endif /* CONFIG_BT_COEXIST */
-		rtw_btcoex_wifionly_connect_notify(adapter);
 		break;
 
 	case HW_VAR_RCR:
@@ -2197,10 +2236,6 @@ u8 rtl8822c_sethwreg(PADAPTER adapter, u8 variable, u8 *val)
 	case HW_VAR_BCN_VALID:
 		hw_var_set_bcn_valid(adapter);
 		break;
-/*
-	case HW_VAR_RF_TYPE:
-		break;
-*/
 
 	case HW_VAR_CAM_INVALID_ALL:
 		val32 = BIT_SECCAM_POLLING_8822C | BIT_SECCAM_CLR_8822C;
@@ -2756,7 +2791,6 @@ void rtl8822c_gethwreg(PADAPTER adapter, u8 variable, u8 *val)
 		*val = hw_var_get_bcn_valid(adapter);
 		break;
 /*
-	case HW_VAR_RF_TYPE:
 	case HW_VAR_FREECNT:
 	case HW_VAR_CAM_INVALID_ALL:
 */
@@ -3081,18 +3115,6 @@ u8 rtl8822c_gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE variable, void *pval
 		*(u8 *)pval = _TRUE;
 		break;
 
-	/* support 1T STBC under 2TX */
-	case HAL_DEF_TX_STBC:
-#ifdef CONFIG_ALPHA_SMART_ANTENNA 
-		*(u8 *)pval = 0;
-#else
-		if (hal->rf_type == RF_1T2R || hal->rf_type == RF_1T1R)
-			*(u8 *)pval = 0;
-		else
-			*(u8 *)pval = 1;
-#endif
-		break;
-
 	/* support 1RX for STBC */
 	case HAL_DEF_RX_STBC:
 		*(u8 *)pval = 1;
@@ -3107,18 +3129,8 @@ u8 rtl8822c_gethaldefvar(PADAPTER adapter, HAL_DEF_VARIABLE variable, void *pval
 		break;
 
 	case HAL_DEF_BEAMFORMER_CAP:
-		val8 = 0;
-		rtw_hal_get_hwreg(adapter, HW_VAR_RF_TYPE, &val8);
-		switch (val8) {
-		case RF_1T1R:
-		case RF_1T2R:
-			*(u8 *)pval = 0;
-			break;
-		default:
-		case RF_2T2R:
-			*(u8 *)pval = 1;
-			break;
-		}
+		val8 = GET_HAL_TX_NSS(adapter);
+		*(u8 *)pval = (val8 - 1);
 		break;
 
 	case HAL_DEF_BEAMFORMEE_CAP:
@@ -3176,6 +3188,11 @@ void rtl8822c_fill_txdesc_sectype(struct pkt_attrib *pattrib, u8 *ptxdesc)
 #endif
 		case _AES_:
 			SET_TX_DESC_SEC_TYPE_8822C(ptxdesc, 0x3);
+			break;
+		case _CCMP_256_:
+		case _GCMP_:
+		case _GCMP_256_:
+			SET_TX_DESC_SEC_TYPE_8822C(ptxdesc, 0x2);
 			break;
 		case _NO_PRIVACY_:
 		default:
@@ -3343,7 +3360,6 @@ static void rtl8822c_fill_txdesc_tx_rate(struct _ADAPTER *adapter,
 	}
 }
 
-#ifdef CONFIG_CONCURRENT_MODE
 void rtl8822c_fill_txdesc_force_bmc_camid(struct pkt_attrib *pattrib, u8 *ptxdesc)
 {
 	if ((pattrib->encrypt > 0) && (!pattrib->bswenc)
@@ -3352,7 +3368,6 @@ void rtl8822c_fill_txdesc_force_bmc_camid(struct pkt_attrib *pattrib, u8 *ptxdes
 		SET_TX_DESC_MACID_8822C(ptxdesc, pattrib->bmc_camid);
 	}
 }
-#endif
 
 void rtl8822c_fill_txdesc_bmc_tx_rate(struct pkt_attrib *pattrib, u8 *ptxdesc)
 {
@@ -3557,10 +3572,8 @@ static void fill_default_txdesc(struct xmit_frame *pxmitframe, u8 *pbuf)
 		rtl8822c_fill_txdesc_sectype(pattrib, pbuf);
 		rtl8822c_fill_txdesc_vcs(adapter, pattrib, pbuf);
 
-#ifdef CONFIG_CONCURRENT_MODE
 		if (bmcst)
 			rtl8822c_fill_txdesc_force_bmc_camid(pattrib, pbuf);
-#endif
 
 #ifdef CONFIG_P2P
 		if (!rtw_p2p_chk_state(&adapter->wdinfo, P2P_STATE_NONE)) {
@@ -3739,13 +3752,13 @@ static void fill_default_txdesc(struct xmit_frame *pxmitframe, u8 *pbuf)
 
 		SET_TX_DESC_PKT_OFFSET_8822C(pbuf, pkt_offset);
 		SET_TX_DESC_OFFSET_8822C(pbuf, offset);
-#ifdef CONFIG_TX_CSUM_OFFLOAD
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	if (pattrib->hw_csum == 1) {
 		int offset = 48 + pkt_offset*8 + 24;
 
 		SET_TX_DESC_OFFSET_8822C(pbuf, offset);
 		SET_TX_DESC_CHK_EN_8822C(pbuf, 1);
-		SET_TX_DESC_WHEADER_LEN_8822C(pbuf, (pattrib->hdrlen + pattrib->iv_len)>>1);
+		SET_TX_DESC_WHEADER_LEN_8822C(pbuf, (pattrib->hdrlen + pattrib->iv_len + XATTRIB_GET_MCTRL_LEN(pattrib))>>1);
 	}
 #endif
 	}
@@ -3877,6 +3890,11 @@ static void fill_fake_txdesc(PADAPTER adapter, u8 *pDesc, u32 BufferLen,
 		case _AES_:
 			SET_TX_DESC_SEC_TYPE_8822C(pDesc, 0x3);
 			break;
+		case _CCMP_256_:
+		case _GCMP_:
+		case _GCMP_256_:
+			SET_TX_DESC_SEC_TYPE_8822C(pDesc, 0x2);
+			break;
 		default:
 			SET_TX_DESC_SEC_TYPE_8822C(pDesc, 0x0);
 			break;
@@ -3969,6 +3987,8 @@ void rtl8822c_rxdesc2attribute(struct rx_pkt_attrib *a, u8 *desc)
 		a->frag_num = (u8)GET_RX_DESC_FRAG_8822C(desc);
 
 		a->data_rate = (u8)GET_RX_DESC_RX_RATE_8822C(desc);
+		a->ampdu = (u8)GET_RX_DESC_PAGGR_8822C(desc);
+		a->ampdu_eof = (u8)GET_RX_DESC_RX_EOF_8822C(desc);
 		a->ppdu_cnt = (u8)GET_RX_DESC_PPDU_CNT_8822C(desc);
 		a->free_cnt = (u32)GET_RX_DESC_TSFL_8822C(desc);
 
@@ -4064,7 +4084,7 @@ void rtl8822c_set_hal_ops(PADAPTER adapter)
 	ops->set_tx_power_level_handler = rtl8822c_set_tx_power_level;
 	ops->set_txpwr_done = rtl8822c_set_txpwr_done;
 	ops->set_tx_power_index_handler = rtl8822c_set_tx_power_index;
-	ops->get_tx_power_index_handler = rtl8822c_get_tx_power_index;
+	ops->get_tx_power_index_handler = hal_com_get_txpwr_idx;
 
 	ops->hal_dm_watchdog = rtl8822c_phy_haldm_watchdog;
 
@@ -4143,5 +4163,9 @@ void rtl8822c_set_hal_ops(PADAPTER adapter)
 	ops->init_mac_register = rtl8822c_phy_init_mac_register;
 	ops->init_phy = rtl8822c_phy_init;
 	ops->reqtxrpt = rtl8822c_req_txrpt_cmd;
+
+#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
+	ops->dtp_macid_set = rtl8822c_dtp_macid_set;
+#endif
 }
 

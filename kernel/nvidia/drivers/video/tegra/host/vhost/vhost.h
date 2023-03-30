@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Virtualization Support
  *
- * Copyright (c) 2014-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2014-2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -45,54 +45,19 @@ static inline void *nvhost_get_virt_data(struct platform_device *dev)
 	return data->virt_priv;
 }
 
-void vhost_init_host1x_intr_ops(struct nvhost_intr_ops *ops);
-void vhost_init_host1x_syncpt_ops(struct nvhost_syncpt_ops *ops);
-void vhost_init_host1x_cdma_ops(struct nvhost_cdma_ops *ops);
 void vhost_init_host1x_debug_ops(struct nvhost_debug_ops *ops);
-int vhost_syncpt_get_range(u64 handle, u32 *base, u32 *size);
 int vhost_sendrecv(struct tegra_vhost_cmd_msg *msg);
 int vhost_virt_moduleid(int moduleid);
-int vhost_moduleid_virt_to_hw(int moduleid);
-u32 vhost_channel_alloc_clientid(u64 handle, u32 moduleid);
-struct nvhost_channel *vhost_find_chan_by_clientid(struct nvhost_master *dev,
-			u32 clientid);
-int vhost_rdwr_module_regs(struct platform_device *ndev, u32 count,
-	u32 block_size, u32 __user *offsets, u32 __user *values, u32 write);
 int vhost_suspend(struct platform_device *pdev);
 int vhost_resume(struct platform_device *pdev);
 int nvhost_virt_init(struct platform_device *dev, int moduleid);
 void nvhost_virt_deinit(struct platform_device *dev);
-void vhost_cdma_timeout(struct nvhost_master *dev,
-			struct tegra_vhost_chan_timeout_intr_info *info);
-
-int vhost_prod_apply(struct platform_device *pdev, u32 phy_mode);
-int vhost_cil_sw_reset(struct platform_device *pdev, u32 lanes, u32 enable);
 
 #else
 
-static inline void vhost_init_host1x_intr_ops(struct nvhost_intr_ops *ops)
-{ }
-static inline void vhost_init_host1x_syncpt_ops(struct nvhost_syncpt_ops *ops)
-{ }
-static inline void vhost_init_host1x_cdma_ops(struct nvhost_cdma_ops *ops)
-{ }
 static inline void vhost_init_host1x_debug_ops(struct nvhost_debug_ops *ops)
 { }
-static inline int vhost_syncpt_get_range(u64 handle, u32 *base, u32 *size)
-{
-	return -ENOTSUPP;
-}
 static inline int vhost_virt_moduleid(int moduleid)
-{
-	return -ENOTSUPP;
-}
-static inline u32 vhost_channel_alloc_clientid(u64 handle, u32 moduleid)
-{
-	return 0;
-}
-static inline int vhost_rdwr_module_regs(struct platform_device *ndev,
-	u32 count, u32 block_size, u32 __user *offsets, u32 __user *values,
-	u32 write)
 {
 	return -ENOTSUPP;
 }
@@ -117,17 +82,6 @@ static inline int nvhost_virt_init(struct platform_device *dev, int moduleid)
 }
 static inline void nvhost_virt_deinit(struct platform_device *dev)
 {
-}
-
-static inline int vhost_prod_apply(struct platform_device *pdev, u32 phy_mode)
-{
-	return -ENOTSUPP;
-}
-
-static inline int vhost_cil_sw_reset(struct platform_device *pdev, u32 lanes,
-				     u32 enable)
-{
-	return -ENOTSUPP;
 }
 
 #endif

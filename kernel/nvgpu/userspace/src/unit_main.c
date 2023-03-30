@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@
 #include <unit/args.h>
 #include <unit/module.h>
 #include <unit/results.h>
+#include <unit/required_tests.h>
 
 int main(int argc, char **argv)
 {
@@ -46,7 +47,7 @@ int main(int argc, char **argv)
 
 	ret = core_parse_args(fw, argc, argv);
 	if (ret) {
-		core_err(fw, "Enable to parse args.\n");
+		core_err(fw, "Unable to parse args.\n");
 		core_err(fw, "Exiting!\n");
 		return 1;
 	}
@@ -70,14 +71,42 @@ int main(int argc, char **argv)
 	if (ret != 0)
 		return ret;
 
+	if (fw->results == NULL) {
+		core_msg(fw, "No tests were run!\n");
+		return -1;
+	}
+
 	core_print_test_status(fw);
 
-	if (fw->results->nr_tests == 0) {
-		/* No tests were run */
-		return -1;
-	} else if ((fw->results->nr_tests - fw->results->nr_passing) != 0) {
+	if ((fw->results->nr_tests - fw->results->nr_passing -
+					fw->results->nr_skipped) != 0) {
 		/* Some tests failed */
 		return -1;
+	}
+
+	if (fw->args->unit_to_run != NULL) {
+		/*
+		 * Just in case (especially when running in automation), return
+		 * a failure if only executed a subset of the units
+		 */
+		return -2;
+	}
+
+	if (fw->args->required_tests_file != NULL) {
+		ret = parse_req_file(fw, fw->args->required_tests_file);
+		if (ret != 0) {
+			core_err(fw,
+				"Failed to load the required tests file.\n");
+			return -1;
+		}
+
+		ret = check_executed_tests(fw);
+		if (ret != 0) {
+			core_err(fw,
+				"Found %d required tests that were not run!\n",
+				ret);
+			return -1;
+		}
 	}
 
 	return 0;

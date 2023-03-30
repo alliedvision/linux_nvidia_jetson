@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,7 +21,7 @@ struct error_record {
 	char *name;
 	u64 errx;
 	u8 processed;
-	u64 err_ctrl;
+	u64 err_ctlr;
 	struct ras_error *errors;
 };
 
@@ -75,6 +75,7 @@ u64 ras_read_errselr(void);
 u64 ras_read_pfg_control(void);
 u64 ras_read_pfg_cdn(void);
 u64 ras_read_error_control(void);
+u64 ras_read_feature_reg(void);
 void ras_write_error_control(u64 err_ctl);
 void ras_write_error_status(u64 status);
 void ras_write_error_addr(u64 addr);

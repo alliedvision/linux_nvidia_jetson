@@ -1,0 +1,31 @@
+From 68f5d49df1141298d0413607acad3124e1f9251a Mon Sep 17 00:00:00 2001
+From: Sidath Senanayake <sidaths@google.com>
+Date: Tue, 1 Sep 2020 23:56:01 +0100
+Subject: [PATCH 135/830] ANDROID: perf: Export clock_set_rate tracepoint
+X-NVConfidentiality: public
+
+This allows for clock rate changes to be reported from
+loadable kernel modules.
+
+Bug: 167449286
+Bug: 166776693
+Change-Id: I30eb2d742aecedf3638334f85f510a69b71acb84
+Signed-off-by: Sidath Senanayake <sidaths@google.com>
+(cherry picked from commit daddf4fb363cbc5a183fc62fcfdd0b62748a8c26)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ kernel/trace/power-traces.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/trace/power-traces.c b/kernel/trace/power-traces.c
+index 38b8024f993f..3ca551c11ae1 100644
+--- a/kernel/trace/power-traces.c
++++ b/kernel/trace/power-traces.c
+@@ -20,3 +20,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_frequency);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(powernv_throttle);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(device_pm_callback_start);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(device_pm_callback_end);
++EXPORT_TRACEPOINT_SYMBOL_GPL(clock_set_rate);
+-- 
+2.17.1
+

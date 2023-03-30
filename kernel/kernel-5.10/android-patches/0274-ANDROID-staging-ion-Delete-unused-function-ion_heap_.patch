@@ -1,0 +1,46 @@
+From 1b272db54e2ea382963cb73418e7a25daf3047a6 Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Wed, 29 Jul 2020 18:15:00 -0700
+Subject: [PATCH 274/830] ANDROID: staging: ion: Delete unused function
+ ion_heap_buffer_zero
+X-NVConfidentiality: public
+
+It was deleted in 5d41593935d9(staging: ion: refactor ion's heap
+manipulators into a separate file) but was accidentally added back in
+a64320f5b8e4(Merge 94709049fb84).
+
+Fixes: a64320f5b8e4 ("Merge 94709049fb84 ("Merge branch 'akpm' (patches from Andrew)") into android-mainline")
+
+Change-Id: I125d2a78cf4872c80391888e6cd6e10d359d20fa
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/ion_heap.c | 13 -------------
+ 1 file changed, 13 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_heap.c b/drivers/staging/android/ion/ion_heap.c
+index 092b9b874bb5..90e7b857c98b 100644
+--- a/drivers/staging/android/ion/ion_heap.c
++++ b/drivers/staging/android/ion/ion_heap.c
+@@ -239,19 +239,6 @@ static int ion_heap_sglist_zero(struct sg_table *sgt, pgprot_t pgprot)
+ 	return ret;
+ }
+ 
+-int ion_heap_buffer_zero(struct ion_buffer *buffer)
+-{
+-	struct sg_table *table = buffer->sg_table;
+-	pgprot_t pgprot;
+-
+-	if (buffer->flags & ION_FLAG_CACHED)
+-		pgprot = PAGE_KERNEL;
+-	else
+-		pgprot = pgprot_writecombine(PAGE_KERNEL);
+-
+-	return ion_heap_sglist_zero(table->sgl, table->nents, pgprot);
+-}
+-
+ int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot)
+ {
+ 	struct scatterlist sg;
+-- 
+2.17.1
+

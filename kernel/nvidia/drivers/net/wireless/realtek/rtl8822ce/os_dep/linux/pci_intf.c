@@ -90,6 +90,9 @@ struct pci_device_id rtw_pci_id_tbl[] = {
 #ifdef CONFIG_RTL8822C
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xC822), .driver_data = RTL8822C},
 #endif
+#ifdef CONFIG_RTL8814B
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xB814), .driver_data = RTL8814B},
+#endif
 	{},
 };
 
@@ -114,91 +117,35 @@ static struct pci_drv_priv pci_drvpriv = {
 
 MODULE_DEVICE_TABLE(pci, rtw_pci_id_tbl);
 
-
-static u16 pcibridge_vendors[PCI_BRIDGE_VENDOR_MAX] = {
-	INTEL_VENDOR_ID,
-	ATI_VENDOR_ID,
-	AMD_VENDOR_ID,
-	SIS_VENDOR_ID
-};
-
-#define PCI_PM_CAP_ID		0x01	/* The Capability ID for PME function */
 void	PlatformClearPciPMEStatus(PADAPTER Adapter)
 {
 	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(Adapter);
 	struct pci_dev	*pdev = pdvobjpriv->ppcidev;
 	BOOLEAN		PCIClkReq = _FALSE;
-	u8	CapId = 0xff;
-	u8	CapPointer = 0;
-	/* u16	CapHdr; */
-	RT_PCI_CAPABILITIES_HEADER CapHdr;
 	u8	PMCSReg;
-	int	result;
 
-	/* Get the Capability pointer first, */
-	/* the Capability Pointer is located at offset 0x34 from the Function Header */
+	if (pdev->pm_cap) {
+		/* Get the PM CSR (Control/Status Register), */
+		/* The PME_Status is located at PM Capatibility offset 5, bit 7 */
 
-	result = pci_read_config_byte(pdev, 0x34, &CapPointer);
-	if (result != 0)
-		RTW_INFO("%s() pci_read_config_byte 0x34 Failed!\n", __func__);
-	else {
-		RTW_INFO("PlatformClearPciPMEStatus(): PCI configration 0x34 = 0x%2x\n", CapPointer);
-		do {
-			/* end of pci capability */
-			if (CapPointer == 0x00) {
-				CapId = 0xff;
-				break;
-			}
+		pci_read_config_byte(pdev, pdev->pm_cap + 5, &PMCSReg);
+		if (PMCSReg & BIT7) {
+			/* PME event occurred, clear the PM_Status by write 1 */
+			PMCSReg = PMCSReg | BIT7;
 
-			/* result = pci_read_config_word(pdev, CapPointer, &CapHdr); */
-			result = pci_read_config_byte(pdev, CapPointer, &CapHdr.CapabilityID);
-			if (result != 0) {
-				RTW_INFO("%s() pci_read_config_byte %x Failed!\n", __func__, CapPointer);
-				CapId = 0xff;
-				break;
-			}
-
-			result = pci_read_config_byte(pdev, CapPointer + 1, &CapHdr.Next);
-			if (result != 0) {
-				RTW_INFO("%s() pci_read_config_byte %x Failed!\n", __func__, CapPointer);
-				CapId = 0xff;
-				break;
-			}
-
-			/* CapId = CapHdr & 0xFF; */
-			CapId = CapHdr.CapabilityID;
-
-			RTW_INFO("PlatformClearPciPMEStatus(): in pci configration1, CapPointer%x = %x\n", CapPointer, CapId);
-
-			if (CapId == PCI_PM_CAP_ID)
-				break;
-			else {
-				/* point to next Capability */
-				/* CapPointer = (CapHdr >> 8) & 0xFF; */
-				CapPointer = CapHdr.Next;
-			}
-		} while (_TRUE);
-
-		if (CapId == PCI_PM_CAP_ID) {
-			/* Get the PM CSR (Control/Status Register), */
-			/* The PME_Status is located at PM Capatibility offset 5, bit 7 */
-			result = pci_read_config_byte(pdev, CapPointer + 5, &PMCSReg);
-			if (PMCSReg & BIT7) {
-				/* PME event occured, clear the PM_Status by write 1 */
-				PMCSReg = PMCSReg | BIT7;
-
-				pci_write_config_byte(pdev, CapPointer + 5, PMCSReg);
-				PCIClkReq = _TRUE;
-				/* Read it back to check */
-				pci_read_config_byte(pdev, CapPointer + 5, &PMCSReg);
-				RTW_INFO("PlatformClearPciPMEStatus(): Clear PME status 0x%2x to 0x%2x\n", CapPointer + 5, PMCSReg);
-			} else
-				RTW_INFO("PlatformClearPciPMEStatus(): PME status(0x%2x) = 0x%2x\n", CapPointer + 5, PMCSReg);
-		} else
-			RTW_INFO("PlatformClearPciPMEStatus(): Cannot find PME Capability\n");
+			pci_write_config_byte(pdev, pdev->pm_cap + 5, PMCSReg);
+			PCIClkReq = _TRUE;
+			/* Read it back to check */
+			pci_read_config_byte(pdev, pdev->pm_cap + 5, &PMCSReg);
+			RTW_INFO("%s(): Clear PME status 0x%2x to 0x%2x\n", __func__, pdev->pm_cap + 5, PMCSReg);
+		} else {
+			RTW_INFO("%s(): PME status(0x%2x) = 0x%2x\n", __func__, pdev->pm_cap + 5, PMCSReg);
+		}
+	} else {
+		RTW_INFO("%s(): Cannot find PME Capability\n", __func__);
 	}
 
-	RTW_INFO("PME, value_offset = %x, PME EN = %x\n", CapPointer + 5, PCIClkReq);
+	RTW_INFO("PME, value_offset = %x, PME EN = %x\n", pdev->pm_cap + 5, PCIClkReq);
 }
 
 void rtw_pci_aspm_config_clkreql0sl1(_adapter *padapter)
@@ -220,9 +167,6 @@ void rtw_pci_aspm_config_clkreql0sl1(_adapter *padapter)
 	if (pHalData->pci_backdoor_ctrl & PCI_BC_ASPM_L1) {
 		tmp8 &= (~0x38);
 		tmp8 |= 0x20;
-#ifdef CONFIG_PCI_DYNAMIC_ASPM
-		pHalData->bAspmL1LastIdle = 1;
-#endif
 	}
 
 	rtw_hal_pci_dbi_write(padapter, 0x70f, tmp8);
@@ -282,62 +226,95 @@ void rtw_pci_aspm_config_l1off_general(_adapter *padapter, u8 enablel1off)
 
 }
 
-#ifdef CONFIG_PCI_DYNAMIC_ASPM
-void rtw_pci_aspm_config_dynamic_l1_ilde_time(_adapter *padapter)
+#ifdef CONFIG_PCI_DYNAMIC_ASPM_L1_LATENCY
+void rtw_pci_set_l1_latency(_adapter *padapter, u8 mode)
 {
-	BOOLEAN	 bCurrentIdle = 1;	/* Default idle 4us (0x70F = 0x17)*/
 	HAL_DATA_TYPE *pHalData	= GET_HAL_DATA(padapter);
-	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
-	struct dvobj_priv *pdvobjpriv = adapter_to_dvobj(padapter);
-	int current_tx_tp = pdvobjpriv->traffic_stat.cur_tx_tp;
-	int current_rx_tp = pdvobjpriv->traffic_stat.cur_rx_tp;
-	int current_tp = current_tx_tp + current_rx_tp;
-	u8 tmp8 = 0;
-
-	if (padapter->registrypriv.wifi_spec)
-		return;
+	u8 tmp8;
 
 	if (!(pHalData->pci_backdoor_ctrl & PCI_BC_ASPM_L1))
 		return;
 
-#if 0
-	RTW_INFO("current_tx_tp = %d\n", current_tx_tp);
-	RTW_INFO("current_rx_tp = %d\n", current_rx_tp);
-	RTW_INFO("current_tp = %d\n", current_tp);
+	tmp8 = rtw_hal_pci_dbi_read(padapter, 0x70F);
+	tmp8 &= (~0x38);
+
+	switch (mode) {
+	case ASPM_MODE_PS:
+		/*tmp8 |= 0x10; *//*L1 entrance latency: 4us*/
+		/*tmp8 |= 0x18; *//*L1 entrance latency: 8us*/
+		tmp8 |= 0x20; /*L1 entrance latency: 16us*/
+		rtw_hal_pci_dbi_write(padapter, 0x70F, tmp8);
+		break;
+	case ASPM_MODE_PERF:
+		tmp8 |= 0x28; /*L1 entrance latency: 32us*/
+		rtw_hal_pci_dbi_write(padapter, 0x70F, tmp8);
+		break;
+	}
+}
 #endif
 
-	if ((rtw_linked_check(padapter) == _TRUE) && 
-		((current_tx_tp >= 50)||
-		(current_rx_tp >= 50)))
-		/*(current_rx_tp >= 10))*/
-		/*(current_tp >= 10))*/
-	{
-		bCurrentIdle = 0;
-	}	
-	else
-	{
-		bCurrentIdle = 1;
+#ifdef CONFIG_PCI_DYNAMIC_ASPM_LINK_CTRL
+static bool _rtw_pci_set_aspm_lnkctl_reg(struct pci_dev *pdev, u8 mask, u8 val)
+{
+	u8 linkctrl, new_val;
+
+	if (!pdev || !pdev->pcie_cap || !mask)
+		return false;
+
+	pci_read_config_byte(pdev, pdev->pcie_cap + PCI_EXP_LNKCTL, &linkctrl);
+	new_val = (linkctrl & ~mask) | val;
+	if (new_val == linkctrl)
+		return false;
+
+	pci_write_config_byte(pdev, pdev->pcie_cap + PCI_EXP_LNKCTL, new_val);
+
+	return true;
+}
+
+void rtw_pci_set_aspm_lnkctl(_adapter *padapter, u8 mode)
+{
+	struct dvobj_priv *pdvobjpriv = adapter_to_dvobj(padapter);
+	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
+	struct pci_dev	*pdev = pdvobjpriv->ppcidev;
+	struct pci_dev	*br_pdev = pdev->bus->self;
+	struct registry_priv  *registry_par = &padapter->registrypriv;
+	u32 pci_dynamic_aspm_linkctrl = registry_par->pci_dynamic_aspm_linkctrl;
+	u8 lnkctl_val, lnkctl_mask;
+	u8 dev_lnkctl_val, br_lnkctl_val;
+
+	if (!pci_dynamic_aspm_linkctrl)
+		return;
+
+	switch (mode) {
+	case ASPM_MODE_PERF:
+		lnkctl_val = pci_dynamic_aspm_linkctrl & GENMASK(1, 0);
+		lnkctl_mask = (pci_dynamic_aspm_linkctrl & GENMASK(5, 4)) >> 4;
+		break;
+	case ASPM_MODE_PS:
+		lnkctl_val = (pci_dynamic_aspm_linkctrl & GENMASK(9, 8)) >> 8;
+		lnkctl_mask = (pci_dynamic_aspm_linkctrl & GENMASK(13, 12)) >> 12;
+		break;
+	case ASPM_MODE_DEF:
+		lnkctl_val = 0x0; /* fill val to make checker happy */
+		lnkctl_mask = 0x0;
+		break;
+	default:
+		return;
 	}
 
-	if(bCurrentIdle != pHalData->bAspmL1LastIdle)
-	{
-		pHalData->bAspmL1LastIdle = bCurrentIdle;
-
-		tmp8 = rtw_hal_pci_dbi_read(padapter, 0x70F);
-		tmp8 &= (~0x38);
-
-		if(bCurrentIdle) {
-			/*tmp8 |= 0x10; *//*L1 entrance latency: 4us*/
-			/*tmp8 |= 0x18; *//*L1 entrance latency: 8us*/
-			tmp8 |= 0x20; /*L1 entrance latency: 16us*/
-			rtw_hal_pci_dbi_write(padapter, 0x70F, tmp8 );
-		}
-		else {
-			tmp8 |= 0x28; /*L1 entrance latency: 32us*/
-			rtw_hal_pci_dbi_write(padapter, 0x70F, tmp8 );
-		}
+	/* if certain mask==0x0, we restore the default value with mask 0x03 */
+	if (lnkctl_mask == 0x0) {
+		lnkctl_mask = PCI_EXP_LNKCTL_ASPMC;
+		dev_lnkctl_val = pcipriv->linkctrl_reg;
+		br_lnkctl_val = pcipriv->pcibridge_linkctrlreg;
+	} else {
+		dev_lnkctl_val = lnkctl_val;
+		br_lnkctl_val = lnkctl_val;
 	}
 
+	if (_rtw_pci_set_aspm_lnkctl_reg(pdev, lnkctl_mask, dev_lnkctl_val))
+		rtw_udelay_os(50);
+	_rtw_pci_set_aspm_lnkctl_reg(br_pdev, lnkctl_mask, br_lnkctl_val);
 }
 #endif
 
@@ -399,221 +376,8 @@ void rtw_pci_aspm_config(_adapter *padapter)
 {
 	rtw_pci_aspm_config_clkreql0sl1(padapter);
 	rtw_pci_aspm_config_l1off(padapter);
+	rtw_pci_dynamic_aspm_set_mode(padapter, ASPM_MODE_PERF);
 	rtw_pci_dump_aspm_info(padapter);
-}
-
-static u8 rtw_pci_platform_switch_device_pci_aspm(_adapter *padapter, u8 value)
-{
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
-	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
-	BOOLEAN		bResult = _FALSE;
-	int	Result = 0;
-	int	error;
-
-	Result = pci_write_config_byte(pdvobjpriv->ppcidev, pcipriv->pciehdr_offset + 0x10, value);	/* enable I/O space */
-	RTW_INFO("PlatformSwitchDevicePciASPM(0x%x) = 0x%x\n", pcipriv->pciehdr_offset + 0x10, value);
-	if (Result != 0) {
-		RTW_INFO("PlatformSwitchDevicePciASPM() Failed!\n");
-		bResult = _FALSE;
-	} else
-		bResult = _TRUE;
-
-	return bResult;
-}
-
-/*
- * When we set 0x01 to enable clk request. Set 0x0 to disable clk req.
- */
-static u8 rtw_pci_switch_clk_req(_adapter *padapter, u8 value)
-{
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
-	u8	buffer, bResult = _FALSE;
-	int	error;
-
-	buffer = value;
-
-	if (!rtw_is_hw_init_completed(padapter))
-		return bResult;
-
-	/* the clock request is located at offset 0x81, suppose the PCIE Capability register is located at offset 0x70 */
-	/* the correct code should be: search the PCIE capability register first and then the clock request is located offset 0x11 */
-	error = pci_write_config_byte(pdvobjpriv->ppcidev, 0x81, buffer);
-	if (error != 0)
-		RTW_INFO("rtw_pci_switch_clk_req error (%d)\n", error);
-	else
-		bResult = _TRUE;
-
-	return bResult;
-}
-
-/*Disable RTL8192SE ASPM & Disable Pci Bridge ASPM*/
-void rtw_pci_disable_aspm(_adapter *padapter)
-{
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
-	struct pwrctrl_priv	*pwrpriv = dvobj_to_pwrctl(pdvobjpriv);
-	struct pci_dev	*pdev = pdvobjpriv->ppcidev;
-	struct pci_dev	*bridge_pdev = pdev->bus->self;
-	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
-	u8	linkctrl_reg;
-	u8	pcibridge_linkctrlreg, aspmlevel = 0;
-
-
-	/* We shall check RF Off Level for ASPM function instead of registry settings, revised by Roger, 2013.03.29. */
-	if (!(pwrpriv->reg_rfps_level & (RT_RF_LPS_LEVEL_ASPM | RT_RF_PS_LEVEL_ALWAYS_ASPM)))
-		return;
-
-	if (!rtw_is_hw_init_completed(padapter))
-		return;
-
-	if (pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_UNKNOWN)
-		return;
-
-	linkctrl_reg = pcipriv->linkctrl_reg;
-	pcibridge_linkctrlreg = pcipriv->pcibridge_linkctrlreg;
-
-	/* Set corresponding value. */
-	aspmlevel |= BIT(0) | BIT(1);
-	linkctrl_reg &= ~aspmlevel;
-	pcibridge_linkctrlreg &= ~aspmlevel;
-
-	/*  */
-	/* 09/08/21 MH From Sd1 suggestion. we need to adjust ASPM enable sequence */
-	/* CLK_REQ ==> delay 50us ==> Device ==> Host ==> delay 50us */
-	/*  */
-
-	if (pwrpriv->reg_rfps_level & RT_RF_OFF_LEVL_CLK_REQ) {
-		RT_CLEAR_PS_LEVEL(pwrpriv, RT_RF_OFF_LEVL_CLK_REQ);
-		rtw_pci_switch_clk_req(padapter, 0x0);
-	}
-
-	{
-		/*for promising device will in L0 state after an I/O.*/
-		u8 tmp_u1b;
-
-		pci_read_config_byte(pdev, (pcipriv->pciehdr_offset + 0x10), &tmp_u1b);
-	}
-
-	rtw_pci_platform_switch_device_pci_aspm(padapter, linkctrl_reg);
-
-	rtw_udelay_os(50);
-
-	/* When there exists anyone's BusNum, DevNum, and FuncNum that are set to 0xff, */
-	/* we do not execute any action and return. Added by tynli. */
-	if ((pcipriv->busnumber == 0xff && pcipriv->devnumber == 0xff && pcipriv->funcnumber == 0xff) ||
-	    (pcipriv->pcibridge_busnum == 0xff && pcipriv->pcibridge_devnum == 0xff && pcipriv->pcibridge_funcnum == 0xff)) {
-		/* Do Nothing!! */
-	} else {
-		/* 4  */ /* Disable Pci Bridge ASPM */
-		pci_write_config_byte(bridge_pdev, (pcipriv->pcibridge_pciehdr_offset + 0x10), pcibridge_linkctrlreg);
-		RTW_INFO("PlatformDisableASPM():PciBridge Write reg[%x] = %x\n",
-			(pcipriv->pcibridge_pciehdr_offset + 0x10), pcibridge_linkctrlreg);
-		rtw_udelay_os(50);
-	}
-
-}
-
-/*Enable RTL8192SE ASPM & Enable Pci Bridge ASPM for
- * power saving We should follow the sequence to enable
- * RTL8192SE first then enable Pci Bridge ASPM
- * or the system will show bluescreen.
-*/
-void rtw_pci_enable_aspm(_adapter *padapter)
-{
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
-	struct pwrctrl_priv	*pwrpriv = dvobj_to_pwrctl(pdvobjpriv);
-	struct pci_dev	*pdev = pdvobjpriv->ppcidev;
-	struct pci_dev	*bridge_pdev = pdev->bus->self;
-	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
-	u16	aspmlevel = 0;
-	u8	u_pcibridge_aspmsetting = 0;
-	u8	u_device_aspmsetting = 0;
-	u32	u_device_aspmsupportsetting = 0;
-
-
-	/* We shall check RF Off Level for ASPM function instead of registry settings, revised by Roger, 2013.03.29. */
-	if (!(pwrpriv->reg_rfps_level & (RT_RF_LPS_LEVEL_ASPM | RT_RF_PS_LEVEL_ALWAYS_ASPM)))
-		return;
-
-	/* When there exists anyone's BusNum, DevNum, and FuncNum that are set to 0xff, */
-	/* we do not execute any action and return. Added by tynli. */
-	if ((pcipriv->busnumber == 0xff && pcipriv->devnumber == 0xff && pcipriv->funcnumber == 0xff) ||
-	    (pcipriv->pcibridge_busnum == 0xff && pcipriv->pcibridge_devnum == 0xff && pcipriv->pcibridge_funcnum == 0xff)) {
-		RTW_INFO("rtw_pci_enable_aspm(): Fail to enable ASPM. Cannot find the Bus of PCI(Bridge).\n");
-		return;
-	}
-
-	/* Get Bridge ASPM Support
-	 * not to enable bridge aspm if bridge does not support
-	 * Added by sherry 20100803
-	*/
-	{
-		/* Get the Link Capability, it ls located at offset 0x0c from the PCIE Capability */
-		pci_read_config_dword(bridge_pdev, (pcipriv->pcibridge_pciehdr_offset + 0x0C), &u_device_aspmsupportsetting);
-
-		RTW_INFO("rtw_pci_enable_aspm(): Bridge ASPM support %x\n", u_device_aspmsupportsetting);
-		if (((u_device_aspmsupportsetting & BIT(11)) != BIT(11)) || ((u_device_aspmsupportsetting & BIT(10)) != BIT(10))) {
-			if (pdvobjpriv->const_devicepci_aspm_setting == 3) {
-				RTW_INFO("rtw_pci_enable_aspm(): Bridge not support L0S or L1\n");
-				return;
-			} else if (pdvobjpriv->const_devicepci_aspm_setting == 2) {
-				if ((u_device_aspmsupportsetting & BIT(11)) != BIT(11)) {
-					RTW_INFO("rtw_pci_enable_aspm(): Bridge not support L1\n");
-					return;
-				}
-			} else if (pdvobjpriv->const_devicepci_aspm_setting == 1) {
-				if ((u_device_aspmsupportsetting & BIT(10)) != BIT(10)) {
-					RTW_INFO("rtw_pci_enable_aspm(): Bridge not support L0s\n");
-					return;
-				}
-
-			}
-		} else
-			RTW_INFO("rtw_pci_enable_aspm(): Bridge support L0s and L1\n");
-	}
-
-	/*
-	* Skip following settings if ASPM has already enabled, added by Roger, 2013.03.15.
-	*/
-	if ((pcipriv->pcibridge_linkctrlreg & (BIT0 | BIT1)) &&
-	    (pcipriv->linkctrl_reg & (BIT0 | BIT1))) {
-		/* BIT0: L0S, BIT1:L1 */
-
-		RTW_INFO("PlatformEnableASPM(): ASPM is already enabled, skip incoming settings!!\n");
-		return;
-	}
-
-	/* 4 Enable Pci Bridge ASPM */
-	/* Write PCI bridge PCIE-capability Link Control Register */
-	/* Justin: Can we change the ASPM Control register ? */
-	/* The system BIOS should set this register with a correct value */
-	/* If we change the force enable the ASPM L1/L0s, this may cause the system hang */
-	u_pcibridge_aspmsetting = pcipriv->pcibridge_linkctrlreg;
-	u_pcibridge_aspmsetting |= pdvobjpriv->const_hostpci_aspm_setting;
-
-	if (pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_INTEL ||
-	    pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_SIS)
-		u_pcibridge_aspmsetting &= ~BIT(0); /* for intel host 42 device 43 */
-
-	pci_write_config_byte(bridge_pdev, (pcipriv->pcibridge_pciehdr_offset + 0x10), u_pcibridge_aspmsetting);
-	RTW_INFO("PlatformEnableASPM():PciBridge Write reg[%x] = %x\n",
-		 (pcipriv->pcibridge_pciehdr_offset + 0x10),
-		 u_pcibridge_aspmsetting);
-
-	rtw_udelay_os(50);
-
-	/*Get ASPM level (with/without Clock Req)*/
-	aspmlevel |= pdvobjpriv->const_devicepci_aspm_setting;
-	u_device_aspmsetting = pcipriv->linkctrl_reg;
-	u_device_aspmsetting |= aspmlevel; /* device 43 */
-
-	rtw_pci_platform_switch_device_pci_aspm(padapter, u_device_aspmsetting);
-
-	if (pwrpriv->reg_rfps_level & RT_RF_OFF_LEVL_CLK_REQ) {
-		rtw_pci_switch_clk_req(padapter, (pwrpriv->reg_rfps_level & RT_RF_OFF_LEVL_CLK_REQ) ? 1 : 0);
-		RT_SET_PS_LEVEL(pwrpriv, RT_RF_OFF_LEVL_CLK_REQ);
-	}
-
-	rtw_udelay_os(50);
 }
 
 static u8 rtw_pci_get_amd_l1_patch(struct dvobj_priv *pdvobjpriv, struct pci_dev *pdev)
@@ -629,51 +393,6 @@ static u8 rtw_pci_get_amd_l1_patch(struct dvobj_priv *pdvobjpriv, struct pci_dev
 		pci_read_config_dword(pdev, 0xE4, &offset_e4);
 		if (offset_e4 & BIT(23))
 			status = _TRUE;
-	}
-
-	return status;
-}
-
-static s32	rtw_pci_get_linkcontrol_reg(struct pci_dev *pdev, u8 *LinkCtrlReg, u8 *HdrOffset)
-{
-	u8 CapabilityPointer;
-	RT_PCI_CAPABILITIES_HEADER	CapabilityHdr;
-	s32 status = _FAIL;
-
-	/* get CapabilityOffset */
-	pci_read_config_byte(pdev, 0x34, &CapabilityPointer);	/* the capability pointer is located offset 0x34 */
-
-	/* Loop through the capabilities in search of the power management capability. */
-	/* The list is NULL-terminated, so the last offset will always be zero. */
-
-	while (CapabilityPointer != 0) {
-		/* Read the header of the capability at  this offset. If the retrieved capability is not */
-		/* the power management capability that we are looking for, follow the link to the  */
-		/* next capability and continue looping. */
-
-		/* 4 get CapabilityHdr */
-		/* pci_read_config_word(pdev, CapabilityPointer, (u16 *)&CapabilityHdr); */
-		pci_read_config_byte(pdev, CapabilityPointer, (u8 *)&CapabilityHdr.CapabilityID);
-		pci_read_config_byte(pdev, CapabilityPointer + 1, (u8 *)&CapabilityHdr.Next);
-
-		/* Found the PCI express capability */
-		if (CapabilityHdr.CapabilityID == PCI_CAPABILITY_ID_PCI_EXPRESS)
-			break;
-		else {
-			/* This is some other capability. Keep looking for the PCI express capability. */
-			CapabilityPointer = CapabilityHdr.Next;
-		}
-	}
-
-	/* Get the Link Control Register, it located at offset 0x10 from the Capability Header */
-	if (CapabilityHdr.CapabilityID == PCI_CAPABILITY_ID_PCI_EXPRESS) {
-		*HdrOffset = CapabilityPointer;
-		pci_read_config_byte(pdev, CapabilityPointer + 0x10, LinkCtrlReg);
-
-		status = _SUCCESS;
-	} else {
-		/* We didn't find a PCIe capability. */
-		RTW_INFO("GetPciLinkCtrlReg(): Cannot Find PCIe Capability\n");
 	}
 
 	return status;
@@ -730,9 +449,6 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
 	/* u16	usPciCommand = pPciConfig->Command; */
 	u16	usPciCommand = 0;
 	int	Result, ret = _FAIL;
-	u8	CapabilityOffset;
-	RT_PCI_CAPABILITIES_HEADER CapabilityHdr;
-	u8	PCIeCap;
 	u8	LinkCtrlReg;
 	u8	ClkReqReg;
 
@@ -802,62 +518,13 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
 		/* ------------------------------------------------------------- */
 
 		/* 3 PCIeCap */
-		/* The device supports capability lists. Find the capabilities. */
-
-		/* CapabilityOffset = pPciConfig->u.type0.CapabilitiesPtr; */
-		pci_read_config_byte(pdev, PCI_CAPABILITY_LIST, &CapabilityOffset);
-
-		/* Loop through the capabilities in search of the power management capability. */
-		/* The list is NULL-terminated, so the last offset will always be zero. */
-
-		while (CapabilityOffset != 0) {
-			/* Read the header of the capability at  this offset. If the retrieved capability is not */
-			/* the power management capability that we are looking for, follow the link to the */
-			/* next capability and continue looping. */
-
-			/* Result = pci_read_config_word(pdev, CapabilityOffset, (u16 *)&CapabilityHdr); */
-			Result = pci_read_config_byte(pdev, CapabilityOffset, (u8 *)&CapabilityHdr.CapabilityID);
-			if (Result != 0)
-				break;
-
-			Result = pci_read_config_byte(pdev, CapabilityOffset + 1, (u8 *)&CapabilityHdr.Next);
-			if (Result != 0)
-				break;
-
-			/* Found the PCI express capability */
-			if (CapabilityHdr.CapabilityID == PCI_CAPABILITY_ID_PCI_EXPRESS)
-				break;
-			else {
-				/* This is some other capability. Keep looking for the PCI express capability. */
-				CapabilityOffset = CapabilityHdr.Next;
-			}
-		}
-
-		if (Result != 0) {
-			RTW_INFO("pci_read_config_word (RT_PCI_CAPABILITIES_HEADER) Result=%d\n", Result);
-			break;
-		}
-
-		if (CapabilityHdr.CapabilityID == PCI_CAPABILITY_ID_PCI_EXPRESS) {
-			pcipriv->pciehdr_offset = CapabilityOffset;
-			RTW_INFO("PCIe Header Offset =%x\n", CapabilityOffset);
-
-			/* Skip past the capabilities header and read the PCI express capability */
-			/* Justin: The PCI-e capability size should be 2 bytes, why we just get 1 byte */
-			/* Beside, this PCIeCap seems no one reference it in the driver code */
-			Result = pci_read_config_byte(pdev, CapabilityOffset + 2, &PCIeCap);
-
-			if (Result != 0) {
-				RTW_INFO("pci_read_config_byte (PCIE Capability) Result=%d\n", Result);
-				break;
-			}
-
-			pcipriv->pcie_cap = PCIeCap;
-			RTW_INFO("PCIe Capability =%x\n", PCIeCap);
+		if (pdev->pcie_cap) {
+			pcipriv->pciehdr_offset = pdev->pcie_cap;
+			RTW_INFO("PCIe Header Offset =%x\n", pdev->pcie_cap);
 
 			/* 3 Link Control Register */
 			/* Read "Link Control Register" Field (80h ~81h) */
-			Result = pci_read_config_byte(pdev, CapabilityOffset + 0x10, &LinkCtrlReg);
+			Result = pci_read_config_byte(pdev, pdev->pcie_cap + 0x10, &LinkCtrlReg);
 			if (Result != 0) {
 				RTW_INFO("pci_read_config_byte (Link Control Register) Result=%d\n", Result);
 				break;
@@ -868,7 +535,7 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
 
 			/* 3 Get Capability of PCI Clock Request */
 			/* The clock request setting is located at 0x81[0] */
-			Result = pci_read_config_byte(pdev, CapabilityOffset + 0x11, &ClkReqReg);
+			Result = pci_read_config_byte(pdev, pdev->pcie_cap + 0x11, &ClkReqReg);
 			if (Result != 0) {
 				pcipriv->pci_clk_req = _FALSE;
 				RTW_INFO("pci_read_config_byte (Clock Request Register) Result=%d\n", Result);
@@ -909,111 +576,6 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
 	} while (_FALSE);
 
 	return ret;
-}
-
-/*
- * Update PCI dependent default settings.
- *
- */
-static void rtw_pci_update_default_setting(_adapter *padapter)
-{
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
-	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
-	struct pwrctrl_priv	*pwrpriv = dvobj_to_pwrctl(pdvobjpriv);
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
-
-	/* reset pPSC->reg_rfps_level & priv->b_support_aspm */
-	pwrpriv->reg_rfps_level = 0;
-
-	/* Update PCI ASPM setting */
-	/* pwrpriv->const_amdpci_aspm = pdvobjpriv->const_amdpci_aspm; */
-	switch (pdvobjpriv->const_pci_aspm) {
-	case 0:		/* No ASPM */
-		break;
-
-	case 1:		/* ASPM dynamically enabled/disable. */
-		pwrpriv->reg_rfps_level |= RT_RF_LPS_LEVEL_ASPM;
-		break;
-
-	case 2:		/* ASPM with Clock Req dynamically enabled/disable. */
-		pwrpriv->reg_rfps_level |= (RT_RF_LPS_LEVEL_ASPM | RT_RF_OFF_LEVL_CLK_REQ);
-		break;
-
-	case 3:		/* Always enable ASPM and Clock Req from initialization to halt. */
-		pwrpriv->reg_rfps_level &= ~(RT_RF_LPS_LEVEL_ASPM);
-		pwrpriv->reg_rfps_level |= (RT_RF_PS_LEVEL_ALWAYS_ASPM | RT_RF_OFF_LEVL_CLK_REQ);
-		break;
-
-	case 4:		/* Always enable ASPM without Clock Req from initialization to halt. */
-		pwrpriv->reg_rfps_level &= ~(RT_RF_LPS_LEVEL_ASPM | RT_RF_OFF_LEVL_CLK_REQ);
-		pwrpriv->reg_rfps_level |= RT_RF_PS_LEVEL_ALWAYS_ASPM;
-		break;
-
-	case 5: /* Linux do not support ASPM OSC, added by Roger, 2013.03.27.	 */
-		break;
-	}
-
-	pwrpriv->reg_rfps_level |= RT_RF_OFF_LEVL_HALT_NIC;
-
-	/* Update Radio OFF setting */
-	switch (pdvobjpriv->const_hwsw_rfoff_d3) {
-	case 1:
-		if (pwrpriv->reg_rfps_level & RT_RF_LPS_LEVEL_ASPM)
-			pwrpriv->reg_rfps_level |= RT_RF_OFF_LEVL_ASPM;
-		break;
-
-	case 2:
-		if (pwrpriv->reg_rfps_level & RT_RF_LPS_LEVEL_ASPM)
-			pwrpriv->reg_rfps_level |= RT_RF_OFF_LEVL_ASPM;
-		pwrpriv->reg_rfps_level |= RT_RF_OFF_LEVL_HALT_NIC;
-		break;
-
-	case 3:
-		pwrpriv->reg_rfps_level |= RT_RF_OFF_LEVL_PCI_D3;
-		break;
-	}
-
-	/* Update Rx 2R setting */
-	/* pPSC->reg_rfps_level |= ((pDevice->RegLPS2RDisable) ? RT_RF_LPS_DISALBE_2R : 0); */
-
-	/*  */
-	/* Set HW definition to determine if it supports ASPM. */
-	/*  */
-	switch (pdvobjpriv->const_support_pciaspm) {
-	case 1: {	/* Support ASPM. */
-		u8	b_support_backdoor = _TRUE;
-		u8	b_support_l1_on_amd = _FALSE;
-
-		rtw_hal_get_def_var(padapter, HAL_DEF_PCI_AMD_L1_SUPPORT, &b_support_l1_on_amd);
-
-		if (pHalData->CustomerID == RT_CID_TOSHIBA &&
-		    pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_AMD &&
-		    !pcipriv->amd_l1_patch && !b_support_l1_on_amd) {
-			RTW_INFO("%s(): Disable L1 Backdoor!!\n", __func__);
-			b_support_backdoor = _FALSE;
-		}
-		rtw_hal_set_def_var(padapter, HAL_DEF_PCI_SUUPORT_L1_BACKDOOR, &b_support_backdoor);
-	}
-	break;
-
-	default:
-		/* Do nothing. Set when finding the chipset. */
-		break;
-	}
-}
-
-static void rtw_pci_initialize_adapter_common(_adapter *padapter)
-{
-	struct pwrctrl_priv	*pwrpriv = adapter_to_pwrctl(padapter);
-
-	rtw_pci_update_default_setting(padapter);
-
-	if (pwrpriv->reg_rfps_level & RT_RF_PS_LEVEL_ALWAYS_ASPM) {
-		/* Always enable ASPM & Clock Req. */
-		rtw_pci_enable_aspm(padapter);
-		RT_SET_PS_LEVEL(pwrpriv, RT_RF_PS_LEVEL_ALWAYS_ASPM);
-	}
-
 }
 
 /*
@@ -1167,6 +729,12 @@ static void rtw_decide_chip_type_by_pci_driver_data(struct dvobj_priv *pdvobj, c
 	}
 #endif
 
+#if defined(CONFIG_RTL8814B)
+	if (pdvobj->chip_type == RTL8814B) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8814BE;
+		RTW_INFO("CHIP TYPE: RTL8814BE\n");
+	}
+#endif
 }
 
 static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
@@ -1178,8 +746,6 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 	struct pci_dev	*bridge_pdev = pdev->bus->self;
 	/* u32	pci_cfg_space[16]; */
 	unsigned long pmem_start, pmem_len, pmem_flags;
-	u8	tmp;
-	u8	PciBgVIdIdx;
 	int	i;
 
 
@@ -1292,21 +858,6 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 	RTW_INFO("Memory mapped space start: 0x%08lx len:%08lx flags:%08lx, after map:0x%08lx\n",
 		 pmem_start, pmem_len, pmem_flags, dvobj->pci_mem_start);
 
-	/*find bus info*/
-	pcipriv->busnumber = pdev->bus->number;
-	pcipriv->devnumber = PCI_SLOT(pdev->devfn);
-	pcipriv->funcnumber = PCI_FUNC(pdev->devfn);
-
-	/*find bridge info*/
-	if (bridge_pdev) {
-		pcipriv->pcibridge_busnum = bridge_pdev->bus->number;
-		pcipriv->pcibridge_devnum = PCI_SLOT(bridge_pdev->devfn);
-		pcipriv->pcibridge_funcnum = PCI_FUNC(bridge_pdev->devfn);
-		pcipriv->pcibridge_vendor = PCI_BRIDGE_VENDOR_UNKNOWN;
-		pcipriv->pcibridge_vendorid = bridge_pdev->vendor;
-		pcipriv->pcibridge_deviceid = bridge_pdev->device;
-	}
-
 #if 0
 	/* Read PCI configuration Space Header */
 	for (i = 0; i < 16; i++)
@@ -1319,25 +870,23 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 
 
 	/* rtw_pci_parse_configuration(pdev, dvobj, (u8 *)&pci_cfg_space); */
-	rtw_pci_parse_configuration(pdev, dvobj);
-
-	for (PciBgVIdIdx = 0; PciBgVIdIdx < PCI_BRIDGE_VENDOR_MAX; PciBgVIdIdx++) {
-		if (pcipriv->pcibridge_vendorid == pcibridge_vendors[PciBgVIdIdx]) {
-			pcipriv->pcibridge_vendor = PciBgVIdIdx;
-			RTW_INFO("Pci Bridge Vendor is found: VID=0x%x, VendorIdx=%d\n", pcipriv->pcibridge_vendorid, PciBgVIdIdx);
-			break;
-		}
+	if (rtw_pci_parse_configuration(pdev, dvobj) == _FAIL) {
+		RTW_ERR("PCI parse configuration error\n");
+		goto iounmap;
 	}
 
-	if (pcipriv->pcibridge_vendor != PCI_BRIDGE_VENDOR_UNKNOWN) {
-		rtw_pci_get_linkcontrol_reg(bridge_pdev, &pcipriv->pcibridge_linkctrlreg, &pcipriv->pcibridge_pciehdr_offset);
+	if (bridge_pdev) {
+		pci_read_config_byte(bridge_pdev,
+				     bridge_pdev->pcie_cap + PCI_EXP_LNKCTL,
+				     &pcipriv->pcibridge_linkctrlreg);
 
-		if (pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_AMD)
+		if (bridge_pdev->vendor == AMD_VENDOR_ID)
 			pcipriv->amd_l1_patch = rtw_pci_get_amd_l1_patch(dvobj, bridge_pdev);
 	}
 
 	status = _SUCCESS;
 
+iounmap:
 	if (status != _SUCCESS && dvobj->pci_mem_start != 0) {
 #if 1/* def RTK_DMP_PLATFORM */
 		pci_iounmap(pdev, (void *)dvobj->pci_mem_start);
@@ -1459,6 +1008,10 @@ u8 rtw_set_hal_ops(_adapter *padapter)
 	if (rtw_get_chip_type(padapter) == RTL8822C)
 		rtl8822ce_set_hal_ops(padapter);
 #endif
+#if defined(CONFIG_RTL8814B)
+	if (rtw_get_chip_type(padapter) == RTL8814B)
+		rtl8814be_set_hal_ops(padapter);
+#endif
 
 	if (rtw_hal_ops_check(padapter) == _FAIL)
 		return _FAIL;
@@ -1519,6 +1072,11 @@ void pci_set_intf_ops(_adapter *padapter, struct _io_ops *pops)
 #if defined(CONFIG_RTL8822C)
 	if (rtw_get_chip_type(padapter) == RTL8822C)
 		rtl8822ce_set_intf_ops(pops);
+#endif
+
+#if defined(CONFIG_RTL8814B)
+	if (rtw_get_chip_type(padapter) == RTL8814B)
+		rtl8814be_set_intf_ops(pops);
 #endif
 
 }
@@ -1781,9 +1339,6 @@ _adapter *rtw_pci_primary_adapter_init(struct dvobj_priv *dvobj, struct pci_dev 
 
 	rtw_hal_disable_interrupt(padapter);
 
-	/* step 6. Init pci related configuration */
-	rtw_pci_initialize_adapter_common(padapter);
-
 	RTW_INFO("bDriverStopped:%s, bSurpriseRemoved:%s, bup:%d, hw_init_completed:%s\n"
 		 , rtw_is_drv_stopped(padapter) ? "True" : "False"
 		 , rtw_is_surprise_removed(padapter) ? "True" : "False"
@@ -1815,7 +1370,7 @@ static void rtw_pci_primary_adapter_deinit(_adapter *padapter)
 
 	/*	padapter->intf_stop(padapter); */
 
-	if (check_fwstate(pmlmepriv, _FW_LINKED))
+	if (check_fwstate(pmlmepriv, WIFI_ASOC_STATE))
 		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_DIRECTLY);
 
 #ifdef CONFIG_AP_MODE
@@ -1866,7 +1421,6 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 	int status = _FAIL;
 	_adapter *padapter = NULL;
 	struct dvobj_priv *dvobj;
-	struct net_device *pnetdev;
 
 	/* RTW_INFO("+rtw_drv_init\n"); */
 
@@ -2017,6 +1571,8 @@ static void rtw_dev_remove(struct pci_dev *pdev)
 #endif
 	rtw_btcoex_HaltNotify(padapter);
 #endif
+
+	rtw_pci_dynamic_aspm_set_mode(padapter, ASPM_MODE_DEF);
 
 	rtw_pci_primary_adapter_deinit(padapter);
 

@@ -33,7 +33,7 @@ struct mc_carveout_info {
 	u64 size;
 };
 
-#if defined(CONFIG_TEGRA_MC)
+#if defined(CONFIG_NV_TEGRA_MC)
 
 /**
  * Read from the MC.

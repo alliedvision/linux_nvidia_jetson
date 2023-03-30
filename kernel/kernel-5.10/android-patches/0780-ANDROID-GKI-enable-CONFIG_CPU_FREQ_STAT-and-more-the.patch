@@ -1,0 +1,70 @@
+From 05e9e884b127a6f2220d8ff39c62731b90faea05 Mon Sep 17 00:00:00 2001
+From: Wei Wang <wvw@google.com>
+Date: Tue, 6 Oct 2020 23:58:37 -0700
+Subject: [PATCH 780/830] ANDROID: GKI: enable CONFIG_CPU_FREQ_STAT and more
+ thermal configs
+X-NVConfidentiality: public
+
+Bug: 170274669
+Bug: 169727445
+Signed-off-by: Wei Wang <wvw@google.com>
+Change-Id: I20d2848b97d2c3d1d80ad8c6d61d6de2cf306153
+---
+ arch/arm64/configs/gki_defconfig | 4 ++++
+ arch/x86/configs/gki_defconfig   | 6 ++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a9691258baf3..2a1cb8bc5b0f 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -67,6 +67,7 @@ CONFIG_CPU_IDLE=y
+ CONFIG_ARM_CPUIDLE=y
+ CONFIG_ARM_PSCI_CPUIDLE=y
+ CONFIG_CPU_FREQ=y
++CONFIG_CPU_FREQ_STAT=y
+ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+@@ -331,10 +332,13 @@ CONFIG_SPMI=y
+ CONFIG_POWER_RESET_HISI=y
+ # CONFIG_HWMON is not set
+ CONFIG_THERMAL=y
++CONFIG_THERMAL_STATISTICS=y
++CONFIG_THERMAL_WRITABLE_TRIPS=y
+ CONFIG_THERMAL_GOV_USER_SPACE=y
+ CONFIG_THERMAL_GOV_POWER_ALLOCATOR=y
+ CONFIG_CPU_THERMAL=y
+ CONFIG_DEVFREQ_THERMAL=y
++CONFIG_THERMAL_EMULATION=y
+ CONFIG_WATCHDOG=y
+ CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_ACT8945A=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index a4e0d1be1ac5..a703f42aeb78 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -54,6 +54,7 @@ CONFIG_EFI=y
+ CONFIG_PM_WAKELOCKS=y
+ CONFIG_PM_WAKELOCKS_LIMIT=0
+ # CONFIG_PM_WAKELOCKS_GC is not set
++CONFIG_CPU_FREQ_STAT=y
+ CONFIG_CPU_FREQ_TIMES=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+ CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y
+@@ -291,7 +292,12 @@ CONFIG_HPET=y
+ CONFIG_SPI=y
+ CONFIG_GPIOLIB=y
+ # CONFIG_HWMON is not set
++CONFIG_THERMAL_STATISTICS=y
++CONFIG_THERMAL_WRITABLE_TRIPS=y
++CONFIG_THERMAL_GOV_USER_SPACE=y
++CONFIG_CPU_THERMAL=y
+ CONFIG_DEVFREQ_THERMAL=y
++CONFIG_THERMAL_EMULATION=y
+ # CONFIG_X86_PKG_TEMP_THERMAL is not set
+ CONFIG_WATCHDOG=y
+ CONFIG_WATCHDOG_CORE=y
+-- 
+2.17.1
+

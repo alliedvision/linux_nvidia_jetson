@@ -1,7 +1,7 @@
 /*
  * max9295.c - max9295 GMSL Serializer driver
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -350,7 +350,8 @@ int max9295_setup_control(struct device *dev)
 		i2c_ovrd[i+1] += (i < 4) ? offset1 : offset2;
 
 		/* i2c passthrough2 must be configured once for all devices */
-		if ((i2c_ovrd[i] == 0x8B) && prim_priv__ && prim_priv__->pst2_ref)
+		if ((i2c_ovrd[i] == 0x8B) && prim_priv__ &&
+				prim_priv__->pst2_ref)
 			continue;
 
 		max9295_write_reg(dev, i2c_ovrd[i], i2c_ovrd[i+1]);
@@ -392,7 +393,8 @@ int max9295_reset_control(struct device *dev)
 	if (prim_priv__) {
 		prim_priv__->pst2_ref--;
 
-		max9295_write_reg(dev, MAX9295_DEV_ADDR, (prim_priv__->def_addr << 1));
+		max9295_write_reg(dev, MAX9295_DEV_ADDR,
+					(prim_priv__->def_addr << 1));
 
 		max9295_write_reg(&prim_priv__->i2c_client->dev,
 					MAX9295_CTRL0_ADDR, MAX9295_RESET_ALL);
@@ -537,8 +539,8 @@ static const struct i2c_device_id max9295_id[] = {
 	{ },
 };
 
-const struct of_device_id max9295_of_match[] = {
-	{ .compatible = "nvidia,max9295", },
+static const struct of_device_id max9295_of_match[] = {
+	{ .compatible = "maxim,max9295", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max9295_of_match);

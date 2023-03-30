@@ -1,0 +1,27 @@
+Nvidia, tegra186-roc-flush:
+==================
+
+The device node describes t186 ROC HW and
+its register address range.
+ROC is the interface between core cluster,
+Memory and IO subsystem.
+It provides arbitration, Encrypts/Decrypts carve-out accesses,
+Rd/Wr to MC, manages IO communication and many more things.
+
+Required properties:
+--------------------
+- compatible = Must be one of the following
+               "nvidia,tegra186-roc-flush"
+- reg: ROC register range
+Optional properties:
+--------------------
+- status: "okay" or "disabled"
+
+Examples:
+========
+roc-flush@e080000 {
+	compatible = "nvidia,tegra186-roc-flush";
+	reg = <0x0 0xe080000 0x0 0x10000>;
+	status = "disabled";
+};
+

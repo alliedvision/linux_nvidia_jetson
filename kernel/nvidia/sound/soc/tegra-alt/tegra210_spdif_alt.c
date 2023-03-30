@@ -1,7 +1,7 @@
 /*
  * tegra210_spdif_alt.c - Tegra210 SPDIF driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,7 +24,12 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -62,7 +67,7 @@ static int tegra210_spdif_runtime_suspend(struct device *dev)
 
 	regcache_cache_only(spdif->regmap, true);
 	regcache_mark_dirty(spdif->regmap);
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		clk_disable_unprepare(spdif->clk_spdif_out);
 		clk_disable_unprepare(spdif->clk_spdif_in);
 	}
@@ -75,7 +80,7 @@ static int tegra210_spdif_runtime_resume(struct device *dev)
 	struct tegra210_spdif *spdif = dev_get_drvdata(dev);
 	int ret;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		ret = clk_prepare_enable(spdif->clk_spdif_out);
 		if (ret) {
 			dev_err(dev, "spdif_out_clk_enable failed: %d\n", ret);
@@ -136,7 +141,7 @@ static int tegra210_spdif_set_dai_sysclk(struct snd_soc_dai *dai,
 		return -EINVAL;
 	}
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		if (dir == SND_SOC_CLOCK_OUT) {
 			ret = clk_set_rate(spdif->clk_spdif_out,
 					   spdif_out_clock_rate);
@@ -401,7 +406,7 @@ static int tegra210_spdif_platform_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, spdif);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		spdif->clk_spdif_out = devm_clk_get(&pdev->dev, "spdif_out");
 		if (IS_ERR(spdif->clk_spdif_out)) {
 			dev_err(&pdev->dev, "Can't retrieve spdif clock\n");
@@ -426,13 +431,6 @@ static int tegra210_spdif_platform_probe(struct platform_device *pdev)
 		return PTR_ERR(spdif->regmap);
 	}
 	regcache_cache_only(spdif->regmap, true);
-
-	ret = of_property_read_u32(np, "nvidia,ahub-spdif-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-spdif-id\n");
-		return ret;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = snd_soc_register_codec(&pdev->dev, &tegra210_spdif_codec,

@@ -182,7 +182,11 @@ static struct oz_pd *oz_connect_req(struct oz_pd *cur_pd, struct oz_elt *elt,
 		pd = oz_pd_alloc(pd_addr);
 		if (pd == NULL)
 			return NULL;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		getnstimeofday(&pd->last_rx_timestamp);
+#else
+		ktime_get_ts64(&pd->last_rx_timestamp);
+#endif
 		spin_lock_bh(&g_polling_lock);
 		list_for_each(e, &g_pd_list) {
 			pd2 = container_of(e, struct oz_pd, link);
@@ -344,7 +348,11 @@ static void oz_rx_frame(struct sk_buff *skb)
 	int length;
 	struct oz_pd *pd = NULL;
 	struct oz_hdr *oz_hdr = (struct oz_hdr *)skb_network_header(skb);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec current_time;
+#else
+	struct timespec64 current_time;
+#endif
 	int dup = 0;
 	u32 pkt_num;
 
@@ -369,7 +377,11 @@ static void oz_rx_frame(struct sk_buff *skb)
 			oz_pd_set_state(pd, OZ_PD_S_CONNECTED);
 			oz_pd_notify_uevent(pd);
 		}
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		getnstimeofday(&current_time);
+#else
+		ktime_get_ts64(&current_time);
+#endif
 		if ((current_time.tv_sec != pd->last_rx_timestamp.tv_sec) ||
 			(pd->presleep < MSEC_PER_SEC))  {
 			oz_timer_add(pd, OZ_TIMER_TOUT,	pd->presleep);

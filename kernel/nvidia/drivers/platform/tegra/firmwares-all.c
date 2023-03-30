@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,31 @@
 #include <linux/cpu.h>
 #include <asm/cpu.h>
 
+#if IS_ENABLED(CONFIG_TRUSTY)
+#include <linux/trusty/trusty.h>
+
+static ssize_t tegrafw_read_trusty(struct device *dev,
+				char *data, size_t size)
+{
+	const struct of_device_id trusty_of_match[] = {
+		{.compatible = "android,trusty-smc-v1", },
+		{},
+	};
+	struct device_node *dn;
+	struct platform_device *pdev;
+
+	for_each_matching_node(dn, trusty_of_match) {
+		pdev = of_find_device_by_node(dn);
+		if (pdev == NULL)
+			continue;
+		return snprintf(data, size, "%s",
+			trusty_version_str_get(&pdev->dev));
+	}
+	snprintf(data, size, "NULL");
+	return 0;
+}
+#endif
+
 static ssize_t tegrafw_read_denver(struct device *dev,
 				char *version, size_t size)
 {
@@ -28,10 +53,12 @@ static ssize_t tegrafw_read_denver(struct device *dev,
 	for_each_online_cpu(i) {
 		struct cpuinfo_arm64 *cpuinfo = &per_cpu(cpu_data, i);
 		u32 midr = cpuinfo->reg_midr;
+		u32 aidr;
 
 		if (MIDR_IMPLEMENTOR(midr) == ARM_CPU_IMP_NVIDIA) {
+			asm volatile("mrs %0, AIDR_EL1" : "=r" (aidr) : );
 			printed = snprintf(v, size, "CPU%d: %u(0x%x) ",
-				i, cpuinfo->reg_aidr, cpuinfo->reg_aidr);
+				i, aidr, aidr);
 			size -= printed;
 			v += printed;
 		}
@@ -57,6 +84,12 @@ static int __init tegra_firmwares_init(void)
 
 	check_out_of_bounds(dev, 0);
 	*dev++ = tegrafw_register("MTS", TFW_NORMAL, tegrafw_read_denver, NULL);
+
+#if IS_ENABLED(CONFIG_TRUSTY)
+	check_out_of_bounds(dev, 0);
+	*dev++ = tegrafw_register("trusty", TFW_DONT_CACHE,
+				tegrafw_read_trusty, NULL);
+#endif
 
 	for (v = 0; v < ARRAY_SIZE(versions); v++) {
 		check_out_of_bounds(dev, 0);

@@ -2,7 +2,7 @@
  * tegra210_adsp_alt.c - Tegra ADSP audio driver
  *
  * Author: Sumit Bhattacharya <sumitb@nvidia.com>
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -49,7 +49,12 @@
 #include <sound/core.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <sound/compress_driver.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/tegra_nvfx.h>
@@ -132,6 +137,7 @@ struct tegra210_adsp_app {
 	uint32_t priority; /* Valid for only APM app */
 	uint32_t min_adsp_clock; /* Min ADSP clock required in MHz */
 	uint32_t input_mode; /* APM input mode */
+	bool secure_mode; /* APM secure mode */
 	struct tegra210_adsp_app_read_data read_data;
 	spinlock_t lock;
 	void *private_data;
@@ -197,7 +203,6 @@ static const struct snd_pcm_hardware adsp_pcm_hardware = {
 				  SNDRV_PCM_INFO_DRAIN_TRIGGER,
 	.formats		= SNDRV_PCM_FMTBIT_S8 |
 				  SNDRV_PCM_FMTBIT_S16_LE |
-				  SNDRV_PCM_FMTBIT_S24_LE |
 				  SNDRV_PCM_FMTBIT_S32_LE,
 	.channels_min		= 1,
 	.channels_max		= 2,
@@ -408,9 +413,9 @@ static int tegra210_adsp_init(struct tegra210_adsp *adsp)
 		adsp_app_desc[i].handle = nvadsp_app_load(
 				adsp_app_desc[i].name,
 				adsp_app_desc[i].fw_name);
-		if (!adsp_app_desc[i].handle) {
-			dev_err(adsp->dev, "Failed to load app %s",
-						adsp_app_desc[i].name);
+		if (adsp_app_desc[i].handle) {
+			dev_info(adsp->dev, "Loaded app %s",
+				 adsp_app_desc[i].name);
 		}
 	}
 
@@ -719,6 +724,19 @@ static int tegra210_adsp_send_state_msg(struct tegra210_adsp_app *app,
 	return tegra210_adsp_send_msg(app, &apm_msg, flags);
 }
 
+static int tegra210_adsp_send_secure_state_msg(struct tegra210_adsp_app *app,
+						uint32_t flags)
+{
+	apm_msg_t apm_msg;
+
+	apm_msg.msgq_msg.size = MSGQ_MSG_WSIZE(nvfx_set_state_params_t);
+	apm_msg.msg.call_params.size = sizeof(nvfx_set_state_params_t);
+	apm_msg.msg.call_params.method = nvfx_method_set_apr_params;
+	apm_msg.msg.state_params.state = app->secure_mode;
+
+	return tegra210_adsp_send_msg(app, &apm_msg, flags);
+}
+
 static int tegra210_adsp_send_flush_msg(struct tegra210_adsp_app *app,
 					uint32_t flags)
 {
@@ -785,6 +803,32 @@ static int tegra210_adsp_send_data_request_msg(struct tegra210_adsp_app *app,
 	return tegra210_adsp_send_msg(app, &apm_msg, flags);
 }
 
+static int tegra210_adsp_send_app_priority(struct tegra210_adsp_app *app)
+{
+	apm_msg_t msg;
+
+	msg.msgq_msg.size = MSGQ_MSG_WSIZE(apm_set_priority_params_t);
+	msg.msg.call_params.size = sizeof(apm_set_priority_params_t);
+	msg.msg.call_params.method = nvfx_apm_method_set_priority;
+	msg.msg.priority_params.priority = app->priority;
+
+	return tegra210_adsp_send_msg(app, &msg, TEGRA210_ADSP_MSG_FLAG_SEND |
+				      TEGRA210_ADSP_MSG_FLAG_NEED_ACK);
+}
+
+static int tegra210_adsp_send_app_inputmode(struct tegra210_adsp_app *app)
+{
+	apm_msg_t msg;
+
+	msg.msgq_msg.size = MSGQ_MSG_WSIZE(apm_set_input_mode_params_t);
+	msg.msg.call_params.size = sizeof(apm_set_input_mode_params_t);
+	msg.msg.call_params.method = nvfx_apm_method_set_input_mode;
+	msg.msg.input_mode_params.mode = app->input_mode;
+
+	return tegra210_adsp_send_msg(app, &msg, TEGRA210_ADSP_MSG_FLAG_SEND |
+				      TEGRA210_ADSP_MSG_FLAG_NEED_ACK);
+}
+
 /* ADSP app init/de-init APIs */
 static int tegra210_adsp_app_init(struct tegra210_adsp *adsp,
 				struct tegra210_adsp_app *app)
@@ -841,7 +885,7 @@ static int tegra210_adsp_app_init(struct tegra210_adsp *adsp,
 		app->raw_msg_read_complete = devm_kzalloc(adsp->dev,
 					sizeof(struct completion), GFP_KERNEL);
 
-		if (!app->raw_msg_read_complete) {
+		if (app->raw_msg_read_complete == NULL) {
 			dev_err(adsp->dev,
 				"Failed to allocate read completion struct.");
 			return -ENOMEM;
@@ -850,7 +894,7 @@ static int tegra210_adsp_app_init(struct tegra210_adsp *adsp,
 		app->raw_msg_write_complete = devm_kzalloc(adsp->dev,
 					sizeof(struct completion), GFP_KERNEL);
 
-		if (!app->raw_msg_write_complete) {
+		if (app->raw_msg_write_complete == NULL) {
 			dev_err(adsp->dev,
 				"Failed to allocate read completion struct.");
 			return -ENOMEM;
@@ -875,6 +919,18 @@ static int tegra210_adsp_app_init(struct tegra210_adsp *adsp,
 		apm_out->msg_complete = app->msg_complete;
 		apm_out->raw_msg_read_complete = app->raw_msg_read_complete;
 		apm_out->raw_msg_write_complete = app->raw_msg_write_complete;
+
+		ret = tegra210_adsp_send_app_priority(app);
+		if (ret < 0) {
+			dev_err(adsp->dev, "Failed to send app priority!\n");
+			goto err_mbox_close;
+		}
+
+		ret = tegra210_adsp_send_app_inputmode(app);
+		if (ret < 0) {
+			dev_err(adsp->dev, "Failed to send app input mode!\n");
+			goto err_mbox_close;
+		}
 	} else if (IS_ADMA(app->reg)) {
 		app->adma_chan = find_first_zero_bit(adsp->adma_usage,
 					adsp->adma_ch_cnt);
@@ -1339,7 +1395,7 @@ static int tegra210_adsp_compr_open(struct snd_compr_stream *cstream)
 	struct tegra210_adsp *adsp =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct tegra210_adsp_compr_rtd *prtd;
-	uint32_t fe_reg = rtd->codec_dai->id;
+	uint32_t fe_reg = rtd->codec_dai->id + 1;
 	int ret;
 	int i;
 
@@ -1456,6 +1512,13 @@ static int tegra210_adsp_compr_set_params(struct snd_compr_stream *cstream,
 		dev_err(prtd->dev, "Period size send msg failed. err %d.", ret);
 		return ret;
 	}
+
+	/* Send secure mode msg */
+	ret = tegra210_adsp_send_secure_state_msg(prtd->fe_apm,
+			TEGRA210_ADSP_MSG_FLAG_SEND);
+	if (ret < 0)
+		dev_err(prtd->dev, "Failed to set secure state.");
+
 
 	memcpy(&prtd->codec, &params->codec, sizeof(struct snd_codec));
 	return 0;
@@ -1584,7 +1647,7 @@ static int tegra210_adsp_compr_pointer(struct snd_compr_stream *cstream,
 	struct tegra210_adsp_app *app = prtd->fe_apm;
 	nvfx_shared_state_t *shared = &app->apm->nvfx_shared_state;
 	uint32_t frames_played =
-		(shared->output[0].bytes >> 1) / prtd->codec.ch_in;
+		(uint32_t)((shared->output[0].bytes >> 1) / prtd->codec.ch_in);
 
 	tstamp->byte_offset = shared->input[0].bytes %
 		cstream->runtime->buffer_size;
@@ -1660,7 +1723,7 @@ static int tegra210_adsp_pcm_open(struct snd_pcm_substream *substream)
 	struct tegra210_adsp *adsp =
 		snd_soc_platform_get_drvdata(rtd->platform);
 	struct tegra210_adsp_pcm_rtd *prtd;
-	uint32_t fe_reg = rtd->codec_dai->id;
+	uint32_t fe_reg = rtd->codec_dai->id + 1;
 	uint32_t source;
 	int i, ret = 0;
 
@@ -1802,6 +1865,12 @@ static int tegra210_adsp_pcm_hw_params(struct snd_pcm_substream *substream,
 			TEGRA210_ADSP_MSG_FLAG_SEND);
 	if (ret < 0)
 		return ret;
+
+	/* Send secure mode msg */
+	ret = tegra210_adsp_send_secure_state_msg(prtd->fe_apm,
+			TEGRA210_ADSP_MSG_FLAG_SEND);
+	if (ret < 0)
+		dev_err(prtd->dev, "Failed to set secure state.");
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	return 0;
@@ -2003,7 +2072,7 @@ static int tegra210_adsp_fe_hw_params(struct snd_pcm_substream *substream,
 {
 
 	struct tegra210_adsp *adsp = snd_soc_dai_get_drvdata(dai);
-	uint32_t fe_reg = dai->id;
+	uint32_t fe_reg = dai->id + 1;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		adsp->pcm_path[fe_reg][SNDRV_PCM_STREAM_PLAYBACK].rate
@@ -2086,10 +2155,6 @@ static int tegra210_adsp_null_sink_hw_params(struct snd_soc_dapm_widget *w,
 		adma_params.intr_dur =
 			1000 * max_bytes / (channels * rate * 2);
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		adma_params.intr_dur =
-			1000 * max_bytes / (channels * rate * 3);
-		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		adma_params.intr_dur =
 			1000 * max_bytes / (channels * rate * 4);
@@ -2170,7 +2235,7 @@ static int tegra210_adsp_admaif_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = NULL;
 	struct tegra210_adsp_app *app;
 	nvfx_adma_init_params_t adma_params;
-	uint32_t be_reg = dai->id;
+	uint32_t be_reg = dai->id + 1;
 	uint32_t admaif_id = be_reg - ADSP_ADMAIF_START + 1;
 	uint32_t source, apm_in_reg;
 	int i, ret;
@@ -2335,7 +2400,7 @@ static int tegra210_adsp_runtime_suspend(struct device *dev)
 
 	adsp->adsp_started = 0;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		if (!adsp->soc_data->is_soc_t210)
 			clk_disable_unprepare(adsp->apb2ape_clk);
 		clk_disable_unprepare(adsp->ahub_clk);
@@ -2358,7 +2423,7 @@ static int tegra210_adsp_runtime_resume(struct device *dev)
 	if (!adsp->init_done || adsp->adsp_started)
 		goto exit;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		ret = clk_prepare_enable(adsp->ahub_clk);
 		if (ret < 0) {
 			dev_err(dev, "ahub clk_enable failed: %d\n", ret);
@@ -2749,7 +2814,6 @@ static struct snd_soc_dai_ops tegra210_adsp_eavb_dai_ops = {
 			.rates = SNDRV_PCM_RATE_8000_48000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 		.capture = {						\
@@ -2759,7 +2823,6 @@ static struct snd_soc_dai_ops tegra210_adsp_eavb_dai_ops = {
 			.rates = SNDRV_PCM_RATE_8000_48000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 	}
@@ -2796,31 +2859,9 @@ static struct snd_soc_dai_ops tegra210_adsp_eavb_dai_ops = {
 		},							\
 	}
 
-static struct snd_soc_dai_driver tegra210_adsp_dai[] = {
-	ADSP_PCM_DAI(1),
-	ADSP_PCM_DAI(2),
-	ADSP_PCM_DAI(3),
-	ADSP_PCM_DAI(4),
-	ADSP_PCM_DAI(5),
-	ADSP_PCM_DAI(6),
-	ADSP_PCM_DAI(7),
-	ADSP_PCM_DAI(8),
-	ADSP_PCM_DAI(9),
-	ADSP_PCM_DAI(10),
-	ADSP_PCM_DAI(11),
-	ADSP_PCM_DAI(12),
-	ADSP_PCM_DAI(13),
-	ADSP_PCM_DAI(14),
-	ADSP_PCM_DAI(15),
-	ADSP_COMPR_DAI(1),
-	ADSP_COMPR_DAI(2),
-	ADSP_EAVB_DAI(),
-};
-
 #define ADSP_FE_CODEC_DAI(idx)					\
 	{							\
 		.name = "ADSP-FE" #idx,				\
-		.id = ADSP_FE_START + (idx - 1),			\
 		.playback = {					\
 			.stream_name = "ADSP-FE" #idx " Receive",\
 			.channels_min = 1,			\
@@ -2828,7 +2869,6 @@ static struct snd_soc_dai_driver tegra210_adsp_dai[] = {
 			.rates = SNDRV_PCM_RATE_8000_48000,	\
 			.formats = SNDRV_PCM_FMTBIT_S8 |	\
 				SNDRV_PCM_FMTBIT_S16_LE |	\
-				SNDRV_PCM_FMTBIT_S24_LE |	\
 				SNDRV_PCM_FMTBIT_S32_LE,	\
 		},						\
 		.capture = {					\
@@ -2838,7 +2878,6 @@ static struct snd_soc_dai_driver tegra210_adsp_dai[] = {
 			.rates = SNDRV_PCM_RATE_8000_48000,	\
 			.formats = SNDRV_PCM_FMTBIT_S8 |	\
 				SNDRV_PCM_FMTBIT_S16_LE |	\
-				SNDRV_PCM_FMTBIT_S24_LE |	\
 				SNDRV_PCM_FMTBIT_S32_LE,	\
 		},						\
 		.ops = &tegra210_adsp_fe_dai_ops,		\
@@ -2847,7 +2886,6 @@ static struct snd_soc_dai_driver tegra210_adsp_dai[] = {
 #define ADSP_ADMAIF_CODEC_DAI(idx)				\
 	{							\
 		.name = "ADSP-ADMAIF" #idx,			\
-		.id = ADSP_ADMAIF_START + (idx - 1),		\
 		.playback = {					\
 		.stream_name = "ADSP-ADMAIF" #idx " Receive",	\
 			.channels_min = 1,			\
@@ -2868,7 +2906,6 @@ static struct snd_soc_dai_driver tegra210_adsp_dai[] = {
 #define ADSP_EAVB_CODEC_DAI()					\
 	{							\
 		.name = "ADSP-EAVB",				\
-		.id = ADSP_EAVB_START,				\
 		.playback = {					\
 		.stream_name = "ADSP-EAVB Receive",		\
 			.channels_min = 1,			\
@@ -2924,6 +2961,24 @@ static struct snd_soc_dai_driver tegra210_adsp_codec_dai[] = {
 	ADSP_ADMAIF_CODEC_DAI(18),
 	ADSP_ADMAIF_CODEC_DAI(19),
 	ADSP_ADMAIF_CODEC_DAI(20),
+	ADSP_PCM_DAI(1),
+	ADSP_PCM_DAI(2),
+	ADSP_PCM_DAI(3),
+	ADSP_PCM_DAI(4),
+	ADSP_PCM_DAI(5),
+	ADSP_PCM_DAI(6),
+	ADSP_PCM_DAI(7),
+	ADSP_PCM_DAI(8),
+	ADSP_PCM_DAI(9),
+	ADSP_PCM_DAI(10),
+	ADSP_PCM_DAI(11),
+	ADSP_PCM_DAI(12),
+	ADSP_PCM_DAI(13),
+	ADSP_PCM_DAI(14),
+	ADSP_PCM_DAI(15),
+	ADSP_COMPR_DAI(1),
+	ADSP_COMPR_DAI(2),
+	ADSP_EAVB_DAI(),
 };
 
 /* This array is linked with tegra210_adsp_virt_regs enum defines. Any thing
@@ -3811,21 +3866,6 @@ static int tegra210_adsp_param_info(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int tegra210_adsp_get_param(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	struct soc_bytes *params = (void *)kcontrol->private_value;
-
-	if (params->mask == SNDRV_CTL_ELEM_TYPE_INTEGER)
-		memset(ucontrol->value.integer.value, 0,
-			params->num_regs * sizeof(long));
-	else
-		memset(ucontrol->value.bytes.data, 0,
-			params->num_regs);
-
-	return 0;
-}
-
 /* tegra210_adsp_set_param - sets plugin parameters
  * @default: byte_format
  * @byte_format: nvfx_call_params_t based structure
@@ -4068,6 +4108,8 @@ static int tegra210_adsp_apm_get(struct snd_kcontrol *kcontrol,
 		ucontrol->value.integer.value[0] = app->min_adsp_clock;
 	} else if (strstr(kcontrol->id.name, "Input Mode")) {
 		ucontrol->value.integer.value[0] = app->input_mode;
+	} else if (strstr(kcontrol->id.name, "Secure Mode")) {
+		ucontrol->value.integer.value[0] = app->secure_mode;
 	}
 	return 0;
 }
@@ -4080,14 +4122,7 @@ static int tegra210_adsp_apm_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct tegra210_adsp *adsp = snd_soc_component_get_drvdata(cmpnt);
 	struct tegra210_adsp_app *app = &adsp->apps[mc->reg];
-	apm_msg_t apm_msg;
-	bool send_msg = 0;
 	int ret = 0;
-
-	if (!adsp->init_done) {
-		dev_warn(adsp->dev, "ADSP is not booted yet\n");
-		return -EPERM;
-	}
 
 	/* Controls here may execute whether or not APM is initialized */
 	if (strstr(kcontrol->id.name, "Min ADSP Clock")) {
@@ -4095,45 +4130,33 @@ static int tegra210_adsp_apm_put(struct snd_kcontrol *kcontrol,
 		return 0;
 	}
 
-	/* Check for APM initialized */
-	if (!app->plugin) {
-		dev_warn(adsp->dev, "Unable to set %s, APM %d not initialized\n",
-			kcontrol->id.name, mc->reg);
-		return -EPERM;
+	/* Controls here may execute whether or not APM is initialized */
+	if (strstr(kcontrol->id.name, "Secure Mode")) {
+		app->secure_mode = ucontrol->value.integer.value[0];
+		return 0;
 	}
 
-	if (strstr(kcontrol->id.name, "Priority")) {
-		apm_msg.msgq_msg.size = MSGQ_MSG_WSIZE(apm_set_priority_params_t);
-		apm_msg.msg.call_params.size = sizeof(apm_set_priority_params_t);
-		apm_msg.msg.call_params.method = nvfx_apm_method_set_priority;
-		apm_msg.msg.priority_params.priority =
-			ucontrol->value.integer.value[0];
+	if (strstr(kcontrol->id.name, "Priority"))
 		app->priority = ucontrol->value.integer.value[0];
-		send_msg = true;
-	} else if (strstr(kcontrol->id.name, "Input Mode")) {
-		apm_msg.msgq_msg.size =
-			MSGQ_MSG_WSIZE(apm_set_input_mode_params_t);
-		apm_msg.msg.call_params.size =
-			sizeof(apm_set_input_mode_params_t);
-		apm_msg.msg.call_params.method = nvfx_apm_method_set_input_mode;
-		apm_msg.msg.input_mode_params.mode =
-			ucontrol->value.integer.value[0];
+	else if (strstr(kcontrol->id.name, "Input Mode"))
 		app->input_mode = ucontrol->value.integer.value[0];
-		send_msg = true;
+
+	if (!adsp->init_done || !app->plugin)
+		return 0;
+
+	ret = pm_runtime_get_sync(adsp->dev);
+	if (ret < 0) {
+		dev_err(adsp->dev, "%s pm_runtime_get_sync error 0x%x\n",
+			__func__, ret);
+		return ret;
 	}
 
-	if (send_msg) {
-		ret = pm_runtime_get_sync(adsp->dev);
-		if (ret < 0) {
-			dev_err(adsp->dev, "%s pm_runtime_get_sync error 0x%x\n",
-				__func__, ret);
-			return ret;
-		}
-		ret = tegra210_adsp_send_msg(app, &apm_msg,
-				TEGRA210_ADSP_MSG_FLAG_SEND |
-				TEGRA210_ADSP_MSG_FLAG_NEED_ACK);
-		pm_runtime_put(adsp->dev);
-	}
+	if (strstr(kcontrol->id.name, "Priority"))
+		ret = tegra210_adsp_send_app_priority(app);
+	else if (strstr(kcontrol->id.name, "Input Mode"))
+		ret = tegra210_adsp_send_app_inputmode(app);
+
+	pm_runtime_put(adsp->dev);
 
 	return ret;
 }
@@ -4142,8 +4165,8 @@ static int tegra210_adsp_apm_put(struct snd_kcontrol *kcontrol,
 #define SND_SOC_PARAM_EXT(xname, xbase)		\
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,	\
 	.name = xname,		\
+	.access = SNDRV_CTL_ELEM_ACCESS_WRITE,	\
 	.info = tegra210_adsp_param_info,		\
-	.get = tegra210_adsp_get_param,		\
 	.put = tegra210_adsp_set_param,		\
 	.private_value =		\
 		((unsigned long)&(struct soc_bytes)		\
@@ -4343,9 +4366,9 @@ static struct snd_kcontrol_new tegra210_adsp_controls[] = {
 
 	APM_CONTROL("Priority", APM_PRIORITY_MAX),
 	APM_CONTROL("Min ADSP Clock", INT_MAX),
-	APM_CONTROL("Input Mode", INT_MAX),
+	APM_CONTROL("Input Mode", NVFX_APM_INPUT_MODE_MAX),
+	APM_CONTROL("Secure Mode", 1),
 };
-
 
 static int tegra210_adsp_component_probe(struct snd_soc_component *component)
 {
@@ -4355,19 +4378,18 @@ static int tegra210_adsp_component_probe(struct snd_soc_component *component)
 	return 0;
 }
 
-static const struct snd_soc_component_driver tegra210_adsp_component = {
-	.name		= "tegra210-adsp",
-	.dapm_widgets		= tegra210_adsp_widgets,
-	.num_dapm_widgets	= ARRAY_SIZE(tegra210_adsp_widgets),
-	.dapm_routes		= tegra210_adsp_routes,
-	.num_dapm_routes	= ARRAY_SIZE(tegra210_adsp_routes),
-	.controls		= tegra210_adsp_controls,
-	.num_controls		= ARRAY_SIZE(tegra210_adsp_controls),
-	.probe			= tegra210_adsp_component_probe,
-};
-
 static struct snd_soc_codec_driver tegra210_adsp_codec = {
 	.idle_bias_off = 1,
+	.component_driver = {
+		.name			= "tegra210-adsp",
+		.probe			= tegra210_adsp_component_probe,
+		.dapm_widgets		= tegra210_adsp_widgets,
+		.num_dapm_widgets	= ARRAY_SIZE(tegra210_adsp_widgets),
+		.dapm_routes		= tegra210_adsp_routes,
+		.num_dapm_routes	= ARRAY_SIZE(tegra210_adsp_routes),
+		.controls		= tegra210_adsp_controls,
+		.num_controls		= ARRAY_SIZE(tegra210_adsp_controls),
+	},
 };
 
 static int tegra210_adsp_pcm_probe(struct snd_soc_platform *platform)
@@ -4477,7 +4499,7 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 	adsp->soc_data = (struct adsp_soc_data *)match->data;
 
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		adsp->ahub_clk = devm_clk_get(&pdev->dev, "ahub");
 		if (IS_ERR(adsp->ahub_clk)) {
 			dev_err(&pdev->dev, "Error: Missing AHUB clock\n");
@@ -4517,8 +4539,9 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 
 	for (i = 0; i < TEGRA210_ADSP_VIRT_REG_MAX; i++) {
 		adsp->apps[i].reg = i;
-		adsp->apps[i].priority = 0;
+		adsp->apps[i].priority = APM_PRIORITY_DEFAULT;
 		adsp->apps[i].min_adsp_clock = 0;
+		adsp->apps[i].secure_mode = false;
 		adsp->apps[i].input_mode = NVFX_APM_INPUT_MODE_PUSH;
 	}
 
@@ -4680,19 +4703,12 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 		goto err_pm_disable;
 	}
 
-	ret = snd_soc_register_component(&pdev->dev, &tegra210_adsp_component,
-			tegra210_adsp_dai, ARRAY_SIZE(tegra210_adsp_dai));
-	if (ret) {
-		dev_err(&pdev->dev, "Could not register component: %d\n", ret);
-		goto err_unregister_platform;
-	}
-
 	ret = snd_soc_register_codec(&pdev->dev, &tegra210_adsp_codec,
 				     tegra210_adsp_codec_dai,
 				     ARRAY_SIZE(tegra210_adsp_codec_dai));
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Could not register CODEC: %d\n", ret);
-		goto err_unregister_component;
+		goto err_unregister_platform;
 	}
 
 	for (i = 0; i < (APM_IN_END - APM_IN_START + 1); i++) {
@@ -4710,14 +4726,21 @@ static int tegra210_adsp_audio_platform_probe(struct platform_device *pdev)
 		goto err_unregister_codec;
 	}
 
+	/* Try booting the ADSP OS */
+	ret = tegra210_adsp_init(adsp);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to init ADSP.");
+		goto err_release_netlink;
+	}
+
 	dev_info(&pdev->dev, "Tegra210 ADSP driver successfully registered\n");
 
 	return 0;
 
+err_release_netlink:
+	netlink_kernel_release(adsp->nl_sk);
 err_unregister_codec:
 	snd_soc_unregister_codec(&pdev->dev);
-err_unregister_component:
-	snd_soc_unregister_component(&pdev->dev);
 err_unregister_platform:
 	snd_soc_unregister_platform(&pdev->dev);
 err_pm_disable:
@@ -4732,7 +4755,6 @@ static int tegra210_adsp_audio_platform_remove(struct platform_device *pdev)
 
 	netlink_kernel_release(adsp->nl_sk);
 	snd_soc_unregister_codec(&pdev->dev);
-	snd_soc_unregister_component(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	tegra_pd_remove_device(&pdev->dev);
 	snd_soc_unregister_platform(&pdev->dev);

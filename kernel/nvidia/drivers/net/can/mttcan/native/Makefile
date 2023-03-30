@@ -21,4 +21,4 @@ mttcan-y = m_ttcan_linux.o m_ttcan_sys.o ../hal/m_ttcan.o
 mttcan-y += ../hal/m_ttcan_intr.o ../hal/m_ttcan_list.o  ../hal/m_ttcan_ram.o
 mttcan-y += ../hal/m_ttcan_tt.o
 
-ccflags-y += -I$(overlay)/drivers/net/can/mttcan/include
+ccflags-y += -I$(overlay)/drivers/net/can/mttcan/include -Wno-implicit-fallthrough

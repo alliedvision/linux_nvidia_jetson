@@ -1,0 +1,35 @@
+From 9a61d7e73d3560e8ba3c99b35828e946128a0742 Mon Sep 17 00:00:00 2001
+From: Yongqin Liu <yongqin.liu@linaro.org>
+Date: Thu, 12 Dec 2019 18:12:01 +0800
+Subject: [PATCH 222/830] ANDROID: mm/memory.c: export mm_trace_rss_stat
+X-NVConfidentiality: public
+
+to workaround following error:
+    ERROR: "mm_trace_rss_stat" [drivers/gpu/arm_gpu/mali_kbase.ko] undefined!
+reported when make modules
+
+Test: test 5.5.0-rc1-mainline with hikey960 with GKI method
+
+Change-Id: Icb56b0c760780c3f9081f82d921406d17f4f1c08
+[adelva: workaround for Mali driver on hikey960]
+Signed-off-by: Yongqin Liu <yongqin.liu@linaro.org>
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ mm/memory.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/mm/memory.c b/mm/memory.c
+index d9501dea8460..318d094b296e 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -160,6 +160,7 @@ void mm_trace_rss_stat(struct mm_struct *mm, int member, long count)
+ {
+ 	trace_rss_stat(mm, member, count);
+ }
++EXPORT_SYMBOL_GPL(mm_trace_rss_stat);
+ 
+ #if defined(SPLIT_RSS_COUNTING)
+ 
+-- 
+2.17.1
+

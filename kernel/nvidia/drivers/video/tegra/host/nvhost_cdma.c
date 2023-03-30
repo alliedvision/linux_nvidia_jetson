@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Command DMA
  *
- * Copyright (c) 2010-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -66,10 +66,6 @@ int nvhost_push_buffer_alloc(struct push_buffer *pb)
 		pb->mapped = NULL;
 		return -ENOMEM;
 	}
-
-	/* for now, map pushbuffer to all address spaces */
-	nvhost_vm_map_static(cdma_to_dev(cdma)->dev, pb->mapped,
-			     pb->dma_addr, PUSH_BUFFER_SIZE + 4);
 
 	return 0;
 }
@@ -289,7 +285,9 @@ static void cdma_start_timer_locked(struct nvhost_cdma *cdma,
  */
 static void stop_cdma_timer_locked(struct nvhost_cdma *cdma)
 {
-	cancel_delayed_work_sync(&cdma->timeout.wq);
+	if (cdma->timeout.initialized) {
+		cancel_delayed_work_sync(&cdma->timeout.wq);
+	}
 
 	mutex_lock(&cdma->timeout_lock);
 	if (cdma->timeout.clientid)
@@ -380,15 +378,10 @@ static void update_cdma_locked(struct nvhost_cdma *cdma)
 }
 
 
-void nvhost_cdma_finalize_job_incrs(struct nvhost_syncpt *syncpt,
+void nvhost_cdma_finalize_job_incrs(struct platform_device *pdev,
 					struct nvhost_job_syncpt *sp)
 {
-	u32 id = sp->id;
-	u32 fence = sp->fence;
-
-	atomic_set(&syncpt->min_val[id], fence);
-	syncpt_op().reset(syncpt, id);
-	nvhost_syncpt_update_min(syncpt, id);
+	nvhost_syncpt_set_min_update(pdev, sp->id, sp->fence);
 }
 
 void nvhost_cdma_update_sync_queue(struct nvhost_cdma *cdma,
@@ -462,7 +455,7 @@ out:
 	is_empty = list_empty(&cdma->sync_queue);
 	mutex_unlock(&cdma->sync_queue_lock);
 	if (!is_empty)
-		get_restart = job->first_get;
+		get_restart = (job->first_get + job->num_slots * 8) & (PUSH_BUFFER_SIZE - 1);
 
 	/* do CPU increments as long as this context continues */
 	mutex_lock(&cdma->sync_queue_lock);
@@ -484,11 +477,13 @@ out:
 		nvhost_job_set_notifier(job, NVHOST_CHANNEL_SUBMIT_TIMEOUT);
 
 		for (i = 0; i < job->num_syncpts; ++i)
-			nvhost_cdma_finalize_job_incrs(syncpt, job->sp + i);
+			nvhost_cdma_finalize_job_incrs(dev, job->sp + i);
 
 		/* cleanup push buffer */
 		cdma_op().timeout_pb_cleanup(cdma, job->first_get,
 			job->num_slots);
+
+		get_restart = (job->first_get + job->num_slots * 8) & (PUSH_BUFFER_SIZE - 1);
 	}
 	mutex_unlock(&cdma->sync_queue_lock);
 

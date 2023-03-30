@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,19 +19,20 @@
 
 #include <asm/barrier.h>
 
-#define __nvgpu_mb()	mb()
-#define __nvgpu_rmb()	rmb()
-#define __nvgpu_wmb()	wmb()
+#define nvgpu_mb_impl()	mb()
+#define nvgpu_rmb_impl()	rmb()
+#define nvgpu_wmb_impl()	wmb()
 
-#define __nvgpu_smp_mb()	smp_mb()
-#define __nvgpu_smp_rmb()	smp_rmb()
-#define __nvgpu_smp_wmb()	smp_wmb()
+#define nvgpu_smp_mb_impl()	smp_mb()
+#define nvgpu_smp_rmb_impl()	smp_rmb()
+#define nvgpu_smp_wmb_impl()	smp_wmb()
 
-#define __nvgpu_read_barrier_depends()	read_barrier_depends()
-#define __nvgpu_smp_read_barrier_depends()	smp_read_barrier_depends()
-
-#define __NV_ACCESS_ONCE(x)	ACCESS_ONCE(x)
-
-#define __nvgpu_speculation_barrier() speculation_barrier()
+#ifdef speculation_barrier
+#define nvgpu_speculation_barrier_impl() speculation_barrier()
+#else
+#define nvgpu_speculation_barrier_impl() ({		\
+	asm volatile("dsb sy\n"				\
+		      "isb\n" : : : "memory"); })
+#endif
 
 #endif /* __NVGPU_BARRIER_LINUX_H__ */

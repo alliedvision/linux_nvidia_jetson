@@ -1,0 +1,230 @@
+From 1f7f7195beafe41f736f65bce9ceca9c754b192f Mon Sep 17 00:00:00 2001
+From: John Dias <joaodias@google.com>
+Date: Thu, 15 Sep 2016 08:52:27 -0700
+Subject: [PATCH 165/830] ANDROID: sched: avoid placing RT threads on cores
+ handling softirqs
+X-NVConfidentiality: public
+
+In certain audio use cases, scheduling RT threads on cores that are
+handling softirqs can lead to glitches. Prevent this behavior.
+
+Bug: 31501544
+Bug: 168521633
+Change-Id: I99dd7aaa12c11270b28dbabea484bcc8fb8ba0c1
+Signed-off-by: John Dias <joaodias@google.com>
+[elavila: Port to mainline, amend commit text]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ init/Kconfig          | 11 +++++++++++
+ kernel/sched/cpupri.c | 45 +++++++++++++++++++++++++++++++++++++++++--
+ kernel/sched/rt.c     | 37 +++++++++++++++++++++++++++++------
+ kernel/sched/sched.h  | 12 ++++++++++++
+ 4 files changed, 97 insertions(+), 8 deletions(-)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 13685bffef37..c0800bbd031f 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1215,6 +1215,17 @@ config SCHED_AUTOGROUP
+ 	  desktop applications.  Task group autogeneration is currently based
+ 	  upon task session.
+ 
++config RT_SOFTINT_OPTIMIZATION
++       bool "Improve RT scheduling during long softint execution"
++       depends on ARM64
++       depends on SMP
++       default n
++       help
++         Enable an optimization which tries to avoid placing RT tasks on CPUs
++	 occupied by nonpreemptible tasks, such as a long softint, or CPUs
++	 which may soon block preemptions, such as a CPU running a ksoftirq
++	 thread which handles slow softints.
++
+ config SYSFS_DEPRECATED
+ 	bool "Enable deprecated sysfs features to support old userspace tools"
+ 	depends on SYSFS
+diff --git a/kernel/sched/cpupri.c b/kernel/sched/cpupri.c
+index 0033731a0797..daa771f74620 100644
+--- a/kernel/sched/cpupri.c
++++ b/kernel/sched/cpupri.c
+@@ -41,8 +41,29 @@ static int convert_prio(int prio)
+ 	return cpupri;
+ }
+ 
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++/**
++ * drop_nopreempt_cpus - remove likely nonpreemptible cpus from the mask
++ * @lowest_mask: mask with selected CPUs (non-NULL)
++ */
++static void
++drop_nopreempt_cpus(struct cpumask *lowest_mask)
++{
++	unsigned cpu = cpumask_first(lowest_mask);
++	while (cpu < nr_cpu_ids) {
++		/* unlocked access */
++		struct task_struct *task = READ_ONCE(cpu_rq(cpu)->curr);
++		if (task_may_not_preempt(task, cpu)) {
++			cpumask_clear_cpu(cpu, lowest_mask);
++		}
++		cpu = cpumask_next(cpu, lowest_mask);
++	}
++}
++#endif
++
+ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
+-				struct cpumask *lowest_mask, int idx)
++				struct cpumask *lowest_mask, int idx,
++				bool drop_nopreempts)
+ {
+ 	struct cpupri_vec *vec  = &cp->pri_to_cpu[idx];
+ 	int skip = 0;
+@@ -79,6 +100,11 @@ static inline int __cpupri_find(struct cpupri *cp, struct task_struct *p,
+ 	if (lowest_mask) {
+ 		cpumask_and(lowest_mask, p->cpus_ptr, vec->mask);
+ 
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++		if (drop_nopreempts)
++			drop_nopreempt_cpus(lowest_mask);
++#endif
++
+ 		/*
+ 		 * We have to ensure that we have at least one bit
+ 		 * still set in the array, since the map could have
+@@ -123,12 +149,16 @@ int cpupri_find_fitness(struct cpupri *cp, struct task_struct *p,
+ {
+ 	int task_pri = convert_prio(p->prio);
+ 	int idx, cpu;
++	bool drop_nopreempts = task_pri <= MAX_RT_PRIO;
+ 
+ 	BUG_ON(task_pri >= CPUPRI_NR_PRIORITIES);
+ 
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++retry:
++#endif
+ 	for (idx = 0; idx < task_pri; idx++) {
+ 
+-		if (!__cpupri_find(cp, p, lowest_mask, idx))
++		if (!__cpupri_find(cp, p, lowest_mask, idx, drop_nopreempts))
+ 			continue;
+ 
+ 		if (!lowest_mask || !fitness_fn)
+@@ -150,6 +180,17 @@ int cpupri_find_fitness(struct cpupri *cp, struct task_struct *p,
+ 		return 1;
+ 	}
+ 
++	/*
++	 * If we can't find any non-preemptible cpu's, retry so we can
++	 * find the lowest priority target and avoid priority inversion.
++	 */
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++	if (drop_nopreempts) {
++		drop_nopreempts = false;
++		goto retry;
++	}
++#endif
++
+ 	/*
+ 	 * If we failed to find a fitting lowest_mask, kick off a new search
+ 	 * but without taking into account any fitness criteria this time.
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index d4ed6c1bbaf4..4966e764980c 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -1445,6 +1445,21 @@ static void yield_task_rt(struct rq *rq)
+ #ifdef CONFIG_SMP
+ static int find_lowest_rq(struct task_struct *task);
+ 
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++/*
++ * Return whether the task on the given cpu is currently non-preemptible
++ * while handling a softirq or is likely to block preemptions soon because
++ * it is a ksoftirq thread.
++ */
++bool
++task_may_not_preempt(struct task_struct *task, int cpu)
++{
++	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
++	return (task_thread_info(task)->preempt_count & SOFTIRQ_MASK) ||
++	       task == cpu_ksoftirqd;
++}
++#endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
++
+ static int
+ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+ {
+@@ -1452,6 +1467,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+ 	struct rq *rq;
+ 	bool test;
+ 	int target_cpu = -1;
++	bool may_not_preempt;
+ 
+ 	trace_android_rvh_select_task_rq_rt(p, cpu, sd_flag,
+ 					flags, &target_cpu);
+@@ -1468,7 +1484,12 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+ 	curr = READ_ONCE(rq->curr); /* unlocked access */
+ 
+ 	/*
+-	 * If the current task on @p's runqueue is an RT task, then
++	 * If the current task on @p's runqueue is a softirq task,
++	 * it may run without preemption for a time that is
++	 * ill-suited for a waiting RT task. Therefore, try to
++	 * wake this RT task on another runqueue.
++	 *
++	 * Also, if the current task on @p's runqueue is an RT task, then
+ 	 * try to see if we can wake this RT task up on another
+ 	 * runqueue. Otherwise simply start this RT task
+ 	 * on its current runqueue.
+@@ -1493,9 +1514,10 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+ 	 * requirement of the task - which is only important on heterogeneous
+ 	 * systems like big.LITTLE.
+ 	 */
+-	test = curr &&
+-	       unlikely(rt_task(curr)) &&
+-	       (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio);
++	may_not_preempt = task_may_not_preempt(curr, cpu);
++	test = (curr && (may_not_preempt ||
++			 (unlikely(rt_task(curr)) &&
++			  (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio))));
+ 
+ 	if (test || !rt_task_fits_capacity(p, cpu)) {
+ 		int target = find_lowest_rq(p);
+@@ -1508,11 +1530,14 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
+ 			goto out_unlock;
+ 
+ 		/*
+-		 * Don't bother moving it if the destination CPU is
++		 * If cpu is non-preemptible, prefer remote cpu
++		 * even if it's running a higher-prio task.
++		 * Otherwise: Don't bother moving it if the destination CPU is
+ 		 * not running a lower priority task.
+ 		 */
+ 		if (target != -1 &&
+-		    p->prio < cpu_rq(target)->rt.highest_prio.curr)
++		    (may_not_preempt ||
++		     p->prio < cpu_rq(target)->rt.highest_prio.curr))
+ 			cpu = target;
+ 	}
+ 
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index a62a5adb3a0b..5704699c9dde 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -2683,3 +2683,15 @@ static inline bool is_per_cpu_kthread(struct task_struct *p)
+ 
+ void swake_up_all_locked(struct swait_queue_head *q);
+ void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
++
++/*
++ * task_may_not_preempt - check whether a task may not be preemptible soon
++ */
++#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
++extern bool task_may_not_preempt(struct task_struct *task, int cpu);
++#else
++static inline bool task_may_not_preempt(struct task_struct *task, int cpu)
++{
++	return false;
++}
++#endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
+-- 
+2.17.1
+

@@ -74,6 +74,8 @@ void odm_tx_pwr_track_set_pwr8822c(void *dm_void, enum pwrtrack_method method,
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 	struct dm_rf_calibration_struct *cali_info = &(dm->rf_calibrate_info);
+	struct _hal_rf_ *rf = &dm->rf_table;
+	struct _halrf_tssi_data *tssi = &rf->halrf_tssi_data;
 
 	u32 bitmask_6_0 = BIT(6) | BIT(5) | BIT(4) | BIT(3) |
 				BIT(2) | BIT(1) | BIT(0);
@@ -82,7 +84,32 @@ void odm_tx_pwr_track_set_pwr8822c(void *dm_void, enum pwrtrack_method method,
 	       "pRF->absolute_ofdm_swing_idx=%d   pRF->remnant_ofdm_swing_idx=%d   pRF->absolute_cck_swing_idx=%d   pRF->remnant_cck_swing_idx=%d   rf_path=%d\n",
 	       cali_info->absolute_ofdm_swing_idx[rf_path], cali_info->remnant_ofdm_swing_idx[rf_path], cali_info->absolute_cck_swing_idx[rf_path], cali_info->remnant_cck_swing_idx, rf_path);
 
-	if (method == BBSWING) { /*use for mp driver clean power tracking status*/
+	if (method == CLEAN_MODE) { /*use for mp driver clean power tracking status*/
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "===> %s method=%d clear power tracking rf_path=%d\n",
+		       __func__, method, rf_path);
+		tssi->tssi_trk_txagc_offset[rf_path] = 0;
+
+		switch (rf_path) {
+		case RF_PATH_A:
+			odm_set_bb_reg(dm, R_0x18a0, bitmask_6_0, (cali_info->absolute_ofdm_swing_idx[rf_path] & 0x7f));
+			odm_set_rf_reg(dm, rf_path, RF_0x7f, 0x00002, 0x0);
+			odm_set_rf_reg(dm, rf_path, RF_0x7f, 0x00100, 0x0);
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "Path-%d 0x%x=0x%x\n", rf_path, R_0x18a0,
+			       odm_get_bb_reg(dm, R_0x18a0, bitmask_6_0));
+			break;
+		case RF_PATH_B:
+			odm_set_bb_reg(dm, R_0x41a0, bitmask_6_0, (cali_info->absolute_ofdm_swing_idx[rf_path] & 0x7f));
+			odm_set_rf_reg(dm, rf_path, RF_0x7f, 0x00002, 0x0);
+			odm_set_rf_reg(dm, rf_path, RF_0x7f, 0x00100, 0x0);
+			RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
+			       "Path-%d 0x%x=0x%x\n", rf_path, R_0x41a0,
+			       odm_get_bb_reg(dm, R_0x41a0, bitmask_6_0));
+			break;
+		default:
+			break;
+		}
+	} else if (method == BBSWING) { /*use for mp driver clean power tracking status*/
 		switch (rf_path) {
 		case RF_PATH_A:
 			odm_set_bb_reg(dm, R_0x18a0, bitmask_6_0, (cali_info->absolute_ofdm_swing_idx[rf_path] & 0x7f));
@@ -1101,32 +1128,32 @@ void halrf_dac_cal_8822c(void *dm_void, boolean force)
 /*DACK step1*/
 		i++;
 		RF_DBG(dm, DBG_RF_DACK, "[DACK]DACK count=%d\n", i);
-	odm_write_4byte(dm, 0x410c, 0xdff00220);
-	odm_write_4byte(dm, 0x4110, 0x02d508c5);
+		odm_write_4byte(dm, 0x410c, 0xdff00220);
+		odm_write_4byte(dm, 0x4110, 0x02d508c5);
 		odm_write_4byte(dm, 0x9b4, 0xdb66db00);
-	odm_write_4byte(dm, 0x41b0, 0x0a11fb88);
-	odm_write_4byte(dm, 0x41bc, 0x0008ff81);
-	odm_write_4byte(dm, 0x41c0, 0x0003d208);
-	odm_write_4byte(dm, 0x41cc, 0x0a11fb88);
-	odm_write_4byte(dm, 0x41d8, 0x0008ff81);
-	odm_write_4byte(dm, 0x41dc, 0x0003d208);
+		odm_write_4byte(dm, 0x41b0, 0x0a11fb88);
+		odm_write_4byte(dm, 0x41bc, 0x0008ff81);
+		odm_write_4byte(dm, 0x41c0, 0x0003d208);
+		odm_write_4byte(dm, 0x41cc, 0x0a11fb88);
+		odm_write_4byte(dm, 0x41d8, 0x0008ff81);
+		odm_write_4byte(dm, 0x41dc, 0x0003d208);
 
-	odm_write_4byte(dm, 0x41b8, 0x60000000);
+		odm_write_4byte(dm, 0x41b8, 0x60000000);
 		ODM_delay_ms(2);
-	odm_write_4byte(dm, 0x41bc, 0x000aff8d);
+		odm_write_4byte(dm, 0x41bc, 0x000aff8d);
 		ODM_delay_ms(2);
-	odm_write_4byte(dm, 0x41b0, 0x0a11fb89);
-	odm_write_4byte(dm, 0x41cc, 0x0a11fb89);
+		odm_write_4byte(dm, 0x41b0, 0x0a11fb89);
+		odm_write_4byte(dm, 0x41cc, 0x0a11fb89);
 		ODM_delay_ms(1);
-	odm_write_4byte(dm, 0x41b8, 0x62000000);
-	odm_write_4byte(dm, 0x41d4, 0x62000000);
+		odm_write_4byte(dm, 0x41b8, 0x62000000);
+		odm_write_4byte(dm, 0x41d4, 0x62000000);
 		ODM_delay_ms(1);
 		halrf_polling_check(dm, 0x4508, 0x7fff80, 0xffff);
 		halrf_polling_check(dm, 0x4534, 0x7fff80, 0xffff);
-	odm_write_4byte(dm, 0x41b8, 0x02000000);
+		odm_write_4byte(dm, 0x41b8, 0x02000000);
 		ODM_delay_ms(1);
-	odm_write_4byte(dm, 0x41bc, 0x0008ff87);
-	odm_write_4byte(dm, 0x9b4, 0xdb6db600);
+		odm_write_4byte(dm, 0x41bc, 0x0008ff87);
+		odm_write_4byte(dm, 0x9b4, 0xdb6db600);
 
 		odm_write_4byte(dm, 0x4110, 0x02d508c5);
 		odm_write_4byte(dm, 0x41bc, 0x0008ff87);
@@ -1167,7 +1194,7 @@ void halrf_dac_cal_8822c(void *dm_void, boolean force)
 		       ic, qc);
 		ic_b = ic;
 		qc_b = qc;
-	/*5.DACK step3*/
+		/*5.DACK step3*/
 		odm_write_4byte(dm, 0x410c, 0xdff00220);
 		odm_write_4byte(dm, 0x4110, 0x02d508c5);
 		odm_write_4byte(dm, 0x9b4, 0xdb66db00);
@@ -1334,6 +1361,33 @@ void halrf_dack_dbg_8822c(void *dm_void)
 	odm_set_bb_reg(dm, 0x9b4, MASKDWORD, temp3);
 }
 
+void halrf_rxdck_8822c(void *dm_void)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	u32 temp1, temp2;
+	
+	temp1 = odm_get_bb_reg(dm, 0x180c, MASKDWORD);
+	temp2 = odm_get_bb_reg(dm, 0x410c, MASKDWORD);
+	odm_set_bb_reg(dm, 0x180c, 0x3, 0x0);
+	odm_set_bb_reg(dm, 0x410c, 0x3, 0x0);
+	odm_set_rf_reg(dm, RF_PATH_A, 0x0, RFREGOFFSETMASK, 0x30000);
+	odm_set_rf_reg(dm, RF_PATH_B, 0x0, RFREGOFFSETMASK, 0x30000);
+
+	odm_set_rf_reg(dm, RF_PATH_A, 0x92, RFREGOFFSETMASK, 0x84800);
+	odm_set_rf_reg(dm, RF_PATH_A, 0x92, RFREGOFFSETMASK, 0x84801);
+	ODM_delay_ms(1);
+	odm_set_rf_reg(dm, RF_PATH_A, 0x92, RFREGOFFSETMASK, 0x84800);
+
+	odm_set_rf_reg(dm, RF_PATH_B, 0x92, RFREGOFFSETMASK, 0x84800);
+	odm_set_rf_reg(dm, RF_PATH_B, 0x92, RFREGOFFSETMASK, 0x84801);
+	ODM_delay_ms(1);
+	odm_set_rf_reg(dm, RF_PATH_B, 0x92, RFREGOFFSETMASK, 0x84800);
+
+	odm_set_bb_reg(dm, 0x180c, MASKDWORD, temp1);
+	odm_set_bb_reg(dm, 0x410c, MASKDWORD, temp2);
+	odm_set_rf_reg(dm, RF_PATH_A, 0x0, RFREGOFFSETMASK, 0x3ffff);
+	odm_set_rf_reg(dm, RF_PATH_B, 0x0, RFREGOFFSETMASK, 0x3ffff);
+}
 void _phy_x2_calibrate_8822c(struct dm_struct *dm)
 {
 	RF_DBG(dm, DBG_RF_IQK, "[X2K]X2K start!!!!!!!\n");
@@ -1394,6 +1448,7 @@ void configure_txpower_track_8822c(struct txpwrtrack_cfg *config)
 	config->odm_tx_pwr_track_set_pwr = odm_tx_pwr_track_set_pwr8822c;
 	config->do_iqk = do_iqk_8822c;
 	config->phy_lc_calibrate = halrf_lck_trigger;
+	config->do_tssi_dck = halrf_tssi_dck;
 	config->get_delta_swing_table = get_delta_swing_table_8822c;
 }
 
@@ -1457,13 +1512,14 @@ void halrf_rxbb_dc_cal_8822c(void *dm_void)
 {
 	struct dm_struct *dm = (struct dm_struct *)dm_void;
 
-	u8 path;
+	u8 path, i;
 
 	for (path = 0; path < 2; path++) {
 		odm_set_rf_reg(dm, (enum rf_path)path, 0x92, RFREG_MASK, 0x84800);
 		ODM_delay_us(5);
 		odm_set_rf_reg(dm, (enum rf_path)path, 0x92, RFREG_MASK, 0x84801);
-		ODM_delay_us(600);
+		for (i = 0; i < 30; i++) /*delay 600us*/
+			ODM_delay_us(20);
 		odm_set_rf_reg(dm, (enum rf_path)path, 0x92, RFREG_MASK, 0x84800);
 	}
 }
@@ -1476,23 +1532,26 @@ void halrf_rfk_handshake_8822c(void *dm_void, boolean is_before_k)
 	u8 u1b_tmp, h2c_parameter;
 	u16 count;
 
+	rf->is_rfk_h2c_timeout = false;
+
 	if (is_before_k) {
+
 		RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
 		       "[RFK] WiFi / BT RFK handshake start!!\n");
 
 		if (!rf->is_bt_iqk_timeout) {
 			/* Check if BT request to do IQK (0xaa[6]) or is doing IQK (0xaa[5]), 600ms timeout*/
-		count = 0;
+			count = 0;
 			u1b_tmp = (u8)odm_get_mac_reg(dm, 0xa8, BIT(22) | BIT(21));
 			while (u1b_tmp != 0 && count < 30000) {
-			ODM_delay_us(20);
+				ODM_delay_us(20);
 				u1b_tmp = (u8)odm_get_mac_reg(dm, 0xa8, BIT(22) | BIT(21));
-			count++;
-		}
+				count++;
+			}
 
 			if (count >= 30000) {
-			RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
-			       "[RFK] Wait BT IQK finish timeout!!\n");
+				RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
+				       "[RFK] Wait BT IQK finish timeout!!\n");
 
 				rf->is_bt_iqk_timeout = true;
 			}
@@ -1511,9 +1570,12 @@ void halrf_rfk_handshake_8822c(void *dm_void, boolean is_before_k)
 			count++;
 		}
 
-		if (count >= 5000)
+		if (count >= 5000) {
 			RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
 			       "[RFK] Send WiFi RFK start H2C cmd FAIL!!\n");
+
+			rf->is_rfk_h2c_timeout = true;
+		}
 
 	} else {
 		/* Send RFK finish H2C cmd*/
@@ -1528,13 +1590,32 @@ void halrf_rfk_handshake_8822c(void *dm_void, boolean is_before_k)
 			count++;
 		}
 
-		if (count >= 5000)
+		if (count >= 5000) {
 			RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
 			       "[RFK] Send WiFi RFK finish H2C cmd FAIL!!\n");
+
+			rf->is_rfk_h2c_timeout = true;
+		}
 
 		RF_DBG(dm, DBG_RF_IQK | DBG_RF_DPK | DBG_RF_TX_PWR_TRACK,
 		       "[RFK] WiFi / BT RFK handshake finish!!\n");
 	}
+}
+void halrf_rfk_power_save_8822c(
+	void *dm_void,
+	boolean is_power_save)
+{
+	struct dm_struct *dm = (struct dm_struct *)dm_void;
+	struct dm_iqk_info *iqk_info = &dm->IQK_info;
+	u8 path  = 0;
+
+	for(path = 0; path < SS_8822C; path++) {
+		odm_set_bb_reg(dm, R_0x1b00, BIT(2)| BIT(1), path);
+		if (is_power_save)
+			odm_set_bb_reg(dm, R_0x1b08, BIT(7), 0x0);
+		else
+			odm_set_bb_reg(dm, R_0x1b08, BIT(7), 0x1);
+		}
 }
 
 #endif /*(RTL8822C_SUPPORT == 0)*/

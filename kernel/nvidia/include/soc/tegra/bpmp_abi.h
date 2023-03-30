@@ -1,17 +1,24 @@
 /*
  * Copyright (c) 2014-2020, NVIDIA CORPORATION
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #ifndef ABI_BPMP_ABI_H
@@ -95,10 +102,18 @@
 
 /**
  * @ingroup MRQ_Format
- * Ring the sender's doorbell when responding.
+ * Ring the sender's doorbell when responding. This should be set unless
+ * the sender wants to poll the underlying communications layer directly.
+ *
  * An optional direction that can be specified in mrq_request::flags.
  */
 #define BPMP_MAIL_RING_DB	(1U << 1U)
+
+/**
+ * @ingroup MRQ_Format
+ * CRC present
+ */
+#define BPMP_MAIL_CRC_PRESENT	(1U << 2U)
 
 /**
  * @ingroup MRQ_Format
@@ -113,10 +128,121 @@ struct mrq_request {
 	uint32_t mrq;
 
 	/**
-	 * @brief Flags providing follow up directions to the receiver
+	 * @brief 32bit word containing a number of fields as follows:
 	 *
-	 * A combination of #BPMP_MAIL_DO_ACK and #BPMP_MAIL_RING_DB.
-	 * #BPMP_MAIL_DO_ACK must be always set for requests targeting BPMP.
+	 * 	struct {
+	 * 		uint8_t options:4;
+	 * 		uint8_t xid:4;
+	 * 		uint8_t payload_length;
+	 * 		uint16_t crc16;
+	 * 	};
+	 *
+	 * **options** directions to the receiver and indicates CRC presence.
+	 *
+	 * #BPMP_MAIL_DO_ACK and  #BPMP_MAIL_RING_DB see documentation of respective options.
+	 * #BPMP_MAIL_CRC_PRESENT is supported on T234 and later platforms. It indicates the
+	 * crc16, xid and length fields are present when set.
+	 * Some platform configurations, especially when targeted to applications requiring
+	 * functional safety, mandate this option being set or otherwise will respond with
+	 * -BPMP_EBADMSG and ignore the request.
+	 *
+	 * **xid** is a transaction ID.
+	 *
+	 * Only used when #BPMP_MAIL_CRC_PRESENT is set.
+	 *
+	 * **payload_length** of the message expressed in bytes without the size of this header.
+	 * See table below for minimum accepted payload lengths for each MRQ.
+	 * Note: For DMCE communication, this field expresses the length as a multiple of 4 bytes
+	 * rather than bytes.
+	 *
+	 * Only used when #BPMP_MAIL_CRC_PRESENT is set.
+	 *
+	 * | MRQ                  | CMD                                  | minimum payload length
+	 * | -------------------- | ------------------------------------ | ------------------------------------------ |
+	 * | MRQ_PING             |                                      | 4                                          |
+	 * | MRQ_THREADED_PING    |                                      | 4                                          |
+	 * | MRQ_RESET            | any                                  | 8                                          |
+	 * | MRQ_I2C              |                                      | 12 + cmd_i2c_xfer_request.data_size        |
+	 * | MRQ_CLK              | CMD_CLK_GET_RATE                     | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_SET_RATE                     | 16                                         |
+	 * | MRQ_CLK              | CMD_CLK_ROUND_RATE                   | 16                                         |
+	 * | MRQ_CLK              | CMD_CLK_GET_PARENT                   | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_SET_PARENT                   | 8                                          |
+	 * | MRQ_CLK              | CMD_CLK_ENABLE                       | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_DISABLE                      | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_IS_ENABLED                   | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_GET_ALL_INFO                 | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_GET_MAX_CLK_ID               | 4                                          |
+	 * | MRQ_CLK              | CMD_CLK_GET_FMAX_AT_VMIN             | 4                                          |
+	 * | MRQ_QUERY_ABI        |                                      | 4                                          |
+	 * | MRQ_PG               | CMD_PG_QUERY_ABI                     | 12                                         |
+	 * | MRQ_PG               | CMD_PG_SET_STATE                     | 12                                         |
+	 * | MRQ_PG               | CMD_PG_GET_STATE                     | 8                                          |
+	 * | MRQ_PG               | CMD_PG_GET_NAME                      | 8                                          |
+	 * | MRQ_PG               | CMD_PG_GET_MAX_ID                    | 8                                          |
+	 * | MRQ_THERMAL          | CMD_THERMAL_QUERY_ABI                | 8                                          |
+	 * | MRQ_THERMAL          | CMD_THERMAL_GET_TEMP                 | 8                                          |
+	 * | MRQ_THERMAL          | CMD_THERMAL_SET_TRIP                 | 20                                         |
+	 * | MRQ_THERMAL          | CMD_THERMAL_GET_NUM_ZONES            | 4                                          |
+	 * | MRQ_THERMAL          | CMD_THERMAL_GET_THERMTRIP            | 8                                          |
+	 * | MRQ_CPU_VHINT        |                                      | 8                                          |
+	 * | MRQ_ABI_RATCHET      |                                      | 2                                          |
+	 * | MRQ_EMC_DVFS_LATENCY |                                      | 8                                          |
+	 * | MRQ_EMC_DVFS_EMCHUB  |                                      | 8                                          |
+	 * | MRQ_CPU_NDIV_LIMITS  |                                      | 4                                          |
+	 * | MRQ_CPU_AUTO_CC3     |                                      | 4                                          |
+	 * | MRQ_RINGBUF_CONSOLE  | CMD_RINGBUF_CONSOLE_QUERY_ABI        | 8                                          |
+	 * | MRQ_RINGBUF_CONSOLE  | CMD_RINGBUF_CONSOLE_READ             | 5                                          |
+	 * | MRQ_RINGBUF_CONSOLE  | CMD_RINGBUF_CONSOLE_WRITE            | 5 + cmd_ringbuf_console_write_req.len      |
+	 * | MRQ_RINGBUF_CONSOLE  | CMD_RINGBUF_CONSOLE_GET_FIFO         | 4                                          |
+	 * | MRQ_STRAP            | STRAP_SET                            | 12                                         |
+	 * | MRQ_UPHY             | CMD_UPHY_PCIE_LANE_MARGIN_CONTROL    | 24                                         |
+	 * | MRQ_UPHY             | CMD_UPHY_PCIE_LANE_MARGIN_STATUS     | 4                                          |
+	 * | MRQ_UPHY             | CMD_UPHY_PCIE_EP_CONTROLLER_PLL_INIT | 5                                          |
+	 * | MRQ_UPHY             | CMD_UPHY_PCIE_CONTROLLER_STATE       | 6                                          |
+	 * | MRQ_UPHY             | CMD_UPHY_PCIE_EP_CONTROLLER_PLL_OFF  | 5                                          |
+	 * | MRQ_FMON             | CMD_FMON_GEAR_CLAMP                  | 16                                         |
+	 * | MRQ_FMON             | CMD_FMON_GEAR_FREE                   | 4                                          |
+	 * | MRQ_FMON             | CMD_FMON_GEAR_GET                    | 4                                          |
+	 * | MRQ_EC               | CMD_EC_STATUS_EX_GET                 | 12                                         |
+	 * | MRQ_QUERY_FW_TAG     |                                      | 0                                          |
+	 * | MRQ_DEBUG            | CMD_DEBUG_OPEN_RO                    | 4 + length of cmd_debug_fopen_request.name |
+	 * | MRQ_DEBUG            | CMD_DEBUG_OPEN_WO                    | 4 + length of cmd_debug_fopen_request.name |
+	 * | MRQ_DEBUG            | CMD_DEBUG_READ                       | 8                                          |
+	 * | MRQ_DEBUG            | CMD_DEBUG_WRITE                      | 12 + cmd_debug_fwrite_request.datalen      |
+	 * | MRQ_DEBUG            | CMD_DEBUG_CLOSE                      | 8                                          |
+	 *
+	 * **crc16**
+	 *
+	 * CRC16 using polynomial x^16 + x^14 + x^12 + x^11 + x^8 + x^5 + x^4 + x^2 + 1
+	 * and initialization value 0x4657. The CRC is calculated over all bytes of the message
+	 * including this header. However the crc16 field is considered to be set to 0 when
+	 * calculating the CRC. Only used when #BPMP_MAIL_CRC_PRESENT is set. If
+	 * #BPMP_MAIL_CRC_PRESENT is set and this field does not match the CRC as
+	 * calculated by BPMP, -BPMP_EBADMSG will be returned and the request will
+	 * be ignored. See code snippet below on how to calculate the CRC.
+	 *
+	 * @code
+	 *	uint16_t calc_crc_digest(uint16_t crc, uint8_t *data, size_t size)
+	 *	{
+	 *		for (size_t i = 0; i < size; i++) {
+	 *			crc ^= data[i] << 8;
+	 *			for (size_t j = 0; j < 8; j++) {
+	 *				if ((crc & 0x8000) == 0x8000) {
+	 *					crc = (crc << 1) ^ 0xAC9A;
+	 *				} else {
+	 *					crc = (crc << 1);
+	 *				}
+	 *			}
+	 *		}
+	 *		return crc;
+	 *	}
+	 *
+	 *	uint16_t calc_crc(uint8_t *data, size_t size)
+	 *	{
+	 *		return calc_crc_digest(0x4657, data, size);
+	 *	}
+	 * @endcode
 	 */
 	uint32_t flags;
 } BPMP_ABI_PACKED;
@@ -133,7 +259,35 @@ struct mrq_request {
 struct mrq_response {
 	/** @brief Error code for the MRQ request itself */
 	int32_t err;
-	/** @brief Reserved for future use */
+
+	/**
+	 * @brief 32bit word containing a number of fields as follows:
+	 *
+	 * 	struct {
+	 * 		uint8_t options:4;
+	 * 		uint8_t xid:4;
+	 * 		uint8_t payload_length;
+	 * 		uint16_t crc16;
+	 * 	};
+	 *
+	 * **options** indicates CRC presence.
+	 *
+	 * #BPMP_MAIL_CRC_PRESENT is supported on T234 and later platforms and
+	 * indicates the crc16 related fields are present when set.
+	 *
+	 * **xid** is the transaction ID as sent by the requestor.
+	 *
+	 * **length** of the message expressed in bytes without the size of this header.
+	 * Note: For DMCE communication, this field expresses the length as a multiple of 4 bytes
+	 * rather than bytes.
+	 *
+	 * **crc16**
+	 *
+	 * CRC16 using polynomial x^16 + x^14 + x^12 + x^11 + x^8 + x^5 + x^4 + x^2 + 1
+	 * and initialization value 0x4657. The CRC is calculated over all bytes of the message
+	 * including this header. However the crc16 field is considered to be set to 0 when
+	 * calculating the CRC. Only used when #BPMP_MAIL_CRC_PRESENT is set.
+	 */
 	uint32_t flags;
 } BPMP_ABI_PACKED;
 
@@ -141,12 +295,12 @@ struct mrq_response {
  * @ingroup MRQ_Format
  * Minimum needed size for an IPC message buffer
  */
-#define MSG_MIN_SZ	128
+#define MSG_MIN_SZ	128U
 /**
  * @ingroup MRQ_Format
  *  Minimum size guaranteed for data in an IPC message buffer
  */
-#define MSG_DATA_MIN_SZ	120
+#define MSG_DATA_MIN_SZ	120U
 
 /**
  * @ingroup MRQ_Codes
@@ -365,8 +519,8 @@ struct mrq_query_fw_tag_response {
  *
  */
 struct mrq_module_load_request {
-	/** @brief Base address of the code to load. Treated as (void *) */
-	uint32_t phys_addr; /* (void *) */
+	/** @brief Base address of the code to load */
+	uint32_t phys_addr;
 	/** @brief Size in bytes of code to load */
 	uint32_t size;
 } BPMP_ABI_PACKED;
@@ -416,6 +570,8 @@ struct mrq_module_unload_request {
  * @def MRQ_TRACE_MODIFY
  * @brief Modify the set of enabled trace events
  *
+ * @deprecated
+ *
  * * Platforms: All
  * * Initiators: CCPLEX
  * * Targets: BPMP
@@ -458,6 +614,8 @@ struct mrq_trace_modify_response {
  * @ingroup MRQ_Codes
  * @def MRQ_WRITE_TRACE
  * @brief Write trace data to a buffer
+ *
+ * @deprecated
  *
  * * Platforms: All
  * * Initiators: CCPLEX
@@ -569,6 +727,8 @@ struct mrq_module_mail_response {
  * @ingroup MRQ_Codes
  * @def MRQ_DEBUGFS
  * @brief Interact with BPMP's debugfs file nodes
+ *
+ * @deprecated use MRQ_DEBUG instead.
  *
  * * Platforms: T186, T194
  * * Initiators: Any
@@ -708,6 +868,190 @@ struct mrq_debugfs_response {
 #define DEBUGFS_S_IRUSR	(1 << 8)
 #define DEBUGFS_S_IWUSR	(1 << 7)
 /** @} */
+
+/**
+ * @ingroup MRQ_Codes
+ * @def MRQ_DEBUG
+ * @brief Interact with BPMP's debugfs file nodes. Use message payload
+ * for exchanging data. This is functionally equivalent to
+ * @ref MRQ_DEBUGFS. But the way in which data is exchanged is different.
+ * When software running on CPU tries to read a debugfs file,
+ * the file path and read data will be stored in message payload.
+ * Since the message payload size is limited, a debugfs file
+ * transaction might require multiple frames of data exchanged
+ * between BPMP and CPU until the transaction completes.
+ *
+ * * Platforms: T194
+ * * Initiators: Any
+ * * Targets: BPMP
+ * * Request Payload: @ref mrq_debug_request
+ * * Response Payload: @ref mrq_debug_response
+ */
+
+/** @ingroup Debugfs */
+enum mrq_debug_commands {
+	/** @brief Open required file for read operation */
+	CMD_DEBUG_OPEN_RO = 0,
+	/** @brief Open required file for write operation */
+	CMD_DEBUG_OPEN_WO = 1,
+	/** @brief Perform read */
+	CMD_DEBUG_READ = 2,
+	/** @brief Perform write */
+	CMD_DEBUG_WRITE = 3,
+	/** @brief Close file */
+	CMD_DEBUG_CLOSE = 4,
+	/** @brief Not a command */
+	CMD_DEBUG_MAX
+};
+
+/**
+ * @ingroup Debugfs
+ * @brief Maximum number of files that can be open at a given time
+ */
+#define DEBUG_MAX_OPEN_FILES	1
+
+/**
+ * @ingroup Debugfs
+ * @brief Maximum size of null-terminated file name string in bytes.
+ * Value is derived from memory available in message payload while
+ * using @ref cmd_debug_fopen_request
+ * Value 4 corresponds to size of @ref mrq_debug_commands
+ * in @ref mrq_debug_request.
+ * 120 - 4 dbg_cmd(32bit)  = 116
+ */
+#define DEBUG_FNAME_MAX_SZ	(MSG_DATA_MIN_SZ - 4)
+
+/**
+ * @ingroup Debugfs
+ * @brief Parameters for CMD_DEBUG_OPEN command
+ */
+struct cmd_debug_fopen_request {
+	/** @brief File name - Null-terminated string with maximum
+	 * length @ref DEBUG_FNAME_MAX_SZ
+	 */
+	char name[DEBUG_FNAME_MAX_SZ];
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Response data for CMD_DEBUG_OPEN_RO/WO command
+ */
+struct cmd_debug_fopen_response {
+	/** @brief Identifier for file access */
+	uint32_t fd;
+	/** @brief Data length. File data size for READ command.
+	 * Maximum allowed length for WRITE command
+	 */
+	uint32_t datalen;
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Parameters for CMD_DEBUG_READ command
+ */
+struct cmd_debug_fread_request {
+	/** @brief File access identifier received in response
+	 * to CMD_DEBUG_OPEN_RO request
+	 */
+	uint32_t fd;
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Maximum size of read data in bytes.
+ * Value is derived from memory available in message payload while
+ * using @ref cmd_debug_fread_response.
+ */
+#define DEBUG_READ_MAX_SZ	(MSG_DATA_MIN_SZ - 4)
+
+/**
+ * @ingroup Debugfs
+ * @brief Response data for CMD_DEBUG_READ command
+ */
+struct cmd_debug_fread_response {
+	/** @brief Size of data provided in this response in bytes */
+	uint32_t readlen;
+	/** @brief File data from seek position */
+	char data[DEBUG_READ_MAX_SZ];
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Maximum size of write data in bytes.
+ * Value is derived from memory available in message payload while
+ * using @ref cmd_debug_fwrite_request.
+ */
+#define DEBUG_WRITE_MAX_SZ	(MSG_DATA_MIN_SZ - 12)
+
+/**
+ * @ingroup Debugfs
+ * @brief Parameters for CMD_DEBUG_WRITE command
+ */
+struct cmd_debug_fwrite_request {
+	/** @brief File access identifier received in response
+	 * to CMD_DEBUG_OPEN_RO request
+	 */
+	uint32_t fd;
+	/** @brief Size of write data in bytes */
+	uint32_t datalen;
+	/** @brief Data to be written */
+	char data[DEBUG_WRITE_MAX_SZ];
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Parameters for CMD_DEBUG_CLOSE command
+ */
+struct cmd_debug_fclose_request {
+	/** @brief File access identifier received in response
+	 * to CMD_DEBUG_OPEN_RO request
+	 */
+	uint32_t fd;
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ * @brief Request with #MRQ_DEBUG.
+ *
+ * The sender of an MRQ_DEBUG message uses #cmd to specify a debugfs
+ * command to execute. Legal commands are the values of @ref
+ * mrq_debug_commands. Each command requires a specific additional
+ * payload of data.
+ *
+ * |command            |payload|
+ * |-------------------|-------|
+ * |CMD_DEBUG_OPEN_RO  |fop    |
+ * |CMD_DEBUG_OPEN_WO  |fop    |
+ * |CMD_DEBUG_READ     |frd    |
+ * |CMD_DEBUG_WRITE    |fwr    |
+ * |CMD_DEBUG_CLOSE    |fcl    |
+ */
+struct mrq_debug_request {
+	/** @brief Sub-command (@ref mrq_debug_commands) */
+	uint32_t cmd;
+	union {
+		/** @brief Request payload for CMD_DEBUG_OPEN_RO/WO command */
+		struct cmd_debug_fopen_request fop;
+		/** @brief Request payload for CMD_DEBUG_READ command */
+		struct cmd_debug_fread_request frd;
+		/** @brief Request payload for CMD_DEBUG_WRITE command */
+		struct cmd_debug_fwrite_request fwr;
+		/** @brief Request payload for CMD_DEBUG_CLOSE command */
+		struct cmd_debug_fclose_request fcl;
+	} BPMP_UNION_ANON;
+} BPMP_ABI_PACKED;
+
+/**
+ * @ingroup Debugfs
+ */
+struct mrq_debug_response {
+	union {
+		/** @brief Response data for CMD_DEBUG_OPEN_RO/WO command */
+		struct cmd_debug_fopen_response fop;
+		/** @brief Response data for CMD_DEBUG_READ command */
+		struct cmd_debug_fread_response frd;
+	} BPMP_UNION_ANON;
+} BPMP_ABI_PACKED;
 
 /**
  * @ingroup MRQ_Codes
@@ -2024,6 +2368,8 @@ struct mrq_cpu_auto_cc3_response {
  * @def MRQ_TRACE_ITER
  * @brief Manage the trace iterator
  *
+ * @deprecated
+ *
  * * Platforms: All
  * * Initiators: CCPLEX
  * * Targets: BPMP
@@ -2338,9 +2684,10 @@ struct cmd_uphy_ep_controller_pll_off_request {
  * @ingroup UPHY
  * @brief Request with #MRQ_UPHY
  *
- * Used by the sender of an #MRQ_UPHY message to control UPHY Lane RX margining.
- * The uphy_request is split into several sub-commands. Some sub-commands
- * require no additional data. Others have a sub-command specific payload
+ * Used by the sender of an #MRQ_UPHY message to control UPHY.
+ * The uphy_request is split into several sub-commands. CMD_UPHY_PCIE_LANE_MARGIN_STATUS
+ * requires no additional data. Others have a sub-command specific payload. Below table
+ * shows sub-commands with their corresponding payload data.
  *
  * |sub-command                          |payload                                 |
  * |------------------------------------ |----------------------------------------|
@@ -2543,13 +2890,27 @@ struct mrq_fmon_response {
  */
 enum {
 	/**
+	 * @cond DEPRECATED
 	 * @brief Retrieve specified EC status.
 	 *
 	 * mrq_response::err is 0 if the operation was successful, or @n
 	 * -#BPMP_ENODEV if target EC is not owned by BPMP @n
-	 * -#BPMP_EACCES if target EC power domain is turned off
+	 * -#BPMP_EACCES if target EC power domain is turned off @n
+	 * -#BPMP_EBADCMD if subcommand is not supported
+	 * @endcond
 	 */
-	CMD_EC_STATUS_GET = 1,
+	CMD_EC_STATUS_GET = 1,	/* deprecated */
+
+	/**
+	 * @brief Retrieve specified EC extended status (includes error
+	 *        counter and user values).
+	 *
+	 * mrq_response::err is 0 if the operation was successful, or @n
+	 * -#BPMP_ENODEV if target EC is not owned by BPMP @n
+	 * -#BPMP_EACCES if target EC power domain is turned off @n
+	 * -#BPMP_EBADCMD if subcommand is not supported
+	 */
+	CMD_EC_STATUS_EX_GET = 2,
 	CMD_EC_NUM,
 };
 
@@ -2605,13 +2966,13 @@ enum bpmp_ec_err_type {
 
 	/** @brief SW Correctable error
 	 *
-	 *  Error descriptor @ref ec_err_simple_desc.
+	 *  Error descriptor @ref ec_err_sw_error_desc.
 	 */
 	EC_ERR_TYPE_SW_CORRECTABLE		= 16,
 
 	/** @brief SW Uncorrectable error
 	 *
-	 *  Error descriptor @ref ec_err_simple_desc.
+	 *  Error descriptor @ref ec_err_sw_error_desc.
 	 */
 	EC_ERR_TYPE_SW_UNCORRECTABLE		= 17,
 
@@ -2631,9 +2992,9 @@ enum bpmp_ec_err_type {
 /** @brief Group of registers with parity error. */
 enum ec_registers_group {
 	/** @brief Functional registers group */
-	EC_ERR_GROUP_FUNC_REG		= 0,
+	EC_ERR_GROUP_FUNC_REG		= 0U,
 	/** @brief SCR registers group */
-	EC_ERR_GROUP_SCR_REG		= 1,
+	EC_ERR_GROUP_SCR_REG		= 1U,
 };
 
 /**
@@ -2642,11 +3003,11 @@ enum ec_registers_group {
  * @{
  */
 /** @brief No EC error found flag */
-#define EC_STATUS_FLAG_NO_ERROR		0x0001
+#define EC_STATUS_FLAG_NO_ERROR		0x0001U
 /** @brief Last EC error found flag */
-#define EC_STATUS_FLAG_LAST_ERROR	0x0002
+#define EC_STATUS_FLAG_LAST_ERROR	0x0002U
 /** @brief EC latent error flag */
-#define EC_STATUS_FLAG_LATENT_ERROR	0x0004
+#define EC_STATUS_FLAG_LATENT_ERROR	0x0004U
 /** @} */
 
 /**
@@ -2655,9 +3016,9 @@ enum ec_registers_group {
  * @{
  */
 /** @brief EC descriptor error resolved flag */
-#define EC_DESC_FLAG_RESOLVED		0x0001
+#define EC_DESC_FLAG_RESOLVED		0x0001U
 /** @brief EC descriptor failed to retrieve id flag */
-#define EC_DESC_FLAG_NO_ID		0x0002
+#define EC_DESC_FLAG_NO_ID		0x0002U
 /** @} */
 
 /**
@@ -2744,6 +3105,7 @@ union ec_err_desc {
 	struct ec_err_fmon_desc fmon_desc;
 	struct ec_err_vmon_desc vmon_desc;
 	struct ec_err_reg_parity_desc reg_parity_desc;
+	struct ec_err_sw_error_desc sw_error_desc;
 	struct ec_err_simple_desc simple_desc;
 } BPMP_ABI_PACKED;
 
@@ -2755,6 +3117,9 @@ struct cmd_ec_status_get_request {
 /** EC status maximum number of descriptors */
 #define EC_ERR_STATUS_DESC_MAX_NUM	4U
 
+/**
+ * @cond DEPRECATED
+ */
 struct cmd_ec_status_get_response {
 	/** @brief Target EC id (the same id received with request). */
 	uint32_t ec_hsm_id;
@@ -2773,6 +3138,32 @@ struct cmd_ec_status_get_response {
 	/** @brief  EC error descriptors */
 	union ec_err_desc error_descs[EC_ERR_STATUS_DESC_MAX_NUM];
 } BPMP_ABI_PACKED;
+/** @endcond */
+
+struct cmd_ec_status_ex_get_response {
+	/** @brief Target EC id (the same id received with request). */
+	uint32_t ec_hsm_id;
+	/**
+	 * @brief Bitmask of @ref bpmp_ec_status_flags
+	 *
+	 * If NO_ERROR flag is set, error_ fields should be ignored
+	 */
+	uint32_t ec_status_flags;
+	/** @brief Found EC error index. */
+	uint32_t error_idx;
+	/** @brief  Found EC error type @ref bpmp_ec_err_type. */
+	uint32_t error_type;
+	/** @brief  Found EC mission error counter value */
+	uint32_t error_counter;
+	/** @brief  Found EC mission error user value */
+	uint32_t error_uval;
+	/** @brief  Reserved entry    */
+	uint32_t reserved;
+	/** @brief  Number of returned EC error descriptors */
+	uint32_t error_desc_num;
+	/** @brief  EC error descriptors */
+	union ec_err_desc error_descs[EC_ERR_STATUS_DESC_MAX_NUM];
+} BPMP_ABI_PACKED;
 
 /**
  * @ingroup EC
@@ -2781,9 +3172,15 @@ struct cmd_ec_status_get_response {
  * Used by the sender of an #MRQ_EC message to access ECs owned
  * by BPMP.
  *
+ * @cond DEPRECATED
  * |sub-command                 |payload                |
  * |----------------------------|-----------------------|
  * |@ref CMD_EC_STATUS_GET      |ec_status_get          |
+ * @endcond
+ *
+ * |sub-command                 |payload                |
+ * |----------------------------|-----------------------|
+ * |@ref CMD_EC_STATUS_EX_GET   |ec_status_get          |
  *
  */
 
@@ -2803,48 +3200,27 @@ struct mrq_ec_request {
  * Each sub-command supported by @ref mrq_ec_request may return
  * sub-command-specific data as indicated below.
  *
+ * @cond DEPRECATED
  * |sub-command                 |payload                 |
  * |----------------------------|------------------------|
  * |@ref CMD_EC_STATUS_GET      |ec_status_get           |
+ * @endcond
+ *
+ * |sub-command                 |payload                 |
+ * |----------------------------|------------------------|
+ * |@ref CMD_EC_STATUS_EX_GET   |ec_status_ex_get        |
  *
  */
 
 struct mrq_ec_response {
 	union {
+		/**
+		 * @cond DEPRECATED
+		 */
 		struct cmd_ec_status_get_response ec_status_get;
+		/** @endcond */
+		struct cmd_ec_status_ex_get_response ec_status_ex_get;
 	} BPMP_UNION_ANON;
-} BPMP_ABI_PACKED;
-
-/** @} */
-/** @endcond */
-
-/**
- * @ingroup MRQ_Codes
- * @def MRQ_FBVOLT_STATUS
- * @brief Provides status information about voltage state for fuse burning
- *
- * * Platforms: T194 onwards
- * @cond bpmp_t194
- * * Initiators: CCPLEX
- * * Target: BPMP
- * * Request Payload: None
- * * Response Payload: @ref mrq_fbvolt_status_response
- * @{
- */
-
-/**
- * @ingroup Fbvolt_status
- * @brief Response to #MRQ_FBVOLT_STATUS
- *
- * Value of #ready reflects if core voltages are in a suitable state for buring
- * fuses. A value of 0x1 indicates that core voltages are ready for burning
- * fuses. A value of 0x0 indicates that core voltages are not ready.
- */
-struct mrq_fbvolt_status_response {
-	/** @brief Bit [0:0] - ready status, bits [31:1] - reserved */
-	uint32_t ready;
-	/** @brief Reserved */
-	uint32_t unused;
 } BPMP_ABI_PACKED;
 
 /** @} */
@@ -2876,6 +3252,8 @@ struct mrq_fbvolt_status_response {
 #define BPMP_EACCES	13
 /** @brief Bad address */
 #define BPMP_EFAULT	14
+/** @brief Resource busy */
+#define BPMP_EBUSY	16
 /** @brief No such device */
 #define BPMP_ENODEV	19
 /** @brief Argument is a directory */
@@ -2890,6 +3268,8 @@ struct mrq_fbvolt_status_response {
 #define BPMP_ENOSYS	38
 /** @brief Invalid slot */
 #define BPMP_EBADSLT	57
+/** @brief Invalid message */
+#define BPMP_EBADMSG	77
 /** @brief Not supported */
 #define BPMP_ENOTSUP	134
 /** @brief No such device or address */

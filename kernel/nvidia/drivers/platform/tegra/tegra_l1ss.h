@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -9,7 +9,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #ifndef _LINUX_TEGRA_SAFETY_TEGRA_L1SS_H
@@ -24,7 +23,11 @@
 
 #include "tegra_l1ss_cmd_resp_exec_config.h"
 
+#ifdef CONFIG_TEGRA_SAFETY_IVC_DEBUG
 #define PDEBUG(fmt, args...) printk(KERN_DEBUG "L1SS : " fmt, ## args)
+#else
+#define PDEBUG(fmt, args...)
+#endif
 #define TEGRA_SAFETY_L1SS_MAJOR_VERSION 4
 #define TEGRA_SAFETY_L1SS_MINOR_VERSION 0
 #define TEGRA_SAFETY_L1SS_PATCH_VERSION 0
@@ -54,7 +57,7 @@ struct l1ss_data {
 	spinlock_t slock;
 	struct l1ss_req_node *head;
 	struct cdev cdev;
-	int dev_major;
+	unsigned int dev_major;
 	struct class *l1ss_class;
 	dev_t dev;
 	struct tegra_safety_ivc *safety_ivc;

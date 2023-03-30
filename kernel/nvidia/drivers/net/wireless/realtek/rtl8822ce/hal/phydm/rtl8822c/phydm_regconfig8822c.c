@@ -95,55 +95,49 @@ void odm_config_rf_radio_b_8822c(struct dm_struct *dm, u32 addr, u32 data)
 		  addr, data);
 }
 
-void odm_config_mac_8822c(struct dm_struct *dm,	u32 addr, u8 data)
+void phydm_agc_lower_bound_8822c(struct dm_struct *dm, u32 addr, u32 data)
 {
-	if (dm->fw_offload_ability & PHYDM_PHY_PARAM_OFFLOAD)
-		phydm_set_reg_by_fw(dm, PHYDM_HALMAC_CMD_MAC_W8, addr, data, 0,
-				    (enum rf_path)0, 0);
-	else
-		odm_write_1byte(dm, addr, data);
-	PHYDM_DBG(dm, ODM_COMP_INIT, "===> config_mac: [MAC_REG] %08X %08X\n",
-		  addr, data);
-}
+	u8 rxbb_gain = (u8)(data & 0x0000001f);
+	u8 mp_gain = (u8)((data & 0x003f0000) >> 16);
+	u8 tab = (u8)((data & 0x03c00000) >> 22);
 
-void odm_update_agc_big_jump_lmt_8822c(struct dm_struct *dm, u32 addr, u32 data)
-{
-#if 0
-	struct phydm_dig_struct *dig_tab = &dm->dm_dig_table;
-	u8 rf_gain_idx = (u8)((data & 0xFF000000) >> 24);
-	u8 bb_gain_idx = (u8)((data & 0x00ff0000) >> 16);
-	u8 agc_table_idx = (u8)((data & 0x00000f00) >> 8);
-
-	static boolean is_limit;
-
-	if (addr != 0x81c)
+	if (addr != R_0x1d90)
 		return;
 
-	dbg_print("data = 0x%x, bb_gain_idx = 0x%x, agc_table_idx = 0x%x\n",
-		  data, bb_gain_idx, agc_table_idx);
-	dbg_print("rf_gain_idx = 0x%x, dig_tab->rf_gain_idx = 0x%x\n",
-		  rf_gain_idx, dig_tab->rf_gain_idx);
+	PHYDM_DBG(dm, ODM_COMP_INIT,
+		  "data = 0x%x, mp_gain = 0x%x, tab = 0x%x, rxbb_gain = 0x%x\n",
+		  data, mp_gain, tab, rxbb_gain);
 
-	if (bb_gain_idx > 0x3c) {
-		if (rf_gain_idx == dig_tab->rf_gain_idx && !is_limit) {
-			is_limit = true;
-			dig_tab->big_jump_lmt[agc_table_idx] = bb_gain_idx - 2;
-			PHYDM_DBG(dm, DBG_DIG,
-				  "===> [AGC_TAB] big_jump_lmt [%d] = 0x%x\n",
-				  agc_table_idx,
-				  dig_tab->big_jump_lmt[agc_table_idx]);
-		}
-	} else {
-		is_limit = false;
+	if (!dm->l_bnd_detect[tab] && rxbb_gain == RXBB_MAX_GAIN_8822C) {
+		dm->ofdm_rxagc_l_bnd[tab] = mp_gain;
+		dm->l_bnd_detect[tab] = true;
 	}
-	dig_tab->rf_gain_idx = rf_gain_idx;
-#endif
+}
+
+void phydm_agc_store_8822c(struct dm_struct *dm, u32 addr, u32 data)
+{
+	u16 rf_gain = (u16)(data & 0x000003ff);
+	u8 mp_gain = (u8)((data & 0x003f0000) >> 16);
+	u8 tab = (u8)((data & 0x03c00000) >> 22);
+
+	if (addr != R_0x1d90)
+		return;
+
+	PHYDM_DBG(dm, ODM_COMP_INIT,
+		  "data = 0x%x, mp_gain = 0x%x, tab = 0x%x, rxbb_gain = 0x%x\n",
+		  data, mp_gain, tab, rf_gain);
+
+	dm->agc_rf_gain_ori[tab][mp_gain] = rf_gain;
+	dm->agc_rf_gain[tab][mp_gain] = rf_gain;
+	if (tab > dm->agc_table_cnt)
+		dm->agc_table_cnt = tab;
 }
 
 void odm_config_bb_agc_8822c(struct dm_struct *dm, u32 addr, u32 bitmask,
 			     u32 data)
 {
-	/* odm_update_agc_big_jump_lmt_8822c(dm, addr, data); */
+	phydm_agc_lower_bound_8822c(dm, addr, data);
+	phydm_agc_store_8822c(dm, addr, data);
 
 	if (dm->fw_offload_ability & PHYDM_PHY_PARAM_OFFLOAD)
 		phydm_set_reg_by_fw(dm, PHYDM_HALMAC_CMD_BB_W32, addr, data,

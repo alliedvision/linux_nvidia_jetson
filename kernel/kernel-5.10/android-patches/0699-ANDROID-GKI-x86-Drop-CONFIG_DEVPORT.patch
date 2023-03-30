@@ -1,0 +1,31 @@
+From c02e9de1b6a6cd04d6f79999df2b76258e789726 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Sun, 10 May 2020 12:46:00 -0700
+Subject: [PATCH 699/830] ANDROID: GKI: x86: Drop CONFIG_DEVPORT
+X-NVConfidentiality: public
+
+This feature is prohibited by Android CTS and should not have been
+enabled. It is already disabled on arm64.
+
+Bug: 156165388
+Change-Id: I93cc53647b2c1e3e678211a4571ae9bded9d3f48
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/x86/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 6162df7ccefa..05d2b97a8459 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -261,6 +261,7 @@ CONFIG_SERIAL_OF_PLATFORM=y
+ CONFIG_SERIAL_DEV_BUS=y
+ CONFIG_HW_RANDOM=y
+ # CONFIG_DEVMEM is not set
++# CONFIG_DEVPORT is not set
+ CONFIG_HPET=y
+ # CONFIG_I2C_COMPAT is not set
+ # CONFIG_I2C_HELPER_AUTO is not set
+-- 
+2.17.1
+

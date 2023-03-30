@@ -1,0 +1,30 @@
+From 1104729c90a30da4709848d9f20195ce781e2794 Mon Sep 17 00:00:00 2001
+From: Sai Harshini Nimmala <snimmala@codeaurora.org>
+Date: Mon, 2 Nov 2020 15:04:17 -0800
+Subject: [PATCH 122/830] ANDROID: printk: printk_deferred for modules
+X-NVConfidentiality: public
+
+Allow modules to call printk_deferred().
+
+Bug: 172264047
+Change-Id: Icf2daaa3c990519fb0ee048608a15a9f0b4fdf65
+Signed-off-by: Sai Harshini Nimmala <snimmala@codeaurora.org>
+---
+ kernel/printk/printk.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index 85351a12c85d..eb5d2742bca2 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -3106,6 +3106,7 @@ int printk_deferred(const char *fmt, ...)
+ 
+ 	return r;
+ }
++EXPORT_SYMBOL_GPL(printk_deferred);
+ 
+ /*
+  * printk rate limiting, lifted from the networking subsystem.
+-- 
+2.17.1
+

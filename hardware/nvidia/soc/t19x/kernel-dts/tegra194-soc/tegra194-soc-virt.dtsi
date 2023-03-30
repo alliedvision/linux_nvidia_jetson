@@ -1,14 +1,17 @@
 /*
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 
@@ -67,25 +70,37 @@
 	/* ISO-clients cannot have stage-1 translation and hence
 	 * iommus node are deleted for ISO-Clients which are
 	 * nvdisplay, vi and vi-thi */
-	host1x {
-		nvdisplay@15200000 {
-			/delete-property/ iommus;
-			/delete-property/ iso-smmu;
+	host1x@13e00000 {
+		display-hub@15200000 {
+			display@15200000 {
+				/delete-property/ iommus;
+				/delete-property/ iso-smmu;
+			};
+
+			display@15210000 {
+				/delete-property/ iommus;
+				/delete-property/ iso-smmu;
+			};
+
+			display@15220000 {
+				/delete-property/ iommus;
+				/delete-property/ iso-smmu;
+			};
+
+			display@15230000 {
+				/delete-property/ iommus;
+				/delete-property/ iso-smmu;
+			};
 		};
 
-		nvdisplay@15210000 {
-			/delete-property/ iommus;
-			/delete-property/ iso-smmu;
+		nvdec@15480000 {
+			clocks = <&bpmp_clks TEGRA194_CLK_NVDEC>;
+			clock-names = "nvdec";
 		};
 
-		nvdisplay@15220000 {
-			/delete-property/ iommus;
-			/delete-property/ iso-smmu;
-		};
-
-		nvdisplay@15230000 {
-			/delete-property/ iommus;
-			/delete-property/ iso-smmu;
+		nvdec1@15140000 {
+			clocks = <&bpmp_clks TEGRA194_CLK_NVDEC1>;
+			clock-names = "nvdec";
 		};
 
 		vi: vi@15c10000 {
@@ -105,16 +120,15 @@
 	};
 
 	/* ISO-SMMU is not available for a VM and hence
-	 * all the properties related to ISO-SMMU are deleted. */
+	 * all the properties related to ISO-SMMU are deleted.
+	 * TEGRA_IOMMU_DT_VERSION supports multiple SMMU instances */
+	iommu@10000000 {
+		/delete-property/ stream-match-mask;
+		status = "disabled";
+	};
+
 	iommu@12000000 {
-#if LINUX_VERSION >= 414
-		reg = <0 0x12000000 0 0x800000>,
-		      <0 0x11000000 0 0x800000>;
-#else
-		reg = <0x0 0x12000000 0x0 0x01000000>, /* SMMU0 16MB */
-		      <0x0 0x11000000 0x0 0x01000000>; /* SMMU1 16MB */
-#endif
-		/delete-property/ iso-smmu-id;
+		/delete-property/ stream-match-mask;
 	};
 
 	xhci@3610000 {
@@ -237,7 +251,7 @@
 		status = "disabled";
 	};
 
-	host1x {
+	host1x@13e00000 {
 		se@15810000 {
 			status="disabled";
 		};
@@ -269,12 +283,18 @@
 		 * prevent guest owning ADSP peripheral from
 		 * toggling APE clocks. These clocks are owned and
 		 * controlled only by Audio Server
+		 *
+		 * ADSP_ALL reset will be owned by Audio Server only
+		 * since multiple VMs can't own ADSP reset
 		 */
 		adsp@2993000 {
 			clocks = <&bpmp_clks TEGRA194_CLK_ADSPNEON>,
 				<&bpmp_clks TEGRA194_CLK_ADSP>,
 				<&bpmp_clks TEGRA194_CLK_ACLK>;
 			clock-names = "adspneon", "adsp", "aclk";
+
+			/delete-property/ resets;
+			/delete-property/ reset-names;
 		};
 
 		/* Add ADSP reset information to AHUB node to allow

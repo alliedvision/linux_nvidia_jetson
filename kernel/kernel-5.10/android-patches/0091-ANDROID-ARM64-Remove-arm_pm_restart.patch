@@ -1,0 +1,94 @@
+From 76ce259fddcdb9c6ac470504372496c67d360517 Mon Sep 17 00:00:00 2001
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 15 Oct 2019 16:51:46 +0200
+Subject: [PATCH 091/830] ANDROID: ARM64: Remove arm_pm_restart()
+X-NVConfidentiality: public
+
+All users of arm_pm_restart() have been converted to use the kernel
+restart handler.
+
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Tested-by: Wolfram Sang <wsa+renesas@sang-engineering.com>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Thierry Reding <treding@nvidia.com>
+
+Bug: 163752725
+Link: https://lore.kernel.org/lkml/20191015145147.1106247-6-thierry.reding@gmail.com/
+Change-Id: I2c44db9cf885b9b36c8fdd82d53d9730a8cae738
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm64/include/asm/system_misc.h | 2 --
+ arch/arm64/kernel/process.c          | 7 +------
+ drivers/firmware/psci/psci.c         | 2 +-
+ drivers/soc/tegra/pmc.c              | 2 +-
+ 4 files changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm64/include/asm/system_misc.h b/arch/arm64/include/asm/system_misc.h
+index 1ab63cfbbaf1..d02c5e5ea015 100644
+--- a/arch/arm64/include/asm/system_misc.h
++++ b/arch/arm64/include/asm/system_misc.h
+@@ -32,8 +32,6 @@ void hook_debug_fault_code(int nr, int (*fn)(unsigned long, unsigned int,
+ struct mm_struct;
+ extern void __show_regs(struct pt_regs *);
+ 
+-extern void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
+-
+ #endif	/* __ASSEMBLY__ */
+ 
+ #endif	/* __ASM_SYSTEM_MISC_H */
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index d8c661c2cb60..f79712c5c346 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -73,8 +73,6 @@ EXPORT_SYMBOL(__stack_chk_guard);
+ void (*pm_power_off)(void);
+ EXPORT_SYMBOL_GPL(pm_power_off);
+ 
+-void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
+-
+ void (*pm_power_reset)(void);
+ EXPORT_SYMBOL(pm_power_reset);
+ 
+@@ -208,10 +206,7 @@ void machine_restart(char *cmd)
+ 		efi_reboot(reboot_mode, cmd);
+ 
+ 	/* Now call the architecture specific reboot code. */
+-	if (arm_pm_restart)
+-		arm_pm_restart(reboot_mode, cmd);
+-	else
+-		do_kernel_restart(cmd);
++	do_kernel_restart(cmd);
+ 
+ 	/*
+ 	 * Whoops - the architecture was unable to reboot.
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index c70b8d6975c1..baf48af96886 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -266,7 +266,7 @@ static int get_set_conduit_method(struct device_node *np)
+ 	return 0;
+ }
+ 
+-static void psci_sys_reset(enum reboot_mode reboot_mode, const char *cmd)
++static __maybe_unused void psci_sys_reset(enum reboot_mode reboot_mode, const char *cmd)
+ {
+ 	if ((reboot_mode == REBOOT_WARM || reboot_mode == REBOOT_SOFT) &&
+ 	    psci_system_reset2_supported) {
+diff --git a/drivers/soc/tegra/pmc.c b/drivers/soc/tegra/pmc.c
+index a6cde22ec8a5..00de776a5003 100644
+--- a/drivers/soc/tegra/pmc.c
++++ b/drivers/soc/tegra/pmc.c
+@@ -4610,7 +4610,7 @@ static int tegra_pmc_probe(struct platform_device *pdev)
+ 		tegra_pmc_init_boorom_cmds(&pdev->dev);
+ 
+ 	/* handle PMC reboot reason with PSCI */
+-	if (!pmc->soc->skip_arm_pm_restart && arm_pm_restart)
++	if (!pmc->soc->skip_arm_pm_restart)
+ 		psci_handle_reboot_cmd = tegra_pmc_program_reboot_reason;
+ 
+ 	/* Some wakes require specific filter configuration */
+-- 
+2.17.1
+

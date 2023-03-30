@@ -2,7 +2,7 @@ config RTL8821CU
 	tristate "Realtek 8821C USB WiFi"
 	depends on USB
         default n
-	---help---
+	help
 	  This module adds support for USB wifi dongles based on Realtek
 	  RTL8821CU wireless chipset.
 

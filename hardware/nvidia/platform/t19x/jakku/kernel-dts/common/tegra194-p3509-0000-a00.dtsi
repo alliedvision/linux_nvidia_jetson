@@ -16,7 +16,8 @@
 #include "tegra194-p3509-disp.dtsi"
 #include "tegra194-audio-p3668.dtsi"
 #include "tegra194-super-module-e2614-p3509.dtsi"
-
+//#include "tegra194-camera-jakku-rbpcv3-imx477.dtsi"
+//#include "tegra194-camera-jakku-rbpcv2-imx219.dtsi"
 / {
 	gpio-keys {
 		compatible = "gpio-keys";
@@ -139,14 +140,15 @@
 		"",     "",     "SPI1_SCK",     "SPI1_MISO",     "SPI1_MOSI",     "SPI1_CS0",     "SPI1_CS1",     "",     "",     "",
 		"",     "",     "",     "SPI0_SCK",     "SPI0_MISO",     "SPI0_MOSI",     "SPI0_CS0",     "SPI0_CS1",     "",     "",
 		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
-		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
-		"",     "",     "",     "",     "",     "",     "",     "",     "",     "";
+		"",     "",     "",     "";
 	};
 
 	gpio@c2f0000 {
 		/* gpio-name for 40-pin header, gpio-name given as COL(10) x ROW(2),
 		   Tegra-AON-GPIO starts from 248 */
 		gpio-line-names = "",   "",     "",     "",     "",     "",     "",     "",     "",     "",
-		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",     "GPIO12";
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "",
+		"GPIO12", "",  "",     "",     "",     "",     "",     "",     "",     "",
+		"",     "",     "",     "",     "",     "",     "",     "",     "",     "";
 	};
 };

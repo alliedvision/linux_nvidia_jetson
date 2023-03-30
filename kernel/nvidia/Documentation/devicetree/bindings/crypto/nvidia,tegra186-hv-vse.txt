@@ -1,0 +1,16 @@
+TEGRA Virtual SE CRYPTO Interface Module
+
+Required properties :
+ - compatible : Must contain "nvidia,tegra186-hv-vse".
+ - se-engine-id : SE engine ID.
+ - ivc : Id number of the IVC queue to use.
+ - iommus : Reference to the IOMMU.
+     See Documentation/devicetree/bindings/iommu/iommu.txt for details.
+
+Example:
+	vse@15810000 {
+		compatible = "nvidia,tegra186-hv-vse";
+		se-engine-id = <0>;
+		iommus = <&smmu TEGRA_SID_SE_VM0>;
+		ivc = <76>;
+	};

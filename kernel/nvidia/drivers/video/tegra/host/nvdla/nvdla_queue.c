@@ -1,7 +1,7 @@
 /*
  * NVDLA queue and task management for T194
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/arm64-barrier.h>
 #include <linux/fs.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -23,25 +24,23 @@
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
-#include <trace/events/nvhost.h>
 
-#include "../drivers/staging/android/sync.h"
+#include <uapi/linux/nvhost_ioctl.h>
 
-#include "dev.h"
-#include "bus_client.h"
-#include "chip_support.h"
-#include "nvhost_acm.h"
-
-#include "nvhost_syncpt_unit_interface.h"
-
-#include "nvdla/nvdla.h"
-#include "nvdla/dla_queue.h"
-#include "nvdla/nvdla_debug.h"
+#include "nvdla.h"
+#include "dla_channel.h"
+#include "dla_queue.h"
+#include "nvdla_debug.h"
 #include "dla_os_interface.h"
-#include "t194/hardware_t194.h"
 
 #define NVDLA_QUEUE_ABORT_TIMEOUT	10000	/* 10 sec */
 #define NVDLA_QUEUE_ABORT_RETRY_PERIOD	500	/* 500 ms */
+
+/* struct to hold information required for nvdla_add_fence_action_cb */
+struct nvdla_add_fence_action_cb_args {
+	struct nvdla_queue *queue;
+	u8 **mem;
+};
 
 /* task management API's */
 static void nvdla_queue_dump_op(struct nvdla_queue *queue, struct seq_file *s)
@@ -78,6 +77,7 @@ static void nvdla_queue_dump_op(struct nvdla_queue *queue, struct seq_file *s)
 
 
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 	mutex_unlock(&queue->list_lock);
 }
 
@@ -181,8 +181,7 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 		}
 		if (task->memory_handles[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->memory_dmabuf[ii], 1);
-			dma_buf_put(task->memory_dmabuf[ii]);
+				&task->memory_handles[ii].handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all mem handles unmaped");
@@ -193,8 +192,7 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 		   task->prefences[ii].type == NVDEV_FENCE_TYPE_SEMAPHORE_TS) &&
 		   task->prefences[ii].semaphore_handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->prefences_sem_dmabuf[ii], 1);
-			dma_buf_put(task->prefences_sem_dmabuf[ii]);
+				&task->prefences[ii].semaphore_handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all prefences unmaped");
@@ -203,8 +201,7 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 	for (ii = 0; ii < task->num_in_task_status; ii++) {
 		if (task->in_task_status[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->in_task_status_dmabuf[ii], 1);
-			dma_buf_put(task->in_task_status_dmabuf[ii]);
+				&task->in_task_status[ii].handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all in task status unmaped");
@@ -215,8 +212,7 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 		  task->postfences[ii].type == NVDEV_FENCE_TYPE_SEMAPHORE_TS) &&
 		  task->postfences[ii].semaphore_handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->postfences_sem_dmabuf[ii], 1);
-			dma_buf_put(task->postfences_sem_dmabuf[ii]);
+				&task->postfences[ii].semaphore_handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all postfences unmaped");
@@ -225,16 +221,14 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 	for (ii = 0; ii < task->num_sof_task_status; ii++) {
 		if (task->sof_task_status[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->sof_task_status_dmabuf[ii], 1);
-			dma_buf_put(task->sof_task_status_dmabuf[ii]);
+				&task->sof_task_status[ii].handle, 1);
 		}
 	}
 
 	for (ii = 0; ii < task->num_eof_task_status; ii++) {
 		if (task->eof_task_status[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->eof_task_status_dmabuf[ii], 1);
-			dma_buf_put(task->eof_task_status_dmabuf[ii]);
+				&task->eof_task_status[ii].handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all out task status unmaped");
@@ -243,20 +237,19 @@ static int nvdla_unmap_task_memory(struct nvdla_task *task)
 	for (ii = 0; ii < task->num_sof_timestamps; ii++) {
 		if (task->sof_timestamps[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->sof_timestamps_dmabuf[ii], 1);
-			dma_buf_put(task->sof_timestamps_dmabuf[ii]);
+				&task->sof_timestamps[ii].handle, 1);
 		}
 	}
 
 	for (ii = 0; ii < task->num_eof_timestamps; ii++) {
 		if (task->eof_timestamps[ii].handle) {
 			nvdla_buffer_submit_unpin(task->buffers,
-				&task->eof_timestamps_dmabuf[ii], 1);
-			dma_buf_put(task->eof_timestamps_dmabuf[ii]);
+				&task->eof_timestamps[ii].handle, 1);
 		}
 	}
 	nvdla_dbg_fn(pdev, "all out timestamps unmaped");
 
+	spec_bar(); /* break_spec_p#5_1 */
 
 	return 0;
 }
@@ -278,14 +271,6 @@ static void nvdla_task_free_locked(struct nvdla_task *task)
 
 	/* give taks refs */
 	nvdla_task_put(task);
-}
-
-static void nvdla_task_syncpt_reset(struct nvhost_syncpt *syncpt,
-			u32 id, u32 fence)
-{
-	atomic_set(&syncpt->min_val[id], fence);
-	syncpt_op().reset(syncpt, id);
-	nvhost_syncpt_update_min(syncpt, id);
 }
 
 static inline int nvdla_get_max_preaction_size(void)
@@ -354,7 +339,7 @@ static void nvdla_queue_update(void *priv, int nr_completed)
 	/* check which task(s) finished */
 	list_for_each_entry_safe(task, safe, &queue->tasklist, list) {
 
-		task_complete = nvhost_syncpt_is_expired(task->sp,
+		task_complete = nvhost_syncpt_is_expired_ext(pdev,
 					queue->syncpt_id, task->fence);
 
 		/* clean task and remove from list */
@@ -484,19 +469,32 @@ static u8 *add_timestamp_action(u8 *mem, uint8_t op, uint64_t addr)
 	return mem + sizeof(struct dla_action_timestamp);
 }
 
-static u8 *add_gos_action(u8 *mem, uint8_t op, uint8_t index, uint16_t offset,
-				uint32_t value)
+static int nvdla_add_fence_action_cb(struct nvhost_ctrl_sync_fence_info info, void *data)
 {
-	struct dla_action_gos *action;
+	u32 id, thresh;
+	struct nvdla_add_fence_action_cb_args *args = data;
+	struct nvdla_queue *queue = args->queue;
+	u8 **next = args->mem;
+	struct platform_device *pdev = queue->pool->pdev;
+	dma_addr_t syncpt_addr;
 
-	mem = add_opcode(mem, op);
+	id = info.id;
+	thresh = info.thresh;
 
-	action = (struct dla_action_gos *)mem;
-	action->index = index;
-	action->offset = offset;
-	action->value = value;
+	if (!id || !nvhost_syncpt_is_valid_pt_ext(pdev, id)) {
+		nvdla_dbg_err(pdev, "Invalid sync_fd");
+		return -EINVAL;
+	}
 
-	return mem + sizeof(struct dla_action_gos);
+	syncpt_addr = nvhost_syncpt_address(
+			queue->vm_pdev, id);
+	nvdla_dbg_info(pdev, "syncfd_pt:[%u]"
+		"mss_dma_addr[%pad]",
+		id, &syncpt_addr);
+	*next = add_fence_action(*next, ACTION_SEM_GE,
+			syncpt_addr, thresh);
+
+	return 0;
 }
 
 static int nvdla_map_task_memory(struct nvdla_task *task)
@@ -548,17 +546,8 @@ static int nvdla_map_task_memory(struct nvdla_task *task)
 			goto fail_to_pin_mem;
 		}
 
-		task->memory_dmabuf[jj] =
-			dma_buf_get(task->memory_handles[jj].handle);
-		if (IS_ERR_OR_NULL(task->memory_dmabuf[jj])) {
-			task->memory_dmabuf[jj] = NULL;
-			err = -EFAULT;
-			nvdla_dbg_err(pdev, "fail to get buf");
-			goto fail_to_pin_mem;
-		}
-
 		err = nvdla_buffer_submit_pin(buffers,
-				&task->memory_dmabuf[jj],
+				&task->memory_handles[jj].handle,
 				1, &dma_addr, &dma_size, NULL);
 		if (err) {
 			nvdla_dbg_err(pdev, "fail to pin address list");
@@ -567,70 +556,9 @@ static int nvdla_map_task_memory(struct nvdla_task *task)
 		next = add_address(next,
 			dma_addr + task->memory_handles[jj].offset);
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 
 fail_to_pin_mem:
-	return err;
-}
-
-static int nvdla_update_gos(struct platform_device *pdev)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvdla_device *nvdla_dev = pdata->private_data;
-	int err = 0;
-
-	/* confirm if gos fetched, if not fetch through poweron */
-	if (!nvdla_dev->is_gos_fetched) {
-		nvdla_dbg_info(pdev, "fetch GoS regions and send to ucode\n");
-		err = nvhost_module_busy(pdev);
-		if (err) {
-			nvdla_dbg_info(pdev, "failed to poweron[%d]\n",
-					nvdla_dev->is_gos_fetched);
-			goto fail_to_poweron;
-		}
-
-		/*
-		 * confirm if gos fetched through previous poweron
-		 * if not explicitly attempt to refetch
-		 */
-		if (!nvdla_dev->is_gos_fetched) {
-			err = nvdla_send_gos_region(pdev);
-			if (err) {
-				nvdla_dbg_err(pdev, "set gos region fail\n");
-				nvdla_dev->is_gos_enabled = false;
-				nvhost_module_idle(pdev);
-				goto fail_to_send_gos;
-			} else {
-				nvdla_dev->is_gos_enabled = true;
-			}
-		}
-		nvhost_module_idle(pdev);
-	}
-
-fail_to_send_gos:
-fail_to_poweron:
-	return err;
-}
-
-static int nvdla_get_gos(struct platform_device *pdev, u32 syncpt_id,
-			u32 *gos_id, u32 *gos_offset)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvdla_device *nvdla_dev = pdata->private_data;
-	int err = 0;
-
-	if (!nvdla_dev->is_gos_enabled) {
-		nvdla_dbg_info(pdev, "GoS is not enabled\n");
-		err = -EINVAL;
-		goto gos_disabled;
-	}
-
-	err = nvhost_syncpt_get_gos(pdev, syncpt_id, gos_id, gos_offset);
-	if (err) {
-		nvdla_dbg_err(pdev,
-		  "Get GoS failed for syncpt[%d], err[%d]\n", syncpt_id, err);
-	}
-
-gos_disabled:
 	return err;
 }
 
@@ -645,88 +573,42 @@ static int nvdla_fill_wait_fence_action(struct nvdla_task *task,
 	struct nvdla_buffers *buffers = task->buffers;
 	struct nvdla_queue *queue = task->queue;
 	struct platform_device *pdev = queue->pool->pdev;
-	struct nvhost_master *host = nvhost_get_host(pdev);
-	struct nvhost_syncpt *sp = &host->syncpt;
 	u8 *next = *mem_next;
 
 	switch(fence->type) {
 	case NVDEV_FENCE_TYPE_SYNC_FD: {
-		struct sync_fence *f;
-		struct sync_pt *pt;
-		u32 id, thresh, j;
+		struct nvhost_fence *f;
+		struct nvdla_add_fence_action_cb_args args;
 
-		f = nvhost_sync_fdget(fence->sync_fd);
+		f = nvhost_fence_get(fence->sync_fd);
 		if (!f) {
 			nvdla_dbg_err(pdev, "failed to get sync fd");
 			break;
 		}
 
-		j = id = thresh = 0;
-		for (j = 0; j < f->num_fences; j++) {
-			u32 gos_id, gos_offset;
-
-			pt = sync_pt_from_fence(f->cbs[j].sync_pt);
-			id = nvhost_sync_pt_id(pt);
-			thresh = nvhost_sync_pt_thresh(pt);
-
-			if (!id || !nvhost_syncpt_is_valid_hw_pt(sp, id)) {
-				nvdla_dbg_err(pdev, "Invalid sync_fd");
-				sync_fence_put(f);
-				break;
-			}
-
-			/* check if GoS backing available */
-			if (!nvdla_get_gos(pdev, id, &gos_id, &gos_offset)) {
-				nvdla_dbg_info(pdev, "syncfd_pt:[%u] "
-					"gos_id[%u] gos_offset[%u] val[%u]",
-					id, gos_id, gos_offset, thresh);
-				next = add_gos_action(next, ACTION_GOS_GE,
-						gos_id, gos_offset, thresh);
-			} else {
-				dma_addr_t syncpt_addr;
-
-				nvdla_dbg_info(pdev,
-					"GoS missing for syncfd [%d]", id);
-				syncpt_addr = nvhost_syncpt_address(
-						queue->vm_pdev, id);
-				nvdla_dbg_info(pdev, "syncfd_pt:[%u]"
-					"mss_dma_addr[%pad]",
-					id, &syncpt_addr);
-				next = add_fence_action(next, ACTION_SEM_GE,
-						syncpt_addr, thresh);
-			}
+		args.queue = queue;
+		args.mem = &next;
+		err = nvhost_fence_foreach_pt(f, nvdla_add_fence_action_cb, &args);
+		if (err != 0) {
+			nvhost_fence_put(f);
 		}
 
 		break;
 	}
 	case NVDEV_FENCE_TYPE_SYNCPT: {
-		u32 gos_id, gos_offset;
 
+		dma_addr_t syncpt_addr;
 		nvdla_dbg_info(pdev, "id[%d] val[%d]",
 				fence->syncpoint_index,
 				fence->syncpoint_value);
 
-		if (!nvdla_get_gos(pdev, fence->syncpoint_index, &gos_id,
-					&gos_offset)) {
-			nvdla_dbg_info(pdev, "syncpt:[%u] gos_id[%u] "
-				"gos_offset[%u] val[%u]",
-				fence->syncpoint_index, gos_id, gos_offset,
-				fence->syncpoint_value);
-			next = add_gos_action(next, ACTION_GOS_GE,
-					gos_id, gos_offset,
-					fence->syncpoint_value);
-		} else {
-			dma_addr_t syncpt_addr;
-			nvdla_dbg_info(pdev, "GoS missing");
+		syncpt_addr = nvhost_syncpt_address(
+			queue->vm_pdev, fence->syncpoint_index);
+		nvdla_dbg_info(pdev, "syncpt:[%u] dma_addr[%pad]",
+			fence->syncpoint_index, &syncpt_addr);
 
-			syncpt_addr = nvhost_syncpt_address(
-				queue->vm_pdev, fence->syncpoint_index);
-			nvdla_dbg_info(pdev, "syncpt:[%u] dma_addr[%pad]",
-				fence->syncpoint_index, &syncpt_addr);
-
-			next = add_fence_action(next, ACTION_SEM_GE,
-					syncpt_addr, fence->syncpoint_value);
-		}
+		next = add_fence_action(next, ACTION_SEM_GE,
+				syncpt_addr, fence->syncpoint_value);
 
 		break;
 	}
@@ -740,15 +622,8 @@ static int nvdla_fill_wait_fence_action(struct nvdla_task *task,
 				fence->semaphore_offset,
 				fence->semaphore_value);
 
-		*dma_buf = dma_buf_get(fence->semaphore_handle);
-		if (IS_ERR_OR_NULL(*dma_buf)) {
-			*dma_buf = NULL;
-			nvdla_dbg_err(pdev, "fail to get wait buf");
-			break;
-		}
-
 		if (nvdla_buffer_submit_pin(buffers,
-				dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+				&fence->semaphore_handle, 1, &dma_addr, &dma_size, NULL)) {
 			nvdla_dbg_err(pdev, "fail to pin WAIT SEM");
 			break;
 		}
@@ -786,24 +661,6 @@ static int nvdla_fill_signal_fence_action(struct nvdla_task *task,
 	case NVDEV_FENCE_TYPE_SYNC_FD:
 	case NVDEV_FENCE_TYPE_SYNCPT: {
 		dma_addr_t syncpt_addr;
-		u32 gos_id, gos_offset;
-
-		/* update GoS backing if available  */
-		if (!nvdla_get_gos(pdev, queue->syncpt_id,
-				&gos_id, &gos_offset)) {
-			u32 max;
-
-			/* send incremented max */
-			max = nvhost_syncpt_read_maxval(pdev,
-				queue->syncpt_id);
-			nvdla_dbg_info(pdev, "syncpt:[%u] gos_id[%u] "
-				"gos_offset[%u] val[%u]",
-				queue->syncpt_id, gos_id, gos_offset,
-				max + task->fence_counter + 1);
-			next = add_gos_action(next, ACTION_WRITE_GOS,
-				gos_id, gos_offset,
-				max + task->fence_counter + 1);
-		}
 
 		/* For postaction also update MSS addr */
 		syncpt_addr = nvhost_syncpt_address(queue->vm_pdev,
@@ -826,15 +683,8 @@ static int nvdla_fill_signal_fence_action(struct nvdla_task *task,
 				fence->semaphore_offset,
 				fence->semaphore_value);
 
-		*dma_buf = dma_buf_get(fence->semaphore_handle);
-		if (IS_ERR_OR_NULL(*dma_buf)) {
-			*dma_buf = NULL;
-			nvdla_dbg_err(pdev, "fail to get buf");
-			break;
-		}
-
 		if (nvdla_buffer_submit_pin(buffers,
-				dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+				&fence->semaphore_handle, 1, &dma_addr, &dma_size, NULL)) {
 			nvdla_dbg_err(pdev, "fail to pin SIGNAL SEM");
 			break;
 		}
@@ -859,15 +709,8 @@ static int nvdla_fill_signal_fence_action(struct nvdla_task *task,
 				fence->semaphore_offset,
 				fence->semaphore_value);
 
-		*dma_buf = dma_buf_get(fence->semaphore_handle);
-		if (IS_ERR_OR_NULL(*dma_buf)) {
-			*dma_buf = NULL;
-			nvdla_dbg_err(pdev, "fail to get buf");
-			break;
-		}
-
 		if (nvdla_buffer_submit_pin(buffers,
-				dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+				&fence->semaphore_handle, 1, &dma_addr, &dma_size, NULL)) {
 			nvdla_dbg_err(pdev, "fail to pin SIGNAL SEM");
 			break;
 		}
@@ -911,16 +754,8 @@ static int nvdla_fill_taskstatus_read_action(struct nvdla_task *task,
 			task_status->offset,
 			task_status->status);
 
-	*dma_buf = dma_buf_get(task_status->handle);
-	if (IS_ERR_OR_NULL(*dma_buf)) {
-		*dma_buf = NULL;
-		nvdla_dbg_err(pdev, "fail to get buf");
-		err = -EINVAL;
-		goto fail;
-	}
-
 	if (nvdla_buffer_submit_pin(buffers,
-			dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+			&task_status->handle, 1, &dma_addr, &dma_size, NULL)) {
 		nvdla_dbg_err(pdev, "fail to pin in status");
 		err = -EINVAL;
 		goto fail;
@@ -956,16 +791,8 @@ static int nvdla_fill_taskstatus_write_action(struct nvdla_task *task,
 			task_status->offset,
 			task_status->status);
 
-	*dma_buf = dma_buf_get(task_status->handle);
-	if (IS_ERR_OR_NULL(*dma_buf)) {
-		*dma_buf = NULL;
-		nvdla_dbg_err(pdev, "fail to get buf");
-		err = -EINVAL;
-		goto fail;
-	}
-
 	if (nvdla_buffer_submit_pin(buffers,
-			dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+			&task_status->handle, 1, &dma_addr, &dma_size, NULL)) {
 		nvdla_dbg_err(pdev, "fail to pin status");
 		err = -EINVAL;
 		goto fail;
@@ -1000,16 +827,8 @@ static int nvdla_fill_timestamp_write_action(struct nvdla_task *task,
 			timestamp->handle,
 			timestamp->offset);
 
-	*dma_buf = dma_buf_get(timestamp->handle);
-	if (IS_ERR_OR_NULL(*dma_buf)) {
-		*dma_buf = NULL;
-		nvdla_dbg_err(pdev, "fail to get buf");
-		err = -EINVAL;
-		goto fail;
-	}
-
 	if (nvdla_buffer_submit_pin(buffers,
-			dma_buf, 1, &dma_addr, &dma_size, NULL)) {
+			&timestamp->handle, 1, &dma_addr, &dma_size, NULL)) {
 		nvdla_dbg_err(pdev, "fail to pin timestamp");
 		err = -EINVAL;
 		goto fail;
@@ -1097,6 +916,7 @@ static int nvdla_fill_postactions(struct nvdla_task *task)
 	postactionl->offset = postactionlist_of;
 	postactionl->size = next - start;
 
+	spec_bar(); /* break_spec_p#5_1 */
 fail:
 	return err;
 }
@@ -1136,7 +956,7 @@ static int nvdla_fill_preactions(struct nvdla_task *task)
 		}
 	}
 
-	/* fill input status after filling sem/syncpt/gos */
+	/* fill input status after filling sem/syncpt */
 	for (i = 0; i < task->num_in_task_status; i++) {
 		err = nvdla_fill_taskstatus_read_action(task,
 				&task->in_task_status[i],
@@ -1206,6 +1026,7 @@ static int nvdla_fill_preactions(struct nvdla_task *task)
 	preactionl->offset = preactionlist_of;
 	preactionl->size = next - start;
 
+	spec_bar(); /* break_spec_p#5_1 */
 fail:
 	return err;
 }
@@ -1262,8 +1083,6 @@ int nvdla_fill_task_desc(struct nvdla_task *task, bool bypass_exec)
 	task_desc->postactions = task_desc->preactions +
 					sizeof(struct dla_action_list);
 
-	nvdla_update_gos(pdev);
-
 	/* reset fence counter */
 	task->fence_counter = 0;
 
@@ -1295,87 +1114,6 @@ int nvdla_fill_task_desc(struct nvdla_task *task, bool bypass_exec)
 fail_to_map_mem:
 	(void) nvdla_unmap_task_memory(task);
 	return err;
-}
-
-static int nvdla_send_cmd_channel(struct platform_device *pdev,
-			struct nvdla_queue *queue,
-			struct nvdla_cmd_data *cmd_data,
-			struct nvdla_task *task)
-{
-	unsigned long timeout;
-	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
-	struct nvdla_device *nvdla_dev = pdata->private_data;
-	uint32_t method_id = cmd_data->method_id;
-	uint32_t method_data = cmd_data->method_data;
-	bool wait = cmd_data->wait;
-	u32 syncpt_wait_ids[MAX_NVDLA_PREFENCES_PER_TASK];
-	u32 syncpt_wait_thresh[MAX_NVDLA_PREFENCES_PER_TASK];
-	u32 cmdbuf[3];
-	int err = 0, i;
-
-	nvdla_dbg_info(pdev, "");
-	/*
-	 * enable notification for command completion or error if
-	 * wait if required
-	 */
-	if (wait)
-		method_id |= (1 << DLA_INT_ON_COMPLETE_SHIFT) |
-				(1 << DLA_INT_ON_ERROR_SHIFT);
-
-	nvdla_dev->waiting = 1;
-
-	/* Pick up fences... */
-	for (i = 0; i < task->num_prefences; i++) {
-		/* ..and ensure that we have only syncpoints present */
-		if (task->prefences[i].type != NVDEV_FENCE_TYPE_SYNCPT) {
-			nvdla_dbg_err(pdev, "syncpt only supported");
-			return -EINVAL;
-		}
-
-		nvdla_dbg_info(pdev, "presyncpt[%d] value[%d]\n",
-				task->prefences[i].syncpoint_index,
-				task->prefences[i].syncpoint_value);
-
-		/* Put fences into a separate array */
-		syncpt_wait_ids[i] =
-				task->prefences[i].syncpoint_index;
-		syncpt_wait_thresh[i] =
-				task->prefences[i].syncpoint_value;
-	}
-
-	cmdbuf[0] = nvhost_opcode_incr(NV_DLA_THI_METHOD_ID >> 2, 2);
-	cmdbuf[1] = method_id;
-	cmdbuf[2] = method_data;
-
-	err = nvdla_queue_submit_to_host1x(queue,
-					    cmdbuf,
-					    ARRAY_SIZE(cmdbuf),
-					    1,
-					    syncpt_wait_ids,
-					    syncpt_wait_thresh,
-					    task->num_prefences,
-					    &task->fence);
-	if (err) {
-		nvdla_dbg_err(pdev, "channel submit failed");
-		goto done;
-	}
-
-	nvdla_dbg_info(pdev, "task submitted through channel mode");
-
-	if (!wait)
-		goto done;
-
-	timeout = msecs_to_jiffies(CMD_TIMEOUT_MSEC);
-
-	if (!wait_for_completion_timeout(&nvdla_dev->cmd_completion, timeout)) {
-		nvdla_dbg_err(pdev, "channel mode submit timedout");
-		err = -ETIMEDOUT;
-		goto done;
-	}
-
-done:
-	nvdla_dev->waiting = 0;
-	return 0;
 }
 
 int nvdla_emulator_submit(struct nvdla_queue *queue, struct nvdla_emu_task *task)
@@ -1426,7 +1164,7 @@ int nvdla_emulator_submit(struct nvdla_queue *queue, struct nvdla_emu_task *task
 	}
 
 	/* get fence from nvhost */
-	task->fence = nvhost_syncpt_incr_max(task->sp, queue->syncpt_id,
+	task->fence = nvhost_syncpt_incr_max_ext(pdev, queue->syncpt_id,
 						task->fence_counter);
 
 	nvdla_dbg_fn(pdev, "syncpt[%d] fence[%d] task[%p] fence_counter[%u]",
@@ -1473,6 +1211,7 @@ int nvdla_emulator_submit(struct nvdla_queue *queue, struct nvdla_emu_task *task
 		}
 	}
 
+	spec_bar(); /* break_spec_p#5_1 */
 	return 0;
 }
 
@@ -1530,6 +1269,7 @@ int nvdla_get_signal_fences(struct nvdla_queue *queue, void *in_task)
 			counter = counter - 1;
 		}
 	}
+	spec_bar(); /* break_spec_p#5_1 */
 	return 0;
 }
 
@@ -1556,7 +1296,7 @@ static int nvdla_queue_submit_op(struct nvdla_queue *queue, void *in_task)
 
 	/* get fence from nvhost for MMIO mode*/
 	if (nvdla_dev->submit_mode == NVDLA_SUBMIT_MODE_MMIO) {
-		task->fence = nvhost_syncpt_incr_max(task->sp,
+		task->fence = nvhost_syncpt_incr_max_ext(pdev,
 						queue->syncpt_id,
 						task->fence_counter);
 	}
@@ -1585,7 +1325,7 @@ static int nvdla_queue_submit_op(struct nvdla_queue *queue, void *in_task)
 	method_data = ALIGNED_DMA(task->task_desc_pa);
 
 	/* Report timestamp in TSC ticks. */
-	timestamp = arch_counter_get_cntvct();
+	timestamp = arch_timer_read_counter();
 
 	/* get pm refcount */
 	if (nvhost_module_busy(pdev))
@@ -1623,9 +1363,8 @@ static int nvdla_queue_submit_op(struct nvdla_queue *queue, void *in_task)
 		if (err) {
 			nvdla_dbg_err(pdev, "task[%p] submit failed", task);
 			/* deletes invalid task from queue, puts refs */
-			nvdla_task_syncpt_reset(task->sp,
-				queue->syncpt_id,
-				task->fence);
+			nvhost_syncpt_set_min_update(pdev, queue->syncpt_id,
+						     task->fence);
 		}
 	}
 
@@ -1702,7 +1441,6 @@ static int nvdla_queue_abort_op(struct nvdla_queue *queue)
 	struct nvdla_task *t;
 	struct nvdla_cmd_data cmd_data;
 	struct platform_device *pdev = queue->pool->pdev;
-	struct platform_device *host1x = to_platform_device(pdev->dev.parent);
 	int retry = NVDLA_QUEUE_ABORT_TIMEOUT / NVDLA_QUEUE_ABORT_RETRY_PERIOD;
 
 	nvdla_dbg_fn(pdev, "");
@@ -1746,8 +1484,8 @@ static int nvdla_queue_abort_op(struct nvdla_queue *queue)
 		t = list_last_entry(&queue->tasklist, struct nvdla_task, list);
 
 		/* reset syncpoint to release all tasks */
-		fence = nvhost_syncpt_read_maxval(host1x, queue->syncpt_id);
-		nvdla_task_syncpt_reset(t->sp, queue->syncpt_id, fence);
+		fence = nvhost_syncpt_read_maxval(pdev, queue->syncpt_id);
+		nvhost_syncpt_set_min_update(pdev, queue->syncpt_id, fence);
 
 		/* dump details */
 		nvdla_dbg_info(pdev, "Q id %d reset syncpt[%d] done",

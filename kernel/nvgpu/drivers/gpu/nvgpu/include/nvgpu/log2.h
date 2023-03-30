@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,8 +23,8 @@
 #define NVGPU_LOG2_H
 
 #ifdef __KERNEL__
-#include <linux/log2.h>
-#elif defined(__NVGPU_POSIX__)
+#include <nvgpu/linux/log2.h>
+#else
 #include <nvgpu/posix/log2.h>
 #endif
 

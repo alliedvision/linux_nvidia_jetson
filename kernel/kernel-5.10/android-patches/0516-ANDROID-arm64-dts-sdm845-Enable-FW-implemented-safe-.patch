@@ -1,0 +1,36 @@
+From ef985b39b40b349d491c41a76b46c7d27d755f21 Mon Sep 17 00:00:00 2001
+From: Vivek Gautam <vivek.gautam@codeaurora.org>
+Date: Wed, 12 Jun 2019 12:45:54 +0530
+Subject: [PATCH 516/830] ANDROID: arm64: dts/sdm845: Enable FW implemented
+ safe sequence handler on MTP
+X-NVConfidentiality: public
+
+Indicate on MTP SDM845 that firmware implements handler to
+TLB invalidate erratum SCM call where SAFE sequence is toggled
+to achieve optimum performance on real-time clients, such as
+display and camera.
+
+Bug: 146449535
+Signed-off-by: Vivek Gautam <vivek.gautam@codeaurora.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I27a575e54ffbb0b0bfb78115edef45fc8ff585a4
+---
+ arch/arm64/boot/dts/qcom/sdm845.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sdm845.dtsi b/arch/arm64/boot/dts/qcom/sdm845.dtsi
+index ea6e3a11e641..6930d8b65fd1 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845.dtsi
++++ b/arch/arm64/boot/dts/qcom/sdm845.dtsi
+@@ -4291,6 +4291,7 @@
+ 			compatible = "qcom,sdm845-smmu-500", "arm,mmu-500";
+ 			reg = <0 0x15000000 0 0x80000>;
+ 			#iommu-cells = <2>;
++			qcom,smmu-500-fw-impl-safe-errata;
+ 			#global-interrupts = <1>;
+ 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+ 				     <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>,
+-- 
+2.17.1
+

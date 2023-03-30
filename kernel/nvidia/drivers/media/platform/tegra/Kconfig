@@ -4,7 +4,7 @@ config VIDEO_CAMERA
 	tristate "generic camera device support"
 	depends on I2C && ARCH_TEGRA
 	select REGMAP_I2C
-	---help---
+	help
 	  This is a driver for generic camera devices
 	  for use with the tegra isp.
 
@@ -46,7 +46,15 @@ config VIDEO_CAMERA_SKT
 config VIDEO_ISC
 	tristate "ISC(Image Sensor Control) device support"
 	depends on I2C && ARCH_TEGRA
-	---help---
+	help
 	  This is a driver for the ISC
+	  for controlling power, interrupt and registering
+	  i2c clients related to image sensor.
+
+config VIDEO_CDI
+	tristate "CDI(Camera Device Interface) device support"
+	depends on I2C && ARCH_TEGRA
+	help
+	  This is a driver for the CDI
 	  for controlling power, interrupt and registering
 	  i2c clients related to image sensor.

@@ -1,0 +1,192 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	cpu_alert: cpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "cpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	gpu_alert: gpu-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "gpu-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	cv0_alert: cv0-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "cv0-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	cv1_alert: cv1-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "cv1-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	cv2_alert: cv2-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "cv2-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	soc0_alert: soc0-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "soc0-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	soc1_alert: soc1-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "soc1-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	soc2_alert: soc2-throttle-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "soc2-throttle-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	hot_surface_alert: hot-surface-alert {
+		compatible = "userspace-therm-alert";
+		cdev-type = "hot-surface-alert";
+		status = "disabled";
+		#cooling-cells = <2>;
+	};
+
+	thermal-zones {
+		CPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cpu_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&cpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		GPU-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&gpu_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&gpu_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		CV0-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&cv0_sw_throttle>;
+					cooling-device = <&cv0_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&cv0_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		CV1-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&cv1_sw_throttle>;
+					cooling-device = <&cv1_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&cv1_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		CV2-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&cv2_sw_throttle>;
+					cooling-device = <&cv2_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&cv2_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		SOC0-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&soc0_sw_throttle>;
+					cooling-device = <&soc0_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&soc0_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		SOC1-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&soc1_sw_throttle>;
+					cooling-device = <&soc1_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&soc1_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+
+		SOC2-therm {
+			cooling-maps {
+				user-alert-map0 {
+					trip = <&soc2_sw_throttle>;
+					cooling-device = <&soc2_alert 1 1>;
+				};
+
+				hot-surface-alert-map0 {
+					trip = <&soc2_hot_surface>;
+					cooling-device = <&hot_surface_alert 1 1>;
+				};
+			};
+		};
+	};
+};
+

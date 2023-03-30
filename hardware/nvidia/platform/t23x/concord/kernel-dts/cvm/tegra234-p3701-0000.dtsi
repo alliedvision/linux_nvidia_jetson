@@ -1,0 +1,41 @@
+/*
+ * Common include DTS file for CVM:P3701-0000 and CVB:P3737-0000 variants.
+ *
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+#include "dt-bindings/extcon-ids.h"
+#include "dt-bindings/gpio/tegra234-gpio.h"
+#include <dt-bindings/pwm/pwm.h>
+#include <t234-common-cvm/tegra234-cvm-p3701.dtsi>
+#include "tegra234-p3701-0000-plugin-manager.dtsi"
+
+/ {
+	nvidia,fastboot-usb-vid = <0x0955>;
+	nvidia,fastboot-usb-pid = <0xee1e>;
+	model = "Jetson AGX Orin";
+
+	actmon@d230000 {
+		status = "okay";
+		mc_all {
+			status = "okay";
+		};
+	};
+
+	i2c@c240000 {
+		ina32211_1_40: ina3221@40 {
+			channel@2 {
+				summation-bypass;
+			};
+		};
+	};
+};

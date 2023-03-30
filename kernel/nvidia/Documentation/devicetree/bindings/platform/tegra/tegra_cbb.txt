@@ -10,12 +10,14 @@ various master and slave partitions using different bridges like AXIP2P,AXI2APB.
 
 This driver handles errors from master clusters with NOC(AON, SCE, RCE, BPMP,
 CV) and CBB central NOC in case of failed transaction in a bridge within CBB.
-Access issuing master is informed about error using SError or interrupts.
-For access from CCPLEX master, SError is delivered to all cores in master.
+Access issuing master is informed about error using Abort or interrupts.
+For access from CCPLEX master, SError is delivered to all cores in CCPLEX.
 For access by other masters, issuing master gets abort and CCPLEX receives
 secure or nonsecure interrupt depending on error type.
  - secure_intr: SEC(firewall) & SLV errors.
  - nonsecure_intr: TMO & DEC errors.
+By default, SError is masked for illegal accesses from CCPLEX master by setting
+MISCREG_CCROC_ERR_CONFIG_0 to "1" & only interrupts are enabled.
 
 The driver prints relevant debug information like Error Code, Error Description,
 Master, Address, AXI ID, Cache, Protection, Security Group etc using NOC Error

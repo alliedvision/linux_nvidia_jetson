@@ -10,14 +10,12 @@ nvhost-isp-objs  = \
 
 obj-$(CONFIG_TEGRA_GRHOST_ISP) += nvhost-isp.o
 
-ifeq ($(CONFIG_ARCH_TEGRA_18x_SOC),y)
+ifneq ($(filter y,$(CONFIG_ARCH_TEGRA_18x_SOC) $(CONFIG_ARCH_TEGRA_186_SOC)),)
 nvhost-isp-t186-objs  = \
 		isp_isr_v2.o
 
 obj-$(CONFIG_TEGRA_GRHOST_ISP) += nvhost-isp-t186.o
 endif
-
-ifdef CONFIG_TEGRA_T19X_GRHOST
 
 ccflags-y += -I$(srctree.nvidia)/drivers/media/platform/tegra
 ccflags-y += -I$(srctree.nvidia)/include
@@ -25,5 +23,3 @@ ccflags-y += -I$(srctree.nvidia)/include
 nvhost-isp5-objs = isp5.o
 
 obj-y += nvhost-isp5.o
-
-endif

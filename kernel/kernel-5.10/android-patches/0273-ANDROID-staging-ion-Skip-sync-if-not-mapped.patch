@@ -1,0 +1,116 @@
+From 445371ea36e1d808dcdb10ce2a124499522ce8e3 Mon Sep 17 00:00:00 2001
+From: Orjan Eide <orjan.eide@arm.com>
+Date: Fri, 17 Apr 2020 15:55:47 +0200
+Subject: [PATCH 273/830] ANDROID: staging: ion: Skip sync if not mapped
+X-NVConfidentiality: public
+
+Only sync the sg-list of an Ion dma-buf attachment when the attachment
+is actually mapped on the device.
+
+dma-bufs may be synced at any time. It can be reached from user space
+via DMA_BUF_IOCTL_SYNC, so there are no guarantees from callers on when
+syncs may be attempted, and dma_buf_end_cpu_access() and
+dma_buf_begin_cpu_access() may not be paired.
+
+Since the sg_list's dma_address isn't set up until the buffer is used
+on the device, and dma_map_sg() is called on it, the dma_address will be
+NULL if sync is attempted on the dma-buf before it's mapped on a device.
+
+Before v5.0 (commit 55897af63091 ("dma-direct: merge swiotlb_dma_ops
+into the dma_direct code")) this was a problem as the dma-api (at least
+the swiotlb_dma_ops on arm64) would use the potentially invalid
+dma_address. How that failed depended on how the device handled physical
+address 0. If 0 was a valid address to physical ram, that page would get
+flushed a lot, while the actual pages in the buffer would not get synced
+correctly. While if 0 is an invalid address it cause a fault trigger a
+crash.
+
+In v5.0 this was incidentally fixed by commit 55897af63091 ("dma-direct:
+merge swiotlb_dma_ops into the dma_direct code"), as this moved the
+dma-api to use the page pointer in the sg_list, and (for Ion buffers at
+least) this will always be valid if the sg_list exists at all.
+
+But, this issue is re-introduced in v5.3 with
+commit 449fa54d6815 ("dma-direct: correct the physical addr in
+dma_direct_sync_sg_for_cpu/device") moves the dma-api back to the old
+behaviour and picks the dma_address that may be invalid.
+
+dma-buf core doesn't ensure that the buffer is mapped on the device, and
+thus have a valid sg_list, before calling the exporter's
+begin_cpu_access.
+
+Bug: 155685387
+
+Change-Id: Ie4da5a875957c831ce5b1345b5794357b844c84c
+Signed-off-by: Orjan Eide <orjan.eide@arm.com>
+Signed-off-by: Anders Pedersen <anders.pedersen@arm.corp-partner.google.com>
+(cherry picked from commit 644ae915cd5df31179144c5b949539520a14f39a)
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 10 ++++++++++
+ include/linux/ion.h                       |  1 +
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index 1e1236155dea..ee0e81eef0df 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -69,6 +69,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
+ 	a->table = table;
+ 	a->dev = attachment->dev;
+ 	INIT_LIST_HEAD(&a->list);
++	a->mapped = false;
+ 
+ 	attachment->priv = a;
+ 
+@@ -114,6 +115,8 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
+ 	if (!dma_map_sg(attachment->dev, table->sgl, table->nents, direction))
+ 		return ERR_PTR(-ENOMEM);
+ 
++	a->mapped = true;
++
+ 	return table;
+ }
+ 
+@@ -123,6 +126,9 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ {
+ 	struct ion_buffer *buffer = attachment->dmabuf->priv;
+ 	struct ion_heap *heap = buffer->heap;
++	struct ion_dma_buf_attachment *a = attachment->priv;
++
++	a->mapped = false;
+ 
+ 	if (heap->buf_ops.unmap_dma_buf)
+ 		return heap->buf_ops.unmap_dma_buf(attachment, table,
+@@ -167,6 +173,8 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
+ 	}
+ 
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sg_for_cpu(a->dev, a->table->sgl, a->table->nents,
+ 				    direction);
+ 	}
+@@ -209,6 +217,8 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
+ 
+ 	ion_buffer_kmap_put(buffer);
+ 	list_for_each_entry(a, &buffer->attachments, list) {
++		if (!a->mapped)
++			continue;
+ 		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
+ 				       direction);
+ 	}
+diff --git a/include/linux/ion.h b/include/linux/ion.h
+index 4eadf397a6bc..80c6fdeb4822 100644
+--- a/include/linux/ion.h
++++ b/include/linux/ion.h
+@@ -156,6 +156,7 @@ struct ion_dma_buf_attachment {
+ 	struct device *dev;
+ 	struct sg_table *table;
+ 	struct list_head list;
++	bool mapped:1;
+ };
+ 
+ #ifdef CONFIG_ION
+-- 
+2.17.1
+

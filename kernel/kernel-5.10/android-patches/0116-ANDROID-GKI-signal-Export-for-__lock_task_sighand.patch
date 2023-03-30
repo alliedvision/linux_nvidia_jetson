@@ -1,0 +1,33 @@
+From a7cd74aaa5cf9f578b0cfbcdee0933113df51b0c Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:41:10 +0530
+Subject: [PATCH 116/830] ANDROID: GKI: signal: Export for __lock_task_sighand
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for __lock_task_sighand()
+
+    - This API is required by loadable driver module from samsung to
+      Lock task structure, when reading task/process related information.
+
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Bug: 158067689
+Change-Id: Ia54e17b1f2630bcc648e7840cf36e743f08ba9c9
+---
+ kernel/signal.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 6bb2df4f6109..55d712c8e38b 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -1397,6 +1397,7 @@ struct sighand_struct *__lock_task_sighand(struct task_struct *tsk,
+ 
+ 	return sighand;
+ }
++EXPORT_SYMBOL_GPL(__lock_task_sighand);
+ 
+ /*
+  * send signal info to all the members of a group
+-- 
+2.17.1
+

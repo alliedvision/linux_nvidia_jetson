@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -38,6 +38,7 @@ struct device;
 struct vm_gk20a;
 struct vm_gk20a_mapping_batch;
 struct nvgpu_vm_area;
+enum gk20a_mem_rw_flag;
 
 struct nvgpu_os_buffer {
 	struct dma_buf *dmabuf;
@@ -55,11 +56,11 @@ struct nvgpu_mapped_buf_priv {
 int nvgpu_vm_map_linux(struct vm_gk20a *vm,
 		       struct dma_buf *dmabuf,
 		       u64 map_addr,
+		       u32 map_access_requested,
 		       u32 flags,
 		       u32 page_size,
 		       s16 compr_kind,
 		       s16 incompr_kind,
-		       int rw_flag,
 		       u64 buffer_offset,
 		       u64 mapping_size,
 		       struct vm_gk20a_mapping_batch *mapping_batch,
@@ -85,6 +86,11 @@ int nvgpu_vm_map_buffer(struct vm_gk20a *vm,
 int nvgpu_vm_find_buf(struct vm_gk20a *vm, u64 gpu_va,
 		      struct dma_buf **dmabuf,
 		      u64 *offset);
+
+/* modify existing mapping attributes (i.e. kind) */
+int nvgpu_vm_mapping_modify(struct vm_gk20a *vm,
+			s16 compr_kind, s16 incompr_kind,
+			u64 map_address, u64 buffer_offset, u64 buffer_size);
 
 enum nvgpu_aperture gk20a_dmabuf_aperture(struct gk20a *g,
 					  struct dma_buf *dmabuf);

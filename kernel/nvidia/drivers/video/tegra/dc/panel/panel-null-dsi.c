@@ -1,7 +1,7 @@
 /*
  * panel-null-dsi-hotplug.c: Panel driver for null panel with hotplug supported.
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,7 +17,6 @@
  */
 
 #include "../dc.h"
-#include "board.h"
 #include "board-panel.h"
 
 static int dsi_null_panel_enable(struct device *dev)

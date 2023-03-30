@@ -1,0 +1,790 @@
+From 007daf24d1f8ce3075244fd6e02b07209f08541a Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 30 Jul 2020 12:46:16 -0700
+Subject: [PATCH 474/830] ANDROID: Incremental fs: Add UID to pending_read
+X-NVConfidentiality: public
+
+Test: incfs_test passes
+Bug: 160634477
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Iaf817cf1f7ccd0109b2114b425ea7f26718345ab
+---
+ fs/incfs/data_mgmt.c                          |  74 ++++++++----
+ fs/incfs/data_mgmt.h                          |   6 +
+ fs/incfs/main.c                               |   9 ++
+ fs/incfs/vfs.c                                |  93 ++++++++++-----
+ include/uapi/linux/incrementalfs.h            |  45 ++++++++
+ .../selftests/filesystems/incfs/incfs_test.c  | 106 +++++++++++++-----
+ .../selftests/filesystems/incfs/utils.c       |  28 +++++
+ .../selftests/filesystems/incfs/utils.h       |   3 +
+ 8 files changed, 291 insertions(+), 73 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index ccb1b0d1f3c7..8e58f6edb555 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -391,6 +391,7 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
+ 	s64 relative_us;
+ 	union log_record record;
+ 	size_t record_size;
++	uid_t uid = current_uid().val;
+ 
+ 	/*
+ 	 * This may read the old value, but it's OK to delay the logging start
+@@ -412,12 +413,14 @@ static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
+ 	relative_us = now_us - head->base_record.absolute_ts_us;
+ 
+ 	if (memcmp(id, &head->base_record.file_id, sizeof(incfs_uuid_t)) ||
+-	    relative_us >= 1ll << 32) {
++	    relative_us >= 1ll << 32 ||
++	    uid != head->base_record.uid) {
+ 		record.full_record = (struct full_record){
+ 			.type = FULL,
+ 			.block_index = block_index,
+ 			.file_id = *id,
+ 			.absolute_ts_us = now_us,
++			.uid = uid,
+ 		};
+ 		head->base_record.file_id = *id;
+ 		record_size = sizeof(struct full_record);
+@@ -833,6 +836,7 @@ static struct pending_read *add_pending_read(struct data_file *df,
+ 	result->file_id = df->df_id;
+ 	result->block_index = block_index;
+ 	result->timestamp_us = ktime_to_us(ktime_get());
++	result->uid = current_uid().val;
+ 
+ 	spin_lock(&mi->pending_read_lock);
+ 
+@@ -1396,6 +1400,7 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number)
+ 
+ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 				struct incfs_pending_read_info *reads,
++				struct incfs_pending_read_info2 *reads2,
+ 				int reads_size, int *new_max_sn)
+ {
+ 	int reported_reads = 0;
+@@ -1424,10 +1429,24 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 		if (entry->serial_number <= sn_lowerbound)
+ 			continue;
+ 
+-		reads[reported_reads].file_id = entry->file_id;
+-		reads[reported_reads].block_index = entry->block_index;
+-		reads[reported_reads].serial_number = entry->serial_number;
+-		reads[reported_reads].timestamp_us = entry->timestamp_us;
++		if (reads) {
++			reads[reported_reads].file_id = entry->file_id;
++			reads[reported_reads].block_index = entry->block_index;
++			reads[reported_reads].serial_number =
++				entry->serial_number;
++			reads[reported_reads].timestamp_us =
++				entry->timestamp_us;
++		}
++
++		if (reads2) {
++			reads2[reported_reads].file_id = entry->file_id;
++			reads2[reported_reads].block_index = entry->block_index;
++			reads2[reported_reads].serial_number =
++				entry->serial_number;
++			reads2[reported_reads].timestamp_us =
++				entry->timestamp_us;
++			reads2[reported_reads].uid = entry->uid;
++		}
+ 
+ 		if (entry->serial_number > *new_max_sn)
+ 			*new_max_sn = entry->serial_number;
+@@ -1473,8 +1492,9 @@ int incfs_get_uncollected_logs_count(struct mount_info *mi,
+ }
+ 
+ int incfs_collect_logged_reads(struct mount_info *mi,
+-			       struct read_log_state *reader_state,
++			       struct read_log_state *state,
+ 			       struct incfs_pending_read_info *reads,
++			       struct incfs_pending_read_info2 *reads2,
+ 			       int reads_size)
+ {
+ 	int dst_idx;
+@@ -1485,36 +1505,48 @@ int incfs_collect_logged_reads(struct mount_info *mi,
+ 	head = &log->rl_head;
+ 	tail = &log->rl_tail;
+ 
+-	if (reader_state->generation_id != head->generation_id) {
++	if (state->generation_id != head->generation_id) {
+ 		pr_debug("read ptr is wrong generation: %u/%u",
+-			 reader_state->generation_id, head->generation_id);
++			 state->generation_id, head->generation_id);
+ 
+-		*reader_state = (struct read_log_state){
++		*state = (struct read_log_state){
+ 			.generation_id = head->generation_id,
+ 		};
+ 	}
+ 
+-	if (reader_state->current_record_no < tail->current_record_no) {
++	if (state->current_record_no < tail->current_record_no) {
+ 		pr_debug("read ptr is behind, moving: %u/%u -> %u/%u\n",
+-			 (u32)reader_state->next_offset,
+-			 (u32)reader_state->current_pass_no,
++			 (u32)state->next_offset,
++			 (u32)state->current_pass_no,
+ 			 (u32)tail->next_offset, (u32)tail->current_pass_no);
+ 
+-		*reader_state = *tail;
++		*state = *tail;
+ 	}
+ 
+ 	for (dst_idx = 0; dst_idx < reads_size; dst_idx++) {
+-		if (reader_state->current_record_no == head->current_record_no)
++		if (state->current_record_no == head->current_record_no)
+ 			break;
+ 
+-		log_read_one_record(log, reader_state);
++		log_read_one_record(log, state);
+ 
+-		reads[dst_idx] = (struct incfs_pending_read_info){
+-			.file_id = reader_state->base_record.file_id,
+-			.block_index = reader_state->base_record.block_index,
+-			.serial_number = reader_state->current_record_no,
+-			.timestamp_us = reader_state->base_record.absolute_ts_us
+-		};
++		if (reads)
++			reads[dst_idx] = (struct incfs_pending_read_info) {
++				.file_id = state->base_record.file_id,
++				.block_index = state->base_record.block_index,
++				.serial_number = state->current_record_no,
++				.timestamp_us =
++					state->base_record.absolute_ts_us,
++			};
++
++		if (reads2)
++			reads2[dst_idx] = (struct incfs_pending_read_info2) {
++				.file_id = state->base_record.file_id,
++				.block_index = state->base_record.block_index,
++				.serial_number = state->current_record_no,
++				.timestamp_us =
++					state->base_record.absolute_ts_us,
++				.uid = state->base_record.uid,
++			};
+ 	}
+ 
+ 	spin_unlock(&log->rl_lock);
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 96b581a564bd..77d0950f9a22 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -34,6 +34,7 @@ struct full_record {
+ 	u32 block_index : 30;
+ 	incfs_uuid_t file_id;
+ 	u64 absolute_ts_us;
++	uid_t uid;
+ } __packed; /* 28 bytes */
+ 
+ struct same_file_record {
+@@ -103,6 +104,7 @@ struct mount_options {
+ 	unsigned int read_log_wakeup_count;
+ 	bool no_backing_file_cache;
+ 	bool no_backing_file_readahead;
++	bool report_uid;
+ };
+ 
+ struct mount_info {
+@@ -174,6 +176,8 @@ struct pending_read {
+ 
+ 	int serial_number;
+ 
++	uid_t uid;
++
+ 	struct list_head mi_reads_list;
+ 
+ 	struct list_head segment_reads_list;
+@@ -308,11 +312,13 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
+  */
+ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 				struct incfs_pending_read_info *reads,
++				struct incfs_pending_read_info2 *reads2,
+ 				int reads_size, int *new_max_sn);
+ 
+ int incfs_collect_logged_reads(struct mount_info *mi,
+ 			       struct read_log_state *start_state,
+ 			       struct incfs_pending_read_info *reads,
++			       struct incfs_pending_read_info2 *reads2,
+ 			       int reads_size);
+ struct read_log_state incfs_get_log_state(struct mount_info *mi);
+ int incfs_get_uncollected_logs_count(struct mount_info *mi,
+diff --git a/fs/incfs/main.c b/fs/incfs/main.c
+index e65d0d895128..2b8161f6c83a 100644
+--- a/fs/incfs/main.c
++++ b/fs/incfs/main.c
+@@ -30,8 +30,17 @@ static ssize_t corefs_show(struct kobject *kobj,
+ 
+ static struct kobj_attribute corefs_attr = __ATTR_RO(corefs);
+ 
++static ssize_t report_uid_show(struct kobject *kobj,
++			       struct kobj_attribute *attr, char *buff)
++{
++	return snprintf(buff, PAGE_SIZE, "supported\n");
++}
++
++static struct kobj_attribute report_uid_attr = __ATTR_RO(report_uid);
++
+ static struct attribute *attributes[] = {
+ 	&corefs_attr.attr,
++	&report_uid_attr.attr,
+ 	NULL,
+ };
+ 
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index a68033899661..f54550a9adf9 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -218,6 +218,7 @@ enum parse_parameter {
+ 	Opt_no_backing_file_readahead,
+ 	Opt_rlog_pages,
+ 	Opt_rlog_wakeup_cnt,
++	Opt_report_uid,
+ 	Opt_err
+ };
+ 
+@@ -240,6 +241,7 @@ static const match_table_t option_tokens = {
+ 	{ Opt_no_backing_file_readahead, "no_bf_readahead=%u" },
+ 	{ Opt_rlog_pages, "rlog_pages=%u" },
+ 	{ Opt_rlog_wakeup_cnt, "rlog_wakeup_cnt=%u" },
++	{ Opt_report_uid, "report_uid" },
+ 	{ Opt_err, NULL }
+ };
+ 
+@@ -300,6 +302,9 @@ static int parse_options(struct mount_options *opts, char *str)
+ 				return -EINVAL;
+ 			opts->read_log_wakeup_count = value;
+ 			break;
++		case Opt_report_uid:
++			opts->report_uid = true;
++			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
+@@ -463,8 +468,12 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
+ {
+ 	struct pending_reads_state *pr_state = f->private_data;
+ 	struct mount_info *mi = get_mount_info(file_superblock(f));
++	bool report_uid;
++	unsigned long page = 0;
+ 	struct incfs_pending_read_info *reads_buf = NULL;
+-	size_t reads_to_collect = len / sizeof(*reads_buf);
++	struct incfs_pending_read_info2 *reads_buf2 = NULL;
++	size_t record_size;
++	size_t reads_to_collect;
+ 	int last_known_read_sn = READ_ONCE(pr_state->last_pending_read_sn);
+ 	int new_max_sn = last_known_read_sn;
+ 	int reads_collected = 0;
+@@ -473,18 +482,29 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
+ 	if (!mi)
+ 		return -EFAULT;
+ 
++	report_uid = mi->mi_options.report_uid;
++	record_size = report_uid ? sizeof(*reads_buf2) : sizeof(*reads_buf);
++	reads_to_collect = len / record_size;
++
+ 	if (!incfs_fresh_pending_reads_exist(mi, last_known_read_sn))
+ 		return 0;
+ 
+-	reads_buf = (struct incfs_pending_read_info *)get_zeroed_page(GFP_NOFS);
+-	if (!reads_buf)
++	page = get_zeroed_page(GFP_NOFS);
++	if (!page)
+ 		return -ENOMEM;
+ 
++	if (report_uid)
++		reads_buf2 = (struct incfs_pending_read_info2 *) page;
++	else
++		reads_buf = (struct incfs_pending_read_info *) page;
++
+ 	reads_to_collect =
+-		min_t(size_t, PAGE_SIZE / sizeof(*reads_buf), reads_to_collect);
++		min_t(size_t, PAGE_SIZE / record_size, reads_to_collect);
++
++	reads_collected = incfs_collect_pending_reads(mi, last_known_read_sn,
++				reads_buf, reads_buf2, reads_to_collect,
++				&new_max_sn);
+ 
+-	reads_collected = incfs_collect_pending_reads(
+-		mi, last_known_read_sn, reads_buf, reads_to_collect, &new_max_sn);
+ 	if (reads_collected < 0) {
+ 		result = reads_collected;
+ 		goto out;
+@@ -495,19 +515,19 @@ static ssize_t pending_reads_read(struct file *f, char __user *buf, size_t len,
+ 	 * to reads buffer than userspace can handle.
+ 	 */
+ 	reads_collected = min_t(size_t, reads_collected, reads_to_collect);
+-	result = reads_collected * sizeof(*reads_buf);
++	result = reads_collected * record_size;
+ 
+ 	/* Copy reads info to the userspace buffer */
+-	if (copy_to_user(buf, reads_buf, result)) {
++	if (copy_to_user(buf, (void *)page, result)) {
+ 		result = -EFAULT;
+ 		goto out;
+ 	}
+ 
+ 	WRITE_ONCE(pr_state->last_pending_read_sn, new_max_sn);
+ 	*ppos = 0;
++
+ out:
+-	if (reads_buf)
+-		free_page((unsigned long)reads_buf);
++	free_page(page);
+ 	return result;
+ }
+ 
+@@ -589,18 +609,35 @@ static ssize_t log_read(struct file *f, char __user *buf, size_t len,
+ 	int total_reads_collected = 0;
+ 	int rl_size;
+ 	ssize_t result = 0;
+-	struct incfs_pending_read_info *reads_buf;
+-	ssize_t reads_to_collect = len / sizeof(*reads_buf);
+-	ssize_t reads_per_page = PAGE_SIZE / sizeof(*reads_buf);
++	bool report_uid;
++	unsigned long page = 0;
++	struct incfs_pending_read_info *reads_buf = NULL;
++	struct incfs_pending_read_info2 *reads_buf2 = NULL;
++	size_t record_size;
++	ssize_t reads_to_collect;
++	ssize_t reads_per_page;
++
++	if (!mi)
++		return -EFAULT;
++
++	report_uid = mi->mi_options.report_uid;
++	record_size = report_uid ? sizeof(*reads_buf2) : sizeof(*reads_buf);
++	reads_to_collect = len / record_size;
++	reads_per_page = PAGE_SIZE / record_size;
+ 
+ 	rl_size = READ_ONCE(mi->mi_log.rl_size);
+ 	if (rl_size == 0)
+ 		return 0;
+ 
+-	reads_buf = (struct incfs_pending_read_info *)__get_free_page(GFP_NOFS);
+-	if (!reads_buf)
++	page = __get_free_page(GFP_NOFS);
++	if (!page)
+ 		return -ENOMEM;
+ 
++	if (report_uid)
++		reads_buf2 = (struct incfs_pending_read_info2 *) page;
++	else
++		reads_buf = (struct incfs_pending_read_info *) page;
++
+ 	reads_to_collect = min_t(ssize_t, rl_size, reads_to_collect);
+ 	while (reads_to_collect > 0) {
+ 		struct read_log_state next_state;
+@@ -608,35 +645,32 @@ static ssize_t log_read(struct file *f, char __user *buf, size_t len,
+ 
+ 		memcpy(&next_state, &log_state->state, sizeof(next_state));
+ 		reads_collected = incfs_collect_logged_reads(
+-			mi, &next_state, reads_buf,
++			mi, &next_state, reads_buf, reads_buf2,
+ 			min_t(ssize_t, reads_to_collect, reads_per_page));
+ 		if (reads_collected <= 0) {
+ 			result = total_reads_collected ?
+-					 total_reads_collected *
+-						 sizeof(*reads_buf) :
++					 total_reads_collected * record_size :
+ 					 reads_collected;
+ 			goto out;
+ 		}
+-		if (copy_to_user(buf, reads_buf,
+-				 reads_collected * sizeof(*reads_buf))) {
++		if (copy_to_user(buf, (void *) page,
++				 reads_collected * record_size)) {
+ 			result = total_reads_collected ?
+-					 total_reads_collected *
+-						 sizeof(*reads_buf) :
++					 total_reads_collected * record_size :
+ 					 -EFAULT;
+ 			goto out;
+ 		}
+ 
+ 		memcpy(&log_state->state, &next_state, sizeof(next_state));
+ 		total_reads_collected += reads_collected;
+-		buf += reads_collected * sizeof(*reads_buf);
++		buf += reads_collected * record_size;
+ 		reads_to_collect -= reads_collected;
+ 	}
+ 
+-	result = total_reads_collected * sizeof(*reads_buf);
++	result = total_reads_collected * record_size;
+ 	*ppos = 0;
+ out:
+-	if (reads_buf)
+-		free_page((unsigned long)reads_buf);
++	free_page(page);
+ 	return result;
+ }
+ 
+@@ -2474,6 +2508,11 @@ static int incfs_remount_fs(struct super_block *sb, int *flags, char *data)
+ 	if (err)
+ 		return err;
+ 
++	if (options.report_uid != mi->mi_options.report_uid) {
++		pr_err("incfs: Can't change report_uid mount option on remount\n");
++		return -EOPNOTSUPP;
++	}
++
+ 	err = incfs_realloc_mount_info(mi, &options);
+ 	if (err)
+ 		return err;
+@@ -2506,5 +2545,7 @@ static int show_options(struct seq_file *m, struct dentry *root)
+ 		seq_puts(m, ",no_bf_cache");
+ 	if (mi->mi_options.no_backing_file_readahead)
+ 		seq_puts(m, ",no_bf_readahead");
++	if (mi->mi_options.report_uid)
++		seq_puts(m, ",report_uid");
+ 	return 0;
+ }
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index da3fdde4711c..6b5900445eae 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -96,6 +96,23 @@
+ #define INCFS_IOC_CREATE_MAPPED_FILE \
+ 	_IOWR(INCFS_IOCTL_BASE_CODE, 35, struct incfs_create_mapped_file_args)
+ 
++/* ===== sysfs feature flags ===== */
++/*
++ * Each flag is represented by a file in /sys/fs/incremental-fs/features
++ * If the file exists the feature is supported
++ * Also the file contents will be the line "supported"
++ */
++
++/*
++ * Basic flag stating that the core incfs file system is available
++ */
++#define INCFS_FEATURE_FLAG_COREFS "corefs"
++
++/*
++ * report_uid mount option is supported
++ */
++#define INCFS_FEATURE_FLAG_REPORT_UID "report_uid"
++
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+ 	COMPRESSION_LZ4 = 1
+@@ -113,6 +130,8 @@ typedef struct {
+ /*
+  * Description of a pending read. A pending read - a read call by
+  * a userspace program for which the filesystem currently doesn't have data.
++ *
++ * Reads from .pending_reads and .log return an array of these structure
+  */
+ struct incfs_pending_read_info {
+ 	/* Id of a file that is being read from. */
+@@ -128,6 +147,32 @@ struct incfs_pending_read_info {
+ 	__u32 serial_number;
+ };
+ 
++/*
++ * Description of a pending read. A pending read - a read call by
++ * a userspace program for which the filesystem currently doesn't have data.
++ *
++ * This version of incfs_pending_read_info is used whenever the file system is
++ * mounted with the report_uid flag
++ */
++struct incfs_pending_read_info2 {
++	/* Id of a file that is being read from. */
++	incfs_uuid_t file_id;
++
++	/* A number of microseconds since system boot to the read. */
++	__aligned_u64 timestamp_us;
++
++	/* Index of a file block that is being read. */
++	__u32 block_index;
++
++	/* A serial number of this pending read. */
++	__u32 serial_number;
++
++	/* The UID of the reading process */
++	__u32 uid;
++
++	__u32 reserved;
++};
++
+ /*
+  * Description of a data or hash block to add to a data file.
+  */
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 4d57697935eb..029757a1c77f 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -656,6 +656,55 @@ static int data_producer(const char *mount_dir, struct test_files_set *test_set)
+ 	return ret;
+ }
+ 
++static int data_producer2(const char *mount_dir,
++			  struct test_files_set *test_set)
++{
++	int ret = 0;
++	int timeout_ms = 1000;
++	struct incfs_pending_read_info2 prs[100] = {};
++	int prs_size = ARRAY_SIZE(prs);
++	int fd = open_commands_file(mount_dir);
++
++	if (fd < 0)
++		return -errno;
++
++	while ((ret = wait_for_pending_reads2(fd, timeout_ms, prs, prs_size)) >
++	       0) {
++		int read_count = ret;
++		int i;
++
++		for (i = 0; i < read_count; i++) {
++			int j = 0;
++			struct test_file *file = NULL;
++
++			for (j = 0; j < test_set->files_count; j++) {
++				bool same = same_id(&(test_set->files[j].id),
++					&(prs[i].file_id));
++
++				if (same) {
++					file = &test_set->files[j];
++					break;
++				}
++			}
++			if (!file) {
++				ksft_print_msg(
++					"Unknown file in pending reads.\n");
++				break;
++			}
++
++			ret = emit_test_block(mount_dir, file,
++				prs[i].block_index);
++			if (ret < 0) {
++				ksft_print_msg("Emitting test data error: %s\n",
++						strerror(-ret));
++				break;
++			}
++		}
++	}
++	close(fd);
++	return ret;
++}
++
+ static int build_mtree(struct test_file *file)
+ {
+ 	char data[INCFS_DATA_FILE_BLOCK_SIZE] = {};
+@@ -1746,7 +1795,8 @@ static int multiple_providers_test(const char *mount_dir)
+ 		goto failure;
+ 
+ 	/* Mount FS and release the backing file.  (10s wait time) */
+-	if (mount_fs(mount_dir, backing_dir, 10000) != 0)
++	if (mount_fs_opt(mount_dir, backing_dir,
++			 "read_timeout_ms=10000,report_uid", false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+@@ -1773,7 +1823,7 @@ static int multiple_providers_test(const char *mount_dir)
+ 			 * pending reads.
+ 			 */
+ 
+-			ret = data_producer(mount_dir, &test);
++			ret = data_producer2(mount_dir, &test);
+ 			exit(-ret);
+ 		} else if (producer_pid > 0) {
+ 			producer_pids[i] = producer_pid;
+@@ -1949,10 +1999,12 @@ enum expected_log { FULL_LOG, NO_LOG, PARTIAL_LOG };
+ 
+ static int validate_logs(const char *mount_dir, int log_fd,
+ 			 struct test_file *file,
+-			 enum expected_log expected_log)
++			 enum expected_log expected_log,
++			 bool report_uid)
+ {
+ 	uint8_t data[INCFS_DATA_FILE_BLOCK_SIZE];
+ 	struct incfs_pending_read_info prs[2048] = {};
++	struct incfs_pending_read_info2 prs2[2048] = {};
+ 	int prs_size = ARRAY_SIZE(prs);
+ 	int block_cnt = 1 + (file->size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
+ 	int expected_read_block_cnt;
+@@ -1989,8 +2041,15 @@ static int validate_logs(const char *mount_dir, int log_fd,
+ 			goto failure;
+ 	}
+ 
+-	read_count = wait_for_pending_reads(
+-		log_fd, expected_log == NO_LOG ? 10 : 0, prs, prs_size);
++	if (report_uid)
++		read_count = wait_for_pending_reads2(log_fd,
++				expected_log == NO_LOG ? 10 : 0,
++				prs2, prs_size);
++	else
++		read_count = wait_for_pending_reads(log_fd,
++				expected_log == NO_LOG ? 10 : 0,
++				prs, prs_size);
++
+ 	if (expected_log == NO_LOG) {
+ 		if (read_count == 0)
+ 			goto success;
+@@ -2027,7 +2086,9 @@ static int validate_logs(const char *mount_dir, int log_fd,
+ 	}
+ 
+ 	for (j = 0; j < read_count; i++, j++) {
+-		struct incfs_pending_read_info *read = &prs[j];
++		struct incfs_pending_read_info *read = report_uid ?
++			(struct incfs_pending_read_info *) &prs2[j] :
++			&prs[j];
+ 
+ 		if (!same_id(&read->file_id, &file->id)) {
+ 			ksft_print_msg("Bad log read ino %s\n", file->name);
+@@ -2041,7 +2102,9 @@ static int validate_logs(const char *mount_dir, int log_fd,
+ 		}
+ 
+ 		if (j != 0) {
+-			unsigned long psn = prs[j - 1].serial_number;
++			unsigned long psn = (report_uid) ?
++				prs2[j - 1].serial_number :
++				prs[j - 1].serial_number;
+ 
+ 			if (read->serial_number != psn + 1) {
+ 				ksft_print_msg("Bad log read sn %s %d %d.\n",
+@@ -2075,14 +2138,15 @@ static int read_log_test(const char *mount_dir)
+ 	struct test_files_set test = get_test_files_set();
+ 	const int file_num = test.files_count;
+ 	int i = 0;
+-	int cmd_fd = -1, log_fd = -1, drop_caches = -1;
++	int cmd_fd = -1, log_fd = -1;
+ 	char *backing_dir;
+ 
+ 	backing_dir = create_backing_dir(mount_dir);
+ 	if (!backing_dir)
+ 		goto failure;
+ 
+-	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,report_uid",
++				 false) != 0)
+ 		goto failure;
+ 
+ 	cmd_fd = open_commands_file(mount_dir);
+@@ -2109,7 +2173,7 @@ static int read_log_test(const char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file, FULL_LOG))
++		if (validate_logs(mount_dir, log_fd, file, FULL_LOG, true))
+ 			goto failure;
+ 	}
+ 
+@@ -2137,7 +2201,7 @@ static int read_log_test(const char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file, FULL_LOG))
++		if (validate_logs(mount_dir, log_fd, file, FULL_LOG, false))
+ 			goto failure;
+ 	}
+ 
+@@ -2164,19 +2228,14 @@ static int read_log_test(const char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file, NO_LOG))
++		if (validate_logs(mount_dir, log_fd, file, NO_LOG, false))
+ 			goto failure;
+ 	}
+ 
+ 	/*
+ 	 * Remount and check that logs start working again
+ 	 */
+-	drop_caches = open("/proc/sys/vm/drop_caches", O_WRONLY | O_CLOEXEC);
+-	if (drop_caches == -1)
+-		goto failure;
+-	i = write(drop_caches, "3", 1);
+-	close(drop_caches);
+-	if (i != 1)
++	if (drop_caches())
+ 		goto failure;
+ 
+ 	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=1",
+@@ -2187,19 +2246,14 @@ static int read_log_test(const char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file, PARTIAL_LOG))
++		if (validate_logs(mount_dir, log_fd, file, PARTIAL_LOG, false))
+ 			goto failure;
+ 	}
+ 
+ 	/*
+ 	 * Remount and check that logs start working again
+ 	 */
+-	drop_caches = open("/proc/sys/vm/drop_caches", O_WRONLY | O_CLOEXEC);
+-	if (drop_caches == -1)
+-		goto failure;
+-	i = write(drop_caches, "3", 1);
+-	close(drop_caches);
+-	if (i != 1)
++	if (drop_caches())
+ 		goto failure;
+ 
+ 	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0,rlog_pages=4",
+@@ -2210,7 +2264,7 @@ static int read_log_test(const char *mount_dir)
+ 	for (i = 0; i < file_num; i++) {
+ 		struct test_file *file = &test.files[i];
+ 
+-		if (validate_logs(mount_dir, log_fd, file, FULL_LOG))
++		if (validate_logs(mount_dir, log_fd, file, PARTIAL_LOG, false))
+ 			goto failure;
+ 	}
+ 
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.c b/tools/testing/selftests/filesystems/incfs/utils.c
+index a80123294d5a..3bc1449c16da 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.c
++++ b/tools/testing/selftests/filesystems/incfs/utils.c
+@@ -272,6 +272,34 @@ int wait_for_pending_reads(int fd, int timeout_ms,
+ 	return read_res / sizeof(*prs);
+ }
+ 
++int wait_for_pending_reads2(int fd, int timeout_ms,
++	struct incfs_pending_read_info2 *prs, int prs_count)
++{
++	ssize_t read_res = 0;
++
++	if (timeout_ms > 0) {
++		int poll_res = 0;
++		struct pollfd pollfd = {
++			.fd = fd,
++			.events = POLLIN
++		};
++
++		poll_res = poll(&pollfd, 1, timeout_ms);
++		if (poll_res < 0)
++			return -errno;
++		if (poll_res == 0)
++			return 0;
++		if (!(pollfd.revents | POLLIN))
++			return 0;
++	}
++
++	read_res = read(fd, prs, prs_count * sizeof(*prs));
++	if (read_res < 0)
++		return -errno;
++
++	return read_res / sizeof(*prs);
++}
++
+ char *concat_file_name(const char *dir, char *file)
+ {
+ 	char full_name[FILENAME_MAX] = "";
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.h b/tools/testing/selftests/filesystems/incfs/utils.h
+index 5b59272dbb7f..39eb60333637 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.h
++++ b/tools/testing/selftests/filesystems/incfs/utils.h
+@@ -55,6 +55,9 @@ int open_log_file(const char *mount_dir);
+ int wait_for_pending_reads(int fd, int timeout_ms,
+ 	struct incfs_pending_read_info *prs, int prs_count);
+ 
++int wait_for_pending_reads2(int fd, int timeout_ms,
++	struct incfs_pending_read_info2 *prs, int prs_count);
++
+ char *concat_file_name(const char *dir, char *file);
+ 
+ void sha256(const char *data, size_t dsize, char *hash);
+-- 
+2.17.1
+

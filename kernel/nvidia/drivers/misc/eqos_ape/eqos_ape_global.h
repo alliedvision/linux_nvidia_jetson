@@ -3,7 +3,7 @@
  *
  * A header file for AMISC
  *
- * Copyright (C) 2016 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2016-2022 NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -83,4 +83,5 @@ void amisc_ape_set_rate(int rate);
 int amisc_plla_get_rate(void);
 void amisc_plla_set_rate(int rate);
 
+extern struct eqos_drvdata *eqos_ape_drv_data;
 #endif /* __EQOS_APE_GLOBAL_H__ */

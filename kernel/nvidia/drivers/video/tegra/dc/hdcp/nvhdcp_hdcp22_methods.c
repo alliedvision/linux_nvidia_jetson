@@ -1,7 +1,7 @@
 /*
  * nvhdcp_hdcp22_methods.c: hdcp 2.2 interface.
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -30,8 +30,8 @@
 #include <linux/tsec.h>
 
 #include "tsec/tsec_methods.h"
-#include "nvhdcp_hdcp22_methods.h"
 #include "tsec_drv.h"
+#include "nvhdcp_hdcp22_methods.h"
 
 #define hdcp_debug(...)       \
 		pr_debug("hdcp: " __VA_ARGS__)
@@ -505,7 +505,7 @@ int tsec_hdcp_srm_read(struct hdcp_context_t *hdcp_context,
 		return -ENOENT;
 	}
 	seg = get_fs();
-	set_fs(get_ds());
+	set_fs(KERNEL_DS);
 	/* copy SRM to buffer */
 	vfs_read(fp, (u8 *)hdcp_context->cpuvaddr_srm,
 		HDCP_SRM_SIZE, &fp->f_pos);

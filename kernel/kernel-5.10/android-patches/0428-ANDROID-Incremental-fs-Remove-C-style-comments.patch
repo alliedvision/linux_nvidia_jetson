@@ -1,0 +1,63 @@
+From 5c1a82a239e2210fa77d74c34cb95fbb18a2cc5a Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 5 Feb 2020 09:30:55 -0800
+Subject: [PATCH 428/830] ANDROID: Incremental fs: Remove C++-style comments
+X-NVConfidentiality: public
+
+Change-Id: I89e1dc6020e596fb36694f8646f78b98f7ad4a7f
+Bug: 133435829
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ fs/incfs/vfs.c                     | 12 +++++++-----
+ include/uapi/linux/incrementalfs.h |  5 +++--
+ 2 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 248b31587128..17cf59f9c92c 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -866,9 +866,10 @@ static struct signature_info *incfs_copy_signature_info_from_user(
+ 			goto err;
+ 		}
+ 
+-		// TODO this sets the root_hash length to MAX_HASH_SIZE not
+-		// the actual size. Fix, then set INCFS_MAX_HASH_SIZE back
+-		// to 64
++		/* TODO this sets the root_hash length to MAX_HASH_SIZE not
++		 * the actual size. Fix, then set INCFS_MAX_HASH_SIZE back
++		 * to 64
++		 */
+ 		result->root_hash = range(p, INCFS_MAX_HASH_SIZE);
+ 		if (copy_from_user(p, u64_to_user_ptr(usr_si.root_hash),
+ 				result->root_hash.len) > 0) {
+@@ -1003,8 +1004,9 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 				goto out;
+ 			}
+ 
+-			// TODO This code seems wrong when len is zero - we
+-			// should error out??
++			/* TODO This code seems wrong when len is zero - we
++			 * should error out??
++			 */
+ 			if (si->signature.len > 0)
+ 				error = incfs_validate_pkcs7_signature(
+ 						si->signature,
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 8a06e2e48fc4..b257b9f0ec3f 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -22,8 +22,9 @@
+ #define INCFS_DATA_FILE_BLOCK_SIZE 4096
+ #define INCFS_HEADER_VER 1
+ 
+-// TODO: This value is assumed in incfs_copy_signature_info_from_user to be the
+-// actual signature length. Set back to 64 when fixed.
++/* TODO: This value is assumed in incfs_copy_signature_info_from_user to be the
++ * actual signature length. Set back to 64 when fixed.
++ */
+ #define INCFS_MAX_HASH_SIZE 32
+ #define INCFS_MAX_FILE_ATTR_SIZE 512
+ 
+-- 
+2.17.1
+

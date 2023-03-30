@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +20,12 @@
 #include <linux/platform/tegra/latency_allowance.h>
 #include <linux/platform/tegra/mc-regs-t21x.h>
 #include <linux/platform/tegra/mc.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "la_priv.h"
 
@@ -200,6 +205,7 @@ static u32 get_mem_bw_mbps(u32 dram_freq)
 
 static bool is_t210b01_soc(void)
 {
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	u32 chipid, major;
 
 	chipid = tegra_hidrev_get_chipid(tegra_read_chipid());
@@ -209,6 +215,9 @@ static bool is_t210b01_soc(void)
 		return true;
 
 	return false;
+#else
+	return is_t210b01_sku();
+#endif
 }
 
 /*

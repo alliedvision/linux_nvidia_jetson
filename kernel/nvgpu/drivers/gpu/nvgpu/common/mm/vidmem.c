@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
  */
 
 #include <nvgpu/bug.h>
+#include <nvgpu/ce_app.h>
 #include <nvgpu/timers.h>
 #include <nvgpu/dma.h>
 #include <nvgpu/vidmem.h>
@@ -28,9 +29,9 @@
 #include <nvgpu/enabled.h>
 #include <nvgpu/sizes.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/nvgpu_sgt.h>
+#include <nvgpu/fence.h>
 
-#include "gk20a/mm_gk20a.h"
-#include "gk20a/fence_gk20a.h"
 
 /*
  * This is expected to be called from the shutdown path (or the error path in
@@ -41,10 +42,11 @@ void nvgpu_vidmem_destroy(struct gk20a *g)
 {
 	struct nvgpu_timeout timeout;
 
-	if (!g->ops.fb.get_vidmem_size)
+	if (g->ops.fb.get_vidmem_size == NULL) {
 		return;
+	}
 
-	nvgpu_timeout_init(g, &timeout, 100, NVGPU_TIMER_RETRY_TIMER);
+	nvgpu_timeout_init_retry(g, &timeout, 100);
 
 	/*
 	 * Ensure that the thread runs one last time to flush anything in the
@@ -63,11 +65,12 @@ void nvgpu_vidmem_destroy(struct gk20a *g)
 		empty = nvgpu_list_empty(&g->mm.vidmem.clear_list_head);
 		nvgpu_mutex_release(&g->mm.vidmem.clear_list_mutex);
 
-		if (empty)
+		if (empty) {
 			break;
+		}
 
 		nvgpu_msleep(10);
-	} while (!nvgpu_timeout_expired(&timeout));
+	} while (nvgpu_timeout_expired(&timeout) == 0);
 
 	/*
 	 * Kill the vidmem clearing thread now. This will wake the thread up
@@ -75,25 +78,60 @@ void nvgpu_vidmem_destroy(struct gk20a *g)
 	 */
 	nvgpu_thread_stop(&g->mm.vidmem.clearing_thread);
 
-	if (nvgpu_alloc_initialized(&g->mm.vidmem.allocator))
+	if (nvgpu_alloc_initialized(&g->mm.vidmem.allocator)) {
 		nvgpu_alloc_destroy(&g->mm.vidmem.allocator);
+	}
 
-	if (nvgpu_alloc_initialized(&g->mm.vidmem.bootstrap_allocator))
+	if (nvgpu_alloc_initialized(&g->mm.vidmem.bootstrap_allocator)) {
 		nvgpu_alloc_destroy(&g->mm.vidmem.bootstrap_allocator);
+	}
 }
 
-static int __nvgpu_vidmem_do_clear_all(struct gk20a *g)
+static int nvgpu_vidmem_clear_fence_wait(struct gk20a *g,
+		struct nvgpu_fence_type *fence_out)
+{
+	struct nvgpu_timeout timeout;
+	bool done;
+	int err;
+
+	nvgpu_timeout_init_cpu_timer(g, &timeout, nvgpu_get_poll_timeout(g));
+
+	do {
+		err = nvgpu_fence_wait(g, fence_out,
+				       nvgpu_get_poll_timeout(g));
+		if (err != -ERESTARTSYS) {
+			done = true;
+		} else if (nvgpu_timeout_expired(&timeout) != 0) {
+			done = true;
+		} else {
+			done = false;
+		}
+	} while (!done);
+
+	nvgpu_fence_put(fence_out);
+	if (err != 0) {
+		nvgpu_err(g,
+			"fence wait failed for CE execute ops");
+		return err;
+	}
+
+	return 0;
+}
+
+static int nvgpu_vidmem_do_clear_all(struct gk20a *g)
 {
 	struct mm_gk20a *mm = &g->mm;
-	struct gk20a_fence *gk20a_fence_out = NULL;
+	struct nvgpu_fence_type *fence_out = NULL;
 	int err = 0;
 
-	if (mm->vidmem.ce_ctx_id == (u32)~0)
+	if (mm->vidmem.ce_ctx_id == NVGPU_CE_INVAL_CTX_ID) {
 		return -EINVAL;
+	}
 
 	vidmem_dbg(g, "Clearing all VIDMEM:");
 
-	err = gk20a_ce_execute_ops(g,
+#ifdef CONFIG_NVGPU_DGPU
+	err = nvgpu_ce_execute_ops(g,
 			mm->vidmem.ce_ctx_id,
 			0,
 			mm->vidmem.base,
@@ -102,30 +140,20 @@ static int __nvgpu_vidmem_do_clear_all(struct gk20a *g)
 			NVGPU_CE_DST_LOCATION_LOCAL_FB,
 			NVGPU_CE_MEMSET,
 			0,
-			&gk20a_fence_out);
-	if (err) {
+			&fence_out);
+	if (err != 0) {
 		nvgpu_err(g,
 			"Failed to clear vidmem : %d", err);
 		return err;
 	}
+#else
+	/* fail due to lack of ce app support */
+	return -ENOSYS;
+#endif
 
-	if (gk20a_fence_out) {
-		struct nvgpu_timeout timeout;
-
-		nvgpu_timeout_init(g, &timeout,
-				   gk20a_get_gr_idle_timeout(g),
-				   NVGPU_TIMER_CPU_TIMER);
-
-		do {
-			err = gk20a_fence_wait(g, gk20a_fence_out,
-					       gk20a_get_gr_idle_timeout(g));
-		} while (err == -ERESTARTSYS &&
-			 !nvgpu_timeout_expired(&timeout));
-
-		gk20a_fence_put(gk20a_fence_out);
-		if (err) {
-			nvgpu_err(g,
-				"fence wait failed for CE execute ops");
+	if (fence_out != NULL) {
+		err = nvgpu_vidmem_clear_fence_wait(g, fence_out);
+		if (err != 0) {
 			return err;
 		}
 	}
@@ -151,8 +179,9 @@ void nvgpu_vidmem_thread_pause_sync(struct mm_gk20a *mm)
 	 * released by the clearing thread in case the thread is currently
 	 * processing work items.
 	 */
-	if (nvgpu_atomic_inc_return(&mm->vidmem.pause_count) == 1)
+	if (nvgpu_atomic_inc_return(&mm->vidmem.pause_count) == 1) {
 		nvgpu_mutex_acquire(&mm->vidmem.clearing_thread_lock);
+	}
 
 	vidmem_dbg(mm->g, "Clearing thread paused; new count=%d",
 		   nvgpu_atomic_read(&mm->vidmem.pause_count));
@@ -186,13 +215,14 @@ int nvgpu_vidmem_clear_list_enqueue(struct gk20a *g, struct nvgpu_mem *mem)
 	 * free function which will attempt to enqueue the vidmem into the
 	 * vidmem clearing thread.
 	 */
-	if (nvgpu_is_enabled(g, NVGPU_DRIVER_IS_DYING))
+	if (nvgpu_is_enabled(g, NVGPU_DRIVER_IS_DYING)) {
 		return -ENOSYS;
+	}
 
 	nvgpu_mutex_acquire(&mm->vidmem.clear_list_mutex);
 	nvgpu_list_add_tail(&mem->clear_list_entry,
 			    &mm->vidmem.clear_list_head);
-	nvgpu_atomic64_add(mem->aligned_size, &mm->vidmem.bytes_pending);
+	nvgpu_atomic64_add((long)mem->aligned_size, &mm->vidmem.bytes_pending);
 	nvgpu_mutex_release(&mm->vidmem.clear_list_mutex);
 
 	nvgpu_cond_signal_interruptible(&mm->vidmem.clearing_thread_cond);
@@ -219,18 +249,22 @@ static void nvgpu_vidmem_clear_pending_allocs(struct mm_gk20a *mm)
 {
 	struct gk20a *g = mm->g;
 	struct nvgpu_mem *mem;
+	int err;
 
 	vidmem_dbg(g, "Running VIDMEM clearing thread:");
 
 	while ((mem = nvgpu_vidmem_clear_list_dequeue(mm)) != NULL) {
-		nvgpu_vidmem_clear(g, mem);
+		err = nvgpu_vidmem_clear(g, mem);
+		if (err != 0) {
+			nvgpu_err(g, "nvgpu_vidmem_clear() failed err=%d", err);
+		}
 
-		WARN_ON(nvgpu_atomic64_sub_return(mem->aligned_size,
+		WARN_ON(nvgpu_atomic64_sub_return((long)mem->aligned_size,
 					&g->mm.vidmem.bytes_pending) < 0);
 		mem->size = 0;
 		mem->aperture = APERTURE_INVALID;
 
-		__nvgpu_mem_free_vidmem_alloc(g, mem);
+		nvgpu_mem_free_vidmem_alloc(g, mem);
 		nvgpu_kfree(g, mem);
 	}
 
@@ -262,17 +296,20 @@ static int nvgpu_vidmem_clear_pending_allocs_thr(void *mm_ptr)
 				nvgpu_thread_should_stop(
 					&mm->vidmem.clearing_thread) ||
 				!nvgpu_list_empty(&mm->vidmem.clear_list_head),
-				0);
-		if (ret == -ERESTARTSYS)
+				0U);
+		if (ret == -ERESTARTSYS) {
 			continue;
+		}
 
 		/*
 		 * Use this lock to implement a pause mechanism. By taking this
 		 * lock some other code can prevent this thread from processing
 		 * work items.
 		 */
-		if (!nvgpu_mutex_tryacquire(&mm->vidmem.clearing_thread_lock))
+		if (nvgpu_mutex_tryacquire(&mm->vidmem.clearing_thread_lock)
+									== 0) {
 			continue;
+		}
 
 		nvgpu_vidmem_clear_pending_allocs(mm);
 
@@ -293,12 +330,28 @@ int nvgpu_vidmem_init(struct mm_gk20a *mm)
 	static struct nvgpu_alloc_carveout bootstrap_co =
 		NVGPU_CARVEOUT("bootstrap-region", 0, 0);
 
-	size = g->ops.fb.get_vidmem_size ?
-			g->ops.fb.get_vidmem_size(g) : 0;
-	if (!size)
+	if (g->ops.fb.get_vidmem_size ==  NULL) {
+
+		/*
+		 * As it is a common function, the return value
+		 * need to be handled for igpu.
+		 */
 		return 0;
+	} else {
+		size = g->ops.fb.get_vidmem_size(g);
+		if (size == 0UL) {
+			nvgpu_err(g, "Found zero vidmem");
+			return -ENOMEM;
+		}
+	}
 
 	vidmem_dbg(g, "init begin");
+
+#ifdef CONFIG_NVGPU_SIM
+	if (nvgpu_is_enabled(g, NVGPU_IS_FMODEL)) {
+		bootstrap_size = SZ_32M;
+	}
+#endif
 
 	bootstrap_co.base = size - bootstrap_size;
 	bootstrap_co.length = bootstrap_size;
@@ -311,24 +364,28 @@ int nvgpu_vidmem_init(struct mm_gk20a *mm)
 	 * initialization requires vidmem but we want to use the CE to zero
 	 * out vidmem before allocating it...
 	 */
-	err = nvgpu_page_allocator_init(g, &g->mm.vidmem.bootstrap_allocator,
-					"vidmem-bootstrap",
-					bootstrap_base, bootstrap_size,
-					SZ_4K, GPU_ALLOC_FORCE_CONTIG);
+	err = nvgpu_allocator_init(g, &g->mm.vidmem.bootstrap_allocator,
+				NULL, "vidmem-bootstrap", bootstrap_base,
+				bootstrap_size,	SZ_4K, 0ULL,
+				GPU_ALLOC_FORCE_CONTIG, PAGE_ALLOCATOR);
 
-	err = nvgpu_page_allocator_init(g, &g->mm.vidmem.allocator,
-					"vidmem",
-					base, size - base,
-					default_page_size,
-					GPU_ALLOC_4K_VIDMEM_PAGES);
-	if (err) {
+	err = nvgpu_allocator_init(g, &g->mm.vidmem.allocator, NULL,
+			"vidmem", base, size - base, default_page_size, 0ULL,
+			GPU_ALLOC_4K_VIDMEM_PAGES, PAGE_ALLOCATOR);
+	if (err != 0) {
 		nvgpu_err(g, "Failed to register vidmem for size %zu: %d",
 				size, err);
 		return err;
 	}
 
 	/* Reserve bootstrap region in vidmem allocator */
-	nvgpu_alloc_reserve_carveout(&g->mm.vidmem.allocator, &bootstrap_co);
+	err = nvgpu_alloc_reserve_carveout(&g->mm.vidmem.allocator,
+		&bootstrap_co);
+	if (err != 0) {
+		nvgpu_err(g, "nvgpu_alloc_reserve_carveout() failed err=%d",
+			err);
+		goto fail;
+	}
 
 	mm->vidmem.base = base;
 	mm->vidmem.size = size - base;
@@ -336,14 +393,17 @@ int nvgpu_vidmem_init(struct mm_gk20a *mm)
 	mm->vidmem.bootstrap_size = bootstrap_size;
 
 	err = nvgpu_cond_init(&mm->vidmem.clearing_thread_cond);
-	if (err)
+	if (err != 0) {
 		goto fail;
+	}
 
 	nvgpu_atomic64_set(&mm->vidmem.bytes_pending, 0);
 	nvgpu_init_list_node(&mm->vidmem.clear_list_head);
+
 	nvgpu_mutex_init(&mm->vidmem.clear_list_mutex);
 	nvgpu_mutex_init(&mm->vidmem.clearing_thread_lock);
 	nvgpu_mutex_init(&mm->vidmem.first_clear_mutex);
+
 	nvgpu_atomic_set(&mm->vidmem.pause_count, 0);
 
 	/*
@@ -358,8 +418,9 @@ int nvgpu_vidmem_init(struct mm_gk20a *mm)
 	err = nvgpu_thread_create(&mm->vidmem.clearing_thread, mm,
 				  nvgpu_vidmem_clear_pending_allocs_thr,
 				  "vidmem-clear");
-	if (err)
+	if (err != 0) {
 		goto fail;
+	}
 
 	vidmem_dbg(g, "VIDMEM Total: %zu MB", size >> 20);
 	vidmem_dbg(g, "VIDMEM Ranges:");
@@ -387,36 +448,36 @@ int nvgpu_vidmem_get_space(struct gk20a *g, u64 *space)
 
 	nvgpu_log_fn(g, " ");
 
-	if (!nvgpu_alloc_initialized(allocator))
+	if (!nvgpu_alloc_initialized(allocator)) {
 		return -ENOSYS;
+	}
 
-	nvgpu_mutex_acquire(&g->mm.vidmem.clear_list_mutex);
 	*space = nvgpu_alloc_space(allocator) +
-		nvgpu_atomic64_read(&g->mm.vidmem.bytes_pending);
-	nvgpu_mutex_release(&g->mm.vidmem.clear_list_mutex);
+		U64(nvgpu_atomic64_read(&g->mm.vidmem.bytes_pending));
 	return 0;
 }
 
 int nvgpu_vidmem_clear(struct gk20a *g, struct nvgpu_mem *mem)
 {
-	struct gk20a_fence *gk20a_fence_out = NULL;
-	struct gk20a_fence *gk20a_last_fence = NULL;
+	struct nvgpu_fence_type *fence_out = NULL;
+	struct nvgpu_fence_type *last_fence = NULL;
 	struct nvgpu_page_alloc *alloc = NULL;
-	struct nvgpu_sgl *sgl = NULL;
+	void *sgl = NULL;
 	int err = 0;
 
-	if (g->mm.vidmem.ce_ctx_id == (u32)~0)
+	if (g->mm.vidmem.ce_ctx_id == NVGPU_CE_INVAL_CTX_ID) {
 		return -EINVAL;
+	}
 
 	alloc = mem->vidmem_alloc;
 
-	vidmem_dbg(g, "Clearing VIDMEM buf:");
-
 	nvgpu_sgt_for_each_sgl(sgl, &alloc->sgt) {
-		if (gk20a_last_fence)
-			gk20a_fence_put(gk20a_last_fence);
+		if (last_fence != NULL) {
+			nvgpu_fence_put(last_fence);
+		}
 
-		err = gk20a_ce_execute_ops(g,
+#ifdef CONFIG_NVGPU_DGPU
+		err = nvgpu_ce_execute_ops(g,
 			g->mm.vidmem.ce_ctx_id,
 			0,
 			nvgpu_sgt_get_phys(g, &alloc->sgt, sgl),
@@ -425,11 +486,17 @@ int nvgpu_vidmem_clear(struct gk20a *g, struct nvgpu_mem *mem)
 			NVGPU_CE_DST_LOCATION_LOCAL_FB,
 			NVGPU_CE_MEMSET,
 			0,
-			&gk20a_fence_out);
+			&fence_out);
+#else
+		/* fail due to lack of ce app support */
+		err = -ENOSYS;
+#endif
 
-		if (err) {
+		if (err != 0) {
+#ifdef CONFIG_NVGPU_DGPU
 			nvgpu_err(g,
-				"Failed gk20a_ce_execute_ops[%d]", err);
+				"Failed nvgpu_ce_execute_ops[%d]", err);
+#endif
 			return err;
 		}
 
@@ -437,26 +504,14 @@ int nvgpu_vidmem_clear(struct gk20a *g, struct nvgpu_mem *mem)
 			   nvgpu_sgt_get_phys(g, &alloc->sgt, sgl),
 			   nvgpu_sgt_get_length(&alloc->sgt, sgl));
 
-		gk20a_last_fence = gk20a_fence_out;
+		last_fence = fence_out;
 	}
 
-	if (gk20a_last_fence) {
-		struct nvgpu_timeout timeout;
-
-		nvgpu_timeout_init(g, &timeout,
-				   gk20a_get_gr_idle_timeout(g),
-				   NVGPU_TIMER_CPU_TIMER);
-
-		do {
-			err = gk20a_fence_wait(g, gk20a_last_fence,
-					       gk20a_get_gr_idle_timeout(g));
-		} while (err == -ERESTARTSYS &&
-			 !nvgpu_timeout_expired(&timeout));
-
-		gk20a_fence_put(gk20a_last_fence);
-		if (err)
-			nvgpu_err(g,
-				"fence wait failed for CE execute ops");
+	if (last_fence != NULL) {
+		err = nvgpu_vidmem_clear_fence_wait(g, last_fence);
+		if (err != 0) {
+			return err;
+		}
 	}
 
 	vidmem_dbg(g, "  Done");
@@ -468,13 +523,14 @@ static int nvgpu_vidmem_clear_all(struct gk20a *g)
 {
 	int err;
 
-	if (g->mm.vidmem.cleared)
+	if (g->mm.vidmem.cleared) {
 		return 0;
+	}
 
 	nvgpu_mutex_acquire(&g->mm.vidmem.first_clear_mutex);
 	if (!g->mm.vidmem.cleared) {
-		err = __nvgpu_vidmem_do_clear_all(g);
-		if (err) {
+		err = nvgpu_vidmem_do_clear_all(g);
+		if (err != 0) {
 			nvgpu_mutex_release(&g->mm.vidmem.first_clear_mutex);
 			nvgpu_err(g, "failed to clear whole vidmem");
 			return err;
@@ -485,29 +541,37 @@ static int nvgpu_vidmem_clear_all(struct gk20a *g)
 	return 0;
 }
 
-struct nvgpu_vidmem_buf *nvgpu_vidmem_user_alloc(struct gk20a *g, size_t bytes)
+int nvgpu_vidmem_user_alloc(struct gk20a *g, size_t bytes,
+				struct nvgpu_vidmem_buf **vidmem_buf)
 {
 	struct nvgpu_vidmem_buf *buf;
 	int err;
 
+	if (vidmem_buf == NULL) {
+		return -EINVAL;
+	}
+
 	err = nvgpu_vidmem_clear_all(g);
-	if (err)
-		return ERR_PTR(-ENOMEM);
+	if (err != 0) {
+		return -ENOMEM;
+	}
 
 	buf = nvgpu_kzalloc(g, sizeof(*buf));
-	if (!buf)
-		return ERR_PTR(-ENOMEM);
+	if (buf == NULL) {
+		return -ENOMEM;
+	}
 
 	buf->g = g;
 	buf->mem = nvgpu_kzalloc(g, sizeof(*buf->mem));
-	if (!buf->mem) {
+	if (buf->mem == NULL) {
 		err = -ENOMEM;
 		goto fail;
 	}
 
 	err = nvgpu_dma_alloc_vid(g, bytes, buf->mem);
-	if (err)
+	if (err != 0) {
 		goto fail;
+	}
 
 	/*
 	 * Alerts the DMA API that when we free this vidmem buf we have to
@@ -515,13 +579,15 @@ struct nvgpu_vidmem_buf *nvgpu_vidmem_user_alloc(struct gk20a *g, size_t bytes)
 	 */
 	buf->mem->mem_flags |= NVGPU_MEM_FLAG_USER_MEM;
 
-	return buf;
+	*vidmem_buf = buf;
+
+	return 0;
 
 fail:
 	/* buf will never be NULL here. */
 	nvgpu_kfree(g, buf->mem);
 	nvgpu_kfree(g, buf);
-	return ERR_PTR(err);
+	return err;
 }
 
 void nvgpu_vidmem_buf_free(struct gk20a *g, struct nvgpu_vidmem_buf *buf)
@@ -529,8 +595,9 @@ void nvgpu_vidmem_buf_free(struct gk20a *g, struct nvgpu_vidmem_buf *buf)
 	/*
 	 * In some error paths it's convenient to be able to "free" a NULL buf.
 	 */
-	if (IS_ERR_OR_NULL(buf))
+	if (buf == NULL) {
 		return;
+	}
 
 	nvgpu_dma_free(g, buf->mem);
 

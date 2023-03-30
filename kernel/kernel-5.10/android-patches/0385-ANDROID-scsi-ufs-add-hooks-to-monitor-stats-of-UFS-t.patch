@@ -1,0 +1,83 @@
+From aeff053d6be927839f99bc0266b4db13eb189166 Mon Sep 17 00:00:00 2001
+From: Jaegeuk Kim <jaegeuk@google.com>
+Date: Tue, 6 Oct 2020 17:45:55 -0700
+Subject: [PATCH 385/830] ANDROID: scsi: ufs: add hooks to monitor stats of UFS
+ traffic
+X-NVConfidentiality: public
+
+This requires for UFS stat implementations.
+
+Bug: 158050260
+Signed-off-by: Jaegeuk Kim <jaegeuk@google.com>
+Change-Id: I7b692ad1dbca1aa3f37b10d7ab91e89499bb68cd
+---
+ drivers/scsi/ufs/ufshcd.c |  2 ++
+ drivers/scsi/ufs/ufshcd.h | 18 ++++++++++++++++++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 898ade7bdc05..b5ef61c3a10c 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -1984,6 +1984,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
+ 	lrbp->issue_time_stamp = ktime_get();
+ 	lrbp->compl_time_stamp = ktime_set(0, 0);
+ 	ufshcd_vops_setup_xfer_req(hba, task_tag, (lrbp->cmd ? true : false));
++	ufshcd_vops_send_command(hba, lrbp);
+ 	ufshcd_add_command_trace(hba, task_tag, "send");
+ 	ufshcd_clk_scaling_start_busy(hba);
+ 	__set_bit(task_tag, &hba->outstanding_reqs);
+@@ -5156,6 +5157,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
+ 		lrbp->compl_time_stamp = ktime_get();
+ 		cmd = lrbp->cmd;
+ 		if (cmd) {
++			ufshcd_vops_compl_command(hba, lrbp);
+ 			ufshcd_add_command_trace(hba, index, "complete");
+ 			result = ufshcd_transfer_rsp_status(hba, lrbp);
+ 			scsi_dma_unmap(cmd);
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index dfcaa1569b21..90944b63e673 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -301,6 +301,8 @@ struct ufs_pwr_mode_info {
+  *	       variant-specific PRDT fields can be initialized too
+  * @prepare_command: called when receiving a request in the first place
+  * @update_sysfs: adds vendor-specific sysfs entries
++ * @send_command: adds vendor-specific work when sending a command
++ * @compl_command: adds vendor-specific work when completing a command
+  */
+ struct ufs_hba_variant_ops {
+ 	const char *name;
+@@ -345,6 +347,8 @@ struct ufs_hba_variant_ops {
+ 	void    (*prepare_command)(struct ufs_hba *hba,
+ 				struct request *rq, struct ufshcd_lrb *lrbp);
+ 	int     (*update_sysfs)(struct ufs_hba *hba);
++	void	(*send_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
++	void	(*compl_command)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+ };
+ 
+ /* clock gating state  */
+@@ -1349,6 +1353,20 @@ static inline int ufshcd_vops_update_sysfs(struct ufs_hba *hba)
+ 	return 0;
+ }
+ 
++static inline void ufshcd_vops_send_command(struct ufs_hba *hba,
++				struct ufshcd_lrb *lrbp)
++{
++	if (hba->vops && hba->vops->send_command)
++		hba->vops->send_command(hba, lrbp);
++}
++
++static inline void ufshcd_vops_compl_command(struct ufs_hba *hba,
++				struct ufshcd_lrb *lrbp)
++{
++	if (hba->vops && hba->vops->compl_command)
++		hba->vops->compl_command(hba, lrbp);
++}
++
+ extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
+ 
+ /*
+-- 
+2.17.1
+

@@ -3,7 +3,7 @@
  *
  * Emc dynamic frequency scaling due to APE
  *
- * Copyright (C) 2014-2016, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2014-2020, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -400,7 +400,9 @@ err_out:
 status_t __init emc_dfs_init(struct platform_device *pdev)
 {
 	struct nvadsp_drv_data *drv = platform_get_drvdata(pdev);
+#if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
+#endif
 	int ret = 0;
 
 	einfo = &global_emc_info;
@@ -442,7 +444,12 @@ status_t __init emc_dfs_init(struct platform_device *pdev)
 	if (IS_ERR(speedchange_task))
 		return PTR_ERR(speedchange_task);
 
+#if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
 	sched_setscheduler_nocheck(speedchange_task, SCHED_FIFO, &param);
+#else
+	sched_set_fifo(speedchange_task);
+#endif
+
 	get_task_struct(speedchange_task);
 
 	/* NB: wake up so the thread does not look hung to the freezer */

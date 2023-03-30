@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Chip support for T194
  *
- * Copyright (c) 2016-2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -53,14 +53,6 @@ extern struct nvhost_device_data t19_nvenc1_info;
 #if defined(CONFIG_TEGRA_GRHOST_TSEC)
 extern struct nvhost_device_data t19_tsec_info;
 extern struct nvhost_device_data t19_tsecb_info;
-#endif
-#if defined(CONFIG_TEGRA_GRHOST_PVA)
-extern struct nvhost_device_data t19_pva0_info;
-extern struct nvhost_device_data t19_pva1_info;
-#endif
-#if defined(CONFIG_TEGRA_GRHOST_NVDLA)
-extern struct nvhost_device_data t19_nvdla0_info;
-extern struct nvhost_device_data t19_nvdla1_info;
 #endif
 #if defined(CONFIG_TEGRA_GRHOST_SLVSEC)
 extern struct nvhost_device_data t19_slvsec_info;

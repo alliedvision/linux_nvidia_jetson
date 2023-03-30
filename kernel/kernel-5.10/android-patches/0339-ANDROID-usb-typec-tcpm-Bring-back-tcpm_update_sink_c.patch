@@ -1,0 +1,92 @@
+From 57be1057e76bba9c2077e0f9d46424f6b3d9c144 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Tue, 29 Sep 2020 14:23:55 -0700
+Subject: [PATCH 339/830] ANDROID: usb: typec: tcpm: Bring back
+ tcpm_update_sink_capabilities
+X-NVConfidentiality: public
+
+https://lkml.org/lkml/2019/2/12/701 removed
+tcpm_update_sink_capabilities. However, Pixel started using this
+at a later point in time. The client code is not in upstream
+though.
+
+Bug: 169695061
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Change-Id: Icb206c902187c90b38dd14924987725e9977e47c
+---
+ drivers/usb/typec/tcpm/tcpm.c | 43 +++++++++++++++++++++++++++++++++++
+ include/linux/usb/tcpm.h      |  4 ++++
+ 2 files changed, 47 insertions(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpm.c b/drivers/usb/typec/tcpm/tcpm.c
+index ea9f27825313..2a6f5a89edd1 100644
+--- a/drivers/usb/typec/tcpm/tcpm.c
++++ b/drivers/usb/typec/tcpm/tcpm.c
+@@ -5017,6 +5017,49 @@ static int tcpm_fw_get_caps(struct tcpm_port *port,
+ 	return 0;
+ }
+ 
++static int tcpm_copy_pdos(u32 *dest_pdo, const u32 *src_pdo, unsigned int nr_pdo)
++{
++	unsigned int i;
++
++	if (nr_pdo > PDO_MAX_OBJECTS)
++		nr_pdo = PDO_MAX_OBJECTS;
++
++	for (i = 0; i < nr_pdo; i++)
++		dest_pdo[i] = src_pdo[i];
++
++	return nr_pdo;
++}
++
++int tcpm_update_sink_capabilities(struct tcpm_port *port, const u32 *pdo, unsigned int nr_pdo,
++				  unsigned int operating_snk_mw)
++{
++	if (tcpm_validate_caps(port, pdo, nr_pdo))
++		return -EINVAL;
++
++	mutex_lock(&port->lock);
++	port->nr_snk_pdo = tcpm_copy_pdos(port->snk_pdo, pdo, nr_pdo);
++	port->operating_snk_mw = operating_snk_mw;
++	port->update_sink_caps = true;
++
++	switch (port->state) {
++	case SNK_NEGOTIATE_CAPABILITIES:
++	case SNK_NEGOTIATE_PPS_CAPABILITIES:
++	case SNK_READY:
++	case SNK_TRANSITION_SINK:
++	case SNK_TRANSITION_SINK_VBUS:
++		if (port->pps_data.active)
++			tcpm_set_state(port, SNK_NEGOTIATE_PPS_CAPABILITIES, 0);
++		else
++			tcpm_set_state(port, SNK_NEGOTIATE_CAPABILITIES, 0);
++		break;
++	default:
++		break;
++	}
++	mutex_unlock(&port->lock);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(tcpm_update_sink_capabilities);
++
+ /* Power Supply access to expose source power information */
+ enum tcpm_psy_online_states {
+ 	TCPM_PSY_OFFLINE = 0,
+diff --git a/include/linux/usb/tcpm.h b/include/linux/usb/tcpm.h
+index 58c8101bd70a..a206db0f8ad1 100644
+--- a/include/linux/usb/tcpm.h
++++ b/include/linux/usb/tcpm.h
+@@ -151,6 +151,10 @@ struct tcpm_port;
+ struct tcpm_port *tcpm_register_port(struct device *dev, struct tcpc_dev *tcpc);
+ void tcpm_unregister_port(struct tcpm_port *port);
+ 
++int tcpm_update_sink_capabilities(struct tcpm_port *port, const u32 *pdo,
++				  unsigned int nr_pdo,
++				  unsigned int operating_snk_mw);
++
+ void tcpm_vbus_change(struct tcpm_port *port);
+ void tcpm_cc_change(struct tcpm_port *port);
+ void tcpm_sink_frs(struct tcpm_port *port);
+-- 
+2.17.1
+

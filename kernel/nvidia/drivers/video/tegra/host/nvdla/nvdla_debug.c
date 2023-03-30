@@ -1,7 +1,7 @@
 /*
  * NVDLA debug utils
  *
- * Copyright (c) 2016 - 2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,15 +19,12 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/nvhost.h>
-#include "host1x/host1x.h"
-#include "flcn/flcn.h"
-#include "flcn/hw_flcn.h"
-#include "dla_os_interface.h"
 #include <linux/uaccess.h>
-#include <soc/tegra/fuse.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/delay.h>
+#include <linux/version.h>
 
-#include "nvdla/nvdla.h"
+#include "dla_os_interface.h"
+#include "nvdla.h"
 #include "nvdla_debug.h"
 
 /*
@@ -494,6 +491,8 @@ static ssize_t debug_dla_fw_reload_set(struct file *file,
 	struct nvdla_device *nvdla_dev;
 	struct platform_device *pdev;
 	long val;
+	int ref_cnt;
+	unsigned long end_jiffies;
 
 	if (!p)
 		return -EFAULT;
@@ -511,121 +510,44 @@ static ssize_t debug_dla_fw_reload_set(struct file *file,
 	if (!val)
 		return count; /* "0" does nothing */
 
-	nvdla_dbg_info(pdev, "firmware reload requested.\n");
+
+	/* check current power ref count and make forced idle to
+	 * suspend.
+	 */
+	ref_cnt = atomic_read(&pdev->dev.power.usage_count);
+	nvhost_module_idle_mult(pdev, ref_cnt);
+
+	/* check and wait until module is idle (with a timeout) */
+	end_jiffies = jiffies + msecs_to_jiffies(2000);
+	do {
+		msleep(1);
+		ref_cnt = atomic_read(&pdev->dev.power.usage_count);
+	} while (ref_cnt != 0 && time_before(jiffies, end_jiffies));
+
+	if (ref_cnt != 0)
+		return -EBUSY;
+
+	nvdla_dbg_info(pdev, "firmware reload requesting..\n");
 
 	err = flcn_reload_fw(pdev);
 	if (err)
 		return err; /* propagate firmware reload errors */
 
-	return count;
-}
-
-static ssize_t debug_dla_fw_a01_war_set(struct file *file,
-	const char __user *buffer, size_t count, loff_t *off)
-{
-	int err;
-	struct seq_file *p = file->private_data;
-	struct nvdla_device *nvdla_dev;
-	struct platform_device *pdev;
-	long val;
-
-	if (!p)
-		return -EFAULT;
-
-	nvdla_dev = (struct nvdla_device *)p->private;
-	if (!nvdla_dev)
-		return -EFAULT;
-
-	pdev = nvdla_dev->pdev;
-	if (!pdev)
-		return -EFAULT;
-
-	err = kstrtol_from_user(buffer, count, 10, &val);
-	if (err < 0)
-		return err;
-
-	if (val < 0) /* "0" to disable WAR, positive value to enable WAR */
-		return count;
-
-
-	if ((tegra_get_chipid() == TEGRA_CHIPID_TEGRA19) &&
-		(tegra_chip_get_revision() == TEGRA194_REVISION_A01))
-		if (val)
-			nvdla_dev->quirks |= (NVDLA_QUIRK_T194_A01_WAR);
-		else
-			nvdla_dev->quirks &= (~NVDLA_QUIRK_T194_A01_WAR);
-	else
-		nvdla_dbg_info(pdev, "This WAR is valid only for T194-A01.");
+	/* make sure device in clean state by reset */
+	nvhost_module_reset(pdev, true);
 
 	return count;
 }
 
-static int nvdla_fw_ver_tag_show(struct seq_file *s, void *unused)
-{
-	struct nvdla_device *nvdla_dev;
-	struct platform_device *pdev;
-	int err;
-	unsigned int tag;
-	struct flcn *m;
-
-	nvdla_dev = (struct nvdla_device *)s->private;
-	pdev = nvdla_dev->pdev;
-
-	/* update fw_version if engine is not yet powered on */
-	err = nvhost_module_busy(pdev);
-	if (err)
-		return err;
-
-	m = get_flcn(pdev);
-	tag = m->os.bin_ver_tag;
-
-	nvhost_module_idle(pdev);
-
-	seq_printf(s, "%x\n", tag);
-
-	return 0;
-}
-
-static int nvdla_fw_ver_tag_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, nvdla_fw_ver_tag_show, inode->i_private);
-}
-
-static const struct file_operations nvdla_fw_ver_tag_fops = {
-	.open		= nvdla_fw_ver_tag_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
 static int debug_dla_fw_reload_show(struct seq_file *s, void *data)
 {
 	seq_puts(s, "0\n");
 	return 0;
 }
 
-static int debug_dla_fw_a01_war_show(struct seq_file *s, void *data)
-{
-	struct nvdla_device *nvdla_dev;
-
-	if (!s)
-		return -EFAULT;
-
-	nvdla_dev = (struct nvdla_device *)s->private;
-	if (!nvdla_dev)
-		return -EFAULT;
-
-	seq_printf(s, "%x\n", nvdla_dev->quirks);
-	return 0;
-}
-
 static int debug_dla_fw_reload_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, debug_dla_fw_reload_show, inode->i_private);
-}
-
-static int debug_dla_fw_a01_war_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, debug_dla_fw_a01_war_show, inode->i_private);
 }
 
 static const struct file_operations debug_dla_enable_trace_fops = {
@@ -688,14 +610,6 @@ static const struct file_operations nvdla_fw_reload_fops = {
 		.write		= debug_dla_fw_reload_set,
 };
 
-static const struct file_operations nvdla_a01_war_fops = {
-		.open		= debug_dla_fw_a01_war_open,
-		.read		= seq_read,
-		.llseek		= seq_lseek,
-		.release	= single_release,
-		.write		= debug_dla_fw_a01_war_set,
-};
-
 static void dla_fw_debugfs_init(struct platform_device *pdev)
 {
 	struct dentry *fw_dir, *fw_trace, *events, *fw_gcov;
@@ -714,16 +628,8 @@ static void dla_fw_debugfs_init(struct platform_device *pdev)
 			nvdla_dev, &nvdla_fw_ver_fops))
 		goto trace_failed;
 
-	if (!debugfs_create_file("tag", S_IRUGO, fw_dir,
-			nvdla_dev, &nvdla_fw_ver_tag_fops))
-		goto trace_failed;
-
 	if (!debugfs_create_file("reload", 0600, fw_dir,
 			nvdla_dev, &nvdla_fw_reload_fops))
-		goto trace_failed;
-
-	if (!debugfs_create_file("a01_war", 0600, fw_dir,
-			nvdla_dev, &nvdla_a01_war_fops))
 		goto trace_failed;
 
 	fw_trace = debugfs_create_dir("trace", fw_dir);
@@ -780,6 +686,113 @@ trace_failed:
 	debugfs_remove_recursive(fw_dir);
 }
 
+#ifdef CONFIG_PM
+static int debug_dla_pm_suspend_show(struct seq_file *s, void *data)
+{
+	int err;
+	struct nvdla_device *nvdla_dev;
+
+	if (s == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	nvdla_dev = (struct nvdla_device *) s->private;
+	if (nvdla_dev == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	seq_printf(s, "%x\n", (int) nvdla_dev->is_suspended);
+
+	return 0;
+
+fail:
+	return err;
+}
+
+static int debug_dla_pm_suspend_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debug_dla_pm_suspend_show, inode->i_private);
+}
+
+static ssize_t debug_dla_pm_suspend_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *off)
+{
+	int err;
+	struct seq_file *priv_data;
+	struct nvdla_device *nvdla_dev;
+	struct platform_device *pdev;
+	long write_value;
+
+	/* Fetch user requested write-value. */
+	err = kstrtol_from_user(buffer, count, 10, &write_value);
+	if (err < 0)
+		goto fail;
+
+	/* Trigger suspend & response */
+	priv_data = file->private_data;
+	if (priv_data == NULL)
+		goto fail;
+
+	nvdla_dev = (struct nvdla_device *) priv_data->private;
+	if (nvdla_dev == NULL)
+		goto fail;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL)
+		goto fail;
+
+	if ((write_value > 0) && (!nvdla_dev->is_suspended)) {
+		/* Trigger suspend sequence. */
+		err = nvdla_module_pm_ops.prepare(&pdev->dev);
+		if (err < 0)
+			goto fail;
+
+		err = nvdla_module_pm_ops.suspend(&pdev->dev);
+		if (err < 0) {
+			nvdla_module_pm_ops.complete(&pdev->dev);
+			goto fail;
+		}
+	} else if ((write_value == 0) && (nvdla_dev->is_suspended)) {
+		/* Trigger resume sequence. */
+		err = nvdla_module_pm_ops.resume(&pdev->dev);
+		if (err < 0)
+			goto fail;
+
+		nvdla_module_pm_ops.complete(&pdev->dev);
+	}
+
+	return count;
+
+fail:
+	return -1;
+}
+
+static const struct file_operations debug_dla_pm_suspend_fops = {
+	.open		= debug_dla_pm_suspend_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+	.write		= debug_dla_pm_suspend_write,
+};
+
+static void nvdla_pm_debugfs_init(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+	struct dentry *dla_debugfs_root = pdata->debugfs;
+
+	if (!debugfs_create_file("suspend", 0600, dla_debugfs_root,
+			nvdla_dev, &debug_dla_pm_suspend_fops)) {
+		goto fail_create_file_suspend;
+	}
+
+fail_create_file_suspend:
+	return;
+}
+#endif
+
 void nvdla_debug_init(struct platform_device *pdev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
@@ -801,6 +814,10 @@ void nvdla_debug_init(struct platform_device *pdev)
 	/* Check if isolate context enabled if submit mode is CHANNEL */
 	nvdla_dev->submit_mode = nvdla_dev->submit_mode &&
 				pdata->isolate_contexts;
+
+#ifdef CONFIG_PM
+	nvdla_pm_debugfs_init(pdev);
+#endif
 
 	dla_fw_debugfs_init(pdev);
 }

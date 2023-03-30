@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisp/nvdisp_lut.c
  *
- * Copyright (c) 2010-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2010-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -122,7 +122,7 @@ static int tegra_dc_update_win_nvdisp_lut(struct tegra_dc *dc, int win_idx,
 
 	mutex_unlock(&dc->lock);
 
-	tegra_dc_update_windows(&win, 1, NULL, true, false);
+	tegra_dc_update_windows(&win, 1, true, false);
 	tegra_dc_sync_windows(&win, 1);
 
 	tegra_dc_put(dc);

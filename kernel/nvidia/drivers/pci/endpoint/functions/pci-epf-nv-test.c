@@ -15,6 +15,7 @@
 #include <linux/dma-iommu.h>
 #include <linux/pci-epc.h>
 #include <linux/pci-epf.h>
+#include <linux/version.h>
 
 #define BAR0_SIZE SZ_64K
 
@@ -25,15 +26,83 @@ struct pci_epf_nv_test {
 	void *bar0_ram_map;
 };
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+static int pci_epf_nv_test_core_init(struct pci_epf *epf)
+{
+	struct pci_epf_nv_test *epfnv = epf_get_drvdata(epf);
+	struct pci_epf_header *header = epf->header;
+	struct pci_epc *epc = epf->epc;
+	struct device *fdev = &epf->dev;
+	struct pci_epf_bar *epf_bar = &epf->bar[BAR_0];
+	int ret;
+
+	ret = pci_epc_write_header(epc, epf->func_no, header);
+	if (ret) {
+		dev_err(fdev, "pci_epc_write_header() failed: %d\n", ret);
+		return ret;
+	}
+
+	epf_bar->phys_addr = epfnv->bar0_iova;
+	epf_bar->addr = epfnv->bar0_ram_map;
+	epf_bar->size = BAR0_SIZE;
+	epf_bar->barno = BAR_0;
+	epf_bar->flags |= PCI_BASE_ADDRESS_SPACE_MEMORY |
+				PCI_BASE_ADDRESS_MEM_TYPE_32;
+
+	ret = pci_epc_set_bar(epc, epf->func_no, epf_bar);
+	if (ret) {
+		dev_err(fdev, "pci_epc_set_bar() failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int pci_epf_nv_test_notifier(struct notifier_block *nb,
+					   unsigned long val, void *data)
+{
+	struct pci_epf *epf = container_of(nb, struct pci_epf, nb);
+	int ret;
+
+	switch (val) {
+	case CORE_INIT:
+		ret = pci_epf_nv_test_core_init(epf);
+		if (ret)
+			return NOTIFY_BAD;
+		break;
+
+	case LINK_UP:
+		break;
+
+	default:
+		dev_err(&epf->dev, "Invalid EPF test notifier event\n");
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_OK;
+}
+#else
+static void pci_epf_nv_test_linkup(struct pci_epf *epf)
+{
+}
+#endif
+
 static void pci_epf_nv_test_unbind(struct pci_epf *epf)
 {
 	struct pci_epf_nv_test *epfnv = epf_get_drvdata(epf);
 	struct pci_epc *epc = epf->epc;
 	struct device *cdev = epc->dev.parent;
 	struct iommu_domain *domain = iommu_get_domain_for_dev(cdev);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	struct pci_epf_bar *epf_bar = &epf->bar[BAR_0];
+#endif
 
 	pci_epc_stop(epc);
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	pci_epc_clear_bar(epc, epf->func_no, epf_bar);
+#else
 	pci_epc_clear_bar(epc, BAR_0);
+#endif
 	vunmap(epfnv->bar0_ram_map);
 	iommu_unmap(domain, epfnv->bar0_iova, PAGE_SIZE);
 	iommu_dma_free_iova(cdev, epfnv->bar0_iova, BAR0_SIZE);
@@ -44,17 +113,21 @@ static int pci_epf_nv_test_bind(struct pci_epf *epf)
 {
 	struct pci_epf_nv_test *epfnv = epf_get_drvdata(epf);
 	struct pci_epc *epc = epf->epc;
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	struct pci_epf_header *header = epf->header;
+#endif
 	struct device *fdev = &epf->dev;
 	struct device *cdev = epc->dev.parent;
 	struct iommu_domain *domain = iommu_get_domain_for_dev(cdev);
 	int ret;
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	ret = pci_epc_write_header(epc, header);
 	if (ret) {
 		dev_err(fdev, "pci_epc_write_header() failed: %d\n", ret);
 		return ret;
 	}
+#endif
 
 	epfnv->bar0_ram_page = alloc_pages(GFP_KERNEL, 1);
 	if (!epfnv->bar0_ram_page) {
@@ -91,6 +164,7 @@ static int pci_epf_nv_test_bind(struct pci_epf *epf)
 	}
 	dev_info(fdev, "BAR0 RAM virt: 0x%p\n", epfnv->bar0_ram_map);
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 	ret = pci_epc_set_bar(epc, BAR_0, epfnv->bar0_iova, BAR0_SIZE,
 			      PCI_BASE_ADDRESS_SPACE_MEMORY |
 			      PCI_BASE_ADDRESS_MEM_TYPE_32);
@@ -98,11 +172,19 @@ static int pci_epf_nv_test_bind(struct pci_epf *epf)
 		dev_err(fdev, "pci_epc_set_bar() failed: %d\n", ret);
 		goto fail_unmap_ram_virt;
 	}
+#endif
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(4, 15, 0))
+	epf->nb.notifier_call = pci_epf_nv_test_notifier;
+	pci_epc_register_notifier(epc, &epf->nb);
+#endif
 
 	return 0;
 
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
 fail_unmap_ram_virt:
 	vunmap(epfnv->bar0_ram_map);
+#endif
 fail_unmap_ram_iova:
 	iommu_unmap(domain, epfnv->bar0_iova, PAGE_SIZE);
 fail_free_iova:
@@ -111,10 +193,6 @@ fail_free_pages:
 	__free_pages(epfnv->bar0_ram_page, 1);
 fail:
 	return ret;
-}
-
-static void pci_epf_nv_test_linkup(struct pci_epf *epf)
-{
 }
 
 static const struct pci_epf_device_id pci_epf_nv_test_ids[] = {
@@ -146,7 +224,9 @@ static int pci_epf_nv_test_probe(struct pci_epf *epf)
 static struct pci_epf_ops ops = {
 	.unbind	= pci_epf_nv_test_unbind,
 	.bind	= pci_epf_nv_test_bind,
-	.linkup = pci_epf_nv_test_linkup,
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 15, 0))
+	.linkup	= pci_epf_nv_test_linkup,
+#endif
 };
 
 static struct pci_epf_driver test_driver = {

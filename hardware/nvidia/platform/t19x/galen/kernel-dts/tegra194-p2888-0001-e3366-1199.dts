@@ -1,16 +1,21 @@
 /*
- * Top level DTS file for CVM:P2888-0001 and CVB:E3366-1199
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Top level DTS file for CVM:P2888-0001 and CVB:E3366-1199
  */
 
 #include "common/tegra194-p2888-0000-a00.dtsi"
@@ -30,11 +35,19 @@
 
 	compatible = "nvidia,galen", "nvidia,tegra194";
 
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
 	bpmp_i2c {
+#endif
 		tegra_tmp451: temp-sensor@4c {
 			vdd-supply = <&e3366_vdd_1v8_slt>;
 		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
 	};
+#endif
 
 	chosen {
 		bootargs ="console=ttyTCU0,115200";
@@ -117,24 +130,29 @@
 	};
 
 	tegra_xudc: xudc@3550000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 		extcon-cables = <&vbus_id_extcon 0>;
 		extcon-cable-names = "vbus";
 		#extcon-cells = <1>;
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
+#endif
 		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
 			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-2}>;
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		phy-names = "usb2-0", "usb3-2";
+#else
 		phy-names = "usb2", "usb3";
-		nvidia,xusb-padctl = <&xusb_padctl>;
 #endif
+		nvidia,xusb-padctl = <&xusb_padctl>;
 		nvidia,boost_cpu_freq = <1200>;
 		status = "okay";
 	};
 
 	tegra_xhci: xhci@3610000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 		extcon-cables = <&vbus_id_extcon 1>;
 		extcon-cable-names = "id";
 		#extcon-cells = <1>;
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
+#endif
 		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
 			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
 			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
@@ -146,7 +164,6 @@
 		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3",
 				"usb3-0", "usb3-1", "usb3-2", "usb-3";
 		nvidia,xusb-padctl = <&xusb_padctl>;
-#endif
 		status = "disabled";
 	};
 

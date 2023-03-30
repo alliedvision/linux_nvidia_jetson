@@ -1,16 +1,21 @@
 /*
- * T194 E3360-1099 CVM DTSI file.
+* Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * T194 E3360-1099 CVM DTSI file.
  */
 
 #include <dt-bindings/types.h>
@@ -28,6 +33,9 @@
 	#size-cells = <2>;
 
 	pmc@c360000 {
+#if TEGRA_PMC_VERSION >= DT_VERSION_2
+		nvidia,invert-interrupt;
+#endif
 		iopad_defaults: iopad-defaults {
 			sdmmc-io-pads {
 				pins = "sdmmc1-hv", "sdmmc3-hv";
@@ -36,19 +44,15 @@
 		};
 	};
 
+#if TEGRA_PMC_VERSION < DT_VERSION_2
 	pmc@c370000 {
 		nvidia,invert-interrupt;
 	};
+#endif
 
 	plugin-manager {
 		fragment-e3360-a00-mods {
 			odm-data = "mods-build";
-			override@0 {
-				target = <&gpcdma>;
-				_overlay_ {
-					nvidia,bypass-smmu;
-				};
-			};
 			override@1 {
 				target = <&dp_aux_ch0_i2c>;
 				_overlay_ {
@@ -71,6 +75,66 @@
 				target = <&dp_aux_ch3_i2c>;
 				_overlay_ {
 					delete-target-property = "dmas";
+				};
+			};
+			override@5 {
+				target = <&mods_smmu>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			override@6 {
+				target = <&mods_iso_smmu>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@7 {
+				target = <&mods_pcie0>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@8 {
+				target = <&mods_pcie1>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@9 {
+				target = <&mods_pcie2>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@10 {
+				target = <&mods_pcie3>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@11 {
+				target = <&mods_pcie4>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@12 {
+				target = <&mods_pcie5>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@13 {
+				target = <&mods_isp>;
+				_overlay_ {
+					status = "okay";
+				};
+			};
+			ovveride@14 {
+				target = <&mods_dma>;
+				_overlay_ {
+					status = "okay";
 				};
 			};
 		};

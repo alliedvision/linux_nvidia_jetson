@@ -1,0 +1,383 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera IMX390 on t19x platforms
+ *
+ * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra194-gpio.h>
+
+#define CAM0_RST_L	TEGRA194_MAIN_GPIO(H, 3)
+#define CAM0_PWDN	TEGRA194_MAIN_GPIO(H, 6)
+#define CAM1_RST_L	TEGRA194_MAIN_GPIO(T, 6)
+#define CAM1_PWDN	TEGRA194_MAIN_GPIO(T, 5)
+
+/ {
+	overlay-name = "Jetson Camera IMX390";
+	jetson-header-name = "Jetson AGX CSI Connector";
+	compatible = "nvidia,p2822-0000+p2888-0001","nvidia,jetson-xavier-industrial";
+
+	/* IMX390 module using ids */
+	fragment@0 {
+		/// target = <&imx390_cam0>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/imx390_a@1b";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		/// target = <&cam_module0>;
+		target-path = "/tegra-camera-platform/modules/module0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "imx390_rear";
+			position = "rear";
+			orientation = "1";
+		};
+	};
+	fragment@2 {
+		/// target = <&cam_module0_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module0/drivernode0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx390 30-001b";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/imx390_a@1b";
+		};
+	};
+	fragment@3 {
+		/// target = <&imx390_cam1>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/imx390_b@1c";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@4 {
+		/// target = <&cam_module1>;
+		target-path = "/tegra-camera-platform/modules/module1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "imx390_front";
+			position = "front";
+			orientation = "1";
+		};
+	};
+	fragment@5 {
+		/// target = <&cam_module1_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module1/drivernode0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "imx390 30-001c";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/imx390_b@1c";
+		};
+	};
+
+	/* Enable VI ports */
+	fragment@6 {
+		/// target = <&capture_vi_base>;
+		target-path = "/tegra-capture-vi";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<2>;
+		};
+	};
+	fragment@7 {
+		/// target = <&vi_port0>;
+		target-path = "/tegra-capture-vi/ports/port@0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@8 {
+		/// target = <&vi_port1>;
+		target-path = "/tegra-capture-vi/ports/port@1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@9 {
+		/// target = <&imx390_vi_in0>;
+		target-path = "/tegra-capture-vi/ports/port@0/endpoint";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <0>;
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&imx390_csi_out0>;
+			/// remote-endpoint = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
+		};
+	};
+	fragment@10 {
+		/// target = <&imx390_vi_in1>;
+		target-path = "/tegra-capture-vi/ports/port@1/endpoint";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <1>;
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&imx390_csi_out1>;
+			/// remote-endpoint = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1/endpoint@3";
+		};
+	};
+
+	/* Enable CSI ports */
+	fragment@11{
+		/// target = <&csi_base>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<2>;
+		};
+	};
+	fragment@12 {
+		/// target = <&csi_chan0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@13 {
+		/// target = <&csi_chan0_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@14 {
+		/// target = <&imx390_csi_in0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0/endpoint@0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&imx390_imx390_out0>;
+			/// remote-endpoint = "/i2c@3180000/tca9546@70/i2c@0/imx390_a@1b/ports/port@0/endpoint";
+		};
+	};
+	fragment@15 {
+		/// target = <&csi_chan0_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@16 {
+		/// target = <&imx390_csi_out0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&imx390_vi_in0>;
+			/// remote-endpoint = "/tegra-capture-vi/ports/port@0/endpoint";
+		};
+	};
+	fragment@17 {
+		/// target = <&csi_chan1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@18 {
+		/// target = <&csi_chan1_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@19 {
+		/// target = <&imx390_csi_in1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0/endpoint@2";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <0>;
+			bus-width = <2>;
+			remote-endpoint = <&imx390_imx390_out1>;
+			/// remote-endpoint = "/i2c@3180000/tca9546@70/i2c@0/imx390_b@1c/ports/port@0/endpoint";
+		};
+	};
+	fragment@20 {
+		/// target = <&csi_chan1_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@21 {
+		/// target = <&imx390_csi_out1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1/endpoint@3";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&imx390_vi_in1>;
+			/// remote-endpoint = "/tegra-capture-vi/ports/port@1/endpoint";
+		};
+	};
+
+	/* tegra-camera-platform settings */
+	fragment@22 {
+		/// target = <&tcp>;
+		target-path = "/tegra-camera-platform";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num_csi_lanes = <2>;
+			max_lane_speed = <4000000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+	/* pca9546 i2c mux */
+	fragment@23 {
+		/// target = <&tca9546_70>;
+		target-path = "/i2c@3180000/tca9546@70";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			/// vcc-pullup-supply = <&battery_reg>;
+			vcc-pullup-supply = "/fixed-regulators/regulator@0";
+		};
+	};
+	fragment@24 {
+		/// target = <&max9296_dser>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/max9296@48";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@25 {
+		/// target = <&max9295_prim>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/max9295_prim@62";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@26 {
+		/// target = <&max9295_ser0>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/max9295_a@40";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@27 {
+		/// target = <&max9295_ser1>;
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/max9295_b@60";
+		board_config {
+			ids = "LPRD-001-imx390";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+};

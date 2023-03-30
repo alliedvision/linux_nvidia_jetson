@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,12 +36,12 @@ void  __nvgpu_track_kfree(struct gk20a *g, void *addr);
  * These are the Linux implementations of the various kmem functions defined by
  * nvgpu. This should not be included directly - instead include <nvgpu/kmem.h>.
  */
-void *__nvgpu_kmalloc(struct gk20a *g, size_t size, void *ip);
-void *__nvgpu_kzalloc(struct gk20a *g, size_t size, void *ip);
-void *__nvgpu_kcalloc(struct gk20a *g, size_t n, size_t size, void *ip);
-void *__nvgpu_vmalloc(struct gk20a *g, unsigned long size, void *ip);
-void *__nvgpu_vzalloc(struct gk20a *g, unsigned long size, void *ip);
-void __nvgpu_kfree(struct gk20a *g, void *addr);
-void __nvgpu_vfree(struct gk20a *g, void *addr);
+void *nvgpu_kmalloc_impl(struct gk20a *g, size_t size, void *ip);
+void *nvgpu_kzalloc_impl(struct gk20a *g, size_t size, void *ip);
+void *nvgpu_kcalloc_impl(struct gk20a *g, size_t n, size_t size, void *ip);
+void *nvgpu_vmalloc_impl(struct gk20a *g, unsigned long size, void *ip);
+void *nvgpu_vzalloc_impl(struct gk20a *g, unsigned long size, void *ip);
+void nvgpu_kfree_impl(struct gk20a *g, void *addr);
+void nvgpu_vfree_impl(struct gk20a *g, void *addr);
 
 #endif

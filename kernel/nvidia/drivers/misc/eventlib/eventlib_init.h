@@ -60,7 +60,7 @@
 #define EVENTLIB_SUBSYS_FILTERING 1
 #define EVENTLIB_SUBSYS_MAX       2
 
-#define EVENTLIB_TBUFS_MAX        6
+#define EVENTLIB_TBUFS_MAX        12
 
 #define EVENTLIB_MAGIC_W2R 0x52574c45 /* 'ELWR' in little endian */
 #define EVENTLIB_MAGIC_R2W 0x57524c45 /* 'ELRW' in little endian */
@@ -96,6 +96,10 @@ struct eventlib_init {
 	struct eventlib_tbuf_ctx tbuf[EVENTLIB_TBUFS_MAX];
 	struct eventlib_flt_ctx flt;
 };
+
+_Static_assert(sizeof(struct eventlib_init) <=
+	       sizeof(((struct eventlib_ctx *)0)->local_mem),
+	       "Please increase local_mem size in struct eventlib_ctx");
 
 static inline void *subsys_shm_area(shmptr struct eventlib_shared *sh,
 	struct eventlib_shared *copy, int subsys)

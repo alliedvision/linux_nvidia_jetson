@@ -1,0 +1,12 @@
+#
+# Mellanox flash tool configuration
+#
+
+config MLX_MFT
+	tristate "Mellanox Flash Tool Module "
+	help
+	  This driver supports Mellanox Technologies Firmware
+	  flashing tool.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mst_pci, mst_pciconf, mst_ppc_pci_reset.

@@ -1,0 +1,23 @@
+From bef499d9e31b115bfb0ef3efe50980a29fed833b Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Wed, 12 Aug 2020 14:00:42 -0700
+Subject: [PATCH 137/830] _____ANNOTATION: scheduler changes_____
+X-NVConfidentiality: public
+
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ ANNOTATIONS | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/ANNOTATIONS b/ANNOTATIONS
+index c884b1e76eda..2f965b57a3b7 100644
+--- a/ANNOTATIONS
++++ b/ANNOTATIONS
+@@ -6,3 +6,4 @@ arm and arm64 changes
+ iommu changes
+ core kernel changes
+ power management changes
++scheduler changes
+-- 
+2.17.1
+

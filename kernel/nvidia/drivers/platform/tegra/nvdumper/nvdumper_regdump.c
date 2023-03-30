@@ -19,7 +19,7 @@
 #include <linux/notifier.h>
 #include <linux/sched.h>
 #include <linux/dma-mapping.h>
-#include <linux/tegra-mce.h>
+#include <linux/tegra-cache.h>
 #include "nvdumper.h"
 
 #define DEBUG_REGDUMP 1

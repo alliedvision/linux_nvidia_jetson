@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,547 +53,153 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_falcon_gm20b_h_
-#define _hw_falcon_gm20b_h_
+#ifndef NVGPU_HW_FALCON_GM20B_H
+#define NVGPU_HW_FALCON_GM20B_H
 
-static inline u32 falcon_falcon_irqsset_r(void)
-{
-	return 0x00000000U;
-}
-static inline u32 falcon_falcon_irqsset_swgen0_set_f(void)
-{
-	return 0x40U;
-}
-static inline u32 falcon_falcon_irqsclr_r(void)
-{
-	return 0x00000004U;
-}
-static inline u32 falcon_falcon_irqstat_r(void)
-{
-	return 0x00000008U;
-}
-static inline u32 falcon_falcon_irqstat_halt_true_f(void)
-{
-	return 0x10U;
-}
-static inline u32 falcon_falcon_irqstat_exterr_true_f(void)
-{
-	return 0x20U;
-}
-static inline u32 falcon_falcon_irqstat_swgen0_true_f(void)
-{
-	return 0x40U;
-}
-static inline u32 falcon_falcon_irqmode_r(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 falcon_falcon_irqmset_r(void)
-{
-	return 0x00000010U;
-}
-static inline u32 falcon_falcon_irqmset_gptmr_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 falcon_falcon_irqmset_wdtmr_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 falcon_falcon_irqmset_mthd_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 falcon_falcon_irqmset_ctxsw_f(u32 v)
-{
-	return (v & 0x1U) << 3U;
-}
-static inline u32 falcon_falcon_irqmset_halt_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 falcon_falcon_irqmset_exterr_f(u32 v)
-{
-	return (v & 0x1U) << 5U;
-}
-static inline u32 falcon_falcon_irqmset_swgen0_f(u32 v)
-{
-	return (v & 0x1U) << 6U;
-}
-static inline u32 falcon_falcon_irqmset_swgen1_f(u32 v)
-{
-	return (v & 0x1U) << 7U;
-}
-static inline u32 falcon_falcon_irqmclr_r(void)
-{
-	return 0x00000014U;
-}
-static inline u32 falcon_falcon_irqmclr_gptmr_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 falcon_falcon_irqmclr_wdtmr_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 falcon_falcon_irqmclr_mthd_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 falcon_falcon_irqmclr_ctxsw_f(u32 v)
-{
-	return (v & 0x1U) << 3U;
-}
-static inline u32 falcon_falcon_irqmclr_halt_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 falcon_falcon_irqmclr_exterr_f(u32 v)
-{
-	return (v & 0x1U) << 5U;
-}
-static inline u32 falcon_falcon_irqmclr_swgen0_f(u32 v)
-{
-	return (v & 0x1U) << 6U;
-}
-static inline u32 falcon_falcon_irqmclr_swgen1_f(u32 v)
-{
-	return (v & 0x1U) << 7U;
-}
-static inline u32 falcon_falcon_irqmclr_ext_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 falcon_falcon_irqmask_r(void)
-{
-	return 0x00000018U;
-}
-static inline u32 falcon_falcon_irqdest_r(void)
-{
-	return 0x0000001cU;
-}
-static inline u32 falcon_falcon_irqdest_host_gptmr_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 falcon_falcon_irqdest_host_wdtmr_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 falcon_falcon_irqdest_host_mthd_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 falcon_falcon_irqdest_host_ctxsw_f(u32 v)
-{
-	return (v & 0x1U) << 3U;
-}
-static inline u32 falcon_falcon_irqdest_host_halt_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 falcon_falcon_irqdest_host_exterr_f(u32 v)
-{
-	return (v & 0x1U) << 5U;
-}
-static inline u32 falcon_falcon_irqdest_host_swgen0_f(u32 v)
-{
-	return (v & 0x1U) << 6U;
-}
-static inline u32 falcon_falcon_irqdest_host_swgen1_f(u32 v)
-{
-	return (v & 0x1U) << 7U;
-}
-static inline u32 falcon_falcon_irqdest_host_ext_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 falcon_falcon_irqdest_target_gptmr_f(u32 v)
-{
-	return (v & 0x1U) << 16U;
-}
-static inline u32 falcon_falcon_irqdest_target_wdtmr_f(u32 v)
-{
-	return (v & 0x1U) << 17U;
-}
-static inline u32 falcon_falcon_irqdest_target_mthd_f(u32 v)
-{
-	return (v & 0x1U) << 18U;
-}
-static inline u32 falcon_falcon_irqdest_target_ctxsw_f(u32 v)
-{
-	return (v & 0x1U) << 19U;
-}
-static inline u32 falcon_falcon_irqdest_target_halt_f(u32 v)
-{
-	return (v & 0x1U) << 20U;
-}
-static inline u32 falcon_falcon_irqdest_target_exterr_f(u32 v)
-{
-	return (v & 0x1U) << 21U;
-}
-static inline u32 falcon_falcon_irqdest_target_swgen0_f(u32 v)
-{
-	return (v & 0x1U) << 22U;
-}
-static inline u32 falcon_falcon_irqdest_target_swgen1_f(u32 v)
-{
-	return (v & 0x1U) << 23U;
-}
-static inline u32 falcon_falcon_irqdest_target_ext_f(u32 v)
-{
-	return (v & 0xffU) << 24U;
-}
-static inline u32 falcon_falcon_curctx_r(void)
-{
-	return 0x00000050U;
-}
-static inline u32 falcon_falcon_nxtctx_r(void)
-{
-	return 0x00000054U;
-}
-static inline u32 falcon_falcon_mailbox0_r(void)
-{
-	return 0x00000040U;
-}
-static inline u32 falcon_falcon_mailbox1_r(void)
-{
-	return 0x00000044U;
-}
-static inline u32 falcon_falcon_itfen_r(void)
-{
-	return 0x00000048U;
-}
-static inline u32 falcon_falcon_itfen_ctxen_enable_f(void)
-{
-	return 0x1U;
-}
-static inline u32 falcon_falcon_idlestate_r(void)
-{
-	return 0x0000004cU;
-}
-static inline u32 falcon_falcon_idlestate_falcon_busy_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 falcon_falcon_idlestate_ext_busy_v(u32 r)
-{
-	return (r >> 1U) & 0x7fffU;
-}
-static inline u32 falcon_falcon_os_r(void)
-{
-	return 0x00000080U;
-}
-static inline u32 falcon_falcon_engctl_r(void)
-{
-	return 0x000000a4U;
-}
-static inline u32 falcon_falcon_cpuctl_r(void)
-{
-	return 0x00000100U;
-}
-static inline u32 falcon_falcon_cpuctl_startcpu_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 falcon_falcon_cpuctl_sreset_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 falcon_falcon_cpuctl_hreset_f(u32 v)
-{
-	return (v & 0x1U) << 3U;
-}
-static inline u32 falcon_falcon_cpuctl_halt_intr_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 falcon_falcon_cpuctl_halt_intr_m(void)
-{
-	return 0x1U << 4U;
-}
-static inline u32 falcon_falcon_cpuctl_halt_intr_v(u32 r)
-{
-	return (r >> 4U) & 0x1U;
-}
-static inline u32 falcon_falcon_cpuctl_stopped_m(void)
-{
-	return 0x1U << 5U;
-}
-static inline u32 falcon_falcon_cpuctl_cpuctl_alias_en_f(u32 v)
-{
-	return (v & 0x1U) << 6U;
-}
-static inline u32 falcon_falcon_cpuctl_cpuctl_alias_en_m(void)
-{
-	return 0x1U << 6U;
-}
-static inline u32 falcon_falcon_cpuctl_cpuctl_alias_en_v(u32 r)
-{
-	return (r >> 6U) & 0x1U;
-}
-static inline u32 falcon_falcon_cpuctl_alias_r(void)
-{
-	return 0x00000130U;
-}
-static inline u32 falcon_falcon_cpuctl_alias_startcpu_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 falcon_falcon_imemc_r(u32 i)
-{
-	return 0x00000180U + i*16U;
-}
-static inline u32 falcon_falcon_imemc_offs_f(u32 v)
-{
-	return (v & 0x3fU) << 2U;
-}
-static inline u32 falcon_falcon_imemc_blk_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 falcon_falcon_imemc_aincw_f(u32 v)
-{
-	return (v & 0x1U) << 24U;
-}
-static inline u32 falcon_falcon_imemc_secure_f(u32 v)
-{
-	return (v & 0x1U) << 28U;
-}
-static inline u32 falcon_falcon_imemd_r(u32 i)
-{
-	return 0x00000184U + i*16U;
-}
-static inline u32 falcon_falcon_imemt_r(u32 i)
-{
-	return 0x00000188U + i*16U;
-}
-static inline u32 falcon_falcon_sctl_r(void)
-{
-	return 0x00000240U;
-}
-static inline u32 falcon_falcon_mmu_phys_sec_r(void)
-{
-	return 0x00100ce4U;
-}
-static inline u32 falcon_falcon_bootvec_r(void)
-{
-	return 0x00000104U;
-}
-static inline u32 falcon_falcon_bootvec_vec_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 falcon_falcon_dmactl_r(void)
-{
-	return 0x0000010cU;
-}
-static inline u32 falcon_falcon_dmactl_dmem_scrubbing_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 falcon_falcon_dmactl_imem_scrubbing_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 falcon_falcon_dmactl_require_ctx_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 falcon_falcon_hwcfg_r(void)
-{
-	return 0x00000108U;
-}
-static inline u32 falcon_falcon_hwcfg_imem_size_v(u32 r)
-{
-	return (r >> 0U) & 0x1ffU;
-}
-static inline u32 falcon_falcon_hwcfg_dmem_size_v(u32 r)
-{
-	return (r >> 9U) & 0x1ffU;
-}
-static inline u32 falcon_falcon_dmatrfbase_r(void)
-{
-	return 0x00000110U;
-}
-static inline u32 falcon_falcon_dmatrfmoffs_r(void)
-{
-	return 0x00000114U;
-}
-static inline u32 falcon_falcon_dmatrfcmd_r(void)
-{
-	return 0x00000118U;
-}
-static inline u32 falcon_falcon_dmatrfcmd_imem_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 falcon_falcon_dmatrfcmd_write_f(u32 v)
-{
-	return (v & 0x1U) << 5U;
-}
-static inline u32 falcon_falcon_dmatrfcmd_size_f(u32 v)
-{
-	return (v & 0x7U) << 8U;
-}
-static inline u32 falcon_falcon_dmatrfcmd_ctxdma_f(u32 v)
-{
-	return (v & 0x7U) << 12U;
-}
-static inline u32 falcon_falcon_dmatrffboffs_r(void)
-{
-	return 0x0000011cU;
-}
-static inline u32 falcon_falcon_imctl_debug_r(void)
-{
-	return 0x0000015cU;
-}
-static inline u32 falcon_falcon_imctl_debug_addr_blk_f(u32 v)
-{
-	return (v & 0xffffffU) << 0U;
-}
-static inline u32 falcon_falcon_imctl_debug_cmd_f(u32 v)
-{
-	return (v & 0x7U) << 24U;
-}
-static inline u32 falcon_falcon_imstat_r(void)
-{
-	return 0x00000144U;
-}
-static inline u32 falcon_falcon_traceidx_r(void)
-{
-	return 0x00000148U;
-}
-static inline u32 falcon_falcon_traceidx_maxidx_v(u32 r)
-{
-	return (r >> 16U) & 0xffU;
-}
-static inline u32 falcon_falcon_traceidx_idx_f(u32 v)
-{
-	return (v & 0xffU) << 0U;
-}
-static inline u32 falcon_falcon_tracepc_r(void)
-{
-	return 0x0000014cU;
-}
-static inline u32 falcon_falcon_tracepc_pc_v(u32 r)
-{
-	return (r >> 0U) & 0xffffffU;
-}
-static inline u32 falcon_falcon_exterraddr_r(void)
-{
-	return 0x00000168U;
-}
-static inline u32 falcon_falcon_exterrstat_r(void)
-{
-	return 0x0000016cU;
-}
-static inline u32 falcon_falcon_exterrstat_valid_m(void)
-{
-	return 0x1U << 31U;
-}
-static inline u32 falcon_falcon_exterrstat_valid_v(u32 r)
-{
-	return (r >> 31U) & 0x1U;
-}
-static inline u32 falcon_falcon_exterrstat_valid_true_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 falcon_falcon_icd_cmd_r(void)
-{
-	return 0x00000200U;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_s(void)
-{
-	return 4U;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_f(u32 v)
-{
-	return (v & 0xfU) << 0U;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_m(void)
-{
-	return 0xfU << 0U;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_v(u32 r)
-{
-	return (r >> 0U) & 0xfU;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_rreg_f(void)
-{
-	return 0x8U;
-}
-static inline u32 falcon_falcon_icd_cmd_opc_rstat_f(void)
-{
-	return 0xeU;
-}
-static inline u32 falcon_falcon_icd_cmd_idx_f(u32 v)
-{
-	return (v & 0x1fU) << 8U;
-}
-static inline u32 falcon_falcon_icd_rdata_r(void)
-{
-	return 0x0000020cU;
-}
-static inline u32 falcon_falcon_dmemc_r(u32 i)
-{
-	return 0x000001c0U + i*8U;
-}
-static inline u32 falcon_falcon_dmemc_offs_f(u32 v)
-{
-	return (v & 0x3fU) << 2U;
-}
-static inline u32 falcon_falcon_dmemc_offs_m(void)
-{
-	return 0x3fU << 2U;
-}
-static inline u32 falcon_falcon_dmemc_blk_f(u32 v)
-{
-	return (v & 0xffU) << 8U;
-}
-static inline u32 falcon_falcon_dmemc_blk_m(void)
-{
-	return 0xffU << 8U;
-}
-static inline u32 falcon_falcon_dmemc_aincw_f(u32 v)
-{
-	return (v & 0x1U) << 24U;
-}
-static inline u32 falcon_falcon_dmemc_aincr_f(u32 v)
-{
-	return (v & 0x1U) << 25U;
-}
-static inline u32 falcon_falcon_dmemd_r(u32 i)
-{
-	return 0x000001c4U + i*8U;
-}
-static inline u32 falcon_falcon_debug1_r(void)
-{
-	return 0x00000090U;
-}
-static inline u32 falcon_falcon_debug1_ctxsw_mode_s(void)
-{
-	return 1U;
-}
-static inline u32 falcon_falcon_debug1_ctxsw_mode_f(u32 v)
-{
-	return (v & 0x1U) << 16U;
-}
-static inline u32 falcon_falcon_debug1_ctxsw_mode_m(void)
-{
-	return 0x1U << 16U;
-}
-static inline u32 falcon_falcon_debug1_ctxsw_mode_v(u32 r)
-{
-	return (r >> 16U) & 0x1U;
-}
-static inline u32 falcon_falcon_debug1_ctxsw_mode_init_f(void)
-{
-	return 0x0U;
-}
-static inline u32 falcon_falcon_debuginfo_r(void)
-{
-	return 0x00000094U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define falcon_falcon_irqsset_r()                                  (0x00000000U)
+#define falcon_falcon_irqsset_swgen0_set_f()                             (0x40U)
+#define falcon_falcon_irqsclr_r()                                  (0x00000004U)
+#define falcon_falcon_irqstat_r()                                  (0x00000008U)
+#define falcon_falcon_irqstat_halt_true_f()                              (0x10U)
+#define falcon_falcon_irqstat_exterr_true_f()                            (0x20U)
+#define falcon_falcon_irqstat_swgen0_true_f()                            (0x40U)
+#define falcon_falcon_irqmode_r()                                  (0x0000000cU)
+#define falcon_falcon_irqmset_r()                                  (0x00000010U)
+#define falcon_falcon_irqmset_gptmr_f(v)                 ((U32(v) & 0x1U) << 0U)
+#define falcon_falcon_irqmset_wdtmr_f(v)                 ((U32(v) & 0x1U) << 1U)
+#define falcon_falcon_irqmset_mthd_f(v)                  ((U32(v) & 0x1U) << 2U)
+#define falcon_falcon_irqmset_ctxsw_f(v)                 ((U32(v) & 0x1U) << 3U)
+#define falcon_falcon_irqmset_halt_f(v)                  ((U32(v) & 0x1U) << 4U)
+#define falcon_falcon_irqmset_exterr_f(v)                ((U32(v) & 0x1U) << 5U)
+#define falcon_falcon_irqmset_swgen0_f(v)                ((U32(v) & 0x1U) << 6U)
+#define falcon_falcon_irqmset_swgen1_f(v)                ((U32(v) & 0x1U) << 7U)
+#define falcon_falcon_irqmclr_r()                                  (0x00000014U)
+#define falcon_falcon_irqmclr_gptmr_f(v)                 ((U32(v) & 0x1U) << 0U)
+#define falcon_falcon_irqmclr_wdtmr_f(v)                 ((U32(v) & 0x1U) << 1U)
+#define falcon_falcon_irqmclr_mthd_f(v)                  ((U32(v) & 0x1U) << 2U)
+#define falcon_falcon_irqmclr_ctxsw_f(v)                 ((U32(v) & 0x1U) << 3U)
+#define falcon_falcon_irqmclr_halt_f(v)                  ((U32(v) & 0x1U) << 4U)
+#define falcon_falcon_irqmclr_exterr_f(v)                ((U32(v) & 0x1U) << 5U)
+#define falcon_falcon_irqmclr_swgen0_f(v)                ((U32(v) & 0x1U) << 6U)
+#define falcon_falcon_irqmclr_swgen1_f(v)                ((U32(v) & 0x1U) << 7U)
+#define falcon_falcon_irqmclr_ext_f(v)                  ((U32(v) & 0xffU) << 8U)
+#define falcon_falcon_irqmask_r()                                  (0x00000018U)
+#define falcon_falcon_irqdest_r()                                  (0x0000001cU)
+#define falcon_falcon_irqdest_host_gptmr_f(v)            ((U32(v) & 0x1U) << 0U)
+#define falcon_falcon_irqdest_host_wdtmr_f(v)            ((U32(v) & 0x1U) << 1U)
+#define falcon_falcon_irqdest_host_mthd_f(v)             ((U32(v) & 0x1U) << 2U)
+#define falcon_falcon_irqdest_host_ctxsw_f(v)            ((U32(v) & 0x1U) << 3U)
+#define falcon_falcon_irqdest_host_halt_f(v)             ((U32(v) & 0x1U) << 4U)
+#define falcon_falcon_irqdest_host_exterr_f(v)           ((U32(v) & 0x1U) << 5U)
+#define falcon_falcon_irqdest_host_swgen0_f(v)           ((U32(v) & 0x1U) << 6U)
+#define falcon_falcon_irqdest_host_swgen1_f(v)           ((U32(v) & 0x1U) << 7U)
+#define falcon_falcon_irqdest_host_ext_f(v)             ((U32(v) & 0xffU) << 8U)
+#define falcon_falcon_irqdest_target_gptmr_f(v)         ((U32(v) & 0x1U) << 16U)
+#define falcon_falcon_irqdest_target_wdtmr_f(v)         ((U32(v) & 0x1U) << 17U)
+#define falcon_falcon_irqdest_target_mthd_f(v)          ((U32(v) & 0x1U) << 18U)
+#define falcon_falcon_irqdest_target_ctxsw_f(v)         ((U32(v) & 0x1U) << 19U)
+#define falcon_falcon_irqdest_target_halt_f(v)          ((U32(v) & 0x1U) << 20U)
+#define falcon_falcon_irqdest_target_exterr_f(v)        ((U32(v) & 0x1U) << 21U)
+#define falcon_falcon_irqdest_target_swgen0_f(v)        ((U32(v) & 0x1U) << 22U)
+#define falcon_falcon_irqdest_target_swgen1_f(v)        ((U32(v) & 0x1U) << 23U)
+#define falcon_falcon_irqdest_target_ext_f(v)          ((U32(v) & 0xffU) << 24U)
+#define falcon_falcon_curctx_r()                                   (0x00000050U)
+#define falcon_falcon_nxtctx_r()                                   (0x00000054U)
+#define falcon_falcon_mailbox0_r()                                 (0x00000040U)
+#define falcon_falcon_mailbox1_r()                                 (0x00000044U)
+#define falcon_falcon_itfen_r()                                    (0x00000048U)
+#define falcon_falcon_itfen_ctxen_enable_f()                              (0x1U)
+#define falcon_falcon_idlestate_r()                                (0x0000004cU)
+#define falcon_falcon_idlestate_falcon_busy_v(r)            (((r) >> 0U) & 0x1U)
+#define falcon_falcon_idlestate_ext_busy_v(r)            (((r) >> 1U) & 0x7fffU)
+#define falcon_falcon_os_r()                                       (0x00000080U)
+#define falcon_falcon_engctl_r()                                   (0x000000a4U)
+#define falcon_falcon_cpuctl_r()                                   (0x00000100U)
+#define falcon_falcon_cpuctl_startcpu_f(v)               ((U32(v) & 0x1U) << 1U)
+#define falcon_falcon_cpuctl_sreset_f(v)                 ((U32(v) & 0x1U) << 2U)
+#define falcon_falcon_cpuctl_hreset_f(v)                 ((U32(v) & 0x1U) << 3U)
+#define falcon_falcon_cpuctl_halt_intr_f(v)              ((U32(v) & 0x1U) << 4U)
+#define falcon_falcon_cpuctl_halt_intr_m()                     (U32(0x1U) << 4U)
+#define falcon_falcon_cpuctl_halt_intr_v(r)                 (((r) >> 4U) & 0x1U)
+#define falcon_falcon_cpuctl_stopped_m()                       (U32(0x1U) << 5U)
+#define falcon_falcon_cpuctl_cpuctl_alias_en_f(v)        ((U32(v) & 0x1U) << 6U)
+#define falcon_falcon_cpuctl_cpuctl_alias_en_m()               (U32(0x1U) << 6U)
+#define falcon_falcon_cpuctl_cpuctl_alias_en_v(r)           (((r) >> 6U) & 0x1U)
+#define falcon_falcon_cpuctl_alias_r()                             (0x00000130U)
+#define falcon_falcon_cpuctl_alias_startcpu_f(v)         ((U32(v) & 0x1U) << 1U)
+#define falcon_falcon_imemc_r(i)\
+		(nvgpu_safe_add_u32(0x00000180U, nvgpu_safe_mult_u32((i), 16U)))
+#define falcon_falcon_imemc_offs_f(v)                   ((U32(v) & 0x3fU) << 2U)
+#define falcon_falcon_imemc_blk_f(v)                    ((U32(v) & 0xffU) << 8U)
+#define falcon_falcon_imemc_aincw_f(v)                  ((U32(v) & 0x1U) << 24U)
+#define falcon_falcon_imemc_secure_f(v)                 ((U32(v) & 0x1U) << 28U)
+#define falcon_falcon_imemd_r(i)\
+		(nvgpu_safe_add_u32(0x00000184U, nvgpu_safe_mult_u32((i), 16U)))
+#define falcon_falcon_imemt_r(i)\
+		(nvgpu_safe_add_u32(0x00000188U, nvgpu_safe_mult_u32((i), 16U)))
+#define falcon_falcon_sctl_r()                                     (0x00000240U)
+#define falcon_falcon_mmu_phys_sec_r()                             (0x00100ce4U)
+#define falcon_falcon_bootvec_r()                                  (0x00000104U)
+#define falcon_falcon_bootvec_vec_f(v)            ((U32(v) & 0xffffffffU) << 0U)
+#define falcon_falcon_dmactl_r()                                   (0x0000010cU)
+#define falcon_falcon_dmactl_dmem_scrubbing_m()                (U32(0x1U) << 1U)
+#define falcon_falcon_dmactl_imem_scrubbing_m()                (U32(0x1U) << 2U)
+#define falcon_falcon_dmactl_require_ctx_f(v)            ((U32(v) & 0x1U) << 0U)
+#define falcon_falcon_hwcfg_r()                                    (0x00000108U)
+#define falcon_falcon_hwcfg_imem_size_v(r)                (((r) >> 0U) & 0x1ffU)
+#define falcon_falcon_hwcfg_dmem_size_v(r)                (((r) >> 9U) & 0x1ffU)
+#define falcon_falcon_hwcfg1_r()                                   (0x0000012cU)
+#define falcon_falcon_hwcfg1_imem_ports_v(r)                (((r) >> 8U) & 0xfU)
+#define falcon_falcon_hwcfg1_dmem_ports_v(r)               (((r) >> 12U) & 0xfU)
+#define falcon_falcon_dmatrfbase_r()                               (0x00000110U)
+#define falcon_falcon_dmatrfmoffs_r()                              (0x00000114U)
+#define falcon_falcon_dmatrfcmd_r()                                (0x00000118U)
+#define falcon_falcon_dmatrfcmd_imem_f(v)                ((U32(v) & 0x1U) << 4U)
+#define falcon_falcon_dmatrfcmd_write_f(v)               ((U32(v) & 0x1U) << 5U)
+#define falcon_falcon_dmatrfcmd_size_f(v)                ((U32(v) & 0x7U) << 8U)
+#define falcon_falcon_dmatrfcmd_ctxdma_f(v)             ((U32(v) & 0x7U) << 12U)
+#define falcon_falcon_dmatrffboffs_r()                             (0x0000011cU)
+#define falcon_falcon_imctl_debug_r()                              (0x0000015cU)
+#define falcon_falcon_imctl_debug_addr_blk_f(v)     ((U32(v) & 0xffffffU) << 0U)
+#define falcon_falcon_imctl_debug_cmd_f(v)              ((U32(v) & 0x7U) << 24U)
+#define falcon_falcon_imstat_r()                                   (0x00000144U)
+#define falcon_falcon_traceidx_r()                                 (0x00000148U)
+#define falcon_falcon_traceidx_maxidx_v(r)                (((r) >> 16U) & 0xffU)
+#define falcon_falcon_traceidx_idx_f(v)                 ((U32(v) & 0xffU) << 0U)
+#define falcon_falcon_tracepc_r()                                  (0x0000014cU)
+#define falcon_falcon_tracepc_pc_v(r)                  (((r) >> 0U) & 0xffffffU)
+#define falcon_falcon_exterraddr_r()                               (0x0010a168U)
+#define falcon_falcon_exterrstat_r()                               (0x0010a16cU)
+#define falcon_falcon_exterrstat_valid_m()                    (U32(0x1U) << 31U)
+#define falcon_falcon_exterrstat_valid_v(r)                (((r) >> 31U) & 0x1U)
+#define falcon_falcon_exterrstat_valid_true_v()                    (0x00000001U)
+#define falcon_falcon_icd_cmd_r()                                  (0x00000200U)
+#define falcon_falcon_icd_cmd_opc_s()                                       (4U)
+#define falcon_falcon_icd_cmd_opc_f(v)                   ((U32(v) & 0xfU) << 0U)
+#define falcon_falcon_icd_cmd_opc_m()                          (U32(0xfU) << 0U)
+#define falcon_falcon_icd_cmd_opc_v(r)                      (((r) >> 0U) & 0xfU)
+#define falcon_falcon_icd_cmd_opc_rreg_f()                                (0x8U)
+#define falcon_falcon_icd_cmd_opc_rstat_f()                               (0xeU)
+#define falcon_falcon_icd_cmd_idx_f(v)                  ((U32(v) & 0x1fU) << 8U)
+#define falcon_falcon_icd_rdata_r()                                (0x0000020cU)
+#define falcon_falcon_dmemc_r(i)\
+		(nvgpu_safe_add_u32(0x000001c0U, nvgpu_safe_mult_u32((i), 8U)))
+#define falcon_falcon_dmemc_offs_f(v)                   ((U32(v) & 0x3fU) << 2U)
+#define falcon_falcon_dmemc_offs_m()                          (U32(0x3fU) << 2U)
+#define falcon_falcon_dmemc_blk_f(v)                    ((U32(v) & 0xffU) << 8U)
+#define falcon_falcon_dmemc_blk_m()                           (U32(0xffU) << 8U)
+#define falcon_falcon_dmemc_aincw_f(v)                  ((U32(v) & 0x1U) << 24U)
+#define falcon_falcon_dmemc_aincr_f(v)                  ((U32(v) & 0x1U) << 25U)
+#define falcon_falcon_dmemd_r(i)\
+		(nvgpu_safe_add_u32(0x000001c4U, nvgpu_safe_mult_u32((i), 8U)))
+#define falcon_falcon_debug1_r()                                   (0x00000090U)
+#define falcon_falcon_debug1_ctxsw_mode_s()                                 (1U)
+#define falcon_falcon_debug1_ctxsw_mode_f(v)            ((U32(v) & 0x1U) << 16U)
+#define falcon_falcon_debug1_ctxsw_mode_m()                   (U32(0x1U) << 16U)
+#define falcon_falcon_debug1_ctxsw_mode_v(r)               (((r) >> 16U) & 0x1U)
+#define falcon_falcon_debug1_ctxsw_mode_init_f()                          (0x0U)
+#define falcon_falcon_debuginfo_r()                                (0x00000094U)
 #endif

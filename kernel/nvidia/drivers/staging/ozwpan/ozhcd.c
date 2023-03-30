@@ -29,6 +29,7 @@
 #include <linux/usb.h>
 #include <linux/slab.h>
 #include <linux/export.h>
+#include <linux/version.h>
 #include "linux/usb/hcd.h"
 #include <asm/unaligned.h>
 #include "ozusbif.h"
@@ -73,7 +74,11 @@ struct oz_endpoint {
 	struct list_head urb_list;	/* List of oz_urb_link items. */
 	struct list_head link;		/* For isoc ep, links in to isoc
 					   lists of oz_port. */
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec timestamp;
+#else
+	struct timespec64 timestamp;
+#endif
 	int credit2;
 	int credit;
 	int credit_ceiling;
@@ -90,7 +95,11 @@ struct oz_endpoint {
 	u8 next_frame;
 	u8 lost_frames;
 	u16 dropped_frames;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec timestamp2;
+#else
+	struct timespec64 timestamp2;
+#endif
 };
 /* Bits in the flags field. */
 #define OZ_F_EP_BUFFERING			(1<<0)
@@ -272,7 +281,11 @@ static int oz_get_port_from_addr(struct oz_hcd *ozhcd, u8 bus_addr)
  */
 static inline int oz_usb_get_frame_number(void)
 {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 	getrawmonotonic(&ts);
 	return (int)(div64_u64(timespec_to_ns(&ts), NSEC_PER_MSEC));
 }
@@ -1031,7 +1044,11 @@ static int oz_hcd_buffer_frame(struct oz_endpoint *ep,
 {
 	int space;
 	int copy_len;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts, delta;
+#else
+	struct timespec64 ts, delta;
+#endif
 	int delta_ms;
 
 	if (!ep->buffer)
@@ -1284,7 +1301,11 @@ int oz_hcd_heartbeat(void *hport)
 	struct list_head *n;
 	struct urb *urb;
 	struct oz_endpoint *ep;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts, delta;
+#else
+	struct timespec64 ts, delta;
+#endif
 	getrawmonotonic(&ts);
 	INIT_LIST_HEAD(&xfr_list);
 	/* Check the OUT isoc endpoints to see if any URB data can be sent.

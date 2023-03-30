@@ -1,0 +1,5 @@
+if INTERCONNECT
+
+source "drivers/interconnect/tegra/Kconfig"
+
+endif

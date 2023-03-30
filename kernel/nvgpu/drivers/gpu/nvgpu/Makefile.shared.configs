@@ -1,0 +1,357 @@
+#
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+
+# This file defines the make variables and cflags applicable to nvgpu common
+# shared by qnx, nvgpu userspace, test builds. Note that cflags are added to
+# variable NVGPU_COMMON_CFLAGS that needs to be used by the parent Makefile
+# to update corresponding cflags variable.
+
+# Default is the regular profile. That can be overridden if necessary. by
+# setting the NVGPU_FORCE_SAFETY_PROFILE. This is a useful hack while we
+# wait for the userspace tmake build to make its way into a proper safety
+# profile build.
+profile := default
+
+# Decide whether to use the safety release, safety debug or the regular profile.
+ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),1)
+profile := safety_release
+ifeq ($(NV_BUILD_CONFIGURATION_IS_DEBUG),1)
+profile := safety_debug
+endif
+endif
+
+ifeq ($(NVGPU_FORCE_SAFETY_PROFILE),1)
+profile := safety_release
+ifeq ($(NVGPU_FORCE_DEBUG_PROFILE),1)
+profile := safety_debug
+endif
+endif
+
+NVGPU_COMMON_CFLAGS		:=
+
+#
+# Flags always enabled regardless of build profile.
+#
+
+NVGPU_COMMON_CFLAGS		+=		\
+	-DCONFIG_TEGRA_GK20A_PMU=1		\
+	-DCONFIG_TEGRA_ACR=1			\
+	-DCONFIG_NVGPU_GR_VIRTUALIZATION
+
+ifeq ($(CONFIG_NVGPU_DGPU),1)
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_PCI_MSI
+endif
+
+CONFIG_NVGPU_IVM_BUILD               := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_IVM_BUILD
+
+CONFIG_NVGPU_LOGGING                 := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_LOGGING
+
+# Syncpoint support provided by nvhost is expected to exist.
+CONFIG_TEGRA_GK20A_NVHOST            := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_TEGRA_GK20A_NVHOST
+
+# Syncfds are a Linux feature.
+CONFIG_NVGPU_SYNCFD_NONE             := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_SYNCFD_NONE
+
+CONFIG_NVGPU_GRAPHICS                := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_GRAPHICS
+
+CONFIG_NVGPU_SUPPORT_GV11B           := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_SUPPORT_GV11B
+
+# Error reporting needs to be supported in qnx-safety, qnx-standard, linux.
+# In qnx-standard, nvgpu makefile is used for RM SERVER. Since iGPU is in
+# pass through mode in all three platforms, EPL libraries should not be
+# included in RM server. Use this flag to include/exclude MISC_EC libraries.
+ifneq ($(NV_BUILD_CONFIGURATION_IS_VM_SERVER), 1)
+CONFIG_NVGPU_ENABLE_MISC_EC          := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_ENABLE_MISC_EC
+endif
+CONFIG_NVGPU_COMPRESSION             := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_COMPRESSION
+
+ifeq ($(profile),$(filter $(profile),safety_debug safety_release))
+
+# Enable golden context verification only for safety debug/release build
+NVGPU_COMMON_CFLAGS             +=      \
+	-DCONFIG_NVGPU_GR_GOLDEN_CTX_VERIFICATION     \
+	-DCONFIG_NVGPU_BUILD_CONFIGURATION_IS_SAFETY
+
+## For tesing of CTXSW FW error codes manually, enable below configs in safety build.
+## Enable only one config at a time, because only one error can be tested at a time.
+# NVGPU_COMMON_CFLAGS             +=      \
+# 	-DCONFIG_NVGPU_CTXSW_FW_ERROR_WDT_TESTING
+#
+# NVGPU_COMMON_CFLAGS             +=      \
+# 	-DCONFIG_NVGPU_CTXSW_FW_ERROR_CODE_TESTING
+#
+# NVGPU_COMMON_CFLAGS             +=      \
+# 	-DCONFIG_NVGPU_CTXSW_FW_ERROR_HEADER_TESTING
+
+ifeq ($(CONFIG_NVGPU_DGPU),1)
+
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_DGPU
+
+CONFIG_NVGPU_NVLINK             := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_NVLINK
+
+# used by sec2 code
+CONFIG_NVGPU_ENGINE_QUEUE       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_ENGINE_QUEUE
+
+# used in ce_app
+CONFIG_NVGPU_FENCE              := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FENCE
+
+# ce_app uses syncpt (nvgpu_nvhost_syncpt_wait_timeout_ext)
+CONFIG_NVGPU_KERNEL_MODE_SUBMIT := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_KERNEL_MODE_SUBMIT
+
+CONFIG_NVGPU_FALCON_NON_FUSA	:= 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_NON_FUSA
+
+CONFIG_NVGPU_FALCON_DEBUG   := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_DEBUG
+
+CONFIG_NVGPU_GR_FALCON_NON_SECURE_BOOT := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_GR_FALCON_NON_SECURE_BOOT
+
+CONFIG_NVGPU_SM_DIVERSITY := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SM_DIVERSITY
+
+CONFIG_NVGPU_USE_3LSS_ERR_INJECTION := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_USE_3LSS_ERR_INJECTION
+
+CONFIG_NVGPU_LS_PMU             := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_LS_PMU
+
+CONFIG_NVGPU_CLK_ARB            := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_CLK_ARB
+endif
+
+endif
+
+CONFIG_NVGPU_TEGRA_FUSE		:= 1
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_NVGPU_TEGRA_FUSE
+
+#
+# Flags enabled only for safety debug and regular build profile.
+#
+ifneq ($(profile),safety_release)
+
+CONFIG_NVGPU_TRACE              := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_TRACE
+
+CONFIG_NVGPU_FALCON_DEBUG       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_DEBUG
+
+#
+# Flags enabled only for regular build profile.
+#
+ifneq ($(profile),safety_debug)
+
+CONFIG_NVGPU_SYSFS              := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SYSFS
+
+# ACR feature to enable old tegra ACR profile support
+CONFIG_NVGPU_ACR_LEGACY         := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_ACR_LEGACY
+
+CONFIG_NVGPU_ENGINE_QUEUE       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_ENGINE_QUEUE
+
+CONFIG_NVGPU_DEBUGGER           := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_DEBUGGER
+
+CONFIG_NVGPU_PROFILER           := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_PROFILER
+
+CONFIG_NVGPU_RECOVERY           := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_RECOVERY
+
+CONFIG_NVGPU_CILP               := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_CILP
+
+CONFIG_NVGPU_GFXP               := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_GFXP
+
+CONFIG_NVGPU_CYCLESTATS         := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_CYCLESTATS
+
+CONFIG_NVGPU_FECS_TRACE         := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FECS_TRACE
+
+ifneq ($(CONFIG_NVGPU_DGPU),1)
+CONFIG_NVGPU_IGPU_VIRT          := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_IGPU_VIRT
+endif
+
+# Enable the usage of 3LSS error injection features.
+CONFIG_NVGPU_USE_3LSS_ERR_INJECTION := 1
+NVGPU_COMMON_CFLAGS                 += -DCONFIG_NVGPU_USE_3LSS_ERR_INJECTION
+
+# Enable nvlink support for normal build.
+CONFIG_NVGPU_NVLINK             := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_NVLINK
+
+# Enable static_powergate support for normal build.
+CONFIG_NVGPU_STATIC_POWERGATE      := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_STATIC_POWERGATE
+
+# Enable mssnvlink0 reset control for normal build
+CONFIG_MSSNVLINK0_RST_CONTROL   := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_MSSNVLINK0_RST_CONTROL
+
+# Enable dgpu support for normal build.
+CONFIG_NVGPU_DGPU               := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_DGPU
+
+CONFIG_NVGPU_VPR                := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_VPR
+
+CONFIG_NVGPU_REPLAYABLE_FAULT   := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_REPLAYABLE_FAULT
+
+CONFIG_NVGPU_FALCON_DEBUG       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_DEBUG
+
+# Enable LS PMU support for normal build
+CONFIG_NVGPU_LS_PMU             := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_LS_PMU
+
+# Enable elpg support for normal build
+CONFIG_NVGPU_POWER_PG           := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_POWER_PG
+
+# Enable sim support for normal build
+CONFIG_NVGPU_SIM                := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SIM
+
+# Enable non FUSA HALs for normal build
+CONFIG_NVGPU_HAL_NON_FUSA       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_HAL_NON_FUSA
+
+# Enable non FUSA common code for normal build
+CONFIG_NVGPU_NON_FUSA           := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_NON_FUSA
+
+CONFIG_NVGPU_CLK_ARB            := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_CLK_ARB
+
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FALCON_NON_FUSA
+
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_IOCTL_NON_FUSA
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_DETERMINISTIC_CHANNELS
+
+CONFIG_NVGPU_GR_FALCON_NON_SECURE_BOOT := 1
+NVGPU_COMMON_CFLAGS                    += -DCONFIG_NVGPU_GR_FALCON_NON_SECURE_BOOT
+
+CONFIG_NVGPU_SET_FALCON_ACCESS_MAP := 1
+NVGPU_COMMON_CFLAGS                += -DCONFIG_NVGPU_SET_FALCON_ACCESS_MAP
+
+# Enable SW Semaphore for normal build
+CONFIG_NVGPU_SW_SEMAPHORE       := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_SW_SEMAPHORE
+
+# Enable Channel WDT for safety build until we switch to user mode submits only
+CONFIG_NVGPU_CHANNEL_WDT := 1
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_NVGPU_CHANNEL_WDT
+
+# Enable Kernel Mode submit for safety build until we switch to user mode
+# submits only
+CONFIG_NVGPU_KERNEL_MODE_SUBMIT := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_KERNEL_MODE_SUBMIT
+
+# Enable fences for safety build till until we switch to user mode submits only
+CONFIG_NVGPU_FENCE              := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FENCE
+
+# Enable powergate lib for normal build
+CONFIG_NVGPU_USE_POWERGATE_LIB  := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_USE_POWERGATE_LIB
+
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_FIFO_ENGINE_ACTIVITY
+# Enable dynamic busy/idle support
+CONFIG_NVGPU_DYNAMIC_BUSY_IDLE_SUPPORT := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_DYNAMIC_BUSY_IDLE_SUPPORT
+
+# Enable HW based error injection support
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_INJECT_HWERR
+
+# Enable Channel/TSG Scheduling
+CONFIG_NVGPU_CHANNEL_TSG_SCHEDULING  := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_CHANNEL_TSG_SCHEDULING
+
+# Enable Channel/TSG Control
+CONFIG_NVGPU_CHANNEL_TSG_CONTROL     := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_CHANNEL_TSG_CONTROL
+
+# Enable Virtualization server for normal build
+NVGPU_COMMON_CFLAGS             += -DCONFIG_TEGRA_GR_VIRTUALIZATION_SERVER
+
+# Enable SM diversity support for normal build
+CONFIG_NVGPU_SM_DIVERSITY            := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_SM_DIVERSITY
+
+# Enable Multi Instance GPU support for normal build
+CONFIG_NVGPU_MIG                     := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_MIG
+
+# Enable gsp scheduler for normal build
+CONFIG_NVGPU_GSP_SCHEDULER	:= 1
+NVGPU_COMMON_CFLAGS		+= -DCONFIG_NVGPU_GSP_SCHEDULER
+
+# Code to encapsulate the error information into a uniform interface via
+# nvgpu_err_msg is currently used, but might be needed in future by nvgpu_rm
+# process. Retain this code under CONFIG_NVGPU_INTR_DEBUG which is enabled
+# only in standard build for now.
+CONFIG_NVGPU_INTR_DEBUG	:= 1
+NVGPU_COMMON_CFLAGS	+= -DCONFIG_NVGPU_INTR_DEBUG
+
+# Enable GSP stress test
+ifeq ($(CONFIG_NVGPU_GSP_SCHEDULER),1)
+CONFIG_NVGPU_GSP_STRESS_TEST    := 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_GSP_STRESS_TEST
+endif
+# Enable Nonstall interrupt support for normal build
+CONFIG_NVGPU_NONSTALL_INTR           := 1
+NVGPU_COMMON_CFLAGS                  += -DCONFIG_NVGPU_NONSTALL_INTR
+
+endif
+endif
+
+# Enable USERD only if kernel mode submit is supported
+ifeq ($(CONFIG_NVGPU_KERNEL_MODE_SUBMIT),1)
+CONFIG_NVGPU_USERD		:= 1
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_USERD
+endif
+
+ifeq ($(CONFIG_NVGPU_DEBUGGER),1)
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_ENGINE_RESET
+endif
+
+ifeq ($(CONFIG_NVGPU_RECOVERY),1)
+NVGPU_COMMON_CFLAGS             += -DCONFIG_NVGPU_ENGINE_RESET
+endif

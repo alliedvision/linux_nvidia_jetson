@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,227 +53,70 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_nvlipt_gv100_h_
-#define _hw_nvlipt_gv100_h_
+#ifndef NVGPU_HW_NVLIPT_GV100_H
+#define NVGPU_HW_NVLIPT_GV100_H
 
-static inline u32 nvlipt_intr_control_link0_r(void)
-{
-	return 0x000004b4U;
-}
-static inline u32 nvlipt_intr_control_link0_stallenable_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 nvlipt_intr_control_link0_stallenable_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 nvlipt_intr_control_link0_stallenable_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 nvlipt_intr_control_link0_nostallenable_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 nvlipt_intr_control_link0_nostallenable_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 nvlipt_intr_control_link0_nostallenable_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_r(void)
-{
-	return 0x00000524U;
-}
-static inline u32 nvlipt_err_uc_status_link0_dlprotocol_f(u32 v)
-{
-	return (v & 0x1U) << 4U;
-}
-static inline u32 nvlipt_err_uc_status_link0_dlprotocol_v(u32 r)
-{
-	return (r >> 4U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_datapoisoned_f(u32 v)
-{
-	return (v & 0x1U) << 12U;
-}
-static inline u32 nvlipt_err_uc_status_link0_datapoisoned_v(u32 r)
-{
-	return (r >> 12U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_flowcontrol_f(u32 v)
-{
-	return (v & 0x1U) << 13U;
-}
-static inline u32 nvlipt_err_uc_status_link0_flowcontrol_v(u32 r)
-{
-	return (r >> 13U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_responsetimeout_f(u32 v)
-{
-	return (v & 0x1U) << 14U;
-}
-static inline u32 nvlipt_err_uc_status_link0_responsetimeout_v(u32 r)
-{
-	return (r >> 14U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_targeterror_f(u32 v)
-{
-	return (v & 0x1U) << 15U;
-}
-static inline u32 nvlipt_err_uc_status_link0_targeterror_v(u32 r)
-{
-	return (r >> 15U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_unexpectedresponse_f(u32 v)
-{
-	return (v & 0x1U) << 16U;
-}
-static inline u32 nvlipt_err_uc_status_link0_unexpectedresponse_v(u32 r)
-{
-	return (r >> 16U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_receiveroverflow_f(u32 v)
-{
-	return (v & 0x1U) << 17U;
-}
-static inline u32 nvlipt_err_uc_status_link0_receiveroverflow_v(u32 r)
-{
-	return (r >> 17U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_malformedpacket_f(u32 v)
-{
-	return (v & 0x1U) << 18U;
-}
-static inline u32 nvlipt_err_uc_status_link0_malformedpacket_v(u32 r)
-{
-	return (r >> 18U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_stompedpacketreceived_f(u32 v)
-{
-	return (v & 0x1U) << 19U;
-}
-static inline u32 nvlipt_err_uc_status_link0_stompedpacketreceived_v(u32 r)
-{
-	return (r >> 19U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_unsupportedrequest_f(u32 v)
-{
-	return (v & 0x1U) << 20U;
-}
-static inline u32 nvlipt_err_uc_status_link0_unsupportedrequest_v(u32 r)
-{
-	return (r >> 20U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_status_link0_ucinternal_f(u32 v)
-{
-	return (v & 0x1U) << 22U;
-}
-static inline u32 nvlipt_err_uc_status_link0_ucinternal_v(u32 r)
-{
-	return (r >> 22U) & 0x1U;
-}
-static inline u32 nvlipt_err_uc_mask_link0_r(void)
-{
-	return 0x00000528U;
-}
-static inline u32 nvlipt_err_uc_severity_link0_r(void)
-{
-	return 0x0000052cU;
-}
-static inline u32 nvlipt_err_uc_first_link0_r(void)
-{
-	return 0x00000530U;
-}
-static inline u32 nvlipt_err_uc_advisory_link0_r(void)
-{
-	return 0x00000534U;
-}
-static inline u32 nvlipt_err_c_status_link0_r(void)
-{
-	return 0x00000538U;
-}
-static inline u32 nvlipt_err_c_mask_link0_r(void)
-{
-	return 0x0000053cU;
-}
-static inline u32 nvlipt_err_c_first_link0_r(void)
-{
-	return 0x00000540U;
-}
-static inline u32 nvlipt_err_control_link0_r(void)
-{
-	return 0x00000544U;
-}
-static inline u32 nvlipt_err_control_link0_fatalenable_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 nvlipt_err_control_link0_fatalenable_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 nvlipt_err_control_link0_fatalenable_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 nvlipt_err_control_link0_nonfatalenable_f(u32 v)
-{
-	return (v & 0x1U) << 2U;
-}
-static inline u32 nvlipt_err_control_link0_nonfatalenable_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 nvlipt_err_control_link0_nonfatalenable_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 nvlipt_intr_control_common_r(void)
-{
-	return 0x000004b0U;
-}
-static inline u32 nvlipt_intr_control_common_stallenable_f(u32 v)
-{
-	return (v & 0x1U) << 0U;
-}
-static inline u32 nvlipt_intr_control_common_stallenable_m(void)
-{
-	return 0x1U << 0U;
-}
-static inline u32 nvlipt_intr_control_common_stallenable_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 nvlipt_intr_control_common_nonstallenable_f(u32 v)
-{
-	return (v & 0x1U) << 1U;
-}
-static inline u32 nvlipt_intr_control_common_nonstallenable_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 nvlipt_intr_control_common_nonstallenable_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 nvlipt_scratch_cold_r(void)
-{
-	return 0x000007d4U;
-}
-static inline u32 nvlipt_scratch_cold_data_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 nvlipt_scratch_cold_data_v(u32 r)
-{
-	return (r >> 0U) & 0xffffffffU;
-}
-static inline u32 nvlipt_scratch_cold_data_init_v(void)
-{
-	return 0xdeadbaadU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define nvlipt_intr_control_link0_r()                              (0x000004b4U)
+#define nvlipt_intr_control_link0_stallenable_f(v)       ((U32(v) & 0x1U) << 0U)
+#define nvlipt_intr_control_link0_stallenable_m()              (U32(0x1U) << 0U)
+#define nvlipt_intr_control_link0_stallenable_v(r)          (((r) >> 0U) & 0x1U)
+#define nvlipt_intr_control_link0_nostallenable_f(v)     ((U32(v) & 0x1U) << 1U)
+#define nvlipt_intr_control_link0_nostallenable_m()            (U32(0x1U) << 1U)
+#define nvlipt_intr_control_link0_nostallenable_v(r)        (((r) >> 1U) & 0x1U)
+#define nvlipt_err_uc_status_link0_r()                             (0x00000524U)
+#define nvlipt_err_uc_status_link0_dlprotocol_f(v)       ((U32(v) & 0x1U) << 4U)
+#define nvlipt_err_uc_status_link0_dlprotocol_v(r)          (((r) >> 4U) & 0x1U)
+#define nvlipt_err_uc_status_link0_datapoisoned_f(v)    ((U32(v) & 0x1U) << 12U)
+#define nvlipt_err_uc_status_link0_datapoisoned_v(r)       (((r) >> 12U) & 0x1U)
+#define nvlipt_err_uc_status_link0_flowcontrol_f(v)     ((U32(v) & 0x1U) << 13U)
+#define nvlipt_err_uc_status_link0_flowcontrol_v(r)        (((r) >> 13U) & 0x1U)
+#define nvlipt_err_uc_status_link0_responsetimeout_f(v) ((U32(v) & 0x1U) << 14U)
+#define nvlipt_err_uc_status_link0_responsetimeout_v(r)    (((r) >> 14U) & 0x1U)
+#define nvlipt_err_uc_status_link0_targeterror_f(v)     ((U32(v) & 0x1U) << 15U)
+#define nvlipt_err_uc_status_link0_targeterror_v(r)        (((r) >> 15U) & 0x1U)
+#define nvlipt_err_uc_status_link0_unexpectedresponse_f(v)\
+				((U32(v) & 0x1U) << 16U)
+#define nvlipt_err_uc_status_link0_unexpectedresponse_v(r) (((r) >> 16U) & 0x1U)
+#define nvlipt_err_uc_status_link0_receiveroverflow_f(v)\
+				((U32(v) & 0x1U) << 17U)
+#define nvlipt_err_uc_status_link0_receiveroverflow_v(r)   (((r) >> 17U) & 0x1U)
+#define nvlipt_err_uc_status_link0_malformedpacket_f(v) ((U32(v) & 0x1U) << 18U)
+#define nvlipt_err_uc_status_link0_malformedpacket_v(r)    (((r) >> 18U) & 0x1U)
+#define nvlipt_err_uc_status_link0_stompedpacketreceived_f(v)\
+				((U32(v) & 0x1U) << 19U)
+#define nvlipt_err_uc_status_link0_stompedpacketreceived_v(r)\
+				(((r) >> 19U) & 0x1U)
+#define nvlipt_err_uc_status_link0_unsupportedrequest_f(v)\
+				((U32(v) & 0x1U) << 20U)
+#define nvlipt_err_uc_status_link0_unsupportedrequest_v(r) (((r) >> 20U) & 0x1U)
+#define nvlipt_err_uc_status_link0_ucinternal_f(v)      ((U32(v) & 0x1U) << 22U)
+#define nvlipt_err_uc_status_link0_ucinternal_v(r)         (((r) >> 22U) & 0x1U)
+#define nvlipt_err_uc_mask_link0_r()                               (0x00000528U)
+#define nvlipt_err_uc_severity_link0_r()                           (0x0000052cU)
+#define nvlipt_err_uc_first_link0_r()                              (0x00000530U)
+#define nvlipt_err_uc_advisory_link0_r()                           (0x00000534U)
+#define nvlipt_err_c_status_link0_r()                              (0x00000538U)
+#define nvlipt_err_c_mask_link0_r()                                (0x0000053cU)
+#define nvlipt_err_c_first_link0_r()                               (0x00000540U)
+#define nvlipt_err_control_link0_r()                               (0x00000544U)
+#define nvlipt_err_control_link0_fatalenable_f(v)        ((U32(v) & 0x1U) << 1U)
+#define nvlipt_err_control_link0_fatalenable_m()               (U32(0x1U) << 1U)
+#define nvlipt_err_control_link0_fatalenable_v(r)           (((r) >> 1U) & 0x1U)
+#define nvlipt_err_control_link0_nonfatalenable_f(v)     ((U32(v) & 0x1U) << 2U)
+#define nvlipt_err_control_link0_nonfatalenable_m()            (U32(0x1U) << 2U)
+#define nvlipt_err_control_link0_nonfatalenable_v(r)        (((r) >> 2U) & 0x1U)
+#define nvlipt_intr_control_common_r()                             (0x000004b0U)
+#define nvlipt_intr_control_common_stallenable_f(v)      ((U32(v) & 0x1U) << 0U)
+#define nvlipt_intr_control_common_stallenable_m()             (U32(0x1U) << 0U)
+#define nvlipt_intr_control_common_stallenable_v(r)         (((r) >> 0U) & 0x1U)
+#define nvlipt_intr_control_common_nonstallenable_f(v)   ((U32(v) & 0x1U) << 1U)
+#define nvlipt_intr_control_common_nonstallenable_m()          (U32(0x1U) << 1U)
+#define nvlipt_intr_control_common_nonstallenable_v(r)      (((r) >> 1U) & 0x1U)
+#define nvlipt_scratch_cold_r()                                    (0x000007d4U)
+#define nvlipt_scratch_cold_data_f(v)             ((U32(v) & 0xffffffffU) << 0U)
+#define nvlipt_scratch_cold_data_v(r)                (((r) >> 0U) & 0xffffffffU)
+#define nvlipt_scratch_cold_data_init_v()                          (0xdeadbaadU)
 #endif

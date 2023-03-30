@@ -1,0 +1,44 @@
+From 0d66b6cc0c24e401b1ab69ce9f53d62e08b4430e Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Mon, 8 Jun 2020 16:06:13 -0700
+Subject: [PATCH 704/830] ANDROID: GKI: set CONFIG_BLK_DEV_LOOP_MIN_COUNT to 16
+X-NVConfidentiality: public
+
+CONFIG_BLK_DEV_LOOP_MIN_COUNT must be at least 16 in order
+to pass VTS.
+
+Bug: 158309019
+Signed-off-by: Steve Muckle <smuckle@google.com>
+Change-Id: I70df397f6340e15222cee9e5e0fc2125b2a17dad
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 0bd8c6a411a3..18576d27b961 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -219,6 +219,7 @@ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ CONFIG_GNSS=y
+ CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
++CONFIG_BLK_DEV_LOOP_MIN_COUNT=16
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_BLK_DEV_RAM_SIZE=8192
+ CONFIG_UID_SYS_STATS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 5de02c514c44..dd28c15cb643 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -194,6 +194,7 @@ CONFIG_GNSS=y
+ CONFIG_OF=y
+ CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
++CONFIG_BLK_DEV_LOOP_MIN_COUNT=16
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_BLK_DEV_RAM_SIZE=8192
+ CONFIG_UID_SYS_STATS=y
+-- 
+2.17.1
+

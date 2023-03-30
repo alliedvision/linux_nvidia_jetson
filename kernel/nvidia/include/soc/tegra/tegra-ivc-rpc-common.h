@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -14,15 +14,7 @@
 #ifndef LINUX_TEGRA_IVC_RPC_COMMON_H
 #define LINUX_TEGRA_IVC_RPC_COMMON_H
 
-#if defined(__KERNEL__)
-#include <linux/types.h>
-#include <linux/compiler.h>
-#else
-#include <stdint.h>
-#ifndef __packed
-#define __packed __attribute__((packed))
-#endif
-#endif
+#include "camrtc-common.h"
 
 /*
  * IVC frame:
@@ -123,7 +115,7 @@ struct tegra_ivc_rpc_request_header {
 	uint32_t reserved;
 	uint32_t request_id;
 	uint32_t request_len;
-} __packed;
+} CAMRTC_PACKED;
 
 struct tegra_ivc_rpc_request_frame {
 	struct tegra_ivc_rpc_request_header hdr;
@@ -131,7 +123,7 @@ struct tegra_ivc_rpc_request_frame {
 		uint8_t payload8[TEGRA_IVC_RPC_MSG_PAYLOAD_MAX];
 		uint32_t payload32[TEGRA_IVC_RPC_MSG_PAYLOAD_MAX / 4];
 	};
-} __packed;
+} CAMRTC_PACKED;
 
 struct tegra_ivc_rpc_response_header {
 	uint32_t rpc_rsp_sign;
@@ -142,7 +134,7 @@ struct tegra_ivc_rpc_response_header {
 	uint32_t tstamp_rsp_sent;
 	uint32_t response_id;
 	uint32_t response_len;
-} __packed;
+} CAMRTC_PACKED;
 
 struct tegra_ivc_rpc_response_frame {
 	struct tegra_ivc_rpc_response_header hdr;
@@ -150,6 +142,6 @@ struct tegra_ivc_rpc_response_frame {
 		uint8_t payload8[TEGRA_IVC_RPC_MSG_PAYLOAD_MAX];
 		uint32_t payload32[TEGRA_IVC_RPC_MSG_PAYLOAD_MAX / 4];
 	};
-} __packed;
+} CAMRTC_PACKED;
 
 #endif /* LINUX_TEGRA_IVC_RPC_COMMON_H */

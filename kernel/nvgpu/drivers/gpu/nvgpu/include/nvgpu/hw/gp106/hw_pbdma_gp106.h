@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,483 +53,167 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_pbdma_gp106_h_
-#define _hw_pbdma_gp106_h_
+#ifndef NVGPU_HW_PBDMA_GP106_H
+#define NVGPU_HW_PBDMA_GP106_H
 
-static inline u32 pbdma_gp_entry1_r(void)
-{
-	return 0x10000004U;
-}
-static inline u32 pbdma_gp_entry1_get_hi_v(u32 r)
-{
-	return (r >> 0U) & 0xffU;
-}
-static inline u32 pbdma_gp_entry1_length_f(u32 v)
-{
-	return (v & 0x1fffffU) << 10U;
-}
-static inline u32 pbdma_gp_entry1_length_v(u32 r)
-{
-	return (r >> 10U) & 0x1fffffU;
-}
-static inline u32 pbdma_gp_base_r(u32 i)
-{
-	return 0x00040048U + i*8192U;
-}
-static inline u32 pbdma_gp_base__size_1_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 pbdma_gp_base_offset_f(u32 v)
-{
-	return (v & 0x1fffffffU) << 3U;
-}
-static inline u32 pbdma_gp_base_rsvd_s(void)
-{
-	return 3U;
-}
-static inline u32 pbdma_gp_base_hi_r(u32 i)
-{
-	return 0x0004004cU + i*8192U;
-}
-static inline u32 pbdma_gp_base_hi_offset_f(u32 v)
-{
-	return (v & 0xffU) << 0U;
-}
-static inline u32 pbdma_gp_base_hi_limit2_f(u32 v)
-{
-	return (v & 0x1fU) << 16U;
-}
-static inline u32 pbdma_gp_fetch_r(u32 i)
-{
-	return 0x00040050U + i*8192U;
-}
-static inline u32 pbdma_gp_get_r(u32 i)
-{
-	return 0x00040014U + i*8192U;
-}
-static inline u32 pbdma_gp_put_r(u32 i)
-{
-	return 0x00040000U + i*8192U;
-}
-static inline u32 pbdma_pb_fetch_r(u32 i)
-{
-	return 0x00040054U + i*8192U;
-}
-static inline u32 pbdma_pb_fetch_hi_r(u32 i)
-{
-	return 0x00040058U + i*8192U;
-}
-static inline u32 pbdma_get_r(u32 i)
-{
-	return 0x00040018U + i*8192U;
-}
-static inline u32 pbdma_get_hi_r(u32 i)
-{
-	return 0x0004001cU + i*8192U;
-}
-static inline u32 pbdma_put_r(u32 i)
-{
-	return 0x0004005cU + i*8192U;
-}
-static inline u32 pbdma_put_hi_r(u32 i)
-{
-	return 0x00040060U + i*8192U;
-}
-static inline u32 pbdma_formats_r(u32 i)
-{
-	return 0x0004009cU + i*8192U;
-}
-static inline u32 pbdma_formats_gp_fermi0_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_formats_pb_fermi1_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_formats_mp_fermi0_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_pb_header_r(u32 i)
-{
-	return 0x00040084U + i*8192U;
-}
-static inline u32 pbdma_pb_header_priv_user_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_pb_header_method_zero_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_pb_header_subchannel_zero_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_pb_header_level_main_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_pb_header_first_true_f(void)
-{
-	return 0x400000U;
-}
-static inline u32 pbdma_pb_header_type_inc_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 pbdma_pb_header_type_non_inc_f(void)
-{
-	return 0x60000000U;
-}
-static inline u32 pbdma_hdr_shadow_r(u32 i)
-{
-	return 0x00040118U + i*8192U;
-}
-static inline u32 pbdma_gp_shadow_0_r(u32 i)
-{
-	return 0x00040110U + i*8192U;
-}
-static inline u32 pbdma_gp_shadow_1_r(u32 i)
-{
-	return 0x00040114U + i*8192U;
-}
-static inline u32 pbdma_subdevice_r(u32 i)
-{
-	return 0x00040094U + i*8192U;
-}
-static inline u32 pbdma_subdevice_id_f(u32 v)
-{
-	return (v & 0xfffU) << 0U;
-}
-static inline u32 pbdma_subdevice_status_active_f(void)
-{
-	return 0x10000000U;
-}
-static inline u32 pbdma_subdevice_channel_dma_enable_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 pbdma_method0_r(u32 i)
-{
-	return 0x000400c0U + i*8192U;
-}
-static inline u32 pbdma_method0_fifo_size_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 pbdma_method0_addr_f(u32 v)
-{
-	return (v & 0xfffU) << 2U;
-}
-static inline u32 pbdma_method0_addr_v(u32 r)
-{
-	return (r >> 2U) & 0xfffU;
-}
-static inline u32 pbdma_method0_subch_v(u32 r)
-{
-	return (r >> 16U) & 0x7U;
-}
-static inline u32 pbdma_method0_first_true_f(void)
-{
-	return 0x400000U;
-}
-static inline u32 pbdma_method0_valid_true_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 pbdma_method1_r(u32 i)
-{
-	return 0x000400c8U + i*8192U;
-}
-static inline u32 pbdma_method2_r(u32 i)
-{
-	return 0x000400d0U + i*8192U;
-}
-static inline u32 pbdma_method3_r(u32 i)
-{
-	return 0x000400d8U + i*8192U;
-}
-static inline u32 pbdma_data0_r(u32 i)
-{
-	return 0x000400c4U + i*8192U;
-}
-static inline u32 pbdma_target_r(u32 i)
-{
-	return 0x000400acU + i*8192U;
-}
-static inline u32 pbdma_target_engine_sw_f(void)
-{
-	return 0x1fU;
-}
-static inline u32 pbdma_acquire_r(u32 i)
-{
-	return 0x00040030U + i*8192U;
-}
-static inline u32 pbdma_acquire_retry_man_2_f(void)
-{
-	return 0x2U;
-}
-static inline u32 pbdma_acquire_retry_exp_2_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_acquire_timeout_exp_max_f(void)
-{
-	return 0x7800U;
-}
-static inline u32 pbdma_acquire_timeout_man_max_f(void)
-{
-	return 0x7fff8000U;
-}
-static inline u32 pbdma_acquire_timeout_en_disable_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_status_r(u32 i)
-{
-	return 0x00040100U + i*8192U;
-}
-static inline u32 pbdma_channel_r(u32 i)
-{
-	return 0x00040120U + i*8192U;
-}
-static inline u32 pbdma_signature_r(u32 i)
-{
-	return 0x00040010U + i*8192U;
-}
-static inline u32 pbdma_signature_hw_valid_f(void)
-{
-	return 0xfaceU;
-}
-static inline u32 pbdma_signature_sw_zero_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_userd_r(u32 i)
-{
-	return 0x00040008U + i*8192U;
-}
-static inline u32 pbdma_userd_target_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 pbdma_userd_target_sys_mem_coh_f(void)
-{
-	return 0x2U;
-}
-static inline u32 pbdma_userd_target_sys_mem_ncoh_f(void)
-{
-	return 0x3U;
-}
-static inline u32 pbdma_userd_addr_f(u32 v)
-{
-	return (v & 0x7fffffU) << 9U;
-}
-static inline u32 pbdma_userd_hi_r(u32 i)
-{
-	return 0x0004000cU + i*8192U;
-}
-static inline u32 pbdma_userd_hi_addr_f(u32 v)
-{
-	return (v & 0xffU) << 0U;
-}
-static inline u32 pbdma_config_r(u32 i)
-{
-	return 0x000400f4U + i*8192U;
-}
-static inline u32 pbdma_config_auth_level_privileged_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_hce_ctrl_r(u32 i)
-{
-	return 0x000400e4U + i*8192U;
-}
-static inline u32 pbdma_hce_ctrl_hce_priv_mode_yes_f(void)
-{
-	return 0x20U;
-}
-static inline u32 pbdma_intr_0_r(u32 i)
-{
-	return 0x00040108U + i*8192U;
-}
-static inline u32 pbdma_intr_0_memreq_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 pbdma_intr_0_memreq_pending_f(void)
-{
-	return 0x1U;
-}
-static inline u32 pbdma_intr_0_memack_timeout_pending_f(void)
-{
-	return 0x2U;
-}
-static inline u32 pbdma_intr_0_memack_extra_pending_f(void)
-{
-	return 0x4U;
-}
-static inline u32 pbdma_intr_0_memdat_timeout_pending_f(void)
-{
-	return 0x8U;
-}
-static inline u32 pbdma_intr_0_memdat_extra_pending_f(void)
-{
-	return 0x10U;
-}
-static inline u32 pbdma_intr_0_memflush_pending_f(void)
-{
-	return 0x20U;
-}
-static inline u32 pbdma_intr_0_memop_pending_f(void)
-{
-	return 0x40U;
-}
-static inline u32 pbdma_intr_0_lbconnect_pending_f(void)
-{
-	return 0x80U;
-}
-static inline u32 pbdma_intr_0_lbreq_pending_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_intr_0_lback_timeout_pending_f(void)
-{
-	return 0x200U;
-}
-static inline u32 pbdma_intr_0_lback_extra_pending_f(void)
-{
-	return 0x400U;
-}
-static inline u32 pbdma_intr_0_lbdat_timeout_pending_f(void)
-{
-	return 0x800U;
-}
-static inline u32 pbdma_intr_0_lbdat_extra_pending_f(void)
-{
-	return 0x1000U;
-}
-static inline u32 pbdma_intr_0_gpfifo_pending_f(void)
-{
-	return 0x2000U;
-}
-static inline u32 pbdma_intr_0_gpptr_pending_f(void)
-{
-	return 0x4000U;
-}
-static inline u32 pbdma_intr_0_gpentry_pending_f(void)
-{
-	return 0x8000U;
-}
-static inline u32 pbdma_intr_0_gpcrc_pending_f(void)
-{
-	return 0x10000U;
-}
-static inline u32 pbdma_intr_0_pbptr_pending_f(void)
-{
-	return 0x20000U;
-}
-static inline u32 pbdma_intr_0_pbentry_pending_f(void)
-{
-	return 0x40000U;
-}
-static inline u32 pbdma_intr_0_pbcrc_pending_f(void)
-{
-	return 0x80000U;
-}
-static inline u32 pbdma_intr_0_xbarconnect_pending_f(void)
-{
-	return 0x100000U;
-}
-static inline u32 pbdma_intr_0_method_pending_f(void)
-{
-	return 0x200000U;
-}
-static inline u32 pbdma_intr_0_methodcrc_pending_f(void)
-{
-	return 0x400000U;
-}
-static inline u32 pbdma_intr_0_device_pending_f(void)
-{
-	return 0x800000U;
-}
-static inline u32 pbdma_intr_0_semaphore_pending_f(void)
-{
-	return 0x2000000U;
-}
-static inline u32 pbdma_intr_0_acquire_pending_f(void)
-{
-	return 0x4000000U;
-}
-static inline u32 pbdma_intr_0_pri_pending_f(void)
-{
-	return 0x8000000U;
-}
-static inline u32 pbdma_intr_0_no_ctxsw_seg_pending_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 pbdma_intr_0_pbseg_pending_f(void)
-{
-	return 0x40000000U;
-}
-static inline u32 pbdma_intr_0_signature_pending_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 pbdma_intr_1_r(u32 i)
-{
-	return 0x00040148U + i*8192U;
-}
-static inline u32 pbdma_intr_en_0_r(u32 i)
-{
-	return 0x0004010cU + i*8192U;
-}
-static inline u32 pbdma_intr_en_0_lbreq_enabled_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_intr_en_1_r(u32 i)
-{
-	return 0x0004014cU + i*8192U;
-}
-static inline u32 pbdma_intr_stall_r(u32 i)
-{
-	return 0x0004013cU + i*8192U;
-}
-static inline u32 pbdma_intr_stall_lbreq_enabled_f(void)
-{
-	return 0x100U;
-}
-static inline u32 pbdma_intr_stall_1_r(u32 i)
-{
-	return 0x00040140U + i*8192U;
-}
-static inline u32 pbdma_intr_stall_1_hce_illegal_op_enabled_f(void)
-{
-	return 0x1U;
-}
-static inline u32 pbdma_udma_nop_r(void)
-{
-	return 0x00000008U;
-}
-static inline u32 pbdma_runlist_timeslice_r(u32 i)
-{
-	return 0x000400f8U + i*8192U;
-}
-static inline u32 pbdma_runlist_timeslice_timeout_128_f(void)
-{
-	return 0x80U;
-}
-static inline u32 pbdma_runlist_timeslice_timescale_3_f(void)
-{
-	return 0x3000U;
-}
-static inline u32 pbdma_runlist_timeslice_enable_true_f(void)
-{
-	return 0x10000000U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define pbdma_gp_entry1_r()                                        (0x10000004U)
+#define pbdma_gp_entry1_get_hi_v(r)                        (((r) >> 0U) & 0xffU)
+#define pbdma_gp_entry1_length_f(v)                ((U32(v) & 0x1fffffU) << 10U)
+#define pbdma_gp_entry1_length_v(r)                   (((r) >> 10U) & 0x1fffffU)
+#define pbdma_gp_base_r(i)\
+		(nvgpu_safe_add_u32(0x00040048U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_base__size_1_v()                                  (0x00000004U)
+#define pbdma_gp_base_offset_f(v)                 ((U32(v) & 0x1fffffffU) << 3U)
+#define pbdma_gp_base_rsvd_s()                                              (3U)
+#define pbdma_gp_base_hi_r(i)\
+		(nvgpu_safe_add_u32(0x0004004cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_base_hi_offset_f(v)                    ((U32(v) & 0xffU) << 0U)
+#define pbdma_gp_base_hi_limit2_f(v)                   ((U32(v) & 0x1fU) << 16U)
+#define pbdma_gp_fetch_r(i)\
+		(nvgpu_safe_add_u32(0x00040050U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_get_r(i)\
+		(nvgpu_safe_add_u32(0x00040014U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_put_r(i)\
+		(nvgpu_safe_add_u32(0x00040000U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_pb_fetch_r(i)\
+		(nvgpu_safe_add_u32(0x00040054U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_pb_fetch_hi_r(i)\
+		(nvgpu_safe_add_u32(0x00040058U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_get_r(i)\
+		(nvgpu_safe_add_u32(0x00040018U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_get_hi_r(i)\
+		(nvgpu_safe_add_u32(0x0004001cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_put_r(i)\
+		(nvgpu_safe_add_u32(0x0004005cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_put_hi_r(i)\
+		(nvgpu_safe_add_u32(0x00040060U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_formats_r(i)\
+		(nvgpu_safe_add_u32(0x0004009cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_formats_gp_fermi0_f()                                       (0x0U)
+#define pbdma_formats_pb_fermi1_f()                                     (0x100U)
+#define pbdma_formats_mp_fermi0_f()                                       (0x0U)
+#define pbdma_pb_header_r(i)\
+		(nvgpu_safe_add_u32(0x00040084U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_pb_header_priv_user_f()                                     (0x0U)
+#define pbdma_pb_header_method_zero_f()                                   (0x0U)
+#define pbdma_pb_header_subchannel_zero_f()                               (0x0U)
+#define pbdma_pb_header_level_main_f()                                    (0x0U)
+#define pbdma_pb_header_first_true_f()                               (0x400000U)
+#define pbdma_pb_header_type_inc_f()                               (0x20000000U)
+#define pbdma_pb_header_type_non_inc_f()                           (0x60000000U)
+#define pbdma_hdr_shadow_r(i)\
+		(nvgpu_safe_add_u32(0x00040118U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_shadow_0_r(i)\
+		(nvgpu_safe_add_u32(0x00040110U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_gp_shadow_1_r(i)\
+		(nvgpu_safe_add_u32(0x00040114U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_subdevice_r(i)\
+		(nvgpu_safe_add_u32(0x00040094U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_subdevice_id_f(v)                        ((U32(v) & 0xfffU) << 0U)
+#define pbdma_subdevice_status_active_f()                          (0x10000000U)
+#define pbdma_subdevice_channel_dma_enable_f()                     (0x20000000U)
+#define pbdma_method0_r(i)\
+		(nvgpu_safe_add_u32(0x000400c0U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_method0_fifo_size_v()                                (0x00000004U)
+#define pbdma_method0_addr_f(v)                        ((U32(v) & 0xfffU) << 2U)
+#define pbdma_method0_addr_v(r)                           (((r) >> 2U) & 0xfffU)
+#define pbdma_method0_subch_v(r)                           (((r) >> 16U) & 0x7U)
+#define pbdma_method0_first_true_f()                                 (0x400000U)
+#define pbdma_method0_valid_true_f()                               (0x80000000U)
+#define pbdma_method1_r(i)\
+		(nvgpu_safe_add_u32(0x000400c8U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_method2_r(i)\
+		(nvgpu_safe_add_u32(0x000400d0U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_method3_r(i)\
+		(nvgpu_safe_add_u32(0x000400d8U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_data0_r(i)\
+		(nvgpu_safe_add_u32(0x000400c4U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_target_r(i)\
+		(nvgpu_safe_add_u32(0x000400acU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_target_engine_sw_f()                                       (0x1fU)
+#define pbdma_acquire_r(i)\
+		(nvgpu_safe_add_u32(0x00040030U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_acquire_retry_man_2_f()                                     (0x2U)
+#define pbdma_acquire_retry_exp_2_f()                                   (0x100U)
+#define pbdma_acquire_timeout_exp_max_f()                              (0x7800U)
+#define pbdma_acquire_timeout_man_max_f()                          (0x7fff8000U)
+#define pbdma_acquire_timeout_en_disable_f()                              (0x0U)
+#define pbdma_status_r(i)\
+		(nvgpu_safe_add_u32(0x00040100U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_channel_r(i)\
+		(nvgpu_safe_add_u32(0x00040120U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_signature_r(i)\
+		(nvgpu_safe_add_u32(0x00040010U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_signature_hw_valid_f()                                   (0xfaceU)
+#define pbdma_signature_sw_zero_f()                                       (0x0U)
+#define pbdma_userd_r(i)\
+		(nvgpu_safe_add_u32(0x00040008U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_userd_target_vid_mem_f()                                    (0x0U)
+#define pbdma_userd_target_sys_mem_coh_f()                                (0x2U)
+#define pbdma_userd_target_sys_mem_ncoh_f()                               (0x3U)
+#define pbdma_userd_addr_f(v)                       ((U32(v) & 0x7fffffU) << 9U)
+#define pbdma_userd_hi_r(i)\
+		(nvgpu_safe_add_u32(0x0004000cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_userd_hi_addr_f(v)                        ((U32(v) & 0xffU) << 0U)
+#define pbdma_config_r(i)\
+		(nvgpu_safe_add_u32(0x000400f4U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_config_auth_level_privileged_f()                          (0x100U)
+#define pbdma_hce_ctrl_r(i)\
+		(nvgpu_safe_add_u32(0x000400e4U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_hce_ctrl_hce_priv_mode_yes_f()                             (0x20U)
+#define pbdma_intr_0_r(i)\
+		(nvgpu_safe_add_u32(0x00040108U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_0_memreq_v(r)                            (((r) >> 0U) & 0x1U)
+#define pbdma_intr_0_memreq_pending_f()                                   (0x1U)
+#define pbdma_intr_0_memack_timeout_pending_f()                           (0x2U)
+#define pbdma_intr_0_memack_extra_pending_f()                             (0x4U)
+#define pbdma_intr_0_memdat_timeout_pending_f()                           (0x8U)
+#define pbdma_intr_0_memdat_extra_pending_f()                            (0x10U)
+#define pbdma_intr_0_memflush_pending_f()                                (0x20U)
+#define pbdma_intr_0_memop_pending_f()                                   (0x40U)
+#define pbdma_intr_0_lbconnect_pending_f()                               (0x80U)
+#define pbdma_intr_0_lbreq_pending_f()                                  (0x100U)
+#define pbdma_intr_0_lback_timeout_pending_f()                          (0x200U)
+#define pbdma_intr_0_lback_extra_pending_f()                            (0x400U)
+#define pbdma_intr_0_lbdat_timeout_pending_f()                          (0x800U)
+#define pbdma_intr_0_lbdat_extra_pending_f()                           (0x1000U)
+#define pbdma_intr_0_gpfifo_pending_f()                                (0x2000U)
+#define pbdma_intr_0_gpptr_pending_f()                                 (0x4000U)
+#define pbdma_intr_0_gpentry_pending_f()                               (0x8000U)
+#define pbdma_intr_0_gpcrc_pending_f()                                (0x10000U)
+#define pbdma_intr_0_pbptr_pending_f()                                (0x20000U)
+#define pbdma_intr_0_pbentry_pending_f()                              (0x40000U)
+#define pbdma_intr_0_pbcrc_pending_f()                                (0x80000U)
+#define pbdma_intr_0_xbarconnect_pending_f()                         (0x100000U)
+#define pbdma_intr_0_method_pending_f()                              (0x200000U)
+#define pbdma_intr_0_methodcrc_pending_f()                           (0x400000U)
+#define pbdma_intr_0_device_pending_f()                              (0x800000U)
+#define pbdma_intr_0_semaphore_pending_f()                          (0x2000000U)
+#define pbdma_intr_0_acquire_pending_f()                            (0x4000000U)
+#define pbdma_intr_0_pri_pending_f()                                (0x8000000U)
+#define pbdma_intr_0_no_ctxsw_seg_pending_f()                      (0x20000000U)
+#define pbdma_intr_0_pbseg_pending_f()                             (0x40000000U)
+#define pbdma_intr_0_signature_pending_f()                         (0x80000000U)
+#define pbdma_intr_1_r(i)\
+		(nvgpu_safe_add_u32(0x00040148U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_en_0_r(i)\
+		(nvgpu_safe_add_u32(0x0004010cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_en_0_lbreq_enabled_f()                               (0x100U)
+#define pbdma_intr_en_1_r(i)\
+		(nvgpu_safe_add_u32(0x0004014cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_stall_r(i)\
+		(nvgpu_safe_add_u32(0x0004013cU, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_stall_lbreq_enabled_f()                              (0x100U)
+#define pbdma_intr_stall_1_r(i)\
+		(nvgpu_safe_add_u32(0x00040140U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_intr_stall_1_hce_illegal_op_enabled_f()                     (0x1U)
+#define pbdma_udma_nop_r()                                         (0x00000008U)
+#define pbdma_runlist_timeslice_r(i)\
+		(nvgpu_safe_add_u32(0x000400f8U, nvgpu_safe_mult_u32((i), 8192U)))
+#define pbdma_runlist_timeslice_timeout_128_f()                          (0x80U)
+#define pbdma_runlist_timeslice_timescale_3_f()                        (0x3000U)
+#define pbdma_runlist_timeslice_enable_true_f()                    (0x10000000U)
 #endif

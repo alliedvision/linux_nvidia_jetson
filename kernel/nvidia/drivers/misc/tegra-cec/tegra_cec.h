@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-cec/tegra_cec.h
  *
- * Copyright (c) 2012-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,7 +25,12 @@
 
 #define TEGRA_CEC_FRAME_MAX_LENGTH  16
 
-struct tegra_cec_soc;
+struct tegra_cec_soc {
+	int powergate_id;
+	int offset;
+	bool use_tegra_dc;
+	bool cec_always_on;
+};
 
 struct tegra_cec {
 	struct device		*dev;
@@ -53,6 +58,7 @@ struct tegra_cec {
 	u32			tx_buf[TEGRA_CEC_FRAME_MAX_LENGTH];
 	u8			tx_buf_cur;
 	u8			tx_buf_cnt;
+	struct reset_control    *reset;
 };
 static int tegra_cec_remove(struct platform_device *pdev);
 
@@ -79,6 +85,19 @@ static int tegra_cec_remove(struct platform_device *pdev);
 #define TEGRA_CEC_HW_DEBUG_RX	 0X038
 #define TEGRA_CEC_HW_DEBUG_TX	 0X03C
 #define TEGRA_CEC_HW_SPARE       0X040
+
+#define TEGRA_CEC_WAKE_STAT_0           0x044
+#define TEGRA_CEC_WAKE_MASK_0           0x048
+#define TEGRA_CEC_RX_BUFFER_AFULL_CFG_0 0x04c
+#define TEGRA_CEC_RX_BUFFER_STAT_0      0x050
+#define TEGRA_CEC_RX_TIMING_3_0         0x054
+#define TEGRA_CEC_MESSAGE_FILTER_CTRL   0X058
+#define TEGRA_CEC_RX_PHYSICAL_ADDR_0    0X05C
+#define TEGRA_CEC_RX_OPCODE_0           0x060
+#define TEGRA_CEC_RX_OPCODE_1           0x064
+#define TEGRA_CEC_RX_OPCODE_2           0x068
+#define TEGRA_CEC_RX_OPCODE_3           0x06c
+#define TEGRA_CEC_RX_OPCODE_4           0x070
 
 #define TEGRA_CEC_MAX_LOGICAL_ADDR	15
 #define TEGRA_CEC_HWCTRL_RX_LADDR_UNREG	0x0

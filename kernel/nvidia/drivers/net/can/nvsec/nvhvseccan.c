@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,7 +27,12 @@
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/ethtool.h>
@@ -258,6 +263,7 @@ static netdev_tx_t nv_seccan_xmit(struct sk_buff *skb, struct net_device *ndev)
 				   buf->len, buf->cmd);
 			(void)memcpy((u8 *)buf + HDR_SIZE, (u8 *)frame, size);
 			(void)tegra_hv_ivc_write_advance(hvn->ivck);
+			kfree_skb(skb);
 			stats->tx_bytes += size;
 			stats->tx_packets++;
 		} else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 /*
  * max size of version string
  */
-static const size_t TFW_VERSION_MAX_SIZE = 256;
+#define TFW_VERSION_MAX_SIZE 256
 
 #if IS_ENABLED(CONFIG_TEGRA_FIRMWARES_CLASS)
 

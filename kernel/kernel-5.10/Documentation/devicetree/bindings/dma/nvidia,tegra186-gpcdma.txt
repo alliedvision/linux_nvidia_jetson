@@ -1,0 +1,60 @@
+Tegra GPCDMA controller.
+
+Tegra GPCDMA controller is a general purpose dma used by multiple slave
+devices for faster transfers. It can support mem to mem, mem to io and
+io to mem transfers.
+
+Required properties :
+- compatible :
+  For Tegra186, must contain "nvidia,tegra186-gpcdma".
+  For Tegra194, must contain "nvidia,tegra194-gpcdma".
+- reg : Should contain gpcdma reg offset location and length.
+- interrupts : Should contain list of interrupts for all channels.
+- resets : Must contain handle for each entry in reset-names.
+  See ../reset/reset.txt for details.
+- reset-names : Must include "gpcdma".
+
+Optional properties:
+- iommus : A reference to the IOMMU. See ../iommu/iommu.txt for details.
+
+Example :
+gpcdma: dma@2600000 {
+	compatible = "nvidia,tegra186-gpcdma";
+	reg = <0x0 0x2600000 0x0 0x210000>;
+	resets = <&bpmp TEGRA186_RESET_GPCDMA>;
+	reset-names = "gpcdma";
+	interrupts = <0 75 0x04
+		      0 76 0x04
+		      0 77 0x04
+		      0 78 0x04
+		      0 79 0x04
+		      0 80 0x04
+		      0 81 0x04
+		      0 82 0x04
+		      0 83 0x04
+		      0 84 0x04
+		      0 85 0x04
+		      0 86 0x04
+		      0 87 0x04
+		      0 88 0x04
+		      0 89 0x04
+		      0 90 0x04
+		      0 91 0x04
+		      0 92 0x04
+		      0 93 0x04
+		      0 94 0x04
+		      0 95 0x04
+		      0 96 0x04
+		      0 97 0x04
+		      0 98 0x04
+		      0 99 0x04
+		      0 100 0x04
+		      0 101 0x04
+		      0 102 0x04
+		      0 103 0x04
+		      0 104 0x04
+		      0 105 0x04
+		      0 106 0x04
+		      0 107 0x04>;
+	iommus = <&smmu TEGRA_SID_GPCDMA_0>;
+};

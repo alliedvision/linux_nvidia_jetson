@@ -1,0 +1,124 @@
+/*
+ * safety services HDS property DTSI : Diagnostic test configuration
+ *
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/* service property configuration syntax
+ *
+ * 1. compatible string - "nvidia,safetysrv_servprop"
+ *
+ * 2. 'ServiceID' property - service identifier value
+ *
+ * 3. 'Periodic' property - Distinguishes periodic and on-demand tests
+ *    Property value 0x0 denotes on-demand test, 0x1 denotes periodic test
+ *
+ * 4. 'MissionBlocked' property - Range 0x0, 0x1
+ *    When the 'MissionBlocked' property value is 0x1, the service execution is
+ *    not triggered from NvGuard. Instead the client is expected to run the test
+ *    in phase of 'NVGUARD_TEGRA_PHASE_INIT' and report the status using
+ *    'NvGuard_ReportServiceStatus()' API
+ *
+ * 5. 'UserTrigger' property - Range 0x0, 0x1
+ *     Indicates if service is periodically executed from a global scheduler
+ *     outside NvGuard. If property value is 0x1, NvGuard will not execute
+ *     'SrvPtr' during periodic test trigger. Instead, latest service status
+ *     is retrieved using 'StatusReadPtr'. Property value Will not impact
+ *     on-demand test requests, for which 'SrvPtr' is executed always
+ *     Periodic - UserTrigger association
+ *     a) Periodic = 0x1 AND 'UserTrigger' = 0x1 -
+ *        Entity outside NvGuard framework schedules the test periodically.
+ *        Client library retrieves test status using 'StatusReadPtr' on
+ *        receiving periodic read requests from NvGuard(L1SS).
+ *        'SrvPtr' is executed on receiving on-demand test request
+ *     b) Periodic = 0x1 AND 'UserTrigger' = 0x0 -
+ *        Client library executes 'SrvPtr' on receiving periodic trigger from
+ *        NvGuard(L1SS). 'SrvPtr' is executed in case of on-demand test request also
+ *     c) Periodic = 0x0(UserTrigger value is DON'T CARE)    -
+ *       Denotes On-Demand test. 'SrvPtr' is executed on receiving test
+ *       requests
+ */
+/ {
+	nvguard_service_sample_1 {
+		compatible = "nvidia,safetysrv_servprop";
+		ServiceID = <0x0120100A>; /*NVGUARD_SERVICE_SCE_DIAG_NOC_BIST*/
+		Periodic = <0x1>;
+		MissionBlocked = <0x0>;
+		UserTrigger = <0x0>;
+		BootPrerequisite = <0x0>;
+	};
+	nvguard_service_sample_2 {
+		compatible = "nvidia,safetysrv_servprop";
+		ServiceID = <0x01201000>; /*NVGUARD_SERVICE_SCE_DIAG_NOC_BIST*/
+		Periodic = <0x0>;
+		MissionBlocked = <0x0>;
+		UserTrigger = <0x0>;
+		BootPrerequisite = <0x0>;
+	};
+	nvguard_service_sample_3 {
+		compatible = "nvidia,safetysrv_servprop";
+		ServiceID = <0x01201001>; /*NVGUARD_SERVICE_SCE_DIAG_NOC_BIST*/
+		Periodic = <0x0>;
+		MissionBlocked = <0x0>;
+		UserTrigger = <0x0>;
+		BootPrerequisite = <0x0>;
+        };
+        nvguard_service_sce_diag_noc_bist {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x02200800>; /*NVGUARD_SERVICE_SCE_DIAG_NOC_BIST*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x0>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+        };
+        nvguard_service_sce_diag_scelic_monitorerror {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x02200801>; /*NVGUARD_SERVICE_SCE_DIAG_SCELIC_MONITORERROR*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x0>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+
+        };
+        nvguard_service_sce_diag_hsmconfig_monitor {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x02200802>; /*NVGUARD_SERVICE_SCE_DIAG_HSMCONFIG_MONITOR*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x0>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+        };
+        nvguard_service_spi2_diag_e2e_check {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x02205800>; /*NVGUARD_SERVICE_SPI2_DIAG_E2E_CHECK*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x0>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+        };
+        nvguard_service_pinmux_padring_diag_periodic_check {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x0220a400>; /*NVGUARD_SERVICE_PINMUX_PADRING_DIAG_PERIODIC_CHECK*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x0>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+        };
+        nvguard_service_dramecc_diag_startup_test {
+            compatible = "nvidia,safetysrv_servprop";
+            ServiceID = <0x0220e000>; /*NVGUARD_SERVICE_DRAMECC_DIAG_STARTUP_TEST*/
+            Periodic = <0x0>;
+            MissionBlocked = <0x1>;
+            UserTrigger = <0x0>;
+            BootPrerequisite = <0x0>;
+        };
+};

@@ -1,0 +1,28 @@
+* NVIDIA Tegra EQOS APE Driver
+
+The Tegra EQOS APE Driver which exposes interface for userspace
+for retrieving information regarding drift between audio and eqos
+clocks. And based on that a correction can be done by using asrc
+to get clocks in sync.
+
+Required properties:
+- compatible: Must be "nvidia,tegra18x-eqos-ape";.
+- reg: Should contain AMISC registers location and length. This should be
+  a two entries that includes amisc idle register and EAVB related address
+  space.
+- clocks: Must contain three entries for the APE, PLL_A_OUT0 and PLLA
+- clock-names: Must contain the alias of APE, PLL_A_OUT0 and PLLA as
+  "eqos_ape.ape", "pll_a_out0", "pll_a".
+
+Example:
+
+eqos_ape@2990000 {
+	status = "okay";
+	compatible = "nvidia,tegra18x-eqos-ape";
+	reg = <0x0 0x02990054 0x0 0x4>, /* AMISC IDLE*/
+		<0x0 0x029900c0 0x0 0x28>;  /* AMISC EAVB*/
+	clocks = <&bpmp_clks TEGRA194_CLK_APE>,
+		<&bpmp_clks TEGRA194_CLK_PLLA_OUT0>,
+		<&bpmp_clks TEGRA194_CLK_PLLA>;
+	clock-names = "eqos_ape.ape", "pll_a_out0", "pll_a";
+};

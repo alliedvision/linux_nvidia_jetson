@@ -61,6 +61,7 @@ s32 hal_btcoex_IsBTCoexRejectAMPDU(PADAPTER padapter);
 s32 hal_btcoex_IsBTCoexCtrlAMPDUSize(PADAPTER padapter);
 u32 hal_btcoex_GetAMPDUSize(PADAPTER padapter);
 void hal_btcoex_SetManualControl(PADAPTER padapter, u8 bmanual);
+void hal_btcoex_set_policy_control(PADAPTER padapter, u8 btc_policy);
 u8 hal_btcoex_1Ant(PADAPTER padapter);
 u8 hal_btcoex_IsBtControlLps(PADAPTER);
 u8 hal_btcoex_IsLpsOn(PADAPTER);

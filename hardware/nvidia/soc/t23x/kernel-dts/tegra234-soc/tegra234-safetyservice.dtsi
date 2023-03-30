@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+/*
+/* tegra234-safetyservice.dtsi: Ths dt is used to override the build time
+ * configuration of safetyservices on FSI
+ */
+
+/ {
+	SS_ErrorReportingConfig{
+		compatible = "nvidia,tegra-SafetyServiceConfig";
+		status = "disabled";
+                /*Number of entries in EC Threshold List*/
+		SEC_Threshold_count = <0>;
+                /*List of EC Threshold for error codes pertaining to corrected EC errors*/
+                /*Entry should be <Threshold_Value ErrCode>*/
+                /*Sample:<0x45 0x00002daa>,
+                         <0x23 0x000025ab>; */
+		SEC_Threshold = <>;
+                /*Number of Reporter Ids in the disable list*/
+		List_of_Reporter_ID_to_disable_error_count = <0>;
+                /*List of Reporter Ids(pertaining to EC/HSM errors) for which error detection
+                  and SOC pin assertion need to be disabled completely*/
+                /*Sample:<0xE000>,
+                         <0xE001>;*/
+		List_of_Reporter_ID_to_disable_error = <>;
+                /*Number of Error codes in the disable SOC_Err_Pin list*/
+		List_of_ErrCode_to_disable_SOC_Err_Pin_count = <0>;
+                /*List of Error codes for which SOC pin assertion from HSM need to be disabled*/
+                /*Sample:<0x00001805>,
+                         <0x00002860>;*/
+		List_of_ErrCode_to_disable_SOC_Err_Pin = <>;
+                /*Configuration for List of SW errors to disable will be supported in future release*/
+		/*Enable:1, Disable:0*/
+		HSM_Timer_enable = <0>;
+                /*timeout (in micro seconds) period after which SOC error pin will be asserted*/
+		HSM_Timer = <>;
+	};
+};

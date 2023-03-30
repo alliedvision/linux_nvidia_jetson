@@ -19,7 +19,6 @@
 #ifdef CONFIG_DEBUG_FS
 
 #include "ufs-tegra.h"
-#include "ufs.h"
 
 #define CHECK_NULL(expr) \
 	{ \
@@ -31,14 +30,9 @@
 
 #define START_PROVISIONING 1
 #define MAX_LUN_COUNT 8
-#define CONFIG_DESC_301_SIZE 230
-#define UNIT_DESC_301_SIZE 26
-#define CONFIG_DESC_HEADER_301_SIZE 22
-
-#define CONFIG_DESC_SIZE 144
-#define UNIT_DESC_SIZE 16
-#define CONFIG_DESC_HEADER_SIZE 16
-
+#define CONFIG_DESC_SIZE 0xe6
+#define UNIT_DESC_SIZE 26
+#define CONFIG_DESC_HEADER_SIZE 22
 #define ACTIVE_MODE 0x01
 #define EQUAL_PRIORITY 0x7F
 
@@ -61,52 +55,13 @@
 #define INIT_PWR_MODE_OFFSET 5
 #define HIGH_PRIORITY_LUN_OFFSET 6
 
-static inline u8 get_config_desc_size(const u16 spec_version)
-{
-	u8 desc_size;
-
-	if (spec_version >= 0x301)
-		desc_size = CONFIG_DESC_301_SIZE;
-	else
-		desc_size = CONFIG_DESC_SIZE;
-
-	return desc_size;
-}
-
-static inline u8 get_unit_desc_size(const u16 spec_version)
-{
-	u8 unit_desc_size;
-
-	if (spec_version >= 0x301)
-		unit_desc_size = UNIT_DESC_301_SIZE;
-	else
-		unit_desc_size = UNIT_DESC_SIZE;
-
-	return unit_desc_size;
-}
-
-static inline u8 get_config_desc_hdr_size(const u16 spec_version)
-{
-	u8 hdr_size;
-
-	if (spec_version >= 0x301)
-		hdr_size = CONFIG_DESC_HEADER_301_SIZE;
-	else
-		hdr_size = CONFIG_DESC_HEADER_SIZE;
-
-	return hdr_size;
-}
-
-static void populate_desc_header(struct ufs_tegra_host *ufs_tegra, const u16 spec_version)
+void populate_desc_header(struct ufs_tegra_host *ufs_tegra)
 {
 	u8 *lun_desc_buf;
-	u8 desc_size;
-
-	desc_size = get_config_desc_size(spec_version);
 
 	if ((ufs_tegra != NULL) && (ufs_tegra->lun_desc_buf != NULL)) {
 		lun_desc_buf = ufs_tegra->lun_desc_buf;
-		lun_desc_buf[LENGTH_OFFSET] = desc_size;
+		lun_desc_buf[LENGTH_OFFSET] = CONFIG_DESC_SIZE;
 		lun_desc_buf[DESC_TYPE_OFFFSET] = QUERY_DESC_IDN_CONFIGURATION;
 		lun_desc_buf[BOOT_ENABLE_OFFFSET] = ufs_tegra->boot_enable;
 		lun_desc_buf[DESCR_ACCESS_EN_OFFFSET] =
@@ -148,20 +103,13 @@ int validate_bootlun_en_id_value(struct ufs_hba *hba, u32 bootlun_en_id)
 	return 0;
 }
 
-static int validate_desc_header(struct ufs_hba *hba,
-					u8 *lun_desc_buf,
-					u16 spec_version)
+int validate_desc_header(struct ufs_hba *hba, u8 *lun_desc_buf)
 {
 	int i, err = 0;
 	u8 desc_param;
-	u8 desc_hdr_size, unit_desc_size;
-
-	desc_hdr_size = get_config_desc_hdr_size(spec_version);
-	unit_desc_size = get_unit_desc_size(spec_version);
 
 	#define GET_PARAM_VAL(i, offset) \
-			((lun_desc_buf + desc_hdr_size + \
-				(i * unit_desc_size))[(offset)])
+			((lun_desc_buf + CONFIG_DESC_HEADER_SIZE + (i * UNIT_DESC_SIZE))[(offset)])
 
 	if (lun_desc_buf == NULL) {
 		dev_err(hba->dev, "lun_desc_buf is null\n");
@@ -250,6 +198,7 @@ static int validate_desc_header(struct ufs_hba *hba,
 	}
 
 	#undef GET_PARAM_VAL
+
 	return err;
 }
 
@@ -275,8 +224,6 @@ static ssize_t program_lun_debugfs_write(struct file *file,
 	u32 desc_lock;
 	struct ufs_hba *hba;
 	struct ufs_tegra_host *ufs_tegra;
-	u16 spec_version;
-	u8 desc_size;
 
 	/*
 	 * PROGRAM_LUN is set to 1 to trigeer  programming of LUNS.
@@ -340,19 +287,12 @@ static ssize_t program_lun_debugfs_write(struct file *file,
 			goto out;
 		}
 
-		if (ufs_get_device_specversion(hba, &spec_version)) {
-			dev_err(hba->dev, "%s: %d"
-				" Read Specversion failed\n", __func__, __LINE__);
-			goto out;
-		}
-
 		/* Populate Config Desc Header */
-		populate_desc_header(ufs_tegra, spec_version);
+		populate_desc_header(ufs_tegra);
 
 		/* Print descriptor array created */
 		dev_info(hba->dev, "Configuration Descriptor array:\n");
-		desc_size = get_config_desc_size(spec_version);
-		for (i = 0; i < desc_size; i++) {
+		for (i = 0; i < CONFIG_DESC_SIZE; i++) {
 			if ((i%16 == 0) && i)
 				pr_info("\n");
 			pr_cont("0x%02x  ",
@@ -360,8 +300,7 @@ static ssize_t program_lun_debugfs_write(struct file *file,
 		}
 
 		/* Validate unit desc data given by user */
-		err = validate_desc_header(hba,
-				 ufs_tegra->lun_desc_buf, spec_version);
+		err = validate_desc_header(hba, ufs_tegra->lun_desc_buf);
 		if (err) {
 			dev_err(hba->dev,
 				"%s: Descriptor Valdiation Failed\n", __func__);
@@ -600,28 +539,27 @@ static const struct file_operations bootlun_en_id_debugfs_ops = {
 static int create_desc_debugfs_nodes(struct dentry *parent_lun_root,
 							u8 *lun_desc_off)
 {
-	int err = 0;
 
-	CHECK_NULL(debugfs_create_x8("bLUenable", 0644, parent_lun_root,
-				lun_desc_off + LUENABLE_OFFSET));
-	CHECK_NULL(debugfs_create_x8("bBootLUNID", 0644, parent_lun_root,
-				lun_desc_off + BOOTLUN_ID_OFFSET));
-	CHECK_NULL(debugfs_create_x8("bLUWriteProtect", 0644, parent_lun_root,
-				lun_desc_off + LU_WRITE_PROTECT_OFFSET));
-	CHECK_NULL(debugfs_create_x8("bMemoryType", 0644, parent_lun_root,
-				lun_desc_off + MEMORY_TYPE_OFFSET));
-	CHECK_NULL(debugfs_create_x32("dNumAllocUnits", 0644, parent_lun_root,
-			(u32 *)(lun_desc_off + NUM_ALLOC_UNITS_OFFSET)));
-	CHECK_NULL(debugfs_create_x8("bDataReliability", 0644, parent_lun_root,
-				lun_desc_off + DATA_RELIABILITY_OFFSET));
-	CHECK_NULL(debugfs_create_x8("bLogicalBlocksize", 0644, parent_lun_root,
-				lun_desc_off + LOGICAL_BLK_SIZE_OFFSET));
-	CHECK_NULL(debugfs_create_x8("bProvisionType", 0644, parent_lun_root,
-				lun_desc_off + PROV_TYPE_OFFSET));
-	CHECK_NULL(debugfs_create_x16("wContextCapabilities", 0644,
-		parent_lun_root, (u16 *)(lun_desc_off + CONTEXT_CAP_OFFSET)));
-out:
-	return err;
+	debugfs_create_x8("bLUenable", 0644, parent_lun_root,
+				lun_desc_off + LUENABLE_OFFSET);
+	debugfs_create_x8("bBootLUNID", 0644, parent_lun_root,
+				lun_desc_off + BOOTLUN_ID_OFFSET);
+	debugfs_create_x8("bLUWriteProtect", 0644, parent_lun_root,
+				lun_desc_off + LU_WRITE_PROTECT_OFFSET);
+	debugfs_create_x8("bMemoryType", 0644, parent_lun_root,
+				lun_desc_off + MEMORY_TYPE_OFFSET);
+	debugfs_create_x32("dNumAllocUnits", 0644, parent_lun_root,
+			(u32 *)(lun_desc_off + NUM_ALLOC_UNITS_OFFSET));
+	debugfs_create_x8("bDataReliability", 0644, parent_lun_root,
+				lun_desc_off + DATA_RELIABILITY_OFFSET);
+	debugfs_create_x8("bLogicalBlocksize", 0644, parent_lun_root,
+				lun_desc_off + LOGICAL_BLK_SIZE_OFFSET);
+	debugfs_create_x8("bProvisionType", 0644, parent_lun_root,
+				lun_desc_off + PROV_TYPE_OFFSET);
+	debugfs_create_x16("wContextCapabilities", 0644,
+		parent_lun_root, (u16 *)(lun_desc_off + CONTEXT_CAP_OFFSET));
+
+	return 0;
 }
 
 void debugfs_provision_init(struct ufs_hba *hba, struct dentry *device_root)
@@ -631,35 +569,24 @@ void debugfs_provision_init(struct ufs_hba *hba, struct dentry *device_root)
 	struct ufs_tegra_host *ufs_tegra = (struct ufs_tegra_host *)hba->priv;
 	char lun_name[5];
 	int i, err;
-	u16 spec_version;
-	u8 desc_size, unit_desc_size, config_desc_hdr_size;
 
 	refclk_root = debugfs_create_dir("ufs_refclk", device_root);
 	CHECK_NULL(refclk_root);
-	CHECK_NULL(debugfs_create_x32("refclkfreq_value", 0644,
-			refclk_root, &(ufs_tegra->refclk_value)));
-	CHECK_NULL(debugfs_create_file("program_refclkfreq", 0644,
-			refclk_root, hba, &refclk_debugfs_ops));
+	debugfs_create_x32("refclkfreq_value", 0644,
+			refclk_root, &(ufs_tegra->refclk_value));
+	debugfs_create_file("program_refclkfreq", 0644,
+			refclk_root, hba, &refclk_debugfs_ops);
 
 	bootlun_en_id_root = debugfs_create_dir("ufs_bootlun_en_id", device_root);
 	CHECK_NULL(bootlun_en_id_root);
-	CHECK_NULL(debugfs_create_x32("bootlun_en_id", 0644,
-			bootlun_en_id_root, &(ufs_tegra->bootlun_en_id)));
+	debugfs_create_x32("bootlun_en_id", 0644,
+			bootlun_en_id_root, &(ufs_tegra->bootlun_en_id));
 	CHECK_NULL(debugfs_create_file("program_bootlun_en_id", 0644,
 			bootlun_en_id_root, hba, &bootlun_en_id_debugfs_ops));
 
-
-	err = ufs_get_device_specversion(hba, &spec_version);
-	if (err) {
-		dev_err(hba->dev, "%s: Read Specversion failed\n", __func__);
-		goto out;
-	}
-
-	desc_size = get_config_desc_size(spec_version);
-
 	/* Create debugfs for LUN programming */
 	ufs_tegra->lun_desc_buf = (u8 *)devm_kzalloc(hba->dev,
-						desc_size, GFP_KERNEL);
+					CONFIG_DESC_SIZE, GFP_KERNEL);
 	if (!ufs_tegra->lun_desc_buf) {
 		dev_err(hba->dev,
 			"No memory for Configuration Descriptor Array\n");
@@ -669,19 +596,20 @@ void debugfs_provision_init(struct ufs_hba *hba, struct dentry *device_root)
 
 	lun_root = debugfs_create_dir("ufs_luns", device_root);
 	CHECK_NULL(lun_root);
-	CHECK_NULL(debugfs_create_x32("boot_enable", 0644,
-			lun_root, &(ufs_tegra->boot_enable)));
-	CHECK_NULL(debugfs_create_x32("descr_access_en", 0644,
-			lun_root, &(ufs_tegra->descr_access_en)));
-	CHECK_NULL(debugfs_create_file("program_lun", 0644,
-			lun_root, hba, &program_lun_debugfs_ops));
-
-	unit_desc_size = get_unit_desc_size(spec_version);
-	config_desc_hdr_size = get_config_desc_hdr_size(spec_version);
+	debugfs_create_x32("boot_enable", 0644,
+			lun_root, &(ufs_tegra->boot_enable));
+	debugfs_create_x32("descr_access_en", 0644,
+			lun_root, &(ufs_tegra->descr_access_en));
+	debugfs_create_file("program_lun", 0644,
+			lun_root, hba, &program_lun_debugfs_ops);
 
 	for (i = 0; i < MAX_LUN_COUNT; i++) {
 
-		snprintf(lun_name, sizeof(lun_name), "lun%d", i);
+		err = snprintf(lun_name, sizeof(lun_name), "lun%d", i);
+		if (err < 0) {
+			dev_err(hba->dev, "snprintf o/p error\n");
+			goto out;
+		}
 		tmp_lun_root = debugfs_create_dir(lun_name, lun_root);
 		CHECK_NULL(tmp_lun_root);
 
@@ -691,7 +619,7 @@ void debugfs_provision_init(struct ufs_hba *hba, struct dentry *device_root)
 		 */
 		err = create_desc_debugfs_nodes(tmp_lun_root,
 				ufs_tegra->lun_desc_buf +
-				config_desc_hdr_size + i * unit_desc_size);
+				CONFIG_DESC_HEADER_SIZE + i*UNIT_DESC_SIZE);
 		if (err)
 			goto out;
 	}

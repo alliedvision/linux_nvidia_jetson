@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/nvdisplay/nvdis_win.c
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -941,7 +941,7 @@ int tegra_nvdisp_get_linestride(struct tegra_dc *dc, int win)
 
 int tegra_nvdisp_update_windows(struct tegra_dc *dc,
 	struct tegra_dc_win *windows[], int n,
-	u16 *dirty_rect, bool wait_for_vblank, bool lock_flip)
+	bool wait_for_vblank, bool lock_flip)
 {
 	int i;
 	u32 update_mask = nvdisp_cmd_state_ctrl_general_update_enable_f();
@@ -958,10 +958,8 @@ int tegra_nvdisp_update_windows(struct tegra_dc *dc,
 	for (i = 0; i < n; i++) {
 		struct tegra_dc_win *win = windows[i];
 
-		if ((!wait_for_vblank
-			&& !update_is_hsync_safe(
-				&dc->shadow_windows[win->idx], win))
-			/*|| do_partial_update*/)
+		if (!wait_for_vblank &&
+		    !update_is_hsync_safe(&dc->shadow_windows[win->idx], win))
 			wait_for_vblank = true;
 
 		memcpy(&dc->shadow_windows[win->idx], win, sizeof(*win));
@@ -1052,12 +1050,6 @@ int tegra_nvdisp_update_windows(struct tegra_dc *dc,
 			tegra_nvdisp_blend(win);
 			tegra_nvdisp_scaling(win);
 			tegra_nvdisp_enable_cde(win);
-
-			/* if (do_partial_update) { */
-				/* /\* calculate the xoff, yoff etc values *\/ */
-				/* tegra_dc_win_partial_update(dc, win, xoff, yoff, */
-				/* 	width, height); */
-			/* } */
 
 			if (tegra_nvdisp_win_attribute(win, wait_for_vblank)) {
 				dev_err(&dc->ndev->dev,

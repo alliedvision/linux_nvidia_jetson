@@ -3,7 +3,7 @@
  *
  * Very loosely based on virtio_net.c
  *
- * Copyright (C) 2014-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -24,14 +24,17 @@
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/ethtool.h>
 #include <linux/if.h>
 #include <linux/slab.h>
-#include <linux/version.h>
-#include <linux/kthread.h>
 
 #define DRV_NAME "tegra_hv_net"
 #define DRV_VERSION "0.1"
@@ -73,6 +76,7 @@
 
 /* jumbo frame limit */
 #define MAX_MTU 9000
+#define MIN_MTU 14
 
 #define DEFAULT_HIGH_WATERMARK_MULT	50
 #define DEFAULT_LOW_WATERMARK_MULT	25
@@ -128,9 +132,8 @@ struct tegra_hv_net {
 	struct sk_buff *rx_skb;
 	struct sk_buff_head tx_q;
 
-	struct kthread_work xmit_work;
-	struct kthread_worker xmit_worker;
-	struct task_struct *xmit_kthread;
+	struct work_struct xmit_work;
+	struct workqueue_struct *xmit_wq;
 	wait_queue_head_t wq;
 
 	unsigned int high_watermark;	/* mult * framesize */
@@ -191,17 +194,16 @@ static void *tegra_hv_net_xmit_get_buffer(struct tegra_hv_net *hvn)
 			msecs_to_jiffies(hvn->max_tx_delay));
 		if (ret <= 0) {
 			net_warn_ratelimited(
-				"%s: Error getting IVC buffer, timed out after" \
-				" %u ms ERROR %ld \n",
+				"%s: timed out after %u ms\n",
 				hvn->ndev->name,
-				hvn->max_tx_delay, PTR_ERR(p));
+				hvn->max_tx_delay);
 		}
 	}
 
 	return p;
 }
 
-static void tegra_hv_net_xmit_work(struct kthread_work *work)
+static void tegra_hv_net_xmit_work(struct work_struct *work)
 {
 	struct tegra_hv_net *hvn =
 		container_of(work, struct tegra_hv_net, xmit_work);
@@ -225,7 +227,7 @@ static void tegra_hv_net_xmit_work(struct kthread_work *work)
 		ret = skb_linearize(skb);
 		if (ret != 0) {
 			netdev_err(hvn->ndev,
-				"%s: skb_linearize failed error=%d\n",
+				"%s: skb_linearize error=%d\n",
 				__func__, ret);
 
 			dk = dk_linearize;
@@ -247,9 +249,6 @@ static void tegra_hv_net_xmit_work(struct kthread_work *work)
 			p = tegra_hv_net_xmit_get_buffer(hvn);
 			if (IS_ERR(p)) {
 				dk = dk_wq;
-				netdev_err(hvn->ndev,
-				"tegra_hv_net_xmit_get_buffer failed" \
-				" error=%ld\n", PTR_ERR(p));
 				goto drop;
 			}
 
@@ -318,9 +317,14 @@ static netdev_tx_t tegra_hv_net_xmit(struct sk_buff *skb,
 	struct tegra_hv_net *hvn = netdev_priv(ndev);
 
 	skb_orphan(skb);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	nf_reset_ct(skb);
+#else
 	nf_reset(skb);
+#endif
 	skb_queue_tail(&hvn->tx_q, skb);
-	kthread_queue_work(&hvn->xmit_worker, &hvn->xmit_work);
+	queue_work_on(WORK_CPU_UNBOUND, hvn->xmit_wq, &hvn->xmit_work);
+
 	/* stop the queue if it gets too long */
 	if (!netif_queue_stopped(ndev) &&
 			skb_queue_len(&hvn->tx_q) >= hvn->high_watermark)
@@ -345,7 +349,7 @@ tegra_hv_net_stop(struct net_device *ndev)
 
 static int tegra_hv_net_change_mtu(struct net_device *ndev, int new_mtu)
 {
-	if (new_mtu < 14 || new_mtu > MAX_MTU) {
+	if (new_mtu < MIN_MTU || new_mtu > MAX_MTU) {
 		netdev_err(ndev, "invalid MTU, max MTU is: %d\n", MAX_MTU);
 		return -EINVAL;
 	}
@@ -354,6 +358,7 @@ static int tegra_hv_net_change_mtu(struct net_device *ndev, int new_mtu)
 		return 0;
 
 	/* we can really handle any MTU size */
+	ndev->mtu = new_mtu;
 	return 0;
 }
 
@@ -362,10 +367,17 @@ static void tegra_hv_net_set_rx_mode(struct net_device *ndev)
 	/* we don't do any kind of filtering */
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+static void tegra_hv_net_tx_timeout(struct net_device *ndev, unsigned int txqueue)
+{
+	netdev_err(ndev, "%s\n", __func__);
+}
+#else
 static void tegra_hv_net_tx_timeout(struct net_device *ndev)
 {
 	netdev_err(ndev, "%s\n", __func__);
 }
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 void
@@ -497,7 +509,7 @@ static int tegra_hv_net_rx(struct tegra_hv_net *hvn, int limit)
 		}
 
 		/* verify that packet is sane */
-		if (count < 14 || count > MAX_MTU) {
+		if (count < MIN_MTU || count > MAX_MTU + MIN_MTU)  {
 			netdev_err(ndev, "Bad packet size %d\n", count);
 			dk = dk_packet;
 			goto drop;
@@ -611,8 +623,6 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 	struct device_node *dn, *hv_dn;
 	struct net_device *ndev = NULL;
 	struct tegra_hv_net *hvn = NULL;
-	u32 prio = MAX_RT_PRIO - 1;
-	struct sched_param sparm;
 	int ret;
 	u32 id;
 	u32 highmark, lowmark, txdelay;
@@ -657,17 +667,6 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(dn, "max-tx-delay-msecs", &txdelay);
 	if (ret != 0)
 		txdelay = DEFAULT_MAX_TX_DELAY_MSECS;
-
-	ret = of_property_read_u32(dn, "nvidia,kthread_priority", &prio);
-	if (ret != 0) {
-		dev_info(dev, "no priority specified for hv_net worker thread,"
-				"using highest RT-priority by default\n");
-	}
-
-	if (prio > MAX_RT_PRIO)
-		prio = MAX_RT_PRIO -1;
-
-	sparm.sched_priority = prio;
 
 	ndev = alloc_netdev(sizeof(*hvn), "hv%d", NET_NAME_UNKNOWN,
 			    ether_setup);
@@ -714,11 +713,14 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 	SET_NETDEV_DEV(ndev, dev);
 	platform_set_drvdata(pdev, ndev);
 	ether_setup(ndev);
+#if KERNEL_VERSION(4, 14, 0) <= LINUX_VERSION_CODE
+/* not available in the earlier version so failing the GVS */
+	ndev->max_mtu = MAX_MTU;
+#endif
 	ndev->netdev_ops = &tegra_hv_netdev_ops;
 	ndev->ethtool_ops = &tegra_hv_ethtool_ops;
 	skb_queue_head_init(&hvn->tx_q);
-
-	kthread_init_work(&hvn->xmit_work, &tegra_hv_net_xmit_work);
+	INIT_WORK(&hvn->xmit_work, tegra_hv_net_xmit_work);
 
 	hvn->pdev = pdev;
 	hvn->ndev = ndev;
@@ -732,7 +734,11 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 	/* get mac address from the DT */
 
 	hvn->mac_address = of_get_mac_address(dev->of_node);
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	if (IS_ERR_OR_NULL(hvn->mac_address)) {
+#else
 	if (hvn->mac_address == NULL) {
+#endif
 		if (of_property_read_bool(dev->of_node, "use-random-mac-addr"))
 			eth_hw_addr_random(ndev);
 		else {
@@ -758,26 +764,21 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 		ether_addr_copy(ndev->dev_addr, hvn->mac_address);
 	}
 
-	kthread_init_worker(&hvn->xmit_worker);
-	hvn->xmit_kthread = kthread_run(&kthread_worker_fn,
-			&hvn->xmit_worker, "tgvnet-worker-%d", pdev->id);
-
-	if (!hvn->xmit_kthread) {
-		dev_err(dev, "Failed to start worker thread\n");
+	hvn->xmit_wq = alloc_workqueue("tgvnet-wq-%d",
+			WQ_UNBOUND | WQ_MEM_RECLAIM,
+			1,	/* FIXME: from DT? */
+			pdev->id);
+	if (hvn->xmit_wq == NULL) {
+		dev_err(dev, "Failed to allocate workqueue\n");
 		ret = -ENOMEM;
 		goto out_unreserve;
-	}
-
-	if (sched_setscheduler(hvn->xmit_kthread, SCHED_FIFO, &sparm)) {
-		dev_err(dev, "Failed to sched_setscheduler\n");
-		goto out_free_thread;
 	}
 
 	netif_napi_add(ndev, &hvn->napi, tegra_hv_net_poll, 64);
 	ret = register_netdev(ndev);
 	if (ret) {
 		dev_err(dev, "Failed to register netdev\n");
-		goto out_free_worker;
+		goto out_free_wq;
 	}
 
 	/*
@@ -802,12 +803,9 @@ static int tegra_hv_net_probe(struct platform_device *pdev)
 out_unreg_netdev:
 	unregister_netdev(ndev);
 
-out_free_worker:
+out_free_wq:
 	netif_napi_del(&hvn->napi);
-
-out_free_thread:
-	kthread_flush_worker(&hvn->xmit_worker);
-	kthread_stop(hvn->xmit_kthread);
+	destroy_workqueue(hvn->xmit_wq);
 
 out_unreserve:
 	tegra_hv_ivc_unreserve(hvn->ivck);
@@ -834,9 +832,7 @@ static int tegra_hv_net_remove(struct platform_device *pdev)
 	devm_free_irq(dev, ndev->irq, dev);
 	unregister_netdev(ndev);
 	netif_napi_del(&hvn->napi);
-	kthread_flush_worker(&hvn->xmit_worker);
-	kthread_stop(hvn->xmit_kthread);
-
+	destroy_workqueue(hvn->xmit_wq);
 	tegra_hv_ivc_unreserve(hvn->ivck);
 	free_percpu(hvn->stats);
 	free_netdev(ndev);
@@ -874,7 +870,7 @@ static int tegra_hv_net_suspend(struct platform_device *pdev,
 	 * there could be one queued or running already.
 	 * Cancel or wait for such a job
 	 */
-	kthread_flush_worker(&hvn->xmit_worker);
+	cancel_work_sync(&hvn->xmit_work);
 
 	/* Workqueue should not be running at this point,
 	 * so disable irq
@@ -904,7 +900,7 @@ static int tegra_hv_net_resume(struct platform_device *pdev)
 	  * If there is no pending xmit,
 	  * the workqueue will wake up then exit gracefully
 	  */
-	kthread_queue_work(&hvn->xmit_worker, &hvn->xmit_work);
+	queue_work_on(WORK_CPU_UNBOUND, hvn->xmit_wq, &hvn->xmit_work);
 
 	return 0;
 }

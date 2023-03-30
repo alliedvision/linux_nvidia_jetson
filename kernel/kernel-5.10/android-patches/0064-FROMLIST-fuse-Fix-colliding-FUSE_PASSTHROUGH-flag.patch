@@ -1,0 +1,36 @@
+From d84c238679408a929afd4e1c1c66cde85ff72520 Mon Sep 17 00:00:00 2001
+From: Alessio Balsini <balsini@google.com>
+Date: Thu, 12 Nov 2020 10:32:12 +0000
+Subject: [PATCH 064/830] FROMLIST: fuse: Fix colliding FUSE_PASSTHROUGH flag
+X-NVConfidentiality: public
+
+The FUSE_PASSTHROUGH flag has a conflict with linux-next, in which this id
+has been reserved for other purposes.
+Update FUSE_PASSTHROUGH bit id to one that has not been reserved upstream
+yet.
+
+Bug: 168023149
+Fixes: 314603f83de1 ("FROMLIST: fuse: Definitions and ioctl() for passthrough")
+Link: https://lore.kernel.org/lkml/20201026125016.1905945-2-balsini@android.com/
+Signed-off-by: Alessio Balsini <balsini@google.com>
+Change-Id: Ida0097fd2f9adee3bc85526dc6c78c7a87ac8f13
+---
+ include/uapi/linux/fuse.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/fuse.h b/include/uapi/linux/fuse.h
+index d2879c1ac9d5..5fb651afdefd 100644
+--- a/include/uapi/linux/fuse.h
++++ b/include/uapi/linux/fuse.h
+@@ -349,7 +349,7 @@ struct fuse_file_lock {
+ #define FUSE_EXPLICIT_INVAL_DATA (1 << 25)
+ #define FUSE_MAP_ALIGNMENT	(1 << 26)
+ #define FUSE_SUBMOUNTS		(1 << 27)
+-#define FUSE_PASSTHROUGH	(1 << 28)
++#define FUSE_PASSTHROUGH	(1 << 31)
+ 
+ /**
+  * CUSE INIT request/reply flags
+-- 
+2.17.1
+

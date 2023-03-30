@@ -34,8 +34,8 @@
 		};
 	};
 
-	host1x {
-		vi@15c10000 {
+
+tegra-capture-vi {
 			status = "okay";
 			num-channels = <2>;
 			ports {
@@ -63,7 +63,7 @@
 				};
 			};
 		};
-
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			status = "okay";
 			num-channels = <2>;
@@ -254,7 +254,7 @@
 				inherent_gain = "1";
 				mclk_multiplier = "31.25";
 				pix_clk_hz = "750000000";
-
+				csi_pixel_bit_depth = "4";
 				gain_factor = "16";
 				framerate_factor = "1000000";
 				exposure_factor = "1000000";
@@ -323,7 +323,7 @@
 				inherent_gain = "1";
 				mclk_multiplier = "31.25";
 				pix_clk_hz = "750000000";
-
+				csi_pixel_bit_depth = "4";
 				gain_factor = "16";
 				framerate_factor = "1000000";
 				exposure_factor = "1000000";

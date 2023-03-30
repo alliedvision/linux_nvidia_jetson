@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,43 +53,19 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_usermode_gv11b_h_
-#define _hw_usermode_gv11b_h_
+#ifndef NVGPU_HW_USERMODE_GV11B_H
+#define NVGPU_HW_USERMODE_GV11B_H
 
-static inline u32 usermode_cfg0_r(void)
-{
-	return 0x00810000;
-}
-static inline u32 usermode_cfg0_usermode_class_id_f(u32 v)
-{
-	return (v & 0xffff) << 0;
-}
-static inline u32 usermode_cfg0_usermode_class_id_value_v(void)
-{
-	return 0x0000c361;
-}
-static inline u32 usermode_time_0_r(void)
-{
-	return 0x00810080;
-}
-static inline u32 usermode_time_0_nsec_f(u32 v)
-{
-	return (v & 0x7ffffff) << 5;
-}
-static inline u32 usermode_time_1_r(void)
-{
-	return 0x00810084;
-}
-static inline u32 usermode_time_1_nsec_f(u32 v)
-{
-	return (v & 0x1fffffff) << 0;
-}
-static inline u32 usermode_notify_channel_pending_r(void)
-{
-	return 0x00810090;
-}
-static inline u32 usermode_notify_channel_pending_id_f(u32 v)
-{
-	return (v & 0xffffffff) << 0;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define usermode_cfg0_r()                                          (0x00810000U)
+#define usermode_cfg0_class_id_f(v)                   ((U32(v) & 0xffffU) << 0U)
+#define usermode_cfg0_class_id_value_v()                           (0x0000c361U)
+#define usermode_time_0_r()                                        (0x00810080U)
+#define usermode_time_0_nsec_f(v)                  ((U32(v) & 0x7ffffffU) << 5U)
+#define usermode_time_1_r()                                        (0x00810084U)
+#define usermode_time_1_nsec_f(v)                 ((U32(v) & 0x1fffffffU) << 0U)
+#define usermode_notify_channel_pending_r()                        (0x00810090U)
+#define usermode_notify_channel_pending_id_f(v)   ((U32(v) & 0xffffffffU) << 0U)
 #endif

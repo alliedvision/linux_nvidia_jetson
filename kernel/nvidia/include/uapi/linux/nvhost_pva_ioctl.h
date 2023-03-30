@@ -1,7 +1,7 @@
 /*
  * Tegra PVA Driver ioctls
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -68,6 +68,28 @@ struct pva_characteristics {
 	__u32 pva_compat_version;
 	__u32 pva_revision;
 	__u32 pva_built_on;
+};
+
+/**
+ * struct pva_statistics_req - Request filling of statistics struct
+ *
+ * @statistics: pointer to be filled with statistics
+ * @statistics_size: size in bytes
+ *
+ */
+struct pva_statistics_req {
+	__u64 statistics;
+	__u64 statistics_size;
+};
+
+/**
+ * struct pva_statistics - A handle to PVA Statistics structure
+ *
+ * @r5_boot_time: R5 Boot Time KPI information
+ *
+ */
+struct pva_statistics {
+	uint64_t r5_boot_time;
 };
 
 /**
@@ -344,6 +366,17 @@ struct pva_ioctl_rate {
 	__u32 reserved;
 };
 
+
+/**
+ * struct pva_ioctl_abort_req - Request an abort
+ *
+ * @param queue_id: Queue ID to abort
+ */
+
+struct pva_ioctl_abort_req {
+	__u32 queue_id;
+};
+
 #define PVA_IOCTL_CHARACTERISTICS	\
 	_IOWR(NVHOST_PVA_IOCTL_MAGIC, 1, struct pva_characteristics_req)
 #define PVA_IOCTL_PIN	\
@@ -360,9 +393,13 @@ struct pva_ioctl_rate {
 	_IOWR(NVHOST_PVA_IOCTL_MAGIC, 7, struct pva_ioctl_rate)
 #define PVA_IOCTL_GET_RATE	\
 	_IOWR(NVHOST_PVA_IOCTL_MAGIC, 8, struct pva_ioctl_rate)
+#define PVA_IOCTL_STATISTICS	\
+	_IOWR(NVHOST_PVA_IOCTL_MAGIC, 9, struct pva_statistics_req)
+#define PVA_IOCTL_ABORT_REQ	\
+	_IOWR(NVHOST_PVA_IOCTL_MAGIC, 10, struct pva_ioctl_abort_req)
 
 
-#define NVHOST_PVA_IOCTL_LAST _IOC_NR(PVA_IOCTL_GET_RATE)
+#define NVHOST_PVA_IOCTL_LAST _IOC_NR(PVA_IOCTL_ABORT_REQ)
 #define NVHOST_PVA_IOCTL_MAX_ARG_SIZE sizeof(struct pva_characteristics_req)
 
 #endif /* __LINUX_NVHOST_PVA_IOCTL_H */

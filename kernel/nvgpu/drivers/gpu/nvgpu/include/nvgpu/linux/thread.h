@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,11 +17,13 @@
 #ifndef __NVGPU_THREAD_LINUX_H__
 #define __NVGPU_THREAD_LINUX_H__
 
+#include <nvgpu/atomic.h>
+
 struct task_struct;
 
 struct nvgpu_thread {
 	struct task_struct *task;
-	bool running;
+	nvgpu_atomic_t running;
 	int (*fn)(void *);
 	void *data;
 };

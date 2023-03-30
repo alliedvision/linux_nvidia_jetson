@@ -81,14 +81,6 @@ Required properties:
       0x178 - C1, C2 and C3
       0x188 - C4
       0x188 - C0 and C5
-  - nvidia,margin-port-cap: MARGIN_PORT_CAP_STATUS reg offset
-      0x180 - C1, C2 and C3
-      0x190 - C4
-      0x194 - C0 and C5
-  - nvidia,margin-lane-cntrl: MARGIN_LANE_CNTRL_STATUS reg offset
-      0x184 - C1, C2 and C3
-      0x194 - C4
-      0x198 - C0 and C5
   - nvidia,dl-feature-cap: DATA_LINK_FEATURE_CAP reg offset
       0x2dc - C1, C2 and C3
       0x2f8 - C4
@@ -101,6 +93,8 @@ Required properties:
       0x4 - C4
       0x5 - C5
 - vddio-pex-ctl-supply: Regulator supply for PCIe side band signals
+- nvidia,aux-clk-freq: Auxiliary clock frequency in MHz
+- nvidia,preset-init: Preset value to be used for Gen-3/4 equalization
 
 Optional properties:
 - iommus: A reference to the IOMMU. See ../iommu/iommu.txt for details.
@@ -149,9 +143,12 @@ Optional properties:
     immediate end point
 - "nvidia,plat-gpios" : Add gpio number that needs to be configured before
    system goes for enumeration
-- nvidia,enable-srns: This property needs to be present if the platform has SRNS
-   (Separate Reference clocks with No Spread-spectrum clocking) configuration
-   implemented. This property disables REFCLK supply to EP.
+- "nvidia,aspm-cmrt" : Common Mode Restore time for proper operation of ASPM to
+   be specified in microseconds
+- "nvidia,aspm-pwr-on-t" : Power On time for proper operation of ASPM to be
+   specified in microseconds
+- "nvidia,aspm-l0s-entrance-latency" : ASPM L0s entrance latency to be specified
+   in microseconds
 
 Power supplies for Tegra194:
 //TODO

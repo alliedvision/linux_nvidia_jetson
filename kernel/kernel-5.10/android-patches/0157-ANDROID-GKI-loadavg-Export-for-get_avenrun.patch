@@ -1,0 +1,36 @@
+From c0138abd3137f463e2562c03a99eb566c3f2fa35 Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:40:16 +0530
+Subject: [PATCH 157/830] ANDROID: GKI: loadavg: Export for get_avenrun
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for get_avenrun() so that drivers
+    be loadable as a module.
+
+    - This API is required by loadable driver module
+    to get Number of jobs in the run queue  (state R) or waiting
+    for disk I/O(state D) averaged over 1 min.
+
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Bug: 158067689
+Change-Id: I56c12c908be068f78e16004df876be3bee0e7229
+---
+ kernel/sched/loadavg.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/kernel/sched/loadavg.c b/kernel/sched/loadavg.c
+index d2a655643a02..b5837e27718e 100644
+--- a/kernel/sched/loadavg.c
++++ b/kernel/sched/loadavg.c
+@@ -75,6 +75,7 @@ void get_avenrun(unsigned long *loads, unsigned long offset, int shift)
+ 	loads[1] = (avenrun[1] + offset) << shift;
+ 	loads[2] = (avenrun[2] + offset) << shift;
+ }
++EXPORT_SYMBOL_GPL(get_avenrun);
+ 
+ long calc_load_fold_active(struct rq *this_rq, long adjust)
+ {
+-- 
+2.17.1
+

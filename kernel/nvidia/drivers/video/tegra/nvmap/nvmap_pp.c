@@ -3,7 +3,7 @@
  *
  * Manage page pools to speed up page allocation.
  *
- * Copyright (c) 2009-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -46,7 +46,7 @@ static u32 pool_size;
 static struct task_struct *background_allocator;
 static DECLARE_WAIT_QUEUE_HEAD(nvmap_bg_wait);
 
-#ifdef CONFIG_NVMAP_PAGE_POOL_DEBUG
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
 static inline void __pp_dbg_var_add(u64 *dbg_var, u32 nr)
 {
 	*dbg_var += nr;
@@ -97,6 +97,7 @@ static inline struct page *get_page_list_page(struct nvmap_page_pool *pool)
 	return page;
 }
 
+#ifdef CONFIG_ARM64_4K_PAGES
 static inline struct page *get_page_list_page_bp(struct nvmap_page_pool *pool)
 {
 	struct page *page;
@@ -112,6 +113,7 @@ static inline struct page *get_page_list_page_bp(struct nvmap_page_pool *pool)
 
 	return page;
 }
+#endif /* CONFIG_ARM64_4K_PAGES */
 
 static inline bool nvmap_bg_should_run(struct nvmap_page_pool *pool)
 {
@@ -175,12 +177,18 @@ static void nvmap_pp_do_background_zero_pages(struct nvmap_page_pool *pool)
 static int nvmap_background_zero_thread(void *arg)
 {
 	struct nvmap_page_pool *pool = &nvmap_dev->pool;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 	struct sched_param param = { .sched_priority = 0 };
+#endif
 
 	pr_info("PP zeroing thread starting.\n");
 
 	set_freezable();
-	sched_setscheduler(current, SCHED_IDLE, &param);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
+	sched_setscheduler(current, SCHED_NORMAL, &param);
+#else
+	sched_set_normal(current, MAX_NICE);
+#endif
 
 	while (!kthread_should_stop()) {
 		while (nvmap_bg_should_run(pool))
@@ -194,17 +202,12 @@ static int nvmap_background_zero_thread(void *arg)
 	return 0;
 }
 
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
 static void nvmap_pgcount(struct page *page, bool incr)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	if (incr)
-		atomic_inc(&page->_count);
-	else
-		atomic_dec(&page->_count);
-#else
 	page_ref_add(page, incr ? 1 : -1);
-#endif
 }
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 
 /*
  * Free the passed number of pages from the page pool. This happens regardless
@@ -218,16 +221,22 @@ static ulong nvmap_page_pool_free_pages_locked(struct nvmap_page_pool *pool,
 {
 	struct page *page;
 	bool use_page_list = false;
+#ifdef CONFIG_ARM64_4K_PAGES
 	bool use_page_list_bp = false;
+	int i;
+#endif /* CONFIG_ARM64_4K_PAGES */
 
 	pr_debug("req to release pages=%ld\n", nr_pages);
 
 	while (nr_pages) {
-		int i;
 
+#ifdef CONFIG_ARM64_4K_PAGES
 		if (use_page_list_bp)
 			page = get_page_list_page_bp(pool);
 		else if (use_page_list)
+#else
+		if (use_page_list)
+#endif /* CONFIG_ARM64_4K_PAGES */
 			page = get_page_list_page(pool);
 		else
 			page = get_zero_list_page(pool);
@@ -236,13 +245,17 @@ static ulong nvmap_page_pool_free_pages_locked(struct nvmap_page_pool *pool,
 			if (!use_page_list) {
 				use_page_list = true;
 				continue;
-			} else if (!use_page_list_bp) {
+			}
+#ifdef CONFIG_ARM64_4K_PAGES
+			else if (!use_page_list_bp) {
 				use_page_list_bp = true;
 				continue;
 			}
+#endif /* CONFIG_ARM64_4K_PAGES */
 			break;
 		}
 
+#ifdef CONFIG_ARM64_4K_PAGES
 		if (use_page_list_bp) {
 			for (i = 0; i < pool->pages_per_big_pg; i++)
 				__free_page(nth_page(page, i));
@@ -252,10 +265,13 @@ static ulong nvmap_page_pool_free_pages_locked(struct nvmap_page_pool *pool,
 			else
 				nr_pages = 0;
 		} else {
+#endif /* CONFIG_ARM64_4K_PAGES */
 			__free_page(page);
 			nr_pages--;
 			pr_debug("released 1 page\n");
+#ifdef CONFIG_ARM64_4K_PAGES
 		}
+#endif /* CONFIG_ARM64_4K_PAGES */
 	}
 
 	pr_debug("remaining pages to release=%ld\n", nr_pages);
@@ -295,10 +311,10 @@ int nvmap_page_pool_alloc_lots(struct nvmap_page_pool *pool,
 		}
 
 		pages[ind++] = page;
-		if (IS_ENABLED(CONFIG_NVMAP_PAGE_POOL_DEBUG)) {
-			nvmap_pgcount(page, false);
-			BUG_ON(page_count(page) != 1);
-		}
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
+		nvmap_pgcount(page, false);
+		BUG_ON(page_count(page) != 1);
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 	}
 
 	rt_mutex_unlock(&pool->lock);
@@ -316,6 +332,7 @@ int nvmap_page_pool_alloc_lots(struct nvmap_page_pool *pool,
 	return ind;
 }
 
+#ifdef CONFIG_ARM64_4K_PAGES
 int nvmap_page_pool_alloc_lots_bp(struct nvmap_page_pool *pool,
 				struct page **pages, u32 nr)
 {
@@ -367,6 +384,7 @@ static bool nvmap_is_big_page(struct nvmap_page_pool *pool,
 
 	return i == pool->pages_per_big_pg ? true: false;
 }
+#endif /* CONFIG_ARM64_4K_PAGES */
 
 /*
  * Fill a bunch of pages into the page pool. This will fill as many as it can
@@ -379,31 +397,37 @@ static int __nvmap_page_pool_fill_lots_locked(struct nvmap_page_pool *pool,
 				       struct page **pages, u32 nr)
 {
 	int real_nr;
+	int pages_to_fill;
 	int ind = 0;
 
 	if (!enable_pp)
 		return 0;
 
+	BUG_ON(pool->count > pool->max);
 	real_nr = min_t(u32, pool->max - pool->count, nr);
-	BUG_ON(real_nr < 0);
+	pages_to_fill = real_nr;
 	if (real_nr == 0)
 		return 0;
 
 	while (real_nr > 0) {
-		if (IS_ENABLED(CONFIG_NVMAP_PAGE_POOL_DEBUG)) {
-			nvmap_pgcount(pages[ind], true);
-			BUG_ON(page_count(pages[ind]) != 2);
-		}
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
+		nvmap_pgcount(pages[ind], true);
+		BUG_ON(page_count(pages[ind]) != 2);
+#endif /* NVMAP_CONFIG_PAGE_POOL_DEBUG */
 
-		if (nvmap_is_big_page(pool, pages, ind, nr)) {
+#ifdef CONFIG_ARM64_4K_PAGES
+		if (nvmap_is_big_page(pool, pages, ind, pages_to_fill)) {
 			list_add_tail(&pages[ind]->lru, &pool->page_list_bp);
 			ind += pool->pages_per_big_pg;
 			real_nr -= pool->pages_per_big_pg;
 			pool->big_page_count += pool->pages_per_big_pg;
 		} else {
+#endif /* CONFIG_ARM64_4K_PAGES */
 			list_add_tail(&pages[ind++]->lru, &pool->page_list);
 			real_nr--;
+#ifdef CONFIG_ARM64_4K_PAGES
 		}
+#endif /* CONFIG_ARM64_4K_PAGES */
 	}
 
 	pool->count += ind;
@@ -650,6 +674,7 @@ int nvmap_page_pool_debugfs_init(struct dentry *nvmap_root)
 	debugfs_create_u32("page_pool_pages_to_zero",
 			   S_IRUGO, pp_root,
 			   &nvmap_dev->pool.to_zero);
+#ifdef CONFIG_ARM64_4K_PAGES
 	debugfs_create_u32("page_pool_available_big_pages",
 			   S_IRUGO, pp_root,
 			   &nvmap_dev->pool.big_page_count);
@@ -659,11 +684,12 @@ int nvmap_page_pool_debugfs_init(struct dentry *nvmap_root)
 	debugfs_create_u64("total_big_page_allocs",
 			   S_IRUGO, pp_root,
 			   &nvmap_big_page_allocs);
+#endif /* CONFIG_ARM64_4K_PAGES */
 	debugfs_create_u64("total_page_allocs",
 			   S_IRUGO, pp_root,
 			   &nvmap_total_page_allocs);
 
-#ifdef CONFIG_NVMAP_PAGE_POOL_DEBUG
+#ifdef NVMAP_CONFIG_PAGE_POOL_DEBUG
 	debugfs_create_u64("page_pool_allocs",
 			   S_IRUGO, pp_root,
 			   &nvmap_dev->pool.allocs);
@@ -690,20 +716,22 @@ int nvmap_page_pool_init(struct nvmap_device *dev)
 	rt_mutex_init(&pool->lock);
 	INIT_LIST_HEAD(&pool->page_list);
 	INIT_LIST_HEAD(&pool->zero_list);
+#ifdef CONFIG_ARM64_4K_PAGES
 	INIT_LIST_HEAD(&pool->page_list_bp);
 
 	pool->big_pg_sz = NVMAP_PP_BIG_PAGE_SIZE;
 	pool->pages_per_big_pg = NVMAP_PP_BIG_PAGE_SIZE >> PAGE_SHIFT;
+#endif /* CONFIG_ARM64_4K_PAGES */
 
 	si_meminfo(&info);
 	pr_info("Total RAM pages: %lu\n", info.totalram);
 
-	if (!CONFIG_NVMAP_PAGE_POOL_SIZE)
+	if (!NVMAP_CONFIG_PAGE_POOL_SIZE)
 		/* The ratio is pool pages per 1K ram pages.
 		 * So, the >> 10 */
 		pool->max = (info.totalram * NVMAP_PP_POOL_SIZE) >> 10;
 	else
-		pool->max = CONFIG_NVMAP_PAGE_POOL_SIZE;
+		pool->max = NVMAP_CONFIG_PAGE_POOL_SIZE;
 
 	if (pool->max >= info.totalram)
 		goto fail;
@@ -716,8 +744,11 @@ int nvmap_page_pool_init(struct nvmap_device *dev)
 					    NULL, "nvmap-bz");
 	if (IS_ERR(background_allocator))
 		goto fail;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+	register_shrinker(&nvmap_page_pool_shrinker, "nvmap_pp_shrinker");
+#else
 	register_shrinker(&nvmap_page_pool_shrinker);
+#endif
 
 	return 0;
 fail:
@@ -737,6 +768,7 @@ int nvmap_page_pool_fini(struct nvmap_device *dev)
 	if (!IS_ERR_OR_NULL(background_allocator)) {
 		unregister_shrinker(&nvmap_page_pool_shrinker);
 		kthread_stop(background_allocator);
+		background_allocator = NULL;
 	}
 
 	WARN_ON(!list_empty(&pool->page_list));

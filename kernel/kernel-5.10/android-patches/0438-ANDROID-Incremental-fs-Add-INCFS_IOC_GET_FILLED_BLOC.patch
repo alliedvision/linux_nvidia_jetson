@@ -1,0 +1,964 @@
+From 202858b10c238d3247ae8f656b4e459eed2e609d Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 18 Mar 2020 09:28:29 -0700
+Subject: [PATCH 438/830] ANDROID: Incremental fs: Add
+ INCFS_IOC_GET_FILLED_BLOCKS
+X-NVConfidentiality: public
+
+Test: incfs_test passes
+Bug: 151240628
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I66d0ba1911adc5d68ed404585222e6a81a7eb94f
+---
+ fs/incfs/data_mgmt.c                          | 120 +++++-
+ fs/incfs/data_mgmt.h                          |  12 +-
+ fs/incfs/format.c                             |  49 ++-
+ fs/incfs/format.h                             |  21 +-
+ fs/incfs/vfs.c                                |  46 ++-
+ include/uapi/linux/incrementalfs.h            |  63 ++++
+ .../selftests/filesystems/incfs/incfs_test.c  | 343 ++++++++++++++++++
+ 7 files changed, 614 insertions(+), 40 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 0fc9505d9373..6661ac3b52da 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -118,8 +118,8 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 	error = mutex_lock_interruptible(&bfc->bc_mutex);
+ 	if (error)
+ 		goto out;
+-	error = incfs_read_file_header(bfc, &df->df_metadata_off,
+-					&df->df_id, &size);
++	error = incfs_read_file_header(bfc, &df->df_metadata_off, &df->df_id,
++				       &size, &df->df_header_flags);
+ 	mutex_unlock(&bfc->bc_mutex);
+ 
+ 	if (error)
+@@ -127,7 +127,7 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 
+ 	df->df_size = size;
+ 	if (size > 0)
+-		df->df_block_count = get_blocks_count_for_size(size);
++		df->df_data_block_count = get_blocks_count_for_size(size);
+ 
+ 	md_records = incfs_scan_metadata_chain(df);
+ 	if (md_records < 0)
+@@ -351,7 +351,7 @@ static int get_data_file_block(struct data_file *df, int index,
+ 	blockmap_off = df->df_blockmap_off;
+ 	bfc = df->df_backing_file_context;
+ 
+-	if (index < 0 || index >= df->df_block_count || blockmap_off == 0)
++	if (index < 0 || blockmap_off == 0)
+ 		return -EINVAL;
+ 
+ 	error = incfs_read_blockmap_entry(bfc, index, blockmap_off, &bme);
+@@ -371,6 +371,96 @@ static int get_data_file_block(struct data_file *df, int index,
+ 	return 0;
+ }
+ 
++static int copy_one_range(struct incfs_filled_range *range, void __user *buffer,
++			  u32 size, u32 *size_out)
++{
++	if (*size_out + sizeof(*range) > size)
++		return -ERANGE;
++
++	if (copy_to_user(((char *)buffer) + *size_out, range, sizeof(*range)))
++		return -EFAULT;
++
++	*size_out += sizeof(*range);
++	return 0;
++}
++
++int incfs_get_filled_blocks(struct data_file *df,
++			    struct incfs_get_filled_blocks_args *arg)
++{
++	int error = 0;
++	bool in_range = false;
++	struct incfs_filled_range range;
++	void *buffer = u64_to_user_ptr(arg->range_buffer);
++	u32 size = arg->range_buffer_size;
++	u32 end_index =
++		arg->end_index ? arg->end_index : df->df_total_block_count;
++	u32 *size_out = &arg->range_buffer_size_out;
++
++	*size_out = 0;
++	if (end_index > df->df_total_block_count)
++		end_index = df->df_total_block_count;
++	arg->total_blocks_out = df->df_total_block_count;
++
++	if (df->df_header_flags & INCFS_FILE_COMPLETE) {
++		pr_debug("File marked full, fast get_filled_blocks");
++		if (arg->start_index > end_index) {
++			arg->index_out = arg->start_index;
++			return 0;
++		}
++
++		range = (struct incfs_filled_range){
++			.begin = arg->start_index,
++			.end = end_index,
++		};
++
++		arg->index_out = end_index;
++		return copy_one_range(&range, buffer, size, size_out);
++	}
++
++	for (arg->index_out = arg->start_index; arg->index_out < end_index;
++	     ++arg->index_out) {
++		struct data_file_block dfb;
++
++		error = get_data_file_block(df, arg->index_out, &dfb);
++		if (error)
++			break;
++
++		if (is_data_block_present(&dfb) == in_range)
++			continue;
++
++		if (!in_range) {
++			in_range = true;
++			range.begin = arg->index_out;
++		} else {
++			range.end = arg->index_out;
++			error = copy_one_range(&range, buffer, size, size_out);
++			if (error)
++				break;
++			in_range = false;
++		}
++	}
++
++	if (in_range) {
++		range.end = arg->index_out;
++		error = copy_one_range(&range, buffer, size, size_out);
++	}
++
++	if (!error && in_range && arg->start_index == 0 &&
++	    end_index == df->df_total_block_count &&
++	    *size_out == sizeof(struct incfs_filled_range)) {
++		int result;
++
++		df->df_header_flags |= INCFS_FILE_COMPLETE;
++		result = incfs_update_file_header_flags(
++			df->df_backing_file_context, df->df_header_flags);
++
++		/* Log failure only, since it's just a failed optimization */
++		pr_debug("Marked file full with result %d", result);
++	}
++
++	return error;
++}
++
+ static bool is_read_done(struct pending_read *read)
+ {
+ 	return atomic_read_acquire(&read->done) != 0;
+@@ -470,7 +560,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
+ 	if (!df || !res_block)
+ 		return -EFAULT;
+ 
+-	if (block_index < 0 || block_index >= df->df_block_count)
++	if (block_index < 0 || block_index >= df->df_data_block_count)
+ 		return -EINVAL;
+ 
+ 	if (df->df_blockmap_off <= 0)
+@@ -640,7 +730,7 @@ int incfs_process_new_data_block(struct data_file *df,
+ 	bfc = df->df_backing_file_context;
+ 	mi = df->df_mount_info;
+ 
+-	if (block->block_index >= df->df_block_count)
++	if (block->block_index >= df->df_data_block_count)
+ 		return -ERANGE;
+ 
+ 	segment = get_file_segment(df, block->block_index);
+@@ -746,7 +836,7 @@ int incfs_process_new_hash_block(struct data_file *df,
+ 	if (!error)
+ 		error = incfs_write_hash_block_to_backing_file(
+ 			bfc, range(data, block->data_len), block->block_index,
+-			hash_area_base);
++			hash_area_base, df->df_blockmap_off, df->df_size);
+ 	mutex_unlock(&bfc->bc_mutex);
+ 	return error;
+ }
+@@ -762,9 +852,10 @@ static int process_blockmap_md(struct incfs_blockmap *bm,
+ 	if (!df)
+ 		return -EFAULT;
+ 
+-	if (df->df_block_count != block_count)
++	if (df->df_data_block_count > block_count)
+ 		return -EBADMSG;
+ 
++	df->df_total_block_count = block_count;
+ 	df->df_blockmap_off = base_off;
+ 	return error;
+ }
+@@ -829,7 +920,7 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
+ 	}
+ 
+ 	hash_tree = incfs_alloc_mtree(range(buf, signature->sig_size),
+-				      df->df_block_count);
++				      df->df_data_block_count);
+ 	if (IS_ERR(hash_tree)) {
+ 		error = PTR_ERR(hash_tree);
+ 		hash_tree = NULL;
+@@ -911,6 +1002,17 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 		result = records_count;
+ 	}
+ 	mutex_unlock(&bfc->bc_mutex);
++
++	if (df->df_hash_tree) {
++		int hash_block_count = get_blocks_count_for_size(
++			df->df_hash_tree->hash_tree_area_size);
++
++		if (df->df_data_block_count + hash_block_count !=
++		    df->df_total_block_count)
++			result = -EINVAL;
++	} else if (df->df_data_block_count != df->df_total_block_count)
++		result = -EINVAL;
++
+ out:
+ 	kfree(handler);
+ 	return result;
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 4e3eab5f7701..bd9b63af920e 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -183,7 +183,14 @@ struct data_file {
+ 	/* File size in bytes */
+ 	loff_t df_size;
+ 
+-	int df_block_count; /* File size in DATA_FILE_BLOCK_SIZE blocks */
++	/* File header flags */
++	u32 df_header_flags;
++
++	/* File size in DATA_FILE_BLOCK_SIZE blocks */
++	int df_data_block_count;
++
++	/* Total number of blocks, data + hash */
++	int df_total_block_count;
+ 
+ 	struct file_attr n_attr;
+ 
+@@ -230,6 +237,9 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
+ 				   int index, int timeout_ms,
+ 				   struct mem_range tmp);
+ 
++int incfs_get_filled_blocks(struct data_file *df,
++			    struct incfs_get_filled_blocks_args *arg);
++
+ int incfs_read_file_signature(struct data_file *df, struct mem_range dst);
+ 
+ int incfs_process_new_data_block(struct data_file *df,
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 8c8213ee325d..96f4e3d54f58 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -13,6 +13,7 @@
+ #include <linux/kernel.h>
+ 
+ #include "format.h"
++#include "data_mgmt.h"
+ 
+ struct backing_file_context *incfs_alloc_bfc(struct file *backing_file)
+ {
+@@ -214,12 +215,23 @@ static int append_md_to_backing_file(struct backing_file_context *bfc,
+ 	return result;
+ }
+ 
++int incfs_update_file_header_flags(struct backing_file_context *bfc, u32 flags)
++{
++	if (!bfc)
++		return -EFAULT;
++
++	return write_to_bf(bfc, &flags, sizeof(flags),
++			   offsetof(struct incfs_file_header,
++				    fh_file_header_flags),
++			   false);
++}
++
+ /*
+  * Reserve 0-filled space for the blockmap body, and append
+  * incfs_blockmap metadata record pointing to it.
+  */
+ int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
+-				u32 block_count, loff_t *map_base_off)
++					 u32 block_count)
+ {
+ 	struct incfs_blockmap blockmap = {};
+ 	int result = 0;
+@@ -245,12 +257,9 @@ int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
+ 	/* Write blockmap metadata record pointing to the body written above. */
+ 	blockmap.m_base_offset = cpu_to_le64(file_end);
+ 	result = append_md_to_backing_file(bfc, &blockmap.m_header);
+-	if (result) {
++	if (result)
+ 		/* Error, rollback file changes */
+ 		truncate_backing_file(bfc, file_end);
+-	} else if (map_base_off) {
+-		*map_base_off = file_end;
+-	}
+ 
+ 	return result;
+ }
+@@ -438,12 +447,19 @@ int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
+ }
+ 
+ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+-					struct mem_range block,
+-					int block_index, loff_t hash_area_off)
++					   struct mem_range block,
++					   int block_index,
++					   loff_t hash_area_off,
++					   loff_t bm_base_off, int file_size)
+ {
++	struct incfs_blockmap_entry bm_entry = {};
++	int result;
+ 	loff_t data_offset = 0;
+ 	loff_t file_end = 0;
+-
++	loff_t bm_entry_off =
++		bm_base_off +
++		sizeof(struct incfs_blockmap_entry) *
++			(block_index + get_blocks_count_for_size(file_size));
+ 
+ 	if (!bfc)
+ 		return -EFAULT;
+@@ -457,7 +473,17 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+ 		return -EINVAL;
+ 	}
+ 
+-	return write_to_bf(bfc, block.data, block.len, data_offset, false);
++	result = write_to_bf(bfc, block.data, block.len, data_offset, false);
++	if (result)
++		return result;
++
++	bm_entry.me_data_offset_lo = cpu_to_le32((u32)data_offset);
++	bm_entry.me_data_offset_hi = cpu_to_le16((u16)(data_offset >> 32));
++	bm_entry.me_data_size = cpu_to_le16(INCFS_DATA_FILE_BLOCK_SIZE);
++	bm_entry.me_flags = cpu_to_le16(INCFS_BLOCK_HASH);
++
++	return write_to_bf(bfc, &bm_entry, sizeof(bm_entry), bm_entry_off,
++			   false);
+ }
+ 
+ /* Initialize a new image in a given backing file. */
+@@ -517,10 +543,9 @@ int incfs_read_blockmap_entries(struct backing_file_context *bfc,
+ 	return 0;
+ }
+ 
+-
+ int incfs_read_file_header(struct backing_file_context *bfc,
+ 			   loff_t *first_md_off, incfs_uuid_t *uuid,
+-			   u64 *file_size)
++			   u64 *file_size, u32 *flags)
+ {
+ 	ssize_t bytes_read = 0;
+ 	struct incfs_file_header fh = {};
+@@ -554,6 +579,8 @@ int incfs_read_file_header(struct backing_file_context *bfc,
+ 		*uuid = fh.fh_uuid;
+ 	if (file_size)
+ 		*file_size = le64_to_cpu(fh.fh_file_size);
++	if (flags)
++		*flags = le32_to_cpu(fh.fh_file_header_flags);
+ 	return 0;
+ }
+ 
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index 3e3f7fa7560a..f84a4e00d9f6 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -121,6 +121,10 @@ enum incfs_metadata_type {
+ 	INCFS_MD_SIGNATURE = 3
+ };
+ 
++enum incfs_file_header_flags {
++	INCFS_FILE_COMPLETE = 1 << 0,
++};
++
+ /* Header included at the beginning of all metadata records on the disk. */
+ struct incfs_md_header {
+ 	__u8 h_md_entry_type;
+@@ -159,8 +163,8 @@ struct incfs_file_header {
+ 	/* INCFS_DATA_FILE_BLOCK_SIZE */
+ 	__le16 fh_data_block_size;
+ 
+-	/* Padding, also reserved for future use. */
+-	__le32 fh_dummy;
++	/* File flags, from incfs_file_header_flags */
++	__le32 fh_file_header_flags;
+ 
+ 	/* Offset of the first metadata record */
+ 	__le64 fh_first_md_offset;
+@@ -178,6 +182,7 @@ struct incfs_file_header {
+ 
+ enum incfs_block_map_entry_flags {
+ 	INCFS_BLOCK_COMPRESSED_LZ4 = (1 << 0),
++	INCFS_BLOCK_HASH = (1 << 1),
+ };
+ 
+ /* Block map entry pointing to an actual location of the data block. */
+@@ -284,7 +289,7 @@ void incfs_free_bfc(struct backing_file_context *bfc);
+ 
+ /* Writing stuff */
+ int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
+-					 u32 block_count, loff_t *map_base_off);
++					 u32 block_count);
+ 
+ int incfs_write_fh_to_backing_file(struct backing_file_context *bfc,
+ 				   incfs_uuid_t *uuid, u64 file_size);
+@@ -295,8 +300,10 @@ int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
+ 					   u16 flags);
+ 
+ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+-					struct mem_range block,
+-					int block_index, loff_t hash_area_off);
++					   struct mem_range block,
++					   int block_index,
++					   loff_t hash_area_off,
++					   loff_t bm_base_off, int file_size);
+ 
+ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ 		struct mem_range value, struct incfs_file_attr *attr);
+@@ -304,13 +311,15 @@ int incfs_write_file_attr_to_backing_file(struct backing_file_context *bfc,
+ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ 					  struct mem_range sig, u32 tree_size);
+ 
++int incfs_update_file_header_flags(struct backing_file_context *bfc, u32 flags);
++
+ int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+ 				  incfs_uuid_t *uuid, u64 file_size);
+ 
+ /* Reading stuff */
+ int incfs_read_file_header(struct backing_file_context *bfc,
+ 			   loff_t *first_md_off, incfs_uuid_t *uuid,
+-			   u64 *file_size);
++			   u64 *file_size, u32 *flags);
+ 
+ int incfs_read_blockmap_entry(struct backing_file_context *bfc, int block_index,
+ 			      loff_t bm_base_off,
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index 3e370ddc1e30..0164e9306eba 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -905,19 +905,6 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 	if (error)
+ 		goto out;
+ 
+-	block_count = (u32)get_blocks_count_for_size(size);
+-	error = incfs_write_blockmap_to_backing_file(bfc, block_count, NULL);
+-	if (error)
+-		goto out;
+-
+-	/* This fill has data, reserve space for the block map. */
+-	if (block_count > 0) {
+-		error = incfs_write_blockmap_to_backing_file(
+-			bfc, block_count, NULL);
+-		if (error)
+-			goto out;
+-	}
+-
+ 	if (attr.data && attr.len) {
+ 		error = incfs_write_file_attr_to_backing_file(bfc,
+ 							attr, NULL);
+@@ -925,6 +912,8 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 			goto out;
+ 	}
+ 
++	block_count = (u32)get_blocks_count_for_size(size);
++
+ 	if (user_signature_info) {
+ 		raw_signature = incfs_copy_signature_info_from_user(
+ 			user_signature_info, signature_size);
+@@ -946,8 +935,16 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 			bfc, raw_signature, hash_tree->hash_tree_area_size);
+ 		if (error)
+ 			goto out;
++
++		block_count += get_blocks_count_for_size(
++			hash_tree->hash_tree_area_size);
+ 	}
+ 
++	if (block_count)
++		error = incfs_write_blockmap_to_backing_file(bfc, block_count);
++
++	if (error)
++		goto out;
+ out:
+ 	if (bfc) {
+ 		mutex_unlock(&bfc->bc_mutex);
+@@ -1437,6 +1434,27 @@ static long ioctl_read_file_signature(struct file *f, void __user *arg)
+ 	return error;
+ }
+ 
++static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
++{
++	struct incfs_get_filled_blocks_args __user *args_usr_ptr = arg;
++	struct incfs_get_filled_blocks_args args = {};
++	struct data_file *df = get_incfs_data_file(f);
++	int error;
++
++	if (!df)
++		return -EINVAL;
++
++	if (copy_from_user(&args, args_usr_ptr, sizeof(args)) > 0)
++		return -EINVAL;
++
++	error = incfs_get_filled_blocks(df, &args);
++
++	if (copy_to_user(args_usr_ptr, &args, sizeof(args)))
++		return -EFAULT;
++
++	return error;
++}
++
+ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+ {
+ 	struct mount_info *mi = get_mount_info(file_superblock(f));
+@@ -1450,6 +1468,8 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+ 		return ioctl_permit_fill(f, (void __user *)arg);
+ 	case INCFS_IOC_READ_FILE_SIGNATURE:
+ 		return ioctl_read_file_signature(f, (void __user *)arg);
++	case INCFS_IOC_GET_FILLED_BLOCKS:
++		return ioctl_get_filled_blocks(f, (void __user *)arg);
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index b6c300d397f8..2d535d365ce9 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -68,6 +68,30 @@
+ #define INCFS_IOC_PERMIT_FILL                                                  \
+ 	_IOW(INCFS_IOCTL_BASE_CODE, 33, struct incfs_permit_fill)
+ 
++/*
++ * Fills buffer with ranges of populated blocks
++ *
++ * Returns 0 if all ranges written
++ *	   error otherwise
++ *
++ *	   Either way, range_buffer_size_out is set to the number
++ *	   of bytes written. Should be set to 0 by caller. The ranges
++ *	   filled are valid, but if an error was returned there might
++ *	   be more ranges to come.
++ *
++ *	   Ranges are ranges of filled blocks:
++ *
++ *	   1 2 7 9
++ *
++ *	   means blocks 1, 2, 7, 8, 9 are filled, 0, 3, 4, 5, 6 and 10 on
++ *	   are not
++ *
++ *	   If hashing is enabled for the file, the hash blocks are simply
++ *	   treated as though they immediately followed the data blocks.
++ */
++#define INCFS_IOC_GET_FILLED_BLOCKS                                            \
++	_IOR(INCFS_IOCTL_BASE_CODE, 34, struct incfs_get_filled_blocks_args)
++
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+ 	COMPRESSION_LZ4 = 1
+@@ -265,4 +289,43 @@ struct incfs_get_file_sig_args {
+ 	__u32 file_signature_len_out;
+ };
+ 
++struct incfs_filled_range {
++	__u32 begin;
++	__u32 end;
++};
++
++/*
++ * Request ranges of filled blocks
++ * Argument for INCFS_IOC_GET_FILLED_BLOCKS
++ */
++struct incfs_get_filled_blocks_args {
++	/*
++	 * A buffer to populate with ranges of filled blocks
++	 *
++	 * Equivalent to struct incfs_filled_ranges *range_buffer
++	 */
++	__aligned_u64 range_buffer;
++
++	/* Size of range_buffer */
++	__u32 range_buffer_size;
++
++	/* Start index to read from */
++	__u32 start_index;
++
++	/*
++	 * End index to read to. 0 means read to end. This is a range,
++	 * so incfs will read from start_index to end_index - 1
++	 */
++	__u32 end_index;
++
++	/* Actual number of blocks in file */
++	__u32 total_blocks_out;
++
++	/* Number of bytes written to range buffer */
++	__u32 range_buffer_size_out;
++
++	/* Sector scanned up to, if the call was interrupted */
++	__u32 index_out;
++};
++
+ #endif /* _UAPI_LINUX_INCREMENTALFS_H */
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index b24cd892d014..723f9cbd15bc 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2099,6 +2099,347 @@ static int read_log_test(char *mount_dir)
+ 	return TEST_FAILURE;
+ }
+ 
++static int emit_partial_test_file_data(char *mount_dir, struct test_file *file)
++{
++	int i, j;
++	int block_cnt = 1 + (file->size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
++	int *block_indexes = NULL;
++	int result = 0;
++	int blocks_written = 0;
++
++	if (file->size == 0)
++		return 0;
++
++	/* Emit 2 blocks, skip 2 blocks etc*/
++	block_indexes = calloc(block_cnt, sizeof(*block_indexes));
++	for (i = 0, j = 0; i < block_cnt; ++i)
++		if ((i & 2) == 0) {
++			block_indexes[j] = i;
++			++j;
++		}
++
++	for (i = 0; i < j; i += blocks_written) {
++		blocks_written = emit_test_blocks(mount_dir, file,
++						  block_indexes + i, j - i);
++		if (blocks_written < 0) {
++			result = blocks_written;
++			goto out;
++		}
++		if (blocks_written == 0) {
++			result = -EIO;
++			goto out;
++		}
++	}
++out:
++	free(block_indexes);
++	return result;
++}
++
++static int validate_ranges(const char *mount_dir, struct test_file *file)
++{
++	int block_cnt = 1 + (file->size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
++	char *filename = concat_file_name(mount_dir, file->name);
++	int fd;
++	struct incfs_filled_range ranges[128];
++	struct incfs_get_filled_blocks_args fba = {
++		.range_buffer = ptr_to_u64(ranges),
++		.range_buffer_size = sizeof(ranges),
++	};
++	int error = TEST_SUCCESS;
++	int i;
++	int range_cnt;
++
++	fd = open(filename, O_RDONLY);
++	free(filename);
++	if (fd <= 0)
++		return TEST_FAILURE;
++
++	error = ioctl(fd, INCFS_IOC_GET_FILLED_BLOCKS, &fba);
++	if (error && errno != ERANGE)
++		goto out;
++
++	if (error && errno == ERANGE && block_cnt < 509)
++		goto out;
++
++	if (!error && block_cnt >= 509) {
++		error = -ERANGE;
++		goto out;
++	}
++
++	if (fba.total_blocks_out != block_cnt) {
++		error = -EINVAL;
++		goto out;
++	}
++
++	range_cnt = (block_cnt + 3) / 4;
++	if (range_cnt > 128)
++		range_cnt = 128;
++	if (range_cnt != fba.range_buffer_size_out / sizeof(*ranges)) {
++		error = -ERANGE;
++		goto out;
++	}
++
++	error = TEST_SUCCESS;
++	for (i = 0; i < fba.range_buffer_size_out / sizeof(*ranges) - 1; ++i)
++		if (ranges[i].begin != i * 4 || ranges[i].end != i * 4 + 2) {
++			error = -EINVAL;
++			goto out;
++		}
++
++	if (ranges[i].begin != i * 4 ||
++	    (ranges[i].end != i * 4 + 1 && ranges[i].end != i * 4 + 2)) {
++		error = -EINVAL;
++		goto out;
++	}
++
++	for (i = 0; i < 64; ++i) {
++		fba.start_index = i * 2;
++		fba.end_index = i * 2 + 2;
++		error = ioctl(fd, INCFS_IOC_GET_FILLED_BLOCKS, &fba);
++		if (error)
++			goto out;
++
++		if (fba.total_blocks_out != block_cnt) {
++			error = -EINVAL;
++			goto out;
++		}
++
++		if (fba.start_index >= block_cnt) {
++			if (fba.index_out != fba.start_index) {
++				printf("Paul: %d, %d\n", (int)fba.index_out,
++				       (int)fba.start_index);
++				error = -EINVAL;
++				goto out;
++			}
++
++			break;
++		}
++
++		if (i % 2) {
++			if (fba.range_buffer_size_out != 0) {
++				error = -EINVAL;
++				goto out;
++			}
++		} else {
++			if (fba.range_buffer_size_out != sizeof(*ranges)) {
++				error = -EINVAL;
++				goto out;
++			}
++
++			if (ranges[0].begin != i * 2) {
++				error = -EINVAL;
++				goto out;
++			}
++
++			if (ranges[0].end != i * 2 + 1 &&
++			    ranges[0].end != i * 2 + 2) {
++				error = -EINVAL;
++				goto out;
++			}
++		}
++	}
++
++out:
++	close(fd);
++	return error;
++}
++
++static int get_blocks_test(char *mount_dir)
++{
++	char *backing_dir;
++	int cmd_fd = -1;
++	int i;
++	struct test_files_set test = get_test_files_set();
++	const int file_num = test.files_count;
++
++	backing_dir = create_backing_dir(mount_dir);
++	if (!backing_dir)
++		goto failure;
++
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++		goto failure;
++
++	cmd_fd = open_commands_file(mount_dir);
++	if (cmd_fd < 0)
++		goto failure;
++
++	/* Write data. */
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (emit_file(cmd_fd, NULL, file->name, &file->id, file->size,
++			      NULL))
++			goto failure;
++
++		if (emit_partial_test_file_data(mount_dir, file))
++			goto failure;
++	}
++
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (validate_ranges(mount_dir, file))
++			goto failure;
++
++		/*
++		 * The smallest files are filled completely, so this checks that
++		 * the fast get_filled_blocks path is not causing issues
++		 */
++		if (validate_ranges(mount_dir, file))
++			goto failure;
++	}
++
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return TEST_SUCCESS;
++
++failure:
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return TEST_FAILURE;
++}
++
++static int emit_partial_test_file_hash(char *mount_dir, struct test_file *file)
++{
++	int err;
++	int fd;
++	struct incfs_fill_blocks fill_blocks = {
++		.count = 1,
++	};
++	struct incfs_fill_block *fill_block_array =
++		calloc(fill_blocks.count, sizeof(struct incfs_fill_block));
++	uint8_t data[INCFS_DATA_FILE_BLOCK_SIZE];
++
++	if (file->size <= 4096 / 32 * 4096)
++		return 0;
++
++	if (fill_blocks.count == 0)
++		return 0;
++
++	if (!fill_block_array)
++		return -ENOMEM;
++	fill_blocks.fill_blocks = ptr_to_u64(fill_block_array);
++
++	rnd_buf(data, sizeof(data), 0);
++
++	fill_block_array[0] =
++		(struct incfs_fill_block){ .block_index = 1,
++					   .data_len =
++						   INCFS_DATA_FILE_BLOCK_SIZE,
++					   .data = ptr_to_u64(data),
++					   .flags = INCFS_BLOCK_FLAGS_HASH };
++
++	fd = open_file_by_id(mount_dir, file->id, true);
++	if (fd < 0) {
++		err = errno;
++		goto failure;
++	}
++
++	err = ioctl(fd, INCFS_IOC_FILL_BLOCKS, &fill_blocks);
++	close(fd);
++	if (err < fill_blocks.count)
++		err = errno;
++	else
++		err = 0;
++
++failure:
++	free(fill_block_array);
++	return err;
++}
++
++static int validate_hash_ranges(const char *mount_dir, struct test_file *file)
++{
++	char *filename = concat_file_name(mount_dir, file->name);
++	int fd;
++	struct incfs_filled_range ranges[128];
++	struct incfs_get_filled_blocks_args fba = {
++		.range_buffer = ptr_to_u64(ranges),
++		.range_buffer_size = sizeof(ranges),
++	};
++	int error = TEST_SUCCESS;
++	int file_blocks = (file->size + INCFS_DATA_FILE_BLOCK_SIZE - 1) /
++			  INCFS_DATA_FILE_BLOCK_SIZE;
++
++	if (file->size <= 4096 / 32 * 4096)
++		return 0;
++
++	fd = open(filename, O_RDONLY);
++	free(filename);
++	if (fd <= 0)
++		return TEST_FAILURE;
++
++	error = ioctl(fd, INCFS_IOC_GET_FILLED_BLOCKS, &fba);
++	if (error)
++		goto out;
++
++	if (fba.range_buffer_size_out != sizeof(struct incfs_filled_range)) {
++		error = -EINVAL;
++		goto out;
++	}
++
++	if (ranges[0].begin != file_blocks + 1 ||
++	    ranges[0].end != file_blocks + 2) {
++		error = -EINVAL;
++		goto out;
++	}
++
++out:
++	close(fd);
++	return error;
++}
++
++static int get_hash_blocks_test(char *mount_dir)
++{
++	char *backing_dir;
++	int cmd_fd = -1;
++	int i;
++	struct test_files_set test = get_test_files_set();
++	const int file_num = test.files_count;
++
++	backing_dir = create_backing_dir(mount_dir);
++	if (!backing_dir)
++		goto failure;
++
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0") != 0)
++		goto failure;
++
++	cmd_fd = open_commands_file(mount_dir);
++	if (cmd_fd < 0)
++		goto failure;
++
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (crypto_emit_file(cmd_fd, NULL, file->name, &file->id,
++				     file->size, file->root_hash,
++				     file->sig.add_data))
++			goto failure;
++
++		if (emit_partial_test_file_hash(mount_dir, file))
++			goto failure;
++	}
++
++	for (i = 0; i < file_num; i++) {
++		struct test_file *file = &test.files[i];
++
++		if (validate_hash_ranges(mount_dir, file))
++			goto failure;
++	}
++
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return TEST_SUCCESS;
++
++failure:
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return TEST_FAILURE;
++}
++
+ static char *setup_mount_dir()
+ {
+ 	struct stat st;
+@@ -2166,6 +2507,8 @@ int main(int argc, char *argv[])
+ 		MAKE_TEST(multiple_providers_test),
+ 		MAKE_TEST(hash_tree_test),
+ 		MAKE_TEST(read_log_test),
++		MAKE_TEST(get_blocks_test),
++		MAKE_TEST(get_hash_blocks_test),
+ 	};
+ #undef MAKE_TEST
+ 
+-- 
+2.17.1
+

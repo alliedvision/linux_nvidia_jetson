@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2015-2022, NVIDIA Corporation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -12,6 +12,12 @@
  *
  */
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
+#include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/platform_device.h>
 #include <linux/tegra_nvadsp.h>
 #include <linux/tegra-hsp.h>
@@ -19,7 +25,9 @@
 
 #include "dev.h"
 #include "os.h"
+#include "dev-t18x.h"
 
+#if IS_ENABLED(CONFIG_TEGRA_HSP)
 static void nvadsp_dbell_handler(void *data)
 {
 	struct platform_device *pdev = data;
@@ -27,6 +35,7 @@ static void nvadsp_dbell_handler(void *data)
 
 	dev_info(dev, "APE DBELL handler\n");
 }
+#endif
 
 
 /* Function to return the ADMA page number (0 indexed) used by guest */
@@ -40,10 +49,9 @@ static int tegra_adma_query_dma_page(void)
 		"nvidia,tegra210-adma-hv",
 		"nvidia,tegra186-adma",
 		"nvidia,tegra194-adma-hv",
-		NULL,
 	};
 
-	for (i = 0; compatible[i] != NULL; i++) {
+	for (i = 0; i < ARRAY_SIZE(compatible); i++) {
 		np = of_find_compatible_node(NULL, NULL, compatible[i]);
 		if (np == NULL)
 			continue;
@@ -66,12 +74,10 @@ static int tegra_adma_query_dma_page(void)
 
 int nvadsp_os_t18x_init(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct nvadsp_drv_data *drv_data = platform_get_drvdata(pdev);
-	struct device_node *node = dev->of_node;
-	int ret, adma_ch_page, val = 0;
+	int ret = 0, adma_ch_page, val = 0;
 
-	if (of_device_is_compatible(node, "nvidia,tegra18x-adsp-hv")) {
+	if (is_tegra_hypervisor_mode()) {
 
 		adma_ch_page = tegra_adma_query_dma_page();
 
@@ -85,7 +91,7 @@ int nvadsp_os_t18x_init(struct platform_device *pdev)
 		val = val | (adma_ch_page << ADSP_CONFIG_DMA_PAGE_SHIFT);
 
 		/* Write to HWMBOX5 */
-		hwmbox_writel(val, drv_data->chip_data->hwmb.hwmbox5_reg);
+		hwmbox_writel(val, drv_data->chip_data->adsp_os_config_hwmbox);
 
 		/* Clear HWMBOX0 for ADSP Guest reset handling */
 		hwmbox_writel(0, drv_data->chip_data->hwmb.hwmbox0_reg);
@@ -93,12 +99,13 @@ int nvadsp_os_t18x_init(struct platform_device *pdev)
 		return 0;
 	}
 
+#if IS_ENABLED(CONFIG_TEGRA_HSP)
 	ret = tegra_hsp_db_add_handler(HSP_MASTER_APE,
 				       nvadsp_dbell_handler, pdev);
-	if (ret) {
-		dev_err(dev, "failed to add HSP_MASTER_APE DB handler\n");
-		goto end;
-	}
- end:
+	if (ret)
+		dev_err(&pdev->dev,
+			"failed to add HSP_MASTER_APE DB handler\n");
+#endif
+
 	return ret;
 }

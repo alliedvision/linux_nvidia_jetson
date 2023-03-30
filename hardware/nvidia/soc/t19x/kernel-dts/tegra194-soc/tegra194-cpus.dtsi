@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2016-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "tegra194-cpuidle.dtsi"
@@ -63,7 +65,6 @@
 
 		cl0_0: cpu@0 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x10000>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -79,7 +80,6 @@
 		};
 		cl0_1: cpu@1 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x10001>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -96,7 +96,6 @@
 		};
 		cl1_0: cpu@2 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -113,7 +112,6 @@
 		};
 		cl1_1: cpu@3 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -130,7 +128,6 @@
 		};
 		cl2_0: cpu@4 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x200>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -147,7 +144,6 @@
 		};
 		cl2_1: cpu@5 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x201>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -164,7 +160,6 @@
 		};
 		cl3_0: cpu@6 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x10300>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -181,7 +176,6 @@
 		};
 		cl3_1: cpu@7 {
 			device_type = "cpu";
-			compatible = "nvidia,carmel", "arm,armv8";
 			reg = <0x0 0x10301>;
 			enable-method = "psci";
 			cpu-idle-states = <&C6 &C7>;
@@ -266,4 +260,18 @@
 		interrupt-affinity = <&{/cpus/cpu@0}>;
 		status = "okay";
 	};
+
+#if defined(LINUX_VERSION) && LINUX_VERSION > 414
+	ccplex {
+		compatible = "nvidia,tegra194-ccplex";
+		nvidia,bpmp = <&bpmp>;
+		cpu_emc_map = <2112000  2133000>,
+			    <1881600 800000>,
+			    <1574400 665000>,
+			    <1267200 408000>,
+			    <115200 204000>;
+		cpufreq_single_policy;
+	};
+#endif
+
 };

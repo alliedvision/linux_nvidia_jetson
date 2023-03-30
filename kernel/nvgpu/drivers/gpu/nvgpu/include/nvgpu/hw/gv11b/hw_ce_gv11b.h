@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,63 +53,40 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_ce_gv11b_h_
-#define _hw_ce_gv11b_h_
+#ifndef NVGPU_HW_CE_GV11B_H
+#define NVGPU_HW_CE_GV11B_H
 
-static inline u32 ce_intr_status_r(u32 i)
-{
-	return 0x00104410U + i*128U;
-}
-static inline u32 ce_intr_status_blockpipe_pending_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce_intr_status_blockpipe_reset_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ce_intr_status_nonblockpipe_pending_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce_intr_status_nonblockpipe_reset_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ce_intr_status_launcherr_pending_f(void)
-{
-	return 0x4U;
-}
-static inline u32 ce_intr_status_launcherr_reset_f(void)
-{
-	return 0x4U;
-}
-static inline u32 ce_intr_status_invalid_config_pending_f(void)
-{
-	return 0x8U;
-}
-static inline u32 ce_intr_status_invalid_config_reset_f(void)
-{
-	return 0x8U;
-}
-static inline u32 ce_intr_status_mthd_buffer_fault_pending_f(void)
-{
-	return 0x10U;
-}
-static inline u32 ce_intr_status_mthd_buffer_fault_reset_f(void)
-{
-	return 0x10U;
-}
-static inline u32 ce_pce_map_r(void)
-{
-	return 0x00104028U;
-}
-static inline u32 ce_lce_opt_r(u32 i)
-{
-	return 0x00104414U + i*128U;
-}
-static inline u32 ce_lce_opt_force_barriers_npl__prod_f(void)
-{
-	return 0x8U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define ce_intr_status_r(i)\
+		(nvgpu_safe_add_u32(0x00104410U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_intr_status_blockpipe_pending_f()                              (0x1U)
+#define ce_intr_status_blockpipe_reset_f()                                (0x1U)
+#define ce_intr_status_nonblockpipe_pending_f()                           (0x2U)
+#define ce_intr_status_nonblockpipe_reset_f()                             (0x2U)
+#define ce_intr_status_launcherr_pending_f()                              (0x4U)
+#define ce_intr_status_launcherr_reset_f()                                (0x4U)
+#define ce_intr_status_invalid_config_pending_f()                         (0x8U)
+#define ce_intr_status_invalid_config_reset_f()                           (0x8U)
+#define ce_intr_status_mthd_buffer_fault_pending_f()                     (0x10U)
+#define ce_intr_status_mthd_buffer_fault_reset_f()                       (0x10U)
+#define ce_pce_map_r()                                             (0x00104028U)
+#define ce_lce_bind_status_r(i)\
+		(nvgpu_safe_add_u32(0x00104404U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_bind_status_bound_v(r)                       (((r) >> 0U) & 0x1U)
+#define ce_lce_bind_status_bound_false_v()                         (0x00000000U)
+#define ce_lce_bind_status_ctx_ptr_v(r)               (((r) >> 1U) & 0xfffffffU)
+#define ce_lce_launcherr_r(i)\
+		(nvgpu_safe_add_u32(0x00104418U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_launcherr_report_v(r)                        (((r) >> 0U) & 0xfU)
+#define ce_lce_launcherr_report_invalid_config_v()                 (0x0000000dU)
+#define ce_lce_launcherr_report_method_buffer_access_fault_v()     (0x0000000eU)
+#define ce_lce_opt_r(i)\
+		(nvgpu_safe_add_u32(0x00104414U, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_opt_force_barriers_npl__prod_f()                           (0x8U)
+#define ce_lce_engctl_r(i)\
+		(nvgpu_safe_add_u32(0x0010441cU, nvgpu_safe_mult_u32((i), 128U)))
+#define ce_lce_engctl_stallreq_true_f()                                 (0x100U)
+#define ce_lce_engctl_stallack_true_f()                                 (0x200U)
 #endif

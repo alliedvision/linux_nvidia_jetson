@@ -1,7 +1,7 @@
 /*
  * tegra_hv_comm.c: TTY over Tegra HV
  *
- * Copyright (c) 2014-2021 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Very loosely based on altera_jtaguart.c
  *
@@ -23,7 +23,12 @@
 #include <linux/serial_core.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #define DRV_NAME "tegra_hv_comm"
 
@@ -181,9 +186,15 @@ static void tegra_hv_comm_tx_chars(struct tegra_hv_comm *pp)
 
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+static void tegra_hv_tx_timer_expired(struct timer_list *timer)
+{
+	struct tegra_hv_comm *pp = container_of(timer, struct tegra_hv_comm, tx_timer);
+#else
 static void tegra_hv_tx_timer_expired(unsigned long data)
 {
 	struct tegra_hv_comm *pp = (void *)data;
+#endif
 	struct uart_port *port = &pp->port;
 
 	spin_lock(&port->lock);
@@ -472,7 +483,7 @@ static int tegra_hv_comm_probe(struct platform_device *pdev)
 	if (i == -1)
 		i = 0;
 
-	if (i >= TEGRA_HV_COMM_MAXPORTS || i < -1)
+	if (i >= TEGRA_HV_COMM_MAXPORTS)
 		return -EINVAL;
 
 	dn = dev->of_node;
@@ -533,9 +544,13 @@ static int tegra_hv_comm_probe(struct platform_device *pdev)
 	pp->tx_frame = pp->rx_frame + pp->ivck->frame_size;
 	pp->tx_buf = pp->tx_frame + HDR_SIZE;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	timer_setup(&pp->tx_timer, tegra_hv_tx_timer_expired, 0);
+#else
 	init_timer(&pp->tx_timer);
 	pp->tx_timer.function = tegra_hv_tx_timer_expired;
 	pp->tx_timer.data = (unsigned long)pp;
+#endif
 
 	pp->pdev = pdev;
 	platform_set_drvdata(pdev, pp);

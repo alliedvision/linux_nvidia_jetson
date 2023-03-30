@@ -1,0 +1,118 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+// Panel: 1280x1600@24hz 24bpp Sharp panel for FPGA.
+// Full resolution is 2560x1600. But since we are using only one DSI
+// controller, using half the xres.
+// This panel has framebuffer embedded. Works with lower refresh rates too.
+
+#include <dt-bindings/display/tegra-dc.h>
+#include <dt-bindings/display/tegra-panel.h>
+#include "dt-bindings/gpio/tegra234-gpio.h"
+
+/ {
+	display@13800000 {
+		dsi {
+			status = "okay";
+			nvidia,active-panel = <&panel_fpga>;
+			nvidia,panel-timings = <&panel_fpga_timings>;
+			panel_fpga: panel-fpga {
+				status = "okay";
+				compatible = "nvidia,fpga-panel";
+				nvidia,dsi-instance = <DSI_INSTANCE_0>;
+				nvidia,dsi-n-data-lanes = <4>;
+				nvidia,dsi-pixel-format = <TEGRA_DSI_PIXEL_FORMAT_24BIT_P>;
+				nvidia,dsi-refresh-rate = <24>;
+				nvidia,dsi-phy-type = <DSI_DPHY>; //DPHY = 0, CPHY = 1
+				nvidia,dsi-video-data-type = <0>;
+				nvidia,dsi-video-clock-mode = <0>;
+				nvidia,dsi-video-burst-mode = <0>;
+				nvidia,dsi-virtual-channel = <TEGRA_DSI_VIRTUAL_CHANNEL_0>;
+				nvidia,set-max-dsi-timeout;
+				nvidia,dsi-init-cmd =
+					/* Long  Packet: <PACKETTYPE[u8] COMMANDID[u8] PAYLOADCOUNT[u16] ECC[u8] PAYLOAD[..] CHECKSUM[u16]> */
+					/* Short Packet: <PACKETTYPE[u8] COMMANDID[u8] DATA0[u8] DATA1[u8] ECC[u8]> */
+					/* For DSI packets each DT cell is interpreted as u8 not u32 */
+
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Exit Sleep mode */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_EXIT_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Select Single Link Video Mode */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x00 0x3B 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					/* 
+					 * Select Single Link Command Mode.
+					 * <TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x00 0x2B 0x0 0x0>,
+					 */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Set Panel to Video Mode */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x01 0x00 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					/*
+					 * Set Panel to Command Mode.
+					 * <TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x01 0x01 0x0 0x0>,
+					 */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Select Single Link */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x02 0x01 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Select Link-A */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x03 0x00 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Select 4 Lanes for Link-A */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x01 0x06 0x0F 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Self Refresh Mode */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_LONG_WRITE 0x03 0x0 0x0 0x10 0x07 0x00 0x0 0x0>, // 0x03 == Payload of 3 bytes
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+					/* Set Display On */
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_ON 0x0 0x0>;
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_NO_OP 0x0 0x0>,
+				nvidia,dsi-n-init-cmd = <18>;
+				nvidia,dsi-suspend-cmd =
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_SET_DISPLAY_OFF 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 120>,
+					<TEGRA_DSI_PACKET_CMD DSI_DCS_WRITE_0_PARAM DSI_DCS_ENTER_SLEEP_MODE 0x0 0x0>,
+					<TEGRA_DSI_DELAY_MS 10>,
+				nvidia,dsi-n-suspend-cmd = <4>;
+
+				/*
+				 * nvidia,dsi-pkt-seq =
+				 *	<CMD_VS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT PKT_LP LINE_STOP>,
+				 *	<CMD_HS LEN_SHORT CMD_RGB_24BPP LEN_HACTIVE3 CMD_BLNK LEN_HFP LINE_STOP>;
+				 */
+
+				display-timings {
+					panel_fpga_timings: 1280-1600-32-24Hz {
+						clock-frequency = <55750000>;
+						hactive = <1280>;
+						vactive = <1600>;
+						hfront-porch = <48>;
+						hback-porch = <80>;
+						hsync-len = <32>;
+						vfront-porch = <3>;
+						vback-porch = <37>;
+						vsync-len = <6>;
+					};
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,34 @@
+From 38d0772a29f5294ac866c3fc3c65422795acc610 Mon Sep 17 00:00:00 2001
+From: Sudarshan Rajagopalan <sudaraja@codeaurora.org>
+Date: Thu, 22 Oct 2020 16:35:21 -0700
+Subject: [PATCH 791/830] ANDROID: gki_defconfig: Enable memory hotplug
+X-NVConfidentiality: public
+
+With the support for memory hotplug and hotremove fully functional,
+and having configs ARCH_ENABLE_MEMORY_HOTPLUG and
+ARCH_ENABLE_MEMORY_HOTREMOVE enabled by default for x86 targets,
+enable config MEMORY_HOTPLUG and MEMORY_HOTREMOVE.
+
+Bug: 170202777
+Change-Id: I09b8768a3116ba53144c9f9890b6471106bcfa22
+Signed-off-by: Sudarshan Rajagopalan <sudaraja@codeaurora.org>
+---
+ arch/x86/configs/gki_defconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 7b41f7b1add3..c51573f021fc 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -73,6 +73,8 @@ CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=y
++CONFIG_MEMORY_HOTPLUG=y
++CONFIG_MEMORY_HOTREMOVE=y
+ CONFIG_CLEANCACHE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+-- 
+2.17.1
+

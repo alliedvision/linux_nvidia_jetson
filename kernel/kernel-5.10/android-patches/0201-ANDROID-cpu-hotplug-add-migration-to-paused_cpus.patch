@@ -1,0 +1,292 @@
+From 298432085b9089cb6a2f4ed615b3f962a85bd9af Mon Sep 17 00:00:00 2001
+From: Vincent Donnefort <vincent.donnefort@arm.com>
+Date: Fri, 6 Nov 2020 17:52:09 +0000
+Subject: [PATCH 201/830] ANDROID: cpu/hotplug: add migration to paused_cpus
+X-NVConfidentiality: public
+
+paused_cpus intending to force CPUs to go idle as quickly as possible,
+adding a migration step, to drain the rq from any running task.
+
+Two steps are actually needed. The first one, "lazy", will run before the
+cpu_active_mask has been synced. The second one will run after. It is
+possible for another CPU, to observe an outdated version of that mask and
+to enqueue a task on a rq that has just been marked inactive. The second
+migration is there to catch any of those spurious move, while the first
+one will drain the rq as quickly as possible to let the CPU reach an idle
+state.
+
+Bug: 161210528
+Change-Id: Ie26c2e4c42665dd61d41a899a84536e56bf2b887
+Signed-off-by: Vincent Donnefort <vincent.donnefort@arm.com>
+[maennich: folded 6f58dc1f83f0 ("ANDROID: sched: Fix
+sched_cpu_drain CONFIG_HOTPLUG_CPU dependence") into this patch]
+Signed-off-by: Matthias Maennich <maennich@google.com>
+---
+ include/linux/sched.h         |  4 ++
+ include/linux/sched/hotplug.h |  2 +
+ kernel/cpu.c                  | 73 +++++++++++++++++++++++++++++++++++
+ kernel/sched/core.c           | 70 +++++++++++++++++++++++++++++++--
+ kernel/sched/sched.h          |  5 +++
+ 5 files changed, 150 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 38715eda25d8..30ca6c12a498 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -718,6 +718,10 @@ struct task_struct {
+ 	struct uclamp_se		uclamp[UCLAMP_CNT];
+ #endif
+ 
++#ifdef CONFIG_HOTPLUG_CPU
++	struct list_head		percpu_kthread_node;
++#endif
++
+ #ifdef CONFIG_PREEMPT_NOTIFIERS
+ 	/* List of struct preempt_notifier: */
+ 	struct hlist_head		preempt_notifiers;
+diff --git a/include/linux/sched/hotplug.h b/include/linux/sched/hotplug.h
+index 2aa088d220e0..89fb9b0278b0 100644
+--- a/include/linux/sched/hotplug.h
++++ b/include/linux/sched/hotplug.h
+@@ -11,6 +11,8 @@ extern int sched_cpu_activate(unsigned int cpu);
+ extern int sched_cpus_activate(struct cpumask *cpus);
+ extern int sched_cpu_deactivate(unsigned int cpu);
+ extern int sched_cpus_deactivate_nosync(struct cpumask *cpus);
++extern int sched_cpu_drain_rq(unsigned int cpu);
++extern void sched_cpu_drain_rq_wait(unsigned int cpu);
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ extern int sched_cpu_dying(unsigned int cpu);
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index c51d75c6d294..7fd788aac347 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1154,6 +1154,34 @@ EXPORT_SYMBOL_GPL(remove_cpu);
+ 
+ extern bool dl_cpu_busy(unsigned int cpu);
+ 
++int __pause_drain_rq(struct cpumask *cpus)
++{
++	unsigned int cpu;
++	int err = 0;
++
++	/*
++	 * Disabling preemption avoids that one of the stopper, started from
++	 * sched_cpu_drain_rq(), blocks firing draining for the whole cpumask.
++	 */
++	preempt_disable();
++	for_each_cpu(cpu, cpus) {
++		err = sched_cpu_drain_rq(cpu);
++		if (err)
++			break;
++	}
++	preempt_enable();
++
++	return err;
++}
++
++void __wait_drain_rq(struct cpumask *cpus)
++{
++	unsigned int cpu;
++
++	for_each_cpu(cpu, cpus)
++		sched_cpu_drain_rq_wait(cpu);
++}
++
+ int pause_cpus(struct cpumask *cpus)
+ {
+ 	int err = 0;
+@@ -1184,8 +1212,45 @@ int pause_cpus(struct cpumask *cpus)
+ 	if (cpumask_empty(cpus))
+ 		goto err_cpu_maps_update;
+ 
++	/*
++	 * Lazy migration:
++	 *
++	 * We do care about how fast a CPU can go idle and stay this in this
++	 * state. If we try to take the cpus_write_lock() here, we would have
++	 * to wait for a few dozens of ms, as this function might schedule.
++	 * However, we can, as a first step, flip the active mask and migrate
++	 * anything currently on the run-queue, to give a chance to the paused
++	 * CPUs to reach quickly an idle state. There's a risk meanwhile for
++	 * another CPU to observe an out-of-date active_mask or to incompletely
++	 * update a cpuset. Both problems would be resolved later in the slow
++	 * path, which ensures active_mask synchronization, triggers a cpuset
++	 * rebuild and migrate any task that would have escaped the lazy
++	 * migration.
++	 */
++	for_each_cpu(cpu, cpus)
++		set_cpu_active(cpu, false);
++	err = __pause_drain_rq(cpus);
++	if (err) {
++		__wait_drain_rq(cpus);
++		for_each_cpu(cpu, cpus)
++			set_cpu_active(cpu, true);
++		goto err_cpu_maps_update;
++	}
++
++	/*
++	 * Slow path deactivation:
++	 *
++	 * Now that paused CPUs are most likely idle, we can go through a
++	 * complete scheduler deactivation.
++	 *
++	 * The cpu_active_mask being already set and cpus_write_lock calling
++	 * synchronize_rcu(), we know that all preempt-disabled and RCU users
++	 * will observe the updated value.
++	 */
+ 	cpus_write_lock();
+ 
++	__wait_drain_rq(cpus);
++
+ 	cpuhp_tasks_frozen = 0;
+ 
+ 	if (sched_cpus_deactivate_nosync(cpus)) {
+@@ -1193,6 +1258,14 @@ int pause_cpus(struct cpumask *cpus)
+ 		goto err_cpus_write_unlock;
+ 	}
+ 
++	err = __pause_drain_rq(cpus);
++	__wait_drain_rq(cpus);
++	if (err) {
++		for_each_cpu(cpu, cpus)
++			sched_cpu_activate(cpu);
++		goto err_cpus_write_unlock;
++	}
++
+ 	/*
+ 	 * Even if living on the side of the regular HP path, pause is using
+ 	 * one of the HP step (CPUHP_AP_ACTIVE). This should be reflected on the
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index c0118dbcab6a..683ec572677c 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6770,11 +6770,14 @@ static struct task_struct *__pick_migrate_task(struct rq *rq)
+  * Called with rq->lock held even though we'er in stop_machine() and
+  * there's no concurrency possible, we hold the required locks anyway
+  * because of lock validation efforts.
++ *
++ * force: if false, the function will skip CPU pinned kthreads.
+  */
+-static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
++static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf, bool force)
+ {
+ 	struct rq *rq = dead_rq;
+-	struct task_struct *next, *stop = rq->stop;
++	struct task_struct *next, *tmp, *stop = rq->stop;
++	LIST_HEAD(percpu_kthreads);
+ 	struct rq_flags orf = *rf;
+ 	int dest_cpu;
+ 
+@@ -6806,6 +6809,18 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
+ 
+ 		next = __pick_migrate_task(rq);
+ 
++		/*
++		 * Argh ... no iterator for tasks, we need to remove the
++		 * kthread from the run-queue to continue.
++		 */
++		if (!force && is_per_cpu_kthread(next)) {
++			INIT_LIST_HEAD(&next->percpu_kthread_node);
++			list_add(&next->percpu_kthread_node, &percpu_kthreads);
++			deactivate_task(rq, next,
++					DEQUEUE_NOCLOCK | DEQUEUE_SAVE);
++			continue;
++		}
++
+ 		/*
+ 		 * Rules for changing task_struct::cpus_mask are holding
+ 		 * both pi_lock and rq->lock, such that holding either
+@@ -6824,7 +6839,14 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
+ 		 * changed the task, WARN if weird stuff happened, because in
+ 		 * that case the above rq->lock drop is a fail too.
+ 		 */
+-		if (WARN_ON(task_rq(next) != rq || !task_on_rq_queued(next))) {
++		if (task_rq(next) != rq || !task_on_rq_queued(next)) {
++			/*
++			 * In the !force case, there is a hole between
++			 * rq_unlock() and rq_relock(), where another CPU might
++			 * not observe an up to date cpu_active_mask and try to
++			 * move tasks around.
++			 */
++			WARN_ON(force);
+ 			raw_spin_unlock(&next->pi_lock);
+ 			continue;
+ 		}
+@@ -6841,8 +6863,48 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
+ 		raw_spin_unlock(&next->pi_lock);
+ 	}
+ 
++	list_for_each_entry_safe(next, tmp, &percpu_kthreads,
++				 percpu_kthread_node) {
++		activate_task(rq, next, ENQUEUE_NOCLOCK | ENQUEUE_RESTORE);
++		list_del(&next->percpu_kthread_node);
++	}
++
+ 	rq->stop = stop;
+ }
++
++static int drain_rq_cpu_stop(void *data)
++{
++	struct rq *rq = this_rq();
++	struct rq_flags rf;
++
++	rq_lock_irqsave(rq, &rf);
++	migrate_tasks(rq, &rf, false);
++	rq_unlock_irqrestore(rq, &rf);
++
++	return 0;
++}
++
++int sched_cpu_drain_rq(unsigned int cpu)
++{
++	struct cpu_stop_work *rq_drain = &(cpu_rq(cpu)->drain);
++	struct cpu_stop_done *rq_drain_done = &(cpu_rq(cpu)->drain_done);
++
++	if (idle_cpu(cpu)) {
++		rq_drain->done = NULL;
++		return 0;
++	}
++
++	return stop_one_cpu_async(cpu, drain_rq_cpu_stop, NULL, rq_drain,
++				  rq_drain_done);
++}
++
++void sched_cpu_drain_rq_wait(unsigned int cpu)
++{
++	struct cpu_stop_work *rq_drain = &(cpu_rq(cpu)->drain);
++
++	if (rq_drain->done)
++		cpu_stop_work_wait(rq_drain);
++}
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
+ void set_rq_online(struct rq *rq)
+@@ -7074,7 +7136,7 @@ int sched_cpu_dying(unsigned int cpu)
+ 		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
+ 		set_rq_offline(rq);
+ 	}
+-	migrate_tasks(rq, &rf);
++	migrate_tasks(rq, &rf, true);
+ 	BUG_ON(rq->nr_running != 1);
+ 	rq_unlock_irqrestore(rq, &rf);
+ 
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 23df51cb962b..a6a72a78608d 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -1056,6 +1056,11 @@ struct rq {
+ 	unsigned int		ttwu_local;
+ #endif
+ 
++#ifdef CONFIG_HOTPLUG_CPU
++	struct cpu_stop_work	drain;
++	struct cpu_stop_done	drain_done;
++#endif
++
+ #ifdef CONFIG_CPU_IDLE
+ 	/* Must be inspected within a rcu lock section */
+ 	struct cpuidle_state	*idle_state;
+-- 
+2.17.1
+

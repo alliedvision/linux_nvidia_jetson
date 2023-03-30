@@ -1,0 +1,97 @@
+From f713a9159b811537959495354d3ea6b9cf2a6ebc Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Fri, 8 Feb 2019 12:30:41 -0800
+Subject: [PATCH 214/830] ANDROID: cpufreq: times: record fast switch frequency
+ transitions
+X-NVConfidentiality: public
+
+cpufreq_times_record_transition() is not called when fast switch is
+enabled, leading /proc/uid_time_in_state to attribute all time on a
+cluster to a single frequency. To fix this, add a call to
+cpufreq_times_record_transition() in the fast switch path.
+
+Also revise cpufreq_times_record_transition() to simplify the new call
+and more closely align with cpufreq_stats_record_transition().
+
+Bug: 121287027
+Bug: 127641090
+Test: /proc/uid_time_in_state shows times for more than one freq per
+cluster
+Change-Id: Ib63d19006878fafb88475e401ef243bdd8b11979
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ drivers/cpufreq/cpufreq.c       |  2 +-
+ drivers/cpufreq/cpufreq_times.c | 15 ++++-----------
+ include/linux/cpufreq_times.h   |  5 +++--
+ 3 files changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+index d0033e397f80..d4de4971831f 100644
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -388,7 +388,7 @@ static void cpufreq_notify_transition(struct cpufreq_policy *policy,
+ 					 CPUFREQ_POSTCHANGE, freqs);
+ 
+ 		cpufreq_stats_record_transition(policy, freqs->new);
+-		cpufreq_times_record_transition(freqs);
++		cpufreq_times_record_transition(policy, freqs->new);
+ 		policy->cur = freqs->new;
+ 	}
+ }
+diff --git a/drivers/cpufreq/cpufreq_times.c b/drivers/cpufreq/cpufreq_times.c
+index 092d15450238..7057860c5dfd 100644
+--- a/drivers/cpufreq/cpufreq_times.c
++++ b/drivers/cpufreq/cpufreq_times.c
+@@ -289,22 +289,15 @@ void cpufreq_task_times_remove_uids(uid_t uid_start, uid_t uid_end)
+ 	spin_unlock_irqrestore(&uid_lock, flags);
+ }
+ 
+-void cpufreq_times_record_transition(struct cpufreq_freqs *freq)
++void cpufreq_times_record_transition(struct cpufreq_policy *policy,
++	unsigned int new_freq)
+ {
+ 	int index;
+-	struct cpu_freqs *freqs = all_freqs[freq->cpu];
+-	struct cpufreq_policy *policy;
+-
++	struct cpu_freqs *freqs = all_freqs[policy->cpu];
+ 	if (!freqs)
+ 		return;
+ 
+-	policy = cpufreq_cpu_get(freq->cpu);
+-	if (!policy)
+-		return;
+-
+-	index = cpufreq_frequency_table_get_index(policy, freq->new);
++	index = cpufreq_frequency_table_get_index(policy, new_freq);
+ 	if (index >= 0)
+ 		WRITE_ONCE(freqs->last_index, index);
+-
+-	cpufreq_cpu_put(policy);
+ }
+diff --git a/include/linux/cpufreq_times.h b/include/linux/cpufreq_times.h
+index a03157f649a4..881d5026f0db 100644
+--- a/include/linux/cpufreq_times.h
++++ b/include/linux/cpufreq_times.h
+@@ -27,7 +27,8 @@ int proc_time_in_state_show(struct seq_file *m, struct pid_namespace *ns,
+ 			    struct pid *pid, struct task_struct *p);
+ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime);
+ void cpufreq_times_create_policy(struct cpufreq_policy *policy);
+-void cpufreq_times_record_transition(struct cpufreq_freqs *freq);
++void cpufreq_times_record_transition(struct cpufreq_policy *policy,
++                                     unsigned int new_freq);
+ void cpufreq_task_times_remove_uids(uid_t uid_start, uid_t uid_end);
+ #else
+ static inline void cpufreq_task_times_init(struct task_struct *p) {}
+@@ -37,7 +38,7 @@ static inline void cpufreq_acct_update_power(struct task_struct *p,
+ 					     u64 cputime) {}
+ static inline void cpufreq_times_create_policy(struct cpufreq_policy *policy) {}
+ static inline void cpufreq_times_record_transition(
+-	struct cpufreq_freqs *freq) {}
++	struct cpufreq_policy *policy, unsigned int new_freq) {}
+ static inline void cpufreq_task_times_remove_uids(uid_t uid_start,
+ 						  uid_t uid_end) {}
+ #endif /* CONFIG_CPU_FREQ_TIMES */
+-- 
+2.17.1
+

@@ -1,0 +1,39 @@
+From 26b151457f9a0049be8617b0a5795e615082a477 Mon Sep 17 00:00:00 2001
+From: Akilesh Kailash <akailash@google.com>
+Date: Mon, 27 Jul 2020 18:16:51 +0000
+Subject: [PATCH 463/830] ANDROID: Incremental fs: dentry_revalidate should not
+ return -EBADF.
+X-NVConfidentiality: public
+
+Fix of bug 161565969 added EBADF when backing path doesn't
+exist. However, .log and .pending reads doesn't have
+backing path causing incfs_test to fail.
+
+Bug: 162243475
+Test: incfs_test on QEMU passes
+
+Signed-off-by: Akilesh Kailash <akailash@google.com>
+Change-Id: Iba303bbc42b431fe4a4fbacb40584faaff4b14b7
+---
+ fs/incfs/vfs.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index c0617b7e3310..038014c511af 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -2006,10 +2006,8 @@ static int dentry_revalidate(struct dentry *d, unsigned int flags)
+ 
+ 	get_incfs_backing_path(d, &backing_path);
+ 	backing_dentry = backing_path.dentry;
+-	if (!backing_dentry) {
+-		result = -EBADF;
++	if (!backing_dentry)
+ 		goto out;
+-	}
+ 
+ 	if (d_inode(backing_dentry) != binode) {
+ 		/*
+-- 
+2.17.1
+

@@ -1,0 +1,114 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * Device-tree overlay for tegra234-p3737-0000-p3701-0000 CSI Camera Connector.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra234-p3737-0000-p3701-0000.h>
+
+/ {
+	overlay-name = "Jetson AGX CSI Connector";
+	compatible = JETSON_COMPATIBLE;
+
+	fragment@0 {
+		target = <&pinmux>;
+		__overlay__ {
+			pinctrl-names = "default";
+			pinctrl-0 = <&jetson_io_pinmux>;
+			jetson_io_pinmux: exp-header-pinmux {
+				csi-pin75 {
+					nvidia,pins = "cam_i2c_scl_pp2";
+				};
+				csi-pin76a {
+					nvidia,pins = "spi5_cs0_pac3";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_fs";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				csi-pin76b {
+					nvidia,pins = "spi5_cs0_pac3";
+					nvidia,function = "dmic2";
+					nvidia,pin-label = "dmic2_clk";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin77 {
+					nvidia,pins = "cam_i2c_sda_pp3";
+				};
+				csi-pin87 {
+					nvidia,pins = "gen2_i2c_scl_pcc7";
+				};
+				csi-pin89 {
+					nvidia,pins = "gen2_i2c_sda_pdd0";
+				};
+				csi-pin90a{
+					nvidia,pins = "spi5_sck_pac0";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_sclk";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				csi-pin90b {
+					nvidia,pins = "spi5_sck_pac0";
+					nvidia,function = "dspk0";
+					nvidia,pin-label = "dspk0_dat";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin92a {
+					nvidia,pins = "spi5_miso_pac1";
+					nvidia,function = "i2s3";
+					nvidia,pin-label = "i2s3_dout";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin92b {
+					nvidia,pins = "spi5_miso_pac1";
+					nvidia,function = "dspk0";
+					nvidia,pin-label = "dspk0_clk";
+					nvidia,tristate = <TEGRA_PIN_DISABLE>;
+					nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+				};
+				csi-pin96a {
+					nvidia,pins = "spi5_mosi_pac2";
+					nvidia,function = "i2s3";
+					nvidia,pin-label="i2s3_din";
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				csi-pin96b {
+					nvidia,pins = "spi5_mosi_pac2";
+					nvidia,function = "dmic2";
+					nvidia,pin-label="dmic2_dat";
+					nvidia,tristate = <TEGRA_PIN_ENABLE>;
+					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				};
+				csi-pin105 {
+					nvidia,pins = "dp_aux_ch3_p_pn7";
+				};
+				csi-pin107 {
+					nvidia,pins = "dp_aux_ch3_n_pn0";
+				};
+			};
+		};
+	};
+};

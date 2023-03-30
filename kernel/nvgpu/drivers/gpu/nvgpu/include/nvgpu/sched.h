@@ -19,8 +19,12 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#ifndef __NVGPU_SCHED_COMMON_H
-#define __NVGPU_SCHED_COMMON_H
+#ifndef NVGPU_SCHED_COMMON_H
+#define NVGPU_SCHED_COMMON_H
+
+#include <nvgpu/types.h>
+#include <nvgpu/lock.h>
+#include <nvgpu/cond.h>
 
 struct nvgpu_sched_ctrl {
 	struct nvgpu_mutex control_lock;
@@ -39,4 +43,4 @@ struct nvgpu_sched_ctrl {
 	struct nvgpu_cond readout_wq;
 };
 
-#endif /* __NVGPU_SCHED_COMMON_H */
+#endif /* NVGPU_SCHED_COMMON_H */

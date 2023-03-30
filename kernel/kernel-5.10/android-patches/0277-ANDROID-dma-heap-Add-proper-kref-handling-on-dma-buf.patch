@@ -1,0 +1,134 @@
+From 9931da009c1fe360633173f50b75d5b4a4451b4c Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Sat, 25 Jul 2020 02:53:27 +0000
+Subject: [PATCH 277/830] ANDROID: dma-heap: Add proper kref handling on
+ dma-buf heaps
+X-NVConfidentiality: public
+
+Add proper refcounting on the dma_heap structure.
+While existing heaps are built-in, we may eventually
+have heaps loaded from modules, and we'll need to be
+able to properly handle the references to the heaps
+
+Also moves minor tracking into the heap structure so
+we can properly free things.
+
+Cc: Sumit Semwal <sumit.semwal@linaro.org>
+Cc: Andrew F. Davis <afd@ti.com>
+Cc: Benjamin Gaignard <benjamin.gaignard@linaro.org>
+Cc: Liam Mark <lmark@codeaurora.org>
+Cc: Laura Abbott <labbott@kernel.org>
+Cc: Brian Starkey <Brian.Starkey@arm.com>
+Cc: Hridya Valsaraju <hridya@google.com>
+Cc: linux-media@vger.kernel.org
+Cc: dri-devel@lists.freedesktop.org
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I9f9e27f640c926882a639d6ad5dc3019d7e2c2b0
+Link: https://lore.kernel.org/lkml/20200725032633.125006-1-john.stultz@linaro.org/T/#u
+Bug: 154341375
+---
+ drivers/dma-buf/dma-heap.c | 35 +++++++++++++++++++++++++++++++----
+ include/linux/dma-heap.h   |  6 ++++++
+ 2 files changed, 37 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/dma-buf/dma-heap.c b/drivers/dma-buf/dma-heap.c
+index eab510bc4af9..6cb8a70bd903 100644
+--- a/drivers/dma-buf/dma-heap.c
++++ b/drivers/dma-buf/dma-heap.c
+@@ -41,6 +41,8 @@ struct dma_heap {
+ 	dev_t heap_devt;
+ 	struct list_head list;
+ 	struct cdev heap_cdev;
++	int minor;
++	struct kref refcount;
+ };
+ 
+ static LIST_HEAD(heap_list);
+@@ -192,11 +194,35 @@ void *dma_heap_get_drvdata(struct dma_heap *heap)
+ 	return heap->priv;
+ }
+ 
++static void dma_heap_release(struct kref *ref)
++{
++	struct dma_heap *heap = container_of(ref, struct dma_heap, refcount);
++
++	/* Note, we already holding the heap_list_lock here */
++	list_del(&heap->list);
++
++	device_destroy(dma_heap_class, heap->heap_devt);
++	cdev_del(&heap->heap_cdev);
++	xa_erase(&dma_heap_minors, heap->minor);
++
++	kfree(heap);
++}
++
++void dma_heap_put(struct dma_heap *h)
++{
++	/*
++	 * Take the heap_list_lock now to avoid racing with code
++	 * scanning the list and then taking a kref.
++	 */
++	mutex_lock(&heap_list_lock);
++	kref_put(&h->refcount, dma_heap_release);
++	mutex_unlock(&heap_list_lock);
++}
++
+ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ {
+ 	struct dma_heap *heap, *h, *err_ret;
+ 	struct device *dev_ret;
+-	unsigned int minor;
+ 	int ret;
+ 
+ 	if (!exp_info->name || !strcmp(exp_info->name, "")) {
+@@ -225,12 +251,13 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ 	if (!heap)
+ 		return ERR_PTR(-ENOMEM);
+ 
++	kref_init(&heap->refcount);
+ 	heap->name = exp_info->name;
+ 	heap->ops = exp_info->ops;
+ 	heap->priv = exp_info->priv;
+ 
+ 	/* Find unused minor number */
+-	ret = xa_alloc(&dma_heap_minors, &minor, heap,
++	ret = xa_alloc(&dma_heap_minors, &heap->minor, heap,
+ 		       XA_LIMIT(0, NUM_HEAP_MINORS - 1), GFP_KERNEL);
+ 	if (ret < 0) {
+ 		pr_err("dma_heap: Unable to get minor number for heap\n");
+@@ -239,7 +266,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ 	}
+ 
+ 	/* Create device */
+-	heap->heap_devt = MKDEV(MAJOR(dma_heap_devt), minor);
++	heap->heap_devt = MKDEV(MAJOR(dma_heap_devt), heap->minor);
+ 
+ 	cdev_init(&heap->heap_cdev, &dma_heap_fops);
+ 	ret = cdev_add(&heap->heap_cdev, heap->heap_devt, 1);
+@@ -269,7 +296,7 @@ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info)
+ err2:
+ 	cdev_del(&heap->heap_cdev);
+ err1:
+-	xa_erase(&dma_heap_minors, minor);
++	xa_erase(&dma_heap_minors, heap->minor);
+ err0:
+ 	kfree(heap);
+ 	return err_ret;
+diff --git a/include/linux/dma-heap.h b/include/linux/dma-heap.h
+index 454e354d1ffb..c1572f29cfac 100644
+--- a/include/linux/dma-heap.h
++++ b/include/linux/dma-heap.h
+@@ -56,4 +56,10 @@ void *dma_heap_get_drvdata(struct dma_heap *heap);
+  */
+ struct dma_heap *dma_heap_add(const struct dma_heap_export_info *exp_info);
+ 
++/**
++ * dma_heap_put - drops a reference to a dmabuf heaps, potentially freeing it
++ * @heap:		heap pointer
++ */
++void dma_heap_put(struct dma_heap *heap);
++
+ #endif /* _DMA_HEAPS_H */
+-- 
+2.17.1
+

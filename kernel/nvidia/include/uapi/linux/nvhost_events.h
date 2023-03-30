@@ -1,7 +1,7 @@
 /*
  * Eventlib interface for PVA
  *
- * Copyright (c) 2016-2019, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,6 +41,9 @@ struct nvhost_task_submit {
 
 	/* TID */
 	__u32 tid;
+
+	/* Channel ID */
+	__u32 channel_id;
 } __packed;
 
 /* Marks that the task is moving to execution */
@@ -53,6 +56,9 @@ struct nvhost_task_begin {
 
 	/* Threshold for task completion */
 	__u32 syncpt_thresh;
+
+	/* Channel ID */
+	__u32 channel_id;
 } __packed;
 
 /* Marks that the task is completed */
@@ -65,6 +71,9 @@ struct nvhost_task_end {
 
 	/* Threshold for task completion */
 	__u32 syncpt_thresh;
+
+	/* Channel ID */
+	__u32 channel_id;
 } __packed;
 
 struct nvhost_vpu_perf_counter {
@@ -129,8 +138,72 @@ struct nvhost_pva_task_state {
 	/* Threshold for task completion */
 	__u32 syncpt_thresh;
 
+	/** ID of the VPU on which task was run. 0 or 1 */
+	__u8 vpu_id;
+
+	/** ID of the FW Queue on which the task was run. [0, 7] */
+	__u8 queue_id;
+
 	/* Identifier for the R5/VPU algorithm executed */
-	__u32 operation;
+	__u64 iova;
+} __packed;
+
+
+
+
+/* Marks that the task is submitted to hardware */
+struct nv_camera_task_submit {
+	/* Engine class ID */
+	__u32 class_id;
+
+	/* Syncpoint ID */
+	__u32 syncpt_id;
+
+	/* Threshold for task completion */
+	__u32 syncpt_thresh;
+
+	/* PID */
+	__u32 pid;
+
+	/* TID */
+	__u32 tid;
+} __packed;
+
+/* Marks that the task is moving to execution */
+struct nv_camera_task_begin {
+	/* Engine class ID */
+	__u32 class_id;
+
+	/* Syncpoint ID */
+	__u32 syncpt_id;
+
+	/* Threshold for task completion */
+	__u32 syncpt_thresh;
+} __packed;
+
+/* Marks that the task is completed */
+struct nv_camera_task_end {
+	/* Engine class ID */
+	__u32 class_id;
+
+	/* Syncpoint ID */
+	__u32 syncpt_id;
+
+	/* Threshold for task completion */
+	__u32 syncpt_thresh;
+} __packed;
+
+/* Marks that we are logging a general task */
+struct nv_camera_task_log {
+
+	/* Engine class ID */
+	__u32 class_id;
+
+	/* PID */
+	__u32 pid;
+
+	/* TID */
+	__u32 tid;
 } __packed;
 
 enum {
@@ -161,7 +234,67 @@ enum {
 	NVHOST_PVA_POST_BEGIN = 14,
 	NVHOST_PVA_POST_END = 15,
 
-	NVHOST_NUM_EVENT_TYPES = 16
+	/* struct nv_camera_vi_capture_setup */
+	NVHOST_CAMERA_VI_CAPTURE_SETUP = 16,
+
+	/* struct nv_camera_vi_capture_reset */
+	NVHOST_CAMERA_VI_CAPTURE_RESET = 17,
+
+	/* struct nv_camera_vi_capture_release */
+	NVHOST_CAMERA_VI_CAPTURE_RELEASE = 18,
+
+	/* struct nv_camera_vi_capture_get_info */
+	NVHOST_CAMERA_VI_CAPTURE_GET_INFO = 19,
+
+	/* struct nv_camera_vi_capture_set_config */
+	NVHOST_CAMERA_VI_CAPTURE_SET_CONFIG = 20,
+
+	/* struct nv_camera_vi_capture_request */
+	NVHOST_CAMERA_VI_CAPTURE_REQUEST = 21,
+
+	/* struct nv_camera_vi_capture_status */
+	NVHOST_CAMERA_VI_CAPTURE_STATUS = 22,
+
+	/* struct nv_camera_vi_capture_set_compand */
+	NVHOST_CAMERA_VI_CAPTURE_SET_COMPAND = 23,
+
+	/* struct nv_camera_vi_capture_set_progress_status */
+	NVHOST_CAMERA_VI_CAPTURE_SET_PROGRESS_STATUS = 24,
+
+	/* struct nv_camera_isp_capture_setup */
+	NVHOST_CAMERA_ISP_CAPTURE_SETUP = 25,
+
+	/* struct nv_camera_isp_capture_reset */
+	NVHOST_CAMERA_ISP_CAPTURE_RESET = 26,
+
+	/* struct nv_camera_isp_capture_release */
+	NVHOST_CAMERA_ISP_CAPTURE_RELEASE = 27,
+
+	/* struct nv_camera_isp_capture_get_info */
+	NVHOST_CAMERA_ISP_CAPTURE_GET_INFO = 28,
+
+	/* struct nv_camera_isp_capture_request */
+	NVHOST_CAMERA_ISP_CAPTURE_REQUEST = 29,
+
+	/* struct nv_camera_isp_capture_status */
+	NVHOST_CAMERA_ISP_CAPTURE_STATUS = 30,
+
+	/* struct nv_camera_isp_capture_program_request */
+	NVHOST_CAMERA_ISP_CAPTURE_PROGRAM_REQUEST = 31,
+
+	/* struct nv_camera_isp_capture_program_status */
+	NVHOST_CAMERA_ISP_CAPTURE_PROGRAM_STATUS = 32,
+
+	/* struct nv_camera_isp_capture_request_ex */
+	NVHOST_CAMERA_ISP_CAPTURE_REQUEST_EX = 33,
+
+	/* struct nv_camera_isp_capture_set_progress_status */
+	NVHOST_CAMERA_ISP_CAPTURE_SET_PROGRESS_STATUS = 34,
+
+	/* struct nv_camera_task_log */
+	NVHOST_CAMERA_TASK_LOG = 35,
+
+	NVHOST_NUM_EVENT_TYPES = 36
 };
 
 enum {

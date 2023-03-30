@@ -1,7 +1,7 @@
 /*
  * Tegra sysfs mbox driver for IVC channels
  *
- * Copyright (c) 2016-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -43,8 +43,13 @@ static ssize_t sysfs_mbox_show(struct device *dev,
 	struct tegra_ivc_channel *chan = dev_get_drvdata(dev);
 	size_t length = chan->ivc.frame_size;
 	ssize_t count = 0;
+	int err;
 
 	dev_err_once(dev, "mbox is deprecated\n");
+
+	err = tegra_ivc_channel_runtime_get(chan);
+	if (err)
+		return err;
 
 	while ((count + length < PAGE_SIZE) &&
 		tegra_ivc_can_read(&chan->ivc)) {
@@ -60,6 +65,8 @@ static ssize_t sysfs_mbox_show(struct device *dev,
 		count += length;
 	}
 
+	tegra_ivc_channel_runtime_put(chan);
+
 	return count;
 }
 
@@ -67,6 +74,8 @@ static ssize_t sysfs_mbox_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct tegra_ivc_channel *chan = dev_get_drvdata(dev);
+	ssize_t n;
+	int err;
 
 	if (count > chan->ivc.frame_size) {
 		dev_err(dev, "data size %zu > mbox frame size %u\n",
@@ -74,12 +83,20 @@ static ssize_t sysfs_mbox_store(struct device *dev,
 		return -EMSGSIZE;
 	}
 
+	err = tegra_ivc_channel_runtime_get(chan);
+	if (err)
+		return err;
+
 	dev_err_once(dev, "mbox is deprecated\n");
 	dev_dbg(&chan->dev, "tx msg\n");
 	print_hex_dump(KERN_DEBUG, "", DUMP_PREFIX_OFFSET,
 			16, 1, buf, count, true);
 
-	return tegra_ivc_write(&chan->ivc, buf, count);
+	n = tegra_ivc_write(&chan->ivc, buf, count);
+
+	tegra_ivc_channel_runtime_put(chan);
+
+	return n;
 }
 
 static const DEVICE_ATTR(mbox, 0600, sysfs_mbox_show, sysfs_mbox_store);

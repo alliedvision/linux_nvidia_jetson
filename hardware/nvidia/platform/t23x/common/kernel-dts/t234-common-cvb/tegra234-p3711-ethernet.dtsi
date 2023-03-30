@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+        /* EQOS */
+	ethernet@2310000 {
+		status = "okay";
+		nvidia,mac-addr-idx = <0>;
+		nvidia,phy-reset-gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 5) 0>;
+		phy-mode = "rgmii-id";
+		phy-handle = <&phy>;
+		/delete-node/ fixed-link;
+
+		mdio {
+			compatible = "nvidia,eqos-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy: phy@1 {
+				reg = <1>;
+				nvidia,phy-rst-pdelay-msec = <224>; /* msec */
+				nvidia,phy-rst-duration-usec = <10000>; /* usec */
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA234_MAIN_GPIO(G, 4) IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+	};
+};

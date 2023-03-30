@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * mods_tegradc.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -23,8 +24,10 @@
 #include <linux/platform/tegra/mc.h>
 #include "mods_internal.h"
 
-static void mods_tegra_dc_set_windowattr_basic(struct tegra_dc_win *win,
-		       const struct MODS_TEGRA_DC_WINDOW *mods_win)
+static void mods_tegra_dc_set_windowattr_basic(
+	struct mods_client                *client,
+	struct tegra_dc_win               *win,
+	const struct MODS_TEGRA_DC_WINDOW *mods_win)
 {
 	win->global_alpha = 0;
 	win->z            = 0;
@@ -48,19 +51,19 @@ static void mods_tegra_dc_set_windowattr_basic(struct tegra_dc_win *win,
 	win->out_w = mods_win->out_w;
 	win->out_h = mods_win->out_h;
 
-	mods_debug_printk(DEBUG_TEGRADC,
-		"set_windowattr_basic window %u:\n"
-		"\tflags : 0x%08x\n"
-		"\tfmt   : %u\n"
-		"\tinput : (%u, %u, %u, %u)\n"
-		"\toutput: (%u, %u, %u, %u)\n",
-		win->idx, win->flags, win->fmt, dfixed_trunc(win->x),
-		dfixed_trunc(win->y), dfixed_trunc(win->w),
-		dfixed_trunc(win->h), win->out_x, win->out_y, win->out_w,
-		win->out_h);
+	cl_debug(DEBUG_TEGRADC,
+		 "set_windowattr_basic window %u:\n"
+		 "\tflags : 0x%08x\n"
+		 "\tfmt   : %u\n"
+		 "\tinput : (%u, %u, %u, %u)\n"
+		 "\toutput: (%u, %u, %u, %u)\n",
+		 win->idx, win->flags, win->fmt, dfixed_trunc(win->x),
+		 dfixed_trunc(win->y), dfixed_trunc(win->w),
+		 dfixed_trunc(win->h), win->out_x, win->out_y, win->out_w,
+		 win->out_h);
 }
 
-int esc_mods_tegra_dc_config_possible(struct file *fp,
+int esc_mods_tegra_dc_config_possible(struct mods_client *client,
 				struct MODS_TEGRA_DC_CONFIG_POSSIBLE *args)
 {
 	int i;
@@ -85,32 +88,41 @@ int esc_mods_tegra_dc_config_possible(struct file *fp,
 	}
 
 	for (i = 0; i < args->win_num; i++) {
-		int idx = args->windows[i].index;
+		unsigned int idx;
+
+		if (args->windows[i].index < 0) {
+			cl_debug(DEBUG_TEGRADC,
+				 "invalid index %d for win %d\n",
+				 i, args->windows[i].index);
+			return -EINVAL;
+		}
+		idx = (unsigned int)args->windows[i].index;
 
 		if (args->windows[i].flags &
 			MODS_TEGRA_DC_WINDOW_FLAG_ENABLED) {
-			mods_tegra_dc_set_windowattr_basic(&dc->tmp_wins[idx],
-							  &args->windows[i]);
+			mods_tegra_dc_set_windowattr_basic(client,
+							   &dc->tmp_wins[idx],
+							   &args->windows[i]);
 		} else {
 			dc->tmp_wins[idx].flags = 0;
 		}
 		dc_wins[i] = &dc->tmp_wins[idx];
-		mods_debug_printk(DEBUG_TEGRADC,
-			"head %u, using index %d for win %d\n",
-			args->head, i, idx);
+		cl_debug(DEBUG_TEGRADC,
+			 "head %u, using index %d for win %d\n",
+			 args->head, i, idx);
 	}
 
-	mods_debug_printk(DEBUG_TEGRADC,
-		"head %u, dc->mode.pclk %u\n",
-		args->head, dc->mode.pclk);
+	cl_debug(DEBUG_TEGRADC,
+		 "head %u, dc->mode.pclk %u\n",
+		 args->head, dc->mode.pclk);
 
 #ifndef CONFIG_TEGRA_ISOMGR
 	max_bandwidth = tegra_dc_get_bandwidth(dc_wins, args->win_num);
 
 	emc_clk = clk_get_sys("tegra_emc", "emc");
 	if (IS_ERR(emc_clk)) {
-		mods_debug_printk(DEBUG_TEGRADC,
-		"invalid clock specified when fetching EMC clock\n");
+		cl_debug(DEBUG_TEGRADC,
+			 "invalid clock specified when fetching EMC clock\n");
 	} else {
 		current_emc_freq = clk_get_rate(emc_clk);
 		current_emc_freq /= 1000;
@@ -119,9 +131,9 @@ int esc_mods_tegra_dc_config_possible(struct file *fp,
 		max_available_bandwidth = (max_available_bandwidth / 100) * 50;
 	}
 
-	mods_debug_printk(DEBUG_TEGRADC,
-		"b/w needed %lu, b/w available %lu\n",
-		max_bandwidth, max_available_bandwidth);
+	cl_debug(DEBUG_TEGRADC,
+		 "b/w needed %lu, b/w available %lu\n",
+		 max_bandwidth, max_available_bandwidth);
 
 	args->possible = (max_bandwidth <= max_available_bandwidth);
 #else
@@ -130,17 +142,13 @@ int esc_mods_tegra_dc_config_possible(struct file *fp,
 #endif
 	for (i = 0; i < args->win_num; i++) {
 		args->windows[i].bandwidth = dc_wins[i]->new_bandwidth;
-		mods_debug_printk(DEBUG_TEGRADC,
-			"head %u, win %d, b/w %d\n",
-			args->head, dc_wins[i]->idx, dc_wins[i]->new_bandwidth);
+		cl_debug(DEBUG_TEGRADC,
+			 "head %u, win %d, b/w %d\n",
+			 args->head,
+			 dc_wins[i]->idx,
+			 dc_wins[i]->new_bandwidth);
 	}
 
 	LOG_EXT();
 	return 0;
 }
-
-int mods_init_tegradc(void)
-{
-	return 0;
-}
-

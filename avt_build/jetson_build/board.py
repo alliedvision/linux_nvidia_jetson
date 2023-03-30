@@ -3,9 +3,9 @@ from collections import namedtuple
 from . import upstream
 from . import build
 
-AVT_RELEASE = "4.0.0"
-KERNEL_RELEASE = "4.9.253-tegra"
-L4T_VERSION = "32.7.1"
+AVT_RELEASE = "5.1.0"
+KERNEL_RELEASE = "5.10.104-tegra"
+L4T_VERSION = "35.2.1"
 
 FileSet = namedtuple('FileSet', [
   'driver_package',
@@ -14,30 +14,34 @@ FileSet = namedtuple('FileSet', [
 
 
 def get_tx2_agx_nx_upstream_files(UpstreamFile):
-  driver_package  = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t186/jetson_linux_r32.7.1_aarch64.tbz2",                     "368c85a7ef0ab3a3e845cb535ecc1fea71e576a172788906f7178356ad9c9b84")
+  driver_package  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v2.1/release/Jetson_Linux_R35.2.1_aarch64.tbz2",                     "9959bcd3de79de231a8fb54119f9cdb57a753542d44d994e346664028142d40d")
   #rootfs          = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t186/tegra_linux_sample-root-filesystem_r32.7.1_aarch64.tbz2", "17996e861dd092043509e0b7e9ae038e271e5b0b7b78f26a34db4f03df2b12b8")
-  public_sources  = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/sources/t186/public_sources.tbz2",                             "3f551de576e0eb0397a8679aed760e53433fbd9c90b1d008caae364f3b7569f9")
+  public_sources  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v2.1/sources/public_sources.tbz2",                             "ae9d2f903347013a915b128cf311899a24c6ba21e13607cdbde785e1f0557449")
 
   return FileSet(
     public_sources=public_sources,
     #rootfs=rootfs,
     driver_package=driver_package)
 
-def get_nano_upstream_files(UpstreamFile):
-  driver_package = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t210/jetson-210_linux_r32.7.1_aarch64.tbz2",                   "7b6f4a698278226ae1d92661270c5441e16d01eafffb4bfb086de80b6964ae6f")
+#def get_nano_upstream_files(UpstreamFile):
+#  driver_package = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t210/jetson-210_linux_r32.7.1_aarch64.tbz2",                   "7b6f4a698278226ae1d92661270c5441e16d01eafffb4bfb086de80b6964ae6f")
   #rootfs         = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t210/tegra_linux_sample-root-filesystem_r32.7.1_aarch64.tbz2", "17996e861dd092043509e0b7e9ae038e271e5b0b7b78f26a34db4f03df2b12b8")
-  public_sources = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/sources/t210/public_sources.tbz2",                             "fdf5fb80fca25d107bb1545f9f8985237404b621d751b1c1ddc9a25c1b25cd21")
+#  public_sources = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/sources/t210/public_sources.tbz2",                             "fdf5fb80fca25d107bb1545f9f8985237404b621d751b1c1ddc9a25c1b25cd21")
 
-  return FileSet(
-    public_sources=public_sources,
+#  return FileSet(
+#    public_sources=public_sources,
     #rootfs=rootfs,
-    driver_package=driver_package)
+#    driver_package=driver_package)
   
 bootloader_payload_files_xavier = [
-  ("bootloader/payloads_t18x/bl_only_payload", "opt/ota_package/t18x/bl_only_payload"),
   ("bootloader/payloads_t19x/bl_only_payload", "opt/ota_package/t19x/bl_only_payload"),
-  ("bootloader/payloads_t18x/bl_update_payload", "opt/ota_package/t18x/bl_update_payload"),
-  ("bootloader/payloads_t19x/bl_update_payload", "opt/ota_package/t19x/bl_update_payload")
+  ("bootloader/payloads_t19x/bl_update_payload", "opt/ota_package/t19x/bl_update_payload"),
+  ("bootloader/payloads_t19x/TEGRA_BL.Cap", "opt/ota_package/t19x/TEGRA_BL.Cap"),
+  ("bootloader/BOOTAA64.efi", "opt/ota_package/t19x/BOOTAA64.efi"),
+  ("bootloader/payloads_t23x/bl_only_payload", "opt/ota_package/t23x/bl_only_payload"),
+  ("bootloader/payloads_t23x/bl_update_payload", "opt/ota_package/t23x/bl_update_payload"),
+  ("bootloader/payloads_t23x/TEGRA_BL.Cap", "opt/ota_package/t23x/TEGRA_BL.Cap"),
+  ("bootloader/BOOTAA64.efi", "opt/ota_package/t23x/BOOTAA64.efi")
 ]
 
 bootloader_payload_files_tx2 = [
@@ -46,8 +50,8 @@ bootloader_payload_files_tx2 = [
 ]
 
 kernel_extra_files_xavier = [
-  ("bootloader/payloads_t18x/kernel_only_payload", "opt/ota_package/t18x/kernel_only_payload"),
-  ("bootloader/payloads_t19x/kernel_only_payload", "opt/ota_package/t19x/kernel_only_payload")
+  ("bootloader/payloads_t19x/kernel_only_payload", "opt/ota_package/t19x/kernel_only_payload"),
+  ("bootloader/payloads_t23x/kernel_only_payload", "opt/ota_package/t23x/kernel_only_payload")
 ]
 
 kernel_extra_files_nano = []
@@ -70,8 +74,8 @@ class Board:
 
 
 known_boards = {
-  'nano':   ("Nano, Nano 2GB", "nano", "nano", get_nano_upstream_files,       ['tegra210'],             ['t21x'], kernel_extra_files_nano,bootloader_payload_files_nano, "32.7.1-20220219090432"),
-  'xavier': ("AGX, NX, TX2", "xavier", None, get_tx2_agx_nx_upstream_files, ['tegra194','tegra186'], ['t19x','t18x'], kernel_extra_files_xavier,bootloader_payload_files_xavier, "32.7.1-20220219090344"),
+  #'nano':   ("Nano, Nano 2GB", "nano", get_nano_upstream_files,       ['tegra210'],             ['t21x'], kernel_extra_files_nano,bootloader_payload_files_nano, "32.7.1-20220219090432"),
+  'xavier': ("AGX, NX", "xavier", None, get_tx2_agx_nx_upstream_files, ['tegra194','tegra234'], ['t19x','t23x'], kernel_extra_files_xavier,bootloader_payload_files_xavier, "34.1.0-20220406120854"),
 }
 
 

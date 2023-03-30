@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,67 +18,58 @@
 
 #include <nvgpu/types.h>
 #include <nvgpu/os_fence.h>
+#include <nvgpu/os_fence_semas.h>
 #include <nvgpu/linux/os_fence_android.h>
 #include <nvgpu/semaphore.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/channel_sync.h>
 
-#include "gk20a/mm_gk20a.h"
-
 #include "sync_sema_android.h"
+#include "os_fence_priv.h"
 
 #include "../drivers/staging/android/sync.h"
 
-int nvgpu_os_fence_sema_wait_gen_cmd(struct nvgpu_os_fence *s,
-	struct priv_cmd_entry *wait_cmd,
-	struct channel_gk20a *c,
-	int max_wait_cmds)
+static const struct nvgpu_os_fence_ops sema_ops = {
+	.drop_ref = nvgpu_os_fence_android_drop_ref,
+	.install_fence = nvgpu_os_fence_android_install_fd,
+	.dup = nvgpu_os_fence_android_dup,
+};
+
+int nvgpu_os_fence_get_semas(struct nvgpu_os_fence_sema *fence_sema_out,
+	struct nvgpu_os_fence *fence_in)
 {
-	int err;
-	int wait_cmd_size;
-	int num_wait_cmds;
-	int i;
-	struct nvgpu_semaphore *sema;
-	struct sync_fence *sync_fence = nvgpu_get_sync_fence(s);
-
-	wait_cmd_size = c->g->ops.fifo.get_sema_wait_cmd_size();
-
-	num_wait_cmds = sync_fence->num_fences;
-	if (num_wait_cmds == 0)
-		return 0;
-
-	if (max_wait_cmds && num_wait_cmds > max_wait_cmds)
+	if (fence_in->ops != &sema_ops) {
 		return -EINVAL;
-
-	err = gk20a_channel_alloc_priv_cmdbuf(c,
-		wait_cmd_size * num_wait_cmds,
-		wait_cmd);
-	if (err) {
-		return err;
 	}
 
-	for (i = 0; i < num_wait_cmds; i++) {
-		struct sync_pt *pt = sync_pt_from_fence(
-			sync_fence->cbs[i].sync_pt);
-
-		sema = gk20a_sync_pt_sema(pt);
-		channel_sync_semaphore_gen_wait_cmd(c, sema, wait_cmd,
-			wait_cmd_size, i);
-	}
+	fence_sema_out->fence = fence_in;
 
 	return 0;
 }
 
-static const struct nvgpu_os_fence_ops sema_ops = {
-	.program_waits = nvgpu_os_fence_sema_wait_gen_cmd,
-	.drop_ref = nvgpu_os_fence_android_drop_ref,
-	.install_fence = nvgpu_os_fence_android_install_fd,
-};
+u32 nvgpu_os_fence_sema_get_num_semaphores(
+	struct nvgpu_os_fence_sema *fence)
+{
+	struct sync_fence *f = nvgpu_get_sync_fence(fence->fence);
+
+	return (u32)f->num_fences;
+}
+
+void nvgpu_os_fence_sema_extract_nth_semaphore(
+	struct nvgpu_os_fence_sema *fence, u32 n,
+		struct nvgpu_semaphore **semaphore_out)
+{
+	struct sync_fence *f = nvgpu_get_sync_fence(fence->fence);
+	struct sync_pt *pt = sync_pt_from_fence(f->cbs[n].sync_pt);
+	struct nvgpu_semaphore *sema = gk20a_sync_pt_sema(pt);
+
+	*semaphore_out = sema;
+}
 
 int nvgpu_os_fence_sema_create(
 	struct nvgpu_os_fence *fence_out,
-	struct channel_gk20a *c,
+	struct nvgpu_channel *c,
 	struct nvgpu_semaphore *sema)
 {
 	struct sync_fence *fence;
@@ -99,7 +90,7 @@ int nvgpu_os_fence_sema_create(
 }
 
 int nvgpu_os_fence_sema_fdget(struct nvgpu_os_fence *fence_out,
-	struct channel_gk20a *c, int fd)
+	struct nvgpu_channel *c, int fd)
 {
 	struct sync_fence *fence = gk20a_sync_fence_fdget(fd);
 

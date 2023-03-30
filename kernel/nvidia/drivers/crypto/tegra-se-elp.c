@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine Elliptic crypto algorithms.
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,7 +29,6 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/version.h>
-#include <soc/tegra/chip-id.h>
 #include <crypto/akcipher.h>
 #include <crypto/hash.h>
 #include <crypto/internal/akcipher.h>
@@ -1660,7 +1659,7 @@ static void tegra_se_read_pka1_mod_result(struct tegra_se_pka1_mod_request *req)
 		for (i = 0; i < req->size / 4; i++) {
 			val = se_elp_readl(se_dev, PKA1, reg_bank_offset(
 					BANK_A, 0, req->op_mode) + (i * 4));
-			*RES = le32_to_cpu(val);
+			*RES = le32_to_cpu((__force __le32)val);
 			RES++;
 		}
 	} else if (req->type == MOD_DIV || req->type == MOD_INV ||
@@ -1668,7 +1667,7 @@ static void tegra_se_read_pka1_mod_result(struct tegra_se_pka1_mod_request *req)
 		for (i = 0; i < req->size / 4; i++) {
 			val = se_elp_readl(se_dev, PKA1, reg_bank_offset(
 					BANK_C, 0, req->op_mode) + (i * 4));
-			*RES = le32_to_cpu(val);
+			*RES = le32_to_cpu((__force __le32)val);
 			RES++;
 		}
 	} else if (req->type == NON_MOD_MULT) {
@@ -1677,7 +1676,7 @@ static void tegra_se_read_pka1_mod_result(struct tegra_se_pka1_mod_request *req)
 					reg_bank_offset(BANK_C,
 							0,
 							req->op_mode) + (i*4));
-			*RX = le32_to_cpu(val);
+			*RX = le32_to_cpu((__force __le32)val);
 			RX++;
 		}
 		for (i = 0; i < req->size/4; i++) {
@@ -1685,7 +1684,7 @@ static void tegra_se_read_pka1_mod_result(struct tegra_se_pka1_mod_request *req)
 					reg_bank_offset(BANK_C,
 							1,
 							req->op_mode) + (i*4));
-			*RY = le32_to_cpu(val);
+			*RY = le32_to_cpu((__force __le32)val);
 			RY++;
 		}
 	}
@@ -2696,10 +2695,14 @@ static bool tegra_se_eddsa_params_is_valid(struct tegra_se_eddsa_params *params)
 {
 	const u32 *private_key = params->key;
 	int private_key_len = params->key_size;
-	const struct tegra_se_ecc_curve *curve = tegra_se_ecc_get_curve(
-							params->curve_id);
-	int nbytes = curve->nbytes;
+	const struct tegra_se_ecc_curve *curve;
+	int nbytes;
 
+	curve = tegra_se_ecc_get_curve(params->curve_id);
+	if (!curve)
+		return false;
+
+	nbytes = curve->nbytes;
 	if (!nbytes || !private_key)
 		return false;
 
@@ -2814,7 +2817,7 @@ static int tegra_se_hash_data(struct tegra_se_elp_dev *se_dev, u32 *msg,
 	struct ahash_request *req;
 	struct tegra_crypto_completion sha_complete;
 
-	tfm = crypto_alloc_ahash(algo, CRYPTO_ALG_TESTED, 0);
+	tfm = crypto_alloc_ahash(algo, 0, 0);
 	if (IS_ERR(tfm)) {
 		dev_err(se_dev->dev, "Alloc %s hash transform failed\n", algo);
 		ret = PTR_ERR(tfm);
@@ -2851,12 +2854,11 @@ static int tegra_se_eddsa_gen_pub_key(struct crypto_akcipher *tfm,
 				      const void *key, unsigned int keylen)
 {
 	struct tegra_se_eddsa_ctx *ctx = akcipher_tfm_ctx(tfm);
-	const struct tegra_se_ecc_curve *curve = tegra_se_ecc_get_curve(
-							ctx->curve_id);
+	const struct tegra_se_ecc_curve *curve;
 	u32 *secret_hash = NULL;
 	int i, j;
-	unsigned int nbytes = curve->nbytes, nwords = ctx->nwords;
-	u32 h0[nwords], h1[nwords];
+	unsigned int nbytes, nwords;
+	u32 h0[SHA512_WORDS], h1[SHA512_WORDS];
 	struct tegra_se_ecc_point *pk = NULL;
 	int ret = 0;
 
@@ -2864,6 +2866,16 @@ static int tegra_se_eddsa_gen_pub_key(struct crypto_akcipher *tfm,
 			SHA512_WORDS*WORD_SIZE_BYTES, GFP_KERNEL);
 	if (!secret_hash)
 		return -ENOMEM;
+
+	curve = tegra_se_ecc_get_curve(ctx->curve_id);
+	if (!curve) {
+		dev_err(ctx->se_dev->dev, "ECC Curve not supported\n");
+		ret = -EOPNOTSUPP;
+		goto free;
+	}
+
+	nbytes = curve->nbytes;
+	nwords = ctx->nwords;
 
 	ret = tegra_se_hash_data(ctx->se_dev, ctx->private_key,
 				 secret_hash, nbytes, "sha512");
@@ -3027,14 +3039,21 @@ static int tegra_se_eddsa_sign(struct akcipher_request *req)
 {
 	struct crypto_akcipher *tfm = crypto_akcipher_reqtfm(req);
 	struct tegra_se_eddsa_ctx *ctx = akcipher_tfm_ctx(tfm);
-	const struct tegra_se_ecc_curve *curve =
-		tegra_se_ecc_get_curve(ctx->curve_id);
+	const struct tegra_se_ecc_curve *curve;
 	struct tegra_se_ecc_point *pk = NULL;
-	unsigned int nbytes = curve->nbytes, nwords = ctx->nwords;
+	unsigned int nbytes, nwords = ctx->nwords;
 	u32 num_msg_words = req->src_len / WORD_SIZE_BYTES;
 	int i, j, cnt, ret = 0;
 	u8 *r_ptr, *s_ptr;
 	struct tegra_se_eddsa_vars params;
+
+	curve = tegra_se_ecc_get_curve(ctx->curve_id);
+	if (!curve) {
+		dev_err(ctx->se_dev->dev, "ECC Curve not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	nbytes = curve->nbytes;
 
 	ret = tegra_se_eddsa_allocate_mem(ctx->se_dev, &params,
 		  nwords*WORD_SIZE_BYTES, req->src_len);
@@ -3357,15 +3376,22 @@ static int tegra_se_ecdh_gen_pub_key(struct tegra_se_elp_dev *se_dev,
 {
 	struct tegra_se_ecc_point *G;
 	int ret;
-	const struct tegra_se_ecc_curve *curve = tegra_se_ecc_get_curve(cid);
-	unsigned int nbytes = curve->nbytes;
-	unsigned int nwords = nbytes / WORD_SIZE_BYTES;
+	const struct tegra_se_ecc_curve *curve;
+	unsigned int nbytes;
+	unsigned int nwords;
 	u32 priv[ECC_MAX_WORDS];
 
 	if (!private_key) {
 		dev_err(se_dev->dev, "Invalid ECDH private key\n");
 		return -ENODATA;
 	}
+
+	curve = tegra_se_ecc_get_curve(cid);
+	if (!curve)
+		return -EOPNOTSUPP;
+
+	nbytes = curve->nbytes;
+	nwords = nbytes / WORD_SIZE_BYTES;
 
 	tegra_se_ecc_swap(private_key, priv, nwords);
 
@@ -3431,7 +3457,7 @@ static int tegra_se_ecdh_compute_value(struct kpp_request *req)
 	curve = tegra_se_ecc_get_curve(ctx->curve_id);
 	if (!curve) {
 		dev_err(ctx->se_dev->dev, "ECC Curve not supported\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	sec_nbytes = curve->nbytes;
@@ -3517,9 +3543,16 @@ static int tegra_se_ecdh_max_size(struct crypto_kpp *tfm)
 #endif
 {
 	struct tegra_se_ecdh_context *ctx = kpp_tfm_ctx(tfm);
-	const struct tegra_se_ecc_curve *curve =
-			tegra_se_ecc_get_curve(ctx->curve_id);
-	unsigned int nbytes = curve->nbytes;
+	const struct tegra_se_ecc_curve *curve;
+	unsigned int nbytes;
+
+	curve = tegra_se_ecc_get_curve(ctx->curve_id);
+	if (!curve) {
+		dev_err(ctx->se_dev->dev, "ECC Curve not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	nbytes = curve->nbytes;
 
 	/* Public key is made of two coordinates */
 	return 2 * nbytes;
@@ -3660,7 +3693,6 @@ rel_mutex:
 clk_dis:
 	clk_disable_unprepare(se_dev->c);
 
-	mutex_unlock(&se_dev->hw_lock);
 	return ret;
 }
 
@@ -3798,9 +3830,13 @@ static struct akcipher_alg pka1_rsa_algs[] = {
 		.init = tegra_se_pka1_rsa_init,
 		.exit = tegra_se_pka1_rsa_exit,
 		.base = {
-			.cra_name = "rsa-pka1",
+			.cra_name = "rsa-tegra",
 			.cra_driver_name = "tegra-se-pka1-rsa",
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 			.cra_blocksize = MAX_PKA1_SIZE,
+#else
+			.cra_blocksize = MAX_ALGAPI_BLOCKSIZE,
+#endif
 			.cra_ctxsize = sizeof(struct tegra_se_pka1_rsa_context),
 			.cra_alignmask = 0,
 			.cra_module = THIS_MODULE,
@@ -3925,12 +3961,6 @@ static int tegra_se_elp_rng_get_random(struct crypto_rng *tfm,
 	}
 
 	ret = tegra_se_elp_rng_get(tfm, rdata, dlen);
-	/*
-	 * According to include/crypto/rng.h, this function should
-	 * return 0 for success, < 0 errorcode otherwise.
-	 */
-    if (ret == dlen)
-        ret = 0;
 
 rel_mutex:
 	tegra_se_release_rng1_mutex(se_dev);
@@ -4110,26 +4140,29 @@ static int tegra_se_ecdsa_sign(struct akcipher_request *req)
 	struct crypto_akcipher *tfm = crypto_akcipher_reqtfm(req);
 	struct tegra_se_ecdsa_ctx *ctx = tegra_se_ecdsa_get_ctx(tfm);
 	struct tegra_se_ecc_point *x1y1 = NULL;
-	const struct tegra_se_ecc_curve *curve =
-		tegra_se_ecc_get_curve(ctx->curve_id);
-	int nbytes = curve->nbytes;
-	int nwords = nbytes / WORD_SIZE_BYTES;
-	unsigned int ndigits = nwords / 2;
-	u64 z[ndigits], d[ndigits];
-	u64 k[ndigits], k_inv[ndigits];
-	u64 r[ndigits], s[ndigits];
-	u64 dr[ndigits], zdr[ndigits];
+	const struct tegra_se_ecc_curve *curve;
+	int nbytes, nwords;
+	unsigned int ndigits;
+	u64 z[ECC_MAX_DIGITS], d[ECC_MAX_DIGITS];
+	u64 k[ECC_MAX_DIGITS], k_inv[ECC_MAX_DIGITS];
+	u64 r[ECC_MAX_DIGITS], s[ECC_MAX_DIGITS];
+	u64 dr[ECC_MAX_DIGITS], zdr[ECC_MAX_DIGITS];
 	u8 *r_ptr, *s_ptr;
 	int ret = -ENOMEM;
 	int mod_op_mode;
+
+	curve = tegra_se_ecc_get_curve(ctx->curve_id);
+	if (!curve)
+		return -EINVAL;
+
+	nbytes = curve->nbytes;
+	nwords = nbytes / WORD_SIZE_BYTES;
+	ndigits = nwords / 2;
 
 	if (req->dst_len < 2 * nbytes) {
 		req->dst_len = 2 * nbytes;
 		return -EINVAL;
 	}
-
-	if (!curve)
-		return -EINVAL;
 
 	mod_op_mode = tegra_se_mod_op_mode(nbytes);
 	if (mod_op_mode < 0)
@@ -4207,20 +4240,22 @@ static int tegra_se_ecdsa_verify(struct akcipher_request *req)
 	struct crypto_akcipher *tfm = crypto_akcipher_reqtfm(req);
 	struct tegra_se_ecdsa_ctx *ctx = tegra_se_ecdsa_get_ctx(tfm);
 	struct tegra_se_ecc_point *x1y1 = NULL, *x2y2 = NULL, *Q = NULL;
-	const struct tegra_se_ecc_curve *curve =
-		tegra_se_ecc_get_curve(ctx->curve_id);
-	unsigned int nbytes = curve->nbytes;
-	unsigned int nwords = nbytes / WORD_SIZE_BYTES;
-	unsigned int ndigits = nwords / 2;
+	const struct tegra_se_ecc_curve *curve;
+	unsigned int nbytes, nwords, ndigits;
 	u64 *ctx_qx, *ctx_qy;
-	u64 r[ndigits], s[ndigits], v[ndigits];
-	u64 z[ndigits], w[ndigits];
-	u64 u1[ndigits], u2[ndigits];
+	u64 r[ECC_MAX_DIGITS], s[ECC_MAX_DIGITS], v[ECC_MAX_DIGITS];
+	u64 z[ECC_MAX_DIGITS], w[ECC_MAX_DIGITS];
+	u64 u1[ECC_MAX_DIGITS], u2[ECC_MAX_DIGITS];
 	int mod_op_mode;
 	int ret = -ENOMEM;
 
+	curve = tegra_se_ecc_get_curve(ctx->curve_id);
 	if (!curve)
 		return -EINVAL;
+
+	nbytes = curve->nbytes;
+	nwords = nbytes / WORD_SIZE_BYTES;
+	ndigits = nwords / 2;
 
 	mod_op_mode = tegra_se_mod_op_mode(nbytes);
 	if (mod_op_mode < 0)
@@ -4477,6 +4512,10 @@ static int tegra_se_elp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	se_dev->chipdata = of_device_get_match_data(&pdev->dev);
+	if (!se_dev->chipdata) {
+		dev_err(&pdev->dev, "no device match found for tegra-se-elp\n");
+		return -EINVAL;
+	}
 
 	platform_set_drvdata(pdev, se_dev);
 	se_dev->dev = &pdev->dev;
@@ -4547,8 +4586,6 @@ static int tegra_se_elp_probe(struct platform_device *pdev)
 		goto clk_dis;
 	}
 
-	mutex_init(&se_dev->hw_lock);
-
 	err = crypto_register_kpp(&ecdh_algs[0]);
 	if (err) {
 		dev_err(se_dev->dev, "crypto_register_kpp ecdh failed\n");
@@ -4582,6 +4619,7 @@ static int tegra_se_elp_probe(struct platform_device *pdev)
 			goto rng_fail;
 		}
 	}
+	mutex_init(&se_dev->hw_lock);
 
 	err = crypto_register_akcipher(&ecdsa_alg);
 	if (err) {

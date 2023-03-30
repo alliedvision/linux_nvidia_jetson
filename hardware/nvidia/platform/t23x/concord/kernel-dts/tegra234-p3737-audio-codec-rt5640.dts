@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Audio DT overlay to enable onboard rt5640 audio codec on Concord
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+/*
+ * Note: This overlay is necessary because not all boards are populated
+ * with rt5640 audio codec. Default assumption of codec presence will
+ * result in sound card registration failure and audio paths become
+ * unusable. Hence use the overlay method to selectively use onboard
+ * codec when present.
+ */
+
+#include <dt-bindings/clock/tegra234-clock.h>
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "Jetson Concord (RT5640)";
+	jetson-header-name = "Jetson Onboard Audio Codec";
+	compatible = "nvidia,p3737-0000+p3701-0000";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	fragment@0 {
+		target-path = "/i2c@31e0000";
+
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rt5640: rt5640.8-001c@1c {
+				compatible = "realtek,rt5640";
+				reg = <0x1c>;
+
+				clocks = <&bpmp TEGRA234_CLK_AUD_MCLK>;
+				clock-names = "mclk";
+
+				realtek,dmic1-data-pin = <0>; /* RT5659_DMIC1_NULL */
+				realtek,dmic2-data-pin = <0>; /* RT5659_DMIC2_NULL */
+				realtek,jack-detect-source = <7>;
+
+				/* Codec IRQ output */
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA234_MAIN_GPIO(AC, 5) GPIO_ACTIVE_HIGH>;
+
+				#sound-dai-cells = <1>;
+				sound-name-prefix = "CVB-RT";
+
+				status = "okay";
+
+				port {
+					rt5640_ep: endpoint {
+						remote-endpoint = <&i2s1_dap_ep>;
+						mclk-fs = <256>;
+						link-name = "rt5640-playback";
+					};
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&tegra_sound>;
+
+		__overlay__ {
+			nvidia-audio-card,widgets =
+				"Headphone",    "CVB-RT Headphone Jack",
+				"Microphone",   "CVB-RT Mic Jack",
+				"Speaker",      "CVB-RT Int Spk",
+				"Microphone",   "CVB-RT Int Mic";
+
+			nvidia-audio-card,routing =
+				"CVB-RT Headphone Jack",     "CVB-RT HPOL",
+				"CVB-RT Headphone Jack",     "CVB-RT HPOR",
+				"CVB-RT IN1P",               "CVB-RT Mic Jack",
+				"CVB-RT IN2P",               "CVB-RT Mic Jack",
+				"CVB-RT Int Spk",            "CVB-RT SPOLP",
+				"CVB-RT Int Spk",            "CVB-RT SPORP",
+				"CVB-RT DMIC1",              "CVB-RT Int Mic",
+				"CVB-RT DMIC2",              "CVB-RT Int Mic";
+
+			nvidia-audio-card,mclk-fs = <256>;
+		};
+	};
+
+	fragment@2 {
+		target = <&i2s1_to_codec>;
+
+		__overlay__ {
+			link-name = "rt5640-playback";
+			codec {
+				sound-dai = <&rt5640 0>;
+				prefix = "CVB-RT";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&tegra_sound_graph>;
+
+		__overlay__ {
+			widgets = "Headphone",    "CVB-RT Headphone Jack",
+				  "Microphone",   "CVB-RT Mic Jack",
+				  "Speaker",      "CVB-RT Int Spk",
+				  "Microphone",   "CVB-RT Int Mic";
+
+			routing = "CVB-RT Headphone Jack",     "CVB-RT HPOL",
+				  "CVB-RT Headphone Jack",     "CVB-RT HPOR",
+				  "CVB-RT IN1P",               "CVB-RT Mic Jack",
+				  "CVB-RT IN2P",               "CVB-RT Mic Jack",
+				  "CVB-RT Int Spk",            "CVB-RT SPOLP",
+				  "CVB-RT Int Spk",            "CVB-RT SPORP",
+				  "CVB-RT DMIC1",              "CVB-RT Int Mic",
+				  "CVB-RT DMIC2",              "CVB-RT Int Mic";
+
+			/*
+			 * For codec2codec based DAI link design this is required.
+			 * For DPCM based design, this is optional and instead
+			 * it will be picked from codec port node.
+			 */
+			mclk-fs = <256>;
+		};
+	};
+
+	fragment@4 {
+		target = <&i2s1_dap_ep>;
+
+		__overlay__ {
+			remote-endpoint = <&rt5640_ep>;
+		};
+	};
+};

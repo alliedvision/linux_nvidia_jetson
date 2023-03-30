@@ -36,23 +36,5 @@
                        #power-domain-cells = <0>;
                        partition-id = <TEGRA194_POWER_DOMAIN_DISPC>;
                };
-
-               xusba_pd: xusba-pd {
-                       compatible = "nvidia,tegra194-xusba-pd";
-                       #power-domain-cells = <0>;
-                       partition-id = <TEGRA194_POWER_DOMAIN_XUSBA>;
-               };
-
-               xusbb_pd: xusbb-pd {
-                       compatible = "nvidia,tegra194-xusbb-pd";
-                       #power-domain-cells = <0>;
-                       partition-id = <TEGRA194_POWER_DOMAIN_XUSBB>;
-               };
-
-               xusbc_pd: xusbc-pd {
-                       compatible = "nvidia,tegra194-xusbc-pd";
-                       #power-domain-cells = <0>;
-                       partition-id = <TEGRA194_POWER_DOMAIN_XUSBC>;
-               };
        };
 };

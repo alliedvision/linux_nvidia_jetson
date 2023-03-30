@@ -1,0 +1,71 @@
+From 32f9f4f640d873a8f1a168536d8f85205b182482 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 4 Jun 2020 15:35:02 -0700
+Subject: [PATCH 457/830] ANDROID: Incremental fs: Fix four error-path bugs
+X-NVConfidentiality: public
+
+Test: incfs_test passes
+Bug: 158242405
+Reported-by: kbuild test robot <lkp@intel.com>
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ib53e867fb2681489f720f6255354c1bce1d33997
+---
+ fs/incfs/data_mgmt.c | 11 ++++++++---
+ fs/incfs/data_mgmt.h |  2 +-
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 5a18d1165836..074a733c7001 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -180,7 +180,8 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ out:
+ 	if (error) {
+ 		incfs_free_bfc(bfc);
+-		df->df_backing_file_context = NULL;
++		if (df)
++			df->df_backing_file_context = NULL;
+ 		incfs_free_data_file(df);
+ 		return ERR_PTR(error);
+ 	}
+@@ -1094,11 +1095,12 @@ int incfs_process_new_hash_block(struct data_file *df,
+ 	}
+ 
+ 	error = mutex_lock_interruptible(&bfc->bc_mutex);
+-	if (!error)
++	if (!error) {
+ 		error = incfs_write_hash_block_to_backing_file(
+ 			bfc, range(data, block->data_len), block->block_index,
+ 			hash_area_base, df->df_blockmap_off, df->df_size);
+-	mutex_unlock(&bfc->bc_mutex);
++		mutex_unlock(&bfc->bc_mutex);
++	}
+ 	return error;
+ }
+ 
+@@ -1151,6 +1153,9 @@ static int process_file_signature_md(struct incfs_file_signature *sg,
+ 	void *buf = NULL;
+ 	ssize_t read;
+ 
++	if (!signature)
++		return -ENOMEM;
++
+ 	if (!df || !df->df_backing_file_context ||
+ 	    !df->df_backing_file_context->bc_file) {
+ 		error = -ENOENT;
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index d9bee5ab730e..2726867835a8 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -315,7 +315,7 @@ static inline struct inode_info *get_incfs_node(struct inode *inode)
+ 	if (!inode)
+ 		return NULL;
+ 
+-	if (inode->i_sb->s_magic != INCFS_MAGIC_NUMBER) {
++	if (inode->i_sb->s_magic != (long) INCFS_MAGIC_NUMBER) {
+ 		/* This inode doesn't belong to us. */
+ 		pr_warn_once("incfs: %s on an alien inode.", __func__);
+ 		return NULL;
+-- 
+2.17.1
+

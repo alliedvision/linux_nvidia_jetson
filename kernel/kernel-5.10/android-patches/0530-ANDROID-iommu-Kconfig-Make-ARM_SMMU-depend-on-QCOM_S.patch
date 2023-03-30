@@ -1,0 +1,38 @@
+From 3dcb7648cb46b636b304d567c340714a4ef8bae3 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Fri, 17 Apr 2020 22:43:21 +0000
+Subject: [PATCH 530/830] ANDROID: iommu: Kconfig: Make ARM_SMMU depend on
+ QCOM_SCM || !QCOM_SCM
+X-NVConfidentiality: public
+
+The arm-smmu-qcom code calls qcom_scm_qsmmu500_wait_safe_toggle().
+Since the QCOM_SCM config can now be set as a module, this
+requires the ARM_SMMU also be a module in that case, so make
+the dependency explicit in the Kconfig.
+
+This is done via the non-intuitive "depends on QCOM_SCM || !QCOM_SCM"
+Kconfig syntax, which basically ensures that QCOM_SCM isn't
+configured as a module if ARM_SMMU is built in.
+
+Fixes: 6a1652effdb8 ("ANDROID: firmware: QCOM_SCM: Allow qcom_scm driver to be loadable as a permenent module")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I580e65e3df85bfbda2af5c54a1a068f6de7d27ee
+---
+ drivers/iommu/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 75c11e067e98..f5059343db44 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -278,6 +278,7 @@ config SPAPR_TCE_IOMMU
+ config ARM_SMMU
+ 	tristate "ARM Ltd. System MMU (SMMU) Support"
+ 	depends on ARM64 || ARM || (COMPILE_TEST && !GENERIC_ATOMIC64)
++	depends on QCOM_SCM || !QCOM_SCM #if QCOM_SCM=m this can't be =y
+ 	select IOMMU_API
+ 	select IOMMU_IO_PGTABLE_LPAE
+ 	select ARM_DMA_USE_IOMMU if ARM
+-- 
+2.17.1
+

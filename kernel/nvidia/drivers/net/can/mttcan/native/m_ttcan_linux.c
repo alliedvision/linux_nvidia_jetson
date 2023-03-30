@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * References are taken from "Bosch C_CAN controller" at
  * "drivers/net/can/c_can/c_can.c"
@@ -22,10 +22,48 @@
 
 static void mttcan_start(struct net_device *dev);
 
-static __init int mttcan_hw_init(struct mttcan_priv *priv)
+/* We are reading cntvct_el0 for TSC time. We are not issuing ISB
+ * before reading the counter as by the time CAN irq comes and
+ * CAN softirq is executed, we would have lot of instruction executed.
+ * And we only wants to ensure that counter is read after CAN HW
+ * captures the timestamp and not before.
+ */
+static inline u64 _arch_counter_get_cntvct(void)
+{
+	u64 cval;
+
+	asm volatile("mrs %0, cntvct_el0" : "=r" (cval));
+
+	return cval;
+}
+
+static u64 mttcan_extend_timestamp(u16 captured, u64 tsc, u32 shift)
+{
+	u64 aligned_capture;
+	u64 masked_tsc;
+	u64 top_tsc;
+
+	aligned_capture = ((u64)captured) << shift;
+	masked_tsc = tsc & (MTTCAN_TSC_MASK << shift);
+	top_tsc = (tsc >> (MTTCAN_TSC_SIZE + shift)) <<
+		  (MTTCAN_TSC_SIZE + shift);
+
+	/* Capture is assumed in the past. If there was no rollover on the
+	 * 16 bits, masked_tsc >= aligned_capture, top_tsc can be used as is.
+	 * If there was a rollover on the 16 bits, masked tsc <
+	 * masked tsc < aligned_capture and top_tsc must be decreased
+	 * (by one rollover of CAN timestamp)
+	 */
+	if (masked_tsc < aligned_capture)
+		top_tsc = top_tsc - (0x1ULL << (MTTCAN_TSC_SIZE + shift));
+
+	return (top_tsc | aligned_capture);
+}
+
+static int mttcan_hw_init(struct mttcan_priv *priv)
 {
 	int err = 0;
-	u32 ie = 0, ttie = 0, gfc_reg = 0;
+	u32 ie = 0, ttie = 0;
 	struct ttcan_controller *ttcan = priv->ttcan;
 
 	ttcan_set_ok(ttcan);
@@ -43,22 +81,10 @@ static __init int mttcan_hw_init(struct mttcan_priv *priv)
 	if (err)
 		return err;
 
+	/* initialize mttcan message RAM with 0s */
+	ttcan_mesg_ram_init(ttcan);
+
 	err = ttcan_set_config_change_enable(ttcan);
-	if (err)
-		return err;
-
-	/* Accept unmatched in Rx FIFO0 and reject all remote frame */
-	gfc_reg |= (GFC_ANFS_RXFIFO_0 << MTT_GFC_ANFS_SHIFT) &
-		   MTT_GFC_ANFS_MASK;
-	gfc_reg |= (GFC_ANFE_RXFIFO_0 << MTT_GFC_ANFE_SHIFT) &
-		   MTT_GFC_ANFE_MASK;
-	gfc_reg |= (GFC_RRFS_REJECT << MTT_GFC_RRFS_SHIFT) &
-		   MTT_GFC_RRFS_MASK;
-	gfc_reg |= (GFC_RRFE_REJECT << MTT_GFC_RRFE_SHIFT) &
-		   MTT_GFC_RRFE_MASK;
-
-	priv->gfc_reg = gfc_reg;
-	err = ttcan_set_gfc(ttcan, gfc_reg);
 	if (err)
 		return err;
 
@@ -127,7 +153,7 @@ static inline void mttcan_hw_deinit(const struct mttcan_priv *priv)
 	ttcan_set_init(ttcan);
 }
 
-static __init int mttcan_hw_reinit(const struct mttcan_priv *priv)
+static int mttcan_hw_reinit(const struct mttcan_priv *priv)
 {
 	int err = 0;
 
@@ -136,10 +162,6 @@ static __init int mttcan_hw_reinit(const struct mttcan_priv *priv)
 	ttcan_set_ok(ttcan);
 
 	err = ttcan_set_config_change_enable(ttcan);
-	if (err)
-		return err;
-
-	err = ttcan_set_gfc(ttcan, priv->gfc_reg);
 	if (err)
 		return err;
 
@@ -272,12 +294,24 @@ static void mttcan_rx_hwtstamp(struct mttcan_priv *priv,
 			       struct sk_buff *skb, struct ttcanfd_frame *msg)
 {
 	u64 ns;
+	u64 tsc, extended_tsc;
 	unsigned long flags;
 	struct skb_shared_hwtstamps *hwtstamps = skb_hwtstamps(skb);
 
-	raw_spin_lock_irqsave(&priv->tc_lock, flags);
-	ns = timecounter_cyc2time(&priv->tc, msg->tstamp);
-	raw_spin_unlock_irqrestore(&priv->tc_lock, flags);
+	if (priv->sinfo->use_external_timer) {
+		/* Read the current TSC and calculate the MSB of captured
+		 * CAN TSC timestamp. Finally convert it to nsec.
+		 */
+		tsc = _arch_counter_get_cntvct();
+		extended_tsc = mttcan_extend_timestamp(msg->tstamp, tsc,
+						       TSC_REF_CLK_SHIFT);
+		ns = extended_tsc << 5;
+	} else {
+		raw_spin_lock_irqsave(&priv->tc_lock, flags);
+		ns = timecounter_cyc2time(&priv->tc, msg->tstamp);
+		raw_spin_unlock_irqrestore(&priv->tc_lock, flags);
+	}
+
 	memset(hwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
 	hwtstamps->hwtstamp = ns_to_ktime(ns);
 }
@@ -677,14 +711,17 @@ static int mttcan_poll_ir(struct napi_struct *napi, int quota)
 			if (((ir & MTT_IR_EP_MASK) && !(psr & MTT_PSR_EP_MASK))
 				|| ((ir & MTT_IR_EW_MASK) &&
 				!(psr & MTT_PSR_EW_MASK))) {
-				if (ir & MTT_IR_EP_MASK)
+				if (ir & MTT_IR_EP_MASK) {
 					netdev_dbg(dev,
 						"left error passive state\n");
-				else
+					priv->can.state =
+						CAN_STATE_ERROR_WARNING;
+				} else {
 					netdev_dbg(dev,
 						"left error warning state\n");
-
-				priv->can.state = CAN_STATE_ERROR_ACTIVE;
+					priv->can.state =
+						CAN_STATE_ERROR_ACTIVE;
+				}
 			}
 
 			/* Handle Bus error change */
@@ -711,6 +748,14 @@ static int mttcan_poll_ir(struct napi_struct *napi, int quota)
 			if (ir & MTT_IR_WDI_MASK)
 				netdev_warn(dev,
 					"Message RAM watchdog not handled\n");
+
+			if (ir & MTT_IR_BEC_MASK)
+				netdev_warn(dev, "mram Bit error detected"
+						"and corrected\n");
+
+			if (ir & MTT_IR_BEU_MASK)
+				netdev_warn(dev, "mram Bit error detected"
+						"and uncorrected\n");
 		}
 
 		if (ir & MTT_IR_TOO_MASK) {
@@ -993,15 +1038,24 @@ static void mttcan_controller_config(struct net_device *dev)
 }
 
 /* Adjust the timer by resetting the timecounter structure periodically */
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+static void mttcan_timer_cb(struct timer_list *timer)
+#else
 static void mttcan_timer_cb(unsigned long data)
+#endif
 {
 	unsigned long flags;
 	u64 tref;
 	int ret = 0;
+	const char *intf_name = "eth0";
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	struct mttcan_priv *priv = container_of(timer, struct mttcan_priv, timer);
+#else
 	struct mttcan_priv *priv = (struct mttcan_priv *)data;
+#endif
 
 	raw_spin_lock_irqsave(&priv->tc_lock, flags);
-	ret = get_ptp_hwtime(&tref);
+	ret = tegra_get_hwtime(intf_name, &tref, PTP_HWTIME);
 	if (ret != 0) {
 		tref = ktime_to_ns(ktime_get());
 	}
@@ -1065,14 +1119,14 @@ static void mttcan_start(struct net_device *dev)
 		/* Error Warning */
 		priv->can.state = CAN_STATE_ERROR_WARNING;
 	} else {
-		mttcan_controller_config(dev);
-
-		ttcan_clear_intr(ttcan);
-		ttcan_clear_tt_intr(ttcan);
-
 		/* Error Active */
 		priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	}
+
+	mttcan_controller_config(dev);
+
+	ttcan_clear_intr(ttcan);
+	ttcan_clear_tt_intr(ttcan);
 
 	/* start Tx/Rx and enable protected mode */
 	if (!priv->tt_param[0]) {
@@ -1371,6 +1425,7 @@ static int mttcan_handle_hwtstamp_set(struct mttcan_priv *priv,
 	u64 tref;
 	bool rx_config_chg = false;
 	int ret = 0;
+	const char *intf_name = "eth0";
 
 	if (copy_from_user(&config, ifr->ifr_data,
 			   sizeof(struct hwtstamp_config)))
@@ -1413,12 +1468,17 @@ static int mttcan_handle_hwtstamp_set(struct mttcan_priv *priv,
 
 	priv->hwtstamp_config = config;
 	/* Setup hardware time stamping cyclecounter */
-	if (rx_config_chg) {
-		if (config.rx_filter == HWTSTAMP_FILTER_ALL) {
-			mttcan_init_cyclecounter(priv);
+	if (rx_config_chg && (config.rx_filter == HWTSTAMP_FILTER_ALL)) {
+		mttcan_init_cyclecounter(priv);
 
+		/* we use TSC as base time for T194 and PTP for T186. */
+		if (priv->sinfo->use_external_timer) {
 			raw_spin_lock_irqsave(&priv->tc_lock, flags);
-			ret = get_ptp_hwtime(&tref);
+			priv->hwts_rx_en = true;
+			raw_spin_unlock_irqrestore(&priv->tc_lock, flags);
+		} else {
+			raw_spin_lock_irqsave(&priv->tc_lock, flags);
+			ret = tegra_get_hwtime(intf_name, &tref, PTP_HWTIME);
 			if (ret != 0) {
 				dev_err(priv->device, "HW PTP not running\n");
 				tref = ktime_to_ns(ktime_get());
@@ -1686,6 +1746,7 @@ static int mttcan_probe(struct platform_device *pdev)
 	rstc = devm_reset_control_get(&pdev->dev, "can");
 	if (IS_ERR(rstc)) {
 		dev_err(&pdev->dev, "Missing controller reset\n");
+		ret = PTR_ERR(rstc);
 		goto exit_free_can;
 	}
 	reset_control_reset(rstc);
@@ -1763,6 +1824,7 @@ static int mttcan_probe(struct platform_device *pdev)
 	priv->ttcan->base = regs;
 	priv->ttcan->xbase = xregs;
 	priv->ttcan->mram_base = mesg_ram->start;
+	priv->ttcan->mram_size = mesg_ram->end - mesg_ram->start + 1;
 	priv->ttcan->id = priv->instance;
 	priv->ttcan->mram_vbase = mram_addr;
 	INIT_LIST_HEAD(&priv->ttcan->rx_q0);
@@ -1798,7 +1860,11 @@ static int mttcan_probe(struct platform_device *pdev)
 	if (ret)
 		goto exit_unreg_candev;
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+	timer_setup(&priv->timer, mttcan_timer_cb, 0);
+#else
 	setup_timer(&priv->timer, mttcan_timer_cb, (unsigned long)priv);
+#endif
 
 	dev_info(&dev->dev, "%s device registered (regs=%p, irq=%d)\n",
 		 KBUILD_MODNAME, priv->ttcan->base, dev->irq);
@@ -1887,7 +1953,6 @@ static int mttcan_resume(struct platform_device *pdev)
 	if (ndev->flags & IFF_UP)
 		mttcan_start(ndev);
 
-	priv->can.state = CAN_STATE_ERROR_ACTIVE;
 	if (netif_running(ndev)) {
 		netif_device_attach(ndev);
 		netif_start_queue(ndev);

@@ -1,0 +1,24 @@
+NVIDIA ramoops carveout
+-----------------------
+
+This is child node of upstream /reserved-memory node.
+It's used for OS to exclude the memory region for normal usage.
+
+The memory region,"ramoops_carveout" declares storage for oops messages.
+It's used by system to recored oops log at the perisistent memory location.
+Start address is modified by boot loader.
+
+Required properties:
+- compatible: "nvidia,ivm_carveout";
+
+Rest of the properties are common properties defined under /reserved-memory node Documentation
+
+Example:
+--------
+	ramoops_reserved: ramoops_carveout {
+		compatible = "nvidia,ramoops";
+		size = <0x0 0x200000>;
+		alignment = <0x0 0x10000>;
+		alloc-ranges = <0x0 0x0 0x1 0x0>;
+		no-map;
+	};

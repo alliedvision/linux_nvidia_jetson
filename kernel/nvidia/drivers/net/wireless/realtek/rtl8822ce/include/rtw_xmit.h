@@ -66,7 +66,7 @@
 #else
 	#define MAX_XMITBUF_SZ	(1664)
 #endif
-#if defined (CONFIG_PCI_TX_POLLING) && !defined (CONFIG_PCI_TX_POLLING_V2)
+#ifdef CONFIG_PCI_TX_POLLING
 	#define NR_XMITBUFF	(256)
 #else
 	#define NR_XMITBUFF	(128)
@@ -166,6 +166,8 @@
 		pattrib_iv[7] = dot11txpn._byte_.TSC5;\
 	} while (0)
 
+#define GCMP_IV(a, b, c) AES_IV(a, b, c)
+
 /* Check if AMPDU Tx is supported or not. If it is supported,
 * it need to check "amsdu in ampdu" is supported or not.
 * (ampdu_en, amsdu_ampdu_en) =
@@ -202,6 +204,8 @@
 	#define TXDESC_SIZE 48		/* HALMAC_TX_DESC_SIZE_8822B */
 #elif defined(CONFIG_RTL8821C)
 	#define TXDESC_SIZE 48		/* HALMAC_TX_DESC_SIZE_8821C */
+#elif defined(CONFIG_RTL8814B)
+	#define TXDESC_SIZE (16 + 32)
 #else
 	#define TXDESC_SIZE 32 /* old IC (ex: 8188E) */
 #endif
@@ -422,9 +426,7 @@ struct pkt_attrib {
 	u32	last_txcmdsz;
 	u8	nr_frags;
 	u8	encrypt;	/* when 0 indicate no encrypt. when non-zero, indicate the encrypt algorith */
-#if defined(CONFIG_CONCURRENT_MODE)
 	u8	bmc_camid;
-#endif
 	u8	iv_len;
 	u8	icv_len;
 	u8	iv[18];
@@ -448,7 +450,7 @@ struct pkt_attrib {
 	u8 mfwd_ttl;
 	u32 mseq;
 #endif
-#ifdef CONFIG_TX_CSUM_OFFLOAD
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	u8	hw_csum;
 #endif
 	u8	key_idx;
@@ -493,6 +495,7 @@ struct pkt_attrib {
 	u8 key_type;
 
 	u8 icmp_pkt;
+	u8 hipriority_pkt; /* high priority packet */
 
 #ifdef CONFIG_BEAMFORMING
 	u16 txbf_p_aid;/*beamforming Partial_AID*/
@@ -814,6 +817,9 @@ struct	xmit_priv	{
 #else
 	_thread_hdl_	SdioXmitThread;
 	_sema		SdioXmitSema;
+	#ifdef SDIO_FREE_XMIT_BUF_SEMA
+	_sema		sdio_free_xmitbuf_sema;
+	#endif
 #endif /* CONFIG_SDIO_TX_TASKLET */
 #endif /* CONFIG_SDIO_HCI */
 
@@ -917,6 +923,10 @@ extern struct xmit_frame *__rtw_alloc_cmdxmitframe_8723be(struct xmit_priv *pxmi
 extern struct xmit_frame *__rtw_alloc_cmdxmitframe_8814ae(struct xmit_priv *pxmitpriv,
 		enum cmdbuf_type buf_type);
 #define rtw_alloc_bcnxmitframe(p) __rtw_alloc_cmdxmitframe_8814ae(p, CMDBUF_BEACON)
+#elif defined(CONFIG_RTL8814B) && defined(CONFIG_PCI_HCI)
+extern struct xmit_frame *__rtw_alloc_cmdxmitframe_8814be(struct xmit_priv *pxmitpriv,
+		enum cmdbuf_type buf_type);
+#define rtw_alloc_bcnxmitframe(p) __rtw_alloc_cmdxmitframe_8814be(p, CMDBUF_BEACON)
 #else
 #define rtw_alloc_bcnxmitframe(p) __rtw_alloc_cmdxmitframe(p, CMDBUF_BEACON)
 #endif
@@ -987,13 +997,11 @@ void xmit_delivery_enabled_frames(_adapter *padapter, struct sta_info *psta);
 
 u8 rtw_get_tx_bw_mode(_adapter *adapter, struct sta_info *sta);
 
-void rtw_get_adapter_tx_rate_bmp_by_bw(_adapter *adapter, u8 bw, u16 *r_bmp_cck_ofdm, u32 *r_bmp_ht, u32 *r_bmp_vht);
 void rtw_update_tx_rate_bmp(struct dvobj_priv *dvobj);
-u16 rtw_get_tx_rate_bmp_cck_ofdm(struct dvobj_priv *dvobj);
-u32 rtw_get_tx_rate_bmp_ht_by_bw(struct dvobj_priv *dvobj, u8 bw);
-u32 rtw_get_tx_rate_bmp_vht_by_bw(struct dvobj_priv *dvobj, u8 bw);
 u8 rtw_get_tx_bw_bmp_of_ht_rate(struct dvobj_priv *dvobj, u8 rate, u8 max_bw);
 u8 rtw_get_tx_bw_bmp_of_vht_rate(struct dvobj_priv *dvobj, u8 rate, u8 max_bw);
+s16 rtw_adapter_get_oper_txpwr_max_mbm(_adapter *adapter);
+s16 rtw_get_oper_txpwr_max_mbm(struct dvobj_priv *dvobj);
 
 u8 query_ra_short_GI(struct sta_info *psta, u8 bw);
 

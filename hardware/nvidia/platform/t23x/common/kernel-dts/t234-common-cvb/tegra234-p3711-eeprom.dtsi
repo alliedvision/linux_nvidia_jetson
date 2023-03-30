@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	eeprom-manager {
+		data-size = <0x100>;
+		bus@0 {
+			i2c-bus = <&gen1_i2c>;
+			eeprom@0 {
+				slave-address = <0x50>;
+				label = "cvm";
+			};
+		};
+
+		bus@1 {
+			i2c-bus = <&dp_aux_ch3_i2c>;
+			eeprom@1 {
+				slave-address = <0x52>;
+				label = "P3713";
+			};
+		};
+
+		bus@2 {
+			i2c-bus = <&gen8_i2c>;
+			eeprom@1 {
+				slave-address = <0x50>;
+				label = "P3714";
+			};
+		};
+
+		bus@3 {
+			i2c-bus = <&cam_i2c>;
+			eeprom@1 {
+				slave-address = <0x50>;
+				label = "P3715";
+			};
+		};
+
+		bus@4 {
+			i2c-bus = <&dp_aux_ch3_i2c>;
+			eeprom@1 {
+				slave-address = <0x50>;
+				label = "P3716/P3717";
+			};
+		};
+
+		bus@5 {
+			i2c-bus = <&gen2_i2c>;
+			eeprom@1 {
+				slave-address = <0x50>;
+				label = "P3718";
+			};
+		};
+
+		bus@6 {
+			i2c-bus = <&dp_aux_ch2_i2c>;
+			eeprom@0 {
+				slave-address = <0x57>;
+				label = "cvb";
+			};
+
+			eeprom@1 {
+				slave-address = <0x51>;
+				label = "P3719";
+			};
+		};
+	};
+};

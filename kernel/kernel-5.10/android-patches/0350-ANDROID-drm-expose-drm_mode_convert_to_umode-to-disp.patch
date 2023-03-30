@@ -1,0 +1,31 @@
+From 765acd72f5b0b7a64bb6ab606aced711f7981dbd Mon Sep 17 00:00:00 2001
+From: Ken Huang <kenbshuang@google.com>
+Date: Fri, 6 Nov 2020 22:21:43 +0800
+Subject: [PATCH 350/830] ANDROID: drm: expose drm_mode_convert_to_umode to
+ display module
+X-NVConfidentiality: public
+
+Bug: 139367592
+Change-Id: I8473097185aa03df20025b7510633d24a21c758d
+Signed-off-by: Ken Huang <kenbshuang@google.com>
+(cherry picked from commit 71ca91edd1fe064e40cfbc6129ba5d1f21bbbe2b)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ drivers/gpu/drm/drm_modes.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/drm_modes.c b/drivers/gpu/drm/drm_modes.c
+index 17712df52cdd..d42c7310bf09 100644
+--- a/drivers/gpu/drm/drm_modes.c
++++ b/drivers/gpu/drm/drm_modes.c
+@@ -1940,6 +1940,7 @@ void drm_mode_convert_to_umode(struct drm_mode_modeinfo *out,
+ 	strncpy(out->name, in->name, DRM_DISPLAY_MODE_LEN);
+ 	out->name[DRM_DISPLAY_MODE_LEN-1] = 0;
+ }
++EXPORT_SYMBOL_GPL(drm_mode_convert_to_umode);
+ 
+ /**
+  * drm_crtc_convert_umode - convert a modeinfo into a drm_display_mode
+-- 
+2.17.1
+

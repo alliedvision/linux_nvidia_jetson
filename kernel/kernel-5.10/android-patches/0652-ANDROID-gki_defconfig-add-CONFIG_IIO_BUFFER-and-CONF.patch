@@ -1,0 +1,46 @@
+From 343ba05a555702c115d744cd0009bf610a6817b9 Mon Sep 17 00:00:00 2001
+From: Todd Kjos <tkjos@google.com>
+Date: Tue, 3 Mar 2020 14:25:47 -0800
+Subject: [PATCH 652/830] ANDROID: gki_defconfig: add CONFIG_IIO_BUFFER and
+ CONFIG_IIO_TRIGGER
+X-NVConfidentiality: public
+
+Add configs to provide framework for partner sensor-hub drivers
+
+Bug: 150277239
+Signed-off-by: Todd Kjos <tkjos@google.com>
+Change-Id: I04a873c249e1871fd8b2c03ee3737bc645888a8f
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ arch/x86/configs/gki_defconfig   | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 518d6926b627..52c5cc23f192 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -369,6 +369,8 @@ CONFIG_DEVFREQ_GOV_USERSPACE=y
+ CONFIG_DEVFREQ_GOV_PASSIVE=y
+ CONFIG_EXTCON=y
+ CONFIG_IIO=y
++CONFIG_IIO_BUFFER=y
++CONFIG_IIO_TRIGGER=y
+ CONFIG_PWM=y
+ CONFIG_QCOM_PDC=y
+ CONFIG_GENERIC_PHY=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 59d46bfea4fa..27724a8b6c89 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -313,6 +313,8 @@ CONFIG_ION=y
+ CONFIG_ION_SYSTEM_HEAP=y
+ CONFIG_PM_DEVFREQ=y
+ CONFIG_IIO=y
++CONFIG_IIO_BUFFER=y
++CONFIG_IIO_TRIGGER=y
+ CONFIG_ANDROID=y
+ CONFIG_ANDROID_BINDER_IPC=y
+ CONFIG_ANDROID_BINDERFS=y
+-- 
+2.17.1
+

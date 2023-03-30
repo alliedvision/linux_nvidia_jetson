@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,21 +21,28 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <soc/tegra/bpmp_abi.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/tegra_bpmp.h>
 #include "bpmp.h"
 
 #define BPMP_MODULE_MAGIC	0x646f6d
-
-static struct device *device;
-
-extern const struct of_device_id bpmp_of_matches[];
 
 struct seqbuf {
 	char *buf;
 	size_t pos;
 	size_t size;
 };
+
+static struct device *device;
+static DEFINE_MUTEX(lock);
+static DEFINE_MUTEX(bpmp_debug_lock);
+
+extern const struct of_device_id bpmp_of_matches[];
 
 static void seqbuf_init(struct seqbuf *seqbuf, void *buf, size_t size)
 {
@@ -117,6 +124,299 @@ static const char *get_filename(const struct file *file, char *buf, int size)
 	filename += root_len;
 
 	return filename;
+}
+
+static int bpmp_debug_open(const char *name, uint32_t *fd,
+				uint32_t *len, bool write)
+{
+	int r = 0;
+	char *dest;
+	ssize_t sz_name;
+	struct mrq_debug_request dbg_rq;
+	struct mrq_debug_response dbg_re;
+
+	/* File open */
+	dbg_rq.cmd = (uint32_t)cpu_to_le32(write ? CMD_DEBUG_OPEN_WO :
+						CMD_DEBUG_OPEN_RO);
+	dest = dbg_rq.fop.name;
+	sz_name = strscpy(dest, name, sizeof(dbg_rq.fop.name));
+	if (sz_name < 0) {
+		pr_err("File name too large: %s\n", name);
+		r = -EINVAL;
+		goto err;
+	}
+	r = tegra_bpmp_send_receive(MRQ_DEBUG, &dbg_rq, sizeof(dbg_rq),
+					&dbg_re, sizeof(dbg_re));
+	if (!r) {
+		*len = dbg_re.fop.datalen;
+		*fd = dbg_re.fop.fd;
+	}
+err:
+	return r;
+}
+
+static int bpmp_debug_close(uint32_t fd)
+{
+	int r = 0;
+	struct mrq_debug_request dbg_rq;
+	struct mrq_debug_response dbg_re;
+
+	dbg_rq.cmd = (uint32_t)cpu_to_le32(CMD_DEBUG_CLOSE);
+	dbg_rq.frd.fd = fd;
+	r = tegra_bpmp_send_receive(MRQ_DEBUG, &dbg_rq, sizeof(dbg_rq),
+			&dbg_re, sizeof(dbg_re));
+	return r;
+}
+
+static int bpmp_debug_read(const char *name, char *data,
+				size_t sz_data, uint32_t *nbytes)
+{
+	int r = 0;
+	uint32_t fd, len;
+	struct mrq_debug_request dbg_rq;
+	struct mrq_debug_response dbg_re;
+	int remaining;
+	char *dataptr = data;
+	int cr;
+
+	mutex_lock(&bpmp_debug_lock);
+	/* File open */
+	r = bpmp_debug_open(name, &fd, &len, 0);
+	if (r)
+		goto end;
+
+	/* File read */
+	if (len > sz_data) {
+		r = -EFBIG;
+		goto close_end;
+	}
+	dbg_rq.cmd = (uint32_t)cpu_to_le32(CMD_DEBUG_READ);
+	dbg_rq.frd.fd = fd;
+	remaining = len;
+	while (remaining > 0) {
+		r = tegra_bpmp_send_receive(MRQ_DEBUG, &dbg_rq, sizeof(dbg_rq),
+			&dbg_re, sizeof(dbg_re));
+		if (r)
+			goto close_end;
+
+		if (dbg_re.frd.readlen > remaining) {
+			pr_err("%s: read data length invalid\n", __func__);
+			r = -EINVAL;
+			goto close_end;
+		}
+		memcpy(dataptr, dbg_re.frd.data, dbg_re.frd.readlen);
+		dataptr += dbg_re.frd.readlen;
+		remaining -= dbg_re.frd.readlen;
+	}
+	*nbytes = len;
+
+close_end:
+	/* File close */
+	cr = bpmp_debug_close(fd);
+	if (!r)
+		r = cr;
+end:
+	mutex_unlock(&bpmp_debug_lock);
+	return r;
+}
+
+static int bpmp_debug_write(const char *name, uint8_t *data,
+				size_t sz_data)
+{
+	int r = 0;
+	uint32_t fd, len;
+	struct mrq_debug_request dbg_rq;
+	struct mrq_debug_response dbg_re;
+	char *dataptr;
+	int remaining;
+	int cr;
+
+	mutex_lock(&bpmp_debug_lock);
+	/* File open */
+	r = bpmp_debug_open(name, &fd, &len, 1);
+	if (r)
+		goto err;
+
+	/* File write */
+	if (sz_data > len) {
+		r = -ENOMEM;
+		goto close_ret;
+	}
+	dbg_rq.fwr.datalen = sz_data;
+	dbg_rq.cmd = (uint32_t)cpu_to_le32(CMD_DEBUG_WRITE);
+	dbg_rq.fwr.fd = fd;
+	remaining = sz_data;
+	dataptr = data;
+	while (remaining > 0) {
+		len = min(remaining, (int)sizeof(dbg_rq.fwr.data));
+		memcpy(dbg_rq.fwr.data, dataptr, len);
+		dbg_rq.fwr.datalen = len;
+		r = tegra_bpmp_send_receive(MRQ_DEBUG, &dbg_rq, sizeof(dbg_rq),
+			&dbg_re, sizeof(dbg_re));
+		if (r)
+			goto close_ret;
+
+		dataptr += dbg_rq.fwr.datalen;
+		remaining -= dbg_rq.fwr.datalen;
+	}
+
+close_ret:
+	/* File close */
+	cr = bpmp_debug_close(fd);
+	if (!r)
+		r = cr;
+err:
+	mutex_unlock(&bpmp_debug_lock);
+	return r;
+}
+
+static int bpmp_debug_show(struct seq_file *m, void *p)
+{
+	struct file *file = m->private;
+	char *databuf = NULL;
+	char namebuf[SZ_256];
+	const char *filename;
+	uint32_t nbytes = 0;
+	size_t len;
+	int ret;
+
+	len = seq_get_buf(m, &databuf);
+	if (!databuf)
+		return -ENOMEM;
+
+	filename = get_filename(file, namebuf, sizeof(namebuf));
+	ret = bpmp_debug_read(filename, databuf, len, &nbytes);
+	if (!ret)
+		seq_commit(m, nbytes);
+
+	return ret;
+}
+
+static ssize_t bpmp_debugfops_store(struct file *file, const char __user *buf,
+		size_t count, loff_t *f_pos)
+{
+	char *databuf = NULL;
+	char namebuf[SZ_256];
+	const char *filename;
+	ssize_t ret;
+
+	filename = get_filename(file, namebuf, sizeof(namebuf));
+	if (!filename)
+		return -EFAULT;
+
+	if (!buf)
+		return -ENOMEM;
+	databuf = kmalloc(count, GFP_KERNEL);
+
+	if (!databuf)
+		return -ENOMEM;
+
+	if (copy_from_user(databuf, buf, count)) {
+		ret = -EFAULT;
+		goto free_ret;
+	}
+	ret = bpmp_debug_write(filename, databuf, count);
+
+free_ret:
+	kfree(databuf);
+
+	return ret ?: count;
+}
+
+static int bpmp_debugfops_open(struct inode *inode, struct file *file)
+{
+	return single_open_size(file, bpmp_debug_show, file, SZ_256K);
+}
+
+static const struct file_operations bpmp_debug_fops = {
+	.open		= bpmp_debugfops_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.write		= bpmp_debugfops_store,
+	.release	= single_release,
+};
+
+static const char *get_full_path(struct dentry *parent, char *buf, uint32_t sz)
+{
+	const char *path;
+	size_t root_len;
+
+	root_len = strlen(root_path);
+	path = dentry_path(parent, buf, sz - 1);
+	if (IS_ERR_OR_NULL(path))
+		return NULL;
+
+	if (strlen(path) < root_len || strncmp(path, root_path, root_len))
+		return NULL;
+	if (strlen(path) == root_len)
+		strlcat((char *)path, "/", sz - (path - buf));
+	path += root_len;
+
+	return path;
+}
+
+#define MAX_LS_SIZE	SZ_16K
+#define MAX_FILE_PATH	SZ_256
+static int bpmp_debug_create_dir(struct dentry *dir)
+{
+	struct seqbuf seq;
+	char *buf;
+	const char *str;
+	int r = 0;
+	uint32_t real_size;
+	uint32_t attrs = 0;
+	const char *path;
+	struct dentry *dentry;
+	umode_t mode;
+	char *full_path;
+
+	buf = kmalloc(MAX_LS_SIZE, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	full_path = kmalloc(MAX_FILE_PATH, GFP_KERNEL);
+	if (!full_path) {
+		kfree(buf);
+		return -ENOMEM;
+	}
+	path = get_full_path(dir, full_path, MAX_FILE_PATH);
+	if (!path) {
+		r = -EINVAL;
+		goto free_end;
+	}
+	r = bpmp_debug_read(path, buf, MAX_LS_SIZE, &real_size);
+	if (r)
+		goto free_end;
+
+	seqbuf_init(&seq, buf, real_size);
+	while (seqbuf_avail(&seq) > sizeof(u32)) {
+		r = seqbuf_read_u32(&seq, &attrs);
+		if (r)
+			goto free_end;
+		str = seqbuf_strget(&seq);
+		if (str == NULL) {
+			r = -EBADFD;
+			goto free_end;
+		}
+		if (attrs & DEBUGFS_S_ISDIR) {
+			dentry = debugfs_create_dir(str, dir);
+			if (IS_ERR_OR_NULL(dentry)) {
+				r = dentry ? PTR_ERR(dentry) : -ENOMEM;
+				goto free_end;
+			}
+			bpmp_debug_create_dir(dentry);
+		} else {
+			mode = attrs & DEBUGFS_S_IRUSR ? S_IRUSR : 0;
+			mode |= attrs & DEBUGFS_S_IWUSR ? S_IWUSR : 0;
+			dentry = debugfs_create_file(str, mode,
+					dir, NULL, &bpmp_debug_fops);
+		}
+	}
+free_end:
+	kfree(full_path);
+	kfree(buf);
+
+	return r;
 }
 
 static int bpmp_debugfs_read(uint32_t name, uint32_t sz_name,
@@ -315,14 +615,12 @@ static int bpmp_populate_dir(struct seqbuf *seqbuf, struct dentry *parent,
 	return 0;
 }
 
-static DEFINE_MUTEX(lock);
 static struct dentry *bpmp_debugfs_root;
 static char root_path_buf[256];
 
-static int bpmp_fwdebug_create(void *buf, size_t bufsize, struct dentry *root)
+static int bpmp_debug_create_root(struct dentry *root)
 {
-	struct seqbuf seqbuf;
-	int err;
+	int err = 0;
 
 	bpmp_debugfs_root = debugfs_create_dir("debug", root);
 	if (IS_ERR_OR_NULL(bpmp_debugfs_root)) {
@@ -339,11 +637,7 @@ static int bpmp_fwdebug_create(void *buf, size_t bufsize, struct dentry *root)
 		pr_err("failed to figure out bpmp root path\n");
 		err = root_path ? PTR_ERR(root_path) : -ENOENT;
 		root_path = NULL;
-		return err;
 	}
-
-	seqbuf_init(&seqbuf, buf, bufsize);
-	err = bpmp_populate_dir(&seqbuf, bpmp_debugfs_root, 0);
 
 	return err;
 }
@@ -393,18 +687,50 @@ static int bpmp_mrq_is_supported(int mrq)
 	return re.status ? 0 : 1;
 }
 
-static int bpmp_fwdebug_init(struct dentry *root)
+static int bpmp_debugfs_create_tree(struct dentry *root, bool inband_mrq)
 {
+	int ret;
 	dma_addr_t phys;
 	void *virt;
-	const int sz = SZ_256K;
+	const size_t sz = SZ_256K;
 	uint32_t nbytes;
+	struct seqbuf seqbuf;
+
+	if (inband_mrq) {
+		ret = bpmp_debug_create_root(root);
+		if (!ret)
+			ret = bpmp_debug_create_dir(bpmp_debugfs_root);
+	} else {
+		virt = tegra_bpmp_alloc_coherent(sz, &phys, GFP_KERNEL);
+		if (!virt) {
+			pr_err("%s: memory allocation failed\n", __func__);
+			return -ENOMEM;
+		}
+		ret = bpmp_debugfs_dumpdir(phys, sz, &nbytes);
+		if (!ret) {
+			ret = bpmp_debug_create_root(root);
+			if (!ret) {
+				seqbuf_init(&seqbuf, virt, nbytes);
+				ret = bpmp_populate_dir(&seqbuf,
+							bpmp_debugfs_root, 0);
+			}
+		}
+		tegra_bpmp_free_coherent(sz, virt, phys);
+	}
+
+	return ret;
+}
+
+static int bpmp_fwdebug_init(struct dentry *root)
+{
 	int ret;
+	int mrq_debug_sup = 0;
 
 	if (!root)
 		return -EINVAL;
 
-	if (!bpmp_mrq_is_supported(MRQ_DEBUGFS))
+	mrq_debug_sup = bpmp_mrq_is_supported(MRQ_DEBUG);
+	if (!(mrq_debug_sup || bpmp_mrq_is_supported(MRQ_DEBUGFS)))
 		return 0;
 
 	mutex_lock(&lock);
@@ -414,31 +740,13 @@ static int bpmp_fwdebug_init(struct dentry *root)
 		return -EINVAL;
 	}
 
-	virt = tegra_bpmp_alloc_coherent(sz, &phys, GFP_KERNEL);
-	if (!virt) {
-		pr_err("%s: dma_alloc_coherent() failed\n", __func__);
-		mutex_unlock(&lock);
-		return -ENOMEM;
-	}
-
-	ret = bpmp_debugfs_dumpdir(phys, sz, &nbytes);
+	ret = bpmp_debugfs_create_tree(root, mrq_debug_sup);
 	if (ret) {
-		pr_err("bpmp_debugfs_dumpdir() failed (%d)\n", ret);
-		goto out;
+		pr_err("creation of BPMP-FW debugfs failed (%d)\n", ret);
+	} else {
+		cancel_work_sync(&debugfs_unmount_work);
+		pr_info("bpmp: mounted debugfs mirror\n");
 	}
-
-	cancel_work_sync(&debugfs_unmount_work);
-
-	ret = bpmp_fwdebug_create(virt, nbytes, root);
-	if (ret) {
-		pr_err("create_bpmp_debugfs() failed (%d)\n", ret);
-		goto out;
-	}
-
-	pr_info("bpmp: mounted debugfs mirror\n");
-
-out:
-	tegra_bpmp_free_coherent(sz, virt, phys);
 
 	mutex_unlock(&lock);
 

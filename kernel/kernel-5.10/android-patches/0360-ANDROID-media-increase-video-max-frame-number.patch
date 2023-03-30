@@ -1,0 +1,46 @@
+From 8d40acde0389fcb7cb98eb762c0c3d275b1f274f Mon Sep 17 00:00:00 2001
+From: Maheshwar Ajja <majja@codeaurora.org>
+Date: Fri, 25 Oct 2019 15:12:53 -0700
+Subject: [PATCH 360/830] ANDROID: media: increase video max frame number
+X-NVConfidentiality: public
+
+Few userspace clients and drivers need more frames and
+hence increase video max frame number from 32 to 64.
+
+Bug: 143356419
+Change-Id: Ib5394b7b71d75177234333dae23ec30fea01450f
+Signed-off-by: Maheshwar Ajja <majja@codeaurora.org>
+---
+ include/media/videobuf2-core.h | 2 +-
+ include/uapi/linux/videodev2.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/media/videobuf2-core.h b/include/media/videobuf2-core.h
+index bbb3f26fbde9..3f4f171a790b 100644
+--- a/include/media/videobuf2-core.h
++++ b/include/media/videobuf2-core.h
+@@ -19,7 +19,7 @@
+ #include <linux/bitops.h>
+ #include <media/media-request.h>
+ 
+-#define VB2_MAX_FRAME	(32)
++#define VB2_MAX_FRAME	(64)
+ #define VB2_MAX_PLANES	(8)
+ 
+ /**
+diff --git a/include/uapi/linux/videodev2.h b/include/uapi/linux/videodev2.h
+index 162f0454ef3f..3a7349013f7a 100644
+--- a/include/uapi/linux/videodev2.h
++++ b/include/uapi/linux/videodev2.h
+@@ -70,7 +70,7 @@
+  * Common stuff for both V4L1 and V4L2
+  * Moved from videodev.h
+  */
+-#define VIDEO_MAX_FRAME               32
++#define VIDEO_MAX_FRAME               64
+ #define VIDEO_MAX_PLANES               8
+ 
+ /*
+-- 
+2.17.1
+

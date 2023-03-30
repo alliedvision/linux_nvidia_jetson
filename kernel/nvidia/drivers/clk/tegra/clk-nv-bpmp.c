@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -330,6 +330,10 @@ const struct clk_ops  tegra_clk_bpmp_mux_ops = {
 	.unprepare = clk_bpmp_disable,
 };
 
+const struct clk_ops tegra_clk_bpmp_rate_ro_ops = {
+	.recalc_rate = clk_bpmp_get_rate,
+};
+
 static struct clk *tegra_clk_register_bpmp(const char *name, int parent,
 		const char **parent_names, int *parent_ids,
 		uint32_t num_parents, int clk_num, uint32_t flags)
@@ -357,11 +361,14 @@ static struct clk *tegra_clk_register_bpmp(const char *name, int parent,
 	} else if (flags & BPMP_CLK_HAS_SET_RATE) {
 		init.flags |= CLK_SET_RATE_NOCACHE;
 		init.ops = &tegra_clk_bpmp_rate_ops;
-	}
-	else if (flags & BPMP_CLK_HAS_MUX)
+	} else if (flags & BPMP_CLK_HAS_MUX) {
 		init.ops = &tegra_clk_bpmp_mux_ops;
-	else
+	} else if (flags & BPMP_CLK_IS_VAR_ROOT) {
+		init.flags |= CLK_GET_RATE_NOCACHE;
+		init.ops = &tegra_clk_bpmp_rate_ro_ops;
+	} else {
 		init.ops = &tegra_clk_bpmp_gate_ops;
+	}
 
 	/* Data in .init is copied by clk_register(), so stack variable OK */
 	bpmp_clk->clk_num = clk_num;
@@ -483,7 +490,8 @@ static int clk_bpmp_init(uint32_t clk_num)
 	if (err)
 		return err;
 
-	if (flags & BPMP_CLK_IS_ROOT && !(flags & BPMP_CLK_HAS_SET_RATE)) {
+	if (flags & BPMP_CLK_IS_ROOT && !(flags & BPMP_CLK_HAS_SET_RATE) &&
+	    !(flags & BPMP_CLK_IS_VAR_ROOT)) {
 		int64_t rate;
 		rate = clk_bpmp_get_rate_clk_num(clk_num);
 		clk = clk_register_fixed_rate(NULL, name, NULL, 0, rate);

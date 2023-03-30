@@ -1,0 +1,109 @@
+From 2802cf1a85474c035371481b266e0dfb79538846 Mon Sep 17 00:00:00 2001
+From: Murali Nalajala <mnalajal@codeaurora.org>
+Date: Tue, 10 Nov 2020 14:21:37 -0800
+Subject: [PATCH 172/830] ANDROID: sched_clock: Add vendor hook to print epoch
+ values
+X-NVConfidentiality: public
+
+Add vendor hook to print epoch values when system enter and exit
+out of suspend and resume. These epoch values are useful to know
+how long the device is in suspend state. These values can be used
+to synchronize various subsystem timestamps and have an unique
+timestamp to correlate between various subsystems.
+
+Bug: 172945021
+Change-Id: I82a01e348d05a46c9c3921869cc9d2fc0fd28867
+Signed-off-by: Murali Nalajala <mnalajal@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c |  3 +++
+ include/trace/hooks/epoch.h    | 31 +++++++++++++++++++++++++++++++
+ kernel/time/sched_clock.c      |  3 +++
+ 3 files changed, 37 insertions(+)
+ create mode 100644 include/trace/hooks/epoch.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index ab07e7db3d5e..2f8f00f64606 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -19,6 +19,7 @@
+ #include <trace/hooks/wqlockup.h>
+ #include <trace/hooks/debug.h>
+ #include <trace/hooks/printk.h>
++#include <trace/hooks/epoch.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+@@ -59,3 +60,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_throttled_rt_tasks);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_hotplug);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_jiffies_update);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_suspend_epoch_val);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_resume_epoch_val);
+diff --git a/include/trace/hooks/epoch.h b/include/trace/hooks/epoch.h
+new file mode 100644
+index 000000000000..7da3139dfeb0
+--- /dev/null
++++ b/include/trace/hooks/epoch.h
+@@ -0,0 +1,31 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM epoch
++
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_EPOCH_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_EPOCH_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++
++DECLARE_HOOK(android_vh_show_suspend_epoch_val,
++	TP_PROTO(u64 suspend_ns, u64 suspend_cycles),
++	TP_ARGS(suspend_ns, suspend_cycles));
++
++DECLARE_HOOK(android_vh_show_resume_epoch_val,
++	TP_PROTO(u64 resume_cycles),
++	TP_ARGS(resume_cycles));
++#else
++
++#define trace_android_vh_show_suspend_epoch_val(suspend_ns, suspend_cycles)
++#define trace_android_vh_show_resume_epoch_val(resume_cycles)
++
++#endif
++
++#endif /* _TRACE_HOOK_EPOCH_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/time/sched_clock.c b/kernel/time/sched_clock.c
+index b1b9b12899f5..d5ab3fbc191c 100644
+--- a/kernel/time/sched_clock.c
++++ b/kernel/time/sched_clock.c
+@@ -16,6 +16,7 @@
+ #include <linux/sched_clock.h>
+ #include <linux/seqlock.h>
+ #include <linux/bitops.h>
++#include <trace/hooks/epoch.h>
+ 
+ #include "timekeeping.h"
+ 
+@@ -270,6 +271,7 @@ int sched_clock_suspend(void)
+ 	update_sched_clock();
+ 	hrtimer_cancel(&sched_clock_timer);
+ 	rd->read_sched_clock = suspended_sched_clock_read;
++	trace_android_vh_show_suspend_epoch_val(rd->epoch_ns, rd->epoch_cyc);
+ 
+ 	return 0;
+ }
+@@ -281,6 +283,7 @@ void sched_clock_resume(void)
+ 	rd->epoch_cyc = cd.actual_read_sched_clock();
+ 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL_HARD);
+ 	rd->read_sched_clock = cd.actual_read_sched_clock;
++	trace_android_vh_show_resume_epoch_val(rd->epoch_cyc);
+ }
+ 
+ static struct syscore_ops sched_clock_ops = {
+-- 
+2.17.1
+

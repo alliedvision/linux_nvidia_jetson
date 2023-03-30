@@ -1,7 +1,7 @@
 /*
  * Nvhost event logging to ftrace.
  *
- * Copyright (c) 2010-2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -455,7 +455,7 @@ TRACE_EVENT(nvhost_cdma_push_gather,
 	  __entry->name, __entry->mem_id,
 	  __entry->words, __entry->offset,
 	  __print_hex(__get_dynamic_array(cmdbuf),
-		  __entry->cmdbuf ? __entry->words * 4 : 0))
+	  __entry->cmdbuf ? __entry->words * 4 : 0))
 );
 
 TRACE_EVENT(nvhost_channel_write_reloc,
@@ -510,13 +510,13 @@ TRACE_EVENT(nvhost_channel_context_save,
 	TP_ARGS(name, ctx),
 
 	TP_STRUCT__entry(
-	    __field(const char *, name)
-	    __field(void*, ctx)
+		__field(const char *, name)
+		__field(void*, ctx)
 	),
 
 	TP_fast_assign(
-	    __entry->name = name;
-	    __entry->ctx = ctx;
+		__entry->name = name;
+		__entry->ctx = ctx;
 	),
 
 	TP_printk("name=%s, ctx=%p",
@@ -529,13 +529,13 @@ TRACE_EVENT(nvhost_channel_context_restore,
 	TP_ARGS(name, ctx),
 
 	TP_STRUCT__entry(
-	    __field(const char *, name)
-	    __field(void*, ctx)
+		__field(const char *, name)
+		__field(void*, ctx)
 	),
 
 	TP_fast_assign(
-	    __entry->name = name;
-	    __entry->ctx = ctx;
+		__entry->name = name;
+		__entry->ctx = ctx;
 	),
 
 	TP_printk("name=%s, ctx=%p",
@@ -590,14 +590,15 @@ TRACE_EVENT(nvhost_ioctl_channel_set_ctxswitch,
 	  __entry->syncpt_id, __entry->waitbase,
 	  __entry->save_incrs, __entry->restore_incrs)
 );
+
 TRACE_EVENT(nvhost_ctrlopen,
 	TP_PROTO(const char *name),
 	TP_ARGS(name),
 	TP_STRUCT__entry(
-	    __field(const char *, name)
+		__field(const char *, name)
 	),
 	TP_fast_assign(
-	    __entry->name = name
+		__entry->name = name;
 	),
 	TP_printk("name=%s", __entry->name)
 );
@@ -606,10 +607,10 @@ TRACE_EVENT(nvhost_ctrlrelease,
 	TP_PROTO(const char *name),
 	TP_ARGS(name),
 	TP_STRUCT__entry(
-	    __field(const char *, name)
+		__field(const char *, name)
 	),
 	TP_fast_assign(
-	    __entry->name = name
+		__entry->name = name;
 	),
 	TP_printk("name=%s", __entry->name)
 );
@@ -620,8 +621,8 @@ TRACE_EVENT(nvhost_ioctl_ctrl_module_mutex,
 	TP_ARGS(lock, id),
 
 	TP_STRUCT__entry(
-	    __field(u32, lock);
-	    __field(u32, id);
+		__field(u32, lock)
+		__field(u32, id)
 	),
 
 	TP_fast_assign(
@@ -631,7 +632,7 @@ TRACE_EVENT(nvhost_ioctl_ctrl_module_mutex,
 
 	TP_printk("lock=%u, id=%d",
 		__entry->lock, __entry->id)
-	);
+);
 
 TRACE_EVENT(nvhost_ioctl_ctrl_syncpt_incr,
 	TP_PROTO(u32 id),
@@ -639,11 +640,11 @@ TRACE_EVENT(nvhost_ioctl_ctrl_syncpt_incr,
 	TP_ARGS(id),
 
 	TP_STRUCT__entry(
-	    __field(u32, id);
+		__field(u32, id)
 	),
 
 	TP_fast_assign(
-	   __entry->id = id;
+		__entry->id = id;
 	),
 
 	TP_printk("id=%d", __entry->id)
@@ -655,8 +656,8 @@ TRACE_EVENT(nvhost_ioctl_ctrl_syncpt_read,
 	TP_ARGS(id, value),
 
 	TP_STRUCT__entry(
-	    __field(u32, id);
-		__field(u32, value);
+		__field(u32, id)
+		__field(u32, value)
 	),
 
 	TP_fast_assign(

@@ -1,0 +1,105 @@
+From 210da69d23bb808003f57ba0699d2de8fbbbf265 Mon Sep 17 00:00:00 2001
+From: JianMin Liu <jian-min.liu@mediatek.com>
+Date: Tue, 11 Aug 2020 15:24:06 +0800
+Subject: [PATCH 115/830] ANDROID: futex: Add vendor hook for wait queue
+X-NVConfidentiality: public
+
+Add the hook for the waiter list of futex to allow
+vendor perform wait queue enhancement
+
+Bug: 163431711
+
+Signed-off-by: JianMin Liu <jian-min.liu@mediatek.com>
+Change-Id: I68218b89c35b23aa5529099bb0bbbd031bdeafef
+---
+ drivers/android/vendor_hooks.c |  2 ++
+ include/trace/hooks/futex.h    | 26 ++++++++++++++++++++++++++
+ kernel/futex.c                 |  6 +++++-
+ 3 files changed, 33 insertions(+), 1 deletion(-)
+ create mode 100644 include/trace/hooks/futex.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 56ae8fedfeac..9398063ed96a 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -10,6 +10,7 @@
+ #include <trace/hooks/vendor_hooks.h>
+ #include <trace/hooks/fpsimd.h>
+ #include <trace/hooks/rwsem.h>
++#include <trace/hooks/futex.h>
+ #include <trace/hooks/mpam.h>
+ #include <trace/hooks/debug.h>
+ 
+@@ -22,5 +23,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_futex_plist_add);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mpam_set);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ipi_stop);
+diff --git a/include/trace/hooks/futex.h b/include/trace/hooks/futex.h
+new file mode 100644
+index 000000000000..cbf6abb66a57
+--- /dev/null
++++ b/include/trace/hooks/futex.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM futex
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH trace/hooks
++#if !defined(_TRACE_HOOK_FUTEX_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_FUTEX_H
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++#include <linux/plist.h>
++/*
++ * Following tracepoints are not exported in tracefs and provide a
++ * mechanism for vendor modules to hook and extend functionality
++ */
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++DECLARE_HOOK(android_vh_alter_futex_plist_add,
++	TP_PROTO(struct plist_node *node,
++		 struct plist_head *head,
++		 bool *already_on_hb),
++	TP_ARGS(node, head, already_on_hb));
++#else
++#define trace_android_vh_alter_futex_plist_add(node, head, already_on_hb)
++#endif
++#endif /* _TRACE_HOOK_FUTEX_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/futex.c b/kernel/futex.c
+index 98a6e1b80bfe..20b27a9551e7 100644
+--- a/kernel/futex.c
++++ b/kernel/futex.c
+@@ -43,6 +43,7 @@
+ #include <asm/futex.h>
+ 
+ #include "locking/rtmutex_common.h"
++#include <trace/hooks/futex.h>
+ 
+ /*
+  * READ this before attempting to hack on futexes!
+@@ -2225,6 +2226,7 @@ queue_unlock(struct futex_hash_bucket *hb)
+ static inline void __queue_me(struct futex_q *q, struct futex_hash_bucket *hb)
+ {
+ 	int prio;
++	bool already_on_hb = false;
+ 
+ 	/*
+ 	 * The priority used to register this element is
+@@ -2237,7 +2239,9 @@ static inline void __queue_me(struct futex_q *q, struct futex_hash_bucket *hb)
+ 	prio = min(current->normal_prio, MAX_RT_PRIO);
+ 
+ 	plist_node_init(&q->list, prio);
+-	plist_add(&q->list, &hb->chain);
++	trace_android_vh_alter_futex_plist_add(&q->list, &hb->chain, &already_on_hb);
++	if (!already_on_hb)
++		plist_add(&q->list, &hb->chain);
+ 	q->task = current;
+ }
+ 
+-- 
+2.17.1
+

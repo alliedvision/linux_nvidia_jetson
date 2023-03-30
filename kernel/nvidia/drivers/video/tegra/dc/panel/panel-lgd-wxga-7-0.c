@@ -1,7 +1,7 @@
 /*
  * panel-lgd-wxga-7-0.c: Panel driver for lgd-wxga-7-0 panel.
  *
- * Copyright (c) 2013-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,7 +21,6 @@
 #include <linux/regulator/consumer.h>
 
 #include "../dc.h"
-#include "board.h"
 #include "board-panel.h"
 
 static bool reg_requested;

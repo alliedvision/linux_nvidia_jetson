@@ -4,7 +4,7 @@
  * Portions of this code are copyright (c) 2017 Cypress Semiconductor Corporation
  * 
  * Copyright (C) 1999-2017, Broadcom Corporation
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -52,6 +52,7 @@
 #include <linux/wireless.h>
 #include <linux/ieee80211.h>
 #include <linux/wait.h>
+#include <linux/version.h>
 #include <net/cfg80211.h>
 #include <net/rtnetlink.h>
 
@@ -3378,7 +3379,8 @@ wl_cfg80211_ibss_vsie_delete(struct net_device *dev)
 		}
 
 		/* change the command from "add" to "del" */
-		strlcpy(cfg->ibss_vsie->cmd, "del", sizeof(cfg->ibss_vsie->cmd));
+		strncpy(cfg->ibss_vsie->cmd, "del", VNDR_IE_CMD_LEN - 1);
+		cfg->ibss_vsie->cmd[VNDR_IE_CMD_LEN - 1] = '\0';
 
 		ret = wldev_iovar_setbuf(dev, "ie",
 			cfg->ibss_vsie, cfg->ibss_vsie_len,
@@ -10043,7 +10045,11 @@ static s32 wl_inform_single_bss(struct bcm_cfg80211 *cfg, struct wl_bss_info *bi
 	signal = notif_bss_info->rssi * 100;
 	if (!mgmt->u.probe_resp.timestamp) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 		struct timespec ts;
+#else
+		struct timespec64 ts;
+#endif
 		get_monotonic_boottime(&ts);
 		mgmt->u.probe_resp.timestamp = ((u64)ts.tv_sec*1000000)
 				+ ts.tv_nsec / 1000;

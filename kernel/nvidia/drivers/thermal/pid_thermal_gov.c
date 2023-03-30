@@ -1,7 +1,7 @@
 /*
  * drivers/thermal/pid_thermal_gov.c
  *
- * Copyright (c) 2013-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2020, NVIDIA CORPORATION.  All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include <linux/pid_thermal_gov.h>
+#include <linux/version.h>
 
 #include "thermal_core.h"
 
@@ -529,6 +530,7 @@ static struct thermal_governor pid_thermal_gov = {
 	.of_parse	= pid_thermal_gov_of_parse,
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 3, 0)
 int pid_thermal_gov_register(void)
 {
 	return thermal_register_governor(&pid_thermal_gov);
@@ -538,3 +540,6 @@ void pid_thermal_gov_unregister(void)
 {
 	thermal_unregister_governor(&pid_thermal_gov);
 }
+#else
+THERMAL_GOVERNOR_DECLARE(pid_thermal_gov);
+#endif

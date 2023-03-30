@@ -1,0 +1,37 @@
+From 32711952090e6d04bc318e35ee90538692508959 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Wed, 28 Oct 2020 23:31:37 -0700
+Subject: [PATCH 015/830] FROMGIT: usb: typec: tcpci_maxim: Enable auto
+ discharge disconnect
+X-NVConfidentiality: public
+
+Enable auto discharge disconnect for Maxim TCPC.
+
+Bug: 168555244
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
+Link: https://lore.kernel.org/r/20201029063138.1429760-10-badhri@google.com
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+(cherry picked from commit cccaee0e0aadb36edf38298d400ed76e3de21dd5
+ https://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb.git usb-next)
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I5048dbbd16afb7a5dbfedddc18948ca320d60fca
+---
+ drivers/usb/typec/tcpm/tcpci_maxim.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/usb/typec/tcpm/tcpci_maxim.c b/drivers/usb/typec/tcpm/tcpci_maxim.c
+index 43dcad95e897..55dea33387ec 100644
+--- a/drivers/usb/typec/tcpm/tcpci_maxim.c
++++ b/drivers/usb/typec/tcpm/tcpci_maxim.c
+@@ -441,6 +441,7 @@ static int max_tcpci_probe(struct i2c_client *client, const struct i2c_device_id
+ 	chip->data.TX_BUF_BYTE_x_hidden = true;
+ 	chip->data.init = tcpci_init;
+ 	chip->data.frs_sourcing_vbus = max_tcpci_frs_sourcing_vbus;
++	chip->data.auto_discharge_disconnect = true;
+ 
+ 	max_tcpci_init_regs(chip);
+ 	chip->tcpci = tcpci_register_port(chip->dev, &chip->data);
+-- 
+2.17.1
+

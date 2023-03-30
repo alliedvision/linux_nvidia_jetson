@@ -1,0 +1,123 @@
+/*
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ */
+
+/dts-v1/;
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* MB2 fills the non-secure memory chucks here in order to
+	 * enable the dynamic shared memory in OP-TEE.
+	 * Example:
+	 * nsec-memory@<xxx> {
+	 * 	device_type = "memory";
+	 *	reg = <xxx xxx xxx xxx>;
+	 * };
+	 */
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* MB2 will fill the DICE identities in the DICE node. */
+		dice {
+			compatible = "nvidia,dice-identity";
+			status = "disabled";
+			secure-status = "disabled";
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			eca-csr@0 {
+				compatible = "nvidia,dice-eca-csr";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			device-id-cert@0 {
+				compatible = "nvidia,dice-device-id-cert";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			device-id-key-pub@0 {
+				compatible = "nvidia,dice-device-id-key-pub";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			alias-key-cert@0 {
+				compatible = "nvidia,dice-alias-key-cert";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			alias-key-pub@0 {
+				compatible = "nvidia,dice-alias-key-pub";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			alias-key-priv@0 {
+				compatible = "nvidia,dice-alias-key-priv";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+		};
+
+		/* MB2 will fill the address and size of EKB blob. */
+		ekb-blob@0 {
+			compatible = "jetson-ekb-blob";
+			reg = <0 0 0 0>;
+		};
+	};
+
+	efuse@03810000 {
+		compatible = "nvidia,tegra234-efuse";
+		reg = <0x0 0x03810000 0x0 0x600>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	se0@03b50000 {
+		compatible = "nvidia,tegra234-se0";
+		reg = <0x0 0x03b50000 0x0 0x30000>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	rng1@03b70000 {
+		compatible = "nvidia,tegra234-rng1";
+		reg = <0x0 0x03b70000 0x0 0x10000>;
+		status = "disabled";
+		secure-status = "okay";
+	};
+
+	stmm-device-mappings {
+		uuid = <0xed32d533 0x99e64209 0x9cc02d72 0xcdd998a7>;
+		description = "UEFI-mm";
+
+		device-regions {
+			combuart-t234 {
+				base-address = <0x00000000 0x0c198000>;
+				pages-count = <0x1>;
+				attributes = <0x3>; /* read-write */
+			};
+
+			qspi0-t234 {
+				base-address = <0x00000000 0x03270000>;
+				pages-count = <0x10>;
+				attributes = <0x3>; /* read-write */
+			};
+		};
+	};
+};

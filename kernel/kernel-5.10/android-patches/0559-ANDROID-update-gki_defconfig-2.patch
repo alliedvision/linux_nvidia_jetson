@@ -1,0 +1,43 @@
+From 4f071053307beb1e76729806916cea78221a17f2 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Mon, 30 Sep 2019 13:31:19 +0200
+Subject: [PATCH 559/830] ANDROID: update gki_defconfig (2)
+X-NVConfidentiality: public
+
+Update the default gki_defconfig now that there were some config changes
+in mainline.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: Iafb8e2fa2d8027b2848e93d2d39b0ea42028289b
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index d01467e87c0c..2989fef8dc7e 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -297,7 +297,6 @@ CONFIG_MEDIA_CONTROLLER=y
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+ CONFIG_DRM_VIRTIO_GPU=y
+-# CONFIG_LCD_CLASS_DEVICE is not set
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+ CONFIG_SOUND=y
+ CONFIG_SND=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 29eee2beb8fb..eabb5f11f55a 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -255,7 +255,6 @@ CONFIG_MEDIA_CAMERA_SUPPORT=y
+ CONFIG_DRM=y
+ # CONFIG_DRM_FBDEV_EMULATION is not set
+ CONFIG_DRM_VIRTIO_GPU=m
+-# CONFIG_LCD_CLASS_DEVICE is not set
+ CONFIG_BACKLIGHT_CLASS_DEVICE=y
+ CONFIG_SOUND=y
+ CONFIG_SND=y
+-- 
+2.17.1
+

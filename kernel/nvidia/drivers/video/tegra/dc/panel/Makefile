@@ -25,6 +25,7 @@ GCOV_PROFILE_panel-null-dsi.o := n
 ccflags-y += -Iarch/arm/mach-tegra
 
 obj-y += board-panel.o
+obj-y += board-id.o
 
 obj-y += panel-lgd-wxga-7-0.o
 obj-y += panel-p-wuxga-10-1.o

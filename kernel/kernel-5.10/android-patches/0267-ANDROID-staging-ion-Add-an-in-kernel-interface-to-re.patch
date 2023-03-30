@@ -1,0 +1,101 @@
+From 4d34c37ff08531408b2acd628a46158d1ae347b0 Mon Sep 17 00:00:00 2001
+From: Hridya Valsaraju <hridya@google.com>
+Date: Tue, 25 Feb 2020 16:30:06 -0800
+Subject: [PATCH 267/830] ANDROID: staging: ion: Add an in-kernel interface to
+ request heap info.
+X-NVConfidentiality: public
+
+Add an API to allow in-kernel clients to request heap ID info.
+
+Test: make
+Bug: 149961819
+
+Change-Id: I59d26355115f100a60bcf8ade0e3afa4b89c5d0a
+Signed-off-by: Hridya Valsaraju <hridya@google.com>
+---
+ drivers/staging/android/ion/ion.c | 31 +++++++++++++++++++++++++++++++
+ include/linux/ion.h               | 20 ++++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+
+diff --git a/drivers/staging/android/ion/ion.c b/drivers/staging/android/ion/ion.c
+index 19f687ecade0..aa299172e61d 100644
+--- a/drivers/staging/android/ion/ion.c
++++ b/drivers/staging/android/ion/ion.c
+@@ -62,6 +62,37 @@ static int ion_alloc_fd(size_t len, unsigned int heap_id_mask,
+ 	return fd;
+ }
+ 
++size_t ion_query_heaps_kernel(struct ion_heap_data *hdata, size_t size)
++{
++	struct ion_device *dev = internal_dev;
++	size_t i = 0, num_heaps = 0;
++	struct ion_heap *heap;
++
++	down_read(&dev->lock);
++
++	// If size is 0, return without updating hdata.
++	if (size == 0) {
++		num_heaps = dev->heap_cnt;
++		goto out;
++	}
++
++	plist_for_each_entry(heap, &dev->heaps, node) {
++		strncpy(hdata[i].name, heap->name, MAX_HEAP_NAME);
++		hdata[i].name[MAX_HEAP_NAME - 1] = '\0';
++		hdata[i].type = heap->type;
++		hdata[i].heap_id = heap->id;
++
++		i++;
++		if (i >= size)
++			break;
++	}
++
++	num_heaps = i;
++out:
++	up_read(&dev->lock);
++	return num_heaps;
++}
++
+ static int ion_query_heaps(struct ion_heap_query *query)
+ {
+ 	struct ion_device *dev = internal_dev;
+diff --git a/include/linux/ion.h b/include/linux/ion.h
+index dbcbe0cb7b08..fa86bcce6e8f 100644
+--- a/include/linux/ion.h
++++ b/include/linux/ion.h
+@@ -309,6 +309,21 @@ struct dma_buf *ion_alloc(size_t len, unsigned int heap_id_mask,
+  */
+ int ion_free(struct ion_buffer *buffer);
+ 
++/**
++ * ion_query_heaps_kernel - Returns information about available heaps to
++ * in-kernel clients.
++ *
++ * @hdata:             pointer to array of struct ion_heap_data.
++ * @size:             size of @hdata array.
++ *
++ * Returns the number of available heaps and populates @hdata with information
++ * regarding the same. When invoked with @size as 0, the function with return
++ * the number of available heaps without modifying @hdata. When the number of
++ * available heaps is higher than @size, @size is returned instead of the
++ * actual number of available heaps.
++ */
++
++size_t ion_query_heaps_kernel(struct ion_heap_data *hdata, size_t size);
+ #else
+ 
+ static inline int __ion_device_add_heap(struct ion_heap *heap,
+@@ -380,5 +395,10 @@ static inline int ion_free(struct ion_buffer *buffer)
+ 	return 0;
+ }
+ 
++static inline size_t ion_query_heaps_kernel(struct ion_heap_data *hdata,
++					 size_t size)
++{
++	return 0;
++}
+ #endif /* CONFIG_ION */
+ #endif /* _ION_KERNEL_H */
+-- 
+2.17.1
+

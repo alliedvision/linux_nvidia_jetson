@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -11,11 +11,14 @@
  * more details.
  */
 
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
 #include <soc/tegra/chip-id.h>
+#endif
 #include <soc/tegra/fuse.h>
-#include <soc/tegra/tegra_bpmp.h>
 #ifdef CONFIG_TEGRA_HV_MANAGER
 #include <soc/tegra/virt/syscalls.h>
+#include <nvgpu/ipa_pa_cache.h>
 #endif
 
 #include <nvgpu/soc.h>
@@ -42,15 +45,13 @@ bool nvgpu_is_hypervisor_mode(struct gk20a *g)
 	return is_tegra_hypervisor_mode();
 }
 
-bool nvgpu_is_bpmp_running(struct gk20a *g)
-{
-	return tegra_bpmp_running();
-}
-
 bool nvgpu_is_soc_t194_a01(struct gk20a *g)
 {
-	return ((tegra_get_chip_id() == TEGRA194 &&
-			tegra_chip_get_revision() == TEGRA194_REVISION_A01) ?
+	struct device *dev = dev_from_gk20a(g);
+	struct gk20a_platform *platform = gk20a_get_platform(dev);
+
+	return ((platform->platform_chip_id == TEGRA_194 &&
+			tegra_chip_get_revision() == TEGRA_REVISION_A01) ?
 		true : false);
 }
 
@@ -65,39 +66,48 @@ bool nvgpu_is_soc_t194_a01(struct gk20a *g)
  * is enabled), the addresses we get from dma_alloc are IPAs. We need to
  * convert them to PA.
  */
-static u64 nvgpu_tegra_hv_ipa_pa(struct gk20a *g, u64 ipa)
+static u64 nvgpu_tegra_hv_ipa_pa(struct gk20a *g, u64 ipa, u64 *pa_len)
 {
 	struct device *dev = dev_from_gk20a(g);
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	struct hyp_ipa_pa_info info;
+	struct nvgpu_hyp_ipa_pa_info nvgpu_ipapainfo;
 	int err;
 	u64 pa = 0ULL;
 
+	pa = nvgpu_ipa_to_pa_cache_lookup_locked(g, ipa, pa_len);
+	if (pa != 0UL) {
+		return pa;
+	}
+
 	err = hyp_read_ipa_pa_info(&info, platform->vmid, ipa);
 	if (err < 0) {
-		/* WAR for bug 2096877
-		 * hyp_read_ipa_pa_info only looks up RAM mappings.
-		 * assume one to one IPA:PA mapping for syncpt aperture
-		 */
-		u64 start = g->syncpt_unit_base;
-		u64 end = g->syncpt_unit_base + g->syncpt_unit_size;
-		if ((ipa >= start) && (ipa < end)) {
-			pa = ipa;
-			nvgpu_log(g, gpu_dbg_map_v,
-				"ipa=%llx vmid=%d -> pa=%llx (SYNCPT)\n",
-				ipa, platform->vmid, pa);
-		} else {
-			nvgpu_err(g, "ipa=%llx translation failed vmid=%u err=%d",
-				ipa, platform->vmid, err);
-		}
+		nvgpu_err(g, "ipa=%llx translation failed vmid=%u err=%d",
+			ipa, platform->vmid, err);
 	} else {
 		pa = info.base + info.offset;
+		if (pa_len != NULL) {
+			/*
+			 * Update the size of physical memory chunk after the
+			 * specified offset.
+			 */
+			*pa_len = info.size - info.offset;
+		}
 		nvgpu_log(g, gpu_dbg_map_v,
 				"ipa=%llx vmid=%d -> pa=%llx "
 				"base=%llx offset=%llx size=%llx\n",
 				ipa, platform->vmid, pa, info.base,
 				info.offset, info.size);
 	}
+
+	if (pa != 0U) {
+		nvgpu_ipapainfo.base = info.base;
+		nvgpu_ipapainfo.offset = info.offset;
+		nvgpu_ipapainfo.size = info.size;
+		nvgpu_ipa_to_pa_add_to_cache(g, ipa, pa,
+				&nvgpu_ipapainfo);
+	}
+
 	return pa;
 }
 #endif
@@ -119,4 +129,16 @@ int nvgpu_init_soc_vars(struct gk20a *g)
 	}
 #endif
 	return 0;
+}
+
+u64 nvgpu_get_pa_from_ipa(struct gk20a *g, u64 ipa)
+{
+	struct device *dev = dev_from_gk20a(g);
+	struct gk20a_platform *platform = gk20a_get_platform(dev);
+	u64 pa_len = 0U;
+
+	if (platform->phys_addr) {
+		return platform->phys_addr(g, ipa, &pa_len);
+	}
+	return ipa;
 }

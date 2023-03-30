@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Chip support module
  *
- * Copyright (c) 2012-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,17 +20,12 @@
 #include <linux/types.h>
 #include <linux/bug.h>
 #include <linux/slab.h>
-#include <soc/tegra/chip-id.h>
 #include <linux/version.h>
-
-#if defined(CONFIG_ARCH_TEGRA_210_SOC) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
-#include <soc/tegra/fuse.h>
-#endif
 
 #include "host1x/host1x.h"
 #include "chip_support.h"
-#include "t124/t124.h"
 #include "t210/t210.h"
+#include "platform.h"
 
 static struct nvhost_chip_support *nvhost_chip_ops;
 
@@ -62,16 +57,27 @@ int nvhost_init_chip_support(struct nvhost_master *host)
 
 bool nvhost_is_124(void)
 {
-	return tegra_get_chip_id() == TEGRA124 ||
-	       tegra_get_chip_id() == TEGRA132;
+	return of_machine_is_compatible("nvidia,tegra124") ||
+	       of_machine_is_compatible("nvidia,tegra132");
 }
 
 bool nvhost_is_210(void)
 {
-	return tegra_get_chip_id() == TEGRA210;
+	return of_machine_is_compatible("nvidia,tegra210") ||
+	       of_machine_is_compatible("nvidia,tegra210b01");
 }
 
 bool nvhost_is_186(void)
 {
-	return tegra_get_chip_id() == TEGRA186;
+	return of_machine_is_compatible("nvidia,tegra186");
+}
+
+bool nvhost_is_194(void)
+{
+	return of_machine_is_compatible("nvidia,tegra194");
+}
+
+bool nvhost_is_234(void)
+{
+	return of_machine_is_compatible("nvidia,tegra234");
 }

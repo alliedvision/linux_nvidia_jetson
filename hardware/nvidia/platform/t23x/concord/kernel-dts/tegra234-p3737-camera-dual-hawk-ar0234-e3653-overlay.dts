@@ -1,0 +1,494 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera Hawk & Owl on t23x platforms
+ *
+ * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
+#define CAM0_RST_L      TEGRA234_MAIN_GPIO(H, 3)
+#define CAM0_PWDN       TEGRA234_MAIN_GPIO(H, 6)
+#define CAM1_RST_L      TEGRA234_MAIN_GPIO(AC, 1)
+#define CAM1_PWDN       TEGRA234_MAIN_GPIO(AC, 0)
+
+/ {
+	overlay-name = "Jetson Camera e3653-dual-Hawk module";
+	jetson-header-name = "Jetson AGX CSI Connector";
+	compatible = "nvidia,p3737-0000+p3701-0000";
+
+	/* VI number of channels */
+	fragment@0 {
+		target-path = "/tegra-capture-vi";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<4>;
+		};
+	};
+	fragment@1 {
+		target-path = "/tegra-capture-vi/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@2 {
+		target-path = "/tegra-capture-vi/ports/port@0/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <0>;
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_csi_out0>;
+		};
+	};
+	fragment@3 {
+		target-path = "/tegra-capture-vi/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@4 {
+		target-path = "/tegra-capture-vi/ports/port@1/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <1>;
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_csi_out1>;
+		};
+	};
+	fragment@5 {
+		target-path = "/tegra-capture-vi/ports/port@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@6 {
+		target-path = "/tegra-capture-vi/ports/port@2/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <2>;
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_csi_out2>;
+		};
+	};
+	fragment@7 {
+		target-path = "/tegra-capture-vi/ports/port@3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@8 {
+		target-path = "/tegra-capture-vi/ports/port@3/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <3>;
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_csi_out3>;
+		};
+	};
+	fragment@9 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<4>;
+		};
+	};
+	fragment@10 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@11 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@12 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0/endpoint@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_out0>;
+		};
+	};
+	fragment@13 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@14 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&dual_hawk_vi_in0>;
+		};
+	};
+	fragment@15 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@16 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@17 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0/endpoint@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_out1>;
+		};
+	};
+	fragment@18 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@19 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1/endpoint@3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&dual_hawk_vi_in1>;
+		};
+	};
+	fragment@20 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@21 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@22 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0/endpoint@4";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_out2>;
+		};
+	};
+	fragment@23 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@24 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1/endpoint@5";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&dual_hawk_vi_in2>;
+		};
+	};
+	fragment@25 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@26 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@27 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@0/endpoint@6";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <1>;
+			bus-width = <2>;
+			remote-endpoint = <&dual_hawk_out3>;
+		};
+	};
+	fragment@28 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@29 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@1/endpoint@7";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&dual_hawk_vi_in3>;
+		};
+	};
+	/* pca9646 i2c mux */
+	fragment@30 {
+		target-path = "/i2c@3180000/tca9546@70";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@31 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/single_max96712_a@62";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@32 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/dual_hawk_a@18";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@33 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@0/dual_hawk_b@10";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@34 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@1/dual_hawk_c@18";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@35 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@1/dual_hawk_d@10";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@36 {
+		target-path = "/tegra-camera-platform";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num_csi_lanes = <2>;
+			max_lane_speed = <1500000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+	fragment@37 {
+		target-path = "/tegra-camera-platform/modules/module0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "dual_hawk_bottomleft";
+			position = "bottomleft";
+			orientation = "1";
+		};
+	};
+	fragment@38 {
+		target-path = "/tegra-camera-platform/modules/module0/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 30-0018";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/dual_hawk_a@18";
+		};
+	};
+	fragment@39 {
+		target-path = "/tegra-camera-platform/modules/module1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "dual_hawk_bottomright";
+			position = "bottomright";
+			orientation = "1";
+		};
+	};
+	fragment@40 {
+		target-path = "/tegra-camera-platform/modules/module1/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 30-0010";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/dual_hawk_b@10";
+		};
+	};
+	fragment@41 {
+		target-path = "/tegra-camera-platform/modules/module2";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "dual_hawk_centerleft";
+			position = "centerleft";
+			orientation = "1";
+		};
+	};
+	fragment@42 {
+		target-path = "/tegra-camera-platform/modules/module2/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 31-0018";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/dual_hawk_c@18";
+		};
+	};
+	fragment@43 {
+		target-path = "/tegra-camera-platform/modules/module3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "dual_hawk_centerright";
+			position = "centerright";
+			orientation = "1";
+		};
+	};
+	fragment@44 {
+		target-path = "/tegra-camera-platform/modules/module3/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 31-0010";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/dual_hawk_d@10";
+		};
+	};
+};

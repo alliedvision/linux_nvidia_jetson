@@ -1,0 +1,70 @@
+From d97378292af2464e29890d109c5f981cf0de970a Mon Sep 17 00:00:00 2001
+From: Lingutla Chandrasekhar <clingutla@codeaurora.org>
+Date: Thu, 1 Mar 2018 18:36:36 +0530
+Subject: [PATCH 169/830] ANDROID: Revert "softirq: Let ksoftirqd do its job"
+X-NVConfidentiality: public
+
+Ksfotirqd is a normal priority CFS task. It can experience higher
+scheduling latency under heavy load conditions. Currently once
+asynchronous softirq processing is deferred to ksoftirqd, softirqs
+are not processed further until ksoftirqd task gets a chance to run.
+High latencies for softirqs like TIMER, HI TASKLET is not acceptable.
+
+So revert 'commit 4cd13c21b207 ("softirq: Let ksoftirqd do its job")'.
+
+Bug: 168521633
+Change-Id: I38a1a88b5f42dd534c65d739dbb7e4321a7904db
+Signed-off-by: Lingutla Chandrasekhar <clingutla@codeaurora.org>
+[satyap@codeaurora.org: Fix trivial merge conflicts]
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+[elavila: Port to mainline]
+Signed-off-by: J. Avila <elavila@google.com>
+---
+ kernel/softirq.c | 17 +----------------
+ 1 file changed, 1 insertion(+), 16 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index df727d82600a..438c0e8f45e9 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -83,18 +83,6 @@ static void wakeup_softirqd(void)
+ 		wake_up_process(tsk);
+ }
+ 
+-/*
+- * If ksoftirqd is scheduled, we do not want to process pending softirqs
+- * right now. Let ksoftirqd handle this at its own rate, to get fairness.
+- */
+-static bool ksoftirqd_running(void)
+-{
+-	struct task_struct *tsk = __this_cpu_read(ksoftirqd);
+-
+-	return tsk && (tsk->state == TASK_RUNNING) &&
+-		!__kthread_should_park(tsk);
+-}
+-
+ /*
+  * preempt_count and SOFTIRQ_OFFSET usage:
+  * - preempt_count is changed by SOFTIRQ_OFFSET on entering or leaving
+@@ -359,7 +347,7 @@ asmlinkage __visible void do_softirq(void)
+ 
+ 	pending = local_softirq_pending();
+ 
+-	if (pending && !ksoftirqd_running())
++	if (pending)
+ 		do_softirq_own_stack();
+ 
+ 	local_irq_restore(flags);
+@@ -393,9 +381,6 @@ void irq_enter(void)
+ 
+ static inline void invoke_softirq(void)
+ {
+-	if (ksoftirqd_running())
+-		return;
+-
+ 	if (!force_irqthreads) {
+ #ifdef CONFIG_HAVE_IRQ_EXIT_ON_IRQ_STACK
+ 		/*
+-- 
+2.17.1
+

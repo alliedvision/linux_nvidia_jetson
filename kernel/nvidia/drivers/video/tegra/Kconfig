@@ -16,7 +16,7 @@ config TEGRA_GRHOST_ISP
 
 config TEGRA_GRHOST_VIC
         depends on TEGRA_GRHOST
-        tristate "Tegra VIC support"
+        bool "Tegra VIC support"
         default y
         help
           Driver for the Tegra Video Image Compositor is an falcon
@@ -24,15 +24,22 @@ config TEGRA_GRHOST_VIC
 
 config TEGRA_GRHOST_NVDEC
         depends on TEGRA_GRHOST
-        tristate "Tegra NVDEC support"
+        bool "Tegra NVDEC support"
         default y
         help
           Driver for the Tegra NVDEC is an engine which
           can be used for decoding various multimedia formats.
 
+config TEGRA_GRHOST_NVDEC_SECURE
+	depends on TEGRA_GRHOST_NVDEC
+	bool "NVDEC bootloader support"
+	default y
+	help
+	  Enable support for secure mode NVDEC bootloader.
+
 config TEGRA_GRHOST_NVENC
         depends on TEGRA_GRHOST
-        tristate "Tegra NVENC support"
+        bool "Tegra NVENC support"
         default y
         help
           Driver for the Tegra NVENC is an engine which
@@ -40,15 +47,22 @@ config TEGRA_GRHOST_NVENC
 
 config TEGRA_GRHOST_NVJPG
         depends on TEGRA_GRHOST
-        tristate "Tegra NVJPG support"
+        bool "Tegra NVJPG support"
         default y
         help
           Driver for the Tegra NVJPG is an engine which
           can be used for JPEG encoding and decoding.
 
+config TEGRA_GRHOST_OFA
+        depends on TEGRA_GRHOST
+        bool "Tegra OFA support"
+        default y
+        help
+          Driver for the Tegra OFA is an engine which
+          can be used for optical flow/stereo acceleration.
 config TEGRA_GRHOST_TSEC
         depends on TEGRA_GRHOST
-        tristate "Tegra TSEC support"
+        bool "Tegra TSEC support"
         default y
         help
           Driver for the Tegra TSEC is falcon based engine which
@@ -56,8 +70,8 @@ config TEGRA_GRHOST_TSEC
 
 config TEGRA_GRHOST_NVCSI
 	bool "Tegra NVCSI support"
-	depends on TEGRA_GRHOST && ARCH_TEGRA_18x_SOC
-	default y
+	depends on TEGRA_GRHOST && ( ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC )
+	default y if ARCH_TEGRA_18x_SOC
 	help
 	  Enables support for camera CSI support under nvhost
 	  Say N here if not sure.
@@ -119,6 +133,15 @@ config TEGRA_CAMERA_PLATFORM
           If unsure, say Y
 
 comment "NVIDIA Tegra Display Driver options"
+config TEGRA_DC
+	tristate "Tegra Display Contoller"
+	depends on (TEGRA_GRHOST || TEGRA_HOST1X) && I2C
+	select BACKLIGHT_CLASS_DEVICE
+	select FB_MODE_HELPERS
+	help
+	   Tegra display controller support.
+	   Enable this to access the Tegra display controller using either framebuffer
+	   console interface and a proprietary dc-ext interface or with ADF.
 
 config TEGRA_NVDISPLAY
         bool "Tegra NvDisplay Architecture Support"
@@ -198,6 +221,15 @@ config TEGRA_DS90UH948Q_DESER
 	  Disabled by default. DS90UH948Q is a deserializer chip which converts
 	  FPDLink signal to OpenLDI. This config enables deserializer driver for
 	  DS90UH948 chip.
+
+config MAXIM_GMSL_DP_SERIALIZER
+	bool "Maxim GMSL DP Serializer"
+	depends on I2C
+	help
+	 This driver supports the MAXIM DP GMSL Serializer.
+	 The Tegra SOC will send DP output to the Maxim serializer.
+	 The Maxim serializer will take this DP output,
+	 and convert it into GMSL video data.
 
 config TEGRA_EDP2LVDS_PS8625
 	bool "Enable EDP2LVDS PS8625 bridge."
@@ -347,6 +379,5 @@ config TEGRA_DC_TRACE_PRINTK
 
 source "drivers/misc/tegra-cec/Kconfig"
 source "drivers/video/tegra/host/Kconfig"
-source "drivers/video/tegra/nvmap/Kconfig"
 
 endif

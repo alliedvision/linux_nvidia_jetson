@@ -1,0 +1,280 @@
+From f0d495bef8ecbecbe0fbe063acd65d66f7139447 Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 8 Apr 2020 10:10:53 -0700
+Subject: [PATCH 448/830] ANDROID: Incremental fs: Clean up incfs_test build
+ process
+X-NVConfidentiality: public
+
+Bug: 153557975
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: I57eef43a5d003e3d89a4c872d21e36376bc580a1
+---
+ .../selftests/filesystems/incfs/Makefile      | 17 ++-----
+ .../selftests/filesystems/incfs/config        |  1 -
+ .../selftests/filesystems/incfs/incfs_test.c  | 48 ++++++++++---------
+ .../selftests/filesystems/incfs/utils.c       | 28 ++++++-----
+ .../selftests/filesystems/incfs/utils.h       |  2 +-
+ 5 files changed, 46 insertions(+), 50 deletions(-)
+ delete mode 100644 tools/testing/selftests/filesystems/incfs/config
+
+diff --git a/tools/testing/selftests/filesystems/incfs/Makefile b/tools/testing/selftests/filesystems/incfs/Makefile
+index 1f13573d3617..5b2e627ce883 100644
+--- a/tools/testing/selftests/filesystems/incfs/Makefile
++++ b/tools/testing/selftests/filesystems/incfs/Makefile
+@@ -1,18 +1,11 @@
+ # SPDX-License-Identifier: GPL-2.0
+-CFLAGS += -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall -lssl -lcrypto -llz4
+-CFLAGS += -I../../../../../usr/include/
+-CFLAGS += -I../../../../include/uapi/
+-CFLAGS += -I../../../../lib
++CFLAGS += -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wall
++CFLAGS += -I../.. -I../../../../..
+ 
++LDLIBS := -llz4 -lcrypto
+ EXTRA_SOURCES := utils.c
+-CFLAGS += $(EXTRA_SOURCES)
+-
+ TEST_GEN_PROGS := incfs_test
+ 
+-include ../../lib.mk
+-
+-$(OUTPUT)incfs_test: incfs_test.c $(EXTRA_SOURCES)
+-all: $(OUTPUT)incfs_test
++$(TEST_GEN_PROGS): $(EXTRA_SOURCES)
+ 
+-clean:
+-	rm -rf $(OUTPUT)incfs_test *.o
++include ../../lib.mk
+diff --git a/tools/testing/selftests/filesystems/incfs/config b/tools/testing/selftests/filesystems/incfs/config
+deleted file mode 100644
+index b6749837a318..000000000000
+--- a/tools/testing/selftests/filesystems/incfs/config
++++ /dev/null
+@@ -1 +0,0 @@
+-CONFIG_INCREMENTAL_FS=y
+\ No newline at end of file
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 3ba41bd75efe..a6bae9fbf0d3 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2,27 +2,29 @@
+ /*
+  * Copyright 2018 Google LLC
+  */
+-#include <stdlib.h>
+-#include <unistd.h>
+-#include <sys/types.h>
++#include <alloca.h>
+ #include <dirent.h>
+-#include <sys/stat.h>
++#include <errno.h>
+ #include <fcntl.h>
++#include <lz4.h>
++#include <stdbool.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++
+ #include <sys/mount.h>
+-#include <errno.h>
++#include <sys/stat.h>
++#include <sys/types.h>
+ #include <sys/wait.h>
+ #include <sys/xattr.h>
+-#include <alloca.h>
+-#include <string.h>
+-#include <stdio.h>
+-#include <stdbool.h>
+-#include <stdint.h>
++
+ #include <linux/random.h>
+ #include <linux/unistd.h>
+ 
+-#include "../../kselftest.h"
++#include <kselftest.h>
+ 
+-#include "lz4.h"
+ #include "utils.h"
+ 
+ #define TEST_FAILURE 1
+@@ -208,7 +210,7 @@ int open_file_by_id(const char *mnt_dir, incfs_uuid_t id, bool use_ioctl)
+ {
+ 	char *path = get_index_filename(mnt_dir, id);
+ 	int cmd_fd = open_commands_file(mnt_dir);
+-	int fd = open(path, O_RDWR);
++	int fd = open(path, O_RDWR | O_CLOEXEC);
+ 	struct incfs_permit_fill permit_fill = {
+ 		.file_descriptor = fd,
+ 	};
+@@ -281,7 +283,7 @@ static int emit_test_blocks(char *mnt_dir, struct test_file *file,
+ 		.fill_blocks = ptr_to_u64(block_buf),
+ 	};
+ 	ssize_t write_res = 0;
+-	int fd;
++	int fd = -1;
+ 	int error = 0;
+ 	int i = 0;
+ 	int blocks_written = 0;
+@@ -444,7 +446,7 @@ static loff_t read_whole_file(char *filename)
+ 	loff_t bytes_read = 0;
+ 	uint8_t buff[16 * 1024];
+ 
+-	fd = open(filename, O_RDONLY);
++	fd = open(filename, O_RDONLY | O_CLOEXEC);
+ 	if (fd <= 0)
+ 		return fd;
+ 
+@@ -476,7 +478,7 @@ static int read_test_file(uint8_t *buf, size_t len, char *filename,
+ 	size_t bytes_to_read = len;
+ 	off_t offset = ((off_t)block_idx) * INCFS_DATA_FILE_BLOCK_SIZE;
+ 
+-	fd = open(filename, O_RDONLY);
++	fd = open(filename, O_RDONLY | O_CLOEXEC);
+ 	if (fd <= 0)
+ 		return fd;
+ 
+@@ -909,7 +911,7 @@ static bool iterate_directory(char *dir_to_iterate, bool root, int file_count)
+ 	int i;
+ 
+ 	/* Test directory iteration */
+-	int fd = open(dir_to_iterate, O_RDONLY | O_DIRECTORY);
++	int fd = open(dir_to_iterate, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+ 
+ 	if (fd < 0) {
+ 		print_error("Can't open directory\n");
+@@ -1110,7 +1112,7 @@ static int basic_file_ops_test(char *mount_dir)
+ 		char *path = concat_file_name(mount_dir, file->name);
+ 		int fd;
+ 
+-		fd = open(path, O_RDWR);
++		fd = open(path, O_RDWR | O_CLOEXEC);
+ 		free(path);
+ 		if (fd <= 0) {
+ 			print_error("Can't open file");
+@@ -1943,7 +1945,7 @@ static int validate_logs(char *mount_dir, int log_fd, struct test_file *file,
+ 	char *filename = concat_file_name(mount_dir, file->name);
+ 	int fd;
+ 
+-	fd = open(filename, O_RDONLY);
++	fd = open(filename, O_RDONLY | O_CLOEXEC);
+ 	free(filename);
+ 	if (fd <= 0)
+ 		return TEST_FAILURE;
+@@ -2125,7 +2127,7 @@ static int read_log_test(char *mount_dir)
+ 	/*
+ 	 * Remount and check that logs start working again
+ 	 */
+-	drop_caches = open("/proc/sys/vm/drop_caches", O_WRONLY);
++	drop_caches = open("/proc/sys/vm/drop_caches", O_WRONLY | O_CLOEXEC);
+ 	if (drop_caches == -1)
+ 		goto failure;
+ 	i = write(drop_caches, "3", 1);
+@@ -2215,7 +2217,7 @@ static int validate_ranges(const char *mount_dir, struct test_file *file)
+ 	int cmd_fd = -1;
+ 	struct incfs_permit_fill permit_fill;
+ 
+-	fd = open(filename, O_RDONLY);
++	fd = open(filename, O_RDONLY | O_CLOEXEC);
+ 	free(filename);
+ 	if (fd <= 0)
+ 		return TEST_FAILURE;
+@@ -2455,7 +2457,7 @@ static int validate_hash_ranges(const char *mount_dir, struct test_file *file)
+ 	if (file->size <= 4096 / 32 * 4096)
+ 		return 0;
+ 
+-	fd = open(filename, O_RDONLY);
++	fd = open(filename, O_RDONLY | O_CLOEXEC);
+ 	free(filename);
+ 	if (fd <= 0)
+ 		return TEST_FAILURE;
+@@ -2590,7 +2592,7 @@ int main(int argc, char *argv[])
+ 	// NOTE - this abuses the concept of randomness - do *not* ever do this
+ 	// on a machine for production use - the device will think it has good
+ 	// randomness when it does not.
+-	fd = open("/dev/urandom", O_WRONLY);
++	fd = open("/dev/urandom", O_WRONLY | O_CLOEXEC);
+ 	count = 4096;
+ 	for (int i = 0; i < 128; ++i)
+ 		ioctl(fd, RNDADDTOENTCNT, &count);
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.c b/tools/testing/selftests/filesystems/incfs/utils.c
+index 545497685d14..e194f63ba922 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.c
++++ b/tools/testing/selftests/filesystems/incfs/utils.c
+@@ -2,27 +2,29 @@
+ /*
+  * Copyright 2018 Google LLC
+  */
+-#include <stdio.h>
+-#include <fcntl.h>
+ #include <dirent.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
++#include <errno.h>
+ #include <fcntl.h>
++#include <poll.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
+ #include <unistd.h>
++
+ #include <sys/ioctl.h>
+ #include <sys/mount.h>
+-#include <errno.h>
+-#include <string.h>
+-#include <poll.h>
+-#include <openssl/bio.h>
+-#include <openssl/err.h>
+-#include <openssl/pem.h>
+-#include <openssl/pkcs7.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++
+ #include <openssl/sha.h>
+ #include <openssl/md5.h>
+ 
+ #include "utils.h"
+ 
++#ifndef __S_IFREG
++#define __S_IFREG S_IFREG
++#endif
++
+ int mount_fs(const char *mount_dir, const char *backing_dir,
+ 	     int read_timeout_ms)
+ {
+@@ -184,7 +186,7 @@ int open_commands_file(const char *mount_dir)
+ 
+ 	snprintf(cmd_file, ARRAY_SIZE(cmd_file),
+ 			"%s/%s", mount_dir, INCFS_PENDING_READS_FILENAME);
+-	cmd_fd = open(cmd_file, O_RDONLY);
++	cmd_fd = open(cmd_file, O_RDONLY | O_CLOEXEC);
+ 
+ 	if (cmd_fd < 0)
+ 		perror("Can't open commands file");
+@@ -197,7 +199,7 @@ int open_log_file(const char *mount_dir)
+ 	int cmd_fd;
+ 
+ 	snprintf(cmd_file, ARRAY_SIZE(cmd_file), "%s/.log", mount_dir);
+-	cmd_fd = open(cmd_file, O_RDWR);
++	cmd_fd = open(cmd_file, O_RDWR | O_CLOEXEC);
+ 	if (cmd_fd < 0)
+ 		perror("Can't open log file");
+ 	return cmd_fd;
+diff --git a/tools/testing/selftests/filesystems/incfs/utils.h b/tools/testing/selftests/filesystems/incfs/utils.h
+index 24b43287fcdd..9af63e4e922c 100644
+--- a/tools/testing/selftests/filesystems/incfs/utils.h
++++ b/tools/testing/selftests/filesystems/incfs/utils.h
+@@ -5,7 +5,7 @@
+ #include <stdbool.h>
+ #include <sys/stat.h>
+ 
+-#include "../../include/uapi/linux/incrementalfs.h"
++#include <include/uapi/linux/incrementalfs.h>
+ 
+ #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+ 
+-- 
+2.17.1
+

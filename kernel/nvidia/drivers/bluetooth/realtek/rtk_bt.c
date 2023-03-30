@@ -84,22 +84,10 @@ static struct usb_device_id btusb_table[] = {
 	}, { }
 };
 
-static void rtk_free(struct btusb_data *data)
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 1)
-	kfree(data);
-#endif
-	return;
-}
-
 static struct btusb_data *rtk_alloc(struct usb_interface *intf)
 {
 	struct btusb_data *data;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 7, 1)
-	data = kzalloc(sizeof(*data), GFP_KERNEL);
-#else
 	data = devm_kzalloc(&intf->dev, sizeof(*data), GFP_KERNEL);
-#endif
 	return data;
 }
 
@@ -1376,7 +1364,6 @@ static int btusb_probe(struct usb_interface *intf,
 	}
 
 	if (!data->intr_ep || !data->bulk_tx_ep || !data->bulk_rx_ep) {
-		rtk_free(data);
 		return -ENODEV;
 	}
 
@@ -1404,7 +1391,6 @@ static int btusb_probe(struct usb_interface *intf,
 
 	hdev = hci_alloc_dev();
 	if (!hdev) {
-		rtk_free(data);
 		return -ENOMEM;
 	}
 
@@ -1442,7 +1428,6 @@ static int btusb_probe(struct usb_interface *intf,
 						 data->isoc, data);
 		if (err < 0) {
 			hci_free_dev(hdev);
-			rtk_free(data);
 			return err;
 		}
 	}
@@ -1454,7 +1439,6 @@ static int btusb_probe(struct usb_interface *intf,
 	err = hci_register_dev(hdev);
 	if (err < 0) {
 		hci_free_dev(hdev);
-		rtk_free(data);
 		return err;
 	}
 
@@ -1522,7 +1506,6 @@ static void btusb_disconnect(struct usb_interface *intf)
 #endif
 
 	hci_free_dev(hdev);
-	rtk_free(data);
 }
 
 #ifdef CONFIG_PM
@@ -1677,9 +1660,7 @@ static struct usb_driver btusb_driver = {
 #endif
 	.id_table = btusb_table,
 	.supports_autosuspend = 1,
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 1)
 	.disable_hub_initiated_lpm = 1,
-#endif
 };
 
 static int __init btusb_init(void)

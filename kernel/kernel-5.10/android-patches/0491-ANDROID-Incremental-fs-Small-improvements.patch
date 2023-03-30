@@ -1,0 +1,326 @@
+From 4eda75216c740bb0979d624b4f3db8e4f39cb9bb Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 8 Oct 2020 13:08:21 -0700
+Subject: [PATCH 491/830] ANDROID: Incremental fs: Small improvements
+X-NVConfidentiality: public
+
+Rmove bc_mutex used to protect metadata chain, now that is only
+read at file open time
+Remove certain unused mount options
+
+Bug: 172482559
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Id70e5a5d08e5de79f391e19ea97e356f39a3ed51
+---
+ fs/incfs/data_mgmt.c    | 38 +++++---------------------------------
+ fs/incfs/data_mgmt.h    |  8 +-------
+ fs/incfs/format.c       | 28 +---------------------------
+ fs/incfs/format.h       |  5 -----
+ fs/incfs/pseudo_files.c |  7 +++++++
+ fs/incfs/vfs.c          | 18 ------------------
+ 6 files changed, 14 insertions(+), 90 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 14cba02b8189..b6a8b47b4f6d 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -19,6 +19,8 @@
+ #include "format.h"
+ #include "integrity.h"
+ 
++static int incfs_scan_metadata_chain(struct data_file *df);
++
+ static void log_wake_up_all(struct work_struct *work)
+ {
+ 	struct delayed_work *dw = container_of(work, struct delayed_work, work);
+@@ -240,12 +242,8 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 	for (i = 0; i < ARRAY_SIZE(df->df_segments); i++)
+ 		data_file_segment_init(&df->df_segments[i]);
+ 
+-	error = mutex_lock_interruptible(&bfc->bc_mutex);
+-	if (error)
+-		goto out;
+ 	error = incfs_read_file_header(bfc, &df->df_metadata_off, &df->df_id,
+ 				       &size, &df->df_header_flags);
+-	mutex_unlock(&bfc->bc_mutex);
+ 
+ 	if (error)
+ 		goto out;
+@@ -1373,7 +1371,7 @@ static int process_status_md(struct incfs_status *is,
+ 	return 0;
+ }
+ 
+-int incfs_scan_metadata_chain(struct data_file *df)
++static int incfs_scan_metadata_chain(struct data_file *df)
+ {
+ 	struct metadata_handler *handler = NULL;
+ 	int result = 0;
+@@ -1390,12 +1388,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 	if (!handler)
+ 		return -ENOMEM;
+ 
+-	/* No writing to the backing file while it's being scanned. */
+-	error = mutex_lock_interruptible(&bfc->bc_mutex);
+-	if (error)
+-		goto out;
+-
+-	/* Reading superblock */
+ 	handler->md_record_offset = df->df_metadata_off;
+ 	handler->context = df;
+ 	handler->handle_blockmap = process_blockmap_md;
+@@ -1418,7 +1410,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 		result = error;
+ 	} else
+ 		result = records_count;
+-	mutex_unlock(&bfc->bc_mutex);
+ 
+ 	if (df->df_hash_tree) {
+ 		int hash_block_count = get_blocks_count_for_size(
+@@ -1430,7 +1421,6 @@ int incfs_scan_metadata_chain(struct data_file *df)
+ 	} else if (df->df_data_block_count != df->df_total_block_count)
+ 		result = -EINVAL;
+ 
+-out:
+ 	kfree(handler);
+ 	return result;
+ }
+@@ -1443,10 +1433,6 @@ bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number)
+ {
+ 	bool result = false;
+ 
+-	/*
+-	 * We could probably get away with spin locks here;
+-	 * if we use atomic_read() on both these variables.
+-	 */
+ 	spin_lock(&mi->pending_read_lock);
+ 	result = (mi->mi_last_pending_read_number > last_number) &&
+ 		(mi->mi_pending_reads_count > 0);
+@@ -1461,7 +1447,6 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ {
+ 	int reported_reads = 0;
+ 	struct pending_read *entry = NULL;
+-	bool result = false;
+ 
+ 	if (!mi)
+ 		return -EFAULT;
+@@ -1469,15 +1454,8 @@ int incfs_collect_pending_reads(struct mount_info *mi, int sn_lowerbound,
+ 	if (reads_size <= 0)
+ 		return 0;
+ 
+-	spin_lock(&mi->pending_read_lock);
+-
+-	result = ((mi->mi_last_pending_read_number <= sn_lowerbound)
+-		|| (mi->mi_pending_reads_count == 0));
+-
+-	spin_unlock(&mi->pending_read_lock);
+-
+-	if (result)
+-		return reported_reads;
++	if (!incfs_fresh_pending_reads_exist(mi, sn_lowerbound))
++		return 0;
+ 
+ 	rcu_read_lock();
+ 
+@@ -1609,9 +1587,3 @@ int incfs_collect_logged_reads(struct mount_info *mi,
+ 	return dst_idx;
+ }
+ 
+-bool incfs_equal_ranges(struct mem_range lhs, struct mem_range rhs)
+-{
+-	if (lhs.len != rhs.len)
+-		return false;
+-	return memcmp(lhs.data, rhs.data, lhs.len) == 0;
+-}
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 13b663a1d53e..7bbaf6ddbba4 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -41,7 +41,7 @@ struct same_file_record {
+ 	enum LOG_RECORD_TYPE type : 2; /* SAME_FILE */
+ 	u32 block_index : 30;
+ 	u32 relative_ts_us; /* max 2^32 us ~= 1 hour (1:11:30) */
+-} __packed; /* 12 bytes */
++} __packed; /* 8 bytes */
+ 
+ struct same_file_next_block {
+ 	enum LOG_RECORD_TYPE type : 2; /* SAME_FILE_NEXT_BLOCK */
+@@ -102,8 +102,6 @@ struct mount_options {
+ 	unsigned int readahead_pages;
+ 	unsigned int read_log_pages;
+ 	unsigned int read_log_wakeup_count;
+-	bool no_backing_file_cache;
+-	bool no_backing_file_readahead;
+ 	bool report_uid;
+ };
+ 
+@@ -326,8 +324,6 @@ struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name);
+ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
+ void incfs_free_data_file(struct data_file *df);
+ 
+-int incfs_scan_metadata_chain(struct data_file *df);
+-
+ struct dir_file *incfs_open_dir_file(struct mount_info *mi, struct file *bf);
+ void incfs_free_dir_file(struct dir_file *dir);
+ 
+@@ -448,6 +444,4 @@ static inline int get_blocks_count_for_size(u64 size)
+ 	return 1 + (size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
+ }
+ 
+-bool incfs_equal_ranges(struct mem_range lhs, struct mem_range rhs);
+-
+ #endif /* _INCFS_DATA_MGMT_H */
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 06ddaade8523..52079b5a45e6 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -40,7 +40,7 @@ void incfs_free_bfc(struct backing_file_context *bfc)
+ 	kfree(bfc);
+ }
+ 
+-loff_t incfs_get_end_offset(struct file *f)
++static loff_t incfs_get_end_offset(struct file *f)
+ {
+ 	/*
+ 	 * This function assumes that file size and the end-offset
+@@ -503,29 +503,6 @@ int incfs_write_hash_block_to_backing_file(struct backing_file_context *bfc,
+ 	return write_to_bf(bfc, &bm_entry, sizeof(bm_entry), bm_entry_off);
+ }
+ 
+-/* Initialize a new image in a given backing file. */
+-int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+-				  incfs_uuid_t *uuid, u64 file_size)
+-{
+-	int result = 0;
+-
+-	if (!bfc || !bfc->bc_file)
+-		return -EFAULT;
+-
+-	result = mutex_lock_interruptible(&bfc->bc_mutex);
+-	if (result)
+-		goto out;
+-
+-	result = truncate_backing_file(bfc, 0);
+-	if (result)
+-		goto out;
+-
+-	result = incfs_write_fh_to_backing_file(bfc, uuid, file_size);
+-out:
+-	mutex_unlock(&bfc->bc_mutex);
+-	return result;
+-}
+-
+ int incfs_read_blockmap_entry(struct backing_file_context *bfc, int block_index,
+ 			loff_t bm_base_off,
+ 			struct incfs_blockmap_entry *bm_entry)
+@@ -579,7 +556,6 @@ int incfs_read_file_header(struct backing_file_context *bfc,
+ 	if (!bfc || !first_md_off)
+ 		return -EFAULT;
+ 
+-	LOCK_REQUIRED(bfc->bc_mutex);
+ 	bytes_read = incfs_kread(bfc->bc_file, &fh, sizeof(fh), 0);
+ 	if (bytes_read < 0)
+ 		return bytes_read;
+@@ -627,8 +603,6 @@ int incfs_read_next_metadata_record(struct backing_file_context *bfc,
+ 	if (!bfc || !handler)
+ 		return -EFAULT;
+ 
+-	LOCK_REQUIRED(bfc->bc_mutex);
+-
+ 	if (handler->md_record_offset == 0)
+ 		return -EPERM;
+ 
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index ba54bad0eea7..7b991c35dd19 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -292,8 +292,6 @@ struct metadata_handler {
+ #define INCFS_MAX_METADATA_RECORD_SIZE \
+ 	sizeof_field(struct metadata_handler, md_buffer)
+ 
+-loff_t incfs_get_end_offset(struct file *f);
+-
+ /* Backing file context management */
+ struct backing_file_context *incfs_alloc_bfc(struct file *backing_file);
+ 
+@@ -329,9 +327,6 @@ int incfs_write_status_to_backing_file(struct backing_file_context *bfc,
+ 				       u32 data_blocks_written,
+ 				       u32 hash_blocks_written);
+ 
+-int incfs_make_empty_backing_file(struct backing_file_context *bfc,
+-				  incfs_uuid_t *uuid, u64 file_size);
+-
+ /* Reading stuff */
+ int incfs_read_file_header(struct backing_file_context *bfc,
+ 			   loff_t *first_md_off, incfs_uuid_t *uuid,
+diff --git a/fs/incfs/pseudo_files.c b/fs/incfs/pseudo_files.c
+index d407209c0d99..768abd4269cf 100644
+--- a/fs/incfs/pseudo_files.c
++++ b/fs/incfs/pseudo_files.c
+@@ -336,6 +336,13 @@ static int chmod(struct dentry *dentry, umode_t mode)
+ 	return error;
+ }
+ 
++static bool incfs_equal_ranges(struct mem_range lhs, struct mem_range rhs)
++{
++	if (lhs.len != rhs.len)
++		return false;
++	return memcmp(lhs.data, rhs.data, lhs.len) == 0;
++}
++
+ static bool is_pseudo_filename(struct mem_range name)
+ {
+ 	if (incfs_equal_ranges(pending_reads_file_name_range, name))
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index e794b73a1553..0fee22f0caa9 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -153,8 +153,6 @@ struct inode_search {
+ enum parse_parameter {
+ 	Opt_read_timeout,
+ 	Opt_readahead_pages,
+-	Opt_no_backing_file_cache,
+-	Opt_no_backing_file_readahead,
+ 	Opt_rlog_pages,
+ 	Opt_rlog_wakeup_cnt,
+ 	Opt_report_uid,
+@@ -164,8 +162,6 @@ enum parse_parameter {
+ static const match_table_t option_tokens = {
+ 	{ Opt_read_timeout, "read_timeout_ms=%u" },
+ 	{ Opt_readahead_pages, "readahead=%u" },
+-	{ Opt_no_backing_file_cache, "no_bf_cache=%u" },
+-	{ Opt_no_backing_file_readahead, "no_bf_readahead=%u" },
+ 	{ Opt_rlog_pages, "rlog_pages=%u" },
+ 	{ Opt_rlog_wakeup_cnt, "rlog_wakeup_cnt=%u" },
+ 	{ Opt_report_uid, "report_uid" },
+@@ -210,16 +206,6 @@ static int parse_options(struct mount_options *opts, char *str)
+ 				return -EINVAL;
+ 			opts->readahead_pages = value;
+ 			break;
+-		case Opt_no_backing_file_cache:
+-			if (match_int(&args[0], &value))
+-				return -EINVAL;
+-			opts->no_backing_file_cache = (value != 0);
+-			break;
+-		case Opt_no_backing_file_readahead:
+-			if (match_int(&args[0], &value))
+-				return -EINVAL;
+-			opts->no_backing_file_readahead = (value != 0);
+-			break;
+ 		case Opt_rlog_pages:
+ 			if (match_int(&args[0], &value))
+ 				return -EINVAL;
+@@ -1675,10 +1661,6 @@ static int show_options(struct seq_file *m, struct dentry *root)
+ 		seq_printf(m, ",rlog_wakeup_cnt=%u",
+ 			   mi->mi_options.read_log_wakeup_count);
+ 	}
+-	if (mi->mi_options.no_backing_file_cache)
+-		seq_puts(m, ",no_bf_cache");
+-	if (mi->mi_options.no_backing_file_readahead)
+-		seq_puts(m, ",no_bf_readahead");
+ 	if (mi->mi_options.report_uid)
+ 		seq_puts(m, ",report_uid");
+ 	return 0;
+-- 
+2.17.1
+

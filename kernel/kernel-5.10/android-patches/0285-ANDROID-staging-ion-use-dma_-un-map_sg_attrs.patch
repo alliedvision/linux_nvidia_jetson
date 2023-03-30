@@ -1,0 +1,55 @@
+From 6bbecf065593358792c17364c38821ee1cdeb51e Mon Sep 17 00:00:00 2001
+From: Hyesoo Yu <hyesoo.yu@samsung.com>
+Date: Wed, 1 Apr 2020 19:26:58 +0900
+Subject: [PATCH 285/830] ANDROID: staging: ion: use dma_[un]map_sg_attrs
+X-NVConfidentiality: public
+
+The [un]map_dma_buf receives dma_buf_attachment by
+parameter. The caller could set the dma_map_attrs
+on dma_buf_attachment such as DMA_ATTR_SKIP_CPU_SYNC,
+and expects that attributes are applied.
+The dma_[un]map_sg is changed into dma_[un]map_sg_attrs
+to send the attributes.
+
+Bug: 151775080
+Bug: 170264063
+Signed-off-by: Hyesoo Yu <hyesoo.yu@samsung.com>
+Change-Id: Id5ca12ff120bfeac53a84ffad91e7a219e2180cd
+(cherry picked from commit 16ce0bda52c9948d52e5676359b6cade2662580f)
+Signed-off-by: J. Avila <elavila@google.com>
+(cherry picked from commit da654356c8bfdd9420eb8a2ec1b60da034fb10b2)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+(cherry picked from commit e53e099e2a849be6cf171d2d3c56715b415e3fc1)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+---
+ drivers/staging/android/ion/ion_dma_buf.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/staging/android/ion/ion_dma_buf.c b/drivers/staging/android/ion/ion_dma_buf.c
+index ee0e81eef0df..f2fd58da1a89 100644
+--- a/drivers/staging/android/ion/ion_dma_buf.c
++++ b/drivers/staging/android/ion/ion_dma_buf.c
+@@ -112,7 +112,8 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
+ 	a = attachment->priv;
+ 	table = a->table;
+ 
+-	if (!dma_map_sg(attachment->dev, table->sgl, table->nents, direction))
++	if (!dma_map_sg_attrs(attachment->dev, table->sgl, table->nents,
++			      direction, attachment->dma_map_attrs))
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	a->mapped = true;
+@@ -134,7 +135,8 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
+ 		return heap->buf_ops.unmap_dma_buf(attachment, table,
+ 						   direction);
+ 
+-	dma_unmap_sg(attachment->dev, table->sgl, table->nents, direction);
++	dma_unmap_sg_attrs(attachment->dev, table->sgl, table->nents,
++			   direction, attachment->dma_map_attrs);
+ }
+ 
+ static void ion_dma_buf_release(struct dma_buf *dmabuf)
+-- 
+2.17.1
+

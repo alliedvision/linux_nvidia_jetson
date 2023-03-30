@@ -1,0 +1,88 @@
+From f443a68075111bf30ff87944f1ee7ed80c87fb03 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Thu, 8 Oct 2020 17:11:27 -0700
+Subject: [PATCH 377/830] ANDROID: scsi: ufs: allow overriding the
+ blk_keyslot_manager
+X-NVConfidentiality: public
+
+Add UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER which tells ufshcd-core that the
+host controller supports inline encryption, but it needs to initialize
+the crypto capabilities in a nonstandard way and/or it needs to override
+blk_ksm_ll_ops.  If enabled, the standard code won't initialize the
+blk_keyslot_manager; ufs_hba_variant_ops::init() must do it instead.
+
+It is permitted that the blk_keyslot_manager has no keyslots, i.e. is a
+"passthrough keyslot manager".
+
+This is needed for FMP support, as well as for wrapped key support on
+some hardware.
+
+Bug: 166139333
+Bug: 162257402
+Change-Id: I757c84d3434b935faa8ba7fcf5318af91e694d04
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/scsi/ufs/ufshcd-crypto.c | 12 ++++++++----
+ drivers/scsi/ufs/ufshcd.h        |  9 +++++++++
+ 2 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd-crypto.c b/drivers/scsi/ufs/ufshcd-crypto.c
+index 07310b12a5dc..8bedb4b13d8a 100644
+--- a/drivers/scsi/ufs/ufshcd-crypto.c
++++ b/drivers/scsi/ufs/ufshcd-crypto.c
+@@ -120,7 +120,8 @@ bool ufshcd_crypto_enable(struct ufs_hba *hba)
+ 		return false;
+ 
+ 	/* Reset might clear all keys, so reprogram all the keys. */
+-	blk_ksm_reprogram_all_keys(&hba->ksm);
++	if (hba->ksm.num_slots)
++		blk_ksm_reprogram_all_keys(&hba->ksm);
+ 	return true;
+ }
+ 
+@@ -157,6 +158,9 @@ int ufshcd_hba_init_crypto_capabilities(struct ufs_hba *hba)
+ 	int err = 0;
+ 	enum blk_crypto_mode_num blk_mode_num;
+ 
++	if (hba->quirks & UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER)
++		return 0;
++
+ 	/*
+ 	 * Don't use crypto if either the hardware doesn't advertise the
+ 	 * standard crypto capability bit *or* if the vendor specific driver
+@@ -227,9 +231,9 @@ void ufshcd_init_crypto(struct ufs_hba *hba)
+ 	if (!(hba->caps & UFSHCD_CAP_CRYPTO))
+ 		return;
+ 
+-	/* Clear all keyslots - the number of keyslots is (CFGC + 1) */
+-	for (slot = 0; slot < hba->crypto_capabilities.config_count + 1; slot++)
+-		ufshcd_clear_keyslot(hba, slot);
++	/* Clear all keyslots */
++	for (slot = 0; slot < hba->ksm.num_slots; slot++)
++		hba->ksm.ksm_ll_ops.keyslot_evict(&hba->ksm, NULL, slot);
+ }
+ 
+ void ufshcd_crypto_setup_rq_keyslot_manager(struct ufs_hba *hba,
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index c02105599b63..5f49e5e35755 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -587,6 +587,15 @@ enum ufshcd_quirks {
+ 	 * Enable this quirk to support UFS WLUNS
+ 	 */
+ 	UFSHCD_QUIRK_ENABLE_WLUNS			= 1 << 16,
++
++	/*
++	 * This quirk needs to be enabled if the host controller supports inline
++	 * encryption, but it needs to initialize the crypto capabilities in a
++	 * nonstandard way and/or it needs to override blk_ksm_ll_ops.  If
++	 * enabled, the standard code won't initialize the blk_keyslot_manager;
++	 * ufs_hba_variant_ops::init() must do it instead.
++	 */
++	UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER		= 1 << 20,
+ };
+ 
+ enum ufshcd_caps {
+-- 
+2.17.1
+

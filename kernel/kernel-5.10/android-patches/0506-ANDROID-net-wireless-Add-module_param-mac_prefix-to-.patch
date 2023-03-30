@@ -1,0 +1,57 @@
+From a8bce4001b5fa8cc030199edda26d72368ef994a Mon Sep 17 00:00:00 2001
+From: Roman Kiryanov <rkir@google.com>
+Date: Thu, 27 Feb 2020 11:15:07 -0800
+Subject: [PATCH 506/830] ANDROID: net: wireless: Add module_param(mac_prefix)
+ to mac80211_hwsim
+X-NVConfidentiality: public
+
+By default mac80211_hwsim creates N radios with
+MAC addresses like '02:00:00:nn:nn:00' where nnnn
+is incremented.
+
+We (Android Studio Emulator) need a way to have unique
+MAC addresses, mac_prefix provides a way to specify
+two octets in MAC address, i.e. '02:xx:xx:nn:nn:00'
+to make it unique between emulator instances.
+
+This is temporary solution and should be replaced
+by HWSIM_CMD_NEW_RADIO with HWSIM_ATTR_PERM_ADDR,
+the work is tracked in b/149778407.
+
+Bug: 150388981
+Bug: 149778407
+Bug: 147493341
+Test: check if wifi works on emulator
+Signed-off-by: Roman Kiryanov <rkir@google.com>
+Change-Id: Ibab0de6cb720d55c7be0b96e40ec70e221e04d7f
+---
+ drivers/net/wireless/mac80211_hwsim.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index cc550ba0c9df..6911e588e578 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -65,6 +65,10 @@ static bool support_p2p_device = true;
+ module_param(support_p2p_device, bool, 0444);
+ MODULE_PARM_DESC(support_p2p_device, "Support P2P-Device interface type");
+ 
++static ushort mac_prefix;
++module_param(mac_prefix, ushort, 0444);
++MODULE_PARM_DESC(mac_prefix, "Second and third most significant octets in MAC");
++
+ /**
+  * enum hwsim_regtest - the type of regulatory tests we offer
+  *
+@@ -3029,6 +3033,8 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
+ 	if (!param->perm_addr) {
+ 		eth_zero_addr(addr);
+ 		addr[0] = 0x02;
++		addr[1] = (mac_prefix >> 8) & 0xFF;
++		addr[2] = mac_prefix & 0xFF;
+ 		addr[3] = idx >> 8;
+ 		addr[4] = idx;
+ 		memcpy(data->addresses[0].addr, addr, ETH_ALEN);
+-- 
+2.17.1
+

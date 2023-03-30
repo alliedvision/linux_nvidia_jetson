@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,6 +24,9 @@
 #include <nvgpu/kmem.h>
 #include <nvgpu/vidmem.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/string.h>
+#include <nvgpu/nvgpu_sgt.h>
+#include <nvgpu/nvgpu_sgt_os.h>
 
 #include <nvgpu/linux/dma.h>
 
@@ -33,17 +36,25 @@
 #include "os_linux.h"
 #include "dmabuf_vidmem.h"
 
-#include "gk20a/mm_gk20a.h"
 #include "platform_gk20a.h"
 
-static u64 __nvgpu_sgl_phys(struct gk20a *g, struct nvgpu_sgl *sgl)
+#ifndef DMA_ERROR_CODE
+#define DMA_ERROR_CODE DMA_MAPPING_ERROR
+#endif
+
+static u64 __nvgpu_sgl_ipa(struct gk20a *g, void *sgl)
+{
+	return sg_phys((struct scatterlist *)sgl);
+}
+
+static u64 __nvgpu_sgl_phys(struct gk20a *g, void *sgl)
 {
 	struct device *dev = dev_from_gk20a(g);
 	struct gk20a_platform *platform = gk20a_get_platform(dev);
 	u64 ipa = sg_phys((struct scatterlist *)sgl);
 
 	if (platform->phys_addr)
-		return platform->phys_addr(g, ipa);
+		return platform->phys_addr(g, ipa, NULL);
 
 	return ipa;
 }
@@ -57,12 +68,12 @@ u64 nvgpu_mem_get_addr_sgl(struct gk20a *g, struct scatterlist *sgl)
 {
 	if (nvgpu_is_enabled(g, NVGPU_MM_USE_PHYSICAL_SG) ||
 	    !nvgpu_iommuable(g))
-		return g->ops.mm.gpu_phys_addr(g, NULL,
-			__nvgpu_sgl_phys(g, (struct nvgpu_sgl *)sgl));
+		return g->ops.mm.gmmu.gpu_phys_addr(g, NULL,
+			__nvgpu_sgl_phys(g, (void *)sgl));
 
 	if (sg_dma_address(sgl) == 0)
-		return g->ops.mm.gpu_phys_addr(g, NULL,
-			__nvgpu_sgl_phys(g, (struct nvgpu_sgl *)sgl));
+		return g->ops.mm.gmmu.gpu_phys_addr(g, NULL,
+			__nvgpu_sgl_phys(g, (void *)sgl));
 
 	if (sg_dma_address(sgl) == DMA_ERROR_CODE)
 		return 0;
@@ -96,6 +107,7 @@ static u64 nvgpu_mem_get_addr_sysmem(struct gk20a *g, struct nvgpu_mem *mem)
  */
 u64 nvgpu_mem_get_addr(struct gk20a *g, struct nvgpu_mem *mem)
 {
+#ifdef CONFIG_NVGPU_DGPU
 	struct nvgpu_page_alloc *alloc;
 
 	if (mem->aperture == APERTURE_SYSMEM)
@@ -110,6 +122,12 @@ u64 nvgpu_mem_get_addr(struct gk20a *g, struct nvgpu_mem *mem)
 	WARN_ON(alloc->nr_chunks != 1);
 
 	return alloc->base;
+#else
+	if (mem->aperture == APERTURE_SYSMEM)
+		return nvgpu_mem_get_addr_sysmem(g, mem);
+
+	return 0;
+#endif
 }
 
 /*
@@ -119,14 +137,16 @@ u64 nvgpu_mem_get_addr(struct gk20a *g, struct nvgpu_mem *mem)
  */
 u64 nvgpu_mem_get_phys_addr(struct gk20a *g, struct nvgpu_mem *mem)
 {
+#ifdef CONFIG_NVGPU_DGPU
 	/*
 	 * For a VIDMEM buf, this is identical to simply get_addr() so just fall
 	 * back to that.
 	 */
 	if (mem->aperture == APERTURE_VIDMEM)
 		return nvgpu_mem_get_addr(g, mem);
+#endif
 
-	return __nvgpu_sgl_phys(g, (struct nvgpu_sgl *)mem->priv.sgt->sgl);
+	return __nvgpu_sgl_phys(g, (void *)mem->priv.sgt->sgl);
 }
 
 /*
@@ -135,11 +155,11 @@ u64 nvgpu_mem_get_phys_addr(struct gk20a *g, struct nvgpu_mem *mem)
  */
 int nvgpu_mem_create_from_mem(struct gk20a *g,
 			      struct nvgpu_mem *dest, struct nvgpu_mem *src,
-			      u64 start_page, int nr_pages)
+			      u64 start_page, size_t nr_pages)
 {
 	int ret;
-	u64 start = start_page * PAGE_SIZE;
-	u64 size = nr_pages * PAGE_SIZE;
+	u64 start = start_page * NVGPU_CPU_PAGE_SIZE;
+	u64 size = nr_pages * NVGPU_CPU_PAGE_SIZE;
 	dma_addr_t new_iova;
 
 	if (src->aperture != APERTURE_SYSMEM)
@@ -156,15 +176,9 @@ int nvgpu_mem_create_from_mem(struct gk20a *g,
 	dest->skip_wmb  = src->skip_wmb;
 	dest->size      = size;
 
-	/*
-	 * Re-use the CPU mapping only if the mapping was made by the DMA API.
-	 *
-	 * Bug 2040115: the DMA API wrapper makes the mapping that we should
-	 * re-use.
-	 */
-	if (!(src->priv.flags & NVGPU_DMA_NO_KERNEL_MAPPING) ||
-	    nvgpu_is_enabled(g, NVGPU_USE_COHERENT_SYSMEM))
-		dest->cpu_va = src->cpu_va + (PAGE_SIZE * start_page);
+	/* Re-use the CPU mapping only if the mapping was made by the DMA API */
+	if (!(src->priv.flags & NVGPU_DMA_NO_KERNEL_MAPPING))
+		dest->cpu_va = src->cpu_va + (NVGPU_CPU_PAGE_SIZE * start_page);
 
 	dest->priv.pages = src->priv.pages + start_page;
 	dest->priv.flags = src->priv.flags;
@@ -187,91 +201,49 @@ int nvgpu_mem_create_from_mem(struct gk20a *g,
 	return ret;
 }
 
-int __nvgpu_mem_create_from_pages(struct gk20a *g, struct nvgpu_mem *dest,
-				  struct page **pages, int nr_pages)
+static void *nvgpu_mem_linux_sgl_next(void *sgl)
 {
-	struct sg_table *sgt;
-	struct page **our_pages =
-		nvgpu_kmalloc(g, sizeof(struct page *) * nr_pages);
-
-	if (!our_pages)
-		return -ENOMEM;
-
-	memcpy(our_pages, pages, sizeof(struct page *) * nr_pages);
-
-	if (nvgpu_get_sgtable_from_pages(g, &sgt, pages, 0,
-					 nr_pages * PAGE_SIZE)) {
-		nvgpu_kfree(g, our_pages);
-		return -ENOMEM;
-	}
-
-	/*
-	 * If we are making an SGT from physical pages we can be reasonably
-	 * certain that this should bypass the SMMU - thus we set the DMA (aka
-	 * IOVA) address to 0. This tells the GMMU mapping code to not make a
-	 * mapping directed to the SMMU.
-	 */
-	sg_dma_address(sgt->sgl) = 0;
-
-	dest->mem_flags  = __NVGPU_MEM_FLAG_NO_DMA;
-	dest->aperture   = APERTURE_SYSMEM;
-	dest->skip_wmb   = 0;
-	dest->size       = PAGE_SIZE * nr_pages;
-
-	dest->priv.flags = 0;
-	dest->priv.pages = our_pages;
-	dest->priv.sgt   = sgt;
-
-	return 0;
+	return (void *)sg_next((struct scatterlist *)sgl);
 }
 
-#ifdef CONFIG_TEGRA_GK20A_NVHOST
-int __nvgpu_mem_create_from_phys(struct gk20a *g, struct nvgpu_mem *dest,
-				 u64 src_phys, int nr_pages)
+static u64 nvgpu_mem_linux_sgl_ipa(struct gk20a *g, void *sgl)
 {
-	struct page **pages =
-		nvgpu_kmalloc(g, sizeof(struct page *) * nr_pages);
-	int i, ret = 0;
-
-	if (!pages)
-		return -ENOMEM;
-
-	for (i = 0; i < nr_pages; i++)
-		pages[i] = phys_to_page(src_phys + PAGE_SIZE * i);
-
-	ret = __nvgpu_mem_create_from_pages(g, dest, pages, nr_pages);
-	nvgpu_kfree(g, pages);
-
-	return ret;
-}
-#endif
-
-static struct nvgpu_sgl *nvgpu_mem_linux_sgl_next(struct nvgpu_sgl *sgl)
-{
-	return (struct nvgpu_sgl *)sg_next((struct scatterlist *)sgl);
+	return __nvgpu_sgl_ipa(g, sgl);
 }
 
-static u64 nvgpu_mem_linux_sgl_phys(struct gk20a *g, struct nvgpu_sgl *sgl)
+static u64 nvgpu_mem_linux_sgl_ipa_to_pa(struct gk20a *g,
+		void *sgl, u64 ipa, u64 *pa_len)
+{
+	struct device *dev = dev_from_gk20a(g);
+	struct gk20a_platform *platform = gk20a_get_platform(dev);
+
+	if (platform->phys_addr)
+		return platform->phys_addr(g, ipa, pa_len);
+
+	return ipa;
+}
+
+static u64 nvgpu_mem_linux_sgl_phys(struct gk20a *g, void *sgl)
 {
 	return (u64)__nvgpu_sgl_phys(g, sgl);
 }
 
-static u64 nvgpu_mem_linux_sgl_dma(struct nvgpu_sgl *sgl)
+static u64 nvgpu_mem_linux_sgl_dma(void *sgl)
 {
 	return (u64)sg_dma_address((struct scatterlist *)sgl);
 }
 
-static u64 nvgpu_mem_linux_sgl_length(struct nvgpu_sgl *sgl)
+static u64 nvgpu_mem_linux_sgl_length(void *sgl)
 {
 	return (u64)((struct scatterlist *)sgl)->length;
 }
 
 static u64 nvgpu_mem_linux_sgl_gpu_addr(struct gk20a *g,
-					struct nvgpu_sgl *sgl,
+					void *sgl,
 					struct nvgpu_gmmu_attrs *attrs)
 {
 	if (sg_dma_address((struct scatterlist *)sgl) == 0)
-		return g->ops.mm.gpu_phys_addr(g, attrs,
+		return g->ops.mm.gmmu.gpu_phys_addr(g, attrs,
 				__nvgpu_sgl_phys(g, sgl));
 
 	if (sg_dma_address((struct scatterlist *)sgl) == DMA_ERROR_CODE)
@@ -301,6 +273,8 @@ static void nvgpu_mem_linux_sgl_free(struct gk20a *g, struct nvgpu_sgt *sgt)
 static const struct nvgpu_sgt_ops nvgpu_linux_sgt_ops = {
 	.sgl_next      = nvgpu_mem_linux_sgl_next,
 	.sgl_phys      = nvgpu_mem_linux_sgl_phys,
+	.sgl_ipa       = nvgpu_mem_linux_sgl_ipa,
+	.sgl_ipa_to_pa = nvgpu_mem_linux_sgl_ipa_to_pa,
 	.sgl_dma       = nvgpu_mem_linux_sgl_dma,
 	.sgl_length    = nvgpu_mem_linux_sgl_length,
 	.sgl_gpu_addr  = nvgpu_mem_linux_sgl_gpu_addr,
@@ -308,6 +282,7 @@ static const struct nvgpu_sgt_ops nvgpu_linux_sgt_ops = {
 	.sgt_free      = nvgpu_mem_linux_sgl_free,
 };
 
+#ifdef CONFIG_NVGPU_DGPU
 static struct nvgpu_sgt *__nvgpu_mem_get_sgl_from_vidmem(
 	struct gk20a *g,
 	struct scatterlist *linux_sgl)
@@ -320,14 +295,17 @@ static struct nvgpu_sgt *__nvgpu_mem_get_sgl_from_vidmem(
 
 	return &vidmem_alloc->sgt;
 }
+#endif
 
 struct nvgpu_sgt *nvgpu_linux_sgt_create(struct gk20a *g, struct sg_table *sgt)
 {
 	struct nvgpu_sgt *nvgpu_sgt;
 	struct scatterlist *linux_sgl = sgt->sgl;
 
+#ifdef CONFIG_NVGPU_DGPU
 	if (nvgpu_addr_is_vidmem_page_alloc(sg_dma_address(linux_sgl)))
 		return __nvgpu_mem_get_sgl_from_vidmem(g, linux_sgl);
+#endif
 
 	nvgpu_sgt = nvgpu_kzalloc(g, sizeof(*nvgpu_sgt));
 	if (!nvgpu_sgt)
@@ -335,14 +313,14 @@ struct nvgpu_sgt *nvgpu_linux_sgt_create(struct gk20a *g, struct sg_table *sgt)
 
 	nvgpu_log(g, gpu_dbg_sgl, "Making Linux SGL!");
 
-	nvgpu_sgt->sgl = (struct nvgpu_sgl *)linux_sgl;
+	nvgpu_sgt->sgl = (void *)linux_sgl;
 	nvgpu_sgt->ops = &nvgpu_linux_sgt_ops;
 
 	return nvgpu_sgt;
 }
 
-struct nvgpu_sgt *nvgpu_sgt_create_from_mem(struct gk20a *g,
-					    struct nvgpu_mem *mem)
+struct nvgpu_sgt *nvgpu_sgt_os_create_from_mem(struct gk20a *g,
+					       struct nvgpu_mem *mem)
 {
 	return nvgpu_linux_sgt_create(g, mem->priv.sgt);
 }

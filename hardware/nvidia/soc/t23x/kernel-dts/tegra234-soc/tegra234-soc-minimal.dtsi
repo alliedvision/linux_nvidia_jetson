@@ -1,0 +1,86 @@
+/*
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra234-soc-minimal.dtsi: dtsi file that provides a skeleton for boot to
+ *                            shell. Please don't modify this file unless
+ *                            without the new change, boot to shell is broken.
+ */
+
+#include "dt-bindings/interrupt/tegra234-irq.h"
+#include "dt-bindings/interrupt-controller/arm-gic.h"
+#include "dt-bindings/interrupt-controller/tegra-t23x-agic.h"
+#include <dt-bindings/version.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "nvidia,tegra186";
+	interrupt-parent = <&intc>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+#if TEGRA_IOMMU_DT_VERSION < DT_VERSION_2
+	dma-ranges = <0x0 0x0 0x0 0x0 0x7f 0xffff0000>;
+#endif
+
+	intc: interrupt-controller@f400000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#redistributor-regions = <1>;
+		interrupt-controller;
+		reg = <0x0 0x0f400000 0x0 0x00010000    /* GICD */
+		       0x0 0x0f440000 0x0 0x00200000>;  /* GICR CPU 0-15 */
+		ranges;
+		status = "disabled";
+
+		gic_v2m: v2m@f410000 {
+			compatible = "arm,gic-v2m-frame";
+			msi-controller;
+			#msi-cells = <1>;
+			reg = <0x0 0x0f410000 0x0 0x00010000	/* GICA */
+			       0x0 0x54000000 0x0 0x04000000>;
+			reg-names = "gic_base", "msi_base";
+			arm,msi-base-spi = <GIC_SPI_MSI_BASE>;
+			arm,msi-num-spis = <GIC_SPI_MSI_SIZE>;
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 14
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 11
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>,
+			     <GIC_PPI 10
+				(GIC_CPU_MASK_SIMPLE(8) | IRQ_TYPE_LEVEL_LOW)>;
+		status = "disabled";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = < 0x0 0x80000000 0x0 0xc0000000 >;
+	};
+
+	uarta: serial@3100000 {
+		compatible = "nvidia,tegra20-uart";
+		reg = <0x0 0x3100000 0x0 0x10000>;
+		reg-shift = <0x2>;
+		interrupts = <0x0 0x70 0x4>;
+		clock-frequency = <408000000>;
+	};
+
+};

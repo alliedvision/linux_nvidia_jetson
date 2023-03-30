@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -106,7 +106,7 @@ int tegra_mce_write_cstate_stats(u32 state, u32 stats);
 int tegra_mce_is_sc7_allowed(u32 state, u32 wake, u32 *allowed);
 int tegra_mce_online_core(int cpu);
 int tegra_mce_cc3_ctrl(u32 ndiv, u32 vindex, u8 enable);
-int tegra_mce_echo_data(u32 data, int *matched);
+int tegra_mce_echo_data(u64 data, u64 *matched);
 int tegra_mce_read_versions(u32 *major, u32 *minor);
 int tegra_mce_enum_features(u64 *features);
 int tegra_mce_read_uncore_mca(mca_cmd_t cmd, u64 *data, u32 *error);
@@ -117,12 +117,45 @@ int tegra_mce_enable_latic(void);
 int tegra_mce_write_dda_ctrl(u32 index, u64 value);
 int tegra_mce_read_dda_ctrl(u32 index, u64 *value);
 
-/* Tegra cache functions */
-int tegra_flush_cache_all(void);
-int tegra_flush_dcache_all(void *__maybe_unused unused);
-int tegra_clean_dcache_all(void *__maybe_unused unused);
 /* L3 cache ways read/write functions */
 int tegra_mce_read_l3_cache_ways(u64 *value);
 int tegra_mce_write_l3_cache_ways(u64 data, u64 *value);
 
+int tegra_mce_read_rt_safe_mask(u64 *);
+int tegra_mce_write_rt_safe_mask(u64);
+int tegra_mce_read_rt_window_us(u64 *);
+int tegra_mce_write_rt_window_us(u64);
+int tegra_mce_read_rt_fwd_progress_us(u64 *);
+int tegra_mce_write_rt_fwd_progress_us(u64);
+
+struct tegra_mce_ops {
+	int (*enter_cstate)(u32, u32);
+	int (*update_cstate_info)(u32, u32, u32, u8, u32, bool);
+	int (*update_crossover_time)(u32, u32);
+	int (*read_cstate_stats)(u32, u64 *);
+	int (*write_cstate_stats)(u32, u32);
+	int (*is_sc7_allowed)(u32, u32, u32 *);
+	int (*online_core)(int);
+	int (*cc3_ctrl)(u32, u32, u8);
+	int (*echo_data)(u64, u64*);
+	int (*read_versions)(u32 *, u32 *);
+	int (*enum_features)(u64 *);
+	int (*read_uncore_mca)(mca_cmd_t, u64 *, u32 *);
+	int (*write_uncore_mca)(mca_cmd_t, u64, u32 *);
+	int (*read_uncore_perfmon)(u32, u32 *);
+	int (*write_uncore_perfmon)(u32, u32);
+	int (*enable_latic)(void);
+	int (*write_dda_ctrl)(u32 index, u64 value);
+	int (*read_dda_ctrl)(u32 index, u64 *value);
+	int (*read_l3_cache_ways)(u64 *value);
+	int (*write_l3_cache_ways)(u64 data, u64 *value);
+	int (*read_rt_safe_mask)(u64 *);
+	int (*write_rt_safe_mask)(u64);
+	int (*read_rt_window_us)(u64 *);
+	int (*write_rt_window_us)(u64);
+	int (*read_rt_fwd_progress_us)(u64 *);
+	int (*write_rt_fwd_progress_us)(u64);
+};
+
+void tegra_mce_set_ops(struct tegra_mce_ops *);
 #endif /* _LINUX_TEGRA_MCE_H */

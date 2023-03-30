@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Authors:
  *      VenkataJagadish.p	<vjagadish@nvidia.com>
@@ -22,15 +22,55 @@
 
 #include <linux/io.h>
 
-#define NV_ADDRESS_MAP_MPHY_L0_BASE	0x02470000
-#define NV_ADDRESS_MAP_MPHY_L1_BASE	0x02480000
-#define NV_ADDRESS_MAP_UFSHC_AUX_BASE	0x02460000
+#define NV_ADDRESS_MAP_MPHY_L0_BASE		0x02470000
+#define NV_ADDRESS_MAP_MPHY_L1_BASE		0x02480000
+#define MPHY_ADDR_RANGE_T234			0x2268
+#define MPHY_ADDR_RANGE				0x200
+
+/* UFS AUX Base address for T194 */
+#define NV_ADDRESS_MAP_UFSHC_AUX_BASE		0x02460000
+/* UFS AUX address range in T194 */
+#define UFS_AUX_ADDR_RANGE			0x1C
+
+/* UFS AUX Base address for T234 */
+#define NV_ADDRESS_MAP_T23X_UFSHC_AUX_BASE	0x02510000
+/* UFS AUX address range in T234 */
+#define UFS_AUX_ADDR_RANGE_23X			0x20
+
 
 /*
  * M-PHY Registers
  */
+#define MPHY_RX_APB_CAPABILITY_9C_9F_0		0x9c
+#define MPHY_RX_APB_VENDOR22_0			0x1d4
+#define MPHY_RX_APB_VENDOR24_0			0x1dc
+#define MPHY_RX_APB_VENDOR3_0_T234		0x2188
+#define MPHY_RX_APB_VENDOR4_0_T234		0x218c
+#define MPHY_RX_APB_VENDOR5_0_T234		0x2190
+#define MPHY_RX_APB_VENDOR8_0_T234		0x219c
+#define MPHY_RX_APB_VENDOR9_0_T234		0x21a0
+#define MPHY_RX_APB_VENDOR14_0_T234		0x21b4
+#define MPHY_RX_APB_VENDOR22_0_T234		0x21d4
+#define MPHY_RX_APB_VENDOR24_0_T234		0x21dc
+#define MPHY_RX_APB_VENDOR34_0_T234		0x2204
+#define MPHY_RX_APB_VENDOR37_0_T234		0X2210
+#define MPHY_RX_APB_VENDOR3B_0_T234             0X2220
+#define MPHY_RX_APB_VENDOR49_0_T234		0x2254
 
-#define MPHY_TX_APB_TX_CG_OVR0_0	0x170
+#define MPHY_TX_APB_TX_ATTRIBUTE_2C_2F_0	0x2c
+#define MPHY_TX_APB_TX_VENDOR0_0		0x100
+#define MPHY_TX_APB_TX_CG_OVR0_0		0x170
+#define MPHY_TX_APB_TX_VENDOR0_0_T234		0x1100
+#define MPHY_TX_APB_TX_VENDOR3_0_T234		0x110c
+#define MPHY_TX_APB_TX_VENDOR4_0_T234		0x1110
+#define MPHY_TX_APB_TX_CG_OVR0_0_T234		0x1170
+#define MPHY_TX_APB_PAD_TIMING14_0_T234		0x1194
+
+#define MPHY_TX_APB_TX_CLK_CTRL0_0		0x160
+#define MPHY_TX_APB_TX_CLK_CTRL2_0		0x168
+#define MPHY_TX_APB_TX_CLK_CTRL0_0_T234		0x1160
+#define MPHY_TX_APB_TX_CLK_CTRL2_0_T234		0x1168
+
 #define MPHY_TX_CLK_EN_SYMB	(1 << 1)
 #define MPHY_TX_CLK_EN_SLOW	(1 << 3)
 #define MPHY_TX_CLK_EN_FIXED	(1 << 4)
@@ -39,10 +79,9 @@
 #define MPHY_TX_APB_TX_ATTRIBUTE_34_37_0	0x34
 #define TX_ADVANCED_GRANULARITY		(0x8 << 16)
 #define TX_ADVANCED_GRANULARITY_SETTINGS	(0x1 << 8)
+#define MPHY_PWR_CHANGE_CLK_BOOST		0x0017
+#define MPHY_EQ_TIMEOUT				0x1AADB5
 #define MPHY_GO_BIT	1
-
-#define MPHY_TX_APB_TX_VENDOR0_0	0x100
-
 
 #define MPHY_RX_APB_CAPABILITY_88_8B_0		0x88
 #define RX_HS_G1_SYNC_LENGTH_CAPABILITY(x)	(((x) & 0x3f) << 24)
@@ -53,7 +92,7 @@
 #define RX_HS_G3_SYNC_LENGTH_CAPABILITY(x)	(((x) & 0x3f) << 8)
 
 #define MPHY_RX_APB_CAPABILITY_8C_8F_0		0x8c
-#define RX_MIN_ACTIVATETIME_CAP(x)		(((x) & 0xf) << 24)
+#define RX_MIN_ACTIVATETIME_CAP_ARG(x)		(((x) & 0xf) << 24)
 #define RX_MIN_ACTIVATETIME			0x5
 
 #define	MPHY_RX_APB_CAPABILITY_98_9B_0		0x98
@@ -63,28 +102,39 @@
 #define RX_ADVANCED_MIN_AT			0xa
 
 
-#define MPHY_RX_APB_VENDOR2_0		0x184
+#define MPHY_RX_APB_VENDOR2_0			0x184
+#define MPHY_RX_APB_VENDOR2_0_T234		0x2184
 #define MPHY_RX_APB_VENDOR2_0_RX_CAL_EN		(1 << 15)
 #define MPHY_RX_APB_VENDOR2_0_RX_CAL_DONE	(1 << 19)
 
+#define MPHY_RX_CAPABILITY_88_8B_VAL_FPGA	0x4f00fa1a
+#define MPHY_RX_CAPABILITY_8C_8F_VAL_FPGA	0x50e080e
+#define MPHY_RX_CAPABILITY_94_97_VAL_FPGA	0xe0e4f4f
+#define MPHY_RX_CAPABILITY_98_9B_VAL_FPGA	0x4e0a0203
+
+/* T234 FPGA specific values for clock dividor */
+#define MPHY_RX_PWM_CLOCK_DIV_VAL_FPGA		0x80f1e34
+#define MPHY_RX_HS_CLOCK_DIV_VAL_FPGA		0x01020608
+#define MPHY_TX_PWM_CLOCK_DIV_VAL_FPGA		0x08102040
+#define MPHY_TX_HS_CLOCK_DIV_VAL_FPGA		0x00000220
+#define MPHY_TX_HIBERN8_ENTER_TIME_FPGA		0x8
+
+#define MPHY_RX_GO_REG_VAL_FPGA			0x4001
 
 /* Unipro Vendor registers */
 
 /*
-+ * Vendor Specific Attributes
-+ */
+ * Vendor Specific Attributes
+ */
 
 #define VS_DEBUGSAVECONFIGTIME		0xD0A0
 #define VS_DEBUGSAVECONFIGTIME_TREF	0x6
 #define SET_TREF(x)			(((x) & 0x7) << 2)
 #define VS_DEBUGSAVECONFIGTIME_ST_SCT	0x3
 #define SET_ST_SCT(x)			((x) & 0x3)
-
+#define VS_BURSTMBLCONFIG		(0x5 << 13)
+#define VS_BURSTMBLREGISTER		0xc0
 #define VS_TXBURSTCLOSUREDELAY		0xD084
-
-
-#define MPHY_ADDR_RANGE		0x1fc
-#define UFS_AUX_ADDR_RANGE	0x18
 
 /*UFS Clock Defines*/
 #define UFSHC_CLK_FREQ		204000000
@@ -93,6 +143,10 @@
 /*Uphy pll clock defines*/
 #define UFS_CLK_UPHY_PLL3_RATEA 4992000000
 #define UFS_CLK_UPHY_PLL3_RATEB 5840000000
+
+/* HS clock frequencies */
+#define MPHY_TX_HS_BIT_DIV_CLK	600000000
+#define MPHY_RX_HS_BIT_DIV_CLK	312500000
 
 enum ufs_state {
 	UFSHC_INIT,
@@ -248,6 +302,7 @@ struct ufs_tegra_host {
 	bool x2config;
 	bool enable_mphy_rx_calib;
 	bool enable_hs_mode;
+	bool enable_38mhz_clk;
 	bool enable_ufs_provisioning;
 	u32 max_hs_gear;
 	bool mask_fast_auto_mode;
@@ -275,12 +330,19 @@ struct ufs_tegra_host {
 	struct clk *mphy_l0_tx_ls_3xbit;
 	struct clk *mphy_l0_rx_ls_bit;
 	struct clk *mphy_l1_rx_ana;
+	struct clk *mphy_l0_tx_2x_symb;
+	struct clk *mphy_tx_hs_symb_div;
+	struct clk *mphy_tx_hs_mux_symb_div;
+	struct clk *mphy_rx_hs_symb_div;
+	struct clk *mphy_rx_hs_mux_symb_div;
 	struct clk *mphy_force_ls_mode;
 	struct clk *ufshc_parent;
 	struct clk *ufsdev_parent;
 	struct clk *ufshc_clk;
 	struct clk *ufsdev_ref_clk;
+	struct clk *ufsdev_osc;
 	struct clk *ufs_uphy_pll3;
+	struct clk *pllrefe_clk;
 	struct regulator *vddio_ufs;
 	struct regulator *vddio_ufs_ap;
 	struct pinctrl *ufs_pinctrl;
@@ -301,6 +363,7 @@ struct ufs_tegra_host {
 	struct delayed_work detect;
 	struct gpio_desc *cd_gpio_desc;
 	bool enable_scramble;
+	u8 chip_id;
 #ifdef CONFIG_DEBUG_FS
 	u32 refclk_value;
 	long program_refclk;
@@ -337,6 +400,16 @@ static inline void mphy_update(void __iomem *mphy_base, u32 val,
 
 	update_val = mphy_readl(mphy_base, offset);
 	update_val |= val;
+	mphy_writel(mphy_base, update_val, offset);
+}
+
+static inline void mphy_clear_bits(void __iomem *mphy_base, u32 val,
+								u32 offset)
+{
+	u32 update_val;
+
+	update_val = mphy_readl(mphy_base, offset);
+	update_val &= ~val;
 	mphy_writel(mphy_base, update_val, offset);
 }
 

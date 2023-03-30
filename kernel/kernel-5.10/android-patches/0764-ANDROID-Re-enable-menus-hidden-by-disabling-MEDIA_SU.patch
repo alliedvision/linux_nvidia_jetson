@@ -1,0 +1,155 @@
+From 42f1a168a25026a60c5b585ab4d1667bb73a867a Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Sat, 29 Aug 2020 10:39:05 -0700
+Subject: [PATCH 764/830] ANDROID: Re-enable menus hidden by disabling
+ MEDIA_SUPPORT_FILTER
+X-NVConfidentiality: public
+
+A recent change upstream changed how MEDIA_SUPPORT_FILTER vs driver
+autoselection worked, in a way that is negative for GKI. Either, you can
+enable MEDIA_SUPPORT_FILTER and have implicit driver autoselection, OR
+you can disable it to control more of the core media framework, but have
+to manually *deselect* the drivers you don't want. This is untenable for
+GKI as it will require us to stay on top of newly added DVB/TV/Radio
+drivers added upstream, and we don't even want those subsystems right
+now.
+
+So, modify the bool/prompt menus back to regular bool Kconfig options
+and drop the dependency on MEDIA_SUPPORT_FILTER. This still allows the
+media core to be tweaked, but the drivers will all default off, instead
+of on (=m).
+
+Bug: 163582226
+Change-Id: I87f72efbf6321c194982c0bff7a80d1d255522ae
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 13 +++++++++----
+ arch/x86/configs/gki_defconfig   | 13 +++++++++----
+ drivers/media/Kconfig            | 21 +++++++--------------
+ 3 files changed, 25 insertions(+), 22 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index a0fb39032dfd..a3a2a51c05d8 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -333,10 +333,15 @@ CONFIG_MFD_ACT8945A=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-CONFIG_MEDIA_CEC_SUPPORT=y
+-CONFIG_MEDIA_SUPPORT_FILTER=y
+-CONFIG_MEDIA_CAMERA_SUPPORT=y
+-CONFIG_MEDIA_PLATFORM_SUPPORT=y
++# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
++# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
++# CONFIG_MEDIA_RADIO_SUPPORT is not set
++# CONFIG_MEDIA_SDR_SUPPORT is not set
++# CONFIG_MEDIA_TEST_SUPPORT is not set
++CONFIG_VIDEO_V4L2_SUBDEV_API=y
++CONFIG_MEDIA_USB_SUPPORT=y
++CONFIG_USB_VIDEO_CLASS=y
++CONFIG_USB_GSPCA=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
+ CONFIG_V4L_MEM2MEM_DRIVERS=y
+ # CONFIG_VGA_ARB is not set
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 23af11279f47..780d79ea74a6 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -289,10 +289,15 @@ CONFIG_WATCHDOG_CORE=y
+ CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+-CONFIG_MEDIA_CEC_SUPPORT=y
+-CONFIG_MEDIA_SUPPORT_FILTER=y
+-CONFIG_MEDIA_CAMERA_SUPPORT=y
+-CONFIG_MEDIA_PLATFORM_SUPPORT=y
++# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
++# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
++# CONFIG_MEDIA_RADIO_SUPPORT is not set
++# CONFIG_MEDIA_SDR_SUPPORT is not set
++# CONFIG_MEDIA_TEST_SUPPORT is not set
++CONFIG_VIDEO_V4L2_SUBDEV_API=y
++CONFIG_MEDIA_USB_SUPPORT=y
++CONFIG_USB_VIDEO_CLASS=y
++CONFIG_USB_GSPCA=y
+ CONFIG_V4L_PLATFORM_DRIVERS=y
+ CONFIG_V4L_MEM2MEM_DRIVERS=y
+ CONFIG_DRM=y
+diff --git a/drivers/media/Kconfig b/drivers/media/Kconfig
+index d157af63be41..f40ba6e24c39 100644
+--- a/drivers/media/Kconfig
++++ b/drivers/media/Kconfig
+@@ -66,8 +66,7 @@ menu "Media device types"
+ # Multimedia support - automatically enable V4L2 and DVB core
+ #
+ config MEDIA_CAMERA_SUPPORT
+-	bool
+-	prompt "Cameras and video grabbers" if MEDIA_SUPPORT_FILTER
++	bool "Cameras and video grabbers"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable support for webcams and video grabbers.
+@@ -75,8 +74,7 @@ config MEDIA_CAMERA_SUPPORT
+ 	  Say Y when you have a webcam or a video capture grabber board.
+ 
+ config MEDIA_ANALOG_TV_SUPPORT
+-	bool
+-	prompt "Analog TV" if MEDIA_SUPPORT_FILTER
++	bool "Analog TV"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable analog TV support.
+@@ -89,8 +87,7 @@ config MEDIA_ANALOG_TV_SUPPORT
+ 		will disable support for them.
+ 
+ config MEDIA_DIGITAL_TV_SUPPORT
+-	bool
+-	prompt "Digital TV" if MEDIA_SUPPORT_FILTER
++	bool "Digital TV"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable digital TV support.
+@@ -99,8 +96,7 @@ config MEDIA_DIGITAL_TV_SUPPORT
+ 	  hybrid digital TV and analog TV.
+ 
+ config MEDIA_RADIO_SUPPORT
+-	bool
+-	prompt "AM/FM radio receivers/transmitters" if MEDIA_SUPPORT_FILTER
++	bool "AM/FM radio receivers/transmitters"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable AM/FM radio support.
+@@ -115,8 +111,7 @@ config MEDIA_RADIO_SUPPORT
+ 		disable support for them.
+ 
+ config MEDIA_SDR_SUPPORT
+-	bool
+-	prompt "Software defined radio" if MEDIA_SUPPORT_FILTER
++	bool "Software defined radio"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable software defined radio support.
+@@ -124,8 +119,7 @@ config MEDIA_SDR_SUPPORT
+ 	  Say Y when you have a software defined radio device.
+ 
+ config MEDIA_PLATFORM_SUPPORT
+-	bool
+-	prompt "Platform-specific devices" if MEDIA_SUPPORT_FILTER
++	bool "Platform-specific devices"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  Enable support for complex cameras, codecs, and other hardware
+@@ -138,8 +132,7 @@ config MEDIA_PLATFORM_SUPPORT
+ 	  Say Y when you want to be able so see such devices.
+ 
+ config MEDIA_TEST_SUPPORT
+-	bool
+-	prompt "Test drivers" if MEDIA_SUPPORT_FILTER
++	bool "Test drivers"
+ 	default y if !MEDIA_SUPPORT_FILTER
+ 	help
+ 	  These drivers should not be used on production kernels, but
+-- 
+2.17.1
+

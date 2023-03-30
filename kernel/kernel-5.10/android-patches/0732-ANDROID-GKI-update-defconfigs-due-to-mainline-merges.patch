@@ -1,0 +1,44 @@
+From 34faaa98da20e9973157b568c5e1b0b36667fb37 Mon Sep 17 00:00:00 2001
+From: Greg Kroah-Hartman <gregkh@google.com>
+Date: Fri, 7 Aug 2020 16:26:27 +0200
+Subject: [PATCH 732/830] ANDROID: GKI: update defconfigs due to mainline
+ merges
+X-NVConfidentiality: public
+
+CONFIG_INIT_STACK_ALL=y needs to be removed as it's no longer a valid
+config option.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh@google.com>
+Change-Id: I3829363da0fb8edb89967770f36431a8b4a56335
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 7acb12bd49f2..5ef1729aceb9 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -481,7 +481,6 @@ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
+ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+-CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 4bbfc6abbd93..76fac392758d 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -428,7 +428,6 @@ CONFIG_FORTIFY_SOURCE=y
+ CONFIG_STATIC_USERMODEHELPER=y
+ CONFIG_STATIC_USERMODEHELPER_PATH=""
+ CONFIG_SECURITY_SELINUX=y
+-CONFIG_INIT_STACK_ALL=y
+ CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y
+ CONFIG_CRYPTO_CHACHA20POLY1305=y
+ CONFIG_CRYPTO_ADIANTUM=y
+-- 
+2.17.1
+

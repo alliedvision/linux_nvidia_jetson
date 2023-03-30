@@ -173,10 +173,10 @@ void rtl8192f_set_FwJoinBssRpt_cmd(PADAPTER padapter, u8 mstatus);
 void rtl8192f_set_FwPsTuneParam_cmd(PADAPTER padapter);
 void rtl8192f_download_rsvd_page(PADAPTER padapter, u8 mstatus);
 #ifdef CONFIG_BT_COEXIST
-	void rtl8192f__download_BTCoex_AP_mode_rsvd_page(PADAPTER padapter);
+void rtl8192f_download_BTCoex_AP_mode_rsvd_page(PADAPTER padapter);
 #endif /* CONFIG_BT_COEXIST */
 #ifdef CONFIG_P2P
-	void rtl8192f_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
+void rtl8192f_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
 #endif /* CONFIG_P2P */
 
 #ifdef CONFIG_TDLS
@@ -186,7 +186,7 @@ void rtl8192f_set_BcnEarly_C2H_Rpt_cmd(PADAPTER padapter, u8 enable);
 #endif
 
 #ifdef CONFIG_P2P_WOWLAN
-	void rtl8192f_set_p2p_wowlan_offload_cmd(PADAPTER padapter);
+void rtl8192f_set_p2p_wowlan_offload_cmd(PADAPTER padapter);
 #endif
 
 s32 FillH2CCmd8192F(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);

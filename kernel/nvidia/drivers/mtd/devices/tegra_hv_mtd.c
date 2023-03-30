@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -30,7 +30,12 @@
 #include <linux/completion.h>
 #include <linux/mtd/partitions.h>
 #include <linux/tegra-ivc.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <tegra_virt_storage_spec.h>
 
 struct vmtd_dev {
@@ -334,6 +339,9 @@ static int vmtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 	}
 	mutex_unlock(&vmtddev->lock);
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,15,0)
+fail:
+#else
 	mtd_erase_callback(instr);
 
 fail:
@@ -341,6 +349,7 @@ fail:
 		instr->state = MTD_ERASE_FAILED;
 	else
 		instr->state = MTD_ERASE_DONE;
+#endif
 	return ret;
 }
 
@@ -383,7 +392,16 @@ static int vmtd_setup_device(struct vmtd_dev *vmtddev)
 	vmtddev->mtd.name = "virt_mtd";
 	vmtddev->mtd.type = MTD_NORFLASH;
 	vmtddev->mtd.writesize = 1;
-	vmtddev->mtd.flags = MTD_CAP_NORFLASH;
+
+	/* Set device read-only if config response say so */
+	if (!(vmtddev->config.mtd_config.req_ops_supported &
+				VS_MTD_READ_ONLY_MASK)) {
+		dev_info(vmtddev->device, "setting device read-only\n");
+		vmtddev->mtd.flags = MTD_CAP_ROM;
+	} else {
+		vmtddev->mtd.flags = MTD_CAP_NORFLASH;
+	}
+
 	vmtddev->mtd.size = vmtddev->config.mtd_config.size;
 	dev_info(vmtddev->device, "size %lld!\n",
 		vmtddev->config.mtd_config.size);
@@ -418,6 +436,33 @@ static int vmtd_setup_device(struct vmtd_dev *vmtddev)
 	return mtd_device_parse_register(&vmtddev->mtd, NULL, NULL,
 			NULL, 0);
 }
+
+static ssize_t vmtd_phys_dev_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct vmtd_dev *vmtddev = dev_get_drvdata(dev);
+
+	if (vmtddev->config.phys_dev == VSC_DEV_QSPI)
+		return snprintf(buf, 16, "QSPI\n");
+
+	return snprintf(buf, 16, "unknown!\n");
+}
+static DEVICE_ATTR(phys_dev, 0444, vmtd_phys_dev_show, NULL);
+
+static ssize_t vmtd_phys_base_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct vmtd_dev *vmtddev = dev_get_drvdata(dev);
+
+	return snprintf(buf, 16, "0x%x\n", vmtddev->config.phys_base);
+}
+static DEVICE_ATTR(phys_base, 0444, vmtd_phys_base_show, NULL);
+
+static const struct attribute *vmtd_storage_attrs[] = {
+	&dev_attr_phys_dev.attr,
+	&dev_attr_phys_base.attr,
+	NULL
+};
 
 static int32_t vmtd_init_device(struct vmtd_dev *vmtddev)
 {
@@ -469,6 +514,12 @@ static int32_t vmtd_init_device(struct vmtd_dev *vmtddev)
 		dev_err(vmtddev->device,
 			"Setting up vmtd devices failed!\n");
 		return ret;
+	}
+
+	if (sysfs_create_files(&vmtddev->device->kobj,
+			vmtd_storage_attrs) != 0) {
+		dev_warn(vmtddev->device,
+			"Error Setting up sysfs files!\n");
 	}
 
 	vmtddev->is_setup = true;

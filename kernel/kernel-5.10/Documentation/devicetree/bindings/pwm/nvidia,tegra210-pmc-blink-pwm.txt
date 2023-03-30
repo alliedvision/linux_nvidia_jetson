@@ -1,0 +1,12 @@
+Tegra pmc blink pwm
+
+Pwm device used for pmc blink.
+
+Required properties:
+- compatible: nvidia,tegra210-pmc-blink-pwm
+
+Example:
+	tegra-pmc-blink-pwm {
+		compatible = "nvidia,tegra210-pmc-blink-pwm";
+		status = "disabled";
+	};

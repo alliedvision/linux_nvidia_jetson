@@ -59,6 +59,7 @@
 &sor0 {
 	status = "okay";
 	nvidia,active-panel = <&sor0_dp_display>;
+	nvidia,sor-hdcp-not-supported;
 };
 
 &sor0_dp_display {
@@ -69,6 +70,7 @@
 &sor1 {
 	status = "okay";
 	nvidia,active-panel = <&sor1_hdmi_display>;
+	nvidia,sor-hdcp-not-supported;
 };
 
 &sor1_hdmi_display {

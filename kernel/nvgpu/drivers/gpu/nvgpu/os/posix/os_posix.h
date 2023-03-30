@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __NVGPU_OS_POSIX_H__
-#define __NVGPU_OS_POSIX_H__
+#ifndef NVGPU_OS_POSIX_H
+#define NVGPU_OS_POSIX_H
 
 #include <nvgpu/gk20a.h>
 
@@ -48,6 +48,20 @@ struct nvgpu_os_posix {
 	 */
 	struct nvgpu_list_node recorder_head;
 	bool recording;
+
+	/*
+	 * Parameters to change the behavior of MM-related functions
+	 */
+	bool mm_is_iommuable;
+	bool mm_sgt_is_iommuable;
+
+	/*
+	 * Parameters to change SOC behavior
+	 */
+	bool is_soc_t194_a01;
+	bool is_silicon;
+	bool is_fpga;
+	bool is_simulation;
 };
 
 static inline struct nvgpu_os_posix *nvgpu_os_posix_from_gk20a(struct gk20a *g)
@@ -55,4 +69,4 @@ static inline struct nvgpu_os_posix *nvgpu_os_posix_from_gk20a(struct gk20a *g)
 	return container_of(g, struct nvgpu_os_posix, g);
 }
 
-#endif
+#endif /* NVGPU_OS_POSIX_H */

@@ -80,7 +80,7 @@ int mc_get_carveout_info(struct mc_carveout_info *inf, int *nr,
 	do {								\
 		(infop)->desc = co;					\
 		(infop)->base = mc_readl(carveout ## _BOM) |		\
-			((u64)mc_readl(carveout ## _BOM_HI) & 0x3) << 32; \
+			((u64)mc_readl(carveout ## _BOM_HI) & 0xFF) << 32; \
 		(infop)->size = mc_readl(carveout ## _SIZE_128KB);	\
 		(infop)->size <<= 17; /* Convert to bytes. */		\
 	} while (0)
@@ -305,7 +305,7 @@ static void __iomem *tegra_mc_map_regs(struct platform_device *pdev, int device)
 	if (of_address_to_resource(pdev->dev.of_node, start, &res))
 		return NULL;
 
-	pr_info("mapped MMIO address: 0x%p -> 0x%lx\n",
+	pr_info("mapped MMIO address: 0x%px -> 0x%lx\n",
 		regs_start, (unsigned long)res.start);
 
 	return regs_start;
@@ -371,6 +371,8 @@ err_out:
 __weak const struct of_device_id tegra_mc_of_ids[] = {
 	{ .compatible = "nvidia,tegra-mc" },
 	{ .compatible = "nvidia,tegra-t18x-mc" },
+	{ .compatible = "nvidia,tegra-t19x-mc" },
+	{ .compatible = "nvidia,tegra-t23x-mc" },
 	{ }
 };
 
@@ -454,6 +456,9 @@ static int tegra_mc_probe(struct platform_device *pdev)
 
 	tegra_mcerr_init(mc_debugfs_dir, pdev);
 
+	if (tegra_get_chip_id() == TEGRA234)
+		tegra_mc_utils_init();
+
 	return 0;
 }
 
@@ -464,10 +469,15 @@ static int tegra_mc_resume_early(struct device *dev)
 	if (mssnvlink_hubs != UINT_MAX) {
 		for (i = 0; i < mssnvlink_hubs; i++)
 			__raw_writel(nvlink_reg_val[i],
-				mssnvlink_regs[i] + MSSNVLINK_CYA_DESIGN_MODES);
+					mssnvlink_regs[i] + MSSNVLINK_CYA_DESIGN_MODES);
 	}
 	tegra_mcerr_resume();
 	return 0;
+}
+
+void __weak tegra_mc_utils_init(void)
+{
+	return;
 }
 
 u32 __weak tegra_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
@@ -477,6 +487,7 @@ u32 __weak tegra_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
 
 static int tegra_mc_remove(struct platform_device *pdev)
 {
+	disable_interrupt(0);
 	return 0;
 }
 

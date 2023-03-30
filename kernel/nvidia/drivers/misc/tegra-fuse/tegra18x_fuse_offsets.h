@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * this program is free software; you can redistribute it and/or modify
  * it under the terms of the gnu general public license as published by
@@ -19,7 +19,12 @@
 #ifndef __TEGRA18x_FUSE_OFFSETS_H
 #define __TEGRA18x_FUSE_OFFSETS_H
 
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/pmc.h>
 
 

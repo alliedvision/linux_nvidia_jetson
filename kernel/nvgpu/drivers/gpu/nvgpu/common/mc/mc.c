@@ -1,7 +1,7 @@
 /*
  * GK20A Master Control
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,32 +22,69 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <nvgpu/io.h>
-#include <nvgpu/mc.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/device.h>
+#include <nvgpu/mc.h>
 
-#include <nvgpu/hw/gm20b/hw_mc_gm20b.h>
-
-u32 nvgpu_mc_boot_0(struct gk20a *g, u32 *arch, u32 *impl, u32 *rev)
+int nvgpu_mc_reset_units(struct gk20a *g, u32 units)
 {
-	u32 val = __nvgpu_readl(g, mc_boot_0_r());
+	int err;
 
-	if (val != 0xffffffffU) {
-
-		if (arch != NULL) {
-			*arch = mc_boot_0_architecture_v(val) <<
-				NVGPU_GPU_ARCHITECTURE_SHIFT;
-		}
-
-		if (impl != NULL) {
-			*impl = mc_boot_0_implementation_v(val);
-		}
-
-		if (rev != NULL) {
-			*rev = (mc_boot_0_major_revision_v(val) << 4) |
-				mc_boot_0_minor_revision_v(val);
-		}
+	err = g->ops.mc.enable_units(g, units, false);
+	if (err != 0) {
+		nvgpu_log(g, gpu_dbg_info, "Unit disable failed");
+		return err;
 	}
 
-	return val;
+	err = g->ops.mc.enable_units(g, units, true);
+	if (err != 0) {
+		nvgpu_log(g, gpu_dbg_info, "Unit disable failed");
+		return err;
+	}
+	return 0;
 }
+
+int nvgpu_mc_reset_dev(struct gk20a *g, const struct nvgpu_device *dev)
+{
+	int err = 0;
+
+	if (g->ops.mc.enable_dev == NULL) {
+		goto fail;
+	}
+
+	err = g->ops.mc.enable_dev(g, dev, false);
+	if (err != 0) {
+		nvgpu_device_dump_dev(g, dev);
+		goto fail;
+	}
+
+	err = g->ops.mc.enable_dev(g, dev, true);
+	if (err != 0) {
+		nvgpu_device_dump_dev(g, dev);
+		goto fail;
+	}
+
+fail:
+	return err;
+}
+
+int nvgpu_mc_reset_devtype(struct gk20a *g, u32 devtype)
+{
+	int err;
+
+	err = g->ops.mc.enable_devtype(g, devtype, false);
+	if (err != 0) {
+		nvgpu_log(g, gpu_dbg_info, "Devtype:%u disable failed",
+			devtype);
+		return err;
+	}
+
+	err = g->ops.mc.enable_devtype(g, devtype, true);
+	if (err != 0) {
+		nvgpu_log(g, gpu_dbg_info, "Devtype:%u enable failed",
+			devtype);
+		return err;
+	}
+	return 0;
+}
+

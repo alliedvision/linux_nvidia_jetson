@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	pcie_ep@141e0000 { /* C7 */
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	pcie@14100000 {
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	pcie@14160000 {
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	pcie@141e0000 {/* C7 */
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	pcie@140a0000 {
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	pcie@140c0000 {
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
+	xusb_padctl@3520000 {
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		vclamp-usb-supply = <&p3767_vdd_1v8>;
+		avdd-usb-supply = <&p3767_vdd_3v3>;
+#else
+		pex_hvdd-supply = <&p3767_vdd_1v8>;
+		pex_pll_hvdd-supply = <&p3767_vdd_1v8>;
+		vclamp_usb-supply = <&p3767_vdd_1v8>;
+		avdd_usb-supply = <&p3767_vdd_3v3>;
+		avdd_pll_nvhs_eutmip-supply = <&p3767_vdd_1v8>;
+#endif
+	};
+
+	xudc@3550000 {
+		avdd-usb-supply = <&p3767_vdd_3v3>;
+	};
+};

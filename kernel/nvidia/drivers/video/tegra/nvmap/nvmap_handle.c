@@ -3,7 +3,7 @@
  *
  * Handle allocation and freeing routines for nvmap
  *
- * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,7 +26,12 @@
 #include <linux/dma-buf.h>
 #include <linux/moduleparam.h>
 #include <linux/nvmap.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include <asm/pgtable.h>
 
@@ -42,14 +47,15 @@
  * Note: to call this function make sure you own the client ref lock.
  */
 struct nvmap_handle_ref *__nvmap_validate_locked(struct nvmap_client *c,
-						 struct nvmap_handle *h)
+						 struct nvmap_handle *h,
+						 bool is_ro)
 {
 	struct rb_node *n = c->handle_refs.rb_node;
 
 	while (n) {
 		struct nvmap_handle_ref *ref;
 		ref = rb_entry(n, struct nvmap_handle_ref, node);
-		if (ref->handle == h)
+		if ((ref->handle == h) && (ref->is_ro == is_ro))
 			return ref;
 		else if ((uintptr_t)h > (uintptr_t)ref->handle)
 			n = n->rb_right;
@@ -165,25 +171,32 @@ struct nvmap_handle_ref *nvmap_create_handle_from_va(struct nvmap_client *client
 	struct vm_area_struct *vma;
 	struct nvmap_handle_ref *ref;
 	vm_flags_t vm_flags;
+	struct mm_struct *mm = current->mm;
 
 	/* don't allow non-page aligned addresses. */
 	if (vaddr & ~PAGE_MASK)
 		return ERR_PTR(-EINVAL);
 
-	vma = find_vma(current->mm, vaddr);
-	if (unlikely(!vma))
+	nvmap_acquire_mmap_read_lock(mm);
+	vma = find_vma(mm, vaddr);
+	if (unlikely(!vma)) {
+		nvmap_release_mmap_read_lock(mm);
 		return ERR_PTR(-EINVAL);
+	}
 
 	if (!size)
 		size = vma->vm_end - vaddr;
 
 	/* Don't allow exuberantly large sizes. */
-	if (!nvmap_memory_available(size)) {
+	if (!is_nvmap_memory_available(size, NVMAP_HEAP_IOVMM)) {
 		pr_debug("Cannot allocate %zu bytes.\n", size);
+		nvmap_release_mmap_read_lock(mm);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	vm_flags = vma->vm_flags;
+	nvmap_release_mmap_read_lock(mm);
+
 	/*
 	 * If buffer is malloc/mprotect as RO but alloc flag is not passed
 	 * as RO, don't create handle.
@@ -204,6 +217,7 @@ struct nvmap_handle_ref *nvmap_create_handle(struct nvmap_client *client,
 	void *err = ERR_PTR(-ENOMEM);
 	struct nvmap_handle *h;
 	struct nvmap_handle_ref *ref = NULL;
+	struct dma_buf *dmabuf;
 
 	if (!client)
 		return ERR_PTR(-EINVAL);
@@ -236,11 +250,15 @@ struct nvmap_handle_ref *nvmap_create_handle(struct nvmap_client *client,
 	 * This takes out 1 ref on the dambuf. This corresponds to the
 	 * handle_ref that gets automatically made by nvmap_create_handle().
 	 */
-	h->dmabuf = __nvmap_make_dmabuf(client, h, ro_buf);
-	if (IS_ERR(h->dmabuf)) {
-		err = h->dmabuf;
+	dmabuf = __nvmap_make_dmabuf(client, h, ro_buf);
+	if (IS_ERR(dmabuf)) {
+		err = dmabuf;
 		goto make_dmabuf_fail;
 	}
+	if (!ro_buf)
+		h->dmabuf = dmabuf;
+	else
+		h->dmabuf_ro = dmabuf;
 
 	nvmap_handle_add(nvmap_dev, h);
 
@@ -251,6 +269,10 @@ struct nvmap_handle_ref *nvmap_create_handle(struct nvmap_client *client,
 	atomic_set(&ref->dupes, 1);
 	ref->handle = h;
 	add_handle_ref(client, ref);
+	if (ro_buf)
+		ref->is_ro = true;
+	else
+		ref->is_ro = false;
 	trace_nvmap_create_handle(client, client->name, h, size, ref);
 	return ref;
 
@@ -315,7 +337,7 @@ found:
 	mutex_unlock(&h->lock);
 
 	/* h->dmabuf can't be NULL anymore. Duplicate the handle. */
-	ref = nvmap_duplicate_handle(client, h, true);
+	ref = nvmap_duplicate_handle(client, h, true, false);
 	/* put the extra ref taken using get_dma_buf. */
 	dma_buf_put(h->dmabuf);
 finish:
@@ -329,7 +351,8 @@ fail:
 }
 
 struct nvmap_handle_ref *nvmap_duplicate_handle(struct nvmap_client *client,
-					struct nvmap_handle *h, bool skip_val)
+					struct nvmap_handle *h, bool skip_val,
+					bool is_ro)
 {
 	struct nvmap_handle_ref *ref = NULL;
 
@@ -355,11 +378,9 @@ struct nvmap_handle_ref *nvmap_duplicate_handle(struct nvmap_client *client,
 	}
 
 	nvmap_ref_lock(client);
-	ref = __nvmap_validate_locked(client, h);
+	ref = __nvmap_validate_locked(client, h, is_ro);
 
 	if (ref) {
-		/* handle already duplicated in client; just increment
-		 * the reference count rather than re-duplicating it */
 		atomic_inc(&ref->dupes);
 		nvmap_ref_unlock(client);
 		goto out;
@@ -377,17 +398,44 @@ struct nvmap_handle_ref *nvmap_duplicate_handle(struct nvmap_client *client,
 	ref->handle = h;
 	add_handle_ref(client, ref);
 
-	/*
-	 * Ref counting on the dma_bufs follows the creation and destruction of
-	 * nvmap_handle_refs. That is every time a handle_ref is made the
-	 * dma_buf ref count goes up and everytime a handle_ref is destroyed
-	 * the dma_buf ref count goes down.
-	 */
-	get_dma_buf(h->dmabuf);
+	if (is_ro) {
+		ref->is_ro = true;
+		get_dma_buf(h->dmabuf_ro);
+	} else {
+		ref->is_ro = false;
+		get_dma_buf(h->dmabuf);
+	}
 
 out:
 	NVMAP_TAG_TRACE(trace_nvmap_duplicate_handle,
 		NVMAP_TP_ARGS_CHR(client, h, ref));
+	return ref;
+}
+
+struct nvmap_handle_ref *nvmap_create_handle_from_id(
+			struct nvmap_client *client, u32 id)
+{
+	struct nvmap_handle *handle;
+	struct nvmap_handle_ref *ref;
+
+	if (WARN_ON(!client))
+		return ERR_PTR(-EINVAL);
+
+	if (is_nvmap_id_ro(client, id))
+		return nvmap_dup_handle_ro(client, id);
+
+	handle = nvmap_handle_get_from_id(client, id);
+	if (IS_ERR_OR_NULL(handle)) {
+		/* fd might be dmabuf fd received from parent process.
+		 * Its entry is not made in id_array.
+		 */
+		handle = nvmap_handle_get_from_dmabuf_fd(client, id);
+		if (IS_ERR(handle))
+			return ERR_CAST(handle);
+	}
+
+	ref = nvmap_duplicate_handle(client, handle, false, false);
+	nvmap_handle_put(handle);
 	return ref;
 }
 
@@ -396,13 +444,68 @@ struct nvmap_handle_ref *nvmap_create_handle_from_fd(
 {
 	struct nvmap_handle *handle;
 	struct nvmap_handle_ref *ref;
+	bool is_ro;
 
-	BUG_ON(!client);
+	if (WARN_ON(!client))
+		return ERR_PTR(-EINVAL);
 
 	handle = nvmap_handle_get_from_dmabuf_fd(client, fd);
 	if (IS_ERR(handle))
 		return ERR_CAST(handle);
-	ref = nvmap_duplicate_handle(client, handle, false);
+
+	is_ro = is_nvmap_dmabuf_fd_ro(fd);
+	if (is_ro)
+		ref = nvmap_duplicate_handle(client, handle, false, true);
+	else
+		ref = nvmap_duplicate_handle(client, handle, false, false);
+
 	nvmap_handle_put(handle);
+	return ref;
+}
+
+struct nvmap_handle_ref *nvmap_dup_handle_ro(struct nvmap_client *client,
+					     int id)
+{
+	struct nvmap_handle *h;
+	struct nvmap_handle_ref *ref = NULL;
+	bool dmabuf_created = false;
+
+	if (!client)
+		return ERR_PTR(-EINVAL);
+
+	h = nvmap_handle_get_from_id(client, id);
+	if (IS_ERR_OR_NULL(h)) {
+		/* fd might be dmabuf fd received from parent process.
+		 * Its entry is not made in id_array.
+		 */
+		h = nvmap_handle_get_from_dmabuf_fd(client, id);
+		if (IS_ERR(h))
+			return ERR_CAST(h);
+	}
+
+	if (h->dmabuf_ro == NULL) {
+		h->dmabuf_ro = __nvmap_make_dmabuf(client, h, true);
+		if (IS_ERR(h->dmabuf_ro)) {
+			nvmap_handle_put(h);
+			return ERR_CAST(h->dmabuf_ro);
+		}
+		dmabuf_created = true;
+	}
+
+	ref = nvmap_duplicate_handle(client, h, false, true);
+	if (!ref) {
+		nvmap_handle_put(h);
+		return ref;
+	}
+	/*
+	 * When new dmabuf created (only RO dmabuf is getting created in this function)
+	 * it's counter is incremented one extra time in nvmap_duplicate_handle. Hence
+	 * decrement it by one.
+	 */
+	if (dmabuf_created)
+		dma_buf_put(h->dmabuf_ro);
+
+	nvmap_handle_put(h);
+
 	return ref;
 }

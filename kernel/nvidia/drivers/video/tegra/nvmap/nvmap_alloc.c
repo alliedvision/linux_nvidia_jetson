@@ -3,7 +3,7 @@
  *
  * Handle allocation and freeing routines for nvmap
  *
- * Copyright (c) 2011-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,8 +19,20 @@
 
 #include <linux/moduleparam.h>
 #include <linux/random.h>
+#include <linux/version.h>
+#include <linux/io.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <trace/events/nvmap.h>
+
+#ifndef NVMAP_LOADABLE_MODULE
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <linux/dma-map-ops.h>
+#endif
+#endif /* !NVMAP_LOADABLE_MODULE */
 
 #include "nvmap_priv.h"
 
@@ -40,9 +52,9 @@ u64 nvmap_total_page_allocs;
 void *nvmap_altalloc(size_t len)
 {
 	if (len > PAGELIST_VMALLOC_MIN)
-		return vmalloc(len);
+		return vzalloc(len);
 	else
-		return kmalloc(len, GFP_KERNEL);
+		return kzalloc(len, GFP_KERNEL);
 }
 
 void nvmap_altfree(void *ptr, size_t len)
@@ -215,8 +227,7 @@ static u32 addr_to_color_t19x(uintptr_t phys)
 	return color;
 }
 
-static struct color_list *init_color_list(struct nvmap_page_pool *pool,
-					  struct nvmap_alloc_state *state,
+static struct color_list *init_color_list(struct nvmap_alloc_state *state,
 					  u32 nr_pages)
 {
 	struct color_list *list;
@@ -227,9 +238,9 @@ static struct color_list *init_color_list(struct nvmap_page_pool *pool,
 	if (!list)
 		return NULL;
 
-#ifdef CONFIG_NVMAP_PAGE_POOLS
+#ifdef NVMAP_CONFIG_PAGE_POOLS
 	/* Allocated page from nvmap page pool if possible */
-	page_index = nvmap_page_pool_alloc_lots(pool, list->pages, nr_pages);
+	page_index = nvmap_page_pool_alloc_lots(&nvmap_dev->pool, list->pages, nr_pages);
 #endif
 	/* Fall back to general page allocator */
 	for (i = page_index; i < nr_pages; i++) {
@@ -363,7 +374,7 @@ static void add_imperfect(struct nvmap_alloc_state *state, u32 nr_pages,
 	}
 }
 
-static int alloc_colored(struct nvmap_page_pool *pool, u32 nr_pages,
+static int alloc_colored(u32 nr_pages,
 			 struct page **out_pages, u32 chipid)
 {
 	struct nvmap_alloc_state state;
@@ -382,7 +393,7 @@ static int alloc_colored(struct nvmap_page_pool *pool, u32 nr_pages,
 	nr_alloc += nr_alloc >> 4;
 
 	/* Create lists of each page color */
-	state.list = init_color_list(pool, &state, nr_alloc);
+	state.list = init_color_list(&state, nr_alloc);
 	if (!state.list)
 		return -ENOMEM;
 
@@ -399,31 +410,44 @@ static int alloc_colored(struct nvmap_page_pool *pool, u32 nr_pages,
 			min_count = state.list->counts[i];
 	}
 
-	/* Compute the number of perfect / imperfect tiles and the maximum
+	/*
+	 * Compute the number of perfect / imperfect tiles and the maximum
 	 * number of pages with the same color can be in a tile
+	 *
+	 * Perfect tile: A tile which consist of one page of each color i.e. 16 pages,
+	 *               each of different color
+	 * Imperfect tile: A tile which is not perfect i.e. at least some color will repeat
+	 * max_color_per_tile: How many max times any color can be present in a tile
 	 */
-	if (max_count / nr_tiles >= 3) {
-		/* It is not possible to create perfect tiles with
-		 * max_color_per_tile <= 3
+	if (min_count == 0) {
+		/*
+		 * If there is no page of at least one color, then not a sigle perefect tile can be
+		 * created. The max color pages would need to be distributed equally among all
+		 * tiles.
 		 */
 		nr_perfect = 0;
 		state.max_color_per_tile = (max_count + nr_tiles - 1)
 					   / nr_tiles;
-	} else if (nr_tiles * 2 == max_count) {
-		/* All of the tiles can be perfect */
+	} else if (min_count == nr_tiles) {
+		/*
+		 * If pages with each color are at least the number of tiles, then all of the tiles
+		 * can be perfect.
+		 */
 		nr_perfect = nr_tiles;
-		state.max_color_per_tile = 2;
+		state.max_color_per_tile = 1;
 	} else {
-		/* Some of the tiles can be perfect */
-		nr_perfect = nr_tiles - (max_count % nr_tiles);
-		state.max_color_per_tile = 3;
+		/*
+		 * Some of the tiles can be perfect and remaining will be imperfect.
+		 * min_count number of perfect tiles can be created, hence the min_count number of
+		 * pages
+		 * having max color would be present in the perfect tiles, The remaining pages would
+		 * be distributed equally among the imperfect tiles.
+		 */
+		nr_perfect = min_count;
+		nr_imperfect = nr_tiles - nr_perfect;
+		state.max_color_per_tile = ((max_count - nr_perfect) + nr_imperfect - 1)
+					   / nr_imperfect;
 	}
-	/* Check if the number of perfect tiles is bound by the color with the
-	 * minimum count
-	 */
-	if (nr_perfect * 2 > min_count)
-		nr_perfect = min_count / 2;
-
 	nr_imperfect = nr_tiles - nr_perfect;
 
 	/* Output tiles */
@@ -456,15 +480,29 @@ static int handle_page_alloc(struct nvmap_client *client,
 {
 	size_t size = h->size;
 	size_t nr_page = size >> PAGE_SHIFT;
-	int i = 0, page_index = 0;
+	int i = 0, page_index = 0, allocated = 0;
 	struct page **pages;
 	gfp_t gfp = GFP_NVMAP | __GFP_ZERO;
+#ifdef CONFIG_ARM64_4K_PAGES
+#ifdef NVMAP_CONFIG_PAGE_POOLS
 	int pages_per_big_pg = NVMAP_PP_BIG_PAGE_SIZE >> PAGE_SHIFT;
+#else
+	int pages_per_big_pg = 0;
+#endif
+#endif /* CONFIG_ARM64_4K_PAGES */
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 	static u32 chipid;
+#else
+	static u8 chipid;
+#endif
 
 	if (!chipid) {
-#ifdef CONFIG_NVMAP_COLOR_PAGES
+#ifdef NVMAP_CONFIG_COLOR_PAGES
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 		chipid = tegra_hidrev_get_chipid(tegra_read_chipid());
+#else
+		chipid = tegra_get_chip_id();
+#endif
 		if (chipid == TEGRA194)
 			s_nr_colors = 16;
 #endif
@@ -484,7 +522,8 @@ static int handle_page_alloc(struct nvmap_client *client,
 			pages[i] = nth_page(page, i);
 
 	} else {
-#ifdef CONFIG_NVMAP_PAGE_POOLS
+#ifdef CONFIG_ARM64_4K_PAGES
+#ifdef NVMAP_CONFIG_PAGE_POOLS
 		/* Get as many big pages from the pool as possible. */
 		page_index = nvmap_page_pool_alloc_lots_bp(&nvmap_dev->pool, pages,
 								 nr_page);
@@ -512,24 +551,28 @@ static int handle_page_alloc(struct nvmap_client *client,
 			nvmap_clean_cache(&pages[i], pages_per_big_pg);
 		}
 		nvmap_big_page_allocs += page_index;
-
+#endif /* CONFIG_ARM64_4K_PAGES */
 		if (s_nr_colors <= 1) {
-#ifdef CONFIG_NVMAP_PAGE_POOLS
-			/* Get as many 4K pages from the pool as possible. */
+#ifdef NVMAP_CONFIG_PAGE_POOLS
+			/* Get as many pages from the pool as possible. */
 			page_index += nvmap_page_pool_alloc_lots(
 				      &nvmap_dev->pool, &pages[page_index],
 				      nr_page - page_index);
 #endif
-
-			for (i = page_index; i < nr_page; i++) {
+			allocated = page_index;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
+			if (page_index < nr_page)
+				allocated = __alloc_pages_bulk(gfp, numa_mem_id(), NULL,
+						nr_page, NULL, pages);
+#endif
+			for (i = allocated; i < nr_page; i++) {
 				pages[i] = nvmap_alloc_pages_exact(gfp,
 								   PAGE_SIZE);
 				if (!pages[i])
 					goto fail;
 			}
 		} else if (page_index < nr_page) {
-			if (alloc_colored(&nvmap_dev->pool,
-			     nr_page - page_index, &pages[page_index], chipid))
+			if (alloc_colored(nr_page - page_index, &pages[page_index], chipid))
 				goto fail;
 			page_index = nr_page;
 		}
@@ -564,20 +607,19 @@ static struct device *nvmap_heap_pgalloc_dev(unsigned long type)
 	int ret = -EINVAL;
 	struct device *dma_dev;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 	ret = 0;
-#endif
 
 	if (ret || (type != NVMAP_HEAP_CARVEOUT_VPR))
 		return ERR_PTR(-EINVAL);
 
 	dma_dev = dma_dev_from_handle(type);
-	if (IS_ERR(dma_dev))
-		return dma_dev;
-
-	ret = dma_set_resizable_heap_floor_size(dma_dev, 0);
-	if (ret)
-		return ERR_PTR(ret);
+#ifdef NVMAP_CONFIG_VPR_RESIZE
+	if (!IS_ERR(dma_dev)) {
+		ret = dma_set_resizable_heap_floor_size(dma_dev, 0);
+		if (ret)
+			return ERR_PTR(ret);
+	}
+#endif
 	return dma_dev;
 }
 
@@ -587,20 +629,18 @@ static int nvmap_heap_pgalloc(struct nvmap_client *client,
 	size_t size = h->size;
 	struct page **pages;
 	struct device *dma_dev;
-	DEFINE_DMA_ATTRS(attrs);
-	dma_addr_t pa;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	dma_addr_t pa = DMA_ERROR_CODE;
+#else
+	dma_addr_t pa = DMA_MAPPING_ERROR;
+#endif
 
 	dma_dev = nvmap_heap_pgalloc_dev(type);
 	if (IS_ERR(dma_dev))
 		return PTR_ERR(dma_dev);
 
-	dma_set_attr(DMA_ATTR_ALLOC_EXACT_SIZE, __DMA_ATTR(attrs));
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
-	dma_set_attr(DMA_ATTR_ALLOC_SINGLE_PAGES, __DMA_ATTR(attrs));
-#endif
-
 	pages = dma_alloc_attrs(dma_dev, size, &pa,
-			GFP_KERNEL, __DMA_ATTR(attrs));
+			GFP_KERNEL, DMA_ALLOC_FREE_ATTR);
 	if (dma_mapping_error(dma_dev, pa))
 		return -ENOMEM;
 
@@ -614,24 +654,26 @@ static int nvmap_heap_pgfree(struct nvmap_handle *h)
 {
 	size_t size = h->size;
 	struct device *dma_dev;
-	DEFINE_DMA_ATTRS(attrs);
 	dma_addr_t pa = ~(dma_addr_t)0;
 
 	dma_dev = nvmap_heap_pgalloc_dev(h->heap_type);
 	if (IS_ERR(dma_dev))
 		return PTR_ERR(dma_dev);
 
-	dma_set_attr(DMA_ATTR_ALLOC_EXACT_SIZE, __DMA_ATTR(attrs));
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
-	dma_set_attr(DMA_ATTR_ALLOC_SINGLE_PAGES, __DMA_ATTR(attrs));
-#endif
-
 	dma_free_attrs(dma_dev, size, h->pgalloc.pages, pa,
-		       __DMA_ATTR(attrs));
-
+		       DMA_ALLOC_FREE_ATTR);
 	h->pgalloc.pages = NULL;
 	return 0;
 }
+
+static bool nvmap_cpu_map_is_allowed(struct nvmap_handle *handle)
+{
+	if (handle->heap_type & NVMAP_HEAP_CARVEOUT_VPR)
+		return false;
+	else
+		return handle->heap_type & nvmap_dev->dynamic_dma_map_mask;
+}
+
 static void alloc_handle(struct nvmap_client *client,
 			 struct nvmap_handle *h, unsigned int type)
 {
@@ -639,7 +681,8 @@ static void alloc_handle(struct nvmap_client *client,
 	unsigned int iovmm_mask = NVMAP_HEAP_IOVMM;
 	int ret;
 
-	BUG_ON(type & (type - 1));
+	/* type should only be non-zero and in power of 2. */
+	BUG_ON((!type) || (type & (type - 1)));
 
 	if (nvmap_convert_carveout_to_iovmm) {
 		carveout_mask &= ~NVMAP_HEAP_CARVEOUT_GENERIC;
@@ -664,6 +707,20 @@ static void alloc_handle(struct nvmap_client *client,
 			 */
 			mb();
 			h->alloc = true;
+
+			/* Clear the allocated buffer */
+			if (nvmap_cpu_map_is_allowed(h)) {
+				void *cpu_addr;
+
+				cpu_addr = memremap(b->base, h->size,
+						MEMREMAP_WB);
+				if (cpu_addr != NULL) {
+					memset(cpu_addr, 0, h->size);
+					__dma_flush_area(cpu_addr, h->size);
+					memunmap(cpu_addr);
+				}
+			}
+
 			return;
 		}
 		ret = nvmap_heap_pgalloc(client, h, type);
@@ -693,13 +750,16 @@ static int alloc_handle_from_va(struct nvmap_client *client,
 	size_t nr_page = h->size >> PAGE_SHIFT;
 	struct page **pages;
 	int ret = 0;
+	struct mm_struct *mm = current->mm;
 
 	pages = nvmap_altalloc(nr_page * sizeof(*pages));
 	if (IS_ERR_OR_NULL(pages))
 		return PTR_ERR(pages);
 
+	nvmap_acquire_mmap_read_lock(mm);
 	ret = nvmap_get_user_pages(vaddr & PAGE_MASK, nr_page, pages, true,
 				(flags & NVMAP_HANDLE_RO) ? 0 : FOLL_WRITE);
+	nvmap_release_mmap_read_lock(mm);
 	if (ret) {
 		nvmap_altfree(pages, nr_page * sizeof(*pages));
 		return ret;
@@ -725,7 +785,6 @@ static int alloc_handle_from_va(struct nvmap_client *client,
  * sub-page splinters */
 static const unsigned int heap_policy_small[] = {
 	NVMAP_HEAP_CARVEOUT_VPR,
-	NVMAP_HEAP_CARVEOUT_IRAM,
 	NVMAP_HEAP_CARVEOUT_MASK,
 	NVMAP_HEAP_IOVMM,
 	0,
@@ -733,7 +792,6 @@ static const unsigned int heap_policy_small[] = {
 
 static const unsigned int heap_policy_large[] = {
 	NVMAP_HEAP_CARVEOUT_VPR,
-	NVMAP_HEAP_CARVEOUT_IRAM,
 	NVMAP_HEAP_IOVMM,
 	NVMAP_HEAP_CARVEOUT_MASK,
 	0,
@@ -919,7 +977,11 @@ void _nvmap_handle_free(struct nvmap_handle *h)
 	list_for_each_entry_safe(curr, next, &h->dmabuf_priv, list) {
 		curr->priv_release(curr->priv);
 		list_del(&curr->list);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 		kzfree(curr);
+#else
+		kfree_sensitive(curr);
+#endif
 	}
 
 	if (nvmap_handle_remove(nvmap_dev, h) != 0)
@@ -932,17 +994,15 @@ void _nvmap_handle_free(struct nvmap_handle *h)
 	nvmap_stats_dec(NS_TOTAL, h->size);
 	if (!h->heap_pgalloc) {
 		if (h->vaddr) {
-			struct vm_struct *vm;
 			void *addr = h->vaddr;
 
 			addr -= (h->carveout->base & ~PAGE_MASK);
-			vm = find_vm_area(addr);
-			BUG_ON(!vm);
-			free_vm_area(vm);
+			iounmap((void __iomem *)addr);
 		}
 
 		nvmap_heap_free(h->carveout);
 		nvmap_kmaps_dec(h);
+		h->carveout = NULL;
 		h->vaddr = NULL;
 		goto out;
 	} else {
@@ -958,15 +1018,15 @@ void _nvmap_handle_free(struct nvmap_handle *h)
 
 	if (h->vaddr) {
 		nvmap_kmaps_dec(h);
+		vunmap(h->vaddr);
 
-		vm_unmap_ram(h->vaddr, h->size >> PAGE_SHIFT);
 		h->vaddr = NULL;
 	}
 
 	for (i = 0; i < nr_page; i++)
 		h->pgalloc.pages[i] = nvmap_to_page(h->pgalloc.pages[i]);
 
-#ifdef CONFIG_NVMAP_PAGE_POOLS
+#ifdef NVMAP_CONFIG_PAGE_POOLS
 	if (!h->from_va)
 		page_index = nvmap_page_pool_fill_lots(&nvmap_dev->pool,
 					h->pgalloc.pages, nr_page);
@@ -988,14 +1048,14 @@ out:
 }
 
 void nvmap_free_handle(struct nvmap_client *client,
-		       struct nvmap_handle *handle)
+		       struct nvmap_handle *handle, bool is_ro)
 {
 	struct nvmap_handle_ref *ref;
 	struct nvmap_handle *h;
 
 	nvmap_ref_lock(client);
 
-	ref = __nvmap_validate_locked(client, handle);
+	ref = __nvmap_validate_locked(client, handle, is_ro);
 	if (!ref) {
 		nvmap_ref_unlock(client);
 		return;
@@ -1021,7 +1081,10 @@ void nvmap_free_handle(struct nvmap_client *client,
 	if (h->owner == client)
 		h->owner = NULL;
 
-	dma_buf_put(ref->handle->dmabuf);
+	if (is_ro)
+		dma_buf_put(ref->handle->dmabuf_ro);
+	else
+		dma_buf_put(ref->handle->dmabuf);
 	NVMAP_TAG_TRACE(trace_nvmap_free_handle,
 		NVMAP_TP_ARGS_CHR(client, h, ref));
 	kfree(ref);
@@ -1032,12 +1095,55 @@ out:
 }
 EXPORT_SYMBOL(nvmap_free_handle);
 
-void nvmap_free_handle_fd(struct nvmap_client *client,
-			       int fd)
+bool is_nvmap_id_ro(struct nvmap_client *client, int id)
 {
-	struct nvmap_handle *handle = nvmap_handle_get_from_fd(fd);
+	struct nvmap_handle_info *info = NULL;
+	struct dma_buf *dmabuf = NULL;
+
+	if (WARN_ON(!client))
+		return ERR_PTR(-EINVAL);
+
+	if (client->ida)
+		dmabuf = nvmap_id_array_get_dmabuf_from_id(client->ida,
+				id);
+	else
+		dmabuf = dma_buf_get(id);
+
+	if (IS_ERR_OR_NULL(dmabuf))
+		return false;
+
+	if (dmabuf_is_nvmap(dmabuf))
+		info = dmabuf->priv;
+	dma_buf_put(dmabuf);
+
+	return (info != NULL) ? info->is_ro : false;
+
+}
+void nvmap_free_handle_from_fd(struct nvmap_client *client,
+			       int id)
+{
+	bool is_ro = is_nvmap_id_ro(client, id);
+	struct nvmap_handle *handle;
+	struct dma_buf *dmabuf = NULL;
+	int handle_ref = 0;
+	long dmabuf_ref = 0;
+
+	handle = nvmap_handle_get_from_id(client, id);
+	if (IS_ERR_OR_NULL(handle))
+		return;
+
+	if (client->ida)
+		nvmap_id_array_id_release(client->ida, id);
+
+	nvmap_free_handle(client, handle, is_ro);
+	nvmap_handle_put(handle);
+
 	if (handle) {
-		nvmap_free_handle(client, handle);
-		nvmap_handle_put(handle);
+		dmabuf = is_ro ? handle->dmabuf_ro : handle->dmabuf;
+		handle_ref = atomic_read(&handle->ref);
+		dmabuf_ref = dmabuf ? atomic_long_read(&dmabuf->file->f_count) : 0;
 	}
+
+	trace_refcount_free_handle(handle, dmabuf, handle_ref, dmabuf_ref,
+				   is_ro ? "RO" : "RW");
 }

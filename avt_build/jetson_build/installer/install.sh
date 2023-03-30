@@ -30,8 +30,9 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson"
-REQ_KERNEL="4.9.253"
+REQ_KERNEL="5.10.104"
 DEST="/boot"
+
 
 echo -e ${RED}"Allied Vision"${NC}" MIPI CSI-2 camera driver for "${GREEN}${REQ_MACHINE}${NC}" (kernel "${REQ_KERNEL}")"
 
@@ -45,6 +46,11 @@ usage() {
 }
 
 inst() {
+  sudo modprobe mtd_blkdevs
+  sudo modprobe mtdblock
+
+  set -e
+
   echo "Extracting repository:"
 
   sudo mkdir -p "/opt/avt/packages"
@@ -52,6 +58,12 @@ inst() {
   sudo tar -C /opt/avt/packages -xvf avt_l4t_repository.tar.xz
 
   echo "Importing Repository:"
+
+  AVT_NV_PACKAGES=$(apt-cache search avt-nvidia-)
+
+  if [[ ! -z "$AVT_NV_PACKAGES" ]]; then
+    sudo apt-get --yes remove avt-nvidia-*
+  fi
 
   if [[ -f /opt/avt/packages/KEY.gpg ]]; then
     sudo apt-key add /opt/avt/packages/KEY.gpg

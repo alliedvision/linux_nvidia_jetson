@@ -1,0 +1,75 @@
+From 9da761076cf0be02fafe3a82e75aed6a8db37bf9 Mon Sep 17 00:00:00 2001
+From: Eric Biggers <ebiggers@google.com>
+Date: Sat, 22 Aug 2020 10:47:33 -0700
+Subject: [PATCH 380/830] ANDROID: scsi: ufs: add ->fill_prdt() variant op
+X-NVConfidentiality: public
+
+Add a ->fill_prdt() variant op so that UFS platform drivers can
+initialize variant-specific PRDT fields.
+
+This is needed for FMP support.
+
+Bug: 166139333
+Bug: 162257402
+Change-Id: Icd07b5e475555ef3eaa0ae9e18a1ae9a4b981679
+Signed-off-by: Eric Biggers <ebiggers@google.com>
+---
+ drivers/scsi/ufs/ufshcd.c |  2 +-
+ drivers/scsi/ufs/ufshcd.h | 14 ++++++++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index 6959a52923fb..422c9d32579e 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -2266,7 +2266,7 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+ 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
+ 	}
+ 
+-	return 0;
++	return ufshcd_vops_fill_prdt(hba, lrbp, sg_segments);
+ }
+ 
+ /**
+diff --git a/drivers/scsi/ufs/ufshcd.h b/drivers/scsi/ufs/ufshcd.h
+index f862365ec961..58a96cb36be2 100644
+--- a/drivers/scsi/ufs/ufshcd.h
++++ b/drivers/scsi/ufs/ufshcd.h
+@@ -297,6 +297,8 @@ struct ufs_pwr_mode_info {
+  * @phy_initialization: used to initialize phys
+  * @device_reset: called to issue a reset pulse on the UFS device
+  * @program_key: program or evict an inline encryption key
++ * @fill_prdt: called after initializing the standard PRDT fields so that any
++ *	       variant-specific PRDT fields can be initialized too
+  */
+ struct ufs_hba_variant_ops {
+ 	const char *name;
+@@ -336,6 +338,8 @@ struct ufs_hba_variant_ops {
+ 	int	(*set_ufs_mphy_clocks)(struct ufs_hba *, bool);
+ 	int	(*program_key)(struct ufs_hba *hba,
+ 			       const union ufs_crypto_cfg_entry *cfg, int slot);
++	int	(*fill_prdt)(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
++			     unsigned int segments);
+ };
+ 
+ /* clock gating state  */
+@@ -1303,6 +1307,16 @@ static inline void ufshcd_vops_config_scaling_param(struct ufs_hba *hba,
+ 		hba->vops->config_scaling_param(hba, profile, data);
+ }
+ 
++static inline int ufshcd_vops_fill_prdt(struct ufs_hba *hba,
++					struct ufshcd_lrb *lrbp,
++					unsigned int segments)
++{
++	if (hba->vops && hba->vops->fill_prdt)
++		return hba->vops->fill_prdt(hba, lrbp, segments);
++
++	return 0;
++}
++
+ extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
+ 
+ /*
+-- 
+2.17.1
+

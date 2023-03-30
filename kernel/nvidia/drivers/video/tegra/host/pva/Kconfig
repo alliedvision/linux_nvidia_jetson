@@ -1,0 +1,11 @@
+if ARCH_TEGRA
+
+config TEGRA_PVA_V1
+        bool "Tegra PVA SW V1 support"
+        depends on TEGRA_GRHOST
+        default n
+        help
+          Enables SW version 1 for Programmable Vision Accelerator engine
+	  support under nvhost
+          Say n here if not sure.
+endif

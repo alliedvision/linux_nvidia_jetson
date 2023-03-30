@@ -19,14 +19,6 @@
 
 #include <rtw_wifi_regd.h>
 
-static struct country_code_to_enum_rd allCountries[] = {
-	{COUNTRY_CODE_USER, "RD"},
-};
-
-/*
- * REG_RULE(freq start, freq end, bandwidth, max gain, eirp, reg_flags)
- */
-
 /*
  *Only these channels all allow active
  *scan on all world regulatory domains
@@ -45,6 +37,30 @@ static struct country_code_to_enum_rd allCountries[] = {
 #define RTW_2GHZ_CH12_13	\
 	REG_RULE(2467-10, 2472+10, 40, 0, 20,	\
 		 NL80211_RRF_PASSIVE_SCAN)
+
+/* 5G chan 36 - chan 165 */
+#define RTW_5GHZ_5150_5850	\
+	REG_RULE(5150-10, 5850+10, 40, 0, 30,	\
+		 NL80211_RRF_PASSIVE_SCAN | NL80211_RRF_NO_IBSS)
+
+static const struct ieee80211_regdomain rtw_regdom_rd = {
+	.n_reg_rules = 3,
+	.alpha2 = "99",
+	.reg_rules = {
+		RTW_2GHZ_CH01_11,
+		RTW_2GHZ_CH12_13,
+		RTW_5GHZ_5150_5850,
+	}
+};
+
+#if 0
+/*
+ * REG_RULE(freq start, freq end, bandwidth, max gain, eirp, reg_flags)
+ */
+
+static struct country_code_to_enum_rd allCountries[] = {
+	{COUNTRY_CODE_USER, "RD"},
+};
 
 /* 2G chan 14, PASSIVS SCAN, NO OFDM (B only) */
 #define RTW_2GHZ_CH14	\
@@ -66,20 +82,6 @@ static struct country_code_to_enum_rd allCountries[] = {
 	REG_RULE(5725-10, 5850+10, 40, 0, 30, \
 		 NL80211_RRF_PASSIVE_SCAN | NL80211_RRF_NO_IBSS)
 
-/* 5G chan 36 - chan 165 */
-#define RTW_5GHZ_5150_5850	\
-	REG_RULE(5150-10, 5850+10, 40, 0, 30,	\
-		 NL80211_RRF_PASSIVE_SCAN | NL80211_RRF_NO_IBSS)
-
-static const struct ieee80211_regdomain rtw_regdom_rd = {
-	.n_reg_rules = 3,
-	.alpha2 = "99",
-	.reg_rules = {
-		RTW_2GHZ_CH01_11,
-		RTW_2GHZ_CH12_13,
-		RTW_5GHZ_5150_5850,
-	}
-};
 
 static const struct ieee80211_regdomain rtw_regdom_11 = {
 	.n_reg_rules = 1,
@@ -139,7 +141,7 @@ static const struct ieee80211_regdomain rtw_regdom_14 = {
 	}
 };
 
-#if 0
+
 static struct rtw_regulatory *rtw_regd;
 #endif
 
@@ -301,7 +303,7 @@ void rtw_regd_apply_flags(struct wiphy *wiphy)
 		} else
 			ch->flags = 0;
 
-		#ifdef CONFIG_DFS
+		#if CONFIG_IEEE80211_BAND_5GHZ && CONFIG_DFS
 		if (rtw_is_dfs_ch(ch->hw_value)
 			#if defined(CONFIG_DFS_MASTER)
 			&& rtw_odm_dfs_domain_unknown(dvobj)
@@ -314,7 +316,7 @@ void rtw_regd_apply_flags(struct wiphy *wiphy)
 			ch->flags |= IEEE80211_CHAN_NO_IR;
 			#endif
 		}
-		#endif /* CONFIG_DFS */
+		#endif /* CONFIG_IEEE80211_BAND_5GHZ && CONFIG_DFS */
 	}
 }
 

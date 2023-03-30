@@ -17,7 +17,6 @@
  */
 
 #include <linux/slab.h>
-#include <linux/uaccess.h>
 #include <linux/tegra_vhost.h>
 #include <linux/nvhost.h>
 
@@ -53,12 +52,12 @@ int vhost_virt_moduleid(int moduleid)
 		return TEGRA_VHOST_MODULE_HOST;
 	case NVHOST_MODULE_ISP:
 		return TEGRA_VHOST_MODULE_ISP;
-	case (1 << 16) | NVHOST_MODULE_ISP:
-		return (1 << 16) | TEGRA_VHOST_MODULE_ISP;
+	case NVHOST_MODULE_ISPB:
+		return TEGRA_VHOST_MODULE_ISPB;
 	case NVHOST_MODULE_VI:
 		return TEGRA_VHOST_MODULE_VI;
-	case (1 << 16) | NVHOST_MODULE_VI:
-		return (1 << 16) | TEGRA_VHOST_MODULE_VI;
+	case NVHOST_MODULE_VI2:
+		return TEGRA_VHOST_MODULE_VI2;
 	case NVHOST_MODULE_MSENC:
 		return TEGRA_VHOST_MODULE_MSENC;
 	case NVHOST_MODULE_VIC:
@@ -73,6 +72,10 @@ int vhost_virt_moduleid(int moduleid)
 		return TEGRA_VHOST_MODULE_NVENC1;
 	case NVHOST_MODULE_NVCSI:
 		return TEGRA_VHOST_MODULE_NVCSI;
+	case NVHOST_MODULE_NVJPG1:
+		return TEGRA_VHOST_MODULE_NVJPG1;
+	case NVHOST_MODULE_OFA:
+		return TEGRA_VHOST_MODULE_OFA;
 	default:
 		pr_err("module %d not virtualized\n", moduleid);
 		return -1;
@@ -86,12 +89,12 @@ int vhost_moduleid_virt_to_hw(int moduleid)
 		return NVHOST_MODULE_NONE;
 	case TEGRA_VHOST_MODULE_ISP:
 		return NVHOST_MODULE_ISP;
-	case (1 << 16) | TEGRA_VHOST_MODULE_ISP:
-		return (1 << 16) | NVHOST_MODULE_ISP;
+	case TEGRA_VHOST_MODULE_ISPB:
+		return NVHOST_MODULE_ISPB;
 	case TEGRA_VHOST_MODULE_VI:
 		return NVHOST_MODULE_VI;
-	case (1 << 16) | TEGRA_VHOST_MODULE_VI:
-		return (1 << 16) | NVHOST_MODULE_VI;
+	case TEGRA_VHOST_MODULE_VI2:
+		return NVHOST_MODULE_VI2;
 	case TEGRA_VHOST_MODULE_MSENC:
 		return NVHOST_MODULE_MSENC;
 	case TEGRA_VHOST_MODULE_VIC:
@@ -102,17 +105,20 @@ int vhost_moduleid_virt_to_hw(int moduleid)
 		return NVHOST_MODULE_NVJPG;
 	case TEGRA_VHOST_MODULE_NVCSI:
 		return NVHOST_MODULE_NVCSI;
+	case TEGRA_VHOST_MODULE_NVJPG1:
+		return NVHOST_MODULE_NVJPG1;
+	case TEGRA_VHOST_MODULE_OFA:
+		return NVHOST_MODULE_OFA;
 	default:
 		pr_err("unknown virtualized module %d\n", moduleid);
 		return -1;
-
 	}
 }
 
 static u64 vhost_virt_connect(int moduleid)
 {
 	struct tegra_vhost_cmd_msg msg;
-	struct tegra_vhost_connect_params *p = &msg.params.connect;
+	struct tegra_vhost_connect_params *p = &msg.connect;
 	int err;
 
 	msg.cmd = TEGRA_VHOST_CMD_CONNECT;
@@ -122,7 +128,7 @@ static u64 vhost_virt_connect(int moduleid)
 
 	err = vhost_sendrecv(&msg);
 
-	return (err || msg.ret) ? 0 : p->handle;
+	return (err || msg.ret) ? 0 : p->connection_id;
 }
 
 int vhost_sendrecv(struct tegra_vhost_cmd_msg *msg)
@@ -177,11 +183,6 @@ int nvhost_virt_init(struct platform_device *dev, int moduleid)
 	if (!virt_ctx)
 		return -ENOMEM;
 
-	if (!host) {
-		err = -EAGAIN;
-		goto fail;
-	}
-
 	if (host->info.vmserver_owns_engines)
 		channel_management_in_guest = true;
 
@@ -233,7 +234,7 @@ int vhost_suspend(struct platform_device *pdev)
 		return 0;
 
 	msg.cmd = TEGRA_VHOST_CMD_SUSPEND;
-	msg.handle = ctx->handle;
+	msg.connection_id = ctx->handle;
 	return vhost_sendrecv(&msg);
 }
 
@@ -246,153 +247,6 @@ int vhost_resume(struct platform_device *pdev)
 		return 0;
 
 	msg.cmd = TEGRA_VHOST_CMD_RESUME;
-	msg.handle = ctx->handle;
+	msg.connection_id = ctx->handle;
 	return vhost_sendrecv(&msg);
-}
-
-int vhost_prod_apply(struct platform_device *pdev,
-		     unsigned int phy_mode)
-{
-	struct tegra_vhost_cmd_msg msg;
-	struct nvhost_virt_ctx *ctx = nvhost_get_virt_data(pdev);
-	struct tegra_vhost_prod_apply_params *p =
-		&msg.params.prod_apply;
-
-	msg.cmd = TEGRA_VHOST_CMD_PROD_APPLY;
-	msg.handle = ctx->handle;
-	p->phy_mode = phy_mode;
-
-	return vhost_sendrecv(&msg);
-}
-
-int vhost_cil_sw_reset(struct platform_device *pdev, u32 lanes, u32 enable)
-{
-	struct tegra_vhost_cmd_msg msg;
-	struct nvhost_virt_ctx *ctx = nvhost_get_virt_data(pdev);
-	struct tegra_vhost_cil_sw_reset_params *p =
-		&msg.params.cil_sw_reset;
-
-	msg.cmd = TEGRA_VHOST_CMD_CIL_SW_RESET;
-	msg.handle = ctx->handle;
-	p->lanes = lanes;
-	p->enable = enable;
-
-	return vhost_sendrecv(&msg);
-}
-
-static int vhost_host1x_regrdwr(u64 handle, u32 moduleid, u32 num_offsets,
-			u32 block_size, u32 *offs, u32 *vals, u32 write)
-{
-	struct tegra_vhost_cmd_msg msg;
-	struct tegra_vhost_channel_regrdwr_params *p =
-			&msg.params.regrdwr;
-	int err;
-	u32 num_per_block = block_size >> 2;
-	u32 remaining = num_offsets * num_per_block;
-	u32 i, n = 0;
-	u32 *ptr;
-
-	msg.cmd = TEGRA_VHOST_CMD_HOST1X_REGRDWR;
-	msg.handle = handle;
-	p->moduleid = moduleid;
-	p->write = write;
-
-	/* For writes, fill the back end of the msg buffer with offset/value
-	 * pairs. For reads, it's all offsets, which will be replaced by
-	 * the returned register values.
-	 */
-	if (write) {
-		while (remaining > 0) {
-			p->count = min(remaining, REGRDWR_ARRAY_SIZE >> 1);
-			remaining -= p->count;
-
-			ptr = p->regs;
-			for (i = 0; i < p->count; i++) {
-				*ptr++ = *offs + n * 4;
-				*ptr++ = *vals++;
-				if (++n == num_per_block) {
-					offs++;
-					n = 0;
-				}
-			}
-			err = vhost_sendrecv(&msg);
-			if (err || msg.ret)
-				return -1;
-		}
-	} else {
-		while (remaining > 0) {
-			p->count = min(remaining, REGRDWR_ARRAY_SIZE);
-			remaining -= p->count;
-
-			ptr = p->regs;
-			for (i = 0; i < p->count; i++) {
-				*ptr++ = *offs + n * 4;
-				if (++n == num_per_block) {
-					offs++;
-					n = 0;
-				}
-			}
-			err = vhost_sendrecv(&msg);
-			if (err || msg.ret)
-				return -1;
-			memcpy(vals, p->regs, p->count * sizeof(u32));
-			vals += p->count;
-		}
-	}
-
-	return 0;
-}
-
-int vhost_rdwr_module_regs(struct platform_device *ndev, u32 num_offsets,
-			u32 block_size, u32 __user *offsets,
-			u32 __user *values, u32 write)
-{
-	struct nvhost_device_data *pdata = platform_get_drvdata(ndev);
-	struct nvhost_master *nvhost_master = nvhost_get_host(ndev);
-	struct nvhost_virt_ctx *ctx = nvhost_get_virt_data(nvhost_master->dev);
-	u32 *vals, *offs;
-	int err;
-
-	vals = kmalloc_array(num_offsets, block_size, GFP_KERNEL);
-	if (!vals)
-		return -ENOMEM;
-
-	offs = kmalloc_array(num_offsets, sizeof(u32), GFP_KERNEL);
-	if (!offs) {
-		kfree(vals);
-		return -ENOMEM;
-	}
-
-	if (copy_from_user((void *)offs, (void __user *)offsets,
-			num_offsets * sizeof(u32))) {
-		err = -EFAULT;
-		goto done;
-	}
-
-	if (write) {
-		if (copy_from_user((void *)vals, (void __user *)values,
-				num_offsets * block_size)) {
-			err = -EFAULT;
-			goto done;
-		}
-	}
-	err = vhost_host1x_regrdwr(ctx->handle,
-				vhost_virt_moduleid(pdata->moduleid),
-				num_offsets, block_size, offs, vals, write);
-
-	if (err) {
-		err = -EFAULT;
-		goto done;
-	}
-
-	if (!write) {
-		if (copy_to_user((void __user *)values, (void *)vals,
-				num_offsets * block_size))
-			err = -EFAULT;
-	}
-
-done:
-	kfree(vals);
-	kfree(offs);
-	return err;
 }

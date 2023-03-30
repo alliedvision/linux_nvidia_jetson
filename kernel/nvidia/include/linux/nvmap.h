@@ -3,7 +3,7 @@
  *
  * structure declarations for nvmem and nvmap user-space ioctls
  *
- * Copyright (c) 2009-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2009-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,10 +27,10 @@
 #define NVMAP_HEAP_IOVMM   (1ul<<30)
 
 /* common carveout heaps */
-#define NVMAP_HEAP_CARVEOUT_IRAM    (1ul<<29)
 #define NVMAP_HEAP_CARVEOUT_VPR     (1ul<<28)
 #define NVMAP_HEAP_CARVEOUT_TSEC    (1ul<<27)
 #define NVMAP_HEAP_CARVEOUT_VIDMEM  (1ul<<26)
+#define NVMAP_HEAP_CARVEOUT_FSI   (1ul<<2)
 #define NVMAP_HEAP_CARVEOUT_IVM     (1ul<<1)
 #define NVMAP_HEAP_CARVEOUT_GENERIC (1ul<<0)
 
@@ -52,7 +52,7 @@
 #define NVMAP_HANDLE_CACHE_SYNC_AT_RESERVE      (0x1ul << 8)
 #define NVMAP_HANDLE_RO	             (0x1ul << 9)
 
-#ifdef CONFIG_NVMAP_PAGE_POOLS
+#ifdef NVMAP_CONFIG_PAGE_POOLS
 ulong nvmap_page_pool_get_unused_pages(void);
 #else
 static inline ulong nvmap_page_pool_get_unused_pages(void)

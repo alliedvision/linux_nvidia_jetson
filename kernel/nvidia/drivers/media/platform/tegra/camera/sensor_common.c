@@ -1,7 +1,7 @@
 /*
  * sensor_common.c - utilities for tegra sensor drivers
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -62,6 +62,25 @@ static int sensor_common_parse_signal_props(
 	int err = 0;
 	u32 value = 0;
 	u64 val64 = 0;
+	u64 rate;
+	int depth;
+
+	err = of_property_read_string(node, "phy_mode", &temp_str);
+	if (err) {
+		dev_dbg(dev, "%s: use default phy mode DPHY\n", __func__);
+		signal->phy_mode = CSI_PHY_MODE_DPHY;
+	} else {
+		if (strcmp(temp_str, "CPHY") == 0)
+			signal->phy_mode = CSI_PHY_MODE_CPHY;
+		else if (strcmp(temp_str, "DPHY") == 0)
+			signal->phy_mode = CSI_PHY_MODE_DPHY;
+		else if (strcmp(temp_str, "SLVS") == 0)
+			signal->phy_mode = SLVS_EC;
+		else {
+			dev_err(dev, "%s: Invalid Phy mode\n", __func__);
+			return -EINVAL;
+		}
+	}
 
 	/* Do not report error for these properties yet */
 	err = read_property_u32(node, "readout_orientation", &value);
@@ -70,17 +89,18 @@ static int sensor_common_parse_signal_props(
 	else
 		signal->readout_orientation = value;
 
-	err = read_property_u32(node, "num_lanes", &value);
-	if (err)
-		signal->num_lanes = 0;
-	else
-		signal->num_lanes = value;
-
 	err = read_property_u32(node, "mclk_khz", &value);
 	if (err)
 		signal->mclk_freq = 0;
 	else
 		signal->mclk_freq = value;
+
+	err = read_property_u32(node, "num_lanes", &value);
+	if (err) {
+		dev_err(dev, "%s:num_lanes property missing\n", __func__);
+		return err;
+	}
+	signal->num_lanes = value;
 
 	err = read_property_u64(node, "pix_clk_hz", &val64);
 	if (err) {
@@ -95,11 +115,38 @@ static int sensor_common_parse_signal_props(
 	else
 		signal->serdes_pixel_clock.val = val64;
 
-	if (signal->serdes_pixel_clock.val != 0ULL &&
-		signal->serdes_pixel_clock.val < signal->pixel_clock.val) {
-		dev_err(dev, "%s: serdes_pix_clk_hz is lower than pix_clk_hz!\n",
+	if (signal->serdes_pixel_clock.val != 0ULL) {
+		if (signal->serdes_pixel_clock.val < signal->pixel_clock.val) {
+			dev_err(dev,
+				"%s: serdes_pix_clk_hz is lower than pix_clk_hz!\n",
 				__func__);
-		return -EINVAL;
+			return -EINVAL;
+		}
+		rate = signal->serdes_pixel_clock.val;
+	} else {
+		rate = signal->pixel_clock.val;
+	}
+
+	err = read_property_u32(node, "csi_pixel_bit_depth", &depth);
+	if (err) {
+		dev_err(dev,
+			"%s:csi_pixel_bit_depth property missing.\n",
+			__func__);
+		return err;
+	}
+
+	/* Convert pixel rate to lane data rate */
+	rate = rate * depth / signal->num_lanes;
+
+	if (signal->phy_mode == CSI_PHY_MODE_DPHY) {
+		/* MIPI clock rate */
+		signal->mipi_clock.val = rate / 2;
+	} else if (signal->phy_mode == CSI_PHY_MODE_CPHY) {
+		/* Symbol rate */
+		signal->mipi_clock.val = rate * 7 / 16;
+	} else {
+		/* Data rate */
+		signal->mipi_clock.val = rate;
 	}
 
 	err = read_property_u32(node, "cil_settletime", &value);
@@ -107,6 +154,14 @@ static int sensor_common_parse_signal_props(
 		signal->cil_settletime = 0;
 	else
 		signal->cil_settletime = value;
+
+	err = read_property_u32(node, "lane_polarity", &value);
+	/* absence of this value is not an error and default behaviour is
+	 * no polarity swap on any CSI lane */
+	if (err)
+		signal->lane_polarity = 0;
+	else
+		signal->lane_polarity = value;
 
 	/* initialize default if this prop not available */
 	err = of_property_read_string(node, "discontinuous_clk", &temp_str);
@@ -172,23 +227,6 @@ static int sensor_common_parse_signal_props(
 		return -EINVAL;
 	}
 
-	err = of_property_read_string(node, "phy_mode", &temp_str);
-	if (err) {
-		dev_dbg(dev, "%s: use default phy mode DPHY\n", __func__);
-		signal->phy_mode = CSI_PHY_MODE_DPHY;
-	} else {
-		if (strcmp(temp_str, "CPHY") == 0)
-			signal->phy_mode = CSI_PHY_MODE_CPHY;
-		else if (strcmp(temp_str, "DPHY") == 0)
-			signal->phy_mode = CSI_PHY_MODE_DPHY;
-		else if (strcmp(temp_str, "SLVS") == 0)
-			signal->phy_mode = SLVS_EC;
-		else {
-			dev_err(dev, "%s: Invalid Phy mode\n", __func__);
-			return -EINVAL;
-		}
-	}
-
 	return 0;
 }
 
@@ -198,31 +236,31 @@ static int extract_pixel_format(
 	size_t size = strnlen(pixel_t, OF_MAX_STR_LEN);
 
 	if (strncmp(pixel_t, "bayer_bggr10", size) == 0)
-		*format = V4L2_PIX_FMT_SBGGR16;
+		*format = V4L2_PIX_FMT_SBGGR10;
 	else if (strncmp(pixel_t, "bayer_rggb10", size) == 0)
-		*format = V4L2_PIX_FMT_SRGGB16;
+		*format = V4L2_PIX_FMT_SRGGB10;
 	else if (strncmp(pixel_t, "bayer_grbg10", size) == 0)
-		*format = V4L2_PIX_FMT_SGRBG16;
+		*format = V4L2_PIX_FMT_SGRBG10;
 	else if (strncmp(pixel_t, "bayer_gbrg10", size) == 0)
-		*format = V4L2_PIX_FMT_SGRBG16;
+		*format = V4L2_PIX_FMT_SGBRG10;
 	else if (strncmp(pixel_t, "bayer_bggr12", size) == 0)
-		*format = V4L2_PIX_FMT_SBGGR16;
+		*format = V4L2_PIX_FMT_SBGGR12;
 	else if (strncmp(pixel_t, "bayer_rggb12", size) == 0)
-		*format = V4L2_PIX_FMT_SRGGB16;
+		*format = V4L2_PIX_FMT_SRGGB12;
 	else if (strncmp(pixel_t, "bayer_gbrg12", size) == 0)
-		*format = V4L2_PIX_FMT_SGBRG16;
+		*format = V4L2_PIX_FMT_SGBRG12;
 	else if (strncmp(pixel_t, "bayer_grbg12", size) == 0)
-		*format = V4L2_PIX_FMT_SGRBG16;
+		*format = V4L2_PIX_FMT_SGRBG12;
 	else if (strncmp(pixel_t, "rgb_rgb88824", size) == 0)
 		*format = V4L2_PIX_FMT_RGB24;
 	else if (strncmp(pixel_t, "bayer_wdr_pwl_rggb12", size) == 0)
-		*format = V4L2_PIX_FMT_SRGGB16;
+		*format = V4L2_PIX_FMT_SRGGB12;
 	else if (strncmp(pixel_t, "bayer_wdr_pwl_gbrg12", size) == 0)
-		*format = V4L2_PIX_FMT_SGBRG16;
+		*format = V4L2_PIX_FMT_SGBRG12;
 	else if (strncmp(pixel_t, "bayer_wdr_pwl_grbg12", size) == 0)
-		*format = V4L2_PIX_FMT_SGRBG16;
+		*format = V4L2_PIX_FMT_SGRBG12;
 	else if (strncmp(pixel_t, "bayer_wdr_dol_rggb10", size) == 0)
-		*format = V4L2_PIX_FMT_SRGGB16;
+		*format = V4L2_PIX_FMT_SRGGB10;
 	else if (strncmp(pixel_t, "bayer_xbggr10p", size) == 0)
 		*format = V4L2_PIX_FMT_XBGGR10P;
 	else if (strncmp(pixel_t, "bayer_xrggb10p", size) == 0)
@@ -248,7 +286,7 @@ static int sensor_common_parse_image_props(
 	struct sensor_image_properties *image)
 {
 	const char *temp_str;
-	int err = 0;
+	int err = 0, ret = 0;
 	const char *phase_str, *mode_str;
 	int depth;
 	char pix_format[24];
@@ -317,7 +355,9 @@ static int sensor_common_parse_image_props(
 				__func__);
 			goto fail;
 		}
-		sprintf(pix_format, "%s_%s%d", mode_str, phase_str, depth);
+		ret = sprintf(pix_format, "%s_%s%d", mode_str, phase_str, depth);
+		if (ret < 0)
+			return -EINVAL;
 		temp_str = pix_format;
 	}
 
@@ -548,7 +588,7 @@ int sensor_common_parse_num_modes(const struct device *dev)
 	struct device_node *node = NULL;
 	char temp_str[OF_MAX_STR_LEN];
 	int num_modes = 0;
-	int i;
+	int i, ret;
 
 	if (!dev || !dev->of_node)
 		return 0;
@@ -556,8 +596,10 @@ int sensor_common_parse_num_modes(const struct device *dev)
 	np = dev->of_node;
 
 	for (i = 0; num_modes < MAX_NUM_SENSOR_MODES; i++) {
-		snprintf(temp_str, sizeof(temp_str), "%s%d",
+		ret = snprintf(temp_str, sizeof(temp_str), "%s%d",
 			OF_SENSORMODE_PREFIX, i);
+		if (ret < 0)
+			return 0;
 		node = of_get_child_by_name(np, temp_str);
 		of_node_put(node);
 		if (node == NULL)
@@ -756,8 +798,11 @@ int sensor_common_init_sensor_properties(
 
 	/* get number of modes */
 	for (i = 0; num_modes < MAX_NUM_SENSOR_MODES; i++) {
-		snprintf(temp_str, sizeof(temp_str), "%s%d",
+		err = snprintf(temp_str, sizeof(temp_str), "%s%d",
 			OF_SENSORMODE_PREFIX, i);
+		if (err < 0)
+			return -EINVAL;
+
 		node = of_get_child_by_name(np, temp_str);
 		of_node_put(node);
 		if (node == NULL)
@@ -776,8 +821,11 @@ int sensor_common_init_sensor_properties(
 	}
 
 	for (i = 0; i < num_modes; i++) {
-		snprintf(temp_str, sizeof(temp_str), "%s%d",
+		err = snprintf(temp_str, sizeof(temp_str), "%s%d",
 			OF_SENSORMODE_PREFIX, i);
+		if (err < 0)
+			return -EINVAL;
+
 		node = of_get_child_by_name(np, temp_str);
 		if (node == NULL) {
 			dev_err(dev, "Failed to find %s\n", temp_str);

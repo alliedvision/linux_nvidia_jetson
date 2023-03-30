@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,203 +53,65 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_top_gp106_h_
-#define _hw_top_gp106_h_
+#ifndef NVGPU_HW_TOP_GP106_H
+#define NVGPU_HW_TOP_GP106_H
 
-static inline u32 top_num_gpcs_r(void)
-{
-	return 0x00022430U;
-}
-static inline u32 top_num_gpcs_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_tpc_per_gpc_r(void)
-{
-	return 0x00022434U;
-}
-static inline u32 top_tpc_per_gpc_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_num_fbps_r(void)
-{
-	return 0x00022438U;
-}
-static inline u32 top_num_fbps_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_num_fbpas_r(void)
-{
-	return 0x0002243cU;
-}
-static inline u32 top_num_fbpas_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_ltc_per_fbp_r(void)
-{
-	return 0x00022450U;
-}
-static inline u32 top_ltc_per_fbp_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_slices_per_ltc_r(void)
-{
-	return 0x0002245cU;
-}
-static inline u32 top_slices_per_ltc_value_v(u32 r)
-{
-	return (r >> 0U) & 0x1fU;
-}
-static inline u32 top_num_ltcs_r(void)
-{
-	return 0x00022454U;
-}
-static inline u32 top_device_info_r(u32 i)
-{
-	return 0x00022700U + i*4U;
-}
-static inline u32 top_device_info__size_1_v(void)
-{
-	return 0x00000040U;
-}
-static inline u32 top_device_info_chain_v(u32 r)
-{
-	return (r >> 31U) & 0x1U;
-}
-static inline u32 top_device_info_chain_enable_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 top_device_info_engine_enum_v(u32 r)
-{
-	return (r >> 26U) & 0xfU;
-}
-static inline u32 top_device_info_runlist_enum_v(u32 r)
-{
-	return (r >> 21U) & 0xfU;
-}
-static inline u32 top_device_info_intr_enum_v(u32 r)
-{
-	return (r >> 15U) & 0x1fU;
-}
-static inline u32 top_device_info_reset_enum_v(u32 r)
-{
-	return (r >> 9U) & 0x1fU;
-}
-static inline u32 top_device_info_type_enum_v(u32 r)
-{
-	return (r >> 2U) & 0x1fffffffU;
-}
-static inline u32 top_device_info_type_enum_graphics_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 top_device_info_type_enum_graphics_f(void)
-{
-	return 0x0U;
-}
-static inline u32 top_device_info_type_enum_copy0_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 top_device_info_type_enum_copy0_f(void)
-{
-	return 0x4U;
-}
-static inline u32 top_device_info_type_enum_copy2_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 top_device_info_type_enum_copy2_f(void)
-{
-	return 0xcU;
-}
-static inline u32 top_device_info_type_enum_lce_v(void)
-{
-	return 0x00000013U;
-}
-static inline u32 top_device_info_type_enum_lce_f(void)
-{
-	return 0x4cU;
-}
-static inline u32 top_device_info_engine_v(u32 r)
-{
-	return (r >> 5U) & 0x1U;
-}
-static inline u32 top_device_info_runlist_v(u32 r)
-{
-	return (r >> 4U) & 0x1U;
-}
-static inline u32 top_device_info_intr_v(u32 r)
-{
-	return (r >> 3U) & 0x1U;
-}
-static inline u32 top_device_info_reset_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 top_device_info_entry_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 top_device_info_entry_not_valid_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 top_device_info_entry_enum_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 top_device_info_entry_engine_type_v(void)
-{
-	return 0x00000003U;
-}
-static inline u32 top_device_info_entry_data_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 top_device_info_data_type_v(u32 r)
-{
-	return (r >> 30U) & 0x1U;
-}
-static inline u32 top_device_info_data_type_enum2_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 top_device_info_data_inst_id_v(u32 r)
-{
-	return (r >> 26U) & 0xfU;
-}
-static inline u32 top_device_info_data_pri_base_v(u32 r)
-{
-	return (r >> 12U) & 0xfffU;
-}
-static inline u32 top_device_info_data_pri_base_align_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 top_device_info_data_fault_id_enum_v(u32 r)
-{
-	return (r >> 3U) & 0x1fU;
-}
-static inline u32 top_device_info_data_fault_id_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 top_device_info_data_fault_id_valid_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 top_scratch1_r(void)
-{
-	return 0x0002240cU;
-}
-static inline u32 top_scratch1_devinit_completed_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define top_num_gpcs_r()                                           (0x00022430U)
+#define top_num_gpcs_value_v(r)                            (((r) >> 0U) & 0x1fU)
+#define top_tpc_per_gpc_r()                                        (0x00022434U)
+#define top_tpc_per_gpc_value_v(r)                         (((r) >> 0U) & 0x1fU)
+#define top_num_fbps_r()                                           (0x00022438U)
+#define top_num_fbps_value_v(r)                            (((r) >> 0U) & 0x1fU)
+#define top_num_fbpas_r()                                          (0x0002243cU)
+#define top_num_fbpas_value_v(r)                           (((r) >> 0U) & 0x1fU)
+#define top_ltc_per_fbp_r()                                        (0x00022450U)
+#define top_ltc_per_fbp_value_v(r)                         (((r) >> 0U) & 0x1fU)
+#define top_slices_per_ltc_r()                                     (0x0002245cU)
+#define top_slices_per_ltc_value_v(r)                      (((r) >> 0U) & 0x1fU)
+#define top_num_ltcs_r()                                           (0x00022454U)
+#define top_device_info_r(i)\
+		(nvgpu_safe_add_u32(0x00022700U, nvgpu_safe_mult_u32((i), 4U)))
+#define top_device_info__size_1_v()                                (0x00000040U)
+#define top_device_info_chain_v(r)                         (((r) >> 31U) & 0x1U)
+#define top_device_info_chain_enable_v()                           (0x00000001U)
+#define top_device_info_chain_disable_v()                          (0x00000000U)
+#define top_device_info_engine_enum_v(r)                   (((r) >> 26U) & 0xfU)
+#define top_device_info_runlist_enum_v(r)                  (((r) >> 21U) & 0xfU)
+#define top_device_info_intr_enum_v(r)                    (((r) >> 15U) & 0x1fU)
+#define top_device_info_reset_enum_v(r)                    (((r) >> 9U) & 0x1fU)
+#define top_device_info_type_enum_v(r)               (((r) >> 2U) & 0x1fffffffU)
+#define top_device_info_type_enum_graphics_v()                     (0x00000000U)
+#define top_device_info_type_enum_graphics_f()                            (0x0U)
+#define top_device_info_type_enum_copy0_v()                        (0x00000001U)
+#define top_device_info_type_enum_copy0_f()                               (0x4U)
+#define top_device_info_type_enum_copy2_v()                        (0x00000003U)
+#define top_device_info_type_enum_copy2_f()                               (0xcU)
+#define top_device_info_type_enum_lce_v()                          (0x00000013U)
+#define top_device_info_type_enum_lce_f()                                (0x4cU)
+#define top_device_info_engine_v(r)                         (((r) >> 5U) & 0x1U)
+#define top_device_info_engine_valid_v()                           (0x00000001U)
+#define top_device_info_runlist_v(r)                        (((r) >> 4U) & 0x1U)
+#define top_device_info_runlist_valid_v()                          (0x00000001U)
+#define top_device_info_intr_v(r)                           (((r) >> 3U) & 0x1U)
+#define top_device_info_intr_valid_v()                             (0x00000001U)
+#define top_device_info_reset_v(r)                          (((r) >> 2U) & 0x1U)
+#define top_device_info_reset_valid_v()                            (0x00000001U)
+#define top_device_info_entry_v(r)                          (((r) >> 0U) & 0x3U)
+#define top_device_info_entry_not_valid_v()                        (0x00000000U)
+#define top_device_info_entry_enum_v()                             (0x00000002U)
+#define top_device_info_entry_engine_type_v()                      (0x00000003U)
+#define top_device_info_entry_data_v()                             (0x00000001U)
+#define top_device_info_data_type_v(r)                     (((r) >> 30U) & 0x1U)
+#define top_device_info_data_type_enum2_v()                        (0x00000000U)
+#define top_device_info_data_inst_id_v(r)                  (((r) >> 26U) & 0xfU)
+#define top_device_info_data_pri_base_v(r)               (((r) >> 12U) & 0xfffU)
+#define top_device_info_data_pri_base_align_v()                    (0x0000000cU)
+#define top_device_info_data_fault_id_enum_v(r)            (((r) >> 3U) & 0x1fU)
+#define top_device_info_data_fault_id_v(r)                  (((r) >> 2U) & 0x1U)
+#define top_device_info_data_fault_id_valid_v()                    (0x00000001U)
+#define top_scratch1_r()                                           (0x0002240cU)
+#define top_scratch1_devinit_completed_v(r)                 (((r) >> 1U) & 0x1U)
 #endif

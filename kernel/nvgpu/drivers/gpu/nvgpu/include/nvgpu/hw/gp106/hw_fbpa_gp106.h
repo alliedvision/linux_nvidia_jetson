@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,15 +53,12 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_fbpa_gp106_h_
-#define _hw_fbpa_gp106_h_
+#ifndef NVGPU_HW_FBPA_GP106_H
+#define NVGPU_HW_FBPA_GP106_H
 
-static inline u32 fbpa_cstatus_r(void)
-{
-	return 0x009a020cU;
-}
-static inline u32 fbpa_cstatus_ramamount_v(u32 r)
-{
-	return (r >> 0U) & 0x1ffffU;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define fbpa_cstatus_r()                                           (0x009a020cU)
+#define fbpa_cstatus_ramamount_v(r)                     (((r) >> 0U) & 0x1ffffU)
 #endif

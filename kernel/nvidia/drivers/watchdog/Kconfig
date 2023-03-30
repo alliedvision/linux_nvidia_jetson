@@ -11,7 +11,7 @@ config TEGRA21X_WATCHDOG
 
 config TEGRA18X_WATCHDOG
 	tristate "Tegra T18x watchdog"
-	depends on ARCH_TEGRA_18x_SOC
+	depends on (ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC)
 	help
 	  Say Y here to include support for the watchdog timer
 	  embedded in NVIDIA Tegra SoCs.

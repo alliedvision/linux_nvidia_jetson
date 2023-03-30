@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -14,10 +14,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <drm/drmP.h>
 #include <linux/dma-buf.h>
 #include <linux/shmem_fs.h>
+#include <linux/version.h>
 #include <linux/extcon.h>
+
+#if KERNEL_VERSION(5, 8, 0) <= LINUX_VERSION_CODE
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <drm/drm_file.h>
+#include <drm/drm_drv.h>
+#include <drm/drm_ioctl.h>
+#include <drm/drm_vblank.h>
+#include <drm/drm_sysfs.h>
+#include <drm/drm_print.h>
+#else
+#include <drm/drmP.h>
+#endif
 
 #include <uapi/drm/tegra_udrm.h>
 
@@ -41,7 +54,8 @@ static bool tegra_udrm_modeset_module_param;
 module_param_named(modeset, tegra_udrm_modeset_module_param, bool, 0400);
 
 static const unsigned int cable_ids[] = {
-	EXTCON_DISP_HDMI, EXTCON_DISP_DP, EXTCON_DISP_DSIHPD, EXTCON_DISP_HDMI2};
+	EXTCON_DISP_HDMI, EXTCON_DISP_DP, EXTCON_DISP_DSIHPD, EXTCON_DISP_HDMI2,
+	EXTCON_DISP_HDMI3, EXTCON_DISP_HDMI4};
 struct tegra_udrm_private {
 	struct drm_device *drm;
 	struct notifier_block hpd_nb[ARRAY_SIZE(cable_ids)];
@@ -171,7 +185,11 @@ static int tegra_udrm_dmabuf_destroy_mappings_ioctl(struct drm_device *drm,
 	return -EINVAL;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 static void tegra_udrm_preclose(struct drm_device *drm, struct drm_file *file)
+#else
+static void tegra_udrm_postclose(struct drm_device *drm, struct drm_file *file)
+#endif
 {
 	struct tegra_udrm_file *fpriv = file->driver_priv;
 	struct tegra_udrm_mmap_entry *mmap_entry;
@@ -197,21 +215,6 @@ static void tegra_udrm_preclose(struct drm_device *drm, struct drm_file *file)
 		// are closing.
 		eventfd_ctx_put(fpriv->efd_ctx_close);
 		fpriv->efd_ctx_close = NULL;
-	}
-
-	if (fpriv->efd_ctx_set_master) {
-		eventfd_signal(fpriv->efd_ctx_set_master, 1);
-		eventfd_ctx_put(fpriv->efd_ctx_set_master);
-		fpriv->efd_ctx_set_master = NULL;
-	}
-
-}
-
-static void tegra_udrm_postclose(struct drm_device *drm, struct drm_file *file)
-{
-	if (file->driver_priv) {
-		kfree(file->driver_priv);
-		file->driver_priv = NULL;
 	}
 }
 
@@ -330,13 +333,22 @@ static int tegra_udrm_send_vblank_event_ioctl(struct drm_device *drm,
 
 	/* make event */
 	e->pipe = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	e->base.pid = current->pid;
+#endif
 	e->event.base.type = args->vblank.base.type;
 	e->event.base.length = sizeof(e->event);
+#if KERNEL_VERSION(5, 8, 0) <= LINUX_VERSION_CODE
+	e->event.vbl.user_data = args->vblank.user_data;
+	e->event.vbl.sequence = args->vblank.sequence;
+	e->event.vbl.tv_sec = args->vblank.tv_sec;
+	e->event.vbl.tv_usec = args->vblank.tv_usec;
+#else
 	e->event.user_data = args->vblank.user_data;
 	e->event.sequence = args->vblank.sequence;
 	e->event.tv_sec = args->vblank.tv_sec;
 	e->event.tv_usec = args->vblank.tv_usec;
+#endif
 
 	ret = drm_event_reserve_init(drm, file, &e->base, &e->event.base);
 	if (ret) {
@@ -358,8 +370,13 @@ static int tegra_udrm_send_connector_status_event_ioctl(struct drm_device *drm,
 	char *envp[4] = { hotplug_str, conn_id, prop_id, NULL };
 	int ret = 0;
 
-	snprintf(conn_id, ARRAY_SIZE(conn_id), "CONNECTOR=%u", args->conn_id);
-	snprintf(prop_id, ARRAY_SIZE(prop_id), "PROPERTY=%u", args->prop_id);
+	ret = snprintf(conn_id, ARRAY_SIZE(conn_id), "CONNECTOR=%u", args->conn_id);
+	if ((ret < 0) || (ret >= sizeof(conn_id)))
+		return -EINVAL;
+
+	ret = snprintf(prop_id, ARRAY_SIZE(prop_id), "PROPERTY=%u", args->prop_id);
+	if ((ret < 0) || (ret >= sizeof(prop_id)))
+		return -EINVAL;
 
 	ret = kobject_uevent_env(&drm->primary->kdev->kobj, KOBJ_CHANGE, envp);
 	if (ret < 0)
@@ -431,16 +448,24 @@ static int tegra_udrm_open(struct drm_device *drm, struct drm_file *filp)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 static int tegra_udrm_master_set(struct drm_device *dev,
 		struct drm_file *file_priv,
 		bool from_open)
+#else
+static void tegra_udrm_master_set(struct drm_device *dev,
+		struct drm_file *file_priv,
+		bool from_open)
+#endif
 {
 	struct tegra_udrm_file *fpriv = file_priv->driver_priv;
 
 	if (fpriv->efd_ctx_set_master != NULL)
 		eventfd_signal(fpriv->efd_ctx_set_master, 1);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 	return 0;
+#endif
 }
 
 static void tegra_udrm_master_drop(struct drm_device *dev,
@@ -465,8 +490,11 @@ static struct drm_driver tegra_udrm_driver = {
 	 */
 	.driver_features   = DRIVER_RENDER,
 	.open              = tegra_udrm_open,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	.preclose          = tegra_udrm_preclose,
+#else
 	.postclose         = tegra_udrm_postclose,
+#endif
 	.ioctls            = tegra_udrm_ioctls,
 	.num_ioctls        = ARRAY_SIZE(tegra_udrm_ioctls),
 	.fops              = &tegra_udrm_fops,
@@ -549,6 +577,28 @@ static int tegra_udrm_hdmi2_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static int tegra_udrm_hdmi3_notifier(struct notifier_block *nb,
+		unsigned long event, void *unused)
+{
+	struct tegra_udrm_private *priv = container_of(nb,
+			struct tegra_udrm_private, hpd_nb[4]);
+
+	drm_sysfs_hotplug_event(priv->drm);
+
+	return NOTIFY_DONE;
+}
+
+static int tegra_udrm_hdmi4_notifier(struct notifier_block *nb,
+		unsigned long event, void *unused)
+{
+	struct tegra_udrm_private *priv = container_of(nb,
+			struct tegra_udrm_private, hpd_nb[5]);
+
+	drm_sysfs_hotplug_event(priv->drm);
+
+	return NOTIFY_DONE;
+}
+
 static int tegra_udrm_probe(struct platform_device *pdev)
 {
 	struct drm_driver *driver = &tegra_udrm_driver;
@@ -586,6 +636,8 @@ static int tegra_udrm_probe(struct platform_device *pdev)
 		priv->hpd_nb[1].notifier_call = tegra_udrm_dp_notifier;
 		priv->hpd_nb[2].notifier_call = tegra_udrm_dsi_notifier;
 		priv->hpd_nb[3].notifier_call = tegra_udrm_hdmi2_notifier;
+		priv->hpd_nb[4].notifier_call = tegra_udrm_hdmi3_notifier;
+		priv->hpd_nb[5].notifier_call = tegra_udrm_hdmi4_notifier;
 		for (i = 0; i < ARRAY_SIZE(cable_ids); i++) {
 			ret = devm_extcon_register_notifier(drm->dev, edev,
 				cable_ids[i], &priv->hpd_nb[i]);
@@ -604,7 +656,11 @@ err_unload:
 	tegra_udrm_unload(drm);
 
 err_unref:
+#if KERNEL_VERSION(5, 8, 0) <= LINUX_VERSION_CODE
+	drm_dev_put(drm);
+#else
 	drm_dev_unref(drm);
+#endif
 
 	return ret;
 }
@@ -615,7 +671,11 @@ static int tegra_udrm_remove(struct platform_device *pdev)
 
 	drm_dev_unregister(drm);
 	tegra_udrm_unload(drm);
+#if KERNEL_VERSION(5, 8, 0) <= LINUX_VERSION_CODE
+	drm_dev_put(drm);
+#else
 	drm_dev_unref(drm);
+#endif
 
 	return 0;
 }

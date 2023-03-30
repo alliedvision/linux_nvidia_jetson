@@ -1,0 +1,156 @@
+From 20242e59136add211c9479a43953b6e4b27b0f96 Mon Sep 17 00:00:00 2001
+From: Badhri Jagan Sridharan <badhri@google.com>
+Date: Tue, 1 Sep 2020 21:16:09 -0700
+Subject: [PATCH 132/830] ANDROID: power_supply: Add a helper function to
+ retrieve psy array from phandle
+X-NVConfidentiality: public
+
+power_supply_get_by_phandle retrieves power_supply object based on
+phandle. However, when multiple power_supply objects are registered
+by the same parent device the first power_supply object's reference
+is returned. This returned power_supply object's reference varies
+according to probe order. Add a helper to return all the power_supply
+object's reference.
+
+The caller has to provide the power_supply pointer array.
+-EOVERFLOW is returned when the size of the array is not enough to
+pass back all the power_supply objects.
+
+Patch was sent to mainline linux, however, was deemed incomplete due
+to lack of mainline user.
+
+Link: https://lore.kernel.org/linux-pm/20200407211243.247362-1-badhri@google.com/T/
+Bug: 161416774
+Bug: 167486462
+Signed-off-by: Badhri Jagan Sridharan <badhri@google.com>
+Change-Id: I6d9c52edb4472e73fc2d3c8eb32a41bec8bbde2a
+---
+ drivers/power/supply/power_supply_core.c | 78 ++++++++++++++++++++++++
+ include/linux/power_supply.h             |  9 +++
+ 2 files changed, 87 insertions(+)
+
+diff --git a/drivers/power/supply/power_supply_core.c b/drivers/power/supply/power_supply_core.c
+index 280c54c23e37..2fe31ea5ae53 100644
+--- a/drivers/power/supply/power_supply_core.c
++++ b/drivers/power/supply/power_supply_core.c
+@@ -32,6 +32,13 @@ EXPORT_SYMBOL_GPL(power_supply_notifier);
+ 
+ static struct device_type power_supply_dev_type;
+ 
++struct match_device_node_array_param {
++	struct device_node *parent_of_node;
++	struct power_supply **psy;
++	ssize_t psy_size;
++	ssize_t psy_count;
++};
++
+ #define POWER_SUPPLY_DEFERRED_REGISTER_TIME	msecs_to_jiffies(10)
+ 
+ static bool __power_supply_is_supplied_by(struct power_supply *supplier,
+@@ -522,6 +529,77 @@ struct power_supply *power_supply_get_by_phandle(struct device_node *np,
+ }
+ EXPORT_SYMBOL_GPL(power_supply_get_by_phandle);
+ 
++static int power_supply_match_device_node_array(struct device *dev,
++						void *data)
++{
++	struct match_device_node_array_param *param =
++		(struct match_device_node_array_param *)data;
++	struct power_supply **psy = param->psy;
++	ssize_t size = param->psy_size;
++	ssize_t *count = &param->psy_count;
++
++	if (!dev->parent || dev->parent->of_node != param->parent_of_node)
++		return 0;
++
++	if (*count >= size)
++		return -EOVERFLOW;
++
++	psy[*count] = dev_get_drvdata(dev);
++	atomic_inc(&psy[*count]->use_cnt);
++	(*count)++;
++
++	return 0;
++}
++
++/**
++ * power_supply_get_by_phandle_array() - Similar to
++ * power_supply_get_by_phandle but returns an array of power supply
++ * objects which are associated with the phandle.
++ * @np: Pointer to device node holding phandle property.
++ * @property: Name of property holding a power supply name.
++ * @psy: Array of power_supply pointers provided by the client which is
++ * filled by power_supply_get_by_phandle_array.
++ * @size: size of power_supply pointer array.
++ *
++ * If power supply was found, it increases reference count for the
++ * internal power supply's device. The user should power_supply_put()
++ * after usage.
++ *
++ * Return: On success returns the number of power supply objects filled
++ * in the @psy array.
++ * -EOVERFLOW when size of @psy array is not suffice.
++ * -EINVAL when @psy is NULL or @size is 0.
++ * -ENODEV when matching device_node is not found.
++ */
++int power_supply_get_by_phandle_array(struct device_node *np,
++				      const char *property,
++				      struct power_supply **psy,
++				      ssize_t size)
++{
++	struct device_node *power_supply_np;
++	int ret;
++	struct match_device_node_array_param param;
++
++	if (!psy || !size)
++		return -EINVAL;
++
++	power_supply_np = of_parse_phandle(np, property, 0);
++	if (!power_supply_np)
++		return -ENODEV;
++
++	param.parent_of_node = power_supply_np;
++	param.psy = psy;
++	param.psy_size = size;
++	param.psy_count = 0;
++	ret = class_for_each_device(power_supply_class, NULL, &param,
++				    power_supply_match_device_node_array);
++
++	of_node_put(power_supply_np);
++
++	return param.psy_count;
++}
++EXPORT_SYMBOL_GPL(power_supply_get_by_phandle_array);
++
+ static void devm_power_supply_put(struct device *dev, void *res)
+ {
+ 	struct power_supply **psy = res;
+diff --git a/include/linux/power_supply.h b/include/linux/power_supply.h
+index 81a55e974feb..e9c67d61d82a 100644
+--- a/include/linux/power_supply.h
++++ b/include/linux/power_supply.h
+@@ -386,12 +386,21 @@ extern void power_supply_put(struct power_supply *psy);
+ #ifdef CONFIG_OF
+ extern struct power_supply *power_supply_get_by_phandle(struct device_node *np,
+ 							const char *property);
++extern int power_supply_get_by_phandle_array(struct device_node *np,
++					     const char *property,
++					     struct power_supply **psy,
++					     ssize_t size);
+ extern struct power_supply *devm_power_supply_get_by_phandle(
+ 				    struct device *dev, const char *property);
+ #else /* !CONFIG_OF */
+ static inline struct power_supply *
+ power_supply_get_by_phandle(struct device_node *np, const char *property)
+ { return NULL; }
++static int power_supply_get_by_phandle_array(struct device_node *np,
++					     const char *property,
++					     struct power_supply **psy,
++					     int size)
++{ return 0; }
+ static inline struct power_supply *
+ devm_power_supply_get_by_phandle(struct device *dev, const char *property)
+ { return NULL; }
+-- 
+2.17.1
+

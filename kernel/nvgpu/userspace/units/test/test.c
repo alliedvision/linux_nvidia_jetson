@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,8 +37,8 @@ int test_fail(struct unit_module *m, struct gk20a *g, void *args)
 }
 
 struct unit_module_test test_tests[] = {
-	UNIT_TEST(simplest, test_simplest, NULL),
-	UNIT_TEST(fail, test_fail, NULL),
+	UNIT_TEST(simplest, test_simplest, NULL, 0),
+	UNIT_TEST(fail, test_fail, NULL, 0),
 };
 
 UNIT_MODULE(test, test_tests, UNIT_PRIO_SELF_TEST);

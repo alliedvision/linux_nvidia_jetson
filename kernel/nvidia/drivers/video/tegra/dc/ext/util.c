@@ -1,7 +1,7 @@
 /*
  * util.c: Utility functions for tegradc ext interface.
  *
- * Copyright (c) 2011-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  *
@@ -19,22 +19,24 @@
 #include <linux/err.h>
 #include <linux/types.h>
 #include <linux/dma-buf.h>
+#include <linux/iommu.h>
 
 #include "../dc.h"
+#include "../dc_priv.h"
 #include "tegra_dc_ext_priv.h"
 
-
-int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 fd,
+int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, s32 fd,
 			    struct tegra_dc_dmabuf **dc_buf,
 			    dma_addr_t *phys_addr)
 {
 	struct tegra_dc_ext *ext = user->ext;
 	struct tegra_dc_dmabuf *dc_dmabuf;
+	struct device *parent = ext->dev->parent;
 	dma_addr_t dma_addr;
 
 	*dc_buf = NULL;
 	*phys_addr = -1;
-	if (!fd)
+	if (fd < 0)
 		return 0;
 
 	dc_dmabuf = kzalloc(sizeof(*dc_dmabuf), GFP_KERNEL);
@@ -45,7 +47,7 @@ int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 fd,
 	if (IS_ERR_OR_NULL(dc_dmabuf->buf))
 		goto buf_fail;
 
-	dc_dmabuf->attach = dma_buf_attach(dc_dmabuf->buf, ext->dev->parent);
+	dc_dmabuf->attach = dma_buf_attach(dc_dmabuf->buf, parent);
 	if (IS_ERR_OR_NULL(dc_dmabuf->attach))
 		goto attach_fail;
 
@@ -54,18 +56,25 @@ int tegra_dc_ext_pin_window(struct tegra_dc_ext_user *user, u32 fd,
 	if (IS_ERR_OR_NULL(dc_dmabuf->sgt))
 		goto sgt_fail;
 
-	if (!device_is_iommuable(ext->dev->parent) &&
-			sg_nents(dc_dmabuf->sgt->sgl) > 1) {
-		dev_err(ext->dev->parent,
-			"Cannot use non-contiguous buffer w/ IOMMU disabled\n");
-		goto iommu_fail;
+#if KERNEL_VERSION(5, 4, 0) < LINUX_VERSION_CODE
+	if (!iommu_get_domain_for_dev(&ext->dc->ndev->dev)) {
+#else
+	if (parent->archdata.iommu == NULL) {
+#endif
+		if(sg_nents(dc_dmabuf->sgt->sgl) > 1) {
+			dev_err(ext->dev->parent,
+				"Cannot use non-contiguous buffer w/ IOMMU disabled\n");
+			goto iommu_fail;
+		} else {
+			*phys_addr = sg_phys(dc_dmabuf->sgt->sgl);
+		}
+	} else {
+		dma_addr = sg_dma_address(dc_dmabuf->sgt->sgl);
+		if (dma_addr)
+			*phys_addr = dma_addr;
+		else
+			*phys_addr = sg_phys(dc_dmabuf->sgt->sgl);
 	}
-
-	dma_addr = sg_dma_address(dc_dmabuf->sgt->sgl);
-	if (dma_addr)
-		*phys_addr = dma_addr;
-	else
-		*phys_addr = sg_phys(dc_dmabuf->sgt->sgl);
 
 	*dc_buf = dc_dmabuf;
 

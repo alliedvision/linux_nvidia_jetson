@@ -1,0 +1,62 @@
+From fde600ec77ed9737b74c9e3f44ccbea16ae0d8e4 Mon Sep 17 00:00:00 2001
+From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+Date: Thu, 15 Aug 2019 13:38:25 +0100
+Subject: [PATCH 519/830] ANDROID: arm64: dts: db845c: add Low speed expansion
+ i2c and spi nodes
+X-NVConfidentiality: public
+
+This patch adds support UART0, I2C0, I2C1 and SPI0 available
+on Low Speed expansion connector.
+
+Bug: 146449535
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I03b457230641fdbf30adf1bf8730e0ff95354b7c
+---
+ arch/arm64/boot/dts/qcom/sdm845-db845c.dts | 23 ++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+index 62fa39dbe9c2..8c0005086188 100644
+--- a/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
++++ b/arch/arm64/boot/dts/qcom/sdm845-db845c.dts
+@@ -505,6 +505,24 @@
+ 	};
+ };
+ 
++&i2c11 {
++	/* On Low speed expansion */
++	label = "LS-I2C1";
++	status = "okay";
++};
++
++&i2c14 {
++	/* On Low speed expansion */
++	label = "LS-I2C0";
++	status = "okay";
++};
++
++&spi2 {
++	/* On Low speed expansion */
++	label = "LS-SPI0";
++	status = "okay";
++};
++
+ &mdss {
+ 	status = "okay";
+ };
+@@ -1013,6 +1031,11 @@
+ 	};
+ };
+ 
++&uart3 {
++	label = "LS-UART0";
++	status = "disabled";
++};
++
+ &uart6 {
+ 	status = "okay";
+ 
+-- 
+2.17.1
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -11,6 +11,8 @@
  * more details.
  */
 
+#include <linux/version.h>
+
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/tegra-hsp.h>
@@ -18,13 +20,19 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/tegra-aon.h>
 #include <linux/tegra-ivc.h>
 #include <linux/tegra-ivc-instance.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+#include <linux/mailbox_client.h>
+#include <linux/completion.h>
+#else
 #include <linux/tegra-hsp.h>
+#endif
 
 #include <asm/cache.h>
 
@@ -63,9 +71,29 @@ enum ivc_tasks_dbg_enable {
 	IVC_TASKS_DBG_ENABLE_BIT = 31,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+struct aon_hsp_sm {
+	struct mbox_client client;
+	struct mbox_chan *chan;
+};
+
+struct aon_hsp {
+	struct aon_hsp_sm rx;
+	struct aon_hsp_sm tx;
+	struct device dev;
+	struct completion emptied;
+};
+#else
+struct aon_hsp {
+	struct tegra_hsp_sm_rx *rx;
+	struct tegra_hsp_sm_tx *tx;
+	struct device dev;
+};
+#endif
+
 struct tegra_aon {
 	struct mbox_controller mbox;
-	struct tegra_hsp_sm_pair *hsp_sm_pair;
+	struct aon_hsp *hsp;
 	void __iomem *ss_base;
 	void *ipcbuf;
 	dma_addr_t ipcbuf_dma;
@@ -120,16 +148,6 @@ static void tegra_aon_hsp_ss_clr(const struct tegra_aon *aon, u32 ss, u32 bits)
 	writel(bits, reg + SHRD_SEM_CLR);
 }
 
-static void tegra_aon_notify_remote(struct ivc *ivc)
-{
-	struct tegra_aon_ivc_chan *ivc_chan;
-
-	ivc_chan = container_of(ivc, struct tegra_aon_ivc_chan, ivc);
-	tegra_aon_hsp_ss_set(ivc_chan->aon, ivc_chan->aon->ivc_tx_ss,
-				BIT(ivc_chan->chan_id));
-	tegra_hsp_sm_pair_write(ivc_chan->aon->hsp_sm_pair, SMBOX_IVC_NOTIFY);
-}
-
 static void tegra_aon_rx_handler(struct tegra_aon *aon, u32 ivc_chans)
 {
 	struct mbox_chan *mbox_chan;
@@ -157,21 +175,73 @@ static void tegra_aon_rx_handler(struct tegra_aon *aon, u32 ivc_chans)
 	}
 }
 
-static u32 tegra_aon_hsp_sm_full_notify(void *data, u32 value)
+static void tegra_aon_hsp_sm_full_notify(void *data, u32 value)
 {
 	struct tegra_aon *aon = data;
 	u32 ss_val;
 
 	if (value != SMBOX_IVC_NOTIFY) {
 		dev_err(aon->mbox.dev, "Invalid IVC notification\n");
-		return 0;
+		return;
 	}
 
 	ss_val = tegra_aon_hsp_ss_status(aon, aon->ivc_rx_ss);
 	tegra_aon_hsp_ss_clr(aon, aon->ivc_rx_ss, ss_val);
 	tegra_aon_rx_handler(aon, ss_val);
+}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+static int tegra_aon_hsp_sm_tx_write(struct aon_hsp *aonhsp, u32 value)
+{
+	return mbox_send_message(aonhsp->tx.chan,
+				 (void *) (unsigned long) value);
+}
+
+static bool tegra_aon_hsp_sm_tx_is_empty(struct aon_hsp *aonhsp)
+{
+	return try_wait_for_completion(&aonhsp->emptied);
+}
+
+static void aon_hsp_rx_full_notify(struct mbox_client *cl, void *data)
+{
+	struct aon_hsp *aonhsp = dev_get_drvdata(cl->dev);
+	struct tegra_aon *aon = dev_get_drvdata(aonhsp->dev.parent);
+	u32 msg = (u32) (unsigned long) data;
+
+	tegra_aon_hsp_sm_full_notify(aon, msg);
+}
+
+static void aon_hsp_tx_empty_notify(struct mbox_client *cl, void *data,
+				    int empty_value)
+{
+	struct aon_hsp *aonhsp = dev_get_drvdata(cl->dev);
+
+	(void)empty_value;	/* ignored */
+
+	complete(&aonhsp->emptied);
+}
+#else
+static int tegra_aon_hsp_sm_tx_write(struct aon_hsp *aonhsp, u32 value)
+{
+	tegra_hsp_sm_tx_write(aonhsp->tx, value);
 
 	return 0;
+}
+
+static bool tegra_aon_hsp_sm_tx_is_empty(struct aon_hsp *aonhsp)
+{
+	return tegra_hsp_sm_tx_is_empty(aonhsp->tx);
+}
+#endif
+
+static void tegra_aon_notify_remote(struct ivc *ivc)
+{
+	struct tegra_aon_ivc_chan *ivc_chan;
+
+	ivc_chan = container_of(ivc, struct tegra_aon_ivc_chan, ivc);
+	tegra_aon_hsp_ss_set(ivc_chan->aon, ivc_chan->aon->ivc_tx_ss,
+				BIT(ivc_chan->chan_id));
+	tegra_aon_hsp_sm_tx_write(ivc_chan->aon->hsp, SMBOX_IVC_NOTIFY);
 }
 
 #define NV(p) "nvidia," p
@@ -456,7 +526,7 @@ static ssize_t store_ivc_dbg(struct device *dev, struct device_attribute *attr,
 
 	shrdsem_msg = channel | enable;
 	tegra_aon_hsp_ss_set(aon, aon->ivc_dbg_enable_ss, shrdsem_msg);
-	tegra_hsp_sm_pair_write(aon->hsp_sm_pair, SMBOX_IVC_DBG_ENABLE);
+	tegra_aon_hsp_sm_tx_write(aon->hsp, SMBOX_IVC_DBG_ENABLE);
 
 	return count;
 }
@@ -464,11 +534,177 @@ static ssize_t store_ivc_dbg(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(ivc_dbg, S_IWUSR, NULL, store_ivc_dbg);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+static struct device_node *of_get_compatible_child(
+				const struct device_node *parent,
+				const char *compatible)
+{
+	struct device_node *child;
+
+	for_each_child_of_node(parent, child) {
+		if (of_device_is_compatible(child, compatible))
+			break;
+	}
+
+	return child;
+}
+#endif
+
+static int aon_hsp_probe(struct aon_hsp *aonhsp)
+{
+	struct device_node *np = aonhsp->dev.parent->of_node;
+	struct tegra_aon *aon = dev_get_drvdata(aonhsp->dev.parent);
+	int err = -ENODEV;
+
+	np = of_get_compatible_child(np, "nvidia,tegra-aon-hsp");
+	if (!of_device_is_available(np)) {
+		of_node_put(np);
+		dev_err(&aonhsp->dev, "no hsp protocol \"%s\"\n",
+				"nvidia,tegra-aon-hsp");
+		return -ENODEV;
+	}
+
+	aonhsp->dev.of_node = np;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	(void) aon;
+	aonhsp->rx.chan = mbox_request_channel_byname(&aonhsp->rx.client,
+						      "ivc-rx");
+	if (IS_ERR(aonhsp->rx.chan)) {
+		err = PTR_ERR(aonhsp->rx.chan);
+		goto fail;
+	}
+
+	aonhsp->tx.chan = mbox_request_channel_byname(&aonhsp->tx.client,
+						      "ivc-tx");
+	if (IS_ERR(aonhsp->tx.chan)) {
+		err = PTR_ERR(aonhsp->tx.chan);
+		goto fail;
+	}
+#else
+	/* Fetch the shared mailbox associated with IVC rx */
+	aonhsp->rx = of_tegra_hsp_sm_rx_by_name(np, "ivc-rx",
+					tegra_aon_hsp_sm_full_notify, aon);
+	if (IS_ERR(aonhsp->rx)) {
+		err = PTR_ERR(aonhsp->rx);
+		if (err != -EPROBE_DEFER)
+			dev_err(&aonhsp->dev, "failed to fetch rx sm : %d\n",
+				err);
+		goto fail;
+	}
+
+	/* Fetch the shared mailbox associated with IVC tx */
+	aonhsp->tx = of_tegra_hsp_sm_tx_by_name(np, "ivc-tx", NULL, aon);
+	if (IS_ERR(aonhsp->tx)) {
+		err = PTR_ERR(aonhsp->tx);
+		if (err != -EPROBE_DEFER)
+			dev_err(&aonhsp->dev, "failed to fetch tx sm : %d\n",
+				err);
+		goto fail;
+	}
+#endif
+	return 0;
+
+fail:
+	if (err != -EPROBE_DEFER) {
+		dev_err(&aonhsp->dev, "%s: failed to obtain : %d\n",
+			np->name, err);
+	}
+	of_node_put(np);
+	return err;
+}
+
+static const struct device_type aon_hsp_combo_dev_type = {
+	.name	= "aon-hsp-protocol",
+};
+
+static void aon_hsp_combo_dev_release(struct device *dev)
+{
+	struct aon_hsp *aonhsp = container_of(dev, struct aon_hsp, dev);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	if (!IS_ERR_OR_NULL(aonhsp->rx.chan))
+		mbox_free_channel(aonhsp->rx.chan);
+	if (!IS_ERR_OR_NULL(aonhsp->tx.chan))
+		mbox_free_channel(aonhsp->tx.chan);
+#else
+	if (!IS_ERR_OR_NULL(aonhsp->rx))
+		tegra_hsp_sm_rx_free(aonhsp->rx);
+	if (!IS_ERR_OR_NULL(aonhsp->tx))
+		tegra_hsp_sm_tx_free(aonhsp->tx);
+#endif
+
+	of_node_put(dev->of_node);
+	kfree(aonhsp);
+}
+
+static void aon_hsp_free(struct aon_hsp *aonhsp)
+{
+	if (IS_ERR_OR_NULL(aonhsp))
+		return;
+
+	if (dev_get_drvdata(&aonhsp->dev) != NULL)
+		device_unregister(&aonhsp->dev);
+	else
+		put_device(&aonhsp->dev);
+}
+
+static struct aon_hsp *aon_hsp_create(struct device *dev)
+{
+	struct aon_hsp *aonhsp;
+	int ret = -EINVAL;
+
+	aonhsp = kzalloc(sizeof(*aonhsp), GFP_KERNEL);
+	if (aonhsp == NULL)
+		return ERR_PTR(-ENOMEM);
+
+	aonhsp->dev.parent = dev;
+
+	aonhsp->dev.type = &aon_hsp_combo_dev_type;
+	aonhsp->dev.release = aon_hsp_combo_dev_release;
+	device_initialize(&aonhsp->dev);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	init_completion(&aonhsp->emptied);
+	aonhsp->tx.client.tx_block = false;
+	aonhsp->rx.client.rx_callback = aon_hsp_rx_full_notify;
+	aonhsp->tx.client.tx_done = aon_hsp_tx_empty_notify;
+	aonhsp->rx.client.dev = aonhsp->tx.client.dev = &(aonhsp->dev);
+#endif
+
+	dev_set_name(&aonhsp->dev, "%s:%s", dev_name(dev), "hsp");
+
+	ret = aon_hsp_probe(aonhsp);
+	if (ret < 0)
+		goto fail;
+
+	ret = device_add(&aonhsp->dev);
+	if (ret < 0)
+		goto fail;
+
+	dev_set_drvdata(&aonhsp->dev, aonhsp);
+
+	return aonhsp;
+
+fail:
+	aon_hsp_free(aonhsp);
+	return ERR_PTR(ret);
+}
+
+static void tegra_aon_hsp_sm_pair_free(struct tegra_aon *aon)
+{
+	if (aon->hsp) {
+		aon_hsp_free(aon->hsp);
+		aon->hsp = NULL;
+	}
+}
+
 static int tegra_aon_probe(struct platform_device *pdev)
 {
 	struct tegra_aon *aon;
 	struct device *dev = &pdev->dev;
 	struct device_node *dn = dev->of_node;
+	struct device_node *hsp_node;
 	int num_chans;
 	int ret = 0;
 	ktime_t tstart;
@@ -560,22 +796,24 @@ static int tegra_aon_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	/* Fetch the shared mailbox pair associated with IVC tx and rx */
-	aon->hsp_sm_pair = of_tegra_hsp_sm_pair_by_name(dn, "ivc-pair",
-						tegra_aon_hsp_sm_full_notify,
-						NULL, aon);
-	if (IS_ERR(aon->hsp_sm_pair)) {
-		ret = PTR_ERR(aon->hsp_sm_pair);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "failed to fetch mailbox pair : %d\n",
-				ret);
+	hsp_node = of_get_child_by_name(dn, "hsp");
+	if (hsp_node == NULL) {
+		dev_err(dev, "No hsp child node for AON\n");
+		ret = -ENODEV;
+		goto exit;
+	}
+
+	aon->hsp = aon_hsp_create(dev);
+	if (IS_ERR(aon->hsp)) {
+		aon->hsp = NULL;
+		ret = PTR_ERR(aon->hsp);
 		goto exit;
 	}
 
 	ret = device_create_file(dev, &dev_attr_ivc_dbg);
 	if (ret) {
 		dev_err(dev, "failed to create device file: %d\n", ret);
-		tegra_hsp_sm_pair_free(aon->hsp_sm_pair);
+		tegra_aon_hsp_sm_pair_free(aon);
 		mbox_controller_unregister(&aon->mbox);
 		goto exit;
 	}
@@ -584,13 +822,13 @@ static int tegra_aon_probe(struct platform_device *pdev)
 					(u32)aon->ipcbuf_dma);
 	tegra_aon_hsp_ss_set(aon, aon->ivc_carveout_size_ss,
 					(u32)aon->ipcbuf_size);
-	tegra_hsp_sm_pair_write(aon->hsp_sm_pair, SMBOX_IVC_READY_MSG);
+	tegra_aon_hsp_sm_tx_write(aon->hsp, SMBOX_IVC_READY_MSG);
 
 	tstart = ktime_get();
-	while (!tegra_hsp_sm_pair_is_empty(aon->hsp_sm_pair)) {
+	while (!tegra_aon_hsp_sm_tx_is_empty(aon->hsp)) {
 		if (ktime_us_delta(ktime_get(), tstart) > IVC_INIT_TIMEOUT_US) {
 			dev_err(dev, "IVC init timeout\n");
-			tegra_hsp_sm_pair_free(aon->hsp_sm_pair);
+			tegra_aon_hsp_sm_pair_free(aon);
 			ret = -ETIMEDOUT;
 			goto exit;
 		}
@@ -599,7 +837,7 @@ static int tegra_aon_probe(struct platform_device *pdev)
 	ret = mbox_controller_register(&aon->mbox);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register mailbox: %d\n", ret);
-		tegra_hsp_sm_pair_free(aon->hsp_sm_pair);
+		tegra_aon_hsp_sm_pair_free(aon);
 		goto exit;
 	}
 
@@ -618,7 +856,7 @@ static int tegra_aon_remove(struct platform_device *pdev)
 
 	iounmap(aon->ss_base);
 	mbox_controller_unregister(&aon->mbox);
-	tegra_hsp_sm_pair_free(aon->hsp_sm_pair);
+	tegra_aon_hsp_sm_pair_free(aon);
 
 	return 0;
 }

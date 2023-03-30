@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -34,6 +34,7 @@
 #define FLUSH_BIT		26
 #define INTR_TRIGGER_BIT	31
 
+#define RX_ESCAPE_CHAR (0xFFU)
 /*
  * Combined-uart uses 'ctrl /' i.e 0x1f as break-signal for SysRq
  */
@@ -42,6 +43,8 @@
 static u8 __iomem *top0_mbox01_base;
 static u8 __iomem *spe_mbox_reg;
 static u8 __iomem *top0_cmn_base;
+
+static bool in_escape;
 
 static struct uart_port tegra_combined_uart_port;
 static struct console tegra_combined_uart_console;
@@ -152,7 +155,12 @@ static void tegra_combined_uart_handle_rx_msg(uint32_t mbox_val)
 			}
 		}
 
-		tty_insert_flip_char(port, ch, TTY_NORMAL);
+		if (ch == RX_ESCAPE_CHAR)
+			in_escape = true;
+		else if (!in_escape)
+			tty_insert_flip_char(port, ch, TTY_NORMAL);
+		else
+			in_escape = false;
 	}
 	tty_flip_buffer_push(port);
 }

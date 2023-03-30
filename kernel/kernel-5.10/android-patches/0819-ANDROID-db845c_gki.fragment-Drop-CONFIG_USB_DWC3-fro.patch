@@ -1,0 +1,35 @@
+From e696b755e3b54806017a5920a322adafeb49a9b6 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 10 Dec 2020 07:36:53 +0000
+Subject: [PATCH 819/830] ANDROID: db845c_gki.fragment: Drop CONFIG_USB_DWC3
+ from config frament
+X-NVConfidentiality: public
+
+As of commit 42d1d3ffd7ca ("ANDROID: GKI: enable CONFIG_USB_DWC3
+to be build in"), we no longer need CONFIG_USB_DWC3=m in the
+db845c_gki.frament, as having it there, causing the module load
+to fail (as its duplicative) and the boot to (unfortunately
+silently) fail.
+
+Fixes: 42d1d3ffd7ca ("ANDROID: GKI: enable CONFIG_USB_DWC3 to be build in")
+Change-Id: I089b91364868ef56ac3da158f62c0c5f5345a1a4
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ arch/arm64/configs/db845c_gki.fragment | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 3fc3c245344f..386a19ed9174 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -26,7 +26,6 @@ CONFIG_DRM_MSM=m
+ CONFIG_DRM_LONTIUM_LT9611=m
+ CONFIG_USB_OHCI_HCD=m
+ CONFIG_USB_OHCI_HCD_PLATFORM=m
+-CONFIG_USB_DWC3=m
+ # CONFIG_USB_DWC3_HAPS is not set
+ # CONFIG_USB_DWC3_OF_SIMPLE is not set
+ CONFIG_USB_GADGET_VBUS_DRAW=500
+-- 
+2.17.1
+

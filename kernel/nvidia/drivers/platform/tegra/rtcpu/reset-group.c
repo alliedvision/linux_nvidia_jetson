@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -111,7 +111,7 @@ static void camrtc_reset_group_error(
 
 	of_property_read_string_index(grp->device->of_node,
 				grp->group_name, index, &name);
-	dev_WARN(grp->device, "%s reset %s (at %s[%d]): %d\n",
+	dev_warn(grp->device, "%s reset %s (at %s[%d]): %d\n",
 		op, name, grp->group_name, index, error);
 }
 

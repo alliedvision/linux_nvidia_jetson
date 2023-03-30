@@ -1,7 +1,7 @@
 /*
  * board-panel.c: Functions definitions for general panel.
  *
- * Copyright (c) 2013-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,14 +27,11 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <soc/tegra/common.h>
-
 #include "../dc.h"
 #include "../dc_priv.h"
 #include "board-panel.h"
 #include "tegra-board-id.h"
-#include "board.h"
-#include "iomap.h"
+#include "board-id.h"
 #include <linux/platform_data/lp855x.h>
 
 int tegra_bl_notify(struct device *dev, int brightness)
@@ -74,7 +71,7 @@ int tegra_bl_notify(struct device *dev, int brightness)
 			bl_curve = lp->pdata->bl_curve;
 		}
 	}
-
+	spec_bar();
 	if (bl_curve)
 		brightness = bl_curve[brightness];
 
@@ -165,13 +162,8 @@ int tegra_panel_gpio_get_dt(const char *comp_str,
 				pr_err("tegra panel no gpio entry\n");
 			}
 			if (label) {
-				err = gpio_request(panel->panel_gpio[cnt],
+				gpio_request(panel->panel_gpio[cnt],
 					label);
-				if (err < 0) {
-					pr_err("gpio request failed for %s\n",
-						label);
-					goto fail;
-				}
 				label = NULL;
 			}
 		}
@@ -288,7 +280,7 @@ static void tegra_pwm_bl_ops_reg_based_on_disp_board_id(struct device *dev)
 	bool is_edp_a_1080p_14_0 = false;
 	bool is_edp_s_2160p_15_6 = false;
 
-	tegra_get_display_board_info(&display_board);
+	tegra_dc_get_display_board_info(&display_board);
 
 	switch (display_board.board_id) {
 	case BOARD_E1627:
@@ -331,7 +323,7 @@ static void tegra_pwm_bl_ops_reg_based_on_disp_board_id(struct device *dev)
 		is_dsi_a_1200_800_8_0 = true;
 		break;
 	case BOARD_P1761:
-		if (tegra_get_board_panel_id())
+		if (tegra_dc_get_board_panel_id())
 			is_dsi_a_1200_1920_8_0 = true;
 		else
 			is_dsi_a_1200_800_8_0 = true;

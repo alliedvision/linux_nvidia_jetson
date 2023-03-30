@@ -6,5 +6,6 @@ if ETHERNET
 
 source "drivers/net/ethernet/nvidia/Kconfig"
 source "drivers/net/ethernet/realtek/Kconfig"
+source "drivers/net/ethernet/nvidia/nvethernet/Kconfig"
 
 endif # ETHERNET

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 append_menu "Pin controllers"
 
 config PINCTRL_TEGRA186
@@ -17,7 +18,7 @@ config PINCTRL_TEGRA186_PADCTL
 
 config PINCTRL_TEGRA186_DPAUX
 	bool "NVIDIA Tegra186 DP AUX Pinctrl Driver"
-        depends on ARCH_TEGRA_18x_SOC
+        depends on ARCH_TEGRA_18x_SOC || ARCH_TEGRA_186_SOC || ARCH_TEGRA_194_SOC
         select PINCONF
         select PINMUX
 
@@ -37,5 +38,18 @@ config PINCTRL_TEGRA194_PEXCLK_PADCTL
 	  Support for the NVIDIA Tegra194 PCIE PEXCLK Padcontrol
 	  configurations. This will provide the mechanism to dynamically
 	  select the functionality between camera and PCIE.
+
+config PINCTRL_TEGRA234_DPAUX
+        bool "NVIDIA Tegra234 DP AUX Pinctrl Driver"
+        depends on ARCH_TEGRA_23x_SOC || ARCH_TEGRA_234_SOC
+        select PINCONF
+        select PINMUX
+
+config PINCTRL_TEGRA234
+	bool "NVIDIA Tegra234 Pinmux support"
+	select PINCTRL_TEGRA
+	default y if ARCH_TEGRA_23x_SOC
+	help
+	Support for the NVIDIA Tegra234 PINCTRL controller driver.
 
 endmenu

@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Top level DTS file for CVM:P3701-0000 and CVB:P3737-0000.
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ *
+ */
+
+/dts-v1/;
+#include "cvm/tegra234-p3701-0000.dtsi"
+#include "cvb/tegra234-p3737-0000-a04.dtsi"
+#include "tegra234-power-tree-p3701-0000-p3737-0000.dtsi"
+#include "tegra234-dcb-p3701-0000-a02-p3737-0000-a01.dtsi"
+#include <tegra234-soc/mods-simple-bus.dtsi>
+#include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
+#include <t234-common-cvm/tegra234-thermal.dtsi>
+#include <tegra234-soc/tegra234-soc-hwpm.dtsi>
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	compatible = "nvidia,p3737-0000+p3701-0000-as-pxxxx", "nvidia,tegra234", "nvidia,tegra23x";
+	model = "Jetson AGX Orin as pxxxx";
+
+	display@13800000 {
+		status = "okay";
+	};
+
+	dce@d800000 {
+		status = "okay";
+	};
+
+	bpmp {
+		i2c {
+			tegra_tmp451: temp-sensor@4c {
+				vdd-supply = <&p3737_vdd_1v8_sys>;
+
+				ext {
+					shutdown-limit = <170>;
+				};
+			};
+		};
+	};
+
+	reserved-memory {
+		linux,cma {
+			status = "okay";
+		};
+	};
+
+	tegra_soc_hwpm {
+                status = "okay";
+        };
+
+        tegra-cache {
+		status = "disabled";
+	};
+
+	tegra-hsp@3d00000 {
+		status = "okay";
+	};
+
+	aon@c000000 {
+		status = "okay";
+	};
+
+	i2c@31e0000 {
+		rt5640: rt5640.8-001c@1c {
+			compatible = "realtek,rt5640";
+			reg = <0x1c>;
+
+			clocks = <&bpmp TEGRA234_CLK_AUD_MCLK>;
+			clock-names = "mclk";
+
+			realtek,dmic1-data-pin = <0>; /* RT5659_DMIC1_NULL */
+			realtek,dmic2-data-pin = <0>; /* RT5659_DMIC2_NULL */
+			realtek,jack-detect-source = <7>;
+
+			/* Codec IRQ output */
+			interrupt-parent = <&tegra_main_gpio>;
+			interrupts = <TEGRA234_MAIN_GPIO(AC, 5) GPIO_ACTIVE_HIGH>;
+
+			#sound-dai-cells = <1>;
+			sound-name-prefix = "CVB-RT";
+
+			status = "okay";
+		};
+	};
+
+	sound {
+		nvidia-audio-card,widgets =
+			"Headphone",    "CVB-RT Headphone Jack",
+			"Microphone",   "CVB-RT Mic Jack",
+			"Speaker",      "CVB-RT Int Spk",
+			"Microphone",   "CVB-RT Int Mic";
+
+		nvidia-audio-card,routing =
+			"CVB-RT Headphone Jack",     "CVB-RT HPOL",
+			"CVB-RT Headphone Jack",     "CVB-RT HPOR",
+			"CVB-RT IN1P",               "CVB-RT Mic Jack",
+			"CVB-RT IN2P",               "CVB-RT Mic Jack",
+			"CVB-RT Int Spk",            "CVB-RT SPOLP",
+			"CVB-RT Int Spk",            "CVB-RT SPORP",
+			"CVB-RT DMIC1",              "CVB-RT Int Mic",
+			"CVB-RT DMIC2",              "CVB-RT Int Mic";
+
+		nvidia-audio-card,mclk-fs = <256>;
+	};
+};
+
+&i2s1_to_codec {
+	link-name = "rt5640-playback";
+	codec {
+		sound-dai = <&rt5640 0>;
+		prefix = "CVB-RT";
+	};
+};
+
+/ {
+	funnel_top_ccplex@26020000 {
+		in-ports {
+			/delete-node/ port@2;
+		};
+	};
+
+	/delete-node/ funnel_ccplex2@26050000;
+	/delete-node/ cpu11_etm@27B40000;
+	/delete-node/ cpu10_etm@27A40000;
+	/delete-node/ cpu9_etm@27940000;
+	/delete-node/ cpu8_etm@27840000;
+	/delete-node/ dsu-pmu-2;
+
+	cpus {
+		cpu-map {
+			/delete-node/ cluster2;
+		};
+		/delete-node/ cpu@8;
+		/delete-node/ cpu@9;
+		/delete-node/ cpu@10;
+		/delete-node/ cpu@11;
+	};
+};

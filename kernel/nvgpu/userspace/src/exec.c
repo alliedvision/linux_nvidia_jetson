@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,17 +22,21 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <time.h>
 
 #include <unit/io.h>
 #include <unit/core.h>
+#include <unit/args.h>
 #include <unit/unit.h>
 #include <unit/module.h>
 #include <unit/results.h>
 
 #include <nvgpu/posix/probe.h>
+#include <nvgpu/posix/posix-fault-injection.h>
 
 /*
  * Sempaphore to limit the number of threads
@@ -55,6 +59,27 @@ static void *core_exec_module(void *module_param)
 	unsigned int i;
 	struct unit_module *module = (struct unit_module *) module_param;
 	struct gk20a *g;
+	struct nvgpu_posix_fault_inj_container *fi_container = NULL;
+	clock_t begin;
+	double time_spent;
+
+	/*
+	 * Setup fault injection first so that faults can be injected in
+	 * nvgpu_posix_probe().
+	 */
+	fi_container = (struct nvgpu_posix_fault_inj_container *)
+			malloc(sizeof(struct nvgpu_posix_fault_inj_container));
+	if (fi_container == NULL) {
+		core_msg_color(module->fw, C_RED,
+				"  failed to allocate fault inj: Module %s\n",
+				module->name);
+		goto thread_exit;
+	}
+	memset(fi_container, 0, sizeof(struct nvgpu_posix_fault_inj_container));
+	module->fw->nvgpu.nvgpu_posix_init_fault_injection(fi_container);
+	if (module->fw->nvgpu.nvgpu_posix_init_fault_injection_qnx != NULL) {
+		module->fw->nvgpu.nvgpu_posix_init_fault_injection_qnx(fi_container);
+	}
 
 	g = module->fw->nvgpu.nvgpu_posix_probe();
 
@@ -66,6 +91,7 @@ static void *core_exec_module(void *module_param)
 	}
 
 	core_vbs(module->fw, 1, "Execing module: %s\n", module->name);
+	begin = clock();
 
 	thread_local_module = module;
 
@@ -79,25 +105,55 @@ static void *core_exec_module(void *module_param)
 		int test_status;
 		thread_local_test = t;
 
-		core_msg(module->fw, "Running %s.%s\n", module->name,
-			t->name);
+		if (t->test_lvl > module->fw->args->test_lvl) {
+			core_add_test_record(module->fw, module, t, SKIPPED);
+			core_vbs(module->fw, 1, "Skipping L%d test %s.%s\n",
+					t->test_lvl, module->name, t->fn_name);
+			continue;
+		}
+		core_msg(module->fw, "Running %s.%s(%s)\n", module->name,
+			t->fn_name, t->case_name);
+
 		test_status = t->fn(module, g, t->args);
 
 		if (test_status != UNIT_SUCCESS)
 			core_msg_color(module->fw, C_RED,
-				       "  Unit error! Test %s.%s FAILED!\n",
-				       module->name, t->name);
+				"  Unit error! Test %s.%s(%s) FAILED!\n",
+				module->name, t->fn_name, t->case_name);
 
 		core_add_test_record(module->fw, module, t,
-				     test_status == UNIT_SUCCESS);
+				test_status == UNIT_SUCCESS ? PASSED : FAILED);
 	}
 
 	module->fw->nvgpu.nvgpu_posix_cleanup(g);
 
-	core_vbs(module->fw, 1, "Module completed: %s\n", module->name);
+	time_spent = (double)(clock() - begin) / CLOCKS_PER_SEC;
+	core_vbs(module->fw, 1, "Module completed: %s (execution time: %f)\n",
+		 module->name, time_spent);
 thread_exit:
+	if (fi_container != NULL) {
+		free(fi_container);
+	}
 	sem_post(&unit_thread_semaphore);
 	return NULL;
+}
+
+/*
+ * Go over all the modules and run them one by one.
+ */
+static void run_modules(struct unit_fw *fw)
+{
+	struct unit_module **modules;
+
+	for (modules = fw->modules; *modules != NULL; modules++) {
+		if (fw->args->thread_count == 1) {
+			core_exec_module(*modules);
+		} else {
+			sem_wait(&unit_thread_semaphore);
+			pthread_create(&((*modules)->thread), NULL,
+				core_exec_module, (void *) *modules);
+		}
+	}
 }
 
 /*
@@ -111,11 +167,21 @@ thread_exit:
 static void thread_error_handler(int sig, siginfo_t *siginfo, void *context)
 {
 	core_msg_color(thread_local_module->fw, C_RED,
-			"  Signal %d in Test: %s.%s!\n", sig,
-			thread_local_module->name, thread_local_test->name);
+			"  Signal %d in Test: %s.%s(%s)!\n", sig,
+			thread_local_module->name, thread_local_test->fn_name,
+			thread_local_test->case_name);
 	core_add_test_record(thread_local_module->fw, thread_local_module,
-			thread_local_test, false);
+			thread_local_test, FAILED);
 	sem_post(&unit_thread_semaphore);
+
+	/*
+	 * If single threaded, the signal will cause the process to end, so
+	 * exit gracefully while printing test results.
+	 */
+	if (thread_local_module->fw->args->thread_count == 1) {
+		core_print_test_status(thread_local_module->fw);
+		exit(-1);
+	}
 	pthread_exit(NULL);
 }
 
@@ -168,14 +234,19 @@ int core_exec(struct unit_fw *fw)
 	struct unit_module **modules;
 	int err = 0;
 
+	if (args(fw)->nvtest) {
+		/* special prints for NVTEST fw in GVS */
+		printf("[start: %s]\n", args(fw)->binary_name);
+	}
 	core_vbs(fw, 1, "Using %d threads\n", fw->args->thread_count);
 	sem_init(&unit_thread_semaphore, 0, fw->args->thread_count);
 
 	/*
-	 * If running single threaded, keep the default SIGSEGV handler to make
-	 * interactive debugging easier, otherwise install the custom one.
+	 * By default, use a custom signal hanlder to catch faults such as
+	 * SIGSEGV. This can be disabled with the -d argument to make it
+	 * easier to investigate with a debugger.
 	 */
-	if (fw->args->thread_count > 1) {
+	if (!fw->args->debug) {
 		err = install_thread_error_handler();
 		if (err != 0) {
 			core_msg_color(fw, C_RED,
@@ -184,15 +255,7 @@ int core_exec(struct unit_fw *fw)
 		}
 	}
 
-	for (modules = fw->modules; *modules != NULL; modules++) {
-		if (fw->args->thread_count == 1) {
-			core_exec_module(*modules);
-		} else {
-			sem_wait(&unit_thread_semaphore);
-			pthread_create(&((*modules)->thread), NULL,
-				core_exec_module, (void *) *modules);
-		}
-	}
+	run_modules(fw);
 
 	if (fw->args->thread_count > 1) {
 		for (modules = fw->modules; *modules != NULL; modules++) {
@@ -200,5 +263,13 @@ int core_exec(struct unit_fw *fw)
 		}
 	}
 
+	if (args(fw)->nvtest) {
+		/* special prints for NVTEST fw in GVS */
+		printf("[%s: %s]\n",
+			((fw->results->nr_tests - fw->results->nr_passing -
+					fw->results->nr_skipped) == 0) ?
+				"pass" : "fail",
+			args(fw)->binary_name);
+	}
 	return 0;
 }

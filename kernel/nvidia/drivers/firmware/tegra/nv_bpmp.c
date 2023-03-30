@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,6 +15,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -31,6 +32,8 @@
 
 static void *hv_virt_base;
 static struct device *device;
+static dma_addr_t carveout_addr;
+static size_t carveout_size;
 char firmware_tag[sizeof(struct mrq_query_fw_tag_response)];
 
 static int bpmp_get_fwtag(void)
@@ -225,19 +228,18 @@ static int bpmp_setup_allocator(struct device *dev)
 
 	virt_base = ioremap_cache(ivm->ipa, ivm->size);
 
-	flags = DMA_MEMORY_EXCLUSIVE;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-	flags |= DMA_MEMORY_NOMAP;
-#endif
+	flags = DMA_MEMORY_NOMAP;
 	ret = dma_declare_coherent_memory(dev, ivm->ipa, 0, ivm->size,
 			flags);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	if (!(ret & DMA_MEMORY_NOMAP)) {
+#else
+	if (ret) {
+#endif
 		dev_err(dev, "dma_declare_coherent_memory failed (%x)\n", ret);
 		return ret;
 	}
-#endif
 
 	hv_virt_base = virt_base;
 
@@ -262,15 +264,14 @@ static int bpmp_clk_init(struct platform_device *pdev)
 
 static int bpmp_linear_map_init(struct platform_device *pdev)
 {
+	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
+	unsigned long pg_size = 1UL << __ffs(domain->pgsize_bitmap);
+	struct device *dev = &pdev->dev;
 	struct device_node *node;
 	uint32_t of_start;
 	uint32_t of_size;
+	dma_addr_t iova;
 	int ret;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	DEFINE_DMA_ATTRS(attrs);
-#else
-	unsigned long attrs;
-#endif
 
 	node = pdev->dev.of_node;
 
@@ -282,18 +283,36 @@ static int bpmp_linear_map_init(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	dma_set_attr(DMA_ATTR_SKIP_IOVA_GAP, &attrs);
-	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
-	ret = dma_map_linear_attrs(&pdev->dev, of_start, of_size, 0, &attrs);
-#else
-	attrs = DMA_ATTR_SKIP_IOVA_GAP | DMA_ATTR_SKIP_CPU_SYNC;
-	ret = dma_map_linear_attrs(&pdev->dev, of_start, of_size, 0, attrs);
-#endif
-	if (ret == DMA_ERROR_CODE)
+	carveout_addr = of_start;
+	carveout_size = of_size;
+
+	/* Reserve iova range */
+	iova = iommu_dma_alloc_iova(dev, of_size, of_start + of_size - pg_size);
+	if (iova != of_start) {
+		dev_err(dev, "failed to reserve iova at 0x%x size 0x%x\n",
+			of_start, of_size);
 		return -ENOMEM;
+	}
+
+	ret = iommu_map(domain, of_start, of_start, of_size,
+			IOMMU_READ | IOMMU_WRITE);
+	if (ret) {
+		dev_err(dev, "failed to map 0x%x linearly\n", of_start);
+		return ret;
+	}
 
 	return 0;
+}
+
+static void bpmp_linear_map_exit(struct platform_device *pdev)
+{
+	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
+	unsigned long pg_size = 1UL << __ffs(domain->pgsize_bitmap);
+	struct device *dev = &pdev->dev;
+
+	iommu_unmap(domain, carveout_addr, carveout_size);
+	iommu_dma_free_iova(dev, carveout_size,
+			    carveout_addr + carveout_size - pg_size);
 }
 
 struct dentry * __weak bpmp_init_debug(struct platform_device *pdev)
@@ -344,7 +363,7 @@ static int bpmp_probe(struct platform_device *pdev)
 	if (cfg->clk) {
 		r = bpmp_clk_init(pdev);
 		if (r)
-			goto err_out;
+			goto err_clk;
 	}
 
 	root = bpmp_init_debug(pdev);
@@ -352,7 +371,7 @@ static int bpmp_probe(struct platform_device *pdev)
 	if (root && cfg->cpuidle) {
 		r = bpmp_init_cpuidle_debug(root);
 		if (r)
-			goto err_out;
+			goto err_clk;
 	}
 
 	bpmp_tty.dev.platform_data = root;
@@ -362,7 +381,7 @@ static int bpmp_probe(struct platform_device *pdev)
 	r = r ?: of_platform_populate(device->of_node, NULL, NULL, device);
 	r = r ?: platform_device_register(&bpmp_tty);
 	if (r)
-		goto err_out;
+		goto err_clk;
 
 	register_syscore_ops(&bpmp_syscore_ops);
 
@@ -371,13 +390,16 @@ static int bpmp_probe(struct platform_device *pdev)
 	r = bpmp_init_powergate(pdev);
 	if (r) {
 		dev_err(device, "powergating init failed (%d)\n", r);
-		goto err_out;
+		goto err_clk;
 	}
 
 	dev_info(device, "probe ok\n");
 
 	return 0;
 
+err_clk:
+	if (cfg->lin_map)
+		bpmp_linear_map_exit(pdev);
 err_out:
 	dev_err(device, "probe failed (%d)\n", r);
 
@@ -404,6 +426,16 @@ static const struct channel_cfg t186_chcfg = {
 	.ib_ch_cnt = 1
 };
 
+static const struct channel_cfg t194_safe_chcfg = {
+	.channel_mask = 0x200f,
+	.per_cpu_ch_0 = 3,
+	.per_cpu_ch_cnt = 1,
+	.thread_ch_0 = 0,
+	.thread_ch_cnt = 3,
+	.ib_ch_cnt = 0
+};
+
+
 static const struct pconfig t210_cfg = {
 	.chcfg = &t210_chcfg,
 	.ops = &t210_mail_ops,
@@ -423,10 +455,19 @@ static const struct pconfig t186_hv_cfg = {
 	.hv = 1
 };
 
+static const struct pconfig t194_safe_hv_cfg = {
+	.chcfg = &t194_safe_chcfg,
+	.ops = &t186_hv_mail_ops,
+	.hv = 1
+};
+
 const struct of_device_id bpmp_of_matches[] = {
 	{ .compatible = "nvidia,tegra186-bpmp", .data = &t186_native_cfg },
 	{ .compatible = "nvidia,tegra186-bpmp-hv", .data = &t186_hv_cfg },
 	{ .compatible = "nvidia,tegra210-bpmp", .data = &t210_cfg },
+	{ .compatible = "nvidia,tegra194-safe-bpmp-hv",
+	  .data = &t194_safe_hv_cfg
+	},
 	{}
 };
 

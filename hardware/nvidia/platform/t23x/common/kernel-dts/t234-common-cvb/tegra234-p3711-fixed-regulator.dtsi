@@ -1,0 +1,164 @@
+/*
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+	fixed-regulators {
+		p3711_vdd_5v0_stby: battery_reg: regulator@101 {
+			compatible = "regulator-fixed";
+			reg = <101>;
+			regulator-name = "vdd-5v0-stby";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+
+		p3711_vdd_mv_cvm: regulator@102 {
+			compatible = "regulator-fixed";
+			reg = <102>;
+			regulator-name = "vdd-mv-cvm";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+
+		p3711_vdd_hv_cvm: regulator@103 {
+			compatible = "regulator-fixed";
+			reg = <103>;
+			regulator-name = "vdd-hv-cvm";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+		};
+
+		p3711_vdd_mv_cvb: regulator@104 {
+			compatible = "regulator-fixed";
+			reg = <104>;
+			regulator-name = "vdd-mv-cvb";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+			vin-supply = <&p3711_vdd_mv_cvm>;
+		};
+
+		p3711_vdd_12v0_cvb: regulator@105 {
+			compatible = "regulator-fixed";
+			reg = <105>;
+			regulator-name = "vdd-12v0-cvb";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+		};
+
+		p3711_vdd_bst_12v0: regulator@106 {
+			compatible = "regulator-fixed";
+			reg = <106>;
+			regulator-name = "vdd-bst-12v0";
+			regulator-min-microvolt = <12000000>;
+			regulator-max-microvolt = <12000000>;
+			vin-supply = <&p3711_vdd_5v0_stby>;
+		};
+
+		p3711_vdd_ldo_3v3: regulator@107 {
+			compatible = "regulator-fixed";
+			reg = <107>;
+			regulator-name = "vdd-ldo-3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3711_vdd_5v0_stby>;
+		};
+
+		p3711_mcu_3v3: regulator@108 {
+			compatible = "regulator-fixed";
+			reg = <108>;
+			regulator-name = "vdd-mcu-3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3711_vdd_mv_cvm>;
+		};
+
+		p3711_vdd_3v3_cvb: p3737_vdd_3v3_sd: p3737_vdd_3v3_sys: regulator@109 {
+			compatible = "regulator-fixed";
+			reg = <109>;
+			regulator-name = "vdd-3v3-cvb";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3711_vdd_mv_cvm>;
+			/* DP GMSL power down GPIO */
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(G, 3) GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		p3711_vdd_1v8_cvb: regulator@110 {
+			compatible = "regulator-fixed";
+			reg = <110>;
+			regulator-name = "vdd-1v8-cvb";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&p3711_vdd_mv_cvm>;
+		};
+
+		p3711_vdd_3v3_pex: regulator@111 {
+			compatible = "regulator-fixed";
+			reg = <111>;
+			regulator-name = "vdd-3v3-pex";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3711_vdd_3v3_cvb>;
+		};
+
+		p3711_usb2_vbus: regulator@112 {
+			compatible = "regulator-fixed";
+			reg = <112>;
+			regulator-name = "vdd-usb2-vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Z, 1) 0>;
+			enable-active-high;
+			vin-supply = <&p3711_vdd_mv_cvb>;
+		};
+
+		p3711_vdd_usbc: regulator@113 {
+			compatible = "regulator-fixed";
+			reg = <113>;
+			regulator-name = "vdd-usbc";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			gpio = <&tegra_main_gpio TEGRA234_MAIN_GPIO(Z, 2) 0>;
+			enable-active-high;
+			vin-supply = <&p3711_vdd_mv_cvb>;
+		};
+
+		p3711_dbg_vbus: regulator@114 {
+			compatible = "regulator-fixed";
+			reg = <114>;
+			regulator-name = "vdd-dbg_vbus";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			vin-supply = <&p3711_vdd_mv_cvb>;
+		};
+
+		p3711_3v3_ephy: regulator@115 {
+			compatible = "regulator-fixed";
+			reg = <115>;
+			regulator-name = "vdd-3v3-ephy";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&p3711_vdd_3v3_cvb>;
+		};
+
+		p3711_buck_1v8_pg: regulator@116 {
+			compatible = "regulator-fixed";
+			reg = <116>;
+			regulator-name = "vdd-buck-1v8-pg";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&p3711_vdd_hv_cvm>;
+		};
+	};
+};

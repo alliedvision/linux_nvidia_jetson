@@ -1,7 +1,7 @@
 /*
  * drivers/cpuidle/cpuidle-tegra19x.c
  *
- * Copyright (C) 2017-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2017-2021, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,12 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/debugfs.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/tegra-mce.h>
 #include <linux/t194_nvg.h>
 #include <linux/suspend.h>
@@ -37,6 +42,9 @@
 #include <linux/atomic.h>
 #include <linux/platform/tegra/t19x-cpuidle.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/cpuidle_t19x.h>
+
 #include <linux/of_gpio.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
@@ -45,6 +53,10 @@
 #include <asm/arch_timer.h>
 #include "../../drivers/cpuidle/dt_idle_states.h"
 #include "../../kernel/time/tick-internal.h"
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+#include "../../drivers/cpuidle/cpuidle-psci.h"
+#endif
 
 #define PSCI_STATE_ID_WKTIM_MASK	(~0xf000000f)
 #define PSCI_STATE_ID_WKTIM_SHIFT	4
@@ -59,6 +71,15 @@
  * back to shallower one.
  */
 #define BG_TIME				2000 /* in unit of us */
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+struct psci_cpuidle_data {
+	u32 *psci_states;
+	struct device *dev;
+};
+
+static DEFINE_PER_CPU_READ_MOSTLY(struct psci_cpuidle_data, psci_cpuidle_data);
+#endif
 
 /* per CPU sleep_time holds target_residency for next expected idle state */
 static DEFINE_PER_CPU(u32, sleep_time);
@@ -110,9 +131,17 @@ static void t19x_cpu_enter_c6(int index)
 {
 	int cpu = smp_processor_id();
 	struct cpuidle_driver *drv = &t19x_cpu_idle_driver;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	u32 *state = __this_cpu_read(psci_cpuidle_data.psci_states);
+#endif
 
 	per_cpu(sleep_time, cpu) = drv->states[index].target_residency;
-	arm_cpuidle_suspend(T19x_CPUIDLE_C6_STATE);
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	psci_cpu_suspend_enter(state[index]);
+#else
+	arm_cpuidle_suspend(index);
+#endif
 }
 
 /*enter C6 function used in measuring C6 latency*/
@@ -126,25 +155,34 @@ static void test_t19x_cpu_enter_c6(u32 wake_time)
 	mce_index = (NVG_STAT_QUERY_C6_ENTRIES << MCE_STAT_ID_SHIFT)
 					+ (u32)cpu;
 	tegra_mce_read_cstate_stats(mce_index, &val);
-	trace_printk("cpu = %d C6_COUNT_BEFORE = %llu\n", cpu, val);
+	trace_cpuidle_t19x_c6_count(cpu, val, "C6_COUNT_BEFORE");
 
 	atomic_inc(&entered_c6_cpu_count);
 
 	t19x_cpu_enter_c6(T19x_CPUIDLE_C6_STATE);
+	trace_cpuidle_t19x_print("Exiting C6");
 
-	trace_printk("Exiting C6\n");
 	tegra_mce_read_cstate_stats(mce_index, &val);
-	trace_printk("cpu = %d C6_COUNT_AFTER = %llu\n", cpu, val);
+	trace_cpuidle_t19x_c6_count(cpu, val, "C6_COUNT_AFTER");
 }
 
 static void t19x_cpu_enter_c7(int index)
 {
 	int cpu = smp_processor_id();
 	struct cpuidle_driver *drv = &t19x_cpu_idle_driver;
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	u32 *state = __this_cpu_read(psci_cpuidle_data.psci_states);
+#endif
 
 	cpu_pm_enter(); /* power down notifier */
 	per_cpu(sleep_time, cpu) = drv->states[index].target_residency;
-	arm_cpuidle_suspend(T19x_CPUIDLE_C7_STATE);
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	psci_cpu_suspend_enter(state[index]);
+#else
+	arm_cpuidle_suspend(index);
+#endif
+
 	cpu_pm_exit();
 }
 
@@ -288,7 +326,6 @@ static int forced_idle_write(void *data, u64 val)
 	preempt_disable();
 	tick_nohz_idle_enter();
 	stop_critical_timings();
-	local_fiq_disable();
 	local_irq_disable();
 
 	interval = ktime_set(0, (NSEC_PER_USEC * timer_interval_us));
@@ -323,7 +360,6 @@ static int forced_idle_write(void *data, u64 val)
 				ktime_to_ns(sleep), ktime_to_ns(time));
 
 	local_irq_enable();
-	local_fiq_enable();
 	start_critical_timings();
 	tick_nohz_idle_exit();
 	preempt_enable_no_resched();
@@ -419,6 +455,7 @@ static int cpuidle_debugfs_init(void)
 	if (!cpuidle_debugfs_node)
 		goto err_out;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
 	dfs_file = debugfs_create_u64("forced_idle_state", 0644,
 		cpuidle_debugfs_node, &forced_idle_state);
 
@@ -436,6 +473,16 @@ static int cpuidle_debugfs_init(void)
 
 	if (!dfs_file)
 		goto err_out;
+#else
+	debugfs_create_u64("forced_idle_state", 0644,
+		cpuidle_debugfs_node, &forced_idle_state);
+
+	debugfs_create_u64("test_c6_exit_latency", 0644,
+		cpuidle_debugfs_node, &test_c6_exit_latency);
+
+	debugfs_create_u64("forced_cluster_idle_state", 0644,
+		cpuidle_debugfs_node, &forced_cluster_idle_state);
+#endif
 
 	dfs_file = debugfs_create_file("forced_idle_duration_us", 0200,
 		cpuidle_debugfs_node, NULL, &duration_us_fops);
@@ -463,10 +510,15 @@ static int cpuidle_debugfs_init(void)
 	if (!dfs_file)
 		goto err_out;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
 	dfs_file = debugfs_create_u64("dbg_gpio", 0644, cpuidle_debugfs_node,
 					&dbg_gpio);
 	if (!dfs_file)
 		goto err_out;
+#else
+	debugfs_create_u64("dbg_gpio", 0644, cpuidle_debugfs_node,
+					&dbg_gpio);
+#endif
 
 	return 0;
 
@@ -597,6 +649,104 @@ static int tegra_cpu_online(unsigned int cpu)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+static int psci_dt_cpu_init_idle(struct device *dev, struct cpuidle_driver *drv,
+				 struct device_node *cpu_node,
+				 unsigned int state_count, int cpu)
+{
+	int i, ret = 0;
+	u32 *psci_states;
+	struct device_node *state_node;
+	struct psci_cpuidle_data *data = per_cpu_ptr(&psci_cpuidle_data, cpu);
+
+	state_count++; /* Add WFI state too */
+	psci_states = devm_kcalloc(dev, state_count, sizeof(*psci_states),
+					GFP_KERNEL);
+	if (!psci_states)
+		return -ENOMEM;
+
+	for (i = 1; i < state_count; i++) {
+		state_node = of_get_cpu_state_node(cpu_node, i - 1);
+		if (!state_node)
+			break;
+
+		ret = psci_dt_parse_state_node(state_node, &psci_states[i]);
+		of_node_put(state_node);
+
+		if (ret)
+			return ret;
+
+		pr_debug("psci-power-state %#x index %d\n", psci_states[i], i);
+	}
+
+	if (i != state_count)
+		return -ENODEV;
+
+	/* Idle states parsed correctly, store them in the per-cpu struct. */
+	data->psci_states = psci_states;
+	return 0;
+}
+
+static int psci_cpu_init_idle(struct device *dev, struct cpuidle_driver *drv,
+			      unsigned int cpu, unsigned int state_count)
+{
+	struct device_node *cpu_node;
+	int ret;
+
+	/*
+	 * If the PSCI cpu_suspend function hook has not been initialized
+	 * idle states must not be enabled, so bail out
+	 */
+	if (!psci_ops.cpu_suspend)
+		return -EOPNOTSUPP;
+
+	cpu_node = of_cpu_device_node_get(cpu);
+	if (!cpu_node)
+		return -ENODEV;
+
+	ret = psci_dt_cpu_init_idle(dev, drv, cpu_node, state_count, cpu);
+
+	of_node_put(cpu_node);
+
+	return ret;
+}
+
+static int psci_idle_init_cpu(struct device *dev, int cpu,
+				unsigned int state_count)
+{
+	int ret = 0;
+
+	/*
+	 * Initialize PSCI idle states.
+	 */
+	ret = psci_cpu_init_idle(dev, NULL, cpu, state_count);
+	if (ret) {
+		pr_err("CPU %d failed to PSCI idle\n", cpu);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int psci_idle_node_init(struct device *dev, unsigned int state_count)
+{
+	int cpu;
+	int ret = 0;
+
+	for_each_possible_cpu(cpu) {
+		ret = psci_idle_init_cpu(dev, cpu, state_count);
+		if (ret)
+			goto out_fail;
+	}
+
+	return 0;
+
+out_fail:
+	return ret;
+}
+
+#endif
+
 static int __init tegra19x_cpuidle_probe(struct platform_device *pdev)
 {
 	int cpu_number;
@@ -618,12 +768,15 @@ static int __init tegra19x_cpuidle_probe(struct platform_device *pdev)
 
 	for_each_online_cpu(cpu_number) {
 		cpumask_set_cpu(cpu_number, cpumask);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
 		err = arm_cpuidle_init(cpu_number);
 		if (err) {
 			pr_err("cpuidle: failed to init ops for cpu %d \n",
 				cpu_number);
 			goto probe_exit;
 		}
+#endif
 	}
 
 	crossover_init();
@@ -647,6 +800,19 @@ static int __init tegra19x_cpuidle_probe(struct platform_device *pdev)
 		err = -ENODEV;
 		goto probe_exit;
 	}
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	/*
+	 * Initialize PSCI idle states.
+	 *
+	 * dt_init_idle_driver() returns number of valid DT idle states parsed
+	 * on successful, pass it to psci_idle_node_init()
+	 */
+	err = psci_idle_node_init(&pdev->dev, err);
+	if (err)
+		goto probe_exit;
+#endif
+
 	err = cpuidle_register(&t19x_cpu_idle_driver, NULL);
 
 	if (err) {

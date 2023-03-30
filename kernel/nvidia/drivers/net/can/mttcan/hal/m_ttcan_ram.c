@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -31,7 +31,7 @@ int ttcan_read_txevt_ram(struct ttcan_controller *ttcan, u32 read_addr,
 int ttcan_read_rx_msg_ram(struct ttcan_controller *ttcan, u64 read_addrs,
 			  struct ttcanfd_frame *ttcanfd)
 {
-	int i = 0, byte_index;
+	u32 i = 0, byte_index;
 	u32 msg_data;
 	void __iomem *addr_in_msg_ram = read_addrs + ttcan->mram_vbase;
 	int bytes_to_read = CANFD_MAX_DLEN;
@@ -415,7 +415,7 @@ int ttcan_mesg_ram_config(struct ttcan_controller *ttcan,
 			ttcan->mram_cfg[MRAM_TXB].num * MAX_TXB_ELEM_SIZE;
 	ttcan->mram_cfg[MRAM_TMC].num = arr[8];
 
-	if ((MTTCAN_RAM_SIZE <=
+	if ((ttcan->mram_size <=
 		ttcan->mram_cfg[MRAM_TMC].off + ttcan->mram_cfg[MRAM_TMC].num *
 		       TRIG_ELEM_SIZE - ttcan->mram_cfg[MRAM_SIDF].off)) {
 		pr_err("%s: Incorrect config for Message RAM\n", __func__);
@@ -445,11 +445,22 @@ int ttcan_mesg_ram_config(struct ttcan_controller *ttcan,
 	pr_info("\t Message RAM Configuration\n"
 		"\t| base addr   |0x%08lx|\n\t| sidfc_flssa |0x%08x|\n\t| xidfc_flesa |0x%08x|\n"
 		"\t| rxf0c_f0sa  |0x%08x|\n\t| rxf1c_f1sa  |0x%08x|\n\t| rxbc_rbsa   |0x%08x|\n"
-		"\t| txefc_efsa  |0x%08x|\n\t| txbc_tbsa   |0x%08x|\n\t| tmc_tmsa    |0x%08x|\n",
+		"\t| txefc_efsa  |0x%08x|\n\t| txbc_tbsa   |0x%08x|\n\t| tmc_tmsa    |0x%08x|\n"
+		"\t| mram size   |0x%08x|\n",
 		ttcan->mram_base, ttcan->mram_cfg[MRAM_SIDF].off,
 		ttcan->mram_cfg[MRAM_XIDF].off, ttcan->mram_cfg[MRAM_RXF0].off,
 		ttcan->mram_cfg[MRAM_RXF1].off, ttcan->mram_cfg[MRAM_RXB].off,
 		ttcan->mram_cfg[MRAM_TXE].off, ttcan->mram_cfg[MRAM_TXB].off,
-		ttcan->mram_cfg[MRAM_TMC].off);
+		ttcan->mram_cfg[MRAM_TMC].off, ttcan->mram_size);
 	return 0;
+}
+
+void ttcan_mesg_ram_init(struct ttcan_controller *ttcan)
+{
+	u32 offset;
+
+	for (offset = 0; offset < ttcan->mram_size;
+	     offset += CAN_WORD_IN_BYTES) {
+		writel(0, ttcan->mram_vbase + offset);
+	}
 }

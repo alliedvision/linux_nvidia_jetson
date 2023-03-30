@@ -1,0 +1,42 @@
+From aba264ca583f06d0d63f293e4e0532da4983b736 Mon Sep 17 00:00:00 2001
+From: Ram Muthiah <rammuthiah@google.com>
+Date: Tue, 17 Dec 2019 18:10:47 -0800
+Subject: [PATCH 600/830] ANDROID: gki_defconfig: Set BINFMT_MISC as =m
+X-NVConfidentiality: public
+
+Bug: 145774383
+Test: Treehugger
+Change-Id: I7a3c395875504c455e4e720c807f52d083d35f9b
+Signed-off-by: Ram Muthiah <rammuthiah@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index eea1def56146..2fab18f3c765 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -81,6 +81,7 @@ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
++CONFIG_BINFMT_MISC=m
+ CONFIG_MEMORY_HOTPLUG=y
+ CONFIG_TRANSPARENT_HUGEPAGE=y
+ CONFIG_CMA=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 4dff6059506f..c9cfd24e913d 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -60,6 +60,7 @@ CONFIG_MODULE_UNLOAD=y
+ CONFIG_MODVERSIONS=y
+ CONFIG_GKI_HACKS_TO_FIX=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
++CONFIG_BINFMT_MISC=m
+ CONFIG_TRANSPARENT_HUGEPAGE=y
+ CONFIG_CMA=y
+ CONFIG_CMA_AREAS=16
+-- 
+2.17.1
+

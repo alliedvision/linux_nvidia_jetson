@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,8 +21,11 @@
 #include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/tegra-pm.h>
+#include <linux/version.h>
 
+#ifdef CONFIG_TEGRA_PM_DEBUG
 static u32 shutdown_state;
+#endif
 
 #define SMC_PM_FUNC	0xC2FFFE00
 #define SMC_SET_SHUTDOWN_MODE 0x1
@@ -30,13 +33,53 @@ static u32 shutdown_state;
 #define SYSTEM_SHUTDOWN_STATE_SC8 8
 #define SMC_GET_CLK_COUNT 0x2
 
+/*
+ * Helper function for send_smc that actually makes the smc call
+ */
+static noinline notrace int __send_smc(u32 smc_func, struct pm_regs *regs)
+{
+	u32 ret = smc_func;
+
+	asm volatile (
+	"       mov     x0, %0\n"
+	"       ldp     x1, x2, [%1, #16 * 0]\n"
+	"       ldp     x3, x4, [%1, #16 * 1]\n"
+	"       ldp     x5, x6, [%1, #16 * 2]\n"
+	"       isb\n"
+	"       smc     #0\n"
+	"       mov     %0, x0\n"
+	"       stp     x0, x1, [%1, #16 * 0]\n"
+	"       stp     x2, x3, [%1, #16 * 1]\n"
+	: "+r" (ret)
+	: "r" (regs)
+	: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8",
+	"x9", "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17");
+	return ret;
+}
+
+/*
+ * Make an SMC call. Takes in the SMC function to be invoked & registers to be
+ * passed along as args.
+ */
+int send_smc(u32 smc_func, struct pm_regs *regs)
+{
+	int __ret = __send_smc(smc_func, regs);
+
+	if (__ret) {
+		pr_err("%s: failed (ret=%d)\n", __func__, __ret);
+		return __ret;
+	}
+
+	return __ret;
+}
+
 /**
  * Specify state for SYSTEM_SHUTDOWN
  *
  * @shutdown_state:	Specific shutdown state to set
  *
  */
-static int tegra_set_shutdown_mode(u32 shutdown_state)
+int tegra_set_shutdown_mode(u32 shutdown_state)
 {
 	struct pm_regs regs;
 	u32 smc_func = SMC_PM_FUNC | (SMC_SET_SHUTDOWN_MODE & SMC_ENUM_MAX);
@@ -76,7 +119,11 @@ EXPORT_SYMBOL(tegra_get_clk_counter);
 
 static void tegra186_power_off_prepare(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
 	disable_nonboot_cpus();
+#else
+	suspend_disable_secondary_cpus();
+#endif
 }
 
 static int __init tegra186_pm_init(void)
@@ -87,6 +134,7 @@ static int __init tegra186_pm_init(void)
 }
 core_initcall(tegra186_pm_init);
 
+#ifdef CONFIG_TEGRA_PM_DEBUG
 static int shutdown_state_get(void *data, u64 *val)
 {
 	*val = shutdown_state;
@@ -132,6 +180,7 @@ err_out:
 
 }
 module_init(tegra18_suspend_debugfs_init);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Tegra T18x Suspend Mode debugfs");

@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -38,9 +38,9 @@ CORE_OUT=$(OUT)/nvgpu_unit_core
 
 # Nvgpu driver code.
 NVGPU_SRC=$(TWD)/../drivers/gpu/nvgpu
-NVGPU_OUT=$(OUT)/libnvgpu
-# Nvgpu_next driver code.
+# Nvgpu-next driver code.
 NVGPU_NEXT_SRC=$(TWD)/../../nvgpu-next/drivers/gpu/nvgpu
+NVGPU_OUT=$(OUT)/libnvgpu
 
 # Unit tests themselves.
 UNIT_SRC=$(TWD)/units
@@ -53,38 +53,57 @@ INCLUDES= 				\
 	-I$(NVGPU_NEXT_SRC)/include	\
 	-I$(TWD)/../include		\
 	-I$(TWD)/../include/uapi	\
-	-I$(TWD)/include
+	-I$(TWD)/include		\
 
-CONFIGS=-D__NVGPU_POSIX__
+# This is safety build by default.
+NV_BUILD_CONFIGURATION_IS_SAFETY=1
+# This Makefile is only for host POSIX builds
+NVGPU_POSIX=1
+# Enable fault injection for unit tests
+NVGPU_FAULT_INJECTION_ENABLEMENT=1
+
+# Linux configs. We want these so that we can mirror builds from the actual
+# Linux kernel.
+# include Makefile.configs
+CONFIGS := -D__NVGPU_POSIX__ \
+	   -DNVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT \
+	   -D__NVGPU_UNIT_TEST__
+
+# safety-debug profile is used by default
+NVGPU_FORCE_SAFETY_PROFILE	:= 1
+NVGPU_FORCE_DEBUG_PROFILE	:= 1
+include $(NVGPU_SRC)/Makefile.shared.configs
+CONFIGS+=$(NVGPU_COMMON_CFLAGS)
 
 # Compiler, c-flags, etc.
 
 # CC      = clang
 CC        = gcc
-CFLAGS    = -Wall -ggdb  -Werror -fPIC $(INCLUDES) $(CONFIGS)
 CFLAGS    = -Wall -Wextra -ggdb  -Werror -Wno-unused-parameter               \
 	    -Wno-missing-field-initializers -Wformat -Wchar-subscripts       \
 	    -Wparentheses -Wtrigraphs -Wpointer-arith -Wmissing-declarations \
 	    -Wmissing-prototypes -Wredundant-decls -Wmain -Wreturn-type      \
 	    -Wmultichar -Wunused -Wmissing-braces -Wstrict-aliasing          \
 	    -Wsign-compare -Waddress -Wno-unused-local-typedefs -fPIC        \
-	    $(INCLUDES) $(CONFIGS)
-LIB_PATHS = -L$(OUT)
+	    -Wno-maybe-uninitialized $(INCLUDES) $(CONFIGS)
+LIB_PATHS = -L$(OUT) -L$(UNIT_OUT)
 LIBS      = -lpthread -pthread -lgcov -ldl
 
+# NV_IS_COVERITY is used by violation whitelisting macros which use pragma
+# directives. Whitelisting is only enabled when a coverity scan is being run.
+ifeq ($(NV_BUILD_CONFIGURATION_IS_COVERITY),1)
+CFLAGS   += -Wno-unknown-pragmas
+CONFIGS  += -DNV_IS_COVERITY
+endif
 
 # Source files. We expect $(OBJS) and $(HEADERS) to get filled in here.
 include Makefile.sources
-
-# Linuxy configs. We want these so that we can mirror builds from the actual
-# Linux kernel.
-include Makefile.configs
 
 all: $(OUT)/nvgpu_unit $(UNITS)
 
 # Convenience targets.
 .PHONY: libnvgpu core units
-libnvgpu: $(OUT)/libnvgpu-drv.so
+libnvgpu: $(OUT)/libnvgpu-drv-igpu.so
 core: $(OUT)/nvgpu_unit
 units: $(UNITS)
 
@@ -94,45 +113,45 @@ units: $(UNITS)
 # used for anything beyond that.
 #
 # Also it really should have its own rule...
-$(OUT)/nvgpu_unit: $(OUT)/libnvgpu-drv.so $(CORE_OBJS)
+$(OUT)/nvgpu_unit: $(OUT)/libnvgpu-drv-igpu.so $(CORE_OBJS)
 	$(CC) -shared -o $(OUT)/libnvgpu_unit.so	\
 		$(CORE_OBJS) $(LIB_PATHS) $(LIBS)
 	$(CC) --coverage	 			\
 		-o $(OUT)/nvgpu_unit $(CORE_OBJS) $(LIB_PATHS) $(LIBS)
 
-$(OUT)/libnvgpu-drv.so: $(OBJS)
-	$(CC) -shared -o $(OUT)/libnvgpu-drv.so $(OBJS) -lgcov
+$(OUT)/libnvgpu-drv-igpu.so: $(OBJS)
+	$(CC) -shared -Wl,--no-undefined -o $(OUT)/libnvgpu-drv-igpu.so $(OBJS) -lgcov -rdynamic -lpthread
 
 # Default build target for all the nvgpu driver object files we want to build in
-# userspace. These get bundled into libnvgpu-drv.so.
+# userspace. These get bundled into libnvgpu-drv-igpu.so.
 $(NVGPU_OUT)/%.o : $(NVGPU_SRC)/%.c $(HEADERS)
 	@if [ ! -d $(dir $@) ] ; then \
 		mkdir -p $(dir $@) ; \
 	fi
-	$(CC) --coverage $(CFLAGS) $(configs) -c -o $@ $<
+	$(CC) --coverage $(CFLAGS) -c -o $@ $<
 
 # Default build target for all the nvgpu-next driver object files we want to
-# build in userspace. These too get bundled into libnvgpu-drv.so.
+# build in userspace. These too get bundled into libnvgpu-drv-igpu.so.
 $(NVGPU_OUT)/%.o : $(NVGPU_NEXT_SRC)/%.c $(HEADERS) $(HEADERS_NEXT)
 	@if [ ! -d $(dir $@) ] ; then \
 		mkdir -p $(dir $@) ; \
 	fi
 	$(CC) --coverage $(CFLAGS) $(configs) -c -o $@ $<
 
-# Build target for unit test files. These are not part of the libnvgpu-drv.so.
+# Build target for unit test files. These are not part of the libnvgpu-drv-igpu.so.
 # These comprise the unit test framework.
 $(CORE_OUT)/%.o : $(CORE_SRC)/%.c $(CORE_HEADERS)
 	@if [ ! -d $(dir $@) ] ; then \
 		mkdir -p $(dir $@) ; \
 	fi
-	$(CC) --coverage $(CFLAGS) $(configs) -c -o $@ $<
+	$(CC) --coverage $(CFLAGS) -c -o $@ $<
 
 # Certain variables should be exported to the unit test module builds.
 export TWD INCLUDES CONFIGS UNIT_SRC UNIT_OUT
 export CC CFLAGS LIB_PATHS LIBS
 
 .PHONY: $(UNITS)
-$(UNITS): $(OUT)/libnvgpu-drv.so
+$(UNITS): $(OUT)/libnvgpu-drv-igpu.so
 	@echo "Building unit module: $@"
 	@+$(MAKE) --no-print-directory -C $@
 

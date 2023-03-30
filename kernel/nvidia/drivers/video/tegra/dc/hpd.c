@@ -1,7 +1,7 @@
 /*
  * hpd.c: hotplug detection functions.
  *
- * Copyright (c) 2015-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -519,6 +519,7 @@ void tegra_hpd_shutdown(struct tegra_hpd_data *data)
 	data->shutdown = 1;
 	cancel_delayed_work_sync(&data->dwork);
 	tegra_edid_destroy(data->edid);
+	data->edid = NULL;
 
 #ifdef CONFIG_SWITCH
 	if (data->hpd_switch.name) {

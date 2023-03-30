@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/la_priv.h
  *
- * Copyright (C) 2012-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (C) 2012-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -631,12 +631,12 @@ void tegra_la_get_t14x_specific(struct la_chip_specific *cs);
 void tegra_la_get_t11x_specific(struct la_chip_specific *cs);
 void tegra_la_get_t12x_specific(struct la_chip_specific *cs);
 void tegra_la_get_t21x_specific(struct la_chip_specific *cs);
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
+#if defined(CONFIG_ARCH_TEGRA_18x_SOC) || defined(CONFIG_ARCH_TEGRA_186_SOC)
 void tegra_la_get_t18x_specific(struct la_chip_specific *cs);
 #else
 static inline void tegra_la_get_t18x_specific(struct la_chip_specific *cs) {}
 #endif
-#ifdef CONFIG_ARCH_TEGRA_19x_SOC
+#if defined(CONFIG_ARCH_TEGRA_19x_SOC) || defined(CONFIG_ARCH_TEGRA_194_SOC)
 void tegra_la_get_t19x_specific(struct la_chip_specific *cs);
 #else
 static inline void tegra_la_get_t19x_specific(struct la_chip_specific *cs) {}

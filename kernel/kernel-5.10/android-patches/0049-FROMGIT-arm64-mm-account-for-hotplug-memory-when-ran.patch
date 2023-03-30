@@ -1,0 +1,72 @@
+From 5ad53d060c2f22d95a272a14de8a1228c2bb6daa Mon Sep 17 00:00:00 2001
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Wed, 14 Oct 2020 10:18:57 +0200
+Subject: [PATCH 049/830] FROMGIT: arm64: mm: account for hotplug memory when
+ randomizing the linear region
+X-NVConfidentiality: public
+
+As a hardening measure, we currently randomize the placement of
+physical memory inside the linear region when KASLR is in effect.
+Since the random offset at which to place the available physical
+memory inside the linear region is chosen early at boot, it is
+based on the memblock description of memory, which does not cover
+hotplug memory. The consequence of this is that the randomization
+offset may be chosen such that any hotplugged memory located above
+memblock_end_of_DRAM() that appears later is pushed off the end of
+the linear region, where it cannot be accessed.
+
+So let's limit this randomization of the linear region to ensure
+that this can no longer happen, by using the CPU's addressable PA
+range instead. As it is guaranteed that no hotpluggable memory will
+appear that falls outside of that range, we can safely put this PA
+range sized window anywhere in the linear region.
+
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: Steven Price <steven.price@arm.com>
+Cc: Robin Murphy <robin.murphy@arm.com>
+Link: https://lore.kernel.org/r/20201014081857.3288-1-ardb@kernel.org
+Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+
+Bug: 173725282
+(cherry picked from commit 97d6786e0669daa5c2f2d07a057f574e849dfd3e
+git: https://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git)
+Link: https://lore.kernel.org/linux-arm-kernel/20201014081857.3288-1-ardb@kernel.org/
+Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+Change-Id: Ia7ef47090fe334b29aab711d608f424e23e7fb92
+---
+ arch/arm64/mm/init.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/mm/init.c b/arch/arm64/mm/init.c
+index c0a7f0d90b39..69c420e35447 100644
+--- a/arch/arm64/mm/init.c
++++ b/arch/arm64/mm/init.c
+@@ -377,15 +377,18 @@ void __init arm64_memblock_init(void)
+ 
+ 	if (IS_ENABLED(CONFIG_RANDOMIZE_BASE)) {
+ 		extern u16 memstart_offset_seed;
+-		u64 range = linear_region_size -
+-			    (memblock_end_of_DRAM() - memblock_start_of_DRAM());
++		u64 mmfr0 = read_cpuid(ID_AA64MMFR0_EL1);
++		int parange = cpuid_feature_extract_unsigned_field(
++					mmfr0, ID_AA64MMFR0_PARANGE_SHIFT);
++		s64 range = linear_region_size -
++			    BIT(id_aa64mmfr0_parange_to_phys_shift(parange));
+ 
+ 		/*
+ 		 * If the size of the linear region exceeds, by a sufficient
+-		 * margin, the size of the region that the available physical
+-		 * memory spans, randomize the linear region as well.
++		 * margin, the size of the region that the physical memory can
++		 * span, randomize the linear region as well.
+ 		 */
+-		if (memstart_offset_seed > 0 && range >= ARM64_MEMSTART_ALIGN) {
++		if (memstart_offset_seed > 0 && range >= (s64)ARM64_MEMSTART_ALIGN) {
+ 			range /= ARM64_MEMSTART_ALIGN;
+ 			memstart_addr -= ARM64_MEMSTART_ALIGN *
+ 					 ((range * memstart_offset_seed) >> 16);
+-- 
+2.17.1
+

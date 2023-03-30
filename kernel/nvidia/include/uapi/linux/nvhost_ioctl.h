@@ -3,7 +3,7 @@
  *
  * Tegra graphics host driver
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2009-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,7 +70,6 @@ struct nvhost_reloc_shift {
 #define NVHOST_RELOC_TYPE_DEFAULT	0
 #define NVHOST_RELOC_TYPE_PITCH_LINEAR	1
 #define NVHOST_RELOC_TYPE_BLOCK_LINEAR	2
-#define NVHOST_RELOC_TYPE_NVLINK	3
 struct nvhost_reloc_type {
 	__u32 reloc_type;
 	__u32 padding;
@@ -268,6 +267,12 @@ struct nvhost_channel_map_buffer_args {
 	__u64 table_address;	/* pointer to beginning of buffer */
 };
 
+#define NVHOST_IOCTL_CHANNEL_ATTACH_SYNCPT_ATTACH       (1 << 0)
+struct nvhost_channel_attach_syncpt_args {
+	__s32 syncpt_fd;
+	__u32 flags;
+};
+
 #define NVHOST_IOCTL_CHANNEL_GET_SYNCPOINTS	\
 	_IOR(NVHOST_IOCTL_MAGIC, 2, struct nvhost_get_param_args)
 #define NVHOST_IOCTL_CHANNEL_GET_WAITBASES	\
@@ -320,6 +325,8 @@ struct nvhost_channel_map_buffer_args {
 
 #define NVHOST_IOCTL_CHANNEL_SET_SYNCPOINT_NAME	\
 	_IOW(NVHOST_IOCTL_MAGIC, 30, struct nvhost_set_syncpt_name_args)
+#define NVHOST_IOCTL_CHANNEL_ATTACH_SYNCPT \
+	_IOWR(NVHOST_IOCTL_MAGIC, 31, struct nvhost_channel_attach_syncpt_args)
 
 #define NVHOST_IOCTL_CHANNEL_SET_ERROR_NOTIFIER  \
 	_IOWR(NVHOST_IOCTL_MAGIC, 111, struct nvhost_set_error_notifier)
@@ -397,10 +404,13 @@ enum nvhost_module_id {
 	NVHOST_MODULE_DISPLAY_A = 0,
 	NVHOST_MODULE_DISPLAY_B,
 	NVHOST_MODULE_VI,
+	NVHOST_MODULE_VI2,
 	NVHOST_MODULE_ISP,
+	NVHOST_MODULE_ISPB,
 	NVHOST_MODULE_MPE,
 	NVHOST_MODULE_MSENC,
 	NVHOST_MODULE_TSEC,
+	NVHOST_MODULE_TSECB,
 	NVHOST_MODULE_GPU,
 	NVHOST_MODULE_VIC,
 	NVHOST_MODULE_NVDEC,
@@ -409,7 +419,9 @@ enum nvhost_module_id {
 	NVHOST_MODULE_NVENC1,
 	NVHOST_MODULE_NVDEC1,
 	NVHOST_MODULE_NVCSI,
-	NVHOST_MODULE_TSECB = (1<<16) | NVHOST_MODULE_TSEC,
+	NVHOST_MODULE_NVJPG1,
+	NVHOST_MODULE_OFA,
+	NVHOST_MODULE_INVALID
 };
 
 struct nvhost_characteristics {
@@ -447,6 +459,28 @@ struct nvhost_ctrl_poll_fd_trigger_event_args {
 	__s32 fd;
 	__u32 id;
 	__u32 thresh;
+	__u32 padding;
+};
+
+struct nvhost_ctrl_alloc_syncpt_args {
+	__u32 flags; 		/* in  */
+	__s32 fd;		/* out */
+	__u32 syncpt_id;	/* out */
+	__u32 padding;
+};
+
+struct nvhost_ctrl_sync_file_extract {
+	__s32 fd;
+	__u32 num_fences;
+	__u64 fences_ptr;
+};
+
+struct nvhost_ctrl_syncpt_dmabuf_args {
+	__s32 syncpt_fd;
+	__s32 dmabuf_fd;
+	__u32 is_full_shim;
+	__u32 nb_syncpts;
+	__u32 syncpt_page_size;
 	__u32 padding;
 };
 
@@ -490,9 +524,17 @@ struct nvhost_ctrl_poll_fd_trigger_event_args {
 	_IOR(NVHOST_IOCTL_MAGIC, 16, struct nvhost_ctrl_poll_fd_create_args)
 #define NVHOST_IOCTL_CTRL_POLL_FD_TRIGGER_EVENT        \
 	_IOW(NVHOST_IOCTL_MAGIC, 17, struct nvhost_ctrl_poll_fd_trigger_event_args)
+#define NVHOST_IOCTL_CTRL_ALLOC_SYNCPT		\
+	_IOWR(NVHOST_IOCTL_MAGIC, 18, struct nvhost_ctrl_alloc_syncpt_args)
+
+#define NVHOST_IOCTL_CTRL_SYNC_FILE_EXTRACT     \
+	_IOWR(NVHOST_IOCTL_MAGIC, 19, struct nvhost_ctrl_sync_file_extract)
+
+#define NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD     \
+	_IOWR(NVHOST_IOCTL_MAGIC, 20, struct nvhost_ctrl_syncpt_dmabuf_args)
 
 #define NVHOST_IOCTL_CTRL_LAST			\
-	_IOC_NR(NVHOST_IOCTL_CTRL_POLL_FD_TRIGGER_EVENT)
+	_IOC_NR(NVHOST_IOCTL_CTRL_GET_SYNCPT_DMABUF_FD)
 #define NVHOST_IOCTL_CTRL_MAX_ARG_SIZE	\
 	sizeof(struct nvhost_ctrl_syncpt_waitmex_args)
 

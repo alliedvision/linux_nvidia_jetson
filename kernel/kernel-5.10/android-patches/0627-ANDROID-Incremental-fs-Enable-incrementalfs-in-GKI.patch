@@ -1,0 +1,42 @@
+From 11f6ef89f2db6672a6b5b222a16a2cf13337fa7c Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Thu, 30 Jan 2020 10:19:38 -0800
+Subject: [PATCH 627/830] ANDROID: Incremental fs: Enable incrementalfs in GKI
+X-NVConfidentiality: public
+
+Bug: 133435829
+Test: Builds, incfs_test passes
+Change-Id: I334088b3aadcffe3f42f991b0d2039ff7b221ac5
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 4036858f3faa..8c7832d80d69 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -389,6 +389,7 @@ CONFIG_QUOTA=y
+ CONFIG_QFMT_V2=y
+ CONFIG_FUSE_FS=y
+ CONFIG_OVERLAY_FS=y
++CONFIG_INCREMENTAL_FS=y
+ CONFIG_MSDOS_FS=y
+ CONFIG_VFAT_FS=y
+ CONFIG_TMPFS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 881b44ccc760..b0bca7278231 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -324,6 +324,7 @@ CONFIG_QUOTA=y
+ CONFIG_QFMT_V2=y
+ CONFIG_FUSE_FS=y
+ CONFIG_OVERLAY_FS=y
++CONFIG_INCREMENTAL_FS=y
+ CONFIG_MSDOS_FS=y
+ CONFIG_VFAT_FS=y
+ CONFIG_TMPFS=y
+-- 
+2.17.1
+

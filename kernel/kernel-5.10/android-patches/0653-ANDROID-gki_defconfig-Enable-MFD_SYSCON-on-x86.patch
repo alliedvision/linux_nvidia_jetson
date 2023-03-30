@@ -1,0 +1,30 @@
+From df6e77e6fa114d858fc89ccde35fc55e4eefcdff Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Tue, 3 Mar 2020 22:53:35 -0800
+Subject: [PATCH 653/830] ANDROID: gki_defconfig: Enable MFD_SYSCON on x86
+X-NVConfidentiality: public
+
+This option was accidentally skipped when it was added on arm64.
+
+Bug: 144867487
+Change-Id: Ifa87a894954ec9a26d5ab40e7d18e2f2f5e4f416
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/x86/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 27724a8b6c89..ab011c6b1c8f 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -263,6 +263,7 @@ CONFIG_GPIOLIB=y
+ CONFIG_DEVFREQ_THERMAL=y
+ # CONFIG_X86_PKG_TEMP_THERMAL is not set
+ CONFIG_WATCHDOG=y
++CONFIG_MFD_SYSCON=y
+ CONFIG_REGULATOR=y
+ CONFIG_REGULATOR_FIXED_VOLTAGE=y
+ CONFIG_MEDIA_CAMERA_SUPPORT=y
+-- 
+2.17.1
+

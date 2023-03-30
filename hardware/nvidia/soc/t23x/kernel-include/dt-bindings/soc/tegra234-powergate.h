@@ -1,0 +1,72 @@
+/*
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef BPMP_ABI_MACH_T234_POWERGATE_T234_H
+#define BPMP_ABI_MACH_T234_POWERGATE_T234_H
+
+/**
+ * @file
+ * @defgroup bpmp_pdomain_ids Power Domain ID's
+ * This is a list of power domain IDs provided by the firmware.
+ * @{
+ */
+#define TEGRA234_POWER_DOMAIN_OFA	1U
+#define TEGRA234_POWER_DOMAIN_AUD	2U
+#define TEGRA234_POWER_DOMAIN_DISP	3U
+/* RESERVED 4 */
+#define TEGRA234_POWER_DOMAIN_PCIEX8A	5U
+#define TEGRA234_POWER_DOMAIN_PCIEX4A	6U
+#define TEGRA234_POWER_DOMAIN_PCIEX4BA	7U
+#define TEGRA234_POWER_DOMAIN_PCIEX4BB	8U
+#define TEGRA234_POWER_DOMAIN_PCIEX1A	9U
+#define TEGRA234_POWER_DOMAIN_XUSBA	10U
+#define TEGRA234_POWER_DOMAIN_XUSBB	11U
+#define TEGRA234_POWER_DOMAIN_XUSBC	12U
+#define TEGRA234_POWER_DOMAIN_PCIEX4CA	13U
+#define TEGRA234_POWER_DOMAIN_PCIEX4CB	14U
+#define TEGRA234_POWER_DOMAIN_PCIEX4CC	15U
+#define TEGRA234_POWER_DOMAIN_PCIEX8B	16U
+#define TEGRA234_POWER_DOMAIN_MGBEA	17U
+#define TEGRA234_POWER_DOMAIN_MGBEBA	18U
+#define TEGRA234_POWER_DOMAIN_MGBEBB	19U
+#define TEGRA234_POWER_DOMAIN_MGBEBC	20U
+/* RESERVED 21 */
+#define TEGRA234_POWER_DOMAIN_ISPA	22U
+#define TEGRA234_POWER_DOMAIN_NVDEC	23U
+#define TEGRA234_POWER_DOMAIN_NVJPGA	24U
+#define TEGRA234_POWER_DOMAIN_NVENC	25U
+/* RESERVED 26:27 */
+#define TEGRA234_POWER_DOMAIN_VI	28U
+#define TEGRA234_POWER_DOMAIN_VIC	29U
+#define TEGRA234_POWER_DOMAIN_PVA	30U
+/* RESERVED 31 */
+#define TEGRA234_POWER_DOMAIN_DLAA	32U
+#define TEGRA234_POWER_DOMAIN_DLAB	33U
+#define TEGRA234_POWER_DOMAIN_CV	34U
+#define TEGRA234_POWER_DOMAIN_GPU	35U
+#define TEGRA234_POWER_DOMAIN_NVJPGB	36U
+
+#define TEGRA234_POWER_DOMAIN_MAX	36U
+/** @} */
+
+/* FIXME: remove these dummies */
+#define TEGRA234_POWER_DOMAIN_NVDECA	TEGRA234_POWER_DOMAIN_NVDEC
+#define TEGRA234_POWER_DOMAIN_NVJPG	TEGRA234_POWER_DOMAIN_NVJPGA
+#define TEGRA234_POWER_DOMAIN_NVENCA	TEGRA234_POWER_DOMAIN_NVENC
+#define TEGRA234_POWER_DOMAIN_VE	TEGRA234_POWER_DOMAIN_VI
+#define TEGRA234_POWER_DOMAIN_PVAA	TEGRA234_POWER_DOMAIN_PVA
+
+#endif

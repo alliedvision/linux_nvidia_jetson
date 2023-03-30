@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google, Inc.
- * Copyright (c) 2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,9 +26,10 @@
 #include <linux/trusty/smcall.h>
 #include <linux/trusty/sm_err.h>
 #include <linux/trusty/trusty.h>
+#include <linux/version.h>
 
-#define TRUSTY_IPI_CUSTOM_FIRST 7
-#define TRUSTY_IPI_CUSTOM_LAST  15
+#define TRUSTY_IPI_CUSTOM_FIRST 8
+#define TRUSTY_IPI_CUSTOM_LAST 15
 
 struct trusty_irq {
 	struct trusty_irq_state *is;
@@ -36,6 +37,7 @@ struct trusty_irq {
 	unsigned int irq;
 	bool percpu;
 	bool enable;
+	bool doorbell;
 	struct trusty_irq __percpu *percpu_ptr;
 };
 
@@ -51,7 +53,6 @@ struct trusty_irq_state {
 	raw_spinlock_t normal_irqs_lock;
 	struct trusty_irq_irqset __percpu *percpu_irqs;
 	struct notifier_block trusty_call_notifier;
-	struct notifier_block trusty_panic_notifier;
 	struct hlist_node cpuhp_node;
 };
 
@@ -166,20 +167,22 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 		__func__, irq, trusty_irq->percpu, smp_processor_id(),
 		trusty_irq->enable);
 
-	if (trusty_irq->percpu) {
-		disable_percpu_irq(irq);
-		irqset = this_cpu_ptr(is->percpu_irqs);
-	} else {
-		disable_irq_nosync(irq);
-		irqset = &is->normal_irqs;
-	}
+	if (!trusty_irq->doorbell) {
+		if (trusty_irq->percpu) {
+			disable_percpu_irq(irq);
+			irqset = this_cpu_ptr(is->percpu_irqs);
+		} else {
+			disable_irq_nosync(irq);
+			irqset = &is->normal_irqs;
+		}
 
-	raw_spin_lock(&is->normal_irqs_lock);
-	if (trusty_irq->enable) {
-		hlist_del(&trusty_irq->node);
-		hlist_add_head(&trusty_irq->node, &irqset->pending);
+		raw_spin_lock(&is->normal_irqs_lock);
+		if (trusty_irq->enable) {
+			hlist_del(&trusty_irq->node);
+			hlist_add_head(&trusty_irq->node, &irqset->pending);
+		}
+		raw_spin_unlock(&is->normal_irqs_lock);
 	}
-	raw_spin_unlock(&is->normal_irqs_lock);
 
 	trusty_enqueue_nop(is->trusty_dev, NULL);
 
@@ -344,7 +347,55 @@ err_request_irq:
 	return ret;
 }
 
-static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
+static int trusty_irq_create_ipi_mapping(struct trusty_irq_state *is, int irq)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+	static int ipi_base;
+	struct device_node *gic_node;
+	struct irq_domain *gic_domain;
+	struct irq_fwspec ipi_fwspec;
+
+	if ((irq < TRUSTY_IPI_CUSTOM_FIRST) || (irq > TRUSTY_IPI_CUSTOM_LAST))
+		return -EINVAL;
+
+	if (ipi_base == 0) {
+		gic_node = of_find_compatible_node(NULL, NULL, "arm,gic-v3");
+		if (!gic_node)
+			gic_node = of_find_compatible_node(
+					NULL, NULL, "arm,gic-400");
+
+		if (!gic_node)
+			return -EINVAL;
+
+		gic_domain = irq_find_matching_host(gic_node, DOMAIN_BUS_WIRED);
+		if ((!gic_domain) || (gic_domain->fwnode
+				!= of_node_to_fwnode(gic_node))) {
+			of_node_put(gic_node);
+			return -EINVAL;
+		}
+
+		ipi_fwspec.fwnode = gic_domain->fwnode;
+		ipi_fwspec.param_count = 1;
+		ipi_fwspec.param[0] = 0U;
+
+		/*
+		 * allocate all 16 non-secure/secure IPIs
+		 * to cover the whole IPI range
+		 */
+		ipi_base = irq_domain_alloc_irqs(
+				gic_domain, TRUSTY_IPI_CUSTOM_LAST + 1U,
+				NUMA_NO_NODE, &ipi_fwspec);
+		of_node_put(gic_node);
+	}
+
+	return ipi_base > 0 ? ipi_base + irq : -EINVAL;
+#else
+	return trusty_irq_create_irq_mapping(is, irq);
+#endif
+}
+
+static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq,
+				       unsigned int type)
 {
 	int ret;
 	int irq;
@@ -353,7 +404,11 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 
 	dev_dbg(is->dev, "%s: irq %d\n", __func__, tirq);
 
-	irq = trusty_irq_create_irq_mapping(is, tirq);
+	if (tirq <= TRUSTY_IPI_CUSTOM_LAST)
+		irq = trusty_irq_create_ipi_mapping(is, tirq);
+	else
+		irq = trusty_irq_create_irq_mapping(is, tirq);
+
 	if (irq <= 0) {
 		dev_err(is->dev,
 			"trusty_irq_create_irq_mapping failed (%d)\n", irq);
@@ -375,6 +430,7 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		hlist_add_head(&trusty_irq->node, &irqset->inactive);
 		trusty_irq->irq = irq;
 		trusty_irq->percpu = true;
+		trusty_irq->doorbell = type == TRUSTY_IRQ_TYPE_DOORBELL;
 		trusty_irq->percpu_ptr = trusty_irq_handler_data;
 	}
 
@@ -400,30 +456,33 @@ err_request_percpu_irq:
 }
 
 static int trusty_smc_get_next_irq(struct trusty_irq_state *is,
-				   unsigned long min_irq, bool per_cpu)
+				   unsigned long min_irq, unsigned int type)
 {
 	return trusty_fast_call32(is->trusty_dev, SMC_FC_GET_NEXT_IRQ,
-				  min_irq, per_cpu, 0);
+				  min_irq, type, 0);
 }
 
 static int trusty_irq_init_one(struct trusty_irq_state *is,
-			       int irq, bool per_cpu)
+			       int irq, unsigned int type)
 {
 	int ret;
 
-	irq = trusty_smc_get_next_irq(is, irq, per_cpu);
+	irq = trusty_smc_get_next_irq(is, irq, type);
 	if (irq < 0)
 		return irq;
+
 	/* Bug 200183103 */
 	/* Hack: System will randomly crash in trusty after enable IPI*/
 	/* If the previous CPU is A57, and IPI is sent to Denver*/
 	/* There will be some memory coherence issue between A57 and Denver */
 	/* Before we implement MCE in trusty, we shouldn't register IPI*/
-	if (irq <= TRUSTY_IPI_CUSTOM_LAST
-		&& irq >= TRUSTY_IPI_CUSTOM_FIRST)
+	if (type != TRUSTY_IRQ_TYPE_DOORBELL
+			&& irq <= TRUSTY_IPI_CUSTOM_LAST
+			&& irq >= TRUSTY_IPI_CUSTOM_FIRST)
 		return irq + 1;
-	if (per_cpu)
-		ret = trusty_irq_init_per_cpu_irq(is, irq);
+
+	if (type != TRUSTY_IRQ_TYPE_NORMAL)
+		ret = trusty_irq_init_per_cpu_irq(is, irq, type);
 	else
 		ret = trusty_irq_init_normal_irq(is, irq);
 
@@ -466,31 +525,6 @@ static void trusty_irq_free_irqs(struct trusty_irq_state *is)
 	}
 }
 
-static int trusty_panic_notify(struct notifier_block *nb,
-				  unsigned long action, void *data)
-{
-	struct trusty_irq_state *is;
-	unsigned long irq_flags;
-
-	is = container_of(nb, struct trusty_irq_state, trusty_panic_notifier);
-
-	dev_err(is->dev, "%s: trusty crashed, disabling trusty irqs\n",
-		__func__);
-
-	raw_spin_lock_irqsave(&is->normal_irqs_lock, irq_flags);
-	trusty_irq_disable_irqset(is, &is->normal_irqs);
-	raw_spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
-
-	trusty_irq_free_irqs(is);
-
-	trusty_panic_notifier_unregister(is->trusty_dev,
-					&is->trusty_panic_notifier);
-	trusty_call_notifier_unregister(is->trusty_dev,
-					&is->trusty_call_notifier);
-
-	return NOTIFY_OK;
-}
-
 static int trusty_irq_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -526,19 +560,12 @@ static int trusty_irq_probe(struct platform_device *pdev)
 		goto err_trusty_call_notifier_register;
 	}
 
-	is->trusty_panic_notifier.notifier_call = trusty_panic_notify;
-	ret = trusty_panic_notifier_register(is->trusty_dev,
-					    &is->trusty_panic_notifier);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to register trusty panic notifier\n");
-		goto err_trusty_panic_notifier_register;
-	}
-
 	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, true);
+		irq = trusty_irq_init_one(is, irq, TRUSTY_IRQ_TYPE_PER_CPU);
 	for (irq = 0; irq >= 0;)
-		irq = trusty_irq_init_one(is, irq, false);
+		irq = trusty_irq_init_one(is, irq, TRUSTY_IRQ_TYPE_NORMAL);
+	for (irq = 0; irq >= 0;)
+		irq = trusty_irq_init_one(is, irq, TRUSTY_IRQ_TYPE_DOORBELL);
 
 	ret = cpuhp_state_add_instance(trusty_irq_cpuhp_slot, &is->cpuhp_node);
 	if (ret < 0) {
@@ -554,9 +581,6 @@ err_add_cpuhp_instance:
 	trusty_irq_disable_irqset(is, &is->normal_irqs);
 	raw_spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
 	trusty_irq_free_irqs(is);
-	trusty_panic_notifier_unregister(is->trusty_dev,
-					&is->trusty_panic_notifier);
-err_trusty_panic_notifier_register:
 	trusty_call_notifier_unregister(is->trusty_dev,
 					&is->trusty_call_notifier);
 err_trusty_call_notifier_register:
@@ -586,8 +610,6 @@ static int trusty_irq_remove(struct platform_device *pdev)
 
 	trusty_irq_free_irqs(is);
 
-	trusty_panic_notifier_unregister(is->trusty_dev,
-					&is->trusty_panic_notifier);
 	trusty_call_notifier_unregister(is->trusty_dev,
 					&is->trusty_call_notifier);
 	free_percpu(is->percpu_irqs);

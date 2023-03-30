@@ -1,17 +1,22 @@
 /*
- * tegra194-soc-sim.dtsi: Simulation and Emulation SOC base
- *			  DTSI file used for all sim DTSI.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * tegra194-soc-sim.dtsi: Simulation and Emulation SOC base
+ *			  DTSI file used for all sim DTSI.
  */
 
 #include <tegra194-soc/tegra194-soc-base.dtsi>
@@ -59,7 +64,7 @@
 		status = "okay";
 	};
 
-	host1x {
+	host1x@13e00000 {
 		ctx0 {
 			status = "okay";
 		};

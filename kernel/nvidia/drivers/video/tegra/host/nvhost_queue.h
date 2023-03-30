@@ -1,7 +1,7 @@
 /*
  * NVHOST Queue management header for T194
  *
- * Copyright (c) 2016-2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,6 +20,8 @@
 #define __NVHOST_NVHOST_QUEUE_H__
 
 #include <linux/kref.h>
+#include <linux/mutex.h>
+#include <linux/semaphore.h>
 
 struct nvhost_queue_task_pool;
 
@@ -61,6 +63,9 @@ struct nvhost_queue {
 	struct nvhost_queue_pool *pool;
 	struct kref kref;
 	u32 id;
+
+	/*wait list for task mem requester*/
+	struct semaphore task_pool_sem;
 
 	/* Host1x resources */
 	struct nvhost_channel *channel;

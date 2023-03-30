@@ -1,0 +1,12 @@
+NVIDIA MODS driver stub for retrieving physical addresses.
+
+NVIDIA MODS driver is a driver used by diagnostic software.  One of the
+functions provided by the driver is retrieving physical addresses associated
+with page-locked memory used in user space for communication with devices.
+In order to be able to retrieve physical addresses, the NVIDIA MODS driver
+registers itself as a dummy platform driver, which requires specifying a
+device tree node.  This device tree node is defined inside in the driver just
+for the registration and it does not have to exist in the device tree at all.
+
+Properties :
+ - compatible : Should contain "nvidia,mods_test".

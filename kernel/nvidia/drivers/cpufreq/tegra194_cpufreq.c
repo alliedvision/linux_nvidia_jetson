@@ -27,7 +27,12 @@
 #include <linux/of_address.h>
 #include <soc/tegra/tegra_bpmp.h>
 #include <soc/tegra/bpmp_abi.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/delay.h>
 #include <linux/pstore.h>
 #include <linux/ptrace.h>
@@ -38,6 +43,8 @@
 #include <linux/pm_qos.h>
 #include <linux/workqueue.h>
 #include <linux/tegra-cpufreq.h>
+#include <soc/tegra/virt/syscalls.h>
+#include "tegra194-cpufreq.h"
 #include "cpufreq_cpu_emc_table.h"
 
 /* cpufreq transisition latency */
@@ -55,20 +62,13 @@
 					cl < MAX_CLUSTERS; cl++)
 
 static struct cpu_emc_mapping *cpu_emc_map_ptr;
-static uint8_t tegra_hypervisor_mode;
+static bool tegra_hypervisor_mode;
 
 static int cpufreq_single_policy;
 
 static enum cpuhp_state hp_online;
-static uint32_t latest_freq_req[NR_CPUS];
 
-enum cluster {
-	CLUSTER0,
-	CLUSTER1,
-	CLUSTER2,
-	CLUSTER3,
-	MAX_CLUSTERS,
-};
+static uint32_t latest_freq_req[NR_CPUS];
 
 struct cc3_params {
 	u32 ndiv;
@@ -92,12 +92,6 @@ struct tegra_cpufreq_data {
 };
 
 static struct tegra_cpufreq_data tfreq_data;
-struct tegra_cpu_ctr {
-	uint32_t cpu;
-	uint32_t delay;
-	uint32_t coreclk_cnt, last_coreclk_cnt;
-	uint32_t refclk_cnt, last_refclk_cnt;
-};
 
 static struct workqueue_struct *read_counters_wq;
 struct read_counters_work {
@@ -112,14 +106,20 @@ static enum cluster get_cpu_cluster(uint8_t cpu)
 
 static uint64_t read_freq_feedback(void)
 {
-	uint64_t val;
+	uint64_t val = 0;
 
-	asm volatile("mrs %0, s3_0_c15_c0_5" : "=r" (val) : );
+	if (tegra_hypervisor_mode) {
+		if (!hyp_read_freq_feedback(&val))
+			pr_err("%s:failed\n", __func__);
+	} else {
+		asm volatile("mrs %0, s3_0_c15_c0_5" : "=r" (val) : );
+	}
 
 	return val;
 }
 
-static inline uint16_t clamp_ndiv(struct mrq_cpu_ndiv_limits_response *nltbl,
+
+uint16_t clamp_ndiv(struct mrq_cpu_ndiv_limits_response *nltbl,
 				uint16_t ndiv)
 {
 	uint16_t min = nltbl->ndiv_min;
@@ -133,7 +133,7 @@ static inline uint16_t clamp_ndiv(struct mrq_cpu_ndiv_limits_response *nltbl,
 	return ndiv;
 }
 
-static inline uint16_t map_freq_to_ndiv(struct mrq_cpu_ndiv_limits_response
+uint16_t map_freq_to_ndiv(struct mrq_cpu_ndiv_limits_response
 	*nltbl, uint32_t freq)
 {
 	return DIV_ROUND_UP(freq * nltbl->pdiv * nltbl->mdiv,
@@ -263,7 +263,12 @@ static void write_ndiv_request(void *val)
 {
 	uint64_t regval = *((uint64_t *) val);
 
-	asm volatile("msr s3_0_c15_c0_4, %0" : : "r" (regval));
+	if (tegra_hypervisor_mode) {
+		if (!hyp_write_freq_request(regval))
+			pr_info("%s: Write didn't succeed\n", __func__);
+	} else {
+		asm volatile("msr s3_0_c15_c0_4, %0" : : "r" (regval));
+	}
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -272,7 +277,13 @@ static void read_ndiv_request(void *ret)
 {
 	uint64_t val = 0;
 
-	asm volatile("mrs %0, s3_0_c15_c0_4" : "=r" (val) : );
+	if (tegra_hypervisor_mode) {
+		if (!hyp_read_freq_request(&val))
+			pr_info("%s: Write didn't succeed\n", __func__);
+	} else {
+
+		asm volatile("mrs %0, s3_0_c15_c0_4" : "=r" (val) : );
+	}
 	*((uint64_t *) ret) = val;
 }
 #endif
@@ -300,6 +311,16 @@ static void tegra_update_cpu_speed(uint32_t rate, uint8_t cpu)
 
 	val = (uint64_t)ndiv;
 	smp_call_function_single(cpu, write_ndiv_request, &val, 1);
+}
+
+struct mrq_cpu_ndiv_limits_response *get_ndiv_limits(enum cluster cl)
+{
+	struct mrq_cpu_ndiv_limits_response *nltbl  = NULL;
+
+	if (cl < MAX_CLUSTERS)
+		nltbl = &tfreq_data.pcluster[cl].ndiv_limits_tbl;
+
+	return nltbl;
 }
 
 /**
@@ -336,16 +357,8 @@ static int tegra194_set_speed(struct cpufreq_policy *policy, unsigned int index)
 
 	cl = get_cpu_cluster(policy->cpu);
 
-	/*
-	 * In hypervisor case cpufreq server will take care of
-	 * updating frequency for each cpu in a cluster. So no
-	 * need to run through the loop.
-	 */
-	if (tegra_hypervisor_mode)
-		t194_update_cpu_speed_hv(tgt_freq, policy->cpu);
-	else
-		for_each_cpu(cpu, policy->cpus)
-			tegra_update_cpu_speed(tgt_freq, cpu);
+	for_each_cpu_and(cpu, policy->cpus, cpu_online_mask)
+		tegra_update_cpu_speed(tgt_freq, cpu);
 
 	if (tfreq_data.pcluster[cl].bwmgr)
 		set_cpufreq_to_emcfreq(cl, tgt_freq);
@@ -452,10 +465,7 @@ static int freq_set(void *data, u64 val)
 	uint32_t freq = val;
 
 	if (val) {
-		if (tegra_hypervisor_mode)
-			t194_update_cpu_speed_hv(freq, cpu);
-		else
-			tegra_update_cpu_speed(freq, cpu);
+		tegra_update_cpu_speed(freq, cpu);
 	}
 
 	return 0;
@@ -1014,8 +1024,11 @@ static int __init get_ndiv_limits_tbl_from_bpmp(void)
 	bool ok = false;
 
 	LOOP_FOR_EACH_CLUSTER(cl) {
-		if (!tfreq_data.pcluster[cl].configured)
-			continue;
+		/* Need all cluster tables in virtualization mode */
+		if (!tegra_hypervisor_mode)
+			if (!tfreq_data.pcluster[cl].configured)
+				continue;
+
 		nltbl = &tfreq_data.pcluster[cl].ndiv_limits_tbl;
 		md.cluster_id = cl;
 
@@ -1121,15 +1134,6 @@ static int __init tegra194_cpufreq_probe(struct platform_device *pdev)
 
 	set_cpu_mask();
 
-	if (tegra_hypervisor_mode) {
-		ret = parse_hv_dt_data(dn);
-		if (ret)
-			goto err_free_res;
-	}
-
-	if (tegra_hypervisor_mode)
-		tegra_cpufreq_driver.get = t194_get_cpu_speed_hv;
-
 	ret = register_with_emc_bwmgr();
 	if (ret) {
 		pr_err("tegra19x-cpufreq: fail to register emc bw manager\n");
@@ -1159,6 +1163,9 @@ static int __init tegra194_cpufreq_probe(struct platform_device *pdev)
 	ret = init_freqtbls(dn);
 	if (ret)
 		goto err_free_res;
+
+	if (tegra_hypervisor_mode)
+		cpufreq_hv_init(&(pdev->dev.kobj));
 
 	init_latest_freq_req();
 

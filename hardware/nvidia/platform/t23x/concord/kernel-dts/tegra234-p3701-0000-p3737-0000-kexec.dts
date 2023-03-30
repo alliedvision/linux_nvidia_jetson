@@ -1,0 +1,44 @@
+/*
+ * Top level DTS file for CVM:P3701-0000 and CVB:P3737-0000.
+ *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+#include "tegra234-p3701-0000-p3737-0000.dts"
+
+/ {
+	reserved-memory {
+		grid-of-semaphores {
+			status = "disabled";
+		};
+	};
+
+	aconnect@2a41000 {
+		adsp@2993000 {
+			status = "disabled";
+		};
+	};
+
+	chosen {
+		linux,uefi-mmap-desc-ver = <0x01>;
+		linux,uefi-mmap-desc-size = <0x30>;
+		linux,uefi-mmap-size = <0x1320>;
+		linux,uefi-mmap-start = <0x08 0x5477f018>;
+		linux,uefi-system-table = <0x08 0x7bc90018>;
+		linux,initrd-end = <0x08 0x52841122>;
+		linux,initrd-start = <0x08 0x52040000>;
+		nvidia,ether-mac0 = "48:B0:2D:5D:16:18";
+		nvidia,ether-mac = "48:B0:2D:5D:16:18";
+		board-has-eeprom;
+	};
+};

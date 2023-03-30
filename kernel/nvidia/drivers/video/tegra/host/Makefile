@@ -1,13 +1,19 @@
 GCOV_PROFILE := y
+
 ccflags-y += -I$(srctree.nvidia)/drivers/video/tegra/host
 ccflags-y += -I$(srctree.nvidia)/include
 ccflags-y += -Idrivers/video/tegra/host
 ccflags-y += -Idrivers/devfreq
 ccflags-y += -Wno-multichar
 
-subdir-ccflags-y := -Werror
+ifeq ($(CONFIG_TEGRA_T239_GRHOST),y)
+	ccflags-y += -I$(srctree.nvidia-t239)/include
+	ccflags-y += -I$(srctree.nvidia-t239)/drivers/video/tegra/host
+endif
 
-nvhost-objs = \
+ccflags-y += -Werror -Wno-vla
+
+nvhost-y += \
 	nvhost_acm.o \
 	nvhost_syncpt.o \
 	nvhost_cdma.o \
@@ -19,44 +25,55 @@ nvhost-objs = \
 	bus_client.o \
 	chip_support.o \
 	nvhost_vm.o \
-	nvhost_pd.o \
-	interrupt_syncpt.o
+	syncpt_fd.o \
+	nvhost_syncpt_dmabuf.o \
+	interrupt_syncpt.o \
+	iommu_context_dev.o \
+	nvhost_syncpt_unit_interface.o \
+	host1x/host1x.o \
+	flcn/flcn.o \
+	riscv/riscv.o \
+	t210/t210.o \
+	t194/t194.o \
+	t23x/t23x.o
+
+nvhost-$(CONFIG_TEGRA_T239_GRHOST) += \
+	t239/t239.o
+
+nvhost-$(CONFIG_TEGRA_GRHOST_OFA) += ofa/ofa.o
+nvhost-$(CONFIG_TEGRA_GRHOST_NVDEC) += nvdec/nvdec.o nvdec/nvdec_t23x.o
+nvhost-$(CONFIG_TEGRA_GRHOST_TSEC) += tsec/tsec.o tsec/tsec_t23x.o
+
+ifeq ($(CONFIG_TEGRA_T239_GRHOST),y)
+nvhost-$(CONFIG_TEGRA_GRHOST_VIC) += vic/vic_t239.o
+endif
+
+nvhost-$(CONFIG_TEGRA_GRHOST_LEGACY_PD) += nvhost_pd.o
+ifeq ($(CONFIG_SYNC),y)
+nvhost-$(CONFIG_TEGRA_GRHOST_SYNC) += nvhost_sync.o
+else
+nvhost-$(CONFIG_TEGRA_GRHOST_SYNC) += nvhost_sync_v2.o nvhost_sync_compat.o
+endif
+
+nvhost-$(CONFIG_TEGRA_GRHOST_SCALE) += scale_emc.o nvhost_scale.o
+nvhost-$(CONFIG_TEGRA_GRHOST_VHOST) += vhost/vhost.o vhost/vhost_client.o
 
 obj-$(CONFIG_TEGRA_GRHOST) += nvhost.o
-obj-$(CONFIG_TEGRA_GRHOST) += host1x/
-obj-$(CONFIG_TEGRA_GRHOST_TSEC) += tsec/
-obj-$(CONFIG_TEGRA_GRHOST_NVDEC) += nvdec/
+
+# Not built into module
+
 obj-$(CONFIG_TEGRA_GRHOST_ISP) += isp/
-obj-$(CONFIG_TEGRA_GRHOST) += t124/
-obj-$(CONFIG_TEGRA_GRHOST) += flcn/
-obj-$(CONFIG_TEGRA_GRHOST) += t210/
-obj-$(CONFIG_TEGRA_GRHOST_SCALE) += scale_emc.o nvhost_scale.o
-
-ifeq ($(CONFIG_ARCH_TEGRA_18x_SOC),y)
-obj-$(CONFIG_TEGRA_GRHOST) += iommu_context_dev.o
-
-obj-$(CONFIG_TEGRA_GRHOST) += t186/
+obj-$(CONFIG_TEGRA_GRHOST_NVCSI) += nvcsi/
+ifneq ($(filter y,$(CONFIG_ARCH_TEGRA_18x_SOC) $(CONFIG_ARCH_TEGRA_186_SOC)),)
+obj-y += vi/
 endif
 
-obj-$(CONFIG_TEGRA_GRHOST_NVCSI) += nvcsi/
-obj-$(CONFIG_TEGRA_GRHOST_SYNC) += nvhost_sync.o
-obj-$(CONFIG_ARCH_TEGRA_18x_SOC) += vi/
-obj-$(CONFIG_TEGRA_GRHOST_VHOST) += vhost/
-
-ifdef CONFIG_TEGRA_T19X_GRHOST
-
-obj-y  += nvhost_queue.o \
-	  nvhost_buffer.o \
-	  nvhost_syncpt_unit_interface.o
-
-obj-$(CONFIG_TEGRA_GRHOST) += t194/
 obj-$(CONFIG_TEGRA_GRHOST_CAPTURE_SUPPORT) += capture/
 obj-$(CONFIG_TEGRA_GRHOST_PVA) += pva/
+nvhost-$(CONFIG_TEGRA_GRHOST_PVA) += nvhost_queue.o nvhost_buffer.o
 obj-$(CONFIG_TEGRA_GRHOST_NVDLA) += nvdla/
+nvhost-$(CONFIG_TEGRA_GRHOST_NVDLA) += nvhost_queue.o nvhost_buffer.o
 obj-$(CONFIG_TEGRA_GRHOST_SLVSEC) += slvsec/
-obj-$(CONFIG_TEGRA_GRHOST) += nvhost_minimal_pm/
-
-endif
 
 ifdef CONFIG_EVENTLIB
 

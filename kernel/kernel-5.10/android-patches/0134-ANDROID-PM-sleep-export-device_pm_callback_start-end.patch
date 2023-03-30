@@ -1,0 +1,34 @@
+From d104ad29af0505393be89b16b95aa6eef86dc228 Mon Sep 17 00:00:00 2001
+From: Changki Kim <changki.kim@samsung.com>
+Date: Thu, 2 Jul 2020 10:20:49 +0900
+Subject: [PATCH 134/830] ANDROID: PM: sleep: export
+ device_pm_callback_start/end trace event
+X-NVConfidentiality: public
+
+Export the device_pm_callback_start/end tracepoint so it can be used
+in loadable modules.
+
+Bug: 158528747
+
+Change-Id: Icfe12f496f25d3b73dbd70394dc85d197709671a
+Signed-off-by: Changki Kim <changki.kim@samsung.com>
+(cherry picked from commit d16111a8cf537426853300149b2ce65790fb650c)
+Signed-off-by: Jonglin Lee <jonglin@google.com>
+---
+ kernel/trace/power-traces.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/trace/power-traces.c b/kernel/trace/power-traces.c
+index 21bb161c2316..38b8024f993f 100644
+--- a/kernel/trace/power-traces.c
++++ b/kernel/trace/power-traces.c
+@@ -18,4 +18,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(suspend_resume);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_idle);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(cpu_frequency);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(powernv_throttle);
+-
++EXPORT_TRACEPOINT_SYMBOL_GPL(device_pm_callback_start);
++EXPORT_TRACEPOINT_SYMBOL_GPL(device_pm_callback_end);
+-- 
+2.17.1
+

@@ -1,0 +1,929 @@
+/*
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+
+	tegra-capture-vi {
+		num-channels = <4>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				dual_hawk_vi_in0: endpoint {
+					vc-id = <0>;
+					port-index = <1>;
+					bus-width = <2>;
+					remote-endpoint = <&dual_hawk_csi_out0>;
+				};
+			};
+			port@1 {
+				reg = <1>;
+				dual_hawk_vi_in1: endpoint {
+					vc-id = <1>;
+					port-index = <1>;
+					bus-width = <2>;
+					remote-endpoint = <&dual_hawk_csi_out1>;
+				};
+			};
+			port@2 {
+				reg = <2>;
+				dual_hawk_vi_in2: endpoint {
+					vc-id = <2>;
+					port-index = <1>;
+					bus-width = <2>;
+					remote-endpoint = <&dual_hawk_csi_out2>;
+				};
+			};
+			port@3 {
+				reg = <3>;
+				dual_hawk_vi_in3: endpoint {
+					vc-id = <3>;
+					port-index = <1>;
+					bus-width = <2>;
+					remote-endpoint = <&dual_hawk_csi_out3>;
+				};
+			};
+		};
+	};
+
+	host1x@13e00000 {
+		nvcsi@15a00000 {
+			num-channels = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			channel@0 {
+				reg = <0>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_csi_in0: endpoint@0 {
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_out0>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						dual_hawk_csi_out0: endpoint@1 {
+							remote-endpoint = <&dual_hawk_vi_in0>;
+						};
+					};
+				};
+			};
+			channel@1 {
+				reg = <1>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+							dual_hawk_csi_in1: endpoint@2 {
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_out1>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						dual_hawk_csi_out1: endpoint@3 {
+							remote-endpoint = <&dual_hawk_vi_in1>;
+						};
+					};
+				};
+			};
+			channel@2 {
+				reg = <2>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_csi_in2: endpoint@4 {
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_out2>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						dual_hawk_csi_out2: endpoint@5 {
+							remote-endpoint = <&dual_hawk_vi_in2>;
+						};
+					};
+				};
+			};
+			channel@3 {
+				reg = <3>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_csi_in3: endpoint@6 {
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_out3>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						dual_hawk_csi_out3: endpoint@7 {
+							remote-endpoint = <&dual_hawk_vi_in3>;
+						};
+					};
+				};
+			};
+		};
+	};
+
+	i2c@3180000 {
+		tca9546@70 {
+			i2c@0 {
+			dual_hawk_a@18 {
+				compatible = "onsemi,ar0234";
+
+				reg = <0x18>;
+
+				/* Physical dimensions of sensor */
+				physical_w = "15.0";
+				physical_h = "12.5";
+
+				sensor_model ="ar0234";
+				sync_sensor = "HAWK1";
+				sync_sensor_index = <1>;
+
+				/* Defines number of frames to be dropped by driver internally after applying */
+				/* sensor crop settings. Some sensors send corrupt frames after applying */
+				/* crop co-ordinates */
+				post_crop_frame_drop = "0";
+
+				/* Convert Gain to unit of dB (decibel) befor passing to kernel driver */
+				//use_decibel_gain = "true";
+
+				/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+				use_sensor_mode_id = "true";
+
+				/**
+				* A modeX node is required to support v4l2 driver
+				* implementation with NVIDIA camera software stack
+				*
+				* mclk_khz = "";
+				* Standard MIPI driving clock, typically 24MHz
+				*
+				* num_lanes = "";
+				* Number of lane channels sensor is programmed to output
+				*
+				* tegra_sinterface = "";
+				* The base tegra serial interface lanes are connected to
+				*
+				* vc_id = "";
+				* The virtual channel id of the sensor.
+				*
+				* discontinuous_clk = "";
+				* The sensor is programmed to use a discontinuous clock on MIPI lanes
+				*
+				* dpcm_enable = "true";
+				* The sensor is programmed to use a DPCM modes
+				*
+				* cil_settletime = "";
+				* MIPI lane settle time value.
+				* A "0" value attempts to autocalibrate based on mclk_khz and pix_clk_hz
+				*
+				* active_w = "";
+				* Pixel active region width
+				*
+				* active_h = "";
+				* Pixel active region height
+				*
+				* dynamic_pixel_bit_depth = "";
+				* sensor dynamic bit depth for sensor mode
+				*
+				* csi_pixel_bit_depth = "";
+				* sensor output bit depth for sensor mode
+				*
+				* mode_type="";
+				* Sensor mode type, For eg: yuv, Rgb, bayer, bayer_wdr_pwl
+				*
+				* pixel_phase="";
+				* Pixel phase for sensor mode, For eg: rggb, vyuy, rgb888
+				*
+				* readout_orientation = "0";
+				* Based on camera module orientation.
+				* Only change readout_orientation if you specifically
+				* Program a different readout order for this mode
+				*
+				* line_length = "";
+				* Pixel line length (width) for sensor mode.
+				* This is used to calibrate features in our camera stack.
+				*
+				* pix_clk_hz = "";
+				* Sensor pixel clock used for calculations like exposure and framerate
+				*
+				*
+				*
+				*
+				* inherent_gain = "";
+				* Gain obtained inherently from mode (ie. pixel binning)
+				*
+				* min_gain_val = ""; (floor to 6 decimal places)
+				* max_gain_val = ""; (floor to 6 decimal places)
+				* Gain limits for mode
+				* if use_decibel_gain = "true", please set the gain as decibel
+				*
+				* min_exp_time = ""; (ceil to integer)
+				* max_exp_time = ""; (ceil to integer)
+				* Exposure Time limits for mode (us)
+				*
+				*
+				* min_hdr_ratio = "";
+				* max_hdr_ratio = "";
+				* HDR Ratio limits for mode
+				*
+				* min_framerate = "";
+				* max_framerate = "";
+				* Framerate limits for mode (fps)
+				*
+				* embedded_metadata_height = "";
+				* Sensor embedded metadata height in units of rows.
+				* If sensor does not support embedded metadata value should be 0.
+				*/
+
+				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+					mclk_khz = "24000";
+					num_lanes = "2";
+					tegra_sinterface = "serial_b";
+					phy_mode = "DPHY";
+					vc_id = "0";
+					discontinuous_clk = "no";
+					dpcm_enable = "false";
+					cil_settletime = "0";
+					dynamic_pixel_bit_depth = "10";
+					csi_pixel_bit_depth = "10";
+					mode_type = "bayer";
+					pixel_phase = "grbg";
+
+					active_w = "1920";
+					active_h = "1200";
+					readout_orientation = "0";
+					line_length = "2448";
+					inherent_gain = "1";
+					mclk_multiplier = "3.01";
+					pix_clk_hz = "134400000";
+					serdes_pix_clk_hz = "280000000";
+
+					gain_factor = "100";
+					min_gain_val = "100"; /* dB */
+					max_gain_val = "1600"; /* dB */
+					step_gain_val = "1"; /* 0.1 */
+					default_gain = "100";
+					min_hdr_ratio = "1";
+					max_hdr_ratio = "1";
+					framerate_factor = "1000000";
+					min_framerate = "30000000";
+					max_framerate = "30000000";
+					step_framerate = "30000000";
+					default_framerate = "30000000";
+					exposure_factor = "1000000";
+					min_exp_time = "28"; /*us, 2 lines*/
+					max_exp_time = "22000";
+					step_exp_time = "1";
+					default_exp_time = "22000";/* us */
+					embedded_metadata_height = "0";
+				};
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_out0: endpoint {
+							vc-id = <0>;
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_csi_in0>;
+							};
+						};
+					};
+				};
+
+			dual_hawk_b@10 {
+				compatible = "onsemi,ar0234";
+
+				reg = <0x10>;
+
+				/* Physical dimensions of sensor */
+				physical_w = "15.0";
+				physical_h = "12.5";
+
+				sensor_model ="ar0234";
+
+				sync_sensor = "HAWK1";
+				sync_sensor_index = <2>;
+				/* Defines number of frames to be dropped by driver internally after applying */
+				/* sensor crop settings. Some sensors send corrupt frames after applying */
+				/* crop co-ordinates */
+				post_crop_frame_drop = "0";
+
+				/* Convert Gain to unit of dB (decibel) befor passing to kernel driver */
+				//use_decibel_gain = "true";
+
+				/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+				use_sensor_mode_id = "true";
+
+				/**
+				* A modeX node is required to support v4l2 driver
+				* implementation with NVIDIA camera software stack
+				*
+				* mclk_khz = "";
+				* Standard MIPI driving clock, typically 24MHz
+				*
+				* num_lanes = "";
+				* Number of lane channels sensor is programmed to output
+				*
+				* tegra_sinterface = "";
+				* The base tegra serial interface lanes are connected to
+				*
+				* vc_id = "";
+				* The virtual channel id of the sensor.
+				*
+				* discontinuous_clk = "";
+				* The sensor is programmed to use a discontinuous clock on MIPI lanes
+				*
+				* dpcm_enable = "true";
+				* The sensor is programmed to use a DPCM modes
+				*
+				* cil_settletime = "";
+				* MIPI lane settle time value.
+				* A "0" value attempts to autocalibrate based on mclk_khz and pix_clk_hz
+				*
+				* active_w = "";
+				* Pixel active region width
+				*
+				* active_h = "";
+				* Pixel active region height
+				*
+				* dynamic_pixel_bit_depth = "";
+				* sensor dynamic bit depth for sensor mode
+				*
+				* csi_pixel_bit_depth = "";
+				* sensor output bit depth for sensor mode
+				*
+				* mode_type="";
+				* Sensor mode type, For eg: yuv, Rgb, bayer, bayer_wdr_pwl
+				*
+				* pixel_phase="";
+				* Pixel phase for sensor mode, For eg: rggb, vyuy, rgb888
+				*
+				* readout_orientation = "0";
+				* Based on camera module orientation.
+				* Only change readout_orientation if you specifically
+				* Program a different readout order for this mode
+				*
+				* line_length = "";
+				* Pixel line length (width) for sensor mode.
+				* This is used to calibrate features in our camera stack.
+				*
+				* pix_clk_hz = "";
+				* Sensor pixel clock used for calculations like exposure and framerate
+				*
+				*
+				*
+				*
+				* inherent_gain = "";
+				* Gain obtained inherently from mode (ie. pixel binning)
+				*
+				* min_gain_val = ""; (floor to 6 decimal places)
+				* max_gain_val = ""; (floor to 6 decimal places)
+				* Gain limits for mode
+				* if use_decibel_gain = "true", please set the gain as decibel
+				*
+				* min_exp_time = ""; (ceil to integer)
+				* max_exp_time = ""; (ceil to integer)
+				* Exposure Time limits for mode (us)
+				*
+				*
+				* min_hdr_ratio = "";
+				* max_hdr_ratio = "";
+				* HDR Ratio limits for mode
+				*
+				* min_framerate = "";
+				* max_framerate = "";
+				* Framerate limits for mode (fps)
+				*
+				* embedded_metadata_height = "";
+				* Sensor embedded metadata height in units of rows.
+				* If sensor does not support embedded metadata value should be 0.
+				*/
+
+				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+					mclk_khz = "24000";
+					num_lanes = "2";
+					tegra_sinterface = "serial_b";
+					vc_id = "1";
+					discontinuous_clk = "no";
+					dpcm_enable = "false";
+					cil_settletime = "0";
+					dynamic_pixel_bit_depth = "10";
+					csi_pixel_bit_depth = "10";
+					mode_type = "bayer";
+					pixel_phase = "grbg";
+
+					active_w = "1920";
+					active_h = "1200";
+					readout_orientation = "0";
+					line_length = "2448";
+					inherent_gain = "1";
+					mclk_multiplier = "3.01";
+					pix_clk_hz = "134400000";
+					serdes_pix_clk_hz = "280000000";
+
+					gain_factor = "100";
+					min_gain_val = "100"; /* dB */
+					max_gain_val = "1600"; /* dB */
+					step_gain_val = "1"; /* 0.1 */
+					default_gain = "100";
+					min_hdr_ratio = "1";
+					max_hdr_ratio = "1";
+					framerate_factor = "1000000";
+					min_framerate = "30000000";
+					max_framerate = "30000000";
+					step_framerate = "30000000";
+					default_framerate = "30000000";
+					exposure_factor = "1000000";
+					min_exp_time = "28"; /*us, 2 lines*/
+					max_exp_time = "22000";
+					step_exp_time = "1";
+					default_exp_time = "22000";/* us */
+					embedded_metadata_height = "0";
+				};
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_out1: endpoint {
+							vc-id = <1>;
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_csi_in1>;
+							};
+						};
+					};
+				};
+			};
+			i2c@1 {
+			dual_hawk_c@18 {
+				compatible = "onsemi,ar0234";
+
+				reg = <0x18>;
+
+				/* Physical dimensions of sensor */
+				physical_w = "15.0";
+				physical_h = "12.5";
+
+				sensor_model ="ar0234";
+				sync_sensor = "HAWK2";
+				sync_sensor_index = <1>;
+
+				/* Defines number of frames to be dropped by driver internally after applying */
+				/* sensor crop settings. Some sensors send corrupt frames after applying */
+				/* crop co-ordinates */
+				post_crop_frame_drop = "0";
+
+				/* Convert Gain to unit of dB (decibel) befor passing to kernel driver */
+				//use_decibel_gain = "true";
+
+				/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+				use_sensor_mode_id = "true";
+
+				/**
+				* A modeX node is required to support v4l2 driver
+				* implementation with NVIDIA camera software stack
+				*
+				* mclk_khz = "";
+				* Standard MIPI driving clock, typically 24MHz
+				*
+				* num_lanes = "";
+				* Number of lane channels sensor is programmed to output
+				*
+				* tegra_sinterface = "";
+				* The base tegra serial interface lanes are connected to
+				*
+				* vc_id = "";
+				* The virtual channel id of the sensor.
+				*
+				* discontinuous_clk = "";
+				* The sensor is programmed to use a discontinuous clock on MIPI lanes
+				*
+				* dpcm_enable = "true";
+				* The sensor is programmed to use a DPCM modes
+				*
+				* cil_settletime = "";
+				* MIPI lane settle time value.
+				* A "0" value attempts to autocalibrate based on mclk_khz and pix_clk_hz
+				*
+				* active_w = "";
+				* Pixel active region width
+				*
+				* active_h = "";
+				* Pixel active region height
+				*
+				* dynamic_pixel_bit_depth = "";
+				* sensor dynamic bit depth for sensor mode
+				*
+				* csi_pixel_bit_depth = "";
+				* sensor output bit depth for sensor mode
+				*
+				* mode_type="";
+				* Sensor mode type, For eg: yuv, Rgb, bayer, bayer_wdr_pwl
+				*
+				* pixel_phase="";
+				* Pixel phase for sensor mode, For eg: rggb, vyuy, rgb888
+				*
+				* readout_orientation = "0";
+				* Based on camera module orientation.
+				* Only change readout_orientation if you specifically
+				* Program a different readout order for this mode
+				*
+				* line_length = "";
+				* Pixel line length (width) for sensor mode.
+				* This is used to calibrate features in our camera stack.
+				*
+				* pix_clk_hz = "";
+				* Sensor pixel clock used for calculations like exposure and framerate
+				*
+				*
+				*
+				*
+				* inherent_gain = "";
+				* Gain obtained inherently from mode (ie. pixel binning)
+				*
+				* min_gain_val = ""; (floor to 6 decimal places)
+				* max_gain_val = ""; (floor to 6 decimal places)
+				* Gain limits for mode
+				* if use_decibel_gain = "true", please set the gain as decibel
+				*
+				* min_exp_time = ""; (ceil to integer)
+				* max_exp_time = ""; (ceil to integer)
+				* Exposure Time limits for mode (us)
+				*
+				*
+				* min_hdr_ratio = "";
+				* max_hdr_ratio = "";
+				* HDR Ratio limits for mode
+				*
+				* min_framerate = "";
+				* max_framerate = "";
+				* Framerate limits for mode (fps)
+				*
+				* embedded_metadata_height = "";
+				* Sensor embedded metadata height in units of rows.
+				* If sensor does not support embedded metadata value should be 0.
+				*/
+
+				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+					mclk_khz = "24000";
+					num_lanes = "2";
+					tegra_sinterface = "serial_b";
+					vc_id = "2";
+					discontinuous_clk = "no";
+					dpcm_enable = "false";
+					cil_settletime = "0";
+					dynamic_pixel_bit_depth = "10";
+					csi_pixel_bit_depth = "10";
+					mode_type = "bayer";
+					pixel_phase = "grbg";
+
+					active_w = "1920";
+					active_h = "1200";
+					readout_orientation = "0";
+					line_length = "2448";
+					inherent_gain = "1";
+					mclk_multiplier = "3.01";
+					pix_clk_hz = "134400000";
+					serdes_pix_clk_hz = "280000000";
+
+					gain_factor = "100";
+					min_gain_val = "100"; /* dB */
+					max_gain_val = "1600"; /* dB */
+					step_gain_val = "1"; /* 0.1 */
+					default_gain = "100";
+					min_hdr_ratio = "1";
+					max_hdr_ratio = "1";
+					framerate_factor = "1000000";
+					min_framerate = "30000000";
+					max_framerate = "30000000";
+					step_framerate = "30000000";
+					default_framerate = "30000000";
+					exposure_factor = "1000000";
+					min_exp_time = "28"; /*us, 2 lines*/
+					max_exp_time = "22000";
+					step_exp_time = "1";
+					default_exp_time = "22000";/* us */
+					embedded_metadata_height = "0";
+				};
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_out2: endpoint {
+							vc-id = <2>;
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_csi_in2>;
+							};
+						};
+					};
+				};
+
+			dual_hawk_d@10 {
+				compatible = "onsemi,ar0234";
+
+				reg = <0x10>;
+
+				/* Physical dimensions of sensor */
+				physical_w = "15.0";
+				physical_h = "12.5";
+
+				sensor_model ="ar0234";
+
+				sync_sensor = "HAWK2";
+				sync_sensor_index = <2>;
+				/* Defines number of frames to be dropped by driver internally after applying */
+				/* sensor crop settings. Some sensors send corrupt frames after applying */
+				/* crop co-ordinates */
+				post_crop_frame_drop = "0";
+
+				/* Convert Gain to unit of dB (decibel) befor passing to kernel driver */
+				//use_decibel_gain = "true";
+
+				/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+				use_sensor_mode_id = "true";
+
+				/**
+				* A modeX node is required to support v4l2 driver
+				* implementation with NVIDIA camera software stack
+				*
+				* mclk_khz = "";
+				* Standard MIPI driving clock, typically 24MHz
+				*
+				* num_lanes = "";
+				* Number of lane channels sensor is programmed to output
+				*
+				* tegra_sinterface = "";
+				* The base tegra serial interface lanes are connected to
+				*
+				* vc_id = "";
+				* The virtual channel id of the sensor.
+				*
+				* discontinuous_clk = "";
+				* The sensor is programmed to use a discontinuous clock on MIPI lanes
+				*
+				* dpcm_enable = "true";
+				* The sensor is programmed to use a DPCM modes
+				*
+				* cil_settletime = "";
+				* MIPI lane settle time value.
+				* A "0" value attempts to autocalibrate based on mclk_khz and pix_clk_hz
+				*
+				* active_w = "";
+				* Pixel active region width
+				*
+				* active_h = "";
+				* Pixel active region height
+				*
+				* dynamic_pixel_bit_depth = "";
+				* sensor dynamic bit depth for sensor mode
+				*
+				* csi_pixel_bit_depth = "";
+				* sensor output bit depth for sensor mode
+				*
+				* mode_type="";
+				* Sensor mode type, For eg: yuv, Rgb, bayer, bayer_wdr_pwl
+				*
+				* pixel_phase="";
+				* Pixel phase for sensor mode, For eg: rggb, vyuy, rgb888
+				*
+				* readout_orientation = "0";
+				* Based on camera module orientation.
+				* Only change readout_orientation if you specifically
+				* Program a different readout order for this mode
+				*
+				* line_length = "";
+				* Pixel line length (width) for sensor mode.
+				* This is used to calibrate features in our camera stack.
+				*
+				* pix_clk_hz = "";
+				* Sensor pixel clock used for calculations like exposure and framerate
+				*
+				*
+				*
+				*
+				* inherent_gain = "";
+				* Gain obtained inherently from mode (ie. pixel binning)
+				*
+				* min_gain_val = ""; (floor to 6 decimal places)
+				* max_gain_val = ""; (floor to 6 decimal places)
+				* Gain limits for mode
+				* if use_decibel_gain = "true", please set the gain as decibel
+				*
+				* min_exp_time = ""; (ceil to integer)
+				* max_exp_time = ""; (ceil to integer)
+				* Exposure Time limits for mode (us)
+				*
+				*
+				* min_hdr_ratio = "";
+				* max_hdr_ratio = "";
+				* HDR Ratio limits for mode
+				*
+				* min_framerate = "";
+				* max_framerate = "";
+				* Framerate limits for mode (fps)
+				*
+				* embedded_metadata_height = "";
+				* Sensor embedded metadata height in units of rows.
+				* If sensor does not support embedded metadata value should be 0.
+				*/
+
+				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+					mclk_khz = "24000";
+					num_lanes = "2";
+					tegra_sinterface = "serial_b";
+					vc_id = "3";
+					discontinuous_clk = "no";
+					dpcm_enable = "false";
+					cil_settletime = "0";
+					dynamic_pixel_bit_depth = "10";
+					csi_pixel_bit_depth = "10";
+					mode_type = "bayer";
+					pixel_phase = "grbg";
+
+					active_w = "1920";
+					active_h = "1200";
+					readout_orientation = "0";
+					line_length = "2448";
+					inherent_gain = "1";
+					mclk_multiplier = "3.01";
+					pix_clk_hz = "134400000";
+					serdes_pix_clk_hz = "280000000";
+
+					gain_factor = "100";
+					min_gain_val = "100"; /* dB */
+					max_gain_val = "1600"; /* dB */
+					step_gain_val = "1"; /* 0.1 */
+					default_gain = "100";
+					min_hdr_ratio = "1";
+					max_hdr_ratio = "1";
+					framerate_factor = "1000000";
+					min_framerate = "30000000";
+					max_framerate = "30000000";
+					step_framerate = "30000000";
+					default_framerate = "30000000";
+					exposure_factor = "1000000";
+					min_exp_time = "28"; /*us, 2 lines*/
+					max_exp_time = "22000";
+					step_exp_time = "1";
+					default_exp_time = "22000";/* us */
+					embedded_metadata_height = "0";
+				};
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						dual_hawk_out3: endpoint {
+							vc-id = <3>;
+							port-index = <1>;
+							bus-width = <2>;
+							remote-endpoint = <&dual_hawk_csi_in3>;
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+/ {
+
+	tegra-camera-platform {
+		compatible = "nvidia, tegra-camera-platform";
+		/**
+		* Physical settings to calculate max ISO BW
+		*
+		* num_csi_lanes = <>;
+		* Total number of CSI lanes when all cameras are active
+		*
+		* max_lane_speed = <>;
+		* Max lane speed in Kbit/s
+		*
+		* min_bits_per_pixel = <>;
+		* Min bits per pixel
+		*
+		* vi_peak_byte_per_pixel = <>;
+		* Max byte per pixel for the VI ISO case
+		*
+		* vi_bw_margin_pct = <>;
+		* Vi bandwidth margin in percentage
+		*
+		* max_pixel_rate = <>;
+		* Max pixel rate in Kpixel/s for the ISP ISO case
+		*
+		* isp_peak_byte_per_pixel = <>;
+		* Max byte per pixel for the ISP ISO case
+		*
+		* isp_bw_margin_pct = <>;
+		* Isp bandwidth margin in percentage
+		*/
+		num_csi_lanes = <2>;
+		max_lane_speed = <15000000>;
+		min_bits_per_pixel = <10>;
+		vi_peak_byte_per_pixel = <2>;
+		vi_bw_margin_pct = <25>;
+		isp_peak_byte_per_pixel = <5>;
+		isp_bw_margin_pct = <25>;
+
+		/**
+		 * The general guideline for naming badge_info contains 3 parts, and is as follows,
+		 * The first part is the camera_board_id for the module; if the module is in a FFD
+		 * platform, then use the platform name for this part.
+		 * The second part contains the position of the module, ex. "rear" or "front".
+		 * The third part contains the last 6 characters of a part number which is found
+		 * in the module's specsheet from the vender.
+		 */
+		modules {
+			module0 {
+				badge = "dual_hawk_bottomleft";
+				position = "bottomleft";
+				orientation = "1";
+				drivernode0 {
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_sensor";
+					/* Driver v4l2 device name */
+					devname = "ar0234 30-0018";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/dual_hawk_a@18";
+				};
+			};
+			module1 {
+				badge = "dual_hawk_bottomright";
+				position = "bottomright";
+				orientation = "1";
+				drivernode0 {
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_sensor";
+					/* Driver v4l2 device name */
+					devname = "ar0234 30-0010";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@0/dual_hawk_b@10";
+					};
+			};
+			module2 {
+				badge = "dual_hawk_centerleft";
+				position = "centerleft";
+				orientation = "1";
+				drivernode0 {
+					/* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_sensor";
+					/* Driver v4l2 device name */
+					 devname = "ar0234 31-0018";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/dual_hawk_c@18";
+				};
+			};
+			module3 {
+				badge = "dual_hawk_centerright";
+				position = "centerright";
+				orientation = "1";
+				drivernode0 {
+					 /* Declare PCL support driver (classically known as guid)  */
+					pcl_id = "v4l2_sensor";
+					/* Driver v4l2 device name */
+					devname = "ar0234 31-0010";
+					/* Declare the device-tree hierarchy to driver instance */
+					proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/dual_hawk_d@10";
+				};
+			};
+		};
+	};
+};

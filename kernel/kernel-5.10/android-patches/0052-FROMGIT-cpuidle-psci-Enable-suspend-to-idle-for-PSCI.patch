@@ -1,0 +1,137 @@
+From 3d57b9ce1af75547975d60d78f5deee340866838 Mon Sep 17 00:00:00 2001
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Date: Tue, 3 Nov 2020 16:06:27 +0100
+Subject: [PATCH 052/830] FROMGIT: cpuidle: psci: Enable suspend-to-idle for
+ PSCI OSI mode
+X-NVConfidentiality: public
+
+To select domain idlestates for cpuidle-psci when OSI mode has been
+enabled, the PM domains via genpd are being managed through runtime PM.
+This works fine for the regular idlepath, but it doesn't during system wide
+suspend. More precisely, the domain idlestates becomes temporarily
+disabled, which is because the PM core disables runtime PM for devices
+during system wide suspend.
+
+Later in the system suspend phase, genpd intends to deal with this from its
+->suspend_noirq() callback, but this doesn't work as expected for a device
+corresponding to a CPU, because the domain idlestates needs to be selected
+on a per CPU basis (the PM core doesn't invoke the callbacks like that).
+
+To address this problem, let's enable the syscore flag for the
+corresponding CPU device that becomes successfully attached to its PM
+domain (applicable only in OSI mode). This informs the PM core to skip
+invoke the system wide suspend/resume callbacks for the device, thus also
+prevents genpd from screwing up its internal state of it.
+
+Moreover, to properly select a domain idlestate for the CPUs during
+suspend-to-idle, let's assign a specific ->enter_s2idle() callback for the
+corresponding domain idlestate (applicable only in OSI mode). From that
+callback, let's invoke dev_pm_genpd_suspend|resume(), as this allows a
+domain idlestate to be selected for the current CPU by genpd.
+
+Signed-off-by: Ulf Hansson <ulf.hansson@linaro.org>
+(cherry picked from commit 670c90def03429a228229420fa48a17913fdcc0d git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm.git)
+Bug: 175076037
+Change-Id: Ie70c496e0c14b18fa1e8b67231d0a56ff047414f
+Signed-off-by: Lina Iyer <ilina@codeaurora.org>
+---
+ drivers/cpuidle/cpuidle-psci-domain.c |  2 ++
+ drivers/cpuidle/cpuidle-psci.c        | 34 +++++++++++++++++++++++----
+ 2 files changed, 32 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/cpuidle/cpuidle-psci-domain.c b/drivers/cpuidle/cpuidle-psci-domain.c
+index 4a031c62f92a..ff2c3f8e4668 100644
+--- a/drivers/cpuidle/cpuidle-psci-domain.c
++++ b/drivers/cpuidle/cpuidle-psci-domain.c
+@@ -327,6 +327,8 @@ struct device *psci_dt_attach_cpu(int cpu)
+ 	if (cpu_online(cpu))
+ 		pm_runtime_get_sync(dev);
+ 
++	dev_pm_syscore_device(dev, true);
++
+ 	return dev;
+ }
+ 
+diff --git a/drivers/cpuidle/cpuidle-psci.c b/drivers/cpuidle/cpuidle-psci.c
+index d928b37718bd..b51b5df08450 100644
+--- a/drivers/cpuidle/cpuidle-psci.c
++++ b/drivers/cpuidle/cpuidle-psci.c
+@@ -19,6 +19,7 @@
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
+ #include <linux/psci.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
+@@ -52,8 +53,9 @@ static inline int psci_enter_state(int idx, u32 state)
+ 	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter, idx, state);
+ }
+ 
+-static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
+-					struct cpuidle_driver *drv, int idx)
++static int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
++					  struct cpuidle_driver *drv, int idx,
++					  bool s2idle)
+ {
+ 	struct psci_cpuidle_data *data = this_cpu_ptr(&psci_cpuidle_data);
+ 	u32 *states = data->psci_states;
+@@ -66,7 +68,12 @@ static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
+ 		return -1;
+ 
+ 	/* Do runtime PM to manage a hierarchical CPU toplogy. */
+-	RCU_NONIDLE(pm_runtime_put_sync_suspend(pd_dev));
++	rcu_irq_enter_irqson();
++	if (s2idle)
++		dev_pm_genpd_suspend(pd_dev);
++	else
++		pm_runtime_put_sync_suspend(pd_dev);
++	rcu_irq_exit_irqson();
+ 
+ 	state = psci_get_domain_state();
+ 	if (!state)
+@@ -74,7 +81,12 @@ static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
+ 
+ 	ret = psci_cpu_suspend_enter(state) ? -1 : idx;
+ 
+-	RCU_NONIDLE(pm_runtime_get_sync(pd_dev));
++	rcu_irq_enter_irqson();
++	if (s2idle)
++		dev_pm_genpd_resume(pd_dev);
++	else
++		pm_runtime_get_sync(pd_dev);
++	rcu_irq_exit_irqson();
+ 
+ 	cpu_pm_exit();
+ 
+@@ -83,6 +95,19 @@ static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
+ 	return ret;
+ }
+ 
++static int psci_enter_domain_idle_state(struct cpuidle_device *dev,
++					struct cpuidle_driver *drv, int idx)
++{
++	return __psci_enter_domain_idle_state(dev, drv, idx, false);
++}
++
++static int psci_enter_s2idle_domain_idle_state(struct cpuidle_device *dev,
++					       struct cpuidle_driver *drv,
++					       int idx)
++{
++	return __psci_enter_domain_idle_state(dev, drv, idx, true);
++}
++
+ static int psci_idle_cpuhp_up(unsigned int cpu)
+ {
+ 	struct device *pd_dev = __this_cpu_read(psci_cpuidle_data.dev);
+@@ -170,6 +195,7 @@ static int psci_dt_cpu_init_topology(struct cpuidle_driver *drv,
+ 	 * deeper states.
+ 	 */
+ 	drv->states[state_count - 1].enter = psci_enter_domain_idle_state;
++	drv->states[state_count - 1].enter_s2idle = psci_enter_s2idle_domain_idle_state;
+ 	psci_cpuidle_use_cpuhp = true;
+ 
+ 	return 0;
+-- 
+2.17.1
+

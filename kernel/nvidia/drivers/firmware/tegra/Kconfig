@@ -3,6 +3,7 @@ menu "Tegra BPMP Driver"
 config NV_TEGRA_BPMP
 	bool "Tegra BPMP driver (Downstream version)"
 	default n
+	depends on !TEGRA_BPMP
 	select NV_TEGRA_IVC
 	select TEGRA_HSP
 	help

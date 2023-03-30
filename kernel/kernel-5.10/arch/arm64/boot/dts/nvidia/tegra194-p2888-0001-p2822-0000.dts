@@ -1,0 +1,99 @@
+#include "../../../../../../../hardware/nvidia/platform/t19x/galen/kernel-dts/tegra194-p2888-0001-p2822-0000.dts"
+
+/ {
+	bpmp {
+		i2c {
+			spmic@3c {
+				interrupt-parent = <&intc>;
+				interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+			};
+		};
+	};
+
+	/* Upstream kernel does not implement pinctrl driver (pinmux)
+           as the pinmuxing is done in MB1 */
+	gpio@2200000 {
+		/delete-property/ gpio-ranges;
+	};
+
+	gpio@c2f0000 {
+		/delete-property/ gpio-ranges;
+	};
+
+	gpio-keys {
+		status = "disabled";
+	};
+
+	hda@3510000 {
+		power-domains = <&bpmp TEGRA194_POWER_DOMAIN_DISP>;
+		resets = <&bpmp TEGRA194_RESET_HDA>,
+			 <&bpmp TEGRA194_RESET_HDA2CODEC_2X>,
+			 <&bpmp TEGRA194_RESET_HDA2HDMICODEC>;
+		reset-names = "hda", "hda2codec_2x", "hda2hdmi";
+	};
+
+	ethernet@2490000 {
+		compatible = "nvidia,tegra186-eqos",
+			     "snps,dwc-qos-ethernet-4.10";
+		reg = <0x0 0x02490000 0x0 0x10000>;
+		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&bpmp TEGRA194_CLK_AXI_CBB>,
+			 <&bpmp TEGRA194_CLK_EQOS_AXI>,
+			 <&bpmp TEGRA194_CLK_EQOS_RX>,
+			 <&bpmp TEGRA194_CLK_EQOS_TX>,
+			 <&bpmp TEGRA194_CLK_EQOS_PTP_REF>;
+		clock-names = "master_bus", "slave_bus", "rx", "tx", "ptp_ref";
+		resets = <&bpmp TEGRA194_RESET_EQOS>;
+		reset-names = "eqos";
+		status = "okay";
+
+		snps,write-requests = <1>;
+		snps,read-requests = <3>;
+		snps,burst-map = <0x7>;
+		snps,txpbl = <16>;
+		snps,rxpbl = <8>;
+
+		phy-reset-gpios = <&tegra_main_gpio TEGRA194_MAIN_GPIO(G, 5) GPIO_ACTIVE_LOW>;
+		phy-handle = <&phy>;
+		phy-mode = "rgmii";
+
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy: phy@0 {
+				compatible = "ethernet-phy-ieee802.3-c22";
+				reg = <0x0>;
+				interrupt-parent = <&tegra_main_gpio>;
+				interrupts = <TEGRA194_MAIN_GPIO(G, 4) IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+	};
+
+	serial@3100000 {
+		compatible = "nvidia,tegra194-hsuart";
+		reg = <0x03100000 0x40>;
+		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&bpmp TEGRA194_CLK_UARTA>;
+		clock-names = "serial";
+		resets = <&bpmp TEGRA194_RESET_UARTA>;
+		reset-names = "serial";
+		/delete-property/ dma-names;
+		/delete-property/ dma-coherent;
+	};
+
+	host1x@13e00000 {
+		reset-names = "host1x";
+		reg-names = "vm", "hypervisor";
+
+		/delete-node/ display-hub@15200000;
+		/delete-node/ sor;
+		/delete-node/ sor0;
+		/delete-node/ sor1;
+		/delete-node/ sor2;
+	};
+
+	tegra-cache {
+		status = "okay";
+	};
+};

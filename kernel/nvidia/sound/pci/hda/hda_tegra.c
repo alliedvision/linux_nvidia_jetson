@@ -2,7 +2,7 @@
  *
  * Implementation of primary ALSA driver code base for NVIDIA Tegra HDA.
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2021, NVIDIA CORPORATION, All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/clocksource.h>
 #include <linux/completion.h>
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/init.h>
@@ -481,7 +482,11 @@ static int hda_tegra_first_init(struct azx *chip, struct platform_device *pdev)
 	unsigned short gcap;
 	unsigned int num_sdo_lines;
 	int irq_id = platform_get_irq(pdev, 0);
-	const char *card_name;
+	const char *sname, *drv_name = "tegra-hda";
+	struct device_node *np = pdev->dev.of_node;
+#ifdef CONFIG_ANDROID
+	cpumask_t mask;
+#endif /* #ifdef CONFIG_ANDROID */
 
 	err = hda_tegra_init_chip(chip, pdev);
 	if (err)
@@ -495,6 +500,12 @@ static int hda_tegra_first_init(struct azx *chip, struct platform_device *pdev)
 			irq_id);
 		return err;
 	}
+#ifdef CONFIG_ANDROID
+	/* We want to run on all but CPU0 because SMC call can block us on CPU0 */
+	cpumask_setall(&mask);
+	cpumask_clear_cpu(0, &mask);
+	irq_set_affinity_hint(irq_id, &mask);
+#endif /* #ifdef CONFIG_ANDROID */
 	bus->irq = irq_id;
 
 	synchronize_irq(bus->irq);
@@ -559,15 +570,20 @@ static int hda_tegra_first_init(struct azx *chip, struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	/* driver name */
+	strncpy(card->driver, drv_name, sizeof(card->driver));
 
-	/* xavier onwards, passing card name from DT */
-	if (of_property_read_string(pdev->dev.of_node, "hda,card-name",
-	    &card_name))
-		card_name = "tegra-hda";
+	/* shortname for card */
+	sname = of_get_property(np, "nvidia,model", NULL);
+	if (!sname)
+		sname = drv_name;
+	if (strlen(sname) > sizeof(card->shortname))
+		dev_info(card->dev, "truncating shortname for card\n");
+	strncpy(card->shortname, sname, sizeof(card->shortname));
 
-	snprintf(card->driver, sizeof(card->driver), "%s", card_name);
-	snprintf(card->shortname, sizeof(card->shortname), "%s", card_name);
-	snprintf(card->longname, sizeof(card->longname), "%s at 0x%lx irq %i",
+	/* longname for card */
+	snprintf(card->longname, sizeof(card->longname),
+		 "%s at 0x%lx irq %i",
 		 card->shortname, bus->addr, bus->irq);
 
 	return 0;

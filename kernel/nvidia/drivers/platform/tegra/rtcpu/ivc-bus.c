@@ -45,14 +45,6 @@ struct tegra_ivc_bus {
 	struct tegra_ivc_region regions[];
 };
 
-static void tegra_hsp_ring(struct device *dev)
-{
-	const struct tegra_hsp_ops *ops = tegra_hsp_dev_ops(dev);
-
-	BUG_ON(ops == NULL || ops->ring == NULL);
-	ops->ring(dev);
-}
-
 static void tegra_ivc_channel_ring(struct ivc *ivc)
 {
 	struct tegra_ivc_channel *chan =
@@ -60,7 +52,7 @@ static void tegra_ivc_channel_ring(struct ivc *ivc)
 	struct tegra_ivc_bus *bus =
 		container_of(chan->dev.parent, struct tegra_ivc_bus, dev);
 
-	tegra_hsp_ring(&bus->dev);
+	tegra_camrtc_ivc_ring(bus->dev.parent, chan->group);
 }
 
 struct device_type tegra_ivc_channel_type = {
@@ -79,11 +71,7 @@ EXPORT_SYMBOL(tegra_ivc_channel_runtime_get);
 void tegra_ivc_channel_runtime_put(struct tegra_ivc_channel *ch)
 {
 	BUG_ON(ch == NULL);
-	BUG_ON(ch->dev.parent == NULL);
-	BUG_ON(ch->dev.parent->parent == NULL);
 
-	pm_runtime_mark_last_busy(ch->dev.parent->parent);
-	pm_runtime_mark_last_busy(ch->dev.parent);
 	pm_runtime_put(&ch->dev);
 }
 EXPORT_SYMBOL(tegra_ivc_channel_runtime_put);
@@ -143,6 +131,13 @@ static struct tegra_ivc_channel *tegra_ivc_channel_create(
 		goto error;
 	}
 
+	/* We have 15 channel group bits available */
+	if ((channel_group & 0x7FFFU) != channel_group) {
+		dev_err(&chan->dev, "invalid property %s = 0x%x\n",
+			NV(group), channel_group);
+		goto error;
+	}
+
 	ret = of_property_read_u32(ch_node, NV(frame-count), &nframes);
 	if (ret || !nframes) {
 		dev_err(&chan->dev, "missing <%s> property\n",
@@ -190,6 +185,8 @@ static struct tegra_ivc_channel *tegra_ivc_channel_create(
 		dev_err(&chan->dev, "IVC initialization error: %d\n", ret);
 		goto error;
 	}
+
+	chan->group = channel_group;
 
 	tegra_ivc_channel_reset(&chan->ivc);
 
@@ -249,21 +246,21 @@ static void tegra_ivc_channel_notify(struct tegra_ivc_channel *chan)
 	rcu_read_unlock();
 }
 
-void tegra_hsp_notify(struct device *dev)
+void tegra_ivc_bus_notify(struct tegra_ivc_bus *bus, u16 group)
 {
-	struct tegra_ivc_bus *bus =
-		container_of(dev, struct tegra_ivc_bus, dev);
 	struct tegra_ivc_channel *chan;
 
-	for (chan = bus->chans; chan != NULL; chan = chan->next)
-		tegra_ivc_channel_notify(chan);
+	for (chan = bus->chans; chan != NULL; chan = chan->next) {
+		if ((chan->group & group) != 0)
+			tegra_ivc_channel_notify(chan);
+	}
 }
-EXPORT_SYMBOL(tegra_hsp_notify);
+EXPORT_SYMBOL(tegra_ivc_bus_notify);
 
-struct device_type tegra_hsp_type = {
-	.name = "tegra-hsp",
+struct device_type tegra_ivc_bus_dev_type = {
+	.name = "tegra-ivc-bus",
 };
-EXPORT_SYMBOL(tegra_hsp_type);
+EXPORT_SYMBOL(tegra_ivc_bus_dev_type);
 
 static void tegra_ivc_bus_release(struct device *dev)
 {
@@ -294,11 +291,8 @@ static int tegra_ivc_bus_match(struct device *dev, struct device_driver *drv)
 	return of_driver_match_device(dev, drv);
 }
 
-static void tegra_ivc_bus_stop(struct device *dev)
+static void tegra_ivc_bus_stop(struct tegra_ivc_bus *bus)
 {
-	struct tegra_ivc_bus *bus =
-		container_of(dev, struct tegra_ivc_bus, dev);
-
 	while (bus->chans != NULL) {
 		struct tegra_ivc_channel *chan = bus->chans;
 
@@ -308,10 +302,8 @@ static void tegra_ivc_bus_stop(struct device *dev)
 	}
 }
 
-static int tegra_ivc_bus_start(struct device *dev)
+static int tegra_ivc_bus_start(struct tegra_ivc_bus *bus)
 {
-	struct tegra_ivc_bus *bus =
-		container_of(dev, struct tegra_ivc_bus, dev);
 	struct device_node *dn = bus->dev.parent->of_node;
 	struct of_phandle_args reg_spec;
 	const char *status;
@@ -351,7 +343,7 @@ static int tegra_ivc_bus_start(struct device *dev)
 
 	return 0;
 error:
-	tegra_ivc_bus_stop(dev);
+	tegra_ivc_bus_stop(bus);
 	return ret;
 }
 
@@ -370,7 +362,7 @@ int tegra_ivc_bus_boot_sync(struct tegra_ivc_bus *bus)
 		int ret = tegra_camrtc_iovm_setup(bus->dev.parent,
 				bus->regions[i].iova);
 		if (ret != 0) {
-			dev_err(&bus->dev, "IOVM setup error: %d\n", ret);
+			dev_info(&bus->dev, "IOVM setup error: %d\n", ret);
 			return -EIO;
 		}
 	}
@@ -381,10 +373,10 @@ EXPORT_SYMBOL(tegra_ivc_bus_boot_sync);
 
 static int tegra_ivc_bus_probe(struct device *dev)
 {
-	struct tegra_ivc_driver *drv = to_tegra_ivc_driver(dev->driver);
 	int ret = -ENXIO;
 
 	if (dev->type == &tegra_ivc_channel_type) {
+		struct tegra_ivc_driver *drv = to_tegra_ivc_driver(dev->driver);
 		struct tegra_ivc_channel *chan = to_tegra_ivc_channel(dev);
 		const struct tegra_ivc_channel_ops *ops = drv->ops.channel;
 
@@ -400,17 +392,6 @@ static int tegra_ivc_bus_probe(struct device *dev)
 		rcu_assign_pointer(chan->ops, ops);
 		ret = 0;
 
-	} else if (dev->type == &tegra_hsp_type) {
-		const struct tegra_hsp_ops *ops = drv->ops.hsp;
-
-		BUG_ON(ops == NULL || ops->probe == NULL);
-		ret = ops->probe(dev);
-		if (ret)
-			return ret;
-
-		ret = tegra_ivc_bus_start(dev);
-		if (ret && ops->remove != NULL)
-			ops->remove(dev);
 	}
 
 	return ret;
@@ -418,9 +399,8 @@ static int tegra_ivc_bus_probe(struct device *dev)
 
 static int tegra_ivc_bus_remove(struct device *dev)
 {
-	struct tegra_ivc_driver *drv = to_tegra_ivc_driver(dev->driver);
-
 	if (dev->type == &tegra_ivc_channel_type) {
+		struct tegra_ivc_driver *drv = to_tegra_ivc_driver(dev->driver);
 		struct tegra_ivc_channel *chan = to_tegra_ivc_channel(dev);
 		const struct tegra_ivc_channel_ops *ops = drv->ops.channel;
 
@@ -431,13 +411,6 @@ static int tegra_ivc_bus_remove(struct device *dev)
 		if (ops->remove != NULL)
 			ops->remove(chan);
 
-	} else if (dev->type == &tegra_hsp_type) {
-		const struct tegra_hsp_ops *ops = drv->ops.hsp;
-
-		tegra_ivc_bus_stop(dev);
-
-		if (ops->remove != NULL)
-			ops->remove(dev);
 	}
 
 	return 0;
@@ -472,7 +445,7 @@ static int tegra_ivc_bus_ready_child(struct device *dev, void *data)
 }
 
 struct bus_type tegra_ivc_bus_type = {
-	.name	= "tegra-ivc",
+	.name	= "tegra-ivc-bus",
 	.match	= tegra_ivc_bus_match,
 	.probe	= tegra_ivc_bus_probe,
 	.remove	= tegra_ivc_bus_remove,
@@ -584,11 +557,11 @@ struct tegra_ivc_bus *tegra_ivc_bus_create(struct device *dev)
 
 	bus->num_regions = num;
 	bus->dev.parent = dev;
-	bus->dev.type = &tegra_hsp_type;
+	bus->dev.type = &tegra_ivc_bus_dev_type;
 	bus->dev.bus = &tegra_ivc_bus_type;
 	bus->dev.of_node = of_get_child_by_name(dev->of_node, "hsp");
 	bus->dev.release = tegra_ivc_bus_release;
-	dev_set_name(&bus->dev, "ivc-%s", dev_name(dev));
+	dev_set_name(&bus->dev, "%s:ivc-bus", dev_name(dev));
 	device_initialize(&bus->dev);
 	pm_runtime_no_callbacks(&bus->dev);
 	pm_runtime_enable(&bus->dev);
@@ -602,6 +575,12 @@ struct tegra_ivc_bus *tegra_ivc_bus_create(struct device *dev)
 	ret = device_add(&bus->dev);
 	if (ret) {
 		dev_err(&bus->dev, "IVC instance error: %d\n", ret);
+		goto error;
+	}
+
+	ret = tegra_ivc_bus_start(bus);
+	if (ret) {
+		dev_err(&bus->dev, "bus start failed: %d\n", ret);
 		goto error;
 	}
 
@@ -624,7 +603,7 @@ void tegra_ivc_bus_ready(struct tegra_ivc_bus *bus, bool online)
 	device_for_each_child(&bus->dev, &online, tegra_ivc_bus_ready_child);
 
 	if (online)
-		tegra_hsp_notify(&bus->dev);
+		tegra_ivc_bus_notify(bus, 0xFFFFU);
 }
 EXPORT_SYMBOL(tegra_ivc_bus_ready);
 
@@ -634,6 +613,7 @@ void tegra_ivc_bus_destroy(struct tegra_ivc_bus *bus)
 		return;
 
 	pm_runtime_disable(&bus->dev);
+	tegra_ivc_bus_stop(bus);
 	device_unregister(&bus->dev);
 }
 EXPORT_SYMBOL(tegra_ivc_bus_destroy);

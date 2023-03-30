@@ -1,7 +1,7 @@
 /*
  * isc manager.
  *
- * Copyright (c) 2015-2018, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2015-2021, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -210,6 +210,8 @@ static irqreturn_t isc_mgr_isr(int irq, void *data)
 
 	if (data) {
 		isc_mgr = (struct isc_mgr_priv *)data;
+		isc_mgr->err_irq_recvd = true;
+		wake_up_interruptible(&isc_mgr->err_queue);
 		spin_lock_irqsave(&isc_mgr->spinlock, flags);
 		if (isc_mgr->sinfo.si_signo && isc_mgr->t) {
 			/* send the signal to user space */
@@ -317,7 +319,11 @@ static int __isc_create_dev(
 	strncpy(brd.type, "isc-dev", sizeof(brd.type));
 	brd.addr = isc_dev->cfg.addr;
 	brd.platform_data = &isc_dev->pdata;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	isc_dev->client = i2c_new_device(isc_mgr->adap, &brd);
+#else
+	isc_dev->client = i2c_new_client_device(isc_mgr->adap, &brd);
+#endif
 	if (!isc_dev->client) {
 		dev_err(isc_mgr->dev,
 			"%s cannot allocate client: %s bus %d, %x\n", __func__,
@@ -600,6 +606,7 @@ static long isc_mgr_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct isc_mgr_priv *isc_mgr = file->private_data;
+	struct isc_mgr_platform_data *pd = isc_mgr->pdata;
 	int err = 0;
 	unsigned long flags;
 
@@ -657,6 +664,29 @@ static long isc_mgr_ioctl(
 	case ISC_MGR_IOCTL_PWM_CONFIG:
 		err = isc_mgr_pwm_config(isc_mgr, (const void __user *)arg);
 		break;
+	case ISC_MGR_IOCTL_WAIT_ERR:
+		if (isc_mgr->err_irq && !atomic_xchg(&isc_mgr->irq_in_use, 1)) {
+			enable_irq(isc_mgr->err_irq);
+			isc_mgr->err_irq_recvd = false;
+		}
+
+		err = wait_event_interruptible(isc_mgr->err_queue,
+			isc_mgr->err_irq_recvd);
+		isc_mgr->err_irq_recvd = false;
+		break;
+	case ISC_MGR_IOCTL_ABORT_WAIT_ERR:
+		isc_mgr->err_irq_recvd = true;
+		wake_up_interruptible(&isc_mgr->err_queue);
+		break;
+	case ISC_MGR_IOCTL_GET_EXT_PWR_CTRL:
+		if (copy_to_user((void __user *)arg,
+				&pd->ext_pwr_ctrl,
+				sizeof(u8))) {
+			dev_err(isc_mgr->pdev, "%s: failed to copy to user\n",
+				__func__);
+			return -EFAULT;
+		}
+		break;
 	default:
 		dev_err(isc_mgr->pdev, "%s unsupported ioctl: %x\n",
 			__func__, cmd);
@@ -700,15 +730,22 @@ static int isc_mgr_release(struct inode *inode, struct file *file)
 	isc_mgr_misc_ctrl(isc_mgr, false);
 
 	/* disable irq if irq is in use, when device is closed */
-	if (atomic_xchg(&isc_mgr->irq_in_use, 0))
+	if (atomic_xchg(&isc_mgr->irq_in_use, 0)) {
 		disable_irq(isc_mgr->err_irq);
+		isc_mgr->err_irq_recvd = true;
+		wake_up_interruptible(&isc_mgr->err_queue);
+	}
 
 	/* if runtime_pwrctrl_off is not true, power off all here */
 	if (!isc_mgr->pdata->runtime_pwrctrl_off)
 		isc_mgr_power_down(isc_mgr, 0xffffffff);
 
 	/* clear sinfo to prevent report error after handler is closed */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	memset(&isc_mgr->sinfo, 0, sizeof(struct siginfo));
+#else
+	memset(&isc_mgr->sinfo, 0, sizeof(struct kernel_siginfo));
+#endif
 	isc_mgr->t = NULL;
 	WARN_ON(!atomic_xchg(&isc_mgr->in_use, 0));
 
@@ -880,6 +917,7 @@ static struct isc_mgr_platform_data *of_isc_mgr_pdata(struct platform_device
 	struct device_node *np = pdev->dev.of_node;
 	struct isc_mgr_platform_data *pd = NULL;
 	int err;
+	bool ext_pwr_ctrl_des = false, ext_pwr_ctrl_sensor = false;
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 	pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
@@ -924,6 +962,15 @@ static struct isc_mgr_platform_data *of_isc_mgr_pdata(struct platform_device
 	pd->runtime_pwrctrl_off =
 		of_property_read_bool(np, "runtime-pwrctrl-off");
 
+	pd->ext_pwr_ctrl = 0;
+	ext_pwr_ctrl_des =
+		of_property_read_bool(np, "ext-pwr-ctrl-deserializer");
+	if (ext_pwr_ctrl_des == true)
+		pd->ext_pwr_ctrl |= 1 << 0;
+	ext_pwr_ctrl_sensor = of_property_read_bool(np, "ext-pwr-ctrl-sensor");
+	if (ext_pwr_ctrl_sensor == true)
+		pd->ext_pwr_ctrl |= 1 << 1;
+
 	err = isc_mgr_get_pwr_map(&pdev->dev, np, pd);
 	if (err)
 		dev_err(&pdev->dev,
@@ -954,9 +1001,11 @@ static int isc_mgr_resume(struct device *dev)
 {
 	struct pwm_device *pwm;
 	/* Reconfigure PWM as done during boot time */
-	pwm = devm_pwm_get(dev, NULL);
-	if (!IS_ERR(pwm))
-		dev_info(dev, "%s Resume successful\n", __func__);
+	if (of_property_read_bool(dev->of_node, "pwms")) {
+		pwm = devm_pwm_get(dev, NULL);
+		if (!IS_ERR(pwm))
+			dev_info(dev, "%s Resume successful\n", __func__);
+	}
 	return 0;
 }
 
@@ -988,6 +1037,8 @@ static int isc_mgr_probe(struct platform_device *pdev)
 	atomic_set(&isc_mgr->in_use, 0);
 	INIT_LIST_HEAD(&isc_mgr->dev_list);
 	mutex_init(&isc_mgr->mutex);
+	init_waitqueue_head(&isc_mgr->err_queue);
+	isc_mgr->err_irq_recvd = false;
 	isc_mgr->pwm = NULL;
 
 	if (pdev->dev.of_node) {
@@ -1052,7 +1103,11 @@ static int isc_mgr_probe(struct platform_device *pdev)
 		}
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	isc_mgr->err_irq = platform_get_irq(pdev, 0);
+#else
+	isc_mgr->err_irq = platform_get_irq_optional(pdev, 0);
+#endif
 	if (isc_mgr->err_irq > 0) {
 		err = devm_request_irq(&pdev->dev,
 				isc_mgr->err_irq,
@@ -1178,3 +1233,4 @@ MODULE_DESCRIPTION("tegra auto isc manager driver");
 MODULE_AUTHOR("Songhee Baek <sbeak@nvidia.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:isc_mgr");
+MODULE_SOFTDEP("pre: isc_pwm");

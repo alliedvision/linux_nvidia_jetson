@@ -1,0 +1,177 @@
+From e2a75d48e52f40d57586112c2ec283b794da7459 Mon Sep 17 00:00:00 2001
+From: Connor O'Brien <connoro@google.com>
+Date: Fri, 5 Oct 2018 19:20:54 -0700
+Subject: [PATCH 213/830] ANDROID: cpufreq: times: add
+ /proc/uid_concurrent_{active,policy}_time
+X-NVConfidentiality: public
+
+In order to model the energy used by the cpu, we need to expose cpu
+time information to userspace.  We can use this information to blame
+uids for the energy they are using.
+
+This patch adds 2 files:
+
+/proc/uid_concurrent_active_time outputs the time each uid spent
+running with 1 to num_possible_cpus online and not idle.
+
+For instance, if 4 cores are online and active for 50ms and the uid is
+running on one of the cores, the uid should be blamed for 1/4 of the
+base energy used by the cpu when 1 or more cores is active.
+
+/proc/uid_concurrent_policy_time outputs the time each uid spent
+running on group of cpu's with the same policy with 1 to
+num_related_cpus online and not idle.
+
+For instance, if 2 cores that are a part of the same policy are online
+and active for 50ms and the uid is running on one of the cores, the
+uid should be blamed for 1/2 of the energy that is used everytime one
+or more cpus in the same policy is active.
+
+This patch is based on commit c89e69136fec ("ANDROID: cpufreq:
+uid_concurrent_active_time") and commit 989212536842 ("ANDROID:
+cpufreq: uid_concurrent_policy_time") in the android-msm-wahoo-4.4
+kernel by Marissa Wall.
+
+Bug: 111216804
+Bug: 127641090
+Test: cat files on hikey960 and confirm output is reasonable
+Change-Id: I1a342361af5c04ecee58d1ab667c91c1bce42445
+Signed-off-by: Connor O'Brien <connoro@google.com>
+---
+ .../ABI/testing/procfs-concurrent_time        | 16 +++++
+ drivers/cpufreq/cpufreq_times.c               | 59 ++++++++++++++++++-
+ 2 files changed, 73 insertions(+), 2 deletions(-)
+ create mode 100644 Documentation/ABI/testing/procfs-concurrent_time
+
+diff --git a/Documentation/ABI/testing/procfs-concurrent_time b/Documentation/ABI/testing/procfs-concurrent_time
+new file mode 100644
+index 000000000000..55b414289b40
+--- /dev/null
++++ b/Documentation/ABI/testing/procfs-concurrent_time
+@@ -0,0 +1,16 @@
++What:		/proc/uid_concurrent_active_time
++Date:		December 2018
++Contact:	Connor O'Brien <connoro@google.com>
++Description:
++	The /proc/uid_concurrent_active_time file displays aggregated cputime
++	numbers for each uid, broken down by the total number of cores that were
++	active while the uid's task was running.
++
++What:		/proc/uid_concurrent_policy_time
++Date:		December 2018
++Contact:	Connor O'Brien <connoro@google.com>
++Description:
++	The /proc/uid_concurrent_policy_time file displays aggregated cputime
++	numbers for each uid, broken down based on the cpufreq policy
++	of the core used by the uid's task and the number of cores associated
++	with that policy that were active while the uid's task was running.
+diff --git a/drivers/cpufreq/cpufreq_times.c b/drivers/cpufreq/cpufreq_times.c
+index 87cea0e9be90..092d15450238 100644
+--- a/drivers/cpufreq/cpufreq_times.c
++++ b/drivers/cpufreq/cpufreq_times.c
+@@ -32,11 +32,17 @@ static DECLARE_HASHTABLE(uid_hash_table, UID_HASH_BITS);
+ static DEFINE_SPINLOCK(task_time_in_state_lock); /* task->time_in_state */
+ static DEFINE_SPINLOCK(uid_lock); /* uid_hash_table */
+ 
++struct concurrent_times {
++	atomic64_t active[NR_CPUS];
++	atomic64_t policy[NR_CPUS];
++};
++
+ struct uid_entry {
+ 	uid_t uid;
+ 	unsigned int max_state;
+ 	struct hlist_node hash;
+ 	struct rcu_head rcu;
++	struct concurrent_times *concurrent_times;
+ 	u64 time_in_state[0];
+ };
+ 
+@@ -152,11 +158,16 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
+ {
+ 	unsigned long flags;
+ 	unsigned int state;
++	unsigned int active_cpu_cnt = 0;
++	unsigned int policy_cpu_cnt = 0;
++	unsigned int policy_first_cpu;
+ 	struct uid_entry *uid_entry;
+ 	struct cpu_freqs *freqs = all_freqs[task_cpu(p)];
++	struct cpufreq_policy *policy;
+ 	uid_t uid = from_kuid_munged(current_user_ns(), task_uid(p));
++	int cpu = 0;
+ 
+-	if (!freqs || p->flags & PF_EXITING)
++	if (!freqs || is_idle_task(p) || p->flags & PF_EXITING)
+ 		return;
+ 
+ 	state = freqs->offset + READ_ONCE(freqs->last_index);
+@@ -172,6 +183,42 @@ void cpufreq_acct_update_power(struct task_struct *p, u64 cputime)
+ 	if (uid_entry && state < uid_entry->max_state)
+ 		uid_entry->time_in_state[state] += cputime;
+ 	spin_unlock_irqrestore(&uid_lock, flags);
++
++	rcu_read_lock();
++	uid_entry = find_uid_entry_rcu(uid);
++	if (!uid_entry) {
++		rcu_read_unlock();
++		return;
++	}
++
++	for_each_possible_cpu(cpu)
++		if (!idle_cpu(cpu))
++			++active_cpu_cnt;
++
++	atomic64_add(cputime,
++		     &uid_entry->concurrent_times->active[active_cpu_cnt - 1]);
++
++	policy = cpufreq_cpu_get(task_cpu(p));
++	if (!policy) {
++		/*
++		 * This CPU may have just come up and not have a cpufreq policy
++		 * yet.
++		 */
++		rcu_read_unlock();
++		return;
++	}
++
++	for_each_cpu(cpu, policy->related_cpus)
++		if (!idle_cpu(cpu))
++			++policy_cpu_cnt;
++
++	policy_first_cpu = cpumask_first(policy->related_cpus);
++	cpufreq_cpu_put(policy);
++
++	atomic64_add(cputime,
++		     &uid_entry->concurrent_times->policy[policy_first_cpu +
++							  policy_cpu_cnt - 1]);
++	rcu_read_unlock();
+ }
+ 
+ void cpufreq_times_create_policy(struct cpufreq_policy *policy)
+@@ -213,6 +260,14 @@ void cpufreq_times_create_policy(struct cpufreq_policy *policy)
+ 		all_freqs[cpu] = freqs;
+ }
+ 
++static void uid_entry_reclaim(struct rcu_head *rcu)
++{
++	struct uid_entry *uid_entry = container_of(rcu, struct uid_entry, rcu);
++
++	kfree(uid_entry->concurrent_times);
++	kfree(uid_entry);
++}
++
+ void cpufreq_task_times_remove_uids(uid_t uid_start, uid_t uid_end)
+ {
+ 	struct uid_entry *uid_entry;
+@@ -226,7 +281,7 @@ void cpufreq_task_times_remove_uids(uid_t uid_start, uid_t uid_end)
+ 			hash, uid_start) {
+ 			if (uid_start == uid_entry->uid) {
+ 				hash_del_rcu(&uid_entry->hash);
+-				kfree_rcu(uid_entry, rcu);
++				call_rcu(&uid_entry->rcu, uid_entry_reclaim);
+ 			}
+ 		}
+ 	}
+-- 
+2.17.1
+

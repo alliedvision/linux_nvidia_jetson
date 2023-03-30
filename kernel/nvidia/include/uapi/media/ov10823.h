@@ -1,7 +1,7 @@
 /*
  * ov10823.h - ov10823 sensor driver
  *
- * Copyright (c) 2016-2019 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022 NVIDIA Corporation.  All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2. This program is licensed "as is" without any warranty of any
@@ -63,3 +63,4 @@ struct ov10823_flash_control {
 };
 
 #endif /* __UAPI_OV10823_H__ */
+

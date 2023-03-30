@@ -8,7 +8,6 @@ config ARCH_TEGRA_18x_SOC
 	select ARCH_REQUIRE_GPIOLIB
 	select PINCTRL
 	select ARCH_SUPPORTS_MSI if PCI_TEGRA
-	select PCI_MSI if PCI_TEGRA
 	select ARCH_TEGRA_APE
 	select ARCH_HAS_RESET_CONTROLLER
 	select ARM64_CPU_SUSPEND
@@ -22,6 +21,12 @@ config ARCH_TEGRA_19x_SOC
 	default n
 	help
 	  NVIDIA Tegra Downstream options for 19x family of SoCs
+
+config ARCH_TEGRA_21x_SOC
+	bool "Tegra 21x family SOC (Downstream options)"
+	default n
+	help
+	  NVIDIA Tegra Downstream options for 21x family of SoCs
 
 config ARCH_TEGRA_23x_SOC
 	bool "Tegra 23x family SOC (Downstream options)"
@@ -40,5 +45,12 @@ config TEGRA_EBP
 	help
 	  NVIDIA Tegra single core stripped down configuration
 	  designed for fast boot time.
+
+config TEGRA_PSC
+	tristate "NVIDIA Tegra Option for PSC module"
+	depends on ARCH_TEGRA_23x_SOC
+	default y
+	help
+	  Enable NVIDIA Tegra Option for platform security controller
 
 endmenu

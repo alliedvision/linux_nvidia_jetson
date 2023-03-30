@@ -1,0 +1,37 @@
+From cefca1b2060dd3ed67bb004c59f39b88b54ae860 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 24 Nov 2020 00:30:34 +0000
+Subject: [PATCH 810/830] ANDROID: db845c_gki.fragment: Remove USB_XHCI_HCD and
+ XHCI_PCI_RENESAS configs
+X-NVConfidentiality: public
+
+Since commit db102bc6beef ("ANDROID: GKI: Enable CONFIG_USB_XHCI_HCD")
+android-mainline stopped booting on db845c, as the xhci modules
+would fail to load (since its now built in functionality).
+
+This patch resolves it by removing the USB_XHCI_HCD and
+XHCI_PCI_RENESAS config options from the config fragment.
+
+Fixes: db102bc6beef ("ANDROID: GKI: Enable CONFIG_USB_XHCI_HCD")
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: I2d10bd4af490e1ce13466e53f82c66d8bcac2d09
+---
+ arch/arm64/configs/db845c_gki.fragment | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 800160b4b00f..3fc3c245344f 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -24,8 +24,6 @@ CONFIG_DRM_MSM=m
+ # CONFIG_DRM_MSM_DSI_20NM_PHY is not set
+ # CONFIG_DRM_MSM_DSI_28NM_8960_PHY is not set
+ CONFIG_DRM_LONTIUM_LT9611=m
+-CONFIG_USB_XHCI_PCI_RENESAS=m
+-CONFIG_USB_XHCI_HCD=m
+ CONFIG_USB_OHCI_HCD=m
+ CONFIG_USB_OHCI_HCD_PLATFORM=m
+ CONFIG_USB_DWC3=m
+-- 
+2.17.1
+

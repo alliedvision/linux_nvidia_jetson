@@ -31,18 +31,24 @@ void rtl8822c_init_hal_spec(PADAPTER adapter)
 	hal_spec->ic_name = "rtl8822c";
 	hal_spec->macid_num = 128;
 	/* hal_spec->sec_cam_ent_num follow halmac setting */
-	hal_spec->sec_cap = SEC_CAP_CHK_BMC;
+	hal_spec->sec_cap = SEC_CAP_CHK_BMC | SEC_CAP_CHK_EXTRA_SEC;
+	hal_spec->wow_cap = WOW_CAP_TKIP_OL;
+
 	hal_spec->rfpath_num_2g = 2;
 	hal_spec->rfpath_num_5g = 2;
-	hal_spec->txgi_max = 127;
-	hal_spec->txgi_pdbm = 4;
+	hal_spec->rf_reg_path_num = hal_spec->rf_reg_path_avail_num = 2;
+	hal_spec->rf_reg_trx_path_bmp = 0x33;
 	hal_spec->max_tx_cnt = 2;
+
 	hal_spec->tx_nss_num = 2;
 	hal_spec->rx_nss_num = 2;
 	hal_spec->band_cap = BAND_CAP_2G | BAND_CAP_5G;
 	hal_spec->bw_cap = BW_CAP_20M | BW_CAP_40M | BW_CAP_80M;
 	hal_spec->port_num = 5;
 	hal_spec->proto_cap = PROTO_CAP_11B | PROTO_CAP_11G | PROTO_CAP_11N | PROTO_CAP_11AC;
+
+	hal_spec->txgi_max = 127;
+	hal_spec->txgi_pdbm = 4;
 
 	hal_spec->wl_func = 0
 			    | WL_FUNC_P2P

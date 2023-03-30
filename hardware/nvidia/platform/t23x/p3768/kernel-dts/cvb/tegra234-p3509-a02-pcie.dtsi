@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/ {
+
+	pcie@14100000 {/* C1 - M.2 Key-E */
+		status = "okay";
+		phys = <&p2u_hsio_3>;
+		phy-names = "p2u-0";
+	};
+
+	pcie@14160000 {/* C4 - M2 Key M */
+		status = "okay";
+		phys = <&p2u_hsio_4>, <&p2u_hsio_5>, <&p2u_hsio_6>,
+		       <&p2u_hsio_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+	};
+
+	pcie@140a0000 {/* C8 - Ethernet */
+		status = "okay";
+
+		nvidia,pex-wake-gpios = <&tegra_main_gpio TEGRA234_MAIN_GPIO(L, 2) GPIO_ACTIVE_LOW>;
+	};
+};

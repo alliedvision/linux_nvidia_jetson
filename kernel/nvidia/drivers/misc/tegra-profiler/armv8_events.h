@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/armv8_events.h
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -79,9 +79,17 @@ enum {
 #define QUADD_ARMV8_SELECT_MASK	0x1f
 
 /*
- * EVTSEL Register mask
+ * Performance Monitors Event Type Register masks
  */
-#define QUADD_ARMV8_EVTSEL_MASK		0xff
+#define QUADD_ARMV8_EVTYPE_MASK		0xc800ffff
+#define QUADD_ARMV8_EVTYPE_EVENT_MASK	0xffff
+
+/*
+ * ELx filtering bits
+ */
+#define	QUADD_ARMV8_PMU_EXCLUDE_EL1	(1U << 31)
+#define	QUADD_ARMV8_PMU_EXCLUDE_EL0	(1U << 30)
+#define	QUADD_ARMV8_PMU_INCLUDE_EL2	(1U << 27)
 
 #define QUADD_ARMV8_COUNTERS_MASK_PMUV3	0x3f
 

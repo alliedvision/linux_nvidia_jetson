@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,12 +45,15 @@ enum mtd_cmd_op {
 #define VS_MTD_WRITE_OP_F         (1 << VS_MTD_WRITE)
 #define VS_MTD_ERASE_OP_F         (1 << VS_MTD_ERASE)
 #define VS_MTD_IOCTL_OP_F         (1 << VS_MTD_IOCTL)
+#define VS_MTD_READ_ONLY_MASK     ~(VS_MTD_READ_OP_F)
 
 enum blk_cmd_op {
 	VS_BLK_READ = 1,
 	VS_BLK_WRITE = 2,
 	VS_BLK_FLUSH = 3,
-	VS_BLK_IOCTL = 4,
+	VS_BLK_DISCARD = 4,
+	VS_BLK_SECURE_ERASE = 5,
+	VS_BLK_IOCTL = 6,
 	VS_BLK_INVAL_REQ = 32,
 	VS_UNKNOWN_BLK_CMD = 0xffffffff,
 };
@@ -59,7 +62,10 @@ enum blk_cmd_op {
 #define VS_BLK_READ_OP_F          (1 << VS_BLK_READ)
 #define VS_BLK_WRITE_OP_F         (1 << VS_BLK_WRITE)
 #define VS_BLK_FLUSH_OP_F         (1 << VS_BLK_FLUSH)
+#define VS_BLK_DISCARD_OP_F       (1 << VS_BLK_DISCARD)
+#define VS_BLK_SECURE_ERASE_OP_F  (1 << VS_BLK_SECURE_ERASE)
 #define VS_BLK_IOCTL_OP_F         (1 << VS_BLK_IOCTL)
+#define VS_BLK_READ_ONLY_MASK     ~(VS_BLK_READ_OP_F)
 
 #pragma pack(push)
 #pragma pack(1)
@@ -70,6 +76,11 @@ struct vs_blk_request {
 	uint32_t num_blks;		/* Total Block number to transfer */
 	uint32_t data_offset;		/* Offset into mempool for data region
 						*/
+	/* IOVA address of the buffer. In case of read request, VSC will get
+	 * the response to this address. In case of write request, VSC will
+	 * get the data from this address.
+	 */
+	uint64_t iova_addr;
 };
 
 struct vs_mtd_request {
@@ -140,8 +151,16 @@ struct vs_blk_dev_config {
 						per I/O*/
 	uint32_t max_write_blks_per_io; /* Limit number of Blocks
 					   per I/O*/
+	uint32_t max_erase_blks_per_io; /* Limit number of Blocks per I/O */
 	uint32_t req_ops_supported;	/* Allowed operations by requests */
 	uint64_t num_blks;		/* Total number of blks */
+
+	/*
+	 * If true, then VM need to provide local IOVA address for read and
+	 * write requests. For IOCTL requests, mempool will be used
+	 * irrespective of this flag.
+	 */
+	uint32_t use_vm_address;
 };
 
 struct vs_mtd_dev_config {
@@ -155,6 +174,25 @@ struct vs_mtd_dev_config {
 	uint64_t size;			/* Total number of bytes */
 };
 
+/* Physical device types */
+#define VSC_DEV_EMMC	1U
+#define VSC_DEV_UFS	2U
+#define VSC_DEV_QSPI	3U
+
+/* Storage Types */
+#define VSC_STORAGE_RPMB	1U
+#define VSC_STORAGE_BOOT	2U
+#define VSC_STORAGE_LUN0	3U
+#define VSC_STORAGE_LUN1	4U
+#define VSC_STORAGE_LUN2	5U
+#define VSC_STORAGE_LUN3	6U
+#define VSC_STORAGE_LUN4	7U
+#define VSC_STORAGE_LUN5	8U
+#define VSC_STORAGE_LUN6	9U
+#define VSC_STORAGE_LUN7	10U
+
+#define SPEED_MODE_MAX_LEN	32
+
 struct vs_config_info {
 	uint32_t virtual_storage_ver;		/* Version of virtual storage */
 	enum vs_dev_type type;			/* Type of underlying device */
@@ -162,6 +200,10 @@ struct vs_config_info {
 		struct vs_blk_dev_config blk_config;
 		struct vs_mtd_dev_config mtd_config;
 	};
+	uint32_t phys_dev;
+	uint32_t phys_base;
+	uint32_t storage_type;
+	uint8_t speed_mode[SPEED_MODE_MAX_LEN];
 };
 
 struct vs_request {
@@ -179,30 +221,44 @@ struct vs_request {
 	};
 };
 
-/* Defines Command Responses of Emmc/Esd as per VSC interface */
+/**
+ * @addtogroup MMC_RESP MMC Responses
+ *
+ * @brief Defines Command Responses of EMMC
+ */
 typedef enum {
-	RESP_TYPE_NO_RESP = 0,
-	RESP_TYPE_R1 = 1,
-	RESP_TYPE_R2 = 2,
-	RESP_TYPE_R3 = 3,
-	RESP_TYPE_R4 = 4,
-	RESP_TYPE_R5 = 5,
-	RESP_TYPE_R6 = 6,
-	RESP_TYPE_R7 = 7,
-	RESP_TYPE_R1B = 8,
-	RESP_TYPE_NUM,
+	/** @brief No Response */
+	RESP_TYPE_NO_RESP = 0U,
+	/** @brief Response Type 1 */
+	RESP_TYPE_R1 = 1U,
+	/** @brief Response Type 2 */
+	RESP_TYPE_R2 = 2U,
+	/** @brief Response Type 3 */
+	RESP_TYPE_R3 = 3U,
+	/** @brief Response Type 4 */
+	RESP_TYPE_R4 = 4U,
+	/** @brief Response Type 5 */
+	RESP_TYPE_R5 = 5U,
+	/** @brief Response Type 6 */
+	RESP_TYPE_R6 = 6U,
+	/** @brief Response Type 7 */
+	RESP_TYPE_R7 = 7U,
+	/** @brief Response Type 1B */
+	RESP_TYPE_R1B = 8U,
+	/** @brief Number of Response Type */
+	RESP_TYPE_NUM = 9U
+	/* @} */
 } sdmmc_resp_type;
-
 
 #define VBLK_MMC_MULTI_IOC_ID 0x1000
 struct combo_cmd_t {
 	uint32_t cmd;
 	uint32_t arg;
+	uint32_t write_flag;
 	uint32_t response[4];
 	uint32_t buf_offset;
 	uint32_t data_len;
-	uint32_t write_flag;
-	uint32_t flags;
+	sdmmc_resp_type flags;
 };
 
 struct combo_info_t {
@@ -223,6 +279,7 @@ struct combo_info_t {
 
 #define VBLK_SG_IO_ID	(0x1001 | SCSI_IOCTL_FLAG)
 #define VBLK_UFS_IO_ID	(0x1002 | UFS_IOCTL_FLAG)
+#define VBLK_UFS_COMBO_IO_ID	(0x1003 | UFS_IOCTL_FLAG)
 
 #define VBLK_SG_MAX_CMD_LEN 16
 
@@ -257,22 +314,42 @@ struct vblk_ufs_ioc_query_req {
 	uint8_t index;
 	/* index - optional in some cases */
 	uint8_t selector;
-	/* buf_size - buffer size in bytes pointed by buffer. */
-	uint16_t buf_size;
-	/*
-	 * user buffer pointer for query data.
+	/* buf_size - buffer size in bytes pointed by buffer.
 	 * Note:
 	 * For Read/Write Attribute this should be of 4 bytes
 	 * For Read Flag this should be of 1 byte
 	 * For Descriptor Read/Write size depends on the type of the descriptor
 	 */
-	uint8_t *buffer;
-	/* delay after query command completion */
+	uint16_t buf_size;
+	/*
+	 * User buffer offset for query data. The offset should be within the
+	 * bounds of the mempool memory region.
+	 */
+	uint32_t buffer_offset;
+	/* Delay after each query command completion in micro seconds. */
 	uint32_t delay;
 	/* error status for the query operation */
 	int32_t error_status;
 
 };
+
+/** @brief Meta data of UFS Native ioctl Combo Command */
+typedef struct vblk_ufs_combo_info {
+	/** Count of commands in combo command */
+	uint32_t count;
+	/** Status of combo command */
+	int32_t result;
+	/** Flag to specify whether to empty the command queue before
+	  * processing the combo request.
+	  * If user wants to ensure that there are no requests in the UFS device
+	  * command queue before executing a query command, this flag has to be
+	  * set to 1.
+	  * For Example, in case of refresh for Samsung UFS Device, the
+	  * command queue should be emptied before setting the attribute for
+	  * refresh.
+	  */
+	uint8_t need_cq_empty;
+}vblk_ufs_combo_info_t;
 
 #pragma pack(pop)
 

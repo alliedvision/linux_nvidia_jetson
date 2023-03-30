@@ -37,6 +37,8 @@
 #include <linux/errno.h>
 #include <crypto/scatterwalk.h>
 #include <crypto/algapi.h>
+#include <crypto/skcipher.h>
+#include <crypto/internal/skcipher.h>
 #include <crypto/internal/rng.h>
 #include <crypto/internal/hash.h>
 #include <crypto/sha.h>
@@ -46,11 +48,12 @@
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
-#include <linux/mempool.h>
+#include <linux/version.h>
 
 #define TEGRA_HV_VSE_SHA_MAX_LL_NUM 26
 #define TEGRA_HV_VSE_SHA_MAX_LL_NUM_1 24
 #define TEGRA_HV_VSE_AES_MAX_LL_NUM 17
+#define TEGRA_HV_VSE_AES_MAX_W_KEY_LL_NUM 10
 #define TEGRA_HV_VSE_CRYPTO_QUEUE_LENGTH 100
 #define TEGRA_VIRTUAL_SE_KEY_128_SIZE 16
 #define TEGRA_HV_VSE_AES_CMAC_MAX_LL_NUM 36
@@ -61,15 +64,10 @@
 #define TEGRA_HV_VSE_NUM_SERVER_REQ 4
 #define TEGRA_VIRTUAL_SE_RNG1_SIZE 300
 #define TEGRA_HV_VSE_SHA_MAX_BLOCK_SIZE 128
-#define TEGRA_HV_VSE_MEMPOOL_SIZE 16
 
 static struct task_struct *tegra_vse_task;
 static bool vse_thread_start;
 static bool is_rng1_registered;
-static bool is_aes0_registered;
-static bool is_aes1_registered;
-static bool is_sha_registered;
-static bool is_rsa_registered;
 
 /* Security Engine Linked List */
 struct tegra_virtual_se_ll {
@@ -96,11 +94,9 @@ struct tegra_vse_rng1_data {
 	u32 bytes_returned;
 	u8 data[TEGRA_VIRTUAL_SE_RNG1_SIZE];
 };
-/* Timeout response from SE server in status field */
-#define TEGRA_VSE_STATUS_TIMEOUT    (-13)
 
 struct tegra_vse_priv_data {
-	struct ablkcipher_request *reqs[TEGRA_HV_VSE_MAX_TASKS_PER_SUBMIT];
+	struct skcipher_request *reqs[TEGRA_HV_VSE_MAX_TASKS_PER_SUBMIT];
 	struct tegra_virtual_se_dev *se_dev;
 	struct completion alg_complete;
 	int req_cnt;
@@ -128,7 +124,7 @@ struct tegra_virtual_se_dev {
 	struct workqueue_struct *vse_work_q;
 	struct mutex mtx;
 	int req_cnt;
-	struct ablkcipher_request *reqs[TEGRA_HV_VSE_MAX_TASKS_PER_SUBMIT];
+	struct skcipher_request *reqs[TEGRA_HV_VSE_MAX_TASKS_PER_SUBMIT];
 	atomic_t ivc_count;
 	int gather_buf_sz;
 	/* Engine id */
@@ -139,9 +135,6 @@ struct tegra_virtual_se_dev {
 	struct mutex server_lock;
 	/* Disable a keyslot label as a key */
 	bool disable_keyslot_label;
-	/* Memory pool used for AES1 crypto operation */
-	mempool_t *priv_pool;
-	mempool_t *req_pool;
 };
 
 struct tegra_virtual_se_addr {
@@ -155,8 +148,8 @@ struct tegra_virtual_se_linklist {
 };
 
 struct tegra_virtual_se_linklist_1 {
-	u8 number;
-	struct tegra_virtual_se_addr addr[TEGRA_HV_VSE_SHA_MAX_LL_NUM_1];
+    u8 number;
+    struct tegra_virtual_se_addr addr[TEGRA_HV_VSE_SHA_MAX_LL_NUM_1];
 };
 
 struct tegra_virtual_se_aes_linklist {
@@ -189,6 +182,24 @@ union tegra_virtual_se_aes_args {
 		struct tegra_virtual_se_addr
 			dst_addr[TEGRA_HV_VSE_AES_MAX_LL_NUM];
 	} op;
+	struct aes_encdec_w_key {
+		u8 streamid;
+		u8 keyslot;
+		u8 key_length;
+		u8 mode;
+		u8 ivsel;
+		u8 lctr[16];
+		u8 ctr_cntn;
+		u32 data_length;
+		u8 src_ll_num;
+		struct tegra_virtual_se_addr
+			src_addr[TEGRA_HV_VSE_AES_MAX_W_KEY_LL_NUM];
+		u8 dst_ll_num;
+		struct tegra_virtual_se_addr
+			dst_addr[TEGRA_HV_VSE_AES_MAX_W_KEY_LL_NUM];
+		u8 key_flag;
+		u8 keydata[32];
+	} op_w_key;
 	struct aes_cmac {
 		u8 streamid;
 		u8 keyslot;
@@ -330,7 +341,7 @@ enum tegra_virtual_se_op_mode {
 struct tegra_virtual_se_aes_context {
 	/* Security Engine device */
 	struct tegra_virtual_se_dev *se_dev;
-	struct ablkcipher_request *req;
+	struct skcipher_request *req;
 	/* Security Engine key slot */
 	u32 aes_keyslot;
 	/* key length in bytes */
@@ -339,6 +350,10 @@ struct tegra_virtual_se_aes_context {
 	u32 op_mode;
 	/* Is key slot */
 	bool is_key_slot_allocated;
+	/* Whether key is in memory */
+	bool key_in_mem;
+	/* To store key if is_key_in_mem set */
+	u8 key[32];
 	/* Whether key is a keyslot label */
 	bool is_keyslot_label;
 };
@@ -367,9 +382,9 @@ struct tegra_virtual_se_req_context {
 	/* Security Engine device */
 	struct tegra_virtual_se_dev *se_dev;
 	unsigned int digest_size;
+	unsigned int intermediate_digest_size;
 	u8 mode;			/* SHA operation mode */
 	u8 *sha_buf;			/* Buffer to store residual data */
-	u32 sha_buflen;			/* buffer length of residual data */
 	dma_addr_t sha_buf_addr;	/* DMA address to residual data */
 	u8 *hash_result;		/* Intermediate hash result */
 	dma_addr_t hash_result_addr;	/* Intermediate hash result dma addr */
@@ -391,6 +406,8 @@ struct tegra_virtual_se_aes_cmac_context {
 	/* Key2 */
 	u8 K2[TEGRA_VIRTUAL_SE_KEY_128_SIZE];
 	bool is_key_slot_allocated;
+	/* Whether key is a keyslot label */
+	bool is_keyslot_label;
 };
 
 /* Security Engine random number generator context */
@@ -480,6 +497,11 @@ enum tegra_virual_se_aes_iv_type {
 
 #define TEGRA_VIRTUAL_SE_AES_KEYSLOT_LABEL	"NVSEAES"
 
+#define AES_KEY_IN_MEM_OFFSET 16
+#define AES_STORE_KEY_IN_MEM	0x0001
+#define TEGRA_VIRTUAL_SE_KEY_LEN_MASK	0xFFFF
+#define TEGRA_VIRTUAL_SE_RESERVED_KEY_SLOT	14
+
 #define TEGRA_VIRTUAL_SE_AES_IV_SIZE 16
 #define TEGRA_VIRTUAL_SE_AES_LCTR_SIZE 16
 #define TEGRA_VIRTUAL_SE_AES_LCTR_CNTN 1
@@ -510,6 +532,24 @@ static struct tegra_hv_ivc_cookie *g_ivck;
 static struct tegra_virtual_se_dev *g_virtual_se_dev[VIRTUAL_MAX_SE_ENGINE_NUM];
 static struct completion tegra_vse_complete;
 
+static inline int tegra_hv_get_hwid(struct platform_device *pdev, unsigned id)
+{
+	struct device *dev = &pdev->dev;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+#else
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+#endif
+
+	if(!fwspec)
+		return -EINVAL;
+
+	if (id >= fwspec->num_ids)
+		return -EINVAL;
+
+	return fwspec->ids[id] & 0xffff;
+}
+
 #define GET_MSB(x)  ((x) >> (8*sizeof(x)-1))
 static void tegra_virtual_se_leftshift_onebit(u8 *in_buf, u32 size, u8 *org_msb)
 {
@@ -534,6 +574,7 @@ static int tegra_hv_vse_send_ivc(
 	int length)
 {
 	u32 timeout;
+	int err = 0;
 
 	timeout = TEGRA_VIRTUAL_SE_TIMEOUT_1S;
 	mutex_lock(&se_ivc_lock);
@@ -558,7 +599,19 @@ static int tegra_hv_vse_send_ivc(
 		timeout--;
 	}
 
-	tegra_hv_ivc_write(pivck, pbuf, length);
+	if (length > TEGRA_HV_VSE_IVC_FRAME_SIZE) {
+		mutex_unlock(&se_ivc_lock);
+		dev_err(se_dev->dev,
+				"Wrong write msg len %d\n", length);
+		return -E2BIG;
+	}
+
+	err = tegra_hv_ivc_write(pivck, pbuf, length);
+	if (err < 0) {
+		mutex_unlock(&se_ivc_lock);
+		dev_err(se_dev->dev, "ivc write error!!! error=%d\n", err);
+		return err;
+	}
 	mutex_unlock(&se_ivc_lock);
 	return 0;
 }
@@ -586,7 +639,11 @@ static int tegra_hv_vse_prepare_ivc_linked_list(
 			goto exit;
 		}
 		sg_count++;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
 		len = min(src_sg->length, (size_t)total_len);
+#else
+		len = min(src_sg->length, total_len);
+#endif
 		addr = sg_dma_address(src_sg);
 		addr_offset = 0;
 		while (len >= TEGRA_VIRTUAL_SE_MAX_BUFFER_SIZE) {
@@ -714,7 +771,7 @@ static int tegra_hv_vse_send_sha_data(struct tegra_virtual_se_dev *se_dev,
 			psha->op_hash1.msg_total_length1 = msg_len >> 32;
 		}
 	}
-	req_ctx->is_first = false;
+
 	ivc_req_msg->hdr.num_reqs = 1;
 	priv_data_ptr = (struct tegra_vse_tag *)ivc_req_msg->hdr.tag;
 	priv_data_ptr->priv_data = (unsigned int *)priv;
@@ -772,7 +829,7 @@ static int tegra_hv_vse_sha_send_one(struct ahash_request *req,
 	ivc_tx->args.sha.op_hash1.src.number = 1;
 	ivc_tx->args.sha.op_hash1.dst = (u64)req_ctx->hash_result_addr;
 	memcpy(ivc_tx->args.sha.op_hash1.hash, req_ctx->hash_result,
-		req_ctx->digest_size);
+		req_ctx->intermediate_digest_size);
 
 	err = tegra_hv_vse_send_sha_data(se_dev, req, ivc_req_msg,
 				nbytes, islast);
@@ -883,7 +940,8 @@ static int tegra_hv_vse_sha_fast_path(struct ahash_request *req,
 			ivc_tx->args.sha.op_hash1.dst
 				= (u64)req_ctx->hash_result_addr;
 			memcpy(ivc_tx->args.sha.op_hash1.hash,
-				req_ctx->hash_result, req_ctx->digest_size);
+				req_ctx->hash_result,
+				req_ctx->intermediate_digest_size);
 
 			req_ctx->total_count += bytes_process_in_req;
 
@@ -913,6 +971,7 @@ unmap:
 		}
 	}
 
+	req_ctx->is_first = false;
 	if (is_last) {
 		/* handle the last data in finup() , digest() */
 		if (req_ctx->residual_bytes > 0) {
@@ -943,11 +1002,9 @@ static int tegra_hv_vse_sha_slow_path(struct ahash_request *req,
 {
 	struct tegra_virtual_se_dev *se_dev = g_virtual_se_dev[VIRTUAL_SE_SHA];
 	struct tegra_virtual_se_req_context *req_ctx = ahash_request_ctx(req);
-	u32 nblk_bytes = 0, num_blks;
+	u32 nblk_bytes = 0, num_blks, buflen = SZ_4M;
 	u32 length = 0, skip = 0, offset = 0;
 	u64 total_bytes = 0, left_bytes = 0;
-	u8 *new_sha_buf;
-	dma_addr_t new_sha_buf_addr;
 	int err = 0;
 
 	if ((process_cur_req == false && is_last == false) ||
@@ -962,34 +1019,13 @@ static int tegra_hv_vse_sha_slow_path(struct ahash_request *req,
 		if ((total_bytes - nblk_bytes) == 0)
 			total_bytes -= req_ctx->blk_size;
 
-		if (nblk_bytes > req_ctx->sha_buflen &&
-			req_ctx->sha_buflen < SZ_4M) {
-			/* try reallocate a bigger buffer for better perf */
-			new_sha_buf = dma_alloc_coherent(se_dev->dev, SZ_4M,
-					&new_sha_buf_addr, GFP_KERNEL);
-			if (new_sha_buf) {
-				/* copy data and replace the old buffer */
-				if (req_ctx->residual_bytes)
-					memcpy(new_sha_buf, req_ctx->sha_buf,
-						req_ctx->residual_bytes);
-
-				dma_free_coherent(se_dev->dev,
-					req_ctx->sha_buflen, req_ctx->sha_buf,
-					req_ctx->sha_buf_addr);
-
-				req_ctx->sha_buflen = SZ_4M;
-				req_ctx->sha_buf = new_sha_buf;
-				req_ctx->sha_buf_addr = new_sha_buf_addr;
-			}
-		}
-
 		left_bytes = req->nbytes;
 
 		while (total_bytes >= req_ctx->blk_size) {
 			/* Copy to linear buffer */
 			num_blks = total_bytes / req_ctx->blk_size;
 			nblk_bytes = num_blks * req_ctx->blk_size;
-			length = min(req_ctx->sha_buflen, nblk_bytes) - offset;
+			length = min(buflen, nblk_bytes) - offset;
 
 			sg_pcopy_to_buffer(req->src, sg_nents(req->src),
 				req_ctx->sha_buf + offset, length, skip);
@@ -1010,21 +1046,31 @@ static int tegra_hv_vse_sha_slow_path(struct ahash_request *req,
 			offset = 0;
 		}
 
-		sg_pcopy_to_buffer(req->src, sg_nents(req->src),
-				req_ctx->sha_buf + offset, left_bytes, skip);
-		req_ctx->total_count += left_bytes;
-		req_ctx->residual_bytes = offset + left_bytes;
+		if (left_bytes != req->nbytes) {
+			/* Processed in while() loop */
+			sg_pcopy_to_buffer(req->src, sg_nents(req->src),
+					req_ctx->sha_buf, left_bytes, skip);
+			req_ctx->total_count += left_bytes;
+			req_ctx->residual_bytes = left_bytes;
+		} else {
+			/* Accumulate the request */
+			sg_pcopy_to_buffer(req->src, sg_nents(req->src),
+				req_ctx->sha_buf + req_ctx->residual_bytes,
+				req->nbytes, skip);
+			req_ctx->total_count += req->nbytes;
+			req_ctx->residual_bytes += req->nbytes;
+		}
 
-		if (req_ctx->residual_bytes == req_ctx->blk_size) {
+		if (req_ctx->force_align == true &&
+			req_ctx->residual_bytes == req_ctx->blk_size) {
 			/* At this point, the buffer is aligned with blk_size.
 			 * Thus, the next call can use fast path.
 			 */
 			req_ctx->force_align = false;
-		} else {
-			req_ctx->force_align = true;
 		}
 	}
 
+	req_ctx->is_first = false;
 	if (is_last) {
 		/* handle the last data in finup() , digest() */
 		if (req_ctx->residual_bytes > 0) {
@@ -1116,12 +1162,15 @@ static int tegra_hv_vse_sha_op(struct ahash_request *req, bool is_last,
 				req_ctx->residual_bytes = 0;
 			}
 
-			if (req->result) {
-				memcpy(req->result, req_ctx->hash_result,
-					req_ctx->digest_size);
-			} else {
-				dev_err(se_dev->dev,
-					"Invalid clinet result buffer\n");
+			if (is_last) {
+				if (req->result) {
+					memcpy(req->result,
+						req_ctx->hash_result,
+						req_ctx->digest_size);
+				} else {
+					dev_err(se_dev->dev,
+						"Invalid clinet result buffer\n");
+				}
 			}
 			return 0;
 		}
@@ -1134,16 +1183,23 @@ static int tegra_hv_vse_sha_op(struct ahash_request *req, bool is_last,
 		else
 			mode = req_ctx->mode - VIRTUAL_SE_OP_MODE_SHA224 + 1;
 
-		if (req->result) {
-			memcpy(req->result,
-				zero_vec[mode].digest, zero_vec[mode].size);
-		} else {
-			dev_err(se_dev->dev, "Invalid clinet result buffer\n");
+		if (is_last) {
+			if (req->result) {
+				memcpy(req->result,
+					zero_vec[mode].digest,
+					zero_vec[mode].size);
+			} else {
+				dev_err(se_dev->dev,
+					"Invalid clinet result buffer\n");
+			}
 		}
 		return 0;
 	}
 
 	num_blks = req->nbytes / req_ctx->blk_size;
+
+	if (sg_nents(req->src) > 1)
+		req_ctx->force_align = true;
 
 	if (req_ctx->force_align == false && num_blks > 0)
 		ret = tegra_hv_vse_sha_fast_path(req, is_last, process_cur_req);
@@ -1185,30 +1241,40 @@ static int tegra_hv_vse_sha_init(struct ahash_request *req)
 	case SHA1_DIGEST_SIZE:
 		req_ctx->mode = VIRTUAL_SE_OP_MODE_SHA1;
 		req_ctx->blk_size = VIRTUAL_SE_SHA_HASH_BLOCK_SIZE_512BIT;
+		req_ctx->intermediate_digest_size = SHA1_DIGEST_SIZE;
 		break;
 	case SHA224_DIGEST_SIZE:
 		req_ctx->mode = VIRTUAL_SE_OP_MODE_SHA224;
 		req_ctx->blk_size = VIRTUAL_SE_SHA_HASH_BLOCK_SIZE_512BIT;
+		req_ctx->intermediate_digest_size = SHA224_DIGEST_SIZE;
 		break;
 	case SHA256_DIGEST_SIZE:
 		req_ctx->mode = VIRTUAL_SE_OP_MODE_SHA256;
 		req_ctx->blk_size = VIRTUAL_SE_SHA_HASH_BLOCK_SIZE_512BIT;
+		req_ctx->intermediate_digest_size = SHA256_DIGEST_SIZE;
 		break;
 	case SHA384_DIGEST_SIZE:
 		req_ctx->mode = VIRTUAL_SE_OP_MODE_SHA384;
 		req_ctx->blk_size =
 			VIRTUAL_SE_SHA_HASH_BLOCK_SIZE_1024BIT;
+		/*
+		 * The final digest size and intermediate digest size
+		 * are different for SHA384.
+		 * The intermediate digest size is 512 bits which is
+		 * same as SHA512
+		 */
+		req_ctx->intermediate_digest_size = SHA512_DIGEST_SIZE;
 		break;
 	case SHA512_DIGEST_SIZE:
 		req_ctx->mode = VIRTUAL_SE_OP_MODE_SHA512;
 		req_ctx->blk_size =
 			VIRTUAL_SE_SHA_HASH_BLOCK_SIZE_1024BIT;
+		req_ctx->intermediate_digest_size = SHA512_DIGEST_SIZE;
 		break;
 	default:
 		return -EINVAL;
 	}
-	req_ctx->sha_buflen = SZ_4K;
-	req_ctx->sha_buf = dma_alloc_coherent(se_dev->dev, req_ctx->sha_buflen,
+	req_ctx->sha_buf = dma_alloc_coherent(se_dev->dev, SZ_4M,
 					&req_ctx->sha_buf_addr, GFP_KERNEL);
 	if (!req_ctx->sha_buf) {
 		dev_err(se_dev->dev, "Cannot allocate memory to sha_buf\n");
@@ -1219,7 +1285,7 @@ static int tegra_hv_vse_sha_init(struct ahash_request *req)
 			se_dev->dev, (TEGRA_HV_VSE_SHA_MAX_BLOCK_SIZE * 2),
 			&req_ctx->hash_result_addr, GFP_KERNEL);
 	if (!req_ctx->hash_result) {
-		dma_free_coherent(se_dev->dev, req_ctx->sha_buflen,
+		dma_free_coherent(se_dev->dev, SZ_4M,
 				req_ctx->sha_buf, req_ctx->sha_buf_addr);
 		req_ctx->sha_buf = NULL;
 		dev_err(se_dev->dev, "Cannot allocate memory to hash_result\n");
@@ -1240,7 +1306,7 @@ static void tegra_hv_vse_sha_req_deinit(struct ahash_request *req)
 	struct tegra_virtual_se_req_context *req_ctx = ahash_request_ctx(req);
 
 	/* dma_free_coherent does not panic if addr is NULL */
-	dma_free_coherent(se_dev->dev, req_ctx->sha_buflen,
+	dma_free_coherent(se_dev->dev, SZ_4M,
 			req_ctx->sha_buf, req_ctx->sha_buf_addr);
 	req_ctx->sha_buf = NULL;
 
@@ -1792,18 +1858,18 @@ static int tegra_hv_vse_aes_set_keyiv(struct tegra_virtual_se_dev *se_dev,
 	struct tegra_vse_tag *priv_data_ptr;
 	int ret;
 
-	priv = mempool_alloc(se_dev->priv_pool, GFP_NOFS);
+	priv = devm_kzalloc(se_dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-	memset(priv, 0, sizeof(*priv));
 
-	ivc_req_msg = mempool_alloc(se_dev->req_pool, GFP_NOFS);
+	ivc_req_msg = devm_kzalloc(se_dev->dev,
+			sizeof(*ivc_req_msg),
+			GFP_KERNEL);
 	if (!ivc_req_msg) {
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 		dev_err(se_dev->dev, "\n Memory allocation failed\n");
 		return -ENOMEM;
 	}
-	memset(ivc_req_msg, 0, sizeof(*ivc_req_msg));
 
 	ivc_req_msg->hdr.num_reqs = 1;
 	ivc_tx = &ivc_req_msg->d[0].tx;
@@ -1836,7 +1902,7 @@ static int tegra_hv_vse_aes_set_keyiv(struct tegra_virtual_se_dev *se_dev,
 	/* Return error if engine is in suspended state */
 	if (atomic_read(&se_dev->se_suspended)) {
 		mutex_unlock(&se_dev->server_lock);
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 		err = -ENODEV;
 		goto end;
 	}
@@ -1846,7 +1912,7 @@ static int tegra_hv_vse_aes_set_keyiv(struct tegra_virtual_se_dev *se_dev,
 			sizeof(struct tegra_virtual_se_ivc_msg_t));
 	if (err) {
 		mutex_unlock(&se_dev->server_lock);
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 		goto end;
 	}
 
@@ -1857,10 +1923,10 @@ static int tegra_hv_vse_aes_set_keyiv(struct tegra_virtual_se_dev *se_dev,
 		dev_err(se_dev->dev, "%s timeout\n", __func__);
 		err = -ETIMEDOUT;
 	}
-	mempool_free(priv, se_dev->priv_pool);
+	devm_kfree(se_dev->dev, priv);
 
 end:
-	mempool_free(ivc_req_msg, se_dev->req_pool);
+	devm_kfree(se_dev->dev, ivc_req_msg);
 	return err;
 }
 
@@ -1868,30 +1934,62 @@ void tegra_hv_vse_prpare_cmd(struct tegra_virtual_se_dev *se_dev,
 	struct tegra_virtual_se_ivc_tx_msg_t *ivc_tx,
 	struct tegra_virtual_se_aes_req_context *req_ctx,
 	struct tegra_virtual_se_aes_context *aes_ctx,
-	struct ablkcipher_request *req)
+	struct skcipher_request *req)
 {
+	union tegra_virtual_se_aes_args *aes;
+
+	aes = &ivc_tx->args.aes;
 	ivc_tx->engine = req_ctx->engine_id;
-	if (req_ctx->encrypt == true)
-		ivc_tx->cmd = VIRTUAL_SE_CMD_AES_ENCRYPT;
-	else
-		ivc_tx->cmd = VIRTUAL_SE_CMD_AES_DECRYPT;
-
-	ivc_tx->args.aes.op.keyslot = aes_ctx->aes_keyslot;
-	ivc_tx->args.aes.op.key_length = aes_ctx->keylen;
-	ivc_tx->args.aes.op.streamid = se_dev->stream_id;
-	ivc_tx->args.aes.op.mode = req_ctx->op_mode;
-	ivc_tx->args.aes.op.ivsel = AES_ORIGINAL_IV;
-	if (req->info) {
-		memcpy(ivc_tx->args.aes.op.lctr, req->info,
-				TEGRA_VIRTUAL_SE_AES_LCTR_SIZE);
-
-		if (req_ctx->op_mode == AES_CTR)
-			ivc_tx->args.aes.op.ctr_cntn =
-					TEGRA_VIRTUAL_SE_AES_LCTR_CNTN;
-		else if (req_ctx->op_mode == AES_CBC)
-			ivc_tx->args.aes.op.ivsel = AES_IV_REG;
+	if (!aes_ctx->key_in_mem) {
+		if (req_ctx->encrypt == true)
+			ivc_tx->cmd = VIRTUAL_SE_CMD_AES_ENCRYPT;
 		else
-			ivc_tx->args.aes.op.ivsel = AES_ORIGINAL_IV | 0x80;
+			ivc_tx->cmd = VIRTUAL_SE_CMD_AES_DECRYPT;
+
+		aes->op.keyslot = aes_ctx->aes_keyslot;
+		aes->op.key_length = aes_ctx->keylen;
+		aes->op.streamid = se_dev->stream_id;
+		aes->op.mode = req_ctx->op_mode;
+		aes->op.ivsel = AES_ORIGINAL_IV;
+		if (req->iv) {
+			memcpy(aes->op.lctr, req->iv,
+					TEGRA_VIRTUAL_SE_AES_LCTR_SIZE);
+			if (req_ctx->op_mode == AES_CTR)
+				aes->op.ctr_cntn =
+						TEGRA_VIRTUAL_SE_AES_LCTR_CNTN;
+			else if (req_ctx->op_mode == AES_CBC)
+				aes->op.ivsel = AES_IV_REG;
+			else
+				aes->op.ivsel = AES_ORIGINAL_IV | 0x80;
+		}
+	} else {
+		if (req_ctx->encrypt == true)
+			ivc_tx->cmd = VIRTUAL_SE_CMD_AES_ENCRYPT_WITH_KEY;
+		else
+			ivc_tx->cmd = VIRTUAL_SE_CMD_AES_DECRYPT_WITH_KEY;
+
+		aes->op_w_key.keyslot = aes_ctx->aes_keyslot;
+		aes->op_w_key.key_length = aes_ctx->keylen;
+		aes->op_w_key.streamid = se_dev->stream_id;
+		aes->op_w_key.mode = req_ctx->op_mode;
+		aes->op_w_key.ivsel = AES_ORIGINAL_IV;
+		if (req->iv) {
+			memcpy(aes->op_w_key.lctr, req->iv,
+					TEGRA_VIRTUAL_SE_AES_LCTR_SIZE);
+			memcpy(aes->op_w_key.keydata,
+				aes_ctx->key, aes_ctx->keylen);
+
+			if (req_ctx->op_mode == AES_CTR)
+				aes->op_w_key.ctr_cntn =
+						TEGRA_VIRTUAL_SE_AES_LCTR_CNTN;
+			else if (req_ctx->op_mode == AES_CBC)
+				aes->op_w_key.ivsel = AES_IV_REG;
+			else
+				aes->op_w_key.ivsel = AES_ORIGINAL_IV | 0x80;
+			/* No need to clear data in key slot*/
+			aes->op_w_key.key_flag = 0;
+		}
+
 	}
 }
 
@@ -1911,10 +2009,10 @@ static int status_to_errno(int err)
 static void complete_call_back(void *data)
 {
 	int k;
-	struct ablkcipher_request *req;
+	struct skcipher_request *req;
 	struct tegra_vse_priv_data *priv =
 		(struct tegra_vse_priv_data *)data;
-	int err;
+	int err = status_to_errno(priv->rx_status);
 	int num_sgs;
 	void *buf;
 
@@ -1922,8 +2020,6 @@ static void complete_call_back(void *data)
 		pr_err("%s:%d\n", __func__, __LINE__);
 		return;
 	}
-
-	err = status_to_errno(priv->rx_status);
 
 	dma_sync_single_for_cpu(priv->se_dev->dev, priv->buf_addr,
 		priv->gather_buf_sz, DMA_BIDIRECTIONAL);
@@ -1935,13 +2031,13 @@ static void complete_call_back(void *data)
 			return;
 		}
 
-		num_sgs = tegra_hv_vse_count_sgs(req->dst, req->nbytes);
+		num_sgs = tegra_hv_vse_count_sgs(req->dst, req->cryptlen);
 		if (num_sgs == 1)
-			memcpy(sg_virt(req->dst), buf, req->nbytes);
+			memcpy(sg_virt(req->dst), buf, req->cryptlen);
 		else
 			sg_copy_from_buffer(req->dst, num_sgs,
-				buf, req->nbytes);
-		buf += req->nbytes;
+				buf, req->cryptlen);
+		buf += req->cryptlen;
 		if (req->base.complete)
 			req->base.complete(&req->base, err);
 	}
@@ -1952,25 +2048,25 @@ static void complete_call_back(void *data)
 static int tegra_hv_se_setup_ablk_req(struct tegra_virtual_se_dev *se_dev,
 	struct tegra_vse_priv_data *priv)
 {
-	struct ablkcipher_request *req;
+	struct skcipher_request *req;
 	void *buf;
 	int i = 0;
 	u32 num_sgs;
 
-	priv->buf = kmalloc(se_dev->gather_buf_sz, GFP_NOFS);
+	priv->buf = kmalloc(se_dev->gather_buf_sz, GFP_KERNEL);
 	if (!priv->buf)
 		return -ENOMEM;
 
 	buf = priv->buf;
 	for (i = 0; i < se_dev->req_cnt; i++) {
 		req = se_dev->reqs[i];
-		num_sgs = tegra_hv_vse_count_sgs(req->src, req->nbytes);
+		num_sgs = tegra_hv_vse_count_sgs(req->src, req->cryptlen);
 		if (num_sgs == 1)
-			memcpy(buf, sg_virt(req->src), req->nbytes);
+			memcpy(buf, sg_virt(req->src), req->cryptlen);
 		else
-			sg_copy_to_buffer(req->src, num_sgs, buf, req->nbytes);
+			sg_copy_to_buffer(req->src, num_sgs, buf, req->cryptlen);
 
-		buf += req->nbytes;
+		buf += req->cryptlen;
 	}
 
 	sg_init_one(&priv->sg, priv->buf, se_dev->gather_buf_sz);
@@ -1982,7 +2078,7 @@ static int tegra_hv_se_setup_ablk_req(struct tegra_virtual_se_dev *se_dev,
 
 static void tegra_hv_vse_process_new_req(struct tegra_virtual_se_dev *se_dev)
 {
-	struct ablkcipher_request *req;
+	struct skcipher_request *req;
 	struct tegra_virtual_se_aes_req_context *req_ctx;
 	struct tegra_virtual_se_aes_context *aes_ctx;
 	struct tegra_virtual_se_ivc_tx_msg_t *ivc_tx = NULL;
@@ -1994,25 +2090,20 @@ static void tegra_hv_vse_process_new_req(struct tegra_virtual_se_dev *se_dev)
 	int cur_map_cnt = 0;
 	struct tegra_vse_priv_data *priv = NULL;
 	struct tegra_vse_tag *priv_data_ptr;
+	union tegra_virtual_se_aes_args *aes;
 
-	priv = mempool_alloc(se_dev->priv_pool, GFP_NOFS);
-	if (unlikely(!priv)) {
-		dev_err(se_dev->dev, "%s failed in mempool_alloc for priv\n",
-			__func__);
+	priv = devm_kzalloc(se_dev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
 		err = -ENOMEM;
 		goto err_exit;
 	}
-	memset(priv, 0, sizeof(*priv));
 
-	ivc_req_msg = mempool_alloc(se_dev->req_pool, GFP_NOFS);
-	if (unlikely(!ivc_req_msg)) {
-		dev_err(se_dev->dev,
-			"%s failed in mempool_alloc for ivc_req\n",
-			__func__);
+	ivc_req_msg =
+		devm_kzalloc(se_dev->dev, sizeof(*ivc_req_msg), GFP_KERNEL);
+	if (!ivc_req_msg) {
 		err = -ENOMEM;
 		goto err_exit;
 	}
-	memset(ivc_req_msg, 0, sizeof(*ivc_req_msg));
 
 	err = tegra_hv_se_setup_ablk_req(se_dev, priv);
 	if (err) {
@@ -2025,23 +2116,34 @@ static void tegra_hv_vse_process_new_req(struct tegra_virtual_se_dev *se_dev)
 	for (k = 0; k < se_dev->req_cnt; k++) {
 		req = se_dev->reqs[k];
 		ivc_tx = &ivc_req_msg->d[k].tx;
-		req_ctx = ablkcipher_request_ctx(req);
-		aes_ctx = crypto_ablkcipher_ctx(crypto_ablkcipher_reqtfm(req));
+		aes = &ivc_tx->args.aes;
+		req_ctx = skcipher_request_ctx(req);
+		aes_ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
 		if (unlikely(!aes_ctx->is_key_slot_allocated)) {
 			dev_err(se_dev->dev, "AES Key slot not allocated\n");
 			err = -EINVAL;
 			goto exit;
 		}
 		tegra_hv_vse_prpare_cmd(se_dev, ivc_tx, req_ctx, aes_ctx, req);
-		ivc_tx->args.aes.op.src_ll_num = 1;
-		ivc_tx->args.aes.op.dst_ll_num = 1;
-		ivc_tx->args.aes.op.src_addr[0].lo = cur_addr;
-		ivc_tx->args.aes.op.src_addr[0].hi = req->nbytes;
-		ivc_tx->args.aes.op.dst_addr[0].lo = cur_addr;
-		ivc_tx->args.aes.op.dst_addr[0].hi = req->nbytes;
-		ivc_tx->args.aes.op.data_length = req->nbytes;
+		if (!aes_ctx->key_in_mem) {
+			aes->op.src_ll_num = 1;
+			aes->op.dst_ll_num = 1;
+			aes->op.src_addr[0].lo = cur_addr;
+			aes->op.src_addr[0].hi = req->cryptlen;
+			aes->op.dst_addr[0].lo = cur_addr;
+			aes->op.dst_addr[0].hi = req->cryptlen;
+			aes->op.data_length = req->cryptlen;
+		} else {
+			aes->op_w_key.src_ll_num = 1;
+			aes->op_w_key.dst_ll_num = 1;
+			aes->op_w_key.src_addr[0].lo = cur_addr;
+			aes->op_w_key.src_addr[0].hi = req->cryptlen;
+			aes->op_w_key.dst_addr[0].lo = cur_addr;
+			aes->op_w_key.dst_addr[0].hi = req->cryptlen;
+			aes->op_w_key.data_length = req->cryptlen;
+		}
 		cur_map_cnt++;
-		cur_addr += req->nbytes;
+		cur_addr += req->cryptlen;
 	}
 	ivc_req_msg->hdr.num_reqs = se_dev->req_cnt;
 
@@ -2076,7 +2178,7 @@ exit:
 err_exit:
 	if (priv) {
 		kfree(priv->buf);
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 	}
 	for (k = 0; k < se_dev->req_cnt; k++) {
 		req = se_dev->reqs[k];
@@ -2085,7 +2187,7 @@ err_exit:
 	}
 exit_return:
 	if (ivc_req_msg)
-		mempool_free(ivc_req_msg, se_dev->req_pool);
+		devm_kfree(se_dev->dev, ivc_req_msg);
 	se_dev->req_cnt = 0;
 	se_dev->gather_buf_sz = 0;
 }
@@ -2098,7 +2200,7 @@ static void tegra_hv_vse_work_handler(struct work_struct *work)
 	struct crypto_async_request *backlog = NULL;
 	unsigned long flags;
 	bool process_requests;
-	struct ablkcipher_request *req;
+	struct skcipher_request *req;
 
 	mutex_lock(&se_dev->mtx);
 	do {
@@ -2115,9 +2217,9 @@ static void tegra_hv_vse_work_handler(struct work_struct *work)
 			}
 
 			if (async_req) {
-				req = ablkcipher_request_cast(async_req);
+				req = skcipher_request_cast(async_req);
 				se_dev->reqs[se_dev->req_cnt] = req;
-				se_dev->gather_buf_sz += req->nbytes;
+				se_dev->gather_buf_sz += req->cryptlen;
 				se_dev->req_cnt++;
 				process_requests = true;
 			} else {
@@ -2135,7 +2237,7 @@ static void tegra_hv_vse_work_handler(struct work_struct *work)
 }
 
 static int tegra_hv_vse_aes_queue_req(struct tegra_virtual_se_dev *se_dev,
-				struct ablkcipher_request *req)
+				struct skcipher_request *req)
 {
 	unsigned long flags;
 	bool idle = true;
@@ -2145,14 +2247,14 @@ static int tegra_hv_vse_aes_queue_req(struct tegra_virtual_se_dev *se_dev,
 	if (atomic_read(&se_dev->se_suspended))
 		return -ENODEV;
 
-	if (req->nbytes % VIRTUAL_SE_AES_BLOCK_SIZE)
+	if (req->cryptlen % VIRTUAL_SE_AES_BLOCK_SIZE)
 		return -EINVAL;
 
-	if (!tegra_hv_vse_count_sgs(req->src, req->nbytes))
+	if (!tegra_hv_vse_count_sgs(req->src, req->cryptlen))
 		return -EINVAL;
 
 	spin_lock_irqsave(&se_dev->lock, flags);
-	err = ablkcipher_enqueue_request(&se_dev->queue, req);
+	err = crypto_enqueue_request(&se_dev->queue, &req->base);
 	if (se_dev->work_q_busy)
 		idle = false;
 	spin_unlock_irqrestore(&se_dev->lock, flags);
@@ -2167,17 +2269,16 @@ static int tegra_hv_vse_aes_queue_req(struct tegra_virtual_se_dev *se_dev,
 	return err;
 }
 
-static int tegra_hv_vse_aes_cra_init(struct crypto_tfm *tfm)
+static int tegra_hv_vse_aes_cra_init(struct crypto_skcipher *tfm)
 {
-	tfm->crt_ablkcipher.reqsize =
-		sizeof(struct tegra_virtual_se_aes_req_context);
+	tfm->reqsize = sizeof(struct tegra_virtual_se_aes_req_context);
 
 	return 0;
 }
 
-static void tegra_hv_vse_aes_cra_exit(struct crypto_tfm *tfm)
+static void tegra_hv_vse_aes_cra_exit(struct crypto_skcipher *tfm)
 {
-	struct tegra_virtual_se_aes_context *ctx = crypto_tfm_ctx(tfm);
+	struct tegra_virtual_se_aes_context *ctx = crypto_tfm_ctx(&tfm->base);
 	struct tegra_virtual_se_dev *se_dev = g_virtual_se_dev[VIRTUAL_SE_AES1];
 	struct tegra_virtual_se_ivc_tx_msg_t *ivc_tx;
 	struct tegra_hv_ivc_cookie *pivck = g_ivck;
@@ -2192,20 +2293,23 @@ static void tegra_hv_vse_aes_cra_exit(struct crypto_tfm *tfm)
 	if (!ctx->is_key_slot_allocated)
 		return;
 
+	if (ctx->key_in_mem)
+		return;
+
 	if (ctx->is_keyslot_label)
 		return;
 
-	ivc_req_msg = mempool_alloc(se_dev->req_pool, GFP_NOFS);
+	ivc_req_msg =
+		devm_kzalloc(se_dev->dev,
+			sizeof(*ivc_req_msg), GFP_KERNEL);
 	if (!ivc_req_msg) {
 		dev_err(se_dev->dev, "\n Memory allocation failed\n");
 		return;
 	}
-	memset(ivc_req_msg, 0, sizeof(*ivc_req_msg));
 
-	priv = mempool_alloc(se_dev->priv_pool, GFP_NOFS);
+	priv = devm_kzalloc(se_dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		goto free_mem;
-	memset(priv, 0, sizeof(*priv));
 
 	ivc_req_msg->hdr.num_reqs = 1;
 	ivc_tx = &ivc_req_msg->d[0].tx;
@@ -2224,7 +2328,7 @@ static void tegra_hv_vse_aes_cra_exit(struct crypto_tfm *tfm)
 	/* Return error if engine is in suspended state */
 	if (atomic_read(&se_dev->se_suspended)) {
 		mutex_unlock(&se_dev->server_lock);
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 		err = -ENODEV;
 		goto free_mem;
 	}
@@ -2232,7 +2336,7 @@ static void tegra_hv_vse_aes_cra_exit(struct crypto_tfm *tfm)
 			sizeof(struct tegra_virtual_se_ivc_msg_t));
 	if (err) {
 		mutex_unlock(&se_dev->server_lock);
-		mempool_free(priv, se_dev->priv_pool);
+		devm_kfree(se_dev->dev, priv);
 		goto free_mem;
 	}
 
@@ -2241,16 +2345,16 @@ static void tegra_hv_vse_aes_cra_exit(struct crypto_tfm *tfm)
 	mutex_unlock(&se_dev->server_lock);
 	if (err == 0)
 		dev_err(se_dev->dev, "%s timeout\n", __func__);
-	mempool_free(priv, se_dev->priv_pool);
+	devm_kfree(se_dev->dev, priv);
 
 free_mem:
-	mempool_free(ivc_req_msg, se_dev->req_pool);
+	devm_kfree(se_dev->dev, ivc_req_msg);
 }
 
-static int tegra_hv_vse_aes_cbc_encrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_cbc_encrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-		ablkcipher_request_ctx(req);
+		skcipher_request_ctx(req);
 
 	req_ctx->encrypt = true;
 	req_ctx->op_mode = AES_CBC;
@@ -2259,10 +2363,10 @@ static int tegra_hv_vse_aes_cbc_encrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_cbc_decrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_cbc_decrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-			ablkcipher_request_ctx(req);
+			skcipher_request_ctx(req);
 
 	req_ctx->encrypt = false;
 	req_ctx->op_mode = AES_CBC;
@@ -2271,10 +2375,10 @@ static int tegra_hv_vse_aes_cbc_decrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ecb_encrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ecb_encrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-		ablkcipher_request_ctx(req);
+		skcipher_request_ctx(req);
 
 	req_ctx->encrypt = true;
 	req_ctx->op_mode = AES_ECB;
@@ -2283,10 +2387,10 @@ static int tegra_hv_vse_aes_ecb_encrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ecb_decrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ecb_decrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-			ablkcipher_request_ctx(req);
+			skcipher_request_ctx(req);
 
 	req_ctx->encrypt = false;
 	req_ctx->op_mode = AES_ECB;
@@ -2295,10 +2399,10 @@ static int tegra_hv_vse_aes_ecb_decrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ctr_encrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ctr_encrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-		ablkcipher_request_ctx(req);
+		skcipher_request_ctx(req);
 
 	req_ctx->encrypt = true;
 	req_ctx->op_mode = AES_CTR;
@@ -2307,10 +2411,10 @@ static int tegra_hv_vse_aes_ctr_encrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ctr_decrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ctr_decrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-			ablkcipher_request_ctx(req);
+			skcipher_request_ctx(req);
 
 	req_ctx->encrypt = false;
 	req_ctx->op_mode = AES_CTR;
@@ -2319,10 +2423,10 @@ static int tegra_hv_vse_aes_ctr_decrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ofb_encrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ofb_encrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-		ablkcipher_request_ctx(req);
+		skcipher_request_ctx(req);
 
 	req_ctx->encrypt = true;
 	req_ctx->op_mode = AES_OFB;
@@ -2331,10 +2435,10 @@ static int tegra_hv_vse_aes_ofb_encrypt(struct ablkcipher_request *req)
 	return tegra_hv_vse_aes_queue_req(req_ctx->se_dev, req);
 }
 
-static int tegra_hv_vse_aes_ofb_decrypt(struct ablkcipher_request *req)
+static int tegra_hv_vse_aes_ofb_decrypt(struct skcipher_request *req)
 {
 	struct tegra_virtual_se_aes_req_context *req_ctx =
-			ablkcipher_request_ctx(req);
+			skcipher_request_ctx(req);
 
 	req_ctx->encrypt = false;
 	req_ctx->op_mode = AES_OFB;
@@ -2547,13 +2651,9 @@ static int tegra_hv_vse_cmac_final(struct ahash_request *req)
 	if (use_orig_iv) {
 		ivc_tx->args.aes.op_cmac.ivsel = AES_ORIGINAL_IV;
 	} else {
-		ivc_tx->args.aes.op_cmac.ivsel = AES_UPDATED_IV;
-		err = tegra_hv_vse_aes_set_keyiv(se_dev, piv_buf,
-				cmac_ctx->keylen,
-				cmac_ctx->aes_keyslot,
-				AES_KEYTBL_TYPE_UIV);
-		if (err)
-			goto exit;
+		for (i = 0; i < TEGRA_VIRTUAL_SE_AES_BLOCK_SIZE; i++)
+			cmac_buffer[i] ^= piv_buf[i];
+		ivc_tx->args.aes.op_cmac.ivsel = AES_ORIGINAL_IV;
 	}
 	result_dma_addr = dma_map_single(se_dev->dev,
 				req->result,
@@ -2622,7 +2722,7 @@ static int tegra_hv_vse_cmac_finup(struct ahash_request *req)
 	if (atomic_read(&se_dev->se_suspended))
 		return -ENODEV;
 
-	return 0;
+	return tegra_hv_vse_cmac_final(req);
 }
 
 static int tegra_hv_vse_cmac_digest(struct ahash_request *req)
@@ -2654,9 +2754,30 @@ static int tegra_hv_vse_cmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	u8 const rb = 0x87;
 	u8 msb;
 	int time_left;
+	s8 label[VIRTUAL_SE_AES_MAX_KEY_SIZE];
+	s32 slot;
 
 	if (!ctx)
 		return -EINVAL;
+
+	/* format: 'NVSEAES 1234567\0' */
+	if (!se_dev->disable_keyslot_label) {
+		bool is_keyslot_label = strnlen(key, keylen) < keylen &&
+			sscanf(key, "%s %d", label, &slot) == 2 &&
+			!strcmp(label, TEGRA_VIRTUAL_SE_AES_KEYSLOT_LABEL);
+
+		if (is_keyslot_label) {
+			if (slot < 0 || slot > 15) {
+				dev_err(se_dev->dev,
+					"\n Invalid keyslot: %u\n", slot);
+				return -EINVAL;
+			}
+			ctx->keylen = keylen;
+			ctx->aes_keyslot = (u32)slot;
+			ctx->is_key_slot_allocated = true;
+			ctx->is_keyslot_label = is_keyslot_label;
+		}
+	}
 
 	ivc_req_msg = devm_kzalloc(se_dev->dev, sizeof(*ivc_req_msg),
 					GFP_KERNEL);
@@ -2841,6 +2962,10 @@ static void tegra_hv_vse_cmac_cra_exit(struct crypto_tfm *tfm)
 
 	if (!ctx->is_key_slot_allocated)
 		return;
+
+	if (ctx->is_keyslot_label)
+		return;
+
 	ivc_req_msg = devm_kzalloc(se_dev->dev, sizeof(*ivc_req_msg),
 				GFP_KERNEL);
 	if (!ivc_req_msg)
@@ -2952,7 +3077,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 				sizeof(*ivc_req_msg),
 				GFP_KERNEL);
 	if (!ivc_req_msg)
-		return -ENOMEM;
+		return 0;
 
 	ivc_tx = &ivc_req_msg->d[0].tx;
 	ivc_req_msg->hdr.num_reqs = 1;
@@ -2960,7 +3085,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 	if (!priv) {
 		dev_err(se_dev->dev, "Priv Data allocation failed\n");
 		devm_kfree(se_dev->dev, ivc_req_msg);
-		return -ENOMEM;
+		return 0;
 	}
 
 	for (j = 0; j <= num_blocks; j++) {
@@ -2982,14 +3107,14 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 		/* Return error if engine is in suspended state */
 		if (atomic_read(&se_dev->se_suspended)) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = -ENODEV;
+			dlen = 0;
 			goto exit;
 		}
 		err = tegra_hv_vse_send_ivc(se_dev, pivck, ivc_req_msg,
 				sizeof(struct tegra_virtual_se_ivc_msg_t));
 		if (err) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = err;
+			dlen = 0;
 			goto exit;
 		}
 
@@ -2998,7 +3123,7 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 		mutex_unlock(&se_dev->server_lock);
 		if (time_left == 0) {
 			dev_err(se_dev->dev, "%s timeout\n", __func__);
-			dlen = -ETIMEDOUT;
+			dlen = 0;
 			goto exit;
 		}
 
@@ -3012,11 +3137,6 @@ static int tegra_hv_vse_rng_drbg_get_random(struct crypto_rng *tfm,
 				TEGRA_VIRTUAL_SE_RNG_DT_SIZE);
 		}
 	}
-	/*
-	 * According to include/crypto/rng.h, this function should
-	 * return 0 for success, < 0 errorcode otherwise.
-	 */
-	dlen = 0;
 exit:
 	devm_kfree(se_dev->dev, priv);
 	devm_kfree(se_dev->dev, ivc_req_msg);
@@ -3053,7 +3173,7 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 				sizeof(*ivc_req_msg),
 				GFP_KERNEL);
 	if (!ivc_req_msg)
-		return -ENOMEM;
+		return 0;
 
 	ivc_tx = &ivc_req_msg->d[0].tx;
 	ivc_req_msg->hdr.num_reqs = 1;
@@ -3061,7 +3181,7 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 	if (!priv) {
 		dev_err(se_dev->dev, "Priv Data allocation failed\n");
 		devm_kfree(se_dev->dev, ivc_req_msg);
-		return -ENOMEM;
+		return 0;
 	}
 
 	for (j = 0; j <= num_blocks; j++) {
@@ -3085,33 +3205,23 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 		mutex_lock(&se_dev->server_lock);
 		if (atomic_read(&se_dev->se_suspended)) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = -ENODEV;
+			dlen = 0;
 			goto exit;
 		}
 		err = tegra_hv_vse_send_ivc(se_dev, pivck, ivc_req_msg,
 				sizeof(struct tegra_virtual_se_ivc_msg_t));
 		if (err) {
 			mutex_unlock(&se_dev->server_lock);
-			dlen = err;
+			dlen = 0;
 			goto exit;
 		}
 
 		time_left = wait_for_completion_timeout(&priv->alg_complete,
 				TEGRA_HV_VSE_TIMEOUT);
 		mutex_unlock(&se_dev->server_lock);
-		if (time_left == 0) {
-			dev_err(se_dev->dev, "%s server timeout\n", __func__);
-			dlen = -ETIMEDOUT;
-			goto exit;
-		}
-		else if (priv->rng1.status == (u8)TEGRA_VSE_STATUS_TIMEOUT) {
-			dev_dbg(se_dev->dev, "%s rng1 hw busy\n", __func__);
-			dlen = -EAGAIN;
-			goto exit;
-		} else if (priv->rng1.status) {
-			dev_err(se_dev->dev, "%s rng1 err %x\n", __func__,
-					priv->rng1.status);
-			dlen = -ENODATA;
+		if ((time_left == 0) || (priv->rng1.status)) {
+			dev_err(se_dev->dev, "%s rng1 failed\n", __func__);
+			dlen = 0;
 			goto exit;
 		}
 		rdata_addr =
@@ -3125,11 +3235,6 @@ static int tegra_hv_vse_rng1_get_trng(struct crypto_rng *tfm,
 		}
 		total -= TEGRA_VIRTUAL_SE_RNG1_SIZE;
 	}
-	/*
-	 * According to include/crypto/rng.h, this function should
-	 * return 0 for success, < 0 errorcode otherwise.
-	 */
-	dlen = 0;
 exit:
 	devm_kfree(se_dev->dev, priv);
 	devm_kfree(se_dev->dev, ivc_req_msg);
@@ -3159,10 +3264,10 @@ static void tegra_hv_vse_rng1_trng_exit(struct crypto_tfm *tfm)
 {
 }
 
-static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
+static int tegra_hv_vse_aes_setkey(struct crypto_skcipher *tfm,
 	const u8 *key, u32 keylen)
 {
-	struct tegra_virtual_se_aes_context *ctx = crypto_ablkcipher_ctx(tfm);
+	struct tegra_virtual_se_aes_context *ctx = crypto_skcipher_ctx(tfm);
 	struct tegra_virtual_se_dev *se_dev = g_virtual_se_dev[VIRTUAL_SE_AES1];
 	struct tegra_virtual_se_ivc_msg_t *ivc_req_msg = NULL;
 	struct tegra_virtual_se_ivc_tx_msg_t *ivc_tx;
@@ -3175,6 +3280,17 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 
 	if (!ctx)
 		return -EINVAL;
+
+	if (((keylen >> AES_KEY_IN_MEM_OFFSET) == AES_STORE_KEY_IN_MEM)) {
+		/* Store key in context */
+		ctx->key_in_mem = true;
+		ctx->keylen = (keylen & TEGRA_VIRTUAL_SE_KEY_LEN_MASK);
+		ctx->aes_keyslot = TEGRA_VIRTUAL_SE_RESERVED_KEY_SLOT;
+		memcpy(ctx->key, key, ctx->keylen);
+		ctx->is_key_slot_allocated = true;
+		return 0;
+	}
+	ctx->key_in_mem = false;
 
 	/* format: 'NVSEAES 1234567\0' */
 	if (!se_dev->disable_keyslot_label) {
@@ -3191,25 +3307,25 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 			ctx->keylen = keylen;
 			ctx->aes_keyslot = (u32)slot;
 			ctx->is_key_slot_allocated = true;
-			ctx->is_keyslot_label = true;
+			ctx->is_keyslot_label = is_keyslot_label;
 			return tegra_hv_vse_aes_set_keyiv(se_dev, (u8 *)key,
-					keylen, slot, AES_KEYTBL_TYPE_KEY);
+					keylen, (u8)slot, AES_KEYTBL_TYPE_KEY);
 		}
 	}
 
-	priv = mempool_alloc(se_dev->priv_pool, GFP_NOFS);
+	priv = devm_kzalloc(se_dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-	memset(priv, 0, sizeof(*priv));
 
 	if (!ctx->is_key_slot_allocated) {
-		ivc_req_msg = mempool_alloc(se_dev->req_pool, GFP_NOFS);
+		ivc_req_msg = devm_kzalloc(se_dev->dev,
+				sizeof(struct tegra_virtual_se_ivc_msg_t),
+				GFP_KERNEL);
 		if (!ivc_req_msg) {
 			dev_err(se_dev->dev, "\n Memory allocation failed\n");
-			mempool_free(priv, se_dev->priv_pool);
+			devm_kfree(se_dev->dev, priv);
 			return -ENOMEM;
 		}
-		memset(ivc_req_msg, 0, sizeof(*ivc_req_msg));
 
 		/* Allocate AES key slot */
 		ivc_req_msg->hdr.num_reqs = 1;
@@ -3229,7 +3345,7 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 		/* Return error if engine is in suspended state */
 		if (atomic_read(&se_dev->se_suspended)) {
 			mutex_unlock(&se_dev->server_lock);
-			mempool_free(priv, se_dev->priv_pool);
+			devm_kfree(se_dev->dev, priv);
 			err = -ENODEV;
 			goto free_mem;
 		}
@@ -3237,7 +3353,7 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 				sizeof(struct tegra_virtual_se_ivc_msg_t));
 		if (err) {
 			mutex_unlock(&se_dev->server_lock);
-			mempool_free(priv, se_dev->priv_pool);
+			devm_kfree(se_dev->dev, priv);
 			goto free_mem;
 		}
 
@@ -3245,7 +3361,7 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 				TEGRA_HV_VSE_TIMEOUT);
 		if (err == 0) {
 			mutex_unlock(&se_dev->server_lock);
-			mempool_free(priv, se_dev->priv_pool);
+			devm_kfree(se_dev->dev, priv);
 			dev_err(se_dev->dev, "%s timeout\n", __func__);
 			err = -ETIMEDOUT;
 			goto free_mem;
@@ -3254,7 +3370,7 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 		ctx->aes_keyslot = priv->slot_num;
 		ctx->is_key_slot_allocated = true;
 	}
-	mempool_free(priv, se_dev->priv_pool);
+	devm_kfree(se_dev->dev, priv);
 
 	ctx->keylen = keylen;
 	err = tegra_hv_vse_aes_set_keyiv(se_dev, (u8 *)key, keylen,
@@ -3262,93 +3378,88 @@ static int tegra_hv_vse_aes_setkey(struct crypto_ablkcipher *tfm,
 
 free_mem:
 	if (ivc_req_msg)
-		mempool_free(ivc_req_msg, se_dev->req_pool);
+		devm_kfree(se_dev->dev, ivc_req_msg);
 	return err;
 }
 
-static struct crypto_alg aes_algs[] = {
+#define HV_AES_CTX_SIZE sizeof(struct tegra_virtual_se_aes_context)
+
+static struct skcipher_alg aes_algs[] = {
 	{
-		.cra_name = "cbc(aes)",
-		.cra_driver_name = "cbc-aes-tegra",
-		.cra_priority = 400,
-		.cra_flags = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
-		.cra_blocksize = VIRTUAL_SE_AES_BLOCK_SIZE,
-		.cra_ctxsize = sizeof(struct tegra_virtual_se_aes_context),
-		.cra_alignmask = 0,
-		.cra_type = &crypto_ablkcipher_type,
-		.cra_module = THIS_MODULE,
-		.cra_init = tegra_hv_vse_aes_cra_init,
-		.cra_exit = tegra_hv_vse_aes_cra_exit,
-		.cra_u.ablkcipher = {
-			.min_keysize = VIRTUAL_SE_AES_MIN_KEY_SIZE,
-			.max_keysize = VIRTUAL_SE_AES_MAX_KEY_SIZE,
-			.ivsize = VIRTUAL_SE_AES_IV_SIZE,
-			.setkey = tegra_hv_vse_aes_setkey,
-			.encrypt = tegra_hv_vse_aes_cbc_encrypt,
-			.decrypt = tegra_hv_vse_aes_cbc_decrypt,
-		}
-	}, {
-		.cra_name = "ecb(aes)",
-		.cra_driver_name = "ecb-aes-tegra",
-		.cra_priority = 400,
-		.cra_flags = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
-		.cra_blocksize = VIRTUAL_SE_AES_BLOCK_SIZE,
-		.cra_ctxsize = sizeof(struct tegra_virtual_se_aes_context),
-		.cra_alignmask = 0,
-		.cra_type = &crypto_ablkcipher_type,
-		.cra_module = THIS_MODULE,
-		.cra_init = tegra_hv_vse_aes_cra_init,
-		.cra_exit = tegra_hv_vse_aes_cra_exit,
-		.cra_u.ablkcipher = {
-			.min_keysize = VIRTUAL_SE_AES_MIN_KEY_SIZE,
-			.max_keysize = VIRTUAL_SE_AES_MAX_KEY_SIZE,
-			.ivsize = VIRTUAL_SE_AES_IV_SIZE,
-			.setkey = tegra_hv_vse_aes_setkey,
-			.encrypt = tegra_hv_vse_aes_ecb_encrypt,
-			.decrypt = tegra_hv_vse_aes_ecb_decrypt,
-		}
-	}, {
-		.cra_name = "ctr(aes)",
-		.cra_driver_name = "ctr-aes-tegra",
-		.cra_priority = 400,
-		.cra_flags = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
-		.cra_blocksize = VIRTUAL_SE_AES_BLOCK_SIZE,
-		.cra_ctxsize = sizeof(struct tegra_virtual_se_aes_context),
-		.cra_alignmask = 0,
-		.cra_type = &crypto_ablkcipher_type,
-		.cra_module = THIS_MODULE,
-		.cra_init = tegra_hv_vse_aes_cra_init,
-		.cra_exit = tegra_hv_vse_aes_cra_exit,
-		.cra_u.ablkcipher = {
-			.min_keysize = VIRTUAL_SE_AES_MIN_KEY_SIZE,
-			.max_keysize = VIRTUAL_SE_AES_MAX_KEY_SIZE,
-			.ivsize = VIRTUAL_SE_AES_IV_SIZE,
-			.setkey = tegra_hv_vse_aes_setkey,
-			.encrypt = tegra_hv_vse_aes_ctr_encrypt,
-			.decrypt = tegra_hv_vse_aes_ctr_decrypt,
-			.geniv = "eseqiv",
-		}
-	}, {
-		.cra_name = "ofb(aes)",
-		.cra_driver_name = "ofb-aes-tegra",
-		.cra_priority = 400,
-		.cra_flags = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
-		.cra_blocksize = VIRTUAL_SE_AES_BLOCK_SIZE,
-		.cra_ctxsize = sizeof(struct tegra_virtual_se_aes_context),
-		.cra_alignmask = 0,
-		.cra_type = &crypto_ablkcipher_type,
-		.cra_module = THIS_MODULE,
-		.cra_init = tegra_hv_vse_aes_cra_init,
-		.cra_exit = tegra_hv_vse_aes_cra_exit,
-		.cra_u.ablkcipher = {
-			.min_keysize = VIRTUAL_SE_AES_MIN_KEY_SIZE,
-			.max_keysize = VIRTUAL_SE_AES_MAX_KEY_SIZE,
-			.ivsize = VIRTUAL_SE_AES_IV_SIZE,
-			.setkey = tegra_hv_vse_aes_setkey,
-			.encrypt = tegra_hv_vse_aes_ofb_encrypt,
-			.decrypt = tegra_hv_vse_aes_ofb_decrypt,
-				.geniv = "eseqiv",
-		}
+		.base.cra_name		= "cbc(aes)",
+		.base.cra_driver_name	= "cbc-aes-tegra",
+		.base.cra_priority	= 400,
+		.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
+					  CRYPTO_ALG_ASYNC,
+		.base.cra_blocksize	= VIRTUAL_SE_AES_BLOCK_SIZE,
+		.base.cra_ctxsize	= HV_AES_CTX_SIZE,
+		.base.cra_alignmask	= 0,
+		.base.cra_module	= THIS_MODULE,
+		.init			= tegra_hv_vse_aes_cra_init,
+		.exit			= tegra_hv_vse_aes_cra_exit,
+		.setkey			= tegra_hv_vse_aes_setkey,
+		.encrypt		= tegra_hv_vse_aes_cbc_encrypt,
+		.decrypt		= tegra_hv_vse_aes_cbc_decrypt,
+		.min_keysize		= VIRTUAL_SE_AES_MIN_KEY_SIZE,
+		.max_keysize		= VIRTUAL_SE_AES_MAX_KEY_SIZE,
+		.ivsize			= VIRTUAL_SE_AES_IV_SIZE,
+	},
+	{
+		.base.cra_name		= "ecb(aes)",
+		.base.cra_driver_name	= "ecb-aes-tegra",
+		.base.cra_priority	= 400,
+		.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
+					  CRYPTO_ALG_ASYNC,
+		.base.cra_blocksize	= VIRTUAL_SE_AES_BLOCK_SIZE,
+		.base.cra_ctxsize	= HV_AES_CTX_SIZE,
+		.base.cra_alignmask	= 0,
+		.base.cra_module	= THIS_MODULE,
+		.init			= tegra_hv_vse_aes_cra_init,
+		.exit			= tegra_hv_vse_aes_cra_exit,
+		.setkey			= tegra_hv_vse_aes_setkey,
+		.encrypt		= tegra_hv_vse_aes_ecb_encrypt,
+		.decrypt		= tegra_hv_vse_aes_ecb_decrypt,
+		.min_keysize		= VIRTUAL_SE_AES_MIN_KEY_SIZE,
+		.max_keysize		= VIRTUAL_SE_AES_MAX_KEY_SIZE,
+		.ivsize			= VIRTUAL_SE_AES_IV_SIZE,
+	},
+	{
+		.base.cra_name		= "ctr(aes)",
+		.base.cra_driver_name	= "ctr-aes-tegra",
+		.base.cra_priority	= 400,
+		.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
+					  CRYPTO_ALG_ASYNC,
+		.base.cra_blocksize	= VIRTUAL_SE_AES_BLOCK_SIZE,
+		.base.cra_ctxsize	= HV_AES_CTX_SIZE,
+		.base.cra_alignmask	= 0,
+		.base.cra_module	= THIS_MODULE,
+		.init			= tegra_hv_vse_aes_cra_init,
+		.exit			= tegra_hv_vse_aes_cra_exit,
+		.setkey			= tegra_hv_vse_aes_setkey,
+		.encrypt		= tegra_hv_vse_aes_ctr_encrypt,
+		.decrypt		= tegra_hv_vse_aes_ctr_decrypt,
+		.min_keysize		= VIRTUAL_SE_AES_MIN_KEY_SIZE,
+		.max_keysize		= VIRTUAL_SE_AES_MAX_KEY_SIZE,
+		.ivsize			= VIRTUAL_SE_AES_IV_SIZE,
+	},
+	{
+		.base.cra_name		= "ofb(aes)",
+		.base.cra_driver_name	= "ofb-aes-tegra",
+		.base.cra_priority	= 400,
+		.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
+					  CRYPTO_ALG_ASYNC,
+		.base.cra_blocksize	= VIRTUAL_SE_AES_BLOCK_SIZE,
+		.base.cra_ctxsize	= HV_AES_CTX_SIZE,
+		.base.cra_alignmask	= 0,
+		.base.cra_module	= THIS_MODULE,
+		.init			= tegra_hv_vse_aes_cra_init,
+		.exit			= tegra_hv_vse_aes_cra_exit,
+		.setkey			= tegra_hv_vse_aes_setkey,
+		.encrypt		= tegra_hv_vse_aes_ofb_encrypt,
+		.decrypt		= tegra_hv_vse_aes_ofb_decrypt,
+		.min_keysize		= VIRTUAL_SE_AES_MIN_KEY_SIZE,
+		.max_keysize		= VIRTUAL_SE_AES_MAX_KEY_SIZE,
+		.ivsize			= VIRTUAL_SE_AES_IV_SIZE,
 	},
 };
 
@@ -3632,12 +3743,6 @@ MODULE_DEVICE_TABLE(of, tegra_hv_vse_of_match);
 
 static irqreturn_t tegra_vse_irq_handler(int irq, void *data)
 {
-	int notified;
-
-	notified = tegra_hv_ivc_channel_notified(g_ivck);
-	if (notified != 0) // Channel is not in sync.
-		return IRQ_HANDLED;
-
 	if (tegra_hv_ivc_can_read(g_ivck))
 		complete(&tegra_vse_complete);
 
@@ -3652,6 +3757,7 @@ static int tegra_vse_kthread(void *unused)
 	int err = 0;
 	struct tegra_vse_tag *p_dat;
 	struct tegra_vse_priv_data *priv;
+	int timeout;
 	struct tegra_virtual_se_ivc_resp_msg_t *ivc_rx;
 	struct tegra_virtual_se_ivc_rng *rng_res;
 	int ret;
@@ -3676,16 +3782,36 @@ static int tegra_vse_kthread(void *unused)
 			reinit_completion(&tegra_vse_complete);
 			continue;
 		}
+		timeout = TEGRA_VIRTUAL_SE_TIMEOUT_1S;
+		while (tegra_hv_ivc_channel_notified(pivck) != 0) {
+			if (!timeout) {
+				reinit_completion(
+					&tegra_vse_complete);
+				pr_err("%s:%d ivc channel_notifier timeout\n",
+					__func__, __LINE__);
+				err = -EAGAIN;
+				break;
+			}
+			udelay(1);
+			timeout--;
+		}
+
+		if (err == -EAGAIN) {
+			err = 0;
+			continue;
+		}
+
 
 		while (tegra_hv_ivc_can_read(pivck)) {
 			read_size = tegra_hv_ivc_read(pivck,
 					ivc_resp_msg,
 					sizeof(struct tegra_virtual_se_ivc_msg_t));
-			if (read_size < sizeof(struct tegra_virtual_se_ivc_msg_t) ) {
-				pr_err("tegra_hv_ivc_read returned error %d\n", read_size);
-				break;
+			if (read_size > 0 &&
+					read_size < sizeof(struct tegra_virtual_se_ivc_msg_t)) {
+				dev_err(se_dev->dev,
+					"Wrong read msg len %d\n", read_size);
+				continue;
 			}
-
 			p_dat =
 				(struct tegra_vse_tag *)ivc_resp_msg->hdr.tag;
 			priv = (struct tegra_vse_priv_data *)p_dat->priv_data;
@@ -3701,7 +3827,7 @@ static int tegra_vse_kthread(void *unused)
 					(s8)ivc_resp_msg->d[0].rx.status;
 				priv->call_back_vse(priv);
 				atomic_sub(1, &se_dev->ivc_count);
-				mempool_free(priv, se_dev->priv_pool);
+				devm_kfree(se_dev->dev, priv);
 				break;
 			case VIRTUAL_SE_KEY_SLOT:
 				ivc_rx = &ivc_resp_msg->d[0].rx;
@@ -3728,7 +3854,6 @@ static int tegra_vse_kthread(void *unused)
 			default:
 				dev_err(se_dev->dev, "Unknown command\n");
 			}
-			complete(&tegra_vse_complete);
 		}
 	}
 	kfree(ivc_resp_msg);
@@ -3759,8 +3884,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 	}
 
 	if (engine_id != VIRTUAL_SE_RNG1) {
-		se_dev->stream_id = iommu_get_hwid(pdev->dev.archdata.iommu,
-				&pdev->dev, 0);
+		se_dev->stream_id = tegra_hv_get_hwid(pdev, 0);
 		dev_info(se_dev->dev, "Virtual SE Stream ID: %d",
 			se_dev->stream_id);
 	}
@@ -3783,14 +3907,6 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 		tegra_hv_ivc_channel_reset(g_ivck);
 		init_completion(&tegra_vse_complete);
 
-		if (devm_request_irq(se_dev->dev, g_ivck->irq,
-			tegra_vse_irq_handler, 0, "vse", se_dev)) {
-			dev_err(se_dev->dev,
-				"Failed to request irq %d\n", g_ivck->irq);
-			err = -EINVAL;
-			goto exit;
-		}
-
 		tegra_vse_task = kthread_run(tegra_vse_kthread,
 				NULL, "tegra_vse_kthread");
 		if (IS_ERR(tegra_vse_task)) {
@@ -3800,6 +3916,13 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 			goto exit;
 		}
 
+		if (request_irq(g_ivck->irq,
+			tegra_vse_irq_handler, 0, "vse", se_dev)) {
+			dev_err(se_dev->dev,
+				"Failed to request irq %d\n", g_ivck->irq);
+			err = -EINVAL;
+			goto exit;
+		}
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "disable-keyslot-label"))
@@ -3821,7 +3944,6 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				"rng alg register failed. Err %d\n", err);
 			goto exit;
 		}
-		is_aes0_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_AES1) {
@@ -3838,30 +3960,11 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 			goto exit;
 		}
 
-		atomic_set(&se_dev->ivc_count, 0);
-
-		se_dev->priv_pool = mempool_create_kmalloc_pool(
-			TEGRA_HV_VSE_MEMPOOL_SIZE,
-			sizeof(struct tegra_vse_priv_data));
-		se_dev->req_pool = mempool_create_kmalloc_pool(
-			TEGRA_HV_VSE_MEMPOOL_SIZE,
-			sizeof(struct tegra_virtual_se_ivc_msg_t));
-		if (!se_dev->priv_pool || !se_dev->req_pool) {
-			err = -ENOMEM;
-			mempool_destroy(se_dev->priv_pool);
-			mempool_destroy(se_dev->req_pool);
-			dev_err(&pdev->dev,
-				"mempool_create failed for priv or req struct\n");
+		err = crypto_register_skciphers(aes_algs, ARRAY_SIZE(aes_algs));
+		if (err) {
+			dev_err(&pdev->dev, "aes alg register failed: %d\n",
+				err);
 			goto exit;
-		}
-
-		for (i = 0; i < ARRAY_SIZE(aes_algs); i++) {
-			err = crypto_register_alg(&aes_algs[i]);
-			if (err) {
-				dev_err(&pdev->dev,
-					"aes alg register failed idx[%d]\n", i);
-				goto exit;
-			}
 		}
 
 		err = crypto_register_ahash(&cmac_alg);
@@ -3870,7 +3973,7 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				"cmac alg register failed. Err %d\n", err);
 			goto exit;
 		}
-		is_aes1_registered = true;
+		atomic_set(&se_dev->ivc_count, 0);
 	}
 
 	if (engine_id == VIRTUAL_SE_SHA) {
@@ -3882,7 +3985,6 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				goto exit;
 			}
 		}
-		is_sha_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_RSA) {
@@ -3894,7 +3996,6 @@ static int tegra_hv_vse_probe(struct platform_device *pdev)
 				goto exit;
 			}
 		}
-		is_rsa_registered = true;
 	}
 
 	if (engine_id == VIRTUAL_SE_RNG1) {
@@ -3937,36 +4038,15 @@ static void tegra_hv_vse_shutdown(struct platform_device *pdev)
 static int tegra_hv_vse_remove(struct platform_device *pdev)
 {
 	int i;
-	struct tegra_virtual_se_dev *se_dev = platform_get_drvdata(pdev);
 
-	complete_all(&tegra_vse_complete);
-	kthread_stop(tegra_vse_task);
-	if (is_aes0_registered)
-		crypto_unregister_rng(&rng_alg[0]);
+	for (i = 0; i < ARRAY_SIZE(sha_algs); i++)
+		crypto_unregister_ahash(&sha_algs[i]);
 
-	if (is_aes1_registered) {
-		crypto_unregister_ahash(&cmac_alg);
-		for (i = 0; i < (ARRAY_SIZE(aes_algs)); i++)
-			crypto_unregister_alg(&aes_algs[i]);
-	}
-
-	if (is_sha_registered) {
-		for (i = 0; i < ARRAY_SIZE(sha_algs); i++)
-			crypto_unregister_ahash(&sha_algs[i]);
-	}
-
-	if (is_rsa_registered) {
-		for (i = 0; i < ARRAY_SIZE(rsa_algs); i++)
-			crypto_unregister_ahash(&rsa_algs[i]);
-	}
+	for (i = 0; i < ARRAY_SIZE(rsa_algs); i++)
+		crypto_unregister_ahash(&rsa_algs[i]);
 
 	if (is_rng1_registered)
 		crypto_unregister_rng(&rng1_trng_alg[0]);
-
-	tegra_hv_ivc_unreserve(g_ivck);
-	mempool_destroy(se_dev->priv_pool);
-	mempool_destroy(se_dev->req_pool);
-	devm_kfree(&pdev->dev, se_dev);
 
 	return 0;
 }

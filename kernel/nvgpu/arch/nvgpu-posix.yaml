@@ -1,0 +1,176 @@
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# POSIX elements and units in nvgpu.
+#
+
+# TODO: break this up into individual units. Will be critical for re-use in
+# QNX.
+all:
+  safe: no
+  owner: Alex W
+  sources: [ os/posix/error_notifier.c,
+             os/posix/firmware.c,
+             os/posix/fuse.c,
+             os/posix/gk20a.c,
+             os/posix/log.c,
+             os/posix/nvgpu.c,
+             os/posix/os_posix.h,
+             os/posix/posix-channel.c,
+             os/posix/posix-comptags.c,
+             os/posix/posix-dma.c,
+             os/posix/posix-fault-injection.c,
+             os/posix/posix-nvgpu_mem.c,
+             os/posix/posix-tsg.c,
+             os/posix/posix-vm.c,
+             os/posix/posix-vm_remap.c,
+             os/posix/soc.c,
+             os/posix/bsearch.c,
+             os/posix/posix-clk_arb.c,
+             os/posix/posix-dt.c,
+             os/posix/posix-io.c,
+             os/posix/posix-nvhost.c,
+             os/posix/posix-nvlink.c,
+             os/posix/posix-vgpu.c,
+             os/posix/posix-vidmem.c,
+             os/posix/fecs_trace_posix.c,
+             os/posix/stubs.c,
+             os/posix/posix-vpr.c,
+             os/posix/mock-registers.c,
+             os/posix/contig_pool.c ]
+
+headers:
+  safe: no
+  owner: Alex W
+  sources: [ include/nvgpu/posix/barrier.h,
+             include/nvgpu/posix/dma.h,
+             include/nvgpu/posix/io.h,
+             include/nvgpu/posix/mock-regs.h,
+             include/nvgpu/posix/log.h,
+             include/nvgpu/posix/nvgpu_mem.h,
+             include/nvgpu/posix/pci.h,
+             include/nvgpu/posix/posix-fault-injection.h,
+             include/nvgpu/posix/posix-channel.h,
+             include/nvgpu/posix/probe.h,
+             include/nvgpu/posix/soc_fuse.h,
+             include/nvgpu/posix/vm.h,
+             include/nvgpu/posix/posix-vm_remap.h,
+             include/nvgpu/posix/posix_vidmem.h,
+             include/nvgpu/posix/posix-nvhost.h,
+             include/nvgpu/posix/trace_gk20a.h ]
+
+queue:
+  safe: yes
+  owner: Rajesh D
+  sources: [ os/posix/queue.c,
+             include/nvgpu/posix/queue.h ]
+
+sort:
+  safe: no
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/sort.h ]
+  deps:
+
+bug:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/bug.c,
+             include/nvgpu/posix/bug.h ]
+  deps:
+
+lock:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/lock.c,
+             include/nvgpu/posix/lock.h ]
+
+rwsem:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/rwsem.c,
+             include/nvgpu/posix/rwsem.h ]
+  deps:
+
+size:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/sizes.h ]
+  deps:
+
+cond:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/cond.c,
+             include/nvgpu/posix/cond.h ]
+  deps:
+
+threads:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/thread.c,
+             include/nvgpu/posix/thread.h ]
+  deps:
+
+timers:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/timers.c,
+             os/posix/periodic_timer.c,
+             include/nvgpu/posix/timers.h,
+             include/nvgpu/posix/periodic_timer.h ]
+  deps:
+
+atomic:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/atomic.h ]
+  deps:
+
+os_sched:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/os_sched.c ]
+
+kmem:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/kmem.c,
+             include/nvgpu/posix/kmem.h ]
+  deps:
+
+types:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/types.h ]
+  deps:
+
+utils:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/utils.h ]
+  deps:
+
+bitops:
+  safe: yes
+  owner: Ajesh K
+  sources: [ os/posix/bitmap.c,
+             include/nvgpu/posix/bitops.h ]
+  deps:
+
+file_ops:
+  safe: yes
+  owner: Prateek S
+  sources: [ os/posix/file_ops.c,
+             include/nvgpu/posix/file_ops.h ]
+  deps:
+
+log2:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/log2.h ]
+  deps:
+
+circ_buf:
+  safe: yes
+  owner: Ajesh K
+  sources: [ include/nvgpu/posix/circ_buf.h ]
+  deps:

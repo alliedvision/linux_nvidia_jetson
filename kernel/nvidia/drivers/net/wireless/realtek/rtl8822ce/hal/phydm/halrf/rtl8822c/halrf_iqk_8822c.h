@@ -29,7 +29,7 @@
 #if (RTL8822C_SUPPORT == 1)
 /*--------------------------Define Parameters-------------------------------*/
 #define MAC_REG_NUM_8822C 3
-#define BB_REG_NUM_8822C 11
+#define BB_REG_NUM_8822C 21
 #define RF_REG_NUM_8822C 3
 #define IQK_DELAY_8822C 2
 #define IQK_STEP_8822C 7
@@ -61,12 +61,6 @@ void phy_iq_calibrate_8822c(
 	boolean clear,
 	boolean segment_iqk);
 
-void do_imr_test_8822c(
-	void *dm_void);
-
-void do_lok_8822c(
-	void *dm_void);
-
 void iqk_get_cfir_8822c(void *dm_void, u8 idx, u8 path, boolean debug);
 
 void iqk_set_cfir_8822c(void *dm_void, u8 idx, u8 path, boolean debug);
@@ -83,9 +77,11 @@ void phy_iqk_dbg_cfir_reload_8822c(void *dm_void);
 
 void phy_iqk_dbg_cfir_write_8822c(void *dm_void, u8 type, u32 path, u32 idx, u32 i, u32 data);
 
-void phy_iqk_dbg_cfir_backup_show_8822b(void *dm_void);
+void phy_iqk_dbg_cfir_backup_show_8822c(void *dm_void);
 
 void iqk_info_rsvd_page_8822c(void *dm_void, u8 *buf, u32 *buf_size);
+
+void iqk_power_save_8822c(void *dm_void, boolean is_power_save);
 
 
 #else /* (RTL8822C_SUPPORT == 0)*/

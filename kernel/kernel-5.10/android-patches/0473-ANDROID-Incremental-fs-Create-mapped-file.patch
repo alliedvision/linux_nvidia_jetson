@@ -1,0 +1,858 @@
+From 0e5b53f7a77be697764b9ce38ad1267e4c5c5e9a Mon Sep 17 00:00:00 2001
+From: Paul Lawrence <paullawrence@google.com>
+Date: Wed, 27 May 2020 13:57:34 -0700
+Subject: [PATCH 473/830] ANDROID: Incremental fs: Create mapped file
+X-NVConfidentiality: public
+
+Bug: 160634482
+Test: incfs_test passes
+Signed-off-by: Paul Lawrence <paullawrence@google.com>
+Change-Id: Ic2ac8dfccd60f6c9c72c38bf323997fce7546c1c
+---
+ fs/incfs/data_mgmt.c                          |  88 +++++++
+ fs/incfs/data_mgmt.h                          |   5 +
+ fs/incfs/format.c                             |  39 ++-
+ fs/incfs/format.h                             |  45 ++--
+ fs/incfs/vfs.c                                | 232 +++++++++++++++---
+ include/uapi/linux/incrementalfs.h            |  50 ++++
+ .../selftests/filesystems/incfs/incfs_test.c  | 167 ++++++++++++-
+ 7 files changed, 571 insertions(+), 55 deletions(-)
+
+diff --git a/fs/incfs/data_mgmt.c b/fs/incfs/data_mgmt.c
+index 819b437218d2..ccb1b0d1f3c7 100644
+--- a/fs/incfs/data_mgmt.c
++++ b/fs/incfs/data_mgmt.c
+@@ -8,6 +8,7 @@
+ #include <linux/ktime.h>
+ #include <linux/lz4.h>
+ #include <linux/mm.h>
++#include <linux/namei.h>
+ #include <linux/pagemap.h>
+ #include <linux/slab.h>
+ #include <linux/types.h>
+@@ -123,6 +124,86 @@ static void data_file_segment_init(struct data_file_segment *segment)
+ 	INIT_LIST_HEAD(&segment->reads_list_head);
+ }
+ 
++char *file_id_to_str(incfs_uuid_t id)
++{
++	char *result = kmalloc(1 + sizeof(id.bytes) * 2, GFP_NOFS);
++	char *end;
++
++	if (!result)
++		return NULL;
++
++	end = bin2hex(result, id.bytes, sizeof(id.bytes));
++	*end = 0;
++	return result;
++}
++
++struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name)
++{
++	struct inode *inode;
++	struct dentry *result = NULL;
++
++	if (!parent)
++		return ERR_PTR(-EFAULT);
++
++	inode = d_inode(parent);
++	inode_lock_nested(inode, I_MUTEX_PARENT);
++	result = lookup_one_len(name, parent, strlen(name));
++	inode_unlock(inode);
++
++	if (IS_ERR(result))
++		pr_warn("%s err:%ld\n", __func__, PTR_ERR(result));
++
++	return result;
++}
++
++static struct data_file *handle_mapped_file(struct mount_info *mi,
++					    struct data_file *df)
++{
++	char *file_id_str;
++	struct dentry *index_file_dentry;
++	struct path path;
++	struct file *bf;
++	struct data_file *result = NULL;
++
++	file_id_str = file_id_to_str(df->df_id);
++	if (!file_id_str)
++		return ERR_PTR(-ENOENT);
++
++	index_file_dentry = incfs_lookup_dentry(mi->mi_index_dir,
++						file_id_str);
++	kfree(file_id_str);
++	if (!index_file_dentry)
++		return ERR_PTR(-ENOENT);
++	if (IS_ERR(index_file_dentry))
++		return (struct data_file *)index_file_dentry;
++	if (!d_really_is_positive(index_file_dentry)) {
++		result = ERR_PTR(-ENOENT);
++		goto out;
++	}
++
++	path = (struct path) {
++		.mnt = mi->mi_backing_dir_path.mnt,
++		.dentry = index_file_dentry
++	};
++
++	bf = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE, mi->mi_owner);
++	if (IS_ERR(bf)) {
++		result = (struct data_file *)bf;
++		goto out;
++	}
++
++	result = incfs_open_data_file(mi, bf);
++	fput(bf);
++	if (IS_ERR(result))
++		goto out;
++
++	result->df_mapped_offset = df->df_metadata_off;
++
++out:
++	dput(index_file_dentry);
++	return result;
++}
++
+ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ {
+ 	struct data_file *df = NULL;
+@@ -167,6 +248,13 @@ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf)
+ 	if (size > 0)
+ 		df->df_data_block_count = get_blocks_count_for_size(size);
+ 
++	if (df->df_header_flags & INCFS_FILE_MAPPED) {
++		struct data_file *mapped_df = handle_mapped_file(mi, df);
++
++		incfs_free_data_file(df);
++		return mapped_df;
++	}
++
+ 	md_records = incfs_scan_metadata_chain(df);
+ 	if (md_records < 0)
+ 		error = md_records;
+diff --git a/fs/incfs/data_mgmt.h b/fs/incfs/data_mgmt.h
+index 88b0ec7cbd98..96b581a564bd 100644
+--- a/fs/incfs/data_mgmt.h
++++ b/fs/incfs/data_mgmt.h
+@@ -235,6 +235,9 @@ struct data_file {
+ 	/* Total number of blocks, data + hash */
+ 	int df_total_block_count;
+ 
++	/* For mapped files, the offset into the actual file */
++	loff_t df_mapped_offset;
++
+ 	struct file_attr n_attr;
+ 
+ 	struct mtree *df_hash_tree;
+@@ -271,6 +274,8 @@ int incfs_realloc_mount_info(struct mount_info *mi,
+ 
+ void incfs_free_mount_info(struct mount_info *mi);
+ 
++char *file_id_to_str(incfs_uuid_t id);
++struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name);
+ struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
+ void incfs_free_data_file(struct data_file *df);
+ 
+diff --git a/fs/incfs/format.c b/fs/incfs/format.c
+index 3261d5d4b8f6..a5239a5a17f5 100644
+--- a/fs/incfs/format.c
++++ b/fs/incfs/format.c
+@@ -233,8 +233,7 @@ int incfs_write_file_header_flags(struct backing_file_context *bfc, u32 flags)
+ 		return -EFAULT;
+ 
+ 	return write_to_bf(bfc, &flags, sizeof(flags),
+-			   offsetof(struct incfs_file_header,
+-				    fh_file_header_flags));
++			   offsetof(struct incfs_file_header, fh_flags));
+ }
+ 
+ /*
+@@ -385,7 +384,7 @@ int incfs_write_signature_to_backing_file(struct backing_file_context *bfc,
+ /*
+  * Write a backing file header
+  * It should always be called only on empty file.
+- * incfs_super_block.s_first_md_offset is 0 for now, but will be updated
++ * fh.fh_first_md_offset is 0 for now, but will be updated
+  * once first metadata record is added.
+  */
+ int incfs_write_fh_to_backing_file(struct backing_file_context *bfc,
+@@ -415,6 +414,38 @@ int incfs_write_fh_to_backing_file(struct backing_file_context *bfc,
+ 	return write_to_bf(bfc, &fh, sizeof(fh), file_pos);
+ }
+ 
++/*
++ * Write a backing file header for a mapping file
++ * It should always be called only on empty file.
++ */
++int incfs_write_mapping_fh_to_backing_file(struct backing_file_context *bfc,
++				incfs_uuid_t *uuid, u64 file_size, u64 offset)
++{
++	struct incfs_file_header fh = {};
++	loff_t file_pos = 0;
++
++	if (!bfc)
++		return -EFAULT;
++
++	fh.fh_magic = cpu_to_le64(INCFS_MAGIC_NUMBER);
++	fh.fh_version = cpu_to_le64(INCFS_FORMAT_CURRENT_VER);
++	fh.fh_header_size = cpu_to_le16(sizeof(fh));
++	fh.fh_original_offset = cpu_to_le64(offset);
++	fh.fh_data_block_size = cpu_to_le16(INCFS_DATA_FILE_BLOCK_SIZE);
++
++	fh.fh_mapped_file_size = cpu_to_le64(file_size);
++	fh.fh_original_uuid = *uuid;
++	fh.fh_flags = INCFS_FILE_MAPPED;
++
++	LOCK_REQUIRED(bfc->bc_mutex);
++
++	file_pos = incfs_get_end_offset(bfc->bc_file);
++	if (file_pos != 0)
++		return -EEXIST;
++
++	return write_to_bf(bfc, &fh, sizeof(fh), file_pos);
++}
++
+ /* Write a given data block and update file's blockmap to point it. */
+ int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
+ 				     struct mem_range block, int block_index,
+@@ -598,7 +629,7 @@ int incfs_read_file_header(struct backing_file_context *bfc,
+ 	if (file_size)
+ 		*file_size = le64_to_cpu(fh.fh_file_size);
+ 	if (flags)
+-		*flags = le32_to_cpu(fh.fh_file_header_flags);
++		*flags = le32_to_cpu(fh.fh_flags);
+ 	return 0;
+ }
+ 
+diff --git a/fs/incfs/format.h b/fs/incfs/format.h
+index d57a7b479721..c13b84d772cd 100644
+--- a/fs/incfs/format.h
++++ b/fs/incfs/format.h
+@@ -72,7 +72,7 @@
+  *
+  *
+  *              +-------------------------------------------+
+- *              |            incfs_super_block              |]---+
++ *              |            incfs_file_header              |]---+
+  *              +-------------------------------------------+    |
+  *              |                 metadata                  |<---+
+  *              |           incfs_file_signature            |]---+
+@@ -123,6 +123,7 @@ enum incfs_metadata_type {
+ 
+ enum incfs_file_header_flags {
+ 	INCFS_FILE_COMPLETE = 1 << 0,
++	INCFS_FILE_MAPPED = 1 << 1,
+ };
+ 
+ /* Header included at the beginning of all metadata records on the disk. */
+@@ -164,20 +165,33 @@ struct incfs_file_header {
+ 	__le16 fh_data_block_size;
+ 
+ 	/* File flags, from incfs_file_header_flags */
+-	__le32 fh_file_header_flags;
++	__le32 fh_flags;
+ 
+-	/* Offset of the first metadata record */
+-	__le64 fh_first_md_offset;
+-
+-	/*
+-	 * Put file specific information after this point
+-	 */
+-
+-	/* Full size of the file's content */
+-	__le64 fh_file_size;
+-
+-	/* File uuid */
+-	incfs_uuid_t fh_uuid;
++	union {
++		/* Standard incfs file */
++		struct {
++			/* Offset of the first metadata record */
++			__le64 fh_first_md_offset;
++
++			/* Full size of the file's content */
++			__le64 fh_file_size;
++
++			/* File uuid */
++			incfs_uuid_t fh_uuid;
++		};
++
++		/* Mapped file - INCFS_FILE_MAPPED set in fh_flags */
++		struct {
++			/* Offset in original file */
++			__le64 fh_original_offset;
++
++			/* Full size of the file's content */
++			__le64 fh_mapped_file_size;
++
++			/* Original file's uuid */
++			incfs_uuid_t fh_original_uuid;
++		};
++	};
+ } __packed;
+ 
+ enum incfs_block_map_entry_flags {
+@@ -294,6 +308,9 @@ int incfs_write_blockmap_to_backing_file(struct backing_file_context *bfc,
+ int incfs_write_fh_to_backing_file(struct backing_file_context *bfc,
+ 				   incfs_uuid_t *uuid, u64 file_size);
+ 
++int incfs_write_mapping_fh_to_backing_file(struct backing_file_context *bfc,
++				incfs_uuid_t *uuid, u64 file_size, u64 offset);
++
+ int incfs_write_data_block_to_backing_file(struct backing_file_context *bfc,
+ 					   struct mem_range block,
+ 					   int block_index, loff_t bm_base_off,
+diff --git a/fs/incfs/vfs.c b/fs/incfs/vfs.c
+index f82d3af90f39..a68033899661 100644
+--- a/fs/incfs/vfs.c
++++ b/fs/incfs/vfs.c
+@@ -736,26 +736,6 @@ static int incfs_init_dentry(struct dentry *dentry, struct path *path)
+ 	return 0;
+ }
+ 
+-static struct dentry *incfs_lookup_dentry(struct dentry *parent,
+-						const char *name)
+-{
+-	struct inode *inode;
+-	struct dentry *result = NULL;
+-
+-	if (!parent)
+-		return ERR_PTR(-EFAULT);
+-
+-	inode = d_inode(parent);
+-	inode_lock_nested(inode, I_MUTEX_PARENT);
+-	result = lookup_one_len(name, parent, strlen(name));
+-	inode_unlock(inode);
+-
+-	if (IS_ERR(result))
+-		pr_warn("%s err:%ld\n", __func__, PTR_ERR(result));
+-
+-	return result;
+-}
+-
+ static struct dentry *open_or_create_index_dir(struct dentry *backing_dir)
+ {
+ 	static const char name[] = ".index";
+@@ -810,7 +790,8 @@ static int read_single_page(struct file *f, struct page *page)
+ 
+ 	page_start = kmap(page);
+ 	offset = page_offset(page);
+-	block_index = offset / INCFS_DATA_FILE_BLOCK_SIZE;
++	block_index = (offset + df->df_mapped_offset) /
++		INCFS_DATA_FILE_BLOCK_SIZE;
+ 	size = df->df_size;
+ 	timeout_ms = df->df_mount_info->mi_options.read_timeout_ms;
+ 
+@@ -852,19 +833,6 @@ static int read_single_page(struct file *f, struct page *page)
+ 	return result;
+ }
+ 
+-static char *file_id_to_str(incfs_uuid_t id)
+-{
+-	char *result = kmalloc(1 + sizeof(id.bytes) * 2, GFP_NOFS);
+-	char *end;
+-
+-	if (!result)
+-		return NULL;
+-
+-	end = bin2hex(result, id.bytes, sizeof(id.bytes));
+-	*end = 0;
+-	return result;
+-}
+-
+ static struct mem_range incfs_copy_signature_info_from_user(u8 __user *original,
+ 							    u64 size)
+ {
+@@ -982,6 +950,54 @@ static int init_new_file(struct mount_info *mi, struct dentry *dentry,
+ 	return error;
+ }
+ 
++static int init_new_mapped_file(struct mount_info *mi, struct dentry *dentry,
++			 incfs_uuid_t *uuid, u64 size, u64 offset)
++{
++	struct path path = {};
++	struct file *new_file;
++	int error = 0;
++	struct backing_file_context *bfc = NULL;
++
++	if (!mi || !dentry || !uuid)
++		return -EFAULT;
++
++	/* Resize newly created file to its true size. */
++	path = (struct path) {
++		.mnt = mi->mi_backing_dir_path.mnt,
++		.dentry = dentry
++	};
++	new_file = dentry_open(&path, O_RDWR | O_NOATIME | O_LARGEFILE,
++			       mi->mi_owner);
++
++	if (IS_ERR(new_file)) {
++		error = PTR_ERR(new_file);
++		goto out;
++	}
++
++	bfc = incfs_alloc_bfc(new_file);
++	fput(new_file);
++	if (IS_ERR(bfc)) {
++		error = PTR_ERR(bfc);
++		bfc = NULL;
++		goto out;
++	}
++
++	mutex_lock(&bfc->bc_mutex);
++	error = incfs_write_mapping_fh_to_backing_file(bfc, uuid, size, offset);
++	if (error)
++		goto out;
++
++out:
++	if (bfc) {
++		mutex_unlock(&bfc->bc_mutex);
++		incfs_free_bfc(bfc);
++	}
++
++	if (error)
++		pr_debug("incfs: %s error: %d\n", __func__, error);
++	return error;
++}
++
+ static int incfs_link(struct dentry *what, struct dentry *where)
+ {
+ 	struct dentry *parent_dentry = dget_parent(where);
+@@ -1270,7 +1286,7 @@ static long ioctl_create_file(struct mount_info *mi,
+ 	if (error)
+ 		goto delete_index_file;
+ 
+-	/* Linking a file with it's real name from the requested dir. */
++	/* Linking a file with its real name from the requested dir. */
+ 	error = incfs_link(index_file_dentry, named_file_dentry);
+ 
+ 	if (!error)
+@@ -1483,6 +1499,150 @@ static long ioctl_get_filled_blocks(struct file *f, void __user *arg)
+ 	return error;
+ }
+ 
++static long ioctl_create_mapped_file(struct mount_info *mi, void __user *arg)
++{
++	struct incfs_create_mapped_file_args __user *args_usr_ptr = arg;
++	struct incfs_create_mapped_file_args args = {};
++	char *file_name;
++	int error = 0;
++	struct path parent_dir_path = {};
++	char *source_file_name = NULL;
++	struct dentry *source_file_dentry = NULL;
++	u64 source_file_size;
++	struct dentry *file_dentry = NULL;
++	struct inode *parent_inode;
++	__le64 size_attr_value;
++
++	if (copy_from_user(&args, args_usr_ptr, sizeof(args)) > 0)
++		return -EINVAL;
++
++	file_name = strndup_user(u64_to_user_ptr(args.file_name), PATH_MAX);
++	if (IS_ERR(file_name)) {
++		error = PTR_ERR(file_name);
++		file_name = NULL;
++		goto out;
++	}
++
++	error = validate_name(file_name);
++	if (error)
++		goto out;
++
++	if (args.source_offset % INCFS_DATA_FILE_BLOCK_SIZE) {
++		error = -EINVAL;
++		goto out;
++	}
++
++	/* Validate file mapping is in range */
++	source_file_name = file_id_to_str(args.source_file_id);
++	if (!source_file_name) {
++		pr_warn("Failed to alloc source_file_name\n");
++		error = -ENOMEM;
++		goto out;
++	}
++
++	source_file_dentry = incfs_lookup_dentry(mi->mi_index_dir,
++						       source_file_name);
++	if (!source_file_dentry) {
++		pr_warn("Source file does not exist\n");
++		error = -EINVAL;
++		goto out;
++	}
++	if (IS_ERR(source_file_dentry)) {
++		pr_warn("Error opening source file\n");
++		error = PTR_ERR(source_file_dentry);
++		source_file_dentry = NULL;
++		goto out;
++	}
++	if (!d_really_is_positive(source_file_dentry)) {
++		pr_warn("Source file dentry negative\n");
++		error = -EINVAL;
++		goto out;
++	}
++
++	error = vfs_getxattr(source_file_dentry, INCFS_XATTR_SIZE_NAME,
++			     (char *)&size_attr_value, sizeof(size_attr_value));
++	if (error < 0)
++		goto out;
++
++	if (error != sizeof(size_attr_value)) {
++		pr_warn("Mapped file has no size attr\n");
++		error = -EINVAL;
++		goto out;
++	}
++
++	source_file_size = le64_to_cpu(size_attr_value);
++	if (args.source_offset + args.size > source_file_size) {
++		pr_warn("Mapped file out of range\n");
++		error = -EINVAL;
++		goto out;
++	}
++
++	/* Find a directory to put the file into. */
++	error = dir_relative_path_resolve(mi,
++			u64_to_user_ptr(args.directory_path),
++			&parent_dir_path);
++	if (error)
++		goto out;
++
++	if (parent_dir_path.dentry == mi->mi_index_dir) {
++		/* Can't create a file directly inside .index */
++		error = -EBUSY;
++		goto out;
++	}
++
++	/* Look up a dentry in the parent dir. It should be negative. */
++	file_dentry = incfs_lookup_dentry(parent_dir_path.dentry,
++					file_name);
++	if (!file_dentry) {
++		error = -EFAULT;
++		goto out;
++	}
++	if (IS_ERR(file_dentry)) {
++		error = PTR_ERR(file_dentry);
++		file_dentry = NULL;
++		goto out;
++	}
++	if (d_really_is_positive(file_dentry)) {
++		error = -EEXIST;
++		goto out;
++	}
++
++	parent_inode = d_inode(parent_dir_path.dentry);
++	inode_lock_nested(parent_inode, I_MUTEX_PARENT);
++	error = vfs_create(parent_inode, file_dentry, args.mode | 0222, true);
++	inode_unlock(parent_inode);
++	if (error)
++		goto out;
++
++	/* Save the file's size as an xattr for easy fetching in future. */
++	size_attr_value = cpu_to_le64(args.size);
++	error = vfs_setxattr(file_dentry, INCFS_XATTR_SIZE_NAME,
++		(char *)&size_attr_value, sizeof(size_attr_value),
++		XATTR_CREATE);
++	if (error) {
++		pr_debug("incfs: vfs_setxattr err:%d\n", error);
++		goto delete_file;
++	}
++
++	error = init_new_mapped_file(mi, file_dentry, &args.source_file_id,
++			size_attr_value, cpu_to_le64(args.source_offset));
++	if (error)
++		goto delete_file;
++
++	goto out;
++
++delete_file:
++	incfs_unlink(file_dentry);
++
++out:
++	dput(file_dentry);
++	dput(source_file_dentry);
++	path_put(&parent_dir_path);
++	kfree(file_name);
++	kfree(source_file_name);
++	return error;
++}
++
+ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+ {
+ 	struct mount_info *mi = get_mount_info(file_superblock(f));
+@@ -1498,6 +1658,8 @@ static long dispatch_ioctl(struct file *f, unsigned int req, unsigned long arg)
+ 		return ioctl_read_file_signature(f, (void __user *)arg);
+ 	case INCFS_IOC_GET_FILLED_BLOCKS:
+ 		return ioctl_get_filled_blocks(f, (void __user *)arg);
++	case INCFS_IOC_CREATE_MAPPED_FILE:
++		return ioctl_create_mapped_file(mi, (void __user *)arg);
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/include/uapi/linux/incrementalfs.h b/include/uapi/linux/incrementalfs.h
+index 71efcf3d1a51..da3fdde4711c 100644
+--- a/include/uapi/linux/incrementalfs.h
++++ b/include/uapi/linux/incrementalfs.h
+@@ -92,6 +92,10 @@
+ #define INCFS_IOC_GET_FILLED_BLOCKS                                            \
+ 	_IOR(INCFS_IOCTL_BASE_CODE, 34, struct incfs_get_filled_blocks_args)
+ 
++/* Creates a new mapped file */
++#define INCFS_IOC_CREATE_MAPPED_FILE \
++	_IOWR(INCFS_IOCTL_BASE_CODE, 35, struct incfs_create_mapped_file_args)
++
+ enum incfs_compression_alg {
+ 	COMPRESSION_NONE = 0,
+ 	COMPRESSION_LZ4 = 1
+@@ -331,4 +335,50 @@ struct incfs_get_filled_blocks_args {
+ 	__u32 index_out;
+ };
+ 
++/*
++ * Create a new mapped file
++ * Argument for INCFS_IOC_CREATE_MAPPED_FILE
++ */
++struct incfs_create_mapped_file_args {
++	/*
++	 * Total size of the new file.
++	 */
++	__aligned_u64 size;
++
++	/*
++	 * File mode. Permissions and dir flag.
++	 */
++	__u16 mode;
++
++	__u16 reserved1;
++
++	__u32 reserved2;
++
++	/*
++	 * A pointer to a null-terminated relative path to the incfs mount
++	 * point
++	 * Max length: PATH_MAX
++	 *
++	 * Equivalent to: char *directory_path;
++	 */
++	__aligned_u64 directory_path;
++
++	/*
++	 * A pointer to a null-terminated file name.
++	 * Max length: PATH_MAX
++	 *
++	 * Equivalent to: char *file_name;
++	 */
++	__aligned_u64 file_name;
++
++	/* Id of source file to map. */
++	incfs_uuid_t source_file_id;
++
++	/*
++	 * Offset in source file to start mapping. Must be a multiple of
++	 * INCFS_DATA_FILE_BLOCK_SIZE
++	 */
++	__aligned_u64 source_offset;
++};
++
+ #endif /* _UAPI_LINUX_INCREMENTALFS_H */
+diff --git a/tools/testing/selftests/filesystems/incfs/incfs_test.c b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+index 19496d191115..4d57697935eb 100644
+--- a/tools/testing/selftests/filesystems/incfs/incfs_test.c
++++ b/tools/testing/selftests/filesystems/incfs/incfs_test.c
+@@ -2232,7 +2232,8 @@ static int read_log_test(const char *mount_dir)
+ 	return TEST_FAILURE;
+ }
+ 
+-static int emit_partial_test_file_data(const char *mount_dir, struct test_file *file)
++static int emit_partial_test_file_data(const char *mount_dir,
++				       struct test_file *file)
+ {
+ 	int i, j;
+ 	int block_cnt = 1 + (file->size - 1) / INCFS_DATA_FILE_BLOCK_SIZE;
+@@ -2455,7 +2456,8 @@ static int get_blocks_test(const char *mount_dir)
+ 	return TEST_FAILURE;
+ }
+ 
+-static int emit_partial_test_file_hash(const char *mount_dir, struct test_file *file)
++static int emit_partial_test_file_hash(const char *mount_dir,
++				       struct test_file *file)
+ {
+ 	int err;
+ 	int fd;
+@@ -2679,6 +2681,166 @@ static int large_file_test(const char *mount_dir)
+ failure:
+ 	close(fd);
+ 	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
++	return result;
++}
++
++static int validate_mapped_file(const char *orig_name, const char *name,
++				size_t size, size_t offset)
++{
++	struct stat st;
++	int orig_fd = -1, fd = -1;
++	size_t block;
++	int result = TEST_FAILURE;
++
++	if (stat(name, &st)) {
++		ksft_print_msg("Failed to stat %s with error %s\n",
++			       name, strerror(errno));
++		goto failure;
++	}
++
++	if (size != st.st_size) {
++		ksft_print_msg("Mismatched file sizes for file %s - expected %llu, got %llu\n",
++				   name, size, st.st_size);
++		goto failure;
++	}
++
++	fd = open(name, O_RDONLY | O_CLOEXEC);
++	if (fd == -1) {
++		ksft_print_msg("Failed to open %s with error %s\n", name,
++			       strerror(errno));
++		goto failure;
++	}
++
++	orig_fd = open(orig_name, O_RDONLY | O_CLOEXEC);
++	if (orig_fd == -1) {
++		ksft_print_msg("Failed to open %s with error %s\n", orig_name,
++			       strerror(errno));
++		goto failure;
++	}
++
++	for (block = 0; block < size; block += INCFS_DATA_FILE_BLOCK_SIZE) {
++		uint8_t orig_data[INCFS_DATA_FILE_BLOCK_SIZE];
++		uint8_t data[INCFS_DATA_FILE_BLOCK_SIZE];
++		ssize_t orig_read, mapped_read;
++
++		orig_read = pread(orig_fd, orig_data,
++				 INCFS_DATA_FILE_BLOCK_SIZE, block + offset);
++		mapped_read = pread(fd, data, INCFS_DATA_FILE_BLOCK_SIZE,
++				    block);
++
++		if (orig_read < mapped_read ||
++		    mapped_read != min(size - block,
++				       INCFS_DATA_FILE_BLOCK_SIZE)) {
++			ksft_print_msg("Failed to read enough data: %llu %llu %llu %lld %lld\n",
++				       block, size, offset, orig_read,
++				       mapped_read);
++			goto failure;
++		}
++
++		if (memcmp(orig_data, data, mapped_read)) {
++			ksft_print_msg("Data doesn't match: %llu %llu %llu %lld %lld\n",
++				       block, size, offset, orig_read,
++				       mapped_read);
++			goto failure;
++		}
++	}
++
++	result = TEST_SUCCESS;
++
++failure:
++	close(orig_fd);
++	close(fd);
++	return result;
++}
++
++static int mapped_file_test(const char *mount_dir)
++{
++	char *backing_dir;
++	int result = TEST_FAILURE;
++	int cmd_fd = -1;
++	int i;
++	struct test_files_set test = get_test_files_set();
++	const int file_num = test.files_count;
++
++	backing_dir = create_backing_dir(mount_dir);
++	if (!backing_dir)
++		goto failure;
++
++	if (mount_fs_opt(mount_dir, backing_dir, "readahead=0", false) != 0)
++		goto failure;
++
++	cmd_fd = open_commands_file(mount_dir);
++	if (cmd_fd < 0)
++		goto failure;
++
++	for (i = 0; i < file_num; ++i) {
++		struct test_file *file = &test.files[i];
++		size_t blocks = file->size / INCFS_DATA_FILE_BLOCK_SIZE;
++		size_t mapped_offset = blocks / 4 *
++			INCFS_DATA_FILE_BLOCK_SIZE;
++		size_t mapped_size = file->size / 4 * 3 - mapped_offset;
++		struct incfs_create_mapped_file_args mfa;
++		char mapped_file_name[FILENAME_MAX];
++		char orig_file_path[PATH_MAX];
++		char mapped_file_path[PATH_MAX];
++
++		if (emit_file(cmd_fd, NULL, file->name, &file->id, file->size,
++					NULL) < 0)
++			goto failure;
++
++		if (emit_test_file_data(mount_dir, file))
++			goto failure;
++
++		if (snprintf(mapped_file_name, ARRAY_SIZE(mapped_file_name),
++					"%s.mapped", file->name) < 0)
++			goto failure;
++
++		mfa = (struct incfs_create_mapped_file_args) {
++			.size = mapped_size,
++			.mode = 0664,
++			.file_name = ptr_to_u64(mapped_file_name),
++			.source_file_id = file->id,
++			.source_offset = mapped_offset,
++		};
++
++		result = ioctl(cmd_fd, INCFS_IOC_CREATE_MAPPED_FILE, &mfa);
++		if (result) {
++			ksft_print_msg(
++				"Failed to create mapped file with error %d\n",
++				result);
++			goto failure;
++		}
++
++		result = snprintf(orig_file_path,
++				  ARRAY_SIZE(orig_file_path), "%s/%s",
++				  mount_dir, file->name);
++
++		if (result < 0 || result >= ARRAY_SIZE(mapped_file_path)) {
++			result = TEST_FAILURE;
++			goto failure;
++		}
++
++		result = snprintf(mapped_file_path,
++				  ARRAY_SIZE(mapped_file_path), "%s/%s",
++				  mount_dir, mapped_file_name);
++
++		if (result < 0 || result >= ARRAY_SIZE(mapped_file_path)) {
++			result = TEST_FAILURE;
++			goto failure;
++		}
++
++		result = validate_mapped_file(orig_file_path, mapped_file_path,
++					      mapped_size, mapped_offset);
++		if (result)
++			goto failure;
++	}
++
++failure:
++	close(cmd_fd);
++	umount(mount_dir);
++	free(backing_dir);
+ 	return result;
+ }
+ 
+@@ -2791,6 +2953,7 @@ int main(int argc, char *argv[])
+ 		MAKE_TEST(get_blocks_test),
+ 		MAKE_TEST(get_hash_blocks_test),
+ 		MAKE_TEST(large_file_test),
++		MAKE_TEST(mapped_file_test),
+ 	};
+ #undef MAKE_TEST
+ 
+-- 
+2.17.1
+

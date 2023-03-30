@@ -87,6 +87,8 @@ static struct tegra_dc_pd_info t19x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disa",
+		.genpd_dev = NULL,
 		.head_owner = 0,
 		.head_mask = 0x1,	/* Head(s):	0 */
 		.win_mask = 0x1,	/* Window(s):	0 */
@@ -101,6 +103,8 @@ static struct tegra_dc_pd_info t19x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disb",
+		.genpd_dev = NULL,
 		.head_owner = 1,
 		.head_mask = 0x2,	/* Head(s):	1 */
 		.win_mask = 0x6,	/* Window(s):	1,2 */
@@ -115,6 +119,8 @@ static struct tegra_dc_pd_info t19x_disp_pd_info[] = {
 			{},
 		},
 		.pg_id = -1,
+		.pd_name = "disc",
+		.genpd_dev = NULL,
 		.head_owner = 2,
 		.head_mask = 0xc,	/* Head(s):	2,3 */
 		.win_mask = 0x38,	/* Window(s):	3,4,5 */

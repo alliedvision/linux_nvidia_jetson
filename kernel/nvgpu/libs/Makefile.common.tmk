@@ -1,0 +1,136 @@
+################################### tell Emacs this is a -*- makefile-gmake -*-
+#
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+# tmake for SW Mobile component makefile
+#
+###############################################################################
+
+ifdef NV_COMPONENT_FLAG_SHARED_LIBRARY_SECTION
+NVGPU_SOURCE := $(NV_SOURCE)/kernel/nvgpu/drivers/gpu/nvgpu
+
+# Architecture script. This validates our YAML architecture against the
+# source code we have.
+ARCH_PY				:= $(NV_SOURCE)/core-private/tools/arch/arch.py
+
+#
+# Include the nvgpu-next repo, if it's present. It's expected to be
+# located in the same directory as nvgpu, like so:
+#
+#   kernel/nvgpu
+#   kernel/nvgpu-next
+#
+# If it exists, this defines two variables: srcs_next which contains the
+# necessary sources to build and HEADERS_NEXT which has any headers in
+# nvgpu-next.
+#
+# NVGPU_NEXT_SOURCE needs to be set for the Makefile.sources file to
+# properly handle include paths.
+NVGPU_NEXT_SOURCE := $(NV_SOURCE)/kernel/nvgpu-next/drivers/gpu/nvgpu
+
+NVGPU_POSIX			:= 1
+NVGPU_ARCH			:= $(NVGPU_SOURCE)/../../../arch
+NVGPU_NEXT_ARCH			:= $(NVGPU_NEXT_SOURCE)/../../../arch
+NVGPU_ARCH_YAML                 := $(NVGPU_ARCH)/*.yaml $(NVGPU_NEXT_ARCH)/*.yaml
+
+NV_COMPONENT_OWN_INTERFACE_DIR	:= .
+NV_COMPONENT_INCLUDES		:=				\
+		$(NVGPU_SOURCE)					\
+		$(NVGPU_SOURCE)/include				\
+		$(NVGPU_SOURCE)/../../../include		\
+		$(NVGPU_NEXT_SOURCE)				\
+		$(NVGPU_NEXT_SOURCE)/include			\
+		$(NVGPU_NEXT_SOURCE)/../../../include
+ifneq ($(NV_BUILD_CONFIGURATION_OS_IS_QNX),1)
+NV_COMPONENT_SYSTEM_SHARED_LIBRARIES += pthread rt
+NVGPU_FORCE_SAFETY_PROFILE	:= 1
+NVGPU_FORCE_DEBUG_PROFILE	:= 1
+endif
+NV_COMPONENT_CFLAGS		+=    \
+	-D__NVGPU_POSIX__             \
+	-D__NVGPU_UNIT_TEST__
+
+-include $(NVGPU_SOURCE)/Makefile.shared.configs
+NV_COMPONENT_CFLAGS             += $(NVGPU_COMMON_CFLAGS)
+
+NVGPU_FAULT_INJECTION_ENABLEMENT := 1
+NV_COMPONENT_CFLAGS              += -DNVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+
+_NV_TOOLCHAIN_CFLAGS            += -rdynamic -g
+
+ifneq ($(CONFIG_NVGPU_DGPU),1)
+_NV_TOOLCHAIN_CFLAGS		+= \
+	-Werror -Wall -Wextra \
+	-Wmissing-braces -Wpointer-arith -Wundef \
+	-Wconversion -Wsign-conversion \
+	-Wformat-security \
+	-Wmissing-declarations -Wredundant-decls -Wimplicit-fallthrough
+endif
+
+-include $(NVGPU_SOURCE)/Makefile.sources
+-include $(NVGPU_NEXT_SOURCE)/Makefile.sources
+
+NV_COMPONENT_SOURCES		:=				\
+		$(addprefix $(NVGPU_SOURCE)/,$(srcs))	\
+		$(addprefix $(NVGPU_NEXT_SOURCE)/,$(srcs_next))
+
+# $(srcs_next) already has the NV_COMPONENT_DIR prefix so we already have the
+# absolute path to those files. srcs are all relative, so we have to prefix
+# those with the absolute path.
+SRC_DEPS                        := srcs_next
+SRC_DEPS                        +=				\
+		$(addprefix $(NVGPU_SOURCE)/,$(srcs))
+
+#
+# A little bit of magic to get tmake to execute the arch.py python script
+# before we build the driver. Currently it ensures that the source code matches
+# the arch.
+#
+# The way this works is we define a special target $(SRC_DEPS) which contains
+# each .c file in the driver. Then when each .o target requires the
+# corresponding .c file, this target is triggered. It in turn depends on the
+# YAML files. Those files, then depend on a phony target (nvgpu-arch) that
+# actually executes the check.
+#
+$(SRC_DEPS):        $(NVGPU_ARCH_YAML)
+$(NVGPU_ARCH_YAML): nvgpu-arch
+nvgpu-arch: $(ARCH_PY)
+	$(PYTHON2) $(ARCH_PY)				\
+		--arch-file    $(NVGPU_ARCH)/nvgpu.yaml	\
+		--source       $(NVGPU_SOURCE)		\
+		--source       $(NVGPU_NEXT_SOURCE)	\
+		--include-path $(NVGPU_NEXT_ARCH)	\
+		sources --check
+
+.PHONY: nvgpu-arch
+
+NV_COMPONENT_SYSTEMIMAGE_DIR    := $(NV_SYSTEMIMAGE_TEST_EXECUTABLE_DIR)/nvgpu_unit
+systemimage:: $(NV_COMPONENT_SYSTEMIMAGE_DIR)
+$(NV_COMPONENT_SYSTEMIMAGE_DIR) : $(NV_SYSTEMIMAGE_TEST_EXECUTABLE_DIR)
+	$(MKDIR_P) $@
+NV_COMPONENT_SYSTEMIMAGE_NAME	:= lib$(NV_COMPONENT_NAME).so
+endif
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 8
+# End:
+# vi: set tabstop=8 noexpandtab:

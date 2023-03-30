@@ -1,7 +1,7 @@
 /*
  * tegra_wdt_t18x.c: watchdog driver for NVIDIA tegra internal watchdog
  *
- * Copyright (c) 2012-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
  * Based on:
  *	drivers/watchdog/softdog.c and
  *	drivers/watchdog/omap_wdt.c
@@ -31,7 +31,12 @@
 #include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <soc/tegra/pmc.h>
 
 /* The total expiry count of Tegra WDTs supported by HW */
@@ -61,8 +66,12 @@
 #define WDT_ENABLED_ON_INIT	1
 #define WDT_ENABLED_USERSPACE	2
 
+#define TIMER_INDEX_T186	0
+#define TIMER_INDEX_T234	1
+
 struct tegra_wdt_t18x_soc {
 	bool unmask_hw_irq;
+	int timer_index;
 };
 
 struct tegra_wdt_t18x {
@@ -123,6 +132,7 @@ static struct tegra_wdt_t18x *to_tegra_wdt_t18x(struct watchdog_device *wdt)
 #define WDT_CFG_REMOTE_INT_EN		BIT(14)
 #define WDT_CFG_DBG_RST_EN		BIT(15)
 #define WDT_CFG_SYS_PORST_EN		BIT(16)
+#define WDT_CFG_DISALLOW_FREEZE		BIT(25)
 #define WDT_CFG_ERR_THRESHOLD		(7 << 20)
 #define WDT_STATUS			(0x4)
 #define WDT_INTR_STAT			BIT(1)
@@ -135,6 +145,8 @@ static struct tegra_wdt_t18x *to_tegra_wdt_t18x(struct watchdog_device *wdt)
 #define WDT_SKIP_VAL(i, val)		(((val) & 0x7) << (4 * (i)))
 #define TIMER_INDEX(add)		((((add) >> 16) & 0xF) - 0x2)
 #define WATCHDOG_INDEX(add)		((((add) >> 16) & 0xF) - 0xc)
+#define T234_TIMER_INDEX(add)		((((add) >> 16) & 0xF) - 0x9)
+#define T234_WATCHDOG_INDEX(add)	((((add) >> 16) & 0xF) - 0x9)
 
 static int __tegra_wdt_t18x_ping(struct tegra_wdt_t18x *twdt_t18x)
 {
@@ -304,6 +316,9 @@ static const struct watchdog_ops tegra_wdt_t18x_ops = {
 };
 
 #ifdef CONFIG_DEBUG_FS
+#define FILE_PERMISSIONS		644
+#define COUNTER_ENABLED			0x1
+
 static int dump_registers_show(struct seq_file *s, void *unused)
 {
 	struct tegra_wdt_t18x *twdt_t18x = s->private;
@@ -344,6 +359,28 @@ static int disable_por_reset_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+static int disable_wdt_show(void *data, u64 *val)
+{
+	struct tegra_wdt_t18x *twdt_t18x = data;
+	*val = (twdt_t18x->status & COUNTER_ENABLED) ? 0 : 1;
+	return 0;
+}
+
+static int disable_wdt_store(void *data, u64 val)
+{
+	struct tegra_wdt_t18x *twdt_t18x = data;
+
+	if (val) {
+		if (COUNTER_ENABLED & twdt_t18x->status)
+			__tegra_wdt_t18x_disable(twdt_t18x);
+	} else {
+		if (!(COUNTER_ENABLED & twdt_t18x->status))
+			__tegra_wdt_t18x_enable(twdt_t18x);
+	}
+
+	return 0;
+}
+
 #define SIMPLE_FOPS(_name, _show)					\
 static int dbg_open_##_name(struct inode *inode, struct file *file)	\
 {									\
@@ -359,6 +396,8 @@ static const struct file_operations _name##_fops = {			\
 SIMPLE_FOPS(dump_regs, dump_registers_show);
 SIMPLE_FOPS(disable_dbg_reset, disable_dbg_reset_show);
 SIMPLE_FOPS(disable_por_reset, disable_por_reset_show);
+DEFINE_SIMPLE_ATTRIBUTE(disable_wdt_fops, disable_wdt_show,
+	disable_wdt_store, "%lld\n");
 
 static void tegra_wdt_t18x_debugfs_init(struct tegra_wdt_t18x *twdt_t18x)
 {
@@ -370,20 +409,26 @@ static void tegra_wdt_t18x_debugfs_init(struct tegra_wdt_t18x *twdt_t18x)
 	if (IS_ERR_OR_NULL(root))
 		goto clean;
 
-	retval = debugfs_create_file("dump_regs", S_IRUGO | S_IWUSR,
+	retval = debugfs_create_file("dump_regs", FILE_PERMISSIONS,
 				     root, twdt_t18x, &dump_regs_fops);
 	if (IS_ERR_OR_NULL(retval))
 		goto clean;
 
-	retval = debugfs_create_file("disable_dbg_reset", S_IRUGO | S_IWUSR,
+	retval = debugfs_create_file("disable_dbg_reset", FILE_PERMISSIONS,
 				     root, twdt_t18x,
 				     &disable_dbg_reset_fops);
 	if (IS_ERR_OR_NULL(retval))
 		goto clean;
 
-	retval = debugfs_create_file("disable_por_reset", S_IRUGO | S_IWUSR,
+	retval = debugfs_create_file("disable_por_reset", FILE_PERMISSIONS,
 				     root, twdt_t18x,
 				     &disable_por_reset_fops);
+	if (IS_ERR_OR_NULL(retval))
+		goto clean;
+
+	retval = debugfs_create_file("disable_wdt", FILE_PERMISSIONS,
+					root, twdt_t18x,
+					&disable_wdt_fops);
 	if (IS_ERR_OR_NULL(retval))
 		goto clean;
 
@@ -421,6 +466,11 @@ static int tegra_wdt_t18x_probe(struct platform_device *pdev)
 	twdt_t18x->shutdown_timeout = (ret) ? SHUTDOWN_TIMEOUT : pval;
 
 	twdt_t18x->soc = of_device_get_match_data(&pdev->dev);
+	if (!twdt_t18x->soc) {
+		dev_err(&pdev->dev, "Unable to find soc data\n");
+		return -EINVAL;
+	}
+
 	twdt_t18x->dev = &pdev->dev;
 	twdt_t18x->wdt.info = &tegra_wdt_t18x_info;
 	twdt_t18x->wdt.ops = &tegra_wdt_t18x_ops;
@@ -468,7 +518,15 @@ static int tegra_wdt_t18x_probe(struct platform_device *pdev)
 	}
 
 	/* WDT ID from base address */
-	wdt_id = WATCHDOG_INDEX(res_wdt->start);
+	switch (twdt_t18x->soc->timer_index) {
+	case TIMER_INDEX_T234:
+		wdt_id = T234_WATCHDOG_INDEX(res_wdt->start);
+		break;
+	default:
+		wdt_id = WATCHDOG_INDEX(res_wdt->start);
+		break;
+	}
+
 	ret = of_property_read_u32(np, "nvidia,watchdog-index", &pval);
 	if (!ret) {
 		twdt_t18x->wdt_index = pval;
@@ -520,7 +578,15 @@ static int tegra_wdt_t18x_probe(struct platform_device *pdev)
 	 * If timer ID from address different then timer index
 	 * then adjust address.
 	 */
-	timer_id = TIMER_INDEX(res_tmr->start);
+	switch (twdt_t18x->soc->timer_index) {
+	case TIMER_INDEX_T234:
+		timer_id = T234_TIMER_INDEX(res_tmr->start);
+		break;
+	default:
+		timer_id = TIMER_INDEX(res_tmr->start);
+		break;
+	}
+
 	if (timer_id != twdt_t18x->tmr_index) {
 		if (timer_id) {
 			dev_err(dev, "Timer base address must be Timer0\n");
@@ -566,6 +632,9 @@ static int tegra_wdt_t18x_probe(struct platform_device *pdev)
 
 		/* Enable local FIQ and remote interrupt for debug dump */
 		twdt_t18x->config |= WDT_CFG_FINT_EN;
+
+		if (of_property_read_bool(np, "nvidia,disallow-wdt-freeze"))
+			twdt_t18x->config |= WDT_CFG_DISALLOW_FREEZE;
 
 		if (!of_property_read_bool(np,
 					   "nvidia,disable-remote-interrupt"))
@@ -733,15 +802,23 @@ static const struct dev_pm_ops tegra_wdt_t18x_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(tegra_wdt_t18x_suspend, tegra_wdt_t18x_resume)
 };
 
+static const struct tegra_wdt_t18x_soc t234_wdt_silicon = {
+	.unmask_hw_irq	= true,
+	.timer_index	= TIMER_INDEX_T234,
+};
+
 static const struct tegra_wdt_t18x_soc t18x_wdt_silicon = {
-	.unmask_hw_irq = true,
+	.unmask_hw_irq	= true,
+	.timer_index	= TIMER_INDEX_T186,
 };
 
 static const struct tegra_wdt_t18x_soc t18x_wdt_sim = {
-	.unmask_hw_irq = false,
+	.unmask_hw_irq	= false,
+	.timer_index	= TIMER_INDEX_T186,
 };
 
 static const struct of_device_id tegra_wdt_t18x_match[] = {
+	{ .compatible = "nvidia,tegra-wdt-t234", .data = &t234_wdt_silicon},
 	{ .compatible = "nvidia,tegra-wdt-t19x", .data = &t18x_wdt_silicon},
 	{ .compatible = "nvidia,tegra-wdt-t18x", .data = &t18x_wdt_silicon},
 	{ .compatible = "nvidia,tegra-wdt-t18x-linsim", .data = &t18x_wdt_sim},

@@ -14,36 +14,6 @@
 #include <dt-bindings/pwm/pwm.h>
 
 / {
-	pwm_fan_shared_data: pfsd {
-		/delete-property/ rpm_diff_tolerance;
-		/* reverse active_rpm, active_rru, active_rrd table for Tmargin */
-		active_rpm = <2150 1750 1150 1150 1150 1150 1150 1150 1150 1150>;
-		active_rru = <1 2 40 40 40 40 40 40 40 40>;
-		active_rrd = <1 2 40 40 40 40 40 40 40 40>;
-	};
-
-	pwm-fan {
-		shared_data = <&pwm_fan_shared_data>;
-		continuous_gov_boot_on;
-		is_always_on = "true";
-		use_tmargin;
-		use_tach_feedback;
-		rpm_ramp_time_ms= <1000>;
-		rpm_valid_retry_count = <8>;
-		rpm_valid_retry_delay = <250>;
-		rpm_invalid_retry_delay = <500>;
-		rpm_diff_tolerance = <100>;
-		profiles {
-			default = "cool";
-			/delete-node/ quiet;
-			cool {
-				state_cap = <0>;
-				/* reverse pwm table for Tmargin */
-				active_pwm = <255 140 64 64 64 64 64 64 64 64>;
-			};
-		};
-	};
-
 	pwm_fan_shared_data_fpga: pfsd-fpga {
 		num_resources = <0>;
 		secret = <47>;
@@ -77,7 +47,11 @@
 			default = "cool";
 			cool {
 				state_cap = <7>;
+#if TEGRA_PWM_FAN_DT_VERSION == DT_VERSION_2
+				cooling-levels = <178 170 155 130 103 65 0 0 0 0>;
+#else
 				active_pwm = <77 85 100 125 152 190 255 255 255 255>;
+#endif
 			};
 		};
 	};

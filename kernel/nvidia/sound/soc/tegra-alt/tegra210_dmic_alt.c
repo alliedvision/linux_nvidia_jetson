@@ -1,7 +1,7 @@
 /*
  * tegra210_dmic_alt.c - Tegra210 DMIC driver
  *
- * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,7 +23,12 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -75,7 +80,7 @@ static int tegra210_dmic_runtime_suspend(struct device *dev)
 	regcache_cache_only(dmic->regmap, true);
 	regcache_mark_dirty(dmic->regmap);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga()))
+	if (!(tegra_platform_is_fpga()))
 		clk_disable_unprepare(dmic->clk_dmic);
 
 	return 0;
@@ -86,7 +91,7 @@ static int tegra210_dmic_runtime_resume(struct device *dev)
 	struct tegra210_dmic *dmic = dev_get_drvdata(dev);
 	int ret;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		ret = clk_prepare_enable(dmic->clk_dmic);
 		if (ret) {
 			dev_err(dev, "clk_enable failed: %d\n", ret);
@@ -121,7 +126,7 @@ static int tegra210_dmic_startup(struct snd_pcm_substream *substream,
 		}
 	}
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		if (!IS_ERR_OR_NULL(dmic->pin_active_state)) {
 			ret = pinctrl_select_state(dmic->pinctrl,
 						dmic->pin_active_state);
@@ -143,7 +148,7 @@ static void tegra210_dmic_shutdown(struct snd_pcm_substream *substream,
 	struct tegra210_dmic *dmic = snd_soc_dai_get_drvdata(dai);
 	int ret;
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		if (!IS_ERR_OR_NULL(dmic->pin_idle_state)) {
 			ret = pinctrl_select_state(
 				dmic->pinctrl, dmic->pin_idle_state);
@@ -190,7 +195,7 @@ static int tegra210_dmic_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	if ((tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if ((tegra_platform_is_fpga())) {
 		program_dmic_gpio();
 		program_dmic_clk(dmic_clk);
 	} else {
@@ -370,6 +375,16 @@ static struct snd_soc_dai_driver tegra210_dmic_dais[] = {
 		},
 		.ops = &tegra210_dmic_dai_ops,
 		.symmetric_rates = 1,
+	},
+	{
+		.name = "DUMMY_SOURCE",
+		.capture = {
+			.stream_name = "Dummy Capture",
+			.channels_min = 1,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		},
 	}
 };
 
@@ -378,12 +393,14 @@ static const struct snd_soc_dapm_widget tegra210_dmic_widgets[] = {
 			     0, 0),
 	SND_SOC_DAPM_AIF_IN("DMIC RX", NULL, 0, TEGRA210_DMIC_ENABLE,
 			    0, 0),
+	SND_SOC_DAPM_MIC("Dummy Input", NULL),
 };
 
 static const struct snd_soc_dapm_route tegra210_dmic_routes[] = {
 	{ "DMIC RX",       NULL, "DMIC Receive" },
 	{ "DMIC TX",       NULL, "DMIC RX" },
 	{ "DMIC Transmit", NULL, "DMIC TX" },
+	{ "Dummy Capture", NULL, "Dummy Input" },
 };
 
 static const char * const tegra210_dmic_ch_select[] = {
@@ -395,7 +412,7 @@ static const struct soc_enum tegra210_dmic_ch_enum =
 			tegra210_dmic_ch_select);
 
 static const char * const tegra210_dmic_mono_conv_text[] = {
-	"ZERO", "COPY",
+	"Zero", "Copy",
 };
 
 static const char * const tegra210_dmic_stereo_conv_text[] = {
@@ -578,7 +595,7 @@ static int tegra210_dmic_platform_probe(struct platform_device *pdev)
 	dmic->ch_select = DMIC_CH_SELECT_STEREO;
 	dev_set_drvdata(&pdev->dev, dmic);
 
-	if (!(tegra_platform_is_unit_fpga() || tegra_platform_is_fpga())) {
+	if (!(tegra_platform_is_fpga())) {
 		dmic->clk_dmic = devm_clk_get(&pdev->dev, "dmic");
 		if (IS_ERR(dmic->clk_dmic)) {
 			dev_err(&pdev->dev, "Can't retrieve dmic clock\n");
@@ -601,13 +618,6 @@ static int tegra210_dmic_platform_probe(struct platform_device *pdev)
 	/* Below patch is as per latest POR value */
 	regmap_write(dmic->regmap, TEGRA210_DMIC_DCR_BIQUAD_0_COEF_4,
 		     0x00000000);
-
-	ret = of_property_read_u32(np, "nvidia,ahub-dmic-id",
-				   &pdev->dev.id);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Missing property nvidia,ahub-dmic-id\n");
-		return ret;
-	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = snd_soc_register_codec(&pdev->dev, &tegra210_dmic_codec,

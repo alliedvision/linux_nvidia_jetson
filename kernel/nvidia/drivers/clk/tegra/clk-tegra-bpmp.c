@@ -25,7 +25,12 @@
 #include <linux/clk/tegra.h>
 #include <linux/platform_device.h>
 #include <linux/of_device.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include <linux/tegra-aon-clk.h>
 #include "clk.h"
@@ -103,6 +108,7 @@ int __init tegra_bpmp_of_clk_init(void)
 	/* see if we have EMC proxy in DT */
 	dn = of_find_compatible_node(NULL, NULL, "nvidia,tegra-bpmp-emc-clk");
 	if (dn == NULL) {
+		pr_info("%s: EMC proxy not found.\n", __func__);
 		goto out;
 	}
 	emc_clk = of_clk_get(dn, 0);

@@ -1,15 +1,17 @@
 /*
  * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "tegra194-p2822-0000-camera-e3377-a00.dtsi"
@@ -22,6 +24,7 @@
 #include "tegra194-p2822-0000-camera-imx390-a00.dtsi"
 #include "tegra194-e2832-hdmi.dtsi"
 #include "tegra194-p2822-0000-camera-vivid.dtsi"
+#include "tegra194-p2822-camera-eCAM130A_CUXVR.dtsi"
 
 #define CAM0_RST_L	TEGRA194_MAIN_GPIO(H, 3)
 #define CAM0_PWDN	TEGRA194_MAIN_GPIO(H, 6)
@@ -56,53 +59,54 @@
 	};
 
 	/* all cameras are disabled by default */
-	host1x {
-		vi_base: vi@15c10000 {
-			ports {
-				vi_port0: port@0 {
+	capture_vi_base: tegra-capture-vi {
+		ports {
+			vi_port0: port@0 {
+				status = "disabled";
+				vi_in0: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in0: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port1: port@1 {
+			};
+			vi_port1: port@1 {
+				status = "disabled";
+				vi_in1: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in1: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port2: port@2 {
+			};
+			vi_port2: port@2 {
+				status = "disabled";
+				vi_in2: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in2: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port3: port@3 {
+			};
+			vi_port3: port@3 {
+				status = "disabled";
+				vi_in3: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in3: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port4: port@4 {
+			};
+			vi_port4: port@4 {
+				status = "disabled";
+				vi_in4: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in4: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
-				vi_port5: port@5 {
+			};
+			vi_port5: port@5 {
+				status = "disabled";
+				vi_in5: endpoint {
+					vc-id = <0>;
 					status = "disabled";
-					vi_in5: endpoint {
-						vc-id = <0>;
-						status = "disabled";
-					};
 				};
 			};
 		};
+	};
+
+	host1x@13e00000 {
 		csi_base: nvcsi@15a00000 {
 			num-tpg-channels = <36>;
 			csi_chan0: channel@0 {
@@ -210,7 +214,6 @@
 		};
 
 		slvs_ec_base: slvs-ec@15ac0000 {
-			status = "disabled";
 			streams {
 				slvs_ec_stream0: stream@0 {
 					status = "disabled";
@@ -315,6 +318,33 @@
 					status = "disabled";
 				};
 			};
+		};
+		tca9548@70 {
+			status = "disbaled";
+			i2c@0 {
+				status = "disabled";
+				ar1335_a@42 {
+					status = "disabled";
+				};
+			};
+			i2c@2 {
+				status = "disabled";
+				ar1335_c@42 {
+					status = "disabled";
+				};
+			};
+			i2c@4 {
+				status = "disabled";
+				ar1335_e@42 {
+					status = "disabled";
+				};
+			};
+		};
+	};
+
+	i2c@c240000 {
+		tca6424_22: tca6424@22 {
+			status = "disabled";
 		};
 	};
 

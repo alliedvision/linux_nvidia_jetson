@@ -1,0 +1,53 @@
+From 5d5e74cedcbc59aa8cdf7c1a4cd883b85ef505fb Mon Sep 17 00:00:00 2001
+From: Can Guo <cang@codeaurora.org>
+Date: Thu, 5 Dec 2019 18:16:12 -0800
+Subject: [PATCH 367/830] FROMLIST: scsi: ufs: Export query request interfaces
+X-NVConfidentiality: public
+
+Vendor drivers may need to send query requests in proprietary
+implementations. Hence, export the query request interfaces
+so that vendor drivers can use them.
+
+Removed export of internal helper functions:
+ufshcd_query_attr_retry and ufshcd_query_flag_retry
+
+Bug: 146013342
+Change-Id: Ibe3082097554e89e03b33a926ef013503bac0e74
+Link: https://lore.kernel.org/patchwork/patch/1163542/
+Signed-off-by: Can Guo <cang@codeaurora.org>
+Signed-off-by: Asutosh Das <asutoshd@codeaurora.org>
+---
+ drivers/scsi/ufs/ufshcd.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/scsi/ufs/ufshcd.c b/drivers/scsi/ufs/ufshcd.c
+index e15535be314c..9ae5ab33f6da 100644
+--- a/drivers/scsi/ufs/ufshcd.c
++++ b/drivers/scsi/ufs/ufshcd.c
+@@ -2971,6 +2971,7 @@ int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
+ 	ufshcd_release(hba);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_query_flag);
+ 
+ /**
+  * ufshcd_query_attr - API function for sending attribute requests
+@@ -3035,6 +3036,7 @@ int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
+ 	ufshcd_release(hba);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_query_attr);
+ 
+ 
+ /**
+@@ -3240,6 +3242,7 @@ int ufshcd_query_descriptor_retry(struct ufs_hba *hba,
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ufshcd_query_descriptor_retry);
+ 
+ /**
+  * ufshcd_map_desc_id_to_length - map descriptor IDN to its length
+-- 
+2.17.1
+

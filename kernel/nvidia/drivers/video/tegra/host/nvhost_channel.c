@@ -29,6 +29,7 @@
 #include <trace/events/nvhost.h>
 #include <uapi/linux/nvhost_ioctl.h>
 #include <linux/delay.h>
+#include <linux/nvhost.h>
 #include <linux/slab.h>
 #include <linux/version.h>
 #if LINUX_VERSION_CODE > KERNEL_VERSION(4, 13, 0)
@@ -233,7 +234,9 @@ int nvhost_channel_map_with_vm(struct nvhost_device_data *pdata,
 		return -EINVAL;
 	}
 
-	host = nvhost_get_host(pdata->pdev);
+	host = nvhost_get_host_nowarn(pdata->pdev);
+	if (!host)
+		return -EPROBE_DEFER;
 	max_channels = nvhost_channel_nb_channels(host);
 
 	mutex_lock(&host->ch_alloc_mutex);
@@ -385,13 +388,16 @@ bool nvhost_channel_is_reset_required(struct nvhost_channel *ch)
 	/* if resources are allocated per channel instance, the channel does
 	 * not necessaryly hold the mlock */
 	if (pdata->resource_policy == RESOURCE_PER_CHANNEL_INSTANCE) {
-		/* check the owner */
-		syncpt_op().mutex_owner(syncpt, pdata->modulemutexes[0],
-					&cpu_own, &ch_own, &owner);
+		if (nvhost_dev_is_virtual(master->dev) == false) {
+			/* check the owner */
+			syncpt_op().mutex_owner(syncpt, pdata->modulemutexes[0],
+						&cpu_own, &ch_own, &owner);
 
-		/* if this channel owns the lock, we need to reset the engine */
-		if (ch_own && owner == ch->chid)
-			reset_required = true;
+			/* if this channel owns the lock, we need to reset
+			 * the engine */
+			if (ch_own && owner == ch->chid)
+				reset_required = true;
+		}
 	} else {
 		/* if we allocate the resource per channel, the module is always
 		 * contamined */
@@ -429,7 +435,6 @@ void nvhost_getchannel(struct nvhost_channel *ch)
 	kref_get(&ch->refcount);
 	mutex_unlock(&host->chlist_mutex);
 }
-EXPORT_SYMBOL(nvhost_getchannel);
 
 void nvhost_putchannel(struct nvhost_channel *ch, int cnt)
 {
@@ -505,9 +510,3 @@ int nvhost_channel_get_index_from_id(struct nvhost_master *host, int chid)
 {
 	return chid - nvhost_channel_ch_base(host);
 }
-
-bool nvhost_channel_is_resource_policy_per_device(struct nvhost_device_data *pdata)
-{
-	return (pdata->resource_policy == RESOURCE_PER_DEVICE);
-}
-EXPORT_SYMBOL(nvhost_channel_is_resource_policy_per_device);

@@ -1,0 +1,32 @@
+From f3f3d66711c6cccf2ac390e448acb533cff7576b Mon Sep 17 00:00:00 2001
+From: Donghoon Yu <hoony.yu@samsung.com>
+Date: Thu, 6 Feb 2020 07:54:42 +0900
+Subject: [PATCH 629/830] ANDROID: support GKI image that contains an
+ uncompressed Kernel Image.
+X-NVConfidentiality: public
+
+how to build:
+KERNEL_BINARY=Image
+
+Bug: 148919783
+Change-Id: I0b4c4b9a85f301732bbc086a05627b01d7b3cedd
+Signed-off-by: Donghoon Yu <hoony.yu@samsung.com>
+---
+ build.config.aarch64 | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.aarch64 b/build.config.aarch64
+index 523bbc0449f7..acbba39fbec2 100644
+--- a/build.config.aarch64
++++ b/build.config.aarch64
+@@ -6,6 +6,7 @@ LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-li
+ 
+ FILES="
+ arch/arm64/boot/Image.gz
++arch/arm64/boot/Image
+ vmlinux
+ System.map
+ "
+-- 
+2.17.1
+

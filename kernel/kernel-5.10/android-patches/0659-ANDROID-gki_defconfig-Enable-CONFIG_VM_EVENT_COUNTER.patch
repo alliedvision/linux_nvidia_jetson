@@ -1,0 +1,46 @@
+From f1408277b6d2ef5b753a1ed30b6375f866ac7897 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Wed, 11 Mar 2020 09:21:38 -0700
+Subject: [PATCH 659/830] ANDROID: gki_defconfig: Enable
+ CONFIG_VM_EVENT_COUNTERS
+X-NVConfidentiality: public
+
+This was "default y" but disabled manually because we set
+CONFIG_EXPERT=y. Disabling it does not seem to be a big win and we have
+had requests to enable it.
+
+Bug: 150871026
+Change-Id: I4a7f8da1e8480dc46f168def89016a5152e421ea
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index dfb70b212b4b..c16d4325acc9 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -35,7 +35,6 @@ CONFIG_BPF_SYSCALL=y
+ CONFIG_BPF_JIT_ALWAYS_ON=y
+ # CONFIG_RSEQ is not set
+ CONFIG_EMBEDDED=y
+-# CONFIG_VM_EVENT_COUNTERS is not set
+ # CONFIG_COMPAT_BRK is not set
+ # CONFIG_SLAB_MERGE_DEFAULT is not set
+ CONFIG_SLAB_FREELIST_RANDOM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 2da508397729..d36393c96c72 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -36,7 +36,6 @@ CONFIG_BPF_SYSCALL=y
+ CONFIG_BPF_JIT_ALWAYS_ON=y
+ # CONFIG_RSEQ is not set
+ CONFIG_EMBEDDED=y
+-# CONFIG_VM_EVENT_COUNTERS is not set
+ # CONFIG_COMPAT_BRK is not set
+ # CONFIG_SLAB_MERGE_DEFAULT is not set
+ CONFIG_SLAB_FREELIST_RANDOM=y
+-- 
+2.17.1
+

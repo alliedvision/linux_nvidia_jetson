@@ -19,7 +19,12 @@
 #include <linux/time.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 #include <linux/reset.h>
 #include <soc/tegra/pmc.h>
 #include <linux/gpio/consumer.h>
@@ -90,12 +95,6 @@ static int ufs_tegra_show_configuration(struct seq_file *s, void *data)
 		seq_printf(s,
 			"HS Mode RX_Gear:gear_%u TX_Gear:gear_%u %s series\n",
 				rx_gear, tx_gear, freq_series);
-		seq_printf(s,
-			"LANE_RX:%u LANE_TX:%u PWR_RX:%u PWR_TX:%u\n",
-				configured_params->lane_rx,
-				configured_params->lane_tx,
-				configured_params->pwr_rx,
-				configured_params->pwr_tx);
 	} else {
 		seq_printf(s,
 			"PWM Mode RX_Gear:gear_%u TX_Gear:gear_%u\n",
@@ -117,7 +116,7 @@ static const struct file_operations ufs_tegra_debugfs_ops = {
 	.release        = single_release,
 };
 
-static int ufs_tegra_init_debugfs(struct ufs_hba *hba)
+void ufs_tegra_init_debugfs(struct ufs_hba *hba)
 {
 	struct dentry *device_root;
 	struct ufs_tegra_host *ufs_tegra = hba->priv;
@@ -127,8 +126,6 @@ static int ufs_tegra_init_debugfs(struct ufs_hba *hba)
 			device_root, hba, &ufs_tegra_debugfs_ops);
 	if (ufs_tegra->enable_ufs_provisioning)
 		debugfs_provision_init(hba, device_root);
-
-	return 0;
 }
 #endif
 
@@ -180,6 +177,15 @@ void ufs_rescan(struct work_struct *work)
 static void ufs_tegra_cfg_vendor_registers(struct ufs_hba *hba)
 {
 	ufshcd_writel(hba, UFS_VNDR_HCLKDIV_1US_TICK, REG_UFS_VNDR_HCLKDIV);
+	mdelay(3);
+}
+
+static void ufs_tegra_ufs_mmio_axi(struct ufs_hba *hba)
+{
+	u32 mask = GENMASK(15, 13);
+
+	ufshcd_rmwl(hba, mask, VS_BURSTMBLCONFIG, VS_BURSTMBLREGISTER);
+
 }
 
 static int ufs_tegra_host_clk_get(struct device *dev,
@@ -191,8 +197,10 @@ static int ufs_tegra_host_clk_get(struct device *dev,
 	clk = devm_clk_get(dev, name);
 	if (IS_ERR(clk)) {
 		err = PTR_ERR(clk);
-		dev_err(dev, "%s: failed to get %s err %d",
+		if (err != -EPROBE_DEFER) {
+			dev_err(dev, "%s: failed to get %s err %d",
 				__func__, name, err);
+		}
 	} else {
 		*clk_out = clk;
 	}
@@ -225,39 +233,155 @@ static int ufs_tegra_mphy_receiver_calibration(struct ufs_tegra_host *ufs_tegra)
 {
 	struct device *dev = ufs_tegra->hba->dev;
 	int timeout = 0;
-	u32 mphy_rx_vendor2;
+	u32 mphy_rx_vendor2, mphy_rx_vendor2_reg;
 
 	if (!ufs_tegra->enable_mphy_rx_calib)
 		return 0;
 
-	if (ufs_tegra->x2config)
-		mphy_update(ufs_tegra->mphy_l1_base,
-				MPHY_RX_APB_VENDOR2_0_RX_CAL_EN,
-				MPHY_RX_APB_VENDOR2_0);
+	if (ufs_tegra->chip_id == TEGRA234)
+		mphy_rx_vendor2_reg = MPHY_RX_APB_VENDOR2_0_T234;
+	else
+		mphy_rx_vendor2_reg = MPHY_RX_APB_VENDOR2_0;
 
-	mphy_update(ufs_tegra->mphy_l0_base,
-			MPHY_RX_APB_VENDOR2_0_RX_CAL_EN, MPHY_RX_APB_VENDOR2_0);
 
-	if (ufs_tegra->x2config)
-		mphy_update(ufs_tegra->mphy_l1_base,
-				MPHY_GO_BIT, MPHY_RX_APB_VENDOR2_0);
-	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-			MPHY_RX_APB_VENDOR2_0);
-	timeout = 10;
-	while (timeout--) {
-		mdelay(1);
+	/*
+	 * The below code is defined as a part of programming
+	 * guidelines in T23x UFS IAS documents
+	 */
+	if (ufs_tegra->chip_id == TEGRA234) {
+		if (ufs_tegra->x2config)
+			mphy_update(ufs_tegra->mphy_l1_base,
+					MPHY_RX_APB_VENDOR2_0_RX_CAL_EN,
+					mphy_rx_vendor2_reg);
 
-		mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l0_base,
-				MPHY_RX_APB_VENDOR2_0);
+		mphy_update(ufs_tegra->mphy_l0_base,
+				MPHY_RX_APB_VENDOR2_0_RX_CAL_EN, mphy_rx_vendor2_reg);
 
-		if (!(mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_EN)) {
-			dev_info(dev, "MPhy Receiver Calibration passed\n");
-			break;
+		if (ufs_tegra->x2config)
+			mphy_update(ufs_tegra->mphy_l1_base,
+					MPHY_GO_BIT, mphy_rx_vendor2_reg);
+		mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
+				mphy_rx_vendor2_reg);
+
+		if (ufs_tegra->x2config) {
+			timeout = 100;
+			while (timeout--) {
+				udelay(1);
+
+				mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l1_base,
+						mphy_rx_vendor2_reg);
+
+				if (mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_DONE) {
+					dev_info(dev, "MPhy Receiver Calibration passed\n");
+					break;
+				}
+			}
+
+			if (timeout < 0) {
+				dev_err(dev, "MPhy Receiver Calibration failed\n");
+				return -ETIMEDOUT;
+			}
 		}
-	}
-	if (timeout < 0) {
-		dev_err(dev, "MPhy Receiver Calibration failed\n");
-		return -1;
+
+		timeout = 100;
+		while (timeout--) {
+			udelay(1);
+
+			mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l0_base,
+					mphy_rx_vendor2_reg);
+
+			if (mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_DONE) {
+				dev_info(dev, "MPhy Receiver Calibration passed\n");
+				break;
+			}
+		}
+
+		if (timeout < 0) {
+			dev_err(dev, "MPhy Receiver Calibration failed\n");
+			return -ETIMEDOUT;
+		}
+
+		if (ufs_tegra->x2config)
+			mphy_clear_bits(ufs_tegra->mphy_l1_base,
+					MPHY_RX_APB_VENDOR2_0_RX_CAL_EN,
+					mphy_rx_vendor2_reg);
+
+		mphy_clear_bits(ufs_tegra->mphy_l0_base,
+				MPHY_RX_APB_VENDOR2_0_RX_CAL_EN, mphy_rx_vendor2_reg);
+
+		if (ufs_tegra->x2config)
+			mphy_update(ufs_tegra->mphy_l1_base,
+					MPHY_GO_BIT, mphy_rx_vendor2_reg);
+		mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
+				mphy_rx_vendor2_reg);
+
+		if (ufs_tegra->x2config) {
+			timeout = 100;
+			while (timeout--) {
+				udelay(1);
+
+				mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l1_base,
+						mphy_rx_vendor2_reg);
+
+				if (!(mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_DONE)) {
+					dev_info(dev, "MPhy Receiver Calibration passed\n");
+					break;
+				}
+			}
+
+			if (timeout < 0) {
+				dev_err(dev, "MPhy Receiver Calibration failed\n");
+				return -ETIMEDOUT;
+			}
+		}
+
+		timeout = 100;
+		while (timeout--) {
+			udelay(1);
+
+			mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l0_base,
+					mphy_rx_vendor2_reg);
+
+			if (!(mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_DONE)) {
+				dev_info(dev, "MPhy Receiver Calibration passed\n");
+				break;
+			}
+		}
+
+		if (timeout < 0) {
+			dev_err(dev, "MPhy Receiver Calibration failed\n");
+			return -ETIMEDOUT;
+		}
+	} else {
+		if (ufs_tegra->x2config)
+			mphy_update(ufs_tegra->mphy_l1_base,
+					MPHY_RX_APB_VENDOR2_0_RX_CAL_EN,
+					mphy_rx_vendor2_reg);
+
+		mphy_update(ufs_tegra->mphy_l0_base,
+				MPHY_RX_APB_VENDOR2_0_RX_CAL_EN, mphy_rx_vendor2_reg);
+
+		if (ufs_tegra->x2config)
+			mphy_update(ufs_tegra->mphy_l1_base,
+					MPHY_GO_BIT, mphy_rx_vendor2_reg);
+		mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
+				mphy_rx_vendor2_reg);
+		timeout = 10;
+		while (timeout--) {
+			mdelay(1);
+
+			mphy_rx_vendor2 = mphy_readl(ufs_tegra->mphy_l0_base,
+					mphy_rx_vendor2_reg);
+
+			if (!(mphy_rx_vendor2 & MPHY_RX_APB_VENDOR2_0_RX_CAL_EN)) {
+				dev_info(dev, "MPhy Receiver Calibration passed\n");
+				break;
+			}
+		}
+		if (timeout < 0) {
+			dev_err(dev, "MPhy Receiver Calibration failed\n");
+			return -ETIMEDOUT;
+		}
 	}
 	return 0;
 }
@@ -281,6 +405,84 @@ static void ufs_tegra_disable_mphylane_clks(struct ufs_tegra_host *host)
 	host->is_lane_clks_enabled = false;
 }
 
+static int ufs_tegra_enable_t234_mphy_clocks(struct ufs_tegra_host *host)
+{
+	int err;
+	struct device *dev = host->hba->dev;
+
+	err = clk_set_rate(host->mphy_tx_hs_symb_div, MPHY_TX_HS_BIT_DIV_CLK);
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+				"%s: mphy_tx_hs_symb_div set rate failed %d\n",
+				__func__, err);
+		goto out;
+	}
+
+	err = clk_set_parent(host->mphy_tx_hs_mux_symb_div, host->mphy_tx_hs_symb_div);
+	if (err){
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+			 "%s mphy_tx_hs_mux_symb_div set parent failed %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	err = ufs_tegra_host_clk_enable(dev, "mphy_tx_hs_symb_div",
+			host->mphy_tx_hs_symb_div);
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+			 "%s mphy_tx_hs_symb_div clock enable failed %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	err = clk_set_rate(host->mphy_rx_hs_symb_div, MPHY_RX_HS_BIT_DIV_CLK);
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+				"%s: mphy_rx_hs_symb_div set rate failed %d\n",
+				__func__, err);
+		goto disable_mphy_tx_hs_symb_div;
+	}
+
+	err = clk_set_parent(host->mphy_rx_hs_mux_symb_div, host->mphy_rx_hs_symb_div);
+	if (err){
+		 dev_err(dev,
+			"%s: mphy_rx_hs_symb_div set parent failed %d\n",
+			__func__, err);
+		goto disable_mphy_tx_hs_symb_div;
+	}
+
+	err = ufs_tegra_host_clk_enable(dev, "mphy_rx_hs_symb_div", host->mphy_rx_hs_symb_div);
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+				"%s: mphy_rx_hs_symb_div clock enable failed %d\n",
+				__func__, err);
+		goto disable_mphy_tx_hs_symb_div;
+	}
+
+	err = ufs_tegra_host_clk_enable(dev, "mphy_l0_tx_2x_symb", host->mphy_l0_tx_2x_symb);
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev,
+				"%s: mphy_l0_tx_2x_symb clock enable failed %d\n",
+				__func__, err);
+		goto disable_mphy_rx_hs_symb_div;
+	} else {
+		goto out;
+	}
+
+disable_mphy_rx_hs_symb_div:
+	clk_disable_unprepare(host->mphy_rx_hs_symb_div);
+disable_mphy_tx_hs_symb_div:
+	clk_disable_unprepare(host->mphy_tx_hs_symb_div);
+out:
+	return err;
+}
+
 static int ufs_tegra_enable_mphylane_clks(struct ufs_tegra_host *host)
 {
 	int err = 0;
@@ -289,10 +491,14 @@ static int ufs_tegra_enable_mphylane_clks(struct ufs_tegra_host *host)
 	if (host->is_lane_clks_enabled)
 		return 0;
 
+	err = clk_prepare_enable(host->pllrefe_clk);
+	if (err < 0)
+		goto out;
+
 	err = ufs_tegra_host_clk_enable(dev, "mphy_core_pll_fixed",
 		host->mphy_core_pll_fixed);
 	if (err)
-		goto out;
+		goto disable_mphy_core_pll_fixed;
 
 	err = ufs_tegra_host_clk_enable(dev, "mphy_l0_tx_symb",
 		host->mphy_l0_tx_symb);
@@ -331,9 +537,18 @@ static int ufs_tegra_enable_mphylane_clks(struct ufs_tegra_host *host)
 			goto disable_l1_rx_ana;
 	}
 
+	if (host->chip_id == TEGRA234) {
+		err = ufs_tegra_enable_t234_mphy_clocks(host);
+		if (err)
+                        goto disable_t234_clocks;
+	}
+
 	host->is_lane_clks_enabled = true;
 	goto out;
 
+disable_t234_clocks:
+	if (host->x2config)
+		clk_disable_unprepare(host->mphy_l1_rx_ana);
 disable_l1_rx_ana:
 	clk_disable_unprepare(host->mphy_l0_rx_ls_bit);
 disable_l0_rx_ls_bit:
@@ -348,6 +563,8 @@ disable_tx_1mhz_ref:
 	clk_disable_unprepare(host->mphy_l0_tx_symb);
 disable_l0_tx_symb:
 	clk_disable_unprepare(host->mphy_core_pll_fixed);
+disable_mphy_core_pll_fixed:
+	clk_disable_unprepare(host->pllrefe_clk);
 out:
 	return err;
 }
@@ -356,6 +573,11 @@ static int ufs_tegra_init_mphy_lane_clks(struct ufs_tegra_host *host)
 {
 	int err = 0;
 	struct device *dev = host->hba->dev;
+
+	err = ufs_tegra_host_clk_get(dev,
+			"pllrefe_vcoout", &host->pllrefe_clk);
+	if (err)
+		goto out;
 
 	err = ufs_tegra_host_clk_get(dev,
 			"mphy_core_pll_fixed", &host->mphy_core_pll_fixed);
@@ -400,6 +622,32 @@ static int ufs_tegra_init_mphy_lane_clks(struct ufs_tegra_host *host)
 	if (host->x2config)
 		err = ufs_tegra_host_clk_get(dev, "mphy_l1_rx_ana",
 			&host->mphy_l1_rx_ana);
+	if (host->chip_id == TEGRA234) {
+		err = ufs_tegra_host_clk_get(dev, "mphy_l0_tx_hs_symb_div",
+			&host->mphy_tx_hs_symb_div);
+		if (err)
+			goto out;
+
+		err = ufs_tegra_host_clk_get(dev, "mphy_l0_tx_mux_symb_div",
+			&host->mphy_tx_hs_mux_symb_div);
+		if (err)
+			goto out;
+
+		err = ufs_tegra_host_clk_get(dev, "mphy_l0_rx_hs_symb_div",
+			&host->mphy_rx_hs_symb_div);
+		if (err)
+			goto out;
+
+		err = ufs_tegra_host_clk_get(dev, "mphy_l0_rx_mux_symb_div",
+			&host->mphy_rx_hs_mux_symb_div);
+		if (err)
+			goto out;
+
+		err = ufs_tegra_host_clk_get(dev, "mphy_l0_tx_2x_symb",
+			&host->mphy_l0_tx_2x_symb);
+		if (err)
+			goto out;
+	}
 out:
 	return err;
 }
@@ -459,7 +707,6 @@ static int ufs_tegra_init_ufs_clks(struct ufs_tegra_host *ufs_tegra)
 		"ufshc", &ufs_tegra->ufshc_clk);
 	if (err)
 		goto out;
-
 	err = ufs_tegra_host_clk_get(dev,
 		"clk_m", &ufs_tegra->ufsdev_parent);
 	if (err)
@@ -468,6 +715,12 @@ static int ufs_tegra_init_ufs_clks(struct ufs_tegra_host *ufs_tegra)
 		"ufsdev_ref", &ufs_tegra->ufsdev_ref_clk);
 	if (err)
 		goto out;
+	if (ufs_tegra->chip_id == TEGRA234) {
+		err = ufs_tegra_host_clk_get(dev,
+			"osc", &ufs_tegra->ufsdev_osc);
+		if (err)
+			goto out;
+	}
 
 out:
 	return err;
@@ -484,11 +737,15 @@ static int ufs_tegra_enable_ufs_clks(struct ufs_tegra_host *ufs_tegra)
 		goto out;
 	err = clk_set_parent(ufs_tegra->ufshc_clk,
 				ufs_tegra->ufshc_parent);
-	if (err)
+	if (err){
+		pr_err("Function clk_set_parent failed\n");
 		goto out;
+	}
 	err = clk_set_rate(ufs_tegra->ufshc_clk, UFSHC_CLK_FREQ);
-	if (err)
+	if (err){
+		pr_err("Function clk_set_rate failed\n");
 		goto out;
+	}
 
 	/* clk_m is the parent for ufsdev_ref
          * Frequency is 19.2 MHz.
@@ -497,6 +754,17 @@ static int ufs_tegra_enable_ufs_clks(struct ufs_tegra_host *ufs_tegra)
 		ufs_tegra->ufsdev_ref_clk);
 	if (err)
 		goto disable_ufshc;
+
+	if ((ufs_tegra->chip_id == TEGRA234) &&
+			(ufs_tegra->enable_38mhz_clk)) {
+		err = clk_set_parent(ufs_tegra->ufsdev_ref_clk,
+				ufs_tegra->ufsdev_osc);
+
+		if (err) {
+			pr_err("Function clk_set_parent failed\n");
+			goto out;
+		}
+	}
 
 	ufs_tegra->hba->clk_gating.state = CLKS_ON;
 
@@ -656,32 +924,64 @@ static void ufs_tegra_mphy_deassert_reset(struct ufs_tegra_host *ufs_tegra)
 	}
 }
 
+static void ufs_tegra_pwr_change_clk_boost(struct ufs_tegra_host *ufs_tegra)
+{
+	u32 reg_vendor_0;
+
+	if (ufs_tegra->chip_id == TEGRA234)
+		reg_vendor_0 = MPHY_RX_APB_VENDOR2_0_T234;
+	else
+		reg_vendor_0 = MPHY_RX_APB_VENDOR2_0;
+
+	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_PWR_CHANGE_CLK_BOOST,
+			MPHY_RX_APB_VENDOR49_0_T234);
+	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT, reg_vendor_0);
+
+	if (ufs_tegra->x2config) {
+		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_PWR_CHANGE_CLK_BOOST,
+				MPHY_RX_APB_VENDOR49_0_T234);
+		mphy_update(ufs_tegra->mphy_l1_base, MPHY_GO_BIT, reg_vendor_0);
+	}
+	udelay(20);
+}
+
 void ufs_tegra_disable_mphy_slcg(struct ufs_tegra_host *ufs_tegra)
 {
-	u32 val = 0;
+	u32 val = 0, reg_cg_over, reg_vendor_0;
+
+	if (ufs_tegra->chip_id == TEGRA234) {
+		reg_cg_over = MPHY_TX_APB_TX_CG_OVR0_0_T234;
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0_T234;
+	} else {
+		reg_cg_over = MPHY_TX_APB_TX_CG_OVR0_0;
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0;
+	}
 
 	val = (MPHY_TX_CLK_EN_SYMB | MPHY_TX_CLK_EN_SLOW |
 			MPHY_TX_CLK_EN_FIXED | MPHY_TX_CLK_EN_3X);
-	mphy_writel(ufs_tegra->mphy_l0_base, val, MPHY_TX_APB_TX_CG_OVR0_0);
-	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-						MPHY_TX_APB_TX_VENDOR0_0);
+	mphy_writel(ufs_tegra->mphy_l0_base, val, reg_cg_over);
+	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_GO_BIT, reg_vendor_0);
 
 	if (ufs_tegra->x2config) {
-		mphy_writel(ufs_tegra->mphy_l1_base, val,
-						MPHY_TX_APB_TX_CG_OVR0_0);
-		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_GO_BIT,
-						MPHY_TX_APB_TX_VENDOR0_0);
+		mphy_writel(ufs_tegra->mphy_l1_base, val, reg_cg_over);
+		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_GO_BIT, reg_vendor_0);
 	}
 
 }
 
 
-static void ufs_tegra_mphy_rx_sync_capabity(struct ufs_tegra_host *ufs_tegra)
+static void ufs_tegra_mphy_rx_sync_capability(struct ufs_tegra_host *ufs_tegra)
 {
 	u32 val_88_8b = 0;
 	u32 val_94_97 = 0;
 	u32 val_8c_8f = 0;
 	u32 val_98_9b = 0;
+	u32 vendor2_reg;
+
+	if (ufs_tegra->chip_id == TEGRA234)
+		vendor2_reg = MPHY_RX_APB_VENDOR2_0_T234;
+	else
+		vendor2_reg = MPHY_RX_APB_VENDOR2_0;
 
 	/* MPHY RX sync lengths capability changes */
 
@@ -704,8 +1004,8 @@ static void ufs_tegra_mphy_rx_sync_capabity(struct ufs_tegra_host *ufs_tegra)
 	/* Update MPHY_RX_APB_CAPABILITY_8C_8F_0 */
 	val_8c_8f = mphy_readl(ufs_tegra->mphy_l0_base,
 			MPHY_RX_APB_CAPABILITY_8C_8F_0);
-	val_8c_8f &= ~RX_MIN_ACTIVATETIME_CAP(~0);
-	val_8c_8f |= RX_MIN_ACTIVATETIME_CAP(RX_MIN_ACTIVATETIME);
+	val_8c_8f &= ~RX_MIN_ACTIVATETIME_CAP_ARG(~0);
+	val_8c_8f |= RX_MIN_ACTIVATETIME_CAP_ARG(RX_MIN_ACTIVATETIME);
 
 	/* Update MPHY_RX_APB_CAPABILITY_98_9B_0 */
 	val_98_9b = mphy_readl(ufs_tegra->mphy_l0_base,
@@ -724,7 +1024,7 @@ static void ufs_tegra_mphy_rx_sync_capabity(struct ufs_tegra_host *ufs_tegra)
 	mphy_writel(ufs_tegra->mphy_l0_base, val_98_9b,
 			MPHY_RX_APB_CAPABILITY_98_9B_0);
 	mphy_update(ufs_tegra->mphy_l0_base,
-				MPHY_GO_BIT, MPHY_RX_APB_VENDOR2_0);
+				MPHY_GO_BIT, vendor2_reg);
 
 	if (ufs_tegra->x2config) {
 		mphy_writel(ufs_tegra->mphy_l1_base, val_88_8b,
@@ -737,32 +1037,42 @@ static void ufs_tegra_mphy_rx_sync_capabity(struct ufs_tegra_host *ufs_tegra)
 			MPHY_RX_APB_CAPABILITY_98_9B_0);
 		/* set gobit */
 		mphy_update(ufs_tegra->mphy_l1_base,
-				MPHY_GO_BIT, MPHY_RX_APB_VENDOR2_0);
+				MPHY_GO_BIT, vendor2_reg);
 	}
 }
 
 void ufs_tegra_mphy_tx_advgran(struct ufs_tegra_host *ufs_tegra)
 {
-	u32 val = 0;
+	u32 val = 0, reg_vendor_0;
+
+	if (ufs_tegra->chip_id == TEGRA234)
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0_T234;
+	else
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0;
 
 	val = (TX_ADVANCED_GRANULARITY | TX_ADVANCED_GRANULARITY_SETTINGS);
 	mphy_update(ufs_tegra->mphy_l0_base, val,
 					MPHY_TX_APB_TX_ATTRIBUTE_34_37_0);
 	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-						MPHY_TX_APB_TX_VENDOR0_0);
+						reg_vendor_0);
 
 	if (ufs_tegra->x2config) {
 		mphy_update(ufs_tegra->mphy_l1_base, val,
 					MPHY_TX_APB_TX_ATTRIBUTE_34_37_0);
 		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_GO_BIT,
-						MPHY_TX_APB_TX_VENDOR0_0);
+						reg_vendor_0);
 	}
 }
 
 
 void ufs_tegra_mphy_rx_advgran(struct ufs_tegra_host *ufs_tegra)
 {
-	u32 val = 0;
+	u32 val = 0, reg_vendor_2;
+
+	if (ufs_tegra->chip_id == TEGRA234)
+		reg_vendor_2 = MPHY_RX_APB_VENDOR2_0_T234;
+	else
+		reg_vendor_2 = MPHY_RX_APB_VENDOR2_0;
 
 	val = mphy_readl(ufs_tegra->mphy_l0_base, MPHY_RX_APB_CAPABILITY_98_9B_0);
 	val &= ~RX_ADVANCED_GRANULARITY(~0);
@@ -774,7 +1084,7 @@ void ufs_tegra_mphy_rx_advgran(struct ufs_tegra_host *ufs_tegra)
 	mphy_writel(ufs_tegra->mphy_l0_base, val,
 					MPHY_RX_APB_CAPABILITY_98_9B_0);
 	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-			MPHY_RX_APB_VENDOR2_0);
+			reg_vendor_2);
 
 	if (ufs_tegra->x2config) {
 		val = mphy_readl(ufs_tegra->mphy_l1_base,
@@ -788,7 +1098,7 @@ void ufs_tegra_mphy_rx_advgran(struct ufs_tegra_host *ufs_tegra)
 		mphy_writel(ufs_tegra->mphy_l1_base, val,
 					MPHY_RX_APB_CAPABILITY_98_9B_0);
 		mphy_update(ufs_tegra->mphy_l1_base, MPHY_GO_BIT,
-			MPHY_RX_APB_VENDOR2_0);
+			reg_vendor_2);
 	}
 }
 
@@ -874,6 +1184,15 @@ static void ufs_tegra_context_restore(struct ufs_tegra_host *ufs_tegra)
 	u32 reg_len = 0;
 	u32 len = 0;
 	u32 *mphy_context_restore = ufs_tegra->mphy_context;
+	u32 reg_vendor_0, reg_vendor_2;
+
+	if (ufs_tegra->chip_id == TEGRA234) {
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0_T234;
+		reg_vendor_2 = MPHY_RX_APB_VENDOR2_0_T234;
+	} else {
+		reg_vendor_0 = MPHY_TX_APB_TX_VENDOR0_0;
+		reg_vendor_2 = MPHY_RX_APB_VENDOR2_0;
+	}
 
 	reg_len = ARRAY_SIZE(mphy_rx_apb);
 	/*
@@ -881,15 +1200,14 @@ static void ufs_tegra_context_restore(struct ufs_tegra_host *ufs_tegra)
 	 */
 	ufs_restore_regs(ufs_tegra->mphy_l0_base, mphy_context_restore,
 							mphy_rx_apb, reg_len);
-	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-				MPHY_RX_APB_VENDOR2_0);
+	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT, reg_vendor_2);
 
 	len += reg_len;
 	if (ufs_tegra->x2config) {
 		ufs_restore_regs(ufs_tegra->mphy_l1_base,
 			mphy_context_restore + len, mphy_rx_apb, reg_len);
 		mphy_update(ufs_tegra->mphy_l1_base, MPHY_GO_BIT,
-				MPHY_RX_APB_VENDOR2_0);
+				reg_vendor_2);
 		len += reg_len;
 	}
 
@@ -899,15 +1217,13 @@ static void ufs_tegra_context_restore(struct ufs_tegra_host *ufs_tegra)
 	 */
 	ufs_restore_regs(ufs_tegra->mphy_l0_base, mphy_context_restore + len,
 							mphy_tx_apb, reg_len);
-	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_GO_BIT,
-			MPHY_TX_APB_TX_VENDOR0_0);
+	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_GO_BIT, reg_vendor_0);
 
 	len += reg_len;
 	if (ufs_tegra->x2config) {
 		ufs_restore_regs(ufs_tegra->mphy_l1_base,
 			mphy_context_restore + len, mphy_tx_apb, reg_len);
-		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_GO_BIT,
-				MPHY_TX_APB_TX_VENDOR0_0);
+		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_GO_BIT, reg_vendor_0);
 	}
 }
 
@@ -927,39 +1243,50 @@ static int ufs_tegra_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		return 0;
 
 	ufs_tegra->ufshc_state = UFSHC_SUSPEND;
-	/*
-	 * Enable DPD for UFS
-	 */
-	if (ufs_tegra->ufs_pinctrl && !IS_ERR_OR_NULL(ufs_tegra->dpd_enable)) {
-		ret = pinctrl_select_state(ufs_tegra->ufs_pinctrl,
-					   ufs_tegra->dpd_enable);
-		if (ret)
-			dev_err(dev, "pinctrl power down fail %d\n", ret);
 
-	}
-
-	do {
-		udelay(100);
-		val = ufs_aux_readl(ufs_tegra->ufs_aux_base,
-				UFSHC_AUX_UFSHC_STATUS_0);
-		if (val & UFSHC_HIBERNATE_STATUS) {
-			is_ufs_lp_pwr_gated = true;
-			break;
-		}
-		timeout--;
-	} while (timeout > 0);
-
-	if (timeout <= 0) {
-		dev_err(dev, "UFSHC_AUX_UFSHC_STATUS_0 = %x\n", val);
-		return -ETIMEDOUT;
-	}
-
-	if (is_ufs_lp_pwr_gated) {
+	if (ufs_tegra->chip_id != TEGRA234) {
 		/*
-		 * Save all armphy_rx_apb and armphy_tx_apb registers
+		 * Enable DPD for UFS
 		 */
-		ufs_tegra_context_save(ufs_tegra);
-		reset_control_assert(ufs_tegra->ufshc_lp_rst);
+		if (ufs_tegra->ufs_pinctrl &&
+				!IS_ERR_OR_NULL(ufs_tegra->dpd_enable)) {
+			ret = pinctrl_select_state(ufs_tegra->ufs_pinctrl,
+						   ufs_tegra->dpd_enable);
+			if (ret)
+				dev_err(dev, "pinctrl power down fail %d\n",
+						ret);
+		}
+
+		do {
+			udelay(100);
+			val = ufs_aux_readl(ufs_tegra->ufs_aux_base,
+					UFSHC_AUX_UFSHC_STATUS_0);
+			if (val & UFSHC_HIBERNATE_STATUS) {
+				is_ufs_lp_pwr_gated = true;
+				break;
+			}
+			timeout--;
+		} while (timeout > 0);
+
+		if (timeout <= 0) {
+			dev_err(dev, "UFSHC_AUX_UFSHC_STATUS_0 = %x\n", val);
+			return -ETIMEDOUT;
+		}
+
+		if (is_ufs_lp_pwr_gated) {
+			/*
+			 * Save all armphy_rx_apb and armphy_tx_apb registers
+			 * T234 does not require context save
+			 */
+			ufs_tegra_context_save(ufs_tegra);
+			reset_control_assert(ufs_tegra->ufshc_lp_rst);
+		}
+	} else {
+		/*
+		 * For T234, during sc7 entry, the link is set to off state
+		 * so that during sc7 exit link startup happens (According to IAS)
+		 */
+		ufshcd_set_link_off(hba);
 	}
 
 	/* Enable wake irq at end of suspend */
@@ -1020,18 +1347,22 @@ static int ufs_tegra_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufs_tegra_ufs_deassert_reset(ufs_tegra);
 	ufs_tegra_ufs_aux_prog(ufs_tegra);
 
-	if (ufs_tegra->ufs_pinctrl &&
-		!IS_ERR_OR_NULL(ufs_tegra->dpd_disable)) {
-		ret = pinctrl_select_state(ufs_tegra->ufs_pinctrl,
+	if (ufs_tegra->chip_id != TEGRA234) {
+		if (ufs_tegra->ufs_pinctrl &&
+			!IS_ERR_OR_NULL(ufs_tegra->dpd_disable)) {
+			ret = pinctrl_select_state(ufs_tegra->ufs_pinctrl,
 					   ufs_tegra->dpd_disable);
-		if (ret) {
-			dev_err(dev, "pinctrl power up fail %d\n", ret);
-			goto out_disable_mphylane_clks;
+			if (ret) {
+				dev_err(dev, "pinctrl power up fail %d\n", ret);
+				goto out_disable_mphylane_clks;
+			}
 		}
-
+		/*
+		 * T234 does not require context restore
+		 */
+		ufs_tegra_context_restore(ufs_tegra);
 	}
 
-	ufs_tegra_context_restore(ufs_tegra);
 	ufs_tegra_cfg_vendor_registers(hba);
 	ret = ufs_tegra_mphy_receiver_calibration(ufs_tegra);
 	if (ret < 0)
@@ -1052,12 +1383,17 @@ out_disable_ufs_clks:
 }
 
 
-static void ufs_tegra_hibern8_entry_notify(struct ufs_hba *hba)
+static void ufs_tegra_hibern8_entry_notify(struct ufs_hba *hba, int flag)
 {
 	struct ufs_tegra_host *ufs_tegra = hba->priv;
 
-	if (!(ufs_tegra->nvquirks & NVQUIRK_BROKEN_HIBERN8_ENTRY))
+	if (!(ufs_tegra->nvquirks & NVQUIRK_BROKEN_HIBERN8_ENTRY)) {
+		if (flag)
+			clk_disable_unprepare(ufs_tegra->pllrefe_clk);
+		else
+			clk_prepare_enable(ufs_tegra->pllrefe_clk);
 		return;
+	}
 
 	ufs_tegra_context_save(ufs_tegra);
 
@@ -1121,6 +1457,7 @@ static int ufs_tegra_pwr_change_notify(struct ufs_hba *hba,
 	u32 vs_save_config;
 	int ret = 0;
 	u32 pa_reg_check;
+	u32 ref_clk;
 
 	if (!dev_req_params) {
 		pr_err("%s: incoming dev_req_params is NULL\n", __func__);
@@ -1130,6 +1467,20 @@ static int ufs_tegra_pwr_change_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
+		/* If the prefetched reference clock is two and if 38Mhz is
+		 * not enabled in DT then set the reference clock to 19Mhz
+		 */
+		if (!(ufs_tegra->enable_38mhz_clk)) {
+			if ((hba->init_prefetch_data.ref_clk_freq  == 2) ||
+					(hba->init_prefetch_data.ref_clk_freq  == 1)) {
+				ref_clk = 0;
+				ufshcd_set_refclk_value(hba, &ref_clk);
+				ufshcd_get_refclk_value(hba, &hba->init_prefetch_data.ref_clk_freq);
+				dev_info(hba->dev, "Configured ref_clk_freq = %u\n",
+					hba->init_prefetch_data.ref_clk_freq);
+			}
+		}
+
 		/* Update VS_DebugSaveConfigTime Tref */
 		ufshcd_dme_get(hba, UIC_ARG_MIB(VS_DEBUGSAVECONFIGTIME),
 			&vs_save_config);
@@ -1145,7 +1496,9 @@ static int ufs_tegra_pwr_change_notify(struct ufs_hba *hba,
 
 		memcpy(dev_req_params, dev_max_params,
 			sizeof(struct ufs_pa_layer_attr));
-		if (hba->init_prefetch_data.ref_clk_freq)
+		if ((hba->init_prefetch_data.ref_clk_freq != 0) &&
+			(hba->init_prefetch_data.ref_clk_freq != 1) &&
+				(hba->init_prefetch_data.ref_clk_freq != 2))
 			ufs_tegra->enable_hs_mode = false;
 		if ((ufs_tegra->enable_hs_mode) && (dev_max_params->hs_rate)) {
 			if (ufs_tegra->max_hs_gear) {
@@ -1164,6 +1517,9 @@ static int ufs_tegra_pwr_change_notify(struct ufs_hba *hba,
 			if (ufs_tegra->mask_fast_auto_mode) {
 				dev_req_params->pwr_rx = FAST_MODE;
 				dev_req_params->pwr_tx = FAST_MODE;
+			} else {
+				dev_req_params->pwr_rx = FASTAUTO_MODE;
+				dev_req_params->pwr_tx = FASTAUTO_MODE;
 			}
 			if (ufs_tegra->mask_hs_mode_b) {
 				dev_req_params->hs_rate = PA_HS_MODE_A;
@@ -1174,6 +1530,13 @@ static int ufs_tegra_pwr_change_notify(struct ufs_hba *hba,
 			}
 			if (ufs_tegra->enable_scramble)
 				ufs_tegra_scramble_enable(hba);
+
+			/*
+			 * Clock boost during power change
+			 * is required as per T234 IAS document
+			 */
+			if (ufs_tegra->chip_id == TEGRA234)
+				ufs_tegra_pwr_change_clk_boost(ufs_tegra);
 		} else {
 			if (ufs_tegra->max_pwm_gear) {
 				ufshcd_dme_get(hba,
@@ -1256,6 +1619,8 @@ static int ufs_tegra_hce_enable_notify(struct ufs_hba *hba,
 		ufs_tegra_ufs_aux_prog(ufs_tegra);
 		ufs_tegra_cfg_vendor_registers(hba);
 		clk_disable_unprepare(ufs_tegra->mphy_force_ls_mode);
+		if (ufs_tegra->chip_id == TEGRA234)
+			ufs_tegra_ufs_mmio_axi(hba);
 		break;
 	default:
 		break;
@@ -1313,12 +1678,12 @@ static int ufs_tegra_link_startup_notify(struct ufs_hba *hba,
 
 	switch (status) {
 	case PRE_CHANGE:
-		ufs_tegra_mphy_rx_sync_capabity(ufs_tegra);
+		ufs_tegra_mphy_rx_sync_capability(ufs_tegra);
 		ufs_tegra_unipro_pre_linkup(hba);
 		break;
 	case POST_CHANGE:
 		/*POST_CHANGE case is called on success of link start-up*/
-		dev_info(hba->dev, "UFS card detected - dme-link-startup Successful\n");
+		dev_info(hba->dev, "dme-link-startup Successful\n");
 		ufs_tegra_unipro_post_linkup(hba);
 		err = ufs_tegra_mphy_receiver_calibration(ufs_tegra);
 		break;
@@ -1369,6 +1734,9 @@ static void ufs_tegra_config_soc_data(struct ufs_tegra_host *ufs_tegra)
 	ufs_tegra->enable_hs_mode =
 		of_property_read_bool(np, "nvidia,enable-hs-mode");
 
+	ufs_tegra->enable_38mhz_clk =
+		of_property_read_bool(np, "nvidia,enable-38mhz-clk");
+
 	ufs_tegra->mask_fast_auto_mode =
 		of_property_read_bool(np, "nvidia,mask-fast-auto-mode");
 
@@ -1377,6 +1745,7 @@ static void ufs_tegra_config_soc_data(struct ufs_tegra_host *ufs_tegra)
 
 	ufs_tegra->enable_ufs_provisioning =
 		of_property_read_bool(np, "nvidia,enable-ufs-provisioning");
+
 	ufs_tegra->configure_uphy_pll3 =
 		of_property_read_bool(np, "nvidia,configure-uphy-pll3");
 
@@ -1395,6 +1764,77 @@ static void ufs_tegra_config_soc_data(struct ufs_tegra_host *ufs_tegra)
 		of_property_read_bool(np, "nvidia,enable-scramble");
 }
 
+
+static void ufs_tegra_tx_update(void __iomem *mphy_base)
+{
+	/* Give delay to make sure transfer is complete */
+	udelay(20);
+	mphy_writel(mphy_base, MPHY_GO_BIT, MPHY_TX_APB_TX_VENDOR0_0_T234);
+}
+
+static void ufs_tegra_rx_update(void __iomem *mphy_base)
+{
+	/* Give delay to make sure transfer is complete */
+	udelay(20);
+	mphy_writel(mphy_base, MPHY_RX_GO_REG_VAL_FPGA, MPHY_RX_APB_VENDOR2_0_T234);
+}
+
+static void ufs_tegra_mphy_clk_divisors(void __iomem *mphy_base)
+{
+	mphy_writel(mphy_base, MPHY_RX_PWM_CLOCK_DIV_VAL_FPGA, MPHY_RX_APB_VENDOR22_0_T234);
+	mphy_writel(mphy_base, MPHY_RX_HS_CLOCK_DIV_VAL_FPGA, MPHY_RX_APB_VENDOR24_0_T234);
+	ufs_tegra_rx_update(mphy_base);
+
+	mphy_writel(mphy_base, MPHY_TX_PWM_CLOCK_DIV_VAL_FPGA, MPHY_TX_APB_TX_CLK_CTRL0_0_T234);
+	mphy_writel(mphy_base, MPHY_TX_HS_CLOCK_DIV_VAL_FPGA, MPHY_TX_APB_TX_CLK_CTRL2_0_T234);
+	mphy_writel(mphy_base, MPHY_TX_HIBERN8_ENTER_TIME_FPGA, MPHY_TX_APB_TX_VENDOR4_0_T234);
+	ufs_tegra_tx_update(mphy_base);
+}
+
+static void ufs_tegra_device_reset_fpga(void __iomem *ufs_aux_base)
+{
+	ufs_aux_writel(ufs_aux_base, 0x0, UFSHC_AUX_UFSHC_DEV_CTRL_0);
+	mdelay(1000);
+
+	ufs_aux_writel(ufs_aux_base, (UFSHC_DEV_RESET | UFSHC_DEV_CLK_EN),
+		UFSHC_AUX_UFSHC_DEV_CTRL_0);
+	mdelay(1000);
+}
+
+static void ufs_tegra_program_mphy_attr_fpga(void __iomem *mphy_base)
+{
+	mphy_writel(mphy_base, MPHY_RX_CAPABILITY_88_8B_VAL_FPGA, MPHY_RX_APB_CAPABILITY_88_8B_0);
+	mphy_writel(mphy_base, MPHY_RX_CAPABILITY_8C_8F_VAL_FPGA, MPHY_RX_APB_CAPABILITY_8C_8F_0);
+	mphy_writel(mphy_base, MPHY_RX_CAPABILITY_94_97_VAL_FPGA, MPHY_RX_APB_CAPABILITY_94_97_0);
+	mphy_writel(mphy_base, MPHY_RX_CAPABILITY_98_9B_VAL_FPGA, MPHY_RX_APB_CAPABILITY_98_9B_0);
+
+	ufs_tegra_rx_update(mphy_base);
+}
+
+static void ufs_tegra_program_platfrom_specifics(struct ufs_tegra_host *ufs_tegra)
+{
+	/* Configure clock divisor values */
+	ufs_tegra_mphy_clk_divisors(ufs_tegra->mphy_l0_base);
+	ufs_tegra_mphy_clk_divisors(ufs_tegra->mphy_l1_base);
+
+	ufs_tegra_device_reset_fpga(ufs_tegra->ufs_aux_base);
+	ufs_tegra_program_mphy_attr_fpga(ufs_tegra->mphy_l0_base);
+	ufs_tegra_program_mphy_attr_fpga(ufs_tegra->mphy_l1_base);
+}
+
+static void ufs_tegra_eq_timeout(struct ufs_tegra_host *ufs_tegra)
+{
+	mphy_writel(ufs_tegra->mphy_l0_base, MPHY_EQ_TIMEOUT,
+			MPHY_RX_APB_VENDOR3B_0_T234);
+	mphy_update(ufs_tegra->mphy_l0_base, MPHY_GO_BIT, MPHY_RX_APB_VENDOR2_0_T234);
+
+	if (ufs_tegra->x2config) {
+		mphy_writel(ufs_tegra->mphy_l1_base, MPHY_EQ_TIMEOUT,
+				MPHY_RX_APB_VENDOR3B_0_T234);
+		mphy_update(ufs_tegra->mphy_l1_base, MPHY_GO_BIT, MPHY_RX_APB_VENDOR2_0_T234);
+	}
+}
+
 /**
  * ufs_tegra_init - bind phy with controller
  * @hba: host controller instance
@@ -1410,6 +1850,7 @@ static int ufs_tegra_init(struct ufs_hba *hba)
 	struct ufs_tegra_host *ufs_tegra;
 	struct device *dev = hba->dev;
 	int err = 0;
+	resource_size_t ufs_aux_base_addr, ufs_aux_addr_range, mphy_addr_range;
 
 	ufs_tegra = devm_kzalloc(dev, sizeof(*ufs_tegra), GFP_KERNEL);
 	if (!ufs_tegra) {
@@ -1420,30 +1861,34 @@ static int ufs_tegra_init(struct ufs_hba *hba)
 	ufs_tegra->ufshc_state = UFSHC_INIT;
 	ufs_tegra->hba = hba;
 	hba->priv = (void *)ufs_tegra;
+	ufs_tegra->chip_id = tegra_get_chip_id();
 
 	ufs_tegra_config_soc_data(ufs_tegra);
 	hba->spm_lvl = UFS_PM_LVL_3;
 	hba->rpm_lvl = UFS_PM_LVL_1;
 	hba->caps |= UFSHCD_CAP_INTR_AGGR;
 
-	ufs_tegra->ufs_pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR_OR_NULL(ufs_tegra->ufs_pinctrl)) {
-		err = PTR_ERR(ufs_tegra->ufs_pinctrl);
-		ufs_tegra->ufs_pinctrl = NULL;
-		dev_err(dev, "pad control get failed, error:%d\n", err);
-	}
+	if (ufs_tegra->chip_id != TEGRA234) {
+		ufs_tegra->ufs_pinctrl = devm_pinctrl_get(dev);
+		if (IS_ERR_OR_NULL(ufs_tegra->ufs_pinctrl)) {
+			err = PTR_ERR(ufs_tegra->ufs_pinctrl);
+			ufs_tegra->ufs_pinctrl = NULL;
+			dev_err(dev, "pad control get failed, error:%d\n", err);
+			goto out;
+		}
 
-	ufs_tegra->dpd_enable = pinctrl_lookup_state(ufs_tegra->ufs_pinctrl,
+		ufs_tegra->dpd_enable = pinctrl_lookup_state(ufs_tegra->ufs_pinctrl,
 						     "ufs_dpd_enable");
-	if (IS_ERR_OR_NULL(ufs_tegra->dpd_enable))
-		dev_err(dev, "Missing dpd_enable state, err: %ld\n",
-			PTR_ERR(ufs_tegra->dpd_enable));
+		if (IS_ERR_OR_NULL(ufs_tegra->dpd_enable))
+			dev_err(dev, "Missing dpd_enable state, err: %ld\n",
+				PTR_ERR(ufs_tegra->dpd_enable));
 
-	ufs_tegra->dpd_disable = pinctrl_lookup_state(ufs_tegra->ufs_pinctrl,
+		ufs_tegra->dpd_disable = pinctrl_lookup_state(ufs_tegra->ufs_pinctrl,
 						     "ufs_dpd_disable");
-	if (IS_ERR_OR_NULL(ufs_tegra->dpd_disable))
-		dev_err(dev, "Missing dpd_disable state, err: %ld\n",
-			PTR_ERR(ufs_tegra->dpd_disable));
+		if (IS_ERR_OR_NULL(ufs_tegra->dpd_disable))
+			dev_err(dev, "Missing dpd_disable state, err: %ld\n",
+				PTR_ERR(ufs_tegra->dpd_disable));
+	}
 
 	if (gpio_is_valid(ufs_tegra->cd_gpio) &&
 			ufs_tegra->cd_wakeup_capable) {
@@ -1478,79 +1923,100 @@ static int ufs_tegra_init(struct ufs_hba *hba)
 		hba->card_present = 1;
 	}
 
+	/* UFS Aux base address, mphy addr range changed in T234 */
+	if (ufs_tegra->chip_id == TEGRA234) {
+		ufs_aux_base_addr = NV_ADDRESS_MAP_T23X_UFSHC_AUX_BASE;
+		ufs_aux_addr_range = UFS_AUX_ADDR_RANGE_23X;
+		mphy_addr_range = MPHY_ADDR_RANGE_T234;
+	} else {
+		ufs_aux_base_addr = NV_ADDRESS_MAP_UFSHC_AUX_BASE;
+		ufs_aux_addr_range = UFS_AUX_ADDR_RANGE;
+		mphy_addr_range = MPHY_ADDR_RANGE;
+	}
+
 	ufs_tegra->ufs_aux_base = devm_ioremap(dev,
-			NV_ADDRESS_MAP_UFSHC_AUX_BASE, UFS_AUX_ADDR_RANGE);
+			ufs_aux_base_addr, ufs_aux_addr_range);
 	if (!ufs_tegra->ufs_aux_base) {
 		err = -ENOMEM;
 		dev_err(dev, "ufs_aux_base ioremap failed\n");
 		goto out;
 	}
 
-	if (tegra_platform_is_silicon()) {
-		ufs_tegra->mphy_l0_base = devm_ioremap(dev,
-				NV_ADDRESS_MAP_MPHY_L0_BASE, MPHY_ADDR_RANGE);
-		if (!ufs_tegra->ufs_aux_base) {
-			err = -ENOMEM;
-			dev_err(dev, "mphy_l0_base ioremap failed\n");
-			goto out;
-		}
-		ufs_tegra->mphy_l1_base = devm_ioremap(dev,
-				NV_ADDRESS_MAP_MPHY_L1_BASE, MPHY_ADDR_RANGE);
-		if (!ufs_tegra->ufs_aux_base) {
-			err = -ENOMEM;
-			dev_err(dev, "mphy_l1_base ioremap failed\n");
-			goto out;
-		}
+	ufs_tegra->mphy_l0_base = devm_ioremap(dev,
+			NV_ADDRESS_MAP_MPHY_L0_BASE, mphy_addr_range);
+	if (!ufs_tegra->mphy_l0_base) {
+		err = -ENOMEM;
+		dev_err(dev, "mphy_l0_base ioremap failed\n");
+		goto out;
+	}
 
+	ufs_tegra->mphy_l1_base = devm_ioremap(dev,
+			NV_ADDRESS_MAP_MPHY_L1_BASE, mphy_addr_range);
+	if (!ufs_tegra->mphy_l1_base) {
+		err = -ENOMEM;
+		dev_err(dev, "mphy_l1_base ioremap failed\n");
+		goto out;
+	}
+
+	/* No need to do context save in T23x */
+	if (ufs_tegra->chip_id != TEGRA234) {
 		err = ufs_tegra_context_save_init(ufs_tegra);
 		if (err)
 			goto out;
 	}
 
-	if (tegra_platform_is_silicon()) {
-		err = ufs_tegra_init_ufs_clks(ufs_tegra);
-		if (err)
-			goto out_host_free;
+	err = ufs_tegra_init_ufs_clks(ufs_tegra);
+	if (err)
+		goto out_host_free;
 
-		err = ufs_tegra_init_mphy_lane_clks(ufs_tegra);
-		if (err)
-			goto out_host_free;
-		err = ufs_tegra_init_uphy_pll3(ufs_tegra);
-		if (err)
-			goto out_host_free;
-		err = ufs_tegra_host_clk_enable(dev, "mphy_force_ls_mode",
-				ufs_tegra->mphy_force_ls_mode);
-		if (err)
-			goto out_host_free;
-		usleep_range(1000, 2000);
-		clk_disable_unprepare(ufs_tegra->mphy_force_ls_mode);
-		usleep_range(1000, 2000);
+	err = ufs_tegra_init_mphy_lane_clks(ufs_tegra);
+	if (err)
+		goto out_host_free;
+	err = ufs_tegra_init_uphy_pll3(ufs_tegra);
+	if (err)
+		goto out_host_free;
+	err = ufs_tegra_host_clk_enable(dev, "mphy_force_ls_mode",
+			ufs_tegra->mphy_force_ls_mode);
+	if (err)
+		goto out_host_free;
+	usleep_range(1000, 2000);
+	clk_disable_unprepare(ufs_tegra->mphy_force_ls_mode);
+	usleep_range(1000, 2000);
 
-		err = ufs_tegra_enable_ufs_clks(ufs_tegra);
-		if (err)
-			goto out_host_free;
+	err = ufs_tegra_enable_ufs_clks(ufs_tegra);
+	if (err)
+		goto out_host_free;
 
-		err = ufs_tegra_enable_mphylane_clks(ufs_tegra);
-		if (err)
-			goto out_disable_ufs_clks;
+	err = ufs_tegra_enable_mphylane_clks(ufs_tegra);
+	if (err)
+		goto out_disable_ufs_clks;
 
-		err = ufs_tegra_mphy_reset_init(ufs_tegra);
-		if (err)
-			goto out_disable_mphylane_clks;
+	err = ufs_tegra_mphy_reset_init(ufs_tegra);
+	if (err)
+		goto out_disable_mphylane_clks;
 
-		ufs_tegra_mphy_deassert_reset(ufs_tegra);
+	ufs_tegra_mphy_deassert_reset(ufs_tegra);
 
-		err = ufs_tegra_ufs_reset_init(ufs_tegra);
-		if (err)
-			goto out_disable_mphylane_clks;
+	err = ufs_tegra_ufs_reset_init(ufs_tegra);
+	if (err)
+		goto out_disable_mphylane_clks;
 
-		ufs_tegra_ufs_deassert_reset(ufs_tegra);
-		ufs_tegra_mphy_rx_advgran(ufs_tegra);
-		ufs_tegra_ufs_aux_ref_clk_disable(ufs_tegra);
-		ufs_tegra_aux_reset_enable(ufs_tegra);
-		ufs_tegra_ufs_aux_prog(ufs_tegra);
-		ufs_tegra_cfg_vendor_registers(hba);
-	}
+	ufs_tegra_ufs_deassert_reset(ufs_tegra);
+	ufs_tegra_mphy_rx_advgran(ufs_tegra);
+	ufs_tegra_ufs_aux_ref_clk_disable(ufs_tegra);
+	ufs_tegra_aux_reset_enable(ufs_tegra);
+	ufs_tegra_ufs_aux_prog(ufs_tegra);
+	ufs_tegra_cfg_vendor_registers(hba);
+	if (ufs_tegra->chip_id == TEGRA234)
+		ufs_tegra_eq_timeout(ufs_tegra);
+
+	/* FPGA specific initialization */
+	if (tegra_platform_is_fpga())
+		ufs_tegra_program_platfrom_specifics(ufs_tegra);
+
+#ifdef CONFIG_DEBUG_FS
+	ufs_tegra_init_debugfs(hba);
+#endif
 	return err;
 
 out_disable_mphylane_clks:
@@ -1586,9 +2052,6 @@ static void ufs_tegra_exit(struct ufs_hba *hba)
 struct ufs_hba_variant_ops ufs_hba_tegra_vops = {
 	.name                   = "ufs-tegra",
 	.init                   = ufs_tegra_init,
-#ifdef CONFIG_DEBUG_FS
-	.late_init              = ufs_tegra_init_debugfs,
-#endif
 	.exit                   = ufs_tegra_exit,
 	.suspend		= ufs_tegra_suspend,
 	.resume			= ufs_tegra_resume,
@@ -1607,9 +2070,10 @@ static int ufs_tegra_probe(struct platform_device *pdev)
 
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_tegra_vops);
-	if (err)
-		dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
-
+	if (err) {
+		if (err != -EPROBE_DEFER)
+			dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
+	}
 	return err;
 }
 
@@ -1638,7 +2102,6 @@ static const struct dev_pm_ops ufs_tegra_pm_ops = {
 
 static struct platform_driver ufs_tegra_platform = {
 	.probe = ufs_tegra_probe,
-	.shutdown = ufshcd_pltfrm_shutdown,
 	.remove = ufs_tegra_remove,
 	.driver = {
 		.name = "ufs_tegra",
@@ -1651,4 +2114,3 @@ module_platform_driver(ufs_tegra_platform);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Naveen Kumar Arepalli <naveenk@nvidia.com>");
 MODULE_AUTHOR("Venkata Jagadish <vjagadish@nvidia.com>");
-MODULE_DEVICE_TABLE(of, ufs_tegra_of_match);

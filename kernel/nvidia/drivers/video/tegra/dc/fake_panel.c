@@ -1,7 +1,7 @@
 /*
  * fake_panel.c: fake panel driver.
  *
- * Copyright (c) 2014-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -157,6 +157,10 @@ int tegra_dc_init_fakedsi_panel(struct tegra_dc *dc, long dc_outtype)
 
 	/* DrivePX2: DSI->sn65dsi85(LVDS)->ds90ub947(FPDLink) */
 	dsi = tegra_dc_get_outdata(dc);
+	if (!dsi) {
+		dev_err(&dc->ndev->dev, "dsi out_data not found\n");
+		return -EINVAL;
+	}
 
 	if (dsi->info.dsi2lvds_bridge_enable)
 		dc->connected = true;

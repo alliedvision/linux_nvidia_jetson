@@ -1,4 +1,5 @@
 /*
+ *  Copyright (c) 2014-2019, NVIDIA Corporation. All rights reserved.
  *  Copyright (c) 2014 Realtek Semiconductor Corp. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -29,9 +30,7 @@
 
 #include "r8152_compatibility.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 #include <uapi/linux/mdio.h>
-#endif
 
 /* Version Information */
 #define DRIVER_VERSION "v2.03.3 (2015/01/29)"
@@ -581,12 +580,6 @@ struct r8152 {
 	struct delayed_work schedule;
 	struct mii_if_info mii;
 	struct mutex control;	/* use for hw setting */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	struct vlan_group *vlgrp;
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-	struct net_device_stats stats;
-#endif
 
 	struct rtl_ops {
 		void (*init)(struct r8152 *);
@@ -595,10 +588,8 @@ struct r8152 {
 		void (*up)(struct r8152 *);
 		void (*down)(struct r8152 *);
 		void (*unload)(struct r8152 *);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		int (*eee_get)(struct r8152 *, struct ethtool_eee *);
 		int (*eee_set)(struct r8152 *, struct ethtool_eee *);
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 	} rtl_ops;
 
 	int intr_interval;
@@ -1139,13 +1130,7 @@ static int set_ethernet_addr(struct r8152 *tp, const struct usb_device_id *id)
 
 static inline struct net_device_stats *rtl8152_get_stats(struct net_device *dev)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-	struct rtl8152 *tp = netdev_priv(dev);
-
-	return (struct net_device_stats *)&tp->stats;
-#else
 	return &dev->stats;
-#endif
 }
 
 static void read_bulk_callback(struct urb *urb)
@@ -1578,20 +1563,10 @@ rtl_rx_vlan_tag(struct r8152 *tp, struct rx_desc *desc, struct sk_buff *skb)
 {
 	u32 opts2 = le32_to_cpu(desc->opts2);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	if (tp->vlgrp && (opts2 & RX_VLAN_TAG)) {
-		vlan_hwaccel_receive_skb(skb, tp->vlgrp,
-					 swab16(opts2 & 0xffff));
-		return true;
-	}
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-	if (opts2 & RX_VLAN_TAG)
-		__vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
-#else
 	if (opts2 & RX_VLAN_TAG)
 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
 				       swab16(opts2 & 0xffff));
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0) */
+
 	return false;
 }
 
@@ -1887,17 +1862,12 @@ static void rx_bottom(struct r8152 *tp)
 				memcpy(skb->data, rx_data, pkt_len);
 
 			skb_put(skb, pkt_len);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-			skb->dev = netdev;
-#endif
+
 			skb->protocol = eth_type_trans(skb, netdev);
 
 			if (!rtl_rx_vlan_tag(tp, rx_desc, skb))
 				netif_receive_skb(skb);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-			netdev->last_rx = jiffies;
-#endif
 			stats->rx_packets++;
 			stats->rx_bytes += pkt_len;
 
@@ -2081,21 +2051,6 @@ static void rtl8152_set_rx_mode(struct net_device *netdev)
 		mc_filter[1] = 0xffffffff;
 		mc_filter[0] = 0xffffffff;
 	} else {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-		struct dev_mc_list *mclist;
-		unsigned int i;
-
-		mc_filter[1] = mc_filter[0] = 0;
-		for (i = 0, mclist = netdev->mc_list;
-		     mclist && i < netdev->mc_count;
-		     i++, mclist = mclist->next) {
-			int bit_nr;
-
-			bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
-			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
-			ocp_data |= RCR_AM;
-		}
-#else
 		struct netdev_hw_addr *ha;
 
 		mc_filter[1] = 0;
@@ -2106,7 +2061,6 @@ static void rtl8152_set_rx_mode(struct net_device *netdev)
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 			ocp_data |= RCR_AM;
 		}
-#endif
 	}
 
 	tmp[0] = __cpu_to_le32(swab32(mc_filter[1]));
@@ -2367,40 +2321,6 @@ static void rtl_rx_vlan_en(struct r8152 *tp, bool enable)
 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-
-static void
-rtl8152_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
-{
-	struct r8152 *tp = netdev_priv(dev);
-
-	if (usb_autopm_get_interface(tp->intf) < 0)
-		return;
-
-	mutex_lock(&tp->control);
-
-	tp->vlgrp = grp;
-	if (tp->vlgrp)
-		rtl_rx_vlan_en(tp, true);
-	else
-		rtl_rx_vlan_en(tp, false);
-
-	mutex_unlock(&tp->control);
-}
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-
-static void rtl8152_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
-{
-	struct r8152 *tp = netdev_priv(dev);
-
-	vlan_group_set_device(tp->vlgrp, vid, NULL);
-}
-
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22) */
-
-#else
-
 static int rtl8152_set_features(struct net_device *dev,
 				netdev_features_t features)
 {
@@ -2428,8 +2348,6 @@ static int rtl8152_set_features(struct net_device *dev,
 out:
 	return ret;
 }
-
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0) */
 
 #define WAKE_ANY (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_BCAST | WAKE_MCAST)
 
@@ -4560,25 +4478,12 @@ out1:
 	usb_autopm_put_interface(tp->intf);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
-
-static void rtl_work_func_t(void *data)
-{
-	struct r8152 *tp = (struct r8152 *)data;
-
-	__rtl_work_func(tp);
-}
-
-#else
-
 static void rtl_work_func_t(struct work_struct *work)
 {
 	struct r8152 *tp = container_of(work, struct r8152, schedule.work);
 
 	__rtl_work_func(tp);
 }
-
-#endif
 
 static int rtl8152_open(struct net_device *netdev)
 {
@@ -4948,12 +4853,10 @@ static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
 	mutex_lock(&tp->control);
 
 	if (PMSG_IS_AUTO(message)) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
 		if (netif_running(netdev) && work_busy(&tp->schedule.work)) {
 			ret = -EBUSY;
 			goto out1;
 		}
-#endif
 		set_bit(SELECTIVE_SUSPEND, &tp->flags);
 	} else {
 		netif_device_detach(netdev);
@@ -5103,9 +5006,7 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
 	/* only supports internal transceiver */
 	cmd->transceiver = XCVR_INTERNAL;
 	cmd->phy_address = 32;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,30)
 	cmd->mdio_support = ETH_MDIO_SUPPORTS_C22;
-#endif
 	cmd->advertising = ADVERTISED_MII;
 
 	mutex_lock(&tp->control);
@@ -5137,7 +5038,6 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
 			cmd->advertising |= ADVERTISED_1000baseT_Full;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 	if (bmsr & BMSR_ANEGCOMPLETE) {
 		advert = r8152_mdio_read(tp, MII_LPA);
 		if (advert & LPA_LPACK)
@@ -5166,7 +5066,6 @@ int rtl8152_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
 	} else {
 		cmd->lp_advertising = 0;
 	}
-#endif
 
 	if (bmcr & BMCR_ANENABLE) {
 		cmd->advertising |= ADVERTISED_Autoneg;
@@ -5229,12 +5128,6 @@ static const char rtl8152_gstrings[][ETH_GSTRING_LEN] = {
 	"tx_underrun",
 };
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
-static int rtl8152_get_sset_count(struct net_device *dev)
-{
-	return ARRAY_SIZE(rtl8152_gstrings);
-}
-#else
 static int rtl8152_get_sset_count(struct net_device *dev, int sset)
 {
 	switch (sset) {
@@ -5244,7 +5137,6 @@ static int rtl8152_get_sset_count(struct net_device *dev, int sset)
 		return -EOPNOTSUPP;
 	}
 }
-#endif
 
 static void rtl8152_get_ethtool_stats(struct net_device *dev,
 				      struct ethtool_stats *stats, u64 *data)
@@ -5283,7 +5175,6 @@ static void rtl8152_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 	}
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static int r8152_get_eee(struct r8152 *tp, struct ethtool_eee *eee)
 {
 	u32 ocp_data, lp, adv, supported = 0;
@@ -5409,7 +5300,6 @@ rtl_ethtool_set_eee(struct net_device *net, struct ethtool_eee *edata)
 out:
 	return ret;
 }
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 
 static int rtl8152_nway_reset(struct net_device *dev)
 {
@@ -5445,20 +5335,8 @@ static struct ethtool_ops ops = {
 	.get_strings = rtl8152_get_strings,
 	.get_sset_count = rtl8152_get_sset_count,
 	.get_ethtool_stats = rtl8152_get_ethtool_stats,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
-	.get_tx_csum = ethtool_op_get_tx_csum,
-	.set_tx_csum = ethtool_op_set_tx_csum,
-	.get_sg = ethtool_op_get_sg,
-	.set_sg = ethtool_op_set_sg,
-#ifdef NETIF_F_TSO
-	.get_tso = ethtool_op_get_tso,
-	.set_tso = ethtool_op_set_tso,
-#endif
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	.get_eee = rtl_ethtool_get_eee,
 	.set_eee = rtl_ethtool_set_eee,
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 };
 
 static int rtltool_ioctl(struct r8152 *tp, struct ifreq *ifr)
@@ -5694,24 +5572,18 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
 static const struct net_device_ops rtl8152_netdev_ops = {
 	.ndo_open		= rtl8152_open,
 	.ndo_stop		= rtl8152_close,
 	.ndo_do_ioctl		= rtl8152_ioctl,
 	.ndo_start_xmit		= rtl8152_start_xmit,
 	.ndo_tx_timeout		= rtl8152_tx_timeout,
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	.ndo_vlan_rx_register	= rtl8152_vlan_rx_register,
-#else
 	.ndo_set_features	= rtl8152_set_features,
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0) */
 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
 	.ndo_set_mac_address	= rtl8152_set_mac_address,
 	.ndo_change_mtu		= rtl8152_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 };
-#endif
 
 static void r8152b_get_version(struct r8152 *tp)
 {
@@ -5778,10 +5650,8 @@ static int rtl_ops_init(struct r8152 *tp)
 		ops->up			= rtl8152_up;
 		ops->down		= rtl8152_down;
 		ops->unload		= rtl8152_unload;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		ops->eee_get		= r8152_get_eee;
 		ops->eee_set		= r8152_set_eee;
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 		break;
 
 	case RTL_VER_03:
@@ -5793,10 +5663,8 @@ static int rtl_ops_init(struct r8152 *tp)
 		ops->up			= rtl8153_up;
 		ops->down		= rtl8153_down;
 		ops->unload		= rtl8153_unload;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		ops->eee_get		= r8153_get_eee;
 		ops->eee_set		= r8153_set_eee;
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 		break;
 
 	default:
@@ -5817,11 +5685,8 @@ static int rtl8152_probe(struct usb_interface *intf,
 	int ret;
 
 	if (!rtl_vendor_mode(intf)) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-		dev_err(&intf->dev, "The kernel too old to set configuration\n");
-#else
 		usb_driver_set_configuration(udev, 1);
-#endif
+
 		return -ENODEV;
 	}
 
@@ -5849,23 +5714,7 @@ static int rtl8152_probe(struct usb_interface *intf,
 	mutex_init(&tp->control);
 	INIT_DELAYED_WORK(&tp->schedule, rtl_work_func_t);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
-	netdev->open = rtl8152_open;
-	netdev->stop = rtl8152_close;
-	netdev->get_stats = rtl8152_get_stats;
-	netdev->hard_start_xmit = rtl8152_start_xmit;
-	netdev->tx_timeout = rtl8152_tx_timeout;
-	netdev->change_mtu = rtl8152_change_mtu;
-	netdev->set_mac_address = rtl8152_set_mac_address;
-	netdev->do_ioctl = rtl8152_ioctl;
-	netdev->set_multicast_list = rtl8152_set_rx_mode;
-	netdev->vlan_rx_register = rtl8152_vlan_rx_register;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
-	netdev->vlan_rx_kill_vid = rtl8152_vlan_rx_kill_vid;
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22) */
-#else
 	netdev->netdev_ops = &rtl8152_netdev_ops;
-#endif /* HAVE_NET_DEVICE_OPS */
 
 	netdev->watchdog_timeo = RTL8152_TX_TIMEOUT;
 
@@ -5873,10 +5722,8 @@ static int rtl8152_probe(struct usb_interface *intf,
 			    NETIF_F_FRAGLIST | NETIF_F_IPV6_CSUM |
 			    NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_CTAG_TX;
 
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25)
 	netdev->features |= NETIF_F_TSO | NETIF_F_TSO6;
 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
 	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_IP_CSUM | NETIF_F_SG |
 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
 			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6 |
@@ -5884,8 +5731,6 @@ static int rtl8152_probe(struct usb_interface *intf,
 	netdev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
 				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
 				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
-#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38) */
-#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2,6,25) */
 
 	netdev->ethtool_ops = &ops;
 
@@ -5975,9 +5820,7 @@ static struct usb_driver rtl8152_driver = {
 	.resume =	rtl8152_resume,
 	.reset_resume =	rtl8152_resume,
 	.supports_autosuspend = 1,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.disable_hub_initiated_lpm = 1,
-#endif
 };
 
 module_usb_driver(rtl8152_driver);

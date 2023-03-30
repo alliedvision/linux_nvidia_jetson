@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2015-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
@@ -16,35 +15,35 @@
  */
 
 / {
-	host1x {
-		vi@15c10000 {
-			num-channels = <2>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
+	tegra-capture-vi {
+		num-channels = <2>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				status = "okay";
+				imx274_vi_in0: endpoint {
 					status = "okay";
-					imx274_vi_in0: endpoint {
-						status = "okay";
-						port-index = <0>;
-						bus-width = <4>;
-						remote-endpoint = <&imx274_csi_out0>;
-					};
+					port-index = <0>;
+					bus-width = <4>;
+					remote-endpoint = <&imx274_csi_out0>;
 				};
-				port@1 {
-					reg = <1>;
+			};
+			port@1 {
+				reg = <1>;
+				status = "okay";
+				tc358840_vi_in0: endpoint {
 					status = "okay";
-					tc358840_vi_in0: endpoint {
-						status = "okay";
-						port-index = <2>;
-						bus-width = <4>;
-						remote-endpoint = <&tc358840_csi_out0>;
-					};
+					port-index = <2>;
+					bus-width = <4>;
+					remote-endpoint = <&tc358840_csi_out0>;
 				};
 			};
 		};
+	};
 
+	host1x@13e00000 {
 		nvcsi@15a00000 {
 			num-channels = <2>;
 			#address-cells = <1>;
@@ -106,7 +105,7 @@
 
 	i2c@3180000 {
 		imx274_a@1a {
-			compatible = "nvidia,imx274";
+			compatible = "sony,imx274";
 			/* I2C device address */
 			reg = <0x1a>;
 

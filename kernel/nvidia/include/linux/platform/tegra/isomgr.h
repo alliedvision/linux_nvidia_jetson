@@ -1,7 +1,7 @@
 /*
  * include/mach/isomgr.h
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -135,6 +135,9 @@ tegra_isomgr_handle tegra_isomgr_register(enum tegra_iso_client client,
 
 /* Unregister an ISO BW client */
 void tegra_isomgr_unregister(tegra_isomgr_handle handle);
+
+/* Return the initialization status of isomgr */
+bool tegra_isomgr_init_status(void);
 
 /* Reserve ISO BW on behalf of client - don't apply, rval is dvfs thresh usec */
 u32 tegra_isomgr_reserve(tegra_isomgr_handle handle,

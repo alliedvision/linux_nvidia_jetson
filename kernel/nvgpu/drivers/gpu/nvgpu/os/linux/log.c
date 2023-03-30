@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,7 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 
-#include <nvgpu/log.h>
+#include <nvgpu/linux/log.h>
 #include <nvgpu/gk20a.h>
 
 #include "platform_gk20a.h"
@@ -45,14 +45,9 @@ static const char *log_types[] = {
 	"INFO",
 };
 
-int nvgpu_log_mask_enabled(struct gk20a *g, u64 log_mask)
-{
-	return !!(g->log_mask & log_mask);
-}
-
 static inline const char *nvgpu_log_name(struct gk20a *g)
 {
-	return dev_name(dev_from_gk20a(g));
+	return dev_from_gk20a(g) == NULL ? "" : dev_name(dev_from_gk20a(g));
 }
 
 #ifdef CONFIG_GK20A_TRACE_PRINTK
@@ -94,18 +89,20 @@ static void __nvgpu_really_print_log(u32 trace, const char *gpu_name,
 	case NVGPU_ERROR:
 		pr_err(LOG_FMT, name, func_name, line, log_type, log);
 		break;
+	default:
+		break;
 	}
 }
 
 __attribute__((format (printf, 5, 6)))
-void __nvgpu_log_msg(struct gk20a *g, const char *func_name, int line,
-		     enum nvgpu_log_type type, const char *fmt, ...)
+void nvgpu_log_msg_impl(struct gk20a *g, const char *func_name, int line,
+			enum nvgpu_log_type type, const char *fmt, ...)
 {
 	char log[LOG_BUFFER_LENGTH];
 	va_list args;
 
 	va_start(args, fmt);
-	vsnprintf(log, LOG_BUFFER_LENGTH, fmt, args);
+	(void) vsnprintf(log, LOG_BUFFER_LENGTH, fmt, args);
 	va_end(args);
 
 	__nvgpu_really_print_log(0, g ? nvgpu_log_name(g) : "",
@@ -113,9 +110,9 @@ void __nvgpu_log_msg(struct gk20a *g, const char *func_name, int line,
 }
 
 __attribute__((format (printf, 5, 6)))
-void __nvgpu_log_dbg(struct gk20a *g, u64 log_mask,
-		     const char *func_name, int line,
-		     const char *fmt, ...)
+void nvgpu_log_dbg_impl(struct gk20a *g, u64 log_mask,
+			const char *func_name, int line,
+			const char *fmt, ...)
 {
 	char log[LOG_BUFFER_LENGTH];
 	va_list args;
@@ -124,9 +121,18 @@ void __nvgpu_log_dbg(struct gk20a *g, u64 log_mask,
 		return;
 
 	va_start(args, fmt);
-	vsnprintf(log, LOG_BUFFER_LENGTH, fmt, args);
+	(void) vsnprintf(log, LOG_BUFFER_LENGTH, fmt, args);
 	va_end(args);
 
 	__nvgpu_really_print_log(g->log_trace, nvgpu_log_name(g),
 				 func_name, line, NVGPU_DEBUG, log);
+}
+
+void nvgpu_dbg_dump_impl(struct gk20a *g, const char *str)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+	pr_err("__%s__ %s", g->name, str);
+#else
+	pr_err("__%s__ %s\n", g->name, str);
+#endif
 }

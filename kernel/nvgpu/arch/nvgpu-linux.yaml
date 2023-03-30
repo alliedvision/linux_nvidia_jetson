@@ -1,0 +1,274 @@
+#
+# Copyright (c) 2019-2022 NVIDIA CORPORATION.  All Rights Reserved.
+#
+# Linux elements and units in nvgpu.
+#
+# The safe: tag is ommited through out since all Linux units are by definition
+# not safe.
+#
+# I also have not put a huge amount of thought into this since none of this
+# code is "safe" code. Nor are we planning on spending a lot of effort to
+# clean this up. At least not yet.
+
+bsearch:
+  sources: [ os/linux/bsearch.c ]
+
+channel:
+  sources: [ os/linux/linux-channel.c, os/linux/channel.h ]
+
+vpr:
+  sources: [ os/linux/vpr.c ]
+
+clk:
+  sources: [ os/linux/clk.c, os/linux/clk.h,
+             os/linux/clk_ga10b.c, os/linux/clk_ga10b.h ]
+
+cde:
+  sources: [ os/linux/cde.c,       os/linux/cde.h,
+             os/linux/cde_gm20b.c, os/linux/cde_gm20b.h,
+             os/linux/cde_gp10b.c, os/linux/cde_gp10b.h  ]
+
+comptags:
+  sources: [ os/linux/comptags.c ]
+
+cond:
+  sources: [ os/linux/cond.c ]
+
+dma:
+  sources: [ os/linux/linux-dma.c ]
+
+dmabuf:
+  sources: [ os/linux/dmabuf_vidmem.c, os/linux/dmabuf_vidmem.h,
+             os/linux/dmabuf_priv.c, os/linux/dmabuf_priv.h ]
+
+driver_common:
+  sources: [ os/linux/driver_common.c, os/linux/driver_common.h ]
+
+dt:
+  sources: [ os/linux/dt.c ]
+
+debug:
+  sources: [ os/linux/debug.c,
+             os/linux/debug_allocator.c,
+             os/linux/debug_allocator.h,
+             os/linux/debug_bios.c,
+             os/linux/debug_bios.h,
+             os/linux/debug_cde.c,
+             os/linux/debug_cde.h,
+             os/linux/debug_ce.c,
+             os/linux/debug_ce.h,
+             os/linux/debug_clk_gm20b.c,
+             os/linux/debug_clk_gm20b.h,
+             os/linux/debug_clk_tu104.c,
+             os/linux/debug_clk_tu104.h,
+             os/linux/debug_fecs_trace.c,
+             os/linux/debug_fecs_trace.h,
+             os/linux/debug_fifo.c,
+             os/linux/debug_fifo.h,
+             os/linux/debug_gr.c,
+             os/linux/debug_gr.h,
+             os/linux/debug_hal.c,
+             os/linux/debug_hal.h,
+             os/linux/debug_kmem.c,
+             os/linux/debug_kmem.h,
+             os/linux/debug_ltc.c,
+             os/linux/debug_ltc.h,
+             os/linux/debug_pmgr.c,
+             os/linux/debug_pmgr.h,
+             os/linux/debug_pmu.c,
+             os/linux/debug_pmu.h,
+             os/linux/debug_sched.c,
+             os/linux/debug_sched.h,
+             os/linux/debug_therm_tu104.c,
+             os/linux/debug_therm_tu104.h,
+             os/linux/debug_xve.c,
+             os/linux/debug_xve.h,
+             os/linux/debug_s_param.c,
+             os/linux/debug_s_param.h,
+             os/linux/debug_volt.c,
+             os/linux/debug_volt.h,
+             os/linux/debug_gsp.c,
+             os/linux/debug_gsp.h,
+             os/linux/swprofile_debugfs.c,
+             os/linux/swprofile_debugfs.h,
+             os/linux/fecs_trace_linux.c,
+             os/linux/fecs_trace_linux.h,
+             os/linux/nvlink_probe.c ]
+
+firmware:
+  sources: [ os/linux/firmware.c ]
+
+fuse:
+  sources: [ os/linux/fuse.c ]
+
+nvmem:
+  sources: [ os/linux/nvmem.c ]
+
+intr:
+  sources: [ os/linux/intr.c ]
+
+io:
+  sources: [ os/linux/io_usermode.c,
+             os/linux/linux-io.c ]
+
+ioctl:
+  sources: [ os/linux/ioctl.c,
+             os/linux/ioctl.h,
+             os/linux/ioctl_as.c,
+             os/linux/ioctl_as.h,
+             os/linux/ioctl_channel.c,
+             os/linux/ioctl_channel.h,
+             os/linux/ioctl_clk_arb.c,
+             os/linux/ioctl_ctrl.c,
+             os/linux/ioctl_ctrl.h,
+             os/linux/ioctl_dbg.c,
+             os/linux/ioctl_dbg.h,
+             os/linux/ioctl_prof.c,
+             os/linux/ioctl_prof.h,
+             os/linux/ioctl_tsg.c,
+             os/linux/ioctl_tsg.h,
+             os/linux/power_ops.c,
+             os/linux/power_ops.h ]
+
+kmem:
+  sources: [ os/linux/kmem.c, os/linux/kmem_priv.h ]
+
+log:
+  sources: [ os/linux/log.c ]
+
+module:
+  sources: [ os/linux/module.c,          os/linux/module.h,
+             os/linux/module_usermode.c, os/linux/module_usermode.h ]
+
+nvgpu_mem:
+  sources: [ os/linux/nvgpu_mem.c ]
+
+nvhost:
+  sources: [ os/linux/nvhost.c,
+             os/linux/nvhost_common.c,
+             os/linux/nvhost_host1x.c,
+             os/linux/nvhost_priv.h ]
+
+nvlink:
+  sources: [ os/linux/nvlink.c,
+             os/linux/nvlink.h ]
+
+fence:
+  sources: [ os/linux/os_fence_android.c,
+             os/linux/os_fence_android_sema.c,
+             os/linux/os_fence_dma.c,
+             os/linux/os_fence_dma_sema.c,
+             os/linux/os_fence_syncpt.c,
+             os/linux/os_fence_priv.h,
+             os/linux/sync_sema_android.c,
+             os/linux/sync_sema_android.h,
+             os/linux/sync_sema_dma.c,
+             os/linux/sync_sema_dma.h,
+             include/nvgpu/os_fence.h,
+             include/nvgpu/os_fence_semas.h,
+             include/nvgpu/os_fence_syncpts.h ]
+
+ops:
+  sources: [ os/linux/os_ops.c,       os/linux/os_ops.h,
+             os/linux/os_ops_gm20b.c, os/linux/os_ops_gm20b.h,
+             os/linux/os_ops_gp10b.c, os/linux/os_ops_gp10b.h,
+             os/linux/os_ops_gv100.c, os/linux/os_ops_gv100.h,
+             os/linux/os_ops_gv11b.c, os/linux/os_ops_gv11b.h,
+             os/linux/os_ops_tu104.c, os/linux/os_ops_tu104.h ]
+
+pci:
+  sources: [ os/linux/pci.c,
+             os/linux/pci.h,
+             os/linux/pci_power.c,
+             os/linux/pci_power.h,
+             include/nvgpu/pci.h ]
+
+platform:
+  sources: [ os/linux/platform_gk20a.h,
+             os/linux/platform_gk20a_tegra.c,
+             os/linux/platform_gk20a_tegra.h,
+             os/linux/platform_gp10b.h,
+             os/linux/platform_gp10b_tegra.c,
+             os/linux/platform_gv11b_tegra.c,
+             os/linux/platform_ga10b_tegra.c ]
+
+rwsem:
+  sources: [ os/linux/rwsem.c ]
+
+scale:
+  sources: [os/linux/scale.c, os/linux/scale.h ]
+
+sched:
+  sources: [ os/linux/os_sched.c,
+             os/linux/sched.c,
+             os/linux/sched.h ]
+
+nvsched:
+  sources: [ os/linux/ioctl_nvs.c, os/linux/ioctl_nvs.h ]
+
+sim:
+  sources: [ os/linux/sim.c, os/linux/sim_pci.c ]
+
+soc:
+  sources: [ os/linux/soc.c ]
+
+sysfs:
+  sources: [ os/linux/sysfs.c,     os/linux/sysfs.h,
+             os/linux/ecc_sysfs.c ]
+
+thread:
+  sources: [ os/linux/thread.c ]
+
+timers:
+  sources: [ os/linux/timers.c,
+             os/linux/periodic_timer.c ]
+
+vgpu:
+  sources: [ os/linux/vgpu/fecs_trace_vgpu_linux.c,
+             os/linux/vgpu/gv11b/platform_gv11b_vgpu_tegra.c,
+             os/linux/vgpu/gv11b/platform_gv11b_vgpu_tegra.h,
+             os/linux/vgpu/ga10b/platform_ga10b_vgpu_tegra.c,
+             os/linux/vgpu/platform_vgpu_tegra.c,
+             os/linux/vgpu/platform_vgpu_tegra.h,
+             os/linux/vgpu/sysfs_vgpu.c,
+             os/linux/vgpu/vgpu_ivc.c,
+             os/linux/vgpu/vgpu_linux.c,
+             os/linux/vgpu/vgpu_linux.h ]
+
+vm:
+  sources: [ os/linux/vm.c,
+             os/linux/vm_remap.c,
+             os/linux/nvgpu_ivm.c ]
+
+cic:
+  sources: [ os/linux/cic/cic_report_err.c,
+             os/linux/cic/l1ss_report_err.c ]
+
+# Group all the Linux headers for now.
+headers:
+  sources: [ include/nvgpu/linux/atomic.h,
+             include/nvgpu/linux/barrier.h,
+             include/nvgpu/linux/cond.h,
+             include/nvgpu/linux/dma.h,
+             include/nvgpu/linux/kmem.h,
+             include/nvgpu/linux/lock.h,
+             include/nvgpu/linux/bitops.h,
+             include/nvgpu/linux/nvgpu_mem.h,
+             include/nvgpu/linux/os_fence_android.h,
+             include/nvgpu/linux/os_fence_dma.h,
+             include/nvgpu/linux/periodic_timer.h,
+             include/nvgpu/linux/rwsem.h,
+             include/nvgpu/linux/nvmem.h,
+             include/nvgpu/linux/sim.h,
+             include/nvgpu/linux/sim_pci.h,
+             include/nvgpu/linux/soc_fuse.h,
+             include/nvgpu/linux/thread.h,
+             include/nvgpu/linux/log.h,
+             include/nvgpu/linux/log2.h,
+             include/nvgpu/linux/utils.h,
+             include/nvgpu/linux/vm.h,
+             include/nvgpu/linux/vm_remap.h ]
+
+# An extra unit to lump all the unclassified Linux files.
+extra:
+  sources: [ os/linux/os_linux.h ]

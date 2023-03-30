@@ -1,0 +1,31 @@
+NVIDIA Tegra Parker (T18x) ISP4 bindings
+
+Tegra ISP4 (Image Signal Processor, version 4), is a pixel processing unit
+operating on optical sensor data from VI or memory. Functional control is
+implemented in NVDIA user-space driver libraries.
+
+Required properties:
+	- compatible: Should be "nvidia,tegra186-isp".
+	- reg: Register address space (MMIO).
+	- power-domains: Power domain group, should be
+		"TEGRA186_POWER_DOMAIN_ISPA".
+	- resets: All ISP resets.
+	- clocks: All ISP clocks.
+	- clock-names: Names of the above clocks.
+	- interrupts: All ISP interrupts.
+	- iommus: ISP4 Stream ID, should be "TEGRA_SID_ISP".
+	- iommu-group-id: IOMMU group, should be "TEGRA_IOMMU_GROUP_HOST1X".
+
+Example:
+
+	isp@15600000 {
+		compatible = "nvidia,tegra186-isp";
+		reg = <0x0 0x15600000 0x0 0x00040000>;
+		power-domains = <&bpmp TEGRA186_POWER_DOMAIN_ISPA>;
+		resets = <&tegra_car TEGRA186_RESET_ISP>;
+		clocks = <&tegra_car TEGRA186_CLK_ISP>;
+		clock-names = "isp";
+		interrupts = <0 205 0x04>;
+		iommus = <&smmu TEGRA_SID_ISP>;
+		iommu-group-id = <TEGRA_IOMMU_GROUP_HOST1X>;
+	};

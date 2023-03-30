@@ -232,7 +232,7 @@ void nvhost_device_debug_deinit(struct platform_device *dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	if (!IS_ERR_OR_NULL(pdata->debugfs))
-		debugfs_remove(pdata->debugfs);
+		debugfs_remove_recursive(pdata->debugfs);
 	pdata->debugfs = NULL;
 }
 

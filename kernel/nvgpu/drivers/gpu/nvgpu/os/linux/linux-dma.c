@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -15,7 +15,8 @@
  */
 
 #include <linux/dma-mapping.h>
-#include <linux/version.h>
+#include <linux/slab.h>
+#include <linux/iommu.h>
 
 #include <nvgpu/log.h>
 #include <nvgpu/dma.h>
@@ -26,6 +27,7 @@
 #include <nvgpu/enabled.h>
 #include <nvgpu/vidmem.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/nvgpu_sgt.h>
 
 #include <nvgpu/linux/dma.h>
 
@@ -33,38 +35,22 @@
 #include "os_linux.h"
 #include "dmabuf_vidmem.h"
 
-#ifdef __DMA_ATTRS_LONGS
-#define NVGPU_DEFINE_DMA_ATTRS(x)                                     \
-        struct dma_attrs x = {                                  \
-                .flags = { [0 ... __DMA_ATTRS_LONGS-1] = 0 },   \
-        }
-#define NVGPU_DMA_ATTR(attrs) &attrs
-#else
-#define NVGPU_DEFINE_DMA_ATTRS(attrs) unsigned long attrs = 0
-#define NVGPU_DMA_ATTR(attrs) attrs
-#endif
-
 /*
  * Enough to hold all the possible flags in string form. When a new flag is
  * added it must be added here as well!!
  */
 #define NVGPU_DMA_STR_SIZE					\
-	sizeof("NO_KERNEL_MAPPING FORCE_CONTIGUOUS")
+	sizeof("NO_KERNEL_MAPPING PHYSICALLY_ADDRESSED")
 
 /*
- * The returned string is kmalloc()ed here but must be freed by the caller.
+ * This function can't fail. It will always at minimum memset() the buf which
+ * is assumed to be able to hold at least %NVGPU_DMA_STR_SIZE bytes.
  */
-static char *nvgpu_dma_flags_to_str(struct gk20a *g, unsigned long flags)
+void nvgpu_dma_flags_to_str(struct gk20a *g, unsigned long flags, char *buf)
 {
-	char *buf = nvgpu_kzalloc(g, NVGPU_DMA_STR_SIZE);
 	int bytes_available = NVGPU_DMA_STR_SIZE;
 
-	/*
-	 * Return the empty buffer if there's no flags. Makes it easier on the
-	 * calling code to just print it instead of any if (NULL) type logic.
-	 */
-	if (!flags)
-		return buf;
+	memset(buf, 0, NVGPU_DMA_STR_SIZE);
 
 #define APPEND_FLAG(flag, str_flag)					\
 	do {								\
@@ -72,13 +58,11 @@ static char *nvgpu_dma_flags_to_str(struct gk20a *g, unsigned long flags)
 			strncat(buf, str_flag, bytes_available);	\
 			bytes_available -= strlen(str_flag);		\
 		}							\
-	} while (0)
+	} while (false)
 
-	APPEND_FLAG(NVGPU_DMA_NO_KERNEL_MAPPING, "NO_KERNEL_MAPPING ");
-	APPEND_FLAG(NVGPU_DMA_FORCE_CONTIGUOUS,  "FORCE_CONTIGUOUS ");
+	APPEND_FLAG(NVGPU_DMA_NO_KERNEL_MAPPING,    "NO_KERNEL_MAPPING ");
+	APPEND_FLAG(NVGPU_DMA_PHYSICALLY_ADDRESSED, "PHYSICALLY_ADDRESSED");
 #undef APPEND_FLAG
-
-	return buf;
 }
 
 /**
@@ -99,18 +83,17 @@ static void __dma_dbg(struct gk20a *g, size_t size, unsigned long flags,
 		      const char *type, const char *what,
 		      const char *func, int line)
 {
-	char *flags_str = NULL;
+	char flags_str[NVGPU_DMA_STR_SIZE];
 
 	/*
-	 * Don't bother making the flags_str if debugging is
-	 * not enabled. This saves a malloc and a free.
+	 * Don't bother making the flags_str if debugging is not enabled.
 	 */
 	if (!nvgpu_log_mask_enabled(g, gpu_dbg_dma))
 		return;
 
-	flags_str = nvgpu_dma_flags_to_str(g, flags);
+	nvgpu_dma_flags_to_str(g, flags, flags_str);
 
-	__nvgpu_log_dbg(g, gpu_dbg_dma,
+	nvgpu_log_dbg_impl(g, gpu_dbg_dma,
 			func, line,
 			"DMA %s: [%s] size=%-7zu "
 			"aligned=%-7zu total=%-10llukB %s",
@@ -118,9 +101,21 @@ static void __dma_dbg(struct gk20a *g, size_t size, unsigned long flags,
 			size, PAGE_ALIGN(size),
 			g->dma_memory_used >> 10,
 			flags_str);
+}
 
-	if (flags_str)
-		nvgpu_kfree(g, flags_str);
+static void nvgpu_dma_print_err(struct gk20a *g, size_t size,
+				const char *type, const char *what,
+				unsigned long flags)
+{
+	char flags_str[NVGPU_DMA_STR_SIZE];
+
+	nvgpu_dma_flags_to_str(g, flags, flags_str);
+
+	nvgpu_info(g,
+		  "DMA %s FAILED: [%s] size=%-7zu "
+		  "aligned=%-7zu flags:%s",
+		  what, type,
+		  size, PAGE_ALIGN(size), flags_str);
 }
 
 #define dma_dbg_alloc(g, size, flags, type)				\
@@ -141,7 +136,7 @@ static void __dma_dbg(struct gk20a *g, size_t size, unsigned long flags,
 #define dma_dbg_free_done(g, size, type)				\
 	__dma_dbg_done(g, size, type, "free")
 
-#if defined(CONFIG_GK20A_VIDMEM)
+#if defined(CONFIG_NVGPU_DGPU)
 static u64 __nvgpu_dma_alloc(struct nvgpu_allocator *allocator, u64 at,
 				size_t size)
 {
@@ -156,46 +151,122 @@ static u64 __nvgpu_dma_alloc(struct nvgpu_allocator *allocator, u64 at,
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
-static void nvgpu_dma_flags_to_attrs(unsigned long *attrs,
-		unsigned long flags)
-#define ATTR_ARG(x) *x
-#else
-static void nvgpu_dma_flags_to_attrs(struct dma_attrs *attrs,
-		unsigned long flags)
-#define ATTR_ARG(x) x
-#endif
+/**
+ * The nvgpu_dma_alloc_no_iommu/nvgpu_dma_free_no_iommu() are for use
+ * cases where memory can be physically non-contiguous even if GPU is
+ * not iommuable as GPU uses nvlink to access the memory and lets GMMU
+ * fully control it
+ */
+static void __nvgpu_dma_free_no_iommu(struct page **pages,
+				      int max, bool big_array)
+{
+	int i;
+
+	for (i = 0; i < max; i++)
+		if (pages[i])
+			__free_pages(pages[i], 0);
+
+	if (big_array)
+		vfree(pages);
+	else
+		kfree(pages);
+}
+
+static void *nvgpu_dma_alloc_no_iommu(struct device *dev, size_t size,
+				      dma_addr_t *dma_handle, gfp_t gfps)
+{
+	int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned int array_size = count * sizeof(struct page *);
+	struct page **pages;
+	int i = 0;
+
+	if (array_size <= NVGPU_CPU_PAGE_SIZE)
+		pages = kzalloc(array_size, GFP_KERNEL);
+	else
+		pages = vzalloc(array_size);
+	if (!pages)
+		return NULL;
+
+	gfps |= __GFP_HIGHMEM | __GFP_NOWARN;
+
+	while (count) {
+		int j, order = __fls(count);
+
+		pages[i] = alloc_pages(gfps, order);
+		while (!pages[i] && order)
+			pages[i] = alloc_pages(gfps, --order);
+		if (!pages[i])
+			goto error;
+
+		if (order) {
+			split_page(pages[i], order);
+			j = 1 << order;
+			while (--j)
+				pages[i + j] = pages[i] + j;
+		}
+
+		memset(page_address(pages[i]), 0, NVGPU_CPU_PAGE_SIZE << order);
+
+		i += 1 << order;
+		count -= 1 << order;
+	}
+
+	*dma_handle = __pfn_to_phys(page_to_pfn(pages[0]));
+
+	return (void *)pages;
+
+error:
+	__nvgpu_dma_free_no_iommu(pages, i, array_size > NVGPU_CPU_PAGE_SIZE);
+	return NULL;
+}
+
+static void nvgpu_dma_free_no_iommu(size_t size, void *vaddr)
+{
+	int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	unsigned int array_size = count * sizeof(struct page *);
+	struct page **pages = vaddr;
+
+	WARN_ON(!pages);
+
+	__nvgpu_dma_free_no_iommu(pages, count, array_size > NVGPU_CPU_PAGE_SIZE);
+}
+
+/* Check if IOMMU is available and if GPU uses it */
+#define nvgpu_uses_iommu(g) \
+	(nvgpu_iommuable(g) && !nvgpu_is_enabled(g, NVGPU_MM_USE_PHYSICAL_SG))
+
+static void nvgpu_dma_flags_to_attrs(struct gk20a *g, unsigned long *attrs,
+				     unsigned long flags)
 {
 	if (flags & NVGPU_DMA_NO_KERNEL_MAPPING)
-		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, ATTR_ARG(attrs));
-	if (flags & NVGPU_DMA_FORCE_CONTIGUOUS)
-		dma_set_attr(DMA_ATTR_FORCE_CONTIGUOUS, ATTR_ARG(attrs));
-#undef ATTR_ARG
+		*attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
+	if (flags & NVGPU_DMA_PHYSICALLY_ADDRESSED && !nvgpu_uses_iommu(g))
+		*attrs |= DMA_ATTR_FORCE_CONTIGUOUS;
 }
+
+/*
+ * When GPU uses nvlink instead of IOMMU, memory can be non-contiguous if
+ * no NVGPU_DMA_PHYSICALLY_ADDRESSED flag is assigned. This means the GPU
+ * driver will need to map the memory after allocation
+ */
+#define nvgpu_nvlink_non_contig(g, flags) \
+	(nvgpu_is_enabled(g, NVGPU_MM_BYPASSES_IOMMU) && \
+	 !(flags & NVGPU_DMA_PHYSICALLY_ADDRESSED))
 
 int nvgpu_dma_alloc_flags_sys(struct gk20a *g, unsigned long flags,
 		size_t size, struct nvgpu_mem *mem)
 {
 	struct device *d = dev_from_gk20a(g);
-	int err;
+	gfp_t gfps = GFP_KERNEL|__GFP_ZERO;
 	dma_addr_t iova;
-	NVGPU_DEFINE_DMA_ATTRS(dma_attrs);
+	unsigned long dma_attrs = 0;
 	void *alloc_ret;
+	int err;
 
 	if (nvgpu_mem_is_valid(mem)) {
 		nvgpu_warn(g, "memory leak !!");
 		WARN_ON(1);
 	}
-
-	/*
-	 * WAR for IO coherent chips: the DMA API does not seem to generate
-	 * mappings that work correctly. Unclear why - Bug ID: 2040115.
-	 *
-	 * Basically we just tell the DMA API not to map with NO_KERNEL_MAPPING
-	 * and then make a vmap() ourselves.
-	 */
-	if (nvgpu_is_enabled(g, NVGPU_USE_COHERENT_SYSMEM))
-		flags |= NVGPU_DMA_NO_KERNEL_MAPPING;
 
 	/*
 	 * Before the debug print so we see this in the total. But during
@@ -212,15 +283,18 @@ int nvgpu_dma_alloc_flags_sys(struct gk20a *g, unsigned long flags,
 	mem->size = size;
 	size = PAGE_ALIGN(size);
 
-	nvgpu_dma_flags_to_attrs(&dma_attrs, flags);
+	nvgpu_dma_flags_to_attrs(g, &dma_attrs, flags);
+	if (nvgpu_nvlink_non_contig(g, flags))
+		alloc_ret = nvgpu_dma_alloc_no_iommu(d, size, &iova, gfps);
+	else
+		alloc_ret = dma_alloc_attrs(d, size, &iova, gfps, dma_attrs);
+	if (!alloc_ret) {
+		err = -ENOMEM;
+		goto print_dma_err;
+	}
 
-	alloc_ret = dma_alloc_attrs(d, size, &iova,
-				    GFP_KERNEL|__GFP_ZERO,
-				    NVGPU_DMA_ATTR(dma_attrs));
-	if (!alloc_ret)
-		return -ENOMEM;
-
-	if (flags & NVGPU_DMA_NO_KERNEL_MAPPING) {
+	if (nvgpu_nvlink_non_contig(g, flags) ||
+	    flags & NVGPU_DMA_NO_KERNEL_MAPPING) {
 		mem->priv.pages = alloc_ret;
 		err = nvgpu_get_sgtable_from_pages(g, &mem->priv.sgt,
 						   mem->priv.pages,
@@ -233,9 +307,9 @@ int nvgpu_dma_alloc_flags_sys(struct gk20a *g, unsigned long flags,
 	if (err)
 		goto fail_free_dma;
 
-	if (nvgpu_is_enabled(g, NVGPU_USE_COHERENT_SYSMEM)) {
-		mem->cpu_va = vmap(mem->priv.pages,
-				   size >> PAGE_SHIFT,
+	/* Map the page list from the non-contiguous allocation */
+	if (nvgpu_nvlink_non_contig(g, flags)) {
+		mem->cpu_va = vmap(mem->priv.pages, size >> PAGE_SHIFT,
 				   0, PAGE_KERNEL);
 		if (!mem->cpu_va) {
 			err = -ENOMEM;
@@ -254,18 +328,20 @@ int nvgpu_dma_alloc_flags_sys(struct gk20a *g, unsigned long flags,
 fail_free_sgt:
 	nvgpu_free_sgtable(g, &mem->priv.sgt);
 fail_free_dma:
-	dma_free_attrs(d, size, alloc_ret, iova, NVGPU_DMA_ATTR(dma_attrs));
+	dma_free_attrs(d, size, alloc_ret, iova, dma_attrs);
 	mem->cpu_va = NULL;
 	mem->priv.sgt = NULL;
 	mem->size = 0;
-	g->dma_memory_used -= mem->aligned_size;
+	g->dma_memory_used -= size;
+print_dma_err:
+	nvgpu_dma_print_err(g, size, "sysmem", "alloc", flags);
 	return err;
 }
 
+#if defined(CONFIG_NVGPU_DGPU)
 int nvgpu_dma_alloc_flags_vid_at(struct gk20a *g, unsigned long flags,
 		size_t size, struct nvgpu_mem *mem, u64 at)
 {
-#if defined(CONFIG_GK20A_VIDMEM)
 	u64 addr;
 	int err;
 	struct nvgpu_allocator *vidmem_alloc = g->mm.vidmem.cleared ?
@@ -283,8 +359,10 @@ int nvgpu_dma_alloc_flags_vid_at(struct gk20a *g, unsigned long flags,
 	mem->size = size;
 	size = PAGE_ALIGN(size);
 
-	if (!nvgpu_alloc_initialized(&g->mm.vidmem.allocator))
-		return -ENOSYS;
+	if (!nvgpu_alloc_initialized(&g->mm.vidmem.allocator)) {
+		err = -ENOSYS;
+		goto print_dma_err;
+	}
 
 	/*
 	 * Our own allocator doesn't have any flags yet, and we can't
@@ -301,10 +379,12 @@ int nvgpu_dma_alloc_flags_vid_at(struct gk20a *g, unsigned long flags,
 		 * If memory is known to be freed soon, let the user know that
 		 * it may be available after a while.
 		 */
-		if (before_pending)
+		if (before_pending) {
 			return -EAGAIN;
-		else
-			return -ENOMEM;
+		} else {
+			err = -ENOMEM;
+			goto print_dma_err;
+		}
 	}
 
 	if (at)
@@ -340,57 +420,54 @@ fail_kfree:
 fail_physfree:
 	nvgpu_free(&g->mm.vidmem.allocator, addr);
 	mem->size = 0;
+print_dma_err:
+	nvgpu_dma_print_err(g, size, "vidmem", "alloc", flags);
 	return err;
-#else
-	return -ENOSYS;
-#endif
 }
+#endif
 
 void nvgpu_dma_free_sys(struct gk20a *g, struct nvgpu_mem *mem)
 {
 	struct device *d = dev_from_gk20a(g);
+	unsigned long dma_attrs = 0;
 
 	g->dma_memory_used -= mem->aligned_size;
 
 	dma_dbg_free(g, mem->size, mem->priv.flags, "sysmem");
 
 	if (!(mem->mem_flags & NVGPU_MEM_FLAG_SHADOW_COPY) &&
-	    !(mem->mem_flags & __NVGPU_MEM_FLAG_NO_DMA) &&
+	    !(mem->mem_flags & NVGPU_MEM_FLAG_NO_DMA) &&
 	    (mem->cpu_va || mem->priv.pages)) {
-		/*
-		 * Free side of WAR for bug 2040115.
-		 */
-		if (nvgpu_is_enabled(g, NVGPU_USE_COHERENT_SYSMEM))
+		void *cpu_addr = mem->cpu_va;
+
+		/* These two use pages pointer instead of cpu_va */
+		if (nvgpu_nvlink_non_contig(g, mem->priv.flags) ||
+		    mem->priv.flags & NVGPU_DMA_NO_KERNEL_MAPPING)
+			cpu_addr = mem->priv.pages;
+
+		if (nvgpu_nvlink_non_contig(g, mem->priv.flags)) {
 			vunmap(mem->cpu_va);
-
-		if (mem->priv.flags) {
-			NVGPU_DEFINE_DMA_ATTRS(dma_attrs);
-
-			nvgpu_dma_flags_to_attrs(&dma_attrs, mem->priv.flags);
-
-			if (mem->priv.flags & NVGPU_DMA_NO_KERNEL_MAPPING) {
-				dma_free_attrs(d, mem->aligned_size, mem->priv.pages,
-					sg_dma_address(mem->priv.sgt->sgl),
-					NVGPU_DMA_ATTR(dma_attrs));
-			} else {
-				dma_free_attrs(d, mem->aligned_size, mem->cpu_va,
-					sg_dma_address(mem->priv.sgt->sgl),
-					NVGPU_DMA_ATTR(dma_attrs));
-			}
+			nvgpu_dma_free_no_iommu(mem->aligned_size, cpu_addr);
 		} else {
-			dma_free_coherent(d, mem->aligned_size, mem->cpu_va,
-					sg_dma_address(mem->priv.sgt->sgl));
+			nvgpu_dma_flags_to_attrs(g, &dma_attrs,
+						 mem->priv.flags);
+			dma_free_attrs(d, mem->aligned_size, cpu_addr,
+					sg_dma_address(mem->priv.sgt->sgl),
+					dma_attrs);
 		}
+
 		mem->cpu_va = NULL;
 		mem->priv.pages = NULL;
 	}
 
 	/*
-	 * When this flag is set we expect that pages is still populated but not
-	 * by the DMA API.
+	 * When this flag is set this means we are freeing a "phys" nvgpu_mem.
+	 * To handle this just nvgpu_kfree() the nvgpu_sgt and nvgpu_sgl.
 	 */
-	if (mem->mem_flags & __NVGPU_MEM_FLAG_NO_DMA)
-		nvgpu_kfree(g, mem->priv.pages);
+	if (mem->mem_flags & NVGPU_MEM_FLAG_NO_DMA) {
+		nvgpu_kfree(g, mem->phys_sgt->sgl);
+		nvgpu_kfree(g, mem->phys_sgt);
+	}
 
 	if ((mem->mem_flags & NVGPU_MEM_FLAG_FOREIGN_SGT) == 0 &&
 			mem->priv.sgt != NULL) {
@@ -406,7 +483,7 @@ void nvgpu_dma_free_sys(struct gk20a *g, struct nvgpu_mem *mem)
 
 void nvgpu_dma_free_vid(struct gk20a *g, struct nvgpu_mem *mem)
 {
-#if defined(CONFIG_GK20A_VIDMEM)
+#if defined(CONFIG_NVGPU_DGPU)
 	size_t mem_size = mem->size;
 
 	dma_dbg_free(g, mem->size, mem->priv.flags, "vidmem");
@@ -448,7 +525,7 @@ int nvgpu_get_sgtable_attrs(struct gk20a *g, struct sg_table **sgt,
 {
 	int err = 0;
 	struct sg_table *tbl;
-	NVGPU_DEFINE_DMA_ATTRS(dma_attrs);
+	unsigned long dma_attrs = 0;
 
 	tbl = nvgpu_kzalloc(g, sizeof(struct sg_table));
 	if (!tbl) {
@@ -456,9 +533,9 @@ int nvgpu_get_sgtable_attrs(struct gk20a *g, struct sg_table **sgt,
 		goto fail;
 	}
 
-	nvgpu_dma_flags_to_attrs(&dma_attrs, flags);
+	nvgpu_dma_flags_to_attrs(g, &dma_attrs, flags);
 	err = dma_get_sgtable_attrs(dev_from_gk20a(g), tbl, cpuva, iova,
-					size, NVGPU_DMA_ATTR(dma_attrs));
+					size, dma_attrs);
 	if (err)
 		goto fail;
 
@@ -493,7 +570,7 @@ int nvgpu_get_sgtable_from_pages(struct gk20a *g, struct sg_table **sgt,
 	}
 
 	err = sg_alloc_table_from_pages(tbl, pages,
-					DIV_ROUND_UP(size, PAGE_SIZE),
+					DIV_ROUND_UP(size, NVGPU_CPU_PAGE_SIZE),
 					0, size, GFP_KERNEL);
 	if (err)
 		goto fail;
@@ -521,12 +598,13 @@ bool nvgpu_iommuable(struct gk20a *g)
 {
 #ifdef CONFIG_TEGRA_GK20A
 	struct nvgpu_os_linux *l = nvgpu_os_linux_from_gk20a(g);
+	struct device *dev = l->dev;
 
 	/*
 	 * Check against the nvgpu device to see if it's been marked as
 	 * IOMMU'able.
 	 */
-	if (!device_is_iommuable(l->dev))
+	if (iommu_get_domain_for_dev(dev) == NULL)
 		return false;
 #endif
 

@@ -1,0 +1,30 @@
+From 648411b06b190d24b5a15268c93a0aa7a0199838 Mon Sep 17 00:00:00 2001
+From: Will McVicker <willmcvicker@google.com>
+Date: Thu, 5 Mar 2020 15:28:48 -0800
+Subject: [PATCH 654/830] ANDROID: gki_defconfig: enable CONFIG_TYPEC
+X-NVConfidentiality: public
+
+This is a common config across many devices that we'd like to stablize.
+
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+Bug: 150877929
+Change-Id: Id56250664324ecbac2c1497ab5eb49c3306ee535
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 52c5cc23f192..c2b0e5cefeb9 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -338,6 +338,7 @@ CONFIG_USB_CONFIGFS_F_FS=y
+ CONFIG_USB_CONFIGFS_F_ACC=y
+ CONFIG_USB_CONFIGFS_F_AUDIO_SRC=y
+ CONFIG_USB_CONFIGFS_F_MIDI=y
++CONFIG_TYPEC=y
+ CONFIG_MMC=y
+ # CONFIG_PWRSEQ_EMMC is not set
+ # CONFIG_PWRSEQ_SIMPLE is not set
+-- 
+2.17.1
+

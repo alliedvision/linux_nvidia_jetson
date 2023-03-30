@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2017 - 2018 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2017 - 2019 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -39,10 +39,14 @@
 
 struct halmac_intf_phy_para usb2_phy_param_8822c[] = {
 	/* {offset, value, ip sel, cut mask, platform mask} */
+	{0xE1, 0x0F,
+	 HALMAC_IP_INTF_PHY,
+	 HALMAC_INTF_PHY_CUT_ALL,
+	 HALMAC_INTF_PHY_PLATFORM_DHC},
 	{0xFFFF, 0x00,
 	 HALMAC_IP_INTF_PHY,
 	 HALMAC_INTF_PHY_CUT_ALL,
-	 HALMAC_INTF_PHY_PLATFORM_ALL},
+	 HALMAC_INTF_PHY_PLATFORM_FOR_ALL},
 };
 
 struct halmac_intf_phy_para usb3_phy_param_8822c[] = {
@@ -50,15 +54,19 @@ struct halmac_intf_phy_para usb3_phy_param_8822c[] = {
 	{0xFFFF, 0x0000,
 	 HALMAC_IP_INTF_PHY,
 	 HALMAC_INTF_PHY_CUT_ALL,
-	 HALMAC_INTF_PHY_PLATFORM_ALL},
+	 HALMAC_INTF_PHY_PLATFORM_FOR_ALL},
 };
 
 struct halmac_intf_phy_para pcie_gen1_phy_param_8822c[] = {
 	/* {offset, value, ip sel, cut mask, platform mask} */
+	{0x001B, 0x00A1,
+	 HALMAC_IP_INTF_PHY,
+	 HALMAC_INTF_PHY_CUT_ALL,
+	 HALMAC_INTF_PHY_PLATFORM_FOR_ALL},
 	{0xFFFF, 0x0000,
 	 HALMAC_IP_INTF_PHY,
 	 HALMAC_INTF_PHY_CUT_ALL,
-	 HALMAC_INTF_PHY_PLATFORM_ALL},
+	 HALMAC_INTF_PHY_PLATFORM_FOR_ALL},
 };
 
 struct halmac_intf_phy_para pcie_gen2_phy_param_8822c[] = {
@@ -66,7 +74,7 @@ struct halmac_intf_phy_para pcie_gen2_phy_param_8822c[] = {
 	{0xFFFF, 0x0000,
 	 HALMAC_IP_INTF_PHY,
 	 HALMAC_INTF_PHY_CUT_ALL,
-	 HALMAC_INTF_PHY_PLATFORM_ALL},
+	 HALMAC_INTF_PHY_PLATFORM_FOR_ALL},
 };
 
 #endif /* HALMAC_8822C_SUPPORT*/

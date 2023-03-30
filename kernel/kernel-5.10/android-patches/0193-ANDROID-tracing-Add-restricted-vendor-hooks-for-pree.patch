@@ -1,0 +1,212 @@
+From a3b942a5fdbb898ea651bdf49430256b54ec3cfd Mon Sep 17 00:00:00 2001
+From: Pavankumar Kondeti <pkondeti@codeaurora.org>
+Date: Tue, 1 Dec 2020 14:10:07 +0530
+Subject: [PATCH 193/830] ANDROID: tracing: Add restricted vendor hooks for
+ preemptirq events
+X-NVConfidentiality: public
+
+We have debug infrastructure built on top of preempt/irq disable/enable
+events. This requires modifications to the kernel tracing code. Since
+this is not feasible with GKI, we started with registering to the
+existing preemptirq trace events. However the performance of wide
+variety of use cases are regressed as the rate of preemptirq events
+is super high and generic trace events are slow.
+
+Since GKI allows optimized trace events via restricted trace hooks,
+add the same for preemptirq event.
+
+Bug: 174541725
+Change-Id: Ic8d3cdd1c1aa6a9267d0b755694fedffa2ea8e36
+Signed-off-by: Pavankumar Kondeti <pkondeti@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c   |  5 ++++
+ include/trace/hooks/preemptirq.h | 43 ++++++++++++++++++++++++++++++++
+ kernel/trace/trace_preemptirq.c  | 40 +++++++++++++++++++++++------
+ 3 files changed, 80 insertions(+), 8 deletions(-)
+ create mode 100644 include/trace/hooks/preemptirq.h
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 8c385bced001..09b87478bbd7 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -20,6 +20,7 @@
+ #include <trace/hooks/debug.h>
+ #include <trace/hooks/printk.h>
+ #include <trace/hooks/epoch.h>
++#include <trace/hooks/preemptirq.h>
+ 
+ /*
+  * Export tracepoints that act as a bare tracehook (ie: have no trace event
+@@ -72,3 +73,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_setaffinity);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpus_allowed);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_preempt_disable);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_preempt_enable);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_irqs_disable);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_irqs_enable);
+diff --git a/include/trace/hooks/preemptirq.h b/include/trace/hooks/preemptirq.h
+new file mode 100644
+index 000000000000..be96261280a6
+--- /dev/null
++++ b/include/trace/hooks/preemptirq.h
+@@ -0,0 +1,43 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM preemptirq
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH trace/hooks
++
++#if !defined(_TRACE_HOOK_PREEMPTIRQ_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_HOOK_PREEMPTIRQ_H
++
++#include <linux/tracepoint.h>
++#include <trace/hooks/vendor_hooks.h>
++
++#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
++
++DECLARE_RESTRICTED_HOOK(android_rvh_preempt_disable,
++	TP_PROTO(unsigned long ip, unsigned long parent_ip),
++	TP_ARGS(ip, parent_ip), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_preempt_enable,
++	TP_PROTO(unsigned long ip, unsigned long parent_ip),
++	TP_ARGS(ip, parent_ip), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_irqs_disable,
++	TP_PROTO(unsigned long ip, unsigned long parent_ip),
++	TP_ARGS(ip, parent_ip), 1);
++
++DECLARE_RESTRICTED_HOOK(android_rvh_irqs_enable,
++	TP_PROTO(unsigned long ip, unsigned long parent_ip),
++	TP_ARGS(ip, parent_ip), 1);
++
++#else
++
++#define trace_android_rvh_preempt_disable(ip, parent_ip)
++#define trace_android_rvh_preempt_enable(ip, parent_ip)
++#define trace_android_rvh_irqs_disable(ip, parent_ip)
++#define trace_android_rvh_irqs_enable(ip, parent_ip)
++
++#endif
++
++#endif /* _TRACE_HOOK_PREEMPTIRQ_H */
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/kernel/trace/trace_preemptirq.c b/kernel/trace/trace_preemptirq.c
+index f4938040c228..c881e5a5efb8 100644
+--- a/kernel/trace/trace_preemptirq.c
++++ b/kernel/trace/trace_preemptirq.c
+@@ -14,6 +14,8 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/preemptirq.h>
++#undef CREATE_TRACE_POINTS
++#include <trace/hooks/preemptirq.h>
+ 
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ /* Per-cpu variable to prevent redundant calls when IRQs already off */
+@@ -28,8 +30,11 @@ static DEFINE_PER_CPU(int, tracing_irq_cpu);
+ void trace_hardirqs_on_prepare(void)
+ {
+ 	if (this_cpu_read(tracing_irq_cpu)) {
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_enable(CALLER_ADDR0, CALLER_ADDR1);
++			trace_android_rvh_irqs_enable(CALLER_ADDR0,
++						      CALLER_ADDR1);
++		}
+ 		tracer_hardirqs_on(CALLER_ADDR0, CALLER_ADDR1);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -40,8 +45,11 @@ NOKPROBE_SYMBOL(trace_hardirqs_on_prepare);
+ void trace_hardirqs_on(void)
+ {
+ 	if (this_cpu_read(tracing_irq_cpu)) {
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
++			trace_android_rvh_irqs_enable(CALLER_ADDR0,
++						      CALLER_ADDR1);
++		}
+ 		tracer_hardirqs_on(CALLER_ADDR0, CALLER_ADDR1);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -63,8 +71,11 @@ void trace_hardirqs_off_finish(void)
+ 	if (!this_cpu_read(tracing_irq_cpu)) {
+ 		this_cpu_write(tracing_irq_cpu, 1);
+ 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_disable(CALLER_ADDR0, CALLER_ADDR1);
++			trace_android_rvh_irqs_disable(CALLER_ADDR0,
++						       CALLER_ADDR1);
++		}
+ 	}
+ 
+ }
+@@ -78,8 +89,11 @@ void trace_hardirqs_off(void)
+ 	if (!this_cpu_read(tracing_irq_cpu)) {
+ 		this_cpu_write(tracing_irq_cpu, 1);
+ 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
++			trace_android_rvh_irqs_disable(CALLER_ADDR0,
++						       CALLER_ADDR1);
++		}
+ 	}
+ }
+ EXPORT_SYMBOL(trace_hardirqs_off);
+@@ -88,8 +102,11 @@ NOKPROBE_SYMBOL(trace_hardirqs_off);
+ __visible void trace_hardirqs_on_caller(unsigned long caller_addr)
+ {
+ 	if (this_cpu_read(tracing_irq_cpu)) {
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr);
++			trace_android_rvh_irqs_enable(CALLER_ADDR0,
++						      caller_addr);
++		}
+ 		tracer_hardirqs_on(CALLER_ADDR0, caller_addr);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -107,8 +124,11 @@ __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
+ 	if (!this_cpu_read(tracing_irq_cpu)) {
+ 		this_cpu_write(tracing_irq_cpu, 1);
+ 		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
+-		if (!in_nmi())
++		if (!in_nmi()) {
+ 			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr);
++			trace_android_rvh_irqs_enable(CALLER_ADDR0,
++						      caller_addr);
++		}
+ 	}
+ }
+ EXPORT_SYMBOL(trace_hardirqs_off_caller);
+@@ -119,15 +139,19 @@ NOKPROBE_SYMBOL(trace_hardirqs_off_caller);
+ 
+ void trace_preempt_on(unsigned long a0, unsigned long a1)
+ {
+-	if (!in_nmi())
++	if (!in_nmi()) {
+ 		trace_preempt_enable_rcuidle(a0, a1);
++		trace_android_rvh_preempt_enable(a0, a1);
++	}
+ 	tracer_preempt_on(a0, a1);
+ }
+ 
+ void trace_preempt_off(unsigned long a0, unsigned long a1)
+ {
+-	if (!in_nmi())
++	if (!in_nmi()) {
+ 		trace_preempt_disable_rcuidle(a0, a1);
++		trace_android_rvh_preempt_disable(a0, a1);
++	}
+ 	tracer_preempt_off(a0, a1);
+ }
+ #endif
+-- 
+2.17.1
+

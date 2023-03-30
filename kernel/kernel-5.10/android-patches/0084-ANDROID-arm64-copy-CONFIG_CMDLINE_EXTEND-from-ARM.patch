@@ -1,0 +1,56 @@
+From 64d4ab93cf06e720afd249b302618b3bba59ad4b Mon Sep 17 00:00:00 2001
+From: Colin Cross <ccross@android.com>
+Date: Wed, 2 Apr 2014 18:02:15 -0700
+Subject: [PATCH 084/830] ANDROID: arm64: copy CONFIG_CMDLINE_EXTEND from ARM
+X-NVConfidentiality: public
+
+Copy the config choice for CONFIG_CMDLINE_EXTEND from
+arch/arm/Kconfig, including CONFIG_CMDLINE_FROM_BOOTLOADER
+as the default.  These will be used by drivers/of/fdt.c.
+
+Bug: 120440972
+Change-Id: I8416038498ddf8fc1e99ab06109825eb1492aa7f
+Signed-off-by: Colin Cross <ccross@android.com>
+---
+ arch/arm64/Kconfig | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 1b49a7128254..ac2eafa04bfe 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1866,6 +1866,23 @@ config CMDLINE
+ 	  entering them here. As a minimum, you should specify the the
+ 	  root device (e.g. root=/dev/nfs).
+ 
++choice
++	prompt "Kernel command line type" if CMDLINE != ""
++	default CMDLINE_FROM_BOOTLOADER
++
++config CMDLINE_FROM_BOOTLOADER
++	bool "Use bootloader kernel arguments if available"
++	help
++	  Uses the command-line options passed by the boot loader. If
++	  the boot loader doesn't provide any, the default kernel command
++	  string provided in CMDLINE will be used.
++
++config CMDLINE_EXTEND
++	bool "Extend bootloader kernel arguments"
++	help
++	  The command-line arguments provided by the boot loader will be
++	  appended to the default kernel command string.
++
+ config CMDLINE_FORCE
+ 	bool "Always use the default kernel command string"
+ 	depends on CMDLINE != ""
+@@ -1874,6 +1891,7 @@ config CMDLINE_FORCE
+ 	  loader passes other arguments to the kernel.
+ 	  This is useful if you cannot or don't want to change the
+ 	  command-line options your boot loader passes to the kernel.
++endchoice
+ 
+ config EFI_STUB
+ 	bool
+-- 
+2.17.1
+

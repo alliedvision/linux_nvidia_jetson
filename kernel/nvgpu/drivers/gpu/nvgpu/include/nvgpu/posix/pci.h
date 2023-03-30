@@ -23,6 +23,6 @@
 #ifndef __NVGPU_POSIX_PCI_H__
 #define __NVGPU_POSIX_PCI_H__
 
-#define PCI_VENDOR_ID_NVIDIA		0x10de
+#define PCI_VENDOR_ID_NVIDIA		0x10deU
 
 #endif

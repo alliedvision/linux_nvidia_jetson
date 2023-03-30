@@ -1,0 +1,41 @@
+From 04d8a11a7c61db7dcee3213eb7e0f6377ab5a585 Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Wed, 11 Dec 2019 11:33:55 -0800
+Subject: [PATCH 598/830] ANDROID: cuttlefish_defconfig: Enable CONFIG_GNSS
+X-NVConfidentiality: public
+
+Bug: 146079200
+Change-Id: Iad8047c2f1de41fdd882a177dc61554b73616e43
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 0d2970af7591..eea1def56146 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -211,6 +211,7 @@ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
++CONFIG_GNSS=y
+ CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_RAM=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index b5ed0ed82e84..4dff6059506f 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -186,6 +186,7 @@ CONFIG_FW_LOADER_USER_HELPER_FALLBACK=y
+ # CONFIG_FW_CACHE is not set
+ # CONFIG_ALLOW_DEV_COREDUMP is not set
+ CONFIG_DEBUG_DEVRES=y
++CONFIG_GNSS=y
+ CONFIG_OF=y
+ CONFIG_ZRAM=y
+ CONFIG_BLK_DEV_LOOP=y
+-- 
+2.17.1
+

@@ -1,0 +1,101 @@
+OmniVision OV10823 CMOS Image Sensor, NVIDIA TCF driver bindings
+
+The OmniVision OV10823 is a 10.5 MP CMOS colour image sensor; the following
+Device Tree bindings are for the NVIDIA Tegra Camera Framework (TCF) driver, for
+use on embedded NVIDIA Tegra SOC platforms.
+
+Camera-board specific overlays are applied by the NVIDIA Tegra plugin-manager
+pre-boot, they define the physical regulator and GPIO connections which differ
+by the Jetson board and chip generation, and the camera daughter board revision.
+
+Required properties:
+	- compatible: Should be "ovti,ov10823".
+	- sensor_model: Name of sensor, should be "ov10823".
+	- reg: Sensor I2C bus address, default is 0x10.
+	- modeXY: Please see tegra-camera-framework.txt for DT bindings.
+
+	- avdd-reg: Name of analog power regulator.
+	- vana-supply: Analog power source (2.80 V).
+	- iovdd-reg: Name of interface power regulator.
+	- vif-supply: Interface power source (1.80 V).
+	- dvdd-reg: Name of digital power regulator.
+	- vdig-supply: Digital power source (1.20 V).
+
+	- clocks: All clocks from the Tegra SoC used to drive sensor.
+	- clock-names: Names of the above clocks.
+	- mclk: Name of the MIPI clock (aka. INCK) driven from the Tegra SOC.
+	- clock-frequency: Frequency of the mclk source [Hz].
+	- reset-gpios: GPIO(s) used to ouput reset/enable signal.
+	- pwdn-gpios: GPIO(s) used to enable/disable sensor power.
+
+Optional properties:
+	- physical_w: Horizontal width of active surface [mm].
+	- physical_h: Vertical height of active surface [mm].
+
+	- has_eeprom: Property is present if there is a sensor-external EEPROM.
+	- fuse_id_start_addr: Sensor-internal fuse base I2C address.
+
+	- use_sensor_mode_id: Whether to enable use of the V4L2
+		CID_SENSOR_MODE_ID control, which enables explicit sensor mode
+		enumeration and selection. (Default: false)
+
+	- delayed_gain: Whether gain settings should be offset by one frame to
+		be in sync w/ exposure settings (takes effect on n+2 frame).
+		 (Default: false)
+	- use_decibel_gain: Whether to convert gain to dB units before passing
+		to driver. (Default: false)
+	- post_crop_frame_drop: Number of frames to silently discard following
+		application of crop settings, as the initial ones may be
+		corrupted. (Default: 0)
+	- limit_analog_gain: Enable as a WAR to prevent banding for the IMX185
+		sensor. (Default: false)
+
+	- nvidia,gmsl-ser-device: MIPI CSI-2 serializer device node.
+	- nvidia,gmsl-dser-device: MIPI CSI-2 deserializer device node.
+
+Deprecated properties:
+	- devnode: Name of V4L2 character device in filesystem, this property is
+		now deprecated, the Tegra Camera Framework enumerates them
+		automatically.
+	- dovdd-supply: Digital I/O power source (1.80 V), should use vif-supply
+		for new drivers.
+
+Example:
+
+	ov23850_a@10 {
+		compatible = "nvidia,ov23850";
+		reg = <0x10>;
+
+		/* Physical dimensions of sensor */
+		physical_w = "7.3998";
+		physical_h = "5.5998";
+
+		/* Define any required hw resources needed by driver */
+		/* ie. clocks, io pins, power sources */
+		avdd-reg = "vana";
+		dvdd-reg = "vdig";
+		iovdd-reg = "vif";
+		vcmvdd-reg = "vvcm";
+		devnode = "video0";
+
+		mode<0..N-1> {
+			...
+		};
+	};
+
+	/* Camera board-specific config overlay */
+	ov23850_a@10 {
+		/ Define any required hw resources needed by driver */
+		/* ie. clocks, io pins, power sources */
+		clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>,
+			<&tegra_car TEGRA186_CLK_PLLP_OUT0>;
+		clock-names = "extperiph1", "pllp_grtba";
+		mclk = "extperiph1";
+
+		reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
+		pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+		vana-supply = <&en_vdd_cam_hv_2v8>;
+		vdig-supply = <&en_vdd_sys>;
+		vif-supply = <&en_vdd_cam>;
+		vvcm-suply = <&en_vdd_vcm_2v8>;
+	};

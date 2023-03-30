@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host VI
  *
- * Copyright (c) 2012-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,8 +27,17 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/clk/tegra.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 #include <linux/tegra_pm_domains.h>
+#else
+#include <linux/pm_domain.h>
+#endif
 #include <linux/debugfs.h>
 #include <linux/slab.h>
 
@@ -264,9 +273,11 @@ static void vi_create_debugfs(struct vi *vi)
 	struct dentry *ret;
 	char tegra_vi_name[20];
 	char debugfs_file_name[20];
+	int err;
 
-
-	snprintf(tegra_vi_name, sizeof(tegra_vi_name), "%s", TEGRA_VI_NAME);
+	err = snprintf(tegra_vi_name, sizeof(tegra_vi_name), "%s", TEGRA_VI_NAME);
+	if (err < 0)
+		return;
 
 	vi->debugdir = debugfs_create_dir(tegra_vi_name, NULL);
 	if (!vi->debugdir) {
@@ -276,7 +287,9 @@ static void vi_create_debugfs(struct vi *vi)
 		goto create_debugfs_fail;
 	}
 
-	snprintf(debugfs_file_name, sizeof(debugfs_file_name), "%s", "vi_out");
+	err = snprintf(debugfs_file_name, sizeof(debugfs_file_name), "%s", "vi_out");
+	if (err < 0)
+		return;
 
 	ret = debugfs_create_file(debugfs_file_name, S_IRUGO,
 			vi->debugdir, vi, &vi_out_fops);
@@ -535,7 +548,11 @@ static int __exit vi_remove(struct platform_device *dev)
 #endif
 
 #ifdef CONFIG_PM_GENERIC_DOMAINS
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 	tegra_pd_remove_device(&dev->dev);
+#else
+	pm_genpd_remove_device(&dev->dev);
+#endif
 #endif
 
 	regulator_put(tegra_vi->reg);

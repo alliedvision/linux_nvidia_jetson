@@ -1,0 +1,126 @@
+/*
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#define PROFILE_ID(_id) (0xc20000 + (_id))
+/ {
+	bpmp {
+		bpmpthermal {
+			nvidia,therm-profile = <PROFILE_ID(0)>;
+		};
+	};
+
+	bpmp_i2c {
+		temp-sensor@4c {
+			loc {
+				/* set to maximum for not having local  shutdown */
+				shutdown-limit = <125>;
+			};
+			ext {
+				shutdown-limit = <117>;
+			};
+		};
+	};
+
+	thermal-zones {
+
+		CPU-therm {
+			trips {
+				trip_critical {
+					temperature = <108500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				cpu_sw_throttle: cpu-sw-throttle {
+					temperature = <103000>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+		};
+
+		AUX-therm {
+			trips {
+				trip_critical {
+					temperature = <106000>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				aux_sw_throttle: aux-sw-throttle {
+					temperature = <100500>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 11>;
+				};
+				map1 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 11>;
+				};
+				map2 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 11>;
+				};
+				map3 {
+					trip = <&aux_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 11>;
+				};
+			};
+		};
+
+		GPU-therm {
+			trips {
+				trip_critical {
+					temperature = <107500>;
+					type = "critical";
+					hysteresis = <0>;
+					writable;
+				};
+				gpu_sw_throttle: gpu-sw-throttle {
+					temperature = <102000>;
+					type = "passive";
+					hysteresis = <0>;
+					writable;
+				};
+			};
+			cooling-maps {
+				map0 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT 11>;
+				};
+				map1 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT 11>;
+				};
+				map2 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT 11>;
+				};
+				map3 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT 11>;
+				};
+			};
+		};
+	};
+};

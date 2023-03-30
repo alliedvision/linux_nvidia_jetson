@@ -1,0 +1,77 @@
+From 8fbf47bbae03e1df3a80c61b412c89aa58b29e25 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <quentin.perret@arm.com>
+Date: Tue, 30 Jul 2019 13:58:29 +0100
+Subject: [PATCH 142/830] ANDROID: sched: Introduce uclamp latency and boost
+ wrapper
+X-NVConfidentiality: public
+
+Introduce a simple helper to read the latency_sensitive flag from a
+task. It is called uclamp_latency_sensitive() to match the API
+proposed by Patrick.
+
+While at it, introduce uclamp_boosted() which returns true only when a
+task has a non-null min-clamp.
+
+Change-Id: I5fc747da8b58625257a6604a3c88487b657fbe7a
+Suggested-by: Patrick Bellasi <patrick.bellasi@arm.com>
+Signed-off-by: Quentin Perret <quentin.perret@arm.com>
+---
+ kernel/sched/sched.h | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 06071057a5f6..b31568487062 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -2459,6 +2459,11 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+ 	return clamp(util, min_util, max_util);
+ }
+ 
++static inline bool uclamp_boosted(struct task_struct *p)
++{
++	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
++}
++
+ /*
+  * When uclamp is compiled in, the aggregation at rq level is 'turned off'
+  * by default in the fast path and only gets turned on once userspace performs
+@@ -2479,12 +2484,36 @@ unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+ 	return util;
+ }
+ 
++static inline bool uclamp_boosted(struct task_struct *p)
++{
++	return false;
++}
++
+ static inline bool uclamp_is_used(void)
+ {
+ 	return false;
+ }
+ #endif /* CONFIG_UCLAMP_TASK */
+ 
++#ifdef CONFIG_UCLAMP_TASK_GROUP
++static inline bool uclamp_latency_sensitive(struct task_struct *p)
++{
++	struct cgroup_subsys_state *css = task_css(p, cpu_cgrp_id);
++	struct task_group *tg;
++
++	if (!css)
++		return false;
++	tg = container_of(css, struct task_group, css);
++
++	return tg->latency_sensitive;
++}
++#else
++static inline bool uclamp_latency_sensitive(struct task_struct *p)
++{
++	return false;
++}
++#endif /* CONFIG_UCLAMP_TASK_GROUP */
++
+ #ifdef arch_scale_freq_capacity
+ # ifndef arch_scale_freq_invariant
+ #  define arch_scale_freq_invariant()	true
+-- 
+2.17.1
+

@@ -1,0 +1,60 @@
+From f92e847c0a3edffbc54685238344c68c63cb248c Mon Sep 17 00:00:00 2001
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Tue, 27 Oct 2020 23:15:13 +0900
+Subject: [PATCH 500/830] ANDROID: net: xfrm: always export
+ pktgen_xfrm_outer_mode_output
+X-NVConfidentiality: public
+
+Currently, it is not possible to set CONFIG_NET_PKTGEN=m in a
+vendor kernel, as it depends on pktgen_xfrm_outer_mode_output,
+which is only exported if CONFIG_NET_PKTGEN is enabled.
+
+Always export this symbol so vendor kernels can depend on it.
+This may be simpler than the alternative, which is to set
+CONFIG_NET_PKTGEN=m in the GKI kernel.
+
+Bug: 171693245
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Change-Id: I96b48c77121aea90fb4c4c51ecb97a92601bccf6
+(cherry picked from commit 3ef1e249c624e1a7f28e1364d9b924d933826ee6)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ include/net/xfrm.h     | 2 --
+ net/xfrm/xfrm_output.c | 2 --
+ 2 files changed, 4 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 4a2843441caf..430815a2bf72 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1565,9 +1565,7 @@ int xfrm_trans_queue(struct sk_buff *skb,
+ int xfrm_output_resume(struct sock *sk, struct sk_buff *skb, int err);
+ int xfrm_output(struct sock *sk, struct sk_buff *skb);
+ 
+-#if IS_ENABLED(CONFIG_NET_PKTGEN)
+ int pktgen_xfrm_outer_mode_output(struct xfrm_state *x, struct sk_buff *skb);
+-#endif
+ 
+ void xfrm_local_error(struct sk_buff *skb, int mtu);
+ int xfrm4_extract_input(struct xfrm_state *x, struct sk_buff *skb);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index ac907b9d32d1..510c44459452 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -402,13 +402,11 @@ static int xfrm_outer_mode_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	return -EOPNOTSUPP;
+ }
+ 
+-#if IS_ENABLED(CONFIG_NET_PKTGEN)
+ int pktgen_xfrm_outer_mode_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	return xfrm_outer_mode_output(x, skb);
+ }
+ EXPORT_SYMBOL_GPL(pktgen_xfrm_outer_mode_output);
+-#endif
+ 
+ static int xfrm_output_one(struct sk_buff *skb, int err)
+ {
+-- 
+2.17.1
+

@@ -28,7 +28,7 @@
 #include "tegra_vblk.h"
 
 int vblk_complete_ioctl_req(struct vblk_dev *vblkdev,
-	struct vsc_request *vsc_req)
+	struct vsc_request *vsc_req, int status)
 {
 	struct vblk_ioctl_req *ioctl_req = vsc_req->ioctl_req;
 	int32_t ret = 0;
@@ -40,6 +40,7 @@ int vblk_complete_ioctl_req(struct vblk_dev *vblkdev,
 		goto comp_exit;
 	}
 
+	ioctl_req->status = status;
 	memcpy(ioctl_req->ioctl_buf, vsc_req->mempool_virt,
 			ioctl_req->ioctl_len);
 comp_exit:
@@ -118,6 +119,10 @@ int vblk_submit_ioctl_req(struct block_device *bdev,
 		err = vblk_prep_mmc_multi_ioc(vblkdev, ioctl_req,
 			user, cmd);
 		break;
+	case UFS_IOCTL_COMBO_QUERY:
+		err = vblk_prep_ufs_combo_ioc(vblkdev, ioctl_req,
+			user, cmd);
+		break;
 	default:
 		dev_err(vblkdev->device, "unsupported command %x!\n", cmd);
 		err = -EINVAL;
@@ -127,7 +132,9 @@ int vblk_submit_ioctl_req(struct block_device *bdev,
 	if (err)
 		goto free_ioctl_req;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+	rq = blk_get_request(vblkdev->queue, REQ_OP_DRV_IN, BLK_MQ_REQ_NOWAIT);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 	rq = blk_get_request(vblkdev->queue, REQ_OP_DRV_IN, GFP_KERNEL);
 #else
 	rq = blk_get_request(vblkdev->queue, READ, GFP_KERNEL);
@@ -139,7 +146,11 @@ int vblk_submit_ioctl_req(struct block_device *bdev,
 		goto free_ioctl_req;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+	rq->completion_data = (void *)ioctl_req;
+#else
 	rq->special = (void *)ioctl_req;
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0)
 	blk_execute_rq(vblkdev->queue, vblkdev->gd, rq, 0);
@@ -163,6 +174,10 @@ int vblk_submit_ioctl_req(struct block_device *bdev,
 		err = vblk_complete_mmc_multi_ioc(vblkdev, ioctl_req,
 			user, cmd);
 		break;
+	case UFS_IOCTL_COMBO_QUERY:
+		err = vblk_complete_ufs_combo_ioc(vblkdev, ioctl_req,
+			user, cmd);
+		break;
 	default:
 		dev_err(vblkdev->device, "unsupported command %x!\n", cmd);
 		err = -EINVAL;
@@ -174,22 +189,6 @@ free_ioctl_req:
 		kfree(ioctl_req);
 
 	return err;
-}
-
-static int vblk_sbumit_combo_ioctl_req(struct block_device *bdev,
-		unsigned int cmd, void __user *user)
-{
-	struct vblk_dev *vblkdev = bdev->bd_disk->private_data;
-
-	/*
-	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the
-	 * whole block device, not on a partition.  This prevents overspray
-	 * between sibling partitions.
-	 */
-	if (!capable(CAP_SYS_RAWIO) || (bdev != bdev->bd_contains))
-		return -EPERM;
-
-	return vblk_submit_combo_query_io(vblkdev, cmd, user);
 }
 
 /* The ioctl() implementation */
@@ -204,11 +203,8 @@ int vblk_ioctl(struct block_device *bdev, fmode_t mode,
 	case MMC_IOC_MULTI_CMD:
 	case MMC_IOC_CMD:
 	case SG_IO:
-		ret = vblk_submit_ioctl_req(bdev, cmd,
-			(void __user *)arg);
-		break;
 	case UFS_IOCTL_COMBO_QUERY:
-		ret = vblk_sbumit_combo_ioctl_req(bdev, cmd,
+		ret = vblk_submit_ioctl_req(bdev, cmd,
 			(void __user *)arg);
 		break;
 	default:  /* unknown command */

@@ -1,7 +1,7 @@
 /*
  * isc_dev.c - ISC generic i2c driver.
  *
- * Copyright (c) 2015-2017, NVIDIA Corporation. All Rights Reserved.
+ * Copyright (c) 2015-2019, NVIDIA Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,7 +28,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <media/isc-dev.h>
-#include <media/isc-mgr.h>
+#include <uapi/media/isc-mgr.h>
 
 #include "isc-dev-priv.h"
 #include "isc-mgr-priv.h"
@@ -638,3 +638,4 @@ module_i2c_driver(isc_dev_drv);
 MODULE_DESCRIPTION("ISC Generic I2C driver");
 MODULE_AUTHOR("Charlie Huang <chahuang@nvidia.com>");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: isc_gpio");

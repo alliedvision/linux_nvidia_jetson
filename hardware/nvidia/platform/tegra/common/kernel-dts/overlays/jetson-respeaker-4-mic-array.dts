@@ -2,7 +2,7 @@
 /*
  * Jetson Device-tree overlay for ReSpeaker 4 Mic Array.
  *
- * Copyright (c) 2020-2021 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  */
 
@@ -18,11 +18,21 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			ac108_a: ac10x-codec.1-003b@3b{
+			ac108_a: ac108@3b{
 				compatible = "x-power,ac108_0";
 				reg = <0x3b>;
+				#sound-dai-cells = <0>;
 				data-protocol = <0>;
 				status = "okay";
+
+				sound-name-prefix = "H40-AC";
+
+				port {
+					ac108_ep: endpoint {
+						remote-endpoint = <&hdr40_snd_i2s_dap_ep>;
+						link-name = "respeaker-4-mic-array";
+					};
+				};
 			};
 		};
 	};
@@ -30,16 +40,18 @@
 	fragment@1 {
 		target = <&tegra_sound>;
 		__overlay__ {
-			nvidia,audio-routing =
-				"x MIC1N",              "x Mic",
-				"x MIC1P",              "x Mic",
-				"x MIC2N",              "x Mic",
-				"x MIC2P",              "x Mic",
-				"x MIC3N",              "x Mic",
-				"x MIC3P",              "x Mic",
-				"x MIC4N",              "x Mic",
-				"x MIC4P",              "x Mic",
-				"x Capture",            "x Mic";
+			nvidia-audio-card,widgets =
+				"Microphone",   "H40-AC Mic";
+			nvidia-audio-card,routing =
+				"H40-AC MIC1N",              "H40-AC Mic",
+				"H40-AC MIC1P",              "H40-AC Mic",
+				"H40-AC MIC2N",              "H40-AC Mic",
+				"H40-AC MIC2P",              "H40-AC Mic",
+				"H40-AC MIC3N",              "H40-AC Mic",
+				"H40-AC MIC3P",              "H40-AC Mic",
+				"H40-AC MIC4N",              "H40-AC Mic",
+				"H40-AC MIC4P",              "H40-AC Mic",
+				"H40-AC Capture",            "H40-AC Mic";
 		};
 	};
 
@@ -47,11 +59,13 @@
 		target = <&hdr40_snd_link_i2s>;
 		__overlay__ {
 			link-name = "respeaker-4-mic-array";
-			codec-dai = <&ac108_a>;
-			codec-dai-name = "ac10x-codec0";
 			format = "dsp_a";
 			bitclock-master;
 			frame-master;
+			codec {
+				sound-dai = <&ac108_a>;
+				prefix = "H40-AC";
+			};
 		};
 	};
 
@@ -86,6 +100,34 @@
 					nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 				};
 			};
+		};
+	};
+
+	/* Audio graph fragments */
+	fragment@4 {
+		target = <&tegra_sound_graph>;
+		__overlay__ {
+			widgets = "Microphone",		"H40-AC Mic";
+
+			routing = "H40-AC MIC1N",	"H40-AC Mic",
+				  "H40-AC MIC1P",	"H40-AC Mic",
+				  "H40-AC MIC2N",	"H40-AC Mic",
+				  "H40-AC MIC2P",	"H40-AC Mic",
+				  "H40-AC MIC3N",	"H40-AC Mic",
+				  "H40-AC MIC3P",	"H40-AC Mic",
+				  "H40-AC MIC4N",	"H40-AC Mic",
+				  "H40-AC MIC4P",	"H40-AC Mic",
+				  "H40-AC Capture",	"H40-AC Mic";
+		};
+	};
+
+	fragment@5 {
+		target = <&hdr40_snd_i2s_dap_ep>;
+		__overlay__ {
+			dai-format = "dsp_a";
+			bitclock-master;
+			frame-master;
+			remote-endpoint = <&ac108_ep>;
 		};
 	};
 };

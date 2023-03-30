@@ -1,0 +1,27 @@
+NVIDIA UDRM driver to support userspace drm-nvdc driver
+
+Tegra UDRM driver adds Kernel DRM support for user mode DRM driver on Tegra.
+OSS DRM clients expect DRM driver node like "/dev/dri/card0" to be present and
+this driver exposes this node. These clients do do open()/close() on this node
+and pass the obtained fd to UMD  DRM driver (libdrm_nvdc.so). These clients
+also tend to do poll()/read() and mmap().
+
+To support such clients, tegra udrm driver registers with DRM framework and
+provides following ioctls:
+- DRM_IOCTL_TEGRA_UDRM_DMABUF_MMAP
+- DRM_IOCTL_TEGRA_UDRM_DMABUF_DESTROY_MAPPINGS
+- DRM_IOCTL_TEGRA_UDRM_CLOSE_NOTIFY
+- DRM_IOCTL_TEGRA_UDRM_SEND_VBLANK_EVENT
+- DRM_TEGRA_UDRM_DROP_MASTER_NOTIFY
+- DRM_TEGRA_UDRM_SET_MASTER_NOTIFY
+- DRM_TEGRA_UDRM_SEND_CONNECTOR_STATUS_EVENT
+
+Required properties:
+
+   - compatible = "nvidia,tegra-udrm";
+
+Example:
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
+	};

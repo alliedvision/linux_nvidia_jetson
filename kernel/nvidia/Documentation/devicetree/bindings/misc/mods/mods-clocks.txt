@@ -1,0 +1,48 @@
+NVIDIA Tegra MODS clock bindings
+
+Mods clock is an interface to access  BPMP exposed clocks from MODS for
+diagnostic application and characterization.
+MODS accesses and configures various clocks using this interface.
+
+Required properties:
+	- compatible: Should be "simple-bus".
+	- device_type: Should be "mods-simple-bus".
+	- #address-cells: Number of address cells in each subnode, set to <1>.
+	- #size-cells: Number of size cells in each subnode, set to <0>.
+
+	-- MODS clocks (mods-clocks) --
+	- compatible: Should be "nvidia,mods-clocks".
+	- clocks: All bpmp exported clocks.
+	- clock-names: Names of the above clocks.
+	- resets: All bpmp exported resets.
+	- reset-names: Names of the above resets.
+
+Optional properties:
+	- status: set to "disabled" for normal operation.
+
+Example:
+
+	mods-simple-bus {
+		compatible = "simple-bus";
+		device_type = "mods-simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mods-clocks {
+			compatible = "nvidia,mods-clocks";
+			status = "disabled";
+			clocks = <&bpmp_clks TEGRA194_CLK_ACTMON>,
+				<&bpmp_clks TEGRA194_CLK_ADSP>,
+				<&bpmp_clks TEGRA194_CLK_ADSPNEON>;
+			clock-names = "actmon",
+				"adsp",
+				"adspneon";
+			resets = <&bpmp_resets TEGRA194_RESET_ACTMON>,
+				<&bpmp_resets TEGRA194_RESET_ADSP_ALL>,
+				<&bpmp_resets TEGRA194_RESET_AFI>;
+			reset-names = "actmon",
+				"adsp_all",
+				"afi";
+		}
+	}
+

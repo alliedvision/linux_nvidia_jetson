@@ -25,6 +25,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-dv-timings.h>
+#include <linux/version.h>
 
 #include "vivid-core.h"
 #include "vivid-ctrls.h"
@@ -36,7 +37,11 @@ ssize_t vivid_radio_rx_read(struct file *file, char __user *buf,
 			 size_t size, loff_t *offset)
 {
 	struct vivid_dev *dev = video_drvdata(file);
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 	struct v4l2_rds_data *data = dev->rds_gen.data;
 	bool use_alternates;
 	unsigned blk;

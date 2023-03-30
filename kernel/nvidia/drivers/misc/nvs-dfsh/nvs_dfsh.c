@@ -24,6 +24,7 @@
 #include <linux/crc32.h>
 #include <linux/time.h>
 #include <linux/trace_imu.h>
+#include <linux/version.h>
 #include "nvs_dfsh.h"
 
 #define DFSH_DRIVER_VERSION		(1)
@@ -507,7 +508,11 @@ static inline void dfsh_parse_pkt(struct tty_struct *tty, unsigned char c)
 	unsigned int ts_i;
 	int snsr_id;
 	int64_t ts;
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec k_ts;
+#else
+	struct timespec64 k_ts;
+#endif
 	s64 k_ts_ns;
 	static s64 prev_ktime;
 	static s64 prev_mcutime;

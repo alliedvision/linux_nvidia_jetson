@@ -1,22 +1,24 @@
 /*
- * tegra194-camera.dtsi: Camera RTCPU DTSI file.
+ * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
  *
- * Copyright (c) 2016-2018, NVIDIA Corporation.  All rights reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+/*
+ * tegra194-camera.dtsi: Camera RTCPU DTSI file.
+ */
+
+#include <dt-bindings/soc/nvidia,tegra186-hsp.h>
 
 / {
 	aliases { /* RCE is the Camera RTCPU */
@@ -70,11 +72,51 @@
 
 		nvidia,autosuspend-delay-ms = <5000>;
 
+		hsp-vm1 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(0)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(1)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 0>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+		};
+
+		hsp-vm2 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(2)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(3)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 1>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+			status = "disabled";
+		};
+
+		hsp-vm3 {
+			compatible = "nvidia,tegra-camrtc-hsp-vm";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(4)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(5)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 2>;
+			mbox-names = "vm-tx", "vm-rx", "vm-ss";
+			status = "disabled";
+		};
+
+		hsp-cem {
+			compatible = "nvidia,tegra-camrtc-hsp-cem";
+			mboxes =
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_RX(6)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SM TEGRA_HSP_SM_TX(7)>,
+				<&hsp_rce TEGRA_HSP_MBOX_TYPE_SS 3>;
+			mbox-names = "cem-rx", "cem-tx", "cem-ss";
+		};
+
 		hsp {
+			/* This is used only if above are not supported */
 			compatible = "nvidia,tegra186-hsp-mailbox";
-			nvidia,hsp-shared-mailbox = <&hsp_rce 1 &hsp_rce 6>;
+			nvidia,hsp-shared-mailbox = <&hsp_rce 1>, <&hsp_rce 6>;
 			nvidia,hsp-shared-mailbox-names = "ivc-pair", "cmd-pair";
 		};
+
 	};
 
 	camera-ivc-channels {
@@ -93,7 +135,7 @@
 			nvidia,version = <0>;
 			nvidia,group = <1>;
 			nvidia,frame-count = <1>;
-			nvidia,frame-size = <384>;
+			nvidia,frame-size = <448>;
 		};
 		dbg@2 {
 			/* This is exposed in debugfs */
@@ -125,11 +167,46 @@
 			nvidia,frame-count = <512>;
 			nvidia,frame-size = <64>;
 		};
+		diag@5 {
+			compatible = "nvidia,tegra186-camera-diagnostics";
+			nvidia,service = "diag";
+			nvidia,version = <0>;
+			nvidia,group = <1>;
+			nvidia,frame-count = <1>;
+			nvidia,frame-size = <64>;
+		};
 	};
 
 	tegra-rtcpu-trace {
 		nvidia,enable-printk;
 		nvidia,interval-ms = <50>;
 		nvidia,log-prefix = "[RCE]";
+	};
+
+	reserved-memory {
+		camdbg_reserved: camdbg_carveout {
+			compatible = "nvidia,camdbg_carveout";
+			size = <0 0x6400000>;
+			alignment = <0 0x100000>;
+			alloc-ranges = <0x1 0 0x1 0>;
+			status = "disabled";
+		};
+	};
+
+	tegra-capture-vi {
+		compatible = "nvidia,tegra-camrtc-capture-vi";
+
+		nvidia,vi-devices = <&vi>;
+		nvidia,vi-mapping-size = <6>;
+		/* T194 has only one VI so vi-unit-id should be set to 0 */
+		nvidia,vi-mapping =
+			<0 0>,
+			<1 0>,
+			<2 0>,
+			<3 0>,
+			<4 0>,
+			<5 0>;
+		nvidia,vi-mapping-names = "csi-stream-id", "vi-unit-id";
+		nvidia,vi-max-channels = <36>;
 	};
 };

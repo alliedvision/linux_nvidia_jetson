@@ -3,7 +3,7 @@
  *
  * GPU heap allocator.
  *
- * Copyright (c) 2011-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2011-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,16 +37,24 @@
 
 #include <linux/nvmap.h>
 #include <linux/dma-mapping.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#include <linux/dma-map-ops.h>
+#else
 #include <linux/dma-contiguous.h>
+#endif
 
 #include "nvmap_priv.h"
 #include "nvmap_heap.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#include "include/linux/nvmap_exports.h"
+#endif
+
 /*
  * "carveouts" are platform-defined regions of physically contiguous memory
  * which are not managed by the OS. A platform may specify multiple carveouts,
- * for either small special-purpose memory regions (like IRAM on Tegra SoCs)
- * or reserved regions of main system memory.
+ * for either small special-purpose memory regions or reserved regions of main
+ * system memory.
  *
  * The carveout allocator returns allocations which are physically contiguous.
  */
@@ -62,24 +70,6 @@ struct list_block {
 	size_t align;
 	struct nvmap_heap *heap;
 	struct list_head free_list;
-};
-
-struct nvmap_heap {
-	struct list_head all_list;
-	struct mutex lock;
-	const char *name;
-	void *arg;
-	/* heap base */
-	phys_addr_t base;
-	/* heap size */
-	size_t len;
-	struct device *cma_dev;
-	struct device *dma_dev;
-	bool is_ivm;
-	bool can_alloc; /* Used only if is_ivm == true */
-	int peer; /* Used only if is_ivm == true */
-	int vm_id; /* Used only if is_ivm == true */
-	struct nvmap_pm_ops pm_ops;
 };
 
 struct device *dma_dev_from_handle(unsigned long type)
@@ -128,37 +118,58 @@ void nvmap_heap_debugfs_init(struct dentry *heap_root, struct nvmap_heap *heap)
 	else
 		debugfs_create_x32("size", S_IRUGO,
 			heap_root, (u32 *)&heap->len);
+	if (sizeof(heap->free_size) == sizeof(u64))
+		debugfs_create_x64("free_size", S_IRUGO,
+			heap_root, (u64 *)&heap->free_size);
+	else
+		debugfs_create_x32("free_size", S_IRUGO,
+			heap_root, (u32 *)&heap->free_size);
 }
 
 static phys_addr_t nvmap_alloc_mem(struct nvmap_heap *h, size_t len,
 				   phys_addr_t *start)
 {
-	phys_addr_t pa;
-	DEFINE_DMA_ATTRS(attrs);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+	phys_addr_t pa = DMA_ERROR_CODE;
+#else
+	phys_addr_t pa = DMA_MAPPING_ERROR;
+#endif
 	struct device *dev = h->dma_dev;
-
-	dma_set_attr(DMA_ATTR_ALLOC_EXACT_SIZE, __DMA_ATTR(attrs));
 
 #ifdef CONFIG_TEGRA_VIRTUALIZATION
 	if (start && h->is_ivm) {
 		void *ret;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
 		pa = h->base + (*start);
 		ret = dma_mark_declared_memory_occupied(dev, pa, len,
-					__DMA_ATTR(attrs));
+					DMA_ATTR_ALLOC_EXACT_SIZE);
 		if (IS_ERR(ret)) {
 			dev_err(dev, "Failed to reserve (%pa) len(%zu)\n",
 					&pa, len);
 			return DMA_ERROR_CODE;
-		} else {
+		}
+#else
+		if (nvmap_dma_alloc_from_dev_coherent(dev, len, &pa, &ret)) {
+			dev_err(dev, "Failed to reserve len(%zu)\n", len);
+			return DMA_ERROR_CODE;
+		}
+#endif
+ 		else {
 			dev_dbg(dev, "reserved (%pa) len(%zu)\n",
 				&pa, len);
 		}
 	} else
 #endif
 	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 		(void)dma_alloc_attrs(dev, len, &pa,
-				GFP_KERNEL, __DMA_ATTR(attrs));
+				GFP_KERNEL, DMA_ATTR_ALLOC_EXACT_SIZE);
+#else
+		(void)nvmap_dma_alloc_attrs(dev, len, &pa,
+				GFP_KERNEL, DMA_ATTR_ALLOC_EXACT_SIZE);
+#endif
 		if (!dma_mapping_error(dev, pa)) {
+#ifdef NVMAP_CONFIG_VPR_RESIZE
 			int ret;
 
 			dev_dbg(dev, "Allocated addr (%pa) len(%zu)\n",
@@ -173,6 +184,9 @@ static phys_addr_t nvmap_alloc_mem(struct nvmap_heap *h, size_t len,
 				dev_err(dev, "cache WB on (%pa, %zu) failed\n",
 					&pa, len);
 			}
+#endif
+			dev_dbg(dev, "Allocated addr (%pa) len(%zu)\n",
+					&pa, len);
 		}
 	}
 
@@ -183,19 +197,29 @@ static void nvmap_free_mem(struct nvmap_heap *h, phys_addr_t base,
 				size_t len)
 {
 	struct device *dev = h->dma_dev;
-	DEFINE_DMA_ATTRS(attrs);
 
-	dma_set_attr(DMA_ATTR_ALLOC_EXACT_SIZE, __DMA_ATTR(attrs));
 	dev_dbg(dev, "Free base (%pa) size (%zu)\n", &base, len);
 #ifdef CONFIG_TEGRA_VIRTUALIZATION
 	if (h->is_ivm && !h->can_alloc) {
-		dma_mark_declared_memory_unoccupied(dev, base, len, __DMA_ATTR(attrs));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+		dma_mark_declared_memory_unoccupied(dev, base, len,
+						    DMA_ATTR_ALLOC_EXACT_SIZE);
+#else
+		nvmap_dma_release_from_dev_coherent(dev, len, (void *)(uintptr_t)base);
+#endif
 	} else
 #endif
 	{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 		dma_free_attrs(dev, len,
 			        (void *)(uintptr_t)base,
-			        (dma_addr_t)base, __DMA_ATTR(attrs));
+			        (dma_addr_t)base, DMA_ATTR_ALLOC_EXACT_SIZE);
+#else
+		nvmap_dma_free_attrs(dev, len,
+				     (void *)(uintptr_t)base,
+				     (dma_addr_t)base,
+				     DMA_ATTR_ALLOC_EXACT_SIZE);
+#endif
 	}
 }
 
@@ -238,6 +262,7 @@ static struct nvmap_heap_block *do_heap_alloc(struct nvmap_heap *heap,
 	if (dma_mapping_error(dev, dev_base)) {
 		dev_err(dev, "failed to alloc mem of size (%zu)\n",
 			len);
+#ifdef NVMAP_CONFIG_VPR_RESIZE
 		if (dma_is_coherent_dev(dev)) {
 			struct dma_coherent_stats stats;
 
@@ -245,6 +270,7 @@ static struct nvmap_heap_block *do_heap_alloc(struct nvmap_heap *heap,
 			dev_err(dev, "used:%zu,curr_size:%zu max:%zu\n",
 				stats.used, stats.size, stats.max);
 		}
+#endif
 		goto fail_dma_alloc;
 	}
 
@@ -254,6 +280,7 @@ static struct nvmap_heap_block *do_heap_alloc(struct nvmap_heap *heap,
 
 	list_add_tail(&heap_block->all_list, &heap->all_list);
 	heap_block->heap = heap;
+	heap->free_size -= len;
 	heap_block->mem_prot = mem_prot;
 	heap_block->align = align;
 	return &heap_block->block;
@@ -264,17 +291,16 @@ fail_heap_block_alloc:
 	return NULL;
 }
 
-static struct list_block *do_heap_free(struct nvmap_heap_block *block)
+static void do_heap_free(struct nvmap_heap_block *block)
 {
 	struct list_block *b = container_of(block, struct list_block, block);
 	struct nvmap_heap *heap = b->heap;
 
 	list_del(&b->all_list);
 
+	heap->free_size += b->size;
 	nvmap_free_mem(heap, block->base, b->size);
 	kmem_cache_free(heap_block_cache, b);
-
-	return b;
 }
 
 /* nvmap_heap_alloc: allocates a block of memory of len bytes, aligned to
@@ -333,6 +359,7 @@ struct nvmap_heap_block *nvmap_heap_alloc(struct nvmap_heap *h,
 		/* Generate IVM for partition that can alloc */
 		if (h->is_ivm && h->can_alloc) {
 			unsigned int offs = (b->base - h->base);
+
 			BUG_ON(offs & (NVMAP_IVM_ALIGNMENT - 1));
 			BUG_ON((offs >> ffs(NVMAP_IVM_ALIGNMENT)) &
 				~((1 << NVMAP_IVM_OFFSET_WIDTH) - 1));
@@ -340,6 +367,12 @@ struct nvmap_heap_block *nvmap_heap_alloc(struct nvmap_heap *h,
 			/* So, page alignment is sufficient check.
 			 */
 			BUG_ON(len & ~(PAGE_MASK));
+
+			/* Copy offset from IVM mem pool in nvmap handle.
+			 * The offset will be exported via ioctl.
+			 */
+			handle->offs = offs;
+
 			handle->ivm_id = ((u64)h->vm_id << NVMAP_IVM_IVMID_SHIFT);
 			handle->ivm_id |= (((offs >> (ffs(NVMAP_IVM_ALIGNMENT) - 1)) &
 					 ((1ULL << NVMAP_IVM_OFFSET_WIDTH) - 1)) <<
@@ -403,6 +436,7 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 	h->dma_dev = co->dma_dev;
 	if (co->cma_dev) {
 #ifdef CONFIG_DMA_CMA
+#ifdef NVMAP_CONFIG_VPR_RESIZE
 		struct dma_contiguous_stats stats;
 
 		if (dma_get_contiguous_stats(co->cma_dev, &stats))
@@ -411,6 +445,7 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 		base = stats.base;
 		len = stats.size;
 		h->cma_dev = co->cma_dev;
+#endif
 #else
 		dev_err(parent, "invalid resize config for carveout %s\n",
 				co->name);
@@ -420,8 +455,13 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 		int err;
 
 		/* declare Non-CMA heap */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 		err = dma_declare_coherent_memory(h->dma_dev, 0, base, len,
-				DMA_MEMORY_NOMAP | DMA_MEMORY_EXCLUSIVE);
+				DMA_MEMORY_NOMAP);
+#else
+		err = nvmap_dma_declare_coherent_memory(h->dma_dev, 0, base, len,
+				DMA_MEMORY_NOMAP);
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 		if (!err) {
 #else
@@ -446,6 +486,7 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 	h->can_alloc = !!co->can_alloc;
 	h->is_ivm = co->is_ivm;
 	h->len = len;
+	h->free_size = len;
 	h->peer = co->peer;
 	h->vm_id = co->vmid;
 	if (co->pm_ops.busy)
@@ -456,8 +497,11 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 
 	INIT_LIST_HEAD(&h->all_list);
 	mutex_init(&h->lock);
-	if (!co->no_cpu_access &&
-		nvmap_cache_maint_phys_range(NVMAP_CACHE_OP_WB_INV,
+#ifdef NVMAP_CONFIG_DEBUG_MAPS
+	h->device_names = RB_ROOT;
+#endif /* NVMAP_CONFIG_DEBUG_MAPS */
+	if (!co->no_cpu_access && co->usage_mask != NVMAP_HEAP_CARVEOUT_VPR
+		&& nvmap_cache_maint_phys_range(NVMAP_CACHE_OP_WB_INV,
 				base, base + len, true, true)) {
 		dev_err(parent, "cache flush failed\n");
 		goto fail;
@@ -470,7 +514,7 @@ struct nvmap_heap *nvmap_heap_create(struct device *parent,
 	if (co->no_cpu_access)
 		nvmap_dev->cpu_access_mask &= ~co->usage_mask;
 
-	dev_info(parent, "created heap %s base 0x%p size (%zuKiB)\n",
+	dev_info(parent, "created heap %s base 0x%px size (%zuKiB)\n",
 		co->name, (void *)(uintptr_t)base, len/1024);
 	return h;
 fail:

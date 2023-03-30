@@ -28,7 +28,7 @@
 #include <linux/export.h>
 #include <linux/firmware.h>
 #include <linux/dma-mapping.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 #include <linux/anon_inodes.h>
 #include <linux/crc32.h>
 
@@ -54,12 +54,14 @@
 #include "class_ids.h"
 #include "chip_support.h"
 #include "nvhost_acm.h"
+#include "platform.h"
 
 #include "nvhost_syncpt.h"
 #include "nvhost_channel.h"
 #include "nvhost_job.h"
 #include "nvhost_sync.h"
 #include "vhost/vhost.h"
+#include "syncpt_fd.h"
 
 static int validate_reg(struct platform_device *ndev, u32 offset, int count)
 {
@@ -88,7 +90,11 @@ static int validate_reg(struct platform_device *ndev, u32 offset, int count)
 	}
 
 	/* prevent speculative access to mod's aperture + offset */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	spec_bar();
+#else
 	speculation_barrier();
+#endif
 
 	return err;
 }
@@ -372,36 +378,10 @@ static int __nvhost_channelopen(struct inode *inode,
 	if (!pdata->keepalive)
 		nvhost_module_idle(pdev);
 
-	if (nvhost_dev_is_virtual(pdev) && !host->info.vmserver_owns_engines) {
-		/* If virtual, allocate a client id on the server side. This is
-		 * needed for channel recovery, to distinguish which clients
-		 * own which gathers.
-		 */
-
-		int virt_moduleid = vhost_virt_moduleid(pdata->moduleid);
-		struct nvhost_virt_ctx *virt_ctx =
-					nvhost_get_virt_data(pdev);
-
-		if (virt_moduleid < 0) {
-			ret = -EINVAL;
-			goto fail_virt_clientid;
-		}
-
-		priv->clientid =
-			vhost_channel_alloc_clientid(virt_ctx->handle,
-							virt_moduleid);
-		if (priv->clientid == 0) {
-			dev_err(&pdev->dev,
-				"vhost_channel_alloc_clientid failed\n");
-			ret = -ENOMEM;
-			goto fail_virt_clientid;
-		}
-	} else {
-		/* Get client id */
+	/* Get client id */
+	priv->clientid = atomic_add_return(1, &host->clientid);
+	if (!priv->clientid)
 		priv->clientid = atomic_add_return(1, &host->clientid);
-		if (!priv->clientid)
-			priv->clientid = atomic_add_return(1, &host->clientid);
-	}
 
 	/* Initialize private structure */
 	priv->timeout = host1x_pdata->nvhost_timeout_default;
@@ -419,9 +399,6 @@ static int __nvhost_channelopen(struct inode *inode,
 
 	return 0;
 
-fail_virt_clientid:
-	if (pdata->keepalive)
-		nvhost_module_idle(pdev);
 fail_power_on:
 	nvhost_module_remove_client(pdev, priv);
 fail_add_client:
@@ -740,7 +717,7 @@ static int submit_deliver_fences(struct nvhost_submit_args *args,
 			pts[i].thresh = get_job_fence(job, i);
 		}
 
-		err = nvhost_sync_create_fence_fd(ctx->pdev,
+		err = nvhost_fence_create_fd(ctx->pdev,
 				pts, args->num_syncpt_incrs, "fence",
 				&args->fence);
 		kfree(pts);
@@ -753,6 +730,22 @@ static int submit_deliver_fences(struct nvhost_submit_args *args,
 	}
 
 	return 0;
+}
+
+static void nvhost_mark_channel_syncpoints(struct nvhost_channel_userctx *ctx)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(ctx->pdev);
+	struct nvhost_master *host = nvhost_get_host(pdata->pdev);
+	u32 i = 0U;
+
+	const u32 *syncpt_array = ctx->syncpts;
+
+	for (i = 0U; i < NVHOST_MODULE_MAX_SYNCPTS; i++) {
+		if (syncpt_array[i]) {
+			nvhost_syncpt_mark_used(&host->syncpt, ctx->ch->chid,
+						syncpt_array[i]);
+		}
+	}
 }
 
 static int nvhost_ioctl_channel_submit(struct nvhost_channel_userctx *ctx,
@@ -841,7 +834,13 @@ static int nvhost_ioctl_channel_submit(struct nvhost_channel_userctx *ctx,
 
 	nvhost_eventlib_log_submit(ctx->pdev, job->sp[0].id,
 			pdata->push_work_done ? (job->sp[0].fence - 1) :
-			job->sp[0].fence, arch_counter_get_cntvct());
+			job->sp[0].fence,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+			arch_timer_read_counter()
+#else
+			arch_counter_get_cntvct()
+#endif
+	);
 
 	err = submit_deliver_fences(args, job, ctx);
 	if (err)
@@ -939,9 +938,10 @@ static int nvhost_ioctl_channel_module_regrdwr(
 
 	ndev = ctx->pdev;
 
-	if (nvhost_dev_is_virtual(ndev))
-		return vhost_rdwr_module_regs(ndev, num_offsets,
-				args->block_size, offsets, values, args->write);
+	if (nvhost_dev_is_virtual(ndev)) {
+		nvhost_err(&ctx->pdev->dev, "not supported");
+		return -EINVAL;
+	}
 
 	while (num_offsets--) {
 		int err;
@@ -1123,6 +1123,69 @@ static int nvhost_ioctl_channel_set_syncpoint_name(
 	return -EINVAL;
 }
 
+static int nvhost_ioctl_channel_attach_syncpt(
+	struct nvhost_channel_userctx *ctx,
+	struct nvhost_channel_attach_syncpt_args *args)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(ctx->pdev);
+	struct nvhost_master *host = nvhost_get_host(pdata->pdev);
+	u32 *syncpt_list;
+	u32 syncpt_id;
+	size_t i;
+	int err;
+
+	if (args->flags & ~(1<<0))
+		return -EINVAL;
+
+	err = nvhost_syncpt_fd_get(args->syncpt_fd, &host->syncpt, &syncpt_id);
+	if (err) {
+		nvhost_err(&pdata->pdev->dev, "invalid syncpoint fd");
+		return err;
+	}
+
+	syncpt_list = ctx->syncpts;
+
+	if (args->flags == NVHOST_IOCTL_CHANNEL_ATTACH_SYNCPT_ATTACH) {
+		for (i = 0; i < NVHOST_MODULE_MAX_SYNCPTS; i++) {
+			if (!syncpt_list[i]) {
+				/* Don't drop the reference. It's held until
+				 * the detach call.
+				 */
+				syncpt_list[i] = syncpt_id;
+				break;
+			}
+		}
+
+		if (i == NVHOST_MODULE_MAX_SYNCPTS) {
+			err = -EBUSY;
+			goto put_syncpt;
+		}
+	} else {
+		for (i = 0; i < NVHOST_MODULE_MAX_SYNCPTS; i++) {
+			if (syncpt_list[i] == syncpt_id) {
+				/* Drop the ref taken during attach call. */
+				nvhost_syncpt_put_ref(&host->syncpt, syncpt_id);
+				/* Drop the ref taken above. */
+				nvhost_syncpt_put_ref(&host->syncpt, syncpt_id);
+				syncpt_list[i] = 0;
+				break;
+			}
+		}
+
+		if (i == NVHOST_MODULE_MAX_SYNCPTS) {
+			err = -EINVAL;
+			goto put_syncpt;
+		}
+	}
+
+	return 0;
+
+put_syncpt:
+	nvhost_syncpt_put_ref(&host->syncpt, syncpt_id);
+
+	return err;
+}
+
 static long nvhost_channelctl(struct file *filp,
 	unsigned int cmd, unsigned long arg)
 {
@@ -1135,13 +1198,13 @@ static long nvhost_channelctl(struct file *filp,
 		(_IOC_NR(cmd) == 0) ||
 		(_IOC_NR(cmd) > NVHOST_IOCTL_CHANNEL_LAST) ||
 		(_IOC_SIZE(cmd) > NVHOST_IOCTL_CHANNEL_MAX_ARG_SIZE)) {
-		nvhost_err(NULL, "invalid cmd 0x%x", cmd);
+		nvhost_err_ratelimited(NULL, "invalid cmd 0x%x", cmd);
 		return -ENOIOCTLCMD;
 	}
 
 	if (_IOC_DIR(cmd) & _IOC_WRITE) {
 		if (copy_from_user(buf, (void __user *)arg, _IOC_SIZE(cmd))) {
-			nvhost_err_ratelimited(NULL,
+			nvhost_err(NULL,
 				   "failed to copy from user: arg=%px",
 				   (void __user *)arg);
 			return -EFAULT;
@@ -1158,48 +1221,6 @@ static long nvhost_channelctl(struct file *filp,
 
 	dev = &priv->pdev->dev;
 	switch (cmd) {
-	case NVHOST_IOCTL_CHANNEL_OPEN:
-	{
-		int fd;
-		struct file *file;
-		char *name;
-
-		err = get_unused_fd_flags(O_RDWR);
-		if (err < 0) {
-			nvhost_err(dev, "failed to get unused fd");
-			break;
-		}
-		fd = err;
-
-		name = kasprintf(GFP_KERNEL, "nvhost-%s-fd%d",
-				dev_name(dev), fd);
-		if (!name) {
-			nvhost_err(dev, "failed to allocate name");
-			err = -ENOMEM;
-			put_unused_fd(fd);
-			break;
-		}
-
-		file = anon_inode_getfile(name, filp->f_op, NULL, O_RDWR);
-		kfree(name);
-		if (IS_ERR(file)) {
-			nvhost_err(dev, "failed to get file");
-			err = PTR_ERR(file);
-			put_unused_fd(fd);
-			break;
-		}
-
-		err = __nvhost_channelopen(NULL, priv->pdev, file);
-		if (err) {
-			put_unused_fd(fd);
-			fput(file);
-			break;
-		}
-
-		((struct nvhost_channel_open_args *)buf)->channel_fd = fd;
-		fd_install(fd, file);
-		break;
-	}
 	case NVHOST_IOCTL_CHANNEL_GET_SYNCPOINTS:
 	{
 		((struct nvhost_get_param_args *)buf)->value =
@@ -1385,6 +1406,8 @@ static long nvhost_channelctl(struct file *filp,
 		err = nvhost_channel_map(pdata, &priv->ch, identifier);
 		if (err)
 			break;
+		/* Mark the syncpoint attached to the channel */
+		nvhost_mark_channel_syncpoints(priv);
 
 		/* submit work */
 		err = nvhost_ioctl_channel_submit(priv, &args);
@@ -1412,6 +1435,8 @@ static long nvhost_channelctl(struct file *filp,
 		err = nvhost_channel_map(pdata, &priv->ch, identifier);
 		if (err)
 			break;
+		/* Mark the syncpoint attached to the channel */
+		nvhost_mark_channel_syncpoints(priv);
 
 		/* submit work */
 		err = nvhost_ioctl_channel_submit(priv, (void *)buf);
@@ -1443,6 +1468,12 @@ static long nvhost_channelctl(struct file *filp,
 	{
 		err = nvhost_ioctl_channel_set_syncpoint_name(priv,
 			(struct nvhost_set_syncpt_name_args *)buf);
+		break;
+	}
+	case NVHOST_IOCTL_CHANNEL_ATTACH_SYNCPT:
+	{
+		err = nvhost_ioctl_channel_attach_syncpt(priv,
+			(struct nvhost_channel_attach_syncpt_args *)buf);
 		break;
 	}
 	default:
@@ -1593,7 +1624,7 @@ static void nvhost_client_user_deinit(struct platform_device *dev)
 	struct nvhost_master *nvhost_master = nvhost_get_host(dev);
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
-	if (pdata->kernel_only)
+	if (IS_ERR_OR_NULL(nvhost_master) || pdata->kernel_only)
 		return;
 
 	if (!IS_ERR_OR_NULL(pdata->node)) {
@@ -1719,6 +1750,9 @@ int nvhost_device_get_resources(struct platform_device *dev)
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	int ret;
 
+	if (!nvhost_get_host_nowarn(dev))
+		return -EPROBE_DEFER;
+
 	for (i = 0; i < dev->num_resources; i++) {
 		struct resource *r = NULL;
 
@@ -1758,6 +1792,7 @@ const struct firmware *
 nvhost_client_request_firmware(struct platform_device *dev, const char *fw_name,
 			       bool warn)
 {
+	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 	struct nvhost_chip_support *op = nvhost_get_chip_ops();
 	const struct firmware *fw;
 	char *fw_path = NULL;
@@ -1773,18 +1808,23 @@ nvhost_client_request_firmware(struct platform_device *dev, const char *fw_name,
 	if (!fw_name)
 		return NULL;
 
-	if (op->soc_name) {
-		path_len = strlen(fw_name) + strlen(op->soc_name);
-		path_len += 2; /* for the path separator and zero terminator*/
-
-		fw_path = kzalloc(sizeof(*fw_path) * path_len,
-				     GFP_KERNEL);
-		if (!fw_path)
-			return NULL;
-
-		snprintf(fw_path, sizeof(*fw_path) * path_len, "%s/%s", op->soc_name, fw_name);
-		fw_name = fw_path;
+	if (pdata->firmware_not_in_subdir) {
+		err = request_firmware(&fw, fw_name, &dev->dev);
+		if (err == 0) {
+			return fw;
+		}
+		dev_warn(&dev->dev, "looking for firmware in subdirectory\n");
 	}
+
+	path_len = strlen(fw_name) + strlen(op->soc_name);
+	path_len += 2; /* for the path separator and zero terminator*/
+
+	fw_path = kzalloc(sizeof(*fw_path) * path_len, GFP_KERNEL);
+	if (!fw_path)
+		return NULL;
+
+	snprintf(fw_path, sizeof(*fw_path) * path_len, "%s/%s", op->soc_name,
+		 fw_name);
 
 	if (warn)
 		err = request_firmware(&fw, fw_path, &dev->dev);

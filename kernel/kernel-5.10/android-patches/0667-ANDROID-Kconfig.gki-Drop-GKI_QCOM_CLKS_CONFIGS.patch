@@ -1,0 +1,77 @@
+From 03878d61c3c2d771bc132c3b6d9e68ac1c15b15d Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Thu, 5 Mar 2020 05:58:24 +0000
+Subject: [PATCH 667/830] ANDROID: Kconfig.gki: Drop GKI_QCOM_CLKS_CONFIGS
+X-NVConfidentiality: public
+
+With the recent changes to support clks as modules, as well as
+efforts to get rpmh/rpmhpd/rpmpd working as a module the
+GKI_QCOM_CLKS_CONFIGS entry is no longer needed.
+
+So remove it!
+
+Bug: 146449535
+Change-Id: I364d57e8447a599a9ca838b6f5d9cd23d9a1353e
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+---
+ arch/arm64/configs/db845c_gki.fragment |  2 ++
+ arch/arm64/configs/gki_defconfig       |  1 -
+ init/Kconfig.gki                       | 10 ----------
+ 3 files changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index 294c2434dd2c..648e0fc61b6c 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -64,6 +64,8 @@ CONFIG_INTERCONNECT_QCOM=y
+ CONFIG_INTERCONNECT_QCOM_OSM_L3=m
+ CONFIG_INTERCONNECT_QCOM_SDM845=m
+ CONFIG_INCREMENTAL_FS=m
++CONFIG_QCOM_RPMH=m
++CONFIG_QCOM_RPMHPD=m
+ CONFIG_WLAN_VENDOR_ATH=y
+ CONFIG_ATH10K_AHB=y
+ CONFIG_ATH10K=m
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index c9516e76d5c9..267743578e0d 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -367,7 +367,6 @@ CONFIG_HWSPINLOCK=y
+ CONFIG_MAILBOX=y
+ CONFIG_ARM_SMMU=y
+ CONFIG_QCOM_COMMAND_DB=y
+-CONFIG_QCOM_RPMH=y
+ CONFIG_DEVFREQ_GOV_PERFORMANCE=y
+ CONFIG_DEVFREQ_GOV_POWERSAVE=y
+ CONFIG_DEVFREQ_GOV_USERSPACE=y
+diff --git a/init/Kconfig.gki b/init/Kconfig.gki
+index 5a0cfbacaff0..b68a5a14be0f 100644
+--- a/init/Kconfig.gki
++++ b/init/Kconfig.gki
+@@ -79,15 +79,6 @@ config GKI_HIDDEN_QCOM_CONFIGS
+ 	  These are normally selected implicitly when a module
+ 	  that relies on it is configured.
+ 
+-config GKI_QCOM_CLKS_CONFIGS
+-	bool "QCOM clk drivers needed for GKI due to powerdomain restrictions"
+-	select QCOM_RPMHPD	if (ARCH_QCOM)
+-	help
+-	  This config option selects various QCOM clk drivers that
+-	  cannot be built as a module currently due to power-domain
+-	  deferred probing limitations.
+-	  See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=e01afc32502555beb2057ddd74401be38475d851
+-
+ config GKI_HIDDEN_MEDIA_CONFIGS
+ 	bool "Hidden Media configs needed for GKI"
+ 	select VIDEOBUF2_CORE
+@@ -145,7 +136,6 @@ config GKI_HACKS_TO_FIX
+ 	select GKI_LEGACY_WEXT_ALLCONFIG
+ 	select GKI_HIDDEN_MEDIA_CONFIGS
+ 	select GKI_HIDDEN_VIRTUAL_CONFIGS
+-	select GKI_QCOM_CLKS_CONFIGS
+ 	help
+ 	  Dummy config option used to enable core functionality used by
+ 	  modules that may not be selectable in this config.
+-- 
+2.17.1
+

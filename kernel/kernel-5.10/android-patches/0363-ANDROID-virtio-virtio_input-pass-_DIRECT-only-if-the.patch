@@ -1,0 +1,46 @@
+From a78e3c73726f0e31f1d9f795288bd204e99910da Mon Sep 17 00:00:00 2001
+From: Roman Kiryanov <rkir@google.com>
+Date: Fri, 7 Feb 2020 17:06:13 -0800
+Subject: [PATCH 363/830] ANDROID: virtio: virtio_input: pass _DIRECT only if
+ the device advertises _DIRECT
+X-NVConfidentiality: public
+
+INPUT_MT_DIRECT should be used only if the device advertises
+INPUT_PROP_DIRECT.
+
+Bug: 147493341
+Bug: 149250379
+Test: boot emulator with 5.4 kernel, check if touchscreen works
+Signed-off-by: Roman Kiryanov <rkir@google.com>
+Change-Id: Ic06ae2b9d0ab7c77cb8829e5392fd048139500a2
+---
+ drivers/virtio/virtio_input.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/virtio/virtio_input.c b/drivers/virtio/virtio_input.c
+index ba2998f02d47..427d58c771cb 100644
+--- a/drivers/virtio/virtio_input.c
++++ b/drivers/virtio/virtio_input.c
+@@ -166,12 +166,15 @@ static void virtinput_cfg_abs(struct virtio_input *vi, int abs)
+ 	virtio_cread_le(vi->vdev, struct virtio_input_config, u.abs.flat, &fl);
+ 	input_set_abs_params(vi->idev, abs, mi, ma, fu, fl);
+ 	input_abs_set_res(vi->idev, abs, re);
+-	if (abs == ABS_MT_TRACKING_ID)
++	if (abs == ABS_MT_TRACKING_ID) {
++		unsigned int slot_flags =
++			test_bit(INPUT_PROP_DIRECT, vi->idev->propbit) ?
++				INPUT_MT_DIRECT : 0;
++
+ 		input_mt_init_slots(vi->idev,
+ 				    ma, /* input max finger */
+-				    INPUT_MT_DIRECT
+-					| INPUT_MT_DROP_UNUSED
+-					| INPUT_MT_TRACK);
++				    slot_flags);
++	}
+ }
+ 
+ static int virtinput_init_vqs(struct virtio_input *vi)
+-- 
+2.17.1
+

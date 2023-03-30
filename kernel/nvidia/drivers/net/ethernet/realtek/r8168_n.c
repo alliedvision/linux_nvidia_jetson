@@ -4,7 +4,7 @@
 # r8168 is the Linux device driver released for Realtek Gigabit Ethernet
 # controllers with PCI-Express interface.
 #
-# Copyright(c) 2017-2018 Realtek Semiconductor Corp. All rights reserved.
+# Copyright(c) 2017-2020 Realtek Semiconductor Corp. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -48,6 +48,7 @@
 #include <linux/interrupt.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#include <linux/of.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 #include <linux/ipv6.h>
 #include <net/ip6_checksum.h>
@@ -58,7 +59,11 @@
 #include <linux/completion.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,3,0)
+#include <linux/pci.h>
+#else
 #include <linux/pci-aspm.h>
+#endif
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,37)
 #include <linux/prefetch.h>
@@ -408,8 +413,14 @@ MODULE_VERSION(RTL8168_VERSION);
 static void rtl8168_sleep_rx_enable(struct net_device *dev);
 static void rtl8168_dsm(struct net_device *dev, int dev_state);
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
 static void rtl8168_esd_timer(unsigned long __opaque);
 static void rtl8168_link_timer(unsigned long __opaque);
+#else
+static void rtl8168_esd_timer(struct timer_list *t);
+static void rtl8168_link_timer(struct timer_list *t);
+#endif
+
 static void rtl8168_tx_clear(struct rtl8168_private *tp);
 static void rtl8168_rx_clear(struct rtl8168_private *tp);
 
@@ -426,7 +437,12 @@ static void rtl8168_hw_config(struct net_device *dev);
 static void rtl8168_hw_start(struct net_device *dev);
 static int rtl8168_close(struct net_device *dev);
 static void rtl8168_set_rx_mode(struct net_device *dev);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+static void
+rtl8168_tx_timeout(struct net_device *dev, unsigned int txqueue);
+#else
 static void rtl8168_tx_timeout(struct net_device *dev);
+#endif
 static struct net_device_stats *rtl8168_get_stats(struct net_device *dev);
 static int rtl8168_rx_interrupt(struct net_device *, struct rtl8168_private *, void __iomem *, napi_budget);
 static int rtl8168_change_mtu(struct net_device *dev, int new_mtu);
@@ -1564,12 +1580,22 @@ static int rtl8168_proc_open(struct inode *inode, struct file *file)
         return single_open(file, show, dev);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+static const struct proc_ops rtl8168_proc_fops = {
+        .proc_open           = rtl8168_proc_open,
+        .proc_read           = seq_read,
+        .proc_lseek          = seq_lseek,
+        .proc_release        = single_release,
+};
+#else
 static const struct file_operations rtl8168_proc_fops = {
         .open           = rtl8168_proc_open,
         .read           = seq_read,
         .llseek         = seq_lseek,
         .release        = single_release,
 };
+#endif
+
 #endif
 
 /*
@@ -3498,16 +3524,6 @@ rtl8168_check_link_status(struct net_device *dev)
 			else
 				tp->first_link_up = false;
 
-                        /*
-                         * FIFO overrun errors are observed when ASPM is enabled
-                         * and flow control is disabled. This is causing perf
-                         * drop. So disable ASPM if flow control is disabled.
-                         */
-                        if (aspm && ((RTL_R8(PHYstatus) & (TxFlowCtrl | RxFlowCtrl)) !=
-                            (TxFlowCtrl | RxFlowCtrl)))
-                                pci_disable_link_state(tp->pci_dev, PCIE_LINK_STATE_L0S |
-                                                       PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
-
                         if (tp->mcfg == CFG_METHOD_18 || tp->mcfg == CFG_METHOD_19 || tp->mcfg == CFG_METHOD_20) {
                                 if (RTL_R8(PHYstatus) & _1000bpsF) {
                                         rtl8168_eri_write(ioaddr, 0x1bc, 4, 0x00000011, ERIAR_ExGMAC);
@@ -3631,9 +3647,6 @@ rtl8168_check_link_status(struct net_device *dev)
                                 NICChkTypeEnableDashInterrupt(tp);
                         }
 #endif
-                        /* Enable ASPM during eth link down. */
-                        if (aspm)
-                                pci_enable_link_state(tp->pci_dev, PCIE_LINK_STATE_L1);
                 }
         }
 
@@ -23077,7 +23090,11 @@ static inline void rtl8168_request_esd_timer(struct net_device *dev)
         struct rtl8168_private *tp = netdev_priv(dev);
         struct timer_list *timer = &tp->esd_timer;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
         setup_timer(timer, rtl8168_esd_timer, (unsigned long)dev);
+#else
+        timer_setup(timer, rtl8168_esd_timer, 0);
+#endif
         mod_timer(timer, jiffies + RTL8168_ESD_TIMEOUT);
 }
 
@@ -23091,7 +23108,11 @@ static inline void rtl8168_request_link_timer(struct net_device *dev)
         struct rtl8168_private *tp = netdev_priv(dev);
         struct timer_list *timer = &tp->link_timer;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
         setup_timer(timer, rtl8168_link_timer, (unsigned long)dev);
+#else
+        timer_setup(timer, rtl8168_link_timer, 0);
+#endif
         mod_timer(timer, jiffies + RTL8168_LINK_TIMEOUT);
 }
 
@@ -24765,10 +24786,6 @@ rtl8168_init_board(struct pci_dev *pdev,
         if (!aspm || tp->mcfg == CFG_METHOD_9)
                 pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
                                        PCIE_LINK_STATE_CLKPM);
-        else if (aspm)
-                /* RTL8111HS doesn't goto L1 if L0s is enabled, disable L0s. */
-                pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_CLKPM |
-				       PCIE_LINK_STATE_L1SS);
 #endif
 
         rc = pci_set_mwi(pdev);
@@ -24880,149 +24897,169 @@ err_out:
 #define PCI_DEVICE_SERIAL_NUMBER (0x0164)
 
 static void
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
 rtl8168_esd_timer(unsigned long __opaque)
+#else
+rtl8168_esd_timer(struct timer_list *t)
+#endif
 {
-        struct net_device *dev = (struct net_device *)__opaque;
-        struct rtl8168_private *tp = netdev_priv(dev);
-        struct pci_dev *pdev = tp->pci_dev;
-        struct timer_list *timer = &tp->esd_timer;
-        unsigned long timeout = RTL8168_ESD_TIMEOUT;
-        unsigned long flags;
-        u8 cmd;
-        u16 io_base_l;
-        u16 mem_base_l;
-        u16 mem_base_h;
-        u8 ilr;
-        u16 resv_0x1c_h;
-        u16 resv_0x1c_l;
-        u16 resv_0x20_l;
-        u16 resv_0x20_h;
-        u16 resv_0x24_l;
-        u16 resv_0x24_h;
-        u16 resv_0x2c_h;
-        u16 resv_0x2c_l;
-        u32 pci_sn_l;
-        u32 pci_sn_h;
-        unsigned int esd_flag = 0;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
+	struct net_device *dev = (struct net_device *)__opaque;
+	struct rtl8168_private *tp = netdev_priv(dev);
+	struct timer_list *timer = &tp->esd_timer;
+#else
+	struct rtl8168_private *tp = from_timer(tp, t, esd_timer);
+	struct net_device *dev = tp->dev;
+	struct timer_list *timer = t;
+#endif
+	struct pci_dev *pdev = tp->pci_dev;
+	unsigned long timeout = RTL8168_ESD_TIMEOUT;
+	unsigned long flags;
+	u8 cmd;
+	u16 io_base_l;
+	u16 mem_base_l;
+	u16 mem_base_h;
+	u8 ilr;
+	u16 resv_0x1c_h;
+	u16 resv_0x1c_l;
+	u16 resv_0x20_l;
+	u16 resv_0x20_h;
+	u16 resv_0x24_l;
+	u16 resv_0x24_h;
+	u16 resv_0x2c_h;
+	u16 resv_0x2c_l;
+	u32 pci_sn_l;
+	u32 pci_sn_h;
+	unsigned int esd_flag = 0;
 
-        pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
-        if (cmd != tp->pci_cfg_space.cmd) {
-                pci_write_config_byte(pdev, PCI_COMMAND, tp->pci_cfg_space.cmd);
-                esd_flag |= BIT_0;
-        }
+	pci_read_config_byte(pdev, PCI_COMMAND, &cmd);
+	if (cmd != tp->pci_cfg_space.cmd) {
+		pci_write_config_byte(pdev, PCI_COMMAND, tp->pci_cfg_space.cmd);
+		esd_flag |= BIT_0;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_0, &io_base_l);
-        if (io_base_l != tp->pci_cfg_space.io_base_l) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_0, tp->pci_cfg_space.io_base_l);
-                esd_flag |= BIT_1;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_0, &io_base_l);
+	if (io_base_l != tp->pci_cfg_space.io_base_l) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_0, tp->pci_cfg_space.io_base_l);
+		esd_flag |= BIT_1;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_2, &mem_base_l);
-        if (mem_base_l != tp->pci_cfg_space.mem_base_l) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_2, tp->pci_cfg_space.mem_base_l);
-                esd_flag |= BIT_2;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_2, &mem_base_l);
+	if (mem_base_l != tp->pci_cfg_space.mem_base_l) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_2, tp->pci_cfg_space.mem_base_l);
+		esd_flag |= BIT_2;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, &mem_base_h);
-        if (mem_base_h!= tp->pci_cfg_space.mem_base_h) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, tp->pci_cfg_space.mem_base_h);
-                esd_flag |= BIT_3;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, &mem_base_h);
+	if (mem_base_h!= tp->pci_cfg_space.mem_base_h) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_2 + 2, tp->pci_cfg_space.mem_base_h);
+		esd_flag |= BIT_3;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_3, &resv_0x1c_l);
-        if (resv_0x1c_l != tp->pci_cfg_space.resv_0x1c_l) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_3, tp->pci_cfg_space.resv_0x1c_l);
-                esd_flag |= BIT_4;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_3, &resv_0x1c_l);
+	if (resv_0x1c_l != tp->pci_cfg_space.resv_0x1c_l) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_3, tp->pci_cfg_space.resv_0x1c_l);
+		esd_flag |= BIT_4;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, &resv_0x1c_h);
-        if (resv_0x1c_h != tp->pci_cfg_space.resv_0x1c_h) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, tp->pci_cfg_space.resv_0x1c_h);
-                esd_flag |= BIT_5;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, &resv_0x1c_h);
+	if (resv_0x1c_h != tp->pci_cfg_space.resv_0x1c_h) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_3 + 2, tp->pci_cfg_space.resv_0x1c_h);
+		esd_flag |= BIT_5;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_4, &resv_0x20_l);
-        if (resv_0x20_l != tp->pci_cfg_space.resv_0x20_l) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_4, tp->pci_cfg_space.resv_0x20_l);
-                esd_flag |= BIT_6;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_4, &resv_0x20_l);
+	if (resv_0x20_l != tp->pci_cfg_space.resv_0x20_l) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_4, tp->pci_cfg_space.resv_0x20_l);
+		esd_flag |= BIT_6;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, &resv_0x20_h);
-        if (resv_0x20_h != tp->pci_cfg_space.resv_0x20_h) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, tp->pci_cfg_space.resv_0x20_h);
-                esd_flag |= BIT_7;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, &resv_0x20_h);
+	if (resv_0x20_h != tp->pci_cfg_space.resv_0x20_h) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_4 + 2, tp->pci_cfg_space.resv_0x20_h);
+		esd_flag |= BIT_7;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_5, &resv_0x24_l);
-        if (resv_0x24_l != tp->pci_cfg_space.resv_0x24_l) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_5, tp->pci_cfg_space.resv_0x24_l);
-                esd_flag |= BIT_8;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_5, &resv_0x24_l);
+	if (resv_0x24_l != tp->pci_cfg_space.resv_0x24_l) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_5, tp->pci_cfg_space.resv_0x24_l);
+		esd_flag |= BIT_8;
+	}
 
-        pci_read_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, &resv_0x24_h);
-        if (resv_0x24_h != tp->pci_cfg_space.resv_0x24_h) {
-                pci_write_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, tp->pci_cfg_space.resv_0x24_h);
-                esd_flag |= BIT_9;
-        }
+	pci_read_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, &resv_0x24_h);
+	if (resv_0x24_h != tp->pci_cfg_space.resv_0x24_h) {
+		pci_write_config_word(pdev, PCI_BASE_ADDRESS_5 + 2, tp->pci_cfg_space.resv_0x24_h);
+		esd_flag |= BIT_9;
+	}
 
-        pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &ilr);
-        if (ilr != tp->pci_cfg_space.ilr) {
-                pci_write_config_byte(pdev, PCI_INTERRUPT_LINE, tp->pci_cfg_space.ilr);
-                esd_flag |= BIT_10;
-        }
+	pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &ilr);
+	if (ilr != tp->pci_cfg_space.ilr) {
+		pci_write_config_byte(pdev, PCI_INTERRUPT_LINE, tp->pci_cfg_space.ilr);
+		esd_flag |= BIT_10;
+	}
 
-        pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &resv_0x2c_l);
-        if (resv_0x2c_l != tp->pci_cfg_space.resv_0x2c_l) {
-                pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, tp->pci_cfg_space.resv_0x2c_l);
-                esd_flag |= BIT_11;
-        }
+	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, &resv_0x2c_l);
+	if (resv_0x2c_l != tp->pci_cfg_space.resv_0x2c_l) {
+		pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID, tp->pci_cfg_space.resv_0x2c_l);
+		esd_flag |= BIT_11;
+	}
 
-        pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, &resv_0x2c_h);
-        if (resv_0x2c_h != tp->pci_cfg_space.resv_0x2c_h) {
-                pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, tp->pci_cfg_space.resv_0x2c_h);
-                esd_flag |= BIT_12;
-        }
+	pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, &resv_0x2c_h);
+	if (resv_0x2c_h != tp->pci_cfg_space.resv_0x2c_h) {
+		pci_write_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID + 2, tp->pci_cfg_space.resv_0x2c_h);
+		esd_flag |= BIT_12;
+	}
 
-        pci_sn_l = rtl8168_csi_read(tp, PCI_DEVICE_SERIAL_NUMBER);
-        if (pci_sn_l != tp->pci_cfg_space.pci_sn_l) {
-                rtl8168_csi_write(tp, PCI_DEVICE_SERIAL_NUMBER, tp->pci_cfg_space.pci_sn_l);
-                esd_flag |= BIT_13;
-        }
+	pci_sn_l = rtl8168_csi_read(tp, PCI_DEVICE_SERIAL_NUMBER);
+	if (pci_sn_l != tp->pci_cfg_space.pci_sn_l) {
+		rtl8168_csi_write(tp, PCI_DEVICE_SERIAL_NUMBER, tp->pci_cfg_space.pci_sn_l);
+		esd_flag |= BIT_13;
+	}
 
-        pci_sn_h = rtl8168_csi_read(tp, PCI_DEVICE_SERIAL_NUMBER + 4);
-        if (pci_sn_h != tp->pci_cfg_space.pci_sn_h) {
-                rtl8168_csi_write(tp, PCI_DEVICE_SERIAL_NUMBER + 4, tp->pci_cfg_space.pci_sn_h);
-                esd_flag |= BIT_14;
-        }
+	pci_sn_h = rtl8168_csi_read(tp, PCI_DEVICE_SERIAL_NUMBER + 4);
+	if (pci_sn_h != tp->pci_cfg_space.pci_sn_h) {
+		rtl8168_csi_write(tp, PCI_DEVICE_SERIAL_NUMBER + 4, tp->pci_cfg_space.pci_sn_h);
+		esd_flag |= BIT_14;
+	}
 
-        if (esd_flag != 0) {
-                spin_lock_irqsave(&tp->lock, flags);
-                tp->esd_flag = esd_flag;
-                netif_stop_queue(dev);
-                netif_carrier_off(dev);
-                rtl8168_hw_reset(dev);
-                rtl8168_tx_clear(tp);
-                rtl8168_rx_clear(tp);
-                rtl8168_init_ring(dev);
-                rtl8168_hw_init(dev);
-                rtl8168_powerup_pll(dev);
-                rtl8168_hw_ephy_config(dev);
-                rtl8168_hw_phy_config(dev);
-                rtl8168_hw_config(dev);
-                rtl8168_set_speed(dev, tp->autoneg, tp->speed, tp->duplex);
-                tp->esd_flag = 0;
-                spin_unlock_irqrestore(&tp->lock, flags);
-        }
+	if (esd_flag != 0) {
+		spin_lock_irqsave(&tp->lock, flags);
+		tp->esd_flag = esd_flag;
+		netif_stop_queue(dev);
+		netif_carrier_off(dev);
+		rtl8168_hw_reset(dev);
+		rtl8168_tx_clear(tp);
+		rtl8168_rx_clear(tp);
+		rtl8168_init_ring(dev);
+		rtl8168_hw_init(dev);
+		rtl8168_powerup_pll(dev);
+		rtl8168_hw_ephy_config(dev);
+		rtl8168_hw_phy_config(dev);
+		rtl8168_hw_config(dev);
+		rtl8168_set_speed(dev, tp->autoneg, tp->speed, tp->duplex);
+		tp->esd_flag = 0;
+		spin_unlock_irqrestore(&tp->lock, flags);
+	}
 
-        mod_timer(timer, jiffies + timeout);
+	mod_timer(timer, jiffies + timeout);
 }
 
 static void
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
 rtl8168_link_timer(unsigned long __opaque)
+#else
+rtl8168_link_timer(struct timer_list *t)
+#endif
 {
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,14,0)
         struct net_device *dev = (struct net_device *)__opaque;
         struct rtl8168_private *tp = netdev_priv(dev);
         struct timer_list *timer = &tp->link_timer;
+#else
+        struct rtl8168_private *tp = from_timer(tp, t, link_timer);
+        struct net_device *dev = tp->dev;
+        struct timer_list *timer = t;
+#endif
         unsigned long flags;
 
         spin_lock_irqsave(&tp->lock, flags);
@@ -27087,8 +27124,13 @@ static void rtl8168_reset_task(struct work_struct *work)
         }
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)
+static void
+rtl8168_tx_timeout(struct net_device *dev, unsigned int txqueue)
+#else
 static void
 rtl8168_tx_timeout(struct net_device *dev)
+#endif
 {
         struct rtl8168_private *tp = netdev_priv(dev);
         unsigned long flags;
@@ -28058,7 +28100,7 @@ static void rtl8168_down(struct net_device *dev)
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,11)
         /* Give a racing hard_start_xmit a few cycles to complete. */
-        synchronize_sched();  /* FIXME: should this be synchronize_irq()? */
+        synchronize_rcu();  /* FIXME: should this be synchronize_irq()? */
 #endif
 
         spin_lock_irqsave(&tp->lock, flags);
@@ -28088,14 +28130,6 @@ static int rtl8168_close(struct net_device *dev)
 {
         struct rtl8168_private *tp = netdev_priv(dev);
         struct pci_dev *pdev = tp->pci_dev;
-
-         /*
-          * ASPM is disabled after eth link up if flow control is disabled.
-          * If the interface is brought down when eth link is up, link down
-          * event is not expected. So enable ASPM in interface down sequence.
-          */
-        if (aspm)
-                pci_enable_link_state(tp->pci_dev, PCIE_LINK_STATE_L1);
 
         if (tp->TxDescArray!=NULL && tp->RxDescArray!=NULL) {
                 rtl8168_cancel_schedule_work(dev);
@@ -28289,11 +28323,6 @@ rtl8168_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct net_device *dev;
 	PPGDEV	mydev;
 	int ret;
-
-	if (of_property_read_bool(pci_device_to_OF_node(pdev), "enable-aspm"))
-		aspm = 1;
-	else
-		aspm = 0;
 
 	ret = pgdrv_prob(pdev, id);
 	if (ret) {

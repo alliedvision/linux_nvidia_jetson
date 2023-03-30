@@ -1,7 +1,7 @@
 /*
  * Common include DTS file for CVM:P2888-0004 and CVB:E3900-0000 variants.
  *
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 
 #include <dt-bindings/extcon-ids.h>
 #include <dt-bindings/gpio/tegra194-gpio.h>
+#include <dt-bindings/usb/role.h>
 #include <galen/kernel-dts/common/tegra194-p2888-0000-a00.dtsi>
 #include <t19x-common-platforms/tegra194-platforms-eqos.dtsi>
 #include "tegra194-e3900-0000.dtsi"
@@ -33,6 +34,11 @@
 	chosen {
 		bootargs ="console=ttyTCU0,115200";
 		board-has-eeprom;
+	};
+
+	nvsciipc-kernel {
+		compatible = "nvidia,nvsciipc";
+		status = "okay";
 	};
 
 	psci {
@@ -73,10 +79,6 @@
 		status = "disabled";
 	};
 
-	ether_qos@2490000 {
-		nvidia,eqos_auto_cal_config_0_reg = <0x20010103>;
-	};
-
 	pmc@c370000 {
 		nvidia,invert-interrupt;
 	};
@@ -97,8 +99,6 @@
 			status = "disabled";
 		};
 	};
-
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
 
 	xusb_padctl: xusb_padctl@3520000 {
 		status = "okay";
@@ -149,6 +149,15 @@
 				mode = "otg";
 				vbus-supply = <&e3900_atx_5v_cvb>;
 				status = "okay";
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+				usb-role-switch;
+				connector {
+					compatible = "usb-b-connector", "gpio-usb-b-connector";
+					label = "micro-USB";
+					type = "micro";
+					cable-connected-on-boot = <USB_ROLE_DEVICE>;
+				};
+#endif
 			};
 			usb2-1 {
 				mode = "host";
@@ -183,8 +192,8 @@
 			};
 		};
 	};
-#endif
 
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 	external-connection {
 		vbus_extcon: extcon@1 {
 			compatible = "extcon-gpio-states";
@@ -199,25 +208,31 @@
 			status = "okay";
 		};
 	};
+#endif
 
 	tegra_xudc: xudc@3550000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 		extcon-cables = <&vbus_extcon 0>;
 		extcon-cable-names = "vbus";
 		#extcon-cells = <1>;
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
-		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
-		phy-names = "usb2";
-		nvidia,xusb-padctl = <&xusb_padctl>;
 #endif
+		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>;
+#if TEGRA_XUSB_DT_VERSION >= DT_VERSION_3
+		phy-names = "usb2-0";
+#else
+		phy-names = "usb2";
+#endif
+		nvidia,xusb-padctl = <&xusb_padctl>;
 		nvidia,boost_cpu_freq = <1200>;
 		status = "okay";
 	};
 
 	tegra_xhci: xhci@3610000 {
+#if TEGRA_XUSB_DT_VERSION < DT_VERSION_3
 		extcon-cables = <&vbus_extcon 1>;
 		extcon-cable-names = "id";
 		#extcon-cells = <1>;
-#if TEGRA_XUSB_PADCONTROL_VERSION >= DT_VERSION_2
+#endif
 		phys = <&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-0}>,
 			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-1}>,
 			<&{/xusb_padctl@3520000/pads/usb2/lanes/usb2-2}>,
@@ -226,7 +241,6 @@
 			<&{/xusb_padctl@3520000/pads/usb3/lanes/usb3-3}>;
 		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3", "usb3-2", "usb3-3";
 		nvidia,xusb-padctl = <&xusb_padctl>;
-#endif
 		status = "okay";
 	};
 
@@ -313,7 +327,7 @@
 		};
 	};
 
-	host1x {
+	host1x@13e00000 {
 		dpaux@155F0000 {
 			status = "okay";
 			compatible = "nvidia,tegra194-dpaux3-padctl";
@@ -352,6 +366,11 @@
 				<&bpmp_clks TEGRA194_CLK_CAN1>,
 				<&bpmp_clks TEGRA194_CLK_CAN2>;
 		};
+	};
+
+	tegra_udrm: tegra_udrm {
+		compatible = "nvidia,tegra-udrm";
+		status = "okay";
 	};
 };
 

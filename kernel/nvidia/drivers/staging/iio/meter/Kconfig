@@ -1,7 +1,7 @@
 append_menu "Active energy metering IC"
 
 config INA219
-	tristate "TI INA219 bidirectional current/power monitor"
+	tristate "[DEPRECATED] TI INA219 bidirectional current/power monitor"
 	depends on I2C
 	help
 	  TI INA219 is High- or Low-Side Measurement,Bidirectional
@@ -17,7 +17,7 @@ config INA230
 	  Say Y here if you have INA230 hooked to a I2C bus.
 
 config INA3221
-	tristate "TI INA3221 3-Channel Shunt and Bus Voltage Monitor"
+	tristate "[DEPRECATED] TI INA3221 3-Channel Shunt and Bus Voltage Monitor"
 	depends on I2C
 	help
 	  TI INA3221 is Triple-Channel, High-Side Measurement, Shunt and Bus

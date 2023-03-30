@@ -5,10 +5,12 @@ Required properties:
 - compatible : Should contain entries for this and backward compatible
   - "nvidia,tegra186-se1-nvhost" or "nvidia,tegra186-se2-nvhost" or "nvidia,tegra186-se3-nvhost"
     or "nvidia,tegra186-se4-nvhost" or "nvidia,tegra19x-se2-nvhost"
-  - This supports all AES/RNG/SHA/RSA features
-- reg : Offset and length of the register set for the module
-- clock-names: clocks required for Tegra SE to function
-- opcode_addr: Register address which is base for an operation supported by this device
+    or "nvidia,tegra234-se1-nvhost" or "nvidia,tegra234-se2-nvhost"
+    or "nvidia,tegra234-se4-nvhost".
+  - This supports all AES/RNG/SHA/RSA features.
+- reg : Offset and length of the register set for the module.
+- clock-names: Clocks required for Tegra SE to function.
+- opcode_addr: Register address which is base for an operation supported by this device.
 - supported-algos: The algorithms supported by this device.
 
 Example:

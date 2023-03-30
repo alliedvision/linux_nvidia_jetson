@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,60 +20,65 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <nvgpu/bug.h>
+#include <nvgpu/log.h>
 #include <nvgpu/lock.h>
-#include <nvgpu/posix/lock.h>
 
-int nvgpu_mutex_init(struct nvgpu_mutex *mutex)
+void nvgpu_mutex_init(struct nvgpu_mutex *mutex)
 {
-	return pthread_mutex_init(&mutex->lock.mutex, NULL);
+	int err = pthread_mutex_init(&mutex->lock.mutex, NULL);
+	nvgpu_assert(err == 0);
 }
 
 void nvgpu_mutex_acquire(struct nvgpu_mutex *mutex)
 {
-	__nvgpu_posix_lock_acquire(&mutex->lock);
+	nvgpu_posix_lock_acquire(&mutex->lock);
 }
 
 void nvgpu_mutex_release(struct nvgpu_mutex *mutex)
 {
-	__nvgpu_posix_lock_release(&mutex->lock);
+	nvgpu_posix_lock_release(&mutex->lock);
 }
 
 int nvgpu_mutex_tryacquire(struct nvgpu_mutex *mutex)
 {
-	return __nvgpu_posix_lock_try_acquire(&mutex->lock);
+	return ((nvgpu_posix_lock_try_acquire(&mutex->lock) == 0) ? 1 : 0);
 }
 
 void nvgpu_mutex_destroy(struct nvgpu_mutex *mutex)
 {
-	pthread_mutex_destroy(&mutex->lock.mutex);
+	int err = pthread_mutex_destroy(&mutex->lock.mutex);
+	nvgpu_assert(err == 0);
 }
 
 void nvgpu_spinlock_init(struct nvgpu_spinlock *spinlock)
 {
-	pthread_mutex_init(&spinlock->lock.mutex, NULL);
+	int err = pthread_mutex_init(&spinlock->lock.mutex, NULL);
+	nvgpu_assert(err == 0);
 }
 
 void nvgpu_spinlock_acquire(struct nvgpu_spinlock *spinlock)
 {
-	__nvgpu_posix_lock_acquire(&spinlock->lock);
+	nvgpu_posix_lock_acquire(&spinlock->lock);
 }
 
 void nvgpu_spinlock_release(struct nvgpu_spinlock *spinlock)
 {
-	__nvgpu_posix_lock_release(&spinlock->lock);
+	nvgpu_posix_lock_release(&spinlock->lock);
 }
 
 void nvgpu_raw_spinlock_init(struct nvgpu_raw_spinlock *spinlock)
 {
-	pthread_mutex_init(&spinlock->lock.mutex, NULL);
+	int err = pthread_mutex_init(&spinlock->lock.mutex, NULL);
+	nvgpu_assert(err == 0);
 }
 
 void nvgpu_raw_spinlock_acquire(struct nvgpu_raw_spinlock *spinlock)
 {
-	__nvgpu_posix_lock_acquire(&spinlock->lock);
+	nvgpu_posix_lock_acquire(&spinlock->lock);
 }
 
 void nvgpu_raw_spinlock_release(struct nvgpu_raw_spinlock *spinlock)
 {
-	__nvgpu_posix_lock_release(&spinlock->lock);
+	nvgpu_posix_lock_release(&spinlock->lock);
 }

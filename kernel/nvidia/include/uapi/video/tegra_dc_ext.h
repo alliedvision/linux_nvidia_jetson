@@ -3,7 +3,7 @@
  *
  * tegra_dc_ext.h: tegra dc ext interface.
  *
- * Copyright (C) 2016-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  * Some code based on fbdev extensions written by:
@@ -237,7 +237,7 @@ struct tegra_timespec {
  */
 struct tegra_dc_ext_flip_windowattr {
 	__s32	index;
-	__u32	buff_id;
+	__s32	buff_id;
 	__u32	blend;
 	__u32	offset;
 	__u32	offset_u;
@@ -267,9 +267,9 @@ struct tegra_dc_ext_flip_windowattr {
 		};
 		__s32 pre_syncpt_fd;
 	};
-	/* These two are optional; if zero, U and V are taken from buff_id */
-	__u32	buff_id_u;
-	__u32	buff_id_v;
+	/* These two are optional; if negative, U and V are taken from buff_id */
+	__s32	buff_id_u;
+	__s32	buff_id_v;
 	__u32	flags;
 	__u8	global_alpha; /* requires TEGRA_DC_EXT_FLIP_FLAG_GLOBAL_ALPHA */
 	/* log2(blockheight) for blocklinear format */
@@ -284,7 +284,7 @@ struct tegra_dc_ext_flip_windowattr {
 			__u32   pad2[1];
 		};
 		struct { /* used if TEGRA_DC_EXT_FLIP_FLAG_COMPRESSED set */
-			__u32	buff_id; /* take from buff_id if zero */
+			__s32	buff_id; /* take from buff_id if negative */
 			__u32	offset; /* added to base */
 			__u16	offset_x;
 			__u16	offset_y;
@@ -318,7 +318,7 @@ struct tegra_dc_ext_flip_2 {
 	__u16 reserved2; /* unused - must be 0 */
 	__u32 post_syncpt_id;
 	__u32 post_syncpt_val;
-	__u16 dirty_rect[4]; /* x,y,w,h for partial screen update. 0 ignores */
+	__u16 reserved[4];
 };
 
 enum tegra_dc_ext_flip_data_type {
@@ -333,6 +333,7 @@ enum tegra_dc_ext_flip_data_type {
 	TEGRA_DC_EXT_FLIP_USER_DATA_GET_FLIP_INFO,
 	TEGRA_DC_EXT_FLIP_USER_DATA_BACKGROUND_COLOR,
 	TEGRA_DC_EXT_FLIP_USER_DATA_AVI_DATA,
+	TEGRA_DC_EXT_FLIP_USER_DATA_DV_DATA,
 };
 
 /*
@@ -347,17 +348,83 @@ struct tegra_dc_ext_hdr {
 } __attribute__((__packed__));
 
 /*
+ * Client data used by tegra_dc to force overscan/underscan
+ */
+enum tegra_dc_ext_avi_scan {
+	TEGRA_DC_EXT_AVI_SCAN_DEFAULT,
+	TEGRA_DC_EXT_AVI_SCAN_NO_DATA,
+	TEGRA_DC_EXT_AVI_SCAN_OVERSCAN,
+	TEGRA_DC_EXT_AVI_SCAN_UNDERSCAN,
+} __attribute__((__packed__));
+
+/*
  * Client data used by tegra_dc to force colorimetry
  */
 enum tegra_dc_ext_avi_colorimetry {
 	TEGRA_DC_EXT_AVI_COLORIMETRY_DEFAULT,
 	TEGRA_DC_EXT_AVI_COLORIMETRY_xvYCC709,
 	TEGRA_DC_EXT_AVI_COLORIMETRY_BT2020_YCC_RGB,
+	TEGRA_DC_EXT_AVI_COLORIMETRY_SMPTE170M_ITU601,
+	TEGRA_DC_EXT_AVI_COLORIMETRY_ITU709,
+	TEGRA_DC_EXT_AVI_COLORIMETRY_NO_DATA,
+} __attribute__((__packed__));
+
+/*
+ * Client data used by tegra_dc to force color components
+ */
+enum tegra_dc_ext_avi_color_components_change {
+	TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_DEFAULT,
+	TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_RGB,
+	TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV422,
+	TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV444,
+	TEGRA_DC_EXT_AVI_COLOR_COMPONENTS_YUV420,
+} __attribute__((__packed__));
+
+/*
+ * Client data used by tegra_dc to force color quantization range
+ */
+enum tegra_dc_ext_avi_color_quant_change {
+	TEGRA_DC_EXT_AVI_COLOR_QUANT_DEFAULT,
+	TEGRA_DC_EXT_AVI_COLOR_QUANT_LIMITED,
+	TEGRA_DC_EXT_AVI_COLOR_QUANT_FULL,
+} __attribute__((__packed__));
+
+/*
+ * Client data used by tegra_dc to force IT content type
+ */
+enum tegra_dc_ext_avi_it_content {
+	TEGRA_DC_EXT_AVI_IT_CONTENT_DEFAULT,
+	TEGRA_DC_EXT_AVI_IT_CONTENT_FALSE,
+	TEGRA_DC_EXT_AVI_IT_CONTENT_GRAPHICS,
+	TEGRA_DC_EXT_AVI_IT_CONTENT_PHOTO,
+	TEGRA_DC_EXT_AVI_IT_CONTENT_CINEMA,
+	TEGRA_DC_EXT_AVI_IT_CONTENT_GAME,
 } __attribute__((__packed__));
 
 struct tegra_dc_ext_avi {
 	__u8 avi_colorimetry;
-	__u8 reserved[25];
+	__u8 avi_color_components;
+	__u8 avi_color_quant;
+	__u8 avi_it_content;
+	__u8 avi_scan;
+	__u8 reserved[21];
+};
+
+/*
+ * Client data used by tegra_dc to set VSIF for dv signal.
+ * Client should set TEGRA_DC_EXT_DV_SIGNAL_NONE for non-dv mode.
+ * Client should set TEGRA_DC_EXT_DV_SIGNAL_STANDARD for standard dv mode.
+ * Client should set TEGRA_DC_EXT_DV_SIGNAL_LOW_LATENCY for ll-dv mode.
+ */
+
+enum tegra_dc_ext_dv_signal {
+	TEGRA_DC_EXT_DV_SIGNAL_NONE,
+	TEGRA_DC_EXT_DV_SIGNAL_STANDARD,
+	TEGRA_DC_EXT_DV_SIGNAL_LOW_LATENCY,
+};
+
+struct tegra_dc_ext_dv {
+	__u8 dv_signal;
 } __attribute__((__packed__));
 
 /*
@@ -605,6 +672,7 @@ struct tegra_dc_ext_flip_user_data {
 		__u16 data16[13];
 		struct tegra_dc_ext_hdr hdr_info;
 		struct tegra_dc_ext_avi avi_info;
+		struct tegra_dc_ext_dv dv_info;
 		struct tegra_dc_ext_imp_ptr imp_ptr;
 		struct tegra_dc_ext_imp_flip_tag imp_tag;
 		struct tegra_dc_ext_syncpt post_syncpt; /* out */
@@ -627,7 +695,7 @@ struct tegra_dc_ext_flip_4 {
 	__u8 flags;
 	__u16 reserved;
 	__s32 post_syncpt_fd;
-	__u16 dirty_rect[4]; /* x,y,w,h for partial screen update. 0 ignores */
+	__u16 reserved2[4];
 	__u32 nr_elements; /* number of data entities pointed to by data */
 	__u64 __user data; /* pointer to struct tegra_dc_ext_flip_user_data*/
 };
@@ -653,6 +721,7 @@ enum tegra_dc_ext_cap_type {
 	TEGRA_DC_EXT_CAP_TYPE_HDR_SINK, /* struct tegra_dc_ext_hdr_caps */
 	TEGRA_DC_EXT_CAP_TYPE_QUANT_SELECTABLE,
 		/* struct tegra_dc_ext_quant_caps */
+	TEGRA_DC_EXT_CAP_TYPE_DV_SINK, /* struct tegra_dc_ext_dv_caps */
 	TEGRA_DC_EXT_CAP_TYPE_MAX,
 };
 
@@ -702,6 +771,219 @@ struct tegra_dc_ext_hdr_caps {
 	__u8 desired_content_max_frame_avg_lum;
 	__u8 desired_content_min_lum;
 };
+
+/*
+ * tegra_dc_ext_dv_vsvdb_ver : Identifies the version of VSVDB
+ *
+ * If set TEGRA_DC_DV_VSVDB_NONE then sink does not support DV.
+ * If set TEGRA_DC_DV_VSVDB_V0, sink support version 0 of VSVDB.
+ * If set TEGRA_DC_DV_VSVDB_V1_15B, sink support version 1 - 11 byte of VSVDB.
+ * If set TEGRA_DC_DV_VSVDB_V1_12B, sink support version 1 - 12 byte of VSVDB.
+ * If set TEGRA_DC_DV_VSVDB_V2, sink support version 2 byte of VSVDB.
+ */
+
+enum tegra_dc_ext_dv_vsvdb_ver {
+	TEGRA_DC_DV_VSVDB_NONE,
+	TEGRA_DC_DV_VSVDB_V0,
+	TEGRA_DC_DV_VSVDB_V1_15B,
+	TEGRA_DC_DV_VSVDB_V1_12B,
+	TEGRA_DC_DV_VSVDB_V2,
+};
+
+/*
+ * tegra_dc_ext_dv_caps : Incorporates target display's dv capabilities.
+ *
+ * vsvdb_ver : Indicates version of VSVDB of sink.
+ *     Client must check it and if set to TEGRA_DC_DV_VSVDB_NONE,
+ *     sink is not capable of doing DV.
+ *
+ * dm_version : Indicates major and minor version of display management in
+ *     dv sink.
+ *
+ * supports_2160p60hz : (Only for version 0 and version 1)
+ *     If set, the Dolby Vision sink supports processing up to 3840x2160 at
+ *     60Hz.
+ *     If not set, the Dolby Vision sink is capable of processing up to
+ *     3840x2160 at 30Hz.
+ *
+ * supports_YUV422_12bit :
+ *     If set, the Dolby Vision sink can support native 12-bit YUV 4:2:2 and
+ *     keeps the LSB of 12-bit pixel value intact. If the Dolby Vision source
+ *     also supports native 12-bit YUV 4:2:2 encoding, it must transmit in this
+ *     format.
+ *     If not set, the Dolby Vision sink is not capable of receiving and
+ *     processing the Dolby Vision signal in native 12-bit YUV 4:2:2 encoding.
+ *
+ *     This flag is ignored for low-latency Dolby Vision.
+ *
+ * supports_global_dimming : If set, dv sink support global dimming
+ *
+ *
+ * colorimetry : (Only for version 1)
+ *     Indicates that colorimetry of dv sink closest to
+ *     ITU-R BT.709 if 0, P3-D65 defined per SMPTE RP-431-2 if 1.
+ *     If a 15-byte v1 VSVDB and Byte[9] through Byte[14] are present and
+ *     Byte #8 b1 and b0 are 0,0, the Dolby Vision HDMI source ignores this bit.
+ *     If a 12-byte v1 VSVDB and Byte #8 b1, b0 are 0,1 (low latency), the
+ *     Dolby Vision HDMI source ignores this bit.
+ *
+ * target_min_luminance :
+ *     For version 0: perceptual quantization (PQ)-encoded value of minimum
+ *         luminance.
+ *     For version 1: Represents a 7-bit coded value of minimum display
+ *         luminance. The minimum display luminance = (CV/127)2 cd/m2,
+ *          where CV is the 7-bit code value.
+ *     For version 2: Target_min_PQ_v2 represents a 5-bit coded value
+ *         of minimum target display luminance, where the minimum target
+ *         display luminance in the PQ-encoded value = Target_min_PQ_v2 * 20.
+ *         A code value of 31 is approximately equivalent to 1 cd/m2.
+ *
+ * target_max_luminance :
+ *     For version 0: perceptual quantization (PQ)-encoded value of maximum
+ *         luminance.
+ *     For version 1: Represents a 7-bit coded value of maximum display
+ *         luminance. The maximum display luminance = (100 + 50 * CV) cd/m2,
+ *         where CV is the 7-bit code value.
+ *     For version 2: Target_max_PQ_v2 represents a 5-bit coded value
+ *         of maximum target display luminance, where the maximum target
+ *         display luminance in the PQ-encoded value =
+ *         2055 + Target_max_PQ_v2 * 65
+ *
+ * cc_red/blue/green/white_x/y :
+ *     For version 0: 12-bit value of red/blue/green/white primary chromaticity
+ *         coordinate x/y
+ *     For version 1/2 : 8-bit value of red/blue/green primary chromaticity
+ *         coordinate x/y
+ *
+ * supports_backlight_control : (For version 2 only)
+ *     A Dolby Vision sink may set Supports_Backlight_Control only if it is
+ *     using a low latency interface and indicating such in Interface[1:0]
+ *     i.e. interface_supported_by_sink
+ *
+ * backlt_min_luma : (For version 2 only.) Indicates if set below value:
+ *     0x0: 25 cd/m²
+ *     0x1: 50 cd/m²
+ *     0x2: 75 cd/m²
+ *     0x3: 100 cd/m²
+ *     The Dolby Vision sink must use the preceding settings above the luminance
+ *     level found when the target display backlight is at a minimum.
+ *     If Supports_Backlight_Control is 0, this parameter must be set to 0x03.
+ *
+ * low_latency/interface_supported_by_sink : (only for version v1_12 and v2)
+ *
+ *     If version 1-12 then low_latency identifies
+ *     0x0: Supports only standard Dolby Vision
+ *     0x1: Supports low latency with 12-bit YCbCr 4:2:2 interface using HDMI
+ *          native 12-bit YCbCr4:2:2 pixel encoding and standard Dolby Vision
+ *          interface.
+ *     0x2 and 0x3: reserved.
+ *
+ *     If version 2 then interface_supported_by_sink identifies
+ *     0x0: Supports only "low latency with 12-bit YCbCr 4:2:2" using HDMI's
+ *          "native" 12-bit YCbCr 4:2:2 interface as shown in Figure 6-2 YcbCr
+ *          4:2:2 of HDMI version 1.4b
+ *     0x1: Supports both "low latency with 12-bit YCbCr 4:2:2" and "low latency
+ *          with 10/12-bit RGB/YCbCr 4:4:4"; where "low latency with 10/12-bit
+ *          RGB/YCbCr 4:4:4" relies on HDMI pixel encoding of 10/12-bit
+ *          RGB/YCbCr 4:4:4.
+ *     0x2: Supports both "standard Dolby Vision" and "low latency with 12-bit
+ *          YCbCr 4:2:2"
+ *     0x3: Supports "standard Dolby Vision", "low latency with 12-bit YCbCr
+ *          4:2:2" and "low latency with 10/12-bit RGB/YCbCr 4:4:4"; where "low
+ *          latency with 10/12-bit RGB/YCbCr 4:4:4" relies on HDMI pixel
+ *          encoding of 10/12-bit RGB/YCbCr 4:4:4.
+ *
+ * supports_10b_12b_444 : (only for version 2)
+ *     0x0: The Dolby Vision sink does not support connection of 10-bit or
+ *          12-bit YCbCr 4:4:4 or RGB 4:4:4 to Dolby Vision display management
+ *          components.
+ *     0x1: The Dolby Vision sink supports connection of 10-bit YCbCr 4:4:4 or
+ *          RGB 4:4:4 to Dolby Vision display management components.
+ *          This setting may only be used if using a low latency interface.
+ *     0x2: The Dolby Vision sink supports connection of 12-bit YCbCr 4:4:4 or
+ *          RGB 4:4:4 to Dolby Vision display management components.
+ *          This setting may only be used if "supports low latency" is set in
+ *          Interface[1:0].
+ *     0x3: Reserved
+ */
+struct tegra_dc_ext_dv_caps_vsvdb_v0 {
+	__u16 dm_version;
+	__u16 supports_2160p60hz;
+	__u16 supports_YUV422_12bit;
+	__u16 supports_global_dimming;
+	__u16 target_min_pq;
+	__u16 target_max_pq;
+	__u16 cc_red_x;
+	__u16 cc_red_y;
+	__u16 cc_green_x;
+	__u16 cc_green_y;
+	__u16 cc_blue_x;
+	__u16 cc_blue_y;
+	__u16 cc_white_x;
+	__u16 cc_white_y;
+} __attribute__((__packed__));
+
+struct tegra_dc_ext_dv_caps_vsvdb_v1_15b {
+	__u16 dm_version;
+	__u16 supports_2160p60hz;
+	__u16 supports_YUV422_12bit;
+	__u16 supports_global_dimming;
+	__u16 colorimetry;
+	__u16 target_min_luminance;
+	__u16 target_max_luminance;
+	__u16 cc_red_x;
+	__u16 cc_red_y;
+	__u16 cc_green_x;
+	__u16 cc_green_y;
+	__u16 cc_blue_x;
+	__u16 cc_blue_y;
+} __attribute__((__packed__));
+
+struct tegra_dc_ext_dv_caps_vsvdb_v1_12b {
+	__u16 dm_version;
+	__u16 supports_2160p60hz;
+	__u16 supports_YUV422_12bit;
+	__u16 supports_global_dimming;
+	__u16 colorimetry;
+	__u16 target_min_luminance;
+	__u16 target_max_luminance;
+	__u16 cc_red_x;
+	__u16 cc_red_y;
+	__u16 cc_green_x;
+	__u16 cc_green_y;
+	__u16 cc_blue_x;
+	__u16 cc_blue_y;
+	__u16 low_latency;
+} __attribute__((__packed__));
+
+struct tegra_dc_ext_dv_caps_vsvdb_v2 {
+	__u16 dm_version;
+	__u16 supports_YUV422_12bit;
+	__u16 supports_global_dimming;
+	__u16 target_min_pq_v2;
+	__u16 target_max_pq_v2;
+	__u16 cc_red_x;
+	__u16 cc_red_y;
+	__u16 cc_green_x;
+	__u16 cc_green_y;
+	__u16 cc_blue_x;
+	__u16 cc_blue_y;
+	__u16 supports_backlight_control;
+	__u16 backlt_min_luma;
+	__u16 interface_supported_by_sink;
+	__u16 supports_10b_12b_444;
+} __attribute__((__packed__));
+
+struct tegra_dc_ext_dv_caps {
+	enum tegra_dc_ext_dv_vsvdb_ver vsvdb_ver;
+	union {
+		__u16 data[15];
+		struct tegra_dc_ext_dv_caps_vsvdb_v0 v0;
+		struct tegra_dc_ext_dv_caps_vsvdb_v1_15b v1_15b;
+		struct tegra_dc_ext_dv_caps_vsvdb_v1_12b v1_12b;
+		struct tegra_dc_ext_dv_caps_vsvdb_v2 v2;
+	};
+} __attribute__((__packed__));
 
 /*
  * tegra_dc_ext_imp_thread_info: Encapsulates the thread group information for
@@ -912,7 +1194,7 @@ struct tegra_dc_ext_cursor_image {
 		__u8	g;
 		__u8	b;
 	} foreground, background;
-	__u32	buff_id;
+	__s32	buff_id;
 	__u32	flags;
 	__s16	x;
 	__s16	y;

@@ -1,0 +1,32 @@
+From bc80068a372d4283b10604355c615411bc535bd7 Mon Sep 17 00:00:00 2001
+From: Elliot Berman <eberman@codeaurora.org>
+Date: Tue, 22 Sep 2020 16:43:14 -0700
+Subject: [PATCH 781/830] ANDROID: gki_defconfig: Enable serialized DCC driver
+X-NVConfidentiality: public
+
+Enable HVC_DCC driver on gki_defconfig to support earlyconsole over
+JTAG.
+
+Bug: 169129589
+Change-Id: Ia7c7dfbeaff43b846842978a40901a1bc26ef936
+Signed-off-by: Elliot Berman <eberman@codeaurora.org>
+---
+ arch/arm64/configs/gki_defconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 2a1cb8bc5b0f..a3cbd924bb83 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -313,6 +313,8 @@ CONFIG_SERIAL_SAMSUNG=y
+ CONFIG_SERIAL_SAMSUNG_CONSOLE=y
+ CONFIG_SERIAL_SPRD=y
+ CONFIG_SERIAL_SPRD_CONSOLE=y
++CONFIG_HVC_DCC=y
++CONFIG_HVC_DCC_SERIALIZE_SMP=y
+ CONFIG_SERIAL_DEV_BUS=y
+ CONFIG_HW_RANDOM=y
+ # CONFIG_HW_RANDOM_CAVIUM is not set
+-- 
+2.17.1
+

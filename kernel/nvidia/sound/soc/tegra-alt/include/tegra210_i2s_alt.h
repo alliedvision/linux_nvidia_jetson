@@ -1,7 +1,7 @@
 /*
  * tegra210_i2s_alt.h - Definitions for Tegra210 I2S driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -151,25 +151,15 @@
 #define TEGRA210_I2S_CTRL_LPBK_EN			(1 << TEGRA210_I2S_CTRL_LPBK_SHIFT)
 
 #define TEGRA210_I2S_BITS_8				1
-#define TEGRA210_I2S_BITS_12				2
 #define TEGRA210_I2S_BITS_16				3
-#define TEGRA210_I2S_BITS_20				4
-#define TEGRA210_I2S_BITS_24				5
-#define TEGRA210_I2S_BITS_28				6
 #define TEGRA210_I2S_BITS_32				7
 #define TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT		0
 #define TEGRA210_I2S_CTRL_BIT_SIZE_MASK			(7 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
 #define TEGRA210_I2S_CTRL_BIT_SIZE_8			(TEGRA210_I2S_BITS_8  << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
-#define TEGRA210_I2S_CTRL_BIT_SIZE_12			(TEGRA210_I2S_BITS_12 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
 #define TEGRA210_I2S_CTRL_BIT_SIZE_16			(TEGRA210_I2S_BITS_16 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
-#define TEGRA210_I2S_CTRL_BIT_SIZE_20			(TEGRA210_I2S_BITS_20 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
-#define TEGRA210_I2S_CTRL_BIT_SIZE_24			(TEGRA210_I2S_BITS_24 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
-#define TEGRA210_I2S_CTRL_BIT_SIZE_28			(TEGRA210_I2S_BITS_28 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
 #define TEGRA210_I2S_CTRL_BIT_SIZE_32			(TEGRA210_I2S_BITS_32 << TEGRA210_I2S_CTRL_BIT_SIZE_SHIFT)
 
 /* Fields in TEGRA210_I2S_TIMING */
-#define TEGRA210_I2S_TIMING_NON_SYM_EN_SHIFT		12
-#define TEGRA210_I2S_TIMING_NON_SYM_EN			(1 << TEGRA210_I2S_TIMING_NON_SYM_EN_SHIFT)
 #define TEGRA210_I2S_TIMING_CHANNEL_BIT_CNT_MASK	0x3ff
 #define TEGRA210_I2S_TIMING_CHANNEL_BIT_CNT_SHIFT	0
 
@@ -203,12 +193,14 @@ struct tegra210_i2s {
 	struct regmap *regmap;
 	const char *prod_name;
 	struct regulator_bulk_data *supplies;
+	struct notifier_block slgc_notifier;
 	int num_supplies;
 	int bclk_ratio;
-	int format_in;
+	int audio_fmt_override[I2S_PATHS];
 	int codec_bit_format;
 	int sample_rate_via_control;
-	int channels_via_control;
+	int audio_ch_override[I2S_PATHS];
+	int client_ch_override; /* common for both TX and RX */
 	int stereo_to_mono[I2S_PATHS];
 	int mono_to_stereo[I2S_PATHS];
 	unsigned int fsync_width;
@@ -216,7 +208,6 @@ struct tegra210_i2s {
 	unsigned int rx_mask;
 	bool loopback;
 	unsigned int format;
-	bool enable_cya;
 	unsigned int rx_fifo_th; /* should be programmed interms of frames */
 };
 

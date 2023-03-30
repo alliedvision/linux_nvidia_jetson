@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <dt-bindings/mfd/max77620.h>
@@ -23,13 +25,22 @@
                 rtc1 = &tegra_rtc;
         };
 
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	bpmp { i2c {
+#else
 	bpmp_i2c {
+#endif
 		p2888_spmic: spmic@3c {
 			compatible = "maxim,max20024";
 			reg = <0x3c>;
 
+#if TEGRA_BPMP_FW_DT_VERSION < DT_VERSION_2
 			interrupt-parent = <&tegra_pm_irq>;
 			interrupts = <0 TEGRA194_IRQ_PMIC_EXT_INTR IRQ_TYPE_NONE>;
+#else
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+#endif
 
 			#interrupt-cells = <2>;
                         interrupt-controller;
@@ -233,7 +244,11 @@
 				};
 			};
 		};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+	}; };
+#else
 	};
+#endif
 
 	dummy_cool_dev: dummy-cool-dev {
 		compatible = "dummy-cooling-dev";
@@ -258,10 +273,23 @@
 			cooling-maps {
 				map0 {
 					trip = <&die_temp_thresh>;
-					cooling-device = <&{/bthrot_cdev/emergency_balanced}
-							THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
-					contribution = <100>;
-					cdev-type = "emergency-balanced";
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map2 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl2_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map3 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&cl3_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map4 {
+					trip = <&die_temp_thresh>;
+					cooling-device = <&tegra_gv11b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};

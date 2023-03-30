@@ -187,7 +187,11 @@ dhd_pno_set_mac_oui(dhd_pub_t *dhd, uint8 *oui)
 static uint64
 convert_fw_rel_time_to_systime(uint32 fw_ts_ms)
 {
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 
 	get_monotonic_boottime(&ts);
 	return ((uint64)(TIMESPEC_TO_US(ts)) - (uint64)(fw_ts_ms * 1000));
@@ -3048,11 +3052,7 @@ exit_no_unlock:
 #if IS_ENABLED(CONFIG_PREEMPT_RT_FULL)
 	if (swait_active(&_pno_state->get_batch_done.wait))
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 57)
-	if (waitqueue_active((struct wait_queue_head *)&_pno_state->get_batch_done.wait))
-#else
-	if (waitqueue_active(&_pno_state->get_batch_done.wait))
-#endif
+	if (waitqueue_active((wait_queue_head_t *)&_pno_state->get_batch_done.wait))
 #endif
 		complete(&_pno_state->get_batch_done);
 	return err;
@@ -3638,7 +3638,11 @@ dhd_process_full_gscan_result(dhd_pub_t *dhd, const void *data, int *size)
 	uint8 channel;
 	uint32 mem_needed;
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
+#else
+	struct timespec64 ts;
+#endif
 
 	*size = 0;
 
@@ -3812,11 +3816,7 @@ dhd_pno_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 #if IS_ENABLED(CONFIG_PREEMPT_RT_FULL)
 		if (!swait_active(&_pno_state->get_batch_done.wait)) {
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 57)
-		if (!waitqueue_active((struct wait_queue_head *)&_pno_state->get_batch_done.wait)) {
-#else
-		if (!waitqueue_active(&_pno_state->get_batch_done.wait)) {
-#endif
+		if (!waitqueue_active((wait_queue_head_t *)&_pno_state->get_batch_done.wait)) {
 #endif
 			DHD_PNO(("%s : WLC_E_PFN_BEST_BATCHING\n", __FUNCTION__));
 			params_batch->get_batch.buf = NULL;

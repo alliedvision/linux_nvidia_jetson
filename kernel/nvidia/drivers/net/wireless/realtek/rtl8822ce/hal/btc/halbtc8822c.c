@@ -19,7 +19,7 @@
 
 static u8 *trace_buf = &gl_btc_trace_buf[0];
 
-static const u32 bt_desired_ver_8822c = 0xd;
+static const u32 bt_desired_ver_8822c = 0x17;
 
 /* rssi express in percentage % (dbm = % - 100)  */
 static const u8 wl_rssi_step_8822c[] = {60, 50, 44, 30};
@@ -33,14 +33,14 @@ static const struct btc_coex_table_para table_sant_8822c[] = {
 				{0xaaaaaaaa, 0xaaaaaaaa},
 				{0x5a5a5a5a, 0x5a5a5a5a},
 				{0xfafafafa, 0xfafafafa}, /*case-5*/
-				{0x6a5a6a5a, 0xaaaaaaaa},
+				{0x6a5a5555, 0xaaaaaaaa},
 				{0x6a5a56aa, 0x6a5a56aa},
 				{0x6a5a5a5a, 0x6a5a5a5a},
 				{0x66555555, 0x5a5a5a5a},
 				{0x66555555, 0x6a5a5a5a}, /*case-10*/
-				{0x66555555, 0xfafafafa},
 				{0x66555555, 0x6a5a5aaa},
-				{0x66555555, 0x5aaa5aaa},
+				{0x66555555, 0x5a5a5aaa},
+				{0x66555555, 0x6aaa5aaa},
 				{0x66555555, 0xaaaa5aaa},
 				{0x66555555, 0xaaaaaaaa}, /*case-15*/
 				{0xffff55ff, 0xfafafafa},
@@ -50,13 +50,17 @@ static const struct btc_coex_table_para table_sant_8822c[] = {
 				{0xaa5555aa, 0x6a5a5a5a}, /*case-20*/
 				{0xaa5555aa, 0xaaaaaaaa},
 				{0xffffffff, 0x5a5a5a5a},
-				{0xffffffff, 0x6a5a5a5a},
+				{0xffffffff, 0x5a5a5a5a},
 				{0xffffffff, 0x55555555},
-				{0xffffffff, 0x6a5a5aaa}, /*case-25*/
+				{0xffffffff, 0x5a5a5aaa}, /*case-25*/
 				{0x55555555, 0x5a5a5a5a},
 				{0x55555555, 0xaaaaaaaa},
 				{0x55555555, 0x6a5a6a5a},
-				{0x66556655, 0x66556655} };
+				{0x66556655, 0x66556655},
+				{0x66556aaa, 0x6a5a6aaa}, /*case-30*/
+				{0xffffffff, 0x5aaa5aaa},
+				{0x56555555, 0x5a5a5aaa},
+				{0xdaffdaff, 0xdaffdaff} };
 
 /* Non-Shared-Antenna Coex Table */
 static const struct btc_coex_table_para table_nsant_8822c[] = {
@@ -75,7 +79,7 @@ static const struct btc_coex_table_para table_nsant_8822c[] = {
 				{0xffff55ff, 0xfafafafa},
 				{0xffff55ff, 0x5afa5afa},
 				{0xffff55ff, 0xaaaaaaaa},
-				{0xaaffffaa, 0xfafafafa}, /*case-115*/
+				{0xffff55ff, 0xffff55ff}, /*case-115*/
 				{0xaaffffaa, 0x5afa5afa},
 				{0xaaffffaa, 0xaaaaaaaa},
 				{0xffffffff, 0xfafafafa},
@@ -111,8 +115,11 @@ static const struct btc_tdma_para tdma_sant_8822c[] = {
 				{ {0x51, 0x4a, 0x03, 0x10, 0x50} },
 				{ {0x51, 0x0c, 0x03, 0x10, 0x54} },
 				{ {0x55, 0x08, 0x03, 0x10, 0x54} },
-				{ {0x65, 0x10, 0x03, 0x11, 0x11} },
-				{ {0x51, 0x10, 0x03, 0x10, 0x51} } };
+				{ {0x65, 0x10, 0x03, 0x11, 0x10} },
+				{ {0x51, 0x10, 0x03, 0x10, 0x51} }, /*case-25*/
+				{ {0x51, 0x08, 0x03, 0x10, 0x50} },
+				{ {0x61, 0x08, 0x03, 0x11, 0x11} } };
+
 
 /* Non-Shared-Antenna TDMA*/
 static const struct btc_tdma_para tdma_nsant_8822c[] = {
@@ -136,32 +143,37 @@ static const struct btc_tdma_para tdma_nsant_8822c[] = {
 				{ {0x51, 0x3a, 0x03, 0x10, 0x50} },
 				{ {0x51, 0x30, 0x03, 0x10, 0x50} },
 				{ {0x51, 0x20, 0x03, 0x10, 0x50} },
-				{ {0x51, 0x10, 0x03, 0x10, 0x50} } };
+				{ {0x51, 0x10, 0x03, 0x10, 0x50} }, /*case-120*/
+				{ {0x51, 0x08, 0x03, 0x10, 0x50} },
+				{ {0x61, 0x30, 0x03, 0x10, 0x11} },
+				{ {0x61, 0x08, 0x03, 0x10, 0x11} },
+				{ {0x61, 0x08, 0x07, 0x10, 0x14} },
+				{ {0x61, 0x08, 0x03, 0x10, 0x10} } }; /*case-125*/
 
 /* wl_tx_dec_power, bt_tx_dec_power, wl_rx_gain, bt_rx_lna_constrain */
 static const struct btc_rf_para rf_para_tx_8822c[] = {
 				{0, 0, FALSE, 7},  /* for normal */
 				{0, 16, FALSE, 7}, /* for WL-CPT */
-				{8, 17, TRUE, 4},
-				{7, 18, TRUE, 4},
-				{6, 19, TRUE, 4},
-				{5, 20, TRUE, 4} };
+				{16, 4, TRUE, 4},
+				{15, 5, TRUE, 4},
+				{7, 8, TRUE, 4},
+				{6, 10, TRUE, 4} };
 
 static const struct btc_rf_para rf_para_rx_8822c[] = {
 				{0, 0, FALSE, 7},  /* for normal */
 				{0, 16, FALSE, 7}, /* for WL-CPT */
-				{3, 24, TRUE, 5},
-				{2, 26, TRUE, 5},
-				{1, 27, TRUE, 5},
-				{0, 28, TRUE, 5} };
+				{14, 5, TRUE, 5},
+				{13, 6, TRUE, 5},
+				{6, 9, TRUE, 5},
+				{4, 11, TRUE, 5} };
 
 const struct btc_5g_afh_map afh_5g_8822c[] = { {0, 0, 0} };
 
 const struct btc_chip_para btc_chip_para_8822c = {
 	"8822c",				/*.chip_name */
-	20190531,				/*.para_ver_date */
-	0xe,					/*.para_ver */
-	0xd,					/* bt_desired_ver */
+	20200103,				/*.para_ver_date */
+	0x17,					/*.para_ver */
+	0x17,					/* bt_desired_ver */
 	TRUE,					/* scbd_support */
 	TRUE,					/* mailbox_support*/
 	TRUE,					/* lte_indirect_access */
@@ -258,9 +270,13 @@ void halbtc8822c_cfg_gnt_fix(struct btc_coexist *btc)
 	 * disable 0x1c30[22] = 0,
 	 * enable: 0x1c30[22] = 1, 0x1c38[12] = 0, 0x1c38[28] = 1
 	 */
-	btc->btc_write_1byte_bitmask(btc, 0x1c32, BIT(6), 1);
-	btc->btc_write_1byte_bitmask(btc, 0x1c39, BIT(4), 0);
-	btc->btc_write_1byte_bitmask(btc, 0x1c3b, BIT(4), 1);
+	if (coex_sta->wl_coex_mode == BTC_WLINK_2GFREE) {
+		btc->btc_write_1byte_bitmask(btc, 0x1c32, BIT(6), 0);
+	} else {
+		btc->btc_write_1byte_bitmask(btc, 0x1c32, BIT(6), 1);
+		btc->btc_write_1byte_bitmask(btc, 0x1c39, BIT(4), 0);
+		btc->btc_write_1byte_bitmask(btc, 0x1c3b, BIT(4), 1);
+	}
 
 	/* disable WLS1 BB chage RF mode if GNT_BT
 	 * since RF TRx mask can do it
@@ -272,9 +288,11 @@ void halbtc8822c_cfg_gnt_fix(struct btc_coexist *btc)
 	 * But the BB DAC will be turned off by GNT_BT = 1
 	 * 0x1ca7[3] = 1, "don't off BB DAC if GNT_BT = 1"
 	 */
-
-	if (coex_sta->wl_coex_mode == BTC_WLINK_5G ||
-	    link_info_ext->is_all_under_5g) {
+	if (coex_sta->wl_coex_mode == BTC_WLINK_2GFREE) {
+		btc->btc_write_1byte_bitmask(btc, 0x1860, BIT(3), 1);
+		btc->btc_write_1byte_bitmask(btc, 0x1ca7, BIT(3), 1);
+	} else if (coex_sta->wl_coex_mode == BTC_WLINK_5G ||
+		   link_info_ext->is_all_under_5g) {
 		if (coex_sta->kt_ver >= 3) {
 			btc->btc_write_1byte_bitmask(btc, 0x1860, BIT(3), 0);
 			btc->btc_write_1byte_bitmask(btc, 0x1ca7, BIT(3), 1);
@@ -303,7 +321,7 @@ void halbtc8822c_cfg_gnt_debug(struct btc_coexist *btc)
 	btc->btc_write_1byte_bitmask(btc, 0x67, BIT(0), 0);
 	btc->btc_write_1byte_bitmask(btc, 0x42, BIT(3), 0);
 	btc->btc_write_1byte_bitmask(btc, 0x65, BIT(7), 0);
-	btc->btc_write_1byte_bitmask(btc, 0x73, BIT(3), 0);
+	/* btc->btc_write_1byte_bitmask(btc, 0x73, BIT(3), 0); */
 }
 
 void halbtc8822c_cfg_rfe_type(struct btc_coexist *btc)
@@ -388,14 +406,14 @@ void halbtc8822c_cfg_coexinfo_hw(struct btc_coexist *btc)
 	u32tmp[0] = btc->btc_read_4byte(btc, 0x430);
 	u32tmp[1] = btc->btc_read_4byte(btc, 0x434);
 	u16tmp[0] = btc->btc_read_2byte(btc, 0x42a);
+	u16tmp[1] = btc->btc_read_1byte(btc, 0x454);
 	u8tmp[0] = btc->btc_read_1byte(btc, 0x426);
 	u8tmp[1] = btc->btc_read_1byte(btc, 0x45e);
-	u8tmp[2] = btc->btc_read_1byte(btc, 0x455);
 	CL_SPRINTF(cli_buf, BT_TMP_BUF_SIZE,
 		   "\r\n %-35s = 0x%x/ 0x%x/ 0x%x/ 0x%x/ 0x%x/ 0x%x",
-		   "430/434/42a/426/45e[3]/455",
+		   "430/434/42a/426/45e[3]/454",
 		   u32tmp[0], u32tmp[1], u16tmp[0], u8tmp[0],
-		   (int)((u8tmp[1] & BIT(3)) >> 3), u8tmp[2]);
+		   (int)((u8tmp[1] & BIT(3)) >> 3), u16tmp[1]);
 	CL_PRINTF(cli_buf);
 
 	u32tmp[0] = btc->btc_read_4byte(btc, 0x4c);

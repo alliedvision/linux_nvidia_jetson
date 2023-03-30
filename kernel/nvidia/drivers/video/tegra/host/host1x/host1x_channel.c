@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Channel
  *
- * Copyright (c) 2010-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -118,36 +118,55 @@ static void serialize(struct nvhost_job *job)
 			  nvhost_syncpt_read_max(sp, job->sp[i].id));
 }
 
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if defined(CONFIG_TEGRA_GRHOST_SYNC)
+static int validate_syncpt_id_cb(struct nvhost_ctrl_sync_fence_info info,
+				 void *data)
+{
+	struct nvhost_syncpt *sp = data;
+
+	if (!nvhost_syncpt_is_valid_hw_pt(sp, info.id))
+		return -EINVAL;
+
+	return 0;
+}
+
+static int push_wait_cb(struct nvhost_ctrl_sync_fence_info info, void *data)
+{
+	struct nvhost_channel *ch = data;
+	struct nvhost_master *host = nvhost_get_host(ch->dev);
+	struct nvhost_syncpt *sp = &host->syncpt;
+
+	if (nvhost_syncpt_is_expired(sp, info.id, info.thresh))
+		return 0;
+
+	nvhost_cdma_push(&ch->cdma,
+		nvhost_opcode_setclass(NV_HOST1X_CLASS_ID,
+			host1x_uclass_load_syncpt_payload_32_r(), 1),
+			info.thresh);
+	nvhost_cdma_push(&ch->cdma,
+		nvhost_opcode_setclass(NV_HOST1X_CLASS_ID,
+			host1x_uclass_wait_syncpt_32_r(), 1),
+			info.id);
+
+	return 0;
+}
+
 static void add_sync_waits(struct nvhost_channel *ch, int fd)
 {
 	struct nvhost_master *host = nvhost_get_host(ch->dev);
 	struct nvhost_syncpt *sp = &host->syncpt;
-	struct sync_fence *fence;
-	struct sync_pt *pt;
-	int i;
-	u32 id, thresh;
+	struct nvhost_fence *fence;
 
 	if (fd < 0)
 		return;
 
-	fence = nvhost_sync_fdget(fd);
+	fence = nvhost_fence_get(fd);
 	if (!fence)
 		return;
 
-	i = id = thresh = 0;
-	/* validate syncpt ids */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
-	list_for_each_entry(pt, &fence->pt_list_head, pt_list) {
-#else
-	for (i = 0; i < fence->num_fences; i++) {
-		pt = sync_pt_from_fence(fence->cbs[i].sync_pt);
-#endif
-		id = nvhost_sync_pt_id(pt);
-		if (!id || !nvhost_syncpt_is_valid_hw_pt(sp, id)) {
-			sync_fence_put(fence);
-			return;
-		}
+	if (nvhost_fence_foreach_pt(fence, validate_syncpt_id_cb, sp)) {
+		nvhost_fence_put(fence);
+		return;
 	}
 
 	/*
@@ -158,23 +177,9 @@ static void add_sync_waits(struct nvhost_channel *ch, int fd)
 	 * overwrite the RESTART opcode at the end of the push
 	 * buffer.
 	 */
+	nvhost_fence_foreach_pt(fence, push_wait_cb, ch);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)
-	list_for_each_entry(pt, &fence->pt_list_head, pt_list) {
-#else
-	for (i = 0; i < fence->num_fences; i++) {
-		pt = sync_pt_from_fence(fence->cbs[i].sync_pt);
-#endif
-		id = nvhost_sync_pt_id(pt);
-		thresh = nvhost_sync_pt_thresh(pt);
-
-		if (nvhost_syncpt_is_expired(sp, id, thresh))
-			continue;
-
-		push_wait(&ch->cdma, id, thresh);
-	}
-
-	sync_fence_put(fence);
+	nvhost_fence_put(fence);
 }
 #else
 static void add_sync_waits(struct nvhost_channel *ch, int fd)
@@ -347,10 +352,6 @@ static int host1x_channel_submit(struct nvhost_job *job)
 		/* create a valid max for client managed syncpoints */
 		if (nvhost_syncpt_client_managed(sp, job->sp[i].id)) {
 			u32 min = nvhost_syncpt_read(sp, job->sp[i].id);
-			if (min)
-				dev_warn(&job->ch->dev->dev,
-					"converting an active unmanaged syncpoint %d to managed\n",
-					job->sp[i].id);
 			nvhost_syncpt_set_max(sp, job->sp[i].id, min);
 			nvhost_syncpt_set_manager(sp, job->sp[i].id, false);
 		}
@@ -397,8 +398,7 @@ error:
 	return err;
 }
 
-#ifdef _hw_host1x04_channel_h_
-static int t124_channel_init_gather_filter(struct platform_device *pdev,
+static int host1x_channel_init_gather_filter(struct platform_device *pdev,
 	struct nvhost_channel *ch)
 {
 
@@ -412,7 +412,6 @@ static int t124_channel_init_gather_filter(struct platform_device *pdev,
 
 	return 0;
 }
-#endif
 
 static int host1x_channel_init(struct nvhost_channel *ch,
 	struct nvhost_master *dev)
@@ -425,7 +424,5 @@ static int host1x_channel_init(struct nvhost_channel *ch,
 static const struct nvhost_channel_ops host1x_channel_ops = {
 	.init = host1x_channel_init,
 	.submit = host1x_channel_submit,
-#ifdef _hw_host1x04_channel_h_
-	.init_gather_filter = t124_channel_init_gather_filter,
-#endif
+	.init_gather_filter = host1x_channel_init_gather_filter,
 };

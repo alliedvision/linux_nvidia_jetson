@@ -1,0 +1,63 @@
+From f77e60d0d6f466cecb6019926d802be866f7080f Mon Sep 17 00:00:00 2001
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Tue, 29 Sep 2020 17:37:25 -0700
+Subject: [PATCH 777/830] ANDROID: move builds to use gas prebuilts
+X-NVConfidentiality: public
+
+Completes stage 5 of:
+https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+/master/BINUTILS_KERNEL_DEPRECATION.md
+
+Bug: 141693040
+Test: remove host binutils (easy for cross compiling, hard for host
+tools), rebuild multiple configs including cuttlefish configs which rely
+on these.
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+Change-Id: Ia88f4f6572049c0173742aee95df824c0f31c050
+---
+ build.config.aarch64 | 2 +-
+ build.config.arm     | 2 +-
+ build.config.x86_64  | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/build.config.aarch64 b/build.config.aarch64
+index 15d2c0f83aea..db6cb0a8e9b6 100644
+--- a/build.config.aarch64
++++ b/build.config.aarch64
+@@ -2,7 +2,7 @@ ARCH=arm64
+ 
+ CLANG_TRIPLE=aarch64-linux-gnu-
+ CROSS_COMPILE=aarch64-linux-androidkernel-
+-LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+ Image
+diff --git a/build.config.arm b/build.config.arm
+index 7f71449bf0b8..306021ed8782 100644
+--- a/build.config.arm
++++ b/build.config.arm
+@@ -2,7 +2,7 @@ ARCH=arm
+ 
+ CLANG_TRIPLE=arm-linux-gnueabi-
+ CROSS_COMPILE=arm-linux-androidkernel-
+-LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+ Image
+diff --git a/build.config.x86_64 b/build.config.x86_64
+index 452554915122..d14feabde927 100644
+--- a/build.config.x86_64
++++ b/build.config.x86_64
+@@ -2,7 +2,7 @@ ARCH=x86_64
+ 
+ CLANG_TRIPLE=x86_64-linux-gnu-
+ CROSS_COMPILE=x86_64-linux-androidkernel-
+-LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin
++LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+ 
+ MAKE_GOALS="
+ bzImage
+-- 
+2.17.1
+

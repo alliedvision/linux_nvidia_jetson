@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Automatic Clock Management
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -30,18 +30,23 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 #include <trace/events/nvhost.h>
-#include <linux/tegra_pm_domains.h>
 #include <uapi/linux/nvhost_ioctl.h>
 #include <linux/version.h>
+#include <linux/dma-mapping.h>
 #include <linux/clk/tegra.h>
 #include <linux/clk-provider.h>
-#include <linux/dma-mapping.h>
+#include <linux/iommu.h>
 #include <linux/nospec.h>
 
 #include <linux/platform/tegra/mc.h>
-#if defined(CONFIG_TEGRA_BWMGR)
+#include <linux/platform/tegra/mc_utils.h>
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+#include <linux/interconnect.h>
+#include <dt-bindings/interconnect/tegra_icc_id.h>
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
 #include <linux/platform/tegra/emc_bwmgr.h>
 #endif
 
@@ -94,13 +99,6 @@ static bool nvhost_module_emc_clock(struct nvhost_clock *clock)
 	       (clock->moduleid == NVHOST_MODULE_ID_EMC_SHARED);
 }
 
-static bool nvhost_is_bwmgr_clk(struct nvhost_device_data *pdata, int index)
-{
-
-	return (nvhost_module_emc_clock(&pdata->clocks[index]) &&
-		pdata->bwmgr_handle);
-}
-
 static void do_module_reset_locked(struct platform_device *dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
@@ -111,14 +109,154 @@ static void do_module_reset_locked(struct platform_device *dev)
 	}
 
 	if (pdata->reset_control) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+		reset_control_acquire(pdata->reset_control);
+#endif
 		reset_control_reset(pdata->reset_control);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+		reset_control_release(pdata->reset_control);
+#endif
 		return;
 	}
 }
 
-static unsigned long nvhost_emc_bw_to_freq_req(unsigned long rate)
+static bool nvhost_is_bw_handle_valid(struct nvhost_device_data *pdata)
 {
-	return tegra_emc_bw_to_freq_req((unsigned long)(rate));
+	bool ret = false;
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	ret |= !IS_ERR_OR_NULL(pdata->icc_path_handle);
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	ret |= !(pdata->bwmgr_handle == NULL);
+#endif
+	return ret;
+}
+
+static bool nvhost_is_bw_clk(struct nvhost_device_data *pdata, int index)
+{
+	return (nvhost_module_emc_clock(&pdata->clocks[index]) &&
+		nvhost_is_bw_handle_valid(pdata));
+}
+
+static void nvhost_register_bw(struct device *devp,
+			      struct nvhost_device_data *pdata)
+{
+	if (pdata->icc_id && pdata->bwmgr_client_id) {
+		dev_err(devp, "both (bwmgr and icc) IDs are present");
+		return;
+	}
+
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	/* get icc_path handle if needed */
+	if (pdata->icc_id) {
+		pdata->icc_path_handle =
+			icc_get(devp, pdata->icc_id, TEGRA_ICC_PRIMARY);
+		if (IS_ERR_OR_NULL(pdata->icc_path_handle))
+			dev_warn(devp, "failed to get icc path (err=%ld)",
+				PTR_ERR(pdata->icc_path_handle));
+	}
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	/* get bandwidth manager handle if needed */
+	if (pdata->bwmgr_client_id)
+		pdata->bwmgr_handle =
+			tegra_bwmgr_register(pdata->bwmgr_client_id);
+#endif
+}
+
+static void nvhost_unregister_bw(struct nvhost_device_data *pdata)
+{
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	if (!IS_ERR_OR_NULL(pdata->icc_path_handle))
+		icc_put(pdata->icc_path_handle);
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	if (pdata->bwmgr_handle)
+		tegra_bwmgr_unregister(pdata->bwmgr_handle);
+#endif
+}
+
+static int nvhost_set_emc_rate(struct device *devp,
+				struct nvhost_device_data *pdata,
+				int index,
+				unsigned long rate)
+{
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	if (!IS_ERR_OR_NULL(pdata->icc_path_handle)) {
+		u32 avg_bw_kbps = 0;
+		u32 floor_bw_kbps = 0;
+
+		if (pdata->clocks[index].request_type ==
+				TEGRA_SET_EMC_SHARED_BW) {
+			avg_bw_kbps = emc_freq_to_bw(rate / 1000);
+		} else if (pdata->clocks[index].request_type ==
+				TEGRA_SET_EMC_FLOOR) {
+			floor_bw_kbps = emc_freq_to_bw(rate / 1000);
+		} else {
+			dev_warn(devp, "Not handled request type %d",
+					pdata->clocks[index].request_type);
+			return -EINVAL;
+		}
+
+		return icc_set_bw(pdata->icc_path_handle,
+					avg_bw_kbps, floor_bw_kbps);
+	}
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	if (pdata->bwmgr_handle) {
+		enum tegra_bwmgr_request_type bwmgr_req_type;
+
+		switch (pdata->clocks[index].request_type) {
+		case TEGRA_SET_EMC_FLOOR:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_FLOOR;
+		break;
+		case TEGRA_SET_EMC_CAP:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_CAP;
+		break;
+		case TEGRA_SET_EMC_ISO_CAP:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_ISO_CAP;
+		break;
+		case TEGRA_SET_EMC_SHARED_BW:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_SHARED_BW;
+		break;
+		case TEGRA_SET_EMC_SHARED_BW_ISO:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_SHARED_BW_ISO;
+		break;
+		case TEGRA_SET_EMC_REQ_COUNT:
+			bwmgr_req_type = TEGRA_BWMGR_SET_EMC_REQ_COUNT;
+		break;
+		default:
+			dev_warn(devp, "Not handled request type %d",
+					pdata->clocks[index].request_type);
+			return -EINVAL;
+		}
+
+		return tegra_bwmgr_set_emc(pdata->bwmgr_handle, rate,
+						bwmgr_req_type);
+	}
+#endif
+	return -EINVAL;
+}
+
+static unsigned long nvhost_emc_bw_to_freq_req(struct device *devp,
+					struct nvhost_device_data *pdata,
+					unsigned long bw)
+{
+	/*
+	 * Below APIs are not framework specific, however in this file we need
+	 * them when respective framework is enabled. Keeping it simple.
+	 */
+
+#if IS_ENABLED(CONFIG_INTERCONNECT)
+	if (!IS_ERR_OR_NULL(pdata->icc_path_handle))
+		return emc_bw_to_freq((unsigned long)(bw));
+#endif
+#if IS_ENABLED(CONFIG_TEGRA_BWMGR)
+	if (pdata->bwmgr_handle)
+		return tegra_emc_bw_to_freq_req((unsigned long)(bw));
+#endif
+
+	return 0;
 }
 
 void nvhost_module_reset(struct platform_device *dev, bool reboot)
@@ -158,6 +296,34 @@ void nvhost_module_reset(struct platform_device *dev, bool reboot)
 		__func__, dev_name(&dev->dev));
 }
 EXPORT_SYMBOL(nvhost_module_reset);
+
+void nvhost_module_reset_for_stage2(struct platform_device *dev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
+
+	dev_dbg(&dev->dev, "%s: asserting %s module reset for stage-2\n",
+		__func__, dev_name(&dev->dev));
+
+	if (pdata->prepare_poweroff)
+		pdata->prepare_poweroff(dev);
+
+	mutex_lock(&pdata->lock);
+	do_module_reset_locked(dev);
+	mutex_unlock(&pdata->lock);
+
+	/* Load clockgating registers */
+	nvhost_module_load_regs(dev, pdata->engine_can_cg);
+
+	/* Set actmon registers */
+	nvhost_module_set_actmon_regs(dev);
+
+	/* initialize device vm */
+	nvhost_vm_init_device(dev);
+
+	dev_dbg(&dev->dev, "%s: module %s out of reset for stage-2\n",
+		__func__, dev_name(&dev->dev));
+}
+EXPORT_SYMBOL(nvhost_module_reset_for_stage2);
 
 void nvhost_module_busy_noresume(struct platform_device *dev)
 {
@@ -341,12 +507,8 @@ int nvhost_module_get_rate(struct platform_device *dev, unsigned long *rate,
 
 	index = array_index_nospec(index, NVHOST_MODULE_MAX_CLOCKS);
 
-#if defined(CONFIG_TEGRA_BWMGR)
-	if (nvhost_is_bwmgr_clk(pdata, index)) {
-		*rate = tegra_bwmgr_get_emc_rate();
-		return 0;
-	}
-#endif
+	if (nvhost_is_bw_clk(pdata, index))
+		return -EINVAL;
 
 	if (pdata->clk[index]) {
 		/* Terrible and racy, but so is the whole concept of
@@ -373,7 +535,7 @@ static int nvhost_module_update_rate(struct platform_device *dev, int index)
 	struct nvhost_module_client *m;
 	int ret = -EINVAL;
 
-	if (!nvhost_is_bwmgr_clk(pdata, index) && !pdata->clk[index]) {
+	if (!nvhost_is_bw_clk(pdata, index) && !pdata->clk[index]) {
 		nvhost_err(&dev->dev, "invalid clk index %d", index);
 		return -EINVAL;
 	}
@@ -411,8 +573,8 @@ static int nvhost_module_update_rate(struct platform_device *dev, int index)
 
 	/* if frequency is not available, use default policy */
 	if (!rate) {
-		unsigned long bw_freq_khz =
-			nvhost_emc_bw_to_freq_req(bw_constraint);
+		unsigned long bw_freq_khz = nvhost_emc_bw_to_freq_req(&dev->dev,
+							pdata, bw_constraint);
 		bw_freq_khz = min(ULONG_MAX / 1000, bw_freq_khz);
 		rate = max(floor_rate, bw_freq_khz * 1000);
 		if (pdata->num_ppc)
@@ -429,12 +591,9 @@ static int nvhost_module_update_rate(struct platform_device *dev, int index)
 	trace_nvhost_module_update_rate(dev->name, pdata->clocks[index].name,
 					rate);
 
-#if defined(CONFIG_TEGRA_BWMGR)
-	if (nvhost_is_bwmgr_clk(pdata, index))
-		ret = tegra_bwmgr_set_emc(pdata->bwmgr_handle, rate,
-			pdata->clocks[index].bwmgr_request_type);
+	if (nvhost_is_bw_clk(pdata, index))
+		ret = nvhost_set_emc_rate(&dev->dev, pdata, index, rate);
 	else
-#endif
 		ret = clk_set_rate(pdata->clk[index], rate);
 
 	return ret;
@@ -607,16 +766,31 @@ static ssize_t clk_cap_store(struct kobject *kobj,
 {
 	struct nvhost_device_data *pdata =
 		container_of(kobj, struct nvhost_device_data, clk_cap_kobj);
+	struct platform_device *pdev = pdata->pdev;
 	/* i is indeed 'index' here after type conversion */
 	int ret, i = attr - pdata->clk_cap_attrs;
 	struct clk *clk = pdata->clk[i];
 	unsigned long freq_cap;
+	long freq_cap_signed;
 
 	ret = kstrtoul(buf, 0, &freq_cap);
 	if (ret)
 		return -EINVAL;
-
+	/* Remove previous freq cap to get correct rounted rate for new cap */
+	ret = clk_set_max_rate(clk, UINT_MAX);
+	if (ret < 0)
+		return ret;
+	freq_cap_signed = clk_round_rate(clk, freq_cap);
+	if (freq_cap_signed < 0)
+		return -EINVAL;
+	else
+		freq_cap = (unsigned long)freq_cap_signed;
+	/* Apply new freq cap */
 	ret = clk_set_max_rate(clk, freq_cap);
+	if (ret < 0)
+		return ret;
+
+	ret = nvhost_module_update_rate(pdev, i);
 	if (ret < 0)
 		return ret;
 
@@ -642,7 +816,6 @@ static ssize_t clk_cap_show(struct kobject *kobj,
 
 static void acm_kobj_release(struct kobject *kobj)
 {
-	sysfs_remove_dir(kobj);
 }
 
 static struct kobj_type acm_kobj_ktype = {
@@ -694,25 +867,12 @@ int nvhost_module_init(struct platform_device *dev)
 	int i = 0, err = 0;
 	struct kobj_attribute *attr = NULL;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
-	struct nvhost_master *master = nvhost_get_host(dev);
-
-	if (!master) {
-		dev_err(&dev->dev, "master == NULL");
-		return -EAGAIN;
-	}
-
-	if (!pdata) {
-		dev_err(&dev->dev, "pdata == NULL");
-		return -EAGAIN;
-	}
-
-	if (!pdata->no_platform_dma_mask) {
-		dma_set_mask_and_coherent(&dev->dev, master->info.dma_mask);
-	}
 
 	/* initialize clocks to known state (=enabled) */
 	pdata->num_clks = 0;
 	INIT_LIST_HEAD(&pdata->client_list);
+
+	init_rwsem(&pdata->busy_lock);
 
 	if (nvhost_dev_is_virtual(dev)) {
 		pm_runtime_enable(&dev->dev);
@@ -726,28 +886,20 @@ int nvhost_module_init(struct platform_device *dev)
 		return err;
 	}
 
-#if defined(CONFIG_TEGRA_BWMGR)
-	/* get bandwidth manager handle if needed */
-	if (pdata->bwmgr_client_id)
-		pdata->bwmgr_handle =
-			tegra_bwmgr_register(pdata->bwmgr_client_id);
-#endif
+	nvhost_register_bw(&dev->dev, pdata);
 
 	while (i < NVHOST_MODULE_MAX_CLOCKS && pdata->clocks[i].name) {
 		char devname[MAX_DEVID_LENGTH];
 		long rate = pdata->clocks[i].default_rate;
 		struct clk *c;
 
-#if defined(CONFIG_TEGRA_BWMGR)
 		if (nvhost_module_emc_clock(&pdata->clocks[i])) {
-			if (nvhost_is_bwmgr_clk(pdata, i))
-				tegra_bwmgr_set_emc(pdata->bwmgr_handle, 0,
-					pdata->clocks[i].bwmgr_request_type);
+			if (nvhost_is_bw_clk(pdata, i))
+				nvhost_set_emc_rate(&dev->dev, pdata, i, 0);
 			pdata->clk[pdata->num_clks++] = NULL;
 			i++;
 			continue;
 		}
-#endif
 
 		snprintf(devname, MAX_DEVID_LENGTH,
 			 (dev->id <= 0) ? "tegra_%s" : "tegra_%s.%d",
@@ -783,7 +935,12 @@ int nvhost_module_init(struct platform_device *dev)
 	}
 	pdata->num_clks = i;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+	pdata->reset_control = devm_reset_control_get_exclusive_released(
+					&dev->dev, NULL);
+#else
 	pdata->reset_control = devm_reset_control_get(&dev->dev, NULL);
+#endif
 	if (IS_ERR(pdata->reset_control))
 		pdata->reset_control = NULL;
 
@@ -800,15 +957,11 @@ int nvhost_module_init(struct platform_device *dev)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	if (nvhost_is_210()) {
-		struct generic_pm_domain *gpd = pd_to_genpd(dev->dev.pm_domain);
-
 		/* needed to WAR MBIST issue */
 		if (pdata->poweron_toggle_slcg) {
 			pdata->toggle_slcg_notifier.notifier_call =
 				&nvhost_module_toggle_slcg;
 		}
-
-		nvhost_pd_slcg_install_workaround(pdata, gpd);
 	}
 #endif
 
@@ -819,9 +972,13 @@ int nvhost_module_init(struct platform_device *dev)
 		pm_runtime_use_autosuspend(&dev->dev);
 	}
 
+	if (!iommu_get_domain_for_dev(&dev->dev)) {
+		pdata->isolate_contexts = false;
+		dev_info(&dev->dev, "context isolation disabled due to no IOMMU");
+	}
+
 	/* initialize no_poweroff_req_mutex */
 	mutex_init(&pdata->no_poweroff_req_mutex);
-	init_rwsem(&pdata->busy_lock);
 
 	/* turn on pm runtime */
 	pm_runtime_enable(&dev->dev);
@@ -947,14 +1104,6 @@ void nvhost_module_deinit(struct platform_device *dev)
 	struct kobj_attribute *attr = NULL;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-	if (nvhost_is_210()) {
-		struct generic_pm_domain *gpd = pd_to_genpd(dev->dev.pm_domain);
-
-		nvhost_pd_slcg_remove_workaround(pdata, gpd);
-	}
-#endif
-
 	devfreq_suspend_device(pdata->power_manager);
 
 	if (pm_runtime_enabled(&dev->dev)) {
@@ -968,10 +1117,7 @@ void nvhost_module_deinit(struct platform_device *dev)
 		nvhost_module_disable_clk(&dev->dev);
 	}
 
-#if defined(CONFIG_TEGRA_BWMGR)
-	if (pdata->bwmgr_handle)
-		tegra_bwmgr_unregister(pdata->bwmgr_handle);
-#endif
+	nvhost_unregister_bw(pdata);
 
 	/* kobj of acm_kobj_ktype cleans up sysfs entries automatically */
 	kobject_put(&pdata->clk_cap_kobj);
@@ -1237,25 +1383,17 @@ static int nvhost_module_prepare_poweroff(struct device *dev)
 	devfreq_suspend_device(pdata->power_manager);
 	nvhost_scale_hw_deinit(to_platform_device(dev));
 
-	/* disable module interrupt if support available */
-	if (pdata->module_irq)
-		nvhost_intr_disable_module_intr(&host->intr,
-						pdata->module_irq);
-
-#if defined(CONFIG_TEGRA_BWMGR)
 	/* set EMC rate to zero */
-	if (pdata->bwmgr_handle) {
+	if (nvhost_is_bw_handle_valid(pdata)) {
 		int i;
 
 		for (i = 0; i < NVHOST_MODULE_MAX_CLOCKS; i++) {
 			if (nvhost_module_emc_clock(&pdata->clocks[i])) {
-				tegra_bwmgr_set_emc(pdata->bwmgr_handle, 0,
-					pdata->clocks[i].bwmgr_request_type);
+				nvhost_set_emc_rate(dev, pdata, i, 0);
 				break;
 			}
 		}
 	}
-#endif
 
 	if (pdata->prepare_poweroff)
 		pdata->prepare_poweroff(to_platform_device(dev));
@@ -1270,7 +1408,7 @@ static int nvhost_module_finalize_poweron(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct nvhost_master *host;
 	struct nvhost_device_data *pdata;
-	int retry_count, ret = 0, i;
+	int ret = 0, i;
 
 	pdata = dev_get_drvdata(dev);
 	if (!pdata) {
@@ -1279,55 +1417,35 @@ static int nvhost_module_finalize_poweron(struct device *dev)
 	}
 
 	host = nvhost_get_host(pdata->pdev);
-	/* WAR to bug 1588951: Retry booting 3 times */
 
-	for (retry_count = 0; retry_count < 3; retry_count++) {
-		if (!pdata->poweron_toggle_slcg) {
-			if (pdata->poweron_reset)
-				nvhost_module_reset(pdev, false);
+	if (pdata->poweron_reset)
+		nvhost_module_reset(pdev, false);
 
-			/* Load clockgating registers */
-			nvhost_module_load_regs(pdev, pdata->engine_can_cg);
-		} else {
-			/* If poweron_toggle_slcg is set, following is already
-			 * executed once. Skip to avoid doing it twice. */
-			if (retry_count > 0) {
-				/* First, reset module */
-				nvhost_module_reset(pdev, false);
+	/* Load clockgating registers */
+	nvhost_module_load_regs(pdev, pdata->engine_can_cg);
 
-				/* Disable SLCG, wait and re-enable it */
-				nvhost_module_load_regs(pdev, false);
-				udelay(1);
-				if (pdata->engine_can_cg)
-					nvhost_module_load_regs(pdev, true);
-			}
-		}
-
-		/* initialize device vm */
-		ret = nvhost_vm_init_device(pdev);
-		if (ret)
-			continue;
-
-		if (pdata->finalize_poweron)
-			ret = pdata->finalize_poweron(to_platform_device(dev));
-
-		/* Exit loop if we pass module specific initialization */
-		if (!ret)
-			break;
-	}
-
-	/* Failed to start the device */
+	/* initialize device vm */
+	ret = nvhost_vm_init_device(pdev);
 	if (ret) {
-		nvhost_err(dev, "failed to start the device");
+		nvhost_err(dev, "failed to initialize device vm");
 		goto out;
 	}
 
+	if (pdata->finalize_poweron) {
+		ret = pdata->finalize_poweron(to_platform_device(dev));
+
+		/* Failed to start the device */
+		if (ret) {
+			nvhost_err(dev, "failed to start the device");
+			goto out;
+		}
+	}
 
 	/* Set actmon registers */
 	nvhost_module_set_actmon_regs(pdev);
 
 	/* set default EMC rate to zero */
-	if (pdata->bwmgr_handle) {
+	if (nvhost_is_bw_handle_valid(pdata)) {
 		for (i = 0; i < NVHOST_MODULE_MAX_CLOCKS; i++) {
 			if (nvhost_module_emc_clock(&pdata->clocks[i])) {
 				mutex_lock(&client_list_lock);
@@ -1337,11 +1455,6 @@ static int nvhost_module_finalize_poweron(struct device *dev)
 			}
 		}
 	}
-
-	/* enable module interrupt if support available */
-	if (pdata->module_irq)
-		nvhost_intr_enable_module_intr(&host->intr,
-						pdata->module_irq);
 
 	nvhost_scale_hw_init(to_platform_device(dev));
 	devfreq_resume_device(pdata->power_manager);
@@ -1377,24 +1490,24 @@ static int nvhost_module_toggle_slcg(struct notifier_block *nb,
 /* public host1x power management APIs */
 bool nvhost_module_powered_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	return nvhost_module_powered(dev);
+	struct nvhost_master *host = nvhost_get_host(dev);
+
+	return nvhost_module_powered(host->dev);
 }
 EXPORT_SYMBOL(nvhost_module_powered_ext);
 
 int nvhost_module_busy_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	return nvhost_module_busy(dev);
+	struct nvhost_master *host = nvhost_get_host(dev);
+
+	return nvhost_module_busy(host->dev);
 }
 EXPORT_SYMBOL(nvhost_module_busy_ext);
 
 void nvhost_module_idle_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	nvhost_module_idle(dev);
+	struct nvhost_master *host = nvhost_get_host(dev);
+
+	nvhost_module_idle(host->dev);
 }
 EXPORT_SYMBOL(nvhost_module_idle_ext);

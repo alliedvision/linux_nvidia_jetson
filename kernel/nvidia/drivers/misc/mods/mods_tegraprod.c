@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * mods_tegraprod.c - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -24,6 +25,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/tegra_prod.h>
+
 
 #define MAX_REG_INFO_ENTRY	400
 #define MAX_IO_MAP_ENTRY	200
@@ -66,7 +68,7 @@ int mods_tegra_prod_init(const struct miscdevice *misc_dev)
  * Returns 0 on success, others for error or no matching node found.
  */
 int esc_mods_tegra_prod_iterate_dt(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_ITERATOR *iterator
 )
 {
@@ -79,12 +81,11 @@ int esc_mods_tegra_prod_iterate_dt(
 	dev_node = (struct device_node *)iterator->device_handle;
 
 	if (!iterator->name[0]) {
-		mods_error_printk(
-			"node name is missing for tegra prod value\n");
+		cl_error("node name is missing for tegra prod value\n");
 		return -EINVAL;
 	}
 	if (!iterator->next_name[0] && !iterator->is_leaf) {
-		mods_error_printk("inner node with empty next_name\n");
+		cl_error("inner node with empty next_name\n");
 		return -EINVAL;
 	}
 
@@ -93,8 +94,8 @@ int esc_mods_tegra_prod_iterate_dt(
 		/* Search from Left to Right in DT */
 		dev_node = of_find_node_by_name(dev_node, iterator->name);
 		if (!dev_node) {
-			mods_error_printk("node %s not found in device tree\n",
-					iterator->name);
+			cl_error("node %s not found in device tree\n",
+				 iterator->name);
 			return -EINVAL;
 		}
 
@@ -137,14 +138,13 @@ int esc_mods_tegra_prod_iterate_dt(
  * Others - ERROR
  *
  */
-static int mods_read_reg_info(
-	const struct device_node *dev_node,
-	__u32 *reg_info,
-	__u32 *count_reg_cells,
-	__u32 *count_addrsize_pair,
-	__u32 *count_address_cells,
-	__u32 *count_size_cells
-)
+static int mods_read_reg_info(struct mods_client       *client,
+			      const struct device_node *dev_node,
+			      __u32                    *reg_info,
+			      __u32                    *count_reg_cells,
+			      __u32                    *count_addrsize_pair,
+			      __u32                    *count_address_cells,
+			      __u32                    *count_size_cells)
 {
 	struct device_node *parent_node;
 	int ret;
@@ -154,22 +154,22 @@ static int mods_read_reg_info(
 	ret = of_property_read_u32(parent_node, "#address-cells",
 				count_address_cells);
 	if (ret < 0) {
-		mods_error_printk("Read #address-cells failed\n");
+		cl_error("read #address-cells failed\n");
 		return ret;
 
 	} else if (*count_address_cells == 0) {
-		mods_error_printk("#address-cells cannot be 0\n");
+		cl_error("#address-cells cannot be 0\n");
 		return -EINVAL;
 	}
 
 	ret = of_property_read_u32(parent_node, "#size-cells",
 				count_size_cells);
 	if (ret < 0) {
-		mods_error_printk("Read #size-cells failed\n");
+		cl_error("read #size-cells failed\n");
 		return ret;
 
 	} else if (*count_size_cells == 0) {
-		mods_error_printk("#size-cells cannot be 0\n");
+		cl_error("#size-cells cannot be 0\n");
 		return -EINVAL;
 	}
 	*count_addrsize_pair = *count_address_cells + *count_size_cells;
@@ -177,15 +177,15 @@ static int mods_read_reg_info(
 	/* Read count of cells in "reg" property */
 	ret = of_property_count_u32_elems(dev_node, "reg");
 	if (ret < 0) {
-		mods_error_printk(
-			"Unable to get count of cells in \"reg\" of node %s\n",
+		cl_error(
+			"unable to get count of cells in \"reg\" of node %s\n",
 			dev_node->name);
 		return ret;
 	}
 
 	*count_reg_cells = (__u32)ret;
 	if (*count_reg_cells == 0) {
-		mods_error_printk("No \"reg\" info is available\n");
+		cl_error("no \"reg\" info is available\n");
 		return -EINVAL;
 
 	} else if (*count_reg_cells % *count_addrsize_pair != 0) {
@@ -198,9 +198,8 @@ static int mods_read_reg_info(
 		 * "count_addrsize_pair", the read "reg" information is
 		 * incomplete or incorrect.
 		 */
-		mods_error_printk(
-			"\"reg\" property has invalid length : %d\n",
-			*count_reg_cells);
+		cl_error("\"reg\" property has invalid length : %d\n",
+			 *count_reg_cells);
 		return -EINVAL;
 	}
 
@@ -208,9 +207,8 @@ static int mods_read_reg_info(
 	ret = of_property_read_u32_array(dev_node, "reg", reg_info,
 					(size_t)(*count_reg_cells));
 	if (ret < 0) {
-		mods_error_printk(
-			"Unable to read \"reg\" property of node %s\n",
-			dev_node->name);
+		cl_error("Unable to read \"reg\" property of node %s\n",
+			 dev_node->name);
 		return ret;
 	}
 
@@ -223,15 +221,14 @@ static int mods_read_reg_info(
  * @count_io_base:	Count of IO addresses are mapped
  *
  */
-static void mods_batch_iounmap(
-	void __iomem **io_base,
-	__u32 count_io_base
-)
+static void mods_batch_iounmap(struct mods_client *client,
+			       void __iomem      **io_base,
+			       __u32               count_io_base)
 {
 	int i;
 
 	if (!io_base) {
-		mods_error_printk("IO base address array is NULL\n");
+		cl_error("IO base address array is NULL\n");
 		return;
 	}
 
@@ -251,11 +248,10 @@ static void mods_batch_iounmap(
  * Others - ERROR (NOTE: partially mapped IO memory will be unmapped on error)
  *
  */
-static int mods_batch_iomap(
-	const struct device_node *dev_node,
-	void __iomem **io_base,
-	__u32 *count_io_base
-)
+static int mods_batch_iomap(struct mods_client       *client,
+			    const struct device_node *dev_node,
+			    void __iomem            **io_base,
+			    __u32                    *count_io_base)
 {
 	__u32 reg_info[MAX_REG_INFO_ENTRY];
 	__u32 count_reg_cells = 0;
@@ -267,27 +263,26 @@ static int mods_batch_iomap(
 
 	/* Check arguments */
 	if (!dev_node) {
-		mods_error_printk("Controller device handle is NULL\n");
+		cl_error("controller device handle is NULL\n");
 		return -EINVAL;
 	}
 	if (!io_base) {
-		mods_error_printk("IO base address array is NULL\n");
+		cl_error("IO base address array is NULL\n");
 		return -EINVAL;
 	}
 	if (!count_io_base) {
-		mods_error_printk("Count of IO base address array is NULL\n");
+		cl_error("count of IO base address array is NULL\n");
 		return -EINVAL;
 	}
 
 	/* Get registers information */
-	ret = mods_read_reg_info(
-		dev_node,
-		reg_info,
-		&count_reg_cells,
-		&count_addrsize_pair,
-		&count_address_cells,
-		&count_size_cells
-	);
+	ret = mods_read_reg_info(client,
+				 dev_node,
+				 reg_info,
+				 &count_reg_cells,
+				 &count_addrsize_pair,
+				 &count_address_cells,
+				 &count_size_cells);
 	if (ret < 0)
 		return ret;
 
@@ -318,13 +313,14 @@ static int mods_batch_iomap(
 		io_addr_mapped = ioremap((resource_size_t)io_addr_base,
 					(resource_size_t)io_addr_length);
 		if (io_addr_mapped == NULL) {
-			mods_error_printk(
-			"Unable to map io address 0x%llx, length 0x%llx\n",
-			io_addr_base, io_addr_length);
+			cl_error(
+				"Unable to map io address 0x%llx, length 0x%llx\n",
+				io_addr_base,
+				io_addr_length);
 			/* Clean :
 			 * Unmap the IO memory that have already been mapped
 			 */
-			mods_batch_iounmap(io_base, *count_io_base);
+			mods_batch_iounmap(client, io_base, *count_io_base);
 			return -ENXIO;
 		}
 		io_base[*count_io_base] = io_addr_mapped;
@@ -340,24 +336,25 @@ static int mods_batch_iomap(
  *
  * Returns non-NULL on success, NULL on error.
  */
-static struct tegra_prod *mods_tegra_get_prod_list(struct device_node *dev_node)
+static struct tegra_prod *mods_tegra_get_prod_list(struct mods_client *client,
+						   struct device_node *dev_node)
 {
 	struct tegra_prod *prod_list;
 
 	if (!mods_tegra_prod_dev) {
-		mods_error_printk("tegra prod is not initialized\n");
+		cl_error("tegra prod is not initialized\n");
 		return NULL;
 	}
 
 	if (!dev_node) {
-		mods_error_printk("device node is NULL\n");
+		cl_error("device node is NULL\n");
 		return NULL;
 	}
 
 	prod_list = devm_tegra_prod_get_from_node(mods_tegra_prod_dev,
 						dev_node);
 	if (IS_ERR(prod_list)) {
-		mods_error_printk("failed to get prod_list : %s\n",
+		cl_error("failed to get prod_list : %s\n",
 				dev_node->name);
 		return NULL;
 	}
@@ -381,40 +378,39 @@ static struct tegra_prod *mods_tegra_get_prod_list(struct device_node *dev_node)
  *
  */
 static int mods_tegra_get_prod_info(
+	struct mods_client                     *client,
 	const struct MODS_TEGRA_PROD_SET_TUPLE *tuple,
-	struct tegra_prod **tegra_prod_list,
-	void __iomem **ctrl_base,
-	__u32 *count_ctrl_base
-)
+	struct tegra_prod                     **tegra_prod_list,
+	void __iomem                          **ctrl_base,
+	__u32                                  *count_ctrl_base)
 {
 	struct device_node *prod_node, *ctrl_node;
 
 	if (!tegra_prod_list || !ctrl_base || !count_ctrl_base) {
-		mods_error_printk("Detected NULL pointer for out value.");
+		cl_error("detected NULL pointer for out value.");
 		return -EINVAL;
 	}
 
 	prod_node = (struct device_node *)tuple->prod_dev_handle;
 	if (!prod_node) {
-		mods_error_printk("Prod device handle is NULL\n");
+		cl_error("prod device handle is NULL\n");
 		return -EINVAL;
 	}
 
-	*tegra_prod_list = mods_tegra_get_prod_list(prod_node);
+	*tegra_prod_list = mods_tegra_get_prod_list(client, prod_node);
 	if (!(*tegra_prod_list)) {
-		mods_error_printk(
-		"Failed to get prod_list with prod handle 0x%llx\n",
-		tuple->prod_dev_handle);
+		cl_error("failed to get prod_list with prod handle 0x%llx\n",
+			 tuple->prod_dev_handle);
 		return -EINVAL;
 	}
 
 	ctrl_node = (struct device_node *)tuple->ctrl_dev_handle;
 	if (!ctrl_node) {
-		mods_error_printk("Controller device handle is NULL\n");
+		cl_error("controller device handle is NULL\n");
 		return -EINVAL;
 	}
 
-	return mods_batch_iomap(ctrl_node, ctrl_base, count_ctrl_base);
+	return mods_batch_iomap(client, ctrl_node, ctrl_base, count_ctrl_base);
 }
 
 /**
@@ -432,7 +428,7 @@ static int mods_tegra_get_prod_info(
  *
  */
 int esc_mods_tegra_prod_is_supported(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_IS_SUPPORTED *tuple
 )
 {
@@ -442,15 +438,14 @@ int esc_mods_tegra_prod_is_supported(
 
 	prod_node = (struct device_node *)tuple->prod_dev_handle;
 	if (!prod_node) {
-		mods_error_printk("Prod device handle is NULL\n");
+		cl_error("prod device handle is NULL\n");
 		return -EINVAL;
 	}
 
-	tegra_prod = mods_tegra_get_prod_list(prod_node);
+	tegra_prod = mods_tegra_get_prod_list(client, prod_node);
 	if (!tegra_prod) {
-		mods_error_printk(
-		"Failed to get prod_list with prod handle 0x%llx\n",
-		tuple->prod_dev_handle);
+		cl_error("failed to get prod_list with prod handle 0x%llx\n",
+			 tuple->prod_dev_handle);
 		return -EINVAL;
 	}
 
@@ -476,7 +471,7 @@ int esc_mods_tegra_prod_is_supported(
  *
  */
 int esc_mods_tegra_prod_set_prod_all(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_SET_TUPLE *tuple
 )
 {
@@ -485,16 +480,19 @@ int esc_mods_tegra_prod_set_prod_all(
 	void __iomem *ctrl_base[MAX_IO_MAP_ENTRY];
 	__u32 count_ctrl_base;
 
-	ret = mods_tegra_get_prod_info(tuple, &tegra_prod_list,
-				ctrl_base, &count_ctrl_base);
+	ret = mods_tegra_get_prod_info(client,
+				       tuple,
+				       &tegra_prod_list,
+				       ctrl_base,
+				       &count_ctrl_base);
 	if (ret < 0)
 		return ret;
 
 	ret = tegra_prod_set_list(ctrl_base, tegra_prod_list);
 	if (ret < 0)
-		mods_error_printk("Set prod failed\n");
+		cl_error("set prod failed\n");
 
-	mods_batch_iounmap(ctrl_base, count_ctrl_base);
+	mods_batch_iounmap(client, ctrl_base, count_ctrl_base);
 
 	return ret;
 }
@@ -515,7 +513,7 @@ int esc_mods_tegra_prod_set_prod_all(
  *
  */
 int esc_mods_tegra_prod_set_prod_boot(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_SET_TUPLE *tuple
 )
 {
@@ -524,16 +522,19 @@ int esc_mods_tegra_prod_set_prod_boot(
 	void __iomem *ctrl_base[MAX_IO_MAP_ENTRY];
 	__u32 count_ctrl_base;
 
-	ret = mods_tegra_get_prod_info(tuple, &tegra_prod_list,
-				ctrl_base, &count_ctrl_base);
+	ret = mods_tegra_get_prod_info(client,
+				       tuple,
+				       &tegra_prod_list,
+				       ctrl_base,
+				       &count_ctrl_base);
 	if (ret < 0)
 		return ret;
 
 	ret = tegra_prod_set_boot_init(ctrl_base, tegra_prod_list);
 	if (ret < 0)
-		mods_error_printk("Set boot init prod failed\n");
+		cl_error("set boot init prod failed\n");
 
-	mods_batch_iounmap(ctrl_base, count_ctrl_base);
+	mods_batch_iounmap(client, ctrl_base, count_ctrl_base);
 
 	return ret;
 }
@@ -555,7 +556,7 @@ int esc_mods_tegra_prod_set_prod_boot(
  *
  */
 int esc_mods_tegra_prod_set_prod_by_name(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_SET_TUPLE *tuple
 )
 {
@@ -564,19 +565,22 @@ int esc_mods_tegra_prod_set_prod_by_name(
 	void __iomem *ctrl_base[MAX_IO_MAP_ENTRY];
 	__u32 count_ctrl_base;
 
-	ret = mods_tegra_get_prod_info(tuple, &tegra_prod_list,
-				ctrl_base, &count_ctrl_base);
+	ret = mods_tegra_get_prod_info(client,
+				       tuple,
+				       &tegra_prod_list,
+				       ctrl_base,
+				       &count_ctrl_base);
 	if (ret < 0)
 		return ret;
 
 	ret = tegra_prod_set_by_name(ctrl_base, tuple->prod_name,
 				tegra_prod_list);
 	if (ret < 0) {
-		mods_error_printk("Set prod by name \"%s\" failed\n",
+		cl_error("set prod by name \"%s\" failed\n",
 				tuple->prod_name);
 	}
 
-	mods_batch_iounmap(ctrl_base, count_ctrl_base);
+	mods_batch_iounmap(client, ctrl_base, count_ctrl_base);
 
 	return ret;
 }
@@ -601,7 +605,7 @@ int esc_mods_tegra_prod_set_prod_by_name(
  *
  */
 int esc_mods_tegra_prod_set_prod_exact(
-	struct file *fp,
+	struct mods_client *client,
 	struct MODS_TEGRA_PROD_SET_TUPLE *tuple
 )
 {
@@ -610,8 +614,11 @@ int esc_mods_tegra_prod_set_prod_exact(
 	void __iomem *ctrl_base[MAX_IO_MAP_ENTRY];
 	__u32 count_ctrl_base;
 
-	ret = mods_tegra_get_prod_info(tuple, &tegra_prod_list,
-				ctrl_base, &count_ctrl_base);
+	ret = mods_tegra_get_prod_info(client,
+				       tuple,
+				       &tegra_prod_list,
+				       ctrl_base,
+				       &count_ctrl_base);
 	if (ret < 0)
 		return ret;
 
@@ -619,14 +626,145 @@ int esc_mods_tegra_prod_set_prod_exact(
 				tegra_prod_list, tuple->index, tuple->offset,
 				tuple->mask);
 	if (ret < 0) {
-		mods_error_printk("Set prod exact by name \"%s\" failed\n",
-				tuple->prod_name);
-		mods_error_printk("index [%x]; offset [%x]; mask [%x]\n",
-				tuple->index, tuple->offset, tuple->mask);
+		cl_error("set prod exact by name \"%s\" failed\n",
+			 tuple->prod_name);
+		cl_error("index [%x]; offset [%x]; mask [%x]\n",
+			 tuple->index, tuple->offset, tuple->mask);
 	}
 
-	mods_batch_iounmap(ctrl_base, count_ctrl_base);
+	mods_batch_iounmap(client, ctrl_base, count_ctrl_base);
 
 	return ret;
 }
 
+
+#ifdef MODS_ENABLE_BPMP_MRQ_API
+static int tegra_pcie_bpmp_set_ctrl_state(struct mods_smmu_dev *pcie_dev,
+					  bool enable)
+{
+	struct mrq_uphy_response resp;
+	struct tegra_bpmp_message msg;
+	struct mrq_uphy_request req;
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.cmd = CMD_UPHY_PCIE_CONTROLLER_STATE;
+	req.controller_state.pcie_controller = pcie_dev->cid;
+	req.controller_state.enable = enable;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.mrq = MRQ_UPHY;
+	msg.tx.data = &req;
+	msg.tx.size = sizeof(req);
+	msg.rx.data = &resp;
+	msg.rx.size = sizeof(resp);
+
+	return tegra_bpmp_transfer(pcie_dev->bpmp, &msg);
+}
+
+static int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
+{
+	#define MAX_DEV_NAME_LEN 32
+	char dev_name[MAX_DEV_NAME_LEN];
+	struct mods_smmu_dev *smmu_pdev = NULL;
+	int smmudev_idx, n;
+
+	memset(dev_name, 0, MAX_DEV_NAME_LEN);
+	n = snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	if (n < 0 || n >= MAX_DEV_NAME_LEN)
+		return -EINVAL;
+	smmudev_idx = get_mods_smmu_device_index(dev_name);
+	if (smmudev_idx >= 0)
+		smmu_pdev = get_mods_smmu_device(smmudev_idx);
+	if (!smmu_pdev || smmudev_idx < 0) {
+		mods_error_printk("smmu device %s is not found\n", dev_name);
+		return -ENODEV;
+	}
+	smmu_pdev->cid = controller;
+	return tegra_pcie_bpmp_set_ctrl_state(smmu_pdev, enable);
+}
+#else
+
+static int uphy_bpmp_pcie_controller_state_set(int controller, int enable)
+{
+	mods_error_printk("bpmp mrq api is not supported\n");
+	return -ENODEV;
+}
+#endif
+
+int esc_mods_bpmp_set_pcie_state(
+	struct mods_client *client,
+	struct MODS_SET_PCIE_STATE *p
+)
+{
+
+	return uphy_bpmp_pcie_controller_state_set(p->controller, p->enable);
+}
+
+#ifdef MODS_ENABLE_BPMP_MRQ_API
+static int tegra_pcie_bpmp_set_pll_state(struct mods_smmu_dev *pcie_dev,
+					 bool enable)
+{
+	struct mrq_uphy_response resp;
+	struct tegra_bpmp_message msg;
+	struct mrq_uphy_request req;
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	if (enable) {
+		req.cmd = CMD_UPHY_PCIE_EP_CONTROLLER_PLL_INIT;
+		req.ep_ctrlr_pll_init.ep_controller = pcie_dev->cid;
+	} else {
+		req.cmd = CMD_UPHY_PCIE_EP_CONTROLLER_PLL_OFF;
+		req.ep_ctrlr_pll_off.ep_controller = pcie_dev->cid;
+	}
+
+	memset(&msg, 0, sizeof(msg));
+	msg.mrq = MRQ_UPHY;
+	msg.tx.data = &req;
+	msg.tx.size = sizeof(req);
+	msg.rx.data = &resp;
+	msg.rx.size = sizeof(resp);
+
+	return tegra_bpmp_transfer(pcie_dev->bpmp, &msg);
+}
+
+static int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
+{
+	#define MAX_DEV_NAME_LEN 32
+	char dev_name[MAX_DEV_NAME_LEN];
+	struct mods_smmu_dev *smmu_pdev = NULL;
+	int smmudev_idx, n;
+
+	memset(dev_name, 0, MAX_DEV_NAME_LEN);
+	n = snprintf(dev_name, MAX_DEV_NAME_LEN, "mods_pcie%d", controller);
+	if (n < 0 || n >= MAX_DEV_NAME_LEN)
+		return -EINVAL;
+	smmudev_idx = get_mods_smmu_device_index(dev_name);
+	if (smmudev_idx >= 0)
+		smmu_pdev = get_mods_smmu_device(smmudev_idx);
+	if (!smmu_pdev || smmudev_idx < 0) {
+		mods_error_printk("smmu device %s is not found\n", dev_name);
+		return -ENODEV;
+	}
+	smmu_pdev->cid = controller;
+	return tegra_pcie_bpmp_set_pll_state(smmu_pdev, enable);
+}
+#else
+
+static int uphy_bpmp_pcie_set_pll_state(int controller, int enable)
+{
+	mods_error_printk("bpmp mrq api is not supported\n");
+	return -ENODEV;
+}
+#endif
+
+int esc_mods_bpmp_init_pcie_ep_pll(
+	struct mods_client *client,
+	struct MODS_INIT_PCIE_EP_PLL *p
+)
+{
+	return uphy_bpmp_pcie_set_pll_state(p->ep_id, 1);
+}

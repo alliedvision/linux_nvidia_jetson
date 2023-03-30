@@ -1,7 +1,7 @@
 /*
  * Tegra VI/CSI register offsets
  *
- * Copyright (c) 2016-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -133,8 +133,6 @@
 #define TEGRA_CSI_PIXEL_PARSER_STATUS                   0x01c
 #define TEGRA_CSI_CSI_SW_SENSOR_RESET                   0x020
 
-#define TEGRA_CSI_PIXEL_PARSER_PL_CRC_ERR               (0x1 << 4)
-
 /* CSI PHY registers */
 /* CSI_PHY_CIL_COMMAND_0 offset 0x0d0 from TEGRA_CSI_PIXEL_PARSER_0_BASE */
 #define TEGRA_CSI_PHY_CIL_COMMAND                       0x0d0
@@ -156,7 +154,6 @@
 #define TEGRA_CSI_CIL_PAD_CONFIG1                       0x004
 #define TEGRA_CSI_CIL_PHY_CONTROL                       0x008
 #define BYPASS_LP_SEQ					(0x1 << 6)
-#define BYPASS_LP_SEQ_SHIFT				6
 #define TEGRA_CSI_CIL_INTERRUPT_MASK                    0x00c
 #define TEGRA_CSI_CIL_STATUS                            0x010
 #define TEGRA_CSI_CILX_STATUS                           0x014

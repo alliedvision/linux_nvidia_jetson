@@ -1,0 +1,71 @@
+From 1e83a5cbcacf76dc2556aaf38e9d11cbac787b35 Mon Sep 17 00:00:00 2001
+From: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+Date: Tue, 24 Nov 2020 05:54:07 -0800
+Subject: [PATCH 189/830] ANDROID: sched/core: Add vendor hook to change task
+ affinity
+X-NVConfidentiality: public
+
+Vendors might want to change tasks affinity settings when they are
+moving from one cpuset into the other. Add vendor hook to give control
+to vendor to implement what they need in sched_setaffinity().
+
+Bug: 174125747
+Change-Id: Ie703448147377cd62e76a58b620a7ab849a04924
+Signed-off-by: Satya Durga Srinivasu Prabhala <satyap@codeaurora.org>
+---
+ drivers/android/vendor_hooks.c | 3 ++-
+ include/trace/hooks/sched.h    | 4 ++++
+ kernel/sched/core.c            | 3 +++
+ 3 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/android/vendor_hooks.c b/drivers/android/vendor_hooks.c
+index 1aff188601cc..9a8070c1e25a 100644
+--- a/drivers/android/vendor_hooks.c
++++ b/drivers/android/vendor_hooks.c
+@@ -69,4 +69,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_migrate_queued_task);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_find_energy_efficient_cpu);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_sugov_sched_attr);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
+-EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
+\ No newline at end of file
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
++EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_setaffinity);
+diff --git a/include/trace/hooks/sched.h b/include/trace/hooks/sched.h
+index d91c4d10a84e..82bda911c91e 100644
+--- a/include/trace/hooks/sched.h
++++ b/include/trace/hooks/sched.h
+@@ -116,6 +116,9 @@ struct sugov_policy;
+ DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
+ 	TP_PROTO(struct sugov_policy *sg_policy, unsigned int next_freq, bool *should_update),
+ 	TP_ARGS(sg_policy, next_freq, should_update), 1);
++DECLARE_RESTRICTED_HOOK(android_rvh_sched_setaffinity,
++	TP_PROTO(struct task_struct *p, const struct cpumask *in_mask, int *retval),
++	TP_ARGS(p, in_mask, retval), 1);
+ #else
+ #define trace_android_rvh_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+ #define trace_android_rvh_select_task_rq_rt(p, prev_cpu, sd_flag, wake_flags, new_cpu)
+@@ -141,6 +144,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
+ #define trace_android_vh_set_sugov_sched_attr(attr)
+ #define trace_android_rvh_set_iowait(p, should_iowait_boost)
+ #define trace_android_rvh_set_sugov_update(sg_policy, next_freq, should_update)
++#define trace_android_rvh_sched_setaffinity(p, in_mask, retval)
+ #endif
+ #endif /* _TRACE_HOOK_SCHED_H */
+ /* This part must be outside protection */
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index c007950c7a13..c0c2380b1666 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -5996,6 +5996,9 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
+ 			goto again;
+ 		}
+ 	}
++
++	trace_android_rvh_sched_setaffinity(p, in_mask, &retval);
++
+ out_free_new_mask:
+ 	free_cpumask_var(new_mask);
+ out_free_cpus_allowed:
+-- 
+2.17.1
+

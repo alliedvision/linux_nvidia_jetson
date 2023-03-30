@@ -1,7 +1,7 @@
 /*
  * dpaux.c: dpaux function definitions.
  *
- * Copyright (c) 2014-2019, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -20,15 +20,20 @@
 #include <linux/err.h>
 #include <linux/tegra_prod.h>
 #include <linux/of_irq.h>
-#include <linux/tegra_pm_domains.h>
 #include <linux/delay.h>
+#include <linux/version.h>
+#if KERNEL_VERSION(4, 15, 0) > LINUX_VERSION_CODE
 #include <soc/tegra/chip-id.h>
+#include <linux/tegra_pm_domains.h>
+#else
+#include <soc/tegra/fuse.h>
+#endif
 
 #include "dpaux_regs.h"
 #include "dc_priv.h"
 #include "dpaux.h"
 
-static struct of_device_id tegra_dpaux_pd[] = {
+static struct of_device_id __maybe_unused tegra_dpaux_pd[] = {
 	{ .compatible = "nvidia,tegra210-sor-pd", },
 	{ .compatible = "nvidia,tegra186-disa-pd", },
 	{ .compatible = "nvidia,tegra194-disa-pd", },
@@ -84,7 +89,11 @@ void tegra_dpaux_get(struct tegra_dc_dpaux_data *dpaux)
 	WARN_ON(enable_count < 1);
 	if (enable_count == 1) {
 		tegra_dc_io_start(dpaux->dc);
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		pm_runtime_get_sync(dpaux->genpd_dev);
+#else
 		tegra_unpowergate_partition(dpaux->powergate_id);
+#endif
 		tegra_dpaux_clk_en(dpaux);
 		tegra_dpaux_reset(dpaux);
 	}
@@ -95,7 +104,11 @@ void tegra_dpaux_put(struct tegra_dc_dpaux_data *dpaux)
 	WARN_ON(atomic_read(&dpaux->enable_count) == 0);
 	if (atomic_dec_return(&dpaux->enable_count) == 0) {
 		tegra_dpaux_clk_dis(dpaux);
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		pm_runtime_put_sync(dpaux->genpd_dev);
+#else
 		tegra_powergate_partition(dpaux->powergate_id);
+#endif
 		tegra_dc_io_end(dpaux->dc);
 	}
 }
@@ -534,7 +547,6 @@ int tegra_dc_dpaux_write_chunk_locked(struct tegra_dc_dpaux_data *dpaux,
 
 		if ((*aux_stat & DPAUX_DP_AUXSTAT_REPLYTYPE_MASK) ==
 			DPAUX_DP_AUXSTAT_REPLYTYPE_ACK) {
-			(*size)++;
 			return 0;
 		} else {
 			dev_err(&dpaux->dc->ndev->dev,
@@ -828,8 +840,27 @@ struct tegra_dc_dpaux_data *tegra_dpaux_init_data(struct tegra_dc *dc,
 		}
 	}
 
-	mutex_init(&dpaux->lock);
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	/*
+	 * DPAUX powerdomain, named "dpaux", should be specified under DC node.
+	 *
+	 * dev_pm_domain_attach_by_name() calls pm_runtime_enable() on the
+	 * newly created virtual device, no need to enable again.
+	 */
+	dpaux->genpd_dev = dev_pm_domain_attach_by_name(
+					&dc->ndev->dev, "dpaux");
+
+	if (IS_ERR(dpaux->genpd_dev)) {
+		dev_err(&dc->ndev->dev,
+			"failed to attach dpaux pm-domain dpaux.%d\n",
+			dpaux->ctrl_num);
+		err = -EINVAL;
+		goto err_put_rst;
+	}
+#else
 	dpaux->powergate_id = tegra_pd_get_powergate_id(tegra_dpaux_pd);
+#endif
+	mutex_init(&dpaux->lock);
 	dpaux->dc = dc;
 	dpaux->base = base;
 	dpaux->clk = clk;
@@ -896,6 +927,11 @@ void tegra_dpaux_destroy_data(struct tegra_dc_dpaux_data *dpaux)
 
 	if (tegra_dc_is_t21x())
 		clk_put(dpaux->clk);
+
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+	if (!IS_ERR_OR_NULL(dpaux->genpd_dev))
+		dev_pm_domain_detach(dpaux->genpd_dev, true);
+#endif
 
 	iounmap(dpaux->base);
 

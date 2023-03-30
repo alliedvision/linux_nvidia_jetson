@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/stddef.h>
+#include <linux/version.h>
 #include <stdbool.h>
 
 #include "tracebuf.h"
@@ -283,6 +284,12 @@ int tracebuf_pull(struct tracectx *ctx, struct pullstate *state,
 
 	if ((addr < ctx->begin) || (addr + sizeof(uint64_t) > ctx->end))
 		return -EIO;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
+	spec_bar();
+#else
+	speculation_barrier();
+#endif
 
 	offset = *(uint64_t *)addr;
 

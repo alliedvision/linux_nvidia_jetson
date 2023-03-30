@@ -1,7 +1,7 @@
 /*
  * Tegra Graphics Host Unit clock scaling
  *
- * Copyright (c) 2010-2021, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2022, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,18 +24,18 @@
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/clk/tegra.h>
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 #include <linux/pm_qos.h>
 #include <trace/events/nvhost.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 #include <soc/tegra/tegra-dvfs.h>
 #include <linux/clk-provider.h>
-#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0)
 #include <governor.h>
+#endif
 
 #include "dev.h"
 #include "debug.h"
@@ -43,6 +43,7 @@
 #include "nvhost_acm.h"
 #include "nvhost_scale.h"
 #include "host1x/host1x_actmon.h"
+#include "platform.h"
 
 static ssize_t nvhost_scale_load_show(struct device *dev,
 				      struct device_attribute *attr,
@@ -68,95 +69,39 @@ static DEVICE_ATTR(load, S_IRUGO, nvhost_scale_load_show, NULL);
  * This function initialises the frequency table for the given device profile
  */
 
-static int tegra_update_freq_table(struct clk *c,
-				   struct nvhost_device_data *pdata,
-				   int *num_freqs)
+static int nvhost_scale_make_freq_table(struct nvhost_device_profile *profile)
 {
-	long max_freq = clk_round_rate(c, UINT_MAX);
-	long min_freq = clk_round_rate(c, 0);
-	long clk_step, found_rate, last_rate, rate;
-	int cnt = 0;
+	struct nvhost_device_data *pdata = platform_get_drvdata(profile->pdev);
+	unsigned long max_freq  = clk_round_rate(profile->clk, UINT_MAX);
+	unsigned long min_freq  = clk_round_rate(profile->clk, 0);
+	unsigned long rate      = clk_round_rate(profile->clk, min_freq + 1);
+	unsigned long clk_step  = rate - min_freq;
+	size_t cnt = 0;
+	size_t num_freqs = clk_step ? ((max_freq - min_freq) / clk_step) + 1 :
+					    1;
+
+	num_freqs = ((max_freq - min_freq) % clk_step) ? num_freqs + 1 : num_freqs;
 
 	/* check if clk scaling is available */
 	if (min_freq <= 0 || max_freq <= 0)
 		return 0;
 
-	/* initial default min freq */
-	pdata->freqs[0] = min_freq;
-	last_rate = min_freq;
-	cnt++;
+	pdata->freq_table = devm_kcalloc(&(profile->pdev->dev),
+					num_freqs,
+					sizeof(*pdata->freq_table),
+					GFP_KERNEL);
 
-	/* pick clk_step with assumption that all frequency table gets full.
-	 * If it is too small, we will not get any high frequencies to the table
-	 */
-	clk_step =  (max_freq + min_freq) / NVHOST_MODULE_MAX_FREQS;
-	/* tune to get next freq in steps */
-	for (rate = min_freq + clk_step; rate <= max_freq; rate += clk_step) {
-		found_rate = clk_round_rate(c, rate);
-		if (found_rate > last_rate) {
-			pdata->freqs[cnt] = (unsigned long)found_rate;
-			last_rate = found_rate;
-			cnt++;
-		}
-		if (cnt == NVHOST_MODULE_MAX_FREQS)
-			break;
-	}
+	if (!pdata->freq_table)
+		return -ENOMEM;
 
-	/* fill the remaining table with max_freq */
-	for (; cnt < NVHOST_MODULE_MAX_FREQS; cnt++)
-		pdata->freqs[cnt] = (unsigned long)max_freq;
+	for (rate = min_freq; cnt < num_freqs && rate <= max_freq;
+	     rate += clk_step)
+		pdata->freq_table[cnt++] = rate;
 
-	*num_freqs = cnt;
+	profile->devfreq_profile.freq_table = pdata->freq_table;
+	profile->devfreq_profile.max_state  = num_freqs;
 
 	return 0;
-}
-
-static int nvhost_scale_make_freq_table(struct nvhost_device_profile *profile)
-{
-	unsigned long *freqs = NULL;
-	int num_freqs = 0, err = 0, low_end_cnt = 0;
-	unsigned long max_freq =  clk_round_rate(profile->clk, UINT_MAX);
-	unsigned long min_freq =  clk_round_rate(profile->clk, 0);
-	struct nvhost_device_data *pdata = platform_get_drvdata(profile->pdev);
-
-	if (!tegra_platform_is_silicon())
-		goto exit;
-
-	if (nvhost_is_124() || nvhost_is_210()) {
-		err = tegra_dvfs_get_freqs(clk_get_parent(profile->clk),
-					&freqs, &num_freqs);
-		if (err)
-			return err;
-	}
-
-	if (!freqs)
-		err = tegra_update_freq_table(profile->clk, pdata, &num_freqs);
-
-	if (pdata->freqs[0])
-		freqs = pdata->freqs;
-
-	/* check for duplicate frequencies at higher end */
-	while (((num_freqs >= 2) &&
-		(freqs[num_freqs - 2] == freqs[num_freqs - 1])) ||
-	       (num_freqs && (max_freq < freqs[num_freqs - 1])))
-		num_freqs--;
-
-	/* check low end */
-	while (((num_freqs >= 2) && (freqs[low_end_cnt] == freqs[low_end_cnt + 1])) ||
-	       (num_freqs && (freqs[low_end_cnt] < min_freq))) {
-		low_end_cnt++;
-		num_freqs--;
-	}
-	freqs += low_end_cnt;
-
-exit:
-	if (!num_freqs)
-		dev_warn(&profile->pdev->dev, "dvfs table had no applicable frequencies!\n");
-
-	profile->devfreq_profile.freq_table = (unsigned long *)freqs;
-	profile->devfreq_profile.max_state = num_freqs;
-
-	return err;
 }
 
 /*
@@ -337,6 +282,35 @@ static int nvhost_scale_set_high_wmark(struct device *dev,
 	return 0;
 }
 
+static void unregister_opp(struct platform_device *pdev)
+{
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	dev_pm_opp_remove_all_dynamic(&pdev->dev);
+#endif
+}
+
+static int register_opp(struct platform_device *pdev)
+{
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 8, 0)
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvhost_device_profile *profile = pdata->power_profile;
+	unsigned long *freq_table = profile->devfreq_profile.freq_table;
+	int max_states = profile->devfreq_profile.max_state;
+	int err = 0;
+
+	err |= dev_pm_opp_add(&pdev->dev, freq_table[0], 0);
+	err |= dev_pm_opp_add(&pdev->dev, freq_table[max_states-1], 0);
+	if (err) {
+		nvhost_err(&pdev->dev, "Failed to regsiter opp\n");
+		unregister_opp(pdev);
+	}
+
+	return err;
+#else
+	return 0;
+#endif
+}
+
 /*
  * nvhost_scale_init(pdev)
  */
@@ -422,6 +396,9 @@ void nvhost_scale_init(struct platform_device *pdev)
 	/* initialize devfreq if governor is set and actmon enabled */
 	if (pdata->actmon_enabled && pdata->devfreq_governor) {
 		struct devfreq *devfreq;
+		int error = 0;
+
+		register_opp(pdev);
 
 		profile->devfreq_profile.initial_freq =
 			profile->devfreq_profile.freq_table[0];
@@ -446,6 +423,18 @@ void nvhost_scale_init(struct platform_device *pdev)
 		if (nvhost_module_add_client(pdev, devfreq)) {
 			nvhost_err(&pdev->dev,
 				"failed to register devfreq as acm client");
+		}
+
+		/* create symlink 'devfreq_dev' in nvhost dev. */
+		if (devfreq != NULL) {
+			error = sysfs_create_link(&pdev->dev.kobj,
+				&devfreq->dev.kobj, "devfreq_dev");
+
+			if (error) {
+				nvhost_err(&pdev->dev,
+					"Failed to create devfreq_dev: %d",
+					error);
+			}
 		}
 	}
 
@@ -482,11 +471,17 @@ void nvhost_scale_deinit(struct platform_device *pdev)
 	/* Remove devfreq from acm client list */
 	nvhost_module_remove_client(pdev, pdata->power_manager);
 
-	if (pdata->power_manager)
+	if (pdata->power_manager) {
 		devfreq_remove_device(pdata->power_manager);
+		sysfs_remove_link(&pdev->dev.kobj, "devfreq_dev");
+	}
 
-	if (pdata->actmon_enabled)
+	if (pdata->actmon_enabled) {
+		if (pdata->devfreq_governor)
+			unregister_opp(pdev);
+
 		device_remove_file(&pdev->dev, &dev_attr_load);
+	}
 
 	kfree(profile->devfreq_profile.freq_table);
 	kfree(profile->actmon);
@@ -676,7 +671,7 @@ static ssize_t actmon_sample_period_norm_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct host1x_actmon *actmon = s->private;
 	char buffer[40];
-	int buf_size;
+	unsigned int buf_size;
 	unsigned long period;
 
 	if (count >= sizeof(buffer))
@@ -751,7 +746,7 @@ static ssize_t actmon_k_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct host1x_actmon *actmon = s->private;
 	char buffer[40];
-	int buf_size;
+	unsigned int buf_size;
 	unsigned long k;
 
 	if (count >= sizeof(buffer))
@@ -766,8 +761,12 @@ static ssize_t actmon_k_write(struct file *file,
 			   "failed to copy from user user_buf=%px", user_buf);
 		return -EFAULT;
 	}
-
 	buffer[buf_size] = '\0';
+
+	if (strlen(buffer) > buf_size) {
+		nvhost_err(NULL, "buffer too large (>%d)", buf_size);
+		return -EFAULT;
+	}
 
 	if (kstrtoul(buffer, 10, &k)) {
 		nvhost_err(NULL, "failed to convert %s to ul", buffer);
@@ -776,7 +775,7 @@ static ssize_t actmon_k_write(struct file *file,
 
 	actmon_op().set_k(actmon, k);
 
-	return count;
+	return buf_size;
 }
 
 static const struct file_operations actmon_k_fops = {
@@ -793,11 +792,11 @@ void nvhost_actmon_debug_init(struct host1x_actmon *actmon,
 	if (!actmon)
 		return;
 
-	debugfs_create_file("actmon_k", S_IRUGO, de,
+	debugfs_create_file("actmon_k", S_IRUGO | S_IWUSR, de,
 			actmon, &actmon_k_fops);
 	debugfs_create_file("actmon_sample_period", S_IRUGO, de,
 			actmon, &actmon_sample_period_fops);
-	debugfs_create_file("actmon_sample_period_norm", S_IRUGO, de,
+	debugfs_create_file("actmon_sample_period_norm", S_IRUGO | S_IWUSR, de,
 			actmon, &actmon_sample_period_norm_fops);
 	debugfs_create_file("actmon_avg_norm", S_IRUGO, de,
 			actmon, &actmon_avg_norm_fops);

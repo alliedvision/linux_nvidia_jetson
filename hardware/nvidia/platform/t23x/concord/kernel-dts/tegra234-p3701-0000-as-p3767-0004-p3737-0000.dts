@@ -1,0 +1,143 @@
+/*
+ * Top level DTS file for CVM:P3701-0000 and CVB:P3737-0000.
+ *
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
+
+/dts-v1/;
+#include "cvm/tegra234-p3701-0000.dtsi"
+#include "cvb/tegra234-p3737-0000-a04.dtsi"
+#include "tegra234-power-tree-p3701-0000-p3737-0000.dtsi"
+#include "tegra234-dcb-p3701-0000-a02-p3737-0000-a01.dtsi"
+#include <tegra234-soc/mods-simple-bus.dtsi>
+#include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
+#include <t234-common-cvm/tegra234-cpuidle.dtsi>
+#include <t234-common-cvm/tegra234-thermal.dtsi>
+
+/ {
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	compatible = "nvidia,p3737-0000+p3701-0000-as-p3767-0004", "nvidia,tegra234", "nvidia,tegra23x";
+	model = "Jetson AGX Orin as Nano 4GB";
+
+	display@13800000 {
+		status = "okay";
+	};
+
+	dce@d800000 {
+		status = "okay";
+	};
+
+	bpmp {
+		i2c {
+			tegra_tmp451: temp-sensor@4c {
+				vdd-supply = <&p3737_vdd_1v8_sys>;
+
+				ext {
+					shutdown-limit = <107>;
+				};
+			};
+		};
+	};
+
+	reserved-memory {
+		linux,cma {
+			status = "okay";
+		};
+	};
+
+	tegra_soc_hwpm {
+                status = "okay";
+        };
+
+        tegra-cache {
+		status = "disabled";
+	};
+
+	host1x@13e00000 {
+		nvdla0@15880000 {
+			status = "disabled";
+		};
+
+		nvdla1@158c0000 {
+			status = "disabled";
+		};
+
+		pva0 {
+			status = "disabled";
+		};
+
+		nvenc@154c0000 {
+			status = "disabled";
+		};
+
+		nvjpg@15380000 {
+			status = "disabled";
+		};
+
+		nvjpg1@15540000 {
+			status = "disabled";
+		};
+
+		ofa@15a50000 {
+			status = "disabled";
+		};
+	};
+};
+
+/ {
+	/delete-node/ funnel_ccplex2@26050000;
+
+	funnel_ccplex1@26040000 {
+		in-ports {
+			/delete-node/ port@3;
+			/delete-node/ port@2;
+		};
+	};
+
+	funnel_top_ccplex@26020000 {
+		in-ports {
+			/delete-node/ port@2;
+		};
+	};
+
+	/delete-node/ cpu11_etm@27B40000;
+	/delete-node/ cpu10_etm@27A40000;
+	/delete-node/ cpu9_etm@27940000;
+	/delete-node/ cpu8_etm@27840000;
+	/delete-node/ cpu7_etm@27740000;
+	/delete-node/ cpu6_etm@27640000;
+
+	/delete-node/ dsu-pmu-2;
+
+	dsu-pmu-1 {
+		cpus = <&{/cpus/cpu@4}>, <&{/cpus/cpu@5}>;
+	};
+
+	cpus {
+		cpu-map {
+			/delete-node/ cluster2;
+
+			cluster1 {
+				/delete-node/ core3;
+				/delete-node/ core2;
+			};
+		};
+		/delete-node/ cpu@6;
+		/delete-node/ cpu@7;
+		/delete-node/ cpu@8;
+		/delete-node/ cpu@9;
+		/delete-node/ cpu@10;
+		/delete-node/ cpu@11;
+	};
+};

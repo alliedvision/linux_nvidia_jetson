@@ -1,7 +1,7 @@
 /*
  * Tegra TSEC Module Support
  *
- * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -29,11 +29,11 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/dma-mapping.h>
-#include <linux/tegra_pm_domains.h>
 #include <linux/platform/tegra/tegra_mc.h>
 
-#include <soc/tegra/chip-id.h>
+#include <linux/version.h>
 
+#include "platform.h"
 #include "dev.h"
 #include "tsec.h"
 #include "flcn/flcn.h"
@@ -43,22 +43,19 @@
 #include "nvhost_acm.h"
 #include "chip_support.h"
 #include "nvhost_intr.h"
-#include "t124/t124.h"
 #include "t210/t210.h"
 #include "nvhost_job.h"
 #include "nvhost_channel.h"
 #include "nvhost_cdma.h"
-#include "host1x/host1x01_hardware.h"
+#include "host1x/host1x04_hardware.h"
 #include "class_ids.h"
 #include "tsec_methods.h"
-#include "tsec_drv.h"
 #include "nvhost_vm.h"
 
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-#include "t186/t186.h"
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 #include "t194/t194.h"
+#include "t23x/t23x.h"
+#ifdef CONFIG_TEGRA_T239_GRHOST
+#include "t239/t239.h"
 #endif
 
 #define TSEC_IDLE_TIMEOUT_DEFAULT	10000	/* 10 milliseconds */
@@ -71,10 +68,10 @@
 #define TSEC_CARVEOUT_SIZE_OFFSET	8
 
 #define hdcp_align(var)	(((unsigned long)((u8 *)hdcp_context->var \
-			+ HDCP_ALIGNMENT_256 - 1)) & ~HDCP_ALIGNMENT_256);
+			+ HDCP_ALIGNMENT_256 - 1)) & ~(HDCP_ALIGNMENT_256 - 1));
 
 #define hdcp_align_dma(var) (((unsigned long)(hdcp_context->var \
-			+ HDCP_ALIGNMENT_256 - 1)) & ~HDCP_ALIGNMENT_256);
+			+ HDCP_ALIGNMENT_256 - 1)) & ~(HDCP_ALIGNMENT_256 - 1));
 
 #define FW_NAME_SIZE 32
 
@@ -94,16 +91,22 @@ static struct nvhost_channel *channel = NULL;
 int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 {
 	int err = 0;
-	DEFINE_DMA_ATTRS(attrs);
+
+	if (!tsec) {
+		err = -EPROBE_DEFER;
+		goto exit;
+	}
+
 	if (!hdcp_context) {
 		err = -EINVAL;
 		goto exit;
 	}
+
 	hdcp_context->cpuvaddr_scratch = dma_alloc_attrs(&tsec->dev,
 					HDCP_SCRATCH_BUFFER_SIZE,
 					&hdcp_context->dma_handle_scratch,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_scratch) {
 		err = -ENOMEM;
 		goto exit;
@@ -112,7 +115,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_DCP_KPUB_SIZE_ALIGNED,
 					&hdcp_context->dma_handle_dcp_kpub,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_dcp_kpub) {
 		err = -ENOMEM;
 		goto exit;
@@ -134,7 +137,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_SRM_SIZE_ALIGNED,
 					&hdcp_context->dma_handle_srm,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_srm) {
 		err = -ENOMEM;
 		goto exit;
@@ -144,7 +147,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 				HDCP_CERT_SIZE_ALIGNED,
 				&hdcp_context->dma_handle_cert,
 				GFP_KERNEL,
-				__DMA_ATTR(attrs));
+				0);
 
 	if (!hdcp_context->cpuvaddr_cert) {
 		err = -ENOMEM;
@@ -168,7 +171,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_MTHD_BUF_SIZE,
 					&hdcp_context->dma_handle_mthd_buf,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_mthd_buf) {
 		err = -ENOMEM;
 		goto exit;
@@ -191,7 +194,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_RCVR_ID_LIST_SIZE,
 					&hdcp_context->dma_handle_rcvr_id_list,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_rcvr_id_list) {
 		err = -ENOMEM;
 		goto exit;
@@ -201,7 +204,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_CONTENT_BUF_SIZE,
 					&hdcp_context->dma_handle_input_buf,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_input_buf) {
 		err = -ENOMEM;
 		goto exit;
@@ -211,7 +214,7 @@ int tsec_hdcp_create_context(struct hdcp_context_t *hdcp_context)
 					HDCP_CONTENT_BUF_SIZE,
 					&hdcp_context->dma_handle_output_buf,
 					GFP_KERNEL,
-					__DMA_ATTR(attrs));
+					0);
 	if (!hdcp_context->cpuvaddr_output_buf) {
 		err = -ENOMEM;
 		goto exit;
@@ -223,7 +226,12 @@ exit:
 int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 {
 	int err = 0;
-	DEFINE_DMA_ATTRS(attrs);
+
+	if (!tsec) {
+		err = -EPROBE_DEFER;
+		goto exit;
+	}
+
 	if (!hdcp_context) {
 		err = -EINVAL;
 		goto exit;
@@ -233,7 +241,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_SCRATCH_BUFFER_SIZE,
 			hdcp_context->cpuvaddr_scratch,
 			hdcp_context->dma_handle_scratch,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_scratch = NULL;
 	}
 	if (hdcp_context->cpuvaddr_dcp_kpub) {
@@ -241,7 +249,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_DCP_KPUB_SIZE_ALIGNED,
 			hdcp_context->cpuvaddr_dcp_kpub,
 			hdcp_context->dma_handle_dcp_kpub,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_dcp_kpub = NULL;
 	}
 	if (hdcp_context->cpuvaddr_srm) {
@@ -249,7 +257,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_SRM_SIZE_ALIGNED,
 			hdcp_context->cpuvaddr_srm,
 			hdcp_context->dma_handle_srm,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_srm = NULL;
 	}
 
@@ -258,7 +266,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_CERT_SIZE_ALIGNED,
 			hdcp_context->cpuvaddr_cert,
 			hdcp_context->dma_handle_cert,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_cert = NULL;
 	}
 
@@ -267,7 +275,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_MTHD_BUF_SIZE,
 			hdcp_context->cpuvaddr_mthd_buf,
 			hdcp_context->dma_handle_mthd_buf,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_mthd_buf = NULL;
 	}
 
@@ -276,7 +284,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_RCVR_ID_LIST_SIZE,
 			hdcp_context->cpuvaddr_rcvr_id_list,
 			hdcp_context->dma_handle_rcvr_id_list,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_rcvr_id_list = NULL;
 	}
 
@@ -285,7 +293,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_CONTENT_BUF_SIZE,
 			hdcp_context->cpuvaddr_input_buf,
 			hdcp_context->dma_handle_input_buf,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_input_buf = NULL;
 	}
 
@@ -294,7 +302,7 @@ int tsec_hdcp_free_context(struct hdcp_context_t *hdcp_context)
 			HDCP_CONTENT_BUF_SIZE,
 			hdcp_context->cpuvaddr_output_buf,
 			hdcp_context->dma_handle_output_buf,
-			__DMA_ATTR(attrs));
+			0);
 		hdcp_context->cpuvaddr_output_buf = NULL;
 	}
 exit:
@@ -374,18 +382,23 @@ void tsec_send_method(struct hdcp_context_t *hdcp_context,
 	u32 *cpuvaddr = NULL;
 	static u32 id = 0;
 	dma_addr_t dma_handle = 0;
-	DEFINE_DMA_ATTRS(attrs);
 	u32 increment_opcode;
 	struct nvhost_device_data *pdata = platform_get_drvdata(tsec);
 	int err;
+
+	/* Ensure that TSEC is powered through the operation. */
+	err = nvhost_module_busy(tsec);
+	if (err) {
+		nvhost_err(&tsec->dev, "Failed to power-on TSEC\n");
+		return;
+	}
 
 	mutex_lock(&tegra_tsec_lock);
 	if (!channel) {
 		err = nvhost_channel_map(pdata, &channel, pdata);
 		if (err) {
 			nvhost_err(&tsec->dev, "Channel map failed\n");
-			mutex_unlock(&tegra_tsec_lock);
-			return;
+			goto exit_idle;
 		}
 
 		if (!id) {
@@ -393,19 +406,17 @@ void tsec_send_method(struct hdcp_context_t *hdcp_context,
 			if (!id) {
 				nvhost_err(&tsec->dev, "failed to get sync point\n");
 				nvhost_putchannel(channel, 1);
-				mutex_unlock(&tegra_tsec_lock);
-				return;
+				goto exit_idle;
 			}
 		}
 	}
 
 	cpuvaddr = dma_alloc_attrs(tsec->dev.parent, HDCP_MTHD_BUF_SIZE,
 			&dma_handle, GFP_KERNEL,
-			__DMA_ATTR(attrs));
+			0);
 	if (!cpuvaddr) {
 		nvhost_err(&tsec->dev, "Failed to allocate memory\n");
-		mutex_unlock(&tegra_tsec_lock);
-		return;
+		goto exit_idle;
 	}
 
 	memset(cpuvaddr, 0x0, HDCP_MTHD_BUF_SIZE);
@@ -475,8 +486,10 @@ void tsec_send_method(struct hdcp_context_t *hdcp_context,
 
 	dma_free_attrs(tsec->dev.parent,
 		HDCP_MTHD_BUF_SIZE, cpuvaddr,
-		dma_handle, __DMA_ATTR(attrs));
+		dma_handle, 0);
+exit_idle:
 	mutex_unlock(&tegra_tsec_lock);
+	nvhost_module_idle(tsec);
 }
 
 
@@ -543,6 +556,13 @@ static int tsec_load_kfuse(struct platform_device *pdev)
 		return 0;
 	else
 		return -1;
+}
+
+int nvhost_tsec_finalize_poweron_t194(struct platform_device *dev)
+{
+	flcn_enable_thi_sec(dev);
+
+	return nvhost_tsec_finalize_poweron(dev);
 }
 
 int nvhost_tsec_finalize_poweron(struct platform_device *dev)
@@ -646,7 +666,6 @@ static int tsec_read_ucode(struct platform_device *dev, const char *fw_name)
 	struct flcn *m = get_flcn(dev);
 	const struct firmware *ucode_fw;
 	int err;
-	DEFINE_DMA_ATTRS(attrs);
 
 	m->dma_addr = 0;
 	m->mapped = NULL;
@@ -658,9 +677,8 @@ static int tsec_read_ucode(struct platform_device *dev, const char *fw_name)
 	}
 
 	m->size = ucode_fw->size + TSEC_RESERVE;
-	dma_set_attr(DMA_ATTR_READ_ONLY, __DMA_ATTR(attrs));
 	m->mapped = dma_alloc_attrs(&dev->dev, m->size, &m->dma_addr,
-				    GFP_KERNEL, __DMA_ATTR(attrs));
+				    GFP_KERNEL, DMA_ATTR_READ_ONLY);
 	if (!m->mapped) {
 		dev_err(&dev->dev, "dma memory allocation failed");
 		err = -ENOMEM;
@@ -681,7 +699,7 @@ static int tsec_read_ucode(struct platform_device *dev, const char *fw_name)
 clean_up:
 	if (m->mapped) {
 		dma_free_attrs(&dev->dev, m->size, m->mapped, m->dma_addr,
-			       __DMA_ATTR(attrs));
+			       DMA_ATTR_READ_ONLY);
 		m->mapped = NULL;
 		m->dma_addr = 0;
 	}
@@ -737,45 +755,35 @@ int nvhost_tsec_prepare_poweroff(struct platform_device *dev)
 	if (m)
 		m->is_booted = false;
 
-	mutex_lock(&tegra_tsec_lock);
 	if (channel) {
 		nvhost_putchannel(channel, 1);
 		channel = NULL;
 	}
-	mutex_unlock(&tegra_tsec_lock);
 
 	return 0;
 }
 
 
 static struct of_device_id tegra_tsec_of_match[] = {
-#ifdef TEGRA_12X_OR_HIGHER_CONFIG
-	{ .compatible = "nvidia,tegra124-tsec",
-		.data = (struct nvhost_device_data *)&t124_tsec_info },
-#endif
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
 	{ .name = "tsec",
 		.compatible = "nvidia,tegra210-tsec",
 		.data = (struct nvhost_device_data *)&t21_tsec_info },
 	{ .name = "tsecb",
 		.compatible = "nvidia,tegra210-tsec",
 		.data = (struct nvhost_device_data *)&t21_tsecb_info },
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{ .name = "tsec",
-		.compatible = "nvidia,tegra186-tsec",
-		.data = (struct nvhost_device_data *)&t18_tsec_info },
-	{ .name = "tsecb",
-		.compatible = "nvidia,tegra186-tsec",
-		.data = (struct nvhost_device_data *)&t18_tsecb_info },
-#endif
-#ifdef CONFIG_TEGRA_T19X_GRHOST
 	{ .name = "tsec",
 		.compatible = "nvidia,tegra194-tsec",
 		.data = (struct nvhost_device_data *)&t19_tsec_info },
 	{ .name = "tsecb",
 		.compatible = "nvidia,tegra194-tsec",
 		.data = (struct nvhost_device_data *)&t19_tsecb_info },
+	{ .name = "tsec",
+		.compatible = "nvidia,tegra234-tsec",
+		.data = (struct nvhost_device_data *)&t23x_tsec_info },
+#ifdef CONFIG_TEGRA_T239_GRHOST
+	{ .name = "tsec",
+		.compatible = "nvidia,tegra239-tsec",
+		.data = (struct nvhost_device_data *)&t239_tsec_info },
 #endif
 	{ },
 };
@@ -787,7 +795,6 @@ static int tsec_probe(struct platform_device *dev)
 	struct nvhost_device_data *pdata = NULL;
 	u32 carveout_addr;
 	u32 carveout_size;
-	DEFINE_DMA_ATTRS(attrs);
 
 	if (dev->dev.of_node) {
 		const struct of_device_id *match;
@@ -807,6 +814,7 @@ static int tsec_probe(struct platform_device *dev)
 	pdata->pdev = dev;
 	mutex_init(&pdata->lock);
 	platform_set_drvdata(dev, pdata);
+	dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(39));
 
 	node = of_get_child_by_name(dev->dev.of_node, "carveout");
 	if (node) {
@@ -828,13 +836,11 @@ static int tsec_probe(struct platform_device *dev)
 		}
 		pdata->carveout_size = carveout_size;
 
-		dma_set_attr(DMA_ATTR_SKIP_IOVA_GAP, __DMA_ATTR(attrs));
-		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, __DMA_ATTR(attrs));
 		pdata->carveout_addr = dma_map_single_attrs(&dev->dev,
 					       __va(pdata->carveout_addr),
 					       pdata->carveout_size,
 					       DMA_TO_DEVICE,
-					       __DMA_ATTR(attrs));
+					       DMA_ATTR_SKIP_CPU_SYNC);
 		if (dma_mapping_error(&dev->dev, pdata->carveout_addr)) {
 			dev_err(&dev->dev, "mapping to iova failed\n");
 			return -EINVAL;
@@ -843,25 +849,15 @@ static int tsec_probe(struct platform_device *dev)
 
 	err = nvhost_client_device_get_resources(dev);
 	if (err)
-		goto fail;
+		return err;
 	if (!tsec)
 		tsec = dev;
-
-	if (nvhost_module_init(dev)) {
-		dev_err(&dev->dev, "nvhost_module_init failed\n");
-		err = -EAGAIN;
-		goto fail;
-	}
+	nvhost_module_init(dev);
 
 	err = nvhost_client_device_init(dev);
-
-fail:
-	if (err)
-		dma_unmap_single_attrs(&dev->dev,
-				pdata->carveout_addr,
-				pdata->carveout_size,
-				DMA_TO_DEVICE,
-				__DMA_ATTR(attrs));
+	if (!err && tegra_get_chip_id() == TEGRA234) {
+		err = nvhost_t23x_tsec_intr_init(dev);
+	}
 
 	return err;
 }
@@ -872,7 +868,7 @@ static int __exit tsec_remove(struct platform_device *dev)
 	return 0;
 }
 
-static struct platform_driver tsec_driver = {
+struct platform_driver nvhost_tsec_driver = {
 	.probe = tsec_probe,
 	.remove = __exit_p(tsec_remove),
 	.driver = {
@@ -887,7 +883,7 @@ static struct platform_driver tsec_driver = {
 	}
 };
 
-static int __init tsec_key_setup(char *line)
+static int __init __maybe_unused tsec_key_setup(char *line)
 {
 	int i;
 	u8 tmp[] = {0, 0, 0};
@@ -911,37 +907,11 @@ static int __init tsec_key_setup(char *line)
 }
 __setup("otf_key=", tsec_key_setup);
 
-static struct of_device_id tegra_tsec_domain_match[] = {
-	{.compatible = "nvidia,tegra124-tsec-pd",
-	 .data = (struct nvhost_device_data *)&t124_tsec_info},
-	{.compatible = "nvidia,tegra132-tsec-pd",
-	 .data = (struct nvhost_device_data *)&t124_tsec_info},
-#ifdef TEGRA_21X_OR_HIGHER_CONFIG
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_LEGACY_PD)
+struct of_device_id nvhost_tsec_domain_match[] = {
 	{.compatible = "nvidia,tegra210-tsec-pd",
 	 .data = (struct nvhost_device_data *)&t21_tsec_info},
-#endif
-#ifdef CONFIG_ARCH_TEGRA_18x_SOC
-	{.compatible = "nvidia,tegra186-tsec-pd",
-	 .data = (struct nvhost_device_data *)&t18_tsec_info},
-#endif
 	{},
 };
+#endif
 
-static int __init tsec_init(void)
-{
-	int ret;
-
-	ret = nvhost_domain_init(tegra_tsec_domain_match);
-	if (ret)
-		return ret;
-
-	return platform_driver_register(&tsec_driver);
-}
-
-static void __exit tsec_exit(void)
-{
-	platform_driver_unregister(&tsec_driver);
-}
-
-module_init(tsec_init);
-module_exit(tsec_exit);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,171 +53,55 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_bus_gm20b_h_
-#define _hw_bus_gm20b_h_
+#ifndef NVGPU_HW_BUS_GM20B_H
+#define NVGPU_HW_BUS_GM20B_H
 
-static inline u32 bus_bar0_window_r(void)
-{
-	return 0x00001700U;
-}
-static inline u32 bus_bar0_window_base_f(u32 v)
-{
-	return (v & 0xffffffU) << 0U;
-}
-static inline u32 bus_bar0_window_target_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bar0_window_target_sys_mem_coherent_f(void)
-{
-	return 0x2000000U;
-}
-static inline u32 bus_bar0_window_target_sys_mem_noncoherent_f(void)
-{
-	return 0x3000000U;
-}
-static inline u32 bus_bar0_window_target_bar0_window_base_shift_v(void)
-{
-	return 0x00000010U;
-}
-static inline u32 bus_bar1_block_r(void)
-{
-	return 0x00001704U;
-}
-static inline u32 bus_bar1_block_ptr_f(u32 v)
-{
-	return (v & 0xfffffffU) << 0U;
-}
-static inline u32 bus_bar1_block_target_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bar1_block_target_sys_mem_coh_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 bus_bar1_block_target_sys_mem_ncoh_f(void)
-{
-	return 0x30000000U;
-}
-static inline u32 bus_bar1_block_mode_virtual_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 bus_bar2_block_r(void)
-{
-	return 0x00001714U;
-}
-static inline u32 bus_bar2_block_ptr_f(u32 v)
-{
-	return (v & 0xfffffffU) << 0U;
-}
-static inline u32 bus_bar2_block_target_vid_mem_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bar2_block_target_sys_mem_coh_f(void)
-{
-	return 0x20000000U;
-}
-static inline u32 bus_bar2_block_target_sys_mem_ncoh_f(void)
-{
-	return 0x30000000U;
-}
-static inline u32 bus_bar2_block_mode_virtual_f(void)
-{
-	return 0x80000000U;
-}
-static inline u32 bus_bar1_block_ptr_shift_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 bus_bar2_block_ptr_shift_v(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 bus_bind_status_r(void)
-{
-	return 0x00001710U;
-}
-static inline u32 bus_bind_status_bar1_pending_v(u32 r)
-{
-	return (r >> 0U) & 0x1U;
-}
-static inline u32 bus_bind_status_bar1_pending_empty_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bind_status_bar1_pending_busy_f(void)
-{
-	return 0x1U;
-}
-static inline u32 bus_bind_status_bar1_outstanding_v(u32 r)
-{
-	return (r >> 1U) & 0x1U;
-}
-static inline u32 bus_bind_status_bar1_outstanding_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bind_status_bar1_outstanding_true_f(void)
-{
-	return 0x2U;
-}
-static inline u32 bus_bind_status_bar2_pending_v(u32 r)
-{
-	return (r >> 2U) & 0x1U;
-}
-static inline u32 bus_bind_status_bar2_pending_empty_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bind_status_bar2_pending_busy_f(void)
-{
-	return 0x4U;
-}
-static inline u32 bus_bind_status_bar2_outstanding_v(u32 r)
-{
-	return (r >> 3U) & 0x1U;
-}
-static inline u32 bus_bind_status_bar2_outstanding_false_f(void)
-{
-	return 0x0U;
-}
-static inline u32 bus_bind_status_bar2_outstanding_true_f(void)
-{
-	return 0x8U;
-}
-static inline u32 bus_intr_0_r(void)
-{
-	return 0x00001100U;
-}
-static inline u32 bus_intr_0_pri_squash_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 bus_intr_0_pri_fecserr_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 bus_intr_0_pri_timeout_m(void)
-{
-	return 0x1U << 3U;
-}
-static inline u32 bus_intr_en_0_r(void)
-{
-	return 0x00001140U;
-}
-static inline u32 bus_intr_en_0_pri_squash_m(void)
-{
-	return 0x1U << 1U;
-}
-static inline u32 bus_intr_en_0_pri_fecserr_m(void)
-{
-	return 0x1U << 2U;
-}
-static inline u32 bus_intr_en_0_pri_timeout_m(void)
-{
-	return 0x1U << 3U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define bus_bar0_window_r()                                        (0x00001700U)
+#define bus_bar0_window_base_f(v)                   ((U32(v) & 0xffffffU) << 0U)
+#define bus_bar0_window_target_vid_mem_f()                                (0x0U)
+#define bus_bar0_window_target_sys_mem_coherent_f()                 (0x2000000U)
+#define bus_bar0_window_target_sys_mem_noncoherent_f()              (0x3000000U)
+#define bus_bar0_window_target_bar0_window_base_shift_v()          (0x00000010U)
+#define bus_bar1_block_r()                                         (0x00001704U)
+#define bus_bar1_block_ptr_f(v)                    ((U32(v) & 0xfffffffU) << 0U)
+#define bus_bar1_block_target_vid_mem_f()                                 (0x0U)
+#define bus_bar1_block_target_sys_mem_coh_f()                      (0x20000000U)
+#define bus_bar1_block_target_sys_mem_ncoh_f()                     (0x30000000U)
+#define bus_bar1_block_mode_virtual_f()                            (0x80000000U)
+#define bus_bar2_block_r()                                         (0x00001714U)
+#define bus_bar2_block_ptr_f(v)                    ((U32(v) & 0xfffffffU) << 0U)
+#define bus_bar2_block_target_vid_mem_f()                                 (0x0U)
+#define bus_bar2_block_target_sys_mem_coh_f()                      (0x20000000U)
+#define bus_bar2_block_target_sys_mem_ncoh_f()                     (0x30000000U)
+#define bus_bar2_block_mode_virtual_f()                            (0x80000000U)
+#define bus_bar1_block_ptr_shift_v()                               (0x0000000cU)
+#define bus_bar2_block_ptr_shift_v()                               (0x0000000cU)
+#define bus_bind_status_r()                                        (0x00001710U)
+#define bus_bind_status_bar1_pending_v(r)                   (((r) >> 0U) & 0x1U)
+#define bus_bind_status_bar1_pending_empty_f()                            (0x0U)
+#define bus_bind_status_bar1_pending_busy_f()                             (0x1U)
+#define bus_bind_status_bar1_outstanding_v(r)               (((r) >> 1U) & 0x1U)
+#define bus_bind_status_bar1_outstanding_false_f()                        (0x0U)
+#define bus_bind_status_bar1_outstanding_true_f()                         (0x2U)
+#define bus_bind_status_bar2_pending_v(r)                   (((r) >> 2U) & 0x1U)
+#define bus_bind_status_bar2_pending_empty_v()                     (0x00000000U)
+#define bus_bind_status_bar2_pending_empty_f()                            (0x0U)
+#define bus_bind_status_bar2_pending_busy_v()                      (0x00000001U)
+#define bus_bind_status_bar2_pending_busy_f()                             (0x4U)
+#define bus_bind_status_bar2_outstanding_v(r)               (((r) >> 3U) & 0x1U)
+#define bus_bind_status_bar2_outstanding_false_v()                 (0x00000000U)
+#define bus_bind_status_bar2_outstanding_false_f()                        (0x0U)
+#define bus_bind_status_bar2_outstanding_true_v()                  (0x00000001U)
+#define bus_bind_status_bar2_outstanding_true_f()                         (0x8U)
+#define bus_intr_0_r()                                             (0x00001100U)
+#define bus_intr_0_pri_squash_m()                              (U32(0x1U) << 1U)
+#define bus_intr_0_pri_fecserr_m()                             (U32(0x1U) << 2U)
+#define bus_intr_0_pri_timeout_m()                             (U32(0x1U) << 3U)
+#define bus_intr_en_1_r()                                          (0x00001144U)
+#define bus_intr_en_1_pri_squash_m()                           (U32(0x1U) << 1U)
+#define bus_intr_en_1_pri_fecserr_m()                          (U32(0x1U) << 2U)
+#define bus_intr_en_1_pri_timeout_m()                          (U32(0x1U) << 3U)
 #endif

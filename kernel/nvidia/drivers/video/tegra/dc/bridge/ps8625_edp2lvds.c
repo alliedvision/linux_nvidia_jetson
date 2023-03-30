@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/ps8625_edp2lvds.c
  *
- * Copyright (c) 2017-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *	Gaurav Singh <gaursingh@nvidia.com>
@@ -128,12 +128,12 @@ static struct i2c_client *init_i2c_slave(struct tegra_dc_dp_data *dp)
 		goto err;
 	}
 
-	client = i2c_new_device(adapter, &p_data);
+	client = tegra_dc_i2c_new_device(adapter, &p_data);
 	i2c_put_adapter(adapter);
-	if (!client) {
+	if (IS_ERR(client)) {
 		dev_err(&dp->dc->ndev->dev,
 			"edp2lvds: can't add i2c slave device\n");
-		err = -EBUSY;
+		err = PTR_ERR(client);
 		goto err;
 	}
 

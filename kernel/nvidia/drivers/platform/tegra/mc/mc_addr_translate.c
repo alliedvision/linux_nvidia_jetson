@@ -1,11 +1,17 @@
 /*
- * Copyright (c) 2015-2016, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #define pr_fmt(fmt) "ecc-cfg: " fmt
 
@@ -140,7 +146,7 @@ static u32 mc_reverse_masked_bank(u64 linear, int masked_bank, int bankpos,
 	u32 pre_bank = 0;
 	u32 pos = bankpos + bankbits;
 	u64 bank_bit;
-	u32 i, j;
+	int i, j;
 
 	for (i = (bankbits - 1); ((i >= 0) && (i < bankbits)); --i) {
 		pre_bank <<= 1;

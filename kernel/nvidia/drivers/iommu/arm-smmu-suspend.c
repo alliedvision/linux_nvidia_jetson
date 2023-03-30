@@ -1,11 +1,17 @@
 /*
- * Copyright (c) 2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software and related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/module.h>
@@ -15,9 +21,11 @@
 #include <linux/of_platform.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/syscore_ops.h>
-#include "arm-smmu-regs-t19x.h"
-
-#ifdef CONFIG_PM_SLEEP
+#include <linux/version.h>
+#include <linux/types.h>
+#include <linux/slab.h>
+#include "arm/arm-smmu/arm-smmu.h"
+#include "arm-smmu-suspend-regs.h"
 
 #define SMMU_GNSR1_CBAR_CFG(n, smmu_pgshift) \
 		((1U << smmu_pgshift) + ARM_SMMU_GR1_CBAR(n))
@@ -33,6 +41,11 @@
 
 #define SMMU_REG_TABLE_END_REG		0xFFFFFFFFU
 #define SMMU_REG_TABLE_END_VALUE	0xFFFFFFFFU
+
+#define MAX_SMMUS 5
+
+static uint32_t cb_group_max;
+static uint32_t smrg_group_max;
 
 struct arm_smmu_reg {
 	u32 reg;
@@ -52,11 +65,13 @@ struct arm_smmu_context {
 	size_t num_smmus;
 
 	void __iomem *scratch_va;
-} arm_smmu_ctx;
+};
+
+static struct arm_smmu_context arm_smmu_ctx;
 
 static phys_addr_t arm_smmu_alloc_reg_list(void)
 {
-	unsigned int order = arm_smmu_ctx.reg_list_mem_size >> PAGE_SHIFT;
+	unsigned int order = get_order(arm_smmu_ctx.reg_list_mem_size);
 	struct page *pages = alloc_pages(GFP_KERNEL, order);
 
 	if (!pages)
@@ -67,7 +82,7 @@ static phys_addr_t arm_smmu_alloc_reg_list(void)
 
 static void arm_smmu_free_reg_list(void)
 {
-	unsigned int order = arm_smmu_ctx.reg_list_mem_size >> PAGE_SHIFT;
+	unsigned int order = get_order(arm_smmu_ctx.reg_list_mem_size);
 	struct page *pages = phys_to_page(arm_smmu_ctx.reg_list_pa);
 
 	__free_pages(pages, order);
@@ -154,9 +169,6 @@ static void context_save_cb_group(int group_num)
 			arm_smmu_ctx.smmu_size, arm_smmu_ctx.smmu_pgshift));
 }
 
-#define CB_GROUP_MAX			64
-#define SMRG_GROUP_MAX			128
-#define CBAR_GROUP_MAX			64
 static int arm_smmu_syscore_suspend(void)
 {
 	int i;
@@ -165,13 +177,13 @@ static int arm_smmu_syscore_suspend(void)
 
 	context_save_gnsr0_group();
 
-	for (i = 0; i < SMRG_GROUP_MAX; i++)
+	for (i = 0; i < smrg_group_max; i++)
 		context_save_smrg_group(i);
 
-	for (i = 0; i < CBAR_GROUP_MAX; i++)
+	for (i = 0; i < cb_group_max; i++)
 		context_save_cbar_group(i);
 
-	for (i = 0; i < CB_GROUP_MAX; i++)
+	for (i = 0; i < cb_group_max; i++)
 		context_save_cb_group(i);
 
 	context_save_end();
@@ -183,18 +195,18 @@ static struct syscore_ops arm_smmu_syscore_ops = {
 	.suspend = arm_smmu_syscore_suspend,
 };
 
-int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
+static int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
 				int num_smmus, unsigned long smmu_size,
 				unsigned long smmu_pgshift, u32 scratch_reg_pa)
 {
-	int ret = 0;
+	int ret = 0, i;
 
 	arm_smmu_ctx.reg_list_table_size =
 		(SMMU_REG_TABLE_START_SIZE + SMMU_REG_TABLE_END_SIZE
 			+ (GNSR_GROUP_REG_SIZE
-				+ (CB_GROUP_REG_SIZE * CB_GROUP_MAX)
-				+ (SMRG_GROUP_REG_SIZE * SMRG_GROUP_MAX)
-				+ (CBAR_GROUP_REG_SIZE * CBAR_GROUP_MAX)
+				+ (CB_GROUP_REG_SIZE * cb_group_max)
+				+ (SMRG_GROUP_REG_SIZE * smrg_group_max)
+				+ (CBAR_GROUP_REG_SIZE * cb_group_max)
 			  ) * num_smmus);
 
 	arm_smmu_ctx.reg_list_mem_size =
@@ -214,7 +226,7 @@ int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
 		goto free_reg_list;
 	}
 
-	arm_smmu_ctx.scratch_va = ioremap_nocache(scratch_reg_pa, 4);
+	arm_smmu_ctx.scratch_va = ioremap(scratch_reg_pa, 4);
 	if (IS_ERR(arm_smmu_ctx.scratch_va)) {
 		pr_err("Failed to ioremap scratch register\n");
 		ret = PTR_ERR(arm_smmu_ctx.scratch_va);
@@ -223,8 +235,23 @@ int arm_smmu_suspend_init(void __iomem **smmu_base, u32 *smmu_base_pa,
 
 	writel(arm_smmu_ctx.reg_list_pa >> 12, arm_smmu_ctx.scratch_va);
 
-	arm_smmu_ctx.smmu_base_pa = smmu_base_pa;
-	arm_smmu_ctx.smmu_base = smmu_base;
+	arm_smmu_ctx.smmu_base_pa =
+			kcalloc(num_smmus, sizeof(u32), GFP_KERNEL);
+	if (arm_smmu_ctx.smmu_base_pa == NULL) {
+		pr_err("Failed to allocate memory for base_pa\n");
+		goto unmap_reg_list;
+	}
+
+	arm_smmu_ctx.smmu_base = (void __iomem **)
+				kcalloc(num_smmus, sizeof(void *), GFP_KERNEL);
+	if (arm_smmu_ctx.smmu_base == NULL) {
+		pr_err("Failed to allocate memory for base\n");
+		goto unmap_reg_list;
+	}
+	for (i = 0; i < num_smmus; i++) {
+		arm_smmu_ctx.smmu_base[i] = smmu_base[i];
+		arm_smmu_ctx.smmu_base_pa[i] = smmu_base_pa[i];
+	}
 	arm_smmu_ctx.smmu_size = smmu_size;
 	arm_smmu_ctx.smmu_pgshift = smmu_pgshift;
 	arm_smmu_ctx.num_smmus = num_smmus;
@@ -242,13 +269,108 @@ free_reg_list:
 	return ret;
 }
 
-void arm_smmu_suspend_exit(void)
+static void arm_smmu_suspend_exit(void)
 {
 	if (arm_smmu_ctx.reg_list)
 		memunmap(arm_smmu_ctx.reg_list);
 
 	if (arm_smmu_ctx.reg_list_pa)
 		arm_smmu_free_reg_list();
+
+	kfree(arm_smmu_ctx.smmu_base);
+	kfree(arm_smmu_ctx.smmu_base_pa);
 }
 
-#endif
+static const struct of_device_id arm_smmu_of_match[] = {
+	{ .compatible = "nvidia,smmu_suspend"},
+	{ },
+};
+
+static int arm_smmu_suspend_probe(struct platform_device *pdev)
+{
+	struct resource *res;
+	void __iomem *bases[MAX_SMMUS];
+	struct device *dev = &pdev->dev;
+	u32 base_pa[MAX_SMMUS];
+	u32 suspend_save_reg, i, num_smmus, id;
+	unsigned long size, pgshift;
+	int err;
+
+	for (i = 0; i < MAX_SMMUS; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		if (!res)
+			break;
+
+		bases[i] = devm_ioremap(dev, res->start, resource_size(res));
+		if (IS_ERR(bases[i]))
+			break;
+
+		base_pa[i] = res->start;
+		if (i == 0) {
+			size = resource_size(res);
+		}
+	}
+	num_smmus = i;
+
+	if (num_smmus == 0) {
+		dev_err(dev, "No SMMU device found\n");
+		return -ENODEV;
+	}
+
+	id = readl_relaxed(bases[0] + ARM_SMMU_GR0_ID1);
+	pgshift = (id & ARM_SMMU_ID1_PAGESIZE) ? 16 : 12;
+	cb_group_max = FIELD_GET(ARM_SMMU_ID1_NUMCB, id);
+
+	id = readl_relaxed(bases[0] + ARM_SMMU_GR0_ID0);
+	smrg_group_max = FIELD_GET(ARM_SMMU_ID0_NUMSMRG, id);
+
+	if (!of_property_read_u32(dev->of_node, "suspend-save-reg",
+			&suspend_save_reg)) {
+
+		err = arm_smmu_suspend_init(bases, base_pa, num_smmus, size,
+					    pgshift, suspend_save_reg);
+		if (err) {
+			dev_err(dev, "failed to init arm_smu_suspend\n");
+			return err;
+		}
+	}
+
+	dev_info(dev, "arm_smmu_suspend probe successful\n");
+
+	return 0;
+}
+
+static int arm_smmu_suspend_remove(struct platform_device *pdev)
+{
+	arm_smmu_suspend_exit();
+
+	return 0;
+}
+
+static struct platform_driver arm_smmu_suspend_driver = {
+	.driver	= {
+		.name		= "arm-smmu-suspend",
+		.of_match_table	= arm_smmu_of_match,
+	},
+	.probe	= arm_smmu_suspend_probe,
+	.remove	= arm_smmu_suspend_remove,
+};
+
+static int __init arm_smmu_suspend_driver_init(void)
+{
+	platform_driver_register(&arm_smmu_suspend_driver);
+	return 0;
+}
+
+static void __exit arm_smmu_suspend_driver_exit(void)
+{
+	platform_driver_unregister(&arm_smmu_suspend_driver);
+}
+
+module_init(arm_smmu_suspend_driver_init);
+module_exit(arm_smmu_suspend_driver_exit);
+
+MODULE_DESCRIPTION("arm-smmu-suspend: Driver for saving arm-smmu registers during suspend");
+MODULE_AUTHOR("Pritesh Raithatha <praithatha@nvidia.com>");
+MODULE_AUTHOR("Ashish Mhetre <amhetre@nvidia.com>");
+MODULE_LICENSE("GPL v2");

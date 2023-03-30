@@ -1,0 +1,239 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Jetson Device-tree overlay for Camera E3326 on t19x platforms
+ *
+ * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ *
+ */
+
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/tegra194-gpio.h>
+
+#define CAM0_RST_L  TEGRA194_MAIN_GPIO(H, 3)
+#define CAM0_PWDN   TEGRA194_MAIN_GPIO(H, 6)
+
+/ {
+	overlay-name = "Jetson Camera E3326 module";
+	jetson-header-name = "Jetson AGX CSI Connector";
+	compatible = "nvidia,p2822-0000+p2888-0001","nvidia,jetson-xavier-industrial";
+
+	/* E3326 camera board */
+	fragment@0 {
+		/// target = <&e3326_cam0>;
+		target-path = "/i2c@3180000/ov5693_c@36";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@1 {
+		/// target = <&cam_module0>;
+		target-path = "/tegra-camera-platform/modules/module0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "e3326_front_P5V27C";
+			position = "rear";
+			orientation = "1";
+		};
+	};
+	fragment@2 {
+		/// target = <&cam_module0_drivernode0>;
+		target-path = "/tegra-camera-platform/modules/module0/drivernode0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ov5693 2-0036";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/ov5693_c@36";
+		};
+	};
+	fragment@3 {
+		/// target = <&cam_module0_drivernode1>;
+		target-path = "/tegra-camera-platform/modules/module0/drivernode1";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_lens";
+			proc-device-tree = "/proc/device-tree/e3326_lens_ov5693@P5V27C/";
+		};
+	};
+	/* Enable VI ports */
+	fragment@4 {
+		/// target = <&capture_vi_base>;
+		target-path = "/tegra-capture-vi";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@5 {
+		/// target = <&vi_port0>;
+		target-path = "/tegra-capture-vi/ports/port@0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@6 {
+		/// target = <&e3326_vi_in0>;
+		target-path = "/tegra-capture-vi/ports/port@0/endpoint";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <2>;
+			remote-endpoint = <&e3326_csi_out0>;
+		};
+	};
+	/* Enable CSI ports */
+	fragment@7 {
+		/// target = <&csi_base>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<1>;
+		};
+	};
+	fragment@8 {
+		/// target = <&csi_chan0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@9 {
+		/// target = <&csi_chan0_port0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@10 {
+		/// target = <&e3326_csi_in0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0/endpoint@0";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <2>;
+			bus-width = <2>;
+			remote-endpoint = <&e3326_ov5693_out0>;
+		};
+	};
+	fragment@11 {
+		/// target = <&csi_chan0_port1>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@12 {
+		/// target = <&e3326_csi_out0>;
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			remote-endpoint = <&e3326_vi_in0>;
+		};
+	};
+	/* tegra-camera-platform settings */
+	fragment@13 {
+		/// target = <&tcp>;
+		target-path = "/tegra-camera-platform";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num_csi_lanes = <4>;
+			max_lane_speed = <1500000>;
+			min_bits_per_pixel = <10>;
+			vi_peak_byte_per_pixel = <2>;
+			vi_bw_margin_pct = <25>;
+			isp_peak_byte_per_pixel = <5>;
+			isp_bw_margin_pct = <25>;
+		};
+	};
+	/* GPIO */
+	fragment@14 {
+		/// target = <&{/gpio@2200000}>;
+		target-path = "/gpio@2200000";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			camera-control-input {
+				status = "disabled";
+			};
+			camera-control-output-low {
+				gpio-hog;
+				gpios = <CAM0_RST_L 0 CAM0_PWDN 0>;
+				label = "cam0-rst", "cam0-pwdn";
+				output-low;
+				status = "okay";
+			};
+			camera-control-output-high {
+				status = "disabled";
+			};
+		};
+	};
+	fragment@15 {
+		/// target = <&{/gpio@c2f0000}>;
+		target-path = "/gpio@c2f0000";
+		board_config {
+			ids = "3326-*";
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			camera-control-input {
+				status = "disabled";
+			};
+		};
+	};
+};

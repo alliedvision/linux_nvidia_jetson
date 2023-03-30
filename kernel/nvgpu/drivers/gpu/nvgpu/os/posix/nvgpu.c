@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,78 +24,93 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include <nvgpu/gk20a.h>
 #include <nvgpu/bug.h>
 #include <nvgpu/types.h>
 #include <nvgpu/atomic.h>
 #include <nvgpu/nvgpu_common.h>
+#include <nvgpu/nvgpu_init.h>
+#include <nvgpu/hal_init.h>
 #include <nvgpu/os_sched.h>
 #include <nvgpu/gk20a.h>
+#include <nvgpu/enabled.h>
+#include <nvgpu/errata.h>
 
 #include <nvgpu/posix/probe.h>
+#include <nvgpu/posix/mock-regs.h>
+#include <nvgpu/posix/io.h>
 
 #include "os_posix.h"
 
-int nvgpu_wait_for_stall_interrupts(struct gk20a *g, u32 timeout)
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+#include <nvgpu/posix/posix-fault-injection.h>
+#endif
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+struct nvgpu_posix_fault_inj *nvgpu_nvgpu_get_fault_injection(void)
 {
-	/*
-	 * No interrupts in userspace so nothing to wait for.
-	 */
-	return 0;
+	struct nvgpu_posix_fault_inj_container *c =
+			nvgpu_posix_fault_injection_get_container();
+
+	return &c->nvgpu_fi;
+}
+#endif
+
+/*
+ * Write callback. Forward the write access to the mock IO framework.
+ */
+static void writel_access_reg_fn(struct gk20a *g,
+				 struct nvgpu_reg_access *access)
+{
+	nvgpu_posix_io_writel_reg_space(g, access->addr, access->value);
 }
 
-int nvgpu_wait_for_nonstall_interrupts(struct gk20a *g, u32 timeout)
+/*
+ * Read callback. Get the register value from the mock IO framework.
+ */
+static void readl_access_reg_fn(struct gk20a *g,
+				struct nvgpu_reg_access *access)
 {
-	/*
-	 * No interrupts in userspace so nothing to wait for.
-	 */
-	return 0;
+	access->value = nvgpu_posix_io_readl_reg_space(g, access->addr);
 }
 
-void nvgpu_wait_for_deferred_interrupts(struct gk20a *g)
-{
-	/*
-	 * No interrupts in userspace so nothing to wait for.
-	 */
-}
+static struct nvgpu_posix_io_callbacks default_posix_reg_callbacks = {
+	/* Write APIs all can use the same accessor. */
+	.writel          = writel_access_reg_fn,
+	.writel_check    = writel_access_reg_fn,
+	.bar1_writel     = writel_access_reg_fn,
+	.usermode_writel = writel_access_reg_fn,
 
-int nvgpu_current_pid(struct gk20a *g)
-{
-	/*
-	 * In the kernel this gets us the PID of the calling process for IOCTLs.
-	 * But since we are in userspace this doesn't quite mean the same thing.
-	 * This simply returns the PID of the currently running process.
-	 */
-	return (int)getpid();
-}
+	/* Likewise for the read APIs. */
+	.__readl         = readl_access_reg_fn,
+	.readl           = readl_access_reg_fn,
+	.bar1_readl      = readl_access_reg_fn,
+};
 
-int nvgpu_current_tid(struct gk20a *g)
-{
-	/*
-	 * In POSIX thread ID is not the same as a process ID. In Linux threads
-	 * and processes are represented by the same thing, but userspace can't
-	 * really rely on that.
-	 *
-	 * We can, however, get a pthread_t for a given thread. But this
-	 * pthread_t need not have any relation to the underlying system's
-	 * representation of "threads".
-	 */
-	return (int)pthread_self();
-}
-
-void __nvgpu_print_current(struct gk20a *g, const char *func_name, int line,
-		void *ctx, enum nvgpu_log_type type)
-{
-	__nvgpu_log_msg(g, func_name, line, type,
-			"Current process: (nvgpu userspace)");
-}
-
+#ifdef CONFIG_NVGPU_NON_FUSA
 /*
  * Somewhat meaningless in userspace...
  */
 void nvgpu_kernel_restart(void *cmd)
 {
+	(void)cmd;
 	BUG();
+}
+#endif
+
+void nvgpu_start_gpu_idle(struct gk20a *g)
+{
+	nvgpu_set_enabled(g, NVGPU_DRIVER_IS_DYING, true);
+}
+
+int nvgpu_enable_irqs(struct gk20a *g)
+{
+	(void)g;
+	return 0;
+}
+
+void nvgpu_disable_irqs(struct gk20a *g)
+{
+	(void)g;
 }
 
 /*
@@ -103,27 +118,70 @@ void nvgpu_kernel_restart(void *cmd)
  */
 void gk20a_busy_noresume(struct gk20a *g)
 {
+	(void)g;
 }
 
 void gk20a_idle_nosuspend(struct gk20a *g)
 {
-}
-
-bool gk20a_check_poweron(struct gk20a *g)
-{
-	return false;
+	(void)g;
 }
 
 int gk20a_busy(struct gk20a *g)
 {
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_nvgpu_get_fault_injection())) {
+		return -ENODEV;
+	}
+#endif
+#ifdef CONFIG_NVGPU_NON_FUSA
 	nvgpu_atomic_inc(&g->usage_count);
+#else
+	(void)g;
+#endif
 
 	return 0;
 }
 
 void gk20a_idle(struct gk20a *g)
 {
+#ifdef CONFIG_NVGPU_NON_FUSA
 	nvgpu_atomic_dec(&g->usage_count);
+#else
+	(void)g;
+#endif
+}
+
+static void nvgpu_posix_load_regs(struct gk20a *g)
+{
+	u32 i;
+	int err;
+	struct nvgpu_mock_iospace space;
+	struct nvgpu_posix_io_reg_space *regs;
+
+	for (i = 0; i < MOCK_REGS_LAST; i++) {
+		err = nvgpu_get_mock_reglist(g, i, &space);
+		if (err) {
+			nvgpu_err(g, "Unknown IO regspace: %d; ignoring.", i);
+			continue;
+		}
+
+		err = nvgpu_posix_io_add_reg_space(g, space.base, (u32)space.size);
+		nvgpu_assert(err == 0);
+
+		regs = nvgpu_posix_io_get_reg_space(g, space.base);
+		nvgpu_assert(regs != NULL);
+
+		if (space.data != NULL) {
+			memcpy(regs->data, space.data, space.size);
+		}
+	}
+}
+
+static __thread struct gk20a *g_saved;
+struct gk20a *nvgpu_posix_current_device(void)
+{
+	return g_saved;
 }
 
 /*
@@ -139,21 +197,74 @@ struct gk20a *nvgpu_posix_probe(void)
 {
 	struct gk20a *g;
 	struct nvgpu_os_posix *p;
-	int err;
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_nvgpu_get_fault_injection())) {
+		return NULL;
+	}
+#endif
 
 	p = malloc(sizeof(*p));
-	if (p == NULL)
+
+	if (p == NULL) {
 		return NULL;
+	}
+
+	(void) memset(p, 0, sizeof(*p));
 
 	g = &p->g;
+	g->log_mask = NVGPU_DEFAULT_DBG_MASK;
+	g->mm.g = g;
 
-	err = nvgpu_kmem_init(g);
-	if (err != 0)
-		goto fail;
+	g_saved = g;
+
+	g->regs = NVGPU_POSIX_REG_BAR0 << NVGPU_POSIX_REG_SHIFT;
+	g->bar1 = NVGPU_POSIX_REG_BAR1 << NVGPU_POSIX_REG_SHIFT;
+	g->usermode_regs = NVGPU_POSIX_REG_USERMODE << NVGPU_POSIX_REG_SHIFT;
+
+	if (nvgpu_kmem_init(g) != 0) {
+		goto fail_kmem;
+	}
+
+	if (nvgpu_init_errata_flags(g) != 0) {
+		goto fail_errata_flags;
+	}
+
+	if (nvgpu_init_enabled_flags(g) != 0) {
+		goto fail_enabled_flags;
+	}
+
+	/*
+	 * Initialize a bunch of gv11b register values.
+	 */
+	nvgpu_posix_io_init_reg_space(g);
+	nvgpu_posix_load_regs(g);
+
+	/*
+	 * Set up some default register IO callbacks that basically all
+	 * unit tests will be OK with. Unit tests that wish to override this
+	 * may do so.
+	 *
+	 * This needs to happen before the nvgpu_detect_chip() call below
+	 * otherise we bug out when trying to do a register read.
+	 */
+	(void)nvgpu_posix_register_io(g, &default_posix_reg_callbacks);
+
+	/*
+	 * Detect chip based on the regs we filled above. Most unit tests
+	 * will be fine with this; a few may have to undo a little bit of it
+	 * in roder to fully test the nvgpu_detect_chip() function.
+	 */
+	nvgpu_assert(nvgpu_detect_chip(g) == 0);
 
 	return g;
 
-fail:
+fail_enabled_flags:
+	nvgpu_free_errata_flags(g);
+fail_errata_flags:
+	nvgpu_kmem_fini(g, 0);
+fail_kmem:
 	free(p);
 
 	return NULL;
@@ -161,5 +272,10 @@ fail:
 
 void nvgpu_posix_cleanup(struct gk20a *g)
 {
+	struct nvgpu_os_posix *p = nvgpu_os_posix_from_gk20a(g);
+
 	nvgpu_kmem_fini(g, 0);
+	nvgpu_free_enabled_flags(g);
+	nvgpu_free_errata_flags(g);
+	free(p);
 }

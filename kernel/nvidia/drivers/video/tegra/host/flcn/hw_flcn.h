@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -281,5 +281,61 @@ static inline u32 flcn_cg_idle_cg_en_f(u32 v)
 static inline u32 flcn_cg_wakeup_dly_cnt_f(u32 v)
 {
 	return (v & 0xf) << 16;
+}
+static inline u32 sec_intf_crc_ctrl_r(void)
+{
+	return 0x0000e000;
+}
+static inline u32 flcn_hwcfg2_r(void)
+{
+	return 0x000010f4;
+}
+static inline u32 flcn_hwcfg2_dbgmode_m(void)
+{
+	return 0x1 << 3;
+}
+static inline u32 flcn_hwcfg2_mem_scrubbing_m(void)
+{
+	return 0x1 << 12;
+}
+static inline u32 flcn_hwcfg2_mem_scrubbing_v(u32 r)
+{
+	return (r >> 12) & 0x1;
+}
+static inline u32 flcn_hwcfg2_mem_scrubbing_done_v(void)
+{
+	return 0x0;
+}
+static inline u32 cbb_vic_sec_blf_write_ctl_r(void)
+{
+	return 0x00019508;
+}
+static inline u32 cbb_vic_sec_blf_ctl_r(void)
+{
+	return 0x00019510;
+}
+static inline u32 cbb_nvenc_sec_blf_write_ctl_r(void)
+{
+	return 0x000167a8;
+}
+static inline u32 cbb_nvenc_sec_blf_ctl_r(void)
+{
+	return 0x000167b0;
+}
+static inline u32 cbb_ofa_sec_blf_write_ctl_r(void)
+{
+	return 0x00016968;
+}
+static inline u32 cbb_ofa_sec_blf_ctl_r(void)
+{
+	return 0x00016970;
+}
+static inline u32 cbb_sec_blf_write_ctl_mstrid_1_f(void)
+{
+	return 0x00000002;
+}
+static inline u32 cbb_sec_blf_ctl_blf_lck_f(void)
+{
+	return 0x80000000;
 }
 #endif

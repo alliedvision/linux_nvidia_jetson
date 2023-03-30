@@ -69,8 +69,7 @@ static int dummy_mem_carveout_device_init(struct reserved_mem *rmem,
 
 	/* reserved memory will be declare as a coherent memory pool */
 	ret = dma_declare_coherent_memory(dev, rmem->base, rmem->base,
-					  rmem->size, DMA_MEMORY_MAP |
-					  DMA_MEMORY_EXCLUSIVE);
+					  rmem->size, DMA_MEMORY_MAP);
 	if (ret != DMA_MEMORY_MAP) {
 		dev_err(dev,
 			"Reserved memory: failed to init at %pa, size %ld MiB\n",

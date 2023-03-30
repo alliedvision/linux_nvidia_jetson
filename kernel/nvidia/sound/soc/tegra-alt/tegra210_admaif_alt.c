@@ -1,7 +1,7 @@
 /*
  * tegra210_admaif_alt.c - Tegra ADMAIF driver
  *
- * Copyright (c) 2014-2019 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -34,21 +33,29 @@
 
 #define DRV_NAME "tegra210-ape-admaif"
 
-#define CH_REG(reg, id) (reg + (TEGRA_ADMAIF_CHANNEL_REG_STRIDE * (id-1)))
+#define CH_REG(offset, reg, id)						       \
+	((offset) + (reg) + (TEGRA_ADMAIF_CHANNEL_REG_STRIDE * (id)))
 
-#define REG_DEFAULTS(id, rx_ctrl, tx_ctrl, tx_base) \
-	{ CH_REG(TEGRA_ADMAIF_XBAR_RX_INT_MASK, id), 0x00000001}, \
-	{ CH_REG(TEGRA_ADMAIF_CHAN_ACIF_RX_CTRL, id), 0x00007700}, \
-	{ CH_REG(TEGRA_ADMAIF_XBAR_RX_FIFO_CTRL, id), rx_ctrl}, \
-	{ CH_REG((tx_base + TEGRA_ADMAIF_XBAR_TX_INT_MASK), id), 0x00000001}, \
-	{ CH_REG((tx_base + TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL), id), 0x00007700}, \
-	{ CH_REG((tx_base + TEGRA_ADMAIF_XBAR_TX_FIFO_CTRL), id), tx_ctrl}
+#define CH_TX_REG(reg, id) CH_REG(admaif->soc_data->tx_base, reg, id)
 
-#define ADMAIF_REG_DEFAULTS(id, chip) \
-	REG_DEFAULTS(id, \
-		chip ## _ADMAIF_RX ## id ## _FIFO_CTRL_REG_DEFAULT, \
-		chip ## _ADMAIF_TX ## id ## _FIFO_CTRL_REG_DEFAULT, \
-		chip ## _ADMAIF_XBAR_TX_BASE)
+#define CH_RX_REG(reg, id) CH_REG(admaif->soc_data->rx_base, reg, id)
+
+#define REG_IOVA(reg) (admaif->base_addr + (reg))
+
+#define REG_DEFAULTS(id, rx_ctrl, tx_ctrl, tx_base, rx_base)		       \
+	{ CH_REG(rx_base, TEGRA_ADMAIF_XBAR_RX_INT_MASK, id), 0x00000001},     \
+	{ CH_REG(rx_base, TEGRA_ADMAIF_CHAN_ACIF_RX_CTRL, id), 0x00007700},    \
+	{ CH_REG(rx_base, TEGRA_ADMAIF_XBAR_RX_FIFO_CTRL, id), rx_ctrl},       \
+	{ CH_REG(tx_base, TEGRA_ADMAIF_XBAR_TX_INT_MASK, id), 0x00000001},     \
+	{ CH_REG(tx_base, TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL, id), 0x00007700},    \
+	{ CH_REG(tx_base, TEGRA_ADMAIF_XBAR_TX_FIFO_CTRL, id), tx_ctrl}
+
+#define ADMAIF_REG_DEFAULTS(id, chip)					       \
+	REG_DEFAULTS((id - 1),						       \
+		chip ## _ADMAIF_RX ## id ## _FIFO_CTRL_REG_DEFAULT,	       \
+		chip ## _ADMAIF_TX ## id ## _FIFO_CTRL_REG_DEFAULT,	       \
+		chip ## _ADMAIF_XBAR_TX_BASE,				       \
+		chip ## _ADMAIF_XBAR_RX_BASE)
 
 static const struct reg_default tegra186_admaif_reg_defaults[] = {
 	{(TEGRA_ADMAIF_GLOBAL_CG_0+TEGRA186_ADMAIF_GLOBAL_BASE), 0x00000003},
@@ -227,54 +234,6 @@ static const struct regmap_config tegra186_admaif_regmap_config = {
 	.cache_type = REGCACHE_FLAT,
 };
 
-static int tegra_admaif_sw_reset(struct snd_soc_dai *dai,
-				int direction, int timeout)
-{
-	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int sw_reset_reg, val;
-	int wait = timeout;
-
-	if (direction == SNDRV_PCM_STREAM_PLAYBACK) {
-		sw_reset_reg = admaif->soc_data->tx_base +
-			TEGRA_ADMAIF_XBAR_TX_SOFT_RESET +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	} else {
-		sw_reset_reg = TEGRA_ADMAIF_XBAR_RX_SOFT_RESET +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	}
-
-	regmap_update_bits(admaif->regmap, sw_reset_reg, 1, 1);
-
-	do {
-		regmap_read(admaif->regmap, sw_reset_reg, &val);
-		wait--;
-		if (!wait)
-			return -EINVAL;
-	} while (val & 0x00000001);
-
-	return 0;
-}
-
-static int tegra_admaif_get_status(struct snd_soc_dai *dai,
-				int direction)
-{
-	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int status_reg, val;
-
-	if (direction == SNDRV_PCM_STREAM_PLAYBACK) {
-		status_reg = admaif->soc_data->tx_base +
-			TEGRA_ADMAIF_XBAR_TX_STATUS +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	} else {
-		status_reg = TEGRA_ADMAIF_XBAR_RX_STATUS +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	}
-	regmap_read(admaif->regmap, status_reg, &val);
-	val = (val & 0x00000001);
-
-	return val;
-}
-
 static int tegra_admaif_runtime_suspend(struct device *dev)
 {
 	struct tegra_admaif *admaif = dev_get_drvdata(dev);
@@ -357,7 +316,7 @@ static int tegra_admaif_hw_params(struct snd_pcm_substream *substream,
 	struct device *dev = dai->dev;
 	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
 	struct tegra210_xbar_cif_conf cif_conf;
-	unsigned int reg;
+	unsigned int reg, path;
 	int valid_bit, channels;
 
 	memset(&cif_conf, 0, sizeof(struct tegra210_xbar_cif_conf));
@@ -372,11 +331,6 @@ static int tegra_admaif_hw_params(struct snd_pcm_substream *substream,
 		cif_conf.audio_bits = TEGRA210_AUDIOCIF_BITS_16;
 		cif_conf.client_bits = TEGRA210_AUDIOCIF_BITS_16;
 		valid_bit = DATA_16BIT;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		cif_conf.audio_bits = TEGRA210_AUDIOCIF_BITS_24;
-		cif_conf.client_bits = TEGRA210_AUDIOCIF_BITS_24;
-		valid_bit = DATA_32BIT;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		cif_conf.audio_bits = TEGRA210_AUDIOCIF_BITS_32;
@@ -393,119 +347,110 @@ static int tegra_admaif_hw_params(struct snd_pcm_substream *substream,
 	cif_conf.audio_channels = channels;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		reg = admaif->soc_data->tx_base +
-			TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-		/* For playback path, if client channel is 1 and mono to
-		 * stereo control was non-zero, then audio channels will be
-		 * set to 2 for mono to stereo conversion.
-		 */
-		if ((admaif->tx_mono_to_stereo[dai->id] > 0) &&
-						(channels == 1)) {
-			cif_conf.mono_conv =
-				admaif->tx_mono_to_stereo[dai->id] - 1;
-			cif_conf.audio_channels = 2;
-		}
+		path = ADMAIF_TX_PATH;
+		reg = CH_TX_REG(TEGRA_ADMAIF_CHAN_ACIF_TX_CTRL, dai->id);
 	} else {
-		reg = TEGRA_ADMAIF_CHAN_ACIF_RX_CTRL +
-			(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-
-		/* The override channels are needed only for capture path as
-		 * the audio and client channels can be different on RX path.
-		 */
-		if (admaif->override_channels[dai->id] > 0) {
-			cif_conf.audio_channels =
-					admaif->override_channels[dai->id];
-		}
-
-		/* For capture path, if client channel is 1 and audio channel
-		 * is 2, only then stereo to mono settings will take effect.
-		 */
-		if ((admaif->rx_stereo_to_mono[dai->id] > 0) &&
-			(cif_conf.audio_channels == 2) && (channels == 1)) {
-			cif_conf.stereo_conv =
-				admaif->rx_stereo_to_mono[dai->id] - 1;
-		}
+		path = ADMAIF_RX_PATH;
+		reg = CH_RX_REG(TEGRA_ADMAIF_CHAN_ACIF_RX_CTRL, dai->id);
 	}
 
+	if (admaif->audio_ch_override[path][dai->id])
+		cif_conf.audio_channels =
+			admaif->audio_ch_override[path][dai->id];
+
+	if (admaif->client_ch_override[path][dai->id])
+		cif_conf.client_channels =
+			admaif->client_ch_override[path][dai->id];
+
+	cif_conf.mono_conv = admaif->mono_to_stereo[path][dai->id];
+	cif_conf.stereo_conv = admaif->stereo_to_mono[path][dai->id];
+
 	tegra_admaif_set_pack_mode(admaif->regmap, reg, valid_bit);
+
 	tegra210_xbar_set_cif(admaif->regmap, reg, &cif_conf);
 
 	return 0;
 }
 
-static void tegra_admaif_start_playback(struct snd_soc_dai *dai)
+static int tegra_admaif_start(struct snd_soc_dai *dai, int direction)
 {
 	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int reg;
+	unsigned int reg, mask, val;
 
-	reg = admaif->soc_data->tx_base +
-		TEGRA_ADMAIF_XBAR_TX_ENABLE +
-		(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	regmap_update_bits(admaif->regmap, reg,
-				TEGRA_ADMAIF_XBAR_TX_ENABLE_MASK,
-				TEGRA_ADMAIF_XBAR_TX_EN);
+	switch (direction) {
+	case SNDRV_PCM_STREAM_PLAYBACK:
+		mask = TEGRA_ADMAIF_XBAR_TX_ENABLE_MASK;
+		val = TEGRA_ADMAIF_XBAR_TX_EN;
+		reg = CH_TX_REG(TEGRA_ADMAIF_XBAR_TX_ENABLE, dai->id);
+		break;
+	case SNDRV_PCM_STREAM_CAPTURE:
+		mask = TEGRA_ADMAIF_XBAR_RX_ENABLE_MASK;
+		val = TEGRA_ADMAIF_XBAR_RX_EN;
+		reg = CH_RX_REG(TEGRA_ADMAIF_XBAR_RX_ENABLE, dai->id);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	regmap_update_bits(admaif->regmap, reg, mask, val);
+
+	return 0;
 }
 
-static void tegra_admaif_stop_playback(struct snd_soc_dai *dai)
-{
-	struct device *dev = dai->dev;
-	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int reg;
-	int dcnt = 10, ret;
-
-	reg = admaif->soc_data->tx_base +
-		TEGRA_ADMAIF_XBAR_TX_ENABLE +
-		(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	regmap_update_bits(admaif->regmap, reg,
-				TEGRA_ADMAIF_XBAR_TX_ENABLE_MASK,
-				0);
-
-	/* wait until ADMAIF TX status is disabled */
-	while (tegra_admaif_get_status(dai, SNDRV_PCM_STREAM_PLAYBACK) &&
-			dcnt--)
-		udelay(100);
-
-	/* HW needs sw reset to make sure previous transaction be clean */
-	ret = tegra_admaif_sw_reset(dai, SNDRV_PCM_STREAM_PLAYBACK, 0xffff);
-	if (ret)
-		dev_err(dev, "Failed at ADMAIF%d_TX sw reset\n", dai->id);
-}
-
-static void tegra_admaif_start_capture(struct snd_soc_dai *dai)
+static int tegra_admaif_stop(struct snd_soc_dai *dai, int direction)
 {
 	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int reg;
+	unsigned int enable_reg, status_reg, reset_reg, mask, val, enable;
+	char *dir_name;
+	int ret;
 
-	reg = TEGRA_ADMAIF_XBAR_RX_ENABLE +
-		(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	regmap_update_bits(admaif->regmap, reg,
-				TEGRA_ADMAIF_XBAR_RX_ENABLE_MASK,
-				TEGRA_ADMAIF_XBAR_RX_EN);
-}
+	switch (direction) {
+	case SNDRV_PCM_STREAM_PLAYBACK:
+		mask = TEGRA_ADMAIF_XBAR_TX_ENABLE_MASK;
+		enable = TEGRA_ADMAIF_XBAR_TX_EN;
+		dir_name = "TX";
+		enable_reg = CH_TX_REG(TEGRA_ADMAIF_XBAR_TX_ENABLE, dai->id);
+		status_reg = CH_TX_REG(TEGRA_ADMAIF_XBAR_TX_STATUS, dai->id);
+		reset_reg = CH_TX_REG(TEGRA_ADMAIF_XBAR_TX_SOFT_RESET, dai->id);
+		break;
+	case SNDRV_PCM_STREAM_CAPTURE:
+		mask = TEGRA_ADMAIF_XBAR_RX_ENABLE_MASK;
+		enable = TEGRA_ADMAIF_XBAR_RX_EN;
+		dir_name = "RX";
+		enable_reg = CH_RX_REG(TEGRA_ADMAIF_XBAR_RX_ENABLE, dai->id);
+		status_reg = CH_RX_REG(TEGRA_ADMAIF_XBAR_RX_STATUS, dai->id);
+		reset_reg = CH_RX_REG(TEGRA_ADMAIF_XBAR_RX_SOFT_RESET, dai->id);
+		break;
+	default:
+		return -EINVAL;
+	}
 
-static void tegra_admaif_stop_capture(struct snd_soc_dai *dai)
-{
-	struct device *dev = dai->dev;
-	struct tegra_admaif *admaif = snd_soc_dai_get_drvdata(dai);
-	unsigned int reg;
-	int dcnt = 10, ret;
+	/* disable TX/RX channel */
+	regmap_update_bits(admaif->regmap, enable_reg, mask, ~enable);
 
-	reg = TEGRA_ADMAIF_XBAR_RX_ENABLE +
-		(dai->id * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
-	regmap_update_bits(admaif->regmap, reg,
-				TEGRA_ADMAIF_XBAR_RX_ENABLE_MASK,
-				0);
+	/* wait until ADMAIF TX/RX status is disabled */
+	ret = regmap_read_poll_timeout_atomic(admaif->regmap, status_reg, val,
+					      !(val & enable), 10, 10000);
 
-	/* wait until ADMAIF RX status is disabled */
-	while (tegra_admaif_get_status(dai, SNDRV_PCM_STREAM_CAPTURE) &&
-			dcnt--)
-		udelay(100);
+	/* Timeout may be hit if sink gets closed/blocked ahead of source */
+	if (ret < 0)
+		dev_warn(dai->dev, "timeout: failed to disable ADMAIF%d_%s\n",
+			 dai->id + 1, dir_name);
 
-	/* HW needs sw reset to make sure previous transaction be clean */
-	ret = tegra_admaif_sw_reset(dai, SNDRV_PCM_STREAM_CAPTURE, 0xffff);
-	if (ret)
-		dev_err(dev, "Failed at ADMAIF%d_RX sw reset\n", dai->id);
+	/* SW reset */
+	regmap_update_bits(admaif->regmap, reset_reg, SW_RESET_MASK, SW_RESET);
+
+	/* wait till SW reset is complete */
+	ret = regmap_read_poll_timeout_atomic(admaif->regmap, reset_reg, val,
+					      !(val & SW_RESET_MASK & SW_RESET),
+					      10, 10000);
+	if (ret < 0) {
+		dev_err(dai->dev, "timeout: SW reset failed for ADMAIF%d_%s\n",
+			dai->id + 1, dir_name);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int tegra_admaif_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -515,24 +460,14 @@ static int tegra_admaif_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			tegra_admaif_start_playback(dai);
-		else
-			tegra_admaif_start_capture(dai);
-		break;
+		return tegra_admaif_start(dai, substream->stream);
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			tegra_admaif_stop_playback(dai);
-		else
-			tegra_admaif_stop_capture(dai);
-		break;
+		return tegra_admaif_stop(dai, substream->stream);
 	default:
 		return -EINVAL;
 	}
-
-	return 0;
 }
 
 static struct snd_soc_dai_ops tegra_admaif_dai_ops = {
@@ -548,29 +483,26 @@ static int tegra_admaif_get_format(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	struct soc_enum *ec = (struct soc_enum *)kcontrol->private_value;
 	struct tegra_admaif *admaif = snd_soc_codec_get_drvdata(codec);
-	int i;
-	char buf[50];
+	long *uctl_val = &ucontrol->value.integer.value[0];
 
-	if (strstr(kcontrol->id.name, "Channels"))
-		ucontrol->value.integer.value[0] =
-				admaif->override_channels[mc->reg];
-	else {
-		for (i = 0 ; i < admaif->soc_data->num_ch; i++) {
-			snprintf(buf, 50, "ADMAIF%d Capture stereo to mono", i+1);
-			if (strstr(kcontrol->id.name, buf)) {
-				ucontrol->value.integer.value[0] =
-					admaif->rx_stereo_to_mono[i];
-				break;
-			}
-			snprintf(buf, 50, "ADMAIF%d Playback mono to stereo", i+1);
-			if (strstr(kcontrol->id.name, buf)) {
-				ucontrol->value.integer.value[0] =
-					admaif->tx_mono_to_stereo[i];
-				break;
-			}
-		}
-	}
+	if (strstr(kcontrol->id.name, "Playback Audio Channels"))
+		*uctl_val = admaif->audio_ch_override[ADMAIF_TX_PATH][mc->reg];
+	else if (strstr(kcontrol->id.name, "Capture Audio Channels"))
+		*uctl_val = admaif->audio_ch_override[ADMAIF_RX_PATH][mc->reg];
+	else if (strstr(kcontrol->id.name, "Playback Client Channels"))
+		*uctl_val = admaif->client_ch_override[ADMAIF_TX_PATH][mc->reg];
+	else if (strstr(kcontrol->id.name, "Capture Client Channels"))
+		*uctl_val = admaif->client_ch_override[ADMAIF_RX_PATH][mc->reg];
+	else if (strstr(kcontrol->id.name, "Playback Mono To Stereo"))
+		*uctl_val = admaif->mono_to_stereo[ADMAIF_TX_PATH][ec->reg];
+	else if (strstr(kcontrol->id.name, "Playback Stereo To Mono"))
+		*uctl_val = admaif->stereo_to_mono[ADMAIF_TX_PATH][ec->reg];
+	else if (strstr(kcontrol->id.name, "Capture Mono To Stereo"))
+		*uctl_val = admaif->mono_to_stereo[ADMAIF_RX_PATH][ec->reg];
+	else if (strstr(kcontrol->id.name, "Capture Stereo To Mono"))
+		*uctl_val = admaif->stereo_to_mono[ADMAIF_RX_PATH][ec->reg];
 
 	return 0;
 }
@@ -580,31 +512,27 @@ static int tegra_admaif_put_format(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
+	struct soc_enum *ec = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tegra_admaif *admaif = snd_soc_codec_get_drvdata(codec);
 	int value = ucontrol->value.integer.value[0];
-	int i;
-	char buf[50];
 
-	if (strstr(kcontrol->id.name, "Channels")) {
-		if (value >= 0 && value <= 16)
-			admaif->override_channels[mc->reg] = value;
-		else
-			return -EINVAL;
-	} else {
-		for (i = 0 ; i < admaif->soc_data->num_ch; i++) {
-			snprintf(buf, 50, "ADMAIF%d Capture stereo to mono", i+1);
-			if (strstr(kcontrol->id.name, buf)) {
-				admaif->rx_stereo_to_mono[i] = value;
-				break;
-			}
-			snprintf(buf, 50, "ADMAIF%d Playback mono to stereo", i+1);
-			if (strstr(kcontrol->id.name, buf)) {
-				admaif->tx_mono_to_stereo[i] = value;
-				break;
-			}
-		}
-	}
+	if (strstr(kcontrol->id.name, "Playback Audio Channels"))
+		admaif->audio_ch_override[ADMAIF_TX_PATH][mc->reg] = value;
+	else if (strstr(kcontrol->id.name, "Capture Audio Channels"))
+		admaif->audio_ch_override[ADMAIF_RX_PATH][mc->reg] = value;
+	else if (strstr(kcontrol->id.name, "Playback Client Channels"))
+		admaif->client_ch_override[ADMAIF_TX_PATH][mc->reg] = value;
+	else if (strstr(kcontrol->id.name, "Capture Client Channels"))
+		admaif->client_ch_override[ADMAIF_RX_PATH][mc->reg] = value;
+	else if (strstr(kcontrol->id.name, "Playback Mono To Stereo"))
+		admaif->mono_to_stereo[ADMAIF_TX_PATH][ec->reg] = value;
+	else if (strstr(kcontrol->id.name, "Playback Stereo To Mono"))
+		admaif->stereo_to_mono[ADMAIF_TX_PATH][ec->reg] = value;
+	else if (strstr(kcontrol->id.name, "Capture Mono To Stereo"))
+		admaif->mono_to_stereo[ADMAIF_RX_PATH][ec->reg] = value;
+	else if (strstr(kcontrol->id.name, "Capture Stereo To Mono"))
+		admaif->stereo_to_mono[ADMAIF_RX_PATH][ec->reg] = value;
 
 	return 0;
 }
@@ -702,7 +630,6 @@ static int tegra_admaif_dai_probe(struct snd_soc_dai *dai)
 			.rates = SNDRV_PCM_RATE_8000_192000,	\
 			.formats = SNDRV_PCM_FMTBIT_S8 |	\
 				SNDRV_PCM_FMTBIT_S16_LE |	\
-				SNDRV_PCM_FMTBIT_S24_LE |	\
 				SNDRV_PCM_FMTBIT_S32_LE,	\
 		},						\
 		.capture = {					\
@@ -712,34 +639,10 @@ static int tegra_admaif_dai_probe(struct snd_soc_dai *dai)
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},						\
 		.ops = &tegra_admaif_dai_ops,			\
 	}
-
-static struct snd_soc_dai_driver tegra_admaif_dais[] = {
-	ADMAIF_DAI(1),
-	ADMAIF_DAI(2),
-	ADMAIF_DAI(3),
-	ADMAIF_DAI(4),
-	ADMAIF_DAI(5),
-	ADMAIF_DAI(6),
-	ADMAIF_DAI(7),
-	ADMAIF_DAI(8),
-	ADMAIF_DAI(9),
-	ADMAIF_DAI(10),
-	ADMAIF_DAI(11),
-	ADMAIF_DAI(12),
-	ADMAIF_DAI(13),
-	ADMAIF_DAI(14),
-	ADMAIF_DAI(15),
-	ADMAIF_DAI(16),
-	ADMAIF_DAI(17),
-	ADMAIF_DAI(18),
-	ADMAIF_DAI(19),
-	ADMAIF_DAI(20),
-};
 
 #define ADMAIF_CODEC_FIFO_DAI(id)					\
 	{								\
@@ -751,7 +654,6 @@ static struct snd_soc_dai_driver tegra_admaif_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 		.capture = {						\
@@ -761,7 +663,6 @@ static struct snd_soc_dai_driver tegra_admaif_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 		.ops = &tegra_admaif_dai_ops,			\
@@ -777,7 +678,6 @@ static struct snd_soc_dai_driver tegra_admaif_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 		.capture = {						\
@@ -787,12 +687,21 @@ static struct snd_soc_dai_driver tegra_admaif_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_192000,		\
 			.formats = SNDRV_PCM_FMTBIT_S8 |		\
 				SNDRV_PCM_FMTBIT_S16_LE |		\
-				SNDRV_PCM_FMTBIT_S24_LE |		\
 				SNDRV_PCM_FMTBIT_S32_LE,		\
 		},							\
 	}
 
 static struct snd_soc_dai_driver tegra210_admaif_codec_dais[] = {
+	ADMAIF_DAI(1),
+	ADMAIF_DAI(2),
+	ADMAIF_DAI(3),
+	ADMAIF_DAI(4),
+	ADMAIF_DAI(5),
+	ADMAIF_DAI(6),
+	ADMAIF_DAI(7),
+	ADMAIF_DAI(8),
+	ADMAIF_DAI(9),
+	ADMAIF_DAI(10),
 	ADMAIF_CODEC_FIFO_DAI(1),
 	ADMAIF_CODEC_FIFO_DAI(2),
 	ADMAIF_CODEC_FIFO_DAI(3),
@@ -816,6 +725,26 @@ static struct snd_soc_dai_driver tegra210_admaif_codec_dais[] = {
 };
 
 static struct snd_soc_dai_driver tegra186_admaif_codec_dais[] = {
+	ADMAIF_DAI(1),
+	ADMAIF_DAI(2),
+	ADMAIF_DAI(3),
+	ADMAIF_DAI(4),
+	ADMAIF_DAI(5),
+	ADMAIF_DAI(6),
+	ADMAIF_DAI(7),
+	ADMAIF_DAI(8),
+	ADMAIF_DAI(9),
+	ADMAIF_DAI(10),
+	ADMAIF_DAI(11),
+	ADMAIF_DAI(12),
+	ADMAIF_DAI(13),
+	ADMAIF_DAI(14),
+	ADMAIF_DAI(15),
+	ADMAIF_DAI(16),
+	ADMAIF_DAI(17),
+	ADMAIF_DAI(18),
+	ADMAIF_DAI(19),
+	ADMAIF_DAI(20),
 	ADMAIF_CODEC_FIFO_DAI(1),
 	ADMAIF_CODEC_FIFO_DAI(2),
 	ADMAIF_CODEC_FIFO_DAI(3),
@@ -923,11 +852,11 @@ static const struct snd_soc_dapm_route tegra_admaif_routes[] = {
 };
 
 static const char * const tegra_admaif_stereo_conv_text[] = {
-	"None", "CH0", "CH1", "AVG",
+	"CH0", "CH1", "AVG",
 };
 
 static const char * const tegra_admaif_mono_conv_text[] = {
-	"None", "ZERO", "COPY",
+	"Zero", "Copy",
 };
 
 static const struct soc_enum tegra_admaif_mono_conv_enum =
@@ -940,19 +869,48 @@ static const struct soc_enum tegra_admaif_stereo_conv_enum =
 		ARRAY_SIZE(tegra_admaif_stereo_conv_text),
 		tegra_admaif_stereo_conv_text);
 
-#define TEGRA_ADMAIF_CHANNEL_CTRL(reg) \
-	SOC_SINGLE_EXT("ADMAIF" #reg " Channels", reg - 1, 0, 16, 0, \
-		tegra_admaif_get_format, tegra_admaif_put_format)
+#define TEGRA_ADMAIF_CHANNEL_CTRL(reg)					       \
+	SOC_SINGLE_EXT("ADMAIF" #reg " Playback Audio Channels", reg - 1,      \
+		       0, 16, 0, tegra_admaif_get_format,		       \
+		       tegra_admaif_put_format),			       \
+	SOC_SINGLE_EXT("ADMAIF" #reg " Capture Audio Channels", reg - 1,       \
+		       0, 16, 0, tegra_admaif_get_format,		       \
+		       tegra_admaif_put_format),			       \
+	SOC_SINGLE_EXT("ADMAIF" #reg " Playback Client Channels", reg - 1,     \
+		       0, 16, 0, tegra_admaif_get_format,		       \
+		       tegra_admaif_put_format),			       \
+	SOC_SINGLE_EXT("ADMAIF" #reg " Capture Client Channels", reg - 1,      \
+		       0, 16, 0, tegra_admaif_get_format,		       \
+		       tegra_admaif_put_format)
 
-#define TEGRA_ADMAIF_TX_CIF_CTRL(reg) \
-	SOC_ENUM_EXT("ADMAIF" #reg " Playback mono to stereo conv", \
-		 tegra_admaif_mono_conv_enum, tegra_admaif_get_format, \
-		 tegra_admaif_put_format)
+/*
+ * below macro is added to avoid looping over all ADMAIFx controls related
+ * to mono/stereo conversions in get()/put() callbacks.
+ */
+#define NV_SOC_ENUM_EXT(xname, xreg, xhandler_get, xhandler_put, xenum_text)   \
+{									       \
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,				       \
+	.info = snd_soc_info_enum_double,				       \
+	.name = xname,							       \
+	.get = xhandler_get,						       \
+	.put = xhandler_put,						       \
+	.private_value = (unsigned long)&(struct soc_enum)		       \
+		SOC_ENUM_SINGLE(xreg, 0, ARRAY_SIZE(xenum_text), xenum_text)   \
+}
 
-#define TEGRA_ADMAIF_RX_CIF_CTRL(reg) \
-	SOC_ENUM_EXT("ADMAIF" #reg " Capture stereo to mono conv", \
-		 tegra_admaif_stereo_conv_enum, tegra_admaif_get_format, \
-		 tegra_admaif_put_format)
+#define TEGRA_ADMAIF_CIF_CTRL(reg)					       \
+	NV_SOC_ENUM_EXT("ADMAIF" #reg " Playback Mono To Stereo", reg - 1,\
+			tegra_admaif_get_format, tegra_admaif_put_format,      \
+			tegra_admaif_mono_conv_text),			       \
+	NV_SOC_ENUM_EXT("ADMAIF" #reg " Playback Stereo To Mono", reg - 1,\
+			tegra_admaif_get_format, tegra_admaif_put_format,      \
+			tegra_admaif_stereo_conv_text),			       \
+	NV_SOC_ENUM_EXT("ADMAIF" #reg " Capture Mono To Stereo", reg - 1, \
+			tegra_admaif_get_format, tegra_admaif_put_format,      \
+			tegra_admaif_mono_conv_text),			       \
+	NV_SOC_ENUM_EXT("ADMAIF" #reg " Capture Stereo To Mono", reg - 1, \
+			tegra_admaif_get_format, tegra_admaif_put_format,      \
+			tegra_admaif_stereo_conv_text)
 
 static struct snd_kcontrol_new tegra210_admaif_controls[] = {
 	TEGRA_ADMAIF_CHANNEL_CTRL(1),
@@ -965,26 +923,16 @@ static struct snd_kcontrol_new tegra210_admaif_controls[] = {
 	TEGRA_ADMAIF_CHANNEL_CTRL(8),
 	TEGRA_ADMAIF_CHANNEL_CTRL(9),
 	TEGRA_ADMAIF_CHANNEL_CTRL(10),
-	TEGRA_ADMAIF_RX_CIF_CTRL(1),
-	TEGRA_ADMAIF_RX_CIF_CTRL(2),
-	TEGRA_ADMAIF_RX_CIF_CTRL(3),
-	TEGRA_ADMAIF_RX_CIF_CTRL(4),
-	TEGRA_ADMAIF_RX_CIF_CTRL(5),
-	TEGRA_ADMAIF_RX_CIF_CTRL(6),
-	TEGRA_ADMAIF_RX_CIF_CTRL(7),
-	TEGRA_ADMAIF_RX_CIF_CTRL(8),
-	TEGRA_ADMAIF_RX_CIF_CTRL(9),
-	TEGRA_ADMAIF_RX_CIF_CTRL(10),
-	TEGRA_ADMAIF_TX_CIF_CTRL(1),
-	TEGRA_ADMAIF_TX_CIF_CTRL(2),
-	TEGRA_ADMAIF_TX_CIF_CTRL(3),
-	TEGRA_ADMAIF_TX_CIF_CTRL(4),
-	TEGRA_ADMAIF_TX_CIF_CTRL(5),
-	TEGRA_ADMAIF_TX_CIF_CTRL(6),
-	TEGRA_ADMAIF_TX_CIF_CTRL(7),
-	TEGRA_ADMAIF_TX_CIF_CTRL(8),
-	TEGRA_ADMAIF_TX_CIF_CTRL(9),
-	TEGRA_ADMAIF_TX_CIF_CTRL(10),
+	TEGRA_ADMAIF_CIF_CTRL(1),
+	TEGRA_ADMAIF_CIF_CTRL(2),
+	TEGRA_ADMAIF_CIF_CTRL(3),
+	TEGRA_ADMAIF_CIF_CTRL(4),
+	TEGRA_ADMAIF_CIF_CTRL(5),
+	TEGRA_ADMAIF_CIF_CTRL(6),
+	TEGRA_ADMAIF_CIF_CTRL(7),
+	TEGRA_ADMAIF_CIF_CTRL(8),
+	TEGRA_ADMAIF_CIF_CTRL(9),
+	TEGRA_ADMAIF_CIF_CTRL(10),
 	SOC_SINGLE_EXT("APE Reg Dump", SND_SOC_NOPM, 0, 1, 0,
 		tegra210_ape_dump_reg_get, tegra210_ape_dump_reg_put),
 };
@@ -1010,46 +958,26 @@ static struct snd_kcontrol_new tegra186_admaif_controls[] = {
 	TEGRA_ADMAIF_CHANNEL_CTRL(18),
 	TEGRA_ADMAIF_CHANNEL_CTRL(19),
 	TEGRA_ADMAIF_CHANNEL_CTRL(20),
-	TEGRA_ADMAIF_RX_CIF_CTRL(1),
-	TEGRA_ADMAIF_RX_CIF_CTRL(2),
-	TEGRA_ADMAIF_RX_CIF_CTRL(3),
-	TEGRA_ADMAIF_RX_CIF_CTRL(4),
-	TEGRA_ADMAIF_RX_CIF_CTRL(5),
-	TEGRA_ADMAIF_RX_CIF_CTRL(6),
-	TEGRA_ADMAIF_RX_CIF_CTRL(7),
-	TEGRA_ADMAIF_RX_CIF_CTRL(8),
-	TEGRA_ADMAIF_RX_CIF_CTRL(9),
-	TEGRA_ADMAIF_RX_CIF_CTRL(10),
-	TEGRA_ADMAIF_RX_CIF_CTRL(11),
-	TEGRA_ADMAIF_RX_CIF_CTRL(12),
-	TEGRA_ADMAIF_RX_CIF_CTRL(13),
-	TEGRA_ADMAIF_RX_CIF_CTRL(14),
-	TEGRA_ADMAIF_RX_CIF_CTRL(15),
-	TEGRA_ADMAIF_RX_CIF_CTRL(16),
-	TEGRA_ADMAIF_RX_CIF_CTRL(17),
-	TEGRA_ADMAIF_RX_CIF_CTRL(18),
-	TEGRA_ADMAIF_RX_CIF_CTRL(19),
-	TEGRA_ADMAIF_RX_CIF_CTRL(20),
-	TEGRA_ADMAIF_TX_CIF_CTRL(1),
-	TEGRA_ADMAIF_TX_CIF_CTRL(2),
-	TEGRA_ADMAIF_TX_CIF_CTRL(3),
-	TEGRA_ADMAIF_TX_CIF_CTRL(4),
-	TEGRA_ADMAIF_TX_CIF_CTRL(5),
-	TEGRA_ADMAIF_TX_CIF_CTRL(6),
-	TEGRA_ADMAIF_TX_CIF_CTRL(7),
-	TEGRA_ADMAIF_TX_CIF_CTRL(8),
-	TEGRA_ADMAIF_TX_CIF_CTRL(9),
-	TEGRA_ADMAIF_TX_CIF_CTRL(10),
-	TEGRA_ADMAIF_TX_CIF_CTRL(11),
-	TEGRA_ADMAIF_TX_CIF_CTRL(12),
-	TEGRA_ADMAIF_TX_CIF_CTRL(13),
-	TEGRA_ADMAIF_TX_CIF_CTRL(14),
-	TEGRA_ADMAIF_TX_CIF_CTRL(15),
-	TEGRA_ADMAIF_TX_CIF_CTRL(16),
-	TEGRA_ADMAIF_TX_CIF_CTRL(17),
-	TEGRA_ADMAIF_TX_CIF_CTRL(18),
-	TEGRA_ADMAIF_TX_CIF_CTRL(19),
-	TEGRA_ADMAIF_TX_CIF_CTRL(20),
+	TEGRA_ADMAIF_CIF_CTRL(1),
+	TEGRA_ADMAIF_CIF_CTRL(2),
+	TEGRA_ADMAIF_CIF_CTRL(3),
+	TEGRA_ADMAIF_CIF_CTRL(4),
+	TEGRA_ADMAIF_CIF_CTRL(5),
+	TEGRA_ADMAIF_CIF_CTRL(6),
+	TEGRA_ADMAIF_CIF_CTRL(7),
+	TEGRA_ADMAIF_CIF_CTRL(8),
+	TEGRA_ADMAIF_CIF_CTRL(9),
+	TEGRA_ADMAIF_CIF_CTRL(10),
+	TEGRA_ADMAIF_CIF_CTRL(11),
+	TEGRA_ADMAIF_CIF_CTRL(12),
+	TEGRA_ADMAIF_CIF_CTRL(13),
+	TEGRA_ADMAIF_CIF_CTRL(14),
+	TEGRA_ADMAIF_CIF_CTRL(15),
+	TEGRA_ADMAIF_CIF_CTRL(16),
+	TEGRA_ADMAIF_CIF_CTRL(17),
+	TEGRA_ADMAIF_CIF_CTRL(18),
+	TEGRA_ADMAIF_CIF_CTRL(19),
+	TEGRA_ADMAIF_CIF_CTRL(20),
 	SOC_SINGLE_EXT("APE Reg Dump", SND_SOC_NOPM, 0, 1, 0,
 		tegra210_ape_dump_reg_get, tegra210_ape_dump_reg_put),
 };
@@ -1076,10 +1004,6 @@ static struct snd_soc_codec_driver tegra186_admaif_codec = {
 		.controls = tegra186_admaif_controls,
 		.num_controls = ARRAY_SIZE(tegra186_admaif_controls),
 	},
-};
-
-static const struct snd_soc_component_driver tegra_admaif_dai_driver = {
-	.name		= DRV_NAME,
 };
 
 static struct tegra_admaif_soc_data soc_data_tegra210 = {
@@ -1130,7 +1054,6 @@ static int tegra_admaif_probe(struct platform_device *pdev)
 	if (!admaif)
 		return -ENOMEM;
 
-	admaif->refcnt = 0;
 	admaif->dev = &pdev->dev;
 	admaif->soc_data = (struct tegra_admaif_soc_data *)match->data;
 	dev_set_drvdata(&pdev->dev, admaif);
@@ -1149,23 +1072,31 @@ static int tegra_admaif_probe(struct platform_device *pdev)
 	if (!admaif->playback_dma_data)
 		return -ENOMEM;
 
-	admaif->override_channels = devm_kzalloc(&pdev->dev,
-			sizeof(int) * admaif->soc_data->num_ch,
-			GFP_KERNEL);
-	if (!admaif->override_channels)
-		return -ENOMEM;
+	for (i = 0; i < ADMAIF_PATHS; i++) {
+		admaif->audio_ch_override[i] =
+			devm_kcalloc(&pdev->dev, admaif->soc_data->num_ch,
+				     sizeof(unsigned int), GFP_KERNEL);
+		if (!admaif->audio_ch_override[i])
+			return -ENOMEM;
 
-	admaif->tx_mono_to_stereo = devm_kzalloc(&pdev->dev,
-			sizeof(int) * admaif->soc_data->num_ch,
-			GFP_KERNEL);
-	if (!admaif->tx_mono_to_stereo)
-		return -ENOMEM;
+		admaif->client_ch_override[i] =
+			devm_kcalloc(&pdev->dev, admaif->soc_data->num_ch,
+				     sizeof(unsigned int), GFP_KERNEL);
+		if (!admaif->client_ch_override[i])
+			return -ENOMEM;
 
-	admaif->rx_stereo_to_mono = devm_kzalloc(&pdev->dev,
-			sizeof(int) * admaif->soc_data->num_ch,
-			GFP_KERNEL);
-	if (!admaif->rx_stereo_to_mono)
-		return -ENOMEM;
+		admaif->mono_to_stereo[i] =
+			devm_kcalloc(&pdev->dev, admaif->soc_data->num_ch,
+				     sizeof(unsigned int), GFP_KERNEL);
+		if (!admaif->mono_to_stereo[i])
+			return -ENOMEM;
+
+		admaif->stereo_to_mono[i] =
+			devm_kcalloc(&pdev->dev, admaif->soc_data->num_ch,
+				     sizeof(unsigned int), GFP_KERNEL);
+		if (!admaif->stereo_to_mono[i])
+			return -ENOMEM;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regs = devm_ioremap_resource(&pdev->dev, res);
@@ -1185,13 +1116,10 @@ static int tegra_admaif_probe(struct platform_device *pdev)
 
 	for (i = 0; i < admaif->soc_data->num_ch; i++) {
 		admaif->playback_dma_data[i].addr = res->start +
-				admaif->soc_data->tx_base +
-				TEGRA_ADMAIF_XBAR_TX_FIFO_WRITE +
-				(i * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
+			CH_TX_REG(TEGRA_ADMAIF_XBAR_TX_FIFO_WRITE, i);
 
 		admaif->capture_dma_data[i].addr = res->start +
-				TEGRA_ADMAIF_XBAR_RX_FIFO_READ +
-				(i * TEGRA_ADMAIF_CHANNEL_REG_STRIDE);
+			CH_RX_REG(TEGRA_ADMAIF_XBAR_RX_FIFO_READ, i);
 
 		admaif->playback_dma_data[i].width = 32;
 		admaif->playback_dma_data[i].req_sel = i + 1;
@@ -1239,20 +1167,10 @@ static int tegra_admaif_probe(struct platform_device *pdev)
 	regmap_update_bits(admaif->regmap, admaif->soc_data->global_base +
 			   TEGRA_ADMAIF_GLOBAL_ENABLE, 1, 1);
 
-	ret = devm_snd_soc_register_component(&pdev->dev,
-					      &tegra_admaif_dai_driver,
-					      tegra_admaif_dais,
-					      admaif->soc_data->num_ch);
-	if (ret) {
-		dev_err(&pdev->dev, "Could not register DAIs %d: %d\n",
-			i, ret);
-		return ret;
-	}
-
 	pm_runtime_enable(&pdev->dev);
 	ret = snd_soc_register_codec(&pdev->dev, admaif->soc_data->admaif_codec,
 				     admaif->soc_data->codec_dais,
-				     admaif->soc_data->num_ch * 2);
+				     admaif->soc_data->num_ch * 3);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Could not register CODEC: %d\n", ret);
 		goto pm_disable;
@@ -1280,8 +1198,6 @@ static int tegra_admaif_remove(struct platform_device *pdev)
 
 	if (admaif->soc_data->is_isomgr_client)
 		tegra_isomgr_adma_unregister();
-
-	snd_soc_unregister_component(&pdev->dev);
 
 	snd_soc_unregister_codec(&pdev->dev);
 

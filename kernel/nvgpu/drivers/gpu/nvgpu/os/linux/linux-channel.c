@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,10 +17,13 @@
 #include <nvgpu/enabled.h>
 #include <nvgpu/debug.h>
 #include <nvgpu/error_notifier.h>
+#include <nvgpu/barrier.h>
 #include <nvgpu/os_sched.h>
 #include <nvgpu/gk20a.h>
 #include <nvgpu/channel.h>
 #include <nvgpu/dma.h>
+#include <nvgpu/fence.h>
+#include <nvgpu/grmgr.h>
 
 /*
  * This is required for nvgpu_vm_find_buf() which is used in the tracing
@@ -31,17 +34,22 @@
 
 #include "channel.h"
 #include "ioctl_channel.h"
+#include "ioctl.h"
 #include "os_linux.h"
-#include "dmabuf.h"
+#include "dmabuf_priv.h"
 
 #include <nvgpu/hw/gk20a/hw_pbdma_gk20a.h>
 
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
-#include <trace/events/gk20a.h>
+#include <linux/dma-direction.h>
+
+#include <nvgpu/trace.h>
 #include <uapi/linux/nvgpu.h>
 
 #include "sync_sema_android.h"
+#include "sync_sema_dma.h"
+#include <nvgpu/linux/os_fence_dma.h>
 
 u32 nvgpu_submit_gpfifo_user_flags_to_common_flags(u32 user_flags)
 {
@@ -106,12 +114,12 @@ static u32 nvgpu_error_notifier_to_channel_notifier(u32 error_notifier)
 }
 
 /**
- * nvgpu_set_error_notifier_locked()
+ * nvgpu_set_err_notifier_locked()
  * Should be called with ch->error_notifier_mutex held
  *
  * error should be of the form  NVGPU_ERR_NOTIFIER_*
  */
-void nvgpu_set_error_notifier_locked(struct channel_gk20a *ch, u32 error)
+void nvgpu_set_err_notifier_locked(struct nvgpu_channel *ch, u32 error)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -120,35 +128,42 @@ void nvgpu_set_error_notifier_locked(struct channel_gk20a *ch, u32 error)
 	if (priv->error_notifier.dmabuf) {
 		struct nvgpu_notification *notification =
 			priv->error_notifier.notification;
-		struct timespec time_data;
+		struct timespec64 time_data;
 		u64 nsec;
 
-		getnstimeofday(&time_data);
-		nsec = ((u64)time_data.tv_sec) * 1000000000u +
-				(u64)time_data.tv_nsec;
+		ktime_get_real_ts64(&time_data);
+		nsec = time_data.tv_sec * 1000000000u + time_data.tv_nsec;
 		notification->time_stamp.nanoseconds[0] =
 				(u32)nsec;
 		notification->time_stamp.nanoseconds[1] =
 				(u32)(nsec >> 32);
 		notification->info32 = error;
+		nvgpu_wmb();
 		notification->status = 0xffff;
 
-		nvgpu_err(ch->g,
-		    "error notifier set to %d for ch %d", error, ch->chid);
+		if (error == NVGPU_CHANNEL_RESETCHANNEL_VERIF_ERROR) {
+			nvgpu_log_info(ch->g,
+			    "error notifier set to %d for ch %d",
+			    error, ch->chid);
+		} else {
+			nvgpu_err(ch->g,
+			    "error notifier set to %d for ch %d",
+			    error, ch->chid);
+		}
 	}
 }
 
 /* error should be of the form  NVGPU_ERR_NOTIFIER_* */
-void nvgpu_set_error_notifier(struct channel_gk20a *ch, u32 error)
+void nvgpu_set_err_notifier(struct nvgpu_channel *ch, u32 error)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
 	nvgpu_mutex_acquire(&priv->error_notifier.mutex);
-	nvgpu_set_error_notifier_locked(ch, error);
+	nvgpu_set_err_notifier_locked(ch, error);
 	nvgpu_mutex_release(&priv->error_notifier.mutex);
 }
 
-void nvgpu_set_error_notifier_if_empty(struct channel_gk20a *ch, u32 error)
+void nvgpu_set_err_notifier_if_empty(struct nvgpu_channel *ch, u32 error)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -159,13 +174,13 @@ void nvgpu_set_error_notifier_if_empty(struct channel_gk20a *ch, u32 error)
 
 		/* Don't overwrite error flag if it is already set */
 		if (notification->status != 0xffff)
-			nvgpu_set_error_notifier_locked(ch, error);
+			nvgpu_set_err_notifier_locked(ch, error);
 	}
 	nvgpu_mutex_release(&priv->error_notifier.mutex);
 }
 
 /* error_notifier should be of the form  NVGPU_ERR_NOTIFIER_* */
-bool nvgpu_is_error_notifier_set(struct channel_gk20a *ch, u32 error_notifier)
+bool nvgpu_is_err_notifier_set(struct nvgpu_channel *ch, u32 error_notifier)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 	bool notifier_set = false;
@@ -193,8 +208,8 @@ static void gk20a_channel_update_runcb_fn(struct work_struct *work)
 	struct nvgpu_channel_linux *priv =
 		container_of(completion_cb,
 				struct nvgpu_channel_linux, completion_cb);
-	struct channel_gk20a *ch = priv->ch;
-	void (*fn)(struct channel_gk20a *, void *);
+	struct nvgpu_channel *ch = priv->ch;
+	void (*fn)(struct nvgpu_channel *, void *);
 	void *user_data;
 
 	nvgpu_spinlock_acquire(&completion_cb->lock);
@@ -206,7 +221,7 @@ static void gk20a_channel_update_runcb_fn(struct work_struct *work)
 		fn(ch, user_data);
 }
 
-static void nvgpu_channel_work_completion_init(struct channel_gk20a *ch)
+static void nvgpu_channel_work_completion_init(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -216,7 +231,7 @@ static void nvgpu_channel_work_completion_init(struct channel_gk20a *ch)
 	INIT_WORK(&priv->completion_cb.work, gk20a_channel_update_runcb_fn);
 }
 
-static void nvgpu_channel_work_completion_clear(struct channel_gk20a *ch)
+static void nvgpu_channel_work_completion_clear(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -227,7 +242,7 @@ static void nvgpu_channel_work_completion_clear(struct channel_gk20a *ch)
 	cancel_work_sync(&priv->completion_cb.work);
 }
 
-static void nvgpu_channel_work_completion_signal(struct channel_gk20a *ch)
+static void nvgpu_channel_work_completion_signal(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -235,7 +250,7 @@ static void nvgpu_channel_work_completion_signal(struct channel_gk20a *ch)
 		schedule_work(&priv->completion_cb.work);
 }
 
-static void nvgpu_channel_work_completion_cancel_sync(struct channel_gk20a *ch)
+static void nvgpu_channel_work_completion_cancel_sync(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -243,16 +258,16 @@ static void nvgpu_channel_work_completion_cancel_sync(struct channel_gk20a *ch)
 		cancel_work_sync(&priv->completion_cb.work);
 }
 
-struct channel_gk20a *gk20a_open_new_channel_with_cb(struct gk20a *g,
-		void (*update_fn)(struct channel_gk20a *, void *),
+struct nvgpu_channel *gk20a_open_new_channel_with_cb(struct gk20a *g,
+		void (*update_fn)(struct nvgpu_channel *, void *),
 		void *update_fn_data,
-		int runlist_id,
+		u32 runlist_id,
 		bool is_privileged_channel)
 {
-	struct channel_gk20a *ch;
+	struct nvgpu_channel *ch;
 	struct nvgpu_channel_linux *priv;
 
-	ch = gk20a_open_new_channel(g, runlist_id, is_privileged_channel,
+	ch = nvgpu_channel_open_new(g, runlist_id, is_privileged_channel,
 				nvgpu_current_pid(g), nvgpu_current_tid(g));
 
 	if (ch) {
@@ -266,24 +281,23 @@ struct channel_gk20a *gk20a_open_new_channel_with_cb(struct gk20a *g,
 	return ch;
 }
 
-static void nvgpu_channel_open_linux(struct channel_gk20a *ch)
+static void nvgpu_channel_open_linux(struct nvgpu_channel *ch)
 {
 }
 
-static void nvgpu_channel_close_linux(struct channel_gk20a *ch)
+static void nvgpu_channel_close_linux(struct nvgpu_channel *ch, bool force)
 {
 	nvgpu_channel_work_completion_clear(ch);
 
-#if defined(CONFIG_GK20A_CYCLE_STATS)
+#if defined(CONFIG_NVGPU_CYCLESTATS)
 	gk20a_channel_free_cycle_stats_buffer(ch);
 	gk20a_channel_free_cycle_stats_snapshot(ch);
 #endif
 }
 
-static int nvgpu_channel_alloc_linux(struct gk20a *g, struct channel_gk20a *ch)
+static int nvgpu_channel_alloc_linux(struct gk20a *g, struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv;
-	int err;
 
 	priv = nvgpu_kzalloc(g, sizeof(*priv));
 	if (!priv)
@@ -292,22 +306,18 @@ static int nvgpu_channel_alloc_linux(struct gk20a *g, struct channel_gk20a *ch)
 	ch->os_priv = priv;
 	priv->ch = ch;
 
-#ifdef CONFIG_SYNC
+#ifndef CONFIG_NVGPU_SYNCFD_NONE
 	ch->has_os_fence_framework_support = true;
 #endif
 
-	err = nvgpu_mutex_init(&priv->error_notifier.mutex);
-	if (err) {
-		nvgpu_kfree(g, priv);
-		return err;
-	}
+	nvgpu_mutex_init(&priv->error_notifier.mutex);
 
 	nvgpu_channel_work_completion_init(ch);
 
 	return 0;
 }
 
-static void nvgpu_channel_free_linux(struct gk20a *g, struct channel_gk20a *ch)
+static void nvgpu_channel_free_linux(struct gk20a *g, struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 
@@ -316,12 +326,12 @@ static void nvgpu_channel_free_linux(struct gk20a *g, struct channel_gk20a *ch)
 
 	ch->os_priv = NULL;
 
-#ifdef CONFIG_SYNC
+#ifndef CONFIG_NVGPU_SYNCFD_NONE
 	ch->has_os_fence_framework_support = false;
 #endif
 }
 
-static int nvgpu_channel_init_os_fence_framework(struct channel_gk20a *ch,
+static int nvgpu_channel_init_os_fence_framework(struct nvgpu_channel *ch,
 	const char *fmt, ...)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
@@ -332,45 +342,81 @@ static int nvgpu_channel_init_os_fence_framework(struct channel_gk20a *ch,
 	fence_framework = &priv->fence_framework;
 
 	va_start(args, fmt);
-	vsnprintf(name, sizeof(name), fmt, args);
+	(void) vsnprintf(name, sizeof(name), fmt, args);
 	va_end(args);
 
+#if defined(CONFIG_NVGPU_SYNCFD_ANDROID)
 	fence_framework->timeline = gk20a_sync_timeline_create(name);
 
 	if (!fence_framework->timeline)
 		return -EINVAL;
+#elif defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	fence_framework->context = nvgpu_sync_dma_context_create();
+	fence_framework->exists = true;
+#endif
 
 	return 0;
 }
-static void nvgpu_channel_signal_os_fence_framework(struct channel_gk20a *ch)
+static void nvgpu_channel_signal_os_fence_framework(struct nvgpu_channel *ch,
+				struct nvgpu_fence_type *fence)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 	struct nvgpu_os_fence_framework *fence_framework;
+#if defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	struct dma_fence *f;
+#endif
 
 	fence_framework = &priv->fence_framework;
 
+#if defined(CONFIG_NVGPU_SYNCFD_ANDROID)
 	gk20a_sync_timeline_signal(fence_framework->timeline);
+#elif defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	/*
+	 * This is not a good example on how to use the fence type. Don't touch
+	 * the priv data. This is os-specific code for the fence unit.
+	 */
+	f = nvgpu_get_dma_fence(&fence->priv.os_fence);
+	/*
+	 * Sometimes the post fence of a job isn't a file. It can be a raw
+	 * semaphore for kernel-internal tracking, or a raw syncpoint for
+	 * internal tracking or for exposing to user.
+	 */
+	if (f != NULL) {
+		nvgpu_sync_dma_signal(f);
+	}
+#endif
 }
 
-static void nvgpu_channel_destroy_os_fence_framework(struct channel_gk20a *ch)
+static void nvgpu_channel_destroy_os_fence_framework(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 	struct nvgpu_os_fence_framework *fence_framework;
 
 	fence_framework = &priv->fence_framework;
 
+#if defined(CONFIG_NVGPU_SYNCFD_ANDROID)
 	gk20a_sync_timeline_destroy(fence_framework->timeline);
 	fence_framework->timeline = NULL;
+#elif defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	/* fence_framework->context cannot be freed, see linux/dma-fence.h */
+	fence_framework->exists = false;
+#endif
 }
 
-static bool nvgpu_channel_fence_framework_exists(struct channel_gk20a *ch)
+static bool nvgpu_channel_fence_framework_exists(struct nvgpu_channel *ch)
 {
 	struct nvgpu_channel_linux *priv = ch->os_priv;
 	struct nvgpu_os_fence_framework *fence_framework;
 
 	fence_framework = &priv->fence_framework;
 
+#if defined(CONFIG_NVGPU_SYNCFD_ANDROID)
 	return (fence_framework->timeline != NULL);
+#elif defined(CONFIG_NVGPU_SYNCFD_STABLE)
+	return fence_framework->exists;
+#else
+	return false;
+#endif
 }
 
 static int nvgpu_channel_copy_user_gpfifo(struct nvgpu_gpfifo_entry *dest,
@@ -404,14 +450,9 @@ int nvgpu_usermode_buf_from_dmabuf(struct gk20a *g, int dmabuf_fd,
 		goto put_dmabuf;
 	}
 
-	err = gk20a_dmabuf_alloc_drvdata(dmabuf, dev);
-	if (err != 0) {
-		goto put_dmabuf;
-	}
-
-	sgt = gk20a_mm_pin(dev, dmabuf, &attachment);
+	sgt = nvgpu_mm_pin(dev, dmabuf, &attachment, DMA_TO_DEVICE);
 	if (IS_ERR(sgt)) {
-		nvgpu_warn(g, "Failed to pin dma_buf!");
+		nvgpu_err(g, "Failed to pin dma_buf!");
 		err = PTR_ERR(sgt);
 		goto put_dmabuf;
 	}
@@ -440,14 +481,14 @@ put_dmabuf:
 	return err;
 }
 
-void nvgpu_channel_free_usermode_buffers(struct channel_gk20a *c)
+void nvgpu_os_channel_free_usermode_buffers(struct nvgpu_channel *c)
 {
 	struct nvgpu_channel_linux *priv = c->os_priv;
 	struct gk20a *g = c->g;
 	struct device *dev = dev_from_gk20a(g);
 
 	if (priv->usermode.gpfifo.dmabuf != NULL) {
-		gk20a_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+		nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
 			       priv->usermode.gpfifo.attachment,
 			       priv->usermode.gpfifo.sgt);
 		dma_buf_put(priv->usermode.gpfifo.dmabuf);
@@ -455,7 +496,7 @@ void nvgpu_channel_free_usermode_buffers(struct channel_gk20a *c)
 	}
 
 	if (priv->usermode.userd.dmabuf != NULL) {
-		gk20a_mm_unpin(dev, priv->usermode.userd.dmabuf,
+		nvgpu_mm_unpin(dev, priv->usermode.userd.dmabuf,
 		       priv->usermode.userd.attachment,
 		       priv->usermode.userd.sgt);
 		dma_buf_put(priv->usermode.userd.dmabuf);
@@ -463,7 +504,7 @@ void nvgpu_channel_free_usermode_buffers(struct channel_gk20a *c)
 	}
 }
 
-static int nvgpu_channel_alloc_usermode_buffers(struct channel_gk20a *c,
+static int nvgpu_channel_alloc_usermode_buffers(struct nvgpu_channel *c,
 		struct nvgpu_setup_bind_args *args)
 {
 	struct nvgpu_channel_linux *priv = c->os_priv;
@@ -498,7 +539,7 @@ static int nvgpu_channel_alloc_usermode_buffers(struct channel_gk20a *c,
 	}
 
 	c->usermode_gpfifo.gpu_va = nvgpu_gmmu_map(c->vm, &c->usermode_gpfifo,
-			c->usermode_gpfifo.size, 0, gk20a_mem_flag_none,
+			0, gk20a_mem_flag_read_only,
 			false, c->usermode_gpfifo.aperture);
 
 	if (c->usermode_gpfifo.gpu_va == 0) {
@@ -512,13 +553,13 @@ static int nvgpu_channel_alloc_usermode_buffers(struct channel_gk20a *c,
 		goto unmap_free_gpfifo;
 	}
 
-	args->work_submit_token = g->fifo.channel_base + c->chid;
+	args->work_submit_token = g->ops.usermode.doorbell_token(c);
 
 	return 0;
 unmap_free_gpfifo:
 	nvgpu_dma_unmap_free(c->vm, &c->usermode_gpfifo);
 free_gpfifo:
-	gk20a_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+	nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
 		       priv->usermode.gpfifo.attachment,
 		       priv->usermode.gpfifo.sgt);
 	dma_buf_put(priv->usermode.gpfifo.dmabuf);
@@ -526,15 +567,15 @@ free_gpfifo:
 	return err;
 }
 
-int nvgpu_init_channel_support_linux(struct nvgpu_os_linux *l)
+int nvgpu_channel_init_support_linux(struct nvgpu_os_linux *l)
 {
 	struct gk20a *g = &l->g;
-	struct fifo_gk20a *f = &g->fifo;
+	struct nvgpu_fifo *f = &g->fifo;
 	int chid;
 	int err;
 
 	for (chid = 0; chid < (int)f->num_channels; chid++) {
-		struct channel_gk20a *ch = &f->channel[chid];
+		struct nvgpu_channel *ch = &f->channel[chid];
 
 		err = nvgpu_channel_alloc_linux(g, ch);
 		if (err)
@@ -564,27 +605,27 @@ int nvgpu_init_channel_support_linux(struct nvgpu_os_linux *l)
 		nvgpu_channel_alloc_usermode_buffers;
 
 	g->os_channel.free_usermode_buffers =
-		nvgpu_channel_free_usermode_buffers;
+		nvgpu_os_channel_free_usermode_buffers;
 
 	return 0;
 
 err_clean:
 	for (; chid >= 0; chid--) {
-		struct channel_gk20a *ch = &f->channel[chid];
+		struct nvgpu_channel *ch = &f->channel[chid];
 
 		nvgpu_channel_free_linux(g, ch);
 	}
 	return err;
 }
 
-void nvgpu_remove_channel_support_linux(struct nvgpu_os_linux *l)
+void nvgpu_channel_remove_support_linux(struct nvgpu_os_linux *l)
 {
 	struct gk20a *g = &l->g;
-	struct fifo_gk20a *f = &g->fifo;
+	struct nvgpu_fifo *f = &g->fifo;
 	unsigned int chid;
 
 	for (chid = 0; chid < f->num_channels; chid++) {
-		struct channel_gk20a *ch = &f->channel[chid];
+		struct nvgpu_channel *ch = &f->channel[chid];
 
 		nvgpu_channel_free_linux(g, ch);
 	}
@@ -595,13 +636,25 @@ void nvgpu_remove_channel_support_linux(struct nvgpu_os_linux *l)
 	g->os_channel.destroy_os_fence_framework = NULL;
 }
 
-u32 nvgpu_get_gpfifo_entry_size(void)
+u32 nvgpu_channel_get_max_subctx_count(struct nvgpu_channel *ch)
 {
-	return sizeof(struct nvgpu_gpfifo_entry);
+	struct nvgpu_channel_linux *priv = ch->os_priv;
+	struct gk20a *g = ch->g;
+	u32 gpu_instance_id;
+
+	if (priv->cdev == NULL) {
+		/* CE channels reserved by nvgpu do not have cdev pointer */
+		return nvgpu_grmgr_get_gpu_instance_max_veid_count(g, 0U);
+	}
+
+	gpu_instance_id = nvgpu_get_gpu_instance_id_from_cdev(g, priv->cdev);
+	nvgpu_assert(gpu_instance_id < g->mig.num_gpu_instances);
+
+	return nvgpu_grmgr_get_gpu_instance_max_veid_count(g, gpu_instance_id);
 }
 
 #ifdef CONFIG_DEBUG_FS
-static void trace_write_pushbuffer(struct channel_gk20a *c,
+static void trace_write_pushbuffer(struct nvgpu_channel *c,
 				   struct nvgpu_gpfifo_entry *g)
 {
 	void *mem = NULL;
@@ -617,10 +670,11 @@ static void trace_write_pushbuffer(struct channel_gk20a *c,
 		words = pbdma_gp_entry1_length_v(g->entry1);
 		err = nvgpu_vm_find_buf(c->vm, gpu_va, &dmabuf, &offset);
 		if (!err)
-			mem = dma_buf_vmap(dmabuf);
+			mem = gk20a_dmabuf_vmap(dmabuf);
 	}
 
 	if (mem) {
+#ifdef CONFIG_NVGPU_TRACE
 		u32 i;
 		/*
 		 * Write in batches of 128 as there seems to be a limit
@@ -634,11 +688,12 @@ static void trace_write_pushbuffer(struct channel_gk20a *c,
 				offset + i * sizeof(u32),
 				mem);
 		}
-		dma_buf_vunmap(dmabuf, mem);
+#endif
+		gk20a_dmabuf_vunmap(dmabuf, mem);
 	}
 }
 
-void trace_write_pushbuffers(struct channel_gk20a *c, u32 count)
+void trace_write_pushbuffers(struct nvgpu_channel *c, u32 count)
 {
 	struct nvgpu_gpfifo_entry *gp = c->gpfifo.mem.cpu_va;
 	u32 n = c->gpfifo.entry_num;

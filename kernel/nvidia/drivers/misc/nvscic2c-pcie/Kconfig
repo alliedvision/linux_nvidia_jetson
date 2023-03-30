@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+config NVSCIC2C_PCIE
+	tristate "NVIDIA Chip-to-Chip between PCIe-RP and PCIe-EP"
+	depends on PCI && PCI_ENDPOINT
+	default n
+	help
+	 This enables SoftwareCommunicationInterface for Host-to-Host
+	 communication between PCIe Rootport and PCIe Endpoint.
+	 If unsure, Please say N.

@@ -1,0 +1,133 @@
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All Rights Reserved.
+#
+# OS interface units and utilities. Often represented by simply a header file.
+#
+
+atomic:
+  safe: yes
+  sources: [ include/nvgpu/atomic.h ]
+
+barrier:
+  safe: yes
+  sources: [ include/nvgpu/barrier.h ]
+
+bitops:
+  safe: yes
+  sources: [ include/nvgpu/bitops.h ]
+
+bsearch:
+  safe: yes
+  sources: [ include/nvgpu/bsearch.h ]
+
+bug:
+  safe: yes
+  sources: [ include/nvgpu/bug.h ]
+
+circ_buf:
+  safe: yes
+  sources: [ include/nvgpu/circ_buf.h ]
+
+cond:
+  safe: yes
+  sources: [ include/nvgpu/cond.h ]
+
+dma:
+  safe: yes
+  sources: [ include/nvgpu/dma.h ]
+
+# This one is likely not structured correctly.
+dt:
+  safe: no
+  sources: [ include/nvgpu/dt.h ]
+
+# Also a problem.
+errno:
+  safe: yes
+  sources: [ include/nvgpu/errno.h ]
+
+firmware:
+  safe: yes
+  sources: [ include/nvgpu/firmware.h ]
+
+fuse:
+  safe: yes
+  sources: [ include/nvgpu/fuse.h ]
+
+io:
+  safe: yes
+  sources: [ include/nvgpu/io.h, include/nvgpu/io_usermode.h ]
+
+kmem:
+  safe: yes
+  sources: [ include/nvgpu/kmem.h ]
+
+kref:
+  safe: yes
+  sources: [ include/nvgpu/kref.h ]
+
+list:
+  safe: yes
+  sources: [ include/nvgpu/list.h ]
+  tags: unit-testable
+
+lock:
+  safe: yes
+  sources: [ include/nvgpu/lock.h ]
+
+log:
+  safe: yes
+  sources: [ include/nvgpu/log.h, include/nvgpu/log_common.h ]
+
+log2:
+  safe: yes
+  sources: [ include/nvgpu/log2.h ]
+
+rwsem:
+  safe: yes
+  sources: [ include/nvgpu/rwsem.h ]
+
+sizes:
+  safe: yes
+  sources: [ include/nvgpu/sizes.h ]
+
+soc:
+  safe: yes
+  sources: [ include/nvgpu/soc.h ]
+
+sort:
+  safe: yes
+  sources: [ include/nvgpu/sort.h ]
+
+string:
+  safe: yes
+  sources: [ include/nvgpu/string.h ]
+  tags: unit-testable
+
+thread:
+  safe: yes
+  sources: [ include/nvgpu/thread.h ]
+
+timers:
+  safe: yes
+  sources: [ include/nvgpu/timers.h,
+             include/nvgpu/periodic_timer.h ]
+
+types:
+  safe: yes
+  sources: [ include/nvgpu/types.h ]
+
+nvgpu_sgt:
+  safe: yes
+  sources: [ include/nvgpu/nvgpu_sgt_os.h ]
+
+os_sched:
+  safe: yes
+  sources: [ include/nvgpu/os_sched.h ]
+
+nvhost:
+  safe: yes
+  sources: [ include/nvgpu/nvhost.h ]
+
+vpr:
+  safe: no
+  sources: [ include/nvgpu/vpr.h ]

@@ -60,7 +60,7 @@ struct nvhost_syncpt {
 	const char **syncpt_names;
 	const char **last_used_by;
 	struct nvhost_syncpt_attr *syncpt_attrs;
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && IS_ENABLED(CONFIG_SYNC)
 	struct nvhost_sync_timeline **timeline;
 	struct nvhost_sync_timeline *timeline_invalid;
 	struct nvhost_syncpt_attr invalid_min_attr;
@@ -69,15 +69,16 @@ struct nvhost_syncpt {
 	struct nvhost_syncpt_attr invalid_syncpt_type_attr;
 	struct nvhost_syncpt_attr invalid_assigned_attr;
 #endif
-	atomic_t *stop_stream_called;
-	u32 stream_id;
+#if IS_ENABLED(CONFIG_TEGRA_GRHOST_SYNC) && IS_ENABLED(CONFIG_SYNC_FILE)
+	u64 syncpt_context_base;
+#endif
 };
 
 int nvhost_syncpt_init(struct platform_device *, struct nvhost_syncpt *);
 void nvhost_syncpt_deinit(struct nvhost_syncpt *);
 
 #define syncpt_to_dev(sp) container_of(sp, struct nvhost_master, syncpt)
-#define SYNCPT_CHECK_PERIOD (20 * HZ)
+#define SYNCPT_CHECK_PERIOD (6 * HZ)
 #define SYNCPT_POLL_PERIOD 1 /* msecs */
 #define MAX_STUCK_CHECK_COUNT 15
 
@@ -119,6 +120,7 @@ int nvhost_syncpt_client_managed(struct nvhost_syncpt *sp, u32 id);
 int nvhost_syncpt_nb_hw_pts(struct nvhost_syncpt *sp);
 int nvhost_syncpt_nb_pts(struct nvhost_syncpt *sp);
 int nvhost_syncpt_pts_base(struct nvhost_syncpt *sp);
+int nvhost_syncpt_nb_irqs(struct nvhost_syncpt *sp);
 bool nvhost_syncpt_is_valid_hw_pt(struct nvhost_syncpt *sp, u32 id);
 bool nvhost_syncpt_is_valid_hw_pt_nospec(struct nvhost_syncpt *sp, u32 *id);
 bool nvhost_syncpt_is_valid_pt(struct nvhost_syncpt *sp, u32 id);

@@ -15,7 +15,7 @@
 /***** temporarily flag *******/
 #define CONFIG_HEXFILE_CHANNEL_PLAN
 #define CONFIG_HEXFILE_POWER_LIMIT
-#define RTW_HEXFILE_LEN 2001
+#define RTW_HEXFILE_LEN 3072
 #define RTW_HEXFILE_NAME "/lib/firmware/rtl8822_setting.bin"
 #define CONFIG_SINGLE_IMG
 /* #define CONFIG_DISABLE_ODM */
@@ -44,8 +44,6 @@
 		#define CONFIG_80211N_HT
 	#endif
 #endif
-
-#define CONFIG_IEEE80211_BAND_5GHZ
 
 /*#define CONFIG_IOCTL_CFG80211*/
 #ifdef CONFIG_IOCTL_CFG80211
@@ -112,7 +110,7 @@
 
 /*#define CONFIG_PCI_ASPM*/
 #ifdef CONFIG_PCI_ASPM
-#define CONFIG_PCI_DYNAMIC_ASPM
+#define CONFIG_PCI_DYNAMIC_ASPM_L1_LATENCY
 #endif
 
 #define CONFIG_HIGH_CHAN_SUPER_CALIBRATION
@@ -213,6 +211,7 @@
 /*
  * Interface  Related Config
  */
+#define CONFIG_USB_CONFIG_OFFLOAD_8822C
 
 /*
  * HAL  Related Config
@@ -276,8 +275,6 @@
  */
 #define DBG	1
 
-#define CONFIG_PROC_DEBUG
-
 #define CONFIG_DBG_COUNTER
 
 #define DBG_CONFIG_ERROR_DETECT
@@ -320,16 +317,12 @@
 #define	DBG_TXBD_DESC_DUMP
 
 
-/* #define CONFIG_RTW_8822C_BETA_DEV */
-#ifdef CONFIG_RTW_8822C_BETA_DEV
 /* #define CONFIG_NO_FW */
 /* #define CONFIG_DISABLE_ODM */
-/* #define CONFIG_DEFAULT_PWR_BY_RATE_TABLE */
-#endif
 
-#define CONFIG_8822CE_INT_MIGRATION
+/* #define CONFIG_8822CE_INT_MIGRATION */
 
 #define CONFIG_PCI_BCN_POLLING
 
-/*#define CONFIG_PCI_TX_POLLING*/
+#define CONFIG_PCI_TX_POLLING
 /*#define CONFIG_PCI_TX_POLLING_V2*/

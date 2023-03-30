@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
- * Function naming determines intended use:
+ * Function/Macro naming determines intended use:
  *
  *     <x>_r(void) : Returns the offset for register <x>.
  *
@@ -53,411 +53,159 @@
  *         comparison with unshifted values appropriate for use in field <y>
  *         of register <x>.
  */
-#ifndef _hw_ctxsw_prog_gv11b_h_
-#define _hw_ctxsw_prog_gv11b_h_
+#ifndef NVGPU_HW_CTXSW_PROG_GV11B_H
+#define NVGPU_HW_CTXSW_PROG_GV11B_H
 
-static inline u32 ctxsw_prog_fecs_header_v(void)
-{
-	return 0x00000100U;
-}
-static inline u32 ctxsw_prog_main_image_num_gpcs_o(void)
-{
-	return 0x00000008U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_o(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_f(u32 v)
-{
-	return (v & 0x3fU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_undefined_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_opengl_v(void)
-{
-	return 0x00000008U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_dx9_v(void)
-{
-	return 0x00000010U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_dx10_v(void)
-{
-	return 0x00000011U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_dx11_v(void)
-{
-	return 0x00000012U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_compute_v(void)
-{
-	return 0x00000020U;
-}
-static inline u32 ctxsw_prog_main_image_ctl_type_per_veid_header_v(void)
-{
-	return 0x00000021U;
-}
-static inline u32 ctxsw_prog_main_image_patch_count_o(void)
-{
-	return 0x00000010U;
-}
-static inline u32 ctxsw_prog_main_image_context_id_o(void)
-{
-	return 0x000000f0U;
-}
-static inline u32 ctxsw_prog_main_image_patch_adr_lo_o(void)
-{
-	return 0x00000014U;
-}
-static inline u32 ctxsw_prog_main_image_patch_adr_hi_o(void)
-{
-	return 0x00000018U;
-}
-static inline u32 ctxsw_prog_main_image_zcull_o(void)
-{
-	return 0x0000001cU;
-}
-static inline u32 ctxsw_prog_main_image_zcull_mode_no_ctxsw_v(void)
-{
-	return 0x00000001U;
-}
-static inline u32 ctxsw_prog_main_image_zcull_mode_separate_buffer_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 ctxsw_prog_main_image_zcull_ptr_o(void)
-{
-	return 0x00000020U;
-}
-static inline u32 ctxsw_prog_main_image_pm_o(void)
-{
-	return 0x00000028U;
-}
-static inline u32 ctxsw_prog_main_image_pm_mode_m(void)
-{
-	return 0x7U << 0U;
-}
-static inline u32 ctxsw_prog_main_image_pm_mode_ctxsw_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ctxsw_prog_main_image_pm_mode_no_ctxsw_f(void)
-{
-	return 0x0U;
-}
-static inline u32 ctxsw_prog_main_image_pm_mode_stream_out_ctxsw_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ctxsw_prog_main_image_pm_smpc_mode_m(void)
-{
-	return 0x7U << 3U;
-}
-static inline u32 ctxsw_prog_main_image_pm_smpc_mode_ctxsw_f(void)
-{
-	return 0x8U;
-}
-static inline u32 ctxsw_prog_main_image_pm_smpc_mode_no_ctxsw_f(void)
-{
-	return 0x0U;
-}
-static inline u32 ctxsw_prog_main_image_pm_ptr_o(void)
-{
-	return 0x0000002cU;
-}
-static inline u32 ctxsw_prog_main_image_num_save_ops_o(void)
-{
-	return 0x000000f4U;
-}
-static inline u32 ctxsw_prog_main_image_num_wfi_save_ops_o(void)
-{
-	return 0x000000d0U;
-}
-static inline u32 ctxsw_prog_main_image_num_cta_save_ops_o(void)
-{
-	return 0x000000d4U;
-}
-static inline u32 ctxsw_prog_main_image_num_gfxp_save_ops_o(void)
-{
-	return 0x000000d8U;
-}
-static inline u32 ctxsw_prog_main_image_num_cilp_save_ops_o(void)
-{
-	return 0x000000dcU;
-}
-static inline u32 ctxsw_prog_main_image_num_restore_ops_o(void)
-{
-	return 0x000000f8U;
-}
-static inline u32 ctxsw_prog_main_image_zcull_ptr_hi_o(void)
-{
-	return 0x00000060U;
-}
-static inline u32 ctxsw_prog_main_image_zcull_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_pm_ptr_hi_o(void)
-{
-	return 0x00000094U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_hi_o(void)
-{
-	return 0x00000064U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_o(void)
-{
-	return 0x00000068U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_veid0_hi_o(void)
-{
-	return 0x00000070U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_veid0_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_veid0_o(void)
-{
-	return 0x00000074U;
-}
-static inline u32 ctxsw_prog_main_image_full_preemption_ptr_veid0_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_context_buffer_ptr_hi_o(void)
-{
-	return 0x00000078U;
-}
-static inline u32 ctxsw_prog_main_image_context_buffer_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_context_buffer_ptr_o(void)
-{
-	return 0x0000007cU;
-}
-static inline u32 ctxsw_prog_main_image_context_buffer_ptr_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_magic_value_o(void)
-{
-	return 0x000000fcU;
-}
-static inline u32 ctxsw_prog_main_image_magic_value_v_value_v(void)
-{
-	return 0x600dc0deU;
-}
-static inline u32 ctxsw_prog_local_priv_register_ctl_o(void)
-{
-	return 0x0000000cU;
-}
-static inline u32 ctxsw_prog_local_priv_register_ctl_offset_v(u32 r)
-{
-	return (r >> 0U) & 0xffffU;
-}
-static inline u32 ctxsw_prog_main_image_global_cb_ptr_o(void)
-{
-	return 0x000000b8U;
-}
-static inline u32 ctxsw_prog_main_image_global_cb_ptr_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_global_cb_ptr_hi_o(void)
-{
-	return 0x000000bcU;
-}
-static inline u32 ctxsw_prog_main_image_global_cb_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_global_pagepool_ptr_o(void)
-{
-	return 0x000000c0U;
-}
-static inline u32 ctxsw_prog_main_image_global_pagepool_ptr_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_global_pagepool_ptr_hi_o(void)
-{
-	return 0x000000c4U;
-}
-static inline u32 ctxsw_prog_main_image_global_pagepool_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_control_block_ptr_o(void)
-{
-	return 0x000000c8U;
-}
-static inline u32 ctxsw_prog_main_image_control_block_ptr_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_control_block_ptr_hi_o(void)
-{
-	return 0x000000ccU;
-}
-static inline u32 ctxsw_prog_main_image_control_block_ptr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_context_ramchain_buffer_addr_lo_o(void)
-{
-	return 0x000000e0U;
-}
-static inline u32 ctxsw_prog_main_image_context_ramchain_buffer_addr_lo_v_f(u32 v)
-{
-	return (v & 0xffffffffU) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_context_ramchain_buffer_addr_hi_o(void)
-{
-	return 0x000000e4U;
-}
-static inline u32 ctxsw_prog_main_image_context_ramchain_buffer_addr_hi_v_f(u32 v)
-{
-	return (v & 0x1ffffU) << 0U;
-}
-static inline u32 ctxsw_prog_local_image_ppc_info_o(void)
-{
-	return 0x000000f4U;
-}
-static inline u32 ctxsw_prog_local_image_ppc_info_num_ppcs_v(u32 r)
-{
-	return (r >> 0U) & 0xffffU;
-}
-static inline u32 ctxsw_prog_local_image_ppc_info_ppc_mask_v(u32 r)
-{
-	return (r >> 16U) & 0xffffU;
-}
-static inline u32 ctxsw_prog_local_image_num_tpcs_o(void)
-{
-	return 0x000000f8U;
-}
-static inline u32 ctxsw_prog_local_magic_value_o(void)
-{
-	return 0x000000fcU;
-}
-static inline u32 ctxsw_prog_local_magic_value_v_value_v(void)
-{
-	return 0xad0becabU;
-}
-static inline u32 ctxsw_prog_main_extended_buffer_ctl_o(void)
-{
-	return 0x000000ecU;
-}
-static inline u32 ctxsw_prog_main_extended_buffer_ctl_offset_v(u32 r)
-{
-	return (r >> 0U) & 0xffffU;
-}
-static inline u32 ctxsw_prog_main_extended_buffer_ctl_size_v(u32 r)
-{
-	return (r >> 16U) & 0xffU;
-}
-static inline u32 ctxsw_prog_extended_buffer_segments_size_in_bytes_v(void)
-{
-	return 0x00000100U;
-}
-static inline u32 ctxsw_prog_extended_marker_size_in_bytes_v(void)
-{
-	return 0x00000004U;
-}
-static inline u32 ctxsw_prog_extended_sm_dsm_perf_counter_register_stride_v(void)
-{
-	return 0x00000000U;
-}
-static inline u32 ctxsw_prog_extended_sm_dsm_perf_counter_control_register_stride_v(void)
-{
-	return 0x00000002U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_o(void)
-{
-	return 0x000000a0U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_s(void)
-{
-	return 2U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_m(void)
-{
-	return 0x3U << 0U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_v(u32 r)
-{
-	return (r >> 0U) & 0x3U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_allow_all_f(void)
-{
-	return 0x0U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_config_mode_use_map_f(void)
-{
-	return 0x2U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_addr_lo_o(void)
-{
-	return 0x000000a4U;
-}
-static inline u32 ctxsw_prog_main_image_priv_access_map_addr_hi_o(void)
-{
-	return 0x000000a8U;
-}
-static inline u32 ctxsw_prog_main_image_misc_options_o(void)
-{
-	return 0x0000003cU;
-}
-static inline u32 ctxsw_prog_main_image_misc_options_verif_features_m(void)
-{
-	return 0x1U << 3U;
-}
-static inline u32 ctxsw_prog_main_image_misc_options_verif_features_disabled_f(void)
-{
-	return 0x0U;
-}
-static inline u32 ctxsw_prog_main_image_graphics_preemption_options_o(void)
-{
-	return 0x00000080U;
-}
-static inline u32 ctxsw_prog_main_image_graphics_preemption_options_control_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_graphics_preemption_options_control_gfxp_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ctxsw_prog_main_image_compute_preemption_options_o(void)
-{
-	return 0x00000084U;
-}
-static inline u32 ctxsw_prog_main_image_compute_preemption_options_control_f(u32 v)
-{
-	return (v & 0x3U) << 0U;
-}
-static inline u32 ctxsw_prog_main_image_compute_preemption_options_control_cta_f(void)
-{
-	return 0x1U;
-}
-static inline u32 ctxsw_prog_main_image_compute_preemption_options_control_cilp_f(void)
-{
-	return 0x2U;
-}
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define ctxsw_prog_fecs_header_v()                                 (0x00000100U)
+#define ctxsw_prog_gpccs_header_stride_v()                         (0x00000100U)
+#define ctxsw_prog_main_image_num_gpcs_o()                         (0x00000008U)
+#define ctxsw_prog_main_image_ctl_o()                              (0x0000000cU)
+#define ctxsw_prog_main_image_ctl_type_f(v)             ((U32(v) & 0x3fU) << 0U)
+#define ctxsw_prog_main_image_ctl_type_undefined_v()               (0x00000000U)
+#define ctxsw_prog_main_image_ctl_type_opengl_v()                  (0x00000008U)
+#define ctxsw_prog_main_image_ctl_type_dx9_v()                     (0x00000010U)
+#define ctxsw_prog_main_image_ctl_type_dx10_v()                    (0x00000011U)
+#define ctxsw_prog_main_image_ctl_type_dx11_v()                    (0x00000012U)
+#define ctxsw_prog_main_image_ctl_type_compute_v()                 (0x00000020U)
+#define ctxsw_prog_main_image_ctl_type_per_veid_header_v()         (0x00000021U)
+#define ctxsw_prog_main_image_patch_count_o()                      (0x00000010U)
+#define ctxsw_prog_main_image_context_id_o()                       (0x000000f0U)
+#define ctxsw_prog_main_image_patch_adr_lo_o()                     (0x00000014U)
+#define ctxsw_prog_main_image_patch_adr_hi_o()                     (0x00000018U)
+#define ctxsw_prog_main_image_zcull_o()                            (0x0000001cU)
+#define ctxsw_prog_main_image_zcull_mode_no_ctxsw_v()              (0x00000001U)
+#define ctxsw_prog_main_image_zcull_mode_separate_buffer_v()       (0x00000002U)
+#define ctxsw_prog_main_image_zcull_ptr_o()                        (0x00000020U)
+#define ctxsw_prog_main_image_pm_o()                               (0x00000028U)
+#define ctxsw_prog_main_image_pm_mode_m()                      (U32(0x7U) << 0U)
+#define ctxsw_prog_main_image_pm_mode_ctxsw_f()                           (0x1U)
+#define ctxsw_prog_main_image_pm_mode_no_ctxsw_f()                        (0x0U)
+#define ctxsw_prog_main_image_pm_mode_stream_out_ctxsw_f()                (0x2U)
+#define ctxsw_prog_main_image_pm_smpc_mode_m()                 (U32(0x7U) << 3U)
+#define ctxsw_prog_main_image_pm_smpc_mode_ctxsw_f()                      (0x8U)
+#define ctxsw_prog_main_image_pm_smpc_mode_no_ctxsw_f()                   (0x0U)
+#define ctxsw_prog_main_image_pm_ptr_o()                           (0x0000002cU)
+#define ctxsw_prog_main_image_num_save_ops_o()                     (0x000000f4U)
+#define ctxsw_prog_main_image_num_wfi_save_ops_o()                 (0x000000d0U)
+#define ctxsw_prog_main_image_num_cta_save_ops_o()                 (0x000000d4U)
+#define ctxsw_prog_main_image_num_gfxp_save_ops_o()                (0x000000d8U)
+#define ctxsw_prog_main_image_num_cilp_save_ops_o()                (0x000000dcU)
+#define ctxsw_prog_main_image_num_restore_ops_o()                  (0x000000f8U)
+#define ctxsw_prog_main_image_zcull_ptr_hi_o()                     (0x00000060U)
+#define ctxsw_prog_main_image_zcull_ptr_hi_v_f(v)    ((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_pm_ptr_hi_o()                        (0x00000094U)
+#define ctxsw_prog_main_image_full_preemption_ptr_hi_o()           (0x00000064U)
+#define ctxsw_prog_main_image_full_preemption_ptr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_full_preemption_ptr_o()              (0x00000068U)
+#define ctxsw_prog_main_image_full_preemption_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_full_preemption_ptr_veid0_hi_o()     (0x00000070U)
+#define ctxsw_prog_main_image_full_preemption_ptr_veid0_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_full_preemption_ptr_veid0_o()        (0x00000074U)
+#define ctxsw_prog_main_image_full_preemption_ptr_veid0_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_context_buffer_ptr_hi_o()            (0x00000078U)
+#define ctxsw_prog_main_image_context_buffer_ptr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_context_buffer_ptr_o()               (0x0000007cU)
+#define ctxsw_prog_main_image_context_buffer_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_magic_value_o()                      (0x000000fcU)
+#define ctxsw_prog_main_image_magic_value_v_value_v()              (0x600dc0deU)
+#define ctxsw_prog_local_priv_register_ctl_o()                     (0x0000000cU)
+#define ctxsw_prog_local_priv_register_ctl_offset_v(r)   (((r) >> 0U) & 0xffffU)
+#define ctxsw_prog_main_image_global_cb_ptr_o()                    (0x000000b8U)
+#define ctxsw_prog_main_image_global_cb_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_global_cb_ptr_hi_o()                 (0x000000bcU)
+#define ctxsw_prog_main_image_global_cb_ptr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_global_pagepool_ptr_o()              (0x000000c0U)
+#define ctxsw_prog_main_image_global_pagepool_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_global_pagepool_ptr_hi_o()           (0x000000c4U)
+#define ctxsw_prog_main_image_global_pagepool_ptr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_control_block_ptr_o()                (0x000000c8U)
+#define ctxsw_prog_main_image_control_block_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_control_block_ptr_hi_o()             (0x000000ccU)
+#define ctxsw_prog_main_image_control_block_ptr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_context_ramchain_buffer_addr_lo_o()  (0x000000e0U)
+#define ctxsw_prog_main_image_context_ramchain_buffer_addr_lo_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_main_image_context_ramchain_buffer_addr_hi_o()  (0x000000e4U)
+#define ctxsw_prog_main_image_context_ramchain_buffer_addr_hi_v_f(v)\
+				((U32(v) & 0x1ffffU) << 0U)
+#define ctxsw_prog_local_image_ppc_info_o()                        (0x000000f4U)
+#define ctxsw_prog_local_image_ppc_info_num_ppcs_v(r)    (((r) >> 0U) & 0xffffU)
+#define ctxsw_prog_local_image_ppc_info_ppc_mask_v(r)   (((r) >> 16U) & 0xffffU)
+#define ctxsw_prog_local_image_num_tpcs_o()                        (0x000000f8U)
+#define ctxsw_prog_local_magic_value_o()                           (0x000000fcU)
+#define ctxsw_prog_local_magic_value_v_value_v()                   (0xad0becabU)
+#define ctxsw_prog_main_extended_buffer_ctl_o()                    (0x000000ecU)
+#define ctxsw_prog_main_extended_buffer_ctl_offset_v(r)  (((r) >> 0U) & 0xffffU)
+#define ctxsw_prog_main_extended_buffer_ctl_size_v(r)     (((r) >> 16U) & 0xffU)
+#define ctxsw_prog_extended_buffer_segments_size_in_bytes_v()      (0x00000100U)
+#define ctxsw_prog_extended_marker_size_in_bytes_v()               (0x00000004U)
+#define ctxsw_prog_extended_sm_dsm_perf_counter_register_stride_v()\
+				(0x00000000U)
+#define ctxsw_prog_extended_sm_dsm_perf_counter_control_register_stride_v()\
+				(0x00000002U)
+#define ctxsw_prog_main_image_priv_access_map_config_o()           (0x000000a0U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_s()               (2U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_f(v)\
+				((U32(v) & 0x3U) << 0U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_m()  (U32(0x3U) << 0U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_v(r)\
+				(((r) >> 0U) & 0x3U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_allow_all_f()   (0x0U)
+#define ctxsw_prog_main_image_priv_access_map_config_mode_use_map_f()     (0x2U)
+#define ctxsw_prog_main_image_priv_access_map_addr_lo_o()          (0x000000a4U)
+#define ctxsw_prog_main_image_priv_access_map_addr_hi_o()          (0x000000a8U)
+#define ctxsw_prog_main_image_misc_options_o()                     (0x0000003cU)
+#define ctxsw_prog_main_image_misc_options_verif_features_m()  (U32(0x1U) << 3U)
+#define ctxsw_prog_main_image_misc_options_verif_features_disabled_f()    (0x0U)
+#define ctxsw_prog_main_image_graphics_preemption_options_o()      (0x00000080U)
+#define ctxsw_prog_main_image_graphics_preemption_options_control_f(v)\
+				((U32(v) & 0x3U) << 0U)
+#define ctxsw_prog_main_image_graphics_preemption_options_control_gfxp_f()\
+				(0x1U)
+#define ctxsw_prog_main_image_compute_preemption_options_o()       (0x00000084U)
+#define ctxsw_prog_main_image_compute_preemption_options_control_f(v)\
+				((U32(v) & 0x3U) << 0U)
+#define ctxsw_prog_main_image_compute_preemption_options_control_cta_f()  (0x1U)
+#define ctxsw_prog_main_image_compute_preemption_options_control_cilp_f() (0x2U)
+#define ctxsw_prog_main_image_context_timestamp_buffer_control_o() (0x000000acU)
+#define ctxsw_prog_main_image_context_timestamp_buffer_control_num_records_f(v)\
+				((U32(v) & 0xffffU) << 0U)
+#define ctxsw_prog_main_image_context_timestamp_buffer_ptr_hi_o()  (0x000000b0U)
+#define ctxsw_prog_main_image_context_timestamp_buffer_ptr_hi_v_m()\
+				(U32(0x1ffffU) << 0U)
+#define ctxsw_prog_main_image_context_timestamp_buffer_ptr_o()     (0x000000b4U)
+#define ctxsw_prog_main_image_context_timestamp_buffer_ptr_v_f(v)\
+				((U32(v) & 0xffffffffU) << 0U)
+#define ctxsw_prog_record_timestamp_record_size_in_bytes_v()       (0x00000080U)
+#define ctxsw_prog_record_timestamp_record_size_in_words_v()       (0x00000020U)
+#define ctxsw_prog_record_timestamp_magic_value_hi_o()             (0x00000004U)
+#define ctxsw_prog_record_timestamp_magic_value_hi_v_value_v()     (0x600dbeefU)
+#define ctxsw_prog_record_timestamp_timestamp_hi_o()               (0x0000001cU)
+#define ctxsw_prog_record_timestamp_timestamp_hi_v_f(v)\
+				((U32(v) & 0xffffffU) << 0U)
+#define ctxsw_prog_record_timestamp_timestamp_hi_v_v(r)\
+				(((r) >> 0U) & 0xffffffU)
+#define ctxsw_prog_record_timestamp_timestamp_hi_tag_f(v)\
+				((U32(v) & 0xffU) << 24U)
+#define ctxsw_prog_record_timestamp_timestamp_hi_tag_m()     (U32(0xffU) << 24U)
+#define ctxsw_prog_record_timestamp_timestamp_hi_tag_v(r) (((r) >> 24U) & 0xffU)
+#define ctxsw_prog_record_timestamp_timestamp_hi_tag_invalid_timestamp_v()\
+				(0x000000ffU)
+#define ctxsw_prog_record_timestamp_timestamp_hi_tag_invalid_timestamp_f()\
+				(0xff000000U)
 #endif

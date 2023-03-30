@@ -1,0 +1,34 @@
+From bb4e1f5351650cac44bb0408cf40fb19bce63405 Mon Sep 17 00:00:00 2001
+From: "J. Avila" <elavila@google.com>
+Date: Fri, 20 Nov 2020 04:25:12 +0000
+Subject: [PATCH 176/830] ANDROID: sched/fair: Have sync honor fits_capacity
+X-NVConfidentiality: public
+
+Some tasks, such as those related to audio, can be placed onto cores
+which are too small to support them, leading to performance hits. Fix
+this by having the sync wakeup path honor capacity.
+
+Bug: 166278821
+Signed-off-by: J. Avila <elavila@google.com>
+Change-Id: I5f7ef330f952c95f9391eb733ad241345477c943
+---
+ kernel/sched/fair.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 62e0711d70af..f1b8fbc33167 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -6650,7 +6650,8 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
+ 
+ 	cpu = smp_processor_id();
+ 	if (sync && cpu_rq(cpu)->nr_running == 1 &&
+-	    cpumask_test_cpu(cpu, p->cpus_ptr)) {
++	    cpumask_test_cpu(cpu, p->cpus_ptr) &&
++	    task_fits_capacity(p, capacity_of(cpu))) {
+ 		rcu_read_unlock();
+ 		return cpu;
+ 	}
+-- 
+2.17.1
+

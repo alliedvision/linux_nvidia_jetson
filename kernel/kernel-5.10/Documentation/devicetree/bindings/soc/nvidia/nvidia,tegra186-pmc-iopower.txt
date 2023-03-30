@@ -1,0 +1,35 @@
+NVIDIA Tegra Power Management Controller power settings
+
+Program io pads matching with power regulators.
+
+Required properties:
+- compatible: should be nvidia,tegra186-pmc-iopower.
+- pad-controllers: list of io pad controllers.
+- pad-names: matching names to pad controllers.
+
+Optional properties:
+- nvidia,auto-pad-voltage-config: program pad voltage for respective pads.
+
+Example:
+	tegra_pmc_iopower: pmc-iopower {
+		compatible = "nvidia,tegra186-pmc-iopower";
+		pad-controllers = <&tegra_pmc TEGRA_IO_PAD_GROUP_UFS
+					TEGRA_IO_PAD_GROUP_DBG
+					TEGRA_IO_PAD_GROUP_SPI
+					TEGRA_IO_PAD_GROUP_AUDIO_HV
+					TEGRA_IO_PAD_GROUP_AO_HV
+					TEGRA_IO_PAD_GROUP_DMIC_HV
+					TEGRA_IO_PAD_GROUP_SDMMC1_HV
+					TEGRA_IO_PAD_GROUP_SDMMC2_HV
+					TEGRA_IO_PAD_GROUP_SDMMC3_HV
+					TEGRA_IO_PAD_GROUP_DSI
+					TEGRA_IO_PAD_GROUP_DSIB
+					TEGRA_IO_PAD_GROUP_DSIC
+					TEGRA_IO_PAD_GROUP_DSID
+					TEGRA_IO_PAD_GROUP_HDMI_DP0
+					TEGRA_IO_PAD_GROUP_HDMI_DP1>;
+		pad-names = "ufs", "dbg", "spi", "audio-hv", "ao-hv",
+				"dmic-hv", "sdmmc1-hv", "sdmmc2-hv", "sdmmc3-hv",
+				"dsia", "dsib", "dsic", "dsid", "hdmi-dp0", "hdmi-dp1";
+		status = "disabled";
+	};

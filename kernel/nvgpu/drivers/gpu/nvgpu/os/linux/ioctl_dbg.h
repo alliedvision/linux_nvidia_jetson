@@ -35,4 +35,9 @@ unsigned int gk20a_dbg_gpu_dev_poll(struct file *filep, poll_table *wait);
 /* used by profiler driver interface */
 int gk20a_prof_gpu_dev_open(struct inode *inode, struct file *filp);
 
+u32 nvgpu_get_regops_op_values_common(u32 regops_op);
+u32 nvgpu_get_regops_status_values_common(u32 regops_status);
+u32 nvgpu_get_regops_op_values_linux(u32 regops_op);
+u32 nvgpu_get_regops_status_values_linux(u32 regops_status);
+
 #endif

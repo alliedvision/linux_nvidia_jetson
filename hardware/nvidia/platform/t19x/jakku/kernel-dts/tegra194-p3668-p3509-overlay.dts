@@ -1,0 +1,176 @@
+/*
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ */
+
+/*
+ * Device-tree overlay for tegra194-overlay-p3668-p3509.dts for T194 platform.
+ */
+
+/dts-v1/;
+
+/ {
+	overlay-name = "Jetson Xavier NX Overlay Support";
+	compatible = "nvidia,tegra194";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			odm-data = "enable-pmic-wdt";
+		};
+		__overlay__ {
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+			bpmp { i2c {
+#else
+			bpmp_i2c {
+#endif
+				watchdog {
+					status = "okay";
+				};
+#if TEGRA_BPMP_FW_DT_VERSION >= DT_VERSION_2
+			}; };
+#else
+			};
+#endif
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		board_config {
+			odm-data = "enable-denver-wdt";
+		};
+		__overlay__ {
+			watchdog@30c0000 {
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		board_config {
+			odm-data = "disable-denver-wdt";
+		};
+		__overlay__ {
+			pmc@c360000 {
+				nvidia,enable-halt-in-fiq;
+			};
+		};
+	};
+
+	/* Disable sdhci-SD for SKU1 */
+	fragment@3 {
+		target-path = "/";
+		board_config {
+			ids = ">=3668-0001-000";
+		};
+		__overlay__ {
+			sdhci@3400000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	/* Disable sdhci-emmc for SKU0 */
+	fragment@4 {
+		target-path = "/";
+		board_config {
+			ids = ">=3668-0000-000";
+		};
+		__overlay__ {
+			sdhci@3460000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	/* pcie-c5-c4-num-lanes */
+	fragment@5 {
+		target-path = "/";
+		board_config {
+			ids = ">=3449-0000-000";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				num-lanes = <1>;
+				status = "okay";
+			};
+			pcie_ep@141a0000 {
+				status = "disabled";
+			};
+			pcie@14160000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	/* pcie-c5-rp */
+	fragment@6 {
+		target-path = "/";
+		board_config {
+			odm-data = "disable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				status = "okay";
+			};
+			pcie_ep@141a0000 {
+				status = "disabled";
+			};
+#if TEGRA_PCIE_VERSION < DT_VERSION_2
+			gpio@c2f0000 {
+				pex-refclk-sel-low {
+					status = "okay";
+				};
+			};
+#endif
+		};
+	};
+
+	/* pcie-c5-ep */
+	fragment@7 {
+		target-path = "/";
+		board_config {
+			odm-data = "enable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
+		};
+		__overlay__ {
+			pcie@141a0000 {
+				status = "disabled";
+			};
+			pcie_ep@141a0000 {
+				status = "okay";
+			};
+#if TEGRA_PCIE_VERSION < DT_VERSION_2
+			gpio@c2f0000 {
+				pex-refclk-sel-high {
+					status = "okay";
+				};
+			};
+#endif
+		};
+	};
+
+#if TEGRA_SDMMC_VERSION >= DT_VERSION_2
+	/* Fix mmc0 naming for SKU0 */
+	fragment@8 {
+		target-path = "/aliases";
+		delete_prop = "mmc0";
+		board_config {
+			ids = ">=3668-0000-000";
+		};
+	};
+#endif
+};

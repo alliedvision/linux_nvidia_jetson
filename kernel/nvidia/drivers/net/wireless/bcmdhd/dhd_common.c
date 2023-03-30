@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD), common DHD core.
  *
  * Copyright (C) 1999-2015, Broadcom Corporation
- * Copyright (c) 2017-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2019, NVIDIA CORPORATION. All rights reserved.
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -48,7 +48,6 @@
 #include <dhd_bus.h>
 #include <dhd_proto.h>
 #include <dhd_dbg.h>
-#include <nv_logger.h>
 #include <msgtrace.h>
 
 #ifdef WL_CFG80211
@@ -1581,8 +1580,6 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 	if (flags & WLC_EVENT_MSG_FLUSHTXQ)
 		flush_txq = TRUE;
 
-	write_log(event_type, event_name, eabuf);
-
 	switch (event_type) {
 	case WLC_E_START:
 	case WLC_E_DEAUTH:
@@ -2182,7 +2179,7 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata, size_t pktlen,
 	}
 
 #ifdef SHOW_EVENTS
-	if (DHD_FWLOG_ON() || DHD_EVENT_ON() || NV_FILELOG_ON()) {
+	if (DHD_FWLOG_ON() || DHD_EVENT_ON()) {
 		wl_show_host_event(dhd_pub, event,
 			(void *)event_data, raw_event, dhd_pub->enable_log);
 	}
@@ -2295,7 +2292,7 @@ dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_
 	str = "pkt_filter_enable";
 	str_len = strlen(str);
 	bcm_strncpy_s(buf, sizeof(buf) - 1, str, sizeof(buf) - 1);
-	buf[ sizeof(buf) - 1] = '\0';
+	buf[ sizeof(buf) - 1 ] = '\0';
 	buf_len = str_len + 1;
 
 	pkt_filterp = (wl_pkt_filter_enable_t *)(buf + str_len + 1);
@@ -2384,7 +2381,7 @@ dhd_pktfilter_offload_set(dhd_pub_t * dhd, char *arg)
 
 	str = "pkt_filter_add";
 	str_len = strlen(str);
-	bcm_strncpy_s(buf, BUF_SIZE, str, str_len + 1);
+	bcm_strncpy_s(buf, BUF_SIZE, str, str_len);
 	buf[ str_len ] = '\0';
 	buf_len = str_len + 1;
 

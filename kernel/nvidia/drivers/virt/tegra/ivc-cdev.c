@@ -1,7 +1,7 @@
 /*
  * IVC character device driver
  *
- * Copyright (C) 2014-2018, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * This file is licensed under the terms of the GNU General Public License
  * version 2.  This program is licensed "as is" without any warranty of any
@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
+#include <uapi/linux/tegra-ivc-dev.h>
 #include "tegra_hv.h"
 
 #define ERR(...) pr_err("ivc: " __VA_ARGS__)
@@ -44,6 +45,8 @@ struct ivc_dev {
 	 * IRQ handler's notification processing and file ops.
 	 */
 	struct mutex		file_lock;
+	/* Bool to store whether we received any ivc interrupt */
+	bool			ivc_intr_rcvd;
 };
 
 static dev_t ivc_dev;
@@ -51,16 +54,16 @@ static const struct ivc_info_page *info;
 
 static irqreturn_t ivc_dev_handler(int irq, void *data)
 {
-	struct ivc_dev *ivc = data;
+	struct ivc_dev *ivcd = data;
 
-	BUG_ON(!ivc->ivck);
+	WARN_ON(!ivcd->ivck);
 
-	mutex_lock(&ivc->file_lock);
-	tegra_ivc_channel_notified(tegra_hv_ivc_convert_cookie(ivc->ivck));
-	mutex_unlock(&ivc->file_lock);
+	mutex_lock(&ivcd->file_lock);
+	ivcd->ivc_intr_rcvd = true;
+	mutex_unlock(&ivcd->file_lock);
 
 	/* simple implementation, just kick all waiters */
-	wake_up_interruptible_all(&ivc->wq);
+	wake_up_interruptible_all(&ivcd->wq);
 
 	return IRQ_HANDLED;
 }
@@ -77,7 +80,7 @@ static irqreturn_t ivc_threaded_irq_handler(int irq, void *dev_id)
 static int ivc_dev_open(struct inode *inode, struct file *filp)
 {
 	struct cdev *cdev = inode->i_cdev;
-	struct ivc_dev *ivc = container_of(cdev, struct ivc_dev, cdev);
+	struct ivc_dev *ivcd = container_of(cdev, struct ivc_dev, cdev);
 	int ret;
 	struct tegra_hv_ivc_cookie *ivck;
 	struct ivc *ivcq;
@@ -86,49 +89,45 @@ static int ivc_dev_open(struct inode *inode, struct file *filp)
 	 * If we can reserve the corresponding IVC device successfully, then
 	 * we have exclusive access to the ivc device.
 	 */
-	ivck = tegra_hv_ivc_reserve(NULL, ivc->minor, NULL);
+	ivck = tegra_hv_ivc_reserve(NULL, ivcd->minor, NULL);
 	if (IS_ERR(ivck))
 		return PTR_ERR(ivck);
 
-	ivc->ivck = ivck;
+	ivcd->ivck = ivck;
 	ivcq = tegra_hv_ivc_convert_cookie(ivck);
 
-	mutex_lock(&ivc->file_lock);
-	tegra_ivc_channel_reset(ivcq);
-	mutex_unlock(&ivc->file_lock);
-
 	/* request our irq */
-	ret = devm_request_threaded_irq(ivc->device, ivck->irq,
+	ret = devm_request_threaded_irq(ivcd->device, ivck->irq,
 			ivc_threaded_irq_handler, ivc_dev_handler, 0,
-			dev_name(ivc->device), ivc);
+			dev_name(ivcd->device), ivcd);
 	if (ret < 0) {
-		dev_err(ivc->device, "Failed to request irq %d\n",
+		dev_err(ivcd->device, "Failed to request irq %d\n",
 				ivck->irq);
-		ivc->ivck = NULL;
+		ivcd->ivck = NULL;
 		tegra_hv_ivc_unreserve(ivck);
 		return ret;
 	}
 
 	/* all done */
-	filp->private_data = ivc;
+	filp->private_data = ivcd;
 
 	return 0;
 }
 
 static int ivc_dev_release(struct inode *inode, struct file *filp)
 {
-	struct ivc_dev *ivc = filp->private_data;
+	struct ivc_dev *ivcd = filp->private_data;
 	struct tegra_hv_ivc_cookie *ivck;
 
 	filp->private_data = NULL;
 
-	BUG_ON(!ivc);
+	WARN_ON(!ivcd);
 
-	ivck = ivc->ivck;
+	ivck = ivcd->ivck;
 
-	devm_free_irq(ivc->device, ivck->irq, ivc);
+	devm_free_irq(ivcd->device, ivck->irq, ivcd);
 
-	ivc->ivck = NULL;
+	ivcd->ivck = NULL;
 
 	/*
 	 * Unreserve after clearing ivck; we no longer have exclusive
@@ -139,123 +138,193 @@ static int ivc_dev_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+/*
+ * Read/Write are not supported on ivc devices as it is now
+ * accessed via NvSciIpc library.
+ */
 static ssize_t ivc_dev_read(struct file *filp, char __user *buf,
 		size_t count, loff_t *ppos)
 {
-	struct ivc_dev *ivcd = filp->private_data;
-	struct ivc *ivc;
-	int left = count, ret = 0, chunk;
-
-	BUG_ON(!ivcd);
-	ivc = tegra_hv_ivc_convert_cookie(ivcd->ivck);
-
-	if (!tegra_ivc_can_read(ivc)) {
-		if (filp->f_flags & O_NONBLOCK)
-			return -EAGAIN;
-
-		ret = wait_event_interruptible(ivcd->wq,
-				tegra_ivc_can_read(ivc));
-		if (ret)
-			return ret;
-	}
-
-	while (left > 0 && tegra_ivc_can_read(ivc)) {
-
-		chunk = ivcd->qd->frame_size;
-		if (chunk > left)
-			chunk = left;
-		mutex_lock(&ivcd->file_lock);
-		ret = tegra_ivc_read_user(ivc, buf, chunk);
-		mutex_unlock(&ivcd->file_lock);
-		if (ret < 0)
-			break;
-
-		buf += chunk;
-		left -= chunk;
-	}
-
-	if (left >= count)
-		return ret;
-
-	return count - left;
+	return -EPERM;
 }
 
 static ssize_t ivc_dev_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *pos)
 {
-	struct ivc_dev *ivcd = filp->private_data;
-	struct ivc *ivc;
-	ssize_t done;
-	size_t left, chunk;
-	int ret = 0;
-
-	BUG_ON(!ivcd);
-	ivc = tegra_hv_ivc_convert_cookie(ivcd->ivck);
-
-	done = 0;
-	while (done < count) {
-
-		left = count - done;
-
-		if (left < ivcd->qd->frame_size)
-			chunk = left;
-		else
-			chunk = ivcd->qd->frame_size;
-
-		/* is queue full? */
-		if (!tegra_ivc_can_write(ivc)) {
-
-			/* check non-blocking mode */
-			if (filp->f_flags & O_NONBLOCK) {
-				ret = -EAGAIN;
-				break;
-			}
-
-			ret = wait_event_interruptible(ivcd->wq,
-					tegra_ivc_can_write(ivc));
-			if (ret)
-				break;
-		}
-
-		mutex_lock(&ivcd->file_lock);
-		ret = tegra_ivc_write_user(ivc, buf, chunk);
-		mutex_unlock(&ivcd->file_lock);
-		if (ret < 0)
-			break;
-
-		buf += chunk;
-
-		done += chunk;
-		*pos += chunk;
-	}
-
-
-	if (done == 0)
-		return ret;
-
-	return done;
+	return -EPERM;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 static unsigned int ivc_dev_poll(struct file *filp, poll_table *wait)
+#else
+static __poll_t ivc_dev_poll(struct file *filp, poll_table *wait)
+#endif
 {
 	struct ivc_dev *ivcd = filp->private_data;
 	struct ivc *ivc;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 	int mask = 0;
+#else
+	__poll_t mask = 0;
+#endif
 
-	BUG_ON(!ivcd);
+	WARN_ON(!ivcd);
 	ivc = tegra_hv_ivc_convert_cookie(ivcd->ivck);
 
 	poll_wait(filp, &ivcd->wq, wait);
 
-	if (tegra_ivc_can_read(ivc))
-		mask = POLLIN | POLLRDNORM;
-
-	if (tegra_ivc_can_write(ivc))
-		mask |= POLLOUT | POLLWRNORM;
-
+	/* If we have rcvd ivc interrupt, inform the user */
+	mutex_lock(&ivcd->file_lock);
+	if (ivcd->ivc_intr_rcvd == true) {
+		mask |= POLLIN | POLLRDNORM;
+		ivcd->ivc_intr_rcvd = false;
+	}
+	mutex_unlock(&ivcd->file_lock);
 	/* no exceptions */
 
 	return mask;
+}
+
+static int ivc_dev_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	struct ivc_dev *ivcd = filp->private_data;
+	uint64_t map_region_sz;
+	uint64_t ivc_area_ipa, ivc_area_size;
+	int ret = -EFAULT;
+
+	WARN_ON(!ivcd);
+
+	ret = tegra_hv_ivc_get_info(ivcd->ivck, &ivc_area_ipa, &ivc_area_size);
+	if (ret < 0) {
+		dev_err(ivcd->device, "%s: get_info failed\n", __func__);
+		return ret;
+	}
+
+	/* fail if userspace attempts to partially map the mempool */
+	map_region_sz = vma->vm_end - vma->vm_start;
+
+	if (((vma->vm_pgoff == 0) && (map_region_sz == ivc_area_size))) {
+
+		if (remap_pfn_range(vma, vma->vm_start,
+					(ivc_area_ipa >> PAGE_SHIFT),
+					map_region_sz,
+					vma->vm_page_prot)) {
+			ret = -EAGAIN;
+		} else {
+			/* success! */
+			ret = 0;
+		}
+#ifdef SUPPORTS_TRAP_MSI_NOTIFICATION
+	} else if ((vma->vm_pgoff == (ivc_area_size >> PAGE_SHIFT)) &&
+			(map_region_sz <= PAGE_SIZE)) {
+		uint64_t noti_ipa = 0;
+
+		if (ivcd->qd->msi_ipa != 0)
+			noti_ipa = ivcd->qd->msi_ipa;
+		else if (ivcd->qd->trap_ipa != 0)
+			noti_ipa = ivcd->qd->trap_ipa;
+
+		if (noti_ipa != 0) {
+			if (remap_pfn_range(vma, vma->vm_start,
+						noti_ipa >> PAGE_SHIFT,
+						map_region_sz,
+						vma->vm_page_prot)) {
+				ret = -EAGAIN;
+			} else {
+				/* success! */
+				ret = 0;
+			}
+		}
+#endif /* SUPPORTS_TRAP_MSI_NOTIFICATION */
+	}
+
+	return ret;
+}
+
+/* Need this temporarily to get the change merged. Will be removed later */
+#define NVIPC_IVC_IOCTL_GET_INFO_LEGACY 0xC018AA01
+#define NVIPC_IVC_IOCTL_NOTIFY_REMOTE_LEGACY 0xC018AA02
+static long ivc_dev_ioctl(struct file *filp, unsigned int cmd,
+		unsigned long arg)
+{
+	struct ivc_dev *ivcd = filp->private_data;
+	struct nvipc_ivc_info info;
+	uint64_t ivc_area_ipa, ivc_area_size;
+	long ret = 0;
+
+	/* validate the cmd */
+	if (_IOC_TYPE(cmd) != NVIPC_IVC_IOCTL_MAGIC) {
+		dev_err(ivcd->device, "%s: not a ivc ioctl\n", __func__);
+		return -ENOTTY;
+	}
+
+	if (_IOC_NR(cmd) > NVIPC_IVC_IOCTL_NUMBER_MAX) {
+		dev_err(ivcd->device, "%s: wrong ivc ioctl\n", __func__);
+		ret = -ENOTTY;
+	}
+
+	switch (cmd) {
+	case NVIPC_IVC_IOCTL_GET_INFO:
+	case NVIPC_IVC_IOCTL_GET_INFO_LEGACY:
+		ret = tegra_hv_ivc_get_info(ivcd->ivck, &ivc_area_ipa,
+					    &ivc_area_size);
+		if (ret < 0) {
+			dev_err(ivcd->device, "%s: get_info failed\n",
+				__func__);
+			return ret;
+		}
+
+		info.nframes = ivcd->qd->nframes;
+		info.frame_size = ivcd->qd->frame_size;
+		info.queue_size = ivcd->qd->size;
+		info.queue_offset = ivcd->qd->offset;
+		info.area_size = ivc_area_size;
+#ifdef SUPPORTS_TRAP_MSI_NOTIFICATION
+		if (ivcd->qd->msi_ipa != 0)
+			info.noti_ipa = ivcd->qd->msi_ipa;
+		else
+			info.noti_ipa = ivcd->qd->trap_ipa;
+
+		info.noti_irq = ivcd->qd->raise_irq;
+#endif /* SUPPORTS_TRAP_MSI_NOTIFICATION */
+
+		if (ivcd->qd->peers[0] == ivcd->qd->peers[1]) {
+			/*
+			 * The queue ids of loopback queues are always
+			 * consecutive, so the even-numbered one
+			 * receives in the first area.
+			 */
+			info.rx_first = (ivcd->qd->id & 1) == 0;
+
+		} else {
+			info.rx_first = (tegra_hv_get_vmid() ==
+					 ivcd->qd->peers[0]);
+		}
+
+		if (cmd == NVIPC_IVC_IOCTL_GET_INFO) {
+			if (copy_to_user((void __user *) arg, &info,
+				sizeof(struct nvipc_ivc_info))) {
+				ret = -EFAULT;
+			}
+		} else {
+		/* Added temporarily. will be removed */
+			if (copy_to_user((void __user *) arg, &info,
+				sizeof(struct nvipc_ivc_info) - 16)) {
+				ret = -EFAULT;
+			}
+		}
+		break;
+
+	case NVIPC_IVC_IOCTL_NOTIFY_REMOTE:
+	case NVIPC_IVC_IOCTL_NOTIFY_REMOTE_LEGACY:
+		tegra_hv_ivc_notify(ivcd->ivck);
+		break;
+
+	default:
+		ret = -ENOTTY;
+	}
+
+	return ret;
 }
 
 static const struct file_operations ivc_fops = {
@@ -265,7 +334,9 @@ static const struct file_operations ivc_fops = {
 	.llseek		= noop_llseek,
 	.read		= ivc_dev_read,
 	.write		= ivc_dev_write,
+	.mmap		= ivc_dev_mmap,
 	.poll		= ivc_dev_poll,
+	.unlocked_ioctl = ivc_dev_ioctl,
 };
 
 static ssize_t id_show(struct device *dev,
@@ -326,7 +397,7 @@ static DEVICE_ATTR_RO(nframes);
 static DEVICE_ATTR_RO(reserved);
 static DEVICE_ATTR_RO(peer);
 
-struct attribute *ivc_attrs[] = {
+static struct attribute *ivc_attrs[] = {
 	&dev_attr_id.attr,
 	&dev_attr_frame_size.attr,
 	&dev_attr_nframes.attr,
@@ -352,7 +423,12 @@ static int __init add_ivc(int i)
 	ivc->qd = qd;
 
 	cdev_init(&ivc->cdev, &ivc_fops);
-	snprintf(ivc->name, sizeof(ivc->name) - 1, "ivc%d", qd->id);
+	ret = snprintf(ivc->name, sizeof(ivc->name) - 1, "ivc%d", qd->id);
+	if (ret < 0) {
+		ERR("snprintf() failed\n");
+		return ret;
+	}
+
 	ret = cdev_add(&ivc->cdev, ivc->dev, 1);
 	if (ret != 0) {
 		ERR("cdev_add() failed\n");

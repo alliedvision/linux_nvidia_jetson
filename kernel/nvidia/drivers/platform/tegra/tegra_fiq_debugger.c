@@ -4,7 +4,7 @@
  * Serial Debugger Interface for Tegra
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2012-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -290,7 +290,7 @@ static int __init tegra_fiq_debugger_init(void)
 	dn_debugger = of_find_compatible_node(NULL, NULL,
 			"nvidia,fiq-debugger");
 	if (!dn_debugger) {
-		pr_err("%s: no fiq_debugger node\n", __func__);
+		pr_debug("%s: no fiq_debugger node\n", __func__);
 		return -ENODEV;
 	}
 

@@ -1,0 +1,45 @@
+From 35a3f5219b03fe92e9a5e91bdbf0fef7621a832e Mon Sep 17 00:00:00 2001
+From: Jonglin Lee <jonglin@google.com>
+Date: Wed, 28 Oct 2020 00:05:37 -0700
+Subject: [PATCH 813/830] ANDROID: configs: gki: add CONFIG_PSTORE_PMSG
+X-NVConfidentiality: public
+
+Add CONFIG_PSTORE_PMSG for last logcat support.
+
+Bug: 171852252
+Signed-off-by: Jonglin Lee <jonglin@google.com>
+Change-Id: I3b130886a2223598700a2da45c70932b11a174d8
+(cherry picked from commit 6c412f5b2c4dfce5c607b6535f09281fd27b238d)
+Signed-off-by: Will McVicker <willmcvicker@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 +
+ arch/x86/configs/gki_defconfig   | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 6af07796a89e..1a783ffcfcb3 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -509,6 +509,7 @@ CONFIG_TMPFS=y
+ # CONFIG_EFIVAR_FS is not set
+ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_PMSG=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_NLS_CODEPAGE_437=y
+ CONFIG_NLS_CODEPAGE_737=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index ec0e232ca7eb..c8e50195ef7c 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -447,6 +447,7 @@ CONFIG_TMPFS_POSIX_ACL=y
+ # CONFIG_EFIVAR_FS is not set
+ CONFIG_PSTORE=y
+ CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_PMSG=y
+ CONFIG_PSTORE_RAM=y
+ CONFIG_NLS_CODEPAGE_437=y
+ CONFIG_NLS_CODEPAGE_737=y
+-- 
+2.17.1
+

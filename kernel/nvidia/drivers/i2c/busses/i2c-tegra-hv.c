@@ -1,7 +1,7 @@
 /*
  * drivers/i2c/busses/i2c-tegra-hv.c
  *
- * Copyright (C) 2015-2017 NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2015-2019 NVIDIA Corporation.	All rights reserved.
  * Author: Arnab Basu <abasu@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -26,15 +26,17 @@
 #include <linux/device.h>
 #include <linux/jiffies.h>
 #include <linux/ioport.h>
+#include <linux/slab.h>
 
 #include "i2c-tegra-hv-common.h"
 
 #include <asm/unaligned.h>
 
-#define TEGRA_I2C_TIMEOUT			(msecs_to_jiffies(1000))
+#define TEGRA_I2C_TIMEOUT			(msecs_to_jiffies(500000))
 #define TEGRA_I2C_RETRIES			3
 
 #define I2C_NO_ERROR 0
+#define I2C_DEBUG 0
 
 /**
  * struct tegra_hv_i2c_dev - per device i2c context
@@ -60,103 +62,101 @@ struct tegra_hv_i2c_dev {
 	u32 bus_clk_rate;
 };
 
+static void tegra_cp_data_to_user(struct i2c_msg msgs[],
+				struct i2c_virt_msg *virt_msg, int count)
+{
+	int j;
+	u8 *data;
+
+	for (j = 0; j < count; j++) {
+		data = msgs[j].buf;
+
+		/* memcpy the buf */
+		memcpy(data, &virt_msg->buf, virt_msg->len);
+		virt_msg = I2C_IVC_FRAME_GET_NEXT_MSG_PTR(virt_msg);
+	}
+}
+
 static void tegra_hv_i2c_isr(void *dev_id)
 {
 	struct tegra_hv_i2c_dev *i2c_dev = dev_id;
+
 	complete(&i2c_dev->msg_complete);
 }
 
+/* Initiate the i2c transaction and wait for completion timeout */
 static int tegra_hv_i2c_xfer_msg(struct tegra_hv_i2c_dev *i2c_dev,
-		struct i2c_msg *msg, int sno, bool more_msgs)
+		struct i2c_msg msgs[], int count)
 {
 	int ret;
-	int msg_err;
-	int msg_read;
-	int rv;
-	int j = 0;
-	uint32_t flags = 0;
+	int rv = 0;
+	struct i2c_ivc_frame *frame = NULL;
+	int ivc_frame_size;
+	int msg_err = I2C_NO_ERROR;
 
-	if (msg->len == 0)
-		return -EINVAL;
-
-	if (msg->len > i2c_dev->max_payload_size)
-		return -E2BIG;
-
-	msg_err = I2C_NO_ERROR;
-	msg_read = (msg->flags & I2C_M_RD);
 	reinit_completion(&i2c_dev->msg_complete);
 
-	if (more_msgs)
-		flags |= HV_I2C_FLAGS_REPEAT_START;
+	ivc_frame_size = hv_i2c_comm_chan_transfer_size(i2c_dev->comm_chan);
+	frame = kmalloc(ivc_frame_size, GFP_KERNEL);
+	if (!frame) {
+		rv = -ENOMEM;
+		goto error_no_free;
+	}
 
-	if (msg->flags & I2C_M_TEN)
-		flags |= HV_I2C_FLAGS_10BIT_ADDR;
-
-	ret = hv_i2c_transfer(i2c_dev->comm_chan, i2c_dev->base, msg->addr,
-			msg_read, msg->buf, msg->len, &msg_err, sno, flags);
+	ret = hv_i2c_transfer(frame, i2c_dev->comm_chan, i2c_dev->base, msgs, count);
 	if (ret < 0) {
 		dev_err(i2c_dev->dev, "unable to send message (%d)\n", ret);
-		return ret;
+		rv = -ECOMM;
+		goto error;
 	}
 
 	ret = wait_for_completion_timeout(&i2c_dev->msg_complete,
-					i2c_dev->completion_timeout);
-
+					MAX_SCHEDULE_TIMEOUT);
 	if (ret == 0) {
 		dev_err(i2c_dev->dev,
-			"i2c transfer timed out, addr 0x%04x, data 0x%02x\n",
-			msg->addr, msg->buf[0]);
+			"i2c transfer timed out\n");
 		rv = -EBUSY;
 		goto error;
 	}
 
+	tegra_cp_data_to_user(msgs, I2C_IVC_FRAME_GET_FIRST_MSG_PTR(frame), count);
+	msg_err = i2c_ivc_error_field(frame);
+
+#if I2C_DEBUG
+	for (j = 0; j < count; j++) {
+		print_msg(&msgs[j]);
+	}
+#endif
+
 	dev_dbg(i2c_dev->dev, "transfer complete: %d %d %d\n",
 		ret, completion_done(&i2c_dev->msg_complete), msg_err);
 
-	if (likely(msg_err == I2C_NO_ERROR))
-		return 0;
+	rv = msg_err;
 
-	dev_dbg(i2c_dev->dev, "received error code %d\n", msg_err);
-	rv = -EIO;
+	if (rv < 0) {
+		dev_dbg(i2c_dev->dev, "received error code %d\n", msg_err);
+		goto error;
+	}
+
 error:
-	reinit_completion(&i2c_dev->msg_complete);
-	ret = hv_i2c_comm_chan_cleanup(i2c_dev->comm_chan, i2c_dev->base);
-
-	if (ret < 0) {
-		dev_err(i2c_dev->dev, "Failed to send cleanup message\n");
-	}
-
-	while ((ret = wait_for_completion_timeout(&i2c_dev->msg_complete,
-				i2c_dev->completion_timeout * 2)) == 0) {
-		dev_err(i2c_dev->dev, "Cleanup failed after timeout (%d tries)\n",
-				j++);
-		if (j >= 5)
-			break;
-		/* Skipping INIT_COMPLETION on purpose, if completion gets
-		 * signalled in the time between 2 calls to wait_for_completion
-		 * we don't want to overwrite that
-		 */
-	}
-	tegra_hv_i2c_poll_cleanup(i2c_dev->comm_chan);
+	kfree(frame);
+error_no_free:
+	hv_i2c_comm_chan_cleanup(i2c_dev->comm_chan);
 
 	return rv;
 }
 
+/* Get the device for which the transaction is given and send the messages
+ * across */
 static int tegra_hv_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	int num)
 {
 	struct tegra_hv_i2c_dev *i2c_dev = i2c_get_adapdata(adap);
-	int i;
 	int ret = 0;
 
-	for (i = 0; i < num; i++) {
-		ret = tegra_hv_i2c_xfer_msg(i2c_dev, &msgs[i], i,
-					    (i < (num - 1)));
-		if (ret)
-			break;
-	}
+	ret = tegra_hv_i2c_xfer_msg(i2c_dev, msgs, num);
 
-	return ret ? ret : i;
+	return ret;
 }
 
 static u32 tegra_hv_i2c_func(struct i2c_adapter *adap)
@@ -212,12 +212,11 @@ static int tegra_hv_i2c_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	int bus_num = -1;
 	void *chan;
-	int err;
 	struct resource *res;
 
 	if (pdev->dev.of_node) {
 		match = of_match_device(of_match_ptr(tegra_hv_i2c_of_match),
-						     &pdev->dev);
+							 &pdev->dev);
 		if (!match) {
 			dev_err(&pdev->dev, "Device Not matching\n");
 			return -ENODEV;
@@ -279,37 +278,11 @@ static int tegra_hv_i2c_probe(struct platform_device *pdev)
 	i2c_dev->base = res->start;
 	init_completion(&i2c_dev->msg_complete);
 
-	/* Send a cleanup message in case this is a reboot and we had a
-	 * transaction in progress
-	 */
-	ret = hv_i2c_comm_chan_cleanup(i2c_dev->comm_chan, i2c_dev->base);
-	if (ret < 0) {
-		dev_warn(&pdev->dev, "Cleanup after (re)boot failed\n");
-	} else {
-		ret = wait_for_completion_timeout(&i2c_dev->msg_complete,
-				i2c_dev->completion_timeout);
-		if (ret == 0)
-			dev_warn(&pdev->dev, "Timed out sending cleanup after (re)boot\n");
-	}
+	hv_i2c_comm_chan_cleanup(i2c_dev->comm_chan);
 
 	reinit_completion(&i2c_dev->msg_complete);
 
-	ret = hv_i2c_get_max_payload(i2c_dev->comm_chan, i2c_dev->base,
-				     &(i2c_dev->max_payload_size), &err);
-	if (ret < 0) {
-		dev_warn(&pdev->dev, "Could not get max payload, defaulting to 4096\n");
-		i2c_dev->max_payload_size = 4096;
-	} else {
-		ret = wait_for_completion_timeout(&i2c_dev->msg_complete,
-				i2c_dev->completion_timeout);
-		if (ret == 0) {
-			dev_warn(&pdev->dev, "Timed out getting max payload, defaulting to 4096\n");
-			i2c_dev->max_payload_size = 4096;
-		} else if (err != I2C_NO_ERROR) {
-			dev_warn(&pdev->dev, "Error getting max payload, defaulting to 4096\n");
-			i2c_dev->max_payload_size = 4096;
-		}
-	}
+	i2c_dev->max_payload_size = 4096;
 
 	ret = i2c_add_numbered_adapter(&i2c_dev->adapter);
 	if (ret) {
@@ -374,8 +347,8 @@ static struct platform_device_id tegra_hv_i2c_devtype[] = {
 };
 
 static struct platform_driver tegra_hv_i2c_driver = {
-	.probe   = tegra_hv_i2c_probe,
-	.remove  = tegra_hv_i2c_remove,
+	.probe = tegra_hv_i2c_probe,
+	.remove = tegra_hv_i2c_remove,
 	.late_shutdown = tegra_hv_i2c_shutdown,
 	.id_table = tegra_hv_i2c_devtype,
 	.driver  = {

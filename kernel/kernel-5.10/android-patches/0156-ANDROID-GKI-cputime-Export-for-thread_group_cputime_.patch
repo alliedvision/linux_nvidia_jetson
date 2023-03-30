@@ -1,0 +1,45 @@
+From efd38bdb99b56667b09819f84a8bd6d91e7e316d Mon Sep 17 00:00:00 2001
+From: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Date: Wed, 29 Jul 2020 15:37:30 +0530
+Subject: [PATCH 156/830] ANDROID: GKI: cputime: Export for
+ thread_group_cputime_adjusted
+X-NVConfidentiality: public
+
+    - Add EXPORT_SYMBOL_GPL for thread_group_cputime_adjusted()
+    to allow drivers to be loadable as a module.
+
+    - This API is required by loadable driver module from samsung
+    to fetch process uptime based on CPU clock ticks to get the
+    exact duration of time app is scheduled in user mode.
+
+Signed-off-by: Abhilasha Rao <abhilasha.hv@samsung.corp-partner.google.com>
+Bug: 158067689
+Change-Id: I1843de08edf5bb2eee806845f4b5e0a305da5fe7
+---
+ kernel/sched/cputime.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
+index ca0eef7d3852..d22d8dfe4245 100644
+--- a/kernel/sched/cputime.c
++++ b/kernel/sched/cputime.c
+@@ -460,6 +460,7 @@ void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
+ 	*ut = cputime.utime;
+ 	*st = cputime.stime;
+ }
++EXPORT_SYMBOL_GPL(thread_group_cputime_adjusted);
+ 
+ #else /* !CONFIG_VIRT_CPU_ACCOUNTING_NATIVE: */
+ 
+@@ -629,6 +630,8 @@ void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
+ 	thread_group_cputime(p, &cputime);
+ 	cputime_adjust(&cputime, &p->signal->prev_cputime, ut, st);
+ }
++EXPORT_SYMBOL_GPL(thread_group_cputime_adjusted);
++
+ #endif /* !CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
+ 
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
+-- 
+2.17.1
+

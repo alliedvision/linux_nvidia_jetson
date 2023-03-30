@@ -1,0 +1,34 @@
+From 108544afa6575f1b338e2e9160fb83605a65ff4a Mon Sep 17 00:00:00 2001
+From: Alexander Potapenko <glider@google.com>
+Date: Fri, 14 Feb 2020 00:56:37 +0100
+Subject: [PATCH 634/830] ANDROID: gki_defconfig: enable
+ CONFIG_RUNTIME_TESTING_MENU
+X-NVConfidentiality: public
+
+Certain runtime tests depend on this config, so enable it in
+gki_defconfig, so that config fragments can enable runtime tests.
+
+This change should not have ABI impact.
+
+Bug: 144999193
+Change-Id: I6686ce299af189f63658b70b9973bb4ac1b6011c
+Suggested-by: Alistair Delva <adelva@google.com>
+Signed-off-by: Alexander Potapenko <glider@google.com>
+Signed-off-by: Alistair Delva <adelva@google.com>
+(cherry picked from commit f7d5a6d230b586b7369349f9615ba27513fbc0c1)
+---
+ arch/x86/configs/gki_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 09c909b293c0..eb26f04eb04a 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -413,4 +413,3 @@ CONFIG_SOFTLOCKUP_DETECTOR=y
+ # CONFIG_DETECT_HUNG_TASK is not set
+ CONFIG_SCHEDSTATS=y
+ CONFIG_UNWINDER_FRAME_POINTER=y
+-# CONFIG_RUNTIME_TESTING_MENU is not set
+-- 
+2.17.1
+

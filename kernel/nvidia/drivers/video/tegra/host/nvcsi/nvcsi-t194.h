@@ -3,7 +3,7 @@
  *
  * Tegra T194 Graphics Host NVCSI 2
  *
- * Copyright (c) 2017-2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2017-2019 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,18 +25,6 @@ struct file_operations;
 struct platform_device;
 
 extern const struct file_operations tegra194_nvcsi_ctrl_ops;
-
-int tegra194_nvcsi_finalize_poweron(struct platform_device *pdev);
-int tegra194_nvcsi_prepare_poweroff(struct platform_device *pdev);
-
-#if IS_ENABLED(CONFIG_TEGRA_T19X_GRHOST) && IS_ENABLED(CONFIG_TEGRA_GRHOST_NVCSI)
-int tegra194_nvcsi_cil_sw_reset(int lanes, int enable);
-#else
-static int inline tegra194_nvcsi_cil_sw_reset(int lanes, int enable)
-{
-	return 0;
-}
-#endif
 
 int t194_nvcsi_early_probe(struct platform_device *pdev);
 int t194_nvcsi_late_probe(struct platform_device *pdev);

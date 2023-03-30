@@ -1,7 +1,7 @@
 /*
  * hdmi2.0.h: hdmi2.0 driver.
  *
- * Copyright (c) 2014-2018, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2014-2020, NVIDIA CORPORATION, All rights reserved.
  * Author: Animesh Kishore <ankishore@nvidia.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -43,6 +43,8 @@ enum {
 	HDMI_INFOFRAME_TYPE_AUDIO = 0x84,
 	HDMI_INFOFRAME_TYPE_MPEG_SRC = 0x85,
 	HDMI_INFOFRAME_TYPE_HDR = 0x87,
+	/* DV infoframe type same as vendor. Adding just for clarity */
+	HDMI_INFOFRAME_TYPE_DV = 0x81,
 };
 
 enum {
@@ -52,6 +54,7 @@ enum {
 	HDMI_INFOFRAME_VS_AUDIO = 0x1,
 	HDMI_INFOFRAME_VS_MPEG_SRC = 0x1,
 	HDMI_INFOFRAME_VS_HDR = 0x1,
+	HDMI_INFOFRAME_VS_DV = 0x1,
 };
 
 /* excluding checksum and header bytes */
@@ -62,10 +65,11 @@ enum {
 	HDMI_INFOFRAME_LEN_AUDIO = 10,
 	HDMI_INFOFRAME_LEN_MPEG_SRC = 10,
 	HDMI_INFOFRAME_LEN_HDR = 26,
+	HDMI_INFOFRAME_LEN_DV = 27,
 };
 
 enum {
-	HDMI_AVI_SCAN_NO_INFO = 0x0,
+	HDMI_AVI_SCAN_NO_DATA = 0x0,
 	HDMI_AVI_OVERSCAN = 0x1,
 	HDMI_AVI_UNDERSCAN = 0x2,
 };
@@ -135,7 +139,7 @@ enum {
 
 enum {
 	HDMI_AVI_IT_CONTENT_FALSE = 0x0,
-	HDMI_AVI_IT_CONTENT_TRUE = 0x0,
+	HDMI_AVI_IT_CONTENT_TRUE = 0x1,
 };
 
 enum {
@@ -143,7 +147,6 @@ enum {
 };
 
 enum {
-	HDMI_AVI_IT_CONTENT_NONE = 0x0,
 	HDMI_AVI_IT_CONTENT_GRAPHICS = 0x0,
 	HDMI_AVI_IT_CONTENT_PHOTO = 0x1,
 	HDMI_AVI_IT_CONTENT_CINEMA = 0x2,
@@ -364,7 +367,10 @@ struct hdmi_audio_infoframe {
 	u32 reg_hole1:16;
 } __packed;
 
-#define HDMI_LICENSING_LLC_OUI	(0x000c03)
+#define HDMI_LICENSING_LLC_OUI		(0x000c03)
+#define DV_IEEE_LLC_OUI			(0x00D046)
+#define HDMI_INFOFRAME_LEN_VENDOR_LLC	(6)
+#define HDMI_INFOFRAME_LEN_VENDOR_DV	(24)
 
 enum {
 	HDMI_VENDOR_VIDEO_FORMAT_NONE,
@@ -394,6 +400,54 @@ struct hdmi_vendor_infoframe {
 	/* PB6 */
 	u32 res3:4;
 	u32 ext_data_3d:4;
+
+	/*PB7-PB24*/
+	u32 res4:32;
+	u32 res5:32;
+	u32 res6:32;
+	u32 res7:32;
+	u16 res8:16;
+} __packed;
+
+/* all fields little endian */
+struct hdmi_dv_infoframe {
+	/* PB0 */
+	u32 csum:8;
+
+	/* PB1, PB2, PB3 */
+	u32 oui:24;	/* organizationally unique identifier */
+
+	/* PB4 */
+	u32 low_latency:1;
+	u32 dolby_vision_signal:1;
+	u32 res1:6;
+
+	/* PB5 */
+	u32 eff_tmax_pq_high:4;
+	u32 res2:2;
+	u32 auxilary_md_present:1;
+	u32 backlight_ctrl_md_present:1;
+
+	/* PB6 */
+	u32 eff_tmax_pq_low:8;
+
+	/* PB7 */
+	u32 auxilary_run_mode:8;
+
+	/* PB8 */
+	u32 auxilary_run_version:8;
+
+	/* PB9 */
+	u32 auxilary_debug:8;
+
+	/*PB10-PB27*/
+	u32 res3:32;
+	u32 res4:32;
+	u32 res5:32;
+	u32 res6:32;
+	u32 res7:32;
+	u32 res8:32;
+	u32 res9:32;
 } __packed;
 
 enum {
@@ -422,7 +476,9 @@ struct tegra_hdmi {
 	struct tegra_hdmi_out *pdata;
 	struct hdmi_avi_infoframe avi;
 	struct hdmi_hdr_infoframe hdr;
+	struct hdmi_dv_infoframe dv;
 	struct hdmi_spd_infoframe spd;
+	u8 hdmi_dv_signal;
 	bool enabled;
 	atomic_t clock_refcount;
 
@@ -437,6 +493,10 @@ struct tegra_hdmi {
 	bool mon_spec_valid;
 
 	u8 avi_colorimetry;
+	u8 avi_color_components;
+	u8 avi_color_quant;
+	u8 avi_it_content;
+	u8 avi_scan;
 
 	struct tegra_edid *edid;
 	struct i2c_client *ddc_i2c_client;

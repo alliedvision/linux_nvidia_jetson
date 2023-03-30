@@ -1,0 +1,35 @@
+From 8cbe153a2c9dc5c04a60d0f35d09296752121b44 Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Thu, 5 Dec 2019 05:20:27 +0000
+Subject: [PATCH 593/830] ANDROID: Disable UNWINDER_ORC for allmodconfig
+X-NVConfidentiality: public
+
+CONFIG_UNWINDER_ORC needs a libelf-dev which we unfortunately can't
+afford to have in the CI yet.
+
+Switch to different stack unwinder for allmodconfig to work around the
+problem temporarily.
+
+Bug: 140224784
+Test: allmodconfig build for x86
+Change-Id: Id35c222e76cca35aa5e520c1a3d5d88e5cc1da8a
+Signed-off-by: Quentin Perret <qperret@google.com>
+---
+ build.config.allmodconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/build.config.allmodconfig b/build.config.allmodconfig
+index b39bc1b877c7..8261484c3987 100644
+--- a/build.config.allmodconfig
++++ b/build.config.allmodconfig
+@@ -11,6 +11,7 @@ function update_config() {
+          -d CPU_BIG_ENDIAN \
+          -d STM \
+          -d TEST_MEMCAT_P \
++         -e UNWINDER_FRAME_POINTER \
+ 
+     (cd ${OUT_DIR} && \
+      make O=${OUT_DIR} $archsubarch CC=${CC} CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
+-- 
+2.17.1
+

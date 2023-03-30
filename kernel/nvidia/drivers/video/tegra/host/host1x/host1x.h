@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Driver Entrypoint
  *
- * Copyright (c) 2010-2019, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2010-2020, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -72,12 +72,12 @@ struct host1x_device_info {
 					   in s/w where nb_pts <= nb_hw_pts */
 	int		pts_base;	/* host1x: syncpoint base */
 	int		pts_limit;	/* host1x: syncpoint limit */
+	int		nb_syncpt_irqs; /* host1x: number of syncpoint irqs */
 	enum nvhost_syncpt_policy syncpt_policy; /* host1x: syncpoint policy */
 	int		nb_mlocks;	/* host1x: number of mlocks */
 	int		(*initialize_chip_support)(struct nvhost_master *,
 						struct nvhost_chip_support *);
 	int		nb_actmons;
-	size_t		firmware_area_size;
 	/* true if host1x access direct but engines are not owned */
 	bool		vmserver_owns_engines;
 	/* true if hw supports remote syncpoint interrupts */
@@ -86,23 +86,14 @@ struct host1x_device_info {
 	char		*resources[NVHOST_MODULE_MAX_IORESOURCE_MEM];
 	/* host1x: number of resources */
 	int		nb_resources;
-
 	/* cmdfifo only accessible from hypervisor? */
 	bool		secure_cmdfifo;
-
-	/* dma mask for host1x and clients */
-	u64		dma_mask;
-};
-
-struct nvhost_vm_firmware_area {
-	void *vaddr;
-	dma_addr_t dma_addr;
-
-	unsigned long *bitmap;
-	unsigned long bitmap_size_bits;
-	unsigned long bitmap_size_bytes;
-
-	struct mutex mutex;
+	/* ctrl device node name if not default */
+	const char	*ctrl_name;
+	/* Size of a syncpoint page in the syncpoint<->mss interface */
+	uint32_t	syncpt_page_size;
+	/* If MLOCK locked-state can be written through register */
+	bool		rw_mlock_register;
 };
 
 struct nvhost_master {
@@ -131,8 +122,6 @@ struct nvhost_master {
 	unsigned long allocated_channels[2];
 
 	/* nvhost vm specific structures */
-	struct nvhost_vm_firmware_area firmware_area;
-	struct list_head static_mappings_list;
 	struct list_head vm_list;
 	struct mutex vm_mutex;
 	struct mutex vm_alloc_mutex;
@@ -198,6 +187,13 @@ static inline void *nvhost_get_private_data(struct platform_device *_dev)
 	return pdata ? pdata->private_data : NULL;
 }
 
+static inline void *nvhost_get_private_data_nowarn(struct platform_device *_dev)
+{
+	struct nvhost_device_data *pdata =
+		(struct nvhost_device_data *)platform_get_drvdata(_dev);
+	return pdata ? pdata->private_data : NULL;
+}
+
 static inline void nvhost_set_private_data(struct platform_device *_dev,
 	void *priv_data)
 {
@@ -212,13 +208,39 @@ struct nvhost_master *nvhost_get_prim_host(void);
 static inline struct nvhost_master *nvhost_get_host(
 	struct platform_device *_dev)
 {
-	struct platform_device *pdev;
+	struct device *parent = _dev->dev.parent;
+	struct device *dev = &_dev->dev;
 
-	if (_dev->dev.parent && _dev->dev.parent != &platform_bus) {
-		pdev = to_platform_device(_dev->dev.parent);
-		return nvhost_get_private_data(pdev);
-	} else
-		return nvhost_get_private_data(_dev);
+	/*
+	 * host1x has no parent dev on non-DT configuration or has
+	 * platform_bus on DT configuration. So search for a device
+	 * whose parent is NULL or platform_bus
+	 */
+	while (parent && parent != &platform_bus) {
+		dev = parent;
+		parent = parent->parent;
+	}
+
+	return nvhost_get_private_data(to_platform_device(dev));
+}
+
+static inline struct nvhost_master *nvhost_get_host_nowarn(
+	struct platform_device *_dev)
+{
+	struct device *parent = _dev->dev.parent;
+	struct device *dev = &_dev->dev;
+
+	/*
+	 * host1x has no parent dev on non-DT configuration or has
+	 * platform_bus on DT configuration. So search for a device
+	 * whose parent is NULL or platform_bus
+	 */
+	while (parent && parent != &platform_bus) {
+		dev = parent;
+		parent = parent->parent;
+	}
+
+	return nvhost_get_private_data_nowarn(to_platform_device(dev));
 }
 
 static inline struct platform_device *nvhost_get_parent(

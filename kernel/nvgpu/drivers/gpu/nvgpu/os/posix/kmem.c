@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,14 +23,42 @@
 #include <stdlib.h>
 
 #include <nvgpu/bug.h>
+#include <nvgpu/log.h>
 #include <nvgpu/kmem.h>
 #include <nvgpu/types.h>
-
+#include <nvgpu/atomic.h>
 #include <nvgpu/posix/kmem.h>
+#include <nvgpu/posix/sizes.h>
+#include <nvgpu/posix/bug.h>
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+#include <nvgpu/posix/posix-fault-injection.h>
+#endif
+
+#ifdef __NVGPU_UNIT_TEST__
+#define CACHE_NAME_LEN	128
+#endif
 
 struct nvgpu_kmem_cache {
-	size_t alloc_size;
+	struct gk20a *g;
+	size_t size;
+#ifdef __NVGPU_UNIT_TEST__
+	char name[CACHE_NAME_LEN];
+#endif
 };
+
+#ifdef __NVGPU_UNIT_TEST__
+static nvgpu_atomic_t kmem_cache_id;
+#endif
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+struct nvgpu_posix_fault_inj *nvgpu_kmem_get_fault_injection(void)
+{
+	struct nvgpu_posix_fault_inj_container *c =
+			nvgpu_posix_fault_injection_get_container();
+
+	return &c->kmem_fi;
+}
+#endif
 
 /*
  * kmem cache emulation: basically just do a regular malloc(). This is slower
@@ -38,97 +66,207 @@ struct nvgpu_kmem_cache {
  */
 struct nvgpu_kmem_cache *nvgpu_kmem_cache_create(struct gk20a *g, size_t size)
 {
-	struct nvgpu_kmem_cache *cache =
-		malloc(sizeof(struct nvgpu_kmem_cache));
-
-	if (cache != NULL)
+	struct nvgpu_kmem_cache *cache;
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
 		return NULL;
+	}
+#endif
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
+	cache = malloc(sizeof(struct nvgpu_kmem_cache));
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
 
-	cache->alloc_size = size;
+	if (cache == NULL) {
+		return NULL;
+	}
+
+	cache->g = g;
+	cache->size = size;
+
+#ifdef __NVGPU_UNIT_TEST__
+	(void)snprintf(cache->name, sizeof(cache->name),
+			"nvgpu-cache-0x%p-%lu-%d", g, size,
+			nvgpu_atomic_inc_return(&kmem_cache_id));
+#endif
 
 	return cache;
 }
 
 void nvgpu_kmem_cache_destroy(struct nvgpu_kmem_cache *cache)
 {
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(cache);
 }
 
 void *nvgpu_kmem_cache_alloc(struct nvgpu_kmem_cache *cache)
 {
-	return malloc(cache->alloc_size);
+	void *ptr;
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
+		return NULL;
+	}
+#endif
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
+	ptr = malloc(cache->size);
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
+
+	if (ptr == NULL) {
+		nvgpu_warn(NULL, "malloc returns NULL");
+		return NULL;
+	}
+
+	return ptr;
 }
 
 void nvgpu_kmem_cache_free(struct nvgpu_kmem_cache *cache, void *ptr)
 {
+	(void)cache;
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(ptr);
 }
 
-void *__nvgpu_kmalloc(struct gk20a *g, size_t size, void *ip)
+void *nvgpu_kmalloc_impl(struct gk20a *g, size_t size, void *ip)
 {
-	return malloc(size);
-}
+	void *ptr;
 
-void *__nvgpu_kzalloc(struct gk20a *g, size_t size, void *ip)
-{
-	return calloc(1, size);
-}
+	(void)g;
+	(void)ip;
 
-void *__nvgpu_kcalloc(struct gk20a *g, size_t n, size_t size, void *ip)
-{
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
+		return NULL;
+	}
+#endif
 	/*
-	 * calloc() implicitly zeros mem. So calloc a single member size bytes
-	 * long.
+	 * Since, the callers don't really need the memory region to be
+	 * contiguous, use malloc here. If the need arises for this
+	 * interface to return contiguous memory, we can explore using
+	 * nvmap_page_alloc in qnx (i.e. using shm_open/shm_ctl_special/mmap
+	 * calls).
 	 */
-	return calloc(n, size);
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	NVGPU_COV_WHITELIST_BLOCK_BEGIN(deviate, 1, NVGPU_MISRA(Directive, 4_12), "TID-1129")
+	ptr = malloc(size);
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Directive, 4_12))
+	NVGPU_COV_WHITELIST_BLOCK_END(NVGPU_MISRA(Rule, 21_3))
+
+	if (ptr == NULL) {
+		nvgpu_warn(NULL, "malloc returns NULL");
+		return NULL;
+	}
+
+	return ptr;
 }
 
-void __nvgpu_kfree(struct gk20a *g, void *addr)
+void *nvgpu_kzalloc_impl(struct gk20a *g, size_t size, void *ip)
 {
+	void *ptr;
+	const size_t num = 1;
+
+	(void)g;
+	(void)ip;
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
+		return NULL;
+	}
+#endif
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	ptr = calloc(num, size);
+
+	if (ptr == NULL) {
+		nvgpu_warn(NULL, "calloc returns NULL");
+		return NULL;
+	}
+
+	return ptr;
+}
+
+void *nvgpu_kcalloc_impl(struct gk20a *g, size_t n, size_t size, void *ip)
+{
+	void *ptr;
+	const size_t num = 1;
+
+	(void)g;
+	(void)ip;
+
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
+		return NULL;
+	}
+#endif
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
+	ptr = calloc(num, (nvgpu_safe_mult_u64(n, size)));
+
+	if (ptr == NULL) {
+		nvgpu_warn(NULL, "calloc returns NULL");
+		return NULL;
+	}
+
+	return ptr;
+}
+
+void *nvgpu_vmalloc_impl(struct gk20a *g, unsigned long size, void *ip)
+{
+	return nvgpu_kmalloc_impl(g, size, ip);
+}
+
+void *nvgpu_vzalloc_impl(struct gk20a *g, unsigned long size, void *ip)
+{
+	return nvgpu_kzalloc_impl(g, size, ip);
+}
+
+void nvgpu_kfree_impl(struct gk20a *g, void *addr)
+{
+	(void)g;
+	NVGPU_COV_WHITELIST(deviate, NVGPU_MISRA(Rule, 21_3), "TID-1131")
 	free(addr);
 }
 
-/*
- * The concept of vmalloc() does not exist in userspace.
- */
-void *__nvgpu_vmalloc(struct gk20a *g, unsigned long size, void *ip)
+void nvgpu_vfree_impl(struct gk20a *g, void *addr)
 {
-	return __nvgpu_kmalloc(g, size, ip);
+	nvgpu_kfree_impl(g, addr);
 }
 
-void *__nvgpu_vzalloc(struct gk20a *g, unsigned long size, void *ip)
+void *nvgpu_big_alloc_impl(struct gk20a *g, size_t size, bool clear)
 {
-	return __nvgpu_kzalloc(g, size, ip);
-}
-
-void __nvgpu_vfree(struct gk20a *g, void *addr)
-{
-	__nvgpu_kfree(g, addr);
-}
-
-void *__nvgpu_big_alloc(struct gk20a *g, size_t size, bool clear)
-{
-	/*
-	 * Since in userspace vmalloc() == kmalloc() == malloc() we can just
-	 * reuse k[zm]alloc() for this.
-	 */
-	return clear ?
-		__nvgpu_kzalloc(g, size, _NVGPU_GET_IP_) :
-		__nvgpu_kmalloc(g, size, _NVGPU_GET_IP_);
+	if (clear) {
+		return nvgpu_kzalloc(g, size);
+	} else {
+		return nvgpu_kmalloc(g, size);
+	}
 }
 
 void nvgpu_big_free(struct gk20a *g, void *p)
 {
-	__nvgpu_kfree(g, p);
+	nvgpu_kfree_impl(g, p);
 }
 
 int nvgpu_kmem_init(struct gk20a *g)
 {
+	(void)g;
+#ifdef NVGPU_UNITTEST_FAULT_INJECTION_ENABLEMENT
+	if (nvgpu_posix_fault_injection_handle_call(
+					nvgpu_kmem_get_fault_injection())) {
+		return -ENOMEM;
+	}
+#endif
 	/* Nothing to init at the moment. */
 	return 0;
 }
 
 void nvgpu_kmem_fini(struct gk20a *g, int flags)
 {
-
+	(void)g;
+	(void)flags;
 }

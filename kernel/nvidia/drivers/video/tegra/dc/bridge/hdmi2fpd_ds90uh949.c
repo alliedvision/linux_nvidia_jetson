@@ -1,7 +1,7 @@
 /*
  * FPDLink Serializer driver
  *
- * Copyright (C) 2014-2021 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2014-2018 NVIDIA CORPORATION. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,6 +45,7 @@ static DEFINE_MUTEX(i2c_list_mutex);
 int hdmi2fpd_enable(struct tegra_dc *dc)
 {
 	struct tegra_dc_hdmi2fpd_data *hdmi2fpd = tegra_fpdlink_get_outdata(dc);
+	int err;
 
 	if (hdmi2fpd && hdmi2fpd->hdmi2fpd_enabled)
 		return 0;
@@ -59,7 +60,7 @@ int hdmi2fpd_enable(struct tegra_dc *dc)
 
 	hdmi2fpd->hdmi2fpd_enabled = true;
 	mutex_unlock(&hdmi2fpd->lock);
-	return 0;
+	return err;
 }
 
 void hdmi2fpd_disable(struct tegra_dc *dc)
@@ -221,15 +222,13 @@ void hdmi2fpd_destroy(struct tegra_dc *dc)
 static int ds90uh949_probe(struct i2c_client *client,
 					const struct i2c_device_id *id)
 {
-	struct i2c_client_list *new;
+	struct i2c_client_list *new = (struct i2c_client_list *)
+				kzalloc(sizeof(*new), GFP_KERNEL);
 	if (!i2c_check_functionality(client->adapter,
 					I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev, "SMBUS Byte Data not Supported\n");
 		return -EIO;
 	}
-	new = kzalloc(sizeof(*new), GFP_KERNEL);
-	if (new == NULL)
-		return -ENOMEM;
 
 	INIT_LIST_HEAD(&new->i2c_list);
 

@@ -1,0 +1,23 @@
+Tegra Virtual I2C driver
+
+Virtual I2C Driver is the front end driver that interfaces with the
+I2C Virtualization System for Tegra SOC
+
+Required Properties:
+- compatible: Must be one of the the following based on the SOC:
+		nvidia,tegra124-i2c-hv
+		nvidia,tegra210-i2c-hv
+		nvidia,tegra186-i2c-hv
+		nvidia,tegra194-i2c-hv
+- ivc_queue: ivc queue that is used by the driver to communicate with the
+             server
+- clock-frequency: frequency of bus clock in Hz
+
+
+Example:
+	i2c@3160000 {
+		compatible = "nvidia,tegra194-i2c-hv";
+		status = "okay";
+		clock-frequency = <100000>;
+		ivc_queue = <&tegra_hv 0x38>;
+	};

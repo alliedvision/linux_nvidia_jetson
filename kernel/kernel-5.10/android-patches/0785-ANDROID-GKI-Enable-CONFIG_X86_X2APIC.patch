@@ -1,0 +1,31 @@
+From 779b4c358f581e5f5ee3556d28068881df631fb3 Mon Sep 17 00:00:00 2001
+From: Abdulla Kamar <abdulla@google.com>
+Date: Tue, 20 Oct 2020 21:36:20 +1100
+Subject: [PATCH 785/830] ANDROID: GKI: Enable CONFIG_X86_X2APIC
+X-NVConfidentiality: public
+
+Enable support for CONFIG_X86_X2APIC, if available. This speeds up
+operation in a hypervisor, as APIC is handled via MSRs.
+
+Bug: 171287650
+Change-Id: Ie3cf57d07b8dde08ec609dfb031cfb0029218501
+Signed-off-by: Abdulla Kamar <abdulla@google.com>
+---
+ arch/x86/configs/gki_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index 52c34d2823b9..886cbb2be4f8 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -47,6 +47,7 @@ CONFIG_SLAB_FREELIST_HARDENED=y
+ CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
+ CONFIG_PROFILING=y
+ CONFIG_SMP=y
++CONFIG_X86_X2APIC=y
+ CONFIG_HYPERVISOR_GUEST=y
+ CONFIG_PARAVIRT=y
+ CONFIG_NR_CPUS=32
+-- 
+2.17.1
+

@@ -1,4 +1,20 @@
 /*
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
  * This header provides constants for binding nvidia,tegra194-gpio*.
  *
  * The first cell in Tegra's GPIO specifier is the GPIO ID. The macros below
@@ -7,8 +23,8 @@
  * The second cell contains standard flag values specified in gpio.h.
  */
 
-#ifndef _DT_BINDINGS_GPIO_TEGRA194_GPIO_H
-#define _DT_BINDINGS_GPIO_TEGRA194_GPIO_H
+#ifndef INCLUDED_DT_BINDINGS_GPIO_TEGRA194_GPIO_H
+#define INCLUDED_DT_BINDINGS_GPIO_TEGRA194_GPIO_H
 
 #include <dt-bindings/gpio/gpio.h>
 
@@ -89,6 +105,14 @@
 #define TEGRA_PIN_BASE_ID_EE 30
 #define TEGRA_PIN_BASE_ID_FF 31
 #define TEGRA_PIN_BASE_ID_GG 32
+
+#define TEGRA194_MAIN_GPIO_OFFSET 0
+#define TEGRA194_MAIN_PINCTRL_OFFSET_A 0
+#define TEGRA194_MAIN_PINS_A_TO_Z 165
+#define TEGRA194_MAIN_PINS_FF_TO_GG 4
+#define TEGRA194_AON_PINS_AA_TO_EE 30
+#define TEGRA194_MAIN_PINCTRL_OFFSET_FF \
+		(TEGRA194_MAIN_PINS_A_TO_Z + TEGRA194_AON_PINS_AA_TO_EE)
 
 #define TEGRA_PIN_BASE(port) (TEGRA_PIN_BASE_ID_##port * 8)
 

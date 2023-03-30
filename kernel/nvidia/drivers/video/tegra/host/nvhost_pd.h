@@ -3,7 +3,7 @@
  *
  * Tegra Graphics Host Legacy Power Domain Provider
  *
- * Copyright (c) 2017, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,13 +23,11 @@
 
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-void nvhost_pd_slcg_install_workaround(struct nvhost_device_data *pdata,
-				       struct generic_pm_domain *pd);
-void nvhost_pd_slcg_remove_workaround(struct nvhost_device_data *pdata,
-				      struct generic_pm_domain *pd);
-#endif
-
+#ifdef CONFIG_TEGRA_GRHOST_LEGACY_PD
 int nvhost_domain_init(struct of_device_id *matches);
+#else
+static inline int nvhost_domain_init(struct of_device_id *matches)
+{ return 0; }
+#endif
 
 #endif

@@ -1,0 +1,45 @@
+From 0b48c5b0c0e1ea84867f0571e4e32d85f66e9bca Mon Sep 17 00:00:00 2001
+From: Alistair Delva <adelva@google.com>
+Date: Fri, 14 Feb 2020 14:40:57 -0800
+Subject: [PATCH 637/830] ANDROID: gki_defconfig: Enable MAC80211_RC_MINSTREL
+X-NVConfidentiality: public
+
+This feature was noticed missing on the android emulator, but it's
+normally default 'on', we just were able to disable it because we
+turn CONFIG_EXPERT on too.
+
+Bug: 147493341
+Change-Id: Ia81b4f841a5b5d4a37ad8a1f3450dff70abc341d
+Signed-off-by: Alistair Delva <adelva@google.com>
+---
+ arch/arm64/configs/gki_defconfig | 1 -
+ arch/x86/configs/gki_defconfig   | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 461d9bef7a76..117a7376313b 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -197,7 +197,6 @@ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+ # CONFIG_CFG80211_CRDA_SUPPORT is not set
+ CONFIG_MAC80211=y
+-# CONFIG_MAC80211_RC_MINSTREL is not set
+ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_PCIEPORTBUS=y
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index fccc478530b5..3d3a8147f250 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -171,7 +171,6 @@ CONFIG_CFG80211=y
+ # CONFIG_CFG80211_DEFAULT_PS is not set
+ # CONFIG_CFG80211_CRDA_SUPPORT is not set
+ CONFIG_MAC80211=y
+-# CONFIG_MAC80211_RC_MINSTREL is not set
+ CONFIG_RFKILL=y
+ CONFIG_PCI=y
+ CONFIG_PCIEPORTBUS=y
+-- 
+2.17.1
+

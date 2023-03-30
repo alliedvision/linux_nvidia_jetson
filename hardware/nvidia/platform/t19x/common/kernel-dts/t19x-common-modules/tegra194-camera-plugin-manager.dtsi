@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
+ * This program is distributed in the hope it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define CAM0_RST_L	TEGRA194_MAIN_GPIO(H, 3)
@@ -89,7 +91,7 @@
 
 			/* Enable VI ports */
 			override@6 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<2>;
 				};
@@ -165,6 +167,7 @@
 				target = <&imx390_csi_out0>;
 				_overlay_ {
 					status = "okay";
+					remote-endpoint = <&imx390_vi_in0>;
 				};
 			};
 			override@17 {
@@ -198,6 +201,7 @@
 				target = <&imx390_csi_out1>;
 				_overlay_ {
 					status = "okay";
+					remote-endpoint = <&imx390_vi_in1>;
 				};
 			};
 
@@ -219,6 +223,7 @@
 				target = <&tca9546_70>;
 				_overlay_ {
 					status = "okay";
+					vcc-pullup-supply = <&battery_reg>;
 				};
 			};
 			override@24 {
@@ -276,7 +281,7 @@
 
 			/* Enable VI ports */
 			override@4 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;
 				};
@@ -409,7 +414,7 @@
 			};
 			/* Enable VI ports */
 			override@4 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;
 				};
@@ -517,7 +522,7 @@
 			ids = "3333-*";
 			/* VI number of channels */
 			override@0 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<6>;
 				};
@@ -1155,7 +1160,7 @@
 			};
 			/* Enable VI ports */
 			override@4 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;
 				};
@@ -1234,6 +1239,7 @@
 				target = <&tca9546_70>;
 				_overlay_ {
 					status = "okay";
+					vcc-pullup-supply = <&battery_reg>;
 				};
 			};
 			/* GPIO */
@@ -1351,7 +1357,7 @@
 			};
 			/* Enable VI ports */
 			override@8 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<2>;
 				};
@@ -1424,6 +1430,7 @@
 				target = <&liimx274_csi_out0>;
 				_overlay_ {
 					status = "okay";
+					remote-endpoint = <&liimx274_vi_in0>;
 				};
 			};
 			override@19 {
@@ -1457,6 +1464,7 @@
 				target = <&liimx274_csi_out1>;
 				_overlay_ {
 					status = "okay";
+					remote-endpoint = <&liimx274_vi_in1>;
 				};
 			};
 			/* tegra-camera-platform settings */
@@ -1477,6 +1485,7 @@
 				target = <&tca9546_70>;
 				_overlay_ {
 					status = "okay";
+					vcc-pullup-supply = <&battery_reg>;
 				};
 			};
 			/* GPIO */
@@ -1505,7 +1514,7 @@
 			ids = "3331-*";
 			/* VI number of channels */
 			override@0 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;	 /* TODO change to 3 */
 				};
@@ -1536,6 +1545,7 @@
 				target = <&tca9546_70>;
 				_overlay_ {
 					status = "okay";
+					vcc-pullup-supply = <&battery_reg>;
 				};
 			};
 			/* Camera 0: Module */
@@ -1666,7 +1676,7 @@
 			};
 			/* Enable VI ports */
 			override@4 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;
 				};
@@ -1719,12 +1729,6 @@
 				_overlay_ {
 					status = "okay";
 					remote-endpoint = <&e3377_vi_in0>;
-				};
-			};
-			override@13 {
-				target = <&slvs_ec_base>;
-				_overlay_ {
-					status = "okay";
 				};
 			};
 			/* GPIO */
@@ -1790,7 +1794,7 @@
 			};
 			/* Enable VI ports */
 			override@4 {
-				target = <&vi_base>;
+				target = <&capture_vi_base>;
 				_overlay_ {
 					num-channels=<1>;
 				};
@@ -1869,6 +1873,7 @@
 				target = <&tca9546_70>;
 				_overlay_ {
 					status = "okay";
+					vcc-pullup-supply = <&battery_reg>;
 				};
 			};
 			/* GPIO expander */

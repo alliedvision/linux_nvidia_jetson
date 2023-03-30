@@ -2797,7 +2797,8 @@ dhd_pktfilter_offload_set(dhd_pub_t * dhd, char *arg)
 
 	str = "pkt_filter_add";
 	str_len = strlen(str);
-	strlcpy(buf, str, BUF_SIZE);
+	bcm_strncpy_s(buf, BUF_SIZE, str, str_len);
+	buf[ str_len ] = '\0';
 	buf_len = str_len + 1;
 
 	pkt_filterp = (wl_pkt_filter_t *) (buf + str_len + 1);

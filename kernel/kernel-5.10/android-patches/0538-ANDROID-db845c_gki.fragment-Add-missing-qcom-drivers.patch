@@ -1,0 +1,40 @@
+From 144824e5368672d500f2af1fde12aeec479d3657 Mon Sep 17 00:00:00 2001
+From: John Stultz <john.stultz@linaro.org>
+Date: Tue, 15 Sep 2020 06:16:45 +0000
+Subject: [PATCH 538/830] ANDROID: db845c_gki.fragment: Add missing qcom
+ drivers required for cpufreq functionality
+X-NVConfidentiality: public
+
+Some additional drivers are now needed for cpufreq to work, so
+add them to the db845c_gki.fragment
+
+Signed-off-by: John Stultz <john.stultz@linaro.org>
+Change-Id: Ie126f4613b9e5e31c9862d3d4b9c2afb4a5562e6
+Bug: 146449535
+---
+ arch/arm64/configs/db845c_gki.fragment | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/db845c_gki.fragment b/arch/arm64/configs/db845c_gki.fragment
+index b0c19903b1b0..d3171889ad0a 100644
+--- a/arch/arm64/configs/db845c_gki.fragment
++++ b/arch/arm64/configs/db845c_gki.fragment
+@@ -58,6 +58,7 @@ CONFIG_PHY_QCOM_QUSB2=m
+ CONFIG_PHY_QCOM_USB_HS=m
+ CONFIG_QCOM_QFPROM=m
+ CONFIG_INTERCONNECT_QCOM=y
++CONFIG_INTERCONNECT_QCOM_OSM_L3=m
+ CONFIG_INTERCONNECT_QCOM_SDM845=m
+ CONFIG_WLAN_VENDOR_ATH=y
+ CONFIG_ATH10K_AHB=y
+@@ -88,6 +89,7 @@ CONFIG_QCOM_GLINK_SSR=m
+ CONFIG_RPMSG_QCOM_GLINK_RPM=m
+ CONFIG_QCOM_SMD_RPM=m
+ CONFIG_QCOM_RPMPD=m
++CONFIG_ARM_QCOM_CPUFREQ_HW=m
+ # XXX Audio bits start here
+ CONFIG_I2C_CHARDEV=m
+ CONFIG_I2C_MUX=m
+-- 
+2.17.1
+

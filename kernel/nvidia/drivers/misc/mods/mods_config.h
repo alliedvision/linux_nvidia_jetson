@@ -1,7 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * mods_config.h - This file is part of NVIDIA MODS kernel driver.
+ * This file is part of NVIDIA MODS kernel driver.
  *
- * Copyright (c) 2008-2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2008-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA MODS kernel driver is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -20,45 +21,91 @@
 #ifndef _MODS_CONFIG_H_
 #define _MODS_CONFIG_H_
 
-#define MODS_KERNEL_VERSION KERNEL_VERSION(4, 4, 0)
+#define MODS_KERNEL_VERSION LINUX_VERSION_CODE
 
-#define MODS_IRQ_HANDLE_NO_REGS 1
-#define MODS_HAS_SET_MEMORY 1
-#define MODS_ACPI_DEVID_64 1
-#define MODS_HAS_WC 1
-#define MODS_HAS_DEV_TO_NUMA_NODE 1
-#define MODS_HAS_NEW_ACPI_WALK 1
-#ifdef CONFIG_DEBUG_FS
-#define MODS_HAS_DEBUGFS 1
+#if KERNEL_VERSION(2, 6, 30) <= MODS_KERNEL_VERSION && \
+	KERNEL_VERSION(4, 16, 0) > MODS_KERNEL_VERSION && \
+	defined(CONFIG_X86)
+#       define MODS_HAS_DMA_OPS 1
 #endif
-#if defined(CONFIG_TEGRA_KFUSE)
-#define MODS_HAS_KFUSE 1
+
+#if KERNEL_VERSION(2, 6, 30) > MODS_KERNEL_VERSION
+#       define MODS_HASNT_PCI_RESCAN_BUS 1
 #endif
-#ifdef CONFIG_DMA_SHARED_BUFFER
-#define MODS_HAS_DMABUF 1
+
+#if KERNEL_VERSION(2, 6, 31) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_IORESOURCE_MEM_64 1
 #endif
-#define MODS_MULTI_INSTANCE_DEFAULT_VALUE 1
-#define MODS_HAS_IORESOURCE_MEM_64 1
-#undef MODS_HAS_NEW_ACPI_HANDLE /* new in 3.13 */
+
+#if KERNEL_VERSION(2, 6, 33) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_NEW_ACPI_WALK 1
+#else
+#       define MODS_HASNT_NUMA_NO_NODE 1
+#endif
+
+#if KERNEL_VERSION(2, 6, 38) <= MODS_KERNEL_VERSION
+#       if defined(CONFIG_X86)
+#               define MODS_HAS_CONSOLE_LOCK 1
+#       endif
+#endif
+
+#if KERNEL_VERSION(3, 4, 0) > MODS_KERNEL_VERSION
+#       define MODS_HASNT_PCI_BUS_REMOVE_DEV 1
+#endif
+
+#if KERNEL_VERSION(3, 8, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_NEW_ACPI_HANDLE 1
+#       define MODS_HAS_SRIOV 1
+#endif
+
+#if KERNEL_VERSION(3, 14, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_MSIX_RANGE 1
+#else
+#       define MODS_HASNT_PCI_LOCK_RESCAN_REMOVE 1
+#endif
+
+#if KERNEL_VERSION(3, 16, 0) <= MODS_KERNEL_VERSION && \
+	defined(CONFIG_VT_HW_CONSOLE_BINDING)
+#       define MODS_HAS_CONSOLE_BINDING 1
+#endif
+
+#if defined(CONFIG_PPC64) && KERNEL_VERSION(4, 5, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_PNV_PCI_GET_NPU_DEV 1
+#endif
+
+#if KERNEL_VERSION(4, 12, 0) <= MODS_KERNEL_VERSION && \
+	KERNEL_VERSION(4, 13, 0) > MODS_KERNEL_VERSION && \
+	defined(CONFIG_X86)
+#       define MODS_HAS_ASM_SET_MEMORY_HEADER 1
+#endif
+
+#if KERNEL_VERSION(4, 13, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_FLR_SUPPORT
+#       define MODS_HAS_SET_MEMORY_HEADER 1
+#endif
+
+#if KERNEL_VERSION(4, 14, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_KERNEL_WRITE
+#endif
+
+#if KERNEL_VERSION(4, 16, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_POLL_T 1
+#endif
+
+#if KERNEL_VERSION(4, 17, 0) <= MODS_KERNEL_VERSION
+#       define MODS_PCIE_FLR_HAS_ERR
+#endif
+
+#if defined(CONFIG_ARM64) && KERNEL_VERSION(5, 10, 0) <= MODS_KERNEL_VERSION
+#       define MODS_HAS_ARM64_READ_FTR_REG 1
+#endif
+
 #if defined(CONFIG_ARCH_TEGRA)
-#define MODS_TEGRA 1
+#       define MODS_HAS_TEGRA 1
 #endif
-#if defined(CONFIG_COMMON_CLK) && defined(CONFIG_OF_RESOLVE) && \
-	defined(CONFIG_OF_DYNAMIC)
-#define MODS_HAS_CLOCK 1
+
+#if defined(MODS_HAS_TEGRA) && KERNEL_VERSION(5, 1, 0) <= MODS_KERNEL_VERSION
+#       define MODS_ENABLE_BPMP_MRQ_API 1
 #endif
-#ifdef CONFIG_NET
-#define MODS_HAS_NET 1
-#endif
-#ifdef CONFIG_ZONE_DMA32
-#define MODS_HAS_DMA32	1
-#endif
-#ifdef CONFIG_PCI
-#define MODS_CAN_REGISTER_PCI_DEV 1
-#endif
-#define MODS_HAS_MSIX_RANGE 1
-#define MODS_HAS_SRIOV 1
 
 #endif /* _MODS_CONFIG_H_  */
-
-/* vim: set ts=8 sw=8 noet: */
