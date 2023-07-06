@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,7 +54,7 @@ static inline nveu64_t update_mmc_val(struct osi_core_priv_data *const osi_core,
 				      nveu64_t last_value,
 				      nveu64_t offset)
 {
-	nveu64_t temp;
+	nveu64_t temp = 0;
 	nveu32_t value = osi_readla(osi_core,
 				    (nveu8_t *)osi_core->base + offset);
 
@@ -65,11 +65,9 @@ static inline nveu64_t update_mmc_val(struct osi_core_priv_data *const osi_core,
 			     "Value overflow resetting  all counters\n",
 			     (nveul64_t)offset);
 		eqos_reset_mmc(osi_core);
-	} else {
-		return temp;
 	}
 
-	return 0;
+	return temp;
 }
 
 /**

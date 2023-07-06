@@ -18,10 +18,11 @@
 /plugin/;
 
 #include <dt-bindings/pinctrl/pinctrl-tegra.h>
+#include <dt-common/jetson/tegra234-p3767-0000-common.h>
 
 / {
 	overlay-name = "Jetson Nano CSI Connector";
-	compatible = "nvidia,p3509-0000+p3767-0000";
+	compatible = JETSON_COMPATIBLE_P3509;
 
 	fragment@0 {
 		target = <&pinmux>;

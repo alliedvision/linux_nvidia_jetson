@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,22 +45,26 @@
 #define RDES3_ERR_RE		OSI_BIT(20)
 #define RDES3_ERR_DRIB		OSI_BIT(19)
 #define RDES3_PKT_LEN		0x00007fffU
-#define RDES3_LT		(OSI_BIT(16) | OSI_BIT(17) | OSI_BIT(18))
-#define RDES3_LT_VT		OSI_BIT(18)
-#define RDES3_LT_DVT		(OSI_BIT(16) | OSI_BIT(18))
-#define RDES3_RS0V		OSI_BIT(25)
 #define RDES3_RS1V		OSI_BIT(26)
-#define RDES3_RSV		OSI_BIT(26)
-#define RDES0_OVT		0x0000FFFFU
 #define RDES3_TSD		OSI_BIT(6)
 #define RDES3_TSA		OSI_BIT(4)
 #define RDES1_TSA		OSI_BIT(14)
 #define RDES1_TD		OSI_BIT(15)
+#ifndef OSI_STRIPPED_LIB
+#define RDES3_LT		(OSI_BIT(16) | OSI_BIT(17) | OSI_BIT(18))
+#define RDES3_LT_VT		OSI_BIT(18)
+#define RDES3_LT_DVT		(OSI_BIT(16) | OSI_BIT(18))
+#define RDES0_OVT		0x0000FFFFU
+#define RDES3_RS0V		OSI_BIT(25)
+#define RDES3_RSV		OSI_BIT(26)
 #define RDES3_L34T		0x00F00000U
 #define RDES3_L34T_IPV4_TCP	OSI_BIT(20)
 #define RDES3_L34T_IPV4_UDP	OSI_BIT(21)
 #define RDES3_L34T_IPV6_TCP	(OSI_BIT(23) | OSI_BIT(20))
 #define RDES3_L34T_IPV6_UDP	(OSI_BIT(23) | OSI_BIT(21))
+#define RDES3_ELLT_CVLAN	0x90000U
+#define RDES3_ERR_MGBE_CRC	(OSI_BIT(16) | OSI_BIT(17))
+#endif /* !OSI_STRIPPED_LIB */
 
 #define RDES1_IPCE		OSI_BIT(7)
 #define RDES1_IPCB		OSI_BIT(6)
@@ -73,7 +77,6 @@
 #define RDES3_ELLT		0xF0000U
 #define RDES3_ELLT_IPHE		0x50000U
 #define RDES3_ELLT_CSUM_ERR	0x60000U
-#define RDES3_ELLT_CVLAN	0x90000U
 /** @} */
 
 /** Error Summary bits for Received packet */
@@ -83,7 +86,6 @@
 
 /** MGBE error summary bits for Received packet */
 #define RDES3_ES_MGBE		0x8000U
-#define RDES3_ERR_MGBE_CRC	(OSI_BIT(16) | OSI_BIT(17))
 /**
  * @addtogroup EQOS_TxDesc Transmit Descriptors bit fields
  *

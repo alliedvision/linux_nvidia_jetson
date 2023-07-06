@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,7 +45,6 @@
  * @brief EQOS generic helper MACROS.
  * @{
  */
-#define OSI_NET_IP_ALIGN	0x2U
 #define NV_VLAN_HLEN		0x4U
 #define OSI_ETH_HLEN		0xEU
 
@@ -67,6 +66,7 @@
 #define OSI_VM_IRQ_RX_CHAN_MASK(x)	OSI_BIT(((x) * 2U) + 1U)
 /** @} */
 
+#ifdef LOG_OSI
 /**
  * OSI error macro definition,
  * @param[in] priv: OSD private data OR NULL
@@ -94,6 +94,10 @@
 				 OSI_LOG_INFO, type, err, loga);\
 }
 #endif /* !OSI_STRIPPED_LIB */
+#else
+#define OSI_DMA_ERR(priv, type, err, loga)
+#endif /* LOG_OSI */
+
 /**
  * @addtogroup EQOS-PKT Packet context fields
  *
@@ -119,7 +123,9 @@
 /** Paged buffer */
 #define OSI_PKT_CX_PAGED_BUF		OSI_BIT(4)
 /** Rx packet has RSS hash */
+#ifndef OSI_STRIPPED_LIB
 #define OSI_PKT_CX_RSS			OSI_BIT(5)
+#endif /* !OSI_STRIPPED_LIB */
 /** Valid packet */
 #define OSI_PKT_CX_VALID		OSI_BIT(10)
 /** Update Packet Length in Tx Desc3 */
@@ -128,18 +134,18 @@
 #define OSI_PKT_CX_IP_CSUM		OSI_BIT(12)
 /** @} */
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @addtogroup SLOT function context fields
  *
  * @brief These flags are used for DMA channel Slot context configuration
  * @{
  */
-#ifndef OSI_STRIPPED_LIB
 #define OSI_SLOT_INTVL_DEFAULT		125U
 #define OSI_SLOT_INTVL_MAX		4095U
-#endif /* !OSI_STRIPPED_LIB */
 #define OSI_SLOT_NUM_MAX		16U
 /** @} */
+#endif /* !OSI_STRIPPED_LIB */
 
 /**
  * @addtogroup EQOS-TX Tx done packet context fields
@@ -147,7 +153,7 @@
  * @brief These flags used to convey transmit done packet context information,
  * whether transmitted packet used a paged buffer, whether transmitted packet
  * has an tx error, whether transmitted packet has an TS
- * 
+ *
  * @{
  */
 /** Flag to indicate if buffer programmed in desc. is DMA map'd from
@@ -209,7 +215,7 @@
 
 /** @} */
 
-
+#ifndef OSI_STRIPPED_LIB
 /**
  * @addtogroup RSS-HASH type
  *
@@ -221,6 +227,7 @@
 #define OSI_RX_PKT_HASH_TYPE_L3	0x2U
 #define OSI_RX_PKT_HASH_TYPE_L4	0x3U
 /** @} */
+#endif /* !OSI_STRIPPED_LIB */
 
 /**
  * @addtogroup OSI-INTR OSI DMA interrupt handling macros.
@@ -244,6 +251,7 @@
 #ifdef OSI_DEBUG
 #define OSI_DMA_IOCTL_CMD_REG_DUMP	1U
 #define OSI_DMA_IOCTL_CMD_STRUCTS_DUMP	2U
+#define OSI_DMA_IOCTL_CMD_DEBUG_INTR_CONFIG	3U
 #endif /* OSI_DEBUG */
 /** @} */
 
@@ -252,6 +260,7 @@
  */
 #define OSI_TX_MAX_BUFF_SIZE		0x3FFFU
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @brief OSI packet error stats
  */
@@ -287,14 +296,15 @@ struct osi_pkt_err_stats {
 	/** FRP Parsed count, includes accept
 	 * routing-bypass, or result-bypass count.
 	 */
-	unsigned long frp_parsed;
+	nveu64_t frp_parsed;
 	/** FRP Dropped count */
-	unsigned long frp_dropped;
+	nveu64_t frp_dropped;
 	/** FRP Parsing Error count */
-	unsigned long frp_err;
+	nveu64_t frp_err;
 	/** FRP Incomplete Parsing */
-	unsigned long frp_incomplete;
+	nveu64_t frp_incomplete;
 };
+#endif /* !OSI_STRIPPED_LIB */
 
 /**
  * @brief Receive Descriptor
@@ -322,6 +332,8 @@ struct osi_rx_swcx {
 	nveu32_t len;
 	/** Flags to share info about Rx swcx between OSD and OSI */
 	nveu32_t flags;
+	/** nvsocket data index */
+	nveu64_t data_idx;
 };
 
 /**
@@ -333,16 +345,18 @@ struct osi_rx_pkt_cx {
 	nveu32_t flags;
 	/** Stores the Rx csum */
 	nveu32_t rxcsum;
-	/** Stores the VLAN tag ID in received packet */
-	nveu32_t vlan_tag;
 	/** Length of received packet */
 	nveu32_t pkt_len;
+	/** TS in nsec for the received packet */
+	nveul64_t ns;
+#ifndef OSI_STRIPPED_LIB
+	/** Stores the VLAN tag ID in received packet */
+	nveu32_t vlan_tag;
 	/** Stores received packet hash */
 	nveu32_t rx_hash;
 	/** Store type of packet for which hash carries at rx_hash */
 	nveu32_t rx_hash_type;
-	/** TS in nsec for the received packet */
-	nveul64_t ns;
+#endif /* !OSI_STRIPPED_LIB */
 };
 
 /**
@@ -374,20 +388,22 @@ struct osi_tx_swcx {
 	void *buf_virt_addr;
 	/** Length of buffer */
 	nveu32_t len;
+#ifndef OSI_STRIPPED_LIB
 	/** Flag to keep track of whether buffer pointed by buf_phy_addr
 	 * is a paged buffer/linear buffer */
 	nveu32_t is_paged_buf;
+#endif /* !OSI_STRIPPED_LIB */
 	/** Flag to keep track of SWCX
 	 * Bit 0 is_paged_buf - whether buffer pointed by buf_phy_addr
 	 * is a paged buffer/linear buffer
 	 * Bit 1 PTP hwtime form timestamp registers */
-	unsigned int flags;
+	nveu32_t flags;
 	/** Packet id of packet for which TX timestamp needed */
-	unsigned int pktid;
+	nveu32_t pktid;
 	/** dma channel number for osd use */
 	nveu32_t chan;
-	/** reserved field 1 for future use */
-	nveu64_t rsvd1;
+	/** nvsocket data index */
+	nveu64_t data_idx;
 	/** reserved field 2 for future use */
 	nveu64_t rsvd2;
 };
@@ -438,7 +454,7 @@ struct osi_txdone_pkt_cx {
 	 * bit is set in fields */
 	nveul64_t ns;
 	/** Passing packet id to map TX time to packet */
-	unsigned int pktid;
+	nveu32_t pktid;
 };
 
 /**
@@ -456,18 +472,23 @@ struct osi_tx_ring {
 	nveu32_t cur_tx_idx;
 	/** Descriptor index for descriptor cleanup */
 	nveu32_t clean_idx;
+#ifndef OSI_STRIPPED_LIB
 	/** Slot function check */
 	nveu32_t slot_check;
 	/** Slot number */
 	nveu32_t slot_number;
+#endif /* !OSI_STRIPPED_LIB */
 	/** Transmit packet context */
 	struct osi_tx_pkt_cx tx_pkt_cx;
 	/** Transmit complete packet context information */
 	struct osi_txdone_pkt_cx txdone_pkt_cx;
 	/** Number of packets or frames transmitted */
 	nveu32_t frame_cnt;
+	/** flag to skip memory barrier */
+	nveu32_t skip_dmb;
 };
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @brief osi_xtra_dma_stat_counters -  OSI DMA extra stats counters
  */
@@ -489,6 +510,7 @@ struct osi_xtra_dma_stat_counters {
 	/** Total number of TSO packet count */
 	nveu64_t tx_tso_pkt_n;
 };
+#endif /* !OSI_STRIPPED_LIB */
 
 struct osi_dma_priv_data;
 
@@ -522,13 +544,17 @@ struct osd_dma_ops {
 #endif /* OSI_DEBUG */
 };
 
+#ifdef OSI_DEBUG
 /**
  * @brief The OSI DMA IOCTL data structure.
  */
 struct osi_dma_ioctl_data {
 	/** IOCTL command number */
 	nveu32_t cmd;
+	/** IOCTL command argument */
+	nveu32_t arg_u32;
 };
+#endif /* OSI_DEBUG */
 
 /**
  * @brief The OSI DMA private data structure.
@@ -552,10 +578,12 @@ struct osi_dma_priv_data {
 	nveu32_t rx_buf_len;
 	/** MTU size */
 	nveu32_t mtu;
+#ifndef OSI_STRIPPED_LIB
 	/** Packet error stats */
 	struct osi_pkt_err_stats pkt_err_stats;
 	/** Extra DMA stats */
 	struct osi_xtra_dma_stat_counters dstats;
+#endif /* !OSI_STRIPPED_LIB */
 	/** Receive Interrupt Watchdog Timer Count Units */
 	nveu32_t rx_riwt;
 	/** Flag which decides riwt is enabled(1) or disabled(0) */
@@ -572,33 +600,30 @@ struct osi_dma_priv_data {
 	nveu32_t tx_frames;
 	/** Flag which decides tx_frames is enabled(1) or disabled(0) */
 	nveu32_t use_tx_frames;
+	/** DMA callback ops structure */
+	struct osd_dma_ops osd_ops;
+#ifndef OSI_STRIPPED_LIB
 	/** Flag which decides virtualization is enabled(1) or disabled(0) */
 	nveu32_t use_virtualization;
-	/** Functional safety config to do periodic read-verify of
-	 * certain safety critical dma registers */
-	void *safety_config;
 	/** Array of DMA channel slot snterval value from DT */
 	nveu32_t slot_interval[OSI_MGBE_MAX_NUM_CHANS];
 	/** Array of DMA channel slot enabled status from DT*/
 	nveu32_t slot_enabled[OSI_MGBE_MAX_NUM_CHANS];
-	/** DMA callback ops structure */
-	struct osd_dma_ops osd_ops;
 	/** Virtual address of reserved DMA buffer */
 	void *resv_buf_virt_addr;
 	/** Physical address of reserved DMA buffer */
 	nveu64_t resv_buf_phy_addr;
-	/** Tegra Pre-si platform info */
-	nveu32_t pre_si;
+#endif /* !OSI_STRIPPED_LIB */
 	/** PTP flags
 	 * OSI_PTP_SYNC_MASTER - acting as master
 	 * OSI_PTP_SYNC_SLAVE  - acting as slave
 	 * OSI_PTP_SYNC_ONESTEP - one-step mode
 	 * OSI_PTP_SYNC_TWOSTEP - two step mode
 	 */
-	unsigned int ptp_flag;
+	nveu32_t ptp_flag;
+#ifdef OSI_DEBUG
 	/** OSI DMA IOCTL data */
 	struct osi_dma_ioctl_data ioctl_data;
-#ifdef OSI_DEBUG
 	/** Flag to enable/disable descriptor dump */
 	nveu32_t enable_desc_dump;
 #endif /* OSI_DEBUG */
@@ -609,158 +634,6 @@ struct osi_dma_priv_data {
 	/** DMA Rx channel ring size */
 	nveu32_t rx_ring_sz;
 };
-
-/**
- * @brief osi_disable_chan_tx_intr - Disables DMA Tx channel interrupts.
- *
- * @note
- * Algorithm:
- *  - Disables Tx interrupts at wrapper level.
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Tx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *  - Mapping of physical IRQ line to DMA channel need to be maintained at
- *    OS Dependent layer and pass corresponding channel number.
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_001
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: Yes
- *  - Signal handler: Yes
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: No
- *  - Run time: Yes
- *  - De-initialization: Yes
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_disable_chan_tx_intr(struct osi_dma_priv_data *osi_dma,
-				 nveu32_t chan);
-
-/**
- * @brief osi_enable_chan_tx_intr - Enable DMA Tx channel interrupts.
- *
- * @note
- * Algorithm:
- *  - Enables Tx interrupts at wrapper level.
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Tx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *  - Mapping of physical IRQ line to DMA channel need to be maintained at
- *    OS Dependent layer and pass corresponding channel number.
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_002
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: Yes
- *  - Signal handler: Yes
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: Yes
- *  - Run time: Yes
- *  - De-initialization: No
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_enable_chan_tx_intr(struct osi_dma_priv_data *osi_dma,
-				nveu32_t chan);
-
-/**
- * @brief osi_disable_chan_rx_intr - Disable DMA Rx channel interrupts.
- *
- * @note
- * Algorithm:
- *  - Disables Rx interrupts at wrapper level.
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Rx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *  - Mapping of physical IRQ line to DMA channel need to be maintained at
- *    OS Dependent layer and pass corresponding channel number.
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_003
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: Yes
- *  - Signal handler: Yes
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: No
- *  - Run time: Yes
- *  - De-initialization: Yes
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_disable_chan_rx_intr(struct osi_dma_priv_data *osi_dma,
-				 nveu32_t chan);
-
-/**
- * @brief osi_enable_chan_rx_intr - Enable DMA Rx channel interrupts.
- *
- * @note
- * Algorithm:
- *  - Enables Rx interrupts at wrapper level.
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Rx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *  - Mapping of physical IRQ line to DMA channel need to be maintained at
- *    OS Dependent layer and pass corresponding channel number.
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_004
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: Yes
- *  - Signal handler: Yes
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: Yes
- *  - Run time: Yes
- *  - De-initialization: No
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_enable_chan_rx_intr(struct osi_dma_priv_data *osi_dma,
-				nveu32_t chan);
 
 /**
  * @brief osi_get_global_dma_status - Gets DMA status.
@@ -776,114 +649,6 @@ nve32_t osi_enable_chan_rx_intr(struct osi_dma_priv_data *osi_dma,
  * @retval status
  */
 nveu32_t osi_get_global_dma_status(struct osi_dma_priv_data *osi_dma);
-
-/**
- * @brief osi_clear_vm_tx_intr - Handles VM Tx interrupt source.
- *
- * Algorithm: Clear Tx interrupt source at wrapper level and DMA level.
- *
- * @param[in] osi_dma: DMA private data.
- * @param[in] chan: DMA tx channel number.
- *
- * @note
- *	1) MAC needs to be out of reset and proper clocks need to be configured.
- *	2) DMA HW init need to be completed successfully, see osi_hw_dma_init
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_clear_vm_tx_intr(struct osi_dma_priv_data *osi_dma,
-			     nveu32_t chan);
-
-/**
- * @brief osi_clear_vm_rx_intr - Handles VM Rx interrupt source.
- *
- * Algorithm: Clear Rx interrupt source at wrapper level and DMA level.
- *
- * @param[in] osi_dma: DMA private data.
- * @param[in] chan: DMA rx channel number.
- *
- * @note
- *	1) MAC needs to be out of reset and proper clocks need to be configured.
- *	2) DMA HW init need to be completed successfully, see osi_hw_dma_init
- *	3) Mapping of physical IRQ line to DMA channel need to be maintained at
- *	OS Dependent layer and pass corresponding channel number.
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_clear_vm_rx_intr(struct osi_dma_priv_data *osi_dma,
-			     nveu32_t chan);
-
-/**
- * @brief Start DMA
- *
- * @note
- * Algorithm:
- *  - Start the DMA for specific MAC
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Tx/Rx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_005
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: No
- *  - Signal handler: No
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: Yes
- *  - Run time: No
- *  - De-initialization: No
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_start_dma(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
-
-/**
- * @brief osi_stop_dma - Stop DMA
- *
- * @note
- * Algorithm:
- *  - Stop the DMA for specific MAC
- *
- * @param[in] osi_dma: OSI DMA private data.
- * @param[in] chan: DMA Tx/Rx channel number. Max OSI_EQOS_MAX_NUM_CHANS.
- *
- * @pre
- *  - MAC needs to be out of reset and proper clocks need to be configured.
- *  - DMA HW init need to be completed successfully, see osi_hw_dma_init
- *
- * @note
- * Traceability Details:
- * - SWUD_ID: ETHERNET_NVETHERNETCL_006
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: No
- *  - Signal handler: No
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: No
- *  - Run time: No
- *  - De-initialization: Yes
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_stop_dma(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
 
 /**
  * @brief osi_get_refill_rx_desc_cnt - Rx descriptors count that needs to refill
@@ -913,8 +678,8 @@ nve32_t osi_stop_dma(struct osi_dma_priv_data *osi_dma, nveu32_t chan);
  *
  * @retval "Number of available free descriptors."
  */
-nveu32_t osi_get_refill_rx_desc_cnt(struct osi_dma_priv_data *osi_dma,
-				    unsigned int chan);
+nveu32_t osi_get_refill_rx_desc_cnt(const struct osi_dma_priv_data *const osi_dma,
+				    nveu32_t chan);
 
 /**
  * @brief osi_rx_dma_desc_init - DMA Rx descriptor init
@@ -1349,6 +1114,7 @@ nveu32_t osi_is_mac_enabled(struct osi_dma_priv_data *const osi_dma);
 nve32_t osi_handle_dma_intr(struct osi_dma_priv_data *osi_dma,
 			    nveu32_t chan, nveu32_t tx_rx, nveu32_t en_dis);
 
+#ifdef OSI_DEBUG
 /**
  * @brief osi_dma_ioctl - OSI DMA IOCTL
  *
@@ -1365,44 +1131,8 @@ nve32_t osi_handle_dma_intr(struct osi_dma_priv_data *osi_dma,
  * @retval -1 on failure.
  */
 nve32_t osi_dma_ioctl(struct osi_dma_priv_data *osi_dma);
+#endif /* OSI_DEBUG */
 #ifndef OSI_STRIPPED_LIB
-/**
- * @brief - Read-validate HW registers for func safety.
- *
- * @note
- * Algorithm:
- *  - Reads pre-configured list of DMA configuration registers
- *    and compares with last written value for any modifications.
- *
- * @param[in] osi_dma: OSI DMA private data structure.
- *
- * @pre
- *  - MAC has to be out of reset.
- *  - osi_hw_dma_init has to be called. Internally this would initialize
- *    the safety_config (see osi_dma_priv_data) based on MAC version and
- *    which specific registers needs to be validated periodically.
- *  - Invoke this call if (osi_dma_priv_data->safety_config != OSI_NULL)
- *
- * @note
- * Traceability Details:
- *
- * @usage
- * - Allowed context for the API call
- *  - Interrupt handler: No
- *  - Signal handler: No
- *  - Thread safe: No
- *  - Async/Sync: Sync
- *  - Required Privileges: None
- * - API Group:
- *  - Initialization: No
- *  - Run time: Yes
- *  - De-initialization: No
- *
- * @retval 0 on success
- * @retval -1 on failure.
- */
-nve32_t osi_validate_dma_regs(struct osi_dma_priv_data *osi_dma);
-
 /**
  * @brief osi_clear_tx_pkt_err_stats - Clear tx packet error stats.
  *

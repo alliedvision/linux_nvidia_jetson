@@ -118,3 +118,12 @@
 		prefix = "CVB-RT";
 	};
 };
+
+/* I2S link on CSI Connector */
+csi_conn_i2s: &i2s6_to_codec {
+	/*
+	 * HDMI IN board P3785 for HDMI->CSI I2S signals.
+	 */
+	bitclock-master;
+	frame-master;
+};

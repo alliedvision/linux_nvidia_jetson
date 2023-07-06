@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -228,6 +228,9 @@ int ether_tc_setup_cbs(struct ether_priv_data *pdata,
 		ioctl_data.avb.oper_mode = OSI_MTL_QUEUE_AVB;
 		ioctl_data.avb.credit_control = OSI_ENABLE;
 	} else {
+	/* For EQOS harware library code use internally SP(0) and
+	   For MGBE harware library code use internally ETS(2) if
+	   algo != CBS. */
 		ioctl_data.avb.algo = OSI_MTL_TXQ_AVALG_SP;
 		ioctl_data.avb.oper_mode = OSI_MTL_QUEUE_ENABLE;
 		ioctl_data.avb.credit_control = OSI_DISABLE;

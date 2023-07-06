@@ -55,6 +55,21 @@
 		};
 	};
 
+	/* SPI1 connects to TPM */
+	spi@3210000 {
+		status = "okay";
+		spi@0 { /* chip select 0 */
+			compatible = "tegra-spidev";
+			reg = <0x0>;
+			spi-max-frequency = <50000000>;
+			controller-data {
+				nvidia,enable-hw-based-cs;
+				nvidia,rx-clk-tap-delay = <0x10>;
+				nvidia,tx-clk-tap-delay = <0x0>;
+			};
+		};
+	};
+
 	serial@3110000 {
 		status = "okay";
 	};
@@ -228,5 +243,13 @@
 		phy-names = "usb2-0", "usb2-1", "usb2-2", "usb2-3",
 			"usb3-0", "usb3-1", "usb3-2";
 		nvidia,xusb-padctl = <&xusb_padctl>;
+	};
+
+	mttcan@c310000 {
+		status = "okay";
+	};
+
+	mttcan@c320000 {
+		status = "okay";
 	};
 };

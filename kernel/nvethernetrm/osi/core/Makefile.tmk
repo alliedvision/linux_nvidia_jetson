@@ -1,6 +1,6 @@
 ################################### tell Emacs this is a -*- makefile-gmake -*-
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -22,7 +22,7 @@
 #
 ###############################################################################
 
-ifdef NV_COMPONENT_FLAG_SHARED_LIBRARY_SECTION
+ifdef NV_COMPONENT_FLAG_STATIC_LIBRARY_SECTION
 include $(NV_BUILD_START_COMPONENT)
 
 NV_COMPONENT_STRICT_WARNINGS_qnx_64 := 1
@@ -30,42 +30,37 @@ NV_COMPONENT_STRICT_WARNINGS_qnx_64 := 1
 NV_COMPONENT_NAME              := nvethernetrm
 NV_COMPONENT_OWN_INTERFACE_DIR := .
 NV_COMPONENT_SOURCES           := \
-	eqos_core.c \
-	eqos_mmc.c \
-	osi_core.c \
-	vlan_filter.c \
-	osi_hal.c \
-	ivc_core.c \
-	frp.c \
-	mgbe_core.c \
-	xpcs.c \
-	mgbe_mmc.c \
-	debug.c \
-	core_common.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/eqos_core.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/eqos_mmc.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/osi_core.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/osi_hal.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/ivc_core.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/frp.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/mgbe_core.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/xpcs.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/mgbe_mmc.c \
+	$(NV_SOURCE)/nvethernetrm/osi/core/core_common.c \
 	$(NV_SOURCE)/nvethernetrm/osi/common/osi_common.c \
 	$(NV_SOURCE)/nvethernetrm/osi/common/eqos_common.c \
 	$(NV_SOURCE)/nvethernetrm/osi/common/mgbe_common.c \
 	$(NV_SOURCE)/nvethernetrm/osi/core/macsec.c
 
-#NV_COMPONENT_CFLAGS += -DMACSEC_SUPPORT
-#NV_COMPONENT_CFLAGS += -DMACSEC_KEY_PROGRAM
-#NV_COMPONENT_CFLAGS += -DDEBUG_MACSEC
-
-ifeq ($(NV_BUILD_CONFIGURATION_OS_IS_LINUX),1)
-        NV_COMPONENT_CFLAGS += -DLINUX_OS
-else ifeq ($(NV_BUILD_CONFIGURATION_OS_IS_QNX),1)
-        NV_COMPONENT_CFLAGS += -DQNX_OS
-endif
-
-ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),0)
-NV_COMPONENT_CFLAGS            += -DOSI_DEBUG
-endif
-
 NV_COMPONENT_INCLUDES          := \
 	$(NV_SOURCE)/nvethernetrm/include \
 	$(NV_SOURCE)/nvethernetrm/osi/common/include
 
-include $(NV_BUILD_SHARED_LIBRARY)
+include $(NV_SOURCE)/nvethernetrm/include/config.tmk
+
+ifeq ($(OSI_DEBUG),1)
+NV_COMPONENT_SOURCES		+= $(NV_SOURCE)/nvethernetrm/osi/core/debug.c
+endif
+
+ifeq ($(OSI_STRIPPED_LIB),0)
+NV_COMPONENT_SOURCES		+= \
+	$(NV_SOURCE)/nvethernetrm/osi/core/vlan_filter.c
+endif
+
+include $(NV_BUILD_STATIC_LIBRARY)
 endif
 
 # Local Variables:

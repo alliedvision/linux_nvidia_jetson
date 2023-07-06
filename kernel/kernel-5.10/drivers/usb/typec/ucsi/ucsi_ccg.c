@@ -2,7 +2,7 @@
 /*
  * UCSI driver for Cypress CCGx Type-C controller
  *
- * Copyright (C) 2017-2022 NVIDIA Corporation. All rights reserved.
+ * Copyright (C) 2017-2023 NVIDIA Corporation. All rights reserved.
  * Author: Ajay Gupta <ajayg@nvidia.com>
  *
  * Some code borrowed from drivers/usb/typec/ucsi/ucsi_acpi.c
@@ -637,6 +637,11 @@ static int ucsi_ccg_sync_write(struct ucsi *ucsi, unsigned int offset,
 	struct ucsi_connector *con;
 	int con_index;
 	int ret;
+
+	if (offset == UCSI_CONTROL &&
+		UCSI_COMMAND(*(u64 *)val) == UCSI_GET_CAM_SUPPORTED &&
+		uc->fw_build == CCG_FW_BUILD_NVIDIA_XAVIER)
+		return -EOPNOTSUPP;
 
 	mutex_lock(&uc->lock);
 	pm_runtime_get_sync(uc->dev);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 #include "hw_desc.h"
 #include "mgbe_desc.h"
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @brief mgbe_get_rx_vlan - Get Rx VLAN from descriptor
  *
@@ -95,34 +96,6 @@ static inline void mgbe_update_rx_err_stats(struct osi_rx_desc *rx_desc,
 }
 
 /**
- * @brief mgbe_get_rx_csum - Get the Rx checksum from descriptor if valid
- *
- * Algorithm:
- *      1) Check if the descriptor has any checksum validation errors.
- *      2) If none, set a per packet context flag indicating no err in
- *              Rx checksum
- *      3) The OSD layer will mark the packet appropriately to skip
- *              IP/TCP/UDP checksum validation in software based on whether
- *              COE is enabled for the device.
- *
- * @param[in] rx_desc: Rx descriptor
- * @param[in] rx_pkt_cx: Per-Rx packet context structure
- */
-static void mgbe_get_rx_csum(struct osi_rx_desc *rx_desc,
-			     struct osi_rx_pkt_cx *rx_pkt_cx)
-{
-	unsigned int ellt = rx_desc->rdes3 & RDES3_ELLT;
-
-	/* Always include either checksum none/unnecessary
-	 * depending on status fields in desc.
-	 * Hence no need to explicitly add OSI_PKT_CX_CSUM flag.
-	 */
-	if ((ellt != RDES3_ELLT_IPHE) && (ellt != RDES3_ELLT_CSUM_ERR)) {
-		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UNNECESSARY;
-	}
-}
-
-/**
  * @brief mgbe_get_rx_hash - Get Rx packet hash from descriptor if valid
  *
  * Algorithm: This routine will be invoked by OSI layer itself to get received
@@ -157,8 +130,60 @@ static void mgbe_get_rx_hash(struct osi_rx_desc *rx_desc,
 	rx_pkt_cx->rx_hash = rx_desc->rdes1;
 	rx_pkt_cx->flags |= OSI_PKT_CX_RSS;
 }
+#endif /* !OSI_STRIPPED_LIB */
 
-/** 
+/**
+ * @brief mgbe_get_rx_csum - Get the Rx checksum from descriptor if valid
+ *
+ * Algorithm:
+ *      1) Check if the descriptor has any checksum validation errors.
+ *      2) If none, set a per packet context flag indicating no err in
+ *              Rx checksum
+ *      3) The OSD layer will mark the packet appropriately to skip
+ *              IP/TCP/UDP checksum validation in software based on whether
+ *              COE is enabled for the device.
+ *
+ * @param[in] rx_desc: Rx descriptor
+ * @param[in] rx_pkt_cx: Per-Rx packet context structure
+ */
+static void mgbe_get_rx_csum(const struct osi_rx_desc *const rx_desc,
+			     struct osi_rx_pkt_cx *rx_pkt_cx)
+{
+	nveu32_t ellt = rx_desc->rdes3 & RDES3_ELLT;
+	nveu32_t pkt_type;
+
+	/* Always include either checksum none/unnecessary
+	 * depending on status fields in desc.
+	 * Hence no need to explicitly add OSI_PKT_CX_CSUM flag.
+	 */
+	if ((ellt != RDES3_ELLT_IPHE) && (ellt != RDES3_ELLT_CSUM_ERR)) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UNNECESSARY;
+	}
+
+	rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4;
+	if (ellt == RDES3_ELLT_IPHE) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4_BAD;
+	}
+
+	pkt_type = rx_desc->rdes3 & MGBE_RDES3_PT_MASK;
+	if (pkt_type == MGBE_RDES3_PT_IPV4_TCP) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv4;
+	} else if (pkt_type == MGBE_RDES3_PT_IPV4_UDP) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv4;
+	} else if (pkt_type == MGBE_RDES3_PT_IPV6_TCP) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv6;
+	} else if (pkt_type == MGBE_RDES3_PT_IPV6_UDP) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv6;
+	} else {
+		/* Do nothing */
+	}
+
+	if (ellt == RDES3_ELLT_CSUM_ERR) {
+		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCP_UDP_BAD;
+	}
+}
+
+/**
  * @brief mgbe_get_rx_hwstamp - Get Rx HW Time stamp
  *
  * Algorithm:
@@ -174,15 +199,17 @@ static void mgbe_get_rx_hash(struct osi_rx_desc *rx_desc,
  * @retval -1 if TimeStamp is not available
  * @retval 0 if TimeStamp is available.
  */
-static int mgbe_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
-			       struct osi_rx_desc *rx_desc,
-			       struct osi_rx_desc *context_desc,
-			       struct osi_rx_pkt_cx *rx_pkt_cx)
+static nve32_t mgbe_get_rx_hwstamp(const struct osi_dma_priv_data *const osi_dma,
+				   const struct osi_rx_desc *const rx_desc,
+				   const struct osi_rx_desc *const context_desc,
+				   struct osi_rx_pkt_cx *rx_pkt_cx)
 {
-	int retry;
+	nve32_t ret = 0;
+	nve32_t retry;
 
 	if ((rx_desc->rdes3 & RDES3_CDA) != RDES3_CDA) {
-		return -1;
+		ret = -1;
+		goto fail;
 	}
 
 	for (retry = 0; retry < 10; retry++) {
@@ -193,7 +220,8 @@ static int mgbe_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
 			if ((context_desc->rdes0 == OSI_INVALID_VALUE) &&
 			    (context_desc->rdes1 == OSI_INVALID_VALUE)) {
 				/* Invalid time stamp */
-				return -1;
+				ret = -1;
+				goto fail;
 			}
 			/* Update rx pkt context flags to indicate PTP */
 			rx_pkt_cx->flags |= OSI_PKT_CX_PTP;
@@ -207,24 +235,27 @@ static int mgbe_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
 
 	if (retry == 10) {
 		/* Timed out waiting for Rx timestamp */
-		return -1;
+		ret = -1;
+		goto fail;
 	}
 
 	rx_pkt_cx->ns = context_desc->rdes0 +
 			(OSI_NSEC_PER_SEC * context_desc->rdes1);
 	if (rx_pkt_cx->ns < context_desc->rdes0) {
-		/* Will not hit this case */
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
-void mgbe_init_desc_ops(struct desc_ops *d_ops)
+void mgbe_init_desc_ops(struct desc_ops *p_dops)
 {
-        d_ops->get_rx_csum = mgbe_get_rx_csum;
-	d_ops->update_rx_err_stats = mgbe_update_rx_err_stats;
-	d_ops->get_rx_vlan = mgbe_get_rx_vlan;
-	d_ops->get_rx_hash = mgbe_get_rx_hash;
-	d_ops->get_rx_hwstamp = mgbe_get_rx_hwstamp;
+#ifndef OSI_STRIPPED_LIB
+	p_dops->update_rx_err_stats = mgbe_update_rx_err_stats;
+	p_dops->get_rx_vlan = mgbe_get_rx_vlan;
+	p_dops->get_rx_hash = mgbe_get_rx_hash;
+#endif /* !OSI_STRIPPED_LIB */
+	p_dops->get_rx_csum = mgbe_get_rx_csum;
+	p_dops->get_rx_hwstamp = mgbe_get_rx_hwstamp;
 }

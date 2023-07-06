@@ -258,6 +258,8 @@ static int nvdla_ping(struct platform_device *pdev,
 {
 	struct nvdla_cmd_mem_info ping_cmd_mem_info;
 	struct nvdla_cmd_data cmd_data;
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
 	u32 *ping_va;
 	int err = 0;
 
@@ -274,6 +276,14 @@ static int nvdla_ping(struct platform_device *pdev,
 		err = -ENODEV;
 		goto fail_to_on;
 	}
+
+	if (nvdla_dev == NULL) {
+		nvdla_dbg_err(pdev, "Invalid nvdla device\n");
+		err = -EINVAL;
+		goto fail_to_get_nvdla_dev;
+	}
+
+	mutex_lock(&nvdla_dev->ping_lock);
 
 	/* assign ping cmd buffer */
 	err = nvdla_get_cmd_memory(pdev, &ping_cmd_mem_info);
@@ -313,6 +323,8 @@ static int nvdla_ping(struct platform_device *pdev,
 fail_cmd:
 	nvdla_put_cmd_memory(pdev, ping_cmd_mem_info.index);
 fail_to_alloc:
+	mutex_unlock(&nvdla_dev->ping_lock);
+fail_to_get_nvdla_dev:
 	nvhost_module_idle(pdev);
 fail_to_on:
 fail_to_get_val_arg:

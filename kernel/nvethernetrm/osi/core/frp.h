@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -64,21 +64,20 @@
  * @retval 0 on success.
  * @retval -1 on failure.
  */
-int setup_frp(struct osi_core_priv_data *const osi_core,
-	      struct core_ops *ops_p,
-	      struct osi_core_frp_cmd *const cmd);
+nve32_t setup_frp(struct osi_core_priv_data *const osi_core,
+		  struct core_ops *ops_p,
+		  struct osi_core_frp_cmd *const cmd);
 
 /**
- * @brief init_frp - Init the FRP Instruction Table.
+ * @brief frp_hw_write - Update HW FRP table.
+ *
+ * Algorithm: Update FRP table into HW.
  *
  * @param[in] osi_core: OSI core private data structure.
  *
- * @note
- *	1) MAC and PHY should be init and started. see osi_start_mac()
- *
- * @retval 0 on success
+ * @retval 0 on success.
  * @retval -1 on failure.
  */
-void init_frp(struct osi_core_priv_data *const osi_core);
-
+nve32_t frp_hw_write(struct osi_core_priv_data *const osi_core,
+		     struct core_ops *const ops_p);
 #endif /* FRP_H */

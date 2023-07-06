@@ -1,0 +1,74 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "P3767 Overlay Support";
+	compatible = "nvidia,tegra23x";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	fragment@0 {
+		target-path = "/host1x@13e00000";
+		board_config {
+			fuse-info = "fuse-disable-nvenc";
+		};
+		__overlay__ {
+			nvenc@154c0000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/host1x@13e00000";
+		board_config {
+			fuse-info = "fuse-disable-pva";
+		};
+		__overlay__ {
+			pva0 {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/host1x@13e00000";
+		board_config {
+			fuse-info = "fuse-disable-dla0";
+		};
+		__overlay__ {
+			nvdla0@15880000 {
+				status = "disabled";
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/host1x@13e00000";
+		board_config {
+			fuse-info = "fuse-disable-dla1";
+		};
+		__overlay__ {
+			nvdla1@158c0000 {
+				status = "disabled";
+			};
+		};
+	};
+};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -282,115 +282,155 @@
 					};
 				};
 
-				xbar_sfc1_in_port: port@XBAR_SFC1 {
-					reg = <XBAR_SFC1>;
+				xbar_sfc1_in_port: port@XBAR_SFC1_RX {
+					reg = <XBAR_SFC1_RX>;
 
 					xbar_sfc1_in_ep: endpoint {
 						remote-endpoint = <&sfc1_in_cif_ep>;
 					};
 				};
 
-				xbar_sfc2_in_port: port@XBAR_SFC2 {
-					reg = <XBAR_SFC2>;
+				xbar_sfc2_in_port: port@XBAR_SFC2_RX {
+					reg = <XBAR_SFC2_RX>;
 
 					xbar_sfc2_in_ep: endpoint {
 						remote-endpoint = <&sfc2_in_cif_ep>;
 					};
 				};
 
-				xbar_sfc3_in_port: port@XBAR_SFC3 {
-					reg = <XBAR_SFC3>;
+				xbar_sfc3_in_port: port@XBAR_SFC3_RX {
+					reg = <XBAR_SFC3_RX>;
 
 					xbar_sfc3_in_ep: endpoint {
 						remote-endpoint = <&sfc3_in_cif_ep>;
 					};
 				};
 
-				xbar_sfc4_in_port: port@XBAR_SFC4 {
-					reg = <XBAR_SFC4>;
+				xbar_sfc4_in_port: port@XBAR_SFC4_RX {
+					reg = <XBAR_SFC4_RX>;
 
 					xbar_sfc4_in_ep: endpoint {
 						remote-endpoint = <&sfc4_in_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in1_port: port@XBAR_MIXER_IF1 {
-					reg = <XBAR_MIXER_IF1>;
+				xbar_mixer_in1_port: port@XBAR_MIXER_IN1 {
+					reg = <XBAR_MIXER_IN1>;
 
 					xbar_mixer_in1_ep: endpoint {
 						remote-endpoint = <&mixer_in1_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in2_port: port@XBAR_MIXER_IF2 {
-					reg = <XBAR_MIXER_IF2>;
+				xbar_mixer_in2_port: port@XBAR_MIXER_IN2 {
+					reg = <XBAR_MIXER_IN2>;
 
 					xbar_mixer_in2_ep: endpoint {
 						remote-endpoint = <&mixer_in2_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in3_port: port@XBAR_MIXER_IF3 {
-					reg = <XBAR_MIXER_IF3>;
+				xbar_mixer_in3_port: port@XBAR_MIXER_IN3 {
+					reg = <XBAR_MIXER_IN3>;
 
 					xbar_mixer_in3_ep: endpoint {
 						remote-endpoint = <&mixer_in3_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in4_port: port@XBAR_MIXER_IF4 {
-					reg = <XBAR_MIXER_IF4>;
+				xbar_mixer_in4_port: port@XBAR_MIXER_IN4 {
+					reg = <XBAR_MIXER_IN4>;
 
 					xbar_mixer_in4_ep: endpoint {
 						remote-endpoint = <&mixer_in4_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in5_port: port@XBAR_MIXER_IF5 {
-					reg = <XBAR_MIXER_IF5>;
+				xbar_mixer_in5_port: port@XBAR_MIXER_IN5 {
+					reg = <XBAR_MIXER_IN5>;
 
 					xbar_mixer_in5_ep: endpoint {
 						remote-endpoint = <&mixer_in5_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in6_port: port@XBAR_MIXER_IF6 {
-					reg = <XBAR_MIXER_IF6>;
+				xbar_mixer_in6_port: port@XBAR_MIXER_IN6 {
+					reg = <XBAR_MIXER_IN6>;
 
 					xbar_mixer_in6_ep: endpoint {
 						remote-endpoint = <&mixer_in6_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in7_port: port@XBAR_MIXER_IF7 {
-					reg = <XBAR_MIXER_IF7>;
+				xbar_mixer_in7_port: port@XBAR_MIXER_IN7 {
+					reg = <XBAR_MIXER_IN7>;
 
 					xbar_mixer_in7_ep: endpoint {
 						remote-endpoint = <&mixer_in7_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in8_port: port@XBAR_MIXER_IF8 {
-					reg = <XBAR_MIXER_IF8>;
+				xbar_mixer_in8_port: port@XBAR_MIXER_IN8 {
+					reg = <XBAR_MIXER_IN8>;
 
 					xbar_mixer_in8_ep: endpoint {
 						remote-endpoint = <&mixer_in8_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in9_port: port@XBAR_MIXER_IF9 {
-					reg = <XBAR_MIXER_IF9>;
+				xbar_mixer_in9_port: port@XBAR_MIXER_IN9 {
+					reg = <XBAR_MIXER_IN9>;
 
 					xbar_mixer_in9_ep: endpoint {
 						remote-endpoint = <&mixer_in9_cif_ep>;
 					};
 				};
 
-				xbar_mixer_in10_port: port@XBAR_MIXER_IF10 {
-					reg = <XBAR_MIXER_IF10>;
+				xbar_mixer_in10_port: port@XBAR_MIXER_IN10 {
+					reg = <XBAR_MIXER_IN10>;
 
 					xbar_mixer_in10_ep: endpoint {
 						remote-endpoint = <&mixer_in10_cif_ep>;
+					};
+				};
+
+				xbar_mixer_out1_port: port@XBAR_MIXER_OUT1 {
+					reg = <XBAR_MIXER_OUT1>;
+
+					xbar_mixer_out1_ep: endpoint {
+						remote-endpoint = <&mixer_out1_cif_ep>;
+					};
+				};
+
+				xbar_mixer_out2_port: port@XBAR_MIXER_OUT2 {
+					reg = <XBAR_MIXER_OUT2>;
+
+					xbar_mixer_out2_ep: endpoint {
+						remote-endpoint = <&mixer_out2_cif_ep>;
+					};
+				};
+
+				xbar_mixer_out3_port: port@XBAR_MIXER_OUT3 {
+					reg = <XBAR_MIXER_OUT3>;
+
+					xbar_mixer_out3_ep: endpoint {
+						remote-endpoint = <&mixer_out3_cif_ep>;
+					};
+				};
+
+				xbar_mixer_out4_port: port@XBAR_MIXER_OUT4 {
+					reg = <XBAR_MIXER_OUT4>;
+
+					xbar_mixer_out4_ep: endpoint {
+						remote-endpoint = <&mixer_out4_cif_ep>;
+					};
+				};
+
+				xbar_mixer_out5_port: port@XBAR_MIXER_OUT5 {
+					reg = <XBAR_MIXER_OUT5>;
+
+					xbar_mixer_out5_ep: endpoint {
+						remote-endpoint = <&mixer_out5_cif_ep>;
 					};
 				};
 
@@ -442,24 +482,24 @@
 					};
 				};
 
-				xbar_ope1_in_port: port@XBAR_OPE1 {
-					reg = <XBAR_OPE1>;
+				xbar_ope1_in_port: port@XBAR_OPE1_RX {
+					reg = <XBAR_OPE1_RX>;
 
 					xbar_ope1_in_ep: endpoint {
 						remote-endpoint = <&ope1_in_cif_ep>;
 					};
 				};
 
-				xbar_mvc1_in_port: port@XBAR_MVC1 {
-					reg = <XBAR_MVC1>;
+				xbar_mvc1_in_port: port@XBAR_MVC1_RX {
+					reg = <XBAR_MVC1_RX>;
 
 					xbar_mvc1_in_ep: endpoint {
 						remote-endpoint = <&mvc1_in_cif_ep>;
 					};
 				};
 
-				xbar_mvc2_in_port: port@XBAR_MVC2 {
-					reg = <XBAR_MVC2>;
+				xbar_mvc2_in_port: port@XBAR_MVC2_RX {
+					reg = <XBAR_MVC2_RX>;
 
 					xbar_mvc2_in_ep: endpoint {
 						remote-endpoint = <&mvc2_in_cif_ep>;
@@ -786,59 +826,107 @@
 					};
 				};
 
-				xbar_asrc_in1_port: port@XBAR_ASRC_IF1 {
-					reg = <XBAR_ASRC_IF1>;
+				xbar_asrc_in1_port: port@XBAR_ASRC_IN1 {
+					reg = <XBAR_ASRC_IN1>;
 
 					xbar_asrc_in1_ep: endpoint {
 						remote-endpoint = <&asrc_in1_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in2_port: port@XBAR_ASRC_IF2 {
-					reg = <XBAR_ASRC_IF2>;
+				xbar_asrc_in2_port: port@XBAR_ASRC_IN2 {
+					reg = <XBAR_ASRC_IN2>;
 
 					xbar_asrc_in2_ep: endpoint {
 						remote-endpoint = <&asrc_in2_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in3_port: port@XBAR_ASRC_IF3 {
-					reg = <XBAR_ASRC_IF3>;
+				xbar_asrc_in3_port: port@XBAR_ASRC_IN3 {
+					reg = <XBAR_ASRC_IN3>;
 
 					xbar_asrc_in3_ep: endpoint {
 						remote-endpoint = <&asrc_in3_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in4_port: port@XBAR_ASRC_IF4 {
-					reg = <XBAR_ASRC_IF4>;
+				xbar_asrc_in4_port: port@XBAR_ASRC_IN4 {
+					reg = <XBAR_ASRC_IN4>;
 
 					xbar_asrc_in4_ep: endpoint {
 						remote-endpoint = <&asrc_in4_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in5_port: port@XBAR_ASRC_IF5 {
-					reg = <XBAR_ASRC_IF5>;
+				xbar_asrc_in5_port: port@XBAR_ASRC_IN5 {
+					reg = <XBAR_ASRC_IN5>;
 
 					xbar_asrc_in5_ep: endpoint {
 						remote-endpoint = <&asrc_in5_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in6_port: port@XBAR_ASRC_IF6 {
-					reg = <XBAR_ASRC_IF6>;
+				xbar_asrc_in6_port: port@XBAR_ASRC_IN6 {
+					reg = <XBAR_ASRC_IN6>;
 
 					xbar_asrc_in6_ep: endpoint {
 						remote-endpoint = <&asrc_in6_cif_ep>;
 					};
 				};
 
-				xbar_asrc_in7_port: port@XBAR_ASRC_IF7 {
-					reg = <XBAR_ASRC_IF7>;
+				xbar_asrc_in7_port: port@XBAR_ASRC_IN7 {
+					reg = <XBAR_ASRC_IN7>;
 
 					xbar_asrc_in7_ep: endpoint {
 						remote-endpoint = <&asrc_in7_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out1_port: port@XBAR_ASRC_OUT1 {
+					reg = <XBAR_ASRC_OUT1>;
+
+					xbar_asrc_out1_ep: endpoint {
+						remote-endpoint = <&asrc_out1_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out2_port: port@XBAR_ASRC_OUT2 {
+					reg = <XBAR_ASRC_OUT2>;
+
+					xbar_asrc_out2_ep: endpoint {
+						remote-endpoint = <&asrc_out2_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out3_port: port@XBAR_ASRC_OUT3 {
+					reg = <XBAR_ASRC_OUT3>;
+
+					xbar_asrc_out3_ep: endpoint {
+						remote-endpoint = <&asrc_out3_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out4_port: port@XBAR_ASRC_OUT4 {
+					reg = <XBAR_ASRC_OUT4>;
+
+					xbar_asrc_out4_ep: endpoint {
+						remote-endpoint = <&asrc_out4_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out5_port: port@XBAR_ASRC_OUT5 {
+					reg = <XBAR_ASRC_OUT5>;
+
+					xbar_asrc_out5_ep: endpoint {
+						remote-endpoint = <&asrc_out5_cif_ep>;
+					};
+				};
+
+				xbar_asrc_out6_port: port@XBAR_ASRC_OUT6 {
+					reg = <XBAR_ASRC_OUT6>;
+
+					xbar_asrc_out6_ep: endpoint {
+						remote-endpoint = <&asrc_out6_cif_ep>;
 					};
 				};
 
@@ -1520,7 +1608,7 @@
 						reg = <MIXER_OUT1>;
 
 						mixer_out1_cif_ep: endpoint {
-							remote-endpoint = <&xbar_mixer_in1_ep>;
+							remote-endpoint = <&xbar_mixer_out1_ep>;
 						};
 					};
 
@@ -1528,7 +1616,7 @@
 						reg = <MIXER_OUT2>;
 
 						mixer_out2_cif_ep: endpoint {
-							remote-endpoint = <&xbar_mixer_in2_ep>;
+							remote-endpoint = <&xbar_mixer_out2_ep>;
 						};
 					};
 
@@ -1536,7 +1624,7 @@
 						reg = <MIXER_OUT3>;
 
 						mixer_out3_cif_ep: endpoint {
-							remote-endpoint = <&xbar_mixer_in3_ep>;
+							remote-endpoint = <&xbar_mixer_out3_ep>;
 						};
 					};
 
@@ -1544,15 +1632,15 @@
 						reg = <MIXER_OUT4>;
 
 						mixer_out4_cif_ep: endpoint {
-							remote-endpoint = <&xbar_mixer_in4_ep>;
+							remote-endpoint = <&xbar_mixer_out4_ep>;
 						};
 					};
 
 					mixer_out5_port: port@MIXER_OUT5 {
 						reg = <MIXER_OUT5>;
 
-						mixer_out_cif_ep: endpoint {
-							remote-endpoint = <&xbar_mixer_in5_ep>;
+						mixer_out5_cif_ep: endpoint {
+							remote-endpoint = <&xbar_mixer_out5_ep>;
 						};
 					};
 				};
@@ -2502,7 +2590,7 @@
 						reg = <ASRC_OUT1>;
 
 						asrc_out1_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in1_ep>;
+							remote-endpoint = <&xbar_asrc_out1_ep>;
 						};
 					};
 
@@ -2510,7 +2598,7 @@
 						reg = <ASRC_OUT2>;
 
 						asrc_out2_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in2_ep>;
+							remote-endpoint = <&xbar_asrc_out2_ep>;
 						};
 					};
 
@@ -2518,7 +2606,7 @@
 						reg = <ASRC_OUT3>;
 
 						asrc_out3_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in3_ep>;
+							remote-endpoint = <&xbar_asrc_out3_ep>;
 						};
 					};
 
@@ -2526,7 +2614,7 @@
 						reg = <ASRC_OUT4>;
 
 						asrc_out4_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in4_ep>;
+							remote-endpoint = <&xbar_asrc_out4_ep>;
 						};
 					};
 
@@ -2534,7 +2622,7 @@
 						reg = <ASRC_OUT5>;
 
 						asrc_out5_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in5_ep>;
+							remote-endpoint = <&xbar_asrc_out5_ep>;
 						};
 					};
 
@@ -2542,7 +2630,7 @@
 						reg = <ASRC_OUT6>;
 
 						asrc_out6_cif_ep: endpoint {
-							remote-endpoint = <&xbar_asrc_in6_ep>;
+							remote-endpoint = <&xbar_asrc_out6_ep>;
 						};
 					};
 				};

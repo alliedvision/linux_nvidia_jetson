@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 #include <osi_core.h>
 #include "core_local.h"
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @addtogroup MAC-VLAN MAC VLAN configuration registers and bit fields
  *
@@ -36,7 +37,7 @@
 #define MAC_VLAN_TAG_CTRL	0x50
 #define MAC_VLAN_TAG_DATA	0x54
 #define MAC_VLAN_HASH_FILTER	0x58
-#define MAC_VLAN_TAG_CTRL_OFS_MASK	0x7C
+#define MAC_VLAN_TAG_CTRL_OFS_MASK	0x7CU
 #define MAC_VLAN_TAG_CTRL_OFS_SHIFT	2U
 #define MAC_VLAN_TAG_CTRL_CT	OSI_BIT(1)
 #define MAC_VLAN_TAG_CTRL_OB	OSI_BIT(0)
@@ -53,9 +54,9 @@
  */
 #define VLAN_HW_MAX_NRVF	32U
 #define VLAN_HW_FILTER_FULL_IDX	VLAN_HW_MAX_NRVF
-#define VLAN_VID_MASK		0xFFFF
-#define VLAN_ID_INVALID		0xFFFF
-#define VLAN_HASH_ALLOW_ALL	0xFFFF
+#define VLAN_VID_MASK		0xFFFFU
+#define VLAN_ID_INVALID		0xFFFFU
+#define VLAN_HASH_ALLOW_ALL	0xFFFFU
 #define VLAN_ACTION_MASK	OSI_BIT(31)
 /** @} */
 
@@ -70,7 +71,7 @@
  * @return 0 on success
  * @return -1 on failure.
  */
-int update_vlan_id(struct osi_core_priv_data *osi_core,
-		   struct core_ops *ops_p,
-                   unsigned int vid);
+nve32_t update_vlan_id(struct osi_core_priv_data *osi_core,
+		       struct core_ops *ops_p, nveu32_t vid);
+#endif /* !OSI_STRIPPED_LIB */
 #endif /* VLAN_FILTER_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,13 +67,6 @@
 #define MMC_TXVLANPACKETS_G_H		0x008A0
 #define MMC_TXLPIUSECCNTR		0x008A4
 #define MMC_TXLPITRANCNTR		0x008A8
-#define MMC_PRIO_INT_STATUS		0x008CC
-#define MMC_TX_PER_PRIO_STATUS		0x008D0
-#define MMC_TX_PER_PRIO_PKT_GB		0x008D4
-#define MMC_TX_PER_PRIO_PFC_PKT_GB	0x008D8
-#define MMC_TX_PER_PRIO_GPFC_PKT_GB	0x008DC
-#define MMC_TX_PER_PRIO_OCTET_GB_L	0x008E0
-#define MMC_TX_PER_PRIO_OCTET_GB_H	0x008E4
 
 #define MMC_RXPACKETCOUNT_GB_L		0x00900
 #define MMC_RXPACKETCOUNT_GB_H		0x00904
@@ -118,24 +111,9 @@
 #define MMC_RXWATCHDOGERROR		0x009A0
 #define MMC_RXLPIUSECCNTR		0x009A4
 #define MMC_RXLPITRANCNTR		0x009A8
-#define MMC_RX_DISCARD_PKTS_GB_L	0x009AC
-#define MMC_RX_DISCARD_PKTS_GB_H	0x009B0
-#define MMC_RX_DISCARD_OCTET_GB_L	0x009B4
-#define MMC_RX_DISCARD_OCTET_GB_H	0x009B8
 #define MMC_RXALIGNMENTERROR		0x009BC
-#define MMC_RX_PER_PRIO_STATUS		0x009D0
-#define MMC_RX_PER_PRIO_PKT_GB		0x009D4
-#define MMC_RX_PER_PRIO_PKT_B		0x009D8
-#define MMC_RX_PER_PRIO_PFC_PKT_GB	0x009DC
-#define MMC_RX_PER_PRIO_OCTET_GB_L	0x009E0
-#define MMC_RX_PER_PRIO_OCTET_GB_H	0x009E4
-#define MMC_RX_PER_PRIO_DISCARD_GB	0x009E8
-#define MMC_FPE_TX_INT			0x00A00
-#define MMC_FPE_TX_INT_MASK		0x00A04
 #define MMC_TX_FPE_FRAG_COUNTER		0x00A08
 #define MMC_TX_HOLD_REQ_COUNTER		0x00A0C
-#define MMC_FPE_RX_INT			0x00A20
-#define MMC_FPE_RX_INT_MASK		0x00A24
 #define MMC_RX_PKT_ASSEMBLY_ERR_CNTR	0x00A28
 #define MMC_RX_PKT_SMD_ERR_CNTR		0x00A2C
 #define MMC_RX_PKT_ASSEMBLY_OK_CNTR	0x00A30
@@ -147,8 +125,6 @@
 #define MMC_TXEXESSCOL			0x00A50
 #define MMC_TXCARRIERERROR		0x00A54
 #define MMC_TXEXECESS_DEFERRED		0x00A58
-#define MMC_IPC_RX_INT_MASK		0x00A5C
-#define MMC_IPC_RX_INT			0x00A60
 #define MMC_RXIPV4_GD_PKTS_L		0x00A64
 #define MMC_RXIPV4_GD_PKTS_H		0x00A68
 #define MMC_RXIPV4_HDRERR_PKTS_L	0x00A6C
@@ -220,7 +196,7 @@
  *	1) MAC should be init and started. see osi_start_mac()
  *	2) osi_core->osd should be populated
  */
-void mgbe_read_mmc(struct osi_core_priv_data *osi_core);
+void mgbe_read_mmc(struct osi_core_priv_data *const osi_core);
 
 /**
  * @brief mgbe_reset_mmc - To reset MMC registers and ether_mmc_counter
@@ -232,5 +208,5 @@ void mgbe_read_mmc(struct osi_core_priv_data *osi_core);
  *	1) MAC should be init and started. see osi_start_mac()
  *	2) osi_core->osd should be populated
  */
-void mgbe_reset_mmc(struct osi_core_priv_data *osi_core);
+void mgbe_reset_mmc(struct osi_core_priv_data *const osi_core);
 #endif

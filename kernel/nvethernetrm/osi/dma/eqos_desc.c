@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 #include "dma_local.h"
 #include "hw_desc.h"
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @brief eqos_get_rx_vlan - Get Rx VLAN from descriptor
  *
@@ -78,6 +79,22 @@ static inline void eqos_update_rx_err_stats(struct osi_rx_desc *rx_desc,
 }
 
 /**
+ * @brief eqos_get_rx_hash - Get Rx packet hash from descriptor if valid
+ *
+ * Algorithm: This routine will be invoked by OSI layer itself to get received
+ * packet Hash from descriptor if RSS hash is valid and it also sets the type
+ * of RSS hash.
+ *
+ * @param[in] rx_desc: Rx Descriptor.
+ * @param[in] rx_pkt_cx: Per-Rx packet context structure
+ */
+static void eqos_get_rx_hash(OSI_UNUSED struct osi_rx_desc *rx_desc,
+			     OSI_UNUSED struct osi_rx_pkt_cx *rx_pkt_cx)
+{
+}
+#endif /* !OSI_STRIPPED_LIB */
+
+/**
  * @brief eqos_get_rx_csum - Get the Rx checksum from descriptor if valid
  *
  * @note
@@ -98,7 +115,7 @@ static inline void eqos_update_rx_err_stats(struct osi_rx_desc *rx_desc,
  * @param[in, out] rx_desc: Rx descriptor
  * @param[in, out] rx_pkt_cx: Per-Rx packet context structure
  */
-static void eqos_get_rx_csum(struct osi_rx_desc *rx_desc,
+static void eqos_get_rx_csum(const struct osi_rx_desc *const rx_desc,
 			     struct osi_rx_pkt_cx *rx_pkt_cx)
 {
 	nveu32_t pkt_type;
@@ -108,66 +125,49 @@ static void eqos_get_rx_csum(struct osi_rx_desc *rx_desc,
 	 * Set none/unnecessary bit as well for other OS to check and
 	 * take proper actions.
 	 */
-	if ((rx_desc->rdes3 & RDES3_RS1V) != RDES3_RS1V) {
-		return;
-	}
-
-	if ((rx_desc->rdes1 &
-	    (RDES1_IPCE | RDES1_IPCB | RDES1_IPHE)) == OSI_DISABLE) {
-		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UNNECESSARY;
-	}
-
-	if ((rx_desc->rdes1 & RDES1_IPCB) != OSI_DISABLE) {
-		return;
-	}
-
-	rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4;
-	if ((rx_desc->rdes1 & RDES1_IPHE) == RDES1_IPHE) {
-		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4_BAD;
-	}
-
-	pkt_type = rx_desc->rdes1 & RDES1_PT_MASK;
-	if ((rx_desc->rdes1 & RDES1_IPV4) == RDES1_IPV4) {
-		if (pkt_type == RDES1_PT_UDP) {
-			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv4;
-		} else if (pkt_type == RDES1_PT_TCP) {
-			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv4;
-
-		} else {
-			/* Do nothing */
-		}
-	} else if ((rx_desc->rdes1 & RDES1_IPV6) == RDES1_IPV6) {
-		if (pkt_type == RDES1_PT_UDP) {
-			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv6;
-		} else if (pkt_type == RDES1_PT_TCP) {
-			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv6;
-
-		} else {
-			/* Do nothing */
+	if ((rx_desc->rdes3 & RDES3_RS1V) == RDES3_RS1V) {
+		if ((rx_desc->rdes1 &
+		    (RDES1_IPCE | RDES1_IPCB | RDES1_IPHE)) == OSI_DISABLE) {
+			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UNNECESSARY;
 		}
 
-	} else {
-		/* Do nothing */
+		if ((rx_desc->rdes1 & RDES1_IPCB) != RDES1_IPCB) {
+			rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4;
+			if ((rx_desc->rdes1 & RDES1_IPHE) == RDES1_IPHE) {
+				rx_pkt_cx->rxcsum |= OSI_CHECKSUM_IPv4_BAD;
+			}
+
+			pkt_type = rx_desc->rdes1 & RDES1_PT_MASK;
+			if ((rx_desc->rdes1 & RDES1_IPV4) == RDES1_IPV4) {
+				if (pkt_type == RDES1_PT_UDP) {
+					rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv4;
+				} else if (pkt_type == RDES1_PT_TCP) {
+					rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv4;
+
+				} else {
+					/* Do nothing */
+				}
+			} else if ((rx_desc->rdes1 & RDES1_IPV6) == RDES1_IPV6) {
+				if (pkt_type == RDES1_PT_UDP) {
+					rx_pkt_cx->rxcsum |= OSI_CHECKSUM_UDPv6;
+				} else if (pkt_type == RDES1_PT_TCP) {
+					rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCPv6;
+
+				} else {
+					/* Do nothing */
+				}
+
+			} else {
+				/* Do nothing */
+			}
+
+			if ((rx_desc->rdes1 & RDES1_IPCE) == RDES1_IPCE) {
+				rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCP_UDP_BAD;
+			}
+		}
 	}
 
-	if ((rx_desc->rdes1 & RDES1_IPCE) == RDES1_IPCE) {
-		rx_pkt_cx->rxcsum |= OSI_CHECKSUM_TCP_UDP_BAD;
-	}
-}
-
-/**
- * @brief eqos_get_rx_hash - Get Rx packet hash from descriptor if valid
- *
- * Algorithm: This routine will be invoked by OSI layer itself to get received
- * packet Hash from descriptor if RSS hash is valid and it also sets the type
- * of RSS hash.
- *
- * @param[in] rx_desc: Rx Descriptor.
- * @param[in] rx_pkt_cx: Per-Rx packet context structure
- */
-static void eqos_get_rx_hash(OSI_UNUSED struct osi_rx_desc *rx_desc,
-			     OSI_UNUSED struct osi_rx_pkt_cx *rx_pkt_cx)
-{
+	return;
 }
 
 /**
@@ -186,12 +186,13 @@ static void eqos_get_rx_hash(OSI_UNUSED struct osi_rx_desc *rx_desc,
  * @retval -1 if TimeStamp is not available
  * @retval 0 if TimeStamp is available.
  */
-static int eqos_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
-			       struct osi_rx_desc *rx_desc,
-			       struct osi_rx_desc *context_desc,
-			       struct osi_rx_pkt_cx *rx_pkt_cx)
+static nve32_t eqos_get_rx_hwstamp(const struct osi_dma_priv_data *const osi_dma,
+				   const struct osi_rx_desc *const rx_desc,
+				   const struct osi_rx_desc *const context_desc,
+				   struct osi_rx_pkt_cx *rx_pkt_cx)
 {
-	int retry;
+	nve32_t ret = 0;
+	nve32_t retry;
 
 	/* Check for RS1V/TSA/TD valid */
 	if (((rx_desc->rdes3 & RDES3_RS1V) == RDES3_RS1V) &&
@@ -205,7 +206,8 @@ static int eqos_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
 				     OSI_INVALID_VALUE) &&
 				    (context_desc->rdes1 ==
 				     OSI_INVALID_VALUE)) {
-					return -1;
+					ret = -1;
+					goto fail;
 				}
 				/* Update rx pkt context flags to indicate
 				 * PTP */
@@ -219,27 +221,31 @@ static int eqos_get_rx_hwstamp(struct osi_dma_priv_data *osi_dma,
 		}
 		if (retry == 10) {
 			/* Timed out waiting for Rx timestamp */
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 
 		rx_pkt_cx->ns = context_desc->rdes0 +
 				(OSI_NSEC_PER_SEC * context_desc->rdes1);
 		if (rx_pkt_cx->ns < context_desc->rdes0) {
 			/* Will not hit this case */
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 	} else {
-		return -1;
+		ret = -1;
 	}
-
-	return 0;
+fail:
+	return ret;
 }
 
-void eqos_init_desc_ops(struct desc_ops *d_ops)
+void eqos_init_desc_ops(struct desc_ops *p_dops)
 {
-	d_ops->get_rx_csum = eqos_get_rx_csum;
-	d_ops->update_rx_err_stats = eqos_update_rx_err_stats;
-	d_ops->get_rx_vlan = eqos_get_rx_vlan;
-	d_ops->get_rx_hash = eqos_get_rx_hash;
-	d_ops->get_rx_hwstamp = eqos_get_rx_hwstamp;
+#ifndef OSI_STRIPPED_LIB
+	p_dops->update_rx_err_stats = eqos_update_rx_err_stats;
+	p_dops->get_rx_vlan = eqos_get_rx_vlan;
+	p_dops->get_rx_hash = eqos_get_rx_hash;
+#endif /* !OSI_STRIPPED_LIB */
+	p_dops->get_rx_csum = eqos_get_rx_csum;
+	p_dops->get_rx_hwstamp = eqos_get_rx_hwstamp;
 }

@@ -77,8 +77,11 @@ nx_devkit = BoardDefinition('Jetson Xavier NX devkit', '0x19', '3668', [
 
     Configuration('Auvidea JNX30', 'tegra194-p3668-0000-p3509-0000-auvidea-jnx30.dtb', '0000'),
     Configuration('Auvidea JNX30', 'tegra194-p3668-0001-p3509-0000-auvidea-jnx30.dtb', '0001'),
+    Configuration('Auvidea JNX30D', 'tegra194-p3668-0000-p3509-0000-auvidea-jnx30d.dtb', '0000'),
+    Configuration('Auvidea JNX30D', 'tegra194-p3668-0001-p3509-0000-auvidea-jnx30d.dtb', '0001'),
     #NX 16GB
     Configuration('Auvidea JNX30', 'tegra194-p3668-0001-p3509-0000-auvidea-jnx30.dtb', '0003'),
+    Configuration('Auvidea JNX30D', 'tegra194-p3668-0001-p3509-0000-auvidea-jnx30d.dtb', '0003'),
 
     #Configuration('Auvidea JNX30+38491 FPD-Link (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30-38491.dtb', '0000', beta=True, rootfs='/dev/mmcblk1p1'),
     #Configuration('Auvidea JNX30+38491 FPD-Link (beta)', 'tegra194-p3668-all-p3509-0000-auvidea-jnx30-38491.dtb', '0001', beta=True, rootfs='/dev/mmcblk1p1'),
@@ -99,15 +102,20 @@ agx_orin_devkit = BoardDefinition('Jetson AGX Orin devkit', '0x23', '3701', [
     Configuration('None', 'tegra234-p3701-0004-p3737-0000.dtb', '0004'),
 ])
 
-orin_nx_devkit = BoardDefinition('Jetson Orin NX devkit', '0x23', '3767', [
-    Configuration('2 cameras', 'tegra234-p3767-0000-p3509-a02.dtb', '0000'),
+orin_nx_nano_devkit = BoardDefinition('Jetson Orin Nano/NX devkit', '0x23', '3767', [
+    Configuration('2 cameras', 'tegra234-p3767-0000-p3768-0000-a0.dtb', '0000'),
+    Configuration('2 cameras', 'tegra234-p3767-0001-p3768-0000-a0.dtb', '0001'),
+
+    Configuration('2 cameras', 'tegra234-p3767-0003-p3768-0000-a0.dtb', '0003'),
+    Configuration('2 cameras', 'tegra234-p3767-0004-p3768-0000-a0.dtb', '0004'),
+    Configuration('2 cameras', 'tegra234-p3767-0003-p3768-0000-a0.dtb', '0005'),
 ])
 
 boards = [
     agx_devkit,
     nx_devkit,
     agx_orin_devkit,
-    orin_nx_devkit
+    orin_nx_nano_devkit
 ]
 
 _label_keywords = ['APPEND', 'FDT', 'FDTDIR', 'INITRD', 'LINUX', 'MENU']

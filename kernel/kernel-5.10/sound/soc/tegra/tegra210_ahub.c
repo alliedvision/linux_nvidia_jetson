@@ -2,7 +2,7 @@
 //
 // tegra210_ahub.c - Tegra210 AHUB driver
 //
-// Copyright (c) 2020-2021 NVIDIA CORPORATION.  All rights reserved.
+// Copyright (c) 2020-2023 NVIDIA CORPORATION.  All rights reserved.
 
 #include <linux/clk.h>
 #include <linux/device.h>
@@ -139,6 +139,16 @@ void tegra210_ahub_read_ram(struct regmap *regmap, unsigned int reg_ctrl,
 }
 EXPORT_SYMBOL_GPL(tegra210_ahub_read_ram);
 
+/*
+ * TODO As per downstream kernel code there will be routing issue
+ * if DAI names are updated for SFC, MVC and OPE input and
+ * output. Due to that added those modules output DAIs just to keep
+ * similar to upstream kernel. Single DAI is used for input and
+ * output.
+ *
+ * Once the routing changes are done for above mentioned modules
+ * as per upstream, suffix the common dai name with RX.
+ */
 static struct snd_soc_dai_driver tegra210_ahub_dais[] = {
 	DAI(ADMAIF1),
 	DAI(ADMAIF2),
@@ -155,58 +165,71 @@ static struct snd_soc_dai_driver tegra210_ahub_dais[] = {
 	DAI(I2S3),
 	DAI(I2S4),
 	DAI(I2S5),
+	DAI(DMIC1),
+	DAI(DMIC2),
+	DAI(DMIC3),
 	DAI(SFC1),
+	DAI(SFC1 TX),
 	DAI(SFC2),
+	DAI(SFC2 TX),
 	DAI(SFC3),
+	DAI(SFC3 TX),
 	DAI(SFC4),
-	DAI(MIXER1-1),
-	DAI(MIXER1-2),
-	DAI(MIXER1-3),
-	DAI(MIXER1-4),
-	DAI(MIXER1-5),
-	DAI(MIXER1-6),
-	DAI(MIXER1-7),
-	DAI(MIXER1-8),
-	DAI(MIXER1-9),
-	DAI(MIXER1-10),
+	DAI(SFC4 TX),
+	DAI(MVC1),
+	DAI(MVC1 TX),
+	DAI(MVC2),
+	DAI(MVC2 TX),
+	DAI(AMX1 RX1),
+	DAI(AMX1 RX2),
+	DAI(AMX1 RX3),
+	DAI(AMX1 RX4),
+	DAI(AMX1),
+	DAI(AMX2 RX1),
+	DAI(AMX2 RX2),
+	DAI(AMX2 RX3),
+	DAI(AMX2 RX4),
+	DAI(AMX2),
+	DAI(ADX1),
+	DAI(ADX1 TX1),
+	DAI(ADX1 TX2),
+	DAI(ADX1 TX3),
+	DAI(ADX1 TX4),
+	DAI(ADX2),
+	DAI(ADX2 TX1),
+	DAI(ADX2 TX2),
+	DAI(ADX2 TX3),
+	DAI(ADX2 TX4),
+	DAI(MIXER1 RX1),
+	DAI(MIXER1 RX2),
+	DAI(MIXER1 RX3),
+	DAI(MIXER1 RX4),
+	DAI(MIXER1 RX5),
+	DAI(MIXER1 RX6),
+	DAI(MIXER1 RX7),
+	DAI(MIXER1 RX8),
+	DAI(MIXER1 RX9),
+	DAI(MIXER1 RX10),
+	DAI(MIXER1 TX1),
+	DAI(MIXER1 TX2),
+	DAI(MIXER1 TX3),
+	DAI(MIXER1 TX4),
+	DAI(MIXER1 TX5),
+	DAI(OPE1),
+	DAI(OPE1 TX),
+	DAI(OPE2),
+	DAI(OPE2 TX),
 	DAI(AFC1),
 	DAI(AFC2),
 	DAI(AFC3),
 	DAI(AFC4),
 	DAI(AFC5),
 	DAI(AFC6),
-	DAI(OPE1),
 	DAI(SPKPROT1),
-	DAI(MVC1),
-	DAI(MVC2),
 	DAI(IQC1-1),
 	DAI(IQC1-2),
 	DAI(IQC2-1),
 	DAI(IQC2-2),
-	DAI(DMIC1),
-	DAI(DMIC2),
-	DAI(DMIC3),
-	DAI(AMX1),
-	DAI(AMX1-1),
-	DAI(AMX1-2),
-	DAI(AMX1-3),
-	DAI(AMX1-4),
-	DAI(AMX2),
-	DAI(AMX2-1),
-	DAI(AMX2-2),
-	DAI(AMX2-3),
-	DAI(AMX2-4),
-	DAI(ADX1-1),
-	DAI(ADX1-2),
-	DAI(ADX1-3),
-	DAI(ADX1-4),
-	DAI(ADX1),
-	DAI(ADX2-1),
-	DAI(ADX2-2),
-	DAI(ADX2-3),
-	DAI(ADX2-4),
-	DAI(ADX2),
-	DAI(OPE2),
 };
 
 static struct snd_soc_dai_driver tegra186_ahub_dais[] = {
@@ -220,62 +243,6 @@ static struct snd_soc_dai_driver tegra186_ahub_dais[] = {
 	DAI(ADMAIF8),
 	DAI(ADMAIF9),
 	DAI(ADMAIF10),
-	DAI(I2S1),
-	DAI(I2S2),
-	DAI(I2S3),
-	DAI(I2S4),
-	DAI(I2S5),
-	DAI(SFC1),
-	DAI(SFC2),
-	DAI(SFC3),
-	DAI(SFC4),
-	DAI(MIXER1-1),
-	DAI(MIXER1-2),
-	DAI(MIXER1-3),
-	DAI(MIXER1-4),
-	DAI(MIXER1-5),
-	DAI(MIXER1-6),
-	DAI(MIXER1-7),
-	DAI(MIXER1-8),
-	DAI(MIXER1-9),
-	DAI(MIXER1-10),
-	DAI(AFC1),
-	DAI(AFC2),
-	DAI(AFC3),
-	DAI(AFC4),
-	DAI(AFC5),
-	DAI(AFC6),
-	DAI(OPE1),
-	DAI(SPKPROT1),
-	DAI(MVC1),
-	DAI(MVC2),
-	DAI(IQC1-1),
-	DAI(IQC1-2),
-	DAI(IQC2-1),
-	DAI(IQC2-2),
-	DAI(DMIC1),
-	DAI(DMIC2),
-	DAI(DMIC3),
-	DAI(AMX1),
-	DAI(AMX1-1),
-	DAI(AMX1-2),
-	DAI(AMX1-3),
-	DAI(AMX1-4),
-	DAI(AMX2),
-	DAI(AMX2-1),
-	DAI(AMX2-2),
-	DAI(AMX2-3),
-	DAI(AMX2-4),
-	DAI(ADX1-1),
-	DAI(ADX1-2),
-	DAI(ADX1-3),
-	DAI(ADX1-4),
-	DAI(ADX1),
-	DAI(ADX2-1),
-	DAI(ADX2-2),
-	DAI(ADX2-3),
-	DAI(ADX2-4),
-	DAI(ADX2),
 	DAI(ADMAIF11),
 	DAI(ADMAIF12),
 	DAI(ADMAIF13),
@@ -286,38 +253,112 @@ static struct snd_soc_dai_driver tegra186_ahub_dais[] = {
 	DAI(ADMAIF18),
 	DAI(ADMAIF19),
 	DAI(ADMAIF20),
+	DAI(I2S1),
+	DAI(I2S2),
+	DAI(I2S3),
+	DAI(I2S4),
+	DAI(I2S5),
 	DAI(I2S6),
-	DAI(AMX3),
-	DAI(AMX3-1),
-	DAI(AMX3-2),
-	DAI(AMX3-3),
-	DAI(AMX3-4),
-	DAI(AMX4),
-	DAI(AMX4-1),
-	DAI(AMX4-2),
-	DAI(AMX4-3),
-	DAI(AMX4-4),
-	DAI(ADX3-1),
-	DAI(ADX3-2),
-	DAI(ADX3-3),
-	DAI(ADX3-4),
-	DAI(ADX3),
-	DAI(ADX4-1),
-	DAI(ADX4-2),
-	DAI(ADX4-3),
-	DAI(ADX4-4),
-	DAI(ADX4),
+	DAI(DMIC1),
+	DAI(DMIC2),
+	DAI(DMIC3),
 	DAI(DMIC4),
-	DAI(ASRC1-1),
-	DAI(ASRC1-2),
-	DAI(ASRC1-3),
-	DAI(ASRC1-4),
-	DAI(ASRC1-5),
-	DAI(ASRC1-6),
-	DAI(ASRC1-7),
-	DAI(ARAD1),
 	DAI(DSPK1),
 	DAI(DSPK2),
+	DAI(SFC1),
+	DAI(SFC1 TX),
+	DAI(SFC2),
+	DAI(SFC2 TX),
+	DAI(SFC3),
+	DAI(SFC3 TX),
+	DAI(SFC4),
+	DAI(SFC4 TX),
+	DAI(MVC1),
+	DAI(MVC1 TX),
+	DAI(MVC2),
+	DAI(MVC2 TX),
+	DAI(AMX1 RX1),
+	DAI(AMX1 RX2),
+	DAI(AMX1 RX3),
+	DAI(AMX1 RX4),
+	DAI(AMX1),
+	DAI(AMX2 RX1),
+	DAI(AMX2 RX2),
+	DAI(AMX2 RX3),
+	DAI(AMX2 RX4),
+	DAI(AMX2),
+	DAI(AMX3 RX1),
+	DAI(AMX3 RX2),
+	DAI(AMX3 RX3),
+	DAI(AMX3 RX4),
+	DAI(AMX3),
+	DAI(AMX4 RX1),
+	DAI(AMX4 RX2),
+	DAI(AMX4 RX3),
+	DAI(AMX4 RX4),
+	DAI(AMX4),
+	DAI(ADX1),
+	DAI(ADX1 TX1),
+	DAI(ADX1 TX2),
+	DAI(ADX1 TX3),
+	DAI(ADX1 TX4),
+	DAI(ADX2),
+	DAI(ADX2 TX1),
+	DAI(ADX2 TX2),
+	DAI(ADX2 TX3),
+	DAI(ADX2 TX4),
+	DAI(ADX3),
+	DAI(ADX3 TX1),
+	DAI(ADX3 TX2),
+	DAI(ADX3 TX3),
+	DAI(ADX3 TX4),
+	DAI(ADX4),
+	DAI(ADX4 TX1),
+	DAI(ADX4 TX2),
+	DAI(ADX4 TX3),
+	DAI(ADX4 TX4),
+	DAI(MIXER1 RX1),
+	DAI(MIXER1 RX2),
+	DAI(MIXER1 RX3),
+	DAI(MIXER1 RX4),
+	DAI(MIXER1 RX5),
+	DAI(MIXER1 RX6),
+	DAI(MIXER1 RX7),
+	DAI(MIXER1 RX8),
+	DAI(MIXER1 RX9),
+	DAI(MIXER1 RX10),
+	DAI(MIXER1 TX1),
+	DAI(MIXER1 TX2),
+	DAI(MIXER1 TX3),
+	DAI(MIXER1 TX4),
+	DAI(MIXER1 TX5),
+	DAI(ASRC1 RX1),
+	DAI(ASRC1 TX1),
+	DAI(ASRC1 RX2),
+	DAI(ASRC1 TX2),
+	DAI(ASRC1 RX3),
+	DAI(ASRC1 TX3),
+	DAI(ASRC1 RX4),
+	DAI(ASRC1 TX4),
+	DAI(ASRC1 RX5),
+	DAI(ASRC1 TX5),
+	DAI(ASRC1 RX6),
+	DAI(ASRC1 TX6),
+	DAI(ASRC1 RX7),
+	DAI(OPE1),
+	DAI(OPE1 TX),
+	DAI(AFC1),
+	DAI(AFC2),
+	DAI(AFC3),
+	DAI(AFC4),
+	DAI(AFC5),
+	DAI(AFC6),
+	DAI(SPKPROT1),
+	DAI(IQC1-1),
+	DAI(IQC1-2),
+	DAI(IQC2-1),
+	DAI(IQC2-2),
+	DAI(ARAD1),
 };
 
 static const char * const tegra210_ahub_mux_texts[] = {
@@ -342,11 +383,11 @@ static const char * const tegra210_ahub_mux_texts[] = {
 	"SFC3",
 	"SFC4",
 	/* index 0..19 above are inputs of PART0 Mux */
-	"MIXER1-1",
-	"MIXER1-2",
-	"MIXER1-3",
-	"MIXER1-4",
-	"MIXER1-5",
+	"MIXER1 TX1",
+	"MIXER1 TX2",
+	"MIXER1 TX3",
+	"MIXER1 TX4",
+	"MIXER1 TX5",
 	"AMX1",
 	"AMX2",
 	"AFC1",
@@ -368,14 +409,14 @@ static const char * const tegra210_ahub_mux_texts[] = {
 	"DMIC1",
 	"DMIC2",
 	"DMIC3",
-	"ADX1-1",
-	"ADX1-2",
-	"ADX1-3",
-	"ADX1-4",
-	"ADX2-1",
-	"ADX2-2",
-	"ADX2-3",
-	"ADX2-4",
+	"ADX1 TX1",
+	"ADX1 TX2",
+	"ADX1 TX3",
+	"ADX1 TX4",
+	"ADX2 TX1",
+	"ADX2 TX2",
+	"ADX2 TX3",
+	"ADX2 TX4",
 	/* index 35..53 above are inputs of PART2 Mux */
 };
 
@@ -408,11 +449,11 @@ static const char * const tegra186_ahub_mux_texts[] = {
 	"SFC3",
 	"SFC4",
 	/* index 0..19 above are inputs of PART0 Mux */
-	"MIXER1-1",
-	"MIXER1-2",
-	"MIXER1-3",
-	"MIXER1-4",
-	"MIXER1-5",
+	"MIXER1 TX1",
+	"MIXER1 TX2",
+	"MIXER1 TX3",
+	"MIXER1 TX4",
+	"MIXER1 TX5",
 	"AMX1",
 	"AMX2",
 	"AMX3",
@@ -437,33 +478,33 @@ static const char * const tegra186_ahub_mux_texts[] = {
 	"DMIC2",
 	"DMIC3",
 	"DMIC4",
-	"ADX1-1",
-	"ADX1-2",
-	"ADX1-3",
-	"ADX1-4",
-	"ADX2-1",
-	"ADX2-2",
-	"ADX2-3",
-	"ADX2-4",
+	"ADX1 TX1",
+	"ADX1 TX2",
+	"ADX1 TX3",
+	"ADX1 TX4",
+	"ADX2 TX1",
+	"ADX2 TX2",
+	"ADX2 TX3",
+	"ADX2 TX4",
 	/* index 35..53 above are inputs of PART2 Mux */
-	"ADX3-1",
-	"ADX3-2",
-	"ADX3-3",
-	"ADX3-4",
-	"ADX4-1",
-	"ADX4-2",
-	"ADX4-3",
-	"ADX4-4",
+	"ADX3 TX1",
+	"ADX3 TX2",
+	"ADX3 TX3",
+	"ADX3 TX4",
+	"ADX4 TX1",
+	"ADX4 TX2",
+	"ADX4 TX3",
+	"ADX4 TX4",
 	"ADMAIF17",
 	"ADMAIF18",
 	"ADMAIF19",
 	"ADMAIF20",
-	"ASRC1-1",
-	"ASRC1-2",
-	"ASRC1-3",
-	"ASRC1-4",
-	"ASRC1-5",
-	"ASRC1-6",
+	"ASRC1 TX1",
+	"ASRC1 TX2",
+	"ASRC1 TX3",
+	"ASRC1 TX4",
+	"ASRC1 TX5",
+	"ASRC1 TX6",
 	/* index 54..71 above are inputs of PART3 Mux */
 };
 
@@ -814,16 +855,21 @@ static const struct snd_soc_dapm_widget tegra210_ahub_widgets[] = {
 	WIDGETS("SFC2", t210_sfc2_tx),
 	WIDGETS("SFC3", t210_sfc3_tx),
 	WIDGETS("SFC4", t210_sfc4_tx),
-	WIDGETS("MIXER1-1", t210_mixer11_tx),
-	WIDGETS("MIXER1-2", t210_mixer12_tx),
-	WIDGETS("MIXER1-3", t210_mixer13_tx),
-	WIDGETS("MIXER1-4", t210_mixer14_tx),
-	WIDGETS("MIXER1-5", t210_mixer15_tx),
-	WIDGETS("MIXER1-6", t210_mixer16_tx),
-	WIDGETS("MIXER1-7", t210_mixer17_tx),
-	WIDGETS("MIXER1-8", t210_mixer18_tx),
-	WIDGETS("MIXER1-9", t210_mixer19_tx),
-	WIDGETS("MIXER1-10", t210_mixer110_tx),
+	WIDGETS("MIXER1 RX1", t210_mixer11_tx),
+	WIDGETS("MIXER1 RX2", t210_mixer12_tx),
+	WIDGETS("MIXER1 RX3", t210_mixer13_tx),
+	WIDGETS("MIXER1 RX4", t210_mixer14_tx),
+	WIDGETS("MIXER1 RX5", t210_mixer15_tx),
+	WIDGETS("MIXER1 RX6", t210_mixer16_tx),
+	WIDGETS("MIXER1 RX7", t210_mixer17_tx),
+	WIDGETS("MIXER1 RX8", t210_mixer18_tx),
+	WIDGETS("MIXER1 RX9", t210_mixer19_tx),
+	WIDGETS("MIXER1 RX10", t210_mixer110_tx),
+	TX_WIDGETS("MIXER1 TX1"),
+	TX_WIDGETS("MIXER1 TX2"),
+	TX_WIDGETS("MIXER1 TX3"),
+	TX_WIDGETS("MIXER1 TX4"),
+	TX_WIDGETS("MIXER1 TX5"),
 	WIDGETS("AFC1", t210_afc1_tx),
 	WIDGETS("AFC2", t210_afc2_tx),
 	WIDGETS("AFC3", t210_afc3_tx),
@@ -835,14 +881,14 @@ static const struct snd_soc_dapm_widget tegra210_ahub_widgets[] = {
 	WIDGETS("SPKPROT1", t210_spkprot_tx),
 	WIDGETS("MVC1", t210_mvc1_tx),
 	WIDGETS("MVC2", t210_mvc2_tx),
-	WIDGETS("AMX1-1", t210_amx11_tx),
-	WIDGETS("AMX1-2", t210_amx12_tx),
-	WIDGETS("AMX1-3", t210_amx13_tx),
-	WIDGETS("AMX1-4", t210_amx14_tx),
-	WIDGETS("AMX2-1", t210_amx21_tx),
-	WIDGETS("AMX2-2", t210_amx22_tx),
-	WIDGETS("AMX2-3", t210_amx23_tx),
-	WIDGETS("AMX2-4", t210_amx24_tx),
+	WIDGETS("AMX1 RX1", t210_amx11_tx),
+	WIDGETS("AMX1 RX2", t210_amx12_tx),
+	WIDGETS("AMX1 RX3", t210_amx13_tx),
+	WIDGETS("AMX1 RX4", t210_amx14_tx),
+	WIDGETS("AMX2 RX1", t210_amx21_tx),
+	WIDGETS("AMX2 RX2", t210_amx22_tx),
+	WIDGETS("AMX2 RX3", t210_amx23_tx),
+	WIDGETS("AMX2 RX4", t210_amx24_tx),
 	WIDGETS("ADX1", t210_adx1_tx),
 	WIDGETS("ADX2", t210_adx2_tx),
 	TX_WIDGETS("IQC1-1"),
@@ -853,15 +899,15 @@ static const struct snd_soc_dapm_widget tegra210_ahub_widgets[] = {
 	TX_WIDGETS("DMIC2"),
 	TX_WIDGETS("DMIC3"),
 	TX_WIDGETS("AMX1"),
-	TX_WIDGETS("ADX1-1"),
-	TX_WIDGETS("ADX1-2"),
-	TX_WIDGETS("ADX1-3"),
-	TX_WIDGETS("ADX1-4"),
+	TX_WIDGETS("ADX1 TX1"),
+	TX_WIDGETS("ADX1 TX2"),
+	TX_WIDGETS("ADX1 TX3"),
+	TX_WIDGETS("ADX1 TX4"),
 	TX_WIDGETS("AMX2"),
-	TX_WIDGETS("ADX2-1"),
-	TX_WIDGETS("ADX2-2"),
-	TX_WIDGETS("ADX2-3"),
-	TX_WIDGETS("ADX2-4"),
+	TX_WIDGETS("ADX2 TX1"),
+	TX_WIDGETS("ADX2 TX2"),
+	TX_WIDGETS("ADX2 TX3"),
+	TX_WIDGETS("ADX2 TX4"),
 };
 
 static const struct snd_soc_dapm_widget tegra186_ahub_widgets[] = {
@@ -884,16 +930,21 @@ static const struct snd_soc_dapm_widget tegra186_ahub_widgets[] = {
 	WIDGETS("SFC2", t186_sfc2_tx),
 	WIDGETS("SFC3", t186_sfc3_tx),
 	WIDGETS("SFC4", t186_sfc4_tx),
-	WIDGETS("MIXER1-1", t186_mixer11_tx),
-	WIDGETS("MIXER1-2", t186_mixer12_tx),
-	WIDGETS("MIXER1-3", t186_mixer13_tx),
-	WIDGETS("MIXER1-4", t186_mixer14_tx),
-	WIDGETS("MIXER1-5", t186_mixer15_tx),
-	WIDGETS("MIXER1-6", t186_mixer16_tx),
-	WIDGETS("MIXER1-7", t186_mixer17_tx),
-	WIDGETS("MIXER1-8", t186_mixer18_tx),
-	WIDGETS("MIXER1-9", t186_mixer19_tx),
-	WIDGETS("MIXER1-10", t186_mixer110_tx),
+	WIDGETS("MIXER1 RX1", t186_mixer11_tx),
+	WIDGETS("MIXER1 RX2", t186_mixer12_tx),
+	WIDGETS("MIXER1 RX3", t186_mixer13_tx),
+	WIDGETS("MIXER1 RX4", t186_mixer14_tx),
+	WIDGETS("MIXER1 RX5", t186_mixer15_tx),
+	WIDGETS("MIXER1 RX6", t186_mixer16_tx),
+	WIDGETS("MIXER1 RX7", t186_mixer17_tx),
+	WIDGETS("MIXER1 RX8", t186_mixer18_tx),
+	WIDGETS("MIXER1 RX9", t186_mixer19_tx),
+	WIDGETS("MIXER1 RX10", t186_mixer110_tx),
+	TX_WIDGETS("MIXER1 TX1"),
+	TX_WIDGETS("MIXER1 TX2"),
+	TX_WIDGETS("MIXER1 TX3"),
+	TX_WIDGETS("MIXER1 TX4"),
+	TX_WIDGETS("MIXER1 TX5"),
 	WIDGETS("AFC1", t186_afc1_tx),
 	WIDGETS("AFC2", t186_afc2_tx),
 	WIDGETS("AFC3", t186_afc3_tx),
@@ -904,14 +955,14 @@ static const struct snd_soc_dapm_widget tegra186_ahub_widgets[] = {
 	WIDGETS("SPKPROT1", t186_spkprot_tx),
 	WIDGETS("MVC1", t186_mvc1_tx),
 	WIDGETS("MVC2", t186_mvc2_tx),
-	WIDGETS("AMX1-1", t186_amx11_tx),
-	WIDGETS("AMX1-2", t186_amx12_tx),
-	WIDGETS("AMX1-3", t186_amx13_tx),
-	WIDGETS("AMX1-4", t186_amx14_tx),
-	WIDGETS("AMX2-1", t186_amx21_tx),
-	WIDGETS("AMX2-2", t186_amx22_tx),
-	WIDGETS("AMX2-3", t186_amx23_tx),
-	WIDGETS("AMX2-4", t186_amx24_tx),
+	WIDGETS("AMX1 RX1", t186_amx11_tx),
+	WIDGETS("AMX1 RX2", t186_amx12_tx),
+	WIDGETS("AMX1 RX3", t186_amx13_tx),
+	WIDGETS("AMX1 RX4", t186_amx14_tx),
+	WIDGETS("AMX2 RX1", t186_amx21_tx),
+	WIDGETS("AMX2 RX2", t186_amx22_tx),
+	WIDGETS("AMX2 RX3", t186_amx23_tx),
+	WIDGETS("AMX2 RX4", t186_amx24_tx),
 	WIDGETS("ADX1", t186_adx1_tx),
 	WIDGETS("ADX2", t186_adx2_tx),
 	TX_WIDGETS("IQC1-1"),
@@ -922,15 +973,15 @@ static const struct snd_soc_dapm_widget tegra186_ahub_widgets[] = {
 	TX_WIDGETS("DMIC2"),
 	TX_WIDGETS("DMIC3"),
 	TX_WIDGETS("AMX1"),
-	TX_WIDGETS("ADX1-1"),
-	TX_WIDGETS("ADX1-2"),
-	TX_WIDGETS("ADX1-3"),
-	TX_WIDGETS("ADX1-4"),
+	TX_WIDGETS("ADX1 TX1"),
+	TX_WIDGETS("ADX1 TX2"),
+	TX_WIDGETS("ADX1 TX3"),
+	TX_WIDGETS("ADX1 TX4"),
 	TX_WIDGETS("AMX2"),
-	TX_WIDGETS("ADX2-1"),
-	TX_WIDGETS("ADX2-2"),
-	TX_WIDGETS("ADX2-3"),
-	TX_WIDGETS("ADX2-4"),
+	TX_WIDGETS("ADX2 TX1"),
+	TX_WIDGETS("ADX2 TX2"),
+	TX_WIDGETS("ADX2 TX3"),
+	TX_WIDGETS("ADX2 TX4"),
 	WIDGETS("ADMAIF11", t186_admaif11_tx),
 	WIDGETS("ADMAIF12", t186_admaif12_tx),
 	WIDGETS("ADMAIF13", t186_admaif13_tx),
@@ -942,35 +993,41 @@ static const struct snd_soc_dapm_widget tegra186_ahub_widgets[] = {
 	WIDGETS("ADMAIF19", t186_admaif19_tx),
 	WIDGETS("ADMAIF20", t186_admaif20_tx),
 	WIDGETS("I2S6", t186_i2s6_tx),
-	WIDGETS("AMX3-1", t186_amx31_tx),
-	WIDGETS("AMX3-2", t186_amx32_tx),
-	WIDGETS("AMX3-3", t186_amx33_tx),
-	WIDGETS("AMX3-4", t186_amx34_tx),
-	WIDGETS("AMX4-1", t186_amx41_tx),
-	WIDGETS("AMX4-2", t186_amx42_tx),
-	WIDGETS("AMX4-3", t186_amx43_tx),
-	WIDGETS("AMX4-4", t186_amx44_tx),
+	WIDGETS("AMX3 RX1", t186_amx31_tx),
+	WIDGETS("AMX3 RX2", t186_amx32_tx),
+	WIDGETS("AMX3 RX3", t186_amx33_tx),
+	WIDGETS("AMX3 RX4", t186_amx34_tx),
+	WIDGETS("AMX4 RX1", t186_amx41_tx),
+	WIDGETS("AMX4 RX2", t186_amx42_tx),
+	WIDGETS("AMX4 RX3", t186_amx43_tx),
+	WIDGETS("AMX4 RX4", t186_amx44_tx),
 	WIDGETS("ADX3", t186_adx3_tx),
 	WIDGETS("ADX4", t186_adx4_tx),
-	WIDGETS("ASRC1-1", t186_asrc11_tx),
-	WIDGETS("ASRC1-2", t186_asrc12_tx),
-	WIDGETS("ASRC1-3", t186_asrc13_tx),
-	WIDGETS("ASRC1-4", t186_asrc14_tx),
-	WIDGETS("ASRC1-5", t186_asrc15_tx),
-	WIDGETS("ASRC1-6", t186_asrc16_tx),
-	WIDGETS("ASRC1-7", t186_asrc17_tx),
+	WIDGETS("ASRC1 RX1", t186_asrc11_tx),
+	WIDGETS("ASRC1 RX2", t186_asrc12_tx),
+	WIDGETS("ASRC1 RX3", t186_asrc13_tx),
+	WIDGETS("ASRC1 RX4", t186_asrc14_tx),
+	WIDGETS("ASRC1 RX5", t186_asrc15_tx),
+	WIDGETS("ASRC1 RX6", t186_asrc16_tx),
+	WIDGETS("ASRC1 RX7", t186_asrc17_tx),
+	TX_WIDGETS("ASRC1 TX1"),
+	TX_WIDGETS("ASRC1 TX2"),
+	TX_WIDGETS("ASRC1 TX3"),
+	TX_WIDGETS("ASRC1 TX4"),
+	TX_WIDGETS("ASRC1 TX5"),
+	TX_WIDGETS("ASRC1 TX6"),
 	WIDGETS("DSPK1", t186_dspk1_tx),
 	WIDGETS("DSPK2", t186_dspk2_tx),
 	TX_WIDGETS("AMX3"),
-	TX_WIDGETS("ADX3-1"),
-	TX_WIDGETS("ADX3-2"),
-	TX_WIDGETS("ADX3-3"),
-	TX_WIDGETS("ADX3-4"),
+	TX_WIDGETS("ADX3 TX1"),
+	TX_WIDGETS("ADX3 TX2"),
+	TX_WIDGETS("ADX3 TX3"),
+	TX_WIDGETS("ADX3 TX4"),
 	TX_WIDGETS("AMX4"),
-	TX_WIDGETS("ADX4-1"),
-	TX_WIDGETS("ADX4-2"),
-	TX_WIDGETS("ADX4-3"),
-	TX_WIDGETS("ADX4-4"),
+	TX_WIDGETS("ADX4 TX1"),
+	TX_WIDGETS("ADX4 TX2"),
+	TX_WIDGETS("ADX4 TX3"),
+	TX_WIDGETS("ADX4 TX4"),
 	TX_WIDGETS("DMIC4"),
 	TX_WIDGETS("ARAD1"),
 };
@@ -996,16 +1053,21 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	WIDGETS("SFC2", t186_sfc2_tx),
 	WIDGETS("SFC3", t186_sfc3_tx),
 	WIDGETS("SFC4", t186_sfc4_tx),
-	WIDGETS("MIXER1-1", t186_mixer11_tx),
-	WIDGETS("MIXER1-2", t186_mixer12_tx),
-	WIDGETS("MIXER1-3", t186_mixer13_tx),
-	WIDGETS("MIXER1-4", t186_mixer14_tx),
-	WIDGETS("MIXER1-5", t186_mixer15_tx),
-	WIDGETS("MIXER1-6", t186_mixer16_tx),
-	WIDGETS("MIXER1-7", t186_mixer17_tx),
-	WIDGETS("MIXER1-8", t186_mixer18_tx),
-	WIDGETS("MIXER1-9", t186_mixer19_tx),
-	WIDGETS("MIXER1-10", t186_mixer110_tx),
+	WIDGETS("MIXER1 RX1", t186_mixer11_tx),
+	WIDGETS("MIXER1 RX2", t186_mixer12_tx),
+	WIDGETS("MIXER1 RX3", t186_mixer13_tx),
+	WIDGETS("MIXER1 RX4", t186_mixer14_tx),
+	WIDGETS("MIXER1 RX5", t186_mixer15_tx),
+	WIDGETS("MIXER1 RX6", t186_mixer16_tx),
+	WIDGETS("MIXER1 RX7", t186_mixer17_tx),
+	WIDGETS("MIXER1 RX8", t186_mixer18_tx),
+	WIDGETS("MIXER1 RX9", t186_mixer19_tx),
+	WIDGETS("MIXER1 RX10", t186_mixer110_tx),
+	TX_WIDGETS("MIXER1 TX1"),
+	TX_WIDGETS("MIXER1 TX2"),
+	TX_WIDGETS("MIXER1 TX3"),
+	TX_WIDGETS("MIXER1 TX4"),
+	TX_WIDGETS("MIXER1 TX5"),
 	WIDGETS("AFC1", t234_afc1_tx),
 	WIDGETS("AFC2", t234_afc2_tx),
 	WIDGETS("AFC3", t234_afc3_tx),
@@ -1016,14 +1078,14 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	WIDGETS("SPKPROT1", t234_spkprot_tx),
 	WIDGETS("MVC1", t234_mvc1_tx),
 	WIDGETS("MVC2", t234_mvc2_tx),
-	WIDGETS("AMX1-1", t234_amx11_tx),
-	WIDGETS("AMX1-2", t234_amx12_tx),
-	WIDGETS("AMX1-3", t234_amx13_tx),
-	WIDGETS("AMX1-4", t234_amx14_tx),
-	WIDGETS("AMX2-1", t234_amx21_tx),
-	WIDGETS("AMX2-2", t234_amx22_tx),
-	WIDGETS("AMX2-3", t234_amx23_tx),
-	WIDGETS("AMX2-4", t234_amx24_tx),
+	WIDGETS("AMX1 RX1", t234_amx11_tx),
+	WIDGETS("AMX1 RX2", t234_amx12_tx),
+	WIDGETS("AMX1 RX3", t234_amx13_tx),
+	WIDGETS("AMX1 RX4", t234_amx14_tx),
+	WIDGETS("AMX2 RX1", t234_amx21_tx),
+	WIDGETS("AMX2 RX2", t234_amx22_tx),
+	WIDGETS("AMX2 RX3", t234_amx23_tx),
+	WIDGETS("AMX2 RX4", t234_amx24_tx),
 	WIDGETS("ADX1", t234_adx1_tx),
 	WIDGETS("ADX2", t234_adx2_tx),
 	TX_WIDGETS("IQC1-1"),
@@ -1034,15 +1096,15 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	TX_WIDGETS("DMIC2"),
 	TX_WIDGETS("DMIC3"),
 	TX_WIDGETS("AMX1"),
-	TX_WIDGETS("ADX1-1"),
-	TX_WIDGETS("ADX1-2"),
-	TX_WIDGETS("ADX1-3"),
-	TX_WIDGETS("ADX1-4"),
+	TX_WIDGETS("ADX1 TX1"),
+	TX_WIDGETS("ADX1 TX2"),
+	TX_WIDGETS("ADX1 TX3"),
+	TX_WIDGETS("ADX1 TX4"),
 	TX_WIDGETS("AMX2"),
-	TX_WIDGETS("ADX2-1"),
-	TX_WIDGETS("ADX2-2"),
-	TX_WIDGETS("ADX2-3"),
-	TX_WIDGETS("ADX2-4"),
+	TX_WIDGETS("ADX2 TX1"),
+	TX_WIDGETS("ADX2 TX2"),
+	TX_WIDGETS("ADX2 TX3"),
+	TX_WIDGETS("ADX2 TX4"),
 	WIDGETS("ADMAIF11", t186_admaif11_tx),
 	WIDGETS("ADMAIF12", t186_admaif12_tx),
 	WIDGETS("ADMAIF13", t186_admaif13_tx),
@@ -1054,35 +1116,41 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	WIDGETS("ADMAIF19", t234_admaif19_tx),
 	WIDGETS("ADMAIF20", t234_admaif20_tx),
 	WIDGETS("I2S6", t186_i2s6_tx),
-	WIDGETS("AMX3-1", t234_amx31_tx),
-	WIDGETS("AMX3-2", t234_amx32_tx),
-	WIDGETS("AMX3-3", t234_amx33_tx),
-	WIDGETS("AMX3-4", t234_amx34_tx),
-	WIDGETS("AMX4-1", t234_amx41_tx),
-	WIDGETS("AMX4-2", t234_amx42_tx),
-	WIDGETS("AMX4-3", t234_amx43_tx),
-	WIDGETS("AMX4-4", t234_amx44_tx),
+	WIDGETS("AMX3 RX1", t234_amx31_tx),
+	WIDGETS("AMX3 RX2", t234_amx32_tx),
+	WIDGETS("AMX3 RX3", t234_amx33_tx),
+	WIDGETS("AMX3 RX4", t234_amx34_tx),
+	WIDGETS("AMX4 RX1", t234_amx41_tx),
+	WIDGETS("AMX4 RX2", t234_amx42_tx),
+	WIDGETS("AMX4 RX3", t234_amx43_tx),
+	WIDGETS("AMX4 RX4", t234_amx44_tx),
 	WIDGETS("ADX3", t234_adx3_tx),
 	WIDGETS("ADX4", t234_adx4_tx),
-	WIDGETS("ASRC1-1", t234_asrc11_tx),
-	WIDGETS("ASRC1-2", t234_asrc12_tx),
-	WIDGETS("ASRC1-3", t234_asrc13_tx),
-	WIDGETS("ASRC1-4", t234_asrc14_tx),
-	WIDGETS("ASRC1-5", t234_asrc15_tx),
-	WIDGETS("ASRC1-6", t234_asrc16_tx),
-	WIDGETS("ASRC1-7", t234_asrc17_tx),
+	WIDGETS("ASRC1 RX1", t234_asrc11_tx),
+	WIDGETS("ASRC1 RX2", t234_asrc12_tx),
+	WIDGETS("ASRC1 RX3", t234_asrc13_tx),
+	WIDGETS("ASRC1 RX4", t234_asrc14_tx),
+	WIDGETS("ASRC1 RX5", t234_asrc15_tx),
+	WIDGETS("ASRC1 RX6", t234_asrc16_tx),
+	WIDGETS("ASRC1 RX7", t234_asrc17_tx),
+	TX_WIDGETS("ASRC1 TX1"),
+	TX_WIDGETS("ASRC1 TX2"),
+	TX_WIDGETS("ASRC1 TX3"),
+	TX_WIDGETS("ASRC1 TX4"),
+	TX_WIDGETS("ASRC1 TX5"),
+	TX_WIDGETS("ASRC1 TX6"),
 	WIDGETS("DSPK1", t186_dspk1_tx),
 	WIDGETS("DSPK2", t186_dspk2_tx),
 	TX_WIDGETS("AMX3"),
-	TX_WIDGETS("ADX3-1"),
-	TX_WIDGETS("ADX3-2"),
-	TX_WIDGETS("ADX3-3"),
-	TX_WIDGETS("ADX3-4"),
+	TX_WIDGETS("ADX3 TX1"),
+	TX_WIDGETS("ADX3 TX2"),
+	TX_WIDGETS("ADX3 TX3"),
+	TX_WIDGETS("ADX3 TX4"),
 	TX_WIDGETS("AMX4"),
-	TX_WIDGETS("ADX4-1"),
-	TX_WIDGETS("ADX4-2"),
-	TX_WIDGETS("ADX4-3"),
-	TX_WIDGETS("ADX4-4"),
+	TX_WIDGETS("ADX4 TX1"),
+	TX_WIDGETS("ADX4 TX2"),
+	TX_WIDGETS("ADX4 TX3"),
+	TX_WIDGETS("ADX4 TX4"),
 	TX_WIDGETS("DMIC4"),
 	TX_WIDGETS("ARAD1"),
 };
@@ -1110,11 +1178,11 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	{ name " Mux",      "SFC2",		"SFC2 XBAR-RX" },	\
 	{ name " Mux",      "SFC3",		"SFC3 XBAR-RX" },	\
 	{ name " Mux",      "SFC4",		"SFC4 XBAR-RX" },	\
-	{ name " Mux",      "MIXER1-1",		"MIXER1-1 XBAR-RX" },	\
-	{ name " Mux",      "MIXER1-2",		"MIXER1-2 XBAR-RX" },	\
-	{ name " Mux",      "MIXER1-3",		"MIXER1-3 XBAR-RX" },	\
-	{ name " Mux",      "MIXER1-4",		"MIXER1-4 XBAR-RX" },	\
-	{ name " Mux",      "MIXER1-5",		"MIXER1-5 XBAR-RX" },	\
+	{ name " Mux",      "MIXER1 TX1",	"MIXER1 TX1 XBAR-RX" },	\
+	{ name " Mux",      "MIXER1 TX2",	"MIXER1 TX2 XBAR-RX" },	\
+	{ name " Mux",      "MIXER1 TX3",	"MIXER1 TX3 XBAR-RX" },	\
+	{ name " Mux",      "MIXER1 TX4",	"MIXER1 TX4 XBAR-RX" },	\
+	{ name " Mux",      "MIXER1 TX5",	"MIXER1 TX5 XBAR-RX" },	\
 	{ name " Mux",      "AFC1",		"AFC1 XBAR-RX" },	\
 	{ name " Mux",      "AFC2",		"AFC2 XBAR-RX" },	\
 	{ name " Mux",      "AFC3",		"AFC3 XBAR-RX" },	\
@@ -1132,15 +1200,15 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	{ name " Mux",      "DMIC2",		"DMIC2 XBAR-RX" },	\
 	{ name " Mux",      "DMIC3",		"DMIC3 XBAR-RX" },	\
 	{ name " Mux",      "AMX1",		"AMX1 XBAR-RX" },	\
-	{ name " Mux",      "ADX1-1",		"ADX1-1 XBAR-RX" },	\
-	{ name " Mux",      "ADX1-2",		"ADX1-2 XBAR-RX" },	\
-	{ name " Mux",      "ADX1-3",		"ADX1-3 XBAR-RX" },	\
-	{ name " Mux",      "ADX1-4",		"ADX1-4 XBAR-RX" },	\
+	{ name " Mux",      "ADX1 TX1",		"ADX1 TX1 XBAR-RX" },	\
+	{ name " Mux",      "ADX1 TX2",		"ADX1 TX2 XBAR-RX" },	\
+	{ name " Mux",      "ADX1 TX3",		"ADX1 TX3 XBAR-RX" },	\
+	{ name " Mux",      "ADX1 TX4",		"ADX1 TX4 XBAR-RX" },	\
 	{ name " Mux",      "AMX2",		"AMX2 XBAR-RX" },	\
-	{ name " Mux",      "ADX2-1",		"ADX2-1 XBAR-RX" },	\
-	{ name " Mux",      "ADX2-2",		"ADX2-2 XBAR-RX" },	\
-	{ name " Mux",      "ADX2-3",		"ADX2-3 XBAR-RX" },	\
-	{ name " Mux",      "ADX2-4",		"ADX2-4 XBAR-RX" },
+	{ name " Mux",      "ADX2 TX1",		"ADX2 TX1 XBAR-RX" },	\
+	{ name " Mux",      "ADX2 TX2",		"ADX2 TX2 XBAR-RX" },	\
+	{ name " Mux",      "ADX2 TX3",		"ADX2 TX3 XBAR-RX" },	\
+	{ name " Mux",      "ADX2 TX4",		"ADX2 TX4 XBAR-RX" },
 
 #define TEGRA210_ONLY_MUX_ROUTES(name)					\
 	{ name " Mux",      "OPE2",		"OPE2 XBAR-RX" },
@@ -1158,22 +1226,22 @@ static const struct snd_soc_dapm_widget tegra234_ahub_widgets[] = {
 	{ name " Mux",      "ADMAIF20",		"ADMAIF20 XBAR-RX" },	\
 	{ name " Mux",      "DMIC4",		"DMIC4 XBAR-RX" },	\
 	{ name " Mux",      "I2S6",		"I2S6 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-1",		"ASRC1-1 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-2",		"ASRC1-2 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-3",		"ASRC1-3 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-4",		"ASRC1-4 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-5",		"ASRC1-5 XBAR-RX" },	\
-	{ name " Mux",      "ASRC1-6",		"ASRC1-6 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX1",	"ASRC1 TX1 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX2",	"ASRC1 TX2 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX3",	"ASRC1 TX3 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX4",	"ASRC1 TX4 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX5",	"ASRC1 TX5 XBAR-RX" },	\
+	{ name " Mux",      "ASRC1 TX6",	"ASRC1 TX6 XBAR-RX" },	\
 	{ name " Mux",      "AMX3",		"AMX3 XBAR-RX" },	\
-	{ name " Mux",      "ADX3-1",		"ADX3-1 XBAR-RX" },	\
-	{ name " Mux",      "ADX3-2",		"ADX3-2 XBAR-RX" },	\
-	{ name " Mux",      "ADX3-3",		"ADX3-3 XBAR-RX" },	\
-	{ name " Mux",      "ADX3-4",		"ADX3-4 XBAR-RX" },	\
+	{ name " Mux",      "ADX3 TX1",		"ADX3 TX1 XBAR-RX" },	\
+	{ name " Mux",      "ADX3 TX2",		"ADX3 TX2 XBAR-RX" },	\
+	{ name " Mux",      "ADX3 TX3",		"ADX3 TX3 XBAR-RX" },	\
+	{ name " Mux",      "ADX3 TX4",		"ADX3 TX4 XBAR-RX" },	\
 	{ name " Mux",      "AMX4",		"AMX4 XBAR-RX" },	\
-	{ name " Mux",      "ADX4-1",		"ADX4-1 XBAR-RX" },	\
-	{ name " Mux",      "ADX4-2",		"ADX4-2 XBAR-RX" },	\
-	{ name " Mux",      "ADX4-3",		"ADX4-3 XBAR-RX" },	\
-	{ name " Mux",      "ADX4-4",		"ADX4-4 XBAR-RX" },	\
+	{ name " Mux",      "ADX4 TX1",		"ADX4 TX1 XBAR-RX" },	\
+	{ name " Mux",      "ADX4 TX2",		"ADX4 TX2 XBAR-RX" },	\
+	{ name " Mux",      "ADX4 TX3",		"ADX4 TX3 XBAR-RX" },	\
+	{ name " Mux",      "ADX4 TX4",		"ADX4 TX4 XBAR-RX" },	\
 	{ name " Mux",      "ARAD1",		"ARAD1 XBAR-RX" },
 
 #define TEGRA210_MUX_ROUTES(name)					\
@@ -1223,16 +1291,21 @@ static const struct snd_soc_dapm_route tegra210_ahub_routes[] = {
 	TEGRA210_MUX_ROUTES("SFC2")
 	TEGRA210_MUX_ROUTES("SFC3")
 	TEGRA210_MUX_ROUTES("SFC4")
-	TEGRA210_MUX_ROUTES("MIXER1-1")
-	TEGRA210_MUX_ROUTES("MIXER1-2")
-	TEGRA210_MUX_ROUTES("MIXER1-3")
-	TEGRA210_MUX_ROUTES("MIXER1-4")
-	TEGRA210_MUX_ROUTES("MIXER1-5")
-	TEGRA210_MUX_ROUTES("MIXER1-6")
-	TEGRA210_MUX_ROUTES("MIXER1-7")
-	TEGRA210_MUX_ROUTES("MIXER1-8")
-	TEGRA210_MUX_ROUTES("MIXER1-9")
-	TEGRA210_MUX_ROUTES("MIXER1-10")
+	TEGRA210_MUX_ROUTES("MIXER1 RX1")
+	TEGRA210_MUX_ROUTES("MIXER1 RX2")
+	TEGRA210_MUX_ROUTES("MIXER1 RX3")
+	TEGRA210_MUX_ROUTES("MIXER1 RX4")
+	TEGRA210_MUX_ROUTES("MIXER1 RX5")
+	TEGRA210_MUX_ROUTES("MIXER1 RX6")
+	TEGRA210_MUX_ROUTES("MIXER1 RX7")
+	TEGRA210_MUX_ROUTES("MIXER1 RX8")
+	TEGRA210_MUX_ROUTES("MIXER1 RX9")
+	TEGRA210_MUX_ROUTES("MIXER1 RX10")
+	IN_OUT_ROUTES("MIXER1 TX1")
+	IN_OUT_ROUTES("MIXER1 TX2")
+	IN_OUT_ROUTES("MIXER1 TX3")
+	IN_OUT_ROUTES("MIXER1 TX4")
+	IN_OUT_ROUTES("MIXER1 TX5")
 	TEGRA210_MUX_ROUTES("AFC1")
 	TEGRA210_MUX_ROUTES("AFC2")
 	TEGRA210_MUX_ROUTES("AFC3")
@@ -1244,14 +1317,14 @@ static const struct snd_soc_dapm_route tegra210_ahub_routes[] = {
 	TEGRA210_MUX_ROUTES("SPKPROT1")
 	TEGRA210_MUX_ROUTES("MVC1")
 	TEGRA210_MUX_ROUTES("MVC2")
-	TEGRA210_MUX_ROUTES("AMX1-1")
-	TEGRA210_MUX_ROUTES("AMX1-2")
-	TEGRA210_MUX_ROUTES("AMX1-3")
-	TEGRA210_MUX_ROUTES("AMX1-4")
-	TEGRA210_MUX_ROUTES("AMX2-1")
-	TEGRA210_MUX_ROUTES("AMX2-2")
-	TEGRA210_MUX_ROUTES("AMX2-3")
-	TEGRA210_MUX_ROUTES("AMX2-4")
+	TEGRA210_MUX_ROUTES("AMX1 RX1")
+	TEGRA210_MUX_ROUTES("AMX1 RX2")
+	TEGRA210_MUX_ROUTES("AMX1 RX3")
+	TEGRA210_MUX_ROUTES("AMX1 RX4")
+	TEGRA210_MUX_ROUTES("AMX2 RX1")
+	TEGRA210_MUX_ROUTES("AMX2 RX2")
+	TEGRA210_MUX_ROUTES("AMX2 RX3")
+	TEGRA210_MUX_ROUTES("AMX2 RX4")
 	TEGRA210_MUX_ROUTES("ADX1")
 	TEGRA210_MUX_ROUTES("ADX2")
 	IN_OUT_ROUTES("IQC1-1")
@@ -1263,14 +1336,14 @@ static const struct snd_soc_dapm_route tegra210_ahub_routes[] = {
 	IN_OUT_ROUTES("DMIC3")
 	IN_OUT_ROUTES("AMX1")
 	IN_OUT_ROUTES("AMX2")
-	IN_OUT_ROUTES("ADX1-1")
-	IN_OUT_ROUTES("ADX1-2")
-	IN_OUT_ROUTES("ADX1-3")
-	IN_OUT_ROUTES("ADX1-4")
-	IN_OUT_ROUTES("ADX2-1")
-	IN_OUT_ROUTES("ADX2-2")
-	IN_OUT_ROUTES("ADX2-3")
-	IN_OUT_ROUTES("ADX2-4")
+	IN_OUT_ROUTES("ADX1 TX1")
+	IN_OUT_ROUTES("ADX1 TX2")
+	IN_OUT_ROUTES("ADX1 TX3")
+	IN_OUT_ROUTES("ADX1 TX4")
+	IN_OUT_ROUTES("ADX2 TX1")
+	IN_OUT_ROUTES("ADX2 TX2")
+	IN_OUT_ROUTES("ADX2 TX3")
+	IN_OUT_ROUTES("ADX2 TX4")
 };
 
 static const struct snd_soc_dapm_route tegra186_ahub_routes[] = {
@@ -1315,16 +1388,21 @@ static const struct snd_soc_dapm_route tegra186_ahub_routes[] = {
 	TEGRA186_MUX_ROUTES("SFC2")
 	TEGRA186_MUX_ROUTES("SFC3")
 	TEGRA186_MUX_ROUTES("SFC4")
-	TEGRA186_MUX_ROUTES("MIXER1-1")
-	TEGRA186_MUX_ROUTES("MIXER1-2")
-	TEGRA186_MUX_ROUTES("MIXER1-3")
-	TEGRA186_MUX_ROUTES("MIXER1-4")
-	TEGRA186_MUX_ROUTES("MIXER1-5")
-	TEGRA186_MUX_ROUTES("MIXER1-6")
-	TEGRA186_MUX_ROUTES("MIXER1-7")
-	TEGRA186_MUX_ROUTES("MIXER1-8")
-	TEGRA186_MUX_ROUTES("MIXER1-9")
-	TEGRA186_MUX_ROUTES("MIXER1-10")
+	TEGRA186_MUX_ROUTES("MIXER1 RX1")
+	TEGRA186_MUX_ROUTES("MIXER1 RX2")
+	TEGRA186_MUX_ROUTES("MIXER1 RX3")
+	TEGRA186_MUX_ROUTES("MIXER1 RX4")
+	TEGRA186_MUX_ROUTES("MIXER1 RX5")
+	TEGRA186_MUX_ROUTES("MIXER1 RX6")
+	TEGRA186_MUX_ROUTES("MIXER1 RX7")
+	TEGRA186_MUX_ROUTES("MIXER1 RX8")
+	TEGRA186_MUX_ROUTES("MIXER1 RX9")
+	TEGRA186_MUX_ROUTES("MIXER1 RX10")
+	IN_OUT_ROUTES("MIXER1 TX1")
+	IN_OUT_ROUTES("MIXER1 TX2")
+	IN_OUT_ROUTES("MIXER1 TX3")
+	IN_OUT_ROUTES("MIXER1 TX4")
+	IN_OUT_ROUTES("MIXER1 TX5")
 	TEGRA186_MUX_ROUTES("AFC1")
 	TEGRA186_MUX_ROUTES("AFC2")
 	TEGRA186_MUX_ROUTES("AFC3")
@@ -1335,14 +1413,14 @@ static const struct snd_soc_dapm_route tegra186_ahub_routes[] = {
 	TEGRA186_MUX_ROUTES("SPKPROT1")
 	TEGRA186_MUX_ROUTES("MVC1")
 	TEGRA186_MUX_ROUTES("MVC2")
-	TEGRA186_MUX_ROUTES("AMX1-1")
-	TEGRA186_MUX_ROUTES("AMX1-2")
-	TEGRA186_MUX_ROUTES("AMX1-3")
-	TEGRA186_MUX_ROUTES("AMX1-4")
-	TEGRA186_MUX_ROUTES("AMX2-1")
-	TEGRA186_MUX_ROUTES("AMX2-2")
-	TEGRA186_MUX_ROUTES("AMX2-3")
-	TEGRA186_MUX_ROUTES("AMX2-4")
+	TEGRA186_MUX_ROUTES("AMX1 RX1")
+	TEGRA186_MUX_ROUTES("AMX1 RX2")
+	TEGRA186_MUX_ROUTES("AMX1 RX3")
+	TEGRA186_MUX_ROUTES("AMX1 RX4")
+	TEGRA186_MUX_ROUTES("AMX2 RX1")
+	TEGRA186_MUX_ROUTES("AMX2 RX2")
+	TEGRA186_MUX_ROUTES("AMX2 RX3")
+	TEGRA186_MUX_ROUTES("AMX2 RX4")
 	TEGRA186_MUX_ROUTES("ADX1")
 	TEGRA186_MUX_ROUTES("ADX2")
 	IN_OUT_ROUTES("IQC1-1")
@@ -1354,14 +1432,14 @@ static const struct snd_soc_dapm_route tegra186_ahub_routes[] = {
 	IN_OUT_ROUTES("DMIC3")
 	IN_OUT_ROUTES("AMX1")
 	IN_OUT_ROUTES("AMX2")
-	IN_OUT_ROUTES("ADX1-1")
-	IN_OUT_ROUTES("ADX1-2")
-	IN_OUT_ROUTES("ADX1-3")
-	IN_OUT_ROUTES("ADX1-4")
-	IN_OUT_ROUTES("ADX2-1")
-	IN_OUT_ROUTES("ADX2-2")
-	IN_OUT_ROUTES("ADX2-3")
-	IN_OUT_ROUTES("ADX2-4")
+	IN_OUT_ROUTES("ADX1 TX1")
+	IN_OUT_ROUTES("ADX1 TX2")
+	IN_OUT_ROUTES("ADX1 TX3")
+	IN_OUT_ROUTES("ADX1 TX4")
+	IN_OUT_ROUTES("ADX2 TX1")
+	IN_OUT_ROUTES("ADX2 TX2")
+	IN_OUT_ROUTES("ADX2 TX3")
+	IN_OUT_ROUTES("ADX2 TX4")
 	TEGRA186_MUX_ROUTES("ADMAIF11")
 	TEGRA186_MUX_ROUTES("ADMAIF12")
 	TEGRA186_MUX_ROUTES("ADMAIF13")
@@ -1372,37 +1450,43 @@ static const struct snd_soc_dapm_route tegra186_ahub_routes[] = {
 	TEGRA186_MUX_ROUTES("ADMAIF18")
 	TEGRA186_MUX_ROUTES("ADMAIF19")
 	TEGRA186_MUX_ROUTES("ADMAIF20")
-	TEGRA186_MUX_ROUTES("AMX3-1")
-	TEGRA186_MUX_ROUTES("AMX3-2")
-	TEGRA186_MUX_ROUTES("AMX3-3")
-	TEGRA186_MUX_ROUTES("AMX3-4")
-	TEGRA186_MUX_ROUTES("AMX4-1")
-	TEGRA186_MUX_ROUTES("AMX4-2")
-	TEGRA186_MUX_ROUTES("AMX4-3")
-	TEGRA186_MUX_ROUTES("AMX4-4")
+	TEGRA186_MUX_ROUTES("AMX3 RX1")
+	TEGRA186_MUX_ROUTES("AMX3 RX2")
+	TEGRA186_MUX_ROUTES("AMX3 RX3")
+	TEGRA186_MUX_ROUTES("AMX3 RX4")
+	TEGRA186_MUX_ROUTES("AMX4 RX1")
+	TEGRA186_MUX_ROUTES("AMX4 RX2")
+	TEGRA186_MUX_ROUTES("AMX4 RX3")
+	TEGRA186_MUX_ROUTES("AMX4 RX4")
 	TEGRA186_MUX_ROUTES("ADX3")
 	TEGRA186_MUX_ROUTES("ADX4")
 	TEGRA186_MUX_ROUTES("I2S6")
-	TEGRA186_MUX_ROUTES("ASRC1-1")
-	TEGRA186_MUX_ROUTES("ASRC1-2")
-	TEGRA186_MUX_ROUTES("ASRC1-3")
-	TEGRA186_MUX_ROUTES("ASRC1-4")
-	TEGRA186_MUX_ROUTES("ASRC1-5")
-	TEGRA186_MUX_ROUTES("ASRC1-6")
-	TEGRA186_MUX_ROUTES("ASRC1-7")
+	TEGRA186_MUX_ROUTES("ASRC1 RX1")
+	TEGRA186_MUX_ROUTES("ASRC1 RX2")
+	TEGRA186_MUX_ROUTES("ASRC1 RX3")
+	TEGRA186_MUX_ROUTES("ASRC1 RX4")
+	TEGRA186_MUX_ROUTES("ASRC1 RX5")
+	TEGRA186_MUX_ROUTES("ASRC1 RX6")
+	TEGRA186_MUX_ROUTES("ASRC1 RX7")
+	IN_OUT_ROUTES("ASRC1 TX1")
+	IN_OUT_ROUTES("ASRC1 TX2")
+	IN_OUT_ROUTES("ASRC1 TX3")
+	IN_OUT_ROUTES("ASRC1 TX4")
+	IN_OUT_ROUTES("ASRC1 TX5")
+	IN_OUT_ROUTES("ASRC1 TX6")
 	TEGRA186_MUX_ROUTES("DSPK1")
 	TEGRA186_MUX_ROUTES("DSPK2")
 	IN_OUT_ROUTES("DMIC4")
 	IN_OUT_ROUTES("AMX3")
 	IN_OUT_ROUTES("AMX4")
-	IN_OUT_ROUTES("ADX3-1")
-	IN_OUT_ROUTES("ADX3-2")
-	IN_OUT_ROUTES("ADX3-3")
-	IN_OUT_ROUTES("ADX3-4")
-	IN_OUT_ROUTES("ADX4-1")
-	IN_OUT_ROUTES("ADX4-2")
-	IN_OUT_ROUTES("ADX4-3")
-	IN_OUT_ROUTES("ADX4-4")
+	IN_OUT_ROUTES("ADX3 TX1")
+	IN_OUT_ROUTES("ADX3 TX2")
+	IN_OUT_ROUTES("ADX3 TX3")
+	IN_OUT_ROUTES("ADX3 TX4")
+	IN_OUT_ROUTES("ADX4 TX1")
+	IN_OUT_ROUTES("ADX4 TX2")
+	IN_OUT_ROUTES("ADX4 TX3")
+	IN_OUT_ROUTES("ADX4 TX4")
 	IN_OUT_ROUTES("ARAD1")
 };
 

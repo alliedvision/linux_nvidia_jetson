@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,6 +25,11 @@
 int dce_driver_init(struct tegra_dce *d)
 {
 	int ret = 0;
+
+	/**
+	 * Set dce boot satus to false
+	 */
+	dce_set_boot_complete(d, false);
 
 	ret = dce_boot_interface_init(d);
 	if (ret) {

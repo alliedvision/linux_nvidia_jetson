@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/hrt.c
  *
- * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -44,7 +44,6 @@
 #include "ma.h"
 #include "power_clk.h"
 #include "tegra.h"
-#include "debug.h"
 
 static struct quadd_hrt_ctx hrt = {
 	.active = ATOMIC_INIT(0),
@@ -251,10 +250,6 @@ static void put_header(int cpuid, bool is_uncore)
 		hdr->flags |= QUADD_HDR_FLAG_BACKTRACE;
 	if (param->use_freq)
 		hdr->flags |= QUADD_HDR_FLAG_USE_FREQ;
-
-#ifdef QM_DEBUG_SAMPLES_ENABLE
-	hdr->flags |= QUADD_HDR_FLAG_DEBUG_SAMPLES;
-#endif
 
 	hdr->freq = param->freq;
 	hdr->ma_freq = param->ma_freq;
@@ -606,7 +601,7 @@ read_all_sources(struct pt_regs *regs, struct task_struct *task, u64 ts)
 		u32 value = (u32)cpu_ctx->events[i].delta;
 
 		if (value > 0) {
-			s->events_flags |= 1 << i;
+			s->events_flags |= 1U << i;
 			events_extra[nr_positive_events++] = value;
 		}
 	}
@@ -660,13 +655,10 @@ static enum hrtimer_restart hrtimer_handler(struct hrtimer *hrtimer)
 	if (!atomic_read(&hrt.active))
 		return HRTIMER_NORESTART;
 
-	qm_debug_handler_sample(regs);
-
 	if (regs)
 		read_all_sources(regs, current, quadd_get_time());
 
 	hrtimer_forward_now(hrtimer, ns_to_ktime(hrt.sample_period));
-	qm_debug_timer_forward(regs, hrt.sample_period);
 
 	return HRTIMER_RESTART;
 }
@@ -683,14 +675,11 @@ static void start_hrtimer(struct quadd_cpu_context *cpu_ctx)
 	hrtimer_start(&cpu_ctx->hrtimer, ns_to_ktime(period),
 		      HRTIMER_MODE_REL_PINNED);
 #endif
-
-	qm_debug_timer_start(NULL, period);
 }
 
 static void cancel_hrtimer(struct quadd_cpu_context *cpu_ctx)
 {
 	hrtimer_cancel(&cpu_ctx->hrtimer);
-	qm_debug_timer_cancel();
 }
 
 static void init_hrtimer(struct quadd_cpu_context *cpu_ctx)

@@ -3,7 +3,7 @@
  *
  * Support for Tegra NVRNG Engine Error Handling.
  *
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -232,7 +232,7 @@ static int tegra_se_sc7_check_error(struct tegra_se_nvrng_dev *nvrng_dev,
 
 	ret = tegra_se_sc7_check_idle(nvrng_dev, SC7_IDLE_TIMEOUT_200MS);
 	if (ret == -ETIMEDOUT) {
-		pr_err("%s:%d SE HW is not idle, timeout\n",
+		pr_info("%s:%d SE HW is not idle, timeout\n",
 					__func__, __LINE__);
 		return ret;
 	}

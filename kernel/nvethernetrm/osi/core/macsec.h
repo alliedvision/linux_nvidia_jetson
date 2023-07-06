@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,8 +48,10 @@
  * @brief MACsec controller register offsets
  * @{
  */
+#ifdef MACSEC_KEY_PROGRAM
 #define MACSEC_GCM_KEYTABLE_CONFIG		0x0000
 #define MACSEC_GCM_KEYTABLE_DATA(x)		((0x0004U) + ((x) * 4U))
+#endif /* MACSEC_KEY_PROGRAM */
 #define MACSEC_RX_ICV_ERR_CNTRL			0x4000
 #define MACSEC_INTERRUPT_COMMON_SR		0x4004
 #define MACSEC_TX_IMR				0x4008
@@ -89,7 +91,6 @@
 #define MACSEC_TX_SCI_LUT_VALID 	0xD028
 #define MACSEC_RX_BYP_LUT_VALID 	0xD02C
 #define MACSEC_RX_SCI_LUT_VALID 	0xD030
-
 #define MACSEC_COMMON_IMR		0xD054
 #define MACSEC_COMMON_ISR		0xD058
 #define MACSEC_TX_SC_KEY_INVALID_STS0_0	0xD064
@@ -97,14 +98,16 @@
 #define MACSEC_RX_SC_KEY_INVALID_STS0_0	0xD080
 #define MACSEC_RX_SC_KEY_INVALID_STS1_0	0xD084
 
-#define MACSEC_TX_DEBUG_CONTROL_0	0xD098
-#define MACSEC_TX_DEBUG_TRIGGER_EN_0	0xD09C
 #define MACSEC_TX_DEBUG_STATUS_0	0xD0C4
+#define MACSEC_TX_DEBUG_TRIGGER_EN_0	0xD09C
+#define MACSEC_RX_DEBUG_STATUS_0	0xD0F8
+#define MACSEC_RX_DEBUG_TRIGGER_EN_0	0xD0E0
+#ifdef DEBUG_MACSEC
+#define MACSEC_TX_DEBUG_CONTROL_0	0xD098
 #define MACSEC_DEBUG_BUF_CONFIG_0	0xD0C8
 #define MACSEC_DEBUG_BUF_DATA_0(x)	((0xD0CCU) + ((x) * 4U))
 #define MACSEC_RX_DEBUG_CONTROL_0	0xD0DC
-#define MACSEC_RX_DEBUG_TRIGGER_EN_0	0xD0E0
-#define MACSEC_RX_DEBUG_STATUS_0	0xD0F8
+#endif /* DEBUG_MACSEC */
 
 #define MACSEC_CONTROL1			0xE000
 #define MACSEC_GCM_AES_CONTROL_0	0xE004
@@ -114,6 +117,7 @@
 #define MACSEC_RX_SOT_DELAY		0xE01C
 /** @} */
 
+#ifdef MACSEC_KEY_PROGRAM
 /**
  * @addtogroup MACSEC_GCM_KEYTABLE_CONFIG register
  *
@@ -138,6 +142,7 @@
 #define MACSEC_KT_DATA_REG_SAK_CNT	8U
 #define MACSEC_KT_DATA_REG_H_CNT	4U
 /** @} */
+#endif /* MACSEC_KEY_PROGRAM */
 
 /**
  * @addtogroup MACSEC_LUT_CONFIG register
@@ -188,7 +193,9 @@
  * @brief Bit definitions of MACSEC_CONTROL1 register
  * @{
  */
+#ifdef DEBUG_MACSEC
 #define MACSEC_LOOPBACK_MODE_EN 		OSI_BIT(31)
+#endif /* DEBUG_MACSEC */
 #define MACSEC_RX_MTU_CHECK_EN			OSI_BIT(16)
 #define MACSEC_TX_LUT_PRIO_BYP			OSI_BIT(2)
 #define MACSEC_TX_MTU_CHECK_EN			OSI_BIT(0)
@@ -215,10 +222,12 @@
  * @{
  */
 #define MACSEC_SECURE_REG_VIOL_INT_EN		OSI_BIT(31)
+#ifdef DEBUG_MACSEC
 #define MACSEC_RX_UNINIT_KEY_SLOT_INT_EN	OSI_BIT(17)
 #define MACSEC_RX_LKUP_MISS_INT_EN		OSI_BIT(16)
 #define MACSEC_TX_UNINIT_KEY_SLOT_INT_EN	OSI_BIT(1)
 #define MACSEC_TX_LKUP_MISS_INT_EN		OSI_BIT(0)
+#endif /* DEBUG_MACSEC */
 /** @} */
 
 /**
@@ -227,11 +236,12 @@
  * @brief Bit definitions of TX_INTERRUPT_MASK register
  * @{
  */
+#define MACSEC_TX_MAC_CRC_ERROR_INT_EN		OSI_BIT(16)
+#ifdef DEBUG_MACSEC
 #define MACSEC_TX_DBG_BUF_CAPTURE_DONE_INT_EN	OSI_BIT(22)
 #define MACSEC_TX_MTU_CHECK_FAIL_INT_EN 	OSI_BIT(19)
 #define MACSEC_TX_AES_GCM_BUF_OVF_INT_EN	OSI_BIT(18)
 #define MACSEC_TX_SC_AN_NOT_VALID_INT_EN	OSI_BIT(17)
-#define MACSEC_TX_MAC_CRC_ERROR_INT_EN		OSI_BIT(16)
 #define MACSEC_TX_PN_EXHAUSTED_INT_EN		OSI_BIT(1)
 #define MACSEC_TX_PN_THRSHLD_RCHD_INT_EN	OSI_BIT(0)
 /** @} */
@@ -243,12 +253,13 @@
  * @{
  */
 #define MACSEC_RX_DBG_BUF_CAPTURE_DONE_INT_EN	OSI_BIT(22)
-#define MACSEC_RX_ICV_ERROR_INT_EN		OSI_BIT(21)
 #define RX_REPLAY_ERROR_INT_EN  		OSI_BIT(20)
 #define MACSEC_RX_MTU_CHECK_FAIL_INT_EN 	OSI_BIT(19)
 #define MACSEC_RX_AES_GCM_BUF_OVF_INT_EN	OSI_BIT(18)
-#define MACSEC_RX_MAC_CRC_ERROR_INT_EN		OSI_BIT(16)
 #define MACSEC_RX_PN_EXHAUSTED_INT_EN		OSI_BIT(1)
+#endif /* DEBUG_MACSEC */
+#define MACSEC_RX_ICV_ERROR_INT_EN		OSI_BIT(21)
+#define MACSEC_RX_MAC_CRC_ERROR_INT_EN		OSI_BIT(16)
 /** @} */
 
 /**
@@ -263,6 +274,16 @@
 #define MACSEC_TX_UNINIT_KEY_SLOT	OSI_BIT(1)
 #define MACSEC_TX_LKUP_MISS		OSI_BIT(0)
 /** @} */
+
+/**
+ * @addtogroup MACSEC_STATS_CONTROL_0 register
+ *
+ * @brief Bit definitions of MACSEC_STATS_CONTROL_0 register
+ * @{
+ */
+#define MACSEC_STATS_CONTROL0_CNT_RL_OVR_CPY		OSI_BIT(1)
+/** @} */
+
 
 /**
  * @addtogroup MACSEC_TX_ISR register
@@ -294,15 +315,7 @@
 #define MACSEC_RX_PN_EXHAUSTED		OSI_BIT(1)
 /** @} */
 
-/**
- * @addtogroup MACSEC_STATS_CONTROL_0 register
- *
- * @brief Bit definitions of MACSEC_STATS_CONTROL_0 register
- * @{
- */
-#define MACSEC_STATS_CONTROL0_CNT_RL_OVR_CPY		OSI_BIT(1)
-/** @} */
-
+#ifdef DEBUG_MACSEC
 /**
  * @addtogroup MACSEC_DEBUG_BUF_CONFIG_0 register
  *
@@ -361,21 +374,14 @@
  */
 #define MACSEC_RX_DEBUG_CONTROL_0_START_CAP	OSI_BIT(31)
 /** @} */
+#endif /* DEBUG_MACSEC */
 
 #define MTU_LENGTH_MASK		0xFFFFU
 #define SOT_LENGTH_MASK		0xFFU
 #define EQOS_MACSEC_SOT_DELAY	0x4EU
 
 /**
- * @addtogroup TX/RX_BYP/SCI_LUT_VALID register
- *
- * @brief Bit definitions of LUT_VALID registers
- * @{
- */
-/** @} */
-
-/**
- * @addtogroup TX/RX LUT bit fields in LUT_DATA registers
+ * @addtogroup MACSEC-LUT TX/RX LUT bit fields in LUT_DATA registers
  *
  * @brief Helper macros for LUT data programming
  * @{
@@ -439,8 +445,21 @@
 #define MACSEC_RX_SCI_LUT_PREEMPT_INACTIVE	OSI_BIT(9)
 /** @} */
 
+#ifdef DEBUG_MACSEC
 /* debug buffer data read/write length */
 #define DBG_BUF_LEN		4U
+#endif /* DEBUG_MACSEC */
+#ifdef MACSEC_KEY_PROGRAM
 #define INTEGER_LEN		4U
+#endif /* MACSEC_KEY_PROGRAM */
+
+#ifdef HSI_SUPPORT
+/* Set RX ISR set interrupt status bit */
+#define MACSEC_RX_ISR_SET		0x4050U
+/* Set TX ISR set interrupt status bit */
+#define MACSEC_TX_ISR_SET		0x4010U
+/* Set Common ISR set interrupt status bit */
+#define MACSEC_COMMON_ISR_SET		0xd05cU
+#endif
 
 #endif /* INCLUDED_MACSEC_H */

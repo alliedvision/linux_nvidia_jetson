@@ -10,7 +10,7 @@
 # FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 # more details.
 #
-# Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2015-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 
 KBUILD_CFLAGS += -I$(srctree.nvidia)/drivers/platform/tegra
@@ -25,7 +25,6 @@ tegra-profiler-y := \
 	comm.o \
 	mmap.o \
 	backtrace.o \
-	debug.o \
 	ma.o \
 	power_clk.o \
 	auth.o \

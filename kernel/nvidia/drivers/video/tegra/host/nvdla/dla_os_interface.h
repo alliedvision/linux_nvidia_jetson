@@ -1,7 +1,7 @@
 /*
  * NVDLA OS Interface
  *
- * Copyright (c) 2016-2021, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -141,39 +141,47 @@ enum dla_commands {
 	/**
 	 * Used for testing communication between CCPLEX and DLA
 	 */
-	DLA_CMD_PING			= 1U,
-	DLA_CMD_GET_STATUS_UNUSED	= 2U,
-	DLA_CMD_RESET_UNUSED		= 3U,
-	DLA_CMD_DLA_CONTROL_UNUSED	= 4U,
+	DLA_CMD_PING					= 1U,
+	DLA_CMD_GET_STATUS_UNUSED		= 2U,
+	DLA_CMD_RESET_UNUSED			= 3U,
+	DLA_CMD_DLA_CONTROL_UNUSED		= 4U,
 	DLA_CMD_GET_QUEUE_STATUS_UNUSED	= 5U,
-	DLA_CMD_GET_STATISTICS_UNUSED	= 6U,
+	DLA_CMD_GET_STATISTICS			= 6U,
 	/**
 	 * Submit task to DLA
 	 */
-	DLA_CMD_SUBMIT_TASK		= 7U,
+	DLA_CMD_SUBMIT_TASK				= 7U,
 	DLA_CMD_SET_SCHEDULER_UNUSED	= 8U,
-	DLA_CMD_READ_INFO_UNUSED	= 9U,
+	DLA_CMD_READ_INFO_UNUSED		= 9U,
 	/**
 	 * Set various debugging parameters (trace/printf/crashdump)
 	 * Only enabled in Debug build.
 	 */
-	DLA_CMD_SET_DEBUG		= 10U,
+	DLA_CMD_SET_DEBUG				= 10U,
 	/**
 	 * Set the address & size of various regions used for various reasons
 	 */
-	DLA_CMD_SET_REGIONS		= 11U,
+	DLA_CMD_SET_REGIONS				= 11U,
 	/**
 	 * Suspend processing a queue
 	 */
-	DLA_CMD_QUEUE_SUSPEND		= 12U,
+	DLA_CMD_QUEUE_SUSPEND			= 12U,
 	/**
 	 * Resume processing a queue
 	 */
-	DLA_CMD_QUEUE_RESUME		= 13U,
+	DLA_CMD_QUEUE_RESUME			= 13U,
 	/**
 	 * Flushes a queue
 	 */
-	DLA_CMD_QUEUE_FLUSH		= 14U,
+	DLA_CMD_QUEUE_FLUSH				= 14U,
+	/**
+	 * Sets stat window size
+	 */
+	DLA_CMD_SET_STAT_WINDOW_SIZE	= 15U,
+	/**
+	 * Gets stat window size
+	 */
+	DLA_CMD_GET_STAT_WINDOW_SIZE	= 16U,
 };
 
 /**

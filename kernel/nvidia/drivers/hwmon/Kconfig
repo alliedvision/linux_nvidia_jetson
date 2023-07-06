@@ -1,0 +1,12 @@
+menu "HWMON devices"
+
+config SENSORS_F75308
+       tristate "F75308 Hardware Monitor"
+       default n
+       depends on I2C
+       help
+         Say Y to enable F75308 hardware monitor. F75308 hardware monitor
+         is an I2C slave which can be used to learn the temperature, voltage,
+         and govern the connected fans by reading/writing the values from/to
+         the associated registers by an external I2C master.
+endmenu

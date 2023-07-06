@@ -1,7 +1,7 @@
 /*
  * include/uapi/linux/tegra_profiler.h
  *
- * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,8 +20,8 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define QUADD_SAMPLES_VERSION	50
-#define QUADD_IO_VERSION	29
+#define QUADD_SAMPLES_VERSION	51
+#define QUADD_IO_VERSION	30
 
 #define QUADD_IO_VERSION_DYNAMIC_RB		5
 #define QUADD_IO_VERSION_RB_MAX_FILL_COUNT	6
@@ -48,6 +48,7 @@
 #define QUADD_IO_VERSION_SAMPLING_CNTRL		27
 #define QUADD_IO_VERSION_UNCORE_EVENTS		28
 #define QUADD_IO_VERSION_EVENT_FILTER		29
+#define QUADD_IO_VERSION_CPUS_UINT		30
 
 #define QUADD_SAMPLE_VERSION_THUMB_MODE_FLAG	17
 #define QUADD_SAMPLE_VERSION_GROUP_SAMPLES	18
@@ -81,6 +82,7 @@
 #define QUADD_SAMPLE_VERSION_UNCORE_EVENTS	48
 #define QUADD_SAMPLE_VERSION_SEQID		49
 #define QUADD_SAMPLE_VERSION_EVENT_FILTER	50
+#define QUADD_SAMPLE_VERSION_CPUS_UINT		51
 
 #define QUADD_MMAP_HEADER_VERSION	1
 
@@ -264,7 +266,7 @@ struct quadd_sample_data {
 	__u32 tgid;
 	__u64 time;
 
-	__u8 cpu_id;
+	__u32 cpu_id;
 	__u32 flags;
 
 	__u8 callchain_nr;
@@ -279,7 +281,7 @@ struct quadd_mmap_data {
 	__u32 pid;
 	__u64 time;
 
-	__u8 cpu_id;
+	__u32 cpu_id;
 	__u16 flags;
 
 	__u64 addr;
@@ -336,24 +338,9 @@ struct quadd_sched_data {
 	__u32 tgid;
 	__u64 time;
 
-	__u8 cpu_id;
+	__u32 cpu_id;
 	__u64 flags;
 	__u16 task_state;
-};
-
-enum {
-	QM_DEBUG_SAMPLE_TYPE_SCHED_IN = 1,
-	QM_DEBUG_SAMPLE_TYPE_SCHED_OUT,
-
-	QM_DEBUG_SAMPLE_TYPE_TIMER_HANDLE,
-	QM_DEBUG_SAMPLE_TYPE_TIMER_START,
-	QM_DEBUG_SAMPLE_TYPE_TIMER_CANCEL,
-	QM_DEBUG_SAMPLE_TYPE_TIMER_FORWARD,
-
-	QM_DEBUG_SAMPLE_TYPE_READ_COUNTER,
-
-	QM_DEBUG_SAMPLE_TYPE_SOURCE_START,
-	QM_DEBUG_SAMPLE_TYPE_SOURCE_STOP,
 };
 
 #define QUADD_COMM_FLAG_EXEC	(1U << 0)
@@ -365,22 +352,6 @@ struct quadd_comm_data {
 
 	__u16 length;
 	__u32 flags;
-};
-
-struct quadd_debug_data {
-	__u8 type;
-
-	__u32 pid;
-	__u64 time;
-
-	__u16	cpu:6,
-		user_mode:1,
-		lp_mode:1,
-		thumb_mode:1,
-		reserved:7;
-
-	__u32 extra_value[2];
-	__u16 extra_length;
 };
 
 #define QUADD_HEADER_MAGIC	0x1122
@@ -416,7 +387,7 @@ struct quadd_header_data {
 	__u16 samples_version;
 	__u16 io_version;
 
-	__u8 cpu_id;
+	__u32 cpu_id;
 	__u64 flags;
 
 	__u32 freq;
@@ -437,7 +408,6 @@ struct quadd_record_data {
 		struct quadd_sample_data	sample;
 		struct quadd_mmap_data		mmap;
 		struct quadd_ma_data		ma;
-		struct quadd_debug_data		debug;
 		struct quadd_header_data	hdr;
 		struct quadd_power_rate_data	power_rate;
 		struct quadd_hotplug_data	hotplug;
@@ -579,7 +549,7 @@ struct quadd_comm_cap_for_cpu {
 	__u32	l2_cache:1,
 		l2_multiple_events:1;
 
-	__u8 cpuid;
+	__u32 cpuid;
 	struct quadd_events_cap events_cap;
 };
 

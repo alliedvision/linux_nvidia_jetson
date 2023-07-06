@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/ma.c
  *
- * Copyright (c) 2015-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -26,7 +26,6 @@
 #include "quadd.h"
 #include "hrt.h"
 #include "comm.h"
-#include "debug.h"
 
 static void make_sample(struct quadd_hrt_ctx *hrt_ctx,
 			pid_t pid, unsigned long vm_size,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,17 @@
  * @{
  */
 #define HW_GLOBAL_DMA_STATUS		0x8700U
+#define VIRT_INTR_CHX_CNTRL(x)		(0x8600U + ((x) * 8U))
+#define VIRT_INTR_CHX_STATUS(x)		(0x8604U + ((x) * 8U))
+#define AXI_BUS_WIDTH			0x10U
+#define	DMA_CHX_INTR_TIE		OSI_BIT(0)
+#define	DMA_CHX_INTR_RIE		OSI_BIT(6)
+#define DMA_CHX_CTRL_PBLX8		OSI_BIT(16)
+#define	DMA_CHX_TX_CTRL_OSP		OSI_BIT(4)
+#define DMA_CHX_TX_CTRL_TSE		OSI_BIT(12)
+#define DMA_CHX_RBSZ_MASK		0x7FFEU
+#define DMA_CHX_RBSZ_SHIFT		1U
+#define DMA_CHX_RX_WDT_RWT_MASK		0xFFU
 /** @} */
 
 #endif /* INCLUDED_HW_COMMON_H */
-

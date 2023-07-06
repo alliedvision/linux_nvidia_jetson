@@ -1,7 +1,7 @@
 /*
  * GK20A Graphics
  *
- * Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2011-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -153,8 +153,17 @@ static int nvgpu_kernel_shutdown_notification(struct notifier_block *nb,
 	struct nvgpu_gr *gr = nvgpu_gr_get_cur_instance_ptr(g);
 
 	nvgpu_set_enabled(g, NVGPU_KERNEL_IS_DYING, true);
-	/* signal the gr wait */
-	nvgpu_cond_signal(&gr->init_wq);
+
+	/*
+	 * In rmmod path, when the kernel or GPU driver is
+	 * dying signal the gr wait queue so that the wait
+	 * queue wakes up and further processing happens.
+	 * This is needed to prevent other threads, like
+	 * pmu_pg_task, to go into un-interruptible state.
+	 */
+	if (gr != NULL) {
+		nvgpu_cond_signal(&gr->init_wq);
+	}
 
 	return NOTIFY_DONE;
 }
@@ -1589,9 +1598,16 @@ void nvgpu_start_gpu_idle(struct gk20a *g)
 
 	down_write(&l->busy_lock);
 	nvgpu_set_enabled(g, NVGPU_DRIVER_IS_DYING, true);
-
-	/* signal the gr wait */
-	nvgpu_cond_signal(&gr->init_wq);
+	/*
+	 * In rmmod path, when the kernel or GPU driver is
+	 * dying signal the gr wait queue so that the wait
+	 * queue wakes up and further processing happens.
+	 * This is needed to prevent other threads, like
+	 * pmu_pg_task, to go into un-interruptible state.
+	 */
+	if (gr != NULL) {
+		nvgpu_cond_signal(&gr->init_wq);
+	}
 	/*
 	 * GR SW ready needs to be invalidated at this time with the busy lock
 	 * held to prevent a racing condition on the gr/mm code

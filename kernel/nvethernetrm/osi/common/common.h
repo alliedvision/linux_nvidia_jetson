@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,11 +22,11 @@
 #ifndef INCLUDED_COMMON_H
 #define INCLUDED_COMMON_H
 
-#include "../osi/common/type.h"
+#include <nvethernet_type.h>
 #include <osi_common.h>
 
 /**
- * @addtogroup Generic helper macros
+ * @addtogroup Generic helper MACROS
  *
  * @brief These are Generic helper macros used at various places.
  * @{
@@ -37,6 +37,12 @@
 #define RETRY_DELAY	1U
 /** @} */
 
+/** MAC version type for EQOS version previous to 5.30 */
+#define MAC_CORE_VER_TYPE_EQOS		0U
+/** MAC version type for EQOS version 5.30 */
+#define MAC_CORE_VER_TYPE_EQOS_5_30	1U
+/** MAC version type for MGBE IP */
+#define MAC_CORE_VER_TYPE_MGBE		2U
 
 /**
  * @brief Maximum number of supported MAC IP types (EQOS and MGBE)
@@ -48,8 +54,9 @@
  * a condition is met or a timeout occurs
  *
  * @param[in] addr: Memory mapped address.
+ * @param[in] fn: function to be used.
  * @param[in] val: Variable to read the value.
- * @param[in] cond: Break condition (usually involving @val).
+ * @param[in] cond: Break condition.
  * @param[in] delay_us: Maximum time to sleep between reads in us.
  * @param[in] retry: Retry count.
 
@@ -60,9 +67,9 @@
  */
 #define osi_readl_poll_timeout(addr, fn, val, cond, delay_us, retry) \
 ({ \
-	unsigned int count = 0; \
+	nveu32_t count = 0; \
 	while (count++ < retry) { \
-		val = osi_readl((unsigned char *)addr); \
+		val = osi_readl((nveu8_t *)addr); \
 		if ((cond)) { \
 			break; \
 		} \
@@ -234,7 +241,8 @@ static inline void osi_writela(OSI_UNUSED void *priv, nveu32_t val, void *addr)
  * @brief validate_mac_ver_update_chans - Validates mac version and update chan
  *
  * @param[in] mac_ver: MAC version read.
- * @param[out] max_chans: Maximum channel number.
+ * @param[out] num_max_chans: Maximum channel number.
+ * @param[out] l_mac_ver: local mac version.
  *
  * @note MAC has to be out of reset.
  *
@@ -248,26 +256,36 @@ static inline void osi_writela(OSI_UNUSED void *priv, nveu32_t val, void *addr)
  * @retval 1 - for Valid MAC
  */
 static inline nve32_t validate_mac_ver_update_chans(nveu32_t mac_ver,
-						    nveu32_t *max_chans)
+						    nveu32_t *num_max_chans,
+						    nveu32_t *l_mac_ver)
 {
+	nve32_t ret;
+
 	switch (mac_ver) {
-	case OSI_EQOS_MAC_4_10:
 	case OSI_EQOS_MAC_5_00:
-		*max_chans = OSI_EQOS_XP_MAX_CHANS;
+		*num_max_chans = OSI_EQOS_XP_MAX_CHANS;
+		*l_mac_ver = MAC_CORE_VER_TYPE_EQOS;
+		ret = 1;
 		break;
 	case OSI_EQOS_MAC_5_30:
-		*max_chans = OSI_EQOS_MAX_NUM_CHANS;
+		*num_max_chans = OSI_EQOS_MAX_NUM_CHANS;
+		*l_mac_ver = MAC_CORE_VER_TYPE_EQOS_5_30;
+		ret = 1;
 		break;
-	case OSI_MGBE_MAC_3_00:
 	case OSI_MGBE_MAC_3_10:
+#ifndef OSI_STRIPPED_LIB
 	case OSI_MGBE_MAC_4_00:
-		*max_chans = OSI_MGBE_MAX_NUM_CHANS;
+#endif /* !OSI_STRIPPED_LIB */
+		*num_max_chans = OSI_MGBE_MAX_NUM_CHANS;
+		*l_mac_ver = MAC_CORE_VER_TYPE_MGBE;
+		ret = 1;
 		break;
 	default:
-		return 0;
+		ret = 0;
+		break;
 	}
 
-	return 1;
+	return ret;
 }
 
 /**
@@ -289,7 +307,7 @@ static inline void osi_memset(void *s, nveu32_t c, nveu64_t count)
 	nveu64_t temp = count;
 
 	if (s == OSI_NULL) {
-		return;
+		goto done;
 	}
 	xs = (nveu8_t *)s;
 	while (temp != 0UL) {
@@ -299,6 +317,8 @@ static inline void osi_memset(void *s, nveu32_t c, nveu64_t count)
 		}
 		temp--;
 	}
+done:
+	return;
 }
 
 /**
@@ -314,38 +334,49 @@ static inline void osi_memset(void *s, nveu32_t c, nveu64_t count)
  * - Run time: Yes
  * - De-initialization: No
  */
-static inline nve32_t osi_memcpy(void *dest, void *src, nveu64_t n)
+static inline nve32_t osi_memcpy(void *dest, const void *src, nveu64_t n)
 {
-	nve8_t *csrc = (nve8_t *)src;
-	nve8_t *cdest = (nve8_t *)dest;
+	nve8_t *cdest = dest;
+	const nve8_t *csrc = src;
+	nve32_t ret = 0;
 	nveu64_t i = 0;
 
-	if (src == OSI_NULL || dest == OSI_NULL) {
-		return -1;
+	if ((src == OSI_NULL) || (dest == OSI_NULL)) {
+		ret = -1;
+		goto fail;
 	}
 	for (i = 0; i < n; i++) {
 		cdest[i] = csrc[i];
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
-static inline nve32_t osi_memcmp(void *dest, void *src, nve32_t n)
+static inline nve32_t osi_memcmp(const void *dest, const void *src, nve32_t n)
 {
+	const nve8_t *const cdest = dest;
+	const nve8_t *const csrc = src;
+	nve32_t ret = 0;
 	nve32_t i;
-	nve8_t *csrc = (nve8_t *)src;
-	nve8_t *cdest = (nve8_t *)dest;
 
-	if (src == OSI_NULL || dest == OSI_NULL)
-		return -1;
+	if ((src == OSI_NULL) || (dest == OSI_NULL)) {
+		ret = -1;
+		goto fail;
+	}
 
 	for (i = 0; i < n; i++) {
 		if (csrc[i] < cdest[i]) {
-			return -1;
+			ret = -1;
+			goto fail;
 		} else if (csrc[i] > cdest[i]) {
-			return 1;
+			ret = 1;
+			goto fail;
+		} else {
+			/* Do Nothing */
 		}
 	}
-	return 0;
+fail:
+	return ret;
 }
 #endif

@@ -3,17 +3,19 @@
  * Jetson Device-tree overlay for dual camera IMX219 rbpcv2 on dual
  * cam connector baseboards
  *
- * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023 NVIDIA CORPORATION. All rights reserved.
  *
  */
 
 /dts-v1/;
 /plugin/;
 
+#include <dt-common/jetson/tegra234-p3767-0000-common.h>
+
 / {
 	overlay-name = "Camera IMX219 Dual";
 	jetson-header-name = "Jetson Nano CSI Connector";
-	compatible = "nvidia,p3509-0000+p3767-0000";
+	compatible = JETSON_COMPATIBLE_P3509;
 
 	/* IMX219 dual sensor module */
 	fragment@0 {

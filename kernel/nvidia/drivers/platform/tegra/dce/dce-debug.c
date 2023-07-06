@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -424,6 +424,9 @@ core_boot_done:
 	last_status = DCE_BIT(find_first_bit(addr, 32));
 
 	switch (last_status) {
+	case DCE_FW_SUSPENDED:
+		strcpy(buf, "DCE_FW_SUSPENDED");
+		break;
 	case DCE_FW_BOOT_DONE:
 		strcpy(buf, "DCE_FW_BOOT_DONE");
 		break;

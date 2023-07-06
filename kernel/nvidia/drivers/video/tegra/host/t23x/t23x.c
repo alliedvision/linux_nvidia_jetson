@@ -529,38 +529,9 @@ static void t23x_remove_support(struct nvhost_chip_support *op)
 static void t23x_init_gating_regs(struct platform_device *pdev, bool prod)
 {
 	struct nvhost_gating_register *cg_regs = t23x_host1x_gating_registers;
-	ktime_t now, start = ktime_get();
-	u32 ram_init;
 
 	if (nvhost_dev_is_virtual(pdev) == true) {
 		return;
-	}
-
-	/* Ensure that HW has finished initializing syncpt RAM prior to use */
-	for (;;) {
-		/* XXX: This retry loop takes too long to timeout on VDK */
-		if (tegra_platform_is_sim()) {
-			pr_info("%s: Skipping ram_init done check on sim.\n",
-				__func__);
-			break;
-		}
-
-		ram_init = host1x_hypervisor_readl(pdev,
-					host1x_sync_syncpt_ram_init_0_r());
-		if (!host1x_sync_syncpt_ram_init_0_ram_init_v(ram_init)) {
-			pr_info("%s: Host1x HW syncpt ram init disabled\n",
-				__func__);
-			break;
-		}
-		if (host1x_sync_syncpt_ram_init_0_ram_init_done_v(ram_init))
-			break;
-
-		now = ktime_get();
-		if (ktime_ms_delta(now, start) >= SYNCPT_RAM_INIT_TIMEOUT_MS) {
-			pr_err("%s: Timed out waiting for syncpt ram init!\n",
-				__func__);
-			break;
-		}
 	}
 
 	while (cg_regs->addr) {

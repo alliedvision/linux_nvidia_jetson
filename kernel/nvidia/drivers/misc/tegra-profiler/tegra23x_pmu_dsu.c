@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/tegra23x_pmu_dsu.c
  *
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -35,7 +35,6 @@
 
 #include "tegra23x_pmu_dsu.h"
 #include "quadd.h"
-#include "debug.h"
 
 
 #define CPU_CYCLES		0x11
@@ -131,7 +130,7 @@ static void tegra23x_pmu_dsu_disable(void)
 		return;
 
 	pmcr = __dsu_pmu_read_pmcr();
-	pmcr &= ~CLUSTERPMCR_E;
+	pmcr &= ~((u32)CLUSTERPMCR_E);
 	__dsu_pmu_write_pmcr(pmcr);
 
 	memset(unit->cntrs, 0, sizeof(unit->cntrs));

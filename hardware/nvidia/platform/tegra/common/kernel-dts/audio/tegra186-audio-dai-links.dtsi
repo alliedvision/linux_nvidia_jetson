@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1611,7 +1611,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF1>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN1>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN1>;
@@ -1623,7 +1623,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF2>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN2>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN2>;
@@ -1635,7 +1635,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF3>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN3>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN3>;
@@ -1647,7 +1647,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF4>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN4>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN4>;
@@ -1659,7 +1659,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF5>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN5>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN5>;
@@ -1671,7 +1671,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF6>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN6>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN6>;
@@ -1683,7 +1683,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF7>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN7>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN7>;
@@ -1695,7 +1695,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF8>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN8>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN8>;
@@ -1707,7 +1707,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF9>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN9>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN9>;
@@ -1719,7 +1719,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF10>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_IN10>;
 			};
 			codec {
 				sound-dai = <&tegra_amixer MIXER_IN10>;
@@ -1734,7 +1734,7 @@
 				sound-dai = <&tegra_amixer MIXER_OUT1>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF1>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_OUT1>;
 			};
 		};
 
@@ -1746,7 +1746,7 @@
 				sound-dai = <&tegra_amixer MIXER_OUT2>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF2>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_OUT2>;
 			};
 		};
 
@@ -1758,7 +1758,7 @@
 				sound-dai = <&tegra_amixer MIXER_OUT3>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF3>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_OUT3>;
 			};
 		};
 
@@ -1770,7 +1770,7 @@
 				sound-dai = <&tegra_amixer MIXER_OUT4>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF4>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_OUT4>;
 			};
 		};
 
@@ -1782,7 +1782,7 @@
 				sound-dai = <&tegra_amixer MIXER_OUT5>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MIXER_IF5>;
+				sound-dai = <&tegra_axbar XBAR_MIXER_OUT5>;
 			};
 		};
 
@@ -1791,7 +1791,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_SFC1>;
+				sound-dai = <&tegra_axbar XBAR_SFC1_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_sfc1 SFC_IN>;
@@ -1804,7 +1804,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_SFC2>;
+				sound-dai = <&tegra_axbar XBAR_SFC2_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_sfc2 SFC_IN>;
@@ -1817,7 +1817,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_SFC3>;
+				sound-dai = <&tegra_axbar XBAR_SFC3_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_sfc3 SFC_IN>;
@@ -1830,7 +1830,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_SFC4>;
+				sound-dai = <&tegra_axbar XBAR_SFC4_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_sfc4 SFC_IN>;
@@ -1846,7 +1846,7 @@
 				sound-dai = <&tegra_sfc1 SFC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_SFC1>;
+				sound-dai = <&tegra_axbar XBAR_SFC1_TX>;
 			};
 		};
 
@@ -1858,7 +1858,7 @@
 				sound-dai = <&tegra_sfc2 SFC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_SFC2>;
+				sound-dai = <&tegra_axbar XBAR_SFC2_TX>;
 			};
 		};
 
@@ -1870,7 +1870,7 @@
 				sound-dai = <&tegra_sfc3 SFC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_SFC3>;
+				sound-dai = <&tegra_axbar XBAR_SFC3_TX>;
 			};
 		};
 
@@ -1882,7 +1882,7 @@
 				sound-dai = <&tegra_sfc4 SFC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_SFC4>;
+				sound-dai = <&tegra_axbar XBAR_SFC4_TX>;
 			};
 		};
 
@@ -2041,7 +2041,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MVC1>;
+				sound-dai = <&tegra_axbar XBAR_MVC1_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_mvc1 MVC_IN>;
@@ -2054,7 +2054,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_MVC2>;
+				sound-dai = <&tegra_axbar XBAR_MVC2_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_mvc2 MVC_IN>;
@@ -2070,7 +2070,7 @@
 				sound-dai = <&tegra_mvc1 MVC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MVC1>;
+				sound-dai = <&tegra_axbar XBAR_MVC1_TX>;
 			};
 		};
 
@@ -2082,7 +2082,7 @@
 				sound-dai = <&tegra_mvc2 MVC_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_MVC2>;
+				sound-dai = <&tegra_axbar XBAR_MVC2_TX>;
 			};
 		};
 
@@ -2091,7 +2091,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_OPE1>;
+				sound-dai = <&tegra_axbar XBAR_OPE1_RX>;
 			};
 			codec {
 				sound-dai = <&tegra_ope1 OPE_IN>;
@@ -2107,7 +2107,7 @@
 				sound-dai = <&tegra_ope1 OPE_OUT>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_OPE1>;
+				sound-dai = <&tegra_axbar XBAR_OPE1_TX>;
 			};
 		};
 
@@ -2116,7 +2116,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF1>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN1>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN1>;
@@ -2129,7 +2129,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF2>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN2>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN2>;
@@ -2142,7 +2142,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF3>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN3>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN3>;
@@ -2155,7 +2155,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF4>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN4>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN4>;
@@ -2168,7 +2168,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF5>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN5>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN5>;
@@ -2181,7 +2181,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF6>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN6>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN6>;
@@ -2194,7 +2194,7 @@
 
 			link-type = <C2C_LINK>;
 			cpu {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF7>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_IN7>;
 			};
 			codec {
 				sound-dai = <&tegra_asrc ASRC_IN7>;
@@ -2210,7 +2210,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT1>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF1>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT1>;
 			};
 		};
 
@@ -2222,7 +2222,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT2>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF2>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT2>;
 			};
 		};
 
@@ -2234,7 +2234,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT3>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF3>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT3>;
 			};
 		};
 
@@ -2246,7 +2246,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT4>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF4>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT4>;
 			};
 		};
 
@@ -2258,7 +2258,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT5>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF5>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT5>;
 			};
 		};
 
@@ -2270,7 +2270,7 @@
 				sound-dai = <&tegra_asrc ASRC_OUT6>;
 			};
 			codec {
-				sound-dai = <&tegra_axbar XBAR_ASRC_IF6>;
+				sound-dai = <&tegra_axbar XBAR_ASRC_OUT6>;
 			};
 		};
 

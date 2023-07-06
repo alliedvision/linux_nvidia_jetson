@@ -1,0 +1,44 @@
+# copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+###############################################################################
+
+# Set the Makefile config macros to zero by default
+OSI_STRIPPED_LIB := 0
+OSI_DEBUG := 0
+DEBUG_MACSEC := 0
+
+ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),1)
+        NV_COMPONENT_CFLAGS += -DOSI_STRIPPED_LIB
+	OSI_STRIPPED_LIB := 1
+else
+        NV_COMPONENT_CFLAGS += -DOSI_DEBUG
+        NV_COMPONENT_CFLAGS += -DDEBUG_MACSEC
+	OSI_DEBUG := 1
+	DEBUG_MACSEC := 1
+endif
+NV_COMPONENT_CFLAGS += -DHSI_SUPPORT
+NV_COMPONENT_CFLAGS += -DMACSEC_SUPPORT
+NV_COMPONENT_CFLAGS += -DLOG_OSI
+
+#NV_COMPONENT_CFLAGS += -DMACSEC_KEY_PROGRAM
+HSI_SUPPORT := 1
+MACSEC_SUPPORT := 1
+ccflags-y += $(NV_COMPONENT_CFLAGS)

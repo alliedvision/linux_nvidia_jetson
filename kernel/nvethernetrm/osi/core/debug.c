@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,10 +32,10 @@
  *
  */
 static void core_dump_struct(struct osi_core_priv_data *osi_core,
-			     unsigned char *ptr,
+			     nveu8_t *ptr,
 			     unsigned long size)
 {
-	nveu32_t i = 0, rem, j;
+	nveu32_t i = 0, rem, j = 0;
 	unsigned long temp;
 
 	if (ptr == OSI_NULL) {
@@ -72,40 +72,40 @@ void core_structs_dump(struct osi_core_priv_data *osi_core)
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "CORE struct size = %lu",
 				 sizeof(struct osi_core_priv_data));
-	core_dump_struct(osi_core, (unsigned char *)osi_core,
+	core_dump_struct(osi_core, (nveu8_t *)osi_core,
 			 sizeof(struct osi_core_priv_data));
 #ifdef MACSEC_SUPPORT
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "MACSEC ops size = %lu",
 				 sizeof(struct osi_macsec_core_ops));
-	core_dump_struct(osi_core, (unsigned char *)osi_core->macsec_ops,
+	core_dump_struct(osi_core, (nveu8_t *)osi_core->macsec_ops,
 			 sizeof(struct osi_macsec_core_ops));
 
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "MACSEC LUT status size = %lu",
 				 sizeof(struct osi_macsec_lut_status));
-	core_dump_struct(osi_core, (unsigned char *)osi_core->macsec_ops,
+	core_dump_struct(osi_core, (nveu8_t *)osi_core->macsec_ops,
 			 sizeof(struct osi_macsec_lut_status));
 #endif
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "HW features size = %lu",
 				 sizeof(struct osi_hw_features));
-	core_dump_struct(osi_core, (unsigned char *)osi_core->hw_feature,
+	core_dump_struct(osi_core, (nveu8_t *)osi_core->hw_feature,
 			 sizeof(struct osi_hw_features));
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "core local size = %lu",
 				 sizeof(struct core_local));
-	core_dump_struct(osi_core, (unsigned char *)l_core,
+	core_dump_struct(osi_core, (nveu8_t *)l_core,
 			 sizeof(struct core_local));
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "core ops size = %lu",
 				 sizeof(struct core_ops));
-	core_dump_struct(osi_core, (unsigned char *)l_core->ops_p,
+	core_dump_struct(osi_core, (nveu8_t *)l_core->ops_p,
 			 sizeof(struct core_ops));
 	osi_core->osd_ops.printf(osi_core, OSI_DEBUG_TYPE_STRUCTS,
 				 "if_ops_p struct size = %lu",
 				 sizeof(struct if_core_ops));
-	core_dump_struct(osi_core, (unsigned char *)l_core->if_ops_p,
+	core_dump_struct(osi_core, (nveu8_t *)l_core->if_ops_p,
 			 sizeof(struct if_core_ops));
 }
 
@@ -116,9 +116,9 @@ void core_structs_dump(struct osi_core_priv_data *osi_core)
  */
 void core_reg_dump(struct osi_core_priv_data *osi_core)
 {
-	unsigned int max_addr;
-	unsigned int addr = 0x0;
-	unsigned int reg_val;
+	nveu32_t max_addr;
+	nveu32_t addr = 0x0;
+	nveu32_t reg_val;
 
 	switch (osi_core->mac_ver) {
 	case OSI_EQOS_MAC_5_00:

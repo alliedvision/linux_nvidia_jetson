@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -10,6 +10,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  */
+
+#include <linux/version.h>
 
 #include <dce.h>
 #include <dce-ipc.h>
@@ -287,6 +289,9 @@ int dce_ipc_channel_init(struct tegra_dce *d, u32 ch_type)
 	struct dce_ipc_region *r;
 	struct dce_ipc_channel *ch;
 	struct dce_ipc_queue_info *q_info;
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	struct iosys_map rx, tx;
+#endif
 
 	if (ch_type >= DCE_IPC_CH_KMD_TYPE_MAX) {
 		dce_err(d, "Invalid ivc channel ch_type : [%d]", ch_type);
@@ -336,15 +341,23 @@ int dce_ipc_channel_init(struct tegra_dce *d, u32 ch_type)
 
 	dev = dev_from_dce(d);
 
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	iosys_map_set_vaddr_iomem(&rx, r->base + r->s_offset);
+	iosys_map_set_vaddr_iomem(&tx, r->base + r->s_offset + q_sz);
+
+	ret = tegra_ivc_init(&ch->d_ivc, NULL, &rx, r->iova + r->s_offset, &tx,
+			r->iova + r->s_offset + q_sz, q_info->nframes, msg_sz,
+			dce_ipc_signal_target, NULL);
+#else
 	ret = tegra_ivc_init(&ch->d_ivc, NULL, r->base + r->s_offset,
 			r->iova + r->s_offset, r->base + r->s_offset + q_sz,
 			r->iova + r->s_offset + q_sz, q_info->nframes, msg_sz,
 			dce_ipc_signal_target, NULL);
+#endif
 	if (ret) {
 		dce_err(d, "IVC creation failed");
 		goto out_lock_destroy;
 	}
-
 
 	ch->flags |= DCE_IPC_CHANNEL_INITIALIZED;
 
@@ -424,20 +437,19 @@ out:
  */
 bool dce_ipc_channel_is_ready(struct tegra_dce *d, u32 ch_type)
 {
-	bool ret;
+	bool is_est;
 
 	struct dce_ipc_channel *ch = d->d_ipc.ch[ch_type];
 
 	dce_mutex_lock(&ch->lock);
 
-	ret = (tegra_ivc_notified(&ch->d_ivc) ? false : true);
+	is_est = (tegra_ivc_notified(&ch->d_ivc) ? false : true);
 
-	if (ret == false)
-		ch->signal.notify(d, &ch->signal.to_d);
+	ch->signal.notify(d, &ch->signal.to_d);
 
 	dce_mutex_unlock(&ch->lock);
 
-	return ret;
+	return is_est;
 }
 
 /**
@@ -512,6 +524,15 @@ void dce_ipc_channel_reset(struct tegra_dce *d, u32 ch_type)
  */
 static int _dce_ipc_get_next_write_buff(struct dce_ipc_channel *ch)
 {
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	int err;
+
+	err = tegra_ivc_write_get_next_frame(&ch->d_ivc, &ch->obuff);
+	if (err) {
+		iosys_map_clear(&ch->obuff);
+		return err;
+	}
+#else
 	void *frame = NULL;
 
 	frame = tegra_ivc_write_get_next_frame(&ch->d_ivc);
@@ -522,6 +543,7 @@ static int _dce_ipc_get_next_write_buff(struct dce_ipc_channel *ch)
 	}
 
 	ch->obuff = frame;
+#endif
 	return 0;
 }
 
@@ -544,6 +566,16 @@ static int _dce_ipc_write_channel(struct dce_ipc_channel *ch,
 	 * of the IVC frame
 	 */
 
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	if ((ch->flags & DCE_IPC_CHANNEL_MSG_HEADER) != 0U) {
+		iosys_map_wr_field(&ch->obuff, 0, struct dce_ipc_header, length,
+				   size);
+		iosys_map_incr(&ch->obuff, sizeof(*hdr));
+	}
+
+	if (data && size > 0)
+		iosys_map_memcpy_to(&ch->obuff, 0, data, size);
+#else
 	if ((ch->flags & DCE_IPC_CHANNEL_MSG_HEADER) != 0U) {
 		hdr = (struct dce_ipc_header *)ch->obuff;
 		hdr->length = (uint32_t)size;
@@ -552,6 +584,7 @@ static int _dce_ipc_write_channel(struct dce_ipc_channel *ch,
 
 	if (data && size > 0)
 		memcpy(ch->obuff, data, size);
+#endif
 
 	return tegra_ivc_write_advance(&ch->d_ivc);
 }
@@ -608,6 +641,15 @@ out:
  */
 static int _dce_ipc_get_next_read_buff(struct dce_ipc_channel *ch)
 {
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	int err;
+
+	err = tegra_ivc_read_get_next_frame(&ch->d_ivc, &ch->ibuff);
+	if (err) {
+		iosys_map_clear(&ch->ibuff);
+		return err;
+	}
+#else
 	void *frame = NULL;
 
 	frame = tegra_ivc_read_get_next_frame(&ch->d_ivc);
@@ -618,6 +660,7 @@ static int _dce_ipc_get_next_read_buff(struct dce_ipc_channel *ch)
 	}
 
 	ch->ibuff = frame;
+#endif
 	return 0;
 }
 
@@ -639,6 +682,16 @@ static int _dce_ipc_read_channel(struct dce_ipc_channel *ch,
 	 * Get actual length information from the top
 	 * of the IVC frame
 	 */
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	if ((ch->flags & DCE_IPC_CHANNEL_MSG_HEADER) != 0U) {
+		iosys_map_wr_field(&ch->ibuff, 0, struct dce_ipc_header, length,
+				   size);
+		iosys_map_incr(&ch->ibuff, sizeof(*hdr));
+	}
+
+	if (data && size > 0)
+		iosys_map_memcpy_from(data, &ch->ibuff, 0, size);
+#else
 	if ((ch->flags & DCE_IPC_CHANNEL_MSG_HEADER) != 0U) {
 		hdr = (struct dce_ipc_header *)ch->ibuff;
 		size = (size_t)(hdr->length);
@@ -647,6 +700,7 @@ static int _dce_ipc_read_channel(struct dce_ipc_channel *ch,
 
 	if (data && size > 0)
 		memcpy(data, ch->ibuff, size);
+#endif
 
 	return tegra_ivc_read_advance(&ch->d_ivc);
 }
@@ -791,14 +845,23 @@ int dce_ipc_get_region_iova_info(struct tegra_dce *d, u64 *iova, u32 *size)
 bool dce_ipc_is_data_available(struct tegra_dce *d, u32 ch_type)
 {
 	bool ret = false;
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	struct iosys_map map;
+#else
 	void *frame;
+#endif
 	struct dce_ipc_channel *ch = d->d_ipc.ch[ch_type];
 
 	dce_mutex_lock(&ch->lock);
 
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	if (!tegra_ivc_read_get_next_frame(&ch->d_ivc, &map))
+		ret = true;
+#else
 	frame = tegra_ivc_read_get_next_frame(&ch->d_ivc);
 	if (!IS_ERR(frame))
 		ret = true;
+#endif
 
 	dce_mutex_unlock(&ch->lock);
 

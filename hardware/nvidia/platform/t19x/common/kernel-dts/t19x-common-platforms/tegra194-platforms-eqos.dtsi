@@ -36,8 +36,8 @@
 		nvidia,mtl-queues = <0>;
 		nvidia,rx-queue-prio = <0x2>;
 		nvidia,tx-queue-prio = <0x0>;
-		/* 0=enable, 1=disable */
-		nvidia,pause_frames = <0>;
+		/* 1=enable, 0=disable */
+		nvidia,pause_frames = <1>;
 		nvidia,phy-reset-gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(G, 5) 0>;
 		phy-mode = "rgmii-id";
 		phy-handle = <&phy>;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,7 +35,7 @@ static void dump_struct(struct osi_dma_priv_data *osi_dma,
 			unsigned char *ptr,
 			unsigned long size)
 {
-	nveu32_t i = 0, rem, j;
+	nveu32_t i = 0, rem, j = 0;
 	unsigned long temp;
 
 	if (ptr == OSI_NULL) {
@@ -129,7 +129,9 @@ void reg_dump(struct osi_dma_priv_data *osi_dma)
 		max_addr = 0x14EC;
 		break;
 	case OSI_MGBE_MAC_3_10:
+#ifndef OSI_STRIPPED_LIB
 	case OSI_MGBE_MAC_4_00:
+#endif
 		addr = 0x3100;
 		max_addr = 0x35FC;
 		break;
@@ -205,9 +207,9 @@ static void tx_desc_dump(struct osi_dma_priv_data *osi_dma, unsigned int f_idx,
 		int cnt;
 
 		if (f_idx > l_idx) {
-			cnt = l_idx + osi_dma->tx_ring_sz - f_idx;
+			cnt = (int)(l_idx + osi_dma->tx_ring_sz - f_idx);
 		} else {
-			cnt = l_idx - f_idx;
+			cnt = (int)(l_idx - f_idx);
 		}
 
 		for (i = f_idx; cnt >= 0; cnt--) {
@@ -250,6 +252,8 @@ void desc_dump(struct osi_dma_priv_data *osi_dma, unsigned int f_idx,
 		rx_desc_dump(osi_dma, f_idx, chan);
 		break;
 	default:
+		OSI_DMA_ERR(osi_dma->osd, OSI_LOG_ARG_INVALID,
+			    "Invalid desc dump flag\n", 0ULL);
 		break;
 	}
 }

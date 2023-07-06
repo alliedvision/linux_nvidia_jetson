@@ -1,6 +1,6 @@
 ################################### tell Emacs this is a -*- makefile-gmake -*-
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -20,30 +20,35 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 #
-# libnvethernetrm interface export
-#
 ###############################################################################
-osi_init_core_ops
-osi_write_phy_reg
-osi_read_phy_reg
-osi_hw_core_init
-osi_hw_core_deinit
-osi_get_core
-osi_handle_ioctl
-#Below need to be enabled when MACSEC is enabled
-#osi_macsec_en
-#osi_macsec_deinit
-#osi_macsec_ns_isr
-#osi_macsec_s_isr
-#osi_macsec_init
-#osi_macsec_cipher_config
-#osi_macsec_config
-#osi_init_macsec_ops
-#osi_macsec_config_lut
-#osi_macsec_loopback
-#osi_macsec_read_mmc
-#osi_macsec_config_dbg_buf
-#osi_macsec_dbg_events_config
-#osi_macsec_config_kt
-#osi_macsec_get_sc_lut_key_index
-#osi_macsec_update_mtu
+
+ifdef NV_COMPONENT_FLAG_STATIC_LIBRARY_SECTION
+include $(NV_BUILD_START_COMPONENT)
+
+NV_COMPONENT_STRICT_WARNINGS_qnx_64 := 1
+
+NV_COMPONENT_NAME              := nvethernetcl
+NV_COMPONENT_OWN_INTERFACE_DIR := .
+NV_COMPONENT_SOURCES           := \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/eqos_dma.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/osi_dma.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/osi_dma_txrx.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/mgbe_dma.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/eqos_desc.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/mgbe_desc.c \
+	$(NV_SOURCE)/nvethernetrm/osi/dma/debug.c \
+	$(NV_SOURCE)/nvethernetrm/osi/common/osi_common.c \
+	$(NV_SOURCE)/nvethernetrm/osi/common/eqos_common.c \
+	$(NV_SOURCE)/nvethernetrm/osi/common/mgbe_common.c
+
+NV_COMPONENT_INCLUDES          := \
+	$(NV_SOURCE)/nvethernetrm/include \
+	$(NV_SOURCE)/nvethernetrm/osi/common/include
+
+ifeq ($(NV_BUILD_CONFIGURATION_IS_SAFETY),0)
+	NV_COMPONENT_CFLAGS            += -DOSI_DEBUG
+else
+	NV_COMPONENT_CFLAGS            += -DOSI_STRIPPED_LIB
+endif
+include $(NV_BUILD_STATIC_LIBRARY)
+endif

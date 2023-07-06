@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/armv7_pmu.c
  *
- * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,7 +28,6 @@
 #include "armv7_pmu.h"
 #include "armv7_events.h"
 #include "quadd.h"
-#include "debug.h"
 
 static DEFINE_PER_CPU(struct quadd_pmu_ctx, pmu_ctx);
 
@@ -514,8 +513,6 @@ static void pmu_start(void)
 		reset_all_counters();
 		enable_all_counters();
 	}
-
-	qm_debug_start_source(QUADD_EVENT_SOURCE_PMU);
 }
 
 static void pmu_stop(void)
@@ -532,8 +529,6 @@ static void pmu_stop(void)
 			write_counter(idx, 0);
 		}
 	}
-
-	qm_debug_stop_source(QUADD_EVENT_SOURCE_PMU);
 }
 
 static int
@@ -590,9 +585,6 @@ pmu_read(struct quadd_event_data *events, int max_events)
 		events->delta = delta;
 
 		*prevp = val;
-
-		qm_debug_read_counter(&events->event, events->prev_val,
-				      events->val);
 
 		if (++i >= max_events)
 			break;

@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/main.c
  *
- * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -28,7 +28,6 @@
 #include "hrt.h"
 #include "comm.h"
 #include "mmap.h"
-#include "debug.h"
 #include "tegra.h"
 #include "power_clk.h"
 #include "auth.h"
@@ -191,6 +190,12 @@ static inline bool
 validate_freq(unsigned int freq)
 {
 	return freq >= 100 && freq <= 100000;
+}
+
+static inline bool
+validate_clk_freq(unsigned int freq)
+{
+	return freq > 0 && freq <= 1000;
 }
 
 static int
@@ -364,6 +369,11 @@ set_parameters(struct quadd_parameters *p)
 		return -EINVAL;
 
 	if (ctx.mode_is_sampling && !validate_freq(p->freq))
+		return -EINVAL;
+
+	if (p->power_rate_freq != 0 && !validate_clk_freq(p->power_rate_freq))
+		return -EINVAL;
+	if (p->ma_freq != 0 && !validate_clk_freq(p->ma_freq))
 		return -EINVAL;
 
 	ctx.exclude_user =
@@ -748,7 +758,7 @@ static inline void pmu_deinit(void)
 
 int quadd_late_init(void)
 {
-	int i, nr_events, nr_ctrs, err;
+	int nr_events, nr_ctrs, err;
 	unsigned int raw_event_mask;
 	struct quadd_event *events;
 	struct source_info *pmu_info;
@@ -784,13 +794,6 @@ int quadd_late_init(void)
 			pmu_info->nr_supp_events = nr_events;
 			pmu_info->raw_event_mask = raw_event_mask;
 			pmu_info->nr_ctrs = nr_ctrs;
-
-			pr_debug("CPU: %d PMU: events: %d, raw mask: %#x\n",
-				 cpuid, nr_events, raw_event_mask);
-
-			for (i = 0; i < nr_events; i++)
-				pr_debug("CPU: %d PMU event: %s\n", cpuid,
-					 quadd_get_hw_event_str(events[i].id));
 		}
 	}
 

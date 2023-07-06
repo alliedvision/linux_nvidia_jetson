@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,6 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#ifdef OSI_DEBUG
 #ifndef INCLUDED_CORE_DEBUG_H
 #define INCLUDED_CORE_DEBUG_H
 
@@ -32,3 +33,4 @@ void core_reg_dump(struct osi_core_priv_data *osi_core);
 void core_structs_dump(struct osi_core_priv_data *osi_core);
 
 #endif /* INCLUDED_CORE_DEBUG_H*/
+#endif /* OSI_DEBUG */

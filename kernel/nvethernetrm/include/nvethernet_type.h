@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,8 +37,6 @@ typedef unsigned int		my_uint32_t;
 typedef int			my_int32_t;
 /** intermediate type for unsigned short */
 typedef unsigned short		my_uint16_t;
-/** intermediate type for short */
-typedef short			my_int16_t;
 /** intermediate type for char */
 typedef char			my_int8_t;
 /** intermediate type for unsigned char */
@@ -55,8 +53,6 @@ typedef my_uint32_t		nveu32_t;
 typedef my_int32_t		nve32_t;
 /** typedef equivalent to unsigned short */
 typedef my_uint16_t		nveu16_t;
-/** typedef equivalent to short */
-typedef my_int16_t		nve16_t;
 /** typedef equivalent to char */
 typedef my_int8_t		nve8_t;
 /** typedef equivalent to unsigned char */
@@ -68,3 +64,4 @@ typedef my_uint64_t		nveu64_t;
 /** @} */
 
 #endif /* INCLUDED_TYPE_H */
+

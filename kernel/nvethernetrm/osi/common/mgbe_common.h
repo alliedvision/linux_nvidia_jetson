@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,7 @@
 #define INCLUDED_MGBE_COMMON_H
 
 /**
- * @addtogroup MGBE-MAC MGBE MAC common HW feature registers
+ * @addtogroup MGBE-MAC MAC register offsets
  *
  * @{
  */

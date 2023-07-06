@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,6 +42,7 @@
 #include <linux/stat.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/iommu.h>
 
 #include <linux/uaccess.h>
 #include <linux/fs.h>
@@ -137,6 +138,8 @@
 #define SDHCI_TEGRA_AUTO_CAL_STATUS			0x1ec
 #define SDHCI_TEGRA_AUTO_CAL_ACTIVE			BIT(31)
 
+#define SDHCI_TEGRA_CIF2AXI_CTRL_0			0x1fc
+
 #define NVQUIRK_FORCE_SDHCI_SPEC_200			BIT(0)
 #define NVQUIRK_ENABLE_BLOCK_GAP_DET			BIT(1)
 #define NVQUIRK_ENABLE_SDHCI_SPEC_300			BIT(2)
@@ -167,6 +170,8 @@
 #define NVQUIRK_HAS_TMCLK				BIT(14)
 #define NVQUIRK_ENABLE_PERIODIC_CALIB			BIT(15)
 #define NVQUIRK_ENABLE_TUNING_DQ_OFFSET			BIT(16)
+#define NVQUIRK_PROGRAM_MC_STREAMID			BIT(17)
+
 #define SDHCI_TEGRA_FALLBACK_CLK_HZ			400000
 
 #define MAX_TAP_VALUE		256
@@ -222,6 +227,7 @@ struct sdhci_tegra_soc_data {
 	u32 nvquirks;
 	u8 min_tap_delay;
 	u8 max_tap_delay;
+	unsigned int min_host_clk;
 	bool use_bwmgr;
 };
 
@@ -304,6 +310,7 @@ struct sdhci_tegra {
 	bool defer_calib;
 	bool wake_enable_failed;
 	bool enable_cqic;
+	u32 streamid;
 };
 
 static void sdhci_tegra_debugfs_init(struct sdhci_host *host);
@@ -1369,6 +1376,8 @@ static void tegra_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	 */
 	if (!tegra_host->skip_clk_rst) {
 		host_clk = tegra_sdhci_apply_clk_limits(host, clock);
+		if (host_clk < tegra_host->soc_data->min_host_clk)
+			host_clk = tegra_host->soc_data->min_host_clk;
 		clk_set_rate(pltfm_host->clk, host_clk);
 		tegra_host->curr_clk_rate = clk_get_rate(pltfm_host->clk);
 		if (tegra_host->ddr_signaling)
@@ -2685,10 +2694,12 @@ static const struct sdhci_tegra_soc_data soc_data_tegra234 = {
 		    NVQUIRK_CONTROL_TRIMMER_SUPPLY |
 		    NVQUIRK_ENABLE_SDR50 |
 		    NVQUIRK_SDMMC_CLK_OVERRIDE |
+		    NVQUIRK_PROGRAM_MC_STREAMID |
 		    NVQUIRK_ENABLE_SDR104 |
 		    NVQUIRK_HAS_TMCLK,
 	.min_tap_delay = 95,
 	.max_tap_delay = 111,
+	.min_host_clk = 20000000,
 	.use_bwmgr = false,
 };
 
@@ -2812,6 +2823,7 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_tegra *tegra_host;
 	struct clk *clk;
+	struct iommu_fwspec *fwspec;
 	int rc;
 
 	match = of_match_device(sdhci_tegra_dt_match, &pdev->dev);
@@ -3056,6 +3068,23 @@ static int sdhci_tegra_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* Program MC streamID for DMA transfers */
+	if (soc_data->nvquirks & NVQUIRK_PROGRAM_MC_STREAMID) {
+		fwspec = dev_iommu_fwspec_get(&pdev->dev);
+		if (fwspec == NULL) {
+			rc = -ENODEV;
+			dev_err(mmc_dev(host->mmc),
+				"failed to get MC streamid: %d\n",
+				rc);
+			goto err_rst_get;
+		} else {
+			tegra_host->streamid = fwspec->ids[0] & 0xffff;
+			tegra_sdhci_writel(host, tegra_host->streamid |
+						(tegra_host->streamid << 8),
+						SDHCI_TEGRA_CIF2AXI_CTRL_0);
+		}
+	}
+
 	tegra_host->is_probe_done = true;
 
 	schedule_delayed_work(&tegra_host->detect_delay,
@@ -3295,6 +3324,13 @@ static int __maybe_unused sdhci_tegra_resume(struct device *dev)
 	ret = tegra_sdhci_set_host_clock(host, true);
 	if (ret)
 		return ret;
+
+	/* Re-program MC streamID for DMA transfers */
+	if (tegra_host->soc_data->nvquirks & NVQUIRK_PROGRAM_MC_STREAMID) {
+		tegra_sdhci_writel(host, tegra_host->streamid |
+					(tegra_host->streamid << 8),
+					SDHCI_TEGRA_CIF2AXI_CTRL_0);
+	}
 
 	ret = sdhci_resume_host(host);
 	if (ret)

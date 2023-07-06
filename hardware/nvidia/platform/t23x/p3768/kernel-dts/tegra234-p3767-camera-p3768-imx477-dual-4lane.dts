@@ -10,10 +10,12 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-common/jetson/tegra234-p3767-0000-common.h>
+
 / {
 	overlay-name = "Camera IMX477 Dual 4 Lane";
 	jetson-header-name = "Jetson 24pin CSI Connector";
-	compatible = "nvidia,p3768-0000+p3767-0000";
+        compatible = JETSON_COMPATIBLE_P3768;
 
 	/* IMX477 4 lane sensor module */
 	fragment@0 {

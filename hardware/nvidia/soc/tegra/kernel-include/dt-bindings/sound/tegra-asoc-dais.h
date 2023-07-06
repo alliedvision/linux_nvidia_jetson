@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -39,7 +39,6 @@
  * in the drivers.
  */
 
-/* common XBAR dais */
 #define XBAR_ADMAIF1			0
 #define XBAR_ADMAIF2			1
 #define XBAR_ADMAIF3			2
@@ -50,109 +49,148 @@
 #define XBAR_ADMAIF8			7
 #define XBAR_ADMAIF9			8
 #define XBAR_ADMAIF10			9
-#define XBAR_I2S1			10
-#define XBAR_I2S2			11
-#define XBAR_I2S3			12
-#define XBAR_I2S4			13
-#define XBAR_I2S5			14
-#define XBAR_SFC1			15
-#define XBAR_SFC2			16
-#define XBAR_SFC3			17
-#define XBAR_SFC4			18
-#define XBAR_MIXER_IF1			19
-#define XBAR_MIXER_IF2			20
-#define XBAR_MIXER_IF3			21
-#define XBAR_MIXER_IF4			22
-#define XBAR_MIXER_IF5			23
-#define XBAR_MIXER_IF6			24
-#define XBAR_MIXER_IF7			25
-#define XBAR_MIXER_IF8			26
-#define XBAR_MIXER_IF9			27
-#define XBAR_MIXER_IF10			28
-#define XBAR_AFC1			29
-#define XBAR_AFC2			30
-#define XBAR_AFC3			31
-#define XBAR_AFC4			32
-#define XBAR_AFC5			33
-#define XBAR_AFC6			34
-#define XBAR_OPE1			35
-#define XBAR_SPKPROT			36
-#define XBAR_MVC1			37
-#define XBAR_MVC2			38
-#define XBAR_IQC1_1			39
-#define XBAR_IQC1_2			40
-#define XBAR_IQC2_1			41
-#define XBAR_IQC2_2			42
-#define XBAR_DMIC1			43
-#define XBAR_DMIC2			44
-#define XBAR_DMIC3			45
-#define XBAR_AMX1_OUT			46
-#define XBAR_AMX1_IN1			47
-#define XBAR_AMX1_IN2			48
-#define XBAR_AMX1_IN3			49
-#define XBAR_AMX1_IN4			50
-#define XBAR_AMX2_OUT			51
-#define XBAR_AMX2_IN1			52
-#define XBAR_AMX2_IN2			53
-#define XBAR_AMX2_IN3			54
-#define XBAR_AMX2_IN4			55
-#define XBAR_ADX1_OUT1			56
-#define XBAR_ADX1_OUT2			57
-#define XBAR_ADX1_OUT3			58
-#define XBAR_ADX1_OUT4			59
-#define XBAR_ADX1_IN			60
-#define XBAR_ADX2_OUT1			61
-#define XBAR_ADX2_OUT2			62
-#define XBAR_ADX2_OUT3			63
-#define XBAR_ADX2_OUT4			64
-#define XBAR_ADX2_IN			65
-/* Tegra210 specific XBAR DAIs */
-#define XBAR_OPE2			66
-/* Tegra186 specific XBAR DAIs */
-#define XBAR_ADMAIF11			66
-#define XBAR_ADMAIF12			67
-#define XBAR_ADMAIF13			68
-#define XBAR_ADMAIF14			69
-#define XBAR_ADMAIF15			70
-#define XBAR_ADMAIF16			71
-#define XBAR_ADMAIF17			72
-#define XBAR_ADMAIF18			73
-#define XBAR_ADMAIF19			74
-#define XBAR_ADMAIF20			75
-#define XBAR_I2S6			76
-#define XBAR_AMX3_OUT			77
-#define XBAR_AMX3_IN1			78
-#define XBAR_AMX3_IN2			79
-#define XBAR_AMX3_IN3			80
-#define XBAR_AMX3_IN4			81
-#define XBAR_AMX4_OUT			82
-#define XBAR_AMX4_IN1			83
-#define XBAR_AMX4_IN2			84
-#define XBAR_AMX4_IN3			85
-#define XBAR_AMX4_IN4			86
-#define XBAR_ADX3_OUT1			87
-#define XBAR_ADX3_OUT2			88
-#define XBAR_ADX3_OUT3			89
-#define XBAR_ADX3_OUT4			90
-#define XBAR_ADX3_IN			91
-#define XBAR_ADX4_OUT1			92
-#define XBAR_ADX4_OUT2			93
-#define XBAR_ADX4_OUT3			94
-#define XBAR_ADX4_OUT4			95
-#define XBAR_ADX4_IN			96
-#define XBAR_DMIC4			97
-#define XBAR_ASRC_IF1			98
-#define XBAR_ASRC_IF2			99
-#define XBAR_ASRC_IF3			100
-#define XBAR_ASRC_IF4			101
-#define XBAR_ASRC_IF5			102
-#define XBAR_ASRC_IF6			103
-#define XBAR_ASRC_IF7			104
-#define XBAR_ARAD			105
-#define XBAR_DSPK1			106
-#define XBAR_DSPK2			107
+#define XBAR_ADMAIF11			10
+#define XBAR_ADMAIF12			11
+#define XBAR_ADMAIF13			12
+#define XBAR_ADMAIF14			13
+#define XBAR_ADMAIF15			14
+#define XBAR_ADMAIF16			15
+#define XBAR_ADMAIF17			16
+#define XBAR_ADMAIF18			17
+#define XBAR_ADMAIF19			18
+#define XBAR_ADMAIF20			19
+#define XBAR_I2S1			20
+#define XBAR_I2S2			21
+#define XBAR_I2S3			22
+#define XBAR_I2S4			23
+#define XBAR_I2S5			24
+#define XBAR_I2S6			25
+#define XBAR_DMIC1			26
+#define XBAR_DMIC2			27
+#define XBAR_DMIC3			28
+#define XBAR_DMIC4			29
+#define XBAR_DSPK1			30
+#define XBAR_DSPK2			31
+#define XBAR_SFC1_RX			32
 
-/* common ADMAIF DAIs */
+/*
+ * TODO As per downstream kernel code there will be routing issue
+ * if DAI names are updated for SFC, MVC and OPE input and
+ * output. Due to that using single DAI with same name as downstream
+ * kernel for input and output and added output DAIs just to keep
+ * similar to upstream kernel, so that it will be easy to upstream
+ * later.
+ *
+ * Once the routing changes are done for above mentioned modules,
+ * use the commented output dai index and define output dai
+ * links in tegra186-audio-graph.dtsi
+ */
+#if 0
+#define XBAR_SFC1_TX			33
+#define XBAR_SFC2_TX			35
+#define XBAR_SFC3_TX			37
+#define XBAR_SFC4_TX			39
+#define XBAR_MVC1_TX			41
+#define XBAR_MVC2_TX			43
+#define XBAR_OPE1_TX			113
+#else
+#define XBAR_SFC1_TX			XBAR_SFC1_RX
+#define XBAR_SFC2_TX			XBAR_SFC2_RX
+#define XBAR_SFC3_TX			XBAR_SFC3_RX
+#define XBAR_SFC4_TX			XBAR_SFC4_RX
+#define XBAR_MVC1_TX			XBAR_MVC1_RX
+#define XBAR_MVC2_TX			XBAR_MVC2_RX
+#define XBAR_OPE1_TX			XBAR_OPE1_RX
+#endif
+
+#define XBAR_SFC2_RX			34
+#define XBAR_SFC3_RX			36
+#define XBAR_SFC4_RX			38
+#define XBAR_MVC1_RX			40
+#define XBAR_MVC2_RX			42
+#define XBAR_AMX1_IN1			44
+#define XBAR_AMX1_IN2			45
+#define XBAR_AMX1_IN3			46
+#define XBAR_AMX1_IN4			47
+#define XBAR_AMX1_OUT			48
+#define XBAR_AMX2_IN1			49
+#define XBAR_AMX2_IN2			50
+#define XBAR_AMX2_IN3			51
+#define XBAR_AMX2_IN4			52
+#define XBAR_AMX2_OUT			53
+#define XBAR_AMX3_IN1			54
+#define XBAR_AMX3_IN2			55
+#define XBAR_AMX3_IN3			56
+#define XBAR_AMX3_IN4			57
+#define XBAR_AMX3_OUT			58
+#define XBAR_AMX4_IN1			59
+#define XBAR_AMX4_IN2			60
+#define XBAR_AMX4_IN3			61
+#define XBAR_AMX4_IN4			62
+#define XBAR_AMX4_OUT			63
+#define XBAR_ADX1_IN			64
+#define XBAR_ADX1_OUT1			65
+#define XBAR_ADX1_OUT2			66
+#define XBAR_ADX1_OUT3			67
+#define XBAR_ADX1_OUT4			68
+#define XBAR_ADX2_IN			69
+#define XBAR_ADX2_OUT1			70
+#define XBAR_ADX2_OUT2			71
+#define XBAR_ADX2_OUT3			72
+#define XBAR_ADX2_OUT4			73
+#define XBAR_ADX3_IN			74
+#define XBAR_ADX3_OUT1			75
+#define XBAR_ADX3_OUT2			76
+#define XBAR_ADX3_OUT3			77
+#define XBAR_ADX3_OUT4			78
+#define XBAR_ADX4_IN			79
+#define XBAR_ADX4_OUT1			80
+#define XBAR_ADX4_OUT2			81
+#define XBAR_ADX4_OUT3			82
+#define XBAR_ADX4_OUT4			83
+#define XBAR_MIXER_IN1			84
+#define XBAR_MIXER_IN2			85
+#define XBAR_MIXER_IN3			86
+#define XBAR_MIXER_IN4			87
+#define XBAR_MIXER_IN5			88
+#define XBAR_MIXER_IN6			89
+#define XBAR_MIXER_IN7			90
+#define XBAR_MIXER_IN8			91
+#define XBAR_MIXER_IN9			92
+#define XBAR_MIXER_IN10			93
+#define XBAR_MIXER_OUT1			94
+#define XBAR_MIXER_OUT2			95
+#define XBAR_MIXER_OUT3			96
+#define XBAR_MIXER_OUT4			97
+#define XBAR_MIXER_OUT5			98
+#define XBAR_ASRC_IN1			99
+#define XBAR_ASRC_OUT1			100
+#define XBAR_ASRC_IN2			101
+#define XBAR_ASRC_OUT2			102
+#define XBAR_ASRC_IN3			103
+#define XBAR_ASRC_OUT3			104
+#define XBAR_ASRC_IN4			105
+#define XBAR_ASRC_OUT4			106
+#define XBAR_ASRC_IN5			107
+#define XBAR_ASRC_OUT5			108
+#define XBAR_ASRC_IN6			109
+#define XBAR_ASRC_OUT6			110
+#define XBAR_ASRC_IN7			111
+#define XBAR_OPE1_RX			112
+#define XBAR_AFC1			114
+#define XBAR_AFC2			115
+#define XBAR_AFC3			116
+#define XBAR_AFC4			117
+#define XBAR_AFC5			118
+#define XBAR_AFC6			119
+#define XBAR_SPKPROT			120
+#define XBAR_IQC1_1			121
+#define XBAR_IQC1_2			122
+#define XBAR_IQC2_1			123
+#define XBAR_IQC2_2			124
+#define XBAR_ARAD			125
+
+/* ADMAIF DAIs */
 #define ADMAIF1				0
 #define ADMAIF2				1
 #define ADMAIF3				2
@@ -163,7 +201,6 @@
 #define ADMAIF8				7
 #define ADMAIF9				8
 #define ADMAIF10			9
-/* Tegra186 specific ADMAIF DAIs */
 #define ADMAIF11			10
 #define ADMAIF12			11
 #define ADMAIF13			12
@@ -180,7 +217,6 @@
  * Offset depends on the number of ADMAIF channels for a chip.
  * The DAI indices for these are derived from below offsets.
  */
-#define TEGRA210_ADMAIF_FIFO_OFFSET	10
 #define TEGRA186_ADMAIF_FIFO_OFFSET	20
 
 /*
@@ -188,7 +224,6 @@
  * Offset depends on the number of ADMAIF channels for a chip.
  * The DAI indices for these are derived from below offsets.
  */
-#define TEGRA210_ADMAIF_CIF_OFFSET	20
 #define TEGRA186_ADMAIF_CIF_OFFSET	40
 
 /* I2S */

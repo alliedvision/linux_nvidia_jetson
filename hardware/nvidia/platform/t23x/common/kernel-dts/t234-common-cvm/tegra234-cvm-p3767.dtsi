@@ -184,11 +184,17 @@
 			status = "okay";
 		};
 		linux,cma {
+			size = <0x0 0x10000000>; /* 256 MB */
 			status = "okay";
 		};
 		vpr-carveout {
 			status = "disabled";
 		};
+	};
+
+	tegra-carveouts {
+		memory-region = <&vpr>;
+		status = "okay";
 	};
 
 	tegra-cache {
@@ -266,6 +272,10 @@
 				label = "cvm";
 			};
 		};
+	};
+
+	nvpmodel {
+		status = "okay";
 	};
 
 	soctherm-oc-event {

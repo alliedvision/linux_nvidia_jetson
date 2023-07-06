@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,17 +22,13 @@
 #ifdef HSI_SUPPORT
 #include <linux/tegra-epl.h>
 #endif
-/**
- * @brief is_nv_macsec_fam_registered - Is nv macsec nl registered
- */
-static int is_nv_macsec_fam_registered = OSI_DISABLE;
 static int macsec_get_tx_next_pn(struct sk_buff *skb, struct genl_info *info);
 
 #ifndef MACSEC_KEY_PROGRAM
 static int macsec_tz_kt_config(struct ether_priv_data *pdata,
 			unsigned char cmd,
 			struct osi_macsec_kt_config *const kt_config,
-			struct genl_info *const info);
+			struct genl_info *const info, struct nvpkcs_data *pkcs);
 #endif
 
 static irqreturn_t macsec_s_isr(int irq, void *data)
@@ -40,7 +36,7 @@ static irqreturn_t macsec_s_isr(int irq, void *data)
 	struct macsec_priv_data *macsec_pdata = (struct macsec_priv_data *)data;
 	struct ether_priv_data *pdata = macsec_pdata->ether_pdata;
 
-	osi_macsec_s_isr(pdata->osi_core);
+	osi_macsec_isr(pdata->osi_core);
 
 	return IRQ_HANDLED;
 }
@@ -102,7 +98,7 @@ static irqreturn_t macsec_ns_isr(int irq, void *data)
 	struct ether_priv_data *pdata = macsec_pdata->ether_pdata;
 	int irq_ret = IRQ_HANDLED;
 
-	osi_macsec_ns_isr(pdata->osi_core);
+	osi_macsec_isr(pdata->osi_core);
 
 #ifdef HSI_SUPPORT
 	if (pdata->osi_core->hsi.enabled == OSI_ENABLE &&
@@ -285,10 +281,10 @@ int macsec_open(struct macsec_priv_data *macsec_pdata,
 		goto err_osi_init;
 	}
 
-#ifndef MACSEC_KEY_PROGRAM
+#if !defined(MACSEC_KEY_PROGRAM) && !defined(NVPKCS_MACSEC)
 	/* Clear KT entries */
-	ret = macsec_tz_kt_config(pdata, OSI_MACSEC_CMD_TZ_KT_RESET,
-				  OSI_NULL, genl_info);
+	ret = macsec_tz_kt_config(pdata, NV_MACSEC_CMD_TZ_KT_RESET,
+				  OSI_NULL, genl_info, NULL);
 	if (ret < 0) {
 		dev_err(dev, "TZ key config failed %d\n", ret);
 		goto err_osi_en;
@@ -334,7 +330,6 @@ int macsec_suspend(struct macsec_priv_data *macsec_pdata)
 		dev_err(dev, "Failed to close macsec\n");
 		return ret;
 	}
-	macsec_disable_car(macsec_pdata);
 	return ret;
 }
 
@@ -347,13 +342,18 @@ int macsec_resume(struct macsec_priv_data *macsec_pdata)
 {
 	struct ether_priv_data *pdata = macsec_pdata->ether_pdata;
 	struct device *dev = pdata->dev;
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	int ret = 0;
 
-	ret = macsec_enable_car(macsec_pdata);
-	if (ret < 0) {
-		dev_err(dev, "Unable to enable macsec clks & reset\n");
-		return ret;
+	if ((osi_core->use_virtualization == OSI_DISABLE) &&
+	    (macsec_pdata->ns_rst)) {
+		ret = reset_control_reset(macsec_pdata->ns_rst);
+		if (ret < 0) {
+			dev_err(dev, "failed to reset macsec\n");
+			return ret;
+		}
 	}
+
 	return macsec_open(macsec_pdata, OSI_NULL);
 }
 
@@ -690,7 +690,8 @@ exit:
 }
 
 static int parse_sa_config(struct nlattr **attrs, struct nlattr **tb_sa,
-			   struct osi_macsec_sc_info *sc_info)
+			   struct osi_macsec_sc_info *sc_info,
+			   struct nvpkcs_data *pkcs)
 {
 	if (!attrs[NV_MACSEC_ATTR_SA_CONFIG])
 		return -EINVAL;
@@ -713,11 +714,23 @@ static int parse_sa_config(struct nlattr **attrs, struct nlattr **tb_sa,
 	if (tb_sa[NV_MACSEC_SA_ATTR_LOWEST_PN]) {
 		sc_info->lowest_pn = nla_get_u32(tb_sa[NV_MACSEC_SA_ATTR_LOWEST_PN]);
 	}
+#ifdef NVPKCS_MACSEC
+	if (pkcs) {
+		if (tb_sa[NV_MACSEC_SA_PKCS_KEY_WRAP]) {
+			memcpy(pkcs->nv_key,
+				nla_data(tb_sa[NV_MACSEC_SA_PKCS_KEY_WRAP]),
+				sizeof(pkcs->nv_key));
+		}
+		if (tb_sa[NV_MACSEC_SA_PKCS_KEK_HANDLE]) {
+			pkcs->nv_kek = nla_get_u64(tb_sa[NV_MACSEC_SA_PKCS_KEK_HANDLE]);
+		}
+	}
+#else
 	if (tb_sa[NV_MACSEC_SA_ATTR_KEY]) {
 		memcpy(sc_info->sak, nla_data(tb_sa[NV_MACSEC_SA_ATTR_KEY]),
-			sizeof(sc_info->sak));
+		       sizeof(sc_info->sak));
 	}
-
+#endif /* NVPKCS_MACSEC */
 	return 0;
 }
 
@@ -726,7 +739,7 @@ static int macsec_dis_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info rx_sa;
+	struct osi_macsec_sc_info rx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -735,6 +748,7 @@ static int macsec_dis_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct osi_macsec_kt_config kt_config = {0};
 	struct osi_macsec_table_config *table_config;
 #endif /* !MACSEC_KEY_PROGRAM */
+	struct nvpkcs_data pkcs = {0};
 
 	PRINT_ENTRY();
 
@@ -754,7 +768,7 @@ static int macsec_dis_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &rx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &rx_sa, &pkcs)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
@@ -769,8 +783,6 @@ static int macsec_dis_rx_sa(struct sk_buff *skb, struct genl_info *info)
 		rx_sa.sci[4], rx_sa.sci[5], rx_sa.sci[6], rx_sa.sci[7],
 		rx_sa.curr_an, rx_sa.next_pn);
 	dev_info(dev, "\tkey: " KEYSTR, KEY2STR(rx_sa.sak));
-
-	rx_sa.flags = OSI_DISABLE_SA;
 
 	mutex_lock(&macsec_pdata->lock);
 	ret = osi_macsec_config(pdata->osi_core, &rx_sa, OSI_DISABLE,
@@ -787,14 +799,16 @@ static int macsec_dis_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	table_config->rw = OSI_LUT_WRITE;
 	table_config->index = kt_idx;
 
-	ret = macsec_tz_kt_config(pdata, OSI_MACSEC_CMD_TZ_CONFIG, &kt_config,
-				  info);
+	ret = macsec_tz_kt_config(pdata, NV_MACSEC_CMD_TZ_CONFIG, &kt_config,
+				  info, &pkcs);
 	if (ret < 0) {
 		dev_err(dev, "%s: failed to program SAK through TZ %d",
 			__func__, ret);
 		goto exit;
 	}
 #endif /* !MACSEC_KEY_PROGRAM */
+	/* Update the macsec pdata when AN is disabled */
+	macsec_pdata->macsec_rx_an_map &= ~((1U) << (rx_sa.curr_an & 0xFU));
 exit:
 	PRINT_EXIT();
 	return ret;
@@ -840,7 +854,7 @@ static int macsec_create_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info rx_sa;
+	struct osi_macsec_sc_info rx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -850,6 +864,7 @@ static int macsec_create_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct osi_macsec_kt_config kt_config = {0};
 	struct osi_macsec_table_config *table_config;
 #endif /* !MACSEC_KEY_PROGRAM */
+	struct nvpkcs_data pkcs = {0};
 
 	PRINT_ENTRY();
 	macsec_pdata = genl_to_macsec_pdata(info);
@@ -868,7 +883,7 @@ static int macsec_create_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &rx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &rx_sa, &pkcs)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
@@ -894,8 +909,8 @@ static int macsec_create_rx_sa(struct sk_buff *skb, struct genl_info *info)
 		ret = -EINVAL;
 		goto exit;
 	}
-#endif /* MACSEC_KEY_PROGRAM */
 	rx_sa.flags = OSI_CREATE_SA;
+#endif /* MACSEC_KEY_PROGRAM */
 
 	mutex_lock(&macsec_pdata->lock);
 	ret = osi_macsec_config(pdata->osi_core, &rx_sa, OSI_ENABLE,
@@ -914,12 +929,12 @@ static int macsec_create_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	table_config->index = kt_idx;
 	kt_config.flags |= OSI_LUT_FLAGS_ENTRY_VALID;
 
-	for (i = 0; i < OSI_KEY_LEN_128; i++) {
+	for (i = 0; i < OSI_KEY_LEN_256; i++) {
 		kt_config.entry.sak[i] = rx_sa.sak[i];
 	}
 
-	ret = macsec_tz_kt_config(pdata, OSI_MACSEC_CMD_TZ_CONFIG, &kt_config,
-				  info);
+	ret = macsec_tz_kt_config(pdata, NV_MACSEC_CMD_TZ_CONFIG, &kt_config,
+				  info, &pkcs);
 	if (ret < 0) {
 		dev_err(dev, "%s: failed to program SAK through TZ %d",
 			__func__, ret);
@@ -937,7 +952,7 @@ static int macsec_en_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info rx_sa;
+	struct osi_macsec_sc_info rx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -960,17 +975,14 @@ static int macsec_en_rx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &rx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &rx_sa, NULL)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	dev_err(dev, "%s: Enable receive SA", __func__);
-
 	rx_sa.pn_window = macsec_pdata->pn_window;
 	rx_sa.flags = OSI_ENABLE_SA;
-
 	mutex_lock(&macsec_pdata->lock);
 	ret = osi_macsec_config(pdata->osi_core, &rx_sa, OSI_ENABLE,
 				OSI_CTLR_SEL_RX, &kt_idx);
@@ -980,7 +992,8 @@ static int macsec_en_rx_sa(struct sk_buff *skb, struct genl_info *info)
 		goto exit;
 	}
 	mutex_unlock(&macsec_pdata->lock);
-
+	/* Update the macsec pdata when AN is enabled */
+	macsec_pdata->macsec_rx_an_map |= ((1U) << (rx_sa.curr_an & 0xFU));
 exit:
 	PRINT_EXIT();
 	return ret;
@@ -991,7 +1004,7 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info tx_sa;
+	struct osi_macsec_sc_info tx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -1000,6 +1013,7 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct osi_macsec_kt_config kt_config = {0};
 	struct osi_macsec_table_config *table_config;
 #endif /* !MACSEC_KEY_PROGRAM */
+	struct nvpkcs_data pkcs = {0};
 
 	PRINT_ENTRY();
 	macsec_pdata = genl_to_macsec_pdata(info);
@@ -1018,7 +1032,7 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &tx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &tx_sa, &pkcs)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
@@ -1033,8 +1047,6 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 		tx_sa.sci[4], tx_sa.sci[5], tx_sa.sci[6], tx_sa.sci[7],
 		tx_sa.curr_an, tx_sa.next_pn);
 	dev_info(dev, "\tkey: " KEYSTR, KEY2STR(tx_sa.sak));
-
-	tx_sa.flags = OSI_DISABLE_SA;
 
 	mutex_lock(&macsec_pdata->lock);
 	ret = osi_macsec_config(pdata->osi_core, &tx_sa, OSI_DISABLE,
@@ -1052,8 +1064,8 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	table_config->rw = OSI_LUT_WRITE;
 	table_config->index = kt_idx;
 
-	ret = macsec_tz_kt_config(pdata, OSI_MACSEC_CMD_TZ_CONFIG, &kt_config,
-				  info);
+	ret = macsec_tz_kt_config(pdata, NV_MACSEC_CMD_TZ_CONFIG, &kt_config,
+				  info, &pkcs);
 	if (ret < 0) {
 		dev_err(dev, "%s: failed to program SAK through TZ %d",
 			__func__, ret);
@@ -1061,6 +1073,8 @@ static int macsec_dis_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif /* !MACSEC_KEY_PROGRAM */
 
+	/* Update the macsec pdata when AN is disbled */
+	macsec_pdata->macsec_tx_an_map &= ~((1U) << (tx_sa.curr_an & 0xFU));
 exit:
 	PRINT_EXIT();
 	return ret;
@@ -1071,7 +1085,7 @@ static int macsec_create_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info tx_sa;
+	struct osi_macsec_sc_info tx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -1081,6 +1095,7 @@ static int macsec_create_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct osi_macsec_kt_config kt_config = {0};
 	struct osi_macsec_table_config *table_config;
 #endif /* !MACSEC_KEY_PROGRAM */
+	struct nvpkcs_data pkcs = {0};
 
 	PRINT_ENTRY();
 	macsec_pdata = genl_to_macsec_pdata(info);
@@ -1099,7 +1114,7 @@ static int macsec_create_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &tx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &tx_sa, &pkcs)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
@@ -1115,8 +1130,9 @@ static int macsec_create_tx_sa(struct sk_buff *skb, struct genl_info *info)
 		tx_sa.sci[4], tx_sa.sci[5], tx_sa.sci[6], tx_sa.sci[7],
 		tx_sa.curr_an, tx_sa.next_pn);
 	dev_info(dev, "\tkey: " KEYSTR, KEY2STR(tx_sa.sak));
-	tx_sa.flags = OSI_CREATE_SA;
+
 #ifdef MACSEC_KEY_PROGRAM
+	tx_sa.flags = OSI_CREATE_SA;
 	ret = hkey_generation(tx_sa.sak, tx_sa.hkey);
 	if (ret != 0) {
 		dev_err(dev, "%s: failed to Generate HKey", __func__);
@@ -1142,12 +1158,12 @@ static int macsec_create_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	table_config->index = kt_idx;
 	kt_config.flags |= OSI_LUT_FLAGS_ENTRY_VALID;
 
-	for (i = 0; i < OSI_KEY_LEN_128; i++) {
+	for (i = 0; i < OSI_KEY_LEN_256; i++) {
 		kt_config.entry.sak[i] = tx_sa.sak[i];
 	}
 
-	ret = macsec_tz_kt_config(pdata, OSI_MACSEC_CMD_TZ_CONFIG, &kt_config,
-				  info);
+	ret = macsec_tz_kt_config(pdata, NV_MACSEC_CMD_TZ_CONFIG, &kt_config,
+				  info, &pkcs);
 	if (ret < 0) {
 		dev_err(dev, "%s: failed to program SAK through TZ %d",
 			__func__, ret);
@@ -1165,7 +1181,7 @@ static int macsec_en_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **attrs = info->attrs;
 	struct macsec_priv_data *macsec_pdata;
 	struct ether_priv_data *pdata;
-	struct osi_macsec_sc_info tx_sa;
+	struct osi_macsec_sc_info tx_sa = {0};
 	struct nlattr *tb_sa[NUM_NV_MACSEC_SA_ATTR];
 	int ret = 0;
 	unsigned short kt_idx;
@@ -1188,16 +1204,14 @@ static int macsec_en_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &tx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &tx_sa, NULL)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
 	}
-	dev_info(dev, "%s: ENable Transmit SA", __func__);
 
 	tx_sa.pn_window = macsec_pdata->pn_window;
 	tx_sa.flags = OSI_ENABLE_SA;
-
 	mutex_lock(&macsec_pdata->lock);
 	ret = osi_macsec_config(pdata->osi_core, &tx_sa, OSI_ENABLE,
 				OSI_CTLR_SEL_TX, &kt_idx);
@@ -1208,7 +1222,8 @@ static int macsec_en_tx_sa(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	mutex_unlock(&macsec_pdata->lock);
-
+	/* Update the macsec pdata when AN is enabled */
+	macsec_pdata->macsec_tx_an_map |= ((1U) << (tx_sa.curr_an & 0xFU));
 exit:
 	PRINT_EXIT();
 	return ret;
@@ -1315,11 +1330,12 @@ static int macsec_init(struct sk_buff *skb, struct genl_info *info)
 		goto exit;
 	}
 	mutex_lock(&macsec_pdata->lock);
-
-	if (macsec_pdata->next_supp_idx >= OSI_MAX_NUM_SC) {
+	/* only one supplicant is allowed per VF */
+	if (macsec_pdata->next_supp_idx >= MAX_SUPPLICANTS_ALLOWED) {
 		ret = -EPROTO;
 		mutex_unlock(&macsec_pdata->lock);
-		dev_err(dev, "%s: Reached max supported supplicants", __func__);
+		dev_err(dev, "%s: Reached max supported supplicants %u", __func__,
+			macsec_pdata->next_supp_idx);
 		goto exit;
 	}
 
@@ -1345,6 +1361,8 @@ static int macsec_init(struct sk_buff *skb, struct genl_info *info)
 		ret = -EPROTO;
 		goto exit;
 	}
+	macsec_pdata->macsec_rx_an_map = 0U;
+	macsec_pdata->macsec_tx_an_map = 0U;
 done:
 	atomic_inc(&macsec_pdata->ref_count);
 	dev_info(dev, "%s: ref_count %d", __func__,
@@ -1391,7 +1409,13 @@ static int macsec_set_replay_prot(struct sk_buff *skb, struct genl_info *info)
 		goto exit;
 	}
 
-	macsec_pdata->pn_window = window;
+	/* If Replay protection is disabled from supplicant use maximum
+	 * PN window as replay protecion is already enabled in macsec_init
+	 */
+	if (replay_prot == OSI_ENABLE)
+		macsec_pdata->pn_window = window;
+	else
+		macsec_pdata->pn_window = OSI_PN_MAX_DEFAULT;
 
 exit:
 	PRINT_EXIT();
@@ -1466,16 +1490,6 @@ static const struct genl_ops nv_macsec_genl_ops[] = {
 	},
 };
 
-static struct genl_family nv_macsec_fam = {
-	.name = NV_MACSEC_GENL_NAME,
-	.hdrsize = 0,
-	.version = NV_MACSEC_GENL_VERSION,
-	.maxattr = NV_MACSEC_ATTR_MAX,
-	.module = THIS_MODULE,
-	.ops = nv_macsec_genl_ops,
-	.n_ops = ARRAY_SIZE(nv_macsec_genl_ops),
-};
-
 void macsec_remove(struct ether_priv_data *pdata)
 {
 	struct macsec_priv_data *macsec_pdata = NULL;
@@ -1503,9 +1517,9 @@ void macsec_remove(struct ether_priv_data *pdata)
 		}
 
 		/* Unregister generic netlink */
-		if (is_nv_macsec_fam_registered == OSI_ENABLE) {
-			genl_unregister_family(&nv_macsec_fam);
-			is_nv_macsec_fam_registered = OSI_DISABLE;
+		if (macsec_pdata->is_nv_macsec_fam_registered == OSI_ENABLE) {
+			genl_unregister_family(&macsec_pdata->nv_macsec_fam);
+			macsec_pdata->is_nv_macsec_fam_registered = OSI_DISABLE;
 		}
 
 		/* Release platform resources */
@@ -1544,7 +1558,7 @@ int macsec_probe(struct ether_priv_data *pdata)
 		tz_addr = (res->start - MACSEC_SIZE);
 #endif
 	} else {
-		/* MACsec not enabled in DT, nothing more to do */
+		/* MACsec not supported per DT config, nothing more to do */
 		osi_core->macsec_base = NULL;
 		osi_core->tz_base = NULL;
 		pdata->macsec_pdata = NULL;
@@ -1571,6 +1585,17 @@ int macsec_probe(struct ether_priv_data *pdata)
 	}
 	macsec_pdata->ether_pdata = pdata;
 	pdata->macsec_pdata = macsec_pdata;
+
+	/* Read if macsec is enabled in DT */
+	ret = of_property_read_u32(np, "nvidia,macsec-enable",
+				   &macsec_pdata->is_macsec_enabled_in_dt);
+	if ((ret != 0) || (macsec_pdata->is_macsec_enabled_in_dt == 0U)) {
+		dev_info(dev,
+			 "macsec param in DT is missing or disabled\n");
+		ret = 1;
+		goto init_err;
+	}
+
 	mutex_init(&pdata->macsec_pdata->lock);
 
 	/* Read MAC instance id and used in TZ api's */
@@ -1600,28 +1625,48 @@ int macsec_probe(struct ether_priv_data *pdata)
 	}
 
 	/* Enable CAR */
-	ret = macsec_enable_car(macsec_pdata);
-	if (ret < 0) {
-		dev_err(dev, "Unable to enable macsec clks & reset\n");
-		goto car_err;
+	if (osi_core->use_virtualization == OSI_DISABLE) {
+		ret = macsec_enable_car(macsec_pdata);
+		if (ret < 0) {
+			dev_err(dev, "Unable to enable macsec clks & reset\n");
+			goto car_err;
+		}
 	}
 
 	/* Register macsec generic netlink ops */
-	if (is_nv_macsec_fam_registered == OSI_DISABLE) {
-		ret = genl_register_family(&nv_macsec_fam);
+	macsec_pdata->nv_macsec_fam.hdrsize = 0;
+	macsec_pdata->nv_macsec_fam.version = NV_MACSEC_GENL_VERSION;
+	macsec_pdata->nv_macsec_fam.maxattr = NV_MACSEC_ATTR_MAX;
+	macsec_pdata->nv_macsec_fam.module = THIS_MODULE;
+	macsec_pdata->nv_macsec_fam.ops = nv_macsec_genl_ops;
+	macsec_pdata->nv_macsec_fam.n_ops = ARRAY_SIZE(nv_macsec_genl_ops);
+	if (macsec_pdata->is_nv_macsec_fam_registered == OSI_DISABLE) {
+		if (strlen(netdev_name(pdata->ndev)) >= GENL_NAMSIZ) {
+			dev_err(dev, "Intf name %s of len %lu exceed nl_family name size\n",
+				netdev_name(pdata->ndev),
+				strlen(netdev_name(pdata->ndev)));
+			ret = -1;
+			goto genl_err;
+		} else {
+			strncpy(macsec_pdata->nv_macsec_fam.name,
+				netdev_name(pdata->ndev), GENL_NAMSIZ - 1);
+		}
+		ret = genl_register_family(&macsec_pdata->nv_macsec_fam);
 			if (ret) {
 				dev_err(dev, "Failed to register GENL ops %d\n",
 					ret);
 				goto genl_err;
 			}
 
-			is_nv_macsec_fam_registered = OSI_ENABLE;
+			macsec_pdata->is_nv_macsec_fam_registered = OSI_ENABLE;
 	}
 
 	PRINT_EXIT();
 	return ret;
 genl_err:
-	macsec_disable_car(macsec_pdata);
+	if (osi_core->use_virtualization == OSI_DISABLE) {
+		macsec_disable_car(macsec_pdata);
+	}
 car_err:
 	macsec_release_platform_res(macsec_pdata);
 init_err:
@@ -1646,7 +1691,7 @@ exit:
 static int macsec_tz_kt_config(struct ether_priv_data *pdata,
 			unsigned char cmd,
 			struct osi_macsec_kt_config *const kt_config,
-			struct genl_info *const info)
+			struct genl_info *const info, struct nvpkcs_data *pkcs)
 {
 	struct sk_buff *msg;
 	struct nlattr *nest;
@@ -1665,12 +1710,8 @@ static int macsec_tz_kt_config(struct ether_priv_data *pdata,
 		goto fail;
 	}
 
-	/* remap osi tz cmd to netlink cmd */
-	if (cmd == OSI_MACSEC_CMD_TZ_CONFIG) {
-		cmd = NV_MACSEC_CMD_TZ_CONFIG;
-	} else if (cmd == OSI_MACSEC_CMD_TZ_KT_RESET) {
-		cmd = NV_MACSEC_CMD_TZ_KT_RESET;
-	} else {
+	if (cmd != NV_MACSEC_CMD_TZ_KT_RESET &&
+	    cmd != NV_MACSEC_CMD_TZ_CONFIG) {
 		dev_err(dev, "%s: Wrong TZ cmd %d\n", __func__, cmd);
 		ret = -1;
 		goto fail;
@@ -1683,7 +1724,7 @@ static int macsec_tz_kt_config(struct ether_priv_data *pdata,
 		goto fail;
 	}
 
-	msg_head = genlmsg_put_reply(msg, info, &nv_macsec_fam, 0, cmd);
+	msg_head = genlmsg_put_reply(msg, info, &macsec_pdata->nv_macsec_fam, 0, cmd);
 	if (msg_head == NULL) {
 		dev_err(dev, "unable to get replyhead\n");
 		ret = -EINVAL;
@@ -1721,9 +1762,20 @@ static int macsec_tz_kt_config(struct ether_priv_data *pdata,
 			   kt_config->table_config.rw);
 		nla_put_u8(msg, NV_MACSEC_TZ_ATTR_INDEX,
 			   kt_config->table_config.index);
+		nla_put_u32(msg, NV_MACSEC_TZ_ATTR_FLAG, kt_config->flags);
+#ifdef NVPKCS_MACSEC
+		if (pkcs) {
+			nla_put(msg, NV_MACSEC_TZ_PKCS_KEY_WRAP,
+				sizeof(pkcs->nv_key),
+				pkcs->nv_key);
+			nla_put_u64_64bit(msg, NV_MACSEC_TZ_PKCS_KEK_HANDLE,
+					  pkcs->nv_kek,
+					  NL_POLICY_TYPE_ATTR_PAD);
+		}
+#else
 		nla_put(msg, NV_MACSEC_TZ_ATTR_KEY, OSI_KEY_LEN_256,
 			kt_config->entry.sak);
-		nla_put_u32(msg, NV_MACSEC_TZ_ATTR_FLAG, kt_config->flags);
+#endif /* NVPKCS_MACSEC */
 		nla_nest_end(msg, nest);
 	}
 	genlmsg_end(msg, msg_head);
@@ -1778,7 +1830,7 @@ static int macsec_get_tx_next_pn(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (!attrs[NV_MACSEC_ATTR_IFNAME] ||
-	    parse_sa_config(attrs, tb_sa, &tx_sa)) {
+	    parse_sa_config(attrs, tb_sa, &tx_sa, NULL)) {
 		dev_err(dev, "%s: failed to parse nlattrs", __func__);
 		ret = -EINVAL;
 		goto exit;
@@ -1809,7 +1861,7 @@ static int macsec_get_tx_next_pn(struct sk_buff *skb, struct genl_info *info)
 		goto exit;
 	}
 
-	msg_head = genlmsg_put_reply(msg, info, &nv_macsec_fam, 0, cmd);
+	msg_head = genlmsg_put_reply(msg, info, &macsec_pdata->nv_macsec_fam, 0, cmd);
 	if (!msg_head) {
 		dev_err(dev, "unable to get replyhead\n");
 		ret = -EINVAL;

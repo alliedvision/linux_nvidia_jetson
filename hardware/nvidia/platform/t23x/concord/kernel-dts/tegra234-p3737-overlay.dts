@@ -152,4 +152,16 @@
 			};
 		};
 	};
+
+	fragment@8 {
+		target-path = "/";
+		board_config {
+			odm-data = "disable-tegra-wdt";
+		};
+		__overlay__ {
+			watchdog@2190000 {
+				status = "disabled";
+			};
+		};
+	};
 };

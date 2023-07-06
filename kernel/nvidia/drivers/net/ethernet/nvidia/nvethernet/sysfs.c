@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,6 +16,10 @@
 
 #include "ether_linux.h"
 #include "macsec.h"
+
+#if (IS_ENABLED(CONFIG_TEGRA_HSIERRRPTINJ))
+#include <linux/tegra-hsierrrptinj.h>
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 /* As per IAS Docs */
@@ -182,6 +186,42 @@ static ssize_t ether_mac_loopback_store(struct device *dev,
 }
 
 #ifdef MACSEC_SUPPORT
+
+/**
+ * @brief Shows the current setting of MACsec AN status
+ *
+ * Algorithm: Display the current MACsec AN enable status
+ *
+ * @param[in] dev: Device data.
+ * @param[in] attr: Device attribute
+ * @param[in] buf: Buffer to store the current macsec an status
+ */
+static ssize_t macsec_an_status_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct macsec_priv_data *macsec_pdata = pdata->macsec_pdata;
+	unsigned int macsec_status = 0;
+
+	if ((macsec_pdata->macsec_tx_an_map != 0U) &&
+	    (macsec_pdata->macsec_rx_an_map != 0U)) {
+		macsec_status = OSI_ENABLE;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
+			 (macsec_status == OSI_ENABLE) ?
+			 "1" : "0");
+}
+
+/**
+ * @brief Sysfs attribute for MACsec irq stats
+ *
+ */
+static DEVICE_ATTR(macsec_an_status, (S_IRUGO | S_IWUSR),
+		   macsec_an_status_show,
+		   NULL);
+
 /**
  * @brief Shows the current setting of MACsec controllers enabled
  *
@@ -337,6 +377,7 @@ static DEVICE_ATTR(macsec_cipher, (S_IRUGO | S_IWUSR),
 		   macsec_cipher_show,
 		   macsec_cipher_store);
 
+#ifdef DEBUG_MACSEC
 /**
  * @brief Shows the current setting of MACsec loopback
  *
@@ -421,8 +462,29 @@ static ssize_t macsec_loopback_store(struct device *dev,
 static DEVICE_ATTR(macsec_loopback, (S_IRUGO | S_IWUSR),
 		   macsec_loopback_show,
 		   macsec_loopback_store);
+#endif /* DEBUG_MACSEC */
 
 #ifdef HSI_SUPPORT
+#if (IS_ENABLED(CONFIG_TEGRA_HSIERRRPTINJ))
+static int hsi_inject_err_fsi(unsigned int inst_id,
+			      struct epl_error_report_frame error_report,
+			      void *data)
+{
+	struct ether_priv_data *pdata = (struct ether_priv_data *)data;
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+	struct osi_ioctl ioctl_data = {};
+	int ret;
+
+	ioctl_data.cmd = OSI_CMD_HSI_INJECT_ERR;
+	ioctl_data.arg1_u32 = error_report.error_code;
+	ret = osi_handle_ioctl(osi_core, &ioctl_data);
+	if (ret < 0)
+		dev_err(pdata->dev, "Fail to inject error\n");
+
+	return ret;
+}
+#endif
+
 /**
  * @brief Shows HSI feature enabled status
  *
@@ -438,6 +500,11 @@ static ssize_t hsi_enable_show(struct device *dev,
 	struct net_device *ndev = (struct net_device *)dev_get_drvdata(dev);
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
+
+	if (osi_core->use_virtualization == OSI_ENABLE) {
+		dev_err(pdata->dev, "Not supported with Ethernet virtualization enabled\n");
+		return 0;
+	}
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			 (osi_core->hsi.enabled == OSI_ENABLE) ?
@@ -465,6 +532,14 @@ static ssize_t hsi_enable_store(struct device *dev,
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct osi_ioctl ioctl_data = {};
 	int ret = 0;
+#if (IS_ENABLED(CONFIG_TEGRA_HSIERRRPTINJ))
+	u32 inst_id = osi_core->instance_id;
+	u32 ip_type[2] = {IP_EQOS, IP_MGBE};
+#endif
+	if (osi_core->use_virtualization == OSI_ENABLE) {
+		dev_err(pdata->dev, "Not supported with Ethernet virtualization enabled\n");
+		return size;
+	}
 
 	if (!netif_running(ndev)) {
 		dev_err(pdata->dev, "Not Allowed. Ether interface is not up\n");
@@ -481,6 +556,17 @@ static ssize_t hsi_enable_store(struct device *dev,
 		} else {
 			osi_core->hsi.enabled = OSI_ENABLE;
 			dev_info(pdata->dev, "HSI Enabled\n");
+#if (IS_ENABLED(CONFIG_TEGRA_HSIERRRPTINJ))
+			if (osi_core->instance_id == OSI_INSTANCE_ID_EQOS)
+				inst_id = 0;
+
+			ret = hsierrrpt_reg_cb(ip_type[osi_core->mac], inst_id,
+					       hsi_inject_err_fsi, pdata);
+			if (ret != 0) {
+				dev_err(pdata->dev, "Err inj callback registration failed: %d",
+					ret);
+			}
+#endif
 		}
 	} else if (strncmp(buf, "disable", 7) == OSI_NONE) {
 		ioctl_data.arg1_u32 = OSI_DISABLE;
@@ -491,6 +577,16 @@ static ssize_t hsi_enable_store(struct device *dev,
 		} else {
 			osi_core->hsi.enabled = OSI_DISABLE;
 			dev_info(pdata->dev, "HSI Disabled\n");
+#if (IS_ENABLED(CONFIG_TEGRA_HSIERRRPTINJ))
+			if (osi_core->instance_id == OSI_INSTANCE_ID_EQOS)
+				inst_id = 0;
+
+			ret = hsierrrpt_dereg_cb(ip_type[osi_core->mac], inst_id);
+			if (ret != 0) {
+				dev_err(pdata->dev, "Err inj callback deregistration failed: %d",
+					ret);
+			}
+#endif
 		}
 	} else {
 		dev_err(pdata->dev,
@@ -1002,7 +1098,7 @@ static DEVICE_ATTR(macsec_mmc_counters, (S_IRUGO | S_IWUSR),
 		   macsec_mmc_counters_show,
 		   NULL);
 
-
+#ifdef DEBUG_MACSEC
 static void dump_dbg_buffers(char **buf_p, unsigned short ctlr_sel,
 			 struct osi_core_priv_data *osi_core)
 {
@@ -1018,7 +1114,7 @@ static void dump_dbg_buffers(char **buf_p, unsigned short ctlr_sel,
 	}
 	for (i = 0; i < idx_max; i++) {
 		memset(&dbg_buf_config, OSI_NONE, sizeof(dbg_buf_config));
-		dbg_buf_config.rw = OSI_DBG_TBL_READ;
+		dbg_buf_config.rw = OSI_LUT_READ;
 		dbg_buf_config.ctlr_sel = ctlr_sel;
 		dbg_buf_config.index = i;
 		if (osi_macsec_config_dbg_buf(osi_core, &dbg_buf_config) < 0) {
@@ -1037,7 +1133,7 @@ static void dump_dbg_buffers(char **buf_p, unsigned short ctlr_sel,
 	/* reset debug buffer after buf read */
 	for (i = 0; i < idx_max; i++) {
 		memset(&dbg_buf_config, OSI_NONE, sizeof(dbg_buf_config));
-		dbg_buf_config.rw = OSI_DBG_TBL_WRITE;
+		dbg_buf_config.rw = OSI_LUT_WRITE;
 		dbg_buf_config.ctlr_sel = ctlr_sel;
 		dbg_buf_config.index = i;
 		if (osi_macsec_config_dbg_buf(osi_core, &dbg_buf_config) < 0) {
@@ -1131,7 +1227,7 @@ static ssize_t macsec_dbg_events_store(struct device *dev,
 		}
 	}
 	dbg_buf_config.ctlr_sel = controller;
-	dbg_buf_config.rw = OSI_DBG_TBL_WRITE;
+	dbg_buf_config.rw = OSI_LUT_WRITE;
 
 	if (osi_macsec_dbg_events_config(osi_core, &dbg_buf_config) < 0) {
 		dev_err(dev, "%s: Failed to config dbg trigger events\n", __func__);
@@ -1153,6 +1249,7 @@ exit:
 static DEVICE_ATTR(macsec_dbg_events, (S_IRUGO | S_IWUSR),
 		   NULL,
 		   macsec_dbg_events_store);
+#endif /* DEBUG_MACSEC */
 
 /**
  * @brief Shows the current SCI LUT configuration
@@ -1657,7 +1754,8 @@ static ssize_t macsec_sc_state_lut_store(struct device *dev,
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct osi_macsec_lut_config lut_config;
 	int index, ctlr;
-	int ret, curr_an;
+	int ret;
+	nveu32_t curr_an;
 
 	if (!netif_running(ndev)) {
 		dev_err(pdata->dev, "Not Allowed. Ether interface is not up\n");
@@ -1672,7 +1770,7 @@ static ssize_t macsec_sc_state_lut_store(struct device *dev,
 
 	if ((index > OSI_SC_LUT_MAX_INDEX) ||
 	    (ctlr != OSI_CTLR_SEL_TX && ctlr != OSI_CTLR_SEL_RX) ||
-	    (curr_an > OSI_CURR_AN_MAX)) {
+	    (curr_an >= OSI_MAX_NUM_SA)) {
 		dev_err(pdata->dev, "%s:Invalid inputs", __func__);
 		goto exit;
 	}
@@ -2626,11 +2724,14 @@ static struct attribute *ether_sysfs_attrs[] = {
 	&dev_attr_macsec_sa_state_lut.attr,
 	&dev_attr_macsec_sc_param_lut.attr,
 	&dev_attr_macsec_cipher.attr,
-	&dev_attr_macsec_loopback.attr,
 	&dev_attr_macsec_enable.attr,
+	&dev_attr_macsec_an_status.attr,
 	&dev_attr_macsec_mmc_counters.attr,
+#ifdef DEBUG_MACSEC
+	&dev_attr_macsec_loopback.attr,
 	&dev_attr_macsec_dbg_buffers.attr,
 	&dev_attr_macsec_dbg_events.attr,
+#endif /* DEBUG_MACSEC */
 #endif /* MACSEC_SUPPORT */
 	&dev_attr_uphy_gbe_mode.attr,
 	&dev_attr_phy_iface_mode.attr,
@@ -3227,22 +3328,24 @@ static void ether_remove_debugfs(struct ether_priv_data *pdata)
 int ether_sysfs_register(struct ether_priv_data *pdata)
 {
 	struct device *dev = pdata->dev;
-
-#ifdef CONFIG_DEBUG_FS
 	int ret = 0;
 
-	ret = ether_create_debugfs(pdata);
-	if (ret < 0)
-		return ret;
+#ifdef CONFIG_DEBUG_FS
+	/* Intentionally ignored the return value of debugfs
+	 * and continues to initialize the driver even it fails
+	 * to support Linux Production profile
+	 */
+	ether_create_debugfs(pdata);
 #endif
+
 	/* Create nvethernet sysfs group under /sys/devices/<ether_device>/ */
-	return sysfs_create_group(&dev->kobj, &ether_attribute_group);
+	ret = sysfs_create_group(&dev->kobj, &ether_attribute_group);
+	return ret;
 }
 
 void ether_sysfs_unregister(struct ether_priv_data *pdata)
 {
 	struct device *dev = pdata->dev;
-
 #ifdef CONFIG_DEBUG_FS
 	ether_remove_debugfs(pdata);
 #endif

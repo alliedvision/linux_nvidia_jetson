@@ -67,7 +67,7 @@
 		reg = <0x0 0x02310000 0x0 0x10000>,    /* EQOS Base Register */
 		      <0x0 0x023D0000 0x0 0x10000>,    /* MACSEC Base Register */
 		      <0x0 0x02300000 0x0 0x10000>;    /* HV Base Register */
-		reg-names = "mac-base", "macsec-base", "hv-base";
+		reg-names = "mac", "macsec-base", "hypervisor";
 		interrupts = <0 194 0x4>,       /* common */
 			     <0 186 0x4>, /* vm0 */
 			     <0 187 0x4>, /* vm1 */
@@ -79,7 +79,7 @@
 				  "macsec-ns-irq", "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_EQOS>,
 			 <&bpmp_resets TEGRA234_RESET_EQOS_MACSEC>; /* MACsec non-secure reset */
-		reset-names = "mac_rst", "macsec_ns_rst";
+		reset-names = "mac", "macsec_ns_rst";
 		clocks = <&bpmp_clks TEGRA234_CLK_PLLREFE_VCOOUT>,
 			 <&bpmp_clks TEGRA234_CLK_EQOS_AXI>,
 			 <&bpmp_clks TEGRA234_CLK_EQOS_RX>,
@@ -99,7 +99,7 @@
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_EQOSR>,
 				<&mc TEGRA234_MEMORY_CLIENT_EQOSW>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso1 TEGRA_SID_NISO1_EQOS>;
 		nvidia,num-dma-chans = <8>;
@@ -130,5 +130,7 @@
 		pinctrl-0 = <&eqos_mii_rx_input_state_disable>;
 		pinctrl-1 = <&eqos_mii_rx_input_state_enable>;
 		dma-coherent;
+		nvidia,dma_rx_ring_sz = <1024>;
+		nvidia,dma_tx_ring_sz = <1024>;
 	};
 };

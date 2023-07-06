@@ -3,7 +3,7 @@
  *  providing keys and microphone audio functionality
  *
  * Copyright (C) 2014 Google, Inc.
- * Copyright (c) 2015-2021 NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2015-2021,2023 NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -221,6 +221,9 @@ static bool cards_in_use[SNDRV_CARDS] = {false};
 static char *model[SNDRV_CARDS]; /* = {[0 ... (SNDRV_CARDS - 1)] = NULL}; */
 static int pcm_devs[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 1};
 static int pcm_substreams[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 1};
+
+static struct snd_pcm_substream *g_substream;
+static struct mutex g_substream_lock;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for SHIELD Remote soundcard.");
@@ -1061,18 +1064,21 @@ static int snd_atvr_schedule_timer(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static void snd_atvr_timer_callback(unsigned long data)
+static void snd_atvr_timer_callback(struct timer_list *timer)
 {
 	uint readable;
 	uint packets_read;
 	bool need_silence = false;
 	unsigned long flags;
-	struct snd_pcm_substream *substream = (struct snd_pcm_substream *)data;
-	struct snd_atvr *atvr_snd = snd_pcm_substream_chip(substream);
 #ifdef DEBUG_TIMER
 	struct timeval t0, t1;
 	int diff;
 #endif
+	struct snd_atvr *atvr_snd;
+
+	mutex_lock(&g_substream_lock);
+	atvr_snd = snd_pcm_substream_chip(g_substream);
+	mutex_unlock(&g_substream_lock);
 
 	/* timer_enabled will be false when stopping a stream. */
 	spin_lock_irqsave(&atvr_snd->timer_lock, flags);
@@ -1106,13 +1112,16 @@ static void snd_atvr_timer_callback(unsigned long data)
 		if (readable > 0) {
 			atvr_snd->timer_state = TIMER_STATE_DURING_DECODE;
 			/* Fall through into next state. */
+			goto during_decode;
 		} else {
 			need_silence = true;
 			break;
 		}
 
 	case TIMER_STATE_DURING_DECODE:
-		packets_read = snd_atvr_decode_from_fifo(substream);
+during_decode:	mutex_lock(&g_substream_lock);
+		packets_read = snd_atvr_decode_from_fifo(g_substream);
+		mutex_unlock(&g_substream_lock);
 
 		if (packets_read > 0) {
 			/* Defer timeout */
@@ -1153,7 +1162,9 @@ static void snd_atvr_timer_callback(unsigned long data)
 		spin_unlock_irqrestore(&atvr_snd->s_substream_lock, flags);
 		/* This can cause snd_atvr_pcm_trigger() to be called, which
 		 * may try to stop the timer. */
-		snd_atvr_handle_frame_advance(substream, frames_to_silence);
+		mutex_lock(&g_substream_lock);
+		snd_atvr_handle_frame_advance(g_substream, frames_to_silence);
+		mutex_unlock(&g_substream_lock);
 	} else {
 #ifdef DEBUG_TIMER
 		do_gettimeofday(&t1);
@@ -1168,14 +1179,16 @@ static void snd_atvr_timer_callback(unsigned long data)
 		pr_err("callback took %d ms\n", diff);
 #endif
 
+	mutex_lock(&g_substream_lock);
 	spin_lock_irqsave(&atvr_snd->timer_lock, flags);
 	if (need_silence)
 		silence_counter += 1;
 	else
 		silence_counter = 0;
 	if (atvr_snd->timer_enabled & ATVR_TIMER_ENABLED)
-		snd_atvr_schedule_timer(substream);
+		snd_atvr_schedule_timer(g_substream);
 	spin_unlock_irqrestore(&atvr_snd->timer_lock, flags);
+	mutex_unlock(&g_substream_lock);
 }
 
 static int snd_atvr_timer_start(struct snd_pcm_substream *substream)
@@ -1368,9 +1381,11 @@ static int snd_atvr_pcm_open(struct snd_pcm_substream *substream)
 #ifdef DEBUG_TIMER
 	snd_atvr_log("%s, built %s %s\n", __func__, __DATE__, __TIME__);
 #endif
+	mutex_lock(&g_substream_lock);
+	g_substream = substream;
+	mutex_unlock(&g_substream_lock);
 	/* Initialize the timer for the opened substream */
-	setup_timer(&atvr_snd->decoding_timer, snd_atvr_timer_callback,
-		    (unsigned long)substream);
+	timer_setup(&atvr_snd->decoding_timer, snd_atvr_timer_callback, 0);
 
 	return ret;
 }
@@ -1382,6 +1397,9 @@ static int snd_atvr_pcm_close(struct snd_pcm_substream *substream)
 
 	snd_atvr_timer_stop(substream);
 	del_timer_sync(&atvr_snd->decoding_timer);
+	mutex_lock(&g_substream_lock);
+	g_substream = NULL;
+	mutex_unlock(&g_substream_lock);
 
 #ifdef DEBUG_TIMER
 	if (atvr_snd->timer_callback_count > 0)
@@ -1558,7 +1576,7 @@ static int atvr_snd_initialize(struct hid_device *hdev,
 	if (err)
 		goto __nodev;
 	/* dummy initialization */
-	setup_timer(&atvr_snd->decoding_timer,
+	timer_setup(&atvr_snd->decoding_timer,
 		snd_atvr_timer_callback, 0);
 
 	for (i = 0; i < MAX_PCM_DEVICES && i < pcm_devs[dev]; i++) {
@@ -2165,12 +2183,8 @@ static const struct hid_device_id atvr_devices[] = {
 			      USB_DEVICE_ID_NVIDIA_FRIDAY)},
 	{HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NVIDIA,
 			      USB_DEVICE_ID_NVIDIA_THUNDERSTRIKE)},
-	{HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NVIDIA,
-			      USB_DEVICE_ID_NVIDIA_STORMCASTER)},
 	{HID_USB_DEVICE(USB_VENDOR_ID_NVIDIA,
 			      USB_DEVICE_ID_NVIDIA_THUNDERSTRIKE)},
-	{HID_USB_DEVICE(USB_VENDOR_ID_NVIDIA,
-			      USB_DEVICE_ID_NVIDIA_STORMCASTER)},
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, atvr_devices);
@@ -2296,6 +2310,7 @@ static int atvr_init(void)
 	int ret;
 
 	mutex_init(&snd_cards_lock);
+	mutex_init(&g_substream_lock);
 	ret = hid_register_driver(&atvr_driver);
 	if (ret) {
 		pr_err("%s: can't register SHIELD Remote driver\n",

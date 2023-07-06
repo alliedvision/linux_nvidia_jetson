@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -610,7 +610,7 @@ unsigned long dce_get_nxt_pow_of_2(unsigned long *addr, u8 nbits)
 }
 
 /*
- * dce_schedule_work : schedule work in global workqueue
+ * dce_schedule_work : schedule work in global highpri workqueue
  *
  * @work : dce work to be scheduled
  *
@@ -618,7 +618,7 @@ unsigned long dce_get_nxt_pow_of_2(unsigned long *addr, u8 nbits)
  */
 void dce_schedule_work(struct dce_work_struct *work)
 {
-	schedule_work(&work->work);
+	queue_work(system_highpri_wq, &work->work);
 }
 
 /*

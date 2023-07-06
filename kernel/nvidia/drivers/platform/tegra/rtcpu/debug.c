@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -869,6 +869,10 @@ static void camrtc_run_rmem_unmap_all(struct camrtc_debug *crd,
 	}
 }
 
+#ifndef INT_MAX
+#define INT_MAX ((int)(~0U >> 1))
+#endif
+
 static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
 		struct device *mem_dev,
 		struct device *dev,
@@ -890,6 +894,8 @@ static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
 
 	if (mem_dev == dev) {
 		*return_iova = mem->iova;
+		dma_sync_single_for_device(dev, mem->iova, mem->size,
+		DMA_BIDIRECTIONAL);
 		goto done;
 	}
 
@@ -901,6 +907,8 @@ static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
 			*return_iova = 0ULL;
 			return -ENOMEM;
 		}
+		dma_sync_single_for_device(dev, mem->iova, mem->size,
+					   DMA_BIDIRECTIONAL);
 	} else {
 		ret = dma_get_sgtable(dev, sgt, mem->ptr, mem->iova, mem->size);
 		if (ret < 0) {
@@ -918,6 +926,10 @@ static int camrtc_run_mem_map(struct tegra_ivc_channel *ch,
 		}
 
 		*return_iova = sgt->sgl->dma_address;
+		if (sgt->nents <= INT_MAX)
+			dma_sync_sg_for_device(dev, sgt->sgl, (int)sgt->nents, DMA_BIDIRECTIONAL);
+		else
+			ret = -EINVAL;
 	}
 
 done:
@@ -1118,8 +1130,6 @@ static int camrtc_run_mem_test(struct seq_file *file,
 		if (ret < 0)
 			goto unmap;
 
-		dma_sync_single_for_device(mem_dev, mem->iova, mem->used,
-				DMA_BIDIRECTIONAL);
 	}
 
 	BUILD_BUG_ON_MISMATCH(
@@ -1142,8 +1152,12 @@ static int camrtc_run_mem_test(struct seq_file *file,
 		if (!WARN_ON(testmem->size > mem->size))
 			mem->used = testmem->size;
 
-		dma_sync_single_for_cpu(mem_dev, mem->iova, mem->used,
-					DMA_BIDIRECTIONAL);
+		if (_camdbg_rmem.enabled)
+			dma_sync_single_for_cpu(mem_dev, mem->iova, mem->used,
+						DMA_BIDIRECTIONAL);
+		else
+			dma_sync_sg_for_cpu(mem_dev, vi_sgt[i].sgl,
+					    vi_sgt[i].nents, DMA_BIDIRECTIONAL);
 	}
 
 unmap:

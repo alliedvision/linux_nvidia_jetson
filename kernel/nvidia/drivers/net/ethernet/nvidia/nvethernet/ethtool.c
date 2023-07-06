@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -80,16 +80,6 @@ static const struct ether_stats ether_frpstrings_stats[] = {
 #define ETHER_PKT_ERR_STAT(y) \
 { (#y), sizeof_field(struct osi_pkt_err_stats, y), \
 	offsetof(struct osi_dma_priv_data, pkt_err_stats.y)}
-#endif
-
-#if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
-#define ETHER_CORE_PKT_ERR_STAT(z) \
-{ (#z), FIELD_SIZEOF(struct osi_core_pkt_err_stats, z), \
-	offsetof(struct osi_core_priv_data, pkt_err_stats.z)}
-#else
-#define ETHER_CORE_PKT_ERR_STAT(z) \
-{ (#z), sizeof_field(struct osi_core_pkt_err_stats, z), \
-	offsetof(struct osi_core_priv_data, pkt_err_stats.z)}
 #endif
 
 /**
@@ -185,12 +175,12 @@ static const struct ether_stats ether_dstrings_stats[] = {
  */
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
 #define ETHER_EXTRA_STAT(b) \
-{ #b, FIELD_SIZEOF(struct osi_xtra_stat_counters, b), \
-	offsetof(struct osi_core_priv_data, xstats.b)}
+{ #b, FIELD_SIZEOF(struct ether_xtra_stat_counters, b), \
+	offsetof(struct ether_priv_data, xstats.b)}
 #else
 #define ETHER_EXTRA_STAT(b) \
-{ #b, sizeof_field(struct osi_xtra_stat_counters, b), \
-	offsetof(struct osi_core_priv_data, xstats.b)}
+{ #b, sizeof_field(struct ether_xtra_stat_counters, b), \
+	offsetof(struct ether_priv_data, xstats.b)}
 #endif
 /**
  * @brief Ethernet extra statistics
@@ -207,49 +197,6 @@ static const struct ether_stats ether_gstrings_stats[] = {
 	ETHER_EXTRA_STAT(re_alloc_rxbuf_failed[8]),
 	ETHER_EXTRA_STAT(re_alloc_rxbuf_failed[9]),
 
-	/* Tx/Rx IRQ error info */
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[0]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[1]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[2]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[3]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[4]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[5]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[6]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[7]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[8]),
-	ETHER_EXTRA_STAT(tx_proc_stopped_irq_n[9]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[0]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[1]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[2]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[3]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[4]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[5]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[6]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[7]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[8]),
-	ETHER_EXTRA_STAT(rx_proc_stopped_irq_n[9]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[0]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[1]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[2]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[3]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[4]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[5]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[6]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[7]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[8]),
-	ETHER_EXTRA_STAT(tx_buf_unavail_irq_n[9]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[0]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[1]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[2]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[3]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[4]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[5]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[6]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[7]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[8]),
-	ETHER_EXTRA_STAT(rx_buf_unavail_irq_n[9]),
-	ETHER_EXTRA_STAT(rx_watchdog_irq_n),
-	ETHER_EXTRA_STAT(fatal_bus_error_irq_n),
 
 	/* Tx/Rx IRQ Events */
 	ETHER_EXTRA_STAT(tx_normal_irq_n[0]),
@@ -284,14 +231,6 @@ static const struct ether_stats ether_gstrings_stats[] = {
 	ETHER_EXTRA_STAT(rx_normal_irq_n[9]),
 	ETHER_EXTRA_STAT(link_disconnect_count),
 	ETHER_EXTRA_STAT(link_connect_count),
-	ETHER_EXTRA_STAT(ts_lock_add_fail),
-	ETHER_EXTRA_STAT(ts_lock_del_fail),
-
-	/* Packet error stats */
-	ETHER_CORE_PKT_ERR_STAT(mgbe_ip_header_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_jabber_timeout_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_payload_cs_err),
-	ETHER_CORE_PKT_ERR_STAT(mgbe_tx_underflow_err),
 };
 
 /**
@@ -493,58 +432,101 @@ static const struct ether_stats ether_mmc[] = {
 };
 
 /**
- * @brief Ethernet extra TSN statistics array length
+ * @brief Ethernet extra statistics array length
  */
-#define ETHER_EXTRA_TSN_STAT_LEN OSI_ARRAY_SIZE(ether_tstrings_stats)
+#define ETHER_CORE_STAT_LEN OSI_ARRAY_SIZE(ether_tstrings_stats)
 
 /**
  * @brief Name of extra Ethernet stats, with length of name not more than
  * ETH_GSTRING_LEN MAC
  */
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
-#define ETHER_MMC_STAT(c) \
-{ #c, FIELD_SIZEOF(struct osi_mmc_counters, c), \
-        offsetof(struct osi_core_priv_data, mmc.c)}
+#define ETHER_CORE_STATS(r) \
+{ (#r), FIELD_SIZEOF(struct osi_stats, r), \
+	offsetof(struct osi_core_priv_data, stats.r)}
 #else
-#define ETHER_MMC_STAT(c) \
-{ #c, sizeof_field(struct osi_mmc_counters, c), \
-        offsetof(struct osi_core_priv_data, mmc.c)}
+#define ETHER_CORE_STATS(r) \
+{ (#r), sizeof_field(struct osi_stats, r), \
+	offsetof(struct osi_core_priv_data, stats.r)}
 #endif
 
-#if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
-#define ETHER_TEXTRA_STAT(r) \
-{ (#r), FIELD_SIZEOF(struct osi_tsn_stats, r), \
-	offsetof(struct osi_core_priv_data, tsn_stats.r)}
-#else
-#define ETHER_TEXTRA_STAT(r) \
-{ (#r), sizeof_field(struct osi_tsn_stats, r), \
-        offsetof(struct osi_core_priv_data, tsn_stats.r)}
-#endif
 /**
  * @brief Ethernet extra statistics
  */
 static const struct ether_stats ether_tstrings_stats[] = {
-	ETHER_TEXTRA_STAT(const_gate_ctr_err),
-	ETHER_TEXTRA_STAT(head_of_line_blk_sch),
-	ETHER_TEXTRA_STAT(hlbs_q[0]),
-	ETHER_TEXTRA_STAT(hlbs_q[1]),
-	ETHER_TEXTRA_STAT(hlbs_q[2]),
-	ETHER_TEXTRA_STAT(hlbs_q[3]),
-	ETHER_TEXTRA_STAT(hlbs_q[4]),
-	ETHER_TEXTRA_STAT(hlbs_q[5]),
-	ETHER_TEXTRA_STAT(hlbs_q[6]),
-	ETHER_TEXTRA_STAT(hlbs_q[7]),
-	ETHER_TEXTRA_STAT(head_of_line_blk_frm),
-	ETHER_TEXTRA_STAT(hlbf_q[0]),
-	ETHER_TEXTRA_STAT(hlbf_q[1]),
-	ETHER_TEXTRA_STAT(hlbf_q[2]),
-	ETHER_TEXTRA_STAT(hlbf_q[3]),
-	ETHER_TEXTRA_STAT(hlbf_q[4]),
-	ETHER_TEXTRA_STAT(hlbf_q[5]),
-	ETHER_TEXTRA_STAT(hlbf_q[6]),
-	ETHER_TEXTRA_STAT(hlbf_q[7]),
-	ETHER_TEXTRA_STAT(base_time_reg_err),
-	ETHER_TEXTRA_STAT(sw_own_list_complete),
+	ETHER_CORE_STATS(const_gate_ctr_err),
+	ETHER_CORE_STATS(head_of_line_blk_sch),
+	ETHER_CORE_STATS(hlbs_q[0]),
+	ETHER_CORE_STATS(hlbs_q[1]),
+	ETHER_CORE_STATS(hlbs_q[2]),
+	ETHER_CORE_STATS(hlbs_q[3]),
+	ETHER_CORE_STATS(hlbs_q[4]),
+	ETHER_CORE_STATS(hlbs_q[5]),
+	ETHER_CORE_STATS(hlbs_q[6]),
+	ETHER_CORE_STATS(hlbs_q[7]),
+	ETHER_CORE_STATS(head_of_line_blk_frm),
+	ETHER_CORE_STATS(hlbf_q[0]),
+	ETHER_CORE_STATS(hlbf_q[1]),
+	ETHER_CORE_STATS(hlbf_q[2]),
+	ETHER_CORE_STATS(hlbf_q[3]),
+	ETHER_CORE_STATS(hlbf_q[4]),
+	ETHER_CORE_STATS(hlbf_q[5]),
+	ETHER_CORE_STATS(hlbf_q[6]),
+	ETHER_CORE_STATS(hlbf_q[7]),
+	ETHER_CORE_STATS(base_time_reg_err),
+	ETHER_CORE_STATS(sw_own_list_complete),
+
+	/* Tx/Rx IRQ error info */
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[0]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[1]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[2]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[3]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[4]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[5]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[6]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[7]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[8]),
+	ETHER_CORE_STATS(tx_proc_stopped_irq_n[9]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[0]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[1]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[2]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[3]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[4]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[5]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[6]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[7]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[8]),
+	ETHER_CORE_STATS(rx_proc_stopped_irq_n[9]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[0]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[1]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[2]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[3]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[4]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[5]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[6]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[7]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[8]),
+	ETHER_CORE_STATS(tx_buf_unavail_irq_n[9]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[0]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[1]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[2]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[3]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[4]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[5]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[6]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[7]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[8]),
+	ETHER_CORE_STATS(rx_buf_unavail_irq_n[9]),
+	ETHER_CORE_STATS(rx_watchdog_irq_n),
+	ETHER_CORE_STATS(fatal_bus_error_irq_n),
+	ETHER_CORE_STATS(ts_lock_add_fail),
+	ETHER_CORE_STATS(ts_lock_del_fail),
+
+	/* Packet error stats */
+	ETHER_CORE_STATS(mgbe_ip_header_err),
+	ETHER_CORE_STATS(mgbe_jabber_timeout_err),
+	ETHER_CORE_STATS(mgbe_payload_cs_err),
+	ETHER_CORE_STATS(mgbe_tx_underflow_err),
 };
 
 /**
@@ -583,6 +565,16 @@ static void ether_get_ethtool_stats(struct net_device *dev,
 			return;
 		}
 
+		if (osi_core->use_virtualization == OSI_ENABLE) {
+			ioctl_data.cmd = OSI_CMD_READ_STATS;
+			ret = osi_handle_ioctl(osi_core, &ioctl_data);
+			if (ret == -1) {
+				dev_err(pdata->dev,
+					"Fail to read core stats\n");
+				return;
+			}
+		}
+
 		for (i = 0; i < ETHER_MMC_STATS_LEN; i++) {
 			char *p = (char *)osi_core + ether_mmc[i].stat_offset;
 
@@ -592,7 +584,7 @@ static void ether_get_ethtool_stats(struct net_device *dev,
 		}
 
 		for (i = 0; i < ETHER_EXTRA_STAT_LEN; i++) {
-			char *p = (char *)osi_core +
+			char *p = (char *)pdata +
 				  ether_gstrings_stats[i].stat_offset;
 
 			data[j++] = (ether_gstrings_stats[i].sizeof_stat ==
@@ -615,8 +607,7 @@ static void ether_get_ethtool_stats(struct net_device *dev,
 				     sizeof(u64)) ? (*(u64 *)p) : (*(u32 *)p);
 		}
 
-		for (i = 0; ((i < ETHER_EXTRA_TSN_STAT_LEN) &&
-			     (pdata->hw_feat.est_sel == OSI_ENABLE)); i++) {
+		for (i = 0; i < ETHER_CORE_STAT_LEN; i++) {
 			char *p = (char *)osi_core +
 				  ether_tstrings_stats[i].stat_offset;
 
@@ -626,7 +617,7 @@ static void ether_get_ethtool_stats(struct net_device *dev,
 
 		for (i = 0; ((i < ETHER_FRP_STAT_LEN) &&
 			     (pdata->hw_feat.frp_sel == OSI_ENABLE)); i++) {
-			char *p = (char *)osi_core +
+			char *p = (char *)osi_dma +
 				  ether_frpstrings_stats[i].stat_offset;
 
 			data[j++] = (ether_frpstrings_stats[i].sizeof_stat ==
@@ -675,12 +666,10 @@ static int ether_get_sset_count(struct net_device *dev, int sset)
 		} else {
 			len += ETHER_PKT_ERR_STAT_LEN;
 		}
-		if (INT_MAX - ETHER_EXTRA_TSN_STAT_LEN < len) {
+		if (INT_MAX - ETHER_CORE_STAT_LEN < len) {
 			/* do nothing */
 		} else {
-			if (pdata->hw_feat.est_sel == OSI_ENABLE) {
-				len += ETHER_EXTRA_TSN_STAT_LEN;
-			}
+			len += ETHER_CORE_STAT_LEN;
 		}
 		if (INT_MAX - ETHER_FRP_STAT_LEN < len) {
 			/* do nothing */
@@ -752,9 +741,7 @@ static void ether_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 				}
 				p += ETH_GSTRING_LEN;
 			}
-			for (i = 0; ((i < ETHER_EXTRA_TSN_STAT_LEN) &&
-				     (pdata->hw_feat.est_sel == OSI_ENABLE));
-			     i++) {
+			for (i = 0; i < ETHER_CORE_STAT_LEN; i++) {
 				str = (u8 *)ether_tstrings_stats[i].stat_string;
 				if (memcpy(p, str, ETH_GSTRING_LEN) ==
 				    OSI_NULL) {
@@ -1603,6 +1590,20 @@ static int ether_set_ringparam(struct net_device *ndev,
 	return ret;
 }
 
+static unsigned int ether_get_msglevel(struct net_device *ndev)
+{
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+
+	return pdata->msg_enable;
+}
+
+static void ether_set_msglevel(struct net_device *ndev, u32 level)
+{
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+
+	pdata->msg_enable = level;
+}
+
 /**
  * @brief Set of ethtool operations
  */
@@ -1634,6 +1635,8 @@ static const struct ethtool_ops ether_ethtool_ops = {
 	.set_rxfh = ether_set_rxfh,
 	.get_ringparam = ether_get_ringparam,
 	.set_ringparam = ether_set_ringparam,
+	.get_msglevel = ether_get_msglevel,
+	.set_msglevel = ether_set_msglevel,
 };
 
 void ether_set_ethtool_ops(struct net_device *ndev)

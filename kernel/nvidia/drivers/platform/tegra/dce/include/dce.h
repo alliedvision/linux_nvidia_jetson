@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,6 +56,7 @@
 #define DCE_FW_ADMIN_SEQ_START		DCE_BIT(10)
 #define DCE_FW_ADMIN_SEQ_FAILED		DCE_BIT(9)
 #define DCE_FW_ADMIN_SEQ_DONE		DCE_BIT(8)
+#define DCE_FW_SUSPENDED		DCE_BIT(2)
 #define DCE_FW_BOOT_DONE		DCE_BIT(1)
 #define DCE_STATUS_FAILED		DCE_BIT(0)
 #define DCE_STATUS_UNKNOWN		((u32)(0))
@@ -161,6 +162,10 @@ struct tegra_dce {
 	 * dce_wait_info - Data structure to manage wait for different event types
 	 */
 	struct dce_wait_cond ipc_waits[DCE_MAX_WAIT];
+	/**
+	 * dce_bootstrap_done - Data structure to manage wait for boot done
+	 */
+	struct dce_cond dce_bootstrap_done;
 	/**
 	 * @d_mb - Stores the current status of dce mailbox interfaces.
 	 */
@@ -297,6 +302,8 @@ static inline struct dce_platform_data *pdata_from_dce(struct tegra_dce *d)
 static inline void dce_set_boot_complete(struct tegra_dce *d, bool val)
 {
 	d->boot_complete = val;
+	if (!val)
+		d->boot_status &= (~DCE_FW_BOOT_DONE);
 }
 
 /**

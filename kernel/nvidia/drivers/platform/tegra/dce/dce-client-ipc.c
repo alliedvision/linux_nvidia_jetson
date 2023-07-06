@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -136,7 +136,7 @@ int tegra_dce_register_ipc_client(u32 type,
 {
 	int ret;
 	uint32_t int_type;
-	struct tegra_dce *d;
+	struct tegra_dce *d = NULL;
 	struct tegra_dce_client_ipc *cl;
 	u32 handle = DCE_CLIENT_IPC_HANDLE_INVALID;
 
@@ -157,6 +157,18 @@ int tegra_dce_register_ipc_client(u32 type,
 	d = dce_ipc_get_dce_from_ch(int_type);
 	if (d == NULL) {
 		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * Wait for bootstrapping to complete before client IPC registration
+	 */
+#define DCE_IPC_REGISTER_BOOT_WAIT	(30U * 1000)
+	ret = DCE_COND_WAIT_INTERRUPTIBLE_TIMEOUT(&d->dce_bootstrap_done,
+						  dce_is_bootstrap_done(d),
+						  DCE_IPC_REGISTER_BOOT_WAIT);
+	if (ret) {
+		dce_info(d, "dce boot wait failed (%d)\n", ret);
 		goto out;
 	}
 

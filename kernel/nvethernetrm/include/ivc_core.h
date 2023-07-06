@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,7 @@
 /**
  * @brief IVC commands between OSD & OSI.
  */
-typedef enum ivc_cmd {
+typedef enum {
 	core_init = 1,
 	core_deinit,
 	write_phy_reg,
@@ -46,8 +46,7 @@ typedef enum ivc_cmd {
 	handle_ioctl,
 	init_macsec,
 	deinit_macsec,
-	handle_ns_irq_macsec,
-	handle_s_irq_macsec,
+	handle_irq_macsec,
 	lut_config_macsec,
 	kt_config_macsec,
 	cipher_config,
@@ -58,13 +57,15 @@ typedef enum ivc_cmd {
 	dbg_buf_config_macsec,
 	dbg_events_config_macsec,
 	macsec_get_sc_lut_key_index,
-	macsec_update_mtu_size,
+	nvethmgr_get_status,
+	nvethmgr_verify_ts,
+	nvethmgr_get_avb_perf,
 }ivc_cmd;
 
 /**
  * @brief IVC arguments structure.
  */
-typedef struct ivc_args {
+typedef struct {
 	/** Number of arguments */
 	nveu32_t count;
 	/** arguments */
@@ -74,7 +75,7 @@ typedef struct ivc_args {
 /**
  * @brief IVC core argument structure.
  */
-typedef struct ivc_core_args {
+typedef struct {
 	/** Number of MTL queues enabled in MAC */
 	nveu32_t num_mtl_queues;
 	/** Array of MTL queues */
@@ -85,8 +86,6 @@ typedef struct ivc_core_args {
 	nveu32_t rxq_prio[OSI_EQOS_MAX_NUM_CHANS];
 	/** Ethernet MAC address */
 	nveu8_t mac_addr[OSI_ETH_ALEN];
-	/** Tegra Pre-si platform info */
-	nveu32_t pre_si;
 	/** VLAN tag stripping enable(1) or disable(0) */
 	nveu32_t strip_vlan_tag;
 	/** pause frame support */
@@ -103,15 +102,15 @@ typedef struct ivc_core_args {
  * @brief macsec config structure.
  */
 #ifdef MACSEC_SUPPORT
-typedef struct macsec_config {
+typedef struct {
 	/** MACsec secure channel basic information */
 	struct osi_macsec_sc_info sc_info;
 	/** MACsec enable or disable */
-	unsigned int enable;
+	nveu32_t enable;
 	/** MACsec controller */
-	unsigned short ctlr;
+	nveu16_t ctlr;
 	/** MACsec KT index */
-	unsigned short kt_idx;
+	nveu16_t kt_idx;
 	/** MACsec KT index */
 	nveu32_t key_index;
 	/** MACsec SCI */
@@ -133,19 +132,20 @@ typedef struct ivc_msg_common {
 	/** message count, used for debug */
 	nveu32_t count;
 
+	/** IVC argument structure */
+	ivc_args args;
+
 	union {
-		/** IVC argument structure */
-		ivc_args args;
-#ifndef OSI_STRIPPED_LIB
 		/** avb algorithm structure */
 		struct osi_core_avb_algorithm avb_algo;
-#endif
 		/** OSI filter structure */
 		struct osi_filter filter;
 		/** OSI HW features */
 		struct osi_hw_features hw_feat;
 		/** MMC counters */
-		struct osi_mmc_counters mmc;
+		struct osi_mmc_counters mmc_s;
+		/** OSI stats counters */
+		struct osi_stats stats_s;
 		/** core argument structure */
 		ivc_core_args init_args;
 		/** ioctl command structure */
@@ -186,14 +186,4 @@ typedef struct ivc_msg_common {
  */
 nve32_t osd_ivc_send_cmd(void *priv, ivc_msg_common_t *ivc_buf,
 			 nveu32_t len);
-
-/**
- * @brief ivc_get_core_safety_config - Get core safety config
- *
- * API Group:
- * - Initialization: Yes
- * - Run time: Yes
- * - De-initialization: Yes
- */
-void *ivc_get_core_safety_config(void);
 #endif /* IVC_CORE_H */

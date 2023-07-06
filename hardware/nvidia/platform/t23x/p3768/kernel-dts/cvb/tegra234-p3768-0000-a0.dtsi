@@ -18,6 +18,7 @@
 #include "tegra234-p3768-audio.dtsi"
 #include "tegra234-p3768-camera-rbpcv3-imx477.dtsi"
 #include "tegra234-p3768-camera-rbpcv2-imx219.dtsi"
+#include "tegra234-p3768-camera-avt-csi2.dtsi"
 
 / {
 	gpio-keys {

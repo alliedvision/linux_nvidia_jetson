@@ -22,8 +22,8 @@
 		status = "okay";
 		nvidia,mac-addr-idx = <0>;
 		nvidia,max-platform-mtu = <16383>;
-		/* 0=enable, 1=disable */
-		nvidia,pause_frames = <0>;
+		/* 1=enable, 0=disable */
+		nvidia,pause_frames = <1>;
 		phy-handle = <&mgbe0_aqr113c_phy>;
 		phy-mode = "10gbase-r";
 		/* 0:XFI 10G, 1:XFI 5G, 2:USXGMII 10G, 3:USXGMII 5G */

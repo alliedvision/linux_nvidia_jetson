@@ -248,7 +248,11 @@ static int tegra_fbdev_probe(struct drm_fb_helper *helper,
 	if (IS_ERR(bo))
 		return PTR_ERR(bo);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	info = drm_fb_helper_alloc_info(helper);
+#else
 	info = drm_fb_helper_alloc_fbi(helper);
+#endif
 	if (IS_ERR(info)) {
 		dev_err(drm->dev, "failed to allocate framebuffer info\n");
 		drm_gem_object_put(&bo->gem);
@@ -266,7 +270,11 @@ static int tegra_fbdev_probe(struct drm_fb_helper *helper,
 
 	fb = fbdev->fb;
 	helper->fb = fb;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	helper->info = info;
+#else
 	helper->fbdev = info;
+#endif
 
 	info->fbops = &tegra_fb_ops;
 
@@ -285,7 +293,9 @@ static int tegra_fbdev_probe(struct drm_fb_helper *helper,
 		}
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 	drm->mode_config.fb_base = (resource_size_t)bo->iova;
+#endif
 	info->screen_base = (void __iomem *)bo->vaddr + offset;
 	info->screen_size = size;
 	info->fix.smem_start = (unsigned long)(bo->iova + offset);
@@ -353,7 +363,11 @@ fini:
 
 static void tegra_fbdev_exit(struct tegra_fbdev *fbdev)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	drm_fb_helper_unregister_info(&fbdev->base);
+#else
 	drm_fb_helper_unregister_fbi(&fbdev->base);
+#endif
 
 	if (fbdev->fb) {
 		struct tegra_bo *bo = tegra_fb_get_plane(fbdev->fb, 0);

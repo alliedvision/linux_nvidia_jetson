@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -377,6 +377,9 @@ static void ether_config_slot_function(struct ether_priv_data *pdata, u32 set)
 			       sizeof(struct osi_core_avb_algorithm));
 			qinx = osi_core->mtl_queues[i];
 			ioctl_data.avb.qindex = qinx;
+			/* For EQOS harware library code use internally SP(0) and
+			   For MGBE harware library code use internally ETS(2) if
+			   algo != CBS. */
 			ioctl_data.avb.algo = OSI_MTL_TXQ_AVALG_SP;
 			ioctl_data.avb.oper_mode = (set == OSI_ENABLE) ?
 						    OSI_MTL_QUEUE_AVB :
@@ -402,7 +405,9 @@ int ether_handle_hwtstamp_ioctl(struct ether_priv_data *pdata,
 {
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
+#ifdef CONFIG_TEGRA_PTP_NOTIFIER
 	struct net_device *ndev = pdata->ndev;
+#endif
 	struct osi_ioctl ioctl_data = {};
 	struct hwtstamp_config config;
 	unsigned int hwts_rx_en = 1;

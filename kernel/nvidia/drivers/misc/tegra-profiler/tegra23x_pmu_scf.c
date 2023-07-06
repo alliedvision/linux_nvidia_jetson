@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/tegra23x_pmu_scf.c
  *
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,7 +37,6 @@
 
 #include "tegra23x_pmu_scf.h"
 #include "quadd.h"
-#include "debug.h"
 
 #define BUS_ACCESS		0x19
 #define BUS_CYCLES		0x1D

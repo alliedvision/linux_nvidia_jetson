@@ -1,7 +1,7 @@
 /*
  * Tegra 19x SoC-specific mcerr code.
  *
- * Copyright (c) 2017-2022, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -290,8 +290,14 @@ static struct mc_client mc_clients[] = {
 static int mc_client_last = ARRAY_SIZE(mc_clients) - 1;
 /*** Done. ***/
 
+static u32 mc_channel = MC_BROADCAST_CHANNEL;
 static u32 global_intstatus;
 static u32 global_intstatus_1;
+static u32 slice_int_status;
+static u32 ch_int_status;
+static u32 hubc_int_status;
+static u32 sbs_int_status;
+static u32 hub_int_status;
 
 static const char *intr_info[] = {
 	NULL,		/* Bit 0 */
@@ -482,12 +488,50 @@ static const struct mc_error sbs_mc_errors[] = {
 
 static void set_intstatus(unsigned int irq)
 {
+	mc_channel = 0;
+	global_intstatus = 0;
+	global_intstatus_1 = 0;
+	slice_int_status = 0;
+	ch_int_status = 0;
+	hubc_int_status = 0;
+	sbs_int_status = 0;
+	hub_int_status = 0;
 }
 
 static void save_intstatus(unsigned int irq)
 {
 	global_intstatus = mc_readl(MC_GLOBAL_INTSTATUS);
 	global_intstatus_1 = mc_readl(MC_GLOBAL_INTSTATUS_1);
+
+	/*
+	 * If multiple interrupts come in just handle the first one we see. The
+	 * HW only keeps track of 1 interrupt's data and we don't know which
+	 * particular fault is actually being kept...
+	 */
+
+	if (global_intstatus & GIS_CH_MASK) {
+		mc_channel = __ffs(global_intstatus & GIS_CH_MASK);
+	} else if (global_intstatus & GIS_SLICE_MASK) {
+		mc_channel = __ffs((global_intstatus & GIS_SLICE_MASK) >> GIS_SLICE0);
+	} else if (global_intstatus & GIS_HUB_MASK) {
+		mc_channel = __ffs((global_intstatus & GIS_HUB_MASK) >> GIS_HUB0);
+	} else if (global_intstatus & GIS_NVLINK_MASK) {
+		mc_channel = __ffs((global_intstatus & GIS_NVLINK_MASK) >> GIS_nvlink0);
+	} else if (global_intstatus & BIT(GIS_HUBC)) {
+		mc_channel = MC_BROADCAST_CHANNEL;
+	} else if (global_intstatus & BIT(GIS_SBS)) {
+		mc_channel = MC_BROADCAST_CHANNEL;
+	} else if (global_intstatus_1 & GIS_1_CH_MASK) {
+		mc_channel = 8 + __ffs(global_intstatus_1 & GIS_1_CH_MASK);
+	} else {
+		mcerr_pr("mcerr: unknown intr source intstatus = 0x%08x, "
+			 "intstatus_1 = 0x%08x\n", global_intstatus, global_intstatus_1);
+	}
+	slice_int_status = __mc_readl(mc_channel, MC_INTSTATUS);
+	ch_int_status = __mc_readl(mc_channel, MC_CH_INTSTATUS);
+	hubc_int_status = __mc_readl(mc_channel, MC_HUBC_INTSTATUS);
+	sbs_int_status = __mc_readl(mc_channel, MC_MSS_SBS_INTSTATUS);
+	hub_int_status = __mc_readl(mc_channel, MC_HUB_INTSTATUS);
 }
 
 static void clear_intstatus(unsigned int irq)
@@ -580,43 +624,6 @@ static void log_mcerr_fault(unsigned int irq)
 {
 	int faults_handled = 0;
 	const struct mc_error *err;
-	int mc_channel = MC_BROADCAST_CHANNEL;
-	u32 slice_int_status, ch_int_status, hubc_int_status;
-	u32 sbs_int_status, hub_int_status;
-	u32 g_intstatus = global_intstatus;
-	u32 g_intstatus_1 = global_intstatus_1;
-
-	/*
-	 * If multiple interrupts come in just handle the first one we see. The
-	 * HW only keeps track of 1 interrupt's data and we don't know which
-	 * particular fault is actually being kept...
-	 */
-
-	if (g_intstatus & GIS_CH_MASK) {
-		mc_channel = __ffs(g_intstatus & GIS_CH_MASK);
-	} else if (g_intstatus & GIS_SLICE_MASK){
-		mc_channel = __ffs((g_intstatus & GIS_SLICE_MASK) >> GIS_SLICE0);
-	} else if (g_intstatus & GIS_HUB_MASK) {
-		mc_channel = __ffs((g_intstatus & GIS_HUB_MASK) >> GIS_HUB0);
-	} else if (g_intstatus & GIS_NVLINK_MASK) {
-		mc_channel = __ffs((g_intstatus & GIS_NVLINK_MASK) >> GIS_nvlink0);
-	} else if (g_intstatus & BIT(GIS_HUBC)) {
-		mc_channel = MC_BROADCAST_CHANNEL;
-	} else if (g_intstatus & BIT(GIS_SBS)) {
-		mc_channel = MC_BROADCAST_CHANNEL;
-	} else if (g_intstatus_1 & GIS_1_CH_MASK) {
-		mc_channel = 8 + __ffs(g_intstatus_1 & GIS_1_CH_MASK);
-	} else {
-		mcerr_pr("mcerr: unknown intr source intstatus = 0x%08x, "
-			 "intstatus_1 = 0x%08x\n", g_intstatus, g_intstatus_1);
-		return;
-	}
-
-	slice_int_status = __mc_readl(mc_channel, MC_INTSTATUS);
-	ch_int_status = __mc_readl(mc_channel, MC_CH_INTSTATUS);
-	hubc_int_status = __mc_readl(mc_channel, MC_HUBC_INTSTATUS);
-	sbs_int_status = __mc_readl(mc_channel, MC_MSS_SBS_INTSTATUS);
-	hub_int_status = __mc_readl(mc_channel, MC_HUB_INTSTATUS);
 
 	LOG_FAULT(slice, mc_int_mask, _);
 	LOG_FAULT(hub, U32_MAX, _HUB_);
@@ -625,8 +632,8 @@ static void log_mcerr_fault(unsigned int irq)
 	LOG_FAULT(sbs, U32_MAX, _MSS_SBS_);
 
 	if (faults_handled) {
-		mc_writel(g_intstatus, MC_GLOBAL_INTSTATUS);
-		mc_writel(g_intstatus_1, MC_GLOBAL_INTSTATUS_1);
+		mc_writel(global_intstatus, MC_GLOBAL_INTSTATUS);
+		mc_writel(global_intstatus_1, MC_GLOBAL_INTSTATUS_1);
 	} else {
 		pr_err("unknown mcerr fault, int_status=0x%08x, "
 			"ch_int_status=0x%08x, hubc_int_status=0x%08x "

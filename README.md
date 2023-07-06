@@ -1,20 +1,25 @@
-# NVIDIA Jetson driver
+# NVIDIA Jetson driver (Beta)
 
 
-Driver for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1 (L4T 35.2.1)     
+Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1.1 (L4T 35.3.1)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
+
+THE SOFTWARE IS PRELIMINARY AND STILL IN TESTING AND VERIFICATION PHASE AND IS PROVIDED ON AN “AS IS” AND “AS AVAILABLE” BASIS AND IS BELIEVED TO CONTAIN DEFECTS. A PRIMARY PURPOSE OF THIS EARLY ACCESS IS TO OBTAIN FEEDBACK ON PERFORMANCE AND THE IDENTIFICATION OF DEFECT SOFTWARE, HARDWARE AND DOCUMENTATION.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Overview
 
 The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Compatible platforms with JetPack 5.1 (L4T 35.2.1) : 
+Compatible platforms with JetPack 5.1.1 (L4T 35.3.1) : 
 
   - AGX Orin Developer Kit
   - AGX Xavier DevKit
   - Xavier NX DevKit
-  - Auvidea carrier JNX30-PD with Xavier NX 
+  - Auvidea carrier JNX30-PD with Xavier NX
+  - Orin Nano Developer Kit (**NEW**)
 
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
 
@@ -23,9 +28,9 @@ Compatible platforms with JetPack 5.1 (L4T 35.2.1) :
 ### Host PC
 The scripts for the driver installation require Git on the host PC.
 
-### Install JetPack 5.1
+### Install JetPack 5.1.1
  
-Install JetPack 5.1 (L4T 35.2.1) as per NVIDIA's instructions
+Install JetPack 5.1.1 (L4T 35.3.1) as per NVIDIA's instructions
  https://developer.nvidia.com/embedded/jetpack      
 
 Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
@@ -41,7 +46,7 @@ https://docs.nvidia.com/sdk-manager/
   Install the precompiled kernel, which includes the driver and an installation menu.   
 
   1. Extract the tarball on a host PC.   
-  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.2.1.0_<git-rev>.tar.gz. 
+  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.3.1.0_<git-rev>.tar.gz. 
 
 2. Copy the tarball to the target board. 
 3. On the target board, extract the tarball and run the included install script.   

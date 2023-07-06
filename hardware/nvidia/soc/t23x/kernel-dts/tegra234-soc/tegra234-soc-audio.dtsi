@@ -274,6 +274,7 @@
 				reg = <0x0 0x290bb00 0x0 0x800>;
 				nvidia,ahub-amixer-id = <0>;
 				#sound-dai-cells = <1>;
+				sound-name-prefix = "MIXER1";
 				status = "disabled";
 			};
 

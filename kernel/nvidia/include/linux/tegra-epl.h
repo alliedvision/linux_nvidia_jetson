@@ -1,31 +1,12 @@
-/*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
-/**
- * @file tegra-epl.h
- * @brief <b> epl driver header file</b>
- *
- * This file will expose API prototype for epl kernel
- * space APIs.
- */
+#ifndef _TEGRA_EPL_H_
+#define _TEGRA_EPL_H_
 
-
-#ifndef TEGRA_EPL_H
-#define TEGRA_EPL_H
-
-/* ==================[Includes]============================================= */
-
-/* ==================[MACROS]=============================================== */
+#include <uapi/linux/tegra-epl.h>
 
 /**
  * @brief Error report frame
@@ -117,6 +98,7 @@ int epl_report_error(struct epl_error_report_frame error_report)
 {
 	return -ENODEV;
 }
-#endif	/* CONFIG_TEGRA_EPL */
+#endif /* CONFIG_TEGRA_EPL */
 
-#endif /* TEGRA_EPL_H */
+#endif /* _TEGRA_EPL_H_ */
+

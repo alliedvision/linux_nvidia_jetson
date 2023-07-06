@@ -592,6 +592,78 @@ out:
 	return ret;
 }
 
+/* Free utilization rate memory */
+void nvdla_free_utilization_rate_memory(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	if (nvdla_dev->utilization_mem_pa) {
+		dma_free_attrs(&pdev->dev, sizeof(unsigned int),
+			       nvdla_dev->utilization_mem_va,
+			       nvdla_dev->utilization_mem_pa,
+			       0);
+		nvdla_dev->utilization_mem_va = NULL;
+		nvdla_dev->utilization_mem_pa = 0;
+	}
+}
+
+/* Allocate memory to store the resource utilization rate */
+int nvdla_alloc_utilization_rate_memory(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+	int err = 0;
+
+	/* allocate memory for utilization rate */
+	nvdla_dev->utilization_mem_va = dma_alloc_attrs(&pdev->dev,
+			sizeof(unsigned int), &nvdla_dev->utilization_mem_pa,
+			GFP_KERNEL, 0);
+
+	if (nvdla_dev->utilization_mem_va == NULL) {
+		nvdla_dbg_err(pdev, "utilization rate dma alloc failed");
+		err = -ENOMEM;
+	}
+
+	return err;
+}
+
+/* Free window size memory */
+void nvdla_free_window_size_memory(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+
+	if (nvdla_dev->window_mem_pa) {
+		dma_free_attrs(&pdev->dev, sizeof(unsigned int),
+			       nvdla_dev->window_mem_va,
+			       nvdla_dev->window_mem_pa,
+			       0);
+		nvdla_dev->window_mem_va = NULL;
+		nvdla_dev->window_mem_pa = 0;
+	}
+}
+
+/* Allocate memory to store the window size for which the utilization rate is computed */
+int nvdla_alloc_window_size_memory(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
+	struct nvdla_device *nvdla_dev = pdata->private_data;
+	int err = 0;
+
+	/* allocate memory for window_size */
+	nvdla_dev->window_mem_va = dma_alloc_attrs(&pdev->dev,
+			sizeof(unsigned int), &nvdla_dev->window_mem_pa,
+			GFP_KERNEL, 0);
+
+	if (nvdla_dev->window_mem_va == NULL) {
+		nvdla_dbg_err(pdev, "window size dma alloc failed");
+		err = -ENOMEM;
+	}
+
+	return err;
+}
+
 #ifdef CONFIG_TEGRA_SOC_HWPM
 static int nvdla_hwpm_ip_pm(void *ip_dev, bool disable)
 {
@@ -838,6 +910,7 @@ static int nvdla_probe(struct platform_device *pdev)
 	mutex_init(&pdata->lock);
 	mutex_init(&nvdla_dev->cmd_lock);
 	init_completion(&nvdla_dev->cmd_completion);
+	mutex_init(&nvdla_dev->ping_lock);
 	pdata->private_data = nvdla_dev;
 	platform_set_drvdata(pdev, pdata);
 	nvdla_dev->dbg_mask = debug_err;
@@ -878,6 +951,14 @@ static int nvdla_probe(struct platform_device *pdev)
 	if (err)
 		goto err_alloc_cmd_mem;
 
+	err = nvdla_alloc_utilization_rate_memory(pdev);
+	if (err)
+		goto err_alloc_utilization_rate_mem;
+
+	err = nvdla_alloc_window_size_memory(pdev);
+	if (err)
+		goto err_alloc_window_size_mem;
+
 #ifdef CONFIG_TEGRA_SOC_HWPM
 	nvdla_dbg_info(pdev, "hwpm ip %s register", pdev->name);
 	hwpm_ip_ops.ip_dev = (void *)pdev;
@@ -891,6 +972,11 @@ static int nvdla_probe(struct platform_device *pdev)
 	nvdla_dbg_info(pdev, "pdata:%p initialized\n", pdata);
 
 	return 0;
+
+err_alloc_window_size_mem:
+	nvdla_free_utilization_rate_memory(pdev);
+err_alloc_utilization_rate_mem:
+	nvdla_free_cmd_memory(pdev);
 err_alloc_cmd_mem:
 	nvhost_syncpt_unit_interface_deinit(pdev);
 err_mss_init:
@@ -901,6 +987,7 @@ err_client_device_init:
 	nvhost_module_deinit(pdev);
 err_module_init:
 err_get_resources:
+	mutex_destroy(&nvdla_dev->ping_lock);
 	devm_kfree(dev, nvdla_dev);
 err_alloc_nvdla:
 err_no_ip:
@@ -930,7 +1017,7 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 	nvdla_queue_deinit(nvdla_dev->pool);
 	nvhost_client_device_release(pdev);
 	nvhost_module_deinit(pdev);
-
+	mutex_destroy(&nvdla_dev->ping_lock);
 	nvdla_free_gcov_region(pdev, false);
 
 	if (nvdla_dev->trace_dump_pa) {
@@ -950,6 +1037,9 @@ static int __exit nvdla_remove(struct platform_device *pdev)
 		nvdla_dev->debug_dump_va = NULL;
 		nvdla_dev->debug_dump_pa = 0;
 	}
+
+	nvdla_free_utilization_rate_memory(pdev);
+	nvdla_free_window_size_memory(pdev);
 
 	/* free command mem in last */
 	nvdla_free_cmd_memory(pdev);

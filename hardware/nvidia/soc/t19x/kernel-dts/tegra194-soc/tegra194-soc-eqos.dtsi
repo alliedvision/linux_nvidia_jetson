@@ -65,7 +65,7 @@
 	ethernet@2490000 {
 		compatible = "nvidia,nveqos";
 		reg = <0x0 0x02490000 0x0 0x10000>;    /* EQOS Base Register */
-		reg-names = "mac-base";
+		reg-names = "mac";
 		interrupts = 	<0 194 0x4>,	/* common */
 				<0 186 0x4>,	/* tx0 */
 				<0 187 0x4>,	/* tx1 */
@@ -87,10 +87,10 @@
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA194_MEMORY_CLIENT_EQOSR>,
 			        <&mc TEGRA194_MEMORY_CLIENT_EQOSW>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 
-		reset-names = "mac_rst";
+		reset-names = "mac";
 		nvidia,promisc_mode = <1>;
 		nvidia,num-dma-chans = <4>;
 		nvidia,dma-chans = <0 1 2 3>;

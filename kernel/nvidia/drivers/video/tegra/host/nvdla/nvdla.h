@@ -225,24 +225,29 @@ enum nvdla_submit_mode {
 /**
  * data structure to keep per DLA engine device data
  *
- * @pdev		pointer to platform device
- * @pool		pointer to queue table
- * @dbg_mask		debug mask for print level
- * @en_trace		flag to enable kernel tracing
- * @submit_mode		flag to enable task submit mode, default is
- *				NVDLA_SUBMIT_MODE_MMIO
- * @fw_version		saves current firmware version
- * @cmd_mem		structure to hold command memory pool
- * @trace_enable	to enable/disable the DLA firmware trace
- * @events_mask		mask to set/reset the different DLA firmware trace event
- * @debug_dump_pa	physical address of print buffer
- * @debug_dump_va	virtual address of print buffer
- * @trace_dump_pa	physical address of trace buffer
- * @trace_dump_va	virtual address of trace buffer
- * @en_fw_gcov		flag to enable firmware gcov
- * @gcov_dump_pa	physical address of fw gcov buffer
- * @gcov_dump_va	virtual address of fw gcovbuffer
+ * @pdev				pointer to platform device
+ * @pool				pointer to queue table
+ * @dbg_mask			debug mask for print level
+ * @en_trace			flag to enable kernel tracing
+ * @submit_mode			flag to enable task submit mode, default is
+ *						NVDLA_SUBMIT_MODE_MMIO
+ * @fw_version			saves current firmware version
+ * @cmd_mem				structure to hold command memory pool
+ * @trace_enable		to enable/disable the DLA firmware trace
+ * @events_mask			mask to set/reset the different DLA firmware trace event
+ * @debug_dump_pa		physical address of print buffer
+ * @debug_dump_va		virtual address of print buffer
+ * @trace_dump_pa		physical address of trace buffer
+ * @trace_dump_va		virtual address of trace buffer
+ * @en_fw_gcov			flag to enable firmware gcov
+ * @gcov_dump_pa		physical address of fw gcov buffer
+ * @gcov_dump_va		virtual address of fw gcovbuffer
+ * @utilization_mem_pa  physical address of resource utilization buffer
+ * @utilization_mem_va  virtual address of resource utilization buffer
+ * @window_mem_pa       physical address of window size buffer
+ * @window_mem_va       virtual address of window size buffer
  * @is_suspended	flag to check if module is in suspend state.
+ * @ping_lock	lock to synchronize the ping operation requests.
  */
 struct nvdla_device {
 	struct platform_device *pdev;
@@ -266,9 +271,14 @@ struct nvdla_device {
 	dma_addr_t gcov_dump_pa;
 	u32 *gcov_dump_va;
 	struct work_struct reset_work;
+	dma_addr_t utilization_mem_pa;
+	u32 *utilization_mem_va;
+	dma_addr_t window_mem_pa;
+	u32 *window_mem_va;
 #ifdef CONFIG_PM
 	bool is_suspended;
 #endif
+	struct mutex ping_lock;
 };
 
 /**

@@ -54,7 +54,7 @@
 		      <0x0 0x068A0000 0x0 0x10000>, /* XPCS base */
 		      <0x0 0x068D0000 0x0 0x10000>, /* MACsec RM base */
 		      <0x0 0x06800000 0x0 0x10000>; /* HV base */
-		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		reg-names = "mac", "xpcs", "macsec-base", "hypervisor";
 		interrupts = 	<0 384 0x4>,	/* common */
 				<0 385 0x4>,	/* vm0 */
 				<0 386 0x4>,	/* vm1 */
@@ -68,7 +68,7 @@
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE0_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE0_PCS>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE0_MACSEC>; /* MACsec non-secure reset */
-		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		reset-names = "mac", "pcs", "macsec_ns_rst";
 		clocks = <&bpmp_clks TEGRA234_CLK_MGBE0_RX_INPUT_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_PCS_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_PCS_INPUT>,
@@ -82,14 +82,14 @@
 			 <&bpmp_clks TEGRA234_CLK_MGBE0_PTP_REF>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE0_MACSEC>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE0_RX_INPUT>;
-		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
-			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
-			      "mac", "eee_pcs", "app", "ptp_ref",
-			      "mgbe_macsec", "rx_input";
+		clock-names = "rx-input-m", "rx-pcs-m", "rx-pcs-input",
+			      "rx-pcs", "tx", "tx-pcs", "mac-divider",
+			      "mac", "eee-pcs", "mgbe", "ptp-ref",
+			      "mgbe_macsec", "rx-input";
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEARD>,
 				<&mc TEGRA234_MEMORY_CLIENT_MGBEAWR>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBA>;
@@ -117,6 +117,8 @@
 		nvidia,instance_id = <0>; /* MGBE0 instance */
 		nvidia,ptp-rx-queue = <3>;
 		dma-coherent;
+		nvidia,dma_rx_ring_sz = <4096>;
+		nvidia,dma_tx_ring_sz = <4096>;
 	};
 
 	ethernet@6910000 {
@@ -125,7 +127,7 @@
 		      <0x0 0x069A0000 0x0 0x10000>, /* XPCS base */
 		      <0x0 0x069D0000 0x0 0x10000>, /* MACsec RM base */
 		      <0x0 0x06900000 0x0 0x10000>; /* HV base */
-		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		reg-names = "mac", "xpcs", "macsec-base", "hypervisor";
 		interrupts = 	<0 392 0x4>,	/* common */
 				<0 393 0x4>,	/* vm0 */
 				<0 394 0x4>,	/* vm1 */
@@ -139,7 +141,7 @@
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE1_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE1_PCS>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE1_MACSEC>; /* MACsec non-secure reset */
-		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		reset-names = "mac", "pcs", "macsec_ns_rst";
 		clocks = <&bpmp_clks TEGRA234_CLK_MGBE1_RX_INPUT_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_PCS_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_PCS_INPUT>,
@@ -153,14 +155,14 @@
 			 <&bpmp_clks TEGRA234_CLK_MGBE1_PTP_REF>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE1_MACSEC>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE1_RX_INPUT>;
-		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
-			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
-			      "mac", "eee_pcs", "app", "ptp_ref",
-			      "mgbe_macsec", "rx_input";
+		clock-names = "rx-input-m", "rx-pcs-m", "rx-pcs-input",
+			      "rx-pcs", "tx", "tx-pcs", "mac-divider",
+			      "mac", "eee-pcs", "mgbe", "ptp-ref",
+			      "mgbe_macsec", "rx-input";
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEBRD>,
 				<&mc TEGRA234_MEMORY_CLIENT_MGBEBWR>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF1>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBB>;
@@ -188,6 +190,8 @@
 		nvidia,instance_id = <1>; /* MGBE1 instance */
 		nvidia,ptp-rx-queue = <3>;
 		dma-coherent;
+		nvidia,dma_rx_ring_sz = <4096>;
+		nvidia,dma_tx_ring_sz = <4096>;
 	};
 
 	ethernet@6A10000 {
@@ -196,7 +200,7 @@
 		      <0x0 0x06AA0000 0x0 0x10000>, /* XPCS base */
 		      <0x0 0x06AD0000 0x0 0x10000>, /* MACsec RM base */
 		      <0x0 0x06A00000 0x0 0x10000>; /* HV base */
-		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		reg-names = "mac", "xpcs", "macsec-base", "hypervisor";
 		interrupts = 	<0 400 0x4>,	/* common */
 				<0 401 0x4>,	/* vm0 */
 				<0 402 0x4>,	/* vm1 */
@@ -210,7 +214,7 @@
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE2_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE2_PCS>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE2_MACSEC>; /* MACsec non-secure reset */
-		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		reset-names = "mac", "pcs", "macsec_ns_rst";
 		clocks = <&bpmp_clks TEGRA234_CLK_MGBE2_RX_INPUT_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_PCS_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_PCS_INPUT>,
@@ -224,14 +228,14 @@
 			 <&bpmp_clks TEGRA234_CLK_MGBE2_PTP_REF>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE2_MACSEC>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE2_RX_INPUT>;
-		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
-			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
-			      "mac", "eee_pcs", "app", "ptp_ref",
-			      "mgbe_macsec", "rx_input";
+		clock-names = "rx-input-m", "rx-pcs-m", "rx-pcs-input",
+			      "rx-pcs", "tx", "tx-pcs", "mac-divider",
+			      "mac", "eee-pcs", "mgbe", "ptp-ref",
+			      "mgbe_macsec", "rx-input";
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBECRD>,
 				<&mc TEGRA234_MEMORY_CLIENT_MGBECWR>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF2>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBC>;
@@ -259,6 +263,8 @@
 		nvidia,instance_id = <2>; /* MGBE2 instance */
 		nvidia,ptp-rx-queue = <3>;
 		dma-coherent;
+		nvidia,dma_rx_ring_sz = <4096>;
+		nvidia,dma_tx_ring_sz = <4096>;
 	};
 
 	ethernet@6B10000 {
@@ -267,7 +273,7 @@
 		      <0x0 0x06BA0000 0x0 0x10000>, /* XPCS base */
 		      <0x0 0x06BD0000 0x0 0x10000>, /* MACsec RM base */
 		      <0x0 0x06B00000 0x0 0x10000>; /* HV base */
-		reg-names = "mac-base", "xpcs-base", "macsec-base", "hv-base";
+		reg-names = "mac", "xpcs", "macsec-base", "hypervisor";
 		interrupts = 	<0 408 0x4>,	/* common */
 				<0 409 0x4>,	/* vm0 */
 				<0 410 0x4>,	/* vm1 */
@@ -281,7 +287,7 @@
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE3_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE3_PCS>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE3_MACSEC>; /* MACsec non-secure reset */
-		reset-names = "mac_rst", "xpcs_rst", "macsec_ns_rst";
+		reset-names = "mac", "pcs", "macsec_ns_rst";
 		clocks = <&bpmp_clks TEGRA234_CLK_MGBE3_RX_INPUT_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_PCS_M>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_PCS_INPUT>,
@@ -295,14 +301,14 @@
 			 <&bpmp_clks TEGRA234_CLK_MGBE3_PTP_REF>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE3_MACSEC>,
 			 <&bpmp_clks TEGRA234_CLK_MGBE3_RX_INPUT>;
-		clock-names = "rx_input_m", "rx_pcs_m", "rx_pcs_input",
-			      "rx_pcs", "tx", "tx_pcs", "mac_divider",
-			      "mac", "eee_pcs", "app", "ptp_ref",
-			      "mgbe_macsec", "rx_input";
+		clock-names = "rx-input-m", "rx-pcs-m", "rx-pcs-input",
+			      "rx-pcs", "tx", "tx-pcs", "mac-divider",
+			      "mac", "eee-pcs", "mgbe", "ptp-ref",
+			      "mgbe_macsec", "rx-input";
 #if TEGRA_IOMMU_DT_VERSION >= DT_VERSION_2
 		interconnects = <&mc TEGRA234_MEMORY_CLIENT_MGBEDRD>,
 				<&mc TEGRA234_MEMORY_CLIENT_MGBEDWR>;
-		interconnect-names = "dma-mem", "dma-mem";
+		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF3>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEA>;
@@ -330,5 +336,7 @@
 		nvidia,instance_id = <3>; /* MGBE3 instance */
 		nvidia,ptp-rx-queue = <3>;
 		dma-coherent;
+		nvidia,dma_rx_ring_sz = <4096>;
+		nvidia,dma_tx_ring_sz = <4096>;
 	};
 };

@@ -42,7 +42,7 @@ def build_kernel_deb(args, board):
     logging.info("Adding display drivers")
     os.makedirs(board.build_dir / "Linux_for_Tegra/kernel/origin/display", exist_ok=True)
     t.execute(["tar","xf",board.build_dir / "Linux_for_Tegra/kernel/kernel_display_supplements.tbz2","-C",board.build_dir / "Linux_for_Tegra/kernel/origin/display"])
-    shutil.copytree(board.build_dir / f"Linux_for_Tegra/kernel/origin/display/lib/modules/{KERNEL_RELEASE}/extra",board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra")
+    t.execute(['sudo', 'cp', '-a', board.build_dir / f"Linux_for_Tegra/kernel/origin/display/lib/modules/{KERNEL_RELEASE}/extra", board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra"])
 
 
   for ef in board.kernel_extra_files:

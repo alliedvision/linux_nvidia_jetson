@@ -1,20 +1,17 @@
 /*
- * Copyright (C) 2022, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #include <dce.h>
-
-#ifdef CONFIG_PM
 
 #define CCPLEX_HSP_IE 1U /* TODO : Have an api to read from platform data */
 
@@ -28,6 +25,35 @@ static void dce_pm_restore_state(struct tegra_dce *d)
 	uint32_t val = d->sc7_state.hsp_ie;
 
 	dce_hsp_ie_write(d, val, CCPLEX_HSP_IE);
+}
+
+/**
+ * dce_resume_work_fn : execute resume and bootstrap flow
+ *
+ * @d : Pointer to tegra_dce struct.
+ *
+ * Return : void
+ */
+void dce_resume_work_fn(struct tegra_dce *d)
+{
+	int ret = 0;
+
+	if (d == NULL) {
+		dce_err(d, "tegra_dce struct is NULL");
+		return;
+	}
+
+	ret = dce_fsm_post_event(d, EVENT_ID_DCE_BOOT_COMPLETE_REQUESTED, NULL);
+	if (ret) {
+		dce_err(d, "Error while posting DCE_BOOT_COMPLETE_REQUESTED event");
+		return;
+	}
+
+	ret = dce_start_boot_flow(d);
+	if (ret) {
+		dce_err(d, "DCE bootstrapping failed\n");
+		return;
+	}
 }
 
 /**
@@ -55,6 +81,9 @@ int dce_pm_handle_sc7_enter_requested_event(struct tegra_dce *d, void *params)
 		dce_err(d, "Enter SC7 failed [%d]", ret);
 		goto out;
 	}
+
+	dce_set_boot_complete(d, false);
+	d->boot_status |= DCE_FW_SUSPENDED;
 
 out:
 	dce_admin_free_message(d, msg);
@@ -91,19 +120,24 @@ int dce_pm_handle_sc7_exit_received_event(struct tegra_dce *d, void *params)
 	return 0;
 }
 
-static int dce_pm_suspend(struct device *dev)
+int dce_pm_enter_sc7(struct tegra_dce *d)
 {
 	int ret = 0;
-	struct tegra_dce *d;
-	struct dce_device *d_dev = NULL;
 	struct dce_ipc_message *msg = NULL;
 
-	d_dev = dev_get_drvdata(dev);
-	d = &d_dev->d;
+	/*
+	 * If Bootstrap is not yet done. Nothing to do during SC7 Enter
+	 * Return success immediately.
+	 */
+	if (!dce_is_bootstrap_done(d)) {
+		dce_debug(d, "Bootstrap not done, Succeed SC7 enter\n");
+		goto out;
+	}
 
 	msg = dce_admin_allocate_message(d);
 	if (!msg) {
 		dce_err(d, "IPC msg allocation failed");
+		ret = -1;
 		goto out;
 	}
 
@@ -112,12 +146,14 @@ static int dce_pm_suspend(struct device *dev)
 	ret = dce_admin_send_prepare_sc7(d, msg);
 	if (ret) {
 		dce_err(d, "Prepare SC7 failed [%d]", ret);
+		ret = -1;
 		goto out;
 	}
 
 	ret = dce_fsm_post_event(d, EVENT_ID_DCE_SC7_ENTER_REQUESTED, NULL);
 	if (ret) {
 		dce_err(d, "Error while posting SC7_ENTER event [%d]", ret);
+		ret = -1;
 		goto out;
 	}
 
@@ -126,14 +162,9 @@ out:
 	return ret;
 }
 
-static int dce_pm_resume(struct device *dev)
+int dce_pm_exit_sc7(struct tegra_dce *d)
 {
 	int ret = 0;
-	struct tegra_dce *d;
-	struct dce_device *d_dev = NULL;
-
-	d_dev = dev_get_drvdata(dev);
-	d = &d_dev->d;
 
 	dce_pm_restore_state(d);
 
@@ -145,27 +176,3 @@ static int dce_pm_resume(struct device *dev)
 out:
 	return ret;
 }
-
-const struct dev_pm_ops dce_pm_ops = {
-	.suspend = dce_pm_suspend,
-	.resume  = dce_pm_resume,
-};
-
-#else
-
-int dce_pm_handle_sc7_enter_requested_event(struct tegra_dce *d, void *params)
-{
-	return 0;
-}
-
-int dce_pm_handle_sc7_enter_received_event(struct tegra_dce *d, void *params)
-{
-	return 0;
-}
-
-int dce_pm_handle_sc7_exit_received_event(struct tegra_dce *d, void *params)
-{
-	return 0;
-}
-
-#endif

@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms and conditions of the GNU General Public License,
@@ -12,17 +12,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+ifneq ($(CONFIG_TEGRA_LINUX_SAFETY),y)
+
 OSI_COMMON := nvethernetrm/osi/common
 OSI_CORE := nvethernetrm/osi/core
 OSI_DMA := nvethernetrm/osi/dma
 
 obj-$(CONFIG_NVETHERNET) += nvethernet.o
 
-ccflags-y += -DLINUX_IVC -DUPDATED_PAD_CAL \
-	     -I$(srctree.nvidia)/drivers/net/ethernet/nvidia/nvethernet/nvethernetrm/include \
+# These CFLAGS must not be shared/used in OSI. These are local to Linux
+ccflags-y +=  -DLINUX_OS -DNET30 -DNVPKCS_MACSEC -DLINUX_IVC -DUPDATED_PAD_CAL \
+              -I$(srctree.nvidia)/drivers/net/ethernet/nvidia/nvethernet/nvethernetrm/include \
 	     -I$(srctree.nvidia)/drivers/net/ethernet/nvidia/nvethernet/nvethernetrm/osi/common/include
-
-ccflags-y += -DMACSEC_SUPPORT -DNET30 -DMACSEC_DEBUG -DOSI_DEBUG -DHSI_SUPPORT
 
 nvethernet-objs:= ether_linux.o \
 		  osd.o \
@@ -56,4 +57,8 @@ nvethernet-objs:= ether_linux.o \
 		  $(OSI_CORE)/vlan_filter.o \
 		  $(OSI_CORE)/debug.o
 
+include $(srctree.nvidia)/drivers/net/ethernet/nvidia/nvethernet/nvethernetrm/include/config.tmk
+
 nvethernet-$(CONFIG_NVETHERNET_SELFTESTS) += selftests.o
+
+endif

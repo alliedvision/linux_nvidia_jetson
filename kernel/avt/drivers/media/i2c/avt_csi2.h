@@ -164,7 +164,7 @@ struct avt_ctrl {
 /* Driver release version */
 #define DRV_VER_MAJOR           5
 #define DRV_VER_MINOR           1
-#define DRV_VER_PATCH           0
+#define DRV_VER_PATCH           1
 #define DRV_VER_BUILD           0
 #define DRIVER_VERSION          STR(DRV_VER_MAJOR) "." STR(DRV_VER_MINOR) "." STR(DRV_VER_PATCH) "." STR(DRV_VER_BUILD)
 

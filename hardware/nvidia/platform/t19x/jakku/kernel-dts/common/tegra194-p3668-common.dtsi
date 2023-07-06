@@ -1,7 +1,7 @@
 /*
  * Common include DTS file for CVM:P3668-0001 and CVB:P3449-0000 variants.
  *
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -612,6 +612,10 @@
 				<&bpmp_clks TEGRA194_CLK_CAN1>,
 				<&bpmp_clks TEGRA194_CLK_CAN2>;
 		};
+	};
+
+	nvpmodel {
+		status = "okay";
 	};
 
 	soctherm-oc-event {

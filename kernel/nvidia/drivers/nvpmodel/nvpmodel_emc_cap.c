@@ -3,7 +3,7 @@
  *
  * NVIDIA Tegra Nvpmodel driver for Tegra chips
  *
- * Copyright (c) 2017-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -285,7 +285,7 @@ static int __init nvpmodel_clk_cap_init(void)
 			continue;
 		}
 		sysfs_attr_init(&(clks[i].attr.attr));
-		clks[i].attr.attr.mode = 0660;
+		clks[i].attr.attr.mode = 0664;
 		clks[i].attr.show = clk_cap_show;
 		clks[i].attr.store = clk_cap_store;
 		if (sysfs_create_file(clk_cap_kobject,

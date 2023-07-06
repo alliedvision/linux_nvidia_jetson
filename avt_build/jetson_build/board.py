@@ -3,9 +3,9 @@ from collections import namedtuple
 from . import upstream
 from . import build
 
-AVT_RELEASE = "5.1.0"
+AVT_RELEASE = "5.1.1"
 KERNEL_RELEASE = "5.10.104-tegra"
-L4T_VERSION = "35.2.1"
+L4T_VERSION = "35.3.1"
 
 FileSet = namedtuple('FileSet', [
   'driver_package',
@@ -14,9 +14,9 @@ FileSet = namedtuple('FileSet', [
 
 
 def get_tx2_agx_nx_upstream_files(UpstreamFile):
-  driver_package  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v2.1/release/Jetson_Linux_R35.2.1_aarch64.tbz2",                     "9959bcd3de79de231a8fb54119f9cdb57a753542d44d994e346664028142d40d")
+  driver_package  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v3.1/release/Jetson_Linux_R35.3.1_aarch64.tbz2",                     "80a55504a2ce9cdc0a328edb6fd0690615c4ffde9c2b32f4e64e0a1a3432a2e2")
   #rootfs          = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t186/tegra_linux_sample-root-filesystem_r32.7.1_aarch64.tbz2", "17996e861dd092043509e0b7e9ae038e271e5b0b7b78f26a34db4f03df2b12b8")
-  public_sources  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v2.1/sources/public_sources.tbz2",                             "ae9d2f903347013a915b128cf311899a24c6ba21e13607cdbde785e1f0557449")
+  public_sources  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v3.1/sources/public_sources.tbz2",                             "cd914110043cdb2a19a298fefc52d9dacbbcd560f781955fe03a1e98b470f2ae")
 
   return FileSet(
     public_sources=public_sources,
@@ -35,11 +35,9 @@ def get_tx2_agx_nx_upstream_files(UpstreamFile):
   
 bootloader_payload_files_xavier = [
   ("bootloader/payloads_t19x/bl_only_payload", "opt/ota_package/t19x/bl_only_payload"),
-  ("bootloader/payloads_t19x/bl_update_payload", "opt/ota_package/t19x/bl_update_payload"),
   ("bootloader/payloads_t19x/TEGRA_BL.Cap", "opt/ota_package/t19x/TEGRA_BL.Cap"),
   ("bootloader/BOOTAA64.efi", "opt/ota_package/t19x/BOOTAA64.efi"),
   ("bootloader/payloads_t23x/bl_only_payload", "opt/ota_package/t23x/bl_only_payload"),
-  ("bootloader/payloads_t23x/bl_update_payload", "opt/ota_package/t23x/bl_update_payload"),
   ("bootloader/payloads_t23x/TEGRA_BL.Cap", "opt/ota_package/t23x/TEGRA_BL.Cap"),
   ("bootloader/BOOTAA64.efi", "opt/ota_package/t23x/BOOTAA64.efi")
 ]

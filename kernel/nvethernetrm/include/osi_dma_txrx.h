@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,7 +32,6 @@
 #define OSI_EQOS_TX_DESC_CNT		1024U
 #define OSI_EQOS_RX_DESC_CNT		1024U
 #define OSI_MGBE_TX_DESC_CNT		4096U
-#define OSI_MGBE_RX_DESC_CNT		4096U
 #define OSI_MGBE_MAX_RX_DESC_CNT	16384U
 /** @} */
 
@@ -49,9 +48,11 @@
 #define INCR_TX_DESC_INDEX(idx, x) ((idx) = ((idx) + (1U)) & ((x) - 1U))
 /** Increment the rx descriptor index */
 #define INCR_RX_DESC_INDEX(idx, x) ((idx) = ((idx) + (1U)) & ((x) - 1U))
-#ifndef OSI_STRIPPED_LIB
+#ifdef OSI_DEBUG
 /** Decrement the tx descriptor index */
 #define DECR_TX_DESC_INDEX(idx, x) ((idx) = ((idx) - (1U)) & ((x) - 1U))
+#endif /* OSI_DEBUG */
+#ifndef OSI_STRIPPED_LIB
 /** Decrement the rx descriptor index */
 #define DECR_RX_DESC_INDEX(idx, x) ((idx) = ((idx) - (1U)) & ((x) - 1U))
 #endif /* !OSI_STRIPPED_LIB */

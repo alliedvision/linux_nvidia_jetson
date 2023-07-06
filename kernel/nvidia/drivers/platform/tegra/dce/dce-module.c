@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -56,6 +56,19 @@ MODULE_DEVICE_TABLE(of, tegra_dce_of_match);
 static inline struct tegra_dce *dce_get_pdata_dce(struct platform_device *pdev)
 {
 	return (&((struct dce_device *)dev_get_drvdata(&pdev->dev))->d);
+}
+
+/**
+ * dce_get_tegra_dce_from_dev - inline function to get the tegra_dce pointer
+ *						from devicve struct.
+ *
+ * @pdev : Pointer to the device data structure.
+ *
+ * Return :  Pointer pointing to tegra_dce data structure.
+ */
+static inline struct tegra_dce *dce_get_tegra_dce_from_dev(struct device *dev)
+{
+	return (&((struct dce_device *)dev_get_drvdata(dev))->d);
 }
 
 /**
@@ -255,7 +268,24 @@ static int tegra_dce_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-extern const struct dev_pm_ops dce_pm_ops;
+static int dce_pm_suspend(struct device *dev)
+{
+	struct tegra_dce *d = dce_get_tegra_dce_from_dev(dev);
+
+	return dce_pm_enter_sc7(d);
+}
+
+static int dce_pm_resume(struct device *dev)
+{
+	struct tegra_dce *d = dce_get_tegra_dce_from_dev(dev);
+
+	return dce_pm_exit_sc7(d);
+}
+
+const struct dev_pm_ops dce_pm_ops = {
+	.suspend = dce_pm_suspend,
+	.resume  = dce_pm_resume,
+};
 #endif
 
 static struct platform_driver tegra_dce_driver = {

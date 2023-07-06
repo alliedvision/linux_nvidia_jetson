@@ -30,4 +30,10 @@
 			"nvidia,p3767-0000-as-p3767-0001",
 			"nvidia,tegra234", "nvidia,tegra23x";
 	model = "NVIDIA Orin NX 16GB as Orin NX 8GB";
+
+	host1x@13e00000 {
+		nvdla1@158c0000 {
+			status = "disabled";
+		};
+	};
 };

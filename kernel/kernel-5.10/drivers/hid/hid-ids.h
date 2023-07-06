@@ -6,6 +6,7 @@
  *  Copyright (c) 2000-2005 Vojtech Pavlik <vojtech@suse.cz>
  *  Copyright (c) 2005 Michael Haboustak <mike-@cinci.rr.com> for Concept2, Inc
  *  Copyright (c) 2006-2007 Jiri Kosina
+ *  Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
  */
 
 /*
@@ -941,6 +942,7 @@
 #define USB_DEVICE_ID_NVIDIA_JARVIS	0x7212
 #define USB_DEVICE_ID_NVIDIA_PEPPER	0x7213
 #define USB_DEVICE_ID_NVIDIA_THUNDERSTRIKE	0x7214
+#define USB_DEVICE_ID_NVIDIA_FRIDAY	0x7217
 #define USB_DEVICE_ID_NVIDIA_BLAKE	0x7210
 
 #define USB_VENDOR_ID_ONTRAK		0x0a07

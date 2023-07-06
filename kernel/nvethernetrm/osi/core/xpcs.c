@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,7 @@
  */
 
 #include "xpcs.h"
+#include "core_local.h"
 
 /**
  * @brief xpcs_poll_for_an_complete - Polling for AN complete.
@@ -34,22 +35,22 @@
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
-					    unsigned int *an_status)
+static inline nve32_t xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
+					    nveu32_t *an_status)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	unsigned int status = 0;
-	unsigned int retry = 1000;
-	unsigned int count;
-	int cond = 1;
-	int ret = 0;
+	nveu32_t status = 0;
+	nveu32_t retry = 1000;
+	nveu32_t count;
+	nve32_t cond = 1;
+	nve32_t ret = 0;
 
 	/* 14. Poll for AN complete */
 	cond = 1;
 	count = 0;
 	while (cond == 1) {
 		if (count > retry) {
-			OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 				     "XPCS AN completion timed out\n", 0ULL);
 #ifdef HSI_SUPPORT
 			if (osi_core->hsi.enabled == OSI_ENABLE) {
@@ -59,7 +60,8 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
 				osi_core->hsi.report_count_err[AUTONEG_ERR_IDX] = OSI_ENABLE;
 			}
 #endif
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 
 		count++;
@@ -73,20 +75,22 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
 			status &= ~XPCS_VR_MII_AN_INTR_STS_CL37_ANCMPLT_INTR;
 			ret = xpcs_write_safety(osi_core, XPCS_VR_MII_AN_INTR_STS, status);
 			if (ret != 0) {
-				return ret;
+				goto fail;
 			}
 			cond = 0;
 		}
 	}
 
 	if ((status & XPCS_USXG_AN_STS_SPEED_MASK) == 0U) {
-		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 			     "XPCS AN completed with zero speed\n", 0ULL);
-		return -1;
+		ret = -1;
+		goto fail;
 	}
 
 	*an_status = status;
-	return 0;
+fail:
+	return ret;
 }
 
 /**
@@ -100,11 +104,11 @@ static inline int xpcs_poll_for_an_complete(struct osi_core_priv_data *osi_core,
  * @retval 0 on success
  * @retval -1 on failure
  */
-static inline int xpcs_set_speed(struct osi_core_priv_data *osi_core,
-				  unsigned int status)
+static inline nve32_t xpcs_set_speed(struct osi_core_priv_data *osi_core,
+				  nveu32_t status)
 {
-	unsigned int speed = status & XPCS_USXG_AN_STS_SPEED_MASK;
-	unsigned int ctrl = 0;
+	nveu32_t speed = status & XPCS_USXG_AN_STS_SPEED_MASK;
+	nveu32_t ctrl = 0;
 	void *xpcs_base = osi_core->xpcs_base;
 
 	ctrl = xpcs_read(xpcs_base, XPCS_SR_MII_CTRL);
@@ -141,21 +145,21 @@ static inline int xpcs_set_speed(struct osi_core_priv_data *osi_core,
  * @retval 0 on success
  * @retval -1 on failure.
  */
-int xpcs_start(struct osi_core_priv_data *osi_core)
+nve32_t xpcs_start(struct osi_core_priv_data *osi_core)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	unsigned int an_status = 0;
-	unsigned int retry = RETRY_COUNT;
-	unsigned int count = 0;
-	unsigned int ctrl = 0;
-	int ret = 0;
-	int cond = COND_NOT_MET;
+	nveu32_t an_status = 0;
+	nveu32_t retry = RETRY_COUNT;
+	nveu32_t count = 0;
+	nveu32_t ctrl = 0;
+	nve32_t ret = 0;
+	nve32_t cond = COND_NOT_MET;
 
 	if (osi_core->xpcs_base == OSI_NULL) {
-		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 			     "XPCS base is NULL", 0ULL);
-		/* TODO: Remove this once silicon arrives */
-		return 0;
+		ret = -1;
+		goto fail;
 	}
 
 	if ((osi_core->phy_iface_mode == OSI_USXGMII_MODE_10G) ||
@@ -164,16 +168,16 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
 		ctrl |= XPCS_SR_MII_CTRL_AN_ENABLE;
 		ret = xpcs_write_safety(osi_core, XPCS_SR_MII_CTRL, ctrl);
 		if (ret != 0) {
-			return ret;
+			goto fail;
 		}
 		ret = xpcs_poll_for_an_complete(osi_core, &an_status);
 		if (ret < 0) {
-			return ret;
+			goto fail;
 		}
 
 		ret = xpcs_set_speed(osi_core, an_status);
 		if (ret != 0) {
-			return ret;
+			goto fail;
 		}
 		/* USXGMII Rate Adaptor Reset before data transfer */
 		ctrl = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1);
@@ -181,7 +185,8 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
 		xpcs_write(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
 		while (cond == COND_NOT_MET) {
 			if (count > retry) {
-				return -1;
+				ret = -1;
+				goto fail;
 			}
 
 			count++;
@@ -200,7 +205,8 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
 	count = 0;
 	while (cond == COND_NOT_MET) {
 		if (count > retry) {
-			return -1;
+			ret = -1;
+			break;
 		}
 
 		count++;
@@ -210,11 +216,16 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
 		    XPCS_SR_XS_PCS_STS1_RLU) {
 			cond = COND_MET;
 		} else {
-			osi_core->osd_ops.udelay(1000U);
+			/* Maximum wait delay as per HW team is 1msec.
+			 * So add a loop for 1000 iterations with 1usec delay,
+			 * so that if check get satisfies before 1msec will come
+			 * out of loop and it can save some boot time
+			 */
+			osi_core->osd_ops.udelay(1U);
 		}
 	}
-
-	return 0;
+fail:
+	return ret;
 }
 
 /**
@@ -230,46 +241,50 @@ int xpcs_start(struct osi_core_priv_data *osi_core)
  * @retval -1 on failure.
  */
 static nve32_t xpcs_uphy_lane_bring_up(struct osi_core_priv_data *osi_core,
-				       unsigned int lane_init_en)
+				       nveu32_t lane_init_en)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	nveu32_t retry = XPCS_RETRY_COUNT;
+	nveu32_t retry = 5U;
 	nve32_t cond = COND_NOT_MET;
 	nveu32_t val = 0;
 	nveu32_t count;
+	nve32_t ret = 0;
 
 	val = osi_readla(osi_core,
 			 (nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_STATUS);
-	if ((val & XPCS_WRAP_UPHY_STATUS_TX_P_UP_STATUS) ==
+	if ((val & XPCS_WRAP_UPHY_STATUS_TX_P_UP_STATUS) !=
 	    XPCS_WRAP_UPHY_STATUS_TX_P_UP_STATUS) {
-		/* return success if TX lane is already UP */
-		return 0;
-	}
-
-	val = osi_readla(osi_core,
-			(nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
-	val |= lane_init_en;
-	osi_writela(osi_core, val,
-		    (nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
-
-	count = 0;
-	while (cond == COND_NOT_MET) {
-		if (count > retry) {
-			return -1;
-		}
-		count++;
-
 		val = osi_readla(osi_core,
-				 (nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
-		if ((val & lane_init_en) == OSI_NONE) {
-			/* exit loop */
-			cond = COND_MET;
-		} else {
-			osi_core->osd_ops.udelay(500U);
+				(nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
+		val |= lane_init_en;
+		osi_writela(osi_core, val,
+				(nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
+
+		count = 0;
+		while (cond == COND_NOT_MET) {
+			if (count > retry) {
+				ret = -1;
+				goto fail;
+			}
+			count++;
+
+			val = osi_readla(osi_core,
+					(nveu8_t *)xpcs_base + XPCS_WRAP_UPHY_HW_INIT_CTRL);
+			if ((val & lane_init_en) == OSI_NONE) {
+				/* exit loop */
+				cond = COND_MET;
+			} else {
+				/* Max wait time is 1usec.
+				 * Most of the time loop got exited in first iteration.
+				 * but added an extra count of 4 for safer side
+				 */
+				osi_core->osd_ops.udelay(1U);
+			}
 		}
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
 /**
@@ -285,15 +300,17 @@ static nve32_t xpcs_uphy_lane_bring_up(struct osi_core_priv_data *osi_core,
 static nve32_t xpcs_check_pcs_lock_status(struct osi_core_priv_data *osi_core)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	nveu32_t retry = XPCS_RETRY_COUNT;
+	nveu32_t retry = RETRY_COUNT;
 	nve32_t cond = COND_NOT_MET;
 	nveu32_t val = 0;
 	nveu32_t count;
+	nve32_t ret = 0;
 
 	count = 0;
 	while (cond == COND_NOT_MET) {
 		if (count > retry) {
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 		count++;
 
@@ -304,14 +321,19 @@ static nve32_t xpcs_check_pcs_lock_status(struct osi_core_priv_data *osi_core)
 			/* exit loop */
 			cond = COND_MET;
 		} else {
-			osi_core->osd_ops.udelay(500U);
+			/* Maximum wait delay as per HW team is 1msec.
+			 * So add a loop for 1000 iterations with 1usec delay,
+			 * so that if check get satisfies before 1msec will come
+			 * out of loop and it can save some boot time
+			 */
+			osi_core->osd_ops.udelay(1U);
 		}
 	}
 
 	/* Clear the status */
 	osi_writela(osi_core, val, (nveu8_t *)xpcs_base + XPCS_WRAP_IRQ_STATUS);
-
-	return 0;
+fail:
+	return ret;
 }
 
 /**
@@ -327,16 +349,19 @@ static nve32_t xpcs_check_pcs_lock_status(struct osi_core_priv_data *osi_core)
  */
 static nve32_t xpcs_lane_bring_up(struct osi_core_priv_data *osi_core)
 {
-	unsigned int retry = 1000;
-	unsigned int count;
+	struct core_local *l_core = (struct core_local *)(void *)osi_core;
+	nveu32_t retry = 7U;
+	nveu32_t count;
 	nveu32_t val = 0;
-	int cond;
+	nve32_t cond;
+	nve32_t ret = 0;
 
 	if (xpcs_uphy_lane_bring_up(osi_core,
 				    XPCS_WRAP_UPHY_HW_INIT_CTRL_TX_EN) < 0) {
-		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 			     "UPHY TX lane bring-up failed\n", 0ULL);
-		return -1;
+		ret = -1;
+		goto fail;
 	}
 
 	val = osi_readla(osi_core,
@@ -389,7 +414,8 @@ static nve32_t xpcs_lane_bring_up(struct osi_core_priv_data *osi_core)
 	count = 0;
 	while (cond == COND_NOT_MET) {
 		if (count > retry) {
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 
 		count++;
@@ -397,10 +423,17 @@ static nve32_t xpcs_lane_bring_up(struct osi_core_priv_data *osi_core)
 		val = osi_readla(osi_core,
 				(nveu8_t *)osi_core->xpcs_base +
 				XPCS_WRAP_UPHY_RX_CONTROL_0_0);
-		if ((val & XPCS_WRAP_UPHY_RX_CONTROL_0_0_RX_CAL_EN) == 0) {
+		if ((val & XPCS_WRAP_UPHY_RX_CONTROL_0_0_RX_CAL_EN) == 0U) {
 			cond = COND_MET;
 		} else {
-			osi_core->osd_ops.udelay(1000U);
+			/* Maximum wait delay as per HW team is 100 usec.
+			 * But most of the time as per experiments it takes
+			 * around 14usec to satisy the condition, so add a
+			 * minimum delay of 14usec and loop it for 7times.
+			 * With this 14usec delay condition gets satifies
+			 * in first iteration itself.
+			 */
+			osi_core->osd_ops.udelay(14U);
 		}
 	}
 
@@ -433,12 +466,20 @@ static nve32_t xpcs_lane_bring_up(struct osi_core_priv_data *osi_core)
 		    XPCS_WRAP_UPHY_RX_CONTROL_0_0);
 
 	if (xpcs_check_pcs_lock_status(osi_core) < 0) {
-		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
-			     "Failed to get PCS block lock\n", 0ULL);
-		return -1;
+		if (l_core->lane_status == OSI_ENABLE) {
+			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
+				     "Failed to get PCS block lock\n", 0ULL);
+			l_core->lane_status = OSI_DISABLE;
+		}
+		ret = -1;
+		goto fail;
+	} else {
+		OSI_CORE_INFO(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
+			      "PCS block lock SUCCESS\n", 0ULL);
+		l_core->lane_status = OSI_ENABLE;
 	}
-
-	return 0;
+fail:
+	return ret;
 }
 
 /**
@@ -451,28 +492,25 @@ static nve32_t xpcs_lane_bring_up(struct osi_core_priv_data *osi_core)
  * @retval 0 on success
  * @retval -1 on failure.
  */
-int xpcs_init(struct osi_core_priv_data *osi_core)
+nve32_t xpcs_init(struct osi_core_priv_data *osi_core)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	unsigned int retry = 1000;
-	unsigned int count;
-	unsigned int ctrl = 0;
-	int cond = 1;
-	int ret = 0;
+	nveu32_t retry = 1000;
+	nveu32_t count;
+	nveu32_t ctrl = 0;
+	nve32_t cond = 1;
+	nve32_t ret = 0;
 
 	if (osi_core->xpcs_base == OSI_NULL) {
-		OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_HW_FAIL,
 			     "XPCS base is NULL", 0ULL);
-		/* TODO: Remove this once silicon arrives */
-		return 0;
+		ret = -1;
+		goto fail;
 	}
 
-	if (osi_core->pre_si != OSI_ENABLE) {
-		if (xpcs_lane_bring_up(osi_core) < 0) {
-			OSI_CORE_ERR(OSI_NULL, OSI_LOG_ARG_HW_FAIL,
-				     "TX/RX lane bring-up failed\n", 0ULL);
-			return -1;
-		}
+	if (xpcs_lane_bring_up(osi_core) < 0) {
+		ret = -1;
+		goto fail;
 	}
 
 	/* Switching to USXGMII Mode based on
@@ -484,7 +522,7 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	ctrl |= XPCS_SR_XS_PCS_CTRL2_PCS_TYPE_SEL_BASE_R;
 	ret = xpcs_write_safety(osi_core, XPCS_SR_XS_PCS_CTRL2, ctrl);
 	if (ret != 0) {
-		return ret;
+		goto fail;
 	}
 	/* 2. enable USXGMII Mode inside DWC_xpcs */
 
@@ -501,7 +539,7 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 
 	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_KR_CTRL, ctrl);
 	if (ret != 0) {
-		return ret;
+		goto fail;
 	}
 	/* 4. Program PHY to operate at 10Gbps/5Gbps/2Gbps
          * this step not required since PHY speed programming
@@ -512,7 +550,7 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_USXG_EN;
 	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
 	if (ret != 0) {
-		return ret;
+		goto fail;
 	}
 
 	/* XPCS_VR_XS_PCS_DIG_CTRL1_VR_RST bit is self clearing
@@ -528,7 +566,8 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	count = 0;
 	while (cond == 1) {
 		if (count > retry) {
-			return -1;
+			ret = -1;
+			goto fail;
 		}
 
 		count++;
@@ -551,13 +590,13 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 		ctrl &= ~XPCS_SR_AN_CTRL_AN_EN;
 		ret = xpcs_write_safety(osi_core, XPCS_SR_AN_CTRL, ctrl);
 		if (ret != 0) {
-			return ret;
+			goto fail;
 		}
 		ctrl = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_DIG_CTRL1);
 		ctrl |= XPCS_VR_XS_PCS_DIG_CTRL1_CL37_BP;
 		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_DIG_CTRL1, ctrl);
 		if (ret != 0) {
-			return ret;
+			goto fail;
 		}
 	}
 
@@ -569,10 +608,11 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
 	/* 11. XPCS configured as MAC-side USGMII - NA */
 
 	/* 13.  TODO: If there is interrupt enabled for AN interrupt */
-
-	return 0;
+fail:
+	return ret;
 }
 
+#ifndef OSI_STRIPPED_LIB
 /**
  * @brief xpcs_eee - XPCS enable/disable EEE
  *
@@ -585,54 +625,55 @@ int xpcs_init(struct osi_core_priv_data *osi_core)
  * @retval 0 on success
  * @retval -1 on failure.
  */
-int xpcs_eee(struct osi_core_priv_data *osi_core, unsigned int en_dis)
+nve32_t xpcs_eee(struct osi_core_priv_data *osi_core, nveu32_t en_dis)
 {
 	void *xpcs_base = osi_core->xpcs_base;
-	unsigned int val = 0x0U;
-	int ret = 0;
+	nveu32_t val = 0x0U;
+	nve32_t ret = 0;
 
-	if (en_dis != OSI_ENABLE && en_dis != OSI_DISABLE) {
-		return  -1;
+	if ((en_dis != OSI_ENABLE) && (en_dis != OSI_DISABLE)) {
+		ret = -1;
+		goto fail;
 	}
 
-	if (xpcs_base == OSI_NULL)
-		return -1;
+	if (xpcs_base == OSI_NULL) {
+		ret = -1;
+		goto fail;
+	}
 
 	if (en_dis == OSI_DISABLE) {
 		val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0);
 		val &= ~XPCS_VR_XS_PCS_EEE_MCTRL0_LTX_EN;
 		val &= ~XPCS_VR_XS_PCS_EEE_MCTRL0_LRX_EN;
 		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
+	} else {
+
+		/* 1. Check if DWC_xpcs supports the EEE feature by
+		 * reading the SR_XS_PCS_EEE_ABL register
+		 * 1000BASEX-Only is different config then else so can (skip)
+		 */
+
+		/* 2. Program various timers used in the EEE mode depending on the
+		 * clk_eee_i clock frequency. default times are same as IEEE std
+		 * clk_eee_i() is 102MHz. MULT_FACT_100NS = 9 because 9.8ns*10 = 98
+		 * which is between 80 and 120  this leads to default setting match
+		 */
+
+		val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0);
+		/* 3. If FEC is enabled in the KR mode (skip in FPGA)*/
+		/* 4. enable the EEE feature on the Tx path and Rx path */
+		val |= (XPCS_VR_XS_PCS_EEE_MCTRL0_LTX_EN |
+				XPCS_VR_XS_PCS_EEE_MCTRL0_LRX_EN);
+		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
 		if (ret != 0) {
-			return ret;
+			goto fail;
 		}
-		return 0;
+		/* Transparent Tx LPI Mode Enable */
+		val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL1);
+		val |= XPCS_VR_XS_PCS_EEE_MCTRL1_TRN_LPI;
+		ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL1, val);
 	}
-
-	/* 1. Check if DWC_xpcs supports the EEE feature by
-	 * reading the SR_XS_PCS_EEE_ABL register
-	 * 1000BASEX-Only is different config then else so can (skip) */
-
-	/* 2. Program various timers used in the EEE mode depending on the
-	 * clk_eee_i clock frequency. default times are same as IEEE std
-	 * clk_eee_i() is 102MHz. MULT_FACT_100NS = 9 because 9.8ns*10 = 98
-	 * which is between 80 and 120  this leads to default setting match */
-
-	val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL0);
-	/* 3. If FEC is enabled in the KR mode (skip in FPGA)*/
-	/* 4. enable the EEE feature on the Tx path and Rx path */
-	val |= (XPCS_VR_XS_PCS_EEE_MCTRL0_LTX_EN |
-		XPCS_VR_XS_PCS_EEE_MCTRL0_LRX_EN);
-	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL0, val);
-	if (ret != 0) {
-		return ret;
-	}
-	/* Transparent Tx LPI Mode Enable */
-	val = xpcs_read(xpcs_base, XPCS_VR_XS_PCS_EEE_MCTRL1);
-	val |= XPCS_VR_XS_PCS_EEE_MCTRL1_TRN_LPI;
-	ret = xpcs_write_safety(osi_core, XPCS_VR_XS_PCS_EEE_MCTRL1, val);
-	if (ret != 0) {
-		return ret;
-	}
-	return 0;
+fail:
+	return ret;
 }
+#endif /* !OSI_STRIPPED_LIB */

@@ -269,7 +269,7 @@ bool nvhost_syncpt_is_valid_pt_ext(struct platform_device *pdev, u32 id)
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct host1x_syncpt *sp;
 
-	if (!pdata || pdata->host1x)
+	if (!pdata || !pdata->host1x)
 		return -ENODEV;
 
 	sp = host1x_syncpt_get_by_id_noref(pdata->host1x, id);

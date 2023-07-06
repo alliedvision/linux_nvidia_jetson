@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,11 +31,6 @@
 #include "macsec.h"
 
 /**
- * @brief ivc_safety_config - EQOS MAC core safety configuration
- */
-static struct core_func_safety ivc_safety_config;
-
-/**
  * @brief ivc_handle_ioctl - marshell input argument to handle runtime command
  *
  * @param[in] osi_core: OSI core private data structure.
@@ -55,27 +50,40 @@ static nve32_t ivc_handle_ioctl(struct osi_core_priv_data *osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = handle_ioctl;
-	msg.status = osi_memcpy((void *)&msg.data.ioctl_data,
-				(void *)data,
-				sizeof(struct osi_ioctl));
+	/* osi_memcpy is treated as void since it is
+	 * an internal functin which will be always success
+	 */
+	(void)osi_memcpy((void *)&msg.data.ioctl_data, (void *)data,
+			 sizeof(struct osi_ioctl));
 
 	if (data->cmd == OSI_CMD_CONFIG_PTP) {
-		osi_memcpy((void *)&msg.data.ioctl_data.ptp_config,
-			   (void *)&osi_core->ptp_config,
-			   sizeof(struct osi_ptp_config));
+		(void)osi_memcpy((void *)&msg.data.ioctl_data.ptp_config,
+				 (void *)&osi_core->ptp_config,
+				 sizeof(struct osi_ptp_config));
 	}
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 
-	if (data->cmd == OSI_CMD_READ_MMC) {
-		msg.status = osi_memcpy((void *)&osi_core->mmc,
-					(void *)&msg.data.mmc,
-					sizeof(struct osi_mmc_counters));
-	} else {
-		msg.status = osi_memcpy((void *)data,
-					(void *)&msg.data.ioctl_data,
-					sizeof(struct osi_ioctl));
+	switch (data->cmd) {
+	case OSI_CMD_READ_MMC:
+		(void)osi_memcpy((void *)&osi_core->mmc,
+				 (void *)&msg.data.mmc_s,
+				 sizeof(struct osi_mmc_counters));
+		break;
+
+	case OSI_CMD_READ_STATS:
+		(void)osi_memcpy((void *)&osi_core->stats,
+				 (void *)&msg.data.stats_s,
+				 sizeof(struct osi_stats));
+		break;
+
+	default:
+		(void)osi_memcpy((void *)data,
+				 (void *)&msg.data.ioctl_data,
+				 sizeof(struct osi_ioctl));
+		break;
 	}
+
 	return ret;
 }
 
@@ -83,15 +91,11 @@ static nve32_t ivc_handle_ioctl(struct osi_core_priv_data *osi_core,
  * @brief ivc_core_init - EQOS MAC, MTL and common DMA Initialization
  *
  * @param[in] osi_core: OSI core private data structure.
- * @param[in] tx_fifo_size: MTL TX FIFO size
- * @param[in] rx_fifo_size: MTL RX FIFO size
  *
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static nve32_t ivc_core_init(struct osi_core_priv_data *const osi_core,
-			     OSI_UNUSED nveu32_t tx_fifo_size,
-			     OSI_UNUSED nveu32_t rx_fifo_size)
+static nve32_t ivc_core_init(struct osi_core_priv_data *const osi_core)
 {
 	ivc_msg_common_t msg;
 
@@ -117,8 +121,7 @@ static void ivc_core_deinit(struct osi_core_priv_data *const osi_core)
 
 	osi_memset(&msg, 0, sizeof(msg));
 
-	msg.cmd = handle_ioctl;
-	msg.data.ioctl_data.cmd = OSI_CMD_STOP_MAC;
+	msg.cmd = core_deinit;
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret < 0) {
@@ -151,10 +154,10 @@ static nve32_t ivc_write_phy_reg(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = write_phy_reg;
-	msg.data.args.arguments[index++] = phyaddr;
-	msg.data.args.arguments[index++] = phyreg;
-	msg.data.args.arguments[index++] = phydata;
-	msg.data.args.count = index;
+	msg.args.arguments[index++] = phyaddr;
+	msg.args.arguments[index++] = phyreg;
+	msg.args.arguments[index++] = phydata;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
@@ -182,14 +185,15 @@ static nve32_t ivc_read_phy_reg(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = read_phy_reg;
-	msg.data.args.arguments[index++] = phyaddr;
-	msg.data.args.arguments[index++] = phyreg;
-	msg.data.args.count = index;
+	msg.args.arguments[index++] = phyaddr;
+	msg.args.arguments[index++] = phyreg;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
 
 #ifdef MACSEC_SUPPORT
+#ifdef DEBUG_MACSEC
 /**
  * @brief ivc_macsec_dbg_events_config - Configure Debug events
  *
@@ -199,7 +203,7 @@ static nve32_t ivc_read_phy_reg(struct osi_core_priv_data *const osi_core,
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static int ivc_macsec_dbg_events_config(
+static nve32_t ivc_macsec_dbg_events_config(
 		struct osi_core_priv_data *const osi_core,
 		struct osi_macsec_dbg_buf_config *const dbg_buf_config)
 {
@@ -210,19 +214,19 @@ static int ivc_macsec_dbg_events_config(
 
 	msg.cmd = dbg_events_config_macsec;
 
-	msg.status = osi_memcpy((void *)&msg.data.dbg_buf_config,
-				(void *)dbg_buf_config,
-				sizeof(struct osi_macsec_dbg_buf_config));
+	(void)osi_memcpy((void *)&msg.data.dbg_buf_config,
+			 (void *)dbg_buf_config,
+			 sizeof(struct osi_macsec_dbg_buf_config));
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret != 0) {
-		return ret;
+		goto done;
 	}
 
-	msg.status = osi_memcpy((void *)dbg_buf_config,
-				(void *)&msg.data.dbg_buf_config,
-				sizeof(struct osi_macsec_dbg_buf_config));
-
+	(void)osi_memcpy((void *)dbg_buf_config,
+			 (void *)&msg.data.dbg_buf_config,
+			 sizeof(struct osi_macsec_dbg_buf_config));
+done:
 	return ret;
 }
 
@@ -235,7 +239,7 @@ static int ivc_macsec_dbg_events_config(
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_dbg_buf_config(
+static nve32_t ivc_macsec_dbg_buf_config(
 		struct osi_core_priv_data *const osi_core,
 		struct osi_macsec_dbg_buf_config *const dbg_buf_config)
 {
@@ -246,21 +250,22 @@ static int ivc_macsec_dbg_buf_config(
 
 	msg.cmd = dbg_buf_config_macsec;
 
-	msg.status = osi_memcpy((void *)&msg.data.dbg_buf_config,
-				(void *)dbg_buf_config,
-				sizeof(struct osi_macsec_dbg_buf_config));
+	(void)osi_memcpy((void *)&msg.data.dbg_buf_config,
+			 (void *)dbg_buf_config,
+			 sizeof(struct osi_macsec_dbg_buf_config));
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret != 0) {
-		return ret;
+		goto done;
 	}
 
-	msg.status = osi_memcpy((void *)dbg_buf_config,
-				(void *) &msg.data.dbg_buf_config,
-				sizeof(struct osi_macsec_dbg_buf_config));
-
+	(void)osi_memcpy((void *)dbg_buf_config,
+			 (void *) &msg.data.dbg_buf_config,
+			 sizeof(struct osi_macsec_dbg_buf_config));
+done:
 	return ret;
 }
+#endif /* DEBUG_MACSEC */
 
 /**
  * @brief macsec_read_mmc - To read statitics registers and update structure
@@ -284,27 +289,26 @@ static void ivc_macsec_read_mmc(struct osi_core_priv_data *const osi_core)
 
 	msg.status = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 
-	msg.status = osi_memcpy((void *)&osi_core->macsec_mmc,
-				(void *) &msg.data.macsec_mmc,
-				sizeof(struct osi_macsec_mmc_counters));
-	msg.status = osi_memcpy((void *)&osi_core->macsec_irq_stats,
-				(void *) &msg.data.macsec_irq_stats,
-				sizeof(struct osi_macsec_irq_stats));
+	(void)osi_memcpy((void *)&osi_core->macsec_mmc,
+			 (void *) &msg.data.macsec_mmc,
+			 sizeof(struct osi_macsec_mmc_counters));
+	(void)osi_memcpy((void *)&osi_core->macsec_irq_stats,
+			 (void *) &msg.data.macsec_irq_stats,
+			 sizeof(struct osi_macsec_irq_stats));
 }
 
 /**
  * @brief ivc_get_sc_lut_key_index - Macsec get Key_index
  *
  * @param[in] osi_core: OSI Core private data structure.
- * @param[in] sc: Secure Channel info.
- * @param[in] enable: enable or disable.
+ * @param[in] sci: Secure Channel info.
+ * @param[out] key_index: Key table index to program SAK.
  * @param[in] ctlr: Controller instance.
- * @param[[out] kt_idx: Key table index to program SAK.
  *
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_get_sc_lut_key_index(struct osi_core_priv_data *const osi_core,
+static nve32_t ivc_get_sc_lut_key_index(struct osi_core_priv_data *const osi_core,
 			     nveu8_t *sci, nveu32_t *key_index,
 			     nveu16_t ctlr)
 {
@@ -314,17 +318,16 @@ static int ivc_get_sc_lut_key_index(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = macsec_get_sc_lut_key_index;
-	msg.status = osi_memcpy((void *) &msg.data.macsec_cfg.sci,
-				(void *)sci,
-				OSI_SCI_LEN);
+	(void)osi_memcpy((void *) &msg.data.macsec_cfg.sci,
+			 (void *)sci,
+			 OSI_SCI_LEN);
 	msg.data.macsec_cfg.ctlr = ctlr;
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
-	if (ret != 0) {
-		return ret;
+	if (ret == 0) {
+		*key_index = msg.data.macsec_cfg.key_index;
 	}
 
-	*key_index = msg.data.macsec_cfg.key_index;
 	return ret;
 }
 
@@ -335,15 +338,15 @@ static int ivc_get_sc_lut_key_index(struct osi_core_priv_data *const osi_core,
  * @param[in] sc: Secure Channel info.
  * @param[in] enable: enable or disable.
  * @param[in] ctlr: Controller instance.
- * @param[[out] kt_idx: Key table index to program SAK.
+ * @param[out] kt_idx: Key table index to program SAK.
  *
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_config(struct osi_core_priv_data *const osi_core,
+static nve32_t ivc_macsec_config(struct osi_core_priv_data *const osi_core,
 			     struct osi_macsec_sc_info *const sc,
-			     unsigned int enable, unsigned short ctlr,
-			     unsigned short *kt_idx)
+			     nveu32_t enable, nveu16_t ctlr,
+			     nveu16_t *kt_idx)
 {
 	ivc_msg_common_t msg;
 	nve32_t ret = 0;
@@ -351,45 +354,21 @@ static int ivc_macsec_config(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = config_macsec;
-	msg.status = osi_memcpy((void *) &msg.data.macsec_cfg.sc_info,
-				(void *)sc,
-				sizeof(struct osi_macsec_sc_info));
+	(void)osi_memcpy((void *) &msg.data.macsec_cfg.sc_info,
+			 (void *)sc,
+			 sizeof(struct osi_macsec_sc_info));
 	msg.data.macsec_cfg.enable = enable;
 	msg.data.macsec_cfg.ctlr = ctlr;
 	msg.data.macsec_cfg.kt_idx = *kt_idx;
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret != 0) {
-		return ret;
+		goto done;
 	}
 
 	*kt_idx = msg.data.macsec_cfg.kt_idx;
+done:
 	return ret;
-}
-
-/**
- * @brief ivc_macsec_update_mtu - Update MACSEC mtu.
- *
- * @param[in] osi_core: OSI Core private data structure.
- * @param[in] mtu: MACSEC MTU len.
- *
- * @retval 0 on Success
- * @retval -1 on Failure
- */
-static nve32_t ivc_macsec_update_mtu(struct osi_core_priv_data *const osi_core,
-				 nveu32_t mtu)
-{
-	ivc_msg_common_t msg;
-	nveu32_t index = 0;
-
-	osi_memset(&msg, 0, sizeof(msg));
-
-	msg.cmd = macsec_update_mtu_size;
-	msg.data.args.arguments[index] = mtu;
-	index++;
-	msg.data.args.count = index;
-
-	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
 
 /**
@@ -401,8 +380,8 @@ static nve32_t ivc_macsec_update_mtu(struct osi_core_priv_data *const osi_core,
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_enable(struct osi_core_priv_data *const osi_core,
-			     unsigned int enable)
+static nve32_t ivc_macsec_enable(struct osi_core_priv_data *const osi_core,
+			     nveu32_t enable)
 {
 	ivc_msg_common_t msg;
 	nveu32_t index = 0;
@@ -410,13 +389,14 @@ static int ivc_macsec_enable(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = en_macsec;
-	msg.data.args.arguments[index] = enable;
+	msg.args.arguments[index] = enable;
 	index++;
-	msg.data.args.count = index;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
 
+#ifdef DEBUG_MACSEC
 /**
  * @brief ivc_macsec_loopback_config - Loopback configure.
  *
@@ -426,8 +406,8 @@ static int ivc_macsec_enable(struct osi_core_priv_data *const osi_core,
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_loopback_config(struct osi_core_priv_data *const osi_core,
-				      unsigned int enable)
+static nve32_t ivc_macsec_loopback_config(struct osi_core_priv_data *const osi_core,
+				      nveu32_t enable)
 {
 	ivc_msg_common_t msg;
 	nveu32_t index = 0;
@@ -435,12 +415,13 @@ static int ivc_macsec_loopback_config(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = loopback_config_macsec;
-	msg.data.args.arguments[index] = enable;
+	msg.args.arguments[index] = enable;
 	index++;
-	msg.data.args.count = index;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
+#endif /* DEBUG_MACSEC */
 
 #ifdef MACSEC_KEY_PROGRAM
 /**
@@ -461,18 +442,18 @@ static nve32_t ivc_macsec_kt_config(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = kt_config_macsec;
-	msg.status = osi_memcpy((void *) &msg.data.kt_config,
-				(void *)kt_config,
-				sizeof(struct osi_macsec_kt_config));
+	(void)osi_memcpy((void *) &msg.data.kt_config,
+			 (void *)kt_config,
+			 sizeof(struct osi_macsec_kt_config));
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret != 0) {
 		return ret;
 	}
 
-	msg.status = osi_memcpy((void *)kt_config,
-				(void *)&msg.data.kt_config,
-				 sizeof(struct osi_macsec_kt_config));
+	(void)osi_memcpy((void *)kt_config,
+			 (void *)&msg.data.kt_config,
+			 sizeof(struct osi_macsec_kt_config));
 	return ret;
 }
 #endif /* MACSEC_KEY_PROGRAM */
@@ -486,8 +467,8 @@ static nve32_t ivc_macsec_kt_config(struct osi_core_priv_data *const osi_core,
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_cipher_config(struct osi_core_priv_data *const osi_core,
-				    unsigned int cipher)
+static nve32_t ivc_macsec_cipher_config(struct osi_core_priv_data *const osi_core,
+				    nveu32_t cipher)
 {
 	ivc_msg_common_t msg;
 	nveu32_t index = 0;
@@ -495,9 +476,9 @@ static int ivc_macsec_cipher_config(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = cipher_config;
-	msg.data.args.arguments[index] = cipher;
+	msg.args.arguments[index] = cipher;
 	index++;
-	msg.data.args.count = index;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
@@ -519,43 +500,30 @@ static nve32_t ivc_macsec_lut_config(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = lut_config_macsec;
-	msg.status = osi_memcpy((void *) &msg.data.lut_config,
-				(void *)lut_config,
-				sizeof(struct osi_macsec_lut_config));
+	(void)osi_memcpy((void *) &msg.data.lut_config,
+			 (void *)lut_config,
+			 sizeof(struct osi_macsec_lut_config));
 
 	ret = osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 	if (ret != 0) {
-		return ret;
+		goto done;
 	}
 
-	msg.status = osi_memcpy((void *)lut_config,
-				(void *)&msg.data.lut_config,
-				sizeof(struct osi_macsec_lut_config));
+	(void)osi_memcpy((void *)lut_config,
+			 (void *)&msg.data.lut_config,
+			 sizeof(struct osi_macsec_lut_config));
+done:
 	return ret;
 }
 
 /**
- * @brief ivc_macsec_handle_s_irq - handle s irq.
+ * @brief ivc_macsec_handle_irq - handle macsec irq.
  *
  * @param[in] osi_core: OSI Core private data structure.
  *
  */
-static void ivc_macsec_handle_s_irq(OSI_UNUSED
+static void ivc_macsec_handle_irq(OSI_UNUSED
 				    struct osi_core_priv_data *const osi_core)
-{
-	OSI_CORE_INFO(osi_core->osd, OSI_LOG_ARG_INVALID,
-		      "Nothing to handle \n", 0ULL);
-}
-
-/**
- * @brief ivc_macsec_handle_ns_irq - handle ns irq.
- *
- * @param[in] osi_core: OSI Core private data structure.
- *
- */
-
-static void ivc_macsec_handle_ns_irq(OSI_UNUSED
-				     struct osi_core_priv_data *const osi_core)
 {
 	OSI_CORE_INFO(osi_core->osd, OSI_LOG_ARG_INVALID,
 		      "Nothing to handle \n", 0ULL);
@@ -570,7 +538,7 @@ static void ivc_macsec_handle_ns_irq(OSI_UNUSED
  * @retval -1 on Failure
  */
 
-static int ivc_macsec_deinit(struct osi_core_priv_data *const osi_core)
+static nve32_t ivc_macsec_deinit(struct osi_core_priv_data *const osi_core)
 {
 	ivc_msg_common_t msg;
 
@@ -585,12 +553,12 @@ static int ivc_macsec_deinit(struct osi_core_priv_data *const osi_core)
  * @brief ivc_macsec_init -Initialize.
  *
  * @param[in] osi_core: OSI Core private data structure.
- * @param[in] genl_info: Generic netlink information structure.
+ * @param[in] mtu: mtu to be set.
  *
  * @retval 0 on Success
  * @retval -1 on Failure
  */
-static int ivc_macsec_init(struct osi_core_priv_data *const osi_core,
+static nve32_t ivc_macsec_init(struct osi_core_priv_data *const osi_core,
 			   nveu32_t mtu)
 {
 	ivc_msg_common_t msg;
@@ -599,9 +567,9 @@ static int ivc_macsec_init(struct osi_core_priv_data *const osi_core,
 	osi_memset(&msg, 0, sizeof(msg));
 
 	msg.cmd = init_macsec;
-	msg.data.args.arguments[index] = mtu;
+	msg.args.arguments[index] = mtu;
 	index++;
-	msg.data.args.count = index;
+	msg.args.count = index;
 
 	return osi_core->osd_ops.ivc_send(osi_core, &msg, sizeof(msg));
 }
@@ -621,31 +589,23 @@ void ivc_init_macsec_ops(void *macsecops)
 
 	ops->init = ivc_macsec_init;
 	ops->deinit = ivc_macsec_deinit;
-	ops->handle_ns_irq = ivc_macsec_handle_ns_irq;
-	ops->handle_s_irq = ivc_macsec_handle_s_irq;
+	ops->handle_irq = ivc_macsec_handle_irq;
 	ops->lut_config = ivc_macsec_lut_config;
 #ifdef MACSEC_KEY_PROGRAM
 	ops->kt_config = ivc_macsec_kt_config;
 #endif /* MACSEC_KEY_PROGRAM */
 	ops->cipher_config = ivc_macsec_cipher_config;
-	ops->loopback_config = ivc_macsec_loopback_config;
 	ops->macsec_en = ivc_macsec_enable;
 	ops->config = ivc_macsec_config;
 	ops->read_mmc = ivc_macsec_read_mmc;
-	ops->dbg_buf_config = ivc_macsec_dbg_buf_config;
+#ifdef DEBUG_MACSEC
+	ops->loopback_config = ivc_macsec_loopback_config;
 	ops->dbg_events_config = ivc_macsec_dbg_events_config;
+	ops->dbg_buf_config = ivc_macsec_dbg_buf_config;
+#endif /* DEBUG_MACSEC */
 	ops->get_sc_lut_key_index = ivc_get_sc_lut_key_index;
-	ops->update_mtu = ivc_macsec_update_mtu;
 }
 #endif
-
-/**
- * @brief ivc_get_core_safety_config - EQOS MAC safety configuration
- */
-void *ivc_get_core_safety_config(void)
-{
-	return &ivc_safety_config;
-}
 
 /**
  * @brief vir_ivc_core_deinit - MAC core deinitialization

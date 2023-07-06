@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -231,11 +231,9 @@ static void tach_measure_work(struct work_struct *workp)
 	tach = gpio_tachd->tach_dev;
 
 	(void)gpio_tachometer_read_rpm(tach);
-	if (gpio_tachd->rpm == 0)
-		orderly_poweroff(true);
-	else
-		queue_delayed_work(gpio_tachd->tach_workqueue,
-			&gpio_tachd->tach_work, gpio_tachd->schedule_delay);
+	if (gpio_tachd->rpm)
+		queue_delayed_work(gpio_tachd->tach_workqueue, &gpio_tachd->tach_work,
+				gpio_tachd->schedule_delay);
 }
 
 static const struct of_device_id gpio_tachometer_of_match[] = {
@@ -253,6 +251,7 @@ static int gpio_tachometer_probe(struct platform_device *pdev)
 	struct gpio_tachometer_device *gpio_tachd = NULL;
 	struct device *tach_dev;
 	int ret = 0, err;
+	int gpio;
 
 	gpio_tachd = devm_kzalloc(&pdev->dev, sizeof(*gpio_tachd), GFP_KERNEL);
 	if (gpio_tachd == NULL) {
@@ -261,9 +260,10 @@ static int gpio_tachometer_probe(struct platform_device *pdev)
 	}
 	mutex_init(&gpio_tachd->lock);
 
-	/* If pulse-per-rev node not present or if the value
+	/*
+	 * If pulse-per-rev node not present or if the value
 	 * is less than 1, abort.
-	*/
+	 */
 	if (of_property_read_u32(np, "pulse-per-rev",
 			&gpio_tachd->pulse_per_rev) ||
 			(gpio_tachd->pulse_per_rev < 1)) {
@@ -290,51 +290,55 @@ static int gpio_tachometer_probe(struct platform_device *pdev)
 		(gpio_tachd->schedule_delay <= (gpio_tachd->win_len * MIN_SAMPLE_WIN)))
 		gpio_tachd->schedule_delay = 0;
 
-	gpio_tachd->tach_gpio = of_get_named_gpio(np, "gpio", 0);
+	gpio = of_get_named_gpio(np, "gpio", 0);
+	if (!gpio_is_valid(gpio)) {
+		if (gpio != -EPROBE_DEFER)
+			dev_err(dev, "Invalid GPIO, error %d\n", gpio);
+		return gpio;
+	}
+
+	gpio_tachd->tach_gpio = gpio;
 	dev_info(dev, "Tachometer GPIO=%d, win-len=%u, schedule_delay=%u\n",
 		gpio_tachd->tach_gpio, gpio_tachd->win_len, gpio_tachd->schedule_delay);
-	if (gpio_is_valid(gpio_tachd->tach_gpio)) {
-		err = devm_gpio_request_one(dev, gpio_tachd->tach_gpio,
+	err = devm_gpio_request_one(dev, gpio_tachd->tach_gpio,
 						GPIOF_IN, "Tach_input");
-		if (err < 0) {
-			dev_err(dev, "%s: Tachometer GPIO request failed for gpio %d: error %d\n",
-				__func__, gpio_tachd->tach_gpio, err);
-			return -EINVAL;
-		}
+	if (err < 0) {
+		dev_err(dev, "%s: Tachometer GPIO request failed for gpio %d: error %d\n",
+			__func__, gpio_tachd->tach_gpio, err);
+		return -EINVAL;
+	}
 
-		tach_dev = devm_hwmon_device_register_with_groups(dev, "gpiofan",
+	tach_dev = devm_hwmon_device_register_with_groups(dev, "gpio_tach",
 				gpio_tachd, gpio_tach_groups);
-		if (IS_ERR(tach_dev)) {
-			ret = PTR_ERR(tach_dev);
-			dev_err(dev, "GPIO Tachometer driver init failed, err: %d\n",
-				 ret);
-			return ret;
-		}
-		platform_set_drvdata(pdev, gpio_tachd);
-		gpio_tachd->tach_dev = tach_dev;
-		dev_info(dev, "Tachometer driver initialized with pulse_per_rev: %d and win_len: %d\n",
+	if (IS_ERR(tach_dev)) {
+		ret = PTR_ERR(tach_dev);
+		dev_err(dev, "GPIO Tachometer driver init failed, err: %d\n", ret);
+		return ret;
+	}
+
+	platform_set_drvdata(pdev, gpio_tachd);
+	gpio_tachd->tach_dev = tach_dev;
+	dev_info(dev, "Tachometer driver initialized with pulse_per_rev: %d and win_len: %d\n",
 			gpio_tachd->pulse_per_rev, gpio_tachd->win_len);
-		/*If schedule delay is not configured, don't monitor rpm*/
-		if (gpio_tachd->schedule_delay == 0)
-			return ret;
-		/*Create single thread work queue*/
-		gpio_tachd->tach_workqueue =
-			create_singlethread_workqueue("tach_workqueue");
-		INIT_DELAYED_WORK(&gpio_tachd->tach_work, tach_measure_work);
-		err = queue_delayed_work(gpio_tachd->tach_workqueue,
-			&gpio_tachd->tach_work, gpio_tachd->schedule_delay);
-		if (err == 1)
-			dev_info(dev, "tach measure work submitted successfully\n");
-		else {
-			dev_err(dev, "tach measure work submission failed: %d\n", err);
-			destroy_workqueue(gpio_tachd->tach_workqueue);
-			devm_gpio_free(dev, gpio_tachd->tach_gpio);
-			ret = -EINVAL;
-		}
-	} else {
-		dev_err(dev, "Invalid GPIO\n");
+
+	/*If schedule delay is not configured, don't monitor rpm*/
+	if (gpio_tachd->schedule_delay == 0)
+		return ret;
+
+	/*Create single thread work queue*/
+	gpio_tachd->tach_workqueue = create_singlethread_workqueue("tach_workqueue");
+	INIT_DELAYED_WORK(&gpio_tachd->tach_work, tach_measure_work);
+	err = queue_delayed_work(gpio_tachd->tach_workqueue, &gpio_tachd->tach_work,
+					gpio_tachd->schedule_delay);
+	if (err == 1)
+		dev_info(dev, "tach measure work submitted successfully\n");
+	else {
+		dev_err(dev, "tach measure work submission failed: %d\n", err);
+		destroy_workqueue(gpio_tachd->tach_workqueue);
+		devm_gpio_free(dev, gpio_tachd->tach_gpio);
 		ret = -EINVAL;
 	}
+
 	return ret;
 }
 

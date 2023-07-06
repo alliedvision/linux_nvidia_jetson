@@ -1,0 +1,119 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/ {
+	cpus {
+		cpu@2 {
+			#cooling-cells = <2>;
+		};
+		cpu@6 {
+			#cooling-cells = <2>;
+		};
+		cpu@10 {
+			#cooling-cells = <2>;
+		};
+	};
+
+	thermal-zones {
+		CPU-therm {
+			cooling-maps {
+				map1 {
+					trip = <&cpu_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		GPU-therm {
+			cooling-maps {
+				map1 {
+					trip = <&gpu_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		CV0-therm {
+			cooling-maps {
+				map1 {
+					trip = <&cv0_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		CV1-therm {
+			cooling-maps {
+				map1 {
+					trip = <&cv1_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		CV2-therm {
+			cooling-maps {
+				map1 {
+					trip = <&cv2_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		SOC0-therm {
+			cooling-maps {
+				map1 {
+					trip = <&soc0_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		SOC1-therm {
+			cooling-maps {
+				map1 {
+					trip = <&soc1_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		SOC2-therm {
+			cooling-maps {
+				map1 {
+					trip = <&soc2_sw_throttle>;
+					cooling-device = <&cl0_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl2_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+	};
+};

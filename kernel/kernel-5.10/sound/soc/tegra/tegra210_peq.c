@@ -2,7 +2,7 @@
 //
 // tegra210_peq.c - Tegra210 PEQ driver
 //
-// Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+// Copyright (c) 2014-2023, NVIDIA CORPORATION.  All rights reserved.
 
 #include <linux/clk.h>
 #include <linux/device.h>
@@ -150,7 +150,7 @@ static int tegra210_peq_param_info(struct snd_kcontrol *kcontrol,
 }
 
 #define TEGRA210_PEQ_GAIN_PARAMS_CTRL(chan) \
-	TEGRA_SOC_BYTES_EXT("peq channel" #chan " biquad gain params", \
+	TEGRA_SOC_BYTES_EXT("PEQ Channel-" #chan " biquad gain params", \
 		TEGRA210_PEQ_AHUBRAMCTL_CONFIG_RAM_CTRL, \
 		TEGRA210_PEQ_GAIN_PARAM_SIZE_PER_CH, \
 		(TEGRA210_PEQ_GAIN_PARAM_SIZE_PER_CH * chan), 0xffffffff, \
@@ -158,7 +158,7 @@ static int tegra210_peq_param_info(struct snd_kcontrol *kcontrol,
 		tegra210_peq_param_info)
 
 #define TEGRA210_PEQ_SHIFT_PARAMS_CTRL(chan) \
-	TEGRA_SOC_BYTES_EXT("peq channel" #chan " biquad shift params", \
+	TEGRA_SOC_BYTES_EXT("PEQ Channel-" #chan " biquad shift params", \
 		TEGRA210_PEQ_AHUBRAMCTL_CONFIG_RAM_SHIFT_CTRL, \
 		TEGRA210_PEQ_SHIFT_PARAM_SIZE_PER_CH, \
 		(TEGRA210_PEQ_SHIFT_PARAM_SIZE_PER_CH * chan), 0x1f, \
@@ -166,10 +166,10 @@ static int tegra210_peq_param_info(struct snd_kcontrol *kcontrol,
 		tegra210_peq_param_info)
 
 static const struct snd_kcontrol_new tegra210_peq_controls[] = {
-	SOC_SINGLE_EXT("peq active", TEGRA210_PEQ_CONFIG,
+	SOC_SINGLE_EXT("PEQ Active", TEGRA210_PEQ_CONFIG,
 		TEGRA210_PEQ_CONFIG_MODE_SHIFT, 1, 0,
 		tegra210_peq_get, tegra210_peq_put),
-	SOC_SINGLE_EXT("peq biquad stages", TEGRA210_PEQ_CONFIG,
+	SOC_SINGLE_EXT("PEQ Biquad Stages", TEGRA210_PEQ_CONFIG,
 		TEGRA210_PEQ_CONFIG_BIQUAD_STAGES_SHIFT,
 		TEGRA210_PEQ_MAX_BIQUAD_STAGES - 1, 0,
 		tegra210_peq_get, tegra210_peq_put),

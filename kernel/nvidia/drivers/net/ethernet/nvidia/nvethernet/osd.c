@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -215,7 +215,9 @@ static inline int ether_alloc_skb(struct ether_priv_data *pdata,
 	dma_addr_t dma_addr;
 #endif
 	unsigned long val;
-	if ((rx_swcx->flags & OSI_RX_SWCX_REUSE) == OSI_RX_SWCX_REUSE) {
+
+	if (((rx_swcx->flags & OSI_RX_SWCX_REUSE) == OSI_RX_SWCX_REUSE) &&
+	    (rx_swcx->buf_virt_addr != pdata->osi_dma->resv_buf_virt_addr)) {
 		/* Skip buffer allocation and DMA mapping since
 		 * PTP software context will have valid buffer and
 		 * DMA addresses so use them as is.
@@ -232,8 +234,8 @@ static inline int ether_alloc_skb(struct ether_priv_data *pdata,
 		rx_swcx->buf_virt_addr = pdata->osi_dma->resv_buf_virt_addr;
 		rx_swcx->buf_phy_addr = pdata->osi_dma->resv_buf_phy_addr;
 		rx_swcx->flags |= OSI_RX_SWCX_BUF_VALID;
-		val = pdata->osi_core->xstats.re_alloc_rxbuf_failed[chan];
-		pdata->osi_core->xstats.re_alloc_rxbuf_failed[chan] =
+		val = pdata->xstats.re_alloc_rxbuf_failed[chan];
+		pdata->xstats.re_alloc_rxbuf_failed[chan] =
 			osi_update_stats_counter(val, 1UL);
 		return 0;
 	}
@@ -254,8 +256,8 @@ static inline int ether_alloc_skb(struct ether_priv_data *pdata,
 		rx_swcx->buf_virt_addr = pdata->osi_dma->resv_buf_virt_addr;
 		rx_swcx->buf_phy_addr = pdata->osi_dma->resv_buf_phy_addr;
 		rx_swcx->flags |= OSI_RX_SWCX_BUF_VALID;
-		val = pdata->osi_core->xstats.re_alloc_rxbuf_failed[chan];
-		pdata->osi_core->xstats.re_alloc_rxbuf_failed[chan] =
+		val = pdata->xstats.re_alloc_rxbuf_failed[chan];
+		pdata->xstats.re_alloc_rxbuf_failed[chan] =
 			osi_update_stats_counter(val, 1UL);
 		return 0;
 	}
@@ -881,6 +883,37 @@ static void osd_core_printf(struct osi_core_priv_data *osi_core,
 }
 #endif
 
+void ether_restart_lane_bringup_task(struct tasklet_struct *t)
+{
+	struct ether_priv_data *pdata = from_tasklet(pdata, t, lane_restart_task);
+
+	if (pdata->tx_start_stop == OSI_DISABLE) {
+		netif_tx_lock(pdata->ndev);
+		netif_carrier_off(pdata->ndev);
+		netif_tx_stop_all_queues(pdata->ndev);
+		netif_tx_unlock(pdata->ndev);
+		schedule_delayed_work(&pdata->set_speed_work, msecs_to_jiffies(500));
+		if (netif_msg_drv(pdata)) {
+			netdev_info(pdata->ndev, "Disable network Tx Queue\n");
+		}
+	} else if (pdata->tx_start_stop == OSI_ENABLE) {
+		netif_tx_lock(pdata->ndev);
+		netif_tx_start_all_queues(pdata->ndev);
+		netif_tx_unlock(pdata->ndev);
+		if (netif_msg_drv(pdata)) {
+			netdev_info(pdata->ndev, "Enable network Tx Queue\n");
+		}
+	}
+}
+
+static void osd_restart_lane_bringup(void *priv, unsigned int en_disable)
+{
+	struct ether_priv_data *pdata = (struct ether_priv_data *)priv;
+
+	pdata->tx_start_stop = en_disable;
+	tasklet_hi_schedule(&pdata->lane_restart_task);
+}
+
 void ether_assign_osd_ops(struct osi_core_priv_data *osi_core,
 			  struct osi_dma_priv_data *osi_dma)
 {
@@ -892,7 +925,7 @@ void ether_assign_osd_ops(struct osi_core_priv_data *osi_core,
 #ifdef OSI_DEBUG
 	osi_core->osd_ops.printf = osd_core_printf;
 #endif
-
+	osi_core->osd_ops.restart_lane_bringup = osd_restart_lane_bringup;
 	osi_dma->osd_ops.transmit_complete = osd_transmit_complete;
 	osi_dma->osd_ops.receive_packet = osd_receive_packet;
 	osi_dma->osd_ops.realloc_buf = osd_realloc_buf;
@@ -924,64 +957,49 @@ int osd_ivc_send_cmd(void *priv, ivc_msg_common_t *ivc_buf, unsigned int len)
 	struct ether_ivc_ctxt *ictxt = &pdata->ictxt;
 	struct tegra_hv_ivc_cookie *ivck =
 				  (struct tegra_hv_ivc_cookie *) ictxt->ivck;
-	int dcnt = IVC_CHANNEL_TIMEOUT_CNT;
-	int is_atomic = 0;
+	int status = -1;
+	unsigned long flags = 0;
+
 	if (len > ETHER_MAX_IVC_BUF) {
 		dev_err(pdata->dev, "Invalid IVC len\n");
 		return -1;
 	}
-
 	ivc_buf->status = -1;
-	if (in_atomic()) {
-		preempt_enable();
-		is_atomic = 1;
-	}
-
-	mutex_lock(&ictxt->ivck_lock);
 	ivc_buf->count = cnt++;
+
+	raw_spin_lock_irqsave(&ictxt->ivck_lock, flags);
+
 	/* Waiting for the channel to be ready */
-	while (tegra_hv_ivc_channel_notified(ivck) != 0){
-		osd_msleep(1);
-		dcnt--;
-		if (!dcnt) {
-			dev_err(pdata->dev, "IVC channel timeout\n");
-			goto fail;
-		}
+	ret = readx_poll_timeout_atomic(tegra_hv_ivc_channel_notified, ivck,
+					status, status == 0, 10, IVC_WAIT_TIMEOUT_CNT);
+	if (ret == -ETIMEDOUT) {
+		dev_err(pdata->dev, "IVC channel timeout\n");
+		goto fail;
 	}
 
 	/* Write the current message for the ethernet server */
 	ret = tegra_hv_ivc_write(ivck, ivc_buf, len);
 	if (ret != len) {
-		dev_err(pdata->dev, "IVC write len %d ret %d cmd %d failed\n",
-			  len, ret, ivc_buf->cmd);
+		dev_err(pdata->dev, "IVC write with len %d ret %d cmd %d ioctlcmd %d failed\n",
+			len, ret, ivc_buf->cmd, ivc_buf->data.ioctl_data.cmd);
 		goto fail;
 	}
 
-	dcnt = IVC_READ_TIMEOUT_CNT;
-	while ((!tegra_hv_ivc_can_read(ictxt->ivck))) {
-		if (!wait_for_completion_timeout(&ictxt->msg_complete,
-						 IVC_WAIT_TIMEOUT)) {
-			ret = -ETIMEDOUT;
-			goto fail;
-		}
-
-		dcnt--;
-		if (!dcnt) {
-			dev_err(pdata->dev, "IVC read timeout\n");
-			break;
-		}
+	ret = readx_poll_timeout_atomic(tegra_hv_ivc_can_read, ictxt->ivck,
+					status, status, 10, IVC_WAIT_TIMEOUT_CNT);
+	if (ret == -ETIMEDOUT) {
+		dev_err(pdata->dev, "IVC read timeout status %d\n", status);
+		goto fail;
 	}
 
 	ret = tegra_hv_ivc_read(ivck, ivc_buf, len);
 	if (ret < 0) {
-		dev_err(pdata->dev, "IVC read failed: %d\n", ret);
+		dev_err(pdata->dev, "IVC read failed: %d cmd %d ioctlcmd %d\n",
+			ret, ivc_buf->cmd, ivc_buf->data.ioctl_data.cmd);
 	}
 	ret = ivc_buf->status;
 fail:
-	mutex_unlock(&ictxt->ivck_lock);
-	if (is_atomic) {
-		preempt_disable();
-	}
+	raw_spin_unlock_irqrestore(&ictxt->ivck_lock, flags);
 	return ret;
 }
 

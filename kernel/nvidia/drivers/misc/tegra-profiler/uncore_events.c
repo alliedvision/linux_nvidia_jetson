@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/uncore_events.c
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -116,7 +116,7 @@ put_sample(const struct quadd_event_data *events, int nr_events, u64 ts)
 		u32 value = (u32)events[i].delta;
 
 		if (value > 0) {
-			s->events_flags |= 1 << events[i].out_idx;
+			s->events_flags |= 1U << events[i].out_idx;
 			events_extra[nr_positive++] = value;
 		}
 	}

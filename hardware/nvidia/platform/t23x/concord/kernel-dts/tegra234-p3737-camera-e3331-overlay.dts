@@ -2,7 +2,7 @@
 /*
  * Jetson Device-tree overlay for Camera E3331 on t23x platforms
  *
- * Copyright (c) 2022 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023 NVIDIA CORPORATION. All rights reserved.
  *
  */
 
@@ -20,7 +20,7 @@
 / {
 	overlay-name = "Jetson Camera E3331 module";
 	jetson-header-name = "Jetson AGX CSI Connector";
-	compatible = "nvidia,p3737-0000+p3701-0000";
+	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,p3737-0000+p3701-0004", "nvidia,p3737-0000+p3701-0005";
 
 	/* E3331 camera board */
 

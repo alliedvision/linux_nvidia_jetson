@@ -1,36 +1,15 @@
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION, All rights reserved.
+/* SPDX-License-Identifier: (GPL-2.0 WITH Linux-syscall-note)
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
-/**
- * @file tegra-epl.h
- * @brief <b> epl driver header file</b>
- *
- * This file will expose the data types and macros for making ioctl call
- * from user space EPL library.
- */
-
-
-#ifndef EPL_CLIENT_IOCTL_H
-#define EPL_CLIENT_IOCTL_H
-
-/* ==================[Includes]============================================= */
+#ifndef _UAPI_TEGRA_EPL_H_
+#define _UAPI_TEGRA_EPL_H_
 
 #include <linux/ioctl.h>
 
-/* ==================[MACROS]=============================================== */
-
-/*ioctl call macros*/
+/* ioctl call macros */
 #define EPL_REPORT_ERROR_CMD   _IOWR('q', 1, uint8_t *)
 
-#endif /* EPL_CLIENT_IOCTL_H */
+#endif /* _UAPI_TEGRA_EPL_H_ */
+

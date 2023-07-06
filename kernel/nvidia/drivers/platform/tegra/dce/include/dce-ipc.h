@@ -14,6 +14,7 @@
 #ifndef DCE_IPC_H
 #define DCE_IPC_H
 
+#include <linux/version.h>
 #include <dce-lock.h>
 #include <soc/tegra/ivc.h>
 #include <interface/dce-admin-cmds.h>
@@ -128,8 +129,13 @@ struct dce_ipc_channel {
 	u32 w_type;
 	u32	ch_type;
 	u32	ipc_type;
+#if (KERNEL_VERSION(6, 2, 0) <= LINUX_VERSION_CODE)
+	struct iosys_map ibuff;
+	struct iosys_map obuff;
+#else
 	void *ibuff;
 	void *obuff;
+#endif
 	struct tegra_ivc	d_ivc;
 	struct tegra_dce *d;
 	struct dce_mutex lock;

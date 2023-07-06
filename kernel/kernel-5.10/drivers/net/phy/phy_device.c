@@ -5,6 +5,7 @@
  * Author: Andy Fleming
  *
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
+ * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -944,7 +945,10 @@ static void phy_link_change(struct phy_device *phydev, bool up)
 		netif_carrier_on(netdev);
 	else
 		netif_carrier_off(netdev);
-	phydev->adjust_link(netdev);
+
+	if (phydev->adjust_link)
+		phydev->adjust_link(netdev);
+
 	if (phydev->mii_ts && phydev->mii_ts->link_state)
 		phydev->mii_ts->link_state(phydev->mii_ts, phydev);
 }

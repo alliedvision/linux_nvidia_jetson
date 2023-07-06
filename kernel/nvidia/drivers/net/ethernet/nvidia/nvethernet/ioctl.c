@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -118,7 +118,7 @@ static bool ether_is_bc_addr(unsigned char *bc_addr)
  * @retval "nagative value" on Failure
  */
 static int ether_set_avb_algo(struct net_device *ndev,
-			      struct ether_ifr_data *ifdata)
+			      struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -174,7 +174,7 @@ static int ether_set_avb_algo(struct net_device *ndev,
  * @retval "nagative value" on Failure
  */
 static int ether_m2m_tsync(struct net_device *ndev,
-			   struct ether_ifr_data *ifdata)
+			   struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -214,7 +214,7 @@ static int ether_m2m_tsync(struct net_device *ndev,
  * @retval "negative value" on Failure
  */
 static int ether_get_tsc_ptp_cap(struct net_device *ndev,
-				 struct ether_ifr_data *ifdata)
+				 struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -266,7 +266,7 @@ static int ether_get_tsc_ptp_cap(struct net_device *ndev,
  * @retval "negative value" on Failure
  */
 static int ether_get_avb_algo(struct net_device *ndev,
-			      struct ether_ifr_data *ifdata)
+			      struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -315,7 +315,7 @@ static int ether_get_avb_algo(struct net_device *ndev,
  * @retval "negative value" on Failure
  */
 static int ether_config_ptp_offload(struct ether_priv_data *pdata,
-				    struct ether_ifr_data *ifrd_p)
+				    struct ether_exported_ifr_data *ifrd_p)
 {
 	int ret = -EINVAL;
 	struct ptp_offload_param param;
@@ -415,7 +415,7 @@ static int ether_config_ptp_offload(struct ether_priv_data *pdata,
  * @retval "negative value" on Failure
  */
 static int ether_config_arp_offload(struct ether_priv_data *pdata,
-				    struct ether_ifr_data *ifrd_p)
+				    struct ether_exported_ifr_data *ifrd_p)
 {
 	int ret = -EINVAL;
 	struct arp_offload_param param;
@@ -465,7 +465,7 @@ static int ether_config_arp_offload(struct ether_priv_data *pdata,
  * @retval "negative value" on Failure
  */
 static int ether_config_frp_cmd(struct net_device *dev,
-				struct ether_ifr_data *ifdata)
+				struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -503,8 +503,7 @@ static int ether_config_frp_cmd(struct net_device *dev,
  * 2) OSI call to update register
  *
  * @param[in] dev: pointer to net device structure.
- * @param[in] filter_flags: flag to indicate whether L3/L4 filtering to be
- *	      enabled/disabled.
+ * @param[in] ifdata: pointer to IOCTL specific structure.
  *
  * @note MAC and PHY need to be initialized.
  *
@@ -513,43 +512,12 @@ static int ether_config_frp_cmd(struct net_device *dev,
  *
  */
 static int ether_config_l3_l4_filtering(struct net_device *dev,
-					unsigned int filter_flags)
-{
-	struct ether_priv_data *pdata = netdev_priv(dev);
-
-	dev_err(pdata->dev, "%s: This ioctl is deprecated, directly set the filter using ioctl command EQOS_IPV4/IPV6/TCP/UDP_FILTERING_CMD instead\n",
-		__func__);
-	return -1;
-}
-
-/**
- * @brief This function is invoked by ioctl function when user issues an ioctl
- * command to configure L3(IPv4) filtering.
- *
- * Algorithm:
- * 1) Layer 3 and Layer 4 Filter Enable, if already not.
- * 2) Enable/disable IPv4 filtering.
- * 3) Select source/destination address matching.
- * 4) Select perfect/inverse matching.
- * 5) Update the IPv4 address into MAC register.
- *
- * @param[in] dev: Pointer to net device structure.
- * @param[in] ifdata: pointer to IOCTL specific structure.
- * 
- * @note MAC and PHY need to be initialized.
- *
- * @retval 0 on Success
- * @retval "negative value" on Failure
- */
-static int ether_config_ip4_filters(struct net_device *dev,
-				    struct ether_ifr_data *ifdata)
+					struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
-	struct osi_l3_l4_filter *u_l3_filter =
-		(struct osi_l3_l4_filter *)ifdata->ptr;
-	struct osi_ioctl ioctl_data = {};
-	unsigned int is_l4_filter = OSI_DISABLE;
+	struct osi_l3_l4_filter *u_l3_filter;
+	struct osi_ioctl ioctl_data = { 0 };
 	int ret = -EINVAL;
 
 	if (pdata->hw_feat.l3l4_filter_num == OSI_DISABLE) {
@@ -557,11 +525,13 @@ static int ether_config_ip4_filters(struct net_device *dev,
 		return ret;
 	}
 
-	if (ifdata->ptr == NULL) {
+	if (!ifdata->ptr) {
 		dev_err(pdata->dev, "%s: Invalid data for priv ioctl %d\n",
 			__func__, ifdata->ifcmd);
 		return ret;
 	}
+
+	u_l3_filter = (struct osi_l3_l4_filter *)ifdata->ptr;
 
 	if (copy_from_user(&ioctl_data.l3l4_filter, (void __user *)u_l3_filter,
 			   sizeof(struct osi_l3_l4_filter)) != 0U) {
@@ -569,115 +539,37 @@ static int ether_config_ip4_filters(struct net_device *dev,
 		return -EFAULT;
 	}
 
-	if (ioctl_data.l3l4_filter.filter_no >
-	    (pdata->hw_feat.l3l4_filter_num - 1U)) {
-		dev_err(pdata->dev, "%d filter is not supported in the HW\n",
-			ioctl_data.l3l4_filter.filter_no);
-		return ret;
-	}
-
 	ioctl_data.cmd = OSI_CMD_L3L4_FILTER;
-	ioctl_data.arg1_u32 = OSI_IP4_FILTER;
-	ioctl_data.arg2_u32 = OSI_DISABLE;
-	ioctl_data.arg3_u32 = OSI_CHAN_ANY;
-	ioctl_data.arg4_u32 = is_l4_filter;
-
-	return osi_handle_ioctl(osi_core, &ioctl_data);
-}
-
-/**
- * @brief This function is invoked by ioctl when user issues an ioctl command
- * to configure L3 (IPv6) filtering.
- *
- * Algorithm:
- * 1) Enable/disable IPv6 filtering.
- * 2) Select source/destination address matching.
- * 3) Select perfect/inverse matching.
- * 4) Update the IPv6 address into MAC register.
- *
- * @param[in] dev: net device structure instance.
- * @param[in] ifdata: IOCTL specific structure instance.
- *
- * @note MAC and PHY need to be initialized.
- *
- * @retval 0 on Success
- * @retval "negative value" on Failure
- */
-static int ether_config_ip6_filters(struct net_device *dev,
-				    struct ether_ifr_data *ifdata)
-{
-	struct ether_priv_data *pdata = netdev_priv(dev);
-	struct osi_core_priv_data *osi_core = pdata->osi_core;
-	struct osi_l3_l4_filter *u_l3_filter =
-		(struct osi_l3_l4_filter *)ifdata->ptr;
-	struct osi_ioctl ioctl_data = {};
-	unsigned int is_l4_filter = OSI_DISABLE;
-	int ret = -EINVAL;
-
-	if (pdata->hw_feat.l3l4_filter_num == OSI_DISABLE) {
-		dev_err(pdata->dev, "ip6 filter is not supported in the HW\n");
-		return ret;
-	}
-
-	if (ifdata->ptr == NULL) {
-		dev_err(pdata->dev, "%s: Invalid data for priv ioctl %d\n",
-			__func__, ifdata->ifcmd);
-		return ret;
-	}
-
-	if (copy_from_user(&ioctl_data.l3l4_filter, (void __user *)u_l3_filter,
-			   sizeof(struct osi_l3_l4_filter)) != 0U) {
-		dev_err(pdata->dev, "%s copy from user failed\n", __func__);
-		return -EFAULT;
-	}
-
-	if (ioctl_data.l3l4_filter.filter_no >
-	    (pdata->hw_feat.l3l4_filter_num - 1U)) {
-		dev_err(pdata->dev, "%d filter is not supported in the HW\n",
-			ioctl_data.l3l4_filter.filter_no);
-		return ret;
-	}
-
-	ioctl_data.cmd = OSI_CMD_L3L4_FILTER;
-	ioctl_data.arg1_u32 = OSI_IP6_FILTER;
-	ioctl_data.arg2_u32 = OSI_DISABLE;
-	ioctl_data.arg3_u32 = OSI_CHAN_ANY;
-	ioctl_data.arg4_u32 = is_l4_filter;
-
 	return osi_handle_ioctl(osi_core, &ioctl_data);
 }
 
 /**
  * @brief This function is invoked by ioctl function when user issues an ioctl
- * command to configure L4(TCP/UDP) filtering.
+ * command to configure L2 filtering.
  *
  * Algorithm:
- * 1) Enable/disable L4 filtering.
- * 2) Select TCP/UDP filtering.
- * 3) Select source/destination port matching.
- * 4) select perfect/inverse matching.
- * 5) Update the port number into MAC register.
+ * 1) Return error if Ethrmet virtualization is not enabled.
+ * 2) Select source/destination address matching.
+ * 3) Select perfect/inverse matching.
+ * 4) Update the L2 MAC address into MAC register.
  *
- * @param[in] dev: pointer to net device structure.
+ * @param[in] dev: Pointer to net device structure.
  * @param[in] ifdata: pointer to IOCTL specific structure.
- * @param[in] tcp_udp: flag to indicate TCP/UDP filtering.
- * 
- * @note MAC and PHY need to be initialized.
+ *
+ * @note MAC and PHY need to be initialized. Only
  *
  * @retval 0 on Success
  * @retval "negative value" on Failure
  */
-static int ether_config_tcp_udp_filters(struct net_device *dev,
-					struct ether_ifr_data *ifdata,
-					unsigned int tcp_udp)
+static int ether_config_l2_filters(struct net_device *dev,
+				   struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
-	struct osi_l3_l4_filter *u_l4_filter =
-		(struct osi_l3_l4_filter *)ifdata->ptr;
+	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
+	struct ether_l2_filter u_l2_filter;
 	struct osi_ioctl ioctl_data = {};
-	unsigned int is_l4_filter = OSI_ENABLE;
-	int ret = -EINVAL;
+	int ret = -1;
 
 	if (ifdata->ptr == NULL) {
 		dev_err(pdata->dev, "%s: Invalid data for priv ioctl %d\n",
@@ -685,31 +577,36 @@ static int ether_config_tcp_udp_filters(struct net_device *dev,
 		return ret;
 	}
 
-	if (pdata->hw_feat.l3l4_filter_num == OSI_DISABLE) {
-		dev_err(pdata->dev,
-			"L4 is not supported in the HW\n");
+	if (osi_core->use_virtualization == OSI_DISABLE) {
+		dev_err(pdata->dev, "%s Ethernet virualization is not enabled\n", __func__);
+		return ret;
+	}
+	if (copy_from_user(&u_l2_filter, (void __user *)ifdata->ptr,
+			   sizeof(struct ether_l2_filter)) != 0U) {
+		dev_err(pdata->dev, "%s copy from user failed\n", __func__);
 		return ret;
 	}
 
-	if (copy_from_user(&ioctl_data.l3l4_filter, (void __user *)u_l4_filter,
-			   sizeof(struct osi_l3_l4_filter)) != 0U) {
-		dev_err(pdata->dev, "%s copy from user failed", __func__);
-		return -EFAULT;
+	ioctl_data.l2_filter.index = u_l2_filter.index;
+	ioctl_data.l2_filter.src_dest = OSI_DA_MATCH;
+
+	ioctl_data.l2_filter.oper_mode = (OSI_OPER_EN_PERFECT |
+			OSI_OPER_DIS_PROMISC |
+			OSI_OPER_DIS_ALLMULTI);
+
+	if (u_l2_filter.en_dis == OSI_ENABLE) {
+		ioctl_data.l2_filter.oper_mode |= OSI_OPER_ADDR_UPDATE;
+	} else {
+		ioctl_data.l2_filter.oper_mode |= OSI_OPER_ADDR_DEL;
 	}
 
-	if (ioctl_data.l3l4_filter.filter_no >
-	    (pdata->hw_feat.l3l4_filter_num - 1U)) {
-		dev_err(pdata->dev, "%d filter is not supported in the HW\n",
-			ioctl_data.l3l4_filter.filter_no);
-		return ret;
-	}
-
-	ioctl_data.cmd = OSI_CMD_L3L4_FILTER;
-	ioctl_data.arg1_u32 = tcp_udp;
-	ioctl_data.arg2_u32 = OSI_DISABLE;
-	ioctl_data.arg3_u32 = OSI_CHAN_ANY;
-	ioctl_data.arg4_u32 = is_l4_filter;
-
+	memcpy(ioctl_data.l2_filter.mac_address,
+	       u_l2_filter.mac_address, ETH_ALEN);
+	ioctl_data.l2_filter.dma_routing = OSI_ENABLE;
+	ioctl_data.l2_filter.addr_mask = OSI_DISABLE;
+	ioctl_data.l2_filter.dma_chan = osi_dma->dma_chans[0];
+	ioctl_data.l2_filter.dma_chansel = OSI_BIT(osi_dma->dma_chans[0]);
+	ioctl_data.cmd = OSI_CMD_L2_FILTER;
 	return osi_handle_ioctl(osi_core, &ioctl_data);
 }
 
@@ -730,7 +627,7 @@ static int ether_config_tcp_udp_filters(struct net_device *dev,
  * @retval "negative value" on Failure
  */
 static int ether_config_vlan_filter(struct net_device *dev,
-				    struct ether_ifr_data *ifdata)
+				    struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -830,7 +727,7 @@ static int ether_config_mc_dmasel(struct net_device *dev,
  * @retval "negative value" on Failure
  */
 static int ether_config_l2_da_filter(struct net_device *dev,
-				     struct ether_ifr_data *ifdata)
+				     struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -878,48 +775,6 @@ static int ether_config_l2_da_filter(struct net_device *dev,
 	}
 
 	return ret;
-}
-
-/**
- * @brief This function is invoked by ioctl when user issues an ioctl command
- * to save/restore MAC registers.
- *
- * Algorithm: Call osi_save_registers and osi_restore_registers
- * based on user flags.
- *
- * @param[in] ndev: network device structure
- * @param[in] flags: flags to indicate whether to save and restore MAC registers
- *
- * @note Ethernet interface need to be up.
- *
- * @retval 0 on Success
- * @retval "negative value" on Failure
- */
-static int ether_reg_save_restore(struct net_device *ndev,
-				  unsigned int flags)
-{
-	struct ether_priv_data *pdata = netdev_priv(ndev);
-	struct osi_core_priv_data *osi_core = pdata->osi_core;
-	struct osi_ioctl ioctl_data = {};
-
-	if (flags == OSI_ENABLE) {
-		ioctl_data.cmd = OSI_CMD_RESTORE_REGISTER;
-		if (osi_handle_ioctl(osi_core, &ioctl_data)) {
-			dev_err(pdata->dev, "Restore MAC registers fail\n");
-			return -EBUSY;
-		}
-	} else if (flags == OSI_DISABLE) {
-		ioctl_data.cmd = OSI_CMD_SAVE_REGISTER;
-		if (osi_handle_ioctl(osi_core, &ioctl_data)) {
-			dev_err(pdata->dev, "Save MAC registers fail\n");
-			return -EBUSY;
-		}
-	} else {
-		dev_err(pdata->dev, "Invalid flag values:%d\n", flags);
-		return -EINVAL;
-	}
-
-	return 0;
 }
 
 /**
@@ -1079,7 +934,7 @@ static int ether_config_ptp_rxq(struct net_device *ndev,
  * @retval "negative value" on Failure
  */
 static int ether_config_est(struct net_device *dev,
-			    struct ether_ifr_data *ifdata)
+			    struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -1126,7 +981,7 @@ static int ether_config_est(struct net_device *dev,
  * @retval "negative value" on Failure
  */
 static int ether_config_fpe(struct net_device *dev,
-			    struct ether_ifr_data *ifdata)
+			    struct ether_exported_ifr_data *ifdata)
 {
 	struct ether_priv_data *pdata = netdev_priv(dev);
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
@@ -1142,7 +997,8 @@ static int ether_config_fpe(struct net_device *dev,
 	}
 
 	if (copy_from_user(&ioctl_data.fpe, (void __user *)u_fpe_cfg,
-			   sizeof(struct osi_fpe_config) != 0U)) {
+			   sizeof(struct osi_fpe_config)) != 0U) {
+		dev_err(pdata->dev, "%s: copy_from_user error\n", __func__);
 		return -EFAULT;
 	}
 
@@ -1156,6 +1012,44 @@ static int ether_config_fpe(struct net_device *dev,
 
 	return ret;
 }
+
+#ifdef OSI_DEBUG
+/**
+ * @brief handle ETHER_DEBUG_INTR_CONFIG ioctl
+ *
+ * Algorithm:
+ * - Call OSI_DMA_DEBUG_INTR_CONFIG to enable/disable debug interrupt
+ * - Call OSI_CMD_DEBUG_INTR_CONFIG to enable/disable debug interrupt
+ *
+ * @param[in] ndev: network device structure
+ * @param[in] ifdata: interface private data structure
+ *
+ * @note Ethernet interface need to be up.
+ *
+ * @retval 0 on Success
+ * @retval "nagative value" on Failure
+ */
+static int ether_debug_intr_config(struct net_device *ndev,
+				   struct ether_exported_ifr_data *ifdata)
+{
+	struct ether_priv_data *pdata = netdev_priv(ndev);
+	struct osi_core_priv_data *osi_core = pdata->osi_core;
+	struct osi_ioctl ioctl_data = {};
+	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
+	unsigned int enable = ifdata->if_flags;
+	int ret = -1;
+
+	osi_dma->ioctl_data.cmd = OSI_DMA_IOCTL_CMD_DEBUG_INTR_CONFIG;
+	osi_dma->ioctl_data.arg_u32 = enable;
+	ret = osi_dma_ioctl(osi_dma);
+	if (ret < 0)
+		return ret;
+
+	ioctl_data.cmd = OSI_CMD_DEBUG_INTR_CONFIG;
+	ioctl_data.arg1_u32 = enable;
+	return osi_handle_ioctl(osi_core, &ioctl_data);
+}
+#endif
 
 /**
  * @brief ether_priv_ioctl - Handle private IOCTLs
@@ -1178,7 +1072,7 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 {
 	struct ether_priv_data *pdata = netdev_priv(ndev);
 	struct phy_device *phydev = ndev->phydev;
-	struct ether_ifr_data ifdata;
+	struct ether_exported_ifr_data ifdata;
 	struct osi_core_priv_data *osi_core = pdata->osi_core;
 #ifdef OSI_DEBUG
 	struct osi_dma_priv_data *osi_dma = pdata->osi_dma;
@@ -1196,11 +1090,7 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 	/* Enforce admin permission check */
 	switch (ifdata.ifcmd) {
 	case ETHER_AVB_ALGORITHM:
-	case EQOS_L3_L4_FILTER_CMD:
-	case EQOS_IPV4_FILTERING_CMD:
-	case EQOS_IPV6_FILTERING_CMD:
-	case EQOS_UDP_FILTERING_CMD:
-	case EQOS_TCP_FILTERING_CMD:
+	case EQOS_L3L4_FILTER_CMD:
 	case EQOS_VLAN_FILTERING_CMD:
 	case EQOS_L2_DA_FILTERING_CMD:
 	case ETHER_CONFIG_ARP_OFFLOAD:
@@ -1257,13 +1147,10 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 			ret = -EOPNOTSUPP;
 		}
 		break;
-	case EQOS_L3_L4_FILTER_CMD:
+	case EQOS_L3L4_FILTER_CMD:
 		/* flags should be 0x0 or 0x1, discard any other */
-		if (pdata->hw_feat.l3l4_filter_num > 0U &&
-		    ((ifdata.if_flags == OSI_ENABLE) ||
-		     (ifdata.if_flags == OSI_DISABLE))) {
-			ret = ether_config_l3_l4_filtering(ndev,
-							   ifdata.if_flags);
+		if (pdata->hw_feat.l3l4_filter_num > 0U) {
+			ret = ether_config_l3_l4_filtering(ndev, &ifdata);
 			if (ret == 0) {
 				ret = EQOS_CONFIG_SUCCESS;
 			} else {
@@ -1277,20 +1164,6 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 	case ETHER_CONFIG_FRP_CMD:
 		ret = ether_config_frp_cmd(ndev, &ifdata);
 		break;
-	case EQOS_IPV4_FILTERING_CMD:
-		ret = ether_config_ip4_filters(ndev, &ifdata);
-		break;
-	case EQOS_IPV6_FILTERING_CMD:
-		ret = ether_config_ip6_filters(ndev, &ifdata);
-		break;
-	case EQOS_UDP_FILTERING_CMD:
-		ret = ether_config_tcp_udp_filters(ndev, &ifdata,
-						   OSI_L4_FILTER_UDP);
-		break;
-	case EQOS_TCP_FILTERING_CMD:
-		ret = ether_config_tcp_udp_filters(ndev, &ifdata,
-						   OSI_L4_FILTER_TCP);
-		break;
 	case EQOS_VLAN_FILTERING_CMD:
 		ret = ether_config_vlan_filter(ndev, &ifdata);
 		break;
@@ -1302,9 +1175,6 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 		break;
 	case ETHER_CONFIG_LOOPBACK_MODE:
 		ret = ether_config_loopback_mode(ndev, ifdata.if_flags);
-		break;
-	case ETHER_SAVE_RESTORE:
-		ret = ether_reg_save_restore(ndev, ifdata.if_flags);
 		break;
 	case ETHER_CONFIG_EST:
 		ret = ether_config_est(ndev, &ifdata);
@@ -1347,6 +1217,9 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 		ioctl_data.cmd = OSI_CMD_STRUCTS_DUMP;
 		ret = osi_handle_ioctl(pdata->osi_core, &ioctl_data);
 		break;
+	case ETHER_DEBUG_INTR_CONFIG:
+		ret = ether_debug_intr_config(ndev, &ifdata);
+		break;
 #endif
 	case ETHER_CAP_TSC_PTP:
 		ret = ether_get_tsc_ptp_cap(ndev, &ifdata);
@@ -1355,6 +1228,11 @@ int ether_handle_priv_ioctl(struct net_device *ndev,
 	case ETHER_M2M_TSYNC:
 		ret = ether_m2m_tsync(ndev, &ifdata);
 		break;
+
+	case ETHER_L2_ADDR:
+		ret = ether_config_l2_filters(ndev, &ifdata);
+		break;
+
 	default:
 		break;
 	}

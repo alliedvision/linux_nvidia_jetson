@@ -288,6 +288,240 @@ static int debug_dla_fw_gcov_gcda_show(struct seq_file *s, void *data)
 	return 0;
 }
 
+static int nvdla_get_stats(struct nvdla_device *nvdla_dev)
+{
+	int err = 0;
+	struct nvdla_cmd_data cmd_data;
+	struct platform_device *pdev;
+
+	/* prepare command data */
+	cmd_data.method_id = DLA_CMD_GET_STATISTICS;
+	cmd_data.method_data = ALIGNED_DMA(nvdla_dev->utilization_mem_pa);
+	cmd_data.wait = true;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL)
+		return -EFAULT;
+
+	/* pass set debug command to falcon */
+	err = nvdla_send_cmd(pdev, &cmd_data);
+	if (err != 0)
+		nvdla_dbg_err(pdev, "failed to send get stats command");
+
+	return err;
+}
+
+static int debug_dla_fw_resource_util_show(struct seq_file *s, void *data)
+{
+	int err;
+	struct nvdla_device *nvdla_dev;
+	struct platform_device *pdev;
+
+	unsigned int utilization, util_rate_characteristic, util_rate_mantissa;
+
+	if (s == NULL) {
+		err = -EFAULT;
+		goto fail_no_dev;
+	}
+
+	nvdla_dev = (struct nvdla_device *) s->private;
+	if (nvdla_dev == NULL) {
+		err = -EFAULT;
+		goto fail_no_dev;
+	}
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL) {
+		err = -EFAULT;
+		goto fail_no_dev;
+	}
+
+	/* make sure that device is powered on */
+	err = nvhost_module_busy(pdev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "failed to power on\n");
+		err = -ENODEV;
+		goto fail_no_dev;
+	}
+
+	err = nvdla_get_stats(nvdla_dev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "Failed to send get stats command");
+		goto fail_to_send_cmd;
+	}
+
+	utilization = *(unsigned int *)nvdla_dev->utilization_mem_va;
+	util_rate_characteristic = (utilization / 10000);
+	util_rate_mantissa = (utilization % 10000);
+
+	seq_printf(s, "%u.%04u\n", util_rate_characteristic, util_rate_mantissa);
+
+fail_to_send_cmd:
+	nvhost_module_idle(pdev);
+fail_no_dev:
+	return err;
+}
+
+static int nvdla_get_window_size(struct nvdla_device *nvdla_dev)
+{
+	int err = 0;
+	struct nvdla_cmd_data cmd_data;
+	struct platform_device *pdev;
+
+	/* prepare command data */
+	cmd_data.method_id = DLA_CMD_GET_STAT_WINDOW_SIZE;
+	cmd_data.method_data = ALIGNED_DMA(nvdla_dev->window_mem_pa);
+	cmd_data.wait = true;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL) {
+		err = -EFAULT;
+		goto fail_no_dev;
+	}
+
+	/* make sure that device is powered on */
+	err = nvhost_module_busy(pdev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "failed to power on\n");
+		err = -ENODEV;
+		goto fail_no_dev;
+	}
+
+	/* pass set debug command to falcon */
+	err = nvdla_send_cmd(pdev, &cmd_data);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "failed to send set window command");
+		goto fail_to_send_cmd;
+	}
+
+fail_to_send_cmd:
+	nvhost_module_idle(pdev);
+fail_no_dev:
+	return err;
+}
+
+static int debug_dla_fw_stat_window_show(struct seq_file *s, void *data)
+{
+	int err;
+	struct nvdla_device *nvdla_dev;
+	struct platform_device *pdev;
+
+	if (s == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	nvdla_dev = (struct nvdla_device *) s->private;
+	if (nvdla_dev == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL) {
+		err = -EFAULT;
+		goto fail;
+	}
+
+	err = nvdla_get_window_size(nvdla_dev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "Failed to get window size");
+		goto fail;
+	}
+
+	seq_printf(s, "%u\n", *(unsigned int *)nvdla_dev->window_mem_va);
+
+	return 0;
+
+fail:
+	return err;
+}
+
+/*
+ * When the user calls this debugfs node, the configurable
+ * window size value is passed down to the FW
+ */
+static int nvdla_set_window_size(struct nvdla_device *nvdla_dev)
+{
+	int err = 0;
+	struct nvdla_cmd_data cmd_data;
+	struct platform_device *pdev;
+
+	/* prepare command data */
+	cmd_data.method_id = DLA_CMD_SET_STAT_WINDOW_SIZE;
+	cmd_data.method_data = ALIGNED_DMA(nvdla_dev->window_mem_pa);
+	cmd_data.wait = true;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL) {
+		err = -EFAULT;
+		goto fail_no_dev;
+	}
+
+	/* make sure that device is powered on */
+	err = nvhost_module_busy(pdev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "failed to power on\n");
+		err = -ENODEV;
+		goto fail_no_dev;
+	}
+
+	/* pass set debug command to falcon */
+	err = nvdla_send_cmd(pdev, &cmd_data);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "failed to send set window command");
+		goto fail_to_send_cmd;
+	}
+
+fail_to_send_cmd:
+	nvhost_module_idle(pdev);
+fail_no_dev:
+	return err;
+}
+
+static ssize_t debug_dla_fw_stat_window_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *off)
+{
+	int err;
+	struct seq_file *priv_data;
+	struct nvdla_device *nvdla_dev;
+	struct platform_device *pdev;
+	long write_value;
+	u32 *window_va;
+
+	/* Fetch user requested write-value. */
+	err = kstrtol_from_user(buffer, count, 10, &write_value);
+	if (err < 0)
+		goto fail;
+
+	priv_data = file->private_data;
+	if (priv_data == NULL)
+		goto fail;
+
+	nvdla_dev = (struct nvdla_device *) priv_data->private;
+	if (nvdla_dev == NULL)
+		goto fail;
+
+	pdev = nvdla_dev->pdev;
+	if (pdev == NULL)
+		goto fail;
+
+	window_va = nvdla_dev->window_mem_va;
+	if (write_value < UINT_MAX)
+		*window_va = write_value;
+
+	err = nvdla_set_window_size(nvdla_dev);
+	if (err != 0) {
+		nvdla_dbg_err(pdev, "Failed to send set window size command");
+		goto fail;
+	}
+
+	return count;
+
+fail:
+	return -1;
+}
+
 static int debug_dla_enable_trace_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, debug_dla_enable_trace_show, inode->i_private);
@@ -321,6 +555,16 @@ static int debug_dla_en_fw_gcov_open(struct inode *inode, struct file *file)
 static int debug_dla_fw_gcov_gcda_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, debug_dla_fw_gcov_gcda_show, inode->i_private);
+}
+
+static int debug_dla_fw_resource_util_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debug_dla_fw_resource_util_show, inode->i_private);
+}
+
+static int debug_dla_fw_stat_window_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, debug_dla_fw_stat_window_show, inode->i_private);
 }
 
 static int debug_set_trace_event_config(struct platform_device *pdev,
@@ -610,6 +854,21 @@ static const struct file_operations nvdla_fw_reload_fops = {
 		.write		= debug_dla_fw_reload_set,
 };
 
+static const struct file_operations debug_dla_resource_util_fops = {
+		.open		= debug_dla_fw_resource_util_open,
+		.read		= seq_read,
+		.llseek		= seq_lseek,
+		.release	= single_release,
+};
+
+static const struct file_operations debug_dla_stat_window_fops = {
+		.open		= debug_dla_fw_stat_window_open,
+		.read		= seq_read,
+		.llseek		= seq_lseek,
+		.release	= single_release,
+		.write		= debug_dla_fw_stat_window_write,
+};
+
 static void dla_fw_debugfs_init(struct platform_device *pdev)
 {
 	struct dentry *fw_dir, *fw_trace, *events, *fw_gcov;
@@ -673,6 +932,14 @@ static void dla_fw_debugfs_init(struct platform_device *pdev)
 	if (!debugfs_create_file("gcda", S_IRUGO, fw_gcov,
 			nvdla_dev, &debug_dla_fw_gcov_gcda_fops))
 		goto gcov_failed;
+
+	if (!debugfs_create_file("utilization_rate", S_IRUSR, fw_dir,
+			nvdla_dev, &debug_dla_resource_util_fops))
+		goto trace_failed;
+
+	if (!debugfs_create_file("stat_window_size", S_IRUSR | S_IWUSR, fw_dir,
+			nvdla_dev, &debug_dla_stat_window_fops))
+		goto trace_failed;
 
 	return;
 

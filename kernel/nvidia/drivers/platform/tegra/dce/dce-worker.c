@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,14 +36,23 @@ int dce_wait_interruptible(struct tegra_dce *d, u32 msg_id)
 	}
 
 	wait = &d->ipc_waits[msg_id];
-	atomic_set(&wait->complete, 0);
 
+	/*
+	 * It is possible that we received the ACK from DCE even before we
+	 * start waiting. But that should not be an issue as wait->complete
+	 * Will be "1" and we immediately exit from the wait.
+	 */
 	DCE_COND_WAIT_INTERRUPTIBLE(&wait->cond_wait,
 			atomic_read(&wait->complete) == 1);
 
 	if (atomic_read(&wait->complete) != 1)
 		return -EINTR;
 
+	/*
+	 * Clear wait->complete as soon as we exit from wait (consume the wake call)
+	 * So that when the next dce_wait_interruptible is called, it doesn't see old
+	 * wait->complete state.
+	 */
 	atomic_set(&wait->complete, 0);
 	return 0;
 }
@@ -67,37 +76,13 @@ void dce_wakeup_interruptible(struct tegra_dce *d, u32 msg_id)
 
 	wait = &d->ipc_waits[msg_id];
 
+	/*
+	 * Set wait->complete to "1", so if the wait is called even after
+	 * "dce_cond_signal_interruptible", it'll see the complete variable
+	 * as "1" and exit the wait immediately.
+	 */
 	atomic_set(&wait->complete, 1);
 	dce_cond_signal_interruptible(&wait->cond_wait);
-}
-
-/**
- * dce_resume_work_fn : execute resume and bootstrap flow
- *
- * @d : Pointer to tegra_dce struct.
- *
- * Return : void
- */
-void dce_resume_work_fn(struct tegra_dce *d)
-{
-	int ret = 0;
-
-	if (d == NULL) {
-		dce_err(d, "tegra_dce struct is NULL");
-		return;
-	}
-
-	ret = dce_fsm_post_event(d, EVENT_ID_DCE_BOOT_COMPLETE_REQUESTED, NULL);
-	if (ret) {
-		dce_err(d, "Error while posting DCE_BOOT_COMPLETE_REQUESTED event");
-		return;
-	}
-
-	ret = dce_start_boot_flow(d);
-	if (ret) {
-		dce_err(d, "DCE bootstrapping failed\n");
-		return;
-	}
 }
 
 /**
@@ -114,13 +99,19 @@ int dce_work_cond_sw_resource_init(struct tegra_dce *d)
 
 	ret = dce_init_work(d, &d->dce_fsm_bootstrap_work, dce_bootstrap_work_fn);
 	if (ret) {
-		dce_err(d, "fsm_start work init failed");
+		dce_err(d, "Bootstrap work init failed");
 		goto exit;
 	}
 
 	ret = dce_init_work(d, &d->dce_resume_work, dce_resume_work_fn);
 	if (ret) {
 		dce_err(d, "resume work init failed");
+		goto exit;
+	}
+
+	if (dce_cond_init(&d->dce_bootstrap_done)) {
+		dce_err(d, "dce boot wait condition init failed");
+		ret = -1;
 		goto exit;
 	}
 
@@ -144,6 +135,7 @@ init_error:
 		dce_cond_destroy(&wait->cond_wait);
 		i--;
 	}
+	dce_cond_destroy(&d->dce_bootstrap_done);
 exit:
 	return ret;
 }
@@ -165,4 +157,6 @@ void dce_work_cond_sw_resource_deinit(struct tegra_dce *d)
 		dce_cond_destroy(&wait->cond_wait);
 		atomic_set(&wait->complete, 0);
 	}
+
+	dce_cond_destroy(&d->dce_bootstrap_done);
 }

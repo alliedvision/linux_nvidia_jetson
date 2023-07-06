@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/carmel_pmu.c
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -33,7 +33,6 @@
 
 #include "carmel_pmu.h"
 #include "quadd.h"
-#include "debug.h"
 
 /*
  * Some parts of this code are taken from platform/tegra/tegra19_perf_uncore.c

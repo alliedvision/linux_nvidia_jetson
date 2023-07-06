@@ -21,24 +21,81 @@
 		grid-of-semaphores {
 			status = "disabled";
 		};
-	};
 
-	aconnect@2a41000 {
-		adsp@2993000 {
+		ramoops_carveout {
+			status = "disabled";
+		};
+
+		fsi-carveout {
+			status = "disabled";
+		};
+
+		linux,cma {
 			status = "disabled";
 		};
 	};
 
+	tegra-carveouts {
+		status = "disabled";
+	};
+
+	pcie@14100000 {
+		status = "disabled";
+	};
+
+	pcie@14160000 {
+		status = "disabled";
+	};
+
+	pcie@141a0000 {
+		status = "disabled";
+	};
+
+	sound {
+		status = "disabled";
+	};
+
+	actmon@d230000 {
+		status = "disabled";
+	};
+
+	aon@c000000 {
+		status = "disabled";
+	};
+
+	ethernet@6810000 {
+		status = "disabled";
+	};
+
+	combined-uart {
+		status = "disabled";
+	};
+
+	sdhci@3400000 {
+		status = "disabled";
+	};
+
+	aconnect@2a41000 {
+		status = "disabled";
+	};
+
+	rtcpu@bc00000 {
+		status = "disabled";
+	};
+
+	tegra-hsp@c150000 {
+		status = "disabled";
+	};
+
+	xudc@3550000 {
+		status = "disabled";
+	};
+
+	cbb-fabric@1300000 {
+		status = "disabled";
+	};
+
 	chosen {
-		linux,uefi-mmap-desc-ver = <0x01>;
-		linux,uefi-mmap-desc-size = <0x30>;
-		linux,uefi-mmap-size = <0x1320>;
-		linux,uefi-mmap-start = <0x08 0x5477f018>;
-		linux,uefi-system-table = <0x08 0x7bc90018>;
-		linux,initrd-end = <0x08 0x52841122>;
-		linux,initrd-start = <0x08 0x52040000>;
-		nvidia,ether-mac0 = "48:B0:2D:5D:16:18";
-		nvidia,ether-mac = "48:B0:2D:5D:16:18";
 		board-has-eeprom;
 	};
 };

@@ -1,28 +1,6 @@
-/*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
+// SPDX-License-Identifier: GPL-2.0
+// Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
-/**
- * @file tegra-fsicom.c
- * @brief <b> fsicom driver to communicate with fsicom daemon</b>
- *
- * This file will register as client driver so that FSICOM daemon can
- * utilize the smmu mapping and HSP drivers from kernel space
- */
-
-/* ==================[Includes]============================================= */
-
-#include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/types.h>
@@ -33,13 +11,14 @@
 #include <linux/kdev_t.h>
 #include <linux/mailbox_client.h>
 #include <linux/sched/signal.h>
-#include "linux/tegra-fsicom.h"
+#include <uapi/linux/tegra-fsicom.h>
+#include <linux/pm.h>
 
 
-/*Timeout in millisec*/
-#define TIMEOUT		1000
+/* Timeout in milliseconds */
+#define TIMEOUT		5U
 
-/* =================[Data types]======================================== */
+#define IOVA_UNI_CODE   0xFE0D
 
 /*Data type for mailbox client and channel details*/
 struct fsi_hsp_sm {
@@ -47,16 +26,12 @@ struct fsi_hsp_sm {
 	struct mbox_chan *chan;
 };
 
-/*Data type for accessing TOP2 HSP */
+/* Data type for accessing TOP2 HSP */
 struct fsi_hsp {
 	struct fsi_hsp_sm rx;
 	struct fsi_hsp_sm tx;
 	struct device dev;
 };
-
-/* =================[GLOBAL variables]================================== */
-static ssize_t device_file_ioctl(
-		struct file *, unsigned int cmd, unsigned long arg);
 
 static int device_file_major_number;
 static const char device_name[] = "fsicom-client";
@@ -71,8 +46,168 @@ static struct task_struct *task;
 
 static struct fsi_hsp *fsi_hsp_v;
 
-/*File operations*/
-const static struct file_operations fsicom_driver_fops = {
+static void fsicom_send_signal(int sig, int32_t data)
+{
+	struct siginfo info;
+
+	memset(&info, 0, sizeof(struct siginfo));
+	info.si_signo = sig;
+	info.si_code = SI_QUEUE;
+	info.si_int  = (u32) (unsigned long) data;
+
+	/* Sending signal to app */
+	if (task != NULL)
+		if (send_sig_info(sig, (struct kernel_siginfo *)&info, task) < 0)
+			pr_err("Unable to send signal %d\n", sig);
+}
+
+static void tegra_hsp_rx_notify(struct mbox_client *cl, void *msg)
+{
+
+	fsicom_send_signal(SIG_FSI_WRITE_EVENT, *((uint32_t *)msg));
+}
+
+static void tegra_hsp_tx_empty_notify(struct mbox_client *cl,
+					 void *data, int empty_value)
+{
+	pr_debug("TX empty callback came\n");
+}
+
+static int tegra_hsp_mb_init(struct device *dev)
+{
+	int err;
+
+	fsi_hsp_v = devm_kzalloc(dev, sizeof(*fsi_hsp_v), GFP_KERNEL);
+	if (!fsi_hsp_v)
+		return -ENOMEM;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32)))
+		dev_err(dev, "FsiCom: setting DMA MASK failed!\n");
+
+	fsi_hsp_v->tx.client.dev = dev;
+	fsi_hsp_v->rx.client.dev = dev;
+	fsi_hsp_v->tx.client.tx_block = true;
+	fsi_hsp_v->tx.client.tx_tout = TIMEOUT;
+	fsi_hsp_v->rx.client.rx_callback = tegra_hsp_rx_notify;
+	fsi_hsp_v->tx.client.tx_done = tegra_hsp_tx_empty_notify;
+
+	fsi_hsp_v->tx.chan = mbox_request_channel_byname(&fsi_hsp_v->tx.client,
+							"fsi-tx");
+	if (IS_ERR(fsi_hsp_v->tx.chan)) {
+		err = PTR_ERR(fsi_hsp_v->tx.chan);
+		dev_err(dev, "failed to get tx mailbox: %d\n", err);
+		return err;
+	}
+
+	fsi_hsp_v->rx.chan = mbox_request_channel_byname(&fsi_hsp_v->rx.client,
+							"fsi-rx");
+	if (IS_ERR(fsi_hsp_v->rx.chan)) {
+		err = PTR_ERR(fsi_hsp_v->rx.chan);
+		dev_err(dev, "failed to get rx mailbox: %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
+static ssize_t device_file_ioctl(
+			struct file *fp, unsigned int cmd, unsigned long arg)
+{
+	struct rw_data input;
+	dma_addr_t dma_addr;
+	dma_addr_t phys_addr;
+	struct rw_data *user_input;
+	int ret = 0;
+	uint32_t pdata[4] = {0};
+	struct iova_data ldata;
+
+
+	switch (cmd) {
+
+	case NVMAP_SMMU_MAP:
+		user_input = (struct rw_data *)arg;
+		if (copy_from_user(&input, (void __user *)arg,
+					sizeof(struct rw_data)))
+			return -EACCES;
+		dmabuf = dma_buf_get(input.handle);
+
+		if (IS_ERR_OR_NULL(dmabuf))
+			return -EINVAL;
+		attach = dma_buf_attach(dmabuf, &pdev_local->dev);
+
+		if (IS_ERR_OR_NULL(attach)) {
+			pr_err("error : %lld\n", (signed long long)attach);
+			return -1;
+		}
+		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR_OR_NULL(sgt)) {
+			pr_err("error: %lld\n", (signed long long)sgt);
+			return -1;
+		}
+		phys_addr = sg_phys(sgt->sgl);
+		dma_addr = sg_dma_address(sgt->sgl);
+		if (copy_to_user((void __user *)&user_input->pa,
+				(void *)&phys_addr, sizeof(uint64_t)))
+			return -EACCES;
+		if (copy_to_user((void __user *)&user_input->iova,
+				(void *)&dma_addr, sizeof(uint64_t)))
+			return -EACCES;
+		if (copy_to_user((void __user *)&user_input->dmabuf,
+				(void *)&dmabuf, sizeof(uint64_t)))
+			return -EACCES;
+		if (copy_to_user((void __user *)&user_input->attach,
+				(void *)&attach, sizeof(uint64_t)))
+			return -EACCES;
+		if (copy_to_user((void __user *)&user_input->sgt,
+				(void *)&sgt, sizeof(uint64_t)))
+			return -EACCES;
+
+	break;
+
+	case NVMAP_SMMU_UNMAP:
+		if (copy_from_user(&input, (void __user *)arg,
+					sizeof(struct rw_data)))
+			return -EACCES;
+		dma_buf_unmap_attachment((struct dma_buf_attachment *)input.attach,
+				(struct sg_table *) input.sgt, DMA_BIDIRECTIONAL);
+		dma_buf_detach((struct dma_buf *)input.dmabuf, (struct dma_buf_attachment *) input.attach);
+		dma_buf_put((struct dma_buf *)input.dmabuf);
+	break;
+
+	case TEGRA_HSP_WRITE:
+		if (copy_from_user(&input, (void __user *)arg,
+					sizeof(struct rw_data)))
+			return -EACCES;
+		pdata[0] = input.handle;
+		ret = mbox_send_message(fsi_hsp_v->tx.chan,
+			(void *)pdata);
+	break;
+
+	case TEGRA_SIGNAL_REG:
+		task = get_current();
+	break;
+
+	case TEGRA_IOVA_DATA:
+		if (copy_from_user(&ldata, (void __user *)arg,
+					sizeof(struct iova_data)))
+			return -EACCES;
+		pdata[0] = ldata.offset;
+		pdata[1] = ldata.iova;
+		pdata[2] = ldata.chid;
+		pdata[3] = IOVA_UNI_CODE;
+		ret = mbox_send_message(fsi_hsp_v->tx.chan,
+			(void *)pdata);
+	break;
+
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+/* File operations */
+static const struct file_operations fsicom_driver_fops = {
 	.owner   = THIS_MODULE,
 	.unlocked_ioctl   = device_file_ioctl,
 };
@@ -109,145 +244,10 @@ class_fail:
 	return -1;
 }
 
-static void fsicom_send_sgnal(int32_t data)
-{
-
-	struct siginfo info;
-
-	/*Sending signal to app */
-	memset(&info, 0, sizeof(struct siginfo));
-	info.si_signo = SIG_FSI_DAEMON;
-	info.si_code = SI_QUEUE;
-	info.si_int  = (u32) (unsigned long) data;
-	if (task != NULL) {
-		if (send_sig_info(SIG_FSI_DAEMON,
-				(struct kernel_siginfo *)&info, task) < 0)
-			pr_err("Unable to send signal\n");
-	}
-}
-
-static void tegra_hsp_rx_notify(struct mbox_client *cl, void *msg)
-{
-
-	fsicom_send_sgnal(*((uint32_t *)msg));
-}
-
-static void tegra_hsp_tx_empty_notify(struct mbox_client *cl,
-					 void *data, int empty_value)
-{
-	pr_debug("TX empty callback came\n");
-}
-static int tegra_hsp_mb_init(struct device *dev)
-{
-	int err;
-
-	fsi_hsp_v = devm_kzalloc(dev, sizeof(*fsi_hsp_v), GFP_KERNEL);
-	if (!fsi_hsp_v)
-		return -ENOMEM;
-
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
-		dev_err(dev, "FsiCom: setting DMA MASK failed!\n");
-	}
-
-	fsi_hsp_v->tx.client.dev = dev;
-	fsi_hsp_v->rx.client.dev = dev;
-	fsi_hsp_v->tx.client.tx_block = true;
-	fsi_hsp_v->tx.client.tx_tout = TIMEOUT;
-	fsi_hsp_v->rx.client.rx_callback = tegra_hsp_rx_notify;
-	fsi_hsp_v->tx.client.tx_done = tegra_hsp_tx_empty_notify;
-
-	fsi_hsp_v->tx.chan = mbox_request_channel_byname(&fsi_hsp_v->tx.client,
-							"fsi-tx");
-	if (IS_ERR(fsi_hsp_v->tx.chan)) {
-		err = PTR_ERR(fsi_hsp_v->tx.chan);
-		dev_err(dev, "failed to get tx mailbox: %d\n", err);
-		devm_kfree(dev, fsi_hsp_v);
-		return err;
-	}
-
-	fsi_hsp_v->rx.chan = mbox_request_channel_byname(&fsi_hsp_v->rx.client,
-							"fsi-rx");
-	if (IS_ERR(fsi_hsp_v->rx.chan)) {
-		err = PTR_ERR(fsi_hsp_v->rx.chan);
-		dev_err(dev, "failed to get rx mailbox: %d\n", err);
-		devm_kfree(dev, fsi_hsp_v);
-		return err;
-	}
-
-	return 0;
-}
-
-
 static void fsicom_unregister_device(void)
 {
 	if (device_file_major_number != 0)
 		unregister_chrdev(device_file_major_number, device_name);
-}
-
-static ssize_t device_file_ioctl(
-			struct file *fp, unsigned int cmd, unsigned long arg)
-{
-	struct rw_data input;
-	dma_addr_t dma_addr;
-	dma_addr_t phys_addr;
-	struct rw_data *user_input;
-	int ret = 0;
-	uint32_t pdata[4] = {0};
-
-	user_input = (struct rw_data *)arg;
-	if (copy_from_user(&input, (void __user *)arg,
-				 sizeof(struct rw_data)))
-		return -EACCES;
-
-	switch (cmd) {
-
-	case NVMAP_SMMU_MAP:
-		dmabuf = dma_buf_get(input.handle);
-
-		if (IS_ERR_OR_NULL(dmabuf))
-			return -EINVAL;
-		attach = dma_buf_attach(dmabuf, &pdev_local->dev);
-
-		if (IS_ERR_OR_NULL(attach)) {
-			pr_err("error : %lld\n", (signed long long)attach);
-			return -1;
-		}
-		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-		if (IS_ERR_OR_NULL(sgt)) {
-			pr_err("error: %lld\n", (signed long long)sgt);
-			return -1;
-		}
-		phys_addr = sg_phys(sgt->sgl);
-		dma_addr = sg_dma_address(sgt->sgl);
-		if (copy_to_user((void __user *)&user_input->pa,
-				(void *)&phys_addr, sizeof(uint64_t)))
-			return -EACCES;
-		if (copy_to_user((void __user *)&user_input->iova,
-				(void *)&dma_addr, sizeof(uint64_t)))
-			return -EACCES;
-	break;
-
-	case NVMAP_SMMU_UNMAP:
-		dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
-		dma_buf_detach(dmabuf, attach);
-		dma_buf_put(dmabuf);
-	break;
-
-	case TEGRA_HSP_WRITE:
-		pdata[0] = input.handle;
-		ret = mbox_send_message(fsi_hsp_v->tx.chan,
-			(void *)pdata);
-	break;
-
-	case TEGRA_SIGNAL_REG:
-		task = get_current();
-	break;
-
-	default:
-		return -EINVAL;
-	}
-
-	return ret;
 }
 
 static const struct of_device_id fsicom_client_dt_match[] = {
@@ -271,15 +271,31 @@ static int fsicom_client_probe(struct platform_device *pdev)
 static int fsicom_client_remove(struct platform_device *pdev)
 {
 	fsicom_unregister_device();
-	devm_kfree(&pdev->dev, fsi_hsp_v);
 	return 0;
 }
+
+static int __maybe_unused fsicom_client_suspend(struct device *dev)
+{
+	dev_dbg(dev, "suspend called\n");
+	return 0;
+}
+
+static int __maybe_unused fsicom_client_resume(struct device *dev)
+{
+	dev_dbg(dev, "resume called\n");
+
+	fsicom_send_signal(SIG_DRIVER_RESUME, 0);
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(fsicom_client_pm, fsicom_client_suspend, fsicom_client_resume);
 
 static struct platform_driver fsicom_client = {
 	.driver         = {
 	.name   = "fsicom_client",
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 		.of_match_table = of_match_ptr(fsicom_client_dt_match),
+		.pm = pm_ptr(&fsicom_client_pm),
 	},
 	.probe          = fsicom_client_probe,
 	.remove         = fsicom_client_remove,
