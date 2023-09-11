@@ -1,4 +1,4 @@
-From b8493a53da0acf0d1d97f22219bcbfb2042d9b4d Mon Sep 17 00:00:00 2001
+From f0f4121657bbcc39584c3f4c2646dacb4fb4a224 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:39 +0100
 Subject: [PATCH 050/318] x86/crashdump/32: Simplify copy_oldmem_page()

@@ -1,4 +1,4 @@
-From 5fce74c371b3cef26402d8b59fb3b09e31f3d942 Mon Sep 17 00:00:00 2001
+From a913669133258ea64c13a26f816e7fed89df08c6 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 11:10:03 +0106
 Subject: [PATCH 091/318] um: synchronize kmsg_dumper

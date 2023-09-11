@@ -1,4 +1,4 @@
-From ecb245f8cbfd5d535dad1144cd0195a78766abec Mon Sep 17 00:00:00 2001
+From 708235a51f317972855b67c8c96cd7aaf627c690 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:10 +0106
 Subject: [PATCH 108/318] printk: add pr_flush()
@@ -100,10 +100,10 @@ index 1f0df42f8d0c..0efdac3cf94e 100644
  
  /*
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index d3b115cef544..69af426a2703 100644
+index 58da007d7c99..14cb111fe9f0 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3231,6 +3231,12 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3233,6 +3233,12 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  			sync_mode = true;
  			pr_info("enabled sync mode\n");
  		}
@@ -116,7 +116,7 @@ index d3b115cef544..69af426a2703 100644
  	}
  
  	rcu_read_lock();
-@@ -3510,3 +3516,76 @@ void console_atomic_unlock(unsigned int flags)
+@@ -3512,3 +3518,76 @@ void console_atomic_unlock(unsigned int flags)
  	prb_unlock(&printk_cpulock, flags);
  }
  EXPORT_SYMBOL(console_atomic_unlock);

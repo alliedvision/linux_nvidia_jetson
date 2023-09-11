@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -208,7 +208,7 @@ pva_auth_allow_list_destroy(struct pva_vpu_auth_s *pva_auth)
  * \param[in] key the key with which calculated key would be compared for match.
  * \return The completion status of the operation. Possible values are:
  * \ref 0 Success. Passed in key matched wth calculated key.
- * \ref -EINVAL. Passed in Key doesn't match with calcualted key.
+ * \ref -EACCES. Passed in Key doesn't match with calcualted key.
  */
 static int32_t
 is_key_match(uint8_t *dataptr,
@@ -236,7 +236,7 @@ is_key_match(uint8_t *dataptr,
 		     (void *)calc_key,
 		     NVPVA_SHA256_DIGEST_SIZE);
 	if (err != 0)
-		err = -EINVAL;
+		err = -EACCES;
 
 	return err;
 }
@@ -253,7 +253,7 @@ is_key_match(uint8_t *dataptr,
  * against the keys asscociated with match_hash. possible values:
  * - 0 Success, one of the keys associated with match_hash
  * matches with the calculated sha256 key.
- * - -EINVAL, None matches.
+ * - -EACCES if no match found.
  */
 static int
 check_all_keys_for_match(struct shakey_s *pallkeys,
@@ -283,6 +283,7 @@ check_all_keys_for_match(struct shakey_s *pallkeys,
 fail:
 	return err;
 }
+
 /**
  * @brief
  * Helper function for \ref binary_search.
@@ -403,7 +404,7 @@ pva_vpu_check_sha256_key(struct pva *pva,
 			      compare_hash_value);
 	if (match_Hash == NULL) {
 		nvpva_dbg_info(pva, "ERROR: No Hash Match Found");
-		err = -EINVAL;
+		err = -EACCES;
 		goto fail;
 	}
 

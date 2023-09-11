@@ -222,7 +222,7 @@
 
 	/* QSPI flash MX25U51279 is controlled by qspi0 */
 	spi@3270000 {
-		spi-max-frequency = <136000000>;
+		spi-max-frequency = <102000000>;
 		status = "okay";
 		prod-settings {
 			#prod-cells = <3>;
@@ -240,16 +240,16 @@
 			#size-cells = <1>;
 			compatible = "MX25U51279G";
 			reg = <0>;
-			spi-max-frequency = <136000000>;
+			spi-max-frequency = <102000000>;
 			partition@0 {
 				label = "Whole_flash0";
 				reg = <0x00000000 0x4000000>;	/* size of QSPI-NOR 64MB == 512Mb */
 			};
 			controller-data {
 				nvidia,x1-len-limit = <16>;
-				nvidia,x1-bus-speed = <136000000>; /* In Mhz */
+				nvidia,x1-bus-speed = <102000000>; /* In Mhz */
 				nvidia,x1-dymmy-cycle = <8>;
-				nvidia,x4-bus-speed = <136000000>;
+				nvidia,x4-bus-speed = <102000000>;
 				nvidia,x4-dymmy-cycle = <8>;
 				nvidia,x4-is-ddr=<0>;
 				nvidia,ctrl-bus-clk-ratio = <1>;

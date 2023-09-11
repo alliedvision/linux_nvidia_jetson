@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 				reg = <0>;
 				ar0234_vi_in0: endpoint {
 					vc-id = <0>;
-					port-index = <1>;
+					port-index = <0>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out0>;
 				};
@@ -35,7 +35,7 @@
 				reg = <1>;
 					ar0234_vi_in1: endpoint {
 					vc-id = <1>;
-					port-index = <1>;
+					port-index = <0>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out1>;
 				};
@@ -43,7 +43,7 @@
 			port@2 {
 				reg = <2>;
 				ar0234_vi_in2: endpoint {
-					vc-id = <2>;
+					vc-id = <0>;
 					port-index = <1>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out2>;
@@ -52,7 +52,7 @@
 			port@3 {
 				reg = <3>;
 				ar0234_vi_in3: endpoint {
-					vc-id = <3>;
+					vc-id = <1>;
 					port-index = <1>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out3>;
@@ -74,7 +74,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in0: endpoint@0 {
-							port-index = <1>;
+							port-index = <0>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_ar0234_out0>;
 						};
@@ -95,7 +95,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in1: endpoint@2 {
-								port-index = <1>;
+								port-index = <0>;
 								bus-width = <2>;
 								remote-endpoint = <&ar0234_ar0234_out1>;
 						};
@@ -268,7 +268,7 @@
 				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
 					mclk_khz = "24000";
 					num_lanes = "2";
-					tegra_sinterface = "serial_b";
+					tegra_sinterface = "serial_a";
 					phy_mode = "DPHY";
 					vc_id = "0";
 					discontinuous_clk = "no";
@@ -286,7 +286,7 @@
 					inherent_gain = "1";
 					mclk_multiplier = "3.01";
 					pix_clk_hz = "134400000";
-					serdes_pix_clk_hz = "280000000";
+					serdes_pix_clk_hz = "299000000";
 
 					gain_factor = "100";
 					min_gain_val = "100"; /* dB */
@@ -315,7 +315,7 @@
 						reg = <0>;
 						ar0234_ar0234_out0: endpoint {
 							vc-id = <0>;
-							port-index = <1>;
+							port-index = <0>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_csi_in0>;
 							};
@@ -435,7 +435,7 @@
 				mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
 					mclk_khz = "24000";
 					num_lanes = "2";
-					tegra_sinterface = "serial_b";
+					tegra_sinterface = "serial_a";
 					vc_id = "1";
 					discontinuous_clk = "no";
 					dpcm_enable = "false";
@@ -452,7 +452,7 @@
 					inherent_gain = "1";
 					mclk_multiplier = "3.01";
 					pix_clk_hz = "134400000";
-					serdes_pix_clk_hz = "280000000";
+					serdes_pix_clk_hz = "299000000";
 
 					gain_factor = "100";
 					min_gain_val = "100"; /* dB */
@@ -481,7 +481,7 @@
 						reg = <0>;
 						ar0234_ar0234_out1: endpoint {
 							vc-id = <1>;
-							port-index = <1>;
+							port-index = <0>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_csi_in1>;
 							};
@@ -603,7 +603,7 @@
 					mclk_khz = "24000";
 					num_lanes = "2";
 					tegra_sinterface = "serial_b";
-					vc_id = "2";
+					vc_id = "0";
 					discontinuous_clk = "no";
 					dpcm_enable = "false";
 					cil_settletime = "0";
@@ -619,7 +619,7 @@
 					inherent_gain = "1";
 					mclk_multiplier = "3.01";
 					pix_clk_hz = "134400000";
-					serdes_pix_clk_hz = "280000000";
+					serdes_pix_clk_hz = "299000000";
 
 					gain_factor = "100";
 					min_gain_val = "100"; /* dB */
@@ -647,7 +647,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_ar0234_out2: endpoint {
-							vc-id = <2>;
+							vc-id = <0>;
 							port-index = <1>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_csi_in2>;
@@ -769,7 +769,7 @@
 					mclk_khz = "24000";
 					num_lanes = "2";
 					tegra_sinterface = "serial_b";
-					vc_id = "3";
+					vc_id = "1";
 					discontinuous_clk = "no";
 					dpcm_enable = "false";
 					cil_settletime = "0";
@@ -785,7 +785,7 @@
 					inherent_gain = "1";
 					mclk_multiplier = "3.01";
 					pix_clk_hz = "134400000";
-					serdes_pix_clk_hz = "280000000";
+					serdes_pix_clk_hz = "299000000";
 
 					gain_factor = "100";
 					min_gain_val = "100"; /* dB */
@@ -813,7 +813,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_ar0234_out3: endpoint {
-							vc-id = <3>;
+							vc-id = <1>;
 							port-index = <1>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_csi_in3>;

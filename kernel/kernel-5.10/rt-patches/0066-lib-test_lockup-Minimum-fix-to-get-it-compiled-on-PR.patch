@@ -1,4 +1,4 @@
-From 466af2f60753afe07248ce047a155a8f1fc5653f Mon Sep 17 00:00:00 2001
+From 05ec2c2968f8d392d90c5ff67281912417395779 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 28 Oct 2020 18:55:27 +0100
 Subject: [PATCH 066/318] lib/test_lockup: Minimum fix to get it compiled on
@@ -26,10 +26,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 16 insertions(+)
 
 diff --git a/lib/test_lockup.c b/lib/test_lockup.c
-index f1a020bcc763..864554e76973 100644
+index 78a630bbd03d..d27a80502204 100644
 --- a/lib/test_lockup.c
 +++ b/lib/test_lockup.c
-@@ -480,6 +480,21 @@ static int __init test_lockup_init(void)
+@@ -485,6 +485,21 @@ static int __init test_lockup_init(void)
  		return -EINVAL;
  
  #ifdef CONFIG_DEBUG_SPINLOCK
@@ -51,7 +51,7 @@ index f1a020bcc763..864554e76973 100644
  	if (test_magic(lock_spinlock_ptr,
  		       offsetof(spinlock_t, rlock.magic),
  		       SPINLOCK_MAGIC) ||
-@@ -493,6 +508,7 @@ static int __init test_lockup_init(void)
+@@ -498,6 +513,7 @@ static int __init test_lockup_init(void)
  		       offsetof(struct rw_semaphore, wait_lock.magic),
  		       SPINLOCK_MAGIC))
  		return -EINVAL;

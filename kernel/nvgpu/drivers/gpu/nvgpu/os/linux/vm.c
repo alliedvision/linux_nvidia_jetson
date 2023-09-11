@@ -468,9 +468,11 @@ int nvgpu_vm_mapping_modify(struct vm_gk20a *vm,
 	struct nvgpu_sgt *nvgpu_sgt = NULL;
 	u32 pgsz_idx;
 	u32 page_size;
-	u64 ctag_offset;
 	s16 kind = NV_KIND_INVALID;
+	u64 ctag_offset = 0UL;
+#ifdef CONFIG_NVGPU_COMPRESSION
 	u64 compression_page_size;
+#endif
 
 	nvgpu_mutex_acquire(&vm->update_gmmu_lock);
 
@@ -510,18 +512,31 @@ int nvgpu_vm_mapping_modify(struct vm_gk20a *vm,
 		goto out;
 	}
 
+	/*
+	 * Fall back is the incompressible kind.
+	 */
+	kind = incompr_kind;
+
+	/*
+	 * If we support compression and there's a compressible kind, use it.
+	 */
+#ifdef CONFIG_NVGPU_COMPRESSION
 	if (mapped_buffer->ctag_offset != 0) {
 		if (compr_kind == NV_KIND_INVALID) {
 			kind = incompr_kind;
 		} else {
 			kind = compr_kind;
 		}
-	} else {
-		if (incompr_kind == NV_KIND_INVALID) {
-			nvgpu_err(g, "invalid incompr_kind specified");
-			goto out;
-		}
-		kind = incompr_kind;
+	}
+#endif
+
+	/*
+	 * If we don't support compression you still need to have a valid kind
+	 * specified.
+	 */
+	if (kind == NV_KIND_INVALID) {
+		nvgpu_err(g, "invalid incompr_kind specified");
+		goto out;
 	}
 
 	nvgpu_sgt = nvgpu_linux_sgt_create(g, mapped_buffer->os_priv.sgt);
@@ -530,6 +545,7 @@ int nvgpu_vm_mapping_modify(struct vm_gk20a *vm,
 		goto out;
 	}
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 	ctag_offset = mapped_buffer->ctag_offset;
 
 	compression_page_size = g->ops.fb.compression_page_size(g);
@@ -537,6 +553,7 @@ int nvgpu_vm_mapping_modify(struct vm_gk20a *vm,
 
 	ctag_offset += (u32)(buffer_offset >>
 			nvgpu_ilog2(compression_page_size));
+#endif
 
 	if (g->ops.mm.gmmu.map(vm,
 				map_address + buffer_offset,

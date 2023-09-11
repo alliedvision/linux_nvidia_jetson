@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -255,6 +255,9 @@ static int nvgpu_l1ss_report_error_linux(struct gk20a *g, u32 hw_unit_id, u32 er
 	err = l1ss_submit_rq(&req, true);
 	if (err != 0)
 		nvgpu_err(g, "Error returned from L1SS submit %d", err);
+
+	if (is_critical)
+		nvgpu_sw_quiesce(g);
 
 	return err;
 }

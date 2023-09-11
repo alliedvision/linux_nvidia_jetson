@@ -415,7 +415,9 @@ static int pva_submit(struct pva_private *priv, void *arg)
 		tasks_header->num_tasks += 1;
 
 		task->dma_addr = task_mem_info.dma_addr;
+		task->aux_dma_addr = task_mem_info.aux_dma_addr;
 		task->va = task_mem_info.va;
+		task->aux_va = task_mem_info.aux_va;
 		task->pool_index = task_mem_info.pool_index;
 
 		task->pva = priv->pva;
@@ -516,6 +518,7 @@ static int pva_pin(struct pva_private *priv, void *arg)
 			       &dmabuf[0],
 			       &in_arg->pin.offset,
 			       &in_arg->pin.size,
+			       in_arg->pin.segment,
 			       1,
 			       &out_arg->pin_id,
 			       &out_arg->error_code);
@@ -760,7 +763,7 @@ static int pva_set_vpu_print_buffer_size(struct pva_private *priv, void *arg)
 	union nvpva_set_vpu_print_buffer_size_args *in_arg =
 		(union nvpva_set_vpu_print_buffer_size_args *)arg;
 	uint32_t buffer_size = in_arg->in.size;
-	struct device *dev = &priv->pva->pdev->dev;
+	struct device *dev = &priv->pva->aux_pdev->dev;
 	int err = 0;
 
 	if (buffer_size > MAX_VPU_PRINT_BUFFER_SIZE) {
@@ -955,15 +958,6 @@ static int pva_open(struct inode *inode, struct file *file)
 
 	file->private_data = priv;
 	priv->pva = pva;
-	priv->queue = nvpva_queue_alloc(pva->pool,
-					 MAX_PVA_TASK_COUNT_PER_QUEUE);
-
-	if (IS_ERR(priv->queue)) {
-		err = PTR_ERR(priv->queue);
-		goto err_alloc_queue;
-	}
-
-	sema_init(&priv->queue->task_pool_sem, MAX_PVA_TASK_COUNT_PER_QUEUE);
 	priv->client = nvpva_client_context_alloc(pdev, pva, current->pid);
 	if (priv->client == NULL) {
 		err = -ENOMEM;
@@ -971,11 +965,30 @@ static int pva_open(struct inode *inode, struct file *file)
 		goto err_alloc_context;
 	}
 
+	priv->queue = nvpva_queue_alloc(pva->pool,
+					priv->client->cntxt_dev,
+					MAX_PVA_TASK_COUNT_PER_QUEUE);
+
+	if (IS_ERR(priv->queue)) {
+		err = PTR_ERR(priv->queue);
+		goto err_alloc_queue;
+	}
+
+	sema_init(&priv->queue->task_pool_sem, MAX_PVA_TASK_COUNT_PER_QUEUE);
+	err = nvhost_module_busy(pva->pdev);
+	if (err < 0) {
+		dev_err(&pva->pdev->dev, "error in powering up pva %d",
+			err);
+		goto err_device_busy;
+	}
+
 	return nonseekable_open(inode, file);
 
-err_alloc_context:
+err_device_busy:
 	nvpva_queue_put(priv->queue);
 err_alloc_queue:
+	nvpva_client_context_put(priv->client);
+err_alloc_context:
 	nvhost_module_remove_client(pdev, priv);
 	kfree(priv);
 err_alloc_priv:
@@ -1043,6 +1056,8 @@ static int pva_release(struct inode *inode, struct file *file)
 			break;
 		}
 	}
+
+	nvhost_module_idle(priv->pva->pdev);
 
 	/* Release reference to client */
 	nvpva_client_context_put(priv->client);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -254,6 +254,10 @@
 		status = "disabled";
 	};
 
+	pwm@32e0000 {/* PWM7 - 40pin header, pin 32 */
+		status = "okay";
+	};
+
 	bluedroid_pm {
 		status = "disabled";
 	};
@@ -274,7 +278,7 @@
 
 	host1x@13e00000 {
 		nvcsi@15a00000 {
-			csi_chan0 {
+			channel@0 {
 				ports {
 					port@0 {
 						endpoint@0 {

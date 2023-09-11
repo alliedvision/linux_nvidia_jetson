@@ -20,7 +20,7 @@
 / {
 	overlay-name = "Jetson Camera e3653-dual-Hawk module";
 	jetson-header-name = "Jetson AGX CSI Connector";
-	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,p3737-0000+p3701-0004", "nvidia,p3737-0000+p3701-0005";
+	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,p3737-0000+p3701-0004", "nvidia,p3737-0000+p3701-0005", "nvidia,p3737-0000+p3701-0008";
 
 	/* VI number of channels */
 	fragment@0 {
@@ -49,7 +49,7 @@
 		__overlay__ {
 			status = "okay";
 			vc-id = <0>;
-			port-index = <1>;
+			port-index = <0>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_csi_out0>;
 		};
@@ -71,7 +71,7 @@
 		__overlay__ {
 			status = "okay";
 			vc-id = <1>;
-			port-index = <1>;
+			port-index = <0>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_csi_out1>;
 		};
@@ -92,7 +92,7 @@
 		};
 		__overlay__ {
 			status = "okay";
-			vc-id = <2>;
+			vc-id = <0>;
 			port-index = <1>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_csi_out2>;
@@ -114,7 +114,7 @@
 		};
 		__overlay__ {
 			status = "okay";
-			vc-id = <3>;
+			vc-id = <1>;
 			port-index = <1>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_csi_out3>;
@@ -154,7 +154,7 @@
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <1>;
+			port-index = <0>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_out0>;
 		};
@@ -203,7 +203,7 @@
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <1>;
+			port-index = <0>;
 			bus-width = <2>;
 			remote-endpoint = <&dual_hawk_out1>;
 		};
@@ -489,6 +489,26 @@
 			pcl_id = "v4l2_sensor";
 			devname = "ar0234 31-0010";
 			proc-device-tree = "/proc/device-tree/i2c@3180000/tca9546@70/i2c@1/dual_hawk_d@10";
+		};
+	};
+	fragment@45 {
+		target-path = "/i2c@3180000/tca9546@70/i2c@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			bmi088_a@69 {
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@46 {
+		target-path = "/";
+		__overlay__ {
+			nvpps {
+				status = "okay";
+			};
 		};
 	};
 };

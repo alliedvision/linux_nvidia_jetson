@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -265,6 +265,7 @@ struct nvgpu_gpu_characteristics {
 
 	__u32 max_fbps_count;
 	__u32 fbp_en_mask;
+	__u32 emc_en_mask;
 	__u32 max_ltc_per_fbp;
 	__u32 max_lts_per_ltc;
 	__u32 max_tex_per_tpc;

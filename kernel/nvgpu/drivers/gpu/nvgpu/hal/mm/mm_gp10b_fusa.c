@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,8 +34,12 @@ int gp10b_mm_init_bar2_vm(struct gk20a *g)
 	struct nvgpu_mem *inst_block = &mm->bar2.inst_block;
 	u32 big_page_size = g->ops.mm.gmmu.get_default_big_page_size();
 
-	/* BAR2 aperture size is 32MB */
-	mm->bar2.aperture_size = U32(32) << 20U;
+	/* BAR2 aperture size is 32MB for chips prior to Ampere */
+	if (g->ops.mm.bar2_vm_size != NULL) {
+		mm->bar2.aperture_size = g->ops.mm.bar2_vm_size(g);
+	} else {
+		mm->bar2.aperture_size = U32(32) << 20U;
+	}
 	nvgpu_log_info(g, "bar2 vm size = 0x%x", mm->bar2.aperture_size);
 
 	mm->bar2.vm = nvgpu_vm_init(g, big_page_size, SZ_4K,

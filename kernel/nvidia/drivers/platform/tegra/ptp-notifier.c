@@ -1,7 +1,7 @@
 /*
  * drivers/platform/tegra/ptp-notifier.c
  *
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -104,30 +104,44 @@ int tegra_get_hwtime(const char *intf_name, void *ts, int ts_type)
 	raw_spin_lock_irqsave(&ptp_notifier_lock, flags);
 	if (!intf_name || !ts) {
 		pr_err("passed Interface_name or time-stamp ptr is NULL");
-		raw_spin_unlock_irqrestore(&ptp_notifier_lock, flags);
-		return -1;
+		ret = -1;
+		goto err_put;
 	}
+
+	/* dev_get_by_name increments the dev reference and requires dev_put */
+
 	dev = dev_get_by_name(&init_net, intf_name);
 
-	if (!dev || !(dev->flags & IFF_UP)) {
-		pr_debug("dev is NULL or intf is not up for %s\n", intf_name);
-		raw_spin_unlock_irqrestore(&ptp_notifier_lock, flags);
-		return -EINVAL;
+	if (!dev) {
+		pr_debug("No device found for %s\n", intf_name);
+		ret = -EINVAL;
+		goto err_put;
 	}
+
+	if (!(dev->flags & IFF_UP)) {
+		pr_debug("interface is not up for %s\n", intf_name);
+		ret = -EINVAL;
+		goto err_put;
+	}
+
 	for (index = 0; index < MAX_MAC_INSTANCES; index++) {
 		if (dev == registered_ndev[index])
 			break;
 	}
 	if (index == MAX_MAC_INSTANCES) {
 		pr_debug("Interface: %s is not registered to get HW time", intf_name);
-		raw_spin_unlock_irqrestore(&ptp_notifier_lock, flags);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err_put;
 	}
 
 	if (get_systime[index])
 		ret = (get_systime[index])(dev, ts, ts_type);
 	else
 		ret = -EINVAL;
+
+err_put:
+	if (dev)
+		dev_put(dev);
 	raw_spin_unlock_irqrestore(&ptp_notifier_lock, flags);
 
 	return ret;

@@ -1900,8 +1900,10 @@ static int gk20a_probe(struct platform_device *dev)
 	nvgpu_l1ss_init_reporting(gk20a);
 #endif
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 	nvgpu_mutex_init(&l->dmabuf_priv_list_lock);
 	nvgpu_init_list_node(&l->dmabuf_priv_list);
+#endif
 
 	gk20a->probe_done = true;
 
@@ -2033,8 +2035,10 @@ static int __exit gk20a_remove(struct platform_device *pdev)
 
 	err = nvgpu_remove(dev);
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 	gk20a_dma_buf_priv_list_clear(l);
 	nvgpu_mutex_destroy(&l->dmabuf_priv_list_lock);
+#endif
 
 	unregister_reboot_notifier(&l->nvgpu_reboot_nb);
 

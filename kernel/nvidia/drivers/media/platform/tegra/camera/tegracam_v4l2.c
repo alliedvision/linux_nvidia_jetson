@@ -1,7 +1,7 @@
 /*
  * tegracam_v4l2 - tegra camera framework for v4l2 support
  *
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -75,7 +75,11 @@ static int v4l2sd_stream(struct v4l2_subdev *sd, int enable)
 				goto error;
 			}
 		}
-
+		err = tegracam_ctrl_synchronize_ctrls(s_data->tegracam_ctrl_hdl);
+		if (err) {
+			dev_err(&client->dev, "Error synchronizing controls during stream start\n");
+			goto error;
+		}
 		err = sensor_ops->start_streaming(tc_dev);
 		if (err) {
 			dev_err(&client->dev, "Error turning on streaming\n");

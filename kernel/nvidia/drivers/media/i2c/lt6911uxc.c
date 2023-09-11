@@ -1,7 +1,7 @@
 /*
  * Lontium LT6911UXC HDMI-CSI bridge driver
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -90,7 +90,7 @@ static int lt6911uxc_start_streaming(struct tegracam_device *tc_dev)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct camera_common_power_rail *pw = s_data->power;
 
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 1);
 		else
@@ -104,7 +104,7 @@ static int lt6911uxc_stop_streaming(struct tegracam_device *tc_dev)
 	struct camera_common_data *s_data = tc_dev->s_data;
 	struct camera_common_power_rail *pw = s_data->power;
 
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 0);
 		else
@@ -311,7 +311,7 @@ static int lt6911uxc_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 0);
 		else
@@ -371,7 +371,7 @@ static int lt6911uxc_power_off(struct camera_common_data *s_data)
 			return err;
 		}
 	} else {
-		if (pw->reset_gpio) {
+		if (gpio_is_valid(pw->reset_gpio)) {
 			if (gpio_cansleep(pw->reset_gpio))
 				gpio_set_value_cansleep(pw->reset_gpio, 0);
 			else
@@ -454,7 +454,7 @@ static int lt6911uxc_probe(struct i2c_client *client,
 	struct lt6911uxc *priv;
 	int err;
 
-	dev_err(dev, "probing lt6911uxc v4l2 sensor at addr 0x%0x\n",
+	dev_info(dev, "probing lt6911uxc v4l2 sensor at addr 0x%0x\n",
 				client->addr);
 
 	if (!IS_ENABLED(CONFIG_OF) || !client->dev.of_node)

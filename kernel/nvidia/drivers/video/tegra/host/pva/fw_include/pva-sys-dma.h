@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -47,7 +47,9 @@ struct PVA_PACKED pva_dma_ch_config_s {
 	uint32_t boundary_pad;
 	/**< HWSEQ control register, Ignored on t19x. */
 	uint32_t hwseqcntl;
-	uint32_t pad_dma_channel0[3];
+	 /**< HWSEQ Frame Seq control register, Ignored on t19x and t23x. */
+	uint32_t hwseqfscntl;
+	uint32_t pad_dma_channel0[2];
 };
 
 /** Number of dma done masks in DMA info structure. */

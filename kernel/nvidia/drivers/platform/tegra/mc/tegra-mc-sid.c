@@ -1,7 +1,7 @@
 /*
  * MC StreamID configuration
  *
- * Copyright (c) 2015-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -127,7 +127,7 @@ static void __mc_override_sid(int sid, int oid, enum mc_overrides ord)
 	list_add_tail(&entry->list, &sid_override_list);
 }
 
-void platform_override_streamid(int sid)
+void platform_override_streamid(int sid, struct device *dev)
 {
 	int i;
 
@@ -137,6 +137,10 @@ void platform_override_streamid(int sid)
 	}
 
 	for (i = 0; i < mc_sid->soc_data->nsid_to_oids; i++) {
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
+		struct of_phandle_args args;
+		unsigned int index = 0;
+#endif
 		struct sid_to_oids *conf;
 		int j;
 
@@ -145,9 +149,21 @@ void platform_override_streamid(int sid)
 
 		if (sid != conf->sid)
 			continue;
-
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
+		while (!of_parse_phandle_with_args(dev->of_node, "interconnects",
+						   "#interconnect-cells", index, &args)) {
+			if (args.args_count != 0) {
+				if (conf->client_id == args.args[0]) {
+					for (j = 0; j < conf->noids; j++)
+						__mc_override_sid(sid, conf->oid[j], conf->ord);
+				}
+			}
+			index++;
+		}
+#else
 		for (j = 0; j < conf->noids; j++)
 			__mc_override_sid(sid, conf->oid[j], conf->ord);
+#endif
 	}
 }
 

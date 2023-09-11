@@ -1,4 +1,4 @@
-From fad3edccdaac92055ac77058bf42daf4f80daa06 Mon Sep 17 00:00:00 2001
+From aa0797bfb4cb86fe03516dad6b11d34a3a356691 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 10:27:58 +0106
 Subject: [PATCH 093/318] printk: kmsg_dump: remove _nolock() variants
@@ -84,10 +84,10 @@ index 2fdb10ab1799..86673930c8ea 100644
  {
  }
 diff --git a/kernel/debug/kdb/kdb_main.c b/kernel/debug/kdb/kdb_main.c
-index 7ae9da245e4b..dbf1d126ac5e 100644
+index 048baadd7a41..1f5c577b926e 100644
 --- a/kernel/debug/kdb/kdb_main.c
 +++ b/kernel/debug/kdb/kdb_main.c
-@@ -2126,8 +2126,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2182,8 +2182,8 @@ static int kdb_dmesg(int argc, const char **argv)
  		kdb_set(2, setargs);
  	}
  
@@ -98,7 +98,7 @@ index 7ae9da245e4b..dbf1d126ac5e 100644
  		n++;
  
  	if (lines < 0) {
-@@ -2159,8 +2159,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2215,8 +2215,8 @@ static int kdb_dmesg(int argc, const char **argv)
  	if (skip >= n || skip < 0)
  		return 0;
  
@@ -110,10 +110,10 @@ index 7ae9da245e4b..dbf1d126ac5e 100644
  			skip--;
  			continue;
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 0b679290f693..166caf61ee27 100644
+index dde1696d7564..031ce3f00141 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3385,7 +3385,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3387,7 +3387,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  }
  
  /**
@@ -122,7 +122,7 @@ index 0b679290f693..166caf61ee27 100644
   * @iter: kmsg dumper iterator
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
-@@ -3400,18 +3400,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3402,18 +3402,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
   *
   * A return value of FALSE indicates that there are no more records to
   * read.
@@ -145,7 +145,7 @@ index 0b679290f693..166caf61ee27 100644
  	prb_rec_init_rd(&r, &info, line, size);
  
  	if (!iter->active)
-@@ -3435,40 +3435,11 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper_iter *iter, bool syslog,
+@@ -3437,40 +3437,11 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper_iter *iter, bool syslog,
  	iter->cur_seq = r.info->seq + 1;
  	ret = true;
  out:
@@ -187,7 +187,7 @@ index 0b679290f693..166caf61ee27 100644
  EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  
  /**
-@@ -3557,22 +3528,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper_iter *iter, bool syslog,
+@@ -3559,22 +3530,6 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper_iter *iter, bool syslog,
  }
  EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
@@ -210,7 +210,7 @@ index 0b679290f693..166caf61ee27 100644
  /**
   * kmsg_dump_rewind - reset the iterator
   * @iter: kmsg dumper iterator
-@@ -3586,7 +3541,8 @@ void kmsg_dump_rewind(struct kmsg_dumper_iter *iter)
+@@ -3588,7 +3543,8 @@ void kmsg_dump_rewind(struct kmsg_dumper_iter *iter)
  	unsigned long flags;
  
  	printk_safe_enter_irqsave(flags);

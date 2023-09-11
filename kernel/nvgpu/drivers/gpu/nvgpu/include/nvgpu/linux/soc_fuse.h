@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,6 +25,10 @@
 
 #ifndef FUSE_OPT_GPC_DISABLE_0
 #define FUSE_OPT_GPC_DISABLE_0		0x188
+#endif
+
+#ifndef FUSE_OPT_EMC_DISABLE_0
+#define FUSE_OPT_EMC_DISABLE_0		0x8c0
 #endif
 
 #ifndef CONFIG_NVGPU_NVMEM_FUSE

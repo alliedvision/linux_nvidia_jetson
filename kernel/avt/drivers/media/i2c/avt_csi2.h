@@ -44,10 +44,14 @@ struct avt_frame_param {
     uint32_t swoff;
 };
 
+
+#define AVT_BINNING_TYPE_CNT 	2
+
 struct avt_binning_config {
-	enum BCRM_DIGITAL_BINNING_SETTING setting;
-	uint32_t width;
-	uint32_t height;
+	u8 sel;
+	u32 width;
+	u32 height;
+	u32 type;
 };
 
 enum avt_mode {
@@ -102,9 +106,10 @@ struct avt_csi2_priv {
 
     bool ignore_control_write;
 
-	struct avt_binning_config *available_binnings;
-	uint32_t available_binnings_cnt;
-	int cur_binning_config;
+	struct avt_binning_config *available_binnings[AVT_BINNING_TYPE_CNT];
+	u32 available_binnings_cnt[AVT_BINNING_TYPE_CNT];
+	const struct avt_binning_config *cur_binning_config;
+	u32 cur_binning_type;
 
 	s64 link_freqs[1];
 
@@ -164,7 +169,7 @@ struct avt_ctrl {
 /* Driver release version */
 #define DRV_VER_MAJOR           5
 #define DRV_VER_MINOR           1
-#define DRV_VER_PATCH           1
+#define DRV_VER_PATCH           2
 #define DRV_VER_BUILD           0
 #define DRIVER_VERSION          STR(DRV_VER_MAJOR) "." STR(DRV_VER_MINOR) "." STR(DRV_VER_PATCH) "." STR(DRV_VER_BUILD)
 
@@ -263,7 +268,8 @@ enum convert_type {
 #define AV_ATTR_TRIGGER_SOURCE                  {"Trigger Source",                  17}
 #define AV_ATTR_TRIGGER_SOFTWARE                {"Trigger Software",                17}
 #define AV_ATTR_DEVICE_TEMPERATURE              {"Device Temperature",              14}
-#define AV_ATTR_BINNING_MODE             		{"Binning Mode",              14}
+#define AV_ATTR_BINNING_MODE             		{"Binning Mode",              		14}
+#define AV_ATTR_BINNING_SELECTOR				{"Binning Selector",              	14}
 
 struct avt_ctrl_mapping {
     u8  reg_size;
@@ -308,6 +314,13 @@ struct avt_ctrl_mapping {
 /* Binning mode: avg, sum */
 #define V4L2_CID_BINNING_MODE             		(V4L2_CID_CAMERA_CLASS_BASE+52)
 
+#define AVT_CID_FIRMWARE_VERSION 	(V4L2_CID_CAMERA_CLASS_BASE+54)
+#define AVT_CID_CAMERA_NAME 		(V4L2_CID_CAMERA_CLASS_BASE+55)
+#define AVT_CID_SERIAL_NUMBER 		(V4L2_CID_CAMERA_CLASS_BASE+56)
+
+#define AVT_CID_ACQUISITION_STATUS 	(V4L2_CID_CAMERA_CLASS_BASE+57)
+
+#define AVT_CID_BINNING_SELECTOR 	(V4L2_CID_CAMERA_CLASS_BASE+58)
 
 const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
     {
@@ -616,7 +629,15 @@ const struct avt_ctrl_mapping avt_ctrl_mappings[] = {
         .data_size      = AV_CAM_DATA_SIZE_8,
         .type           = V4L2_CTRL_TYPE_MENU,
         .flags          = 0,
+		.disabled_while_streaming = true,
     },
+	{
+		.id             = AVT_CID_BINNING_SELECTOR,
+		.attr           = AV_ATTR_BINNING_SELECTOR,
+		.type           = V4L2_CTRL_TYPE_MENU,
+		.flags          = 0,
+		.disabled_while_streaming = true,
+	},
 };
 
 #define AVT_TEGRA_TIMEOUT_DEFAULT   CAPTURE_TIMEOUT_MS

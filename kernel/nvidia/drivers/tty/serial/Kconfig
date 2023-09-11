@@ -1,5 +1,7 @@
 if TTY
 
+source "drivers/tty/serial/wch_35x/Kconfig"
+
 config TEGRA_COMBINED_UART
 	bool "Tegra combined UART"
 	depends on ARCH_TEGRA_18x_SOC

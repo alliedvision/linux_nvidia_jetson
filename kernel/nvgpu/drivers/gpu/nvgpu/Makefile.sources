@@ -202,6 +202,7 @@ endif
 # Source files below are functionaly safe (FuSa) and must always be included.
 srcs += hal/mm/mm_gv11b_fusa.c \
 	hal/mm/mm_gp10b_fusa.c \
+	hal/mm/mm_ga10b_fusa.c \
 	hal/mm/gmmu/gmmu_gv11b_fusa.c \
 	hal/mm/gmmu/gmmu_gp10b_fusa.c \
 	hal/mm/gmmu/gmmu_gk20a_fusa.c \

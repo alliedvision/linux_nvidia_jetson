@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,6 +17,12 @@
 #include <linux/version.h>
 #include <linux/device.h>
 #include <linux/dma-buf.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+#include <linux/dma-resv.h>
+#else
+#include <linux/reservation.h>
+#include <linux/ww_mutex.h>
+#endif
 #include <linux/fs.h>
 #include <linux/scatterlist.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
@@ -38,7 +44,9 @@
 #include "os_linux.h"
 #include "dmabuf_vidmem.h"
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 void gk20a_mm_delete_priv(struct gk20a_dmabuf_priv *priv);
+#endif
 
 enum nvgpu_aperture gk20a_dmabuf_aperture(struct gk20a *g,
 					  struct dma_buf *dmabuf)
@@ -68,6 +76,7 @@ enum nvgpu_aperture gk20a_dmabuf_aperture(struct gk20a *g,
 #endif
 }
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 static struct gk20a_dmabuf_priv *dma_buf_ops_to_gk20a_priv(
 		struct dma_buf_ops *ops)
 {
@@ -94,8 +103,25 @@ static void nvgpu_dma_buf_release(struct dma_buf *dmabuf)
 	nvgpu_mutex_acquire(&l->dmabuf_priv_list_lock);
 	gk20a_mm_delete_priv(priv);
 	nvgpu_mutex_release(&l->dmabuf_priv_list_lock);
-
 	dmabuf->ops->release(dmabuf);
+}
+
+static void gk20a_dma_buf_lock(struct dma_buf *dmabuf)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	dma_resv_lock(dmabuf->resv, NULL);
+#else
+	ww_mutex_lock(&dmabuf->resv->lock, NULL);
+#endif
+}
+
+static void gk20a_dma_buf_unlock(struct dma_buf *dmabuf)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 3, 0)
+	dma_resv_unlock(dmabuf->resv);
+#else
+	ww_mutex_unlock(&dmabuf->resv->lock);
+#endif
 }
 
 /* This function must be called with priv->lock held */
@@ -104,7 +130,7 @@ static int gk20a_dma_buf_set_drvdata(struct dma_buf *dmabuf, struct device *devi
 {
 	priv->dmabuf = dmabuf;
 
-	mutex_lock(&dmabuf->lock);
+	gk20a_dma_buf_lock(dmabuf);
 	priv->previous_ops = dmabuf->ops;
 	/*
 	 * Make a copy of the original ops struct and then update the
@@ -113,7 +139,7 @@ static int gk20a_dma_buf_set_drvdata(struct dma_buf *dmabuf, struct device *devi
 	priv->local_ops = *(dmabuf->ops);
 	priv->local_ops.release = nvgpu_dma_buf_release;
 	dmabuf->ops = &priv->local_ops;
-	mutex_unlock(&dmabuf->lock);
+	gk20a_dma_buf_unlock(dmabuf);
 
 	return 0;
 }
@@ -129,14 +155,15 @@ struct gk20a_dmabuf_priv *gk20a_dma_buf_get_drvdata(
 {
 	struct gk20a_dmabuf_priv *priv = NULL;
 
-	mutex_lock(&dmabuf->lock);
+	gk20a_dma_buf_lock(dmabuf);
 	if (dmabuf->ops->release == nvgpu_dma_buf_release) {
 		priv = dma_buf_ops_to_gk20a_priv((struct dma_buf_ops *)dmabuf->ops);
 	}
-	mutex_unlock(&dmabuf->lock);
+	gk20a_dma_buf_unlock(dmabuf);
 
 	return priv;
 }
+#endif
 
 struct sg_table *nvgpu_mm_pin(struct device *dev,
 			struct dma_buf *dmabuf, struct dma_buf_attachment **attachment,
@@ -178,6 +205,7 @@ void nvgpu_mm_unpin(struct device *dev,
 /* This function must be called after acquiring the global level
  * dmabuf_priv_list_lock.
  */
+#ifdef CONFIG_NVGPU_COMPRESSION
 void gk20a_mm_delete_priv(struct gk20a_dmabuf_priv *priv)
 {
 	struct gk20a_buffer_state *s, *s_tmp;
@@ -207,9 +235,9 @@ void gk20a_mm_delete_priv(struct gk20a_dmabuf_priv *priv)
 	}
 
 	/* The original pointer to dma_buf_ops is always put back here*/
-	mutex_lock(&dmabuf->lock);
+	gk20a_dma_buf_lock(dmabuf);
 	dmabuf->ops = priv->previous_ops;
-	mutex_unlock(&dmabuf->lock);
+	gk20a_dma_buf_unlock(dmabuf);
 
 	/* Remove this entry from the global tracking list */
 	nvgpu_list_del(&priv->list);
@@ -325,6 +353,7 @@ out:
 		*state = s;
 	return err;
 }
+#endif
 
 static void *__gk20a_dmabuf_vmap(struct dma_buf *dmabuf)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
 /* 8 camera module with Dual hawks and 4 Owls
  * HAWK1 - 2 ar0234 cameras - max96712 Aggregator 1 - GMSL0
  * HAWK2 - 2 ar0234 cameras - max96712 Aggregator 1 - GMSL1
+ * HAWK3 - 2 ar0234 cameras - max96712 Aggregator 1 - GMSL1
+ * HAWK4 - 2 ar0234 cameras - max96712 Aggregator 1 - GMSL1
  * OWL1  - 1 ar0234 camera  - max96712 Aggregator 2 - GMSL0
  * OWL2  - 1 ar0234 camera  - max96712 Aggregator 2 - GMSL0
  * OWL3  - 1 ar0234 camera  - max96712 Aggregator 2 - GMSL1
@@ -24,7 +26,7 @@
  */
 / {
 	tegra-capture-vi {
-		num-channels = <8>;
+		num-channels = <12>;
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -68,7 +70,7 @@
 				reg = <4>;
 				ar0234_vi_in4: endpoint {
 					vc-id = <0>;
-					port-index = <4>;
+					port-index = <2>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out4>;
 				};
@@ -77,7 +79,7 @@
 				reg = <5>;
 				ar0234_vi_in5: endpoint {
 					vc-id = <1>;
-					port-index = <4>;
+					port-index = <2>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out5>;
 				};
@@ -85,26 +87,62 @@
 			port@6 {
 				reg = <6>;
 				ar0234_vi_in6: endpoint {
-					vc-id = <2>;
-					port-index = <4>;
+					vc-id = <0>;
+					port-index = <3>;
 					bus-width = <2>;
 					remote-endpoint = <&ar0234_csi_out6>;
-					};
+				};
 			};
 			port@7 {
 				reg = <7>;
 				ar0234_vi_in7: endpoint {
+					vc-id = <1>;
+					port-index = <3>;
+					bus-width = <2>;
+					remote-endpoint = <&ar0234_csi_out7>;
+				};
+			};
+			port@8 {
+				reg = <8>;
+				ar0234_vi_in8: endpoint {
+					vc-id = <0>;
+					port-index = <4>;
+					bus-width = <2>;
+					remote-endpoint = <&ar0234_csi_out8>;
+				};
+			};
+			port@9 {
+				reg = <9>;
+				ar0234_vi_in9: endpoint {
+					vc-id = <1>;
+					port-index = <4>;
+					bus-width = <2>;
+					remote-endpoint = <&ar0234_csi_out9>;
+				};
+			};
+			port@10 {
+				reg = <10>;
+				ar0234_vi_in10: endpoint {
+					vc-id = <2>;
+					port-index = <4>;
+					bus-width = <2>;
+					remote-endpoint = <&ar0234_csi_out10>;
+					};
+			};
+			port@11 {
+				reg = <11>;
+				ar0234_vi_in11: endpoint {
 					vc-id = <3>;
 					port-index = <4>;
 					bus-width = <2>;
-					remote-endpoint = <&ar0234_csi_out7>;
+					remote-endpoint = <&ar0234_csi_out11>;
 					};
 				};
 			};
 		};
 	host1x@13e00000 {
 		nvcsi@15a00000 {
-			num-channels = <8>;
+			num-channels = <12>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			channel@0 {
@@ -199,7 +237,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in4: endpoint@8 {
-							port-index = <4>;
+							port-index = <2>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_ar0234_out4>;
 						};
@@ -220,7 +258,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in5: endpoint@10 {
-							port-index = <4>;
+							port-index = <2>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_ar0234_out5>;
 						};
@@ -241,7 +279,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in6: endpoint@12 {
-							port-index = <4>;
+							port-index = <3>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_ar0234_out6>;
 						};
@@ -262,7 +300,7 @@
 					port@0 {
 						reg = <0>;
 						ar0234_csi_in7: endpoint@14 {
-							port-index = <4>;
+							port-index = <3>;
 							bus-width = <2>;
 							remote-endpoint = <&ar0234_ar0234_out7>;
 						};
@@ -271,6 +309,90 @@
 						reg = <1>;
 						ar0234_csi_out7: endpoint@15 {
 							remote-endpoint = <&ar0234_vi_in7>;
+						};
+					};
+				};
+			};
+			channel@8 {
+				reg = <8>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						ar0234_csi_in8: endpoint@16 {
+							port-index = <4>;
+							bus-width = <2>;
+							remote-endpoint = <&ar0234_ar0234_out8>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						ar0234_csi_out8: endpoint@17 {
+							remote-endpoint = <&ar0234_vi_in8>;
+						};
+					};
+				};
+			};
+			channel@9 {
+				reg = <9>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						ar0234_csi_in9: endpoint@18 {
+							port-index = <4>;
+							bus-width = <2>;
+							remote-endpoint = <&ar0234_ar0234_out9>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						ar0234_csi_out9: endpoint@19 {
+							remote-endpoint = <&ar0234_vi_in9>;
+						};
+					};
+				};
+			};
+			channel@10 {
+				reg = <10>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						ar0234_csi_in10: endpoint@20 {
+							port-index = <4>;
+							bus-width = <2>;
+							remote-endpoint = <&ar0234_ar0234_out10>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						ar0234_csi_out10: endpoint@21 {
+							remote-endpoint = <&ar0234_vi_in10>;
+						};
+					};
+				};
+			};
+			channel@11 {
+				reg = <11>;
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					port@0 {
+						reg = <0>;
+						ar0234_csi_in11: endpoint@22 {
+							port-index = <4>;
+							bus-width = <2>;
+							remote-endpoint = <&ar0234_ar0234_out11>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						ar0234_csi_out11: endpoint@23 {
+							remote-endpoint = <&ar0234_vi_in11>;
 						};
 					};
 				};
@@ -289,6 +411,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "HAWK1";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -442,6 +565,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "HAWK1";
 			sync_sensor_index = <2>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -510,6 +634,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "HAWK2";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -578,6 +703,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "HAWK2";
 			sync_sensor_index = <2>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -637,9 +763,285 @@
 					};
 				};
 			};
+		ar0234_e@34 {
+			compatible = "nvidia,ar0234_hawk_owl";
+			reg = <0x34>;
+			/* Physical dimensions of sensor */
+			physical_w = "15.0";
+			physical_h = "12.5";
+			sensor_model ="ar0234";
+			sync_sensor = "HAWK3";
+			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
+			/* Defines number of frames to be dropped by driver internally after applying */
+			/* sensor crop settings. Some sensors send corrupt frames after applying */
+			/* crop co-ordinates */
+			post_crop_frame_drop = "0";
+			/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+			use_sensor_mode_id = "true";
+			mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+				mclk_khz = "24000";
+				num_lanes = "2";
+				tegra_sinterface = "serial_c";
+				vc_id = "0";
+				discontinuous_clk = "no";
+				dpcm_enable = "false";
+				cil_settletime = "0";
+				dynamic_pixel_bit_depth = "10";
+				csi_pixel_bit_depth = "10";
+				mode_type = "bayer";
+				pixel_phase = "grbg";
+				active_w = "1920";
+				active_h = "1200";
+				readout_orientation = "0";
+				line_length = "2448";
+				inherent_gain = "1";
+				mclk_multiplier = "3.01";
+				pix_clk_hz = "134400000";
+				serdes_pix_clk_hz = "299000000";
+				gain_factor = "100";
+				min_gain_val = "100"; /* dB */
+				max_gain_val = "1600"; /* dB */
+				step_gain_val = "1"; /* 0.1 */
+				default_gain = "100";
+				min_hdr_ratio = "1";
+				max_hdr_ratio = "1";
+				framerate_factor = "1000000";
+				min_framerate = "30000000";
+				max_framerate = "30000000";
+				step_framerate = "30000000";
+				default_framerate = "30000000";
+				exposure_factor = "1000000";
+				min_exp_time = "28"; /*us, 2 lines*/
+				max_exp_time = "22000";
+				step_exp_time = "1";
+				default_exp_time = "22000";/* us */
+				embedded_metadata_height = "0";
+			};
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					ar0234_ar0234_out4: endpoint {
+						vc-id = <0>;
+						port-index = <2>;
+						bus-width = <2>;
+						remote-endpoint = <&ar0234_csi_in4>;
+						};
+					};
+				};
+			};
+		ar0234_f@35 {
+			compatible = "nvidia,ar0234_hawk_owl";
+			reg = <0x35>;
+			/* Physical dimensions of sensor */
+			physical_w = "15.0";
+			physical_h = "12.5";
+			sensor_model ="ar0234";
+			sync_sensor = "HAWK3";
+			sync_sensor_index = <2>;
+			supports-alt-exp = "true";
+			/* Defines number of frames to be dropped by driver internally after applying */
+			/* sensor crop settings. Some sensors send corrupt frames after applying */
+			/* crop co-ordinates */
+			post_crop_frame_drop = "0";
+			/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+			use_sensor_mode_id = "true";
+			mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+				mclk_khz = "24000";
+				num_lanes = "2";
+				tegra_sinterface = "serial_c";
+				vc_id = "1";
+				discontinuous_clk = "no";
+				dpcm_enable = "false";
+				cil_settletime = "0";
+				dynamic_pixel_bit_depth = "10";
+				csi_pixel_bit_depth = "10";
+				mode_type = "bayer";
+				pixel_phase = "grbg";
+				active_w = "1920";
+				active_h = "1200";
+				readout_orientation = "0";
+				line_length = "2448";
+				inherent_gain = "1";
+				mclk_multiplier = "3.01";
+				pix_clk_hz = "134400000";
+				serdes_pix_clk_hz = "299000000";
+				gain_factor = "100";
+				min_gain_val = "100"; /* dB */
+				max_gain_val = "1600"; /* dB */
+				step_gain_val = "1"; /* 0.1 */
+				default_gain = "100";
+				min_hdr_ratio = "1";
+				max_hdr_ratio = "1";
+				framerate_factor = "1000000";
+				min_framerate = "30000000";
+				max_framerate = "30000000";
+				step_framerate = "30000000";
+				default_framerate = "30000000";
+				exposure_factor = "1000000";
+				min_exp_time = "28"; /*us, 2 lines*/
+				max_exp_time = "22000";
+				step_exp_time = "1";
+				default_exp_time = "22000";/* us */
+				embedded_metadata_height = "0";
+			};
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					ar0234_ar0234_out5: endpoint {
+						vc-id = <1>;
+						port-index = <2>;
+						bus-width = <2>;
+						remote-endpoint = <&ar0234_csi_in5>;
+						};
+					};
+				};
+			};
+		ar0234_g@36 {
+			compatible = "nvidia,ar0234_hawk_owl";
+			reg = <0x36>;
+			/* Physical dimensions of sensor */
+			physical_w = "15.0";
+			physical_h = "12.5";
+			sensor_model ="ar0234";
+			sync_sensor = "HAWK4";
+			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
+			/* Defines number of frames to be dropped by driver internally after applying */
+			/* sensor crop settings. Some sensors send corrupt frames after applying */
+			/* crop co-ordinates */
+			post_crop_frame_drop = "0";
+			/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+			use_sensor_mode_id = "true";
+			mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+				mclk_khz = "24000";
+				num_lanes = "2";
+				tegra_sinterface = "serial_d";
+				vc_id = "0";
+				discontinuous_clk = "no";
+				dpcm_enable = "false";
+				cil_settletime = "0";
+				dynamic_pixel_bit_depth = "10";
+				csi_pixel_bit_depth = "10";
+				mode_type = "bayer";
+				pixel_phase = "grbg";
+				active_w = "1920";
+				active_h = "1200";
+				readout_orientation = "0";
+				line_length = "2448";
+				inherent_gain = "1";
+				mclk_multiplier = "3.01";
+				pix_clk_hz = "134400000";
+				serdes_pix_clk_hz = "299000000";
+				gain_factor = "100";
+				min_gain_val = "100"; /* dB */
+				max_gain_val = "1600"; /* dB */
+				step_gain_val = "1"; /* 0.1 */
+				default_gain = "100";
+				min_hdr_ratio = "1";
+				max_hdr_ratio = "1";
+				framerate_factor = "1000000";
+				min_framerate = "30000000";
+				max_framerate = "30000000";
+				step_framerate = "30000000";
+				default_framerate = "30000000";
+				exposure_factor = "1000000";
+				min_exp_time = "28"; /*us, 2 lines*/
+				max_exp_time = "22000";
+				step_exp_time = "1";
+				default_exp_time = "22000";/* us */
+				embedded_metadata_height = "0";
+			};
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					ar0234_ar0234_out6: endpoint {
+						vc-id = <0>;
+						port-index = <3>;
+						bus-width = <2>;
+						remote-endpoint = <&ar0234_csi_in6>;
+						};
+					};
+				};
+			};
+		ar0234_h@37 {
+			compatible = "nvidia,ar0234_hawk_owl";
+			reg = <0x37>;
+			/* Physical dimensions of sensor */
+			physical_w = "15.0";
+			physical_h = "12.5";
+			sensor_model ="ar0234";
+			sync_sensor = "HAWK4";
+			sync_sensor_index = <2>;
+			supports-alt-exp = "true";
+			/* Defines number of frames to be dropped by driver internally after applying */
+			/* sensor crop settings. Some sensors send corrupt frames after applying */
+			/* crop co-ordinates */
+			post_crop_frame_drop = "0";
+			/* enable CID_SENSOR_MODE_ID for sensor modes selection */
+			use_sensor_mode_id = "true";
+			mode0 {/*mode IMX424_MODE_3840X1080_CROP_30FPS*/
+				mclk_khz = "24000";
+				num_lanes = "2";
+				tegra_sinterface = "serial_d";
+				vc_id = "1";
+				discontinuous_clk = "no";
+				dpcm_enable = "false";
+				cil_settletime = "0";
+				dynamic_pixel_bit_depth = "10";
+				csi_pixel_bit_depth = "10";
+				mode_type = "bayer";
+				pixel_phase = "grbg";
+				active_w = "1920";
+				active_h = "1200";
+				readout_orientation = "0";
+				line_length = "2448";
+				inherent_gain = "1";
+				mclk_multiplier = "3.01";
+				pix_clk_hz = "134400000";
+				serdes_pix_clk_hz = "299000000";
+				gain_factor = "100";
+				min_gain_val = "100"; /* dB */
+				max_gain_val = "1600"; /* dB */
+				step_gain_val = "1"; /* 0.1 */
+				default_gain = "100";
+				min_hdr_ratio = "1";
+				max_hdr_ratio = "1";
+				framerate_factor = "1000000";
+				min_framerate = "30000000";
+				max_framerate = "30000000";
+				step_framerate = "30000000";
+				default_framerate = "30000000";
+				exposure_factor = "1000000";
+				min_exp_time = "28"; /*us, 2 lines*/
+				max_exp_time = "22000";
+				step_exp_time = "1";
+				default_exp_time = "22000";/* us */
+				embedded_metadata_height = "0";
+			};
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					ar0234_ar0234_out7: endpoint {
+						vc-id = <1>;
+						port-index = <3>;
+						bus-width = <2>;
+						remote-endpoint = <&ar0234_csi_in7>;
+						};
+					};
+				};
+			};
 		};
 	i2c@3180000 {
-		ar0234_e@30 {
+		ar0234_i@30 {
 			compatible = "nvidia,ar0234_hawk_owl";
 			reg = <0x30>;
 			/* Physical dimensions of sensor */
@@ -648,6 +1050,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "OWL1";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -698,16 +1101,16 @@
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-					ar0234_ar0234_out4: endpoint {
+					ar0234_ar0234_out8: endpoint {
 						vc-id = <0>;
 						port-index = <4>;
 						bus-width = <2>;
-						remote-endpoint = <&ar0234_csi_in4>;
+						remote-endpoint = <&ar0234_csi_in8>;
 						};
 					};
 				};
 			};
-		ar0234_f@32 {
+		ar0234_j@32 {
 			compatible = "nvidia,ar0234_hawk_owl";
 			reg = <0x32>;
 			/* Physical dimensions of sensor */
@@ -716,6 +1119,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "OWL2";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -766,16 +1170,16 @@
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-					ar0234_ar0234_out5: endpoint {
+					ar0234_ar0234_out9: endpoint {
 						vc-id = <1>;
 						port-index = <4>;
 						bus-width = <2>;
-						remote-endpoint = <&ar0234_csi_in5>;
+						remote-endpoint = <&ar0234_csi_in9>;
 						};
 					};
 				};
 			};
-		ar0234_g@34 {
+		ar0234_k@34 {
 			compatible = "nvidia,ar0234_hawk_owl";
 			reg = <0x34>;
 			/* Physical dimensions of sensor */
@@ -784,6 +1188,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "OWL3";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -834,16 +1239,16 @@
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-					ar0234_ar0234_out6: endpoint {
+					ar0234_ar0234_out10: endpoint {
 						vc-id = <2>;
 						port-index = <4>;
 						bus-width = <2>;
-						remote-endpoint = <&ar0234_csi_in6>;
+						remote-endpoint = <&ar0234_csi_in10>;
 						};
 					};
 				};
 			};
-		ar0234_h@36 {
+		ar0234_l@36 {
 			compatible = "nvidia,ar0234_hawk_owl";
 			reg = <0x36>;
 			/* Physical dimensions of sensor */
@@ -852,6 +1257,7 @@
 			sensor_model ="ar0234";
 			sync_sensor = "OWL4";
 			sync_sensor_index = <1>;
+			supports-alt-exp = "true";
 			/* Defines number of frames to be dropped by driver internally after applying */
 			/* sensor crop settings. Some sensors send corrupt frames after applying */
 			/* crop co-ordinates */
@@ -902,11 +1308,11 @@
 				#size-cells = <0>;
 				port@0 {
 					reg = <0>;
-					ar0234_ar0234_out7: endpoint {
+					ar0234_ar0234_out11: endpoint {
 						vc-id = <3>;
 						port-index = <4>;
 						bus-width = <2>;
-						remote-endpoint = <&ar0234_csi_in7>;
+						remote-endpoint = <&ar0234_csi_in11>;
 						};
 					};
 				};
@@ -943,7 +1349,7 @@
 		* isp_bw_margin_pct = <>;
 		* Isp bandwidth margin in percentage
 		*/
-		num_csi_lanes = <8>;
+		num_csi_lanes = <12>;
 		max_lane_speed = <15000000>;
 		min_bits_per_pixel = <10>;
 		vi_peak_byte_per_pixel = <2>;
@@ -969,7 +1375,7 @@
 					/* Driver v4l2 device name */
 					devname = "ar0234 2-0030";
 					/* Declare the device-tree hierarchy to driver instance */
-					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_e@30";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_i@30";
 				};
 			};
 			module1 {
@@ -979,7 +1385,7 @@
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
 					devname = "ar0234 2-0032";
-					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_f@32";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_j@32";
 				};
 			};
 			module2 {
@@ -989,7 +1395,7 @@
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
 					devname = "ar0234 2-0034";
-					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_g@34";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_k@34";
 				};
 			};
 			module3 {
@@ -999,7 +1405,7 @@
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
 					devname = "ar0234 2-0036";
-					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_h@36";
+					proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_l@36";
 				};
 			};
 			module4 {
@@ -1040,6 +1446,46 @@
 					pcl_id = "v4l2_sensor";
 					devname = "ar0234 8-0033";
 					proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_d@33";
+				};
+			};
+			module8 {
+				badge = "hawk_frontcenter";
+				position = "frontcenter";
+				orientation = "1";
+				drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "ar0234 8-0034";
+					proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_e@34";
+				};
+			};
+			module9 {
+				badge = "hawk_rearcenter";
+				position = "rearcenter";
+				orientation = "1";
+				drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "ar0234 8-0035";
+					proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_f@35";
+				};
+			};
+			module10 {
+				badge = "hawk_leftcenter";
+				position = "leftcenter";
+				orientation = "1";
+				drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "ar0234 8-0036";
+					proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_g@36";
+				};
+			};
+			module11 {
+				badge = "hawk_rightcenter";
+				position = "rightcenter";
+				orientation = "1";
+				drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "ar0234 8-0037";
+					proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_h@37";
 				};
 			};
 		};

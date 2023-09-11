@@ -1,7 +1,7 @@
 /*
  * Top level DTS file for CVM:P3701-0000 and CVB:P3737-0000.
  *
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,26 +14,26 @@
  */
 
 /dts-v1/;
+#include "tegra234-p3701-0000-prod.dtsi"
 #include "cvm/tegra234-p3701-0000.dtsi"
 #include "cvb/tegra234-p3737-0000-a04.dtsi"
 #include "tegra234-power-tree-p3701-0000-p3737-0000.dtsi"
 #include "tegra234-dcb-p3701-0000-a02-p3737-0000-a01.dtsi"
 #include <tegra234-soc/mods-simple-bus.dtsi>
 #include "cvb/tegra234-p3737-camera-modules.dtsi"
-
+#include <t234-common-cvb/tegra234-pwm.dtsi>
 #include <t234-common-cvm/tegra234-cpuidle.dtsi>
 #include <t234-common-cvm/tegra234-thermal.dtsi>
 #include <t234-common-cvm/tegra234-thermal-cooling.dtsi>
 #include <t234-common-cvm/tegra234-thermal-userspace-alert.dtsi>
 #include <tegra234-soc/tegra234-soc-hwpm.dtsi>
 
-#include "tegra234-p3701-0000-prod.dtsi"
-
 / {
 	nvidia,dtsfilename = __FILE__;
 	nvidia,dtbbuildtime = __DATE__, __TIME__;
 
-	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
+	compatible = "nvidia,p3737-0000+p3701-0000", "nvidia,p3701-0000", "nvidia,tegra234", "nvidia,tegra23x";
+	model = "Jetson AGX Orin Developer Kit";
 
 	nvsciipc-kernel {
 		compatible = "nvidia,nvsciipc";

@@ -1,7 +1,7 @@
 /*
  * general clock structures & definitions
  *
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -173,5 +173,5 @@ void clk_set_p0_clk_per_domain(struct gk20a *g, u8 *gpcclk_domain,
 		u32 *gpcclk_clkmhz,
 		struct nvgpu_clk_slave_freq *vf_point,
 		struct nvgpu_pmu_perf_change_input_clk_info *change_input);
-u32 nvgpu_pmu_clk_mon_init_domains(struct gk20a *g);
+unsigned long nvgpu_pmu_clk_mon_init_domains(struct gk20a *g);
 #endif /* NVGPU_PMU_CLK_H */

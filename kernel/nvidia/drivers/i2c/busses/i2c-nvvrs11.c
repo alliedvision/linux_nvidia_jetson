@@ -2,11 +2,10 @@
 /*
  * Voltage Regulator Specification: VRS11 High Current Voltage Regulator
  *
- * Copyright (C) 2022 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2022-2023 NVIDIA CORPORATION. All rights reserved.
  */
 
 #include <linux/i2c.h>
-#include <linux/i2c-nvvrs11.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/of.h>
@@ -14,9 +13,35 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/types.h>
+#include <linux/version.h>
 
 #define VOLTAGE_OFFSET		200 // 0.2V
 #define VOLTAGE_SCALE		5   // 5mV
+
+/* Vendor ID */
+#define NVVRS11_REG_VENDOR_ID		0x00
+#define NVVRS11_REG_MODEL_REV		0x01
+
+/* Voltage Output registers */
+#define NVVRS11_REG_VOUT_A		0x30
+#define NVVRS11_REG_VOUT_B		0x33
+
+/* Current Output registers */
+#define NVVRS11_REG_IOUT_A		0x31
+#define NVVRS11_REG_IOUT_B		0x34
+
+/* Temperature registers */
+#define NVVRS11_REG_TEMP_A		0x32
+#define NVVRS11_REG_TEMP_B		0x35
+
+struct nvvrs11_chip {
+	struct device *dev;
+	struct regmap *rmap;
+	struct i2c_client *client;
+	const char *loopA_rail_name;
+	const char *loopB_rail_name;
+};
 
 static const struct regmap_range nvvrs11_readable_ranges[] = {
 	regmap_reg_range(NVVRS11_REG_VENDOR_ID, NVVRS11_REG_MODEL_REV),
@@ -217,8 +242,12 @@ static int nvvrs11_vendor_info(struct nvvrs11_chip *chip)
 	return 0;
 }
 
+#if KERNEL_VERSION(6, 3, 0) <= LINUX_VERSION_CODE
+static int nvvrs11_probe(struct i2c_client *client)
+#else
 static int nvvrs11_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
+#endif
 {
 	const struct regmap_config *rmap_config;
 	struct nvvrs11_chip *nvvrs_chip;
@@ -279,11 +308,18 @@ exit:
 	return ret;
 }
 
+#if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
+static void nvvrs11_remove(struct i2c_client *client)
+{
+	nvvrs11_delete_sys_files(&client->dev);
+}
+#else
 static int nvvrs11_remove(struct i2c_client *client)
 {
 	nvvrs11_delete_sys_files(&client->dev);
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 static int nvvrs11_i2c_suspend(struct device *dev)
@@ -305,6 +341,7 @@ static const struct of_device_id nvvrs_dt_match[] = {
 	{ .compatible = "nvidia,vrs11" },
 	{}
 };
+MODULE_DEVICE_TABLE(of, nvvrs_dt_match);
 
 static struct i2c_driver nvvrs11_driver = {
 	.driver = {

@@ -1,4 +1,4 @@
-From 218da78a7b6e2d36484b082498c5fb5eccea55c5 Mon Sep 17 00:00:00 2001
+From bd4a57b9be4419b6547e00b361d3b927cc8d811c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:09 +0200
 Subject: [PATCH 012/318] sched/core: Make migrate disable and CPU hotplug
@@ -19,10 +19,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 34 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index b99c1913e417..177f4d340112 100644
+index 1eca873c6cdb..31b9f5b39d40 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1730,10 +1730,17 @@ static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
+@@ -1731,10 +1731,17 @@ static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
  
  void migrate_disable(void)
  {
@@ -42,7 +42,7 @@ index b99c1913e417..177f4d340112 100644
  }
  EXPORT_SYMBOL_GPL(migrate_disable);
  
-@@ -1760,6 +1767,7 @@ void migrate_enable(void)
+@@ -1761,6 +1768,7 @@ void migrate_enable(void)
  	 */
  	barrier();
  	p->migration_disabled = 0;
@@ -50,7 +50,7 @@ index b99c1913e417..177f4d340112 100644
  	preempt_enable();
  }
  EXPORT_SYMBOL_GPL(migrate_enable);
-@@ -1769,6 +1777,11 @@ static inline bool is_migration_disabled(struct task_struct *p)
+@@ -1770,6 +1778,11 @@ static inline bool is_migration_disabled(struct task_struct *p)
  	return p->migration_disabled;
  }
  
@@ -62,7 +62,7 @@ index b99c1913e417..177f4d340112 100644
  #endif
  
  /*
-@@ -2700,6 +2713,11 @@ static inline bool is_migration_disabled(struct task_struct *p)
+@@ -2701,6 +2714,11 @@ static inline bool is_migration_disabled(struct task_struct *p)
  	return false;
  }
  
@@ -74,7 +74,7 @@ index b99c1913e417..177f4d340112 100644
  #endif
  
  static void
-@@ -7058,15 +7076,20 @@ static void balance_push(struct rq *rq)
+@@ -7059,15 +7077,20 @@ static void balance_push(struct rq *rq)
  	 * Both the cpu-hotplug and stop task are in this case and are
  	 * required to complete the hotplug process.
  	 */
@@ -97,7 +97,7 @@ index b99c1913e417..177f4d340112 100644
  			raw_spin_unlock(&rq->lock);
  			rcuwait_wake_up(&rq->hotplug_wait);
  			raw_spin_lock(&rq->lock);
-@@ -7113,7 +7136,8 @@ static void balance_hotplug_wait(void)
+@@ -7114,7 +7137,8 @@ static void balance_hotplug_wait(void)
  {
  	struct rq *rq = this_rq();
  
@@ -107,7 +107,7 @@ index b99c1913e417..177f4d340112 100644
  			   TASK_UNINTERRUPTIBLE);
  }
  
-@@ -7358,7 +7382,7 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7359,7 +7383,7 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);

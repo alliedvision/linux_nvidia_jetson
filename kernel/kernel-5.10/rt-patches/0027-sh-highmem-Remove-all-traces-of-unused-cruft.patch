@@ -1,4 +1,4 @@
-From 6cb68a49b803c5ccbc5b1afd13c76cae9b05d983 Mon Sep 17 00:00:00 2001
+From b60ca9014e390e546b8dce9a57d9f894aff6176d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:16 +0100
 Subject: [PATCH 027/318] sh/highmem: Remove all traces of unused cruft

@@ -280,7 +280,7 @@ static int imx318_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
 	usleep_range(15, 20);
 	if (pw->avdd)
@@ -298,7 +298,7 @@ static int imx318_power_on(struct camera_common_data *s_data)
 	if (err)
 		goto imx318_dvdd_fail;
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 1);
 
 	usleep_range(19000, 19010);
@@ -333,7 +333,7 @@ static int imx318_power_off(struct camera_common_data *s_data)
 			return err;
 		}
 	} else {
-		if (pw->reset_gpio)
+		if (gpio_is_valid(pw->reset_gpio))
 			gpio_set_value(pw->reset_gpio, 0);
 		usleep_range(15, 20);
 		if (pw->avdd)

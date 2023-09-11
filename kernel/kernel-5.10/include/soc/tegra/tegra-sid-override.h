@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2020-2022 NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2020-2023 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,6 +18,6 @@
 #ifndef _TEGRA_SID_OVERRIDE_H_
 #define _TEGRA_SID_OVERRIDE_H_
 
-void platform_override_streamid(int streamid);
+void platform_override_streamid(int streamid, struct device *dev);
 
 #endif

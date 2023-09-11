@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -51,7 +51,7 @@ struct clk_domains_mon_status_params {
 };
 
 bool tu104_clk_mon_check_master_fault_status(struct gk20a *g);
-int tu104_clk_mon_check_status(struct gk20a *g, u32 domain_mask);
+int tu104_clk_mon_check_status(struct gk20a *g, unsigned long domain_mask);
 bool tu104_clk_mon_check_clk_good(struct gk20a *g);
 bool tu104_clk_mon_check_pll_lock(struct gk20a *g);
 

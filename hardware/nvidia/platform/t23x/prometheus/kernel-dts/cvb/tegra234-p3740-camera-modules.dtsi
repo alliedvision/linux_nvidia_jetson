@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -91,6 +91,34 @@
 			vi_port7: port@7 {
 				status = "disabled";
 				vi_in7: endpoint {
+					vc-id = <0>;
+					status = "disabled";
+				};
+			};
+			vi_port8: port@8 {
+				status = "disabled";
+				vi_in8: endpoint {
+					vc-id = <0>;
+					status = "disabled";
+				};
+			};
+			vi_port9: port@9 {
+				status = "disabled";
+				vi_in9: endpoint {
+					vc-id = <0>;
+					status = "disabled";
+				};
+			};
+			vi_port10: port@10 {
+				status = "disabled";
+				vi_in10: endpoint {
+					vc-id = <0>;
+					status = "disabled";
+				};
+			};
+			vi_port11: port@11 {
+				status = "disabled";
+				vi_in11: endpoint {
 					vc-id = <0>;
 					status = "disabled";
 				};
@@ -237,6 +265,74 @@
 					};
 				};
 			};
+			csi_chan8: channel@8 {
+				status = "disabled";
+				ports {
+					csi_chan8_port0: port@0 {
+						status = "disabled";
+						csi_in8: endpoint@16 {
+							status = "disabled";
+						};
+					};
+					csi_chan8_port1: port@1 {
+						status = "disabled";
+						csi_out8: endpoint@17 {
+							status = "disabled";
+						};
+					};
+				};
+			};
+			csi_chan9: channel@9 {
+				status = "disabled";
+				ports {
+					csi_chan9_port0: port@0 {
+						status = "disabled";
+						csi_in9: endpoint@18 {
+							status = "disabled";
+						};
+					};
+					csi_chan9_port1: port@1 {
+						status = "disabled";
+						csi_out9: endpoint@19 {
+							status = "disabled";
+						};
+					};
+				};
+			};
+			csi_chan10: channel@10 {
+				status = "disabled";
+				ports {
+					csi_chan10_port0: port@0 {
+						status = "disabled";
+						csi_in10: endpoint@20 {
+							status = "disabled";
+						};
+					};
+					csi_chan10_port1: port@1 {
+						status = "disabled";
+						csi_out10: endpoint@21 {
+							status = "disabled";
+						};
+					};
+				};
+			};
+			csi_chan11: channel@11 {
+				status = "disabled";
+				ports {
+					csi_chan11_port0: port@0 {
+						status = "disabled";
+						csi_in11: endpoint@22 {
+							status = "disabled";
+						};
+					};
+					csi_chan11_port1: port@1 {
+						status = "disabled";
+						csi_out11: endpoint@23 {
+							status = "disabled";
+						};
+					};
+				};
+			};
 		};
 	};
 
@@ -253,18 +349,30 @@
 		hawk_cam3: ar0234_d@33 {
 			status = "disabled";
 		};
+		hawk_cam4: ar0234_e@34 {
+			status = "disabled";
+		};
+		hawk_cam5: ar0234_f@35 {
+			status = "disabled";
+		};
+		hawk_cam6: ar0234_g@36 {
+			status = "disabled";
+		};
+		hawk_cam7: ar0234_h@37 {
+			status = "disabled";
+		};
 	};
 	i2c@3180000 {
-		owl_cam0: ar0234_e@30 {
+		owl_cam0: ar0234_i@30 {
 			status = "disabled";
 		};
-		owl_cam1: ar0234_f@32 {
+		owl_cam1: ar0234_j@32 {
 			status = "disabled";
 		};
-		owl_cam2: ar0234_g@34 {
+		owl_cam2: ar0234_k@34 {
 			status = "disabled";
 		};
-		owl_cam3: ar0234_h@36 {
+		owl_cam3: ar0234_l@36 {
 			status = "disabled";
 		};
 		p3785_cam0: p3785@56 {
@@ -351,6 +459,46 @@
 					status = "disabled";
 				};
 				cam_module7_drivernode1: drivernode1 {
+					status = "disabled";
+					pcl_id = "v4l2_lens";
+				};
+			};
+			cam_module8: module8 {
+				status = "disabled";
+				cam_module8_drivernode0: drivernode0 {
+					status = "disabled";
+				};
+				cam_module8_drivernode1: drivernode1 {
+					status = "disabled";
+					pcl_id = "v4l2_lens";
+				};
+			};
+			cam_module9: module9 {
+				status = "disabled";
+				cam_module9_drivernode0: drivernode0 {
+					status = "disabled";
+				};
+				cam_module9_drivernode1: drivernode1 {
+					status = "disabled";
+					pcl_id = "v4l2_lens";
+				};
+			};
+			cam_module10: module10 {
+				status = "disabled";
+				cam_module10_drivernode0: drivernode0 {
+					status = "disabled";
+				};
+				cam_module10_drivernode1: drivernode1 {
+					status = "disabled";
+					pcl_id = "v4l2_lens";
+				};
+			};
+			cam_module11: module11 {
+				status = "disabled";
+				cam_module11_drivernode0: drivernode0 {
+					status = "disabled";
+				};
+				cam_module11_drivernode1: drivernode1 {
 					status = "disabled";
 					pcl_id = "v4l2_lens";
 				};

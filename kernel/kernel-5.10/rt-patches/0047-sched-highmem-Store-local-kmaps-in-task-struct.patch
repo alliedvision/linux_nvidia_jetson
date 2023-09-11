@@ -1,4 +1,4 @@
-From a36c317606c7ead95384ab37220cd49583191983 Mon Sep 17 00:00:00 2001
+From fcc18ef4e06c3970e77b1cacdfcbbdf6dd7934b5 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:36 +0100
 Subject: [PATCH 047/318] sched: highmem: Store local kmaps in task struct
@@ -51,7 +51,7 @@ index 6ceed907b14e..c5a22177db85 100644
  
  #ifdef CONFIG_HIGHMEM
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index e9b05525ca76..7d7cb1b6c5c3 100644
+index bedd83a68c21..9599a71cea6d 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -34,6 +34,7 @@
@@ -117,10 +117,10 @@ index 6ca205964a74..89767c29ab3d 100644
  #ifdef CONFIG_FAULT_INJECTION
  	tsk->fail_nth = 0;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 77cef49071c3..6755e3ac9d13 100644
+index dc1ee345cc71..f41026149096 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -4083,6 +4083,22 @@ static inline void finish_lock_switch(struct rq *rq)
+@@ -4084,6 +4084,22 @@ static inline void finish_lock_switch(struct rq *rq)
  # define finish_arch_post_lock_switch()	do { } while (0)
  #endif
  
@@ -143,7 +143,7 @@ index 77cef49071c3..6755e3ac9d13 100644
  /**
   * prepare_task_switch - prepare to switch tasks
   * @rq: the runqueue preparing to switch
-@@ -4106,6 +4122,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
+@@ -4107,6 +4123,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  	quadd_task_sched_out(prev, next);
  	rseq_preempt(prev);
  	fire_sched_out_preempt_notifiers(prev, next);
@@ -151,7 +151,7 @@ index 77cef49071c3..6755e3ac9d13 100644
  	prepare_task(next);
  	prepare_arch_switch(next);
  }
-@@ -4173,6 +4190,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
+@@ -4174,6 +4191,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
  	finish_lock_switch(rq);
  	finish_arch_post_lock_switch();
  	kcov_finish_switch(current);

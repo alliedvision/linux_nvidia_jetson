@@ -1,4 +1,4 @@
-From da588b5c38fe95813eacb9f4721d3b36f25fec80 Mon Sep 17 00:00:00 2001
+From 0a4b8f89c3e02e2cae01f32d691d12c2f740cbe2 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:35 +0100
 Subject: [PATCH 046/318] sched: Make migrate_disable/enable() independent of
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  6 files changed, 56 insertions(+), 56 deletions(-)
 
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 2f05e9128201..665837f9a831 100644
+index f5392d96d688..4dc85e7c619e 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
 @@ -204,6 +204,7 @@ extern int _cond_resched(void);
@@ -149,7 +149,7 @@ index 8b43922e65df..6df63cbe8bb0 100644
  
  #endif /* __LINUX_PREEMPT_H */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 6363ecb01f0e..e9b05525ca76 100644
+index b9c949957d1c..bedd83a68c21 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -731,7 +731,7 @@ struct task_struct {
@@ -162,10 +162,10 @@ index 6363ecb01f0e..e9b05525ca76 100644
  #endif
  	unsigned short			migration_flags;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 90805fc11b6c..77cef49071c3 100644
+index 59d154a7574d..dc1ee345cc71 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1705,8 +1705,6 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
+@@ -1706,8 +1706,6 @@ void check_preempt_curr(struct rq *rq, struct task_struct *p, int flags)
  
  #ifdef CONFIG_SMP
  
@@ -174,7 +174,7 @@ index 90805fc11b6c..77cef49071c3 100644
  static void
  __do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask, u32 flags);
  
-@@ -1781,8 +1779,6 @@ static inline bool rq_has_pinned_tasks(struct rq *rq)
+@@ -1782,8 +1780,6 @@ static inline bool rq_has_pinned_tasks(struct rq *rq)
  	return rq->nr_pinned;
  }
  
@@ -183,7 +183,7 @@ index 90805fc11b6c..77cef49071c3 100644
  /*
   * Per-CPU kthreads are allowed to run on !active && online CPUs, see
   * __set_cpus_allowed_ptr() and select_fallback_rq().
-@@ -2863,7 +2859,7 @@ void sched_set_stop_task(int cpu, struct task_struct *stop)
+@@ -2864,7 +2860,7 @@ void sched_set_stop_task(int cpu, struct task_struct *stop)
  	}
  }
  
@@ -192,7 +192,7 @@ index 90805fc11b6c..77cef49071c3 100644
  
  static inline int __set_cpus_allowed_ptr(struct task_struct *p,
  					 const struct cpumask *new_mask,
-@@ -2872,10 +2868,6 @@ static inline int __set_cpus_allowed_ptr(struct task_struct *p,
+@@ -2873,10 +2869,6 @@ static inline int __set_cpus_allowed_ptr(struct task_struct *p,
  	return set_cpus_allowed_ptr(p, new_mask);
  }
  
@@ -203,7 +203,7 @@ index 90805fc11b6c..77cef49071c3 100644
  static inline void migrate_disable_switch(struct rq *rq, struct task_struct *p) { }
  
  static inline bool rq_has_pinned_tasks(struct rq *rq)
-@@ -2883,7 +2875,7 @@ static inline bool rq_has_pinned_tasks(struct rq *rq)
+@@ -2884,7 +2876,7 @@ static inline bool rq_has_pinned_tasks(struct rq *rq)
  	return false;
  }
  
@@ -212,7 +212,7 @@ index 90805fc11b6c..77cef49071c3 100644
  
  static void
  ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
-@@ -7894,6 +7886,39 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
+@@ -7895,6 +7887,39 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
  	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
  }
  EXPORT_SYMBOL_GPL(__cant_sleep);

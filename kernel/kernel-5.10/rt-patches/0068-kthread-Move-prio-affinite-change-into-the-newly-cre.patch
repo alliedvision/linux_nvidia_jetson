@@ -1,4 +1,4 @@
-From a6b87216086c0d030b0102e912b45ff7e114237e Mon Sep 17 00:00:00 2001
+From 430d9ddaaffb724cf9c6db6eff533a98aa65039c Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 Nov 2020 21:30:41 +0100
 Subject: [PATCH 068/318] kthread: Move prio/affinite change into the newly

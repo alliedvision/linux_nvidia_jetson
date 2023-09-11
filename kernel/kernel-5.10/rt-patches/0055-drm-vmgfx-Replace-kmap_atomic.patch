@@ -1,4 +1,4 @@
-From fd80550f2842998205d81e9442035376ea19a259 Mon Sep 17 00:00:00 2001
+From 3660efd79b8eb12943d2624a36d959c156e86b2b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:44 +0100
 Subject: [PATCH 055/318] drm/vmgfx: Replace kmap_atomic()

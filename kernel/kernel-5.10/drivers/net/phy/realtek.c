@@ -6,7 +6,7 @@
  * Author: Johnson Leung <r58129@freescale.com>
  *
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  */
 #include <linux/bitops.h>
 #include <linux/phy.h>
@@ -347,14 +347,15 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 		RTL8211F_LED1_LINK_100 | RTL8211F_LED1_LINK_10 |
 		RTL8211F_LED1_LINK_ACTIVE;
 
-	ret = phy_modify_paged_changed(phydev, RTL8211F_LED_PAGE, RTL8211F_PAGE_LCR_LED_CONTROL, val,
-				       val);
+	ret = phy_modify_paged_changed(phydev, RTL8211F_LED_PAGE, RTL8211F_PAGE_LCR_LED_CONTROL,
+				       ~0, val);
 	if (ret < 0) {
 		dev_err(dev, "Failed to LED registers\n");
 		return ret;
 	}
 	/* disable EEE LED control */
-	ret = phy_modify_paged_changed(phydev, RTL8211F_LED_PAGE, RTL8211F_PAGE_EEE_LED_CONTROL, 0, 0);
+	ret = phy_modify_paged_changed(phydev, RTL8211F_LED_PAGE, RTL8211F_PAGE_EEE_LED_CONTROL,
+				       ~0, 0);
 	if (ret < 0) {
 		dev_err(dev, "Failed to EEE LED registers\n");
 		return ret;

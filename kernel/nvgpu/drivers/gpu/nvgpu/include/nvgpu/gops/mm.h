@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -511,6 +511,18 @@ struct gops_mm {
 	 * @return False if BAR1 aperture support is not available.
 	 */
 	bool (*is_bar1_supported)(struct gk20a *g);
+
+	/**
+	 * @brief HAL to get the BAR2 virtual memory size in bytes.
+	 *
+	 * @param g [in]	The GPU.
+	 *
+	 * - Return size needed for mapping the engine method buffers, VAB and
+	 *   fault buffers in bar2 vm.
+	 *
+	 * @return size in bytes.
+	 */
+	u32 (*bar2_vm_size)(struct gk20a *g);
 
 	/**
 	 * @brief HAL to initialize the BAR2 virtual memory.

@@ -295,8 +295,9 @@ static inline void ether_hsi_work_func(struct work_struct *work)
 		mutex_unlock(&pdata->hsi_lock);
 	}
 
-	if (osi_core->hsi.report_err == OSI_ENABLE ||
-	    osi_core->hsi.macsec_report_err == OSI_ENABLE)
+	if (osi_core->hsi.enabled == OSI_ENABLE &&
+	    (osi_core->hsi.report_err == OSI_ENABLE ||
+	     osi_core->hsi.macsec_report_err == OSI_ENABLE))
 		ether_common_isr_thread(0, (void *)pdata);
 
 	schedule_delayed_work(&pdata->ether_hsi_work,
@@ -1130,8 +1131,8 @@ static void ether_adjust_link(struct net_device *dev)
 		}
 	}
 
-	/* Configure EEE if it is enabled */
-	if (pdata->eee_enabled && pdata->tx_lpi_enabled) {
+	/* Configure EEE if it is enabled and link is up*/
+	if (pdata->eee_enabled && pdata->tx_lpi_enabled && phydev->link) {
 		eee_enable = OSI_ENABLE;
 	}
 
@@ -2873,6 +2874,14 @@ static int ether_close(struct net_device *ndev)
 			}
 			device_init_wakeup(&ndev->dev, false);
 		}
+
+		/* Link down phy interrupt is generated asynchrounously during phy stop
+		 * or cable unplug event, causing the phy state machine to run again in
+		 * the workqueue context. Here explicitly disable interrupt to avoid race
+		 * condition between phy framework and driver context execution of phy apis.
+		 */
+		if (phy_interrupt_is_valid(pdata->phydev))
+			phy_disable_interrupts(pdata->phydev);
 
 		phy_stop(pdata->phydev);
 		phy_disconnect(pdata->phydev);
@@ -6043,6 +6052,17 @@ static int ether_parse_dt(struct ether_priv_data *pdata)
 	if (ret_val < 0 || osi_core->hsi.err_count_threshold <= 0)
 		osi_core->hsi.err_count_threshold = OSI_HSI_ERR_COUNT_THRESHOLD;
 #endif
+
+	/* Only for orin, Read instance id for the interface, default 0 */
+	if (osi_core->mac_ver > OSI_EQOS_MAC_5_00 ||
+	    osi_core->mac == OSI_MAC_HW_MGBE) {
+		ret = of_property_read_u32(np, "nvidia,instance_id", &osi_core->instance_id);
+		if (ret != 0) {
+			dev_info(dev,
+				 "DT instance_id missing, setting default to MGBE0\n");
+			osi_core->instance_id = 0;
+		}
+	}
 
 exit:
 	return ret;

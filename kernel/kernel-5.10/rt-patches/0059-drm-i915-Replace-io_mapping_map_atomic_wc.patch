@@ -1,4 +1,4 @@
-From 674b80af5da04c4276e49ae7751ef45056b1dbbc Mon Sep 17 00:00:00 2001
+From 7c91c708627679e50754d6ee562d67249e592a32 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:48 +0100
 Subject: [PATCH 059/318] drm/i915: Replace io_mapping_map_atomic_wc()

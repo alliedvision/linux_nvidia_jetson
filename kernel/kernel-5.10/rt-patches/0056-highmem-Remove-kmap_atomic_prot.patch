@@ -1,4 +1,4 @@
-From d41c47a0bcfe4a7be461bdfccdba8c571ffb57f0 Mon Sep 17 00:00:00 2001
+From 9e494898adbf19cc880b3c9fbded3298f5028186 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:45 +0100
 Subject: [PATCH 056/318] highmem: Remove kmap_atomic_prot()

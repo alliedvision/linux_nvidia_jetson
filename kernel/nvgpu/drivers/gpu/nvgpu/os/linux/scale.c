@@ -1,7 +1,7 @@
 /*
  * gk20a clock scaling profile
  *
- * Copyright (c) 2013-2022, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -40,6 +40,7 @@
 #include "platform_gk20a.h"
 #include "scale.h"
 #include "os_linux.h"
+#include "driver_common.h"
 
 /*
  * gk20a_scale_qos_notify()
@@ -520,6 +521,7 @@ void gk20a_scale_init(struct device *dev)
 		int error = 0;
 
 		register_gpu_opp(dev);
+		nvgpu_read_devfreq_timer(g);
 
 		profile->devfreq_profile.initial_freq =
 			profile->devfreq_profile.freq_table[0];

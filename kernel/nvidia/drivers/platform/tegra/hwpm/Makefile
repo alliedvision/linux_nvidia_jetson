@@ -67,6 +67,21 @@ ccflags-y += -DCONFIG_SOC_HWPM_IP_MSS_CHANNEL
 obj-y += hal/t234/ip/mss_channel/t234_hwpm_ip_mss_channel.o
 endif
 
+ifeq ($(CONFIG_TEGRA_GRHOST_NVENC),y)
+ccflags-y += -DCONFIG_SOC_HWPM_IP_NVENC
+obj-y += hal/t234/ip/nvenc/t234_hwpm_ip_nvenc.o
+endif
+
+ifeq ($(CONFIG_TEGRA_GRHOST_VIC),y)
+ccflags-y += -DCONFIG_SOC_HWPM_IP_VIC
+obj-y += hal/t234/ip/vic/t234_hwpm_ip_vic.o
+endif
+
+ifeq ($(CONFIG_TEGRA_GRHOST_OFA),y)
+ccflags-y += -DCONFIG_SOC_HWPM_IP_OFA
+obj-y += hal/t234/ip/ofa/t234_hwpm_ip_ofa.o
+endif
+
 ifneq ($(CONFIG_TEGRA_HWPM_MINIMAL_IP_ENABLE),y)
 ccflags-y += -DCONFIG_SOC_HWPM_IP_DISPLAY
 obj-y += hal/t234/ip/display/t234_hwpm_ip_display.o
@@ -97,16 +112,6 @@ ccflags-y += -DCONFIG_SOC_HWPM_IP_NVDEC
 obj-y += hal/t234/ip/nvdec/t234_hwpm_ip_nvdec.o
 endif
 
-ifeq ($(CONFIG_TEGRA_GRHOST_NVENC),y)
-ccflags-y += -DCONFIG_SOC_HWPM_IP_NVENC
-obj-y += hal/t234/ip/nvenc/t234_hwpm_ip_nvenc.o
-endif
-
-ifeq ($(CONFIG_TEGRA_GRHOST_OFA),y)
-ccflags-y += -DCONFIG_SOC_HWPM_IP_OFA
-obj-y += hal/t234/ip/ofa/t234_hwpm_ip_ofa.o
-endif
-
 ifeq ($(CONFIG_PCIE_TEGRA194),y)
 ccflags-y += -DCONFIG_SOC_HWPM_IP_PCIE
 obj-y += hal/t234/ip/pcie/t234_hwpm_ip_pcie.o
@@ -118,11 +123,6 @@ obj-y += hal/t234/ip/scf/t234_hwpm_ip_scf.o
 ifeq ($(CONFIG_VIDEO_TEGRA_VI),y)
 ccflags-y += -DCONFIG_SOC_HWPM_IP_VI
 obj-y += hal/t234/ip/vi/t234_hwpm_ip_vi.o
-endif
-
-ifeq ($(CONFIG_TEGRA_GRHOST_VIC),y)
-ccflags-y += -DCONFIG_SOC_HWPM_IP_VIC
-obj-y += hal/t234/ip/vic/t234_hwpm_ip_vic.o
 endif
 
 endif

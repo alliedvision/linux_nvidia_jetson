@@ -3,9 +3,9 @@ from collections import namedtuple
 from . import upstream
 from . import build
 
-AVT_RELEASE = "5.1.1"
-KERNEL_RELEASE = "5.10.104-tegra"
-L4T_VERSION = "35.3.1"
+AVT_RELEASE = "5.1.2"
+KERNEL_RELEASE = "5.10.120-tegra"
+L4T_VERSION = "35.4.1"
 
 FileSet = namedtuple('FileSet', [
   'driver_package',
@@ -14,9 +14,9 @@ FileSet = namedtuple('FileSet', [
 
 
 def get_tx2_agx_nx_upstream_files(UpstreamFile):
-  driver_package  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v3.1/release/Jetson_Linux_R35.3.1_aarch64.tbz2",                     "80a55504a2ce9cdc0a328edb6fd0690615c4ffde9c2b32f4e64e0a1a3432a2e2")
+  driver_package  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v4.1/release/Jetson_Linux_R35.4.1_aarch64.tbz2",                     "72b75a0c7fa3bf6ef41ae06634bb67c38a92682155d1206026dbee4a6b9a016f")
   #rootfs          = UpstreamFile("https://developer.nvidia.com/embedded/l4t/r32_release_v7.1/t186/tegra_linux_sample-root-filesystem_r32.7.1_aarch64.tbz2", "17996e861dd092043509e0b7e9ae038e271e5b0b7b78f26a34db4f03df2b12b8")
-  public_sources  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v3.1/sources/public_sources.tbz2",                             "cd914110043cdb2a19a298fefc52d9dacbbcd560f781955fe03a1e98b470f2ae")
+  public_sources  = UpstreamFile("https://developer.download.nvidia.com/embedded/L4T/r35_Release_v4.1/sources/public_sources.tbz2",                             "cad6179ae16cc23720dc019f3a36f054df5d153ce833f45cf1bd09a376f5442c")
 
   return FileSet(
     public_sources=public_sources,

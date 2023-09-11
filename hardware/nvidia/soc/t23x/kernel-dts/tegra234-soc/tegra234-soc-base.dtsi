@@ -71,6 +71,27 @@
 		host1x = &host1x;
 	};
 
+	chosen {
+		framebuffer {
+			compatible = "simple-framebuffer";
+			status = "disabled";
+			memory-region = <&fb0_reserved>;
+			power-domains = <&bpmp TEGRA234_POWER_DOMAIN_DISP>;
+			clocks = <&bpmp TEGRA234_CLK_HUB>,
+				 <&bpmp TEGRA234_CLK_DISP>,
+				 <&bpmp TEGRA234_CLK_DPAUX>,
+				 <&bpmp TEGRA234_CLK_DSI_CORE>,
+				 <&bpmp TEGRA234_CLK_DP_LINK_REF>,
+				 <&bpmp TEGRA234_CLK_MAUD>,
+				 <&bpmp TEGRA234_CLK_AZA_2XBIT>,
+				 <&bpmp TEGRA234_CLK_AZA_BIT>;
+			width  = <0>;
+			height = <0>;
+			stride = <0>;
+			format = "x8b8g8r8";
+		};
+	};
+
 	uss-asic {
 		compatible = "nvidia,uss-io-proxy";
 		reg = <0x0 0x2460000 0x0 0x124>;
@@ -85,6 +106,11 @@
 		optee {
 			compatible = "linaro,optee-tz";
 			method = "smc";
+			status = "disabled";
+		};
+
+		ftpm {
+			compatible = "microsoft,ftpm";
 			status = "disabled";
 		};
 	};
@@ -813,6 +839,7 @@
 		dma-coherent;
 		nvidia,bpmp = <&bpmp>;
 		support-gpu-tools = <1>;
+		devfreq-timer = "delayed";
 		status = "disabled";
 	};
 
@@ -1067,7 +1094,7 @@
 			        <&mc TEGRA234_MEMORY_CLIENT_NVDISPLAYR1>;
 		interconnect-names = "dma-mem", "read-1";
 #endif
-
+		iommu-direct-regions = <&fb0_reserved>;
 		iommus = <&smmu_iso TEGRA_SID_ISO_NVDISPLAY>;
 		non-coherent;
 		nvdisplay-niso {

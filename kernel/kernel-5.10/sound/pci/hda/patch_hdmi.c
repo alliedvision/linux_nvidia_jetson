@@ -1639,6 +1639,7 @@ static void hdmi_present_sense_via_verbs(struct hdmi_spec_per_pin *per_pin,
 	if (dev->power.runtime_status == RPM_SUSPENDING)
 		return;
 #endif
+
 	ret = snd_hda_power_up_pm(codec);
 	if (ret < 0 && pm_runtime_suspended(dev))
 		goto out;

@@ -19,4 +19,11 @@
 	nvidia,fastboot-usb-vid = <0x0955>;
 	nvidia,fastboot-usb-pid = <0xee1e>;
 	model = "Nvidia Jetson MGX/IGX platform";
+
+	actmon@d230000 {
+		status = "okay";
+		mc_all {
+			status = "okay";
+		};
+	};
 };

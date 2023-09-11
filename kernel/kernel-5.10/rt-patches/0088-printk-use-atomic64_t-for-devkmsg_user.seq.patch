@@ -1,4 +1,4 @@
-From 18675a876c1486d5d296d2f5295df6ccc7f07954 Mon Sep 17 00:00:00 2001
+From 64eb17146604447a87cd8cec40b14e971e598878 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 15:33:40 +0106
 Subject: [PATCH 088/318] printk: use atomic64_t for devkmsg_user.seq
@@ -16,10 +16,10 @@ Signed-off-by: John Ogness <john.ogness@linutronix.de>
  1 file changed, 11 insertions(+), 11 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 0c10ee97995e..4a92cf8dc716 100644
+index 4444b3e292d5..a351ed400c04 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -662,7 +662,7 @@ static ssize_t msg_print_ext_body(char *buf, size_t size,
+@@ -664,7 +664,7 @@ static ssize_t msg_print_ext_body(char *buf, size_t size,
  
  /* /dev/kmsg - userspace message inject/listen interface */
  struct devkmsg_user {
@@ -28,7 +28,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  	struct ratelimit_state rs;
  	struct mutex lock;
  	char buf[CONSOLE_EXT_LOG_MAX];
-@@ -764,7 +764,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+@@ -766,7 +766,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
  		return ret;
  
  	logbuf_lock_irq();
@@ -37,7 +37,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  		if (file->f_flags & O_NONBLOCK) {
  			ret = -EAGAIN;
  			logbuf_unlock_irq();
-@@ -773,15 +773,15 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+@@ -775,15 +775,15 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
  
  		logbuf_unlock_irq();
  		ret = wait_event_interruptible(log_wait,
@@ -56,7 +56,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  		ret = -EPIPE;
  		logbuf_unlock_irq();
  		goto out;
-@@ -792,7 +792,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+@@ -794,7 +794,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
  				  &r->text_buf[0], r->info->text_len,
  				  &r->info->dev_info);
  
@@ -65,7 +65,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  	logbuf_unlock_irq();
  
  	if (len > count) {
-@@ -832,7 +832,7 @@ static loff_t devkmsg_llseek(struct file *file, loff_t offset, int whence)
+@@ -834,7 +834,7 @@ static loff_t devkmsg_llseek(struct file *file, loff_t offset, int whence)
  	switch (whence) {
  	case SEEK_SET:
  		/* the first record */
@@ -74,7 +74,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  		break;
  	case SEEK_DATA:
  		/*
-@@ -840,11 +840,11 @@ static loff_t devkmsg_llseek(struct file *file, loff_t offset, int whence)
+@@ -842,11 +842,11 @@ static loff_t devkmsg_llseek(struct file *file, loff_t offset, int whence)
  		 * like issued by 'dmesg -c'. Reading /dev/kmsg itself
  		 * changes no global state, and does not clear anything.
  		 */
@@ -88,7 +88,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  		break;
  	default:
  		ret = -EINVAL;
-@@ -867,7 +867,7 @@ static __poll_t devkmsg_poll(struct file *file, poll_table *wait)
+@@ -869,7 +869,7 @@ static __poll_t devkmsg_poll(struct file *file, poll_table *wait)
  	logbuf_lock_irq();
  	if (prb_read_valid_info(prb, user->seq, &info, NULL)) {
  		/* return error when data has vanished underneath us */
@@ -97,7 +97,7 @@ index 0c10ee97995e..4a92cf8dc716 100644
  			ret = EPOLLIN|EPOLLRDNORM|EPOLLERR|EPOLLPRI;
  		else
  			ret = EPOLLIN|EPOLLRDNORM;
-@@ -906,7 +906,7 @@ static int devkmsg_open(struct inode *inode, struct file *file)
+@@ -908,7 +908,7 @@ static int devkmsg_open(struct inode *inode, struct file *file)
  			&user->text_buf[0], sizeof(user->text_buf));
  
  	logbuf_lock_irq();

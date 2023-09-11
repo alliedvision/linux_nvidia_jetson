@@ -1,4 +1,4 @@
-From b8fd2fdc5078fc6178a5d826c0b0266f04165c4d Mon Sep 17 00:00:00 2001
+From 21b3e94cb2304588346ae36c6abd27445b4df3c5 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 18 Feb 2021 17:37:41 +0100
 Subject: [PATCH 098/318] printk: convert @syslog_lock to spin_lock
@@ -10,10 +10,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 15 insertions(+), 15 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index b63573a33e93..70762b95f778 100644
+index 90a4cf4c23a4..57f3b8d7f35c 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -356,7 +356,7 @@ enum log_flags {
+@@ -358,7 +358,7 @@ enum log_flags {
  };
  
  /* syslog_lock protects syslog_* variables and write access to clear_seq. */
@@ -22,7 +22,7 @@ index b63573a33e93..70762b95f778 100644
  
  #ifdef CONFIG_PRINTK
  DECLARE_WAIT_QUEUE_HEAD(log_wait);
-@@ -1480,9 +1480,9 @@ static int syslog_print(char __user *buf, int size)
+@@ -1482,9 +1482,9 @@ static int syslog_print(char __user *buf, int size)
  		size_t n;
  		size_t skip;
  
@@ -34,7 +34,7 @@ index b63573a33e93..70762b95f778 100644
  			break;
  		}
  		if (r.info->seq != syslog_seq) {
-@@ -1511,7 +1511,7 @@ static int syslog_print(char __user *buf, int size)
+@@ -1513,7 +1513,7 @@ static int syslog_print(char __user *buf, int size)
  			syslog_partial += n;
  		} else
  			n = 0;
@@ -43,7 +43,7 @@ index b63573a33e93..70762b95f778 100644
  
  		if (!n)
  			break;
-@@ -1575,9 +1575,9 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
+@@ -1577,9 +1577,9 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
  	}
  
  	if (clear) {
@@ -55,7 +55,7 @@ index b63573a33e93..70762b95f778 100644
  	}
  
  	kfree(text);
-@@ -1586,9 +1586,9 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
+@@ -1588,9 +1588,9 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
  
  static void syslog_clear(void)
  {
@@ -67,7 +67,7 @@ index b63573a33e93..70762b95f778 100644
  }
  
  /* Return a consistent copy of @syslog_seq. */
-@@ -1596,9 +1596,9 @@ static u64 read_syslog_seq_irq(void)
+@@ -1598,9 +1598,9 @@ static u64 read_syslog_seq_irq(void)
  {
  	u64 seq;
  
@@ -79,7 +79,7 @@ index b63573a33e93..70762b95f778 100644
  
  	return seq;
  }
-@@ -1676,10 +1676,10 @@ int do_syslog(int type, char __user *buf, int len, int source)
+@@ -1678,10 +1678,10 @@ int do_syslog(int type, char __user *buf, int len, int source)
  		break;
  	/* Number of chars in the log buffer */
  	case SYSLOG_ACTION_SIZE_UNREAD:
@@ -92,7 +92,7 @@ index b63573a33e93..70762b95f778 100644
  			return 0;
  		}
  		if (info.seq != syslog_seq) {
-@@ -1707,7 +1707,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
+@@ -1709,7 +1709,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
  			}
  			error -= syslog_partial;
  		}
@@ -101,7 +101,7 @@ index b63573a33e93..70762b95f778 100644
  		break;
  	/* Size of the log buffer */
  	case SYSLOG_ACTION_SIZE_BUFFER:
-@@ -3002,9 +3002,9 @@ void register_console(struct console *newcon)
+@@ -3004,9 +3004,9 @@ void register_console(struct console *newcon)
  		exclusive_console_stop_seq = console_seq;
  
  		/* Get a consistent copy of @syslog_seq. */

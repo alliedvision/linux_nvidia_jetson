@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -105,6 +105,18 @@ struct gops_fuse {
 	 * @return fuse value read from NV_FUSE_STATUS_OPT_FBP.
 	 */
 	u32 (*fuse_status_opt_fbp)(struct gk20a *g);
+
+	/**
+	 * @brief Read NV_FUSE_OPT_EMC_DISABLE_0 fuse.
+	 *
+	 * @param g [in]	The GPU driver struct.
+	 *
+	 * The HAL reads NV_FUSE_OPT_EMC_DISABLE_0 fuse value which provides EMC
+	 * floorsweeping status.
+	 *
+	 * @return fuse value read from NV_FUSE_OPT_EMC_DISABLE_0.
+	 */
+	u32 (*fuse_status_opt_emc)(struct gk20a *g);
 
 	/**
 	 * @brief Write NV_FUSE_CTRL_OPT_FBP fuse.

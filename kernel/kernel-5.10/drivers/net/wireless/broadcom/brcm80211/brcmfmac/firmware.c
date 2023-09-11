@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (c) 2013 Broadcom Corporation
+ * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #include <linux/efi.h>
@@ -207,6 +208,8 @@ static int brcmf_init_nvram_parser(struct nvram_parser *nvp,
 		size = BRCMF_FW_MAX_NVRAM_SIZE;
 	else
 		size = data_len;
+	/* Add space for properties we may add */
+	size += strlen(BRCMF_FW_DEFAULT_BOARDREV) + 1;
 	/* Alloc for extra 0 byte + roundup by 4 + length field */
 	size += 1 + 3 + sizeof(u32);
 	nvp->nvram = kzalloc(size, GFP_KERNEL);
@@ -600,6 +603,7 @@ static int brcmf_fw_request_firmware(const struct firmware **fw,
 				     struct brcmf_fw *fwctx)
 {
 	struct brcmf_fw_item *cur = &fwctx->req->items[fwctx->curpos];
+#if defined(BOARD_SPECIFIC_NVRAM) && (BOARD_SPECIFIC_NVRAM == 1)
 	int ret;
 
 	/* nvram files are board-specific, first try a board-specific path */
@@ -617,7 +621,7 @@ static int brcmf_fw_request_firmware(const struct firmware **fw,
 		if (ret == 0)
 			return ret;
 	}
-
+#endif /* BOARD_SPECIFIC_NVRAM */
 	return request_firmware(fw, cur->path, fwctx->dev);
 }
 

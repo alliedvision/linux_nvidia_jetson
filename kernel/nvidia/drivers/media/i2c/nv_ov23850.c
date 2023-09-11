@@ -325,9 +325,9 @@ static int ov23850_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(10, 20);
 
@@ -351,9 +351,9 @@ static int ov23850_power_on(struct camera_common_data *s_data)
 	if (err)
 		goto ov23850_vcmvdd_fail;
 
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 1);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 1);
 
 	usleep_range(5350, 5360);	/* 5ms + 8192 EXTCLK cycles */
@@ -394,9 +394,9 @@ static int ov23850_power_off(struct camera_common_data *s_data)
 	}
 
 	usleep_range(1, 2);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(1, 2);
 

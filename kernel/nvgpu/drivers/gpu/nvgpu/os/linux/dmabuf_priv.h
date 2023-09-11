@@ -66,6 +66,7 @@ gk20a_buffer_state_from_list(struct nvgpu_list_node *node)
 		((uintptr_t)node - offsetof(struct gk20a_buffer_state, list));
 };
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 struct gk20a_dmabuf_priv {
 	struct nvgpu_mutex lock;
 
@@ -100,6 +101,7 @@ struct gk20a_dmabuf_priv {
 	/* list node for tracking the dmabuf_priv instances per gpu */
 	struct nvgpu_list_node list;
 };
+#endif
 
 struct sg_table *nvgpu_mm_pin(struct device *dev,
 			struct dma_buf *dmabuf,
@@ -111,6 +113,7 @@ void nvgpu_mm_unpin(struct device *dev,
 		struct dma_buf_attachment *attachment,
 		struct sg_table *sgt);
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 void gk20a_mm_delete_priv(struct gk20a_dmabuf_priv *priv);
 
 int gk20a_dmabuf_alloc_or_get_drvdata(struct dma_buf *dmabuf, struct device *dev,
@@ -122,6 +125,8 @@ int gk20a_dmabuf_get_state(struct dma_buf *dmabuf, struct gk20a *g,
 void gk20a_dma_buf_priv_list_clear(struct nvgpu_os_linux *l);
 struct gk20a_dmabuf_priv *gk20a_dma_buf_get_drvdata(
 		struct dma_buf *dmabuf, struct device *device);
+#endif
+
 void *gk20a_dmabuf_vmap(struct dma_buf *dmabuf);
 void gk20a_dmabuf_vunmap(struct dma_buf *dmabuf, void *addr);
 

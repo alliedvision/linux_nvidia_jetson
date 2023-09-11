@@ -1,4 +1,4 @@
-From 81143c19baa55b58d0b33738005c6775e30fc00d Mon Sep 17 00:00:00 2001
+From 087debc21698a9e6cf721a0f37b7d5b566357900 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:41:56 +0106
 Subject: [PATCH 084/318] printk: refactor kmsg_dump_get_buffer()
@@ -34,10 +34,10 @@ index 235c50982c2d..4095a34db0fa 100644
  void kmsg_dump_rewind_nolock(struct kmsg_dumper *dumper);
  
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index d380a579e0a2..0a5e8db02822 100644
+index 044bb3791896..ad7edcb693d4 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3427,7 +3427,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3429,7 +3429,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
   * read.
   */
  bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
@@ -46,7 +46,7 @@ index d380a579e0a2..0a5e8db02822 100644
  {
  	struct printk_info info;
  	unsigned int line_count;
-@@ -3435,12 +3435,10 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3437,12 +3437,10 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	unsigned long flags;
  	u64 seq;
  	u64 next_seq;
@@ -60,7 +60,7 @@ index d380a579e0a2..0a5e8db02822 100644
  	if (!dumper->active || !buf || !size)
  		goto out;
  
-@@ -3458,48 +3456,54 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3460,48 +3458,54 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  		goto out;
  	}
  

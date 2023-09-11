@@ -3,7 +3,7 @@
  * IOMMU API for ARM architected SMMU implementations.
  *
  * Copyright (C) 2013 ARM Limited
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
@@ -1124,7 +1124,7 @@ static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 	return true;
 }
 
-void __weak platform_override_streamid(int streamid)
+void __weak platform_override_streamid(int streamid, struct device *dev)
 {
 }
 
@@ -1277,7 +1277,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	/* Enable stream Id override, which enables SMMU translation for dev */
 	for (i = 0; i < fwspec->num_ids; i++)
-		platform_override_streamid(fwspec->ids[i] & smmu->streamid_mask);
+		platform_override_streamid(fwspec->ids[i] & smmu->streamid_mask, dev);
 
 
 	/*

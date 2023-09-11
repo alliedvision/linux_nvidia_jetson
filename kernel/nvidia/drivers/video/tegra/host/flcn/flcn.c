@@ -1,7 +1,7 @@
 /*
 * Tegra flcn common driver
 *
-* Copyright (c) 2011-2022, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2011-2023, NVIDIA CORPORATION.  All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms and conditions of the GNU General Public License,
@@ -925,6 +925,21 @@ static int flcn_probe(struct platform_device *dev)
 
 static int __exit flcn_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_TEGRA_SOC_HWPM
+	struct tegra_soc_hwpm_ip_ops hwpm_ip_ops;
+	u32 hwpm_ip_index;
+
+	hwpm_ip_index = flcn_hwpm_get_ip_index(pdev->name);
+	nvhost_dbg_fn("ip %s unregister", pdev->name);
+
+	if (hwpm_ip_index != TERGA_SOC_HWPM_NUM_IPS) {
+		hwpm_ip_ops.ip_dev = (void *)pdev;
+		hwpm_ip_ops.ip_base_address = pdev->resource[0].start;
+		hwpm_ip_ops.resource_enum = hwpm_ip_index;
+		tegra_soc_hwpm_ip_unregister(&hwpm_ip_ops);
+	}
+#endif
+
 	nvhost_client_device_release(pdev);
 
 	return 0;

@@ -478,7 +478,7 @@ static int imx185_power_on(struct camera_common_data *s_data)
 	}
 
 	/*exit reset mode: XCLR */
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		gpio_set_value(pw->reset_gpio, 0);
 		usleep_range(30, 50);
 		gpio_set_value(pw->reset_gpio, 1);
@@ -509,7 +509,7 @@ static int imx185_power_off(struct camera_common_data *s_data)
 	}
 	/* enter reset mode: XCLR */
 	usleep_range(1, 2);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
 
 power_off_done:

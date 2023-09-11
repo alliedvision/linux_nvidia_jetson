@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,11 +23,11 @@
 #include <linux/dma-mapping.h>
 #include "pva.h"
 
-static int nvpva_map_sp(struct device *dev,
-			phys_addr_t start,
-			size_t size,
-			dma_addr_t *sp_start,
-			u32 attr)
+int nvpva_map_region(struct device *dev,
+		     phys_addr_t start,
+		     size_t size,
+		     dma_addr_t *sp_start,
+		     u32 attr)
 {
 	/* If IOMMU is enabled, map it into the device memory */
 	if (iommu_get_domain_for_dev(dev)) {
@@ -42,10 +42,10 @@ static int nvpva_map_sp(struct device *dev,
 	return 0;
 }
 
-static int nvpva_unmap_sp(struct device *dev,
-			  dma_addr_t addr,
-			  size_t size,
-			  u32 attr)
+int nvpva_unmap_region(struct device *dev,
+		       dma_addr_t addr,
+		       size_t size,
+		       u32 attr)
 {
 	if (iommu_get_domain_for_dev(dev)) {
 		dma_unmap_resource(dev, addr, size, attr,
@@ -136,7 +136,8 @@ out:
 	return addr;
 }
 
-void nvpva_syncpt_unit_interface_deinit(struct platform_device *pdev)
+void nvpva_syncpt_unit_interface_deinit(struct platform_device *pdev,
+					struct platform_device *paux_dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct pva *pva = pdata->private_data;
@@ -151,7 +152,7 @@ void nvpva_syncpt_unit_interface_deinit(struct platform_device *pdev)
 		goto out;
 	}
 
-	nvpva_unmap_sp(&pdev->dev, pva->syncpts.syncpt_start_iova_r,
+	nvpva_unmap_region(&paux_dev->dev, pva->syncpts.syncpt_start_iova_r,
 		       pva->syncpts.syncpt_range_r, DMA_TO_DEVICE);
 	pva->syncpts.syncpts_mapped_r = false;
 	pva->syncpts.syncpt_start_iova_r = 0;
@@ -161,7 +162,7 @@ void nvpva_syncpt_unit_interface_deinit(struct platform_device *pdev)
 		if (pva->syncpts.syncpts_rw[i].id == 0)
 			continue;
 
-		nvpva_unmap_sp(&pdev->dev, pva->syncpts.syncpts_rw[i].addr,
+		nvpva_unmap_region(&paux_dev->dev, pva->syncpts.syncpts_rw[i].addr,
 			       pva->syncpts.syncpts_rw[i].size,
 			       DMA_BIDIRECTIONAL);
 		pva->syncpts.syncpts_rw[i].addr = 0;
@@ -177,7 +178,8 @@ out:
 	return;
 }
 
-int nvpva_syncpt_unit_interface_init(struct platform_device *pdev)
+int nvpva_syncpt_unit_interface_init(struct platform_device *pdev,
+				     struct platform_device *paux_dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(pdev);
 	struct pva *pva = pdata->private_data;
@@ -213,13 +215,14 @@ int nvpva_syncpt_unit_interface_init(struct platform_device *pdev)
 		goto out;
 	}
 
-	syncpt_offset = nvhost_syncpt_unit_interface_get_byte_offset_ext(pva->syncpts.host_pdev, 1);
+	syncpt_offset =
+		nvhost_syncpt_unit_interface_get_byte_offset_ext(pva->syncpts.host_pdev, 1);
 
-	err = nvpva_map_sp(&pdev->dev,
-			   base,
-			   size,
-			   &syncpt_addr_rw,
-			   DMA_TO_DEVICE);
+	err = nvpva_map_region(&paux_dev->dev,
+			       base,
+			       size,
+			       &syncpt_addr_rw,
+			       DMA_TO_DEVICE);
 	if (err)
 		goto out;
 
@@ -244,11 +247,11 @@ int nvpva_syncpt_unit_interface_init(struct platform_device *pdev)
 		syncpt_offset =
 			nvhost_syncpt_unit_interface_get_byte_offset_ext(pva->syncpts.host_pdev,
 									 id);
-		err = nvpva_map_sp(&pdev->dev,
-				   (base + syncpt_offset),
-				   pva->syncpts.page_size,
-				   &syncpt_addr_rw,
-				   DMA_BIDIRECTIONAL);
+		err = nvpva_map_region(&paux_dev->dev,
+				       (base + syncpt_offset),
+				       pva->syncpts.page_size,
+				       &syncpt_addr_rw,
+				       DMA_BIDIRECTIONAL);
 		if (err) {
 			dev_err(&pdev->dev, "failed to map syncpt %d\n", id);
 			goto err_map_sp;
@@ -291,7 +294,7 @@ int nvpva_syncpt_unit_interface_init(struct platform_device *pdev)
 
 err_map_sp:
 err_alloc_syncpt:
-	nvpva_syncpt_unit_interface_deinit(pdev);
+	nvpva_syncpt_unit_interface_deinit(pdev, paux_dev);
 out:
 	return err;
 }

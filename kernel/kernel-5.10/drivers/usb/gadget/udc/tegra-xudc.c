@@ -2,7 +2,7 @@
 /*
  * NVIDIA Tegra XUSB device mode controller
  *
- * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (c) 2015, Google Inc.
  */
 
@@ -32,9 +32,6 @@
 #include <linux/workqueue.h>
 
 /* XUSB_DEV registers */
-#define SPARAM 0x000
-#define  SPARAM_ERSTMAX_MASK GENMASK(20, 16)
-#define  SPARAM_ERSTMAX(x) (((x) << 16) & SPARAM_ERSTMAX_MASK)
 #define DB 0x004
 #define  DB_TARGET_MASK GENMASK(15, 8)
 #define  DB_TARGET(x) (((x) << 8) & DB_TARGET_MASK)
@@ -573,6 +570,8 @@ struct tegra_xudc_soc {
 	bool port_reset_quirk;
 	bool port_speed_quirk;
 	bool has_ipfs;
+	bool hp_timer_adjust;
+	bool u3_exit_adjust;
 };
 
 static inline u32 fpci_readl(struct tegra_xudc *xudc, unsigned int offset)
@@ -3493,11 +3492,13 @@ static void tegra_xudc_device_params_init(struct tegra_xudc *xudc)
 		xudc_writel(xudc, val, BLCG);
 	}
 
-	/* Set a reasonable U3 exit timer value. */
-	val = xudc_readl(xudc, SSPX_CORE_PADCTL4);
-	val &= ~(SSPX_CORE_PADCTL4_RXDAT_VLD_TIMEOUT_U3_MASK);
-	val |= SSPX_CORE_PADCTL4_RXDAT_VLD_TIMEOUT_U3(0x5dc0);
-	xudc_writel(xudc, val, SSPX_CORE_PADCTL4);
+	if (xudc->soc->u3_exit_adjust) {
+		/* Set a reasonable U3 exit timer value. */
+		val = xudc_readl(xudc, SSPX_CORE_PADCTL4);
+		val &= ~(SSPX_CORE_PADCTL4_RXDAT_VLD_TIMEOUT_U3_MASK);
+		val |= SSPX_CORE_PADCTL4_RXDAT_VLD_TIMEOUT_U3(0x5dc0);
+		xudc_writel(xudc, val, SSPX_CORE_PADCTL4);
+	}
 
 	/* Default ping LFPS tBurst is too large. */
 	val = xudc_readl(xudc, SSPX_CORE_CNT0);
@@ -3505,23 +3506,31 @@ static void tegra_xudc_device_params_init(struct tegra_xudc *xudc)
 	val |= SSPX_CORE_CNT0_PING_TBURST(0xa);
 	xudc_writel(xudc, val, SSPX_CORE_CNT0);
 
-	/* Default tPortConfiguration timeout is too small. */
-	val = xudc_readl(xudc, SSPX_CORE_CNT30);
-	val &= ~(SSPX_CORE_CNT30_LMPITP_TIMER_MASK);
-	val |= SSPX_CORE_CNT30_LMPITP_TIMER(0x970);
-	xudc_writel(xudc, val, SSPX_CORE_CNT30);
+	if (xudc->soc->hp_timer_adjust) {
+		/* Default tPortConfiguration timeout is too small. */
+		val = xudc_readl(xudc, SSPX_CORE_CNT30);
+		val &= ~(SSPX_CORE_CNT30_LMPITP_TIMER_MASK);
+		val |= SSPX_CORE_CNT30_LMPITP_TIMER(0x970);
+		xudc_writel(xudc, val, SSPX_CORE_CNT30);
 
-	/* Increase CREDIT_HP_TIMER timeout */
-	val = xudc_readl(xudc, SSPX_CORE_CNT13);
-	val &= ~(SSPX_CORE_CNT13_CRDTHP_TIMER_MASK);
-	val |= SSPX_CORE_CNT13_CRDTHP_TIMER(0x92800);
-	xudc_writel(xudc, val, SSPX_CORE_CNT13);
+		/* Increase CREDIT_HP_TIMER timeout */
+		val = xudc_readl(xudc, SSPX_CORE_CNT13);
+		val &= ~(SSPX_CORE_CNT13_CRDTHP_TIMER_MASK);
+		val |= SSPX_CORE_CNT13_CRDTHP_TIMER(0x92800);
+		xudc_writel(xudc, val, SSPX_CORE_CNT13);
 
-	/* Increase tRecoveryActiveTimeout */
-	val = xudc_readl(xudc, SSPX_CORE_CNT20);
-	val &= ~(SSPX_CORE_CNT20_RCOV_ACT_TIMER_MASK);
-	val |= SSPX_CORE_CNT20_RCOV_ACT_TIMER(0x15F999);
-	xudc_writel(xudc, val, SSPX_CORE_CNT20);
+		/* Increase tRecoveryActiveTimeout */
+		val = xudc_readl(xudc, SSPX_CORE_CNT20);
+		val &= ~(SSPX_CORE_CNT20_RCOV_ACT_TIMER_MASK);
+		val |= SSPX_CORE_CNT20_RCOV_ACT_TIMER(0x15F999);
+		xudc_writel(xudc, val, SSPX_CORE_CNT20);
+	} else {
+		/* Default tPortConfiguration timeout is too small. */
+		val = xudc_readl(xudc, SSPX_CORE_CNT30);
+		val &= ~(SSPX_CORE_CNT30_LMPITP_TIMER_MASK);
+		val |= SSPX_CORE_CNT30_LMPITP_TIMER(0x978);
+		xudc_writel(xudc, val, SSPX_CORE_CNT30);
+	}
 
 	if (xudc->soc->lpm_enable) {
 		/* Set L1 resume duration to 95 us. */
@@ -3739,6 +3748,8 @@ static struct tegra_xudc_soc tegra210_xudc_soc_data = {
 	.port_reset_quirk = true,
 	.port_speed_quirk = false,
 	.has_ipfs = true,
+	.hp_timer_adjust = false,
+	.u3_exit_adjust = true,
 };
 
 static struct tegra_xudc_soc tegra186_xudc_soc_data = {
@@ -3753,6 +3764,8 @@ static struct tegra_xudc_soc tegra186_xudc_soc_data = {
 	.port_reset_quirk = false,
 	.port_speed_quirk = false,
 	.has_ipfs = false,
+	.hp_timer_adjust = false,
+	.u3_exit_adjust = true,
 };
 
 static struct tegra_xudc_soc tegra194_xudc_soc_data = {
@@ -3767,6 +3780,8 @@ static struct tegra_xudc_soc tegra194_xudc_soc_data = {
 	.port_reset_quirk = false,
 	.port_speed_quirk = true,
 	.has_ipfs = false,
+	.hp_timer_adjust = false,
+	.u3_exit_adjust = true,
 };
 
 static struct tegra_xudc_soc tegra234_xudc_soc_data = {
@@ -3781,6 +3796,8 @@ static struct tegra_xudc_soc tegra234_xudc_soc_data = {
 	.port_reset_quirk = false,
 	.port_speed_quirk = true,
 	.has_ipfs = false,
+	.hp_timer_adjust = true,
+	.u3_exit_adjust = false,
 };
 
 static struct tegra_xudc_soc tegra239_xudc_soc_data = {
@@ -3795,6 +3812,8 @@ static struct tegra_xudc_soc tegra239_xudc_soc_data = {
 	.port_reset_quirk = false,
 	.port_speed_quirk = true,
 	.has_ipfs = false,
+	.hp_timer_adjust = true,
+	.u3_exit_adjust = false,
 };
 
 static const struct of_device_id tegra_xudc_of_match[] = {

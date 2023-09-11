@@ -1,7 +1,7 @@
 /*
  * PVA ISR code
  *
- * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -16,21 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define PVA_MASK_LOW_16BITS 0xff
+
 #include "pva-interface.h"
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/nvhost.h>
-
 #include "pva_regs.h"
 #include "pva.h"
-
-#define PVA_MASK_LOW_16BITS 0xff
-
-#ifdef CONFIG_TEGRA_T23X_GRHOST
 #include "pva_isr_t23x.h"
-#endif
+
+void pva_push_aisr_status(struct pva *pva, uint32_t aisr_status)
+{
+	struct pva_task_error_s *err_array = pva->priv_circular_array.va;
+	struct pva_task_error_s *src_va = &err_array[pva->circular_array_wr_pos];
+
+	src_va->queue = PVA_GET_QUEUE_ID_FROM_STATUS(aisr_status);
+	src_va->vpu = PVA_GET_VPU_ID_FROM_STATUS(aisr_status);
+	src_va->error = PVA_GET_ERROR_FROM_STATUS(aisr_status);
+	src_va->task_id = PVA_GET_TASK_ID_FROM_STATUS(aisr_status);
+	src_va->valid = 1U;
+
+	if (pva->circular_array_wr_pos == (MAX_PVA_TASK_COUNT-1))
+		pva->circular_array_wr_pos = 0;
+	else
+		pva->circular_array_wr_pos += 1;
+}
 
 static irqreturn_t pva_system_isr(int irq, void *dev_id)
 {
@@ -52,19 +65,13 @@ static irqreturn_t pva_system_isr(int irq, void *dev_id)
 			atomic_add(1, &pva->n_pending_tasks);
 			queue_work(pva->task_status_workqueue,
 				   &pva->task_update_work);
+			if ((status5 & PVA_AISR_ABORT) == 0U)
+				pva_push_aisr_status(pva, status5);
 		}
 
 		/* For now, just log the errors */
 		if (status5 & PVA_AISR_TASK_ERROR)
 			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_TASK_ERROR");
-		if (status5 & PVA_AISR_THRESHOLD_EXCEEDED)
-			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_THRESHOLD_EXCEEDED");
-		if (status5 & PVA_AISR_LOGGING_OVERFLOW)
-			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_LOGGING_OVERFLOW");
-		if (status5 & PVA_AISR_PRINTF_OVERFLOW)
-			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_PRINTF_OVERFLOW");
-		if (status5 & PVA_AISR_CRASH_LOG)
-			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_CRASH_LOG");
 		if (status5 & PVA_AISR_ABORT) {
 			nvpva_warn(&pdev->dev, "PVA AISR: PVA_AISR_ABORT");
 			nvpva_warn(&pdev->dev, "Checkpoint value: 0x%08x",
@@ -128,19 +135,13 @@ int pva_register_isr(struct platform_device *dev)
 			err = -ENOENT;
 			break;
 		}
+
 		/* IRQ0 is for mailbox/h1x/watchdog */
-		if (i == 0) {
+		if (i == 0)
 			irq_handler = pva_system_isr;
-		} else {
-#ifdef CONFIG_TEGRA_T23X_GRHOST
+		else
 			irq_handler = pva_ccq_isr;
-#else
-			pr_err("%s: invalid number of IRQs for build type\n",
-			       __func__);
-			err = -EINVAL;
-			break;
-#endif
-		}
+
 		err = request_threaded_irq(pva->irq[i], NULL, irq_handler,
 					IRQF_ONESHOT, "pva-isr", pva);
 		if (err) {

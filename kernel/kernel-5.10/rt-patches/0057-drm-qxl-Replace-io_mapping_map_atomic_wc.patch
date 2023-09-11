@@ -1,4 +1,4 @@
-From a894b900eb4e5ad1e4c619fb1122bb13d1e144be Mon Sep 17 00:00:00 2001
+From 3d70aa6fb90b15b8a2358a8a516ded040c8a1708 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:46 +0100
 Subject: [PATCH 057/318] drm/qxl: Replace io_mapping_map_atomic_wc()

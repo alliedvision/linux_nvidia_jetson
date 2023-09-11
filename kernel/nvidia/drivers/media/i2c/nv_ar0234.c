@@ -1,7 +1,7 @@
 /*
  * ar0234.c - ar0234 sensor driver
  *
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,6 +37,8 @@
 #define MAX_TANGENTIAL_COEFFICIENTS     2
 #define MAX_FISHEYE_COEFFICIENTS        6
 #define CAMERA_MAX_SN_LENGTH 32
+#define LEOP_CAMERA_MAX_SN_LENGTH 10
+
 #define MAX_RLS_COLOR_CHANNELS 4
 #define MAX_RLS_BREAKPOINTS 6
 
@@ -51,6 +53,8 @@ extern int max96712_read_reg_Dser(int slaveAddr,int channel,
 #define AR0234_MAX_GAIN_REG     (0x40)
 #define AR0234_DEFAULT_FRAME_LENGTH    (1224)
 #define AR0234_COARSE_TIME_SHS1_ADDR    0x3012
+#define AR0234_CTX_CONTROL_REG_ADDR	0x3034
+#define AR0234_CTX_WR_DATA_REG_ADDR	0x3066
 #define AR0234_ANALOG_GAIN    0x3060
 
 const struct of_device_id ar0234_of_match[] = {
@@ -68,7 +72,10 @@ static const u32 ctrl_cid_list[] = {
 	TEGRA_CAMERA_CID_HDR_EN,
 	TEGRA_CAMERA_CID_SENSOR_MODE_ID,
 	TEGRA_CAMERA_CID_STEREO_EEPROM,
+	TEGRA_CAMERA_CID_ALTERNATING_EXPOSURE,
 };
+
+const u16 alternating_exposure_cfg_size = sizeof(struct alternating_exposure_cfg);
 
 // Coefficients as per distortion model (wide FOV) being used
 typedef struct
@@ -135,6 +142,12 @@ typedef struct
 	float tx, ty, tz;
 } camera_extrinsics;
 
+/*
+ * IMU parameters used by HAWK 1.0. HAWK 1.0 did not have IMU noise model parameters
+ * in EEPROM. To preserve backward compatibility with HAWK 1.0, the EEPROM data is arranged
+ * in a certain way which requires tracking the imu noise model parameters in a
+ * separate structure.
+ */
 typedef struct
 {
 	// 3D vector to add to accelerometer readings
@@ -145,13 +158,29 @@ typedef struct
 	float gravity_acceleration[3];
 	// Extrinsic structure for IMU device
 	camera_extrinsics extr;
-	// Noise model parameters
+
+} imu_params_v1;
+
+typedef struct {
+	/*
+	 *Noise model parameters
+	 */
+
 	float update_rate;
 	float linear_acceleration_noise_density;
 	float linear_acceleration_random_walk;
 	float angular_velocity_noise_density;
 	float angular_velocity_random_walk;
-} imu_params;
+
+} imu_params_noise_m;
+
+/*
+ * Combined IMU calibration data structure
+ */
+typedef struct {
+	imu_params_v1 imu_data_v1;
+	imu_params_noise_m nm;
+} imu_params_v2;
 
 typedef struct {
 	// Image height
@@ -196,7 +225,7 @@ typedef struct
 	u8 imu_present;
 
 	// Intrinsic structure for IMU
-	imu_params imu;
+	imu_params_v2 imu;
 
 	// HAWK module serial number
 	u8 serial_number[CAMERA_MAX_SN_LENGTH];
@@ -232,10 +261,14 @@ typedef struct
 	/**
 	 * Intrinsic structure for IMU
 	 */
-	imu_params imu;
+	imu_params_v1 imu;
+
+	u8 tmp[16];
 
 	// HAWK module serial number
-	u8 serial_number[CAMERA_MAX_SN_LENGTH];
+	u8 serial_number[LEOP_CAMERA_MAX_SN_LENGTH];
+
+	imu_params_noise_m nm;
 
 	// Radial Lens Shading Correction parameters
 	radial_lsc_params left_rls;
@@ -276,6 +309,31 @@ static inline void ar0234_get_gain_reg(ar0234_reg *regs,
 	regs->addr = AR0234_ANALOG_GAIN;
 	regs->val = (gain) & 0xffff;
 
+}
+
+static inline void ar0234_compute_gain_reg(u16 *gain_reg,
+		u16 *gain, s64 val)
+{
+	if (val < 200) {
+		*gain_reg = (32 * (1000 - (100000 / *gain)))/1000;
+	} else if (val < 400 && val >= 200) {
+		*gain = *gain / 2;
+		*gain_reg = (16 * (1000 - (100000 / *gain)))/1000 * 2;
+		*gain_reg = *gain_reg + 0x10;
+	} else if (val < 800 && val >= 400) {
+		*gain = *gain / 4;
+		*gain_reg = (32 * (1000 - (100000 / *gain)))/1000;
+		*gain_reg = *gain_reg + 0x20;
+	} else if (val < 1600 && val >= 800) {
+		*gain = *gain / 8;
+		*gain_reg = (16 * (1000 - (100000 / *gain)))/1000 * 2;
+		*gain_reg = *gain_reg + 0x30;
+	} else if (val >= 1600) {
+		*gain_reg = 0x40;
+	}
+
+	if (*gain_reg > AR0234_MAX_GAIN_REG)
+		*gain_reg = AR0234_MAX_GAIN_REG;
 }
 
 static int test_mode;
@@ -416,11 +474,11 @@ static int ar0234_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio > 0)
+	if (gpio_is_valid(pw->reset_gpio > 0))
 		gpio_set_value(pw->reset_gpio, 1);
 
 	usleep_range(1000, 2000);
-	if (pw->reset_gpio > 0)
+	if (gpio_is_valid(pw->reset_gpio > 0))
 		gpio_set_value(pw->reset_gpio, 1);
 
 	usleep_range(10000, 20000);
@@ -525,26 +583,8 @@ static int ar0234_set_gain(struct tegracam_device *tc_dev, s64 val)
 	u16 gain = (u16)val;
 	u16 gain_reg = 0;
 
-	if (val < 200) {
-		gain_reg = (32 * (1000 - (100000/gain)))/1000;
-	} else if (val < 400 && val >= 200) {
-		gain = gain /2;
-		gain_reg = (16 * (1000 - (100000/gain)))/1000 * 2;
-		gain_reg = gain_reg + 0x10;
-	} else if (val < 800 && val >= 400) {
-		gain = gain / 4;
-		gain_reg = (32 * (1000 - (100000/gain)))/1000;
-		gain_reg = gain_reg + 0x20;
-	} else if (val < 1600 && val >= 800) {
-		gain = gain /8;
-		gain_reg = (16 * (1000 - (100000/gain)))/1000 * 2;
-		gain_reg = gain_reg + 0x30;
-	} else if (val >= 1600) {
-		gain_reg = 0x40;
-	}
+	ar0234_compute_gain_reg(&gain_reg, &gain, val);
 
-	if (gain > AR0234_MAX_GAIN_REG)
-		gain = AR0234_MAX_GAIN_REG;
 	ar0234_get_gain_reg(reg_list, gain_reg);
 	err = ar0234_write_reg(s_data, reg_list[0].addr,
 			reg_list[0].val);
@@ -666,10 +706,9 @@ static int ar0234_fill_eeprom(struct tegracam_device *tc_dev,
 			}
 			priv->EepromCalib.cam_extr = tmp.cam_extr;
 			priv->EepromCalib.imu_present = tmp.imu_present;
-			priv->EepromCalib.imu = tmp.imu;
-			memcpy(priv->EepromCalib.serial_number, tmp.serial_number,
-				CAMERA_MAX_SN_LENGTH);
-
+			priv->EepromCalib.imu.imu_data_v1 = tmp.imu;
+			priv->EepromCalib.imu.nm = tmp.nm;
+			memcpy(priv->EepromCalib.serial_number, tmp.serial_number, 8);
 			if (priv->sync_sensor_index == 1)
 				priv->EepromCalib.rls = tmp.left_rls;
 			else if (priv->sync_sensor_index == 2)
@@ -690,16 +729,102 @@ static int ar0234_fill_eeprom(struct tegracam_device *tc_dev,
 	return 0;
 }
 
+static int ar0234_set_alternating_exposure(struct tegracam_device *tc_dev,
+	struct alternating_exposure_cfg *cfg)
+{
+	struct ar0234 *priv = (struct ar0234 *)tegracam_get_privdata(tc_dev);
+	struct camera_common_data *s_data = tc_dev->s_data;
+	const struct sensor_mode_properties *mode =
+		&s_data->sensor_props.sensor_modes[s_data->mode];
+	int err, ii;
+	const int num_contexts = 2;
+	u32 coarse_time_values[2];
+	u16 gain_reg_values[2];
+	u16 gain_values[2];
+
+	struct index_reg_8 table_alt_exp_enable[] = {
+		{0x06, AR0234_CTX_CONTROL_REG_ADDR, 0x0000}, // reset address pointer
+		// set 1 (1+1) contexts in bits 7-4, set MSB 0x3 of CIT register in bits 3-0
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0xF813},
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0809}, // set address x3012, CIT
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0100}, // context 0 exposure time
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0200}, // context 1 exposure time
+		// set 1 (1+1) contexts in bits 7-4, set MSB 0x3 of analog gain register in bits 3-0
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0xF813},
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0830}, // set address x3060, analog gain
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0010}, // context 0 gain
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0010}, // context 1 gain
+		{0x06, AR0234_CTX_WR_DATA_REG_ADDR, 0x0000}, // end of code
+
+		{0x06, AR0234_CTX_CONTROL_REG_ADDR, 0x0220}, // stop auto cycling
+		{0x06, AR0234_TABLE_WAIT_MS, 100},
+		{0x06, AR0234_CTX_CONTROL_REG_ADDR, 0x02A0}, // start auto cycling two contexts
+
+		{0x00, AR0234_TABLE_END, 0x00},
+	};
+
+	struct index_reg_8 table_alt_exp_disable[] = {
+		{0x06, AR0234_CTX_CONTROL_REG_ADDR, 0x0000}, // reset address pointer
+		{0x06, AR0234_CTX_CONTROL_REG_ADDR, 0x0220}, // stop auto cycling
+		{0x06, AR0234_TABLE_WAIT_MS, 100},
+
+		{0x00, AR0234_TABLE_END, 0x00},
+	};
+
+	if (priv->frame_length == 0)
+		priv->frame_length = AR0234_DEFAULT_FRAME_LENGTH;
+
+	coarse_time_values[0] = mode->signal_properties.pixel_clock.val *
+		cfg->exp_time_0 / mode->image_properties.line_length /
+		mode->control_properties.exposure_factor;
+	coarse_time_values[1] = mode->signal_properties.pixel_clock.val *
+		cfg->exp_time_1 / mode->image_properties.line_length /
+		mode->control_properties.exposure_factor;
+
+	/* 0 and 1 are prohibited */
+	for (ii = 0; ii < num_contexts; ii++)
+		if (coarse_time_values[ii] < 2)
+			coarse_time_values[ii] = 2;
+
+	gain_values[0] = (u16)(cfg->analog_gain_0);
+	gain_values[1] = (u16)(cfg->analog_gain_1);
+	for (ii = 0; ii < 2; ii++)
+		gain_reg_values[ii] = 0;
+
+	ar0234_compute_gain_reg(&gain_reg_values[0], &gain_values[0], cfg->analog_gain_0);
+	ar0234_compute_gain_reg(&gain_reg_values[1], &gain_values[1], cfg->analog_gain_1);
+
+	table_alt_exp_enable[3].val = coarse_time_values[0] & 0xffff;
+	table_alt_exp_enable[4].val = coarse_time_values[1] & 0xffff;
+	table_alt_exp_enable[7].val = gain_reg_values[0] & 0xffff;
+	table_alt_exp_enable[8].val = gain_reg_values[1] & 0xffff;
+
+	if (cfg->enable == false)
+		err = ar0234_write_table(priv, table_alt_exp_disable);
+	else
+		err = ar0234_write_table(priv, table_alt_exp_enable);
+	if (err)
+		goto fail;
+
+	return 0;
+
+fail:
+	dev_dbg(&priv->i2c_client->dev,
+			"%s: set alternating exposure error\n", __func__);
+	return err;
+}
+
 static struct tegracam_ctrl_ops ar0234_ctrl_ops = {
 	.numctrls = ARRAY_SIZE(ctrl_cid_list),
 	.ctrl_cid_list = ctrl_cid_list,
 	.string_ctrl_size = {AR0234_EEPROM_STR_SIZE},
-	.compound_ctrl_size = {sizeof(NvCamSyncSensorCalibData)},
+	.compound_ctrl_size = {sizeof(NvCamSyncSensorCalibData), alternating_exposure_cfg_size},
 	.set_gain = ar0234_set_gain,
 	.set_exposure = ar0234_set_exposure,
 	.set_exposure_short = ar0234_set_exposure,
 	.set_frame_rate = ar0234_set_frame_rate,
 	.set_group_hold = ar0234_set_group_hold,
+	.set_alternating_exposure = ar0234_set_alternating_exposure,
 	.fill_string_ctrl = ar0234_fill_string_ctrl,
 	.fill_compound_ctrl = ar0234_fill_eeprom,
 };

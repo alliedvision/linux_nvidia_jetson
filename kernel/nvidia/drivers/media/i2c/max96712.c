@@ -21,6 +21,9 @@
 #include <linux/debugfs.h>
 #include <media/camera_common.h>
 #include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 
 struct max96712 {
@@ -30,17 +33,20 @@ struct max96712 {
 };
 struct max96712 *global_priv[4] ;
 
+struct mutex max96712_rw;
 
 int max96712_write_reg_Dser(int slaveAddr,int channel,
 			u16 addr, u8 val)
 {
 	struct i2c_client *i2c_client = NULL;
 	int bak = 0;
-	int err;
+	int err = 0;
 	/* unsigned int ival = 0; */
 
 	if(channel > 3 || channel < 0 || global_priv[channel] == NULL)
 		return -1;
+
+	mutex_lock(&max96712_rw);
 	i2c_client = global_priv[channel]->i2c_client;
 	bak = i2c_client->addr;
 
@@ -52,9 +58,9 @@ int max96712_write_reg_Dser(int slaveAddr,int channel,
 	{
 		dev_err(&i2c_client->dev, "%s: addr = 0x%x, val = 0x%x\n",
 				__func__, addr, val);
-		return -1;
 	}
-	return 0;
+	mutex_unlock(&max96712_rw);
+	return err;
 }
 
 EXPORT_SYMBOL(max96712_write_reg_Dser);
@@ -65,9 +71,11 @@ int max96712_read_reg_Dser(int slaveAddr,int channel,
 {
 	struct i2c_client *i2c_client = NULL;
 	int bak = 0;
-	int err;
+	int err = 0;
 	if(channel > 3 || channel < 0 || global_priv[channel] == NULL)
 		return -1;
+
+	mutex_lock(&max96712_rw);
 	i2c_client = global_priv[channel]->i2c_client;
 	bak = i2c_client->addr;
 	i2c_client->addr = slaveAddr / 2;
@@ -77,10 +85,9 @@ int max96712_read_reg_Dser(int slaveAddr,int channel,
 	{
 		dev_err(&i2c_client->dev, "%s: addr = 0x%x, val = 0x%x\n",
 				__func__, addr, *val);
-		return -1;
 	}
-	return 0;
-
+	mutex_unlock(&max96712_rw);
+	return err;
 }
 
 EXPORT_SYMBOL(max96712_read_reg_Dser);
@@ -154,6 +161,24 @@ static const struct file_operations max96712_debugfs_fops = {
 	.release = single_release,
 };
 
+static int  max96712_power_on(struct max96712 *priv)
+{
+	struct i2c_client *i2c_client = priv->i2c_client;
+	struct device_node *np = i2c_client->dev.of_node;
+	unsigned int pwdn_gpio = 0;
+
+	if(np) {
+		pwdn_gpio = of_get_named_gpio(np, "pwdn-gpios", 0);
+		dev_info(&i2c_client->dev,"%s: pwdn_gpio = %d\n",__func__,pwdn_gpio);
+	}
+	if (pwdn_gpio > 0) {
+		gpio_direction_output(pwdn_gpio, 1);
+		gpio_set_value(pwdn_gpio, 1);
+		msleep(100);
+	}
+	return 0;
+}
+
 static int max96712_debugfs_init(const char *dir_name,
 				struct dentry **d_entry,
 				struct dentry **f_entry,
@@ -218,7 +243,7 @@ static int max96712_probe(struct i2c_client *client,
 	int err = 0;
 
 	dev_info(&client->dev, "%s: enter\n", __func__);
-
+	
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
 	priv->i2c_client = client;
 	priv->regmap = devm_regmap_init_i2c(priv->i2c_client,
@@ -227,6 +252,14 @@ static int max96712_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 			"regmap init failed: %ld\n", PTR_ERR(priv->regmap));
 		return -ENODEV;
+	}
+
+	mutex_init(&max96712_rw);
+
+	err = max96712_power_on(priv);
+	if (err) {
+		dev_err(&client->dev, "Failed to power on err =%d\n",err);
+		return err;
 	}
 
 	err = max96712_debugfs_init(NULL, NULL, NULL, priv);

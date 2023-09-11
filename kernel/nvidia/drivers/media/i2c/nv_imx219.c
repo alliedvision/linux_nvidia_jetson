@@ -323,7 +323,7 @@ static int imx219_power_on(struct camera_common_data *s_data)
 	if (unlikely(!(pw->avdd || pw->iovdd || pw->dvdd)))
 		goto skip_power_seqn;
 
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 0);
 		else
@@ -353,7 +353,7 @@ static int imx219_power_on(struct camera_common_data *s_data)
 	usleep_range(10, 20);
 
 skip_power_seqn:
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 1);
 		else
@@ -397,7 +397,7 @@ static int imx219_power_off(struct camera_common_data *s_data)
 			return err;
 		}
 	} else {
-		if (pw->reset_gpio) {
+		if (gpio_is_valid(pw->reset_gpio)) {
 			if (gpio_cansleep(pw->reset_gpio))
 				gpio_set_value_cansleep(pw->reset_gpio, 0);
 			else

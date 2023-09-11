@@ -343,16 +343,18 @@ enum CCI_STRING_ENC {
     CCI_STRING_ENC_UTF16    = 2
 };
 
-/* BCRM digital binning setting */
+/* BCRM binning setting */
 enum BCRM_DIGITAL_BINNING_SETTING {
-    DIGITAL_BINNING_OFF = 0,
+    BINNING_OFF = 0,
     DIGITAL_BINNING_2X2 = 1,
     DIGITAL_BINNING_3X3 = 2,
     DIGITAL_BINNING_4X4 = 3,
     DIGITAL_BINNING_5X5 = 4,
     DIGITAL_BINNING_6X6 = 5,
     DIGITAL_BINNING_7X7 = 6,
-    DIGITAL_BINNING_8X8 = 7
+    DIGITAL_BINNING_8X8 = 7,
+	SENSOR_BINNING_2X2 	= 8,
+	SENSOR_BINNING_4X4 	= 9,
 };
 
 /* BCRM digital binning mode */

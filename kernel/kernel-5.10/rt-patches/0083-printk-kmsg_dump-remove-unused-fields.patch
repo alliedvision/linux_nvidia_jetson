@@ -1,4 +1,4 @@
-From 60cc017e45e3ef4057af1f06cf1575ba45277db8 Mon Sep 17 00:00:00 2001
+From 8cf819605d59ade0eb8b0cf69ec008db0e31103e Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 11:19:39 +0106
 Subject: [PATCH 083/318] printk: kmsg_dump: remove unused fields

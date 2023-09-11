@@ -8,7 +8,7 @@
  *
  * This header is for devfreq governors in drivers/devfreq/
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
 #ifndef _GOVERNOR_H
 #define _GOVERNOR_H
 #include <linux/devfreq.h>
@@ -97,4 +97,4 @@ static inline int devfreq_update_stats(struct devfreq *df)
 	return df->profile->get_dev_status(df->dev.parent, &df->last_status);
 }
 #endif /* _GOVERNOR_H */
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0) */
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0) */

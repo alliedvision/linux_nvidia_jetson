@@ -1,10 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
 ################################################################################
 #
 # r8168 is the Linux device driver released for Realtek Gigabit Ethernet
 # controllers with PCI-Express interface.
 #
-# Copyright(c) 2017-2018 Realtek Semiconductor Corp. All rights reserved.
+# Copyright(c) 2022 Realtek Semiconductor Corp. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -59,6 +60,9 @@ enum rtl_cmd {
         RTL_READ_MAC_OCP,
         RTL_WRITE_MAC_OCP,
 
+        RTL_DIRECT_READ_PHY_OCP,
+        RTL_DIRECT_WRITE_PHY_OCP,
+
         RTLTOOL_INVALID
 };
 
@@ -76,7 +80,7 @@ enum mode_access {
 };
 
 #ifdef __KERNEL__
-int rtltool_ioctl(struct rtl8168_private *tp, struct ifreq *ifr);
+int rtl8168_tool_ioctl(struct rtl8168_private *tp, struct ifreq *ifr);
 #endif
 
 #endif /* _LINUX_RTLTOOL_H */

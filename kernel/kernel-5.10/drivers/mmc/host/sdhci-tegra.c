@@ -1638,8 +1638,7 @@ static void tegra_sdhci_set_uhs_signaling(struct sdhci_host *host,
 		ret = tegra_prod_set_by_name_partially(&host->ioaddr,
 				prod_device_states[timing], tegra_host->prods,
 				0, SDHCI_TEGRA_VENDOR_CLOCK_CTRL,
-				SDHCI_CLOCK_CTRL_TRIM_MASK <<
-				SDHCI_CLOCK_CTRL_TRIM_SHIFT);
+				SDHCI_CLOCK_CTRL_TRIM_MASK);
 		if (ret < 0)
 			dev_err(mmc_dev(host->mmc),
 				"Failed to set trim value for timing %d, %d\n",

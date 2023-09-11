@@ -1,4 +1,4 @@
-From 5752c81c674491360b84900a026b8bb41818771c Mon Sep 17 00:00:00 2001
+From 2f5b40a41f551ae0ded17c3ce602157365f2e357 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 11 Feb 2019 11:33:11 +0100
 Subject: [PATCH 111/318] tpm: remove tpm_dev_wq_lock
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 deletion(-)
 
 diff --git a/drivers/char/tpm/tpm-dev-common.c b/drivers/char/tpm/tpm-dev-common.c
-index 1784530b8387..c08cbb306636 100644
+index b99e1941c52c..dc4c0a0a5129 100644
 --- a/drivers/char/tpm/tpm-dev-common.c
 +++ b/drivers/char/tpm/tpm-dev-common.c
 @@ -20,7 +20,6 @@

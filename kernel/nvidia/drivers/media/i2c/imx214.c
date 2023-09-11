@@ -1,7 +1,7 @@
 /*
  * imx214.c - imx214 sensor driver
  *
- * Copyright (c) 2013-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -289,11 +289,11 @@ static int imx214_power_on(struct camera_common_data *s_data)
 	/* sleep calls in the sequence below are for internal device
 	 * signal propagation as specified by sensor vendor */
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 1);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(10, 20);
 
@@ -308,9 +308,9 @@ static int imx214_power_on(struct camera_common_data *s_data)
 		goto imx214_iovdd_fail;
 
 	udelay(1);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 1);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 1);
 
 	usleep_range(300, 310);
@@ -322,7 +322,7 @@ imx214_iovdd_fail:
 	regulator_disable(pw->avdd);
 
 imx214_avdd_fail:
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 0);
 
 	dev_err(dev, "%s failed.\n", __func__);
@@ -352,11 +352,11 @@ static int imx214_power_off(struct camera_common_data *s_data)
 	 * signal propagation as specified by sensor vendor */
 
 	usleep_range(1, 2);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 0);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(1, 2);
 

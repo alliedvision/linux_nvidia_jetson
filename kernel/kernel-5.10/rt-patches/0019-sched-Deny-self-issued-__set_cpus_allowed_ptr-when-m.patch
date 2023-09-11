@@ -1,4 +1,4 @@
-From 09a2824396f943fa59ca48f576c0d53ffb4f10fb Mon Sep 17 00:00:00 2001
+From e4c4a3378691dc4db60b93f1a116bcba344d6a98 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 23 Oct 2020 12:12:16 +0200
 Subject: [PATCH 019/318] sched: Deny self-issued __set_cpus_allowed_ptr() when
@@ -17,10 +17,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index e3d241f151ca..0cf0c72c0d10 100644
+index 796c7d96f41a..75a2304517d5 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -2249,8 +2249,17 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
+@@ -2250,8 +2250,17 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
  		goto out;
  	}
  

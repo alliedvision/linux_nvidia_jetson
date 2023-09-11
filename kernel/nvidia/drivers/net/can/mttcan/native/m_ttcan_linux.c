@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * References are taken from "Bosch C_CAN controller" at
  * "drivers/net/can/c_can/c_can.c"
@@ -19,6 +19,8 @@
 
 #include "m_ttcan.h"
 #include <linux/platform_device.h>
+
+#define CAN_MSG_FLUSH_TIMEOUT	100
 
 static void mttcan_start(struct net_device *dev);
 
@@ -158,6 +160,9 @@ static int mttcan_hw_reinit(const struct mttcan_priv *priv)
 	int err = 0;
 
 	struct ttcan_controller *ttcan = priv->ttcan;
+
+	/* initialize mttcan message RAM with 0s */
+	ttcan_mesg_ram_init(ttcan);
 
 	ttcan_set_ok(ttcan);
 
@@ -1911,11 +1916,19 @@ static int mttcan_suspend(struct platform_device *pdev, pm_message_t state)
 	int ret;
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct mttcan_priv *priv = netdev_priv(ndev);
+	int timeout = CAN_MSG_FLUSH_TIMEOUT;
 
 	if (netif_running(ndev)) {
 		netif_stop_queue(ndev);
 		netif_device_detach(ndev);
 	}
+
+	/* keep waiting until all requests are not sent on CAN bus. */
+	while (ttcan_tx_req_pending(priv->ttcan) && timeout--)
+		udelay(10);
+
+	if (timeout <= 0)
+		dev_err(&pdev->dev, "%s: CAN flush timeout happened.\n", __func__);
 
 	if (ndev->flags & IFF_UP) {
 		mttcan_stop(priv);

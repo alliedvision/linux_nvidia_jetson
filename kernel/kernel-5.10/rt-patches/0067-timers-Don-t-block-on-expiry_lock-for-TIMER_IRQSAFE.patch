@@ -1,4 +1,4 @@
-From 8fc20c794a725965492f248a833e30d587dc80f9 Mon Sep 17 00:00:00 2001
+From 3fce856ae0dcd968aad086c8e24c160e6b6e05c8 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 2 Nov 2020 14:14:24 +0100
 Subject: [PATCH 067/318] timers: Don't block on ->expiry_lock for
@@ -28,7 +28,7 @@ Cc: stable-rt@vger.kernel.org
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index a3ec21be3b14..cd67ee6d2634 100644
+index e87e638c31bd..a4fdc7cfb723 100644
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
 @@ -1287,7 +1287,7 @@ static void del_timer_wait_running(struct timer_list *timer)

@@ -266,8 +266,6 @@ struct macsec_priv_data {
 	unsigned short next_supp_idx;
 	/** macsec mutex lock */
 	struct mutex lock;
-	/** macsec hw instance id */
-	unsigned int id;
 	/** Macsec enable flag in DT */
 	unsigned int is_macsec_enabled_in_dt;
 	/** Context family name  */

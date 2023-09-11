@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -119,15 +119,43 @@
  * PVA interrupt status register contained in PVA_MBOX_AISR
  */
 #define PVA_AISR_INT_PENDING PVA_BIT(31U)
-#define PVA_AISR_TASK_COMPLETE PVA_BIT(28U)
-#define PVA_AISR_TASK_ERROR PVA_BIT(27U)
-#define PVA_AISR_THRESHOLD_EXCEEDED PVA_BIT(26U)
-#define PVA_AISR_LOGGING_OVERFLOW PVA_BIT(25U)
-#define PVA_AISR_PRINTF_OVERFLOW PVA_BIT(24U)
-#define PVA_AISR_CRASH_LOG PVA_BIT(23U)
-#define PVA_SW_BIST_DONE_VPU0 PVA_BIT(22U)
-#define PVA_SW_BIST_DONE_VPU1 PVA_BIT(21U)
+#define PVA_AISR_TASK_COMPLETE PVA_BIT(30U)
+#define PVA_AISR_TASK_ERROR PVA_BIT(29U)
 #define PVA_AISR_ABORT PVA_BIT(0U)
+
+#define PVA_STATUS_AISR_TASK_ID_MSB (8U)
+#define PVA_STATUS_AISR_TASK_ID_LSB (1U)
+#define PVA_STATUS_AISR_VPU_ID_MSB (9U)
+#define PVA_STATUS_AISR_VPU_ID_LSB (9U)
+#define PVA_STATUS_AISR_QUEUE_MSB (12U)
+#define PVA_STATUS_AISR_QUEUE_LSB (10U)
+#define PVA_STATUS_AISR_ERR_MSB (28U)
+#define PVA_STATUS_AISR_ERR_LSB (13U)
+
+#define PVA_PACK_AISR_STATUS(e, q, v, t) (PVA_INSERT(e, PVA_STATUS_AISR_ERR_MSB,\
+				PVA_STATUS_AISR_ERR_LSB) \
+				| PVA_INSERT(q, PVA_STATUS_AISR_QUEUE_MSB, \
+				PVA_STATUS_AISR_QUEUE_LSB) \
+				| PVA_INSERT(v, PVA_STATUS_AISR_VPU_ID_MSB, \
+				PVA_STATUS_AISR_VPU_ID_LSB) \
+				| PVA_INSERT(t, PVA_STATUS_AISR_TASK_ID_MSB, \
+				PVA_STATUS_AISR_TASK_ID_LSB))
+#define PVA_GET_QUEUE_ID_FROM_STATUS(_s_) PVA_EXTRACT((_s_), \
+					PVA_STATUS_AISR_QUEUE_MSB, \
+					PVA_STATUS_AISR_QUEUE_LSB, \
+					uint8_t)
+#define PVA_GET_ERROR_FROM_STATUS(_s_) PVA_EXTRACT((_s_), \
+					PVA_STATUS_AISR_ERR_MSB, \
+					PVA_STATUS_AISR_ERR_LSB, \
+					uint16_t)
+#define PVA_GET_VPU_ID_FROM_STATUS(_s_) PVA_EXTRACT((_s_), \
+					PVA_STATUS_AISR_VPU_ID_MSB, \
+					PVA_STATUS_AISR_VPU_ID_LSB, \
+					uint8_t)
+#define PVA_GET_TASK_ID_FROM_STATUS(_s_) PVA_EXTRACT((_s_), \
+					PVA_STATUS_AISR_TASK_ID_MSB, \
+					PVA_STATUS_AISR_TASK_ID_LSB, \
+					uint8_t)
 
 #define PVA_GET_ERROR_CODE(_s_) PVA_EXTRACT((_s_), 15U, 0U, pva_errors_t)
 
@@ -136,25 +164,23 @@
  * interface.
  */
 typedef uint8_t pva_cmds_t;
-#define CMD_NOOP 0U
-#define CMD_GET_STATUS 1U
-#define CMD_SET_LOGGING 4U
-#define CMD_SUBMIT 8U
-#define CMD_FLUSH 11U
-#define CMD_SW_BIST 19U
-#define CMD_ABORT_QUEUE 20U
-#define CMD_SET_STATUS_BUFFER 21U
-#define CMD_NEXT 22U /* Must be last */
+#define CMD_GET_STATUS		0U
+#define CMD_SUBMIT		1U
+#define CMD_ABORT_QUEUE		2U
+#define CMD_NOOP		3U
+#define CMD_SW_BIST		4U
+#define CMD_GET_VPU_STATS	5U
+#define CMD_SET_LOGGING		6U
+#define CMD_NEXT		7U /* Must be last */
 
 /*
  * CMD_GET_STATUS subcommands
  */
 typedef uint8_t pva_status_cmds_t;
 #define R5_VERSION 0U
-#define RUNNING_TASKS 10U
-#define PVA_UPTIME 11U
-#define COMPLETED_TASK 19U
-#define GET_STATUS_NEXT 23U
+#define PVA_UPTIME 1U
+#define COMPLETED_TASK 2U
+#define GET_STATUS_NEXT 3U /* Deleted RUNNING TASKS as it is not used in FW */
 
 /*
  * CCQ FIFO SUBMIT interface definition
@@ -191,6 +217,17 @@ typedef uint8_t pva_status_cmds_t;
  * bit to extract higher 8 bits of the 40 bit address
  */
 #define PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB		32U
+
+/**
+ * Macro used to specify most significant bit
+ * of the VPU stats enable field in CMD_SET_VPU_STATS_BUFFER command
+ */
+#define PVA_CMD_VPU_STATS_EN_MSB		23U
+/**
+ * Macro used to specify least significant bit
+ * of the VPU stats enable field in CMD_SET_VPU_STATS_BUFFER command
+ */
+#define PVA_CMD_VPU_STATS_EN_LSB		16U
 
 /*
  * SW Bist subcommands
@@ -252,6 +289,21 @@ struct pva_cmd_s {
 	uint32_t cmd_field[4];
 };
 
+struct pva_vpu_stats_s {
+	/**
+	 * @brief The accumulated VPU utilization time in the current window.
+	 */
+	uint64_t total_utilization_time[2];
+	/**
+	 * @brief The timestamp which signifies start of the current window.
+	 */
+	uint64_t window_start_time;
+	/**
+	 * @brief The timestamp of end of the current window.
+	 */
+	uint64_t window_end_time;
+} __packed;
+
 /*
  * CMD_NOOP command
  */
@@ -297,25 +349,6 @@ static inline uint32_t pva_cmd_R5_version(struct pva_cmd_s *const cmd,
 	cmd->cmd_field[0] = pva_cmd_get_status(R5_VERSION, flags);
 	return 1U;
 }
-
-/*
- * RUNNING_TASKS get status command
- */
-struct pva_status_running_tasks_s {
-	uint32_t task_addr_lo;
-	uint32_t task_addr_hi;
-};
-
-static inline uint32_t pva_cmd_running_tasks(struct pva_cmd_s *const cmd,
-					     const pva_vpu_id_t vpu,
-					     const uint32_t flags)
-{
-	cmd->cmd_field[0] = pva_cmd_get_status(RUNNING_TASKS, flags) |
-		       PVA_INSERT(vpu, 23U, 16U);
-	return 1U;
-}
-
-#define PVA_RUNNING_TASK_VALID PVA_BIT64(63U)
 
 /*
  * PVA_UPTIME get status command
@@ -432,20 +465,20 @@ static inline uint32_t pva_cmd_abort_task(struct pva_cmd_s *const cmd,
 }
 
 /*
- * CMD_SET_STATUS_BUFFER
+ * CMD_SET_VPU_STATS
  */
-static inline uint32_t pva_cmd_set_status_buffer(struct pva_cmd_s *const cmd,
-						 const uint64_t addr,
-						 const uint32_t size,
-						 const uint32_t flags)
+static inline uint32_t
+pva_cmd_get_vpu_stats(struct pva_cmd_s * const cmd,
+		      const uint64_t addr,
+		      const uint32_t flags,
+			  const uint8_t value)
 {
-	cmd->cmd_field[0] =
-		flags | PVA_SET_COMMAND(CMD_SET_STATUS_BUFFER) |
-		PVA_INSERT(PVA_EXTRACT64(addr, PVA_EXTRACT_ADDR_HIGHER_8BITS_MSB,
-					PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB, uint32_t),
-					PVA_ADDR_HIGHER_8BITS_MSB, PVA_ADDR_HIGHER_8BITS_LSB) |
-		PVA_INSERT(size, PVA_CMD_STATUS_BUFFER_LENGTH_MSB,
-		PVA_CMD_STATUS_BUFFER_LENGTH_LSB);
+	cmd->cmd_field[0] = flags
+		       | PVA_SET_COMMAND(CMD_GET_VPU_STATS)
+		       | PVA_INSERT(PVA_EXTRACT64(addr, PVA_EXTRACT_ADDR_HIGHER_8BITS_MSB,
+				    PVA_EXTRACT_ADDR_HIGHER_8BITS_LSB, uint32_t),
+				    PVA_ADDR_HIGHER_8BITS_MSB, PVA_ADDR_HIGHER_8BITS_LSB)
+			   | PVA_INSERT(value, PVA_CMD_VPU_STATS_EN_MSB, PVA_CMD_VPU_STATS_EN_LSB);
 	cmd->cmd_field[1] = PVA_LOW32(addr);
 
 	return 2U;

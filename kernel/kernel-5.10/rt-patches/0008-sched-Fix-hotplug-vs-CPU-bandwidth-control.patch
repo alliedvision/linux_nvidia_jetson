@@ -1,4 +1,4 @@
-From 19e3291f6d85ec9eb8fa5547cb484436546050f5 Mon Sep 17 00:00:00 2001
+From 8bf72ac0afefbc7df3329448353fb0dd25b41338 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:05 +0200
 Subject: [PATCH 008/318] sched: Fix hotplug vs CPU bandwidth control
@@ -24,10 +24,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 2f9012906888..725c6de41778 100644
+index 79bb560c3a85..477dbc5cea41 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6971,6 +6971,8 @@ int sched_cpu_activate(unsigned int cpu)
+@@ -6972,6 +6972,8 @@ int sched_cpu_activate(unsigned int cpu)
  
  int sched_cpu_deactivate(unsigned int cpu)
  {
@@ -36,7 +36,7 @@ index 2f9012906888..725c6de41778 100644
  	int ret;
  
  	set_cpu_active(cpu, false);
-@@ -6985,6 +6987,14 @@ int sched_cpu_deactivate(unsigned int cpu)
+@@ -6986,6 +6988,14 @@ int sched_cpu_deactivate(unsigned int cpu)
  
  	balance_push_set(cpu, true);
  
@@ -51,7 +51,7 @@ index 2f9012906888..725c6de41778 100644
  #ifdef CONFIG_SCHED_SMT
  	/*
  	 * When going down, decrement the number of cores with SMT present.
-@@ -7066,10 +7076,6 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7067,10 +7077,6 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);

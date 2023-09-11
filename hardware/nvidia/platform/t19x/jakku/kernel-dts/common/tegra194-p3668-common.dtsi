@@ -272,6 +272,7 @@
 				dpaux3_pins {
 					pins = "dpaux3-3";
 					function = "i2c";
+					nvidia,set-rcv-det-3.3v-signal;
 				};
 			};
 		};
@@ -544,14 +545,14 @@
 
 	ethernet@2490000 {
 		nvidia,phy-reset-gpio = <&tegra_main_gpio TEGRA194_MAIN_GPIO(R, 1) 0>;
-		nvidia,phy-reset-post-delay = <224>;
-		nvidia,phy-reset-duration = <10000>;
                 mdio {
                         compatible = "nvidia,eqos-mdio";
                         #address-cells = <1>;
                         #size-cells = <0>;
                         phy0: phy@0 {
                                 reg = <1>;
+                                nvidia,phy-rst-pdelay-msec = <224>;
+                                nvidia,phy-rst-duration-usec = <10000>;
 			};
 		};
 	};

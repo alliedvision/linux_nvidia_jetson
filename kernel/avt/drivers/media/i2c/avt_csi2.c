@@ -53,6 +53,24 @@ module_param(v4l2_width_align, int, 0600);/* S_IRUGO */
 static int add_wait_time_ms = 2000;
 module_param(add_wait_time_ms, int, 0600);
 
+#define AVT_BINNING_MODE_FLAG_AVERAGE 	0b01
+#define AVT_BINNING_MODE_FLAG_SUM 		0b10
+
+
+enum avt_binning_type {
+	NONE = -1,
+	DIGITAL,
+	SENSOR,
+};
+
+struct avt_binning_setting {
+	int inq;
+	u8 sel;
+	u32 hfact;
+	u32 vfact;
+	enum avt_binning_type type;
+};
+
 static const char * const v4l2_triggeractivation_menu[] = {
         "Rising Edge",
         "Falling Edge",
@@ -72,6 +90,82 @@ static const char * const v4l2_binning_mode_menu[] = {
 		"Average",
 		"Sum",
 };
+
+static const long binning_modes_enabled[AVT_BINNING_TYPE_CNT] = {
+		[DIGITAL] = AVT_BINNING_MODE_FLAG_AVERAGE | AVT_BINNING_MODE_FLAG_SUM,
+		[SENSOR] = AVT_BINNING_MODE_FLAG_SUM,
+};
+
+static const char * const v4l2_binning_selector_menu[] = {
+		[DIGITAL] = "Digital",
+		[SENSOR] = "Sensor",
+};
+
+static const struct avt_binning_setting avt_binning_settings[] = {
+		{
+				.inq = -1,
+				.sel = BINNING_OFF,
+				.vfact = 1,
+				.hfact = 1,
+				.type = NONE,
+		}, {
+				.inq = 0,
+				.sel = DIGITAL_BINNING_2X2,
+				.vfact = 2,
+				.hfact = 2,
+				.type = DIGITAL,
+		}, {
+				.inq = 1,
+				.sel = DIGITAL_BINNING_3X3,
+				.vfact = 3,
+				.hfact = 3,
+				.type = DIGITAL,
+		}, {
+				.inq = 2,
+				.sel = DIGITAL_BINNING_4X4,
+				.vfact = 4,
+				.hfact = 4,
+				.type = DIGITAL,
+		}, {
+				.inq = 3,
+				.sel = DIGITAL_BINNING_5X5,
+				.vfact = 5,
+				.hfact = 5,
+				.type = DIGITAL,
+		}, {
+				.inq = 4,
+				.sel = DIGITAL_BINNING_6X6,
+				.vfact = 6,
+				.hfact = 6,
+				.type = DIGITAL,
+		}, {
+				.inq = 5,
+				.sel = DIGITAL_BINNING_7X7,
+				.vfact = 7,
+				.hfact = 7,
+				.type = DIGITAL,
+		}, {
+				.inq = 6,
+				.sel = DIGITAL_BINNING_8X8,
+				.vfact = 8,
+				.hfact = 8,
+				.type = DIGITAL,
+		}, {
+				.inq = 7,
+				.sel = SENSOR_BINNING_2X2,
+				.vfact = 2,
+				.hfact = 2,
+				.type = SENSOR,
+		}, {
+				.inq = 8,
+				.sel = SENSOR_BINNING_4X4,
+				.vfact = 4,
+				.hfact = 4,
+				.type = SENSOR,
+		},
+};
+
+static const size_t avt_binning_setting_cnt = ARRAY_SIZE(avt_binning_settings);
 
 #define AVT_DBG_LVL 3
 
@@ -350,7 +444,9 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 								else
 								{
 									dev_err(&client->dev, " Error while reading WRITE_HANDSHAKE_REG_8RW register.");
-									break;
+									// Ignore read errors for now, because when activating/deactivating sensor binning
+									// the camera does not respond for some time
+									//break;
 								}
 							} while (time_before(jiffies, timeout_jiffies));
 							if (!handshake_valid)
@@ -370,7 +466,9 @@ static uint64_t wait_for_bcrm_write_handshake(struct i2c_client *client, uint64_
 			else
 			{
 				dev_err(&client->dev, " Error while reading WRITE_HANDSHAKE_REG_8RW register.");
-				break;
+				// Ignore read errors for now, because when activating/deactivating sensor binning
+				// the camera does not respond for some time
+				//break;
 			}
 		}
 		while (!handshake_valid && time_before(jiffies, timeout_jiffies));
@@ -2024,30 +2122,31 @@ static int avt_csi2_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int avt_csi2_find_binning_idx(struct avt_csi2_priv *priv,int width, int height, u32 mbus_fmt_code)
+static const struct avt_binning_config* avt_csi2_find_binning_idx(struct avt_csi2_priv *priv,int width, int height, u32 mbus_fmt_code)
 {
 	int i;
 
-	for (i = 0; i < priv->available_binnings_cnt; i++) {
-		int aligned_width = avt_align_width(priv->subdev,priv->available_binnings[i].width,
-											priv->available_binnings[i].width,mbus_fmt_code);
-		if (aligned_width == width && priv->available_binnings[i].height == height) {
-			return i;
+	for (i = 0; i < priv->available_binnings_cnt[priv->cur_binning_type]; i++) {
+		const struct avt_binning_config* config = &priv->available_binnings[priv->cur_binning_type][i];
+		int aligned_width = avt_align_width(priv->subdev,config->width,
+											config->width,mbus_fmt_code);
+		if (aligned_width == width && config->height == height) {
+			return config;
 		}
 	}
 
-	return -EINVAL;
+	return ERR_PTR(-EINVAL);
 }
 
 static int avt_csi2_try_fmt(struct v4l2_subdev *sd,
 		struct v4l2_subdev_pad_config *cfg,
 		struct v4l2_subdev_format *format) {
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
-	int ret = 0;
+	const struct avt_binning_config *config;
 
-	ret = avt_csi2_find_binning_idx(priv, format->format.width, format->format.height,format->format.code);
+	config = avt_csi2_find_binning_idx(priv, format->format.width, format->format.height,format->format.code);
 
-	if (ret < 0) {
+	if (IS_ERR(config)) {
 		format->format.width = priv->frmp.r.width;
 		format->format.height = priv->frmp.r.height;
 	}
@@ -2084,24 +2183,20 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	if (format->format.width != priv->frmp.r.width ||
 		 format->format.height != priv->frmp.r.height)
 	{
-		ret = avt_csi2_find_binning_idx(priv, format->format.width, format->format.height,format->format.code);
-		if (ret < 0) {
+		const struct avt_binning_config* binning_config = avt_csi2_find_binning_idx(priv, format->format.width, format->format.height,format->format.code);
+		if (IS_ERR(binning_config)) {
 			format->format.width = priv->frmp.r.width;
 			format->format.height  = priv->frmp.r.height;
 		}
 		else {
-			int idx = ret;
-			struct avt_binning_config *binning_config = &priv->available_binnings[idx];
-			uint8_t setting = binning_config->setting;
-
 			ret = ioctl_gencam_i2cwrite_reg(priv->client, priv->cci_reg.bcrm_addr + BCRM_DIGITAL_BINNIG_SETTING_8RW,
-											AV_CAM_REG_SIZE,AV_CAM_DATA_SIZE_8, &setting);
+											AV_CAM_REG_SIZE,AV_CAM_DATA_SIZE_8, &binning_config->sel);
 			if (ret < 0) {
 				avt_err(sd, "i2c write failed (%d)\n", ret);
 				return ret;
 			}
 
-			priv->cur_binning_config = idx;
+			priv->cur_binning_config = binning_config;
 			priv->frmp.r.width = binning_config->width;
 			priv->frmp.r.height = binning_config->height;
 		}
@@ -2111,7 +2206,7 @@ static int avt_csi2_set_fmt(struct v4l2_subdev *sd,
 	{
 		//Update width and height with values of current binning setting to ensure the width and height are correct
 		//after alignment.
-		struct avt_binning_config *binning_config = &priv->available_binnings[priv->cur_binning_config];
+		const struct avt_binning_config *binning_config = priv->cur_binning_config;
 
 		priv->frmp.r.width = binning_config->width;
 		priv->frmp.r.height = binning_config->height;
@@ -2242,6 +2337,7 @@ static int avt_csi2_enum_framesizes(struct v4l2_subdev *sd,
 				struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
+	const struct avt_binning_config *config;
 	bool format_present = false;
 	int i;
 
@@ -2251,12 +2347,14 @@ static int avt_csi2_enum_framesizes(struct v4l2_subdev *sd,
 		if (avt_mbus_formats[i] == fse->code)
 			format_present = true;
 
-	if (fse->index >= priv->available_binnings_cnt || format_present == false)
+	if (fse->index >= priv->available_binnings_cnt[priv->cur_binning_type] || format_present == false)
 		return -EINVAL;
 
-	fse->min_width = fse->max_width = avt_align_width(sd,priv->available_binnings[fse->index].width,
-													  priv->available_binnings[fse->index].width,fse->code);
-	fse->min_height = fse->max_height = priv->available_binnings[fse->index].height;
+	config = &priv->available_binnings[priv->cur_binning_type][fse->index];
+
+	fse->min_width = fse->max_width = avt_align_width(sd,config->width,
+													  config->width,fse->code);
+	fse->min_height = fse->max_height = config->height;
 
 
 
@@ -3286,9 +3384,21 @@ static int ioctl_queryctrl(struct v4l2_subdev *sd,
 			strcpy(qctrl->name, "Binning Mode");
 			break;
 		}
+	case AVT_CID_BINNING_SELECTOR:
+		{
+			avt_dbg(sd, "case AVT_CID_BINNING_SELECTOR\n");
 
+			qctrl->default_value = 0;
+			qctrl->minimum = 0;
+			qctrl->step = 0;
+			qctrl->maximum = 1;
 
-		default:
+			qctrl->type = V4L2_CTRL_TYPE_MENU;
+
+			strcpy(qctrl->name, "Binning Selector");
+			break;
+		}
+	default:
 		avt_info(sd, "case default or not supported qctrl->id 0x%x\n",
 				qctrl->id);
 		qctrl->flags = V4L2_CTRL_FLAG_DISABLED;
@@ -5015,6 +5125,53 @@ static int avt_ioctl_s_ctrl(struct v4l2_subdev *sd, struct v4l2_ext_control *vc)
 			return ret;
 		}
 		return 0;
+	case AVT_CID_BINNING_SELECTOR:
+	{
+		struct v4l2_ctrl *binning_mode_ctrl;
+		struct v4l2_subdev_selection sel;
+		const struct avt_binning_config *config;
+		u32 aligned_width;
+
+		avt_dbg(sd, "case V4L2_CID_BINNING_SELECTOR vc->value %u\n", vc->value);
+		priv->cur_binning_type = vc->value;
+		config = &priv->available_binnings[priv->cur_binning_type][0];
+
+		ret = ioctl_gencam_i2cwrite_reg(priv->client, priv->cci_reg.bcrm_addr + BCRM_DIGITAL_BINNIG_SETTING_8RW,
+										AV_CAM_REG_SIZE,AV_CAM_DATA_SIZE_8, &config->sel);
+		if (ret < 0) {
+			avt_err(sd, "i2c write failed (%d)\n", ret);
+			return ret;
+		}
+
+		aligned_width = avt_align_width(priv->subdev, config->width, config->width, priv->mbus_fmt_code);
+
+		priv->frmp.r.width = aligned_width;
+		priv->frmp.r.height = config->height;
+
+		avt_info(sd,"Setting selection to (%u,%u,%u,%u)\n",priv->frmp.r.left,priv->frmp.r.top,priv->frmp.r.width,priv->frmp.r.height);
+
+		sel.target = V4L2_SEL_TGT_CROP;
+		sel.r = priv->frmp.r;
+
+		avt_set_selection(priv->subdev,NULL,&sel);
+
+		binning_mode_ctrl = avt_get_control(priv->subdev,V4L2_CID_BINNING_MODE);
+		if (binning_mode_ctrl != NULL)
+		{
+			const long modes_enabled = binning_modes_enabled[vc->value];
+			const u32 new_mode = find_first_bit(&modes_enabled,sizeof(modes_enabled));
+
+			__v4l2_ctrl_s_ctrl(binning_mode_ctrl,new_mode);
+
+			__v4l2_ctrl_modify_range(binning_mode_ctrl,
+									 binning_mode_ctrl->minimum,
+									 binning_mode_ctrl->maximum,
+									 ~modes_enabled,
+									 new_mode);
+		}
+
+		return 0;
+	}
 	default:
 		avt_err(sd, "case default or not supported\n");
 		ret = -EPERM;
@@ -6775,88 +6932,148 @@ static int avt_init_binning(struct v4l2_subdev *sd)
 {
 	struct avt_csi2_priv *priv = avt_get_priv(sd);
 	struct device *dev = &priv->client->dev;
-	int ret,i,j, binning_count = 1;
-	uint32_t width, height;
-	uint16_t binning_inquiry;
-	uint8_t setting;
+	int ret,i,j;
+	int type_idx[AVT_BINNING_TYPE_CNT];
+	u32 width_inc,height_inc;
+	u32 sensor_width,sensor_height;
+	u16 binning_inq;
 
 	ret = avt_reg_read(priv->client,
 					   priv->cci_reg.bcrm_addr + BCRM_DIGITAL_BINNIG_INQ_16R,
-					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_8,
-					   (char *) &binning_inquiry);
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_16,
+					   (char *) &binning_inq);
 	if (ret < 0) {
 		avt_err(sd, "i2c read failed (%d)\n", ret);
 		return ret;
 	}
 
-	avt_dbg(sd,"Binning inquiry: %d\n",binning_inquiry);
+	// In the firmware version without sensor binning the byteorder of the
+	// inquiry register is swapped.
+	// If the digital binning fields are zero and the bits outside the
+	// allowed range are set, then the byteorder will be swapped.
+	if ((binning_inq & 0x7f) == 0 && (binning_inq & 0xffe) != 0) {
+		__swab16s(&binning_inq);
+	}
 
-	for (i = 0;i < 7;i++) {
-		if (binning_inquiry & (1 << i)) {
-			avt_dbg(sd,"Active binning: %d\n",i);
-			binning_count++;
+	avt_dbg(sd,"Binning inquiry: %d\n",binning_inq);
+
+	ret = avt_reg_read(priv->client,
+						priv->cci_reg.bcrm_addr + BCRM_IMG_WIDTH_INC_32R,
+						AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+						(char *) &width_inc);
+	if (ret < 0)
+		return ret;
+
+	width_inc = ilog2(width_inc);
+
+	ret = avt_reg_read(priv->client,
+					   priv->cci_reg.bcrm_addr + BCRM_IMG_HEIGHT_INC_32R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+					   (char *) &height_inc);
+
+	if (ret < 0)
+		return ret;
+
+	height_inc = ilog2(height_inc);
+
+	ret = avt_reg_read(priv->client,
+					   priv->cci_reg.bcrm_addr + BCRM_SENSOR_WIDTH_32R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+					   (char *) &sensor_width);
+
+	if (ret < 0)
+		return ret;
+
+	ret = avt_reg_read(priv->client,
+					   priv->cci_reg.bcrm_addr + BCRM_SENSOR_HEIGHT_32R,
+					   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
+					   (char *) &sensor_height);
+
+	if (ret < 0)
+		return ret;
+
+	for (i = 0;i < avt_binning_setting_cnt;i++) {
+		const struct avt_binning_setting *setting =
+				&avt_binning_settings[i];
+
+		if (setting->inq == -1 || binning_inq & (1 << setting->inq)) {
+			if (setting->type == NONE) {
+				for (j = 0;j < AVT_BINNING_TYPE_CNT;j++)
+					priv->available_binnings_cnt[j]++;
+			} else {
+				priv->available_binnings_cnt[setting->type]++;
+			}
 		}
 	}
 
-	priv->available_binnings = devm_kzalloc(dev,sizeof(struct avt_binning_config) * binning_count,GFP_KERNEL);
-	priv->available_binnings_cnt = binning_count;
-
-
-	for (i = 0,j = 1;i < 7;i++) {
-		if (binning_inquiry & (1 << i)) {
-			priv->available_binnings[j].setting = i + 1;
-			j++;
-		}
+	for (i = 0;i < AVT_BINNING_TYPE_CNT;i++) {
+		priv->available_binnings[i] = kcalloc(priv->available_binnings_cnt[i],
+										   sizeof(struct avt_binning_config),GFP_KERNEL);
 	}
 
+	memset(type_idx,0,sizeof(type_idx[0]) * AVT_BINNING_TYPE_CNT);
+	for (i = 0;i < avt_binning_setting_cnt;i++) {
+		const struct avt_binning_setting *setting = &avt_binning_settings[i];
+		if (setting->inq == -1 || binning_inq & (1<<setting->inq)) {
+			struct avt_binning_config config = {0};
 
-	for (i = 0; i < binning_count; i++) {
-		setting = priv->available_binnings[i].setting;
+			/*info.vfact = setting->vfact;
+			info.hfact = setting->hfact;*/
+			config.sel = setting->sel;
 
-		ret = ioctl_gencam_i2cwrite_reg(priv->client, priv->cci_reg.bcrm_addr + BCRM_DIGITAL_BINNIG_SETTING_8RW,
-										AV_CAM_REG_SIZE,AV_CAM_DATA_SIZE_8, &setting);
-		if (ret < 0) {
-			avt_err(sd, "i2c write failed (%d)\n", ret);
-			return ret;
+			config.width = sensor_width / setting->hfact;
+			config.height = sensor_height / setting->vfact;
+
+			v4l_bound_align_image(&config.width,0,
+								  config.width,3,
+								  &config.height,0,
+								  config.height,3,0);
+
+
+			if (setting->type == NONE) {
+				int l;
+				for (l = 0; l < AVT_BINNING_TYPE_CNT; l++) {
+					const int idx = type_idx[l]++;
+
+					dev_dbg(dev,
+							"Binning setting %dx%d: width %u "
+							"height %u type: %s\n",
+							setting->hfact,setting->vfact,
+							config.width,config.height,
+							v4l2_binning_selector_menu[l]);
+
+					config.type = l;
+					priv->available_binnings[l][idx] = config;
+				}
+			} else {
+				const u32 type = setting->type;
+				const int idx = type_idx[type]++;
+
+
+				dev_dbg(dev,
+						"Binning setting %dx%d: width %u "
+						"height %u type: %s\n",
+						setting->hfact,setting->vfact,
+						config.width,config.height,
+						v4l2_binning_selector_menu[type]);
+
+				config.type = type;
+				priv->available_binnings[type][idx] = config;
+			}
+
+
 		}
-
-		ret = avt_reg_read(priv->client,
-						   priv->cci_reg.bcrm_addr + BCRM_WIDTH_MAX_32R,
-						   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
-						   (char *) &width);
-		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
-			return ret;
-		}
-
-		ret = avt_reg_read(priv->client,
-						   priv->cci_reg.bcrm_addr + BCRM_HEIGHT_MAX_32R,
-						   AV_CAM_REG_SIZE, AV_CAM_DATA_SIZE_32,
-						   (char *) &height);
-		if (ret < 0) {
-			avt_err(sd, "i2c read failed (%d)\n", ret);
-			return ret;
-		}
-
-		priv->available_binnings[i].width = width;
-		priv->available_binnings[i].height = height;
 	}
 
 
 	//Initial turn binning off
-	priv->cur_binning_config = 0;
+	priv->cur_binning_type = DIGITAL;
+	priv->cur_binning_config = &priv->available_binnings[0][0];
 
-	setting = priv->available_binnings[priv->cur_binning_config].setting;
-	ret = ioctl_gencam_i2cwrite_reg(priv->client, priv->cci_reg.bcrm_addr + BCRM_DIGITAL_BINNIG_SETTING_8RW,
-									AV_CAM_REG_SIZE,AV_CAM_DATA_SIZE_8, &setting);
-	if (ret < 0) {
-		avt_err(sd, "i2c write failed (%d)\n", ret);
-		return ret;
-	}
 
 	//Set framesize
-	priv->frmp.r.width = priv->available_binnings[priv->cur_binning_config].width;
-	priv->frmp.r.height = priv->available_binnings[priv->cur_binning_config].height;
+	priv->frmp.r.width = priv->cur_binning_config->width;
+	priv->frmp.r.height = priv->cur_binning_config->height;
 
 
 	return 0;
@@ -7121,16 +7338,19 @@ static int avt_initialize_controls(struct i2c_client *client, struct avt_csi2_pr
             priv->ctrl_cfg[i].qmenu = v4l2_triggeractivation_menu;
             priv->ctrl_cfg[i].menu_skip_mask = 0;
         }
-
-        if (priv->ctrl_cfg[i].id == V4L2_CID_TRIGGER_SOURCE)
+		else if (priv->ctrl_cfg[i].id == V4L2_CID_TRIGGER_SOURCE)
         {
             priv->ctrl_cfg[i].qmenu = v4l2_triggersource_menu;
             priv->ctrl_cfg[i].menu_skip_mask = 0;
         }
-
-		if (priv->ctrl_cfg[i].id == V4L2_CID_BINNING_MODE)
+		else if (priv->ctrl_cfg[i].id == V4L2_CID_BINNING_MODE)
 		{
 			priv->ctrl_cfg[i].qmenu = v4l2_binning_mode_menu;
+			priv->ctrl_cfg[i].menu_skip_mask = 0;
+		}
+		else if (priv->ctrl_cfg[i].id == AVT_CID_BINNING_SELECTOR)
+		{
+			priv->ctrl_cfg[i].qmenu = v4l2_binning_selector_menu;
 			priv->ctrl_cfg[i].menu_skip_mask = 0;
 		}
 

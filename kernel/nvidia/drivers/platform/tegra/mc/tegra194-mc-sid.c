@@ -1,7 +1,7 @@
 /*
  * Tegra194 MC StreamID configuration
  *
- * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,10 +23,15 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 
 #include <linux/platform/tegra/tegra-mc-sid.h>
 #include <dt-bindings/memory/tegra-swgroup.h>
 #include <dt-bindings/memory/tegra194-swgroup.h>
+
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
+#include <dt-bindings/memory/tegra194-mc.h>
+#endif
 
 enum override_id {
 	PTCR,
@@ -297,14 +302,28 @@ static struct sid_override_reg sid_override_reg[] = {
 
 static struct sid_to_oids sid_to_oids[] = {
 	{
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
+		.client_id = TEGRA194_MEMORY_CLIENT_NVDISPLAYR,
+#endif
 		.sid	= TEGRA_SID_NVDISPLAY,
-		.noids	= 2,
+		.noids	= 1,
 		.oid	= {
 			NVDISPLAYR,
+		},
+		.ord = OVERRIDE,
+		.name = "NVDISPLAYR",
+	},
+	{
+#if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE
+		.client_id = TEGRA194_MEMORY_CLIENT_NVDISPLAYR1,
+#endif
+		.sid	= TEGRA_SID_NVDISPLAY,
+		.noids	= 1,
+		.oid	= {
 			NVDISPLAYR1,
 		},
 		.ord = OVERRIDE,
-		.name = "NVDISPLAY",
+		.name = "NVDISPLAYR1",
 	},
 };
 

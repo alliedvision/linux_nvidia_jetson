@@ -1,4 +1,4 @@
-From b5c2e7a70a10dcfcc09291856fd04611752feb1b Mon Sep 17 00:00:00 2001
+From 344d418d786919e334360b226b7181ddb0df7bd5 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 18 Dec 2020 11:40:08 +0000
 Subject: [PATCH 090/318] printk: introduce a kmsg_dump iterator
@@ -129,7 +129,7 @@ index e4abac6c9727..f38349ad00ea 100644
  		printf("%s", line);
  	}
 diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
-index 362da2a83b47..76d9fb48bc83 100644
+index 5d820037e291..13d56054e3d2 100644
 --- a/drivers/hv/vmbus_drv.c
 +++ b/drivers/hv/vmbus_drv.c
 @@ -1359,7 +1359,8 @@ static void vmbus_isr(void)
@@ -175,10 +175,10 @@ index 774970bfcf85..6bc2c728adb7 100644
  
  	if (reason != KMSG_DUMP_OOPS) {
 diff --git a/fs/pstore/platform.c b/fs/pstore/platform.c
-index b1ebf7b61732..b7e3a6bacbb0 100644
+index ce03c3dbb5c3..5c2c14d5f6fc 100644
 --- a/fs/pstore/platform.c
 +++ b/fs/pstore/platform.c
-@@ -383,7 +383,8 @@ void pstore_record_init(struct pstore_record *record,
+@@ -384,7 +384,8 @@ void pstore_record_init(struct pstore_record *record,
   * end of the buffer.
   */
  static void pstore_dump(struct kmsg_dumper *dumper,
@@ -188,7 +188,7 @@ index b1ebf7b61732..b7e3a6bacbb0 100644
  {
  	unsigned long	total = 0;
  	const char	*why;
-@@ -435,7 +436,7 @@ static void pstore_dump(struct kmsg_dumper *dumper,
+@@ -434,7 +435,7 @@ static void pstore_dump(struct kmsg_dumper *dumper,
  		dst_size -= header_size;
  
  		/* Write dump contents. */
@@ -302,10 +302,10 @@ index 4095a34db0fa..2fdb10ab1799 100644
  }
  
 diff --git a/kernel/debug/kdb/kdb_main.c b/kernel/debug/kdb/kdb_main.c
-index 930ac1b25ec7..7ae9da245e4b 100644
+index 4e09fab52faf..048baadd7a41 100644
 --- a/kernel/debug/kdb/kdb_main.c
 +++ b/kernel/debug/kdb/kdb_main.c
-@@ -2101,7 +2101,7 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2157,7 +2157,7 @@ static int kdb_dmesg(int argc, const char **argv)
  	int adjust = 0;
  	int n = 0;
  	int skip = 0;
@@ -314,7 +314,7 @@ index 930ac1b25ec7..7ae9da245e4b 100644
  	size_t len;
  	char buf[201];
  
-@@ -2126,8 +2126,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2182,8 +2182,8 @@ static int kdb_dmesg(int argc, const char **argv)
  		kdb_set(2, setargs);
  	}
  
@@ -325,7 +325,7 @@ index 930ac1b25ec7..7ae9da245e4b 100644
  		n++;
  
  	if (lines < 0) {
-@@ -2159,8 +2159,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2215,8 +2215,8 @@ static int kdb_dmesg(int argc, const char **argv)
  	if (skip >= n || skip < 0)
  		return 0;
  
@@ -337,10 +337,10 @@ index 930ac1b25ec7..7ae9da245e4b 100644
  			skip--;
  			continue;
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index c0d448cb196f..c3edac824428 100644
+index 986fc9fad210..b992be31824f 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3392,6 +3392,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_reason_str);
+@@ -3394,6 +3394,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_reason_str);
   */
  void kmsg_dump(enum kmsg_dump_reason reason)
  {
@@ -348,7 +348,7 @@ index c0d448cb196f..c3edac824428 100644
  	struct kmsg_dumper *dumper;
  	unsigned long flags;
  
-@@ -3411,25 +3412,21 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3413,25 +3414,21 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  			continue;
  
  		/* initialize iterator with data about the stored records */
@@ -379,7 +379,7 @@ index c0d448cb196f..c3edac824428 100644
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3446,7 +3443,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3448,7 +3445,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
   *
   * The function is similar to kmsg_dump_get_line(), but grabs no locks.
   */
@@ -388,7 +388,7 @@ index c0d448cb196f..c3edac824428 100644
  			       char *line, size_t size, size_t *len)
  {
  	struct printk_info info;
-@@ -3457,16 +3454,16 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3459,16 +3456,16 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  	prb_rec_init_rd(&r, &info, line, size);
  
@@ -408,7 +408,7 @@ index c0d448cb196f..c3edac824428 100644
  					 &info, &line_count)) {
  			goto out;
  		}
-@@ -3475,7 +3472,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3477,7 +3474,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  	}
  
@@ -417,7 +417,7 @@ index c0d448cb196f..c3edac824428 100644
  	ret = true;
  out:
  	if (len)
-@@ -3485,7 +3482,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3487,7 +3484,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  /**
   * kmsg_dump_get_line - retrieve one kmsg log line
@@ -426,7 +426,7 @@ index c0d448cb196f..c3edac824428 100644
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3500,14 +3497,14 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3502,14 +3499,14 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
   * A return value of FALSE indicates that there are no more records to
   * read.
   */
@@ -443,7 +443,7 @@ index c0d448cb196f..c3edac824428 100644
  	logbuf_unlock_irqrestore(flags);
  
  	return ret;
-@@ -3516,7 +3513,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3518,7 +3515,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  
  /**
   * kmsg_dump_get_buffer - copy kmsg log lines
@@ -452,7 +452,7 @@ index c0d448cb196f..c3edac824428 100644
   * @syslog: include the "<4>" prefixes
   * @buf: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3533,7 +3530,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3535,7 +3532,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
   * A return value of FALSE indicates that there are no more records to
   * read.
   */
@@ -461,7 +461,7 @@ index c0d448cb196f..c3edac824428 100644
  			  char *buf, size_t size, size_t *len_out)
  {
  	struct printk_info info;
-@@ -3545,19 +3542,19 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3547,19 +3544,19 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	bool ret = false;
  	bool time = printk_time;
  
@@ -486,7 +486,7 @@ index c0d448cb196f..c3edac824428 100644
  		logbuf_unlock_irqrestore(flags);
  		goto out;
  	}
-@@ -3568,7 +3565,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3570,7 +3567,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	 * because this function (by way of record_print_text()) will
  	 * not write more than size-1 bytes of text into @buf.
  	 */
@@ -495,7 +495,7 @@ index c0d448cb196f..c3edac824428 100644
  				     size - 1, syslog, time);
  
  	/*
-@@ -3581,7 +3578,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3583,7 +3580,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  
  	len = 0;
  	prb_for_each_record(seq, prb, seq, &r) {
@@ -504,7 +504,7 @@ index c0d448cb196f..c3edac824428 100644
  			break;
  
  		len += record_print_text(&r, syslog, time);
-@@ -3590,7 +3587,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3592,7 +3589,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  		prb_rec_init_rd(&r, &info, buf + len, size - len);
  	}
  
@@ -513,7 +513,7 @@ index c0d448cb196f..c3edac824428 100644
  	ret = true;
  	logbuf_unlock_irqrestore(flags);
  out:
-@@ -3602,7 +3599,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3604,7 +3601,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
  /**
   * kmsg_dump_rewind_nolock - reset the iterator (unlocked version)
@@ -522,7 +522,7 @@ index c0d448cb196f..c3edac824428 100644
   *
   * Reset the dumper's iterator so that kmsg_dump_get_line() and
   * kmsg_dump_get_buffer() can be called again and used multiple
-@@ -3610,26 +3607,26 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3612,26 +3609,26 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
   *
   * The function is similar to kmsg_dump_rewind(), but grabs no locks.
   */

@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for Tegra194 SoC
  *
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Author: Vidya Sagar <vidyas@nvidia.com>
  */
@@ -318,12 +318,6 @@
 #define AMBA_ERROR_RESPONSE_CRS_OKAY		0
 #define AMBA_ERROR_RESPONSE_CRS_OKAY_FFFFFFFF	1
 #define AMBA_ERROR_RESPONSE_CRS_OKAY_FFFF0001	2
-
-#define PORT_LOGIC_AMBA_LINK_TIMEOUT		0x8D4
-#define AMBA_LINK_TIMEOUT_PERIOD_MASK		0xFF
-#define AMBA_LINK_TIMEOUT_PERIOD_VAL		0x7
-
-#define PCI_EXP_DEVCTL2_CPL_TO_VAL		0x2 /* Range-A: 1ms to 10ms */
 
 #define PL_IF_TIMER_CONTROL_OFF			0x930
 #define PL_IF_TIMER_CONTROL_OFF_IF_TIMER_EN	BIT(0)
@@ -2374,18 +2368,6 @@ static void tegra_pcie_prepare_host(struct pcie_port *pp)
 		AMBA_ERROR_RESPONSE_CRS_SHIFT);
 	dw_pcie_writel_dbi(pci, PORT_LOGIC_AMBA_ERROR_RESPONSE_DEFAULT, val);
 
-	/* Reduce the AXI slave Timeout value to 7ms */
-	val  = dw_pcie_readl_dbi(pci, PORT_LOGIC_AMBA_LINK_TIMEOUT);
-	val &= ~AMBA_LINK_TIMEOUT_PERIOD_MASK;
-	val |= AMBA_LINK_TIMEOUT_PERIOD_VAL;
-	dw_pcie_writel_dbi(pci, PORT_LOGIC_AMBA_LINK_TIMEOUT, val);
-
-	/* Set the Completion Timeout value in 1ms~10ms range */
-	val_16  = dw_pcie_readw_dbi(pci, pcie->pcie_cap_base + PCI_EXP_DEVCTL2);
-	val_16 &= ~PCI_EXP_DEVCTL2_COMP_TIMEOUT;
-	val_16 |= PCI_EXP_DEVCTL2_CPL_TO_VAL;
-	dw_pcie_writew_dbi(pci, pcie->pcie_cap_base + PCI_EXP_DEVCTL2, val_16);
-
 	/* Configure Max lane width from DT */
 	val = dw_pcie_readl_dbi(pci, pcie->pcie_cap_base + PCI_EXP_LNKCAP);
 	val &= ~PCI_EXP_LNKCAP_MLW;
@@ -3746,12 +3728,6 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw *pcie)
 	val_16 &= ~PCI_EXP_DEVCTL_PAYLOAD;
 	val_16 |= PCI_EXP_DEVCTL_PAYLOAD_256B;
 	dw_pcie_writew_dbi(pci, pcie->pcie_cap_base + PCI_EXP_DEVCTL, val_16);
-
-	/* Set the Completion Timeout value in 1ms~10ms range */
-	val_16  = dw_pcie_readw_dbi(pci, pcie->pcie_cap_base + PCI_EXP_DEVCTL2);
-	val_16 &= ~PCI_EXP_DEVCTL2_COMP_TIMEOUT;
-	val_16 |= PCI_EXP_DEVCTL2_CPL_TO_VAL;
-	dw_pcie_writew_dbi(pci, pcie->pcie_cap_base + PCI_EXP_DEVCTL2, val_16);
 
 	/* Clear Slot Clock Configuration bit if SRNS configuration */
 	if (pcie->enable_srns) {

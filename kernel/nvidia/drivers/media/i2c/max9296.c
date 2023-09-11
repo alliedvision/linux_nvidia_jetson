@@ -219,7 +219,7 @@ int max9296_power_on(struct device *dev)
 	mutex_lock(&priv->lock);
 	if (priv->pw_ref == 0) {
 		usleep_range(1, 2);
-		if (priv->reset_gpio)
+		if (gpio_is_valid(priv->reset_gpio))
 			gpio_set_value(priv->reset_gpio, 0);
 
 		usleep_range(30, 50);
@@ -233,7 +233,7 @@ int max9296_power_on(struct device *dev)
 		usleep_range(30, 50);
 
 		/*exit reset mode: XCLR */
-		if (priv->reset_gpio) {
+		if (gpio_is_valid(priv->reset_gpio)) {
 			gpio_set_value(priv->reset_gpio, 0);
 			usleep_range(30, 50);
 			gpio_set_value(priv->reset_gpio, 1);
@@ -263,7 +263,7 @@ void max9296_power_off(struct device *dev)
 	if (priv->pw_ref == 0) {
 		/* enter reset mode: XCLR */
 		usleep_range(1, 2);
-		if (priv->reset_gpio)
+		if (gpio_is_valid(priv->reset_gpio))
 			gpio_set_value(priv->reset_gpio, 0);
 
 		if (priv->vdd_cam_1v2)

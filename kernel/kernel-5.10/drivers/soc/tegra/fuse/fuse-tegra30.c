@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA CORPORATION.  All rights reserved.
  */
 
 #include <linux/device.h>
@@ -458,7 +458,7 @@ static const struct nvmem_cell_lookup tegra234_fuse_lookups[] = {
 
 static const struct tegra_fuse_info tegra234_fuse_info = {
 	.read = tegra30_fuse_read,
-	.size = 0x300,
+	.size = 0xf90,
 	.spare = 0x280,
 };
 

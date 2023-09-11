@@ -1,10 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
 ################################################################################
 #
 # r8168 is the Linux device driver released for Realtek Gigabit Ethernet
 # controllers with PCI-Express interface.
 #
-# Copyright(c) 2017 Realtek Semiconductor Corp. All rights reserved.
+# Copyright(c) 2022 Realtek Semiconductor Corp. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -44,6 +45,10 @@ enum rtl_dash_cmd {
         RTL_DASH_SEND_BUFFER_DATA_TO_DASH_FW,
         RTL_DASH_CHECK_SEND_BUFFER_TO_DASH_FW_COMPLETE,
         RTL_DASH_GET_RCV_FROM_FW_BUFFER_DATA,
+        RTL_DASH_OOB_REQ,
+        RTL_DASH_OOB_ACK,
+        RTL_DASH_DETACH_OOB_REQ,
+        RTL_DASH_DETACH_OOB_ACK,
 
         RTL_FW_SET_IPV4 = 0x10,
         RTL_FW_GET_IPV4,
@@ -110,25 +115,23 @@ struct wakeup_pattern {
 };
 
 typedef struct _RX_DASH_FROM_FW_DESC {
-        u16 length;
-        u8 statusLowByte;
-        u8 statusHighByte;
-        u32 resv;
-        u64 BufferAddress;
+        __le16 length;
+        __le16 status;
+        __le32 resv;
+        __le64 BufferAddress;
 }
 RX_DASH_FROM_FW_DESC, *PRX_DASH_FROM_FW_DESC;
 
 typedef struct _TX_DASH_SEND_FW_DESC {
-        u16 length;
-        u8 statusLowByte;
-        u8 statusHighByte;
-        u32 resv;
-        u64 BufferAddress;
+        __le16 length;
+        __le16 status;
+        __le32 resv;
+        __le64 BufferAddress;
 }
 TX_DASH_SEND_FW_DESC, *PTX_DASH_SEND_FW_DESC;
 
 typedef struct _OSOOBHdr {
-        u32 len;
+        __le32 len;
         u8 type;
         u8 flag;
         u8 hostReqV;
@@ -168,17 +171,16 @@ RX_DASH_BUFFER_TYPE_2, *PRX_DASH_BUFFER_TYPE_2;
 #define OCP_REG_CONFIG0_DRV_WAIT_OOB     BIT_8
 #define OCP_REG_CONFIG0_TLSEN            BIT_7
 
-#define HW_DASH_SUPPORT_DASH(_M)        ((_M)->HwSuppDashVer > 0 )
-#define HW_DASH_SUPPORT_TYPE_1(_M)        ((_M)->HwSuppDashVer == 1 )
-#define HW_DASH_SUPPORT_TYPE_2(_M)        ((_M)->HwSuppDashVer == 2 )
-#define HW_DASH_SUPPORT_TYPE_3(_M)        ((_M)->HwSuppDashVer == 3 )
+#define HW_DASH_SUPPORT_DASH(_M)        ((_M)->HwSuppDashVer > 0)
+#define HW_DASH_SUPPORT_TYPE_1(_M)        ((_M)->HwSuppDashVer == 1)
+#define HW_DASH_SUPPORT_TYPE_2(_M)        ((_M)->HwSuppDashVer == 2)
+#define HW_DASH_SUPPORT_TYPE_3(_M)        ((_M)->HwSuppDashVer == 3)
 
-#define RECV_FROM_FW_BUF_SIZE (1520)
-#define SEND_TO_FW_BUF_SIZE (1520)
+#define RECV_FROM_FW_BUF_SIZE (2048)
+#define SEND_TO_FW_BUF_SIZE (2048)
 
 #define RX_DASH_FROM_FW_OWN BIT_15
 #define TX_DASH_SEND_FW_OWN BIT_15
-#define TX_DASH_SEND_FW_OWN_HIGHBYTE BIT_7
 
 #define TXS_CC3_0       (BIT_0|BIT_1|BIT_2|BIT_3)
 #define TXS_EXC         BIT_4
@@ -237,12 +239,12 @@ RX_DASH_BUFFER_TYPE_2, *PRX_DASH_BUFFER_TYPE_2;
 #define CMAC_TXDESC_OFFSET 0x98    //TX: 0x98 - 0x9F
 
 /* cmac write/read MMIO register */
-#define RTL_CMAC_W8(reg, val8)   writeb ((val8), tp->cmac_ioaddr + (reg))
-#define RTL_CMAC_W16(reg, val16) writew ((val16), tp->cmac_ioaddr + (reg))
-#define RTL_CMAC_W32(reg, val32) writel ((val32), tp->cmac_ioaddr + (reg))
-#define RTL_CMAC_R8(reg)     readb (tp->cmac_ioaddr + (reg))
-#define RTL_CMAC_R16(reg)        readw (tp->cmac_ioaddr + (reg))
-#define RTL_CMAC_R32(reg)        ((unsigned long) readl (tp->cmac_ioaddr + (reg)))
+#define RTL_CMAC_W8(tp, reg, val8)   writeb ((val8), tp->cmac_ioaddr + (reg))
+#define RTL_CMAC_W16(tp, reg, val16) writew ((val16), tp->cmac_ioaddr + (reg))
+#define RTL_CMAC_W32(tp, reg, val32) writel ((val32), tp->cmac_ioaddr + (reg))
+#define RTL_CMAC_R8(tp, reg)     readb (tp->cmac_ioaddr + (reg))
+#define RTL_CMAC_R16(tp, reg)        readw (tp->cmac_ioaddr + (reg))
+#define RTL_CMAC_R32(tp, reg)        ((unsigned long) readl (tp->cmac_ioaddr + (reg)))
 
 int rtl8168_dash_ioctl(struct net_device *dev, struct ifreq *ifr);
 void HandleDashInterrupt(struct net_device *dev);

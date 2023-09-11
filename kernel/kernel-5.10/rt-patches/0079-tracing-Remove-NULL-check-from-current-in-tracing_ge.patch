@@ -1,4 +1,4 @@
-From 37c0e8f064250ea83412f3c751d415eadde0fd7d Mon Sep 17 00:00:00 2001
+From cd16354f1e0189847fcf010a3ab7889757ec6981 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:26 -0500
 Subject: [PATCH 079/318] tracing: Remove NULL check from current in

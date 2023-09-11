@@ -1,4 +1,4 @@
-From f4d01f55f6a2f415cfe94d827f1f682353d5962e Mon Sep 17 00:00:00 2001
+From c4e865714644d49d6e56bb5d0053faab248902da Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:48 +0100
 Subject: [PATCH 074/318] doc: Update RCU's requirements page about the

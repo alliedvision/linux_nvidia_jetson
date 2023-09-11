@@ -37,6 +37,7 @@ client_context_search_locked(struct platform_device *pdev,
 {
 	struct nvpva_client_context *c_node = NULL;
 	uint32_t i;
+	bool shared_cntxt_dev;
 
 	for (i = 0U; i < NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG; i++) {
 		c_node = &dev->clients[i];
@@ -53,28 +54,35 @@ client_context_search_locked(struct platform_device *pdev,
 	if (i >= NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG)
 		return NULL;
 
+	shared_cntxt_dev =  i > (NVPVA_CLIENT_MAX_CONTEXTS_PER_ENG - 3);
+
 	c_node->pid = pid;
 	c_node->pva = dev;
 	c_node->curr_sema_value = 0;
 	mutex_init(&c_node->sema_val_lock);
 	if (dev->version == PVA_HW_GEN2) {
-		c_node->cntxt_dev = nvpva_iommu_context_dev_allocate();
+		c_node->cntxt_dev =
+			nvpva_iommu_context_dev_allocate(NULL,
+							 0,
+							 shared_cntxt_dev);
 
 		if (c_node->cntxt_dev == NULL)
 			return NULL;
 
 		c_node->sid_index = nvpva_get_id_idx(dev, c_node->cntxt_dev) - 1;
 	} else {
-		c_node->cntxt_dev = NULL;
+		c_node->cntxt_dev = pdev;
 		c_node->sid_index = 0;
 	}
 
-	c_node->buffers = nvpva_buffer_init(dev->pdev, c_node->cntxt_dev);
+	c_node->elf_ctx.cntxt_dev = c_node->cntxt_dev;
+	c_node->buffers = nvpva_buffer_init(dev->pdev, dev->aux_pdev, c_node->cntxt_dev);
 	if (IS_ERR(c_node->buffers)) {
 		dev_err(&dev->pdev->dev,
 			"failed to init nvhost buffer for client:%lu",
 			PTR_ERR(c_node->buffers));
-		nvpva_iommu_context_dev_release(c_node->cntxt_dev);
+		if (dev->version == PVA_HW_GEN2)
+			nvpva_iommu_context_dev_release(c_node->cntxt_dev);
 		c_node = NULL;
 	}
 

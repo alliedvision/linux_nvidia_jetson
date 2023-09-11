@@ -1,7 +1,7 @@
 /*
  * Top level DTS file for CVM:P3701-0000 and CVB:P3737-0000.
  *
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
 #include <t234-common-cvm/tegra234-cpuidle.dtsi>
 #include <t234-common-cvm/tegra234-thermal.dtsi>
+#include <t234-common-cvm/tegra234-thermal-cooling.dtsi>
 
 / {
 	nvidia,dtsfilename = __FILE__;
@@ -83,5 +84,80 @@
 		/delete-node/ cpu@9;
 		/delete-node/ cpu@10;
 		/delete-node/ cpu@11;
+	};
+
+	thermal-zones {
+		CPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		GPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
 	};
 };

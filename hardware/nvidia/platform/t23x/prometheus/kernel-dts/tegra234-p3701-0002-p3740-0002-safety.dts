@@ -1,7 +1,7 @@
 /*
  * Top level DTS file for CVM:P3701-0002 and CVB:P3704-0002.
  *
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,25 @@
 	compatible = "nvidia,p3740-0002+p3701-0002-safety", "nvidia,tegra23x",
 		      "nvidia,tegra234";
 
+	/*
+	 * SPI3 instance is reserved for the CCPLEX-SMCU communications
+	 * and can not be used for any other purposes.
+	 */
+	spi@3230000 {
+		compatible = "nvidia,tegra186-spi-slave";
+		status = "okay";
+
+		spi@0 {
+			compatible = "tegra-spidev";
+			reg = <0x00>;
+			nvidia,raw_data;
+			spi-max-frequency = <0x4d3f640>;
+			controller-data {
+				nvidia,lsbyte-first;
+			};
+		};
+	};
+
 	/* This is hsp_top2 where fsi-ccplex comm happens in all below nodes */
 	tegra-hsp@1600000 {
 		status = "okay";
@@ -30,46 +49,6 @@
 
 	fsicom_client { /* Kernel driver on which FsiComIvc relies on */
 		status = "okay";
-	};
-
-	FsiComIvc { /* CCPLEX-FSI Comm Daemon uses below DT node */
-		compatible = "nvidia,tegra-fsicom-channels";
-		status = "okay";
-		nChannel=<7>;
-		channel_0{
-			frame-count = <4>;
-			frame-size = <1024>;
-			NvSciCh = "nvfsicom_EPD";
-		};
-		channel_1{
-			frame-count = <30>;
-			frame-size = <64>;
-			NvSciCh = "nvfsicom_CcplexApp";
-		};
-		channel_2{
-			frame-count = <4>;
-			frame-size = <64>;
-			NvSciCh = "nvfsicom_CcplexApp_state_change";
-		};
-		channel_3{
-			frame-count = <4>;
-			frame-size = <64>;
-			NvSciCh = "nvfsicom_app1";
-		};
-		channel_4{
-			frame-count = <2>;
-			frame-size = <512>;
-			NvSciCh = "nvfsicom_app2";
-		};
-		channel_5{
-			frame-count = <4>;
-			frame-size = <64>;
-			NvSciCh = "nvfsicom_appGR";
-		};
-		channel_6{
-			frame-count = <4>;
-			frame-size = <10240>;
-		};
 	};
 
 	/*
@@ -92,12 +71,6 @@
 		/* Sample :<0x8000 0xFFFFFFFF>;*/
 		/*If the Error code mask is 0xFFFFFFFF then all the error code from the reporter ID will be disabled*/
 		Sw_Errors = <>;
-	};
-
-	FsiComAppChConfCcplexApp {
-		compatible = "nvidia,tegra-fsicom-CcplexApp";
-		status = "okay";
-		channelid_list = <1 2>;
 	};
 
 	safetyservices_epl_client { /* userspace app uses this driver to send error code */

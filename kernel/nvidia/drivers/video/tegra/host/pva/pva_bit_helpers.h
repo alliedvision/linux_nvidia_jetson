@@ -92,4 +92,64 @@ static inline bool rmos_test_bit32(unsigned int nr, const unsigned int *addr)
 	return (*addr & (1 << nr)) != 0U;
 }
 
+/**
+ * @brief: Function which returns the max of two unsigned integers
+ *
+ * @param[in] a		Unsigned integer
+ * @param[in] b		Unsigned integer
+ *
+ * @return
+ *	- a if a > b
+ *	- b if b <= a
+ */
+static inline uint32_t get_max_uint(uint32_t a, uint32_t b)
+{
+	return (a > b) ? a : b;
+}
+
+/**
+ * @brief: Function which returns the min of two unsigned integers
+ *
+ * @param[in] a		Unsigned integer
+ * @param[in] b		Unsigned integer
+ *
+ * @return
+ *	- a if a < b
+ *	- b if b >= a
+ */
+static inline uint32_t get_min_uint(uint32_t a, uint32_t b)
+{
+	return (a < b) ? a : b;
+}
+
+/**
+ * @brief: Function which returns the max of two signed integers
+ *
+ * @param[in] a		Signed integer
+ * @param[in] b		Signed integer
+ *
+ * @return
+ *	- a if a > b
+ *	- b if b <= a
+ */
+static inline int32_t get_max_int(int32_t a, int32_t b)
+{
+	return (a > b) ? a : b;
+}
+
+/**
+ * @brief: Function which returns the min of two signed integers
+ *
+ * @param[in] a		Signed integer
+ * @param[in] b		Signed integer
+ *
+ * @return
+ *	- a if a < b
+ *	- b if b >= a
+ */
+static inline int32_t get_min_int(int32_t a, int32_t b)
+{
+	return (a < b) ? a : b;
+}
+
 #endif

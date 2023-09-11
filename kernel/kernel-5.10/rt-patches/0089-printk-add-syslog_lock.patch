@@ -1,4 +1,4 @@
-From 1e339fbae889574e24c65925e481b4916b9fd81c Mon Sep 17 00:00:00 2001
+From c6e3739f2cdbd7618c6cf7f286e076e15562abbd Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 16:58:02 +0106
 Subject: [PATCH 089/318] printk: add syslog_lock
@@ -20,10 +20,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 37 insertions(+), 4 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 4a92cf8dc716..c0d448cb196f 100644
+index a351ed400c04..986fc9fad210 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -390,8 +390,12 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
+@@ -392,8 +392,12 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
  		printk_safe_exit_irqrestore(flags);	\
  	} while (0)
  
@@ -36,7 +36,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  /* the next printk record to read by syslog(READ) or /proc/kmsg */
  static u64 syslog_seq;
  static size_t syslog_partial;
-@@ -410,7 +414,7 @@ struct latched_seq {
+@@ -412,7 +416,7 @@ struct latched_seq {
  /*
   * The next printk record to read after the last 'clear' command. There are
   * two copies (updated with seqcount_latch) so that reads can locklessly
@@ -45,7 +45,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
   */
  static struct latched_seq clear_seq = {
  	.latch		= SEQCNT_LATCH_ZERO(clear_seq.latch),
-@@ -470,7 +474,7 @@ bool printk_percpu_data_ready(void)
+@@ -472,7 +476,7 @@ bool printk_percpu_data_ready(void)
  	return __printk_percpu_data_ready;
  }
  
@@ -54,7 +54,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  static void latched_seq_write(struct latched_seq *ls, u64 val)
  {
  	raw_write_seqcount_latch(&ls->latch);
-@@ -1530,7 +1534,9 @@ static int syslog_print(char __user *buf, int size)
+@@ -1532,7 +1536,9 @@ static int syslog_print(char __user *buf, int size)
  		size_t skip;
  
  		logbuf_lock_irq();
@@ -64,7 +64,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  			logbuf_unlock_irq();
  			break;
  		}
-@@ -1560,6 +1566,7 @@ static int syslog_print(char __user *buf, int size)
+@@ -1562,6 +1568,7 @@ static int syslog_print(char __user *buf, int size)
  			syslog_partial += n;
  		} else
  			n = 0;
@@ -72,7 +72,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  		logbuf_unlock_irq();
  
  		if (!n)
-@@ -1626,8 +1633,11 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
+@@ -1628,8 +1635,11 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
  			break;
  	}
  
@@ -85,7 +85,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  	logbuf_unlock_irq();
  
  	kfree(text);
-@@ -1637,10 +1647,24 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
+@@ -1639,10 +1649,24 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
  static void syslog_clear(void)
  {
  	logbuf_lock_irq();
@@ -110,7 +110,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  int do_syslog(int type, char __user *buf, int len, int source)
  {
  	struct printk_info info;
-@@ -1664,8 +1688,9 @@ int do_syslog(int type, char __user *buf, int len, int source)
+@@ -1666,8 +1690,9 @@ int do_syslog(int type, char __user *buf, int len, int source)
  			return 0;
  		if (!access_ok(buf, len))
  			return -EFAULT;
@@ -121,7 +121,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  		if (error)
  			return error;
  		error = syslog_print(buf, len);
-@@ -1714,8 +1739,10 @@ int do_syslog(int type, char __user *buf, int len, int source)
+@@ -1716,8 +1741,10 @@ int do_syslog(int type, char __user *buf, int len, int source)
  	/* Number of chars in the log buffer */
  	case SYSLOG_ACTION_SIZE_UNREAD:
  		logbuf_lock_irq();
@@ -132,7 +132,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  			logbuf_unlock_irq();
  			return 0;
  		}
-@@ -1744,6 +1771,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
+@@ -1746,6 +1773,7 @@ int do_syslog(int type, char __user *buf, int len, int source)
  			}
  			error -= syslog_partial;
  		}
@@ -140,7 +140,7 @@ index 4a92cf8dc716..c0d448cb196f 100644
  		logbuf_unlock_irq();
  		break;
  	/* Size of the log buffer */
-@@ -2993,7 +3021,12 @@ void register_console(struct console *newcon)
+@@ -2995,7 +3023,12 @@ void register_console(struct console *newcon)
  		 */
  		exclusive_console = newcon;
  		exclusive_console_stop_seq = console_seq;

@@ -95,7 +95,7 @@ config 8139_OLD_RX_RESET
 	  experience problems, you can enable this option to restore the
 	  old RX-reset behavior.  If unsure, say N.
 
-config R8169
+config R8168
 	tristate "Realtek 8169/8168/8101/8125 ethernet support"
 	depends on PCI
 	select FW_LOADER
@@ -111,6 +111,6 @@ config R8169
 	  RTL8125 2.5GBit Ethernet
 
 	  To compile this driver as a module, choose M here: the module
-	  will be called r8169.  This is recommended.
+	  will be called r8168.  This is recommended.
 
 endif # NET_VENDOR_REALTEK

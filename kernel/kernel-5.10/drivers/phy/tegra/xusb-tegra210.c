@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2014-2022, NVIDIA CORPORATION.  All rights reserved.
  * Copyright (C) 2015 Google, Inc.
  */
 
@@ -3486,7 +3486,6 @@ static const struct tegra_xusb_padctl_ops tegra210_xusb_padctl_ops = {
 	.resume_noirq = tegra210_xusb_padctl_resume_noirq,
 	.usb3_set_lfps_detect = tegra210_usb3_set_lfps_detect,
 	.hsic_set_idle = tegra210_hsic_set_idle,
-	.vbus_override = tegra210_xusb_padctl_vbus_override,
 	.utmi_port_reset = tegra210_utmi_port_reset,
 	.receiver_detector = tegra210_receiver_detector,
 	.clamp_en_early = tegra210_clamp_en_early,

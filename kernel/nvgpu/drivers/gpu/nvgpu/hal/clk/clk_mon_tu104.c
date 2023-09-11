@@ -1,7 +1,7 @@
 /*
  * TU104 Clocks Monitor
  *
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -207,7 +207,7 @@ int nvgpu_clk_mon_alloc_memory(struct gk20a *g)
 	return 0;
 }
 
-int tu104_clk_mon_check_status(struct gk20a *g, u32 domain_mask)
+int tu104_clk_mon_check_status(struct gk20a *g, unsigned long domain_mask)
 {
 	u32 reg_address, bit_pos;
 	u32 data;

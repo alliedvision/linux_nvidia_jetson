@@ -22,6 +22,7 @@
 #include "cvb/tegra234-p3737-0000-camera-imx274-dual.dtsi"
 #include <t234-common-cvm/tegra234-cpuidle.dtsi>
 #include <t234-common-cvm/tegra234-thermal.dtsi>
+#include <t234-common-cvm/tegra234-thermal-cooling.dtsi>
 
 / {
 	nvidia,dtsfilename = __FILE__;
@@ -80,30 +81,11 @@
 		nvenc@154c0000 {
 			status = "disabled";
 		};
-
-		nvjpg@15380000 {
-			status = "disabled";
-		};
-
-		nvjpg1@15540000 {
-			status = "disabled";
-		};
-
-		ofa@15a50000 {
-			status = "disabled";
-		};
 	};
 };
 
 / {
 	/delete-node/ funnel_ccplex2@26050000;
-
-	funnel_ccplex1@26040000 {
-		in-ports {
-			/delete-node/ port@3;
-			/delete-node/ port@2;
-		};
-	};
 
 	funnel_top_ccplex@26020000 {
 		in-ports {
@@ -115,29 +97,90 @@
 	/delete-node/ cpu10_etm@27A40000;
 	/delete-node/ cpu9_etm@27940000;
 	/delete-node/ cpu8_etm@27840000;
-	/delete-node/ cpu7_etm@27740000;
-	/delete-node/ cpu6_etm@27640000;
-
 	/delete-node/ dsu-pmu-2;
-
-	dsu-pmu-1 {
-		cpus = <&{/cpus/cpu@4}>, <&{/cpus/cpu@5}>;
-	};
 
 	cpus {
 		cpu-map {
 			/delete-node/ cluster2;
-
-			cluster1 {
-				/delete-node/ core3;
-				/delete-node/ core2;
-			};
 		};
-		/delete-node/ cpu@6;
-		/delete-node/ cpu@7;
 		/delete-node/ cpu@8;
 		/delete-node/ cpu@9;
 		/delete-node/ cpu@10;
 		/delete-node/ cpu@11;
+	};
+
+	thermal-zones {
+		CPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		GPU-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		CV2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC0-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC1-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+		SOC2-therm {
+			cooling-maps {
+				map0 {
+					cooling-device = <&cl0_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cl1_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&tegra_ga10b THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
 	};
 };

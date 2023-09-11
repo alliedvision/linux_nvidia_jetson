@@ -743,7 +743,9 @@ static void nvgpu_pci_remove(struct pci_dev *pdev)
 	if (gk20a_gpu_is_virtual(dev))
 		return;
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 	gk20a_dma_buf_priv_list_clear(l);
+#endif
 	nvgpu_mutex_destroy(&l->dmabuf_priv_list_lock);
 
 	err = nvgpu_pci_clear_pci_power(dev_name(dev));

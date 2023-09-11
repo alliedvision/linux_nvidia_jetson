@@ -1,0 +1,65 @@
+/*
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
+/ {
+	/* TSC Signal Generators */
+	tsc_sig_gen@c6a0000 {
+		compatible = "nvidia,tegra234-cam-cdi-tsc";
+		ranges = <0x0 0x0 0xc6a0000 0x10000>;
+		reg = <0x0 0xc6a0000 0x0 0x18>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		status = "okay";
+
+		/* EDGE_OUT #0 */
+		generator@380 {
+			reg = <0x380 0x80>;
+			freq_hz = <30>;
+			duty_cycle = <25>;
+			offset_ms = <0>;
+			gpio_pinmux = <&tegra_aon_gpio TEGRA234_AON_GPIO(BB, 2) GPIO_ACTIVE_LOW>;
+			status = "okay";
+		};
+
+		/* EDGE_OUT #1 */
+		generator@400 {
+			reg = <0x400 0x80>;
+			freq_hz = <30>;
+			duty_cycle = <25>;
+			offset_ms = <0>;
+			status = "disabled";
+		};
+
+		/* EDGE_OUT #2 */
+		generator@480 {
+			reg = <0x480 0x80>;
+			freq_hz = <30>;
+			duty_cycle = <25>;
+			offset_ms = <0>;
+			status = "disabled";
+		};
+
+		/* EDGE_OUT #3 */
+		generator@500 {
+			reg = <0x500 0x80>;
+			freq_hz = <30>;
+			duty_cycle = <25>;
+			offset_ms = <0>;
+			status = "disabled";
+		};
+	};
+};

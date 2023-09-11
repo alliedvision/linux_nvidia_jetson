@@ -1,7 +1,7 @@
 /*
  * GA10B FUSE
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -246,6 +246,32 @@ int ga10b_fuse_read_per_device_identifier(struct gk20a *g, u64 *pdi)
 	*pdi = ((u64)lo) | (((u64)hi) << 32);
 
 	return 0;
+}
+
+u32 ga10b_fuse_status_opt_emc(struct gk20a *g)
+{
+	u32 fuse_val = 0;
+#ifdef __KERNEL__
+	/*
+	 * Read emc mask from fuse
+	 * Note that 0:enable and 1:disable in value read from fuse so we've to
+	 * flip the bits.
+	 * Also set unused bits to zero
+	 * Mapping of floorsweeping for MC/EMC based on channels,
+	 * bit[i] floorsweeps channels 4i to 4i+3, the full mapping is
+	 * opt_emc_disable[0]: channels 0-3, PD_emcba
+	 * opt_emc_disable[1]: channels 4-7, PD_emcbb
+	 * opt_emc_disable[2]: channels 8-11, PD_emcaa
+	 * opt_emc_disable[3]: channels 12-15, PD_emcab
+	 * The floorsweeping definition is a bitmap.
+	 */
+	nvgpu_tegra_fuse_read_opt_emc_disable(g, &fuse_val);
+	fuse_val = ~fuse_val;
+	fuse_val = fuse_val & nvgpu_safe_sub_u32(BIT32(4), 1U);
+#else
+	(void)g;
+#endif
+	return fuse_val;
 }
 
 u32 ga10b_fuse_opt_sec_debug_en(struct gk20a *g)

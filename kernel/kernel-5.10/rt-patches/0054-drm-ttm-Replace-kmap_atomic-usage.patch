@@ -1,4 +1,4 @@
-From e09f7552869072dabf005d447aa15f2056ec4179 Mon Sep 17 00:00:00 2001
+From b76345ea5bd2fc6b40692b88fda3ce98bed50b29 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:43 +0100
 Subject: [PATCH 054/318] drm/ttm: Replace kmap_atomic() usage

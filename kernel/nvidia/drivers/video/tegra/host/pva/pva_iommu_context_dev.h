@@ -19,7 +19,8 @@
 #ifndef IOMMU_CONTEXT_DEV_H
 #define IOMMU_CONTEXT_DEV_H
 
-struct platform_device *nvpva_iommu_context_dev_allocate(void);
+struct platform_device
+*nvpva_iommu_context_dev_allocate(char *identifier, size_t len, bool shared);
 void nvpva_iommu_context_dev_release(struct platform_device *pdev);
 int nvpva_iommu_context_dev_get_sids(int *hwids, int *count, int max_cnt);
 bool is_cntxt_initialized(void);

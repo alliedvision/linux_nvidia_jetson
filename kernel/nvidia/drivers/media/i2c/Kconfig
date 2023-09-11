@@ -202,6 +202,14 @@ config NV_VIDEO_HAWK_OWL
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called hawk_owl.
+
+config NV_VIRTUAL_I2C_MUX
+	tristate "Virtual i2c mux support"
+	help
+	  This is a virtual i2c mux driver support for P3762/P3783.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called virtual_i2c_mux.
 endmenu
 
 endif

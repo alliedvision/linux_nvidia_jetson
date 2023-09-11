@@ -10,6 +10,8 @@
  * Also based on offb.c, which was:
  * Copyright (C) 1997 Geert Uytterhoeven
  * Copyright (C) 1996 Paul Mackerras
+ *
+ * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #include <linux/errno.h>
@@ -21,6 +23,7 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_clk.h>
+#include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/parser.h>
 #include <linux/regulator/consumer.h>
@@ -167,6 +170,31 @@ static int simplefb_parse_pd(struct platform_device *pdev,
 	}
 
 	return 0;
+}
+
+static struct resource *simplefb_get_memory_of(struct platform_device *pdev)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	struct device_node *np;
+	struct resource *res;
+	int err;
+
+	np = of_parse_phandle(of_node, "memory-region", 0);
+	if (!np)
+		return NULL;
+
+	res = devm_kzalloc(&pdev->dev, sizeof(*res), GFP_KERNEL);
+	if (!res)
+		return ERR_PTR(-ENOMEM);
+
+	err = of_address_to_resource(np, 0, res);
+	if (err)
+		return ERR_PTR(err);
+
+	if (of_get_property(of_node, "reg", NULL))
+		dev_warn(&pdev->dev, "preferring \"memory-region\" over \"reg\" property\n");
+
+	return res;
 }
 
 struct simplefb_par {
@@ -421,13 +449,18 @@ static int simplefb_probe(struct platform_device *pdev)
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
-		dev_err(&pdev->dev, "No memory resource\n");
-		return -EINVAL;
+		mem = simplefb_get_memory_of(pdev);
+		if (!mem) {
+			dev_err(&pdev->dev, "No memory resource\n");
+			return -EINVAL;
+		}
 	}
 
 	info = framebuffer_alloc(sizeof(struct simplefb_par), &pdev->dev);
-	if (!info)
-		return -ENOMEM;
+	if (!info) {
+		ret = -ENOMEM;
+		goto error_release_mem_region;
+	}
 	platform_set_drvdata(pdev, info);
 
 	par = info->par;
@@ -503,6 +536,8 @@ error_unmap:
 	iounmap(info->screen_base);
 error_fb_release:
 	framebuffer_release(info);
+error_release_mem_region:
+	release_mem_region(mem->start, resource_size(mem));
 	return ret;
 }
 

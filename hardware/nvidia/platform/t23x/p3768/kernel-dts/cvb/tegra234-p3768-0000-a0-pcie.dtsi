@@ -26,6 +26,19 @@
 		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
 	};
 
+	pcie_ep@14160000 {/* C4 - End Point */
+		status = "disabled";
+		phys = <&p2u_hsio_4>, <&p2u_hsio_5>, <&p2u_hsio_6>,
+		       <&p2u_hsio_7>;
+		phy-names = "p2u-0", "p2u-1", "p2u-2", "p2u-3";
+		reset-gpios = <&tegra_main_gpio
+				TEGRA234_MAIN_GPIO(L, 1)
+				GPIO_ACTIVE_LOW>;
+		nvidia,refclk-select-gpios = <&tegra_aon_gpio
+						TEGRA234_AON_GPIO(AA, 4)
+						GPIO_ACTIVE_HIGH>;
+	};
+
 	pcie@141e0000 {
 		/*
 		 * C7 - M2 Key M, default config, other config possible as

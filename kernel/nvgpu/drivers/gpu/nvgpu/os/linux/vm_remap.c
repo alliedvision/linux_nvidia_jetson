@@ -118,12 +118,15 @@ void nvgpu_vm_remap_os_buf_put(struct vm_gk20a *vm,
 {
 	struct gk20a *g = gk20a_from_vm(vm);
 	struct device *dev = dev_from_gk20a(g);
+#ifdef CONFIG_NVGPU_COMPRESSION
 	struct gk20a_comptags comptags;
 	int err = 0;
+#endif
 
 	nvgpu_mm_unpin(dev, remap_os_buf->os_priv.dmabuf,
 		remap_os_buf->os_priv.attachment, remap_os_buf->os_priv.sgt);
 
+#ifdef CONFIG_NVGPU_COMPRESSION
 	gk20a_get_comptags(&remap_os_buf->os_buf, &comptags);
 
 	/*
@@ -139,6 +142,7 @@ void nvgpu_vm_remap_os_buf_put(struct vm_gk20a *vm,
 			return;
 		}
 	}
+#endif
 
 	nvgpu_sgt_free(g, remap_os_buf->nv_sgt);
 

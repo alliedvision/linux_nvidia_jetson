@@ -1,7 +1,7 @@
 /**
  * camera_common.h - utilities for tegra camera driver
  *
- * Copyright (c) 2015-2022, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -95,6 +95,7 @@ struct camera_common_pdata {
 	bool h_mirror;
 	unsigned int fuse_id_addr;
 	unsigned int avdd_latency;
+	unsigned int eeprom_id_addr;
 };
 
 struct camera_common_eeprom_data {
@@ -199,6 +200,8 @@ struct tegracam_ctrl_ops {
 	int (*set_exposure_short)(struct tegracam_device *tc_dev, s64 val);
 	int (*set_frame_rate)(struct tegracam_device *tc_dev, s64 val);
 	int (*set_group_hold)(struct tegracam_device *tc_dev, bool val);
+	int (*set_alternating_exposure)(struct tegracam_device *tc_dev,
+			struct alternating_exposure_cfg *val);
 	int (*fill_string_ctrl)(struct tegracam_device *tc_dev,
 				struct v4l2_ctrl *ctrl);
 	int (*fill_compound_ctrl)(struct tegracam_device *tc_dev,
@@ -371,6 +374,7 @@ const struct camera_common_colorfmt *camera_common_find_pixelfmt(
 	unsigned int pix_fmt);
 
 /* common control layer init */
+int tegracam_ctrl_synchronize_ctrls(struct tegracam_ctrl_handler *handler);
 int tegracam_ctrl_set_overrides(struct tegracam_ctrl_handler *handler);
 int tegracam_ctrl_handler_init(struct tegracam_ctrl_handler *handler);
 int tegracam_init_ctrl_ranges(struct tegracam_ctrl_handler *handler);

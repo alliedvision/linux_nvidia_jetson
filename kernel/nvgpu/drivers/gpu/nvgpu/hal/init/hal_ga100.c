@@ -1,7 +1,7 @@
 /*
  * GA100 Tegra HAL interface
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -76,6 +76,7 @@
 #include "hal/mm/mm_gp10b.h"
 #include "hal/mm/mm_gv11b.h"
 #include "hal/mm/mm_tu104.h"
+#include "hal/mm/mm_ga10b.h"
 #include "hal/mm/cache/flush_gk20a.h"
 #include "hal/mm/cache/flush_gv11b.h"
 #include "hal/mm/gmmu/gmmu_gm20b.h"
@@ -1269,6 +1270,7 @@ static const struct gops_mm ga100_ops_mm = {
 	.is_bar1_supported = gv11b_mm_is_bar1_supported,
 	.init_inst_block = gv11b_mm_init_inst_block,
 	.init_inst_block_for_subctxs = gv11b_mm_init_inst_block_for_subctxs,
+	.bar2_vm_size = ga10b_mm_bar2_vm_size,
 	.init_bar2_vm = gp10b_mm_init_bar2_vm,
 	.remove_bar2_vm = gp10b_mm_remove_bar2_vm,
 	.get_flush_retries = tu104_mm_get_flush_retries,

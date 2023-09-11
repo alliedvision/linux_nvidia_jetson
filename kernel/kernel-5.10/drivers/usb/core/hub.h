@@ -7,6 +7,7 @@
  * Copyright (C) 1999 Gregory P. Smith
  * Copyright (C) 2001 Brad Hards (bhards@bigpond.net.au)
  * Copyright (C) 2012 Intel Corp (tianyu.lan@intel.com)
+ * Copyright (c) 2023 NVIDIA CORPORATION. All rights reserved.
  *
  *  move struct usb_hub to this file.
  */
@@ -141,7 +142,7 @@ static inline int hub_is_superspeedplus(struct usb_device *hdev)
 {
 	return (hdev->descriptor.bDeviceProtocol == USB_HUB_PR_SS &&
 		le16_to_cpu(hdev->descriptor.bcdUSB) >= 0x0310 &&
-		hdev->bos->ssp_cap);
+		hdev->bos && hdev->bos->ssp_cap);
 }
 
 static inline unsigned hub_power_on_good_delay(struct usb_hub *hub)

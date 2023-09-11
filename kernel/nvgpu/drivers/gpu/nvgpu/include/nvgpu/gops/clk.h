@@ -108,7 +108,7 @@ struct gops_clk {
 	int (*mclk_change)(struct gk20a *g, u16 val);
 	void (*get_change_seq_time)(struct gk20a *g, s64 *change_time);
 	void (*change_host_clk_source)(struct gk20a *g);
-	u32 (*clk_mon_init_domains)(struct gk20a *g);
+	unsigned long (*clk_mon_init_domains)(struct gk20a *g);
 	bool split_rail_support;
 	bool support_pmgr_domain;
 	bool support_lpwr_pg;
@@ -122,7 +122,7 @@ struct gops_clk_mon {
 	int (*clk_mon_alloc_memory)(struct gk20a *g);
 	bool (*clk_mon_check_master_fault_status)(struct gk20a *g);
 	int (*clk_mon_check_status)(struct gk20a *g,
-		u32 domain_mask);
+		unsigned long domain_mask);
 	bool (*clk_mon_check_clk_good)(struct gk20a *g);
 	bool (*clk_mon_check_pll_lock)(struct gk20a *g);
 };

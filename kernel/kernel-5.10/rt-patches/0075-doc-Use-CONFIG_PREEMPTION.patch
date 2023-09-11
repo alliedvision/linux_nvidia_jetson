@@ -1,4 +1,4 @@
-From 9f03ddf7d5c839490c01459bd63c73dc75d884eb Mon Sep 17 00:00:00 2001
+From 5627c6efca6d1812abd3c91da6e5e91ae02cda24 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:49 +0100
 Subject: [PATCH 075/318] doc: Use CONFIG_PREEMPTION

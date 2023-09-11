@@ -49,11 +49,11 @@ struct nvgpu_ctag_buffer_info {
 	u32			flags;
 
 #ifdef CONFIG_NVGPU_COMPRESSION
+	u32			ctag_offset;
 	s16			compr_kind;
 #endif
 	s16			incompr_kind;
 
-	u32			ctag_offset;
 };
 
 #ifdef CONFIG_NVGPU_COMPRESSION
@@ -1546,7 +1546,9 @@ int nvgpu_vm_map(struct vm_gk20a *vm,
 	mapped_buffer->kind         = map_key_kind;
 	mapped_buffer->va_allocated = va_allocated;
 	mapped_buffer->vm_area      = vm_area;
+#ifdef CONFIG_NVGPU_COMPRESSION
 	mapped_buffer->ctag_offset  = binfo.ctag_offset;
+#endif
 	mapped_buffer->rw_flag      = rw;
 	mapped_buffer->aperture     = aperture;
 

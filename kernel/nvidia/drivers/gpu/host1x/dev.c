@@ -2,7 +2,7 @@
 /*
  * Tegra host1x driver
  *
- * Copyright (c) 2010-2022, NVIDIA CORPORATION & AFFILIATES. All Rights Reserved.
+ * Copyright (c) 2010-2023, NVIDIA CORPORATION & AFFILIATES. All Rights Reserved.
  */
 
 #include <linux/clk.h>
@@ -386,6 +386,42 @@ static const struct host1x_sid_entry tegra234_sid_table[] = {
 		/* OFA MMIO */
 		.base = 0x16e8,
 		.offset = 0x34,
+		.limit = 0x34,
+	},
+	{
+		/* VI MMIO */
+		.base = 0x16b8,
+		.offset = 0x800,
+		.limit = 0x800,
+	},
+	{
+		/* VI_THI MMIO */
+		.base = 0x16c0,
+		.offset = 0x30,
+		.limit = 0x34,
+	},
+	{
+		/* ISP MMIO */
+		.base = 0x1680,
+		.offset = 0x800,
+		.limit = 0x800,
+	},
+	{
+		/* ISP_THI MMIO */
+		.base = 0x16c8,
+		.offset = 0x30,
+		.limit = 0x34,
+	},
+	{
+		/* VI2 MMIO */
+		.base = 0x16f0,
+		.offset = 0x800,
+		.limit = 0x800,
+	},
+	{
+		/* VI2_THI MMIO */
+		.base = 0x16f8,
+		.offset = 0x30,
 		.limit = 0x34,
 	},
 };

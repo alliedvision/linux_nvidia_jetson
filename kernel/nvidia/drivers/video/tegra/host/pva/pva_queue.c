@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -64,9 +64,9 @@ void *pva_dmabuf_vmap(struct dma_buf *dmabuf)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
-	struct iosys_map map;
+	struct iosys_map map = {0};
 #else
-	struct dma_buf_map map;
+	struct dma_buf_map map = {0};
 #endif
 	/* Linux v5.11 and later kernels */
 	if (dma_buf_vmap(dmabuf, &map))
@@ -116,11 +116,14 @@ static void pva_task_dump(struct pva_submit_task *task)
 				task->user_fence_actions[i].type);
 }
 
-static void pva_task_get_memsize(size_t *dma_size, size_t *kmem_size)
+static void pva_task_get_memsize(size_t *dma_size,
+				 size_t *kmem_size,
+				 size_t *aux_dma_size)
 {
 	/* Align task addr to 64bytes boundary for DMA use*/
 	*dma_size = ALIGN(sizeof(struct pva_hw_task) + 64, 64);
 	*kmem_size = sizeof(struct pva_submit_task);
+	*aux_dma_size = NVPVA_TASK_MAX_PAYLOAD_SIZE;
 }
 
 static inline void nvpva_fetch_task_status_info(struct pva *pva,
@@ -157,8 +160,7 @@ static void pva_task_unpin_mem(struct pva_submit_task *task)
 }
 
 struct pva_pinned_memory *pva_task_pin_mem(struct pva_submit_task *task,
-					   u32 id,
-					   bool is_cntxt)
+					   u32 id)
 {
 	int err;
 	struct pva_pinned_memory *mem;
@@ -179,7 +181,7 @@ struct pva_pinned_memory *pva_task_pin_mem(struct pva_submit_task *task,
 	mem->id = id;
 	err = nvpva_buffer_submit_pin_id(task->client->buffers, &mem->id, 1,
 					 &mem->dmabuf, &mem->dma_addr,
-					 &mem->size, &mem->heap, is_cntxt);
+					 &mem->size, &mem->heap);
 	if (err) {
 		task_err(task, "submit pin failed; Is the handled pinned?");
 		goto err_out;
@@ -193,9 +195,10 @@ err_out:
 }
 
 /* pin fence and return its dma addr */
-static int pva_task_pin_fence(struct pva_submit_task *task,
-			      struct nvpva_submit_fence *fence,
-			      dma_addr_t *addr)
+static int
+pva_task_pin_fence(struct pva_submit_task *task,
+		   struct nvpva_submit_fence *fence,
+		   dma_addr_t *addr)
 {
 	int err = 0;
 
@@ -203,7 +206,7 @@ static int pva_task_pin_fence(struct pva_submit_task *task,
 	case NVPVA_FENCE_OBJ_SEM: {
 		struct pva_pinned_memory *mem;
 
-		mem = pva_task_pin_mem(task, fence->obj.sem.mem.pin_id, false);
+		mem = pva_task_pin_mem(task, fence->obj.sem.mem.pin_id);
 		if (IS_ERR(mem)) {
 			task_err(task, "sempahore submit pin failed");
 			err = PTR_ERR(mem);
@@ -239,7 +242,8 @@ static int pva_task_pin_fence(struct pva_submit_task *task,
 	return err;
 }
 
-static int get_fence_value(struct nvpva_submit_fence *fence, u32 *val)
+static int
+get_fence_value(struct nvpva_submit_fence *fence, u32 *val)
 {
 	int err = 0;
 
@@ -261,10 +265,10 @@ static int get_fence_value(struct nvpva_submit_fence *fence, u32 *val)
 
 static inline void
 pva_task_write_fence_action_op(struct pva_task_action_s *op,
-				uint8_t action,
-				uint64_t fence_addr,
-				uint32_t val,
-				uint64_t time_stamp_addr)
+			       uint8_t action,
+			       uint64_t fence_addr,
+			       uint32_t val,
+			       uint64_t time_stamp_addr)
 {
 	op->action	= action;
 	op->args.ptr.p	= fence_addr;
@@ -272,25 +276,29 @@ pva_task_write_fence_action_op(struct pva_task_action_s *op,
 	op->args.ptr.t	= time_stamp_addr;
 }
 
-static inline void pva_task_write_status_action_op(struct pva_task_action_s *op,
-						   uint8_t action,
-						   uint64_t addr,
-						   uint16_t val)
+static inline void
+pva_task_write_status_action_op(struct pva_task_action_s *op,
+				uint8_t action,
+				uint64_t addr,
+				uint16_t val)
 {
 	op->action = action;
 	op->args.status.p = addr;
 	op->args.status.status = val;
 }
 
-static inline void pva_task_write_stats_action_op(struct pva_task_action_s *op,
-						  uint8_t action, uint64_t addr)
+static inline void
+pva_task_write_stats_action_op(struct pva_task_action_s *op,
+			       uint8_t action,
+			       uint64_t addr)
 {
 	op->action = action;
 	op->args.statistics.p = addr;
 }
 
-static int pva_task_process_fence_actions(struct pva_submit_task *task,
-					  struct pva_hw_task *hw_task)
+static  int
+pva_task_process_fence_actions(struct pva_submit_task *task,
+			       struct pva_hw_task *hw_task)
 {
 	int err = 0;
 	u32 i;
@@ -392,8 +400,7 @@ static int pva_task_process_fence_actions(struct pva_submit_task *task,
 				struct pva_pinned_memory *mem;
 				mem = pva_task_pin_mem(
 					task,
-					fence_action->timestamp_buf.pin_id,
-					false);
+					fence_action->timestamp_buf.pin_id);
 				if (IS_ERR(mem)) {
 					err = PTR_ERR(mem);
 					task_err(
@@ -420,6 +427,7 @@ static int pva_task_process_fence_actions(struct pva_submit_task *task,
 out:
 	return err;
 }
+
 static int pva_task_process_prefences(struct pva_submit_task *task,
 				      struct pva_hw_task *hw_task)
 {
@@ -454,6 +462,7 @@ static int pva_task_process_prefences(struct pva_submit_task *task,
 out:
 	return err;
 }
+
 static int pva_task_process_input_status(struct pva_submit_task *task,
 					 struct pva_hw_task *hw_task)
 {
@@ -467,7 +476,7 @@ static int pva_task_process_input_status(struct pva_submit_task *task,
 		dma_addr_t status_addr;
 
 		status = &task->input_task_status[i];
-		mem = pva_task_pin_mem(task, status->pin_id, false);
+		mem = pva_task_pin_mem(task, status->pin_id);
 		if (IS_ERR(mem)) {
 			err = PTR_ERR(mem);
 			goto out;
@@ -485,6 +494,7 @@ static int pva_task_process_input_status(struct pva_submit_task *task,
 out:
 	return err;
 }
+
 static int pva_task_process_output_status(struct pva_submit_task *task,
 					  struct pva_hw_task *hw_task)
 {
@@ -494,14 +504,16 @@ static int pva_task_process_output_status(struct pva_submit_task *task,
 	struct pva_task_action_s *fw_postactions = NULL;
 
 	for (i = 0; i < task->num_output_task_status; i++) {
-		struct nvpva_mem *status = &task->output_task_status[i];
-		struct pva_pinned_memory *mem =
-		    pva_task_pin_mem(task, status->pin_id, false);
 		dma_addr_t status_addr;
+		struct nvpva_mem *status = &task->output_task_status[i];
+		struct pva_pinned_memory *mem;
+
+		mem = pva_task_pin_mem(task, status->pin_id);
 		if (IS_ERR(mem)) {
 			err = PTR_ERR(mem);
 			goto out;
 		}
+
 		status_addr = mem->dma_addr + status->offset;
 		fw_postactions = &hw_task->postactions[hw_task->task.num_postactions];
 		pva_task_write_status_action_op(fw_postactions,
@@ -521,16 +533,17 @@ static int pva_task_process_output_status(struct pva_submit_task *task,
 		hw_task->task.flags |= PVA_TASK_FL_STATS_ENABLE;
 		++hw_task->task.num_postactions;
 	}
-
 out:
 	return err;
 }
-static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
-					struct pva_hw_task *hw_task)
+static int
+pva_task_write_vpu_parameter(struct pva_submit_task *task,
+			     struct pva_hw_task *hw_task)
 {
 	int err = 0;
 	struct pva_elf_image *elf = NULL;
-	struct nvpva_pointer_symbol *ptrSym = NULL;
+	struct nvpva_pointer_symbol *sym_ptr = NULL;
+	struct nvpva_pointer_symbol_ex *sym_ptr_ex = NULL;
 	u32 symbolId = 0U;
 	dma_addr_t symbol_payload = 0U;
 	u32 size = 0U;
@@ -563,10 +576,10 @@ static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
 		goto out;
 	}
 
-	symbol_payload = task->dma_addr + offsetof(struct pva_hw_task, sym_payload);
+	symbol_payload = task->aux_dma_addr;
 
-	headPtr = (u8 *)(hw_task->sym_payload);
-	tailPtr = (u8 *)(hw_task->sym_payload + task->symbol_payload_size);
+	headPtr = (u8 *)(task->aux_va);
+	tailPtr = (u8 *)(task->aux_va + task->symbol_payload_size);
 
 	for (i = 0U; i < task->num_symbols; i++) {
 		symbolId = task->symbols[i].symbol.id;
@@ -583,8 +596,8 @@ static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
 
 			memcpy(headPtr, (task->symbol_payload + task->symbols[i].offset),
 				sizeof(struct nvpva_pointer_symbol));
-			ptrSym = (struct nvpva_pointer_symbol *)(headPtr);
-			mem = pva_task_pin_mem(task, ptrSym->base, true);
+			sym_ptr = (struct nvpva_pointer_symbol *)(headPtr);
+			mem = pva_task_pin_mem(task, PVA_LOW32(sym_ptr->base));
 			if (IS_ERR(mem)) {
 				err = PTR_ERR(mem);
 				task_err(task, "failed to pin symbol pointer");
@@ -592,9 +605,26 @@ static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
 				goto out;
 			}
 
-			ptrSym->base = mem->dma_addr;
-			ptrSym->size = mem->size;
+			sym_ptr->base = mem->dma_addr;
+			sym_ptr->size = mem->size;
 			size = sizeof(struct nvpva_pointer_symbol);
+		} else if (task->symbols[i].config == NVPVA_SYMBOL_POINTER_EX) {
+			struct pva_pinned_memory *mem;
+
+			memcpy(headPtr, (task->symbol_payload + task->symbols[i].offset),
+				sizeof(struct nvpva_pointer_symbol_ex));
+			sym_ptr_ex = (struct nvpva_pointer_symbol_ex *)(headPtr);
+			mem = pva_task_pin_mem(task, PVA_LOW32(sym_ptr_ex->base));
+			if (IS_ERR(mem)) {
+				err = PTR_ERR(mem);
+				task_err(task, "failed to pin symbol pointer");
+				err = -EINVAL;
+				goto out;
+			}
+
+			sym_ptr_ex->base = mem->dma_addr;
+			sym_ptr_ex->size = mem->size;
+			size = sizeof(struct nvpva_pointer_symbol_ex);
 		} else if (size < PVA_DMA_VMEM_COPY_THRESHOLD) {
 			(void)memcpy(headPtr,
 				(task->symbol_payload + task->symbols[i].offset),
@@ -611,7 +641,7 @@ static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
 			hw_task->param_list[tail_index].param_base =
 						(pva_iova)(symbol_payload +
 						((uintptr_t)(tailPtr) -
-						(uintptr_t)(hw_task->sym_payload)));
+						(uintptr_t)(task->aux_va)));
 			index = tail_index;
 			tail_index--;
 			tail_count++;
@@ -622,7 +652,7 @@ static int pva_task_write_vpu_parameter(struct pva_submit_task *task,
 
 		hw_task->param_list[head_index].param_base = (pva_iova)(symbol_payload +
 						((uintptr_t)(headPtr) -
-						(uintptr_t)(hw_task->sym_payload)));
+						 (uintptr_t)(task->aux_va)));
 		index = head_index;
 		if ((uintptr_t)(headPtr) > ((uintptr_t)(tailPtr) - size)) {
 			task_err(task, "Symbol payload overflow");
@@ -688,6 +718,8 @@ static int set_flags(struct pva_submit_task *task, struct pva_hw_task *hw_task)
 
 	if (flags & NVPVA_PRE_BARRIER_TASK_TRUE)
 		hw_task->task.flags |= PVA_TASK_FL_SYNC_TASKS;
+	if (flags & NVPVA_GR_CHECK_EXE_FLAG)
+		hw_task->task.flags |= PVA_TASK_FL_GR_CHECK;
 	if (flags & NVPVA_AFFINITY_VPU0)
 		hw_task->task.flags |= PVA_TASK_FL_VPU0;
 	if (flags & NVPVA_AFFINITY_VPU1)
@@ -711,6 +743,7 @@ static int set_flags(struct pva_submit_task *task, struct pva_hw_task *hw_task)
 out:
 	return err;
 }
+
 static int pva_task_write(struct pva_submit_task *task)
 {
 	struct pva_hw_task *hw_task;
@@ -827,20 +860,23 @@ pva_eventlib_record_r5_states(struct platform_device *pdev,
 	struct nvhost_pva_task_state state;
 	struct nvdev_fence post_fence;
 	struct nvpva_submit_fence *fence;
+	u8 i;
 
 	if ((task->pva->profiling_level == 0) || (!pdata->eventlib_id))
 		return;
 
 	/* Record task postfences */
-	fence = &(task->pva_fence_actions[NVPVA_FENCE_POST][0].fence);
-	pva_eventlib_fill_fence(&post_fence, fence);
-	nvhost_eventlib_log_fences(pdev,
-				   syncpt_id,
-				   syncpt_thresh,
-				   &post_fence,
-				   1,
-				   NVDEV_FENCE_KIND_POST,
-				   stats->complete_time);
+	for (i = 0 ; i < task->num_pva_fence_actions[NVPVA_FENCE_POST]; i++) {
+		fence = &(task->pva_fence_actions[NVPVA_FENCE_POST][i].fence);
+		pva_eventlib_fill_fence(&post_fence, fence);
+		nvhost_eventlib_log_fences(pdev,
+					   syncpt_id,
+					   syncpt_thresh,
+					   &post_fence,
+					   1,
+					   NVDEV_FENCE_KIND_POST,
+					   stats->complete_time);
+	}
 
 	state.class_id		= pdata->class;
 	state.syncpt_id		= syncpt_id;
@@ -972,7 +1008,7 @@ static void update_one_task(struct pva *pva)
 	 * version
 	 */
 	list_for_each_entry(task, &queue->tasklist, node) {
-		if (task->dma_addr == task_info.addr) {
+		if (task->pool_index == task_info.task_id) {
 			list_del(&task->node);
 				found = true;
 				break;
@@ -996,51 +1032,15 @@ static void update_one_task(struct pva *pva)
 
 	vpu_assigned = (stats->vpu_assigned & 0x1);
 	vpu_time = (stats->vpu_complete_time - stats->vpu_start_time);
-	mutex_lock(&pva->vpu_util_info.util_info_mutex);
-
-	/* update stats for assigned VPU */
-	pva->vpu_util_info.vpu_stats_accum[vpu_assigned] += vpu_time;
-	pva->vpu_util_info.current_stamp[vpu_assigned] = stats->vpu_complete_time;
-	pva->vpu_util_info.last_start[vpu_assigned] = stats->vpu_start_time;
-
-	/* check if need to wake up stats thread */
-	if (pva->vpu_util_info.flags & (1U << vpu_assigned)) {
-		if ((stats->vpu_complete_time >= pva->vpu_util_info.end_stamp)
-		|| (stats->vpu_start_time >=  pva->vpu_util_info.end_stamp)) {
-			pva->vpu_util_info.flags ^= (1U << vpu_assigned);
-
-			/* take a snap shot of counters */
-			pva->vpu_util_info_cp.vpu_stats_accum[vpu_assigned] =
-			    pva->vpu_util_info.vpu_stats_accum[vpu_assigned];
-			pva->vpu_util_info_cp.current_stamp[vpu_assigned] =
-			    pva->vpu_util_info.current_stamp[vpu_assigned];
-			pva->vpu_util_info_cp.last_start[vpu_assigned] =
-			    pva->vpu_util_info.last_start[vpu_assigned];
-
-			/* reset counter */
-			pva->vpu_util_info.vpu_stats_accum[stats->vpu_assigned] = 0;
-		}
-
-		if ((pva->vpu_util_info.flags & 0x3) == 0)
-			up(&pva->vpu_util_info.util_info_sema);
-	}
-
-	mutex_unlock(&pva->vpu_util_info.util_info_mutex);
-
 	r5_overhead = ((stats->complete_time - stats->queued_time) - vpu_time);
 	r5_overhead = r5_overhead / tsc_ticks_to_us;
 
 	trace_nvhost_pva_task_timestamp(dev_name(&pdev->dev),
 				    pdata->class,
 				    queue->syncpt_id,
-				    task->syncpt_thresh,
+				    task->local_sync_counter,
 				    stats->vpu_assigned_time,
 				    stats->complete_time);
-	nvhost_eventlib_log_task(pdev,
-				 queue->syncpt_id,
-				 task->syncpt_thresh,
-				 stats->vpu_assigned_time,
-				 stats->complete_time);
 	nvpva_dbg_info(pva, "Completed task %p (0x%llx), "
 			"start_time=%llu, "
 			"end_time=%llu",
@@ -1064,12 +1064,12 @@ prof:
 
 	nvhost_eventlib_log_task(pdev,
 				 queue->syncpt_id,
-				 task->syncpt_thresh,
+				 task->local_sync_counter,
 				 stats->vpu_assigned_time,
 				 stats->complete_time);
 	pva_eventlib_record_r5_states(pdev,
 				      queue->syncpt_id,
-				      task->syncpt_thresh,
+				      task->local_sync_counter,
 				      stats,
 				      task);
 out:
@@ -1236,7 +1236,7 @@ static int pva_task_submit(const struct pva_submit_tasks *task_header)
 						&task->prefences[j]);
 			nvhost_eventlib_log_fences(task->pva->pdev,
 						   queue->syncpt_id,
-						   task->syncpt_thresh,
+						   task->local_sync_counter,
 						   &pre_fence,
 						   1,
 						   NVDEV_FENCE_KIND_PRE,
@@ -1245,7 +1245,7 @@ static int pva_task_submit(const struct pva_submit_tasks *task_header)
 
 		nvhost_eventlib_log_submit(task->pva->pdev,
 					   queue->syncpt_id,
-					   task->syncpt_thresh,
+					   task->local_sync_counter,
 					   timestamp);
 	}
 out:
@@ -1277,7 +1277,7 @@ set_task_parameters(const struct pva_submit_tasks *task_header)
 
 	u8 status_interface = 0U;
 	u32 flag = 0;
-	u8 batch_id;
+	u64 batch_id;
 	u16 idx;
 
 	/* Storing to local variable to update in task
@@ -1304,7 +1304,8 @@ set_task_parameters(const struct pva_submit_tasks *task_header)
 	for (idx = 0U; idx < task_header->num_tasks; idx++) {
 		task = task_header->tasks[idx];
 		hw_task = task->va;
-
+		WARN_ON(task->pool_index > 0xFF);
+		hw_task->task.task_id = task->pool_index;
 		hw_task->task.status_interface = status_interface;
 		hw_task->task.batch_id = batch_id;
 
@@ -1406,7 +1407,8 @@ static int pva_queue_submit(struct nvpva_queue *queue, void *args)
 
 		thresh = task->syncpt_thresh;
 		sem_thresh = task->sem_thresh;
-
+		queue->local_sync_counter += (1 +  task->fence_num);
+		task->local_sync_counter = queue->local_sync_counter;
 		if (prev_hw_task)
 			prev_hw_task->task.next = task->dma_addr;
 

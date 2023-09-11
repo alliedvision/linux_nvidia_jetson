@@ -63,6 +63,14 @@
 			status = "disabled";
 		};
 
+ 		fb0_reserved: framebuffer@0,0 {
+			compatible = "framebuffer";
+ 			reg = <0x00 0x00 0x00 0x00>;
+ 			reg-names = "surface";
+ 			no-map;
+			status = "disabled";
+ 		};
+
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;

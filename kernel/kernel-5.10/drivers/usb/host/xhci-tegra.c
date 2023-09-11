@@ -248,6 +248,8 @@ enum build_info_log {
 	USB_DEVICE(vid, pid), \
 	.driver_info = QUIRK_FOR_LS_DEVICE,
 
+#define PORT_WAKE_BITS (PORT_WKOC_E | PORT_WKDISC_E | PORT_WKCONN_E)
+
 static struct usb_device_id disable_usb_persist_quirk_list[] = {
 	/* Sandisk Extreme USB 3.0 pen drive, SuperSpeed */
 	{ USB_DEVICE_SS(0x0781, 0x5580) },
@@ -465,6 +467,8 @@ struct tegra_xusb {
 	struct notifier_block id_nb;
 	struct work_struct id_work;
 
+	struct notifier_block genpd_nb;
+
 	/* Firmware loading related */
 	struct {
 		size_t size;
@@ -551,6 +555,8 @@ static int fpga_clock_hacks(struct platform_device *pdev)
 	val = SET_CLK_ENB_XUSB | SET_CLK_ENB_XUSB_DEV | SET_CLK_ENB_XUSB_HOST |
 		SET_CLK_ENB_XUSB_SS;
 	iowrite32(val, car_base + CLK_RST_CONTROLLER_CLK_OUT_ENB_XUSB_SET_0);
+
+	devm_iounmap(&pdev->dev, car_base);
 
 	return 0;
 }
@@ -2088,6 +2094,8 @@ static int tegra_xusb_init_ifr_firmware(struct tegra_xusb *tegra)
 			val &= ~((u32) 0xff);
 			val |= 0xE;
 			iowrite32(val, ao_base + 0x1c4);
+
+			devm_iounmap(tegra->dev, ao_base);
 		}
 	}
 
@@ -2137,11 +2145,42 @@ static int tegra_xusb_init_ifr_firmware(struct tegra_xusb *tegra)
 	return 0;
 }
 
+static void tegra_genpd_down_postwork(struct tegra_xusb *tegra)
+{
+	unsigned int i;
+	bool wakeup = device_may_wakeup(tegra->dev);
+
+	if (tegra->suspended) {
+		for (i = 0; i < tegra->num_phys; i++) {
+			if (!tegra->phys[i])
+				continue;
+
+			phy_power_off(tegra->phys[i]);
+			if (!wakeup)
+				phy_exit(tegra->phys[i]);
+		}
+	}
+}
+
+static int tegra_xhci_genpd_notify(struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	struct tegra_xusb *tegra = container_of(nb, struct tegra_xusb,
+						    genpd_nb);
+
+	if (action == GENPD_NOTIFY_OFF)
+		tegra_genpd_down_postwork(tegra);
+
+	return 0;
+}
+
 static void tegra_xusb_powerdomain_remove(struct device *dev,
 					  struct tegra_xusb *tegra)
 {
 	if (!tegra->use_genpd)
 		return;
+
+	dev_pm_genpd_remove_notifier(tegra->genpd_dev_host);
 
 	if (!IS_ERR_OR_NULL(tegra->genpd_dev_ss))
 		dev_pm_domain_detach(tegra->genpd_dev_ss, true);
@@ -2170,8 +2209,8 @@ static int tegra_xusb_powerdomain_init(struct device *dev,
 		return err;
 	}
 
-	device_init_wakeup(tegra->genpd_dev_host, true);
-	device_init_wakeup(tegra->genpd_dev_ss, true);
+	tegra->genpd_nb.notifier_call = tegra_xhci_genpd_notify;
+	dev_pm_genpd_add_notifier(tegra->genpd_dev_host, &tegra->genpd_nb);
 
 	tegra->use_genpd = true;
 
@@ -3655,6 +3694,8 @@ static void tegra_xhci_enable_phy_sleepwalk_wake(struct tegra_xusb *tegra)
 				continue;
 
 			portsc = readl(rhub->ports[index]->addr);
+			if (!(portsc & PORT_WAKE_BITS))
+				continue;
 			speed = tegra_xhci_portsc_to_speed(tegra, portsc);
 			tegra_xusb_padctl_enable_phy_sleepwalk(padctl, phy, speed);
 			tegra_xusb_padctl_enable_phy_wake(padctl, phy);
@@ -3784,6 +3825,14 @@ static int tegra_xusb_enter_elpg(struct tegra_xusb *tegra, bool runtime)
 
 	tegra_xusb_powergate_partitions(tegra);
 
+	if ((!runtime) && (tegra->use_genpd)) {
+		/*
+		 * in system suspend path, phy_power_off()/phy_exit() will be done
+		 * in genpd notifier.
+		 */
+		goto out;
+	}
+
 skip_firmware_and_powergate:
 
 	for (i = 0; i < tegra->num_phys; i++) {
@@ -3835,12 +3884,22 @@ static int tegra_xusb_exit_elpg(struct tegra_xusb *tegra, bool runtime)
 	if (tegra->soc->is_xhci_vf)
 		goto skip_clock_and_powergate;
 
+	if ((!runtime) && (tegra->use_genpd)) {
+		/*
+		 * in system resume path, skip enabling partition clocks because
+		 * the clocks are not disabled at system suspend.
+		 */
+		goto skip_clk_enable;
+	}
+
 	err = tegra_xusb_clk_enable(tegra);
 	if (err < 0) {
 		dev_err(tegra->dev, "failed to enable clocks: %d\n", err);
 		goto out;
 	}
 
+
+skip_clk_enable:
 	err = tegra_xusb_unpowergate_partitions(tegra);
 	if (err)
 		goto disable_clks;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,5 +24,6 @@ int nvgpu_probe(struct gk20a *g,
 
 void nvgpu_init_gk20a(struct gk20a *g);
 void nvgpu_read_support_gpu_tools(struct gk20a *g);
+void nvgpu_read_devfreq_timer(struct gk20a *g);
 
 #endif

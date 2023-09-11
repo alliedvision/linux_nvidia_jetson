@@ -1,7 +1,7 @@
 # NVIDIA Jetson driver (Beta)
 
 
-Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1.1 (L4T 35.3.1)     
+Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1.2 (L4T 35.4.1)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
 
@@ -13,13 +13,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Compatible platforms with JetPack 5.1.1 (L4T 35.3.1) : 
+Compatible platforms with JetPack 5.1.2 (L4T 35.4.1) : 
 
   - AGX Orin Developer Kit
   - AGX Xavier DevKit
   - Xavier NX DevKit
   - Auvidea carrier JNX30-PD with Xavier NX
   - Orin Nano Developer Kit (**NEW**)
+  - Orin NX on the Orin Nano Developer Kit Carrier Board (**NEW**)
 
 ***Before starting the installation, make sure to create a backup of your Jetson system.***
 
@@ -28,9 +29,9 @@ Compatible platforms with JetPack 5.1.1 (L4T 35.3.1) :
 ### Host PC
 The scripts for the driver installation require Git on the host PC.
 
-### Install JetPack 5.1.1
+### Install JetPack 5.1.2
  
-Install JetPack 5.1.1 (L4T 35.3.1) as per NVIDIA's instructions
+Install JetPack 5.1.2 (L4T 35.4.1) as per NVIDIA's instructions
  https://developer.nvidia.com/embedded/jetpack      
 
 Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
@@ -46,7 +47,7 @@ https://docs.nvidia.com/sdk-manager/
   Install the precompiled kernel, which includes the driver and an installation menu.   
 
   1. Extract the tarball on a host PC.   
-  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.3.1.0_<git-rev>.tar.gz. 
+  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.4.1.0_<git-rev>.tar.gz. 
 
 2. Copy the tarball to the target board. 
 3. On the target board, extract the tarball and run the included install script.   

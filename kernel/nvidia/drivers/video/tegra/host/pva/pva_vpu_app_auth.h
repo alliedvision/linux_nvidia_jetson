@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -99,8 +99,7 @@ struct nvpva_drv_ctx;
  *
  * \return  The completion status of the operation. Possible values are:
  * - 0 when there exists a match key for the elf data pointed by dataptr.
- * - -EINVAL when allowlist file doesn't exists OR
- *   when the hash of ELF has no match in allowlist file OR
+ * - -EACCES when the hash of ELF has no match in allowlist file OR
  *   when the sha256 key has no match in the list of keys
  *   associated with the hash of ELF
  */

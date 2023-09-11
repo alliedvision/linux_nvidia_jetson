@@ -1,3 +1,3 @@
 #!/bin/bash
 
-depmod -a "5.10.104-tegra"
+depmod -a "5.10.120-tegra"

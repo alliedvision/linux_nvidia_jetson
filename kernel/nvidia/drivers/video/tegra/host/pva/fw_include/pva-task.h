@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -221,6 +221,8 @@ struct PVA_PACKED pva_td_s {
 	pva_iova			parameter_info_base;
 	/** @brief IOVA pointer to a pva_bin_info_t structure */
 	pva_iova			bin_info;
+	/** @brief IOVA pointer to a pva_bin_info_t structure */
+	pva_iova			ppe_bin_info;
 	/** @brief IOVA pointer to a pva_dma_info_t structure */
 	pva_iova			dma_info;
 	/** IOVA pointer to a pva_circular_info_t structure */
@@ -235,6 +237,8 @@ struct PVA_PACKED pva_td_s {
 	uint64_t			timeout;
 	/** @brief Variable to hold the queued time of the task */
 	uint64_t			queued_time;
+	/** @brief The ID of the batch that this task belongs to */
+	uint64_t			batch_id;
 	/** Size of L2SRAM required for the task */
 	uint32_t			l2sram_size;
 	/** Number of total tasks with timer resource utilization */
@@ -245,8 +249,8 @@ struct PVA_PACKED pva_td_s {
 	uint16_t			num_parameters;
 	/** @brief Interface on which FW should return status */
 	uint8_t				status_interface;
-	/** @brief The ID of the batch that this task belongs to */
-	uint8_t				batch_id;
+	/** @brief The ID of this task used to identify it during AISR */
+	uint8_t				task_id;
 	/** @note The below two fields are added for backward
 	 * compatibility, will be removed once changes are merged
 	 */
@@ -260,24 +264,23 @@ struct PVA_PACKED pva_td_s {
 /** @addtogroup PVA_TASK_FL
  * @{
  */
-
-/** Flag to allow VPU debugger attach for the task */
-#define PVA_TASK_FL_VPU_DEBUG		PVA_BIT(0U)
-
-/** Flag to request masking of illegal instruction error for the task */
-#define PVA_TASK_FL_ERR_MASK_ILLEGAL_INSTR	PVA_BIT(1U)
-
-/** Flag to request masking of divide by zero error for the task */
-#define PVA_TASK_FL_ERR_MASK_DIVIDE_BY_0	PVA_BIT(2U)
-
-/** Flag to request masking of floating point NAN error for the task */
-#define PVA_TASK_FL_ERR_MASK_FP_NAN		PVA_BIT(3U)
-
 /** Schedule on VPU0 only */
-#define PVA_TASK_FL_VPU0 PVA_BIT(8U)
+#define PVA_TASK_FL_VPU0 PVA_BIT(0U)
 
 /** Schedule on VPU1 only */
-#define PVA_TASK_FL_VPU1 PVA_BIT(9U)
+#define PVA_TASK_FL_VPU1 PVA_BIT(1U)
+
+/** Flag to allow VPU debugger attach for the task */
+#define PVA_TASK_FL_VPU_DEBUG		PVA_BIT(2U)
+
+/** Flag to request masking of illegal instruction error for the task */
+#define PVA_TASK_FL_ERR_MASK_ILLEGAL_INSTR	PVA_BIT(3U)
+
+/** Flag to request masking of divide by zero error for the task */
+#define PVA_TASK_FL_ERR_MASK_DIVIDE_BY_0	PVA_BIT(4U)
+
+/** Flag to request masking of floating point NAN error for the task */
+#define PVA_TASK_FL_ERR_MASK_FP_NAN		PVA_BIT(5U)
 
 /** Schedule next task in list immediately on this VPU.
  *
@@ -318,6 +321,9 @@ struct PVA_PACKED pva_td_s {
 
 /** Flag to indicate R5 complete time is needed by task */
 #define PVA_TASK_FL_EOT_R_TS PVA_BIT(22U)
+
+/** Flag to indicate Golden register check is needed by task */
+#define PVA_TASK_FL_GR_CHECK		PVA_BIT(23U)
 
 /** Flag to indicate that stats are enabled */
 #define PVA_TASK_FL_STATS_ENABLE (PVA_TASK_FL_QUEUED_TS | PVA_TASK_FL_HEAD_TS  |\
@@ -397,6 +403,9 @@ struct PVA_PACKED pva_task_error_s {
 
 	/* Queue to which the task belongs */
 	uint8_t queue;
+
+	/* Task ID of the task */
+	uint8_t task_id;
 };
 
 

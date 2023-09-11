@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -131,12 +131,13 @@ dma_addr_t phys_get_bin_info(struct nvpva_elf_context *d, uint16_t exe_id)
 }
 
 static int32_t pva_vpu_elf_alloc_mem(struct pva *pva,
+				     struct platform_device *pdev,
 				     struct pva_elf_buffer *buffer, size_t size)
 {
 	dma_addr_t pa = 0U;
 	void *va = NULL;
 
-	va = dma_alloc_coherent(&pva->pdev->dev, size, &pa, GFP_KERNEL);
+	va = dma_alloc_coherent(&pdev->dev, size, &pa, GFP_KERNEL);
 	if (va == NULL)
 		goto fail;
 
@@ -165,6 +166,7 @@ static int32_t pva_vpu_bin_info_allocate(struct pva *dev,
 	aligned_size = ALIGN(size + 128, 128);
 
 	ret = pva_vpu_elf_alloc_mem(dev,
+				    dev->aux_pdev,
 				    &elf_img->vpu_bin_buffer,
 				    aligned_size);
 	if (ret) {
@@ -183,7 +185,7 @@ fail:
 	return ret;
 }
 
-static int32_t pva_vpu_allocate_segment_memory(struct pva *dev,
+static int32_t pva_vpu_allocate_segment_memory(struct nvpva_elf_context *d,
 					       struct pva_elf_image *elf_img)
 {
 	int32_t err = 0;
@@ -196,7 +198,7 @@ static int32_t pva_vpu_allocate_segment_memory(struct pva *dev,
 
 		segment_size = elf_img->vpu_segments_buffer[i].localsize;
 		if (i == PVA_SEG_VPU_CODE) {
-			const u32 cache_size = (dev->version == PVA_HW_GEN1) ?
+			const u32 cache_size = (d->dev->version == PVA_HW_GEN1) ?
 							     (8 * 1024) :
 							     (16 * 1024);
 
@@ -205,8 +207,11 @@ static int32_t pva_vpu_allocate_segment_memory(struct pva *dev,
 		segment_size = ALIGN(segment_size + 128, 128);
 		if (segment_size == 0)
 			continue;
-		err = pva_vpu_elf_alloc_mem(
-			dev, &elf_img->vpu_segments_buffer[i], segment_size);
+
+		err = pva_vpu_elf_alloc_mem(d->dev,
+					    d->cntxt_dev,
+					    &elf_img->vpu_segments_buffer[i],
+					    segment_size);
 		if (err) {
 			pr_err("Memory allocation failed");
 			break;
@@ -239,6 +244,7 @@ pva_allocate_data_section_info(struct pva *dev,
 		goto out;
 
 	err = pva_vpu_elf_alloc_mem(dev,
+				    dev->aux_pdev,
 				    &elf_img->vpu_data_segment_info,
 				    elf_img->vpu_data_segment_info.localsize);
 	if (err != 0) {
@@ -269,7 +275,7 @@ static int32_t write_bin_info(struct nvpva_elf_context *d,
 	struct pva_bin_info_s *curr_bin_info;
 	int32_t err = 0;
 
-	err = pva_vpu_allocate_segment_memory(d->dev, elf_img);
+	err = pva_vpu_allocate_segment_memory(d, elf_img);
 	if (err < 0) {
 		pr_err("pva: failed to allocate segment memory");
 		goto fail;
@@ -590,8 +596,8 @@ static int32_t update_exports_symbol(void *elf, const struct elf_section_header 
 		if (data == NULL)
 			return -EINVAL;
 		symID->type = *(uint32_t *)&data[symOffset];
-		if ((symID->type > (uint32_t)VMEM_TYPE_SYSTEM) ||
-		    (symID->type == (uint32_t)VMEM_TYPE_INVALID))
+		if ((symID->type == (uint8_t)VMEM_TYPE_INVALID)
+		   || (symID->type >= (uint8_t)VMEM_TYPE_MAX))
 			return -EINVAL;
 		symID->addr = *(uint32_t *)&data[symOffset + sizeof(uint32_t)];
 		symID->size = *(uint32_t *)&data[symOffset + (2UL * sizeof(uint32_t))];
@@ -739,7 +745,8 @@ static int32_t validate_vpu(const void *elf, size_t size)
 	return err;
 }
 
-static void pva_elf_free_buffer(struct pva *pva, struct pva_elf_buffer *buf)
+static void pva_elf_free_buffer(struct platform_device *pdev,
+				struct pva_elf_buffer *buf)
 {
 	if (buf->localbuffer != NULL) {
 		kfree(buf->localbuffer);
@@ -748,14 +755,15 @@ static void pva_elf_free_buffer(struct pva *pva, struct pva_elf_buffer *buf)
 		buf->num_segments = 0;
 	}
 	if (buf->pa != 0U) {
-		dma_free_coherent(&pva->pdev->dev,
+		dma_free_coherent(&pdev->dev,
 				  buf->alloc_size, buf->alloc_va,
 				  buf->alloc_pa);
 	}
 }
 
 static void
-vpu_bin_clean(struct pva *dev, struct pva_elf_image *elf_img)
+vpu_bin_clean(struct nvpva_elf_context *d,
+	      struct pva_elf_image *elf_img)
 {
 	size_t i;
 
@@ -763,13 +771,14 @@ vpu_bin_clean(struct pva *dev, struct pva_elf_image *elf_img)
 		return;
 
 	/* Initialize vpu_bin_buffer */
-	pva_elf_free_buffer(dev, &elf_img->vpu_bin_buffer);
+	pva_elf_free_buffer(d->dev->aux_pdev, &elf_img->vpu_bin_buffer);
 
-	pva_elf_free_buffer(dev, &elf_img->vpu_data_segment_info);
+	pva_elf_free_buffer(d->dev->aux_pdev, &elf_img->vpu_data_segment_info);
 
 	/* Initiaize VPU segments buffer */
 	for (i = 0; i < PVA_SEG_VPU_MAX_TYPE; i++)
-		pva_elf_free_buffer(dev, &elf_img->vpu_segments_buffer[i]);
+		pva_elf_free_buffer(d->cntxt_dev,
+				    &elf_img->vpu_segments_buffer[i]);
 
 	/* clean up symbols */
 	for (i = 0; i < elf_img->num_symbols; i++)
@@ -779,8 +788,9 @@ vpu_bin_clean(struct pva *dev, struct pva_elf_image *elf_img)
 	memset(elf_img, 0, sizeof(struct pva_elf_image));
 }
 
-static int32_t pva_get_vpu_app_id(struct nvpva_elf_context *d, uint16_t *exe_id,
-					bool is_system_app)
+static int32_t pva_get_vpu_app_id(struct nvpva_elf_context *d,
+				  uint16_t *exe_id,
+				  bool is_system_app)
 {
 	int32_t ret = 0;
 	uint16_t index = 0;
@@ -849,7 +859,7 @@ pva_unload_vpu_app(struct nvpva_elf_context *d, uint16_t exe_id, bool locked)
 		goto out;
 	}
 
-	vpu_bin_clean(d->dev, get_elf_image(d, exe_id));
+	vpu_bin_clean(d, get_elf_image(d, exe_id));
 	rmos_clear_bit32((exe_id%32), &images->alloctable[exe_id/32]);
 	--(images->num_assigned);
 out:

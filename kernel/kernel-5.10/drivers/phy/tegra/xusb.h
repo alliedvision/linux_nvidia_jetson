@@ -412,7 +412,6 @@ struct tegra_xusb_padctl_ops {
 			     unsigned int index, bool idle);
 	int (*usb3_set_lfps_detect)(struct tegra_xusb_padctl *padctl,
 				    unsigned int index, bool enable);
-	int (*vbus_override)(struct tegra_xusb_padctl *padctl, bool set);
 	int (*vbus_power_on)(struct phy *phy);
 	int (*vbus_power_off)(struct phy *phy);
 	void (*utmi_pad_power_on)(struct phy *phy);
@@ -442,6 +441,7 @@ struct tegra_xusb_padctl_soc {
 	bool port_cap_quirk;
 	bool poll_trk_completed;
 	bool trk_hw_mode;
+	bool supports_vbus_id_map;
 };
 
 struct tegra_xusb_padctl {

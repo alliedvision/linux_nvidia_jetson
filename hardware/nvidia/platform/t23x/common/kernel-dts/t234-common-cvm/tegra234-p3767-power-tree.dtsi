@@ -25,6 +25,10 @@
 		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
 	};
 
+	pcie_ep@14160000 {
+		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
+	};
+
 	pcie@141e0000 {/* C7 */
 		vddio-pex-ctl-supply = <&p3767_vdd_1v8>;
 	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/of_platform.h>
 #include <uapi/linux/nvgpu.h>
+#include <linux/devfreq.h>
 
 #include <nvgpu/defaults.h>
 #include <nvgpu/kmem.h>
@@ -43,6 +44,7 @@
 #include "os_linux.h"
 #include "sysfs.h"
 #include "ioctl.h"
+#include "scale.h"
 
 #define EMC3D_DEFAULT_RATIO 750
 
@@ -69,6 +71,32 @@ void nvgpu_read_support_gpu_tools(struct gk20a *g)
 			g->support_gpu_tools = 1;
 		} else {
 			g->support_gpu_tools = 0;
+		}
+	}
+}
+
+void nvgpu_read_devfreq_timer(struct gk20a *g)
+{
+	struct device_node *np;
+	int ret = 0;
+	const char *timer;
+
+	np = nvgpu_get_node(g);
+	ret = of_property_read_string(np, "devfreq-timer", &timer);
+	if (ret != 0) {
+		nvgpu_log_info(g, "GPU devfreq monitor uses default timer");
+	} else {
+		if (strncmp(timer, "deferrable",
+					sizeof("deferrable") - 1) == 0) {
+			g->scale_profile->devfreq_profile.timer =
+						DEVFREQ_TIMER_DEFERRABLE;
+		} else if (strncmp(timer, "delayed",
+					sizeof("delayed") - 1) == 0) {
+			g->scale_profile->devfreq_profile.timer =
+						DEVFREQ_TIMER_DELAYED;
+		} else {
+			nvgpu_err(g, "dt specified "
+				"invalid devfreq timer for GPU: %s", timer);
 		}
 	}
 }
@@ -139,12 +167,14 @@ static void nvgpu_init_vars(struct gk20a *g)
 
 static void nvgpu_init_max_comptag(struct gk20a *g)
 {
+#ifdef CONFIG_NVGPU_COMPRESSION
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 	nvgpu_log_info(g, "total ram pages : %lu", totalram_pages());
 #else
 	nvgpu_log_info(g, "total ram pages : %lu", totalram_pages);
 #endif
 	g->max_comptag_mem = totalram_size_in_mb;
+#endif
 }
 
 static void nvgpu_init_timeout(struct gk20a *g)
@@ -185,7 +215,8 @@ static void nvgpu_init_timeslice(struct gk20a *g)
 
 static void nvgpu_init_pm_vars(struct gk20a *g)
 {
-	struct gk20a_platform *platform = dev_get_drvdata(dev_from_gk20a(g));
+	struct device *dev = dev_from_gk20a(g);
+	struct gk20a_platform *platform = dev_get_drvdata(dev);
 
 	/*
 	 * Set up initial power settings. For non-slicon platforms, disable
@@ -237,6 +268,17 @@ static void nvgpu_init_pm_vars(struct gk20a *g)
 		/* Always enable railgating on simulation platform */
 		platform->can_railgate_init = nvgpu_platform_is_simulation(g) ?
 			true : platform->can_railgate_init;
+
+		/*
+		 * Disable railgating if GPU power domain node is not defined
+		 * in the DT as bpmp will not powergate/ungate the GPU on
+		 * suspend/resume and can lead to ACR failure on resume
+		 * as it expects GPU to be reset on every resume.
+		 */
+		if (!of_property_read_bool(dev->of_node, "power-domains")) {
+			platform->can_railgate_init = false;
+		}
+
 		nvgpu_set_enabled(g, NVGPU_CAN_RAILGATE,
 				platform->can_railgate_init);
 	}

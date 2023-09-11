@@ -1,4 +1,4 @@
-From 032b5aef5035232e89a8dd47a424964882e028e9 Mon Sep 17 00:00:00 2001
+From 298ec27893e9123c61e3524ff672bd97a3b95343 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:27 +0100
 Subject: [PATCH 065/318] blk-mq: Use llist_head for blk_cpu_done

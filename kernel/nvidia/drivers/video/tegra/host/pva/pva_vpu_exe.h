@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -43,7 +43,11 @@ enum pva_elf_symbol_type {
 	/**< Symbol type Pointer */
 	VMEM_TYPE_POINTER,
 	/**< Symbol type System */
-	VMEM_TYPE_SYSTEM
+	VMEM_TYPE_SYSTEM,
+	/** Symbol type Pointer Extension */
+	VMEM_TYPE_POINTER_EX,
+	/** Symbol type Invalid */
+	VMEM_TYPE_MAX
 };
 
 /**
@@ -146,6 +150,8 @@ struct pva_elf_images {
 
 struct nvpva_elf_context {
 	struct pva *dev;
+	/* context device */
+	struct platform_device *cntxt_dev;
 	/* Contains context for all elf images */
 	struct pva_elf_images *elf_images;
 	/* Mutex for atomic access */

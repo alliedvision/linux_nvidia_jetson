@@ -76,6 +76,8 @@ irqreturn_t pva_ccq_isr(int irq, void *dev_id)
 			atomic_add(1, &pva->n_pending_tasks);
 			queue_work(pva->task_status_workqueue,
 				   &pva->task_update_work);
+			if ((aisr_status & PVA_AISR_ABORT) == 0U)
+				pva_push_aisr_status(pva, aisr_status);
 		}
 
 		/* For now, just log the errors */
@@ -85,22 +87,6 @@ irqreturn_t pva_ccq_isr(int irq, void *dev_id)
 				    "PVA AISR: \
 				    PVA_AISR_TASK_ERROR for queue id = %d",
 				    queue_id);
-		if (aisr_status & PVA_AISR_THRESHOLD_EXCEEDED)
-			nvpva_warn(&pdev->dev, "PVA AISR: \
-				PVA_AISR_THRESHOLD_EXCEEDED for queue id = %d",
-				queue_id);
-		if (aisr_status & PVA_AISR_LOGGING_OVERFLOW)
-			nvpva_warn(&pdev->dev, "PVA AISR: \
-				PVA_AISR_LOGGING_OVERFLOW for queue id = %d",
-				queue_id);
-		if (aisr_status & PVA_AISR_PRINTF_OVERFLOW)
-			nvpva_warn(&pdev->dev, "PVA AISR: \
-				PVA_AISR_PRINTF_OVERFLOW for queue id = %d",
-				queue_id);
-		if (aisr_status & PVA_AISR_CRASH_LOG)
-			nvpva_warn(&pdev->dev, "PVA AISR: \
-				PVA_AISR_CRASH_LOG for queue id = %d",
-				queue_id);
 		if (aisr_status & PVA_AISR_ABORT) {
 			nvpva_warn(&pdev->dev, "PVA AISR: \
 				PVA_AISR_ABORT for queue id = %d",

@@ -23,6 +23,7 @@
 #include "pva-sys-params.h"
 #include "pva-interface.h"
 #include "pva-task.h"
+#include "pva_hwseq.h"
 
 #define task_err(task, fmt, ...) \
 	dev_err(&task->pva->pdev->dev, fmt, ##__VA_ARGS__)
@@ -32,10 +33,10 @@ struct dma_buf;
 extern struct nvpva_queue_ops pva_queue_ops;
 
 struct pva_pinned_memory {
-	int id;
+	u64 size;
 	dma_addr_t dma_addr;
-	size_t size;
 	struct dma_buf *dmabuf;
+	int id;
 	enum nvpva_buffers_heap heap;
 };
 
@@ -53,6 +54,19 @@ struct pva_cb {
 };
 
 /**
+ * @brief	descriptor src/dest buffer inforamtion
+ *
+ * This structure holds information about buffers addressed
+ * by a DMA descriptor. This information is used to imrove
+ * efficiency of bounds checking on DMA access.
+ */
+struct pva_dma_task_buffer_info_s {
+	uint64_t src_buffer_size;
+	uint64_t dst_buffer_size;
+	uint64_t dst2_buffer_size;
+};
+
+/**
  * @brief	Describe a task for PVA
  *
  * This is an internal representation of the task structure. All
@@ -63,8 +77,10 @@ struct pva_cb {
  * queue			Pointer to struct nvpva_queue
  * node				Used to build queue task list
  * kref				Used to manage allocation and freeing
- * dma_addr			task dma_addr_t
+ * dma_addr			task dma_addr
+ * aux_dma_addr			task auxdma_addr
  * va				task virtual address
+ * aux_va			task aux virtual address
  * pool_index			task pool index
  * postfence_va			postfence virtual address
  * num_prefences		Number of pre-fences in this task
@@ -95,7 +111,9 @@ struct pva_submit_task {
 	struct kref ref;
 
 	dma_addr_t dma_addr;
+	dma_addr_t aux_dma_addr;
 	void *va;
+	void *aux_va;
 	int pool_index;
 
 	bool pinned_app;
@@ -119,6 +137,7 @@ struct pva_submit_task {
 	u64 desc_hwseq_frm;
 	u32 syncpt_thresh;
 	u32 fence_num;
+	u32 local_sync_counter;
 
 	u32 sem_thresh;
 	u32 sem_num;
@@ -145,6 +164,12 @@ struct pva_submit_task {
 	struct nvpva_fence_action
 		pva_fence_actions[NVPVA_MAX_FENCE_TYPES]
 				 [NVPVA_TASK_MAX_FENCEACTIONS];
+	struct pva_hwseq_priv_s hwseq_info[NVPVA_TASK_MAX_DMA_CHANNELS_T23X];
+	int8_t desc_block_height_log2[NVPVA_TASK_MAX_DMA_DESCRIPTORS];
+	struct pva_dma_task_buffer_info_s task_buff_info[NVPVA_TASK_MAX_DMA_DESCRIPTORS];
+	struct pva_dma_hwseq_desc_entry_s desc_entries[NVPVA_TASK_MAX_DMA_CHANNELS_T23X]
+						      [PVA_HWSEQ_DESC_LIMIT];
+
 	/** Store Suface base address */
 	u64 src_surf_base_addr;
 	u64 dst_surf_base_addr;
@@ -227,6 +252,8 @@ struct PVA_PACKED pva_task_action_status_s {
 	/* IOVA to pva_gen_task_status_t struct */
 	pva_iova		p;
 	uint16_t		status;
+	/* Padding to ensure that structure is 4byte aligned for FW perf optimization */
+	uint8_t			pad[2];
 };
 
 struct PVA_PACKED pva_task_action_statistics_s {
@@ -235,6 +262,8 @@ struct PVA_PACKED pva_task_action_statistics_s {
 };
 struct PVA_PACKED pva_task_action_s {
 	uint8_t		action;
+	/* Padding to ensure that structure is 4byte aligned for FW perf optimization */
+	uint8_t		pad[3];
 	union {
 		struct pva_task_action_ptr_s		ptr;
 		struct pva_task_action_status_s		status;
@@ -251,7 +280,6 @@ struct pva_hw_task {
 	struct pva_dtd_s dma_desc[NVPVA_TASK_MAX_DMA_DESCRIPTORS];
 	struct pva_vpu_parameter_info_s param_info;
 	struct pva_vpu_parameters_s param_list[NVPVA_TASK_MAX_SYMBOLS];
-	u8 sym_payload[NVPVA_TASK_MAX_PAYLOAD_SIZE];
 	struct pva_task_statistics_s statistics;
 	struct pva_circular_buffer_info_s stdout_cb_info;
 };
@@ -262,8 +290,7 @@ void pva_task_free(struct kref *ref);
 void pva_task_update(struct work_struct *work);
 
 struct pva_pinned_memory *pva_task_pin_mem(struct pva_submit_task *task,
-					   u32 id,
-					   bool is_cntxt);
+					   u32 id);
 
 void pva_dmabuf_vunmap(struct dma_buf *dmabuf, void *addr);
 void *pva_dmabuf_vmap(struct dma_buf *dmabuf);

@@ -1,7 +1,7 @@
 /*
  * NVPVA Buffer Management Header
  *
- * Copyright (c) 2016-2022, NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -43,7 +43,8 @@ enum nvpva_buffers_heap {
 			(NVPVA_MAX_NUM_UNIQUE_IDS/NVPVA_ID_SEGMENT_SIZE)
 struct nvpva_buffers {
 	struct platform_device *pdev;
-	struct platform_device *pdev_cntxt;
+	struct platform_device *pdev_priv;
+	struct platform_device *pdev_user;
 	struct list_head list_head;
 	struct rb_root rb_root;
 	struct rb_root rb_root_id;
@@ -66,7 +67,8 @@ struct nvpva_buffers {
  */
 struct nvpva_buffers
 *nvpva_buffer_init(struct platform_device *pdev,
-		   struct platform_device *pdev_cntxt);
+		   struct platform_device *pdev_priv,
+		   struct platform_device *pdev_user);
 
 /**
  * @brief			Pin the memhandle using dma_buf functions
@@ -86,6 +88,7 @@ int nvpva_buffer_pin(struct nvpva_buffers *nvpva_buffers,
 		     struct dma_buf **dmabufs,
 		     u64 *offset,
 		     u64 *size,
+		     u32 segment,
 		     u32 count,
 		     u32 *id,
 		     u32 *eerr);
@@ -164,9 +167,8 @@ int nvpva_buffer_submit_pin_id(struct nvpva_buffers *nvpva_buffers,
 			       u32 count,
 			       struct dma_buf **dmabuf,
 			       dma_addr_t *paddr,
-			       size_t *psize,
-			       enum nvpva_buffers_heap *heap,
-			       bool is_cntxt);
+			       u64 *psize,
+			       enum nvpva_buffers_heap *heap);
 
 /**
  * @brief		UnPins the mapped address space on task completion.

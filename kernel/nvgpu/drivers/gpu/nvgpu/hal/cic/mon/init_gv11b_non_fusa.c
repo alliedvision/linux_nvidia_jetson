@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,6 @@
 #include <nvgpu/log.h>
 
 #include "common/cic/mon/cic_mon_priv.h"
-#include "cic_ga10b.h"
 #include "cic_gv11b.h"
 
 int gv11b_cic_mon_init(struct gk20a *g, struct nvgpu_cic_mon *cic_mon)
@@ -33,7 +32,7 @@ int gv11b_cic_mon_init(struct gk20a *g, struct nvgpu_cic_mon *cic_mon)
 		return -EINVAL;
 	}
 
-	cic_mon->err_lut = ga10b_err_lut;
-	cic_mon->num_hw_modules = size_of_ga10b_lut;
+	cic_mon->err_lut = gv11b_err_lut;
+	cic_mon->num_hw_modules = size_of_gv11b_lut;
 	return 0;
 }

@@ -360,7 +360,7 @@ static ssize_t dbg_dce_boot_status_fops_read(struct file *file,
 	char buf[32];
 	u32 last_status;
 	ssize_t len = 0;
-	unsigned long *addr;
+	unsigned long bitmap;
 	struct tegra_dce *d = file->private_data;
 	u32 boot_status = d->boot_status;
 	hsp_sema_t ss = dce_ss_get_state(d, DCE_BOOT_SEMA);
@@ -370,9 +370,9 @@ static ssize_t dbg_dce_boot_status_fops_read(struct file *file,
 
 	/* Clear BOOT_COMPLETE bit and bits set by OS */
 	ss &= ~(DCE_OS_BITMASK | DCE_BOOT_COMPLETE);
-	addr = (unsigned long *)&ss;
+	bitmap = ss;
 
-	fsb = find_first_bit(addr, 32U);
+	fsb = find_first_bit(&bitmap, 32U);
 	if (fsb > 31U) {
 		dce_info(d, "dce-fw boot not started yet");
 		goto core_boot_done;
@@ -420,8 +420,8 @@ static ssize_t dbg_dce_boot_status_fops_read(struct file *file,
 core_boot_done:
 	/* Clear DCE_STATUS_FAILED bit get actual failure reason*/
 	boot_status &= ~DCE_STATUS_FAILED;
-	addr = (unsigned long *)&boot_status;
-	last_status = DCE_BIT(find_first_bit(addr, 32));
+	bitmap = boot_status;
+	last_status = DCE_BIT(find_first_bit(&bitmap, 32));
 
 	switch (last_status) {
 	case DCE_FW_SUSPENDED:

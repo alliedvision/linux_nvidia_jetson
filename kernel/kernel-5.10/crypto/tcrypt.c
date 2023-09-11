@@ -885,13 +885,8 @@ static void test_mb_ahash_speed(const char *algo, unsigned int secs,
 			goto out;
 		}
 
-		if (klen) {
-			ret = crypto_ahash_setkey(tfm, tvmem[0], klen);
-			if (ret) {
-				pr_err("cryto_ahash_setkey failed: %d\n", ret);
-				goto out;
-			}
-		}
+		if (klen)
+			crypto_ahash_setkey(tfm, tvmem[0], klen);
 
 		for (k = 0; k < num_mb; k++)
 			ahash_request_set_crypt(data[k].req, data[k].sg,
@@ -2038,6 +2033,9 @@ static int test_akcipher_cycles(struct akcipher_request *r, int op)
 			break;
 		case VERIFY:
 			ret = crypto_wait_req(crypto_akcipher_verify(r), r->base.data);
+			break;
+		default:
+			ret = -EINVAL;
 			break;
 		}
 		if (ret)

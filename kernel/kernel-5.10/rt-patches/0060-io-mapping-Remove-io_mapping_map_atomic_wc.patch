@@ -1,4 +1,4 @@
-From 36b6972ee7534baf271e5932e11a609aee634921 Mon Sep 17 00:00:00 2001
+From 4427e209a6ec8645d718df8461fefced98cc9e3f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:49 +0100
 Subject: [PATCH 060/318] io-mapping: Remove io_mapping_map_atomic_wc()

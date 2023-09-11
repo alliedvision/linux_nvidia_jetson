@@ -60,9 +60,9 @@ static void clk_free_pmupstate(struct gk20a *g)
 	g->pmu->clk_pmu = NULL;
 }
 
-u32 nvgpu_pmu_clk_mon_init_domains(struct gk20a *g)
+unsigned long nvgpu_pmu_clk_mon_init_domains(struct gk20a *g)
 {
-	u32 domain_mask;
+	unsigned long domain_mask;
 
 	(void)g;
 

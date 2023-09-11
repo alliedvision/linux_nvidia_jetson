@@ -354,9 +354,15 @@ int __nvmap_map(struct nvmap_handle *h, struct vm_area_struct *vma)
 	}
 	priv->handle = h;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+	vm_flags_set(vma, VM_SHARED | VM_DONTEXPAND |
+			  VM_DONTDUMP | VM_DONTCOPY |
+			  (h->heap_pgalloc ? 0 : VM_PFNMAP));
+#else
 	vma->vm_flags |= VM_SHARED | VM_DONTEXPAND |
 			  VM_DONTDUMP | VM_DONTCOPY |
 			  (h->heap_pgalloc ? 0 : VM_PFNMAP);
+#endif
 	vma->vm_ops = &nvmap_vma_ops;
 	BUG_ON(vma->vm_private_data != NULL);
 	vma->vm_private_data = priv;

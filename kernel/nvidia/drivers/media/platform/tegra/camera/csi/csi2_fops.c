@@ -1,7 +1,7 @@
 /*
  * Tegra CSI2 device common APIs
  *
- * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bryan Wu <pengw@nvidia.com>
  *
@@ -292,10 +292,11 @@ static int csi2_start_streaming(struct tegra_csi_channel *chan, int port_idx)
 			&str);
 		if (!err) {
 			err = kstrtou32(str, 10, &cil_settletime);
-			if (err)
+			if (err) {
 				dev_dbg(csi->dev,
 					"no cil_settletime in of_node");
 				cil_settletime = 0;
+			}
 		}
 	}
 

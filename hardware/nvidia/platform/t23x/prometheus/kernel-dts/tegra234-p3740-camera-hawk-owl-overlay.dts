@@ -33,7 +33,7 @@
 			sw-modules = "kernel";
 		};
 		__overlay__ {
-			num-channels=<8>;
+			num-channels=<12>;
 		};
 	};
 
@@ -142,7 +142,7 @@
 		__overlay__ {
 			status = "okay";
 			vc-id = <0>;
-			port-index = <4>;
+			port-index = <2>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_csi_out4>;
 		};
@@ -164,7 +164,7 @@
 		__overlay__ {
 			status = "okay";
 			vc-id = <1>;
-			port-index = <4>;
+			port-index = <2>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_csi_out5>;
 		};
@@ -185,8 +185,8 @@
 		};
 		__overlay__ {
 			status = "okay";
-			vc-id = <2>;
-			port-index = <4>;
+			vc-id = <0>;
+			port-index = <3>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_csi_out6>;
 		};
@@ -207,23 +207,15 @@
 		};
 		__overlay__ {
 			status = "okay";
-			vc-id = <3>;
-			port-index = <4>;
+			vc-id = <1>;
+			port-index = <3>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_csi_out7>;
 		};
 	};
+
 	fragment@17 {
-		target-path = "/host1x@13e00000/nvcsi@15a00000";
-		board_config {
-			sw-modules = "kernel";
-		};
-		__overlay__ {
-			num-channels=<8>;
-		};
-	};
-	fragment@18 {
-		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		target-path = "/tegra-capture-vi/ports/port@8";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -231,8 +223,21 @@
 			status = "okay";
 		};
 	};
+	fragment@18 {
+		target-path = "/tegra-capture-vi/ports/port@8/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <0>;
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_csi_out8>;
+		};
+	};
 	fragment@19 {
-		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		target-path = "/tegra-capture-vi/ports/port@9";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -241,6 +246,91 @@
 		};
 	};
 	fragment@20 {
+		target-path = "/tegra-capture-vi/ports/port@9/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <1>;
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_csi_out9>;
+		};
+	};
+	fragment@21 {
+		target-path = "/tegra-capture-vi/ports/port@10";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@22 {
+		target-path = "/tegra-capture-vi/ports/port@10/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <2>;
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_csi_out10>;
+		};
+	};
+	fragment@23 {
+		target-path = "/tegra-capture-vi/ports/port@11";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@24 {
+		target-path = "/tegra-capture-vi/ports/port@11/endpoint";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			vc-id = <3>;
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_csi_out11>;
+		};
+	};
+	/* HOST1X */
+	fragment@25 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			num-channels=<12>;
+		};
+	};
+	fragment@26 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@27 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@28 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@0/endpoint@0";
 		board_config {
 			sw-modules = "kernel";
@@ -252,7 +342,7 @@
 			remote-endpoint = <&ar0234_ar0234_out0>;
 		};
 	};
-	fragment@21 {
+	fragment@29 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -261,7 +351,7 @@
 			status = "okay";
 		};
 	};
-	fragment@22 {
+	fragment@30 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@0/ports/port@1/endpoint@1";
 		board_config {
 			sw-modules = "kernel";
@@ -270,7 +360,7 @@
 			status = "okay";
 		};
 	};
-	fragment@23 {
+	fragment@31 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1";
 		board_config {
 			sw-modules = "kernel";
@@ -279,7 +369,7 @@
 			status = "okay";
 		};
 	};
-	fragment@24 {
+	fragment@32 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -288,7 +378,7 @@
 			status = "okay";
 		};
 	};
-	fragment@25 {
+	fragment@33 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@0/endpoint@2";
 		board_config {
 			sw-modules = "kernel";
@@ -300,7 +390,7 @@
 			remote-endpoint = <&ar0234_ar0234_out1>;
 		};
 	};
-	fragment@26 {
+	fragment@34 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -309,7 +399,7 @@
 			status = "okay";
 		};
 	};
-	fragment@27 {
+	fragment@35 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@1/ports/port@1/endpoint@3";
 		board_config {
 			sw-modules = "kernel";
@@ -319,7 +409,7 @@
 		};
 	};
 
-	fragment@28 {
+	fragment@36 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2";
 		board_config {
 			sw-modules = "kernel";
@@ -328,7 +418,7 @@
 			status = "okay";
 		};
 	};
-	fragment@29 {
+	fragment@37 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -337,7 +427,7 @@
 			status = "okay";
 		};
 	};
-	fragment@30 {
+	fragment@38 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@0/endpoint@4";
 		board_config {
 			sw-modules = "kernel";
@@ -349,7 +439,7 @@
 			remote-endpoint = <&ar0234_ar0234_out2>;
 		};
 	};
-	fragment@31 {
+	fragment@39 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -358,7 +448,7 @@
 			status = "okay";
 		};
 	};
-	fragment@32 {
+	fragment@40 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@2/ports/port@1/endpoint@5";
 		board_config {
 			sw-modules = "kernel";
@@ -369,7 +459,7 @@
 	};
 
 
-	fragment@33 {
+	fragment@41 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3";
 		board_config {
 			sw-modules = "kernel";
@@ -378,7 +468,7 @@
 			status = "okay";
 		};
 	};
-	fragment@34 {
+	fragment@42 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -387,7 +477,7 @@
 			status = "okay";
 		};
 	};
-	fragment@35 {
+	fragment@43 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@0/endpoint@6";
 		board_config {
 			sw-modules = "kernel";
@@ -399,7 +489,7 @@
 			remote-endpoint = <&ar0234_ar0234_out3>;
 		};
 	};
-	fragment@36 {
+	fragment@44 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -408,7 +498,7 @@
 			status = "okay";
 		};
 	};
-	fragment@37 {
+	fragment@45 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@3/ports/port@1/endpoint@7";
 		board_config {
 			sw-modules = "kernel";
@@ -419,7 +509,7 @@
 	};
 
 
-	fragment@38 {
+	fragment@46 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@4";
 		board_config {
 			sw-modules = "kernel";
@@ -428,7 +518,7 @@
 			status = "okay";
 		};
 	};
-	fragment@39 {
+	fragment@47 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@4/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -437,19 +527,19 @@
 			status = "okay";
 		};
 	};
-	fragment@40 {
+	fragment@48 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@4/ports/port@0/endpoint@8";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <4>;
+			port-index = <2>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_ar0234_out4>;
 		};
 	};
-	fragment@41 {
+	fragment@49 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@4/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -458,7 +548,7 @@
 			status = "okay";
 		};
 	};
-	fragment@42 {
+	fragment@50 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@4/ports/port@1/endpoint@9";
 		board_config {
 			sw-modules = "kernel";
@@ -469,7 +559,7 @@
 	};
 
 
-	fragment@43 {
+	fragment@51 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@5";
 		board_config {
 			sw-modules = "kernel";
@@ -478,7 +568,7 @@
 			status = "okay";
 		};
 	};
-	fragment@44 {
+	fragment@52 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@5/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -487,19 +577,19 @@
 			status = "okay";
 		};
 	};
-	fragment@45 {
+	fragment@53 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@5/ports/port@0/endpoint@10";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <4>;
+			port-index = <2>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_ar0234_out5>;
 		};
 	};
-	fragment@46 {
+	fragment@54 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@5/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -508,7 +598,7 @@
 			status = "okay";
 		};
 	};
-	fragment@47 {
+	fragment@55 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@5/ports/port@1/endpoint@11";
 		board_config {
 			sw-modules = "kernel";
@@ -518,7 +608,7 @@
 		};
 	};
 
-	fragment@48 {
+	fragment@56 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@6";
 		board_config {
 			sw-modules = "kernel";
@@ -527,7 +617,7 @@
 			status = "okay";
 		};
 	};
-	fragment@49 {
+	fragment@57 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@6/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -536,19 +626,19 @@
 			status = "okay";
 		};
 	};
-	fragment@50 {
+	fragment@58 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@6/ports/port@0/endpoint@12";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <4>;
+			port-index = <3>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_ar0234_out6>;
 		};
 	};
-	fragment@51 {
+	fragment@59 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@6/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -557,7 +647,7 @@
 			status = "okay";
 		};
 	};
-	fragment@52 {
+	fragment@60 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@6/ports/port@1/endpoint@13";
 		board_config {
 			sw-modules = "kernel";
@@ -568,7 +658,7 @@
 	};
 
 
-	fragment@53 {
+	fragment@61 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@7";
 		board_config {
 			sw-modules = "kernel";
@@ -577,7 +667,7 @@
 			status = "okay";
 		};
 	};
-	fragment@54 {
+	fragment@62 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@7/ports/port@0";
 		board_config {
 			sw-modules = "kernel";
@@ -586,19 +676,19 @@
 			status = "okay";
 		};
 	};
-	fragment@55 {
+	fragment@63 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@7/ports/port@0/endpoint@14";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			port-index = <4>;
+			port-index = <3>;
 			bus-width = <2>;
 			remote-endpoint = <&ar0234_ar0234_out7>;
 		};
 	};
-	fragment@56 {
+	fragment@64 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@7/ports/port@1";
 		board_config {
 			sw-modules = "kernel";
@@ -607,7 +697,7 @@
 			status = "okay";
 		};
 	};
-	fragment@57 {
+	fragment@65 {
 		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@7/ports/port@1/endpoint@15";
 		board_config {
 			sw-modules = "kernel";
@@ -616,8 +706,200 @@
 			status = "okay";
 		};
 	};
-
-	fragment@58 {
+	fragment@66 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@8";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@67 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@8/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@68 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@8/ports/port@0/endpoint@16";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_ar0234_out8>;
+		};
+	};
+	fragment@69 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@8/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@70 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@8/ports/port@1/endpoint@17";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@71 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@9";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@72 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@9/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@73 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@9/ports/port@0/endpoint@18";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_ar0234_out9>;
+		};
+	};
+	fragment@74 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@9/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@75 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@9/ports/port@1/endpoint@19";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@76 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@10";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@77 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@10/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+		status = "okay";
+		};
+	};
+	fragment@78 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@10/ports/port@0/endpoint@20";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_ar0234_out10>;
+		};
+	};
+	fragment@79 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@10/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@80 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@10/ports/port@1/endpoint@21";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@81 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@11";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@82 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@11/ports/port@0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+		status = "okay";
+		};
+	};
+	fragment@83 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@11/ports/port@0/endpoint@22";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			port-index = <4>;
+			bus-width = <2>;
+			remote-endpoint = <&ar0234_ar0234_out11>;
+		};
+	};
+	fragment@84 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@11/ports/port@1";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@85 {
+		target-path = "/host1x@13e00000/nvcsi@15a00000/channel@11/ports/port@1/endpoint@23";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	/* End of Host1X */
+	fragment@86 {
 		target-path = "/i2c@31e0000/ar0234_a@30";
 		board_config {
 			sw-modules = "kernel";
@@ -626,7 +908,7 @@
 			status = "okay";
 		};
 	};
-	fragment@59 {
+	fragment@87 {
 		target-path = "/i2c@31e0000/ar0234_b@31";
 		board_config {
 			sw-modules = "kernel";
@@ -635,7 +917,7 @@
 			status = "okay";
 		};
 	};
-	fragment@60 {
+	fragment@88 {
 		target-path = "/i2c@31e0000/ar0234_c@32";
 		board_config {
 			sw-modules = "kernel";
@@ -644,7 +926,7 @@
 			status = "okay";
 		};
 	};
-	fragment@61 {
+	fragment@89 {
 		target-path = "/i2c@31e0000/ar0234_d@33";
 		board_config {
 			sw-modules = "kernel";
@@ -653,8 +935,8 @@
 			status = "okay";
 		};
 	};
-	fragment@62 {
-		target-path = "/i2c@3180000/ar0234_e@30";
+	fragment@90 {
+		target-path = "/i2c@31e0000/ar0234_e@34";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -662,26 +944,8 @@
 			status = "okay";
 		};
 	};
-	fragment@63 {
-		target-path = "/i2c@3180000/ar0234_f@32";
-		board_config {
-			sw-modules = "kernel";
-		};
-		__overlay__ {
-			status = "okay";
-		};
-	};
-	fragment@64 {
-		target-path = "/i2c@3180000/ar0234_g@34";
-		board_config {
-			sw-modules = "kernel";
-		};
-		__overlay__ {
-			status = "okay";
-		};
-	};
-	fragment@65 {
-		target-path = "/i2c@3180000/ar0234_h@36";
+	fragment@91 {
+		target-path = "/i2c@31e0000/ar0234_f@35";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -690,7 +954,63 @@
 		};
 	};
 
-	fragment@66 {
+	fragment@92 {
+		target-path = "/i2c@31e0000/ar0234_g@36";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@93 {
+		target-path = "/i2c@31e0000/ar0234_h@37";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	/* Owl sensors */
+	fragment@94 {
+		target-path = "/i2c@3180000/ar0234_i@30";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@95 {
+		target-path = "/i2c@3180000/ar0234_j@32";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@96 {
+		target-path = "/i2c@3180000/ar0234_k@34";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+	fragment@97 {
+		target-path = "/i2c@3180000/ar0234_l@36";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@98 {
 		target-path = "/i2c@3180000/p3785@56";
 		board_config {
 			sw-modules = "kernel";
@@ -700,13 +1020,13 @@
 		};
 	};
 
-	fragment@67 {
+	fragment@99 {
 		target-path = "/tegra-camera-platform";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
-			num_csi_lanes = <6>;
+			num_csi_lanes = <12>;
 			max_lane_speed = <1500000>;
 			min_bits_per_pixel = <10>;
 			vi_peak_byte_per_pixel = <2>;
@@ -716,7 +1036,7 @@
 		};
 	};
 
-	fragment@68 {
+	fragment@100 {
 		target-path = "/tegra-camera-platform/modules/module0";
 		board_config {
 			sw-modules = "kernel";
@@ -729,7 +1049,7 @@
 		};
 	};
 
-	fragment@69 {
+	fragment@101 {
 		target-path = "/tegra-camera-platform/modules/module0/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -738,37 +1058,12 @@
 			status = "okay";
 			pcl_id = "v4l2_sensor";
 			devname = "ar0234 2-0030";
-			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_e@30";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_i@30";
 		};
 	};
 
-	fragment@70 {
+	fragment@102 {
 		target-path = "/tegra-camera-platform/modules/module1";
-		board_config {
-			sw-modules = "kernel";
-		};
-		__overlay__ {
-			status = "okay";
-			badge = "owl_bottomright";
-			position = "bottomright";
-			orientation = "1";
-		};
-	};
-
-	fragment@71 {
-		target-path = "/tegra-camera-platform/modules/module1/drivernode0";
-		board_config {
-			sw-modules = "kernel";
-		};
-		__overlay__ {
-			status = "okay";
-			pcl_id = "v4l2_sensor";
-			devname = "ar0234 2-0032";
-			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_f@32";
-		};
-	};
-	fragment@72 {
-		target-path = "/tegra-camera-platform/modules/module2";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -780,20 +1075,21 @@
 		};
 	};
 
-	fragment@73 {
-		target-path = "/tegra-camera-platform/modules/module2/drivernode0";
+	fragment@103 {
+		target-path = "/tegra-camera-platform/modules/module1/drivernode0";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
 			pcl_id = "v4l2_sensor";
-			devname = "ar0234 2-0034";
-			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_g@34";
+			devname = "ar0234 2-0032";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_j@32";
 		};
 	};
-	fragment@74 {
-		target-path = "/tegra-camera-platform/modules/module3";
+
+	fragment@104 {
+		target-path = "/tegra-camera-platform/modules/module2";
 		board_config {
 			sw-modules = "kernel";
 		};
@@ -805,7 +1101,33 @@
 		};
 	};
 
-	fragment@75 {
+	fragment@105 {
+		target-path = "/tegra-camera-platform/modules/module2/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 2-0034";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_k@34";
+		};
+	};
+
+	fragment@106 {
+		target-path = "/tegra-camera-platform/modules/module3";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "owl_topleft";
+			position = "topleft";
+			orientation = "1";
+		};
+	};
+
+	fragment@107 {
 		target-path = "/tegra-camera-platform/modules/module3/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -814,23 +1136,24 @@
 			status = "okay";
 			pcl_id = "v4l2_sensor";
 			devname = "ar0234 2-0036";
-			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_h@36";
+			proc-device-tree = "/proc/device-tree/i2c@3180000/ar0234_l@36";
 		};
 	};
-	fragment@76 {
+
+	fragment@108 {
 		target-path = "/tegra-camera-platform/modules/module4";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			badge = "ar0234_bottomleft";
-			position = "bottomleft";
+			badge = "hawk_bottomright";
+			position = "bottomright";
 			orientation = "1";
 		};
 	};
 
-	fragment@77 {
+	fragment@109 {
 		target-path = "/tegra-camera-platform/modules/module4/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -842,20 +1165,21 @@
 			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_a@30";
 		};
 	};
-	fragment@78 {
+
+	fragment@110 {
 		target-path = "/tegra-camera-platform/modules/module5";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			badge = "ar0234_bottomright";
-			position = "bottomright";
+			badge = "hawk_topright";
+			position = "topright";
 			orientation = "1";
 		};
 	};
 
-	fragment@79 {
+	fragment@111 {
 		target-path = "/tegra-camera-platform/modules/module5/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -867,20 +1191,21 @@
 			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_b@31";
 		};
 	};
-	fragment@80 {
+
+	fragment@112 {
 		target-path = "/tegra-camera-platform/modules/module6";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			badge = "ar0234_centerleft";
-			position = "centerleft";
+			badge = "hawk_bottomcenter";
+			position = "bottomcenter";
 			orientation = "1";
 		};
 	};
 
-	fragment@81 {
+	fragment@113 {
 		target-path = "/tegra-camera-platform/modules/module6/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -892,20 +1217,21 @@
 			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_c@32";
 		};
 	};
-	fragment@82 {
+
+	fragment@114 {
 		target-path = "/tegra-camera-platform/modules/module7";
 		board_config {
 			sw-modules = "kernel";
 		};
 		__overlay__ {
 			status = "okay";
-			badge = "ar0234_centerright";
-			position = "centerright";
+			badge = "hawk_topcenter";
+			position = "topcenter";
 			orientation = "1";
 		};
 	};
 
-	fragment@83 {
+	fragment@115 {
 		target-path = "/tegra-camera-platform/modules/module7/drivernode0";
 		board_config {
 			sw-modules = "kernel";
@@ -915,6 +1241,102 @@
 			pcl_id = "v4l2_sensor";
 			devname = "ar0234 8-0033";
 			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_d@33";
+		};
+	};
+	fragment@116 {
+		target-path = "/tegra-camera-platform/modules/module8";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "hawk_frontcenter";
+			position = "frontcenter";
+			orientation = "1";
+		};
+	};
+	fragment@117 {
+		target-path = "/tegra-camera-platform/modules/module8/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 8-0034";
+			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_e@34";
+		};
+	};
+	fragment@118 {
+		target-path = "/tegra-camera-platform/modules/module9";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "hawk_rearcenter";
+			position = "rearcenter";
+			orientation = "1";
+		};
+	};
+	fragment@119 {
+		target-path = "/tegra-camera-platform/modules/module9/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 8-0035";
+			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_f@35";
+		};
+	};
+	fragment@120 {
+		target-path = "/tegra-camera-platform/modules/module10";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "hawk_leftcenter";
+			position = "leftcenter";
+			orientation = "1";
+		};
+	};
+	fragment@121 {
+		target-path = "/tegra-camera-platform/modules/module10/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 8-0036";
+			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_g@36";
+		};
+	};
+	fragment@122 {
+		target-path = "/tegra-camera-platform/modules/module11";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			badge = "hawk_rightcenter";
+			position = "rightcenter";
+			orientation = "1";
+		};
+	};
+	fragment@123 {
+		target-path = "/tegra-camera-platform/modules/module11/drivernode0";
+		board_config {
+			sw-modules = "kernel";
+		};
+		__overlay__ {
+			status = "okay";
+			pcl_id = "v4l2_sensor";
+			devname = "ar0234 8-0037";
+			proc-device-tree = "/proc/device-tree/i2c@31e0000/ar0234_h@37";
 		};
 	};
 };

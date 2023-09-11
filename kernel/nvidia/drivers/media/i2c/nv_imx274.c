@@ -730,11 +730,11 @@ static int imx274_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 1);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(10, 20);
 
@@ -758,9 +758,9 @@ static int imx274_power_on(struct camera_common_data *s_data)
 	if (pdata && pdata->avdd_latency)
 		usleep_range(pdata->avdd_latency, pdata->avdd_latency + 10);
 
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 1);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 1);
 
 	/* 1.2v input is generated on module board, adds more latency */
@@ -770,7 +770,7 @@ static int imx274_power_on(struct camera_common_data *s_data)
 	return 0;
 
 imx274_dvdd_fail:
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 0);
 
 imx274_iovdd_fail:
@@ -804,11 +804,11 @@ static int imx274_power_off(struct camera_common_data *s_data)
 	}
 
 	usleep_range(1, 2);
-	if (pw->reset_gpio)
+	if (gpio_is_valid(pw->reset_gpio))
 		gpio_set_value(pw->reset_gpio, 0);
-	if (pw->af_gpio)
+	if (gpio_is_valid(pw->af_gpio))
 		gpio_set_value(pw->af_gpio, 0);
-	if (pw->pwdn_gpio)
+	if (gpio_is_valid(pw->pwdn_gpio))
 		gpio_set_value(pw->pwdn_gpio, 0);
 	usleep_range(1, 2);
 

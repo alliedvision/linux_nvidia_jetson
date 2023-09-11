@@ -342,7 +342,7 @@ static int imx477_power_on(struct camera_common_data *s_data)
 		return err;
 	}
 
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 0);
 		else
@@ -375,7 +375,7 @@ static int imx477_power_on(struct camera_common_data *s_data)
 	usleep_range(10, 20);
 
 skip_power_seqn:
-	if (pw->reset_gpio) {
+	if (gpio_is_valid(pw->reset_gpio)) {
 		if (gpio_cansleep(pw->reset_gpio))
 			gpio_set_value_cansleep(pw->reset_gpio, 1);
 		else

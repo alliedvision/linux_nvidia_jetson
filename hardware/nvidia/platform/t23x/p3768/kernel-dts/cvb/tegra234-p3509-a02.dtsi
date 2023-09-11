@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -225,6 +225,10 @@
 
 	pwm@32d0000 {/* PWM6 OVR */
 		status = "disabled";
+	};
+
+	pwm@32e0000 {/* PWM7 - 40pin header, pin 32 */
+		status = "okay";
 	};
 
 	bluedroid_pm {

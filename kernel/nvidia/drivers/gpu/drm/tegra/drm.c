@@ -1054,7 +1054,11 @@ void *tegra_drm_alloc(struct tegra_drm *tegra, size_t size, dma_addr_t *dma)
 
 	*dma = iova_dma_addr(&tegra->carveout.domain, alloc);
 	err = iommu_map(tegra->domain, *dma, virt_to_phys(virt),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+			size, IOMMU_READ | IOMMU_WRITE, GFP_KERNEL);
+#else
 			size, IOMMU_READ | IOMMU_WRITE);
+#endif
 	if (err < 0)
 		goto free_iova;
 

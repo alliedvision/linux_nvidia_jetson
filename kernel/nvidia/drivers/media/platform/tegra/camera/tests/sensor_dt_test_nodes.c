@@ -1,7 +1,7 @@
 /*
  * sensor_dt_test_nodes - sensor device tree test node definitions
  *
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,7 +77,7 @@ int sv_dt_make_modeX_node_props(struct sv_dt_node *node)
 	MAKE_LINK_ALL(node, attrs, "pixel_t", "pixel_phase", LTYPE_ALTERNATIVE);
 
 	MAKE_LINK_ALL(node, attrs, NULL, "line_length", LTYPE_REQUIRED);
-	MAKE_LINK_ALL(node, attrs, NULL, "mclk_multiplier", LTYPE_REQUIRED);
+	MAKE_LINK_ALL(node, attrs, NULL, "mclk_multiplier", LTYPE_DEPRECATED);
 	MAKE_LINK_ALL(node, attrs, NULL, "pix_clk_hz", LTYPE_REQUIRED);
 	MAKE_LINK_ALL(node, attrs, NULL, "inherent_gain", LTYPE_REQUIRED);
 

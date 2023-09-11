@@ -1,0 +1,17 @@
+if TTY
+
+config PCI_SERIAL_CH384
+	tristate "CH384 PCI  comp port VCP driver"
+	depends on PCI
+	default n
+	help
+	  PCIE to Quad Serial Ports and Printer Port Chip CH384 driver, CH384
+	  is a PCI-Express bus converter chip, which converts PCIE bus to Quad
+	  serial ports and printer port, including four asynchronous serial
+	  ports compatible with 16C550 or 16C750.
+
+	  If you are using multi-ports card such as CH384 + CH438 * n to achieve
+	  12/16/20 serial ports etc. You can modify the uart amount variable
+	  "PCIE_UART_MAX" defined in wch_devtable.c at about line 3, modify
+	  the number 28 to the actual amount of serial ports
+endif

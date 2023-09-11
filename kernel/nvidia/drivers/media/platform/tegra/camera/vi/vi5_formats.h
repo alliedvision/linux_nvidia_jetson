@@ -1,7 +1,7 @@
 /*
  * NVIDIA Tegra Video Input Device Driver VI5 formats
  *
- * Copyright (c) 2017-2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Bhanu Murthy V <bmurthyv@nvidia.com>
  *

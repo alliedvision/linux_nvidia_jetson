@@ -495,8 +495,12 @@ nvgpu-y += \
 	os/linux/periodic_timer.o
 
 nvgpu-$(CONFIG_NVGPU_IVM_BUILD) += \
-	os/linux/nvgpu_ivm.o \
+	os/linux/nvgpu_ivm.o
+
+ifeq ($(CONFIG_NVGPU_COMPRESSION),y)
+nvgpu-$(CONFIG_NVGPU_IVM_BUILD) += \
 	common/cbc/contig_pool.o
+endif
 
 nvgpu-$(CONFIG_NVGPU_VPR) += os/linux/vpr.o
 
@@ -613,6 +617,7 @@ endif
 nvgpu-$(CONFIG_TEGRA_L1SS_SUPPORT) += \
 	os/linux/cic/l1ss_report_err.o \
 	hal/cic/mon/init_gv11b_non_fusa.o \
+	hal/cic/mon/lut_gv11b_non_fusa.o \
 
 nvgpu-y += \
 	common/mm/allocators/nvgpu_allocator.o \
@@ -730,6 +735,7 @@ nvgpu-$(CONFIG_NVGPU_REMAP) += \
 nvgpu-y += \
 	hal/mm/mm_gv11b_fusa.o \
 	hal/mm/mm_gp10b_fusa.o \
+	hal/mm/mm_ga10b_fusa.o \
 	hal/mm/gmmu/gmmu_gv11b_fusa.o \
 	hal/mm/gmmu/gmmu_gp10b_fusa.o \
 	hal/mm/gmmu/gmmu_gk20a_fusa.o \

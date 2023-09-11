@@ -49,6 +49,7 @@
 / {
 
 	aliases {
+		pcie_c4_ep = &pcie_c4_ep;
 		pcie_c5_ep = &pcie_c5_ep;
 		pcie_c6_ep = &pcie_c6_ep;
 		pcie_c7_ep = &pcie_c7_ep;
@@ -67,6 +68,16 @@
 	};
 
 	pinmux@2430000 {
+		pex_rst_c4_in_state: pex_rst_c4_in {
+			pex_rst {
+				nvidia,pins = "pex_l4_rst_n_pl1";
+				nvidia,function = "rsvd1";
+				nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+				nvidia,lpdr = <TEGRA_PIN_DISABLE>;
+			};
+		};
 
 		pex_rst_c5_in_state: pex_rst_c5_in {
 			pex_rst {
@@ -411,6 +422,80 @@
 
 			#phy-cells = <0>;
 		};
+	};
+
+	/* C4 X4 */
+	pcie_c4_ep: pcie_ep@14160000 {
+		compatible = "nvidia,tegra234-pcie-ep", "snps,dw-pcie";
+		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_PCIEX4BB>;
+		reg = <0x00 0x14160000 0x0 0x00020000     /* appl registers (128K)      */
+			0x00 0x36040000 0x0 0x00040000    /* iATU_DMA reg space (256K)  */
+			0x00 0x36080000 0x0 0x00040000    /* DBI space (256K)           */
+			0x21 0x40000000 0x3 0x00000000>;  /* Address Space (12G)        */
+		reg-names = "appl", "atu_dma", "dbi", "addr_space";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+
+		status = "disabled";
+
+		num-lanes = <4>;
+
+		clocks = <&bpmp_clks TEGRA234_CLK_PEX0_C4_CORE>,
+			 <&bpmp_clks TEGRA234_CLK_PEX0_C4_CORE_M>;
+		clock-names = "core", "core_m";
+
+		resets = <&bpmp_resets TEGRA234_RESET_PEX0_CORE_4_APB>,
+			 <&bpmp_resets TEGRA234_RESET_PEX0_CORE_4>;
+		reset-names = "apb", "core";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pex_rst_c4_in_state>;
+
+		interrupts = <0 51 0x04>;	/* controller interrupt */
+		interrupt-names = "intr";
+
+		nvidia,dvfs-tbl = < 204000000 204000000 204000000  665600000
+				    204000000 204000000 665600000  1600000000
+				    204000000 665600000 1600000000 2133000000
+				    0         0         0          0 >;
+
+		nvidia,host1x = <&host1x>;
+		nvidia,enable-ext-refclk;
+		nvidia,max-speed = <4>;
+		nvidia,bar0-size = <0x100000>;	/* 1 MB */
+		nvidia,device-id = /bits/ 16 <0x229B>;
+		nvidia,controller-id = <&bpmp 0x4>;
+		nvidia,aux-clk-freq = <0x13>;
+		nvidia,disable-aspm-states = <0xf>;
+		nvidia,aspm-cmrt = <0x3C>;
+		nvidia,aspm-pwr-on-t = <0x14>;
+		nvidia,aspm-l0s-entrance-latency = <0x3>;
+		nvidia,aspm-l1-entrance-latency = <0x5>;
+
+		num-ib-windows = <2>;
+		num-ob-windows = <8>;
+
+		iommus = <&smmu_niso0 TEGRA_SID_NISO0_PCIE4>;
+		iommu-map = <0x0 &smmu_niso0 TEGRA_SID_NISO0_PCIE4 0x1000>;
+		dma-coherent;
+		iommu-map-mask = <0x0>;
+
+		nvidia,cfg-link-cap-l1sub = <0x1b0>;
+		nvidia,cap-pl16g-status = <0x174>;
+		nvidia,cap-pl16g-cap-off = <0x188>;
+		nvidia,event-cntr-ctrl = <0x1c4>;
+		nvidia,event-cntr-data = <0x1c8>;
+		nvidia,dl-feature-cap = <0x2f8>;
+		nvidia,ptm-cap-off = <0x304>;
+
+		interconnects = <&tegra_icc TEGRA_ICC_PCIE_4 &tegra_icc TEGRA_ICC_PRIMARY>;
+		interconnect-names = "icc_bwmgr";
+
+		nvidia,bpmp = <&bpmp 4>;
+		nvidia,aspm-cmrt-us = <60>;
+		nvidia,aspm-pwr-on-t-us = <20>;
+		nvidia,aspm-l0s-entrance-latency-us = <3>;
 	};
 
 	/* C5 X8 */

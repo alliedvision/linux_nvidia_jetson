@@ -4,7 +4,7 @@
  *
  * High-speed serial driver for NVIDIA Tegra SoCs
  *
- * Copyright (c) 2012-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2012-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author: Laxman Dewangan <ldewangan@nvidia.com>
  */
@@ -752,17 +752,25 @@ static void tegra_uart_rx_buffer_throttle_timer(struct timer_list *_data)
 
 static void tegra_uart_rx_error_handle_timer(struct timer_list * _data)
 {
-	struct tegra_uart_port *tup = from_timer(tup,_data,timer);
+	struct tegra_uart_port *tup = from_timer(tup, _data, error_timer);
 	struct uart_port *u = &tup->uport;
 	unsigned long flags;
 	unsigned long ier;
 
+	tup->rx_in_progress = 1;
 	spin_lock_irqsave(&u->lock, flags);
 	ier = tup->ier_shadow;
 	ier |= (UART_IER_RLSI | UART_IER_RTOIE | TEGRA_UART_IER_EORD);
 	tup->ier_shadow = ier;
 	tegra_uart_write(tup, ier, UART_IER);
 	spin_unlock_irqrestore(&u->lock, flags);
+
+	/* Start DMA and set RTS as active */
+	if (!tup->use_rx_pio)
+		tegra_uart_start_rx_dma(tup);
+
+	if (tup->rts_active && tup->is_hw_flow_enabled)
+		set_rts(tup, true);
 }
 
 static int tegra_uart_copy_rx_to_tty(struct tegra_uart_port *tup,
@@ -874,6 +882,7 @@ static void tegra_uart_rx_dma_complete(void *args)
 	enum dma_status status;
 	struct dma_async_tx_descriptor *prev_rx_dma_desc;
 	int rx_level = 0;
+	int ret = 0;
 
 	spin_lock_irqsave(&u->lock, flags);
 
@@ -890,7 +899,15 @@ static void tegra_uart_rx_dma_complete(void *args)
 		set_rts(tup, false);
 
 	tup->rx_dma_active = false;
-	tegra_uart_rx_buffer_push(tup, 0);
+	ret = tegra_uart_rx_buffer_push(tup, 0);
+	if (ret) {
+		/*
+		 * If we are here, then tty buffer is full. Keep RTS and DMA
+		 * disabled. They are enabled later by error handler.
+		 */
+		async_tx_ack(prev_rx_dma_desc);
+		goto done;
+	}
 
 	if (tup->enable_rx_buffer_throttle) {
 		rx_level = tty_buffer_get_level(port);
@@ -913,28 +930,47 @@ done:
 	spin_unlock_irqrestore(&u->lock, flags);
 }
 
-static void tegra_uart_terminate_rx_dma(struct tegra_uart_port *tup)
+static int tegra_uart_terminate_rx_dma(struct tegra_uart_port *tup)
 {
 	struct dma_tx_state state;
+	int ret = 0;
 
 	if (!tup->rx_dma_active) {
 		do_handle_rx_pio(tup);
-		return;
+		return 0;
 	}
 
+	dmaengine_pause(tup->rx_dma_chan);
 	dmaengine_tx_status(tup->rx_dma_chan, tup->rx_cookie, &state);
-	tegra_uart_rx_buffer_push(tup, state.residue);
 	dmaengine_terminate_all(tup->rx_dma_chan);
 	tup->rx_dma_active = false;
+
+	/* Return error if tty buffer is full. */
+	ret = tegra_uart_rx_buffer_push(tup, state.residue);
+	if (ret) {
+		tup->rx_in_progress = 0;
+		async_tx_ack(tup->rx_dma_desc);
+		return ret;
+	}
+
+	return 0;
 }
 
 static void tegra_uart_handle_rx_dma(struct tegra_uart_port *tup)
 {
+	int ret = 0;
+
 	/* Deactivate flow control to stop sender */
 	if (tup->rts_active  && tup->is_hw_flow_enabled)
 		set_rts(tup, false);
 
-	tegra_uart_terminate_rx_dma(tup);
+	/*
+	 * If tty buffer is full then keep RTS disabled, DMA and RTS
+	 * are enabled later by error handler.
+	 */
+	ret = tegra_uart_terminate_rx_dma(tup);
+	if (ret)
+		return;
 
 	if (tup->rts_active  && tup->is_hw_flow_enabled)
 		set_rts(tup, true);
@@ -1083,11 +1119,19 @@ static void tegra_uart_stop_rx(struct uart_port *u)
 	struct tty_port *port = &tup->uport.state->port;
 	unsigned long ier;
 
+
 	if (tup->rts_active && tup->is_hw_flow_enabled)
 		set_rts(tup, false);
 
-	if (!tup->rx_in_progress)
+	if (!tup->rx_in_progress) {
+		/*
+		 * It is possible that RX error handling routine is running and
+		 * rx is disabled. Delete the error_timer to avoid accidentally
+		 * starting RX.
+		 */
+		del_timer_sync(&tup->error_timer);
 		return;
+	}
 
 	tegra_uart_wait_sym_time(tup, 1); /* wait one character interval */
 

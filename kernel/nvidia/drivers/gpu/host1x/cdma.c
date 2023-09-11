@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/kfifo.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 #include <trace/events/host1x.h>
 
 #include "cdma.h"
@@ -105,7 +106,11 @@ static int host1x_pushbuffer_init(struct push_buffer *pb)
 
 		pb->dma = iova_dma_addr(&host1x->iova, alloc);
 		err = iommu_map(host1x->domain, pb->dma, pb->phys, size,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+				IOMMU_READ, GFP_KERNEL);
+#else
 				IOMMU_READ);
+#endif
 		if (err)
 			goto iommu_free_iova;
 	} else {

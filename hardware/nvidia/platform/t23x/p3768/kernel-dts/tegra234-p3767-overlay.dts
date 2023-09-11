@@ -71,4 +71,16 @@
 			};
 		};
 	};
+
+	fragment@4 {
+		target-path = "/";
+		board_config {
+			ids = "3767-0000-*","3767-0001-*","3767-0003-*","3767-0004-*";
+		};
+		__overlay__ {
+			sdhci@3400000 {
+				status = "disabled";
+			};
+		};
+	};
 };

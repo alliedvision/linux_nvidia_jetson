@@ -1,4 +1,4 @@
-From a99ccdefd04474d042790aaa85b700f333cab462 Mon Sep 17 00:00:00 2001
+From 1faec385f54fc2009a4c81283f7715ec993c0397 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 9 Nov 2020 23:32:39 +0100
 Subject: [PATCH 069/318] genirq: Move prio assignment into the newly created
@@ -30,24 +30,25 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 [bigeasy: Patch description]
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Link: https://lkml.kernel.org/r/a23a826af7c108ea5651e73b8fbae5e653f16e86.camel@gmx.de
+Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
 ---
  kernel/irq/manage.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 79dc02b956dc..0558f75c0b85 100644
+index 92d94615cbbb..fd12b2eb516c 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -1159,6 +1159,8 @@ static int irq_thread(void *data)
- 	irqreturn_t (*handler_fn)(struct irq_desc *desc,
- 			struct irqaction *action);
+@@ -1186,6 +1186,8 @@ static int irq_thread(void *data)
+ 
+ 	irq_thread_set_ready(desc, action);
  
 +	sched_set_fifo(current);
 +
  	if (force_irqthreads && test_bit(IRQTF_FORCED_THREAD,
  					&action->thread_flags))
  		handler_fn = irq_forced_thread_fn;
-@@ -1324,8 +1326,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
+@@ -1351,8 +1353,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
  	if (IS_ERR(t))
  		return PTR_ERR(t);
  

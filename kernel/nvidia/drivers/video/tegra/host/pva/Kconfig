@@ -1,11 +1,10 @@
 if ARCH_TEGRA
 
-config TEGRA_PVA_V1
-        bool "Tegra PVA SW V1 support"
+config PVA_CO_DISABLED
+        bool "Tegra PVA FW CO disabled"
         depends on TEGRA_GRHOST
-        default n
+        default y
         help
-          Enables SW version 1 for Programmable Vision Accelerator engine
-	  support under nvhost
+          Allow PVA FW to be booted from file
           Say n here if not sure.
 endif

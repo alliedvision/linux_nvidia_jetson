@@ -1,10 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
 ################################################################################
 #
 # r8168 is the Linux device driver released for Realtek Gigabit Ethernet
 # controllers with PCI-Express interface.
 #
-# Copyright(c) 2017 Realtek Semiconductor Corp. All rights reserved.
+# Copyright(c) 2022 Realtek Semiconductor Corp. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -110,8 +111,8 @@ typedef struct _RealWoWWPInfo {
 } RealWoWWPInfo,*PRealWoWWPInfo;
 
 int rtl8168_realwow_ioctl(struct net_device *dev, struct ifreq *ifr);
-void realwow_hw_init(struct net_device *dev);
-void get_realwow_hw_version(struct net_device *dev);
-void set_realwow_d3_para(struct net_device *dev);
+void rtl8168_realwow_hw_init(struct net_device *dev);
+void rtl8168_get_realwow_hw_version(struct net_device *dev);
+void rtl8168_set_realwow_d3_para(struct net_device *dev);
 
 #endif /* _LINUX_R8168_REALWOW_H */

@@ -1,0 +1,70 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	overlay-name = "P3768 Overlay Support";
+	compatible = "nvidia,tegra23x";
+	nvidia,dtsfilename = __FILE__;
+	nvidia,dtbbuildtime = __DATE__, __TIME__;
+
+	/*
+	 * If ODMDATA contains hsio-uphy-config-40, then:
+	 * 1. Disable PCIE C4
+	 * 2. Enable PCIE C4 EP
+	 * 3. Reduce PCIE C1 to Gen2
+	 */
+	fragment@0 {
+		target-path = "/";
+		board_config {
+			odm-data = "hsio-uphy-config-40";
+		};
+		__overlay__ {
+			pcie@14160000 {
+				status = "disabled";
+			};
+			pcie_ep@14160000 {
+				status = "okay";
+			};
+			pcie@14100000 {
+				max-link-speed = <2>;
+			};
+		};
+	};
+
+	/*
+	 * If ODMDATA contains hsio-uphy-config-41, then:
+	 * 1. Disable PCIE C4
+	 * 2. Enable PCIE C4 EP
+	 */
+	fragment@1 {
+		target-path = "/";
+		board_config {
+			odm-data = "hsio-uphy-config-41";
+		};
+		__overlay__ {
+			pcie@14160000 {
+				status = "disabled";
+			};
+			pcie_ep@14160000 {
+				status = "okay";
+			};
+		};
+	};
+};

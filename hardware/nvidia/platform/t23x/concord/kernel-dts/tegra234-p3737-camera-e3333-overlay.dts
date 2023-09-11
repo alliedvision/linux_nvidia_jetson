@@ -20,7 +20,7 @@
 / {
 	overlay-name = "Jetson Camera E3333 module";
 	jetson-header-name = "Jetson AGX CSI Connector";
-	compatible = "nvidia,p3737-0000+p3701-0000" , "nvidia,p3737-0000+p3701-0004", "nvidia,p3737-0000+p3701-0005";
+	compatible = "nvidia,p3737-0000+p3701-0000" , "nvidia,p3737-0000+p3701-0004", "nvidia,p3737-0000+p3701-0005", "nvidia,p3737-0000+p3701-0008";
 
 	/* Use either odm-data or eeprom-ids for sensor detection */
 

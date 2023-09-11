@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,13 +77,11 @@ typedef uint16_t pva_errors_t;
 #define PVA_ERR_SEGMENTS_OVERLAP 0x30U
 #define PVA_ERR_NO_VPU_DATA 0x31U
 #define PVA_ERR_VPU_FP_NAN 0x32U
-#define PVA_ERR_VPU_RUNTIME_BAD_LENGTH 0x33U
-#define PVA_ERR_VPU_BAD_REGDUMP 0x34U
-#define PVA_ERR_NULL_PTR 0x35U
-#define PVA_ERR_NO_APP 0x36U
-#define PVA_ERR_OPERATION_NOT_ALLOWED 0x37U
-#define PVA_ERR_BAD_ATTR_VALUE 0x38U
-#define PVA_ERR_CPY_FAILED 0x39U
+#define PVA_ERR_PPE_ILLEGAL_INSTR 0x33U
+#define PVA_ERR_PPE_DIVIDE_BY_0 0x34U
+#define PVA_ERR_PPE_FP_NAN 0x35U
+#define PVA_ERR_PPE_ILLEGAL_DEBUG 0x36U
+#define PVA_ERR_PPE_ILLEGAL_INSTR_ALIGN 0x37U
 #define PVA_ERR_BAD_CACHED_DRAM_SEG 0x3aU
 #define PVA_ERR_BAD_UNCACHED_DRAM_SEG 0x3bU
 #define PVA_ERR_BAD_DRAM_IOVA 0x3cU

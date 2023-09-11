@@ -1,7 +1,7 @@
 /*
  * GA10B FUSE
  *
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -47,6 +47,7 @@ void ga10b_fuse_read_feature_override_ecc(struct gk20a *g,
 		struct nvgpu_fuse_feature_override_ecc *ecc_feature);
 int ga10b_fuse_read_per_device_identifier(struct gk20a *g, u64 *pdi);
 u32 ga10b_fuse_opt_sec_debug_en(struct gk20a *g);
+u32 ga10b_fuse_status_opt_emc(struct gk20a *g);
 u32 ga10b_fuse_opt_secure_source_isolation_en(struct gk20a *g);
 int ga10b_fuse_check_priv_security(struct gk20a *g);
 int ga10b_fetch_falcon_fuse_settings(struct gk20a *g, u32 falcon_id,

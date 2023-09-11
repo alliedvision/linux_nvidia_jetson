@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 #define CAM0_PWDN       TEGRA234_MAIN_GPIO(H, 6)
 #define CAM1_RST_L      TEGRA234_MAIN_GPIO(AC, 1)
 #define CAM1_PWDN       TEGRA234_MAIN_GPIO(AC, 0)
-#define PWR_EN      TEGRA234_MAIN_GPIO(AC, 7)
+#define PWR_EN          TEGRA234_MAIN_GPIO(AC, 7)
 
 #define CAMERA_I2C_MUX_BUS(x) (0x1E + x)
 
@@ -58,7 +58,7 @@
 			mclk = "extperiph1";
 			channel = "a";
 			has-eeprom;
-			eeprom-addr = <0x30>;
+			eeprom-addr = <0x40>;
 			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
@@ -73,7 +73,7 @@
 			mclk = "extperiph1";
 			channel = "c";
 			has-eeprom;
-			eeprom-addr = <0x32>;
+			eeprom-addr = <0x40>;
 			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
@@ -88,7 +88,7 @@
 			mclk = "extperiph1";
 			channel = "a";
 			has-eeprom;
-			eeprom-addr = <0x34>;
+			eeprom-addr = <0x42>;
 			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
@@ -103,7 +103,67 @@
 			mclk = "extperiph1";
 			channel = "c";
 			has-eeprom;
-			eeprom-addr = <0x36>;
+			eeprom-addr = <0x42>;
+			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
+			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
+		};
+		ar0234_e@34 {
+			def-addr = <0x10>;
+			/* Define any required hw resources needed by driver */
+			/* ie. clocks, io pins, power sources */
+			clocks = <&bpmp_clks TEGRA234_CLK_EXTPERIPH1>,
+				<&bpmp_clks TEGRA234_CLK_EXTPERIPH1>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+			channel = "c";
+			has-eeprom;
+			eeprom-addr = <0x44>;
+			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
+			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
+		};
+		ar0234_f@35 {
+			def-addr = <0x18>;
+			/* Define any required hw resources needed by driver */
+			/* ie. clocks, io pins, power sources */
+			clocks = <&bpmp_clks TEGRA234_CLK_EXTPERIPH1>,
+			<&bpmp_clks TEGRA234_CLK_EXTPERIPH1>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+			channel = "c";
+			has-eeprom;
+			eeprom-addr = <0x44>;
+			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
+			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
+		};
+		ar0234_g@36 {
+			def-addr = <0x10>;
+			/* Define any required hw resources needed by driver */
+			/* ie. clocks, io pins, power sources */
+			clocks = <&bpmp_clks TEGRA234_CLK_EXTPERIPH1>,
+				<&bpmp_clks TEGRA234_CLK_EXTPERIPH1>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+			channel = "c";
+			has-eeprom;
+			eeprom-addr = <0x46>;
+			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
+			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
+		};
+		ar0234_h@37 {
+			def-addr = <0x18>;
+			/* Define any required hw resources needed by driver */
+			/* ie. clocks, io pins, power sources */
+			clocks = <&bpmp_clks TEGRA234_CLK_EXTPERIPH1>,
+				<&bpmp_clks TEGRA234_CLK_EXTPERIPH1>;
+			clock-names = "extperiph1", "pllp_grtba";
+			mclk = "extperiph1";
+			channel = "c";
+			has-eeprom;
+			eeprom-addr = <0x46>;
 			reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
@@ -117,7 +177,7 @@
 			channel = "b";
 		};
 
-		ar0234_e@30 {
+		ar0234_i@30 {
 			def-addr = <0x18>;
 			/* Define any required hw resources needed by driver */
 			/* ie. clocks, io pins, power sources */
@@ -127,12 +187,12 @@
 			mclk = "extperiph1";
 			channel = "b";
 			has-eeprom;
-			eeprom-addr = <0x30>;
+			eeprom-addr = <0x38>;
 			reset-gpios = <&tegra_main_gpio CAM1_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
 		};
-		ar0234_f@32 {
+		ar0234_j@32 {
 			def-addr = <0x18>;
 			/* Define any required hw resources needed by driver */
 			/* ie. clocks, io pins, power sources */
@@ -142,12 +202,12 @@
 			mclk = "extperiph1";
 			channel = "b";
 			has-eeprom;
-			eeprom-addr = <0x31>;
+			eeprom-addr = <0x3a>;
 			reset-gpios = <&tegra_main_gpio CAM1_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
 		};
-		ar0234_g@34 {
+		ar0234_k@34 {
 			def-addr = <0x18>;
 			/* Define any required hw resources needed by driver */
 			/* ie. clocks, io pins, power sources */
@@ -157,12 +217,12 @@
 			mclk = "extperiph1";
 			channel = "b";
 			has-eeprom;
-			eeprom-addr = <0x32>;
+			eeprom-addr = <0x3c>;
 			reset-gpios = <&tegra_main_gpio CAM1_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
 		};
-		ar0234_h@36 {
+		ar0234_l@36 {
 			def-addr = <0x18>;
 			/* Define any required hw resources needed by driver */
 			/* ie. clocks, io pins, power sources */
@@ -172,7 +232,7 @@
 			mclk = "extperiph1";
 			channel = "b";
 			has-eeprom;
-			eeprom-addr = <0x33>;
+			eeprom-addr = <0x3e>;
 			reset-gpios = <&tegra_main_gpio CAM1_RST_L GPIO_ACTIVE_HIGH>;
 			pwdn-gpios = <&tegra_main_gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 			pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;

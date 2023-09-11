@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -104,6 +104,19 @@ int nvgpu_tegra_fuse_read_gcplex_config_fuse(struct gk20a *g, u32 *val);
  *
  */
 int nvgpu_tegra_fuse_read_opt_gpc_disable(struct gk20a *g, u32 *val);
+
+/**
+ * @brief - Reads FUSE_OPT_EMC_DISABLE_0 fuse.
+ *
+ * @param g [in] - GPU super structure.
+ * @param val [out] - Populated with register FUSE_OPT_EMC_DISABLE_0 value.
+ *
+ * - Provide information about the SOC EMC floor-sweep info
+ *
+ * @return 0 on success or negative value on failure.
+ *
+ */
+int nvgpu_tegra_fuse_read_opt_emc_disable(struct gk20a *g, u32 *val);
 
 /**
  * @brief - Reads the per-device identifier fuses.

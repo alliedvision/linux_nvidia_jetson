@@ -4,7 +4,7 @@
  *
  * Support for Tegra Security Engine hardware crypto algorithms.
  *
- * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -5219,8 +5219,9 @@ static int tegra_se_ccm_compute_auth(struct aead_request *req, bool encrypt)
 		total += ilen;
 
 		/* 2.2 - Copy adata and map it */
-		adata = dma_alloc_coherent(se_dev->dev, assoclen,
-						&adata_addr, GFP_KERNEL);
+		adata = dma_alloc_coherent(se_dev->dev, assoclen, &adata_addr,
+					(req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
+					GFP_KERNEL : GFP_ATOMIC);
 		num_sgs = tegra_se_count_sgs(sg, assoclen);
 		sg_copy_to_buffer(sg, num_sgs, adata, assoclen);
 
@@ -5415,7 +5416,7 @@ static int tegra_se_ccm_ctr(struct aead_request *req, bool encrypt)
 	 * cryptlen case.
 	 */
 	dst_buf = dma_alloc_coherent(se_dev->dev, cryptlen+1, &dst_buf_dma_addr,
-		GFP_KERNEL);
+		(req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ? GFP_KERNEL : GFP_ATOMIC);
 	if (!dst_buf)
 		return -ENOMEM;
 
@@ -5955,7 +5956,8 @@ static int tegra_se_gcm_op(struct aead_request *req, bool encrypt)
 	 * cryptlen case.
 	 */
 	dst_buf = dma_alloc_coherent(se_dev->dev, cryptlen+1, &dst_buf_dma_addr,
-					GFP_KERNEL);
+				    (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
+				    GFP_KERNEL : GFP_ATOMIC);
 	if (!dst_buf)
 		return -ENOMEM;
 

@@ -122,7 +122,7 @@ enum nvpva_dbg_categories {
 	pva_dbg_info    = BIT(0),  /* slightly verbose info */
 	pva_dbg_fn      = BIT(2),  /* fn name tracing */
 	pva_dbg_reg     = BIT(3),  /* register accesses, very verbose */
-	pva_dbg_clk     = BIT(7),  /* nvhost clk */
+	pva_dbg_prof    = BIT(7),  /* profiling info */
 	pva_dbg_mem     = BIT(31), /* memory accesses, very verbose */
 };
 
@@ -160,6 +160,9 @@ enum nvpva_dbg_categories {
 
 #define nvpva_dbg_info(pva, fmt, arg...) \
 	nvpva_dbg(pva, pva_dbg_info, fmt, ##arg)
+
+#define nvpva_dbg_prof(pva, fmt, arg...) \
+	nvpva_dbg(pva, pva_dbg_prof, fmt, ##arg)
 
 /**
  * @brief		struct to hold the segment details
@@ -235,6 +238,14 @@ struct pva_trace_log {
 	u32 offset;
 };
 
+struct pva_fw_debug_log {
+	void *addr;
+	u32 size;
+	struct mutex saved_log_lock;
+	u8 *saved_log;
+};
+void save_fw_debug_log(struct pva *pva);
+
 /*
  * @brief	stores address and other attributes of the vpu function table
  *
@@ -303,25 +314,18 @@ struct pva_vpu_dbg_block {
 /**
  * @brief		VPU utilization information
  *
- * vpu_stats_accum	long term accumulator of VPU active time.
- * current_stamp	time stamp of last task completed
- * last_start		time stamp of start of last task completed
  * start_stamp		time stamp when measurment started
  * end_stamp		time stamp when measurment is to end
  * vpu_stats		avaraged vpu utilization stats
- * flags		undefined use at this time
- * util_info_mutex	mutex for protecting stats data structure
+ * stats_fw_buffer_iova
+ * stats_fw_buffer_va
  */
 struct pva_vpu_util_info {
-	u64 vpu_stats_accum[2];
-	u64 current_stamp[2];
-	u64 last_start[2];
-	u64 start_stamp;
-	u64 end_stamp;
-	u32 vpu_stats[2];
-	u32 flags;
-	struct mutex util_info_mutex;
-	struct semaphore util_info_sema;
+	u64			start_stamp;
+	u64			end_stamp;
+	u64			vpu_stats[2];
+	dma_addr_t		stats_fw_buffer_iova;
+	struct pva_vpu_stats_s	*stats_fw_buffer_va;
 };
 
 struct scatterlist;
@@ -382,6 +386,7 @@ struct pva {
 	int version;
 	struct pva_version_config *version_config;
 	struct platform_device *pdev;
+	struct platform_device *aux_pdev;
 	struct nvpva_queue_pool *pool;
 	struct pva_fw fw_info;
 	struct pva_vpu_auth_s pva_auth;
@@ -411,10 +416,15 @@ struct pva {
 	 * array
 	 */
 	u32 circular_array_rd_pos;
+	/* Current position to write task status buffer from the circular
+	 * array
+	 */
+	u32 circular_array_wr_pos;
 	struct work_struct task_update_work;
 	atomic_t n_pending_tasks;
 	struct workqueue_struct *task_status_workqueue;
 	struct pva_trace_log pva_trace;
+	struct pva_fw_debug_log fw_debug_log;
 	u32 submit_task_mode;
 	u32 submit_cmd_mode;
 
@@ -426,7 +436,6 @@ struct pva {
 	bool vpu_debug_enabled;
 	bool stats_enabled;
 	struct pva_vpu_util_info vpu_util_info;
-	struct pva_vpu_util_info vpu_util_info_cp;
 	u32 profiling_level;
 
 	struct work_struct pva_abort_handler_work;
@@ -466,6 +475,15 @@ void pva_trace_copy_to_ftrace(struct pva *pva);
  *
  */
 int pva_register_isr(struct platform_device *dev);
+
+/**
+ * @brief	deInitiallze pva debug utils
+ *
+ * @param pva	Pointer to PVA device
+ * @return	none
+ *
+ */
+void pva_debugfs_deinit(struct pva *pva);
 
 /**
  * @brief	Initiallze pva debug utils
@@ -574,4 +592,18 @@ int nvpva_get_device_hwid(struct platform_device *pdev,
 			  unsigned int id);
 
 u32 nvpva_get_id_idx(struct pva *dev, struct platform_device *pdev);
+
+void pva_push_aisr_status(struct pva *pva, uint32_t aisr_status);
+
+static inline u64 nvpva_get_tsc_stamp(void)
+{
+	u64 timestamp;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	timestamp = arch_timer_read_counter();
+#else
+	timestamp = arch_counter_get_cntvct();
+#endif
+	return timestamp;
+}
 #endif

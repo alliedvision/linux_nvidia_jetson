@@ -46,9 +46,6 @@
 /* cpufreq transisition latency */
 #define TEGRA_CPUFREQ_TRANSITION_LATENCY (300 * 1000) /* unit in nanoseconds */
 
-#define LOOP_FOR_EACH_CLUSTER(cl)       for (cl = 0; \
-					cl < MAX_CLUSTERS; cl++)
-
 enum cluster {
 	CLUSTER0,
 	CLUSTER1,
@@ -61,6 +58,13 @@ enum emc_scaling_mngr {
 	NO_EMC_SCALING_MNGR,
 	BWMGR,
 	ICC,
+};
+
+struct physical_ids {
+	u32 cpuid;
+	u32 clusterid;
+	u64 mpidr_id;
+	void __iomem *freq_core_reg;
 };
 
 struct tegra_cpu_ctr {
@@ -84,6 +88,7 @@ struct tegra_cpufreq_ops {
 struct tegra_cpufreq_soc {
 	struct tegra_cpufreq_ops *ops;
 	int maxcpus_per_cluster;
+	size_t num_clusters;
 	phys_addr_t actmon_cntr_base;
 	enum emc_scaling_mngr emc_scal_mgr;
 	bool register_cpuhp_state;
@@ -91,13 +96,13 @@ struct tegra_cpufreq_soc {
 
 struct tegra194_cpufreq_data {
 	void __iomem *regs;
-	size_t num_clusters;
 	struct cpufreq_frequency_table **tables;
 	const struct tegra_cpufreq_soc *soc;
 	struct tegra_bwmgr_client **bwmgr;
 	bool bypass_bwmgr_mode;
 	struct icc_path **icc_handle;
 	bool bypass_icc;
+	struct physical_ids *phys_ids;
 };
 
 static struct workqueue_struct *read_counters_wq;
@@ -136,14 +141,8 @@ static void tegra234_get_cpu_cluster_id(u32 cpu, u32 *cpuid, u32 *clusterid)
 static int tegra234_get_cpu_ndiv(u32 cpu, u32 cpuid, u32 clusterid, u64 *ndiv)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
-	void __iomem *freq_core_reg;
-	u64 mpidr_id;
 
-	/* use physical id to get address of per core frequency register */
-	mpidr_id = (clusterid * data->soc->maxcpus_per_cluster) + cpuid;
-	freq_core_reg = SCRATCH_FREQ_CORE_REG(data, mpidr_id);
-
-	*ndiv = readl(freq_core_reg) & NDIV_MASK;
+	*ndiv = readl(data->phys_ids[cpu].freq_core_reg) & NDIV_MASK;
 
 	return 0;
 }
@@ -151,19 +150,10 @@ static int tegra234_get_cpu_ndiv(u32 cpu, u32 cpuid, u32 clusterid, u64 *ndiv)
 static void tegra234_set_cpu_ndiv(struct cpufreq_policy *policy, u64 ndiv)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
-	void __iomem *freq_core_reg;
-	u32 cpu, cpuid, clusterid;
-	u64 mpidr_id;
+	u32 cpu;
 
-	for_each_cpu_and(cpu, policy->cpus, cpu_online_mask) {
-		data->soc->ops->get_cpu_cluster_id(cpu, &cpuid, &clusterid);
-
-		/* use physical id to get address of per core frequency register */
-		mpidr_id = (clusterid * data->soc->maxcpus_per_cluster) + cpuid;
-		freq_core_reg = SCRATCH_FREQ_CORE_REG(data, mpidr_id);
-
-		writel(ndiv, freq_core_reg);
-	}
+	for_each_cpu_and(cpu, policy->cpus, cpu_online_mask)
+		writel(ndiv, data->phys_ids[cpu].freq_core_reg);
 }
 
 /*
@@ -177,11 +167,10 @@ static void tegra234_read_counters(struct tegra_cpu_ctr *c)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
 	void __iomem *actmon_reg;
-	u32 cpuid, clusterid;
 	u64 val;
 
-	data->soc->ops->get_cpu_cluster_id(c->cpu, &cpuid, &clusterid);
-	actmon_reg = CORE_ACTMON_CNTR_REG(data, clusterid, cpuid);
+	actmon_reg = CORE_ACTMON_CNTR_REG(data, data->phys_ids[c->cpu].clusterid,
+					  data->phys_ids[c->cpu].cpuid);
 
 	val = readq(actmon_reg);
 	c->last_refclk_cnt = upper_32_bits(val);
@@ -205,6 +194,7 @@ const struct tegra_cpufreq_soc tegra234_cpufreq_soc = {
 	.maxcpus_per_cluster = 4,
 	.emc_scal_mgr = ICC,
 	.register_cpuhp_state = true,
+	.num_clusters = 3,
 };
 
 const struct tegra_cpufreq_soc tegra239_cpufreq_soc = {
@@ -213,6 +203,7 @@ const struct tegra_cpufreq_soc tegra239_cpufreq_soc = {
 	.maxcpus_per_cluster = 8,
 	.emc_scal_mgr = ICC,
 	.register_cpuhp_state = true,
+	.num_clusters = 1,
 };
 
 static void tegra194_get_cpu_cluster_id(u32 cpu, u32 *cpuid, u32 *clusterid)
@@ -398,19 +389,17 @@ static void tegra194_set_cpu_ndiv(struct cpufreq_policy *policy, u64 ndiv)
 static unsigned int tegra194_get_speed(u32 cpu)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
+	u32 clusterid = data->phys_ids[cpu].clusterid;
 	struct cpufreq_frequency_table *pos;
-	u32 cpuid, clusterid;
 	unsigned int rate;
 	u64 ndiv;
 	int ret;
-
-	data->soc->ops->get_cpu_cluster_id(cpu, &cpuid, &clusterid);
 
 	/* reconstruct actual cpu freq using counters */
 	rate = tegra194_calculate_speed(cpu);
 
 	/* get last written ndiv value */
-	ret = data->soc->ops->get_cpu_ndiv(cpu, cpuid, clusterid, &ndiv);
+	ret = data->soc->ops->get_cpu_ndiv(cpu, data->phys_ids[cpu].cpuid, clusterid, &ndiv);
 	if (WARN_ON_ONCE(ret))
 		return rate;
 
@@ -439,12 +428,10 @@ static int tegra194_cpufreq_init(struct cpufreq_policy *policy)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
 	int maxcpus_per_cluster = data->soc->maxcpus_per_cluster;
+	u32 clusterid = data->phys_ids[policy->cpu].clusterid;
 	u32 start_cpu, cpu;
-	u32 clusterid;
 
-	data->soc->ops->get_cpu_cluster_id(policy->cpu, NULL, &clusterid);
-
-	if (clusterid >= data->num_clusters || !data->tables[clusterid])
+	if (clusterid >= data->soc->num_clusters || !data->tables[clusterid])
 		return -EINVAL;
 
 	if (cpufreq_single_policy) {
@@ -509,7 +496,7 @@ static int tegra194_cpufreq_set_target(struct cpufreq_policy *policy,
 {
 	struct cpufreq_frequency_table *tbl = policy->freq_table + index;
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
-	u32 cpuid, clusterid;
+	u32 clusterid = data->phys_ids[policy->cpu].clusterid;
 
 	/*
 	 * Each core writes frequency in per core register. Then both cores
@@ -518,11 +505,8 @@ static int tegra194_cpufreq_set_target(struct cpufreq_policy *policy,
 	 */
 	data->soc->ops->set_cpu_ndiv(policy, (u64)tbl->driver_data);
 
-	if (cpu_emc_map_ptr) {
-		data->soc->ops->get_cpu_cluster_id(policy->cpu, &cpuid, &clusterid);
-
+	if (cpu_emc_map_ptr)
 		set_cpufreq_to_emcfreq(clusterid, tbl->frequency);
-	}
 
 	return 0;
 }
@@ -550,6 +534,7 @@ const struct tegra_cpufreq_soc tegra194_cpufreq_soc = {
 	.maxcpus_per_cluster = 2,
 	.emc_scal_mgr = BWMGR,
 	.register_cpuhp_state = false,
+	.num_clusters = 4,
 };
 
 static void tegra194_cpufreq_free_resources(void)
@@ -560,7 +545,7 @@ static void tegra194_cpufreq_free_resources(void)
 	if (read_counters_wq)
 		destroy_workqueue(read_counters_wq);
 
-	LOOP_FOR_EACH_CLUSTER(cl) {
+	for (cl = 0; cl < data->soc->num_clusters; cl++) {
 		/* unregister from emc scaling manager */
 		if (data->soc->emc_scal_mgr == BWMGR) {
 			if (data->bwmgr[cl])
@@ -662,17 +647,33 @@ static bool tegra_cpufreq_single_policy(struct device_node *dn)
 static int tegra23x_cpufreq_offline(unsigned int cpu)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
-	u64 mpidr_id;
-	u32 cpuid, clusterid;
-	void __iomem *freq_core_reg;
-
-	// Caculate the base address of the target cpu core register
-	data->soc->ops->get_cpu_cluster_id(cpu, &cpuid, &clusterid);
-	mpidr_id = (clusterid * data->soc->maxcpus_per_cluster) + cpuid;
-	freq_core_reg = SCRATCH_FREQ_CORE_REG(data, mpidr_id);
+	u32 clusterid = data->phys_ids[cpu].clusterid;
 
 	// Put cpu core to fmin
-	writel(data->tables[clusterid]->driver_data, freq_core_reg);
+	writel(data->tables[clusterid]->driver_data, data->phys_ids[cpu].freq_core_reg);
+
+	return 0;
+}
+
+static int tegra194_cpufreq_store_physids(unsigned int cpu, struct tegra194_cpufreq_data *data)
+{
+	int num_cpus = data->soc->maxcpus_per_cluster * data->soc->num_clusters;
+	u32 cpuid, clusterid;
+	u64 mpidr_id;
+
+	if (cpu > (num_cpus - 1)) {
+		pr_err("Wrong num of cpus or clusters in soc data\n");
+		return -EINVAL;
+	}
+
+	data->soc->ops->get_cpu_cluster_id(cpu, &cpuid, &clusterid);
+
+	mpidr_id = (clusterid * data->soc->maxcpus_per_cluster) + cpuid;
+
+	data->phys_ids[cpu].cpuid = cpuid;
+	data->phys_ids[cpu].clusterid = clusterid;
+	data->phys_ids[cpu].mpidr_id = mpidr_id;
+	data->phys_ids[cpu].freq_core_reg = SCRATCH_FREQ_CORE_REG(data, mpidr_id);
 
 	return 0;
 }
@@ -684,6 +685,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	struct tegra_bpmp *bpmp;
 	struct device_node *dn;
 	int err, i;
+	u32 cpu;
 
 	const int icc_id_array[MAX_CLUSTERS] = {
 		TEGRA_ICC_CPU_CLUSTER0,
@@ -706,7 +708,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 
 	soc = of_device_get_match_data(&pdev->dev);
 
-	if (soc->ops && soc->maxcpus_per_cluster) {
+	if (soc->ops && soc->maxcpus_per_cluster && soc->num_clusters) {
 		data->soc = soc;
 	} else {
 		dev_err(&pdev->dev, "soc data missing\n");
@@ -714,8 +716,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 		goto err_free_map_ptr;
 	}
 
-	data->num_clusters = MAX_CLUSTERS;
-	data->tables = devm_kcalloc(&pdev->dev, data->num_clusters,
+	data->tables = devm_kcalloc(&pdev->dev, data->soc->num_clusters,
 				    sizeof(*data->tables), GFP_KERNEL);
 	if (!data->tables) {
 		err = -ENOMEM;
@@ -723,7 +724,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	if (data->soc->emc_scal_mgr == BWMGR) {
-		data->bwmgr = devm_kcalloc(&pdev->dev, data->num_clusters,
+		data->bwmgr = devm_kcalloc(&pdev->dev, data->soc->num_clusters,
 					   sizeof(struct tegra_bwmgr_client), GFP_KERNEL);
 		if (!data->bwmgr) {
 			err = -ENOMEM;
@@ -732,7 +733,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	if (data->soc->emc_scal_mgr == ICC) {
-		data->icc_handle = devm_kcalloc(&pdev->dev, data->num_clusters,
+		data->icc_handle = devm_kcalloc(&pdev->dev, data->soc->num_clusters,
 						sizeof(*data->icc_handle), GFP_KERNEL);
 		if (!data->icc_handle) {
 			err = -ENOMEM;
@@ -750,6 +751,15 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	tegra_hypervisor_mode = is_tegra_hypervisor_mode();
+
+	data->phys_ids = devm_kcalloc(&pdev->dev, data->soc->num_clusters *
+				      data->soc->maxcpus_per_cluster,
+				      sizeof(struct physical_ids), GFP_KERNEL);
+	if (!data->phys_ids) {
+		err = -ENOMEM;
+		goto err_free_map_ptr;
+	}
+
 	platform_set_drvdata(pdev, data);
 
 	bpmp = tegra_bpmp_get(&pdev->dev);
@@ -765,7 +775,7 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 		goto put_bpmp;
 	}
 
-	for (i = 0; i < data->num_clusters; i++) {
+	for (i = 0; i < data->soc->num_clusters; i++) {
 		data->tables[i] = init_freq_table(pdev, bpmp, i);
 		if (IS_ERR(data->tables[i])) {
 			err = PTR_ERR(data->tables[i]);
@@ -782,6 +792,12 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 		}
 	}
 
+	for_each_possible_cpu(cpu) {
+		err = tegra194_cpufreq_store_physids(cpu, data);
+		if (err)
+			goto err_free_res;
+	}
+
 	if (data->soc->register_cpuhp_state) {
 		hp_state = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 							"tegra23x_cpufreq:online", NULL,
@@ -793,14 +809,13 @@ static int tegra194_cpufreq_probe(struct platform_device *pdev)
 	}
 
 	tegra194_cpufreq_driver.driver_data = data;
-
 	err = cpufreq_register_driver(&tegra194_cpufreq_driver);
 	if (!err) {
 		tegra_bpmp_put(bpmp);
 		if (data->soc->emc_scal_mgr == ICC)
-			dev_info(&pdev->dev, "probed with ICC\n");
+			dev_info(&pdev->dev, "probed with ICC, cl:%lu\n", data->soc->num_clusters);
 		else if (data->soc->emc_scal_mgr == BWMGR)
-			dev_info(&pdev->dev, "probed with BWMGR\n");
+			dev_info(&pdev->dev, "probed with BWMGR, cl:%lu\n", data->soc->num_clusters);
 		return err;
 	}
 
@@ -848,6 +863,26 @@ static int tegra194_cpufreq_suspend(struct device *dev)
 static int tegra194_cpufreq_resume(struct device *dev)
 {
 	struct tegra194_cpufreq_data *data = cpufreq_get_driver_data();
+	u32 cpu, cpuid, clusterid;
+
+	if (data->regs && data->soc->register_cpuhp_state) {
+		/*
+		 * If mmio registers are used for frequency requests and
+		 * hp notifier is enabled to set offline cores to Fmin,
+		 * then use the mmio register to keep offline cpu core to fmin.
+		 * If sysreg are used then we can't set fmin as sysreg can
+		 * be accessed from the target CPU only but that is offline.
+		 */
+		for_each_possible_cpu(cpu) {
+			if (!cpu_online(cpu)) {
+				clusterid = data->phys_ids[cpu].clusterid;
+				cpuid = data->phys_ids[cpu].cpuid;
+
+				writel(data->tables[clusterid]->driver_data,
+				       data->phys_ids[cpu].freq_core_reg);
+			}
+		}
+	}
 
 	if (data->soc->emc_scal_mgr == BWMGR)
 		data->bypass_bwmgr_mode = false;

@@ -9,16 +9,8 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 
-#include <dt-bindings/power/tegra234-powergate.h>
-
 #include <soc/tegra/bpmp.h>
 #include <soc/tegra/bpmp-abi.h>
-
-
-struct tegra_powergate_soc {
-	#define TEGRA_POWERGATE_NUM_WAKEUP_DOMAINS 3
-	unsigned int wakeup_domains[TEGRA_POWERGATE_NUM_WAKEUP_DOMAINS];
-};
 
 struct tegra_powergate_info {
 	unsigned int id;
@@ -175,8 +167,7 @@ static int tegra_powergate_power_off(struct generic_pm_domain *domain)
 
 static struct tegra_powergate *
 tegra_powergate_add(struct tegra_bpmp *bpmp,
-		    const struct tegra_powergate_info *info,
-		    bool wakeup_domain)
+		    const struct tegra_powergate_info *info)
 {
 	struct tegra_powergate *powergate;
 	bool off;
@@ -194,8 +185,6 @@ tegra_powergate_add(struct tegra_bpmp *bpmp,
 	powergate->genpd.name = kstrdup(info->name, GFP_KERNEL);
 	powergate->genpd.power_on = tegra_powergate_power_on;
 	powergate->genpd.power_off = tegra_powergate_power_off;
-	if (wakeup_domain)
-		powergate->genpd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 
 	err = pm_genpd_init(&powergate->genpd, NULL, off);
 	if (err < 0) {
@@ -263,13 +252,12 @@ tegra_bpmp_probe_powergates(struct tegra_bpmp *bpmp,
 
 static int tegra_bpmp_add_powergates(struct tegra_bpmp *bpmp,
 				     struct tegra_powergate_info *powergates,
-				     unsigned int count,
-				     const unsigned int *wakeup_domains)
+				     unsigned int count)
 {
 	struct genpd_onecell_data *genpd = &bpmp->genpd;
 	struct generic_pm_domain **domains;
 	struct tegra_powergate *powergate;
-	unsigned int i, j;
+	unsigned int i;
 	int err;
 
 	domains = kcalloc(count, sizeof(*domains), GFP_KERNEL);
@@ -277,15 +265,7 @@ static int tegra_bpmp_add_powergates(struct tegra_bpmp *bpmp,
 		return -ENOMEM;
 
 	for (i = 0; i < count; i++) {
-		bool wakeup_domain = false;
-		for (j = 0; j < TEGRA_POWERGATE_NUM_WAKEUP_DOMAINS; j++) {
-			if (wakeup_domains[j] == powergates[i].id) {
-				wakeup_domain = true;
-				break;
-			}
-		}
-
-		powergate = tegra_powergate_add(bpmp, &powergates[i], wakeup_domain);
+		powergate = tegra_powergate_add(bpmp, &powergates[i]);
 		if (IS_ERR(powergate)) {
 			err = PTR_ERR(powergate);
 			goto remove;
@@ -345,45 +325,13 @@ tegra_powergate_xlate(struct of_phandle_args *spec, void *data)
 	return domain;
 }
 
-static const struct tegra_powergate_soc tegra186_soc = {
-};
-
-static const struct tegra_powergate_soc tegra234_soc = {
-	.wakeup_domains = {
-		TEGRA234_POWER_DOMAIN_XUSBA,
-		TEGRA234_POWER_DOMAIN_XUSBB,
-		TEGRA234_POWER_DOMAIN_XUSBC
-	},
-};
-
-static const struct of_device_id tegra_bpmp_powergate_match[] = {
-	{ .compatible = "nvidia,tegra186-bpmp", .data = &tegra186_soc },
-	{ .compatible = "nvidia,tegra194-bpmp", .data = &tegra186_soc },
-	{ .compatible = "nvidia,tegra234-bpmp", .data = &tegra234_soc },
-
-	{ .compatible = "nvidia,tegra186-bpmp-hv", .data = &tegra186_soc },
-	{ .compatible = "nvidia,tegra194-safe-bpmp-hv", .data = &tegra186_soc },
-
-	{ }
-};
-
 int tegra_bpmp_init_powergates(struct tegra_bpmp *bpmp)
 {
 	struct device_node *np = bpmp->dev->of_node;
 	struct tegra_powergate_info *powergates;
-	const struct tegra_powergate_soc *soc;
-	const struct of_device_id *match;
 	struct device *dev = bpmp->dev;
 	unsigned int count, i;
 	int err;
-
-	match = of_match_node(tegra_bpmp_powergate_match, np);
-	if (!match) {
-		dev_err(dev, "powergating not supported on this chip\n");
-		return -EINVAL;
-	}
-
-	soc = match->data;
 
 	err = tegra_bpmp_probe_powergates(bpmp, &powergates);
 	if (err < 0)
@@ -393,7 +341,7 @@ int tegra_bpmp_init_powergates(struct tegra_bpmp *bpmp)
 
 	dev_dbg(dev, "%u power domains probed\n", count);
 
-	err = tegra_bpmp_add_powergates(bpmp, powergates, count, soc->wakeup_domains);
+	err = tegra_bpmp_add_powergates(bpmp, powergates, count);
 	if (err < 0)
 		goto free;
 
