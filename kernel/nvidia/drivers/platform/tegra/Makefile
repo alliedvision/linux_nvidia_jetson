@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2014-2023, NVIDIA CORPORATION. All rights reserved.
 
 KBUILD_CFLAGS += -I$(srctree)/arch/arm/mach-tegra \
 		 -I$(srctree)/arch/arm/mach-tegra/include/ \
@@ -58,7 +58,7 @@ endif
 obj-$(CONFIG_DENVER_MCA) += denver_mca.o
 obj-$(CONFIG_TEGRA_HV_XHCI_DEBUG) += tegra-hv-xhci-debug.o
 obj-$(CONFIG_TEGRA_SAFETY) += tegra-safety-ivc.o tegra-safety-dev.o
-obj-$(CONFIG_TEGRA_SAFETY) += tegra_l1ss_kernel_interface.o tegra_l1ss_cmd_resp_l2_interface.o tegra_l1ss.o
+obj-$(CONFIG_TEGRA_SAFETY) += tegra_l1ss_kernel_interface.o tegra_l1ss_cmd_resp_l2_interface.o ArLib.o tegra_l1ss.o
 
 obj-$(CONFIG_TEGRA_NVADSP) += nvadsp/
 

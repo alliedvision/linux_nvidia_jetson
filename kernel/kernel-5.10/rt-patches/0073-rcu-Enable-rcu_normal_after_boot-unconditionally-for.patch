@@ -1,8 +1,9 @@
-From 0b8196de8bd170c3bdb9937b743eb01ed52387e6 Mon Sep 17 00:00:00 2001
+From ebc73d0ffd0447ba8510299e8129d4c240c8058e Mon Sep 17 00:00:00 2001
 From: Julia Cartwright <julia@ni.com>
 Date: Tue, 15 Dec 2020 15:16:47 +0100
-Subject: [PATCH 073/318] rcu: Enable rcu_normal_after_boot unconditionally for
+Subject: [PATCH 073/322] rcu: Enable rcu_normal_after_boot unconditionally for
  RT
+X-NVConfidentiality: public
 
 Expedited RCU grace periods send IPIs to all non-idle CPUs, and thus can
 disrupt time-critical code in real-time applications.  However, there
@@ -33,10 +34,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 10 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 5f3dff2d8ed2..ea1e98f26c28 100644
+index 3858836fc460..3d1a39e7b1e3 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4485,6 +4485,13 @@
+@@ -4584,6 +4584,13 @@
  			only normal grace-period primitives.  No effect
  			on CONFIG_TINY_RCU kernels.
  

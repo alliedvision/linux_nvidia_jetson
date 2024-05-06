@@ -1,7 +1,8 @@
-From 485a5411c728d5ac19700198b223ca2743fe4623 Mon Sep 17 00:00:00 2001
+From 2e62f06357181f7c6bedb1afb72f111ab3bb91fc Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 17 Feb 2021 16:15:31 +0100
-Subject: [PATCH 082/318] printk: limit second loop of syslog_print_all
+Subject: [PATCH 082/322] printk: limit second loop of syslog_print_all
+X-NVConfidentiality: public
 
 The second loop of syslog_print_all() subtracts lengths that were
 added in the first loop. With commit b031a684bfd0 ("printk: remove

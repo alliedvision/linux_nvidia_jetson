@@ -256,20 +256,8 @@ static int tegra_adma_init(struct tegra_adma *tdma)
 	u32 status;
 	int ret;
 
-	/*
-	 * Clear any interrupts:
-	 *
-	 * On Tegra186 and later, ADMA channels are virtualized and aliased
-	 * into 4 64K pages. A separate page carries global and configuration
-	 * registers for ADMA. Few registers are reshuffled as part of it and
-	 * moved to page specific space. Thus offset of these registers are
-	 * relative to the channel base offset and it needs to be taken into
-	 * account while updating. It works for Tegra210 as well as channel
-	 * base offset is 0.
-	 */
-	tdma_write(tdma,
-		   tdma->ch_base_offset + tdma->cdata->global_int_clear,
-		   0x1);
+	/* Clear any interrupts */
+	tdma_write(tdma, tdma->cdata->ch_base_offset + tdma->cdata->global_int_clear, 0x1);
 
 	if (is_tegra_hypervisor_mode()) {
 		/* Audio Server owns ADMA GLOBAL and set registers */
@@ -277,7 +265,6 @@ static int tegra_adma_init(struct tegra_adma *tdma)
 
 		return 0;
 	}
-
 	/* Assert soft reset */
 	tdma_write(tdma, ADMA_GLOBAL_SOFT_RESET, 0x1);
 

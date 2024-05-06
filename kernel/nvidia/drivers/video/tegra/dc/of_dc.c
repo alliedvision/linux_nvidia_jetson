@@ -3383,6 +3383,14 @@ struct tegra_dc_platform_data *of_dc_parse_platform_data(
 			if (err)
 				goto fail_parse;
 		}
+
+		if ((pdata->default_out->type == TEGRA_DC_OUT_HDMI) ||
+			(pdata->default_out->type == TEGRA_DC_OUT_DP)) {
+			    if (!of_property_read_u32(np, "disable-seamless", &temp)) {
+				pdata->disable_seamless_kernel_handover = (bool)temp;
+			    }
+
+		}
 	}
 
 	if (def_out->modes != NULL) {

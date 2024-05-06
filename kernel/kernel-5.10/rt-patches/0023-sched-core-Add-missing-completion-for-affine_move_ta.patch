@@ -1,8 +1,9 @@
-From cf5a18f071185485111e92cd1645acfab586fad5 Mon Sep 17 00:00:00 2001
+From 3184ab7e4b1a61a51f1395b907a5c3d8b49e93a0 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 13 Nov 2020 11:24:14 +0000
-Subject: [PATCH 023/318] sched/core: Add missing completion for
+Subject: [PATCH 023/322] sched/core: Add missing completion for
  affine_move_task() waiters
+X-NVConfidentiality: public
 
 Qian reported that some fuzzer issuing sched_setaffinity() ends up stuck on
 a wait_for_completion(). The problematic pattern seems to be:
@@ -43,10 +44,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 6902da038ac9..59d154a7574d 100644
+index cc3198fdc37a..2e6afad9f0b0 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1937,7 +1937,7 @@ static int migration_cpu_stop(void *data)
+@@ -1941,7 +1941,7 @@ static int migration_cpu_stop(void *data)
  		else
  			p->wake_cpu = dest_cpu;
  
@@ -55,7 +56,7 @@ index 6902da038ac9..59d154a7574d 100644
  		/*
  		 * This happens when we get migrated between migrate_enable()'s
  		 * preempt_enable() and scheduling the stopper task. At that
-@@ -1947,6 +1947,17 @@ static int migration_cpu_stop(void *data)
+@@ -1951,6 +1951,17 @@ static int migration_cpu_stop(void *data)
  		 * more likely.
  		 */
  

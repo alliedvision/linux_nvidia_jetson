@@ -1661,6 +1661,7 @@ car_err:
 	macsec_release_platform_res(macsec_pdata);
 init_err:
 	devm_kfree(dev, pdata->macsec_pdata);
+	pdata->macsec_pdata = NULL;
 exit:
 	PRINT_EXIT();
 	return ret;

@@ -1,7 +1,8 @@
-From 298ec27893e9123c61e3524ff672bd97a3b95343 Mon Sep 17 00:00:00 2001
+From a781bace0c77a5a6cc837bc183ade16e2af426a9 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:27 +0100
-Subject: [PATCH 065/318] blk-mq: Use llist_head for blk_cpu_done
+Subject: [PATCH 065/322] blk-mq: Use llist_head for blk_cpu_done
+X-NVConfidentiality: public
 
 With llist_head it is possible to avoid the locking (the irq-off region)
 when items are added. This makes it possible to add items on a remote
@@ -26,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 44 insertions(+), 59 deletions(-)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index ecdc0ae2361f..721c5f0cfe8a 100644
+index 52745c674542..10e18cbe5f5e 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -41,7 +41,7 @@
@@ -38,7 +39,7 @@ index ecdc0ae2361f..721c5f0cfe8a 100644
  
  static void blk_mq_poll_stats_start(struct request_queue *q);
  static void blk_mq_poll_stats_fn(struct blk_stat_callback *cb);
-@@ -565,68 +565,29 @@ void blk_mq_end_request(struct request *rq, blk_status_t error)
+@@ -569,68 +569,29 @@ void blk_mq_end_request(struct request *rq, blk_status_t error)
  }
  EXPORT_SYMBOL(blk_mq_end_request);
  
@@ -115,7 +116,7 @@ index ecdc0ae2361f..721c5f0cfe8a 100644
  }
  
  static inline bool blk_mq_complete_need_ipi(struct request *rq)
-@@ -655,6 +616,32 @@ static inline bool blk_mq_complete_need_ipi(struct request *rq)
+@@ -659,6 +620,32 @@ static inline bool blk_mq_complete_need_ipi(struct request *rq)
  	return cpu_online(rq->mq_ctx->cpu);
  }
  
@@ -148,7 +149,7 @@ index ecdc0ae2361f..721c5f0cfe8a 100644
  bool blk_mq_complete_request_remote(struct request *rq)
  {
  	WRITE_ONCE(rq->state, MQ_RQ_COMPLETE);
-@@ -667,17 +654,15 @@ bool blk_mq_complete_request_remote(struct request *rq)
+@@ -671,17 +658,15 @@ bool blk_mq_complete_request_remote(struct request *rq)
  		return false;
  
  	if (blk_mq_complete_need_ipi(rq)) {
@@ -173,7 +174,7 @@ index ecdc0ae2361f..721c5f0cfe8a 100644
  }
  EXPORT_SYMBOL_GPL(blk_mq_complete_request_remote);
  
-@@ -3978,7 +3963,7 @@ static int __init blk_mq_init(void)
+@@ -3983,7 +3968,7 @@ static int __init blk_mq_init(void)
  	int i;
  
  	for_each_possible_cpu(i)

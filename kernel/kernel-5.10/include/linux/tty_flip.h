@@ -12,7 +12,6 @@ extern int tty_insert_flip_string_fixed_flag(struct tty_port *port,
 extern int tty_prepare_flip_string(struct tty_port *port,
 		unsigned char **chars, size_t size);
 extern void tty_flip_buffer_push(struct tty_port *port);
-void tty_schedule_flip(struct tty_port *port);
 int __tty_insert_flip_char(struct tty_port *port, unsigned char ch, char flag);
 
 static inline int tty_insert_flip_char(struct tty_port *port,
@@ -42,5 +41,8 @@ extern void tty_buffer_unlock_exclusive(struct tty_port *port);
 extern int tty_buffer_get_level(struct tty_port *port);
 extern int tty_buffer_get_count(struct tty_port *port);
 extern int n_tty_buffer_get_count(struct tty_struct *tty);
+
+int tty_insert_flip_string_and_push_buffer(struct tty_port *port,
+		const unsigned char *chars, size_t cnt);
 
 #endif /* _LINUX_TTY_FLIP_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -29,7 +29,7 @@
 #include "tegra_l1ss.h"
 
 #define NV(p) "nvidia," #p
-#define TEGRA_SAFETY_IVC_INIT_DONE_TIME		(30 * 1000)
+#define TEGRA_SAFETY_IVC_INIT_DONE_TIME		(40 * 1000)
 
 uint32_t ivc_chan_count;
 struct tegra_safety_ivc_chan *tegra_safety_get_ivc_chan_from_str(

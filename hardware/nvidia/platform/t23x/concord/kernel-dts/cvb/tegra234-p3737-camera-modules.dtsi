@@ -499,9 +499,6 @@
 				imx390_cam1: imx390_b@1c {
 					status = "disabled";
 				};
-				bmi088_a@69 {
-					status = "disabled";
-				};
 			};
 			i2c@1 {
 				dual_hawk2:dual_hawk_c@18 {

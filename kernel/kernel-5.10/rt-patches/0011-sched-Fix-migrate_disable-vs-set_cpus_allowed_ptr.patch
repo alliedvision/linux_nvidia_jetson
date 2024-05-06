@@ -1,8 +1,9 @@
-From 3d43fe272972b7cf5986a5bf8caaeaa0aa43f8f6 Mon Sep 17 00:00:00 2001
+From 50f117cd36ef48d0f18861ab102403e83a4d7412 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:08 +0200
-Subject: [PATCH 011/318] sched: Fix migrate_disable() vs
+Subject: [PATCH 011/322] sched: Fix migrate_disable() vs
  set_cpus_allowed_ptr()
+X-NVConfidentiality: public
 
 Concurrent migrate_disable() and set_cpus_allowed_ptr() has
 interesting features. We rely on set_cpus_allowed_ptr() to not return
@@ -43,10 +44,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 205 insertions(+), 30 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index f49d3ec4bef6..d1e278d0b65d 100644
+index 9cc6f39b1cbb..83447024a7ea 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -730,6 +730,7 @@ struct task_struct {
+@@ -726,6 +726,7 @@ struct task_struct {
  	int				nr_cpus_allowed;
  	const cpumask_t			*cpus_ptr;
  	cpumask_t			cpus_mask;
@@ -55,10 +56,10 @@ index f49d3ec4bef6..d1e278d0b65d 100644
  	int				migration_disabled;
  #endif
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index e6bcd5dd2487..1eca873c6cdb 100644
+index 283fd26bde69..6e786b89265b 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1742,15 +1742,26 @@ void migrate_enable(void)
+@@ -1746,15 +1746,26 @@ void migrate_enable(void)
  {
  	struct task_struct *p = current;
  
@@ -91,7 +92,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  }
  EXPORT_SYMBOL_GPL(migrate_enable);
  
-@@ -1815,8 +1826,16 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
+@@ -1819,8 +1830,16 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
  }
  
  struct migration_arg {
@@ -110,7 +111,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  };
  
  /*
-@@ -1848,16 +1867,19 @@ static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+@@ -1852,16 +1871,19 @@ static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
   */
  static int migration_cpu_stop(void *data)
  {
@@ -131,7 +132,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  	/*
  	 * We need to explicitly wake pending tasks before running
  	 * __migrate_task() such that we will not miss enforcing cpus_ptr
-@@ -1867,21 +1889,83 @@ static int migration_cpu_stop(void *data)
+@@ -1871,21 +1893,83 @@ static int migration_cpu_stop(void *data)
  
  	raw_spin_lock(&p->pi_lock);
  	rq_lock(rq, &rf);
@@ -220,7 +221,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  	return 0;
  }
  
-@@ -1950,6 +2034,110 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
+@@ -1954,6 +2038,110 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
  	__do_set_cpus_allowed(p, new_mask, 0);
  }
  
@@ -331,7 +332,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  /*
   * Change a given task's CPU affinity. Migrate the thread to a
   * proper CPU and schedule it away if the CPU it's executing on
-@@ -2019,23 +2207,8 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
+@@ -2023,23 +2211,8 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
  			p->nr_cpus_allowed != 1);
  	}
  
@@ -356,7 +357,7 @@ index e6bcd5dd2487..1eca873c6cdb 100644
  out:
  	task_rq_unlock(rq, p, &rf);
  
-@@ -3222,6 +3395,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
+@@ -3230,6 +3403,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
  	init_numa_balancing(clone_flags, p);
  #ifdef CONFIG_SMP
  	p->wake_entry.u_flags = CSD_TYPE_TTWU;

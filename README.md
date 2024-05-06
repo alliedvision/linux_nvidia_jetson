@@ -1,7 +1,7 @@
 # NVIDIA Jetson driver (Beta)
 
 
-Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1.2 (L4T 35.4.1)     
+Driver (Beta) for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1.3 (L4T 35.5.0)     
 https://developer.nvidia.com/embedded/jetpack
 ![Alvium camera](https://cdn.alliedvision.com/fileadmin/content/images/cameras/Alvium/various/alvium-cameras-models.png)
 
@@ -13,7 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 The scripts in this project build and install the Allied Vision MIPI camera driver to the NVIDIA Jetson boards.
 
-Compatible platforms with JetPack 5.1.2 (L4T 35.4.1) : 
+Compatible platforms with JetPack 5.1.3 (L4T 35.5.0) : 
 
   - AGX Orin Developer Kit
   - AGX Xavier DevKit
@@ -29,9 +29,9 @@ Compatible platforms with JetPack 5.1.2 (L4T 35.4.1) :
 ### Host PC
 The scripts for the driver installation require Git on the host PC.
 
-### Install JetPack 5.1.2
+### Install JetPack 5.1.3
  
-Install JetPack 5.1.2 (L4T 35.4.1) as per NVIDIA's instructions
+Install JetPack 5.1.3 (L4T 35.5.0) as per NVIDIA's instructions
  https://developer.nvidia.com/embedded/jetpack      
 
 Recommendation: Use NVIDIA SDK Manager to install JetPack and useful tools such as CUDA.   
@@ -47,7 +47,7 @@ https://docs.nvidia.com/sdk-manager/
   Install the precompiled kernel, which includes the driver and an installation menu.   
 
   1. Extract the tarball on a host PC.   
-  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.4.1.0_<git-rev>.tar.gz. 
+  The tarball contains helper scripts and another tarball with the precompiled binaries named AlliedVision_NVidia_L4T_35.5.0.0_<git-rev>.tar.gz. 
 
 2. Copy the tarball to the target board. 
 3. On the target board, extract the tarball and run the included install script.   

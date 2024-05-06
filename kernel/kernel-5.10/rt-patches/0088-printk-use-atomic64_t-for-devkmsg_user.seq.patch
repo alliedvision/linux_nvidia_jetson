@@ -1,7 +1,8 @@
-From 64eb17146604447a87cd8cec40b14e971e598878 Mon Sep 17 00:00:00 2001
+From 913be662a87e88853781307f0751565c8e6af819 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 15:33:40 +0106
-Subject: [PATCH 088/318] printk: use atomic64_t for devkmsg_user.seq
+Subject: [PATCH 088/322] printk: use atomic64_t for devkmsg_user.seq
+X-NVConfidentiality: public
 
 @user->seq is indirectly protected by @logbuf_lock. Once @logbuf_lock
 is removed, @user->seq will be no longer safe from an atomicity point

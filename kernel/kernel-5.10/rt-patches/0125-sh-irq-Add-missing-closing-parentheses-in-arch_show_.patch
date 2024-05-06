@@ -1,11 +1,12 @@
-From d8565ed967e2f01ce406c84b05979d7e1d5d127b Mon Sep 17 00:00:00 2001
+From 6074c0dea0e1ea83ec925b6f43899202f7243bdf Mon Sep 17 00:00:00 2001
 From: Geert Uytterhoeven <geert+renesas@glider.be>
 Date: Tue, 24 Nov 2020 14:06:56 +0100
-Subject: [PATCH 125/318] sh/irq: Add missing closing parentheses in
+Subject: [PATCH 125/322] sh/irq: Add missing closing parentheses in
  arch_show_interrupts()
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
+X-NVConfidentiality: public
 
     arch/sh/kernel/irq.c: In function ‘arch_show_interrupts’:
     arch/sh/kernel/irq.c:47:58: error: expected ‘)’ before ‘;’ token

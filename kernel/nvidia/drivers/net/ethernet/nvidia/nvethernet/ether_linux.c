@@ -6758,13 +6758,10 @@ static int ether_resume(struct ether_priv_data *pdata)
 #endif
 	/* Keep MACSEC also to Resume if MACSEC is supported on this platform */
 #ifdef MACSEC_SUPPORT
-	if ((osi_core->mac == OSI_MAC_HW_EQOS && osi_core->mac_ver == OSI_EQOS_MAC_5_30) ||
-	    (osi_core->mac == OSI_MAC_HW_MGBE && osi_core->mac_ver == OSI_MGBE_MAC_3_10)) {
-		if (pdata->macsec_pdata->next_supp_idx != OSI_DISABLE) {
-			ret = macsec_resume(pdata->macsec_pdata);
-			if (ret < 0)
-				dev_err(pdata->dev, "Failed to resume MACSEC ");
-		}
+	if (pdata->macsec_pdata && pdata->macsec_pdata->next_supp_idx != OSI_DISABLE) {
+		ret = macsec_resume(pdata->macsec_pdata);
+		if (ret < 0)
+			dev_err(pdata->dev, "Failed to resume MACSEC ");
 	}
 #endif /* MACSEC_SUPPORT */
 
@@ -6806,13 +6803,10 @@ static int ether_suspend_noirq(struct device *dev)
 
 	/* Keep MACSEC to suspend if MACSEC is supported on this platform */
 #ifdef MACSEC_SUPPORT
-	if ((osi_core->mac == OSI_MAC_HW_EQOS && osi_core->mac_ver == OSI_EQOS_MAC_5_30) ||
-	    (osi_core->mac == OSI_MAC_HW_MGBE && osi_core->mac_ver == OSI_MGBE_MAC_3_10)) {
-		if (pdata->macsec_pdata->next_supp_idx != OSI_DISABLE) {
-			ret = macsec_suspend(pdata->macsec_pdata);
-			if (ret < 0)
-				dev_err(pdata->dev, "Failed to suspend macsec");
-		}
+	if (pdata->macsec_pdata && pdata->macsec_pdata->next_supp_idx != OSI_DISABLE) {
+		ret = macsec_suspend(pdata->macsec_pdata);
+		if (ret < 0)
+			dev_err(pdata->dev, "Failed to suspend macsec");
 	}
 #endif /* MACSEC_SUPPORT */
 
@@ -6820,6 +6814,7 @@ static int ether_suspend_noirq(struct device *dev)
 
 	/* stop workqueue */
 	cancel_delayed_work_sync(&pdata->tx_ts_work);
+	cancel_delayed_work_sync(&pdata->set_speed_work);
 
 	/* Stop workqueue while DUT is going to suspend state */
 	ether_stats_work_queue_stop(pdata);

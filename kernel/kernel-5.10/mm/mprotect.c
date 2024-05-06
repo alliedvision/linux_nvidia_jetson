@@ -36,6 +36,15 @@
 
 #include "internal.h"
 
+static bool can_change_pte_writable(pte_t pte)
+{
+	if (pte_present(pte)) {
+		if (pte_dirty(pte) && pte_write(pte))
+			return true;
+	}
+	return false;
+}
+
 static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot,
 		unsigned long cp_flags)
@@ -138,6 +147,8 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 					 !(vma->vm_flags & VM_SOFTDIRTY))) {
 				ptent = pte_mkwrite(ptent);
 			}
+			if (can_change_pte_writable(ptent))
+				ptent = pte_mkwrite(ptent);
 			ptep_modify_prot_commit(vma, addr, pte, oldpte, ptent);
 			pages++;
 		} else if (is_swap_pte(oldpte)) {

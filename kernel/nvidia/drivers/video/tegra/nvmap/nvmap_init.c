@@ -387,7 +387,7 @@ static void *__nvmap_dma_alloc_from_coherent(struct device *dev,
 
 	spin_lock_irqsave(&mem->spinlock, flags);
 
-	if (unlikely(size > (mem->size << PAGE_SHIFT)))
+	if (unlikely(size > ((ssize_t)mem->size << PAGE_SHIFT)))
 		goto err;
 
 	if ((mem->flags & DMA_MEMORY_NOMAP) &&
@@ -417,9 +417,9 @@ static void *__nvmap_dma_alloc_from_coherent(struct device *dev,
 	/*
 	 * Memory was found in the coherent area.
 	 */
-	*dma_handle = mem->device_base + (pageno << PAGE_SHIFT);
+	*dma_handle = mem->device_base + ((dma_addr_t)pageno << PAGE_SHIFT);
 	if (!(mem->flags & DMA_MEMORY_NOMAP)) {
-		addr = mem->virt_base + (pageno << PAGE_SHIFT);
+		addr = mem->virt_base + ((dma_addr_t)pageno << PAGE_SHIFT);
 		do_memset = 1;
 	} else if (dma_get_attr(DMA_ATTR_ALLOC_SINGLE_PAGES, attrs)) {
 		addr = pages;
@@ -530,7 +530,7 @@ int nvmap_dma_alloc_from_dev_coherent(struct device *dev, ssize_t size,
 		return -EINVAL;
 	order = get_order(size);
 	spin_lock_irqsave(&mem->spinlock, flags);
-	if (unlikely(size > (mem->size << PAGE_SHIFT)))
+	if (unlikely(size > ((ssize_t)mem->size << PAGE_SHIFT)))
 		goto err;
 
 	pageno = bitmap_find_free_region(mem->bitmap, mem->size, order);

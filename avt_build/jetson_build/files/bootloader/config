@@ -97,9 +97,13 @@ nx_devkit = BoardDefinition('Jetson Xavier NX devkit', '0x19', '3668', [
 agx_orin_devkit = BoardDefinition('Jetson AGX Orin devkit', '0x23', '3701', [
     Configuration('2 cameras', 'tegra234-p3701-0000-p3737-0000-avt-14375-2cam.dtb', '0000'),
     Configuration('2 cameras', 'tegra234-p3701-0004-p3737-0000-avt-14375-2cam.dtb', '0004'),
+    Configuration('2 cameras', 'tegra234-p3701-0005-p3737-0000-avt-14375-2cam.dtb', '0005'),
+    Configuration('2 cameras', 'tegra234-p3701-0008-p3737-0000-avt-14375-2cam.dtb', '0008'),
 
     Configuration('None', 'tegra234-p3701-0000-p3737-0000.dtb', '0000'),
     Configuration('None', 'tegra234-p3701-0004-p3737-0000.dtb', '0004'),
+    Configuration('None', 'tegra234-p3701-0005-p3737-0000.dtb', '0005'),
+    Configuration('None', 'tegra234-p3701-0008-p3737-0000.dtb', '0008'),
 ])
 
 orin_nx_nano_devkit = BoardDefinition('Jetson Orin Nano/NX devkit', '0x23', '3767', [

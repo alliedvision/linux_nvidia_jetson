@@ -1,7 +1,8 @@
-From 2f5b40a41f551ae0ded17c3ce602157365f2e357 Mon Sep 17 00:00:00 2001
+From 4bd8aa06c76c6a9854183bd421dbdcaa68d511ae Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 11 Feb 2019 11:33:11 +0100
-Subject: [PATCH 111/318] tpm: remove tpm_dev_wq_lock
+Subject: [PATCH 111/322] tpm: remove tpm_dev_wq_lock
+X-NVConfidentiality: public
 
 Added in commit
 

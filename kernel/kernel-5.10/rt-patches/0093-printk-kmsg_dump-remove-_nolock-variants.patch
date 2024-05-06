@@ -1,7 +1,8 @@
-From aa0797bfb4cb86fe03516dad6b11d34a3a356691 Mon Sep 17 00:00:00 2001
+From 3c3aca027a3c0ad13911641948df5a417a0ffcd2 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 10:27:58 +0106
-Subject: [PATCH 093/318] printk: kmsg_dump: remove _nolock() variants
+Subject: [PATCH 093/322] printk: kmsg_dump: remove _nolock() variants
+X-NVConfidentiality: public
 
 kmsg_dump_rewind() and kmsg_dump_get_line() are lockless, so there is
 no need for _nolock() variants. Remove these functions and switch all
@@ -19,10 +20,10 @@ Signed-off-by: John Ogness <john.ogness@linutronix.de>
  4 files changed, 15 insertions(+), 75 deletions(-)
 
 diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
-index b71690e8245b..d62b8e053d4c 100644
+index 9406b4c9cd17..0918ab137728 100644
 --- a/arch/powerpc/xmon/xmon.c
 +++ b/arch/powerpc/xmon/xmon.c
-@@ -3017,9 +3017,9 @@ dump_log_buf(void)
+@@ -3014,9 +3014,9 @@ dump_log_buf(void)
  	catch_memory_errors = 1;
  	sync();
  

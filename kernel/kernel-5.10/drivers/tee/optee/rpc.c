@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2016, Linaro Limited
- * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -150,8 +150,6 @@ static struct wq_entry *wq_entry_get(struct optee_wait_queue *wq, u32 key)
 {
 	struct wq_entry *w;
 
-	mutex_lock(&wq->mu);
-
 	list_for_each_entry(w, &wq->db, link)
 		if (w->key == key)
 			goto out;
@@ -163,13 +161,16 @@ static struct wq_entry *wq_entry_get(struct optee_wait_queue *wq, u32 key)
 		list_add_tail(&w->link, &wq->db);
 	}
 out:
-	mutex_unlock(&wq->mu);
 	return w;
 }
 
 static void wq_sleep(struct optee_wait_queue *wq, u32 key)
 {
-	struct wq_entry *w = wq_entry_get(wq, key);
+	struct wq_entry *w;
+
+	mutex_lock(&wq->mu);
+	w = wq_entry_get(wq, key);
+	mutex_unlock(&wq->mu);
 
 	if (w) {
 		(void)wait_for_completion_timeout(&w->c, SLEEP_TIMEOUT);
@@ -182,10 +183,15 @@ static void wq_sleep(struct optee_wait_queue *wq, u32 key)
 
 static void wq_wakeup(struct optee_wait_queue *wq, u32 key)
 {
-	struct wq_entry *w = wq_entry_get(wq, key);
+	struct wq_entry *w;
+
+	mutex_lock(&wq->mu);
+	w = wq_entry_get(wq, key);
 
 	if (w)
 		complete(&w->c);
+
+	mutex_unlock(&wq->mu);
 }
 
 static void handle_rpc_func_cmd_wq(struct optee *optee,

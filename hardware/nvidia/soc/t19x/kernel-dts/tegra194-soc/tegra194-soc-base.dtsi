@@ -724,6 +724,7 @@
 				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
 				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
 				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+				disable-seamless = <1>;
 			}; //display@15200000
 
 			head1: display@15210000 {
@@ -800,6 +801,7 @@
 				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
 				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
 				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+				disable-seamless = <1>;
 			}; //display@15210000
 
 			head2: display@15220000 {
@@ -875,6 +877,7 @@
 				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
 				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
 				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+				disable-seamless = <1>;
 			}; //display@15220000
 
 			head3: display@15230000 {
@@ -950,6 +953,7 @@
 				pinctrl-5 = <&hdmi_dp2_dpd_enable>;
 				pinctrl-6 = <&hdmi_dp3_dpd_disable>;
 				pinctrl-7 = <&hdmi_dp3_dpd_enable>;
+				disable-seamless = <1>;
 			}; //display@15230000
 		}; /* display-hub@15200000 */
 

@@ -1,7 +1,8 @@
-From e545fd1a606f7ce0ecdf2f73cfc21e6d297e0fd8 Mon Sep 17 00:00:00 2001
+From de5d6f6c3400130d4e1f3440e50035b5b044f93e Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:30 +0100
-Subject: [PATCH 128/318] sched/vtime: Consolidate IRQ time accounting
+Subject: [PATCH 128/322] sched/vtime: Consolidate IRQ time accounting
+X-NVConfidentiality: public
 
 The 3 architectures implementing CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 all have their own version of irq time accounting that dispatch the
@@ -64,7 +65,7 @@ index 7abc5f37bfaf..733e0e3324b8 100644
  
  static irqreturn_t
 diff --git a/arch/powerpc/kernel/time.c b/arch/powerpc/kernel/time.c
-index 1d20f0f77a92..7e0a497a36ee 100644
+index ba9b54d35f57..588e081ca55b 100644
 --- a/arch/powerpc/kernel/time.c
 +++ b/arch/powerpc/kernel/time.c
 @@ -312,12 +312,11 @@ static unsigned long vtime_delta_scaled(struct cpu_accounting_data *acct,

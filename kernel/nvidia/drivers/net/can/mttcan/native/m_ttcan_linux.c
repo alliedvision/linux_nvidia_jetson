@@ -1338,7 +1338,14 @@ static int mttcan_close(struct net_device *dev)
 	napi_disable(&priv->napi);
 	mttcan_stop(priv);
 	free_irq(dev->irq, dev);
+
+	/* When we do power_down, it resets the mttcan HW by setting
+	 * INIT bit. This clears the internal state of mttcan HW.
+	 * We also then need to clear the internal states of driver.
+	 */
+	priv->ttcan->tx_object = 0;
 	priv->hwts_rx_en = false;
+
 	close_candev(dev);
 	mttcan_power_down(dev);
 	mttcan_pm_runtime_put_sync(priv);

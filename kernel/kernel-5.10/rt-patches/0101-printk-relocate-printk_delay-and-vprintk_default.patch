@@ -1,7 +1,8 @@
-From e4dc24116f3e51f4214bd81526d9fdc842c13c3e Mon Sep 17 00:00:00 2001
+From 383035957028b7b5db9470c25d71d5eaeabd452f Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:03 +0106
-Subject: [PATCH 101/318] printk: relocate printk_delay() and vprintk_default()
+Subject: [PATCH 101/322] printk: relocate printk_delay() and vprintk_default()
+X-NVConfidentiality: public
 
 Move printk_delay() and vprintk_default() "as is" further up so that
 they can be used by new functions in an upcoming commit.

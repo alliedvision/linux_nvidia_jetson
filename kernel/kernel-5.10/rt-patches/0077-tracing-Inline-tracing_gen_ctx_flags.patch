@@ -1,7 +1,8 @@
-From 67afdc6a4d89ac12631ad9febe4a4ee0b10decc3 Mon Sep 17 00:00:00 2001
+From 7d29dcc745c2deaaf58e92df8bf0f8a246664c44 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:24 -0500
-Subject: [PATCH 077/318] tracing: Inline tracing_gen_ctx_flags()
+Subject: [PATCH 077/322] tracing: Inline tracing_gen_ctx_flags()
+X-NVConfidentiality: public
 
 Inline tracing_gen_ctx_flags(). This allows to have one ifdef
 CONFIG_TRACE_IRQFLAGS_SUPPORT.
@@ -23,10 +24,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 53 insertions(+), 58 deletions(-)
 
 diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-index 409385b25ecb..1225ff2ab528 100644
+index 18b4f623d66b..47790617f124 100644
 --- a/include/linux/trace_events.h
 +++ b/include/linux/trace_events.h
-@@ -160,9 +160,57 @@ static inline void tracing_generic_entry_update(struct trace_entry *entry,
+@@ -164,9 +164,57 @@ static inline void tracing_generic_entry_update(struct trace_entry *entry,
  	entry->flags =			trace_ctx >> 16;
  }
  
@@ -88,10 +89,10 @@ index 409385b25ecb..1225ff2ab528 100644
  struct trace_event_file;
  
 diff --git a/kernel/trace/trace.c b/kernel/trace/trace.c
-index e8d5d34e2e36..cefa4522b838 100644
+index d037b12eec01..73a07a88cfdf 100644
 --- a/kernel/trace/trace.c
 +++ b/kernel/trace/trace.c
-@@ -2592,20 +2592,13 @@ enum print_line_t trace_handle_return(struct trace_seq *s)
+@@ -2617,20 +2617,13 @@ enum print_line_t trace_handle_return(struct trace_seq *s)
  }
  EXPORT_SYMBOL_GPL(trace_handle_return);
  
@@ -114,7 +115,7 @@ index e8d5d34e2e36..cefa4522b838 100644
  	if (pc & NMI_MASK)
  		trace_flags |= TRACE_FLAG_NMI;
  	if (pc & HARDIRQ_MASK)
-@@ -2621,33 +2614,6 @@ unsigned int tracing_gen_ctx_flags(unsigned long irqflags)
+@@ -2646,33 +2639,6 @@ unsigned int tracing_gen_ctx_flags(unsigned long irqflags)
  	return (trace_flags << 16) | (pc & 0xff);
  }
  
@@ -149,7 +150,7 @@ index e8d5d34e2e36..cefa4522b838 100644
  trace_buffer_lock_reserve(struct trace_buffer *buffer,
  			  int type,
 diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
-index 3e6f5f94ee08..bfb9fe2ed9d5 100644
+index 719a9ba01ccf..4afe5b3c4fb0 100644
 --- a/kernel/trace/trace.h
 +++ b/kernel/trace/trace.h
 @@ -136,25 +136,6 @@ struct kretprobe_trace_entry_head {

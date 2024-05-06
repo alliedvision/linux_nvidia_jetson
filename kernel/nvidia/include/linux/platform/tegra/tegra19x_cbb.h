@@ -86,7 +86,7 @@ struct tegra_noc_userbits {
 struct tegra_cbb_errlog_record {
 	struct list_head node;
 	struct serr_hook *callback;
-	const char *name;
+	char *name;
 	phys_addr_t start;
 	void __iomem *vaddr;
 	int num_intr;

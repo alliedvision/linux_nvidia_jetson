@@ -143,6 +143,7 @@ static int hda_codec_driver_probe(struct device *dev)
 
  error:
 	snd_hda_codec_cleanup_for_unbind(codec);
+	codec->preset = NULL;
 	return err;
 }
 
@@ -159,16 +160,14 @@ static int hda_codec_driver_remove(struct device *dev)
 	if (codec->patch_ops.free)
 		codec->patch_ops.free(codec);
 	snd_hda_codec_cleanup_for_unbind(codec);
+	codec->preset = NULL;
 	module_put(dev->driver->owner);
 	return 0;
 }
 
 static void hda_codec_driver_shutdown(struct device *dev)
 {
-	struct hda_codec *codec = dev_to_hda_codec(dev);
-
-	if (!pm_runtime_suspended(dev) && codec->patch_ops.reboot_notify)
-		codec->patch_ops.reboot_notify(codec);
+	snd_hda_codec_shutdown(dev_to_hda_codec(dev));
 }
 
 int __hda_codec_driver_register(struct hda_codec_driver *drv, const char *name,

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
  */
 
 /dts-v1/;
@@ -74,6 +74,53 @@
 			};
 		};
 
+		/*
+		 * The fTPM node is created to pass fTPM information from MB2 to OP-TEE.
+		 * The reg attribute indicates the address and the size of the component,
+		 * which will be filled by MB2 at runtime. All addresses are inside TZDRAM.
+		 * The status of the nodes below will always be set to disabled and the
+		 * secure-status will be set to okay by MB2 at runtime.
+		 */
+		ftpm {
+			compatible = "nvidia,ftpm-contents";
+			status = "disabled";
+			secure-status = "disabled";
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			/* This is the ftpm seed. */
+			ftpm-seed@0 {
+				compatible = "nvidia,ftpm-seed";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			/* This is the Silicon ID public key. */
+			silicon-id-pubkey@0 {
+				compatible = "nvidia,ftpm-silicon-id-pubkey";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			/* This is the signature of the MB2 measurement. */
+			mb2-event-log-sig@0 {
+				compatible = "nvidia,ftpm-mb2-event-log-sig";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+
+			/* This is the signature of the TOS image measurement. */
+			tos-event-log-sig@0 {
+				compatible = "nvidia,ftpm-tos-event-log-sig";
+				reg = <0 0 0 0>;
+				status = "disabled";
+				secure-status = "disabled";
+			};
+		};
+
 		/* MB2 will fill the address and size of EKB blob. */
 		ekb-blob@0 {
 			compatible = "jetson-ekb-blob";
@@ -123,6 +170,12 @@
 			qspi0-t234 {
 				base-address = <0x00000000 0x03270000>;
 				pages-count = <0x10>;
+				attributes = <0x3>; /* read-write */
+			};
+
+			scratch-t234 {
+				base-address = <0x00000000 0x0c390000>;
+				pages-count = <0x2>;
 				attributes = <0x3>; /* read-write */
 			};
 		};

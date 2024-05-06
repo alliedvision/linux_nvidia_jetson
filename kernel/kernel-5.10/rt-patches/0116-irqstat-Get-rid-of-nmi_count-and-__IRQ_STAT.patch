@@ -1,7 +1,8 @@
-From 69ede24dedc2d413c64d6af458a49eb7a8b384e9 Mon Sep 17 00:00:00 2001
+From 92236f8cf1c08c997a92567e1cdd44946ab3268a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:10 +0100
-Subject: [PATCH 116/318] irqstat: Get rid of nmi_count() and __IRQ_STAT()
+Subject: [PATCH 116/322] irqstat: Get rid of nmi_count() and __IRQ_STAT()
+X-NVConfidentiality: public
 
 Nothing uses this anymore.
 

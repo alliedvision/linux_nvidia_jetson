@@ -1,7 +1,8 @@
-From 7d9d88476dcb1e0f5fd6adeb1f3b8639983c0a32 Mon Sep 17 00:00:00 2001
+From 4b154dbb4dc86fad917ef5d5ba73cfd2fffcb11b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:27 +0100
-Subject: [PATCH 038/318] powerpc/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 038/322] powerpc/mm/highmem: Switch to generic kmap atomic
+X-NVConfidentiality: public
 
 No reason having the same code in every architecture
 
@@ -24,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/powerpc/mm/highmem.c
 
 diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 5afa0ebd78ca..7da69f334fa4 100644
+index 78dd6be8b31d..b3ab6c2d9f66 100644
 --- a/arch/powerpc/Kconfig
 +++ b/arch/powerpc/Kconfig
 @@ -410,6 +410,7 @@ menu "Kernel options"
@@ -191,10 +192,10 @@ index 624b4438aff9..000000000000
 -}
 -EXPORT_SYMBOL(kunmap_atomic_high);
 diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 22eb1c718e62..1b74565b3e16 100644
+index 1ed276d2305f..ae7c136ed188 100644
 --- a/arch/powerpc/mm/mem.c
 +++ b/arch/powerpc/mm/mem.c
-@@ -62,11 +62,6 @@
+@@ -63,11 +63,6 @@
  unsigned long long memory_limit;
  bool init_mem_is_free;
  
@@ -206,7 +207,7 @@ index 22eb1c718e62..1b74565b3e16 100644
  pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
  			      unsigned long size, pgprot_t vma_prot)
  {
-@@ -236,8 +231,6 @@ void __init paging_init(void)
+@@ -237,8 +232,6 @@ void __init paging_init(void)
  
  	map_kernel_page(PKMAP_BASE, 0, __pgprot(0));	/* XXX gross */
  	pkmap_page_table = virt_to_kpte(PKMAP_BASE);

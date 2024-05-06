@@ -1,7 +1,8 @@
-From fc74efe092d4c802cbc4da125769dc7ab1e54288 Mon Sep 17 00:00:00 2001
+From 894191326c003f75f8465fca44498c34f9691ef6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:28 +0100
-Subject: [PATCH 039/318] sparc/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 039/322] sparc/mm/highmem: Switch to generic kmap atomic
+X-NVConfidentiality: public
 
 No reason having the same code in every architecture
 
@@ -22,10 +23,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/sparc/mm/highmem.c
 
 diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index 530b7ec5d3ca..a38d00d8b783 100644
+index 7e2ce4c8d657..1a6e4b187861 100644
 --- a/arch/sparc/Kconfig
 +++ b/arch/sparc/Kconfig
-@@ -139,6 +139,7 @@ config MMU
+@@ -140,6 +140,7 @@ config MMU
  config HIGHMEM
  	bool
  	default y if SPARC32

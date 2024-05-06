@@ -1,8 +1,9 @@
-From d82e1f16b81baa8fd5ab1d411d957f95af12fef4 Mon Sep 17 00:00:00 2001
+From 4ad250d3717b17db52471d6bd628a10133f9af1a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:02 +0200
-Subject: [PATCH 005/318] sched/core: Wait for tasks being pushed away on
+Subject: [PATCH 005/322] sched/core: Wait for tasks being pushed away on
  hotplug
+X-NVConfidentiality: public
 
 RT kernels need to ensure that all tasks which are not per CPU kthreads
 have left the outgoing CPU to guarantee that no tasks are force migrated
@@ -24,10 +25,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 43 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 94cad247a39c..21f1f54845f9 100644
+index abfe99a6e367..ff9a27c4f42a 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6891,8 +6891,21 @@ static void balance_push(struct rq *rq)
+@@ -6903,8 +6903,21 @@ static void balance_push(struct rq *rq)
  	 * Both the cpu-hotplug and stop task are in this case and are
  	 * required to complete the hotplug process.
  	 */
@@ -50,7 +51,7 @@ index 94cad247a39c..21f1f54845f9 100644
  
  	get_task_struct(push_task);
  	/*
-@@ -6923,6 +6936,20 @@ static void balance_push_set(int cpu, bool on)
+@@ -6935,6 +6948,20 @@ static void balance_push_set(int cpu, bool on)
  	rq_unlock_irqrestore(rq, &rf);
  }
  
@@ -71,7 +72,7 @@ index 94cad247a39c..21f1f54845f9 100644
  #else
  
  static inline void balance_push(struct rq *rq)
-@@ -6933,6 +6960,10 @@ static inline void balance_push_set(int cpu, bool on)
+@@ -6945,6 +6972,10 @@ static inline void balance_push_set(int cpu, bool on)
  {
  }
  
@@ -82,7 +83,7 @@ index 94cad247a39c..21f1f54845f9 100644
  #endif /* CONFIG_HOTPLUG_CPU */
  
  void set_rq_online(struct rq *rq)
-@@ -7087,6 +7118,10 @@ int sched_cpu_deactivate(unsigned int cpu)
+@@ -7101,6 +7132,10 @@ int sched_cpu_deactivate(unsigned int cpu)
  		return ret;
  	}
  	sched_domains_numa_masks_clear(cpu);
@@ -93,7 +94,7 @@ index 94cad247a39c..21f1f54845f9 100644
  	return 0;
  }
  
-@@ -7327,6 +7362,9 @@ void __init sched_init(void)
+@@ -7341,6 +7376,9 @@ void __init sched_init(void)
  
  		rq_csd_init(rq, &rq->nohz_csd, nohz_csd_func);
  #endif
@@ -104,7 +105,7 @@ index 94cad247a39c..21f1f54845f9 100644
  		hrtick_rq_init(rq);
  		atomic_set(&rq->nr_iowait, 0);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index b73bdab808ab..7472a6d0b002 100644
+index fda22b36ed07..dc0ad7bd88dd 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1008,6 +1008,10 @@ struct rq {

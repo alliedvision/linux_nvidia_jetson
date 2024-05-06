@@ -1,7 +1,7 @@
 /*
  * panel-j-720p-5.c: Panel driver for j-720p-5 panel.
  *
- * Copyright (c) 2013-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -580,7 +580,7 @@ struct tegra_panel_ops dsi_j_720p_5_ops = {
 	.pwm_bl_ops = &dsi_j_720p_5_pwm_bl_ops,
 };
 
-struct tegra_panel __initdata dsi_j_720p_5 = {
+struct tegra_panel dsi_j_720p_5 = {
 	.init_dc_out = dsi_j_720p_5_dc_out_init,
 	.init_fb_data = dsi_j_720p_5_fb_data_init,
 	.set_disp_device = dsi_j_720p_5_set_disp_device,

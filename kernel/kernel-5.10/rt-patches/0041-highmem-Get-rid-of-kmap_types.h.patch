@@ -1,7 +1,8 @@
-From 769ec7f7730e0f281973774f72d8d7cfc5f152d8 Mon Sep 17 00:00:00 2001
+From 1a62d09a3500db53047b825e67aaf358de8363ef Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:30 +0100
-Subject: [PATCH 041/318] highmem: Get rid of kmap_types.h
+Subject: [PATCH 041/322] highmem: Get rid of kmap_types.h
+X-NVConfidentiality: public
 
 The header is not longer used and on alpha, ia64, openrisc, parisc and um
 it was completely unused anyway as these architectures have no highmem
@@ -171,7 +172,7 @@ index 9f95b7b63d19..000000000000
 -
 -#endif
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 1222a31be842..de78869454b1 100644
+index fbede783dc34..a5ce45dceae0 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -29,8 +29,6 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)

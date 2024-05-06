@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -546,9 +546,10 @@ void vi_capture_shutdown(
 			destroy_buffer_table(capture->buf_ctx);
 			capture->buf_ctx = NULL;
 		}
-
-		vfree(capture->unpins_list);
-		capture->unpins_list = NULL;
+		if (capture->unpins_list) {
+			vfree(capture->unpins_list);
+			capture->unpins_list = NULL;
+		}
 	}
 	kfree(capture);
 	chan->capture_data = NULL;

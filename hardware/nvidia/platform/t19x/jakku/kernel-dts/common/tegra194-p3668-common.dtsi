@@ -413,7 +413,10 @@
 		nvidia,disable-aspm-states = <0xf>;
 		nvidia,enable-power-down;
 		nvidia,max-speed = <3>;
-		max-link-speed = <3>;
+		/*  Bug 4384809
+		    add max-link-speed property if want to limit pcie speed
+			max-link-speed = <3>;
+		*/
 
 #if TEGRA_PCIE_VERSION >= DT_VERSION_2
 		phys = <&p2u_nvhs_0>, <&p2u_nvhs_1>, <&p2u_nvhs_2>, <&p2u_nvhs_3>,

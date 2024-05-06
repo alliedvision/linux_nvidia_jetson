@@ -1,7 +1,8 @@
-From c6e3739f2cdbd7618c6cf7f286e076e15562abbd Mon Sep 17 00:00:00 2001
+From 2fae3cbd064b86808059f460c954ece4d9d2fcd3 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 16:58:02 +0106
-Subject: [PATCH 089/318] printk: add syslog_lock
+Subject: [PATCH 089/322] printk: add syslog_lock
+X-NVConfidentiality: public
 
 The global variables @syslog_seq, @syslog_partial, @syslog_time
 and write access to @clear_seq are protected by @logbuf_lock.

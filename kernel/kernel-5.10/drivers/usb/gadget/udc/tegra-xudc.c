@@ -2247,7 +2247,7 @@ static int tegra_xudc_gadget_vbus_draw(struct usb_gadget *gadget,
 
 	dev_dbg(xudc->dev, "%s: %u mA\n", __func__, m_a);
 
-	if (xudc->curr_usbphy->chg_type == SDP_TYPE)
+	if (xudc->curr_usbphy && xudc->curr_usbphy->chg_type == SDP_TYPE)
 		ret = usb_phy_set_power(xudc->curr_usbphy, m_a);
 
 	return ret;
@@ -3794,7 +3794,6 @@ static struct tegra_xudc_soc tegra234_xudc_soc_data = {
 	.invalid_seq_num = false,
 	.pls_quirk = false,
 	.port_reset_quirk = false,
-	.port_speed_quirk = true,
 	.has_ipfs = false,
 	.hp_timer_adjust = true,
 	.u3_exit_adjust = false,
@@ -3810,7 +3809,6 @@ static struct tegra_xudc_soc tegra239_xudc_soc_data = {
 	.invalid_seq_num = false,
 	.pls_quirk = false,
 	.port_reset_quirk = false,
-	.port_speed_quirk = true,
 	.has_ipfs = false,
 	.hp_timer_adjust = true,
 	.u3_exit_adjust = false,

@@ -50,6 +50,7 @@
 #include <soc/tegra/padctrl.h>
 #include <linux/pm_runtime.h>
 
+#include "sdhci-cqhci.h"
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
 
@@ -813,7 +814,7 @@ static void tegra_sdhci_reset(struct sdhci_host *host, u8 mask)
 	int err;
 	bool clear_ddr_signalling = true;
 
-	sdhci_reset(host, mask);
+	sdhci_and_cqhci_reset(host, mask);
 
 	if (!(mask & SDHCI_RESET_ALL))
 		return;

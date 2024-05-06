@@ -2201,8 +2201,8 @@ static int tegra_xusb_powerdomain_init(struct device *dev,
 	}
 
 	tegra->genpd_dev_ss = dev_pm_domain_attach_by_name(dev, "xusb_ss");
-	if (IS_ERR(tegra->genpd_dev_ss)) {
-		err = PTR_ERR(tegra->genpd_dev_ss);
+	if (IS_ERR_OR_NULL(tegra->genpd_dev_ss)) {
+		err = PTR_ERR(tegra->genpd_dev_ss) ? : -ENODATA;
 		dev_pm_domain_detach(tegra->genpd_dev_host, true);
 		tegra->genpd_dev_host = NULL;
 		dev_err(dev, "failed to get superspeed pm-domain: %d\n", err);
@@ -2433,6 +2433,9 @@ static void tegra_xhci_id_work(struct work_struct *work)
 	mutex_unlock(&tegra->lock);
 
 	pm_runtime_get_sync(tegra->dev);
+	tegra->otg_usb3_port = tegra_xusb_padctl_get_usb3_companion(tegra->padctl,
+								    tegra->otg_usb2_port);
+
 	if (tegra->host_mode) {
 		/* switch to host mode */
 		if (tegra->otg_usb3_port >= 0) {
@@ -2546,9 +2549,6 @@ static int tegra_xhci_id_notify(struct notifier_block *nb,
 	}
 
 	tegra->otg_usb2_port = tegra_xusb_get_usb2_port(tegra, usbphy);
-	tegra->otg_usb3_port = tegra_xusb_padctl_get_usb3_companion(
-							tegra->padctl,
-							tegra->otg_usb2_port);
 
 	tegra->host_mode = (usbphy->last_event == USB_EVENT_ID) ? true : false;
 

@@ -1,8 +1,9 @@
-From 1faec385f54fc2009a4c81283f7715ec993c0397 Mon Sep 17 00:00:00 2001
+From 979ec3fb4b02205763676dd34af37e42339f45e9 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 9 Nov 2020 23:32:39 +0100
-Subject: [PATCH 069/318] genirq: Move prio assignment into the newly created
+Subject: [PATCH 069/322] genirq: Move prio assignment into the newly created
  thread
+X-NVConfidentiality: public
 
 With enabled threaded interrupts the nouveau driver reported the
 following:
@@ -36,10 +37,10 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 92d94615cbbb..fd12b2eb516c 100644
+index 0159925054fa..5ec167fb77b9 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
-@@ -1186,6 +1186,8 @@ static int irq_thread(void *data)
+@@ -1201,6 +1201,8 @@ static int irq_thread(void *data)
  
  	irq_thread_set_ready(desc, action);
  
@@ -48,7 +49,7 @@ index 92d94615cbbb..fd12b2eb516c 100644
  	if (force_irqthreads && test_bit(IRQTF_FORCED_THREAD,
  					&action->thread_flags))
  		handler_fn = irq_forced_thread_fn;
-@@ -1351,8 +1353,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
+@@ -1366,8 +1368,6 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
  	if (IS_ERR(t))
  		return PTR_ERR(t);
  

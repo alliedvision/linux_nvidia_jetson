@@ -61,4 +61,57 @@
 			};
 		};
 	};
+	fragment-pcie-c1-rp-gen1@3 {
+		target-path = "/";
+		board_config {
+			ids = "<2822-0000-200";
+		};
+		__overlay__ {
+			pcie@14100000 {
+				nvidia,max-speed = <1>;
+				max-link-speed = <1>;
+			};
+		};
+	};
+
+	fragment-pcie-c1-disable-aspm@4 {
+		target-path = "/";
+		board_config {
+			ids = "<2822-0000-400";
+		};
+
+		__overlay__ {
+			pcie@14100000 {
+				nvidia,disable-aspm-states = <0xf>;
+			};
+		};
+	};
+
+	fragment-pcie-3v3-remove-gpio@5 {
+		target-path = "/fixed-regulators/regulator@115";
+		delete_prop = "gpio";
+		board_config {
+			ids = "<2822-0000-400";
+		};
+	};
+
+	fragment-pcie-12v-remove-gpio@6 {
+		target-path = "/fixed-regulators/regulator@116";
+		delete_prop = "gpio";
+		board_config {
+			ids = "<2822-0000-400";
+		};
+	};
+	fragment-tegra-ufs-lane10@3 {
+		target-path = "/";
+		board_config {
+			odm-data = "UFS_x1_L1";
+		};
+
+		__overlay__ {
+			ufshci@2450000 {
+				status = "okay";
+			};
+		};
+	};
 };

@@ -334,7 +334,7 @@ static int tegracam_set_ctrls(struct tegracam_ctrl_handler *handler,
 	/* For controls that require sensor to be on */
 	switch (ctrl->id) {
 	case TEGRA_CAMERA_CID_GAIN:
-		if (*ctrl->p_new.p_s64 == ctrlprops->min_gain_val - 1)
+		if (*ctrl->p_new.p_s64 == ctrlprops->max_gain_val + 1)
 			return 0;
 		err = ops->set_gain(tc_dev, *ctrl->p_new.p_s64);
 		break;
@@ -342,7 +342,7 @@ static int tegracam_set_ctrls(struct tegracam_ctrl_handler *handler,
 		err = ops->set_frame_rate(tc_dev, *ctrl->p_new.p_s64);
 		break;
 	case TEGRA_CAMERA_CID_EXPOSURE:
-		if (*ctrl->p_new.p_s64 == ctrlprops->min_exp_time.val - 1)
+		if (*ctrl->p_new.p_s64 == ctrlprops->max_exp_time.val + 1)
 			return 0;
 		err = ops->set_exposure(tc_dev, *ctrl->p_new.p_s64);
 		break;
@@ -619,8 +619,8 @@ int tegracam_init_ctrl_ranges_by_mode(
 		switch (ctrl->id) {
 		case TEGRA_CAMERA_CID_GAIN:
 			err = v4l2_ctrl_modify_range(ctrl,
-				ctrlprops->min_gain_val - 1,
-				ctrlprops->max_gain_val,
+				ctrlprops->min_gain_val,
+				ctrlprops->max_gain_val + 1,
 				ctrlprops->step_gain_val,
 				ctrlprops->default_gain);
 			break;
@@ -633,8 +633,8 @@ int tegracam_init_ctrl_ranges_by_mode(
 			break;
 		case TEGRA_CAMERA_CID_EXPOSURE:
 			err = v4l2_ctrl_modify_range(ctrl,
-				ctrlprops->min_exp_time.val - 1,
-				ctrlprops->max_exp_time.val,
+				ctrlprops->min_exp_time.val,
+				ctrlprops->max_exp_time.val + 1,
 				ctrlprops->step_exp_time.val,
 				ctrlprops->default_exp_time.val);
 			break;

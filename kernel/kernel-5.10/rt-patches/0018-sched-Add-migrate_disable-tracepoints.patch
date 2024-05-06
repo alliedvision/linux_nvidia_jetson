@@ -1,7 +1,8 @@
-From dc829a0d4ba6a2a2bb3f840b8598cb8786d77f3a Mon Sep 17 00:00:00 2001
+From 04b444521f751499a731c29dc3dea90367aea285 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:15 +0200
-Subject: [PATCH 018/318] sched: Add migrate_disable() tracepoints
+Subject: [PATCH 018/322] sched: Add migrate_disable() tracepoints
+X-NVConfidentiality: public
 
 XXX write a tracer:
 
@@ -45,10 +46,10 @@ index c96a4337afe6..e48f584abf5f 100644
  
  /* This part must be outside protection */
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 5789f0fd7440..796c7d96f41a 100644
+index c93059871a85..6341986ab6c0 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -1738,6 +1738,8 @@ void migrate_disable(void)
+@@ -1742,6 +1742,8 @@ void migrate_disable(void)
  		return;
  	}
  
@@ -57,7 +58,7 @@ index 5789f0fd7440..796c7d96f41a 100644
  	preempt_disable();
  	this_rq()->nr_pinned++;
  	p->migration_disabled = 1;
-@@ -1770,6 +1772,8 @@ void migrate_enable(void)
+@@ -1774,6 +1776,8 @@ void migrate_enable(void)
  	p->migration_disabled = 0;
  	this_rq()->nr_pinned--;
  	preempt_enable();
@@ -67,10 +68,10 @@ index 5789f0fd7440..796c7d96f41a 100644
  EXPORT_SYMBOL_GPL(migrate_enable);
  
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index d6153fa4eeb2..d7e3adf224ac 100644
+index 5ca7a8031fd9..748fd6b2b220 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -2279,6 +2279,7 @@ static void pull_dl_task(struct rq *this_rq)
+@@ -2281,6 +2281,7 @@ static void pull_dl_task(struct rq *this_rq)
  				goto skip;
  
  			if (is_migration_disabled(p)) {
@@ -79,10 +80,10 @@ index d6153fa4eeb2..d7e3adf224ac 100644
  			} else {
  				deactivate_task(src_rq, p, 0);
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 0282398fc052..bdba3e23b674 100644
+index c25e35f41555..c5038d680c2c 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1886,7 +1886,12 @@ static int push_rt_task(struct rq *rq, bool pull)
+@@ -1891,7 +1891,12 @@ static int push_rt_task(struct rq *rq, bool pull)
  		struct task_struct *push_task = NULL;
  		int cpu;
  
@@ -96,7 +97,7 @@ index 0282398fc052..bdba3e23b674 100644
  			return 0;
  
  		cpu = find_lowest_rq(rq->curr);
-@@ -2232,6 +2237,7 @@ static void pull_rt_task(struct rq *this_rq)
+@@ -2237,6 +2242,7 @@ static void pull_rt_task(struct rq *this_rq)
  				goto skip;
  
  			if (is_migration_disabled(p)) {

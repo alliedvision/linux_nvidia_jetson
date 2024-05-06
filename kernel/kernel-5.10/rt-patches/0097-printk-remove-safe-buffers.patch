@@ -1,7 +1,8 @@
-From a2ce5cc273aaa75bfc5ede8b3e9fc5a9d5727818 Mon Sep 17 00:00:00 2001
+From befabe6b17e555414ef11688c52e2c278b278f99 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:00 +0106
-Subject: [PATCH 097/318] printk: remove safe buffers
+Subject: [PATCH 097/322] printk: remove safe buffers
+X-NVConfidentiality: public
 
 With @logbuf_lock removed, the high level printk functions for
 storing messages are lockless. Messages can be stored from any
@@ -26,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  9 files changed, 17 insertions(+), 425 deletions(-)
 
 diff --git a/arch/powerpc/kernel/traps.c b/arch/powerpc/kernel/traps.c
-index 069d451240fa..c053c5acd674 100644
+index 5e5a2448ae79..d39a4a6b4ddf 100644
 --- a/arch/powerpc/kernel/traps.c
 +++ b/arch/powerpc/kernel/traps.c
 @@ -170,7 +170,6 @@ extern void panic_flush_kmsg_start(void)
@@ -54,7 +55,7 @@ index 75b2a6c4db5a..db40e20d0c54 100644
  		trigger_allbutself_cpu_backtrace();
  
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index fe7eb2351610..2476796c1150 100644
+index 344f6da3d4c3..c6bb48f0134c 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -207,8 +207,6 @@ __printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...);
@@ -82,7 +83,7 @@ index fe7eb2351610..2476796c1150 100644
  
  extern int kptr_restrict;
 diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-index c589c7a9562c..fb0ca1a805b5 100644
+index 3a37fc62dc95..78a1fd9c3c8a 100644
 --- a/kernel/kexec_core.c
 +++ b/kernel/kexec_core.c
 @@ -978,7 +978,6 @@ void crash_kexec(struct pt_regs *regs)
@@ -94,10 +95,10 @@ index c589c7a9562c..fb0ca1a805b5 100644
  
  		/*
 diff --git a/kernel/panic.c b/kernel/panic.c
-index 332736a72a58..1f0df42f8d0c 100644
+index bc39e2b27d31..7965f1e31224 100644
 --- a/kernel/panic.c
 +++ b/kernel/panic.c
-@@ -247,7 +247,6 @@ void panic(const char *fmt, ...)
+@@ -324,7 +324,6 @@ void panic(const char *fmt, ...)
  	 * Bypass the panic_cpu check and call __crash_kexec directly.
  	 */
  	if (!_crash_kexec_post_notifiers) {
@@ -105,7 +106,7 @@ index 332736a72a58..1f0df42f8d0c 100644
  		__crash_kexec(NULL);
  
  		/*
-@@ -271,8 +270,6 @@ void panic(const char *fmt, ...)
+@@ -348,8 +347,6 @@ void panic(const char *fmt, ...)
  	 */
  	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
  

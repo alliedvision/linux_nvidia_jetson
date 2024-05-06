@@ -1,7 +1,8 @@
-From 4c847208cfaeb53b6bb940f7c270c5f0172a90d8 Mon Sep 17 00:00:00 2001
+From 5a344b7a3ce2e7cadc44a505da615653d0f9a501 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:06 +0106
-Subject: [PATCH 104/318] printk: introduce kernel sync mode
+Subject: [PATCH 104/322] printk: introduce kernel sync mode
+X-NVConfidentiality: public
 
 When the kernel performs an OOPS, enter into "sync mode":
 
@@ -43,7 +44,7 @@ index 613df76903f5..fcc98354f733 100644
  	uint	ospeed;
  	void	*data;
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 2476796c1150..1ebd93581acc 100644
+index c6bb48f0134c..3738374e2b3b 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -46,6 +46,12 @@ static inline const char *printk_skip_headers(const char *buffer)

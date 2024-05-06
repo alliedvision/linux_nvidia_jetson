@@ -1,8 +1,9 @@
-From 430d9ddaaffb724cf9c6db6eff533a98aa65039c Mon Sep 17 00:00:00 2001
+From e826680184ffa05a276f3a7b1284f207b1cdf3f8 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 Nov 2020 21:30:41 +0100
-Subject: [PATCH 068/318] kthread: Move prio/affinite change into the newly
+Subject: [PATCH 068/322] kthread: Move prio/affinite change into the newly
  created thread
+X-NVConfidentiality: public
 
 With enabled threaded interrupts the nouveau driver reported the
 following:

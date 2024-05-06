@@ -1,7 +1,8 @@
-From c564da6dfc7c303996aecfbbd361cb56b837336b Mon Sep 17 00:00:00 2001
+From 7f2462149e0a913060d0689b6c6ffb45f43e756c Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:11 +0200
-Subject: [PATCH 014/318] sched,rt: Use the full cpumask for balancing
+Subject: [PATCH 014/322] sched,rt: Use the full cpumask for balancing
+X-NVConfidentiality: public
 
 We want migrate_disable() tasks to get PULLs in order for them to PUSH
 away the higher priority task.
@@ -56,10 +57,10 @@ index 0033731a0797..11c4df2010de 100644
  		/*
  		 * We have to ensure that we have at least one bit
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index 4d23e0950ef8..7ffbd00d424a 100644
+index 949836266d5b..0510ca205ad1 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -1919,7 +1919,7 @@ static void task_fork_dl(struct task_struct *p)
+@@ -1921,7 +1921,7 @@ static void task_fork_dl(struct task_struct *p)
  static int pick_dl_task(struct rq *rq, struct task_struct *p, int cpu)
  {
  	if (!task_running(rq, p) &&
@@ -68,7 +69,7 @@ index 4d23e0950ef8..7ffbd00d424a 100644
  		return 1;
  	return 0;
  }
-@@ -2069,7 +2069,7 @@ static struct rq *find_lock_later_rq(struct task_struct *task, struct rq *rq)
+@@ -2071,7 +2071,7 @@ static struct rq *find_lock_later_rq(struct task_struct *task, struct rq *rq)
  		/* Retry if something changed. */
  		if (double_lock_balance(rq, later_rq)) {
  			if (unlikely(task_rq(task) != rq ||
@@ -78,10 +79,10 @@ index 4d23e0950ef8..7ffbd00d424a 100644
  				     !dl_task(task) ||
  				     !task_on_rq_queued(task))) {
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 0126db0ace71..c52976663131 100644
+index 695526a54a89..f91339c0dee8 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1667,7 +1667,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
+@@ -1672,7 +1672,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
  static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
  {
  	if (!task_running(rq, p) &&
@@ -90,7 +91,7 @@ index 0126db0ace71..c52976663131 100644
  		return 1;
  
  	return 0;
-@@ -1820,7 +1820,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
+@@ -1825,7 +1825,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
  			 * Also make sure that it wasn't scheduled on its rq.
  			 */
  			if (unlikely(task_rq(task) != rq ||

@@ -26,4 +26,18 @@
 			"nvidia,p3767-0003", "nvidia,p3767-0005",
 			"nvidia,tegra234", "nvidia,tegra23x";
 	model = "NVIDIA Orin Nano Developer Kit";
+
+	host1x@13e00000 {
+		nvdla0@15880000 {
+			status = "disabled";
+		};
+
+		nvdla1@158c0000 {
+			status = "disabled";
+		};
+
+		pva0 {
+			status = "disabled";
+		};
+	};
 };

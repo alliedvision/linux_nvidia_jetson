@@ -1,9 +1,22 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, LGE Inc. All rights reserved.
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES.
+ * All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -357,7 +370,7 @@ static int fusb301_set_toggle_time(struct fusb301_chip *chip, u8 toggle_time)
 		return -EINVAL;
 	}
 	if (toggle_time == chip->dttime) {
-		dev_err(cdev, "toggle_time(%d) is not updated\n", toggle_time);
+		dev_info(cdev, "toggle_time(%d) is not updated\n", toggle_time);
 		return rc;
 	}
 	rc = fusb301_write_masked_byte(chip->client,

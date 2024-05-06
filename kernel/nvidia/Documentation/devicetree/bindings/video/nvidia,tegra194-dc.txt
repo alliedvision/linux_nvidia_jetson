@@ -39,6 +39,7 @@ Required properties:
 - pinctrl-7: The pincontrol settings to dpd enable on SOR3.
 Optional properties:
 - nvidia,cmu-enable: Controls output LUT on NvDisplay.
+- disable-seamless:  Set to 1 if want to disable the seamless display feature. 
 
 Example:
 =======

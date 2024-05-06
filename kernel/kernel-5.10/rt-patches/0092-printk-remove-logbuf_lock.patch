@@ -1,7 +1,8 @@
-From 712a2befec1810d716e709c704277784ed4cb6f0 Mon Sep 17 00:00:00 2001
+From 860215a8079c8e3f0764e092a9170fbf73a0745e Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Tue, 26 Jan 2021 17:43:19 +0106
-Subject: [PATCH 092/318] printk: remove logbuf_lock
+Subject: [PATCH 092/322] printk: remove logbuf_lock
+X-NVConfidentiality: public
 
 Since the ringbuffer is lockless, there is no need for it to be
 protected by @logbuf_lock. Remove @logbuf_lock.

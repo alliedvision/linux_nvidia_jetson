@@ -1,7 +1,8 @@
-From 997c170d5e2b0818ba248e05fb88694ea3d84c4a Mon Sep 17 00:00:00 2001
+From 7c505334e26d86cac944cda2e74beb43b6ac5b44 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:05 +0106
-Subject: [PATCH 103/318] printk: change @console_seq to atomic64_t
+Subject: [PATCH 103/322] printk: change @console_seq to atomic64_t
+X-NVConfidentiality: public
 
 In preparation for atomic printing, change @console_seq to atomic
 so that it can be accessed without requiring @console_sem.

@@ -1,7 +1,8 @@
-From 60e5e175b1446306aee2c34a0ef908f3674182e6 Mon Sep 17 00:00:00 2001
+From bf90f4faa1cfc9208201521b0700dc58310e388a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:09 +0100
-Subject: [PATCH 115/318] sh: Get rid of nmi_count()
+Subject: [PATCH 115/322] sh: Get rid of nmi_count()
+X-NVConfidentiality: public
 
 nmi_count() is a historical leftover and SH is the only user. Replace it
 with regular per cpu accessors.
@@ -29,7 +30,7 @@ index 5717c7cbdd97..5addcb2c2da0 100644
  
  	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
 diff --git a/arch/sh/kernel/traps.c b/arch/sh/kernel/traps.c
-index 9c3d32b80038..f5beecdac693 100644
+index 4efffc18c851..be15e41489b2 100644
 --- a/arch/sh/kernel/traps.c
 +++ b/arch/sh/kernel/traps.c
 @@ -186,7 +186,7 @@ BUILD_TRAP_HANDLER(nmi)

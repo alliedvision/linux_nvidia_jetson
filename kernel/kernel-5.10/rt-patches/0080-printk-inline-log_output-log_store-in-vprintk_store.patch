@@ -1,8 +1,9 @@
-From 02d424644b22ed6b586551f3dbe8299c4456d724 Mon Sep 17 00:00:00 2001
+From fb851436f20fa347effa06ec1910f49797550669 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 9 Dec 2020 01:50:52 +0106
-Subject: [PATCH 080/318] printk: inline log_output(),log_store() in
+Subject: [PATCH 080/322] printk: inline log_output(),log_store() in
  vprintk_store()
+X-NVConfidentiality: public
 
 In preparation for removing logbuf_lock, inline log_output()
 and log_store() into vprintk_store(). This will simplify dealing

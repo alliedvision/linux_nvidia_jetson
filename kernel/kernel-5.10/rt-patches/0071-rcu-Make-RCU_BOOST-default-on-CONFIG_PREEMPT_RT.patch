@@ -1,7 +1,8 @@
-From f4ffe0f648b68f843583117fb5bb642a699850fb Mon Sep 17 00:00:00 2001
+From 15c188579fe8e3b05d5919c540d973da871d2654 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:45 +0100
-Subject: [PATCH 071/318] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
+Subject: [PATCH 071/322] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
+X-NVConfidentiality: public
 
 On PREEMPT_RT kernels, RCU callbacks are deferred to the `rcuc' kthread.
 This can stall RCU grace periods due to lengthy preemption not only of RCU
@@ -21,10 +22,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/rcu/Kconfig b/kernel/rcu/Kconfig
-index b71e21f73c40..a2534cd1765a 100644
+index cd6e11403f1b..0c71197857f6 100644
 --- a/kernel/rcu/Kconfig
 +++ b/kernel/rcu/Kconfig
-@@ -188,8 +188,8 @@ config RCU_FAST_NO_HZ
+@@ -189,8 +189,8 @@ config RCU_FAST_NO_HZ
  
  config RCU_BOOST
  	bool "Enable RCU priority boosting"

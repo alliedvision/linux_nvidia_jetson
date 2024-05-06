@@ -1,5 +1,6 @@
-/*
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+// SPDX-License-Identifier: GPL-2.0
+/* SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,11 +37,38 @@
 #include <linux/tegra_l1ss_kernel_interface.h>
 #include <linux/wait.h>
 
+#include "ArLib.h"
 #include "tegra_l1ss.h"
 #include "tegra_l1ss_cmd_resp_exec_config.h"
 #include "tegra_l1ss_cmd_resp_l2_interface.h"
 
 #define MAX_DEV 1
+#define CMDRESP_ADAPT_MAX_PEER_VM 8U
+/********************************************************************************
+ * State of the sender for Command Data to L2SS protected with E2E Profile 5.
+ *******************************************************************************/
+static struct E2E_P05ProtectStateType E2EProtectState;
+static struct E2E_P05CheckStateType E2ECheckState;
+
+/*******************************************************************************
+ * Configuration of transmitted Command Data to L2SS for E2E Profile 5.
+ *******************************************************************************/
+static  struct E2E_P05ConfigType E2ETxConfig = {
+	.Offset = 0U,
+	.DataLength = (8U*CMDRESP_CMD_FRAME_EX_SIZE),
+	.DataID = 0x55,
+	.MaxDeltaCounter = CMDRESPEXEC_L2_IVC_E2E_MAX_DELTA_COUNTER
+};
+
+/*******************************************************************************
+ * Configuration of received Data from L2SS, for E2E Profile 5.
+ *******************************************************************************/
+static struct E2E_P05ConfigType E2ERxConfig = {
+	.Offset = 0U,
+	.DataLength = (8U*CMDRESP_CMD_FRAME_EX_SIZE),
+	.DataID = NVGUARD_LAYER_2,
+	.MaxDeltaCounter = CMDRESPEXEC_L2_IVC_E2E_MAX_DELTA_COUNTER
+};
 
 struct l1ss_data *ldata;
 struct class *l1ss_class;
@@ -67,12 +95,47 @@ static const struct file_operations l1ss_fops = {
 	.unlocked_ioctl = l1ss_ioctl,
 };
 
+/*******************************************************************************************
+ * @brief Function to E2E params
+ *
+ * - <b>Description</b>\n
+ *           Function to E2E params
+ *
+ * @param void
+ *
+ * @return NVGUARD_E_OK     On Success
+ *
+ * @return NVGUARD_E_NOK    On Failure
+ *
+ ******************************************************************************************/
+static int lCmdRespAdapt_E2EInit(void)
+{
+	if (E2E_P05ProtectInit(&E2EProtectState) != E2E_E_OK) {
+		pr_err("E2E_P05ProtectInit Failed\r\n");
+		return -1;
+	}
+
+	if (E2E_P05CheckInit(&E2ECheckState) != E2E_E_OK) {
+		pr_err("E2E_P05CheckInit Failed\r\n");
+		return -1;
+	}
+
+	pr_info("E2E_P05CheckInit done!");
+
+	return 0;
+}
+
 int l1ss_cmd_resp_send_frame(const cmdresp_frame_ex_t *p_cmd_pkt,
 			     nv_guard_3lss_layer_t layer_id,
 			     struct l1ss_data *ldata)
 {
 	struct tegra_safety_ivc_chan *ivc_ch = NULL;
 	int ret = 0;
+
+	ret = E2E_P05Protect(
+			&(E2ETxConfig),
+			&(E2EProtectState),
+			(uint8_t *)p_cmd_pkt, CMDRESP_CMD_FRAME_EX_SIZE);
 
 	mutex_lock(&ldata->safety_ivc->wlock);
 
@@ -204,7 +267,7 @@ int l1ss_init(struct tegra_safety_ivc *safety_ivc)
 	ldata->safety_ivc = safety_ivc;
 	safety_ivc->ldata = ldata;
 
-	return 0;
+	return lCmdRespAdapt_E2EInit();
 }
 
 int l1ss_exit(struct tegra_safety_ivc *safety_ivc)
@@ -502,6 +565,7 @@ int tegra_safety_handle_cmd(cmdresp_frame_ex_t *cmd_resp,
 	uint8_t cmd;
 	uint8_t dest_class;
 	bool is_resp = false;
+	int ret;
 
 	l_get_src_id(cmdresp_h, &src);
 	l_get_cmd_id(cmdresp_h, &cmd);
@@ -511,6 +575,15 @@ int tegra_safety_handle_cmd(cmdresp_frame_ex_t *cmd_resp,
 
 	PDEBUG("srcID %d destID %d cmdID %d ClassID %d is_resp=%d\n",
 			src, dest, cmd, dest_class, is_resp);
+
+	ret = E2E_P05Check(
+			&(E2ERxConfig),
+			&(E2ECheckState),
+			(uint8_t *)cmd_resp, CMDRESP_CMD_FRAME_EX_SIZE);
+	if (ret != E2E_E_OK) {
+		pr_err("E2E_P05 Check failed!! - 0x%x", ret);
+		return -1;
+	}
 
 	if (dest_class <  CMDRESPL1_N_CLASSES && cmd <
 			CMDRESPL1_MAX_CMD_IN_CLASS) {

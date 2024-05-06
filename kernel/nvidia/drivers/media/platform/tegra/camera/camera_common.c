@@ -1,7 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * camera_common.c - utilities for tegra camera driver
  *
- * Copyright (c) 2015-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -46,6 +47,26 @@
 #define HDR_ENABLE		0x1
 
 static const struct camera_common_colorfmt camera_common_color_fmts[] = {
+	{
+		MEDIA_BUS_FMT_SBGGR14_1X14,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_SBGGR14,
+	},
+	{
+		MEDIA_BUS_FMT_SRGGB14_1X14,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_SRGGB14,
+	},
+	{
+		MEDIA_BUS_FMT_SGRBG14_1X14,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_SGRBG14,
+	},
+	{
+		MEDIA_BUS_FMT_SGBRG14_1X14,
+		V4L2_COLORSPACE_SRGB,
+		V4L2_PIX_FMT_SGBRG14
+	},
 	{
 		MEDIA_BUS_FMT_SRGGB12_1X12,
 		V4L2_COLORSPACE_SRGB,

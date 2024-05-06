@@ -3302,7 +3302,7 @@ static int tegra_se_sha_op(struct ahash_request *req, bool is_last,
 	}
 
 	/* If the request length is zero, */
-	if (!req->nbytes) {
+	if (!req->nbytes && !is_last) {
 		if (sha_ctx->total_count) {
 			req->base.complete(&req->base, 0);
 			return 0;	/* allow empty packets */

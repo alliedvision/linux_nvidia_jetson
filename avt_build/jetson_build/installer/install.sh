@@ -30,7 +30,7 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson"
-REQ_KERNEL="5.10.120"
+REQ_KERNEL="5.10.192"
 DEST="/boot"
 
 

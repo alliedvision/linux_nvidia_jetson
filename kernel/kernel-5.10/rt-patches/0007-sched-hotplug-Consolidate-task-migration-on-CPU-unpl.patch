@@ -1,8 +1,9 @@
-From 045f085e2599d74540be1b49ac6e91526a4dbe4c Mon Sep 17 00:00:00 2001
+From a70ff6709122a91bdf78c38d4dc03c454466f20f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:04 +0200
-Subject: [PATCH 007/318] sched/hotplug: Consolidate task migration on CPU
+Subject: [PATCH 007/322] sched/hotplug: Consolidate task migration on CPU
  unplug
+X-NVConfidentiality: public
 
 With the new mechanism which kicks tasks off the outgoing CPU at the end of
 schedule() the situation on an outgoing CPU right before the stopper thread
@@ -38,10 +39,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 46 insertions(+), 120 deletions(-)
 
 diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
-index fc945f9df2c1..4363d94a8fd9 100644
+index cb87247da5ba..3b25a084f971 100644
 --- a/include/linux/cpuhotplug.h
 +++ b/include/linux/cpuhotplug.h
-@@ -154,6 +154,7 @@ enum cpuhp_state {
+@@ -153,6 +153,7 @@ enum cpuhp_state {
  	CPUHP_AP_ONLINE,
  	CPUHP_TEARDOWN_CPU,
  	CPUHP_AP_ONLINE_IDLE,
@@ -65,7 +66,7 @@ index 9a62ffdd296f..412cdaba33eb 100644
  #endif
  
 diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 3c9ee966c56a..c2d3e40d7c1b 100644
+index 008b50da2224..65daa7ec0f23 100644
 --- a/kernel/cpu.c
 +++ b/kernel/cpu.c
 @@ -1668,7 +1668,7 @@ static struct cpuhp_step cpuhp_hp_states[] = {
@@ -92,10 +93,10 @@ index 3c9ee966c56a..c2d3e40d7c1b 100644
  	[CPUHP_AP_SMPBOOT_THREADS] = {
  		.name			= "smpboot/threads:online",
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 21f1f54845f9..79bb560c3a85 100644
+index ff9a27c4f42a..669a390656d5 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6736,120 +6736,6 @@ void idle_task_exit(void)
+@@ -6748,120 +6748,6 @@ void idle_task_exit(void)
  	/* finish_cpu(), as ran on the BP, will clean up the active_mm state */
  }
  
@@ -216,7 +217,7 @@ index 21f1f54845f9..79bb560c3a85 100644
  static int __balance_push_cpu_stop(void *arg)
  {
  	struct task_struct *p = arg;
-@@ -7118,10 +7004,6 @@ int sched_cpu_deactivate(unsigned int cpu)
+@@ -7132,10 +7018,6 @@ int sched_cpu_deactivate(unsigned int cpu)
  		return ret;
  	}
  	sched_domains_numa_masks_clear(cpu);
@@ -227,7 +228,7 @@ index 21f1f54845f9..79bb560c3a85 100644
  	return 0;
  }
  
-@@ -7141,6 +7023,41 @@ int sched_cpu_starting(unsigned int cpu)
+@@ -7155,6 +7037,41 @@ int sched_cpu_starting(unsigned int cpu)
  }
  
  #ifdef CONFIG_HOTPLUG_CPU
@@ -269,7 +270,7 @@ index 21f1f54845f9..79bb560c3a85 100644
  int sched_cpu_dying(unsigned int cpu)
  {
  	struct rq *rq = cpu_rq(cpu);
-@@ -7154,7 +7071,6 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7168,7 +7085,6 @@ int sched_cpu_dying(unsigned int cpu)
  		BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
  		set_rq_offline(rq);
  	}

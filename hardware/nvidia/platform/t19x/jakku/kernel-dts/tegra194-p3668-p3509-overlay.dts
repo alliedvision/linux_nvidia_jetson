@@ -71,34 +71,8 @@
 		};
 	};
 
-	/* Disable sdhci-SD for SKU1 */
-	fragment@3 {
-		target-path = "/";
-		board_config {
-			ids = ">=3668-0001-000";
-		};
-		__overlay__ {
-			sdhci@3400000 {
-				status = "disabled";
-			};
-		};
-	};
-
-	/* Disable sdhci-emmc for SKU0 */
-	fragment@4 {
-		target-path = "/";
-		board_config {
-			ids = ">=3668-0000-000";
-		};
-		__overlay__ {
-			sdhci@3460000 {
-				status = "disabled";
-			};
-		};
-	};
-
 	/* pcie-c5-c4-num-lanes */
-	fragment@5 {
+	fragment@3 {
 		target-path = "/";
 		board_config {
 			ids = ">=3449-0000-000";
@@ -117,34 +91,11 @@
 		};
 	};
 
-	/* pcie-c5-rp */
-	fragment@6 {
-		target-path = "/";
-		board_config {
-			odm-data = "disable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
-		};
-		__overlay__ {
-			pcie@141a0000 {
-				status = "okay";
-			};
-			pcie_ep@141a0000 {
-				status = "disabled";
-			};
-#if TEGRA_PCIE_VERSION < DT_VERSION_2
-			gpio@c2f0000 {
-				pex-refclk-sel-low {
-					status = "okay";
-				};
-			};
-#endif
-		};
-	};
-
 	/* pcie-c5-ep */
-	fragment@7 {
+	fragment@5 {
 		target-path = "/";
 		board_config {
-			odm-data = "enable-pcie-c5-endpoint", "enable-nvhs-uphy-pcie-c5";
+			odm-data = "pcie-c5-endpoint-enable", "NVHS_PCIE";
 		};
 		__overlay__ {
 			pcie@141a0000 {
@@ -162,15 +113,4 @@
 #endif
 		};
 	};
-
-#if TEGRA_SDMMC_VERSION >= DT_VERSION_2
-	/* Fix mmc0 naming for SKU0 */
-	fragment@8 {
-		target-path = "/aliases";
-		delete_prop = "mmc0";
-		board_config {
-			ids = ">=3668-0000-000";
-		};
-	};
-#endif
 };

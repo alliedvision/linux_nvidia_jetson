@@ -1,8 +1,9 @@
-From 608377cad2628424cf25b6993aa37825aaa78056 Mon Sep 17 00:00:00 2001
+From 430bd7e4de73e706067b6704db3cd7cfca5830ad Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:20 +0100
-Subject: [PATCH 031/318] x86/mm/highmem: Use generic kmap atomic
+Subject: [PATCH 031/322] x86/mm/highmem: Use generic kmap atomic
  implementation
+X-NVConfidentiality: public
 
 Convert X86 to the generic kmap atomic implementation and make the
 iomap_atomic() naming convention consistent while at it.
@@ -27,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/x86/include/asm/kmap_types.h
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index db95ac482e0e..e210bd34e5cf 100644
+index 6dc670e36393..54e5284a6ae1 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
 @@ -15,6 +15,7 @@ config X86_32
@@ -345,7 +346,7 @@ index f60398aeb644..e0a40d7cc66c 100644
 -EXPORT_SYMBOL_GPL(iounmap_atomic);
 +EXPORT_SYMBOL_GPL(iomap_atomic_pfn_prot);
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index f5ecee9c2576..1222a31be842 100644
+index 14d5b4020c8c..fbede783dc34 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -217,7 +217,7 @@ static inline void __kunmap_atomic(void *addr)

@@ -1,7 +1,8 @@
-From c9bf3f0ea9589fea4dea7aecf5b681984df8aa47 Mon Sep 17 00:00:00 2001
+From a0c49ceaca6f2eb28cad435f19152061ded6b194 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:18 +0100
-Subject: [PATCH 029/318] highmem: Provide generic variant of kmap_atomic*
+Subject: [PATCH 029/322] highmem: Provide generic variant of kmap_atomic*
+X-NVConfidentiality: public
 
 The kmap_atomic* interfaces in all architectures are pretty much the same
 except for post map operations (flush) and pre- and post unmap operations.
@@ -19,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 211 insertions(+), 18 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index f5c31338f0a3..f5ecee9c2576 100644
+index 3297bfca78ed..14d5b4020c8c 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -31,9 +31,16 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)

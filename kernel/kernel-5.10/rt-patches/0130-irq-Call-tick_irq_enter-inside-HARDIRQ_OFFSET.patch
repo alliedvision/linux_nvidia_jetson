@@ -1,7 +1,8 @@
-From 25d4067449d4b0e564cb17438ffc626cb4826c0f Mon Sep 17 00:00:00 2001
+From ef1e0e21d08f831d9d92bbc0361bae04b5339981 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:32 +0100
-Subject: [PATCH 130/318] irq: Call tick_irq_enter() inside HARDIRQ_OFFSET
+Subject: [PATCH 130/322] irq: Call tick_irq_enter() inside HARDIRQ_OFFSET
+X-NVConfidentiality: public
 
 Now that account_hardirq_enter() is called after HARDIRQ_OFFSET has
 been incremented, there is nothing left that prevents us from also

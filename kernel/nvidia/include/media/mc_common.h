@@ -3,7 +3,7 @@
  *
  * Tegra Media controller common APIs
  *
- * Copyright (c) 2012-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -174,6 +174,7 @@ struct tegra_channel {
 	unsigned int num_video_formats;
 	struct mutex stop_kthread_lock;
 
+	struct file *fp[TEGRA_CSI_BLOCKS];
 	unsigned int vi_channel_id[TEGRA_CSI_BLOCKS];
 	unsigned char port[TEGRA_CSI_BLOCKS];
 	unsigned int virtual_channel;

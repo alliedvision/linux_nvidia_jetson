@@ -1,7 +1,8 @@
-From 344d418d786919e334360b226b7181ddb0df7bd5 Mon Sep 17 00:00:00 2001
+From f3afada78b78c44b9616a045586080f01a517915 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 18 Dec 2020 11:40:08 +0000
-Subject: [PATCH 090/318] printk: introduce a kmsg_dump iterator
+Subject: [PATCH 090/322] printk: introduce a kmsg_dump iterator
+X-NVConfidentiality: public
 
 Rather than store the iterator information into the registered
 kmsg_dump structure, create a separate iterator structure. The
@@ -81,10 +82,10 @@ index 6c3bc4b4da98..ec862846bc82 100644
  	/*
  	 * Outside of a panic context the pollers will continue to run,
 diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
-index 5559edf36756..b71690e8245b 100644
+index 2872b66d9fec..9406b4c9cd17 100644
 --- a/arch/powerpc/xmon/xmon.c
 +++ b/arch/powerpc/xmon/xmon.c
-@@ -3005,7 +3005,7 @@ print_address(unsigned long addr)
+@@ -3002,7 +3002,7 @@ print_address(unsigned long addr)
  static void
  dump_log_buf(void)
  {
@@ -93,7 +94,7 @@ index 5559edf36756..b71690e8245b 100644
  	unsigned char buf[128];
  	size_t len;
  
-@@ -3017,9 +3017,9 @@ dump_log_buf(void)
+@@ -3014,9 +3014,9 @@ dump_log_buf(void)
  	catch_memory_errors = 1;
  	sync();
  
@@ -129,7 +130,7 @@ index e4abac6c9727..f38349ad00ea 100644
  		printf("%s", line);
  	}
 diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
-index 5d820037e291..13d56054e3d2 100644
+index e99400f3ae1d..db39c96bbf43 100644
 --- a/drivers/hv/vmbus_drv.c
 +++ b/drivers/hv/vmbus_drv.c
 @@ -1359,7 +1359,8 @@ static void vmbus_isr(void)

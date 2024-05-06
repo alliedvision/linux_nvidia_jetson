@@ -1,7 +1,8 @@
-From b62150fc3da014a58b2baa6d2546ecc450d2bee3 Mon Sep 17 00:00:00 2001
+From 92e60d9069d52fa825950eedf1381abec264fe7f Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:10 +0200
-Subject: [PATCH 013/318] sched,rt: Use cpumask_any*_distribute()
+Subject: [PATCH 013/322] sched,rt: Use cpumask_any*_distribute()
+X-NVConfidentiality: public
 
 Replace a bunch of cpumask_any*() instances with
 cpumask_any*_distribute(), by injecting this little bit of random in
@@ -42,10 +43,10 @@ index f0d895d6ac39..383684e30f12 100644
  /**
   * for_each_cpu - iterate over every cpu in a mask
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index 23089fa04f23..4d23e0950ef8 100644
+index 14c8b2d2bcad..949836266d5b 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -2009,8 +2009,8 @@ static int find_later_rq(struct task_struct *task)
+@@ -2011,8 +2011,8 @@ static int find_later_rq(struct task_struct *task)
  				return this_cpu;
  			}
  
@@ -56,7 +57,7 @@ index 23089fa04f23..4d23e0950ef8 100644
  			/*
  			 * Last chance: if a CPU being in both later_mask
  			 * and current sd span is valid, that becomes our
-@@ -2032,7 +2032,7 @@ static int find_later_rq(struct task_struct *task)
+@@ -2034,7 +2034,7 @@ static int find_later_rq(struct task_struct *task)
  	if (this_cpu != -1)
  		return this_cpu;
  
@@ -66,10 +67,10 @@ index 23089fa04f23..4d23e0950ef8 100644
  		return cpu;
  
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 0e9a10c50090..0126db0ace71 100644
+index fdcce04913db..695526a54a89 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
-@@ -1761,8 +1761,8 @@ static int find_lowest_rq(struct task_struct *task)
+@@ -1766,8 +1766,8 @@ static int find_lowest_rq(struct task_struct *task)
  				return this_cpu;
  			}
  
@@ -80,7 +81,7 @@ index 0e9a10c50090..0126db0ace71 100644
  			if (best_cpu < nr_cpu_ids) {
  				rcu_read_unlock();
  				return best_cpu;
-@@ -1779,7 +1779,7 @@ static int find_lowest_rq(struct task_struct *task)
+@@ -1784,7 +1784,7 @@ static int find_lowest_rq(struct task_struct *task)
  	if (this_cpu != -1)
  		return this_cpu;
  

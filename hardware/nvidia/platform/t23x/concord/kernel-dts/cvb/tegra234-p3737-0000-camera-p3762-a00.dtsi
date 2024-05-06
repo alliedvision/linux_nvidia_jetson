@@ -116,7 +116,7 @@
 					mclk = "extperiph1";
 					channel = "a";
 					has-eeprom;
-					eeprom-addr = <0x42>;
+					eeprom-addr = <0x15>;
 					reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 					pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 					pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;
@@ -129,7 +129,7 @@
 					mclk = "extperiph1";
 					channel = "c";
 					has-eeprom;
-					eeprom-addr = <0x42>;
+					eeprom-addr = <0x15>;
 					reset-gpios = <&tegra_main_gpio CAM0_RST_L GPIO_ACTIVE_HIGH>;
 					pwdn-gpios = <&tegra_main_gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 					pwr-gpios = <&tegra_main_gpio PWR_EN GPIO_ACTIVE_HIGH>;

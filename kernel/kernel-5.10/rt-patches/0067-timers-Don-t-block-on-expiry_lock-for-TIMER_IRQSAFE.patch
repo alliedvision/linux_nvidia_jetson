@@ -1,8 +1,9 @@
-From 3fce856ae0dcd968aad086c8e24c160e6b6e05c8 Mon Sep 17 00:00:00 2001
+From cf6bb3d1a80df445e7addbe26c1beaf3181b6f48 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 2 Nov 2020 14:14:24 +0100
-Subject: [PATCH 067/318] timers: Don't block on ->expiry_lock for
+Subject: [PATCH 067/322] timers: Don't block on ->expiry_lock for
  TIMER_IRQSAFE
+X-NVConfidentiality: public
 
 PREEMPT_RT does not spin and wait until a running timer completes its
 callback but instead it blocks on a sleeping lock to prevent a deadlock.

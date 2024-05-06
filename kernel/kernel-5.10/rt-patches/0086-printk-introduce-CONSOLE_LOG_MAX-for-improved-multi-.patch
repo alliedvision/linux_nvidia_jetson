@@ -1,8 +1,9 @@
-From da605b69a81b7c6d91aab7e52cc5b6091d5deacd Mon Sep 17 00:00:00 2001
+From 2a4da71bd7d18bb5faf2494153ccaa0a19ad3419 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Thu, 10 Dec 2020 12:48:01 +0106
-Subject: [PATCH 086/318] printk: introduce CONSOLE_LOG_MAX for improved
+Subject: [PATCH 086/322] printk: introduce CONSOLE_LOG_MAX for improved
  multi-line support
+X-NVConfidentiality: public
 
 Instead of using "LOG_LINE_MAX + PREFIX_MAX" for temporary buffer
 sizes, introduce CONSOLE_LOG_MAX. This represents the maximum size

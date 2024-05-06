@@ -1,7 +1,8 @@
-From f0553c6b9f5aa4f04a435742b356cc3406330bf3 Mon Sep 17 00:00:00 2001
+From 426944d32248c099b8e754423599fdf15a994a67 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 17 Feb 2021 18:23:16 +0100
-Subject: [PATCH 094/318] printk: kmsg_dump: use kmsg_dump_rewind
+Subject: [PATCH 094/322] printk: kmsg_dump: use kmsg_dump_rewind
+X-NVConfidentiality: public
 
 kmsg_dump() is open coding the kmsg_dump_rewind(). Call
 kmsg_dump_rewind() instead.

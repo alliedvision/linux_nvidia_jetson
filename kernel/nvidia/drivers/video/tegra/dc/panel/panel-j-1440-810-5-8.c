@@ -1,7 +1,7 @@
 /*
  * panel-j-1440-810-5-8.c: Panel driver for j-1440-810-5-8 panel.
  *
- * Copyright (c) 2013-2018, NVIDIA Corporation. All rights reserved.
+ * Copyright (c) 2013-2023, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -616,7 +616,7 @@ struct tegra_panel_ops dsi_j_1440_810_5_8_ops = {
 	.pwm_bl_ops = &dsi_j_1440_810_5_8_pwm_bl_ops,
 };
 
-struct tegra_panel __initdata dsi_j_1440_810_5_8 = {
+struct tegra_panel dsi_j_1440_810_5_8 = {
 	.init_dc_out = dsi_j_1440_810_5_8_dc_out_init,
 	.init_fb_data = dsi_j_1440_810_5_8_fb_data_init,
 	.set_disp_device = dsi_j_1440_810_5_8_set_disp_device,

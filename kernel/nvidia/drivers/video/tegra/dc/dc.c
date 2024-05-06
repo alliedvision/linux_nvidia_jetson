@@ -6374,6 +6374,10 @@ bool tegra_is_bl_display_initialized(int instance)
 		pr_debug("dc->fb_mem not initialized\n");
 		return false;
 	}
+	if (dc->pdata->disable_seamless_kernel_handover) {
+		pr_debug("disable seamless set from DT\n");
+		return false;
+	}
 	return (dc->fb_mem->start != 0);
 }
 EXPORT_SYMBOL(tegra_is_bl_display_initialized);

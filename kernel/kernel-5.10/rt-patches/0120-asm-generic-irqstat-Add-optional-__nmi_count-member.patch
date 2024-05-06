@@ -1,7 +1,8 @@
-From 6e72b8e71853afccfefc30a741d4c949bc31f245 Mon Sep 17 00:00:00 2001
+From 29046ed5d98dff5a5021ceff00362924f24fdb3e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:14 +0100
-Subject: [PATCH 120/318] asm-generic/irqstat: Add optional __nmi_count member
+Subject: [PATCH 120/322] asm-generic/irqstat: Add optional __nmi_count member
+X-NVConfidentiality: public
 
 Add an optional __nmi_count member to irq_cpustat_t so more architectures
 can use the generic version.
