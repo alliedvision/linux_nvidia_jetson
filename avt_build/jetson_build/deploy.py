@@ -277,7 +277,7 @@ def install_modules(args, board):
   t = tools.tools(args)
   env = { **os.environ, 'ARCH': 'arm64', 'CROSS_COMPILE': common.common_dir(args) / 'gcc/bin/aarch64-linux-gnu-', 'LANG': 'C' }
   kernel_build_dir=common.common_dir(args) / "kernel"
-  t.execute(['sudo', 'make', f'O={kernel_build_dir}', f'INSTALL_MOD_PATH={board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out"}', 'modules_install'], cwd=build.kernel_source_dir(args), env=env)
+  t.execute(['make', f'O={kernel_build_dir}', f'INSTALL_MOD_PATH={board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out"}', 'modules_install'], cwd=build.kernel_source_dir(args), env=env)
 
 
 def get_dtb_names(args, board):
@@ -287,7 +287,7 @@ def get_dtb_names(args, board):
 def copy_device_trees(args, board, subdir):
   logging.info(f"Copying device tree blobs");
   t = tools.tools(args)
-  t.execute(["sudo", "cp"] + get_dtb_names(args, board) + [board.build_dir / subdir])
+  t.execute(["cp"] + get_dtb_names(args, board) + [board.build_dir / subdir])
 
 def sign_device_trees(args,board,subdir):
   t = tools.tools(args)
@@ -298,7 +298,7 @@ def sign_device_trees(args,board,subdir):
 def copy_kernel_image(args, board):
   t = tools.tools(args)
   logging.info(f"Copying kernel image");
-  t.execute(["sudo", "cp", common.common_dir(args) / "kernel/arch/arm64/boot/Image", board.build_dir / "Linux_for_Tegra/kernel"])
+  t.execute(["cp", common.common_dir(args) / "kernel/arch/arm64/boot/Image", board.build_dir / "Linux_for_Tegra/kernel"])
 
 
 def copy_files_to_l4t(args, board):
