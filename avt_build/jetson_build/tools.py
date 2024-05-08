@@ -50,7 +50,7 @@ def tools(args):
 
       outfile = kwargs.get('outfile', subprocess.PIPE)
 
-      sub = subprocess.Popen(args, bufsize=1, stdout=outfile, stderr=subprocess.PIPE, cwd=kwargs.get('cwd', None), env=kwargs.get('env', None))
+      sub = subprocess.Popen(args, stdout=outfile, stderr=subprocess.PIPE, cwd=kwargs.get('cwd', None), env=kwargs.get('env', None))
 
       logging.verbose(f"Executing `{' '.join(str(x) for x in args)}`")
 

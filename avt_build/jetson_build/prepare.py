@@ -13,7 +13,7 @@ def prepare(args, board):
   t = tools.tools(args)
   logging.info(f"Preparing {board.name} in {board.build_dir}")
   logging.info("Extracting driver package")
-  t.extract(board.files.driver_package, board.build_dir, sudo=True)
+  t.extract(board.files.driver_package, board.build_dir)
   #logging.info("Extracting rootfs")
   #t.extract(board.files.rootfs, board.build_dir / 'Linux_for_Tegra/rootfs', sudo=True)
   logging.warning("Extracting public_sources DISABLED")
