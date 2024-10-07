@@ -1,5 +1,9 @@
-# NVIDIA Jetson driver
+﻿> [!CAUTION]
+> # This repository contains only drivers up to Jetpack 5. The drivers for Jetpack 6 are available here: [alvium-jetson-driver-release](https://github.com/alliedvision/alvium-jetson-driver-release). 
 
+
+
+# NVIDIA Jetson driver
 
 Driver for Allied Vision Alvium MIPI cameras for NVIDIA Jetson with JetPack 5.1 (L4T 35.2.1)     
 https://developer.nvidia.com/embedded/jetpack
